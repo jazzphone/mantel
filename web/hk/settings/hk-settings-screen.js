@@ -307,7 +307,7 @@
         }
         // (the Clock Style page is the editor's now, Look -> Big -> Face: its old address opens the editor)
         if (s === 'screensaver' && (sub[1] === 'editor' || sub[1] === 'clock-style')) {
-          return this.saverEditorPage(path, { path: path, title: x.title, back: ['Screensaver Options', base + '/screensaver'],
+          return this.saverEditorPage(path, { path: path, title: x.title, designId: sub[2] || '', back: ['Screensaver Options', base + '/screensaver'],
             options: M.saverFollows(b) ? this.hs('look.saver') : b.screensaver_options });
         }
         if (s === 'screensaver') {

@@ -378,8 +378,8 @@ ok('the page swipe reads the bar\'s tabs, then More\'s pages (never its rooms: S
 ok('follow() is not drawn folded, too tight, or with Reduce Motion (it jumps as it lands)',
    /function follow\(k, path\) \{\s*if \(!S\.on \|\| S\.mode !== 'full' \|\| S\.tight \|\| calm\(\)\) return false;/.test(tbSrc));
 ok('...it holds the highlight where it is, so the landing starts there', /S\.hereBox = box;/.test(tbSrc) && /classList\.add\('slide-from'\)/.test(tbSrc));
-ok('land(): the page it lands on before the address is, on the spring at .42 s', /var path = S\.landing \|\| location\.pathname/.test(tbSrc) &&
-   /:host\(\[data-landing\]\) \.tab\.here::before\{transition-duration:\.42s\}/.test(tbSrc) && /S\.landing = null;/.test(tbSrc));
+ok('land(): the page it lands on before the address is, with the page swipe curve', /var path = S\.landing \|\| location\.pathname/.test(tbSrc) &&
+   /transition-duration:var\(--hk-swipe-ms,\.42s\);transition-timing-function:var\(--hk-swipe-ease,/.test(tbSrc) && /S\.landing = null;/.test(tbSrc));
 
 print('=== More and Rooms as app icons (2026-10-31) ===');
 var HC = window.hkCards;

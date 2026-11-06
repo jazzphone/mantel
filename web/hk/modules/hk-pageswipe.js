@@ -69,9 +69,10 @@
 // Beside the page a neighbor wears `hk-swipe-peek` (its pop-ups wait for it to
 // land, hk-popup.js), and `hk-swipe-landed` says when it has.
 //
-// FOLLOWED BY POINTER EVENTS, captured only for a mouse (a touch is the
-// target's own until it ends: WebKit kept a captured touch, hk-menu.js -- and
-// heard on that element too, should a card draw it away mid-swipe); the
+// FOLLOWED BY POINTER EVENTS. Once horizontal movement wins, the stable view
+// owns the pointer, including touch, until release. Capture is explicitly given
+// back before settling or navigating. A detached-target listener remains for hosts
+// without pointer capture. The
 // page says touch-action pan-y while the swipe is on here, so a sideways drag
 // comes here and an up-and-down one stays the browser's scroll.
 (function () {
@@ -502,6 +503,7 @@
       var dir = pair[0], item = pair[1], N = st.nb[dir];
       if (N && (!item || N.item.path !== item.path)) { drop(N); delete st.nb[dir]; N = null; }
       if (N && N.real) groundKnown(N.el, true);
+      if (item && N && !N.real) { makeReady(st, dir, item); return; }
       if (!item || N) return;
       // (one let go a moment ago, wanted again: it never left its place)
       var o = (st.spare || []).filter(function (q) { return q.item.path === item.path; })[0];
@@ -526,7 +528,7 @@
       var N = st.nb[dir];
       if (N && (N.real || N.item.path !== item.path)) return;
       // a settle running to the stand-in goes on with it: the page it lands on is ready for then
-      if (N && A && A.st === st) return;
+      if (G || A || L) { planSoon(250); return; }
       if (N) drop(N);
       delete st.nb[dir];
       var R = adopt(st, dir, item, p);
@@ -617,7 +619,16 @@
   // Playing bar rose and the page made room) takes the touch's target out of the page -- and a finger's events go on
   // to that element, out of the document, never reaching ours: the swipe was lost (2026-11-02, the first swipe on the
   // Calendar, in WebKit). So they are heard on it too, and taken from there once it is gone
-  var heldTarget = null;
+  var heldTarget = null, captured = null;
+  function releasePointer() {
+    var c = captured; captured = null;
+    if (c) { try { if (c.el.hasPointerCapture(c.id)) c.el.releasePointerCapture(c.id); } catch (e) { /* host gone */ } }
+  }
+  function capturePointer(el, id) {
+    releasePointer();
+    try { el.setPointerCapture(id); captured = { el: el, id: id }; } catch (e) { /* synthetic input / old host */ }
+  }
+
   function onLost(e) {
     if (!G || e.pointerId !== G.id || (e.target && e.target.isConnected !== false)) return;
     if (e.type === 'pointermove') onMove(e); else onUp(e);
@@ -638,7 +649,7 @@
     }
     if (G && G.stage && G.stage.hot) cool(G.stage);
     G = null;
-    holdTarget(null);
+    holdTarget(null); releasePointer();
     why = L ? 'landing' : (e.pointerType === 'mouse' && e.button !== 0) || e.isPrimary === false ? 'button' : blocked();
     if (why) return;
     var view = pageNow();
@@ -690,7 +701,7 @@
   function letGo() {
     if (G && G.stage && G.stage.hot) cool(G.stage);
     G = null;
-    holdTarget(null);
+    holdTarget(null); releasePointer();
   }
 
   // THE PAGE SWIPE BEGINS: the finger is START px away by now, and the page starts from here rather than jumping that
@@ -710,7 +721,7 @@
         if (N && !N.ground) N.ground = ground(st, N.el, 0);
       });
     }
-    if (e.pointerType !== 'touch') { try { view.setPointerCapture(e.pointerId); } catch (x) { /* gone */ } }
+    capturePointer(view, e.pointerId);
     // (the cancel sent here is for the card, not for us)
     G.cancelling = true;
     try {
@@ -860,7 +871,7 @@
     var g = G, st = g ? g.stage : ST, sky = g ? g.sky : null;
     if (g) g.sky = null;
     G = null;
-    holdTarget(null);
+    holdTarget(null); releasePointer();
     if (!st) { if (sky) sky.done(false, 0); return; }
     var H = host();
     if (H && H.busy) H.busy(false);
@@ -868,8 +879,8 @@
     x = x || 0;
     var dir = to ? (st.items[st.at + 1] === to ? 1 : -1) : x < 0 ? 1 : -1, N = to ? st.nb[dir] || null : null;
     var T = window.hkTabBar, P = window.hkSidePane;
-    try { if (T && T.land) T.land(to ? to.path : null); } catch (e) { /* not drawn */ }
-    if (P && P.land) P.land(to ? to.path : null);
+    try { if (g && g.calm && T && T.land) T.land(to ? to.path : null); } catch (e) { /* not drawn */ }
+    if (g && g.calm && P && P.land) P.land(to ? to.path : null);
     if (g && g.calm) {
       if (sky) sky.done(false, 0);
       if (to) crossfade(st, to, dir, N);
@@ -885,6 +896,9 @@
     var target = to ? -dir * st.rect.width : 0;
     var c = D().curve(x, target, v), s = c.spring, ms = c.ms;
     var tr = 'transform ' + ms + 'ms ' + c.ease;
+    var T = window.hkTabBar, P = window.hkSidePane;
+    try { if (T && T.land) T.land(to ? to.path : null, c); } catch (e) { /* not drawn */ }
+    if (P && P.land) P.land(to ? to.path : null, c);
     var moved = [st.view], side = x < 0 ? 1 : -1;
     // (where each is now is what it moves from, not the last frame's)
     setX(st.view, x, st.base);
@@ -998,7 +1012,8 @@
           from: st.items[st.at + (x < 0 ? 1 : -1)] ? x : x / GIVE, sky: sky || null, skyAsk: sky ? sky.path : null };
     if (sky) sky.set(Math.min(1, Math.abs(x) / st.rect.width));
     why = '';
-    if (e.pointerType !== 'touch') { try { st.view.setPointerCapture(e.pointerId); } catch (x2) { /* gone */ } }
+    companions(G);
+    capturePointer(st.view, e.pointerId);
     var H = host();
     if (H && H.busy) H.busy(true);
   }
@@ -1132,6 +1147,7 @@
   function onShown(el) {
     if (!ST || ST.view === el) return;
     var st = ST;
+    releasePointer(); holdTarget(null);
     if (G && G.stage === st) { dropSky(G); G = null; }
     if (A && A.st === st) { var a = A; A = null; a.off(); }
     Object.keys(st.nb).forEach(function (k) {
@@ -1201,6 +1217,11 @@
     d.addEventListener('pointermove', onMove, o);
     d.addEventListener('pointerup', onUp, o);
     d.addEventListener('pointercancel', onUp, o);
+    // touch-action is only intersected up to the nearest scrolling container.
+    // A card's inner scroller can therefore cancel a horizontal page drag even
+    // though the view says pan-y. Keep a won, single-finger gesture until release;
+    // before axis lock, controls, vertical input and pinch remain the browser's.
+    d.addEventListener('touchmove', function (e) { if (G && G.live && e.touches.length === 1 && e.cancelable) e.preventDefault(); }, { capture: true, passive: false });
     d.addEventListener('click', onClick, true);
     d.addEventListener('visibilitychange', onVisibility);
     window.addEventListener('resize', function () { abandon(); arm(); if (ST) ST.rect = null; planSoon(); });
@@ -1223,7 +1244,7 @@
   }
 
   window.hkPageSwipe = {
-    version: '2.0.0',
+    version: '2.1.0',
     // the pages a swipe moves through here, in order (ctx: work it out for
     // that list instead); extend(fn) puts others in it -- fn(items, ctx)
     order: function (ctx) { return ctx ? order(ctx) : list(); },

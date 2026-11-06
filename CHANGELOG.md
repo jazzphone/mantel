@@ -4,7 +4,15 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Added**
+- **Saved screensaver designs.** Browse designs by swiping, keep up to twelve named designs, duplicate or remove one, and customize its face, background, widgets and options. **All Screens** supplies the shared designs and saved default; saving on an individual screen makes an independent copy. Hold a quiet part of a running screensaver to choose a design on that device.
+- **Ten new clock faces:** Solar Dial, Prism, World, Hotel, Terminal, Atelier, Meridian, Markets, Daily Brief and Modular.
+- **The screensaver editor works on a phone**, with its actual preview above the widget and settings panels. All existing screensaver modes and 44 widgets remain available.
+
 **Fixed**
+- **Dashboard swipes continue through card updates and inner scrolling areas**, including Calendar, Live TV and Music. The page stays with the finger, and the navigation and Side Pane use its release curve. The player bar now carries through the Pages screen when enabled on every page.
+- **Screensaver previews hold the selected slide** through settings changes and show an explicit Side Pane control. Missing playback or energy data is explained. Photo, slide and timing changes on the ordinary settings page stay with the selected saved design.
+
 - **The Proxmox LXC's `update` removes old versions' images.** Each release left about 1.2 GB of images behind, and after some fifteen releases the container's disk was too full for `update` to run (it wants 20% free). Once the new version is healthy, `update` removes older `mantel-server`, `mantel-transcode` and `mantel-caddy` images by tag, keeps the running version, the one before it and the rollback images, and says what it freed. A removal that fails never fails the update.
 
 ## 0.1.141 - 2026-11-06

@@ -209,7 +209,7 @@
                      // Big Weather's time planted in the meadow (settings.py, 2026-11-01)
                      forecast_planted: true,
                      // the Screensaver editor's layout (settings.py, 2026-11-01)
-                     layout: null } },
+                     layout: null, designs: [], active_design: '', clock_options: {} } },
     // The Calendar page and the screensaver's calendar pane (All Screens ->
     // Calendar): the calendars shown, in order (empty: every calendar), and
     // each one's colour (a page pill colour)

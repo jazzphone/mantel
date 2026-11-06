@@ -1344,7 +1344,8 @@ def test_screensaver_clocks():
     # (hk-saverfaces.js plant()), not the clock's own
     src = (Path(S.__file__).parent / "frontend" / "modules" / "hk-saverclock.js").read_text()
     block = src[src.index("var STYLES = ["):src.index("];", src.index("var STYLES = ["))]
-    assert tuple(_re.findall(r"\['([a-z]+)', '", block)) + ("planted",) == S.SAVER_CLOCK_STYLES
+    newer = src[src.index("var DESIGN_FACES = ["):src.index("];", src.index("var DESIGN_FACES = ["))]
+    assert tuple(_re.findall(r"\['([a-z]+)', '", block)) + ("planted",) + tuple(_re.findall(r"\['([a-z]+)', '", newer)) == S.SAVER_CLOCK_STYLES
 
 
 def test_screensaver_mosaic():

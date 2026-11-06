@@ -213,14 +213,7 @@
     c.layoutAuto = true;
     return c;
   }
-  // THE DECK: random is every photo once, in a shuffled order, before any
-  // repeats (and the new round never opens on the photo the last one ended
-  // with); sorted is the folder in order, round and round. previous() walks
-  // back through what was shown.
-  function Deck(order, rnd) {
-    this.order = order; this.rnd = rnd || Math.random;
-    this.items = []; this.round = []; this.pos = 0; this.history = []; this.back = 0;
-  }
+  var Deck, designController;
 
   // ...and where a host draws the dashboard with HK's own view host, no
   // Lovelace (Mantel: the panel is the page, with no lovelace object), the
@@ -278,6 +271,7 @@
   var previewHouse = false;
   // ...and Home Energy's Options: the energy screen, held (2026-10-14)
   var previewEnergy = false, previewWeather = false;
+  var previewSelected = '', previewPane = true;
   // ...and the options HK Settings hands it as they change (2026-10-31, the owner: "just what they're changing,
   // updating in place"): drawn from them at once -- not after the save has gone round the server and back, and the
   // settings are next read (refreshSoon: every 2 s) -- and kept until the preview ends, so the save, when it comes
@@ -376,13 +370,7 @@
   var mx = null, my = null;
   // A TOUCH ON THE CALENDAR PANE scrolls it: the one place on the
   // screensaver a finger does not take it away
-  function inPane(e) {
-    if (!paneEl || !paneUp) return false;
-    var path = e.composedPath ? e.composedPath() : [];
-    if (path.indexOf(paneEl) >= 0) return true;
-    var x = e.clientX != null ? e.clientX : (e.touches && e.touches[0] && e.touches[0].clientX);
-    return x != null && x >= (window.innerWidth || 0) - paneW;
-  }
+  var inPane;
   function paneTouched() {
     if (paneResetT) clearTimeout(paneResetT);
     paneResetT = setTimeout(function () {
@@ -392,6 +380,7 @@
   }
   function onInput(e) {
     var t = e.type;
+    if (designController && designController.input(e)) return;
     // A NOTIFICATION'S BANNER over the photos (hk-notify.js): a finger on it
     // is the banner's -- swiped away, opened -- never a wake; the screensaver
     // is in use while it does
@@ -478,7 +467,7 @@
         // clock is what it shows, and an edge tap that only changed the
         // photo read as a tap that did not wake it, 1.8.1)
         if (z && mode === 'photos' && !muShowing && !ckPhotos()) { pressStop = false; saverTouched(); if (z === 'next') nextPhoto(); else previousPhoto(); }
-        else stop('touch');
+        else if (!(t === 'pointerdown' && designController && designController.hold(e))) stop('touch');
         return;
       }
       if (t === 'keydown' || t === 'wheel') stop('touch');
@@ -645,6 +634,7 @@
     cards.forEach(function (c) { try { feedCard(c, h); } catch (e) { /* ignore */ } });
     if (ckCtl) ckCtl.setClient(h);
     if (bigCtl) bigCtl.setClient(h);
+    if (ly && ly.big && ly.big.ctl) ly.big.ctl.setClient(h);
     if (enCtl && enShowing) enCtl.setClient(h);
     if (wxCtl && wxShowing) wxCtl.setClient(h);
     // @ts-expect-error layoutClient() takes no argument (h is passed and not used)
@@ -726,7 +716,7 @@
     if (cfg.show === 'clock' || FACE_SHOWS[cfg.show]) enterClock();
     else if (cfg.show === 'forecast') enterForecast();
     // MUSIC FIRST, music playing: straight into it
-    else if (cfg.music_first && musicPlaying()) { updateBand(); if (!showMusicSlide(true)) showNext(true); }
+    else if (!previewOn && cfg.music_first && musicPlaying()) { updateBand(); if (!showMusicSlide(true)) showNext(true); }
     else { updateBand(); showNext(true); }
     // A LARGE CLOCK over the photos or the forecast (the corner one is a card)
     if (cfg.show !== 'clock' && !FACE_SHOWS[cfg.show] && cfg.clock_large) mountClock('none');
@@ -737,10 +727,12 @@
     energyPrep();
     weatherPrep();
     exArm();
+    if (previewOn) setTimeout(syncPreviewSlide, 0);
     return true;
   }
   function stop(reason) {
     if (!on) return false;
+    if (designController) designController.clear();
     if (asked) { asked = false; force = previewOn; }
     closePanel(false);
     on = false;
@@ -1074,6 +1066,7 @@
   function schedule() {
     if (slideT) clearTimeout(slideT);
     slideT = null;
+    if (previewOn) return;
     if (black()) { slideHeld = true; return; }
     slideHeld = false;
     slideT = setTimeout(function () {
@@ -1410,12 +1403,24 @@
     if (L.fit.backdrop || paneUp || ckPhotos()) { drawBackdrop(bg, lastPh.img, L.lay.small); bg.hidden = false; } else { bg.hidden = true; clearCanvas(bg); }
     return true;
   }
+  // A preview selection survives asynchronous module loads and option rebuilds.
+  // It never enables a real screen's slides or writes settings.
+  function syncPreviewSlide() {
+    if (!previewOn || !on) return false;
+    var kind = previewSelected;
+    if (!kind) return true;
+    var ok = kind === 'music' ? (muShowing || showMusicSlide()) : kind === 'weather' ? (wxShowing || showWeatherSlide()) :
+      kind === 'energy' ? (enShowing || showEnergySlide()) : mode === 'forecast' || fcShowing || showForecastExtra();
+    if (ok) exKind = kind;
+    return !!ok;
+  }
   function restartPreview() {
     if (!previewOn || !on) return;
     on = false;
     if (slideT) { clearTimeout(slideT); slideT = null; }
     teardown();
     start('preview');
+    setTimeout(syncPreviewSlide, 0);
   }
 
   // ------------------------------------------------------------ the forecast
@@ -1774,7 +1779,7 @@
   }
   // THE BIG ELEMENT: made (or kept) for what the layout asks, and its size as drawn -- {w, h, base} -- or null
   function layoutBig(b, R, u) {
-    var key = [b.kind, b.depth, b.size, b.align, cfg.clock_style, !!cfg.clock_planted, cfg.clock_color, cfg.clock_24, cfg.clock_today_music, cfg.clock_today_weather, R.room.w, R.room.h, cfg.show, mode, !!fcShowing].join('|');
+    var key = [b.kind, b.depth, b.size, b.align, cfg.clock_style, !!cfg.clock_planted, cfg.clock_color, cfg.clock_24, cfg.clock_today_music, cfg.clock_today_weather, JSON.stringify(cfg.clock_options), R.room.w, R.room.h, cfg.show, mode, !!fcShowing].join('|');
     // (Behind only while photos show: over the forecast between them, or with no photos, the time stands in front)
     var planted = b.kind === 'time' && (b.depth === 'planted' || cfg.clock_planted) && (cfg.show === 'forecast' || (cfg.show === 'clock' && cfg.clock_bg === 'forecast')) && !!fSky;
     if (ly.big && ly.big.key !== key) layoutBigOff();
@@ -1816,8 +1821,8 @@
         // the face drawn in a box the room's shape, measured, then scaled so its figures are the layout's size
         el2.className = 'lybig measuring';
         el2.style.cssText = 'left:0;top:0;width:' + R.room.w + 'px;height:' + R.room.h + 'px;container-type:size';
-        big.ctl = C.mount(el2, { style: cfg.clock_style, h24: cfg.clock_24, color: cfg.clock_color, bg: 'none', ground: false, scrim: false,
-                                timeOnly: true, music: cfg.clock_today_music, todayWeather: cfg.clock_today_weather, client: client, minutely: !ANALOG[cfg.clock_style] });
+        big.ctl = C.mount(el2, { style: cfg.clock_style, options: cfg.clock_options, h24: cfg.clock_24, color: cfg.clock_color, bg: 'none', ground: false, scrim: false,
+                                timeOnly: true, weather: weatherEntity(), music: cfg.clock_today_music, todayWeather: cfg.clock_today_weather, client: client, minutely: !ANALOG[cfg.clock_style] });
         big.scale = 0;
       }
       if (!big.scale) {
@@ -2266,7 +2271,7 @@
       if (!C || (face && !F)) { layer.remove(); if (mode === 'clock') { mode = 'photos'; host.removeAttribute('ckgen'); host.removeAttribute('ckface'); enterForecast(); } return; }
       ckCtl = face
         ? F.mount(layer, { kind: cfg.show, h24: cfg.clock_24, weather: weatherEntity(), look: cfg.day_look, clocks: C, client: clientNow(), groundOnly: !!cfg.layout && layoutBigKind() !== 'none' })
-        : C.mount(layer, { style: cfg.clock_style, h24: cfg.clock_24, music: cfg.clock_today_music, todayWeather: cfg.clock_today_weather, color: cfg.clock_color, bg: bg, motion: cfg.clock_motion, face: !cfg.layout,
+        : C.mount(layer, { style: cfg.clock_style, options: cfg.clock_options, h24: cfg.clock_24, music: cfg.clock_today_music, todayWeather: cfg.clock_today_weather, color: cfg.clock_color, bg: bg, motion: cfg.clock_motion, face: !cfg.layout,
                            speed: cfg.clock_speed, depth: cfg.clock_depth, weather: weatherEntity(),
                            // a Wallpaper: its night version while the sun is down, as the dashboard's After Sunset
                            wallpaper: bg === 'wallpaper' ? { id: cfg.clock_wallpaper, color: cfg.clock_wallpaper_color, night: sunDown() } : null,
@@ -2296,7 +2301,9 @@
     return true;
   }
   function remountClock() {
-    if (!ckArgs || !root || !root.querySelector('.ck')) return false;
+    var laid = !!ly;
+    if (laid) { layoutBigOff(); layoutSoon(); }
+    if (!ckArgs || !root || !root.querySelector('.ck')) return laid;
     var a = ckArgs;
     ckRun++;
     if (ckCtl) { try { ckCtl.destroy(); } catch (e) { /* gone */ } ckCtl = null; }
@@ -2500,10 +2507,10 @@
   // for -- so its first turn has them. `hold` (HK Settings' preview of Home
   // Energy): shown as soon as they are here, and kept up
   function energyPrep() {
-    var run = ++enRun, hold = previewOn && previewEnergy;
-    if (!cfg || !cfg.energy_slide) return;
+    var run = ++enRun, hold = previewOn && (previewEnergy || previewSelected === 'energy');
+    if (!cfg || (!cfg.energy_slide && !hold)) return;
     energyModule().then(function (X) { return X ? X.ready().then(function () { return X; }) : null; }).then(function (X) {
-      if (!X || run !== enRun || !on || !root || !cfg || !cfg.energy_slide) return;
+      if (!X || run !== enRun || !on || !root || !cfg || (!cfg.energy_slide && !hold)) return;
       // in its place at the start, as the weather's: put in at its first
       // turn, its layer was made as it came in (2026-10-19)
       if (!enCtl) {
@@ -2514,7 +2521,7 @@
       landImg();                         // (the landscape's image asked for now: its blurred copy ready at the first turn)
       if (!hold) return;
       var tries = 0, show = function () {
-        if (run !== enRun || !on || enShowing) return;
+        if (run !== enRun || !on || enShowing || !previewOn || (!previewEnergy && previewSelected !== 'energy')) return;
         // (at once: the preview is shown again after every change)
         if (showEnergySlide(true)) { exKind = 'energy'; return; }
         if (++tries < 60) setTimeout(show, 500);
@@ -2642,10 +2649,10 @@
   // at the start: the module, its forecast asked for and its sky readied;
   // HK Settings' preview of Weather holds it up
   function weatherPrep() {
-    var run = ++wxRun, hold = previewOn && previewWeather;
-    if (!cfg || !cfg.weather_slide) return;
+    var run = ++wxRun, hold = previewOn && (previewWeather || previewSelected === 'weather');
+    if (!cfg || (!cfg.weather_slide && !hold)) return;
     weatherModule().then(function (X) {
-      if (!X || run !== wxRun || !on || !root || !cfg || !cfg.weather_slide) return;
+      if (!X || run !== wxRun || !on || !root || !cfg || (!cfg.weather_slide && !hold)) return;
       if (!wxCtl) {
         wxCtl = X.create({ hide: cfg.weather_hide, h24: cfg.clock_24, corner: false });
         root.insertBefore(wxCtl.el, root.querySelector('.info'));
@@ -2655,7 +2662,7 @@
       wxCtl.ready(clientNow());
       if (!hold) return;
       var tries = 0, show = function () {
-        if (run !== wxRun || !on || wxShowing) return;
+        if (run !== wxRun || !on || wxShowing || !previewOn || (!previewWeather && previewSelected !== 'weather')) return;
         if (showWeatherSlide(true)) { exKind = 'weather'; return; }
         if (++tries < 60) setTimeout(show, 500);
       };
@@ -2720,7 +2727,7 @@
   var exT = null, exKind = '', exLast = '', exOutT = null;
   function exArm() {
     if (exT) { clearTimeout(exT); exT = null; }
-    if (!on || !cfg || !extrasOf(cfg).length || (previewOn && (previewEnergy || previewWeather))) return;
+    if (!on || !cfg || previewOn || !extrasOf(cfg).length) return;
     var run = photoRun, wait = cfg.extra_every * 60000;
     if (previewOn) wait = Math.min(wait, EX_PREVIEW_MS);
     exT = setTimeout(function () { exT = null; if (on && run === photoRun) exNext(); }, wait);
@@ -3243,7 +3250,7 @@
   // At most once a second (a new client comes many times a second).
   // THE MUSIC TAKES THE SCREEN while it plays: Music First, or (as before
   // Music First) the music over the forecast
-  function takeover() { return !!cfg && (cfg.music_first || (cfg.music_slide && mode !== 'photos')); }
+  function takeover() { return !previewOn && !!cfg && (cfg.music_first || (cfg.music_slide && mode !== 'photos')); }
   function musicWatch() {
     if (!on || !cfg || !root || !(cfg.music_slide || cfg.music_pane || cfg.music_first || (cfg.extra_music && muShowing))) return;
     var now = clock.now();
@@ -3474,7 +3481,7 @@
     // (the face beside the pane is narrower: the Day face measured again once it is laid out)
     setTimeout(dayFit, 80);
     if (!host || !paneUp) return;
-    var z = scaleOf(), w = Math.round(PANE_W * z);
+    var z = scaleOf(), SP = window.hkSidePane, w = Math.round(((SP && SP.WIDTHS[cfg.pane_width]) || PANE_W) * z);
     // the list scaled with the screen (its card may arrive after the width)
     if (paneCard && (paneCard.style.zoom || '1') !== String(z)) paneCard.style.zoom = z === 1 ? '' : String(z);
     var sideNow = (cfg && cfg.pane_side) || 'right';
@@ -3981,13 +3988,17 @@
     // Mantel's own arrive a moment after its settings. The settings make the
     // same block again, now -- else the one the strategy made.
     else if (shellConf && raw && !raw.entity) raw = fromSettings(conf) || raw;
+    var picked = designController && designController.options();
+    if (!previewOn && picked) raw = houseBlock(picked) || raw;
     if (previewOn && previewHouse) raw = houseBlock() || raw;
     if (previewOn && previewOver) raw = houseBlock(previewOver) || raw;
     var HS = window.hkSettings;
     if (raw && HS && HS.get) {
       var bAll = HS.get('boards', null), bNow = bAll && bAll[String(location.pathname).split('/')[1] || ''];
-      raw = withPane(raw, previewOn && previewHouse ? HS.get('side_pane', null) : bNow && bNow.side_pane_read);
+      raw = withPane(raw, previewOn && !previewPane ? { saver: { show: 'off' } } : (bNow && bNow.side_pane_read) || HS.get('side_pane', null));
     }
+    var SP = window.hkSidePane;
+    if (raw && SP && SP.placement(window.innerWidth, window.innerHeight, { width: raw.pane_width }).kind === 'none') raw = Object.assign({}, raw, { calendar: false, music_pane: false, pane_list: null });
     if (HS && HS.lovelacePanel && HS.lovelacePanel() === false) raw = null;
     // the host's own album for this screen, in place of the house's photos
     // (hostPhotoSource; none in Home Assistant)
@@ -4044,6 +4055,7 @@
   var RESUME_MS = 2500, clock = { now: function () { return Date.now(); } };
   var resumedAt = 0, lastBeat = clock.now();
   function beat() {
+    if (previewOn && previewSelected) syncPreviewSlide();
     var n = clock.now();
     if (n - lastBeat > RESUME_MS) resumedAt = n;
     lastBeat = n;
@@ -4073,6 +4085,8 @@
   function runParts() {
     var K = kit();
     PARTS.forEach(function (file) { window.hkSaverParts[partKey(file)](K); });
+    Deck = K.Deck; inPane = function (e) { return K.inPane(e, paneEl, paneUp); };
+    designController = K.createDesignController({ client: K.clientNow, running: function () { return on; }, preview: function () { return previewOn; }, touched: saverTouched, stop: stop, refresh: refresh });
     actionsNow = K.actionsNow; afterDraw = K.afterDraw; afterFade = K.afterFade; alignOf = K.alignOf;
     ANALOG = K.ANALOG; BACKDROP_SMALL = K.BACKDROP_SMALL; backdropSmall = K.backdropSmall; behindAt = K.behindAt;
     BLACK_KEY = K.BLACK_KEY; blackPage = K.blackPage; BRIGHT_KEY = K.BRIGHT_KEY; callWS = K.callWS; ckFx = K.ckFx;
@@ -4110,38 +4124,7 @@
   loadParts(function () {
     runParts();
 
-    Deck.prototype.set = function (items) {
-      var had = this.items.map(function (x) { return x.id; }).join('\n');
-      this.items = items.slice();
-      if (this.items.map(function (x) { return x.id; }).join('\n') !== had) { this.round = []; this.pos = 0; }
-    };
-    Deck.prototype.next = function () {
-      if (this.back > 0) {                  // stepping forward again after previous()
-        this.back--;
-        return this.history[this.history.length - 1 - this.back] || null;
-      }
-      if (!this.items.length) return null;
-      if (this.pos >= this.round.length) {
-        var last = this.history[this.history.length - 1];
-        this.round = this.order === 'sorted'
-          ? this.items.slice().sort(function (a, b) { return a.id < b.id ? -1 : a.id > b.id ? 1 : 0; })
-          : shuffle(this.items, this.rnd);
-        if (this.order !== 'sorted' && last && this.round.length > 1 && this.round[0].id === last.id) {
-          this.round.push(this.round.shift());
-        }
-        this.pos = 0;
-      }
-      var it = this.round[this.pos++];
-      this.history.push(it);
-      if (this.history.length > 50) this.history.shift();
-      return it;
-    };
-    Deck.prototype.previous = function () {
-      if (this.history.length - 1 - this.back <= 0) return null;
-      this.back++;
-      return this.history[this.history.length - 1 - this.back] || null;
-    };
-    ['pointerdown', 'touchstart', 'touchmove', 'wheel', 'keydown', 'click', 'mousedown', 'pointermove']
+    ['pointerdown', 'pointerup', 'pointercancel', 'touchstart', 'touchmove', 'wheel', 'keydown', 'click', 'mousedown', 'pointermove']
       .forEach(function (t) { window.addEventListener(t, onInput, { passive: true, capture: true }); });
     // the touch that stopped it, lifting
     ['pointerup', 'pointercancel', 'touchend', 'touchcancel', 'mouseup'].forEach(function (t) {
@@ -4372,17 +4355,28 @@
       // THE EDITOR'S SEE A SLIDE AND DAY / NIGHT (phase 13): in the preview only -- a slide shown now, with its slide
       // corner (null: none), and Night Mode on or off whatever the hour (null: as the clock says). Nothing is saved
       previewSlide: function (kind) {
+        kind = ['music', 'weather', 'energy', 'forecast'].indexOf(kind) >= 0 ? kind : '';
+        var changed = previewSelected !== kind;
+        previewSelected = kind;
         if (!on || !previewOn) return false;
-        if (muShowing) hideMusicSlide();
-        if (wxShowing) hideWeatherSlide();
-        if (enShowing) hideEnergySlide();
-        if (fcShowing && mode !== 'forecast') hideForecastExtra();
-        exKind = '';
-        if (exT) { clearTimeout(exT); exT = null; }
-        var ok = kind === 'music' ? showMusicSlide() : kind === 'weather' ? showWeatherSlide() : kind === 'energy' ? showEnergySlide()
-               : kind === 'forecast' ? showForecastExtra() : false;
-        if (ok) exKind = kind;
-        return !!ok;
+        if (changed) {
+          if (muShowing) hideMusicSlide();
+          if (wxShowing) hideWeatherSlide();
+          if (enShowing) hideEnergySlide();
+          if (fcShowing && mode !== 'forecast') hideForecastExtra();
+          exKind = '';
+          if (exT) { clearTimeout(exT); exT = null; }
+          if (kind === 'energy') energyPrep();
+          if (kind === 'weather') weatherPrep();
+        }
+        return syncPreviewSlide();
+      },
+      previewPane: function (show) { previewPane = show !== false; if (previewOn) refresh(); return previewPane; },
+      previewStatus: function () {
+        return { selected: previewSelected, ready: syncPreviewSlide(), pane: paneUp, paneMessage: window.hkSidePane && window.hkSidePane.placement(window.innerWidth, window.innerHeight, { width: cfg && cfg.pane_width }).kind === 'none' ? 'The Side Pane needs more room. Choose Wall Tablet or iPad Upright to preview it.' : '',
+          message: previewSelected === 'music' && !musicPlaying() ? 'Play music to preview the Music slide.' :
+            previewSelected === 'energy' && !energyReady() ? 'Home Energy needs energy data before its slide can be shown.' :
+            previewSelected === 'weather' && !weatherReady() ? 'Waiting for weather data…' : '' };
       },
       previewNight: function (v) { nightPreview = v === true ? true : v === false ? false : null; nightCheck(); return nightPreview; },
       layoutInfo: function () {
@@ -4396,6 +4390,7 @@
                  emptyAt: Object.assign({}, ly.empty), claims: Object.assign({}, ly.claims), landShare: ly.landShare };
       },
       running: function () { return on; },
+      chooseDesign: function () { if (designController) designController.open(); },
       covered: function () { return on && !!coveredPage; },
       // the forecast is what is showing (not photos)
       forecast: function () { return on && mode === 'forecast'; },
@@ -4415,7 +4410,7 @@
           if (previewOn && on && v) setTimeout(restartPreview, 0);
         }
         previewOn = !!v;
-        if (!previewOn) { lastPh = null; nightPreview = null; }
+        if (!previewOn) { lastPh = null; nightPreview = null; previewSelected = ''; previewPane = true; }
         force = previewOn;
         refresh();
         if (previewOn && !on) start('preview');

@@ -878,6 +878,12 @@
       saverOut(o) {
         var self = this, out = {};
         Object.keys(o).forEach(function (k) { if (self.saverKnown(k)) out[k] = o[k]; });
+        // Timing, photos and slides can also be edited outside the layout editor.
+        // Keep those changes with the selected design without mutating inherited settings.
+        if (out.active_design && out.designs) {
+          var snapshot = Object.assign({}, out); delete snapshot.designs; delete snapshot.active_design;
+          out.designs = out.designs.map(function (d) { return d.id === out.active_design ? Object.assign({}, d, { options: snapshot }) : d; });
+        }
         return out;
       }
       // one option saved, for a screen of its own or for All Screens
@@ -979,12 +985,12 @@
             if (/^bg:/.test(what)) {
               // the clock as chosen over each Background (the two pictures above: the clock over them, no ground)
               var bgId = what.slice(3), own = bgId === 'skyonly' || bgId === 'landscapes';
-              C.mount(inner, { style: o.clock_style || 'classic', still: true, drift: false, h24: !!o.clock_24, bg: own ? 'none' : bgId, speed: 0,
+              C.mount(inner, { style: o.clock_style || 'classic', options: o.clock_options, still: true, drift: false, h24: !!o.clock_24, bg: own ? 'none' : bgId, speed: 0,
                                ground: !own, scrim: false, color: (o.clock_colors || {})[o.clock_style || 'classic'] || '', client: self.client,
                                wallpaper: { id: o.clock_wallpaper || 'aurora', color: o.clock_wallpaper_color || 'blue' } });
             } else if (/^clock/.test(what)) {
               var style = what.indexOf(':') > 0 ? what.split(':')[1] : (o.clock_style || 'classic');
-              C.mount(inner, { style: style, still: true, drift: false, h24: !!o.clock_24, bg: 'gradient', speed: 0,
+              C.mount(inner, { style: style, options: o.clock_options, still: true, drift: false, h24: !!o.clock_24, bg: 'gradient', speed: 0,
                                color: (o.clock_colors || {})[style] || '', client: self.client });
             } else {
               F.mount(inner, { kind: what, still: true, h24: !!o.clock_24, look: o.day_look, client: self.client, clocks: C });
@@ -1007,7 +1013,7 @@
               if (!ed) {
                 ed = document.createElement('hk-saver-editor');
                 self._saverEditors[key] = ed;
-                ed.configure(Object.assign({ panel: self, onCancel: function () { delete self._saverEditors[key]; self.leaveTo(o.back[1]); },
+                ed.configure(Object.assign({ panel: self, gallery: true, onCancel: function () { delete self._saverEditors[key]; self.leaveTo(o.back[1]); },
                                              onSaved: function () { delete self._saverEditors[key]; self.leaveTo(o.back[1]); } }, o));
               }
               c.appendChild(ed);
@@ -1020,11 +1026,11 @@
       // THE EDITOR'S ROW, first on a Screensaver page; with a layout saved, what of the page it takes the place of, and the
       // way back (the Show drawn as it was)
       saverEditRow(c, href, cur, put, note) {
-        var self = this, lay = !!(cur && cur.layout);
+        var self = this, lay = !!(cur && cur.layout), active = (cur.designs || []).find(function (d) { return d.id === cur.active_design; });
         // (the page below is what can't be laid out: the photos, the slides, Night Mode and the timing)
         c.appendChild(K.group({ footer: (note ? note + ' ' : '') + 'What shows and how it looks \u2014 the background, the time, the widgets and the corners \u2014 is set in the editor' +
             (lay ? '.' : ', starting from how it looks today.') + ' Below: the photos, the slides, Night Mode and the timing.' },
-          [K.nav({ label: 'Edit Screensaver', sub: 'The background, the big time and the widgets, on the screen itself', icon: 'mdi:pencil', href: href, sk: 'saver:editor' })]
+          [K.nav({ label: 'Designs & Editor', value: active ? active.name : 'Current Screensaver', sub: (cur.designs || []).length + ' saved designs · Faces, backgrounds and all widgets', icon: 'mdi:pencil', href: href, sk: 'saver:editor' })]
             .concat(lay && put ? [K.button({ label: 'Remove the Layout\u2026', destructive: true, fk: 'saver:layout-off', onClick: function () {
               K.confirm(self.shadowRoot, { title: 'Remove the Layout?', message: 'The screensaver is drawn as its Show was before the editor. Its other settings stay.', ok: 'Remove', destructive: true })
                 .then(function (yes) { if (yes) put('layout', null); });
@@ -1068,7 +1074,7 @@
           }, '#/screens/' + encodeURIComponent(path) + '/screensaver/clock-style', b.idle_room ? this.areaName(b.idle_room) : x.title, photoSrc);
           if (M.saverCustom(cur)) {
             c.appendChild(K.group({}, [K.button({ label: 'Reset to Defaults…', destructive: true, fk: 'saver:reset', onClick: function () {
-              K.confirm(self.shadowRoot, { title: 'Use the default screensaver options?', message: 'Every option on this page goes back to its default.',
+              K.confirm(self.shadowRoot, { title: 'Use the default screensaver options?', message: 'This removes saved designs and resets the screensaver, widgets and other options to their defaults.',
                                            ok: 'Use Defaults', destructive: true }).then(function (yes) {
                 if (yes) self.setB(path, { screensaver_options: self.saverOut(M.saverOptions(null)) });
               });
@@ -1440,7 +1446,7 @@
         var savers = Object.keys(boards).filter(function (p) { return boards[p].screensaver; });
         var follow = savers.filter(function (p) { return M.saverFollows(boards[p]); });
         // THE EDITOR (2026-11-01), for every screen that uses these
-        if (savers.length) this.saverEditRow(c, '#/house/screensaver/editor', cur, this.saverPutH(), null);
+        if (savers.length) this.saverEditRow(c, '#/house/screensaver/editor', cur, this.saverPutH(), 'Saved designs here are shared by screens using Same as All Screens. Each screen keeps its own Side Pane.');
         // THE PHOTOS (2026-10-09: on Wall Tablets before): where they come from,
         // in the Photos group's place (2026-10-30: first on the page before) --
         // drawn on every show, as screens with their own may show photos

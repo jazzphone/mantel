@@ -447,7 +447,7 @@
       '  bottom:' + LIFT_CSS + ';display:none;justify-content:center;',
       // (left and right too: the Side Pane coming or going moves the page's edge, and the bar glides to its new middle
       // rather than jumping there -- 2026-11-01, the owner, swiping between pages: "jarring is always the issue")
-      '  align-items:center;gap:' + GAP + 'px;pointer-events:none;transition:transform .34s ' + EASE + ',bottom .3s ' + EASE + ',left var(--hk-pane-glide,.34s) ' + EASE + ',right var(--hk-pane-glide,.34s) ' + EASE + ';',
+      '  align-items:center;gap:' + GAP + 'px;pointer-events:none;transition:translate var(--hk-pane-glide,0s) var(--hk-pane-ease,' + EASE + '),transform .34s ' + EASE + ',bottom .3s ' + EASE + ',left var(--hk-pane-glide,.34s) var(--hk-pane-ease,' + EASE + '),right var(--hk-pane-glide,.34s) var(--hk-pane-ease,' + EASE + ');',
       // (...and with the finger, during a swipe between pages: hk-sidepane.js FOLLOW)
       '  translate:var(--hk-pane-shift,0px) 0}',
       '.root.on .row{display:flex}',
@@ -503,7 +503,7 @@
       '  transition:transform .46s ' + SPRING + '}',
       '.tab.here.slide-from::before{transition:none}',
       // a page swipe's landing: the spring at DUR.spring (DESIGN.md, "A page swipe")
-      ':host([data-landing]) .tab.here::before{transition-duration:.42s}',
+      ':host([data-landing]) .tab.here::before{transition-duration:var(--hk-swipe-ms,.42s);transition-timing-function:var(--hk-swipe-ease,' + SPRING + ')}',
       '.cur + .tab.here::before{left:0}',
       '.tab.here:last-child::before{right:0}',
       '.root.tight .tab.here::before{display:none}',
@@ -1664,7 +1664,7 @@
     // ...AND LANDS on the spring, on the page the swipe lands on (null: back
     // where it was, the swipe let go short)
     var landT = 0;
-    function land(path) {
+    function land(path, motion) {
       if (!S.root) return;
       followed = null;
       S.landing = path || null;
@@ -1672,9 +1672,10 @@
         el.classList.remove('slide-from');
         ['--hx', '--hy', '--sx', '--sy'].forEach(function (v) { el.style.removeProperty(v); });
       });
+      if (motion) { S.host.style.setProperty('--hk-swipe-ms', motion.ms + 'ms'); S.host.style.setProperty('--hk-swipe-ease', motion.ease); }
       S.host.setAttribute('data-landing', '');
       clearTimeout(landT);
-      landT = setTimeout(function () { if (S.host) S.host.removeAttribute('data-landing'); }, 600);
+      landT = setTimeout(function () { if (S.host) { S.host.removeAttribute('data-landing'); S.host.style.removeProperty('--hk-swipe-ms'); S.host.style.removeProperty('--hk-swipe-ease'); } }, motion ? motion.ms + 250 : 600);
       markHere();
     }
     window.hkTabBar.pages = swipePages;

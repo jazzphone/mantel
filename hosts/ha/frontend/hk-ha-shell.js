@@ -19,6 +19,7 @@
   /** @type {HkHaShellBuilding} */
   var HA = {
     kind: 'ha',
+    screensaverEditor: function (path) { return '/hk-settings#/screens/' + encodeURIComponent(path) + '/screensaver/editor'; },
     events: { navigate: 'location-changed', moreInfo: 'hass-more-info', toast: 'hass-notification' },
     tags: {
       root: 'home-assistant', main: 'home-assistant-main', drawer: 'ha-drawer', sidebar: 'ha-sidebar',

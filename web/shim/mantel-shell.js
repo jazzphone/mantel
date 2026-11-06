@@ -214,6 +214,7 @@
     hostMenu,
     hostPage,
     settingsHost: () => settings,
+    screensaverEditor: path => ['owner', 'admin'].includes(role) ? (global.__mantelBase || '') + '/settings#/screens/' + encodeURIComponent(path) + '/screensaver/editor' : null,
     // Mantel sends no writes at all (commands_disabled): nothing to hold back
     holdWrites: function () { return true; },
     // Mantel's page has no sidebar of its own for a button to open

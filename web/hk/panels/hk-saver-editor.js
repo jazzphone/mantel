@@ -1,3 +1,4 @@
+// @ts-check
 // hk-saver-editor.js -- THE SCREENSAVER EDITOR (2026-11-01, the owner: "Lets do the editor!";
 // docs/phase12/SCREENSAVER-EDITOR.md; rebuilt 2026-11-02 for phase 13, docs/phase13/EDITOR-SPEC.md and the approved
 // mock-up, docs/phase13/mockup/screensaver-unified.html): the Home Grid editor's frame for the screensaver -- the Looks and
@@ -111,6 +112,7 @@
   // which Look the options are (null: a background of your own making, with no Look of that name)
   function lookOf(o) {
     var bg = bgOf(o), B = (o.layout && o.layout.big) || {};
+    if (['solar','prism','world','hotel','terminal','atelier','meridian','markets','brief','modular'].indexOf(o.clock_style) >= 0 && o.show === 'clock') return null;
     if (bg === 'landscape') {
       if (o.clock_style === 'planted') return 'planted';
       if (B.kind === 'temp') return 'bigweather';
@@ -308,10 +310,9 @@
     '.shtile b{font-size:13px;font-weight:600;padding:0 2px}',
     // THE ENTITY PICKER (a page of the sidebar)
     '.pk-list .cell{min-height:52px}',
-    '.desktop-note{display:none;padding:32px;max-width:520px}.desktop-note p{margin:0 0 16px;line-height:1.5}',
-    '.desktop-note button{border:0;border-radius:10px;min-height:44px;padding:0 18px;background:var(--hk-tint);color:white;font:inherit;cursor:pointer}',
-    '@media(max-width:899px){:host(:not([wide-anyway])) .work,:host(:not([wide-anyway])) .tools .save,:host(:not([wide-anyway])) .tools .undo{display:none}:host(:not([wide-anyway])) .desktop-note{display:block}}',
-    ':host([wide-anyway]) .work{overflow-x:auto;grid-template-columns:248px minmax(560px,1fr) 316px}'
+    '@media(max-width:600px){.tools h1{display:none}}',
+    '.mobile-tabs{display:none}.seeslide button{min-height:36px;border:0;border-radius:8px;padding:6px 10px;background:var(--hk-fill);color:var(--hk-label);font:inherit}',
+    '@media(max-width:1100px){.tools{gap:6px;padding:8px}.tools h1{font-size:15px}.tools button{padding:0 9px}.mobile-tabs{display:flex;gap:8px;justify-content:center}.mobile-tabs button{min-height:36px;border:0;border-radius:10px;background:var(--hk-fill);color:var(--hk-label);padding:6px 20px;font:inherit}.work{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(240px,48%) minmax(0,1fr);gap:8px;padding:8px}.stage{grid-area:1/1}.palette,.sidebar{grid-area:2/1}.palette{display:none}:host([mobile-library]) .palette{display:block}:host([mobile-library]) .sidebar{display:none}.bar{margin-bottom:4px}.under{font-size:12px;margin:5px 0}.tools .undo{font-size:12px}.message{font-size:12px;padding:3px 10px;min-height:16px}.bar .xtras{gap:6px}.bar .pills{font-size:12px}.bar{gap:4px}.seeslide{font-size:12px!important}}'
   ].join('\n');
 
   class SaverEditor extends HTMLElement {
@@ -322,17 +323,19 @@
     }
     configure(o) {
       this.o = o; this.panel = o.panel; this.K = window.hkSettingsKit; this.h = this.K.h; this.M = window.hkSettingsModel;
-      this.opts = this.M.saverOptions(o.options || {});
+      this.opts = copy(this.M.saverOptions(o.options || {}));
       // (the preview's own, never saved: both start off each time the editor opens)
       this.slide = ''; this.night = false;
       this.ready = Promise.all([
         window.hkSaverLayout ? null : import('/hk/modules/hk-saverlayout.js'),
-        window.hkSaverWidgets ? null : import('/hk/modules/hk-saverwidgets.js')
+        window.hkSaverWidgets ? null : import('/hk/modules/hk-saverwidgets.js'),
+        window.hkSaverDesigns ? null : import('/hk/panels/hk-saver-designs.js')
       ]).then(() => {
         LM = window.hkSaverLayout; WG = window.hkSaverWidgets;
         // every glance group's pieces, for the library (each on its own: a file that fails leaves its pieces out)
         return Promise.all((LM.FILES || []).map(function (f) { return import('/hk/modules/hk-saverpieces-' + f + '.js').catch(function () { return null; }); }));
       }).then(() => {
+        if (this.o.designId) this.opts = window.hkSaverDesigns.activate(this.opts, this.o.designId);
         // a screen with no layout yet opens on what it shows today; the first layouts' Planted depth is the Planted face
         this.opts.layout = (this.opts.layout && LM.clean(this.opts.layout)) || LM.layoutFrom(this.opts);
         // (music_slide and music_first are one key: the editor writes music_first)
@@ -347,6 +350,7 @@
       this.ready.then(() => {
         if (!this.isConnected || this.ui) return;
         this.draw();
+        if (this.o.gallery) window.hkSaverDesigns.gallery(this);
         this.ro = new ResizeObserver(() => { this.fit(); this.looksMeasure(); });
         this.ro.observe(this.stage); this.ro.observe(this.palette);
         this.unload = (e) => { if (this.dirty()) { e.preventDefault(); e.returnValue = ''; } };
@@ -399,17 +403,15 @@
       this.undoButton = h('button', { class: 'undo', text: 'Undo', title: 'Undo (⌘Z)', onclick: () => this.undo(), disabled: true });
       this.modeButton = h('button', { class: 'mode', text: 'Preview', onclick: () => this.togglePreview() });
       this.ui.appendChild(h('header', { class: 'tools' }, [h('button', { text: 'Cancel', onclick: () => this.cancel() }),
-        h('h1', { text: this.o.title + ' · Screensaver' }), this.undoButton, this.modeButton, this.saveButton]));
+        h('h1', { text: this.o.title + ' · Screensaver' }), h('button', { text: 'Designs', onclick: () => window.hkSaverDesigns.gallery(this) }), this.undoButton, this.modeButton, this.saveButton]));
+      this.ui.appendChild(h('nav', { class: 'mobile-tabs', 'aria-label': 'Editor panels' }, [h('button', { text: 'Pieces & Looks', onclick: () => { this.setAttribute('mobile-library', ''); this.fit(); } }), h('button', { text: 'Settings', onclick: () => { this.removeAttribute('mobile-library'); this.fit(); } })]));
       this.message = h('div', { class: 'message', role: 'status', 'aria-live': 'polite' }); this.ui.appendChild(this.message);
-      this.ui.appendChild(h('div', { class: 'desktop-note' }, [
-        h('p', { text: 'This window is narrow for the editor: it shows the pieces, the screen and the settings side by side. Turn the device sideways or widen the window, or open it anyway and scroll sideways.' }),
-        h('button', { type: 'button', text: 'Open Anyway', onclick: () => { this.setAttribute('wide-anyway', ''); this.fit(); } })]));
       this.palette = h('aside', { class: 'palette', 'aria-label': 'Looks and pieces' });
       this.stage = h('section', { class: 'stage', 'aria-label': 'The screensaver' });
       this.sidebar = h('aside', { class: 'sidebar', 'aria-label': 'Settings for what is chosen', tabindex: '0' });
       this.ui.appendChild(h('div', { class: 'work' }, [this.palette, this.stage, this.sidebar]));
       this.devBar = h('div', { class: 'pills', role: 'group', 'aria-label': 'Screen shape' });
-      this.slideHost = h('label', { class: 'seeslide' });
+      this.slideHost = h('div', { class: 'seeslide' });
       this.todBar = h('div', { class: 'pills', role: 'group', 'aria-label': 'Day or night' });
       this.stage.appendChild(h('div', { class: 'bar' }, [this.devBar, h('div', { class: 'xtras' }, [this.slideHost, this.todBar])]));
       this.box = h('div', { class: 'framebox', 'data-loading': 'yes' }); this.stage.appendChild(this.box);
@@ -434,7 +436,8 @@
     // SEE A SLIDE and DAY / NIGHT: the preview's alone, never saved
     bars() {
       var h = this.h, K = this.K;
-      this.slideHost.replaceChildren(h('span', { text: 'See a Slide' }), K.popup({ label: 'See a Slide', options: SLIDE_KINDS, value: this.slide, onChange: (v) => this.setSlide(v) }));
+      this.slideHost.replaceChildren(h('span', { text: 'Preview' }), K.popup({ label: 'Preview Slide', options: SLIDE_KINDS.map((x) => [x[0], x[0] ? x[1] : 'Screensaver']), value: this.slide, onChange: (v) => this.setSlide(v) }),
+        h('button', { type: 'button', text: this.hidePane ? 'Show Side Pane' : 'Hide Side Pane', 'aria-pressed': this.hidePane ? 'false' : 'true', onclick: () => { this.hidePane = !this.hidePane; this.bars(); this.applyExtras(); this.overlaySoon(); } }));
       this.todBar.replaceChildren.apply(this.todBar, [['day', 'Day'], ['night', 'Night']].map((d) => h('button', { type: 'button', text: d[1],
         'aria-pressed': (d[0] === 'night') === this.night ? 'true' : 'false', onclick: () => this.setNight(d[0] === 'night') })));
     }
@@ -448,6 +451,7 @@
     applyExtras() {
       var S = this.saver();
       if (!S) return;
+      try { if (S.previewPane) S.previewPane(!this.hidePane); } catch (e) { /* loading */ }
       // (night first: a slide asked for after it is the one that shows)
       try { if (typeof S.previewNight === 'function') S.previewNight(this.night); } catch (e) { /* not yet */ }
       try { if (typeof S.previewSlide === 'function') this.slideOk = S.previewSlide(this.slide || null) !== false || !this.slide; } catch (e) { /* not yet */ }
@@ -462,15 +466,17 @@
       if (!this.under) return;
       var h = this.h;
       if (this.slide) {
+        var status = this.saver() && this.saver().previewStatus && this.saver().previewStatus();
         var key = this.slideKey(this.slide), S = LM.SLIDES[key];
-        this.under.replaceChildren(h('b', { text: 'The ' + (S ? S.name : this.slide) + ' slide. ' }), document.createTextNode(this.cornerWords(this.slide) + ' Pick None in See a Slide to edit the screen.'));
+        this.under.replaceChildren(h('b', { text: 'The ' + (S ? S.name : this.slide) + ' slide. ' }), document.createTextNode((status && status.message ? status.message + ' ' : '') + this.cornerWords(this.slide) + ' Choose Screensaver to edit the screen.'));
         return;
       }
-      this.under.replaceChildren(document.createTextNode('The screensaver itself, as this screen will show it. Tap something on it to change it; tap a piece on the left, then a green place, to add one. Nothing here acts on the house.'));
+      var ps = this.saver() && this.saver().previewStatus && this.saver().previewStatus();
+      this.under.replaceChildren(document.createTextNode((ps && ps.paneMessage ? ps.paneMessage + ' ' : '') + 'The screensaver itself, including this screen’s configured Side Pane. Hide Side Pane affects only this preview. Tap something on it to change it; tap a piece on the left, then a green place, to add one. Nothing here acts on the house.'));
     }
     fit() {
       if (!this.box) return;
-      var d = DEVICES[this.device], W = d[2], H = d[3];
+      var d = DEVICES[this.device], W = Number(d[2]), H = Number(d[3]);
       var top = this.box.offsetTop - this.stage.offsetTop, below = (this.under ? this.under.offsetHeight : 0) + 24;
       var s = Math.min(1, (this.stage.clientWidth || 800) / W, Math.max(200, this.stage.clientHeight - top - below) / H);
       this.frame.style.width = W + 'px'; this.frame.style.height = H + 'px'; this.frame.style.transform = 'scale(' + s + ')';
@@ -507,8 +513,8 @@
       var tries = 0, step = () => {
         // (a slide asked for before the screen had drawn is asked for again; one that can't show now says why)
         if (this.slide && !this.slideOk) this.applyExtras();
-        this.overlay();
-        if (++tries < 6) this.ovT = setTimeout(step, tries < 3 ? 350 : 900);
+        this.overlay(); this.underText();
+        if (++tries < 6 || (this.slide && this.isConnected)) this.ovT = setTimeout(step, tries < 3 ? 350 : 1000);
         else if (this.slide && !this.slideOk && this.saver() && typeof this.saver().previewSlide === 'function') {
           this.say('The ' + (LM.SLIDES[this.slideKey(this.slide)] || { name: this.slide }).name + ' slide has nothing to show right now: Music needs something playing, Home Energy the day’s numbers.');
         }
@@ -648,7 +654,7 @@
       this.redraw(); this.preview(); this.say('Undone.', true);
     }
     redraw() { this.libraryMarks(); this.side(); this.overlay(); }
-    select(s) { this.sel = s; this.pick = null; this.picker = null; this.showDraft = null; if (s && this.slide) this.setSlide(''); this.redraw(); }
+    select(s) { this.removeAttribute('mobile-library'); this.sel = s; this.pick = null; this.picker = null; this.showDraft = null; if (s && this.slide) this.setSlide(''); this.redraw(); }
     zoneName(z) {
       var big = this.T().big.kind;
       var what = big === 'time' ? 'Time' : big === 'none' ? 'Middle' : 'Big Element';
@@ -813,6 +819,7 @@
       if (this.busy) return;
       // (v2, as the model reads it: what it keeps of the draft; the write takes all of it or none)
       var out = copy(this.opts);
+      window.hkSaverDesigns.sync(out);
       out.layout = LM.clean(out.layout);
       var code = LM.check(out.layout);
       if (code || !out.layout) { this.say('This can’t be saved: something is in a place that doesn’t take it. Undo the last change and try again.'); return; }
@@ -991,7 +998,7 @@
     screenPage() {
       var K = this.K, self = this, add = (n) => this.sidebar.appendChild(n), st = this.state(), look = lookById(lookOf(this.opts));
       add(this.head('mdi:image-multiple', 'Screensaver', this.o.house ? 'All Screens' : this.o.title, false));
-      add(this.sec('Look', look ? look.n : 'Your own'));
+      add(this.sec('Look', look ? look.n : ((this.M.CLOCK_STYLES.find((f) => f[0] === this.opts.clock_style) || [])[1] || 'Your own')));
       this.lookGroups(st).forEach(add);
       add(this.sec('Info', st.placed.length + ' placed'));
       this.infoGroups(st).forEach(add);
@@ -1018,7 +1025,7 @@
     // ---- LOOK
     lookPage() {
       var K = this.K, self = this, add = (n) => this.sidebar.appendChild(n), st = this.state(), look = lookById(lookOf(this.opts));
-      add(this.head('mdi:image-multiple', look ? look.n : 'Your Own Look', look ? look.about : 'A background of your own making', true));
+      add(this.head('mdi:image-multiple', look ? look.n : ((this.M.CLOCK_STYLES.find((f) => f[0] === this.opts.clock_style) || [])[1] || 'Your Own Look'), look ? look.about : 'Customize the face, background and widgets', true));
       this.lookGroups(st).forEach(add);
       if (look) add(K.group({ header: 'Start Over', footer: 'Puts back ' + look.n + '’s own pieces in their places, and its background and time. The albums, the timing and the slides stay. Undo (⌘Z) takes it back.' }, [
         K.button({ label: 'Start Over from ' + look.n + '…', destructive: true, fk: 'saver:startover', onClick: function () { self.startOver(look); } })]));
@@ -1040,6 +1047,42 @@
       this.say(look.n + ': its own pieces are back. Undo (⌘Z) puts back what you had.', true);
     }
     // the Look section's groups: Background (and its options), Big, Legibility
+    faceOptions(st) {
+      var K = this.K, o = this.opts.clock_options || {}, self = this, style = this.opts.clock_style, rows = [];
+      var set = function (key, value) { self.change(function (x) { x.clock_options = Object.assign({}, x.clock_options || {}); x.clock_options[key] = value; }); };
+      var pick = function (key, label, values) { rows.push(K.select({ label: label, value: o[key] || values[0][0], options: values, onChange: function (v) { set(key, v); } })); };
+      if (style === 'solar') pick('solar_dial', 'Dial', [['rays', 'Rays'], ['edge', 'Orbital'], ['minimal', 'Minimal']]);
+      if (style === 'prism') pick('prism_style', 'Prism', [['glass', 'Glass'], ['outline', 'Outline'], ['solid', 'Solid']]);
+      if (style === 'world') {
+        pick('world_view', 'View', [['globe', 'Globe'], ['horizon', 'Horizon'], ['close', 'Close']]);
+        rows.push(K.slider({ label: 'Globe Rotation', value: o.rotation || 0, min: -180, max: 180, step: 5, unit: '°', onChange: function (v) { set('rotation', v); } }));
+      }
+      if (style === 'hotel') pick('texture', 'Wall', [['linen', 'Linen'], ['paper', 'Paper'], ['dark', 'Dark']]);
+      if (style === 'terminal') pick('board', 'Board', [['dark', 'Dark'], ['light', 'Light'], ['amber', 'Amber']]);
+      if (style === 'atelier' || style === 'meridian') {
+        pick('watch_shape', 'Case', [['round', 'Round'], ['cushion', 'Cushion'], ['rectangle', 'Rectangle']]);
+        pick('metal', 'Metal', [['steel', 'Steel'], ['gold', 'Gold'], ['rose', 'Rose Gold']]);
+      }
+      if (['world', 'hotel', 'terminal'].indexOf(style) >= 0) {
+        var cities = o.cities || [{ name: 'Local', zone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC' }], max = style === 'world' ? 3 : style === 'hotel' ? 4 : 6;
+        var zones = Intl.supportedValuesOf ? Intl.supportedValuesOf('timeZone') : ['America/New_York', 'Europe/London', 'Asia/Tokyo', 'Europe/Paris', 'Australia/Sydney'];
+        zones = Array.from(new Set(['UTC'].concat(zones, cities.map(function (c) { return c.zone; })))).sort();
+        cities.slice(0, max).forEach(function (city, i) {
+          rows.push(K.text({ label: 'City ' + (i + 1), value: city.name, maxlength: 40, onCommit: function (v) { if (v.trim()) { var next = copy(cities); next[i].name = v.trim().slice(0, 40); set('cities', next); } } }));
+          rows.push(K.select({ label: 'Time Zone ' + (i + 1), value: city.zone, options: zones.map(function (z) { return [z, z.replace(/_/g, ' ')]; }), onChange: function (v) { var next = copy(cities); next[i].zone = v; set('cities', next); } }));
+        });
+        if (cities.length < max) rows.push(K.button({ label: 'Add City', onClick: function () { set('cities', copy(cities).concat([{ name: 'London', zone: 'Europe/London' }])); } }));
+        if (cities.length > 1) rows.push(K.button({ label: 'Remove Last City', onClick: function () { set('cities', cities.slice(0, -1)); } }));
+      }
+      if (style === 'markets') {
+        var entities = o.market_entities || [];
+        entities.forEach(function (id, i) { rows.push(self.entityRow({ label: 'Market ' + (i + 1), value: id, domains: ['sensor', 'input_number', 'number'], none: 'Remove', onPick: function (v) { var next = entities.slice(); if (v) next[i] = v; else next.splice(i, 1); set('market_entities', next); } })); });
+        if (entities.length < 6) rows.push(this.entityRow({ label: 'Add Market Sensor', value: '', domains: ['sensor', 'input_number', 'number'], none: 'Choose…', onPick: function (v) { if (v) set('market_entities', entities.concat([v])); } }));
+      }
+      if (style === 'brief') rows.push(this.entityRow({ label: 'News Sensor', value: o.news_entity || '', domains: ['sensor'], none: 'Choose…', onPick: function (v) { self.change(function (x) { x.clock_options = Object.assign({}, x.clock_options); if (v) x.clock_options.news_entity = v; else delete x.clock_options.news_entity; }); } }));
+      return rows.length ? K.group({ header: 'Face Options', footer: style === 'markets' ? 'Live values from your sensors. An optional change_percent attribute shows the daily change.' : style === 'brief' ? 'The sensor supplies headlines in an entries, items or news list. Headlines never open links or act on the house.' : 'These choices belong to this saved design.' }, rows) : null;
+    }
+
     lookGroups(st) {
       var K = this.K, self = this, o = this.opts, M = this.M, B = st.B, out = [];
       var set = function (k) { return function (v) { self.change(function (x) { self.T(x).big[k] = v; }); }; };
@@ -1125,6 +1168,7 @@
           return K.info({ label: 'Depth', sub: 'Behind needs Photos or the Landscape, where something can stand in front of the time.', value: 'In Front' });
         } }
       ];
+      if (st.kind === 'time') { var faceOptions = this.faceOptions(st); if (faceOptions) out.push(faceOptions); }
       out.push(K.group({ header: 'Big', footer: st.kind === 'none' ? 'Nothing is very large on the screen.' : 'Everything else moves out of the way: nothing is ever drawn over it.' }, this.rowsOf(st, big)));
       var leg = [
         { applies: function (s) { return s.busy && s.kind !== 'none'; }, make: function () {

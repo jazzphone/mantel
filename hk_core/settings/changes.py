@@ -246,6 +246,14 @@ def _saver_options(v: Any) -> dict[str, Any]:
             got["layout"] = SLAY.check(v["layout"])
         except SLAY.LayoutInvalid as e:
             raise Invalid(e.code) from None
+    if isinstance(v, dict):
+        for design in v.get("designs", []):
+            layout = design.get("options", {}).get("layout")
+            if layout is not None:
+                try:
+                    SLAY.check(layout)
+                except SLAY.LayoutInvalid as e:
+                    raise Invalid(e.code) from None
     return got
 
 

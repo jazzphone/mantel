@@ -310,8 +310,8 @@
       // a preview frame still being asked for its sky or screensaver, the
       // bar's status fading
       clearTimeout(this._soonT); clearTimeout(this._stT);
-      clearInterval(this._skyWait); clearInterval(this._saverWait);
-      this._soonT = this._stT = this._skyWait = this._saverWait = null;
+      clearInterval(this._skyWait); clearInterval(this._saverWait); clearInterval(this._saverStatusWait);
+      this._soonT = this._stT = this._skyWait = this._saverWait = this._saverStatusWait = null;
       if (this._unsub) { try { this._unsub(); } catch (e) { /* gone */ } this._unsub = null; }
     }
 
@@ -943,7 +943,7 @@
       var self = this, col = this.pageEl.querySelector('.pvcol');
       var old = col && col.querySelector('.pvsaver');
       if (old) old.remove();
-      clearInterval(this._saverWait);
+      clearInterval(this._saverWait); clearInterval(this._saverStatusWait);
       var box = col && col.querySelector('.pvbox'), fr = box && box.querySelector('iframe');
       if (!fr) { this._saverWas = false; return; }
       if (!on && !this._saverWas) return;
@@ -952,7 +952,7 @@
       // WHICH PHOTO (2026-10-13): Any, or a Portrait or Landscape one -- held
       // while its settings change, so a crop or a blur can be judged
       var shape = this._saverEnergy ? 'energy' : this._saverWx ? 'weather' : this._saverShape || '';
-      if (!on) this._saverOver = null;
+      if (!on) { this._saverOver = null; this._saverSlide = ''; this._saverPaneHidden = false; }
       // (a frame on its way to the screensaver alone, or back, is asked nothing until it is there: its old page
       // would answer -- frameSrc changes its address)
       var bound = this.previewSrc(this._frameMode);
@@ -960,7 +960,12 @@
         var S = null, at = '';
         try { S = fr.contentWindow && fr.contentWindow.hkSaver; at = fr.contentWindow.location.search; } catch (e) { /* not ours */ }
         if (/hk_preview=saver/.test(bound) !== /hk_preview=saver/.test(at)) return false;
-        if (S && typeof S.preview === 'function') { S.preview(on, shape || null, !!house, on ? self._saverOver : null); return true; }
+        if (S && typeof S.preview === 'function') {
+          S.preview(on, shape || null, !!house, on ? self._saverOver : null);
+          if (S.previewPane) S.previewPane(!self._saverPaneHidden);
+          if (S.previewSlide) S.previewSlide(on ? self._saverEnergy ? 'energy' : self._saverWx ? 'weather' : self._saverSlide || null : null);
+          return true;
+        }
         return false;
       };
       if (!go()) self._saverWait = setInterval(function () { if (go() || ++n > 80) clearInterval(self._saverWait); }, 250);
@@ -979,6 +984,20 @@
           text: (house ? 'The screensaver with these settings, shown on ' + ((self.dash(self._pv ? self._pv.path : '') || {}).title || 'a screen') + '.'
                        : 'The screensaver as this screen shows it, with the changes you make here.') +
                 ' Portrait or Landscape keeps one photo of that shape while you change its settings. Only this preview changes.' })]), box.nextSibling);
+      }
+      if (on) {
+        var wrap = col.querySelector('.pvsaver'), info = h('p', { class: 'gf', role: 'status', 'aria-live': 'polite' });
+        if (wrap) {
+          if (!this._saverEnergy && !this._saverWx) wrap.appendChild(K.select({ label: 'Preview Slide', value: this._saverSlide || '', options: [['', 'Screensaver'], ['forecast', 'Forecast'], ['weather', 'Weather'], ['music', 'Music'], ['energy', 'Home Energy']], onChange: function (v) { self._saverSlide = v; self.saverPreview(true); } }));
+          wrap.appendChild(K.toggle({ label: 'Include Side Pane', on: !this._saverPaneHidden, onChange: function (v) { self._saverPaneHidden = !v; self.saverPreview(true); } }));
+          wrap.appendChild(info);
+          var status = function () {
+            try { var S = fr.contentWindow && fr.contentWindow.hkSaver, state = S && S.previewStatus && S.previewStatus();
+              info.textContent = state ? state.message || state.paneMessage || (!self._saverPaneHidden && !state.pane ? 'This screen’s Side Pane is off or has no visible sections. Configure it on the Side Pane page.' : 'The selected view stays here while you edit. These controls affect only the preview.') : 'Loading preview…';
+            } catch (e) { /* frame changing */ }
+          };
+          status(); this._saverStatusWait = setInterval(status, 500);
+        }
       }
     }
 

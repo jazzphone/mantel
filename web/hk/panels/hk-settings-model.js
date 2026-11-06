@@ -2133,10 +2133,7 @@
     if (out.music_slide === true) { out.music_first = true; out.music_slide = false; }
     return out;
   }
-  // THE HOMEVIEW-STYLE FACES (2026-10-30; docs/phase11/HOMEVIEW-LOOK.md, Phase I; settings.py's block of the same
-  // name): three more Shows (hk-saverfaces.js), three more clock faces (hk-saverclock.js), the Forecast's Layout,
-  // the photos' Titles and Time Behind, and the Day face's look. Each default is how the screensaver drew before.
-  // [id, name, what it is] -- the Show control's choices, Photos & Forecast ('both') being Photos with a slide
+  // Screensaver catalog; mirrored by hk_core.settings.model.
   var SAVER_SHOWS = [
     ['photos', 'Photos', 'Your photos, one after another.'],
     ['forecast', 'Forecast', 'The forecast over the live sky and the season’s landscape.'],
@@ -2147,13 +2144,10 @@
   var FORECAST_LAYOUTS = [['classic', 'Classic'], ['big', 'Big']];
   var DAY_LOOKS = [['auto', 'By Time of Day'], ['light', 'Light'], ['dark', 'Dark']];
   Object.assign(SAVER_DEFAULTS, { forecast_layout: 'classic', photo_titles: false, time_behind: false, day_look: 'auto' });
-  // Big Weather's number; Time Behind's size, place and darkening (settings.py, 2026-10-31)
   var FORECAST_BIG = [['temp', 'Temperature'], ['clock', 'Clock']];
   Object.assign(SAVER_DEFAULTS, { forecast_big: 'temp', tb_size: 24, tb_top: 6, tb_dim: 0 });
-  // Big Weather's time planted in the meadow (settings.py, 2026-11-01)
   Object.assign(SAVER_DEFAULTS, { forecast_planted: true });
-  // the Screensaver editor's layout (settings.py, 2026-11-01; hk-saverlayout.js): none draws as each Show always has
-  Object.assign(SAVER_DEFAULTS, { layout: null });
+  Object.assign(SAVER_DEFAULTS, { layout: null, designs: [], active_design: '', clock_options: {} });
   CLOCK_STYLES.push(['liquid', 'Liquid', 'Soft, glossy numerals that drift slowly over a pastel gradient'],
                     ['giant', 'Giant Numerals', 'An analog clock with 12, 3, 6 and 9 drawn huge on a strong color'],
                     ['scattered', 'Scattered Numerals', 'A quiet analog face whose numerals lean and fade, on a soft color'],
@@ -2162,8 +2156,14 @@
   CLOCK_COLORS.liquid = [['pastel', 'Pastel'], ['sunset', 'Sunset'], ['ocean', 'Ocean'], ['mint', 'Mint']];
   CLOCK_COLORS.giant = [['green', 'Green'], ['blue', 'Blue'], ['orange', 'Orange'], ['pink', 'Pink'], ['black', 'Black']];
   CLOCK_COLORS.scattered = [['rose', 'Rose'], ['sage', 'Sage'], ['sky', 'Sky'], ['sand', 'Sand'], ['night', 'Night']];
+  var DESIGN_FACES = [['solar', 'Solar Dial', 'Daylight around an orbital dial'], ['prism', 'Prism', 'Geometric color and sculptural time'],
+    ['world', 'World', 'A globe and the time in your chosen cities'], ['hotel', 'Hotel', 'A wall of city clocks'],
+    ['terminal', 'Terminal', 'A departure board of city times'], ['atelier', 'Atelier', 'A Roman numeral watch face'],
+    ['meridian', 'Meridian', 'A sunburst watch face'], ['markets', 'Markets', 'Your market sensors beside the time'],
+    ['brief', 'Daily Brief', 'Headlines from your chosen news sensor'], ['modular', 'Modular', 'Time, weather and a dial in a modular face']];
+  DESIGN_FACES.forEach(function (f) { CLOCK_STYLES.push(f); CLOCK_COLORS[f[0]] = [['blue', 'Blue'], ['gold', 'Gold'], ['rose', 'Rose'], ['mint', 'Mint'], ['white', 'White']]; });
   // the faces that bring their own ground: the Background behind the clock isn't drawn under them
-  var CLOCK_OWN_GROUND = ['liquid', 'giant', 'scattered'];
+  var CLOCK_OWN_GROUND = ['liquid', 'giant', 'scattered'].concat(DESIGN_FACES.map(function (x) { return x[0]; }));
   function showName(show) {
     var s = SAVER_SHOWS.filter(function (x) { return x[0] === show; })[0];
     return s ? s[1] : 'Photos';

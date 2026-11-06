@@ -10,7 +10,7 @@
   (window.hkSaverParts = window.hkSaverParts || {})['hk-saver-draw'] = function (K) {
     var dashConf = K.dashConf, layoutSoon = K.layoutSoon;
 
-    var ANALOG = { analog: 1, numbers: 1, giant: 1, scattered: 1, ring: 1, arc: 1 };
+    var ANALOG = { analog: 1, numbers: 1, giant: 1, scattered: 1, ring: 1, arc: 1, solar: 1, prism: 1, world: 1, hotel: 1, terminal: 1, atelier: 1, meridian: 1, markets: 1, brief: 1, modular: 1 };
     // WHERE THE INK IS (2026-11-01, the owner: "alignment is key"): a box around words holds the line's room above and
     // below the letters, so boxes on one line don't put the letters on one. inkOf(node): the union of what `node` draws
     // -- its words by their letters (the font's own measure: the room above the figures and below them taken off), its
@@ -144,7 +144,7 @@
     }
     function sansClock(c) {
       var o = {};
-      Object.keys(c || {}).forEach(function (k) { if (['clock_style', 'clock_24', 'clock_today_music', 'clock_today_weather', 'clock_color', 'clock_speed', 'clock_depth', 'clock_night', 'clock_night_from', 'clock_night_to', 'clock_text_shadow', 'clock_text_outline'].indexOf(k) < 0) o[k] = c[k]; });
+      Object.keys(c || {}).forEach(function (k) { if (['clock_style', 'clock_options', 'clock_24', 'clock_today_music', 'clock_today_weather', 'clock_color', 'clock_speed', 'clock_depth', 'clock_night', 'clock_night_from', 'clock_night_to', 'clock_text_shadow', 'clock_text_outline'].indexOf(k) < 0) o[k] = c[k]; });
       return JSON.stringify(o);
     }
     function minsOf(hhmm) { var p = String(hhmm || '').split(':'); return (+p[0] || 0) * 60 + (+p[1] || 0); }

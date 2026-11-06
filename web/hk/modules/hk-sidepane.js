@@ -1891,13 +1891,26 @@
       FOLLOW.shift = (side === 'left' ? -1 : 1) * w / 2;
       if (FOLLOW.going < 0 && dash) dash.setAttribute('peek', '');
     }
+    if (!FOLLOW.going) { unfollow(); return; }
     cancelAnimationFrame(FOLLOW.tween);
+    if (dash) dash.style.transition = 'none';
+    var bar = barHost(); if (bar) bar.style.setProperty('--hk-pane-glide', '0s');
     FOLLOW.p = Math.max(0, Math.min(1, p || 0));
     followDraw(FOLLOW.p);
   }
-  function land(path) {
-    if (!FOLLOW.going) { FOLLOW.to = null; return; }
+  function land(path, motion) {
+    if (!FOLLOW.going) { unfollow(); return; }
     var from = FOLLOW.p, goal = path ? 1 : 0, t0 = 0;
+    if (motion && !stillMotion()) {
+      FOLLOW.landed = !!path;
+      if (dash) { dash._followed = !!path; dash.style.transition = 'opacity ' + motion.ms + 'ms ' + motion.ease + ',transform ' + motion.ms + 'ms ' + motion.ease; }
+      var bar = barHost();
+      if (bar) { bar.style.setProperty('--hk-pane-glide', motion.ms + 'ms'); bar.style.setProperty('--hk-pane-ease', motion.ease); }
+      FOLLOW.p = goal; followDraw(goal);
+      cancelAnimationFrame(FOLLOW.tween); clearTimeout(FOLLOW.giveUp);
+      FOLLOW.giveUp = setTimeout(function () { if (path) handOver(); else unfollow(); }, motion.ms + 250);
+      return;
+    }
     FOLLOW.landed = !!path;
     if (dash) dash._followed = !!path;
     var step = function (now) {
@@ -1920,13 +1933,14 @@
     cancelAnimationFrame(FOLLOW.tween);
     var bar = barHost();
     if (bar) bar.style.setProperty('--hk-pane-glide', '0s');
-    unfollow();
+    unfollow(true);
     requestAnimationFrame(function () { requestAnimationFrame(function () { if (bar) bar.style.removeProperty('--hk-pane-glide'); }); });
   }
-  function unfollow() {
+  function unfollow(keepGlide) {
+    clearTimeout(FOLLOW.giveUp); cancelAnimationFrame(FOLLOW.tween);
     var bar = barHost();
-    if (bar) bar.style.removeProperty('--hk-pane-shift');
-    if (dash) { dash.style.opacity = ''; dash.style.transform = ''; dash.removeAttribute('peek'); }
+    if (bar) { bar.style.removeProperty('--hk-pane-shift'); bar.style.removeProperty('--hk-pane-ease'); if (!keepGlide) bar.style.removeProperty('--hk-pane-glide'); }
+    if (dash) { dash.style.opacity = ''; dash.style.transform = ''; dash.style.transition = ''; dash.removeAttribute('peek'); }
     FOLLOW.to = null; FOLLOW.going = 0; FOLLOW.p = 0;
   }
   // THE MUSIC'S PANEL OVER THE PANE (Less's Speakers and Browse): the
@@ -2208,13 +2222,13 @@
   if (typeof document !== 'undefined' && document.addEventListener && !window.HK_SIDEPANE_NO_WIRE) wire();
 
   window.hkSidePane = {
-    KINDS: KINDS, ORDER: ORDER, SIZES: SIZES, WIDTHS: WIDTHS, MAX: MAX,
+    KINDS: KINDS, ORDER: ORDER, SIZES: SIZES, WIDTHS: WIDTHS, MAX: MAX, placement: place,
     // the screensaver's own pane (hk-saver.js): an element it places itself
     create: function (mode) { var el = document.createElement('hk-side-pane'); el.setAttribute('mode', mode || 'saver'); return el; },
     // a swipe between pages (hk-pageswipe.js): how far toward `toPath`, and where it landed (null: back); the room
     // the page there will have, so it comes in laid out as it lands
     follow: function (p, toPath) { try { follow(p, toPath); } catch (e) { /* not drawn */ } },
-    land: function (path) { try { land(path); } catch (e) { /* not drawn */ } },
+    land: function (path, motion) { try { land(path, motion); } catch (e) { /* not drawn */ } },
     room: function (toPath) { try { return roomFor(toPath); } catch (e) { return null; } },
     // THE SETTINGS SLIDER'S DIM while it moves (hk-settings.js pvPaneDim): held a few seconds past the last move,
     // long enough for the saved setting to come back, then the setting's own again

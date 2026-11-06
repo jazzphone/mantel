@@ -62,6 +62,7 @@ interface HkShellMethods {
   hostPage(name: string): boolean;
   /** the host's own settings pages (web/shim/mantel-settings.js), null for a host with none */
   settingsHost(): any;
+  screensaverEditor(path: string): string | null;
   /** hold back writes on the host's own connection: true once in place (or when it sends none) */
   holdWrites(isWrite: (message: any) => boolean, onHeld: (message: any) => void): boolean;
   menuButton(el?: HkEl, opts?: { narrow?: boolean; client?: HKClient | null }): HkEl;
@@ -121,7 +122,7 @@ type HkShellMantelOnly =
   'haNav' | 'haNavigate' | 'openHaMenu' | 'hostMenu' | 'hostPage' | 'settingsHost' | 'serviceUrl' | 'photoSource' | 'listPhotos' |
   'artSized' | 'productName' | 'settingsName' | 'haPlace' | 'haName' | 'docsUrl' | 'notHouseCameraPlatforms';
 // Neither: only the facade's default (settingsName() → path) answers.
-type HkShellNeither = 'settingsPlace';
+type HkShellNeither = 'settingsPlace' | 'screensaverEditor';
 
 interface HkShellHostBase {
   kind: string;

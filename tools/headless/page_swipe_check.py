@@ -62,6 +62,7 @@ def missing(engines) -> str | None:
 
 def house(gallery) -> None:
     """The fictional house's screens for the check (none of them is real)."""
+    gallery.MOTION_PAGES = True
     b = gallery.SETTINGS['boards']
     home = b[gallery.SCREEN]
     home['favorites'] = ['light.living_room_lamps', 'lock.front_door', 'light.kitchen_pendants', 'cover.garage_door']
@@ -84,8 +85,11 @@ def house(gallery) -> None:
     # the Kitchen's shape (2026-11-02, the owner's video): a Home Grid with the Side Pane on Home only (its Now
     # Playing), the Pages screen, the Calendar, and the Now Playing Bar on every page -- the music playing
     gallery.HOUSE['calendar.family'] = (None, ('off', {'friendly_name': 'Family'}))
+    for i in range(1, 7):
+        gallery.HOUSE[f'camera.tv_{i}'] = (None, ('idle', {'friendly_name': f'Fictional Channel {i}'}))
+        gallery.HOUSE[f'sensor.tv_{i}'] = (None, ('Fictional Programme', {'title': 'Fictional Programme', 'channel_name': f'Fictional Channel {i}'}))
     b['ps-kitchen'] = {**gallery.wall_display(), **base, 'menu': 'tabbar', 'menu_phone': 'tabbar',
-                       'pages': ['calendar', 'music'], 'pages_screen': {'show': 'on'},
+                       'pages': ['calendar', 'live_tv', 'music'], 'pages_screen': {'show': 'on'},
                        'now_playing': True, 'bar_all_pages': True,
                        'side_pane': {'side': 'right', 'dashboard': {'show': 'home', 'sections': [
                            {'kind': 'clock'}, {'kind': 'calendar'}, {'kind': 'now_playing'}]}}}

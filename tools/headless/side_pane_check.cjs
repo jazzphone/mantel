@@ -582,10 +582,10 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
                  rect: r ? [Math.round(r.left), Math.round(r.width)] : null,
                  kinds: sp ? [...sp.shadowRoot.querySelectorAll('.secs > *')].map((k) => (k.dataset.k || '') + ':' + (k.dataset.size || '')) : [] };
       });
-      want('screensaver ' + side + ': its own sections on its side', s, s.on && (side === 'left' ? s.side !== null && s.rect[0] === 0 : s.side === null && s.rect[0] + s.rect[1] === W));
+      want('screensaver ' + side + ': its own sections on its side', s, phone ? !s.on : s.on && (side === 'left' ? s.side !== null && s.rect[0] === 0 : s.side === null && s.rect[0] + s.rect[1] === W));
       const sd = await drawn('hk-side-pane[mode="saver"]');
       want('screensaver ' + side + ': its dividers and second ink as the Dashboard\'s, its weather there', sd,
-           sd && sd.lines > 0 && sd.ruled && sd.sub !== 'rgb(255, 255, 255)' && (!sd.weather || (/\d°/.test(sd.weather) && sd.weather.indexOf('No weather') < 0)));
+           phone ? sd === null : sd && sd.lines > 0 && sd.ruled && sd.sub !== 'rgb(255, 255, 255)' && (!sd.weather || (/\d°/.test(sd.weather) && sd.weather.indexOf('No weather') < 0)));
       await shot(page, tag + '-saver-' + side);
       await page.evaluate(() => window.hkSaver.preview(false));
     }

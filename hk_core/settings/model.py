@@ -36,7 +36,6 @@ from ..house import House
 from ..notifications.dnd import DND_MAX, hhmm, notify_dnd  # noqa: F401
 from ..sleep import rules as SR
 from . import home_grid as HG
-from . import saver_layout as SLAY
 from .looks import IDS as LOOK_IDS
 from . import kinds
 
@@ -1726,7 +1725,8 @@ SAVER_SHOWS = ("photos", "both", "forecast", "clock")
 SAVER_SHOWS += ("glance", "month", "day")
 SAVER_CLOCK_STYLES += ("liquid", "giant", "scattered")
 # Planted (2026-11-02, phase 13, decision 1): a face, offered on the Landscape -- the ivory numerals in its meadow
-SAVER_CLOCK_STYLES += ("planted",)
+from .saver_designs import FACES as SAVER_DESIGN_FACES
+SAVER_CLOCK_STYLES += ("planted",) + SAVER_DESIGN_FACES
 SAVER_FORECAST_LAYOUTS = ("classic", "big")
 SAVER_DAY_LOOKS = ("auto", "light", "dark")
 SAVER_DEFAULTS.update({"forecast_layout": "classic", "photo_titles": False, "time_behind": False, "day_look": "auto"})
@@ -1747,7 +1747,7 @@ SAVER_DEFAULTS.update({"forecast_planted": True})
 # draws as each Show always has; the Screensaver editor saves one big element and the widgets in zones
 # (saver_layout.py). Read tolerantly here -- a layout this build can only partly draw keeps what it can, never
 # costing the screen its other options; the write checks it strictly (changes._saver_options).
-SAVER_DEFAULTS.update({"layout": None})
+SAVER_DEFAULTS.update({"layout": None, "designs": [], "active_design": "", "clock_options": {}})
 # ALL SCREENS' screensaver options (All Screens -> Screensaver): a screen
 # whose own `screensaver_options` is null uses these (resolved()).
 DEFAULTS["look"]["saver"] = dict(SAVER_DEFAULTS)
@@ -1772,90 +1772,8 @@ SAVER_INTS = {"starts_after": SAVER_STARTS, "each_photo": SAVER_EACH, "forecast_
 
 
 def saver_options(v: Any, legacy: Any = None) -> dict[str, Any] | None:
-    """The screensaver's options over the defaults, or None when `v` is not a
-    mapping or holds a value that cannot be used (the form says so). With no
-    options of its own yet, a screen's old WallPanel choices carry over:
-    idle_time, display_time, media_order, image_fit_landscape and
-    image_animation_ken_burns are the ones its page ever set."""
-    out = dict(SAVER_DEFAULTS)
-    if v in (None, "", {}):
-        w = legacy if isinstance(legacy, dict) else {}
-        v = {}
-        for src, dst in (("idle_time", "starts_after"), ("display_time", "each_photo")):
-            if isinstance(w.get(src), (int, float)) and not isinstance(w.get(src), bool):
-                v[dst] = w[src]
-        if w.get("media_order") in SAVER_ORDERS:
-            v["order"] = w["media_order"]
-        if w.get("image_fit_landscape") in ("cover", "contain"):
-            v["fill"] = w["image_fit_landscape"] == "cover"
-        if isinstance(w.get("image_animation_ken_burns"), bool):
-            v["zoom"] = w["image_animation_ken_burns"]
-        # an out-of-range old value is clamped rather than refused: it was
-        # accepted once, and the screen must keep working
-        for k, (lo, hi) in (("starts_after", SAVER_STARTS), ("each_photo", SAVER_EACH)):
-            if k in v:
-                v[k] = int(min(max(v[k], lo), hi))
-    if not isinstance(v, dict):
-        return None
-    for k, val in v.items():
-        if k not in SAVER_DEFAULTS:
-            return None
-        if k in SAVER_INTS:
-            lo, hi = SAVER_INTS[k]
-            if isinstance(val, bool) or not isinstance(val, (int, float)) or not lo <= val <= hi:
-                return None
-            out[k] = int(val)
-        elif k in ("order", "show"):
-            if val not in (SAVER_ORDERS if k == "order" else SAVER_SHOWS):
-                return None
-            out[k] = val
-        elif k in ("clock_night_from", "clock_night_to"):
-            m = re.match(r"^([01]\d|2[0-3]):([0-5]\d)$", val) if isinstance(val, str) else None
-            if not m:
-                return None
-            out[k] = val
-        elif k == "clock_colors":
-            if not isinstance(val, dict) or any(s not in SAVER_CLOCK_STYLES or not isinstance(c, str) or not re.match(r"^[a-z]{1,16}$", c)
-                                                for s, c in val.items()):
-                return None
-            out[k] = dict(val)
-        elif k == "clock_wallpaper_color":
-            if wallpaper_color(val) is None:
-                return None
-            out[k] = wallpaper_color(val)
-        elif k == "layout":
-            out[k] = SLAY.layout(val) if val is not None else None
-        elif k in ("energy_hide", "weather_hide", "corner_hide", "music_hide"):
-            parts = {"energy_hide": SAVER_ENERGY_PARTS, "weather_hide": SAVER_WEATHER_PARTS, "corner_hide": SAVER_CORNER_PARTS,
-                     "music_hide": SAVER_MUSIC_PARTS}[k]
-            if not isinstance(val, list) or any(x not in parts for x in val):
-                return None
-            out[k] = [x for x in parts if x in val]
-        elif k in SAVER_CHOICES:
-            if val not in SAVER_CHOICES[k]:
-                return None
-            out[k] = val
-        elif k.split("_", 1)[-1] in SAVER_RANGES and k.startswith(("portrait_", "landscape_")):
-            lo, hi = SAVER_RANGES[k.split("_", 1)[1]]
-            if isinstance(val, bool) or not isinstance(val, (int, float)) or not lo <= val <= hi:
-                return None
-            out[k] = int(val)
-        elif k.split("_", 1)[-1] in SAVER_FOCUS and k.startswith(("portrait_", "landscape_")):
-            if val not in SAVER_FOCUS[k.split("_", 1)[1]]:
-                return None
-            out[k] = val
-        else:
-            if not isinstance(val, bool):
-                return None
-            out[k] = val
-    # ONE KEY FOR MUSIC FULL SCREEN (2026-11-02, phase 13: "One home per option"): the editor's Music Full Screen
-    # (music_first) and Settings' Music slide (music_slide) are one choice -- what plays takes the screen while it plays
-    if out["music_slide"]:
-        out["music_first"], out["music_slide"] = True, False
-    # an old Wallpaper behind the clock ("petals_violet", 2026-10-31): its art in its own preset (item 45)
-    if out["clock_wallpaper"] in WALLPAPER_LEGACY:
-        out["clock_wallpaper"], out["clock_wallpaper_color"] = WALLPAPER_LEGACY[out["clock_wallpaper"]]
-    return out
+    from .saver_designs import saver_options as read
+    return read(v, legacy)
 
 
 def card_options(v: Any) -> dict[str, Any] | None:

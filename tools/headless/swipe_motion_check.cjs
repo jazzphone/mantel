@@ -16,7 +16,7 @@ const PROBE = () => {
     while (el && el.shadowRoot) { const inner = el.shadowRoot.elementFromPoint(x, y); if (!inner || inner === el) break; el = inner; }
     return el;
   };
-  const chain = (el) => { const out = []; while (el) { out.push(el); el = el.parentNode || el.host || null; } return out; };
+  const chain = (el) => { const out = []; while (el) { out.push(el); el = el.assignedSlot || el.parentNode || el.host || null; } return out; };
   const slot = () => hkShell.viewSlot(hkCards.menu.panel());
   const view = () => hkShell.view(slot());
   const ids = new WeakMap(); let nextId = 1;
@@ -54,13 +54,16 @@ const PROBE = () => {
     stop() { L.on = false; return L.frames; },
     spot(xf) {
       const v = view();
-      for (const dx of [0, 0.12, -0.12, 0.2, -0.2]) for (let yf = 0.3; yf <= 0.8; yf += 0.04) {
-        const x = Math.round(innerWidth * (xf + dx)), y = Math.round(innerHeight * yf), el = deepAt(x, y), c = chain(el);
-        if (!el || (c.indexOf(v) < 0 && el !== slot()) || hkDrag.sideways(c, v)) continue;
-        if (c.some(n => n.localName === 'hk-pager-card' || n.localName === 'hk-header-card' || (n.getAttribute && n.getAttribute('inert') !== null))) continue;
-        return { x, y };
+      const allowed=(x,y)=>{const el=deepAt(x,y),c=chain(el);return el&&(c.includes(v)||el===slot())&&!hkDrag.sideways(c,c.includes(v)?v:slot())&&!c.some(n=>n.localName==='hk-pager-card'||n.getAttribute&&n.getAttribute('inert')!==null);};
+      // Chromium's touch adjustment can pick a nearby control across a thin gap.
+      // Use a background patch large enough for a fingertip, including headers.
+      const clear=(x,y)=>[[0,0],[-12,0],[12,0],[0,-12],[0,12]].every(([dx,dy])=>allowed(x+dx,y+dy));
+      const rows=[];for(let y=.3;y<=.8;y+=.04)rows.push(y);
+      for(const heights of [rows,[.12,.16,.2,.24,.84,.88]])for(const dx of [0,.12,-.12,.2,-.2])for(const yf of heights){
+        const x=Math.round(innerWidth*(xf+dx)),y=Math.round(innerHeight*yf);if(clear(x,y))return{x,y};
       }
-      return { x: Math.round(innerWidth * xf), y: Math.round(innerHeight * 0.6) };
+      for(let yf=.12;yf<.9;yf+=.015)for(let q=.08;q<.92;q+=.02){const x=Math.round(innerWidth*q),y=Math.round(innerHeight*yf);if(clear(x,y))return{x,y};}
+      throw new Error('No page background available for this swipe');
     },
     // what a swipe may leave behind: nothing
     rest() {
@@ -68,7 +71,7 @@ const PROBE = () => {
       const e = deepAt(innerWidth / 2, innerHeight / 2);
       return { path: location.pathname, left: Math.round(v.getBoundingClientRect().left), stray: /(^|;\s*)(transform|position|will-change|opacity|overflow|max-height|pointer-events|transition)\s*:/.test(st),
                inert: v.hasAttribute('inert'), offstage: v.hasAttribute('data-hk-offstage'), busy: !!(s.G || s.A || s.L), pages: kids.length, ghosts: kids.filter(k => k.classList.contains('hk-swipe-ghost')).length,
-               others: kids.filter(k => k !== v).every(k => k.hasAttribute('inert') && Math.abs(k.getBoundingClientRect().left) >= innerWidth - 2),
+               others: kids.filter(k => k !== v).every(k => {const r=k.getBoundingClientRect();return k.hasAttribute('inert') && (r.right<=.5 || r.left>=innerWidth-.5);}),
                level: kids.filter(k => k !== v).every(k => Math.abs(k.getBoundingClientRect().top - (v.getBoundingClientRect().top + (document.scrollingElement.scrollTop || 0))) <= 2),
                grounds: deep(document, '.hk-swipe-ground').length,
                // (the page, or the empty screen under a page shorter than it -- the view's own container, which a press
@@ -97,7 +100,7 @@ const PROBE = () => {
     },
   };
   document.addEventListener('pointermove', (e) => { L.finger = e.clientX; }, { capture: true, passive: true });
-  document.addEventListener('pointerdown', (e) => { L.finger = e.clientX; }, { capture: true, passive: true });
+  document.addEventListener('pointerdown', (e) => { L.finger = e.clientX; L.lastDown={x:e.clientX,y:e.clientY,nodes:e.composedPath().filter(n=>n.nodeType===1).map(n=>({tag:n.localName,cls:String(n.className),}))}; }, { capture: true, passive: true });
 };
 
 async function open(browser, screen, o = {}) {
@@ -112,7 +115,7 @@ async function open(browser, screen, o = {}) {
     if (m.type() === 'error' && !HOMES_OWN.test(url) && !/Failed to load resource/.test(m.text())) errors.push('console: ' + m.text() + ' ' + url);
   });
   await page.addInitScript(PROBE);
-  await page.goto(input.origin + '/' + screen + '/home');
+  await page.goto(input.origin + '/' + screen + '/home', {waitUntil:'domcontentloaded',timeout:60000});
   await page.waitForFunction(() => window.__mantelReady === true && window.hkPageSwipe && window.hkDrag && window.hkTabBar && window.hkTabBar.pages && hkShell.view(hkShell.viewSlot(hkCards.menu.panel())), null, { timeout: 45000 });
   const t = { ctx, page, errors, cdp: CDP ? await ctx.newCDPSession(page) : null };
   await ready(t);
@@ -219,6 +222,73 @@ async function holdThen(t, dir, fn, travel = 0.42) {
 }
 
 const SECTIONS = {
+  async companions(b) {
+    const t = await open(b, 'ps-kitchen');
+    if(W>=600) await t.page.waitForFunction(() => document.querySelector('hk-side-pane[mode=dash][on]'),null,{timeout:15000});
+    const order = await t.page.evaluate(() => hkPageSwipe.order().map(i=>i.path));
+    const sample = () => t.page.evaluate(() => {
+      const s=hkPageSwipe._.state(),d=document.querySelector('hk-side-pane[mode=dash]'),bar=document.getElementById('hk-tabbar'),row=bar?.shadowRoot?.querySelector('.row');
+      const cs=d&&getComputedStyle(d),bcs=row&&getComputedStyle(row);
+      return {p:s.ST?Math.abs(__m.view().getBoundingClientRect().left-s.ST.rect.left)/s.ST.rect.width:0,opacity:cs?+cs.opacity:1,side:d?.getAttribute('side'),w:d?.getBoundingClientRect().width||0,shift:bcs?parseFloat(bcs.translate)||0:0,curve:s.A?.ms,paneMs:cs?.transitionDuration,barMs:bcs?.transitionDuration,hash:location.hash,docked:!!(window.hkPopup&&hkPopup.docked(location.hash))};
+    });
+    const run = async (dir, name, leaving) => {
+      const a=await spot(t,dir);await down(t,a.x,a.y);await move(t,a.x+W*.28*dir,a.y);await sleep(90);
+      const drag=await sample();
+      if(drag.w>0 && drag.side!=='band') {
+        const want=leaving?1-drag.p:drag.p;assert(Math.abs(drag.opacity-want)<.06,name+': pane stays with finger '+JSON.stringify(drag));
+        assert(Math.abs(Math.abs(drag.shift)-drag.p*drag.w/2)<3,name+': navbar stays with finger '+JSON.stringify(drag));
+      }
+      await up(t,a.x+W*.28*dir,a.y);
+      const frames=[];for(let i=0;i<12;i++){await sleep(16);frames.push(await sample());}
+      if(drag.w>0 && drag.side!=='band') {
+        const moving=frames.filter(f=>f.curve&&f.p>.02&&f.p<.98);
+        assert(moving.length>0,name+': sampled the shared release');
+        for(const f of moving) {const want=leaving?1-f.p:f.p;assert(Math.abs(f.opacity-want)<.12,name+': pane and page share release curve '+JSON.stringify(f));}
+      }
+      await sleep(950);isClean(await rest(t),name);
+      return drag;
+    };
+    const gridViews=await t.page.evaluate(()=>Math.max(1,...__m.deep(document,'hk-home-grid-view').filter(e=>__m.chain(e).includes(__m.view())).map(e=>e._views?e._views():1)));
+    for(let n=0;n<=gridViews && await where(t)===order[0];n++) await run(-1,'Home to Pages',true);assert.equal(await where(t),order[1],JSON.stringify(await t.page.evaluate(()=>({why:hkPageSwipe._.state().why,last:__m.lastDown,grids:__m.deep(document,'hk-home-grid-view').map(g=>({view:g._view,views:g._views?.()})),blocked:__m.chain(__m.deepAt(__m.spot(.65).x,__m.spot(.65).y)).filter(n=>n.nodeType===1&&hkDrag.sideways([n])).map(n=>({tag:n.localName,cls:String(n.className),ta:getComputedStyle(n).touchAction}))}))));await ready(t);
+    // Home's Now Playing pane hands the player to the docked media popup on Pages.
+    await t.page.waitForFunction(() => __m.deep(document,'.hkp.dock.open').some(n=>n.getBoundingClientRect().height>0),null,{timeout:15000}).catch(async()=>{throw new Error('Dock not visible '+JSON.stringify(await t.page.evaluate(()=>({path:location.pathname,flag:document.documentElement.hasAttribute('hk-pane-music'),states:hkCards.client().states['media_player.living_room'],popups:__m.deep(document,'hk-popup-card').map(n=>({config:n._config||n._cfg,open:n._open})).filter(n=>n.config?.hash==='#media'),boxes:__m.deep(document,'.hkp').map(n=>n.className)}))));});
+    await t.page.evaluate(()=>hkPopup.open('#media'));await sleep(150);
+    assert(await t.page.evaluate(()=>hkPopup.docked('#media')),'media popup is the real docked player');
+    await run(1,'Pages with media back to Home',false);assert.equal(await where(t),order[0]);await ready(t);
+    await run(-1,'Home to Pages again',true);await ready(t);
+    const w=await swipe(t,[{ms:240,dx:-W*.4}]);tracksFinger(w,'Pages with media to Calendar');assert.equal(await where(t),order[2]);isClean(await rest(t),'Calendar with media');
+    // The player is visible, yet a short reverse drag still returns cleanly.
+    const back=await swipe(t,[{ms:400,dx:W*.08}]);tracksFinger(back,'short drag with media');assert.equal(await where(t),order[2]);isClean(await rest(t),'short drag with media');
+    await t.page.evaluate(()=>hkPopup.open('#alarm'));await sleep(350);
+    assert(['popup','sheet'].includes(await t.page.evaluate(()=>hkPageSwipe.blocked())),'a covering sheet owns its gesture');
+    const before=await where(t);await swipe(t,[{ms:200,dx:-W*.3}]);assert.equal(await where(t),before);assert.equal((await rest(t)).left,0);await t.page.evaluate(()=>{if(window.hkDetail)hkDetail.close();});await sleep(700);isClean(await rest(t),'covering sheet dismissed');
+    await close(t,'companions');
+  },
+
+  // A card replacing its pressed node must not take the physical page away from the finger.
+  async heavy(b) {
+    const t = await open(b, 'ps-kitchen');
+    for (const kind of ['calendar', 'live_tv']) {
+      const route = await t.page.evaluate(k => hkPageSwipe.order().find(i => i.kind === k || i.path.endsWith('/' + (k === 'live_tv' ? 'live-tv' : k)))?.path, kind);
+      assert(route, kind + ': page is in the order');
+      await t.page.evaluate(p => hkShell.navigate(p), route); await ready(t); await sleep(800);
+      if (kind === 'calendar') await t.page.waitForFunction(() => __m.deep(document, 'hk-calendar-card').filter(c => __m.chain(c).includes(__m.view())).some(c => c.shadowRoot && c.shadowRoot.textContent.includes('Fictional event')), null, {timeout:10000});
+      if (kind === 'live_tv') await t.page.waitForFunction(() => __m.deep(document, 'hk-tv-guide-card').filter(c => __m.chain(c).includes(__m.view())).some(c => c.shadowRoot && c.shadowRoot.textContent.includes('Fictional Channel')), null, {timeout:10000});
+      const sign = kind === 'live_tv' ? 1 : -1, s = await spot(t, sign);
+      await t.page.evaluate(() => {document.addEventListener('pointerdown', function remember(e){window.__pressed=e.composedPath()[0];document.removeEventListener('pointerdown',remember,true);},true);__m.start();});
+      await down(t,s.x,s.y); await move(t,s.x+W*.15*sign,s.y); await sleep(40);
+      if(t.cdp) assert(await t.page.evaluate(() => {const s=hkPageSwipe._.state();return s.G && s.G.stage.view.hasPointerCapture(s.G.id);}), kind+': the stable view owns the native pointer');
+      await t.page.evaluate(() => { if(window.__pressed && window.__pressed!==__m.view() && window.__pressed!==__m.slot()) window.__pressed.replaceWith(window.__pressed.cloneNode(true)); });
+      await move(t,s.x+W*.3*sign,s.y); await sleep(40);
+      const first = await t.page.evaluate(() => ({x:__m.view().getBoundingClientRect().left,live:!!hkPageSwipe._.state().G?.live}));
+      await move(t,s.x+W*.45*sign,s.y); await sleep(40);
+      const last = await t.page.evaluate(() => ({x:__m.view().getBoundingClientRect().left,live:!!hkPageSwipe._.state().G?.live}));
+      assert(first.live && last.live && Math.abs(last.x-first.x-W*.15*sign)<4, kind+': detached card still follows finger '+JSON.stringify({first,last}));
+      await up(t,s.x+W*.45*sign,s.y); await sleep(950); isClean(await rest(t),kind+' detached target');
+      await t.page.evaluate(() => __m.stop());
+    }
+    await close(t,'heavy');
+  },
   // WHAT COMES IN IS THE PAGE, not its title: never visited, held, and on a tablet the slow-tablet ladder has flagged
   async content(b) {
     const t = await open(b, 'ps-bar'), order = await t.page.evaluate(() => hkPageSwipe.order().map(i => i.path));
@@ -350,7 +420,7 @@ const SECTIONS = {
   async rapid(b) {
     const t = await open(b, 'ps-bar'), order = await t.page.evaluate(() => hkPageSwipe.order().map(i => i.path));
     const gone = [];
-    const flick = async (dir) => { await play(t, pathOf({ x: Math.round(W * (dir < 0 ? 0.7 : 0.3)), y: Math.round(H * 0.55) }, [{ ms: 90, dx: W * 0.32 * dir }])); await sleep(150); gone.push(await where(t)); };
+    const flick = async (dir) => { await play(t, pathOf(await spot(t, dir), [{ ms: 90, dx: W * 0.32 * dir }])); await sleep(150); gone.push(await where(t)); };
     for (let i = 0; i < order.length + 1; i++) await flick(-1);
     await ready(t);
     const far = await where(t);
@@ -527,7 +597,8 @@ const SECTIONS = {
     for (const name of Object.keys(SECTIONS)) {
       if (only && only.indexOf(name) < 0) continue;
       try { await SECTIONS[name](browser); console.log('PASS ' + input.engine + ' ' + input.size + ' ' + name); }
-      catch (e) { failed++; console.log('FAIL ' + input.engine + ' ' + input.size + ' ' + name + ': ' + String(e && e.message).slice(0, 700)); }
+      catch (e) { failed++; console.log('FAIL ' + input.engine + ' ' + input.size + ' ' + name + ': ' + String(e && e.message).slice(0, 2000)); }
+      finally { for(const context of browser.contexts()) await context.close(); }
     }
   } finally { await browser.close(); }
   process.exit(failed ? 1 : 0);

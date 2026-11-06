@@ -7,7 +7,7 @@
   "parts": [
     {
       "name": "hk-saver-helpers",
-      "title": "the pure helpers: layout, mosaic and face windows, the page, the state's small tables",
+      "title": "helpers, the photo deck and device-local design chooser",
       "members": [
         "MOSAIC_COLORS",
         "CLOCK_BGS",
@@ -83,7 +83,9 @@
         "held",
         "SLOP",
         "weatherPage",
-        "go"
+        "go",
+        "Deck",
+        "createDesignController"
       ]
     },
     {

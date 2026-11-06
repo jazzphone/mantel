@@ -24,14 +24,15 @@ if (!document.createTextNode) document.createTextNode = function (t) { var e = d
     return e;
   };
 })();
-var SVG_MARKUP = { analog: 1, numbers: 1, arc: 1, ring: 1 };
+// Complex markup faces are exercised in saver_designs_check with real browser DOM.
+var SVG_MARKUP = { analog: 1, numbers: 1, arc: 1, ring: 1, solar: 1, prism: 1, world: 1, hotel: 1, terminal: 1, atelier: 1, meridian: 1, markets: 1, brief: 1, modular: 1 };
 load(HK_ROOT + '/frontend/modules/hk-saverclock.js');
 load(HK_ROOT + '/frontend/panels/hk-settings-model.js');
 var C = window.hkSaverClock, U = C._, M = window.hkSettingsModel;
 
 print('=== the styles ===');
 ok('the styles: Today, the flagship, first; Analog Numbers among them, the HomeView-style three last (2026-10-30)',
-   C.STYLES.length === 19 && C.STYLES[0][0] === 'today' && C.STYLES.some(function (s) { return s[0] === 'numbers'; }) && C.STYLES.map(function (s) { return s[0]; }).slice(-3).join() === 'liquid,giant,scattered', true);
+   C.STYLES.length === 29 && C.STYLES[0][0] === 'today' && C.STYLES.some(function (s) { return s[0] === 'numbers'; }) && C.STYLES.slice(0,19).map(function (s) { return s[0]; }).slice(-3).join() === 'liquid,giant,scattered', true);
 // (but Planted, phase 13: a face the Landscape plants in its meadow -- hk-saverfaces.js plant(), not this file's)
 ok('...the same as HK Settings lists, in order', C.STYLES.map(function (s) { return s[0]; }).join(), M.CLOCK_STYLES.map(function (s) { return s[0]; }).filter(function (s) { return s !== 'planted'; }).join());
 ok('the generated backgrounds are HK Settings’ less Forecast and Photos',
@@ -225,7 +226,7 @@ print('=== the HomeView-style faces (2026-10-30; HOMEVIEW-LOOK.md, Phase I) ==='
      (__winL['hk-black'] || []).length === before && / still\b/.test(l.children[0].className), true);
   g.destroy();
   ok('each has its own colours, its first its own look', ['liquid', 'giant', 'scattered'].every(function (s) { return C.COLORS[s].length >= 4 && !Object.keys(C.COLORS[s][0][2]).length; }), true);
-  ok('...they are the faces with a ground of their own', Object.keys(C.OWN).sort().join(), 'giant,liquid,scattered');
+  ok('...they are the faces with a ground of their own', Object.keys(C.OWN).sort().join(), 'atelier,brief,giant,hotel,liquid,markets,meridian,modular,prism,scattered,solar,terminal,world');
   l = document.createElement('div'); l.clientWidth = 1180; l.clientHeight = 820;
   g = C.mount(l, { style: 'giant', color: 'blue', drift: false });
   ok('a colour reaches the face', l.children[0].style.getPropertyValue('--ckg'), '#2f6fd8');

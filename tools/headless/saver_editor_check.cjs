@@ -27,6 +27,10 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
     await page.goto(input.origin + '/settings#/screens/' + input.screen + '/screensaver/editor');
     const up = await until((ed, sr, $, $$) => $$('.lk').length > 0 && $('.ov') && ed.looksHost, null, 40000);
     say(!!up, 'the editor opens, with its Looks', up);
+    const gallery = await E((ed,sr,$,$$) => ({ visible: !!ed.galleryEl, count: $$('.catalog .design-card').length }));
+    say(gallery && gallery.visible && gallery.count === 44, 'the gallery opens with all current Looks and faces plus new designs', gallery);
+    await shot('00-gallery');
+    await E((ed,sr,$) => { $('.design-gallery header .customize').click(); return true; });
     // the screensaver inside the frame has drawn its plan
     await until((ed) => { const s = ed.saver(); return s && s.layoutInfo && s.layoutInfo() && ed.live; }, null, 40000);
     await page.waitForTimeout(4000);
@@ -339,6 +343,7 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
     // picked (its green places)
     await page.goto(input.origin + '/settings#/screens/' + input.crowd + '/screensaver/editor');
     await until((ed, sr, $, $$) => $$('.lk').length > 0 && $('.ov') && ed.looksHost, null, 40000);
+    await E((ed,sr,$) => { if(ed.galleryEl) $('.design-gallery header .customize').click(); return true; });
     await until((ed) => { const s = ed.saver(); return s && s.layoutInfo && s.layoutInfo() && ed.live; }, null, 40000);
     await page.waitForTimeout(4000);
     const clashes = () => E((ed, sr, $, $$) => {

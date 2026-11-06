@@ -10,7 +10,7 @@ import asyncio
 import contextlib
 import json
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import sys
 import shutil
 import tempfile
@@ -90,6 +90,14 @@ class OfflineReads:
         self.energy_asked = []               # the statistics reads the Energy cards made
         self.stat_rows = None                # when set: msg -> the statistics answer (the where-card check)
 
+    async def get_calendar_events(self, entity_id, start, end):
+        # A populated calendar; all local fixture data, no REST connection.
+        first = datetime.fromisoformat(start.replace("Z", "+00:00"))
+        return [{"summary": f"Fictional event {i + 1}",
+                 "start": {"dateTime": (first + timedelta(days=i, hours=10)).isoformat()},
+                 "end": {"dateTime": (first + timedelta(days=i, hours=11)).isoformat()}}
+                for i in range(12)]
+
     @staticmethod
     async def _drop(msg):
         pass
@@ -103,6 +111,10 @@ class OfflineReads:
                                   "can_play": False, "media_class": "directory", "thumbnail": None}
                                  for t, i in (("Artists", "artists"), ("Albums", "albums"), ("Tracks", "tracks"),
                                               ("Playlists", "playlists"), ("Radio", "radio"), ("Podcasts", "podcasts"))]}
+        if msg["type"] == "hk_tv/channels":
+            return {"configured": True, "channels": [
+                {"number": str(i), "name": f"Fictional Channel {i}", "camera": f"camera.tv_{i}", "now": f"sensor.tv_{i}"}
+                for i in range(1, 7)]}
         if msg["type"] == "get_config":
             return {"unit_system": {"temperature": "°C"}, "time_zone": "UTC", "currency": "USD"}
         if msg["type"] == "frontend/get_themes":

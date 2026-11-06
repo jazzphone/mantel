@@ -94,6 +94,8 @@
     // host with none (Home Assistant: HK Settings shows HK's own only). See
     // web/hk/panels/hk-settings.js "THE HOST'S SETTINGS" for its shape.
     settingsHost: nil,
+    // The host’s editor address. Permission is still enforced by its settings page.
+    screensaverEditor: nil,
     // HOLD BACK WRITES on the host's own connection (the sky lab's preview):
     // every message `isWrite(msg)` says changes something is not sent, and
     // `onHeld(msg)` is told. true once in place (or when the host sends no
@@ -234,7 +236,7 @@
 
   ['root', 'overlayRoot', 'main', 'mainRoot', 'drawer', 'sidebar', 'resolver', 'panel', 'dashboard',
    'dashboardRoot', 'viewContainer', 'viewSlot', 'view', 'viewBackground', 'toolbar', 'dashboardConfig', 'onDashboard', 'isDashboard',
-   'defined', 'showNotifications', 'keepAwake', 'sidebarData', 'haNav', 'haNavigate', 'openHaMenu', 'hostMenu', 'hostPage', 'settingsHost', 'holdWrites', 'menuButton',
+   'defined', 'showNotifications', 'keepAwake', 'sidebarData', 'haNav', 'haNavigate', 'openHaMenu', 'hostMenu', 'hostPage', 'settingsHost', 'screensaverEditor', 'holdWrites', 'menuButton',
    'hostDetail', 'openHostDetail', 'hostToast', 'dialogRoot', 'serviceUrl', 'photoSource', 'listPhotos', 'artSized', 'productName', 'settingsName', 'settingsPlace', 'haPlace',
    'haName', 'docsUrl', 'notHouseCameraPlatforms', 'tabletRoom', 'atTablet'].forEach(function (name) {
     shell[name] = function () {

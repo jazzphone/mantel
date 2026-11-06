@@ -59,6 +59,7 @@
         // where there is no meadow -- a clock of its own, over photos -- it is Classic, whose figures they are
         clock_style: raw.clock_style === 'planted' ? 'classic' : typeof raw.clock_style === 'string' ? raw.clock_style : 'classic',
         clock_planted: raw.clock_style === 'planted',
+        clock_options: raw.clock_options || {},
         clock_bg: CLOCK_BGS.indexOf(raw.clock_bg) >= 0 ? raw.clock_bg : 'gradient',
         clock_motion: raw.clock_motion === 'still' ? 'still' : 'slow',
         // a Wallpaper behind it (2026-10-31): which, and a motion theme's colour
@@ -108,7 +109,7 @@
         // THE SIDE PANE (2026-10-30, withPane below): the pane's side, and the
         // sections the Side Pane draws in it where they are not the older
         // calendar-and-music shape
-        pane_side: raw.pane_side === 'left' ? 'left' : 'right',
+        pane_side: raw.pane_side === 'left' ? 'left' : 'right', pane_width: raw.pane_width || 'standard',
         pane_list: Array.isArray(raw.pane_list) && raw.pane_list.length ? raw.pane_list.slice(0, 8) : null,
         // WHAT PLAYS, BIG: a slide among the photos (with the forecast, they
         // take turns) or over the forecast while music plays; and the music
@@ -245,7 +246,7 @@
       if (!raw || !sp) return raw;
       var secs = paneSecs(sp), old = olderPane(secs);
       var out = Object.assign({}, raw, { calendar: false, music_pane: false, pane_list: null,
-                                         pane_side: sp.side === 'left' ? 'left' : 'right' });
+                                         pane_side: sp.side === 'left' ? 'left' : 'right', pane_width: sp.width || 'standard' });
       if (old) {
         out.calendar = old.calendar; out.music_pane = old.music;
         if (old.days) out.calendar_days = old.days;
@@ -654,6 +655,127 @@
       if (String(location.pathname) === path) return;
       try { window.hkShell.navigate(path); } catch (e) { /* stay */ }
     }
+
+  function Deck(order, rnd) {
+    this.order = order; this.rnd = rnd || Math.random;
+    this.items = []; this.round = []; this.pos = 0; this.history = []; this.back = 0;
+  }
+    Deck.prototype.set = function (items) {
+      var had = this.items.map(function (x) { return x.id; }).join('\n');
+      this.items = items.slice();
+      if (this.items.map(function (x) { return x.id; }).join('\n') !== had) { this.round = []; this.pos = 0; }
+    };
+    Deck.prototype.next = function () {
+      if (this.back > 0) {                  // stepping forward again after previous()
+        this.back--;
+        return this.history[this.history.length - 1 - this.back] || null;
+      }
+      if (!this.items.length) return null;
+      if (this.pos >= this.round.length) {
+        var last = this.history[this.history.length - 1];
+        this.round = this.order === 'sorted'
+          ? this.items.slice().sort(function (a, b) { return a.id < b.id ? -1 : a.id > b.id ? 1 : 0; })
+          : shuffle(this.items, this.rnd);
+        if (this.order !== 'sorted' && last && this.round.length > 1 && this.round[0].id === last.id) {
+          this.round.push(this.round.shift());
+        }
+        this.pos = 0;
+      }
+      var it = this.round[this.pos++];
+      this.history.push(it);
+      if (this.history.length > 50) this.history.shift();
+      return it;
+    };
+    Deck.prototype.previous = function () {
+      if (this.history.length - 1 - this.back <= 0) return null;
+      this.back++;
+      return this.history[this.history.length - 1 - this.back] || null;
+    };
+
+    K.inPane = function (e, pane, up) {
+      if (!pane || !up) return false;
+      if (e.composedPath && e.composedPath().indexOf(pane) >= 0) return true;
+      var pt = e.touches && e.touches[0] || e, r = pane.getBoundingClientRect();
+      return pt.clientX >= r.left && pt.clientX <= r.right && pt.clientY >= r.top && pt.clientY <= r.bottom;
+    };
+    K.Deck = Deck;
+    // A device may choose locally. Editing stays on the host's settings page.
+    function createDesignController(o) {
+      var designPick = null, designSource = '', designRef = null, saverHold = null, saverChooser = null, generation = 0, preferenceKey = null;
+      function designOptions() {
+        var HS = window.hkSettings, path = String(location.pathname).split('/')[1] || '';
+        var boards = HS && HS.get('boards', {}), b = boards && boards[path];
+        return (b && b.screensaver_options) || (HS && HS.get('look.saver', {})) || {};
+      }
+      function revision(text) { var n = 2166136261; for (var i = 0; i < text.length; i++) n = Math.imul(n ^ text.charCodeAt(i), 16777619); return (n >>> 0).toString(36); }
+      function key() {
+        var c = o.client(), u = c && c.user, HS = window.hkSettings;
+        return u && (u.id || u.name) && HS && HS.live !== false ? 'hk-saver-design:' + String(location.pathname).split('/')[1] + ':' + (u.id || u.name) : null;
+      }
+      function forget() { try { if (preferenceKey) localStorage.removeItem(preferenceKey); } catch (e) { /* private browser */ } }
+      function designEditor() {
+        var c = o.client(), S = window.hkShell;
+        if (!c || !c.user || !c.user.is_admin || !S || S.atTablet(c) !== false) return null;
+        return S.screensaverEditor ? S.screensaverEditor(String(location.pathname).split('/')[1] || '') : null;
+      }
+      function clearSaverHold() { if (saverHold) clearTimeout(saverHold.timer); saverHold = null; }
+      function openDesigns() {
+        if (!o.running() || o.preview() || saverChooser) return;
+        var options = designOptions(), href = designEditor(), run = ++generation;
+        import('/hk/modules/hk-saver-chooser.js').then(function () {
+          if (!o.running() || saverChooser || run !== generation) return;
+          saverChooser = window.hkSaverChooser.open({ designs: options.designs || [], active: designPick ? designPick.id : options.active_design,
+            client: o.client(), parent: window.hkShell.overlayRoot() || document.body, local: !!designPick,
+            reset: function () { designPick = null; forget(); o.refresh(); },
+            select: function (d) { designPick = d; designRef = designOptions(); designSource = JSON.stringify(designRef); preferenceKey = key();
+              try { if (preferenceKey) localStorage.setItem(preferenceKey, JSON.stringify({ id: d.id, revision: revision(designSource) })); } catch (e) { /* private browser */ }
+              o.refresh(); },
+            edit: href ? function () { var id = designPick ? designPick.id : options.active_design; o.stop('manual'); location.assign(href + (id ? '/' + encodeURIComponent(id) : '')); } : null,
+            close: function () { saverChooser = null; o.touched(); } });
+        }).catch(function () { if (window.hkShell) window.hkShell.toast({ message: 'The screensaver chooser couldn’t load. Please try again.' }); });
+      }
+      function holdDesigns(e) {
+        if (o.preview() || (!designEditor() && !(designOptions().designs || []).length) || !e.pointerId) return false;
+        clearSaverHold();
+        var h = saverHold = { id: e.pointerId, x: e.clientX, y: e.clientY, timer: null };
+        h.timer = setTimeout(function () { if (saverHold !== h) return; clearSaverHold(); openDesigns(); }, 550);
+        return true;
+      }
+      return {
+        open: openDesigns, hold: holdDesigns,
+        options: function () {
+          var current = designOptions(), nowKey = key();
+          if (nowKey && nowKey !== preferenceKey) {
+            preferenceKey = nowKey; designPick = null;
+            try {
+              var saved = JSON.parse(localStorage.getItem(nowKey) || 'null');
+              if (saved && saved.revision === revision(JSON.stringify(current))) designPick = (current.designs || []).find(function (d) { return d.id === saved.id; }) || null;
+              if (saved && !designPick) forget();
+            } catch (e) { /* private / damaged browser storage */ }
+            designRef = current; designSource = JSON.stringify(current);
+          }
+          if (designPick && current !== designRef) {
+            if (JSON.stringify(current) !== designSource) { designPick = null; forget(); }
+            designRef = current;
+          }
+          return designPick && designPick.options;
+        },
+        clear: function () { generation++; clearSaverHold(); if (saverChooser) saverChooser.close(); },
+        input: function (e) {
+          var t = e.type;
+          if (o.running() && !o.preview() && e.composedPath && e.composedPath().some(function (n) { return n && n.hasAttribute && n.hasAttribute('data-hk-saver-control'); })) { o.touched(); return true; }
+          if (saverChooser) { o.touched(); return true; }
+          if (!saverHold) return false;
+          if (e.pointerId !== saverHold.id && t === 'pointerdown') { clearSaverHold(); return true; }
+          if (t === 'pointermove' && Math.hypot(e.clientX - saverHold.x, e.clientY - saverHold.y) > 10) { clearSaverHold(); o.stop('touch'); return true; }
+          if (t === 'pointerup') { clearSaverHold(); o.stop('touch'); return true; }
+          if (t === 'pointercancel') { clearSaverHold(); return true; }
+          if (t !== 'keydown') return true;
+          clearSaverHold(); return false;
+        }
+      };
+    }
+    K.createDesignController = createDesignController;
 
     // what the shell and the later parts use of this one
     K.actionsNow = actionsNow; K.alignOf = alignOf; K.backdropSmall = backdropSmall; K.behindAt = behindAt;

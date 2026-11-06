@@ -2136,9 +2136,7 @@
         }));
       });
     }
-    // THE DOCKED BAR ON EVERY PAGE (a screen's On Every Page): each page of
-    // HK's own kind gets the bar too -- a pop-up lives in its page -- and
-    // hk-popup.js carries it from one to the next without a slide
+    // On Every Page carries the same docked player through ordinary views.
     if (dockBar && b.bar_all_pages) {
       dockBar.carry = true;
       out.forEach(function (v) {
@@ -2355,15 +2353,8 @@
     }
   }
 
-  // THE PAGES SCREEN (docs/phase11/HOMEVIEW-LOOK.md, Phase J; decision 15):
-  // while the screen's Pages Screen is on (hkSettings.pagesScreen: its own,
-  // else All Screens'), a page right after Home -- an iPad-style home screen
-  // of the screen's pages (hk-pages-screen.js) -- at /pages (/pages-screen
-  // where a custom page has that address). It wears Home's sky and theme:
-  // the screen's own background, drawn blurred by the card. Its icons,
-  // rooms, widgets and pill the card reads live; only `show` builds.
-  // `pages_screen: true` is what the menu, the tab bar and Edit mode know it
-  // by (hk-menu.js model: right after Home).
+  // Pages follows Home and reads its icons, rooms and widgets live.
+  // It wears Home's sky and uses /pages-screen when /pages is already taken.
   function pagesScreen(list, b) {
     var HS = window.hkSettings, home = list[0];
     if (!home || !HS || !HS.pagesScreen || HS.pagesScreen(b).show !== 'on') return;
@@ -2372,6 +2363,14 @@
               pages_screen: true, background: home.background || '#05070e',
               layout: { 'grid-template-columns': 'minmax(0, 1fr)', margin: '0px', padding: '0px' },
               cards: [{ type: 'custom:hk-pages-screen-card', glass: false }] };
+    // Pages is inserted after the ordinary views received their docked player.
+    // Carry that same bar here too when On Every Page is enabled.
+    if (b.bar_all_pages) {
+      var bar = list.flatMap(function (page) { return page.cards || []; }).find(function (card) {
+        return (card.cards || []).some(function (c) { return c.type === 'custom:hk-popup-card' && c.hash === '#media' && c.dock; });
+      });
+      if (bar) v.cards.push(bar);
+    }
     if (home.theme) v.theme = home.theme;
     if (home.sky) v.sky = true;
     list.splice(1, 0, v);
@@ -2896,7 +2895,7 @@
       day_look: o.day_look, forecast_big: o.forecast_big, forecast_planted: o.forecast_planted !== false, layout: o.layout || null, tb_size: o.tb_size, tb_top: o.tb_top, tb_dim: o.tb_dim,
       // the clocks (hk-saverclock.js; hk-saver.js readCfg checks them)
       clock: o.clock !== false, clock_over: o.clock_over, clock_style: o.clock_style, clock_bg: o.clock_bg,
-      clock_motion: o.clock_motion, clock_24: o.clock_24 === true, clock_today_music: o.clock_today_music !== false, clock_today_weather: o.clock_today_weather !== false, clock_colors: o.clock_colors, clock_speed: o.clock_speed, clock_depth: o.clock_depth,
+      clock_motion: o.clock_motion, clock_24: o.clock_24 === true, clock_today_music: o.clock_today_music !== false, clock_today_weather: o.clock_today_weather !== false, clock_colors: o.clock_colors, clock_options: o.clock_options, clock_speed: o.clock_speed, clock_depth: o.clock_depth,
       clock_night: o.clock_night, clock_night_from: o.clock_night_from, clock_night_to: o.clock_night_to,
       // a Wallpaper behind the clock (2026-10-31; hk-saverclock.js draws it, hkWallpapers checks both)
       clock_wallpaper: o.clock_wallpaper, clock_wallpaper_color: o.clock_wallpaper_color,

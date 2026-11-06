@@ -348,13 +348,13 @@
   // A FACT SHOWN ONCE (2026-11-02, the plan's rule 5): a face, the big element or a piece placed first that shows a
   // fact hides another piece showing it, and the editor says which shows it. -> { 'zone:i': 'the Today face' }
   // cfg: the screensaver's options (the face is clock_style)
-  var FACE_FACTS = { today: ['weather', 'music'] };
+  var FACE_FACTS = { today: ['weather', 'music'], modular: ['weather'] };
   function claims(O, cfg) {
     var out = {}, seen = {}, zs = O.zones, b = O.big || {};
     var faceHas = b.kind === 'time' ? FACE_FACTS[(cfg || {}).clock_style] || [] : [];
     // (only what the face is set to show: Today's Weather and What's Playing can be turned off)
     if ((cfg || {}).clock_style === 'today') faceHas = faceHas.filter(function (f) { return !(f === 'weather' && cfg.clock_today_weather === false) && !(f === 'music' && cfg.clock_today_music === false); });
-    var faceName = { today: 'the Today face' }[(cfg || {}).clock_style];
+    var faceName = { today: 'the Today face', modular: 'the Modular face' }[(cfg || {}).clock_style];
     // (Glance, Month and the Day face drawing their own words -- no big element of the layout's: what they show)
     var SHOW_FACTS = { glance: ['time', 'weather', 'music', 'date'], month: ['time', 'date'], day: ['date'] };
     if (b.kind === 'none' && SHOW_FACTS[(cfg || {}).show]) { faceHas = SHOW_FACTS[cfg.show]; faceName = 'the ' + { glance: 'Glance', month: 'Month', day: 'Day' }[cfg.show] + ' face'; }

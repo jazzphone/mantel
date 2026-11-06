@@ -420,6 +420,15 @@ class GalleryLibrary(FictionalLibrary):
         self.connected = asyncio.Event()
         self.connected.set()
 
+    def subscribe(self, callback, events=None):
+        return lambda: None
+
+    async def players(self):
+        return []
+
+    async def queues(self):
+        return []
+
     NAMES = {"track": ["Blue in Green", "Late Train Home", "Paper Lanterns", "Saturday Coffee", "Northern Lights",
                        "Slow Tide", "Back Porch", "City at Dusk"],
              "playlist": ["Dinner Party", "Sunday Morning", "Focus", "Road Trip", "Kids' Favorites", "Rainy Day"],
@@ -554,6 +563,12 @@ async def build(base: Path, showcase: bool = False, real_model: bool = False):
     if showcase:
         settings.features = FictionalFeatures()      # the Energy feature is added, with its Power page
 
+    if globals().get('MOTION_PAGES'):
+        class MotionFeatures(FictionalFeatures):
+            def client_part(self, identity):
+                return {**super().client_part(identity), 'added': ['energy', 'live_tv']}
+        settings.features = MotionFeatures()
+
     async def fictional_ha():
         data = json.loads(json.dumps(SETTINGS))
         if showcase:
@@ -566,7 +581,7 @@ async def build(base: Path, showcase: bool = False, real_model: bool = False):
     stand_in_cameras(app)
     stand_in_stills()
     areas = [{"area_id": a, "name": n, "floor_id": f} for a, n, f in ROOMS]
-    entities = [{"entity_id": eid, "area_id": area, "platform": "demo"} for eid, (area, _) in HOUSE.items()]
+    entities = [{"entity_id": eid, "area_id": area, "platform": "hk_tv" if eid.startswith("camera.tv_") else "demo"} for eid, (area, _) in HOUSE.items()]
     hub.registry.load(areas, [], entities, FLOORS)
     hub.store.apply_event({"a": {eid: {"s": s, "a": a, "lc": NOW - 1800, "lu": NOW - 60}
                                  for eid, (_, (s, a)) in HOUSE.items()}})
