@@ -370,7 +370,6 @@ async def test_mantel_link_pins_the_ca_built_off_the_event_loop(tmp_path, monkey
     in the event loop); the first connection builds the context in the executor, once, the same pinning as before
     (Mantel's CA alone, TLS 1.2 or later, the listener's name), and it reaches Mantel Connect's real listener while a
     link pinned to another Mantel's CA does not."""
-    import asyncio
     import ssl
     import threading
 
