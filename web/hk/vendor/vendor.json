@@ -1,0 +1,15 @@
+{
+  "d3-geo.js": {
+    "sha256": "b04741eb186c7f3f850d991afc20c7ebb4078f36415f5eb162808227f760592a",
+    "packages": {
+      "d3-geo": "3.1.1",
+      "d3-array": "3.2.4",
+      "internmap": "2.0.3"
+    },
+    "licenses": {
+      "LICENSE-d3-geo.txt": "3e3edc1224eec9c39cd26491a21304a62883c1e5b6a65c5283ccc7a6cc94baee",
+      "LICENSE-d3-array.txt": "3e6849627f74ff73c257a3ae1efb574015d94fc1035c05ec3c15805165efcbc4",
+      "LICENSE-internmap.txt": "9ea8903938dab5f12c4572d60725069bec2d1b0dc3bcc210b09bae946a5ebb1f"
+    }
+  }
+}

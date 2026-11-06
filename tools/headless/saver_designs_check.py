@@ -19,6 +19,7 @@ async def main():
     ap.add_argument('--size', default='1280x800')
     ap.add_argument('--shots', type=Path)
     ap.add_argument('--thumbs-only', action='store_true', help='check responsive gallery thumbnails only')
+    ap.add_argument('--preview-only', action='store_true', help='check preview controls and face option updates')
     args = ap.parse_args()
     if not os.environ.get('NODE') or not os.environ.get('PLAYWRIGHT_PATH'):
         print('NOT RUN: NODE and PLAYWRIGHT_PATH are required')
@@ -33,8 +34,12 @@ async def main():
     gallery.SETTINGS['settings']['look']['saver'] = original
     gallery.SETTINGS['boards'][screen] = {'title': 'Fictional Design Tablet', 'pages': [], 'screensaver': True, 'screensaver_options': None,
         'side_pane': {'dashboard': {'show': 'off', 'sections': []}, 'saver': {'show': 'own', 'sections': [{'kind': 'clock'}, {'kind': 'weather'}]}}}
+    gallery.SETTINGS['boards']['design-off'] = {'title': 'Fictional Disabled Pane', 'pages': [], 'screensaver': True, 'screensaver_options': None, 'side_pane': {'dashboard': {'show': 'off', 'sections': []}, 'saver': {'show': 'off', 'sections': []}}}
     gallery.HOUSE['sensor.test_market'] = (None, ('123.45', {'friendly_name': 'Fictional Index', 'change_percent': -1.2, 'unit_of_measurement': 'USD'}))
     gallery.HOUSE['sensor.test_news'] = (None, ('3', {'entries': [{'title': 'Fictional headline for the test'}]}))
+    for key,(meta,reading) in list(gallery.HOUSE.items()):
+        if key.startswith('media_player.'):
+            gallery.HOUSE[key] = (meta, ('idle', reading[1]))
     if args.shots:
         args.shots.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as td:
@@ -42,7 +47,7 @@ async def main():
         async with TestServer(app) as server:
             proc = await asyncio.create_subprocess_exec(os.environ['NODE'], str(Path(__file__).with_suffix('.cjs')), stdin=asyncio.subprocess.PIPE)
             await proc.communicate(json.dumps({'origin': str(server.make_url('')).rstrip('/'), 'cookie': cookie, 'engine': args.engine,
-                'size': args.size, 'screen': screen, 'shots': str(args.shots or ''), 'thumbsOnly': args.thumbs_only}).encode())
+                'size': args.size, 'screen': screen, 'shots': str(args.shots or ''), 'thumbsOnly': args.thumbs_only, 'previewOnly': args.preview_only}).encode())
             return proc.returncode
 
 

@@ -326,7 +326,7 @@
       this.galleryOpen = !!o.gallery;
       this.opts = copy(this.M.saverOptions(o.options || {}));
       // (the preview's own, never saved: both start off each time the editor opens)
-      this.slide = ''; this.night = false;
+      this.slide = ''; this.night = false; this.panePreview = null;
       this.ready = Promise.all([
         window.hkSaverLayout ? null : import('/hk/modules/hk-saverlayout.js'),
         window.hkSaverWidgets ? null : import('/hk/modules/hk-saverwidgets.js'),
@@ -438,7 +438,7 @@
     bars() {
       var h = this.h, K = this.K;
       this.slideHost.replaceChildren(h('span', { text: 'Preview' }), K.popup({ label: 'Preview Slide', options: SLIDE_KINDS.map((x) => [x[0], x[0] ? x[1] : 'Screensaver']), value: this.slide, onChange: (v) => this.setSlide(v) }),
-        h('button', { type: 'button', text: this.hidePane ? 'Show Side Pane' : 'Hide Side Pane', 'aria-pressed': this.hidePane ? 'false' : 'true', onclick: () => { this.hidePane = !this.hidePane; this.bars(); this.applyExtras(); this.overlaySoon(); } }));
+        K.popup({ label: 'Side Pane Preview', value: this.panePreview === null ? 'saved' : this.panePreview ? 'show' : 'hide', options: [['saved', 'As Saved'], ['show', 'Show'], ['hide', 'Hide']], onChange: (v) => { this.panePreview = v === 'saved' ? null : v === 'show'; this.applyExtras(); this.overlaySoon(); } }));
       this.todBar.replaceChildren.apply(this.todBar, [['day', 'Day'], ['night', 'Night']].map((d) => h('button', { type: 'button', text: d[1],
         'aria-pressed': (d[0] === 'night') === this.night ? 'true' : 'false', onclick: () => this.setNight(d[0] === 'night') })));
     }
@@ -452,7 +452,7 @@
     applyExtras() {
       var S = this.saver();
       if (!S) return;
-      try { if (S.previewPane) S.previewPane(!this.hidePane); } catch (e) { /* loading */ }
+      try { if (S.previewPane) S.previewPane(this.panePreview); } catch (e) { /* loading */ }
       // (night first: a slide asked for after it is the one that shows)
       try { if (typeof S.previewNight === 'function') S.previewNight(this.night); } catch (e) { /* not yet */ }
       try { if (typeof S.previewSlide === 'function') this.slideOk = S.previewSlide(this.slide || null) !== false || !this.slide; } catch (e) { /* not yet */ }
@@ -469,11 +469,11 @@
       if (this.slide) {
         var status = this.saver() && this.saver().previewStatus && this.saver().previewStatus();
         var key = this.slideKey(this.slide), S = LM.SLIDES[key];
-        this.under.replaceChildren(h('b', { text: 'The ' + (S ? S.name : this.slide) + ' slide. ' }), document.createTextNode((status && status.message ? status.message + ' ' : '') + this.cornerWords(this.slide) + ' Choose Screensaver to edit the screen.'));
+        this.under.replaceChildren(h('b', { text: 'The ' + (S ? S.name : this.slide) + ' slide. ' }), document.createTextNode((status && status.message ? status.message + ' ' : '') + (status && status.paneMessage ? status.paneMessage + ' ' : '') + this.cornerWords(this.slide) + ' Choose Screensaver to edit the screen.'));
         return;
       }
       var ps = this.saver() && this.saver().previewStatus && this.saver().previewStatus();
-      this.under.replaceChildren(document.createTextNode((ps && ps.paneMessage ? ps.paneMessage + ' ' : '') + 'The screensaver itself, including this screen’s configured Side Pane. Hide Side Pane affects only this preview. Tap something on it to change it; tap a piece on the left, then a green place, to add one. Nothing here acts on the house.'));
+      this.under.replaceChildren(document.createTextNode((ps && ps.paneMessage ? ps.paneMessage + ' ' : '') + 'Side Pane: As Saved follows this screen’s settings; Show and Hide affect only this preview. Tap something on it to change it; tap a piece on the left, then a green place, to add one. Nothing here acts on the house.'));
     }
     fit() {
       if (!this.box) return;

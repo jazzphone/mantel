@@ -85,7 +85,8 @@
         "weatherPage",
         "go",
         "Deck",
-        "createDesignController"
+        "createDesignController",
+        "previewPaneOf"
       ]
     },
     {
@@ -147,7 +148,8 @@
         "DAY_GAP",
         "weatherEntity",
         "energyPage",
-        "EX_PREVIEW_MS"
+        "EX_PREVIEW_MS",
+        "faceScale"
       ]
     },
     {
@@ -191,7 +193,10 @@
         "volSend",
         "volEnd",
         "PANEL_IDLE",
-        "PANEL_TURN"
+        "PANEL_TURN",
+        "SAMPLE_ART",
+        "previewMusicData",
+        "musicParts"
       ]
     },
     {

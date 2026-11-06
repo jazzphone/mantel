@@ -144,10 +144,10 @@
       blackPage, BRIGHT_KEY, callWS, ckFx, cleanDepth, cleanFocus, cleanVariants, clearCanvas, clientNow, coverRect,
       coverShare, CSS, DASH_CSS, DASH_SWIPE, dashLive, dashSeg, dashViews, DAY_GAP, deg, drawBackdrop, drawMusic,
       drawnRect, elapsed, energyPage, EX_PREVIEW_MS, EXTRA_ORDER, extrasOf, FACE_SHOWS, faceOrigin, facesModule,
-      faceWindow, FC_TICK_MS, feedCard, fitOf, FOCUS_F, framed, fromSettings, gate, glyphBox, go, held, hkBoard,
+      faceWindow, FC_TICK_MS, feedCard, faceScale, fitOf, FOCUS_F, framed, fromSettings, gate, glyphBox, go, held, hkBoard,
       hkUnheard, hostPhotoList, hostPhotoSource, houseBlock, inkOf, INKS, isFlat, isImage, kiosk, LANDSCAPES,
       landShares, layoutOf, load, minsOf, mmss, MOSAIC_COLORS, mosaicAssign, mosaicPlan, MOSAICS, MU_BG, MU_GRACE,
-      MU_SLOP, muGrace, mus, musicHas, musicNow, musicOf, musicPage, musicPaneView, musicPlaying, musicUsed,
+      MU_SLOP, muGrace, mus, musicHas, musicNow, musicOf, musicPage, musicPaneView, musicParts, musicPlaying, musicUsed, previewMusicData, previewPaneOf,
       musicView, nextArt, PANE_OWN, PANE_VARS, panel, PANEL_IDLE, PANEL_TURN, paneOf, photoLum, photoOpts, photoUrl,
       pieceFile, piecesStarted, progress, rampBacklight, readCfg, reducedMotion, refreshSoon, rememberedTabletId,
       sansClock, sansShapes, sansSlides, scaleOf, sendWS, setAttr, setBacklight, shapeOfPh, shuffle, sigOf,
@@ -271,7 +271,7 @@
   var previewHouse = false;
   // ...and Home Energy's Options: the energy screen, held (2026-10-14)
   var previewEnergy = false, previewWeather = false;
-  var previewSelected = '', previewPane = true;
+  var previewSelected = '', previewPane = null, previewPaneNote = '';
   // ...and the options HK Settings hands it as they change (2026-10-31, the owner: "just what they're changing,
   // updating in place"): drawn from them at once -- not after the save has gone round the server and back, and the
   // settings are next read (refreshSoon: every 2 s) -- and kept until the preview ends, so the save, when it comes
@@ -1834,7 +1834,7 @@
         var ink = inkOf(face, true), x0 = ink ? ink.x0 : fr.left, y0 = ink ? ink.y0 : fr.top, x1 = ink ? ink.x1 : fr.right, y1 = ink ? ink.y1 : fr.bottom;
         // (the figures 0.72 of the size, as Time Behind's are: the same size is the same time, in front or behind)
         var want = ANALOG[cfg.clock_style] ? fs * 1.9 : fs * 0.72;
-        big.scale = want / Math.max(1, y1 - y0);
+        big.scale = faceScale(want, x1 - x0, y1 - y0, R.room, !!el2.querySelector('.df'));
         big.off = { x: (x0 - br.left) * big.scale, y: (y0 - br.top) * big.scale };
         big.size = { w: (x1 - x0) * big.scale, h: (y1 - y0) * big.scale };
         el2.style.width = R.room.w * big.scale + 'px';
@@ -2263,7 +2263,7 @@
       var fx = ckFx(cfg);
       if (fx !== 'none') layer.style.filter = fx;
     }
-    root.insertBefore(layer, root.querySelector('.info'));
+    root.insertBefore(layer, root.querySelector('.lay') || root.querySelector('.info'));
     var face = bg === 'face';
     Promise.all([clockModule(), face ? facesModule() : null]).then(function (got) {
       var C = got[0], F = got[1];
@@ -2296,13 +2296,13 @@
     return !!(cfg && FACE_SHOWS[cfg.show] && X && X.inkFor && X.inkFor(cfg.show, cfg.day_look, new Date()) === 'dark');
   }
   function slidesAgain() {
-    if (muShowing) { musicParts(slideView()); layoutMusic(); }
+    if (muShowing) { musicParts(slideView(), cfg.music_hide); layoutMusic(); }
     if (scn && slideNow()) cornerDraw(slideNow());
     return true;
   }
   function remountClock() {
     var laid = !!ly;
-    if (laid) { layoutBigOff(); layoutSoon(); }
+    if (laid) { layoutDraw(); layoutSoon(); }
     if (!ckArgs || !root || !root.querySelector('.ck')) return laid;
     var a = ckArgs;
     ckRun++;
@@ -2821,6 +2821,9 @@
     var h = clientNow();
     if ((!on && !dashLive()) || !h) return null;
     var ctx = musicNow(h), now = clock.now();
+    if (previewOn && previewSelected === 'music' && !(ctx && ctx.playing)) {
+      mus.views.forEach(function (v) { drawMusic(v, v.kind === 'slide' ? previewMusicData() : musicOf(ctx, h)); }); musicTick(); return ctx;
+    }
     var d = musicOf(ctx, h);
     // A PAUSE THAT READS AS "IDLE" (2026-10-15): Music Assistant's AirPlay
     // speakers -- the house's HomePods -- report a pause as idle, so the
@@ -2929,6 +2932,7 @@
     if (muShowing && mode === 'photos') schedule();
   }
   function musicAct(hit, x) {
+    if (hit && hit.view.d && hit.view.d.sample) return;
     if (!hit || hit.view.kind !== 'dash') { saverTouched(); musicUsed(); }
     if (hit && hit.art) { openMusic(hit); return; }
     if (hit && hit.vol) { volStart(hit, x); return; }
@@ -3163,13 +3167,13 @@
   function showMusicSlide(first) {
     if (!on || !root || !host || muShowing) return muShowing;
     var ctx = musicNow(clientNow());
-    if (!ctx || !ctx.playing) return false;
+    if ((!ctx || !ctx.playing) && !(previewOn && previewSelected === 'music')) return false;
     var v = buildMusicSlide(), run = photoRun;
     // (Home Energy over everything: the music in its place)
     if (enShowing) { hideEnergySlide(); if (exKind === 'energy') exKind = ''; }
     if (wxShowing) { hideWeatherSlide(); if (exKind === 'weather') exKind = ''; }
     muShowing = true; sinceFc = 0; lastSlide = 'music'; mus.lostAt = 0;
-    musicParts(v);
+    musicParts(v, cfg.music_hide);
     renderMusic();
     host.setAttribute('muslide', '');
     updateBand();
@@ -3186,11 +3190,6 @@
     v.ready.then(function () { requestAnimationFrame(reveal1); });
     setTimeout(reveal1, 1500);
     return true;
-  }
-  // WHAT MUSIC FULL SCREEN LEAVES OUT (the Slides section, music_hide): the slide's, never the side pane's
-  function musicParts(v) {
-    if (!v || !v.el) return;
-    ['room', 'album', 'progress', 'buttons', 'volume', 'next'].forEach(function (k) { v.el.classList.toggle('h-' + k, (cfg.music_hide || []).indexOf(k) >= 0); });
   }
   function hideMusicSlide() {
     if (!muShowing) return;
@@ -3995,7 +3994,8 @@
     var HS = window.hkSettings;
     if (raw && HS && HS.get) {
       var bAll = HS.get('boards', null), bNow = bAll && bAll[String(location.pathname).split('/')[1] || ''];
-      raw = withPane(raw, previewOn && !previewPane ? { saver: { show: 'off' } } : (bNow && bNow.side_pane_read) || HS.get('side_pane', null));
+      var pvPane = previewPaneOf((bNow && bNow.side_pane_read) || HS.get('side_pane', null), previewOn ? previewPane : null);
+      raw = withPane(raw, pvPane.settings); previewPaneNote = previewOn ? pvPane.message : '';
     }
     var SP = window.hkSidePane;
     if (raw && SP && SP.placement(window.innerWidth, window.innerHeight, { width: raw.pane_width }).kind === 'none') raw = Object.assign({}, raw, { calendar: false, music_pane: false, pane_list: null });
@@ -4097,14 +4097,14 @@
     drawnRect = K.drawnRect; elapsed = K.elapsed; energyPage = K.energyPage; EX_PREVIEW_MS = K.EX_PREVIEW_MS;
     EXTRA_ORDER = K.EXTRA_ORDER; extrasOf = K.extrasOf; FACE_SHOWS = K.FACE_SHOWS; faceOrigin = K.faceOrigin;
     facesModule = K.facesModule; faceWindow = K.faceWindow; FC_TICK_MS = K.FC_TICK_MS; feedCard = K.feedCard;
-    fitOf = K.fitOf; FOCUS_F = K.FOCUS_F; framed = K.framed; fromSettings = K.fromSettings; gate = K.gate;
+    faceScale = K.faceScale; fitOf = K.fitOf; FOCUS_F = K.FOCUS_F; framed = K.framed; fromSettings = K.fromSettings; gate = K.gate;
     glyphBox = K.glyphBox; go = K.go; held = K.held; hkBoard = K.hkBoard; hkUnheard = K.hkUnheard;
     hostPhotoList = K.hostPhotoList; hostPhotoSource = K.hostPhotoSource; houseBlock = K.houseBlock; inkOf = K.inkOf;
     INKS = K.INKS; isFlat = K.isFlat; isImage = K.isImage; kiosk = K.kiosk; LANDSCAPES = K.LANDSCAPES;
     landShares = K.landShares; layoutOf = K.layoutOf; load = K.load; minsOf = K.minsOf; mmss = K.mmss;
     MOSAIC_COLORS = K.MOSAIC_COLORS; mosaicAssign = K.mosaicAssign; mosaicPlan = K.mosaicPlan; MOSAICS = K.MOSAICS;
     MU_BG = K.MU_BG; MU_GRACE = K.MU_GRACE; MU_SLOP = K.MU_SLOP; muGrace = K.muGrace; mus = K.mus;
-    musicHas = K.musicHas; musicNow = K.musicNow; musicOf = K.musicOf; musicPage = K.musicPage;
+    previewMusicData = K.previewMusicData; previewPaneOf = K.previewPaneOf; musicParts = K.musicParts; musicHas = K.musicHas; musicNow = K.musicNow; musicOf = K.musicOf; musicPage = K.musicPage;
     musicPaneView = K.musicPaneView; musicPlaying = K.musicPlaying; musicUsed = K.musicUsed; musicView = K.musicView;
     nextArt = K.nextArt; PANE_OWN = K.PANE_OWN; PANE_VARS = K.PANE_VARS; panel = K.panel; PANEL_IDLE = K.PANEL_IDLE;
     PANEL_TURN = K.PANEL_TURN; paneOf = K.paneOf; photoLum = K.photoLum; photoOpts = K.photoOpts;
@@ -4334,7 +4334,7 @@
     });
     window.hkShell.onNavigate(function () { setTimeout(refresh, 0); });
     window.addEventListener('popstate', function () { setTimeout(refresh, 0); });
-    window.addEventListener('resize', function () { if (on) { layoutPane(); layoutMusic(); placePanel(); setTimeout(dayFit, 50); } });
+    window.addEventListener('resize', function () { if (on) { if (previewOn) refresh(); layoutPane(); layoutMusic(); placePanel(); setTimeout(dayFit, 50); } });
     document.addEventListener('visibilitychange', function () {
       if (!document.hidden) { lastInput = Date.now(); armIdle(); resumedAt = clock.now(); }
       musicTick();
@@ -4371,10 +4371,10 @@
         }
         return syncPreviewSlide();
       },
-      previewPane: function (show) { previewPane = show !== false; if (previewOn) refresh(); return previewPane; },
+      previewPane: function (show) { var next = show === true ? true : show === false ? false : null; if (next !== previewPane) { previewPane = next; if (previewOn) refresh(); } return previewPane; },
       previewStatus: function () {
-        return { selected: previewSelected, ready: syncPreviewSlide() || previewSelected === 'forecast' && mode === 'forecast', pane: paneUp, paneMessage: window.hkSidePane && window.hkSidePane.placement(window.innerWidth, window.innerHeight, { width: cfg && cfg.pane_width }).kind === 'none' ? 'The Side Pane needs more room. Choose Wall Tablet or iPad Upright to preview it.' : '',
-          message: previewSelected === 'music' && !musicPlaying() ? 'Play music to preview the Music slide.' :
+        return { selected: previewSelected, ready: syncPreviewSlide() || previewSelected === 'forecast' && mode === 'forecast', pane: paneUp, paneMessage: window.hkSidePane && window.hkSidePane.placement(window.innerWidth, window.innerHeight, { width: cfg && cfg.pane_width }).kind === 'none' ? 'The Side Pane needs more room. Choose Wall Tablet or iPad Upright to preview it.' : previewPaneNote,
+          message: previewSelected === 'music' && !musicPlaying() ? 'Sample music · playback controls are inactive.' :
             previewSelected === 'energy' && !energyReady() ? 'Home Energy needs energy data before its slide can be shown.' :
             previewSelected === 'weather' && !weatherReady() ? 'Waiting for weather data…' : previewSelected === 'forecast' && mode === 'forecast' ? 'Forecast is already the background for this design.' : '' };
       },
@@ -4410,7 +4410,7 @@
           if (previewOn && on && v) setTimeout(restartPreview, 0);
         }
         previewOn = !!v;
-        if (!previewOn) { lastPh = null; nightPreview = null; previewSelected = ''; previewPane = true; }
+        if (!previewOn) { lastPh = null; nightPreview = null; previewSelected = ''; previewPane = null; previewPaneNote = ''; }
         force = previewOn;
         refresh();
         if (previewOn && !on) start('preview');

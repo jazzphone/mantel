@@ -62,6 +62,17 @@
       return null;
     }
     function musicPlaying() { var c = musicNow(clientNow()); return !!(c && c.playing); }
+    // A self-contained preview, with no entity, queue lookup or playback action.
+    var SAMPLE_ART = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800" viewBox="0 0 800 800"><defs><linearGradient id="g" x2="1" y2="1"><stop stop-color="#243d7e"/><stop offset=".55" stop-color="#82658e"/><stop offset="1" stop-color="#edac79"/></linearGradient></defs><path fill="url(#g)" d="M0 0h800v800H0z"/><circle cx="400" cy="400" r="245" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="2"/><circle cx="400" cy="400" r="190" fill="none" stroke="#fff" stroke-opacity=".2"/><path d="M300 480V285l220-45v195M300 330l220-45" fill="none" stroke="#fff" stroke-width="18" stroke-linejoin="round"/><ellipse cx="268" cy="480" rx="42" ry="30" fill="#fff"/><ellipse cx="488" cy="435" rx="42" ry="30" fill="#fff"/></svg>');
+    function previewMusicData() {
+      return { sample: true, idle: false, key: '', members: [], room: 'Sample Room', playing: false,
+        title: 'Late Light', artist: 'The Harbor Quartet', album: 'Evening Session', pic: SAMPLE_ART,
+        dur: 242, pos: 83, posAt: 0, vol: .38, next: { title: 'Morning Tide', artist: 'The Harbor Quartet', image: '' } };
+    }
+    function musicParts(v, hide) {
+      if (!v || !v.el) return;
+      ['room', 'album', 'progress', 'buttons', 'volume', 'next'].forEach(function (k) { v.el.classList.toggle('h-' + k, (hide || []).indexOf(k) >= 0); });
+    }
     // what a view draws: the song, or (nothing playing) the room a play would start
     function musicOf(ctx, h) {
       var M = window.hkMusic;
@@ -221,6 +232,7 @@
     function drawMusic(v, d) {
       var idle = !d || d.idle;
       v.d = d;
+      setAttr(v.el, 'sample', !!(d && d.sample));
       // (Speakers and Browse once their panel's code is here: a view made
       // before hk-saver-panel.js loaded kept them hidden for good -- the Side
       // Pane's player without them, 2026-10-30)
@@ -235,12 +247,12 @@
       }
       setText(v.title, idle ? 'Not Playing' : d.title);
       setText(v.artist, idle ? '' : d.artist);
-      setText(v.album, idle ? '' : [d.album, mus.year].filter(Boolean).join(' · '));
+      setText(v.album, idle ? '' : [d.album, d.sample ? '' : mus.year].filter(Boolean).join(' · '));
       /** @type {any} */ var want = idle ? ICON.play : d.playing ? ICON.pause : ICON.play;
       if (v.pp.getAttribute('d') !== want) v.pp.setAttribute('d', want);
       var pic = idle ? '' : d.pic;
       if (pic !== v.pic) { v.pic = pic; showArt(v, pic); }
-      var nx = !idle && mus.next && mus.nextFor === sigOf(d) ? mus.next : null;
+      var nx = !idle && (d.sample ? d.next : mus.next && mus.nextFor === sigOf(d) ? mus.next : null);
       // (asking: the last song's row keeps its place, unseen, until the answer)
       var wait = !nx && !idle && !!mus.nextBusy && !!v.hadNext;
       if (nx) v.hadNext = true; else if (!wait) v.hadNext = false;
@@ -388,6 +400,6 @@
     K.musicPaneView = musicPaneView; K.musicPlaying = musicPlaying; K.musicUsed = musicUsed; K.musicView = musicView;
     K.nextArt = nextArt; K.PANEL_IDLE = PANEL_IDLE; K.PANEL_TURN = PANEL_TURN; K.progress = progress;
     K.setAttr = setAttr; K.sigOf = sigOf; K.slideView = slideView; K.upNextPiece = upNextPiece; K.volEnd = volEnd;
-    K.volFrom = volFrom;
+    K.volFrom = volFrom; K.previewMusicData = previewMusicData; K.musicParts = musicParts;
   };
 })();

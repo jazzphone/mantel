@@ -253,6 +253,23 @@
       } else if (secs.length) out.pane_list = secs;
       return out;
     }
+    // Preview visibility never edits the screen's saved Side Pane. Explicit Show
+    // also displays inactive sections, so an empty/disabled pane can be designed.
+    function previewPaneOf(sp, mode) {
+      var out = { settings: sp, message: '' }, g = (sp && sp.saver) || {};
+      if (mode === null) {
+        if (g.show === 'off') out.message = 'The screensaver Side Pane is off in saved settings. Choose Show to preview it.';
+        return out;
+      }
+      if (mode === false) { out.settings = Object.assign({}, sp, { saver: { show: 'off' } }); return out; }
+      var secs = paneSecs(sp), fallback = !secs.length;
+      if (fallback) secs = ((sp && sp.dashboard) || {}).sections || [];
+      if (!secs.length) { secs = [{ kind: 'clock' }, { kind: 'weather' }, { kind: 'calendar', days: 7 }]; out.message = 'Sample Side Pane · preview only.'; }
+      else if (fallback) out.message = 'Showing dashboard sections for this preview. The saved screensaver Side Pane stays off.';
+      else if (secs.some(function (s) { return s.when === 'active'; })) out.message = 'Preview only: conditional sections are shown even when inactive.';
+      out.settings = Object.assign({}, sp, { saver: { show: 'own', sections: secs.map(function (s) { return Object.assign({}, s, { when: 'always' }); }) } });
+      return out;
+    }
     // Which slide comes next among the photos: the music (only while it
     // plays), the forecast (Photos & Forecast), the weather and Home Energy
     // (each once it has something to show) take turns, in that order.
@@ -790,6 +807,6 @@
     K.shuffle = shuffle; K.slideOf = slideOf; K.SLOP = SLOP; K.sunDown = sunDown; K.tabletId = tabletId;
     K.tabletNow = tabletNow; K.tagOf = tagOf; K.TB_COVER = TB_COVER; K.TB_WAIT = TB_WAIT; K.tbKey = tbKey;
     K.tbShare = tbShare; K.tbShares = tbShares; K.turnOf = turnOf; K.user = user; K.viewFont = viewFont;
-    K.weatherPage = weatherPage; K.withPane = withPane; K.zoneOf = zoneOf;
+    K.weatherPage = weatherPage; K.withPane = withPane; K.previewPaneOf = previewPaneOf; K.zoneOf = zoneOf;
   };
 })();

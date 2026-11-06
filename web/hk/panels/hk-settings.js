@@ -952,7 +952,7 @@
       // WHICH PHOTO (2026-10-13): Any, or a Portrait or Landscape one -- held
       // while its settings change, so a crop or a blur can be judged
       var shape = this._saverEnergy ? 'energy' : this._saverWx ? 'weather' : this._saverShape || '';
-      if (!on) { this._saverOver = null; this._saverSlide = ''; this._saverPaneHidden = false; }
+      if (!on) { this._saverOver = null; this._saverSlide = ''; this._saverPanePreview = null; }
       // (a frame on its way to the screensaver alone, or back, is asked nothing until it is there: its old page
       // would answer -- frameSrc changes its address)
       var bound = this.previewSrc(this._frameMode);
@@ -962,7 +962,7 @@
         if (/hk_preview=saver/.test(bound) !== /hk_preview=saver/.test(at)) return false;
         if (S && typeof S.preview === 'function') {
           S.preview(on, shape || null, !!house, on ? self._saverOver : null);
-          if (S.previewPane) S.previewPane(!self._saverPaneHidden);
+          if (S.previewPane) S.previewPane(self._saverPanePreview == null ? null : self._saverPanePreview);
           if (S.previewSlide) S.previewSlide(on ? self._saverEnergy ? 'energy' : self._saverWx ? 'weather' : self._saverSlide || null : null);
           return true;
         }
@@ -989,11 +989,11 @@
         var wrap = col.querySelector('.pvsaver'), info = h('p', { class: 'gf', role: 'status', 'aria-live': 'polite' });
         if (wrap) {
           if (!this._saverEnergy && !this._saverWx) wrap.appendChild(K.select({ label: 'Preview Slide', value: this._saverSlide || '', options: [['', 'Screensaver'], ['forecast', 'Forecast'], ['weather', 'Weather'], ['music', 'Music'], ['energy', 'Home Energy']], onChange: function (v) { self._saverSlide = v; self.saverPreview(true); } }));
-          wrap.appendChild(K.toggle({ label: 'Include Side Pane', on: !this._saverPaneHidden, onChange: function (v) { self._saverPaneHidden = !v; self.saverPreview(true); } }));
+          wrap.appendChild(K.select({ label: 'Side Pane Preview', value: this._saverPanePreview == null ? 'saved' : this._saverPanePreview ? 'show' : 'hide', options: [['saved', 'As Saved'], ['show', 'Show'], ['hide', 'Hide']], onChange: function (v) { self._saverPanePreview = v === 'saved' ? null : v === 'show'; self.saverPreview(true); } }));
           wrap.appendChild(info);
           var status = function () {
             try { var S = fr.contentWindow && fr.contentWindow.hkSaver, state = S && S.previewStatus && S.previewStatus();
-              info.textContent = state ? state.message || state.paneMessage || (!self._saverPaneHidden && !state.pane ? 'This screen’s Side Pane is off or has no visible sections. Configure it on the Side Pane page.' : 'The selected view stays here while you edit. These controls affect only the preview.') : 'Loading preview…';
+              info.textContent = state ? state.message || state.paneMessage || (self._saverPanePreview !== false && !state.pane ? 'This screen’s Side Pane is off or has no visible sections. Configure it on the Side Pane page.' : 'The selected view stays here while you edit. These controls affect only the preview.') : 'Loading preview…';
             } catch (e) { /* frame changing */ }
           };
           status(); this._saverStatusWait = setInterval(status, 500);

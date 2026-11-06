@@ -18,6 +18,7 @@ esbuild stage and tools/package.json don't change. Node: $NODE, else node on the
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -89,12 +90,34 @@ def tsc(project: Path) -> list[dict]:
     return out
 
 
+def vendored_files() -> set[str]:
+    """Only checksum-pinned third-party bundles are outside authored-JS coverage.
+
+    Their original licenses must be present and pinned too. A changed bundle or
+    missing license fails the check rather than becoming an unchecked exception.
+    """
+    folder = ROOT / 'web/hk/vendor'
+    manifest = folder / 'vendor.json'
+    if not manifest.exists():
+        return set()
+    out = set()
+    for name, pin in json.loads(manifest.read_text()).items():
+        if Path(name).name != name or not name.endswith('.js') or not pin.get('licenses'):
+            raise ValueError(f'invalid vendor pin: {name}')
+        for file, digest in {name: pin['sha256'], **pin['licenses']}.items():
+            path = folder / file
+            if Path(file).name != file or not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != digest:
+                raise ValueError(f'vendor checksum or license differs: {file}')
+        out.add(str((folder / name).relative_to(ROOT)))
+    return out
+
+
 def checked_files() -> list[str]:
     """The files that opt in (// @ts-check on one of their first lines)."""
-    out = []
+    out, external = [], vendored_files()
     for base in SOURCES:
         for path in sorted((ROOT / base).rglob("*.js")):
-            if "node_modules" in path.parts:
+            if "node_modules" in path.parts or str(path.relative_to(ROOT)) in external:
                 continue
             if LEADING_TS_CHECK.match(path.read_text(errors="replace")):
                 out.append(str(path.relative_to(ROOT)))
@@ -102,8 +125,9 @@ def checked_files() -> list[str]:
 
 
 def all_files() -> list[str]:
+    external = vendored_files()
     return [str(p.relative_to(ROOT)) for base in SOURCES for p in sorted((ROOT / base).rglob("*.js"))
-            if "node_modules" not in p.parts]
+            if "node_modules" not in p.parts and str(p.relative_to(ROOT)) not in external]
 
 
 def measure() -> dict[str, int]:
@@ -115,7 +139,10 @@ def measure() -> dict[str, int]:
                                    + [str(HERE / "types/*.d.ts")]}))
         errors = tsc(cfg)
     counts = {f: 0 for f in all_files()}
+    external = vendored_files()
     for e in errors:
+        if e['file'] in external:
+            continue
         counts[e["file"]] = counts.get(e["file"], 0) + 1
     return dict(sorted(counts.items()))
 

@@ -935,7 +935,7 @@
     ['meridian', 'Meridian', 'A sunburst watch'], ['markets', 'Markets', 'Your market sensors'],
     ['brief', 'Daily Brief', 'Headlines from your news sensor'], ['modular', 'Modular', 'Time, weather and a dial']
   ];
-  var DESIGN_CSS = '.df{position:relative;width:90cqw;height:80cqh;max-width:140cqh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3cqh;color:var(--ckfg,#dfeaff);box-sizing:border-box;font-variant-numeric:tabular-nums}.df svg{display:block;overflow:visible}.df .design-time{font-size:18cqh;font-weight:300;letter-spacing:-.055em;line-height:1}.df .design-date{font-size:3cqh;letter-spacing:.14em;text-transform:uppercase;opacity:.75}.df .dial{width:64cqh;height:64cqh;max-width:76cqw;flex:none}.df .dial text{font-family:Georgia,serif;font-size:22px;fill:currentColor;text-anchor:middle;dominant-baseline:central}.df .hand{stroke:currentColor;stroke-linecap:round}.df .dh{stroke-width:9}.df .dm{stroke-width:5}.df .ds{stroke-width:1.5;stroke:var(--ckaccent,#80b6ff)}.df .city-row{display:flex;gap:4cqw;justify-content:center;width:100%}.df .city{flex:1;min-width:0;text-align:center}.df .city b{font-size:3cqh;letter-spacing:.07em;font-weight:500}.df .city strong{display:block;font-size:6cqh;font-weight:300;margin-top:1cqh}.df .city small{font-size:2.5cqh;opacity:.55}.df .city .dial{width:100%;height:auto;max-width:none;margin-bottom:3cqh}.df.hotel .city-row{gap:3cqw}.df.hotel{max-width:none}.df.terminal{align-items:stretch;max-width:130cqh;background:#151617;border:1px solid #ffffff25;padding:5cqh;border-radius:2cqh}.df.terminal .board-row{display:grid;grid-template-columns:1fr auto;gap:3cqw;border-top:1px solid #ffffff25;padding:2cqh 0;font:4.5cqh ui-monospace,monospace;letter-spacing:.04em}.df.terminal .board-row strong{background:repeating-linear-gradient(0deg,#ffffff08 0 49%,#000 50% 51%,#ffffff08 52%);padding:0 1cqw}.df.terminal .design-time{font-size:10cqh}.df .feed{width:100%;max-height:52cqh;overflow:hidden}.df .feed-row{display:flex;gap:3cqw;justify-content:space-between;border-top:1px solid #ffffff30;padding:2.5cqh 0;font-size:3.7cqh}.df .feed-row strong{font-weight:500}.df .feed-row p{margin:0;line-height:1.4}.df .empty-feed{font-size:3.2cqh;line-height:1.5;opacity:.7;text-align:center;max-width:70cqw}.df.brief{align-items:flex-start}.df.brief .feed-row{font-family:Georgia,serif;font-size:4.4cqh}.df.markets .up{color:#72d9ab}.df.markets .down{color:#ff817b}.df .globe{width:52cqh;height:52cqh;max-width:70cqw}.df.world .design-time{font-size:10cqh}.df .modular-grid{display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:5cqw}.df.modular .dial{width:34cqh;height:34cqh}.df.modular .design-time{font-size:16cqh}.df .mod-weather{font-size:5cqh;line-height:1.5}.df.prism .design-time{font-size:26cqh;font-weight:800;position:relative;text-shadow:2cqh 2cqh 0 #0002}.df.prism::before{content:"";position:absolute;inset:0;background:linear-gradient(125deg,#a7ceff55,#ff83b955,#e8ed8a55);clip-path:polygon(12% 8%,76% 0,100% 67%,35% 100%,0 52%);transform:rotate(-12deg)}.df.prism[data-variant=outline] .design-time{-webkit-text-stroke:.25cqh currentColor;color:transparent}.df.prism[data-variant=solid]::before{opacity:1;background:var(--ckaccent,#798fff)}.df.prism[data-variant=glass]::before{box-shadow:inset 0 0 10cqh #fff}.df.solar .solar-orbit{fill:none;stroke:currentColor;opacity:.3}.df.solar .sun-dot{fill:var(--ckaccent,#f7bd67)}.ckroot:has(.df){background:radial-gradient(ellipse at 50% 45%,#293044,#080a13 78%)}.ckroot.bare:has(.df){background:none}.ckroot.night .df{color:#f66;background:#000}.ckroot.night .df .ds{display:none}.df[data-texture=paper]{background:#ded9cc;color:#24221e;border-radius:1cqh}.df[data-texture=linen]{background:repeating-linear-gradient(0deg,#ffffff05 0 1px,transparent 1px 3px)}.df[data-board=light]{background:#dfdcd3;color:#222}.df[data-board=amber]{color:#ffbc58}';
+  var DESIGN_CSS = '.df{position:relative;width:90cqw;height:80cqh;max-width:140cqh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3cqh;color:var(--ckfg,#dfeaff);box-sizing:border-box;font-variant-numeric:tabular-nums}.df svg{display:block;overflow:visible}.df .design-time{font-size:18cqh;font-weight:300;letter-spacing:-.055em;line-height:1}.df .design-date{font-size:3cqh;letter-spacing:.14em;text-transform:uppercase;opacity:.75}.df .dial{width:64cqh;height:64cqh;max-width:76cqw;flex:none}.df .dial text{font-family:Georgia,serif;font-size:22px;fill:currentColor;text-anchor:middle;dominant-baseline:central}.df .hand{stroke:currentColor;stroke-linecap:round}.df .dh{stroke-width:9}.df .dm{stroke-width:5}.df .ds{stroke-width:1.5;stroke:var(--ckaccent,#80b6ff)}.df .city-row{display:flex;gap:4cqw;justify-content:center;width:100%}.df .city{flex:1;min-width:0;text-align:center}.df .city b{font-size:min(3cqh,3cqw);letter-spacing:.07em;font-weight:500}.df .city strong{display:block;font-size:min(6cqh,5cqw);font-weight:300;margin-top:1cqh}.df .city small{font-size:2.5cqh;opacity:.55}.df .city .dial{width:100%;height:auto;max-width:none;margin-bottom:3cqh}.df.hotel .city-row{gap:3cqw}.df.hotel{max-width:none}.df.terminal{align-items:stretch;max-width:130cqh;background:#151617;border:1px solid #ffffff25;padding:5cqh;border-radius:2cqh}.df.terminal .board-row{display:grid;grid-template-columns:1fr auto;gap:3cqw;border-top:1px solid #ffffff25;padding:2cqh 0;font:4.5cqh ui-monospace,monospace;letter-spacing:.04em}.df.terminal .board-row strong{background:repeating-linear-gradient(0deg,#ffffff08 0 49%,#000 50% 51%,#ffffff08 52%);padding:0 1cqw}.df.terminal .design-time{font-size:10cqh}.df .feed{width:100%;max-height:52cqh;overflow:hidden}.df .feed-row{display:flex;gap:3cqw;justify-content:space-between;border-top:1px solid #ffffff30;padding:2.5cqh 0;font-size:3.7cqh}.df .feed-row strong{font-weight:500}.df .feed-row p{margin:0;line-height:1.4}.df .empty-feed{font-size:3.2cqh;line-height:1.5;opacity:.7;text-align:center;max-width:70cqw}.df.brief{align-items:flex-start}.df.brief .feed-row{font-family:Georgia,serif;font-size:4.4cqh}.df.markets .up{color:#72d9ab}.df.markets .down{color:#ff817b}.df .globe{width:min(52cqh,70cqw);height:min(52cqh,70cqw);flex:none}.df.world .design-time{font-size:min(10cqh,13cqw)}.df .modular-grid{display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:5cqw}.df.modular .dial{width:34cqh;height:34cqh}.df.modular .design-time{font-size:16cqh}.df .mod-weather{font-size:5cqh;line-height:1.5}.df.prism .design-time{font-size:min(26cqh,16cqw);font-weight:800;position:relative;text-shadow:2cqh 2cqh 0 #0002}.df.prism::before{content:"";position:absolute;inset:0;background:linear-gradient(125deg,#a7ceff55,#ff83b955,#e8ed8a55);clip-path:polygon(12% 8%,76% 0,100% 67%,35% 100%,0 52%);transform:rotate(-12deg)}.df.prism[data-variant=outline] .design-time{-webkit-text-stroke:.25cqh var(--ckfg,#dfeaff);color:transparent}.df.prism[data-variant=solid]::before{opacity:1;background:var(--ckaccent,#798fff)}.df.prism[data-variant=glass]::before{box-shadow:inset 0 0 10cqh #fff}.df.solar .solar-orbit{fill:none;stroke:currentColor;opacity:.3}.df.solar .sun-dot{fill:var(--ckaccent,#f7bd67)}.ckroot:has(.df){background:radial-gradient(ellipse at 50% 45%,#293044,#080a13 78%)}.ckroot.bare:has(.df){background:none}.ckroot.night .df{color:#f66;background:#000}.ckroot.night .df .ds{display:none}.df[data-texture=paper]{background:#ded9cc;color:#24221e;border-radius:1cqh}.df[data-texture=linen]{background:repeating-linear-gradient(0deg,#ffffff05 0 1px,transparent 1px 3px)}.df[data-board=light]{background:#dfdcd3;color:#222}.df[data-board=amber]{color:#ffbc58}';
   function designText(parent, tag, cls, value) { var n = el(tag, cls); n.textContent = value == null ? '' : String(value); parent.appendChild(n); return n; }
   function designDial(roman, sunburst, shape, metal) {
     var marks = '', numerals = roman ? ['XII','I','II','III','IV','V','VI','VII','VIII','IX','X','XI'] : ['12','1','2','3','4','5','6','7','8','9','10','11'];
@@ -963,52 +963,30 @@
       return { time: fmt.format(d), h: get('hour'), m: get('minute'), date: new Intl.DateTimeFormat(undefined, { timeZone: zone, weekday: 'short', day: 'numeric' }).format(d) };
     } catch (e) { return { time: '—', h: 0, m: 0, date: 'Unknown time zone' }; }
   }
-  // A small orthographic earth: longitude changes rotate the sphere, rather
-  // than turning a flat continent picture. The coastlines are deliberately
-  // simplified so the face remains light on older wall tablets.
+  // The sphere rotates in longitude; offline Natural Earth polygons are clipped
+  // at its horizon by the geographic projection, including islands and holes.
   function designGlobe(box, options) {
     var cv = document.createElement('canvas'); cv.width = cv.height = 800;
     cv.style.cssText = 'width:100%;height:100%;display:block;pointer-events:auto;touch-action:pan-y';
     cv.setAttribute('data-hk-saver-control', 'globe'); cv.setAttribute('aria-label', 'Rotate globe'); cv.tabIndex = 0;
     var ctx = cv.getContext('2d'), angle = Number(options.rotation) || 0, drag = null, raf = 0;
     var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    var land = [
-      [[-168,70],[-145,60],[-130,53],[-125,40],[-115,30],[-105,24],[-98,17],[-85,10],[-78,9],[-81,23],[-97,29],[-82,27],[-80,35],[-66,45],[-55,51],[-62,61],[-90,72],[-120,74],[-168,70]],
-      [[-74,60],[-50,59],[-20,74],[-30,83],[-56,82],[-74,70],[-74,60]],
-      [[-81,10],[-70,12],[-60,7],[-51,3],[-35,-7],[-38,-20],[-48,-29],[-56,-40],[-67,-56],[-75,-48],[-72,-30],[-81,-5],[-81,10]],
-      [[-17,36],[0,37],[10,33],[24,32],[33,31],[35,23],[43,12],[51,12],[42,-3],[36,-18],[28,-34],[18,-35],[11,-20],[8,-5],[-1,5],[-15,11],[-17,22],[-17,36]],
-      [[-10,36],[-8,44],[-1,49],[6,54],[5,60],[18,71],[32,70],[29,59],[48,50],[58,53],[70,57],[82,73],[105,77],[140,72],[178,66],[160,54],[142,48],[135,35],[122,24],[108,21],[106,10],[96,6],[90,23],[80,7],[72,20],[56,25],[49,13],[42,14],[35,31],[26,41],[20,39],[16,45],[9,44],[3,42],[-10,36]],
-      [[113,-22],[114,-34],[132,-35],[141,-39],[154,-28],[146,-16],[132,-12],[122,-17],[113,-22]],
-      [[47,-13],[51,-17],[48,-25],[44,-24],[47,-13]],
-      [[130,31],[141,41],[145,44],[143,35],[135,33],[130,31]],
-      [[166,-35],[178,-38],[173,-47],[166,-46],[169,-40],[166,-35]]
-    ];
+    var paintLand = null;
+    import('/hk/modules/hk-globe-map.js').then(function (m) { return m.landPainter(ctx); }).then(function (paint) {
+      paintLand = paint; cv.dataset.coastlines = 'ready'; if (cv.isConnected) draw();
+    }).catch(function () { cv.dataset.coastlines = 'unavailable'; cv.setAttribute('aria-label', 'Globe coastlines unavailable'); });
     function point(lon, lat) {
       var a = (lon + angle) * Math.PI / 180, b = lat * Math.PI / 180, tilt = 20 * Math.PI / 180;
       return [Math.cos(b) * Math.sin(a), Math.sin(b) * Math.cos(tilt) - Math.cos(b) * Math.cos(a) * Math.sin(tilt), Math.sin(b) * Math.sin(tilt) + Math.cos(b) * Math.cos(a) * Math.cos(tilt)];
     }
     function xy(p) { return [200 + 174 * p[0], 200 - 174 * p[1]]; }
-    function horizon(a, b) {
-      var f = a[2] / (a[2] - b[2]), x = a[0] + (b[0] - a[0]) * f, y = a[1] + (b[1] - a[1]) * f, n = Math.hypot(x, y) || 1;
-      return [x / n, y / n, 0];
-    }
     function draw() {
       if (!ctx) return;
       ctx.setTransform(2, 0, 0, 2, 0, 0); ctx.clearRect(0, 0, 400, 400);
       var ocean = ctx.createRadialGradient(140, 110, 5, 220, 210, 210); ocean.addColorStop(0, '#699dc6'); ocean.addColorStop(.55, '#204b72'); ocean.addColorStop(1, '#030812');
       ctx.fillStyle = ocean; ctx.beginPath(); ctx.arc(200, 200, 174, 0, Math.PI * 2); ctx.fill();
       ctx.save(); ctx.beginPath(); ctx.arc(200, 200, 174, 0, Math.PI * 2); ctx.clip();
-      land.forEach(function (poly) {
-        var pts = [];
-        for (var i = 0; i + 1 < poly.length; i++) {
-          var a = poly[i], b = poly[i + 1], n = Math.max(1, Math.ceil(Math.max(Math.abs(b[0] - a[0]), Math.abs(b[1] - a[1])) / 4));
-          for (var j = 0; j < n; j++) pts.push(point(a[0] + (b[0] - a[0]) * j / n, a[1] + (b[1] - a[1]) * j / n));
-        }
-        var visible = [];
-        pts.forEach(function (p, i) { var prev = pts[(i + pts.length - 1) % pts.length]; if ((p[2] >= 0) !== (prev[2] >= 0)) visible.push(horizon(prev, p)); if (p[2] >= 0) visible.push(p); });
-        if (visible.length < 3) return;
-        ctx.beginPath(); visible.forEach(function (p, i) { var pos = xy(p); if (i) ctx.lineTo(pos[0], pos[1]); else ctx.moveTo(pos[0], pos[1]); }); ctx.closePath(); ctx.fillStyle = '#93b1a0'; ctx.fill();
-      });
+      if (paintLand) paintLand(angle);
       ctx.strokeStyle = '#e4f3ff'; ctx.globalAlpha = .15; ctx.lineWidth = .7;
       function line(points) { var drawing = false; ctx.beginPath(); points.forEach(function (p) { if (p[2] < 0) { drawing = false; return; } var q = xy(p); if (drawing) ctx.lineTo(q[0], q[1]); else ctx.moveTo(q[0], q[1]); drawing = true; }); ctx.stroke(); }
       for (var lat = -60; lat <= 60; lat += 30) { var row = []; for (var lon = -180; lon <= 180; lon += 3) row.push(point(lon, lat)); line(row); }
@@ -1046,7 +1024,7 @@
     } else if (style === 'world') {
       var view = o.world_view || 'globe';
       var globe = el('div', 'globe'); designGlobe(globe, o);
-      if (view === 'horizon') { globe.style.cssText = 'height:32cqh;overflow:hidden;width:70cqh'; globe.firstChild.style.transform = 'scale(1.5) translateY(15%)'; }
+      if (view === 'horizon') { globe.style.cssText = 'height:32cqh;overflow:hidden;width:70cqh'; globe.firstChild.style.cssText += ';height:auto;aspect-ratio:1;transform:scale(1.5) translateY(15%)'; }
       if (view === 'close') globe.firstChild.style.transform = 'scale(1.25)';
       box.appendChild(globe); time = designText(box, 'div', 'design-time', '');
       var row = el('div', 'city-row'); box.appendChild(row);

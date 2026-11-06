@@ -23,7 +23,7 @@ The implementation was checked against isolated fictional houses. These are comp
 
 - The main quick suite passed earlier in the implementation: 6,406 tests passed, with 14 existing skips. Subsequent fixes were checked with the focused suites below.
 - Saved-design schema and compatibility plus the file-size ratchet: 19 tests passed. Sparse saved options retain values derived from legacy settings as well as explicit values.
-- HA build, HA Python suite (790 passed), frontend JavaScript suites, Python types and JavaScript types (105 files, zero errors): passed.
+- HA build, HA Python suite (790 passed), frontend JavaScript suites, Python types and JavaScript types (106 authored files, zero errors): passed.
 - Dashboard swipe destinations: all eight Chromium/WebKit tablet and phone orientations passed.
 - Frame-by-frame motion: Chromium 1280×800 and 390×844, WebKit 1180×820 and 390×844 passed, including populated Calendar/Live TV replacement, native touch cancellation, rapid/reversed/interrupted gestures, Home/Pages handoffs, the media bar, navigation and Side Pane motion, reduced motion and gesture cleanup.
 - Saved designs: Chromium 1280×800 and WebKit 1180×820 / 390×844 passed. This covers the added face renderers, 44 widgets, rename/duplicate/remove, both save scopes, ordinary settings edits staying in the active snapshot, preview slide/pane control, browser-local selection persistence, Customize and Use Saved Default. Chooser actions fit the phone. Native Chromium touch scrolls across the World thumbnail; thumbnail controls never intercept gallery input.
@@ -45,7 +45,7 @@ Hold a quiet part of a running saver to browse designs. Selection is remembered 
 
 The editor retains all 44 widgets, their shapes, sizes, options, conditions and placement controls. Narrow windows get a live preview above switchable Pieces & Looks / Settings panels. The gallery and on-screen selector use native scrolling and snapping; programmatic positioning cannot change the active design. Reduced motion remains respected.
 
-Preview Slide is held across option rebuilds. Forecast, Weather, Music and Home Energy can be requested independently of automatic slideshow settings. Missing playback or energy data produces a specific message. Include/Hide Side Pane affects only the preview. Pane width and side follow the screen's actual configuration; ineligible small sizes show an explanation and preserve the space for the face. Preview status keeps updating while it is open.
+Preview Slide is held across option rebuilds. Forecast, Weather, Music and Home Energy can be requested independently of automatic slideshow settings. A quiet house gets a sample Music slide with artwork, track metadata, progress, volume and Up Next; its controls send no commands. Missing energy data produces a specific message. Side Pane Preview offers As Saved, Show and Hide. Show can render disabled/conditional sections for preview only, with dashboard sections or a labeled sample pane as a fallback. Pane width and side follow the screen's actual configuration; ineligible small sizes show an explanation and preserve the space for the face. Preview status keeps updating while it is open.
 
 World uses an orthographic globe with simplified coastlines, a longitude control, direct dragging, arrow keys and a short inertial release. Reduced motion disables the inertial release. Markets reads configured numeric sensors (optional `change_percent` attribute); Daily Brief reads a configured sensor's `entries`, `items` or `news` list. Neither face fetches external feeds or substitutes sample readings when no source is configured.
 
@@ -54,3 +54,5 @@ Dashboard swipes take pointer ownership only after horizontal intent wins, relea
 ## Acceptance still requiring a physical device
 
 Browser checks use fictional data and isolated local servers. Chromium receives native touch input; WebKit's gesture checks use synthetic pointer input. These do not prove real iPad/Safari touch feel, thermal behavior or long-running tablet memory use. Record physical tablet acceptance following the approved house update. No deployment or version bump is part of this working-tree implementation.
+
+The World face bundles Natural Earth land geometry and a checksum-pinned spherical projection module, with its original licenses. The map stays offline. Face-option edits replace the composition synchronously, keep the background behind it, and bound the new families to their available room. Prism Outline uses an explicit stroke color. Regression checks inspect actual text/canvas bounds, layer order, known land/ocean points at three rotations, disabled-pane Show/Hide, and sample Music with all players idle.
