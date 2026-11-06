@@ -254,7 +254,7 @@ ok('...Less, a mini player (2026-10-31, the owner\'s pick): the song, then Speak
    at(less, 'pp') < at(less, 'next') && at(less, 'next') < at(less, 'brw') && /class="pp big"/.test(less), less);
 var src = readFile(HK_ROOT + '/frontend/modules/hk-sidepane.js');
 // (as a drawer from the section since 2026-11-01: the player risen to the pane's top, the tabs under it)
-ok('...Speakers and Browse open the screensaver\'s panel over the pane, its four tabs', /musicPanel\(this, act === 'spk' \? 'speakers' : 'browse', b\.closest\('\[data-k="now_playing"\]'\), 'drawer'\)/.test(src) &&
+ok('...Speakers, Browse and Up Next open the screensaver\'s panel over the pane, its four tabs', /musicPanel\(this, act === 'spk' \? 'speakers' : act === 'queue' \? 'queue' : 'browse', b\.closest\('\[data-k="now_playing"\]'\), 'drawer'\)/.test(src) &&
    /tabs: \['speakers', 'volume', 'queue', 'browse'\]/.test(src));
 ok('...no volume where the player reports none', !/data-act="vol"/.test(less));
 client.states['media_player.kitchen'].attributes.volume_level = 0.42;

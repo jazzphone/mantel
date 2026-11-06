@@ -153,7 +153,7 @@
     '.mpanel.up{display:block}',
     // the slide's: a card where the art was; the pane's: the whole pane
     '.mpanel.card{border-radius:18px;box-shadow:0 26px 70px rgba(0,0,0,.5),inset 0 0 0 1px rgba(255,255,255,.12)}',
-    '.mpbg{position:absolute;left:-8%;top:-8%;width:116%;height:116%;display:block}',
+    '.mpbg{position:absolute;left:-8%;top:-8%;width:116%;height:116%;object-fit:cover;object-position:center;display:block}',
     '.mpbg.soft{filter:blur(18px);will-change:transform}',
     '.mpshade{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(6,10,18,.56),rgba(6,10,18,.66))}',
     '.mpin{position:absolute;left:0;top:0;display:flex;flex-direction:column;text-shadow:0 1px 10px rgba(0,0,0,.18)}',
@@ -426,7 +426,12 @@
       if (!a || a === S.art) return;
       var cx = E.bg.getContext && E.bg.getContext('2d');
       if (!cx) return;
-      try { cx.clearRect(0, 0, BLUR, BLUR); cx.drawImage(a, 0, 0, BLUR, BLUR); S.art = a; } catch (e) { return; /* not ready */ }
+      try {
+        var w = a.naturalWidth || a.width, h = a.naturalHeight || a.height, side = Math.min(w, h);
+        cx.clearRect(0, 0, BLUR, BLUR);
+        cx.drawImage(a, (w - side) / 2, (h - side) / 2, side, side, 0, 0, BLUR, BLUR);
+        S.art = a;
+      } catch (e) { return; /* not ready */ }
       // BLURRED, NOT ONLY SMALL (2026-11-05, the owner: "the blur in the background isn't correct"): a 32 px copy stretched
       // over the panel kept the cover's shapes -- its title in letters a panel high. Blurred here, once a song, where the
       // cover can be read back (the house's own proxy, Music Assistant's under /ma); one that can't, from somewhere else,

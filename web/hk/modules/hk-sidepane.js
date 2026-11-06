@@ -915,13 +915,14 @@
     var t = document.createElement('canvas'); t.width = 10; t.height = 10;
     var tc = t.getContext && t.getContext('2d');
     if (!ctx || !tc) return out;
-    tc.drawImage(img, 0, 0, 10, 10);
+    var side = Math.min(img.naturalWidth || img.width, img.naturalHeight || img.height);
+    tc.drawImage(img, ((img.naturalWidth || img.width) - side) / 2, ((img.naturalHeight || img.height) - side) / 2, side, side, 0, 0, 10, 10);
     try {
       var d = tc.getImageData(0, 0, 10, 10).data, sum = [0, 0, 0];
       for (var i = 0; i < d.length; i += 4) { sum[0] += d[i]; sum[1] += d[i + 1]; sum[2] += d[i + 2]; }
       out.rgb = sum.map(function (v) { return v / 100; });
     } catch (e) { return out; }
-    // (through a middle step: a tall pane stretches it far more than the
+    // (through a middle step: a tall pane magnifies it far more than the
     // music pane's square, and one jump from 10 px streaks where the canvas
     // has no filter, as WebKit's)
     var m = document.createElement('canvas'); m.width = 20; m.height = 20;
@@ -1015,7 +1016,7 @@
       // look has no blur
       '.artbg{position:absolute;inset:0;opacity:0;transition:opacity 1.2s ease;pointer-events:none;overflow:hidden;background:#141418}',
       ':host([arted]) .artbg{opacity:1}',
-      '.artbg b{position:absolute;left:-8%;top:-8%;width:116%;height:116%;display:block;opacity:0;transition:opacity 1.2s ease;background-size:100% 100%}',
+      '.artbg b{position:absolute;left:-8%;top:-8%;width:116%;height:116%;display:block;opacity:0;transition:opacity 1.2s ease;background-size:cover;background-position:center}',
       '.artbg b.on{opacity:1}',
       '.artbg b.raw{background-size:cover;background-position:center;filter:blur(40px) brightness(.7)}',
       '.artbg i{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(6,10,18,.24),rgba(6,10,18,.34))}',
@@ -1204,7 +1205,8 @@
       '.pp{all:unset;cursor:pointer;flex:none;display:grid;place-items:center;width:40px;height:40px;border-radius:50%;background:' + v('key') + '}',
       '.pp hk-icon{--mdc-icon-size:22px;width:22px;height:22px}',
       '.cmp .pp{width:30px;height:30px}',
-      '.trow{display:flex;align-items:center;justify-content:space-between;margin-top:12px}',
+      '.trow{display:grid;grid-template-columns:44px 1fr 52px 1fr 44px;align-items:center;justify-items:center;margin-top:18px;margin-bottom:8px}',
+      '.trow>.pp:first-child,.trow>.pp:last-child{width:44px;height:44px}',
       '.tk{all:unset;cursor:pointer;display:grid;place-items:center;width:44px;height:44px;border-radius:50%}.tk hk-icon{--mdc-icon-size:30px;width:30px;height:30px}',
       '.tk:active{background:' + v('key') + '}',
       '.pp.big{width:52px;height:52px;background:#fff;color:#1c1c1e}.pp.big hk-icon{--mdc-icon-size:30px;width:30px;height:30px;color:#1c1c1e}',
@@ -1212,6 +1214,15 @@
       '.np2 .art{width:88px;height:88px;border-radius:12px}.np2 .tx b{font-size:20px}',
       '.npp{height:4px;border-radius:2px;background:' + v('line-strong') + ';overflow:hidden;margin-top:14px}',
       '.npp i{display:block;height:100%;background:' + v('ink') + ';transform-origin:left center}',
+      '.npqueue{display:grid;gap:6px;margin-top:12px;padding-top:16px;border-top:1px solid ' + v('line') + '}',
+      '.npqueue .qh{all:unset;display:flex;justify-content:space-between;align-items:center;cursor:pointer;font-size:13px;font-weight:600;color:' + v('ink-2') + ';height:28px}',
+      '.npqueue .qh span{font-size:12px;font-weight:500}',
+      '.npqueue .qr{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:12px;height:52px;cursor:pointer;border-radius:10px;min-width:0}',
+      '.npqueue .qr:active{background:' + v('key') + '}',
+      '.npqueue button:focus-visible{outline:2px solid ' + v('ink') + ';outline-offset:2px}',
+      '.npqueue .qi{width:36px;text-align:center;flex:none;color:' + v('ink-3') + ';font-size:14px;font-variant-numeric:tabular-nums}',
+      '.npqueue .qt{min-width:0;flex:1}.npqueue b,.npqueue small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+      '.npqueue b{font-size:15px;font-weight:600}.npqueue small{font-size:13px;color:' + v('ink-2') + ';margin-top:2px}',
       '@keyframes npp{to{transform:scaleX(1)}}',
       '@media (prefers-reduced-motion:reduce){.npp i{animation:none!important}}',
       // (each speaker a centered box: hk-icon's own box is inline, so the small one sat on its text line, below the
@@ -1470,6 +1481,40 @@
       this._cuts();
       this._cams();
       this._fit = got;
+      this._queue(c);
+    }
+    // More uses only the space left after every section has fitted. The preview
+    // never makes another section shrink or disappear; its rows open the full queue.
+    _queue(c) {
+      var old = this._secs.querySelector('.npqueue');
+      if (old && old.parentNode) old.parentNode.removeChild(old);
+      var sec = this._secs.querySelector('[data-k="now_playing"][data-size="more"]');
+      var m = musicOf(c), self = this;
+      if (!sec || !m || this.getAttribute('side') === 'band' || !c || !c.callWS) return;
+      var sig = JSON.stringify([m.key, m.title, m.artist, attr(states(c)[m.key], 'media_content_id')]);
+      var q = this._npQueue;
+      if (!q || q.sig !== sig || (!q.busy && Date.now() - q.at > 30000)) {
+        q = this._npQueue = { sig: sig, at: Date.now(), busy: true, items: q && q.sig === sig ? q.items : [] };
+        c.callWS({ type: 'hk_music/queue', entity_id: m.key, limit: 40 }).then(function (r) {
+          if (self._npQueue !== q) return;
+          q.busy = false; q.items = r && r.ok && Array.isArray(r.items) ? r.items.slice(1) : [];
+          if (self.isConnected && self.hasAttribute('on')) self._queue(clientNow());
+        }, function () { if (self._npQueue === q) { q.busy = false; q.items = []; } });
+      }
+      if (!q.items.length) return;
+      var used = 0, secs = this._secs;
+      Array.prototype.forEach.call(secs.children, function (n) { if (!n.classList.contains('gap')) used += n.offsetHeight; });
+      used += Math.max(0, secs.children.length - 1) * (parseFloat(getComputedStyle(secs).rowGap) || 0);
+      // Header, inset and the section's grid gap, then whole rows only.
+      var count = Math.min(q.items.length, Math.floor((secs.clientHeight - used - 70) / 58));
+      if (count < 1) return;
+      var el = document.createElement('div'); el.className = 'npqueue';
+      el.innerHTML = '<button class="qh" type="button" data-act="queue">Up Next<span>View Queue</span></button>' +
+        q.items.slice(0, count).map(function (it, i) {
+          return '<button class="qr" type="button" data-act="queue" aria-label="View queue: ' + esc(it.title) + '"><span class="qi">' + (i + 1) +
+            '</span><span class="qt"><b>' + esc(it.title) + '</b><small>' + esc(it.artist || '') + '</small></span></button>';
+        }).join('');
+      sec.appendChild(el);
     }
     // THE ALBUM ART BEHIND THE WHOLE PANE (2026-10-30, the owner: "if something
     // is playing, the whole pane should have the album art blur"): while Now
@@ -1584,7 +1629,7 @@
       var st = states(c), o = this._o, ids = [];
       (o.list || []).forEach(function (s) { ids.push(s.entity || ''); });
       var m = musicOf(c);
-      return JSON.stringify([Math.floor(Date.now() / 30000), m && [m.key, m.playing, m.title],
+      return JSON.stringify([Math.floor(Date.now() / 30000), m && [m.key, m.playing, m.title, m.artist, m.pic, attr(st[m.key], 'media_content_id')],
         timersOf(c).map(function (r) { var x = st[r.entity_id]; return [r.entity_id, x && x.state, r.finishes_at || r.remaining]; }),
         ids.map(function (id) { return id && st[id] ? st[id].last_updated : ''; }), CAL.at, notesOf().length,
         Object.keys(TODO).map(function (k) { return TODO[k].sig + (TODO[k].got ? 1 : 0); })]);
@@ -1679,6 +1724,7 @@
     }
     // ...and taken out when the pane steps aside (the music pane stops drawing)
     _park() {
+      this._npQueue = null;
       var np = this._slots.np;
       if (this._camT) { clearInterval(this._camT); this._camT = null; }
       if (np && np.active) np.active(false);
@@ -1723,8 +1769,8 @@
       } else if (act === 'prev' || act === 'next') {
         var mn = musicOf(c);
         if (mn) c.actions.callService('media_player', act === 'prev' ? 'media_previous_track' : 'media_next_track', {}, { entity_id: mn.key }).catch(function () { /* refused: said by the host */ });
-      } else if (act === 'spk' || act === 'brw') {
-        musicPanel(this, act === 'spk' ? 'speakers' : 'browse', b.closest('[data-k="now_playing"]'), 'drawer');
+      } else if (act === 'spk' || act === 'brw' || act === 'queue') {
+        musicPanel(this, act === 'spk' ? 'speakers' : act === 'queue' ? 'queue' : 'browse', b.closest('[data-k="now_playing"]'), 'drawer');
       } else if (act === 'todo') {
         // CHECKED OFF: a house command (todo.update_item), struck through
         // until the list says so

@@ -2875,6 +2875,7 @@
       mus.nextBusy = false;
       upNextPiece(d, null);
       mus.views.forEach(function (v) { drawMusic(v, v.d); });
+      if (muShowing) layoutMusic();
     });
   }
   // A BUTTON, where it is drawn (the views take no pointer events)
@@ -3016,7 +3017,8 @@
     } else {
       var area = v.el.querySelector('.mbody').getBoundingClientRect(), col = v.el.querySelector('.mcol').getBoundingClientRect();
       var art = v.el.querySelector('.mart').getBoundingClientRect(), H0 = window.innerHeight || area.height;
-      var lo = col.right + 24 * z, hi = area.right - 24 * z;
+      var lower = host.hasAttribute('murow') || host.hasAttribute('muup');
+      var lo = (lower ? area.left : col.right) + 24 * z, hi = area.right - 24 * z;
       var w = Math.max(280 * z, Math.min(566 * z, hi - lo));
       var cx = Math.max(lo + w / 2, Math.min(hi - w / 2, art.left + art.width / 2));
       var top = (paneUp ? 40 : 100) * z, bot = H0 - 36 * z;
@@ -3211,37 +3213,84 @@
     host.style.setProperty('--hk-mu-z', String(scaleOf()));
     var col = v.el.querySelector('.mcol'), info = root.querySelector('.info');
     if (!col || !info || !v.el.getBoundingClientRect().width) return;
-    var H = window.innerHeight || 0, W = window.innerWidth || 0, top = 0;
-    // THE SLIDE'S OWN SCALE (2026-11-02, phase 13, the owner's phone on its side: the slide drawn at a tablet's size ran
-    // into its corner): the screen's fit against the tablet's 1280 x 800, or an upright one's against 820 x 1180 --
-    // smaller than the tablet's where the screen is (never below .45), larger where it is larger
-    var up = H > W * 1.05, zs = Math.max(0.45, up ? Math.min(W / 820, H / 1180) : Math.min(W / 1280, H / 800));
+    var body = v.el.querySelector('.mbody'), area = body.getBoundingClientRect();
+    col.style.removeProperty('bottom');
+    var H = area.height, W = area.width, top = area.top;
+    // Use the slide's available area, including the space a left or right pane
+    // takes. A tablet beside a pane often needs the same stack as an upright
+    // screen, with a scale suited to its shorter column.
+    var beside = host.hasAttribute('pane') && !host.hasAttribute('band');
+    var narrow = H > W * (beside ? 0.74 : 1.05);
+    var row = beside && narrow && W >= 620 && H >= 620, up = narrow && !row;
+    var zs = Math.max(0.45, row ? Math.min(1.25, W / 780, H / 820) : up ? Math.min(W / 820, H / 1180) : Math.min(W / 1280, H / 800));
     host.style.setProperty('--hk-mu-zs', String(Math.round(zs * 100) / 100));
     setAttr(host, 'muup', up);
+    setAttr(host, 'murow', row);
     // (under the slide corner, its words: the old corner cards are hidden under every slide now, phase 13)
     var over = scn && host.hasAttribute('scorner') ? [].slice.call(scn.tl.children).concat([].slice.call(scn.tr.children)) : info.children;
     Array.prototype.forEach.call(over, function (c) {
       if (c.tagName === 'STYLE' || c.style.display === 'none') return;
       var r = c.getBoundingClientRect();
-      if (r.height > 0 && r.top < H / 2) top = Math.max(top, r.bottom);
+      if (r.height > 0 && r.top < area.top + H / 2 && r.right > area.left && r.left < area.right) top = Math.max(top, r.bottom);
     });
-    var room = top + Math.round(24 * zs), m = Math.round(Math.min(W, H) * 0.06);
-    host.style.setProperty('--hk-mu-top', room + 'px');
+    var room = top + Math.round((row ? 56 : 24) * zs), m = Math.round(row ? 60 * zs : Math.min(W, H) * 0.06);
+    host.style.setProperty('--hk-mu-top', (room - area.top) + 'px');
+    if (row) {
+      var stage = v.el.querySelector('.mstage'), pad = 56 * zs, width = W - 2 * pad;
+      var height = Math.max(0, area.bottom - m - room), a = Math.min(W * 0.38, H * 0.36, width * 0.48);
+      host.style.setProperty('--hk-mu-stage-x', pad + 'px');
+      host.style.setProperty('--hk-mu-stage-w', width + 'px');
+      host.style.setProperty('--hk-mu-stage-h', height + 'px');
+      body.style.setProperty('--a', a + 'px');
+      var rowOverflow = function () {
+        var bottom = stage.getBoundingClientRect().bottom, excess = 0;
+        // Measure the rows themselves: the volume knob intentionally reaches
+        // outside its thin track and must not make otherwise fitting text vanish.
+        ['.mart', '.mmeta', '.mprog', '.mctl', '.mnext'].forEach(function (sel) {
+          var rect = stage.querySelector(sel).getBoundingClientRect();
+          if (rect.height) excess = Math.max(excess, rect.bottom - bottom);
+        });
+        return excess;
+      };
+      for (var r2 = 0; r2 <= 2; r2++) {
+        v.el.setAttribute('tight', String(r2));
+        if (rowOverflow() <= 1) break;
+      }
+      // Very tall corner widgets leave less room. Keep the controls in view
+      // while the cover and its centered text block continue sharing a row.
+      var extra = rowOverflow();
+      if (extra) body.style.setProperty('--a', Math.max(v.el.querySelector('.mmeta').getBoundingClientRect().height, a - extra) + 'px');
+      return;
+    }
     // UPRIGHT: the art under the corner, the song and its buttons under the art (an iPhone's Now Playing): what does
     // not fit goes, Up Next first, then the album, then the art smaller
     if (up) {
-      v.el.style.removeProperty('--a');
+      body.style.removeProperty('--a');
       for (var u2 = 0; u2 <= 4; u2++) {
         v.el.setAttribute('tight', String(Math.min(2, u2)));
-        if (u2 > 2) v.el.style.setProperty('--a', 'min(' + (84 - (u2 - 2) * 12) + 'cqw,' + (36 - (u2 - 2) * 7) + 'cqh)');
-        if (col.getBoundingClientRect().bottom <= H - m) break;
+        if (u2 > 2) body.style.setProperty('--a', 'min(' + (84 - (u2 - 2) * 12) + 'cqw,' + (36 - (u2 - 2) * 7) + 'cqh)');
+        if (col.getBoundingClientRect().bottom <= area.bottom - m) break;
       }
       return;
     }
-    v.el.style.removeProperty('--a');
+    body.style.removeProperty('--a');
     for (var t = 0; t <= 2; t++) {
       v.el.setAttribute('tight', String(t));
-      if (col.getBoundingClientRect().top >= room) break;
+      // The transport shares the cover's bottom edge. Up Next hangs below
+      // that edge without moving the song and controls when it comes or goes.
+      var artBottom = v.el.querySelector('.mart').getBoundingClientRect().bottom;
+      var ctl = col.querySelector('.mctl').getBoundingClientRect();
+      var progress = col.querySelector('.mprog').getBoundingClientRect();
+      var times = col.querySelector('.mtimes').getBoundingClientRect();
+      var end = ctl.height ? ctl.bottom : progress.height ? Math.max(progress.bottom, times.bottom) : col.querySelector('.mmeta').getBoundingClientRect().bottom;
+      Array.prototype.forEach.call(col.querySelectorAll('.mvol svg'), function (el) {
+        var r = el.getBoundingClientRect();
+        if (r.height && getComputedStyle(el).visibility !== 'hidden') end = Math.max(end, r.bottom);
+      });
+      var tail = col.getBoundingClientRect().bottom - end;
+      col.style.bottom = (area.bottom - artBottom - tail) + 'px';
+      var fitted = col.getBoundingClientRect();
+      if (fitted.top >= room && fitted.bottom <= area.bottom - m) break;
     }
   }
   // OVER THE FORECAST, the house decides: the slide while music plays, the

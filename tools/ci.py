@@ -322,6 +322,9 @@ def steps(build: Build | None = None, parts: dict[str, int] | None = None) -> li
     out += [Step(f"side-pane-check-{z}", [py, "tools/headless/side_pane_check.py", "--size", z], tier="full", timeout=900,
                  skip=playwright_missing, **check_inputs("tools/headless/side_pane_check.py"))
             for z in ("1180x820", "820x1180", "390x844")]
+    out += [Step(f"music-pane-check-{e}", [py, "tools/headless/music_pane_check.py", "--engine", e], tier="full", timeout=600,
+                 skip=playwright_missing, **check_inputs("tools/headless/music_pane_check.py", e))
+            for e in ("chromium", "webkit")]
     # the Looks in WebKit: each applied from its page, Home at three sizes, Undo; Layout + Look in the editor (2026-10-30)
     out.append(Step("looks-check", [py, "tools/headless/looks_check.py"], tier="full", timeout=900,
                     skip=playwright_missing, **check_inputs("tools/headless/looks_check.py")))

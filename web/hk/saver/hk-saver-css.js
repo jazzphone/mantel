@@ -292,6 +292,7 @@
       '.mu{position:absolute;inset:0;z-index:0;opacity:0;visibility:hidden;pointer-events:none;will-change:opacity;background:#000;',
       '  overflow:hidden;transition:opacity ' + CROSSFADE_MS + 'ms ease;--z:var(--hk-mu-zs,var(--hk-mu-z,1))}',
       '.mu.top{opacity:1;visibility:visible}',
+      '.mu .mstage{display:contents}.mu .mmeta{min-width:0}',
       // (its blurred art under the pane too, seen through it; the song beside it)
       '.mu .mbody{container-type:size;--a:min(62cqh,42cqw)}',
       ':host([pane]) .mu .mbody{right:var(--hk-pane-w,0px)}',
@@ -413,12 +414,32 @@
       '.mu[tight="2"] .mtitle{-webkit-line-clamp:1}',
       // UPRIGHT (a phone, an iPad upright; phase 13): the art centered under the slide corner, the song and its buttons in
       // one column under it, the buttons on one line, the volume under them -- an iPhone's Now Playing
-      // (the art and the column under it share their edges: the song's words start where the art does)
-      ':host([muup]) .mu .mbody{--a:min(84cqw,36cqh)}',
+      // The controls keep a useful width even when a short screen needs smaller art.
+      ':host([muup]) .mu .mbody{--a:min(84cqw,36cqh);--mg:4cqh}',
       ':host([muup]) .mu .mart{right:auto;left:calc(50cqw - var(--a) / 2);top:var(--hk-mu-top,12cqh)}',
-      ':host([muup]) .mu .mcol{left:calc(50cqw - var(--a) / 2);right:auto;width:var(--a);bottom:auto;top:calc(var(--hk-mu-top,12cqh) + var(--a) + 4cqh)}',
+      ':host([muup]) .mu .mcol{--cw:min(84cqw,max(var(--a),calc(380px * var(--z))));left:calc(50cqw - var(--cw) / 2);right:auto;width:var(--cw);bottom:auto;top:calc(var(--hk-mu-top,12cqh) + var(--a) + var(--mg))}',
       ':host([muup]) .mu .mctl{justify-content:space-between;column-gap:0}',
       ':host([muup]) .mu .mvol{flex-basis:100%}',
+      // Beside a pane: a lower stage, the cover and the complete text block
+      // sharing one row. The text's center follows the cover even when lines wrap
+      // or optional fields disappear; progress and transport span both columns.
+      ':host([murow]) .mu .mstage{display:grid;position:absolute;left:var(--hk-mu-stage-x);top:var(--hk-mu-top);width:var(--hk-mu-stage-w);height:var(--hk-mu-stage-h);',
+      '  grid-template-columns:var(--a) minmax(0,1fr);grid-template-rows:var(--a) minmax(calc(24px * var(--z)),1fr) auto auto auto;column-gap:calc(32px * var(--z))}',
+      ':host([murow]) .mu .mart{position:relative;left:auto;right:auto;top:auto;grid-column:1;grid-row:1}',
+      ':host([murow]) .mu .mcol{display:contents;container-type:normal}',
+      ':host([murow]) .mu .mmeta{grid-column:2;grid-row:1;align-self:center}',
+      ':host([murow]) .mu .mroom:empty,:host([murow]) .mu .martist:empty,:host([murow]) .mu .malbum:empty{display:none}',
+      ':host([murow]) .mu .mroom{font-size:calc(15px * var(--z));letter-spacing:1px;text-transform:uppercase}',
+      ':host([murow]) .mu .mtitle{font-size:calc(38px * var(--z));line-height:1.12;margin-top:calc(12px * var(--z));-webkit-line-clamp:2}',
+      ':host([murow]) .mu.h-room .mtitle,:host([murow]) .mu .mroom:empty+.mtitle{margin-top:0}',
+      ':host([murow]) .mu .martist{font-size:calc(25px * var(--z));margin-top:calc(10px * var(--z))}',
+      ':host([murow]) .mu .malbum{font-size:calc(18px * var(--z));margin-top:calc(6px * var(--z))}',
+      ':host([murow]) .mu .mprog{grid-column:1/-1;grid-row:3;margin-top:0}',
+      ':host([murow]) .mu .mctl{grid-column:1/-1;grid-row:4;display:grid;grid-template-columns:calc(44px * var(--z)) calc(60px * var(--z)) calc(76px * var(--z)) calc(60px * var(--z)) calc(44px * var(--z));',
+      '  justify-content:center;column-gap:calc(24px * var(--z));row-gap:calc(28px * var(--z));margin-top:calc(34px * var(--z))}',
+      ':host([murow]) .mu .mbtn.mx{width:calc(44px * var(--z));height:calc(44px * var(--z))}',
+      ':host([murow]) .mu .mvol{grid-column:1/-1;width:100%}',
+      ':host([murow]) .mu .mnext{grid-column:1/-1;grid-row:5;justify-content:center}',
       // what plays steps aside: the slide shows it big, the pane has it
       '.info > hk-screensaver-now-card{transition:opacity ' + CROSSFADE_MS + 'ms ease;will-change:opacity}',
       ':host([muslide]) .info > hk-screensaver-now-card{opacity:0}',

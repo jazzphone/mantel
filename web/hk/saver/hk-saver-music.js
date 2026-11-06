@@ -112,16 +112,16 @@
       el.setAttribute('idle', '');
       el.innerHTML =
         (isFlat() ? '<div class="mbgf"></div><div class="mbgf"></div>' : '<div class="mbgf"><canvas class="mbg"></canvas></div><div class="mbgf"><canvas class="mbg"></canvas></div>') + '<div class="mshade"></div>' +
-        '<div class="mbody"><div class="mart"><div class="msq"><div class="mph">' + svg(ICON.note) + '</div>' +
+        '<div class="mbody">' + (kind === 'slide' ? '<div class="mstage">' : '') + '<div class="mart"><div class="msq"><div class="mph">' + svg(ICON.note) + '</div>' +
         '<div class="mfr"><img alt=""></div><div class="mfr"><img alt=""></div></div></div>' +
-        '<div class="mcol"><div class="mroom"></div><div class="mtitle"></div><div class="martist"></div><div class="malbum"></div>' +
+        '<div class="mcol">' + (kind === 'slide' ? '<div class="mmeta">' : '') + '<div class="mroom"></div><div class="mtitle"></div><div class="martist"></div><div class="malbum"></div>' + (kind === 'slide' ? '</div>' : '') +
         '<div class="mprog"><div class="mbar"><i></i></div><div class="mtimes"><span></span><span></span></div></div>' +
         '<div class="mctl"><div class="mbtn mx" data-act="spk" aria-label="Speakers"><hk-icon icon="hk:homepod"></hk-icon></div>' +
         '<div class="mbtn" data-act="prev">' + svg(ICON.prev) + '</div><div class="mbtn mpp" data-act="pp">' +
         svg(ICON.play) + '</div><div class="mbtn" data-act="next">' + svg(ICON.next) + '</div>' +
         '<div class="mbtn mx" data-act="brw" aria-label="Browse Music">' + svg(ICON.lib) + '</div>' +
         '<div class="mvol">' + svg(ICON.vlo) + '<div class="mvt"><i></i><b></b></div>' + svg(ICON.vhi) + '</div></div>' +
-        '<div class="mnext"><div class="mnth">' + svg(ICON.note) + '<img alt=""></div><div class="mnx"><div class="mnl">Up Next</div><div class="mnt"></div></div></div></div></div>';
+        '<div class="mnext"><div class="mnth">' + svg(ICON.note) + '<img alt=""></div><div class="mnx"><div class="mnl">Up Next</div><div class="mnt"></div></div></div></div>' + (kind === 'slide' ? '</div>' : '') + '</div>';
       if (!window.hkSaverPanel) el.setAttribute('nomx', '');
       var q = function (s) { return el.querySelector(s); };
       var v = { kind: kind, el: el, flat: isFlat(), flip: 0, pic: null, d: null, ready: Promise.resolve(),
@@ -184,7 +184,8 @@
       var tc = t.getContext('2d');
       if (!tc) return;
       tc.imageSmoothingQuality = 'high';
-      tc.drawImage(img, 0, 0, 10, 10);
+      var side = Math.min(img.naturalWidth || img.width, img.naturalHeight || img.height);
+      tc.drawImage(img, ((img.naturalWidth || img.width) - side) / 2, ((img.naturalHeight || img.height) - side) / 2, side, side, 0, 0, 10, 10);
       ctx.clearRect(0, 0, MU_BG, MU_BG);
       ctx.imageSmoothingQuality = 'high';
       try { ctx.filter = 'blur(2px)'; } catch (e) { /* the upscale alone */ }
