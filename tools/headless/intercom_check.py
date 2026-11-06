@@ -15,7 +15,7 @@ At an iPad's two ways up, a phone's two ways up and a wall tablet's size (interc
   costs    a page without the block loads neither hk-intercom.js nor hk-mic.js and never asks the feed; `#intercom` on its
            address then brings both in and opens the sheet (the app's menu button); a wall tablet that listens: hkIntercom.listen()
 No page errors and no console errors. With --shots a screenshot of each state (SIZE-STATE.png) goes to the directory;
-the default is the build session's scratchpad. Skips (exit 0, saying why) without PLAYWRIGHT_PATH or NODE.
+the default is .ci/intercom-shots. Skips (exit 0, saying why) without PLAYWRIGHT_PATH or NODE.
 """
 from __future__ import annotations
 
@@ -53,8 +53,7 @@ HV = {'v': 1, 'cols': 6, 'rows': 4, 'frame': [1280, 800], 'band': True, 'cell': 
     {'id': 'lamp', 'card': 'accessory', 'size': 'S', 'at': [3, 0], 'opts': {'entity': 'light.living_room_lamps'}, 'tile': 'centred'},
     {'id': 'lock', 'card': 'action', 'size': 'S', 'at': [4, 0], 'opts': {'action': 'lock_up'}, 'tile': 'centred'},
     {'id': 'scene', 'card': 'scene', 'size': 'W', 'at': [0, 1], 'opts': {'scene': 'scene.movie_night'}, 'tile': 'centred'}]}
-DEFAULT_SHOTS = Path('/private/tmp/claude-501/-Volumes-data-mantel--claude-worktrees-sweet-khayyam-01407a/'
-                     '239b49fb-67ff-483f-ad43-d6b6cd8bdfac/scratchpad/shots')
+DEFAULT_SHOTS = ROOT / '.ci' / 'intercom-shots'
 
 
 def missing() -> str | None:

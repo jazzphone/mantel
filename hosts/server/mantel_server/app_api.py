@@ -132,6 +132,12 @@ async def summary(request: web.Request) -> web.Response:
     playing = None
     if isinstance(speaker, str) and _visible(request, [speaker]):
         playing = _entity_json(request.app, speaker)
+    if playing is not None:
+        # its group's rooms, itself first, the ones this person may see: the app's Volume Up / Down sets every one
+        st = request.app["hub"].store.states.get(speaker) or {}
+        gm = (st.get("a") or {}).get("group_members")
+        if isinstance(gm, list) and len(gm) > 1:
+            playing["group"] = _visible(request, [g for g in gm if isinstance(g, str)])
     ident = request["app_identity"]
     return ok({"favorites": shown, "now_playing": playing, "door": ident.door,
                "commands": request.app.get("gateway") is not None, "at": request.app["clock"]()})

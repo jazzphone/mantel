@@ -152,6 +152,19 @@ struct MusicControlIntent: LiveActivityIntent {
         let playing = house.flatMap { SharedStore.shared.summary(for: $0) }?.now_playing
         guard let target = speaker ?? playing?.entity_id else { throw IntentFailure.refused("No speaker is playing.") }
         let volume = playing?.attributes?.volume_level ?? 0.3
+        // A GROUP'S VOLUME IS ITS ROOMS' (2026-11-05): Up and Down set every room the music plays on, as the Music
+        // page's slider does -- the leader alone moved one speaker of a group
+        if action == .volumeUp || action == .volumeDown {
+            let level = action == .volumeUp ? min(1, volume + 0.05) : max(0, volume - 0.05)
+            let rooms = playing.flatMap { $0.entity_id == target ? $0.group : nil }.flatMap { $0.count > 1 ? $0 : nil } ?? [target]
+            var last: Summary?
+            for room in rooms {
+                last = try await runCommand(Command(domain: "media_player", service: "volume_set", entity_id: room,
+                                                    data: ["volume_level": .number(level)]))
+            }
+            await updateMusicActivities(last)
+            return .result()
+        }
         let c: Command
         switch action {
         case .playPause: c = Command(domain: "media_player", service: "media_play_pause", entity_id: target)

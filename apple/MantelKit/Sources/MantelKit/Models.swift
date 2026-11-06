@@ -40,6 +40,9 @@ public struct EntityState: Codable, Hashable, Identifiable, Sendable {
     public let attributes: Attributes?
     /// A player's artwork: an absolute URL (a provider's CDN) or a path on the house (`/api/app/art?...`).
     public let art: String?
+    /// The summary's now-playing player: the rooms its group plays on, itself first, the ones this person may see
+    /// (absent when it plays alone). Volume Up / Down sets every one, as the Music page's slider does.
+    public let group: [String]?
 
     public struct Attributes: Codable, Hashable, Sendable {
         public let unit_of_measurement: String?
@@ -69,7 +72,7 @@ public struct EntityState: Codable, Hashable, Identifiable, Sendable {
     }
 
     public init(entity_id: String, domain: String, state: String?, name: String, area: String?, attributes: Attributes?,
-                art: String? = nil) {
+                art: String? = nil, group: [String]? = nil) {
         self.entity_id = entity_id
         self.domain = domain
         self.state = state
@@ -77,6 +80,7 @@ public struct EntityState: Codable, Hashable, Identifiable, Sendable {
         self.area = area
         self.attributes = attributes
         self.art = art
+        self.group = group
     }
 
     /// On, open, unlocked, playing: what a toggle shows as "on".

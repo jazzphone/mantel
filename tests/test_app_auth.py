@@ -361,7 +361,12 @@ async def test_favorites_and_summary_show_only_what_one_may_see(mantel):
     assert r.status == 200
     assert [f["entity_id"] for f in s["favorites"]] == ["light.kitchen", "lock.front_door"]
     assert s["favorites"][0]["attributes"]["brightness"] == 200 and s["favorites"][0]["name"] == "Kitchen"
-    assert s["now_playing"]["attributes"]["media_title"] == "So What"
+    assert s["now_playing"]["attributes"]["media_title"] == "So What" and "group" not in s["now_playing"]
+    # a group: its rooms, itself first, for Volume Up / Down (2026-11-05)
+    m.app["hub"].store.states["media_player.loft"]["a"]["group_members"] = ["media_player.loft", "media_player.den", 7]
+    r, s = await phone.call("GET", "/api/app/summary")
+    assert s["now_playing"]["group"] == ["media_player.loft", "media_player.den"]
+    del m.app["hub"].store.states["media_player.loft"]["a"]["group_members"]
     r, got = await phone.call("GET", "/api/app/favorites")
     assert got["favorites"] == ["light.kitchen", "lock.front_door"]
     # a Child with no rooms granted: the same favorites show nothing, and nothing to choose from

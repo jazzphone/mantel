@@ -289,6 +289,12 @@ def steps(build: Build | None = None, parts: dict[str, int] | None = None) -> li
     out += [Step(f"media-card-check-{e}", [py, "tools/headless/media_card_check.py", "--engine", e], tier="full",
                  timeout=900, skip=playwright_missing, **check_inputs("tools/headless/media_card_check.py", e))
             for e in ("webkit", "chromium")]
+    # the Intercom's block and sheet in WebKit with a finger: an iPad either way up, a phone either way up, a wall tablet
+    # (each size a step of its own). It was by hand until 2026-11-05, and its message steps had gone stale unnoticed.
+    out += [Step(f"intercom-check-{z}", [py, "tools/headless/intercom_check.py", "--size", z,
+                                         "--shots", str(ROOT / ".ci" / "intercom-shots")], tier="full",
+                 timeout=900, skip=playwright_missing, **check_inputs("tools/headless/intercom_check.py"))
+            for z in ("ipad", "ipad-landscape", "phone", "phone-landscape", "wall")]
     # the page beside the iPhone Duo's side strip, in WebKit (its insets stood in; 2026-10-30)
     out.append(Step("side-strip-check", [py, "tools/headless/side_strip_check.py"], tier="full", timeout=600,
                     skip=playwright_missing, **check_inputs("tools/headless/side_strip_check.py")))

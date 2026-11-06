@@ -256,7 +256,10 @@ async def test_the_pages_own_copy_is_decided_after_the_speakers_are_back(lv, ave
     assert len(lv.ma.announcements) == 1 and lv.host._parting, "still waiting for the first group to part"
     lv.ma.part_held.set()
     events = await recv_until(again, "sent", 5)
-    assert events[-1]["failed"] == [] and len(lv.ma.announcements) == 2 and apart(lv, K, DN)
+    assert events[-1]["failed"] == [] and apart(lv, K, DN)
+    # every room picked is called or really reached: the Den was let go before the copy was decided, though the house's
+    # states still said grouped -- it gets its own call (host._covered, 2026-11-05), never assumed to hear the Kitchen's
+    assert sorted(a["player_id"] for a in lv.ma.announcements[1:]) == sorted([K, DN])
     assert message_bodies(lv, url)[-1] == whole(pcm)
 
 
@@ -308,3 +311,17 @@ async def test_a_group_that_failed_live_stays_out_of_the_music_players_through_i
     await finish(lv, ws)
     assert [a["player_id"] for a in message_announced(lv, url)] == [K]
     assert seen and {KITCHEN, DEN} <= seen[-1]
+
+
+async def test_the_audit_row_keeps_which_rooms_failed_live_and_why(lv, avery):
+    """2026-11-05: why a Live talk was judged failed was only in the log, which starts again at every release."""
+    left_grouped(lv)
+    ws, _, url = await begin(lv, avery, [KITCHEN, DEN], {KITCHEN: "noplay"})
+    await send_audio(ws, chunks(6))
+    await called(lv)
+    await finish(lv, ws)
+    await play_result(lv, "ok:fallback")
+    (row,) = lv.play_rows()
+    (note,) = [r for r in lv.audit(kind="ma") if r["action"] == "intercom.failures"]
+    assert note["reason"].startswith(f"play:{row['id']} ") and f"live_failed:{KITCHEN}=not_playing" in note["reason"], note
+    assert note["result"] == "noted" and KITCHEN in note["target"]

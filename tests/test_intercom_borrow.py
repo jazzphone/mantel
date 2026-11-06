@@ -133,3 +133,24 @@ def test_a_closed_run_puts_back_only_its_own_borrowed_speakers():
     assert not run.allow(JOIN, {"target_player": K, "child_player_ids": [DN, CY]}), "no other speaker"
     assert not run.allow(JOIN, {"target_player": DN, "child_player_ids": [K]}), "no other leader"
     assert not run.allow(PART, {"target_player": K, "player_ids_to_remove": [DN]}), "closed: nothing taken apart now"
+
+
+async def test_a_room_a_group_call_would_not_reach_gets_its_own_call_and_a_note(ic, monkeypatch):
+    """The safety net (2026-11-05: 0.1.134's plan had a leader "cover" rooms it no longer led; the audit said ok): just
+    before the calls, every room a group is to reach is checked against Music Assistant's list now."""
+    from hk_core.intercom import rooms as R
+    await left_grouped(ic)
+    real = R.decide
+
+    def then_it_parts(*a, **kw):
+        plan = real(*a, **kw)
+        ic.ma.model[K].update(group_members=[], group_childs=[])     # the group went away since the plan
+        ic.ma.model[DN]["synced_to"] = None
+        return plan
+    monkeypatch.setattr(R, "decide", then_it_parts)
+    events = await send(ic, [KITCHEN, DEN])                    # the whole group: one call, through its leader, it thought
+    assert sorted(a["player_id"] for a in ic.ma.announcements) == sorted([K, DN])
+    assert events[-1]["rooms"] == 2 and events[-1]["failed"] == []
+    assert await until(lambda: any(r["action"] == "intercom.failures" for r in ic.audit(kind="ma")))
+    (note,) = [r for r in ic.audit(kind="ma") if r["action"] == "intercom.failures"]
+    assert f"uncovered:{DEN}" in note["reason"]

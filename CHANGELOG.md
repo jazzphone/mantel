@@ -4,6 +4,12 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Fixed**
+- **Siri and Shortcuts' Volume Up and Down set every room of a group.** With music playing on several rooms, they moved only the first speaker. Needs the next TestFlight build.
+- **The iPhone and iPad app's Music slider shows a group's volume as its rooms' average,** as the web's sliders do; it showed the first speaker's. Needs the next TestFlight build.
+- **Every room an Intercom message is sent to is called or really reached.** Just before sending, Mantel checks with Music Assistant that each group still holds the rooms it is to play in; a room it wouldn't reach gets its own call. (In 0.1.134 a message to nine rooms played in two while the log said it had gone out.)
+- **The Intercom keeps why a room didn't play.** Each broadcast with a room that failed Live or the message, or was left out, gets an `intercom.failures` row in the audit log beside its own: the rooms and the reason, never what was said. Mantel's own log starts again at every update.
+
 ## 0.1.138 - 2026-11-05
 
 **Fixed**

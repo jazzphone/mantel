@@ -102,8 +102,12 @@ final class MusicModel: ObservableObject {
         if let h = heldVolume[entity], h.until > Date() { return h.value }
         return state?.player(entity)?.attributes.volume_level ?? 0
     }
-    /// The music's volume: its leader's (a preset's group's).
-    var volume: Double { context.map { volume(of: $0.leader) } ?? 0 }
+    /// The music's volume: a group's is its rooms' average (as the web's sliders show it, 2026-11-05), a room's its own.
+    var volume: Double {
+        guard let c = context else { return 0 }
+        let rooms = c.members.count > 1 ? c.members : [c.leader]
+        return rooms.map { volume(of: $0) }.reduce(0, +) / Double(rooms.count)
+    }
 
     // MARK: - the buttons (the Music page's requests)
 

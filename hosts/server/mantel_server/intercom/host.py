@@ -9,6 +9,7 @@ Music Assistant fetches from. The stream listener (listener.py) runs only while 
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import logging
 import time
 from typing import Any, Callable
@@ -255,6 +256,38 @@ class IntercomHost:
         sync = [g for g in plan.sync if not any(pids.get(c.player) in stuck for c in g.calls)]
         return R.Plan(rooms=plan.rooms, calls=keep, sync=sync, loose=plan.loose), out
 
+    async def _covered(self, plan: Any, pids: dict, music: Any) -> tuple[Any, str]:
+        """EVERY ROOM PICKED IS CALLED OR REALLY REACHED (2026-11-05: 0.1.134's plan had a leader's call "cover" eight rooms it
+        had just let go, and called none of them; the audit said ok). Just before the calls, each call that is to play on
+        others is checked against Music Assistant's list now: a room it wouldn't reach gets a call of its own. Returns the
+        plan and a note for the audit ("uncovered:<rooms>"), empty when nothing was missing."""
+        if not any(c.covers for c in plan.calls):
+            return plan, ""
+        view = R.ma_view(await self.ma_raw())
+        if view is None:
+            return plan, ""                     # unreadable now: the plan was made from a list read moments ago
+        calls, extra, missed = [], [], []
+        for c in plan.calls:
+            if not c.covers:
+                calls.append(c)
+                continue
+            lead = pids.get(c.player, "")
+            reach = set((view.get(lead) or {}).get("members") or ()) | {o for o, w in view.items() if w.get("synced_to") == lead}
+            lost = [m for m in c.covers if pids.get(m) not in reach]
+            if not lost:
+                calls.append(c)
+                continue
+            calls.append(dataclasses.replace(c, covers=[m for m in c.covers if m not in lost]))
+            for m in lost:
+                room = next((r["room"] for r in plan.playing if m in music.players_of([r["room"]])), c.room)
+                extra.append(R.Call(m, room, c.volume, live=c.live))
+                missed.append(room)
+        if not extra:
+            return plan, ""
+        log.warning("intercom: %d room(s) a group was to reach weren't in it; each gets a call of its own", len(extra))
+        return (R.Plan(rooms=plan.rooms, calls=calls + extra, sync=plan.sync, loose=plan.loose),
+                "uncovered:" + ",".join(dict.fromkeys(missed)))
+
     async def _give_back(self, aid: int, run: Any, loose: list[Any]) -> None:
         if not loose:
             return
@@ -315,7 +348,7 @@ class IntercomHost:
         s.broadcast = plan
         token, link = self.links.mint(spool, mode="message", finite=True, limit_s=C.limit_s(doc, "message"))
         url = f"{doc['stream_base']}/s/{token}.wav"
-        run = D.IntercomRun(s.principal, aid, {pids[c.player] for c in plan.calls}, [url],
+        run = D.IntercomRun(s.principal, aid, _speakers(plan, pids), [url],
                             groups={pids[g.leader.player]: [pids[c.player] for c in g.members] for g in plan.sync},
                             lent={g.leader: g.members for g in plan.loose})
         links = [link]
@@ -336,6 +369,7 @@ class IntercomHost:
             self._tell_listeners(doc, plan, spool, s)
             self._hide(aid, plan.calls)
             plan, out = await self._borrow(aid, run, plan, pids)
+            plan, uncovered = await self._covered(plan, pids, music)
             outcome.results = await D.broadcast(
                 self.ma, run, plan, pids, url, new_url=new_url, chime=doc["chime"]["message"],
                 timeout=C.limit_s(doc, "message") + D.CALL_GRACE, names=music.name_of,
@@ -351,7 +385,7 @@ class IntercomHost:
             run.close()
             for one in links:
                 self.links.kill(one)
-            self._finish(aid, result)
+            self._finish(aid, result, [_failures("failed", outcome.results), uncovered], s.principal)
             s.broadcast = None
             self.last_broadcast = None
 
@@ -392,11 +426,22 @@ class IntercomHost:
         except (ConnectionError, RuntimeError):
             pass
 
-    def _finish(self, aid: int, result: str) -> None:
+    def _finish(self, aid: int, result: str, notes: Any = (), principal: Any = None) -> None:
         try:
             self.app["audit"].finish(aid, result)
         except Exception:  # noqa: BLE001
             log.exception("could not write the result of intercom audit row %d", aid)
+        note = " ".join(n for n in notes if n)
+        if not note:
+            return
+        # WHICH ROOMS DIDN'T PLAY, AND WHY (2026-11-05): a row of its own, as the audit is append-only, pointing at the
+        # broadcast's row. Mantel's log starts again at every restart; this is kept. Room ids and signals, never content.
+        rooms = sorted({r.split("=", 1)[0] for part in note.split() for r in part.split(":", 1)[-1].split(",") if "=" in r or part.startswith("dropped:")})
+        try:
+            self.app["audit"].record(principal=principal, kind="ma", action="intercom.failures", targets=rooms,
+                                     decision="allowed", reason=f"play:{aid} {note}"[:1000], result="noted")
+        except Exception:  # noqa: BLE001
+            log.exception("could not write the failures of intercom audit row %d", aid)
 
     def _tell_listeners(self, doc: dict, plan: Any, spool: Any, s: Any) -> None:
         """17.4: listener tablets of a room in this broadcast play it themselves (routes.py's feed)."""
@@ -463,15 +508,18 @@ class IntercomHost:
         s.spool = self.new_spool(s.rate, limit)
         token, link = self.links.mint(s.spool, mode="live", finite=False, limit_s=limit)
         url = f"{doc['stream_base']}/s/{token}.wav"
-        run = D.IntercomRun(s.principal, aid, {pids[c.player] for c in plan.calls}, [url],
+        run = D.IntercomRun(s.principal, aid, _speakers(plan, pids), [url],
                             groups={pids[g.leader.player]: [pids[c.player] for c in g.members] for g in plan.sync},
                             lent={g.leader: g.members for g in plan.loose})
         self._hide(aid, [c for c in plan.calls if c.live])
         plan, out = await self._borrow(aid, run, plan, pids)
+        plan, uncovered = await self._covered(plan, pids, music)
         for c in out:                          # its group didn't come apart: the Message at the end decides it again
             c.live = False
             plan.calls.append(c)
         s.broadcast = LiveBroadcast(plan, pids, music, doc, aid, run, link, url, asyncio.get_running_loop().time())
+        if uncovered:
+            s.broadcast.notes.append(uncovered)
         s.broadcast.task = asyncio.get_running_loop().create_task(self._live_calls(s, s.broadcast))
         after = plan.names("after")
         await self._say(s, {"type": "sending", "rooms": len({c.room for c in plan.calls}),
@@ -628,6 +676,7 @@ class IntercomHost:
                 if dropped:
                     log.info("intercom: %d room(s) changed during the talk and were left out of the message",
                              len(dropped))
+                    b.notes.append("dropped:" + ",".join(dropped))
             fallback_names = sorted({r.name for r in failed})
             if fallback_names:
                 await self._say(s, {"type": "fallback", "rooms": fallback_names})
@@ -663,6 +712,7 @@ class IntercomHost:
                 lag = int(sorted(b.lags)[len(b.lags) // 2] * 1000)
                 await self._say(s, {"type": "lag_ms", "value": lag})
             self._live_health(b)
+            b.notes.append(_failures("failed", outcome.results))
             base = D.result_of(outcome, len(b.plan.skipped), fallback=bool(fallback_names))
             result = ("ok:max_length" if why == "max_length" and base == "ok" else base)
             await self._say(s, {"type": "sent", "rooms": _reached(b.plan.calls, outcome, b.music), "failed": outcome.failed,
@@ -674,7 +724,7 @@ class IntercomHost:
             self._show_all(b.aid, b.plan.calls)
             b.run.close()
             self.links.kill(b.link)
-            self._finish(b.aid, result)
+            self._finish(b.aid, result, [_failures("live_failed", b.results), *b.notes], s.principal)
             if self.relay.floor is s:
                 self.relay.floor = None
 
@@ -701,7 +751,7 @@ class IntercomHost:
         if not b.run.open:                     # live_end or an earlier abort already wrote the row's result
             return
         b.run.close()
-        self._finish(b.aid, result)
+        self._finish(b.aid, result, [_failures("live_failed", b.results), *b.notes], s.principal)
         if self.relay.floor is s:
             self.relay.floor = None
 
@@ -743,6 +793,7 @@ class LiveBroadcast:
         self.failed: set[str] = set()
         self.why: dict[str, str] = {}
         self.lags: list[float] = []
+        self.notes: list[str] = []          # for the audit row: rooms dropped, a Message's failures
 
     # the relay treats ``broadcast`` as the plan (``rooms``, ``calls``) while Message's send is running
     @property
@@ -758,6 +809,18 @@ def _reached(calls: list[Any], outcome: Any, music: Any) -> int:
     covered = {p for c in calls if c.player in played for p in c.covers}
     rooms |= {r for r in music.room_ids if covered.intersection(music.players_of([r]))}
     return len(rooms)
+
+
+def _speakers(plan: Any, pids: dict) -> set:
+    """The speakers a broadcast may call: its calls', and those its groups are to reach (_covered may call one alone)."""
+    return {pids[p] for c in plan.calls for p in [c.player, *c.covers] if p in pids}
+
+
+def _failures(tag: str, results: Any) -> str:
+    """The audit row's note of the rooms that didn't play and why ("live_failed:media_player.den=not_playing"); empty when
+    every room played."""
+    bad = [f"{r.room}={r.error or 'failed'}" for r in results if not r.ok]
+    return tag + ":" + ",".join(bad) if bad else ""
 
 
 def _mark_key(aid: int, call: Any) -> str:
