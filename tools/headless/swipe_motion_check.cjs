@@ -426,8 +426,15 @@ const SECTIONS = {
     const far = await where(t);
     assert(order.indexOf(far) >= 2, 'rapid: flicks went on through the pages ' + JSON.stringify(gone));
     isClean(await rest(t), 'rapid, forward');
-    for (let i = 0; i < order.length + 1; i++) await flick(1);
+    // Catching a not-yet-ready neighbor completes its landing before another
+    // gesture can move it (why: landing). Forward/back bursts can therefore
+    // consume different counts. Allow a landing handoff plus a flick per page,
+    // while still requiring monotonic progress and a clean return to Home.
+    const back = [far];
+    for (let i = 0; i < order.length * 2 + 1; i++) { await flick(1); back.push(await where(t)); }
     await ready(t);
+    back.push(await where(t));
+    assert(back.every((p,i) => !i || order.indexOf(p) <= order.indexOf(back[i-1])), 'rapid: return gestures never go the wrong way ' + JSON.stringify(back));
     assert.equal(await where(t), order[0], 'rapid: and back to the first ' + JSON.stringify(gone));
     isClean(await rest(t), 'rapid, back');
     await close(t, 'rapid');
