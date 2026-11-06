@@ -5,7 +5,12 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+**Added**
+- **The Lock and garage sheets move and answer.** As you hold to unlock, the lock's shackle starts to lift with the ring, and it springs open when the hold is done; tapping to lock drops it at once. A garage door rises through **Opening…** and comes down through **Closing…**. A lock now says **Unlocking…** or **Locking…** the moment it's sent, as the garage already did. Every press answers with a small bump, the ring flashes when the door gets there (with a success tap on the iPhone app), and a command that didn't go through shakes and says **Didn't go through. Try again.**
+- **The screensaver's Camera can hide or rename its camera.** Its options have **Name: Show / Custom / Hide**; Custom gives it the words you type in **Custom Name** ("Porch", say, rather than the camera's device name), and Hide leaves the picture alone.
+
 **Fixed**
+- **No empty band at the top of the screensaver's Side Pane.** Beside the Side Pane's own sections, Home Status stands on the photo, yet the pane still kept room for it above Calendar. The sections now start at the pane's top, as they do beside a Home Grid.
 - **The screensaver's volume works on a group.** With music playing on more than one room, its slider moved only the first speaker and sprang back. It now shows the rooms' average and sets every one, as the Side Pane's does.
 
 ## 1.46.0 - 2026-11-05
