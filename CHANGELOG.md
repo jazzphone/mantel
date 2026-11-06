@@ -4,6 +4,8 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+## 0.1.144 - 2026-11-06
+
 **Fixed**
 - **Side Pane previews have explicit As Saved, Show and Hide choices.** Show can preview a pane even when it is saved off or its sections are currently inactive; the saved screen configuration is unchanged.
 - **Music can be previewed in a quiet house.** With nothing playing, the Music slide shows sample artwork, track information, progress, volume and Up Next. Sample controls cannot start playback or change a speaker.
