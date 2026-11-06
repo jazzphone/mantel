@@ -226,7 +226,10 @@ class MantelLink:
         # Mantel's CA, pinned (pairing v3): wss:// only, and only a certificate it issued
         if ca and urlsplit(self.url).scheme != "wss":
             raise ValueError("a pinned CA needs an https:// address")
-        self._tls = pinned_tls(ca)
+        # the context is built on the first connection, in the executor: loading a CA reads it (Home Assistant
+        # 2026.11 calls ssl's load_verify_locations a blocking call in the event loop)
+        self._ca = ca
+        self._tls: dict[str, Any] | None = None if ca else {}
         # who is calling and how it speaks; `frames`: the server frame types
         # beyond protocol 1's this integration handles (each gets the frame)
         self.domain, self.protocol, self.features = domain, int(protocol), tuple(features)
@@ -245,6 +248,12 @@ class MantelLink:
         self.connected = False
         self.attempts = 0             # connection attempts so far (the tests read it)
         self.last_error: str | None = None
+
+    async def tls(self) -> dict[str, Any]:
+        """aiohttp's TLS arguments (pinned_tls), the pinned context built once, off the event loop."""
+        if self._tls is None:
+            self._tls = await asyncio.get_running_loop().run_in_executor(None, pinned_tls, self._ca)
+        return self._tls
 
     def __repr__(self) -> str:        # never the token
         return f"MantelLink({self.url!r}, connected={self.connected})"
@@ -329,9 +338,10 @@ class MantelLink:
             host = f"[{ip}]" if ":" in ip else ip
             url = urlunsplit(("ws", f"{host}:{parts.port}" if parts.port else host, parts.path, "", ""))
             headers["Host"] = parts.netloc
+        tls = await self.tls()
         try:
             async with self._session.ws_connect(url, headers=headers, heartbeat=30, max_msg_size=MAX_MSG,
-                                                **self._tls) as ws:
+                                                **tls) as ws:
                 opened.append(ws)
                 return await self._serve(ws)
         finally:

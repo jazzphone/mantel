@@ -363,3 +363,72 @@ async def test_the_connect_listener_s_real_certificate_passes_mantel_link_s_pinn
     finally:
         server.close()
         await server.wait_closed()
+
+
+async def test_mantel_link_pins_the_ca_built_off_the_event_loop(tmp_path, monkeypatch):
+    """MantelLink with a pinned CA: no CA is loaded while it is made (Home Assistant 2026.11 calls that a blocking call
+    in the event loop); the first connection builds the context in the executor, once, the same pinning as before
+    (Mantel's CA alone, TLS 1.2 or later, the listener's name), and it reaches Mantel Connect's real listener while a
+    link pinned to another Mantel's CA does not."""
+    import ssl
+    import threading
+
+    import aiohttp
+    from aiohttp import web
+
+    from hk_core.link import mantel_link as ML
+    from mantel_server.connect_pairing import Pki
+
+    pki, other = Pki(tmp_path / "connect"), Pki(tmp_path / "other")
+    pki.ensure()
+    other.ensure()
+    built: list[threading.Thread] = []
+    real = ssl.create_default_context
+
+    def watched(*a, **kw):
+        if kw.get("cadata"):
+            built.append(threading.current_thread())
+        return real(*a, **kw)
+    monkeypatch.setattr(ML.ssl, "create_default_context", watched)
+
+    hits: list[str] = []
+
+    async def ws(request):
+        hits.append(request.headers.get("Authorization", ""))
+        raise web.HTTPForbidden()            # the handshake got through; the credential is refused
+    app = web.Application()
+    app.router.add_get("/linked/ws", ws)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "127.0.0.1", 0, ssl_context=pki.ssl_context())
+    await site.start()
+    port = site._server.sockets[0].getsockname()[1]
+    try:
+        async with aiohttp.ClientSession() as session:
+            link = ML.MantelLink(session, f"https://127.0.0.1:{port}", "t", None, ca=pki.ca_pem)
+            assert built == [], "a CA loaded in the event loop"
+            tls = await link.tls()
+            assert built and built[0] is not threading.current_thread(), "built in the executor"
+            assert await link.tls() is tls and len(built) == 1, "built once"
+            assert tls["server_hostname"] == ML.LINK_SERVER_NAME == "mantel-connect"
+            ctx = tls["ssl"]
+            assert ctx.verify_mode == ssl.CERT_REQUIRED and ctx.check_hostname
+            assert ctx.minimum_version == ssl.TLSVersion.TLSv1_2
+            assert ctx.get_ca_certs() == ML.pinned_context(pki.ca_pem).get_ca_certs() and len(ctx.get_ca_certs()) == 1
+            try:
+                await link._connect_once()
+            except aiohttp.WSServerHandshakeError as err:
+                assert err.status == 403 and hits == ["Bearer t"]
+            else:
+                raise AssertionError("the listener answered 403")
+            stranger = ML.MantelLink(session, f"https://127.0.0.1:{port}", "t", None, ca=other.ca_pem)
+            try:
+                await stranger._connect_once()
+            except aiohttp.ClientConnectorCertificateError:
+                pass
+            else:
+                raise AssertionError("another Mantel's CA was accepted")
+            assert hits == ["Bearer t"], "nothing sent to a listener the pin refused"
+            assert await ML.MantelLink(session, "http://127.0.0.1:1", "t", None).tls() == {}, "no CA, no pinning"
+    finally:
+        await runner.cleanup()
