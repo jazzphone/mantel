@@ -42,6 +42,10 @@ OWNER_NAME = "Emma Rivera"
 EXTRA = {
     "camera.driveway_cam": ("garage", ("idle", {"friendly_name": "Driveway Cam", "access_token": "fictional",
                                                 "entity_picture": "/api/camera_proxy/camera.driveway_cam?token=fictional"})),
+    # the front door camera's other channel, on the same device: a tile shows it, the rows are filed under
+    # camera.front_door (as Protect files them under the high resolution channel at the house)
+    "camera.front_door_low": ("porch", ("idle", {"friendly_name": "Front Door Low resolution channel", "access_token": "fictional",
+                                                 "entity_picture": "/api/camera_proxy/camera.front_door_low?token=fictional"})),
     "binary_sensor.kitchen_leak": ("kitchen", ("off", {"friendly_name": "Kitchen Sink Leak", "device_class": "moisture"})),
     "person.emma": (None, ("home", {"friendly_name": "Emma"})),
     "person.mark": (None, ("home", {"friendly_name": "Mark"})),
@@ -220,7 +224,7 @@ def block_screen(app) -> None:
     body.update(home_style="grid", home_grid={"v": 1, "cols": 6, "rows": 4, "frame": [1280, 800], "band": True, "items": [
         {"id": "t1", "card": "timeline", "size": "L", "at": [0, 0], "opts": {"show": "latest"}},
         {"id": "t2", "card": "timeline", "size": "L", "at": [2, 0], "opts": {"show": "digest"}},
-        {"id": "c1", "card": "camera", "size": "L", "at": [4, 0], "opts": {"entity": "camera.driveway_cam"}},
+        {"id": "c1", "card": "camera", "size": "L", "at": [4, 0], "opts": {"entity": "camera.front_door_low"}},
         {"id": "t3", "card": "timeline", "size": "W", "at": [0, 2], "opts": {"show": "auto"}}]})
     store.write([("board", gallery.SCREEN, body)], actor=Actor(label="gallery"), message="timeline_check --block")
 
@@ -234,7 +238,10 @@ async def main(shots, only, skip_live, block=False) -> int:
         # the extra entities, in the registry and the states
         areas = [{"area_id": a, "name": nm, "floor_id": f} for a, nm, f in gallery.ROOMS]
         ents = [{"entity_id": e, "area_id": a, "platform": "demo"} for e, (a, _) in {**gallery.HOUSE, **EXTRA}.items()]
-        app["hub"].registry.load(areas, [], ents, gallery.FLOORS)
+        for e in ents:                                  # the front door camera's two channels are one device
+            if e["entity_id"] in ("camera.front_door", "camera.front_door_low"):
+                e["device_id"] = "front_door_cam"
+        app["hub"].registry.load(areas, [{"id": "front_door_cam", "name": "Front Door", "area_id": "porch"}], ents, gallery.FLOORS)
         app["hub"].store.apply_event({"a": {e: {"s": s, "a": at_, "lc": NOW - 1800, "lu": NOW - 60} for e, (_, (s, at_)) in EXTRA.items()}})
         app["clock"] = lambda: NOW
         # the house's time zone, as Home Assistant's config says it (the page shows times in it)

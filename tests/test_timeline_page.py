@@ -81,6 +81,11 @@ out.matches = [
   L.matches(row, Object.assign(L.emptyFilters(), { entity: 'lock.front_door' })), L.matches(row, Object.assign(L.emptyFilters(), { mine: true })),
   L.matches(ev(8, '2026-11-03T08:00:00Z'), Object.assign(L.emptyFilters(), { mine: true })), L.matches(row, Object.assign(L.emptyFilters(), { q: 'back KITCHEN' })),
   L.matches(row, Object.assign(L.emptyFilters(), { q: 'garage' }))];
+// a camera's filter is the live feed's own (the server sends the camera's device's rows, under any of its entities)
+const hi = ev(9, '2026-11-03T08:00:00Z', { family: 'detection', kind: 'person', entity: 'camera.front_door_high' });
+out.camMatches = [L.matches(hi, Object.assign(L.emptyFilters(), { entity: 'camera.front_door_low', camera: true })),
+                  L.matches(hi, Object.assign(L.emptyFilters(), { entity: 'camera.front_door_low', camera: true, groups: ['locks'] })),
+                  L.matches(row, Object.assign(L.emptyFilters(), { entity: 'lock.front_door' }))];
 out.show = [L.showAllFilter({ family: 'doorbell', entity: 'camera.front_door' }), L.showAllFilter({ family: 'door', entity: 'binary_sensor.front_door' }), L.showAllFilter({ family: 'system' }),
             L.showAllLabel({ family: 'doorbell' }, 'Front Door'), L.showAllLabel({ family: 'detection' }, ''), L.showAllLabel({ family: 'lock' }, ''), L.showAllLabel({ family: 'door' }, '')];
 out.labels = ['Someone rang Front Door', 'Person at Driveway Cam', 'Carbon monoxide at Hallway', 'Back Door unlocked', 'Front Door keeps changing (14 times)',
@@ -220,6 +225,8 @@ def test_filters_become_the_path_the_page_reads(page):
 
 def test_a_live_row_is_kept_only_where_the_filters_would_show_it(page):
     assert page["matches"] == [True, True, False, True, True, False, True, False, True, False]
+    # a camera's rows are filed under whichever of its device's entities heard them: the feed decides, not the id
+    assert page["camMatches"] == [True, False, False]
 
 
 def test_show_all_names_its_door_or_camera(page):

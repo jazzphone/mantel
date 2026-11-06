@@ -10,6 +10,11 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 - **Every room an Intercom message is sent to is called or really reached.** Just before sending, Mantel checks with Music Assistant that each group still holds the rooms it is to play in; a room it wouldn't reach gets its own call. (In 0.1.134 a message to nine rooms played in two while the log said it had gone out.)
 - **The Intercom keeps why a room didn't play.** Each broadcast with a room that failed Live or the message, or was left out, gets an `intercom.failures` row in the audit log beside its own: the rooms and the reason, never what was said. Mantel's own log starts again at every update.
 
+## 0.1.139 - 2026-11-05
+
+**Fixed**
+- **A camera's pop-up lists what the Timeline saw.** Under the picture, **Recent** said "Nothing recorded for this camera yet" for cameras whose people, animals and rings were on the Timeline page. The Home page's tile shows a camera's low-resolution channel, and the Timeline keeps its events under another of the camera's entities, so the two never matched. Recent now lists every event of that camera, and says it has none only when there are none. On a phone, its first event no longer starts under the pop-up's edge.
+
 ## 0.1.138 - 2026-11-05
 
 **Fixed**

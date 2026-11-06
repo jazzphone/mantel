@@ -440,7 +440,7 @@
     '.st.empty{height:' + STRIP_EMPTY_H + 'px;justify-content:center}',
     '.st .k{flex:none;padding:0 18px;font-size:12px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;line-height:16px;color:' + v('ink-2') + '}',
     '.st .none{padding:0 18px;font-size:14px;line-height:18px;color:' + v('ink-2') + '}',
-    '.sc{flex:1;min-height:0;display:flex;gap:10px;overflow-x:auto;overflow-y:hidden;padding:0 18px;scrollbar-width:none;-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity;overscroll-behavior-x:contain}',
+    '.sc{flex:1;min-height:0;display:flex;gap:10px;overflow-x:auto;overflow-y:hidden;padding:0 18px;scroll-padding-inline:18px;scrollbar-width:none;-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity;overscroll-behavior-x:contain}',
     '.sc::-webkit-scrollbar{display:none}',
     '.c{all:unset;box-sizing:border-box;flex:none;width:114px;display:flex;flex-direction:column;gap:5px;cursor:pointer;scroll-snap-align:start;-webkit-tap-highlight-color:transparent}',
     '.c:active{opacity:.7}',
@@ -458,7 +458,10 @@
     _path() { return stripPath(this._camera()); }
     _message() { return stripMessage(this._camera()); }
     _keep() { return STRIP_MAX; }
-    _wants(ev) { return !!ev && ev.entity === this._camera(); }
+    // the feed is this camera's already: the server sends its device's rows, filed under whichever of its entities
+    // heard them (Protect's under the high resolution channel while a tile shows the low one; a detection sensor), so
+    // a row's entity is never compared with the camera's here (2026-11-05: the front door's Recent was empty)
+    _wants(ev) { return !!ev; }
     _sigOf() { return 'timeline-strip'; }
 
     setConfig(config) {
