@@ -420,7 +420,12 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
             continue;
           }
           // A SLIDE: the layout steps aside; the slide corner adds what the slide lacks, nothing it has
-          if (!shown) { say(true, t2 + ': (not shown here: ' + sl + ' has nothing to show in this house)', shown); continue; }
+          if (!shown) {
+            const background = sl === 'forecast' && await page.evaluate(() => hkSaver.forecast());
+            say(true, t2 + (background ? ': forecast is already the background' : ': (not shown here: ' + sl + ' has nothing to show in this house)'), shown);
+            if (background) say((await page.evaluate(() => hkSaver.previewStatus())).message.includes('already the background'), t2 + ': the preview explains its existing forecast background');
+            continue;
+          }
           const key = want === 'look-fb' ? 'forecast_big' : sl;
           const own = /-own$/.test(screen), want4 = ['time', 'date', 'weather', 'status'].filter((k) => SHOWS_OF[key].indexOf(k) < 0 && !(own && k === 'weather'));
           say(m.scorner && !m.layShown, t2 + ': the layout steps aside, the slide corner is up', [m.scorner, m.layShown]);

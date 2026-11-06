@@ -21,7 +21,7 @@
       });
     }
     o.designs.forEach(function(d){var b=button('',function(){o.select(d);Array.from(rail.children).forEach(function(n){n.setAttribute('aria-pressed',n===b?'true':'false');});},rail);b.className='card';b.setAttribute('aria-pressed',d.id===o.active?'true':'false');
-      var pic=document.createElement('div');pic.className='picture';pic.appendChild(document.createElement('div'));b.appendChild(pic);var name=document.createElement('div');name.className='name';name.textContent=d.name;b.appendChild(name);
+      var pic=document.createElement('div');pic.className='picture';pic.inert=true;pic.appendChild(document.createElement('div'));b.appendChild(pic);var name=document.createElement('div');name.className='name';name.textContent=d.name;b.appendChild(name);
     });
     var note=document.createElement('p');note.className='note';note.textContent=o.designs.length?'Tap a design to remember it on this device. Changes to this screen’s saved settings restore its saved default. Customize saves designs through Settings.':'No saved designs yet. Add designs in the Screensaver editor.';section.appendChild(note);
     sr.addEventListener('keydown',function(event){var e=/** @type {KeyboardEvent} */(event);if(e.key==='Escape'){e.preventDefault();close();}if(e.key==='Tab'){var all=Array.from(sr.querySelectorAll('button')),at=all.indexOf(/** @type {HTMLButtonElement} */(sr.activeElement));if(e.shiftKey&&at<=0){e.preventDefault();all[all.length-1].focus();}else if(!e.shiftKey&&at===all.length-1){e.preventDefault();all[0].focus();}}});

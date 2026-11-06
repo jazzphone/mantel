@@ -1410,7 +1410,7 @@
     var kind = previewSelected;
     if (!kind) return true;
     var ok = kind === 'music' ? (muShowing || showMusicSlide()) : kind === 'weather' ? (wxShowing || showWeatherSlide()) :
-      kind === 'energy' ? (enShowing || showEnergySlide()) : mode === 'forecast' || fcShowing || showForecastExtra();
+      kind === 'energy' ? (enShowing || showEnergySlide()) : fcShowing || showForecastExtra();
     if (ok) exKind = kind;
     return !!ok;
   }
@@ -4373,10 +4373,10 @@
       },
       previewPane: function (show) { previewPane = show !== false; if (previewOn) refresh(); return previewPane; },
       previewStatus: function () {
-        return { selected: previewSelected, ready: syncPreviewSlide(), pane: paneUp, paneMessage: window.hkSidePane && window.hkSidePane.placement(window.innerWidth, window.innerHeight, { width: cfg && cfg.pane_width }).kind === 'none' ? 'The Side Pane needs more room. Choose Wall Tablet or iPad Upright to preview it.' : '',
+        return { selected: previewSelected, ready: syncPreviewSlide() || previewSelected === 'forecast' && mode === 'forecast', pane: paneUp, paneMessage: window.hkSidePane && window.hkSidePane.placement(window.innerWidth, window.innerHeight, { width: cfg && cfg.pane_width }).kind === 'none' ? 'The Side Pane needs more room. Choose Wall Tablet or iPad Upright to preview it.' : '',
           message: previewSelected === 'music' && !musicPlaying() ? 'Play music to preview the Music slide.' :
             previewSelected === 'energy' && !energyReady() ? 'Home Energy needs energy data before its slide can be shown.' :
-            previewSelected === 'weather' && !weatherReady() ? 'Waiting for weather data…' : '' };
+            previewSelected === 'weather' && !weatherReady() ? 'Waiting for weather data…' : previewSelected === 'forecast' && mode === 'forecast' ? 'Forecast is already the background for this design.' : '' };
       },
       previewNight: function (v) { nightPreview = v === true ? true : v === false ? false : null; nightCheck(); return nightPreview; },
       layoutInfo: function () {

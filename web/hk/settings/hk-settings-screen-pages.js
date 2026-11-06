@@ -944,6 +944,7 @@
         var self = this, W = 1180, H = 820;
         var box = document.createElement('span'), inner = document.createElement('div');
         box.className = 'sthumb';
+        box.inert = true;
         box.setAttribute('aria-hidden', 'true');
         box.style.cssText = 'flex:none;position:relative;display:block;width:' + w + 'px;height:' + h + 'px;border-radius:' + Math.round(h / 7) + 'px;overflow:hidden;' +
           'background:#1c1c1e;box-shadow:inset 0 0 0 .5px rgba(127,127,127,.35);margin-right:12px';

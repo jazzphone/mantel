@@ -22,6 +22,27 @@ const input = JSON.parse(fs.readFileSync(0, 'utf8')), [W,H] = input.size.split('
   await page.locator('hk-saver-editor .design-actions').getByRole('button',{name:'Remove Design',exact:true}).click();
   await page.getByRole('button',{name:'Remove',exact:true}).click();
   await until(ed=>ed.opts.designs.length===2);
+  // A globe thumbnail must yield to native gallery scrolling, while the full face stays interactive.
+  await E((ed,sr)=>sr.querySelector('.catalog .design-card:nth-child(23)').click());
+  await until(ed=>ed.opts.clock_style==='world'&&ed.opts.designs.length===3);
+  const globe=page.locator('hk-saver-editor .design-rail .design-card').nth(2);
+  await globe.scrollIntoViewIfNeeded();await page.waitForTimeout(800);
+  await until((ed,sr)=>sr.querySelector('.design-rail canvas[data-hk-saver-control=globe]'));
+  const hit=await E((ed,sr)=>{const cv=sr.querySelector('.design-rail canvas[data-hk-saver-control=globe]'),r=cv.getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2,card:sr.elementFromPoint(r.x+r.width/2,r.y+r.height/2)?.closest('.design-card')===cv.closest('.design-card')};});
+  assert(hit.card,'the card owns thumbnail input');
+  if(input.engine==='chromium'){
+    const cdp=await ctx.newCDPSession(page),before=await E((ed,sr)=>sr.querySelector('.design-rail').scrollLeft);
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:hit.x,y:hit.y}]});
+    for(let i=1;i<=12;i++){await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:hit.x+i*20,y:hit.y}]});await page.waitForTimeout(16);}
+    await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+    await page.waitForTimeout(800);
+    const after=await E((ed,sr)=>sr.querySelector('.design-rail').scrollLeft);assert(after<before-30,'native swipe moves cards across the globe '+JSON.stringify({before,after,hit}));
+    await cdp.detach();
+  }
+  await globe.click();
+  await page.locator('hk-saver-editor .design-actions').getByRole('button',{name:'Remove Design',exact:true}).click();
+  await page.getByRole('button',{name:'Remove',exact:true}).click();
+  await until(ed=>ed.opts.designs.length===2);
   await page.locator('hk-saver-editor .design-rail .design-card').nth(1).click();
 
   await E((ed,sr)=>sr.querySelector('.design-gallery header .customize').click());
