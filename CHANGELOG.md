@@ -4,6 +4,8 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+## 0.1.141 - 2026-11-06
+
 **Changed**
 - **A sideways swipe goes on past the tab bar's last tab** to the pages under **More**, in More's order (room pages still have none), and each screen's **Swipe Right on Home** (Settings → the screen → Menu → Gestures) can put one of its pages before Home, such as Music for the player full screen.
 
