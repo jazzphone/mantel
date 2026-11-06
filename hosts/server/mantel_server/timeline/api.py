@@ -304,8 +304,9 @@ def find(app: Any, viewer: Viewer, q: dict, now: float) -> dict:
     limit = max(1, min(LIMIT_MAX, limit))
     camera = q.get("camera")
     entity = q.get("entity")
+    entities: list[str] | None = None
     if camera:
-        entity = str(camera)
+        entity, entities = None, camera_entities(app, str(camera)[:255])
     area = q.get("area")
     got: list[dict] = []
     scanned = 0
@@ -313,7 +314,7 @@ def find(app: Any, viewer: Viewer, q: dict, now: float) -> dict:
     more = False
     while len(got) < limit and scanned < SCAN_MAX:
         chunk = tl.rows.chunk(before=cursor, since=since, until=until, families=sorted(allowed),
-                              entity=str(entity)[:255] if entity else None, entities=None,
+                              entity=str(entity)[:255] if entity else None, entities=entities,
                               area=str(area)[:64] if area else None, q=str(words)[:200] if words else None,
                               actor=actor, size=CHUNK)
         if not chunk:
@@ -336,6 +337,24 @@ def find(app: Any, viewer: Viewer, q: dict, now: float) -> dict:
     return {"events": events, "next_before": cursor if more and cursor is not None else None,
             "limited": viewer.limited, "names": viewer.may_names, "search": viewer.may_search,
             "families": list(viewer.families())}
+
+
+def camera_entities(app: Any, camera: str) -> list[str]:
+    """What ``camera=`` asks for: every entity of that camera's device, the camera first.
+
+    A camera's rows are filed under whichever of its entities heard them: Protect's under the channel it matched
+    (``camera.front_door_camera_high_resolution_channel``), Home Assistant's own under a detection sensor or an event
+    entity of the same device. The camera sheet asks by the channel a tile shows, often another one (the low
+    resolution channel), and found nothing (2026-11-05, the front door's "Recent" was empty). Each row is still shown
+    by its own rules (``Viewer.visible``). A camera with no device in the registry is itself alone."""
+    if not camera.startswith("camera."):
+        return [camera]
+    hub = app.get("hub") if hasattr(app, "get") else None
+    entries = getattr(getattr(hub, "registry", None), "entries", {}) or {}
+    dev = (entries.get(camera) or {}).get("device_id")
+    if not dev:
+        return [camera]
+    return [camera] + sorted(eid for eid, e in entries.items() if eid != camera and (e or {}).get("device_id") == dev)
 
 
 def _viewer(request: web.Request) -> Viewer:
@@ -733,6 +752,7 @@ def register_live(app: Any) -> None:
             for part in str(fam).split(","):
                 want |= set(GROUPS.get(part.strip(), (part.strip(),)))
         camera = msg.get("camera") if isinstance(msg.get("camera"), str) else None
+        cams = set(camera_entities(app, camera[:255])) if camera else None
         tl = tl_of(app)
         on_event({"ready": True})
 
@@ -741,7 +761,7 @@ def register_live(app: Any) -> None:
             now = app["clock"]()
             out = []
             visible = [r for r in rows if (want is None or r.get("family") in want)
-                       and (camera is None or r.get("entity") == camera) and v.visible(r, now)]
+                       and (cams is None or r.get("entity") in cams) and v.visible(r, now)]
             if not visible:
                 return
             pics = pics_of(tl.db, [r["id"] for r in visible]) if v.pictures else {}

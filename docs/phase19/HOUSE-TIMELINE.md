@@ -315,7 +315,9 @@ row is filtered for that viewer before it's sent. A row's later `end` or picture
   5 to 12 rows; **Auto** mode shows the morning digest from 5 to 11 AM and the latest rows after. Tap opens the page.
   On a wall tablet it is the limited view.
 - **The camera sheet.** Under a camera's live view (`hk-cameras.js`), a "Recent" strip: the last 10 events for that
-  camera (`GET /api/timeline?camera=`), each with its pictures. Same rules.
+  camera (`GET /api/timeline?camera=`), each with its pictures. Same rules. `camera=` means the camera's whole device:
+  a row is filed under whichever entity heard it (Protect's under the channel it matched, Home Assistant's under a
+  detection sensor or an event entity), while a tile may show another channel (2026-11-05).
 - **The apps.** iPhone, iPad and Mac show the same pages. A push for the digest carries a link to the page.
 - **Mantel Settings → Timeline** (`web/shim/settings/timeline.js`, the settings kit, `#/mantel/timeline`,
   `admin_page` section `timeline` for Owners and Admins): what's recorded (a switch per family, the "Not recorded"

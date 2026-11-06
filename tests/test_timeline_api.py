@@ -292,6 +292,27 @@ async def test_filters_families_camera_area_entity_and_time(w):
     assert w.names_of(events((await q(f"since={t - 2450}&until={t - 2150}"))[1])) == {"person", "ring", "hall_person"}
 
 
+async def test_a_camera_is_asked_for_by_any_of_its_channels_and_gets_its_devices_rows(w):
+    # 2026-11-05: the camera sheet asks by the channel its tile shows (the low resolution one); Protect files the rows
+    # under the channel it matched, Home Assistant under the device's own sensors. Recent said "Nothing recorded".
+    t = w.now[0]
+    w.add("hall_sensor", at=t - 2100, family="detection", kind="person", entity="binary_sensor.hall_person",
+          area="hall", title="Person at Hall Cam", search="person at hall cam hallway")
+    for cam in ("camera.hall_low", "camera.hall"):
+        _, body = await w.find("avery", f"camera={cam}")
+        assert w.names_of(events(body)) == {"ring", "hall_person", "hall_sensor"}, cam
+    # another device's camera, an entity filter and a camera Home Assistant doesn't list keep to themselves
+    _, body = await w.find("avery", "camera=camera.driveway")
+    assert w.names_of(events(body)) == {"person"}
+    _, body = await w.find("avery", "entity=camera.hall_low")
+    assert events(body) == []
+    _, body = await w.find("avery", "camera=camera.nowhere")
+    assert events(body) == []
+    # each row still by its own rules: a Child granted the page sees no camera's rows by any of its channels
+    _, body = await w.find("cody", "camera=camera.hall_low")
+    assert events(body) == []
+
+
 async def test_bad_queries_are_refused_plainly(w):
     for q, err in (("family=nope", "bad_family"), ("limit=abc", "bad_limit"), ("before=abc", "bad_before"),
                    ("since=abc", "bad_since"), ("until=nan", "bad_until"), ("since=inf", "bad_since"),
@@ -714,6 +735,21 @@ async def test_the_live_feed_can_be_narrowed_and_a_late_picture_arrives_as_an_up
     w.tl.publish(["live:motion"])
     ev = (await read_event(ws, 1))["events"]
     assert [e["id"] for e in ev] == [row_id] and [p["id"] for p in ev[0]["pics"]] == [pid]      # the same row, updated
+    await ws.close()
+
+
+async def test_a_cameras_live_feed_sends_its_devices_rows_whatever_channel_asked(w):
+    ws, _ = await subscribe(w, "mark", camera="camera.hall_low")
+    push(w, "drive", family="detection", kind="person", entity="camera.driveway", area="drive", title="Person at Driveway Cam",
+         search="person at driveway cam")
+    push(w, "hi", family="detection", kind="person", entity="camera.hall", area="hall", title="Person at Hall Cam",
+         search="person at hall cam")
+    push(w, "sensor", family="detection", kind="person", entity="binary_sensor.hall_person", area="hall",
+         title="Person at Hall Cam", search="person at hall cam")
+    got: list[dict] = []
+    while len(got) < 2:
+        got += (await read_event(ws, 1))["events"]
+    assert [e["entity"] for e in got] == ["camera.hall", "binary_sensor.hall_person"]      # never the driveway's
     await ws.close()
 
 

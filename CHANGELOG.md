@@ -4,6 +4,9 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Fixed**
+- **A camera's pop-up lists what the Timeline saw.** Under the picture, **Recent** said "Nothing recorded for this camera yet" for cameras whose people, animals and rings were on the Timeline page. The Home page's tile shows a camera's low-resolution channel, and the Timeline keeps its events under another of the camera's entities, so the two never matched. Recent now lists every event of that camera, and says it has none only when there are none. On a phone, its first event no longer starts under the pop-up's edge.
+
 ## 0.1.138 - 2026-11-05
 
 **Fixed**

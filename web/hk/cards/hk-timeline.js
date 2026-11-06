@@ -263,10 +263,12 @@
     if (f.camera && f.entity) m.camera = f.entity;
     return m;
   }
-  // does a row belong in what the filters show (for a row that arrives live)
+  // does a row belong in what the filters show (for a row that arrives live). A camera's filter is the feed's own:
+  // the server sends that camera's device's rows, which are filed under its other entities too (a detection sensor,
+  // another channel), so a row's entity is not compared with the camera's
   function matches(ev, f) {
     if (f.groups.length && !familiesOf(f.groups)[ev.family]) return false;
-    if (f.entity && ev.entity !== f.entity) return false;
+    if (f.entity && !f.camera && ev.entity !== f.entity) return false;
     if (f.mine && !(ev.who && ev.who.mine)) return false;
     var words = String(f.q || '').toLowerCase().split(/\s+/).filter(Boolean);
     if (words.length) {

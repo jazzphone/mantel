@@ -80,11 +80,25 @@ function sheetState() {
         await page.clock.runFor(8000);             // (the page's clock is the fixed one: let the blocks' reads land)
         await page.waitForTimeout(4000);
         await shot(page, key + '-block');
-        // the camera's sheet, as a tap on a camera opens it: its "Recent" strip under the picture
-        await page.evaluate(() => window.hkShell.moreInfo('camera.driveway_cam'));
+        // the camera's sheet, as a tap on a camera opens it: its "Recent" strip under the picture. The tile shows the
+        // camera's low channel and the rows are filed under its other one (2026-11-05: Recent said "Nothing recorded")
+        await page.evaluate(() => window.hkShell.moreInfo('camera.front_door_low'));
         await page.clock.runFor(6000);
         await page.waitForTimeout(4000);
         await shot(page, key + '-camera-sheet');
+        const strip = await page.evaluate(() => {
+          const deep = (r, s) => [...r.querySelectorAll('*')].flatMap(e => [...(e.matches(s) ? [e] : []), ...(e.shadowRoot ? deep(e.shadowRoot, s) : [])]);
+          const el = deep(document, 'hk-timeline-strip-card')[0], sr = el && el.shadowRoot;
+          const sc = sr && sr.querySelector('.sc'), c0 = sr && sr.querySelector('.c');
+          // the first card starts at the strip's own inset (a snap that ignores the padding scrolls it under the edge)
+          const inset = sc && c0 ? Math.round(c0.getBoundingClientRect().left - sc.getBoundingClientRect().left) : null;
+          return sr ? { hidden: el.hidden, cards: [...sr.querySelectorAll('.c .t')].map(t => t.textContent), none: !!sr.querySelector('.none'), inset } : null;
+        });
+        check(key + ' camera sheet: Recent lists the camera\'s rows', () => {
+          assert(strip && !strip.hidden && !strip.none, JSON.stringify(strip));
+          assert.deepEqual(strip.cards.slice(0, 2), ['Package', 'Doorbell']);
+          assert.equal(strip.inset, 18, 'the first card starts ' + strip.inset + ' px in');
+        });
         check(key + ' no page errors', () => { if (errors.length) throw new Error(errors.join(' | ')); });
         await ctx.close();
         continue;

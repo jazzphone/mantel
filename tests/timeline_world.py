@@ -22,6 +22,9 @@ ENTITIES = [
     {"entity_id": "person.visitor"},
     {"entity_id": "camera.driveway", "device_id": "cam_drive"},
     {"entity_id": "camera.hall", "device_id": "cam_hall"},
+    # the hall camera's other channel (the one a tile shows) and its own person sensor, on the same device
+    {"entity_id": "camera.hall_low", "device_id": "cam_hall"},
+    {"entity_id": "binary_sensor.hall_person", "device_id": "cam_hall", "original_device_class": "occupancy"},
     {"entity_id": "light.cody", "area_id": "cody_room"},
 ]
 STATES = {
@@ -34,6 +37,9 @@ STATES = {
     "person.visitor": {"s": "home", "a": {"friendly_name": "Visitor"}, "lc": 1.0, "lu": 1.0},
     "camera.driveway": {"s": "idle", "a": {"friendly_name": "Driveway Cam"}, "lc": 1.0, "lu": 1.0},
     "camera.hall": {"s": "idle", "a": {"friendly_name": "Hall Cam"}, "lc": 1.0, "lu": 1.0},
+    "camera.hall_low": {"s": "idle", "a": {"friendly_name": "Hall Cam Low"}, "lc": 1.0, "lu": 1.0},
+    "binary_sensor.hall_person": {"s": "off", "a": {"friendly_name": "Hall Cam Person", "device_class": "occupancy"},
+                                  "lc": 1.0, "lu": 1.0},
     "light.cody": {"s": "off", "a": {"friendly_name": "Cody"}, "lc": 1.0, "lu": 1.0},
 }
 
