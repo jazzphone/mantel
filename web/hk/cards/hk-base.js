@@ -4206,11 +4206,9 @@
                 tab_bar_tabs_phone: 3,
                 // the rail in a phone's side strip (hk-tabbar.js stripSide, 2026-10-30)
                 tab_bar_strip: true,
-                // Swipe Between Pages (hk-pageswipe.js, 2026-10-30): null,
-                // Same as All Screens (hkSettings.swipePages)
-                swipe_pages: null,
-                // ...and the page a swipe right on Home goes to (2026-11-06): null, none
-                swipe_left: null,
+                // Swipe Between Pages (hk-pageswipe.js, 2026-10-30): null, Same as All Screens (hkSettings.swipePages);
+                // swipe_left, the page a swipe right on Home goes to (2026-11-06): null, none
+                swipe_pages: null, swipe_left: null,
                 // PHONES' OWN (phoneForm): the menu (null: as before there
                 // was one -- phoneMenu), the button's style, More's rooms
                 menu_phone: null, button_phone: 'chip', tab_bar_rooms_phone: 'more' };

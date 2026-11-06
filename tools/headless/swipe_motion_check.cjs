@@ -70,7 +70,11 @@ const PROBE = () => {
                inert: v.hasAttribute('inert'), offstage: v.hasAttribute('data-hk-offstage'), busy: !!(s.G || s.A || s.L), pages: kids.length, ghosts: kids.filter(k => k.classList.contains('hk-swipe-ghost')).length,
                others: kids.filter(k => k !== v).every(k => k.hasAttribute('inert') && Math.abs(k.getBoundingClientRect().left) >= innerWidth - 2),
                level: kids.filter(k => k !== v).every(k => Math.abs(k.getBoundingClientRect().top - (v.getBoundingClientRect().top + (document.scrollingElement.scrollTop || 0))) <= 2),
-               grounds: deep(document, '.hk-swipe-ground').length, hit: !!e && chain(e).indexOf(v) >= 0 };
+               grounds: deep(document, '.hk-swipe-ground').length,
+               // (the page, or the empty screen under a page shorter than it -- the view's own container, which a press
+               // and a swipe treat as the page's: hk-pageswipe.js; Cameras on the fictional house, reached through More)
+               hit: !!e && (chain(e).indexOf(v) >= 0 || (e.localName === 'hk-view-container' && e.contains(v))),
+               at: e ? chain(e).slice(0, 6).map(n => (n.localName || '#') + (n.id ? '#' + n.id : '') + (n.className && n.className.baseVal === undefined && n.className ? '.' + String(n.className).split(' ')[0] : '')).join(' < ') : null };
     },
     // WebKit's finger: on what is under the point, each touch the target's own until it ends
     t: null,

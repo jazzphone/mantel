@@ -503,8 +503,7 @@
   var CLOUD_STYLES = [['classic', 'Classic'], ['realistic', 'Realistic']];
   // Moving Things (sky.moving / a screen's sky_moving)
   var SKY_MOVING = [['behind', 'Behind the Cards'], ['front', 'In Front of the Cards']];
-  // SWIPE BETWEEN PAGES (menu.swipe_pages / a screen's swipe_pages; hk-pageswipe.js)
-  var SWIPE_PAGES = [['auto', 'Automatic'], ['on', 'On'], ['off', 'Off']];
+  var SWIPE_PAGES = [['auto', 'Automatic'], ['on', 'On'], ['off', 'Off']];    // Swipe Between Pages (hk-pageswipe.js)
   var SWIPE_PAGES_SAYS = { auto: 'Where a tab bar shows, a sideways swipe goes to the next or the previous page: the tabs’, then More’s. Not on a room’s page.',
                            on: 'A sideways swipe goes to the next or the previous page: the tab bar’s and More’s, or the side menu’s. Not on a room’s page.',
                            off: 'Pages change only from the menu or the tab bar.' };
@@ -2197,7 +2196,7 @@
                       'tab_size_phone', 'accent', 'glyph', 'clock', 'swipe',
                       'tab_bar_scroll', 'tab_bar_rooms', 'tab_bar_glass', 'tab_bar_more', 'tab_bar_more_phone', 'tab_bar_pos', 'tab_bar_fold', 'tab_bar_start', 'tab_bar_adjust', 'tab_bar_scroll_phone', 'tab_bar_tabs',
                       'tab_bar_tabs_rail', 'tab_bar_tabs_phone', 'tab_bar_size', 'tab_bar_labels', 'tab_bar_strip', 'menu_phone', 'button_phone', 'tab_bar_rooms_phone',
-                      'swipe_pages'], true],
+                      'swipe_pages', 'swipe_left'], true],
     ['home', 'Home Page', ['chips_row', 'chips', 'chips_quiet', 'chips_extra', 'chips_custom', 'chips_custom_show'], true],
     // a screen's rooms: All Screens' or its own (rooms_custom)
     ['rooms', 'Rooms', ['rooms_custom', 'room_order', 'home_rooms', 'menu_rooms', 'page_rooms'], true],
