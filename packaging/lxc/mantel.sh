@@ -169,6 +169,63 @@ follow_source_version() {  # follow_source_version ENV_FILE CONFIG_YAML
     rm -f "$1.bak"
 }
 
+# Old images: each release pulls a new mantel-server and mantel-transcode (~1.2 GB) and nothing removed the old
+# ones, so after ~15 releases the container's disk was too full for an unattended update (under 20% free).
+old_mantel_images() {  # old_mantel_images LOCAL_REFS IN_USE_REFS: the image tags to remove, one per line
+  # LOCAL_REFS: `docker images` as repository:tag; IN_USE_REFS: the images the containers were made from
+  # (`docker ps -a`). Only ghcr.io/jazzphone/mantel-{server,transcode,caddy}:<version> tags are ever listed, never
+  # one a container uses, nor the running version's, the one before it or a newer one (any of the three, used or not), nor
+  # mantel-rollback/* or anything else. Nothing at all when no container runs a published Mantel image.
+  local re='^ghcr\.io/jazzphone/mantel-(server|transcode|caddy):[0-9]+\.[0-9]+\.[0-9]+[0-9A-Za-z.+-]*$'
+  local current previous ref version
+  current="$(grep -E "$re" "$2" 2>/dev/null | sed 's/.*://' | sort -uV | tail -1 || true)"
+  [ -n "$current" ] || return 0
+  previous="$({ grep -E "$re" "$1" 2>/dev/null | sed 's/.*://'; echo "$current"; } | sort -uV \
+              | grep -B1 -xF "$current" | head -1 || true)"
+  while IFS= read -r ref; do
+    [[ "$ref" =~ $re ]] || continue
+    version="${ref##*:}"
+    [ "$version" != "$current" ] && [ "$version" != "$previous" ] || continue
+    # a newer one than runs (pulled, not started yet) is not old
+    [ "$(printf '%s\n%s\n' "$current" "$version" | sort -V | tail -1)" = "$current" ] || continue
+    grep -qxF "$ref" "$2" 2>/dev/null && continue
+    printf '%s\n' "$ref"
+  done < "$1"
+  return 0
+}
+
+prune_old_images() {  # removes old_mantel_images by exact tag and says in one line what that freed; never fails
+  # Never `docker image prune -a`: it would take the mantel-rollback/* images update.sh keeps. A tag whose image
+  # another tag (a rollback image) still holds is only untagged.
+  local tmp dir before after n=0 failed=0 ref versions="" freed used
+  tmp="$(mktemp -d 2>/dev/null)" || { echo "Old images were not removed (no temporary folder)"; return 0; }
+  docker images --format '{{.Repository}}:{{.Tag}}' > "$tmp/local" 2>/dev/null || true
+  docker ps -a --format '{{.Image}}' > "$tmp/in-use" 2>/dev/null || true
+  dir="$(docker info --format '{{.DockerRootDir}}' 2>/dev/null || true)"
+  [ -d "$dir" ] || dir=/
+  before="$(df -Pk "$dir" 2>/dev/null | awk 'NR == 2 { print $4 }' || true)"
+  while IFS= read -r ref; do
+    if docker rmi "$ref" >/dev/null 2>&1; then
+      n=$((n + 1))
+      case " $versions " in *" ${ref##*:} "*) ;; *) versions="${versions:+$versions }${ref##*:}" ;; esac
+    else
+      failed=$((failed + 1))
+    fi
+  done < <(old_mantel_images "$tmp/local" "$tmp/in-use")
+  rm -rf "$tmp"
+  after="$(df -Pk "$dir" 2>/dev/null | awk 'NR == 2 { print $4 }' || true)"
+  used="$(df -Pk "$dir" 2>/dev/null | awk 'NR == 2 { print $5 }' || true)"
+  freed=""
+  [[ "$before" =~ ^[0-9]+$ && "$after" =~ ^[0-9]+$ ]] \
+    && freed="$(awk -v k="$((after - before))" 'BEGIN { printf "%.1f GB", (k < 0 ? 0 : k) / 1048576 }')"
+  if [ "$n" -eq 0 ] && [ "$failed" -eq 0 ]; then
+    echo "No old Mantel images to remove${used:+ (the disk is $used used)}"
+  else
+    echo "Removed $n old Mantel image tag$([ "$n" -eq 1 ] || echo s)${versions:+ (${versions// /, })}${freed:+: freed $freed}${used:+, the disk is $used used}$([ "$failed" -eq 0 ] || echo "; $failed could not be removed")"
+  fi
+  return 0
+}
+
 ENV_KEPT=""
 restore_env_unless_updated() {  # EXIT trap: .env goes back to what it was unless the update succeeded
   local rc=$?
@@ -216,6 +273,9 @@ update_script() {
     trap 'exit 143' TERM
     follow_source_version .env "$INSTALL_DIR/packaging/ha-app/config.yaml"
     bash ./update.sh                       # registry images: pull, up --wait, roll back on failure
+    # healthy (update.sh exits 0 only then): old versions' images go. The Proxmox `update` hides this script's
+    # output, so it sets MANTEL_PRUNE_LATER and runs `prune-images` itself, where its line is seen.
+    [ -n "${MANTEL_PRUNE_LATER:-}" ] || msg_ok "$(prune_old_images)"
   else
     # build mode: new source arrives from the Proxmox host (bash packaging/lxc/mantel.sh push <ctid>),
     # so here we rebuild what was pushed and restart, keeping the previous images for rollback.
@@ -253,6 +313,10 @@ update_script() {
 if [ "${1:-}" = "update" ]; then
   [ -x "$(command -v pct)" ] && msg_error "'update' runs inside the container (mantel-update), not on the Proxmox host"
   variables; update_script
+fi
+if [ "${1:-}" = "prune-images" ]; then   # the Proxmox `update` runs this once the update is healthy
+  prune_old_images
+  exit 0
 fi
 
 # --- create: runs on the PROXMOX HOST ---------------------------------------------------------------------

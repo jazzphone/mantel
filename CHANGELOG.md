@@ -4,6 +4,9 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Fixed**
+- **The Proxmox LXC's `update` removes old versions' images.** Each release left about 1.2 GB of images behind, and after some fifteen releases the container's disk was too full for `update` to run (it wants 20% free). Once the new version is healthy, `update` removes older `mantel-server`, `mantel-transcode` and `mantel-caddy` images by tag, keeps the running version, the one before it and the rollback images, and says what it freed. A removal that fails never fails the update.
+
 ## 0.1.141 - 2026-11-06
 
 **Changed**

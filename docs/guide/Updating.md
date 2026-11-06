@@ -127,6 +127,8 @@ update
 
 It follows the newest release tag (or what `var_mantel_ref` named), skips a release whose images aren't published yet, makes a backup, starts the new version, waits until it is healthy, and goes back to the previous version by itself if it isn't. With nothing new, it says so and changes nothing.
 
+Once the new version is healthy, `update` (and `mantel-update` with published images) removes older versions' images, which take about 1.2 GB a release, and says in one line what that freed. It keeps the images the containers use, the version just before them and the `mantel-rollback/*` images, and removes only `ghcr.io/jazzphone/mantel-server`, `mantel-transcode` and `mantel-caddy` tags by name. A removal that fails never fails the update.
+
 **A container made from a checkout:** inside it, run
 
 ```bash

@@ -171,7 +171,13 @@ def test_the_install_script_checks_out_a_branch_a_tag_or_a_commit_and_refuses_th
 
 
 # -- update (DEP-10, DEP-13, DEP-16, audit third pass) --------------------------------------------------------
-UPDATE_SCRIPT = "#!/usr/bin/env bash\nexit \"${FAKE_UPDATE_RC:-0}\"\n"
+UPDATE_SCRIPT = """#!/usr/bin/env bash
+case "${1:-}" in
+  "prune-images") echo "docker-free stand-in"; echo "Removed 2 old Mantel image tags (0.1.8): freed 1.2 GB"; exit 0 ;;
+esac
+echo "mantel.sh $1 MANTEL_PRUNE_LATER=${MANTEL_PRUNE_LATER:-}" >> "$DOCKER_LOG"
+exit "${FAKE_UPDATE_RC:-0}"
+"""
 DOCKER = """#!/bin/sh
 echo "docker $*" >> "$DOCKER_LOG"
 case "$1 $2" in
@@ -320,3 +326,31 @@ def test_an_update_adds_mantel_setup_to_a_container_made_before_it(engine, tmp_p
     cmd.write_text("mine\n")
     r = call(engine, "mantel_commands", MANTEL_DIR=str(mantel), MANTEL_SBIN=str(sbin))
     assert cmd.read_text() == "mine\n" and "New command" not in r.stdout
+
+
+def test_a_healthy_update_removes_old_images_and_says_what_it_freed(install):
+    """2026-11-06: each release left ~1.2 GB of images on the LXC until `update` refused to run (under 20% free).
+    Once the update is healthy, packaging/lxc/mantel.sh prune-images removes old versions' images; its output is
+    hidden under $STD, so the update leaves that to this script, which shows its last line."""
+    r = update(install)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "OK Removed 2 old Mantel image tags (0.1.8): freed 1.2 GB" in r.stdout
+    assert "docker-free stand-in" not in r.stdout                       # only the last line
+    assert "mantel.sh update MANTEL_PRUNE_LATER=1" in install["log"].read_text()
+    assert r.stdout.index("Updated Mantel to 0.2.0") < r.stdout.index("OK Removed")
+
+
+def test_a_failed_update_removes_no_images(install):
+    r = update(install, FAKE_UPDATE_RC="1", FAKE_HEALTH="healthy")
+    assert r.returncode == 1 and "Removed" not in r.stdout + r.stderr
+
+
+def test_a_release_without_prune_images_is_left_alone(install):
+    """The Proxmox script comes from main; the mantel.sh it runs is the release's, which may predate prune-images."""
+    git(install["upstream"], "checkout", "-q", "--detach", "v0.2.0")
+    (install["upstream"] / "packaging/lxc/mantel.sh").write_text('#!/usr/bin/env bash\nexit "${FAKE_UPDATE_RC:-0}"\n')
+    git(install["upstream"], "commit", "-qam", "0.2.1 without prune-images")
+    git(install["upstream"], "tag", "v0.2.1")
+    r = update(install)
+    assert r.returncode == 0 and "Updated Mantel to" in r.stdout, r.stdout + r.stderr
+    assert "Removed" not in r.stdout

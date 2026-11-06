@@ -140,6 +140,7 @@ function update_script() {
   # packaging/lxc/mantel.sh update: rebuilds (or pulls this version's images), backs up, starts it and waits until
   # it is healthy, and starts the previous images again if it isn't. It puts .env's image pins back if it fails.
   rc=0
+  export MANTEL_PRUNE_LATER=1   # old images go after this, below, where its line isn't hidden
   $STD bash "${MANTEL_DIR}/packaging/lxc/mantel.sh" update || rc=$?
   if [[ "$rc" -ne 0 ]]; then
     git checkout --quiet --detach "$old"
@@ -154,9 +155,21 @@ function update_script() {
     exit 1
   fi
   msg_ok "Updated ${APP} to $(mantel_version)"
+  mantel_old_images
   mantel_commands
   msg_ok "Updated successfully!"
   exit
+}
+
+# The new version is healthy: older versions' images go (each release left ~1.2 GB behind, and the container's disk
+# filled until `update` refused to run). It keeps the running version's images, the one before it and the rollback
+# images, and says what it freed; a removal that fails never fails the update. A release from before 0.1.142 has no
+# prune-images.
+function mantel_old_images() {
+  local said
+  grep -q '"prune-images"' "${MANTEL_DIR}/packaging/lxc/mantel.sh" 2>/dev/null || return 0
+  said="$(bash "${MANTEL_DIR}/packaging/lxc/mantel.sh" prune-images 2>/dev/null | tail -1 || true)"
+  [[ -z "$said" ]] || msg_ok "$said"
 }
 
 # Commands a newer release brings to a container installed before them (mantel-install.sh writes them at install):

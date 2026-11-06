@@ -153,7 +153,33 @@ def test_version_pinned_images_follow_the_source_version(tmp_path):
     assert re.fullmatch(r"\d+\.\d+\.\d+\n", real.stdout)
 
 
-def _update(tmp_path, update_sh_exit: int) -> tuple[subprocess.CompletedProcess, Path]:
+FAKE_DOCKER = """#!/bin/sh
+echo "docker $*" >> "$DOCKER_LOG"
+case "$1" in
+  images) cat "$FAKE_IMAGES" ;;
+  ps) cat "$FAKE_PS" ;;
+  info) echo "$FAKE_ROOT" ;;
+  rmi) [ -n "${FAKE_RMI_FAIL:-}" ] && [ "$2" = "$FAKE_RMI_FAIL" ] && exit 1 ;;
+esac
+exit 0
+"""
+
+
+def _fake_docker(tmp_path: Path, images: list[str] = (), ps: list[str] = (), **extra: str) -> dict:
+    """An environment whose docker is a stand-in: `docker images` lists IMAGES, `docker ps -a` PS, and each call is
+    logged in tmp_path/docker.log (never the real docker: the update tests would otherwise prune this machine's)."""
+    bindir = tmp_path / "fake-bin"
+    bindir.mkdir(exist_ok=True)
+    (bindir / "docker").write_text(FAKE_DOCKER)
+    (bindir / "docker").chmod(0o755)
+    (tmp_path / "images.txt").write_text("".join(f"{i}\n" for i in images))
+    (tmp_path / "ps.txt").write_text("".join(f"{i}\n" for i in ps))
+    return {**os.environ, "PATH": f"{bindir}:{os.environ['PATH']}", "DOCKER_LOG": str(tmp_path / "docker.log"),
+            "FAKE_IMAGES": str(tmp_path / "images.txt"), "FAKE_PS": str(tmp_path / "ps.txt"),
+            "FAKE_ROOT": str(tmp_path), **extra}
+
+
+def _update(tmp_path, update_sh_exit: int, extra: dict | None = None) -> tuple[subprocess.CompletedProcess, Path]:
     """update_script in an install whose source says 0.2.0 and whose .env pins 0.1.40; update.sh is a stand-in."""
     compose = tmp_path / "packaging/compose"
     compose.mkdir(parents=True)
@@ -165,7 +191,7 @@ def _update(tmp_path, update_sh_exit: int) -> tuple[subprocess.CompletedProcess,
                    "MANTEL_CADDY_IMAGE=ghcr.io/jazzphone/mantel-caddy:0.1.40\n")
     (compose / "update.sh").write_text(f"#!/usr/bin/env bash\ngrep -q ':0.2.0' .env || exit 99\nexit {update_sh_exit}\n")
     r = subprocess.run([BASH, "-c", f'source "{MANTEL_SH}"; INSTALL_DIR="$1"; update_script', "_", str(tmp_path)],
-                       capture_output=True, text=True)
+                       capture_output=True, text=True, env=_fake_docker(tmp_path, **(extra or {})))
     return r, env
 
 
@@ -280,5 +306,96 @@ def test_update_turns_the_announcer_on_once_and_off_keeps_it_out(tmp_path):
     r, env = _update(t2, 0)
     env.write_text(env.read_text().replace("MANTEL_ANNOUNCER=on", "MANTEL_ANNOUNCER=off"))
     r = subprocess.run([BASH, "-c", f'source "{MANTEL_SH}"; INSTALL_DIR="$1"; update_script', "_", str(t2)],
-                       capture_output=True, text=True)
+                       capture_output=True, text=True, env=_fake_docker(t2))
     assert "compose.announce.yaml" not in env.read_text().split("COMPOSE_FILE=", 1)[1].splitlines()[0]
+
+
+# -- old images go once an update is healthy (2026-11-06: 0.1.139's update stopped at 84% used) -------------------
+GHCR = "ghcr.io/jazzphone/mantel-"
+# the house's LXC on 2026-11-06, plus a Caddy image no container uses (the house has its own proxy) at an old and at
+# the running version, a stopped container's old image, and what else a Docker host may hold
+HOUSE_IMAGES = [
+    f"{GHCR}transcode:0.1.141", f"{GHCR}server:0.1.141", f"{GHCR}caddy:0.1.141",
+    "mantel-rollback/mantel-server:previous", f"{GHCR}server:0.1.140",
+    "mantel-rollback/go2rtc:previous", f"{GHCR}transcode:0.1.140", "mantel-rollback/caddy:previous",
+    f"{GHCR}transcode:0.1.139", f"{GHCR}server:0.1.139", f"{GHCR}server:0.1.138", f"{GHCR}transcode:0.1.138",
+    f"{GHCR}transcode:0.1.137", f"{GHCR}server:0.1.137", f"{GHCR}caddy:0.1.130",
+    f"{GHCR}server:latest", "mantel-server:local", "ghcr.io/someone-else/mantel-server:0.1.100",
+    "ghcr.io/jazzphone/mantel-server-dev:0.1.100", "postgres:16", "<none>:<none>",
+]
+HOUSE_PS = [f"{GHCR}server:0.1.141", f"{GHCR}server:0.1.141", f"{GHCR}transcode:0.1.141"]
+
+
+def old_images(tmp_path: Path, images: list[str], ps: list[str]) -> list[str]:
+    (tmp_path / "local").write_text("".join(f"{i}\n" for i in images))
+    (tmp_path / "in-use").write_text("".join(f"{i}\n" for i in ps))
+    r = subprocess.run([BASH, "-c", f'source "{MANTEL_SH}"; old_mantel_images "$1" "$2"', "_",
+                        str(tmp_path / "local"), str(tmp_path / "in-use")], capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr
+    return r.stdout.splitlines()
+
+
+def test_old_images_are_the_published_tags_older_than_the_running_version_and_the_one_before(tmp_path):
+    assert old_images(tmp_path, HOUSE_IMAGES, HOUSE_PS) == [
+        f"{GHCR}transcode:0.1.139", f"{GHCR}server:0.1.139", f"{GHCR}server:0.1.138", f"{GHCR}transcode:0.1.138",
+        f"{GHCR}transcode:0.1.137", f"{GHCR}server:0.1.137",
+        f"{GHCR}caddy:0.1.130",              # an old Caddy no container uses goes; the running version's stays
+    ]                                        # the rollback images, :latest, :local and others' images stay
+
+
+def test_an_image_a_container_uses_stays_whatever_its_version(tmp_path):
+    ps = [*HOUSE_PS, f"{GHCR}caddy:0.1.130"]           # a stopped container made from an old image
+    assert f"{GHCR}caddy:0.1.130" not in old_images(tmp_path, HOUSE_IMAGES, ps)
+
+
+def test_versions_are_compared_as_versions(tmp_path):
+    images = [f"{GHCR}server:0.1.100", f"{GHCR}server:0.1.99", f"{GHCR}server:0.1.98", f"{GHCR}server:0.1.101"]
+    # a newer image than the running one (pulled, never started) is not "old"; 0.1.99 is the one before 0.1.100
+    assert old_images(tmp_path, images, [f"{GHCR}server:0.1.100"]) == [f"{GHCR}server:0.1.98"]
+
+
+@pytest.mark.parametrize("ps", [[], ["mantel-server:local", "mantel-rollback/mantel-server:previous"],
+                                [f"{GHCR}server:latest", "sha256:6f88f8534665"]])
+def test_nothing_is_removed_when_no_container_runs_a_published_version(tmp_path, ps):
+    assert old_images(tmp_path, HOUSE_IMAGES, ps) == []
+
+
+def prune(tmp_path: Path, **extra: str) -> subprocess.CompletedProcess:
+    return subprocess.run([BASH, str(MANTEL_SH), "prune-images"], capture_output=True, text=True,
+                          env=_fake_docker(tmp_path, HOUSE_IMAGES, HOUSE_PS, **extra))
+
+
+def test_prune_images_removes_each_old_tag_by_name_and_says_so_in_one_line(tmp_path):
+    r = prune(tmp_path)
+    assert r.returncode == 0, r.stderr
+    log = (tmp_path / "docker.log").read_text()
+    removed = [line.split(" ", 2)[2] for line in log.splitlines() if line.startswith("docker rmi ")]
+    (tmp_path / "selection").mkdir()
+    assert removed == old_images(tmp_path / "selection", HOUSE_IMAGES, HOUSE_PS)
+    assert "prune" not in log.replace("prune-images", "") and " -f" not in log and "--force" not in log
+    assert len(r.stdout.splitlines()) == 1, r.stdout
+    assert r.stdout.startswith("Removed 7 old Mantel image tags (0.1.139, 0.1.138, 0.1.137, 0.1.130): freed ")
+    assert "the disk is " in r.stdout and "% used" in r.stdout
+
+
+def test_a_tag_that_cannot_be_removed_never_fails(tmp_path):
+    r = prune(tmp_path, FAKE_RMI_FAIL=f"{GHCR}server:0.1.138")
+    assert r.returncode == 0 and "Removed 6 old Mantel image tags" in r.stdout and "1 could not be removed" in r.stdout
+    t2 = tmp_path / "no-docker"
+    t2.mkdir()
+    env = _fake_docker(t2)
+    (t2 / "fake-bin/docker").write_text("#!/bin/sh\nexit 1\n")      # docker itself fails
+    r = subprocess.run([BASH, str(MANTEL_SH), "prune-images"], capture_output=True, text=True, env=env)
+    assert r.returncode == 0 and r.stdout.startswith("No old Mantel images to remove"), r.stdout + r.stderr
+
+
+def test_a_healthy_update_removes_old_images_and_a_failed_one_does_not(tmp_path):
+    (tmp_path / "ok").mkdir()
+    r, _ = _update(tmp_path / "ok", 0)
+    assert r.returncode == 0 and "ok: No old Mantel images to remove" in r.stdout, r.stdout + r.stderr
+    assert "docker images" in (tmp_path / "ok/docker.log").read_text()
+    for name, rc, extra in (("failed", 1, {}), ("later", 0, {"MANTEL_PRUNE_LATER": "1"})):
+        (tmp_path / name).mkdir()
+        r, _ = _update(tmp_path / name, rc, extra)
+        assert r.returncode == rc and "Mantel images" not in r.stdout, r.stdout + r.stderr
+        assert not (tmp_path / name / "docker.log").exists()
