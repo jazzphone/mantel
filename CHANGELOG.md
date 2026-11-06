@@ -4,6 +4,8 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+## 0.1.140 - 2026-11-05
+
 **Fixed**
 - **Siri and Shortcuts' Volume Up and Down set every room of a group.** With music playing on several rooms, they moved only the first speaker. Needs the next TestFlight build.
 - **The iPhone and iPad app's Music slider shows a group's volume as its rooms' average,** as the web's sliders do; it showed the first speaker's. Needs the next TestFlight build.
