@@ -4,6 +4,9 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Fixed**
+- **Screensaver design previews are centered and fully visible.** Gallery cards now scale the whole preview to their actual size without stretching or cutting off its right and bottom edges. Saved designs and the catalog resize together, and rotating a tablet or resizing the window keeps the gallery or customization editor visible.
+
 ## 0.1.142 - 2026-11-06
 
 **Added**

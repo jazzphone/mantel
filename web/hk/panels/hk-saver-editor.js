@@ -323,6 +323,7 @@
     }
     configure(o) {
       this.o = o; this.panel = o.panel; this.K = window.hkSettingsKit; this.h = this.K.h; this.M = window.hkSettingsModel;
+      this.galleryOpen = !!o.gallery;
       this.opts = copy(this.M.saverOptions(o.options || {}));
       // (the preview's own, never saved: both start off each time the editor opens)
       this.slide = ''; this.night = false;
@@ -350,7 +351,7 @@
       this.ready.then(() => {
         if (!this.isConnected || this.ui) return;
         this.draw();
-        if (this.o.gallery) window.hkSaverDesigns.gallery(this);
+        if (this.galleryOpen) window.hkSaverDesigns.gallery(this);
         this.ro = new ResizeObserver(() => { this.fit(); this.looksMeasure(); });
         this.ro.observe(this.stage); this.ro.observe(this.palette);
         this.unload = (e) => { if (this.dirty()) { e.preventDefault(); e.returnValue = ''; } };

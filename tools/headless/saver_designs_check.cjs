@@ -12,6 +12,32 @@ const input = JSON.parse(fs.readFileSync(0, 'utf8')), [W,H] = input.size.split('
   const shot=async name=>{if(input.shots)await page.screenshot({path:input.shots+'/'+input.engine+'-'+W+'-'+name+'.png'});};
   await page.goto(input.origin+'/settings#/screens/'+input.screen+'/screensaver/editor');
   await until((ed,sr)=>ed.galleryEl&&sr.querySelectorAll('.catalog .design-card').length===44);
+  assert.equal(await E((ed,sr)=>sr.querySelectorAll('.design-card .sthumb').length),45,'all saved and catalog thumbnails are measured');
+  await until((ed,sr)=>[...sr.querySelectorAll('.catalog .sthumb>div')].every(n=>n.childElementCount>0));
+  // CSS changes a card's size after the thumbnail is created. Its whole screen
+  // must remain centered and contained after desktop resizing and tablet rotation.
+  for(const [width,height] of [[W,H],[1920,1080],[1180,820],[820,1180],[390,844]]){
+    await page.setViewportSize({width,height});await page.waitForTimeout(250);
+    await until((ed,sr)=>sr.querySelectorAll('.design-card .sthumb').length===45&&[...sr.querySelectorAll('.catalog .sthumb>div')].every(n=>n.childElementCount>0));
+    const clipped=await E((ed,sr)=>[...sr.querySelectorAll('.design-card .sthumb')].flatMap(box=>{
+      const frame=box.firstElementChild.getBoundingClientRect(),r=box.getBoundingClientRect();
+      const centered=Math.abs(frame.x+frame.width/2-r.x-r.width/2)<1&&Math.abs(frame.y+frame.height/2-r.y-r.height/2)<1;
+      const contained=frame.left>=r.left-1&&frame.right<=r.right+1&&frame.top>=r.top-1&&frame.bottom<=r.bottom+1;
+      const undistorted=Math.abs(frame.width/frame.height-1180/820)<.005;
+      return centered&&contained&&undistorted?[]:[{name:box.parentElement.querySelector(':scope>b').textContent,centered,contained,undistorted,box:{w:r.width,h:r.height},frame:{w:frame.width,h:frame.height}}];
+    }));
+    assert.deepEqual(clipped,[],input.engine+' '+width+': every thumbnail contains its centered, undistorted screen');
+    if(input.shots){
+      await E((ed,sr)=>{ed.galleryEl.scrollTop=sr.querySelector('.catalog').offsetTop-80;});
+      await shot('catalog-'+width);
+      if(width>=1180){
+        const pages=await E((ed,sr)=>Math.ceil(sr.querySelector('.catalog').offsetHeight/(ed.galleryEl.clientHeight-100)));
+        for(let i=1;i<pages;i++){await E((ed,sr,i)=>{ed.galleryEl.scrollTop=sr.querySelector('.catalog').offsetTop-80+i*(ed.galleryEl.clientHeight-100);},i);await shot('catalog-'+width+'-part-'+i);}
+      }
+    }
+  }
+  await page.setViewportSize({width:W,height:H});await E(ed=>{ed.galleryEl.scrollTop=0;});await page.waitForTimeout(250);
+  if(input.thumbsOnly){console.log('PASS '+input.engine+' all 44 thumbnails centered and contained at four responsive sizes');await ctx.close();return;}
   assert.equal(await E(ed=>ed.opts.designs.length),1);await shot('gallery');
   await E((ed,sr)=>{window.__houseBefore=JSON.stringify(ed.panel.hs('look.saver'));sr.querySelector('.catalog .design-card:nth-child(21)').click();});
   const houseBefore=await page.evaluate(()=>window.__houseBefore);
@@ -47,6 +73,10 @@ const input = JSON.parse(fs.readFileSync(0, 'utf8')), [W,H] = input.size.split('
 
   await E((ed,sr)=>sr.querySelector('.design-gallery header .customize').click());
   await until(ed=>ed.saver()?.layoutInfo());
+  await page.setViewportSize({width:W-4,height:H});await page.waitForTimeout(250);
+  await until((ed,sr)=>ed.saver()?.layoutInfo()&&!ed.galleryOpen&&!sr.querySelector('.design-gallery'));
+  await page.setViewportSize({width:W,height:H});await page.waitForTimeout(250);
+  await until((ed,sr)=>ed.saver()?.layoutInfo()&&!ed.galleryOpen&&!sr.querySelector('.design-gallery'));
   assert(await E(ed=>Object.keys(hkSaverLayout.PIECES).length===44));
   // The screen inherits its saver, but previews its own pane, not the global pane.
   await until(ed=>ed.saver()?.previewStatus().pane);

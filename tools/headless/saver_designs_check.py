@@ -18,6 +18,7 @@ async def main():
     ap.add_argument('--engine', choices=('chromium', 'webkit'), default='webkit')
     ap.add_argument('--size', default='1280x800')
     ap.add_argument('--shots', type=Path)
+    ap.add_argument('--thumbs-only', action='store_true', help='check responsive gallery thumbnails only')
     args = ap.parse_args()
     if not os.environ.get('NODE') or not os.environ.get('PLAYWRIGHT_PATH'):
         print('NOT RUN: NODE and PLAYWRIGHT_PATH are required')
@@ -41,7 +42,7 @@ async def main():
         async with TestServer(app) as server:
             proc = await asyncio.create_subprocess_exec(os.environ['NODE'], str(Path(__file__).with_suffix('.cjs')), stdin=asyncio.subprocess.PIPE)
             await proc.communicate(json.dumps({'origin': str(server.make_url('')).rstrip('/'), 'cookie': cookie, 'engine': args.engine,
-                'size': args.size, 'screen': screen, 'shots': str(args.shots or '')}).encode())
+                'size': args.size, 'screen': screen, 'shots': str(args.shots or ''), 'thumbsOnly': args.thumbs_only}).encode())
             return proc.returncode
 
 

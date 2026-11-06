@@ -948,8 +948,24 @@
         box.setAttribute('aria-hidden', 'true');
         box.style.cssText = 'flex:none;position:relative;display:block;width:' + w + 'px;height:' + h + 'px;border-radius:' + Math.round(h / 7) + 'px;overflow:hidden;' +
           'background:#1c1c1e;box-shadow:inset 0 0 0 .5px rgba(127,127,127,.35);margin-right:12px';
-        inner.style.cssText = 'position:absolute;left:0;top:0;width:' + W + 'px;height:' + H + 'px;transform-origin:0 0;transform:scale(' + (w / W).toFixed(4) + ',' + (h / H).toFixed(4) + ');pointer-events:none';
+        inner.style.cssText = 'position:absolute;width:' + W + 'px;height:' + H + 'px;transform-origin:0 0;pointer-events:none';
         box.appendChild(inner);
+        // The gallery resizes these frames with CSS. Fit the whole virtual screen
+        // to the measured frame, uniformly, rather than cropping a fixed-size drawing.
+        var fit = function (bw, bh) {
+          if (!bw || !bh) return;
+          var scale = Math.min(bw / W, bh / H);
+          inner.style.transform = 'scale(' + scale + ')';
+          inner.style.left = (bw - W * scale) / 2 + 'px'; inner.style.top = (bh - H * scale) / 2 + 'px';
+        };
+        fit(w, h);
+        if (typeof ResizeObserver !== 'undefined') {
+          var seen = false, resize = new ResizeObserver(function (entries) {
+            if (box.isConnected) { seen = true; var r = entries[0].contentRect; fit(r.width, r.height); }
+            else if (seen) resize.disconnect();
+          });
+          resize.observe(box);
+        }
         // the two that are pictures of their own: the photos, the forecast
         if (what === 'photos') {
           inner.style.background = 'linear-gradient(#8fb3d6,#e9c09a)';
