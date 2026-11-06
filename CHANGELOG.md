@@ -4,6 +4,8 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+## 0.1.145 - 2026-11-06
+
 **Changed**
 - **Album-art backgrounds keep their proportions.** The Side Pane and shared music popup use a centered crop of the artwork, with no stretching across tall or wide surfaces.
 - **Music beside a Side Pane uses the available space more evenly.** Artwork sits beside a vertically centered block of track details, with progress and playback controls underneath and a clear gap below the corner widgets.
