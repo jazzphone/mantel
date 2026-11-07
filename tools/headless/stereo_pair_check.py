@@ -6,6 +6,8 @@ feed's speaker with `parts`), and two in the Bedroom whose pair has no name of i
 - Home's Office section draws one speaker, the pair's first player, named "HomePods" (the room dropped, as every
   tile's); the right HomePod nowhere. The Bedroom's is "Bedroom Speakers" -> "Speakers", never "Bedroom" twice;
 - the Office's room page (Speakers & TVs) draws the same one tile, and its status row counts one speaker;
+- a tap on the pair's tile opens its player's sheet, and the sheet's volume is sent for that player, which Mantel's
+  server widens to both of the pair's players (tests/test_music.py covers that half);
 - the Living Room and Kitchen, single speakers, are as they were;
 - no page errors.
 
@@ -51,6 +53,13 @@ async def main():
          'parts': ['media_player.bedroom_left_homepod', 'media_player.bedroom_right_homepod']}])
     with tempfile.TemporaryDirectory() as td:
         app, cookie = await gallery.build(Path(td))
+        # what the page sends (the fictional Home Assistant's commands), to see the pair's sheet's own
+        sent, real = [], app['gateway'].commander.call
+
+        async def record(frame, ticket):
+            sent.append(frame)
+            return await real(frame, ticket)
+        app['gateway'].commander.call = record
         async with TestServer(app) as server, Browser(1280, 800, port=9407) as b:
             origin = str(server.make_url('')).rstrip('/')
             await b.restrict_origin(origin)
@@ -88,9 +97,33 @@ async def main():
             assert len(row) == 1 and row[0]['ids'] == ['media_player.office_left_homepod'], row
             if args.shots:
                 await b.screenshot(args.shots / 'stereo-pair-room.png')
+            # A TAP ON THE PAIR'S TILE opens its player's sheet, whose volume is sent for that player: Mantel's server
+            # widens a page's own volume call on a pair's player to both its players (music.py MusicHost.service;
+            # tests/test_music.py test_play_pause_volume_and_browse_go_to_both_of_a_pairs_players). Never the other half.
+            box = await b.eval("(()=>{let r=deep(document,'hk-media-card')[0].getBoundingClientRect();"
+                               "return [r.left+r.width*0.75,r.top+r.height/2]})()")
+            for kind in ('mousePressed', 'mouseReleased'):
+                await b.send('Input.dispatchMouseEvent', type=kind, x=box[0], y=box[1], button='left', clickCount=1)
+            vol = "(window.hkDetail._.state().panel||{}).shadowRoot"
+            assert await b.wait(f"!!({vol}&&{vol}.querySelector('.vol'))", 10), 'the pair tile opened no media sheet'
+            assert await b.eval("window.hkDetail._.state().panel._id") == 'media_player.office_left_homepod'
+            await asyncio.sleep(0.8)
+            if args.shots:
+                await b.screenshot(args.shots / 'stereo-pair-sheet.png')
+            await b.eval(f"{vol}.querySelector('.vol').dispatchEvent(new KeyboardEvent('keydown',{{key:'ArrowUp',bubbles:true}}))")
+            for _ in range(40):
+                if any(f.get('service') == 'volume_set' for f in sent):
+                    break
+                await asyncio.sleep(0.25)
+            vols = [f for f in sent if f.get('domain') == 'media_player' and f.get('service') == 'volume_set']
+            assert vols, ('the sheet sent no volume', sent)
+            for f in vols:
+                to = (f.get('target') or {}).get('entity_id') or (f.get('service_data') or {}).get('entity_id')
+                assert to in ('media_player.office_left_homepod', ['media_player.office_left_homepod']), f
+                assert abs(float((f.get('service_data') or {})['volume_level']) - 0.35) < 1e-6, f
             exceptions = [line for line in b.console if line.startswith('EXCEPTION:')]
             assert not exceptions, exceptions
             print('PASS: stereo pairs: one speaker each on Home and the room page, under the pair\'s name; '
-                  'the other halves left out; the room counts one speaker')
+                  'the other halves left out; the room counts one speaker; its sheet sets the pair\'s volume')
 
 asyncio.run(main())
