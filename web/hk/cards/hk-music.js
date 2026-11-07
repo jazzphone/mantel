@@ -340,7 +340,7 @@
     '.vol .tk{position:relative;flex:1;height:30px;cursor:pointer}',
     '.vol .tk::before{content:"";position:absolute;left:0;right:0;top:12px;height:6px;border-radius:3px;background:' + window.hkCards.v('line-strong') + '}',
     // (the screensaver slide's volume, as every player's: the ink filled, not purple -- 2026-11-07, the owner)
-    '.vol .tk i{position:absolute;left:0;top:12px;height:6px;width:calc(var(--v,0) * 100%);border-radius:3px;background:var(--hk-glyph,rgba(255,255,255,.92))}',
+    '.vol .tk i{position:absolute;left:0;top:12px;height:6px;width:calc(var(--v,0) * 100%);border-radius:3px;background:var(--hk-glyph,#fff)}',
     '.vol .tk b{position:absolute;top:4px;left:calc(var(--v,0) * 100%);width:22px;height:22px;margin-left:-11px;border-radius:50%;background:#fff;box-shadow:0 1px 6px rgba(0,0,0,.3)}',
     '.idle .vol,[novol] .vol{visibility:hidden}',
     '.nx{display:flex;align-items:center;gap:12px;margin-top:16px;min-width:0;flex:none}',
