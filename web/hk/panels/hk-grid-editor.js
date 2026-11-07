@@ -21,7 +21,7 @@
     calendar: 'Calendar', battery: 'House Battery', people: 'People', vacuum: 'Vacuum', clock: 'Clock',
     room: 'Room', scene_suggested: 'Suggested Scene', action: 'Action', everything: 'Everything', cameras: 'Cameras',
     power: 'Power', music: 'Music', doors: 'Doors & Locks', live_tv: 'Live TV', water: 'Water',
-    on_now: 'On Now', todo: 'To-do', energy_rings: 'Energy Rings', timeline: 'Recent', intercom: 'Intercom' };
+    on_now: 'On Now', todo: 'To-do', energy_rings: 'Energy Rings', timeline: 'Recent', intercom: 'Intercom', house_status: 'House Status' };
   var SIZE_NAMES = { S: 'Small', W: 'Wide', T: 'Tall', L: 'Large', XL: 'Extra Large', XXL: 'Full Width', F: 'Full View' };
   // a size on a chip or a segment, short enough for four in a row
   var SIZE_SHORT = { S: 'Small', W: 'Wide', T: 'Tall', L: 'Large', XL: 'X-Large', XXL: 'Full', F: 'Full View' };
@@ -33,7 +33,7 @@
     ['Rooms & Lights', ['room', 'accessory', 'accessories', 'action', 'on_now']], ['Scenes', ['scene', 'scenes', 'scene_suggested']],
     ['Climate', ['thermostat', 'weather']], ['Music', ['now_playing', 'music', 'live_tv', 'intercom']],
     ['Security & Cameras', ['security', 'doors', 'camera', 'cameras']],
-    ['Info', ['clock', 'timers', 'calendar', 'todo', 'battery', 'power', 'energy_rings', 'water', 'people', 'vacuum', 'timeline', 'everything']]
+    ['Info', ['house_status', 'clock', 'timers', 'calendar', 'todo', 'battery', 'power', 'energy_rings', 'water', 'people', 'vacuum', 'timeline', 'everything']]
   ];
   var DESCRIPTIONS = { room: 'Your room’s lights, fans and speaker', accessory: 'One light, switch or other accessory', accessories: 'Accessories you choose, in swipe pages',
     action: 'One tap for a household job', scene: 'Set a favorite scene', scenes: 'Your scenes together',
@@ -46,13 +46,14 @@
     water: 'Today’s water; Extra Large adds the main supply',
     on_now: 'What’s on in the house, and a way to turn it off', todo: 'A to-do list; tick items off', energy_rings: 'The Energy page’s rings: today, this week or this month',
     intercom: 'Speak a message into the rooms you pick',
-    timeline: 'What just happened at the house; in the morning, how the night went' };
+    timeline: 'What just happened at the house; in the morning, how the night went',
+    house_status: 'Your status chips at a glance; each opens its page' };
   var GLYPHS = { room: 'mdi:sofa', accessory: 'mdi:lightbulb', accessories: 'mdi:view-grid', action: 'mdi:gesture-tap', scene: 'mdi:palette',
     scenes: 'mdi:palette', scene_suggested: 'mdi:weather-sunset', thermostat: 'mdi:thermostat', weather: 'mdi:weather-partly-cloudy',
     now_playing: 'mdi:music', security: 'mdi:shield-home', camera: 'mdi:camera', cameras: 'mdi:cctv', clock: 'mdi:clock', timers: 'mdi:timer-outline',
     calendar: 'mdi:calendar', battery: 'mdi:home-battery', people: 'mdi:account', vacuum: 'mdi:robot-vacuum', everything: 'mdi:dots-horizontal',
     power: 'mdi:lightning-bolt', music: 'mdi:speaker-multiple', doors: 'mdi:door-closed-lock', live_tv: 'mdi:television-classic', water: 'mdi:water',
-    on_now: 'mdi:lightbulb-on', todo: 'mdi:clipboard-check', energy_rings: 'mdi:lightning-bolt', timeline: 'mdi:history', intercom: 'mdi:microphone' };
+    on_now: 'mdi:lightbulb-on', todo: 'mdi:clipboard-check', energy_rings: 'mdi:lightning-bolt', timeline: 'mdi:history', intercom: 'mdi:microphone', house_status: 'mdi:home' };
   // AN OPTION'S NAME in the panel: by its kind (hk-grid-catalog.js opts), else by its own name
   var KIND_LABELS = { entity: 'Accessory', climate: 'Thermostat', camera: 'Camera', weather: 'Weather', vacuum: 'Vacuum',
     speaker: 'Speaker', scene: 'Scene', scenes: 'Scenes', calendars: 'Calendars', area: 'Room', action: 'Does', windows: 'Time Windows', alarm: 'Alarm',
@@ -2028,6 +2029,10 @@
         if (opts[key] && !all.some((op) => op[0] === opts[key])) all.push([opts[key], opts[key] + ' (Unavailable)']);
         rows.push(K.select({ label: label, value: opts[key] || (card === 'room' && key === 'area' && !o.page ? 'tablet_room' : ''), options: all, onChange: (v) => set(key, v) }));
       });
+      // HOUSE STATUS has no options of its own: it is the screen's status chips (hk-house-status.js)
+      if (card === 'house_status' && !o.page) {
+        rows.push(K.info({ label: 'Shows this screen’s status chips, in their order', sub: 'Choose them, and Always or When Active, in the screen’s Status Chips.' }));
+      }
       return rows;
     }
     secondaryFields(value, entity, save, rows) {

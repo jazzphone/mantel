@@ -2243,16 +2243,16 @@
     function open(id, src, opts) {
       opts = opts || {};
       var h = C.client();
-      // A GROUP (openGroup below) is a sheet of several things, not one;
-      // CARDS (a custom pop-up) the home's own cards.
-      var kind = opts.group ? 'group' : opts.cards ? 'cards' : opts.generic === 'only' ? 'generic' : kindOf(h, id);
+      // A GROUP (openGroup below) is a sheet of several things, not one; CARDS (a custom pop-up) the home's own cards;
+      // a PANEL ({tag, config}) a body another file defines about no one entity, in this shell (hk-house-status.js).
+      var kind = opts.group ? 'group' : opts.cards ? 'cards' : opts.panel ? 'panel' : opts.generic === 'only' ? 'generic' : kindOf(h, id);
       if (!kind && opts.generic) kind = 'generic';
       if (!kind) return false;
       // THE ALARM IS A SHEET LIKE THE REST -- just the keypad -- opened
       // directly on a tap, not through a # pop-up. The #alarm pop-up remains
       // for an alarm automation that opens it by URL, and it hands straight
       // back here (opts.direct).
-      var tag = PANELS[kind];
+      var tag = opts.panel ? opts.panel.tag : PANELS[kind];
       // ITS PANEL'S CODE NOT LOADED YET (Mantel, 2026-10-29: the weather's, an
       // event's, an automation's and a timer's live in card files a page loads
       // on first use, hk-loader.js hkNeed): opened once it has come
@@ -2261,7 +2261,7 @@
         N(tag).then(function () { if (customElements.get(tag)) open(id, src, opts); });
         return true;
       }
-      if ((!tag || !customElements.get(tag)) && opts.generic && !opts.group && !opts.cards) { kind = 'generic'; tag = PANELS.generic; }
+      if ((!tag || !customElements.get(tag)) && opts.generic && !opts.group && !opts.cards && !opts.panel) { kind = 'generic'; tag = PANELS.generic; }
       if (!tag || !customElements.get(tag)) return false;
       // the generic sheet is about a state: nothing to show for none
       if (kind === 'generic' && !stOf(h, id)) return false;
@@ -2296,7 +2296,7 @@
       panel.setConfig(Object.assign({ entity: id, kind: kind, src: src || {}, glass: false, event: opts.event || null },
         opts.group ? { entities: opts.group.ids, room: opts.group.room, groupKind: opts.group.kind,
                        row: opts.group.row, resolve: opts.group.resolve } :
-        opts.cards ? { cards: opts.cards.cards, width: opts.cards.width, height: opts.cards.height } : {}));
+        opts.cards ? { cards: opts.cards.cards, width: opts.cards.width, height: opts.cards.height } : Object.assign({}, (opts.panel || {}).config || {})));
 
       D = {
         el: el, id: id, kind: kind, src: src || {}, panel: panel, sheet: sheet, tok: tok,
@@ -2311,7 +2311,7 @@
         autoMs: opts.autoClose > 0 ? opts.autoClose : 0
       };
       D.group = opts.group || null;
-      D.returnGroup = !opts.group && !opts.cards ? returnGroup : null;
+      D.returnGroup = !opts.group && !opts.cards && !opts.panel ? returnGroup : null;
       // BACK TO THE SHEET IT CAME FROM (a person's Other Members, a
       // notification's picture): { id, src, opts }; back0 is this one, for
       // a sheet opened from it
@@ -2348,7 +2348,7 @@
       // THE GEAR: this accessory's settings in place of its controls, and
       // back (admins only; not on a picture sheet or a group of several).
       var gear = el.querySelector('.gear');
-      if (canEdit(h) && !opts.group && !opts.cards && !(panel.hkBare && panel.hkBare()) && !(panel.hkNoGear && panel.hkNoGear())) {
+      if (canEdit(h) && !opts.group && !opts.cards && !opts.panel && !(panel.hkBare && panel.hkBare()) && !(panel.hkNoGear && panel.hkNoGear())) {
         gear.hidden = false;
         gear.addEventListener('click', function (e) {
           e.stopPropagation();

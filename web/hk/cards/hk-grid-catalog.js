@@ -173,7 +173,13 @@
     // (hkShell.hostPage, asked here as the Timeline page's own entry is). show: auto (default), latest, digest
     timeline: { sizes: ['W', 'L', 'XL'], sources: [], opts: { show: 'timeline_show', tap: 'tap_target' }, card: function (s, o) {
       if (!hostHas('timeline')) return stand('Recent', 'mdi:history');
-      return { type: 'custom:hk-timeline-block-card', size: s, show: o.show === 'latest' || o.show === 'digest' ? o.show : 'auto' }; } }
+      return { type: 'custom:hk-timeline-block-card', size: s, show: o.show === 'latest' || o.show === 'digest' ? o.show : 'auto' }; } },
+    // HOUSE STATUS (2026-11-07, docs/phase11/HOUSE-STATUS.md, hk-house-status.js): this screen's status chips as
+    // sections, each a tap to its chip's page; the rest, and Small, open the House Status sheet. No options: it shows
+    // what the screen's Status Chips say, whether or not the screen draws its chip row. No When Tapped: each section
+    // opens its own place.
+    house_status: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: {}, card: function (s) {
+      return { type: 'custom:hk-house-status-card', size: s }; } }
   };
   // A BLOCK ONLY SOME HOSTS HAVE: asked of the host (hkShell.hostPage), never assumed -- no shell, no host page
   function hostHas(name) {

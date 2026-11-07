@@ -295,6 +295,11 @@ def steps(build: Build | None = None, parts: dict[str, int] | None = None) -> li
                                          "--shots", str(ROOT / ".ci" / "intercom-shots")], tier="full",
                  timeout=900, skip=playwright_missing, **check_inputs("tools/headless/intercom_check.py"))
             for z in ("ipad", "ipad-landscape", "phone", "phone-landscape", "wall")]
+    # House Status's blocks and sheet (2026-11-07, docs/phase11/HOUSE-STATUS.md), house commands off: every size on square
+    # and tile cells, the sections' taps, the sheet at the tablets' and phones' sizes (each engine and part a step of its own)
+    out += [Step(f"house-status-check-{e}-{p}", [py, "tools/headless/house_status_check.py", "--engine", e, "--only", p], tier="full",
+                 timeout=900, skip=playwright_missing, **check_inputs("tools/headless/house_status_check.py", e))
+            for e in ("webkit", "chromium") for p in ("blocks", "sheet")]
     # the page beside the iPhone Duo's side strip, in WebKit (its insets stood in; 2026-10-30)
     out.append(Step("side-strip-check", [py, "tools/headless/side_strip_check.py"], tier="full", timeout=600,
                     skip=playwright_missing, **check_inputs("tools/headless/side_strip_check.py")))

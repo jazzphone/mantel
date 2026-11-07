@@ -619,6 +619,10 @@
              'drop-shadow(0 ' + px(3) + ' ' + px(14) + ' rgba(0,0,0,0.30));">' + row + '</div>';
     },
 
+    // seconds -> what a countdown shows ("8:42", "1:05:00"): for a card that puts the text in its markup beside
+    // the element, so redrawing it never blanks the clock between ticks (House Status, hk-house-status.js)
+    fmt: fmt,
+
     // "H:MM:SS" or "MM:SS" or a bare number of seconds -> seconds.
     // HA is inconsistent about which of these a timer attribute holds
     // depending on how the timer was configured, so every read goes through

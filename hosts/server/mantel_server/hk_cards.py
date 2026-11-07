@@ -32,6 +32,8 @@ LAZY = frozenset({
     # the Intercom (Phase 17): its block on a Home Grid page, the sheet `#intercom` opens (hk-loader.js imports the file
     # when that address comes) and a wall tablet that listens (the shim asks). Nothing on any other page.
     "hk-intercom.js",
+    # House Status (docs/phase11/HOUSE-STATUS.md): its block on a Home Grid page and the sheet the block opens
+    "hk-house-status.js",
     # the Pages screen (Phase J): only on its own page, while a screen has it on
     "hk-pages-screen.js",
 })

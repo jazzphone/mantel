@@ -120,6 +120,11 @@ CATALOG: dict[str, dict[str, Any]] = {
     # host with no Timeline (Home Assistant) never offers it and draws a stand-in for a layout that has one. show:
     # Automatic (the morning summary from 5 to 11 AM, the rows after), Latest Events, or Morning Summary
     "timeline": {"sizes": ("W", "L", "XL"), "sources": (), "opts": {"show": "timeline_show", "tap": "tap_target"}},
+    # HOUSE STATUS (2026-11-07, docs/phase11/HOUSE-STATUS.md): this screen's status chips as sections, each a tap to its
+    # chip's page, the rest in a sheet. No options: what it shows is the screen's Status Chips (chips, chips_quiet,
+    # chips_extra, chips_custom), drawn whether or not the screen shows its chip row. No When Tapped: each section
+    # opens its own place
+    "house_status": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {}},
 }
 SOURCES = ("list", "rooms", "cameras", "thermostats", "speakers", "scenes", "accessories")
 # the sources that can open on the tablet's own room (or its speaker)

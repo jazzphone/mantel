@@ -57,6 +57,7 @@ load(HK_ROOT + '/frontend/cards/hk-home.js');
 load(HK_ROOT + '/frontend/cards/hk-media.js');
 load(HK_ROOT + '/frontend/cards/hk-cameras.js');
 load(HK_ROOT + '/frontend/cards/hk-intercom.js');
+load(HK_ROOT + '/frontend/cards/hk-house-status.js');
 load(HK_ROOT + '/frontend/modules/hk-sidepane.js');
 load(HK_ROOT + '/frontend/cards/hk-calendar.js');
 load(HK_ROOT + '/frontend/cards/hk-layout.js');      // hk-key-card: the stand-in of a block this host doesn't have (Recent)
@@ -272,6 +273,9 @@ function () {
   eq('Live TV opens Live TV', where('live_tv', 'L'), [['navigate', '/hk-kitchen/live-tv']]);
   eq('Who\'s Home opens the person at home', where('people', 'S'), [['moreInfo', 'person.sam']]);
   eq('On Now opens what is on', where('on_now', 'L')[0][0], 'group');
+  // (House Status: its plate -- the heading, a gap -- opens the House Status sheet; each section its own page)
+  eq('House Status opens its sheet', where('house_status', 'L'), [['detail', null]]);
+  eq('...Small too', where('house_status', 'S'), [['detail', null]]);
   eq('Everything opens More', where('everything', 'L'), [['more', 'more']]);
   eq('the Security block opens the alarm\'s sheet', where('security', 'W'), [['moreInfo', 'alarm_control_panel.house']]);
   eq('the room opens its page', where('room', 'L'), [['navigate', '/hk-kitchen/room-kitchen']]);
