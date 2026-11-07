@@ -1,0 +1,36 @@
+# Published in Mantel's add-on repository (https://github.com/jazzphone/mantel#ha-apps) from packaging/connect-app/config.yaml
+# by tools/publish_ha_apps.py, release 0.1.147. Don't edit it here: each release replaces this branch.
+# The Supervisor PULLS the image below, one per architecture, tagged with `version` (the release workflow
+# pushed it); nothing is built. To build from source instead: packaging/connect-app/ and docs/guide/Install.md.
+name: Mantel Connect
+version: "0.1.147"
+image: ghcr.io/jazzphone/mantel-connect-app-{arch}
+slug: mantel_connect
+description: Puts a Mantel Server that runs outside Home Assistant (Docker, an LXC) in the sidebar and the Companion app
+url: https://github.com/jazzphone/mantel
+arch:
+  - amd64
+  - aarch64
+startup: application
+# Starts with Home Assistant and is restarted by the watchdog if it stops answering.
+boot: auto
+init: true
+# The sidebar page (Ingress) is the only way in: no ports are published. HA's Ingress adds the signed-in
+# HA user to each request; this App passes it on, over mutual TLS, to the one Mantel it is paired with.
+ingress: true
+ingress_port: 8099
+panel_icon: mdi:fireplace
+panel_title: Mantel
+# Everyone in the household sees the entry; Mantel decides what each person may do (unlinked accounts get a
+# "not linked yet" page). Pairing itself is in this App's Configuration, which only HA administrators open.
+panel_admin: false
+# No Supervisor or Home Assistant API, no host network, no device access, no mapped folders.
+watchdog: "http://[HOST]:[PORT:8099]/healthz"
+options:
+  mantel_address: ""
+  pairing_code: ""
+  log_level: info
+schema:
+  mantel_address: "str?"
+  pairing_code: "password?"
+  log_level: list(debug|info|warning|error)

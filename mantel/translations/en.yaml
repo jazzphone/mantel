@@ -1,0 +1,67 @@
+configuration:
+  log_level:
+    name: Log level
+    description: How much Mantel writes to this App's log.
+  read_only:
+    name: Read-only (kill switch)
+    description: Off by default. On, Mantel never sends anything to the house, whatever Mantel Settings says (General, Allow Control of the House). For an emergency or a test; turn it off again to use the setting in Mantel Settings.
+  access:
+    name: Direct access
+    description: ingress (default) keeps Mantel in Home Assistant's sidebar only. proxy also serves Mantel on this App's direct port (plain HTTP) for your own reverse proxy, such as Nginx Proxy Manager, to put HTTPS in front. https has Mantel serve HTTPS on that port itself, with a Let's Encrypt certificate it renews (the name proved through Cloudflare or Duck DNS). Either way set a host port for 8100/tcp under Network; the sidebar keeps working.
+  public_url:
+    name: Mantel's own address
+    description: With proxy or https, the address tablets and browsers type, for example https://mantel.example.com (add :port when it is not 443). A name, not an IP address; your DNS must point it at your proxy (proxy) or at this Home Assistant machine (https).
+  trusted_proxies:
+    name: Your proxy's address
+    description: With proxy, the IP address (or several, separated by commas) your reverse proxy's requests come from, as Mantel sees them. Mantel's Test my proxy page shows it. Only this proxy may tell Mantel the LAN door, and only with this installation's door key (Mantel Settings, HTTPS).
+  dns_provider:
+    name: DNS host
+    description: With https, where Mantel proves its name to Let's Encrypt. cloudflare (default) for a domain at Cloudflare, with the Cloudflare DNS token below; duckdns for a <name>.duckdns.org address, with the Duck DNS token below. Other DNS hosts work with Mantel on Docker or Proxmox, not in this App.
+  cloudflare_token:
+    name: Cloudflare DNS token
+    description: With https and Cloudflare, a Cloudflare API token limited to Zone / Zone / Read and Zone / DNS / Edit on the zone holding Mantel's address, used only to prove the name to Let's Encrypt. Kept by the Supervisor as a masked option; Mantel reads it from a private file and never logs it.
+  duckdns_token:
+    name: Duck DNS token
+    description: With https and duckdns, the token at the top of duckdns.org's page once signed in; public_url must then be your https://<name>.duckdns.org. Kept by the Supervisor as a masked option; Mantel reads it from a private file and never logs it.
+  acme_email:
+    name: Certificate e-mail
+    description: Optional. Let's Encrypt's contact for this certificate's account.
+  acme_staging:
+    name: Test certificates
+    description: With https, use Let's Encrypt's staging service (certificates browsers do not trust) while trying the setup out, so failed attempts do not count against the real service's limits.
+  lan_networks:
+    name: Home networks
+    description: With https, the networks (for example 192.0.2.0/24, separated by commas) whose devices get the home's rules at Mantel's own address; everything else gets the remote rules. Empty means the private ranges. Home Assistant's internal network never counts, so a device must reach this machine directly, not through the router's port forwarding.
+  cf_access_team:
+    name: Cloudflare Access team
+    description: Optional, with a Cloudflare Tunnel to the direct port. Your Cloudflare Zero Trust team name (myteam, from myteam.cloudflareaccess.com). Together with the AUD tag below, Mantel refuses every request through the tunnel that Cloudflare Access did not let through. The sidebar is never affected.
+  cf_access_aud:
+    name: Cloudflare Access AUD tag
+    description: Optional. The Application Audience (AUD) tag of Mantel's Access application, from Cloudflare Zero Trust, Access, Applications, the application's Overview. Several are separated by commas.
+  commands_enabled:
+    name: Allow house commands (moved)
+    description: Moved to Mantel Settings, General, Allow Control of the House. A value here was copied there once when Mantel updated; changing it here does nothing. To force the house read-only whatever Mantel Settings says, use Read-only below.
+  default_screen:
+    name: Default screen (moved)
+    description: Moved to Mantel Settings, General, House Default Screen. A value here was copied there once; changing it here does nothing.
+  session_hours:
+    name: Sign-in length from away (moved)
+    description: Moved to Mantel Settings, General, Sign-Ins from Away Last. A value here was copied there once; changing it here does nothing.
+  ha_door_rules:
+    name: Sidebar access rules (moved)
+    description: Moved to Mantel Settings, Connections, Home Assistant, Coming Through Home Assistant. A value here was copied there once; changing it here does nothing.
+  ma_url:
+    name: Music Assistant address (moved)
+    description: Moved to Mantel Settings, Connections, Music Assistant. A value here was copied there once (with the token); changing it here does nothing.
+  ma_token:
+    name: Music Assistant token (moved)
+    description: Moved to Mantel Settings, Connections, Music Assistant, where it is kept sealed. You can clear it here.
+  ha_sign_in_url:
+    name: Home Assistant address for sign-in (moved)
+    description: Moved to Mantel Settings, Connections, Home Assistant, Sign-In Address. Empty there uses Home Assistant's own URL (Settings, System, Network). A value here was copied there once; changing it here does nothing.
+  ha_frame_origins:
+    name: Home Assistant addresses that may show Mantel (moved)
+    description: Moved to Mantel Settings, Connections, HTTPS and Your Proxy, Home Assistant's Frame. Values here were copied there once; changing them here does nothing.
+network:
+  8100/tcp: Direct access (only with Access set to proxy or https; Ingress keeps working either way)
+  8101/tcp: Intercom (only when the Intercom is on in Mantel Settings; Music Assistant fetches announcements here, keep it on your home network)

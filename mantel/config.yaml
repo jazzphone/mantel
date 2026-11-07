@@ -1,0 +1,107 @@
+# Published in Mantel's add-on repository (https://github.com/jazzphone/mantel#ha-apps) from packaging/ha-app/config.yaml
+# by tools/publish_ha_apps.py, release 0.1.147. Don't edit it here: each release replaces this branch.
+# The Supervisor PULLS the image below, one per architecture, tagged with `version` (the release workflow
+# pushed it); nothing is built. To build from source instead: packaging/ha-app/ and docs/guide/Install.md.
+name: Mantel
+version: "0.1.147"
+image: ghcr.io/jazzphone/mantel-app-{arch}
+slug: mantel
+description: HK's home screens, served by Mantel Server inside Home Assistant (sign-in through the sidebar)
+url: https://github.com/jazzphone/mantel
+arch:
+  - amd64
+  - aarch64
+startup: application
+boot: manual
+init: true
+# The sidebar page (Ingress) is always on. HA's Ingress adds the signed-in HA user to each request; Mantel
+# believes it only from the Supervisor's Ingress proxy (172.30.32.2), and only on the Ingress port.
+ingress: true
+ingress_port: 8099
+panel_icon: mdi:fireplace
+panel_title: Mantel
+# Every HA user may open the panel (decision 21: wall tablets come through it, and neither tablets nor most
+# household members are HA administrators). Mantel decides who gets anything: an unlinked HA user sees only
+# "Not linked yet", and only an HA administrator (checked with HA itself) can become the first Owner.
+panel_admin: false
+# HA's built-in App credential (SUPERVISOR_TOKEN, to ws://supervisor/core/websocket). No user token.
+homeassistant_api: true
+# Mantel Link's "Discovered: Mantel" (docs/phase9/MANTEL-LINK.md): at start the App announces Mantel to the
+# Supervisor (its own address on HA's App network and a rotated `linked` Service credential), which hands it to
+# Mantel Link in Home Assistant. hassio_api is for that announcement and the App's own hostname only.
+hassio_api: true
+discovery:
+  - mantel
+watchdog: "http://[HOST]:[PORT:8099]/healthz"
+# Home Assistant's backups stop the App, copy /data and start it again ("cold"). Mantel's database is SQLite
+# in WAL mode: a hot copy of mantel.db and mantel.db-wal taken file by file while Mantel writes (and
+# checkpoints) can restore as a damaged or inconsistent database. Stopped, the files are at rest and the copy
+# is exact, photos and keys included. The cost is Mantel being away for the length of the App's part of the
+# backup. A backup_pre snapshot would keep it running but needs a restore-time step to put the snapshot in
+# place; cold needs nothing and cannot go wrong.
+backup: cold
+# Mantel Settings -> Backups' own files (Back Up Now, /data/backups): kept out of Home Assistant's backups, which
+# already hold everything they do; and a restore waiting for the next start
+backup_exclude:
+  - "backups/*"
+  - ".pending-restore/*"
+# Direct access (decision 26, DOCS.md "Direct access"): Mantel's own address for tablets and devices at
+# home. Off unless the option `access` is proxy (plain HTTP here, for your own proxy) or https (Mantel serves
+# HTTPS here with its own certificate), AND a host port is set for it in the App's Network section (null:
+# not published). Requests on it are never Ingress: Mantel's own sign-in and rules apply.
+# The Intercom's listener (phase 17, DOCS.md "Intercom"): plain HTTP on 8101, serving only one-time links that Music
+# Assistant fetches. It listens only while the Intercom is on in Mantel Settings; map it only for that, on the home network.
+ports:
+  8100/tcp: null
+  8101/tcp: null
+ports_description:
+  8100/tcp: "Direct access (only with Access set to proxy or https; Ingress keeps working either way)"
+  8101/tcp: "Intercom (only when the Intercom is on in Mantel Settings; Music Assistant fetches announcements here, keep it on your home network)"
+# Only what Mantel needs to start (server_settings.py has the rule). Everything else is in Mantel Settings, the same
+# on every installation: General (control of the house, the house default screen, sign-ins from away) and
+# Connections (Music Assistant; Home Assistant's sign-in address and door rules). The older options for those
+# stay in the schema below, optional and with no default, for one release: Mantel copies a value set there once
+# into Mantel Settings when it updates, and reads them no more. A later release removes them.
+options:
+  log_level: info
+  # the kill switch: on, the house stays read-only whatever Mantel Settings says
+  read_only: false
+  # Direct access (DOCS.md): ingress (default: the sidebar only), proxy (your own reverse proxy) or https
+  # (Mantel's built-in HTTPS, its name proved through dns_provider: cloudflare or duckdns). The DNS tokens are
+  # masked options; only the chosen one is moved into a private file, like ma_token.
+  access: ingress
+  public_url: ""
+  trusted_proxies: ""
+  dns_provider: cloudflare
+  cloudflare_token: ""
+  duckdns_token: ""
+  acme_email: ""
+  acme_staging: false
+  lan_networks: ""
+  # Cloudflare Access in front of a tunnel to the direct port (DOCS.md): the Zero Trust team name and the Access
+  # application's AUD tag. Both empty (the default): not checked. Neither is a secret.
+  cf_access_team: ""
+  cf_access_aud: ""
+schema:
+  log_level: list(debug|info|warning|error)
+  read_only: bool
+  access: list(ingress|proxy|https)
+  public_url: "str?"
+  trusted_proxies: "str?"
+  dns_provider: list(cloudflare|duckdns)
+  cloudflare_token: "password?"
+  duckdns_token: "password?"
+  acme_email: "str?"
+  acme_staging: bool
+  lan_networks: "str?"
+  cf_access_team: "str?"
+  cf_access_aud: "str?"
+  # moved to Mantel Settings (above): read once on update, then never
+  commands_enabled: "bool?"
+  default_screen: "str?"
+  session_hours: "float(1,720)?"
+  ha_door_rules: "list(trusted|lan|tunnel)?"
+  ma_url: "str?"
+  ma_token: "password?"
+  ha_sign_in_url: "str?"
+  ha_frame_origins: "str?"
