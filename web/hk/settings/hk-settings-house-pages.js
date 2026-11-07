@@ -17,6 +17,25 @@
       F = s.F; h = s.h; K = s.K; M = s.M;
     });
 
+    // A STATUS (hk_core settings/pane_status.py; 2026-11-06, the owner's Mail chip as a section): one entity, a glyph in
+    // a color, a name and a label, shown only while its rule holds -- the Screensaver's Shows When, {entity, op, value}
+    // (hk-saver-editor.js OPS). No Full: there is no more to it. A tap: Automatic (its entity's sheet) or Nothing.
+    var STATUS_COLORS = [['', 'Same as the Text'], ['gray', 'Gray'], ['white', 'White'], ['yellow', 'Yellow'], ['orange', 'Orange'], ['red', 'Red'],
+      ['pink', 'Pink'], ['purple', 'Purple'], ['blue', 'Blue'], ['cyan', 'Cyan'], ['teal', 'Teal'], ['mint', 'Mint'], ['green', 'Green'], ['brown', 'Brown']];
+    var STATUS_OPS = [['is', 'Is'], ['not', 'Is Not'], ['above', 'Is Above'], ['below', 'Is Below']];
+    var STATUS_OP_WORDS = { is: 'is', not: 'is not', above: 'is above', below: 'is below' };
+    var STATUS_ICON = /^[a-z0-9_-]{1,12}:[a-z0-9_-]{1,64}$/;
+    // "Shows when Mailbox Status is Mail Likely Delivered" (nameOf: an entity's name)
+    function statusShowWords(show, nameOf) { return 'Shows when ' + nameOf(show.entity) + ' ' + STATUS_OP_WORDS[show.op] + ' ' + show.value; }
+    // A RULE AS TYPED (a draft) -> as stored, or null while it isn't one yet: an entity, and a value (a number to be
+    // above or below)
+    function statusShow(d) {
+      if (!d || !/^[a-z0-9_]+\.[a-z0-9_]+$/.test(d.entity || '') || STATUS_OP_WORDS[d.op] === undefined) return null;
+      var v = String(d.value == null ? '' : d.value).trim(), numeric = d.op === 'above' || d.op === 'below', n = parseFloat(v);
+      if (!v || v.length > 64 || (numeric && !isFinite(n))) return null;
+      return { entity: d.entity, op: d.op, value: numeric ? n : v };
+    }
+
     // THE METHODS this part adds to HkSettingsPanel.prototype (KIT.install: not enumerable, as a class body
     // defines them). They are written here exactly as they were in the class. (`extends` an `any`: only so the type
     // checker lets `this` have the properties the shell's class gives it; nothing makes an instance of this.)
@@ -984,7 +1003,7 @@
       // one away, the handle moves it, More adds one (eight at most)
       paneSections(c, path, g, grp, base) {
         var self = this, keys = grp.sections.map(M.secKey);
-        var name = function (s) { var k = M.paneKind(s.kind) || [0, s.kind]; return k[1]; };
+        var name = function (s) { var k = M.paneKind(s.kind) || [0, s.kind]; return (s.kind === 'status' && s.name) || k[1]; };
         var ent = function (s) { var st = s.entity && (self.client.states || {})[s.entity]; return st ? ((st.attributes || {}).friendly_name || s.entity) : ''; };
         c.appendChild(K.listEditor({ fk: 'pane:' + g, minRows: 0, announce: this.announce.bind(this),
           shownHeader: 'Sections', moreHeader: grp.sections.length < M.PANE_MAX ? 'Add a Section' : null,
@@ -1005,6 +1024,7 @@
       paneSection(c, path, g, i) {
         var self = this, p = this.paneNow(path), grp = p[g], s = grp.sections[i], st = this.client.states || {};
         var set = function (k, v) { return self.paneSave(path, g, M.secSet(grp, i, k, v)); };
+        if (s.kind === 'status') { this.paneStatus(c, s, set, path + ':' + g + ':' + i); return this.paneRemove(c, path, g, grp, i); }
         // SIZE, SHOW, PLACE and WHEN TAPPED (2026-10-30): one group, their
         // footers joined (four one-row groups before)
         c.appendChild(K.group({ header: 'Section', footer: 'Size — Tiny: one line. Less: the gist. More: the whole section. Full: more again, taking the room the pane has left (one section at a time). ' +
@@ -1062,6 +1082,63 @@
             onChange: function (v) { set('name', v === 'hide' ? null : v); } }));
           c.appendChild(K.group({ footer: s.kind === 'todo' ? 'A tap on an item’s circle checks it off.' : s.kind === 'camera' ? 'Name — Automatic: shown on a short still, hidden on a tall one.' : null }, rows));
         }
+        this.paneRemove(c, path, g, grp, i);
+      }
+      // A STATUS (2026-11-06, the owner's Mail chip as a section): what it says -- an entity, its name and label, a glyph
+      // in a color, as a status chip has them -- and when it shows, the Screensaver's Shows When rule ("Shows when
+      // Mailbox Status is Mail Likely Delivered"); hidden whenever the rule doesn't hold. `key` names the section, for a
+      // rule still being typed (a draft until it has an entity and a value).
+      paneStatus(c, s, set, key) {
+        var self = this, st = (this.client.states || {})[s.entity], nm = function (id) { return id ? self.name(id) : ''; };
+        var dr = this._stDraft && this._stDraft.key === key ? this._stDraft : null, rule = dr || s.show || null;
+        var iconBad = this._stIconBad === key;
+        c.appendChild(K.group({ header: 'Status', footer: 'Name and Label — left empty, the entity’s own name and its state. Glyph — the icon’s name, such as mdi:mailbox or hk:mailbox-up.' }, [
+          this.entityRow({ label: 'Entity', sk: 'pane:status:entity', value: s.entity, none: 'Choose…', filter: {},
+                           onPick: function (v) { set('entity', v || null); } }),
+          K.text({ label: 'Name', sk: 'pane:status:name', value: s.name || '', placeholder: st ? nm(s.entity) : 'Mail', maxlength: 40,
+                   onCommit: function (v) { set('name', v.trim() || null); } }),
+          K.text({ label: 'Label', sk: 'pane:status:label', value: s.label || '', placeholder: st ? String(st.state) : 'Likely Delivered', maxlength: 64,
+                   onCommit: function (v) { set('label', v.trim() || null); } }),
+          K.text({ label: 'Glyph', sk: 'pane:status:icon', value: s.icon || '', placeholder: (st && st.attributes && st.attributes.icon) || 'mdi:mailbox', maxlength: 78,
+                   error: iconBad ? 'An icon’s name, such as mdi:mailbox.' : null,
+                   onCommit: function (v) {
+                     v = v.trim().toLowerCase();
+                     if (v && !STATUS_ICON.test(v)) { self._stIconBad = key; self.render(); return; }
+                     self._stIconBad = null; set('icon', v || null);
+                   } }),
+          K.select({ label: 'Glyph Color', sk: 'pane:status:color', value: s.color || '', options: STATUS_COLORS, onChange: function (v) { set('color', v || null); } })]));
+        // SHOWS WHEN, as the Screensaver editor has it (hk-saver-editor.js showGroup): Always, or When… one entity is,
+        // is not, is above or is below a value
+        var rows = [K.seg({ label: 'Show', sk: 'pane:status:show', value: rule ? 'when' : 'always', options: [['always', 'Always'], ['when', 'When…']], onChange: function (v) {
+          if (v === 'always') { self._stDraft = null; set('show', null); return; }
+          self._stDraft = { key: key, entity: s.entity || '', op: 'is', value: '' }; self.render();
+        } })];
+        var foot = 'Shows only while its rule holds, and the rest of the pane closes up around it. Always: whenever its entity can be read.';
+        if (rule) {
+          var put = function (patch) {
+            var d = Object.assign({ key: key }, s.show || {}, dr || {}, patch), got = statusShow(d);
+            if (got) { self._stDraft = null; set('show', got); } else { self._stDraft = d; self.render(); }
+          };
+          var numeric = rule.op === 'above' || rule.op === 'below', wst = rule.entity && (this.client.states || {})[rule.entity];
+          rows.push(this.entityRow({ label: 'Entity', sk: 'pane:status:show:entity', value: rule.entity, none: 'Choose…', filter: {},
+                                     onPick: function (v) { put({ entity: v || '' }); } }));
+          rows.push(K.seg({ label: 'Condition', sk: 'pane:status:show:op', value: rule.op, options: STATUS_OPS, onChange: function (v) { put({ op: v }); } }));
+          rows.push(K.text({ label: 'Value', sk: 'pane:status:show:value', value: rule.value == null ? '' : String(rule.value), maxlength: 64,
+                             placeholder: numeric ? 'A number' : (wst ? String(wst.state) : 'on, Mail, 72…'),
+                             error: numeric && rule.value !== '' && !isFinite(parseFloat(rule.value)) ? 'Enter a number to compare with.' : null,
+                             onCommit: function (v) { put({ value: v.trim() }); } }));
+          foot = (s.show && !dr ? statusShowWords(s.show, nm) + '.' : 'Pick an entity and a value to finish.') + (wst ? ' Now it is ' + wst.state + '.' : '') +
+            ' Hidden whenever the rule doesn’t hold, or the entity can’t be read.';
+        }
+        c.appendChild(K.group({ header: 'Show When', footer: foot }, rows));
+        c.appendChild(K.group({ header: 'Section', footer: 'Size — Tiny: one line, the glyph, the name and the label. Less: the glyph large beside the name and the label. More: the name as the heading over the label. ' +
+            'Bottom: at the pane’s foot, under a space. When Tapped — Automatic: the entity’s detail sheet.' }, [
+          K.seg({ label: 'Size', sk: 'pane:sec:size', value: s.size || 'more', options: M.PANE_SIZES.slice(0, 3), onChange: function (v) { set('size', v === 'more' ? null : v); } }),
+          K.seg({ label: 'Place', sk: 'pane:sec:place', value: s.place || 'top', options: M.PANE_PLACES, onChange: function (v) { set('place', v === 'top' ? null : v); } }),
+          K.select({ label: 'When Tapped', sk: 'pane:sec:tap', value: s.tap || 'auto', options: M.paneTaps('status'), onChange: function (v) { set('tap', v === 'auto' ? null : v); } })]));
+      }
+      paneRemove(c, path, g, grp, i) {
+        var self = this;
         c.appendChild(K.group({}, [K.button({ label: 'Remove Section', destructive: true, fk: 'pane:sec:remove', onClick: function () {
           var keys = grp.sections.map(M.secKey);
           keys.splice(i, 1);

@@ -3,7 +3,7 @@
 // down one side of the Dashboard (Home only, or every page) and of the
 // screensaver. HomeView has no such area; it is where HK can do more.
 //
-// WHAT IT IS MADE OF. Twelve sections (KINDS), each drawn for the pane -- not
+// WHAT IT IS MADE OF. Thirteen sections (KINDS), each drawn for the pane -- not
 // a page card squeezed in -- at four Sizes: Tiny (one line: its glyph, the
 // fact and a value), Less (the gist), More (the whole section) and Full (More
 // and then some, taking the room the pane has left; one at a time). Each
@@ -11,7 +11,8 @@
 // the calendars, the screen's music, the alarm and locks, a camera's still,
 // the quick timers, the house's power, the thermostats, person.*, a to-do
 // list through hk_frontend/todo/items, the banners), so the Dashboard's pane
-// and the screensaver's draw the same thing.
+// and the screensaver's draw the same thing. A Status is the owner's own: one
+// entity, a glyph, a name and a label, shown only while its rule holds.
 //
 // THE SETTINGS are the screen's Side Pane as read (settings side_pane_read:
 // each group the screen's own or All Screens', hk_core resolved()), from HK
@@ -48,10 +49,11 @@
     security: ['Security', 'mdi:shield-home', '#30b0c7'], camera: ['Camera', 'mdi:cctv', '#636366'],
     timers: ['Timers', 'mdi:timer-outline', '#ff9500'], energy: ['Energy', 'mdi:lightning-bolt', '#34c759'],
     climate: ['Climate', 'mdi:thermostat', '#007aff'], people: ['Who’s Home', 'mdi:account', '#5856d6'],
-    todo: ['To-do', 'mdi:clipboard-check', '#ff9500'], notifications: ['Notifications', 'mdi:bell', '#ff3b30']
+    todo: ['To-do', 'mdi:clipboard-check', '#ff9500'], notifications: ['Notifications', 'mdi:bell', '#ff3b30'],
+    status: ['Status', 'mdi:card-text-outline', '#5ac8fa']
   };
   var ORDER = ['clock', 'weather', 'calendar', 'now_playing', 'security', 'camera', 'timers', 'energy', 'climate',
-               'people', 'todo', 'notifications'];
+               'people', 'todo', 'notifications', 'status'];
   var SIZES = ['tiny', 'less', 'more', 'full'];
   var WIDTHS = { narrow: 360, standard: 400, wide: 480 };
   // the width the sections are drawn for: a pane's contents are laid out at
@@ -74,9 +76,9 @@
 
   // ---------------------------------------------------- the decisions (pure)
   // which sections show now: Always, and When There's Something while `has`
-  // says it has something
+  // says it has something -- a Status only ever while its rule holds
   function shown(list, has) {
-    return (list || []).filter(function (s) { return s && KINDS[s.kind] && (s.when !== 'active' || !!has(s)); }).slice(0, MAX);
+    return (list || []).filter(function (s) { return s && KINDS[s.kind] && ((s.when !== 'active' && s.kind !== 'status') || !!has(s)); }).slice(0, MAX);
   }
   // THE FIT: `over(sizes, n)` says whether the first n sections at these sizes
   // (and, n short of all, the foot) are taller than the pane. Sizes step down
@@ -311,8 +313,39 @@
       case 'calendar': return calSoon() > 0;
       case 'climate': return domainIds(c, 'climate').some(function (id) { var x = attr(st[id], 'hvac_action'); return x === 'heating' || x === 'cooling'; });
       case 'people': return domainIds(c, 'person').some(function (id) { return (st[id] || {}).state === 'home'; });
+      case 'status': return !!s.entity && !!st[s.entity] && met(s.show, st);
       default: return true;
     }
+  }
+
+  // A STATUS'S RULE (2026-11-06; the Screensaver's Shows When, hk-saverlayout.js met(), which this file can't wait
+  // for -- the screensaver loads it): {entity, op: is / not / above / below, value}; none, always. An entity this
+  // screen can't read, or unavailable, never holds -- absent is not the same as "not"
+  function met(show, st) {
+    if (!show) return true;
+    var x = st && st[show.entity];
+    if (!x || x.state === 'unavailable' || x.state === 'unknown') return false;
+    var s = String(x.state), v = show.value;
+    if (show.op === 'above' || show.op === 'below') {
+      var a = parseFloat(s), b = typeof v === 'number' ? v : parseFloat(v);
+      if (!isFinite(a) || !isFinite(b)) return false;
+      return show.op === 'above' ? a > b : a < b;
+    }
+    var same = s.toLowerCase() === String(v).toLowerCase() || (isFinite(parseFloat(s)) && parseFloat(s) === (typeof v === 'number' ? v : parseFloat(v)));
+    return show.op === 'is' ? same : !same;
+  }
+  // ...and what it says: its own name and label, else the entity's name and its state (with its unit), and its
+  // glyph in its color (the chip's palette, hkCards.PALETTE.icon: "blue" the Home app's blue)
+  function stateWords(x) {
+    var u = attr(x, 'unit_of_measurement'), s = String(x && x.state != null ? x.state : '');
+    return (s.charAt(0).toUpperCase() + s.slice(1)).replace(/_/g, ' ') + (u ? ' ' + u : '');
+  }
+  function statusOf(sec, c) {
+    var x = sec.entity && states(c)[sec.entity];
+    if (!x) return null;
+    var P = C() && C().PALETTE && C().PALETTE.icon, col = sec.color && P && P[sec.color];
+    return { name: sec.name || nameOf(x, sec.entity), label: sec.label || stateWords(x),
+             icon: sec.icon || attr(x, 'icon') || 'mdi:information-outline', color: col || '' };
   }
 
   // THE CALENDAR'S EVENTS (hkCalendar.load, the Calendar page's own read):
@@ -886,6 +919,21 @@
       if (!n.length) return none('notifications', s, 'No notifications');
       if (s === 'tiny') return tiny('notifications', esc(n[0].text), esc(ago(n[0].at)));
       return box('notifications', s, head('notifications') + lst(rows(n.slice(0, { less: 1, more: 3, full: 5 }[s]).map(function (x) { return [x.text, ago(x.at)]; }))), 'shrink');
+    },
+    // A STATUS (2026-11-06), as the owner's status chip says it: Tiny, its glyph, name and label on one line; Less, the
+    // glyph large beside the name over the label (the chip's two lines); More (and Full: there is no more to it), the
+    // name as the heading over the glyph and the label large -- as Security says its state. Shown only while its
+    // rule holds (shown, has); the entity's own sheet on a tap
+    status: function (s, sec, c) {
+      var o = statusOf(sec, c);
+      if (!o) return none('status', s, sec.entity ? 'Can’t read ' + sec.entity : 'Choose an entity');
+      var g = icon(esc(o.icon), o.color ? ' style="color:' + esc(o.color) + '"' : ''), ent = ' data-ent="' + esc(sec.entity) + '"';
+      if (s === 'tiny') return '<div class="sec cmp stt" data-k="status" data-size="tiny"><div class="r2"' + ent + '>' + g +
+        '<span class="tx">' + esc(o.name) + '</span><span class="v2">' + esc(o.label) + '</span></div></div>';
+      if (s === 'less' || !HEAD_ON) return box('status', s, '<div class="r2 big st2"' + ent + '>' + g + '<span class="tx"><b>' + esc(o.name) +
+        '</b><i>' + esc(o.label) + '</i></span></div>', 'stt');
+      return box('status', s, '<div class="h2"><span>' + esc(o.name) + '</span></div><div class="r2 big"' + ent + '>' + g +
+        '<span class="tx">' + esc(o.label) + '</span></div>', 'stt');
     }
   };
   function wxIcon(cond) {
@@ -1168,6 +1216,11 @@
       '.r2.big{font-size:22px}.r2.big hk-icon{--mdc-icon-size:30px;width:30px;height:30px;color:#30b0c7}',
       // (Security at Less: what is open at the right, on the state's baseline, at the second line's size)
       '.r2.big .v2.sub2{align-self:baseline;font:500 15px/1.3 var(--hk-font-body,inherit);flex:none}.r2.big:has(.v2) .tx{align-self:baseline}',
+      // A STATUS: its glyph the ink unless it has a color of its own (set on the glyph); at Less the name over the
+      // label, as the status chip has them
+      '.stt .r2.big hk-icon{color:inherit}',
+      '.st2 .tx b{display:block;font:600 19px/1.25 var(--hk-font-body,inherit);overflow:hidden;text-overflow:ellipsis}',
+      '.st2 .tx i{display:block;font:500 15px/1.3 var(--hk-font-body,inherit);font-style:normal;color:' + v('ink-2') + ';overflow:hidden;text-overflow:ellipsis}',
       '.cd{font-variant-numeric:tabular-nums;color:#ff9f0a}',
       // A TIMER'S ROW: the ring (the pause) at the left, the time over its name, the red Stop at the right
       '.tmr{display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-areas:"r t s" "r n s";column-gap:12px;align-items:center;--ring:56px}',
@@ -1349,6 +1402,7 @@
       case 'climate': return domainIds(c, 'climate')[0] || null;
       case 'people': return domainIds(c, 'person')[0] || null;
       case 'todo': return s.entity || domainIds(c, 'todo')[0] || null;
+      case 'status': return s.entity || null;
       default: return null;
     }
   }
@@ -1627,7 +1681,7 @@
     // what the data said last time, so a push that changes nothing here draws nothing
     _dataSig(c) {
       var st = states(c), o = this._o, ids = [];
-      (o.list || []).forEach(function (s) { ids.push(s.entity || ''); });
+      (o.list || []).forEach(function (s) { ids.push(s.entity || ''); if (s.show && s.show.entity) ids.push(s.show.entity); });
       var m = musicOf(c);
       return JSON.stringify([Math.floor(Date.now() / 30000), m && [m.key, m.playing, m.title, m.artist, m.pic, attr(st[m.key], 'media_content_id')],
         timersOf(c).map(function (r) { var x = st[r.entity_id]; return [r.entity_id, x && x.state, r.finishes_at || r.remaining]; }),
@@ -2244,8 +2298,14 @@
     if (frame) return;
     frame = requestAnimationFrame(function () { frame = 0; try { sync(); } catch (e) { console.error('[hk-sidepane]', e); } });
   }
-  var lastPush = 0;
-  function pushed() { var now = Date.now(); if (now - lastPush < 1000) return; lastPush = now; soon(); }
+  // (...and one more at the end of the second when a push came too soon: a Status coming up as its entity changes --
+  // a pane with nothing showing has no ticking second to catch it, and a quiet house may not push again for long)
+  var lastPush = 0, pushLate = 0;
+  function pushed() {
+    var now = Date.now(), wait = 1000 - (now - lastPush);
+    if (wait > 0) { if (!pushLate) pushLate = setTimeout(function () { pushLate = 0; pushed(); }, wait); return; }
+    lastPush = now; soon();
+  }
   function wire() {
     var SH = window.hkShell;
     if (SH && SH.onNavigate) SH.onNavigate(soon);
@@ -2306,7 +2366,7 @@
     sync: sync,
     previewHouse: function (on) { if (HOUSE === !!on) return; HOUSE = !!on; sync(); },
     // tests
-    _: { shown: shown, fit: fit, place: place, wants: wants, saverList: saverList, has: has, ringing: ringing, SEC: SEC,
+    _: { shown: shown, fit: fit, place: place, wants: wants, saverList: saverList, has: has, ringing: ringing, SEC: SEC, met: met,
          publish: publish, musicFlag: musicFlag, NOTES: NOTES, TODO: TODO, CAL: CAL, calLoad: calLoad, todoOf: todoOf, LOST: LOST }
   };
 })();

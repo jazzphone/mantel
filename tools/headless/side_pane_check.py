@@ -3,7 +3,8 @@
 Screens with a Side Pane: beside a 3 x 3 Home Grid on the right and on the left, on Every Page of a generated
 screen, eight sections together, in the screensaver (its own sections, on each side), each section alone at each
 of its four sizes, the music playing; and the same screen held upright (a band under the page) and on a phone (no
-pane). It checks the pane is where it should be, never scrolls, narrows the page, and that no page error happens;
+pane). A Status (the owner's Mail chip as a section) hidden while the mailbox says No Mail, shown once the house says
+otherwise -- the state changed in the server, as Home Assistant would push it -- and hidden again. It checks the pane is where it should be, never scrolls, narrows the page, and that no page error happens;
 with --shots DIR it keeps a screenshot of each. No connection to a real home; any other request is refused.
 
     PLAYWRIGHT_PATH=/path/to/node_modules/playwright-core python tools/headless/side_pane_check.py --engine webkit --shots DIR
@@ -44,6 +45,28 @@ GRID = {'v': 1, 'cols': 3, 'rows': 3, 'frame': [800, 800], 'band': False, 'grow'
     {'id': 'p3', 'card': 'security', 'size': 'S', 'at': [1, 2]},
     {'id': 'p4', 'card': 'action', 'size': 'S', 'at': [2, 2], 'opts': {'action': 'lights_off'}},
     {'id': 'p5', 'card': 'timers', 'size': 'S', 'at': [0, 2]}]}
+
+
+# THE OWNER'S MAIL CHIP as a Side Pane section (2026-11-06): its entity, glyph, color, name and label, no tap, and its
+# conditional card's rule
+MAIL = {'kind': 'status', 'id': 'mail', 'entity': 'sensor.mailbox_status', 'icon': 'hk:mailbox-up', 'color': 'blue',
+        'name': 'Mail', 'label': 'Likely Delivered', 'tap': 'none', 'size': 'less',
+        'show': {'entity': 'sensor.mailbox_status', 'op': 'is', 'value': 'Mail Likely Delivered'}}
+
+
+async def states_from(app, path: Path):
+    """The browser side asks for a state change by writing {entity, state} to `path`: made in the server's store and
+    pushed to the page as Home Assistant's would be (the file gone says it is done)."""
+    import time
+    hub = app['hub']
+    while True:
+        if path.exists():
+            want = json.loads(path.read_text())
+            now = time.time()
+            hub.store.apply_event({'c': {want['entity']: {'+': {'s': want['state'], 'lc': now, 'lu': now}}}})
+            hub.on_change({want['entity']})
+            path.unlink()
+        await asyncio.sleep(0.05)
 
 
 # the board's six looks, each from the Clock section's choices (A is today's: none set)
@@ -101,6 +124,11 @@ SCREENS = {
     'pane-placed': screen({'side': 'right', 'dashboard': {'show': 'all', 'sections': [
         {'kind': 'weather', 'size': 'less'}, {'kind': 'calendar', 'days': 7}, {'kind': 'people'},
         {'kind': 'now_playing', 'place': 'bottom'}]}}, grid=True),
+    # (2026-11-06) A STATUS: the owner's Mail chip (custom:hk-status-chip-card under a conditional card) as a section --
+    # beside the weather, and alone (the whole pane coming and going with it)
+    'pane-status': screen({'side': 'right', 'dashboard': {'show': 'home', 'sections': [
+        {'kind': 'weather', 'size': 'less'}, MAIL]}}, grid=True),
+    'pane-status-alone': screen({'side': 'right', 'dashboard': {'show': 'home', 'sections': [dict(MAIL, size='more')]}}, grid=True),
 }
 
 
@@ -112,6 +140,7 @@ async def main():
     mp = gallery.HOUSE['media_player.living_room']
     gallery.HOUSE['media_player.living_room'] = (mp[0], (mp[1][0], dict(mp[1][1], entity_picture='/hk/landscapes/01.webp')))
     gallery.HOUSE['sensor.house_power'] = (None, ('1400', {'unit_of_measurement': 'W', 'device_class': 'power'}))
+    gallery.HOUSE['sensor.mailbox_status'] = (None, ('No Mail', {'friendly_name': 'Mailbox Status', 'icon': 'mdi:mailbox'}))
     gallery.HOUSE['alarm_control_panel.home'] = (None, ('armed_home', {'friendly_name': 'Home Alarm', 'changed_by': 'Sam'}))
     # two quick timers running, one paused, and the sun's next setting: the Timers rows (the ring the pause, the
     # red Stop) and the Clock's sunset at the right of its date
@@ -132,12 +161,16 @@ async def main():
         async with TestServer(app) as server:
             if args.shots:
                 args.shots.mkdir(parents=True, exist_ok=True)
+            state_file = Path(td) / 'state.json'
+            watch = asyncio.create_task(states_from(app, state_file))
             proc = await asyncio.create_subprocess_exec(
                 args.node, str(Path(__file__).with_suffix('.cjs')), stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, env=os.environ)
             out, err = await proc.communicate(json.dumps({
                 'origin': str(server.make_url('')).rstrip('/'), 'cookie': cookie, 'engine': args.engine,
-                'shots': str(args.shots) if args.shots else None, 'sizes': sizes, 'looks': sorted(CLOCK_LOOKS)}).encode())
+                'shots': str(args.shots) if args.shots else None, 'sizes': sizes, 'looks': sorted(CLOCK_LOOKS),
+                'stateFile': str(state_file)}).encode())
+            watch.cancel()
             print(out.decode())
             if err.strip():
                 print(err.decode(), file=sys.stderr)

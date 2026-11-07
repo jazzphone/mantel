@@ -4,6 +4,9 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Added**
+- **A Status section for the Side Pane.** Like a custom status chip, it shows an entity with your own glyph, color, name and label (for example, Mail: Likely Delivered). It appears only while its Show When rule holds (the entity is, is not, is above or is below a value) and disappears again when the rule stops holding. Add it under Side Pane → Dashboard Sections or Screensaver Sections. It comes in Tiny, Less and More, and a tap opens the entity's sheet, or does nothing.
+
 **Fixed**
 - **A stereo pair is one speaker on the generated dashboards.** Two speakers made one room in Music settings show as one tile under the pair's name, on Home, the room's page and a Home Grid room block, and the room's status counts one speaker. Before, both halves showed, as "Left HomePod" and "Right HomePod".
 - **Speakers and Browse open again on the screensaver's music slide.** The panel no longer closes the moment it opens: lifting the finger from the button no longer counts as a second tap.

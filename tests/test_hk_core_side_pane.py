@@ -28,8 +28,9 @@ def test_all_screens_has_the_defaults_until_one_is_chosen():
         [("clock", "tiny"), ("calendar", "more"), ("now_playing", "less")]
 
 
-def test_the_twelve_sections_four_sizes_and_widths():
-    assert len(M.PANE_SECTIONS) == 12 and "todo" in M.PANE_SECTIONS and "notifications" in M.PANE_SECTIONS
+def test_the_thirteen_sections_four_sizes_and_widths():
+    assert len(M.PANE_SECTIONS) == 13 and "todo" in M.PANE_SECTIONS and "notifications" in M.PANE_SECTIONS
+    assert M.PANE_SECTIONS[-1] == "status"
     assert M.PANE_SIZES == ("tiny", "less", "more", "full")
     assert M.PANE_WIDTHS == {"narrow": 360, "standard": 400, "wide": 480}
     assert M.PANE_MAX == 8
@@ -330,3 +331,46 @@ def test_the_camera_s_name_is_hide_unless_chosen():
     assert M.pane_section({"kind": "camera", "name": "auto"}) == {"kind": "camera", "name": "auto"}
     assert M.pane_section({"kind": "camera", "name": "loud"}) == {"kind": "camera"}
     assert M.pane_section({"kind": "camera", "name": "loud"}, strict=True) is None
+
+
+MAIL = {"kind": "status", "id": "m1", "entity": "sensor.mailbox_status", "icon": "hk:mailbox-up", "color": "blue",
+        "name": "Mail", "label": "Likely Delivered", "tap": "none",
+        "show": {"entity": "sensor.mailbox_status", "op": "is", "value": "Mail Likely Delivered"}}
+
+
+def test_a_status_is_the_owner_s_mail_chip_as_a_section():
+    # (2026-11-06, the owner: "a custom side pane widget like we have for the custom chip") -- the Mail chip's entity,
+    # glyph, color, name and label, and its conditional card's rule in the Screensaver's Shows When shape
+    assert M.pane_section(MAIL, strict=True) == MAIL
+    b, err = C.apply_board({}, {"side_pane": {"dashboard": {"show": "home", "sections": [MAIL]}}})
+    assert err == {} and M.board(b)["side_pane"]["dashboard"]["sections"] == [MAIL]
+    # a number to be above or below; is not
+    for show in ({"entity": "sensor.battery", "op": "below", "value": 20}, {"entity": "lock.front", "op": "not", "value": "locked"}):
+        assert M.pane_section({"kind": "status", "entity": "sensor.battery", "show": show}, strict=True)["show"] == show
+    # the rest are its own: no other section has them
+    assert M.pane_section({"kind": "weather", "label": "Hi"}, strict=True) is None
+    assert M.pane_section({"kind": "weather", "show": MAIL["show"]}) == {"kind": "weather"}
+
+
+def test_a_status_refuses_what_it_can_t_use():
+    for k, bad in (("entity", "mailbox"), ("id", "Has Caps"), ("icon", "mailbox"), ("icon", "mdi:<b>"), ("color", "chartreuse"),
+                   ("name", ""), ("name", "x" * 41), ("label", "two\nlines"), ("label", 5),
+                   ("show", {"entity": "sensor.m", "op": "is"}), ("show", {"entity": "sensor.m", "op": "like", "value": "x"}),
+                   ("show", {"entity": "sensor.m", "op": "is", "value": ""}), ("show", {"entity": "sensor.m", "op": "is", "value": True}),
+                   ("show", {"entity": "sensor.m", "op": "above", "value": float("nan")})):
+        assert M.pane_section(dict(MAIL, **{k: bad}), strict=True) is None, (k, bad)
+        assert k not in M.pane_section(dict(MAIL, **{k: bad})), (k, bad)
+    # no Full: there is no more to it (tolerantly, More)
+    assert M.pane_section(dict(MAIL, size="full"), strict=True) is None
+    assert "size" not in M.pane_section(dict(MAIL, size="full"))
+    assert M.pane_section(dict(MAIL, size="tiny"), strict=True)["size"] == "tiny"
+    # the name and label as typed, trimmed
+    assert M.pane_section(dict(MAIL, name="  Mail "), strict=True)["name"] == "Mail"
+
+
+def test_two_statuses_are_told_apart_by_their_id():
+    # the same entity twice (another rule), each its own id; the same id twice is one section twice
+    other = dict(MAIL, id="m2", label="Picked Up", show={"entity": "sensor.mailbox_status", "op": "is", "value": "Empty"})
+    assert M.pane_sections([MAIL, other], strict=True) == [MAIL, other]
+    assert M.pane_sections([MAIL, dict(other, id="m1")], strict=True) is None
+    assert M.pane_sections([MAIL, dict(other, id="m1")]) == [MAIL]
