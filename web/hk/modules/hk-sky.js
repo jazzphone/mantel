@@ -6120,13 +6120,8 @@
     if (!el) return { big: 'none', small: '' };
     // (the Play Music page's album art is what is IN it: a new song's cover
     // is a new picture, not a change of light)
-    // (and the season's field, which paintSeason builds inside .season with no
-    // class on the sky to say so: Decorations off emptied it and the pills
-    // kept the decorated picture until their next timed repaint, 2026-10-13)
-    // (and a wallpaper's Motion and its speed, data-wm / data-ws, which no
-    // class says: turned on, off or faster, the glass over it is painted
-    // again at once -- the still frame where it stopped -- and follows it or
-    // stops following, 2026-11-07)
+    // (and the season's field, built inside .season with no class to say so: Decorations off kept the decorated picture
+    // until the next timed repaint, 2026-10-13; and a wallpaper's Motion and speed, data-wm / data-ws, 2026-11-07)
     return { big: String(el.className).replace(SKY_STATES, ' ').replace(/\s+/g, ' ').trim() + '|' + cloudsSig(el) +
                   '|' + (el.style.getPropertyValue('--art') || '') + '|' + seasonSig(el) +
                   '|' + (el.getAttribute('data-wm') || '') + ':' + (el.getAttribute('data-ws') || ''),
@@ -6198,42 +6193,25 @@
                 'near-flock', 'hk-leaffall', 'hk-leaftumble', 'near-petal', 'near-geese',
                 // a motion theme's meteors (2026-10-31, hk-wallpapers.js)
                 'hk-wt-meteor'];
-  // WHAT DRIFTS ACROSS THE SKY while staying in its picture: the clouds
-  // (realistic and classic decks), the fog's wisps, the moon's mist, the
-  // aurora. A pre-rendered blur (hk-glass.js) paints its picture again every
-  // couple of seconds while any of these runs -- the pills over a cloud lag
-  // it otherwise (the user, 2026-10-11). Not what loops in place (a candle's
-  // flicker, a twinkle, a sway, the rain and snow decks): a picture taken at
-  // a random moment of a loop would make the glass pulse.
-  var DRIFTS = ['hk-rc', 'hk-drift', 'hk-fwisp', 'near-wisp', 'near-aurora'];
-  // ...AND A WALLPAPER'S MOTION (2026-11-07): a drawn wallpaper sways,
-  // breathes, drifts or turns as a whole (hk-wall-*), a motion theme's
-  // layers sway, loop and tile (hk-wt-*; its meteors are MOVERS). Each is
-  // slow -- seconds to minutes one way -- so a picture every couple of
-  // seconds, faded into the last, follows it; the glass over a moving
-  // wallpaper kept its first picture for 30 s otherwise. A wallpaper's page
-  // is a `static` one (no weather): there only these count. A loop quicker
-  // than WALL_MIN_MS is left out, as the candle's flicker is above: a
-  // picture of it at a random moment would make the glass pulse.
-  var WALLS = ['hk-wall-', 'hk-wt-sway', 'hk-wt-loop', 'hk-wt-tile'], WALL_MIN_MS = 4000;
-  function slowEnough(an) {
-    var d = 0;
-    try { d = Number(an.effect && an.effect.getTiming ? an.effect.getTiming().duration : 0) || 0; } catch (e) { d = 0; }
-    return d >= WALL_MIN_MS;
-  }
+  // WHAT DRIFTS ACROSS THE SKY while staying in its picture: the clouds, the fog's wisps, the moon's mist, the
+  // aurora -- and a moving wallpaper (hk-wall-*, a motion theme's hk-wt-* layers; its meteors are MOVERS), the only
+  // drift a wallpaper's `static` page has (2026-11-07: the glass kept its first picture 30 s). A pre-rendered blur
+  // (hk-glass.js) paints its picture again every couple of seconds while any of these runs -- the pills over a cloud
+  // lag it otherwise (the user, 2026-10-11). Not what loops in place, nor a wallpaper's loop quicker than 4 s (a
+  // candle's flicker, a twinkle, the rain and snow decks): a picture at a random moment of it would make glass pulse.
+  var DRIFTS = ['hk-rc', 'hk-drift', 'hk-fwisp', 'near-wisp', 'near-aurora'], WALLS = ['hk-wall-', 'hk-wt-sway', 'hk-wt-loop', 'hk-wt-tile'];
   function drifting() {
     var el = mounted && mounted.isConnected ? mounted : null;
-    // (paused -- not on screen, the window not in focus, the kiosk's black
-    // -- is not drifting: nothing to follow)
+    // (paused -- not on screen, the window not in focus, the kiosk's black -- is not drifting: nothing to follow)
     if (!el || !el.getAnimations || /(^|\s)(noanim|hidden|held)(\s|$)/.test(el.className)) return false;
-    var still = /(^|\s)static(\s|$)/.test(el.className), list;
+    var still = /(^|\s)static(\s|$)/.test(el.className), list, j, d;
     try { list = el.getAnimations({ subtree: true }); } catch (e) { return false; }
     for (var i = 0; i < list.length; i++) {
-      var an = list[i], nm = String(an.animationName || ''), j;
+      var an = list[i], nm = String(an.animationName || '');
       if (an.playState !== 'running' || !nm) continue;
-      for (j = 0; j < WALLS.length; j++) if (nm.indexOf(WALLS[j]) === 0 && slowEnough(an)) return true;
-      if (still) continue;
-      for (j = 0; j < DRIFTS.length; j++) if (nm.indexOf(DRIFTS[j]) === 0) return true;
+      try { d = +an.effect.getTiming().duration || 0; } catch (e) { d = 0; }
+      for (j = 0; j < WALLS.length; j++) if (nm.indexOf(WALLS[j]) === 0 && d >= 4000) return true;
+      for (j = 0; !still && j < DRIFTS.length; j++) if (nm.indexOf(DRIFTS[j]) === 0) return true;
     }
     return false;
   }
