@@ -13,7 +13,9 @@
   It is the screensaver's music slide as a page (hk-saver-music.js), as it is since 2026-11-06:
   - FULL SCREEN: the corner the slide has (the time, the date, the weather; the home's status at the right), the song on
     the left and the cover on the right, the progress, the controls, the volume (a group's: its rooms' average, set on every
-    one), Up Next a line below; on a tall screen the cover over the song.
+    one), the play queue's next songs below; on a tall screen the cover over the song.
+  - The controls bare, no wells, bigger (the owner, 2026-11-07: "I think it looks better without them"); the volume bar as
+    far below the play/pause as the progress bar is above it; the queue over playlists (playlists only with nothing queued).
   - BESIDE THE SIDE PANE (its Clock, Calendar and Status sections): the cover and the song side by side, the progress, the
     controls and the volume the music area's width under them -- the slide's own layout beside a pane. The pane has the
     time and the status, so the music area doesn't say them twice.
@@ -57,23 +59,36 @@
   .bar { height: 5px; border-radius: 3px; background: rgba(255,255,255,.22); overflow: hidden; }
   .bar i { display: block; height: 100%; width: 38%; background: var(--ink); border-radius: 3px; }
   .times { display: flex; justify-content: space-between; font-size: 12px; color: var(--ink-2); margin-top: 6px; font-variant-numeric: tabular-nums; }
-  .ctl { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; }
-  .btn { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; background: var(--key); }
-  .btn svg { width: 26px; height: 26px; fill: var(--ink); }
-  .btn.small { width: 42px; height: 42px; background: none; box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.35); }
-  .btn.small svg { width: 20px; height: 20px; }
-  .btn.pp { width: 72px; height: 72px; background: var(--ink); }
-  .btn.pp svg { width: 34px; height: 34px; fill: #1c1c1e; }
-  .vol { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
+  /* 36px from the progress bar to the pause glyph's ink, 36px from it to the volume bar (32px on a phone) */
+  :root { --ctl-top: -7px; --vol-top: 12px; }
+  /* the controls bare, as Apple's player has them: no wells, bigger glyphs; each still a 60px touch target. The progress
+     bar and the volume bar sit the same distance (--gap) from the play/pause glyph's ink, above and below. */
+  .ctl { display: flex; align-items: center; justify-content: space-between; margin: var(--ctl-top, 0px) -10px 0; }
+  .btn { width: 60px; height: 60px; display: grid; place-items: center; }
+  .btn svg { width: 46px; height: 46px; fill: var(--ink); }
+  .btn.small svg { width: 28px; height: 28px; fill: var(--ink-2); }
+  .btn.pp svg { width: 64px; height: 64px; }
+  .vol { display: flex; align-items: center; gap: 12px; margin-top: var(--vol-top, 0px); }
   .vol svg { width: 18px; height: 18px; fill: var(--ink-2); flex: none; }
   .vt { flex: 1; height: 5px; border-radius: 3px; background: rgba(255,255,255,.22); position: relative; }
   .vt i { position: absolute; left: 0; top: 0; bottom: 0; width: 45%; background: var(--ink); border-radius: 3px; }
   .vt b { position: absolute; left: 45%; top: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%; background: #fff;
           box-shadow: 0 2px 8px rgba(0,0,0,.35); }
-  .next { display: flex; align-items: center; gap: 10px; margin-top: 14px; }
-  .next .th { width: 36px; height: 36px; border-radius: 6px; flex: none; background: linear-gradient(135deg, #5a8f7b, #1f3d4f); }
-  .next .l { font-size: 10px; font-weight: 600; letter-spacing: .4px; text-transform: uppercase; color: var(--ink-3); }
-  .next .t { font-size: 13px; font-weight: 600; }
+  /* THE PLAY QUEUE: what plays next, a tap plays it; "Queue" opens the whole list */
+  .queue { margin-top: 26px; }
+  .queue .h { display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; font-weight: 600; color: var(--ink-2);
+              padding-bottom: 6px; }
+  .queue .h span:last-child { color: var(--ink); }
+  .queue .r { display: flex; align-items: center; gap: 12px; padding: 7px 0; box-shadow: 0 -.5px 0 rgba(255,255,255,.12); }
+  .queue .th { width: 38px; height: 38px; border-radius: 6px; flex: none; }
+  .queue .r:nth-child(2) .th { background: linear-gradient(135deg, #5a8f7b, #1f3d4f); }
+  .queue .r:nth-child(3) .th { background: linear-gradient(135deg, #d9a35b, #7a3b2b); }
+  .queue .r:nth-child(4) .th { background: linear-gradient(135deg, #7d7bd6, #2b2d6b); }
+  .queue .tx { flex: 1; min-width: 0; }
+  .queue .tt, .queue .ta { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .queue .tt { font-size: 15px; font-weight: 600; }
+  .queue .ta { font-size: 13px; color: var(--ink-2); }
+  .queue .du { font-size: 13px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
   .pick { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 16px; }
   .pick div { aspect-ratio: 1; border-radius: 14px; display: flex; align-items: end; padding: 10px; font-size: 13px; font-weight: 600; }
   .pick div:nth-child(1) { background: linear-gradient(135deg, #c86b98, #4b2c6b); }
@@ -97,7 +112,9 @@
           align-content: center; align-items: center; gap: 22px 28px; padding: 56px 48px 120px; }
   body.pane-right .page .art { order: 0; grid-area: art; max-width: 260px; }
   body.pane-right .col { grid-area: col; }
-  body.pane-right .rest { grid-area: rest; }
+  body.pane-right .rest { grid-area: rest; display: flex; flex-direction: column; gap: 8px; }
+  body.pane-right .queue { margin-top: 14px; }
+  body.pane-right .queue .r:nth-child(4) { display: none; }
   .pane .clock .t { font-size: 52px; font-weight: 600; letter-spacing: -1.2px; line-height: 1; }
   .pane .clock .d { font-size: 17px; font-weight: 600; color: var(--ink-2); margin-top: 6px; }
   .pane .clock .w { font-size: 15px; font-weight: 600; margin-top: 4px; color: var(--ink-2); }
@@ -114,20 +131,23 @@
 
   /* UPRIGHT TABLET (to 860): the cover over the song; the Side Pane isn't drawn this narrow */
   @media (max-width: 860px) {
-    .page { grid-template-columns: 1fr; align-content: center; justify-items: center; gap: 26px; padding: 190px 64px 130px; }
-    .page .art { order: 0; justify-self: center; width: min(100%, 480px); }
+    .page { grid-template-columns: 1fr; align-content: center; justify-items: center; gap: 26px; padding: 170px 64px 120px; }
+    .page .art { order: 0; justify-self: center; width: min(100%, 380px); }
+    .queue .r:nth-child(4) { display: none; }
     .col { width: min(100%, 480px); }
   }
   /* PHONE (to 640) */
   @media (max-width: 640px) {
     .corner { left: 22px; top: 20px; } .corner .t { font-size: 42px; } .corner .d { font-size: 15px; } .corner .w { font-size: 14px; }
     .status { right: 22px; top: 26px; font-size: 15px; }
-    .page { gap: 18px; padding: 150px 24px 110px; }
-    .page .art { width: min(100%, 300px); }
+    .page { gap: 18px; padding: 140px 24px 100px; }
+    .page .art { width: min(100%, 260px); }
+    .queue { display: none; } /* a phone has no room: the Queue button opens it */
     .title { font-size: 26px; letter-spacing: -.5px; }
     .artist { font-size: 16px; }
-    .btn.pp { width: 62px; height: 62px; }
-    .next { display: none; }
+    :root { --ctl-top: -11px; --vol-top: 4px; }
+    .btn svg { width: 40px; height: 40px; } .btn.pp svg { width: 56px; height: 56px; } .btn.small svg { width: 26px; height: 26px; }
+    .queue .r:nth-child(4) { display: none; }
     .tabbar span { min-width: 54px; padding: 7px 6px; }
     .tabbar span:nth-child(n+5) { display: none; }
   }
@@ -158,6 +178,7 @@
     prev: 'M6 6h2v12H6zm3.5 6 8.5 6V6z', next: 'M6 18l8.5-6L6 6v12zM16 6v12h2V6z',
     pause: 'M7 5h3.2v14H7zm6.8 0H17v14h-3.2z', play: 'M8 5.14v13.72L19 12z',
     spk: 'M17 2H7a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2m-5 3a2 2 0 1 1 0 4 2 2 0 0 1 0-4m0 15a5 5 0 1 1 0-10 5 5 0 0 1 0 10m0-8a3 3 0 1 0 0 6 3 3 0 0 0 0-6',
+    queue: 'M3 5h13v2H3zm0 4h13v2H3zm0 4h9v2H3zm14-1v6.2a2.5 2.5 0 1 0 2 2.45V14h3v-2z',
     lib: 'M4 6H2v14a2 2 0 0 0 2 2h14v-2H4zm16-4H8a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2m-2 5h-3v5.5a2.5 2.5 0 1 1-1-2V5h4z',
     vlo: 'M7 9v6h4l5 5V4l-5 5z', vhi: 'M3 9v6h4l5 5V4L7 9zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4M14 3.23v2.06a7 7 0 0 1 0 13.42v2.06A9 9 0 0 0 14 3.23',
     note: 'M12 3v10.55A4 4 0 1 0 14 17V7h4V3z',
@@ -170,7 +191,10 @@
   document.querySelector('.art').innerHTML = state === 'idle' ? P(I.note) : '';
   const ctl = '<div class="ctl"><div class="btn small" aria-label="Speakers">' + P(I.spk) + '</div><div class="btn">' + P(I.prev) +
     '</div><div class="btn pp">' + P(state === 'idle' ? I.play : I.pause) + '</div><div class="btn">' + P(I.next) +
-    '</div><div class="btn small" aria-label="Browse">' + P(I.lib) + '</div></div>';
+    '</div><div class="btn small" aria-label="' + (state === 'idle' ? 'Browse' : 'Queue') + '">' + P(state === 'idle' ? I.lib : I.queue) + '</div></div>';
+  const queue = '<div class="queue"><div class="h"><span>Up Next</span><span>Queue</span></div>' + [['Harbor Lights', 'The Fictional Trio', '3:52'],
+    ['Copper Season', 'Marigold Avenue', '4:10'], ['Slow Tide', 'The Fictional Trio', '3:05']].map(([t, a, d]) =>
+    '<div class="r"><div class="th"></div><div class="tx"><div class="tt">' + t + '</div><div class="ta">' + a + '</div></div><div class="du">' + d + '</div></div>').join('') + '</div>';
   const head = state === 'idle'
     ? '<div class="room">Kitchen</div><div class="title">Not Playing</div><div class="artist">Play something here</div>'
     : '<div class="room">Kitchen, Living Room</div><div class="title">Paper Lanterns</div><div class="artist">The Fictional Trio</div><div class="album">Glass Orchard</div>';
@@ -178,10 +202,12 @@
     ? ctl + '<div class="pick"><div>Favorites Mix</div><div>Evening Jazz</div><div>Morning Acoustic</div></div>'
     : '<div class="prog"><div class="bar"><i></i></div><div class="times"><span>1:24</span><span>−2:16</span></div></div>' + ctl +
       '<div class="vol">' + P(I.vlo) + '<div class="vt"><i></i><b></b></div>' + P(I.vhi) + '</div>' +
-      '<div class="next"><div class="th"></div><div><div class="l">Up Next</div><div class="t">Harbor Lights — The Fictional Trio</div></div></div>';
+      '';
   // full screen: everything in the song's column; beside the pane: the rest under the cover and the song, the area's width
-  if (document.body.classList.contains('pane-right')) { document.getElementById('col').innerHTML = head; document.getElementById('rest').innerHTML = rest; }
-  else document.getElementById('col').innerHTML = head + rest;
+  // beside the pane the queue fills the room beside the cover, under the song
+  const q2 = state === 'idle' ? '' : queue;
+  if (document.body.classList.contains('pane-right')) { document.getElementById('col').innerHTML = head + q2; document.getElementById('rest').innerHTML = rest; }
+  else document.getElementById('col').innerHTML = head + rest + q2;
   document.getElementById('tabs').innerHTML = [['home', 'Home', I.home], ['light', 'Lights', I.light], ['cal', 'Calendar', I.cal],
     ['note', 'Music', I.note], ['more', 'More', I.more]].map(([k, t, d]) => '<span>' + P(d) + t + '</span>').join('');
 </script>
