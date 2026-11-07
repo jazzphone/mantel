@@ -1969,6 +1969,17 @@
     var k = paneChange(toPath), w = k && dash ? parseFloat(dash.style.width) || dash.getBoundingClientRect().width || 0 : 0;
     return w ? { side: dash.getAttribute('side'), grow: k * w } : null;
   }
+  // The bar fits the same tabs on every page. Reserve a Home-only pane's room even on a cold load of Pages, so
+  // its pill doesn't widen (and its tabs don't move into/out of More) after the page has finished sliding.
+  // This is configuration and placement only: no pane is built or measured to answer it.
+  function navigationRoom() {
+    var sp = paneOf(), g = sp && sp.dashboard;
+    if (!g || g.show !== 'home' || !(g.sections || []).length) return null;
+    var M = C() && C().menu, b = M && M.board ? M.board() : {};
+    var p = place(window.innerWidth || 0, window.innerHeight || 0,
+      { width: sp.width, menu: menuLeft(), gridW: b.home_style === 'grid' ? 1 : 0 });
+    return p.kind === 'side' ? { side: sp.side === 'left' ? 'left' : 'right', width: p.w } : null;
+  }
   // THE BAR'S OWN (hk-tabbar.js reads --hk-pane-shift and --hk-pane-glide, and nothing else does): set on <html>, a
   // custom property every element inherits, each frame of a swipe restyled the whole document -- every card's shadow
   // tree -- and the swipes between Home and the Pages screen dropped frames (2026-11-02, the owner: "stutter")
@@ -2342,6 +2353,7 @@
     follow: function (p, toPath) { try { follow(p, toPath); } catch (e) { /* not drawn */ } },
     land: function (path, motion) { try { land(path, motion); } catch (e) { /* not drawn */ } },
     room: function (toPath) { try { return roomFor(toPath); } catch (e) { return null; } },
+    navigationRoom: navigationRoom,
     // THE SETTINGS SLIDER'S DIM while it moves (hk-settings.js pvPaneDim): held a few seconds past the last move,
     // long enough for the saved setting to come back, then the setting's own again
     dim: function (pct) {

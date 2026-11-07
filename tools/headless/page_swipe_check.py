@@ -75,6 +75,7 @@ def house(gallery) -> None:
     b['ps-off'] = {**b['ps-bar'], 'swipe_pages': 'off'}
     # two tabs, the rest of the pages under More, and Swipe Right on Home on Security (2026-11-06)
     b['ps-more'] = {**b['ps-bar'], 'tab_bar_tabs': 2, 'tab_bar_tabs_rail': 2, 'tab_bar_tabs_phone': 2, 'swipe_left': 'security'}
+    b['ps-highlight'] = {**b['ps-more'], 'swipe_left': None}
     b['ps-menu'] = {**home, **base, 'menu': 'auto', 'menu_phone': 'button', 'swipe': True, 'swipe_pages': 'on'}
     wall = gallery.wall_display()
     grid = dict(wall['home_grid'])
@@ -93,6 +94,11 @@ def house(gallery) -> None:
                        'now_playing': True, 'bar_all_pages': True,
                        'side_pane': {'side': 'right', 'dashboard': {'show': 'home', 'sections': [
                            {'kind': 'clock'}, {'kind': 'calendar'}, {'kind': 'now_playing'}]}}}
+    # A full Kitchen HomeView bar: its fit must survive the Home-only pane going away.
+    b['ps-kitchen-full'] = {**b['ps-kitchen'], 'now_playing': False, 'timer_bar': False,
+                            'tab_bar_labels': 'icons', 'tab_bar_size': 'large', 'tab_bar_tabs': 8,
+                            'pages': ['weather', 'calendar', 'music', 'live_tv', 'cameras', 'energy', 'power',
+                                      'security', 'climate', 'lights', 'timers', 'vacuums', 'water', 'rooms', 'timeline']}
 
 
 async def main(argv=None) -> int:

@@ -854,7 +854,15 @@
     function safe() { return C.safeArea ? C.safeArea() : { top: 0, right: 0, bottom: 0, left: 0 }; }
     function pageW(sa) {
       sa = sa || safe();
-      return Math.max(0, (window.innerWidth || 0) - Math.max(leftOf(), sa.left) - Math.max(paneR(), sa.right));
+      // Fit once for the narrowest page beside a Home-only pane. The row's actual edges still move with the pane;
+      // only the pill's fit stays put, so landing doesn't trigger another width animation or replace its tabs.
+      var P = window.hkSidePane, room = P && P.navigationRoom ? P.navigationRoom() : null;
+      var left = leftOf(), right = paneR();
+      if (room) {
+        if (room.side === 'left') left = Math.max(left, leftOf0() + room.width);
+        else right = Math.max(right, room.width);
+      }
+      return Math.max(0, (window.innerWidth || 0) - Math.max(left, sa.left) - Math.max(right, sa.right));
     }
     // THE STRIP HERE (stripSide), for stripFit -- null without one, or with
     // Use the Side Strip off
@@ -1102,9 +1110,25 @@
       var p = S.pill.getBoundingClientRect(), r = el.getBoundingClientRect();
       return { x: r.left - p.left, y: r.top - p.top, w: r.width, h: r.height, pos: S.pos };
     }
-    function markHere() {
+    // A second tab tap catches the capsule where it is, rather than where the first tap was sending it.
+    // Only read on a selection change: a swipe supplies its own measured box through follow()/land().
+    function drawnBoxOf(el) {
+      var box = boxOf(el), tr = getComputedStyle(el, '::before').transform;
+      var m = /^matrix\(([^)]+)\)$/.exec(tr || '');
+      if (m) {
+        var n = m[1].split(',').map(Number);
+        box.x += n[4]; box.y += n[5]; box.w *= n[0]; box.h *= n[3];
+      }
+      return box;
+    }
+    function markHere(keepBox) {
       // (a page swipe landing: the page it lands on, before the address is)
       var path = S.landing || location.pathname, curIcon = null, hereEl = null;
+      if (!keepBox && S.herePath && S.herePath !== path) {
+        var previous = S.pill.querySelector('.tab.here');
+        if (previous && S.mode === 'full' && !S.tight) S.hereBox = drawnBoxOf(previous);
+      }
+      S.herePath = path;
       S.pill.querySelectorAll('.tab').forEach(function (el) {
         var k = el.getAttribute('data-t');
         var here = k === 'more' ? S.more.concat(S.roomsMode === 'more' ? S.rooms : [])
@@ -1630,6 +1654,7 @@
     function tabOf(path) {
       var at = -1;
       S.tabs.forEach(function (it, i) { if (at < 0 && H.isHere(it, path)) at = i; });
+      if (at < 0 && (S.more || []).some(function (it) { return H.isHere(it, path); })) return S.pill && S.pill.querySelector('.tab[data-t="more"]');
       return at < 0 || !S.pill ? null : S.pill.querySelector('.tab[data-t="' + at + '"]');
     }
     function calm() {
@@ -1676,7 +1701,7 @@
       S.host.setAttribute('data-landing', '');
       clearTimeout(landT);
       landT = setTimeout(function () { if (S.host) { S.host.removeAttribute('data-landing'); S.host.style.removeProperty('--hk-swipe-ms'); S.host.style.removeProperty('--hk-swipe-ease'); } }, motion ? motion.ms + 250 : 600);
-      markHere();
+      markHere(true);
     }
     window.hkTabBar.pages = swipePages;
     window.hkTabBar.follow = follow;

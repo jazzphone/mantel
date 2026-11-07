@@ -121,6 +121,29 @@ Before and after, each scenario on the same fictional house and the same machine
 
 ## The animated UI, assessed
 
+### Full Kitchen HomeView navigation (2026-11-07)
+
+A full, large, icons-only bar exposed a second motion after Home → Pages had already landed: the Home-only Side Pane
+released its room, `hk-tabbar.js` fitted the tabs again, and the pill widened from 838 to 991 px on the fictional
+1280 × 800 Kitchen screen. The selected capsule moved sideways again with that resize. The earlier three-page Kitchen
+fixture never filled the available width, so its companion-motion check did not catch this.
+
+The bar now fits against the room a Home-only pane can take on the screen, including when Pages is loaded first.
+`hkSidePane.navigationRoom()` uses settings and placement without building or measuring a pane. The row still follows
+the finger to the page's new center; the pill retains its size and tabs. A conditional Home-only pane also keeps that
+fit while its sections are quiet. Phones and portrait bands reserve no horizontal room. Chromium 1280 × 800 and WebKit
+1180 × 820 measured less than 0.01 px of pill-width change in either direction, with the selected capsule staying
+landed after the route changed.
+
+Two other selection discontinuities are covered: swipes to pages under More now follow its capsule, and a second tab
+tap starts from the capsule's current drawn position. Previously a second tap could jump toward the first tap's
+destination before reversing (112 px between samples in the Chromium reproduction). A selection change reads the
+moving capsule once; a page swipe retains its own measured box and does no additional per-move reads.
+
+`swipe_motion_check.py --only navigation,moreHighlight,tabTaps` checks these cases in the real browser, alongside the
+existing companion, content, cancellation, interruption and rapid-swipe checks. These are geometry and continuity
+checks, not proof of frame rate or feel on an actual tablet. The real-device checks below still apply.
+
 | What | State | Notes |
 |---|---|---|
 | Full-page swipe | fixed, verified | everything above |

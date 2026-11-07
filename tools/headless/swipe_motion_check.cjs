@@ -115,7 +115,7 @@ async function open(browser, screen, o = {}) {
     if (m.type() === 'error' && !HOMES_OWN.test(url) && !/Failed to load resource/.test(m.text())) errors.push('console: ' + m.text() + ' ' + url);
   });
   await page.addInitScript(PROBE);
-  await page.goto(input.origin + '/' + screen + '/home', {waitUntil:'domcontentloaded',timeout:60000});
+  await page.goto(input.origin + '/' + screen + '/' + (o.segment || 'home'), {waitUntil:'domcontentloaded',timeout:60000});
   await page.waitForFunction(() => window.__mantelReady === true && window.hkPageSwipe && window.hkDrag && window.hkTabBar && window.hkTabBar.pages && hkShell.view(hkShell.viewSlot(hkCards.menu.panel())), null, { timeout: 45000 });
   const t = { ctx, page, errors, cdp: CDP ? await ctx.newCDPSession(page) : null };
   await ready(t);
@@ -222,6 +222,96 @@ async function holdThen(t, dir, fn, travel = 0.42) {
 }
 
 const SECTIONS = {
+  async tabTaps(b) {
+    const t=await open(b,'ps-highlight');
+    await t.page.evaluate(() => {
+      __m.highlight = () => {
+        const s=hkTabBar._.state(),here=s.pill.querySelector('.tab.here'),css=getComputedStyle(here,'::before');
+        return here.getBoundingClientRect().x+parseFloat(css.left)+new DOMMatrixReadOnly(css.transform).m41;
+      };
+      hkTabBar._.state().pill.querySelector('.tab[data-t="2"]').click();
+    });
+    await t.page.waitForFunction(()=>hkTabBar._.state().pill.querySelector('.tab.here').getAttribute('data-t')==='2');
+    await sleep(60);
+    const change=await t.page.evaluate(() => new Promise(resolve => {
+      const before=__m.highlight(),s=hkTabBar._.state(),span=s.pill.querySelector('.tab[data-t="2"]').getBoundingClientRect().x-s.pill.querySelector('.tab[data-t="0"]').getBoundingClientRect().x;
+      s.pill.querySelector('.tab[data-t="0"]').click();
+      requestAnimationFrame(()=>requestAnimationFrame(()=>resolve({before,after:__m.highlight(),span})));
+    }));
+    assert(Math.abs(change.after-change.before)<change.span*.4,'a second tab tap continues from the moving highlight '+JSON.stringify(change));
+    console.log('  tab interruption: '+Math.abs(change.after-change.before).toFixed(1)+' px between samples');
+    await sleep(800);isClean(await rest(t),'tab taps');
+    await close(t,'tab taps');
+  },
+  async navigation(b) {
+    const t = await open(b, 'ps-kitchen-full');
+    await t.page.evaluate(() => {
+      __m.navFrames = [];
+      __m.navOn = true;
+      const tick = time => {
+        if (!__m.navOn) return;
+        const bar = hkTabBar._.state(), pill = bar.pill.getBoundingClientRect();
+        const tabs = [...bar.pill.querySelectorAll('.tab')];
+        const here = bar.pill.querySelector('.tab.here'), r = here?.getBoundingClientRect();
+        const css = here && getComputedStyle(here, '::before');
+        const matrix = css ? new DOMMatrixReadOnly(css.transform) : null;
+        __m.navFrames.push({ time, path: location.pathname, live: !!hkPageSwipe._.state().G,
+          pill: {x: pill.x, w: pill.width}, tabs: tabs.map(n => n.getAttribute('aria-label')).join(','),
+          highlight: r && matrix ? r.x + parseFloat(css.left) + matrix.m41 : null });
+        requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    });
+    const run = async dir => {
+      await t.page.evaluate(() => { __m.navFrames = []; });
+      await swipe(t, [{ms:400,dx:dir*W*.34}]);
+      const frames = await t.page.evaluate(() => __m.navFrames);
+      const fits = [...new Set(frames.map(f => f.tabs))];
+      const widths = frames.map(f => f.pill.w);
+      assert.equal(fits.length,1,'the same tabs stay in place through the pane handoff');
+      assert(Math.max(...widths)-Math.min(...widths)<2,'the bar keeps its width through the pane handoff');
+      const landed = frames.findIndex((f,i) => i && f.path !== frames[i-1].path);
+      assert(landed >= 0,'the full bar swipe lands');
+      const tail = frames.slice(landed).map(f => f.highlight).filter(x => x !== null);
+      assert(Math.max(...tail)-Math.min(...tail)<3,'the highlight stays landed instead of moving a second time');
+      console.log('  navigation '+(dir<0?'Home → Pages':'Pages → Home')+': bar width change '+(Math.max(...widths)-Math.min(...widths)).toFixed(2)+' px');
+      isClean(await rest(t),'full navigation');
+      if(input.shots) await t.page.screenshot({path:path.join(input.shots,input.engine+'-'+input.size+'-full-'+(dir<0?'pages':'home')+'.png')});
+      await ready(t);
+    };
+    await run(-1); await run(1);
+    await t.page.evaluate(() => { __m.navOn = false; });
+    await close(t,'navigation');
+    const cold = await open(b,'ps-kitchen-full',{segment:'pages'});
+    const fit = () => cold.page.evaluate(() => { const s=hkTabBar._.state(); return {width:s.pill.getBoundingClientRect().width,tabs:s.tabHtml}; });
+    const before = await fit();
+    await cold.page.evaluate(() => hkShell.navigate('/ps-kitchen-full/home')); await ready(cold);
+    await sleep(500);
+    const after = await fit();
+    assert.equal(before.tabs,after.tabs,'cold Pages load keeps the same tabs on first visit to Home');
+    assert(Math.abs(before.width-after.width)<2,'cold Pages load fits the bar for its Home-only pane');
+    await close(cold,'cold navigation');
+  },
+  async moreHighlight(b) {
+    const t=await open(b,'ps-highlight');
+    const routes=await t.page.evaluate(()=>{const s=hkTabBar._.state();return {last:s.tabs[s.tabs.length-1].path,more:s.more[0].path};});
+    await t.page.evaluate(p=>hkShell.navigate(p),routes.last);await ready(t);await sleep(500);
+    const check = async (dir,want,name) => {
+      const held=await holdThen(t,dir,()=>t.page.evaluate(() => {
+        const s=hkTabBar._.state(),st=hkPageSwipe._.state().ST,here=s.pill.querySelector('.tab.here');
+        if(s.tight)return {tight:true};
+        const next=s.pill.querySelector(here.getAttribute('data-t')==='more'?'.tab[data-t="'+(s.tabs.length-1)+'"]':'.tab[data-t="more"]');
+        const a=here.getBoundingClientRect(),z=next.getBoundingClientRect(),css=getComputedStyle(here,'::before');
+        const k=Math.min(1,Math.abs(st.view.getBoundingClientRect().left-st.rect.left)/st.rect.width);
+        return {x:new DOMMatrixReadOnly(css.transform).m41,want:(z.x-a.x)*k,k,here:here.getAttribute('aria-label'),next:next.getAttribute('aria-label'),box:s.hereBox,path:location.pathname,gesture:!!hkPageSwipe._.state().G,landing:s.landing};
+      }));
+      if(!held.r.tight) assert(Math.abs(held.r.x-held.r.want)<2,name+': highlight follows the page into/out of More '+JSON.stringify(held.r));
+      await up(t,held.end[1],held.end[2]);await sleep(900);
+      assert.equal(await where(t),want,name+': lands');isClean(await rest(t),name);await ready(t);
+    };
+    await check(-1,routes.more,'into More');await check(1,routes.last,'out of More');
+    await close(t,'More highlight');
+  },
   async companions(b) {
     const t = await open(b, 'ps-kitchen');
     if(W>=600) await t.page.waitForFunction(() => document.querySelector('hk-side-pane[mode=dash][on]'),null,{timeout:15000});
