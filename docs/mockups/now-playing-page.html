@@ -13,10 +13,11 @@
   It is the screensaver's music slide as a page (hk-saver-music.js), as it is since 2026-11-06:
   - FULL SCREEN: the corner the slide has (the time, the date, the weather; the home's status at the right), the song on
     the left and the cover on the right, the progress, the controls, the volume (a group's: its rooms' average, set on every
-    one), the play queue's next songs below; on a tall screen the cover over the song.
+    one); on a tall screen the cover over the song. The Queue button opens the play queue.
   - The controls bare, no wells, bigger (the owner, 2026-11-07: "I think it looks better without them"); the volume bar as
-    far below the play/pause as the progress bar is above it; the queue over playlists (playlists only with nothing queued).
-  - BESIDE THE SIDE PANE (its Clock, Calendar and Status sections): the cover and the song side by side, the progress, the
+    far below the play/pause as the progress bar is above it; beside the pane, the next songs fill the room beside the cover (the owner, 2026-11-07: "just where it makes sense
+    when there is enough vertical room...like in the side pane"); playlists only with nothing playing.
+  - BESIDE THE SIDE PANE (its Clock, Calendar and Status sections): the cover and the song (Up Next under it) side by side, the progress, the
     controls and the volume the music area's width under them -- the slide's own layout beside a pane. The pane has the
     time and the status, so the music area doesn't say them twice.
   The tab bar floats over the page, as on every page.
@@ -131,18 +132,16 @@
 
   /* UPRIGHT TABLET (to 860): the cover over the song; the Side Pane isn't drawn this narrow */
   @media (max-width: 860px) {
-    .page { grid-template-columns: 1fr; align-content: center; justify-items: center; gap: 26px; padding: 170px 64px 120px; }
-    .page .art { order: 0; justify-self: center; width: min(100%, 380px); }
-    .queue .r:nth-child(4) { display: none; }
+    .page { grid-template-columns: 1fr; align-content: center; justify-items: center; gap: 26px; padding: 190px 64px 130px; }
+    .page .art { order: 0; justify-self: center; width: min(100%, 480px); }
     .col { width: min(100%, 480px); }
   }
   /* PHONE (to 640) */
   @media (max-width: 640px) {
     .corner { left: 22px; top: 20px; } .corner .t { font-size: 42px; } .corner .d { font-size: 15px; } .corner .w { font-size: 14px; }
     .status { right: 22px; top: 26px; font-size: 15px; }
-    .page { gap: 18px; padding: 140px 24px 100px; }
-    .page .art { width: min(100%, 260px); }
-    .queue { display: none; } /* a phone has no room: the Queue button opens it */
+    .page { gap: 18px; padding: 150px 24px 110px; }
+    .page .art { width: min(100%, 300px); }
     .title { font-size: 26px; letter-spacing: -.5px; }
     .artist { font-size: 16px; }
     :root { --ctl-top: -11px; --vol-top: 4px; }
@@ -204,10 +203,9 @@
       '<div class="vol">' + P(I.vlo) + '<div class="vt"><i></i><b></b></div>' + P(I.vhi) + '</div>' +
       '';
   // full screen: everything in the song's column; beside the pane: the rest under the cover and the song, the area's width
-  // beside the pane the queue fills the room beside the cover, under the song
-  const q2 = state === 'idle' ? '' : queue;
-  if (document.body.classList.contains('pane-right')) { document.getElementById('col').innerHTML = head + q2; document.getElementById('rest').innerHTML = rest; }
-  else document.getElementById('col').innerHTML = head + rest + q2;
+  // the queue only beside the pane, where it fills the room beside the cover; elsewhere the Queue button opens it
+  if (document.body.classList.contains('pane-right')) { document.getElementById('col').innerHTML = head + (state === 'idle' ? '' : queue); document.getElementById('rest').innerHTML = rest; }
+  else document.getElementById('col').innerHTML = head + rest;
   document.getElementById('tabs').innerHTML = [['home', 'Home', I.home], ['light', 'Lights', I.light], ['cal', 'Calendar', I.cal],
     ['note', 'Music', I.note], ['more', 'More', I.more]].map(([k, t, d]) => '<span>' + P(d) + t + '</span>').join('');
 </script>
