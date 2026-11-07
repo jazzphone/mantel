@@ -4,6 +4,8 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+## 0.1.148 - 2026-11-07
+
 **Added**
 - **A linked HK Frontend gets SF Pro and the glyph file from Mantel.** Files uploaded only to Mantel are sent to Home Assistant’s HK Frontend, checked, and put in its Your Files folder; a copy put there by hand is never replaced.
 - **Pre-rendered Bright Glass on the tab bar, the docked menu and the Side Pane.** In Pre-rendered mode they now wear the shared picture of the sky, as Blur’s do, instead of blurring live; sheets and menus over the page still blur live.
