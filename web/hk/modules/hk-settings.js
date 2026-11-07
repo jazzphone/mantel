@@ -1678,15 +1678,28 @@
   }
   function lookKey() { return glass() + '|' + rendering().theme + '|' + amount('blur') + '|' + amount('frost') + '|' + amount('tint') + '|' + tintWell() + '|' + frostTint() + '|' + flatSig(); }
   var lookNow = lookKey();
+  // BRIGHT GLASS AND ITS OWN BLUR, the one look that changes from page to page (Home Only): the same look but for the
+  // glass, which is all variables and the root's data-hk-glass, so no card draws anything different. Said to every
+  // card it redrew every card on the page and on the two pages waiting beside it, at the moment a swipe landed
+  // (2026-11-07: every swipe between the Pages screen and the next page on a Bright Glass screen)
+  var BRIGHT_BLUR = { bright: 'blur', bright_pre: 'blur_pre', bright_each: 'blur_each' };
+  function glassOnly(a, b) {
+    var i = a.indexOf('|'), j = b.indexOf('|');
+    if (a.slice(i) !== b.slice(j)) return false;
+    var x = a.slice(0, i), y = b.slice(0, j);
+    return BRIGHT_BLUR[x] === y || BRIGHT_BLUR[y] === x;
+  }
   function onNav() {
     var g = lookKey();
     if (g === lookNow) return;
+    var quiet = glassOnly(lookNow, g);
     lookNow = g;
     applyLook();
     listeners.slice().forEach(function (fn) {
       try { fn(cur); } catch (e) { console.error('[hk-settings] listener', e); }
     });
-    announce();
+    // (the bar, the menu and the Side Pane read the glass as the page changes anyway: hk-look and the navigation)
+    if (!quiet) announce();
   }
   try {
     window.hkShell.onNavigate(onNav);

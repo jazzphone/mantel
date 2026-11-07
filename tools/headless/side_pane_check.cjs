@@ -130,7 +130,8 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       const sw = () => page.evaluate(() => {
         const deep = (r, sel) => { const x = r.querySelector(sel); if (x) return x; for (const e of r.querySelectorAll('*')) { if (e.shadowRoot) { const y = deep(e.shadowRoot, sel); if (y) return y; } } return null; };
         const p = document.querySelector('hk-side-pane[mode="dash"]'), tb = deep(document, '#hk-tabbar'), row = tb && tb.shadowRoot.querySelector('.row'), rr = row && row.getBoundingClientRect();
-        return { path: location.pathname, op: p ? +getComputedStyle(p).opacity : null, shown: p ? getComputedStyle(p).display !== 'none' : false, mid: rr ? Math.round(rr.left + rr.width / 2) : null,
+        const plate = p && p.shadowRoot && p.shadowRoot.querySelector('.pane');
+        return { path: location.pathname, op: plate ? +getComputedStyle(plate).opacity : null, hostOp: p ? +getComputedStyle(p).opacity : null, shown: p ? getComputedStyle(p).display !== 'none' : false, mid: rr ? Math.round(rr.left + rr.width / 2) : null,
                  rootShift: document.documentElement.style.getPropertyValue('--hk-pane-shift'), barShift: tb ? tb.style.getPropertyValue('--hk-pane-shift') : '' };
       });
       const s0 = await sw(), sy = 300;
@@ -147,6 +148,9 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       // (the bar's offset on the bar, never on <html>: there every frame of a swipe restyled the whole document --
       // 2026-11-02, the owner's Kitchen tablet, "stutter" swiping between Home and the Pages screen)
       want('...the bar\'s offset set on the bar alone, not on <html>', s1, !s1.rootShift && !!s1.barShift);
+      // (the plate fades, not the pane around it: below full opacity the pane would cut its own blur off from the page
+      // behind it, a flat tint from the first frame of the swipe -- 2026-11-07)
+      want('...the pane\'s plate fades, the pane itself stays opaque (its blur still sees the page)', s1, s1.hostOp === 1);
       want('...let go: the pane gone, the bar at its new middle without a step back (always forward)', [s2, mids],
            s2.path !== s0.path && !s2.shown && s2.mid > s1.mid && mids.every((m, j) => j === 0 || m >= mids[j - 1] - 1));
       // BACK FROM THE PAGES SCREEN (2026-11-01, the owner: "the HomeView Grid kind of snaps into place behind the side

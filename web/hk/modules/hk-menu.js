@@ -2041,8 +2041,15 @@
     // Edit mode begun or ended (hk-edit.js): the Edit Page row goes or comes back
     // (an open menu draws again too: its rows are Edit mode's or not)
     window.addEventListener('hk-edit', function () { S.built = ''; sync(); if (S.open && S.list && listKey() !== S.built) { build(); markHere(); } });
-    // the Now Playing pane coming, going or changing sides (hk-popup.js)
-    window.addEventListener('hk-pane', function () { sync(); });
+    // the Now Playing pane coming, going or changing sides (hk-popup.js), the Side Pane's room (hk-sidepane.js): once,
+    // in the frame it happens in (the view's margins are laid out with that frame). Each said it as a page swipe landed
+    // between Home and the Pages screen, and each sync read the panel's box after the other had moved the page: three
+    // layouts of the whole document in that one moment (2026-11-07, 15-22 ms each at 4x CPU)
+    var paneFrame = 0;
+    window.addEventListener('hk-pane', function () {
+      if (paneFrame || navFrame) return;
+      paneFrame = requestAnimationFrame(function () { paneFrame = 0; sync(); });
+    });
     window.addEventListener('hk-menu-date', function () { place(); });
     // Captured at the document: the window's scroll, and any other scroller's
     // (a phone's <body> scrolls where overflow-x is `hidden`; scroll events

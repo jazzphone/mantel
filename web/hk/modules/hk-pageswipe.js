@@ -897,8 +897,6 @@
     var c = D().curve(x, target, v), s = c.spring, ms = c.ms;
     var tr = 'transform ' + ms + 'ms ' + c.ease;
     var T = window.hkTabBar, P = window.hkSidePane;
-    try { if (T && T.land) T.land(to ? to.path : null, c); } catch (e) { /* not drawn */ }
-    if (P && P.land) P.land(to ? to.path : null, c);
     var moved = [st.view], side = x < 0 ? 1 : -1;
     // (where each is now is what it moves from, not the last frame's)
     setX(st.view, x, st.base);
@@ -907,6 +905,10 @@
       if (M) { setX(M.el, M.off + (M.dir === side ? x : 0), st.base); moved.push(M.el); }
     });
     if (typeof getComputedStyle === 'function') { try { void getComputedStyle(st.view).transform; } catch (e) { /* a test page */ } }
+    // (the highlight and the Side Pane set off after that flush, in the same style update as the page: before it, they
+    // started a frame ahead of it, the pane's fade leading the page by a tenth all the way -- WebKit, 2026-11-07)
+    try { if (T && T.land) T.land(to ? to.path : null, c); } catch (e) { /* not drawn */ }
+    if (P && P.land) P.land(to ? to.path : null, c);
     st.x = target;
     moved.forEach(function (el) { el.style.setProperty('transition', tr); });
     setX(st.view, target, st.base);

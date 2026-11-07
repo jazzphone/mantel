@@ -821,7 +821,7 @@
       this._w = 0;
       var self = this;
       this._onChanged = function () { self._have = ''; self._fetch(); };
-      this._onResize = function () { self._measure(); };
+      this._onResize = function () { if (!self._rsz) self._rsz = requestAnimationFrame(function () { self._rsz = 0; self._measure(); }); };
       // on its own shadow root: they live and go with the card
       this._root.addEventListener('click', function (e) { self._click(e); });
       this._root.addEventListener('pointerdown', function (e) { self._swipeStart(e); });
