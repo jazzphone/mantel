@@ -39,7 +39,10 @@ What is written (worktree `/private/tmp/players`, committed on branch `now-playi
    - `drawQueueRows` refits a page card (`w.host._fit`) when Up Next arrives.
 2. `web/hk/modules/hk-saver.js` `kit()`, on the same lines because of the file-size ratchet: it now hands the parts
    `dashWatch`, `musicAct`, `renderMusic`, `musicTick`, `layoutModules`, `panelDone(v)` and `clock24()`.
-3. `web/hk/saver/hk-saver-pane.js`: `PAGE_CSS` and the custom element `hk-now-playing-page-card` (`pageCard()`).
+3. `web/hk/saver/hk-saver-pane.js`: `PAGE_CSS` and the class of `hk-now-playing-page-card` (`pageCard()` →
+   `K.PageCard`).
+   - The shell registers it (`hk-saver.js` `runParts`, same line as the parts' loop), because
+     `tests/test_web_sources.py` lets no part register an element.
    - One shared view (`pageV`, kind 'dash', look 'slide'); its taps are wired as the Side Pane card's.
    - `_fit()`:
      - sets the height (from the page's top to the tab bar's top) and the `pane` attribute (Side Pane up);

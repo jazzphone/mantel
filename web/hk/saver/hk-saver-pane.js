@@ -106,8 +106,8 @@
       '.pbox{position:absolute;visibility:hidden;pointer-events:none}'
     ].join('\n');
     var pageV = null;
+    // (the class: the shell registers it, hk-saver.js runParts -- a part registers no element)
     function pageCard() {
-      if (customElements.get('hk-now-playing-page-card') || !window.hkHostClient) return;
       var Page = class extends /** @type {HkLooseElementConstructor} */ (HTMLElement) {
         constructor() {
           super();
@@ -157,7 +157,7 @@
           var r = this._root, CSS = K.CSS;
           r.innerHTML = '<style>' + CSS.slice(CSS.indexOf('.pane{position:absolute')) + '\n' + PAGE_CSS + '</style>' +
             '<div class="info" data-ink="white"><div class="ptl"></div><div class="ptr"></div></div><div class="pbox"></div>';
-          r.querySelector('.info').style.setProperty('--lay-ink', '#ffffff');
+          /** @type {HTMLElement} */ (r.querySelector('.info')).style.setProperty('--lay-ink', '#ffffff');
           if (pageV) return;
           var v = pageV = K.musicView('dash', 'slide');
           v.live = false;
@@ -194,7 +194,7 @@
           var hb = this.getBoundingClientRect(), art = v.el.querySelector('.mart').getBoundingClientRect();
           var w = Math.max(280, Math.min(566 * z, hb.width - 48)), h = Math.max(300, Math.min(660 * z, hb.height - 24));
           var cx = Math.max(hb.left + 24 + w / 2, Math.min(hb.right - 24 - w / 2, art.left + art.width / 2));
-          var pb = this._root.querySelector('.pbox').style;
+          var pb = /** @type {HTMLElement} */ (this._root.querySelector('.pbox')).style;
           pb.left = Math.round(cx - w / 2 - hb.left) + 'px'; pb.top = Math.round((hb.height - h) / 2) + 'px';
           pb.width = Math.round(w) + 'px'; pb.height = Math.round(h) + 'px';
         }
@@ -212,7 +212,7 @@
           if (WG.sheet && !r.querySelector('.wgcss')) { var st = WG.sheet(); st.classList.add('wgcss'); r.insertBefore(st, r.firstChild); }
           if (this._u && Math.abs(this._u - u) > 0.05) { Object.keys(this._wg).forEach(function (k) { try { self._wg[k].destroy(); } catch (e) { /* gone */ } }); this._wg = {}; }
           this._u = u;
-          r.querySelector('.info').style.setProperty('--g', (0.8 * u) + 'px');
+          /** @type {HTMLElement} */ (r.querySelector('.info')).style.setProperty('--g', (0.8 * u) + 'px');
           var c = clientNow(), now = new Date(), at = { time: [2.6, '.ptl'], date: [1, '.ptl'], weather: [1, '.ptl'], status: [1, '.ptr'] };
           ['time', 'date', 'weather', 'status'].forEach(function (k) {
             var w = self._wg[k];
@@ -225,8 +225,7 @@
           });
         }
       };
-      window.hkHostClient.entry(Page);
-      customElements.define('hk-now-playing-page-card', Page);
+      K.PageCard = Page;
     }
     pageCard();
 
