@@ -16,7 +16,7 @@
   "integration_type": "hub",
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/jazzphone/mantel-link/issues",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "zeroconf": [
     "_mantel._tcp.local."
   ]

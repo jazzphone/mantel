@@ -5,6 +5,8 @@ Mantel Link's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+## 0.1.13 - 2026-11-07
+
 - Home Assistant 2026.11 no longer warns about a blocking call (`load_verify_locations`) from Mantel Link at every start and when pairing. Mantel Link now loads Mantel's certificate authority off Home Assistant's event loop, on the link's first connection. It trusts that authority alone, as before.
 
 ## 0.1.12 - 2026-11-02
