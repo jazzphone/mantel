@@ -745,6 +745,8 @@ HOUSE: dict[str, Callable[[Any], Any]] = {
     "look.bright_dim": _bright_dim,
     "look.well": _choice(S.WELLS),
     "look.tile_style": _choice(S.TILE_STYLES),
+    "look.tile_icons": _choice(S.TILE_ICONS),
+    "look.thermostat_style": _choice(S.THERMOSTAT_STYLES),
     "look.bright_pages": _choice(S.BRIGHT_PAGES),
     "look.details": _bool,
     "look.sky_switch": _entity("input_boolean", "switch"),
@@ -1239,6 +1241,7 @@ BOARD: dict[str, Callable[[Any], Any]] = {
     "bright_dim": lambda v: None if v is None else _bright_dim(v),
     "well": _choice(S.WELLS, none=True),
     "tile_style": _choice(S.TILE_STYLES, none=True),
+    "tile_icons": _choice(S.TILE_ICONS, none=True),
     "bright_pages": _choice(S.BRIGHT_PAGES, none=True),
     "sky": _bool,
     # this screen's own Sky / Background; None: follow All Screens

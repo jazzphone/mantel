@@ -177,6 +177,13 @@
                              filter: { domains: ['script'] }, onPick: set('features.vacuum_script') })]));
         }
         if (key === 'cameras') this.h_cameras(c, true);
+        // THE THERMOSTATS' STYLE (2026-11-07, the owner: "an option for climate page settings to use either the
+        // HomeView Style or this style of thermostat cards for the climate page and detail sheets")
+        if (key === 'climate') {
+          c.appendChild(K.group({ header: 'Thermostats', footer: 'Big Number is HomeView’s: the target large, with arrows to change it; press and hold it for the modes. A thermostat’s sheet follows this too. Water heaters keep their dial.' }, [
+            K.seg({ label: 'Style', sk: 'look.thermostat_style', value: this.hs('look.thermostat_style') === 'big' ? 'big' : 'dial', options: M.THERMOSTAT_STYLES,
+                    onChange: set('look.thermostat_style') })]));
+        }
         // 4. WHAT'S ON IT: the accessory types, each its own page under
         // Accessories, and the page's tile order where it has one
         var types = (M.PAGE_TYPES[key] || []).map(function (k) { return M.accType(k); }).filter(Boolean);

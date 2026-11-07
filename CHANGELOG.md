@@ -4,7 +4,17 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Added**
+- **Up Next in the Side Pane’s Full player.** Under its buttons, the queue fills the room the cover leaves, each song with its cover; a tap opens the Queue.
+- **Icons for Centered tiles.** Under Appearance, Tile Style has Icons: Automatic (white on Bright Glass, in color otherwise), Color or White, for All Screens or one screen.
+- **Big Number thermostats on the Climate page.** The Climate page’s settings have Thermostats → Style: Dial or Big Number, HomeView’s. A thermostat’s sheet follows it, with its modes and fan beside the number. Water heaters keep their dial.
+
 **Fixed**
+- **The Side Pane player’s Speakers and Browse buttons are no longer cut off.** A pointer over them dims them, as the Full player’s do, instead of drawing a circle past the pane’s edge.
+- **Up Next in the Side Pane shows each song’s cover** in place of its number.
+- **The Full player’s cover shadow stays inside the pane**, no longer cut off either side of the cover.
+- **No blue box on the music panel’s tabs.** Tapping Speakers, Volume, Queue or Browse on an iPad no longer flashes WebKit’s tap highlight.
+- **A water heater’s mode names stay whole.** Five modes share the row without breaking “Demand” across two lines.
 - **Music slide corners align by their visible edges.** The time, date and weather share one left edge, with or without a Side Pane, including on the Now Playing page.
 - **The volume row stays within the progress bar’s edges** on the screensaver slide, music pane and Now Playing page.
 - **Selecting HK Landscapes replaces the Photos preview.** The editor keeps a photo while its appearance changes only if it belongs to the selected collection; switching back to Photos replaces the landscape too.

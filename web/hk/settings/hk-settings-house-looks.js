@@ -421,7 +421,7 @@
       // `house`, Same as All Screens), else the first screen, as the screensaver's All Screens page does
       lookFollower() {
         var bd = (this.data && this.data.boards) || {}, keys = Object.keys(bd);
-        var own = ['flat', 'flat_theme', 'glass', 'tab_bar_glass', 'tile_style', 'sky_background', 'sky_color', 'sky_wallpaper'];
+        var own = ['flat', 'flat_theme', 'glass', 'tab_bar_glass', 'tile_style', 'tile_icons', 'sky_background', 'sky_color', 'sky_wallpaper'];
         return keys.filter(function (p) {
           var b = bd[p] || {};
           return b.sky !== false && !own.some(function (k) { return b[k] !== undefined && b[k] !== null && b[k] !== 'house'; });
@@ -492,6 +492,19 @@
           onChange: function (v) { if (b) self.setB(path, { tile_style: v }); else self.setH({ 'look.tile_style': v }); } })];
         if (own) rows.push(K.button({ label: 'Reset to All Screens (' + M.choiceLabel(M.TILE_STYLES, house) + ')', sk: 'b:tile_style:reset',
           onClick: function () { self.setB(path, { tile_style: null }); } }));
+        // ICONS (2026-11-07, the owner: "if Centered is selected for Tile Style, is it possible to ask if we want color
+        // icons or white (HomeView)?"): a Centered tile's glyphs while off -- shown where tiles can be Centered
+        // (Automatic is Centered on square cells)
+        if ((own ? b.tile_style : house) !== 'home') {
+          var knownI = function (v) { return M.TILE_ICONS.some(function (o) { return o[0] === v; }); };
+          var houseI = knownI((this.data.settings.look || {}).tile_icons) ? this.data.settings.look.tile_icons : 'auto';
+          var ownI = !!b && knownI(b.tile_icons);
+          rows.push(K.seg({ label: 'Icons', sk: b ? 'b:tile_icons' : 'look.tile_icons', value: ownI ? b.tile_icons : houseI, options: M.TILE_ICONS,
+            sub: b ? (ownI ? 'Just This Screen' : 'Same as All Screens') : 'Automatic: white on Bright Glass, in color otherwise',
+            onChange: function (v) { if (b) self.setB(path, { tile_icons: v }); else self.setH({ 'look.tile_icons': v }); } }));
+          if (ownI) rows.push(K.button({ label: 'Reset to All Screens (' + M.choiceLabel(M.TILE_ICONS, houseI) + ')', sk: 'b:tile_icons:reset',
+            onClick: function () { self.setB(path, { tile_icons: null }); } }));
+        }
         return rows;
       }
       // THE ROWS UNDER GLASS STYLE, the same on All Screens' Appearance and a

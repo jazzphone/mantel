@@ -343,6 +343,27 @@ def test_tile_style_for_all_screens_and_for_a_screen():
     assert C.apply_board({}, {"tile_style": "round"})[1] == {"tile_style": "choice"}
 
 
+def test_the_climate_pages_thermostat_style():
+    assert M.merged({})["look"]["thermostat_style"] == "dial"
+    assert M.merged({"dashboard": {"look": {"thermostat_style": "huge"}}})["look"]["thermostat_style"] == "dial"
+    new, err = C.apply_house({}, {"look.thermostat_style": "big"})
+    assert err == {} and M.merged(new)["look"]["thermostat_style"] == "big"
+    assert C.apply_house({}, {"look.thermostat_style": "huge"})[1] == {"look.thermostat_style": "choice"}
+
+
+def test_tile_icons_for_all_screens_and_for_a_screen():
+    assert M.merged({})["look"]["tile_icons"] == "auto"                        # white on Bright Glass, else color
+    assert M.merged({"dashboard": {"look": {"tile_icons": "pink"}}})["look"]["tile_icons"] == "auto"
+    new, err = C.apply_house({}, {"look.tile_icons": "white"})
+    assert err == {} and M.merged(new)["look"]["tile_icons"] == "white"
+    assert C.apply_house({}, {"look.tile_icons": "colour"})[1] == {"look.tile_icons": "choice"}
+    assert M.board(None)["tile_icons"] is None                                  # Same as All Screens
+    b, err = C.apply_board({}, {"tile_icons": "color"})
+    assert err == {} and M.board(b)["tile_icons"] == "color"
+    b, err = C.apply_board(b, {"tile_icons": None})
+    assert err == {} and M.board(b)["tile_icons"] is None
+
+
 def test_analog_numbers_is_a_screensaver_clock_style():
     assert M.SAVER_CLOCK_STYLES.index("numbers") == M.SAVER_CLOCK_STYLES.index("analog") + 1
     assert M.saver_options({"clock_style": "numbers"})["clock_style"] == "numbers"

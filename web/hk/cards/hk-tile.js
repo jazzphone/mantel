@@ -556,6 +556,10 @@
     // areas give way to places measured off HomeView. The second line is
     // the room when the tile is given one (`roomed`), else its state.
     ':host([tile=centred]) .grid{display:block;height:100%}',
+    // ICONS (2026-11-07; the screen's, hkSettings.tileIcons): White as Bright Glass's, whatever the look; Color its own
+    // even on Bright Glass (iconColour's --hk-look-glyph-off made unset)
+    ':host([tile=centred][icons=white]){--hk-look-glyph-off:rgba(255,255,255,0.94)}',
+    ':host([tile=centred][icons=color]){--hk-look-glyph-off:initial}',
     ':host([tile=centred]) .card.roomed .label{display:none !important}',
     // a thermostat's reading stands where the glyph would
     ':host([tile=centred]) .card .temp{position:absolute;left:50%;top:32%;transform:translate(-50%,-50%);font-size:44px;letter-spacing:-0.5px}',
@@ -859,6 +863,9 @@
         var centred = cfg.tile === 'centred';
         if (centred) this.setAttribute('tile', 'centred'); else this.removeAttribute('tile');
       }
+      // (a Centred tile's glyph while off: the screen's Icons -- the look's, Color or White; hkSettings.tileIcons)
+      var HS = window.hkSettings, icons = this.getAttribute('tile') === 'centred' && HS && HS.tileIcons ? HS.tileIcons() : 'auto';
+      if (icons === 'auto') this.removeAttribute('icons'); else this.setAttribute('icons', icons);
       // (a Centred tile draws every glyph bare, lit in its own colour, each
       // one as large as the next by what is drawn: TILE.centred.ink)
       var bareCfg = this.getAttribute('tile') === 'centred' ? Object.assign({}, cfg, { bare_icon: true }) : cfg;
@@ -1002,6 +1009,8 @@
     // paints the glyph itself because there is no well to carry the colour.
     // The inherited colour map would tint every media glyph cyan.
     _iconColour(cfg, st, on) {
+      // (a Centred tile's Icons White: white off, as every other tile's -- hkSettings.tileIcons)
+      if (!on && this.getAttribute('icons') === 'white') return 'rgba(255,255,255,0.94)';
       if (!on) {
         // (through flatColor: Flat's Light darkens the white glyph made for
         // the dark glass, or it vanished on the ivory tile -- Apple TV, HomePod)

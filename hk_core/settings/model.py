@@ -1297,7 +1297,7 @@ DEFAULTS: dict[str, dict[str, Any]] = {
              "flat_colors": dict(FLAT_COLORS_DEFAULT), "flat_page_colors": {},
              # TILE STYLE (2026-10-30, docs/phase11/HOMEVIEW-LOOK.md Phase B): the Home Grid's tiles and the room
              # pages' Tall pills in the Home app's layout, or Centred (the glyph above the name and room, HomeView's)
-             "tile_style": "auto", "bright_pages": "home"},
+             "tile_style": "auto", "tile_icons": "auto", "thermostat_style": "dial", "bright_pages": "home"},
     # THE CALENDAR (the Calendar page, hk-calendar.js, and the screensaver's
     # calendar pane): the calendar entities shown, in order (empty: every
     # calendar the house has), and each one's colour -- entity -> a page pill
@@ -1333,6 +1333,8 @@ WELLS = ("dark", "light")
 # Automatic (2026-10-30, the default; the owner: "maybe it could be linked to the Square Setting?"): Centred on a
 # Home Grid of square cells, Home on 196 x 150 tiles and the room pages -- Home and Centred stay to choose outright.
 TILE_STYLES = ("auto",) + HG.TILE_STYLES
+# (2026-11-07) Centered tiles' glyphs off (look.tile_icons; Automatic: white on Bright Glass); Climate's thermostats' style
+TILE_ICONS, THERMOSTAT_STYLES = ("auto", "color", "white"), HG.THERMOSTAT_STYLES
 # BRIGHT GLASS ON (look.bright_pages, a screen's bright_pages; 2026-10-30, the owner: "should we only use Bright
 # Glass on the main page?"): Home only (the default), the other pages in its Blur; or every page
 BRIGHT_PAGES = ("home", "all")
@@ -1511,12 +1513,9 @@ def merged(options: Mapping[str, Any] | None) -> dict[str, dict[str, Any]]:
     out["look"]["flat"] = out["look"].get("flat") is True
     if out["look"].get("flat_theme") not in ("light", "dark"):
         out["look"]["flat_theme"] = "dark"
-    if out["look"].get("well") not in WELLS:
-        out["look"]["well"] = DEFAULTS["look"]["well"]
-    if out["look"].get("bright_pages") not in BRIGHT_PAGES:
-        out["look"]["bright_pages"] = "home"
-    if out["look"].get("tile_style") not in TILE_STYLES:
-        out["look"]["tile_style"] = DEFAULTS["look"]["tile_style"]
+    for k, allowed in (("well", WELLS), ("bright_pages", BRIGHT_PAGES), ("tile_style", TILE_STYLES), ("tile_icons", TILE_ICONS),
+                       ("thermostat_style", THERMOSTAT_STYLES)):
+        out["look"][k] = out["look"].get(k) if out["look"].get(k) in allowed else DEFAULTS["look"][k]
     out["sky"]["photo_look"] = photo_look(out["sky"].get("photo_look")) or dict(PHOTO_LOOK_DEFAULTS)
     out["sky"]["landscape_look"] = photo_look(out["sky"].get("landscape_look")) or dict(PHOTO_LOOK_DEFAULTS)
     out["sky"]["landscape"] = sky_landscape(out["sky"].get("landscape")) or DEFAULTS["sky"]["landscape"]
@@ -2413,8 +2412,8 @@ BOARD_DEFAULTS: dict[str, Any] = {
     "glass": "house", "frost": None, "blur": None, "tint": None, "well": None, "frost_tint": None, "sky": True, "car": False,
     # Bright Glass's Strength, this screen's own (None: All Screens'), and its Dim
     "bright": None, "bright_dim": None,
-    # its own Tile Style (TILE_STYLES; None: All Screens')
-    "tile_style": None,
+    # its own Tile Style and Centered tiles' icons (TILE_STYLES, TILE_ICONS; None: All Screens')
+    "tile_style": None, "tile_icons": None,
     "bright_pages": None,
     # ...and in a car's browser (car on): car_layout, which Home the screen
     # generates there -- "home" the whole Home every screen has, "car" the
@@ -2678,6 +2677,7 @@ def board(data: Mapping[str, Any] | None) -> dict[str, Any]:
     out["bright"] = amount_or_none(d.get("bright"))
     out["bright_dim"] = bright_dim_or_none(d.get("bright_dim"))
     out["tile_style"] = d.get("tile_style") if d.get("tile_style") in TILE_STYLES else None
+    out["tile_icons"] = d.get("tile_icons") if d.get("tile_icons") in TILE_ICONS else None
     out["bright_pages"] = d.get("bright_pages") if d.get("bright_pages") in BRIGHT_PAGES else None
     # The screen's own Sky / Background: each flag stored as anything but a
     # boolean is not set (follow All Screens), as a backdrop id not in

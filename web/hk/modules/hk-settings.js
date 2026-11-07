@@ -186,7 +186,7 @@
     // live cameras rest while another window has the focus (hk-cameras.js
     // CAM_FOCUS) -- behind the screensaver they always rest
     cameras: { order: [], live: true, focus_pause: true },
-    look: { flat: false, flat_theme: 'dark', glass: 'clear', frost: 50, blur: 50, tint: 50, bright: 50, bright_dim: 0, well: 'dark', frost_tint: false, tile_style: 'auto', bright_pages: 'home', details: true, browse_view: 'music-browse', sky_switch: null,
+    look: { flat: false, flat_theme: 'dark', glass: 'clear', frost: 50, blur: 50, tint: 50, bright: 50, bright_dim: 0, well: 'dark', frost_tint: false, tile_style: 'auto', tile_icons: 'auto', thermostat_style: 'dial', bright_pages: 'home', details: true, browse_view: 'music-browse', sky_switch: null,
             photos: 'media-source://media_source/local/photos', page_pills: {}, page_accents: {},
             // FLAT COLORS (settings.py flat_colors; resolveFlatColors)
             flat_colors: { accent: 'auto', off_tint: 'auto', pages: 'accent' }, flat_page_colors: {},
@@ -471,6 +471,13 @@
     var b = boardHere(), ok = function (v) { return v === 'auto' || v === 'home' || v === 'centred'; };
     if (b && ok(b.tile_style)) return b.tile_style;
     return ok(get('look.tile_style')) ? get('look.tile_style') : 'auto';
+  }
+  // A CENTRED TILE'S GLYPH WHILE OFF, for this screen (2026-11-07, settings model.py TILE_ICONS): its own, else All
+  // Screens' -- 'auto' (the look's: white on Bright Glass, else the glyph's color), 'color' or 'white'
+  function tileIcons() {
+    var b = boardHere(), ok = function (v) { return v === 'auto' || v === 'color' || v === 'white'; };
+    if (b && ok(b.tile_icons)) return b.tile_icons;
+    return ok(get('look.tile_icons')) ? get('look.tile_icons') : 'auto';
   }
   // Over a blur: the plate the status chips always had over their own.
   var OVER_BLUR = 'linear-gradient(145deg, rgba(255,255,255,0.16), rgba(255,255,255,0.07))';
@@ -1822,6 +1829,7 @@
     lookAt: lookAt,
     frostTint: frostTint,
     tileStyle: tileStyle,
+    tileIcons: tileIcons,
     // the Frosted plate with `wash` ([r, g, b]) in place of its gray, at this
     // screen's Frost amount (hk-frosttint.js)
     frostPlate: function (wash) { return frost(amount('frost'), wash); },

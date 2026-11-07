@@ -251,7 +251,11 @@ class HkControlCard extends HTMLElement {
       // fan row too -- smaller text says it is the secondary one
       C.segCss(".tstat-modes",{on:".active",fill:true,font:"var(--hk-tstat-seg-font,12.5px)"}) +
       C.segCss(".tstat-fan",{on:".active",fill:true,font:"var(--hk-tstat-fan-font,11.5px)"}) +
-      ".option-row .segment,.tstat-modes .segment,.tstat-fan .segment{transform:none;filter:none}";
+      ".option-row .segment,.tstat-modes .segment,.tstat-fan .segment{transform:none;filter:none}" +
+      // WORDS WHOLE (2026-11-07, the owner's water heater: "Deman / d"): a mode's name breaks between its words, never
+      // inside one; five or more a size smaller, with less inset, so "Demand" and "Electric" fit a fifth of the row
+      ".tstat-modes .segment,.tstat-fan .segment{overflow-wrap:normal;word-break:normal;hyphens:none}" +
+      ".tstat-modes.many .segment{padding:0 2px;font-size:min(var(--hk-tstat-seg-font,12.5px),12.5px);letter-spacing:-.1px}";
   }
   _render(){
     if(!this.client || !this._config) return;
@@ -535,6 +539,9 @@ class HkControlCard extends HTMLElement {
          widget mock-up, 2026-10-31) draws the same face in its left part
          (.face, a size container of its own, so its numbers are Large's). */
       :host([size]) .surface.big{height:100%}
+      /* (Big Number on a page or in a sheet -- bigpage, _climate: square, as a Large block) */
+      :host([bigpage]){display:block;aspect-ratio:1/1}
+      :host([bigpage]) .surface.big{height:100%}
       .surface.big{position:relative;container-type:size;box-sizing:border-box;padding:0}
       .big .face{position:absolute;inset:0;container-type:size}
       .big .bn{position:absolute;left:0;right:0;top:42.7%;transform:translateY(-50%);text-align:center;color:${window.hkCards.v('ink')};
@@ -668,6 +675,11 @@ class HkControlCard extends HTMLElement {
     // (a Small block is Big Number whatever its style: a 196 x 150 tile has no room for the ring, its range
     // ran across it and the name and modes were cut -- the lead, 2026-10-31)
     if ((this._config.style === "big" || this.getAttribute('size') === "S") && this.hasAttribute('size')) return this._big(s);
+    // BIG NUMBER ON A PAGE OR IN A SHEET (`big: true`, no block around it; 2026-11-07, the owner: "an option for climate
+    // page settings to use either the HomeView Style or this style of thermostat cards for the climate page and detail
+    // sheets" -- look.thermostat_style): Large's face, as square as a Large block, its own height
+    this.toggleAttribute("bigpage", this._config.big === true && !this.hasAttribute('size'));
+    if (this.hasAttribute("bigpage")) return this._big(s);
     const a = s?.attributes || {}, mode = s?.state || "off";
     const action = a.hvac_action || mode;
     const cur = Number(a.current_temperature), hum = Number(a.current_humidity);
@@ -979,7 +991,7 @@ class HkControlCard extends HTMLElement {
           <div class="tstat-act" style="color:${off ? window.hkCards.v('ink-2') : "#ff9f0a"}">${this._esc(off ? "Off" : word(om))}</div>
         </div>
       </div>
-      ${modes.length ? `<div class="tstat-modes segments" style="--count:${modes.length}">${modes
+      ${modes.length ? `<div class="tstat-modes segments${modes.length > 4 ? " many" : ""}" style="--count:${modes.length}">${modes
         .map(m => `<button class="segment ${isOn(m) ? "active" : ""}" data-wh="${this._esc(m)}">${this._esc(word(m))}</button>`)
         .join("")}</div>` : ""}
       ${(f & 4) ? `<div class="tstat-fan" style="--count:2"><button class="segment ${away ? "" : "active"}" data-wh-away="off">Home</button><button class="segment ${away ? "active" : ""}" data-wh-away="on">Away</button></div>` : ""}

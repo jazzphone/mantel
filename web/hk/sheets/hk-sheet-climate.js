@@ -76,6 +76,7 @@
           '.pn{gap:12px}',
           // the side column's modes and fan (a short screen's, _sideRows): the thermostat card's own segmented look
           '.sctl{display:none}',
+          ':host([big]) .sctl{display:flex;flex-direction:column;gap:10px}',
           C.segCss('.sctl .seg', { on: '[aria-pressed="true"]', fill: true }),
           '.sctl .seg button{flex:1 1 0}',
           // narrow (a phone): one column -- .side dissolves into it
@@ -226,6 +227,12 @@
         }
         if (!dial) return;
         if (!this._shortMq.matches) { dial.style.width = ''; return; }
+        // (Big Number: a square, as tall as the panel)
+        if (this.hasAttribute('big')) {
+          var pb = this._root.querySelector('.pn'), hb = pb ? pb.clientHeight : 0;
+          if (hb) dial.style.width = Math.max(160, Math.min(360, hb)) + 'px';
+          return;
+        }
         var wrap = card && card.shadowRoot && card.shadowRoot.querySelector('.tstat-wrap');
         // (the panel's own height: --hk-short-h, measured -- a custom property reads back as its calc())
         var pn = this._root.querySelector('.pn'), room = pn ? pn.clientHeight : 0;
@@ -264,7 +271,11 @@
             '<div class="run"><div><div class="k">Ran today</div><div class="v rt">—</div></div>' +
             '<div><div class="k">Yesterday</div><div class="v ry">—</div></div></div></div><div class="trend" hidden></div></div></div>';
           var card = document.createElement('hk-thermostat-card');
-          try { card.setConfig({ entity: this._id, bare: true, glass: false }); } catch (e) { /* not ready */ }
+          // (Thermostats: Big Number, look.thermostat_style: the big face where the ring was, the modes and the fan as
+          // the side column's rows -- .sctl, every screen size)
+          var big = !!(C.setting && C.setting('look.thermostat_style', 'dial') === 'big') && String(this._id).indexOf('climate.') === 0;
+          this.toggleAttribute('big', big);
+          try { card.setConfig(Object.assign({ entity: this._id, bare: true, glass: false }, big ? { big: true } : {})); } catch (e) { /* not ready */ }
           this._card = card;
           this._root.querySelector('.dial').appendChild(card);
           this._now = this._root.querySelector('.now .rd');

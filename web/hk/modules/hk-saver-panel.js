@@ -149,7 +149,9 @@
   // the Speakers list is up.
   var CSS = [
     '.mpanel{position:absolute;z-index:6;display:none;color:var(--hk-ink,rgba(255,255,255,0.94));overflow:hidden;touch-action:pan-y;',
-    '  -webkit-user-select:none;user-select:none;cursor:default;backface-visibility:hidden;-webkit-backface-visibility:hidden}',
+    // (no tap highlight: a tab tapped on an iPad showed WebKit's box over it, blue, while the pill slid -- the owner's
+    // video, 2026-11-07; the media card's panel had no host saying so)
+    '  -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;cursor:default;backface-visibility:hidden;-webkit-backface-visibility:hidden}',
     '.mpanel.up{display:block}',
     // the slide's: a card where the art was; the pane's: the whole pane
     '.mpanel.card{border-radius:18px;box-shadow:0 26px 70px rgba(0,0,0,.5),inset 0 0 0 1px rgba(255,255,255,.12)}',

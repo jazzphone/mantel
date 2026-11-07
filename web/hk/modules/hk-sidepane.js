@@ -1276,10 +1276,11 @@
       '.npqueue{display:grid;gap:6px;margin-top:12px;padding-top:16px;border-top:1px solid ' + v('line') + '}',
       '.npqueue .qh{all:unset;display:flex;justify-content:space-between;align-items:center;cursor:pointer;font-size:13px;font-weight:600;color:' + v('ink-2') + ';height:28px}',
       '.npqueue .qh span{font-size:12px;font-weight:500}',
-      '.npqueue .qr{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:12px;height:52px;cursor:pointer;border-radius:10px;min-width:0}',
+      '.npqueue .qr{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:12px;height:56px;cursor:pointer;border-radius:10px;min-width:0}',
       '.npqueue .qr:active{background:' + v('key') + '}',
       '.npqueue button:focus-visible{outline:2px solid ' + v('ink') + ';outline-offset:2px}',
-      '.npqueue .qi{width:36px;text-align:center;flex:none;color:' + v('ink-3') + ';font-size:14px;font-variant-numeric:tabular-nums}',
+      '.npqueue .qa{width:48px;height:48px;flex:none;border-radius:8px;background:' + v('key') + ' center/cover no-repeat;display:grid;place-items:center}',
+      '.npqueue .qa hk-icon{--mdc-icon-size:22px;width:22px;height:22px;color:' + v('ink-3') + '}',
       '.npqueue .qt{min-width:0;flex:1}.npqueue b,.npqueue small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
       '.npqueue b{font-size:15px;font-weight:600}.npqueue small{font-size:13px;color:' + v('ink-2') + ';margin-top:2px}',
       '@keyframes npp{to{transform:scaleX(1)}}',
@@ -1377,6 +1378,9 @@
       '.more2{font:600 13px/1 var(--hk-font-body,inherit);color:' + v('ink-2') + ';text-align:center;padding:2px 0 0;flex:none}',
       ':host([side="band"]) .more2{align-self:center;padding:0 4px}',
       '@media (hover:hover){.pp:hover,.keys button:hover{background:' + v('key-strong') + '}}',
+      // (the player's bare buttons, 2026-11-07: a pointer over one dims it, as the Full player's do -- a well behind
+      // Speakers or Browse reached past the pane's edge and was cut off)
+      '@media (hover:hover){.trow .pp:hover,.trow .tk:hover{background:none;opacity:.75}}',
       '@media (prefers-reduced-motion:no-preference){:host([side]) .pane{transition:opacity .2s}}'
     ].join('\n');
     if (K && K.v) CSS = out;
@@ -1569,12 +1573,16 @@
       Array.prototype.forEach.call(secs.children, function (n) { if (!n.classList.contains('gap')) used += n.offsetHeight; });
       used += Math.max(0, secs.children.length - 1) * (parseFloat(getComputedStyle(secs).rowGap) || 0);
       // Header, inset and the section's grid gap, then whole rows only.
-      var count = Math.min(q.items.length, Math.floor((secs.clientHeight - used - 70) / 58));
+      var count = Math.min(q.items.length, Math.floor((secs.clientHeight - used - 70) / 62));
       if (count < 1) return;
       var el = document.createElement('div'); el.className = 'npqueue';
       el.innerHTML = '<button class="qh" type="button" data-act="queue">Up Next<span>View Queue</span></button>' +
         q.items.slice(0, count).map(function (it, i) {
-          return '<button class="qr" type="button" data-act="queue" aria-label="View queue: ' + esc(it.title) + '"><span class="qi">' + (i + 1) +
+          // (the song's cover at its left, a note where Music Assistant has none yet -- 2026-11-07, the owner;
+          // Apple's 1000 px covers asked for at a thumbnail's size)
+          var img = it.image ? String(it.image).replace(/\/(\d+)x(\d+)(bb|cc|sr)?\.(jpg|jpeg|png|webp)$/, '/160x160$3.$4') : '';
+          return '<button class="qr" type="button" data-act="queue" aria-label="View queue: ' + esc(it.title) + '"><span class="qa"' +
+            (img ? ' style="background-image:url(&quot;' + esc(img) + '&quot;)">' : '>' + icon('mdi:music-note')) +
             '</span><span class="qt"><b>' + esc(it.title) + '</b><small>' + esc(it.artist || '') + '</small></span></button>';
         }).join('');
       sec.appendChild(el);
@@ -1777,6 +1785,7 @@
         // (the music pane on the pane's own album-art backdrop: none of its
         // own and no box -- the owner, 2026-10-30)
         if (key === 'np') el.toggleAttribute('nobg', self._artOn !== false);
+        if (key === 'np') el.setAttribute('inpane', '');
         if (key === 'np') el.toggleAttribute('compact', !!(el.parentNode && el.parentNode.classList && el.parentNode.classList.contains('compact')));
         if (key === 'np' && el.active) el.active(true);
       });

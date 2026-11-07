@@ -315,10 +315,10 @@
   }
   // Tinted's icon circles (look.well, a screen's well)
   var TINT_WELLS = [['dark', 'Dark'], ['light', 'Light']];
-  // TILE STYLE (look.tile_style, a screen's tile_style; 2026-10-30): the Home
-  // Grid's tiles; the room pages keep the Home app's Tall pills (2026-10-31) (settings.py TILE_STYLES)
-  // Automatic (the default): Centred on square cells, Home on tiles and the room pages
-  var TILE_STYLES = [['auto', 'Automatic'], ['home', 'Home'], ['centred', 'Centered']];
+  // TILE STYLE (look.tile_style, a screen's; 2026-10-30): the Home Grid's tiles (room pages keep Tall pills), Automatic Centred
+  // on square cells; 2026-11-07, a Centered tile's icons off (look.tile_icons; Automatic: white on Bright Glass) and Climate's thermostats
+  var TILE_STYLES = [['auto', 'Automatic'], ['home', 'Home'], ['centred', 'Centered']], TILE_ICONS = [['auto', 'Automatic'], ['color', 'Color'], ['white', 'White']],
+      THERMOSTAT_STYLES = [['dial', 'Dial'], ['big', 'Big Number']];
   // BRIGHT GLASS ON (look.bright_pages, a screen's bright_pages; settings.py BRIGHT_PAGES)
   var BRIGHT_PAGES = [['home', 'Home Only'], ['all', 'Every Page']];
   var PRESETS = {
@@ -2207,7 +2207,7 @@
     ['header', 'Header', ['phone_header', 'kiosk', 'kiosk_header', 'kiosk_sidebar', 'kiosk_admins', 'kiosk_engine', 'kiosk_options'], true],
     // the pages, Home among them, and where each sits in the menu (set on Pages)
     ['pages', 'Pages', ['pages', 'custom_pages', 'only_pages', 'home_page', 'home_view', 'menu_top', 'categories', 'headers', 'pages_screen'], true],
-    ['look', 'Appearance', ['flat', 'flat_theme', 'glass', 'frost', 'frost_tint', 'blur', 'tint', 'well', 'tile_style', 'bright_pages', 'sky', 'sky_animations', 'sky_weather', 'sky_precipitation', 'sky_focus_pause',
+    ['look', 'Appearance', ['flat', 'flat_theme', 'glass', 'frost', 'frost_tint', 'blur', 'tint', 'well', 'tile_style', 'tile_icons', 'bright_pages', 'sky', 'sky_animations', 'sky_weather', 'sky_precipitation', 'sky_focus_pause',
                             'sky_decorations', 'sky_decoration_style', 'sky_moving', 'sky_cloud_style', 'sky_daytime', 'sky_gradient', 'sky_custom', 'sky_pages',
                             'sky_liveliness', 'sky_liveliness_occ', 'sky_liveliness_custom', 'sky_calm_empty',
                             'sky_background', 'sky_color', 'sky_photo', 'sky_page_photos', 'sky_photo_look', 'sky_page_looks',
@@ -2749,7 +2749,7 @@
   // own values before), and the rows the sheet shows ([label, was, becomes])
   // -- only what differs. `layout`: the Layout + Look's grid, if any.
   var LOOK_LABELS = { flat: 'Flat Colors', flat_theme: 'Flat Theme', glass: 'Style', accent: 'Accent Color', tab_bar_glass: 'Tab Bar Glass',
-    tile_style: 'Tile Style', sky: 'Sky', sky_background: 'Background', sky_color: 'Color', sky_wallpaper: 'Wallpaper',
+    tile_style: 'Tile Style', tile_icons: 'Icons', sky: 'Sky', sky_background: 'Background', sky_color: 'Color', sky_wallpaper: 'Wallpaper',
     sky_wallpaper_night: 'Night Version', sky_wallpaper_motion: 'Wallpaper Motion', sky_animations: 'Animations', sky_weather: 'Weather',
     sky_precipitation: 'Rain & Snow', sky_moving: 'Moving Things', sky_decorations: 'Decorations', sky_liveliness: 'Liveliness',
     swipe_pages: 'Swipe Between Pages', side_pane: 'Side Pane', screensaver: 'Screensaver', screensaver_options: 'Screensaver Options',
@@ -2760,7 +2760,7 @@
     if (k === 'glass' && v === 'house') return 'Same as All Screens';
     if (v === true) return 'On';
     if (v === false) return 'Off';
-    var lists = { glass: GLASS_STYLES, tile_style: TILE_STYLES, sky_wallpaper_night: WALLPAPER_NIGHT, sky_wallpaper_motion: WALLPAPER_MOTION };
+    var lists = { glass: GLASS_STYLES, tile_style: TILE_STYLES, tile_icons: TILE_ICONS, sky_wallpaper_night: WALLPAPER_NIGHT, sky_wallpaper_motion: WALLPAPER_MOTION };
     var o = lists[k] && lists[k].filter(function (x) { return x[0] === v; })[0];
     if (o) return o[1];
     if (k === 'side_pane') return v.dashboard && v.dashboard.show === 'off' ? 'Off' : 'On, beside Home';
@@ -2825,7 +2825,7 @@
     menuOwn: menuOwn, ownsMenu: ownsMenu, menuOwnSet: menuOwnSet, menuOwnReset: menuOwnReset, menuSummary: menuSummary,
     MENU_KINDS: MENU_KINDS, menuKind: menuKind, kindUsers: kindUsers, usedBy: usedBy, menuWord: menuWord, KIND_KEYS: KIND_KEYS, usesSide: usesSide, PAGE_HEADER_SAYS: PAGE_HEADER_SAYS,
     accentColorOf: accentColorOf, accentChanges: accentChanges, GLASS: GLASS,
-    GLASS_STYLES: GLASS_STYLES, BLUR_MODES: BLUR_MODES, BRIGHT_MODES: BRIGHT_MODES, TINT_WELLS: TINT_WELLS, TILE_STYLES: TILE_STYLES, BRIGHT_PAGES: BRIGHT_PAGES, isBlur: isBlur, isBright: isBright, modesFor: modesFor, styleValue: styleValue, glassStyle: glassStyle, WALLPAPER_NIGHT: WALLPAPER_NIGHT, WALLPAPER_MOTION: WALLPAPER_MOTION, SLOW_FPS: SLOW_FPS, LADDER: LADDER, ladderFacts: ladderFacts, ladderSignature: ladderSignature, slowRecommend: slowRecommend, PRESETS: PRESETS, STATUS_LABELS: STATUS_LABELS,
+    GLASS_STYLES: GLASS_STYLES, BLUR_MODES: BLUR_MODES, BRIGHT_MODES: BRIGHT_MODES, TINT_WELLS: TINT_WELLS, TILE_STYLES: TILE_STYLES, TILE_ICONS: TILE_ICONS, THERMOSTAT_STYLES: THERMOSTAT_STYLES, BRIGHT_PAGES: BRIGHT_PAGES, isBlur: isBlur, isBright: isBright, modesFor: modesFor, styleValue: styleValue, glassStyle: glassStyle, WALLPAPER_NIGHT: WALLPAPER_NIGHT, WALLPAPER_MOTION: WALLPAPER_MOTION, SLOW_FPS: SLOW_FPS, LADDER: LADDER, ladderFacts: ladderFacts, ladderSignature: ladderSignature, slowRecommend: slowRecommend, PRESETS: PRESETS, STATUS_LABELS: STATUS_LABELS,
     STATUS_SAYS: STATUS_SAYS, STATUS_ROWS: STATUS_ROWS, STATUS_SOURCE: STATUS_SOURCE, PAGES: PAGES, pageOf: pageOf, PAGE_TYPES: PAGE_TYPES,
     PAGE_FEATURES: PAGE_FEATURES, pagesListed: pagesListed, pageOfRoute: pageOfRoute, routeForward: routeForward, screenShows: screenShows, headerOffOn: headerOffOn, statusSummary: statusSummary, HEADER_PAGES: HEADER_PAGES,
     WOODLAND: WOODLAND, woodlandSummary: woodlandSummary, CLOUD_STYLES: CLOUD_STYLES, SKY_MOVING: SKY_MOVING,

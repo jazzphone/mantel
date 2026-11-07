@@ -1280,7 +1280,7 @@
                     'grid-column-gap': TL().gridGap + 'px', 'grid-row-gap': TL().gridGap + 'px', 'card-margin': '0px',
                     margin: '0px', padding: '4px 0px 15px 4px' },
           cards: inv.climates.map(function (id) {
-            return { type: 'custom:hk-thermostat-card', entity: id, name: fullName(client, id), dial_width: 'var(--hk-dial, 364px)' };
+            return { type: 'custom:hk-thermostat-card', entity: id, name: fullName(client, id), dial_width: 'var(--hk-dial, 364px)', big: setting('look.thermostat_style') === 'big' };
           }) });
       }
       // THE ROOMS AS WIDE AS THEIR WIDEST ROOM NEEDS: two to four pills and

@@ -122,7 +122,7 @@
         svg(ICON.play) + '</div><div class="mbtn" data-act="next">' + svg(ICON.next) + '</div>' +
         '<div class="mbtn mx" data-act="brw" aria-label="Browse Music">' + svg(ICON.lib) + '</div>' +
         '<div class="mvol">' + svg(ICON.vlo) + '<div class="mvt"><i></i><b></b></div>' + svg(ICON.vhi) + '</div></div>' +
-        '<div class="mnext"><div class="mnth">' + svg(ICON.note) + '<img alt=""></div><div class="mnx"><div class="mnl">Up Next</div><div class="mnt"></div></div></div></div>' + (sl ? '</div>' : '') + '</div>';
+        '<div class="mnext"><div class="mnth">' + svg(ICON.note) + '<img alt=""></div><div class="mnx"><div class="mnl">Up Next</div><div class="mnt"></div></div></div></div>' + (sl ? '</div>' : '<div class="mq"></div>') + '</div>';
       if (!window.hkSaverPanel) el.setAttribute('nomx', '');
       var q = function (s) { return el.querySelector(s); };
       var v = { kind: kind, el: el, flat: isFlat(), flip: 0, pic: null, d: null, ready: Promise.resolve(),
@@ -305,31 +305,39 @@
     // vertical room...like in the side pane"): the slide beside a pane (murow) lists the next songs under the song,
     // in the room the cover leaves; a tap opens the panel's Queue. One ask per song (hk_music/queue), shared by the
     // views; elsewhere the CSS hides the rows and Browse's panel has the queue.
-    var MQ_ROWS = 3;
+    // (the pane's view lists more: the Side Pane's Full player, under its buttons -- 2026-11-07, the owner: "add the
+    // queue to the Music Player in the side pane when Full sizing is selected")
+    var MQ_ROWS = 3, MQ_MAX = 12;
     function drawQueueRows(v, d) {
       var sig = d && !d.idle && !d.sample ? sigOf(d) : '';
       if (sig && mus.qFor !== sig) {
         mus.qFor = sig; mus.q = null;
         var h = clientNow();
         if (h && h.callWS) {
-          h.callWS({ type: 'hk_music/queue', entity_id: d.key, limit: MQ_ROWS + 1 }).then(function (r) {
+          h.callWS({ type: 'hk_music/queue', entity_id: d.key, limit: MQ_MAX + 1 }).then(function (r) {
             if (mus.qFor !== sig) return;
-            mus.q = r && r.ok && Array.isArray(r.items) ? r.items.slice(1, MQ_ROWS + 1) : [];
+            mus.q = r && r.ok && Array.isArray(r.items) ? r.items.slice(1, MQ_MAX + 1) : [];
             mus.views.forEach(function (w) { if (w.mq) drawQueueRows(w, w.d); });
             if (K.layoutMusic) K.layoutMusic();
             mus.views.forEach(function (w) { if (w.mq && w.kind === 'dash' && w.host && w.host._fit) w.host._fit(); });   // (the Now Playing page)
           }, function () { if (mus.qFor === sig) mus.q = []; });
         }
       }
-      var items = sig && mus.qFor === sig && mus.q ? mus.q : [];
-      var key = items.map(function (it) { return it.id + '|' + it.title; }).join('/');
+      var pane = !v.el.classList.contains('mu');
+      var items = (sig && mus.qFor === sig && mus.q ? mus.q : []).slice(0, pane ? MQ_MAX : MQ_ROWS);
+      var key = items.map(function (it) { return it.id + '|' + it.title + '|' + (it.image || ''); }).join('/');
+      if (pane) setAttr(v.el, 'mqon', items.length > 0);
       if (v.mqKey === key) return;
       v.mqKey = key;
       var esc = function (t) { return String(t || '').replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
-      v.mq.innerHTML = !items.length ? '' : '<div class="mqh">Up Next</div>' + items.map(function (it) {
-        return '<div class="mbtn mqr" data-act="queue" aria-label="Queue: ' + esc(it.title) + '"><span class="mqt"' +
-          (it.image ? ' style="background-image:url(&quot;' + esc(it.image) + '&quot;)"' : '') + '></span><span class="mqx"><b>' + esc(it.title) +
+      // (Apple's covers, 1000 px, asked for at a thumbnail's size -- as nextArt does)
+      var small = function (u) { return String(u).replace(/\/(\d+)x(\d+)(bb|cc|sr)?\.(jpg|jpeg|png|webp)$/, '/160x160$3.$4'); };
+      // (the heading and the first row one piece: where the pane's list has room for neither, both go -- .mq1)
+      v.mq.innerHTML = !items.length ? '' : items.map(function (it, i) {
+        var row = '<div class="mbtn mqr" data-act="queue" aria-label="Queue: ' + esc(it.title) + '"><span class="mqt"' +
+          (it.image ? ' style="background-image:url(&quot;' + esc(small(it.image)) + '&quot;)"' : '') + '></span><span class="mqx"><b>' + esc(it.title) +
           '</b><small>' + esc(it.artist) + '</small></span></div>';
+        return i ? row : '<div class="mq1"><div class="mqh">Up Next</div>' + row + '</div>';
       }).join('');
     }
     function sigOf(d) { return d && !d.idle ? d.key + '|' + d.title + '|' + d.artist : ''; }

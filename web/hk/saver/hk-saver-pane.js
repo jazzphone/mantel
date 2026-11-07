@@ -36,7 +36,19 @@
       '.pm .mvt{touch-action:none}',
       '.pm .mvt::before{content:"";position:absolute;left:-14px;right:-14px;top:-18px;bottom:-18px}',
       // (bare buttons, 2026-11-07: a pointer over one dims it, nothing drawn behind it)
-      '@media (hover:hover){.pm .mbtn:hover{opacity:.75}}'
+      '@media (hover:hover){.pm .mbtn:hover{opacity:.75}}',
+      // THE SIDE PANE'S FULL (inpane, hk-sidepane.js; 2026-11-07, the owner): the art's shadow kept inside the pane's
+      // margin (its 60 px blur was cut off either side of the art), and Up Next a list under the buttons -- the art at
+      // the pane's width first, the list in the height left, whole rows only (a row that does not fit wraps to a
+      // column out of sight), its first row and heading together
+      ':host([inpane]) .msq{box-shadow:0 calc(12px * var(--z)) calc(26px * var(--z)) rgba(0,0,0,.42)}',
+      ':host([inpane]:not([compact])) .pm[mqon] .mart{flex:0 1 calc(100cqw - 2 * var(--hk-pane-pad,28px))}',
+      ':host([inpane]:not([compact])) .pm[mqon] .mnext{display:none}',
+      ':host([inpane]:not([compact])) .pm .mq:not(:empty){display:flex;flex-direction:column;flex-wrap:wrap;align-content:flex-start;flex:1 1 0;' +
+        'min-height:0;overflow:hidden;margin-top:calc(24px * var(--z));text-align:left}',
+      ':host([inpane]:not([compact])) .pm .mq>*{flex:none;width:100%}',
+      ':host([inpane]) .pm .mbtn.mqr{width:auto;height:auto}',
+      ':host([inpane]) .pm .mqt{width:calc(44px * var(--z));height:calc(44px * var(--z))}'
     ].join('\n');
     var DASH_SWIPE = 10;
 
