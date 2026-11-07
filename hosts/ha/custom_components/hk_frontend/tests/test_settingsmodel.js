@@ -778,8 +778,16 @@ ok('...every mode says what it costs', M.BLUR_MODES.every(function (m) { return 
 })();
 // ------------------------------------------------------------ the side pane (2026-10-30)
 (function () {
-  ok('Side Pane: twelve kinds, four sizes, eight at most', M.PANE_KINDS.length === 12 && M.PANE_SIZES.length === 4 && M.PANE_MAX === 8 &&
+  ok('Side Pane: thirteen kinds, four sizes, eight at most', M.PANE_KINDS.length === 13 && M.PANE_SIZES.length === 4 && M.PANE_MAX === 8 &&
      eq(M.PANE_GROUPS, ['side', 'width', 'dashboard', 'saver', 'doorbell', 'headings', 'dim']));
+  // A STATUS (2026-11-06): any number, each its own id; Automatic or Nothing on a tap
+  var g0 = { show: 'home', sections: [{ kind: 'weather' }] }, g1 = M.secsAdd(g0, 'status'), g2 = M.secsAdd(g1, 'status');
+  ok('Status: added at Less with an id of its own, and again', g2.sections.length === 3 && g2.sections[1].kind === 'status' && g2.sections[1].size === 'less' &&
+     /^[a-z0-9]{1,12}$/.test(g2.sections[1].id) && g2.sections[1].id !== g2.sections[2].id && M.secsMore(g2).some(function (k) { return k[0] === 'status'; }), g2);
+  ok('...two told apart when moved', eq(M.secsOrder(g2, [M.secKey(g2.sections[2]), M.secKey(g2.sections[1]), 'weather:']).sections.map(function (x) { return x.id || x.kind; }),
+     [g2.sections[2].id, g2.sections[1].id, 'weather']));
+  ok('...Automatic or Nothing on a tap; its row says when it shows', eq(M.paneTaps('status').map(function (x) { return x[0]; }), ['auto', 'none']) &&
+     M.secSays({ kind: 'status', show: { entity: 'sensor.m', op: 'is', value: 'x' } }) === 'More · While Its Rule Holds' && M.secSays({ kind: 'status', when: 'active' }) === 'More');
   // (no pane as read -- an answer that left side_pane_read out: the screen's own groups as stored, 2026-11-01, when a
   // change built on "none of its own" saved one group alone and the rest of the screen's pane was gone)
   var fb = M.paneOf({ side: 'right' }, { side_pane: { side: 'left', dashboard: { show: 'home', sections: [{ kind: 'weather' }] } } });

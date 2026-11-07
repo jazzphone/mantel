@@ -2588,7 +2588,7 @@
     ['security', 'Security', 'mdi:shield-home', '#30b0c7'], ['camera', 'Camera', 'mdi:cctv', '#636366'],
     ['timers', 'Timers', 'mdi:timer-outline', '#ff9500'], ['energy', 'Energy', 'mdi:lightning-bolt', '#34c759'],
     ['climate', 'Climate', 'mdi:thermostat', '#007aff'], ['people', 'Who’s Home', 'mdi:account', '#5856d6'],
-    ['todo', 'To-do', 'mdi:clipboard-check', '#ff9500'], ['notifications', 'Notifications', 'mdi:bell', '#ff3b30']];
+    ['todo', 'To-do', 'mdi:clipboard-check', '#ff9500'], ['notifications', 'Notifications', 'mdi:bell', '#ff3b30'], ['status', 'Status', 'mdi:card-text-outline', '#5ac8fa']];
   var PANE_SIZES = [['tiny', 'Tiny'], ['less', 'Less'], ['more', 'More'], ['full', 'Full']];
   var PANE_WHEN = [['always', 'Always'], ['active', 'When There’s Something']];
   var PANE_SIDES = [['left', 'Left'], ['right', 'Right']];
@@ -2655,11 +2655,11 @@
     return { side_pane: Object.keys(own).length ? own : null };
   }
   // A GROUP'S SECTIONS, changed: each returns the whole new group
-  function secKey(s) { return s.kind + ':' + (s.entity || ''); }
+  function secKey(s) { return s.kind + ':' + ((s.kind === 'status' && s.id) || s.entity || ''); }
   function paneGroup(grp, sections) { return { show: grp.show, sections: sections.map(paneSection) }; }
   function secsAdd(grp, kind) {
     if (!paneKind(kind) || grp.sections.length >= PANE_MAX) return paneGroup(grp, grp.sections);
-    return paneGroup(grp, grp.sections.concat([{ kind: kind, size: 'less' }]));
+    return paneGroup(grp, grp.sections.concat([kind === 'status' ? { kind: kind, size: 'less', id: Math.random().toString(36).slice(2, 10) || 's1' } : { kind: kind, size: 'less' }]));
   }
   function secsOrder(grp, keys) {
     var by = {};
@@ -2674,22 +2674,22 @@
     if (v === null || v === undefined || v === '') delete list[i][k]; else list[i][k] = v;
     return paneGroup(grp, list);
   }
-  // the kinds not yet in a group (a camera or a list may come twice, by its entity)
+  // the kinds not yet in a group (a camera or a list may come twice, by its entity; a Status (its id), any number)
   function secsMore(grp) {
     var have = grp.sections.map(function (s) { return s.kind; });
-    return grp.sections.length >= PANE_MAX ? [] : PANE_KINDS.filter(function (k) { return have.indexOf(k[0]) < 0 || k[0] === 'camera' || k[0] === 'todo'; });
+    return grp.sections.length >= PANE_MAX ? [] : PANE_KINDS.filter(function (k) { return have.indexOf(k[0]) < 0 || k[0] === 'camera' || k[0] === 'todo' || k[0] === 'status'; });
   }
   // A SECTION'S ROW SAYS its size and when: "More", "Tiny · When There's Something"
   function secSays(s) {
     var size = choiceLabel(PANE_SIZES, s.size || 'more');
-    return [size, s.when === 'active' ? 'When There’s Something' : '', s.place === 'bottom' ? 'At the Bottom' : ''].filter(Boolean).join(' · ');
+    return [size, s.kind === 'status' ? (s.show ? 'While Its Rule Holds' : '') : s.when === 'active' ? 'When There’s Something' : '', s.place === 'bottom' ? 'At the Bottom' : ''].filter(Boolean).join(' · ');
   }
   // WHERE A SECTION SITS and WHAT A TAP DOES (settings.py PANE_PLACES, PANE_TAPS; 2026-10-30)
   var PANE_PLACES = [['top', 'Top'], ['bottom', 'Bottom']];
   var PANE_TAPS = [['auto', 'Automatic'], ['page', 'Its Page'], ['sheet', 'Its Sheet'], ['none', 'Nothing']];
   // Now Playing's own two (settings.py PANE_TAPS_OWN, item 44), after Its Sheet
   var PANE_TAPS_OWN = { now_playing: [['panel', 'Open the Panel'], ['flip', 'Flip to the Controls']] };
-  function paneTaps(kind) { return PANE_TAPS.slice(0, 3).concat(PANE_TAPS_OWN[kind] || [], PANE_TAPS.slice(3)); }
+  function paneTaps(kind) { return kind === 'status' ? [PANE_TAPS[0], PANE_TAPS[3]] : PANE_TAPS.slice(0, 3).concat(PANE_TAPS_OWN[kind] || [], PANE_TAPS.slice(3)); }
   // THE CAMERA'S NAME (settings.py PANE_CHOICES; 2026-10-31): Hide is what absent means
   var PANE_CAMERA_NAMES = [['hide', 'Hide'], ['auto', 'Automatic'], ['show', 'Show']];
   // THE CLOCK'S LOOK (settings.py PANE_CHOICES, PANE_FLAGS_ON; 2026-10-31, item 43): each choice's first value is

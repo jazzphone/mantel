@@ -82,14 +82,15 @@ def test_a_screen_saves_its_own_fields_whole():
 
 
 def test_widgets_are_the_side_panes_sections():
-    # the twelve sections of the Side Pane (Phase A2's PANE_SECTIONS); where that list exists, they are the same
+    # the twelve sections of the Side Pane (Phase A2's PANE_SECTIONS) -- all but a Status, the owner's own entity and
+    # rule (2026-11-06), which is no widget to pick by name
     assert len(S.PAGES_SCREEN_WIDGETS) == 12 and len(set(S.PAGES_SCREEN_WIDGETS)) == 12
     pane = getattr(S, "PANE_SECTIONS", None)
     if pane is not None:
-        assert tuple(pane) == S.PAGES_SCREEN_WIDGETS
+        assert tuple(k for k in pane if k != "status") == S.PAGES_SCREEN_WIDGETS
 
 
 def test_the_widgets_are_the_side_panes_sections():
     """The Pages screen's widgets are drawn by the Side Pane (hkSidePane.section): the same kinds, by the same names."""
     from hk_core.settings import model as M
-    assert set(M.PAGES_SCREEN_WIDGETS) == set(M.PANE_SECTIONS)
+    assert set(M.PAGES_SCREEN_WIDGETS) == set(M.PANE_SECTIONS) - {"status"}

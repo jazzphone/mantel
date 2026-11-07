@@ -16,7 +16,7 @@ function ok(n, c, d) { if (c) { pass++; print('  PASS  ' + n); } else { fail++; 
 function eq(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
 
 var P = window.hkSidePane, X = P._;
-ok('the module is there, its twelve sections in order', !!P && P.ORDER.length === 12 && P.ORDER.every(function (k) { return !!P.KINDS[k]; }));
+ok('the module is there, its thirteen sections in order', !!P && P.ORDER.length === 13 && P.ORDER[12] === 'status' && P.ORDER.every(function (k) { return !!P.KINDS[k]; }));
 ok('four sizes and three widths', eq(P.SIZES, ['tiny', 'less', 'more', 'full']) && eq(P.WIDTHS, { narrow: 360, standard: 400, wide: 480 }));
 
 // ------------------------------------------------------------ the fit
@@ -174,6 +174,42 @@ P.ORDER.forEach(function (k) {
   });
 });
 ok('every section draws at every size, saying its kind and size', bad.length === 0, bad);
+// A STATUS (2026-11-06, the owner's Mail chip as a section): its entity, glyph, color, name and label; shown only while
+// its rule holds (the Screensaver's Shows When: is / is not / above / below, an unreadable entity never)
+(function () {
+  var st = Object.assign({}, client.states), c2 = Object.assign({}, client, { states: st });
+  st['sensor.mailbox_status'] = { entity_id: 'sensor.mailbox_status', state: 'No Mail', attributes: { friendly_name: 'Mailbox Status', icon: 'mdi:mailbox' } };
+  st['sensor.porch_battery'] = { entity_id: 'sensor.porch_battery', state: '18', attributes: { friendly_name: 'Porch Battery', unit_of_measurement: '%' } };
+  var mail = { kind: 'status', id: 'm1', entity: 'sensor.mailbox_status', icon: 'hk:mailbox-up', color: 'blue', name: 'Mail', label: 'Likely Delivered',
+               show: { entity: 'sensor.mailbox_status', op: 'is', value: 'Mail Likely Delivered' } };
+  var list = [{ kind: 'weather' }, mail], has = function (s) { return X.has(c2, s); };
+  ok('Status: hidden while its rule doesn\'t hold -- whatever its Show', eq(X.shown(list, has), [{ kind: 'weather' }]) &&
+     eq(X.shown([Object.assign({ when: 'always' }, mail)], has), []));
+  st['sensor.mailbox_status'] = Object.assign({}, st['sensor.mailbox_status'], { state: 'Mail Likely Delivered' });
+  ok('...shown once it does', eq(X.shown(list, has), list));
+  var tiny = X.SEC.status('tiny', mail, c2, ctx), less = X.SEC.status('less', mail, c2, ctx), more = X.SEC.status('more', mail, c2, ctx);
+  var blue = window.hkCards.PALETTE.icon.blue;
+  ok('...Tiny: its glyph in its color, the name and the label on one line', tiny.indexOf('data-size="tiny"') > 0 && tiny.indexOf('icon="hk:mailbox-up"') > 0 &&
+     tiny.indexOf('color:' + blue) > 0 && />Mail<\/span><span class="v2">Likely Delivered</.test(tiny), tiny);
+  ok('...Less: the name over the label, beside the glyph', /<b>Mail<\/b><i>Likely Delivered<\/i>/.test(less) && less.indexOf('data-size="less"') > 0, less);
+  ok('...More: the name its heading, the label large', /class="h2"><span>Mail<\/span>/.test(more) && /class="tx">Likely Delivered</.test(more), more);
+  ok('...a tap opens its entity\'s sheet (the row names it)', /data-ent="sensor\.mailbox_status"/.test(less));
+  var bare = X.SEC.status('less', { kind: 'status', entity: 'sensor.porch_battery' }, c2, ctx);
+  ok('...no name, label or glyph of its own: the entity\'s name, its state and unit, its glyph or the default', /<b>Porch Battery<\/b><i>18 %<\/i>/.test(bare) &&
+     bare.indexOf('icon="mdi:information-outline"') > 0 && X.SEC.status('tiny', { kind: 'status', entity: 'sensor.mailbox_status' }, c2, ctx).indexOf('icon="mdi:mailbox"') > 0, bare);
+  ok('...no color: the text\'s', bare.indexOf('style="color:') < 0);
+  ok('...a name with markup is words', X.SEC.status('tiny', { kind: 'status', entity: 'sensor.porch_battery', name: '<b>x' }, c2, ctx).indexOf('&lt;b&gt;x') > 0);
+  var M = X.met, S = st;
+  ok('the rule: is, in any case; is not', M({ entity: 'sensor.mailbox_status', op: 'is', value: 'mail likely delivered' }, S) &&
+     !M({ entity: 'sensor.mailbox_status', op: 'not', value: 'Mail Likely Delivered' }, S) && M({ entity: 'sensor.mailbox_status', op: 'not', value: 'No Mail' }, S));
+  ok('...above and below, as numbers', M({ entity: 'sensor.porch_battery', op: 'below', value: 20 }, S) && !M({ entity: 'sensor.porch_battery', op: 'above', value: '20' }, S) &&
+     !M({ entity: 'sensor.mailbox_status', op: 'above', value: 1 }, S));
+  ok('...an entity it can\'t read, or unavailable, never holds -- not even Is Not', !M({ entity: 'sensor.gone', op: 'not', value: 'x' }, S) &&
+     !M({ entity: 'sensor.unav', op: 'not', value: 'x' }, Object.assign({ 'sensor.unav': { state: 'unavailable' } }, S)));
+  ok('...no rule: whenever its entity can be read', X.has(c2, { kind: 'status', entity: 'sensor.porch_battery' }) && !X.has(c2, { kind: 'status', entity: 'sensor.gone' }) &&
+     !X.has(c2, { kind: 'status' }));
+  ok('...without its entity, it says so', X.SEC.status('less', { kind: 'status' }, c2, ctx).indexOf('Choose an entity') > 0);
+})();
 // THE WEATHER WHILE ITS STATE IS AWAY (2026-10-30): a page narrowed by Mantel, a reconnect -- the last seen,
 // never "No weather"; named from the registry, so a page holding no weather state still asks for it
 var wxId = Object.keys(client.states).filter(function (k) { return k.indexOf('weather.') === 0; })[0];

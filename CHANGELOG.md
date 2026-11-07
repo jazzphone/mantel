@@ -4,6 +4,9 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Added**
+- **A Status section for the Side Pane.** Like a custom status chip, it shows an entity with your own glyph, color, name and label (for example, Mail: Likely Delivered). It appears only while its Show When rule holds (the entity is, is not, is above or is below a value) and disappears again when the rule stops holding. Add it under Side Pane → Dashboard Sections or Screensaver Sections. It comes in Tiny, Less and More, and a tap opens the entity's sheet, or does nothing.
+
 **Fixed**
 - **A Home Grid block that swipes moves as a whole block.** Each page keeps its own corners, rim and shadow as it slides, and is cut off only in the gutter beside the block. Before, the block's outline stayed put while its pages slid through it, cut off at its edges, with the background showing between them. This applies in every look, Bright Glass included.
 - **A stereo pair is one speaker on the generated dashboards.** Two speakers made one room in Music settings show as one tile under the pair's name, on Home, the room's page and a Home Grid room block, and the room's status counts one speaker. Before, both halves showed, as "Left HomePod" and "Right HomePod".

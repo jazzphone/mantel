@@ -37,7 +37,7 @@ from ..notifications.dnd import DND_MAX, hhmm, notify_dnd  # noqa: F401
 from ..sleep import rules as SR
 from . import home_grid as HG
 from .looks import IDS as LOOK_IDS
-from . import kinds
+from . import kinds, pane_status as PS
 
 CONF_DASHBOARD = "dashboard"
 
@@ -1849,9 +1849,9 @@ def as_client(stored: Stored | None,
 # All Screens'. It takes over the screensaver's Calendar / Music pane
 # (look.saver's calendar, calendar_days, music_pane) and Now Playing's Show
 # As: Side Pane (now_playing.style / .side, a screen's np_style / np_side),
-# moved over once by side_pane_lifted.
+# moved over once by side_pane_lifted. A Status (2026-11-06): pane_status.py.
 PANE_SECTIONS = ("clock", "weather", "calendar", "now_playing", "security", "camera", "timers", "energy",
-                 "climate", "people", "todo", "notifications")
+                 "climate", "people", "todo", "notifications", "status")
 # a section's Size: one line, the gist, the whole section, and the whole
 # section taking the room the pane has left (one Full at a time); absent is More
 PANE_SIZES = ("tiny", "less", "more", "full")
@@ -1923,10 +1923,9 @@ DEFAULTS["side_pane"] = copy.deepcopy(SIDE_PANE_DEFAULTS)
 
 
 def pane_section(v: Any, strict: bool = False) -> dict[str, Any] | None:
-    """One section, as stored: {kind, size, when, its options}, with size More
-    and when Always left out (they are what absent means). None when it is not
-    a section; strict, also when any key or value is one it can't use (the
-    form says so), where the tolerant read leaves that key out."""
+    """One section, as stored: {kind, size, when, its options}, with size More and when Always left out (they are what
+    absent means). None when it is not a section; strict, also when any key or value is one it can't use (the form says
+    so), where the tolerant read leaves that key out. A Status's own options: pane_status.py."""
     if not isinstance(v, Mapping) or v.get("kind") not in PANE_SECTIONS:
         return None
     kind = v["kind"]
@@ -1935,9 +1934,11 @@ def pane_section(v: Any, strict: bool = False) -> dict[str, Any] | None:
     for k, val in v.items():
         if k == "kind":
             continue
-        if k == "size" and val in PANE_SIZES:
+        if k == "size" and val in PS.SIZES.get(kind, PANE_SIZES):
             if val != "more":
                 out["size"] = val
+        elif PS.option(kind, k, val) is not None:
+            out[k] = PS.option(kind, k, val)
         elif k == "when" and val in PANE_WHEN:
             if val != "always":
                 out["when"] = val
@@ -1967,10 +1968,9 @@ def pane_section(v: Any, strict: bool = False) -> dict[str, Any] | None:
 
 
 def pane_sections(v: Any, strict: bool = False) -> list[dict[str, Any]] | None:
-    """A group's sections, in order: at most PANE_MAX, one Full at most, no
-    section twice (the same kind and entity). Strict, any of that is None;
-    read tolerantly, a section it can't use is left out, a second Full is
-    More and the list is cut at PANE_MAX."""
+    """A group's sections, in order: at most PANE_MAX, one Full at most, no section twice (the same kind and entity, a
+    Status's id: pane_status.key). Strict, any of that is None; read tolerantly, a section it can't use is left out, a
+    second Full is More and the list is cut at PANE_MAX."""
     if not isinstance(v, list):
         return None
     out: list[dict[str, Any]] = []
@@ -1978,7 +1978,7 @@ def pane_sections(v: Any, strict: bool = False) -> list[dict[str, Any]] | None:
     full = False
     for x in v:
         s = pane_section(x, strict)
-        key = (s["kind"], s.get("entity", "")) if s else None
+        key = PS.key(s) if s else None
         if s is None or key in seen:
             if strict:
                 return None

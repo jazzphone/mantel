@@ -22,6 +22,14 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
     }
     return out;
   });
+  // A STATE CHANGE IN THE HOUSE: the server makes it and pushes it, as Home Assistant's would be (side_pane_check.py
+  // states_from); done when the file is gone
+  const setState = async (entity, state) => {
+    fs.writeFileSync(input.stateFile + '.tmp', JSON.stringify({ entity, state }));
+    fs.renameSync(input.stateFile + '.tmp', input.stateFile);
+    for (let i = 0; i < 100 && fs.existsSync(input.stateFile); i++) await new Promise((r) => setTimeout(r, 50));
+    if (fs.existsSync(input.stateFile)) throw new Error('the server never took the state change');
+  };
   for (const [W, H] of input.sizes) {
     const context = await browser.newContext({ viewport: { width: W, height: H } });
     await context.addCookies([{ name: 'mantel_session', value: input.cookie, url: input.origin }]);
@@ -589,6 +597,57 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       await shot(page, tag + '-saver-' + side);
       await page.evaluate(() => window.hkSaver.preview(false));
     }
+    // A STATUS (2026-11-06, the owner's Mail chip as a section): hidden while the mailbox says No Mail -- beside the
+    // weather, and alone, where the whole pane steps aside -- shown as soon as the house says Mail Likely Delivered (its
+    // glyph in the chip's blue, its name and label), and gone again when the mail is taken in
+    const status = () => page.evaluate(() => {
+      const p = document.querySelector('hk-side-pane[mode="dash"]'), sec = p && p.hasAttribute('on') && p.shadowRoot.querySelector('.secs>[data-k="status"]');
+      if (!sec) return null;
+      const g = sec.querySelector('hk-icon'), r = sec.getBoundingClientRect(), pr = p.getBoundingClientRect();
+      return { size: sec.dataset.size, text: sec.textContent.replace(/\s+/g, ' ').trim(), icon: g && g.getAttribute('icon'),
+               color: g && getComputedStyle(g).color, inside: r.top >= pr.top - 1 && r.bottom <= pr.bottom + 1 && r.height > 20 };
+    });
+    for (const scr of ['pane-status', 'pane-status-alone']) {
+      await setState('sensor.mailbox_status', 'No Mail');
+      await open(scr);
+      let l = await look(page);
+      const alone = scr === 'pane-status-alone';
+      want(scr + ': no mail, no status' + (alone ? ' -- and no pane' : ', the weather still there'), [l, await status()],
+           phone || alone ? !l.on && !l.attr : l.on && !(await status()) && l.kinds.some((k) => k.startsWith('weather')));
+      await shot(page, tag + '-' + scr + '-hidden');
+      await setState('sensor.mailbox_status', 'Mail Likely Delivered');
+      if (!phone) await page.waitForFunction(() => { const p = document.querySelector('hk-side-pane[mode="dash"]'); return p && p.hasAttribute('on') && p.shadowRoot.querySelector('.secs>[data-k="status"]'); }, null, { timeout: 5000 }).catch(() => {});
+      await page.waitForTimeout(700);
+      const st = await status();
+      l = await look(page);
+      if (phone) want(scr + ': the mail come, still no pane on a phone', l, !l.on);
+      else want(scr + ': the mail come, the status shown at once -- the chip\'s glyph in its blue, its name and label', st,
+                !!st && st.inside && st.icon === 'hk:mailbox-up' && /^rgba?\(86, 189, 228/.test(st.color) && /Mail/.test(st.text) && /Likely Delivered/.test(st.text) &&
+                (upright || st.size === (alone ? 'more' : 'less')));
+      await shot(page, tag + '-' + scr + '-shown');
+      await setState('sensor.mailbox_status', 'No Mail');
+      if (!phone) await page.waitForFunction(() => { const p = document.querySelector('hk-side-pane[mode="dash"]'); return !(p && p.hasAttribute('on') && p.shadowRoot.querySelector('.secs>[data-k="status"]')); }, null, { timeout: 5000 }).catch(() => {});
+      await page.waitForTimeout(700);
+      l = await look(page);
+      want(scr + ': the mail taken in, the status gone again' + (alone ? ', the pane with it' : ''), [l, await status()],
+           !(await status()) && (phone || alone ? !l.on : l.on));
+    }
+    // ...and at its three sizes side by side (a pane of its own), the mail come
+    if (!phone && !upright && input.shots) {
+      await setState('sensor.mailbox_status', 'Mail Likely Delivered');
+      await open('pane-none');
+      await page.evaluate((mail) => {
+        ['tiny', 'less', 'more'].forEach((size, i) => {
+          const el = window.hkSidePane.create('dash'); el.className = 'solo3'; document.body.appendChild(el);
+          Object.assign(el.style, { left: (i * 365) + 'px', top: '0px', bottom: '0px', width: '360px' });
+          el.show({ list: [Object.assign({}, mail, { size })], place: { kind: 'side', w: 360 }, side: 'left' });
+        });
+      }, { kind: 'status', entity: 'sensor.mailbox_status', icon: 'hk:mailbox-up', color: 'blue', name: 'Mail', label: 'Likely Delivered' });
+      await page.waitForTimeout(800);
+      await shot(page, tag + '-alone-status');
+      await page.evaluate(() => document.querySelectorAll('.solo3').forEach((e) => e.remove()));
+      await setState('sensor.mailbox_status', 'No Mail');
+    }
     // EVERY SECTION ALONE AT EACH SIZE (a pane of its own, beside nothing), at the tablet's size only
     if (!phone && !upright) {
       await open('pane-none');
@@ -707,6 +766,24 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       const house = await frameOf();
       want('...and with every screen its own, the first screen drawing All Screens\' pane', house, !!house && Array.isArray(house.own) && house.own.length === 0);
       await shot(page, tag + '-settings-sidepane');
+      // A STATUS'S SETTINGS (2026-11-06): what it says, its rule in words (the Screensaver's Shows When), its sizes
+      cur = 'settings/screens/pane-status/sidepane/section/dashboard/1';
+      await page.goto(input.origin + '/settings#/screens/pane-status/sidepane/section/dashboard/1');
+      await page.waitForTimeout(5000);
+      const sset = await page.evaluate(() => {
+        const deep = (r) => [...r.querySelectorAll('*')].flatMap((e) => [e, ...(e.shadowRoot ? deep(e.shadowRoot) : [])]);
+        const all = deep(document), panel = all.find((e) => e.tagName === 'HK-SETTINGS-PANEL');
+        // (the words on the page: its text, never its style sheet's)
+        const words = (r) => [...r.childNodes].map((n) => n.nodeType === 3 ? n.data : n.nodeType === 1 && !/^(STYLE|SCRIPT)$/.test(n.tagName)
+          ? words(n) + (n.shadowRoot ? ' ' + words(n.shadowRoot) : '') : '').join(' ');
+        const body = panel && panel.shadowRoot ? words(panel.shadowRoot).replace(/\s+/g, ' ') : '';
+        const sizes = all.filter((e) => e.getAttribute && e.getAttribute('data-sk') === 'pane:sec:size').map((e) => e.textContent.replace(/\s+/g, ' '))[0] || '';
+        return { body, sizes };
+      });
+      want('Settings, a Status section: its entity, name, label, glyph and color, its rule in words, Tiny / Less / More', [sset.sizes, sset.body.slice(-1500)],
+           ['Entity', 'Name', 'Label', 'Glyph', 'Glyph Color', 'Show When', 'Shows when Mailbox Status is Mail Likely Delivered', 'When Tapped']
+             .every((w) => sset.body.indexOf(w) >= 0) && /Tiny/.test(sset.sizes) && /More/.test(sset.sizes) && !/Full/.test(sset.sizes));
+      await shot(page, tag + '-settings-status');
     }
     if (errors.length) fails.push(tag + ' page errors: ' + errors.join(' | '));
     await context.close();
