@@ -2201,6 +2201,7 @@
   var PAGER_DOT = 7;            // a dot, px (iOS's page control)
   var PAGER_PITCH = 16;         // dot to dot, px (iOS's: 7 px dots, 9 px apart)
   var PAGER_ROOM = 28;          // the plates' shadow room: as far as their shadows show
+  var PAGER_GUTTER = 10;        // the grid's gap when it gives none (--g-gap: hk-home-grid-view)
   var PAGER_SLOP = 8;           // px a finger moves before it is a drag (and which way)
   var PAGER_TURN = 0.2;         // of a page's width: a drag that far turns it
   var PAGER_FLICK = 0.3;        // px/ms: a flick that fast turns it, however short
@@ -2325,19 +2326,15 @@
       // its own -- it reaches over the blocks beside it; its pages do.
       return ':host{display:block;position:relative;height:100%}:host>div{height:100%}' +
         '.pager{position:relative;display:flex;flex-direction:column;height:100%}' +
-        // WHILE A PAGE MOVES the block clips at its own edge (clip, not
-        // clip-path: no backdrop root for the shared blur), and the block
-        // itself casts the plate's shadow the moving pages can't -- the
-        // same one, so nothing changes as the page starts or stops. See
-        // _moving().
-        '.pager.moving{overflow:clip;border-radius:' + C0.M.radius + '}' +
-        // (only what falls outside the block: a look's shadow may carry an
-        // inset highlight, which would draw across the gap between pages;
-        // a clip-path on this pseudo-element clips nothing else)
-        ':host([data-moving])::before{content:"";position:absolute;inset:0;pointer-events:none;border-radius:' + C0.M.radius + ';' +
-        'box-shadow:var(--hk-look-shadow, ' + v('glass-shadow-tall') + ');' +
-        'clip-path:polygon(evenodd,-60px -60px,calc(100% + 60px) -60px,calc(100% + 60px) calc(100% + 60px),-60px calc(100% + 60px),-60px -60px,' +
-        '0 0,0 100%,100% 100%,100% 0,0 0)}' +
+        // WHILE A PAGE MOVES it is a whole block (its corners, rim, shadow),
+        // cut off halfway into the gutter beside the block (.win: half the
+        // grid's --g-gap each side), never over the blocks beside it. Cut at
+        // the block's edge, a frame stayed put as the pages slid through it
+        // (the owner, 2026-11-06: "the whole block should move"). Sideways
+        // only, and clip, not clip-path: no backdrop root for the shared blur.
+        '.win{position:relative;flex:1 1 auto;min-height:0;display:flex;flex-direction:column;' +
+        'margin:0 calc(var(--g-gap, ' + PAGER_GUTTER + 'px) / -2);padding:0 calc(var(--g-gap, ' + PAGER_GUTTER + 'px) / 2)}' +
+        '.pager.moving .win{overflow-x:clip;overflow-y:visible}' +
         '.track{flex:1 1 auto;min-height:0;display:flex;gap:' + (2 * S) + 'px;margin:-' + S + 'px -' + S + 'px -' + S + 'px;' +
         // STILL A SIDEWAYS SCROLLER (overflow-x auto), though no finger
         // scrolls it (its pages say pan-y; the pager sets scrollLeft): the
@@ -2481,11 +2478,15 @@
         pc.appendChild(b);
         return b;
       });
-      pager.appendChild(track);
+      var win = document.createElement('div');
+      win.className = 'win';
+      win.appendChild(track);
+      pager.appendChild(win);
       pager.appendChild(dots);
       pager.appendChild(say);
       root.appendChild(pager);
       this._track = track;
+      this._pager = pager;
       this._say = say;
       this._wireTrack(track, pager);
       if (this._ro) { this._ro.disconnect(); if (this.isConnected) this._ro.observe(track); }
@@ -2603,14 +2604,13 @@
       }, true);
     }
     // WHILE A PAGE MOVES -- a drag, its slide home, a dot's or the wheel's
-    // turn -- the block clips at its own edge: the track reaches PAGER_ROOM
-    // past the block for the plates' shadows at rest, and a page passing
-    // through that reach slid over the blocks beside it (the owner,
-    // 2026-10-24); clipped only at the sides, the shadow under the block
-    // had hard ends. The clip lets go once the track has been still a
-    // moment and nobody is holding it.
+    // turn -- the pages are cut off in the gutter beside the block (.win in
+    // the CSS above): the track reaches PAGER_ROOM past the block for the
+    // plates' shadows at rest, and a page passing through that reach slid
+    // over the blocks beside it (the owner, 2026-10-24). The clip lets go
+    // once the track has been still a moment and nobody is holding it.
     _moving() {
-      var pager = this._track && this._track.parentNode, self = this;
+      var pager = this._track && this._pager, self = this;
       if (!pager) return;
       pager.classList.add('moving');
       this.setAttribute('data-moving', '');
@@ -2772,7 +2772,7 @@
       if (this._offMusic) { this._offMusic(); this._offMusic = null; }
       if (this._ro) this._ro.disconnect();
       clearTimeout(this._stillT);
-      if (this._track && this._track.parentNode) this._track.parentNode.classList.remove('moving');
+      if (this._pager) this._pager.classList.remove('moving');
       this.removeAttribute('data-moving');
       var I = window.hkIdle;
       if (this._isAway && I && I.away) I.away(this._key, false);

@@ -138,6 +138,9 @@ under them. Only a block swipes, never the whole screen (whole-screen pages: not
   dial). The menu's edge swipe (`swipe`) keeps the left 20 px. Room cards in a pager use tap and press-and-hold
   for dimming, not horizontal sliders.
 - Dots are tappable (44 px targets), and a pager says "2 of 5" to VoiceOver.
+- **A page moves as a whole block** (2026-11-06): its corners, rim and shadow go with it, the next page a gap
+  behind. While pages move they are cut off halfway into the gutter beside the block, never at the block's own edge
+  and never over the blocks beside it. `tools/headless/pager_edges_check.py` holds a swipe in WebKit in each look.
 
 ## The cards
 

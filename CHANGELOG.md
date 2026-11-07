@@ -5,6 +5,7 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 ## Unreleased
 
 **Fixed**
+- **A Home Grid block that swipes moves as a whole block.** Each page keeps its own corners, rim and shadow as it slides, and is cut off only in the gutter beside the block. Before, the block's outline stayed put while its pages slid through it, cut off at its edges, with the background showing between them. This applies in every look, Bright Glass included.
 - **A stereo pair is one speaker on the generated dashboards.** Two speakers made one room in Music settings show as one tile under the pair's name, on Home, the room's page and a Home Grid room block, and the room's status counts one speaker. Before, both halves showed, as "Left HomePod" and "Right HomePod".
 - **Speakers and Browse open again on the screensaver's music slide.** The panel no longer closes the moment it opens: lifting the finger from the button no longer counts as a second tap.
 - **Speakers and Browse turn over smoothly.** The Now Playing block, the screensaver and the Side Pane run both halves of the turn on one schedule, and the panel is painted before it moves. The block no longer reappears flat for a moment while the panel turns in.

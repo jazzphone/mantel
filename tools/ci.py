@@ -307,6 +307,9 @@ def steps(build: Build | None = None, parts: dict[str, int] | None = None) -> li
     out += [Step(f"swipe-motion-check-{e}-{z}", [py, "tools/headless/swipe_motion_check.py", "--engine", e, "--size", z], tier="full",
                  timeout=900, skip=playwright_missing, **check_inputs("tools/headless/swipe_motion_check.py", e))
             for e, sizes in SWIPE_MOTION.items() for z in sizes]
+    # a Home Grid block that swipes moves as a whole block, cut off in its gutter, in WebKit in four looks (2026-11-06)
+    out.append(Step("pager-edges-check", [py, "tools/headless/pager_edges_check.py"], tier="full", timeout=600,
+                    skip=playwright_missing, **check_inputs("tools/headless/pager_edges_check.py")))
     # the screensaver's HomeView-style faces and Time Behind in WebKit, a tablet either way and a phone (2026-10-30)
     out.append(Step("saver-faces-check", [py, "tools/headless/saver_faces_check.py"], tier="full", timeout=600,
                     skip=playwright_missing, **check_inputs("tools/headless/saver_faces_check.py")))
