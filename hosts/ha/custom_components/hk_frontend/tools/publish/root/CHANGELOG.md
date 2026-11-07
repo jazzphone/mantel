@@ -5,6 +5,8 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+## 1.48.0 - 2026-11-07
+
 **Added**
 - **Saved screensaver designs.** Browse designs by swiping, keep up to twelve named designs, duplicate or remove one, and customize its face, background, widgets and options. **All Screens** supplies the shared designs and saved default; saving on an individual screen makes an independent copy. Hold a quiet part of a running screensaver to choose a design on that device.
 - **Ten new clock faces:** Solar Dial, Prism, World, Hotel, Terminal, Atelier, Meridian, Markets, Daily Brief and Modular.
