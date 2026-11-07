@@ -1051,7 +1051,7 @@
       if (glass === 'frosted' || glass === 'tinted') cls.push(glass);
       // Bright Glass in any of its modes (2026-10-30)
       if (glass === 'bright' || glass === 'bright_pre' || glass === 'bright_each') cls.push('bright');
-      pinGlass(glass === 'blur_pre');
+      pinGlass(glass === 'blur_pre' ? 'blur' : glass === 'bright_pre' ? 'bright' : null, dock);
       var tabAt = typeof M.tab === 'function' ? M.tab() : (style === 'tab' ? 'always' : 'never');
       // a menu docking by itself appears where it belongs (settle)
       if (dock && !S.wasDock) settle();
@@ -1139,10 +1139,22 @@
     var PIN_TINTS = [['mat', 'linear-gradient(rgba(28,28,32,0.52),rgba(28,28,32,0.52))'],
                      ['tab', 'linear-gradient(145deg,rgba(255,255,255,0.17),rgba(255,255,255,0.07)),linear-gradient(rgba(26,30,46,0.24),rgba(26,30,46,0.24))'],
                      ['fab', 'linear-gradient(145deg,rgba(255,255,255,0.16),rgba(255,255,255,0.07))']];
-    function pinGlass(on) {
+    // ...AND IN BRIGHT GLASS (Pre-rendered, 2026-11-07): the same picture,
+    // painted with the look's own light blur (--hk-blur-filter), under the
+    // Bright wash and Dim (.root.bright .mat, .tab, .fab above) -- the docked
+    // panel only: over the page (not docked) it blurs the cards beneath it
+    // (34 px), which a picture of the sky cannot show, so it stays live
+    var BRIGHT_TINTS = [['mat', 'var(--hk-bright-shade,linear-gradient(transparent,transparent)),linear-gradient(150deg,rgba(255,255,255,0.30),rgba(255,255,255,0.14))', true],
+                        ['tab', 'var(--hk-chip-plate)'], ['fab', 'var(--hk-chip-plate)']];
+    // `mode`: 'blur' (Blur's Pre-rendered), 'bright' (Bright Glass's), or none
+    function pinGlass(mode, dock) {
       var G = window.hkGlass;
       if (!G || !G.pin) return;
-      PIN_TINTS.forEach(function (p) { if (S[p[0]]) { if (on) G.pin(S[p[0]], p[1]); else G.unpin(S[p[0]]); } });
+      var list = mode === 'bright' ? BRIGHT_TINTS : PIN_TINTS;
+      list.forEach(function (p) {
+        if (!S[p[0]]) return;
+        if (mode && !(p[2] && !dock)) G.pin(S[p[0]], p[1]); else G.unpin(S[p[0]]);
+      });
     }
     function paintNow() {
       if (!S.root) return;

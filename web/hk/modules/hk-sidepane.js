@@ -2311,6 +2311,11 @@
   // Pre-rendered, hk-glass.js PINNED) it wears its slice of it under the
   // menu's tint instead of blurring the moving sky live.
   var PIN_TINT = 'linear-gradient(rgba(28,28,32,0.52),rgba(28,28,32,0.52))';
+  // ...AND IN BRIGHT GLASS (Pre-rendered, 2026-11-07): the same picture,
+  // painted with the look's own light blur (--hk-blur-filter: the pane's
+  // 4 px), under the pane's Bright wash; its Dim is its own ::before, over
+  // either. The pane is the biggest live blur on a wall tablet.
+  var PIN_BRIGHT = 'linear-gradient(150deg,rgba(255,255,255,0.30),rgba(255,255,255,0.14))';
   function lookOf(g) {
     if (g === 'frosted' || g === 'tinted' || g === 'flat') return g;
     if (g === 'bright' || g === 'bright_pre' || g === 'bright_each') return 'bright';
@@ -2333,7 +2338,7 @@
     else { el.removeAttribute('dim'); el.style.removeProperty('--pane-dim'); }
     var G = window.hkGlass, pane = el.shadowRoot && el.shadowRoot.querySelector('.pane');
     if (!G || !G.pin || !pane) return;
-    if (up && g === 'blur_pre') G.pin(pane, PIN_TINT); else G.unpin(pane);
+    if (up && g === 'blur_pre') G.pin(pane, PIN_TINT); else if (up && g === 'bright_pre') G.pin(pane, PIN_BRIGHT); else G.unpin(pane);
   }
   // at most once a frame, and again each second while it is up (the clock,
   // a countdown, a grace running out)

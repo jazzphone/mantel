@@ -806,11 +806,19 @@
     // of it under their own tints instead of blurring the moving sky live
     var BAR_TINT = 'linear-gradient(145deg,rgba(255,255,255,0.12),rgba(255,255,255,0.04)),linear-gradient(rgba(28,28,32,0.52),rgba(28,28,32,0.52))';
     var SHEET_TINT = 'linear-gradient(145deg,rgba(255,255,255,0.10),rgba(255,255,255,0.03)),linear-gradient(rgba(28,28,32,0.52),rgba(28,28,32,0.52))';
-    function pinGlass(on) {
+    // ...AND IN BRIGHT GLASS (Pre-rendered, 2026-11-07): the bar and its rooms
+    // button wear the same picture -- painted with the look's own light blur
+    // (--hk-blur-filter), the bar's -- under the bar's Bright wash and Dim
+    // (.bright .g above). Its sheets keep their live 34 px blur: open, they
+    // lie over the page's cards, which a picture of the sky cannot show.
+    var BRIGHT_TINT = 'var(--hk-bright-shade,linear-gradient(transparent,transparent)),linear-gradient(150deg,rgba(255,255,255,0.24),rgba(255,255,255,0.10)),linear-gradient(rgba(14,18,30,0.30),rgba(14,18,30,0.30))';
+    // `mode`: 'blur' (Blur's Pre-rendered), 'bright' (Bright Glass's), or none
+    function pinGlass(mode) {
       var G = window.hkGlass;
       if (!G || !G.pin) return;
-      [[S.pill, BAR_TINT], [S.roomsBtn, BAR_TINT], [S.sheets && S.sheets.more, SHEET_TINT], [S.sheets && S.sheets.rooms, SHEET_TINT]].forEach(function (p) {
-        if (p[0]) { if (on) G.pin(p[0], p[1]); else G.unpin(p[0]); }
+      var bar = mode === 'bright' ? BRIGHT_TINT : mode === 'blur' ? BAR_TINT : null, sheet = mode === 'blur' ? SHEET_TINT : null;
+      [[S.pill, bar], [S.roomsBtn, bar], [S.sheets && S.sheets.more, sheet], [S.sheets && S.sheets.rooms, sheet]].forEach(function (p) {
+        if (p[0]) { if (p[1]) G.pin(p[0], p[1]); else G.unpin(p[0]); }
       });
     }
 
@@ -1538,7 +1546,7 @@
       var b = M.board() || {};
       var look = document.documentElement.getAttribute('data-hk-glass');
       var mat = material(b.tab_bar_glass, look);
-      pinGlass(mat === 'blur' && look === 'blur_pre');
+      pinGlass(mat === 'blur' && look === 'blur_pre' ? 'blur' : mat === 'bright' && look === 'bright_pre' ? 'bright' : null);
       var a = typeof M.accent === 'function' ? M.accent() : null;
       if (a) {
         S.host.style.setProperty('--hk-accent', a.color); S.host.style.setProperty('--hk-on-accent', a.on);

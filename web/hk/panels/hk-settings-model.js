@@ -279,7 +279,7 @@
   ];
   var BLUR_MODES = [
     ['blur', 'Shared Layer', 'Live: the sky blurs as it moves, one blur for the whole page. Fine on wall tablets — but while the sky moves, the device blurs it again on every frame.'],
-    ['blur_pre', 'Pre-rendered (Experimental)', 'Experimental: it can still trail or miss a change now and then. A picture of the sky, blurred once and painted again as the sky changes. The lightest blur, and the smoothest scrolling on a wall tablet. Drifting clouds catch up every 2 seconds and the light within a minute; rain, snow and a passing flock don’t show through the glass.'],
+    ['blur_pre', 'Pre-rendered (Experimental)', 'Experimental: it can still trail or miss a change now and then. A picture of the sky, blurred once and painted again as the sky changes. The lightest blur, and the smoothest scrolling on a wall tablet: the cards, the tab bar, a docked menu and the Side Pane all wear it. While clouds or a moving wallpaper drift, a new picture fades in every 2 seconds, never while you touch or scroll; the light catches up within a minute. Sheets and menus open over the page still blur live. Rain, snow, meteors and a passing flock don’t show through the glass.'],
     ['blur_each', 'Each Card', 'Live: every card blurs what’s behind it, so a sheet or a scrolling row never leaves its frost behind. The heaviest — for phones, iPads and computers, not wall tablets.']
   ];
   // ...and Bright Glass's, the same three by their own stored values

@@ -16,7 +16,19 @@ function state() {
   return { url: pre ? pre.url : null, at: pre ? pre.at : 0, drifting: !!(S && S.drifting && S.drifting()),
            wm: S && S.element && S.element() ? S.element().getAttribute('data-wm') : null,
            layers: imgs.length, layersNewest: imgs.length > 0 && !!pre && imgs.every((srcs) => srcs.indexOf(pre.url) >= 0),
-           bar: pill ? (pill.style.background || '').indexOf(pre && pre.url) >= 0 : null };
+           bar: pill ? (pill.style.background || '').indexOf(pre && pre.url) >= 0 : null,
+           surfaces: surfaces(pre && pre.url) };
+  // the persistent surfaces: wearing the newest picture, and no live blur left on them
+  function surfaces(url) {
+    const side = document.querySelector('hk-side-pane[mode="dash"]'), pane = side && side.shadowRoot && side.shadowRoot.querySelector('.pane');
+    const menu = deep(document, '#hk-menu')[0], mat = menu && menu.shadowRoot && menu.shadowRoot.querySelector('.mat');
+    const seen = window.__pgmSeen = window.__pgmSeen || [];
+    if (url && seen[seen.length - 1] !== url) seen.push(url);
+    const prev = seen[seen.length - 2];
+    const one = (el) => { if (!el) return null; const cs = getComputedStyle(el), bf = cs.webkitBackdropFilter || cs.backdropFilter || 'none', bg = el.style.background || '';
+                          return { newest: !!url && bg.indexOf(url) >= 0, recent: !!prev && bg.indexOf(prev) >= 0, live: bf !== 'none' }; };
+    return { pane: one(pane), menu: one(mat), bar: one(pill) };
+  }
 }
 // the picture's pixels, kept on the page under `key`; with `against`, how far they are from that one's (mean, max /255)
 async function pixels(page, key, against) {
@@ -62,13 +74,27 @@ async function motion(page, path, m) {
       const page = await ctx.newPage();
       const errors = []; page.on('pageerror', (e) => { if (!/^ResizeObserver loop/.test(e.message)) errors.push(e.message); });
       for (const s of input.screens) {
-        const tag = size + ' ' + s.glass + ' ' + s.wall;
+        // (a phone has no room for a Side Pane and docks no menu: there they are not up, or blur live over the page)
+        if (s.surface && width < 768) continue;
+        const tag = size + ' ' + s.glass + ' ' + s.wall + (s.surface ? ' ' + s.surface : '');
         await page.goto(input.origin + '/' + s.path + '/home');
         await page.waitForFunction(() => window.__mantelReady === true && !!window.hkWallpapers, null, { timeout: 30000 });
         await require('./grid_ready.cjs')(page);
         await page.waitForFunction(() => { const p = window.hkGlass && window.hkGlass._pre && window.hkGlass._pre.state(); return p && p.url; }, null, { timeout: 20000 });
         await sleep(1500);
+        if (input.shots) await page.screenshot({ path: input.shots + '/' + s.path + '-' + size + '.png' });
         const a = await page.evaluate(state);
+        if (s.surface) {
+          // (twice, a few seconds apart: each wears the picture of the moment, not the first one -- the newest or,
+          // as it fades in, the one before it)
+          const k = s.surface, what = k === 'pane' ? 'Side Pane' : 'docked menu';
+          for (const when of ['now', 'later']) {
+            if (when === 'later') await watch(page, 4500);
+            const f = (await page.evaluate(state)).surfaces[k];
+            say(f && (f.newest || f.recent) && !f.live, tag + ': the ' + what + ' wears the newest picture, no live blur (' + when + ')', f);
+          }
+          continue;
+        }
         say(a.wm === 'fast' && a.drifting, tag + ': the moving wallpaper reads as drifting', { wm: a.wm, drifting: a.drifting });
         await pixels(page, 'first');
         const n = await watch(page, 7000);
@@ -77,7 +103,7 @@ async function motion(page, path, m) {
         say(n >= 3, tag + ': a new picture every couple of seconds (7 s untouched)', { pictures: n });
         say(diff && diff.max >= 4, tag + ': ...and the newest differs from the first', diff);
         say(b.layers > 0 && b.layersNewest, tag + ': the cards\' glass wears the newest', { layers: b.layers, newest: b.layersNewest });
-        if (s.glass === 'blur_pre') say(b.bar === true, tag + ': ...and the tab bar its slice of it', { bar: b.bar });
+        say(b.surfaces.bar && (b.surfaces.bar.newest || b.surfaces.bar.recent) && !b.surfaces.bar.live, tag + ': ...and the tab bar its slice of it, no live blur', b.surfaces.bar);
         // MOTION OFF: painted again at once (the still frame), then left alone
         const before = (await page.evaluate(state)).url;
         await motion(page, s.path, 'off');
