@@ -300,6 +300,9 @@ def steps(build: Build | None = None, parts: dict[str, int] | None = None) -> li
     out += [Step(f"house-status-check-{e}-{p}", [py, "tools/headless/house_status_check.py", "--engine", e, "--only", p], tier="full",
                  timeout=900, skip=playwright_missing, **check_inputs("tools/headless/house_status_check.py", e))
             for e in ("webkit", "chromium") for p in ("blocks", "sheet")]
+    # Pre-rendered glass (Blur and Bright Glass) over a moving wallpaper, the real detector and painter (2026-11-07)
+    out.append(Step("pre-glass-motion-check", [py, "tools/headless/pre_glass_motion_check.py"], tier="full", timeout=600,
+                    skip=playwright_missing, **check_inputs("tools/headless/pre_glass_motion_check.py")))
     # the page beside the iPhone Duo's side strip, in WebKit (its insets stood in; 2026-10-30)
     out.append(Step("side-strip-check", [py, "tools/headless/side_strip_check.py"], tier="full", timeout=600,
                     skip=playwright_missing, **check_inputs("tools/headless/side_strip_check.py")))

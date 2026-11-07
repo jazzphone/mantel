@@ -6123,8 +6123,13 @@
     // (and the season's field, which paintSeason builds inside .season with no
     // class on the sky to say so: Decorations off emptied it and the pills
     // kept the decorated picture until their next timed repaint, 2026-10-13)
+    // (and a wallpaper's Motion and its speed, data-wm / data-ws, which no
+    // class says: turned on, off or faster, the glass over it is painted
+    // again at once -- the still frame where it stopped -- and follows it or
+    // stops following, 2026-11-07)
     return { big: String(el.className).replace(SKY_STATES, ' ').replace(/\s+/g, ' ').trim() + '|' + cloudsSig(el) +
-                  '|' + (el.style.getPropertyValue('--art') || '') + '|' + seasonSig(el),
+                  '|' + (el.style.getPropertyValue('--art') || '') + '|' + seasonSig(el) +
+                  '|' + (el.getAttribute('data-wm') || '') + ':' + (el.getAttribute('data-ws') || ''),
              small: el.getAttribute('style') || '' };
   }
   // THE SKY CHANGED (skySig, or the page): said once per change, not on every render -- Tint from Background follows
@@ -6201,17 +6206,34 @@
   // flicker, a twinkle, a sway, the rain and snow decks): a picture taken at
   // a random moment of a loop would make the glass pulse.
   var DRIFTS = ['hk-rc', 'hk-drift', 'hk-fwisp', 'near-wisp', 'near-aurora'];
+  // ...AND A WALLPAPER'S MOTION (2026-11-07): a drawn wallpaper sways,
+  // breathes, drifts or turns as a whole (hk-wall-*), a motion theme's
+  // layers sway, loop and tile (hk-wt-*; its meteors are MOVERS). Each is
+  // slow -- seconds to minutes one way -- so a picture every couple of
+  // seconds, faded into the last, follows it; the glass over a moving
+  // wallpaper kept its first picture for 30 s otherwise. A wallpaper's page
+  // is a `static` one (no weather): there only these count. A loop quicker
+  // than WALL_MIN_MS is left out, as the candle's flicker is above: a
+  // picture of it at a random moment would make the glass pulse.
+  var WALLS = ['hk-wall-', 'hk-wt-sway', 'hk-wt-loop', 'hk-wt-tile'], WALL_MIN_MS = 4000;
+  function slowEnough(an) {
+    var d = 0;
+    try { d = Number(an.effect && an.effect.getTiming ? an.effect.getTiming().duration : 0) || 0; } catch (e) { d = 0; }
+    return d >= WALL_MIN_MS;
+  }
   function drifting() {
     var el = mounted && mounted.isConnected ? mounted : null;
-    // (paused -- not on screen, the window not in focus, the kiosk's black,
-    // a still page -- is not drifting: nothing to follow)
-    if (!el || !el.getAnimations || /(^|\s)(static|noanim|hidden|held)(\s|$)/.test(el.className)) return false;
-    var list;
+    // (paused -- not on screen, the window not in focus, the kiosk's black
+    // -- is not drifting: nothing to follow)
+    if (!el || !el.getAnimations || /(^|\s)(noanim|hidden|held)(\s|$)/.test(el.className)) return false;
+    var still = /(^|\s)static(\s|$)/.test(el.className), list;
     try { list = el.getAnimations({ subtree: true }); } catch (e) { return false; }
     for (var i = 0; i < list.length; i++) {
-      var an = list[i], nm = String(an.animationName || '');
+      var an = list[i], nm = String(an.animationName || ''), j;
       if (an.playState !== 'running' || !nm) continue;
-      for (var j = 0; j < DRIFTS.length; j++) if (nm.indexOf(DRIFTS[j]) === 0) return true;
+      for (j = 0; j < WALLS.length; j++) if (nm.indexOf(WALLS[j]) === 0 && slowEnough(an)) return true;
+      if (still) continue;
+      for (j = 0; j < DRIFTS.length; j++) if (nm.indexOf(DRIFTS[j]) === 0) return true;
     }
     return false;
   }
