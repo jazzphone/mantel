@@ -421,9 +421,9 @@
   if (document.fonts && document.fonts.addEventListener) document.fonts.addEventListener('loadingdone', function () { cornerInk = {}; });
   function alignLeft(stack, scale) {
     if (!stack || !(scale > 0) || !document.createRange) return;
-    var left = stack.getBoundingClientRect().left;
+    var left = Math.round(stack.getBoundingClientRect().left);
     Array.prototype.forEach.call(stack.children, function (piece) {
-      piece.style.marginLeft = '';
+      var prior = parseFloat(piece.style.marginLeft) || 0;
       if (!piece.getBoundingClientRect().width) return;
       var il = piece.querySelector('.il'), first = il && il.firstElementChild, x = null;
       if (!first) return;
@@ -439,9 +439,10 @@
         range.setStart(t, 0); range.setEnd(t, ch.length);
         var r = range.getBoundingClientRect(), mt = cornerCtx.measureText(ch);
         // Tabular figures center a proportional glyph in its wider digit cell.
-        x = r.left + ((r.width / scale - mt.width) / 2 + glyphLeft(font, ch, parseFloat(cs.fontSize))) * scale;
+        var cell = /[0-9]/.test(ch) && /tabular-nums/.test(cs.fontVariantNumeric) ? (r.width / scale - mt.width) / 2 : 0;
+        x = r.left + (cell + glyphLeft(font, ch, parseFloat(cs.fontSize))) * scale;
       }
-      if (x !== null && isFinite(x)) piece.style.marginLeft = ((left - x) / scale).toFixed(3) + 'px';
+      if (x !== null && isFinite(x) && Math.abs((left - x) / scale) > 0.03) piece.style.marginLeft = (prior + (left - x) / scale).toFixed(3) + 'px';
     });
   }
 
