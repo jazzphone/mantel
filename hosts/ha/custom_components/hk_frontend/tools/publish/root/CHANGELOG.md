@@ -5,6 +5,8 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+## 1.48.1 - 2026-11-07
+
 **Added**
 - **A Now Playing page.** The screensaver’s interactive music slide is also a full-screen page, with time, date, weather and home status in the corners. Choose Now Playing under Swipe Right on Home to open it with a swipe; beside a Side Pane, Up Next appears beside the cover.
 - **House Status, a Home Grid block.** It shows the screen's status chips in HomeView's look: Climate, Timers, Power, Lights, Security and the rest, each with its reading and, at larger sizes, where and what. Each section opens its own page. "+N more" and the Small size open a House Status sheet with all of them, in two columns of panels on a tablet and in rows on a phone. It follows the screen's Status Chips (which chips, their order, Always or When Active) even when the chip row is hidden. Alerts come first, and a sensor that hasn't reported shows no reading rather than zero. Add it from Info in the Home Grid editor.
