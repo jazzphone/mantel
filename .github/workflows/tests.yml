@@ -49,6 +49,10 @@ jobs:
       - run: sed -e 's/ *\\$//' -e '/^ *--hash=/d' -e '/^ *#/d' packaging/docker/requirements.lock > "$RUNNER_TEMP/constraints.txt"
       - run: pip install -e '.[dev]' -c "$RUNNER_TEMP/constraints.txt"
       - run: python -m pytest -q -p no:cacheprovider
+        # (speed budgets are measured on the owner's Mac, by tools/ci.py and the pre-push hook; on a shared runner beside
+        # three other workers the timeline's write p95 once took 20.9 ms against 15 and failed 0.1.146's first run)
+        env:
+          MANTEL_SKIP_PERF: "1"
 
   home-assistant:
     name: HK Frontend and Mantel Link (Home Assistant test harness)

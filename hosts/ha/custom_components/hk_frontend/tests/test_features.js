@@ -36,9 +36,11 @@ ok('each feature says what it needs and where its settings are',
 var shellWas = root0().hkShell;
 function root0() { return typeof window !== 'undefined' ? window : globalThis; }
 root0().hkShell = Object.assign({}, shellWas || {}, { productName: function () { return 'Mantel'; } });
+// (noon on Nov 4 where the suite runs: the date is the viewer's own, and 15:00 UTC is already Nov 5 in Tokyo)
+var NOV4 = new Date(2026, 10, 4, 12).toISOString();
 ok('a feature Mantel turned on says when and why, in place of what it needs',
-   F.featureSub({ own: true, auto: { at: '2026-11-04T15:00:00+00:00', why: 'Music Assistant is connected.' } }, 'hk_music') ===
-   'Turned on by Mantel on Nov 4: Music Assistant is connected.', F.featureSub({ auto: { at: '2026-11-04T15:00:00+00:00', why: 'x' } }, 'hk_music'));
+   F.featureSub({ own: true, auto: { at: NOV4, why: 'Music Assistant is connected.' } }, 'hk_music') ===
+   'Turned on by Mantel on Nov 4: Music Assistant is connected.', F.featureSub({ auto: { at: NOV4, why: 'x' } }, 'hk_music'));
 ok('...without a readable date, just why',
    F.featureSub({ auto: { at: 'later', why: 'A vacuum has a map of the house’s rooms.' } }, 'hk_clean_areas') ===
    'Turned on by Mantel: A vacuum has a map of the house’s rooms.');

@@ -41,8 +41,11 @@ function statsFor(msg) {
     // The tile's own statistic ends the fortnight on 4.3 kWh; its peers on 2.3.
     var base = id === 'sensor.downstairs_ac_utility' ? 3 : 1, rows = [];
     // (each a calendar day from the start, not 24 h apart: across a change of the clocks -- 2026-11-01 -- a day is 23
-    // or 25 hours, and the fortnight's last row missed today's midnight)
-    for (var i = 0; i < 14; i++) { var d = new Date(t0); d.setDate(d.getDate() + i); rows.push({ start: d.getTime(), change: base + i / 10 }); }
+    // or 25 hours, and the fortnight's last row missed today's midnight. And calendar days in HOME ASSISTANT'S zone,
+    // as the recorder buckets them, not the machine's: stepped with setDate on a runner in UTC, the rows fell on UTC
+    // midnights, the last missed today's New York midnight, and the tile never got its kWh -- GitHub's Tests failed
+    // here from HK Frontend 1.35.0 to 1.48.0 while a Mac in New York passed)
+    for (var i = 0; i < 14; i++) rows.push({ start: window.hkStats.addDays(t0, i), change: base + i / 10 });
     out[id] = rows;
   });
   return out;
