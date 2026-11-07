@@ -114,7 +114,7 @@
         (isFlat() ? '<div class="mbgf"></div><div class="mbgf"></div>' : '<div class="mbgf"><canvas class="mbg"></canvas></div><div class="mbgf"><canvas class="mbg"></canvas></div>') + '<div class="mshade"></div>' +
         '<div class="mbody">' + (kind === 'slide' ? '<div class="mstage">' : '') + '<div class="mart"><div class="msq"><div class="mph">' + svg(ICON.note) + '</div>' +
         '<div class="mfr"><img alt=""></div><div class="mfr"><img alt=""></div></div></div>' +
-        '<div class="mcol">' + (kind === 'slide' ? '<div class="mmeta">' : '') + '<div class="mroom"></div><div class="mtitle"></div><div class="martist"></div><div class="malbum"></div>' + (kind === 'slide' ? '</div>' : '') +
+        '<div class="mcol">' + (kind === 'slide' ? '<div class="mmeta">' : '') + '<div class="mroom"></div><div class="mtitle"></div><div class="martist"></div><div class="malbum"></div>' + (kind === 'slide' ? '<div class="mq"></div></div>' : '') +
         '<div class="mprog"><div class="mbar"><i></i></div><div class="mtimes"><span></span><span></span></div></div>' +
         '<div class="mctl"><div class="mbtn mx" data-act="spk" aria-label="Speakers"><hk-icon icon="hk:homepod"></hk-icon></div>' +
         '<div class="mbtn" data-act="prev">' + svg(ICON.prev) + '</div><div class="mbtn mpp" data-act="pp">' +
@@ -128,7 +128,7 @@
                 bgf: el.querySelectorAll('.mbgf'), bg: /** @type {NodeListOf<HTMLCanvasElement>} */ (el.querySelectorAll('canvas.mbg')), fr: el.querySelectorAll('.mfr'),
                 room: q('.mroom'), title: q('.mtitle'), artist: q('.martist'), album: q('.malbum'),
                 bar: q('.mbar i'), t0: q('.mtimes span:first-child'), t1: q('.mtimes span:last-child'),
-                pp: q('.mpp path'), nextImg: q('.mnext img'), nextT: q('.mnt'), vt: q('.mvt') };
+                pp: q('.mpp path'), nextImg: q('.mnext img'), nextT: q('.mnt'), vt: q('.mvt'), mq: q('.mq') };
       v.bg.forEach(function (c) { c.width = MU_BG; c.height = MU_BG; });
       v.nextImg.onerror = function () {
         v.nextImg.style.visibility = 'hidden';
@@ -253,6 +253,7 @@
       if (v.pp.getAttribute('d') !== want) v.pp.setAttribute('d', want);
       var pic = idle ? '' : d.pic;
       if (pic !== v.pic) { v.pic = pic; showArt(v, pic); }
+      if (v.mq) drawQueueRows(v, d);
       var nx = !idle && (d.sample ? d.next : mus.next && mus.nextFor === sigOf(d) ? mus.next : null);
       // (asking: the last song's row keeps its place, unseen, until the answer)
       var wait = !nx && !idle && !!mus.nextBusy && !!v.hadNext;
@@ -298,6 +299,36 @@
       if (v.bar.style.transform !== tf) v.bar.style.transform = tf;
       setText(v.t0, mmss(t));
       setText(v.t1, mmss(d.dur));
+    }
+    // UP NEXT BESIDE THE COVER (2026-11-07, the owner: the queue "just where it makes sense when there is enough
+    // vertical room...like in the side pane"): the slide beside a pane (murow) lists the next songs under the song,
+    // in the room the cover leaves; a tap opens the panel's Queue. One ask per song (hk_music/queue), shared by the
+    // views; elsewhere the CSS hides the rows and Browse's panel has the queue.
+    var MQ_ROWS = 3;
+    function drawQueueRows(v, d) {
+      var sig = d && !d.idle && !d.sample ? sigOf(d) : '';
+      if (sig && mus.qFor !== sig) {
+        mus.qFor = sig; mus.q = null;
+        var h = clientNow();
+        if (h && h.callWS) {
+          h.callWS({ type: 'hk_music/queue', entity_id: d.key, limit: MQ_ROWS + 1 }).then(function (r) {
+            if (mus.qFor !== sig) return;
+            mus.q = r && r.ok && Array.isArray(r.items) ? r.items.slice(1, MQ_ROWS + 1) : [];
+            mus.views.forEach(function (w) { if (w.mq) drawQueueRows(w, w.d); });
+            if (K.layoutMusic) K.layoutMusic();
+          }, function () { if (mus.qFor === sig) mus.q = []; });
+        }
+      }
+      var items = sig && mus.qFor === sig && mus.q ? mus.q : [];
+      var key = items.map(function (it) { return it.id + '|' + it.title; }).join('/');
+      if (v.mqKey === key) return;
+      v.mqKey = key;
+      var esc = function (t) { return String(t || '').replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+      v.mq.innerHTML = !items.length ? '' : '<div class="mqh">Up Next</div>' + items.map(function (it) {
+        return '<div class="mbtn mqr" data-act="queue" aria-label="Queue: ' + esc(it.title) + '"><span class="mqt"' +
+          (it.image ? ' style="background-image:url(&quot;' + esc(it.image) + '&quot;)"' : '') + '></span><span class="mqx"><b>' + esc(it.title) +
+          '</b><small>' + esc(it.artist) + '</small></span></div>';
+      }).join('');
     }
     function sigOf(d) { return d && !d.idle ? d.key + '|' + d.title + '|' + d.artist : ''; }
     // (the layout's Up Next piece hears the slide's read: one ask per song, phase 13)
@@ -441,6 +472,13 @@
           });
           return excess;
         };
+        // (Up Next's rows beside the cover: as many as fit its height, none when none do -- drawQueueRows)
+        var qrows = v.el.querySelectorAll('.mqr'), meta = v.el.querySelector('.mmeta'), shown = qrows.length;
+        Array.prototype.forEach.call(qrows, function (q) { q.style.display = ''; });
+        v.mq.style.display = '';
+        while (shown && meta.getBoundingClientRect().height > a + 0.5) qrows[--shown].style.display = 'none';
+        if (!shown) v.mq.style.display = 'none';
+        setAttr(v.el, 'mqon', shown > 0);
         for (var r2 = 0; r2 <= 2; r2++) {
           v.el.setAttribute('tight', String(r2));
           if (rowOverflow() <= 1) break;

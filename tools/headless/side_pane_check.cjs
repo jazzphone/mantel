@@ -357,6 +357,14 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
         want('playing in ' + g + ' on the ' + side + ': the whole pane takes the album art', a, a && a.arted && (a.own === -1 || (a.nobg && a.own === 0)) &&
              (tinted ? a.tint && /^rgb\(/.test(a.tintColor) : !a.tint && a.worst >= 4.5));
         await shot(page, tag + '-playing-' + g + '-' + side);
+        // EVERY PLAYER'S LOOK (player_look.js): the music pane at Full -- no wells, the pause glyph's ink halfway
+        // between the progress bar and the volume's track
+        await page.evaluate(fs.readFileSync(__dirname + '/player_look.js', 'utf8'));
+        const look = await page.evaluate(() => {
+          const card = document.querySelector('hk-side-pane[mode="dash"]').shadowRoot.querySelector('hk-music-pane-card');
+          return card && card.shadowRoot ? playerLook(card.shadowRoot, { bar: '.mbar', pp: '.mpp svg', vol: '.mvt', buttons: '.mctl .mbtn' }) : null;
+        });
+        want('...its player bare, the pause halfway between the bars', look, !look || (!look.wells.length && (look.above === undefined || Math.abs(look.above - look.below) <= 3)));
         // STOPPED: paused through the house, past Hide After a Pause (made 0 here), Now Playing steps aside -- and
         // with it the art, back to the screen's glass
         await page.evaluate(() => {

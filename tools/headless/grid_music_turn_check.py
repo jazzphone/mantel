@@ -74,6 +74,15 @@ async def main():
                     for o in ('art', 'prev', 'play', 'next'):
                         assert apart(lay[k], lay[o]), (bid, k, o, lay)
                 assert apart(lay['spk'], lay['brw']), (bid, lay)
+            # EVERY PLAYER'S LOOK (player_look.js): no wells behind the buttons; on Tall and Large the progress bar and
+            # the volume's track as far from the pause glyph's ink
+            await b.eval((ROOT / 'tools/headless/player_look.js').read_text())
+            for bid in ('w', 't', 'l'):
+                look = await b.eval("playerLook(np('" + bid + "').shadowRoot,{bar:'.prog-track',pp:'.play hk-icon',vol:'.range-wrap input',buttons:'.tb'})")
+                assert not look['wells'], (bid, look)
+                if bid != 'w':
+                    assert 'above' in look and abs(look['above'] - look['below']) <= 3, (bid, look)
+                print(f"  {bid}: no wells" + (f", {look['above']} px above the pause, {look['below']} below" if 'above' in look else ''))
             # music playing: Speakers can be tapped
             assert not await b.eval("np('l').shadowRoot.querySelector('.spk').classList.contains('dis')")
             if args.shots:

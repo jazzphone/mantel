@@ -6,8 +6,8 @@ new title; between pushes the card moves its own bar and time. In WebKit and Chr
 
   flicker     the time and the progress bar are seen to move and the card to draw again, and through all of it the blurred
               cover stays one element, untouched, on a layer of its own (will-change: the docked bar's only in WebKit)
-  wells       the Speakers and Browse glyphs' ink centered in their round wells at every size (an inline icon sat on a
-              line of text, up to 1.7 px low)
+  wells       the Speakers and Browse glyphs' ink centered in their buttons at every size, nothing behind them (bare
+              since 2026-11-07; an inline icon sat on a line of text, up to 1.7 px low)
   background  Blurred Album is the default; Background: Card is the plate and the inks of the Music block beside it, its
               bar and time still moving, no cover decoded behind it -- on the house's look, and again on Flat Light
   pane        (Living Room leading Kitchen) the Side Pane's volume sets both rooms and shows their level; the music

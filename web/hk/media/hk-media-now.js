@@ -779,21 +779,21 @@
           // (T: Speakers and Browse stand at the volume's ends, its own speakers left out)
           ':host([size=T]) .np .vg{display:none}',
           ':host([size]) .np .tb{width:44px;height:44px;margin:0;align-self:center;justify-self:center;position:relative}',
-          ':host([size]) .np .tb hk-icon{width:26px;height:26px;--mdc-icon-size:26px}',
-          ':host([size]) .np .play hk-icon{width:34px;height:34px;--mdc-icon-size:34px}',
+          ':host([size]) .np .tb hk-icon{width:30px;height:30px;--mdc-icon-size:30px}',
+          ':host([size]) .np .play hk-icon{width:40px;height:40px;--mdc-icon-size:40px}',
           // SPEAKERS AND BROWSE (2026-10-27): either side of the transport, as on
-          // the screensaver's pane, each on a quiet round well (Music's widget,
-          // 2026-10-31); each turns the card over (_turn)
-          ':host([size]) .np .spk,:host([size]) .np .brw{display:flex;grid-area:spk;color:#fff}',
+          // the screensaver's pane; each turns the card over (_turn). Bare, as every
+          // player's buttons (2026-11-07, the owner: "do we need the wells (circles)
+          // behind the icons? ... I think it looks better without them"), lighter
+          // than the transport so play / pause stays the main thing
+          ':host([size]) .np .spk,:host([size]) .np .brw{display:flex;grid-area:spk;color:rgba(255,255,255,.75)}',
           ':host([size]) .np .brw{grid-area:brw}',
-          ':host([size]) .np .spk::before,:host([size]) .np .brw::before{content:"";position:absolute;left:50%;top:50%;width:var(--np-well,34px);height:var(--np-well,34px);',
-          '  border-radius:50%;background:rgba(255,255,255,.16);transform:translate(-50%,-50%)}',
           // (display:flex: an inline hk-icon draws its glyph on a line of text, below the middle by as much as the
           // size's font sets -- 1 to 2 px low in the well on Small, Wide and Tall, 2026-11-05, the owner)
           ':host([size]) .np .spk hk-icon,:host([size]) .np .brw svg{position:relative}',
           ':host([size]) .np .spk hk-icon{display:flex;align-items:center;justify-content:center}',
-          ':host([size]) .np .spk hk-icon{width:20px;height:20px;--mdc-icon-size:20px;color:#fff}',
-          ':host([size]) .np .brw svg{width:19px;height:19px}',
+          ':host([size]) .np .spk hk-icon{width:24px;height:24px;--mdc-icon-size:24px;color:inherit}',
+          ':host([size]) .np .brw svg{width:23px;height:23px}',
           // (nothing plays: no rooms to move -- Browse still starts something)
           ':host([size]) .np .spk.dis{opacity:.35;pointer-events:none}',
           // S: the cover in the corner, Speakers in the other; the song; back,
@@ -809,9 +809,9 @@
           ':host([size=S]) .np .brw{display:none}',
           ':host([size=S]) .np .spk{align-self:start;justify-self:end;margin:-5px -5px 0 0}',
           ':host([size=S]) .np .prev{justify-self:start;margin-left:-10px}:host([size=S]) .np .next{justify-self:end;margin-right:-10px}',
-          ':host([size=S]) .np .tb hk-icon{width:24px;height:24px;--mdc-icon-size:24px}',
-          ':host([size=S]) .np .play hk-icon{width:30px;height:30px;--mdc-icon-size:30px}',
-          ':host([size=S]) .np .spk hk-icon{width:20px;height:20px;--mdc-icon-size:20px}',
+          ':host([size=S]) .np .tb hk-icon{width:28px;height:28px;--mdc-icon-size:28px}',
+          ':host([size=S]) .np .play hk-icon{width:36px;height:36px;--mdc-icon-size:36px}',
+          ':host([size=S]) .np .spk hk-icon{width:24px;height:24px;--mdc-icon-size:24px}',
           '@container hk-cell (max-height:179px){:host([size=S]) hk-plate.np{--np-art:min(64px, ' + NP_H + ' - 76px)}:host([size=S]) .np .artist{display:none}}',
           // W: the cover as tall as the block, or as wide as five 44 px controls
           // leave it; the song at its top, the transport and the volume at its
@@ -829,35 +829,41 @@
           // mini player's line (2026-10-31): five across left each 32 px, and
           // three keys over two at the volume's ends keep every one 44
           ':host([size=T]) hk-plate.np{--hk-np-pad:' + NP_PAD.t + ' ' + NP_PAD.r + ' calc(' + NP_PAD.b + ' + 6px) ' + NP_PAD.l + ';',
-          '  --np-art:min(' + NP_W + ', ' + NP_H + ' - 212px);',
+          '  --np-art:min(' + NP_W + ', ' + NP_H + ' - 218px);',
           '  --hk-np-cols:44px minmax(0,1fr) 44px minmax(0,1fr) 44px;',
           '  --hk-np-areas:"art art art art art" "lab lab lab lab lab" "title title title title title" "artist artist artist artist artist" ". . . . ." "sub sub sub sub sub" "prev . play . next" "spk meta meta meta brw";',
-          '  --hk-np-rows:calc(var(--np-art) + 12px) min-content min-content min-content minmax(0,1fr) min-content 44px var(--np-vol,44px)}',
+          '  --hk-np-rows:calc(var(--np-art) + 12px) min-content min-content min-content minmax(0,1fr) min-content 50px var(--np-vol,44px)}',
+          // (the transport at the top of a row 6 px taller: the volume's track as far under the pause glyph's ink as the
+          // progress bar is over it, 2026-11-07 -- player_look.js)
+          ':host([size=T]) .np .prev,:host([size=T]) .np .play,:host([size=T]) .np .next{align-self:start}',
           ':host([size=T]) .np .grid{column-gap:0;row-gap:0}',
           ':host([size=T]) .np .art{justify-self:start;align-self:start}',
-          ':host([size=T]) .np .tb{width:44px;--np-well:30px}',
+          ':host([size=T]) .np .tb{width:44px}',
           ':host([size=T]) .np .spk{justify-self:start}:host([size=T]) .np .brw{justify-self:end}',
-          ':host([size=T]) .np .tb hk-icon{width:24px;height:24px;--mdc-icon-size:24px}',
-          ':host([size=T]) .np .play hk-icon{width:30px;height:30px;--mdc-icon-size:30px}',
-          ':host([size=T]) .np .spk hk-icon{width:18px;height:18px;--mdc-icon-size:18px}',
-          ':host([size=T]) .np .brw svg{width:17px;height:17px}',
+          ':host([size=T]) .np .tb hk-icon{width:28px;height:28px;--mdc-icon-size:28px}',
+          ':host([size=T]) .np .play hk-icon{width:36px;height:36px;--mdc-icon-size:36px}',
+          ':host([size=T]) .np .spk hk-icon{width:22px;height:22px;--mdc-icon-size:22px}',
+          ':host([size=T]) .np .brw svg{width:21px;height:21px}',
           ':host([size=T]) .np.tall .shade,:host([size=T]) .np .shade{background:linear-gradient(180deg,rgba(8,9,12,.10) 0%,rgba(8,9,12,.30) 45%,rgba(8,9,12,.74) 100%)}',
           '@container hk-cell (max-height:379px){:host([size=T]) hk-plate.np{--np-art:min(' + NP_W + ', ' + NP_H + ' - 190px)}:host([size=T]) .np .lab{display:none}}',
           // (L: the transport centred on the middle three tracks; the cover
           // spans the first two, so it is as wide as the gap beside them allows)
-          ':host([size=L]) hk-plate.np{--np-art:min(100cqh - 40px - 166px, (100cqw - 44px - 248px) / 2 + 78px);',
+          ':host([size=L]) hk-plate.np{--np-art:min(100cqh - 40px - 171px, (100cqw - 44px - 248px) / 2 + 78px);',
           '  --hk-np-cols:minmax(0,1fr) 64px 64px 64px minmax(0,1fr);',
           '  --hk-np-areas:"art art . . ." "art art lab lab lab" "art art title title title" "art art artist artist artist" "art art . . ." "sub sub sub sub sub" "spk prev play next brw" "meta meta meta meta meta";',
-          '  --hk-np-rows:minmax(0,1fr) min-content min-content min-content minmax(0,1fr) min-content 56px min-content}',
+          '  --hk-np-rows:minmax(0,1fr) min-content min-content min-content minmax(0,1fr) min-content 61px min-content}',
+          ':host([size=L]) .np .tb{align-self:start}',
+          // (Speakers' and Browse's ink in line with the progress bar's ends)
+          ':host([size=L]) .np .spk{justify-self:start;margin-left:-10px}:host([size=L]) .np .brw{justify-self:end;margin-right:-10px}',
           ':host([size]) .np .sub{align-self:end}:host([size=L]) .np .sub{padding-top:12px}:host([size=T]) .np .sub{padding-top:6px}',
           ':host([size=L]) .np .lab{padding-bottom:2px}',
           ':host([size=L]) .np .title{' + window.hkCards.typeCss('title') + ';line-height:27px}',
-          ':host([size=L]) .np .tb{width:56px;height:56px;--np-well:40px}',
+          ':host([size=L]) .np .tb{width:56px;height:56px}',
           ':host([size=L]) .np .spk,:host([size=L]) .np .brw{width:48px}',
-          ':host([size=L]) .np .tb hk-icon{width:32px;height:32px;--mdc-icon-size:32px}',
-          ':host([size=L]) .np .play hk-icon{width:44px;height:44px;--mdc-icon-size:44px}',
-          ':host([size=L]) .np .spk hk-icon{width:24px;height:24px;--mdc-icon-size:24px}',
-          ':host([size=L]) .np .brw svg{width:23px;height:23px}',
+          ':host([size=L]) .np .tb hk-icon{width:38px;height:38px;--mdc-icon-size:38px}',
+          ':host([size=L]) .np .play hk-icon{width:52px;height:52px;--mdc-icon-size:52px}',
+          ':host([size=L]) .np .spk hk-icon{width:28px;height:28px;--mdc-icon-size:28px}',
+          ':host([size=L]) .np .brw svg{width:27px;height:27px}',
           // IN A PAGER (hk-pager-card): its dots under the block's foot, so no
           // volume and no label
           ':host([size][data-grid-pager]) hk-plate.np{--hk-np-pad:20px 22px 44px;--np-vol:0px}',
@@ -867,17 +873,19 @@
           ':host([size=W][data-grid-pager]) .np .artist{display:none}',
           ':host([size=T][data-grid-pager]) hk-plate.np{--np-art:min(100cqw - 76px,100cqh - 174px)}',
           // BACKGROUND: CARD (2026-11-05, the owner): the plate every other block has, in the screen's look, and its inks --
-          // on a light look the player's white would be gone. No cover behind it, no wash; the wells and glyphs lose the
+          // on a light look the player's white would be gone. No cover behind it, no wash; the glyphs lose the
           // shadows that lifted them off a picture. (.plain.np and the size: past the rules above, whichever the block)
           'hk-plate.np.plain,:host([size]) hk-plate.np.plain{' + window.hkCards.plate('card') + '}',
+          // (the progress and volume bars, hk-control.js: white over the cover, as the screensaver's; the look's on the plate)
+          'hk-plate.np{--hk-media-ink:rgba(255,255,255,.92);--hk-media-track:rgba(255,255,255,.22)}',
+          'hk-plate.np.plain{--hk-media-ink:' + window.hkCards.v('ink') + ';--hk-media-track:' + window.hkCards.v('line-strong') + '}',
           '.np.plain .bg,.np.plain .shade{display:none}',
           '.np.plain .title{color:' + window.hkCards.v('ink') + '}',
           '.np.plain .artist,.np.plain .player,:host([size]) .np.plain .lab,:host([size]) .np.plain .vg{color:' + window.hkCards.v('ink-2') + '}',
           '.np.plain .art .none{background:' + window.hkCards.v('key') + ';color:' + window.hkCards.v('ink-2') + '}',
           '.np.plain .tb hk-icon,.np.plain .tb:active hk-icon,:host([size]) .np.plain .spk hk-icon{color:' + window.hkCards.v('ink') + ';filter:none}',
           '.np.plain .brw,:host([size]) .np.plain .spk,:host([size]) .np.plain .brw{color:' + window.hkCards.v('ink') + '}',
-          '.np.plain .brw svg{filter:none}',
-          ':host([size]) .np.plain .spk::before,:host([size]) .np.plain .brw::before{background:' + window.hkCards.v('key') + '}'
+          '.np.plain .brw svg{filter:none}'
         ].join('');
       }
 

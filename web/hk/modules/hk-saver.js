@@ -2942,7 +2942,7 @@
     if (hit && hit.vol) { volStart(hit, x); return; }
     var port = actionsNow(), d = hit && hit.view.d, act = hit && hit.btn.getAttribute('data-act');
     if (!port || !d || !d.key || !act) return;
-    if (act === 'spk' || act === 'brw') { panelFor(hit.view, act === 'spk' ? 'speakers' : 'browse'); return; }
+    if (act === 'spk' || act === 'brw' || act === 'queue') { panelFor(hit.view, act === 'spk' ? 'speakers' : act === 'queue' ? 'queue' : 'browse'); return; }
     var svc = act === 'prev' ? 'media_previous_track' : act === 'next' ? 'media_next_track'
             : !d.idle && d.playing ? 'media_pause' : 'media_play';
     try { port.callService('media_player', svc, { entity_id: d.key }); } catch (e) { /* offline */ }
@@ -4038,7 +4038,7 @@
     return {
       autoLayout: autoLayout, BAND_H: BAND_H, BAND_MAX: BAND_MAX, BAND_PAD: BAND_PAD, BAND_W: BAND_W,
       BAND_ZONE: BAND_ZONE, clock: clock, CROSSFADE_MS: CROSSFADE_MS, dashConf: dashConf,
-      DEFAULT_CARD_WIDTH: DEFAULT_CARD_WIDTH, EDGE: EDGE, FADE_BACK_MS: FADE_BACK_MS, layoutSoon: layoutSoon,
+      DEFAULT_CARD_WIDTH: DEFAULT_CARD_WIDTH, EDGE: EDGE, FADE_BACK_MS: FADE_BACK_MS, layoutMusic: layoutMusic, layoutSoon: layoutSoon,
       MU_ART_MS: MU_ART_MS, PANE_TOP: PANE_TOP, PANE_W: PANE_W, refresh: refresh, WAKE: WAKE, ZOOM: ZOOM
     };
   }

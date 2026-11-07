@@ -347,27 +347,32 @@
       // volume's bar --g below them. Both rows are as tall as their bar alone:
       // the times hang under the progress bar in that room, the volume's
       // icons and knob overflow its row evenly.
-      '.mctl{display:flex;flex-wrap:wrap;align-items:center;--g:calc(46px * var(--z));gap:var(--g) calc(22px * var(--z));margin-top:var(--g)}',
+      // BARE BUTTONS (2026-11-07, the owner: "do we need the wells (circles) behind the icons? ... looking at Apple's
+      // player, I think it looks better without them"): the glyphs bigger instead, each still its whole button to
+      // tap; spread across the column, Speakers' and Browse's ink in line with the bars' ends (the row's margin).
+      // --g plus the play/pause button's room round its ink (its box less the pause glyph's 14/24) is the even gap
+      // between the progress bar and that ink and between it and the volume bar (player_look_check.py measures it)
+      '.mctl{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;--g:calc(18px * var(--z));gap:var(--g) calc(22px * var(--z));',
+      '  margin:var(--g) calc(-10px * var(--z)) 0}',
       '.mbtn{flex:none;width:calc(60px * var(--z));height:calc(60px * var(--z));border-radius:50%;display:flex;align-items:center;',
-      '  justify-content:center;background:rgba(255,255,255,.14);transition:transform .15s ease,background-color .15s ease}',
-      '.mbtn svg{width:46%;height:46%;fill:#fff}',
-      '.mbtn.mpp{width:calc(76px * var(--z));height:calc(76px * var(--z));background:rgba(255,255,255,.92)}',
-      '.mbtn.mpp svg{fill:#111;width:42%;height:42%}',
-      '.mbtn.hit{transform:scale(.88);background:rgba(255,255,255,.32)}',
-      // SPEAKERS AND BROWSE either side of the transport (hk-saver-panel.js):
-      // outlined, lighter than it, so play / pause stays the main thing; lit
-      // while their panel is open
-      '.mbtn.mx{width:calc(48px * var(--z));height:calc(48px * var(--z));background:rgba(255,255,255,.06);box-shadow:inset 0 0 0 calc(1.5px * var(--z)) rgba(255,255,255,.30)}',
-      '.mbtn.mx svg{width:52%;height:52%}',
-      '.mbtn.mx hk-icon{--mdc-icon-size:calc(25px * var(--z));width:calc(25px * var(--z));height:calc(25px * var(--z));color:#fff;display:flex}',
+      '  justify-content:center;transition:transform .15s ease,opacity .15s ease}',
+      '.mbtn svg{width:76%;height:76%;fill:#fff}',
+      '.mbtn.mpp{width:calc(76px * var(--z));height:calc(76px * var(--z))}',
+      '.mbtn.mpp svg{width:84%;height:84%}',
+      '.mbtn.hit{transform:scale(.88);opacity:.6}',
+      // SPEAKERS AND BROWSE at the ends of the transport (hk-saver-panel.js):
+      // smaller and lighter than it, so play / pause stays the main thing; lit
+      // while their panel is open (the one well left: a button that is on)
+      '.mbtn.mx{width:calc(48px * var(--z));height:calc(48px * var(--z))}',
+      '.mbtn.mx svg{width:58%;height:58%;fill:rgba(255,255,255,.72)}',
+      '.mbtn.mx hk-icon{--mdc-icon-size:calc(28px * var(--z));width:calc(28px * var(--z));height:calc(28px * var(--z));color:rgba(255,255,255,.72);display:flex}',
       '.mbtn.mx.on{background:#fff;box-shadow:none}',
       '.mbtn.mx.on svg{fill:#111}',
       '.mbtn.mx.on hk-icon{color:#111}',
       '[nomx] .mbtn.mx{display:none}',
-      '.mbtn.mpp.hit{background:#fff}',
       '.mnext{display:flex;align-items:center;gap:calc(14px * var(--z));margin-top:calc(30px * var(--z));min-width:0}',
       // THE VOLUME beside the buttons (its own row in the pane)
-      '.mvol{flex:1 1 calc(170px * var(--z));height:calc(6px * var(--z));display:flex;align-items:center;gap:calc(12px * var(--z))}',
+      '.mvol{flex:1 0 100%;height:calc(6px * var(--z));display:flex;align-items:center;gap:calc(12px * var(--z));margin:0 calc(10px * var(--z))}',
       '.mvol svg{flex:none;width:calc(22px * var(--z));height:calc(22px * var(--z));fill:rgba(255,255,255,.72)}',
       '.mvt{position:relative;flex:1 1 auto;height:100%;border-radius:99px;background:rgba(255,255,255,.22)}',
       '.mvt i{position:absolute;left:0;top:0;bottom:0;width:calc(var(--v,0) * 100%);border-radius:99px;background:rgba(255,255,255,.92)}',
@@ -409,8 +414,7 @@
       // (what the Slides section leaves out of Music Full Screen: musicParts)
       '.mu.h-room .mroom,.mu.h-album .malbum,.mu.h-progress .mprog,.mu.h-buttons .mctl .mbtn,.mu.h-volume .mctl .mvol,.mu.h-next .mnext{display:none!important}',
       '.mu.h-buttons.h-volume .mctl{display:none!important}',
-      '@container (max-width:470px){.mu .mctl{justify-content:center;--g:calc(34px * var(--z));column-gap:calc(12px * var(--z))}.mu .mvol{flex-basis:100%}',
-      '  .mu .mbtn.mx{width:calc(44px * var(--z));height:calc(44px * var(--z))}}',
+      '@container (max-width:470px){.mu .mctl{column-gap:calc(8px * var(--z))}.mu .mbtn.mx{width:calc(44px * var(--z));height:calc(44px * var(--z))}}',
       '.mu[tight="2"] .mtitle{-webkit-line-clamp:1}',
       // UPRIGHT (a phone, an iPad upright; phase 13): the art centered under the slide corner, the song and its buttons in
       // one column under it, the buttons on one line, the volume under them -- an iPhone's Now Playing
@@ -418,8 +422,6 @@
       ':host([muup]) .mu .mbody{--a:min(84cqw,36cqh);--mg:4cqh}',
       ':host([muup]) .mu .mart{right:auto;left:calc(50cqw - var(--a) / 2);top:var(--hk-mu-top,12cqh)}',
       ':host([muup]) .mu .mcol{--cw:min(84cqw,max(var(--a),calc(380px * var(--z))));left:calc(50cqw - var(--cw) / 2);right:auto;width:var(--cw);bottom:auto;top:calc(var(--hk-mu-top,12cqh) + var(--a) + var(--mg))}',
-      ':host([muup]) .mu .mctl{justify-content:space-between;column-gap:0}',
-      ':host([muup]) .mu .mvol{flex-basis:100%}',
       // Beside a pane: a lower stage, the cover and the complete text block
       // sharing one row. The text's center follows the cover even when lines wrap
       // or optional fields disappear; progress and transport span both columns.
@@ -435,10 +437,20 @@
       ':host([murow]) .mu .martist{font-size:calc(25px * var(--z));margin-top:calc(10px * var(--z))}',
       ':host([murow]) .mu .malbum{font-size:calc(18px * var(--z));margin-top:calc(6px * var(--z))}',
       ':host([murow]) .mu .mprog{grid-column:1/-1;grid-row:3;margin-top:0}',
-      ':host([murow]) .mu .mctl{grid-column:1/-1;grid-row:4;display:grid;grid-template-columns:calc(44px * var(--z)) calc(60px * var(--z)) calc(76px * var(--z)) calc(60px * var(--z)) calc(44px * var(--z));',
-      '  justify-content:center;column-gap:calc(24px * var(--z));row-gap:calc(28px * var(--z));margin-top:calc(34px * var(--z))}',
-      ':host([murow]) .mu .mbtn.mx{width:calc(44px * var(--z));height:calc(44px * var(--z))}',
-      ':host([murow]) .mu .mvol{grid-column:1/-1;width:100%}',
+      ':host([murow]) .mu .mctl{grid-column:1/-1;grid-row:4}',
+      // (Up Next under the song, beside the cover: drawQueueRows; only here)
+      '.mq{display:none}',
+      ':host([murow]) .mu .mq:not(:empty){display:block;margin-top:calc(18px * var(--z))}',
+      '.mqh{font-size:calc(13px * var(--z));font-weight:600;opacity:.66;padding-bottom:calc(6px * var(--z))}',
+      '.mbtn.mqr{width:auto;height:auto;border-radius:0;justify-content:flex-start;gap:calc(12px * var(--z));padding:calc(7px * var(--z)) 0;',
+      '  box-shadow:0 -.5px 0 rgba(255,255,255,.14);text-align:left}',
+      '.mqt{flex:none;width:calc(40px * var(--z));height:calc(40px * var(--z));border-radius:calc(6px * var(--z));background:rgba(255,255,255,.10) center/cover}',
+      '.mqx{min-width:0;flex:1}',
+      '.mqx b,.mqx small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+      '.mqx b{font-size:calc(17px * var(--z));font-weight:600}',
+      '.mqx small{font-size:calc(14px * var(--z));opacity:.66}',
+      // (the next song is in the rows: no Up Next line under the buttons too)
+      ':host([murow]) .mu[mqon] .mnext{display:none}',
       ':host([murow]) .mu .mnext{grid-column:1/-1;grid-row:5;justify-content:center}',
       // what plays steps aside: the slide shows it big, the pane has it
       '.info > hk-screensaver-now-card{transition:opacity ' + CROSSFADE_MS + 'ms ease;will-change:opacity}',
@@ -462,11 +474,11 @@
       // SPREAD ACROSS THE SONG'S WIDTH (2026-11-06, the owner: "too close together ... spread out in the Full size like
       // they are on the More size"): Speakers and Browse at the progress bar's ends, the transport between; the gap a
       // floor where the pane is narrow
-      ':host(:not([pcal])) .pm .mctl{justify-content:space-between;--g:calc(36px * var(--z));column-gap:calc(22px * var(--z))}',
+      ':host(:not([pcal])) .pm .mctl{--g:calc(20px * var(--z))}',
       ':host(:not([pcal])) .pm .mbtn{width:calc(50px * var(--z));height:calc(50px * var(--z))}',
       ':host(:not([pcal])) .pm .mbtn.mpp{width:calc(62px * var(--z));height:calc(62px * var(--z))}',
       ':host(:not([pcal])) .pm .mbtn.mx,:host([pcal]) .pm .mbtn.mx{width:calc(42px * var(--z));height:calc(42px * var(--z))}',
-      '.pm .mbtn.mx hk-icon{--mdc-icon-size:calc(22px * var(--z));width:calc(22px * var(--z));height:calc(22px * var(--z))}',
+      '.pm .mbtn.mx hk-icon{--mdc-icon-size:calc(24px * var(--z));width:calc(24px * var(--z));height:calc(24px * var(--z))}',
       // (a narrow pane -- the band's sections, a 290 px strip: the five keep one
       // row, smaller and closer, rather than Browse dropping to a line of its
       // own, 2026-10-31)
@@ -498,9 +510,9 @@
       ':host([pcal]) .pm .malbum{font-size:calc(14px * var(--z));margin-top:calc(2px * var(--z))}',
       ':host([pcal]) .pm .mprog{margin-top:calc(18px * var(--z))}',
       ':host([pcal]) .pm .mtimes{font-size:calc(12px * var(--z))}',
-      ':host([pcal]) .pm .mctl{justify-content:space-between;--g:calc(34px * var(--z));column-gap:calc(20px * var(--z))}',
+      ':host([pcal]) .pm .mctl{--g:calc(20px * var(--z));column-gap:calc(20px * var(--z))}',
       // (without Speakers and Browse, the transport alone stays together in the middle)
-      '.pm[nomx] .mctl{justify-content:center!important}',
+      '[nomx] .mctl{justify-content:center!important}',
       ':host([pcal]) .pm .mvol{height:calc(5px * var(--z))}',
       ':host([pcal]) .pm .mvol svg{width:calc(18px * var(--z));height:calc(18px * var(--z))}',
       ':host([pcal]) .pm .mvt b{width:calc(16px * var(--z));height:calc(16px * var(--z));margin:calc(-8px * var(--z)) 0 0 calc(-8px * var(--z))}',

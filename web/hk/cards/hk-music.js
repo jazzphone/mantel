@@ -315,34 +315,33 @@
     '.prog .b{height:5px;border-radius:3px;background:' + window.hkCards.v('line-strong') + ';overflow:hidden}',
     '.prog .b i{display:block;height:100%;background:rgba(255,255,255,.92);transform-origin:0 50%;transform:scaleX(0)}',
     '.prog .t{display:flex;justify-content:space-between;font-size:12px;opacity:.6;margin-top:6px;font-variant-numeric:tabular-nums}',
-    // the transport across the column, room round each button
-    '.tr{display:flex;align-items:center;justify-content:space-between;margin-top:18px;padding:0 2px;flex:none}',
-    '.tr .p{width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background-color .15s}',
-    '.tr .p:active{background:' + window.hkCards.v('key-strong') + '}',
-    '.tr .p svg{width:30px;height:30px;fill:var(--hk-glyph,#fff)}',
-    '.tr .p.big svg{width:42px;height:42px}',
-    '.tr .x{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;',
-    '  box-shadow:inset 0 0 0 1.5px ' + window.hkCards.v('mark') + ';background:' + window.hkCards.v('key') + '}',
-    '.tr .x svg{width:21px;height:21px;fill:var(--hk-glyph,#fff)}',
-    '.tr .x hk-icon{--mdc-icon-size:22px;width:22px;height:22px;color:var(--hk-glyph,#fff);display:flex}',
+    // the transport across the column, Speakers' and Queue's ink in line with the bars' ends. BARE BUTTONS
+    // (2026-11-07, the owner: "do we need the wells (circles) behind the icons?"): bigger glyphs, a press dims
+    // one; the progress bar and the volume's track as far from the pause glyph's ink (player_look_check.py)
+    '.tr{display:flex;align-items:center;justify-content:space-between;margin:12px -9px 0;flex:none}',
+    '.tr .p{width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:opacity .15s}',
+    '.tr .p:active,.tr .x:active{opacity:.5}',
+    '.tr .p svg{width:36px;height:36px;fill:var(--hk-glyph,#fff)}',
+    '.tr .p.big svg{width:52px;height:52px}',
+    '.tr .x{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer}',
+    '.tr .x svg{width:25px;height:25px;fill:var(--hk-glyph,#fff);opacity:.75}',
+    '.tr .x hk-icon{--mdc-icon-size:26px;width:26px;height:26px;color:var(--hk-glyph,#fff);opacity:.75;display:flex}',
     '.tr .x.on{background:#fff;box-shadow:none}',
-    '.tr .x.on svg{fill:#1d1426}.tr .x.on hk-icon{color:#1d1426}',
+    '.tr .x.on svg{fill:#1d1426;opacity:1}.tr .x.on hk-icon{color:#1d1426;opacity:1}',
     '.tr .x.gone{visibility:hidden}',
-    // FLAT: the empty art and the Speakers and Queue buttons sit on the page
-    // itself, so they are raised as the playlist pills beside them are -- the
-    // cards' surface and their one contact shadow, no ring (DESIGN.md
-    // "Raised or set in"; the user, 2026-10-17: the stone and its ring read
-    // as another gray). Lit, a button stays white.
+    // FLAT: the empty art sits on the page itself, so it is raised as the
+    // playlist pills beside it are -- the cards' surface and their one contact
+    // shadow (DESIGN.md "Raised or set in"). Lit, a button stays white.
     ':host([hk-flat]) .art{background:' + window.hkCards.M.bg + '}',
-    ':host([hk-flat]) .tr .x:not(.on){background:' + window.hkCards.M.bg + ';box-shadow:var(--hk-look-shadow)}',
     ':host([hk-flat]) .tr .x.on{box-shadow:var(--hk-look-shadow)}',
     '.idle .tr .p:not(.big){opacity:.35;pointer-events:none}',
     '.vol{display:flex;align-items:center;gap:12px;margin-top:20px;flex:none;touch-action:none}',
     '.vol svg{width:18px;height:18px;fill:var(--hk-glyph,rgba(255,255,255,.7));flex:none}',
     '.vol .tk{position:relative;flex:1;height:30px;cursor:pointer}',
     '.vol .tk::before{content:"";position:absolute;left:0;right:0;top:12px;height:6px;border-radius:3px;background:' + window.hkCards.v('line-strong') + '}',
-    '.vol .tk i{position:absolute;left:0;top:12px;height:6px;width:calc(var(--v,0) * 100%);border-radius:3px;background:#c26df0}',
-    '.vol .tk b{position:absolute;top:3px;left:calc(var(--v,0) * 100%);width:24px;height:24px;margin-left:-12px;border-radius:50%;background:#fff;box-shadow:0 1px 6px rgba(0,0,0,.3)}',
+    // (the screensaver slide's volume, as every player's: the ink filled, not purple -- 2026-11-07, the owner)
+    '.vol .tk i{position:absolute;left:0;top:12px;height:6px;width:calc(var(--v,0) * 100%);border-radius:3px;background:var(--hk-glyph,rgba(255,255,255,.92))}',
+    '.vol .tk b{position:absolute;top:4px;left:calc(var(--v,0) * 100%);width:22px;height:22px;margin-left:-11px;border-radius:50%;background:#fff;box-shadow:0 1px 6px rgba(0,0,0,.3)}',
     '.idle .vol,[novol] .vol{visibility:hidden}',
     '.nx{display:flex;align-items:center;gap:12px;margin-top:16px;min-width:0;flex:none}',
     '.nx[hidden]{display:none}',
@@ -390,8 +389,9 @@
     '.mini .t small{display:block;font-size:13px;opacity:.72;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '.mini .pp{width:44px;height:44px;display:flex;align-items:center;justify-content:center;flex:none;cursor:pointer}',
     '.mini .pp svg{width:26px;height:26px;fill:var(--hk-glyph,#fff)}',
-    '.mini .rb{width:44px;height:44px;border-radius:50%;background:' + window.hkCards.v('key') + ';display:flex;align-items:center;justify-content:center;flex:none;cursor:pointer}',
-    '.mini .rb hk-icon{--mdc-icon-size:22px;width:22px;height:22px;color:var(--hk-glyph,#fff);display:flex}',
+    '.mini .rb{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:none;cursor:pointer}',
+    '.mini .rb:active{opacity:.5}',
+    '.mini .rb hk-icon{--mdc-icon-size:26px;width:26px;height:26px;color:var(--hk-glyph,#fff);display:flex}',
 
     // THE TOAST IS IN THE WINDOW, ABOVE THE TAB BAR. At the frame's foot it
     // was drawn behind a bar along the bottom (the frame runs on under the

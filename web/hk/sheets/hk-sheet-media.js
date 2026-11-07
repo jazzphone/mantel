@@ -16,10 +16,9 @@
     // ------------------------------------------------------------ media
     // THE PLAY MUSIC PAGE'S PLAYER: framed artwork, title, artist and album,
     // the "playing on" line, the progress bar, plain transport icons, and the
-    // thin volume slider in the playlist accent. A speaker adds Browse Music;
+    // thin volume slider, white as every player's. A speaker adds Browse Music;
     // a TV adds an Input list (same pattern as a light's effects) and a power
     // button.
-    var ACCENT = '#b25bd9';
     var MF = { PAUSE: 1, VOLUME_SET: 4, PREV: 16, NEXT: 32, VOLUME_STEP: 1024, PLAY: 16384 };
     function isTv(s) {
       var a = s.attributes || {}, oid = String(s.entity_id).split('.')[1] || '';
@@ -63,30 +62,32 @@
           '.pg i{display:block;height:100%;width:0;background:#fff;border-radius:2px}',
           '.tm{display:flex;justify-content:space-between;font-size:12px;color:' + window.hkCards.v('ink-2') + ';',
           '  margin-top:6px;font-variant-numeric:tabular-nums}',
-          '.tp{display:flex;justify-content:center;align-items:center;gap:44px}',
+          // THE TRANSPORT SPREAD under the song, bare (2026-11-07, the owner: every player as the Now Playing page's, "do we
+          // need the wells (circles) behind the icons? We could probably make the icons bigger"): a press dims a button
+          '.tp{display:flex;justify-content:space-around;align-items:center;margin-top:-10px}',
           '.tp button{width:52px;height:52px;border:0;border-radius:26px;background:transparent;color:#fff;',
-          '  display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0}',
-          '.tp button:active{background:rgba(255,255,255,0.12)}',
+          '  display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;transition:opacity .15s}',
+          '.tp button:active{opacity:.5}',
           '.tp button[disabled]{opacity:.3;cursor:default}',
           '.tp .pp{width:60px;height:60px;border-radius:30px}',
-          '.vol{position:relative;height:28px;touch-action:none;cursor:pointer;margin:0 2px}',
+          // (the volume between a small and a large speaker, as every player has it)
+          '.vw{display:flex;align-items:center;gap:10px}.vw[hidden]{display:none}.vw>hk-icon{flex:none;display:flex;color:' + window.hkCards.v('ink-2') + '}',
+          '.vol{position:relative;flex:1;min-width:0;height:28px;touch-action:none;cursor:pointer;margin:0 2px}',
           '.vol .t{position:absolute;left:0;right:0;top:11px;height:6px;border-radius:3px;background:rgba(255,255,255,0.28)}',
-          '.vol .f{position:absolute;left:0;top:11px;height:6px;border-radius:3px;background:' + ACCENT + '}',
-          '.vol .k{position:absolute;top:0;width:28px;height:28px;margin-left:-14px;border-radius:14px;background:#fff;',
+          // (the screensaver slide's volume, as every player's: white, not the accent -- 2026-11-07, the owner)
+          '.vol .f{position:absolute;left:0;top:11px;height:6px;border-radius:3px;background:#fff}',
+          '.vol .k{position:absolute;top:3px;width:22px;height:22px;margin-left:-11px;border-radius:11px;background:#fff;',
           '  box-shadow:0 1px 6px rgba(0,0,0,0.3)}',
           // a player that steps its volume but never reports a level (an Apple TV
           // driving the receiver): a slider could only guess, so down and up
           '.vst{display:flex;align-items:center;justify-content:center;gap:28px;height:44px}',
-          // THE VOLUME ROW SITS HALFWAY between the transport and the row under
-          // it, with equal space above and below. What is seen above it is the
-          // pause glyph's ink, which ends 15 px of empty button plus the glyph's
-          // own padding above the row's edge, so plain 12 px gaps read as 31
-          // above and 12 below. Up 8, 11 more below: 23 and 23, measured, for the
-          // slider and the +/- buttons; the play button's hit area still clears
-          // it by 4 px, and the tablet speaker sheet (Browse Music) keeps its
-          // 566 px body.
+          // THE PAUSE GLYPH'S INK HALFWAY between the progress bar and the volume's
+          // track (2026-11-07, the owner: the volume "appears too close to the play
+          // pause button"): the transport up 10 under the times, the volume row in
+          // its place -- 39 and 39, measured (player_look_check.py); 11 more under
+          // the volume, before the row under it
           '.vst{margin:-8px 0 11px}',
-          '.vol{margin:-8px 2px 11px}',
+          '.vw{margin:0 0 11px}',
           '.vst button{width:44px;height:44px;border-radius:22px;border:0;padding:0;display:flex;align-items:center;',
           '  justify-content:center;background:rgba(255,255,255,0.13);color:#fff;cursor:pointer}',
           '.vst button:active{background:rgba(255,255,255,0.24)}',
@@ -111,7 +112,7 @@
           '@media (max-width:' + C.BP.phone + 'px){',
           '  .pl{margin:0 8px}',
           '  .art{width:250px;height:250px}.art.tv{width:100%;height:auto}',
-          '  .tp{gap:30px}.list{max-height:340px}',
+          '  .list{max-height:340px}',
           '}',
           // (a small phone: the cover a step down, so the track, the transport and the volume fit under it)
           '@media (max-width:' + C.BP.phone + 'px) and (max-height:700px){.art{width:210px;height:210px}}',
@@ -132,8 +133,10 @@
           '  :host .pl > *{grid-column:2;min-width:0}',
           '  :host .pl > .art{grid-column:1;grid-row:1 / 10;width:var(--hk-short-h);height:var(--hk-short-h);align-self:center}',
           '  :host .pl > .art.tv{height:auto;aspect-ratio:16/9}',
-          '  :host .pl .tp{gap:28px}.tp button{width:48px;height:48px}.tp .pp{width:56px;height:56px}',
-          '  :host .pl .vol,:host .pl .vst{margin:-6px 2px 0}',
+          '  .tp button{width:48px;height:48px}.tp .pp{width:56px;height:56px}',
+          '  :host .pl .vw,:host .pl .vst{margin:0}',
+          // (a column as narrow as its Browse Music: no speakers beside the slider, its 120 px kept for a finger)
+          '  :host .pl .vw>hk-icon{display:none}',
           '}'
         ].join('');
       }
@@ -163,10 +166,10 @@
           '<div><div class="ti"></div><div class="ar"></div></div>' +
           '<div class="on"></div>' +
           '<div><div class="pg"><i></i></div><div class="tm"><span class="el"></span><span class="du"></span></div></div>' +
-          '<div class="tp"><button class="pv" aria-label="Previous">' + glyph('mdi:skip-previous', 30) + '</button>' +
+          '<div class="tp"><button class="pv" aria-label="Previous">' + glyph('mdi:skip-previous', 36) + '</button>' +
           '<button class="pp" aria-label="Play or pause"></button>' +
-          '<button class="nx" aria-label="Next">' + glyph('mdi:skip-next', 30) + '</button></div>' +
-          '<div class="vol" role="slider" aria-label="Volume" tabindex="0"><div class="t"></div><div class="f"></div><div class="k"></div></div>' +
+          '<button class="nx" aria-label="Next">' + glyph('mdi:skip-next', 36) + '</button></div>' +
+          '<div class="vw">' + glyph('mdi:volume-high', 15) + '<div class="vol" role="slider" aria-label="Volume" tabindex="0"><div class="t"></div><div class="f"></div><div class="k"></div></div>' + glyph('mdi:volume-high', 22) + '</div>' +
           '<div class="vst" hidden><button class="vd" aria-label="Volume down">' + glyph('mdi:volume-minus', 22) + '</button>' +
           '<span>Volume</span><button class="vu" aria-label="Volume up">' + glyph('mdi:volume-plus', 22) + '</button></div>' +
           '<div class="acts"></div></div></div>';
@@ -244,7 +247,7 @@
       _go(view) { this._view = view; this._built = false; this._render(); }
       _showVol(v) {
         this._e.vol.querySelector('.f').style.width = (v * 100) + '%';
-        this._e.vol.querySelector('.k').style.left = 'calc(14px + ' + (v * 100) + '% - ' + (v * 28) + 'px)';
+        this._e.vol.querySelector('.k').style.left = 'calc(11px + ' + (v * 100) + '% - ' + (v * 22) + 'px)';
         this._e.vol.setAttribute('aria-valuenow', String(Math.round(v * 100)));
       }
       _paint(s) {
@@ -287,7 +290,7 @@
           e.art.innerHTML = '';
           e.art.appendChild(box);
         }
-        e.pp.innerHTML = glyph(s.state === 'playing' ? 'mdi:pause' : 'mdi:play', 38);
+        e.pp.innerHTML = glyph(s.state === 'playing' ? 'mdi:pause' : 'mdi:play', 48);
         e.pp.disabled = off || !(f & (MF.PAUSE | MF.PLAY));
         e.pv.disabled = off || !(f & MF.PREV);
         e.nx.disabled = off || !(f & MF.NEXT);
@@ -295,10 +298,10 @@
         // OFF: no volume row at all. Hidden (visibility) it would keep its 28-44
         // px, and Prev / Play / Next would sit 27 px under the progress bar but
         // 83 over Input. Removed, the transport is centred.
-        e.vol.hidden = step || off;
+        e.vol.parentNode.hidden = step || off;
         e.vst.hidden = !step || off;
         e.vst.style.visibility = '';
-        e.vol.style.visibility = (f & MF.VOLUME_SET) && level ? '' : 'hidden';
+        e.vol.parentNode.style.visibility = (f & MF.VOLUME_SET) && level ? '' : 'hidden';
         if (!this._volDrag) this._showVol(num(a.volume_level) || 0);
         // an Apple TV's "input" is the app it is in
         if (e.inp) e.inp.querySelector('.cur').innerHTML = esc(a.source || a.app_name || '') + CHEV;

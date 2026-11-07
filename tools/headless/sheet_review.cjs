@@ -114,6 +114,17 @@ function openSheet(id) {
           await page.waitForTimeout(1300 + t * 800);
           m = await page.evaluate(measure);
         }
+        // A PLAYER (media, playing): every player's look (player_look.js) -- no wells, the pause glyph's ink halfway
+        // between the progress bar and the volume's track
+        if (m && /^media-playing/.test(name)) {
+          // (a function made here, not a script in the page: its CSP refuses those)
+          const look = new Function('o', 'const playerLook = ' + require('./player_look.js').toString() + ';' +
+            'const kids = (n) => [...n.children, ...(n.shadowRoot ? n.shadowRoot.children : [])];' +
+            'const all = (n) => kids(n).flatMap((e) => [e, ...all(e)]);' +
+            'const host = all(document.body).find((e) => e.classList && e.classList.contains("hkd") && e.classList.contains("open"));' +
+            'return playerLook(host, o);');
+          m.look = await page.evaluate(look, { bar: '.pg', pp: '.tp .pp hk-icon', vol: '.vol .t', buttons: '.tp button' });
+        }
         if (input.shots) await page.screenshot({ path: input.shots + '/' + size + '-' + name + '.png' });
         process.stdout.write(JSON.stringify({ size, name, m }) + '\n');
         await page.evaluate(() => window.hkDetail.close && window.hkDetail.close());

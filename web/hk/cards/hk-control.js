@@ -506,6 +506,20 @@ class HkControlCard extends HTMLElement {
          NO BACKTICKS IN HERE: this CSS is a template literal. */
       .media-bare.only-vol .range-wrap{margin-top:0}
       .media-bare.only-prog .prog-track{margin-top:0}
+      /* EVERY PLAYER'S BARS, as the screensaver's music slide draws them (2026-11-07, the owner: "use the progress and
+         volume sliders from the screensaver slides for the cards ... They don't need to be purple"): the ink on a quiet
+         track, not the accent; the volume's track 6 px under a 22 px knob. The player says which ink (--hk-media-ink:
+         white over its cover, the look's own on a plain card). NO BACKTICKS IN HERE. */
+      .media-bare .prog-fill{background:var(--hk-media-ink,${window.hkCards.v('ink')})}
+      .media-bare .prog-track{background:var(--hk-media-track,${window.hkCards.v('line-strong')})}
+      .media-bare input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:3px}
+      .media-bare input[type=range]::-moz-range-track{height:6px;border-radius:3px}
+      .media-bare input[type=range]::-webkit-slider-thumb{width:22px;height:22px;margin-top:-8px;box-shadow:0 1px 6px rgba(0,0,0,.3)}
+      .media-bare input[type=range]::-moz-range-thumb{width:22px;height:22px;box-shadow:0 1px 6px rgba(0,0,0,.3)}
+      .media-bare input[type=range].filled::-webkit-slider-runnable-track{
+        background:linear-gradient(to right,var(--hk-media-ink,${window.hkCards.v('ink')}) 0 var(--hk-fill,0%),var(--hk-media-track,${window.hkCards.v('line-strong')}) var(--hk-fill,0%) 100%)}
+      .media-bare input[type=range].filled::-moz-range-track{
+        background:linear-gradient(to right,var(--hk-media-ink,${window.hkCards.v('ink')}) 0 var(--hk-fill,0%),var(--hk-media-track,${window.hkCards.v('line-strong')}) var(--hk-fill,0%) 100%)}
       /* phone_times: false -- no times on a phone, the bar's progress a
          plain line under the song (as a phone's mini player) */
       @media (max-width:${window.hkCards.BP.phone}px){

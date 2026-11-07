@@ -10,6 +10,12 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 - **Quick tab taps pick up the moving highlight where it is.** Choosing another tab during its animation no longer jumps the highlight toward the previous destination before changing direction.
 - **The tab highlight follows swipes into More's pages**, and back to the visible tabs.
 
+**Changed**
+- **Every music player has the same bare controls.** The screensaver's music slide, the Side Pane's player, the Home Grid's Now Playing blocks, the Now Playing card, the Play Music page and the speaker sheet lose the circles behind their buttons, and the icons are bigger instead. Speakers and Browse sit lighter at the ends of the row, lined up with the progress bar. A button whose panel is open still lights up.
+- **The progress bar and the volume sit the same distance from play/pause** in every player. Before, the volume sat closer to it than the progress bar did.
+- **Progress and volume bars are white, as on the screensaver,** instead of purple: white on a quiet track over the cover, and the look's own ink on a plain card. The Side Pane's volume now fills up to its level, and the speaker sheet has a small and a large speaker either side of its volume.
+- **Up Next beside the cover.** When the screensaver's music slide sits beside a pane, the next songs are listed under the song, as many as fit beside the cover; a tap opens the queue.
+
 ## 0.1.146 - 2026-11-07
 
 **Added**

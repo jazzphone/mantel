@@ -26,6 +26,10 @@ const input = JSON.parse(fs.readFileSync(0, 'utf8'));
               fit:getComputedStyle(r.querySelector('.artbg b.on')).backgroundSize};
           });
           const a=await pane();
+          // EVERY PLAYER'S LOOK (player_look.js): no wells, the pause glyph's ink halfway between the bars
+          await page.evaluate(fs.readFileSync(__dirname+'/player_look.js','utf8'));
+          const pl=await page.evaluate(()=>playerLook(document.querySelector('hk-side-pane[mode="dash"]').shadowRoot,{bar:'.npp',pp:'.pp.big hk-icon',vol:'.vol input',buttons:'.trow button'}));
+          assert(!pl.wells.length&&pl.above!==undefined&&Math.abs(pl.above-pl.below)<=3,'Side Pane player: '+JSON.stringify(pl));
           const mixed = await page.evaluate(()=>{
             const p=document.querySelector('hk-side-pane[mode="dash"]'),original=p._o.list;
             const before=p.shadowRoot.querySelectorAll('.qr').length;
@@ -56,7 +60,7 @@ const input = JSON.parse(fs.readFileSync(0, 'utf8'));
           const row=host.hasAttribute('murow');
           const transportBottom=Math.max(...[...mu.querySelectorAll('.mctl .mbtn,.mvol svg')].filter(e=>getComputedStyle(e).visibility!=='hidden'&&e.getBoundingClientRect().height>0).map(e=>e.getBoundingClientRect().bottom));
           return {transportBottom,next:box('.mu .mnext'),row,up:host.hasAttribute('muup'),pane:host.hasAttribute('pane'),area:box('.mu .mbody'),art:box('.mu .mart'),col:box(row?'.mu .mstage':'.mu .mcol'),meta:box('.mu .mmeta'),album:box('.mu .malbum'),
-            buttons:[...mu.querySelectorAll('.mbtn')].map(e=>{const b=e.getBoundingClientRect();return {l:b.left,r:b.right,t:b.top,b:b.bottom};})};
+            buttons:[...mu.querySelectorAll('.mbtn')].filter(e=>e.getBoundingClientRect().width>0).map(e=>{const b=e.getBoundingClientRect();return {l:b.left,r:b.right,t:b.top,b:b.bottom};})};
         });
         if(slide.pane&&W<1900&&W>H)assert(slide.row||slide.up,JSON.stringify(slide));
         assert(Math.abs(slide.art.w-slide.art.h)<1,JSON.stringify(slide));
@@ -97,6 +101,9 @@ const input = JSON.parse(fs.readFileSync(0, 'utf8'));
           assert(variants.every(v=>v.delta<2&&v.text<=v.art),JSON.stringify(variants));
         }
         if(input.shots)await page.screenshot({path:`${input.shots}/${W}x${H}-${side}-slide.png`});
+        await page.evaluate(fs.readFileSync(__dirname+'/player_look.js','utf8'));
+        const sl=await page.evaluate(()=>playerLook(document.querySelector('hk-screensaver').shadowRoot.querySelector('.mu'),{bar:'.mbar',pp:'.mpp svg',vol:'.mvt',buttons:'.mctl .mbtn'}));
+        assert(!sl.wells.length&&(sl.above===undefined||Math.abs(sl.above-sl.below)<=3),'music slide: '+JSON.stringify(sl));
         if(slide.row){
           const panel=await page.evaluate(()=>{
             window.hkSaver._.music.panel('slide','queue');

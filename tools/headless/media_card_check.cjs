@@ -37,7 +37,8 @@ const HELP = () => {
     // the Side Pane's volume slider; the music panel turned from a block
     slider: () => { const p = document.querySelector('hk-side-pane[mode="dash"]'); return p && p.shadowRoot && p.shadowRoot.querySelector('input[data-act="vol"]'); },
     panel: () => [...document.body.children].map(h => h.shadowRoot && h.shadowRoot.querySelector('.mpanel')).filter(Boolean)[0],
-    // each round well's glyph: its ink's middle from the well's (the well is centered in its button), in px
+    // Speakers' and Browse's glyphs: each ink's middle from its button's, in px, and nothing drawn behind it (bare
+    // since 2026-11-07, the owner: "do we need the wells (circles) behind the icons?")
     wells: () => deep(document, 'hk-now-playing-card').flatMap(c => ['.spk', '.brw'].map(k => {
       const e = c.shadowRoot.querySelector('.np ' + k);
       if (!e || getComputedStyle(e).display === 'none') return null;
@@ -45,7 +46,8 @@ const HELP = () => {
       const paths = ic ? [...ic.shadowRoot.querySelectorAll('path')].filter(x => x.getAttribute('d')) : [...e.querySelectorAll('svg path')];
       let L = 1e9, T = 1e9, R = -1e9, B = -1e9;
       paths.forEach(x => { const q = x.getBoundingClientRect(); if (q.width) { L = Math.min(L, q.left); T = Math.min(T, q.top); R = Math.max(R, q.right); B = Math.max(B, q.bottom); } });
-      return { at: c.getAttribute('size') + ' ' + k, dx: (L + R) / 2 - (r.left + r.width / 2), dy: (T + B) / 2 - (r.top + r.height / 2) };
+      const bf = getComputedStyle(e, '::before'), bare = (bf.content === 'none' || bf.content === 'normal') && /rgba\(0, 0, 0, 0\)|transparent/.test(getComputedStyle(e).backgroundColor);
+      return { at: c.getAttribute('size') + ' ' + k, dx: (L + R) / 2 - (r.left + r.width / 2), dy: (T + B) / 2 - (r.top + r.height / 2), bare };
     })).filter(Boolean),
     layered: (id) => getComputedStyle(np(id).shadowRoot.querySelector('.bg img')).willChange
   };
@@ -102,10 +104,10 @@ async function flicker(browser) {
   }
   const wells = await p.evaluate(() => __mc.wells());
   assert.ok(wells.length >= 6, 'wells measured: ' + wells.length);
-  for (const w of wells) assert.ok(Math.abs(w.dx) < 0.3 && Math.abs(w.dy) < 0.3, w.at + ': the glyph centered in its well (' + w.dx.toFixed(2) + ', ' + w.dy.toFixed(2) + ' px)');
+  for (const w of wells) assert.ok(w.bare && Math.abs(w.dx) < 0.3 && Math.abs(w.dy) < 0.3, w.at + ': the glyph centered in its button, no well (' + w.dx.toFixed(2) + ', ' + w.dy.toFixed(2) + ' px, bare ' + w.bare + ')');
   assert.ok(titles.size >= 2, 'a new title reached the card: ' + [...titles].join(', '));
   assert.deepEqual(errors, [], 'page errors');
-  say('the time and bar move, the card draws each push, the blurred cover is untouched; ' + wells.length + ' glyphs centered in their wells');
+  say('the time and bar move, the card draws each push, the blurred cover is untouched; ' + wells.length + ' glyphs bare and centered in their buttons');
   if (input.shots) { fs.mkdirSync(input.shots, { recursive: true }); await p.screenshot({ path: input.shots + '/media-card-' + input.engine + '-' + input.size + '.png' }); }
   await ctx.close();
 }

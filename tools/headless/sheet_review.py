@@ -113,6 +113,12 @@ def faults(size, m, name=''):
         out.append('top/bottom %s' % m['tb'])
     if m['small']:
         out.append('under 30: ' + ', '.join(m['small']))
+    look = m.get('look')
+    if look is not None:
+        if look['wells']:
+            out.append('wells: ' + ', '.join(look['wells']))
+        if 'above' not in look or abs(look['above'] - look['below']) > 3:
+            out.append('the pause not halfway between the bars: %s' % look)
     return out
 
 
