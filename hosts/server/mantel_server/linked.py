@@ -78,7 +78,11 @@ CLIENT_TYPES_2 = CLIENT_TYPES | {"report", "phone_action"}
 SETTINGS_TYPES = frozenset({"settings_write", "report"})
 # ...and one that forwards its dashboards' feature reads (feature `reads`) sends `page` (linked_reads.py)
 READS_TYPES = frozenset({"page"})
-SERVER_TYPES = frozenset({"hello", "result", "entity", "state", "removed", "owners", "settings", "page_frame"})
+# ...and one that keeps the home's own SF Pro and glyph file in step with Mantel's (feature `files`) asks for them
+# a piece at a time with `file_chunk` (linked_files.py)
+FILES_TYPES = frozenset({"file_chunk"})
+SERVER_TYPES = frozenset({"hello", "result", "entity", "state", "removed", "owners", "settings", "page_frame",
+                          "files"})
 # `settings` goes only to a client that asked for it (feature `settings`: HK Frontend, linked_settings.py)
 # protocol 2 adds ONE thing Mantel may ask Home Assistant to do: a notification to a Companion-app phone
 # (phones.py; Mantel Link calls notify.mobile_app_<phone> and nothing else)
@@ -96,7 +100,8 @@ _KEYS = {"call_service": {"id", "type", "service", "data", "targets"},
          "report": {"id", "type", "report"},
          "phone_action": {"id", "type", "action", "service"},
          "settings_write": {"id", "type", "ha_user", "msg"},
-         "page": {"id", "type", "ha_user", "frame"}}
+         "page": {"id", "type", "ha_user", "frame"},
+         "file_chunk": {"id", "type", "path", "offset"}}
 # a report's parts (protocol 2), each checked by its own key
 _REPORT_KEYS = frozenset({"hk_frontend", "phones", "hk_dashboards", "versions"})
 _VERSION = re.compile(r"^[0-9][0-9A-Za-z.+-]{0,31}$")
@@ -511,6 +516,7 @@ class Linked:
         self.on_connect: list = []            # async fn(client) after its hello (linked_settings.py)
         self.settings_write = None            # async fn(client, msg): a `settings_write` (linked_settings.py)
         self.page = None                      # async fn(client, msg): a `page` read (linked_reads.py)
+        self.file_chunk = None                # async fn(client, msg): a `file_chunk` (linked_files.py)
         self.on_disconnect: list = []         # async fn(client) once its socket has closed
 
     def verify(self, token: str, peer: str | None) -> Any:
@@ -656,6 +662,10 @@ async def _answer(linked: Linked, client: LinkedClient, msg: dict[str, Any]) -> 
             if linked.page is None:
                 raise LinkedError("not_set_up", "Mantel answers no page reads here")
             result = await linked.page(client, msg)
+        elif t == "file_chunk":
+            if linked.file_chunk is None:
+                raise LinkedError("not_set_up", "Mantel sends no files here")
+            result = await asyncio.wait_for(linked.file_chunk(client, msg), linked.timeout)
         elif t == "settings_write":
             if linked.settings_write is None:
                 raise LinkedError("not_set_up", "Mantel takes no settings saves here")
@@ -693,7 +703,7 @@ def _parse(text: str, protocol: int = 1, features: frozenset[str] = frozenset())
         return None, "id: an integer"
     t = msg.get("type")
     allowed = (CLIENT_TYPES_2 if protocol >= 2 else CLIENT_TYPES) | (SETTINGS_TYPES if "settings" in features else frozenset()) \
-        | (READS_TYPES if "reads" in features else frozenset())
+        | (READS_TYPES if "reads" in features else frozenset()) | (FILES_TYPES if "files" in features else frozenset())
     if t not in allowed:
         return msg, f"unknown type {t!r}"
     extra = set(msg) - _KEYS[t]

@@ -39,7 +39,7 @@ async def _set_up(hass, mantel, owners):
 
 async def test_this_release_says_it_can_hand_over(hass, base, mantel):
     e = await _set_up(hass, mantel, FULL)
-    assert mantel.headers[-1]["X-Mantel-Link"] == "domain=hk_frontend; protocol=1; features=bridge,settings,actions,reads"
+    assert mantel.headers[-1]["X-Mantel-Link"] == "domain=hk_frontend; protocol=1; features=bridge,settings,actions,reads,files"
     await until(hass, lambda: hass.states.get(BLACK) is not None)
     assert er.async_get(hass).async_get(BLACK).platform == DOMAIN
     assert await hass.config_entries.async_unload(e.entry_id)

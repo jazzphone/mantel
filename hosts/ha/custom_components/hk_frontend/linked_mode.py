@@ -56,6 +56,12 @@ the ownership is set or changed):
     Assistant user who made it: Mantel saves it as the person linked to that
     user, or says in words why not (forward_saves).
 
+YOUR FILES FROM MANTEL (files_sync.py, linked or not the whole entry): Mantel
+says which of the home's SF Pro and glyph file it has (a `files` frame), and
+this side fetches a copy it is missing into Your files' folder, checked by its
+bytes, so Home Assistant's own /hk/ draws with them too. A copy put here by
+hand is never replaced.
+
 Mantel never asks Home Assistant to do anything over the link: nothing it
 sends can call a service here (the listener below only changes the mirrored
 entities).
@@ -444,10 +450,13 @@ class Linked:
         self.hass, self.entry = hass, entry
         # `bridge`: this release can hand the bridge to Mantel Link (handover.py)
         # `settings`: this release keeps Mantel's settings for its dashboards (on_settings)
+        # `files`: ...and takes the home's SF Pro and glyph file from Mantel for /hk/ here (files_sync.py)
+        from .files_sync import FilesSync
         self.link = MantelLink(async_get_clientsession(hass), link["url"], link["token"], self,
-                               features=("bridge", "settings", "actions", "reads"),
+                               features=("bridge", "settings", "actions", "reads", "files"),
                                on_auth_failed=self.on_auth_failed,
-                               frames={"settings": self.on_settings, "page_frame": self.on_page_frame},
+                               frames={"settings": self.on_settings, "page_frame": self.on_page_frame,
+                                       "files": self.on_files},
                                ca=pinned_ca(hass, link["url"]),
                                **({"timeout": timeout} if timeout is not None else {}))
         self._store: Store = mirror_store(hass)
@@ -467,6 +476,12 @@ class Linked:
         self.bridge_away: bool = o["bridge"] == "mantel"
         self._pending_owners: dict[str, Any] | None = None
         self._unwait: Any = None
+        self.files = FilesSync(hass, entry, self.link)
+
+    @callback
+    def on_files(self, msg: dict[str, Any]) -> None:
+        """Which of the home's files Mantel has (a `files` frame): files_sync.py takes what is wanted."""
+        self.files.on_files(msg)
 
     @property
     def connected(self) -> bool:

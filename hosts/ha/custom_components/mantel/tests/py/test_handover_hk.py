@@ -75,7 +75,7 @@ async def test_hand_over_and_back_keeps_every_id(hass, mantel, house):
     await until(hass, lambda: link_reports() and len(hk_reported()) == len(hk_sockets()) == 1)
     assert link_reports()[-1]["hk_frontend"] == {"installed": True, "loaded": True, "linked": True}
     hk_header = hk_sockets()[0]
-    assert hk_header["X-Mantel-Link"] == "domain=hk_frontend; protocol=1; features=bridge,settings,actions,reads"
+    assert hk_header["X-Mantel-Link"] == "domain=hk_frontend; protocol=1; features=bridge,settings,actions,reads,files"
     before = {eid: reg.async_get(eid).id for eid in HALL}
     dev = devs.async_get(reg.async_get(BLACK).device_id)
     devs.async_update_device(dev.id, area_id="loft", name_by_user="Loft Tablet")

@@ -131,6 +131,8 @@ on the upgrade request.
 | HA → Mantel | `{"id","type":"call_service","service","data","targets"?}` | One of the four actions, with the data exactly as HA validated it. `targets` (for `set_black_screen`, one per entity) is `[{"entity_id","unique_id"}]`. |
 | HA → Mantel | `{"id","type":"entity_command","unique_id","command","data"}` | A command to a mirrored entity. Switch: `turn_on`/`turn_off`/`toggle`. Alarm: `alarm_disarm`, `alarm_arm_*`, `alarm_trigger`, with `data.code` when given. |
 | HA → Mantel | `{"id","type":"ping"}` | Answered `{"pong":true}`. |
+| Mantel → HA | `{"type":"files","files":[{"path","size","sha256"}…]}` | Only to an HK Frontend that sent `features=files` (2026-11-07, `linked_files.py`). Which of the home's SF Pro (`fonts/SF-Pro.woff2`, `fonts/SF-Pro.ttf`) and glyph file (`iconset/hk-glyphs.js`) Mantel has. Sent after hello and after an upload or delete. A notice: HK Frontend decides what it fetches (`files_sync.py`). |
+| HA → Mantel | `{"id","type":"file_chunk","path","offset"}` | Up to 1 MB of one announced file, base64, with the whole file's size and digest. HK Frontend checks the result by its bytes (`hk_core/your_files.py`), writes it into Your files' folder, and never replaces a copy someone put there. |
 
 The rules on each side:
 

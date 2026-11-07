@@ -304,8 +304,10 @@ def test_descriptors_are_checked():
 
 def test_mantel_never_sends_a_command_frame():
     # `settings` and `page_frame` are data for HK Frontend's dashboards, to a client that asked (linked_settings.py,
-    # linked_reads.py: the answers to its own reads), never a command
-    assert linked.SERVER_TYPES == {"hello", "result", "entity", "state", "removed", "owners", "settings", "page_frame"}
+    # linked_reads.py: the answers to its own reads), never a command; `files` is a notice of which of the home's
+    # files Mantel has (linked_files.py): HK Frontend decides what it fetches
+    assert linked.SERVER_TYPES == {"hello", "result", "entity", "state", "removed", "owners", "settings", "page_frame",
+                                   "files"}
     assert linked.CLIENT_TYPES == {"call_service", "entity_command", "ping"}
     assert linked.SERVICES == ("set_black_screen", "show_popup", "close_popup", "notify")
 

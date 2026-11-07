@@ -34,7 +34,7 @@ from aiohttp import WSCloseCode, WSMsgType, web
 from . import about, frame_origins, music
 from . import accounts, alarm_pin, auth, cameras_direct, protect_connector, connect_pairing, devices, gateway, health, ingress, live_tv, pins, rbac_store, readproxy, sessions, settings_store
 from . import (admin_page, atrest, backup, connections, features, linked, linked_house, linked_owners, linked_pairing,
-               linked_reads, linked_settings, people_ha, screens,
+               linked_files, linked_reads, linked_settings, people_ha, screens,
                linked_actions, login_page, phones, supervisor_discovery,
                photos, service_accounts, talk_relay, user_files)
 from . import camera_setup, default_screens, direct, direct_tls, docs_pages, ha_dashboards, ma_page, media_proxy, proxy_check, proxy_trust, route_table, security_headers, socket_reads, tablet_links, user_data
@@ -945,6 +945,8 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     # the home's own files (fonts, glyphs, photos; Owner/Admin upload) and the nightly encrypted
     # backup (off unless --backup-target is set)
     user_files.register(app, hub)
+    # ...and the home's SF Pro and glyph file, offered to a linked HK Frontend for Home Assistant's own /hk/
+    linked_files.register(app)
     photos.register(app, hub)        # Mantel Photos: the screensavers' own photo library (albums, uploads, HA import)
     backup.register(app, hub)
     # Music Assistant's web app and go2rtc under Mantel's own address (/ma/, /go2rtc/; each only when

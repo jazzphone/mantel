@@ -27,7 +27,7 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import issue_registry as ir
 
-from . import files, lovelace_boards, resources
+from . import files, files_sync, linked_mode, lovelace_boards, resources
 from . import settings as dash_settings
 from .const import DOMAIN
 
@@ -150,8 +150,17 @@ async def async_run(hass: HomeAssistant, options: dict[str, Any],
     # Your files
     st = await hass.async_add_executor_job(files.status, hass)
     have_font, have_glyphs = bool(st["font"]), bool(st["glyphs"])
+    synced = files_sync.state(hass)          # linked: taken from Mantel Server, or a copy here kept
     if have_font and have_glyphs:
-        lines.append(Line(True, "SF Pro & the SF Symbols Glyphs", "Found."))
+        kept = sorted(p.rsplit("/", 1)[-1] for p, w in synced.items() if w == "kept")
+        if kept:
+            text = (f"Found. Mantel Server has a different {' and '.join(kept)}; the copy in Your files' folder "
+                    "is kept (remove it there to take Mantel's).")
+        elif synced and all(w == "mantel" for w in synced.values()):
+            text = "Found, from Mantel Server."
+        else:
+            text = "Found."
+        lines.append(Line(True, "SF Pro & the SF Symbols Glyphs", text))
     else:
         if not have_font and not have_glyphs:
             why = "Not added yet, so the pages use Roboto and Material Design icons."
@@ -159,8 +168,13 @@ async def async_run(hass: HomeAssistant, options: dict[str, Any],
             why = "SF Pro isn’t added yet, so the pages use Roboto."
         else:
             why = "The SF Symbols glyphs aren’t added yet, so the pages use Material Design icons."
-        lines.append(Line(None, "Apple’s Font & Glyphs",
-                          why + " Optional: Configure → Your files says where they go."))
+        if "failed" in synced.values():
+            where = " Mantel Server has them, but taking them failed; see the log."
+        elif linked_mode.active(hass) is not None:
+            where = " Upload them in Mantel Settings → Your Files and they are taken from there."
+        else:
+            where = " Optional: Configure → Your files says where they go."
+        lines.append(Line(None, "Apple’s Font & Glyphs", why + where))
 
     # Areas
     r = area_readiness(hass)

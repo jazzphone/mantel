@@ -23,6 +23,13 @@ step: [Making Your Files](Making-Your-Files.md).
 
 Whether and how you may use Apple’s font and symbols is governed by Apple’s license terms, which you accept when you download them.
 
+## Linked to Mantel Server
+
+When HK Frontend is linked to Mantel Server, you don't copy anything here. Upload the font and glyphs once in
+**Mantel Settings** → **Your Files**. HK Frontend takes copies over the link into its files folder, so Home
+Assistant's own HK dashboards draw with them too, and it follows a newer upload. A copy you put in the folder
+yourself is never replaced; Setup Check says when Mantel has a different one. Remove yours to take Mantel's.
+
 ## Where the files go
 
 The files folder is `hk_local` by default — `/config/hk_local`. It doesn’t exist until you create it. The layout:
