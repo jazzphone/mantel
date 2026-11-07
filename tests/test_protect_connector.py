@@ -340,7 +340,7 @@ async def test_a_camera_home_assistant_has_shows_once_and_plays_direct_with_its_
     assert conn.video_from(FRONT) == "ha"
 
 
-async def test_every_channel_of_a_matched_camera_plays_direct(rig, console):
+async def test_every_channel_of_a_matched_camera_plays_direct(rig, console):  # noqa: F811 -- the fixture
     """The tiles name Home Assistant's low-resolution channel (the house, 2026-11-07): with only the best channel
     aliased, they stayed on Home Assistant's video and went black at every Home Assistant restart."""
     r = await rig()
