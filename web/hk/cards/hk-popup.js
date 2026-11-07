@@ -966,7 +966,13 @@
         // music (`entity_from: {music: true}`): tapping another context on the
         // Play Music page must move the bar with it, and nothing in the states moved.
         if (!this._onFlags) {
-          this._onFlags = function () { if (self.client) self._evalTrigger(); if (self._open) { self._placeSig = null; self._place(); } };
+          // (placed in the frame the flags changed in, not at once: the Side Pane says them as a page swipe lands, and the
+          // place read the bar's height between the other modules' writes -- 2026-11-07)
+          this._onFlags = function () {
+            if (self.client) self._evalTrigger();
+            if (!self._open || self._flagRaf) return;
+            self._flagRaf = requestAnimationFrame(function () { self._flagRaf = 0; if (self._open) { self._placeSig = null; self._place(); } });
+          };
           window.addEventListener('hk-popup-flags', this._onFlags);
         }
         if (!this._musicOff && window.hkMusic) {

@@ -9,6 +9,10 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 - **Home and Pages settle with one tab-bar movement.** A Home-only Side Pane no longer makes a full tab bar widen or rearrange its tabs after a page swipe lands, including when Pages is opened first.
 - **Quick tab taps pick up the moving highlight where it is.** Choosing another tab during its animation no longer jumps the highlight toward the previous destination before changing direction.
 - **The tab highlight follows swipes into More's pages**, and back to the visible tabs.
+- **A page swipe no longer stalls as it lands.** The tab bar, the menu, the Side Pane, the Now Playing bar, the Calendar and the sky each reacted to the landing by measuring the page between each other's changes; they now do it once, in the frame. On a slowed (4x) CPU, landing from the Pages screen on Home went from about 220 ms of blocked main thread to 80 ms, and a Bright Glass landing from 120-165 ms to 80-90 ms.
+- **Moving between Bright Glass and its Blur (Home Only) no longer redraws every card** on the page and the two pages waiting beside it.
+- **The Side Pane and the tab highlight finish a swipe in step with the page**, rather than a frame ahead of it.
+- **The Side Pane keeps its blur while it fades** in a swipe between Home and the Pages screen. Faded as a whole, it showed the page behind it sharp through a flat tint (Chromium; the wall tablets).
 
 ## 0.1.146 - 2026-11-07
 

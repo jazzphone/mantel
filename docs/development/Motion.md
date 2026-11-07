@@ -144,6 +144,55 @@ moving capsule once; a page swipe retains its own measured box and does no addit
 existing companion, content, cancellation, interruption and rapid-swipe checks. These are geometry and continuity
 checks, not proof of frame rate or feel on an actual tablet. The real-device checks below still apply.
 
+### A page swipe's landing (2026-11-07)
+
+Measured with a long-animation-frame probe and a CPU profile, Chromium at 4x CPU on the fictional Kitchen screen
+(`ps-kitchen`, and the same with Bright Glass). The settle itself runs on the compositor; the work was in the task that
+ends it (`finish` → `arrive`), where every module that heard about the landing measured the page between another's
+writes: a layout of the whole document each time.
+
+| Landing | Script in the landing task, before | after |
+|---|---|---|
+| Pages screen → Home | 218-222 ms (181-187 ms of it forced layout and style) | 73-77 ms |
+| Home → Pages screen | 98-135 ms | 78-95 ms |
+| Pages screen → Calendar | 73-82 ms | 67-83 ms |
+| Pages screen → Calendar, Bright Glass (the look changes) | 122-165 ms | 82-88 ms |
+
+What forced the layouts, and what each does now:
+
+- `hkCards.safeArea()` read a probe's padding, the whole document's style, on every call (the tab bar's fit, the menu,
+  every press of a page swipe): about 35 ms of each landing. It is read once for a window (its size, its sheets, the
+  stand-in insets on `<html>`).
+- The menu and the tab bar synced on every `hk-pane`, which the Side Pane and the Now Playing bar both say as a page
+  lands, each reading the panel's box after the other had moved the page. Once a frame now. (The tab bar still syncs at
+  once on `hk-view-ready`: deferred, a second tab tap in WebKit sometimes caught the highlight going the old way.)
+- The tab bar read `--hk-content-left` through `getComputedStyle(<html>)`; the menu writes it on `<html>`'s own style,
+  and it is read there.
+- The Calendar measured on every `hk-pane`; the Now Playing bar placed itself on every flag change; each list's scroll
+  edges were read as its rows changed. Each is once a frame now, edges read together and then marked.
+- The sky asked `getAnimations()` as it painted, and forced a style flush to let a snap go: 15-20 ms each, at the
+  start of a swipe toward a page with its own background and again at its landing. It asks after the frame is drawn,
+  and lets the snap go two frames later.
+- A look that changes only between Bright Glass and its Blur (Bright Glass on Home Only) fired `hk-module-ready`,
+  which redraws every card on the page and on the two pages waiting beside it. The glass is all variables; the cards
+  are not redrawn for it.
+
+What is left is the one layout of the page that lands, moved from beside the page into its place (60-75 ms at 4x
+CPU). Avoiding it would mean the page staying where it waited until a quiet moment.
+
+The next page made ready after a landing (`plan()`, an idle callback) took about 50 ms at 4x CPU, and a finger coming
+down 150, 400 or 800 ms after a landing had the page moving under it within 34-50 ms: not a stall here.
+
+**The Side Pane's fade.** In a swipe between Home and the Pages screen the pane fades with the finger. It faded as a
+whole (`opacity` on `hk-side-pane`), and an ancestor below full opacity is a backdrop root: in Chromium, the pane's blur
+stopped seeing the page behind it, and the Pages screen's icons showed sharp through a flat tint for the whole drag.
+The plate inside it (`.pane`, which carries the blur) fades instead. WebKit drew both the same.
+
+**The release, together.** The tab bar's highlight and the Side Pane set off on the settle's curve before the forced
+style flush that fixes the page's starting place, so their transitions began a frame ahead of the page's: in WebKit the
+pane's fade led the page by 0.04-0.12 of the way through the whole release (the `companions` check's "share release
+curve" failed now and then on that). They set off after the flush now, and lead by under 0.005.
+
 | What | State | Notes |
 |---|---|---|
 | Full-page swipe | fixed, verified | everything above |

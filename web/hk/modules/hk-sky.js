@@ -6127,26 +6127,22 @@
                   '|' + (el.style.getPropertyValue('--art') || '') + '|' + seasonSig(el),
              small: el.getAttribute('style') || '' };
   }
-  // THE SKY CHANGED (skySig, or the page): said once per change, not on
-  // every render -- Tint from Background follows its colors
-  // (hk-frosttint.js), a pre-rendered blur its picture (hk-glass.js). Said
-  // after every render, and as a new song's cover lands on the Play Music
-  // page (paintAlbum: no render follows a track change, and the pills kept
-  // the last song's blur until their own refresh, 2026-10-10).
-  // ...ONCE IT HAS SETTLED. A change fades in -- the album wash's opacity
-  // (1.2 s), the scrim (4 s), the light -- and a picture taken at its start
-  // kept the fade's first frame, with nothing to say so later: the signature
-  // already read as the end. So a change is said when the sky's transitions
-  // have finished (the browser's own list of them; the loops that drift and
-  // fall are animations, not transitions, and never wait), at most SETTLE_MS on.
+  // THE SKY CHANGED (skySig, or the page): said once per change, not on every render -- Tint from Background follows
+  // its colors (hk-frosttint.js), a pre-rendered blur its picture (hk-glass.js). Said after every render, and as a new
+  // song's cover lands on the Play Music page (paintAlbum: no render follows a track change, and the pills kept the
+  // last song's blur until their own refresh, 2026-10-10). ...ONCE IT HAS SETTLED. A change fades in -- the album
+  // wash's opacity (1.2 s), the scrim (4 s), the light -- and a picture taken at its start kept the fade's first frame,
+  // with nothing to say so later: the signature already read as the end. So a change is said when the sky's transitions
+  // have finished (the browser's own list of them; the loops that drift and fall are animations, not transitions, and
+  // never wait), at most SETTLE_MS on.
   //
-  // ...AND AT ONCE, as hk-sky-change, for what can paint the end of a fade
-  // before it is reached: a pre-rendered blur (hk-glass.js) paints the sky
-  // as it will be (hk-skyshot.js, opts.settle) and fades in with it -- the
-  // pills changed only once the song's wash had finished, then faded for
-  // 2.5 s more (2026-10-11). Said once per change; what reads colors as
-  // they are now (Tint from Background) keeps waiting for hk-sky-paint.
-  var SETTLE_MS = 6000, settleGen = 0, saidSig = null, saidFor = null, changeSig = null, changedSig = null, changedFor = null;
+  // ...AND AT ONCE, as hk-sky-change, for what can paint the end of a fade before it is reached: a pre-rendered blur
+  // (hk-glass.js) paints the sky as it will be (hk-skyshot.js, opts.settle) and fades in with it -- the pills changed
+  // only once the song's wash had finished, then faded for 2.5 s more (2026-10-11). Said once per change; what reads
+  // colors as they are now (Tint from Background) keeps waiting for hk-sky-paint. What is fading is asked once the
+  // frame is drawn: asked as the sky painted, it worked out the sky's styles there and then, 15-20 ms of a slowed
+  // tablet's page swipe as it began and as it landed (2026-11-07)
+  var SETTLE_MS = 6000, settleGen = 0, saidSig = null, saidFor = null, changeSig = null, changedSig = null, changedFor = null, asked = false;
   function announce() {
     if (!mounted) return;
     var sg = skySig(mounted), psig = sg.big + '||' + sg.small + '|' + location.pathname;
@@ -6155,6 +6151,13 @@
       changeSig = psig; changedSig = sg; changedFor = mounted;
       try { window.dispatchEvent(new Event('hk-sky-change')); } catch (e) { /* no window events */ }
     }
+    if (asked) return;
+    var go = function () { if (asked !== true) return; asked = 1; setTimeout(function () { asked = false; settle(); }, 0); };
+    asked = true; requestAnimationFrame(go); setTimeout(go, 100);          // (a hidden window draws no frames)
+  }
+  function settle() {
+    var sg = mounted && skySig(mounted), psig = sg && sg.big + '||' + sg.small + '|' + location.pathname;
+    if (!sg || psig === paintSig) return;
     var fading = [];
     try {
       if (mounted.getAnimations && typeof CSSTransition !== 'undefined') {
@@ -6416,16 +6419,11 @@
         announce();
 
         if (snapping) {
-          // Force a style flush WHILE transitions are still off, so the new
-          // values become the computed style rather than the start of an
-          // animation. Reading offsetWidth is the standard way to do that.
-          // Without it, removing the class in the same task would leave the
-          // browser free to transition from the old values after all.
+          // Transitions stay off until a frame has worked out the new values, so they are the computed style rather than
+          // the start of an animation; then off it comes. (A forced flush here, offsetWidth, did that at once: 15-17 ms
+          // of a slowed tablet's frame as a page swipe brought in a page with its own background, 2026-11-07)
           var el = mounted;
-          void el.offsetWidth;
-          requestAnimationFrame(function () {
-            if (el && el.isConnected) el.classList.remove('hk-snap');
-          });
+          requestAnimationFrame(function () { requestAnimationFrame(function () { if (el && el.isConnected) el.classList.remove('hk-snap'); }); });
         }
       } catch (e) {
         console.error('[hk-sky]', e);

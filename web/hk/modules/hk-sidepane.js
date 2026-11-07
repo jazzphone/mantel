@@ -1984,11 +1984,18 @@
   // custom property every element inherits, each frame of a swipe restyled the whole document -- every card's shadow
   // tree -- and the swipes between Home and the Pages screen dropped frames (2026-11-02, the owner: "stutter")
   function barHost() { return document.getElementById('hk-tabbar'); }
+  // WHAT FADES: the pane's own plate, not the element around it (2026-11-07). An ancestor below full opacity cuts a
+  // backdrop-filter off from what is behind it (hk-glass.js), so fading the host turned the frosted pane into a flat
+  // tint on the first frame of every swipe; the plate's own opacity applies to its blur as drawn
+  function plate() {
+    var r = dash && dash.shadowRoot, el = r && r.querySelector('.pane');
+    return el || dash;
+  }
   function followDraw(p) {
     var bar = barHost(), k = FOLLOW.going, side = dash && dash.getAttribute('side');
     if (!k || !dash) return;
     var out = k > 0 ? p : 1 - p, sign = side === 'left' ? -1 : 1;
-    dash.style.opacity = String(1 - out);
+    plate().style.opacity = String(1 - out);
     dash.style.transform = 'translateX(' + (sign * out * DRIFT).toFixed(1) + 'px)';
     // (the bar's middle: half the pane's width toward the pane's side as it goes, back as it comes)
     if (bar) bar.style.setProperty('--hk-pane-shift', (k * p * FOLLOW.shift).toFixed(1) + 'px');
@@ -2004,7 +2011,7 @@
     }
     if (!FOLLOW.going) { unfollow(); return; }
     cancelAnimationFrame(FOLLOW.tween);
-    if (dash) dash.style.transition = 'none';
+    if (dash) { dash.style.transition = 'none'; plate().style.transition = 'none'; }
     var bar = barHost(); if (bar) bar.style.setProperty('--hk-pane-glide', '0s');
     FOLLOW.p = Math.max(0, Math.min(1, p || 0));
     followDraw(FOLLOW.p);
@@ -2014,7 +2021,11 @@
     var from = FOLLOW.p, goal = path ? 1 : 0, t0 = 0;
     if (motion && !stillMotion()) {
       FOLLOW.landed = !!path;
-      if (dash) { dash._followed = !!path; dash.style.transition = 'opacity ' + motion.ms + 'ms ' + motion.ease + ',transform ' + motion.ms + 'ms ' + motion.ease; }
+      if (dash) {
+        dash._followed = !!path;
+        dash.style.transition = 'transform ' + motion.ms + 'ms ' + motion.ease;
+        plate().style.transition = 'opacity ' + motion.ms + 'ms ' + motion.ease;
+      }
       var bar = barHost();
       if (bar) { bar.style.setProperty('--hk-pane-glide', motion.ms + 'ms'); bar.style.setProperty('--hk-pane-ease', motion.ease); }
       FOLLOW.p = goal; followDraw(goal);
@@ -2051,7 +2062,11 @@
     clearTimeout(FOLLOW.giveUp); cancelAnimationFrame(FOLLOW.tween);
     var bar = barHost();
     if (bar) { bar.style.removeProperty('--hk-pane-shift'); bar.style.removeProperty('--hk-pane-ease'); if (!keepGlide) bar.style.removeProperty('--hk-pane-glide'); }
-    if (dash) { dash.style.opacity = ''; dash.style.transform = ''; dash.style.transition = ''; dash.removeAttribute('peek'); }
+    if (dash) {
+      var pl = plate();
+      pl.style.opacity = ''; pl.style.transition = '';
+      dash.style.opacity = ''; dash.style.transform = ''; dash.style.transition = ''; dash.removeAttribute('peek');
+    }
     FOLLOW.to = null; FOLLOW.going = 0; FOLLOW.p = 0;
   }
   // THE MUSIC'S PANEL OVER THE PANE (Less's Speakers and Browse): the

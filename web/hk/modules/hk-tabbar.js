@@ -1079,9 +1079,15 @@
       return leftOf0() + (pl > 0 ? pl : 0);
     }
     function leftOf0() {
+      // (hk-menu.js writes it on <html>'s own style: read there first. Through getComputedStyle it worked out the whole
+      // document's styles each time, ~10-14 ms of a page swipe's landing at 4x CPU, 2026-11-07)
+      var de = document.documentElement, own = de && de.style ? de.style.getPropertyValue('--hk-content-left') : '';
       var v = 0;
-      try { v = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hk-content-left')) || 0; }
-      catch (e) { v = 0; }
+      if (own) v = parseFloat(own) || 0;
+      else {
+        try { v = parseFloat(getComputedStyle(de).getPropertyValue('--hk-content-left')) || 0; }
+        catch (e) { v = 0; }
+      }
       if (!v) {
         var p = M.panel(), r = p && p.getBoundingClientRect ? p.getBoundingClientRect() : null;
         v = r ? Math.max(0, r.left) : 0;
@@ -1598,6 +1604,12 @@
     }
     SH.onNavigate(onNav);
     window.addEventListener('popstate', onNav);
+    // (the Side Pane's room changed: once, in the frame it happens in -- a page swipe landing between Home and the Pages
+    // screen said it with navigation, and the bar was worked out again between the menu's and the pane's writes, 2026-11-07)
+    function syncSoon() {
+      if (navFrame) return;
+      navFrame = requestAnimationFrame(function () { navFrame = 0; sync(); });
+    }
     window.addEventListener('hk-view-ready', function () { sync(); });
     window.addEventListener('keydown', function (e) {
       if (e.key === 'Escape' && S.sheet) { e.stopPropagation(); closeSheet(); }
@@ -1606,7 +1618,7 @@
     window.addEventListener('resize', function () { sync(); });
     // the docked bar came, went or changed height: the rail's room did
     window.addEventListener('hk-dock', function () { sync(); });
-    window.addEventListener('hk-pane', function () { sync(); });
+    window.addEventListener('hk-pane', syncSoon);
     window.addEventListener('hk-module-ready', function () { S.built = ''; sync(); });
     // the host's Home Assistant rows changed (hkShell.haNav: it learned where the page is)
     window.addEventListener('hk-ha-nav-changed', function () { S.built = ''; sync(); });

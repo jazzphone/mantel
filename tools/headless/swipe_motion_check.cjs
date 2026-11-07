@@ -318,7 +318,8 @@ const SECTIONS = {
     const order = await t.page.evaluate(() => hkPageSwipe.order().map(i=>i.path));
     const sample = () => t.page.evaluate(() => {
       const s=hkPageSwipe._.state(),d=document.querySelector('hk-side-pane[mode=dash]'),bar=document.getElementById('hk-tabbar'),row=bar?.shadowRoot?.querySelector('.row');
-      const cs=d&&getComputedStyle(d),bcs=row&&getComputedStyle(row);
+      // (the pane's plate is what fades: hk-sidepane.js plate())
+      const pl=d&&(d.shadowRoot&&d.shadowRoot.querySelector('.pane')||d),cs=pl&&getComputedStyle(pl),bcs=row&&getComputedStyle(row);
       return {p:s.ST?Math.abs(__m.view().getBoundingClientRect().left-s.ST.rect.left)/s.ST.rect.width:0,opacity:cs?+cs.opacity:1,side:d?.getAttribute('side'),w:d?.getBoundingClientRect().width||0,shift:bcs?parseFloat(bcs.translate)||0:0,curve:s.A?.ms,paneMs:cs?.transitionDuration,barMs:bcs?.transitionDuration,hash:location.hash,docked:!!(window.hkPopup&&hkPopup.docked(location.hash))};
     });
     const run = async (dir, name, leaving) => {
