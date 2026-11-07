@@ -372,7 +372,7 @@
       '[nomx] .mbtn.mx{display:none}',
       '.mnext{display:flex;align-items:center;gap:calc(14px * var(--z));margin-top:calc(30px * var(--z));min-width:0}',
       // THE VOLUME beside the buttons (its own row in the pane)
-      '.mvol{flex:1 0 100%;height:calc(6px * var(--z));display:flex;align-items:center;gap:calc(12px * var(--z));margin:0 calc(10px * var(--z))}',
+      '.mvol{flex:1 0 calc(100% - 20px * var(--z));height:calc(6px * var(--z));display:flex;align-items:center;gap:calc(12px * var(--z));margin:0 calc(10px * var(--z))}',
       '.mvol svg{flex:none;width:calc(22px * var(--z));height:calc(22px * var(--z));fill:rgba(255,255,255,.72)}',
       '.mvt{position:relative;flex:1 1 auto;height:100%;border-radius:99px;background:rgba(255,255,255,.22)}',
       '.mvt i{position:absolute;left:0;top:0;bottom:0;width:calc(var(--v,0) * 100%);border-radius:99px;background:rgba(255,255,255,.92)}',
@@ -470,7 +470,7 @@
       ':host(:not([pcal])) .pm .malbum{font-size:calc(15px * var(--z))}',
       ':host(:not([pcal])) .pm .mprog{margin-top:calc(16px * var(--z))}',
       ':host(:not([pcal])) .pm .mtimes{font-size:calc(12px * var(--z))}',
-      '.pm .mvol{flex:1 0 100%;order:9}',
+      '.pm .mvol{order:9}',
       // SPREAD ACROSS THE SONG'S WIDTH (2026-11-06, the owner: "too close together ... spread out in the Full size like
       // they are on the More size"): Speakers and Browse at the progress bar's ends, the transport between; the gap a
       // floor where the pane is narrow

@@ -29,6 +29,8 @@
   var bar = one(o.bar), pp = one(o.pp), vol = one(o.vol), out = { wells: [] };
   if (bar && pp && vol) {
     var p = pp.getBoundingClientRect(), v = vol.getBoundingClientRect();
+    var row = vol.closest('.mvol');
+    if (row) { var br = bar.getBoundingClientRect(), rr = row.getBoundingClientRect(); out.volumeEdges = [rr.left - br.left, rr.right - br.right]; }
     out.above = Math.round((p.top + p.height * 5 / 24 - bar.getBoundingClientRect().bottom) * 10) / 10;
     out.below = Math.round(((v.top + v.bottom) / 2 - 3 - (p.top + p.height * 19 / 24)) * 10) / 10;
   }

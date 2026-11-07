@@ -231,6 +231,7 @@
             }
             try { w.update(c, now, {}); } catch (e) { /* its own data */ }
           });
+          if (WG.alignLeft) WG.alignLeft(r.querySelector('.ptl'), this.offsetWidth ? hb.width / this.offsetWidth : 1);
         }
       };
       K.PageCard = Page;

@@ -51,6 +51,27 @@ CROWD_LAYOUT = {'v': 2, 'big': {'kind': 'time', 'size': 35, 'pos': 'top', 'align
                           'br': [pc('timers.inline'), pc('status.card', back='none')], 'bottom': [pc('weather.band')]}}
 
 
+async def seed_personal_photo(server, cookie):
+    from aiohttp import ClientSession, FormData
+    from PIL import Image
+    import io
+    base = str(server.make_url('')).rstrip('/')
+    async with ClientSession(cookies={'mantel_session': cookie}) as http:
+        async with http.get(base + '/api/session') as r:
+            csrf = (await r.json()).get('csrf')
+        headers = {'X-CSRF-Token': csrf} if csrf else {}
+        async with http.post(base + '/api/photos/albums', json={'name': 'Fictional Personal Photos'}, headers=headers) as r:
+            album = (await r.json())['album']['id']
+        buf = io.BytesIO()
+        Image.new('RGB', (800, 500), (160, 95, 64)).save(buf, 'JPEG')
+        form = FormData()
+        form.add_field('file', buf.getvalue(), filename='personal.jpg', content_type='image/jpeg')
+        async with http.post(base + f'/api/photos/albums/{album}/upload', data=form, headers=headers) as r:
+            assert r.status == 201, await r.text()
+        async with http.put(base + f'/api/photos/screens/{SCREEN}', json={'album': album}, headers=headers) as r:
+            assert r.status == 200, await r.text()
+
+
 async def main():
     from aiohttp.test_utils import TestServer
     w, h = (int(x) for x in args.size.split('x'))
@@ -65,6 +86,7 @@ async def main():
     with tempfile.TemporaryDirectory() as td:
         app, cookie = await gallery.build(Path(td), real_model=True)
         async with TestServer(app) as server:
+            await seed_personal_photo(server, cookie)
             if args.shots:
                 args.shots.mkdir(parents=True, exist_ok=True)
             proc = await asyncio.create_subprocess_exec(args.node, str(Path(__file__).with_suffix('.cjs')), stdin=asyncio.subprocess.PIPE,

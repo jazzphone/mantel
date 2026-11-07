@@ -99,6 +99,20 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
     await page.waitForTimeout(500);
     const photo = await E((ed, sr, $, $$) => ({ rows: $$('aside.sidebar .lbl .t').map((t) => t.textContent), depth: ed.opts.layout.big.depth }));
     say(photo.rows.includes('Darken') && photo.rows.includes('Shadow') && photo.rows.includes('Depth') && photo.depth === 'behind', 'Photos: Darken, Depth (Behind) and Legibility', photo);
+    // A preview holds its photo for crop edits, but changing the source must replace it.
+    const personal = await until(ed => { const u=ed.saver().stats().shown_url; return u && !u.includes('/hk/landscapes/') ? u : null; });
+    say(!!personal, 'Photos preview has a personal photo before changing the background', personal);
+    await E(ed => { ed.change(o=>{o.show='clock';o.clock_bg='landscapes';});return true; });
+    const landscape = await until(ed => { const u=ed.saver().stats().shown_url; return u && u.includes('/hk/landscapes/') ? u : null; }, null, 10000);
+    say(!!landscape, 'HK Landscapes replaces the personal photo with a bundled landscape', landscape);
+    await E(ed => { ed.change(o=>{o.clock_photo_dim=40;});return true; });
+    await page.waitForTimeout(700);
+    const heldLandscape=await E(ed=>ed.saver().stats().shown_url);
+    say(heldLandscape===landscape, 'adjusting the landscape keeps that landscape for judging its appearance', heldLandscape);
+    await shot('06b-hk-landscapes');
+    await E(ed => { ed.change(o=>{o.show='photos';});return true; });
+    const returned = await until(ed => { const u=ed.saver().stats().shown_url; return u && !u.includes('/hk/landscapes/') ? u : null; }, null, 10000);
+    say(!!returned, 'switching back to Photos replaces the landscape', returned);
     await E((ed, sr, $, $$) => { $$('.lk').find((b) => b.querySelector('b').textContent === 'Clock').click(); return true; });
     await page.waitForTimeout(500);
     const clock = await E((ed, sr, $, $$) => ({ rows: $$('aside.sidebar .lbl .t').map((t) => t.textContent), why: $$('aside.sidebar .cell').filter((c) => /Behind needs Photos/.test(c.textContent)).length,

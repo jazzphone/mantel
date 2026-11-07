@@ -1000,7 +1000,7 @@
           return null;
         }
         // the preview, restarted by a change: the same photo again
-        if (first && previewOn && lastPh && (!want || shapeOfPh(lastPh) === want)) return lastPh;
+        if (first && previewOn && lastPh && d.items.some(function (it) { return it.id === lastPh.item.id; }) && (!want || shapeOfPh(lastPh) === want)) return lastPh;
         var item = pick();
         // the preview's shape: skip the photos known to be the other one
         for (var k = 0; want && item && shapes[item.id] && shapes[item.id] !== want && k < d.items.length; k++) item = d.next();
@@ -1609,7 +1609,7 @@
       }
     });
     // (both top corners' first letters on the margin, as a layout's are: a larger time has more room above its letters)
-    var hr1 = host.getBoundingClientRect(), k1 = host.offsetWidth ? hr1.width / host.offsetWidth : 1;
+    var hr1 = host.getBoundingClientRect(), k1 = host.offsetWidth ? hr1.width / host.offsetWidth : 1; if (WG.alignLeft) WG.alignLeft(scn.tl, k1);
     [scn.tl, scn.tr].forEach(function (st) {
       st.style.marginTop = '';
       var first = [].filter.call(st.children, function (e) { return e.style.display !== 'none'; })[0], ink = first && inkOf(first);

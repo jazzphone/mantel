@@ -4,6 +4,11 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Fixed**
+- **Music slide corners align by their visible edges.** The time, date and weather share one left edge, with or without a Side Pane, including on the Now Playing page.
+- **The volume row stays within the progress bar’s edges** on the screensaver slide, music pane and Now Playing page.
+- **Selecting HK Landscapes replaces the Photos preview.** The editor keeps a photo while its appearance changes only if it belongs to the selected collection; switching back to Photos replaces the landscape too.
+
 ## 0.1.147 - 2026-11-07
 
 **Added**

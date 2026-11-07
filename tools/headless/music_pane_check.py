@@ -70,7 +70,7 @@ async def main():
             proc = await asyncio.create_subprocess_exec(os.environ['NODE'], str(Path(__file__).with_suffix('.cjs')),
                                                         stdin=asyncio.subprocess.PIPE)
             await proc.communicate(json.dumps({'origin': str(server.make_url('')).rstrip('/'), 'cookie': cookie,
-                                               'engine': args.engine, 'shots': str(args.shots or ''),
+                                               'engine': args.engine, 'python': sys.executable, 'shots': str(args.shots or ''),
                                                'sizes': [list(map(int, s.split('x'))) for s in args.size] if args.size else None}).encode())
             return proc.returncode
 

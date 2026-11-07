@@ -100,10 +100,14 @@ const input = JSON.parse(fs.readFileSync(0, 'utf8'));
           });
           assert(variants.every(v=>v.delta<2&&v.text<=v.art),JSON.stringify(variants));
         }
+        const ink = await require('./corner_look.cjs')(page, 'hk-screensaver .scn .tl', input.python);
+        const xs = ink.map(r=>r.left);
+        assert(xs.length === 3 && xs.every(x=>x!==null) && Math.max(...xs)-Math.min(...xs)<=1, 'slide corner ink aligned: '+JSON.stringify(ink));
         if(input.shots)await page.screenshot({path:`${input.shots}/${W}x${H}-${side}-slide.png`});
         await page.evaluate(fs.readFileSync(__dirname+'/player_look.js','utf8'));
         const sl=await page.evaluate(()=>playerLook(document.querySelector('hk-screensaver').shadowRoot.querySelector('.mu'),{bar:'.mbar',pp:'.mpp svg',vol:'.mvt',buttons:'.mctl .mbtn'}));
         assert(!sl.wells.length&&(sl.above===undefined||Math.abs(sl.above-sl.below)<=3),'music slide: '+JSON.stringify(sl));
+        assert(!sl.volumeEdges || sl.volumeEdges.every(x=>Math.abs(x)<=1),'slide volume row ends aligned: '+JSON.stringify(sl));
         if(slide.row){
           const panel=await page.evaluate(()=>{
             window.hkSaver._.music.panel('slide','queue');
