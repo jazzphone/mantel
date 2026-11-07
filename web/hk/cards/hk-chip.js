@@ -1849,8 +1849,9 @@
     // The tiles 8 px apart, as the mock-up's (a widget's tight grid).
     // HALF (2026-11-01, the owner: "Half Height cards should be the height of
     // a standard pill card... not stretch itself out", DESIGN.md: Half is the
-    // Home app's button): rows the pill's own 70 px (TILE.h), from the top,
-    // and only the rows the block's height holds (_halfFit).
+    // Home app's button): rows the pill's own 70 px (TILE.h), centered in the
+    // block (what they leave shared above and below, 2026-11-07), and only
+    // the rows the block's height holds (_halfFit).
     _grid(plan) {
       if (this._el) { if (this._el.parentNode === this) this.removeChild(this._el); this._el = null; }
       if (!this._box) {
@@ -1860,7 +1861,7 @@
       var box = this._box, client = this.client;
       box.style.cssText = C0().plate('card') + ';box-sizing:border-box;padding:var(--hk-pad-t,12px) var(--hk-pad-r,12px) calc(var(--hk-pad-b,12px) + var(--hk-pager-safe,0px)) var(--hk-pad-l,12px);display:grid;width:100%;height:100%;gap:' + BLOCK_GAP + 'px;' +
         'grid-template-columns:repeat(' + plan.cols + ',minmax(0,1fr));grid-template-rows:repeat(' + plan.rows + ',' + (plan.half ? C0().TILE.h + 'px' : 'minmax(0,1fr)') + ');' +
-        (plan.half ? 'align-content:start;' : '') + 'overflow:hidden;--hk-pill:100%';
+        (plan.half ? 'align-content:center;' : '') + 'overflow:hidden;--hk-pill:100%';
       delete box._hkGroupBase; C0().groupSurface(box, plan.surface);
       while (box.firstChild) box.removeChild(box.firstChild);
       this._tiles = plan.pills.map(function (pill) {

@@ -43,8 +43,9 @@
       // under them -- up and down is the room's, sideways the pager's
       // ...or HALF (an Accessories block's Height, 2026-11-01, the owner: "Half Height cards should be the height
       // of a standard pill card... not stretch itself out", DESIGN.md: Half is the Home app's button): rows the
-      // pill's own 70 px, from the top, as many as fit
-      '.tiles.half{grid-template-rows:repeat(var(--rows,2),' + PILL_H + 'px);align-content:start}',
+      // pill's own 70 px, as many as fit -- centered in the block, so what the rows leave is shared above and below
+      // (2026-11-07, the owner: from the top, a Large block's pills sat 14 px under its top and ~30 px over its foot)
+      '.tiles.half{grid-template-rows:repeat(var(--rows,2),' + PILL_H + 'px);align-content:center}',
       // ...scrolling, a Wide Room's: a pill's height each, the rest under them -- or the height there is, when the foot
       // line leaves less (~62 px on 150 px tiles): one whole row in sight, never one cut through
       '.tiles.scrolling.half{grid-template-rows:none;grid-auto-rows:min(' + PILL_H + 'px,100%)}',

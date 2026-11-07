@@ -78,6 +78,18 @@ async def homeview():
                 HG.check(acc)
                 gallery.SETTINGS['boards'][name+'-acc']=dict(gallery.SETTINGS['boards'][name],home_grid=acc)
                 screens.append({'screen':name+'-acc','sizes':['1180x820']})
+                # ...and Half Accessories and Scenes blocks (2026-11-07, the owner: four locks in a Large Half block sat
+                # under its top with the spare height all at its foot): the pill rows centered, the space shared
+                half={'v':1,'cols':4,'rows':4,'frame':[1180,820],'band':False,'grow':True,'cell':'square','items':[
+                    {'id':'h1','card':'accessories','size':'L','at':[0,0],'opts':{'height':'half','accessories':[{'entity':'lock.front_door'},
+                     {'entity':'lock.back_door'},{'entity':'light.living_room_lamps'},{'entity':'light.kitchen_pendants'}]}},
+                    {'id':'h2','card':'accessories','size':'W','at':[2,0],'opts':{'height':'half','accessories':[{'entity':'lock.front_door'},
+                     {'entity':'lock.back_door'}]}},
+                    {'id':'h3','card':'scenes','size':'L','at':[0,2],'opts':{'height':'half','scenes':['scene.good_morning','scene.movie_night',
+                     'scene.dinner','scene.good_night']}}]}
+                HG.check(half)
+                gallery.SETTINGS['boards'][name+'-half']=dict(gallery.SETTINGS['boards'][name],home_grid=half)
+                screens.append({'screen':name+'-half','sizes':['1180x820','820x1180']})
             # ...and Home with Pane at 4 columns (2026-10-30, the owner's "I could easily do 4"), the pane beside it
             if key=='sq_pane':
                 four=json.loads(json.dumps(grid)); four['cols']=4; four['rows']=4
