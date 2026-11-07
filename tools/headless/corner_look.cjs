@@ -1,3 +1,4 @@
+// At fonts below 14 px, text and SVG antialiasing can round opposite edges by one pixel each.
 // Measure the leftmost bright pixels of the time, date and weather, rather than their padded DOM boxes.
 const {execFileSync} = require('child_process');
 module.exports = async (page, selector, python) => {

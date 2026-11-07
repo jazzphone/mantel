@@ -78,7 +78,7 @@ const measure = new Function('return ' + measureSrc.toString().replace('PLAYER_L
         }
         const ink = await require('./corner_look.cjs')(page, 'hk-now-playing-page-card:visible .ptl', input.python);
         const xs = ink.map(r=>r.left);
-        assert(xs.length === 3 && xs.every(x=>x!==null) && Math.max(...xs)-Math.min(...xs)<=1, tag+': corner ink aligned '+JSON.stringify(ink));
+        assert(xs.length === 3 && xs.every(x=>x!==null) && Math.max(...xs)-Math.min(...xs)<=(ink.some(r=>parseFloat(r.font)<14)?2:1), tag+': corner ink aligned '+JSON.stringify(ink));
         assert(!m.look.volumeEdges || m.look.volumeEdges.every(x=>Math.abs(x)<=1), tag+': volume row ends aligned '+JSON.stringify(m.look));
         if (input.shots) await page.screenshot({ path: `${input.shots}/${W}x${H}-${screen}.png` });
         console.log(`PASS ${input.engine} ${tag}: the song under the corner, the player bare and even` + (screen === 'np-pane' ? ', Up Next beside the cover' : ''));

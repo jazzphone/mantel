@@ -517,7 +517,7 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
             say(!!u.st && u.st.l < u.W * 0.25 && u.st.b < u.H / 2, tag + ': ...the slide corner tells the time, at the top left', u.st);
             say(!!u.sd && !!u.st && u.sd.t >= u.st.b - 1, tag + ': ...the date under it', [u.sd, u.st]);
             const ink = await require('./corner_look.cjs')(page, 'hk-screensaver .scn .tl', input.python), xs=ink.map(r=>r.left);
-            say(xs.length === 3 && xs.every(x=>x!==null) && Math.max(...xs)-Math.min(...xs)<=1, tag + ': ...time, date and weather ink share one left edge', ink);
+            say(xs.length === 3 && xs.every(x=>x!==null) && Math.max(...xs)-Math.min(...xs)<=(ink.some(r=>parseFloat(r.font)<14)?2:1), tag + ': ...time, date and weather ink share one left edge', ink);
             say(!!u.sw && !!u.sd && u.sw.t >= u.sd.b - 1, tag + ': ...the weather under that (the music slide has none of its own)', [u.sw, u.sd]);
             say(!!u.ss && u.ss.r > u.W * 0.75 && u.ss.b < u.H / 2, tag + ': ...House Status at the top right', u.ss);
             say(!!u.st && !!u.ss && Math.abs(u.st.t - u.ss.t) < (u.st.b - u.st.t), tag + ': ...the two corners\' first words level with each other', [u.st, u.ss]);
