@@ -350,16 +350,13 @@
       'backdrop-filter:var(--hk-block-backdrop, var(--hk-glass-backdrop,none));-webkit-backdrop-filter:var(--hk-block-backdrop, var(--hk-glass-backdrop,none))' +
       ';border:var(--hk-block-edge, ' + M.border + ');box-shadow:var(--hk-block-shadow, var(--hk-look-shadow, ' + v(sh) + '))';
   }
-  // A CENTRED TILE'S CSS (TILE.centred) over a tile's own parts, named by
-  // `s`: { host (the variant's :host), plate, lit (the plate lit), well,
-  // icon, name, sub (the second lines: a list) }. The tall cell's numbers,
-  // then the square cell's where the block's cell (hk-cell) is square. The
-  // tile's own rules for its layouts (a tall scene's two-line name, an
-  // inline well) are more specific than a variant can be, so the variant's
-  // say !important.
+  // A CENTRED TILE'S CSS (TILE.centred) over a tile's parts, named by `s`: { host (the variant's :host), plate, lit,
+  // well, icon, name, sub (a list) }: the tall cell's numbers, then the square cell's where the cell (hk-cell) is
+  // square. The tile's own layout rules are more specific than a variant can be, so the variant's say !important.
   function centredTile(s) {
     var C0 = TILE.centred, I = ' !important';
     var at = function (pre, parts) { return parts.map(function (p) { return s.host + ' ' + (pre ? pre + ' ' : '') + p; }).join(','); };
+    var fit = function (px) { return 'min(max(' + px + 'px,' + (100 * px / 196).toFixed(2) + 'cqmin),45cqmin)'; };
     var one = function (g) {
       return at('', [s.well]) + '{width:' + g.box + 'px' + I + ';height:' + g.box + 'px' + I + ';top:' + g.at + '%' + I + '}' +
         at('', [s.icon]) + '{width:' + g.glyph + 'px' + I + ';height:' + g.glyph + 'px' + I + '}' +
@@ -376,7 +373,9 @@
       at('', [s.name]) + '{' + text + ';font-weight:600' + I + '}' +
       at('', s.sub) + '{' + text + ';font-weight:400' + I + ';color:' + v('ink-2') + I + '}' +
       at(s.lit, s.sub) + '{color:' + v('ink-on-state') + I + '}' +
-      one(C0.tall) + '@container hk-cell (min-height:180px) or style(--hk-cell-shape: square){' + one(C0.square) + '}';
+      // (square where 180 px tall or about square -- a Large Accessories block's ~179 px tiles, 2026-11-07; fit: grows past 196, <= 45cqmin)
+      one(C0.tall) + '@container hk-cell (min-height:180px) or (max-aspect-ratio: 6 / 5) or style(--hk-cell-shape: square){' + one(C0.square) +
+        at('', [s.well]) + '{width:' + fit(C0.square.box) + I + ';height:' + fit(C0.square.box) + I + '}' + at('', [s.icon]) + '{width:' + fit(C0.square.glyph) + I + ';height:' + fit(C0.square.glyph) + I + '}}';
   }
   // ONE TITLE ROW (the Energy page's): the name left, the detail right, one
   // baseline, 20 px tall. `sel` is the row (default .ttl); its <b> is the

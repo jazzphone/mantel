@@ -91,6 +91,14 @@ async def homeview():
                     # is the same row): the covers as tall as the block, the next one peeking
                     {'id':'h4','card':'music','size':'W','at':[2,1]}]}
                 HG.check(half)
+                # ...and a Full Accessories block larger than square cells (2026-11-07, the owner: ~285 px tiles kept the
+                # 196 px cell's glyph): the glyphs grow with the tile
+                big={'v':1,'cols':3,'rows':2,'frame':[1180,820],'band':False,'grow':True,'cell':'square','items':[
+                    {'id':'b1','card':'accessories','size':'L','at':[0,0],'opts':{'accessories':[{'entity':'light.living_room_lamps'},
+                     {'entity':'light.living_room_ceiling'},{'entity':'lock.front_door'},{'entity':'light.kitchen_pendants'}]}}]}
+                HG.check(big)
+                gallery.SETTINGS['boards'][name+'-big']=dict(gallery.SETTINGS['boards'][name],home_grid=big)
+                screens.append({'screen':name+'-big','sizes':['1180x820','390x844']})
                 gallery.SETTINGS['boards'][name+'-half']=dict(gallery.SETTINGS['boards'][name],home_grid=half)
                 screens.append({'screen':name+'-half','sizes':['1180x820','820x1180']})
             # ...and Home with Pane at 4 columns (2026-10-30, the owner's "I could easily do 4"), the pane beside it
