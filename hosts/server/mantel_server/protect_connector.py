@@ -202,11 +202,12 @@ def detection_kind(entity_id: str, device_class: Any) -> str | None:
 @dataclass(frozen=True)
 class Match:
     """A Protect camera that Home Assistant has too: its device, its camera entity (the best channel), its speaker,
-    and its entities of each direct kind."""
+    and its entities of each direct kind; ``cameras``, every camera entity of the device (each channel), best first."""
     device_id: str
     camera: str
     speaker: str | None
     kinds: Mapping[str, tuple[str, ...]]
+    cameras: tuple[str, ...] = ()
 
 
 def _rank(e: Mapping[str, Any]) -> tuple:
@@ -239,7 +240,7 @@ def match_cameras(cams: Iterable[pa.Camera], registry: Any, states: Mapping[str,
             speakers = sorted((e["entity_id"] for e in ents if e["entity_id"].startswith("media_player.")),
                               key=lambda x: ("speaker" not in x, x))
             out[cam.id] = Match(d["id"], camera_ents[0]["entity_id"], speakers[0] if speakers else None,
-                                _kinds(ents, states))
+                                _kinds(ents, states), tuple(e["entity_id"] for e in camera_ents))
             break
     return out
 
@@ -396,8 +397,10 @@ class ProtectConnector:
         reg = getattr(self.hub, "registry", None)
         self.matches = match_cameras(list(self.cameras.values()), reg, self.hub.store.states) if reg is not None else {}
         matched = {src.slug: self.matches[pid].camera for pid, src in picked.items() if pid in self.matches}
-        aliases = {self.matches[pid].camera: src.slug for pid, src in picked.items()
-                   if pid in self.matches and self.video_from(pid) == "direct"}
+        # EVERY CHANNEL (2026-11-07, the owner: the camera feeds went away with a Home Assistant restart): the tiles
+        # name HA's low-resolution channel, so only the best one direct left them on Home Assistant's video
+        aliases = {eid: src.slug for pid, src in picked.items() if pid in self.matches and self.video_from(pid) == "direct"
+                   for eid in (self.matches[pid].cameras or (self.matches[pid].camera,))}
         self.cams.set_matches(matched, aliases)
         takes: dict[str, tuple[str, str, bool | None]] = {}
         for pid, m in self.matches.items():

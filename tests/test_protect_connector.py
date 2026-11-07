@@ -340,6 +340,27 @@ async def test_a_camera_home_assistant_has_shows_once_and_plays_direct_with_its_
     assert conn.video_from(FRONT) == "ha"
 
 
+async def test_every_channel_of_a_matched_camera_plays_direct(rig, console):
+    """The tiles name Home Assistant's low-resolution channel (the house, 2026-11-07): with only the best channel
+    aliased, they stayed on Home Assistant's video and went black at every Home Assistant restart."""
+    r = await rig()
+    ha_has_the_doorbell(r)
+    await connected(r, console)
+    await pick(r, FRONT)
+    low = "camera.front_door_low_resolution_channel"
+    assert r.cams.serves(HA_CAM) is not None and r.cams.serves(low) is not None
+    assert r.cams.status()["cameras"][0]["matched"] == HA_CAM, "still shown once, as the best channel"
+    snaps = sum(1 for h in console.hits if h["path"].endswith("/snapshot"))
+    resp = await r.env.m.get(f"/api/camera/{low}/still")
+    assert resp.status == 200 and sum(1 for h in console.hits if h["path"].endswith("/snapshot")) == snaps + 1
+    ws = await r.env.socket(expect_caps=False)
+    await r.offer(ws, 1, eid=low)
+    assert any(c[1].startswith("mantel_cam_front_door_") for c in r.go2rtc.calls if isinstance(c, tuple)), r.go2rtc.calls
+    await ws.close()
+    assert (await put(r, FRONT, video_from="ha")).status == 200
+    assert r.cams.serves(low) is None and r.cams.serves(HA_CAM) is None
+
+
 async def test_rbac_of_a_matched_camera_is_identical_with_video_direct_or_not(rig, console):
     """may_view / may_still of Home Assistant's camera do not move when its video comes direct: the same answers
     for each subject, before and after, area grant, deny, Child and the tunnel's switch alike."""

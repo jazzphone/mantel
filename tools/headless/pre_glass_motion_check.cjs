@@ -121,6 +121,25 @@ async function motion(page, path, m) {
         const again = await watch(page, 5000);
         say(again >= 2, tag + ': ...followed again', { pictures: again });
       }
+      // A PAGE CHANGE PAINTS THE NEW PAGE'S SKY, never the last one's (2026-11-07, the owner: "sometimes the previous
+      // background from one page is the blur/glass effect on the next page's cards"): every paint, while the
+      // wallpaper's 2 s repaints run, is asked only once the sky shows the page it is for -- page after page
+      const first = input.screens[0];
+      await page.goto(input.origin + '/' + first.path + '/home');
+      await page.waitForFunction(() => { const p = window.hkGlass && window.hkGlass._pre && window.hkGlass._pre.state(); return p && p.url; }, null, { timeout: 20000 });
+      await page.evaluate(() => {
+        const SS = window.hkSkyShot, orig = SS.render.bind(SS);
+        window.__pgmRenders = [];
+        SS.render = function (sky, o) { window.__pgmRenders.push({ page: location.pathname, sky: window.hkSky.path() }); return orig(sky, o); };
+      });
+      const pages = ['climate', 'lights', 'home', 'security', 'climate', 'home'];
+      for (let i = 0; i < 18; i++) {
+        await page.evaluate((u) => window.hkShell.navigate(u), '/' + first.path + '/' + pages[i % pages.length]);
+        await sleep(900 + (i % 5) * 400);
+      }
+      await sleep(2500);
+      const nav = await page.evaluate(() => ({ paints: window.__pgmRenders.length, stale: window.__pgmRenders.filter((r) => r.sky && r.sky !== r.page) }));
+      say(nav.paints >= 6 && !nav.stale.length, size + ': page changes paint each page\'s own sky', { paints: nav.paints, stale: nav.stale.slice(0, 3) });
       say(!errors.length, size + ' no page errors', errors.slice(0, 3));
       await ctx.close();
     }

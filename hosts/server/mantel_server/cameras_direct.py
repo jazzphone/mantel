@@ -413,10 +413,11 @@ class DirectCameras:
     def set_matches(self, matched: Mapping[str, str], aliases: Mapping[str, str]) -> None:
         """PHASE 4'S MATCH (decision 2): ``matched`` {slug: Home Assistant's camera entity} are sources Home Assistant
         has as well (they leave the overlay: one camera, Home Assistant's); ``aliases`` {HA's entity: slug} are the
-        ones whose Video From is Direct (their video and stills come from here, under HA's entity id). A session on
-        an alias that went away ends (the page's card retries, and plays from Home Assistant)."""
+        ones whose Video From is Direct (their video and stills come from here, under HA's entity id: each of the
+        matched device's channels). A session on an alias that went away ends (the page's card retries, and plays from
+        Home Assistant)."""
         self.matched = {k: v for k, v in matched.items() if isinstance(k, str) and isinstance(v, str)}
-        self.aliases = {k: v for k, v in aliases.items() if self.matched.get(v) == k}
+        self.aliases = {k: v for k, v in aliases.items() if isinstance(k, str) and v in self.matched}
         self.sync_states()
         for eid in {s.camera for s in self.sessions.values()} - set(self.local.mine) - set(self.aliases):
             self.spawn(self.end_camera(eid))

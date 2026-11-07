@@ -4,6 +4,10 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Fixed**
+- **Cameras keep playing through a Home Assistant restart.** A Protect camera Mantel has directly now plays from Protect under every one of Home Assistant’s channels for it (the tiles use the low-resolution one), not only the best channel, so its video no longer goes through Home Assistant.
+- **Pre-rendered glass shows the new page’s background after a page change.** A repaint asked just as the page changed could draw the last page’s sky onto the new page’s cards and keep it for that page; it now waits until the new page’s sky is up.
+
 ## 0.1.148 - 2026-11-07
 
 **Added**

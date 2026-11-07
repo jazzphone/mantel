@@ -714,6 +714,7 @@
   function onNavPre() {
     if (!PRE || !active) return;
     var path = here(), c = cache.get(path);
+    pre.navAt = Date.now();
     pre.pending = null;
     pre.next = c ? { url: c.url, path: path } : null;
     // decoded now, while the page is still coming: worn as it shows, it is
@@ -918,6 +919,17 @@
       return;
     }
     var s = preSigs(), now = Date.now(), age = now - pre.at, path = here();
+    // NOT WHILE THE SKY STILL SHOWS THE LAST PAGE (2026-11-07, the owner: "sometimes the previous background from
+    // one page is the blur/glass effect on the next page's cards"): the address changes a few frames before the new
+    // view cuts the sky to its page (hkSky.path), and a paint asked in between -- a moving wallpaper's 2 s repaint,
+    // the again after a paint -- drew the last page's sky as this page's picture, wore it and remembered it. It
+    // waits for the cut (hk-sky-change asks again), VIEW_UP_MS at most: a page that draws no sky still gets one.
+    var shows = window.hkSky && typeof window.hkSky.path === 'function' ? window.hkSky.path() : null;
+    if (shows && shows !== path && now - (pre.navAt || 0) < VIEW_UP_MS) {
+      clearTimeout(pre.timer);
+      pre.timer = setTimeout(function () { pre.timer = null; preTick(force); }, pre.navAt + VIEW_UP_MS - now + 20);
+      return;
+    }
     var big = !pre.url || pre.drawn !== path || s.big !== pre.big;
     // WHILE PAINTING, an ask means: look again once this one is done -- and the
     // signatures say whether anything changed. (A forced paint after every
