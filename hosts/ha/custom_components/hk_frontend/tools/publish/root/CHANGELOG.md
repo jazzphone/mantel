@@ -5,6 +5,8 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+## 1.48.2 - 2026-11-07
+
 **Added**
 - **SF Pro and the glyph file from Mantel when linked.** A linked HK Frontend whose house is Mantel’s fetches the licensed files it lacks from Mantel, checks them and puts them in Your Files; a copy put there by hand is never replaced, and Setup check says where each came from.
 - **Pre-rendered Bright Glass on the tab bar, the docked menu and the Side Pane.** In Pre-rendered mode they now wear the shared picture of the sky, as Blur’s do, instead of blurring live; sheets and menus over the page still blur live.
