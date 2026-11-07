@@ -11,7 +11,7 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 **Fixed**
 - **Long room names on the Intercom sheet end in "…"** instead of being cut off, such as "Primary Suite …". The whole name is still what VoiceOver reads.
 - **Home and Pages settle with one tab-bar movement.** A Home-only Side Pane no longer makes a full tab bar widen or rearrange its tabs after a page swipe lands, including when Pages is opened first.
-- **Quick tab taps pick up the moving highlight where it is.** Choosing another tab during its animation no longer jumps the highlight toward the previous destination before changing direction.
+- **Quick tab taps pick up the moving highlight where it is.** Choosing another tab during its animation no longer jumps the highlight toward the previous destination before changing direction, including at the end tabs where the highlight has different margins.
 - **The tab highlight follows swipes into More's pages**, and back to the visible tabs.
 - **A page swipe no longer stalls as it lands.** The tab bar, the menu, the Side Pane, the Now Playing bar, the Calendar and the sky each reacted to the landing by measuring the page between each other's changes; they now do it once, in the frame. On a slowed (4x) CPU, landing from the Pages screen on Home went from about 220 ms of blocked main thread to 80 ms, and a Bright Glass landing from 120-165 ms to 80-90 ms.
 - **Moving between Bright Glass and its Blur (Home Only) no longer redraws every card** on the page and the two pages waiting beside it.

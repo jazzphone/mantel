@@ -1102,6 +1102,11 @@
     // while folded, nor where the tabs are too narrow for a capsule.
     function slide(el, from, to) {
       if (!from || !to || from.pos !== to.pos || S.mode !== 'full' || S.tight) return;
+      if (from.ink) {
+        var css = getComputedStyle(el, '::before');
+        to = { x: to.x + (parseFloat(css.left) || 0), y: to.y + (parseFloat(css.top) || 0),
+               w: parseFloat(css.width) || to.w, h: parseFloat(css.height) || to.h, pos: to.pos };
+      }
       if (Math.abs(from.x - to.x) < 1 && Math.abs(from.y - to.y) < 1) return;
       el.classList.add('slide-from');
       el.style.setProperty('--hx', (from.x - to.x) + 'px');
@@ -1119,7 +1124,9 @@
     // A second tab tap catches the capsule where it is, rather than where the first tap was sending it.
     // Only read on a selection change: a swipe supplies its own measured box through follow()/land().
     function drawnBoxOf(el) {
-      var box = boxOf(el), tr = getComputedStyle(el, '::before').transform;
+      var box = Object.assign(boxOf(el), { ink: true }), css = getComputedStyle(el, '::before'), tr = css.transform;
+      box.x += parseFloat(css.left) || 0; box.y += parseFloat(css.top) || 0;
+      box.w = parseFloat(css.width) || box.w; box.h = parseFloat(css.height) || box.h;
       var m = /^matrix\(([^)]+)\)$/.exec(tr || '');
       if (m) {
         var n = m[1].split(',').map(Number);

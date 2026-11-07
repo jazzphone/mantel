@@ -234,12 +234,24 @@ const SECTIONS = {
     await t.page.waitForFunction(()=>hkTabBar._.state().pill.querySelector('.tab.here').getAttribute('data-t')==='2');
     await sleep(60);
     const change=await t.page.evaluate(() => new Promise(resolve => {
-      const before=__m.highlight(),s=hkTabBar._.state(),span=s.pill.querySelector('.tab[data-t="2"]').getBoundingClientRect().x-s.pill.querySelector('.tab[data-t="0"]').getBoundingClientRect().x;
+      const s=hkTabBar._.state(),here=s.pill.querySelector('.tab.here');
+      // Hold the first animation a quarter of the way through. The replacement's first keyframe must start there;
+      // its position two frames later depends on how much time a loaded machine left between those frames.
+      const prior=here.getAnimations({subtree:true}).filter(a=>a.transitionProperty==='transform');
+      if (!prior.length) throw new Error('the first highlight is still moving');
+      prior.forEach(a=>{a.pause();a.currentTime=Number(a.effect.getTiming().duration)*.25;});
+      const before=__m.highlight();
       s.pill.querySelector('.tab[data-t="0"]').click();
-      requestAnimationFrame(()=>requestAnimationFrame(()=>resolve({before,after:__m.highlight(),span})));
+      requestAnimationFrame(()=>requestAnimationFrame(()=>{
+        const next=s.pill.querySelector('.tab.here'),css=getComputedStyle(next,'::before');
+        const anim=next.getAnimations({subtree:true}).find(a=>a.transitionProperty==='transform');
+        const first=anim && anim.effect.getKeyframes()[0].transform;
+        const start=first ? next.getBoundingClientRect().x+parseFloat(css.left)+new DOMMatrixReadOnly(first).m41 : null;
+        resolve({before,start});
+      }));
     }));
-    assert(Math.abs(change.after-change.before)<change.span*.4,'a second tab tap continues from the moving highlight '+JSON.stringify(change));
-    console.log('  tab interruption: '+Math.abs(change.after-change.before).toFixed(1)+' px between samples');
+    assert(change.start !== null && Math.abs(change.start-change.before)<1,'a second tab tap continues from the moving highlight '+JSON.stringify(change));
+    console.log('  tab interruption: '+Math.abs(change.start-change.before).toFixed(1)+' px at the new animation’s start');
     await sleep(800);isClean(await rest(t),'tab taps');
     await close(t,'tab taps');
   },
