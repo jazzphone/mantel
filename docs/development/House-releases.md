@@ -629,3 +629,10 @@ Records of releases made with `release_house.py mantel` (phase 15) are written b
 - Mantel on the LXC reconnected to Home Assistant and was still healthy a minute later (62 s).
 - Published to jazzphone/hk-frontend main as `db94126`, tagged `v1.48.1` and released on GitHub.
 - The Wiki had no changes.
+
+## Mantel Link 0.1.13 (2026-11-07)
+
+- mantel-link 0.1.13, commit `1944961`, tagged `mantel-link/v0.1.13`, copied with rsync --inplace; diff -rq shows no difference.
+- Home Assistant restarted and serves `/mantel_link/mantel-link.js?v=0.1.13` (35 s from the restart).
+- Mantel on the LXC reconnected to Home Assistant and was still healthy a minute later (70 s).
+- Published to jazzphone/mantel-link main as `d7e55f3`, tagged `v0.1.13` and released on GitHub.
