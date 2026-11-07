@@ -5,6 +5,9 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+**Added**
+- **House Status, a Home Grid block.** It shows the screen's status chips in HomeView's look: Climate, Timers, Power, Lights, Security and the rest, each with its reading and, at larger sizes, where and what. Each section opens its own page. "+N more" and the Small size open a House Status sheet with all of them, in two columns of panels on a tablet and in rows on a phone. It follows the screen's Status Chips (which chips, their order, Always or When Active) even when the chip row is hidden. Alerts come first, and a sensor that hasn't reported shows no reading rather than zero. Add it from Info in the Home Grid editor.
+
 **Fixed**
 - **Long room names on the Intercom sheet end in "…"** instead of being cut off, such as "Primary Suite …". The whole name is still what VoiceOver reads.
 

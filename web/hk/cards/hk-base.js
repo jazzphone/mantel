@@ -1507,6 +1507,15 @@
   function navigate(path, el) {  // eslint-disable-line no-unused-vars
     window.hkShell.navigate(path);
   }
+  // WHERE A `navigate` ACTION GOES (a card's _act, and House Status, hk-house-status.js, which opens what a chip opens)
+  function navPath(spec) {
+    var p = String(spec.navigation_path), seg = String(location.pathname).split('/')[1], map = spec.navigation_path_map;
+    // navigation_path_map: a dashboard where "./x" is the wrong answer -- say, an energy dashboard whose battery
+    // page is a separate dashboard of its own. Keyed on the url_path segment: data, not a branch in every call site.
+    if (map && Object.prototype.hasOwnProperty.call(map, seg)) p = map[seg];
+    // "./x" is relative to the CURRENT dashboard, which is how one shared config navigates correctly on every dashboard.
+    return p.slice(0, 2) === './' ? '/' + seg + '/' + p.slice(2) : p;
+  }
 
   // A HOME GRID BLOCK OPENS SOMETHING WHEN TAPPED (2026-10-31, the owner on 0.1.94: "ALL the blocks should do
   // something if you tap on them" -- the Weather block did not open Weather). A card that is a block (it carries a
@@ -2452,20 +2461,7 @@
       // the Intercom Button: `#intercom` loads the sheet's code and opens it (hk-loader.js); already there, open it again
       if (action === 'intercom') { var I = window.hkIntercom; if (location.hash === '#intercom' && I && I.open) I.open({ hashed: true }); else location.hash = '#intercom'; return; }
       if (action === 'navigate' && spec.navigation_path) {
-        var p = spec.navigation_path;
-        var seg = String(location.pathname).split('/')[1];
-        // navigation_path_map: a dashboard where "./x" is the wrong answer -- say, an energy dashboard whose battery
-        // page is a separate dashboard of its own. Keyed on the url_path segment: data, not a branch in every call site.
-        var map = spec.navigation_path_map;
-        if (map && Object.prototype.hasOwnProperty.call(map, seg)) {
-          p = map[seg];
-        }
-        // "./x" is relative to the CURRENT dashboard, which is how one shared
-        // config navigates correctly on every dashboard.
-        if (p.slice(0, 2) === './') {
-          p = '/' + seg + '/' + p.slice(2);
-        }
-        navigate(p, this);
+        navigate(navPath(spec), this);
         return;
       }
       // `url` is rare, and falling through to more-info would be the wrong
@@ -3375,6 +3371,7 @@
     b.style.removeProperty('--sx');
   };
   window.hkCards.navigate = navigate;
+  window.hkCards.navPath = navPath;
   window.hkCards.openTarget = openTarget;
   window.hkCards.blockClick = blockClick;
   window.hkCards.neverToggles = neverToggles;

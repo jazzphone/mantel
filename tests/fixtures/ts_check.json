@@ -9,6 +9,7 @@
   "web/client/hk-host-shell.js",
   "web/hk/cards/hk-grid-cards.js",
   "web/hk/cards/hk-grid-catalog.js",
+  "web/hk/cards/hk-house-status.js",
   "web/hk/cards/hk-intercom.js",
   "web/hk/cards/hk-library.js",
   "web/hk/cards/hk-media.js",
