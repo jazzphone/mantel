@@ -80,7 +80,14 @@ const measure = new Function('return ' + measureSrc.toString().replace('PLAYER_L
         const order = await page.evaluate(() => window.hkPageSwipe.order().map((it) => it.path));
         assert(/\/now-playing$/.test(order[0] || '') && /\/home$/.test(order[1] || ''), `${W}x${H}: Now Playing before Home ` + JSON.stringify(order.slice(0, 3)));
         // (a finger: pointer events, pointerType touch, on what is under the point -- page_swipe_check.cjs's)
-        const y = Math.round(H * 0.12);   // (the header: no row or block there keeps a swipe of its own)
+        // (on one of Home's tiles, the leftmost, as page_swipe_check.cjs starts its swipes: inside the page's view)
+        const at0 = await page.evaluate(() => {
+          const deep = (r, s) => [...r.querySelectorAll('*')].flatMap((e) => [...(e.matches(s) ? [e] : []), ...(e.shadowRoot ? deep(e.shadowRoot, s) : [])]);
+          const all = deep(document, 'hk-favorite-card').map((e) => e.getBoundingClientRect()).filter((r) => r.width > 20 && r.top > 0 && r.bottom < innerHeight);
+          all.sort((p, q) => p.left - q.left);
+          return all.length ? { x: Math.max(40, (all[0].left + all[0].right) / 2), y: (all[0].top + all[0].bottom) / 2 } : { x: innerWidth * 0.2, y: innerHeight * 0.5 };
+        });
+        const y = Math.round(at0.y), x0 = Math.round(at0.x);
         await page.evaluate(() => {
           const deepAt = (x, y) => { let e = document.elementFromPoint(x, y); while (e && e.shadowRoot) { const n = e.shadowRoot.elementFromPoint(x, y); if (!n || n === e) break; e = n; } return e; };
           const ev = (type, x, y) => new PointerEvent(type, { bubbles: true, composed: true, cancelable: true, pointerId: 41, pointerType: 'touch', isPrimary: true,
@@ -88,12 +95,12 @@ const measure = new Function('return ' + measureSrc.toString().replace('PLAYER_L
           window.__finger = { down(x, y) { this.t = deepAt(x, y); this.t.dispatchEvent(ev('pointerdown', x, y)); },
                               move(x, y) { this.t.dispatchEvent(ev('pointermove', x, y)); }, up(x, y) { this.t.dispatchEvent(ev('pointerup', x, y)); } };
         });
-        await page.evaluate(([x, y]) => window.__finger.down(x, y), [Math.round(W * 0.2), y]);
-        for (let i = 1; i <= 12; i++) { await page.evaluate(([x, y]) => window.__finger.move(x, y), [Math.round(W * (0.2 + 0.05 * i)), y]); await page.waitForTimeout(16); }
-        await page.evaluate(([x, y]) => window.__finger.up(x, y), [Math.round(W * 0.8), y]);
+        await page.evaluate(([x, y]) => window.__finger.down(x, y), [x0, y]);
+        for (let i = 1; i <= 14; i++) { await page.evaluate(([x, y]) => window.__finger.move(x, y), [Math.round(x0 + W * 0.04 * i), y]); await page.waitForTimeout(16); }
+        await page.evaluate(([x, y]) => window.__finger.up(x, y), [Math.round(x0 + W * 0.56), y]);
         await page.waitForFunction(() => /\/now-playing$/.test(location.pathname), null, { timeout: 5000 }).catch(() => {});
         const at = await page.evaluate(() => location.pathname);
-        if (!/\/now-playing$/.test(at)) console.log('swipe:', JSON.stringify(await page.evaluate(() => { const s = hkPageSwipe._.state(); return { why: s.why, blocked: hkPageSwipe.blocked(), on: hkPageSwipe._.enabled ? 1 : 0, nb: hkPageSwipe.order().map((i) => i.path).slice(0, 3) }; })));
+        if (!/\/now-playing$/.test(at)) console.log('swipe:', JSON.stringify(await page.evaluate(() => { const s = hkPageSwipe._.state(); const it = hkPageSwipe.order(); let nb = null; try { nb = hkPageSwipe._.neighbors(it, location.pathname, (x, p) => x.path === p); nb = nb && { prev: nb.prev && nb.prev.path, next: nb.next && nb.next.path }; } catch (e) { nb = String(e); } return { why: s.why, blocked: hkPageSwipe.blocked(), G: !!s.G, L: !!s.L, nb, order: it.map((i) => i.path).slice(0, 3) }; })));
         assert(/\/now-playing$/.test(at), `${W}x${H}: a swipe right on Home lands on Now Playing (at ${at})`);
         await ready();
         console.log(`PASS ${input.engine} ${W}x${H}: Swipe Right on Home goes to Now Playing`);

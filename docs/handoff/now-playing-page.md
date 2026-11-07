@@ -70,6 +70,13 @@ State of the check at 1180x820 (screenshots looked right):
   `/np-full/home`).
 - **Fail:** the synthetic touch swipe on Home does not move to Now Playing (`why` empty, not blocked).
   - Not yet known whether this is the test's finger or the feature.
+  - Last diagnostic (1180x820, the finger starting on Home's leftmost favorite tile and moving right 0.56 of the
+    width in 14 steps):
+    - `neighbors()` gives prev `/np-full/now-playing` and next `/np-full/security`, so the order is right;
+    - `hkPageSwipe._.state()` stays `G: false, L: false, why: ''`: the gesture never starts.
+    - The test's context has `hasTouch: true`. Page_swipe_check also uses `deviceScaleFactor: 2` and its own `__ps`
+      helpers, and swipes LEFT from Home in its first case. Try its exact helpers first, and a swipe right from
+      Security to Home: if that also fails here, the harness is at fault, not the feature.
   - Next step: compare with `tools/headless/page_swipe_check.cjs` (its `swipe()` and `__ps` helpers, the context's
     `deviceScaleFactor: 2, hasTouch: true`, and which element it starts on).
   - Also confirm whether `hkPageSwipe` stages a neighbor that is not a menu item (`stageFor`, `neighbors`, `isHere`).
