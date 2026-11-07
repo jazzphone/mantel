@@ -6,11 +6,14 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 ## Unreleased
 
 **Added**
+- **SF Pro and the glyph file from Mantel when linked.** A linked HK Frontend whose house is Mantel’s fetches the licensed files it lacks from Mantel, checks them and puts them in Your Files; a copy put there by hand is never replaced, and Setup check says where each came from.
+- **Pre-rendered Bright Glass on the tab bar, the docked menu and the Side Pane.** In Pre-rendered mode they now wear the shared picture of the sky, as Blur’s do, instead of blurring live; sheets and menus over the page still blur live.
 - **Up Next in the Side Pane’s Full player.** Under its buttons, the queue fills the room the cover leaves, each song with its cover; a tap opens the Queue.
 - **Icons for Centered tiles.** Under Appearance, Tile Style has Icons: Automatic (white on Bright Glass, in color otherwise), Color or White, for All Screens or one screen.
 - **Big Number thermostats on the Climate page.** The Climate page’s settings have Thermostats → Style: Dial or Big Number, HomeView’s. A thermostat’s sheet follows it, with its modes and fan beside the number. Water heaters keep their dial.
 
 **Fixed**
+- **Pre-rendered glass follows a moving wallpaper.** The glass’s picture of the sky now repaints every 2 seconds while a wallpaper’s motion runs, and at once when its Motion changes, instead of keeping its first picture for 30 seconds.
 - **The Side Pane player’s Speakers and Browse buttons are no longer cut off.** A pointer over them dims them, as the Full player’s do, instead of drawing a circle past the pane’s edge.
 - **Up Next in the Side Pane shows each song’s cover** in place of its number.
 - **The Full player’s cover shadow stays inside the pane**, no longer cut off either side of the cover.
