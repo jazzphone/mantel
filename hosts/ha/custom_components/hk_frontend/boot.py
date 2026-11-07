@@ -38,6 +38,7 @@ CORE = (
     "elements/hk-elements.js",         # hk-icon, hk-plate
     "modules/hk-ha-elements.js",       # HA's hk-state-icon
     "modules/tesla-viewport.js",       # needs hkShell
+    "modules/hk-pairs.js",             # a stereo pair as one speaker: before the strategy builds
     "modules/hk-tap.js",
 )
 # Imported in parallel once the core has run (each needs the core; none needs another here).

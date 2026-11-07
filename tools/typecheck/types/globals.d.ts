@@ -56,6 +56,7 @@ declare global {
     hkOverlays: any;
     hkPageSwipe: any;
     hkPagesScreen: any;
+    hkPairs: any;
     hkPopup: any;
     hkPopupCover: any;
     hkPopupOpen: any;

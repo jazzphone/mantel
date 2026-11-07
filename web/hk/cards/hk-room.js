@@ -91,6 +91,10 @@
     if (d === 'media_player') {
       if (dc === 'tv') return 'tvs';
       if (dc === 'receiver') return null;
+      // half of a stereo pair is the pair's (hk-pairs.js): one speaker,
+      // counted once, as its tile is drawn -- where the pair stands with it
+      var P = window.hkPairs, pair = P && client ? P.half(id, client) : null;
+      if (pair && P.folded(client, id) && areaOf(client, pair) === areaOf(client, id)) return null;
       var e = client && (client.entities || {})[id], dev = e && (client.devices || {})[e.device_id];
       return dev && /apple tv/i.test(dev.model || '') ? 'tvs' : 'speakers';
     }

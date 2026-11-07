@@ -328,6 +328,7 @@
     var a = areaOf(client, id);
     return !!(a && hide.areas[a]);
   }
+  function PR() { var no = function () { return null; }; return window.hkPairs || { area: no, name: no, model: no, folded: no, learn: no }; }
 
   // A tile for something the house ADDED (Configure -> Also show) that has no
   // tile of its own: scenes and scripts run on a tap, buttons press, toggles
@@ -421,7 +422,7 @@
     } else {
       // a button that is not a computer's wake is the generic pressable tile
       var fn = d === 'button' && !isTileButton(e) ? anyTile : (TILE[d] || anyTile);
-      t = fn(id, name, client.states[id], dv && dv.model);
+      t = fn(id, name, client.states[id], PR().model(client, id) || (dv && dv.model));
     }
     var own = accIcon(id) || (e && ownIcon(e.icon));
     if (t && own && 'icon' in t && own !== t.icon) {
@@ -483,7 +484,7 @@
   // controls indistinguishable. The room prefix is then dropped by shortName.
   function nameOf(client, id, ent) {
     var st = client.states[id];
-    return (st && st.attributes && st.attributes.friendly_name) || (ent && ent.name) || id;
+    return PR().name(client, id) || (st && st.attributes && st.attributes.friendly_name) || (ent && ent.name) || id;   // (a stereo pair's own)
   }
 
   function heading(name) {
@@ -533,10 +534,10 @@
       seen[id] = true;
       var e = ents[id] || {}, dom = id.split('.')[0];
       var added = !!hide.include[id];
-      if (!client.states[id] || hidden(client, opts, id)) return;
+      if (!client.states[id] || hidden(client, opts, id) || PR().folded(client, id, hidden.bind(null, client, opts))) return;   // (a stereo pair's half, hk-pairs.js)
       if (!added && (!TILE[dom] || e.hidden || e.entity_category)) return;
       if (!added && dom === 'button' && !isTileButton(e)) return;
-      var area = e.area_id || (e.device_id && devs[e.device_id] && devs[e.device_id].area_id);
+      var area = e.area_id || (e.device_id && devs[e.device_id] && devs[e.device_id].area_id) || PR().area(client, id);
       // A ROOM SHOWN AS PART OF ANOTHER (the accessories' `into`): the Deck's
       // things are the Backyard's, its section and page the Backyard's
       if (area && into[area] && areas[into[area]]) area = into[area];
@@ -849,7 +850,7 @@
     var ents = client.entities || {};
     return idsOf(client, opts, domain).filter(function (id) {
       var e = ents[id] || {};
-      if (e.hidden || e.entity_category || hidden(client, opts, id)) return false;
+      if (e.hidden || e.entity_category || hidden(client, opts, id) || PR().folded(client, id, hidden.bind(null, client, opts))) return false;
       return !pred || pred(client.states[id]);
     }).sort();
   }
@@ -895,7 +896,7 @@
     if (K && typeof K === 'object' && Object.keys(K).length) {
       var mine = function (kind) {
         return (Array.isArray(K[kind]) ? K[kind] : []).filter(function (id) {
-          return client.states[id] && !hidden(client, opts, id);
+          return client.states[id] && !hidden(client, opts, id) && !PR().folded(client, id, hidden.bind(null, client, opts));
         });
       };
       var gar = mine('garage');
@@ -1058,7 +1059,6 @@
              exclude_entities: opts.exclude_entities, exclude_devices: opts.exclude_devices,
              exclude_areas: opts.exclude_areas };
   }
-
 
   // ------------------------------------------------------------ the chips
   // hk-chips-card (hk-chip.js): the kinds from Status & Chips, in this
@@ -1502,10 +1502,9 @@
     return out;
   }
 
-  // IS MUSIC SET UP? Asked of the feature itself, once; if it is not
-  // installed the subscribe is refused, which answers no. The page's own
-  // hkMusic has not been handed its configuration yet when a dashboard is
-  // generated (no card has attached it), so it cannot say.
+  // IS MUSIC SET UP? Asked of the feature itself, once (its answer also has the house's stereo pairs, hk-pairs.js);
+  // not installed, the subscribe is refused: no. The page's own hkMusic has not been handed its configuration yet
+  // when a dashboard is generated (no card has attached it), so it cannot say.
   function musicConfigured(client) {
     return new Promise(function (resolve) {
       // the client's subscription port (its read allowlist offers hk_music/subscribe)
@@ -1524,6 +1523,7 @@
       // connection that is down, that acceptance waits for the reconnect.
       setTimeout(function () { finish(false); }, 4000);
       conn.subscribeMessage(function (ev) {
+        PR().learn(client, ev ? (ev.configured && ev.speakers) || [] : null);
         finish(!!(ev && ev.configured && ev.speakers && ev.speakers.length));
       }, { type: 'hk_music/subscribe' }).then(function (u) {
         unsub = u;

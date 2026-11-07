@@ -83,7 +83,7 @@ def test_the_build_stamps_its_own_id(built):
     assert (out / "BUILD_ID").read_text().strip() == build
     home = (web / "home.html").read_text()
     preloads = re.findall(r'rel="modulepreload" href="([^"]+)"', home)
-    assert len(preloads) == 7 and all(p.endswith("?v=" + build) for p in preloads)
+    assert len(preloads) == 8 and all(p.endswith("?v=" + build) for p in preloads)
     assert f'src="/web/home.js?v={build}"' in home and f'src="/web/shim/early-cards.js?v={build}"' in home
     assert f'from"./shim/base.js?v={build}"' in (web / "home.js").read_text()
     assert f'from"./base.js?v={build}"' in (web / "shim/early-cards.js").read_text()

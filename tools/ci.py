@@ -57,7 +57,7 @@ HA_PY = HOME / ".venvs/hk-ha-test/bin/python"
 JSC = Path("/System/Library/Frameworks/JavaScriptCore.framework/Versions/A/Helpers/jsc")
 MAC_CHROME = Path("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome")
 HEADLESS = ("client_smoke", "gateway_page_check", "admin_page_check", "settings_viewports", "ingress_smoke",
-            "grid_blocks_check", "grid_music_turn_check")
+            "grid_blocks_check", "grid_music_turn_check", "stereo_pair_check")
 CADDY_IMAGE = "mantel-caddy:ci"
 # the screensaver's Shows in parts side by side, each its own server and WebKit (2026-11-01: one part took ~7 minutes
 # of a full run's ~7 alone; the others end within ~4. 2026-11-02: every Look under every slide made each of four parts

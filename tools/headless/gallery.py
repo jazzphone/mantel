@@ -639,17 +639,21 @@ def seed_alerts(app) -> None:
                                      "checked_at": now - 1800, "error": None})
 
 
+# The music feed's speakers (a check may add to it: tools/headless/stereo_pair_check.py adds a stereo pair)
+SPEAKERS = [{"name": "Living Room", "entity": "media_player.living_room"},
+            {"name": "Kitchen", "entity": "media_player.kitchen"}]
+
+
 def stand_in_music(app) -> None:
-    """Music Assistant set up, with the house's two speakers (HK's music feed, as tools/app_dev_server.py has it)."""
+    """Music Assistant set up, with the house's speakers (HK's music feed, as tools/app_dev_server.py has it)."""
     from mantel_server.connectors import Route
 
     async def request(ctx, msg):
         return {}
 
     async def subscribe(ctx, msg, on_event):
-        asyncio.get_running_loop().call_soon(on_event, {"configured": True, "library_entry": "fictional", "speakers": [
-            {"name": "Living Room", "entity": "media_player.living_room"},
-            {"name": "Kitchen", "entity": "media_player.kitchen"}]})
+        asyncio.get_running_loop().call_soon(on_event, {"configured": True, "library_entry": "fictional",
+                                                        "speakers": [dict(s) for s in SPEAKERS]})
 
         async def unsubscribe():
             return None
