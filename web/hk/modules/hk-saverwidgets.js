@@ -402,18 +402,21 @@
   // Align a corner's visible ink, including a digit's side bearing and the weather SVG's view-box padding.
   // Scale is the preview frame's transform: margins are in layout pixels, measurements in screen pixels.
   // Cache the actual glyph edge: mathematical font bounds can include nearly transparent edge pixels.
-  var cornerCtx = null, cornerInk = {};
+  // (drawn 4x and the edge kept to a quarter pixel: measured whole at 1x and then scaled, a 78 px clock digit at 1920 x
+  // 1080 came out 1.2 px off the date's edge -- 2026-11-07)
+  var cornerCtx = null, cornerInk = {}, INK_SS = 4;
   function glyphLeft(font, ch, size) {
     var key = font + '|' + ch;
     if (cornerInk[key] !== undefined) return cornerInk[key];
-    var canvas = document.createElement('canvas'), pad = Math.ceil(size);
+    var canvas = document.createElement('canvas'), pad = Math.ceil(size * INK_SS);
     canvas.width = canvas.height = pad * 3;
     var ctx = canvas.getContext('2d');
     if (!ctx) return 0;
-    ctx.font = font; ctx.fillStyle = '#fff'; ctx.fillText(ch, pad, pad * 2);
+    ctx.font = font.replace(/(^|\s)([\d.]+)px/, function (m, sp, n) { return sp + parseFloat(n) * INK_SS + 'px'; });
+    ctx.fillStyle = '#fff'; ctx.fillText(ch, pad, pad * 2);
     var data = ctx.getImageData(0, 0, canvas.width, canvas.height).data, left = 0;
     outer: for (var x = 0; x < canvas.width; x++) for (var y = 0; y < canvas.height; y++) {
-      if (data[(y * canvas.width + x) * 4 + 3] > 64) { left = x - pad; break outer; }
+      if (data[(y * canvas.width + x) * 4 + 3] > 64) { left = (x - pad) / INK_SS; break outer; }
     }
     if (Object.keys(cornerInk).length >= 48) cornerInk = {};
     return (cornerInk[key] = left);
