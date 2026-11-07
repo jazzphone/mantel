@@ -4,6 +4,8 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+## 0.1.146 - 2026-11-07
+
 **Added**
 - **A Status section for the Side Pane.** Like a custom status chip, it shows an entity with your own glyph, color, name and label (for example, Mail: Likely Delivered). It appears only while its Show When rule holds (the entity is, is not, is above or is below a value) and disappears again when the rule stops holding. Add it under Side Pane → Dashboard Sections or Screensaver Sections. It comes in Tiny, Less and More, and a tap opens the entity's sheet, or does nothing.
 
