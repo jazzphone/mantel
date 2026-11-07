@@ -5,7 +5,25 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+**Added**
+- **Saved screensaver designs.** Browse designs by swiping, keep up to twelve named designs, duplicate or remove one, and customize its face, background, widgets and options. **All Screens** supplies the shared designs and saved default; saving on an individual screen makes an independent copy. Hold a quiet part of a running screensaver to choose a design on that device.
+- **Ten new clock faces:** Solar Dial, Prism, World, Hotel, Terminal, Atelier, Meridian, Markets, Daily Brief and Modular.
+- **The screensaver editor works on a phone**, with its actual preview above the widget and settings panels.
+- **A Status section for the Side Pane.** Like a custom status chip, it shows an entity with your own glyph, color, name and label (for example, Mail: Likely Delivered). It appears only while its Show When rule holds (the entity is, is not, is above or is below a value). Add it under Side Pane → Dashboard Sections or Screensaver Sections. It comes in Tiny, Less and More, and a tap opens the entity's sheet, or does nothing.
+
+**Fixed**
+- **Speakers and Browse open again on the screensaver's music slide.** The panel no longer closes the moment it opens: lifting the finger from the button no longer counts as a second tap.
+- **Speakers and Browse turn over smoothly.** The Now Playing block, the screensaver and the Side Pane run both halves of the turn on one schedule, and the panel is painted before it moves. The block no longer reappears flat for a moment while the panel turns in.
+- **The Side Pane's player panel no longer gets clipped as it opens and closes.** The player and the panel cross-fade, with the song's row riding between the player's cover and the top of the pane.
+- **A Home Grid block that swipes moves as a whole block.** Each page keeps its own corners, rim and shadow as it slides, and is cut off only in the gutter beside the block. Before, the block's outline stayed put while its pages slid through it, with the background showing between them, in every look.
+- **A stereo pair is one speaker on the generated dashboards.** Two speakers made one room in Music settings show as one tile under the pair's name, on Home, the room's page and a Home Grid room block, and the room's status counts one speaker.
+- **Dashboard swipes continue through card updates and inner scrolling areas**, including Calendar, Live TV and Music. The page stays with the finger, and the navigation and Side Pane use its release curve.
+- **Screensaver previews hold the selected slide** through settings changes and show an explicit Side Pane control with As Saved, Show and Hide. Music can be previewed with nothing playing, with sample artwork and controls that can't start playback. Design previews in the gallery are centered and fully visible at any size.
+- **Changing a clock face's options no longer covers or briefly removes the face**, and the World face uses accurate, bundled coastline geometry.
+
 **Changed**
+- **Album-art backgrounds keep their proportions,** and music beside a Side Pane uses the space more evenly: artwork beside a centered block of track details, with progress and controls underneath. The Side Pane's More player has roomier controls and an adaptive Up Next list. Full-screen music controls align with the bottom of the album cover.
+- **The Full-size music player spreads its buttons.** Speakers and Browse sit at the ends of the progress bar with the transport between, as on the More player.
 - **A sideways swipe goes on past the tab bar's last tab** to the pages under **More**, in More's order (room pages still have none), and each screen's **Swipe Right on Home** (Settings → the screen → Menu → Gestures) can put one of its pages before Home, such as Music for the player full screen.
 
 ## 1.47.0 - 2026-11-05
