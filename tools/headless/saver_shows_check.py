@@ -271,7 +271,7 @@ async def main():
             proc = await asyncio.create_subprocess_exec(args.node, str(Path(__file__).with_suffix('.cjs')), stdin=asyncio.subprocess.PIPE,
                                                         stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, env=os.environ)
             out, err = await proc.communicate(json.dumps({'origin': str(server.make_url('')).rstrip('/'), 'cookie': cookie,
-                                                          'shows': {k: v[1] for k, v in SHOWS.items()},
+                                                          'shows': {k: v[1] for k, v in SHOWS.items()}, 'python': sys.executable,
                                                           'shard': [shard, shards], 'only': args.only,
                                                           'shots': str(args.shots) if args.shots else None}).encode())
             print(out.decode())

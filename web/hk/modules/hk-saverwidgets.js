@@ -430,6 +430,21 @@
       if (first.tagName.toLowerCase() === 'svg') {
         try { var b = first.getBBox(), m = first.getScreenCTM(); if (m) x = m.a * b.x + m.c * b.y + m.e; } catch (e) { /* not drawn yet */ }
       } else {
+        // Keep the leading digit's tabular cell, but measure its glyph without a font-specific tabular inset.
+        if (piece.classList.contains('p-time')) {
+          var parent = first, pc = getComputedStyle(parent), fk = [pc.fontStyle, pc.fontWeight, pc.fontSize, pc.fontFamily].join(' ');
+          var lead = parent.querySelector('[data-corner-digit]');
+          if (lead && lead.getAttribute('data-corner-font') !== fk) { parent.textContent = parent.textContent; lead = null; }
+          if (!lead && parent.firstChild && parent.firstChild.nodeType === 3) {
+            var text = parent.textContent, letter = Array.from(text)[0], rg = document.createRange();
+            rg.setStart(parent.firstChild, 0); rg.setEnd(parent.firstChild, letter.length);
+            var width = rg.getBoundingClientRect().width / scale;
+            lead = document.createElement('span'); lead.setAttribute('data-corner-digit', ''); lead.setAttribute('data-corner-font', fk);
+            lead.style.cssText = 'display:inline-block;text-align:left;font-variant-numeric:proportional-nums;width:' + width + 'px';
+            lead.textContent = letter; parent.replaceChildren(lead, document.createTextNode(text.slice(letter.length)));
+          }
+          if (lead) first = lead;
+        }
         var t = first.firstChild;
         if (!t || t.nodeType !== 3 || !t.textContent) return;
         if (!cornerCtx) cornerCtx = document.createElement('canvas').getContext('2d');
