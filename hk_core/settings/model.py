@@ -1513,9 +1513,9 @@ def merged(options: Mapping[str, Any] | None) -> dict[str, dict[str, Any]]:
     out["look"]["flat"] = out["look"].get("flat") is True
     if out["look"].get("flat_theme") not in ("light", "dark"):
         out["look"]["flat_theme"] = "dark"
-    for k, allowed in (("well", WELLS), ("bright_pages", BRIGHT_PAGES), ("tile_style", TILE_STYLES), ("tile_icons", TILE_ICONS),
+    for k, choices in (("well", WELLS), ("bright_pages", BRIGHT_PAGES), ("tile_style", TILE_STYLES), ("tile_icons", TILE_ICONS),
                        ("thermostat_style", THERMOSTAT_STYLES)):
-        out["look"][k] = out["look"].get(k) if out["look"].get(k) in allowed else DEFAULTS["look"][k]
+        out["look"][k] = out["look"].get(k) if out["look"].get(k) in choices else DEFAULTS["look"][k]
     out["sky"]["photo_look"] = photo_look(out["sky"].get("photo_look")) or dict(PHOTO_LOOK_DEFAULTS)
     out["sky"]["landscape_look"] = photo_look(out["sky"].get("landscape_look")) or dict(PHOTO_LOOK_DEFAULTS)
     out["sky"]["landscape"] = sky_landscape(out["sky"].get("landscape")) or DEFAULTS["sky"]["landscape"]
