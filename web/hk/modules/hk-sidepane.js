@@ -2076,43 +2076,59 @@
     if (me.from) { (me.how === 'drawer' ? drawerAnim : turnAnim)(me, false, fin); return; }
     fin();
   }
-  // THE DRAWER'S RISE: at first only what plays shows, where the section stood (the section hidden under it); it
-  // rises to the pane's top, the tabs and the list opening under it as it goes. Closing, back down the same way.
-  // Transforms and a clip only; at rest under Reduce Motion.
+  // THE DRAWER'S RISE: what plays rides up from where the section's cover was to the pane's top, the drawer's glass
+  // fading in over the pane as the section fades out under it, the tabs and the list rising in after. Closing runs the
+  // same steps backwards. Transforms and opacity only; at rest under Reduce Motion.
   function drawerAnim(me, opening, done) {
     var el = me.p.el, src = me.from, B = me.box, R = me.rect, HC = C();
     var EASE = (HC && HC.EASE) || { standard: 'ease-out', exit: 'ease-in' };
     var reduce = (window.hkSettings && window.hkSettings.skyLook && window.hkSettings.skyLook().animations === false) ||
                  (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-    // UNFOLDING FROM THE PLAYER (2026-11-01, the owner: "the slide up and down of the media player in the side pane
-    // doesn't look great at all"): the drawer starts as exactly the section's box and opens up and down from it to the
-    // whole pane (a clip), the player's row riding up inside it to the top, the tabs and the list fading in as it
-    // opens. It was a solid box sliding up, the pane bare under it until it got there. Closing, the same backwards.
-    var top = Math.max(0, Math.round(R.top - B.y)), bottom = Math.max(0, Math.round(B.y + B.h - (R.top + R.height)));
+    // NO CLIP (2026-11-06, the owner: "when it slides in from the top or goes back down, it gets clipped at the bottom"):
+    // the drawer opened as a clip from the section's box. Its edge swept through the list, and closing it left a dark
+    // band of the small row over the pane before the section came back. Now the two cross-fade: nothing is cut.
+    // (the small row starts level with the section's cover: its own cover sits under its 24 px of padding)
+    var cover = src && src.isConnected && src.querySelector('.np .art');
+    var lift = cover ? cover.getBoundingClientRect().top - 24 : R.top;
+    var top = Math.max(0, Math.round(lift - B.y));
     var inner = el.querySelector('.mpin'), rest = el.querySelectorAll('.mphd,.mpbody,.mpfoot');
-    var small = { clipPath: 'inset(' + top + 'px 0 ' + bottom + 'px 0)' }, full = { clipPath: 'inset(0px 0 0px 0)' };
-    var ride = [{ transform: 'translateY(' + top + 'px)' }, { transform: 'none' }], show = [{ opacity: 0 }, { opacity: 1 }];
+    var ride = [{ transform: 'translateY(' + top + 'px)' }, { transform: 'none' }];
+    var rise = [{ opacity: 0, transform: 'translateY(18px)' }, { opacity: 1, transform: 'none' }];
     var stop = function () {
       (me.anims || []).forEach(function (x) { try { x.cancel(); } catch (e) { /* done */ } });
       me.anims = []; me.anim = null;
     };
     stop();
+    var live = !!(src && src.isConnected && typeof src.animate === 'function');
     var can = !reduce && typeof el.animate === 'function';
     var run = function (target, frames, o) { var x = target.animate(frames, o); me.anims.push(x); return x; };
+    var hideSrc = function (on) {
+      if (!src || !src.isConnected) return;
+      src.style.transition = 'none';
+      src.style.visibility = on ? 'hidden' : '';
+      if (!on) { void src.offsetWidth; src.style.transition = ''; }
+    };
     if (opening) {
-      if (src && src.isConnected) src.style.visibility = 'hidden';
-      if (!can) return;
+      if (!can) { hideSrc(true); return; }
       var o = { duration: 440, easing: EASE.standard };
-      var a = me.anim = run(el, [small, full], o);
-      if (inner) run(inner, ride, o);
-      Array.prototype.forEach.call(rest, function (n) { run(n, show, { duration: 320, delay: 120, easing: 'ease-out', fill: 'backwards' }); });
-      a.onfinish = function () { if (me.anim === a) stop(); };
+      var a = me.anim = run(el, [{ opacity: 0 }, { opacity: 1 }], { duration: 240, easing: 'ease-out' });
+      var r1 = inner ? run(inner, ride, o) : a;
+      Array.prototype.forEach.call(rest, function (n) { run(n, rise, { duration: 320, delay: 120, easing: EASE.standard, fill: 'backwards' }); });
+      if (live) {
+        var f = run(src, [{ opacity: 1 }, { opacity: 0 }], { duration: 200, easing: 'ease-out', fill: 'forwards' });
+        f.onfinish = function () { if (me.anims.indexOf(f) >= 0) hideSrc(true); };
+      } else hideSrc(true);
+      r1.onfinish = function () { if (me.anims.indexOf(r1) >= 0) stop(); };
     } else {
       if (!can) { done(); return; }
-      var c = { duration: 340, easing: EASE.standard, fill: 'forwards' };
-      var b = me.anim = run(el, [full, small], c);
+      var c = { duration: 360, easing: EASE.standard, fill: 'forwards' };
       if (inner) run(inner, ride.slice().reverse(), c);
-      Array.prototype.forEach.call(rest, function (n) { run(n, show.slice().reverse(), { duration: 200, easing: 'ease-in', fill: 'forwards' }); });
+      Array.prototype.forEach.call(rest, function (n) { run(n, rise.slice().reverse(), { duration: 140, easing: 'ease-in', fill: 'forwards' }); });
+      var b = me.anim = run(el, [{ opacity: 1 }, { opacity: 1, offset: 0.35 }, { opacity: 0 }], c);
+      if (live) {
+        hideSrc(false);
+        run(src, [{ opacity: 0 }, { opacity: 0, offset: 0.35 }, { opacity: 1 }], { duration: 360, easing: 'ease-out' });
+      }
       b.onfinish = function () { stop(); done(); };
     }
   }
@@ -2128,29 +2144,19 @@
     var small = 'perspective(1500px) translate(' + Math.round(R.left + R.width / 2 - (B.x + B.w / 2)) + 'px,' + Math.round(R.top + R.height / 2 - (B.y + B.h / 2)) +
                 'px) rotateY(-90deg) scale(' + (R.width / B.w).toFixed(3) + ',' + (R.height / B.h).toFixed(3) + ')';
     var live = src && src.isConnected && typeof src.animate === 'function';
-    var can = !reduce && typeof el.animate === 'function';
+    // (both halves on one schedule, the panel painted before it moves: hk-saver-panel.js turn)
+    var P = window.hkSaverPanel;
+    var can = !reduce && typeof el.animate === 'function' && !!(P && P.turn);
     if (me.anim) { try { me.anim.cancel(); } catch (x) { /* done */ } me.anim = null; }
+    var o = { el: el, src: src, flat: small, edge: edge, srcGone: function (on) { if (src.isConnected) src.style.visibility = on ? 'hidden' : ''; } };
     if (opening) {
       if (!can || !live) { if (src && src.isConnected) src.style.visibility = 'hidden'; return; }
-      el.style.visibility = 'hidden';
-      var a = me.anim = src.animate([{ transform: 'none' }, { transform: edge }], { duration: 240, easing: EASE.exit, fill: 'forwards' });
-      a.onfinish = function () {
-        if (src.isConnected) src.style.visibility = 'hidden';
-        a.cancel();
-        if (mpnl !== me) return;
-        el.style.visibility = '';
-        var b = me.anim = el.animate([{ transform: small }, { transform: 'none' }], { duration: 440, easing: EASE.standard });
-        b.onfinish = function () { if (me.anim === b) me.anim = null; };
-      };
+      o.out = [240, EASE.exit]; o.in = [440, EASE.standard];
+      var tr = me.anim = P.turn(Object.assign(o, { done: function () { if (me.anim === tr) me.anim = null; } }), true);
     } else {
       if (!can || !live) { done(); return; }
-      var c1 = me.anim = el.animate([{ transform: 'none' }, { transform: small }], { duration: 300, easing: EASE.exit, fill: 'forwards' });
-      c1.onfinish = function () {
-        el.style.visibility = 'hidden';
-        src.style.visibility = '';
-        var c2 = me.anim = src.animate([{ transform: edge }, { transform: 'none' }], { duration: 280, easing: EASE.standard });
-        c2.onfinish = function () { me.anim = null; done(); };
-      };
+      o.out = [300, EASE.exit]; o.in = [280, EASE.standard];
+      me.anim = P.turn(Object.assign(o, { done: function () { me.anim = null; done(); } }), false);
     }
   }
   // NOW PLAYING IN THE PANE: the docked bar gives the music up to it while

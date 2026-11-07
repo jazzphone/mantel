@@ -4,6 +4,14 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Fixed**
+- **Speakers and Browse open again on the screensaver's music slide.** The panel no longer closes the moment it opens: lifting the finger from the button no longer counts as a second tap.
+- **Speakers and Browse turn over smoothly.** The Now Playing block, the screensaver and the Side Pane run both halves of the turn on one schedule, and the panel is painted before it moves. The block no longer reappears flat for a moment while the panel turns in.
+- **The Side Pane's player panel no longer gets clipped as it opens and closes.** The player and the panel cross-fade, with the song's row riding between the player's cover and the top of the pane.
+
+**Changed**
+- **The Full-size music player spreads its buttons.** Speakers and Browse sit at the ends of the progress bar with the transport between, as on the More player.
+
 ## 0.1.145 - 2026-11-06
 
 **Changed**

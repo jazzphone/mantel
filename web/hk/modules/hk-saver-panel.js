@@ -940,6 +940,67 @@
     };
   }
 
-  window.hkSaverPanel = { create: create, CSS: CSS, volumeCalls: volumeCalls, _: { ticksPlan: ticksPlan, ticksCaption: ticksCaption, playTarget: playTarget, volumeCalls: volumeCalls } };
+  // THE TURN, ON ONE SCHEDULE (2026-11-06, the owner: "a slight flicker and pop in"): the front to edge-on, then the
+  // panel from edge-on to flat. Both halves start together, the panel's delayed by the front's, so no frame waits
+  // on script between them. Before either moves, the panel is laid out and painted, unseen, for two frames. It used to
+  // be shown from the front's onfinish and painted for the first time right then, and WebKit held that frame mid-turn.
+  // Closing runs the same steps backwards. Transforms and opacity only.
+  //   o.el, o.src     the panel and the front (the card, the art, the section)
+  //   o.flat          the panel's turned-away transform (edge-on where the front stands)
+  //   o.edge          the front's turned-away transform
+  //   o.out, o.in     [ms, easing] of the first half and the second
+  //   o.srcGone(on)   the front hidden at rest (on) or shown again
+  //   o.done()        at rest
+  // Returns { cancel() }: everything stopped where it is (a newer turn takes over).
+  function turn(o, opening) {
+    var el = o.el, src = o.src, anims = [], dead = false, raf = 0;
+    var run = function (t, frames, opts) { var a = t.animate(frames, opts); anims.push(a); return a; };
+    var rec = {
+      cancel: function () {
+        dead = true;
+        if (raf) cancelAnimationFrame(raf);
+        anims.forEach(function (a) { try { a.cancel(); } catch (e) { /* done */ } });
+        anims = [];
+        el.style.opacity = '';
+      }
+    };
+    var out = o.out, inn = o.in;
+    // THE FRONT HIDDEN AT ONCE: a Home Grid block's plate keeps HA's card style, `transition: all .3s`, which
+    // carried its visibility too. Hidden at edge-on, it stayed visible, flat, for 300 ms more, under the panel
+    // turning in (the owner's flicker, 2026-11-06).
+    var gone = function (on) {
+      src.style.transition = 'none';
+      o.srcGone(on);
+      if (!on) { void src.offsetWidth; src.style.transition = ''; }
+    };
+    if (opening) {
+      // (unseen but laid out and painted: opacity, not visibility, and not display)
+      el.style.visibility = '';
+      el.style.opacity = '0';
+      var go = function () {
+        if (dead) return;
+        var a = run(src, [{ transform: 'none' }, { transform: o.edge }], { duration: out[0], easing: out[1], fill: 'forwards' });
+        var b = run(el, [{ transform: o.flat }, { transform: 'none' }], { duration: inn[0], delay: out[0], easing: inn[1], fill: 'backwards' });
+        // the panel unseen until its half starts (it waits edge-on, where a sliver of it could show)
+        run(el, [{ opacity: 0 }, { opacity: 0 }], { duration: out[0] });
+        el.style.opacity = '';
+        a.onfinish = function () { if (dead) return; gone(true); a.cancel(); };
+        b.onfinish = function () { if (dead) return; anims = []; if (o.done) o.done(); };
+      };
+      raf = requestAnimationFrame(function () { raf = requestAnimationFrame(function () { raf = 0; go(); }); });
+    } else {
+      var c1 = run(el, [{ transform: 'none', opacity: 1 }, { transform: o.flat, opacity: 1, offset: 0.98 }, { transform: o.flat, opacity: 0 }],
+                   { duration: out[0], easing: out[1], fill: 'forwards' });
+      // the front waits edge-on, unseen, through the panel's half, then turns back
+      gone(false);
+      var c2 = run(src, [{ transform: o.edge }, { transform: 'none' }], { duration: inn[0], delay: out[0], easing: inn[1], fill: 'backwards' });
+      run(src, [{ opacity: 0 }, { opacity: 0 }], { duration: out[0] });
+      c1.onfinish = function () { if (dead) return; el.style.visibility = 'hidden'; };
+      c2.onfinish = function () { if (dead) return; anims.forEach(function (a) { try { a.cancel(); } catch (e) { /* done */ } }); anims = []; if (o.done) o.done(); };
+    }
+    return rec;
+  }
+
+  window.hkSaverPanel = { create: create, CSS: CSS, volumeCalls: volumeCalls, turn: turn, _: { ticksPlan: ticksPlan, ticksCaption: ticksCaption, playTarget: playTarget, volumeCalls: volumeCalls } };
   try { window.dispatchEvent(new Event('hk-saver-panel')); } catch (e) { /* ignore */ }
 })();

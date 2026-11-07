@@ -404,7 +404,10 @@
       // a move from here wakes, as before)
       if ((t === 'pointermove' || t === 'mousemove') && (!e.pointerType || e.pointerType === 'mouse')) { mx = e.clientX; my = e.clientY; }
       if (inPanel(e)) { if (t !== 'pointermove' && t !== 'mousemove') panelTouched(); return; }
-      if (t === 'pointermove' || t === 'mousemove' || t === 'wheel' || t === 'touchmove' || t === 'click') return;
+      // (a finger lifting is not a tap: the one that opened it, lifting off its
+      // button, read as a second tap and toggled it shut at once, 2026-11-06)
+      if (t === 'pointermove' || t === 'mousemove' || t === 'wheel' || t === 'touchmove' || t === 'click' ||
+          t === 'pointerup' || t === 'pointercancel') return;
       if ((t === 'touchstart' || t === 'mousedown') && window.PointerEvent) return;
       if (t === 'keydown') { if (!pnl.p.typing()) closePanel(true); return; }
       var px = t === 'touchstart' ? (e.touches && e.touches[0] && e.touches[0].clientX) : e.clientX;
@@ -3058,31 +3061,22 @@
       src.style.visibility = on ? 'hidden' : '';
       if (me.view.kind !== 'slide') setAttr(hostOf(me.view), 'mpp', on);
     };
-    var can = !reduce && typeof el.animate === 'function' && typeof src.animate === 'function';
+    // (both halves on one schedule, the panel painted before it moves: hk-saver-panel.js turn)
+    var P = window.hkSaverPanel;
+    var can = !reduce && typeof el.animate === 'function' && typeof src.animate === 'function' && !!(P && P.turn);
     if (me.anim) { try { me.anim.cancel(); } catch (e) { /* done */ } me.anim = null; }
+    var o = { el: el, src: src, flat: xf(Mid, B, -90), edge: xf(Mid, R, 90), srcGone: hide };
     if (opening) {
       me.hidRect = R;
       el.classList.add('up');
       if (me.view.kind !== 'slide') setAttr(hostOf(me.view), 'mpp', true);
       if (!can) { hide(true); if (done) done(); return; }
-      el.style.visibility = 'hidden';
-      var a = me.anim = src.animate([{ transform: 'none' }, { transform: xf(Mid, R, 90) }], { duration: PANEL_TURN[0], easing: 'cubic-bezier(.45,0,.9,.5)', fill: 'forwards' });
-      a.onfinish = function () {
-        hide(true); a.cancel();
-        if (pnl !== me) { hide(false); el.classList.remove('up'); return; }
-        el.style.visibility = '';
-        var b2 = me.anim = el.animate([{ transform: xf(Mid, B, -90) }, { transform: 'none' }], { duration: PANEL_TURN[1], easing: 'cubic-bezier(.1,.5,.25,1)' });
-        b2.onfinish = function () { if (me.anim === b2) me.anim = null; if (done) done(); };
-      };
+      o.out = [PANEL_TURN[0], 'cubic-bezier(.45,0,.9,.5)']; o.in = [PANEL_TURN[1], 'cubic-bezier(.1,.5,.25,1)'];
+      var tr = me.anim = P.turn(Object.assign(o, { done: function () { if (me.anim === tr) me.anim = null; if (done) done(); } }), true);
     } else {
       if (!can) { el.classList.remove('up'); hide(false); if (done) done(); return; }
-      var c1 = me.anim = el.animate([{ transform: 'none' }, { transform: xf(Mid, B, -90) }], { duration: PANEL_TURN[0], easing: 'cubic-bezier(.45,0,.9,.5)', fill: 'forwards' });
-      c1.onfinish = function () {
-        el.classList.remove('up'); c1.cancel();
-        hide(false);
-        var c2 = me.anim = src.animate([{ transform: xf(Mid, R, 90) }, { transform: 'none' }], { duration: PANEL_TURN[1], easing: 'cubic-bezier(.1,.5,.25,1)' });
-        c2.onfinish = function () { me.anim = null; if (done) done(); };
-      };
+      o.out = [PANEL_TURN[0], 'cubic-bezier(.45,0,.9,.5)']; o.in = [PANEL_TURN[1], 'cubic-bezier(.1,.5,.25,1)'];
+      me.anim = P.turn(Object.assign(o, { done: function () { me.anim = null; el.classList.remove('up'); if (done) done(); } }), false);
     }
   }
   // closed: turned back (animated), or at once (its view gone, the
@@ -3104,7 +3098,7 @@
     panelButtons();
     var finish = function () {
       me.p.destroy();
-      if (me.src) { me.src.style.visibility = ''; }
+      if (me.src) { me.src.style.visibility = ''; me.src.style.transition = ''; }
       if (me.view.kind !== 'slide' && hostOf(me.view)) setAttr(hostOf(me.view), 'mpp', false);
     };
     if (animated && (on || me.view.kind === 'dash') && me.src && me.src.isConnected && me.view.el.isConnected) turnPanel(false, finish, me);

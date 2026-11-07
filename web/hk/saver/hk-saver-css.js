@@ -459,7 +459,10 @@
       ':host(:not([pcal])) .pm .mprog{margin-top:calc(16px * var(--z))}',
       ':host(:not([pcal])) .pm .mtimes{font-size:calc(12px * var(--z))}',
       '.pm .mvol{flex:1 0 100%;order:9}',
-      ':host(:not([pcal])) .pm .mctl{justify-content:center;--g:calc(36px * var(--z));column-gap:calc(22px * var(--z))}',
+      // SPREAD ACROSS THE SONG'S WIDTH (2026-11-06, the owner: "too close together ... spread out in the Full size like
+      // they are on the More size"): Speakers and Browse at the progress bar's ends, the transport between; the gap a
+      // floor where the pane is narrow
+      ':host(:not([pcal])) .pm .mctl{justify-content:space-between;--g:calc(36px * var(--z));column-gap:calc(22px * var(--z))}',
       ':host(:not([pcal])) .pm .mbtn{width:calc(50px * var(--z));height:calc(50px * var(--z))}',
       ':host(:not([pcal])) .pm .mbtn.mpp{width:calc(62px * var(--z));height:calc(62px * var(--z))}',
       ':host(:not([pcal])) .pm .mbtn.mx,:host([pcal]) .pm .mbtn.mx{width:calc(42px * var(--z));height:calc(42px * var(--z))}',
@@ -495,7 +498,9 @@
       ':host([pcal]) .pm .malbum{font-size:calc(14px * var(--z));margin-top:calc(2px * var(--z))}',
       ':host([pcal]) .pm .mprog{margin-top:calc(18px * var(--z))}',
       ':host([pcal]) .pm .mtimes{font-size:calc(12px * var(--z))}',
-      ':host([pcal]) .pm .mctl{justify-content:center;--g:calc(34px * var(--z));column-gap:calc(20px * var(--z))}',
+      ':host([pcal]) .pm .mctl{justify-content:space-between;--g:calc(34px * var(--z));column-gap:calc(20px * var(--z))}',
+      // (without Speakers and Browse, the transport alone stays together in the middle)
+      '.pm[nomx] .mctl{justify-content:center!important}',
       ':host([pcal]) .pm .mvol{height:calc(5px * var(--z))}',
       ':host([pcal]) .pm .mvol svg{width:calc(18px * var(--z));height:calc(18px * var(--z))}',
       ':host([pcal]) .pm .mvt b{width:calc(16px * var(--z));height:calc(16px * var(--z));margin:calc(-8px * var(--z)) 0 0 calc(-8px * var(--z))}',

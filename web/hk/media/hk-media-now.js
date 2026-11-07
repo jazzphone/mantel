@@ -1000,7 +1000,7 @@
           // (a field focused on a tablet: its keyboard goes with it)
           try { var fa = me.host.shadowRoot.activeElement; if (fa && fa.blur) fa.blur(); } catch (x) { /* ignore */ }
           me.scrim.classList.remove('on');
-          var fin = function () { me.p.destroy(); me.host.remove(); me.turn.style.visibility = ''; };
+          var fin = function () { me.p.destroy(); me.host.remove(); me.turn.style.visibility = ''; me.turn.style.transition = ''; };
           if (me.turn.isConnected) this._turnAnim(me, false, fin); else { if (me.anim) me.anim.cancel(); fin(); }
           return;
         }
@@ -1099,7 +1099,7 @@
       // edge-on, growing from the block's size to its own; back the same way.
       // Transforms only.
       _turnAnim(me, opening, done) {
-        var el = me.p.el, src = me.turn, B = me.box, self = this, EASE = window.hkCards.EASE;
+        var el = me.p.el, src = me.turn, B = me.box, EASE = window.hkCards.EASE;
         var reduce = (window.hkSettings && window.hkSettings.rendering && !window.hkSettings.rendering().motion) ||
                      (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
         if (opening) { var rr = src.getBoundingClientRect(); me.hidRect = { left: rr.left, top: rr.top, width: rr.width, height: rr.height }; }
@@ -1109,28 +1109,20 @@
         var small = 'perspective(' + per + 'px) translate(' + Math.round(R.left + R.width / 2 - (B.x + B.w / 2)) + 'px,' +
                     Math.round(R.top + R.height / 2 - (B.y + B.h / 2)) + 'px) rotateY(-90deg) scale(' +
                     (R.width / B.w).toFixed(3) + ',' + (R.height / B.h).toFixed(3) + ')';
-        var can = !reduce && typeof el.animate === 'function' && typeof src.animate === 'function';
+        // (both halves on one schedule, the panel painted before it moves: hk-saver-panel.js turn)
+        var P = window.hkSaverPanel;
+        var can = !reduce && typeof el.animate === 'function' && typeof src.animate === 'function' && !!(P && P.turn);
         if (me.anim) { try { me.anim.cancel(); } catch (x) { /* done */ } me.anim = null; }
+        var o = { el: el, src: src, flat: small, edge: edge,
+                  srcGone: function (on) { src.style.visibility = on ? 'hidden' : ''; } };
         if (opening) {
           if (!can) { src.style.visibility = 'hidden'; return; }
-          el.style.visibility = 'hidden';
-          var a = me.anim = src.animate([{ transform: 'none' }, { transform: edge }], { duration: 240, easing: EASE.exit, fill: 'forwards' });
-          a.onfinish = function () {
-            src.style.visibility = 'hidden'; a.cancel();
-            if (self._spk !== me) { src.style.visibility = ''; return; }
-            el.style.visibility = '';
-            var b = me.anim = el.animate([{ transform: small }, { transform: 'none' }], { duration: 440, easing: EASE.standard });
-            b.onfinish = function () { if (me.anim === b) me.anim = null; };
-          };
+          o.out = [240, EASE.exit]; o.in = [440, EASE.standard];
+          var rec = me.anim = P.turn(Object.assign(o, { done: function () { if (me.anim === rec) me.anim = null; } }), true);
         } else {
           if (!can) { done(); return; }
-          var c1 = me.anim = el.animate([{ transform: 'none' }, { transform: small }], { duration: 300, easing: EASE.exit, fill: 'forwards' });
-          c1.onfinish = function () {
-            el.style.visibility = 'hidden';
-            src.style.visibility = '';
-            var c2 = me.anim = src.animate([{ transform: edge }, { transform: 'none' }], { duration: 280, easing: EASE.standard });
-            c2.onfinish = function () { me.anim = null; done(); };
-          };
+          o.out = [300, EASE.exit]; o.in = [280, EASE.standard];
+          me.anim = P.turn(Object.assign(o, { done: function () { me.anim = null; done(); } }), false);
         }
       }
       // what plays, for the panel's foot (hk-saver-panel.js drawMini)
