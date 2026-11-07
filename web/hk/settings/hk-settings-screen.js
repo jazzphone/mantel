@@ -746,6 +746,8 @@
         }
         // SWIPE RIGHT ON HOME (2026-11-06, the owner): one of this screen's pages, before Home in the swipe's order
         var pages = b && x ? (x.menu_layout || []).filter(function (it) { return it && it.path; }) : [];
+        // (with Music, its Now Playing page first: the screensaver's music slide as a page, out of the menu -- 2026-11-07)
+        if (pages.some(function (it) { return it.path === 'playmusic'; })) pages = [{ path: 'now-playing', title: 'Now Playing' }].concat(pages);
         var left = b && pages.some(function (it) { return it.path === b.swipe_left; }) ? b.swipe_left : '';
         if (b && pages.length) {
           rows.push(K.select({ label: 'Swipe Right on Home', sk: 'b:swipe_left', value: left,

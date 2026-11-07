@@ -106,22 +106,23 @@
     // the song's and the one before, faded between -- each on a layer of its
     // own for good (will-change on the frame, not the picture: a picture let
     // go took its layer with it, and what was round it was drawn again)
-    function musicView(kind) {
-      var el = document.createElement('div');
-      el.className = kind === 'slide' ? 'mu' : 'pm';
+    // (look 'slide': a dashboard view drawn as the slide -- the Now Playing page, hk-saver-pane.js)
+    function musicView(kind, look) {
+      var el = document.createElement('div'), sl = kind === 'slide' || look === 'slide';
+      el.className = sl ? 'mu' : 'pm';
       el.setAttribute('idle', '');
       el.innerHTML =
         (isFlat() ? '<div class="mbgf"></div><div class="mbgf"></div>' : '<div class="mbgf"><canvas class="mbg"></canvas></div><div class="mbgf"><canvas class="mbg"></canvas></div>') + '<div class="mshade"></div>' +
-        '<div class="mbody">' + (kind === 'slide' ? '<div class="mstage">' : '') + '<div class="mart"><div class="msq"><div class="mph">' + svg(ICON.note) + '</div>' +
+        '<div class="mbody">' + (sl ? '<div class="mstage">' : '') + '<div class="mart"><div class="msq"><div class="mph">' + svg(ICON.note) + '</div>' +
         '<div class="mfr"><img alt=""></div><div class="mfr"><img alt=""></div></div></div>' +
-        '<div class="mcol">' + (kind === 'slide' ? '<div class="mmeta">' : '') + '<div class="mroom"></div><div class="mtitle"></div><div class="martist"></div><div class="malbum"></div>' + (kind === 'slide' ? '<div class="mq"></div></div>' : '') +
+        '<div class="mcol">' + (sl ? '<div class="mmeta">' : '') + '<div class="mroom"></div><div class="mtitle"></div><div class="martist"></div><div class="malbum"></div>' + (sl ? '<div class="mq"></div></div>' : '') +
         '<div class="mprog"><div class="mbar"><i></i></div><div class="mtimes"><span></span><span></span></div></div>' +
         '<div class="mctl"><div class="mbtn mx" data-act="spk" aria-label="Speakers"><hk-icon icon="hk:homepod"></hk-icon></div>' +
         '<div class="mbtn" data-act="prev">' + svg(ICON.prev) + '</div><div class="mbtn mpp" data-act="pp">' +
         svg(ICON.play) + '</div><div class="mbtn" data-act="next">' + svg(ICON.next) + '</div>' +
         '<div class="mbtn mx" data-act="brw" aria-label="Browse Music">' + svg(ICON.lib) + '</div>' +
         '<div class="mvol">' + svg(ICON.vlo) + '<div class="mvt"><i></i><b></b></div>' + svg(ICON.vhi) + '</div></div>' +
-        '<div class="mnext"><div class="mnth">' + svg(ICON.note) + '<img alt=""></div><div class="mnx"><div class="mnl">Up Next</div><div class="mnt"></div></div></div></div>' + (kind === 'slide' ? '</div>' : '') + '</div>';
+        '<div class="mnext"><div class="mnth">' + svg(ICON.note) + '<img alt=""></div><div class="mnx"><div class="mnl">Up Next</div><div class="mnt"></div></div></div></div>' + (sl ? '</div>' : '') + '</div>';
       if (!window.hkSaverPanel) el.setAttribute('nomx', '');
       var q = function (s) { return el.querySelector(s); };
       var v = { kind: kind, el: el, flat: isFlat(), flip: 0, pic: null, d: null, ready: Promise.resolve(),
@@ -316,6 +317,7 @@
             mus.q = r && r.ok && Array.isArray(r.items) ? r.items.slice(1, MQ_ROWS + 1) : [];
             mus.views.forEach(function (w) { if (w.mq) drawQueueRows(w, w.d); });
             if (K.layoutMusic) K.layoutMusic();
+            mus.views.forEach(function (w) { if (w.mq && w.kind === 'dash' && w.host && w.host._fit) w.host._fit(); });   // (the Now Playing page)
           }, function () { if (mus.qFor === sig) mus.q = []; });
         }
       }

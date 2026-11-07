@@ -2070,22 +2070,22 @@
       cards: [titleBar('Timeline'), column([{ type: 'custom:hk-timeline-card' }])] });
 
     if (music) {
-      // MUSIC (2026-10-11): Play Music and Browse Music on one page
-      // (hk-music.js) -- what plays and where on the left, Browse beside it.
-      // The cover is still the page's background (the playmusic sky).
+      // MUSIC (2026-10-11): Play Music and Browse Music on one page (hk-music.js) -- what plays and where on the left,
+      // Browse beside it. The cover is still the page's background (the playmusic sky).
       out.push(view({ title: 'Music', path: 'playmusic', subview: true, sky_variant: 'playmusic',
         icon: 'mdi:speaker', menu_title: 'Music',
         // (in the page's column, as every page's content: on its edges --
         // DESIGN.md "Page edges")
         background: '#150e1f', cards: [titleBar('Music'),
           column([{ type: 'custom:hk-music-card' }])] }));
-      // BROWSE MUSIC'S ADDRESS STAYS (links, chips and tap actions that open
-      // it): the same page, starting in the search box -- out of the menu,
-      // where Music is the page
+      // BROWSE MUSIC'S ADDRESS STAYS (links, chips and tap actions that open it): the same page, starting in the search
+      // box -- out of the menu, where Music is the page
       out.push(view({ title: 'Music', path: 'music-browse', subview: true, sky_variant: 'playmusic',
         menu_follows: 'playmusic', icon: 'mdi:music-box-multiple', menu: false,
-        background: '#150e1f', cards: [titleBar('Music'),
-          column([{ type: 'custom:hk-music-card', focus_search: true }])] }));
+        background: '#150e1f', cards: [titleBar('Music'), column([{ type: 'custom:hk-music-card', focus_search: true }])] }));
+      // NOW PLAYING (2026-11-07): the screensaver's music slide as a page, its corner its title (hk-saver-pane.js); out of
+      // the menu, a screen's Swipe Right on Home goes there. The cover is its sky, as Music's.
+      out.push(view({ title: 'Now Playing', path: 'now-playing', subview: true, sky_variant: 'playmusic', menu_follows: 'playmusic', icon: 'mdi:play-circle', menu: false, background: '#150e1f', cards: [column([{ type: 'custom:hk-now-playing-page-card' }])] }));
     }
     // THE PAGES IN THIS DASHBOARD'S ORDER (Order -> Pages): the
     // kinds, Browse Music where it is placed (else right after Play Music --

@@ -4039,7 +4039,7 @@
       autoLayout: autoLayout, BAND_H: BAND_H, BAND_MAX: BAND_MAX, BAND_PAD: BAND_PAD, BAND_W: BAND_W,
       BAND_ZONE: BAND_ZONE, clock: clock, CROSSFADE_MS: CROSSFADE_MS, dashConf: dashConf,
       DEFAULT_CARD_WIDTH: DEFAULT_CARD_WIDTH, EDGE: EDGE, FADE_BACK_MS: FADE_BACK_MS, layoutMusic: layoutMusic, layoutSoon: layoutSoon,
-      MU_ART_MS: MU_ART_MS, PANE_TOP: PANE_TOP, PANE_W: PANE_W, refresh: refresh, WAKE: WAKE, ZOOM: ZOOM
+      MU_ART_MS: MU_ART_MS, PANE_TOP: PANE_TOP, PANE_W: PANE_W, refresh: refresh, WAKE: WAKE, ZOOM: ZOOM, dashWatch: dashWatch, musicAct: musicAct, renderMusic: renderMusic, musicTick: musicTick, layoutModules: layoutModules, panelDone: function (v) { if (pnl && pnl.view === v) closePanel(false); }, clock24: function () { return !!(cfg && cfg.clock_24); } // (the last seven: the Now Playing page, hk-saver-pane.js)
     };
   }
   function runParts() {

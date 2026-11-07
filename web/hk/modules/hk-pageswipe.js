@@ -168,16 +168,22 @@
     try { if (T && T.pages) p = T.pages() || p; } catch (e) { /* not drawn yet */ }
     var S = window.hkSettings, left = null;
     try { left = S && S.swipeLeft ? S.swipeLeft() : null; } catch (e) { left = null; }
+    // (a page of the screen out of its menu -- Now Playing, 2026-11-07 -- comes as itself)
+    var M = menu(), extra = null;
+    try {
+      var cfg = left && M && M.config ? M.config() : null, hit = cfg && (cfg.views || []).filter(function (v) { return v && v.path === left; })[0];
+      if (hit && M.dash) extra = { path: '/' + M.dash() + '/' + left, title: hit.title || left, icon: hit.icon };
+    } catch (e) { extra = null; }
     return leftOfHome(order({ items: p.items || [], bar: !!p.bar, board: board(), path: location.pathname,
-                              pagesScreen: pagesScreen() }), left);
+                              pagesScreen: pagesScreen() }), left, extra);
   }
   // SWIPE RIGHT ON HOME (2026-11-06): the screen's chosen page, moved from where it is to before Home (the list's first);
-  // not one of the list's pages (a room, a page gone), nothing changes
-  function leftOfHome(items, seg) {
-    if (!seg || !Array.isArray(items) || items.length < 2) return items;
+  // a page of the screen out of the menu (`extra`: Now Playing) put there; else (a room, a page gone) nothing changes
+  function leftOfHome(items, seg, extra) {
+    if (!seg || !Array.isArray(items) || items.length < (extra ? 1 : 2)) return items;
     var at = -1;
     items.forEach(function (it, i) { if (at < 0 && i > 0 && it && viewSeg(it.path) === seg) at = i; });
-    if (at < 0) return items;
+    if (at < 0) return extra && viewSeg(extra.path) === seg ? [extra].concat(items) : items;
     var out = items.slice(), it = out.splice(at, 1)[0];
     out.unshift(it);
     return out;
