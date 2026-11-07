@@ -1,5 +1,18 @@
 # Handoff: music players and the Now Playing page (2026-11-07)
 
+## Completion update (Codex, 2026-11-07)
+
+The owner authorized finishing, committing to main and releasing all changes since the last releases. That newer
+request supersedes the original no-release note below. The navigation entry now includes its view segments, and
+the page card registers after the screensaver shell is ready. The page publishes its cover for the music sky,
+clears the tab bar using its CSS height expression, and cleans up its observer and pending layout on disconnect.
+Wide screens beside a Side Pane use the cover-and-queue row too. The browser check covers all sizes, the cover
+background, Speakers/Browse, and touch swipes to Now Playing and back, in WebKit and Chromium, and runs in full CI.
+The clock keeps the screensaver's 24-hour option to match the approved slide. Real tablet touch feel remains a
+hands-on acceptance item. Release and verification outcomes are recorded in docs/development/House-releases.md.
+
+## Original handoff
+
 Written for whoever picks this up next (Codex or another session). The owner's rules: American English; push finished
 work to `main` only after `tools/ci.py full` passes (fetch and merge first, never force); **no house release unless the
 owner says so**. Run checks from a local-disk worktree (`/private/tmp/...`), with `PYTHONPATH=<worktree>`, `NODE`,

@@ -18,10 +18,12 @@ function measureSrc() {
   const r = card.shadowRoot, box = (e) => { if (!e) return null; const b = e.getBoundingClientRect(); return { l: b.left, r: b.right, t: b.top, b: b.bottom, w: b.width, h: b.height }; };
   const seen = (e) => e && e.getBoundingClientRect().height > 0 && getComputedStyle(e).display !== 'none';
   const playerLook = PLAYER_LOOK;
+  const bar = document.getElementById('hk-tabbar'), tabs = bar && bar.shadowRoot && bar.shadowRoot.querySelector('.bar');
   const corner = [...r.querySelectorAll('.ptl > *, .ptr > *')].filter(seen).map(box);
-  const words = [...r.querySelectorAll('.mu .mroom, .mu .mtitle, .mu .mart, .mu .mprog, .mu .mctl, .mu .mvol')].filter(seen).map(box);
+  const words = [...r.querySelectorAll('.mu .mroom, .mu .mtitle, .mu .martist, .mu .mart, .mu .mprog, .mu .mctl, .mu .mvol')].filter(seen).map(box);
   return {
-    card: box(card), vh: innerHeight, vw: innerWidth, title: (r.querySelector('.mu .mtitle') || {}).textContent || '',
+    card: box(card), tabs: box(tabs), vh: innerHeight, vw: innerWidth, title: (r.querySelector('.mu .mtitle') || {}).textContent || '',
+    art: window.hkNowArt, skyArt: document.getElementById('hk-sky') && document.getElementById('hk-sky').style.getPropertyValue('--artO'),
     row: card.hasAttribute('murow'), up: card.hasAttribute('muup'), pane: card.hasAttribute('pane'),
     corner, cornerLeft: r.querySelectorAll('.ptl > *').length, cornerRight: r.querySelectorAll('.ptr > *').length,
     words, queue: [...r.querySelectorAll('.mu .mqr')].filter(seen).length,
@@ -35,15 +37,17 @@ const measure = new Function('return ' + measureSrc.toString().replace('PLAYER_L
 (async () => {
   const browser = await pw[input.engine].launch({ headless: true });
   try {
-    for (const [W, H] of input.sizes || [[1180, 820], [1366, 1024], [1920, 1080], [820, 1180], [390, 844]]) {
-      const context = await browser.newContext({ viewport: { width: W, height: H }, hasTouch: true });
+    for (const [W, H] of input.sizes || [[1180, 820], [1280, 800], [1366, 1024], [1920, 1080], [820, 1180], [390, 844]]) {
+      const context = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 2, hasTouch: true, isMobile: false });
       await context.addCookies([{ name: 'mantel_session', value: input.cookie, url: input.origin }]);
       await context.route('**/*', (route) => new URL(route.request().url()).origin === input.origin ? route.continue() : route.abort());
       const page = await context.newPage(), errors = [];
+      page.on('console', m => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) console.log('BROWSER:', m.text()); });
       page.on('pageerror', (e) => { if (!/ResizeObserver loop|due to access control checks/.test(e.message)) errors.push(e.message); });
       const open = async (screen, view) => {
         await page.goto(`${input.origin}/${screen}/${view}?hkglass=blur`);
         await page.waitForFunction(() => window.__mantelReady === true);
+        await require('./grid_ready.cjs')(page);
       };
       const ready = async () => {
         await page.waitForFunction(() => !!customElements.get('hk-now-playing-page-card'), null, { timeout: 15000 });
@@ -58,8 +62,10 @@ const measure = new Function('return ' + measureSrc.toString().replace('PLAYER_L
         const tag = `${W}x${H} ${screen}`;
         // the song, under the corner, the whole page in the screen
         assert(m.title && m.title !== 'Not Playing', tag + ': the song shown ' + JSON.stringify(m.title));
+        assert(m.art && Number(m.skyArt) > 0, tag + ': the cover supplies the page background ' + JSON.stringify([m.art, m.skyArt]));
         assert(m.cornerLeft >= 3 && m.cornerRight >= 1, tag + ': the corner (time, date, weather; status) ' + JSON.stringify(m));
         assert(m.card.b <= m.vh + 1 && m.card.h >= 300, tag + ': the page as tall as the screen leaves it ' + JSON.stringify(m.card));
+        if (m.tabs && m.tabs.t > m.vh / 2) assert(m.card.b <= m.tabs.t, tag + ': the music clears the tab bar ' + JSON.stringify([m.card, m.tabs]));
         const low = Math.max(...m.corner.filter((c) => c.l < m.card.l + m.card.w / 2).map((c) => c.b));
         for (const w of m.words) {
           assert(w.b <= m.card.b + 1 && w.l >= m.card.l - 1 && w.r <= m.card.r + 1, tag + ': the music inside the page ' + JSON.stringify([w, m.card]));
@@ -72,21 +78,40 @@ const measure = new Function('return ' + measureSrc.toString().replace('PLAYER_L
         }
         if (input.shots) await page.screenshot({ path: `${input.shots}/${W}x${H}-${screen}.png` });
         console.log(`PASS ${input.engine} ${tag}: the song under the corner, the player bare and even` + (screen === 'np-pane' ? ', Up Next beside the cover' : ''));
+        const card = page.locator('hk-now-playing-page-card:visible');
+        for (const [act, tab] of [['spk', 'speakers'], ['brw', 'browse']]) {
+          await card.locator(`.mu .mbtn[data-act="${act}"]`).tap();
+          await card.locator(`.mpanel.up [data-p="${tab}"]:not([hidden])`).waitFor({ state: 'visible' });
+          await page.waitForTimeout(700);
+          const pb = await card.locator('.mpanel.up').boundingBox();
+          assert(pb && pb.x >= m.card.l - 1 && pb.x + pb.width <= m.card.r + 1 && pb.y >= m.card.t - 1 && pb.y + pb.height <= m.card.b + 1, tag + ': the music panel stays inside the page ' + JSON.stringify(pb));
+          await card.locator('.mpanel.up [data-k="close"]').tap();
+          await card.locator('.mpanel').waitFor({ state: 'detached' });
+        }
+
       }
       // SWIPE RIGHT ON HOME: Now Playing first, before Home; a finger's swipe right lands there
-      if (W > H) {
+      {
         await open('np-full', 'home');
         await page.waitForTimeout(1500);
         const order = await page.evaluate(() => window.hkPageSwipe.order().map((it) => it.path));
         assert(/\/now-playing$/.test(order[0] || '') && /\/home$/.test(order[1] || ''), `${W}x${H}: Now Playing before Home ` + JSON.stringify(order.slice(0, 3)));
         // (a finger: pointer events, pointerType touch, on what is under the point -- page_swipe_check.cjs's)
         // (on one of Home's tiles, the leftmost, as page_swipe_check.cjs starts its swipes: inside the page's view)
-        const at0 = await page.evaluate(() => {
-          const deep = (r, s) => [...r.querySelectorAll('*')].flatMap((e) => [...(e.matches(s) ? [e] : []), ...(e.shadowRoot ? deep(e.shadowRoot, s) : [])]);
-          const all = deep(document, 'hk-favorite-card').map((e) => e.getBoundingClientRect()).filter((r) => r.width > 20 && r.top > 0 && r.bottom < innerHeight);
-          all.sort((p, q) => p.left - q.left);
-          return all.length ? { x: Math.max(40, (all[0].left + all[0].right) / 2), y: (all[0].top + all[0].bottom) / 2 } : { x: innerWidth * 0.2, y: innerHeight * 0.5 };
-        });
+        const spot = async (right) => page.evaluate((right) => {
+          const view = hkShell.view(hkShell.viewSlot(hkCards.menu.panel()));
+          const chain = (e) => { const c = []; while (e) { c.push(e); e = e.parentNode || e.host; } return c; };
+          for (const xf of (right ? [0.25, 0.37, 0.45] : [0.75, 0.63, 0.55])) for (let yf = 0.3; yf <= 0.8; yf += 0.04) {
+            const x = Math.round(innerWidth * xf), y = Math.round(innerHeight * yf);
+            let e = document.elementFromPoint(x, y);
+            while (e && e.shadowRoot) { const n = e.shadowRoot.elementFromPoint(x, y); if (!n || n === e) break; e = n; }
+            const c = chain(e);
+            if (e && c.includes(view) && !hkDrag.sideways(c, view) && !c.some(n => n.localName === 'hk-pager-card' || n.localName === 'hk-header-card' || (n.hasAttribute && n.hasAttribute('inert')))) return { x, y };
+          }
+          return null;
+        }, right);
+        const at0 = await spot(true);
+        assert(at0, 'a spot on the active page to swipe');
         const y = Math.round(at0.y), x0 = Math.round(at0.x);
         await page.evaluate(() => {
           const deepAt = (x, y) => { let e = document.elementFromPoint(x, y); while (e && e.shadowRoot) { const n = e.shadowRoot.elementFromPoint(x, y); if (!n || n === e) break; e = n; } return e; };
@@ -95,15 +120,27 @@ const measure = new Function('return ' + measureSrc.toString().replace('PLAYER_L
           window.__finger = { down(x, y) { this.t = deepAt(x, y); this.t.dispatchEvent(ev('pointerdown', x, y)); },
                               move(x, y) { this.t.dispatchEvent(ev('pointermove', x, y)); }, up(x, y) { this.t.dispatchEvent(ev('pointerup', x, y)); } };
         });
-        await page.evaluate(([x, y]) => window.__finger.down(x, y), [x0, y]);
-        for (let i = 1; i <= 14; i++) { await page.evaluate(([x, y]) => window.__finger.move(x, y), [Math.round(x0 + W * 0.04 * i), y]); await page.waitForTimeout(16); }
-        await page.evaluate(([x, y]) => window.__finger.up(x, y), [Math.round(x0 + W * 0.56), y]);
+        const cdp = input.engine === 'chromium' ? await context.newCDPSession(page) : null;
+        const finger = async (type, x, y) => {
+          if (cdp) await cdp.send('Input.dispatchTouchEvent', { type: { down: 'touchStart', move: 'touchMove', up: 'touchEnd' }[type], touchPoints: type === 'up' ? [] : [{ x, y }] });
+          else await page.evaluate(([type, x, y]) => window.__finger[type](x, y), [type, x, y]);
+        };
+        const swipe = async (p, dir) => {
+          await finger('down', p.x, p.y);
+          for (let i = 1; i <= 14; i++) { await finger('move', Math.round(p.x + dir * W * 0.035 * i), p.y); await page.waitForTimeout(16); }
+          await finger('up', Math.round(p.x + dir * W * 0.49), p.y);
+        };
+        await swipe({ x: x0, y }, 1);
         await page.waitForFunction(() => /\/now-playing$/.test(location.pathname), null, { timeout: 5000 }).catch(() => {});
         const at = await page.evaluate(() => location.pathname);
         if (!/\/now-playing$/.test(at)) console.log('swipe:', JSON.stringify(await page.evaluate(() => { const s = hkPageSwipe._.state(); const it = hkPageSwipe.order(); let nb = null; try { nb = hkPageSwipe._.neighbors(it, location.pathname, (x, p) => x.path === p); nb = nb && { prev: nb.prev && nb.prev.path, next: nb.next && nb.next.path }; } catch (e) { nb = String(e); } return { why: s.why, blocked: hkPageSwipe.blocked(), G: !!s.G, L: !!s.L, nb, order: it.map((i) => i.path).slice(0, 3) }; })));
         assert(/\/now-playing$/.test(at), `${W}x${H}: a swipe right on Home lands on Now Playing (at ${at})`);
         await ready();
-        console.log(`PASS ${input.engine} ${W}x${H}: Swipe Right on Home goes to Now Playing`);
+        const back = await spot(false);
+        assert(back, 'a spot on Now Playing to swipe back');
+        await swipe(back, -1);
+        await page.waitForFunction(() => /\/home$/.test(location.pathname), null, { timeout: 8000 });
+        console.log(`PASS ${input.engine} ${W}x${H}: Home swipes to Now Playing and back`);
       }
       assert.deepEqual(errors, []);
       await context.close();

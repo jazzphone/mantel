@@ -333,6 +333,10 @@ def steps(build: Build | None = None, parts: dict[str, int] | None = None) -> li
     out += [Step(f"music-pane-check-{e}", [py, "tools/headless/music_pane_check.py", "--engine", e], tier="full", timeout=600,
                  skip=playwright_missing, **check_inputs("tools/headless/music_pane_check.py", e))
             for e in ("chromium", "webkit")]
+    # the Now Playing page: every size, its corner and controls, beside a pane, and swiping from Home
+    out += [Step(f"now-playing-page-check-{e}", [py, "tools/headless/now_playing_page_check.py", "--engine", e], tier="full", timeout=600,
+                 skip=playwright_missing, **check_inputs("tools/headless/now_playing_page_check.py", e))
+            for e in ("chromium", "webkit")]
     # the Looks in WebKit: each applied from its page, Home at three sizes, Undo; Layout + Look in the editor (2026-10-30)
     out.append(Step("looks-check", [py, "tools/headless/looks_check.py"], tier="full", timeout=900,
                     skip=playwright_missing, **check_inputs("tools/headless/looks_check.py")))

@@ -4044,7 +4044,7 @@
   }
   function runParts() {
     var K = kit();
-    PARTS.forEach(function (file) { window.hkSaverParts[partKey(file)](K); }); if (K.PageCard && window.hkHostClient && !customElements.get('hk-now-playing-page-card')) { window.hkHostClient.entry(K.PageCard); customElements.define('hk-now-playing-page-card', K.PageCard); }   // (the Now Playing page, hk-saver-pane.js)
+    PARTS.forEach(function (file) { window.hkSaverParts[partKey(file)](K); });
     Deck = K.Deck; inPane = function (e) { return K.inPane(e, paneEl, paneUp); };
     designController = K.createDesignController({ client: K.clientNow, running: function () { return on; }, preview: function () { return previewOn; }, touched: saverTouched, stop: stop, refresh: refresh });
     actionsNow = K.actionsNow; afterDraw = K.afterDraw; afterFade = K.afterFade; alignOf = K.alignOf;
@@ -4078,7 +4078,7 @@
     tbKey = K.tbKey; tbShare = K.tbShare; tbShares = K.tbShares; tellBlack = K.tellBlack; textBox = K.textBox;
     turnOf = K.turnOf; upNextPiece = K.upNextPiece; user = K.user; viewFont = K.viewFont; volEnd = K.volEnd;
     volFrom = K.volFrom; wakeBrightness = K.wakeBrightness; weatherEntity = K.weatherEntity;
-    weatherPage = K.weatherPage; within = K.within; withPane = K.withPane; zoneOf = K.zoneOf;
+    weatherPage = K.weatherPage; within = K.within; withPane = K.withPane; zoneOf = K.zoneOf; if (K.PageCard && window.hkHostClient && !customElements.get('hk-now-playing-page-card')) { window.hkHostClient.entry(K.PageCard); customElements.define('hk-now-playing-page-card', K.PageCard); }   // (the Now Playing page, hk-saver-pane.js)
   }
 
   loadParts(function () {

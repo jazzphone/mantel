@@ -52,6 +52,12 @@ ok('...so a swipe right on Home goes there, and one left from it comes back', X.
 ok('none chosen, or a page not in the list (a room, one gone), or Home itself: the order as it was',
    X.leftOfHome(MORE, null) === MORE && X.leftOfHome(MORE, 'room-kitchen').map(function (x) { return x.title; }).join() === 'Home,Lights,Climate,Security,Weather,Cameras' &&
    X.leftOfHome(MORE, '0').map(function (x) { return x.title; }).join() === 'Home,Lights,Climate,Security,Weather,Cameras');
+var NP = it('now-playing', 'Now Playing'), NLP = X.leftOfHome(MORE, 'now-playing', NP);
+ok('a hidden Now Playing page goes before Home without changing the menu order', NLP[0] === NP && NLP[1] === MORE[0] && MORE[0].title === 'Home');
+ok('the hidden page is reachable in both directions', X.neighbors(NLP, '/dashboard-hall/0', here).prev === NP &&
+   X.neighbors(NLP, '/dashboard-hall/now-playing', here).next === MORE[0]);
+ok('a hidden page can precede Home alone, and an unrelated extra is ignored', X.leftOfHome([MORE[0]], 'now-playing', NP).length === 2 &&
+   X.leftOfHome(MORE, 'missing', NP) === MORE);
 ok('the order as given, untouched by default', X.order({ items: BAR }).map(function (x) { return x.title; }).join() === 'Home,Lights,Climate,Security');
 var PAGES = it('pages', 'Pages');
 var off = P.extend(function (items, ctx) {

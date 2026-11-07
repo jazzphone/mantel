@@ -172,7 +172,7 @@
     var M = menu(), extra = null;
     try {
       var cfg = left && M && M.config ? M.config() : null, hit = cfg && (cfg.views || []).filter(function (v) { return v && v.path === left; })[0];
-      if (hit && M.dash) extra = { path: '/' + M.dash() + '/' + left, title: hit.title || left, icon: hit.icon };
+      if (hit && M.dash) extra = { path: '/' + M.dash() + '/' + left, paths: [left], kind: 'page', title: hit.title || left, icon: hit.icon };
     } catch (e) { extra = null; }
     return leftOfHome(order({ items: p.items || [], bar: !!p.bar, board: board(), path: location.pathname,
                               pagesScreen: pagesScreen() }), left, extra);

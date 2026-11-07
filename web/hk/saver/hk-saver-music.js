@@ -443,7 +443,7 @@
       // screen, with a scale suited to its shorter column.
       var beside = host.hasAttribute('pane') && !host.hasAttribute('band');
       var narrow = H > W * (beside ? 0.74 : 1.05);
-      var row = beside && narrow && W >= 620 && H >= 620, up = narrow && !row;
+      var row = beside && (narrow || v.kind === 'dash') && W >= 620 && H >= 620, up = narrow && !row;
       var zs = Math.max(0.45, row ? Math.min(1.25, W / 780, H / 820) : up ? Math.min(W / 820, H / 1180) : Math.min(W / 1280, H / 800));
       host.style.setProperty('--hk-mu-zs', String(Math.round(zs * 100) / 100));
       setAttr(host, 'muup', up);

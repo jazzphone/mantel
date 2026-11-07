@@ -131,7 +131,7 @@
           this._onWin = function () { self._fit(); };
           window.addEventListener('resize', this._onWin);
           window.addEventListener('hk-pane', this._onWin);
-          if (!this._ro && typeof ResizeObserver === 'function') { this._ro = new ResizeObserver(this._onWin); this._ro.observe(this); }
+          if (typeof ResizeObserver === 'function') { this._ro = new ResizeObserver(this._onWin); this._ro.observe(this); }
           clearInterval(this._minT);
           this._minT = setInterval(function () { self._corner(); }, 15000);
           K.renderMusic();
@@ -142,6 +142,8 @@
           window.removeEventListener('resize', this._onWin);
           window.removeEventListener('hk-pane', this._onWin);
           clearInterval(this._minT);
+          clearTimeout(this._fitT); this._fitT = null;
+          if (this._ro) { this._ro.disconnect(); this._ro = null; }
           if (!v || v.host !== this) return;
           K.panelDone(v);
           v.live = false;
@@ -184,11 +186,17 @@
         _fit() {
           var v = this._v, de = document.documentElement;
           if (!v || v.host !== this || !this.isConnected) return;
-          var top = this.getBoundingClientRect().top, foot = parseFloat(getComputedStyle(de).getPropertyValue('--hk-tabbar-top')) || 0;
-          this.style.setProperty('--hk-npp-h', Math.round(Math.max(320, (window.innerHeight || 800) - top - foot - 12)) + 'px');
+          var top = Math.round(this.getBoundingClientRect().top);
+          this.style.setProperty('--hk-npp-h', 'max(320px, calc(100dvh - ' + top + 'px - var(--hk-tabbar-top, 0px) - 12px))');
           K.setAttr(this, 'pane', /^(left|right)$/.test(de.getAttribute('hk-pane') || ''));
           var z = K.scaleOf();
           v.z = z;
+          // The page supplies the cover even when the Now Playing bar is hidden.
+          var pic = v.d && !v.d.idle ? v.d.pic || null : null;
+          if (window.hkNowArt !== pic) {
+            window.hkNowArt = pic;
+            window.dispatchEvent(new CustomEvent('hk-now-art', { detail: { url: pic } }));
+          }
           this._corner();
           K.layoutMusicView(v, this, this._root, null, z);
           var hb = this.getBoundingClientRect(), art = v.el.querySelector('.mart').getBoundingClientRect();
