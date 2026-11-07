@@ -68,9 +68,9 @@ check('Centred in a 196 x 150 cell: a 58 px glyph at 31 %, 17 / 16 on 22 px from
       CT.tall.glyph === 58 && CT.tall.at === 31 && CT.tall.name === 17 && CT.tall.sub === 16 && CT.tall.line === 22 && CT.tall.text === 55 && !('lit' in CT.tall), JSON.stringify(CT.tall));
 check('...tracked -0.3, 10 px in from the sides', CT.track === -0.3 && CT.inset === 10);
 var cc = window.hkCards.centredTile({ host: ':host([tile=centred])', plate: 'hk-plate.card', lit: 'hk-plate.card[data-on="1"]', well: '.well', icon: '.icon', name: '.name', sub: ['.label'] });
-check('the CSS is the table\'s: the name 600 at 21 px in a square cell, the room 400, centred', /@container hk-cell \(min-height:180px\) or style\(--hk-cell-shape: square\)\{[^@]*\.name\{top:57\.7% !important;font-size:21px !important;line-height:27px !important\}/.test(cc) &&
+check('the CSS is the table\'s: the name 600 at 21 px in a square cell, the room 400, centred', /@container hk-cell \(min-height:180px\) or \(max-aspect-ratio: 6 \/ 5\) or style\(--hk-cell-shape: square\)\{[^@]*\.name\{top:57\.7% !important;font-size:21px !important;line-height:27px !important\}/.test(cc) &&
       /\.label\{position:absolute[^}]*text-align:center[^}]*font-weight:400/.test(cc) && /\.name\{position:absolute[^}]*font-weight:600/.test(cc));
 check('...and only under the variant: every rule begins with its :host', cc.split('}').filter(function (r) { return r.trim() && r.indexOf('{') >= 0; })
-      .every(function (r) { return /^(@container hk-cell \(min-height:180px\) or style\(--hk-cell-shape: square\)\{)?:host\(\[tile=centred\]\)/.test(r.trim()); }));
+      .every(function (r) { return /^(@container hk-cell \(min-height:180px\) or \(max-aspect-ratio: 6 \/ 5\) or style\(--hk-cell-shape: square\)\{)?:host\(\[tile=centred\]\)/.test(r.trim()); }));
 
 print(fail ? 'FAIL ' + fail + ' PILL GEOMETRY TESTS' : 'ALL ' + pass + ' PILL GEOMETRY TESTS PASS');
