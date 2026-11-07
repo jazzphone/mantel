@@ -86,7 +86,10 @@ async def homeview():
                     {'id':'h2','card':'accessories','size':'W','at':[2,0],'opts':{'height':'half','accessories':[{'entity':'lock.front_door'},
                      {'entity':'lock.back_door'}]}},
                     {'id':'h3','card':'scenes','size':'L','at':[0,2],'opts':{'height':'half','scenes':['scene.good_morning','scene.movie_night',
-                     'scene.dinner','scene.good_night']}}]}
+                     'scene.dinner','scene.good_night']}},
+                    # ...and a Wide Music block (2026-11-07, the owner's Playlists; this house has none, Recently Played
+                    # is the same row): the covers as tall as the block, the next one peeking
+                    {'id':'h4','card':'music','size':'W','at':[2,1]}]}
                 HG.check(half)
                 gallery.SETTINGS['boards'][name+'-half']=dict(gallery.SETTINGS['boards'][name],home_grid=half)
                 screens.append({'screen':name+'-half','sizes':['1180x820','820x1180']})

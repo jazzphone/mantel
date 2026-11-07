@@ -104,7 +104,7 @@
       // EVERY COVER, SCROLLING IN THE BLOCK (2026-11-01, the owner): across in Wide and Extra Large, down in Tall and
       // Large, the next row or column showing a little at the edge so it is plain there is more; a finger scrolls it
       // (the page's own swipe keeps the other direction)
-      '.cv.x{grid-auto-flow:column;grid-template-columns:none;grid-auto-columns:var(--cv);justify-content:start;column-gap:10px;',
+      '.cv.x{grid-auto-flow:column;grid-template-columns:none;grid-auto-columns:var(--cv);justify-content:start;align-content:center;column-gap:10px;',
       '  --cv:min((100cqw - var(--n) * 10px) / (var(--n) + .4), (100cqh - (var(--r) - 1) * 10px) / var(--r) - 21px);',
       '  overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;touch-action:pan-x;scrollbar-width:none}',
       '.cv.y{grid-template-rows:none;grid-auto-rows:auto;align-content:start;row-gap:10px;',
@@ -224,6 +224,7 @@
         else body = '<div class="top">' + lastBtn + '<div class="col"><span class="lab">' + lab + '</span>' + words + '</div></div><div class="hr"></div>' + grid;
         this._root.innerHTML = '<hk-plate class="mu ' + s + '" data-hk-role="card">' + body + '</hk-plate>';
         var plate = this._root.querySelector('hk-plate');
+        this._across();
         if (s === 'S' && last && last.image) this._artImage(last.image, this._root.querySelector('.bg .cvr'), '<hk-icon icon="' + esc(last.icon || 'mdi:music') + '"></hk-icon>', 600);
         this._root.querySelectorAll('[data-i]').forEach(function (b) {
           var it = list[+b.getAttribute('data-i')];
@@ -232,6 +233,33 @@
           if (s === 'S') b._busyOn = plate;            // (Small's busy look is the whole block's)
           b.addEventListener('click', function (e) { e.stopPropagation(); self._play(it, b); });
         });
+      }
+      // HOW BIG ACROSS (2026-11-07, the owner: a Wide Playlists block's covers "could fill out the space better",
+      // its spare height all under the names): each cover as tall as the block's height lets it, the next one
+      // peeking at the edge -- a quarter of it or more as it falls, else the covers a little smaller so 0.4 of it shows
+      _across() {
+        var cv = this._root.querySelector('.cv.x'), w = cv && /** @type {HTMLElement} */ (cv.parentNode);
+        if (this._ro) { this._ro.disconnect(); this._ro = null; }
+        if (!cv || !w || typeof ResizeObserver !== 'function') return;
+        var fit = function () {
+          var W = w.clientWidth, H = w.clientHeight, r = +(getComputedStyle(cv).getPropertyValue('--r') || 1) || 1;
+          if (!W || !H) return;
+          var tall = Math.floor((H - (r - 1) * 10) / r - 21);     // (the cover the height holds, its name under it)
+          var seen = (W + 10) / (tall + 10), n = Math.max(1, Math.floor(seen));
+          var size = seen - n >= 0.25 ? tall : Math.floor((W - n * 10) / (n + 0.4));
+          if (cv.style.getPropertyValue('--cv') !== size + 'px') cv.style.setProperty('--cv', size + 'px');
+        };
+        this._ro = new ResizeObserver(fit);
+        this._ro.observe(w);
+        fit();
+      }
+      disconnectedCallback() {
+        if (this._ro) { this._ro.disconnect(); this._ro = null; }
+        if (super.disconnectedCallback) super.disconnectedCallback();
+      }
+      connectedCallback() {
+        if (super.connectedCallback) super.connectedCallback();
+        if (this._root && this._root.querySelector('.cv.x')) this._across();
       }
       // ON THIS SCREEN'S MUSIC, as Browse plays: the integration checks the
       // player, starts it and answers -- so a failure is said, not a cheerful
