@@ -59,6 +59,9 @@ const MEASURE = () => {
     // a big empty area under the content (the lower of the talk side and the rooms)
     slack: sh ? Math.round(sh.getBoundingClientRect().bottom - Math.max(root.querySelector('.talk').getBoundingClientRect().bottom, root.querySelector('.pick').getBoundingClientRect().bottom)) : null,
     // the talk side and the rooms: beside each other, or one over the other
+    // a room's name too long for its pill ends in "…", never cut off (2026-11-07)
+    clipped: q('.rooms .pill .l b').filter((b) => b.scrollWidth > b.clientWidth + 1 && getComputedStyle(b).textOverflow !== 'ellipsis').map((b) => b.textContent),
+    ellipsed: q('.rooms .pill .l b').filter((b) => b.scrollWidth > b.clientWidth + 1).map((b) => b.textContent),
     side: (() => { const a = root.querySelector('.talk').getBoundingClientRect(), b = root.querySelector('.pick').getBoundingClientRect(); return b.left >= a.right - 1 ? 'beside' : 'below'; })(),
     dashed: q('.chips .pill.preset').map((p) => getComputedStyle(p).borderStyle),
     touchAction: getComputedStyle(root.querySelector('.mb')).touchAction,
@@ -177,6 +180,7 @@ const MEASURE = () => {
         if (m.small.length) fail(name, 'every target is at least 44', m.small);
         if (m.over.length) fail(name, 'nothing runs past the sheet\'s edge', m.over);
         if (m.cut.length) fail(name, 'the talk side fits the sheet: nothing cut off at the bottom', m.cut);
+        if (m.clipped.length) fail(name, 'a long room name ends in an ellipsis, never cut off', m.clipped);
         if (m.scrollX > 1) fail(name, 'no sideways scroll', m.scrollX);
         if (m.seg.length) fail(name, 'Live is hidden unless the feed allows it', m.seg);
         if (m.chips.join('|') !== 'Whole House|Main Floor|Upstairs|Dinner~|Quiet Rooms~') fail(name, 'the chips: Whole House, floors, presets (one equal to the whole house, one to a floor, left out)', m.chips);
@@ -184,10 +188,10 @@ const MEASURE = () => {
         if (m.chipHeights.length !== 1) fail(name, 'every group is the same height', m.chipHeights);
         if (m.count !== '2 of 8' || m.clear !== 'false') fail(name, 'the count and Clear All', [m.count, m.clear]);
         if (m.word !== 'Tap to Talk') fail(name, 'the talk button says Tap to Talk', m.word);
-        out(`ok ${name} the rooms are ${m.side} the talk button`);
+        out(`ok ${name} the rooms are ${m.side} the talk button` + (m.ellipsed.length ? ` (with "…": ${m.ellipsed.join(', ')})` : ''));
         if (m.slack > 80) fail(name, 'the sheet is as tall as its content: no big empty area', m.slack);
         if (m.dashed.some((d) => d !== 'dashed')) fail(name, 'presets have a dashed border', m.dashed);
-        if (m.pills.join('|') !== 'Living Room*|Kitchen*|Dining Room[Plays with Office]|Office[Plays with Dining Room]|Bedroom+[Quiet hours]|Guest Room|Nursery|Craft Room|Primary Suite|Laundry Room') fail(name, 'the room pills, picked ones marked; a group leader says who it plays with; no bare slash', m.pills);
+        if (m.pills.join('|') !== 'Living Room*|Kitchen*|Dining Room[Plays with Office]|Office[Plays with Dining Room]|Bedroom+[Quiet hours]|Guest Room|Nursery|Craft Room|Primary Suite HomePods|Laundry Room') fail(name, 'the room pills, picked ones marked; a group leader says who it plays with; no bare slash', m.pills);
         if (m.touchAction !== 'none') fail(name, 'touch-action:none on the microphone', m.touchAction);
         if (m.line !== 'Living Room, Kitchen') fail(name, 'the status line names the rooms', m.line);
         await shot('picker');

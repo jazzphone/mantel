@@ -1388,7 +1388,8 @@
       '.pill[aria-pressed="true"] .tk{background:#0a84ff;box-shadow:none}',
       '.pill[aria-pressed="true"] .tk svg{display:block}',
       '.rooms .pill > span.l{flex:1;min-width:0;display:flex;flex-direction:column;line-height:18px}',
-      '.rooms .l b{font-weight:600;font-size:15px;overflow-wrap:anywhere}',
+      // a name too long for its pill ends in "…", whole names in the aria-label (2026-11-07, the owner: "Names are getting clipped off")
+      '.rooms .l b{display:block;min-width:0;font-weight:600;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
       '.rooms .l i{font-style:normal;font-size:13px;font-weight:500;line-height:16px;color:' + v('ink-3') + ';overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
       '.pill[aria-pressed="true"] .l i{color:rgba(0,0,0,0.55)}',
       '.pill .pi{flex:none;display:flex;align-items:center;pointer-events:none;color:' + v('glyph') + '}',

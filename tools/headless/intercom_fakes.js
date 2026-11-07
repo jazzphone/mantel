@@ -17,7 +17,7 @@
               R('office', 'Office', 'Main Floor', { state: 'skipped', why: 'leads', reason: 'Dining Room leads Office; skipped' }),
               R('bedroom', 'Bedroom', 'Upstairs', { state: 'skipped', why: 'quiet', reason: 'Quiet hours' }),
               R('guest_room', 'Guest Room', 'Upstairs', { state: 'after', live: false }),
-              R('nursery', 'Nursery', 'Upstairs'), R('craft_room', 'Craft Room', 'Upstairs'), R('primary_suite', 'Primary Suite', 'Upstairs'),
+              R('nursery', 'Nursery', 'Upstairs'), R('craft_room', 'Craft Room', 'Upstairs'), R('primary_suite', 'Primary Suite HomePods', 'Upstairs'),
               R('laundry_room', 'Laundry Room', 'Main Floor')],
       floors: [{ id: 'main', name: 'Main Floor', rooms: ['media_player.living_room', 'media_player.kitchen', 'media_player.dining_room', 'media_player.office', 'media_player.laundry_room'] },
                { id: 'upstairs', name: 'Upstairs', rooms: ['media_player.bedroom', 'media_player.guest_room', 'media_player.nursery', 'media_player.craft_room', 'media_player.primary_suite'] }],

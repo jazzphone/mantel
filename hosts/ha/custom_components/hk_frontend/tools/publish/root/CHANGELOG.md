@@ -5,6 +5,9 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+**Fixed**
+- **Long room names on the Intercom sheet end in "…"** instead of being cut off, such as "Primary Suite …". The whole name is still what VoiceOver reads.
+
 ## 1.48.0 - 2026-11-07
 
 **Added**
