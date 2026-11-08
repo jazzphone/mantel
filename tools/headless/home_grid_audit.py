@@ -854,9 +854,10 @@ async def audit(keys: list[str], looks: list[str], shots: Path | None, long: boo
 # NOTHING STRETCHES (2026-11-08, the owner: "entities in a card should maintain dimensions ... the vertical and horizontal
 # stretching of entities in our cards I just don't like at all"; DESIGN.md "Using the space"). `--stretch` draws each
 # block, then makes its cell DELTA px wider and taller and draws it again: a tile, row, pill or button (a painted box
-# with words or a glyph in it, smaller than the plate) that grew with its block is stretched. A box that grew taller
-# by DELTA/4 or more fails; one that grew wider fails unless it spans its block's width (a list row, a full-width key:
-# designed to). Pictures, bars and the plate itself are not counted: they may follow the block.
+# with words or a glyph in it, holding no such box itself, smaller than the plate) that grew with its block is
+# stretched. A box that grew taller by DELTA/4 or more fails; one that grew wider fails unless it spans its column (a
+# list row, a full-width key: designed to). Pictures, bars, containers, a picture's stand-in glyph and a block-sized
+# button are not counted: they may follow the block.
 STRETCH_DELTA = 24
 STRETCH = r"""(async (delta) => {
   const view = (function d(r) { for (const e of r.querySelectorAll('*')) { if (e.localName === 'hk-home-grid-view') return e;
@@ -864,19 +865,31 @@ STRETCH = r"""(async (delta) => {
   if (!view) return {};
   const k = view._gridScale || 1, frame = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
   const kids = (n) => [...n.children, ...(n.shadowRoot ? n.shadowRoot.children : [])];
-  const boxes = (card, c) => { const out = []; const walk = (e, path) => {
-      if (/^(style|script|template|slot|link|svg|img|video|canvas|ha-icon|hk-icon)$/.test(e.localName)) return;
-      const cs = getComputedStyle(e); if (cs.display === 'none' || cs.visibility === 'hidden') return;
+  const isBox = (e, c) => {
+      if (/^(style|script|template|slot|link|svg|img|video|canvas|ha-icon|hk-icon)$/.test(e.localName)) return false;
+      const cs = getComputedStyle(e); if (cs.display === 'none' || cs.visibility === 'hidden') return false;
       const r = e.getBoundingClientRect();
-      const paints = !/rgba\(0, 0, 0, 0\)|transparent/.test(cs.backgroundColor) || parseFloat(cs.borderTopWidth) > 0
-                     || e.localName === 'button' || e.getAttribute('role') === 'button';
-      const inside = r.width < c.width * 0.95 || r.height < c.height * 0.95;
-      const says = (e.textContent || '').trim() || e.querySelector && (e.querySelector('svg,ha-icon,hk-icon') ||
-                   (e.shadowRoot && e.shadowRoot.querySelector('svg,ha-icon,hk-icon')));
-      if (paints && inside && says && r.width >= 20 && r.height >= 16)
-        out.push({ path, el: e, w: r.width / k, h: r.height / k, label: (e.localName + (e.className && typeof e.className === 'string' ? '.' + e.className.trim().split(/\s+/).slice(0, 2).join('.') : '')
-                  + ' "' + (e.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 24) + '"') });
-      kids(e).forEach((x, i) => walk(x, path + '/' + i)); };
+      // a fill or a whole outline: what the eye reads as a tile, a key or a pill (a hairline between rows is not)
+      const bw = ['Top', 'Right', 'Bottom', 'Left'].map((x) => parseFloat(cs['border' + x + 'Width']) || 0);
+      const paints = (!/rgba\\(0, 0, 0, 0\\)|transparent/.test(cs.backgroundColor) && cs.backgroundColor !== 'rgba(0, 0, 0, 0)')
+                     || cs.backgroundImage !== 'none' || bw.every((x) => x > 0);
+      const blockSized = r.width >= c.width * 0.8 && r.height >= c.height * 0.8;      // the plate, a whole-block button
+      const text = (e.textContent || '').trim();
+      const art = text.length <= 2 && !/[0-9A-Za-z]/.test(text);                     // a stand-in glyph for a picture
+      const says = text || (e.querySelector && (e.querySelector('svg,ha-icon,hk-icon') || (e.shadowRoot && e.shadowRoot.querySelector('svg,ha-icon,hk-icon'))));
+      return paints && !blockSized && !art && says && r.width >= 20 && r.height >= 16; };
+  const boxes = (card, c) => { const out = []; const walk = (e, path) => {
+      const kidsOf = kids(e);
+      if (isBox(e, c)) {
+        // a container of other boxes (a column, a strip of keys) is not judged itself: what it holds is
+        const inner = (function has(n) { for (const x of kids(n)) { if (isBox(x, c) || has(x)) return true; } return false; })(e);
+        if (!inner) { const r = e.getBoundingClientRect(), par = e.parentElement || (e.getRootNode() && e.getRootNode().host);
+          const pr = par ? par.getBoundingClientRect() : r, ps = par ? getComputedStyle(par) : null;
+          const pw = ps ? pr.width - parseFloat(ps.paddingLeft) - parseFloat(ps.paddingRight) - parseFloat(ps.borderLeftWidth) - parseFloat(ps.borderRightWidth) : r.width;
+          out.push({ path, w: r.width / k, h: r.height / k, spans: r.width >= pw * 0.95, font: getComputedStyle(e).fontSize,
+                     label: e.localName + (typeof e.className === 'string' && e.className.trim() ? '.' + e.className.trim().split(/\\s+/).slice(0, 2).join('.') : '')
+                            + ' "' + (e.textContent || '').trim().replace(/\\s+/g, ' ').slice(0, 24) + '"' }); } }
+      kidsOf.forEach((x, i) => walk(x, path + '/' + i)); };
     walk(card, ''); return out; };
   const res = {};
   for (const cell of view.shadowRoot.querySelectorAll('.cell')) {
@@ -890,9 +903,10 @@ STRETCH = r"""(async (delta) => {
     const after = new Map(boxes(card, cell.getBoundingClientRect()).map((b) => [b.path, b]));
     const span = c0.width / k - 2 * pad, bad = [];
     for (const b of before) { const a = after.get(b.path); if (!a || a.label !== b.label) continue;
+      if (a.font !== b.font) continue;            // a hero whose type is sized to its block: made to be big
       const dh = a.h - b.h, dw = a.w - b.w;
       if (dh >= delta / 4) bad.push('stretches taller with its block: ' + b.label + ' ' + b.h.toFixed(0) + ' -> ' + a.h.toFixed(0) + ' px');
-      else if (dw >= delta / 4 && b.w < span * 0.9) bad.push('stretches wider with its block: ' + b.label + ' ' + b.w.toFixed(0) + ' -> ' + a.w.toFixed(0) + ' px'); }
+      else if (dw >= delta / 4 && !b.spans && b.w < span * 0.9) bad.push('stretches wider with its block: ' + b.label + ' ' + b.w.toFixed(0) + ' -> ' + a.w.toFixed(0) + ' px'); }
     cell.setAttribute('style', keep); await frame();
     res[cell.getAttribute('size') || '?'] = [...new Set(bad)].slice(0, 6);
   }
