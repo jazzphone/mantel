@@ -45,6 +45,7 @@ import argparse
 import asyncio
 import copy
 import json
+import os
 import sys
 import tempfile
 import time
@@ -516,6 +517,8 @@ STATES["sec_many"] = {"entities": {**{f"lock.extra_{i}": ("locked", {"friendly_n
     "cover.garage_two": ("closed", {"friendly_name": "Workshop Door", "device_class": "garage"}),
     **{f"binary_sensor.extra_window_{i}": ("off", {"friendly_name": f"Window {i}", "device_class": "window"}) for i in range(8)}}}
 STATE = {"name": "busy"}
+# the window (a phone: AUDIT_VIEW=390x844 -- the grid is then drawn as the screen draws it there)
+VIEW = tuple(int(x) for x in os.environ.get("AUDIT_VIEW", "1280x800").split("x"))
 
 
 def apply_state(name: str) -> None:
@@ -603,7 +606,7 @@ async def audit(keys: list[str], looks: list[str], shots: Path | None, long: boo
         stand_in_app(app)
         async with TestServer(app) as server:
             origin = str(server.make_url("")).rstrip("/")
-            async with Browser(width=1280, height=800, port=9391) as b:
+            async with Browser(width=VIEW[0], height=VIEW[1], port=9391) as b:
                 await b.restrict_origin(origin)
                 # the page has the focus, as a wall tablet's does (cameras rest without it: cameras.focus_pause)
                 await b.send("Emulation.setFocusEmulationEnabled", enabled=True)

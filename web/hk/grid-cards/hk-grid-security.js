@@ -209,7 +209,7 @@
       // tiles of ONE designed size -- 116 x 96 with the glyph over the name over its state, or, where that fits fewer, 150 x 64 with the
       // glyph beside them -- as many as the room holds (what is left is "N more", a tile as big as the rest), the group centered, its
       // last row centered too; each a tap that opens its sheet; one not secured the white of HomeView's lit tile. Under them one
-      // 44 px strip for the doors and windows (as wide as its words): "Doors & windows closed" (a tap opens that page), else the open ones
+      // 44 px strip for the doors and windows (as wide as its words): "All closed" (a tap opens Doors & Windows), else the open ones
       // (Extra Large: no heading -- the keypad's readout says the alarm's state, and the strip says what is open)
       'hk-plate.sec.kp .hd{display:none}',
       // (the tiles and the strip are one group, centered in what the heading and the keys leave: auto margins at its two ends)
@@ -414,7 +414,7 @@
             e.ents.appendChild(more); this._moreTile = more;
             // (the strip: what is open, by name; else "All closed", a tap to the doors and windows page)
             var open = ops.filter(function (r) { return r.open; }), go = function () { if (!window.hkCards.openTarget(self, [{ page: 'doors-windows' }, alarm && { sheet: alarm }])) self._tap(); };
-            if (ops.length && !open.length) e.ops.appendChild(mk('op', '<hk-icon></hk-icon><span>Doors & windows closed</span>', 'Doors and windows: all closed', go));
+            if (ops.length && !open.length) { var shut = mk('op', '<hk-icon></hk-icon><span>All closed</span>', 'Doors and windows: all closed', go); shut.querySelector('hk-icon').icon = 'mdi:door-closed'; e.ops.appendChild(shut); }
             if (open.length) {
               var d = mk('op open', '<hk-icon></hk-icon><span></span>', open.length + ' open: ' + open.map(function (r) { return r.name; }).join(', '), open.length === 1 ? function () { window.hkShell.moreInfo(open[0].id, self); } : go);
               d.querySelector('hk-icon').icon = open[0].icon;
