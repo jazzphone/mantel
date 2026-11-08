@@ -310,8 +310,9 @@
     '.dk hk-icon,.dk hk-state-icon{display:flex;--mdc-icon-size:100%}',
     '.dr{display:flex;gap:8px;flex:none;margin-top:8px}',
     // (Wide, the discs with their counts: each a column -- the disc, the count, the name -- the whole of it a tap)
-    '.dw{display:flex;justify-content:space-around;align-items:center;flex:1;min-width:0}',
-    '.di{all:unset;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:56px;cursor:pointer;-webkit-tap-highlight-color:transparent}',
+    // (the discs a centered group 8 px apart, never spread across the row: nothing stretches, and their hit areas clear, 2026-11-08)
+    '.dw{display:flex;justify-content:center;gap:8px;align-items:center;flex:1;min-width:0}',
+    '.di{all:unset;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:52px;cursor:pointer;-webkit-tap-highlight-color:transparent}',
     '.di:active{opacity:.6}.di b{' + type('headline') + ';line-height:20px;font-variant-numeric:tabular-nums;text-shadow:' + v('glow') + '}',
     '.di span{' + type('caption') + ';line-height:16px;color:' + v('ink-2') + ';white-space:nowrap;text-shadow:' + v('glow') + '}',
     '.di.at b{color:' + v('ink-2') + '}',

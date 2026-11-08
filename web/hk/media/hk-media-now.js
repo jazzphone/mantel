@@ -891,6 +891,8 @@
           '  --hk-np-areas:"art . . . . . . . . . . ." "art lab lab lab lab lab lab lab lab lab lab lab" "art title title title title title title title title title title title" "art artist artist artist artist artist artist artist artist artist artist artist" "art sub sub sub sub sub sub sub sub sub sub sub" "art . spk . prev . play . next . brw ." "art meta meta meta meta meta meta meta meta meta meta meta" "art . . . . . . . . . . .";',
           '  --hk-np-rows:minmax(0,1fr) min-content min-content min-content min-content 57px min-content minmax(0,1fr)}',
           ':host([size=XL]) .np .sub{padding-top:var(--np-lead)}',
+          // (the scrubber's and the volume's hit areas 8 px clear of the keys between them -- the controls audit, 2026-11-08)
+          ':host(:is([size=L],[size=XL])) .np .sub{margin-bottom:2px}:host(:is([size=L],[size=XL])) .np .meta{margin-top:2px}',
           ':host([size=XL]) .np .art{align-self:center;justify-self:start}',
           ':host([size=XL]) .np .grid{column-gap:0}',
           // IN A PAGER (hk-pager-card): its dots under the block's foot, so no
