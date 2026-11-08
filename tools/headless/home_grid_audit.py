@@ -347,6 +347,8 @@ MEASURE = r"""(() => {
           // a word broken across lines ("Hea / t"): one word, more than one line box
           if (rs.length > 1 && !/\s/.test(t.data.trim()) && new Set(rs.map(q => Math.round(q.top))).size > 1) {
             rec.issues.push('a word broken across lines: "' + txt + '"'); break; }
+          // (a line past a -webkit-line-clamp is laid out and clipped on purpose: the clamp's ellipsis ends the text above it)
+          if ((vis.right - vis.left <= 0.5 || vis.bottom - vis.top <= 0.5) && !cut && cl.some(k => k.ellipsis && +getComputedStyle(k.el).webkitLineClamp > 0)) continue;
           if (vis.right - vis.left <= 0.5 || vis.bottom - vis.top <= 0.5) { rec.issues.push('text hidden by ' + (cut || 'a box') + ': "' + txt + '"'); break; }
           if (cut) { rec.issues.push('text cut by ' + cut + ': "' + txt + '"'); break; }
           if (!inside(vis)) { rec.issues.push('text outside the cell: "' + txt + '" ' + JSON.stringify(box(r))); break; }
@@ -476,6 +478,33 @@ STATES: dict[str, dict] = {
               "entities": {"sensor.running_quick_timers": ("0", {"friendly_name": "Running Quick Timers", "running": []})},
               "events": False},
 }
+# THE PLAYER'S STATES (2026-11-08, the Now Playing round): the house plays a song with no cover (the default above), so
+# these draw what the owner's tablets show -- a cover, a pause, nothing playing, a very long song. `attrs` merges over an
+# entity's attributes (a None drops one); `media_player` sets a state for the whole domain first.
+COVER = ("data:image/svg+xml," + __import__("urllib.parse").parse.quote(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="640" viewBox="0 0 640 640"><defs>'
+    '<linearGradient id="g" x2="1" y2="1"><stop stop-color="#1c3f94"/><stop offset=".5" stop-color="#b4467a"/>'
+    '<stop offset="1" stop-color="#f4a259"/></linearGradient></defs><rect width="640" height="640" fill="url(#g)"/>'
+    '<circle cx="320" cy="320" r="190" fill="none" stroke="#fff" stroke-opacity=".4" stroke-width="3"/>'
+    '<circle cx="320" cy="320" r="120" fill="#fff" fill-opacity=".16"/><path d="M250 400V250l150-30v140" fill="none" '
+    'stroke="#fff" stroke-width="16" stroke-linejoin="round"/></svg>'))
+LONG_SONG = {"media_title": "Blue in Green (Alternate Take, Remastered for the Fortieth Anniversary Edition)",
+             "media_artist": "The Fictional Trio with the Fictional Philharmonic Orchestra",
+             "media_album_name": "Kind of Fictional: The Complete Studio Sessions"}
+LR = "media_player.living_room"
+STATES.update({
+    "art": {"attrs": {LR: {"entity_picture": COVER}}},                       # playing, with its cover
+    "noart": {},                                                              # playing, no cover (the house's default)
+    "paused": {"attrs": {LR: {"entity_picture": COVER}}, "entities_state": {LR: "paused"}},
+    "pausednoart": {"entities_state": {LR: "paused"}},
+    # nothing playing, everything else busy: what a stopped player has (no song, no times, no cover)
+    "idle": {"entities_state": {LR: "idle"}, "attrs": {LR: dict.fromkeys(
+        ("media_title", "media_artist", "media_album_name", "media_duration", "media_position", "media_position_updated_at"))}},
+    "off": {"entities_state": {LR: "off"}, "attrs": {LR: dict.fromkeys(
+        ("media_title", "media_artist", "media_album_name", "media_duration", "media_position", "media_position_updated_at"))}},
+    "longsong": {"attrs": {LR: dict(LONG_SONG, entity_picture=COVER)}},
+    "longsongnoart": {"attrs": {LR: LONG_SONG}},
+})
 STATE = {"name": "busy"}
 
 
@@ -490,6 +519,12 @@ def apply_state(name: str) -> None:
     for eid, (state, attrs) in st.get("entities", {}).items():
         area = gallery.HOUSE.get(eid, (None,))[0]
         gallery.HOUSE[eid] = (area, (state, attrs))
+    for eid, state in st.get("entities_state", {}).items():
+        area, (_, attrs) = gallery.HOUSE[eid]
+        gallery.HOUSE[eid] = (area, (state, attrs))
+    for eid, more in st.get("attrs", {}).items():
+        area, (state, attrs) = gallery.HOUSE[eid]
+        gallery.HOUSE[eid] = (area, (state, {**{k: v for k, v in attrs.items() if k not in more}, **{k: v for k, v in more.items() if v is not None}}))
 
 
 def stand_in_reads() -> None:

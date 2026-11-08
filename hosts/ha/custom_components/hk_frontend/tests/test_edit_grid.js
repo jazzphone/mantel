@@ -181,8 +181,8 @@ function () {
   eq('a move changes only the cell: the same card', R.keyOf(Object.assign({}, CFG0.cards[0], { hk_cell: { id: 'clock', at: [1, 1] } })), R.keyOf(CFG0.cards[0]));
   var big = R.cardsFor(CFG0, R.resized(X, copy(LAYOUT), 'thermo', 'L'), 'auto').filter(function (c) { return c.hk_cell && c.hk_cell.id === 'thermo'; })[0];
   eq('a size the card draws by its cell alone (the thermostat Large): the same card', R.keyOf(big), R.keyOf(CFG0.cards[6]));
-  var tall = R.cardsFor(CFG0, R.resized(X, copy(LAYOUT), 'np', 'T'), 'auto').filter(function (c) { return c.hk_cell && c.hk_cell.id === 'np'; })[0];
-  ok('a size that changes the card (Now Playing Tall: its progress): another card', R.keyOf(tall) !== R.keyOf(CFG0.cards[3]));
+  var tall = R.cardsFor(CFG0, R.resized(X, copy(LAYOUT), 'np', 'S'), 'auto').filter(function (c) { return c.hk_cell && c.hk_cell.id === 'np'; })[0];
+  ok('a size that changes the card (Now Playing Small: no progress): another card', R.keyOf(tall) !== R.keyOf(CFG0.cards[3]));
 },
 function () {
   H.section('the surface: a Home Grid\'s Home is offered Edit');
@@ -237,13 +237,13 @@ function () {
   eq('...from the view', !!cellOf(VIEW, 'timers'), false);
   eq('...the bar says so', E._.barMessage(), 'Timers removed. Cancel puts it back.');
 
-  // a size: Now Playing Tall -- another card, made once
-  var next = R.resized(X, part.grid, 'np', 'T');
-  ok('Now Playing can be Tall', !!next);
+  // a size: Now Playing Small -- another card (no progress card), made once
+  var next = R.resized(X, part.grid, 'np', 'S');
+  ok('Now Playing can be Small', !!next);
   part.commit(next);
   eq('...the view shows a new element for it', MADE.length, 1);
   eq('...in its cell', cellOf(VIEW, 'np').firstChild, MADE[0]);
-  eq('...its size badge says so', cellOf(VIEW, 'np').attrs.size, 'T');
+  eq('...its size badge says so', cellOf(VIEW, 'np').attrs.size, 'S');
   part.commit(R.resized(X, part.grid, 'np', 'W'));
   eq('...and back to Wide: its own element again, nothing more made', [cellOf(VIEW, 'np').firstChild === els0[3], MADE.length], [true, 1]);
 

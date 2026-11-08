@@ -72,14 +72,15 @@
                            o.height ? { height: o.height } : {}, o.color ? { color: true } : {}); } },
     now_playing: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: ['speakers'], opts: { speaker: 'speaker', background: 'np_background', tap: 'tap_target' }, card: function (s, o) {
       // T, L and XL: the progress above the transport (the Home app's and Apple
-      // Music's order); W, T and L the volume under it (Music's widgets,
+      // Music's order); L and XL the volume under it (Music's widgets,
       // 2026-10-31). Its speaker's own controls, or the screen's music.
       var sp = own(o.speaker), ctl = function (parts) {
         return Object.assign({ type: 'custom:hk-media-control-card', color: 'purple', bare: true, parts: parts },
                              sp ? { entity: sp } : { entity_from: { music: true } });
       };
-      var extra = s === 'L' || s === 'T' || s === 'XL' ? { sub_card: ctl(['progress']), meta_card: ctl(['volume']) }
-                : s === 'W' ? { meta_card: ctl(['volume']) } : {};
+      // (2026-11-08, the owner: what does not fit goes to the player's sheet) only L and XL carry the volume; T has the progress
+      var extra = s === 'L' || s === 'XL' ? { sub_card: ctl(['progress']), meta_card: ctl(['volume']) }
+                : s === 'T' || s === 'W' ? { sub_card: ctl(['progress']) } : {};
       // (background, 2026-11-05, the owner: the blurred album unless the block asks for the card every other block has)
       return Object.assign({ type: 'custom:hk-now-playing-card', music: true }, sp ? { entity: sp } : {}, o.background === 'card' ? { background: 'card' } : {}, extra); } },
     // Extra Large: the thermostat's full controls, its sheet (2026-10-24) -- in Big Number, its face with the modes
