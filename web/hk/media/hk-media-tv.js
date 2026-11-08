@@ -207,13 +207,13 @@
         var gr = plate.querySelector('.gr');
         if (!gr || typeof getComputedStyle !== 'function' || !gr.clientWidth) return;
         var gap = 10, W = gr.clientWidth, H = gr.clientHeight, cols = g[0], kids = Array.prototype.slice.call(gr.children), n = kids.length;
-        var tw = (W - (cols - 1) * gap) / cols, need = Math.ceil(n / cols), pick = null, ar;
-        [[3 / 4, '4/3'], [2 / 3, '3/2'], [10 / 16, '16/10']].forEach(function (o) { if (!pick && need * tw * o[0] + (need - 1) * gap <= H) pick = o; });
-        pick = pick || [10 / 16, '16/10'];
-        var th = tw * pick[0], rows = Math.max(1, Math.floor((H + gap) / (th + gap)));
+        var tw = (W - (cols - 1) * gap) / cols, need = Math.ceil(n / cols), pick = null;
+        [{ r: 3 / 4, ar: '4/3' }, { r: 2 / 3, ar: '3/2' }, { r: 10 / 16, ar: '16/10' }].forEach(function (o) { if (!pick && need * tw * o.r + (need - 1) * gap <= H) pick = o; });
+        pick = pick || { r: 10 / 16, ar: '16/10' };
+        var th = tw * pick.r, rows = Math.max(1, Math.floor((H + gap) / (th + gap)));
         // (too short for even one row of that shape: the tile shrinks to its row, never stretches)
-        if (th > H) { th = H; tw = th / pick[0]; }
-        gr.style.setProperty('--tw', Math.floor(tw) + 'px'); gr.style.setProperty('--ar', pick[1]);
+        if (th > H) { th = H; tw = th / pick.r; }
+        gr.style.setProperty('--tw', Math.floor(tw) + 'px'); gr.style.setProperty('--ar', pick.ar);
         var shown = Math.min(n, cols * rows);
         kids.forEach(function (k, i) { k.style.display = i >= shown ? 'none' : ''; });
         var em = plate.querySelector('.lh em'), more = Math.max(0, (this._channels || []).length - shown);

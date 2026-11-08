@@ -307,7 +307,7 @@ function () {
   ask.resolve(CHANNELS);
   return H.tick().then(function () {
     tv._render();
-    var plate = tv._root.children[0], tiles = plate.children;
+    var plate = tv._root.children[0], tiles = plate.children[plate.children.length - 1].children;    // (the tiles' group is the plate's last child; Large and Extra Large have a label row before it)
     eq('Wide: the first two, in the page\'s order', tiles.length, 2);
     eq('...what is on, then the channel', [tiles[0].querySelector('b').textContent, tiles[0].querySelector('small').textContent], ['Evening News', 'Channel 4']);
     ok('...a bar of how far through, when the guide says', tv._bars.length === 1 && Math.abs(parseFloat(tv._bars[0].el.style.width) - 50) < 2);
@@ -320,7 +320,8 @@ function () {
     var xl = sized('hk-tv-channels-card', 'XL');
     xl.client = client(); xl._channels = CHANNELS.channels; xl._configured = true;
     xl._render();
-    eq('fewer channels than places: as many tiles as channels', xl._root.children[0].children.length, 3);
+    eq('fewer channels than places: as many tiles as channels', xl._root.children[0].children[1].children.length, 3);
+    ok('Extra Large opens with its label row: Live TV', xl._root.children[0].children[0].className === 'lh' && xl._root.children[0].children[1].className === 'gr');
   });
 },
 function () {
