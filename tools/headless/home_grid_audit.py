@@ -93,7 +93,8 @@ EXTRA["climate.office"] = ("office", ("heat", {"friendly_name": "Heat Pump", "cu
                                                "min_temp": 50, "max_temp": 90, "supported_features": 25, "current_humidity": 41}))
 EXTRA["weather.home"] = (None, ("partlycloudy", {"friendly_name": "Home", "temperature": 64, "temperature_unit": "°F",
                                                  "humidity": 52, "wind_speed": 6, "wind_speed_unit": "mph", "wind_bearing": 315,
-                                                 "apparent_temperature": 62, "uv_index": 2}))
+                                                 "apparent_temperature": 62, "uv_index": 2, "pressure": 1015, "pressure_unit": "hPa",
+                                                 "visibility": 10, "visibility_unit": "mi", "dew_point": 48}))
 SUNSET = time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(time.time() + 3 * 3600))
 EXTRA["sun.sun"] = (None, ("above_horizon", {"friendly_name": "Sun", "elevation": 40.0, "azimuth": 180.0, "next_setting": SUNSET}))
 # the rooms Clean Areas offers the vacuum's Large and Extra Large blocks (stood in on the page, below)
@@ -476,6 +477,15 @@ STATES: dict[str, dict] = {
               "entities": {"sensor.running_quick_timers": ("0", {"friendly_name": "Running Quick Timers", "running": []})},
               "events": False},
 }
+# THE WEATHER'S READINGS (2026-11-08, the owner's notes: the Extra Large's readings): a house whose weather says only the
+# temperature and the sky (nothing else to read, the sun down), and one that adds a fifth reading to a row of three
+# (humidity and wind, no feels like, no UV)
+STATES["wx_few"] = {"entities": {"weather.home": ("cloudy", {"friendly_name": "Home", "temperature": 41, "temperature_unit": "°F"}),
+                                 "sun.sun": ("below_horizon", {"friendly_name": "Sun", "elevation": -20.0, "azimuth": 10.0,
+                                                               "next_rising": time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(time.time() + 9 * 3600))})}}
+STATES["wx_five"] = {"entities": {"weather.home": ("rainy", {"friendly_name": "Home", "temperature": 52, "temperature_unit": "°F", "humidity": 88,
+                                                             "wind_speed": 14, "wind_speed_unit": "mph", "wind_bearing": 200, "pressure": 29.71,
+                                                             "pressure_unit": "inHg"})}}
 STATE = {"name": "busy"}
 
 
