@@ -74,9 +74,8 @@
  "hk-menu 16px": 1,
  "hk-menu 32px": 1,
  "hk-music 12px": 3,
- "hk-music 14px": 5,
+ "hk-music 14px": 4,
  "hk-music 16px": 1,
- "hk-music 18px": 1,
  "hk-music 26px": 1,
  "hk-person 10px": 1,
  "hk-person 12px": 3,
@@ -86,9 +85,6 @@
  "hk-person 24px": 1,
  "hk-person 32px": 1,
  "hk-person 42px": 1,
- "hk-security 14px": 1,
- "hk-security 19px": 1,
- "hk-security 20px": 1,
  "hk-stat 11.5px": 1,
  "hk-stat 14px": 2,
  "hk-stat 25px": 1,
@@ -107,6 +103,7 @@
  "hk-weather 24px": 1,
  "hk-weather 26px": 1,
  "hk-weather 28px": 1,
+ "hk-weather 56px": 1,
  "hk-weather 84px": 1,
  "hk-weather 9px": 1
 }
