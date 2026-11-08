@@ -569,8 +569,9 @@ class HkControlCard extends HTMLElement {
       /* (each target a little past its ink: a finger's 44 px, the Tall arrows and a target's digits) */
       .big .ar,.big .pk,.big .nm{position:relative}
       .big .ar::after{content:"";position:absolute;left:-4px;right:-4px;top:-4px;bottom:-4px}
-      .big .pk::after{content:"";position:absolute;left:-6px;right:-6px;top:-10px;bottom:-10px}
+      .big .pk::after{content:"";position:absolute;left:-2px;right:-2px;top:-10px;bottom:-10px}   /* (2 out, not 6: the two targets of a range keep 8 px clear of each other, 2026-11-08) */
       .big .nm::after{content:"";position:absolute;left:-4px;right:-4px;top:-6px;bottom:-6px}
+      .big .ft .ar::after,.big .ft .nm::after{left:0;right:0}   /* (Large's foot keeps its 12 px between the keys clear, 2026-11-08) */
       .big .ar svg{width:58px;height:58px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
       .big .nm{all:unset;position:relative;min-width:0;display:flex;flex-direction:column;align-items:center;text-align:center;cursor:pointer;-webkit-tap-highlight-color:transparent}
       .big .nm b,.big .nm i{max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -598,21 +599,19 @@ class HkControlCard extends HTMLElement {
          a tap picks one, the arrows step it */
       .big .tt{all:unset;position:relative;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;
         padding:4px 8px;border-radius:var(--hk-inner-radius,12px);cursor:pointer;-webkit-tap-highlight-color:transparent;min-width:0}
-      .big .tt.sel{background:${window.hkCards.v('key')}}
-      .big .tt:focus-visible{outline:2px solid ${window.hkCards.v('ink-2')};outline-offset:2px}
       :host([size=S]) .big .tt{min-width:68px;min-height:60px}
-      :host([size=S]) .big .tt b{font-size:min(44px,calc((100cqh - var(--hk-pad-t,18px) - var(--hk-pad-b,18px) - 44px - 26px) * .9))}
+      /* (THE TARGETS' DESIGNED SIZES, 2026-11-08, the stretch audit: a target is a number of one size per block size and cell shape, never
+         a share of the block's height -- Small 44; Wide 46 on a tile cell, 56 on a square one; Tall 48 and 54) */
+      :host([size=S]) .big .tt b{font-size:44px}
       :host([size=S]) .big .tg{gap:8px}
-      :host([size=T]) .big .tg{flex-direction:column;align-items:center;gap:6px}
+      :host([size=T]) .big .tg{flex-direction:column;align-items:center;gap:10px}
       :host([size=T]) .big .one b{font-size:min(96px,26cqh,40cqw)}
       :host([size=T]) .big .one.long b{font-size:min(66px,18cqh,28cqw)}
       :host([size=T]) .big .tt{padding:4px 2px;min-width:72px}
-      /* (Tall's range: a row is [arrow | target | arrow] -- the arrows only in the picked one, whose plate they sit in, a space where they would be in the other) */
-      :host([size=T]) .big .rng{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;justify-content:center;gap:8px;user-select:none;-webkit-user-select:none}
-      .big .trow{display:grid;grid-template-columns:40px minmax(0,1fr) 40px;align-items:center;justify-items:center;border-radius:var(--hk-inner-radius,12px)}
-      .big .trow.sel{background:${window.hkCards.v('key')}}.big .trow .tt.sel{background:none}.big .trow .ph{width:40px;height:44px}
-      .big .trow .ar::after{top:0;bottom:0;right:0}.big .trow .ar:last-child::after{left:0;right:-4px}.big .trow .ar{width:40px;height:44px;border-radius:12px}.big .trow .ar svg{width:28px;height:28px;stroke-width:2.2}
-      :host([size=T]) .big .tt b{font-size:min(66px,16cqh,28cqw)}
+      /* (THE RANGE IN SMALL, WIDE AND TALL, 2026-11-08, the owner's controls rule -- Small one action, Wide and Tall two or three: the two
+         targets are the reading, not keys; the arrows move the pair together, each end on its own is the sheet's. Tall stacks them,
+         cool over heat, between the arrows) */
+      :host([size=T]) .big .tt b{font-size:54px}
       /* ...Tall's Mode key (2026-11-08, the owner: "the modes are too close to the temp up and down arrows... the modes get hit while using them",
          then "the modes at the top throw the card off"; any card may send more controls to its sheet): the arrows flank the target, the
          centre of weight, the name heads the block, and the modes are the thermostat sheet's -- one 44 px key on the foot opens it, a
@@ -620,7 +619,7 @@ class HkControlCard extends HTMLElement {
       .big .mb{all:unset;box-sizing:border-box;flex:none;align-self:stretch;height:44px;margin-top:12px;border-radius:22px;display:grid;place-items:center;background:${window.hkCards.v('key')};color:${window.hkCards.v('ink')};
         ${window.hkCards.typeCss('headline')};cursor:pointer;-webkit-tap-highlight-color:transparent}
       .big .mb:focus-visible{outline:2px solid ${window.hkCards.v('ink-2')};outline-offset:2px}
-      @container hk-cell (max-height:380px){.big .mb{margin-top:8px}:host([size=T]) .big .tt{padding:4px 2px}}
+      @container hk-cell (max-height:380px){.big .mb{margin-top:8px}:host([size=T]) .big .tt{padding:4px 2px}:host([size=T]) .big .tt b{font-size:48px}}
       /* ...the foot: 24 px arrows (28 on Tall) in 40 x 44 keys, each reaching 4 px outward (the face's
          ::after): 44 x 44, and the name 6 px above and below its two lines -- a finger's 44 in the block's px */
       .big .ff{flex:none;display:grid;grid-template-columns:40px minmax(0,1fr) 40px;align-items:center;min-height:44px}
@@ -643,7 +642,8 @@ class HkControlCard extends HTMLElement {
       :host([size=W]) .big .one b{font-size:min(88px,calc((100cqh - var(--hk-pad-t,18px) - var(--hk-pad-b,18px) - 44px) * .8),30cqw)}
       :host([size=W]) .big .one.long b{font-size:min(60px,calc((100cqh - var(--hk-pad-t,18px) - var(--hk-pad-b,18px) - 44px) * .6),20cqw)}
       :host([size=W]) .big .tt{min-width:68px;min-height:60px}
-      :host([size=W]) .big .tt b{font-size:min(56px,calc((100cqh - var(--hk-pad-t,18px) - var(--hk-pad-b,18px) - 44px - 26px) * .9))}
+      :host([size=W]) .big .tt b{font-size:56px}
+      @container hk-cell (max-height:170px){:host([size=W]) .big .tt b{font-size:46px}}
       :host([size=W]) .big .tg{gap:8px}
       :host([size=W]) .big .ff .ar svg{width:24px;height:24px}
       /* (Wide's one Mode key, 2026-11-08, the owner: four mode circles were more controls than Wide holds, and small: the face and its arrows
@@ -662,7 +662,7 @@ class HkControlCard extends HTMLElement {
       .big .mc button:focus-visible{outline:2px solid ${window.hkCards.v('ink-2')};outline-offset:2px}
       .big .mc hk-icon{width:20px;height:20px;--mdc-icon-size:20px;display:block;line-height:0}
       .big .mc span{${window.hkCards.typeCss('caption')};line-height:18px;text-align:center;color:${window.hkCards.v('ink-2')};margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-      @container hk-cell (max-height:380px){.big .mc{gap:6px}.big .mc button{height:46px}.big .mc span{margin-top:0}}
+      @container hk-cell (max-height:380px){.big .mc button{height:44px}.big .mc span{margin-top:0}}   /* (44 px keys with the column's 8 px clear between, 2026-11-08) */
       /* ...a press and hold on the number: its modes, over the block */
       .big .modes{position:absolute;inset:0;display:none;flex-direction:column;justify-content:center;gap:8px;padding:16px;
         background:${window.hkCards.OVER.solid};border-radius:inherit}
@@ -863,9 +863,12 @@ class HkControlCard extends HTMLElement {
       : sz === "XL" ? (room || how) : (room ? room + " · " + how : how);
     const arrow = (dir, d, label) => `<button class="ar" type="button" data-big-step="${dir}" aria-label="${label}"${idle ? " disabled" : ""}>` +
       `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${d}"/></svg></button>`;
-    const down = arrow(-1, "M5.5 9.5 12 16l6.5-6.5", range ? (pick === "low" ? "Lower the heating target" : "Lower the cooling target") : "Lower the target");
-    const up = arrow(1, "M5.5 14.5 12 8l6.5 6.5", range ? (pick === "low" ? "Raise the heating target" : "Raise the cooling target") : "Raise the target");
-    const nm = `<button class="nm" type="button" data-tstat-details aria-label="${name}${sub ? ", " + sub : ""}, open the thermostat"><b>${name}</b>${sub ? `<i>${sub}</i>` : ""}</button>`;
+    // (Small, Wide and Tall: a range's arrows move both ends -- `_bigNudge` -- and the name is words, the block's own tap opens the sheet)
+    const solo = sz === "S" || sz === "W" || sz === "T";
+    const down = arrow(-1, "M5.5 9.5 12 16l6.5-6.5", range && solo ? "Lower both targets" : range ? (pick === "low" ? "Lower the heating target" : "Lower the cooling target") : "Lower the target");
+    const up = arrow(1, "M5.5 14.5 12 8l6.5 6.5", range && solo ? "Raise both targets" : range ? (pick === "low" ? "Raise the heating target" : "Raise the cooling target") : "Raise the target");
+    const nm = solo ? `<div class="nm"><b>${name}</b>${sub ? `<i>${sub}</i>` : ""}</div>`
+      : `<button class="nm" type="button" data-tstat-details aria-label="${name}${sub ? ", " + sub : ""}, open the thermostat"><b>${name}</b>${sub ? `<i>${sub}</i>` : ""}</button>`;
     const foot = cls => `<div class="${cls}">${down}${nm}${up}</div>`;
     const held = `<div class="modes" role="group" aria-label="Mode">${modes.map(m => `<button class="segment${mode === m ? " active" : ""}" type="button" data-mode="${this._esc(m)}">${this._esc(this._pretty(m))}</button>`).join("")}</div>`;
     const four = (cls, words) => `<div class="${cls}" role="group" aria-label="Mode">${words ? "<b>Mode</b>" : ""}${FOUR.map(m => `<button class="${mode === m ? "on" : ""}" type="button" data-big-mode="${this._esc(m)}" aria-pressed="${mode === m}"` +
@@ -875,19 +878,15 @@ class HkControlCard extends HTMLElement {
     const label = range ? "" : (mode === "off" ? "Off" : t(single) + " degrees") + ", press and hold for the modes";
     // SMALL, WIDE AND TALL: the targets in a column with the foot (Wide: one Mode key at its right, opening the sheet's modes)
     if (sz === "S" || sz === "W" || sz === "T") {
-      const tt = (which, v, verb, kind) => `<button class="tt ${kind}${pick === which ? " sel" : ""}" type="button" data-big-pick="${which}" aria-pressed="${pick === which}" aria-label="${verb} ${t(v)} degrees">` +
-        `<small>${sz === "T" ? verb : kind === "heat" ? "Heat" : "Cool"}</small><b>${t(v)}</b></button>`;
+      const tt = (v, verb, kind) => `<div class="tt ${kind}"><small>${sz === "T" ? verb : kind === "heat" ? "Heat" : "Cool"}</small><b>${t(v)}</b></div>`;
       const word = { heat: "Heat to", cool: "Cool to" }[mode] || "Target", kind = mode === "heat" || mode === "cool" ? " " + mode : "";
       const text = mode === "off" ? "Off" : idle ? "—" : t(single);
       const one = `<div class="one${kind}${text.length > 2 ? " long" : ""}">${sz === "T" && !idle ? `<small>${word}</small>` : ""}<b>${text}</b></div>`;
-      const tg = range ? (sz === "T" ? tt("high", hi, "Cool to", "cool") + tt("low", lo, "Heat to", "heat") : tt("low", lo, "Heat to", "heat") + tt("high", hi, "Cool to", "cool")) : one;
+      const tg = range ? (sz === "T" ? tt(hi, "Cool to", "cool") + tt(lo, "Heat to", "heat") : tt(lo, "Heat to", "heat") + tt(hi, "Cool to", "cool")) : one;
       // TALL (2026-11-08, the owner: modes on top "throws the card off", and any card may send more controls to its sheet): the name over
       // the target with its arrows either side of it, the centre of weight; the modes are the sheet's -- one Mode key at the foot opens it
-      const tgd = `<div class="tg" data-big-num aria-label="${label}">${tg}</div>`;
-      // ...a range (Auto) in Tall: the two targets one above the other, each with its label whole; the one picked is the plate and has the arrows in it,
-      // so what they change is plain -- a tap on the other moves the plate and the arrows to it
-      const row = (which, v, verb, kind) => `<div class="trow${pick === which ? " sel" : ""}">${pick === which ? down : '<span class="ph"></span>'}${tt(which, v, verb, kind)}${pick === which ? up : '<span class="ph"></span>'}</div>`;
-      const mid = sz === "T" && range ? `<div class="rng" data-big-num aria-label="${label}">${row("high", hi, "Cool to", "cool")}${row("low", lo, "Heat to", "heat")}</div>` : `<div class="tgr">${down}${tgd}${up}</div>`;
+      const tgd = `<div class="tg" data-big-num aria-label="${range ? `Heat to ${t(lo)}, cool to ${t(hi)} degrees, press and hold for the modes` : label}">${tg}</div>`;
+      const mid = `<div class="tgr">${down}${tgd}${up}</div>`;
       return `${top}<div class="in">${sz === "T" ? `<div class="hd">${nm}</div>${mid}<button class="mb" type="button" data-tstat-details aria-label="Change mode, currently ${how}">Mode · ${how} ›</button>` : tgd + foot("ff")}
       </div>${sz === "W" ? `<div class="mq"><button class="mb" type="button" data-tstat-details aria-label="Change mode, currently ${how}">Mode · ${how} ›</button></div>` : ""}${held}</div>`;
     }
@@ -912,9 +911,14 @@ class HkControlCard extends HTMLElement {
     if (mode === "heat_cool" && Number.isFinite(Number(a.target_temp_low)) && Number.isFinite(Number(a.target_temp_high))) {
       let lo = held && held.which !== "single" ? held.lo : Number(a.target_temp_low);
       let hi = held && held.which !== "single" ? held.hi : Number(a.target_temp_high);
-      if (this._bigPick === "high") hi = Math.max(snap(hi + dir * step), lo + step);
+      // (Small, Wide and Tall move the pair together, 2026-11-08: the range slides, neither end past the entity's, the gap between them kept)
+      const sz = this.getAttribute("size"), both = sz === "S" || sz === "W" || sz === "T";
+      if (both) {
+        const d = dir > 0 ? Math.min(dir * step, (Number.isFinite(max) ? max : Infinity) - hi) : Math.max(dir * step, (Number.isFinite(min) ? min : -Infinity) - lo);
+        lo = clamp(lo + d); hi = clamp(hi + d);
+      } else if (this._bigPick === "high") hi = Math.max(snap(hi + dir * step), lo + step);
       else lo = Math.min(snap(lo + dir * step), hi - step);
-      this._hold = { which: this._bigPick === "high" ? "high" : "low", lo: lo, hi: hi, until: Date.now() + 8000 };
+      this._hold = { which: both ? "both" : this._bigPick === "high" ? "high" : "low", lo: lo, hi: hi, until: Date.now() + 8000 };
     } else {
       const now = held && held.which === "single" ? held.single : Number(a.temperature);
       if (!Number.isFinite(now)) return;

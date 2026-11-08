@@ -446,6 +446,47 @@ MEASURE = r"""(() => {
         const w = Math.min(A.h.right, B.h.right) - Math.max(A.h.left, B.h.left), t = Math.min(A.h.bottom, B.h.bottom) - Math.max(A.h.top, B.h.top);
         if (w > 2 && t > 2) rec.issues.push('hit areas overlap by ' + Math.round(w) + 'x' + Math.round(t) + ': ' + name(A.el) + ' and ' + name(B.el)); }
     }
+    // THE CONTROLS (2026-11-08, the owner's round three: Small = state + at most one primary action; Wide/Tall = at most 2-3, each 44 px with
+    // ~8 px clear): `--controls` lists the separate tap targets inside the plate (hk-base.js TAP_CONTROLS, the plate itself and a block-sized
+    // button left out; a control inside a button is the button's), each one's touchable box (its ::after too, cut by a list that clips it)
+    // in the block's px, the smallest of those boxes and the smallest gap between two (negative: they overlap). Reported, never failed:
+    // a list of rows that each open their own thing is content, and the report says so for the lead to judge (CONTROLS_RULES)
+    if (window.__controlsCheck) {
+      const sel = (window.hkCards && window.hkCards.TAP_CONTROLS) || 'button,a,input,select,[role=button],[role=slider]', gs = view._gridScale || 1;
+      const NATIVE = 'button,a,input,select,textarea,summary,[role=button],[role=link],[role=slider],[role=switch],[role=checkbox],[role=menuitem]';
+      const found = [];
+      for (const el of all) {
+        if (!shown(el) || !el.matches(sel) || el.hasAttribute('data-notap')) continue;
+        const r = el.getBoundingClientRect(); if (r.width < 1 || r.height < 1) continue;
+        if (r.width >= c.width * 0.8 && r.height >= c.height * 0.8) continue;                    // the plate, a whole-block button
+        let h = { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
+        for (const pseudo of ['::after', '::before']) { const hit = getComputedStyle(el, pseudo);
+          if (hit.content === 'none' || hit.content === 'normal' || hit.position !== 'absolute') continue;
+          const f = k => parseFloat(hit[k]), L = f('left'), R = f('right'), T = f('top'), B = f('bottom');
+          if (Number.isFinite(L)) h.left = Math.min(h.left, r.left + L); if (Number.isFinite(R)) h.right = Math.max(h.right, r.right - R);
+          if (Number.isFinite(T)) h.top = Math.min(h.top, r.top + T); if (Number.isFinite(B)) h.bottom = Math.max(h.bottom, r.bottom - B); }
+        for (const k of clippers(el, cell)) { const b = k.el.getBoundingClientRect();
+          h = { left: Math.max(h.left, b.left), top: Math.max(h.top, b.top), right: Math.min(h.right, b.right), bottom: Math.min(h.bottom, b.bottom) }; }
+        if (h.right - h.left < 1 || h.bottom - h.top < 1) continue;                               // scrolled or cut away
+        found.push({ el, h });
+      }
+      // (a segmented control is one control: its choices are measured by their track, DESIGN.md's 44 px with 36 px choices)
+      const tracks = new Map();
+      for (const a of found) if (a.el.classList.contains('segment') && a.el.parentElement) {
+        const t = a.el.parentElement; if (!tracks.has(t)) tracks.set(t, { el: t, h: t.getBoundingClientRect() }); }
+      const mine = found.filter(a => !a.el.classList.contains('segment') && !found.some(b => b !== a && b.el !== a.el && b.el.matches(NATIVE) && b.el.contains(a.el))).concat([...tracks.values()]);
+      let gap = null, small = null, tight = '';
+      for (const a of mine) { const m = Math.min(a.h.right - a.h.left, a.h.bottom - a.h.top) / gs; if (small === null || m < small) small = m; }
+      for (let i = 0; i < mine.length; i++) for (let j = i + 1; j < mine.length; j++) {
+        const A = mine[i].h, B = mine[j].h; if (mine[i].el.contains(mine[j].el) || mine[j].el.contains(mine[i].el)) continue;
+        const gx = Math.max(B.left - A.right, A.left - B.right) / gs, gy = Math.max(B.top - A.bottom, A.top - B.bottom) / gs;
+        const g = gx > 0 && gy > 0 ? Math.hypot(gx, gy) : Math.max(gx, gy);          // (both negative: they overlap by the smaller)
+        if (gap === null || g < gap) { gap = g; tight = name(mine[i].el) + ' | ' + name(mine[j].el); } }
+      const names = {}; for (const a of mine) { const n = name(a.el); names[n] = (names[n] || 0) + 1; }
+      // (a stepper -- the arrows either side of a value, [data-big-step] -- is ONE control: one action, two directions)
+      const steps = mine.filter(a => a.el.hasAttribute('data-big-step')).length;
+      rec.controls = { n: mine.length - Math.max(0, steps - 1), small: small === null ? null : Math.round(small * 10) / 10, gap: gap === null ? null : Math.round(gap * 10) / 10, tight, names };
+    }
     // Dial text belongs inside its open centre, not across the track/knobs.
     const ring = card.shadowRoot && card.shadowRoot.querySelector('[data-ring]');
     if (ring) {
@@ -815,6 +856,8 @@ async def audit(keys: list[str], looks: list[str], shots: Path | None, long: boo
                 await b.send("Page.addScriptToEvaluateOnNewDocument", source=feed_script())
                 if STATE["hits"]:
                     await b.send("Page.addScriptToEvaluateOnNewDocument", source="window.__hitsCheck = true")
+                if STATE.get("controls"):
+                    await b.send("Page.addScriptToEvaluateOnNewDocument", source="window.__controlsCheck = true")
                 sun = None
                 for key, look, bar in passes:
                     elev = SUN.get(look, 40.0)
@@ -946,6 +989,41 @@ def summary(report: dict) -> tuple[int, list[str]]:
     return bad, lines
 
 
+# THE CONTROLS RULE (2026-11-08, the owner's round three): Small = state + at most one primary action (the plate opens the sheet);
+# Wide and Tall = at most 3 primary controls, each 44 px with 8 px clear between hit areas; Large and Extra Large may show more, never crowded
+CONTROLS_RULES = {"S": 1, "W": 3, "T": 3}
+CLEAR = 8
+
+
+def controls_breaks(size: str, c: dict) -> list[str]:
+    """What a block's controls (`--controls`) break of CONTROLS_RULES: [] when it keeps them."""
+    out = []
+    if size in CONTROLS_RULES and c["n"] > CONTROLS_RULES[size]:
+        out.append(f"{c['n']} targets (max {CONTROLS_RULES[size]})")
+    if c["n"] and c["small"] is not None and c["small"] < 43.5:
+        out.append(f"smallest hit area {c['small']:.0f} px")
+    if c["gap"] is not None and c["gap"] < CLEAR - 0.5:
+        out.append(f"gap {c['gap']:.0f} px")
+    return out
+
+
+def controls_table(report: dict) -> list[str]:
+    """One line per block that has tap targets inside its plate: key, look, size, n, smallest hit area, least gap, the rule it breaks."""
+    lines = ["", "CONTROLS (separate tap targets inside the plate; hit areas in the block's px)"]
+    for key, by_look in report.items():
+        for look, got in by_look.items():
+            for cell in got.get("cells", []):
+                c = cell.get("controls")
+                if c is None:
+                    continue
+                broke = controls_breaks(cell["size"], c)
+                names = ", ".join(f"{n} x{k}" if k > 1 else n for n, k in sorted(c["names"].items(), key=lambda x: -x[1])[:5])
+                lines.append(f"{'BREAKS' if broke else 'ok    '} {key:12} {look:10} {cell['size']:3} n={c['n']:<2} small={'-' if c['small'] is None else format(c['small'], '.0f'):>3}"
+                             f" gap={'-' if c['gap'] is None else format(c['gap'], '.0f'):>3}  {'; '.join(broke)}  [{names}]"
+                             + (f" tightest: {c['tight']}" if broke and c.get("tight") and c["gap"] is not None and c["gap"] < CLEAR - 0.5 else ""))
+    return lines
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     G2 = ["accessory", "scene", "scenes", "now_playing", "thermostat", "camera", "security", "timers", "weather",
@@ -964,12 +1042,15 @@ def main(argv=None) -> int:
     ap.add_argument("--state", choices=list(STATES), default="busy",
                     help="the house's state (STATES): busy (default) or quiet -- every block must look finished in each")
     ap.add_argument("--hits", action="store_true", help="also fail where one control's touchable box (its ::after too) overlaps another's")
+    ap.add_argument("--controls", action="store_true",
+                    help="also print each block's tap targets: how many, the smallest, the least gap, and where CONTROLS_RULES is broken")
     ap.add_argument("--stretch", action="store_true",
                     help="also fail a tile, row, pill or button that grows with its block (STRETCH: nothing stretches)")
     a = ap.parse_args(argv)
     STATE["name"] = a.state
     STATE["stretch"] = a.stretch
     STATE["hits"] = a.hits
+    STATE["controls"] = a.controls
     for o in a.opts:
         k, _, v = o.partition("=")
         OPTS[k] = {**OPTS.get(k, {}), **json.loads(v)}
@@ -985,6 +1066,8 @@ def main(argv=None) -> int:
         a.json.write_text(json.dumps(report, indent=1))
     bad, lines = summary(report)
     print("\n".join(lines))
+    if a.controls:
+        print("\n".join(controls_table(report)))
     print(f"{'FAIL' if bad else 'ok'}: {bad} block(s) with a problem, {len(keys)} card(s) x {len(a.looks)} look(s)"
           f" with the tab bar, x {len(a.nobar)} without")
     return 1 if bad else 0

@@ -194,14 +194,16 @@
       '.row.lk hk-icon{color:var(--lk)}',
       '.row.mo span{color:' + v('ink-2') + '}',
       // Home, Away and Disarm along the foot, where a thumb is: the mode it is in lit
-      '.arm{display:flex;gap:8px;flex:none}',
-      '.arm button{all:unset;box-sizing:border-box;flex:1;height:44px;border-radius:22px;text-align:center;background:' + v('key') + ';' + type('body') + ';font-weight:600;color:' + v('ink') + ';cursor:pointer}',
+      // THE KEYS' DESIGNED WIDTHS (2026-11-08, `--stretch`: they grew with the block): each key a width of its own, the row centered --
+      // Large's three 112 wide, Tall's Home and Away 72 with Disarm as wide as the two and the gap between them
+      '.arm{display:flex;justify-content:center;gap:8px;flex:none}',
+      '.arm button{all:unset;box-sizing:border-box;flex:none;width:112px;height:44px;border-radius:22px;text-align:center;background:' + v('key') + ';' + type('body') + ';font-weight:600;color:' + v('ink') + ';cursor:pointer}',
       '.arm button.on{background:#fff;color:#1c1c1e}',
       '.arm button:active{background:' + v('key-strong') + '}',
       // TALL (2026-11-07, the review): the shield and state on top, the rows through the middle, and at the foot Home and Away
       // side by side with Disarm under them (three 44 px keys in a row do not fit a block this narrow); the state's line may
       // take two lines, so "Office Window open" is read whole
-      'hk-plate.sec[size=T] .arm{flex-wrap:wrap}hk-plate.sec[size=T] .arm button[data-m=off]{flex:1 1 100%}',
+      'hk-plate.sec[size=T] .arm{flex-wrap:wrap;width:152px;align-self:center}hk-plate.sec[size=T] .arm button{width:72px}hk-plate.sec[size=T] .arm button[data-m=off]{width:152px}',
       'hk-plate.sec[size=T] .hd small{white-space:normal;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}',
       // (2026-11-08, the owner's rule -- "anything that does not fit cleanly moves to the detail sheet": Tall is the alarm and its three
       // ways to arm, the shield and the state centered in the room between them; the locks and doors are the Security page's and
