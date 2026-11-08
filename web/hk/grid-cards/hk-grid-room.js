@@ -300,7 +300,13 @@
             more.textContent = '+' + p.more + ' more';
             more.addEventListener('click', () => self._openRoom()); e.tiles.appendChild(more);
           }
-          if (last > 1 && !p.scroll && e.tiles.lastElementChild) e.tiles.lastElementChild.style.gridColumn = 'span ' + last;
+          if (last > 1 && !p.scroll && e.tiles.lastElementChild) {
+            e.tiles.lastElementChild.style.gridColumn = 'span ' + last;
+            // (a spanning tile keeps its row's type and glyph -- the square tile's when its neighbours are -- never the
+            // short tile's because its own slot is wide: 2026-11-07, the review)
+            var r0 = e.tiles.firstElementChild.getBoundingClientRect();
+            if (r0.height && (r0.height >= 180 || r0.width / r0.height <= 1.2)) e.tiles.lastElementChild.style.setProperty('--hk-cell-shape', 'square');
+          }
         }
         // THE FOOT LINE: the rooms' dots while it pages, and -- scrolling --
         // a place for what is out of sight whenever there is more than shows

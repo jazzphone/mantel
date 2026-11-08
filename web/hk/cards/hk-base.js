@@ -373,8 +373,8 @@
       at('', [s.name]) + '{' + text + ';font-weight:600' + I + '}' +
       at('', s.sub) + '{' + text + ';font-weight:400' + I + ';color:' + v('ink-2') + I + '}' +
       at(s.lit, s.sub) + '{color:' + v('ink-on-state') + I + '}' +
-      // (square where 180 px tall or about square -- a Large Accessories block's ~179 px tiles, 2026-11-07; fit: grows past 196, <= 45cqmin)
-      one(C0.tall) + '@container hk-cell (min-height:180px) or (max-aspect-ratio: 6 / 5) or style(--hk-cell-shape: square){' + one(C0.square) +
+      // (square where 170 px tall or about square -- a Large Accessories block's ~179 px tiles, an XL group's 2 x 2 ~178, 2026-11-07; fit: grows past 196, <= 45cqmin)
+      one(C0.tall) + '@container hk-cell (min-height:170px) or (max-aspect-ratio: 6 / 5) or style(--hk-cell-shape: square){' + one(C0.square) +
         at('', [s.well]) + '{width:' + fit(C0.square.box) + I + ';height:' + fit(C0.square.box) + I + '}' + at('', [s.icon]) + '{width:' + fit(C0.square.glyph) + I + ';height:' + fit(C0.square.glyph) + I + '}}';
   }
   // ONE TITLE ROW (the Energy page's): the name left, the detail right, one

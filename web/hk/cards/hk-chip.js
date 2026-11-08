@@ -1885,6 +1885,11 @@
         if (client) t.hkSetClient(client);
         return t;
       });
+      // (a spanning tile keeps its row's type and glyph, as the Room block's does -- 2026-11-07, the review)
+      if (plan.last > 1 && box.children.length > 1) {
+        var r0 = box.firstElementChild.getBoundingClientRect();
+        if (r0.height && (r0.height >= 180 || r0.width / r0.height <= 1.2)) box.lastElementChild.style.setProperty('--hk-cell-shape', 'square');
+      }
       this._halfPlan = plan.half ? plan : null;
       if (plan.half && !this._halfRO && typeof ResizeObserver === 'function') {
         var self = this;
