@@ -144,7 +144,7 @@
           '.cgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;align-content:start}' +
           '.cc{position:relative;aspect-ratio:1;min-width:0;container-type:size;container-name:hk-cell;--hk-cell-shape:square}' +
           '.cc > *{display:block;width:100%;height:100%}' +
-          '.none{color:' + window.hkCards.v('ink-2') + ';font-size:16px;text-align:center;padding:48px 16px}' +
+          '.none{color:' + window.hkCards.v('ink-2') + ';font-size:15px;text-align:center;padding:48px 16px}' +
           // the editor's preview: the real sheet, but nothing in it answers a tap
           ':host([preview]) .runs{pointer-events:none}';
       }
@@ -324,7 +324,7 @@
           runs.addEventListener('click', function (ev) {
             var path = ev.composedPath ? ev.composedPath() : [ev.target];
             for (var i = 0; i < path.length; i++) {
-              var id = path[i] && path[i].getAttribute && path[i].getAttribute('data-entry');
+              var n = /** @type {any} */ (path[i]), id = n && n.getAttribute && n.getAttribute('data-entry');
               if (id != null) { cfg.last = id; break; }
             }
             cfg.scroll = self.parentNode ? self.parentNode.scrollTop : 0;
@@ -431,7 +431,7 @@
     function openSheet(sheet, o) {
       o = o || {};
       var sh = sheet || {}, entries = (Array.isArray(sh.entries) ? sh.entries : []).filter(function (e) { return e && typeof e.entity === 'string'; });
-      var title = sh.title || o.title || 'Accessories', icon = sh.icon || o.icon || 'mdi:view-grid-outline';
+      var title = sh.title || o.title || 'Accessories', icon = sh.icon || o.icon || 'mdi:view-grid';
       var g = { title: title, ids: entries.map(function (e) { return e.entity; }), entries: JSON.parse(JSON.stringify(entries)),
                 style: sh.tile_style || (o.style === 'centred' ? 'centred' : 'home'), custom: true, icon: icon, color: o.color,
                 opener: o.opener || null, preview: !!o.preview, back: !o.preview };

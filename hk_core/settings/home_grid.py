@@ -691,7 +691,7 @@ def interaction(v: Any) -> dict[str, Any]:
     return out
 
 
-def _security_size(v: Mapping[str, Any], size: str) -> None:
+def _security_size(v: Mapping[str, Any], size: Any) -> None:
     """Compact is Security's HomeView presentation's alone: a block (or a rule's card) at C says so."""
     if size == "C" and (v.get("card") != "security" or v.get("opts", {}).get("presentation") != "homeview"):
         raise GridInvalid("grid_size")

@@ -44,7 +44,7 @@ TAGS = {
     "web/hk/cards/hk-grid-cards.js": (
         "hk-action-card", "hk-everything-card", "hk-grid-accessories-card", "hk-grid-cameras-card", "hk-grid-clock-card",
         "hk-grid-entity-card", "hk-grid-keypad-card", "hk-grid-panel-card", "hk-grid-room-card", "hk-grid-security-card",
-        "hk-grid-vacuum-card", "hk-on-now-card", "hk-suggested-scene-card"),
+        "hk-grid-security-hv-card", "hk-grid-security-key-card", "hk-grid-vacuum-card", "hk-on-now-card", "hk-suggested-scene-card"),
 }
 
 pytestmark = pytest.mark.parametrize("path", MANIFESTS, ids=[p.stem for p in MANIFESTS])
