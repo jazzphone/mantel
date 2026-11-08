@@ -4,6 +4,8 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+## 0.1.154 - 2026-11-08
+
 **Added**
 - **The Holiday slide**: a fifth screensaver slide counting the days to the next holiday. Christmas, Halloween, Thanksgiving and New Year's each have a painted scene: a 90s living room with the count on the TV, a haunted house with it carved in a tombstone, a dining room with it chalked on a board, a rooftop party with a split-flap board. Their effects run live: chasing tree lights, snow and leaves past the windows, bats, candles and fireworks. Every other holiday, birthday and date of your own stands outdoors on the sky's landscape. It comes among the photos or over a clock, as Weather and Home Energy do, and only once a holiday is near. The slide corner adds the time, the date, the weather and House Status. Holiday Options sets which holiday (Next Up, Take Turns or One Holiday), how many days before, the effects, the holidays it counts, your own dates, the scenes, and the row along the bottom. It is off by default; the Holiday Whimsy Look turns it on.
 - **The tiles in a block sit closer to its edge, with rounder corners** (HomeView's square cells): a group of accessories, Scenes, Security's keypad and locks, Live TV's channels and the Recent picture sit 13 px in -- the grid's gap -- with 21 px corners concentric with the block's 34 (they were 18 in, 16 px corners); headings and words stay where they were.
