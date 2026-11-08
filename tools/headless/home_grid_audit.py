@@ -45,6 +45,7 @@ import argparse
 import asyncio
 import copy
 import json
+import os
 import sys
 import tempfile
 import time
@@ -93,7 +94,8 @@ EXTRA["climate.office"] = ("office", ("heat", {"friendly_name": "Heat Pump", "cu
                                                "min_temp": 50, "max_temp": 90, "supported_features": 25, "current_humidity": 41}))
 EXTRA["weather.home"] = (None, ("partlycloudy", {"friendly_name": "Home", "temperature": 64, "temperature_unit": "°F",
                                                  "humidity": 52, "wind_speed": 6, "wind_speed_unit": "mph", "wind_bearing": 315,
-                                                 "apparent_temperature": 62, "uv_index": 2}))
+                                                 "apparent_temperature": 62, "uv_index": 2, "pressure": 1015, "pressure_unit": "hPa",
+                                                 "visibility": 10, "visibility_unit": "mi", "dew_point": 48}))
 SUNSET = time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(time.time() + 3 * 3600))
 EXTRA["sun.sun"] = (None, ("above_horizon", {"friendly_name": "Sun", "elevation": 40.0, "azimuth": 180.0, "next_setting": SUNSET}))
 # the rooms Clean Areas offers the vacuum's Large and Extra Large blocks (stood in on the page, below)
@@ -158,12 +160,29 @@ for _id, (_n, _items) in TODO.items():
 TV = [("4.1", "Channel 4", "Evening News", 37, 60), ("7.1", "Food", "Coastal Kitchens", 9, 30),
       ("9.1", "Comedy", "Night Owls", 24, 30), ("11.1", "Sports", "Evening Match", 54, 120),
       ("13.1", "Nature", "Wild Coasts", 12, 60), ("20.1", "Kids", "Story Time", 21, 30)]
-for _no, _name, _on, _in, _long in TV:
+# (what is on's art: `image` on the now sensor, as the Live TV page's tiles draw it behind the channel -- these stand-ins are the
+# site's own landscapes; the audit's default house has it on four channels and not on two, Live TV's mixed state)
+TV_ART = {"4.1": "/hk/landscapes/03.webp", "7.1": "/hk/landscapes/15.webp", "9.1": None, "11.1": "/hk/landscapes/42.webp",
+          "13.1": "/hk/landscapes/39.webp", "20.1": None}
+
+
+def _tv_now(no, name, on, mins_in, mins_long, image):
+    attrs = {"friendly_name": f"{name} Now", "subtitle": "",
+             "start": time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(time.time() - mins_in * 60)),
+             "end": time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(time.time() + (mins_long - mins_in) * 60))}
+    if image:
+        attrs["image"] = image
+    return (on, attrs)
+
+
+# ...and six more the guide has (the `tv_many` state lists twelve: the block shows what its size holds and says "N more")
+TV_EXTRA = [("22.1", "Movies", "The Long Road", 40, 120), ("24.1", "Weather", "Local Forecast", 3, 10), ("26.1", "Music", "Top Videos", 15, 60),
+            ("28.1", "Cooking", "Weeknight Dinners", 5, 30), ("30.1", "History", "Ancient Seas", 33, 60), ("32.1", "Science", "Deep Space", 10, 60)]
+TV_ART.update({"22.1": "/hk/landscapes/19.webp", "24.1": None, "26.1": "/hk/landscapes/23.webp", "28.1": None, "30.1": "/hk/landscapes/35.webp", "32.1": "/hk/landscapes/22.webp"})
+for _no, _name, _on, _in, _long in TV + TV_EXTRA:
     _id = _no.replace(".", "_")
     EXTRA[f"camera.channel_{_id}"] = (None, ("idle", {"friendly_name": _name}))
-    EXTRA[f"sensor.channel_{_id}_now"] = (None, (_on, {"friendly_name": f"{_name} Now", "subtitle": "",
-        "start": time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(time.time() - _in * 60)),
-        "end": time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(time.time() + (_long - _in) * 60))}))
+    EXTRA[f"sensor.channel_{_id}_now"] = (None, _tv_now(_no, _name, _on, _in, _long, TV_ART[_no]))
 LONG = " and the Long Way Round"       # the `long` pass: every name this much longer
 
 # THE ENERGY FEATURE'S METERS (2026-10-31, the widget blocks: Energy Rings, Battery, Power and Water): Home
@@ -512,7 +531,35 @@ STATES.update({
     "longsong": {"attrs": {LR: dict(LONG_SONG, entity_picture=COVER)}},
     "longsongnoart": {"attrs": {LR: LONG_SONG}},
 })
+# THE WEATHER'S READINGS (2026-11-08, the owner's notes: the Extra Large's readings): a house whose weather says only the
+# temperature and the sky (nothing else to read, the sun down), and one that adds a fifth reading to a row of three
+# (humidity and wind, no feels like, no UV)
+STATES["wx_few"] = {"entities": {"weather.home": ("cloudy", {"friendly_name": "Home", "temperature": 41, "temperature_unit": "°F"}),
+                                 "sun.sun": ("below_horizon", {"friendly_name": "Sun", "elevation": -20.0, "azimuth": 10.0,
+                                                               "next_rising": time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(time.time() + 9 * 3600))})}}
+STATES["wx_five"] = {"entities": {"weather.home": ("rainy", {"friendly_name": "Home", "temperature": 52, "temperature_unit": "°F", "humidity": 88,
+                                                             "wind_speed": 14, "wind_speed_unit": "mph", "wind_bearing": 200, "pressure": 29.71,
+                                                             "pressure_unit": "inHg"})}}
+# LIVE TV'S ART (2026-11-08, the owner: the What's On art behind each channel): every channel with its picture, and none
+STATES["tv_art"] = {"entities": {f"sensor.channel_{n.replace('.', '_')}_now": _tv_now(n, name, on, i, l, f"/hk/landscapes/{k:02d}.webp")
+                                 for k, (n, name, on, i, l) in zip((3, 15, 19, 42, 39, 22), TV)}}
+STATES["tv_many"] = {}
+STATES["tv_noart"] = {"entities": {f"sensor.channel_{n.replace('.', '_')}_now": _tv_now(n, name, on, i, l, None) for n, name, on, i, l in TV}}
+# SECURITY'S STATES (2026-11-08, the owner: the locks, the garage and the open doors and windows at Large and Extra Large): armed
+# with everything locked and closed; triggered with a window open; disarmed with a lock unlocked, the garage open, a door and
+# a window open (the strip's "+N open"); and a big house -- six locks, two garage doors, a dozen doors and windows ("N more")
+_SECURE = {"domains": {"lock": "locked", "cover": "closed", "binary_sensor": "off"}}
+STATES["sec_armed"] = {"domains": dict(_SECURE["domains"], alarm_control_panel="armed_away")}
+STATES["sec_trig"] = {"domains": {"alarm_control_panel": "triggered", "lock": "locked", "cover": "closed"}}
+STATES["sec_open"] = {"domains": {"cover": "open", "binary_sensor": "on"},
+                      "entities": {"lock.front_door": ("unlocked", {"friendly_name": "Front Door"})}}
+STATES["sec_many"] = {"entities": {**{f"lock.extra_{i}": ("locked", {"friendly_name": n}) for i, n in enumerate(
+    ("Garage Entry", "Side Door", "Patio Door", "Basement Door"))},
+    "cover.garage_two": ("closed", {"friendly_name": "Workshop Door", "device_class": "garage"}),
+    **{f"binary_sensor.extra_window_{i}": ("off", {"friendly_name": f"Window {i}", "device_class": "window"}) for i in range(8)}}}
 STATE = {"name": "busy"}
+# the window (a phone: AUDIT_VIEW=390x844 -- the grid is then drawn as the screen draws it there)
+VIEW = tuple(int(x) for x in os.environ.get("AUDIT_VIEW", "1280x800").split("x"))
 
 
 def seed_timeline(app, kind: str) -> None:
@@ -614,7 +661,7 @@ def stand_in_reads() -> None:
     async def request(self, msg):
         if msg.get("type") == "hk_tv/channels":
             return {"configured": True, "channels": [{"number": n, "name": name, "camera": f"camera.channel_{n.replace('.', '_')}",
-                                                     "now": f"sensor.channel_{n.replace('.', '_')}_now"} for n, name, *_ in TV]}
+                                                     "now": f"sensor.channel_{n.replace('.', '_')}_now"} for n, name, *_ in TV + (TV_EXTRA if STATE["name"] == "tv_many" else [])]}
         return await ask(self, msg)
     OfflineReads.request = request
 
@@ -678,7 +725,7 @@ async def audit(keys: list[str], looks: list[str], shots: Path | None, long: boo
             with app["timeline"].db:
                 app["timeline"].db.execute("DELETE FROM timeline_events WHERE src NOT LIKE 'audit:%'")
             origin = str(server.make_url("")).rstrip("/")
-            async with Browser(width=1280, height=800, port=9391) as b:
+            async with Browser(width=VIEW[0], height=VIEW[1], port=9391) as b:
                 await b.restrict_origin(origin)
                 # the page has the focus, as a wall tablet's does (cameras rest without it: cameras.focus_pause)
                 await b.send("Emulation.setFocusEmulationEnabled", enabled=True)
@@ -700,6 +747,8 @@ async def audit(keys: list[str], looks: list[str], shots: Path | None, long: boo
                         return null; }; const v = d(document); return v && v.shadowRoot.querySelectorAll('.cell').length > 0; })()""", 20)
                     await asyncio.sleep(2.0)            # pictures, fonts and the sky settle
                     got = await b.eval(MEASURE)
+                    if os.environ.get("AUDIT_PROBE"):      # (a probe of one's own, in the page: AUDIT_PROBE='<js expression>', printed)
+                        print("probe", await b.eval(os.environ["AUDIT_PROBE"]), flush=True)
                     got["errors"] = [c for c in b.console[mark:] if c.startswith(("EXCEPTION", "error"))][:8]
                     report.setdefault(key, {})[look + ("" if bar else " (no bar)")] = got
                     if shots:

@@ -50,6 +50,16 @@
       '.ch:active{transform:scale(.98)}',
       '.ch:focus-visible{outline:2px solid #fff;outline-offset:-4px}',
       '.one .ch{position:absolute;inset:0;border-radius:inherit;padding:' + C.blockPad('14px') + '}',
+      // NOTHING STRETCHES (2026-11-08, the owner; DESIGN.md "Using the space"): a channel is one tile of a designed shape -- 4 : 3,
+      // 3 : 2 or 16 : 10 (the guide's pictures are 16 : 9), the tallest of them that shows every channel the block names in the room it
+      // has -- as wide as the block's columns make it (set by _fit: --tw, --ar), as many as the room holds, the group centered with equal
+      // margins and its last row centered, never a tile spanning it. Large and Extra Large open with a label row, as the widget blocks
+      // do: LIVE TV at the label role, and how many more channels the guide has at its right
+      'hk-plate.tv:not(.one){display:flex;flex-direction:column;gap:10px}',
+      '.gr{flex:1 1 0;min-height:0;display:flex;flex-wrap:wrap;gap:10px;justify-content:center;align-content:center}',
+      '.gr .ch{flex:none;width:var(--tw,160px);aspect-ratio:var(--ar,16/10)}',
+      '.lh{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex:none;min-width:0;' + C.labelCss('label') + ';line-height:18px;color:' + C.v('ink-2') + '}',
+      '.lh em{font-style:normal;' + C.typeCss('caption') + ';line-height:18px;text-transform:none;letter-spacing:0;white-space:nowrap}',
       // ITS MARK: the guide's logo on white where it has one, else its number
       '.lg{display:grid;place-items:center;flex:none;align-self:flex-start;min-width:38px;height:38px;padding:0 7px;box-sizing:border-box;',
       '  border-radius:' + C.R.small + 'px;background:rgba(255,255,255,.25);' + C.typeCss('body') + ';font-weight:800;font-variant-numeric:tabular-nums;text-shadow:none}',
@@ -59,6 +69,14 @@
       // nor the cell from inside the panel answers a size query in WebKit -- its mark and its words as large as the room)
       '.one.big .lg{min-width:76px;height:76px;padding:0 10px;font-size:30px;line-height:34px}.one.big .lg img{max-width:120px}',
       '.one.big .tx b{' + C.typeCss('title') + ';line-height:27px}.one.big .tx small{' + C.typeCss('body') + ';line-height:20px}',
+      // WHAT'S ON'S ART BEHIND THE CHANNEL (2026-11-08, the owner: "the What's On artwork that the Live TV page displays as the
+      // background for the channels ... a little dim"): the page's picture (the now sensor's `image`, as the page's tile draws it) fills
+      // the tile, the channel's color over it and a scrim -- lighter at the top, where the mark is, darker under the words -- so the white
+      // mark and words pass 4.5:1 on any picture; no picture (or one that never loads), the color alone
+      '.bg{position:absolute;inset:0;border-radius:inherit;overflow:hidden;pointer-events:none}.bg img{display:block;width:100%;height:100%;object-fit:cover}',
+      '.bg::before,.bg::after{content:"";position:absolute;inset:0}.bg::before{background:linear-gradient(150deg,var(--c1),var(--c2));opacity:.32}',
+      '.bg::after{background:linear-gradient(180deg,rgba(0,0,0,.3),rgba(0,0,0,.38) 40%,rgba(0,0,0,.74))}',
+      '.ch>:not(.bg){position:relative}.art .lg:not(.pic){background:rgba(0,0,0,.34)}.art .bar{background:rgba(255,255,255,.34)}',
       '.tx{display:flex;flex-direction:column;min-width:0;margin-top:auto}',
       '.tx b{' + C.typeCss('body') + ';font-weight:600;line-height:19px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
       '.tx small{' + C.typeCss('caption') + ';line-height:16px;color:rgba(255,255,255,.86);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
@@ -92,7 +110,7 @@
         return JSON.stringify([this._size(), this._channels ? this._shown().map(function (c) {
           var st = c.now && h.states[c.now];
           return [c.number, c.name, c.camera, st ? st.last_updated : 'x'];
-        }) : null, !!this._configured]);
+        }) : null, !!this._configured, this._blockKey || '']);
       }
       // the open player follows the house, as the page's does
       _receiveClient() {
@@ -139,6 +157,7 @@
         var h = this.client, s = this._size(), self = this;
         if (!h) return;
         this._watchConn();
+        if (this._watchBlock) this._watchBlock();
         if (!this._channels) this._fetch();
         var list = this._shown(), g = tvGrid(s, Math.max(1, list.length));
         this._bars = [];
@@ -152,16 +171,21 @@
         plate.className = 'tv' + (s === 'S' || this._chosen() ? ' one' : '') + (this._chosen() && /^(T|L|XL)$/.test(s) ? ' big' : '');
         plate.setAttribute('data-hk-role', 'card');
         plate.style.setProperty('--n', g[0]); plate.style.setProperty('--r', g[1]);
+        var gr = plate;
+        if (!plate.classList.contains('one')) {
+          // (Large and Extra Large: the label row over the tiles, which stand in a group of their own)
+          if (s === 'L' || s === 'XL') { var lh = document.createElement('div'); lh.className = 'lh'; lh.innerHTML = '<span>Live TV</span><em></em>'; plate.appendChild(lh); }
+          gr = document.createElement('div'); gr.className = 'gr'; plate.appendChild(gr);
+        }
         list.forEach(function (ch, i) {
           var st = (ch.now && h.states[ch.now]) || { state: '', attributes: {} }, a = st.attributes || {};
           var t = tintOf(ch.number || ch.name), on = st.state && st.state !== 'unknown' && st.state !== 'unavailable' ? st.state : 'Live';
           var b = document.createElement('button');
           b.type = 'button'; b.className = 'ch';
           b.style.setProperty('--c1', t[0]); b.style.setProperty('--c2', t[1]);
-          // (the last of an odd few takes the row's room: no hole in the block)
-          if (i === list.length - 1 && g[1] > 1 && list.length < g[0] * g[1]) b.style.gridColumn = 'span ' + (g[0] * g[1] - list.length + 1);
           b.setAttribute('aria-label', 'Watch ' + (ch.name || ch.number) + ', ' + on);
-          b.innerHTML = '<span class="lg"></span><span class="tx"><b></b><small></small></span>' + (a.start && a.end ? '<i class="bar"><i></i></i>' : '');
+          b.innerHTML = (a.image ? '<span class="bg"></span>' : '') + '<span class="lg"></span><span class="tx"><b></b><small></small></span>' + (a.start && a.end ? '<i class="bar"><i></i></i>' : '');
+          if (a.image) { b.classList.add('art'); self._artImage(a.image, b.querySelector('.bg'), '', s === 'S' || self._chosen() ? 600 : 300); }
           var lg = b.querySelector('.lg'), mono = esc(ch.number || String(ch.name || '').slice(0, 2));
           if (a.logo) { lg.classList.add('pic'); self._artImage(a.logo, lg, mono, 150); lg.addEventListener('error', function () { lg.classList.remove('pic'); }, true); }
           else lg.innerHTML = mono;
@@ -169,11 +193,31 @@
           b.querySelector('small').textContent = ch.name || ch.number || '';
           if (a.start && a.end) self._bars.push({ el: b.querySelector('.bar i'), a: a });
           b.addEventListener('click', function (e) { e.stopPropagation(); self._open(ch); });
-          plate.appendChild(b);
+          gr.appendChild(b);
         });
         this._root.innerHTML = '';
         this._root.appendChild(plate);
+        this._fit(plate, g);
         this._tick();
+      }
+      // THE TILES' SIZE AND HOW MANY (2026-11-08): the width the columns give a tile in the room under the label row; its shape the tallest of
+      // 4 : 3, 3 : 2 and 16 : 10 that has every channel the block names in the room (none does: 16 : 10, as many as the rows hold); the
+      // rest are the page's, said at the label row's right ("6 more")
+      _fit(plate, g) {
+        var gr = plate.querySelector('.gr');
+        if (!gr || typeof getComputedStyle !== 'function' || !gr.clientWidth) return;
+        var gap = 10, W = gr.clientWidth, H = gr.clientHeight, cols = g[0], kids = Array.prototype.slice.call(gr.children), n = kids.length;
+        var tw = (W - (cols - 1) * gap) / cols, need = Math.ceil(n / cols), pick = null;
+        [{ r: 3 / 4, ar: '4/3' }, { r: 2 / 3, ar: '3/2' }, { r: 10 / 16, ar: '16/10' }].forEach(function (o) { if (!pick && need * tw * o.r + (need - 1) * gap <= H) pick = o; });
+        pick = pick || { r: 10 / 16, ar: '16/10' };
+        var th = tw * pick.r, rows = Math.max(1, Math.floor((H + gap) / (th + gap)));
+        // (too short for even one row of that shape: the tile shrinks to its row, never stretches)
+        if (th > H) { th = H; tw = th / pick.r; }
+        gr.style.setProperty('--tw', Math.floor(tw) + 'px'); gr.style.setProperty('--ar', pick.ar);
+        var shown = Math.min(n, cols * rows);
+        kids.forEach(function (k, i) { k.style.display = i >= shown ? 'none' : ''; });
+        var em = plate.querySelector('.lh em'), more = Math.max(0, (this._channels || []).length - shown);
+        if (em) em.textContent = more ? more + ' more' : '';
       }
       // how far through, moved every half minute without a redraw
       _tick() {

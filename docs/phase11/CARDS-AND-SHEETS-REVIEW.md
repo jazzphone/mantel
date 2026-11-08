@@ -236,3 +236,53 @@ What was done (web/hk/media/hk-media-now.js, the `ON A HOME GRID` rules; hk-grid
 - The audit no longer calls the clipped third line of a `-webkit-line-clamp` title "hidden by a box".
 - Tests: grid_music_turn_check.py (the keys' 44 px and 8 px clear, no Speakers / Browse / volume on S, W, T; XL added),
   media_card_check.cjs, test_blocks_media.js, test_edit_grid.js (Wide and Tall are now the same card: the progress only).
+## Round two (2026-11-08): Weather XL, Live TV, Security L and XL, the editor's previews
+
+What the owner said, and what was done (the rules he added on the way: a control is 44 px with ~8 px clear round it; anything that
+does not fit cleanly goes to the detail sheet; NOTHING STRETCHES -- every element has its designed size at each block size, a block
+fills its space by how many things it shows and where it puts them, the group centered; DESIGN.md "Using the space").
+
+- **Weather XL, HomeView layout** -- "could show more information and space things out ... the area where Feels like and Rain are is
+  pretty bunched up when there is a bunch of space above ... the days forecast on the right side is also pretty far apart ... tighter".
+  The readings are rows of one designed height (46 px on a square cell, 40 on a tile) filling the free height of the left column
+  under the hours, up to six, the group centered (a short last row centered too, never spanning); pressure, visibility and dew point
+  join feels like, humidity, wind (its direction now in its label: "Wind NW" over "6 mph"), rain, sunset or sunrise and UV, where the
+  house has them and the block has room. The seven days are one block of rows of one height (32 px square, 26 tile, 4 px apart)
+  centered in the column under its label (it had been spread to the column's height: 38 to 46 px a row). No forecast: the left
+  column takes the whole block. Why the readings are capped at six: the hours and the temperature are the left column's weight;
+  a seventh row would make the plate crowded (the owner's second rule), so pressure and the others only appear when something
+  above them is absent.
+- **Live TV tiles** -- "the What's On artwork that the Live TV page displays as the background for the channels ... a little dim".
+  The page draws the now sensor's `image` attribute behind each channel (hk-cameras.js `_tile`, through `_artImage`); the block does
+  the same behind each channel tile, the channel's color over it at a third and a scrim over that (30 % at the top where the mark is,
+  38 % in the middle, 74 % under the words) so the white mark and words pass 4.5:1 on any picture; no picture (or one that never
+  loads), the channel's color alone. A mixed house shows both. Tiles keep ONE designed shape, 16 : 10 (the guide's pictures are
+  16 : 9), as wide as the block's columns make them, as many as the room holds, centered with equal margins and the last row
+  centered (they had been grid cells stretched to the plate, the last one spanning the row). A chosen channel and Small fill the
+  block as they did.
+- **Security L and XL** -- "the touch points for the locks/garage door a tad bigger ... XL: the keypad first, the locks and garage door
+  represented cleanly and easy to interact with ... then open windows and doors in a compact way". The locks and the garage are
+  tiles of one designed size (116 x 96 stacked at Large, 136 x 112 at Extra Large; 150 x 64 or 168 x 64 laid in a row where the
+  stacked ones would show fewer), as many as fit, the last place "N more", the group centered with the strip under it; a tile not
+  secured (unlocked, open) is the white of HomeView's lit tile; a tap opens that thing's sheet (no command from here, the alarm's PIN
+  stays behind its sheet or keypad). The doors and windows are one 44 px strip: "All closed" (a tap opens Doors & Windows) or the open
+  ones by name, in orange. Extra Large loses its heading (the keypad's readout says the state, the strip what is open): the keypad is
+  the hero and the right column its tiles and strip. Wide's rows are 44 px keys 8 px apart (no longer 44 to 64 and flexed), up to what
+  fits and "N more"; Tall is the shield and state centered between the heading and the three ways to arm: the lock list moved out of
+  it (it is the Security page's and the block's Custom Detail Sheet's, and the heading says what is open and opens the alarm's sheet).
+- **Editor previews** -- "the card previews followed the appearance default for tiles (centered vs home)". The picker's previews were
+  cells with no tile style at all. They resolve it as the screen does (hk-strategy.js homeGridView): this screen's own Tile Style, else
+  All Screens', Automatic being Centered on square cells and Home on tiles; Security past Small keeps its own look, as on the screen.
+  `editor_preview_tile_check.py` checks the four combinations. The live preview of the draft was already the screen.
+- Checks: `home_grid_audit.py --state` gains wx_few, wx_five (the weather), tv_art, tv_noart (Live TV; the default house is mixed: four
+  channels with art, two without), sec_armed, sec_trig, sec_open, sec_many (Security); `AUDIT_VIEW=390x844` draws the audit at a phone's
+  size (the grid is the same, scaled).
+- Round two, the lead's review: (1) Security Wide's rows are the glyph and two lines, the name whole over its state (they were one line, and
+  "Front Door" was cut beside the shield's column); (2) Live TV Large and Extra Large open with a label row -- LIVE TV at the label role and
+  "N more" (the channels the guide has beyond those shown) at its right -- and the tiles stand under it in a group of their own; the tile
+  shape is the tallest of 4 : 3, 3 : 2 and 16 : 10 that shows every channel the block names in the room it has (still one shape per
+  block, never stretched), which fills the plate to about an eighth of margin where the 16 : 10 tiles left a fifth; `tv_many`
+  (twelve channels) shows six and "6 more"; (3) the keypad's Home, Away and Disarm were 44 px in the block's own px (33 on the HomeView
+  screen's 0.74 scale): they are now as tall as the block's keys where it has the room (53 px on a square cell, 56 on a tile), 44 at
+  the least (`--hk-kp-pill`, set by the grid block; the alarm's sheet keeps its 44). The audit's `AUDIT_PROBE='<js>'` prints a probe of
+  one's own for each block (measured them).
