@@ -169,7 +169,10 @@ function () {
   mu.client = client();
   var asks = house.ws.length;
   mu._render();
-  eq('Presets asks the library for nothing', house.ws.length, asks);
+  // (2026-11-08: Large and Extra Large -- and Small -- lead with the last played; the playlists by when each last played, asked once)
+  var lp = house.ws.slice(asks).filter(function (m) { return m.service_data && m.service_data.media_type === 'playlist'; });
+  ok('Presets asks the library only for its playlists by last played', house.ws.length - asks <= 1 &&
+     lp.every(function (m) { return m.service_data.order_by === 'last_played_desc'; }), JSON.stringify(house.ws.slice(asks)));
   var html = String(mu._root.innerHTML);
   eq('...the first playlist above, the rest in the grid', (html.match(/data-i="/g) || []).length, 3);
   ok('...labelled Playlists', html.indexOf('<span class="lab">Playlists</span>') >= 0, html.slice(0, 300));
@@ -201,10 +204,24 @@ function () {
     b.client = client();
     b._render();
     var bh = String(b._root.innerHTML);
-    // (XL scrolls down since 2026-11-08: two rows and a peek, no cover above them)
-    eq(z + ': ' + (z === 'W' ? 'across' : 'down') + ', every playlist in it', [bh.indexOf('class="cv ' + (z === 'W' ? 'x' : 'y') + '"') >= 0,
-       (bh.match(/data-i="/g) || []).length], [true, 3]);
+    // (XL, 2026-11-08: the last played above five across, its Play beside it)
+    var across = z === 'W' || z === 'XL';
+    eq(z + ': ' + (across ? 'across' : 'down') + ', every playlist in it', [bh.indexOf('class="cv ' + (across ? 'x' : 'y') + '"') >= 0,
+       (bh.match(/data-i="/g) || []).length], [true, z === 'XL' ? 4 : 3]);
   });
+  // THE LAST PLAYED FIRST (2026-11-08, the owner): matched by the playlists' items, a choice of one its own tile
+  var lpls = [{ name: 'Favorites', key: 'f', uris: ['library://playlist/1'] }, { name: 'Christmas', key: 'c', uris: ['library://playlist/2'] },
+              { name: 'Decades', options: [{ name: '1990s', key: 'd90', uris: ['library://playlist/3'] }] }];
+  var lt = Mx.playlistTiles(lpls, null), L0 = Mx.LASTPL.uris;
+  try {
+    Mx.LASTPL.uris = ['library://playlist/99', 'library://playlist/2', 'library://playlist/1'];
+    eq('the last played the house has leads, the rest in their order', Mx.heroFirst(lt, lpls).map(function (t) { return t.name + '/' + t.artist; }),
+       ['Christmas/Last Played', 'Favorites/Playlist', 'Decades/1 Playlists']);
+    Mx.LASTPL.uris = ['library://playlist/3'];
+    eq('...a choice of one: that choice, before them all', Mx.heroFirst(lt, lpls).map(function (t) { return t.name; }), ['1990s', 'Favorites', 'Christmas', 'Decades']);
+    Mx.LASTPL.uris = ['library://playlist/99'];
+    eq('...none of them played: as they are', Mx.heroFirst(lt, lpls).map(function (t) { return t.name; }), ['Favorites', 'Christmas', 'Decades']);
+  } finally { Mx.LASTPL.uris = L0; }
   // WHEN TAPPED: the Music page by default; Choose a Playlist, the playlists' sheet, Decades asking which next
   eq('a tap on the plate: the Music page', sm._tapTarget()[0], { page: 'playmusic' });
   // ...its Plays On a preset: the speaker's sheet opens on the preset's first room, never on the preset

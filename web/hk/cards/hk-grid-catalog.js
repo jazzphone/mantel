@@ -26,7 +26,7 @@
   // "the grid's own" (span()) -- at [0, 0] only, so the only block in its
   // view; offered for `cameras` alone
   // C, Compact (2026-11-07): three columns by one row, Security's HomeView presentation's alone (home_grid.py)
-  var SIZES = { S: [1, 1], W: [2, 1], T: [1, 2], L: [2, 2], XL: [3, 2], XXL: [6, 2], F: [0, 0], C: [3, 1] };
+  var SIZES = { S: [1, 1], W: [2, 1], T: [1, 2], L: [2, 2], XL: [3, 2], XXL: [6, 2], F: [0, 0], C: [3, 1], XS: [1, 1] };   // (XS, Tiny: half a cell, at[2] 1 the bottom)
   function span(size, cols, rows) { var z = SIZES[size]; return z ? [z[0] || cols, z[1] || rows] : null; }
   // A CELL'S SHAPE (the grid's `cell`; 2026-10-30, docs/phase11/HOMEVIEW-LOOK.md):
   // a tile, 196 x 150 with a 10 px gap, or a square, 196 x 196 with HomeView's
@@ -60,7 +60,7 @@
   // sees it -- { cameras, climate, rooms, weather, vacuum, battery } -- for a block
   // that names nothing of its own.
   var CARDS = {
-    accessory: { sizes: ['S', 'W', 'T'], sources: [], opts: { entity: 'entity', secondary: 'secondary', color: 'boolean' }, card: function (s, o) {
+    accessory: { sizes: ['XS', 'S', 'W', 'T'], sources: [], opts: { entity: 'entity', secondary: 'secondary', color: 'boolean' }, card: function (s, o) {
       return o.entity ? Object.assign({ type: 'custom:hk-grid-entity-card', entity: o.entity, secondary: o.secondary, kind: 'accessory', size: s }, o.color ? { color: true } : {}) : stand('Accessory', 'mdi:lightbulb', 'Choose an accessory in the editor.'); } },
     // (height, color 2026-10-31: Full, HomeView's square tile, or Half, the shorter button; each on its own
     // color's gradient or glass)

@@ -53,8 +53,11 @@ TABLET_ROOM = "tablet_room"
 # own" (span()) -- at [0, 0] only and so the only block in its view; offered for `cameras` alone
 # C, Compact (2026-11-07, docs/phase11/HOME-GRID.md "Security's HomeView sizes"): three columns by one row, a size of its
 # own -- never W or T read another way. Offered for Security's HomeView presentation alone (_security_size)
+# XS, Tiny (2026-11-08, the owner: "a half height accessory card on its own ... essentially the half height pill size"): one
+# cell's top or bottom half -- its place a third number, 1 the bottom ([c, r, 1]) -- two of them sharing a cell
 SIZES: dict[str, tuple[int, int]] = {"S": (1, 1), "W": (2, 1), "T": (1, 2), "L": (2, 2), "XL": (3, 2), "XXL": (6, 2),
-                                     "F": (0, 0), "C": (3, 1)}
+                                     "F": (0, 0), "C": (3, 1), "XS": (1, 1)}
+TINY = "XS"
 FULL = "F"
 
 
@@ -66,7 +69,7 @@ def span(size: str, cols: int, rows: int) -> tuple[int, int]:
 # THE CATALOG'S MIRROR: key -> its sizes, the page sources it swipes through besides `list` (every card has
 # `list`), and its options (name -> kind, OPTION_KINDS).
 CATALOG: dict[str, dict[str, Any]] = {
-    "accessory": {"sizes": ("S", "W", "T"), "sources": (), "opts": {"entity": "entity", "secondary": "secondary", "color": "boolean"}},
+    "accessory": {"sizes": ("XS", "S", "W", "T"), "sources": (), "opts": {"entity": "entity", "secondary": "secondary", "color": "boolean"}},
     "accessories": {"sizes": ("S", "W", "T", "L", "XL", "XXL"), "sources": ("accessories",), "opts": {"accessories": "accessories", "title": "title", "surface": "surface",
                                                                               "height": "tile_height", "color": "boolean"}},
     "scene": {"sizes": ("S", "W"), "sources": (), "opts": {"scene": "scene", "color": "boolean"}},
@@ -770,12 +773,13 @@ def item(v: Any, cols: int, rows: int) -> dict[str, Any]:
     if w > cols or h > rows:
         raise GridInvalid("grid_fit")
     at = v.get("at")
-    if not isinstance(at, list) or len(at) != 2:
+    if not isinstance(at, list) or len(at) not in (2, 3) or (len(at) == 3 and size != TINY):
         raise GridInvalid("grid_place")
-    c, r = (_whole(x, 0, 99, "grid_place") for x in at)
+    c, r = (_whole(x, 0, 99, "grid_place") for x in at[:2])
     if c + w > cols or r + h > rows:
         raise GridInvalid("grid_place")
-    out = {"id": v["id"], "card": card, "size": size, "at": [c, r]}
+    half = _whole(at[2], 0, 1, "grid_place") if len(at) == 3 else 0
+    out = {"id": v["id"], "card": card, "size": size, "at": [c, r, 1] if half else [c, r]}
     opts = _opts(card, v.get("opts"))
     if opts:
         out["opts"] = opts
@@ -816,9 +820,18 @@ def item(v: Any, cols: int, rows: int) -> dict[str, Any]:
 
 def cells(it: Mapping[str, Any], cols: int = COLS[0], rows: int = ROWS_DEFAULT) -> set[tuple[int, int, int]]:
     """The cells a checked block covers on a `cols` x `rows` grid, in its view (blocks overlap only within one):
-    a Full block, all of them."""
-    (c, r), (w, h), view = it["at"], span(it["size"], cols, rows), it.get("view", 0)
+    a Full block, all of them (a Tiny one, its cell)."""
+    c, r = it["at"][0], it["at"][1]
+    (w, h), view = span(it["size"], cols, rows), it.get("view", 0)
     return {(view, c + x, r + y) for x in range(w) for y in range(h)}
+
+
+def halves(it: Mapping[str, Any], cols: int = COLS[0], rows: int = ROWS_DEFAULT) -> set[tuple[int, int, int, int]]:
+    """What two blocks may not share: each cell's top and bottom half (0 and 1) -- a Tiny block covers one of them."""
+    if it["size"] == TINY:
+        v, c, r = next(iter(cells(it, cols, rows)))
+        return {(v, c, r, it["at"][2] if len(it["at"]) == 3 else 0)}
+    return {cell + (half,) for cell in cells(it, cols, rows) for half in (0, 1)}
 
 
 def _frame(v: Any) -> list[int]:
@@ -923,14 +936,14 @@ def check(v: Any) -> dict[str, Any] | None:
     if v is None:
         return None
     out = _shape(v)
-    taken: set[tuple[int, int]] = set()
+    taken: set[tuple[int, int, int, int]] = set()
     ids: set[str] = set()
     items = []
     for raw in out["items"]:
         it = item(raw, out["cols"], out["rows"])
         if it["id"] in ids or it.get("view", 0) >= out.get("views", 1):
             raise GridInvalid("grid_item")
-        here = cells(it, out["cols"], out["rows"])
+        here = halves(it, out["cols"], out["rows"])
         if here & taken:
             raise GridInvalid("grid_overlap")
         ids.add(it["id"])
@@ -949,7 +962,7 @@ def layout(v: Any) -> dict[str, Any] | None:
         out = _shape(v)
     except (GridInvalid, TypeError, KeyError):      # read, never raise: one stored screen never stops every feed
         return None
-    taken: set[tuple[int, int]] = set()
+    taken: set[tuple[int, int, int, int]] = set()
     ids: set[str] = set()
     items = []
     for raw in out["items"]:
@@ -957,7 +970,7 @@ def layout(v: Any) -> dict[str, Any] | None:
             it = item(raw, out["cols"], out["rows"])
         except (GridInvalid, TypeError, KeyError):
             continue
-        here = cells(it, out["cols"], out["rows"])
+        here = halves(it, out["cols"], out["rows"])
         if it["id"] in ids or here & taken or it.get("view", 0) >= out.get("views", 1):
             continue
         ids.add(it["id"])
