@@ -1,14 +1,17 @@
 // @ts-check
 // hk-timeline-block.js -- the House Timeline in two small places (docs/phase19/HOUSE-TIMELINE.md, "The views").
 //
-// hk-timeline-block-card   the Home Grid block "Recent" (`timeline` in hk-grid-catalog.js; Wide, Large, Extra Large): the
-//                          last rows of the Timeline in the page's own look -- an icon by family, the title, the time,
-//                          who did it when the viewer may know, a small picture when one was kept. Its `show` is
-//                          Automatic (the morning summary from 5 to 11 AM, the latest rows after), Latest Events, or
-//                          Morning Summary. Small (2026-11-07, the review) is the latest event alone as a centered tile
-//                          -- its glyph, its title, its time; Tall the rows stacked under the label, "N more" at the foot. Live. A tap opens the Timeline page. A wall tablet alone gets the
-//                          limited view because the server hands it one: no names, and pictures only when its
-//                          Owner turned them on for that tablet (what comes back is what is drawn).
+// hk-timeline-block-card   the Home Grid block "Recent" (`timeline` in hk-grid-catalog.js; S, W, T, L, XL), reworked
+//                          2026-11-08 (docs/phase11/CARDS-AND-SHEETS-REVIEW.md, "Round two"): rows in the Timeline
+//                          page's look -- each its glyph in its kind's color or its picture, the thing, the room and
+//                          who, how long ago -- of a fixed height per size, "N more" in the label's line; the latest
+//                          picture large (else the newest event) at Tall, Large and Extra Large; Small HomeView's tile
+//                          of the newest event. Its `show` is Automatic (the morning summary from 5 to 11 AM, the
+//                          latest rows after), Latest Events, or Morning Summary -- the summary as glyphs: a status and
+//                          the night's kinds as tiles with their counts. Live. A row opens what it stands for (its
+//                          camera, its thing, else its sheet on the Timeline); the plate opens the Timeline page. A
+//                          wall tablet alone gets the limited view because the server hands it one: no names, and
+//                          pictures only when its Owner turned them on for that tablet (what comes back is drawn).
 // hk-timeline-strip-card   "Recent" under a camera's live view (the camera sheet, hk-sheet-security.js): the last ten
 //                          events of that camera, each a small card with its first picture; a tap opens that row's
 //                          sheet (the page's own, hk-timeline.js openSheet). A refusal (a role with no Timeline) hides it.

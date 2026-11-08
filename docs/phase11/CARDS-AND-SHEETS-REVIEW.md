@@ -128,3 +128,64 @@ Detail sheets: see "Sheets" below.
 - 2026-11-07: Suggested Scene T (hk-grid-widgets.js; both mirrors): Large's composition at 1 x 2 -- the gradient plate and time-of-day art, the glyph at the top, label, name and "Until 5:00 AM" at the foot.
 - 2026-11-07: the Centered Wide tile's glyph at a third of the block's width (a quarter left the pair 70 px from the left and 140 from the right).
 - 2026-11-07: sheet_review's 'sits high' check (more glass under a sheet's content than over it) replaces the first bottom-heavy rule, which misread the sheets' one fixed height; the Intercom's two columns are exempt from left/right balance. All 35 sheets pass at 1280 x 800 and 390 x 844.
+
+## Round two (2026-11-08)
+
+The owner looked at round one on his tablets and sent notes block by block. Each block's part follows.
+
+### Recent (hk-timeline-block.js)
+
+**What he said:** "The recent cards REALLY need work. They are just essentially text on a card. No glyphs, no
+pictures, nothing... These could be made to look a lot prettier with our design guidelines. Please rework this
+completely." Later, for every block: nothing stretches ("entities in a card should maintain dimensions"), the space
+is used by how many things show and by one element made to be big, and anything that does not fit goes to a sheet.
+
+**Three directions, tried at 1280 x 800 on square HomeView cells and tiles:** A, a list under the latest picture
+(the Home app's activity and the Timeline page's rows, the picture large); B, every event a tile (a picture where one
+was kept, else its glyph); C, a rail down the block with the times at its left. **A was kept:** it is the only one
+that is both pictures and information. B looked most like HomeView, but it held 3 to 6 events, repeated the same
+camera's picture tile after tile, dropped the room and who, and cut its words at Wide. C spent a fifth of the width
+on a time column, so Tall's titles cut after five letters, and it was still mostly text.
+
+**What it is now:**
+
+- **A row** is the Timeline page's: the glyph on its kind's tint (or the row's picture, 44 square at the snapshots'
+  12, its glyph on a small badge in the kind's color), the title in the headline role, the room and who under it,
+  how long ago on the title's line ("Now", "4 min", "2 hr", then the clock, "Yesterday", the weekday). A row is 44
+  high on Wide and Tall and 56 on Large and Extra Large, never grown. The block shows as many whole rows as fit, and
+  what it read but could not show is "N more" in the label's line (the block reads the newest 25; "22+ more" when
+  there were more than it read).
+- **The latest picture** is the hero at Tall, Large and Extra Large: the newest row that kept one, at the inner
+  radius, its glyph, title, room and "3 min ago" on it with the camera tiles' halo. At Tall and Large it takes the
+  height the rows leave; at Extra Large it is the left half beside the rows. With no picture kept, **the newest event
+  is the hero**: its glyph on a large well, its words in the title role (Large a row of 84; Tall and Extra Large
+  stacked and centered).
+- **Small** is HomeView's centered tile: the newest event's glyph in its kind's color, the thing ("Front Door",
+  "Person", "Doorbell", "Alex"), and what it did and when ("Unlocked · 41m", "Front Door · 3m", "Armed night · Yest.").
+- **The morning summary** (`show: digest`, and Automatic from 5 to 11 AM) is glyphs, not lines. It leads with a
+  status: what is still open or unlocked (orange), else how the house is right now (green), else "A quiet night" under
+  a moon. The night's kinds are tiles of a fixed size, each with its glyph, count and name, as a centered group. At
+  Large the night's newest picture sits between the status and a row of the kinds; at Extra Large it is beside them.
+  Tall lists the kinds as 44 px rows and Wide puts the status beside small tiles. A quiet night is the moon alone,
+  centered.
+- **Empty** (a new house): HomeView's centered tile on the plate -- the history glyph in teal, "Nothing yet", "Doors,
+  locks and cameras show up here". **A quiet day** (a row or two): the newest is the hero, the rest under it, and
+  "Nothing earlier" closes the group, which is centered a touch above the middle.
+- **Taps:** a row opens what it stands for. A camera's row (doorbell, detection, motion) opens its camera, or the
+  camera on the same device when a sensor heard it. A door, lock, garage, alarm or person row opens that thing's
+  sheet. Mantel's own rows, a refused command, and a thing the house no longer has open the row's sheet on the
+  Timeline (`hkTimeline.openSheet`). The picture opens its camera; the plate opens the Timeline page. A thing counts
+  as known when its state **or its registry entry** is there: a client loads states as they are wanted, and the
+  first check missed a person whose state had not come yet.
+- **The text glow** is on the plate, as on the widget blocks. Gray (a closed door, a disarmed alarm) is the theme's
+  second ink, since the icon palette's light gray vanished on Flat Light. The label stays the widget blocks' 15 / 600
+  (On Now's, which the owner likes), so a screen's labels match.
+- **Moved to a sheet:** nothing. Recent has no controls. Its rows are list rows the full width of the block, 44 or
+  56 high. The detail behind the block is the Timeline page, and behind a row it is the row's own sheet.
+
+**Checked:** `home_grid_audit.py` gains the Timeline's states, seeded into Mantel's own store (`seed_timeline`): busy
+(the default: a day with pictures from the two cameras, and a night in the digest's window), `recent_quiet` (two rows
+last evening, nothing since, everything locked) and `recent_empty` (none). Every size, Latest and Morning Summary,
+was shot on square HomeView cells and on tiles in Blur (day), Flat Light and Flat Dark, with the audit clean;
+`block_taps_check.py --expect` passes on tiles, square cells and HomeView; every row's and picture's tap was clicked
+and read back; `timeline_check.py --block` passes at 1180 x 820, 820 x 1180 and 390 x 844.
