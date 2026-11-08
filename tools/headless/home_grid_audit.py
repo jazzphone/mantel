@@ -108,7 +108,23 @@ OPTS = {"accessory": {"entity": "light.living_room_lamps"}, "scene": {"scene": "
 ACCESSORIES = ["light.living_room_lamps", "fan.bedroom_ceiling", "light.living_room_ceiling", "media_player.living_room",
                "lock.front_door", "light.kitchen_pendants", "cover.garage_door", "switch.garage_outlet", "light.office_desk",
                "light.porch", "light.bedroom_lamps", "light.backyard_string"]
-SIZED = {"accessories": lambda s: {"accessories": [{"entity": e} for e in ACCESSORIES[:{"W": 2, "T": 2, "L": 4, "XL": 6, "XXL": 12}[s]]]}}
+SIZED = {"accessories": lambda s: {"accessories": [] if STATES[STATE["name"]].get("accessories_none") else [{"entity": e} for e in ACCESSORIES[:COUNT["n"] or {"W": 2, "T": 2, "L": 4, "XL": 6, "XXL": 12}[s]]
+                                                    [:{"W": 2, "T": 2, "L": 4, "XL": 6, "XXL": 12}[s]]]}}
+# MORE OR FEWER OF THEM (2026-11-08, round three, the tile groups): `--count N` gives the Living Room N lights, an Accessories block N
+# entries (never more than its size's capacity: hk_core checks it) and a Scenes block N scenes -- a house with one and a house with
+# fourteen, to see the tiles keep their size
+COUNT: dict = {"n": 0}
+MORE_NAMES = ["Reading", "Sunset", "Cabin", "Hall", "Mantel", "Arch", "Corner", "Shelf", "Floor", "Bay", "Nook", "Sconce", "Stair", "Cove"]
+
+
+def stand_in_count(n: int) -> None:
+    COUNT["n"] = n
+    for i, name in enumerate(MORE_NAMES[:max(0, n - 4)]):
+        EXTRA[f"scene.audit_{i}"] = (None, ("unknown", {"friendly_name": f"{name} Scene"}))
+    for i, name in enumerate(MORE_NAMES[:max(0, n - 2)]):
+        EXTRA[f"light.living_room_audit_{i}"] = ("living_room", ("on" if i % 2 else "off", {"friendly_name": f"{name} Light", "supported_color_modes": ["brightness"], "brightness": 150}))
+    scenes = ["scene.good_morning", "scene.movie_night", "scene.dinner", "scene.good_night"] + [f"scene.audit_{i}" for i in range(len(MORE_NAMES))]
+    OPTS["scenes"] = {"scenes": scenes[:n]}
 # the forecast, as the forecast sensors Settings -> Weather can name
 def _forecast(step: int, n: int, temps: list[int], conds: list[str]) -> list[dict]:
     t0 = int(time.time() // step * step) + step
@@ -548,6 +564,9 @@ STATES: dict[str, dict] = {
                           "vacuum": "docked"},
               "entities": {"sensor.running_quick_timers": ("0", {"friendly_name": "Running Quick Timers", "running": []})},
               "events": False},
+    # THE TILE GROUPS' EMPTY HOUSE (2026-11-08, round three: Room, Accessories, Scenes): no scenes, nothing in the Living Room that a
+    # tile could show, and an Accessories block with none chosen
+    "tiles_none": {"remove": ["scene.", "light.living_room", "media_player.living_room"], "accessories_none": True},
     # THE TIMELINE'S STATES (2026-11-08, the Recent block): `timeline` names the rows seeded into Mantel's own store
     # (seed_timeline; busy is the default and "quiet" the quiet house's) -- a new house with no rows at all, a quiet
     # night (two rows last evening, nothing since, everything locked), and a busy day with pictures (busy's own)
@@ -705,6 +724,8 @@ def apply_state(name: str) -> None:
     """Turn the stood-in house (gallery.HOUSE, EXTRA already in it) into STATES[name]."""
     st = STATES[name]
     STATE["name"] = name
+    for eid in [e for e in gallery.HOUSE if any(e.startswith(pre) for pre in st.get("remove", []))]:
+        del gallery.HOUSE[eid]
     for eid, (area, (state, attrs)) in list(gallery.HOUSE.items()):
         dom = eid.split(".", 1)[0]
         if dom in st.get("domains", {}):
@@ -963,11 +984,14 @@ def main(argv=None) -> int:
                     help="what a block names, over the audit's own (thermostat='{\"entity\": \"climate.office\"}')")
     ap.add_argument("--state", choices=list(STATES), default="busy",
                     help="the house's state (STATES): busy (default) or quiet -- every block must look finished in each")
+    ap.add_argument("--count", type=int, default=0, help="N lights in the Living Room, N accessories, N scenes (stand_in_count)")
     ap.add_argument("--hits", action="store_true", help="also fail where one control's touchable box (its ::after too) overlaps another's")
     ap.add_argument("--stretch", action="store_true",
                     help="also fail a tile, row, pill or button that grows with its block (STRETCH: nothing stretches)")
     a = ap.parse_args(argv)
     STATE["name"] = a.state
+    if a.count:
+        stand_in_count(a.count)
     STATE["stretch"] = a.stretch
     STATE["hits"] = a.hits
     for o in a.opts:

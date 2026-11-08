@@ -1671,14 +1671,31 @@
              icon_color: lk.color || p[2],
              tap_action: { action: 'navigate', navigation_path: './' + path } };
   }
-  // NO HOLES (2026-11-07, the review; as hk-grid-math.js shape): `n` things in a block of at most `cols` x `rows` places --
-  // the rows they need (never an empty one), then the columns those rows need, so a short last row is no gap: its
-  // last thing is wider. 3 in 2 x 2 -> the last spans both; 4 in 3 x 2 -> 2 x 2, wider; 5 in 3 x 2 -> the last spans two.
-  // { cols, rows, last } -- `last`: how many columns the last thing spans.
-  function gridShape(n, cols, rows) {
-    n = Math.max(1, Math.min(n | 0, cols * rows));
-    var r = Math.ceil(n / cols), c = Math.ceil(n / r);
-    return { cols: c, rows: r, last: 1 + (c - (n % c || c)) };
+  // THE GROUP'S TILES (2026-11-08, round three, the owner: "entities in a card should maintain dimensions"): the tile grid of a
+  // Scenes, Accessories or Room block, DESIGNED per block size and cell shape -- columns x rows and one tile size, a number of
+  // its own, never the block's room divided by the count (that stretched three tiles to 311 px, and spanned the last one).
+  // Square cells (HomeView, 196 x 196, inset 18, tiles 10 apart) and tile cells (196 x 150, inset 14, 8 apart) each have
+  // theirs; a bigger block shows more tiles. Each size's tile is what its full count of tiles fills (a Large block's four
+  // 183 x 137 on a tile cell), so the full block is as it was and a short one is the same tiles, centered.
+  //   o.head  what the block keeps above its tiles (a Room's heading and its gap); o.foot what it keeps below (its dots)
+  //   o.pill  the Home app's pill, 70 px, as many rows as the block holds (Half) -- else the tall tile, two rows (one at Wide)
+  // -> { sq, cols, rows, n (the places), tw, th, gap }; `el` says the cell shape: the grid's --hk-cell-h (196 on square cells)
+  var GROUP_COLS = { W: 2, T: 1, L: 2, XL: 3, XXL: 6 }, GROUP_ROWS = { W: 1, T: 2, L: 2, XL: 2, XXL: 2 };
+  function cellSquare(el) {
+    var h = 0;
+    try { h = parseFloat(getComputedStyle(el).getPropertyValue('--hk-cell-h')); } catch (e) { h = 0; }
+    return h >= 180;
+  }
+  function groupGeom(el, size, o) {
+    o = o || {};
+    var T = C0().TILE, G = C0().HOME_GRID, sq = cellSquare(el), cw = T.w, ch = sq ? G.square.h : T.tall;
+    var g = sq ? G.square.gap : G.gap, pad = sq ? 18 : 14, gap = sq ? 10 : 8;
+    var c = GROUP_COLS[size] || 2, r = GROUP_ROWS[size] || 1;
+    // (the plate's own 1 px edge is inside the block: 2 px less each way)
+    var W = c * cw + (c - 1) * g - 2 * pad - 2, H = r * ch + (r - 1) * g - 2 * pad - 2 - (o.head || 0) - (o.foot || 0);
+    var rows = o.pill ? Math.max(1, Math.floor((H + gap) / (T.h + gap))) : r;
+    var th = o.pill ? T.h : Math.floor((H - (rows - 1) * gap) / rows);
+    return { sq: sq, cols: c, rows: rows, n: c * rows, tw: Math.floor((W - (c - 1) * gap) / c), th: th, gap: gap };
   }
   function scenesPlan(cfg, b, client, away) {
     b = b || {};
@@ -1725,22 +1742,22 @@
       var pp = pagePill(k, client);
       if (pp) pills.push(pp);
     });
+    // (a Home Grid block with no scene to show is not gone: a plate that says so -- 2026-11-08, every state finished)
+    if (show && !pills.length && cfg.hk_cell && C0().HOME_GRID.sizes[cfg.hk_cell] && !cfg.room) {
+      return { auto: auto, config: { hk_cell: cfg.hk_cell, surface: cfg.surface, half: false, color: false, pills: [] } };
+    }
     if (!show || !pills.length) return { auto: auto, config: null };
-    // ON A HOME GRID (docs/phase11/HOME-GRID.md): the block holds as many
-    // scenes as it has cells -- W two, L four, XL six -- each a scene tile the
-    // size of one cell (hk-tile.js, on a Home Grid). No heading: the block is
-    // the scenes. (More scenes are the pager's pages, G4.)
+    // ON A HOME GRID (docs/phase11/HOME-GRID.md): the block draws a designed grid of scene tiles (groupGeom: W two,
+    // L four, XL six, the Half pills as many rows as the cell shape holds) -- each a scene tile of a fixed size, no
+    // heading: the block is the scenes. The plan keeps every scene; `_grid` says how many show, and the last place
+    // says "N more" when there are more (2026-11-08). (More scenes are the pager's pages, G4.)
     var cell = cfg.hk_cell && C0().HOME_GRID.sizes[cfg.hk_cell];
     // HEIGHT AND COLOR (2026-10-31, the owner's notes on the widget mock-up:
     // "Height Full or Half, Color on or off, on any style of dashboard"):
     // Full, a scene a cell -- W two, L four, XL six; Half, the shorter button,
-    // twice as many rows. The grid takes as many as there are: fewer than a
-    // row, one row of them; else the rows they fill, never an empty one.
+    // the Home app's 70 px pill in the rows the block holds.
     if (cell) {
-      var half = cfg.height === 'half', cols = cell[0], rows = cell[1] * (half ? 2 : 1);
-      var n = Math.min(pills.length, cols * rows), sh = gridShape(n, cols, rows);
-      return { auto: auto, config: { hk_cell: cfg.hk_cell, cols: sh.cols, rows: sh.rows, last: sh.last, surface: cfg.surface, half: half, color: !!cfg.color,
-                                     pills: pills.slice(0, n) } };
+      return { auto: auto, config: { hk_cell: cfg.hk_cell, surface: cfg.surface, half: cfg.height === 'half', color: !!cfg.color, pills: pills } };
     }
     return { auto: auto, config: { type: 'grid', columns: 1, square: false, cards: [
       { type: 'custom:hk-heading-card', name: cfg.name || 'Scenes' },
@@ -1779,12 +1796,13 @@
       if (C0().place) C0().place(this);
       window.addEventListener('hk-module-ready', this._wake);
       this._plan();
-      if (this._box) this._glass();
+      if (this._box) { this._glass(); this._gkey = null; this._watch(); this._fit(); }
     }
     disconnectedCallback() {
       if (super.disconnectedCallback) super.disconnectedCallback();
       window.removeEventListener('hk-module-ready', this._wake);
       if (this._icOff) { this._icOff(); this._icOff = null; }
+      if (this._gRO) { this._gRO.disconnect(); this._gRO = null; }
       if (window.__hkGlassCards && window.__hkGlassCards.delete(this) && window.hkGlass) window.hkGlass.changed(this, false);
     }
     _glass() {
@@ -1847,36 +1865,66 @@
       this._el.config = p.config;
       if (this._el.load) this._el.load();
     }
-    // A HOME GRID BLOCK: the scene tiles on the block's own cells, made as
-    // HK's own cards (never a host wrapper) so each can be told its size.
-    // Full: HomeView's tile (Centred: the glyph large and bare over the name,
-    // "Scene" under it), on every dashboard; Half: the scene pill, the Home
-    // app's button. Each sits in a place of its own that is its cell
-    // (hk-cell), so a Centred tile takes the sizes for the room it has.
-    // Color: each on a gradient of its own color (hk-tile.js block_color).
-    // The tiles 8 px apart, as the mock-up's (a widget's tight grid).
-    // HALF (2026-11-01, the owner: "Half Height cards should be the height of
-    // a standard pill card... not stretch itself out", DESIGN.md: Half is the
-    // Home app's button): rows the pill's own 70 px (TILE.h), centered in the
-    // block (what they leave shared above and below, 2026-11-07), and only
-    // the rows the block's height holds (_halfFit).
+    // A HOME GRID BLOCK: the scene tiles, made as HK's own cards (never a host wrapper) so each can be told its size.
+    // Full: HomeView's tile (Centred: the glyph large and bare over the name, "Scene" under it), on every dashboard;
+    // Half: the scene pill, the Home app's button. Each sits in a place of its own that is its cell (hk-cell), so a
+    // Centred tile takes the sizes for the room it has. Color: each on a gradient of its own color (hk-tile.js block_color).
+    // THE TILES ARE A DESIGNED SIZE (2026-11-08, round three, groupGeom): the same size however many scenes there are and
+    // whatever the block's room beyond its own, 8 px (10 on square cells) apart, the group -- its last row too --
+    // centered; more scenes than places, the last place is "N more", which opens them all in a sheet. Half's rows are the
+    // pill's own 70 px (2026-11-01, the owner: "Half Height cards should be the height of a standard pill card... not
+    // stretch itself out"), as many as the block holds.
     _grid(plan) {
       if (this._el) { if (this._el.parentNode === this) this.removeChild(this._el); this._el = null; }
       if (!this._box) {
         this._box = document.createElement('div');
         this.appendChild(this._box);
       }
-      var box = this._box, client = this.client;
-      box.style.cssText = C0().plate('card') + ';box-sizing:border-box;padding:var(--hk-pad-t,12px) var(--hk-pad-r,12px) calc(var(--hk-pad-b,12px) + var(--hk-pager-safe,0px)) var(--hk-pad-l,12px);display:grid;width:100%;height:100%;gap:' + BLOCK_GAP + 'px;' +
-        'grid-template-columns:repeat(' + plan.cols + ',minmax(0,1fr));grid-template-rows:repeat(' + plan.rows + ',' + (plan.half ? C0().TILE.h + 'px' : 'minmax(0,1fr)') + ');' +
-        (plan.half ? 'align-content:center;' : '') + 'overflow:hidden;--hk-pill:100%';
+      var box = this._box;
+      box.style.cssText = C0().plate('card') + ';box-sizing:border-box;padding:var(--hk-pad-t,12px) var(--hk-pad-r,12px) calc(var(--hk-pad-b,12px) + var(--hk-pager-safe,0px)) var(--hk-pad-l,12px);' +
+        'display:flex;flex-wrap:wrap;justify-content:center;align-content:center;width:100%;height:100%;overflow:hidden;--hk-pill:100%';
       delete box._hkGroupBase; C0().groupSurface(box, plan.surface);
+      this._gplan = plan; this._gkey = null;
+      this._watch();
+      this._fit();
+      this._glass();
+    }
+    // (the view measures its cells after the cards are in, and again for a new cell style: drawn again when the
+    // geometry it gives them is not the one drawn)
+    _watch() {
+      if (this._gRO || !this._box || typeof ResizeObserver !== 'function') return;
+      var self = this;
+      this._gRO = new ResizeObserver(function () { self._fit(); });
+      this._gRO.observe(this._box);
+    }
+    _fit() {
+      var plan = this._gplan, box = this._box, size = this.getAttribute('size');
+      if (!plan || !box || !size) return;
+      var gm = groupGeom(this, size, { pill: plan.half }), n = plan.pills.length, more = n > gm.n;
+      var shown = more ? Math.max(0, gm.n - 1) : n, key = JSON.stringify([gm, n]);
+      if (key === this._gkey) return;
+      this._gkey = key;
+      var client = this.client, dim = 'flex:none;width:' + gm.tw + 'px;height:' + gm.th + 'px';
+      box.style.gap = gm.gap + 'px';
       while (box.firstChild) box.removeChild(box.firstChild);
-      this._tiles = plan.pills.map(function (pill, i) {
+      if (!n) {
+        // NO SCENES (2026-11-08): the glyph and a line, centered on the plate, in the quiet ink -- the block is there, saying what it holds
+        var none = document.createElement('div'), ic = document.createElement('hk-icon');
+        none.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;color:' + C0().v('ink-2') + ';text-shadow:' + C0().v('glow') + ';' + C0().typeCss('body');
+        ic.style.cssText = 'width:34px;height:34px;--mdc-icon-size:100%;display:flex';
+        ic.icon = 'mdi:palette-outline';
+        var nt = document.createElement('span'); nt.textContent = 'No scenes';
+        none.appendChild(ic); none.appendChild(nt);
+        box.appendChild(none);
+        this._tiles = [];
+        return;
+      }
+      this._tiles = plan.pills.slice(0, shown).map(function (pill) {
         var cfg = blockPill(pill, plan);
         var slot = document.createElement('div');
-        slot.style.cssText = 'position:relative;min-width:0;min-height:0;container-type:size;container-name:hk-cell;--hk-cell-shape:none' +
-          (plan.last > 1 && i === plan.pills.length - 1 ? ';grid-column:span ' + plan.last : '');
+        // (the tile's numbers: HomeView's square tile on square cells -- the one set of type and glyph for every tile of the group)
+        slot.style.cssText = 'position:relative;min-width:0;min-height:0;container-type:size;container-name:hk-cell;' + dim +
+          ';--hk-cell-shape:' + (gm.sq && !plan.half ? 'square' : 'none');
         var t = window.hkCards.create(cfg);
         t.setAttribute('data-group-fill', '');
         t.style.cssText = 'display:block;min-width:0;min-height:0;width:100%;height:100%';
@@ -1885,28 +1933,18 @@
         if (client) t.hkSetClient(client);
         return t;
       });
-      // (a spanning tile keeps its row's type and glyph, as the Room block's does -- 2026-11-07, the review)
-      if (plan.last > 1 && box.children.length > 1) {
-        var r0 = box.firstElementChild.getBoundingClientRect();
-        if (r0.height && (r0.height >= 180 || r0.width / r0.height <= 1.2)) box.lastElementChild.style.setProperty('--hk-cell-shape', 'square');
+      if (more) {
+        var b = document.createElement('button'), ids = plan.pills.map(function (p) { return p.entity; }).filter(Boolean);
+        b.type = 'button';
+        b.textContent = '+' + (n - shown) + ' more';
+        b.style.cssText = dim + ';border:0;cursor:pointer;color:' + C0().v('ink') + ';' + C0().typeCss('headline') + ';text-shadow:' + C0().v('glow') + ';-webkit-tap-highlight-color:transparent;' + C0().plate('tile');
+        b.addEventListener('click', function (e) {
+          e.stopPropagation();
+          var D = window.hkDetail;
+          if (D && D.openGroup) D.openGroup('Scenes', ids, { icon: 'mdi:palette' });
+        });
+        box.appendChild(b);
       }
-      this._halfPlan = plan.half ? plan : null;
-      if (plan.half && !this._halfRO && typeof ResizeObserver === 'function') {
-        var self = this;
-        this._halfRO = new ResizeObserver(function () { self._halfFit(); });
-        this._halfRO.observe(box);
-      }
-      this._halfFit();
-      this._glass();
-    }
-    // Half's rows that fit: the rest of the scenes out of sight, never a row cut through
-    _halfFit() {
-      var plan = this._halfPlan, box = this._box;
-      if (!plan || !box || !box.clientHeight) return;
-      var cs = getComputedStyle(box), room = box.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
-      var H = C0().TILE.h, fit = Math.max(1, Math.min(plan.rows, Math.floor((room + BLOCK_GAP) / (H + BLOCK_GAP))));
-      box.style.gridTemplateRows = 'repeat(' + fit + ',' + H + 'px)';
-      Array.prototype.forEach.call(box.children, function (slot, i) { slot.style.display = i < fit * plan.cols ? '' : 'none'; });
     }
   }
 
@@ -2044,7 +2082,8 @@
   window.hkChip.HkStatusChipCard = HkStatusChipCard;
   window.hkChip.HkChipsCard = HkChipsCard;
   window.hkChip.HkScenesCard = HkScenesCard;
-  window.hkChip.scenes = { plan: scenesPlan, shape: gridShape, pill: scenePill, page: pagePill, blockPill: blockPill };
+  window.hkChip.groupGeom = groupGeom; window.hkChip.cellSquare = cellSquare;
+  window.hkChip.scenes = { plan: scenesPlan, pill: scenePill, page: pagePill, blockPill: blockPill };
   window.hkChip.kinds = { ORDER: KIND_ORDER, NAMES: KIND_NAMES, QUIET: QUIET_DEFAULT, PAGES: KIND_PAGES,
                           config: kindConfig, auto: autoKinds, found: found, rowPlan: rowPlan,
                           entityChip: entityChip, scenesPlan: scenesPlan, rowItems: rowItems,
