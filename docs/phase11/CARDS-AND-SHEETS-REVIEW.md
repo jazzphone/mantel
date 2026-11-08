@@ -401,3 +401,108 @@ The label row's key (All Off on Tall and Large, "+N more") is a 24 px capsule wh
 up into the inset and 6 px down: it ends 2 px above the first line's hit area and never overlaps it. The ~8 px clear
 between hit areas the new rule asks for would need a taller label row on every block; it was left at 2 px. Wide's and
 Extra Large's All Off is a 44 px key of its own.
+
+## Round three (2026-11-08): Security, the Thermostat, and the controls audit
+
+The owner's round-three rules: nothing stretches (a bigger block shows more things, not bigger ones) and each size keeps its
+controls few (Small: state plus at most one primary action; Wide and Tall: two or three, each 44 px with about 8 px clear between hit
+areas; Large and Extra Large may show more, never crowded). What does not fit goes to the block's detail sheet.
+
+### The audit: `home_grid_audit.py --controls`
+
+For each block it lists the separate tap targets inside the plate -- everything `TAP_CONTROLS` (hk-base.js) treats as a control, the
+plate itself and a block-sized button left out, a control inside a button counted as the button's -- with the smallest hit area (the
+`::after` included, in the block's px), the least gap between two hit areas (negative: they overlap) and the pair that is tightest. A
+**stepper** (the thermostat's two `[data-big-step]` arrows) is one control, and so is a **segmented control** (a tablist, `.seg` /
+`.segments` / `.segment`, or buttons with `aria-pressed` that touch): one action, several choices, measured by its track. A `.ring` that
+is not the dial's `[data-ring]` is a picture. The report prints; it never fails the audit (a list of rows that each open their own thing
+is content, and only a person can tell). Run it over every key: `home_grid_audit.py --only KEYS --looks blur_day --no-bar --controls
+--hits` (add `--homeview` for square cells). `CONTROLS_RULES` and `CLEAR` in the tool hold the numbers.
+
+### What was done in Security and the Thermostat
+
+- **Security Tall and Large (hk-grid-security.js).** Home / Away / Disarm no longer flex with the block: each key has a designed width and
+  the row is centered. Large: three keys of 112 px with 8 between. Tall: Home and Away 72 px side by side, Disarm as wide as the two and
+  the gap (152 px), the pair centered -- it fits both cell shapes (the plate holds 166 / 158 px). The keys still open the alarm's sheet
+  (every arming goes through its PIN).
+- **Thermostat (hk-control.js), Big Number at Small, Wide and Tall.** Root cause of the stretch findings: a target's number was sized as a
+  share of the block (`cqh` / `cqw`), so a taller cell made a taller row (Tall's `div.trow`, Wide's `button.tt` on tiles). The range's two
+  numbers are now one designed size, the hero role's 44, at all three sizes on both cell shapes. The controls rule did the rest:
+  - a range (Auto) in Small, Wide and Tall is a **reading, not keys**: the two numbers (heat and cool, each in its color) are plain, and the
+    arrows **slide the pair together** (neither end past the entity's limit, the gap between them kept; `_bigNudge`, `which: "both"`).
+    Each end on its own is the thermostat sheet's. This removed Tall's two plated rows (`.trow` / `.rng`, with the arrows moving into the
+    picked row) and the pick taps; Large and Extra Large keep the picked end and the dot, as before;
+  - the name in Small, Wide and Tall is words, not a button (the block's tap opens the sheet; it was the same sheet under a second hit
+    area). Result: Small one stepper; Wide a stepper and the Mode key; Tall a stepper and the Mode key; all 44 px with 10 px or more clear;
+  - Large and Extra Large: the foot's arrows and name no longer reach into each other's 12 px (their `::after` stay inside their boxes), a
+    range's two targets keep 8 px clear (`.pk::after` reaches 2 px sideways, not 6), and Extra Large's mode keys on a tile cell are 44 px
+    with the column's 8 px between (they were 46 with 6).
+  - The dial's Tall and Large keep their ring, name and Mode key: 3 and 2 controls, clear of each other.
+- **Checked:** `--stretch --hits` clean for `security` and `thermostat` at every size on tiles and square HomeView, the thermostat in the
+  dial style and in Big Number on tiles (`--opts thermostat='{"style":"big"}'`); `block_taps_check.py --expect` passes on both cell shapes.
+  One known false positive: `--state sec_many` at Large on tiles draws 4 locks as 116 x 96 tiles and, in the 24 px bigger stress cell,
+  chooses the 150 x 64 row tiles (the block picks between two designed sizes by what fits, never in between); it is one choice of a fixed
+  size, not a growth.
+
+### The audit's table (tile cell / square cell; each cell is targets / smallest hit area px / least gap px; `*` breaks a rule)
+
+| block | Small | Wide | Tall |
+|---|---|---|---|
+| accessory, scene, action, camera, weather, clock, scene_suggested, intercom | 0 | 0 | 0 |
+| accessories, scenes | - | 0 | 0 |
+| now_playing | 1/44 | 3/44/12 | 3/44/8 |
+| thermostat | 1/44/86, 1/44/78 | 2/44/10, 2/44/16 | 3/44/28, 2/44/96 |
+| security | 0 | 3/44/8, 4/44/8* | 4/44/8*, 4/44/8* |
+| timers | 2/44/66*, 2/52/30* | 4/44/18*, 4/48/18* | 4/44/66*, 4/48/46* |
+| calendar | 0 | 1/54, 2/54/0* | 3/54/0*, 4/54/0* |
+| battery, power, water | 1 (97+ px) | 1 | 1 |
+| people | 3/50/8*, 3/47/8* | 3/91/12, 3/109/12 | 3/64/30, 3/64/74 |
+| vacuum | 1/44 | 3/48/8, 3/56/8 | 3/44/10, 3/44/10 |
+| music | 1/56 | 5/40/10*, 4/40/10* | 6/36/10*, 8/32/10* |
+| doors | 0 | 3/36/0*, 3/36/0* | 3/44/0*, 3/64/0* |
+| live_tv | 0 | 2/113/10, 2/134/10 | 2/104/10, 3/105/10 |
+| room | 0 | 1/51, 1/57 | 1/56, 1/62 |
+| everything | 0 | 5/60/16*, 5/60/15* | 6/55/12*, 8/55/12* |
+| on_now | 0 | 5/56/1*, 5/56/1* | 5/44/0*, 5/44/0* |
+| todo | 0 | 3/60/0*, 4/53/0* | 5/44/0*, 7/44/0* |
+| energy_rings | 0 | 1/46 (Today / Week / Month: one control) | 1/46 |
+| timeline | 0 | 2/44/0*, 3/44/0* | 4/44/0*, 6/44/0* |
+| house_status | 0 | 3/44/0*, 4/44/0* | 5/44/0*, 7/44/0* |
+
+Large and Extra Large (may show more; only crowding is listed): `battery` L/XL a stat tile's hit area is 42 / 36 px; `calendar` L's
+rows touch (list) and XL's two event chips' hit areas overlap by 4 x 41 px (`--hits` FAIL, tile and square); `doors` rows touch (list);
+`house_status`, `on_now`, `timeline`, `todo` rows touch (lists); `music` L/XL cover rail items are cut at the rail's edge (30 / 18 px
+visible) and touch; `now_playing` L/XL the scrubber's hit area is 7 px from the Play key; `power` XL rows 36 px and touching;
+`vacuum` L on tiles a room row is 31 px visible (a row the list cuts at its end); `thermostat` is clean at both.
+
+### Each block that breaks, and what should move (for the lead to hand out)
+
+"Content" means a list of rows or a grid of tiles that each open their own thing: tiles you tap one by one are not crowding, and
+list rows that touch with a hairline between are how every list is drawn -- they only need to be 44 px tall.
+
+- **security (Wide and Tall).** Wide's 4 on square cells is the state's tap plus three rows that each open a lock or door (content). Tall's
+  4 is the state's tap plus the three keys: fine (the state is not a control). Done.
+- **timers (Small, Wide, Tall).** Each running timer has a ring (pause / resume) and a red Stop: two controls a timer, so Small has 2 and
+  Wide / Tall 4 for two timers. The owner likes these cards; the cheapest rule-keeping change is one control a timer -- the red Stop (a
+  timer's end is what a kitchen needs) -- with pause / resume on the timer's sheet and the ring only a picture; Wide and Tall then hold
+  two timers (2 controls) plus the "Start another" ring (3). Ask the owner before changing it.
+- **people (Small).** Three faces, each its own tap (the person's sheet): more than one action. Small should be the plate only (faces as
+  a picture, "1 home · 2 away", the plate opens the People sheet); Wide and Tall keep the faces as tiles you tap one by one (content, 12 px
+  or more clear).
+- **music (Wide, Tall; Large, Extra Large).** The cover rail: 5-8 covers a tap each. They are content and the rail scrolls on purpose;
+  what fails is the cover cut at the rail's edge (32-40 px visible) and Extra Large's covers touching (gap 0). Keep the rail, but let it
+  stop on a whole cover (no cut one at the edge) or take 8 px between covers.
+- **doors (Wide and Tall).** Rows of doors and windows, each opening its sheet (content, hairlines). Wide's rows are 36 px: make them
+  44 px (two rows, or the count and the open ones only) -- the one real finding.
+- **everything (Wide, Tall).** A launcher of places: each a tap that opens its page (content, 12-16 px clear, 55-60 px). Keep.
+- **on_now (Wide, Tall).** Kinds as rows, each opening a sheet or its page (content) plus the All Off key (the one action). Wide's 4
+  pills side by side are 1 px apart: give them 8 px, or fewer pills with more words. Tall's rows touch (list rows).
+- **todo, timeline, house_status, calendar (Wide, Tall).** Lists: a row each, 44 px or more (content). Todo's rows are checkboxes -- each
+  checks an item, the primary action of a todo block, one per row; that is the list's job and not crowding. Keep; the rows need only be
+  44 px tall (they are).
+- **energy_rings.** Clean: the Today / Week / Month choice is one control.
+- **battery (Large, Extra Large).** The stat tiles' hit areas are 42 and 36 px: make them 44 or open the sheet from the whole row.
+- **power (Extra Large).** Three rows of 36 px that touch: 44 px rows (or two rows and "N more").
+- **now_playing (Large, Extra Large).** The scrubber's hit area is 7 px from the Play key: 8 px (a margin).
+- **calendar (Extra Large).** Two event chips' hit areas overlap (4 x 41 px): a bug, not a layout.
+- **vacuum (Large, tiles).** A room row is 31 px visible where the list cuts it: a scrolled row, harmless.

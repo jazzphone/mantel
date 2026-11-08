@@ -477,8 +477,8 @@ MEASURE = r"""(() => {
         (el.hasAttribute('aria-pressed') && [...el.parentElement.children].some(o => { if (o === el || !o.hasAttribute('aria-pressed')) return false;
           const a = el.getBoundingClientRect(), b = o.getBoundingClientRect(); return Math.max(b.left - a.right, a.left - b.right, b.top - a.bottom, a.top - b.bottom) < 2; }))));
       const tracks = new Map();
-      for (const a of found) if (isSeg(a.el)) { const t = a.el.parentElement, u = tracks.get(t);      // (the track: its choices' touchable boxes, joined)
-        tracks.set(t, { el: t, h: u ? { left: Math.min(u.h.left, a.h.left), top: Math.min(u.h.top, a.h.top), right: Math.max(u.h.right, a.h.right), bottom: Math.max(u.h.bottom, a.h.bottom) } : a.h }); }
+      for (const a of found) if (isSeg(a.el)) { const t = a.el.parentElement, u = tracks.get(t) || { h: t.getBoundingClientRect() };      // (the track: its own box and its choices' touchable boxes, joined)
+        tracks.set(t, { el: t, h: { left: Math.min(u.h.left, a.h.left), top: Math.min(u.h.top, a.h.top), right: Math.max(u.h.right, a.h.right), bottom: Math.max(u.h.bottom, a.h.bottom) } }); }
       const mine = found.filter(a => !isSeg(a.el) && !(a.el.classList.contains('ring') && !a.el.hasAttribute('data-ring')) &&
         !found.some(b => b !== a && b.el !== a.el && b.el.matches(NATIVE) && b.el.contains(a.el))).concat([...tracks.values()]);
       let gap = null, small = null, tight = '';
