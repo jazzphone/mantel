@@ -44,11 +44,11 @@ out.show = [B.showOf('latest'), B.showOf('digest'), B.showOf('auto'), B.showOf(n
 // the zone decides, not the browser's: 5 AM in Chicago is 11 AM in UTC
 out.autoUtc = [B.viewNow('auto', ms('2026-11-03T11:00:00Z'), { tag: 'en-US', zone: 'UTC' }), B.viewNow('auto', ms('2026-11-03T11:00:00Z'), ctx)];
 
-// ---- how many rows: the size asks for 5, 8 or 12; the block holds what fits (rows of 36 in Wide, 52 in the rest; Extra Large in two columns)
-out.limit = ['W', 'L', 'XL', 'S', undefined].map(B.limitOf);
-out.layout = {
-  wTile: B.layoutOf('W', 122), wSquare: B.layoutOf('W', 160), lTile: B.layoutOf('L', 249), lSquare: B.layoutOf('L', 369), lTall: B.layoutOf('L', 900),
-  xlTile: B.layoutOf('XL', 282), xlSquare: B.layoutOf('XL', 369), xlHuge: B.layoutOf('XL', 2000), tiny: B.layoutOf('L', 10), none: B.layoutOf('L', undefined) };
+// ---- how many rows: Small reads one, the rest READ (what is not shown is "N more"); rows keep their size's height
+out.limit = ['W', 'T', 'L', 'XL', 'S', undefined].map(B.limitOf);
+out.rowH = B.ROW_H;
+out.fit = [B.rowsFit(17, 133, 44), B.rowsFit(17, 95, 44), B.rowsFit(2, 342, 56), B.rowsFit(5, 0, 56), B.rowsFit(5, undefined, 56)];
+out.grid = [B.fitGrid(5, 369, 276, 108, 76, 10), B.fitGrid(4, 175, 133, 80, 44, 10), B.fitGrid(9, 280, 276, 108, 76, 10), B.fitGrid(1, 50, 20, 108, 76, 10)];
 out.paths = [B.blockPath('W'), B.blockPath('L'), B.blockPath('XL'), B.stripPath('camera.front_door'), B.stripPath('camera.a b'), B.stripMessage('camera.front_door')];
 
 // ---- a row as the block draws it
@@ -69,6 +69,24 @@ out.rows = [
 out.wide = [B.wideTime(B.rowView(ev(1, '2026-11-03T20:47:00Z'), NOW, ctx)), B.wideTime(B.rowView(ev(5, '2026-11-03T04:28:00Z'), NOW, ctx)), B.wideTime(B.rowView(ev(6, '2026-10-31T15:28:00Z'), NOW, ctx))];
 // the day goes by the house's midnight, not the browser's
 out.edge = [B.rowView(ev(1, '2026-11-03T06:00:00Z'), NOW, ctx).day, B.rowView(ev(1, '2026-11-03T05:59:00Z'), NOW, ctx).day];
+// how long ago, short and long: now, minutes, hours to six, the clock, yesterday, the weekday
+const at = (iso) => ({ at: ms(iso) / 1000 });
+out.ago = ['2026-11-03T21:29:40Z', '2026-11-03T21:26:00Z', '2026-11-03T19:10:00Z', '2026-11-03T14:00:00Z', '2026-11-03T04:28:00Z', '2026-10-31T15:28:00Z']
+  .map(iso => [B.ago(at(iso), NOW, ctx), B.ago(at(iso), NOW, ctx, true)]);
+// a title's two halves
+out.halves = [['lock', 'Back Door unlocked'], ['detection', 'Person at Driveway Cam'], ['doorbell', 'Someone rang Front Door'], ['arrival', 'Mark arrived home'],
+  ['lock', 'Front Door is jammed'], ['door', 'Front Door keeps changing (14 times)'], ['alarm', 'Home Alarm armed night'], ['system', 'Backup finished'],
+  ['refused', 'Hallway tablet tried to unlock Back Door; refused'], ['safety', 'Leak at Kitchen Sink']].map(([f, t]) => { const h = B.halves({ family: f, title: t }); return [h.a, h.b]; });
+// what a row's tap opens: its camera (the device's, for a sensor that heard it), its thing, else the Timeline's sheet
+const states = { 'camera.front_door': {}, 'lock.back_door': {}, 'person.mark': {} };
+const ents = { 'binary_sensor.fd_person': { device_id: 'd1' }, 'camera.front_door': { device_id: 'd1' }, 'lock.side': {} };
+out.open = [B.openOf({ family: 'detection', entity: 'camera.front_door' }, states, ents), B.openOf({ family: 'detection', entity: 'binary_sensor.fd_person' }, states, ents),
+  B.openOf({ family: 'lock', entity: 'lock.back_door' }, states, ents), B.openOf({ family: 'lock', entity: 'lock.side' }, states, ents),
+  B.openOf({ family: 'arrival', entity: 'person.mark' }, states, ents), B.openOf({ family: 'system', entity: null }, states, ents),
+  B.openOf({ family: 'refused', entity: 'lock.back_door' }, states, ents), B.openOf({ family: 'door', entity: 'binary_sensor.gone' }, states, ents), B.openOf(null, states, ents)];
+// the picture a block shows large: the newest row that kept one
+out.hero = [B.heroOf([ev(1, '2026-11-03T20:00:00Z'), ev(2, '2026-11-03T19:00:00Z', { pics: pic }), ev(3, '2026-11-03T18:00:00Z', { pics: pic })]).id,
+  B.heroOf([ev(1, '2026-11-03T20:00:00Z'), ev(2, '2026-11-03T19:00:00Z', { pics: [{ id: 'x' }] })]), B.heroOf(null)];
 
 // ---- the newest N, and the live feed's merge
 const many = []; for (let i = 0; i < 14; i++) many.push(ev(100 + i, new Date(ms('2026-11-03T14:00:00Z') + i * 600000).toISOString()));
@@ -85,6 +103,12 @@ out.digest = [B.digestView(sum, 3), B.digestView(sum, 9), B.digestView(sum, 0),
   B.digestView({ window: 'overnight', label: 'Overnight', title: 'Overnight', quiet: true, lines: [], counts: {} }, 3),
   B.digestView({ window: 'overnight', label: 'Overnight', lines: [], counts: { door: 3, lock: 1 } }, 3), B.digestView(null, 3)];
 out.empty = B.EMPTY;
+// the digest as glyphs: what it leads with, its hours, the kinds in the page's order
+const dp = (o) => { const d = B.digestParts(o); return { label: d.label, span: d.span, status: d.status, counts: d.counts.map(k => [k.id, k.n, k.icon, k.color]), quiet: d.quiet, n: d.n }; };
+out.parts = [dp(Object.assign({}, sum, { counts: { lock: 2, door: 1, window: 1, detection: 3, motion: 1, garage: 2 } })),
+  dp({ window: 'overnight', label: 'Overnight', title: 'Overnight at the house (9 PM to 7 AM)', quiet: false, counts: { garage: 1 }, lines: ['Garage is still open.', 'Garage opened 6:12 AM.'] }),
+  dp({ window: 'overnight', label: 'Overnight', title: 'Overnight at the house (9 PM to 7 AM)', quiet: true, counts: {}, lines: ['A quiet night. Everything is locked and closed.'] }),
+  dp({ window: 'overnight', label: 'Overnight', quiet: false, counts: { lock: 1 }, lines: ['Back Door locked 10:12 PM.'] }), dp(null)];
 out.errors = [B.errorWord({ code: 'forbidden', status: 403 }), B.errorWord({ status: 403 }), B.errorWord({ status: 503 }), B.errorWord(null)];
 
 // ---- the strip's words
@@ -149,27 +173,48 @@ def test_automatic_shows_the_morning_summary_from_five_to_eleven_at_the_house(go
 
 
 @needs_node
-def test_each_size_asks_for_its_rows_and_holds_what_fits(got):
-    assert got["limit"] == [5, 8, 12, 1, 8]      # (Small, 2026-11-07, is the one latest event; Tall asks for ten)
-    lay = got["layout"]
-    # Wide: rows of 36 under the label, one column: a tile cell holds two, a square cell three; never more than 5
-    assert (lay["wTile"]["per"], lay["wTile"]["n"], lay["wTile"]["cols"]) == (2, 2, 1)
-    assert (lay["wSquare"]["per"], lay["wSquare"]["n"]) == (3, 3)
-    # Large: rows of 52, one column; up to 8
-    assert (lay["lTile"]["per"], lay["lTile"]["n"], lay["lTile"]["rowH"]) == (4, 4, 52)
-    assert (lay["lSquare"]["per"], lay["lSquare"]["n"]) == (6, 6)
-    assert lay["lTall"]["n"] == 8
-    # Extra Large: two columns, so up to 12
-    assert (lay["xlTile"]["per"], lay["xlTile"]["n"], lay["xlTile"]["cols"]) == (4, 8, 2)
-    assert (lay["xlSquare"]["per"], lay["xlSquare"]["n"]) == (6, 12)
-    assert lay["xlHuge"]["n"] == 12
-    # a block with no room (a cell not yet measured) still shows one row
-    assert lay["tiny"]["n"] == 1 and lay["none"]["n"] == 1
+def test_each_size_reads_enough_rows_and_shows_whole_rows_of_its_own_height(got):
+    assert got["limit"] == [25, 25, 25, 25, 1, 25]   # (Small is the one latest event; the rest say "N more" for what they read)
+    # nothing stretches (2026-11-08, the owner): a row is 44 on Wide and Tall, 56 on Large and Extra Large
+    assert got["rowH"] == {"W": 44, "T": 44, "L": 56, "XL": 56}
+    sq, tile, short, none, unmeasured = got["fit"]
+    assert (sq["n"], sq["h"], sq["rest"]) == (3, 44, 1)          # Wide on a square cell: three
+    assert (tile["n"], tile["rest"]) == (2, 7)                   # ...on a tile: two
+    assert (short["n"], short["h"], short["rest"]) == (2, 56, 230)   # a short list keeps its height; the rest is the quiet line's
+    assert none["n"] == 0 and unmeasured["n"] == 0 and unmeasured["rest"] == 0
+
+
+@needs_node
+def test_the_summarys_kinds_fit_as_tiles_of_their_own_size(got):
+    five, wide, many, tiny = got["grid"]
+    assert five == {"n": 5, "cols": 3, "rows": 2}          # Large: three across, the last row of two centered
+    assert wide == {"n": 4, "cols": 2, "rows": 2}          # Wide's small tiles: 2 x 2
+    assert many == {"n": 6, "cols": 2, "rows": 3}          # Extra Large's column: what fits, no more
+    assert tiny == {"n": 1, "cols": 1, "rows": 1}          # never none
+
+
+@needs_node
+def test_a_row_says_how_long_ago_and_splits_its_title(got):
+    assert got["ago"] == [["Now", "Just now"], ["4 min", "4 min ago"], ["2 hr", "2 hr ago"], ["8:00 AM", "8:00 AM"],
+                          ["Yesterday", "Yesterday, 10:28 PM"], ["Sat", "Sat, 10:28 AM"]]
+    assert got["halves"] == [["Back Door", "Unlocked"], ["Person", "Driveway Cam"], ["Doorbell", "Front Door"], ["Mark", "Arrived home"],
+                             ["Front Door", "Jammed"], ["Front Door", "Keeps changing"], ["Home Alarm", "Armed night"], ["Backup finished", ""],
+                             ["Hallway tablet tried to unlock Back Door; refused", ""], ["Leak", "Kitchen Sink"]]
+
+
+@needs_node
+def test_a_rows_tap_opens_what_it_stands_for(got):
+    assert got["open"] == ["camera.front_door", "camera.front_door",   # a camera's row: its camera, also when a sensor of its device heard it
+                           "lock.back_door", "lock.side",                # a lock (known by its state, or by the registry alone)
+                           "person.mark",                                # a person's arrival: their sheet
+                           "timeline", "timeline",                       # Mantel's own rows and a refused command: the row's sheet on the Timeline
+                           "timeline", "timeline"]                       # a thing this house no longer has; nothing
+    assert got["hero"] == [2, None, None]                                # the newest picture, never a picture with no address
 
 
 @needs_node
 def test_the_paths_are_the_ones_the_adapter_answers(got):
-    assert got["paths"] == ["timeline?limit=5", "timeline?limit=8", "timeline?limit=12",
+    assert got["paths"] == ["timeline?limit=25", "timeline?limit=25", "timeline?limit=25",
                             "timeline?camera=camera.front_door&limit=10", "timeline?camera=camera.a%20b&limit=10",
                             {"type": "timeline/subscribe", "camera": "camera.front_door"}]
 
@@ -212,6 +257,19 @@ def test_the_summary_is_the_digests_own_words_cut_to_what_fits(got):
     assert got["empty"] == "Nothing yet today."
     assert got["errors"][0] == "The Timeline isn’t part of this account." == got["errors"][1]
     assert got["errors"][2] == "Couldn’t load recent events." == got["errors"][3]
+
+
+@needs_node
+def test_the_summary_as_glyphs_leads_with_what_matters(got):
+    busy, open_, quiet, plain, none = got["parts"]
+    assert busy["label"] == "Overnight" and busy["span"] == "9 PM to 7 AM" and busy["n"] == 10
+    assert busy["status"] == {"icon": "mdi:check-circle", "color": "green", "line": "All locks locked, garage closed", "sub": "10 events overnight"}
+    assert [c[0] for c in busy["counts"]] == ["doors", "locks", "garage", "cameras"]          # the page's order; doors and windows one kind
+    assert busy["counts"][0][1] == 2 and busy["counts"][3][1:] == [4, "hk:cctv", "blue"]
+    assert open_["status"]["color"] == "orange" and open_["status"]["line"] == "Garage is still open"   # what is still open leads
+    assert quiet["quiet"] is True and quiet["status"]["line"] == "A quiet night" and quiet["status"]["sub"] == "Everything is locked and closed"
+    assert plain["status"]["line"] == "1 event overnight" and plain["status"]["sub"] == ""     # no "right now" said: no claim made
+    assert none["quiet"] is True and none["label"] == "Today" and none["status"]["line"] == "A quiet day"
 
 
 @needs_node

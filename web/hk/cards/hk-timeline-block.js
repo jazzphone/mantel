@@ -126,7 +126,7 @@
   }
   // WHAT A ROW'S TAP OPENS (hk-base.js openTarget's places): what it stands for -- a camera's row its camera (the row's
   // entity, else the camera on the same device in `entities`, the registry), a door's, a lock's, the alarm's, a
-  // person's its own sheet when this screen knows it; Mantel's own rows (and anything else) the row's sheet on the
+  // person's its own sheet when this house knows it (its state or its registry entry); Mantel's own rows (and anything else) the row's sheet on the
   // Timeline (`timeline`)
   var CAMERA_FAMILIES = { doorbell: 1, detection: 1, motion: 1 };
   function openOf(ev, states, entities) {
@@ -137,7 +137,8 @@
       if (dev) Object.keys(entities).forEach(function (k) { if (!cam && k.indexOf('camera.') === 0 && entities[k] && entities[k].device_id === dev) cam = k; });
       if (cam) e = cam;
     }
-    return states && states[e] ? e : 'timeline';
+    // (known by its state, or by the registry: a client loads states as they are wanted)
+    return (states && states[e]) || (entities && entities[e]) ? e : 'timeline';
   }
   // THE DIGEST AS THE BLOCK DRAWS IT: its label, its title, the lines it has room for (the page's own wording of a quiet
   // night when it sent none)
@@ -578,7 +579,9 @@
       var ev = this._evOf(id), c = this.client, SH = window.hkShell, P = window.hkTimeline;
       if (!ev) return;
       if (e) e._hkBlockTap = true;
-      var to = openOf(ev, c && c.states, c && c.entities);
+      // (the house as it is now: this card draws from its own rows and keeps the client it was first handed, whose
+      // states may predate the rest of the house -- 2026-11-08, a person's row opened the Timeline's sheet, not theirs)
+      var now = (C.client && C.client()) || c, to = openOf(ev, now && now.states, now && now.entities);
       if (to !== 'timeline' && SH && typeof SH.moreInfo === 'function') { SH.moreInfo(to, this); return; }
       if (P && typeof P.openSheet === 'function') P.openSheet(ev, c);
     }
