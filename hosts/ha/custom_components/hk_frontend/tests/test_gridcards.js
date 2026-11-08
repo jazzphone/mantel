@@ -174,7 +174,7 @@ function () {
   var t = C.table();
   eq('the options each declares (home_grid.CATALOG\'s: a pytest holds them equal)',
      [t.room.opts, t.scene_suggested.opts, t.action.opts, t.everything.opts],
-     [{ area: 'area', surface: 'surface', accessory_display: 'room_display', tap: 'tap_target' }, { windows: 'windows' }, { action: 'action', area: 'area', color: 'boolean' }, {}]);
+     [{ area: 'area', surface: 'surface', accessory_display: 'room_display', tap: 'tap_target' }, { windows: 'windows' }, { action: 'action', area: 'area', color: 'boolean' }, { tap: 'tap_target' }]);
   // (2026-10-31) the widget blocks, and Scenes' and Accessories' Height and Color
   eq('...the widget blocks and their sizes', [t.on_now.sizes, t.todo.sizes, t.energy_rings.sizes, t.energy_rings.opts, t.todo.opts],
      [['S', 'W', 'T', 'L', 'XL'], ['S', 'T', 'L', 'XL'], ['S', 'W', 'T', 'L', 'XL'], { period: 'period', tap: 'tap_target' }, { entity: 'todo', tap: 'tap_target' }]);

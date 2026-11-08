@@ -115,12 +115,16 @@
       // FIT: the card at its own height, scaled down to the part (_fit)
       '.part.fit{overflow:hidden}.part.fit > *{height:auto;transform-origin:50% 0}' +
       '.rd{' + C.plate('card') + ';box-sizing:border-box;height:100%;padding:' + C.blockPad(C.CARD.pad) + ';display:flex;flex-direction:column;gap:12px;justify-content:space-between}' +
-      '.rd .now{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}' +
-      '.rd .now div{display:flex;flex-direction:column;gap:2px;min-width:0}' +
-      '.rd .k{' + type('caption') + ';color:' + v('ink-2') + '}' +
+      // (THE READINGS TAKE THE PLATE'S FREE HEIGHT, 2026-11-07, the review: Inside, Humidity and Outside sat at its top and
+      // Mode at its foot with 180 px of glass between -- now three rows that share what the modes leave, each its name at the
+      // left and its figure, larger, at the right)
+      '.rd .now{display:flex;flex-direction:column;flex:1;min-height:0}' +
+      '.rd .now div{display:flex;align-items:center;justify-content:space-between;gap:10px;flex:1 1 0;min-height:0;min-width:0;border-bottom:1px solid ' + v('line') + '}' +
+      '.rd .now div:last-child{border-bottom:0}' +
+      '.rd .k{' + type('body') + ';color:' + v('ink-2') + '}' +
       '.rd .v{' + type('title') + ';font-variant-numeric:tabular-nums}' +
       // (the readings grow with their plate -- the Thermostat XL's left a band of nothing under them, 2026-10-30)
-      '.rd .v{font-size:clamp(22px, 12cqh, 40px);line-height:1.1}' +
+      '.rd .v{font-size:clamp(26px, 12cqh, 40px);line-height:1.1}' +
       '.rd .row{display:flex;flex-direction:column;gap:6px}' +
       C.segCss('.rd .seg', { on: '[aria-pressed="true"]', fill: true }) +
       // (each mode a finger's 44 px tall: the segments' own 36 were under it, 2026-10-31)
@@ -133,9 +137,11 @@
     // large and light, a line under it, then a short chart or a list along
     // the foot. A panel's own part (`own`: Power S, Water and Doors S to T)
     // and On Now draw with these.
+    // THE TEXT GLOW (2026-11-07, the review): the colored labels (USING NOW green, TODAY blue) and the figures on the
+    // Blur and Bright looks, like every other word on the glass -- on the plate, so every part of it inherits it.
     var ACC = C.ACCENTS;
     var WG_CSS = 'hk-plate.wg{box-sizing:border-box;height:100%;position:relative;display:flex;flex-direction:column;overflow:hidden;' +
-        'padding:' + C.blockPad('14px') + ';' + C.plate('card') + ';color:' + v('ink') + '}' +
+        'padding:' + C.blockPad('14px') + ';' + C.plate('card') + ';color:' + v('ink') + ';text-shadow:' + v('glow') + '}' +
       '.wl{font-size:15px;font-weight:600;line-height:19px;letter-spacing:0.2px;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:none}' +
       '.wb{font-size:44px;font-weight:300;letter-spacing:-0.9px;line-height:1.04;font-variant-numeric:tabular-nums;white-space:nowrap;margin-top:2px;flex:none}' +
       '.wb.m{font-size:30px;font-weight:500;letter-spacing:-0.5px}' +
@@ -157,6 +163,10 @@
       '.wr b{' + type('body') + ';font-weight:600;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
       '.wr em{font-style:normal;' + type('caption') + ';color:' + v('ink-2') + ';white-space:nowrap}' +
       '.wr>div.more{cursor:default}.wr>div.more b{font-weight:500;color:' + v('ink-2') + '}' +
+      // (A LIST THAT GROWS TO ITS BLOCK, 2026-11-07, the review -- Doors under a short list left 40 to 50 % of the plate bare: rows
+      // take the free height, each 44 to its --rmax px, the name a headline, and the list sits at the top of what is left)
+      '.wr.grow{flex:1}.wr.grow>div{height:auto;flex:1 1 0;min-height:44px;max-height:var(--rmax,64px)}' +
+      '.wr.grow b{' + type('headline') + '}.wr.grow em{' + type('body') + '}.wr.grow .wt small{' + type('caption') + ';line-height:17px}' +
       '.wg hk-icon{display:block;flex:none;--mdc-icon-size:100%}' +
       '.wsplit{display:flex;gap:18px;flex:1;min-height:0}.wsplit>:last-child{flex:1}' +
       '.waxis{display:flex;justify-content:space-between;margin-top:6px;flex:none;' + type('micro') + ';color:' + v('ink-3') + '}';
@@ -377,10 +387,13 @@
         if (size === 'W') return lab + big + chart(box.iw, Math.max(30, box.ih - 19 - 46 - 10));
         // the sun now and the battery's level, where the house has them
         var sun = p.solar ? wattsOf(h, p.solar) : null, lv = p.level && h.states[p.level] ? Number(h.states[p.level].state) : NaN;
-        var line = [sun != null ? 'Solar ' + kw(sun).join(' ') : '', isFinite(lv) ? 'Battery ' + Math.round(lv) + '%' : ''].filter(Boolean).join(' · ');
-        var sub = line ? '<div class="ws">' + esc(line) + '</div>' : '';
-        var chH = Math.max(40, box.ih - 19 - 46 - (line ? 19 : 0) - 12 - 19);
-        if (size === 'L') return lab + big + sub + chart(box.iw, chH) + axis;
+        var bits = [sun != null ? 'Solar ' + kw(sun).join(' ') : '', isFinite(lv) ? 'Battery ' + Math.round(lv) + '%' : ''].filter(Boolean);
+        // (Tall, 2026-11-07, the review: the figure, then the sun and the battery a line each -- 160 px holds one -- and the
+        // day's chart takes the rest of the height, the hours under it)
+        var line = bits.join(' · '), tall = size === 'T', nl = tall ? bits.length : line ? 1 : 0;
+        var sub = (tall ? bits : line ? [line] : []).map(function (t) { return '<div class="ws">' + esc(t) + '</div>'; }).join('');
+        var chH = Math.max(40, box.ih - 19 - 46 - nl * 19 - 12 - 19);
+        if (size === 'L' || tall) return lab + big + sub + chart(box.iw, chH) + axis;
         // XL: the chart on the left; today's top users on the right -- the
         // whole house, then the Energy page's devices by what they used today
         var lw = Math.round((box.iw - 22) * 0.58), users = this._topUsers(h);
@@ -443,12 +456,9 @@
           return '<div class="wsplit"><div class="wcol" style="flex:0 0 170px">' + lab + big + '<div class="ws">' + esc(line) + '</div></div>' +
             '<div class="wcol wr">' + fitRows(list, box.ih, row) + '</div></div>';
         }
-        if (size === 'T') return lab + big + '<div class="wr" style="margin-top:6px">' + fitRows(list, box.ih - 19 - 33 - 6, row) + '</div>';
-        // LARGE AND EXTRA LARGE (2026-10-31, the owner: not the house picture
-        // with Recent Activity): Reminders' list -- the count, then each door
-        // and window a 44 px row, an open one saying since when (a time, so
-        // it never goes stale between redraws). Extra Large the count in a
-        // column of its own beside the list.
+        // (T, L and XL: the list grows to the block -- rows 44 to 64 (XL 88) tall, a headline each -- and a summary foot says
+        // how many there are, so no band of bare plate is left under a short list)
+        var total = list.length, foot = '<div class="ws wf" style="padding-top:8px">' + total + ' total · ' + (total - open.length) + ' closed</div>';
         var since = function (st) {
           var t = Date.parse(st.last_changed || ''), L = window.hkLocale;
           if (!t) return '';
@@ -456,13 +466,21 @@
           return 'Open since ' + (today ? d.toLocaleTimeString(tag, { hour: 'numeric', minute: '2-digit' }) : d.toLocaleDateString(tag, { weekday: 'short' }));
         };
         var tall = function (x) {
-          var g = WAY_GLYPH[x.kind][x.open ? 0 : 1], s = x.open ? since(x.st) : '';
-          return '<div data-more="' + esc(x.id) + '">' + gly(g, 20, x.open ? ACC.orange : null) + '<span class="wt"><b>' + esc(name(x)) + '</b>' +
-            (s ? '<small>' + esc(s) + '</small>' : '') + '</span><em' + (x.open ? ' style="color:' + ACC.orange + '"' : '') + '>' + (x.open ? 'Open' : 'Closed') + '</em></div>';
+          var g = WAY_GLYPH[x.kind][x.open ? 0 : 1], s = x.open ? since(x.st) : '', col = x.open ? ' style="color:' + ACC.orange + '"' : '';
+          // (Tall, 160 px across: the state is the line under the name -- "Open since 9:41 PM", "Closed" -- not a word beside it)
+          if (size === 'T') return '<div data-more="' + esc(x.id) + '">' + gly(g, 24, x.open ? ACC.orange : null) + '<span class="wt"><b>' + esc(name(x)) + '</b><small' + col + '>' + esc(s || 'Closed') + '</small></span></div>';
+          return '<div data-more="' + esc(x.id) + '">' + gly(g, 24, x.open ? ACC.orange : null) + '<span class="wt"><b>' + esc(name(x)) + '</b>' +
+            (s ? '<small>' + esc(s) + '</small>' : '') + '</span><em' + col + '>' + (x.open ? 'Open' : 'Closed') + '</em></div>';
         };
-        if (size === 'L') return lab + big + '<div class="wr tall" style="margin-top:6px">' + fitRows(list, box.ih - 19 - 33 - 6, tall, 44) + '</div>';
-        return '<div class="wsplit" style="gap:22px"><div class="wcol" style="flex:0 0 200px">' + lab + '<div class="wb">' + (open.length ? open.length + ' open' : 'All closed') + '</div>' +
-          '<div class="ws">' + esc(line) + '</div></div><div class="wcol wr tall">' + fitRows(list, box.ih, tall, 44) + '</div></div>';
+        if (size === 'T' || size === 'L') {
+          // the figure large (the hero's 72) where the rows and the foot keep their 44 px
+          var left = box.ih - 19 - 6 - 27 - Math.min(list.length, 3) * 44, hero = left >= 75;
+          var hd = hero ? '<div class="wb xl">' + (open.length ? open.length : 'All') + '</div><div class="ws">' + (open.length ? 'open' : 'closed') + '</div>' : big;
+          return lab + hd + '<div class="wr grow" style="margin-top:6px;--rmax:64px">' + fitRows(list, box.ih - 19 - (hero ? 75 + 19 : 33) - 6 - 27, tall, 44) + '</div>' + foot;
+        }
+        return '<div class="wsplit" style="gap:22px"><div class="wcol" style="flex:0 0 200px">' + lab +
+          '<div style="margin:auto 0">' + (open.length ? '<div class="wb xl">' + open.length + '</div><div class="ws">open</div>' : '<div class="wb m">All closed</div>') +
+          '<div class="ws">' + esc(line) + '</div></div>' + foot.replace('padding-top:8px', 'margin-top:auto') + '</div><div class="wcol wr tall grow" style="--rmax:88px">' + fitRows(list, box.ih, tall, 44) + '</div></div>';
       }
       // WATER: today's large; Small and Tall the last twelve hours as a
       // short chart (Tall the days before under it); Wide the day's hours

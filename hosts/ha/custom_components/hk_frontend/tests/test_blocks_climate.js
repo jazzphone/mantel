@@ -117,7 +117,7 @@ H.run('CLIMATE BLOCKS', [
     H.ok('...heat and cool: the two on the face, the picked one\'s dot', /class="pk sel"[^>]*data-big-pick="low"[^>]*>68<\/button><span class="ds"/.test(xr), xr.slice(0, 500));
     var css = big('heat', { temperature: 68 }, 'S')._extraCss();
     H.ok('the dot is the face\'s; Small and Tall pick by the plate', /\.big \.bn \.pk\.sel::before\{/.test(css) && /\.big \.tt\.sel\{background:/.test(css));
-    H.ok('Tall\'s modes 44 px, four in 176', /\.big \.mr\{[^}]*width:176px;height:44px/.test(css) && /\.big \.mr button\{[^}]*width:44px;height:44px/.test(css));
+    H.ok('Tall\'s modes 44 px, four across the inset (a hit area out to 44 each)', /\.big \.mr\{[^}]*align-self:stretch;height:44px/.test(css) && /\.big \.mr button\{[^}]*flex:1 1 0;min-width:0;height:44px/.test(css) && /\.big \.mr button::after\{[^}]*left:-2px;right:-2px/.test(css));
     H.ok('Extra Large\'s face leaves the column its room', /:host\(\[size=XL\]\) \.big \.face\{right:calc\(var\(--hk-pad-r,18px\) \+ 200px\)\}/.test(css));
     H.ok('Small\'s number takes what the foot leaves, the same above and below', /:host\(\[size=S\]\) \.big \.one b\{font-size:min\(78px,calc\(\(100cqh/.test(css) && /\.big \.tg\{flex:1 1 auto;[^}]*align-items:center;justify-content:center/.test(css));
   },

@@ -150,7 +150,7 @@ def test_automatic_shows_the_morning_summary_from_five_to_eleven_at_the_house(go
 
 @needs_node
 def test_each_size_asks_for_its_rows_and_holds_what_fits(got):
-    assert got["limit"] == [5, 8, 12, 8, 8]
+    assert got["limit"] == [5, 8, 12, 1, 8]      # (Small, 2026-11-07, is the one latest event; Tall asks for ten)
     lay = got["layout"]
     # Wide: rows of 36 under the label, one column: a tile cell holds two, a square cell three; never more than 5
     assert (lay["wTile"]["per"], lay["wTile"]["n"], lay["wTile"]["cols"]) == (2, 2, 1)
@@ -234,7 +234,7 @@ def test_the_catalog_draws_the_block_where_the_host_has_a_timeline_and_a_stand_i
     assert w == {"type": "custom:hk-timeline-block-card", "size": "W", "show": "latest"}
     assert xl == {"type": "custom:hk-timeline-block-card", "size": "XL", "show": "digest", "tap": "none"}
     assert bogus["show"] == "auto" and none["show"] == "auto"
-    assert table == {"sizes": ["W", "L", "XL"], "sources": [], "opts": {"show": "timeline_show", "tap": "tap_target"}} and has is True
+    assert table == {"sizes": ["S", "W", "T", "L", "XL"], "sources": [], "opts": {"show": "timeline_show", "tap": "tap_target"}} and has is True
     for host in ("ha", "broken", "noShell"):             # Home Assistant's HK Frontend, a host that throws, no shell at all
         cfg = catalog[host]
         assert all(c == {"type": "custom:hk-key-card", "name": "Recent", "icon": "mdi:history"} for c in cfg[:5]), host
@@ -250,16 +250,16 @@ def write(*items):
     return C.apply_board({}, {"home_style": "grid", "home_grid": grid(*items)})
 
 
-@pytest.mark.parametrize("size", ["W", "L", "XL"])
+@pytest.mark.parametrize("size", ["S", "W", "T", "L", "XL"])
 @pytest.mark.parametrize("opts", [{}, {"show": "latest"}, {"show": "digest", "tap": "page"}, {"show": "auto", "tap": "none"}])
-def test_a_recent_block_is_kept_in_its_three_sizes(size, opts):
+def test_a_recent_block_is_kept_in_its_five_sizes(size, opts):
     b, errors = write({"id": "r1", "card": "timeline", "size": size, "at": [0, 0], "opts": opts})
     assert errors == {} and b["home_grid"]["items"][0].get("opts", {}) == opts
 
 
 @pytest.mark.parametrize("item,code", [
-    ({"card": "timeline", "size": "S"}, "grid_size"),
-    ({"card": "timeline", "size": "T"}, "grid_size"),
+    ({"card": "timeline", "size": "C"}, "grid_size"),
+    ({"card": "timeline", "size": "F"}, "grid_size"),
     ({"card": "timeline", "size": "XXL"}, "grid_size"),
     ({"card": "timeline", "size": "L", "opts": {"show": "yesterday"}}, "grid_option"),
     ({"card": "timeline", "size": "L", "opts": {"show": True}}, "grid_option"),
@@ -273,7 +273,7 @@ def test_what_a_recent_block_refuses(item, code):
 
 
 def test_the_mirror_and_the_catalog_name_the_same_option():
-    assert HG.CATALOG["timeline"] == {"sizes": ("W", "L", "XL"), "sources": (), "opts": {"show": "timeline_show", "tap": "tap_target"}}
+    assert HG.CATALOG["timeline"] == {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"show": "timeline_show", "tap": "tap_target"}}
     assert HG.TIMELINE_SHOWS == ("auto", "latest", "digest")
 
 

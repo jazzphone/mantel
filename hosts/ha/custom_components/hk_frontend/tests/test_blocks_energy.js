@@ -247,14 +247,14 @@ function () {
   var pl = panel('doors', 'L');
   ok('Doors L: its own plate, not the house picture', !!pl._own && pl._own.spec.own === 'doors');
   html = H.morphed(pl._own.plate);
-  ok('...the count over 44 px rows, the open one first', /class="wb m">1 open</.test(html) && /class="wr tall"/.test(html) &&
+  ok('...the count over rows that grow to 44 or more, the open one first, a foot saying how many', /class="wb[^"]*">(1|1 open)</.test(html) && /class="wr grow"/.test(html) && /4 total · 3 closed/.test(html) &&
      html.indexOf('Office Window') < html.indexOf('Front Door'), html);
   html = H.morphed(panel('doors', 'XL')._own.plate);
   ok('Doors XL: the count in its own column beside the list', /class="wsplit"/.test(html) && /flex:0 0 200px/.test(html) &&
      /All doors closed/.test(html) && (html.match(/<div data-more=/g) || []).length === 4, html);
   var closed = house.set('binary_sensor.office_window', 'off');
   html = H.morphed(panel('doors', 'T', closed)._own.plate);
-  ok('Doors T: all closed, the list under it', /All closed/.test(html) && (html.match(/<div data-more=/g) || []).length === 4, html);
+  ok('Doors T: all closed, the list under it', />All<\/div><div class="ws">closed/.test(html) && (html.match(/<div data-more=/g) || []).length === 4, html);
   var p2 = panel('doors', 'S'), sig = p2._sigOf();
   hkGive(p2, house.set('binary_sensor.back_door', 'on'));
   ok('a door opening redraws the block (its signature reads them)', p2._sigOf() !== sig);
@@ -292,20 +292,31 @@ function () {
   var html = H.morphed(draw('S')._plate);
   ok('S: the count large and what it is', /class="wb xl">5</.test(html) && /2 lights<br>1 speaker · 1 fan · 1 switch/.test(html), html);
   html = H.morphed(draw('W')._plate);
-  ok('W: each kind a chip that turns it off -- four kinds two across, the glyph and the number', (html.match(/data-kind="/g) || []).length === 4 &&
-     /aria-label="Off 2 lights"><hk-icon icon="mdi:lightbulb"[^>]*><\/hk-icon><span>2<\/span><em>Off/.test(html) && /<em>Pause<\/em>/.test(html), html);
+  ok('W: each kind a chip -- its body opens the kind, its own small key turns it off; four two across, the glyph and the number',
+     (html.match(/data-open-kind="/g) || []).length === 4 && (html.match(/data-off-kind="/g) || []).length === 4 &&
+     /data-open-kind="lights" aria-label="Open 2 lights"><hk-icon icon="mdi:lightbulb"[^>]*><\/hk-icon><span>2<\/span><\/button>/.test(html) &&
+     /data-off-kind="lights" aria-label="Off 2 lights">Off</.test(html) && /aria-label="Pause 1 speaker">Pause</.test(html), html);
   var three = H.house({ 'light.kitchen_pendants': ['on', { friendly_name: 'Kitchen Pendants' }], 'fan.bedroom_fan': ['on', { friendly_name: 'Bedroom Fan' }],
                         'media_player.kitchen_speaker': ['playing', { friendly_name: 'Kitchen Speaker' }] });
   var w3 = sized('hk-on-now-card', 'W', {}); hkGive(w3, hass(three.hass())); w3._render();
   ok('...three kinds, one under another, each named', /<span>1 Light<\/span>/.test(H.morphed(w3._plate)) && /repeat\(1,/.test(H.morphed(w3._plate)), H.morphed(w3._plate));
   html = H.morphed(draw('T')._plate);
-  ok('T: each kind with its count, and All Off', /<b>Lights<\/b><em>2<\/em>/.test(html) && /data-all/.test(html), html);
+  ok('T: each kind a button with its count, and All Off', /data-open-kind="lights"[^>]*><hk-icon[^>]*><\/hk-icon><b>Lights<\/b><em>2<\/em><\/button>/.test(html) && /data-all/.test(html), html);
   var l = draw('L');
   html = H.morphed(l._plate);
-  ok('L: each thing with its own Off (a speaker Pause), "5 on" and All Off', (html.match(/data-off="/g) || []).length === 5 && /5 on/.test(html) &&
+  ok('L: each thing a button to its sheet, with its own Off (a speaker Pause), "5 on" and All Off', (html.match(/data-off="/g) || []).length === 5 && (html.match(/data-open-thing="/g) || []).length === 5 && /5 on/.test(html) &&
      /data-off="media_player.kitchen_speaker" aria-label="Pause Kitchen Speaker">Pause/.test(html) && /data-all/.test(html), html);
   html = H.morphed(draw('XL')._plate);
   ok('XL: the count in its own column beside the list', /class="wb xl">5</.test(html) && /2 lights<br>1 speaker<br>1 fan<br>1 switch/.test(html), html);
+  // TAP ZONES (2026-11-07): a kind opens a sheet of those things (one thing: its own sheet), a thing its own sheet
+  var went = [], saveD = window.hkDetail, saveM = window.hkShell.moreInfo;
+  window.hkDetail = { openGroup: function (title, ids, o) { went.push(['group', title, ids, o && o.icon]); return true; } };
+  window.hkShell.moreInfo = function (id) { went.push(['sheet', id]); };
+  l._openKind('lights'); l._openKind('fans'); l._openKind('speakers'); l._openKind('switches'); l._openKind('doors');
+  eq('a kind opens its sheet: Lights On, one fan or speaker its own', went, [
+    ['group', 'Lights On', ['light.kitchen_pendants', 'light.porch_light'], 'mdi:lightbulb'], ['sheet', 'fan.bedroom_fan'],
+    ['sheet', 'media_player.kitchen_speaker'], ['sheet', 'switch.coffee_maker']]);
+  window.hkDetail = saveD; window.hkShell.moreInfo = saveM;
   house.calls.length = 0;
   l._off('light.porch_light');
   l._off(null, 'lights');

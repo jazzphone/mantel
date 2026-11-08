@@ -70,25 +70,26 @@
     scenes: { sizes: ['W', 'L', 'XL', 'XXL'], sources: ['scenes'], opts: { scenes: 'scenes', surface: 'surface', height: 'tile_height', color: 'boolean' }, card: function (s, o) {
       return Object.assign({ type: 'custom:hk-scenes-card', surface: o.surface }, o.scenes ? { scenes: o.scenes } : {},
                            o.height ? { height: o.height } : {}, o.color ? { color: true } : {}); } },
-    now_playing: { sizes: ['S', 'W', 'T', 'L'], sources: ['speakers'], opts: { speaker: 'speaker', background: 'np_background', tap: 'tap_target' }, card: function (s, o) {
-      // T and L: the progress above the transport (the Home app's and Apple
+    now_playing: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: ['speakers'], opts: { speaker: 'speaker', background: 'np_background', tap: 'tap_target' }, card: function (s, o) {
+      // T, L and XL: the progress above the transport (the Home app's and Apple
       // Music's order); W, T and L the volume under it (Music's widgets,
       // 2026-10-31). Its speaker's own controls, or the screen's music.
       var sp = own(o.speaker), ctl = function (parts) {
         return Object.assign({ type: 'custom:hk-media-control-card', color: 'purple', bare: true, parts: parts },
                              sp ? { entity: sp } : { entity_from: { music: true } });
       };
-      var extra = s === 'L' || s === 'T' ? { sub_card: ctl(['progress']), meta_card: ctl(['volume']) }
+      var extra = s === 'L' || s === 'T' || s === 'XL' ? { sub_card: ctl(['progress']), meta_card: ctl(['volume']) }
                 : s === 'W' ? { meta_card: ctl(['volume']) } : {};
       // (background, 2026-11-05, the owner: the blurred album unless the block asks for the card every other block has)
       return Object.assign({ type: 'custom:hk-now-playing-card', music: true }, sp ? { entity: sp } : {}, o.background === 'card' ? { background: 'card' } : {}, extra); } },
     // Extra Large: the thermostat's full controls, its sheet (2026-10-24) -- in Big Number, its face with the modes
     // beside it (hk-control.js _big, 2026-10-31)
-    thermostat: { sizes: ['S', 'T', 'L', 'XL'], sources: ['thermostats'], opts: { entity: 'climate', style: 'thermostat_style', tap: 'tap_target' }, card: function (s, o, ctx) {
+    thermostat: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: ['thermostats'], opts: { entity: 'climate', style: 'thermostat_style', tap: 'tap_target' }, card: function (s, o, ctx) {
       var id = own(o.entity) || (ctx.climate || [])[0];
       if (s === 'XL' && o.style !== 'big') return panel('climate', id ? { entity: id } : {});
       // the dial (hk-control.js), sized to the block (G2) -- or its Big Number
-      return id ? Object.assign({ type: 'custom:hk-control-card', entity: id }, o.style === 'big' ? { style: 'big' } : {})
+      // (Wide, 2026-11-07, the review: always Big Number, as Small is -- the ring has no room across a short cell)
+      return id ? Object.assign({ type: 'custom:hk-control-card', entity: id }, o.style === 'big' || s === 'W' ? { style: 'big' } : {})
                 : stand('Thermostat', 'hk:thermostat'); } },
     // (S, 2026-10-31, the owner: "a small option to the camera": one still in a cell)
     camera: { sizes: ['S', 'W', 'L', 'XL'], sources: ['cameras'], opts: { entity: 'camera', follow: 'camera_follow', follow_select: 'select', name: 'name_tag' }, card: function (s, o, ctx) {
@@ -138,7 +139,7 @@
       return Object.assign({ type: 'custom:hk-grid-clock-card' }, o.clock_style ? { clock_style: o.clock_style } : {}, o.bare ? { bare: true } : {}); } },
     // THE PAGES' OWN PANELS (2026-10-24; hk-grid-cards.js hk-grid-panel-card),
     // each read live from the house's settings as its page reads them
-    power: { sizes: ['S', 'W', 'L', 'XL'], sources: [], opts: { tap: 'tap_target' }, card: function () { return panel('power'); } },
+    power: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { tap: 'tap_target' }, card: function () { return panel('power'); } },
     // show (2026-10-31, the owner): Recently Played, the Music page's playlists (presets) or one playlist, named by `playlist`;
     // speaker: where a tap plays -- a speaker or a speaker group -- else this screen's music
     music: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { show: 'music_show', playlist: 'music_playlist', speaker: 'music_speaker', tap: 'music_tap' }, card: function (s, o) {
@@ -157,11 +158,11 @@
     room: { sizes: ['W', 'L', 'XL', 'XXL'], sources: ['rooms'], opts: { area: 'area', surface: 'surface', accessory_display: 'room_display', tap: 'tap_target' }, card: function (s, o, ctx) {
       // no room of its own: the tablet's, else the screen's first
       return { type: 'custom:hk-grid-room-card', area: o.area || TABLET_ROOM, fallback: (ctx.rooms || [])[0] || null, size: s, surface: o.surface, accessory_display: o.accessory_display || 'summary' }; } },
-    scene_suggested: { sizes: ['W', 'L'], sources: [], opts: { windows: 'windows' }, card: function (s, o) {
+    scene_suggested: { sizes: ['S', 'W', 'L'], sources: [], opts: { windows: 'windows' }, card: function (s, o) {
       return Object.assign({ type: 'custom:hk-suggested-scene-card', size: s }, o.windows ? { windows: o.windows } : {}); } },
-    action: { sizes: ['S'], sources: [], opts: { action: 'action', area: 'area', color: 'boolean' }, card: function (s, o) {
+    action: { sizes: ['S', 'W'], sources: [], opts: { action: 'action', area: 'area', color: 'boolean' }, card: function (s, o) {
       return Object.assign({ type: 'custom:hk-action-card', action: o.action || 'lock_up' }, o.area ? { area: o.area } : {}, o.color ? { color: true } : {}); } },
-    everything: { sizes: ['S', 'W', 'L', 'XL'], sources: [], opts: {}, card: function () { return { type: 'custom:hk-everything-card' }; } },
+    everything: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { tap: 'tap_target' }, card: function () { return { type: 'custom:hk-everything-card' }; } },
     // THE WIDGET BLOCKS (2026-10-31, docs/phase11/HOMEVIEW-LOOK.md "Blocks as widgets"): what is on now, a to-do
     // list, and the Energy page's rings over a period of the block's own
     on_now: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { tap: 'tap_target' }, card: function () { return { type: 'custom:hk-on-now-card' }; } },
@@ -178,7 +179,7 @@
     // -- or, in the morning, its summary of the night. Mantel's own record: a host that has no Timeline (Home
     // Assistant's HK Frontend, a person whose role has none) draws a stand-in, and the editors never offer it there
     // (hkShell.hostPage, asked here as the Timeline page's own entry is). show: auto (default), latest, digest
-    timeline: { sizes: ['W', 'L', 'XL'], sources: [], opts: { show: 'timeline_show', tap: 'tap_target' }, card: function (s, o) {
+    timeline: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { show: 'timeline_show', tap: 'tap_target' }, card: function (s, o) {
       if (!hostHas('timeline')) return stand('Recent', 'mdi:history');
       return { type: 'custom:hk-timeline-block-card', size: s, show: o.show === 'latest' || o.show === 'digest' ? o.show : 'auto' }; } },
     // HOUSE STATUS (2026-11-07, docs/phase11/HOUSE-STATUS.md, hk-house-status.js): this screen's status chips as

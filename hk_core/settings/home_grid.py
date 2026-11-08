@@ -71,9 +71,9 @@ CATALOG: dict[str, dict[str, Any]] = {
                                                                               "height": "tile_height", "color": "boolean"}},
     "scene": {"sizes": ("S", "W"), "sources": (), "opts": {"scene": "scene", "color": "boolean"}},
     "scenes": {"sizes": ("W", "L", "XL", "XXL"), "sources": ("scenes",), "opts": {"scenes": "scenes", "surface": "surface", "height": "tile_height", "color": "boolean"}},
-    "now_playing": {"sizes": ("S", "W", "T", "L"), "sources": ("speakers",), "opts": {"speaker": "speaker", "background": "np_background", "tap": "tap_target"}},
+    "now_playing": {"sizes": ("S", "W", "T", "L", "XL"), "sources": ("speakers",), "opts": {"speaker": "speaker", "background": "np_background", "tap": "tap_target"}},
     # style (2026-10-30): the dial, or Big Number (docs/phase11/HOMEVIEW-LOOK.md, Phase C)
-    "thermostat": {"sizes": ("S", "T", "L", "XL"), "sources": ("thermostats",), "opts": {"entity": "climate", "style": "thermostat_style", "tap": "tap_target"}},
+    "thermostat": {"sizes": ("S", "W", "T", "L", "XL"), "sources": ("thermostats",), "opts": {"entity": "climate", "style": "thermostat_style", "tap": "tap_target"}},
     # (S, 2026-10-31, the owner: "a small option to the camera": one still in a cell)
     "camera": {"sizes": ("S", "W", "L", "XL"), "sources": ("cameras",),
                # follow (2026-10-24): swiping all cameras, turn to the one a selector or the latest motion picks
@@ -98,7 +98,7 @@ CATALOG: dict[str, dict[str, Any]] = {
     # Large and Extra Large (2026-10-24): its controls with Clean Areas
     "vacuum": {"sizes": ("S", "W", "L", "XL"), "sources": (), "opts": {"entity": "vacuum"}},
     "clock": {"sizes": ("S", "W", "T", "L", "XL", "XXL"), "sources": (), "opts": {"clock_style": "clock_style", "bare": "boolean", "tap": "tap_target"}},
-    "power": {"sizes": ("S", "W", "L", "XL"), "sources": (), "opts": {"tap": "tap_target"}},
+    "power": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"tap": "tap_target"}},
     # show (2026-10-31, the owner): what it shows -- Recently Played (none stored), the Music page's playlists (presets), or
     # one playlist, named by `playlist` (its name in Music's settings)
     # tap (2026-11-01, the owner): When Tapped's choices, and Choose a Playlist -- every playlist in the Music page's
@@ -110,10 +110,10 @@ CATALOG: dict[str, dict[str, Any]] = {
     "water": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"tap": "tap_target"}},
     # the new cards (G3)
     "room": {"sizes": ("W", "L", "XL", "XXL"), "sources": ("rooms",), "opts": {"area": "area", "surface": "surface", "accessory_display": "room_display", "tap": "tap_target"}},
-    "scene_suggested": {"sizes": ("W", "L"), "sources": (), "opts": {"windows": "windows"}},
+    "scene_suggested": {"sizes": ("S", "W", "L"), "sources": (), "opts": {"windows": "windows"}},
     # `area`: the room an action keeps to (All Lights Off in one room); the others ignore it
-    "action": {"sizes": ("S",), "sources": (), "opts": {"action": "action", "area": "area", "color": "boolean"}},
-    "everything": {"sizes": ("S", "W", "L", "XL"), "sources": (), "opts": {}},
+    "action": {"sizes": ("S", "W"), "sources": (), "opts": {"action": "action", "area": "area", "color": "boolean"}},
+    "everything": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"tap": "tap_target"}},
     # THE WIDGET BLOCKS (2026-10-31, docs/phase11/HOMEVIEW-LOOK.md "Blocks as widgets"): what is on now, a to-do
     # list, and the Energy page's rings over a period of the block's own
     "on_now": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"tap": "tap_target"}},
@@ -125,7 +125,7 @@ CATALOG: dict[str, dict[str, Any]] = {
     # RECENT (2026-11-03, docs/phase19/HOUSE-TIMELINE.md "The views"): the House Timeline's last rows. Mantel's own: a
     # host with no Timeline (Home Assistant) never offers it and draws a stand-in for a layout that has one. show:
     # Automatic (the morning summary from 5 to 11 AM, the rows after), Latest Events, or Morning Summary
-    "timeline": {"sizes": ("W", "L", "XL"), "sources": (), "opts": {"show": "timeline_show", "tap": "tap_target"}},
+    "timeline": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"show": "timeline_show", "tap": "tap_target"}},
     # HOUSE STATUS (2026-11-07, docs/phase11/HOUSE-STATUS.md): this screen's status chips as sections, each a tap to its
     # chip's page, the rest in a sheet. No options: what it shows is the screen's Status Chips (chips, chips_quiet,
     # chips_extra, chips_custom), drawn whether or not the screen shows its chip row. No When Tapped: each section

@@ -379,7 +379,7 @@ class HkControlCard extends HTMLElement {
          block's name is), the reading one line under it, and the ring as
          wide as the block -- into the side insets -- with the setpoint the
          largest type on it. The mode is said on the face, not a button. */
-      :host([size=T]){--hk-tstat-ring:min(100cqw - 20px, (100cqh - 64px - var(--hk-pager-safe,0px)) * 1.163);
+      :host([size=T]){--hk-tstat-ring:min(100cqw - var(--hk-pad-l,10px) - var(--hk-pad-r,10px), (100cqh - 64px - var(--hk-pager-safe,0px)) * 1.163);
         --hk-tstat-val:clamp(26px,calc(var(--hk-tstat-ring) * .17),42px)}
       :host([size=T]) .tstat-modes{display:none}
       :host([size=T]) .tstat-name{all:unset;position:relative;display:flex;align-items:center;gap:5px;min-width:0;max-width:100%;
@@ -552,7 +552,8 @@ class HkControlCard extends HTMLElement {
       /* THE PICKED TARGET in heat and cool: a dot under its digits, not a rule
          (the owner, 2026-10-30: "not a fan of the line under 66"); the dash
          between the two half an en dash, drawn, not the font's */
-      .big .pk{all:unset;cursor:pointer;padding:0 .04em}
+      /* (inline-block, 2026-11-07, the review: the dot is centered on the picked number's own box, not an inline fragment of it) */
+      .big .pk{all:unset;display:inline-block;cursor:pointer;padding:0 .04em}
       .big .bn .pk.sel::before{content:"";position:absolute;left:50%;bottom:-.06em;width:.075em;height:.075em;min-width:8px;min-height:8px;
         transform:translateX(-50%);border-radius:50%;background:${window.hkCards.v('ink')}}
       .big .ds{display:inline-block;width:.26em;height:.065em;min-height:4px;border-radius:calc(.065em / 2);background:currentColor;vertical-align:.3em;margin:0 .07em}
@@ -609,8 +610,11 @@ class HkControlCard extends HTMLElement {
       :host([size=T]) .big .tt b{font-size:min(66px,16cqh)}
       /* ...Tall's modes: a row of four, Heat, Cool, Auto, Off, each 44 px,
          the one it is in white -- out into the inset a little, so four fit */
-      .big .mr{flex:none;align-self:center;width:176px;height:44px;margin:12px 0;display:flex;justify-content:space-between;border-radius:22px;background:${window.hkCards.v('key')}}
-      .big .mr button{all:unset;position:relative;box-sizing:border-box;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;color:${window.hkCards.v('ink')};cursor:pointer;-webkit-tap-highlight-color:transparent}
+      .big .mr{flex:none;align-self:stretch;height:44px;margin:12px 0;display:flex;justify-content:space-between;border-radius:22px;background:${window.hkCards.v('key')}}
+      /* (the row keeps the block's inset, 2026-11-07, the review: 176 px wide it ran 8 px into it on a 196 cell -- four keys share the
+         width, a hair under 44 each, with a hit area out to 44) */
+      .big .mr button::after{content:"";position:absolute;left:-2px;right:-2px;top:0;bottom:0}
+      .big .mr button{all:unset;position:relative;box-sizing:border-box;flex:1 1 0;min-width:0;height:44px;border-radius:22px;display:grid;place-items:center;color:${window.hkCards.v('ink')};cursor:pointer;-webkit-tap-highlight-color:transparent}
       .big .mr button.on{background:#fff;color:#1c1c1e}
       .big .mr hk-icon{width:22px;height:22px;--mdc-icon-size:22px;display:block;line-height:0}
       .big .mr button:focus-visible{outline:2px solid ${window.hkCards.v('ink-2')};outline-offset:2px}
@@ -628,6 +632,23 @@ class HkControlCard extends HTMLElement {
          its 17 px between them) */
       :host([size=T]) .big .ff{margin:0 calc(12px - var(--hk-pad-r,18px)) 0 calc(12px - var(--hk-pad-l,18px))}
       .big .ff .nm i{${window.hkCards.typeCss('caption')};font-weight:400;line-height:16px}
+      /* WIDE (2026-11-07, the review): Big Number always, as Small is -- the number large over the foot (the arrows
+         either side of the name) in the left part, the modes a 2 x 2 of 44 px keys at the right, as Extra Large's
+         column has them; the face's and the keys' room is the block's inset, so a tile cell (150 tall) holds both */
+      :host([size=W]) .big .in{right:calc(var(--hk-pad-r,18px) + 110px);padding-right:0}
+      :host([size=W]) .big .one b{font-size:min(88px,calc((100cqh - var(--hk-pad-t,18px) - var(--hk-pad-b,18px) - 44px) * .8),30cqw)}
+      :host([size=W]) .big .one.long b{font-size:min(60px,calc((100cqh - var(--hk-pad-t,18px) - var(--hk-pad-b,18px) - 44px) * .6),20cqw)}
+      :host([size=W]) .big .tt{min-width:68px;min-height:60px}
+      :host([size=W]) .big .tt b{font-size:min(56px,calc((100cqh - var(--hk-pad-t,18px) - var(--hk-pad-b,18px) - 44px - 26px) * .9))}
+      :host([size=W]) .big .tg{gap:8px}
+      :host([size=W]) .big .ff .ar svg{width:24px;height:24px}
+      .big .mq{position:absolute;top:var(--hk-pad-t,18px);bottom:var(--hk-pad-b,18px);right:var(--hk-pad-r,18px);width:96px;display:grid;
+        grid-template-columns:44px 44px;grid-auto-rows:44px;gap:8px;align-content:center}
+      .big .mq button{all:unset;position:relative;box-sizing:border-box;width:44px;height:44px;border-radius:var(--hk-inner-radius,12px);display:grid;place-items:center;
+        background:${window.hkCards.v('key')};color:${window.hkCards.v('ink')};cursor:pointer;-webkit-tap-highlight-color:transparent}
+      .big .mq button.on{background:#fff;color:#1c1c1e}
+      .big .mq button:focus-visible{outline:2px solid ${window.hkCards.v('ink-2')};outline-offset:2px}
+      .big .mq hk-icon{width:22px;height:22px;--mdc-icon-size:22px;display:block;line-height:0}
       /* EXTRA LARGE: the face, and the modes as a column the width of what is
          left beside it, the reading inside centred under them */
       :host([size=XL]) .big .face{right:calc(var(--hk-pad-r,18px) + 200px)}
@@ -645,8 +666,8 @@ class HkControlCard extends HTMLElement {
       .big .modes{position:absolute;inset:0;display:none;flex-direction:column;justify-content:center;gap:8px;padding:16px;
         background:${window.hkCards.OVER.solid};border-radius:inherit}
       .big.choosing .modes{display:flex}
-      :host([size=S]) .big .modes{display:none;grid-template-columns:1fr 1fr;align-content:center;gap:8px;padding:14px}
-      :host([size=S]) .big.choosing .modes{display:grid}
+      :host([size=S]) .big .modes,:host([size=W]) .big .modes{display:none;grid-template-columns:1fr 1fr;align-content:center;gap:8px;padding:14px}
+      :host([size=S]) .big.choosing .modes,:host([size=W]) .big.choosing .modes{display:grid}
       .big .modes .segment{flex:none;height:44px;border:0;border-radius:22px;color:${window.hkCards.v('ink')};font-size:15px;font-weight:600}
       .big .modes .segment.active{background:#fff;color:#1c1c1e;box-shadow:none}
     `;
@@ -674,7 +695,7 @@ class HkControlCard extends HTMLElement {
     if (this._heater()) return this._waterDial(s);
     // (a Small block is Big Number whatever its style: a 196 x 150 tile has no room for the ring, its range
     // ran across it and the name and modes were cut -- the lead, 2026-10-31)
-    if ((this._config.style === "big" || this.getAttribute('size') === "S") && this.hasAttribute('size')) return this._big(s);
+    if ((this._config.style === "big" || this.getAttribute('size') === "S" || this.getAttribute('size') === "W") && this.hasAttribute('size')) return this._big(s);
     // BIG NUMBER ON A PAGE OR IN A SHEET (`big: true`, no block around it; 2026-11-07, the owner: "an option for climate
     // page settings to use either the HomeView Style or this style of thermostat cards for the climate page and detail
     // sheets" -- look.thermostat_style): Large's face, as square as a Large block, its own height
@@ -815,7 +836,7 @@ class HkControlCard extends HTMLElement {
     return (area && c?.areas?.[area]?.name) || "";
   }
   _big(s) {
-    const a = s?.attributes || {}, mode = s?.state || "off", sz = ["S", "T", "XL"].includes(this.getAttribute("size")) ? this.getAttribute("size") : "L";
+    const a = s?.attributes || {}, mode = s?.state || "off", sz = ["S", "W", "T", "XL"].includes(this.getAttribute("size")) ? this.getAttribute("size") : "L";
     let lo = Number(a.target_temp_low), hi = Number(a.target_temp_high), single = Number(a.temperature);
     const hold = this._hold;
     if (hold && Date.now() < hold.until) {
@@ -837,7 +858,7 @@ class HkControlCard extends HTMLElement {
     const name = this._esc(this._name()), room = this._esc(this._room()), how = this._esc(this._pretty(mode));
     // (a reading the entity lacks is null, and Number(null) is 0: not a reading)
     const read = v => v == null || v === "" ? NaN : Number(v), cur = read(a.current_temperature), hum = read(a.current_humidity);
-    const sub = sz === "S" || sz === "T" ? how + (Number.isFinite(cur) ? " · " + Math.round(cur) + "°" : "")
+    const sub = sz === "S" || sz === "W" || sz === "T" ? how + (Number.isFinite(cur) ? " · " + Math.round(cur) + "°" : "")
       : sz === "XL" ? (room || how) : (room ? room + " · " + how : how);
     const arrow = (dir, d, label) => `<button class="ar" type="button" data-big-step="${dir}" aria-label="${label}"${idle ? " disabled" : ""}>` +
       `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${d}"/></svg></button>`;
@@ -852,8 +873,8 @@ class HkControlCard extends HTMLElement {
       `${words && Number.isFinite(cur) ? `<span>Inside ${Math.round(cur)}°${Number.isFinite(hum) ? ` · ${Math.round(hum)}% humidity` : ""}</span>` : ""}</div>`;
     const top = `<div class="surface big${range ? " range" : ""}${idle ? " idle" : ""}${this._bigModes ? " choosing" : ""}" data-big>`;
     const label = range ? "" : (mode === "off" ? "Off" : t(single) + " degrees") + ", press and hold for the modes";
-    // SMALL AND TALL: the targets in a column with the foot
-    if (sz === "S" || sz === "T") {
+    // SMALL, WIDE AND TALL: the targets in a column with the foot (Wide: the modes at its right, a 2 x 2)
+    if (sz === "S" || sz === "W" || sz === "T") {
       const tt = (which, v, verb, kind) => `<button class="tt ${kind}${pick === which ? " sel" : ""}" type="button" data-big-pick="${which}" aria-pressed="${pick === which}" aria-label="${verb} ${t(v)} degrees">` +
         `<small>${sz === "T" ? verb : kind === "heat" ? "Heat" : "Cool"}</small><b>${t(v)}</b></button>`;
       const word = { heat: "Heat to", cool: "Cool to" }[mode] || "Target", kind = mode === "heat" || mode === "cool" ? " " + mode : "";
@@ -864,7 +885,7 @@ class HkControlCard extends HTMLElement {
         <div class="tg" data-big-num aria-label="${label}">${tg}</div>
         ${sz === "T" ? four("mr", false) : ""}
         ${foot("ff")}
-      </div>${held}</div>`;
+      </div>${sz === "W" ? four("mq", false) : ""}${held}</div>`;
     }
     const pk = (which, v, verb) => `<button class="pk${pick === which ? " sel" : ""}" type="button" data-big-pick="${which}" aria-pressed="${pick === which}" aria-label="${verb} ${t(v)} degrees">${t(v)}</button>`;
     const bn = mode === "off" ? "Off" : idle ? "—" : range ? pk("low", lo, "Heat to") + '<span class="ds" aria-hidden="true"></span>' + pk("high", hi, "Cool to") : t(single);

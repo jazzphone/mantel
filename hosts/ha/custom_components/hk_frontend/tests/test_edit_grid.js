@@ -214,7 +214,7 @@ function () {
   eq('every block has its cover', cells(VIEW).map(function (c) { return !!coverOf(VIEW, c.attrs['data-id']); }), [true, true, true, true, true, true, true]);
   ok('...a minus on each', !!btnOf(VIEW, 'clock', 'remove') && btnOf(VIEW, 'clock', 'remove').attrs['aria-label'] === 'Remove Clock');
   ok('...a size where the card has more than one', !!btnOf(VIEW, 'clock', 'size') && !btnOf(VIEW, 'timers', 'size') === false);
-  eq('...none where it has one (an action is Small only)', !!btnOf(VIEW, 'lock', 'size'), false);
+  eq('...an action has Small and Wide, so it has one too (2026-11-07)', !!btnOf(VIEW, 'lock', 'size'), true);
   eq('nothing to save yet', s.saves(), []);
   eq('the bar has Add', s.parts.some(function (p) { return (p.buttons || []).some(function (b) { return b.label === 'Add'; }); }), true);
 
