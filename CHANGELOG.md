@@ -4,6 +4,9 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Fixed**
+- **No more flash of the last page's blur behind the cards after a swipe** (Pre-rendered glass, Bright or Blur). As a drag began, the page being left was repainted in the next page's sky, and the page landed on wore the page it left for a frame or two before its own; coming back, the first page wore the wrong blur until it was repainted. Each page now keeps its own picture for the whole swipe, and the fresh one fades in once it lands.
+
 ## 0.1.152 - 2026-11-08
 
 **Changed**

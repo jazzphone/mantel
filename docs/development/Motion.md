@@ -297,6 +297,20 @@ What lost them, each found in the bench's per-flick record (the swipe's own `why
 The bench is `.ci/motion-evidence/flick-2026-11-08` (flick.cjs: pages reached, refusals and their `why`, the first move
 after each touch, long frames; overlap.cjs: no page passes another, frame by frame).
 
+### The wrong picture at the edges of a swipe (2026-11-08)
+
+After the release the owner saw "pop in from the previous screen's blur behind the cards" (Bright Glass, Pre-rendered).
+Probed frame by frame (which picture each page's layers wear; the lab's Living Room HomeView, Bright Pre-rendered,
+4x CPU, slow drags and flicks, Chromium and WebKit), two causes:
+
+| When | What it wore | Why | Now |
+|---|---|---|---|
+| The drag begins | the page being left: the next page's sky (0.2/255 off Weather's, 5 off Home's), remembered as its own | the swipe paints the next page's sky under a still copy (hk-sky.js swipeCover), hk-sky-change said so, and preTick painted it as this page's | preTick waits while `hkSky.swipingTo()` names a page |
+| It lands | Weather: Home's picture for 66 ms, then its own | `arrive` puts the page back (along null) before the address and the sky change, so "the page's picture" was still Home's | along(el, null) keeps the picture of the page it was moved as |
+
+After: Home wears its own picture until it is gone, Weather its remembered one until its fresh one fades in. (The lab's
+landprobe.cjs is in .ci/motion-evidence/flick-2026-11-08.)
+
 ## What a browser here cannot say
 
 Headless Chromium and desktop WebKit on a fast Mac approximate a tablet; slowing the CPU approximates it further. None of
