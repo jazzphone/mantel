@@ -113,10 +113,10 @@ CATALOG: dict[str, dict[str, Any]] = {
     "scene_suggested": {"sizes": ("S", "W", "T", "L"), "sources": (), "opts": {"windows": "windows"}},
     # `area`: the room an action keeps to (All Lights Off in one room); the others ignore it
     "action": {"sizes": ("S", "W"), "sources": (), "opts": {"action": "action", "area": "area", "color": "boolean"}},
-    "everything": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"tap": "tap_target"}},
+    "everything": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"tap": "tap_target", "more": "everything_more"}},
     # THE WIDGET BLOCKS (2026-10-31, docs/phase11/HOMEVIEW-LOOK.md "Blocks as widgets"): what is on now, a to-do
     # list, and the Energy page's rings over a period of the block's own
-    "on_now": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"tap": "tap_target"}},
+    "on_now": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"tap": "tap_target", "open": "on_now_open"}},
     "todo": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"entity": "todo", "tap": "tap_target"}},
     "energy_rings": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"period": "period", "tap": "tap_target"}},
     # THE INTERCOM (2026-11-03, docs/phase17/INTERCOM.md): a button that opens its sheet; Wide also shows the last rooms
@@ -409,6 +409,26 @@ def _np_background(v: Any) -> str:
     return v
 
 
+# ON NOW'S CATEGORIES (2026-11-08, the owner: "Each category should either show a pop up or go to those pages... users
+# decisions"): a tapped kind shows its sheet (the default) or goes to its page
+ON_NOW_OPENS = ("sheet", "page")
+# EVERYTHING'S REST (2026-11-08, the owner: "scroll within the card or go to the page with the + button"): the last
+# place, "+N", opens the page (the default, as before) or the places scroll in the block
+EVERYTHING_MORE = ("page", "scroll")
+
+
+def _on_now_open(v: Any) -> str:
+    if v not in ON_NOW_OPENS:
+        raise GridInvalid("grid_option")
+    return v
+
+
+def _everything_more(v: Any) -> str:
+    if v not in EVERYTHING_MORE:
+        raise GridInvalid("grid_option")
+    return v
+
+
 def _clock_style(v: Any) -> str:
     if v not in CLOCK_FACES:
         raise GridInvalid("grid_option")
@@ -431,6 +451,8 @@ OPTION_KINDS = {
     "tap_target": _tap_target,
     "music_tap": _music_tap,
     "np_background": _np_background,
+    "on_now_open": _on_now_open,
+    "everything_more": _everything_more,
     "security_presentation": _security_presentation,
     "security_members": _security_members,
     "tv_channel": _tv_channel,

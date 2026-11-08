@@ -174,7 +174,11 @@ function () {
   var t = C.table();
   eq('the options each declares (home_grid.CATALOG\'s: a pytest holds them equal)',
      [t.room.opts, t.scene_suggested.opts, t.action.opts, t.everything.opts],
-     [{ area: 'area', surface: 'surface', accessory_display: 'room_display', tap: 'tap_target' }, { windows: 'windows' }, { action: 'action', area: 'area', color: 'boolean' }, { tap: 'tap_target' }]);
+     [{ area: 'area', surface: 'surface', accessory_display: 'room_display', tap: 'tap_target' }, { windows: 'windows' }, { action: 'action', area: 'area', color: 'boolean' }, { tap: 'tap_target', more: 'everything_more' }]);
+  // (2026-11-08, round two) Everything's More Places and On Now's Categories, carried into the card only when not the default
+  eq('...Everything\'s More Places, On Now\'s Categories', [t.on_now.opts, C.config({ card: 'everything', size: 'L', opts: { more: 'scroll' } }, ctx).more,
+     C.config({ card: 'everything', size: 'L', opts: { more: 'page' } }, ctx).more, C.config({ card: 'on_now', size: 'L', opts: { open: 'page' } }, ctx).open,
+     C.config({ card: 'on_now', size: 'L', opts: { open: 'sheet' } }, ctx).open], [{ tap: 'tap_target', open: 'on_now_open' }, 'scroll', undefined, 'page', undefined]);
   // (2026-10-31) the widget blocks, and Scenes' and Accessories' Height and Color
   eq('...the widget blocks and their sizes', [t.on_now.sizes, t.todo.sizes, t.energy_rings.sizes, t.energy_rings.opts, t.todo.opts],
      [['S', 'W', 'T', 'L', 'XL'], ['S', 'W', 'T', 'L', 'XL'], ['S', 'W', 'T', 'L', 'XL'], { period: 'period', tap: 'tap_target' }, { entity: 'todo', tap: 'tap_target' }]);

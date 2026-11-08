@@ -584,6 +584,22 @@ def test_a_layout_is_cut_to_the_entities_a_person_may_view():
     assert HG.layout(cut)["items"] == cut["items"]
 
 
+def test_on_now_categories_and_everythings_more_places():
+    """Round two (2026-11-08, the owner): On Now's Categories -- a tapped kind shows its sheet (`sheet`, also what no key
+    means) or goes to its page (`page`); Everything's More Places -- "+N" opens the page (`page`, as before) or the places
+    scroll in the block (`scroll`). Each its own block's, nothing else."""
+    for key, opt, values in (("on_now", "open", ("sheet", "page")), ("everything", "more", ("page", "scroll"))):
+        for value in values:
+            b, errors = write(grid(block("a1", key, "L", [0, 0], opts={opt: value})))
+            assert errors == {} and b["home_grid"]["items"][0]["opts"][opt] == value
+        for bad in ("popup", "", True, None, [values[1]]):
+            _, errors = write(grid(block("a1", key, "L", [0, 0], opts={opt: bad})))
+            assert errors, (key, bad)
+    _, errors = write(grid(block("a1", "house_status", "L", [0, 0], opts={"open": "page"})))
+    assert errors
+    assert HG.CATALOG["on_now"]["opts"]["open"] == "on_now_open" and HG.CATALOG["everything"]["opts"]["more"] == "everything_more"
+
+
 def test_now_playings_background_is_the_album_or_the_card():
     """Now Playing's Background (2026-11-05): Blurred Album (`album`, also what no key means) or Card, on a block of
     its own and on a rule's card; nothing else."""

@@ -300,3 +300,104 @@ How it was checked: every state in the audit (`home_grid_audit.py --state NAME`,
 - **Thermostat Tall, Big Number (hk-control.js).** Root cause of "the modes get hit": the name's hit area (`.nm::after`) was anchored to nothing -- `all:unset` after `position:relative` left `.nm` static, so the block's whole box was the name's key and a tap on a mode could open the sheet. Fixed (anchored), and the hit areas of the arrows, name and modes no longer overlap. The card is rebuilt round its centre of weight: the name heads the block, the target (a range's two, not stretched) with its arrows either side, and one 44 px Mode key at the foot that opens the thermostat sheet, where the modes are. Tried and dropped: the four modes as a row on top (the owner: "throws the card off") and as a row at the foot (six controls on a Tall block). The dial's Tall keeps its Mode key and ring; nothing of it overlaps.
 - **Moved to a sheet:** the thermostat's four modes (Tall), the vacuum's Dock (Small) and its room picking (Tall and Wide: a new sheet).
 - **Left as they were, said so:** the running timers' columns (the owner likes them); the foot key rows (Clean beside Dock) take the block's inset width, which is a row's designed width at that size, not a stretch.
+## Round two (2026-11-08): On Now, House Status, Everything
+
+What the owner said, on his tablets:
+
+- **On Now.** "The wide on now card isn't really utilizing its space very well either with the large number and the 4
+  pills.. These are pretty small touch areas and it just looks rushed in design, but the tall card looks good! The
+  large card seems cluttered... I prefer the categories, but more info for each category in the larger cards makes
+  more sense... vs just showing only lights. Each category should either show a pop up or go to those pages... users
+  decisions."
+- **House Status.** "The Home Status cards across the board really need a redesign for all sizes... I like the
+  information, but the layouts don't follow anything else. It would be great if On Now and Home Status shared a
+  similar look, wherever that may land."
+- **Everything.** "The everything cards should offer to the user if they want to scroll within the card or go to the
+  page with the + button."
+- Then, for every block: things that do not fit move to a sheet; **nothing stretches** ("entities in a card should
+  maintain dimensions"); and a fixed size must still fill the plate deliberately, weighted and centered.
+
+### One look for On Now and House Status
+
+**First pass, tiles.** Three directions were drawn on the fictional house at 1280 x 800 (screenshots `dirA`, `dB`, `dC`):
+A, category tiles (the Room block's inner tiles); B, rows on hairlines; C, HomeView's centered tiles. A was built at
+every size with fixed tile sizes. The lead's review found the two blocks shared a material but not a tile layout, names
+cut in narrow tiles ("Doors & Win..."), and a reading said twice ("All Locked / All locked"); then the owner: "I'm not a
+fan of the new On Now layout either... we don't necessarily have to use Tiles to display this data... Let's be
+intentional on layout here."
+
+**Second pass, a headline over lines** (what shipped), built from the block he did like, On Now's first Tall:
+
+- **The headline answers the glance.** On Now: the count with "On" (the hero's 44, or 72 where it has a column or a
+  square Tall of its own); quiet, a calm "All Off" said once. House Status: the one thing that matters most in words
+  ("1 Window Open", "8:38 Left"), its section and how many more to check under it; nothing to check, "All Good" with a
+  green check.
+- **The categories as lines, not boxes.** Each a row: the glyph on a disc -- lit in the kind's color while something is
+  on (the Home app's lit glyph), a neutral disc at rest -- the name, the count or reading at the end, and a short line
+  of where under the name (the rooms; on Large and Extra Large also the brightness as a small bar, the fan's speed, the
+  song). The whole row is the tap; hairlines between; a kind at rest reads in the secondary ink, never hidden.
+- **Nothing stretches.** Rows are 44 on Wide and Tall, 56 on Large and Extra Large (48 on a tile cell's Large); the group
+  is centered where it is shorter than the block.
+
+Two ways were drawn for Wide and Large (busy, square and tile cells; `options/`):
+
+- Wide: the headline in its third with the kinds as lines two across, or as their discs with the count and name under
+  each (the Batteries widget's way). Lines two across cut "Speakers" and "Switches" to "Spe..." and "S..."; **the discs
+  won** for On Now. House Status keeps lines on Wide (its readings are words: "All Locked", "1 Window"), one across.
+- Large: the headline and a sentence over the lines, or the headline in a column beside them. Beside them squeezed the
+  label ("HOU...") and cut every line's detail; **the headline on top won**, and the column is Extra Large's alone.
+
+| | On Now | House Status |
+| --- | --- | --- |
+| S | the count over the kinds' discs | the headline in words, its section and how many more |
+| W | the count in a third, All Off (44 px) at its foot; the kinds as discs with counts | the headline in a third, "+N more" at its foot; three lines (two on tiles) |
+| T | the label and All Off, the count (72 on square cells), the four kinds as lines | the label and "+N", the headline, six lines (four on tiles) |
+| L | the count and a sentence ("6 lights, 1 speaker and 1 fan"), the kinds as lines of 56 with the brightness bar and the song | the headline and its sentence, four lines of 56 (three of 48 on tiles) |
+| XL | a column: the label, the count at 72, the sentence, All Off; the lines beside it | the same column with "+N more", six lines beside it (five on tiles) |
+
+The lead's last review: Extra Large's column is one group (the headline, its sentence, its key) centered on the lines'
+own center, not the headline at the top and All Off at the foot with bare glass between; quiet, On Now's Extra Large
+says "All Off", "Nothing is on" and shows the kinds' discs at rest; House Status's Small puts the leading section's
+glyph on its lit disc (a green check when all is good) over the words, as a HomeView tile has.
+
+### On Now
+
+- Every kind the house has is a line, always in the same place (Lights, Speakers, Fans, Switches): with something on,
+  its disc lit, its count, where; at rest, a neutral disc, "Off" ("Idle" for speakers) and how many it has. So the quiet
+  house is the same layout, finished, and says "All Off" once -- never "0" with "Nothing is on" twice.
+- **Moved to a sheet:** Wide's per-kind Off keys and Large's per-thing rows with their Off keys -- the small targets he
+  called rushed and cluttered. A kind's sheet (or page) has every thing with its own control. All Off stays: the label
+  row's key on Tall and Large, a 44 px key at the foot of the count's column on Wide and Extra Large.
+- **Categories** (`open`, both mirrors; the editor's "Categories: Show a Sheet / Go to Its Page"): Show a Sheet (the
+  default) opens the things of that kind that are on -- or, none on, all of them; one thing, its own sheet -- and Go
+  to Its Page opens the kind's page on this screen (Lights; Speakers the music page; Fans the Climate page; a kind with
+  no page here, its sheet).
+
+### House Status
+
+Keeps its information, order and taps (each line opens its chip's page; Small, "+N more" and the plate open the sheet).
+Its label takes the Security page's teal. The sheet is unchanged.
+
+### Everything
+
+**More Places** (`more`, both mirrors; the editor's "More Places: + Opens the Page / Scroll in the Block", not on
+Small): + Opens the Page (the default, today's behavior: the last place, "+N", opens More -- and the Pages screen
+instead, where the screen has one) or Scroll in the Block (every place, the rows the size shows at a time, the rest
+scrolled up to; a row stops where a row starts; up and down is the block's, sideways stays the pager's).
+
+### Checked
+
+- `home_grid_audit.py` for the three keys, `--state busy` and `quiet`, Blur Day and Flat Light, square HomeView and
+  tiles, 1280 x 800, and Everything with `--opts everything='{"more":"scroll"}'` (its "text hidden" lines are the
+  places scrolled out of sight, on purpose).
+- `block_taps_check.py --parts` (new: each part that stands for something is tapped too -- On Now's kinds, House
+  Status's lines, Everything's "+N" -- and where it went printed; `--opts` sets a block's options): every kind under
+  Show a Sheet and Go to Its Page, every line, "+N", at 1280 x 800 and 390 x 844, both cells.
+- `house_status_check.py` (WebKit and Chromium, the blocks and the sheet at every window size).
+
+### For the controls audit
+
+The label row's key (All Off on Tall and Large, "+N more") is a 24 px capsule whose 44 px reach (`::after`) goes 14 px
+up into the inset and 6 px down: it ends 2 px above the first line's hit area and never overlaps it. The ~8 px clear
+between hit areas the new rule asks for would need a taller label row on every block; it was left at 2 px. Wide's and
+Extra Large's All Off is a 44 px key of its own.

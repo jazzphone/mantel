@@ -48,6 +48,8 @@ load(HK_ROOT + '/frontend/cards/hk-room.js');
 load(HK_ROOT + '/frontend/cards/hk-strategy.js');
 load(HK_ROOT + '/frontend/cards/hk-grid-catalog.js');
 load(HK_ROOT + '/frontend/cards/hk-grid-cards.js');
+// (On Now draws with House Status's summary tiles, round two: its file is On Now's kit)
+load(HK_ROOT + '/frontend/cards/hk-house-status.js');
 window.hkCards.createCard = function (cfg, client) {
   var el = window.hkCards.create(cfg);
   if (el && client) el.hkSetClient(client);
@@ -289,27 +291,25 @@ function () {
      o.things.every(function (t) { return ['light.all_downstairs', 'light.den_lamp', 'media_player.den_speaker', 'switch.car_charging'].indexOf(t.id) < 0; }));
   eq('...the room off the front of a name, unless only what it is would be left', o.things.filter(function (t) { return t.kind.key === 'lights'; }).map(function (t) { return [t.name, t.room]; }),
      [['Pendants', 'Kitchen'], ['Porch Light', 'Porch']]);
-  var draw = function (size) { var c = sized('hk-on-now-card', size, {}); hkGive(c, hass()); c._render(); return c; };
+  eq('...and every kind the house has, each with all of its things (a tile at rest says it has them)', o.every.map(function (x) { return x.kind.key + ' ' + x.ids.length + '/' + x.all.length; }),
+     ['lights 2/2', 'speakers 1/2', 'fans 1/1', 'switches 1/1']);
+  var draw = function (size, cfg) { var c = sized('hk-on-now-card', size, cfg || {}); hkGive(c, hass()); c._render(); return c; };
+  // ROUND TWO (2026-11-08): the headline over the kinds as lines, House Status's parts (hk-house-status.js)
   var html = H.morphed(draw('S')._plate);
-  ok('S: the count large and what it is', /class="wb xl">5</.test(html) && /2 lights<br>1 speaker · 1 fan · 1 switch/.test(html), html);
+  ok('S: the count large over the kinds\' discs', /<span class="n">5<\/span><span class="u">On<\/span>/.test(html) && (html.match(/class="dk"/g) || []).length === 4, html);
   html = H.morphed(draw('W')._plate);
-  ok('W: each kind a chip -- its body opens the kind, its own small key turns it off; four two across, the glyph and the number',
-     (html.match(/data-open-kind="/g) || []).length === 4 && (html.match(/data-off-kind="/g) || []).length === 4 &&
-     /data-open-kind="lights" aria-label="Open 2 lights"><hk-icon icon="mdi:lightbulb"[^>]*><\/hk-icon><span>2<\/span><\/button>/.test(html) &&
-     /data-off-kind="lights" aria-label="Off 2 lights">Off</.test(html) && /aria-label="Pause 1 speaker">Pause</.test(html), html);
-  var three = H.house({ 'light.kitchen_pendants': ['on', { friendly_name: 'Kitchen Pendants' }], 'fan.bedroom_fan': ['on', { friendly_name: 'Bedroom Fan' }],
-                        'media_player.kitchen_speaker': ['playing', { friendly_name: 'Kitchen Speaker' }] });
-  var w3 = sized('hk-on-now-card', 'W', {}); hkGive(w3, hass(three.hass())); w3._render();
-  ok('...three kinds, one under another, each named', /<span>1 Light<\/span>/.test(H.morphed(w3._plate)) && /repeat\(1,/.test(H.morphed(w3._plate)), H.morphed(w3._plate));
+  ok('W: the count in its column with All Off at its foot; the kinds as discs with their counts, each opening it',
+     (html.match(/class="di" data-open-kind="/g) || []).length === 4 && /class="sm-k f" data-all/.test(html) && !/data-off-kind=/.test(html) && /<b>2<\/b><span>Lights<\/span>/.test(html), html);
   html = H.morphed(draw('T')._plate);
-  ok('T: each kind a button with its count, and All Off', /data-open-kind="lights"[^>]*><hk-icon[^>]*><\/hk-icon><b>Lights<\/b><em>2<\/em><\/button>/.test(html) && /data-all/.test(html), html);
+  ok('T: the count over a line a kind -- its lit disc, its name and where, its count', /class="sm-k" data-all/.test(html) &&
+     /class="ln r0" data-open-kind="lights"[^>]*><span class="dk" style="width:24px;height:24px;background:[^"]+"[^>]*>.*?<span class="nm">Lights<\/span><span class="dt">Kitchen, Porch<\/span><\/span><span class="rd">2<\/span>/.test(html), html);
   var l = draw('L');
   html = H.morphed(l._plate);
-  ok('L: each thing a button to its sheet, with its own Off (a speaker Pause), "5 on" and All Off', (html.match(/data-off="/g) || []).length === 5 && (html.match(/data-open-thing="/g) || []).length === 5 && /5 on/.test(html) &&
-     /data-off="media_player.kitchen_speaker" aria-label="Pause Kitchen Speaker">Pause/.test(html) && /data-all/.test(html), html);
+  ok('L: a sentence under the count, lines saying where -- a switch by its name', /<div class="snt">2 lights, 1 speaker, 1 fan and 1 switch<\/div>/.test(html) &&
+     /<span class="dt">Coffee Maker<\/span>/.test(html) && (html.match(/class="ln/g) || []).length === 4, html);
   html = H.morphed(draw('XL')._plate);
-  ok('XL: the count in its own column beside the list', /class="wb xl">5</.test(html) && /2 lights<br>1 speaker<br>1 fan<br>1 switch/.test(html), html);
-  // TAP ZONES (2026-11-07): a kind opens a sheet of those things (one thing: its own sheet), a thing its own sheet
+  ok('XL: the count in a column of its own, All Off at its foot, the four lines beside it', /class="sx"/.test(html) && /class="sm-k f" data-all/.test(html) && (html.match(/class="ln/g) || []).length === 4, html);
+  // TAP ZONES (2026-11-07): a kind opens a sheet of those things (one thing: its own sheet)
   var went = [], saveD = window.hkDetail, saveM = window.hkShell.moreInfo;
   window.hkDetail = { openGroup: function (title, ids, o) { went.push(['group', title, ids, o && o.icon]); return true; } };
   window.hkShell.moreInfo = function (id) { went.push(['sheet', id]); };
@@ -317,6 +317,16 @@ function () {
   eq('a kind opens its sheet: Lights On, one fan or speaker its own', went, [
     ['group', 'Lights On', ['light.kitchen_pendants', 'light.porch_light'], 'mdi:lightbulb'], ['sheet', 'fan.bedroom_fan'],
     ['sheet', 'media_player.kitchen_speaker'], ['sheet', 'switch.coffee_maker']]);
+  // ...or, Categories: Go to Its Page (`open: page`), its page where the screen has one, else its sheet
+  went.length = 0;
+  var M = window.hkCards.menu, pp = M.pagePath, navWas = window.hkShell.navigate;
+  M.pagePath = function (p) { return p === 'lights' || p === 'playmusic' ? '/home/' + p : null; };
+  window.hkShell.navigate = function (path) { went.push(['page', path]); };
+  var pg = draw('L', { open: 'page' });
+  pg._openKind('lights'); pg._openKind('speakers'); pg._openKind('fans');
+  eq('Go to Its Page: the Lights page, the music page; fans with no page here, their sheet', went,
+     [['page', '/home/lights'], ['page', '/home/playmusic'], ['sheet', 'fan.bedroom_fan']]);
+  M.pagePath = pp; window.hkShell.navigate = navWas;
   window.hkDetail = saveD; window.hkShell.moreInfo = saveM;
   house.calls.length = 0;
   l._off('light.porch_light');
@@ -331,9 +341,21 @@ function () {
   }).then(function () {
     eq('All Off: one call per kind, the speaker paused', house.calls.map(function (c) { return c.domain + '.' + c.service; }),
        ['light.turn_off', 'media_player.media_pause', 'fan.turn_off', 'switch.turn_off']);
-    var none = H.house({ 'light.kitchen_pendants': ['off', {}] });
+    // QUIET (round two): nothing on -- every kind the house has at rest, said once, no All Off; Small "All Off"
+    var none = H.house({ 'light.kitchen_pendants': ['off', {}], 'light.den_lamp': ['off', {}], 'fan.bedroom_fan': ['off', {}] });
     var c = sized('hk-on-now-card', 'L', {}); hkGive(c, hass(none.hass())); c._render();
-    ok('nothing on: says so, and no All Off', /Nothing is on/.test(H.morphed(c._plate)) && !/data-all/.test(H.morphed(c._plate)));
+    var q = H.morphed(c._plate);
+    ok('nothing on: each kind at rest ("Off", how many it has), no All Off, never "0" or "Nothing is on"',
+       (q.match(/class="ln at/g) || []).length === 2 && /<span class="rd">Off<\/span>/.test(q) && /<span class="dt">1 light<\/span>/.test(q) && !/data-all/.test(q) && !/Nothing is on|>0</.test(q) &&
+       /<div class="hl w">All Off<\/div>/.test(q), q);
+    var cs = sized('hk-on-now-card', 'S', {}); hkGive(cs, hass(none.hass())); cs._render();
+    ok('...Small: "All Off", once, over the kinds\' discs at rest', /<div class="hl w">All Off<\/div>/.test(H.morphed(cs._plate)) && /class="dk off"/.test(H.morphed(cs._plate)) &&
+       !/Nothing/.test(H.morphed(cs._plate)), H.morphed(cs._plate));
+    // ...a kind at rest opens all of its things (one: its own sheet)
+    var w2 = []; window.hkShell.moreInfo = function (id) { w2.push(id); };
+    c._openKind('lights');
+    window.hkShell.moreInfo = saveM;
+    eq('...a kind at rest: its things\' sheet', w2, ['light.kitchen_pendants']);
   });
 }
 ]);

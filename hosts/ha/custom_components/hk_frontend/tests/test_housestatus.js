@@ -168,35 +168,43 @@ print('\n=== the block\'s layout: sizes, cells, counts ===');
 // the block inside its inset: square cells (18 a side) and tile cells (14)
 var BOX = { square: { S: [160, 160], W: [369, 160], T: [160, 369], L: [369, 369], XL: [578, 369] },
             tile: { S: [168, 122], W: [374, 122], T: [168, 282], L: [374, 282], XL: [580, 282] } };
-function lay(cell, size, n) { var b = BOX[cell][size]; return L.layout(size, b[0], b[1], n); }
-var x = lay('square', 'W', 6);
-eq('Wide, square: two by two, the name over the reading, "+2 more"', [x.cols, x.rows, x.shown, x.more, x.density, x.head], [2, 2, 4, 2, 'two', 44]);
-x = lay('tile', 'W', 6);
-eq('Wide, tile: two by two on one line each, the heading tighter', [x.cols, x.rows, x.shown, x.density, x.head], [2, 2, 4, 'one', 26]);
-x = lay('square', 'T', 6);
-eq('Tall: a column of four, "+2 more" at its foot', [x.cols, x.rows, x.shown, x.more, x.foot > 0], [1, 4, 4, 2, true]);
-x = lay('square', 'L', 6);
-eq('Large: two by three, with a line of detail', [x.cols, x.rows, x.shown, x.density], [2, 3, 6, 'rich']);
-x = lay('square', 'XL', 6);
-eq('Extra Large: three by two, larger, with two lines', [x.cols, x.rows, x.shown, x.density], [3, 2, 6, 'full']);
-x = lay('square', 'XL', 11);
-eq('Extra Large past six: four by two, the rest "+3 more"', [x.cols, x.rows, x.shown, x.more], [4, 2, 8, 3]);
-x = lay('square', 'L', 3);
-eq('three on a Large: a column of three, not six slots', [x.cols, x.rows, x.shown], [1, 3, 3]);
-x = lay('square', 'W', 0);
-eq('none: nothing to lay out', [x.shown, x.more], [0, 0]);
-var whole = true, tall = true;
+function lay(cell, size, n, words) { var b = BOX[cell][size]; return L.plan(size, b[0], b[1], n, { words: words !== false }); }
+// ROUND TWO (2026-11-08): a headline over the sections as lines, each line at its size's height (NOTHING STRETCHES)
+var x = lay('square', 'T', 7);
+eq('Tall, square: the headline over six lines of 44, "+1 more"', [x.shape, x.rowH, x.shown, x.more, x.cols], ['square', 44, 6, 1, 1]);
+x = lay('tile', 'T', 7);
+eq('...on a tile cell, four', [x.shape, x.shown, x.more], ['tile', 4, 3]);
+x = lay('square', 'W', 7);
+eq('Wide: the headline in a third, three lines of 44 beside it', [x.side, x.shown, x.more], [123, 3, 4]);
+x = lay('tile', 'W', 7);
+eq('...on a tile cell, two', [x.shown, x.more], [2, 5]);
+x = lay('square', 'L', 7);
+eq('Large: the headline and its sentence over four lines of 56', [x.rowH, x.shown, x.sentence], [56, 4, true]);
+x = lay('tile', 'L', 7);
+eq('...on a tile cell, three of 48, the sentence where it costs no line', [x.rowH, x.shown, x.sentence], [48, 3, true]);
+x = lay('square', 'XL', 7);
+eq('Extra Large: a headline column beside six lines of 56', [x.side, x.rowH, x.shown, x.more, x.big], [200, 56, 6, 1, true]);
+x = lay('tile', 'L', 4, false);
+eq('On Now\'s Large on a tile cell: all four kinds', [x.shown, x.more], [4, 0]);
+x = lay('square', 'T', 4, false);
+eq('On Now\'s Tall on a square cell: the count large (72) over its four kinds', [x.big, x.shown], [true, 4]);
+var whole = true, tall = true, fits = true;
 ['square', 'tile'].forEach(function (cell) {
   ['W', 'T', 'L', 'XL'].forEach(function (size) {
-    for (var n = 0; n <= 16; n++) {
-      var y = lay(cell, size, n);
-      if (y.shown + y.more !== n || y.shown > L.CAP[size]) whole = false;
-      if (n && y.rowH < L.TAP) tall = false;
-    }
+    [true, false].forEach(function (words) {
+      for (var n = 0; n <= 16; n++) {
+        var y = lay(cell, size, n, words), b = BOX[cell][size];
+        if (y.shown + y.more !== n) whole = false;
+        if (y.rowH < L.TAP) tall = false;
+        var used = y.rows * y.rowH + (size === 'W' || size === 'XL' ? 0 : L.LABEL + L.headH({ words: words, big: y.big }) + 8 + (y.sentence ? 21 : 0));
+        if (used > b[1]) fits = false;
+      }
+    });
   });
 });
 ok('every count 0 to 16, every size, both cells: shown + more is all of them (more never loses one)', whole);
-ok('...and no section is ever under a finger\'s 44 px', tall);
+ok('...no line is ever under a finger\'s 44 px', tall);
+ok('...and the lines at their height always fit inside the plate', fits);
 
 print('\n=== the sheet ===');
 ok('wide on a tablet across (1180 x 820), for two or more', L.wantWide(1180, 820, 6, 0) && !L.wantWide(1180, 820, 1, 0));

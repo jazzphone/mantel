@@ -109,6 +109,9 @@
     // rooms (hkCards.iconGradient / roomTint) -- a tap goes straight there, the
     // last place opens the rest; a heading says what is on. Tall (2026-11-07): two columns of icons, labels on. The
     // plate's own tap is More, When Tapped choosing as elsewhere.
+    // MORE PLACES (`more`, 2026-11-08, the owner: "scroll within the card or go to the page with the + button"): + Opens
+    // the Page (the default) -- the last place, "+N", opens the Pages screen where the screen has one, else More, as
+    // before -- or Scroll in the Block: every place, the rows the size shows at a time, the rest scrolled up to.
     function menuItems(client) {
       var M = C.menu, H = window.hkMenu && window.hkMenu._, cfg = null;
       try { cfg = M && M.config ? M.config() : null; } catch (e) { cfg = null; }
@@ -125,7 +128,10 @@
       var rooms = (m.rooms || []).map(function (it, i) {
         return { title: it.title, icon: glyph(it.icon), path: it.path, hex: A[C.roomTint ? C.roomTint(i) : 'orange'] || A.orange };
       });
-      return pages.concat(rooms);
+      var all = pages.concat(rooms);
+      // (the Pages screen, Phase J, where the screen has it: "+N"'s page)
+      /** @type {any} */ (all).pagesPath = m.pages ? m.pages.path : null;
+      return all;
     }
     // WHAT IS ON NOW: the lights, switches and fans on, the speakers playing
     // (none hidden, none a group)
@@ -155,6 +161,11 @@
       '.app:focus-visible i{outline:2px solid ' + v('ink-2') + ';outline-offset:3px}',
       '.app small{' + type('micro') + ';line-height:14px;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:' + v('glow') + '}',
       '.app.mo i{background:rgba(255,255,255,0.2);' + type('headline') + '}',
+      // SCROLL IN THE BLOCK (`more: scroll`, 2026-11-08): every place, the rows the block shows at a time, the rest under
+      // them -- up and down is the block's, sideways the pager's; a row stops where a row starts
+      '.apps.scroll{align-content:start;grid-auto-rows:var(--rh);overflow-y:auto;overflow-x:hidden;overscroll-behavior-y:contain;scrollbar-width:none;',
+      '  scroll-snap-type:y mandatory;scroll-padding-top:10px;touch-action:pan-y}',
+      '.apps.scroll::-webkit-scrollbar{display:none}.apps.scroll .app{scroll-snap-align:start;touch-action:pan-y}',
       '@media (prefers-reduced-motion:reduce){.app i{transition:none}.app:active i{transform:none}}'
     ].join('');
     class HkEverythingCard extends HkGridKey {
@@ -162,7 +173,7 @@
       _size() { return sizeOf(this) || 'S'; }
       _items() { return menuItems(this.client) || []; }
       _sigOf() {
-        return JSON.stringify([this._items().map(function (x) { return x.path; }), onNow(this.client), this._size(), this._blockKey || '',
+        return JSON.stringify([this._items().map(function (x) { return x.path; }), onNow(this.client), this._size(), this._blockKey || '', (this._config || {}).more || '',
                                C.menu && C.menu.sig ? C.menu.sig() : '']);
       }
       _look() {
@@ -182,6 +193,13 @@
         var M = C.menu, B = window.hkTabBar;
         if (M && M.tabBar && M.tabBar() && B && typeof B.open === 'function') { B.open('more'); return; }
         if (M && M.open) M.open();
+      }
+      // "+N" (`more: page`, the default): the page of every place -- the Pages screen, where the screen has it -- else
+      // what the plate opens, More
+      _more() {
+        var p = this._items().pagesPath;
+        if (p) { C.navigate(p, this); return; }
+        this._tap();
       }
       // (the plate's tap, hk-base.js openTarget) the same, from anywhere on a larger block than the key
       _tapTarget() { var self = this; return [{ run: function () { self._tap(); } }]; }
@@ -212,8 +230,16 @@
         e.apps.style.setProperty('--c', String(cols));
         e.apps.style.setProperty('--px', px + 'px');
         e.apps.style.setProperty('--rg', rg + 'px');
-        var places = cols * rows, cut = items.length > places, shown = cut ? items.slice(0, places - 1) : items;
-        var key = JSON.stringify([shown, cut ? items.length - shown.length : 0, labels]);
+        // (scroll: every place, `rows` of them in sight at a time; else the last place says "+N")
+        var scroll = (this._config || {}).more === 'scroll', places = cols * rows;
+        var cut = !scroll && items.length > places, shown = cut ? items.slice(0, places - 1) : items;
+        e.apps.classList.toggle('scroll', scroll);
+        // (a row's height from the list's own, less its 10 px top: a scroller's percentages are of no definite height)
+        var ch = scroll ? e.apps.clientHeight - 10 : 0;
+        e.apps.style.setProperty('--rh', (ch > 0 ? ch : free) / rows - (rows - 1) * rg / rows + 'px');
+        // (and a gap under Wide's one row, so the next starts out of sight)
+        if (scroll && !rg) e.apps.style.setProperty('--rg', '14px');
+        var key = JSON.stringify([shown, cut ? items.length - shown.length : 0, labels, scroll]);
         if (key === this._appKey) return;
         this._appKey = key;
         e.apps.innerHTML = '';
@@ -232,7 +258,7 @@
           m.type = 'button'; m.className = 'app mo'; m.setAttribute('role', 'listitem'); m.setAttribute('aria-label', rest + ' more: every page and room');
           m.innerHTML = '<i></i>' + (labels ? '<small>All</small>' : '');
           m.querySelector('i').textContent = '+' + rest;
-          m.addEventListener('click', function (ev) { ev.stopPropagation(); self._tap(); });
+          m.addEventListener('click', function (ev) { ev.stopPropagation(); self._more(); });
           e.apps.appendChild(m);
         }
       }
@@ -372,26 +398,32 @@
     // ON NOW (2026-10-31, the owner's widget mock-up, "On Now (new)"): what
     // is on in the house right now -- the lights, the speakers playing, the
     // fans and the room's switches -- counted as the Reminders widget counts,
-    // each kind in its color. Off and All Off are house commands through the
-    // card's action port, as the room pages' toggles are (a speaker pauses).
-    //   S       the count large, and what it is
-    //   W       each kind a chip: its body opens that kind's sheet, its own small Off key turns that kind off
-    //   T       each kind with its count, a 44 px button that opens that kind's sheet, and All Off
-    //   L, XL   each thing that is on, its row opening that thing's sheet, its own Off, "+N more", All Off
-    //           (XL the count in a column of its own beside them)
-    // TAP ZONES (2026-11-07, the review; the owner: "lights and fans should go to lights or to fans depending on which
-    // one you tap"): a kind and a thing are buttons (hk-base.js TAP_CONTROLS), so the plate's own tap -- the On Now
-    // sheet -- is left for the heading and the glass between them.
+    // each kind in its color. All Off is a house command through the card's
+    // action port, as the room pages' toggles are (a speaker pauses).
+    // ROUND TWO (2026-11-08, the owner: Wide "isn't really utilizing its space ... pretty small touch areas", Large
+    // "seems cluttered ... I prefer the categories, but more info for each category in the larger cards"; "On Now and
+    // Home Status shared a similar look"; of tiles, "not a fan ... Let's be intentional on layout"): composed of House
+    // Status's parts (hk-house-status.js, `tiles`), from the first Tall he liked -- the count as the headline (quiet:
+    // "All Off", once), every kind the house has as a line in the same place, its glyph on a disc lit in its color while
+    // something is on, its count, where, and on Large and Extra Large how bright, how fast, what is playing:
+    //   S   the count over the kinds' discs             W   the count in a third, the kinds as discs with their counts
+    //   T   the count over the lines (All Off above)    L   the count and a sentence over lines of 56
+    //   XL  a column for the count beside the lines
+    // A KIND'S TAP (`open`, the owner: "Each category should either show a pop up or go to those pages... users
+    // decisions"): Show a Sheet (the default) -- the things of that kind that are on, or, none on, all of them -- or Go
+    // to Its Page (the Lights page; a kind with no page here, its sheet). A kind is a button (hk-base.js TAP_CONTROLS),
+    // so the plate's own tap -- the On Now sheet -- is left for the heading and the gaps.
     // The house's own lists (Status & Chips, hkStrategy.inventory) less what
     // it hides; a group light is its lights, never counted twice.
     var ON_KINDS = [
-      { key: 'lights', one: 'light', many: 'lights', icon: 'mdi:lightbulb', color: ACC.yellow, call: ['light', 'turn_off'], off: 'Off', title: 'Lights On' },
-      { key: 'speakers', one: 'speaker', many: 'speakers', icon: 'mdi:speaker', color: ACC.pink, call: ['media_player', 'media_pause'], off: 'Pause', title: 'Speakers Playing' },
-      { key: 'fans', one: 'fan', many: 'fans', icon: 'mdi:fan', color: ACC.cyan, call: ['fan', 'turn_off'], off: 'Off', title: 'Fans On' },
-      { key: 'switches', one: 'switch', many: 'switches', icon: 'mdi:power-plug', color: ACC.green, call: ['switch', 'turn_off'], off: 'Off', title: 'Switches On' }
+      { key: 'lights', one: 'light', many: 'lights', icon: 'mdi:lightbulb', color: ACC.yellow, call: ['light', 'turn_off'], off: 'Off', title: 'Lights On', pages: ['lights'], rest: 'Off' },
+      { key: 'speakers', one: 'speaker', many: 'speakers', icon: 'mdi:speaker', color: ACC.pink, call: ['media_player', 'media_pause'], off: 'Pause', title: 'Speakers Playing', pages: ['playmusic', 'speakers', 'music'], rest: 'Idle' },
+      { key: 'fans', one: 'fan', many: 'fans', icon: 'mdi:fan', color: ACC.cyan, call: ['fan', 'turn_off'], off: 'Off', title: 'Fans On', pages: ['fans', 'climate'], rest: 'Off' },
+      { key: 'switches', one: 'switch', many: 'switches', icon: 'mdi:power-plug', color: ACC.green, call: ['switch', 'turn_off'], off: 'Off', title: 'Switches On', pages: ['switches', 'plugs'], rest: 'Off' }
     ];
     function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
-    // -> [{kind, ids}] of the kinds with something on, and [{id, kind, name, room}] each thing
+    // -> {kinds: [{kind, ids}] of the kinds with something on, every: [{kind, ids, all}] of every kind the house has,
+    // things: [{id, kind, name, room}] each thing on, n}
     function whatsOn(client) {
       var st = (client && client.states) || {}, ents = (client && client.entities) || {}, areas = (client && client.areas) || {};
       /** @type {any} */ var inv = null, G = hidesOf();
@@ -402,18 +434,19 @@
         var e = ents[id] || {}, a = areaOf(client, id);
         return !!(e.hidden || e.entity_category || has(G.exclude_entities, id) || (a && has(G.exclude_areas, a)) || (e.device_id && has(G.exclude_devices, e.device_id)));
       };
-      var is = function (state) { return function (id) { return st[id] && st[id].state === state && !isGroup(st[id]); }; };
-      var lists = {
-        lights: (inv.lights || []).filter(is('on')),
-        speakers: (inv.speakers || []).filter(is('playing')),
-        fans: (inv.fans || []).filter(is('on')),
+      var real = function (id) { return st[id] && !isGroup(st[id]); };
+      var is = function (state) { return function (id) { return real(id) && st[id].state === state; }; };
+      var all = {
+        lights: (inv.lights || []).filter(real), speakers: (inv.speakers || []).filter(real), fans: (inv.fans || []).filter(real),
         // a switch in a room (a car's charging or an integration's own setting is not "on" in the house)
-        switches: Object.keys(st).filter(function (id) { return dom(id) === 'switch' && st[id].state === 'on' && areaOf(client, id) && !hid(id); }).sort()
+        switches: Object.keys(st).filter(function (id) { return dom(id) === 'switch' && areaOf(client, id) && !hid(id); }).sort()
       };
+      var lists = { lights: all.lights.filter(is('on')), speakers: all.speakers.filter(is('playing')), fans: all.fans.filter(is('on')), switches: all.switches.filter(is('on')) };
       var short = window.hkStrategy && window.hkStrategy.shortName;
-      var kinds = [], things = [];
+      var kinds = [], every = [], things = [];
       ON_KINDS.forEach(function (k) {
         var ids = lists[k.key];
+        if (all[k.key].length) every.push({ kind: k, ids: ids, all: all[k.key] });
         if (!ids.length) return;
         kinds.push({ kind: k, ids: ids });
         ids.map(function (id) {
@@ -423,62 +456,69 @@
           var name = short ? short(full, room) : full;
           if (/^(light|lights|lamp|fan|speaker|switch|plug)$/i.test(name)) name = full;
           var under = name === room ? '' : room;
-          return { id: id, kind: k, name: name, room: k.key === 'speakers' ? (under ? under + ' · Playing' : 'Playing') : under };
+          return { id: id, kind: k, name: name, room: k.key === 'speakers' ? (under ? under + ' · Playing' : 'Playing') : under, area: room };
         }).sort(function (x, y) { return (x.room + x.name).localeCompare(y.room + y.name); }).forEach(function (t) { things.push(t); });
       });
-      return { kinds: kinds, things: things, n: things.length };
+      return { kinds: kinds, every: every, things: things, n: things.length };
+    }
+    // WHAT A KIND'S TILE SAYS beyond its count (the owner: "more info for each category"): where (the rooms, or the
+    // things' names where they have no room) and a level -- the lights' brightness, the fans' speed, what is playing
+    function kindLines(client, x, things) {
+      var st = (client && client.states) || {}, mine = things.filter(function (t) { return t.kind === x.kind; });
+      if (!x.ids.length) return { detail: plural(x.all.length, x.kind.one, x.kind.many), extra: null };
+      var where = [];
+      mine.forEach(function (t) { var w = x.kind.key === 'switches' || !t.area ? t.name : t.area; if (where.indexOf(w) < 0) where.push(w); });
+      var extra = null, level = null;
+      if (x.kind.key === 'lights' || x.kind.key === 'fans') {
+        var lv = x.ids.map(function (id) {
+          var a = (st[id] && st[id].attributes) || {};
+          return x.kind.key === 'lights' ? (typeof a.brightness === 'number' ? Math.round(a.brightness / 2.55) : null) : (typeof a.percentage === 'number' ? a.percentage : null);
+        }).filter(function (n) { return n != null; });
+        if (lv.length) {
+          var avg = Math.round(lv.reduce(function (s, n) { return s + n; }, 0) / lv.length);
+          extra = (x.kind.key === 'lights' ? 'Brightness ' : 'Speed ') + (lv.length > 1 ? 'about ' : '') + avg + '%';
+          level = avg;
+        }
+      } else if (x.kind.key === 'speakers') {
+        var a0 = (st[x.ids[0]] && st[x.ids[0]].attributes) || {};
+        extra = [a0.media_title, a0.media_artist].filter(Boolean).join(' · ') || null;
+      }
+      return { detail: where.join(', ') || null, extra: extra, level: level };
     }
     var ON_CSS = [
       ':host{display:block;height:100%}',
-      '.ws.wrap{white-space:normal}',
-      // the controls: a chip per kind, Off per thing, All Off -- 44 px each
-      '.on-b{all:unset;box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:6px;min-height:44px;min-width:44px;cursor:pointer;',
-      '  border-radius:22px;background:' + v('key') + ';color:' + v('ink') + ';' + type('caption') + ';font-weight:600;-webkit-tap-highlight-color:transparent}',
-      '.on-b:active{filter:brightness(0.9)}.on-b:focus-visible{outline:2px solid ' + v('ink-2') + ';outline-offset:2px}',
-      '.on-b.all{' + type('body') + ';font-weight:600;padding:0 22px}',
-      '.chips{display:grid;gap:4px;align-content:center;min-width:0}',
-      // (W: a chip is its body -- the kind's sheet -- and, at its end, a small Off key with a 44 px hit area)
-      '.on-c{display:flex;align-items:center;min-width:0;min-height:44px;border-radius:22px;background:' + v('key') + '}',
-      '.on-o,.on-k,.on-t{all:unset;box-sizing:border-box;display:flex;align-items:center;min-width:0;cursor:pointer;-webkit-tap-highlight-color:transparent;color:' + v('ink') + '}',
-      '.on-o{flex:1;gap:6px;height:44px;padding:0 4px 0 12px;' + type('caption') + ';font-weight:600}',
-      '.on-o span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-      '.on-z{all:unset;position:relative;box-sizing:border-box;flex:none;display:grid;place-items:center;height:32px;margin-right:6px;padding:0 12px;border-radius:16px;',
-      '  background:' + v('key-strong') + ';color:' + v('ink') + ';' + type('caption') + ';font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent}',
-      '.on-z::after{content:"";position:absolute;left:-5px;right:-5px;top:-6px;bottom:-6px}',
-      '.on-o:active,.on-k:active,.on-t:active{opacity:.7}.on-z:active{filter:brightness(0.9)}',
-      '.on-o:focus-visible,.on-k:focus-visible,.on-t:focus-visible,.on-z:focus-visible{outline:2px solid ' + v('ink-2') + ';outline-offset:2px}',
-      // (T: a kind's row, 44 px, the count at its end)
-      '.on-k{gap:10px;height:44px;flex:none;border-bottom:1px solid ' + v('line') + '}',
-      '.on-k:last-child{border-bottom:0}',
-      // (Tall: the kinds share the height the count and All Off leave, each up to 60 px -- 2026-11-07, the review: three rows under the count left a band of bare plate over All Off)
-      '.wr.ok{flex:1;min-height:0;justify-content:center}.wr.ok .on-k{flex:1 1 0;min-height:44px;max-height:60px}',
-      '.on-k b{' + type('body') + ';font-weight:600;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-      '.on-k em{font-style:normal;' + type('caption') + ';color:' + v('ink-2') + '}',
-      '.on-l{display:flex;flex-direction:column;min-height:0}',
-      // (L, XL: a thing's row, its body a button to its sheet, its Off beside it)
-      '.on-l>div{display:flex;align-items:center;gap:10px;box-sizing:border-box;height:48px;flex:none;border-bottom:1px solid ' + v('line') + '}',
-      '.on-l>div:last-child{border-bottom:0}',
-      '.on-t{flex:1;gap:10px;height:100%}',
-      '.on-l .tx{flex:1;min-width:0;display:flex;flex-direction:column;text-align:left}',
-      '.on-l .tx b{' + type('body') + ';font-weight:600;line-height:19px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-      '.on-l .tx small{' + type('caption') + ';line-height:16px;color:' + v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-      '.on-l .on-b{padding:0 12px;flex:none}',
-      '.on-hd{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex:none}',
-      '.on-ft{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:auto;padding-top:8px;flex:none}',
-      '.on-x{display:flex;gap:22px;flex:1;min-height:0}.on-x>.wcol:last-child{flex:1}',
+      'hk-plate.wg{text-shadow:none}',
       '.none{' + type('body') + ';color:' + v('ink-2') + '}'
     ].join('');
+    // THE PARTS, House Status's file (a lazy one): asked for once, the card drawn again when it is here
+    function sumKit(card) {
+      var T = window.hkHouseStatus && window.hkHouseStatus.tiles;
+      if (T) {
+        if (!card._kitCss) { card._kitCss = document.createElement('style'); card._kitCss.textContent = T.CSS; card.shadowRoot.appendChild(card._kitCss); }
+        return T;
+      }
+      if (!card._kitWait && window.customElements) {
+        card._kitWait = true;
+        window.customElements.whenDefined('hk-house-status-card').then(function () { card._hkSig = null; card.redraw(); });
+      }
+      return null;
+    }
     class HkOnNowCard extends HkBase {
       static get CSS() { return WG_CSS + ON_CSS; }
       getCardSize() { return 4; }
-      // (the plate's tap, hk-base.js openTarget) what is on, as a sheet of those things; one thing, its own sheet
+      // (the plate's tap, hk-base.js openTarget) what is on, as a sheet of those things; one thing, its own sheet;
+      // nothing on, the first kind the house has, as its tile would open it
       _tapTarget() {
-        var ids = whatsOn(this.client).things.map(function (t) { return t.id; });
-        return ids.length > 1 ? [{ group: ['On Now', ids, { icon: 'mdi:power' }] }] : ids.length ? [{ sheet: ids[0] }] : [];
+        var o = whatsOn(this.client), ids = o.things.map(function (t) { return t.id; });
+        if (ids.length > 1) return [{ group: ['On Now', ids, { icon: 'mdi:power' }] }];
+        if (ids.length) return [{ sheet: ids[0] }];
+        var x = o.every[0];
+        return x ? [{ page: x.kind.pages[0] }, { group: [cap(x.kind.many), x.all.slice(), { icon: x.kind.icon }] }] : [];
       }
       _sigOf() {
         var o = whatsOn(this.client), st = (this.client && this.client.states) || {};
-        return JSON.stringify([o.things.map(function (t) { return t.id + (st[t.id] ? st[t.id].last_updated : ''); }), sizeOf(this), this._blockKey || '']);
+        return JSON.stringify([o.every.map(function (x) { return x.kind.key + x.all.length; }), o.things.map(function (t) { return t.id + (st[t.id] ? st[t.id].last_updated : ''); }),
+                               sizeOf(this), this._blockKey || '', !!(window.hkHouseStatus && window.hkHouseStatus.tiles)]);
       }
       _render() {
         var self = this;
@@ -490,68 +530,55 @@
             if (!b) return;
             e.stopPropagation();
             if (b.hasAttribute('data-open-kind')) { self._openKind(b.getAttribute('data-open-kind')); return; }
-            if (b.hasAttribute('data-open-thing')) { window.hkShell.moreInfo(b.getAttribute('data-open-thing'), self); return; }
+            if (b.hasAttribute('data-open-all')) { C.openTarget(self, self._tapTarget()); return; }
             self._off(b.getAttribute('data-off'), b.getAttribute('data-off-kind'), b.hasAttribute('data-all'));
           });
           this._built = true;
         }
-        var size = sizeOf(this) || 'L', box = inner(this, size), o = whatsOn(this.client);
-        var lab = '<div class="wl" style="color:' + ACC.orange + '">On Now</div>';
-        var all = o.n ? '<button type="button" class="on-b all" data-all>All Off</button>' : '';
-        var thing = function (t) {
-          return '<div><button type="button" class="on-t" data-open-thing="' + esc(t.id) + '" aria-label="' + esc('Open ' + t.name) + '">' + gly(t.kind.icon, 20, t.kind.color) +
-            '<span class="tx"><b>' + esc(t.name) + '</b>' + (t.room ? '<small>' + esc(t.room) + '</small>' : '') + '</span></button>' +
-            '<button type="button" class="on-b" data-off="' + esc(t.id) + '" aria-label="' + esc(t.kind.off + ' ' + t.name) + '">' + t.kind.off + '</button></div>';
+        var T = sumKit(this), size = sizeOf(this) || 'L', o = whatsOn(this.client), orange = ACC.orange;
+        if (!T) { C.morph(this._plate, '<div class="wl" style="color:' + orange + '">On Now</div>'); return; }
+        var box = inner(this, size), P = T.plan(size, box.iw, box.ih, o.every.length, {}), rich = size === 'L' || size === 'XL';
+        var phrase = function (list) {
+          var w = list.map(function (x) { return plural(x.ids.length, x.kind.one, x.kind.many); });
+          return w.length > 1 ? w.slice(0, -1).join(', ') + ' and ' + w[w.length - 1] : w.join('');
         };
-        // as many things as fit in `room` px (rows of 48): the rest are "+N more"
-        var list = function (room) {
-          var fit = Math.max(1, Math.floor(room / 48)), shown = o.things.slice(0, fit);
-          return { html: '<div class="on-l">' + shown.map(thing).join('') + '</div>', more: o.n - shown.length };
-        };
-        var html;
-        if (size === 'S') {
-          var first = o.kinds[0], rest = o.kinds.slice(1);
-          html = lab + '<div class="wb xl">' + o.n + '</div><div class="ws wf wrap">' + (o.n ? esc(plural(first.ids.length, first.kind.one, first.kind.many)) +
-            (rest.length ? '<br>' + esc(rest.map(function (x) { return plural(x.ids.length, x.kind.one, x.kind.many); }).join(' · ')) : '') : 'Nothing on') + '</div>';
-        } else if (size === 'W') {
-          var rows = Math.max(1, Math.floor((box.ih + 4) / 48)), two = o.kinds.length > rows;
-          html = '<div class="wsplit"><div class="wcol" style="flex:0 0 ' + (two ? 90 : 120) + 'px">' + lab + '<div class="wb xl">' + o.n + '</div></div>' +
-            (o.n ? '<div class="chips" style="grid-template-columns:repeat(' + (two ? 2 : 1) + ',minmax(0,1fr))">' + o.kinds.map(function (x) {
-              var many = plural(x.ids.length, x.kind.one, x.kind.many);
-              return '<div class="on-c"><button type="button" class="on-o" data-open-kind="' + x.kind.key + '" aria-label="' + esc('Open ' + many) + '">' +
-                // (two across, on a tile cell: the glyph says what, the number how many)
-                gly(x.kind.icon, 18, x.kind.color) + '<span>' + esc(two ? String(x.ids.length) : plural(x.ids.length, cap(x.kind.one), cap(x.kind.many))) + '</span></button>' +
-                '<button type="button" class="on-z" data-off-kind="' + x.kind.key + '" aria-label="' + esc(x.kind.off + ' ' + many) + '">' + x.kind.off + '</button></div>';
-            }).join('') + '</div>' : '<div class="wcol" style="justify-content:center"><div class="none">Nothing is on</div></div>') + '</div>';
-        } else if (size === 'T') {
-          // the count takes what its rows (44 px each) and All Off leave: the large figure, else the hero's 44
-          var room = box.ih - 19 - 6 - 52 - o.kinds.length * 44;
-          html = lab + '<div class="wb' + (room >= 76 ? ' xl' : '') + '">' + o.n + '</div>' +
-            (o.n ? '<div class="wr ok" style="margin-top:6px">' + o.kinds.map(function (x) {
-              return '<button type="button" class="on-k" data-open-kind="' + x.kind.key + '" aria-label="' + esc('Open ' + plural(x.ids.length, x.kind.one, x.kind.many)) + '">' +
-                gly(x.kind.icon, 20, x.kind.color) + '<b>' + esc(cap(x.kind.many)) + '</b><em>' + x.ids.length + '</em></button>';
-            }).join('') + '</div>' : '<div class="none">Nothing is on</div>') +
-            '<div class="on-ft">' + all.replace('class="on-b all"', 'class="on-b all" style="flex:1"') + '</div>';
-        } else if (size === 'L') {
-          var l = list(box.ih - 19 - 6 - 52);
-          html = '<div class="on-hd">' + lab + '<span class="ws">' + o.n + ' on</span></div>' +
-            (o.n ? l.html : '<div class="none" style="margin:auto">Nothing is on</div>') +
-            '<div class="on-ft"><span class="ws">' + (l.more ? '+' + l.more + ' more' : '') + '</span>' + all + '</div>';
-        } else {
-          var x2 = list(box.ih - (o.n > Math.floor(box.ih / 48) ? 24 : 0));
-          html = '<div class="on-x"><div class="wcol" style="flex:0 0 150px">' + lab + '<div class="wb xl">' + o.n + '</div>' +
-            '<div class="ws wrap">' + (o.n ? o.kinds.map(function (x) { return esc(plural(x.ids.length, x.kind.one, x.kind.many)); }).join('<br>') : 'Nothing on') + '</div><div class="wf">' + all.replace('class="on-b all"', 'class="on-b all" style="width:100%"') + '</div></div>' +
-            '<div class="wcol">' + (o.n ? x2.html + (x2.more ? '<div class="ws" style="margin-top:4px">+' + x2.more + ' more</div>' : '') : '<div class="none" style="margin:auto">Nothing is on</div>') + '</div></div>';
-        }
-        C.morph(this._plate, html);
+        // All Off: the label row's key; Wide's and Extra Large's at the foot of the headline's column, a finger tall
+        var all = function (cls) { return o.n ? '<button type="button" class="sm-k' + cls + '" data-all aria-label="' + esc('Turn off all ' + o.n + ' things on') + '">All Off</button>' : ''; };
+        var model = {
+          label: 'On Now', color: orange, key: size === 'XL' ? '' : all(''), side: all(' f'), // (Wide: the kinds as their discs with the counts under them, the Batteries widget's way -- drawn both ways on
+          // 2026-11-08, the lines two across cut "Speakers" and "Switches" to "Spe..." and "S...")
+          discs: size === 'S' || size === 'W',
+          // the headline: the count on, or, quiet, a calm All Off said once
+          head: o.n ? { num: o.n, unit: 'On' } : { words: 'All Off' },
+          // (quiet, Extra Large's column says so under All Off, over the kinds' discs at rest)
+          sentence: o.n ? esc(phrase(o.kinds)) : size === 'XL' ? 'Nothing is on' : '', restDiscs: !o.n && size === 'XL',
+          small: { attrs: 'data-open-all', aria: o.n ? 'On now: ' + phrase(o.kinds) : 'On now: all off' },
+          rows: o.every.map(function (x) {
+            var on = x.ids.length, ln = kindLines(self.client, x, o.things), many = cap(x.kind.many);
+            // (Large and Extra Large say more: where, and how bright, how fast, or what is playing)
+            var detail = on ? (rich && ln.extra && x.kind.key !== 'lights' ? [ln.detail, ln.extra].filter(Boolean).join(' · ') : ln.detail) : ln.detail;
+            return { live: true, rest: !on, attrs: 'data-open-kind="' + x.kind.key + '"', name: many, count: on || x.kind.rest,
+              icon: function (px, col) { return gly(x.kind.icon, px, col || null); }, lit: on ? x.kind.color : null,
+              aria: 'Open ' + (on ? plural(on, x.kind.one, x.kind.many) + (x.kind.key === 'speakers' ? ' playing' : ' on') : many + ', ' + x.kind.rest.toLowerCase()),
+              reading: on ? String(on) : x.kind.rest, detail: detail, level: rich && on && x.kind.key === 'lights' ? ln.level : null };
+          }) };
+        C.morph(this._plate, o.every.length || size === 'S' ? T.compose(model, size, box, P) : '<div class="wl" style="color:' + orange + '">On Now</div><div class="none" style="margin:auto">Nothing to show</div>');
       }
-      // A KIND'S SHEET: the things of that kind that are on ("Lights On", "Fans On", "Speakers Playing", "Switches On"); one
+      // A KIND'S TAP (`open`): its page, where the screen has one and the block says so; else its sheet -- the things
+      // of that kind that are on ("Lights On", "Fans On", "Speakers Playing", "Switches On"), none on, all of them; one
       // thing, its own sheet
       _openKind(key) {
-        var x = whatsOn(this.client).kinds.filter(function (k) { return k.kind.key === key; })[0], D = window.hkDetail;
+        var x = whatsOn(this.client).every.filter(function (k) { return k.kind.key === key; })[0], D = window.hkDetail, M = C.menu;
         if (!x) return;
-        if (x.ids.length === 1) { window.hkShell.moreInfo(x.ids[0], this); return; }
-        if (D && D.openGroup) D.openGroup(x.kind.title, x.ids.slice(), { icon: x.kind.icon });
+        if ((this._config || {}).open === 'page' && M && M.pagePath) {
+          for (var i = 0; i < x.kind.pages.length; i++) {
+            var path = M.pagePath(x.kind.pages[i]);
+            if (path) { C.navigate(path, this); return; }
+          }
+        }
+        var ids = x.ids.length ? x.ids : x.all;
+        if (ids.length === 1) { window.hkShell.moreInfo(ids[0], this); return; }
+        if (D && D.openGroup) D.openGroup(x.ids.length ? x.kind.title : cap(x.kind.many), ids.slice(), { icon: x.kind.icon });
       }
       // OFF: one thing, a kind, or everything on -- one call per kind, the
       // room pages' own commands (HkBase._call: the host's action port)
