@@ -1374,9 +1374,9 @@
     ':host([size]) .blk{' + window.hkCards.plate('card') + ';box-sizing:border-box;height:100%;padding:' + window.hkCards.blockPad(window.hkCards.CARD.pad) + ';',
     '  overflow:hidden;display:flex;flex-direction:column}',
     '.wg .wd{font-size:15px;font-weight:600;line-height:18px;letter-spacing:0.2px;text-transform:uppercase;color:' + CAL_RED + ';flex:none;',
-    '  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:' + window.hkCards.v('glow') + '}',
     '.wg .dn{font-weight:300;line-height:1.02;letter-spacing:-0.02em;font-variant-numeric:tabular-nums;margin-top:2px;flex:none}',
-    '.wg.S .dn{font-size:36px}.wg.T .dn{font-size:44px}.wg.L .dn{font-size:54px}',
+    '.wg.S .dn{font-size:36px}.wg.T .dn{font-size:44px}.wg.L .dn,.wg.W .dn{font-size:54px}',
     '.wg .rt{display:flex;flex-direction:column;min-width:0;flex:1}',
     '.wg .rt b,.wg .rt small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '.wg .rt b{' + window.hkCards.typeCss('headline') + ';line-height:21px}',
@@ -1398,10 +1398,10 @@
     '.wg.S .rt b{font-size:15px;line-height:19px}.wg.S .rt small{font-size:13px;line-height:16px}',
     '.wg.S .ft{font-size:13px;line-height:16px}',
     // Large: the date in a column of its own, the rows beside it
-    ':host([size]) .wg.L,:host([size]) .wg.XL{flex-direction:row;gap:22px}',
+    ':host([size]) .wg.W,:host([size]) .wg.L,:host([size]) .wg.XL{flex-direction:row;gap:22px}',
     '.wg .c1{flex:0 0 104px;min-width:0;display:flex;flex-direction:column}',
     '.wg .c2{flex:1 1 0;min-width:0;display:flex;flex-direction:column}',
-    '.wg.L .ls{margin-top:0}',
+    '.wg.L .ls,.wg.W .ls{margin-top:0}',
     // Extra Large: the month (seven columns of a finger's width), the chosen day beside it. The month's name and
     // arrows sit over the month on a square cell; on a tile (150 px) over the day, the weeks taking the height.
     '.wg .mon{flex:0 0 322px;min-width:0;display:flex;flex-direction:column}',
@@ -1431,7 +1431,7 @@
     // MONTH VIEW: seven columns, the weeks' rows sharing the height; the day's
     // number sized to its cell (container units: the block is a container)
     '.blk.mo{gap:6px}',
-    '.mo .mh{' + window.hkCards.labelCss('label') + ';color:' + CAL_RED + ';line-height:16px;flex:none}',
+    '.mo .mh{' + window.hkCards.labelCss('label') + ';color:' + CAL_RED + ';text-shadow:' + window.hkCards.v('glow') + ';line-height:16px;flex:none}',
     '.mo .mg{flex:1;min-height:0;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));grid-template-rows:auto repeat(var(--w),minmax(0,1fr));align-items:center;justify-items:center;gap:2px 0}',
     '.mo .mw{' + window.hkCards.labelCss('label-small') + ';line-height:14px}',
     '.mo .md{all:unset;box-sizing:border-box;cursor:pointer;-webkit-tap-highlight-color:transparent;position:relative;display:flex;align-items:center;justify-content:center;height:100%;max-height:calc(100cqw / 7.6);aspect-ratio:1;border-radius:50%;',
@@ -1541,7 +1541,7 @@
       var d0 = day0(new Date());
       this._watchBlock();
       if (sized === 'XL') { this._renderMonthDay(); return; }
-      if (this._month() && sized !== 'S') { this._renderMonth(sized, d0); return; }
+      if (this._month() && sized !== 'S' && sized !== 'W') { this._renderMonth(sized, d0); return; }
       this._renderNext(sized, d0);
     }
     // WHAT IS NEXT: what is still to come today, all-day first, then the coming days (`days`) each under its
@@ -1554,7 +1554,7 @@
         if (i && evs.length) rows.push('<div class="gh">' + esc(i === 1 ? 'Tomorrow' : DOW_LONG[d.getDay()] + ', ' + MON3[d.getMonth()] + ' ' + d.getDate()) + '</div>');
         evs.forEach(function (e) {
           shown.push(e);
-          rows.push(evRow(h, e, d, shown.length - 1, i, sized === 'T' ? 'start' : 'span'));
+          rows.push(evRow(h, e, d, shown.length - 1, i, sized === 'T' || sized === 'W' ? 'start' : 'span'));
         });
       }
       this._shown = shown;
@@ -1574,7 +1574,7 @@
         var list = shown.length ? (todayN ? '' : empty) + rows.join('') : empty;
         var ls = '<div class="ls">' + list + '</div><div class="ft" style="display:none"></div>';
         this._root.innerHTML = '<div class="blk wg ' + sized + '">' +
-          (sized === 'L' ? '<div class="c1">' + head + '</div><div class="c2">' + ls + '</div>' : head + ls) + '</div>';
+          (sized === 'L' || sized === 'W' ? '<div class="c1">' + head + '</div><div class="c2">' + ls + '</div>' : head + ls) + '</div>';
         this._fitRows();
       }
       this._wireTaps();
@@ -1773,9 +1773,9 @@
     '.blk{' + window.hkCards.plate('card') + ';box-sizing:border-box;height:100%;padding:' + window.hkCards.blockPad(window.hkCards.CARD.pad) + ';',
     '  overflow:hidden;display:flex;flex-direction:column;min-height:240px}',
     ':host([size]) .blk{min-height:0}',
-    '.tw .ln{flex:none;font-size:15px;font-weight:600;line-height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '.tw .ln{flex:none;font-size:15px;font-weight:600;line-height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:' + window.hkCards.v('glow') + '}',
     '.tw .cn{flex:none;font-weight:300;line-height:1.02;letter-spacing:-0.02em;font-variant-numeric:tabular-nums;margin-top:2px}',
-    '.tw.S .cn{font-size:36px}.tw.T .cn{font-size:36px}.tw.L .cn,.tw.XL .cn{font-size:44px}',
+    '.tw.S .cn{font-size:36px}.tw.T .cn{font-size:36px}.tw.W .cn,.tw.L .cn,.tw.XL .cn{font-size:44px}',
     '.tw .hd{flex:none;display:flex;flex-direction:column;min-width:0;cursor:pointer;-webkit-tap-highlight-color:transparent}',
     '.tw.S{cursor:pointer;-webkit-tap-highlight-color:transparent}',
     '.tw [role=button]:focus-visible{outline:2px solid ' + window.hkCards.v('ink-2') + ';outline-offset:2px}',
@@ -1790,7 +1790,7 @@
     '.tw .it.done i{background:var(--hue);box-shadow:none}',
     '.tw .ft{flex:none;margin-top:auto;padding-top:6px;font-size:15px;line-height:18px;color:' + window.hkCards.v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '.tw .nil{flex:none;font-size:15px;line-height:19px;padding:10px 0;color:' + window.hkCards.v('ink-2') + '}',
-    '.tw.L,.tw.XL{flex-direction:row;gap:22px}',
+    '.tw.W,.tw.L,.tw.XL{flex-direction:row;gap:22px}.tw.W .it{flex:1 0 44px;max-height:64px}',
     '.tw .c1{flex:0 0 96px;min-width:0;display:flex;flex-direction:column}.tw.XL .c1{flex-basis:120px}',
     '.tw .c2,.tw .c3{flex:1 1 0;min-width:0;display:flex;flex-direction:column}',
     '.tw .c2>.ls:first-child,.tw .c3>.ls:first-child{margin-top:0}',
@@ -1799,7 +1799,7 @@
     '  background:' + window.hkCards.v('key') + ';cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent}',
     '.tw .addb:active{opacity:0.7}',
     // (the cell is the block's own: a square one is 180 px and up for Small, two rows' 360 for the rest)
-    '@container hk-cell (min-height:180px) or style(--hk-cell-shape: square){.tw.S .cn{font-size:54px}}',
+    '@container hk-cell (min-height:180px) or style(--hk-cell-shape: square){.tw.S .cn,.tw.W .cn{font-size:54px}}',
     '@container hk-cell (min-height:360px){.tw.T .cn{font-size:44px}.tw.L .cn,.tw.XL .cn{font-size:54px}}'
   ].join('\n');
   // THE WHOLE LIST, over the page (hk-media.js _turn's way): on <body> under a shadow root of its own -- the
@@ -1908,8 +1908,8 @@
       }
       if (size === 'T') {
         this._root.innerHTML = '<div class="blk tw T"' + style + '>' + hd + '<div class="ls">' + rows + '</div>' + ft + '</div>';
-      } else if (size === 'L') {
-        this._root.innerHTML = '<div class="blk tw L"' + style + '><div class="c1">' + hd + ft + '</div><div class="c2"><div class="ls">' + rows + '</div></div></div>';
+      } else if (size === 'L' || size === 'W') {
+        this._root.innerHTML = '<div class="blk tw ' + size + '"' + style + '><div class="c1">' + hd + ft + '</div><div class="c2"><div class="ls">' + rows + '</div></div></div>';
       } else {
         // Extra Large: a second list of its own, or this one running on
         var b = lists[1], tb = b ? this._read(b) : null, gb = b ? itemsOf(tb) : null;

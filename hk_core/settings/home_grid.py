@@ -75,7 +75,7 @@ CATALOG: dict[str, dict[str, Any]] = {
     # style (2026-10-30): the dial, or Big Number (docs/phase11/HOMEVIEW-LOOK.md, Phase C)
     "thermostat": {"sizes": ("S", "T", "L", "XL"), "sources": ("thermostats",), "opts": {"entity": "climate", "style": "thermostat_style", "tap": "tap_target"}},
     # (S, 2026-10-31, the owner: "a small option to the camera": one still in a cell)
-    "camera": {"sizes": ("S", "W", "L", "XL"), "sources": ("cameras",),
+    "camera": {"sizes": ("S", "W", "T", "L", "XL"), "sources": ("cameras",),
                # follow (2026-10-24): swiping all cameras, turn to the one a selector or the latest motion picks
                "opts": {"entity": "camera", "follow": "camera_follow", "follow_select": "select",
                         # name (2026-10-31, the owner): the camera's name at the foot -- Automatic shows it on a
@@ -90,13 +90,13 @@ CATALOG: dict[str, dict[str, Any]] = {
     "security": {"sizes": ("S", "W", "C", "L", "XL"), "sources": (),
                  "opts": {"entity": "alarm", "tap": "tap_target", "presentation": "security_presentation",
                           "members": "security_members"}},
-    "timers": {"sizes": ("S", "W"), "sources": (), "opts": {"tap": "tap_target"}},
+    "timers": {"sizes": ("S", "W", "T", "L"), "sources": (), "opts": {"tap": "tap_target"}},
     "weather": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"entity": "weather", "sky": "boolean", "big": "boolean", "tap": "tap_target"}},
-    "calendar": {"sizes": ("S", "T", "L", "XL"), "sources": (), "opts": {"calendars": "calendars", "days": "days", "month": "boolean", "tap": "tap_target"}},
+    "calendar": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"calendars": "calendars", "days": "days", "month": "boolean", "tap": "tap_target"}},
     "battery": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"tap": "tap_target"}},
-    "people": {"sizes": ("S", "W"), "sources": (), "opts": {"tap": "tap_target"}},
+    "people": {"sizes": ("S", "W", "T", "L"), "sources": (), "opts": {"tap": "tap_target"}},
     # Large and Extra Large (2026-10-24): its controls with Clean Areas
-    "vacuum": {"sizes": ("S", "W", "L", "XL"), "sources": (), "opts": {"entity": "vacuum"}},
+    "vacuum": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"entity": "vacuum", "tap": "tap_target"}},
     "clock": {"sizes": ("S", "W", "T", "L", "XL", "XXL"), "sources": (), "opts": {"clock_style": "clock_style", "bare": "boolean", "tap": "tap_target"}},
     "power": {"sizes": ("S", "W", "L", "XL"), "sources": (), "opts": {"tap": "tap_target"}},
     # show (2026-10-31, the owner): what it shows -- Recently Played (none stored), the Music page's playlists (presets), or
@@ -117,7 +117,7 @@ CATALOG: dict[str, dict[str, Any]] = {
     # THE WIDGET BLOCKS (2026-10-31, docs/phase11/HOMEVIEW-LOOK.md "Blocks as widgets"): what is on now, a to-do
     # list, and the Energy page's rings over a period of the block's own
     "on_now": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"tap": "tap_target"}},
-    "todo": {"sizes": ("S", "T", "L", "XL"), "sources": (), "opts": {"entity": "todo", "tap": "tap_target"}},
+    "todo": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"entity": "todo", "tap": "tap_target"}},
     "energy_rings": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"period": "period", "tap": "tap_target"}},
     # THE INTERCOM (2026-11-03, docs/phase17/INTERCOM.md): a button that opens its sheet; Wide also shows the last rooms
     # picked. Always the sheet, so no When Tapped
