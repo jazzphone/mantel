@@ -20,47 +20,51 @@
   if (window.hkHouseStatus) return;                    // double-load guard
 
   // ======================================================================== pure
-  // ROUND TWO (2026-11-08, the owner: "the layouts don't follow anything else ... It would be great if On Now and
-  // Home Status shared a similar look"): ONE LOOK FOR BOTH, THE SUMMARY TILES. A heading on the top inset (the label,
-  // and at its end one key: "+N more" here, All Off in On Now), under it the categories as the Room block's inner
-  // tiles -- Apple Home's category row, a glyph, a name and a state -- filling the block with no holes. The tile's
-  // designed size (DESIGN) chooses what it says: one line, a stack (glyph over the reading over the name), a pill (the glyph
-  // beside the name over the reading, as Apple Home's row) or a card (the glyph, then the reading large, the name and
-  // a line or two of detail). On Now (hk-grid-widgets.js) draws with the same functions and CSS (the `tiles` below).
-  var HEAD = 32;                                       // the heading's row (24) and the gap under it (8)
-  var GAP = 8;                                         // between tiles (the Room block's)
-  var TAP = 44;                                        // a tile is never shorter than a finger
-  // NOTHING STRETCHES (2026-11-08, the owner: "entities in a card should maintain dimensions"): a tile has its designed
-  // size at each block size -- its kind, its columns (its width: the block's width shared by them) and its height,
-  // chosen here per size, cell shape and block, never grown to fill. A bigger block shows more tiles, or tiles made to
-  // say more; what fits is shown, the group centered with a short last row centered, and the rest are "+N more".
-  //   [kind, columns, height] -- square cells (196 x 196) and tiles (196 x 150); `count` On Now's (a count each, four
-  //   kinds at most), `words` House Status's (readings in words, as many sections as the house has)
-  var DESIGN = {
-    square: { count: { W: ['pill', 2, 58], T: ['pill', 1, 76], L: ['card', 2, 162], XL: ['card', 2, 162] },
-              words: { W: ['pill', 2, 58], T: ['pill', 1, 60], L: ['pill', 2, 76], XL: ['stack', 4, 162] } },
-    tile: { count: { W: ['stack', 4, 88], T: ['pill', 1, 56], L: ['card', 2, 120], XL: ['card', 2, 120] },
-            words: { W: ['stack', 3, 88], T: ['pill', 1, 56], L: ['pill', 2, 56], XL: ['stack', 4, 120] } }
-  };
+  // ROUND TWO (2026-11-08, the owner: "the layouts don't follow anything else ... It would be great if On Now and Home
+  // Status shared a similar look"; then, of a first try in tiles: "we don't necessarily have to use Tiles to display
+  // this data ... Let's be intentional on layout here"): ONE LANGUAGE FOR HOUSE STATUS AND ON NOW, built from the
+  // block he liked -- On Now's first Tall, a big count with the kinds listed under it:
+  //   A HEADLINE that answers the glance: On Now's count with "On" (quiet: "All Off"), House Status's one thing that
+  //     matters most in words ("1 Window Open"; "All Good" with a green check when nothing needs a look).
+  //   THE CATEGORIES AS LINES, not boxes: each a row -- the glyph on a disc (lit, in its color, while something is on or
+  //     asks for a look; a neutral disc at rest), the name, the reading, a short "where" -- the whole row its tap, a
+  //     hairline between rows, at a fixed height per size; a kind at rest reads quieter, never hidden.
+  //   Per size composed, not a grid of equal boxes: S the headline over the kinds' discs; W the headline in the left
+  //   third and the lines (or the discs with their counts) beside it; T the headline over the lines; L the headline and
+  //   a sentence over richer lines; XL a headline column beside the lines. NOTHING STRETCHES: rows keep their height and
+  //   the group is centered where it is shorter than the block. On Now (hk-grid-widgets.js) draws with the same parts.
+  var ROW = { square: { W: 44, T: 44, L: 56, XL: 56 }, tile: { W: 44, T: 44, L: 48, XL: 56 } };
+  var LABEL = 30;                                      // the label's row (24) and the gap under it
+  var TAP = 44;                                        // a row is never shorter than a finger
+  var SENTENCE = 21;                                   // a sentence under the headline (19) and its gap
   // a square cell's block or a tile's, by its height inside the inset (a one-row block: 160 or 122; two rows: 369 or 282)
   function shapeOf(size, ih) { return (size === 'S' || size === 'W' ? ih >= 145 : ih >= 330) ? 'square' : 'tile'; }
-  // HOW n TILES LAY OUT in a block of iw x ih px inside its inset: {cols, rows, shown, more, tw, th, kind, gap, head}
-  function layout(size, iw, ih, n, block) {
-    var shape = shapeOf(size, ih), d = (DESIGN[shape][block === 'count' ? 'count' : 'words'] || {})[size] || ['pill', 1, 60];
-    // (less the plate's 1 px edge each side: the inset is measured from the block's outside)
-    var body = ih - 2 - HEAD, cols = d[1], th = d[2];
-    var tw = Math.floor((iw - 2 - (cols - 1) * GAP) / cols);
-    var rows = Math.max(1, Math.floor((body + GAP) / (th + GAP)));
-    var shown = Math.min(Math.max(0, n || 0), cols * rows);
-    return { cols: cols, rows: Math.ceil(shown / cols) || 0, shown: shown, more: Math.max(0, (n || 0) - shown), tw: tw, th: th,
-             kind: d[0], gap: GAP, head: HEAD, shape: shape };
-  }
-  // which of a tile's lines its height has room for: [the detail, the extra line]
-  function lines(kind, th) {
-    if (kind === 'stack') return [th >= 106, th >= 124];
-    if (kind === 'pill') return [th >= 74, false];
-    if (kind === 'card') return [th >= 102, th >= 119];
-    return [false, false];
+  // THE HEADLINE'S HEIGHT: a count 72 (its own column, a square Tall) or 44; words two lines of the title (22 / 28)
+  function headH(o) { return o.words ? 56 : o.big ? 76 : 48; }
+  // HOW A BLOCK IS COMPOSED, iw x ih inside its inset, n lines, o {words: a headline in words}: {shape, rowH, rows,
+  // shown, more, big, sentence, side (the left column's width: W and XL), cols (W's lines across)}
+  function plan(size, iw, ih, n, o) {
+    o = o || {};
+    var shape = shapeOf(size, ih), rowH = (ROW[shape] || ROW.square)[size] || 44, big = false, side = 0, sentence = false, cols = 1, room;
+    n = Math.max(0, n || 0);
+    if (size === 'S') return { shape: shape, rowH: 0, rows: 0, shown: 0, more: n, big: false, sentence: false, side: 0, cols: 0 };
+    if (size === 'W') {
+      side = Math.round(iw / 3);
+      room = ih;
+      // (counts are short: two across where the lines are many and the block short)
+      cols = !o.words && n > Math.floor(room / rowH) ? 2 : 1;
+    } else if (size === 'XL') {
+      side = 200; big = shape === 'square'; sentence = true;
+      room = ih;
+    } else {
+      big = size === 'T' && shape === 'square' && !o.words;
+      room = ih - LABEL - headH({ words: o.words, big: big }) - 8;
+      // (Large's sentence where it costs no line, or every line still fits)
+      var fit = function (r) { return Math.floor((r - 2) / rowH); };
+      if (size === 'L' && (fit(room - SENTENCE) === fit(room) || fit(room - SENTENCE) >= n)) { sentence = true; room -= SENTENCE; }
+    }
+    var rows = Math.max(1, Math.floor((room - 2) / rowH)), shown = Math.min(n, rows * cols);
+    return { shape: shape, rowH: rowH, rows: Math.ceil(shown / cols), shown: shown, more: n - shown, big: big, sentence: sentence, side: side, cols: cols };
   }
   // THE SHEET'S WIDTH, asked when it opens: the wide one (820) for two or more sections when the window has room
   // for it beside the screen's own menu (a docked menu's width, `left`) and height for its panels (640: the sheet's
@@ -99,7 +103,7 @@
   }
   function count(n) { return n === 1 ? '1 status' : n + ' statuses'; }
 
-  var LIB = { HEAD: HEAD, GAP: GAP, TAP: TAP, DESIGN: DESIGN, shapeOf: shapeOf, layout: layout, lines: lines,
+  var LIB = { ROW: ROW, LABEL: LABEL, TAP: TAP, shapeOf: shapeOf, headH: headH, plan: plan,
               wantWide: wantWide, sheetMode: sheetMode, lead: lead, words: words, fmtSecs: fmtSecs, secsOf: secsOf, count: count };
   window.hkHouseStatus = { version: '1.0.0', lib: LIB };
 
@@ -256,87 +260,129 @@
     };
   };
 
-  // ======================================================================== the summary tiles (On Now's too)
-  // THE LOOK (ROUND TWO, 2026-11-08; the pure part's DESIGN and layout say where and what): every size of House Status
-  // and of On Now (hk-grid-widgets.js) is drawn with these. The heading: the label in the block's accent with the glass
-  // glow, one key at its end. A tile: the inner radius, the key's wash, its glyph in its color while it has something
-  // going on (in the ink at rest), and the whole of it one tap. Small: the label over the one thing that matters, its
-  // reading large and a line under it.
+  // ======================================================================== the summary (On Now's too)
+  // THE PARTS (ROUND TWO, 2026-11-08; the pure part's plan says where and how many): every size of House Status and of
+  // On Now (hk-grid-widgets.js) is composed of these -- the label's row (the label in the block's accent, one key at
+  // its end), the headline, a sentence, and the lines; Small and Wide also the discs.
   var SUM_CSS = [
-    '.sm-h{display:flex;align-items:center;justify-content:space-between;gap:8px;height:24px;margin-bottom:8px;flex:none;min-width:0}',
+    '.sm{flex:1;min-height:0;display:flex;flex-direction:column;min-width:0}',
+    '.sm-h{display:flex;align-items:center;justify-content:space-between;gap:8px;height:24px;margin-bottom:6px;flex:none;min-width:0}',
     '.sm-l{' + type('label') + ';line-height:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;text-shadow:' + v('glow') + '}',
-    // the heading's key: a capsule the heading's height, at least a finger wide, with a finger's reach round it
+    // the label's key (All Off, "+N more"): a capsule the row's height, at least a finger wide, a finger's reach round it
     '.sm-k{all:unset;box-sizing:border-box;position:relative;flex:none;display:flex;align-items:center;justify-content:center;gap:2px;height:24px;min-width:44px;padding:0 12px;',
     '  border-radius:12px;background:' + v('key') + ';' + type('caption') + ';font-weight:600;color:' + v('ink') + ';cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent}',
-    // (its reach up into the inset, never over the tiles under it)
+    // (its reach up into the inset, never over a line)
     '.sm-k::after{content:"";position:absolute;left:-6px;right:-6px;top:-14px;bottom:-6px}',
     '.sm-k:active{filter:brightness(0.9)}',
     '.sm-k.q{background:none;padding:0 0 0 8px;justify-content:flex-end;color:' + v('ink-2') + ';font-weight:500;text-shadow:' + v('glow') + '}',
     '.sm-k hk-icon{width:12px;height:12px;--mdc-icon-size:12px;color:' + v('mark') + '}',
-    // the tiles at their size, the group centered in what the heading leaves, a short last row centered
-    '.sm-g{flex:1;min-height:0;display:flex;flex-wrap:wrap;align-content:center;justify-content:center;gap:' + GAP + 'px}',
-    // A TILE: one tap, its parts placed by its kind
-    '.sm-t{all:unset;box-sizing:border-box;position:relative;flex:none;width:var(--tw);height:var(--th);overflow:hidden;display:grid;padding:10px 12px;',
-    '  border-radius:var(--hk-inner-radius,12px);background:' + v('key') + ';color:' + v('ink') + ';cursor:pointer;-webkit-tap-highlight-color:transparent;',
-    '  transition:transform ' + C.DUR.press + ' ease}',
-    '.sm-t:not(.in):active{transform:scale(0.97)}.sm-t.in{cursor:default}',
-    '.sm-t:focus-visible,.sm-k:focus-visible,.sm-s:focus-visible{outline:2px solid ' + v('ink-2') + ';outline-offset:2px}',
-    '.sm-t .g{grid-area:g;display:flex;align-self:center;color:' + v('ink') + '}',
-    '.sm-t .nm{grid-area:n;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-    '.sm-t .v{grid-area:v;display:block;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}',
-    '.sm-t .v small{margin-left:4px;font-size:0.6em;font-weight:600;letter-spacing:0;color:' + v('ink-2') + '}',
-    '.sm-t .v.nr,.sm-t.at .v{color:' + v('ink-2') + '}.sm-t.at .g{color:' + v('ink-3') + '}',
-    '.sm-t .v hk-countdown{font:inherit}',
-    '.sm-t .dt,.sm-t .ex{' + type('caption') + ';line-height:17px;color:' + v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}',
-    '.sm-t .dt{grid-area:d}.sm-t .ex{grid-area:e}',
-    // one line: the glyph, the name, the reading at the end
-    '.k-line{grid-template-columns:22px minmax(0,1fr) auto;grid-template-areas:"g n v";column-gap:10px;align-items:center;padding:0 14px}',
-    '.k-line .nm{' + type('body') + ';font-weight:600}.k-line .v{' + type('headline') + ';max-width:9em}.k-line .v small{font-size:13px}',
-    // a stack: the glyph at the top, the reading and the name at the foot
-    '.k-stack{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) auto auto auto auto;grid-template-areas:"g" "." "v" "n" "d" "e";padding:11px 12px 10px}',
-    '.k-stack .g{align-self:start}.k-stack .v{' + type('title') + ';line-height:26px}.k-stack .v.tx{' + type('headline') + ';line-height:22px}',
-    '.k-stack .v small{font-size:13px}.k-stack .nm{' + type('caption') + ';line-height:17px;color:' + v('ink-2') + '}',
-    // a pill (Apple Home's category): the glyph beside the name over the reading
-    '.k-pill{grid-template-columns:24px minmax(0,1fr);grid-template-areas:"g n" "g v" "g d" "g e";column-gap:12px;align-content:center;padding:0 14px}',
-    '.k-pill .nm{' + type('headline') + ';line-height:21px}.k-pill .v{' + type('body') + ';line-height:19px;color:' + v('ink-2') + '}.k-pill .v small{font-size:inherit;font-weight:inherit;margin-left:0.25em}',
-    // a card: the glyph and the name on its top line, then at its foot the reading large and the lines of detail
-    '.k-card{grid-template-columns:26px minmax(0,1fr);grid-template-rows:26px minmax(0,1fr) auto auto auto;grid-template-areas:"g n" ". ." "v v" "d d" "e e";column-gap:9px;padding:13px 14px 12px}',
-    '.k-card .v{' + type('figure') + ';line-height:34px}.k-card .v.tx{' + type('title') + ';line-height:30px}',
-    '.k-card .v small{' + type('headline') + ';letter-spacing:0}.k-card .nm{' + type('headline') + ';line-height:26px}',
-    '.sm-t.nd .dt,.sm-t.ne .ex{display:none}',
-    // SMALL: one button -- the label, then the glyph, the reading large and a line at the foot
+    // (a column's foot key -- Wide's and Extra Large's All Off -- a finger tall itself)
+    '.sm-k.f{height:44px;border-radius:22px;padding:0 20px;' + type('body') + ';font-weight:600}.sm-k.f::after{display:none}',
+    // THE HEADLINE: a count large, or the one thing that matters in words
+    '.hl{display:flex;align-items:baseline;gap:6px;min-width:0;flex:none;text-shadow:' + v('glow') + '}',
+    '.hl .n{' + type('hero') + ';line-height:48px;font-variant-numeric:tabular-nums;white-space:nowrap}',
+    '.hl.big .n{font-size:72px;font-weight:500;letter-spacing:-2px;line-height:76px}',
+    '.hl .u{' + type('headline') + ';color:' + v('ink-2') + ';white-space:nowrap}',
+    '.hl.w{display:block;' + type('title') + ';line-height:28px;max-height:56px;overflow:hidden}',
+    '.hl.w hk-icon,.hl.w hk-state-icon{display:inline-flex;vertical-align:-3px;margin-right:6px}',
+    '.hl.w hk-countdown{font:inherit}.hl.w .v small{font-size:inherit;margin-left:0.25em}.hl.w .v.nr{color:' + v('ink-2') + '}',
+    '.snt{' + type('body') + ';line-height:19px;color:' + v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:none;margin-top:2px;text-shadow:' + v('glow') + '}',
+    // THE LINES, at their height, the group centered in what the headline leaves
+    '.bd{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;margin-top:8px}',
+    '.ls{display:grid;grid-template-columns:repeat(var(--c,1),minmax(0,1fr));column-gap:16px;flex:none}',
+    '.ln{all:unset;box-sizing:border-box;position:relative;height:var(--rh);min-width:0;display:grid;grid-template-columns:var(--dk) minmax(0,1fr) auto;',
+    '  align-items:center;column-gap:10px;border-top:1px solid ' + v('line') + ';color:' + v('ink') + ';cursor:pointer;-webkit-tap-highlight-color:transparent;transition:opacity ' + C.DUR.press + ' ease}',
+    '.ls.nw .ln{column-gap:8px}.ls.nw .ln.u .nm{' + type('caption') + ';font-weight:600;line-height:17px}.ln.u{grid-template-columns:var(--dk) minmax(0,1fr)}.ln.r0{border-top:0}.ln:not(.in):active{opacity:.6}.ln.in{cursor:default}',
+    '.ln:focus-visible,.sm-k:focus-visible,.sm-s:focus-visible,.di:focus-visible{outline:2px solid ' + v('ink-2') + ';outline-offset:2px;border-radius:12px}',
+    '.ln .dt .v{display:inline}.ln .tx{display:flex;flex-direction:column;justify-content:center;min-width:0;text-shadow:' + v('glow') + '}',
+    '.ln .nm{' + type('body') + ';font-weight:600;line-height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '.ln .dt{' + type('caption') + ';line-height:16px;color:' + v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '.ln .rd{' + type('headline') + ';white-space:nowrap;font-variant-numeric:tabular-nums;text-align:right;text-shadow:' + v('glow') + '}',
+    '.ln .rd small{' + type('caption') + ';color:' + v('ink-2') + ';margin-left:3px}',
+    '.ln .rd hk-countdown,.ln .dt hk-countdown{font:inherit}.ln .dt .v small{font:inherit;margin-left:0.25em;color:inherit}.ln .rd .v.nr{color:' + v('ink-3') + '}',
+    '.ln.at .nm,.ln.at .rd{color:' + v('ink-2') + '}',
+    // (a level -- the lights' brightness -- a small bar at the start of the line under the name)
+    '.lv{display:inline-block;width:34px;height:4px;border-radius:2px;background:' + v('key-strong') + ';margin-right:6px;vertical-align:2px;overflow:hidden}',
+    '.lv b{display:block;height:100%;border-radius:2px}',
+    // THE DISC: the glyph in white on its color while something is on or asks for a look; a neutral disc at rest
+    '.dk{display:grid;place-items:center;border-radius:50%;color:#fff;flex:none}',
+    '.dk.off{background:' + v('key') + ';color:' + v('ink-2') + '}',
+    '.dk hk-icon,.dk hk-state-icon{display:flex;--mdc-icon-size:100%}',
+    '.dr{display:flex;gap:8px;flex:none;margin-top:8px}',
+    // (Wide, the discs with their counts: each a column -- the disc, the count, the name -- the whole of it a tap)
+    '.dw{display:flex;justify-content:space-around;align-items:center;flex:1;min-width:0}',
+    '.di{all:unset;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:56px;cursor:pointer;-webkit-tap-highlight-color:transparent}',
+    '.di:active{opacity:.6}.di b{' + type('headline') + ';line-height:20px;font-variant-numeric:tabular-nums;text-shadow:' + v('glow') + '}',
+    '.di span{' + type('caption') + ';line-height:16px;color:' + v('ink-2') + ';white-space:nowrap;text-shadow:' + v('glow') + '}',
+    '.di.at b{color:' + v('ink-2') + '}',
+    // WIDE AND EXTRA LARGE: a column of its own for the headline beside the lines
+    '.sx{flex:1;min-height:0;display:flex;gap:var(--sg,16px);min-width:0}',
+    '.sx>.sc{flex:none;width:var(--sw);display:flex;flex-direction:column;min-width:0}',
+    '.sx>.sc .snt{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3}',
+    '.sx>.sc .ft{margin-top:auto;display:flex}',
+    '.sx>.bd{flex:1;min-width:0;margin-top:0}',
+    // SMALL: one button -- the label, the headline at the foot, the discs under it
     '.sm-s{all:unset;box-sizing:border-box;flex:1;min-height:0;display:flex;flex-direction:column;cursor:pointer;-webkit-tap-highlight-color:transparent}',
-    '.sm-s:active{opacity:.75}',
-    '.sm-s .g{display:flex;margin-top:auto;margin-bottom:4px;color:' + v('ink') + '}',
-    '.sm-s .v{display:block;' + type('figure-l') + ';line-height:42px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}',
-    '.sm-s .v.tx{' + type('title') + ';line-height:28px}.sm-s .v small{' + type('headline') + ';letter-spacing:0;margin-left:4px;color:' + v('ink-2') + '}',
-    '.sm-s .v.nr{color:' + v('ink-2') + '}.sm-s .v hk-countdown{font:inherit}',
-    '.sm-s .ln{' + type('caption') + ';line-height:17px;color:' + v('ink-2') + ';display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;margin-top:1px}',
-    '@media (prefers-reduced-motion:reduce){.sm-t{transition:none}}'
+    '.sm-s:active{opacity:.75}.sm-s .hl{margin-top:auto}.sm-s .snt{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}',
+    '@media (prefers-reduced-motion:reduce){.ln{transition:none}}'
   ].join('');
-  // the heading: the label in its color, `right` its one key (or nothing)
-  function sumHead(label, color, right) {
-    return '<div class="sm-h"><div class="sm-l" style="color:' + color + '">' + esc(label) + '</div>' + (right || '') + '</div>';
+  // a glyph on its disc: px the disc, color its color when lit (null: at rest); icon(px, color) draws the glyph
+  function disc(icon, px, color) {
+    return '<span class="dk' + (color ? '' : ' off') + '" style="width:' + px + 'px;height:' + px + 'px' + (color ? ';background:' + color : '') + '" aria-hidden="true">' +
+      icon(Math.round(px * 0.58), color ? '#fff' : null) + '</span>';
   }
-  // A TILE: t = {live (a button), attrs, aria, glyph (html), name, value (html, a .v span), detail, extra, rest (at rest)}
-  function sumTile(t, F, i) {
-    var ln = lines(F.kind, F.th), tag = t.live ? 'button type="button"' : 'div role="group"';
-    return '<' + tag + ' class="sm-t k-' + F.kind + (t.live ? '' : ' in') + (t.rest ? ' at' : '') + (ln[0] && t.detail ? '' : ' nd') + (ln[1] && t.extra ? '' : ' ne') +
-'"' + (t.attrs ? ' ' + t.attrs : '') + ' aria-label="' + esc(t.aria || t.name) + '">' +
-      '<span class="g">' + t.glyph + '</span><span class="nm">' + esc(t.name) + '</span>' + t.value +
-      (ln[0] && t.detail ? '<span class="dt">' + esc(t.detail) + '</span>' : '') + (ln[1] && t.extra ? '<span class="ex">' + esc(t.extra) + '</span>' : '') +
-      '</' + (t.live ? 'button' : 'div') + '>';
+  // THE HEADLINE: {num, unit} -- a count large -- or {words (html)}; big: 72 px
+  function headline(h, big) {
+    if (h.words != null) return '<div class="hl w">' + h.words + '</div>';
+    return '<div class="hl' + (big ? ' big' : '') + '"><span class="n">' + esc(String(h.num)) + '</span>' + (h.unit ? '<span class="u">' + esc(h.unit) + '</span>' : '') + '</div>';
   }
-  function sumGrid(F, tiles) {
-    return '<div class="sm-g" style="--tw:' + F.tw + 'px;--th:' + F.th + 'px">' + tiles.slice(0, F.shown).map(function (t, i) { return sumTile(t, F, i); }).join('') + '</div>';
+  // A LINE: r = {live, attrs, aria, icon(px, color), lit (its color while lit), name, reading (html), detail, level, rest}
+  // under: the reading under the name (a narrow line with words to say)
+  function line(r, P, i, under, dk) {
+    var tag = r.live ? 'button type="button"' : 'div role="group"';
+    var lv = r.level != null ? '<i class="lv"><b style="width:' + Math.max(4, Math.min(100, r.level)) + '%;background:' + (r.lit || v('ink-2')) + '"></b></i>' : '';
+    var under2 = under ? r.reading + (r.detail ? ' · ' + esc(r.detail) : '') : lv + esc(r.detail || '');
+    return '<' + tag + ' class="ln' + (under ? ' u' : '') + (r.live ? '' : ' in') + (r.rest ? ' at' : '') + (i < P.cols ? ' r0' : '') + '"' + (r.attrs ? ' ' + r.attrs : '') +
+      ' aria-label="' + esc(r.aria || r.name) + '">' + disc(r.icon, dk, r.lit) + '<span class="tx"><span class="nm">' + esc(r.name) + '</span>' +
+      (under2 ? '<span class="dt">' + under2 + '</span>' : '') + '</span>' + (under ? '' : '<span class="rd">' + r.reading + '</span>') +
+      '</' + (r.live ? 'button' : 'div') + '>';
   }
-  // SMALL: s = {label, color, attrs, aria, glyph, value (html), line}
-  function sumSmall(s) {
-    return '<button type="button" class="sm-s"' + (s.attrs ? ' ' + s.attrs : '') + ' aria-label="' + esc(s.aria) + '">' +
-      '<div class="sm-l" style="color:' + s.color + '">' + esc(s.label) + '</div>' + (s.glyph ? '<span class="g">' + s.glyph + '</span>' : '') +
-      s.value + (s.line ? '<span class="ln">' + s.line + '</span>' : '') + '</button>';
+  function lines(m, P, width) {
+    // (a narrow column -- Tall's, 160 -- a smaller disc and gap, so "Doors & Windows" keeps its whole name)
+    var nw = width / P.cols < 200, dk = nw ? 24 : P.rowH >= 56 ? 34 : P.rowH >= 48 ? 30 : 28, under = !!m.words && width / P.cols < 300;
+    return '<div class="ls' + (nw ? ' nw' : '') + '" style="--c:' + P.cols + ';--rh:' + P.rowH + 'px;--dk:' + dk + 'px">' +
+      m.rows.slice(0, P.shown).map(function (r, i) { return line(r, P, i, under, dk); }).join('') + '</div>';
   }
-  window.hkHouseStatus.tiles = { CSS: SUM_CSS, head: sumHead, tile: sumTile, grid: sumGrid, small: sumSmall, layout: layout };
+  // THE BLOCK, composed for its size. m = {label, color, key (the label row's key, html), side (Wide's key, under its
+  // headline), head ({num, unit} | {words}), sentence, rows, words (the lines' readings are words), discs (Wide: the
+  // discs with their counts instead of lines), small ({attrs, aria})}; box its inside; P its plan
+  // (2026-11-08: Large was drawn both ways -- the headline over the lines, and beside them in a column of its own as
+  // Extra Large has it; beside them squeezed the label and cut the lines' detail, so Large keeps the headline on top)
+  function compose(m, size, box, P) {
+    var lab = '<div class="sm-l" style="color:' + m.color + '">' + esc(m.label) + '</div>';
+    var row = function (key) { return '<div class="sm-h">' + lab + (key || '') + '</div>'; };
+    var snt = m.sentence ? '<div class="snt">' + m.sentence + '</div>' : '';
+    if (size === 'S') {
+      var ds = m.discs ? '<div class="dr">' + m.rows.map(function (r) { return disc(r.icon, 26, r.lit); }).join('') + '</div>' : '';
+      return '<button type="button" class="sm-s"' + (m.small.attrs ? ' ' + m.small.attrs : '') + ' aria-label="' + esc(m.small.aria) + '">' + lab +
+        headline(m.head, false) + (m.discs ? '' : snt) + ds + '</button>';
+    }
+    if (size === 'W') {
+      var right = m.discs ? '<div class="dw">' + m.rows.map(function (r) {
+        return '<button type="button" class="di' + (r.rest ? ' at' : '') + '" ' + r.attrs + ' aria-label="' + esc(r.aria || r.name) + '">' + disc(r.icon, 36, r.lit) +
+          '<b>' + (r.count != null ? esc(String(r.count)) : '') + '</b><span>' + esc(r.name) + '</span></button>';
+      }).join('') + '</div>' : '<div class="bd">' + lines(m, P, box.iw - P.side - 16) + '</div>';
+      return '<div class="sx" style="--sw:' + P.side + 'px">' + '<div class="sc">' + lab + '<div style="margin-top:6px">' + headline(m.head, false) + '</div>' +
+        '<div class="ft">' + (m.side || '') + '</div></div>' + right + '</div>';
+    }
+    if (size === 'XL') {
+      return '<div class="sx" style="--sw:' + P.side + 'px;--sg:22px"><div class="sc">' + row(m.key) + headline(m.head, P.big) + snt +
+        '<div class="ft">' + (m.side || '') + '</div></div>' +
+        '<div class="bd">' + lines(m, P, box.iw - P.side - 22) + '</div></div>';
+    }
+    return '<div class="sm">' + row(m.key) + headline(m.head, P.big) + (P.sentence ? snt : '') + '<div class="bd">' + lines(m, P, box.iw) + '</div></div>';
+  }
+  window.hkHouseStatus.tiles = { CSS: SUM_CSS, plan: plan, compose: compose, disc: disc };
 
   // ======================================================================== the Home Grid block
   var BLOCK_CSS = [
@@ -371,36 +417,41 @@
           if (sec) go(self, sec, false);
         });
       }
-      var size = this._size(), m = this._sections();
-      if (!m) { C.morph(this._plate, sumHead('House Status', accent(), '')); return; }
-      var box = inner(this, size), html;
-      if (size === 'S') html = this._small(m);
-      else html = this._grid(m, size, box);
-      C.morph(this._plate, html);
+      var size = this._size(), m = this._sections(), lab = '<div class="sm-l" style="color:' + accent() + '">House Status</div>';
+      if (!m) { C.morph(this._plate, lab); return; }
+      var box = inner(this, size), P = plan(size, box.iw, box.ih, m.total, { words: true });
+      var shown = m.sections.slice(0, size === 'S' ? 0 : P.shown);
+      this._shown = shown;
+      if (!m.sections.length && size !== 'S') { C.morph(this._plate, lab + '<div class="none">Nothing to report</div>'); return; }
+      // the headline: the one thing that matters most, in words ("1 Window Open"), else All Good with a green check
+      var sec = lead(m.sections), need = !!(sec && (sec.urgent || sec.attention));
+      var others = m.sections.filter(function (x) { return x !== sec && (x.urgent || x.attention); }).length;
+      var green = (C.ACCENTS && C.ACCENTS.green) || '#30d158';
+      var head = need ? { words: reading(sec.reading) + (OPEN_WORD[sec.kind] ? ' ' + OPEN_WORD[sec.kind] : '') }
+        : { words: '<hk-icon icon="mdi:check-circle" style="width:24px;height:24px;--mdc-icon-size:24px;color:' + green + '"></hk-icon>All Good' };
+      var sentence = need ? esc(sec.name) + (others ? ' · ' + others + ' more to check' : '') : 'Nothing needs a look';
+      // (a Tall block's label row has room for the label and "+2" only)
+      var more = P.more > 0 ? '<button type="button" class="sm-k q" data-all aria-label="' + esc('All ' + count(m.total) + ': opens House Status') + '">+' + P.more +
+        (box.iw < 200 ? '' : ' more') + CHEV + '</button>' : '';
+      var model = { label: 'House Status', color: accent(), head: head, sentence: sentence, words: true, key: more, side: size === 'W' ? more : '',
+        small: { attrs: 'data-all', aria: 'House Status: ' + (need ? words(sec.reading) + ', ' + sec.name : 'all good') + (others ? ', ' + others + ' more to check' : '') + '. Opens House Status' },
+        rows: shown.map(function (x, i) {
+          var say = words(x.reading), dt = x.detail && x.detail.toLowerCase() !== say.toLowerCase() ? x.detail : null;
+          return { live: goes(x), attrs: 'data-i="' + i + '"', aria: ariaOf(x), icon: function (px, col) { return glyph(x, px, col); }, lit: litOf(x),
+                   name: x.name, reading: reading(x.reading), detail: dt };
+        }) };
+      C.morph(this._plate, compose(model, size, box, P));
       bindGlyphs(this._plate, this.client);
     }
-    _small(m) {
-      var sec = lead(m.sections);
-      this._shown = [];
-      var aria = 'House Status' + (sec ? ': ' + ariaOf(sec) : ': nothing to report') + '. ' + count(m.total) + '. Opens House Status';
-      if (!sec) return sumSmall({ label: 'House Status', color: accent(), attrs: 'data-all', aria: aria, glyph: glyph({ icon: 'mdi:home' }, 26, null),
-                                   value: '<span class="v tx">All Clear</span>', line: 'Nothing to report' });
-      return sumSmall({ label: 'House Status', color: accent(), attrs: 'data-all', aria: aria, glyph: glyph(sec, 26, tint(sec)), value: reading(sec.reading),
-                        line: esc(sec.name) + (m.total > 1 ? ' · ' + esc(count(m.total)) : '') });
-    }
-    _grid(m, size, box) {
-      var L = layout(size, box.iw, box.ih, m.total, 'words'), shown = m.sections.slice(0, L.shown);
-      this._shown = shown;
-      // (a Tall block's heading has room for the label and "+2" only)
-      var more = L.more > 0 ? '<button type="button" class="sm-k q" data-all aria-label="' + esc('All ' + count(m.total) + ': opens House Status') + '">+' + L.more + (box.iw < 200 ? '' : ' more') + CHEV + '</button>' : '';
-      var head = sumHead('House Status', accent(), more);
-      if (!shown.length) return head + '<div class="none">Nothing to report</div>';
-      var gpx = L.kind === 'card' ? 26 : L.kind === 'line' ? 20 : 24;
-      return head + sumGrid(L, shown.map(function (sec, i) {
-        return { live: goes(sec), attrs: 'data-i="' + i + '"', aria: ariaOf(sec), glyph: glyph(sec, gpx, tint(sec)), name: sec.name,
-                 value: reading(sec.reading), detail: sec.detail, extra: sec.extra };
-      }));
-    }
+  }
+  // what a headline adds to a reading in words: a door's "1 Window" is "1 Window Open", a timer's "8:38" "8:38 Left"
+  var OPEN_WORD = { doors_windows: 'Open', timers: 'Left' };
+  // A SECTION'S DISC lit: in its chip's color while it asks for a look, or while something is on, playing or open
+  function litOf(sec) {
+    var r = sec.reading || {}, on = r.num != null && Number(r.num) > 0 && /^(on|playing|open|running|leak|leaks)$/i.test(String(r.unit || ''));
+    if (!(sec.urgent || sec.attention || on)) return null;
+    var c = sec.color && C.flatColor ? C.flatColor(sec.color, 'on') : sec.color;
+    return c || (C.ACCENTS && C.ACCENTS.orange) || '#ff9f0a';
   }
 
   // ======================================================================== the sheet's body

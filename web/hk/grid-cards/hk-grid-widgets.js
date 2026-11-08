@@ -466,7 +466,7 @@
       if (!x.ids.length) return { detail: plural(x.all.length, x.kind.one, x.kind.many), extra: null };
       var where = [];
       mine.forEach(function (t) { var w = x.kind.key === 'switches' || !t.area ? t.name : t.area; if (where.indexOf(w) < 0) where.push(w); });
-      var extra = null;
+      var extra = null, level = null;
       if (x.kind.key === 'lights' || x.kind.key === 'fans') {
         var lv = x.ids.map(function (id) {
           var a = (st[id] && st[id].attributes) || {};
@@ -475,17 +475,17 @@
         if (lv.length) {
           var avg = Math.round(lv.reduce(function (s, n) { return s + n; }, 0) / lv.length);
           extra = (x.kind.key === 'lights' ? 'Brightness ' : 'Speed ') + (lv.length > 1 ? 'about ' : '') + avg + '%';
+          level = avg;
         }
       } else if (x.kind.key === 'speakers') {
         var a0 = (st[x.ids[0]] && st[x.ids[0]].attributes) || {};
         extra = [a0.media_title, a0.media_artist].filter(Boolean).join(' · ') || null;
       }
-      return { detail: where.join(', ') || null, extra: extra };
+      return { detail: where.join(', ') || null, extra: extra, level: level };
     }
     var ON_CSS = [
       ':host{display:block;height:100%}',
-      'hk-plate.wg{text-shadow:none}.sm-l,.sm-s .v,.sm-s .ln{text-shadow:' + v('glow') + '}',
-      '.sm-s .g{gap:8px}',
+      'hk-plate.wg{text-shadow:none}',
       '.none{' + type('body') + ';color:' + v('ink-2') + '}'
     ].join('');
     // THE TILES' KIT, House Status's file (a lazy one): asked for once, the card drawn again when it is here
@@ -535,28 +535,31 @@
         }
         var T = sumKit(this), size = sizeOf(this) || 'L', o = whatsOn(this.client), orange = ACC.orange;
         if (!T) { C.morph(this._plate, '<div class="wl" style="color:' + orange + '">On Now</div>'); return; }
-        var html;
-        if (size === 'S') {
-          var shown = o.kinds.length ? o.kinds : o.every;
-          var glyphs = shown.map(function (x) { return gly(x.kind.icon, 24, o.n ? x.kind.color : null); }).join('');
-          html = T.small({ label: 'On Now', color: orange, attrs: 'data-open-all', glyph: glyphs,
-            aria: o.n ? 'On now: ' + o.kinds.map(function (x) { return plural(x.ids.length, x.kind.one, x.kind.many); }).join(', ') : 'On now: all off',
-            value: o.n ? '<span class="v">' + o.n + '<small>On</small></span>' : '<span class="v tx">All Off</span>',
-            line: o.n ? esc(o.kinds.map(function (x) { return plural(x.ids.length, x.kind.one, x.kind.many); }).join(' · ')) : '' });
-        } else {
-          var box = inner(this, size), L = T.layout(size, box.iw, box.ih, o.every.length, 'count');
-          var all = o.n ? '<button type="button" class="sm-k" data-all aria-label="' + esc('Turn off all ' + o.n + ' things on') + '">All Off</button>' : '';
-          var gpx = L.kind === 'card' ? 26 : L.kind === 'line' ? 20 : 24;
-          html = T.head('On Now', orange, all) + (o.every.length ? T.grid(L, o.every.map(function (x) {
-            var on = x.ids.length, lines = kindLines(self.client, x, o.things), many = cap(x.kind.many);
-            return { live: true, rest: !on, attrs: 'data-open-kind="' + x.kind.key + '"', glyph: gly(x.kind.icon, gpx, on ? x.kind.color : null), name: many,
+        var box = inner(this, size), P = T.plan(size, box.iw, box.ih, o.every.length, {}), rich = size === 'L' || size === 'XL';
+        var phrase = function (list) {
+          var w = list.map(function (x) { return plural(x.ids.length, x.kind.one, x.kind.many); });
+          return w.length > 1 ? w.slice(0, -1).join(', ') + ' and ' + w[w.length - 1] : w.join('');
+        };
+        // All Off: the label row's key; Wide's and Extra Large's at the foot of the headline's column, a finger tall
+        var all = function (cls) { return o.n ? '<button type="button" class="sm-k' + cls + '" data-all aria-label="' + esc('Turn off all ' + o.n + ' things on') + '">All Off</button>' : ''; };
+        var model = {
+          label: 'On Now', color: orange, key: size === 'XL' ? '' : all(''), side: all(' f'), // (Wide: the kinds as their discs with the counts under them, the Batteries widget's way -- drawn both ways on
+          // 2026-11-08, the lines two across cut "Speakers" and "Switches" to "Spe..." and "S...")
+          discs: size === 'S' || size === 'W',
+          // the headline: the count on, or, quiet, a calm All Off said once
+          head: o.n ? { num: o.n, unit: 'On' } : { words: 'All Off' },
+          sentence: o.n ? esc(phrase(o.kinds)) : '',
+          small: { attrs: 'data-open-all', aria: o.n ? 'On now: ' + phrase(o.kinds) : 'On now: all off' },
+          rows: o.every.map(function (x) {
+            var on = x.ids.length, ln = kindLines(self.client, x, o.things), many = cap(x.kind.many);
+            // (Large and Extra Large say more: where, and how bright, how fast, or what is playing)
+            var detail = on ? (rich && ln.extra && x.kind.key !== 'lights' ? [ln.detail, ln.extra].filter(Boolean).join(' · ') : ln.detail) : ln.detail;
+            return { live: true, rest: !on, attrs: 'data-open-kind="' + x.kind.key + '"', name: many, count: on || x.kind.rest,
+              icon: function (px, col) { return gly(x.kind.icon, px, col || null); }, lit: on ? x.kind.color : null,
               aria: 'Open ' + (on ? plural(on, x.kind.one, x.kind.many) + (x.kind.key === 'speakers' ? ' playing' : ' on') : many + ', ' + x.kind.rest.toLowerCase()),
-              // (a stack, Wide on a tile cell, 88 wide: the count alone under the heading's On Now -- "1 Playing" does not fit)
-              value: on ? '<span class="v">' + on + (L.kind === 'stack' ? '' : '<small>' + (x.kind.key === 'speakers' ? 'Playing' : 'On') + '</small>') + '</span>' : '<span class="v tx">' + x.kind.rest + '</span>',
-              detail: lines.detail, extra: lines.extra };
-          })) : '<div class="none" style="margin:auto">Nothing to show</div>');
-        }
-        C.morph(this._plate, html);
+              reading: on ? String(on) : x.kind.rest, detail: detail, level: rich && on && x.kind.key === 'lights' ? ln.level : null };
+          }) };
+        C.morph(this._plate, o.every.length || size === 'S' ? T.compose(model, size, box, P) : '<div class="wl" style="color:' + orange + '">On Now</div><div class="none" style="margin:auto">Nothing to show</div>');
       }
       // A KIND'S TAP (`open`): its page, where the screen has one and the block says so; else its sheet -- the things
       // of that kind that are on ("Lights On", "Fans On", "Speakers Playing", "Switches On"), none on, all of them; one

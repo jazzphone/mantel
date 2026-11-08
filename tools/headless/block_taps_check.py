@@ -109,7 +109,7 @@ async def main():
                 out, _ = await proc.communicate(json.dumps({
                     'origin': origin, 'cookie': cookie, 'screen': A.screen(part, look), 'size': args.size, 'engine': 'webkit',
                     'feed': A.feed_script(), 'lattice': args.lattice, 'debug': args.debug, 'shots': str(args.shots or ''),
-                    'parts': '[data-open-kind],.sm-t[data-i],.app.mo' if args.parts else ''}).encode())
+                    'parts': '[data-open-kind],.ln[data-i],.app.mo' if args.parts else ''}).encode())
                 if proc.returncode != 0:
                     errors.append(f'{part}: the page failed')
                 for line in out.decode().splitlines():

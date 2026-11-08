@@ -294,21 +294,21 @@ function () {
   eq('...and every kind the house has, each with all of its things (a tile at rest says it has them)', o.every.map(function (x) { return x.kind.key + ' ' + x.ids.length + '/' + x.all.length; }),
      ['lights 2/2', 'speakers 1/2', 'fans 1/1', 'switches 1/1']);
   var draw = function (size, cfg) { var c = sized('hk-on-now-card', size, cfg || {}); hkGive(c, hass()); c._render(); return c; };
-  // ROUND TWO (2026-11-08): House Status's summary tiles -- every kind a tile in the same place, All Off in the heading
+  // ROUND TWO (2026-11-08): the headline over the kinds as lines, House Status's parts (hk-house-status.js)
   var html = H.morphed(draw('S')._plate);
-  ok('S: the kinds\' glyphs, the count large and what it is', /class="v">5<small>On<\/small>/.test(html) && /2 lights · 1 speaker · 1 fan · 1 switch/.test(html) &&
-     (html.match(/<hk-icon icon="mdi:/g) || []).length === 4, html);
+  ok('S: the count large over the kinds\' discs', /<span class="n">5<\/span><span class="u">On<\/span>/.test(html) && (html.match(/class="dk"/g) || []).length === 4, html);
   html = H.morphed(draw('W')._plate);
-  ok('W: each kind a tile that opens it, All Off in the heading; no small Off keys', (html.match(/data-open-kind="/g) || []).length === 4 &&
-     /class="sm-k" data-all/.test(html) && !/data-off-kind=/.test(html) && /class="sm-t k-pill/.test(html), html);
+  ok('W: the count in its column with All Off at its foot; the kinds as discs with their counts, each opening it',
+     (html.match(/class="di" data-open-kind="/g) || []).length === 4 && /class="sm-k f" data-all/.test(html) && !/data-off-kind=/.test(html) && /<b>2<\/b><span>Lights<\/span>/.test(html), html);
   html = H.morphed(draw('T')._plate);
-  ok('T: a column of the kinds, each its name and count', /data-open-kind="lights"[^>]*>.*?<span class="nm">Lights<\/span><span class="v">2<small>On<\/small>/.test(html), html);
+  ok('T: the count over a line a kind -- its lit disc, its name and where, its count', /class="sm-k" data-all/.test(html) &&
+     /class="ln r0" data-open-kind="lights"[^>]*><span class="dk" style="width:24px;height:24px;background:[^"]+"[^>]*>.*?<span class="nm">Lights<\/span><span class="dt">Kitchen, Porch<\/span><\/span><span class="rd">2<\/span>/.test(html), html);
   var l = draw('L');
   html = H.morphed(l._plate);
-  ok('L: cards, each saying where -- the rooms, a switch by its name -- and how many', /class="sm-t k-card/.test(html) &&
-     /<span class="dt">Kitchen, Porch<\/span>/.test(html) && /<span class="dt">Coffee Maker<\/span>/.test(html) && /<span class="dt">Kitchen<\/span>/.test(html), html);
+  ok('L: a sentence under the count, lines saying where -- a switch by its name', /<div class="snt">2 lights, 1 speaker, 1 fan and 1 switch<\/div>/.test(html) &&
+     /<span class="dt">Coffee Maker<\/span>/.test(html) && (html.match(/class="ln/g) || []).length === 4, html);
   html = H.morphed(draw('XL')._plate);
-  ok('XL: the same four, larger', (html.match(/class="sm-t k-card/g) || []).length === 4, html);
+  ok('XL: the count in a column of its own, All Off at its foot, the four lines beside it', /class="sx"/.test(html) && /class="sm-k f" data-all/.test(html) && (html.match(/class="ln/g) || []).length === 4, html);
   // TAP ZONES (2026-11-07): a kind opens a sheet of those things (one thing: its own sheet)
   var went = [], saveD = window.hkDetail, saveM = window.hkShell.moreInfo;
   window.hkDetail = { openGroup: function (title, ids, o) { went.push(['group', title, ids, o && o.icon]); return true; } };
@@ -346,9 +346,11 @@ function () {
     var c = sized('hk-on-now-card', 'L', {}); hkGive(c, hass(none.hass())); c._render();
     var q = H.morphed(c._plate);
     ok('nothing on: each kind at rest ("Off", how many it has), no All Off, never "0" or "Nothing is on"',
-       (q.match(/class="sm-t k-card at/g) || []).length === 2 && /<span class="v tx">Off<\/span>/.test(q) && /<span class="dt">1 light<\/span>/.test(q) && !/data-all/.test(q) && !/Nothing is on|>0</.test(q), q);
+       (q.match(/class="ln at/g) || []).length === 2 && /<span class="rd">Off<\/span>/.test(q) && /<span class="dt">1 light<\/span>/.test(q) && !/data-all/.test(q) && !/Nothing is on|>0</.test(q) &&
+       /<div class="hl w">All Off<\/div>/.test(q), q);
     var cs = sized('hk-on-now-card', 'S', {}); hkGive(cs, hass(none.hass())); cs._render();
-    ok('...Small: the kinds\' glyphs at rest and "All Off", once', /<span class="v tx">All Off<\/span>/.test(H.morphed(cs._plate)) && !/Nothing/.test(H.morphed(cs._plate)), H.morphed(cs._plate));
+    ok('...Small: "All Off", once, over the kinds\' discs at rest', /<div class="hl w">All Off<\/div>/.test(H.morphed(cs._plate)) && /class="dk off"/.test(H.morphed(cs._plate)) &&
+       !/Nothing/.test(H.morphed(cs._plate)), H.morphed(cs._plate));
     // ...a kind at rest opens all of its things (one: its own sheet)
     var w2 = []; window.hkShell.moreInfo = function (id) { w2.push(id); };
     c._openKind('lights');

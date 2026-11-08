@@ -34,12 +34,12 @@ const TI = { S: [168, 122], W: [374, 122], T: [168, 282], L: [374, 282], XL: [58
 const out = { square: {}, tile: {}, sweep: [], wide: {}, mode: {}, card: {} };
 for (const [name, box] of [['square', SQ], ['tile', TI]]) {
   for (const size of ['W', 'T', 'L', 'XL']) {
-    out[name][size] = [0, 1, 3, 4, 6, 8, 11, 20].map((n) => { const x = L.layout(size, box[size][0], box[size][1], n);
-      return [n, x.cols, x.rows, x.shown, x.more, x.kind, x.th]; });
+    out[name][size] = [0, 1, 3, 4, 6, 8, 11, 20].map((n) => { const x = L.plan(size, box[size][0], box[size][1], n, { words: true });
+      return [n, x.cols, x.rows, x.shown, x.more, x.rowH, x.sentence]; });
     for (let n = 0; n <= 24; n++) {
-      const x = L.layout(size, box[size][0], box[size][1], n), [iw, ih] = box[size];
-      out.sweep.push({ size, n, whole: x.shown + x.more === n, tall: x.th >= L.TAP,
-                       fits: x.cols * x.tw + (x.cols - 1) * x.gap <= iw - 2 && x.rows * x.th + Math.max(0, x.rows - 1) * x.gap <= ih - 2 - x.head });
+      const x = L.plan(size, box[size][0], box[size][1], n, { words: true }), [iw, ih] = box[size];
+      const used = x.rows * x.rowH + (size === 'W' || size === 'XL' ? 0 : L.LABEL + L.headH({ words: true }) + 8 + (x.sentence ? 21 : 0));
+      out.sweep.push({ size, n, whole: x.shown + x.more === n, tall: x.rowH >= L.TAP, fits: used <= ih });
     }
   }
 }
@@ -71,28 +71,25 @@ def got() -> dict:
 
 
 # -- the layout ----------------------------------------------------------------------------------------------------
-# ROUND TWO (2026-11-08): the summary tiles On Now shares, each at its designed size per block size and cell shape
-# (NOTHING STRETCHES): [n, cols, rows, shown, more, kind, height]
+# ROUND TWO (2026-11-08): a headline over the sections as lines, each at its size's height (NOTHING STRETCHES), the
+# language On Now shares: [n, cols, rows, shown, more, row height, a sentence under the headline]
 @needs_node
 def test_each_size_holds_what_the_design_says_on_square_cells(got):
     sq = {size: {row[0]: row[1:] for row in rows} for size, rows in got["square"].items()}
-    assert sq["W"][6] == [2, 2, 4, 2, "pill", 58]            # two by two pills (Apple Home's category), "+2 more"
-    assert sq["W"][3] == [2, 2, 3, 0, "pill", 58]            # three: the last row's one centered, not stretched
-    assert sq["T"][6] == [1, 5, 5, 1, "pill", 60]            # a column of five
-    assert sq["L"][6] == [2, 3, 6, 0, "pill", 76]            # pills two across with a line of detail
-    assert sq["L"][11] == [2, 4, 8, 3, "pill", 76]
-    assert sq["XL"][6] == [4, 2, 6, 0, "stack", 162]         # stacks four across
-    assert sq["XL"][11] == [4, 2, 8, 3, "stack", 162]
+    assert sq["W"][6] == [1, 3, 3, 3, 44, False]            # the headline in a third, three lines beside it
+    assert sq["T"][8] == [1, 6, 6, 2, 44, False]            # the headline over six lines
+    assert sq["L"][6] == [1, 4, 4, 2, 56, True]             # the headline and its sentence over four lines of 56
+    assert sq["XL"][8] == [1, 6, 6, 2, 56, True]            # a headline column beside six lines
     assert sq["XL"][0][2:4] == [0, 0]
 
 
 @needs_node
 def test_tile_cells_keep_a_fingers_height_by_saying_less(got):
     ti = {size: {row[0]: row[1:] for row in rows} for size, rows in got["tile"].items()}
-    assert ti["W"][6] == [3, 1, 3, 3, "stack", 88]           # 150 tall: three stacks across, "+3 more"
-    assert ti["T"][6] == [1, 4, 4, 2, "pill", 56]
-    assert ti["L"][6] == [2, 3, 6, 0, "pill", 56]
-    assert ti["XL"][6] == [4, 2, 6, 0, "stack", 120]
+    assert ti["W"][6] == [1, 2, 2, 4, 44, False]
+    assert ti["T"][6] == [1, 4, 4, 2, 44, False]
+    assert ti["L"][6] == [1, 3, 3, 3, 48, True]
+    assert ti["XL"][6] == [1, 5, 5, 1, 56, True]
 
 
 @needs_node

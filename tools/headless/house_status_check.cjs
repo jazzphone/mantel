@@ -20,7 +20,7 @@ function blocks() {
     const sr = c.shadowRoot, plate = sr.querySelector('hk-plate'), pb = box(plate);
     // (the view scales its grid to the window: a block's px in its own measure)
     const k = plate.offsetWidth ? pb.w / plate.offsetWidth : 1;
-    const secs = [...sr.querySelectorAll('.sm-t')].map((s) => {
+    const secs = [...sr.querySelectorAll('.ln')].map((s) => {
       const v = s.querySelector('.v'), nm = s.querySelector('.nm');
       return Object.assign(box(s), { tag: s.tagName, name: nm ? nm.textContent : '', value: v ? v.textContent.replace(/\s+/g, ' ').trim() : '',
         detail: s.querySelector('.dt') ? s.querySelector('.dt').textContent : null,
@@ -30,12 +30,12 @@ function blocks() {
     const reach = more ? parseFloat(getComputedStyle(more, '::after').height) * k : 0;
     // the parts' ink: nothing drawn past the plate's inside
     const pad = parseFloat(getComputedStyle(plate).paddingLeft) || 0;
-    const past = [...sr.querySelectorAll('.sm-t, .sm-h, .sm-k, .sm-s')].filter((e) => {
+    const past = [...sr.querySelectorAll('.ln, .sm-h, .sm-k, .sm-s, .hl')].filter((e) => {
       const b = box(e), p = pad * k; return b.r > pb.r - p + 1 || b.b > pb.b - p + 1 || b.l < pb.l + p - 1 || b.t < pb.t + p - 1;
     }).map((e) => { const b = box(e); return e.className + ' ' + [b.l - pb.l, b.t - pb.t, pb.r - b.r, pb.b - b.b].map(Math.round).join(','); });
     return { size: c.getAttribute('size'), k, plate: pb, secs, more: more ? Object.assign(box(more), { text: more.textContent.trim(), reach }) : null,
              small: all ? Object.assign(box(all), { text: all.textContent.replace(/\s+/g, ' ').trim() }) : null, past,
-             density: ((sr.querySelector('.sm-t') || { className: '' }).className.match(/k-\w+/) || [''])[0] };
+             density: (sr.querySelector('.hl') || { textContent: '' }).textContent.trim() };
   });
 }
 
@@ -82,7 +82,7 @@ function sheetState() {
       await ready(page);
       await page.evaluate(DEEP);
       await page.waitForFunction(() => deep(document, 'hk-house-status-card').length >= 6 &&
-        deep(document, 'hk-house-status-card').every((c) => c.shadowRoot && c.shadowRoot.querySelector('.sm-t, .sm-s, .none')), null, { timeout: 30000 });
+        deep(document, 'hk-house-status-card').every((c) => c.shadowRoot && c.shadowRoot.querySelector('.ln, .sm-s, .none')), null, { timeout: 30000 });
       await page.waitForTimeout(1200);
       return { ctx, page, errors, commands };
     }
@@ -113,7 +113,7 @@ function sheetState() {
             return { x: r.left + r.width / 2, y: r.top + r.height / 2, name: el.getAttribute('aria-label') };
           }, [size, sel, nth]);
           const sheetUp = () => page.evaluate(() => deep(document, 'hk-house-status-sheet').length > 0);
-          let t = await tapIn('L', '.sm-t', 4);                     // Lights
+          let t = await tapIn('XL', '.ln', 4);                    // Lights
           await page.touchscreen.tap(t.x, t.y);
           await page.waitForTimeout(800);
           let went = await page.evaluate(() => window.__went.slice());
@@ -124,7 +124,7 @@ function sheetState() {
           await page.waitForFunction(() => deep(document, 'hk-house-status-card').length >= 6, null, { timeout: 15000 });
           await page.waitForTimeout(800);
           await page.evaluate(() => { window.__went.length = 0; });
-          t = await tapIn('T', '.sm-k');
+          t = await tapIn('W', '.sm-k');
           await page.touchscreen.tap(t.x, t.y);
           await page.waitForTimeout(800);
           up = await sheetUp();
