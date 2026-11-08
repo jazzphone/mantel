@@ -103,8 +103,9 @@
   // 2026-10-11: "the chips are not updated" -- they lagged a cloud right
   // behind them by up to 30 s). Never while the page is being touched or
   // scrolled (PRE_QUIET after the last of it): a paint is ~25-75 ms of the
-  // main thread at a tablet's speed, and one in a swipe would be felt.
-  var PRE_TRACK = 2000, PRE_QUIET = 700, PRE_STUCK = 10000, PIN_STEPS = 8, lastInput = 0, touching = 0;
+  // main thread at a tablet's speed, and one in a swipe would be felt. (0.7 s was a gap between quick flicks, and a
+  // paint that began in it held up the next touch: 1.5 s, the clouds' blur a moment later, 2026-11-08.)
+  var PRE_TRACK = 2000, PRE_QUIET = 1500, PRE_STUCK = 10000, PIN_STEPS = 8, lastInput = 0, touching = 0;
   function maxAge() {
     var HS = window.hkSettings, look = HS && HS.skyLook ? HS.skyLook() : null;
     if (!(look && look.animations)) return PRE_MAX;

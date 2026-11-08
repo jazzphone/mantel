@@ -6,6 +6,7 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 **Fixed**
 - **No more flash of the last page's blur behind the cards after a swipe** (Pre-rendered glass, Bright or Blur). As a drag began, the page being left was repainted in the next page's sky, and the page landed on wore the page it left for a frame or two before its own; coming back, the first page wore the wrong blur until it was repainted. Each page now keeps its own picture for the whole swipe, and the fresh one fades in once it lands.
+- **Pre-rendered glass repaints faster on the wall tablets.** On a page whose sky moves, the glass is repainted every 2 seconds to follow the clouds; each repaint now takes about a third less of an Android tablet's time (the blur is applied by the canvas itself, with the same result), and none starts until 1.5 seconds after the last touch, so quick flicks run clear of them.
 
 ## 0.1.152 - 2026-11-08
 
