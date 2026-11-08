@@ -105,7 +105,11 @@ function () {
      /Math\.sqrt\(b\.width \* b\.height\)/.test(esrc) && /ink \* 0\.78 \/ mean/.test(esrc) && window.hkCards.TILE.centred.ink === 0.83 &&
      /window\.hkInkScale\(inkName, window\.hkCards\.TILE\.centred\.ink\)/.test(tsrc) && /e\.icon\.setAttribute\('ink', String\(C\.TILE\.centred\.ink\)\)/.test(gsrc));
   ok('the Room and Accessories blocks hand Centred to each tile, and redraw when it changes', /if \(centred\) el\.setAttribute\('tile', 'centred'\);/.test(gsrc) &&
-     /var key = JSON\.stringify\(\[p\.tiles, p\.more, p\.size, !!p\.scroll, centred, !!p\.half, !!p\.color, gm\]\);/.test(gsrc) && /return \['size', 'tile'\];/.test(gsrc));
+     /var key = JSON\.stringify\(\[p\.tiles, p\.more, p\.size, !!p\.scroll, centred, !!p\.half, hvHalf, !!p\.color, gm\]\);/.test(gsrc) && /return \['size', 'tile'\];/.test(gsrc));
+  // (2026-11-08, the owner: a HomeView screen's half pills "should work like the new tiny tiles with no well/circle")
+  ok('...a HomeView screen\'s half pills are Tiny\'s tile: bare glyph, one line, sized by the pill', /var hvHalf = !!p\.half && this\.getAttribute\('tile'\) === 'centred';/.test(gsrc) &&
+     /el\.setAttribute\('size', 'XS'\); el\.setAttribute\('tile', 'centred'\); el\.setAttribute\('data-group-pill', ''\);/.test(gsrc) &&
+     customElements.get('hk-tile-card').CSS.indexOf(':host([tile=centred][size=XS]:not([data-grid-pager]):not([data-group-pill]))') >= 0);
   window.hkCards.createCard = factory;
   // the CSS: one variant, the tiles' own parts, from the table (hk-base.js TILE.centred)
   var tileCss = customElements.get('hk-tile-card').CSS, keyCss = customElements.get('hk-action-card').CSS, T = window.hkCards.TILE.centred;

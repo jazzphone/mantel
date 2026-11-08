@@ -285,7 +285,11 @@
         // the Home app's pill (p.centred, p.half); Color each lit one on its
         // own color's gradient (hk-tile.js block_color).
         var centred = !p.half && (p.centred || this.getAttribute('tile') === 'centred');
-        var key = JSON.stringify([p.tiles, p.more, p.size, !!p.scroll, centred, !!p.half, !!p.color, gm]);
+        // HALF PILLS ON A HOMEVIEW SCREEN (2026-11-08, the owner: "the grouped half tiles should work like the new tiny tiles with no
+        // well/circle behind the glyph"): the Tiny tile's look (hk-tile.js tinyTile) -- the glyph bare, sized by the pill's height --
+        // the screen's Tile Style choosing it, as it chooses Tiny's; Classic keeps the Home app's pill and its well
+        var hvHalf = !!p.half && this.getAttribute('tile') === 'centred';
+        var key = JSON.stringify([p.tiles, p.more, p.size, !!p.scroll, centred, !!p.half, hvHalf, !!p.color, gm]);
         if (key !== this._key) {
           this._key = key;
           e.tiles.innerHTML = '';
@@ -311,14 +315,24 @@
             if (tall) slot.setAttribute('size', 'S');
             slot.setAttribute('role', 'listitem');
             // (Wide: a row of the room's regular pills -- a thermostat's too, whose tall tile was cut above the foot line)
-            var cfg = Object.assign({}, t, p.half ? { size: 'regular', tile: 'home' } : tall ? { size: 'tall' } : { size: 'regular' }, p.color ? { block_color: true } : {});
+            var cfg = Object.assign({}, t, hvHalf ? { size: 'tall' } : p.half ? { size: 'regular', tile: 'home' } : tall ? { size: 'tall' } : { size: 'regular' }, p.color ? { block_color: true } : {});
             // (Centred: every glyph the tile's own size, bare, as an Accessories block's Full -- a room's pills kept the
             // room page's icon size and well, so a Room block's glyphs were a third the size: the owner, 2026-11-01)
-            if (centred) { delete cfg.icon_size; delete cfg.bare_icon; delete cfg.well_background; }
+            if (centred || hvHalf) { delete cfg.icon_size; delete cfg.bare_icon; delete cfg.well_background; }
+            // (a sensor's reading takes the glyph's place: its room under its name in an Accessory Group, as Tiny's)
+            if (hvHalf && !p.area && dom(t.entity) === 'sensor' && !(t.secondary && t.secondary.mode && t.secondary.mode !== 'auto')) {
+              var ra = areaOf(h, t.entity), rn = ra && ((h && h.areas) || {})[ra];
+              if (rn && rn.name) cfg.room = rn.name;
+            }
             var el = C.createCard(cfg, h);
             if (tall) el.setAttribute('size', 'S');
             el.setAttribute('data-group-fill', '');
             if (centred) el.setAttribute('tile', 'centred');
+            if (hvHalf) {
+              // (one line of name in a pill -- a Tiny on a square cell's half has two; the glyph 56 % of the pill, 40 to 52 px, as Tiny's)
+              el.setAttribute('size', 'XS'); el.setAttribute('tile', 'centred'); el.setAttribute('data-group-pill', '');
+              el.style.setProperty('--hk-tg', Math.max(40, Math.min(52, Math.round(gm.th * 0.56))) + 'px');
+            }
             slot.appendChild(el);
             e.tiles.appendChild(slot);
             self._kids.push(el);

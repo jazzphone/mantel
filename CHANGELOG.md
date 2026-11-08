@@ -9,6 +9,9 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 - **A press between connections is held, not lost**: tapped while the page reconnects, it waits up to 5 s for the new connection and is sent on it. A house whose commands were turned off meanwhile still refuses it in the page, sending nothing.
 - **The iPhone and iPad app shows a screen once it is drawn**: the page tells the app when its first screen is up with the house's states in, so an open no longer shows tiles with no names that do nothing (the app keeps its picture of the last screen until then; the app's side is in TestFlight 0.1.154).
 
+**Changed**
+- **Half pills in a group lose their well on HomeView-style screens**: an Accessory Group's or Room's half-height tiles take Tiny's look -- the glyph bare and sized to the pill, a sensor's reading in its place -- as the screen's Tile Style chooses; Home style keeps the Home app's pill.
+
 ## 0.1.154 - 2026-11-08
 
 **Added**
