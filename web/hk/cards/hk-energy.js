@@ -2185,7 +2185,7 @@
         // EVERY DEVICE, MOST FIRST, scrolling inside the card; the last row
         // fades so it reads as more below. Two columns across a whole row.
         // (its edges: the sheet's shadows, BASE_CSS .hk-edge -- was a fade)
-        '.ml{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;display:flex;flex-direction:column;gap:12px;',
+        '.ml{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y pinch-zoom;display:flex;flex-direction:column;gap:12px;',
         '  padding:2px 6px 18px 0;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,0.25) transparent}',
         '@container (min-width:' + window.hkCards.BP.cardTwo + 'px){.ml{display:grid;grid-template-columns:1fr 1fr;column-gap:28px;row-gap:12px;align-content:start}}',
         '.most .mh{font-size:13px;font-weight:600;letter-spacing:0.3px;text-transform:uppercase;color:' + window.hkCards.v('ink-2') + '}',

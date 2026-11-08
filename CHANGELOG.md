@@ -18,7 +18,7 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 - **Pre-rendered glass no longer flickers as a swipe lands**: a page just landed on kept the last page's blur behind its cards for a few frames, until the sky caught up (Calendar's cards went Weather's purple for a moment). It now keeps its own picture, or blurs live, until then.
 - **The Pages screen lands sharp and at its full size from Home**: its icons could land blurred, then small and to the left for a second, then jump to their places.
 - **A swipe over a row that scrolls sideways turns the page when the row can't go that way** (Music's rows at their start or end, on the wall tablets): the row scrolls as before, and a swipe past its end is the page's. On an iPad the rows keep every swipe, as before.
-- **A swipe over Security's Recent Activity turns the page** on a wall tablet (the list scrolls only up and down now; it could take a sideways swipe).
+- **A swipe over a list that scrolls up and down turns the page** on a wall tablet: Security's Recent Activity, Calendar's day list and hours, Energy's, Music's speakers and the grid's panels take only up-and-down swipes now (they could take a sideways one).
 - **Accessory Groups no longer redraw in one column on the way back Home**: a group updated while another page showed laid itself out for the wrong cell shape (Kitchen's pills in one column), and showed it for a moment on return.
 
 ## 0.1.153 - 2026-11-08

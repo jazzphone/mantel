@@ -706,7 +706,7 @@
       '.dsub{font-size:15px;font-weight:500;color:' + window.hkCards.v('ink-2') + ';margin-top:2px}',
       // (its 10 px under the day's name as padding: the list scrolls right up
       // under the name, in a frame with the sheet's shadows -- BASE_CSS .hk-edge)
-      '.list{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding-top:10px}',
+      '.list{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y pinch-zoom;-webkit-overflow-scrolling:touch;padding-top:10px}',
       '.ad{width:100%;height:30px;margin-top:6px;border-radius:8px;border:0;display:flex;align-items:center;padding:0 12px;gap:8px;font-size:14px;font-weight:600;text-align:left;color:' + window.hkCards.v('ink') + '}',
       '.ad i{flex:none;width:8px;height:8px;border-radius:4px}',
       '.ad em{margin-left:auto;font-style:normal;font-weight:500;color:' + window.hkCards.v('ink-2') + ';white-space:nowrap}',
@@ -729,7 +729,7 @@
       '.dh.today b{width:28px;height:28px;line-height:28px;border-radius:14px;background:#fff;color:#1c1c1e;font-weight:700;text-align:center;font-size:15px}',
       '.alld{position:relative;border-top:1px solid ' + window.hkCards.v('line') + ';flex:none}',
       '.alld .lab{position:absolute;left:0;top:50%;transform:translateY(-50%);width:50px;text-align:right;font-size:11px;font-weight:600;color:' + window.hkCards.v('ink-2') + '}',
-      '.tl{position:relative;flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;border-top:1px solid ' + window.hkCards.v('line') + '}',
+      '.tl{position:relative;flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y pinch-zoom;-webkit-overflow-scrolling:touch;border-top:1px solid ' + window.hkCards.v('line') + '}',
       '.hrs{position:relative}',
       '.hr{position:absolute;left:56px;right:0;height:0;border-top:1px solid ' + window.hkCards.v('line') + '}',
       '.hr span{position:absolute;left:-56px;top:-8px;width:50px;text-align:right;font-size:11px;font-weight:600;color:' + window.hkCards.v('ink-2') + '}',
@@ -799,7 +799,7 @@
       '.fit .body{height:var(--cal-h,620px)}',
       // (the week's list scrolls in a frame: the sheet's shadows, BASE_CSS .hk-edge)
       '.fit .wlp{flex:1;min-height:0;display:flex;flex-direction:column}',
-      '.fit .wl{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}',
+      '.fit .wl{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y pinch-zoom;-webkit-overflow-scrolling:touch}',
       '.wl .dayh{font-size:13px;font-weight:700;letter-spacing:1.2px;color:' + window.hkCards.v('ink-2') + ';margin-top:16px}',
       '.wl .dayh.today{color:' + window.hkCards.v('ink') + '}'
     ].join('\n');
@@ -1822,7 +1822,7 @@
       '.cnt{flex:none;display:flex;align-items:baseline;gap:10px;padding:2px 2px 0}',
       '.cnt b{font-size:17px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
       '.cnt span{font-size:15px;color:rgba(255,255,255,.7);white-space:nowrap}',
-      '.ls{flex:1 1 0;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:0 2px}',
+      '.ls{flex:1 1 0;min-height:0;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y pinch-zoom;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:0 2px}',
       '.ls::-webkit-scrollbar{display:none}',
       '.it{box-sizing:border-box;display:flex;align-items:center;gap:12px;min-height:50px;font-size:17px;cursor:pointer;-webkit-tap-highlight-color:transparent}',
       '.it+.it{border-top:1px solid rgba(255,255,255,.12)}',
@@ -2203,7 +2203,7 @@
       '.tlad button{height:26px;border-radius:8px;border:0;padding:0 10px;font:inherit;font-size:13px;font-weight:600;color:#fff;text-align:left;',
       '  cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;-webkit-tap-highlight-color:transparent}',
       '.tlad button.on{box-shadow:0 0 0 2px #fff inset}',
-      '.tlw{position:relative;flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;',
+      '.tlw{position:relative;flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y pinch-zoom;scrollbar-width:none;',
       '  border-top:1px solid ' + window.hkCards.v('line') + '}',
       '.tlw::-webkit-scrollbar{display:none}',
       '.tlh{position:relative}',

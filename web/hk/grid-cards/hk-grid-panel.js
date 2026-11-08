@@ -129,7 +129,7 @@
       C.segCss('.rd .seg', { on: '[aria-pressed="true"]', fill: true }) +
       // (each mode a finger's 44 px tall: the segments' own 36 were under it, 2026-10-31)
       '.rd .seg button{flex:1 1 0;min-height:44px}' +
-      '.part.plated{' + C.plate('card') + ';box-sizing:border-box;padding:' + C.blockPad('14px') + ';overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none}' +
+      '.part.plated{' + C.plate('card') + ';box-sizing:border-box;padding:' + C.blockPad('14px') + ';overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y pinch-zoom;scrollbar-width:none}' +
       '.part.plated::-webkit-scrollbar{display:none}.part.plated > *{height:auto;min-height:100%}' +
       '.empty{' + type('body') + ';color:' + v('ink-2') + ';padding:0 4px}';
     // THE BLOCKS AS WIDGETS (2026-10-31, the owner's mock-up, "Home Grid
