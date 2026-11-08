@@ -980,7 +980,9 @@
     return window.hkSkyShot.render(sky, { scale: PRE_SCALE, moves: window.hkSky && window.hkSky.moves, filter: f, settle: PRE_AHEAD }).then(function (shot) {
       if (!shot) return null;
       return new Promise(function (res) {
-        try { shot.canvas.toBlob(function (blob) { res(blob ? { url: URL.createObjectURL(blob), check: shot.check } : null); }, 'image/png'); } catch (e) { res(null); }
+        // LOSSLESS WEBP where the browser can write it (Chrome: the same pixels as the PNG, 40% smaller, a third of the
+        // time -- 3.3 ms against 10 at 4x CPU, 2026-11-08); WebKit can't, and gives a PNG, as it always has
+        try { shot.canvas.toBlob(function (blob) { res(blob ? { url: URL.createObjectURL(blob), check: shot.check } : null); }, 'image/webp', 1); } catch (e) { res(null); }
       });
     });
   }

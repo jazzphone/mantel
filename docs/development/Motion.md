@@ -328,9 +328,24 @@ SVG. A whole repaint: Bright 35 -> 26 ms, Blur 53 -> 36 ms. The two routes agree
 (animations paused, same frame). WebKit has no canvas filter and keeps the SVG. And a cloud-following repaint waits
 1.5 s after the last touch (was 0.7 s, a gap between quick flicks).
 
-Looked at and left: JPEG for the picture (2 ms against 7.7, but up to 7/255 off: a look change); the layers drawing from
-the painted canvas, skipping the PNG's decode (~3 ms, mostly off the main thread, and WebKit draws an undecoded
-background -- the pinned glass -- as nothing for a frame); one picture shared by every layer (each is 214x134, ~115 KB);
+The picture's format, measured (4x CPU; pixels against the canvas it came from):
+
+| Format | Chromium: KB, encode | Pixels off (mean / max of 255) |
+|---|---|---|
+| PNG | 30 KB, 10.3 ms | 0 / 0 |
+| WebP lossless (quality 1) | 17 KB, 3.3 ms | 0 / 0 |
+| WebP 95 / 90 | 2-3 KB, ~3.5 ms | 0.8-1.2 / 5-11 |
+| JPEG 98 / 95 | 4-7 KB, ~3 ms | 0.6-0.8 / 4-6 |
+
+So it is lossless WebP: the same picture, less time. WebKit writes no WebP and gives a PNG (its encode holds the main
+thread ~0 ms). The lossy ones shift the color: left.
+
+The cards already share their pictures: one per glass layer (a row or grid), its cards cut out of it. Living Room's
+Home: 82 cards, 47 shapes, 7 pictures; the other rooms' pages 1-3 pictures, 0.1-0.8 MB in all. One per page would need
+the pictures as CSS backgrounds again, whose tiles the browser drops (the flash preImg was made to end).
+
+Looked at and left: the layers drawing from the painted canvas, skipping the picture's decode (~3 ms, mostly off the main
+thread, and WebKit draws an undecoded background -- the pinned glass -- as nothing for a frame);
 painting a page's picture before its first visit (its sky would have to be drawn where it shows, or in a swipe, where
 the paint costs the drag a frame; a page has one once seen, and a tablet keeps the last 12).
 
