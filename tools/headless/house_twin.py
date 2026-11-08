@@ -17,6 +17,8 @@ no tablet draws them. This draws HIS screens instead, without his browser, a sig
     python tools/headless/house_twin.py render kitchen-homeview [--size 1280x800] [--engine webkit] [--shots DIR] [--path home]
         [--set kitchen-homeview:b2.height=full]
     python tools/headless/house_twin.py screens          # the house's screens, by name
+    python tools/headless/house_twin.py render kitchen-homeview --busy --sheets   # a busy house; every block's sheet too
+    python tools/headless/house_twin.py render "settings#/screens/kitchen-homeview" --path home-grid --size 1440x900   # the editor
 
 The states are a snapshot (`pull` again for fresh ones); the server's own reads (calendars, forecasts, Music Assistant,
 the Timeline) are the gallery's stand-ins. Needs PLAYWRIGHT_PATH and NODE for `render`.
@@ -112,6 +114,43 @@ def cmd_screens() -> int:
     return 0
 
 
+def busy(ha: dict) -> dict:
+    """`--busy`: the house with things going on -- every light and fan on, the switches on, the first two timers running, a
+    speaker playing, the vacuums cleaning, a door open and a lock unlocked -- so the layouts are judged full as well as quiet."""
+    import copy
+    ha = copy.deepcopy(ha)
+    now = time.time()
+    timers = 0
+    for st in ha["states"]:
+        eid, a = st["entity_id"], st.setdefault("attributes", {})
+        dom = eid.split(".", 1)[0]
+        if dom in ("light", "fan", "switch", "input_boolean"):
+            st["state"] = "on"
+            if dom == "light":
+                a["brightness"] = 180
+            if dom == "fan":
+                a["percentage"] = 66
+        elif dom == "timer" and timers < 2:
+            timers += 1
+            st["state"] = "active"
+            a.update(duration="0:30:00", remaining="0:12:00",
+                     finishes_at=time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(now + 720 * timers)))
+        elif dom == "vacuum":
+            st["state"] = "cleaning"
+        elif dom == "media_player" and st["state"] in ("idle", "paused", "off", "standby", "on"):
+            st["state"] = "playing"
+            a.update(media_title=a.get("media_title") or "Blue in Green", media_artist=a.get("media_artist") or "Miles Davis",
+                     media_duration=a.get("media_duration") or 337, media_position=100,
+                     media_position_updated_at=time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(now)))
+        elif dom == "binary_sensor" and a.get("device_class") == "door" and not ha.get("_door"):
+            st["state"] = "on"
+            ha["_door"] = eid
+        elif dom == "lock" and not ha.get("_lock") and st["state"] == "locked":
+            st["state"] = "unlocked"
+            ha["_lock"] = eid
+    return ha
+
+
 def twin_house(ha: dict) -> None:
     """gallery.HOUSE / ROOMS / FLOORS as the house's: each entity in its area (its own, else its device's)."""
     import gallery
@@ -123,6 +162,19 @@ def twin_house(ha: dict) -> None:
                           for st in ha["states"]})
     gallery.FLOORS[:] = [{"floor_id": f["floor_id"], "name": f["name"], "level": f.get("level")} for f in reg.get("floor", [])]
     gallery.ROOMS[:] = [(a["area_id"], a["name"], a.get("floor_id")) for a in reg.get("area", [])]
+
+
+def grid_entities(docs: list[dict], screen: str) -> list[str]:
+    """What a screen's Home Grid blocks name -- each one's sheet, for `--sheets`."""
+    out: list[str] = []
+    for d in docs:
+        if d["scope"] == "board" and d["key"] == screen:
+            for it in (d["body"].get("home_grid") or {}).get("items") or []:
+                o = it.get("opts") or {}
+                for eid in [o.get("entity"), o.get("scene"), *[a.get("entity") for a in o.get("accessories") or [] if isinstance(a, dict)]]:
+                    if eid and eid not in out:
+                        out.append(eid)
+    return out
 
 
 def with_opts(docs: list[dict], sets: list[str]) -> list[dict]:
@@ -143,8 +195,11 @@ def with_opts(docs: list[dict], sets: list[str]) -> list[dict]:
 
 
 async def render(screens: list[str], size: tuple[int, int], engine: str, shots: Path, path: str, sets: list[str] = (),
-                 js: str = "", tag: str = "") -> int:
+                 js: str = "", tag: str = "", sheets: bool = False, is_busy: bool = False) -> int:
     docs, ha = load()
+    if is_busy:
+        ha = busy(ha)
+        tag = tag or "busy"
     docs = with_opts(docs, list(sets))
     import gallery
     from aiohttp.test_utils import TestServer
@@ -166,7 +221,8 @@ async def render(screens: list[str], size: tuple[int, int], engine: str, shots: 
             script = Path(__file__).with_suffix(".cjs")
             spec = {"origin": origin, "cookie": cookie, "screens": screens, "path": path, "w": size[0], "h": size[1],
                     "engine": engine, "shots": str(shots), "js": js, "tag": tag,
-                    "init": A.feed_script()}
+                    "init": A.feed_script(),
+                    "sheets": {s: grid_entities(docs, s) for s in screens} if sheets else {}}
             proc = await asyncio.create_subprocess_exec(os.environ.get("NODE", "node"), str(script),
                                                         stdin=asyncio.subprocess.PIPE, env=os.environ)
             await proc.communicate(json.dumps(spec).encode())
@@ -186,6 +242,8 @@ def main(argv=None) -> int:
     r.add_argument("--path", default="home", help="the page under each screen (home, or another page's path)")
     r.add_argument("--js", default="", help="run this in the page before the shot (open a sheet: it may await)")
     r.add_argument("--tag", default="", help="a word added to the shot's name")
+    r.add_argument("--busy", action="store_true", help="the house with things going on (busy()): lights on, timers, music, a door open")
+    r.add_argument("--sheets", action="store_true", help="also open the sheet of every entity the screen's Home Grid names, a shot each")
     r.add_argument("--set", action="append", default=[], metavar="SCREEN:ITEM.KEY=VALUE",
                    help="change one block's option for this render (kitchen-homeview:b2.height=full)")
     a = ap.parse_args(argv)
@@ -196,7 +254,7 @@ def main(argv=None) -> int:
     if not os.environ.get("PLAYWRIGHT_PATH"):
         raise SystemExit("house_twin: render needs PLAYWRIGHT_PATH (and NODE)")
     w, h = (int(x) for x in a.size.split("x"))
-    return asyncio.run(render(a.screens, (w, h), a.engine, a.shots, a.path, a.set, a.js, a.tag))
+    return asyncio.run(render(a.screens, (w, h), a.engine, a.shots, a.path, a.set, a.js, a.tag, a.sheets, a.busy))
 
 
 if __name__ == "__main__":
