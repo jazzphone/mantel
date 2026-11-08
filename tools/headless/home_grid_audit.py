@@ -175,7 +175,11 @@ def _tv_now(no, name, on, mins_in, mins_long, image):
     return (on, attrs)
 
 
-for _no, _name, _on, _in, _long in TV:
+# ...and six more the guide has (the `tv_many` state lists twelve: the block shows what its size holds and says "N more")
+TV_EXTRA = [("22.1", "Movies", "The Long Road", 40, 120), ("24.1", "Weather", "Local Forecast", 3, 10), ("26.1", "Music", "Top Videos", 15, 60),
+            ("28.1", "Cooking", "Weeknight Dinners", 5, 30), ("30.1", "History", "Ancient Seas", 33, 60), ("32.1", "Science", "Deep Space", 10, 60)]
+TV_ART.update({"22.1": "/hk/landscapes/19.webp", "24.1": None, "26.1": "/hk/landscapes/23.webp", "28.1": None, "30.1": "/hk/landscapes/35.webp", "32.1": "/hk/landscapes/22.webp"})
+for _no, _name, _on, _in, _long in TV + TV_EXTRA:
     _id = _no.replace(".", "_")
     EXTRA[f"camera.channel_{_id}"] = (None, ("idle", {"friendly_name": _name}))
     EXTRA[f"sensor.channel_{_id}_now"] = (None, _tv_now(_no, _name, _on, _in, _long, TV_ART[_no]))
@@ -503,6 +507,7 @@ STATES["wx_five"] = {"entities": {"weather.home": ("rainy", {"friendly_name": "H
 # LIVE TV'S ART (2026-11-08, the owner: the What's On art behind each channel): every channel with its picture, and none
 STATES["tv_art"] = {"entities": {f"sensor.channel_{n.replace('.', '_')}_now": _tv_now(n, name, on, i, l, f"/hk/landscapes/{k:02d}.webp")
                                  for k, (n, name, on, i, l) in zip((3, 15, 19, 42, 39, 22), TV)}}
+STATES["tv_many"] = {}
 STATES["tv_noart"] = {"entities": {f"sensor.channel_{n.replace('.', '_')}_now": _tv_now(n, name, on, i, l, None) for n, name, on, i, l in TV}}
 # SECURITY'S STATES (2026-11-08, the owner: the locks, the garage and the open doors and windows at Large and Extra Large): armed
 # with everything locked and closed; triggered with a window open; disarmed with a lock unlocked, the garage open, a door and
@@ -548,7 +553,7 @@ def stand_in_reads() -> None:
     async def request(self, msg):
         if msg.get("type") == "hk_tv/channels":
             return {"configured": True, "channels": [{"number": n, "name": name, "camera": f"camera.channel_{n.replace('.', '_')}",
-                                                     "now": f"sensor.channel_{n.replace('.', '_')}_now"} for n, name, *_ in TV]}
+                                                     "now": f"sensor.channel_{n.replace('.', '_')}_now"} for n, name, *_ in TV + (TV_EXTRA if STATE["name"] == "tv_many" else [])]}
         return await ask(self, msg)
     OfflineReads.request = request
 
@@ -628,6 +633,8 @@ async def audit(keys: list[str], looks: list[str], shots: Path | None, long: boo
                         return null; }; const v = d(document); return v && v.shadowRoot.querySelectorAll('.cell').length > 0; })()""", 20)
                     await asyncio.sleep(2.0)            # pictures, fonts and the sky settle
                     got = await b.eval(MEASURE)
+                    if os.environ.get("AUDIT_PROBE"):      # (a probe of one's own, in the page: AUDIT_PROBE='<js expression>', printed)
+                        print("probe", await b.eval(os.environ["AUDIT_PROBE"]), flush=True)
                     got["errors"] = [c for c in b.console[mark:] if c.startswith(("EXCEPTION", "error"))][:8]
                     report.setdefault(key, {})[look + ("" if bar else " (no bar)")] = got
                     if shots:

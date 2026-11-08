@@ -186,6 +186,10 @@
       '.row hk-icon{width:20px;height:20px;--mdc-icon-size:100%;display:flex;flex:none;color:' + v('ink-2') + '}',
       '.row span{' + type('body') + ';flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
       '.row em{font-style:normal;' + type('caption') + ';color:' + v('ink-2') + ';white-space:nowrap;flex:none}',
+      // THE STATE UNDER THE NAME (2026-11-08, the lead: "Front D... Unlocked" -- the row beside the shield's column had the name and its state
+      // in one line): the row is the glyph and two lines, the name whole and the state under it, 44 px as before
+      '.row{display:grid;grid-template-columns:20px minmax(0,1fr);gap:0 10px;align-content:center}.row hk-icon{grid-row:1 / span 2;align-self:center}',
+      '.row span{flex:none;grid-column:2;line-height:19px}.row em{grid-column:2;line-height:16px}.row.mo span{grid-row:1 / span 2;align-self:center}',
       '.row.open hk-icon,.row.open em{color:' + v('warn') + '}',
       '.row.lk hk-icon{color:var(--lk)}',
       '.row.mo span{color:' + v('ink-2') + '}',
@@ -428,7 +432,11 @@
         if (this._pad) {
           // the keys and their gaps fill the block's height: the readout, four rows of keys, the ways to arm
           var h = bk ? bk.h - 36 : 369;
-          this._pad.style.setProperty('--hk-kp-key', Math.max(36, Math.min(64, side ? Math.floor((h - 30) / 4) : Math.floor((h - 44 - 50) / 5))) + 'px');
+          // (Home, Away and Disarm are as tall as a key where the block has the room -- 2026-11-08, the lead: "under 44 px tall" -- else 44, never less)
+          var k6 = Math.floor((h - 50) / 6), key = side ? Math.floor((h - 30) / 4) : k6 >= 44 ? k6 : Math.floor((h - 44 - 50) / 5);
+          key = Math.max(36, Math.min(64, key));
+          this._pad.style.setProperty('--hk-kp-key', key + 'px');
+          this._pad.style.setProperty('--hk-kp-pill', Math.max(44, side ? Math.min(56, key) : k6 >= 44 ? key : 44) + 'px');
         }
         this._fit();
       }

@@ -105,7 +105,7 @@
         '.k hk-icon{--mdc-icon-size:20px;width:20px;height:20px;display:flex;color:' + v('ink-2') + '}',
         '.k:active,.a:active{transform:scale(0.97);background:' + v('key-strong') + '}',
         '.acts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:10px}',
-        '.a{height:44px;border-radius:' + R.capsule('44px') + ';padding:0 6px;gap:6px;font-size:13px;font-weight:600;' + key + '}',
+        '.a{height:var(--hk-kp-pill,44px);border-radius:' + R.capsule('44px') + ';padding:0 6px;gap:6px;font-size:13px;font-weight:600;' + key + '}',
         '.a hk-icon{--mdc-icon-size:16px;width:16px;height:16px;flex:none;display:flex;color:' + v('ink-2') + '}',
         '.a span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
         // the mode the alarm is in: its button lit in the mode's own color

@@ -50,11 +50,16 @@
       '.ch:active{transform:scale(.98)}',
       '.ch:focus-visible{outline:2px solid #fff;outline-offset:-4px}',
       '.one .ch{position:absolute;inset:0;border-radius:inherit;padding:' + C.blockPad('14px') + '}',
-      // NOTHING STRETCHES (2026-11-08, the owner; DESIGN.md "Using the space"): a channel is one tile of a designed shape, 16 : 10 --
-      // the guide's pictures are 16 : 9 -- as wide as the block's columns make it (set by _fit: --tw), as many as the room holds,
-      // the group centered with equal margins and its last row centered, never a tile spanning it
-      'hk-plate.tv:not(.one){display:flex;flex-wrap:wrap;justify-content:center;align-content:center}',
-      'hk-plate.tv:not(.one) .ch{flex:none;width:var(--tw,160px);aspect-ratio:16/10}',
+      // NOTHING STRETCHES (2026-11-08, the owner; DESIGN.md "Using the space"): a channel is one tile of a designed shape -- 4 : 3,
+      // 3 : 2 or 16 : 10 (the guide's pictures are 16 : 9), the tallest of them that shows every channel the block names in the room it
+      // has -- as wide as the block's columns make it (set by _fit: --tw, --ar), as many as the room holds, the group centered with equal
+      // margins and its last row centered, never a tile spanning it. Large and Extra Large open with a label row, as the widget blocks
+      // do: LIVE TV at the label role, and how many more channels the guide has at its right
+      'hk-plate.tv:not(.one){display:flex;flex-direction:column;gap:10px}',
+      '.gr{flex:1 1 0;min-height:0;display:flex;flex-wrap:wrap;gap:10px;justify-content:center;align-content:center}',
+      '.gr .ch{flex:none;width:var(--tw,160px);aspect-ratio:var(--ar,16/10)}',
+      '.lh{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex:none;min-width:0;' + C.labelCss('label') + ';line-height:18px;color:' + C.v('ink-2') + '}',
+      '.lh em{font-style:normal;' + C.typeCss('caption') + ';line-height:18px;text-transform:none;letter-spacing:0;white-space:nowrap}',
       // ITS MARK: the guide's logo on white where it has one, else its number
       '.lg{display:grid;place-items:center;flex:none;align-self:flex-start;min-width:38px;height:38px;padding:0 7px;box-sizing:border-box;',
       '  border-radius:' + C.R.small + 'px;background:rgba(255,255,255,.25);' + C.typeCss('body') + ';font-weight:800;font-variant-numeric:tabular-nums;text-shadow:none}',
@@ -166,6 +171,12 @@
         plate.className = 'tv' + (s === 'S' || this._chosen() ? ' one' : '') + (this._chosen() && /^(T|L|XL)$/.test(s) ? ' big' : '');
         plate.setAttribute('data-hk-role', 'card');
         plate.style.setProperty('--n', g[0]); plate.style.setProperty('--r', g[1]);
+        var gr = plate;
+        if (!plate.classList.contains('one')) {
+          // (Large and Extra Large: the label row over the tiles, which stand in a group of their own)
+          if (s === 'L' || s === 'XL') { var lh = document.createElement('div'); lh.className = 'lh'; lh.innerHTML = '<span>Live TV</span><em></em>'; plate.appendChild(lh); }
+          gr = document.createElement('div'); gr.className = 'gr'; plate.appendChild(gr);
+        }
         list.forEach(function (ch, i) {
           var st = (ch.now && h.states[ch.now]) || { state: '', attributes: {} }, a = st.attributes || {};
           var t = tintOf(ch.number || ch.name), on = st.state && st.state !== 'unknown' && st.state !== 'unavailable' ? st.state : 'Live';
@@ -182,24 +193,31 @@
           b.querySelector('small').textContent = ch.name || ch.number || '';
           if (a.start && a.end) self._bars.push({ el: b.querySelector('.bar i'), a: a });
           b.addEventListener('click', function (e) { e.stopPropagation(); self._open(ch); });
-          plate.appendChild(b);
+          gr.appendChild(b);
         });
         this._root.innerHTML = '';
         this._root.appendChild(plate);
         this._fit(plate, g);
         this._tick();
       }
-      // THE TILES' SIZE AND HOW MANY (2026-11-08): the width the columns give a tile in the room inside the plate, its height 10 : 16 of
-      // that; the rows the room holds say how many show (what the block's size names, at most); the rest are left to the page
+      // THE TILES' SIZE AND HOW MANY (2026-11-08): the width the columns give a tile in the room under the label row; its shape the tallest of
+      // 4 : 3, 3 : 2 and 16 : 10 that has every channel the block names in the room (none does: 16 : 10, as many as the rows hold); the
+      // rest are the page's, said at the label row's right ("6 more")
       _fit(plate, g) {
-        if (plate.classList.contains('one') || typeof getComputedStyle !== 'function' || !plate.clientWidth) return;
-        var cs = getComputedStyle(plate), gap = 10, W = plate.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight),
-            H = plate.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom), cols = g[0];
-        var tw = (W - (cols - 1) * gap) / cols, th = tw * 10 / 16, rows = Math.max(1, Math.floor((H + gap) / (th + gap)));
-        // (too short for a second row of that shape: the tile shrinks to its one row, never stretches)
-        if (th > H) { th = H; tw = th * 1.6; }
-        plate.style.setProperty('--tw', Math.floor(tw) + 'px');
-        Array.prototype.slice.call(plate.children).forEach(function (k, i) { k.style.display = i >= cols * rows ? 'none' : ''; });
+        var gr = plate.querySelector('.gr');
+        if (!gr || typeof getComputedStyle !== 'function' || !gr.clientWidth) return;
+        var gap = 10, W = gr.clientWidth, H = gr.clientHeight, cols = g[0], kids = Array.prototype.slice.call(gr.children), n = kids.length;
+        var tw = (W - (cols - 1) * gap) / cols, need = Math.ceil(n / cols), pick = null, ar;
+        [[3 / 4, '4/3'], [2 / 3, '3/2'], [10 / 16, '16/10']].forEach(function (o) { if (!pick && need * tw * o[0] + (need - 1) * gap <= H) pick = o; });
+        pick = pick || [10 / 16, '16/10'];
+        var th = tw * pick[0], rows = Math.max(1, Math.floor((H + gap) / (th + gap)));
+        // (too short for even one row of that shape: the tile shrinks to its row, never stretches)
+        if (th > H) { th = H; tw = th / pick[0]; }
+        gr.style.setProperty('--tw', Math.floor(tw) + 'px'); gr.style.setProperty('--ar', pick[1]);
+        var shown = Math.min(n, cols * rows);
+        kids.forEach(function (k, i) { k.style.display = i >= shown ? 'none' : ''; });
+        var em = plate.querySelector('.lh em'), more = Math.max(0, (this._channels || []).length - shown);
+        if (em) em.textContent = more ? more + ' more' : '';
       }
       // how far through, moved every half minute without a redraw
       _tick() {
