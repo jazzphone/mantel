@@ -2119,7 +2119,11 @@
         }
         // SCENES AND ACCESSORIES (2026-10-31): Full or Half height, glass or Color; an Energy Rings block's period
         if (kind === 'tile_height') {
-          rows.push(K.seg({ label: 'Height', value: opts[key] || 'full', options: [['full', 'Full'], ['half', 'Half']], onChange: (v) => set(key, v === 'full' ? null : v) }));
+          // (Security's: only beside its locks -- Large's Classic, Extra Large's either -- and Half its default beside the keypad;
+          // 2026-11-08, the owner: "Half and Full still aren't working": Full was stored as the default, which there is Half)
+          var sec = card === 'security', dflt = sec && o.size === 'XL' ? 'half' : 'full';
+          if (sec && !(o.size === 'XL' || (o.size === 'L' && opts.presentation !== 'homeview'))) return;
+          rows.push(K.seg({ label: 'Height', value: opts[key] || dflt, options: [['full', 'Full'], ['half', 'Half']], onChange: (v) => set(key, v === dflt ? null : v) }));
           return;
         }
         // A CAMERA'S NAME at its foot (2026-10-31): Automatic (on a tile cell, not HomeView's square ones), Show, Hide
@@ -2209,9 +2213,19 @@
         // ...and HomeView's entries: Automatic (the house's locks, then its garage doors) or the ones chosen, in order
         if (kind === 'security_members') {
           if (opts.presentation !== 'homeview') return;
-          var mem = opts[key] || [], doors = self.choices('entity').filter((op) => /^(lock|cover)\./.test(op[0]));
+          // (its locks and garage doors, as Automatic's -- not every blind and a car's charge port; and Choose starts from what
+          // Automatic shows, the house's lists, not the first six by name -- 2026-11-08, the owner's Kitchen block)
+          var st = (self.panel.client && self.panel.client.states) || {}, HS = window.hkSettings;
+          var garageish = (id) => /^cover\./.test(id) && st[id] && ['garage', 'gate'].includes((st[id].attributes || {}).device_class);
+          var mem = opts[key] || [], doors = self.choices('entity').filter((op) => /^lock\./.test(op[0]) || garageish(op[0]) || mem.includes(op[0]));
+          var house = () => {
+            var l = HS && HS.get ? HS.get('kinds.locks', null) : null, g = HS && HS.get ? HS.get('kinds.garage', null) : null;
+            var auto = (Array.isArray(l) && l.length ? l : doors.map((op) => op[0]).filter((id) => /^lock\./.test(id)))
+              .concat(Array.isArray(g) && g.length ? g : doors.map((op) => op[0]).filter(garageish));
+            return auto.filter((id) => st[id]).slice(0, G.SHEET.max);
+          };
           rows.push(K.seg({ label: 'Entries', value: mem.length ? 'chosen' : '', options: [['', 'Automatic'], ['chosen', 'Choose']],
-            onChange: (v) => set(key, v ? doors.slice(0, 6).map((op) => op[0]) : null) }));
+            onChange: (v) => set(key, v ? house() : null) }));
           if (!mem.length) { rows.push(K.info({ label: 'The house’s locks, then its garage doors' })); return; }
           mem.forEach((id, i) => {
             var nm = (doors.find((op) => op[0] === id) || [id, id + ' (Unavailable)'])[1];

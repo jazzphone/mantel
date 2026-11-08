@@ -185,8 +185,15 @@ def with_opts(docs: list[dict], sets: list[str]) -> list[dict]:
         item, _, key = rest.partition(".")
         for d in docs:
             if d["scope"] == "board" and d["key"] == screen:
-                for it in (d["body"].get("home_grid") or {}).get("items") or []:
-                    if it.get("id") == item:
+                items = (d["body"].get("home_grid") or {}).get("items") or []
+                if key == "drop":                                              # left off this render (room for a bigger one)
+                    items[:] = [it for it in items if it.get("id") != item]
+                for it in items:
+                    if it.get("id") == item and key in ("size", "at", "card", "opts"):   # the block itself: Extra Large? another card?
+                        it[key] = json.loads(val) if key in ("at", "opts") else val
+                        if key == "card":
+                            it.pop("rules", None)
+                    elif it.get("id") == item:
                         try:
                             it.setdefault("opts", {})[key] = json.loads(val)
                         except ValueError:
