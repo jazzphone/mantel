@@ -91,7 +91,7 @@
       return id ? Object.assign({ type: 'custom:hk-control-card', entity: id }, o.style === 'big' ? { style: 'big' } : {})
                 : stand('Thermostat', 'hk:thermostat'); } },
     // (S, 2026-10-31, the owner: "a small option to the camera": one still in a cell)
-    camera: { sizes: ['S', 'W', 'L', 'XL'], sources: ['cameras'], opts: { entity: 'camera', follow: 'camera_follow', follow_select: 'select', name: 'name_tag' }, card: function (s, o, ctx) {
+    camera: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: ['cameras'], opts: { entity: 'camera', follow: 'camera_follow', follow_select: 'select', name: 'name_tag' }, card: function (s, o, ctx) {
       var ids = o.entity ? [o.entity] : (ctx.cameras || []).slice(0, 1);
       return ids.length ? { type: 'custom:hk-camera-mosaic-card', own_cameras: true, height: 195, seam: 2, snapshot_cap: '480x270',
                             cameras: ids.map(function (id) { return { entity: id }; }), name_tag: o.name || 'auto' }
@@ -111,14 +111,14 @@
                                                              o.members && o.members.length ? { members: o.members.slice() } : {});
       if (s === 'L' || s === 'XL') return Object.assign({ type: 'custom:hk-grid-keypad-card' }, o.entity ? { entity: o.entity } : {});
       return Object.assign({ type: 'custom:hk-grid-security-card' }, o.entity ? { entity: o.entity } : {}); } },
-    timers: { sizes: ['S', 'W'], sources: [], opts: { tap: 'tap_target' }, card: function () {
+    timers: { sizes: ['S', 'W', 'T', 'L'], sources: [], opts: { tap: 'tap_target' }, card: function () {
       return { type: 'custom:hk-timer-strip-card', entity: 'sensor.running_quick_timers' }; } },
     // Tall, and Big Temperature at any size: the number large, as StandBy has it (2026-10-24)
     weather: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { entity: 'weather', sky: 'boolean', big: 'boolean', tap: 'tap_target' }, card: function (s, o, ctx) {
       var id = o.entity || ctx.weather;
       return id ? Object.assign({ type: 'custom:hk-weather-band-card', section: 'hero', entity: id, sky: o.sky === true }, o.big ? { big: true } : {})
                 : stand('Weather', 'hk:weather-partly-cloudy'); } },
-    calendar: { sizes: ['S', 'T', 'L', 'XL'], sources: [], opts: { calendars: 'calendars', days: 'days', month: 'boolean', tap: 'tap_target' }, card: function (s, o) {
+    calendar: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { calendars: 'calendars', days: 'days', month: 'boolean', tap: 'tap_target' }, card: function (s, o) {
       return Object.assign({ type: 'custom:hk-calendar-pane-card' }, o.calendars ? { calendars: o.calendars } : {}, o.days ? { days: o.days } : {},
                            o.month ? { month: true } : {}); } },
     battery: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { tap: 'tap_target' }, card: function (s, o, ctx) {
@@ -127,9 +127,9 @@
       return B && B.level ? { type: 'custom:hk-house-battery-card', level: B.level, stored: B.stored, backup: B.backup,
                               reserve: B.reserve, charge: B.charge, discharge: B.discharge }
                           : stand('Battery', 'mdi:home-battery'); } },
-    people: { sizes: ['S', 'W'], sources: [], opts: { tap: 'tap_target' }, card: function () { return { type: 'custom:hk-people-card' }; } },
+    people: { sizes: ['S', 'W', 'T', 'L'], sources: [], opts: { tap: 'tap_target' }, card: function () { return { type: 'custom:hk-people-card' }; } },
     // Large and Extra Large: its controls with Clean Areas (2026-10-24)
-    vacuum: { sizes: ['S', 'W', 'L', 'XL'], sources: [], opts: { entity: 'vacuum' }, card: function (s, o, ctx) {
+    vacuum: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { entity: 'vacuum', tap: 'tap_target' }, card: function (s, o, ctx) {
       var id = o.entity || ctx.vacuum;
       if (!id) return stand('Vacuum', 'hk:robot-vacuum');
       return { type: s === 'L' || s === 'XL' ? 'custom:hk-grid-vacuum-card' : 'custom:hk-vacuum-card', entity: id }; } },
@@ -165,7 +165,7 @@
     // THE WIDGET BLOCKS (2026-10-31, docs/phase11/HOMEVIEW-LOOK.md "Blocks as widgets"): what is on now, a to-do
     // list, and the Energy page's rings over a period of the block's own
     on_now: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { tap: 'tap_target' }, card: function () { return { type: 'custom:hk-on-now-card' }; } },
-    todo: { sizes: ['S', 'T', 'L', 'XL'], sources: [], opts: { entity: 'todo', tap: 'tap_target' }, card: function (s, o) {
+    todo: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { entity: 'todo', tap: 'tap_target' }, card: function (s, o) {
       return Object.assign({ type: 'custom:hk-todo-card' }, o.entity ? { entity: o.entity } : {}); } },
     energy_rings: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { period: 'period', tap: 'tap_target' }, card: function (s, o) {
       return { type: 'custom:hk-energy-rings-card', period: o.period || 'day' }; } },

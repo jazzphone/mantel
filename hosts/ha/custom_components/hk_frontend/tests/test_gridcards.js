@@ -177,7 +177,7 @@ function () {
      [{ area: 'area', surface: 'surface', accessory_display: 'room_display', tap: 'tap_target' }, { windows: 'windows' }, { action: 'action', area: 'area', color: 'boolean' }, {}]);
   // (2026-10-31) the widget blocks, and Scenes' and Accessories' Height and Color
   eq('...the widget blocks and their sizes', [t.on_now.sizes, t.todo.sizes, t.energy_rings.sizes, t.energy_rings.opts, t.todo.opts],
-     [['S', 'W', 'T', 'L', 'XL'], ['S', 'T', 'L', 'XL'], ['S', 'W', 'T', 'L', 'XL'], { period: 'period', tap: 'tap_target' }, { entity: 'todo', tap: 'tap_target' }]);
+     [['S', 'W', 'T', 'L', 'XL'], ['S', 'W', 'T', 'L', 'XL'], ['S', 'W', 'T', 'L', 'XL'], { period: 'period', tap: 'tap_target' }, { entity: 'todo', tap: 'tap_target' }]);
   eq('...Scenes and Accessories: Height and Color', [t.scenes.opts.height, t.scenes.opts.color, t.accessories.opts.height, t.accessories.opts.color, t.scene.opts.color],
      ['tile_height', 'boolean', 'tile_height', 'boolean', 'boolean']);
 },
@@ -409,7 +409,7 @@ function () {
      { type: 'custom:hk-grid-cameras-card', cameras: ['camera.garden'], refresh: 30 });
   eq('...a house with no camera: the stand-in', C.config({ card: 'cameras', size: 'XL' }, {}).type, 'custom:hk-key-card');
   eq('...its sizes and options', [C.table().cameras.sizes, C.table().cameras.opts], [['XL', 'XXL', 'F'], { cameras: 'cameras', refresh: 'refresh' }]);
-  eq('the Camera block comes Small too (2026-10-31): one still in a cell', C.table().camera.sizes, ['S', 'W', 'L', 'XL']);
+  eq('the Camera block comes Small too (2026-10-31): one still in a cell', C.table().camera.sizes, ['S', 'W', 'T', 'L', 'XL']);
   eq('Full is the grid\'s own columns and rows', [C.SIZES.F, C.span('F', 3, 3), C.span('F', 2, 4), C.span('XL', 6, 4)], [[0, 0], [3, 3], [2, 4], [3, 2]]);
 },
 function () {

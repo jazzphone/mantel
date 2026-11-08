@@ -346,15 +346,13 @@
   var REPEATS = [['', 'Never'], ['FREQ=DAILY', 'Every Day'], ['FREQ=WEEKLY', 'Every Week'],
                  ['FREQ=MONTHLY', 'Every Month'], ['FREQ=YEARLY', 'Every Year']];
   var SHEET_CSS = [
-    ':host{position:fixed;inset:0;z-index:9000;display:none;' + C.FONT_ROOT + ';',
-    '  -webkit-tap-highlight-color:transparent}',
+    ':host{position:fixed;inset:0;z-index:9000;display:none;' + C.FONT_ROOT + ';  -webkit-tap-highlight-color:transparent}',
     ':host([open]){display:block}',
     '*{box-sizing:border-box;font-family:inherit}',
     '.back{position:absolute;inset:0;background:rgba(4,10,24,0.5)}',
     '.box{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(560px,calc(100vw - 24px));',
     '  max-height:calc(var(--hk-vh,100vh) - 24px);overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;',
-    '  border-radius:28px;border:1px solid rgba(255,255,255,0.14);background:rgba(24,24,28,0.93);color:' + window.hkCards.v('ink') + ';',
-    '  box-shadow:0 30px 80px rgba(0,0,0,0.45);padding:0 20px 22px}',
+    '  border-radius:28px;border:1px solid rgba(255,255,255,0.14);background:rgba(24,24,28,0.93);color:' + window.hkCards.v('ink') + ';  box-shadow:0 30px 80px rgba(0,0,0,0.45);padding:0 20px 22px}',
     '.hd{display:flex;align-items:center;height:64px;position:sticky;top:0;background:linear-gradient(rgba(24,24,28,0.93),rgba(24,24,28,0.93)),rgba(24,24,28,0.93);z-index:1;margin:0 -20px;padding:0 20px}',
     // the title riding on the form once it has scrolled (hk-base.js shade)
     C.shadeCss('.hd'),
@@ -1374,16 +1372,16 @@
     ':host([size]) .blk{' + window.hkCards.plate('card') + ';box-sizing:border-box;height:100%;padding:' + window.hkCards.blockPad(window.hkCards.CARD.pad) + ';',
     '  overflow:hidden;display:flex;flex-direction:column}',
     '.wg .wd{font-size:15px;font-weight:600;line-height:18px;letter-spacing:0.2px;text-transform:uppercase;color:' + CAL_RED + ';flex:none;',
-    '  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:' + window.hkCards.v('glow') + '}',
     '.wg .dn{font-weight:300;line-height:1.02;letter-spacing:-0.02em;font-variant-numeric:tabular-nums;margin-top:2px;flex:none}',
-    '.wg.S .dn{font-size:36px}.wg.T .dn{font-size:44px}.wg.L .dn{font-size:54px}',
+    '.wg.S .dn{font-size:36px}.wg.T .dn{font-size:44px}.wg.L .dn,.wg.W .dn{font-size:54px}',
     '.wg .rt{display:flex;flex-direction:column;min-width:0;flex:1}',
     '.wg .rt b,.wg .rt small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '.wg .rt b{' + window.hkCards.typeCss('headline') + ';line-height:21px}',
     '.wg .rt small{' + window.hkCards.typeCss('caption') + ';line-height:17px;color:' + window.hkCards.v('ink-2') + '}',
     '.wg .bar{flex:none;width:4px;align-self:stretch;border-radius:calc(4px / 2)}',
     '.wg .ft{flex:none;margin-top:auto;padding-top:6px;font-size:15px;line-height:18px;color:' + window.hkCards.v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-    '.wg .nil{flex:none;font-size:15px;line-height:18px;padding:10px 0;color:' + window.hkCards.v('ink-2') + '}',
+    '.wg .nil{flex:none;font-size:15px;line-height:18px;padding:10px 0;color:' + window.hkCards.v('ink-2') + '}.wg .end{flex:1 1 auto;display:flex;align-items:center;justify-content:center;font-size:15px;line-height:18px;color:' + window.hkCards.v('ink-2') + '}',
     // THE ROWS: a tap opens the event's sheet; 54 px, a finger's and more
     '.wg .ls{flex:1 1 0;min-height:0;display:flex;flex-direction:column;overflow:hidden;margin-top:6px}',
     '.wg .ev2{box-sizing:border-box;display:flex;align-items:center;gap:10px;min-height:54px;padding:8px 0;flex:none;min-width:0;',
@@ -1398,16 +1396,16 @@
     '.wg.S .rt b{font-size:15px;line-height:19px}.wg.S .rt small{font-size:13px;line-height:16px}',
     '.wg.S .ft{font-size:13px;line-height:16px}',
     // Large: the date in a column of its own, the rows beside it
-    ':host([size]) .wg.L,:host([size]) .wg.XL{flex-direction:row;gap:22px}',
+    ':host([size]) .wg.W,:host([size]) .wg.L,:host([size]) .wg.XL{flex-direction:row;gap:22px}',
     '.wg .c1{flex:0 0 104px;min-width:0;display:flex;flex-direction:column}',
     '.wg .c2{flex:1 1 0;min-width:0;display:flex;flex-direction:column}',
-    '.wg.L .ls{margin-top:0}',
+    '.wg.L .ls,.wg.W .ls{margin-top:0}',
     // Extra Large: the month (seven columns of a finger's width), the chosen day beside it. The month's name and
     // arrows sit over the month on a square cell; on a tile (150 px) over the day, the weeks taking the height.
     '.wg .mon{flex:0 0 322px;min-width:0;display:flex;flex-direction:column}',
     '.wg .mh{flex:none;display:flex;align-items:center;justify-content:space-between;height:44px;min-width:0}',
     '.wg .mh b{' + window.hkCards.typeCss('title') + ';line-height:26px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-    '.wg .mh span{display:flex;flex:none;margin-right:-10px}',
+    '.wg .mh span{display:flex;flex:none;margin-right:-4px}',
     '.wg .ch{all:unset;cursor:pointer;width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:50%;color:' + window.hkCards.v('ink') + '}',
     '.wg .ch:active{opacity:0.6}',
     '.wg .mon .mh{display:none}.wg .c2 .mh{display:flex;margin:-10px 0 2px}',
@@ -1431,7 +1429,7 @@
     // MONTH VIEW: seven columns, the weeks' rows sharing the height; the day's
     // number sized to its cell (container units: the block is a container)
     '.blk.mo{gap:6px}',
-    '.mo .mh{' + window.hkCards.labelCss('label') + ';color:' + CAL_RED + ';line-height:16px;flex:none}',
+    '.mo .mh{' + window.hkCards.labelCss('label') + ';color:' + CAL_RED + ';text-shadow:' + window.hkCards.v('glow') + ';line-height:16px;flex:none}',
     '.mo .mg{flex:1;min-height:0;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));grid-template-rows:auto repeat(var(--w),minmax(0,1fr));align-items:center;justify-items:center;gap:2px 0}',
     '.mo .mw{' + window.hkCards.labelCss('label-small') + ';line-height:14px}',
     '.mo .md{all:unset;box-sizing:border-box;cursor:pointer;-webkit-tap-highlight-color:transparent;position:relative;display:flex;align-items:center;justify-content:center;height:100%;max-height:calc(100cqw / 7.6);aspect-ratio:1;border-radius:50%;',
@@ -1473,7 +1471,8 @@
       var own = (this._config || {}).calendars;
       return Array.isArray(own) && own.length ? own.filter(function (id) { return h.states[id]; }) : calIds(h);
     }
-    _days() { var n = Number((this._config || {}).days); return n >= 1 && n <= 7 ? Math.round(n) : 2; }
+    // (a block with no `days` of its own reads the week ahead, 2026-11-07: its rows fill the height, the rest counted at the foot)
+    _days() { var n = Number((this._config || {}).days), z = this._cellSize(); return n >= 1 && n <= 7 ? Math.round(n) : z && z !== 'XL' ? 7 : 2; }
     // what to read: today and the coming days, or (Month View, Extra Large) the weeks the month's grid shows
     _range() {
       var now = new Date();
@@ -1541,7 +1540,7 @@
       var d0 = day0(new Date());
       this._watchBlock();
       if (sized === 'XL') { this._renderMonthDay(); return; }
-      if (this._month() && sized !== 'S') { this._renderMonth(sized, d0); return; }
+      if (this._month() && sized !== 'S' && sized !== 'W') { this._renderMonth(sized, d0); return; }
       this._renderNext(sized, d0);
     }
     // WHAT IS NEXT: what is still to come today, all-day first, then the coming days (`days`) each under its
@@ -1554,7 +1553,7 @@
         if (i && evs.length) rows.push('<div class="gh">' + esc(i === 1 ? 'Tomorrow' : DOW_LONG[d.getDay()] + ', ' + MON3[d.getMonth()] + ' ' + d.getDate()) + '</div>');
         evs.forEach(function (e) {
           shown.push(e);
-          rows.push(evRow(h, e, d, shown.length - 1, i, sized === 'T' ? 'start' : 'span'));
+          rows.push(evRow(h, e, d, shown.length - 1, i, sized === 'T' || sized === 'W' ? 'start' : 'span'));
         });
       }
       this._shown = shown;
@@ -1574,7 +1573,7 @@
         var list = shown.length ? (todayN ? '' : empty) + rows.join('') : empty;
         var ls = '<div class="ls">' + list + '</div><div class="ft" style="display:none"></div>';
         this._root.innerHTML = '<div class="blk wg ' + sized + '">' +
-          (sized === 'L' ? '<div class="c1">' + head + '</div><div class="c2">' + ls + '</div>' : head + ls) + '</div>';
+          (sized === 'L' || sized === 'W' ? '<div class="c1">' + head + '</div><div class="c2">' + ls + '</div>' : head + ls) + '</div>';
         this._fitRows();
       }
       this._wireTaps();
@@ -1583,8 +1582,9 @@
     // goes with them
     _fitRows() {
       var ls = this._root.querySelector('.ls'), ft = this._root.querySelector('.ft');
-      var cut = fitRows(ls, ft);
-      if (!cut) return;
+      var cut = fitRows(ls, ft), last = ls.lastElementChild;
+      // (everything fits and a good deal of the height is left: a quiet line in the middle of it, not bare glass)
+      if (!cut) { if (last && ls.getBoundingClientRect().bottom - last.getBoundingClientRect().bottom >= 36 && this._shown.length) ls.insertAdjacentHTML('beforeend', '<div class="end">' + (this._days() > 6 ? 'Nothing else this week' : 'Nothing more coming up') + '</div>'); return; }
       var evs = cut.filter(function (r) { return r.hasAttribute('data-ev'); });
       var days = evs.map(function (r) { return r.getAttribute('data-i'); }).filter(function (v, i, a) { return a.indexOf(v) === i; });
       ft.textContent = evs.length + ' more' + (days.length === 1 && days[0] === '0' ? ' today' : days.length === 1 && days[0] === '1' ? ' tomorrow' : '');
@@ -1679,13 +1679,13 @@
   // THE ROWS THAT FIT (2026-10-31, the owner: a list fills the room it is given and says "N more" when cut,
   // never a fixed gap): every row drawn, then -- when the last one runs past the list's foot -- the foot's line
   // (`ft`, if any) shown and the rows past the list's new foot hidden. The hidden rows, or 0 when all fit. Before the view
-  // has measured the block (nothing laid out) nothing is cut: the block is drawn again when it has.
+  // has measured the block (nothing laid out) nothing is cut: the block is drawn again when it has. (2026-11-07: the foot's line holds a word while it is measured -- with none it is 18 px short and the last row kept is cut by it.)
   function fitRows(ls, ft) {
     if (!ls || typeof ls.getBoundingClientRect !== 'function') return 0;
     var box = ls.getBoundingClientRect(), rows = Array.prototype.slice.call(ls.children || []);
     if (!(box.height > 0) || !rows.length) return 0;
     if (rows[rows.length - 1].getBoundingClientRect().bottom <= box.bottom + 0.5) return 0;
-    if (ft) ft.style.display = '';
+    if (ft) { ft.style.display = ''; ft.textContent = ft.textContent || '0 more'; }
     var foot = ls.getBoundingClientRect().bottom + 0.5, cut = [];
     rows.forEach(function (r) { if (cut.length || r.getBoundingClientRect().bottom > foot) cut.push(r); });
     // (a day's heading with none of its rows left under it)
@@ -1773,9 +1773,9 @@
     '.blk{' + window.hkCards.plate('card') + ';box-sizing:border-box;height:100%;padding:' + window.hkCards.blockPad(window.hkCards.CARD.pad) + ';',
     '  overflow:hidden;display:flex;flex-direction:column;min-height:240px}',
     ':host([size]) .blk{min-height:0}',
-    '.tw .ln{flex:none;font-size:15px;font-weight:600;line-height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '.tw .ln{flex:none;font-size:15px;font-weight:600;line-height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:' + window.hkCards.v('glow') + '}',
     '.tw .cn{flex:none;font-weight:300;line-height:1.02;letter-spacing:-0.02em;font-variant-numeric:tabular-nums;margin-top:2px}',
-    '.tw.S .cn{font-size:36px}.tw.T .cn{font-size:36px}.tw.L .cn,.tw.XL .cn{font-size:44px}',
+    '.tw.S .cn{font-size:36px}.tw.T .cn{font-size:36px}.tw.W .cn,.tw.L .cn,.tw.XL .cn{font-size:44px}',
     '.tw .hd{flex:none;display:flex;flex-direction:column;min-width:0;cursor:pointer;-webkit-tap-highlight-color:transparent}',
     '.tw.S{cursor:pointer;-webkit-tap-highlight-color:transparent}',
     '.tw [role=button]:focus-visible{outline:2px solid ' + window.hkCards.v('ink-2') + ';outline-offset:2px}',
@@ -1790,7 +1790,7 @@
     '.tw .it.done i{background:var(--hue);box-shadow:none}',
     '.tw .ft{flex:none;margin-top:auto;padding-top:6px;font-size:15px;line-height:18px;color:' + window.hkCards.v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '.tw .nil{flex:none;font-size:15px;line-height:19px;padding:10px 0;color:' + window.hkCards.v('ink-2') + '}',
-    '.tw.L,.tw.XL{flex-direction:row;gap:22px}',
+    '.tw.W,.tw.L,.tw.XL{flex-direction:row;gap:22px}.tw.W .it{flex:1 0 44px;max-height:64px}',
     '.tw .c1{flex:0 0 96px;min-width:0;display:flex;flex-direction:column}.tw.XL .c1{flex-basis:120px}',
     '.tw .c2,.tw .c3{flex:1 1 0;min-width:0;display:flex;flex-direction:column}',
     '.tw .c2>.ls:first-child,.tw .c3>.ls:first-child{margin-top:0}',
@@ -1799,7 +1799,7 @@
     '  background:' + window.hkCards.v('key') + ';cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent}',
     '.tw .addb:active{opacity:0.7}',
     // (the cell is the block's own: a square one is 180 px and up for Small, two rows' 360 for the rest)
-    '@container hk-cell (min-height:180px) or style(--hk-cell-shape: square){.tw.S .cn{font-size:54px}}',
+    '@container hk-cell (min-height:180px) or style(--hk-cell-shape: square){.tw.S .cn,.tw.W .cn{font-size:54px}}',
     '@container hk-cell (min-height:360px){.tw.T .cn{font-size:44px}.tw.L .cn,.tw.XL .cn{font-size:54px}}'
   ].join('\n');
   // THE WHOLE LIST, over the page (hk-media.js _turn's way): on <body> under a shadow root of its own -- the
@@ -1908,8 +1908,8 @@
       }
       if (size === 'T') {
         this._root.innerHTML = '<div class="blk tw T"' + style + '>' + hd + '<div class="ls">' + rows + '</div>' + ft + '</div>';
-      } else if (size === 'L') {
-        this._root.innerHTML = '<div class="blk tw L"' + style + '><div class="c1">' + hd + ft + '</div><div class="c2"><div class="ls">' + rows + '</div></div></div>';
+      } else if (size === 'L' || size === 'W') {
+        this._root.innerHTML = '<div class="blk tw ' + size + '"' + style + '><div class="c1">' + hd + ft + '</div><div class="c2"><div class="ls">' + rows + '</div></div></div>';
       } else {
         // Extra Large: a second list of its own, or this one running on
         var b = lists[1], tb = b ? this._read(b) : null, gb = b ? itemsOf(tb) : null;
@@ -2226,9 +2226,9 @@
       '.mm .lab{margin-bottom:8px}',
       '.mmg{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));row-gap:2px;flex:1;min-height:0}',
       '.mmg .w{text-align:center;font-size:11px;font-weight:600;color:' + window.hkCards.v('ink-2') + ';padding-bottom:4px}',
-      '.mmg button{min-height:36px;border:0;background:none;padding:0;color:#fff;font:inherit;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;',
+      '.mmg button{position:relative;min-height:32px;border:0;background:none;padding:0;color:#fff;font:inherit;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;',
       '  cursor:pointer;-webkit-tap-highlight-color:transparent}',
-      '.mmg button b{width:28px;height:28px;line-height:28px;border-radius:14px;text-align:center;font-size:13px;font-weight:600}',
+      '.mmg button b{width:26px;height:26px;line-height:26px;border-radius:13px;text-align:center;font-size:13px;font-weight:600}.mmg button::after{content:"";position:absolute;inset:-6px 0}',
       '.mmg button i{width:4px;height:4px;border-radius:2px}',
       '.mmg button.out{opacity:.35}',
       '.mmg button.today b{color:#ff6961}',
@@ -2374,7 +2374,7 @@
             '" data-d="' + ymd(x) + '" aria-label="' + MON[x.getMonth()] + ' ' + x.getDate() + '"><b>' + x.getDate() + '</b><i style="background:' +
             (mine.length ? rgba(evRgb(mine[0], h), 1) : 'transparent') + '"></i></button>';
         }
-        return '<div class="card mm"><div class="lab"><span>' + MON[a.getMonth()] + ' ' + a.getFullYear() + '</span></div><div class="mmg" style="grid-template-rows:auto repeat(' + (n / 7) + ',36px)">' + cells + '</div></div>';
+        return '<div class="card mm"><div class="lab"><span>' + MON[a.getMonth()] + ' ' + a.getFullYear() + '</span></div><div class="mmg" style="grid-template-rows:auto repeat(' + (n / 7) + ',32px)">' + cells + '</div></div>';
       }
       _paint() {
         var h = this.client, ev = this._ev;
