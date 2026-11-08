@@ -192,3 +192,47 @@ last evening, nothing since, everything locked) and `recent_empty` (none). Every
 was shot on square HomeView cells and on tiles in Blur (day), Flat Light and Flat Dark, with the audit clean;
 `block_taps_check.py --expect` passes on tiles, square cells and HomeView; every row's and picture's tap was clicked
 and read back; `timeline_check.py --block` passes at 1180 x 820, 820 x 1180 and 390 x 844.
+
+## Round two: Now Playing (2026-11-08)
+
+What the owner said: "The X-Large Now playing card, why is the title / artist so close to the top and the media controls so
+close to the bottom on the right side. This info and media controls should follow similar to how we have all the other
+players set up on the Music slide for the screensavers. All the player cards should follow this. The tall card also needs
+work - The album art isn't centered in the card, and the text/controls can also go a bit closer to the edges of the card in
+order to have more room." Then, for every block: a card may have a detail sheet that exposes more controls; nothing
+stretches; each size must be weighted and use its space deliberately.
+
+The reference is the screensaver's Music slide (hk-saver-music.js, hk-saver-css.js `.mu`): the room, the title, the artist,
+then the progress 22 px under them, the buttons, the volume -- one tight group that is not pinned to the top and bottom of
+its column -- beside the cover, which is the hero.
+
+What was done (web/hk/media/hk-media-now.js, the `ON A HOME GRID` rules; hk-grid-catalog.js; the audit):
+
+- **XL**: the label, title, artist, progress, keys and volume are one group between two flexible rows, so it stands on the
+  cover's axis with the same air above and below (the slide's 20-22 px between the artist and the progress). Measured on the
+  square cell, the group's center is the block's center; the cover keeps the room (as large as the group's 282 px column
+  allows).
+- **L**: rebuilt on the same grid. The cover no longer sets a grid track, so the song sits 14 px from it (on a tile it sat
+  a whole track away) and the cover takes the room the song's 160 px and the controls leave; a fixed 22 px gap, the
+  whole stack centered in the block.
+- **T**: the cover is centered on the block's axis and as wide as the content box allows (it was at the start of its row);
+  the label, song, progress and three keys follow it at their own sizes; the stack is centered with the same air above and
+  below. The keys' ink lines up with the text's inset (skip's ink is the middle half of its glyph).
+- **W**: the song, the progress and the three keys are one group centered on the cover's axis (the song was pinned to the
+  cover's top, the keys to its foot).
+- **S**: the cover top left, play / pause top right, the song at the foot.
+- **What moved to the player's sheet (a tap on the plate opens it)**: Small lost back / next and Speakers; Wide lost
+  Speakers, Browse and the volume; Tall lost Speakers, Browse and the volume. They did not fit with 44 px targets and 8 px
+  between hit areas. L and XL keep Speakers, Browse and the volume.
+- **Nothing stretches**: the keys are a cluster at fixed pitch (44 px with 8 or 12 between on W and T; 44 / 48 / 52 / 48 / 44
+  with 8 between on L and XL), centered in the column -- not spread to its edges by a flexible track. The progress and volume
+  bars are the column's width, as the slide's are.
+- **States** (audit `--state`): `art` (a cover), `noart` (the house's default), `paused`, `pausednoart`, `idle` (a stopped
+  player: no song, times or cover), `off`, `longsong`, `longsongnoart`. Nothing playing: the label names the room a play
+  would start in (the slide's), not "Not Playing" over "Nothing Playing"; the progress goes (the slide's `[idle] .mprog`); the
+  note placeholder is 40 % of the cover. A long title takes two lines on L and XL (the slide's clamp), one elsewhere.
+- A Flat look draws no blur (hk-base.js flatCss takes every filter), which left the cover sharp behind the controls; the
+  plate is now the flat gradient there.
+- The audit no longer calls the clipped third line of a `-webkit-line-clamp` title "hidden by a box".
+- Tests: grid_music_turn_check.py (the keys' 44 px and 8 px clear, no Speakers / Browse / volume on S, W, T; XL added),
+  media_card_check.cjs, test_blocks_media.js, test_edit_grid.js (Wide and Tall are now the same card: the progress only).

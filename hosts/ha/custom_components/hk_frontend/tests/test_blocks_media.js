@@ -1,6 +1,7 @@
 // THE MEDIA BLOCKS AS WIDGETS (2026-10-31, the Home Grid blocks mock-up the
 // owner approved): Now Playing's sizes (a new Small, the volume under the
-// transport on Wide, Tall and Large, Speakers and Browse either side), the
+// transport on Large and Extra Large, Speakers and Browse either side; Small, Wide and Tall only the keys, what
+// does not fit is on the player's sheet, 2026-11-08), the
 // Music block (Music's Recently Played: hk-media.js hk-recent-music-card) and
 // the Live TV block (its channels: hk-tv-channels-card), each mounted by the
 // panel block (hk-grid-cards.js). A fictional house: nothing here names a real one.
@@ -60,28 +61,31 @@ function () {
   H.section('Now Playing: what each size is handed (the catalog)');
   var G = window.hkGridCatalog, at = function (s) { return G.config({ card: 'now_playing', size: s, opts: {} }, {}); };
   eq('Small: the player alone, no progress or volume card', [!!at('S').sub_card, !!at('S').meta_card], [false, false]);
-  eq('Wide: the volume under the transport', [!!at('W').sub_card, (at('W').meta_card || {}).parts], [false, ['volume']]);
-  eq('Tall: the progress, then the volume', [(at('T').sub_card || {}).parts, (at('T').meta_card || {}).parts], [['progress'], ['volume']]);
-  eq('Large: as before, progress and volume', [(at('L').sub_card || {}).parts, (at('L').meta_card || {}).parts], [['progress'], ['volume']]);
-  ok('...each following the screen\'s music', at('W').meta_card.entity_from && at('W').meta_card.entity_from.music === true);
+  eq('Wide: the progress, no volume (the sheet has it)', [(at('W').sub_card || {}).parts, !!at('W').meta_card], [['progress'], false]);
+  eq('Tall: the progress, no volume', [(at('T').sub_card || {}).parts, !!at('T').meta_card], [['progress'], false]);
+  eq('Large: the progress and the volume', [(at('L').sub_card || {}).parts, (at('L').meta_card || {}).parts], [['progress'], ['volume']]);
+  eq('Extra Large: the same', [(at('XL').sub_card || {}).parts, (at('XL').meta_card || {}).parts], [['progress'], ['volume']]);
+  ok('...each following the screen\'s music', at('L').meta_card.entity_from && at('L').meta_card.entity_from.music === true && at('W').sub_card.entity_from.music === true);
 },
 function () {
   H.section('Now Playing: the sizes\' layouts');
   var css = customElements.get('hk-now-playing-card').CSS;
-  ok('Small: the cover and Speakers on top, back / play / next along the foot',
-     css.indexOf('"art art . . spk" "title title title title title" "artist artist artist artist artist" ". . . . ." "prev . play . next"') >= 0);
+  ok('Small: the cover and play / pause on top, the song under them',
+     css.indexOf('"art play" ". ." "title title" "artist artist"') >= 0 && css.indexOf(':host(:is([size=S],[size=W],[size=T])) .np .spk,:host(:is([size=S],[size=W],[size=T])) .np .brw{display:none}') >= 0);
   ok('...on a tile cell the artist goes and the cover takes the height left', /@container hk-cell \(max-height:179px\)\{:host\(\[size=S\]\)[^}]*--np-art[^}]*\}:host\(\[size=S\]\) \.np \.artist\{display:none\}/.test(css));
-  ok('Wide: Speakers and Browse at the transport\'s ends, the volume under it',
-     css.indexOf('"art spk prev play next brw" "art meta meta meta meta meta"') >= 0);
-  ok('...five 44 px controls beside the cover (the cover gives way)', css.indexOf("' - 236px)") < 0 && /--np-art:min\(\(100cqh[^;]*- 236px\)/.test(css));
-  ok('Tall: the label, the song, the progress, the transport with Speakers and Browse, the volume',
-     css.indexOf('"lab lab lab lab lab" "title title title title title" "artist artist artist artist artist" ". . . . ." "sub sub sub sub sub" "prev . play . next" "spk meta meta meta brw"') >= 0 &&
-     css.indexOf('--hk-np-cols:44px minmax(0,1fr) 44px minmax(0,1fr) 44px;') >= 0);
-  ok('...the transport up off the foot: the bottom inset 6 px more', /:host\(\[size=T\]\) hk-plate\.np\{--hk-np-pad:[^;]*calc\(var\(--hk-pad-b,20px\) \+ 6px\)/.test(css));
-  ok('...no longer Speakers and Browse in the top corners', css.indexOf('position:absolute;top:12px;width:32px') < 0);
-  ok('Large: the label over the song, the volume under the transport',
-     css.indexOf('"art art lab lab lab"') >= 0 && css.indexOf('"spk prev play next brw" "meta meta meta meta meta"') >= 0);
-  ok('the volume a 44 px place on W, T, L and XL', css.indexOf(':host([size=W]) .np .meta,:host([size=T]) .np .meta,:host(:is([size=L],[size=XL])) .np .meta{display:flex;align-items:center;gap:10px;padding:0;--hk-range-h:44px}') >= 0);
+  ok('Wide: the song, the progress and the three keys, a cluster 44 px wide each with 12 px between',
+     css.indexOf('"art . prev . play . next ."') >= 0 && css.indexOf('minmax(0,1fr) 44px 12px 44px 12px 44px minmax(0,1fr)') >= 0);
+  ok('...the cover as big as the controls\' 190 px leave it', /--np-art:min\(\(100cqh[^;]*- 190px\)/.test(css));
+  ok('Tall: the cover, the label, the song, the progress, the three keys with 8 px between',
+     css.indexOf('"lab lab lab lab lab lab lab" "title title title title title title title" "artist artist artist artist artist artist artist" "sub sub sub sub sub sub sub" ". prev . play . next ."') >= 0 &&
+     css.indexOf('--hk-np-cols:minmax(0,1fr) 44px 8px 44px 8px 44px minmax(0,1fr);') >= 0);
+  ok('...the cover on the block\'s axis', css.indexOf(':host([size=T]) .np .art{justify-self:center;align-self:start}') >= 0);
+  ok('...the bottom inset 6 px more', /:host\(\[size=T\]\) hk-plate\.np\{--hk-np-pad:[^;]*calc\(var\(--hk-pad-b,20px\) \+ 6px\)/.test(css));
+  ok('Large: the label over the song, the keys a cluster, the volume under it',
+     css.indexOf('"pre pre pre pre pre pre pre pre pre pre pre" "lab lab') >= 0 && css.indexOf('". spk . prev . play . next . brw ."') >= 0);
+  ok('Extra Large: the group between two flexible rows, centered on the cover',
+     css.indexOf('--hk-np-rows:minmax(0,1fr) min-content min-content min-content min-content 57px min-content minmax(0,1fr)') >= 0);
+  ok('the volume a 44 px place on L and XL', css.indexOf(':host(:is([size=L],[size=XL])) .np .meta{display:flex;align-items:center;gap:10px;padding:0;--hk-range-h:44px}') >= 0);
   ok('in a pager: no volume row', css.indexOf(':host([size][data-grid-pager]) hk-plate.np{--hk-np-pad:20px 22px 44px;--np-vol:0px}') >= 0);
 },
 function () {
