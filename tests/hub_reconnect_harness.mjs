@@ -28,6 +28,8 @@ const unhandled = [];
 process.on('unhandledRejection', (e) => unhandled.push(String(e && e.message)));
 const settle = (p) => p.then((v) => ['resolved', v], (e) => ['rejected', e.code || e.message]);
 const tick = (ms = 30) => new Promise((r) => realTimeout(r, ms));
+// until `ok()` or 3 s: a loaded machine (the full checks, side by side) runs the fake socket's timers late
+const until = async (ok) => { for (let i = 0; i < 300 && !ok(); i++) await tick(10); };
 
 const { Hub } = await import('./hub.mjs');
 const hub = new Hub();
@@ -83,7 +85,7 @@ const silentWs = sockets[before - 1];
 pg.doc.visibilityState = 'hidden'; pg.fire('visibilitychange');    // going to sleep: nothing
 const pingsWhileHidden = pings(silentWs);
 pg.doc.visibilityState = 'visible'; pg.fire('visibilitychange');   // waking
-await tick(60);
+await until(() => asleepBack > 0);
 const wake = {
   pingsWhileHidden, pinged: pings(silentWs), closed: !!silentWs.closedByPage,
   newSockets: sockets.length - before, resent: sockets[sockets.length - 1].sent, reconnected: asleepBack,
@@ -143,7 +145,7 @@ sockets[awayBefore - 1].drop();                                      // closed w
 await tick(20);
 const whileAway = sockets.length - awayBefore;                       // the back-off is held: nothing yet
 pg.doc.visibilityState = 'visible'; pg.fire('visibilitychange');     // back to the front
-await tick(20);
+await until(() => awayBack > 0);
 const back = { whileAway, atOnce: sockets.length - awayBefore, reconnected: awayBack,
                resent: sockets[sockets.length - 1].sent.filter((m) => m.type === 'subscribe') };
 const releaseAway = held; held = null; releaseAway.forEach((fn) => realTimeout(fn, 1));
