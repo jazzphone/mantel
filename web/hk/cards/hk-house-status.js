@@ -2,10 +2,10 @@
 // hk-house-status.js -- House Status (docs/phase11/HOUSE-STATUS.md): this screen's status chips as a Home Grid block
 // and a sheet, in HomeView's look rather than the chip row's pills.
 //
-//   hk-house-status-card    `house_status` (S, W, T, L, XL; hk-grid-catalog.js): the sections at a glance. Wide and Tall
-//                           four, Large six, Extra Large six or eight -- as many as the block's measure holds at a
-//                           readable size, each its own tap to the page its chip opens; the rest are "+N more", which
-//                           opens the sheet. Small is one button: the section that matters most, and the sheet.
+//   hk-house-status-card    `house_status` (S, W, T, L, XL; hk-grid-catalog.js): the sections at a glance, as the
+//                           summary tiles On Now shares (round two, 2026-11-08) -- each tile at its size's designed
+//                           size, as many as fit, each its own tap to the page its chip opens; the rest are "+N more",
+//                           which opens the sheet. Small is one button: the section that matters most, and the sheet.
 //   hk-house-status-sheet   the sheet's body, in the shared detail sheet (hkDetail.open {panel}): every section the
 //                           screen shows. Wide (820) when two columns of panels fit the window, else the standard
 //                           sheet's rows (in two columns on a short, wide window); the body scrolls, never shrinks.
@@ -268,7 +268,8 @@
     // the heading's key: a capsule the heading's height, at least a finger wide, with a finger's reach round it
     '.sm-k{all:unset;box-sizing:border-box;position:relative;flex:none;display:flex;align-items:center;justify-content:center;gap:2px;height:24px;min-width:44px;padding:0 12px;',
     '  border-radius:12px;background:' + v('key') + ';' + type('caption') + ';font-weight:600;color:' + v('ink') + ';cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent}',
-    '.sm-k::after{content:"";position:absolute;left:-6px;right:-6px;top:-10px;bottom:-10px}',
+    // (its reach up into the inset, never over the tiles under it)
+    '.sm-k::after{content:"";position:absolute;left:-6px;right:-6px;top:-14px;bottom:-6px}',
     '.sm-k:active{filter:brightness(0.9)}',
     '.sm-k.q{background:none;padding:0 0 0 8px;justify-content:flex-end;color:' + v('ink-2') + ';font-weight:500;text-shadow:' + v('glow') + '}',
     '.sm-k hk-icon{width:12px;height:12px;--mdc-icon-size:12px;color:' + v('mark') + '}',

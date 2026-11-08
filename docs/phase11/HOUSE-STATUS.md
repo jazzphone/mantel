@@ -44,21 +44,28 @@ House Status sends a command.
 
 ## The block
 
-S, W, T, L and XL, on square cells (196 × 196) and tile cells (196 × 150). The layout is worked out from the
-block's measure (`layout()`), not fixed per size:
+S, W, T, L and XL, on square cells (196 × 196) and tile cells (196 × 150). Since round two (2026-11-08, the owner:
+"the layouts don't follow anything else ... It would be great if On Now and Home Status shared a similar look") House
+Status and On Now are drawn with one set of parts, the **summary tiles** (`window.hkHouseStatus.tiles`; On Now's file
+asks for this one): a heading on the top inset -- the label in the block's accent (House Status the Security page's
+teal, On Now orange) and one key at its end ("+N more" here, All Off there) -- and under it the sections as the Room
+block's inner tiles, Apple Home's category row: a glyph, a name and a reading, the whole tile one tap.
 
-| Size | Sections | Square cells |
+**Nothing stretches** (the owner, 2026-11-08). Each size has its designed tile (`DESIGN` in the pure part: the kind,
+the columns and the height, per cell shape), never grown to fill; what fits is shown, the group is centered with a
+short last row centered (never a tile spanning it), and the rest are "+N more":
+
+| Size | Square cells | Tile cells |
 | --- | --- | --- |
-| Small | One button: the section that matters most (an alert, else one asking for attention, else the first) and the count | |
-| Wide | Up to 4, two by two | Name over the reading. On tile cells, one line each with a tighter heading |
-| Tall | Up to 4, a column | "+N more" at its foot (no room beside the heading) |
-| Large | Up to 6, two by three | With a line of detail |
-| Extra Large | Up to 6 three by two, or 8 four by two | Larger readings, two lines of detail |
+| Small | The label, the leading section's glyph, its reading large, its name and the count | the same |
+| Wide | Pills two by two (58 tall): the glyph beside the name over the reading | Three stacks across (88 tall): the glyph over the reading over the name |
+| Tall | A column of five pills (60) | A column of four (56) |
+| Large | Pills two by four (76) with a line of detail | Pills two by four (56) |
+| Extra Large | Stacks four by two (162) with two lines of detail | Stacks four by two (120) with a line of detail |
 
-Fewer sections are laid out for fewer: three on a Large is a column of three, not six slots with three filled. A
-section is never under 44 px tall. Rows that would be shorter go to "+N more", and readable text is never shrunk to fit.
-"+N more" never loses one: the sheet has them all. Glyphs are bare and in the ink. A section that asks for attention
-(an alert, a running timer, a door open, a lock open or not reporting) takes its chip's color.
+A tile is never under 44 px tall, and "+N more" never loses one: the sheet has them all. Glyphs are bare, in the
+ink, and a section that asks for attention (an alert, a running timer, a door open, a lock open or not reporting) takes
+its chip's color. The heading's keys are 24 px capsules with a 44 px reach.
 
 The block has no options (`opts: {}` in both catalogs). It shows the screen's Status Chips, and the editor says where
 to change them. There is no When Tapped option, because each section opens its own place.
