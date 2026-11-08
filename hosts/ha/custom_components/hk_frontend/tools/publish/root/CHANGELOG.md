@@ -5,6 +5,8 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+## 1.50.0 - 2026-11-08
+
 **Added**
 - **Security's Height option** on Large and Extra Large: the locks and garage doors as HomeView tiles (Full) or half-height pills (Half, the default beside the keypad, lined up with it).
 
