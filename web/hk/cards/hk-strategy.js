@@ -2907,6 +2907,11 @@
       energy_slide: o.energy_slide === true, extra_music: o.extra_music === true, extra_forecast: o.extra_forecast === true,
       extra_every: o.extra_every, extra_for: o.extra_for, energy_hide: Array.isArray(o.energy_hide) ? o.energy_hide.slice() : [],
       weather_slide: o.weather_slide === true, weather_hide: Array.isArray(o.weather_hide) ? o.weather_hide.slice() : [],
+      // the Holiday slide (hk-saver.js readCfg checks them)
+      holiday_slide: o.holiday_slide === true, holiday_pick: o.holiday_pick, holiday_one: o.holiday_one, holiday_days: o.holiday_days,
+      holiday_off: Array.isArray(o.holiday_off) ? o.holiday_off.slice() : [], holiday_own: Array.isArray(o.holiday_own) ? o.holiday_own.map(function (x) { return Object.assign({}, x); }) : [],
+      holiday_fx: o.holiday_fx, holiday_outdoors: Array.isArray(o.holiday_outdoors) ? o.holiday_outdoors.slice() : [],
+      holiday_hide: Array.isArray(o.holiday_hide) ? o.holiday_hide.slice() : [],
       corner_time_size: o.corner_time_size || 100, corner_hide: Array.isArray(o.corner_hide) ? o.corner_hide.slice() : [],
       music_hide: Array.isArray(o.music_hide) ? o.music_hide.slice() : [],
       forecast_every: o.forecast_every || 5,

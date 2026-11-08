@@ -64,13 +64,13 @@ LOOKS: tuple[dict[str, Any], ...] = (
      "saver": {"show": "clock", "clock_style": "classic", "clock_bg": "black", "clock_motion": "still", "zoom": False}},
     {"id": "holiday", "name": "Holiday Whimsy",
      "about": "The live sky with the season's scenery and decorations, a festive bustle, the Day face with its "
-              "occasion art, and Scattered Numerals.",
+              "occasion art, Scattered Numerals, and the countdown to the next holiday.",
      "art": ["#2a1450", "#7a3b1c", "#1b0f24", "#ff9f0a"],
      "layout": {"cell": "tile", "starters": ["F", "A"]},
      "settings": {"flat": False, "glass": "blur", "accent": "orange", "tab_bar_glass": "house", "tile_style": "auto",
                   "sky": True, "sky_background": "live", "sky_animations": True, "sky_decorations": True,
                   "sky_liveliness": "festive", "sky_moving": "front", "swipe_pages": "auto", "screensaver": True},
-     "saver": {"show": "day", "clock_style": "scattered", "day_look": "auto"}},
+     "saver": {"show": "day", "clock_style": "scattered", "day_look": "auto", "holiday_slide": True}},
     {"id": "weather", "name": "Active Weather",
      "about": "The live sky with its weather moving -- clouds, rain and snow -- the weather large in the Side Pane "
               "and Big Weather in the screensaver.",

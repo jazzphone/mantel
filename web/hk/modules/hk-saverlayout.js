@@ -339,7 +339,9 @@
     forecast: { name: 'Forecast, Classic', shows: ['weather'] },
     forecast_big: { name: 'Forecast, Big', shows: ['weather', 'time'] },
     weather: { name: 'Weather', shows: ['weather', 'readings'] },
-    energy: { name: 'Home Energy', shows: ['energy'] }
+    energy: { name: 'Home Energy', shows: ['energy'] },
+    // (the Holiday slide, phase 20: its count and its scene; the corner adds all four)
+    holiday: { name: 'Holidays', shows: ['holiday'] }
   };
   var CORNER = ['time', 'date', 'weather', 'status'];
   function cornerFor(slide) { var s = SLIDES[slide]; return s ? CORNER.filter(function (f) { return s.shows.indexOf(f) < 0; }) : []; }

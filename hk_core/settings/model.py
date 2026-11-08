@@ -1501,6 +1501,10 @@ def merged(options: Mapping[str, Any] | None) -> dict[str, dict[str, Any]]:
         if section in out and isinstance(values, dict):
             out[section].update({k: v for k, v in values.items() if k in out[section]})
     out["look"]["saver"] = saver_options(out["look"].get("saver")) or dict(SAVER_DEFAULTS)
+    # (a house outside the US that has not chosen its holidays leaves the US-only ones off, as the sky's themes)
+    stored_saver = (stored.get("look") or {}).get("saver") if isinstance(stored.get("look"), dict) else None
+    if not (isinstance(stored_saver, dict) and "holiday_off" in stored_saver):
+        out["look"]["saver"]["holiday_off"] = place_holiday_off()
     if out["menu"].get("swipe_pages") not in SWIPE_PAGES:
         out["menu"]["swipe_pages"] = DEFAULTS["menu"]["swipe_pages"]
     np = out["now_playing"]
@@ -1747,6 +1751,30 @@ SAVER_DEFAULTS.update({"forecast_planted": True})
 # (saver_layout.py). Read tolerantly here -- a layout this build can only partly draw keeps what it can, never
 # costing the screen its other options; the write checks it strictly (changes._saver_options).
 SAVER_DEFAULTS.update({"layout": None, "designs": [], "active_design": "", "clock_options": {}})
+# THE HOLIDAY SLIDE (phase 20, docs/phase20/HOLIDAY-SLIDE.md; hk-saver-holiday.js): how many days until the next
+# holiday, in a painted scene (Christmas, Halloween, Thanksgiving, New Year's) or outdoors over the sky's landscapes.
+# A slide among the photos or an additional screen over a clock, as Weather and Home Energy are; off by default. Which
+# one (Next Up, Take Turns, One Holiday), the window of days, the holidays left out (US-only ones outside the US, as the
+# sky's themes: merged()), your own dates, the effects, the scenes sent outdoors, and the parts of the row it leaves out
+HOLIDAY_IDS = ("newyear", "valentines", "easter", "mothers", "fathers", "july4", "halloween", "thanksgiving", "christmas")
+HOLIDAY_PAINTED = ("newyear", "halloween", "thanksgiving", "christmas")
+HOLIDAY_US_ONLY = ("july4", "thanksgiving")
+HOLIDAY_OWN_SCENES = ("spring", "summer", "fall", "winter", "party", "fireworks")
+HOLIDAY_DAYS = (30, 60, 90)
+HOLIDAY_OWN_MAX = 12
+HOLIDAY_NAME_MAX = 40
+SAVER_HOLIDAY_PARTS = ("count", "next")
+SAVER_DEFAULTS.update({"holiday_slide": False, "holiday_pick": "next", "holiday_one": "christmas", "holiday_days": 60,
+                       "holiday_off": [], "holiday_own": [], "holiday_fx": "full", "holiday_outdoors": [], "holiday_hide": []})
+SAVER_CHOICES.update({"holiday_pick": ("next", "turns", "one"), "holiday_fx": ("full", "gentle", "off")})
+
+
+def place_holiday_off() -> list[str]:
+    """The holidays a house leaves off before it chooses: the US-only ones outside the US (as the sky's themes)."""
+    country = _PLACE["country"]
+    return list(HOLIDAY_US_ONLY) if country and country != "US" else []
+
+
 # ALL SCREENS' screensaver options (All Screens -> Screensaver): a screen
 # whose own `screensaver_options` is null uses these (resolved()).
 DEFAULTS["look"]["saver"] = dict(SAVER_DEFAULTS)

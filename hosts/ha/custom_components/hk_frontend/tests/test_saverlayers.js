@@ -160,9 +160,12 @@ ok('the corner clock keeps a layer for good, as the weather line and what plays 
    /'\.info > hk-clock-card\{transition:opacity ' \+ CROSSFADE_MS \+ 'ms ease;will-change:opacity\}'/.test(src));
 ok('Home Energy\'s layer is put in at the start, as the weather\'s (not at its first turn)',
    /enCtl = X\.create\([^)]*\);\s*root\.insertBefore\(enCtl\.el, root\.querySelector\('\.info'\)\);/.test(src));
+// (the weather's and the Holiday slide's share one set of steps, a slot each: hk-saver.js slideShow, phase 20)
 ok('...and neither is moved for the other between it and the corner cards',
    /if \(!underCards\(enCtl\.el, info\)\) root\.insertBefore\(enCtl\.el, info\);/.test(src) &&
-   /if \(!underCards\(wxCtl\.el, info\)\) root\.insertBefore\(wxCtl\.el, info\);/.test(src));
+   /if \(!underCards\(S\.ctl\.el, info\)\) root\.insertBefore\(S\.ctl\.el, info\);/.test(src));
+ok('...the weather\'s and the Holiday slide\'s layers put in at the start, as Home Energy\'s',
+   /if \(!S\.ctl\) \{ S\.ctl = S\.make\(X\); root\.insertBefore\(S\.ctl\.el, root\.querySelector\('\.info'\)\); \}/.test(src));
 // underCards itself, run: the function's own text, on a stand-in root
 var m = /function underCards\(el, info\) \{[\s\S]*?\n  \}\n/.exec(src);
 ok('underCards is there', !!m);
@@ -184,6 +187,9 @@ if (m) {
   chain([I, E]);
   ok('...above the corner cards: moved', underCards(E, I) === false);
   ok('...not in this root: put in', underCards(node('en'), I) === false);
+  var HL = node('hl');
+  chain([HL, E, X, I]);
+  ok('...the Holiday slide\'s among them: left too', underCards(HL, I) === true && underCards(E, I) === true);
 }
 
 print('\n=== hk-saver.js: the dashboard hidden under the screensaver, wherever its host keeps the view ===');
