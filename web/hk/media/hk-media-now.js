@@ -1409,6 +1409,8 @@
 
       _render() {
         var cfg = this._config;
+        // (a client update can reach the card before its config: nothing to draw yet -- media-card-check, 2026-11-08)
+        if (!cfg) return;
         // NO MUSIC FEATURE: the line instead of an empty player -- or, for a
         // card that hides while nothing plays (the docked bar), nothing
         if (musicMissing()) {
