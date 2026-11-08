@@ -258,6 +258,45 @@ is drawn; a frame over 25 ms after the last missed a refresh. Mantel's page send
 
 Read those, not a check on a Mac, for how a swipe feels on a tablet.
 
+### Quick flicks (2026-11-08)
+
+The owner, after the glass change: "Sometimes pages swipe, sometimes they don't. At times they bounce back and don't
+move at all ... especially on fast swipes ... it doesn't feel natural. Fast swipes are common here since a user may fast
+swipe to the page they want." Every check so far had been a slow drag. A new bench fires real-touch flicks back to back
+on the device's own clock (not awaited, so a busy page gets coalesced moves as a tablet does): 90 ms, 220 px, speeding up
+to the lift, 4 forward and 4 back, on the Living Room HomeView rebuilt in the lab.
+
+| Flicks this far apart (lift to next touch), 4x CPU | before: pages reached of 8 | after |
+|---|---|---|
+| 400 ms | 7, one refused | 8 |
+| 250 ms | 6, one refused | 8 |
+| 150 ms | 6 (1 of 4 forward at 6x CPU) | 8 (8 at 6x) |
+| 120 ms | 2 (home, weather, home) | 8 |
+| 500 ms, short flicks of 70-100 px | 3 of 4, one refused | 4 of 4 |
+
+What lost them, each found in the bench's per-flick record (the swipe's own `why`, its state, long animation frames):
+
+- **The page beyond wasn't there.** The page on each side is made at a quiet moment (`plan`), and `makeReady` would not
+  put a page in while a finger or a settle was on, so in a run of flicks the next page was always the title stand-in.
+  A flick to it landed there (`commit`) and refused every touch while the page was built: "sometimes they don't swipe".
+  Now a settle toward a page asks the host for the page after it as soon as the settle is under way (`ahead`, the
+  compositor moving the page), a landing asks for the far side's page at once, and a page made while a finger drags
+  takes its stand-in's place.
+- **A caught settle under half way lost the flick.** A finger on a settle that had not reached half way held the old
+  page, and the flick only finished the first one's page: two flicks, one page. A settle on its way to a ready page has
+  now landed there when it is caught, however far it had got (`catchIt`, `chain`), and a flick on the way it was going goes
+  a page further; every page then moves together (`run`, `pass`), so none passes another. A finger on a settle toward a
+  stand-in holds it rather than landing on it and refusing the finger.
+- **A catch did its work under the finger.** The tab bar's and the Side Pane's first follow ran inside the press (30-60 ms
+  at 4x CPU, with a sky render); they wait for the next frame now, as every other move's do. The landing itself still runs
+  in the press (`arrive`: the host told, the Side Pane, a layout; ~40 ms at 4x), so a catch's page moves 60-130 ms after the
+  finger at 4-6x CPU, against 20-60 for a fresh flick: what is left to take on.
+- **A third of Home refused every swipe.** A swipe that began on the Side Pane was "off the page". It is the page's now
+  (its own sideways things keep theirs).
+
+The bench is `.ci/motion-evidence/flick-2026-11-08` (flick.cjs: pages reached, refusals and their `why`, the first move
+after each touch, long frames; overlap.cjs: no page passes another, frame by frame).
+
 ## What a browser here cannot say
 
 Headless Chromium and desktop WebKit on a fast Mac approximate a tablet; slowing the CPU approximates it further. None of
