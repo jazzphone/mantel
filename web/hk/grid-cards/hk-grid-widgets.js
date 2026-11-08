@@ -450,6 +450,8 @@
       // (T: a kind's row, 44 px, the count at its end)
       '.on-k{gap:10px;height:44px;flex:none;border-bottom:1px solid ' + v('line') + '}',
       '.on-k:last-child{border-bottom:0}',
+      // (Tall: the kinds share the height the count and All Off leave, each up to 60 px -- 2026-11-07, the review: three rows under the count left a band of bare plate over All Off)
+      '.wr.ok{flex:1;min-height:0;justify-content:center}.wr.ok .on-k{flex:1 1 0;min-height:44px;max-height:60px}',
       '.on-k b{' + type('body') + ';font-weight:600;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
       '.on-k em{font-style:normal;' + type('caption') + ';color:' + v('ink-2') + '}',
       '.on-l{display:flex;flex-direction:column;min-height:0}',
@@ -525,7 +527,7 @@
           // the count takes what its rows (44 px each) and All Off leave: the large figure, else the hero's 44
           var room = box.ih - 19 - 6 - 52 - o.kinds.length * 44;
           html = lab + '<div class="wb' + (room >= 76 ? ' xl' : '') + '">' + o.n + '</div>' +
-            (o.n ? '<div class="wr" style="margin-top:6px">' + o.kinds.map(function (x) {
+            (o.n ? '<div class="wr ok" style="margin-top:6px">' + o.kinds.map(function (x) {
               return '<button type="button" class="on-k" data-open-kind="' + x.kind.key + '" aria-label="' + esc('Open ' + plural(x.ids.length, x.kind.one, x.kind.many)) + '">' +
                 gly(x.kind.icon, 20, x.kind.color) + '<b>' + esc(cap(x.kind.many)) + '</b><em>' + x.ids.length + '</em></button>';
             }).join('') + '</div>' : '<div class="none">Nothing is on</div>') +
