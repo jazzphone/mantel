@@ -1833,6 +1833,9 @@
         var sample = fw.hkCards.previewClient(this.catalogClient(fw.hkCards.client()));
         var card = fw.hkCards.createCard(fw.hkGridCatalog.config(it, ctx), sample);
         card.setAttribute('size', sz); card.inert = true;
+        // THE SCREEN'S TILE STYLE (2026-11-08, the owner: "the card previews followed the appearance default for tiles (centered vs home)"):
+        // set on the card as the screen's grid sets it on a block (hk-layout.js, hk-strategy.js homeGridView)
+        if (this.screenTile(box.dataset.previewCard, sz, it.opts)) card.setAttribute('tile', 'centred');
         Object.assign(card.style, { display: 'block', width: '100%', height: '100%' });
         cell.appendChild(card); view.appendChild(cell); doc.body.replaceChildren(view);
         fw.galleryCard = card; box.removeAttribute('data-loading');
@@ -2050,13 +2053,19 @@
       Object.keys(data.boards || {}).forEach((path) => { if (path !== here) from((data.boards[path] || {}).home_grid, path); });
       return out;
     }
+    // THE SCREEN'S TILE STYLE, as the screen resolves it (hk-strategy.js homeGridView): this screen's own, else All Screens', Automatic
+    // being Centered on square cells; true where a block of this card and size draws Centered (Security past Small does not, as on the screen)
+    screenTile(card, size, opts) {
+      var own = this.o && this.o.board && this.o.board.tile_style, all = (((this.panel.data || {}).settings || {}).look || {}).tile_style;
+      var ts = ['auto', 'home', 'centred'].indexOf(own) >= 0 ? own : ['auto', 'home', 'centred'].indexOf(all) >= 0 ? all : 'auto';
+      var keeps = card === 'security' && size !== 'S' && (opts || {}).presentation !== 'homeview';
+      return !keeps && (ts === 'centred' || (ts === 'auto' && !!this.grid && this.grid.cell === 'square'));
+    }
     // PREVIEW SHEET: the real sheet, in the preview's page, over the house as the preview has it; nothing in it answers a tap
     previewSheet(item) {
       var w = (this.iframe && this.iframe.contentWindow) || window, D = w.hkDetail, sheet = item.interaction && item.interaction.custom_sheet;
       if (!D || !D.openSheet || !sheet) { this.say('The preview isn’t ready yet.'); return; }
-      var own = this.o && this.o.board && this.o.board.tile_style, all = (((this.panel.data || {}).settings || {}).look || {}).tile_style;
-      var screenTiles = ['auto', 'home', 'centred'].indexOf(own) >= 0 ? own : all;
-      var style = screenTiles === 'centred' || ((!screenTiles || screenTiles === 'auto') && this.grid.cell === 'square') ? 'centred' : 'home';
+      var style = this.screenTile('', 'S') ? 'centred' : 'home';
       D.openSheet(sheet, { title: NAMES[item.card], style: style, preview: true });
     }
     update(id, patch) {
