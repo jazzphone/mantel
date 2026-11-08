@@ -20,42 +20,47 @@
   if (window.hkHouseStatus) return;                    // double-load guard
 
   // ======================================================================== pure
-  // the sections a size holds (its capacity: what is drawn when there are more is the same, plus "+N more")
-  var CAP = { S: 0, W: 4, T: 4, L: 6, XL: 8 };
-  var HEAD = 44;                                       // the heading's row: the label and "+N more", a finger tall
-  var HEAD_TIGHT = 26;                                 // ...on a block too short for that (a Wide tile cell, 150 tall)
-  var TAP = 44;                                        // a section is never shorter than a finger
-  var FOOT = 30;                                       // "+N more" under the sections, on a block too narrow for it beside the heading
-  var NARROW = 210;                                    // ...narrower than this (Tall, a Small-wide column)
-  // [columns, rows] for n sections at a size: Wide two by two, Tall a column, Large two by three, Extra Large three
-  // by two (four by two past six) -- and fewer, laid out for fewer, never six slots with two filled
-  function gridOf(size, n) {
-    n = Math.max(1, n);
-    if (size === 'W') return n >= 4 ? [2, 2] : [n, 1];
-    if (size === 'T') return [1, Math.min(n, 4)];
-    if (size === 'L') return n >= 5 ? [2, 3] : n === 4 ? [2, 2] : [1, n];
-    if (size === 'XL') return n >= 7 ? [4, 2] : n >= 5 ? [3, 2] : n === 4 ? [2, 2] : [n, 1];
-    return [1, 1];
+  // ROUND TWO (2026-11-08, the owner: "the layouts don't follow anything else ... It would be great if On Now and
+  // Home Status shared a similar look"): ONE LOOK FOR BOTH, THE SUMMARY TILES. A heading on the top inset (the label,
+  // and at its end one key: "+N more" here, All Off in On Now), under it the categories as the Room block's inner
+  // tiles -- Apple Home's category row, a glyph, a name and a state -- filling the block with no holes. The tile's
+  // designed size (DESIGN) chooses what it says: one line, a stack (glyph over the reading over the name), a pill (the glyph
+  // beside the name over the reading, as Apple Home's row) or a card (the glyph, then the reading large, the name and
+  // a line or two of detail). On Now (hk-grid-widgets.js) draws with the same functions and CSS (the `tiles` below).
+  var HEAD = 32;                                       // the heading's row (24) and the gap under it (8)
+  var GAP = 8;                                         // between tiles (the Room block's)
+  var TAP = 44;                                        // a tile is never shorter than a finger
+  // NOTHING STRETCHES (2026-11-08, the owner: "entities in a card should maintain dimensions"): a tile has its designed
+  // size at each block size -- its kind, its columns (its width: the block's width shared by them) and its height,
+  // chosen here per size, cell shape and block, never grown to fill. A bigger block shows more tiles, or tiles made to
+  // say more; what fits is shown, the group centered with a short last row centered, and the rest are "+N more".
+  //   [kind, columns, height] -- square cells (196 x 196) and tiles (196 x 150); `count` On Now's (a count each, four
+  //   kinds at most), `words` House Status's (readings in words, as many sections as the house has)
+  var DESIGN = {
+    square: { count: { W: ['pill', 2, 58], T: ['pill', 1, 76], L: ['card', 2, 162], XL: ['card', 2, 162] },
+              words: { W: ['pill', 2, 58], T: ['pill', 1, 60], L: ['pill', 2, 76], XL: ['stack', 4, 162] } },
+    tile: { count: { W: ['stack', 4, 88], T: ['pill', 1, 56], L: ['card', 2, 120], XL: ['card', 2, 120] },
+            words: { W: ['stack', 3, 88], T: ['pill', 1, 56], L: ['pill', 2, 56], XL: ['stack', 4, 120] } }
+  };
+  // a square cell's block or a tile's, by its height inside the inset (a one-row block: 160 or 122; two rows: 369 or 282)
+  function shapeOf(size, ih) { return (size === 'S' || size === 'W' ? ih >= 145 : ih >= 330) ? 'square' : 'tile'; }
+  // HOW n TILES LAY OUT in a block of iw x ih px inside its inset: {cols, rows, shown, more, tw, th, kind, gap, head}
+  function layout(size, iw, ih, n, block) {
+    var shape = shapeOf(size, ih), d = (DESIGN[shape][block === 'count' ? 'count' : 'words'] || {})[size] || ['pill', 1, 60];
+    // (less the plate's 1 px edge each side: the inset is measured from the block's outside)
+    var body = ih - 2 - HEAD, cols = d[1], th = d[2];
+    var tw = Math.floor((iw - 2 - (cols - 1) * GAP) / cols);
+    var rows = Math.max(1, Math.floor((body + GAP) / (th + GAP)));
+    var shown = Math.min(Math.max(0, n || 0), cols * rows);
+    return { cols: cols, rows: Math.ceil(shown / cols) || 0, shown: shown, more: Math.max(0, (n || 0) - shown), tw: tw, th: th,
+             kind: d[0], gap: GAP, head: HEAD, shape: shape };
   }
-  // HOW n SECTIONS LAY OUT in a block of iw x ih px (inside its inset): {cols, rows, shown, more, head, density, rowH,
-  // colW, gap}. density by the room a section has: 'one' a single line (the glyph, the name, the reading), 'two' the
-  // name over the reading, 'rich' and its line of detail, 'full' larger, with a second line. Rows that would be under
-  // a finger's height are given up (the sections go to "+N more"), never squeezed.
-  function layout(size, iw, ih, n) {
-    var cap = CAP[size] || 0, shown = Math.min(Math.max(0, n), cap), g = gridOf(size, shown), cols = g[0], rows = g[1];
-    var gap = size === 'XL' ? 18 : 22;
-    var foot = n > shown && iw < NARROW ? FOOT : 0;
-    var head = (ih - foot - HEAD) / rows >= 56 ? HEAD : HEAD_TIGHT;
-    var rowH = (ih - head - foot) / rows;
-    while (rows > 1 && rowH < TAP) {
-      rows--; shown = Math.min(shown, cols * rows);
-      foot = n > shown && iw < NARROW ? FOOT : 0;
-      rowH = (ih - head - foot) / rows;
-    }
-    var colW = (iw - (cols - 1) * gap) / cols;
-    var density = rowH >= 120 && colW >= 120 ? 'full' : rowH >= 88 ? 'rich' : rowH >= 56 ? 'two' : 'one';
-    return { cols: cols, rows: rows, shown: shown, more: Math.max(0, n - shown), head: head, foot: foot, density: density,
-             rowH: rowH, colW: colW, gap: gap };
+  // which of a tile's lines its height has room for: [the detail, the extra line]
+  function lines(kind, th) {
+    if (kind === 'stack') return [th >= 106, th >= 124];
+    if (kind === 'pill') return [th >= 74, false];
+    if (kind === 'card') return [th >= 102, th >= 119];
+    return [false, false];
   }
   // THE SHEET'S WIDTH, asked when it opens: the wide one (820) for two or more sections when the window has room
   // for it beside the screen's own menu (a docked menu's width, `left`) and height for its panels (640: the sheet's
@@ -94,8 +99,8 @@
   }
   function count(n) { return n === 1 ? '1 status' : n + ' statuses'; }
 
-  var LIB = { CAP: CAP, HEAD: HEAD, HEAD_TIGHT: HEAD_TIGHT, TAP: TAP, FOOT: FOOT, NARROW: NARROW, gridOf: gridOf, layout: layout, wantWide: wantWide,
-              sheetMode: sheetMode, lead: lead, words: words, fmtSecs: fmtSecs, secsOf: secsOf, count: count };
+  var LIB = { HEAD: HEAD, GAP: GAP, TAP: TAP, DESIGN: DESIGN, shapeOf: shapeOf, layout: layout, lines: lines,
+              wantWide: wantWide, sheetMode: sheetMode, lead: lead, words: words, fmtSecs: fmtSecs, secsOf: secsOf, count: count };
   window.hkHouseStatus = { version: '1.0.0', lib: LIB };
 
   // ======================================================================== the cards
@@ -251,69 +256,97 @@
     };
   };
 
+  // ======================================================================== the summary tiles (On Now's too)
+  // THE LOOK (ROUND TWO, 2026-11-08; the pure part's DESIGN and layout say where and what): every size of House Status
+  // and of On Now (hk-grid-widgets.js) is drawn with these. The heading: the label in the block's accent with the glass
+  // glow, one key at its end. A tile: the inner radius, the key's wash, its glyph in its color while it has something
+  // going on (in the ink at rest), and the whole of it one tap. Small: the label over the one thing that matters, its
+  // reading large and a line under it.
+  var SUM_CSS = [
+    '.sm-h{display:flex;align-items:center;justify-content:space-between;gap:8px;height:24px;margin-bottom:8px;flex:none;min-width:0}',
+    '.sm-l{' + type('label') + ';line-height:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;text-shadow:' + v('glow') + '}',
+    // the heading's key: a 30 px capsule with a finger's reach round it
+    '.sm-k{all:unset;box-sizing:border-box;position:relative;flex:none;display:flex;align-items:center;gap:2px;height:30px;padding:0 13px;border-radius:15px;',
+    '  background:' + v('key') + ';' + type('caption') + ';font-weight:600;color:' + v('ink') + ';cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent}',
+    '.sm-k::after{content:"";position:absolute;left:-6px;right:-6px;top:-7px;bottom:-7px}',
+    '.sm-k:active{filter:brightness(0.9)}',
+    '.sm-k.q{background:none;padding:0 0 0 8px;color:' + v('ink-2') + ';font-weight:500;text-shadow:' + v('glow') + '}',
+    '.sm-k hk-icon{width:12px;height:12px;--mdc-icon-size:12px;color:' + v('mark') + '}',
+    // the tiles at their size, the group centered in what the heading leaves, a short last row centered
+    '.sm-g{flex:1;min-height:0;display:flex;flex-wrap:wrap;align-content:center;justify-content:center;gap:' + GAP + 'px}',
+    // A TILE: one tap, its parts placed by its kind
+    '.sm-t{all:unset;box-sizing:border-box;position:relative;flex:none;width:var(--tw);height:var(--th);overflow:hidden;display:grid;padding:10px 12px;',
+    '  border-radius:var(--hk-inner-radius,12px);background:' + v('key') + ';color:' + v('ink') + ';cursor:pointer;-webkit-tap-highlight-color:transparent;',
+    '  transition:transform ' + C.DUR.press + ' ease}',
+    '.sm-t:not(.in):active{transform:scale(0.97)}.sm-t.in{cursor:default}',
+    '.sm-t:focus-visible,.sm-k:focus-visible,.sm-s:focus-visible{outline:2px solid ' + v('ink-2') + ';outline-offset:2px}',
+    '.sm-t .g{grid-area:g;display:flex;align-self:center;color:' + v('ink') + '}',
+    '.sm-t .nm{grid-area:n;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '.sm-t .v{grid-area:v;display:block;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}',
+    '.sm-t .v small{margin-left:4px;font-size:0.6em;font-weight:600;letter-spacing:0;color:' + v('ink-2') + '}',
+    '.sm-t .v.nr,.sm-t.at .v{color:' + v('ink-2') + '}.sm-t.at .g{color:' + v('ink-3') + '}',
+    '.sm-t .v hk-countdown{font:inherit}',
+    '.sm-t .dt,.sm-t .ex{' + type('caption') + ';line-height:17px;color:' + v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}',
+    '.sm-t .dt{grid-area:d}.sm-t .ex{grid-area:e}',
+    // one line: the glyph, the name, the reading at the end
+    '.k-line{grid-template-columns:22px minmax(0,1fr) auto;grid-template-areas:"g n v";column-gap:10px;align-items:center;padding:0 14px}',
+    '.k-line .nm{' + type('body') + ';font-weight:600}.k-line .v{' + type('headline') + ';max-width:9em}.k-line .v small{font-size:13px}',
+    // a stack: the glyph at the top, the reading and the name at the foot
+    '.k-stack{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) auto auto auto auto;grid-template-areas:"g" "." "v" "n" "d" "e";padding:11px 12px 10px}',
+    '.k-stack .g{align-self:start}.k-stack .v{' + type('title') + ';line-height:26px}.k-stack .v.tx{' + type('headline') + ';line-height:22px}',
+    '.k-stack .v small{font-size:13px}.k-stack .nm{' + type('caption') + ';line-height:17px;color:' + v('ink-2') + '}',
+    // a pill (Apple Home's category): the glyph beside the name over the reading
+    '.k-pill{grid-template-columns:24px minmax(0,1fr);grid-template-areas:"g n" "g v" "g d" "g e";column-gap:12px;align-content:center;padding:0 14px}',
+    '.k-pill .nm{' + type('headline') + ';line-height:21px}.k-pill .v{' + type('body') + ';line-height:19px;color:' + v('ink-2') + '}.k-pill .v small{font-size:inherit;font-weight:inherit;margin-left:0.25em}',
+    // a card: the glyph and the name on its top line, then at its foot the reading large and the lines of detail
+    '.k-card{grid-template-columns:26px minmax(0,1fr);grid-template-rows:26px minmax(0,1fr) auto auto auto;grid-template-areas:"g n" ". ." "v v" "d d" "e e";column-gap:9px;padding:13px 14px 12px}',
+    '.k-card .v{' + type('figure') + ';line-height:34px}.k-card .v.tx{' + type('title') + ';line-height:30px}',
+    '.k-card .v small{' + type('headline') + ';letter-spacing:0}.k-card .nm{' + type('headline') + ';line-height:26px}',
+    '.sm-t.nd .dt,.sm-t.ne .ex{display:none}',
+    // SMALL: one button -- the label, then the glyph, the reading large and a line at the foot
+    '.sm-s{all:unset;box-sizing:border-box;flex:1;min-height:0;display:flex;flex-direction:column;cursor:pointer;-webkit-tap-highlight-color:transparent}',
+    '.sm-s:active{opacity:.75}',
+    '.sm-s .g{display:flex;margin-top:auto;margin-bottom:4px;color:' + v('ink') + '}',
+    '.sm-s .v{display:block;' + type('figure-l') + ';line-height:42px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}',
+    '.sm-s .v.tx{' + type('title') + ';line-height:28px}.sm-s .v small{' + type('headline') + ';letter-spacing:0;margin-left:4px;color:' + v('ink-2') + '}',
+    '.sm-s .v.nr{color:' + v('ink-2') + '}.sm-s .v hk-countdown{font:inherit}',
+    '.sm-s .ln{' + type('caption') + ';line-height:17px;color:' + v('ink-2') + ';display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;margin-top:1px}',
+    '@media (prefers-reduced-motion:reduce){.sm-t{transition:none}}'
+  ].join('');
+  // the heading: the label in its color, `right` its one key (or nothing)
+  function sumHead(label, color, right) {
+    return '<div class="sm-h"><div class="sm-l" style="color:' + color + '">' + esc(label) + '</div>' + (right || '') + '</div>';
+  }
+  // A TILE: t = {live (a button), attrs, aria, glyph (html), name, value (html, a .v span), detail, extra, rest (at rest)}
+  function sumTile(t, F, i) {
+    var ln = lines(F.kind, F.th), tag = t.live ? 'button type="button"' : 'div role="group"';
+    return '<' + tag + ' class="sm-t k-' + F.kind + (t.live ? '' : ' in') + (t.rest ? ' at' : '') + (ln[0] && t.detail ? '' : ' nd') + (ln[1] && t.extra ? '' : ' ne') +
+'"' + (t.attrs ? ' ' + t.attrs : '') + ' aria-label="' + esc(t.aria || t.name) + '">' +
+      '<span class="g">' + t.glyph + '</span><span class="nm">' + esc(t.name) + '</span>' + t.value +
+      (ln[0] && t.detail ? '<span class="dt">' + esc(t.detail) + '</span>' : '') + (ln[1] && t.extra ? '<span class="ex">' + esc(t.extra) + '</span>' : '') +
+      '</' + (t.live ? 'button' : 'div') + '>';
+  }
+  function sumGrid(F, tiles) {
+    return '<div class="sm-g" style="--tw:' + F.tw + 'px;--th:' + F.th + 'px">' + tiles.slice(0, F.shown).map(function (t, i) { return sumTile(t, F, i); }).join('') + '</div>';
+  }
+  // SMALL: s = {label, color, attrs, aria, glyph, value (html), line}
+  function sumSmall(s) {
+    return '<button type="button" class="sm-s"' + (s.attrs ? ' ' + s.attrs : '') + ' aria-label="' + esc(s.aria) + '">' +
+      '<div class="sm-l" style="color:' + s.color + '">' + esc(s.label) + '</div>' + (s.glyph ? '<span class="g">' + s.glyph + '</span>' : '') +
+      s.value + (s.line ? '<span class="ln">' + s.line + '</span>' : '') + '</button>';
+  }
+  window.hkHouseStatus.tiles = { CSS: SUM_CSS, head: sumHead, tile: sumTile, grid: sumGrid, small: sumSmall, layout: layout };
+
   // ======================================================================== the Home Grid block
   var BLOCK_CSS = [
     ':host{display:block;height:100%}',
     'hk-plate.hs{box-sizing:border-box;height:100%;position:relative;display:flex;flex-direction:column;overflow:hidden;',
     '  padding:' + C.blockPad('14px') + ';' + C.plate('card') + ';color:' + v('ink') + ';-webkit-tap-highlight-color:transparent}',
-    '.hd{display:flex;align-items:center;justify-content:space-between;gap:8px;flex:none;min-width:0}',
-    '.lb{' + type('label') + ';line-height:17px;color:' + v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}',
-    // "+N more": a finger's target round its words, however short the heading's row
-    '.mo{all:unset;box-sizing:border-box;position:relative;flex:none;display:flex;align-items:center;gap:2px;min-width:44px;height:100%;',
-    '  justify-content:flex-end;' + type('caption') + ';color:' + v('ink-2') + ';cursor:pointer;white-space:nowrap}',
-    '.mo::before{content:"";position:absolute;left:-10px;right:-10px;top:50%;height:44px;transform:translateY(-50%)}',
-    '.mo hk-icon{width:12px;height:12px;--mdc-icon-size:12px;color:' + v('mark') + '}',
-    '.mo:focus-visible,.sc:focus-visible,.all:focus-visible{outline:2px solid ' + v('ink-2') + ';outline-offset:2px;border-radius:12px}',
-    '.hf{display:flex;align-items:flex-end;justify-content:flex-end;flex:none;border-top:1px solid ' + v('line') + '}',
-    '.hf .mo{height:auto;min-height:24px}',
-    '.gr{flex:1;min-height:0;display:grid;grid-template-columns:repeat(var(--c),minmax(0,1fr));grid-template-rows:repeat(var(--r),minmax(0,1fr));column-gap:var(--g)}',
-    // A SECTION: the whole of it one tap
-    '.sc{all:unset;box-sizing:border-box;position:relative;min-width:0;min-height:44px;display:grid;align-content:center;',
-    '  cursor:pointer;-webkit-tap-highlight-color:transparent;transition:opacity ' + C.DUR.press + ' ease}',
-    '.sc.in{cursor:default}',
-    '.sc:not(.in):active{opacity:.7}',
-    '.sc.rt{border-top:1px solid ' + v('line') + '}',
-    '.sc .gl{display:flex;flex:none;color:' + v('ink') + '}',
-    '.sc .nm{' + type('caption') + ';line-height:17px;color:' + v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}',
-    '.sc .v{display:block;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums;color:' + v('ink') + '}',
-    '.sc .v small{' + type('body') + ';letter-spacing:0;color:' + v('ink-2') + ';margin-left:4px}',
-    '.sc .v.nr{color:' + v('ink-3') + '}',
-    '.sc .dt,.sc .ex{' + type('caption') + ';line-height:17px;color:' + v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}',
-    // one line: the glyph, the name, the reading at the end
-    '.d-one .sc{grid-template-columns:20px minmax(0,1fr) auto;grid-template-areas:"g n v";column-gap:8px;align-items:center}',
-    '.d-one .sc .v{grid-area:v;' + type('headline') + ';line-height:22px}',
-    '.d-one .sc .v small{' + type('caption') + ';margin-left:3px}',
-    // two lines: the name over the reading, the glyph beside both
-    '.d-two .sc{grid-template-columns:20px minmax(0,1fr);grid-template-areas:"g n" "g v";column-gap:10px;row-gap:0;padding:2px 0}',
-    '.d-two .sc .v{' + type('figure') + ';line-height:34px}',
-    '.d-two .sc .v.tx{' + type('title') + ';line-height:28px}',
-    // and a line of detail; the glyph with the name
-    // (from the top of their row, not centered: a row's names and readings line up across it whatever each has under it)
-    '.d-rich .sc,.d-full .sc{grid-template-columns:20px minmax(0,1fr);grid-template-areas:"g n" "v v" "d d" "e e";column-gap:7px;row-gap:3px;align-items:center;align-content:start;padding:12px 0 8px}',
-    '.d-full .sc{padding-top:16px}',
-    '.d-rich .sc .v,.d-full .sc .v{' + type('figure') + ';line-height:36px}',
-    '.d-rich .sc .v.tx,.d-full .sc .v.tx{' + type('title') + ';line-height:30px}',
-    '.d-full .sc{grid-template-columns:24px minmax(0,1fr);row-gap:5px}',
-    '.d-full .sc .v{' + type('figure-l') + ';line-height:42px}',
-    '.d-full .sc .v small{' + type('headline') + ';letter-spacing:0}',
-    '.d-full .sc .dt{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}',
-    '.sc .gl{grid-area:g}.sc .nm{grid-area:n}.sc .v{grid-area:v}.sc .dt{grid-area:d}.sc .ex{grid-area:e}',
-    '.none{margin:auto;' + type('body') + ';color:' + v('ink-2') + ';text-align:center}',
-    // SMALL: one button, the plate's whole face
-    '.all{all:unset;box-sizing:border-box;flex:1;min-height:0;display:flex;flex-direction:column;cursor:pointer;-webkit-tap-highlight-color:transparent}',
-    '.all:active{opacity:.75}',
-    '.all .ld{display:flex;flex-direction:column;gap:2px;min-width:0;margin-top:10px}',
-    '.all .ld .gl{display:flex;margin-bottom:6px;color:' + v('ink') + '}',
-    '.all .p{' + type('headline') + ';line-height:21px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-    '.all .s{' + type('body') + ';line-height:19px;color:' + v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}',
-    '.all .s hk-countdown{font:inherit}',
-    '.all .f{margin-top:auto;display:flex;align-items:center;gap:3px;' + type('caption') + ';line-height:17px;color:' + v('ink-2') + '}',
-    '.all .f hk-icon{width:12px;height:12px;--mdc-icon-size:12px;color:' + v('mark') + '}',
-    // (a tile cell's Small, 150 tall: the glyph beside the name)
-    '.all.lo .ld{flex-direction:row;align-items:center;gap:8px;margin-top:6px}.all.lo .ld .gl{margin:0}.all.lo .ld>div{min-width:0}',
-    '@media (prefers-reduced-motion:reduce){.sc{transition:none}}'
-  ].join('');
+    '.none{margin:auto;' + type('body') + ';color:' + v('ink-2') + ';text-align:center;text-shadow:' + v('glow') + '}'
+  ].join('') + SUM_CSS;
   var CHEV = '<hk-icon icon="mdi:chevron-right" aria-hidden="true"></hk-icon>';
+  // the block's accent: the Security page's teal -- the house's state, as its chips are
+  function accent() { return (C.ACCENTS && C.ACCENTS.teal) || v('ink-2'); }
 
   class HkHouseStatusCard extends Mixin(HkBase) {
     static get CSS() { return BLOCK_CSS; }
@@ -338,44 +371,34 @@
         });
       }
       var size = this._size(), m = this._sections();
-      if (!m) { C.morph(this._plate, '<div class="hd" style="height:' + HEAD + 'px"><div class="lb">House Status</div></div>'); return; }
+      if (!m) { C.morph(this._plate, sumHead('House Status', accent(), '')); return; }
       var box = inner(this, size), html;
-      if (size === 'S') html = this._small(m, box);
+      if (size === 'S') html = this._small(m);
       else html = this._grid(m, size, box);
       C.morph(this._plate, html);
       bindGlyphs(this._plate, this.client);
     }
-    _small(m, box) {
-      var sec = lead(m.sections), lo = box.ih < 140;
+    _small(m) {
+      var sec = lead(m.sections);
       this._shown = [];
       var aria = 'House Status' + (sec ? ': ' + ariaOf(sec) : ': nothing to report') + '. ' + count(m.total) + '. Opens House Status';
-      if (!sec) {
-        return '<button type="button" class="all" data-all aria-label="' + esc(aria) + '"><div class="lb">House Status</div>' +
-          '<div class="ld"><div class="p">Nothing to report</div></div></button>';
-      }
-      var r = sec.reading, say = r && r.countdown ? reading(r).replace(/^<span class="v">|<\/span>$/g, '') : esc(words(r));
-      return '<button type="button" class="all' + (lo ? ' lo' : '') + '" data-all aria-label="' + esc(aria) + '"><div class="lb">House Status</div>' +
-        '<div class="ld">' + glyph(sec, lo ? 22 : 28, tint(sec)) + '<div><div class="p">' + esc(sec.name) + '</div><div class="s">' + say + '</div></div></div>' +
-        '<div class="f">' + esc(count(m.total)) + CHEV + '</div></button>';
+      if (!sec) return sumSmall({ label: 'House Status', color: accent(), attrs: 'data-all', aria: aria, glyph: glyph({ icon: 'mdi:home' }, 26, null),
+                                   value: '<span class="v tx">All Clear</span>', line: 'Nothing to report' });
+      return sumSmall({ label: 'House Status', color: accent(), attrs: 'data-all', aria: aria, glyph: glyph(sec, 26, tint(sec)), value: reading(sec.reading),
+                        line: esc(sec.name) + (m.total > 1 ? ' · ' + esc(count(m.total)) : '') });
     }
     _grid(m, size, box) {
-      var L = layout(size, box.iw, box.ih, m.total), shown = m.sections.slice(0, L.shown);
+      var L = layout(size, box.iw, box.ih, m.total, 'words'), shown = m.sections.slice(0, L.shown);
       this._shown = shown;
-      var more = L.more > 0 ? '<button type="button" class="mo" data-all aria-label="' + esc('All ' + count(m.total) + ': opens House Status') + '">+' + L.more + ' more' + CHEV + '</button>' : '';
-      var head = '<div class="hd" style="height:' + L.head + 'px"><div class="lb">House Status</div>' + (L.foot ? '' : more) + '</div>';
-      var foot = L.foot && more ? '<div class="hf" style="height:' + L.foot + 'px">' + more + '</div>' : '';
+      // (a Tall block's heading has room for the label and "+2" only)
+      var more = L.more > 0 ? '<button type="button" class="sm-k q" data-all aria-label="' + esc('All ' + count(m.total) + ': opens House Status') + '">+' + L.more + (box.iw < 200 ? '' : ' more') + CHEV + '</button>' : '';
+      var head = sumHead('House Status', accent(), more);
       if (!shown.length) return head + '<div class="none">Nothing to report</div>';
-      var gpx = L.density === 'full' ? 24 : 20;
-      var cells = shown.map(function (sec, i) {
-        var live = goes(sec), top = i >= L.cols;
-        var rich = L.density === 'rich' || L.density === 'full';
-        return '<' + (live ? 'button type="button"' : 'div role="group"') + ' class="sc' + (live ? '' : ' in') + (top ? ' rt' : '') + '" data-i="' + i + '" aria-label="' + esc(ariaOf(sec)) + '">' +
-          glyph(sec, gpx, tint(sec)) + '<span class="nm">' + esc(sec.name) + '</span>' + reading(sec.reading) +
-          (rich && sec.detail ? '<span class="dt">' + esc(sec.detail) + '</span>' : '') +
-          (L.density === 'full' && sec.extra ? '<span class="ex">' + esc(sec.extra) + '</span>' : '') +
-          '</' + (live ? 'button' : 'div') + '>';
-      }).join('');
-      return head + '<div class="gr d-' + L.density + '" style="--c:' + L.cols + ';--r:' + L.rows + ';--g:' + L.gap + 'px">' + cells + '</div>' + foot;
+      var gpx = L.kind === 'card' ? 26 : L.kind === 'line' ? 20 : 24;
+      return head + sumGrid(L, shown.map(function (sec, i) {
+        return { live: goes(sec), attrs: 'data-i="' + i + '"', aria: ariaOf(sec), glyph: glyph(sec, gpx, tint(sec)), name: sec.name,
+                 value: reading(sec.reading), detail: sec.detail, extra: sec.extra };
+      }));
     }
   }
 
