@@ -507,9 +507,22 @@
           // color's gradient (hk-tile.js block_color)
           t = Object.assign({}, t, { secondary: cfg.secondary }, cfg.color ? { block_color: true } : {});
         }
-        // The block owns geometry; the shared builder owns the accessory.
-        t.size = (this.getAttribute('size') || cfg.size) === 'W' ? 'regular' : 'tall';
+        // The block owns geometry; the shared builder owns the accessory. (TINY, 2026-11-08, the owner: "essentially the
+        // half height pill size": the Accessory Group's half pill -- its glyph beside its name -- in half a cell)
+        var sz = this.getAttribute('size') || cfg.size, tiny = sz === 'XS';
+        t.size = sz === 'W' || tiny ? 'regular' : 'tall';
+        // (...on a HomeView-style screen HomeView's own tile at half height, its glyph bare and large: hk-tile.js tinyTile --
+        // the owner, 2026-11-08: "it has to look like it belongs")
+        this._tiny = tiny;
+        if (tiny && this.getAttribute('tile') !== 'centred') { t.tile = 'home'; delete t.view_layout; delete t.hk_place; return t; }
         delete t.view_layout; delete t.hk_place;
+        if (tiny) {
+          t.size = 'tall'; delete t.icon_size; delete t.bare_icon; delete t.well_background;
+          // (a sensor: its reading in the glyph's place, its room under its name -- as a Small one; hk-tile.js readingOf)
+          var ra = cfg.entity.indexOf('sensor.') === 0 && areaOf(h, cfg.entity), rn = ra && ((h && h.areas) || {})[ra];
+          if (rn && rn.name && !(cfg.secondary && cfg.secondary.mode && cfg.secondary.mode !== 'auto')) t.room = rn.name;
+          return t;
+        }
         // CENTRED (2026-10-30): the name over its room, as HomeView has it (a
         // scene's line says it is one); an accessory in no room keeps its state
         // -- and one whose Line Under Name is chosen shows that, not the room
@@ -533,6 +546,17 @@
       }
       _sizeChild() {
         if (!this._child) return;
+        // (the half pill fills its half, as an Accessory Group's pills fill theirs: hk-chip.js data-group-fill)
+        // (...its corners a block's, as a full-size HomeView tile's -- not the smaller ones of a pill inside a block)
+        if (this._tiny) {
+          var hv = this.getAttribute('tile') === 'centred';
+          if (hv) { this._child.setAttribute('size', 'XS'); this._child.setAttribute('tile', 'centred'); } else { this._child.removeAttribute('size'); this._child.removeAttribute('tile'); }
+          this._child.setAttribute('data-group-fill', '');
+          if (this.hasAttribute('data-grid-pager')) this._child.setAttribute('data-grid-pager', ''); else this._child.removeAttribute('data-grid-pager');
+          this._child.style.setProperty('--hk-inner-radius', 'var(--hk-block-radius, ' + window.hkCards.M.radius + ')');
+          return;
+        }
+        this._child.removeAttribute('data-group-fill'); this._child.style.removeProperty('--hk-inner-radius');
         this._child.setAttribute('size', this.getAttribute('size') || (this._config || {}).size || 'S');
         if (this.hasAttribute('data-grid-pager')) this._child.setAttribute('data-grid-pager', '');
         else this._child.removeAttribute('data-grid-pager');

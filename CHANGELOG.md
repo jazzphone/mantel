@@ -5,6 +5,8 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 ## Unreleased
 
 **Added**
+- **Tiny, an Accessory in half a cell**: two share a cell, top and bottom, or one sits alone. On a HomeView-style screen it is HomeView's tile laid sideways at half height -- the glyph bare and large, the name over its state centered beside it, the block's own corners (a name takes two lines on square cells, one under page dots); on Home style, the Accessory Group's half pill. The editor and Edit mode place, move and make room for it by halves.
+- **A temperature or humidity sensor shows its reading** ("71°", "49%") where the glyph would be on a Centered tile, its room under its name.
 - **A Wide Accessory is a slider** for a light, a fan or a shade: the whole tile, as Control Center's -- drag across it to set the level, its fill in the thing's own color, its level at the right; a tap is still the tile's own.
 - **Music's Extra Large leads with the last played**: its cover large at the top with Play beside it, and every playlist five across under it, scrolling sideways. In Playlists, Large, Extra Large and Small now lead with the playlist last played (anywhere: Music Assistant's own record), a choice of one (a decade) as itself.
 - **An Accessory Group in Small**: two half-height pills (or one tile with Height: Full).

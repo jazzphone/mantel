@@ -1999,7 +1999,7 @@
           var vw = g.views > 1 ? Math.max(0, Math.min(g.views - 1, cell.view | 0)) : -1;
           if (vw >= 0) { slot.setAttribute('data-view', String(vw)); slot.style.setProperty('--v', String(vw)); } else slot.removeAttribute('data-view');
           slot.style.gridColumn = (c + 1) + ' / span ' + sz[0];
-          slot.style.gridRow = (r + 1 + top) + ' / span ' + sz[1];
+          slot.style.gridRow = (r + 1 + top) + ' / span ' + sz[1]; if (cell.size === 'XS') { slot.style.alignSelf = cell.at && cell.at[2] ? 'end' : 'start'; slot.style.height = 'calc((100% - ' + cellShape(g).gap + 'px) / 2)'; }   // (Tiny: its cell's top or bottom half, a gap between two)
           // (a Full block's card reads its span here: hkCards HkBase._block)
           if (full) { slot.style.setProperty('--hk-span-c', String(sz[0])); slot.style.setProperty('--hk-span-r', String(sz[1])); }
           // (square cells: the block's corners, read by its plate -- hkCards.plate)

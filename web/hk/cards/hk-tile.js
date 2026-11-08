@@ -260,6 +260,12 @@
   // squares: the Small tile's) left-aligned a gutter (16 px) right of the glyph's box, the pair centered on the glyph's
   // middle, ending in an ellipsis at the block's right inset (--hk-pad-r). `s`: { host, well, icon, name, sub (a list),
   // temp (a thermostat's reading, in the glyph's place) } -- as hkCards.centredTile's, over its rules.
+  // (a sensor's reading for a Centered tile's glyph: a temperature rounded with its degree, a humidity with its percent)
+  function readingOf(id, st) {
+    var n = st ? Number(st.state) : NaN, dc = st && st.attributes && st.attributes.device_class;
+    if (String(id || '').indexOf('sensor.') !== 0 || !st || st.state === '' || isNaN(n)) return null;
+    return dc === 'temperature' ? Math.round(n) + '\u00b0' : dc === 'humidity' ? Math.round(n) + '%' : null;
+  }
   function wideTile(s) {
     var C0 = window.hkCards.TILE.centred, I = ' !important';
     var at = function (parts) { return parts.map(function (p) { return s.host + ' ' + p; }).join(','); };
@@ -273,6 +279,34 @@
         (s.temp ? at([s.temp]) + '{left:33.33%' + I + ';top:50%' + I + '}' : '');
     };
     return one(C0.tall) + '@container hk-cell (min-height:180px) or style(--hk-cell-shape: square){' + one(C0.square) + '}';
+  }
+
+  // THE TINY TILE, CENTERED (2026-11-08, the owner: "a half height accessory card on its own"; then "We don't have to have the
+  // circle/well ... leave room for a bigger glyph ... it has to look like it belongs"): HomeView's tile in half a cell -- the
+  // glyph bare (DESIGN.md: never in a circle or well), as large as the half's height lets it (56 % of it, 40 to 52 px: 40 on a
+  // 70 px half of a tile cell, 51 on a square cell's), a block's inset from the left; the name over the state (the short
+  // tile's 17 / 16 on 21 px lines) a gutter right of it, left-aligned, the pair centered on the height as one ("your 2 line
+  // names with status also aren't vertically aligned"): the tile's own grid, not the centered tile's absolute places. A
+  // square cell's half (84 px or more) gives a name two lines -- not under a block's page dots ("it should just default to 1
+  // line truncated there")
+  function tinyTile(s) {
+    var g = window.hkCards.TILE.centred.short, I = ' !important', box = 'calc(var(--hk-tg) + 6px)';
+    var at = function (parts, host) { return parts.map(function (p) { return (host || s.host) + ' ' + p; }).join(','); };
+    var flow = 'position:static' + I + ';transform:none' + I + ';left:auto' + I + ';right:auto' + I + ';top:auto' + I + ';bottom:auto' + I + ';margin:0' + I;
+    var text = flow + ';text-align:left' + I + ';line-height:' + g.line + 'px' + I + ';white-space:nowrap' + I + ';overflow:hidden;text-overflow:ellipsis;min-width:0';
+    return s.host + '{--hk-tg:clamp(40px,56cqh,52px)}' +
+      at([s.plate]) + '{padding:0 var(--hk-pad-r,14px) 0 var(--hk-pad-l,14px)' + I + '}' +
+      // (the glyph off the grid, centered on the height a block's inset in -- in the grid it stretched one-line rows apart)
+      at([s.grid]) + '{display:grid' + I + ';height:100%' + I + ';grid-template-columns:' + box + ' minmax(0,1fr)' + I + ';grid-template-rows:auto auto' + I +
+        ';grid-template-areas:". n" ". l"' + I + ';column-gap:14px' + I + ';row-gap:0' + I + ';align-content:center' + I + '}' +
+      at([s.well]) + '{position:absolute' + I + ';left:calc(var(--hk-pad-l,14px) + var(--hk-tg) / 2 + 3px)' + I + ';top:50%' + I + ';transform:translate(-50%,-50%)' + I +
+        ';width:' + box + I + ';height:' + box + I + '}' +
+      at([s.icon]) + '{width:var(--hk-tg)' + I + ';height:var(--hk-tg)' + I + '}' +
+      at([s.name]) + '{' + text + ';grid-area:n' + I + ';font-size:' + g.name + 'px' + I + '}' +
+      at(s.sub) + '{' + text + ';grid-area:l' + I + ';font-size:' + g.sub + 'px' + I + '}' +
+      (s.temp ? at([s.temp]) + '{position:absolute' + I + ';left:calc(var(--hk-pad-l,14px) + var(--hk-tg) / 2 + 3px)' + I + ';top:50%' + I + ';transform:translate(-50%,-50%)' + I + ';font-size:22px' + I + '}' : '') +
+      '@container hk-cell (min-height:84px){' + at([s.name], s.host.replace(/\)$/, ':not([data-grid-pager]))')) + '{white-space:normal' + I +
+        ';display:-webkit-box' + I + ';-webkit-line-clamp:2;-webkit-box-orient:vertical}}';
   }
 
   // THE TALL TILE'S TOPS (Centered, a level under the words): from the block's top inset (--hk-pad-t) the glyph's box
@@ -639,6 +673,7 @@
     ':host([tile=centred]) .card.roomed .label{display:none !important}',
     // a thermostat's reading stands where the glyph would
     ':host([tile=centred]) .card .temp{position:absolute;left:50%;top:32%;transform:translate(-50%,-50%);font-size:44px;letter-spacing:-0.5px}',
+    ':host([tile=centred]) .card.reading .well{visibility:hidden}:host([tile=centred]) .card.reading .temp{font-weight:600;line-height:1;color:' + window.hkCards.v('ink') + '}',
     window.hkCards.centredTile({ host: ':host([tile=centred])', plate: 'hk-plate.card', lit: 'hk-plate.card[data-on="1"]',
                                  well: '.well', icon: '.icon', name: '.name', sub: ['.label', '.room'] }),
     // (...a thermostat has no glyph: its reading is the glyph, as in its tall tile)
@@ -657,6 +692,7 @@
       ':host([tile=centred]) .label,:host([tile=centred]) .room{top:calc(30% + var(--hk-cg) / 2 + 24px) !important;font-size:13px !important;line-height:17px !important}}',
     // THE WIDE TILE (see wideTile): Scene and Accessory at Wide, Centered. Home style is the pill (_layout).
     wideTile({ host: ':host([tile=centred][size=W])', well: '.well', icon: '.icon', name: '.name', sub: ['.label', '.room'], temp: '.card .temp' }),
+    tinyTile({ host: ':host([tile=centred][size=XS])', plate: 'hk-plate.card', grid: '.grid', well: '.well', icon: '.icon', name: '.name', sub: ['.label', '.room'], temp: '.card .temp' }),
     // IN ITS OWN COLOR (2026-10-31, the owner's notes on the widget mock-up:
     // "Color: the same tile on a gradient of its own color"): a tile whose
     // block has Color on (`block_color` in its config). A scene stands on its
@@ -1187,6 +1223,13 @@
         } else if (lv && lv.what !== 'volume' && st) lb = titled(st.state);   // (the capsule says the percent: the line says the state)
         if (e.label.textContent !== lb) e.label.textContent = lb;
       }
+      // A SENSOR'S READING (2026-11-08, the owner of the Tiny tile: "does it look like with a sensor...like temperature"): on a
+      // Centered tile a temperature's or a humidity's number stands where the glyph would, as a thermostat's does
+      var rd = this.getAttribute('tile') === 'centred' ? readingOf(cfg.entity, st) : null;
+      e.card.classList.toggle('reading', !!rd);
+      if (rd && (!this._readEl || this._readEl.parentNode !== e.grid)) { this._readEl = document.createElement('div'); this._readEl.className = 'temp'; e.grid.appendChild(this._readEl); }
+      if (rd && this._readEl.textContent !== rd) this._readEl.textContent = rd;
+      if (!rd && this._readEl && this._readEl.parentNode) this._readEl.remove();
     }
   }
 

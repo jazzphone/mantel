@@ -30,6 +30,13 @@ def test_a_screen_is_generated_with_no_layout_by_default():
     assert "home_style" not in M.board_stored({}) and "home_grid" not in M.board_stored({})
 
 
+def test_two_tiny_blocks_share_a_cell_top_and_bottom():
+    g = HG.check(grid(block("a1", "accessory", "XS", [2, 1]), block("a2", "accessory", "XS", [2, 1, 1]),
+                      block("a3", "accessory", "XS", [3, 1, 0]), block("a4", "timers", "S", [3, 2])))
+    assert [it["at"] for it in g["items"]] == [[2, 1], [2, 1, 1], [3, 1], [3, 2]], "the top half is written [c, r]"
+    assert HG.cells(g["items"][1], 6, 4) == {(0, 2, 1)}
+
+
 def test_a_stored_layout_reads_back_checked_and_stored_whole():
     g = grid(block("a1", "room", "L", [0, 0], pages={"source": "rooms", "start": "tablet_room"}),
              block("a2", "timers", "S", [2, 0]))
@@ -85,6 +92,12 @@ def test_six_to_two_columns(cols):
     (grid(block("a1", "camera", "L", [0, 3])), "grid_place"),
     (grid(block("a1", "camera", "L", [-1, 0])), "grid_place"),
     (grid(block("a1", "camera", "L", [0, 0]), block("a2", "timers", "S", [1, 1])), "grid_overlap"),
+    # TINY (2026-11-08): half a cell -- its own half only, never a Small's cell, and a third place number for it alone
+    (grid(block("a1", "accessory", "XS", [0, 0]), block("a2", "accessory", "XS", [0, 0])), "grid_overlap"),
+    (grid(block("a1", "accessory", "XS", [0, 0, 1]), block("a2", "timers", "S", [0, 0])), "grid_overlap"),
+    (grid(block("a1", "timers", "S", [0, 0, 1])), "grid_place"),
+    (grid(block("a1", "accessory", "XS", [0, 0, 2])), "grid_place"),
+    (grid(block("a1", "timers", "XS", [0, 0])), "grid_size"),
     (grid(block("a1", "timers", "S", [0, 0]), block("a1", "timers", "S", [1, 0])), "grid_item"),
     (grid(block("Bad Id", "timers", "S", [0, 0])), "grid_item"),
     (grid(block("a1", "timers", "S", [0, 0], colour="red")), "grid_item"),
@@ -297,7 +310,7 @@ def test_the_catalog_and_its_python_mirror_agree(tmp_path):
     assert out["sources"] == list(HG.SOURCES) and out["room"] == HG.TABLET_ROOM
     # ...and hk-base.js's size-class table is the same one
     base = (ROOT / "web/hk/cards/hk-base.js").read_text()
-    assert "var HOME_GRID = { sizes: { S: [1, 1], W: [2, 1], T: [1, 2], L: [2, 2], XL: [3, 2], XXL: [6, 2], F: [0, 0], C: [3, 1] }" in base
+    assert "var HOME_GRID = { sizes: { S: [1, 1], W: [2, 1], T: [1, 2], L: [2, 2], XL: [3, 2], XXL: [6, 2], F: [0, 0], C: [3, 1], XS: [1, 1] }" in base
     # every page source a card names is a source
     assert all(set(v["sources"]) <= set(HG.SOURCES) for v in HG.CATALOG.values())
 
