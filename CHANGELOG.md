@@ -4,6 +4,8 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+## 0.1.151 - 2026-11-08
+
 **Added**
 - **Every Home Grid block in more sizes.** New: Accessory Tall (the light's, fan's, shade's or speaker's level as a capsule you drag), Accessories and Scenes Tall, Room Small and Tall, Thermostat Wide, Calendar Wide, To-do Wide, Timers Tall, Large and Extra Large, Who's Home Tall, Large and Extra Large, Camera Tall, Vacuum Tall, Power Tall, Everything Tall, Security Tall, Action Wide, Recent Small and Tall, Now Playing Extra Large, Suggested Scene Small and Tall.
 - **A block answers a tap by where it lands.** On Now's Lights open the lights that are on, its Fans the fans, a row its thing; Wide's chips open their kind and keep Off as its own key.
