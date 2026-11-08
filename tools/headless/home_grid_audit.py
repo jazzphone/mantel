@@ -837,6 +837,10 @@ async def audit(keys: list[str], looks: list[str], shots: Path | None, long: boo
                                      " window.dispatchEvent(new Event('hk-vacuum-rooms')); })()" % json.dumps(picked))
                         await asyncio.sleep(0.8)
                     got = await b.eval(MEASURE)
+                    if STATE.get("stretch"):
+                        grew = await b.eval(STRETCH + f"({STRETCH_DELTA})")
+                        for cell in got.get("cells", []):
+                            cell["issues"] += (grew or {}).get(cell.get("size"), [])
                     if os.environ.get("AUDIT_PROBE"):      # (a probe of one's own, in the page: AUDIT_PROBE='<js expression>', printed)
                         print("probe", await b.eval(os.environ["AUDIT_PROBE"]), flush=True)
                     got["errors"] = [c for c in b.console[mark:] if c.startswith(("EXCEPTION", "error"))][:8]
@@ -845,6 +849,55 @@ async def audit(keys: list[str], looks: list[str], shots: Path | None, long: boo
                         tail = ('-long' if long else '') + ('' if STATE["name"] == "busy" else '-' + STATE["name"])
                         await b.screenshot(shots / f"{name}{tail}.png")
     return report
+
+
+# NOTHING STRETCHES (2026-11-08, the owner: "entities in a card should maintain dimensions ... the vertical and horizontal
+# stretching of entities in our cards I just don't like at all"; DESIGN.md "Using the space"). `--stretch` draws each
+# block, then makes its cell DELTA px wider and taller and draws it again: a tile, row, pill or button (a painted box
+# with words or a glyph in it, smaller than the plate) that grew with its block is stretched. A box that grew taller
+# by DELTA/4 or more fails; one that grew wider fails unless it spans its block's width (a list row, a full-width key:
+# designed to). Pictures, bars and the plate itself are not counted: they may follow the block.
+STRETCH_DELTA = 24
+STRETCH = r"""(async (delta) => {
+  const view = (function d(r) { for (const e of r.querySelectorAll('*')) { if (e.localName === 'hk-home-grid-view') return e;
+    if (e.shadowRoot) { const f = d(e.shadowRoot); if (f) return f; } } return null; })(document);
+  if (!view) return {};
+  const k = view._gridScale || 1, frame = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const kids = (n) => [...n.children, ...(n.shadowRoot ? n.shadowRoot.children : [])];
+  const boxes = (card, c) => { const out = []; const walk = (e, path) => {
+      if (/^(style|script|template|slot|link|svg|img|video|canvas|ha-icon|hk-icon)$/.test(e.localName)) return;
+      const cs = getComputedStyle(e); if (cs.display === 'none' || cs.visibility === 'hidden') return;
+      const r = e.getBoundingClientRect();
+      const paints = !/rgba\(0, 0, 0, 0\)|transparent/.test(cs.backgroundColor) || parseFloat(cs.borderTopWidth) > 0
+                     || e.localName === 'button' || e.getAttribute('role') === 'button';
+      const inside = r.width < c.width * 0.95 || r.height < c.height * 0.95;
+      const says = (e.textContent || '').trim() || e.querySelector && (e.querySelector('svg,ha-icon,hk-icon') ||
+                   (e.shadowRoot && e.shadowRoot.querySelector('svg,ha-icon,hk-icon')));
+      if (paints && inside && says && r.width >= 20 && r.height >= 16)
+        out.push({ path, el: e, w: r.width / k, h: r.height / k, label: (e.localName + (e.className && typeof e.className === 'string' ? '.' + e.className.trim().split(/\s+/).slice(0, 2).join('.') : '')
+                  + ' "' + (e.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 24) + '"') });
+      kids(e).forEach((x, i) => walk(x, path + '/' + i)); };
+    walk(card, ''); return out; };
+  const res = {};
+  for (const cell of view.shadowRoot.querySelectorAll('.cell')) {
+    const card = cell.firstElementChild; if (!card) continue;
+    const c0 = cell.getBoundingClientRect(), before = boxes(card, c0);
+    const pad = parseFloat(getComputedStyle(cell).getPropertyValue('--hk-block-pad')) || 14;
+    const keep = cell.getAttribute('style') || '';
+    cell.style.width = (c0.width / k + delta) + 'px'; cell.style.height = (c0.height / k + delta) + 'px';
+    cell.style.justifySelf = 'start'; cell.style.alignSelf = 'start';
+    await frame(); await new Promise((r) => setTimeout(r, 350)); await frame();
+    const after = new Map(boxes(card, cell.getBoundingClientRect()).map((b) => [b.path, b]));
+    const span = c0.width / k - 2 * pad, bad = [];
+    for (const b of before) { const a = after.get(b.path); if (!a || a.label !== b.label) continue;
+      const dh = a.h - b.h, dw = a.w - b.w;
+      if (dh >= delta / 4) bad.push('stretches taller with its block: ' + b.label + ' ' + b.h.toFixed(0) + ' -> ' + a.h.toFixed(0) + ' px');
+      else if (dw >= delta / 4 && b.w < span * 0.9) bad.push('stretches wider with its block: ' + b.label + ' ' + b.w.toFixed(0) + ' -> ' + a.w.toFixed(0) + ' px'); }
+    cell.setAttribute('style', keep); await frame();
+    res[cell.getAttribute('size') || '?'] = [...new Set(bad)].slice(0, 6);
+  }
+  return res;
+})"""
 
 
 def summary(report: dict) -> tuple[int, list[str]]:
@@ -897,8 +950,11 @@ def main(argv=None) -> int:
     ap.add_argument("--state", choices=list(STATES), default="busy",
                     help="the house's state (STATES): busy (default) or quiet -- every block must look finished in each")
     ap.add_argument("--hits", action="store_true", help="also fail where one control's touchable box (its ::after too) overlaps another's")
+    ap.add_argument("--stretch", action="store_true",
+                    help="also fail a tile, row, pill or button that grows with its block (STRETCH: nothing stretches)")
     a = ap.parse_args(argv)
     STATE["name"] = a.state
+    STATE["stretch"] = a.stretch
     STATE["hits"] = a.hits
     for o in a.opts:
         k, _, v = o.partition("=")
