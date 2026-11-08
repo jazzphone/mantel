@@ -550,7 +550,8 @@
           discs: size === 'S' || size === 'W',
           // the headline: the count on, or, quiet, a calm All Off said once
           head: o.n ? { num: o.n, unit: 'On' } : { words: 'All Off' },
-          sentence: o.n ? esc(phrase(o.kinds)) : '',
+          // (quiet, Extra Large's column says so under All Off, over the kinds' discs at rest)
+          sentence: o.n ? esc(phrase(o.kinds)) : size === 'XL' ? 'Nothing is on' : '', restDiscs: !o.n && size === 'XL',
           small: { attrs: 'data-open-all', aria: o.n ? 'On now: ' + phrase(o.kinds) : 'On now: all off' },
           rows: o.every.map(function (x) {
             var on = x.ids.length, ln = kindLines(self.client, x, o.things), many = cap(x.kind.many);

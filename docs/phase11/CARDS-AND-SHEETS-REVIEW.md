@@ -184,6 +184,11 @@ Two ways were drawn for Wide and Large (busy, square and tile cells; `options/`)
 | L | the count and a sentence ("6 lights, 1 speaker and 1 fan"), the kinds as lines of 56 with the brightness bar and the song | the headline and its sentence, four lines of 56 (three of 48 on tiles) |
 | XL | a column: the label, the count at 72, the sentence, All Off; the lines beside it | the same column with "+N more", six lines beside it (five on tiles) |
 
+The lead's last review: Extra Large's column is one group (the headline, its sentence, its key) centered on the lines'
+own center, not the headline at the top and All Off at the foot with bare glass between; quiet, On Now's Extra Large
+says "All Off", "Nothing is on" and shows the kinds' discs at rest; House Status's Small puts the leading section's
+glyph on its lit disc (a green check when all is good) over the words, as a HomeView tile has.
+
 ### On Now
 
 - Every kind the house has is a line, always in the same place (Lights, Speakers, Fans, Switches): with something on,

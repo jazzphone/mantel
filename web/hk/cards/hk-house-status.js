@@ -320,10 +320,14 @@
     '.sx>.sc{flex:none;width:var(--sw);display:flex;flex-direction:column;min-width:0}',
     '.sx>.sc .snt{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3}',
     '.sx>.sc .ft{margin-top:auto;display:flex}',
+    // (Extra Large's column: the headline, its sentence and its key one group, centered on the lines' own center -- the
+    // label's row above it given back under it, so the two columns share their middle)
+    '.sx>.sc .grp{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;margin-bottom:30px}',
+    '.sx>.sc .grp .ft{margin-top:14px}.sx>.sc .grp .dr{margin-top:12px}',
     '.sx>.bd{flex:1;min-width:0;margin-top:0}',
     // SMALL: one button -- the label, the headline at the foot, the discs under it
     '.sm-s{all:unset;box-sizing:border-box;flex:1;min-height:0;display:flex;flex-direction:column;cursor:pointer;-webkit-tap-highlight-color:transparent}',
-    '.sm-s:active{opacity:.75}.sm-s .hl{margin-top:auto}.sm-s .snt{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}',
+    '.sm-s:active{opacity:.75}.sm-s .hl{margin-top:auto}.sm-s .sld{margin-top:auto;margin-bottom:4px;display:flex}.sm-s .sld+.hl{margin-top:0}.sm-s .snt{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}',
     '@media (prefers-reduced-motion:reduce){.ln{transition:none}}'
   ].join('');
   // a glyph on its disc: px the disc, color its color when lit (null: at rest); icon(px, color) draws the glyph
@@ -364,7 +368,9 @@
     var snt = m.sentence ? '<div class="snt">' + m.sentence + '</div>' : '';
     if (size === 'S') {
       var ds = m.discs ? '<div class="dr">' + m.rows.map(function (r) { return disc(r.icon, 26, r.lit); }).join('') + '</div>' : '';
-      return '<button type="button" class="sm-s"' + (m.small.attrs ? ' ' + m.small.attrs : '') + ' aria-label="' + esc(m.small.aria) + '">' + lab +
+      // (a Small with no discs -- House Status's -- the leading thing's glyph on its disc over the headline, as a tile has)
+      var ld = !m.discs && m.lead ? '<div class="sld">' + disc(m.lead.icon, 30, m.lead.lit) + '</div>' : '';
+      return '<button type="button" class="sm-s"' + (m.small.attrs ? ' ' + m.small.attrs : '') + ' aria-label="' + esc(m.small.aria) + '">' + lab + ld +
         headline(m.head, false) + (m.discs ? '' : snt) + ds + '</button>';
     }
     if (size === 'W') {
@@ -376,8 +382,9 @@
         '<div class="ft">' + (m.side || '') + '</div></div>' + right + '</div>';
     }
     if (size === 'XL') {
-      return '<div class="sx" style="--sw:' + P.side + 'px;--sg:22px"><div class="sc">' + row(m.key) + headline(m.head, P.big) + snt +
-        '<div class="ft">' + (m.side || '') + '</div></div>' +
+      var rest = m.restDiscs ? '<div class="dr">' + m.rows.map(function (r) { return disc(r.icon, 26, r.lit); }).join('') + '</div>' : '';
+      return '<div class="sx" style="--sw:' + P.side + 'px;--sg:22px"><div class="sc">' + row(m.key) + '<div class="grp">' + headline(m.head, P.big) + snt + rest +
+        (m.side ? '<div class="ft">' + m.side + '</div>' : '') + '</div></div>' +
         '<div class="bd">' + lines(m, P, box.iw - P.side - 22) + '</div></div>';
     }
     return '<div class="sm">' + row(m.key) + headline(m.head, P.big) + (P.sentence ? snt : '') + '<div class="bd">' + lines(m, P, box.iw) + '</div></div>';
@@ -427,13 +434,16 @@
       var sec = lead(m.sections), need = !!(sec && (sec.urgent || sec.attention));
       var others = m.sections.filter(function (x) { return x !== sec && (x.urgent || x.attention); }).length;
       var green = (C.ACCENTS && C.ACCENTS.green) || '#30d158';
+      // (Small has the green check on its own disc above the words)
       var head = need ? { words: reading(sec.reading) + (OPEN_WORD[sec.kind] ? ' ' + OPEN_WORD[sec.kind] : '') }
-        : { words: '<hk-icon icon="mdi:check-circle" style="width:24px;height:24px;--mdc-icon-size:24px;color:' + green + '"></hk-icon>All Good' };
+        : { words: (size === 'S' ? '' : '<hk-icon icon="mdi:check-circle" style="width:24px;height:24px;--mdc-icon-size:24px;color:' + green + '"></hk-icon>') + 'All Good' };
       var sentence = need ? esc(sec.name) + (others ? ' · ' + others + ' more to check' : '') : 'Nothing needs a look';
       // (a Tall block's label row has room for the label and "+2" only)
       var more = P.more > 0 ? '<button type="button" class="sm-k q" data-all aria-label="' + esc('All ' + count(m.total) + ': opens House Status') + '">+' + P.more +
         (box.iw < 200 ? '' : ' more') + CHEV + '</button>' : '';
       var model = { label: 'House Status', color: accent(), head: head, sentence: sentence, words: true, key: more, side: size === 'W' ? more : '',
+        lead: need ? { icon: function (px, col) { return glyph(sec, px, col); }, lit: litOf(sec) || (C.ACCENTS && C.ACCENTS.orange) }
+                   : { icon: function (px, col) { return '<hk-icon icon="mdi:check" style="width:' + px + 'px;height:' + px + 'px;color:' + col + '"></hk-icon>'; }, lit: green },
         small: { attrs: 'data-all', aria: 'House Status: ' + (need ? words(sec.reading) + ', ' + sec.name : 'all good') + (others ? ', ' + others + ' more to check' : '') + '. Opens House Status' },
         rows: shown.map(function (x, i) {
           var say = words(x.reading), dt = x.detail && x.detail.toLowerCase() !== say.toLowerCase() ? x.detail : null;
