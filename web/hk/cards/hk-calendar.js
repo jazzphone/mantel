@@ -656,7 +656,13 @@
       'button{appearance:none;font:inherit;color:' + window.hkCards.v('ink') + ';cursor:pointer;margin:0}',
       // (its controls level with Energy's tabs, one page edge from the top:
       // the 54 px row centers its 44 px controls 5 px in -- DESIGN.md "Page edges")
-      '.bar{display:flex;align-items:center;gap:14px;min-height:52px;margin:-4px 0 16px;flex-wrap:wrap}',
+      // THE BAR FLOATS where the page scrolls, as the Energy tabs do (2026-11-08, the owner): a frosted strip once at
+      // the top, its 44 px controls 6 px inside it all round (_float)
+      '.bar{display:flex;align-items:center;gap:14px;min-height:52px;margin:-4px 0 16px;flex-wrap:wrap;position:sticky;z-index:4;' +
+      '  top:max(var(--hk-energy-sticky-top,10px), calc(env(safe-area-inset-top, 0px) + 4px));border-radius:' + C.R.capsule('58px') + ';transition:background-color .25s ease}',
+      '.bar.stuck{min-height:44px;padding:6px 6px 6px 18px;background:' + window.hkCards.v('float-plate') + ';',
+      '  -webkit-backdrop-filter:var(--hk-float-backdrop,blur(24px) saturate(1.6));backdrop-filter:var(--hk-float-backdrop,blur(24px) saturate(1.6));',
+      '  border:1px solid rgba(255,255,255,0.12);box-shadow:0 8px 24px rgba(0,0,0,0.28)}',
       '.ttl{font-size:34px;font-weight:700;letter-spacing:-0.6px;white-space:nowrap}',
       '.ttl span{font-weight:300;opacity:0.8}',
       '.arrows{display:flex;gap:8px}',
@@ -788,6 +794,9 @@
       '.narrow .seg{order:5;flex:1}',
       '.narrow .seg button{flex:1;width:auto}',
       '.narrow .new{order:6}',
+      // (floating on a phone: the view switch and the arrows, one row)
+      '@media (max-width:' + window.hkCards.BP.phone + 'px){.narrow .bar.stuck .ttl,.narrow .bar.stuck .pb,.narrow .bar.stuck .new{display:none}' +
+      '.narrow .bar.stuck{padding:6px;flex-wrap:nowrap}.narrow .bar.stuck .arrows{order:6;margin-left:0}}',
       '.narrow .body{flex-direction:column;gap:14px}',
       '.narrow .mgrid{padding:8px}',
       '.narrow .wk{height:56px;flex:none}',
@@ -860,6 +869,9 @@
       // (a docked bar or the Now Playing pane coming or going changes the room)
       window.addEventListener('hk-dock', this._onResize);
       window.addEventListener('hk-pane', this._onResize);
+      // (the bar floating or in its place: any scroller's scroll, once a frame)
+      this._onScroll = this._onScroll || function () { self._scrollQ = self._scrollQ || requestAnimationFrame(function () { self._scrollQ = 0; self._float(); }); };
+      window.addEventListener('scroll', this._onScroll, { passive: true, capture: true });
       if (typeof ResizeObserver === 'function' && !this._ro) {
         this._ro = new ResizeObserver(function (en) {
           var w = en && en[0] && en[0].contentRect ? en[0].contentRect.width : self.clientWidth;
@@ -891,12 +903,27 @@
       window.removeEventListener('resize', this._onResize);
       window.removeEventListener('hk-dock', this._onResize);
       window.removeEventListener('hk-pane', this._onResize);
+      window.removeEventListener('scroll', this._onScroll, { capture: true }); cancelAnimationFrame(this._scrollQ || 0); this._scrollQ = 0;
       if (this._ro) { this._ro.disconnect(); this._ro = null; }
       if (this._tick) { clearInterval(this._tick); this._tick = null; }
       if (this._m0) { clearTimeout(this._m0); this._m0 = null; }
       this._hkSig = null;
     }
     _wide() { return (this._w || this.clientWidth || 1200) >= 900; }
+    // THE BAR FLOATS once scrolled to its sticky top (hk-energy.js HkEnergyPeriodCard). Its place keeps the height it
+    // had (the strip's padding, a phone's one row), so the panels under it don't jump; a new bar floats at once.
+    _float() {
+      var bar = this._root && this._root.querySelector && this._root.querySelector('.bar'), cs = bar && this.isConnected && getComputedStyle(bar);
+      if (!cs || cs.position !== 'sticky') return;
+      var top = parseFloat(cs.top) || 0, r = bar.getBoundingClientRect(), was = bar.classList.contains('stuck');
+      var stuck = r.top <= top + 0.5 && (window.scrollY > 0 || (this._homeTop != null && r.top < this._homeTop - 1));
+      if (!was && (this._homeTop == null || r.top > top + 0.5)) this._homeTop = r.top;
+      if (stuck === was) return;
+      var h0 = bar.offsetHeight;
+      bar.style.marginBottom = '';
+      bar.classList.toggle('stuck', stuck);
+      if (stuck) bar.style.marginBottom = (parseFloat(getComputedStyle(bar).marginBottom) + h0 - bar.offsetHeight) + 'px';
+    }
     // THE PAGE'S HEIGHT, on a wide screen: the panels reach the bottom of
     // the window, whatever is above them
     // MEASURED, NOT GUESSED (2026-10-15): it took a 74 px Home Assistant
@@ -1094,6 +1121,7 @@
         wrap.__bar = bar;
         var nowSeg = segFrom && wrap.children[0].querySelector('.seg button[aria-selected="true"]');
         if (nowSeg) slideSeg(nowSeg, segFrom);
+        this._float();
       }
       if (wrap) wrap.children[1].innerHTML = html;
       // MEASURED BEFORE THE FIRST PAINT (2026-10-20, Safari on Mantel): a
