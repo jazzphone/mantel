@@ -5,7 +5,8 @@
 //                          last rows of the Timeline in the page's own look -- an icon by family, the title, the time,
 //                          who did it when the viewer may know, a small picture when one was kept. Its `show` is
 //                          Automatic (the morning summary from 5 to 11 AM, the latest rows after), Latest Events, or
-//                          Morning Summary. Live. A tap opens the Timeline page. A wall tablet alone gets the
+//                          Morning Summary. Small (2026-11-07, the review) is the latest event alone as a centered tile
+//                          -- its glyph, its title, its time; Tall the rows stacked under the label, "N more" at the foot. Live. A tap opens the Timeline page. A wall tablet alone gets the
 //                          limited view because the server hands it one: no names, and pictures only when its
 //                          Owner turned them on for that tablet (what comes back is what is drawn).
 // hk-timeline-strip-card   "Recent" under a camera's live view (the camera sheet, hk-sheet-security.js): the last ten
@@ -23,8 +24,8 @@
   if (window.hkTimelineBlock) return;                 // double-load guard
 
   // ======================================================================== pure
-  var LIMIT = { W: 5, L: 8, XL: 12 };                 // the rows a block asks for, by size
-  var ROW_H = { W: 36, L: 52, XL: 52 };               // a row's height (Wide: one line; the rest: a title and a line under it)
+  var LIMIT = { S: 1, W: 5, T: 10, L: 8, XL: 12 };                 // the rows a block asks for, by size
+  var ROW_H = { S: 52, W: 36, T: 52, L: 52, XL: 52 };               // a row's height (Wide: one line; the rest: a title and a line under it)
   var HEAD = 25;                                      // the label's line and the gap under it
   var STRIP_MAX = 10;                                 // the camera strip's events
   var MODES = ['auto', 'latest', 'digest'];
@@ -151,7 +152,7 @@
   }
   function sizeOf(el) {
     var s = (el.getAttribute && el.getAttribute('size')) || (el._config || {}).size;
-    return /^(W|L|XL)$/.test(s || '') ? s : null;
+    return /^(S|W|T|L|XL)$/.test(s || '') ? s : null;
   }
   function tint(name, a) {
     var rgb = (C.PALETTE && C.PALETTE.chart && C.PALETTE.chart[name]) || (name === 'brown' ? [162, 132, 94] : [142, 142, 147]);
@@ -163,7 +164,7 @@
   }
   function icon(name, px) { return '<hk-icon icon="' + esc(name) + '" style="--mdc-icon-size:' + px + 'px;width:' + px + 'px;height:' + px + 'px"></hk-icon>'; }
   // the block in px inside its inset: the view's measure, else a square cell's (as the other blocks' inner())
-  var SQ_BLOCK = { W: [405, 196], L: [405, 405], XL: [614, 405] };
+  var SQ_BLOCK = { S: [196, 196], W: [405, 196], T: [196, 405], L: [405, 405], XL: [614, 405] };
   function inner(card, size) {
     if (card._watchBlock) card._watchBlock();
     var b = card._block ? card._block() : null, d = SQ_BLOCK[size] || SQ_BLOCK.L, pad = 18;
@@ -308,6 +309,14 @@
     '.sk i{display:block;background:' + v('key') + ';border-radius:8px}',
     '.sk .a{width:32px;height:32px;border-radius:16px;flex:none}',
     '.sk .b{flex:1;display:flex;flex-direction:column;gap:7px}.sk .b i{height:12px}.sk .b i + i{width:50%;height:10px}',
+    // TALL (2026-11-07): rows 160 px across -- the time goes under the title -- and the last row says how many more there are
+    '.r.mo{height:44px;border-bottom:0}.r.mo .ti{font-weight:500;color:' + v('ink-2') + '}',
+    // SMALL: the latest event as one centered tile (hkCards.centredTile over the plate's parts: the glyph bare at its
+    // upper third, the title and its time under it), in the family's color
+    ':host([size=S]) hk-plate.tb{padding:0}',
+    '.icon{display:flex;--mdc-icon-size:100%}',
+    C.centredTile({ host: ':host([size=S])', plate: 'hk-plate.tb', lit: 'hk-plate.tb.never', well: '.well', icon: '.icon', name: '.nm', sub: ['.tm1'] }),
+    'hk-plate.tb .tm1{font-variant-numeric:tabular-nums}',
     '@keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}',
     '.sks{animation:pulse 1.4s ease-in-out infinite}',
     '@media (prefers-reduced-motion:reduce){.sks{animation:none}}'
@@ -382,36 +391,47 @@
       var lab = function (text) { return '<div class="wl" style="color:' + ACC.teal + '">' + esc(text) + '</div>'; };
       if (!this._lib || this._state === 'loading') {
         var sk = '';
-        for (var i = 0; i < (size === 'W' ? 2 : 4); i++) sk += '<div class="sk sks"><i class="a"></i><div class="b"><i></i><i></i></div></div>';
+        for (var i = 0; i < (size === 'W' || size === 'S' ? 2 : 4); i++) sk += '<div class="sk sks"><i class="a"></i><div class="b"><i></i><i></i></div></div>';
         html = '<div class="hd">' + lab('Recent') + '</div><div class="cols"><div class="col" aria-busy="true">' + sk + '</div></div>';
       } else if (this._state === 'error') {
         html = '<div class="hd">' + lab('Recent') + '</div><div class="none">' + esc(errorWord(this._err)) + '</div>';
       } else {
         var ctx = ctxNow(), now = Date.now(), shown = viewNow(this._show(), now, ctx);
-        if (shown === 'digest' && this._summary && !this._summaryErr) html = this._digest(size, box, ctx);
+        if (shown === 'digest' && size !== 'S' && this._summary && !this._summaryErr) html = this._digest(size, box, ctx);
         else html = this._latest(size, box, ctx, now);
       }
       C.morph(this._plate, html);
     }
 
     _latest(size, box, ctx, now) {
-      var lay = layoutOf(size, box.ih), rows = pick(this._events, lay.n).map(function (ev) { return rowView(ev, now, ctx); });
+      var lay = layoutOf(size, box.ih), tall = size === 'T', all = pick(this._events, limitOf(size));
       var head = '<div class="hd"><div class="wl" style="color:' + ACC.teal + '">Recent</div></div>';
+      // SMALL: the newest event, alone
+      if (size === 'S') {
+        var e0 = all[0] && rowView(all[0], now, ctx);
+        if (!e0) return '<div class="none">' + esc(EMPTY) + '</div>';
+        return '<div class="well"><hk-icon class="icon" ink="' + C.TILE.centred.ink + '" icon="' + esc(e0.icon) + '" style="color:' + inkOf(e0.color) + '"></hk-icon></div>' +
+          '<div class="nm">' + esc(e0.title) + '</div><div class="tm1">' + esc(wideTime(e0)) + '</div>';
+      }
+      // TALL: as many whole rows as fit; when there are more, the last place is "N more"
+      var n = lay.n, more = 0;
+      if (tall && all.length > lay.per) { n = Math.max(1, lay.per - 1); more = all.length - n; }
+      var rows = all.slice(0, n).map(function (ev) { return rowView(ev, now, ctx); });
       if (!rows.length) return head + '<div class="none">' + esc(EMPTY) + '</div>';
       var wide = size === 'W';
       function row(r) {
-        var sub = !wide && (r.day || r.sub) ? [r.day, r.sub].filter(Boolean).join(' · ') : '';
+        var sub = tall ? [(r.day ? r.day + ' ' : '') + r.time, r.sub].filter(Boolean).join(' · ') : !wide && (r.day || r.sub) ? [r.day, r.sub].filter(Boolean).join(' · ') : '';
         var col = r.color;
         return '<div class="r' + (wide ? ' w' : '') + (r.warn ? ' warn' : '') + '">' +
           '<div class="ic" style="background:' + tint(col, 0.22) + ';color:' + inkOf(col) + '">' + icon(r.icon, wide ? 16 : 20) + '</div>' +
           '<div class="tx"><div class="ti">' + esc(r.title) + '</div>' + (sub ? '<div class="sb">' + esc(sub) + '</div>' : '') + '</div>' +
-          (!wide && r.thumb ? '<img src="' + esc(r.thumb) + '" alt="" loading="lazy" decoding="async" draggable="false">' : '') +
-          '<div class="tm">' + esc(wide ? wideTime(r) : r.time) + '</div></div>';
+          (!wide && !tall && r.thumb ? '<img src="' + esc(r.thumb) + '" alt="" loading="lazy" decoding="async" draggable="false">' : '') +
+          (tall ? '' : '<div class="tm">' + esc(wide ? wideTime(r) : r.time) + '</div>') + '</div>';
       }
       var cols = [];
       for (var c = 0; c < lay.cols; c++) cols.push(rows.slice(c * lay.per, (c + 1) * lay.per));
       return head + '<div class="cols">' + cols.filter(function (x) { return x.length; }).map(function (x) {
-        return '<div class="col">' + x.map(row).join('') + '</div>';
+        return '<div class="col">' + x.map(row).join('') + (more ? '<div class="r mo"><div class="tx"><div class="ti">' + more + ' more</div></div></div>' : '') + '</div>';
       }).join('') + '</div>';
     }
 

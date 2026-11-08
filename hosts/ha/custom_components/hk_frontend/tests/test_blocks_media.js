@@ -81,7 +81,7 @@ function () {
   ok('...no longer Speakers and Browse in the top corners', css.indexOf('position:absolute;top:12px;width:32px') < 0);
   ok('Large: the label over the song, the volume under the transport',
      css.indexOf('"art art lab lab lab"') >= 0 && css.indexOf('"spk prev play next brw" "meta meta meta meta meta"') >= 0);
-  ok('the volume a 44 px place on W, T and L', css.indexOf(':host([size=W]) .np .meta,:host([size=T]) .np .meta,:host([size=L]) .np .meta{display:flex;align-items:center;gap:10px;padding:0;--hk-range-h:44px}') >= 0);
+  ok('the volume a 44 px place on W, T, L and XL', css.indexOf(':host([size=W]) .np .meta,:host([size=T]) .np .meta,:host(:is([size=L],[size=XL])) .np .meta{display:flex;align-items:center;gap:10px;padding:0;--hk-range-h:44px}') >= 0);
   ok('in a pager: no volume row', css.indexOf(':host([size][data-grid-pager]) hk-plate.np{--hk-np-pad:20px 22px 44px;--np-vol:0px}') >= 0);
 },
 function () {

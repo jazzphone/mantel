@@ -125,8 +125,8 @@ def test_the_tablets_room_is_an_options_value():
 @pytest.mark.parametrize("tap", ["auto", "page", "sheet", "none"])
 def test_when_tapped_is_kept_on_every_block_that_has_something_to_open(tap):
     opening = [k for k, c in HG.CATALOG.items() if c["opts"].get("tap") == "tap_target"]
-    assert {"weather", "calendar", "todo", "battery", "power", "water", "energy_rings", "on_now", "people", "room"} <= set(opening)
-    assert not {"accessory", "scene", "action", "everything", "camera"} & set(opening)
+    assert {"weather", "calendar", "todo", "battery", "power", "water", "energy_rings", "on_now", "people", "room", "everything"} <= set(opening)
+    assert not {"accessory", "scene", "action", "camera"} & set(opening)
     for key in opening:
         size = HG.CATALOG[key]["sizes"][0]
         b, errors = write(grid(block("a1", key, size, [0, 0], opts={"tap": tap})))
@@ -322,7 +322,7 @@ def test_conditional_block_roundtrip_with_same_sized_fallback(kind):
     {'when': {'kind': 'entity_state', 'entity': 'light.lamp', 'state': ''}, 'fallback': {'card': 'clock'}},
     {'when': {'kind': 'music_playing', 'state': 'anything'}, 'fallback': {'card': 'clock'}},
     {'when': {'kind': 'music_playing'}},
-    {'when': {'kind': 'music_playing'}, 'fallback': {'card': 'thermostat'}},  # no W
+    {'when': {'kind': 'music_playing'}, 'fallback': {'card': 'calendar'}},  # no W
     {'when': {'kind': 'music_playing'}, 'fallback': {'card': 'clock', 'when': {'kind': 'doorbell'}}},
     {'when': {'kind': 'music_playing'}, 'fallback': {'card': 'clock', 'at': [2, 0]}},
     {'fallback': {'card': 'clock'}},

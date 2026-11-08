@@ -767,12 +767,12 @@
           ':host([size]) .np .player{display:none}',
           // THE LABEL over the song (the widget's "NOW PLAYING"), on T and L
           // (z-index: over the wash, as every row of the player)
-          ':host([size=T]) .np .lab,:host([size=L]) .np .lab{display:block;grid-area:lab;z-index:2;' + window.hkCards.typeCss('label') + ';line-height:16px;',
+          ':host([size=T]) .np .lab,:host(:is([size=L],[size=XL])) .np .lab{display:block;grid-area:lab;z-index:2;' + window.hkCards.typeCss('label') + ';line-height:16px;',
           '  color:rgba(255,255,255,.7);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;align-self:end;min-width:0}',
           // THE VOLUME under the transport on W, T and L: the slider in a 44 px
           // place for a finger, a small and a large speaker either side (the
           // pane's mini player's, 2026-10-31)
-          ':host([size=W]) .np .meta,:host([size=T]) .np .meta,:host([size=L]) .np .meta{display:flex;align-items:center;gap:10px;padding:0;--hk-range-h:44px}',
+          ':host([size=W]) .np .meta,:host([size=T]) .np .meta,:host(:is([size=L],[size=XL])) .np .meta{display:flex;align-items:center;gap:10px;padding:0;--hk-range-h:44px}',
           ':host([size]) .np .meta > :not(.vg){flex:1 1 auto;min-width:0;order:1}',
           ':host([size]) .np .vg{flex:none;width:14px;height:14px;--mdc-icon-size:14px;color:rgba(255,255,255,.75)}',
           ':host([size]) .np .vg.hi{order:2;width:20px;height:20px;--mdc-icon-size:20px}',
@@ -852,18 +852,28 @@
           '  --hk-np-cols:minmax(0,1fr) 64px 64px 64px minmax(0,1fr);',
           '  --hk-np-areas:"art art . . ." "art art lab lab lab" "art art title title title" "art art artist artist artist" "art art . . ." "sub sub sub sub sub" "spk prev play next brw" "meta meta meta meta meta";',
           '  --hk-np-rows:minmax(0,1fr) min-content min-content min-content minmax(0,1fr) min-content 61px min-content}',
-          ':host([size=L]) .np .tb{align-self:start}',
+          ':host(:is([size=L],[size=XL])) .np .tb{align-self:start}',
           // (Speakers' and Browse's ink in line with the progress bar's ends)
-          ':host([size=L]) .np .spk{justify-self:start;margin-left:-10px}:host([size=L]) .np .brw{justify-self:end;margin-right:-10px}',
-          ':host([size]) .np .sub{align-self:end}:host([size=L]) .np .sub{padding-top:12px}:host([size=T]) .np .sub{padding-top:6px}',
-          ':host([size=L]) .np .lab{padding-bottom:2px}',
-          ':host([size=L]) .np .title{' + window.hkCards.typeCss('title') + ';line-height:27px}',
-          ':host([size=L]) .np .tb{width:56px;height:56px}',
-          ':host([size=L]) .np .spk,:host([size=L]) .np .brw{width:48px}',
-          ':host([size=L]) .np .tb hk-icon{width:38px;height:38px;--mdc-icon-size:38px}',
-          ':host([size=L]) .np .play hk-icon{width:52px;height:52px;--mdc-icon-size:52px}',
-          ':host([size=L]) .np .spk hk-icon{width:28px;height:28px;--mdc-icon-size:28px}',
-          ':host([size=L]) .np .brw svg{width:27px;height:27px}',
+          ':host(:is([size=L],[size=XL])) .np .spk{justify-self:start;margin-left:-10px}:host(:is([size=L],[size=XL])) .np .brw{justify-self:end;margin-right:-10px}',
+          ':host([size]) .np .sub{align-self:end}:host(:is([size=L],[size=XL])) .np .sub{padding-top:12px}:host([size=T]) .np .sub{padding-top:6px}',
+          ':host(:is([size=L],[size=XL])) .np .lab{padding-bottom:2px}',
+          ':host(:is([size=L],[size=XL])) .np .title{' + window.hkCards.typeCss('title') + ';line-height:27px}',
+          ':host(:is([size=L],[size=XL])) .np .tb{width:56px;height:56px}',
+          ':host(:is([size=L],[size=XL])) .np .spk,:host(:is([size=L],[size=XL])) .np .brw{width:48px}',
+          ':host(:is([size=L],[size=XL])) .np .tb hk-icon{width:38px;height:38px;--mdc-icon-size:38px}',
+          ':host(:is([size=L],[size=XL])) .np .play hk-icon{width:52px;height:52px;--mdc-icon-size:52px}',
+          ':host(:is([size=L],[size=XL])) .np .spk hk-icon{width:28px;height:28px;--mdc-icon-size:28px}',
+          ':host(:is([size=L],[size=XL])) .np .brw svg{width:27px;height:27px}',
+          // XL (2026-11-07, the review; Apple's Now Playing): the cover large on the left, square at the inner radius and
+          // centered in the block's height, as wide as the right column's 290 px allow; the song's label, title and artist at
+          // the top of that column, the progress, the transport and the volume across its foot -- L's pieces, set beside
+          // the cover. The block's own cover blur or card plate stays behind it, as at every size.
+          ':host([size=XL]) hk-plate.np{--np-art:min(' + NP_H + ', ' + NP_W + ' - 290px);',
+          '  --hk-np-cols:var(--np-art) minmax(0,1fr) 64px 64px 64px minmax(0,1fr);',
+          '  --hk-np-areas:"art lab lab lab lab lab" "art title title title title title" "art artist artist artist artist artist" "art . . . . ." "art sub sub sub sub sub" "art spk prev play next brw" "art meta meta meta meta meta";',
+          '  --hk-np-rows:min-content min-content min-content minmax(0,1fr) min-content 61px min-content}',
+          ':host([size=XL]) .np .art{align-self:center;justify-self:start}',
+          ':host([size=XL]) .np .grid{column-gap:var(--hk-np-gap,14px)}',
           // IN A PAGER (hk-pager-card): its dots under the block's foot, so no
           // volume and no label
           ':host([size][data-grid-pager]) hk-plate.np{--hk-np-pad:20px 22px 44px;--np-vol:0px}',

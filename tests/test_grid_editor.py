@@ -45,7 +45,7 @@ check(JSON.stringify(g) === original, 'making room leaves the draft alone');
 check(!E.makeRoom(g,'a',[5,0]), 'making room: past the edge');
 check(E.firstSpace(g,'W').join() === '4,0', 'first fit');
 check(E.add(g,'scene','W').items[3].at.join() === '4,0', 'catalog placement');
-check(!E.add(g,'action','W'), 'card does not support class');
+check(!E.add(g,'action','L'), 'card does not support class');
 check(!E.add(g,'gone','S'), 'unknown card');
 check(E.snap(300,250,{left:100,top:50,width:600,height:400},6,4).join() === '2,2', 'snap scaled frame');
 check(!E.valid(Object.assign({},g,{cols:3})), 'shrinking keeps blocks in bounds');

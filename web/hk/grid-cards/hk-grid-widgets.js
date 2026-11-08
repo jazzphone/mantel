@@ -30,7 +30,38 @@
       var acc = ((setting('accessories', {}) || {}).entities || {})[action] || {};
       return (acc.color && T.hexOf && T.hexOf(acc.color)) || (T.ownTint ? T.ownTint(action) : A.purple);
     }
+    // WIDE (2026-11-07, the review; the coordinator's spec for every Wide tile: this, Accessory, Scene and Intercom draw
+    // one geometry). Home style: Apple Home's wide tile -- the 42 px well at the left inset, vertically centered, the name
+    // (15 / 600) over the state (15 / 500) on 18.6 px lines beside it, the pair centered. Centered style: HomeView's tile laid
+    // sideways -- the glyph bare, at the size the Centered Small tile draws it on that cell (TILE.centred tall or square: the
+    // box and the glyph), its box centered at 25 % of the block's width; the name over the state left-aligned, the text column
+    // 16 px right of the glyph's box, the pair centered on the glyph's center, an ellipsis at the right inset. In its color's
+    // gradient as Small has it. The Centred rules (hkCards.centredTile, all !important) are outvoted by longer selectors.
+    var AW = ':host([size=W]) hk-plate.k', AH = ':host([size=W]:not([tile=centred])) hk-plate.k', AC = ':host([size=W][tile=centred]) hk-plate.k';
+    var IMP = function (css) { return css.split(';').filter(Boolean).map(function (d) { return d + ' !important'; }).join(';'); };
+    var CT = TILE.centred, SQ = '@container hk-cell (min-height:180px) or (max-aspect-ratio: 6 / 5) or style(--hk-cell-shape: square)';
+    var ACTION_W_CSS = [
+      AW + '{display:flex !important;flex-direction:row;align-items:center;justify-content:flex-start;padding:' + C.blockPad('14px') + ' !important;--wbox:' + CT.tall.box + 'px;--wglyph:' + CT.tall.glyph + 'px;--wname:' + CT.tall.name + 'px;--wsub:' + CT.tall.sub + 'px;--wline:' + CT.tall.line + 'px}',
+      AW + ' .tx .name,' + AW + ' .tx .state{' + IMP('position:static;display:block;width:auto;margin:0;text-align:left;letter-spacing:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis') + '}',
+      AW + ' .tx{min-width:0;display:flex;flex-direction:column;justify-content:center;gap:0}',
+      // HOME STYLE
+      AH + '{gap:9.6px}',
+      AH + ' .well{' + IMP('position:static;transform:none;width:42px;height:42px;margin:0;border-radius:50%') + ';flex:none;background:' + v('key') + ' !important}',
+      AH + '[data-paint] .well{background:rgba(255,255,255,0.22) !important}',
+      AH + ' .icon{' + IMP('width:' + TILE.glyph + 'px;height:' + TILE.glyph + 'px') + '}',
+      AH + ' .tx{flex:1}',
+      AH + ' .tx .name{' + IMP('font-size:15px;font-weight:600;line-height:18.6px') + '}',
+      AH + ' .tx .state{' + IMP('font-size:15px;font-weight:500;line-height:18.6px') + '}',
+      // CENTERED STYLE
+      AC + ' .well{' + IMP('position:absolute;left:25%;top:50%;transform:translate(-50%,-50%);margin:0;background:none;border-radius:50%;width:var(--wbox);height:var(--wbox)') + '}',
+      AC + ' .icon{' + IMP('width:var(--wglyph);height:var(--wglyph)') + '}',
+      AC + ' .tx{' + IMP('position:absolute;left:calc(25% + var(--wbox) / 2 + 16px);right:var(--hk-pad-r,14px);top:50%;transform:translateY(-50%)') + '}',
+      AC + ' .tx .name{' + IMP('font-size:var(--wname);font-weight:600;line-height:var(--wline)') + '}',
+      AC + ' .tx .state{' + IMP('font-size:var(--wsub);font-weight:400;line-height:var(--wline)') + '}',
+      SQ + '{' + AW + '{--wbox:' + CT.square.box + 'px;--wglyph:' + CT.square.glyph + 'px;--wname:' + CT.square.name + 'px;--wsub:' + CT.square.sub + 'px;--wline:' + CT.square.line + 'px}}'
+    ].join('');
     class HkActionCard extends HkGridKey {
+      static get CSS() { return KEY_CSS + ACTION_W_CSS; }
       setConfig(config) {
         if (!config || !config.action) throw new Error('hk-action: `action` is required');
         super.setConfig(config);
@@ -41,7 +72,7 @@
       }
       _sigOf() {
         var p = this._plan();
-        return JSON.stringify([p.name, p.icon, p.state, p.hot, this._said || null, this.getAttribute('tile'), !!this._config.color]);
+        return JSON.stringify([p.name, p.icon, p.state, p.hot, this._said || null, this.getAttribute('tile'), !!this._config.color, sizeOf(this)]);
       }
       _look() {
         var p = this._plan(), a = this._config.action;
@@ -76,7 +107,8 @@
     // Large the icons themselves -- the tab bar's and the Pages screen's look,
     // a page in its accent, a room in its tint by its place among the menu's
     // rooms (hkCards.iconGradient / roomTint) -- a tap goes straight there, the
-    // last place opens the rest; a heading says what is on.
+    // last place opens the rest; a heading says what is on. Tall (2026-11-07): two columns of icons, labels on. The
+    // plate's own tap is More, When Tapped choosing as elsewhere.
     function menuItems(client) {
       var M = C.menu, H = window.hkMenu && window.hkMenu._, cfg = null;
       try { cfg = M && M.config ? M.config() : null; } catch (e) { cfg = null; }
@@ -105,15 +137,16 @@
     }
     function onNowText(n) { return n ? n + ' on now' : 'All off'; }
     // [columns, rows, labels] at each size (the mock-up's: Wide a row of
-    // five, Large four by three, Extra Large six by three)
-    var EV_GRID = { W: [5, 1, false], L: [4, 3, true], XL: [6, 3, true], XXL: [10, 3, true] };
+    // five, Large four by three, Extra Large six by three); Tall (2026-11-07, the review) two columns of as many rows
+    // as its height holds -- rows 0, worked out in _render
+    var EV_GRID = { W: [5, 1, false], T: [2, 0, true], L: [4, 3, true], XL: [6, 3, true], XXL: [10, 3, true] };
     var EV_CSS = [
       'hk-plate.ev{box-sizing:border-box;height:100%;display:flex;flex-direction:column;padding:' + C.blockPad('14px') + ';overflow:hidden;' + C.plate('card') + ';color:' + v('ink') + '}',
       '.evh{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex:none;min-width:0}',
       '.evh b{' + type('headline') + ';white-space:nowrap}',
       '.evh span{' + type('caption') + ';color:' + v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}',
       '.apps{flex:1;min-height:0;display:grid;grid-template-columns:repeat(var(--c),minmax(0,1fr));column-gap:8px;row-gap:var(--rg);',
-      '  justify-items:center;align-content:var(--ac,center);padding-top:10px}',
+      '  justify-items:center;align-content:center;padding-top:10px}',
       '.app{all:unset;box-sizing:border-box;position:relative;display:flex;flex-direction:column;align-items:center;gap:5px;min-width:0;max-width:100%;cursor:pointer;-webkit-tap-highlight-color:transparent}',
       '.app i{display:flex;align-items:center;justify-content:center;flex:none;width:var(--px);height:var(--px);border-radius:' + APP_CORNER + ';color:#fff;font-style:normal;',
       '  box-shadow:0 4px 10px rgba(0,0,0,0.22);transition:transform ' + C.DUR.press + ' ease}',
@@ -144,6 +177,8 @@
       // showing, its More sheet (what the bar's menu opens); else the side
       // menu, as the menu button opens it
       _tap() {
+        // (When Tapped, 2026-11-07: Nothing leaves even the key still)
+        if ((this._config || {}).tap === 'none') return;
         var M = C.menu, B = window.hkTabBar;
         if (M && M.tabBar && M.tabBar() && B && typeof B.open === 'function') { B.open('more'); return; }
         if (M && M.open) M.open();
@@ -158,6 +193,13 @@
         }
         this._watchBlock();
         var self = this, items = this._items(), g = EV_GRID[size], cols = g[0], rows = g[1], labels = g[2];
+        // THE ICONS' SIZE (2026-11-07, the review: Wide's five sat on the foot under a big empty band): by the room the
+        // block has -- what is under its heading, less the labels -- as large as the width lets them (60 at most),
+        // and the rows in the middle of it. Tall: as many rows as hold icons of 48 and over, in two columns.
+        var box = inner(this, size), rg = size === 'W' ? 0 : 12, free = box.ih - 22 - 10, lab = labels ? 20 : 0;
+        if (!rows) rows = Math.max(2, Math.min(6, Math.floor((free + rg) / (48 + lab + rg))));
+        var px = Math.max(36, Math.min(labels ? 62 : 60, Math.floor((box.iw - (cols - 1) * 8) / cols) - (labels ? 6 : 0),
+                                      Math.floor((free - (rows - 1) * rg) / rows) - lab));
         if (this._mode !== size || !this._built) {
           this._mode = size;
           this._root.innerHTML = '<hk-plate class="ev" data-hk-role="card"><div class="evh"><b>Everything</b><span></span></div><div class="apps" role="list"></div></hk-plate>';
@@ -167,14 +209,9 @@
         }
         var e = this._ev, said = onNowText(onNow(this.client));
         if (e.say.textContent !== said) e.say.textContent = said;
-        // THE ICONS' SIZE, by the room the block has: as large as the mock-up's
-        // (52 at Wide, 62 above) where they fit, smaller on a tile's shorter cell
-        var b = this._block(), h = b ? b.h - 36 - 22 - 10 : (rows === 1 ? 110 : 330), rg = rows > 1 ? 12 : 0;
-        var px = Math.max(36, Math.min(labels ? 62 : 52, Math.floor((h - (rows - 1) * rg) / rows) - (labels ? 20 : 0)));
         e.apps.style.setProperty('--c', String(cols));
         e.apps.style.setProperty('--px', px + 'px');
         e.apps.style.setProperty('--rg', rg + 'px');
-        e.apps.style.setProperty('--ac', rows === 1 ? 'end' : 'center');
         var places = cols * rows, cut = items.length > places, shown = cut ? items.slice(0, places - 1) : items;
         var key = JSON.stringify([shown, cut ? items.length - shown.length : 0, labels]);
         if (key === this._appKey) return;
@@ -233,6 +270,20 @@
       // L: the glyph at the top, the words at the bottom
       ':host([size="L"]) hk-plate.sg{flex-direction:column;align-items:flex-start;justify-content:space-between}',
       ':host([size="L"]) .well{width:64px;height:64px}',
+      // S (2026-11-07, the review): the scene as one tile -- its glyph bare, its name, and its time of day (the label) as the
+      // second line, nothing else. Centred: HomeView's (hkCards.centredTile over the card's own parts); Home: the glyph at
+      // the top and the two lines at the foot, a tile's padding.
+      ':host([size="S"]) .cap{display:none}',
+      ':host([size="S"]) .lb{' + type('caption') + ';text-transform:none;letter-spacing:0;font-weight:400;line-height:17px}',
+      ':host([size="S"]:not([tile=centred])) hk-plate.sg{flex-direction:column;align-items:flex-start;justify-content:space-between;gap:0;',
+      '  padding:calc(12.8px + var(--hk-in-t,0px)) calc(12.8px + var(--hk-in-r,0px)) calc(12.8px + var(--hk-in-b,0px)) calc(' + TILE.padL + 'px + var(--hk-in-l,0px))}',
+      ':host([size="S"]:not([tile=centred])) .well{width:34px;height:34px;background:none !important}',
+      ':host([size="S"]:not([tile=centred])) .icon{width:34px;height:34px}',
+      ':host([size="S"]:not([tile=centred])) .tx{gap:0;width:100%}',
+      ':host([size="S"]:not([tile=centred])) .nm{' + type('headline') + ';line-height:21px;order:1}',
+      ':host([size="S"]:not([tile=centred])) .lb{order:2}',
+      ':host([size="S"][tile=centred]) .tx{display:contents}',
+      C.centredTile({ host: ':host([size="S"][tile=centred])', plate: 'hk-plate.sg', lit: 'hk-plate.sg.never', well: '.well', icon: '.icon', name: '.nm', sub: ['.lb'] }),
       'hk-plate.sg.hk-tapped .well{background:rgba(255, 255, 255, 0.92)}',
       'hk-plate.sg.hk-tapped .icon{color:#000}',
       '@media (prefers-reduced-motion:reduce){hk-plate.sg,hk-plate.sg:active,.art,.well{transition:none;transform:none}}'
@@ -324,17 +375,20 @@
     // each kind in its color. Off and All Off are house commands through the
     // card's action port, as the room pages' toggles are (a speaker pauses).
     //   S       the count large, and what it is
-    //   W       each kind a chip; a tap turns that kind off
-    //   T       each kind with its count, and All Off
-    //   L, XL   each thing that is on with its own Off, "+N more", All Off
+    //   W       each kind a chip: its body opens that kind's sheet, its own small Off key turns that kind off
+    //   T       each kind with its count, a 44 px button that opens that kind's sheet, and All Off
+    //   L, XL   each thing that is on, its row opening that thing's sheet, its own Off, "+N more", All Off
     //           (XL the count in a column of its own beside them)
+    // TAP ZONES (2026-11-07, the review; the owner: "lights and fans should go to lights or to fans depending on which
+    // one you tap"): a kind and a thing are buttons (hk-base.js TAP_CONTROLS), so the plate's own tap -- the On Now
+    // sheet -- is left for the heading and the glass between them.
     // The house's own lists (Status & Chips, hkStrategy.inventory) less what
     // it hides; a group light is its lights, never counted twice.
     var ON_KINDS = [
-      { key: 'lights', one: 'light', many: 'lights', icon: 'mdi:lightbulb', color: ACC.yellow, call: ['light', 'turn_off'], off: 'Off' },
-      { key: 'speakers', one: 'speaker', many: 'speakers', icon: 'mdi:speaker', color: ACC.pink, call: ['media_player', 'media_pause'], off: 'Pause' },
-      { key: 'fans', one: 'fan', many: 'fans', icon: 'mdi:fan', color: ACC.cyan, call: ['fan', 'turn_off'], off: 'Off' },
-      { key: 'switches', one: 'switch', many: 'switches', icon: 'mdi:power-plug', color: ACC.green, call: ['switch', 'turn_off'], off: 'Off' }
+      { key: 'lights', one: 'light', many: 'lights', icon: 'mdi:lightbulb', color: ACC.yellow, call: ['light', 'turn_off'], off: 'Off', title: 'Lights On' },
+      { key: 'speakers', one: 'speaker', many: 'speakers', icon: 'mdi:speaker', color: ACC.pink, call: ['media_player', 'media_pause'], off: 'Pause', title: 'Speakers Playing' },
+      { key: 'fans', one: 'fan', many: 'fans', icon: 'mdi:fan', color: ACC.cyan, call: ['fan', 'turn_off'], off: 'Off', title: 'Fans On' },
+      { key: 'switches', one: 'switch', many: 'switches', icon: 'mdi:power-plug', color: ACC.green, call: ['switch', 'turn_off'], off: 'Off', title: 'Switches On' }
     ];
     function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
     // -> [{kind, ids}] of the kinds with something on, and [{id, kind, name, room}] each thing
@@ -383,13 +437,27 @@
       '.on-b:active{filter:brightness(0.9)}.on-b:focus-visible{outline:2px solid ' + v('ink-2') + ';outline-offset:2px}',
       '.on-b.all{' + type('body') + ';font-weight:600;padding:0 22px}',
       '.chips{display:grid;gap:4px;align-content:center;min-width:0}',
-      '.chips .on-b{justify-content:flex-start;padding:0 12px;min-width:0}',
-      '.chips .on-b span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-      '.chips .on-b em{font-style:normal;opacity:.7;flex:none}',
+      // (W: a chip is its body -- the kind's sheet -- and, at its end, a small Off key with a 44 px hit area)
+      '.on-c{display:flex;align-items:center;min-width:0;min-height:44px;border-radius:22px;background:' + v('key') + '}',
+      '.on-o,.on-k,.on-t{all:unset;box-sizing:border-box;display:flex;align-items:center;min-width:0;cursor:pointer;-webkit-tap-highlight-color:transparent;color:' + v('ink') + '}',
+      '.on-o{flex:1;gap:6px;height:44px;padding:0 4px 0 12px;' + type('caption') + ';font-weight:600}',
+      '.on-o span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+      '.on-z{all:unset;position:relative;box-sizing:border-box;flex:none;display:grid;place-items:center;height:32px;margin-right:6px;padding:0 12px;border-radius:16px;',
+      '  background:' + v('key-strong') + ';color:' + v('ink') + ';' + type('caption') + ';font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent}',
+      '.on-z::after{content:"";position:absolute;left:-5px;right:-5px;top:-6px;bottom:-6px}',
+      '.on-o:active,.on-k:active,.on-t:active{opacity:.7}.on-z:active{filter:brightness(0.9)}',
+      '.on-o:focus-visible,.on-k:focus-visible,.on-t:focus-visible,.on-z:focus-visible{outline:2px solid ' + v('ink-2') + ';outline-offset:2px}',
+      // (T: a kind's row, 44 px, the count at its end)
+      '.on-k{gap:10px;height:44px;flex:none;border-bottom:1px solid ' + v('line') + '}',
+      '.on-k:last-child{border-bottom:0}',
+      '.on-k b{' + type('body') + ';font-weight:600;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+      '.on-k em{font-style:normal;' + type('caption') + ';color:' + v('ink-2') + '}',
       '.on-l{display:flex;flex-direction:column;min-height:0}',
+      // (L, XL: a thing's row, its body a button to its sheet, its Off beside it)
       '.on-l>div{display:flex;align-items:center;gap:10px;box-sizing:border-box;height:48px;flex:none;border-bottom:1px solid ' + v('line') + '}',
       '.on-l>div:last-child{border-bottom:0}',
-      '.on-l .tx{flex:1;min-width:0;display:flex;flex-direction:column}',
+      '.on-t{flex:1;gap:10px;height:100%}',
+      '.on-l .tx{flex:1;min-width:0;display:flex;flex-direction:column;text-align:left}',
       '.on-l .tx b{' + type('body') + ';font-weight:600;line-height:19px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
       '.on-l .tx small{' + type('caption') + ';line-height:16px;color:' + v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
       '.on-l .on-b{padding:0 12px;flex:none}',
@@ -419,7 +487,9 @@
             var b = e.target.closest && e.target.closest('button');
             if (!b) return;
             e.stopPropagation();
-            self._off(b.getAttribute('data-off'), b.getAttribute('data-kind'), b.hasAttribute('data-all'));
+            if (b.hasAttribute('data-open-kind')) { self._openKind(b.getAttribute('data-open-kind')); return; }
+            if (b.hasAttribute('data-open-thing')) { window.hkShell.moreInfo(b.getAttribute('data-open-thing'), self); return; }
+            self._off(b.getAttribute('data-off'), b.getAttribute('data-off-kind'), b.hasAttribute('data-all'));
           });
           this._built = true;
         }
@@ -427,7 +497,8 @@
         var lab = '<div class="wl" style="color:' + ACC.orange + '">On Now</div>';
         var all = o.n ? '<button type="button" class="on-b all" data-all>All Off</button>' : '';
         var thing = function (t) {
-          return '<div>' + gly(t.kind.icon, 20, t.kind.color) + '<span class="tx"><b>' + esc(t.name) + '</b>' + (t.room ? '<small>' + esc(t.room) + '</small>' : '') + '</span>' +
+          return '<div><button type="button" class="on-t" data-open-thing="' + esc(t.id) + '" aria-label="' + esc('Open ' + t.name) + '">' + gly(t.kind.icon, 20, t.kind.color) +
+            '<span class="tx"><b>' + esc(t.name) + '</b>' + (t.room ? '<small>' + esc(t.room) + '</small>' : '') + '</span></button>' +
             '<button type="button" class="on-b" data-off="' + esc(t.id) + '" aria-label="' + esc(t.kind.off + ' ' + t.name) + '">' + t.kind.off + '</button></div>';
         };
         // as many things as fit in `room` px (rows of 48): the rest are "+N more"
@@ -444,14 +515,19 @@
           var rows = Math.max(1, Math.floor((box.ih + 4) / 48)), two = o.kinds.length > rows;
           html = '<div class="wsplit"><div class="wcol" style="flex:0 0 ' + (two ? 90 : 120) + 'px">' + lab + '<div class="wb xl">' + o.n + '</div></div>' +
             (o.n ? '<div class="chips" style="grid-template-columns:repeat(' + (two ? 2 : 1) + ',minmax(0,1fr))">' + o.kinds.map(function (x) {
-              return '<button type="button" class="on-b" data-kind="' + x.kind.key + '" aria-label="' + esc(x.kind.off + ' ' + plural(x.ids.length, x.kind.one, x.kind.many)) + '">' +
+              var many = plural(x.ids.length, x.kind.one, x.kind.many);
+              return '<div class="on-c"><button type="button" class="on-o" data-open-kind="' + x.kind.key + '" aria-label="' + esc('Open ' + many) + '">' +
                 // (two across, on a tile cell: the glyph says what, the number how many)
-                gly(x.kind.icon, 18, x.kind.color) + '<span>' + esc(two ? String(x.ids.length) : plural(x.ids.length, cap(x.kind.one), cap(x.kind.many))) + '</span><em>' + x.kind.off + '</em></button>';
+                gly(x.kind.icon, 18, x.kind.color) + '<span>' + esc(two ? String(x.ids.length) : plural(x.ids.length, cap(x.kind.one), cap(x.kind.many))) + '</span></button>' +
+                '<button type="button" class="on-z" data-off-kind="' + x.kind.key + '" aria-label="' + esc(x.kind.off + ' ' + many) + '">' + x.kind.off + '</button></div>';
             }).join('') + '</div>' : '<div class="wcol" style="justify-content:center"><div class="none">Nothing is on</div></div>') + '</div>';
         } else if (size === 'T') {
-          html = lab + '<div class="wb xl">' + o.n + '</div>' +
+          // the count takes what its rows (44 px each) and All Off leave: the large figure, else the hero's 44
+          var room = box.ih - 19 - 6 - 52 - o.kinds.length * 44;
+          html = lab + '<div class="wb' + (room >= 76 ? ' xl' : '') + '">' + o.n + '</div>' +
             (o.n ? '<div class="wr" style="margin-top:6px">' + o.kinds.map(function (x) {
-              return '<div style="cursor:default">' + gly(x.kind.icon, 20, x.kind.color) + '<b>' + esc(cap(x.kind.many)) + '</b><em>' + x.ids.length + '</em></div>';
+              return '<button type="button" class="on-k" data-open-kind="' + x.kind.key + '" aria-label="' + esc('Open ' + plural(x.ids.length, x.kind.one, x.kind.many)) + '">' +
+                gly(x.kind.icon, 20, x.kind.color) + '<b>' + esc(cap(x.kind.many)) + '</b><em>' + x.ids.length + '</em></button>';
             }).join('') + '</div>' : '<div class="none">Nothing is on</div>') +
             '<div class="on-ft">' + all.replace('class="on-b all"', 'class="on-b all" style="flex:1"') + '</div>';
         } else if (size === 'L') {
@@ -466,6 +542,14 @@
             '<div class="wcol">' + (o.n ? x2.html + (x2.more ? '<div class="ws" style="margin-top:4px">+' + x2.more + ' more</div>' : '') : '<div class="none" style="margin:auto">Nothing is on</div>') + '</div></div>';
         }
         C.morph(this._plate, html);
+      }
+      // A KIND'S SHEET: the things of that kind that are on ("Lights On", "Fans On", "Speakers Playing", "Switches On"); one
+      // thing, its own sheet
+      _openKind(key) {
+        var x = whatsOn(this.client).kinds.filter(function (k) { return k.kind.key === key; })[0], D = window.hkDetail;
+        if (!x) return;
+        if (x.ids.length === 1) { window.hkShell.moreInfo(x.ids[0], this); return; }
+        if (D && D.openGroup) D.openGroup(x.kind.title, x.ids.slice(), { icon: x.kind.icon });
       }
       // OFF: one thing, a kind, or everything on -- one call per kind, the
       // room pages' own commands (HkBase._call: the host's action port)
