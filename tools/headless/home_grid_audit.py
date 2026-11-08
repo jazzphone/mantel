@@ -953,6 +953,7 @@ STRETCH = r"""(async (delta) => {
   const kids = (n) => [...n.children, ...(n.shadowRoot ? n.shadowRoot.children : [])];
   const isBox = (e, c) => {
       if (/^(style|script|template|slot|link|svg|img|video|canvas|ha-icon|hk-icon)$/.test(e.localName)) return false;
+      if (e.hasAttribute('data-hk-hero')) return false;     // an element made to be big says so (the Accessory Tall's level)
       const cs = getComputedStyle(e); if (cs.display === 'none' || cs.visibility === 'hidden') return false;
       const r = e.getBoundingClientRect();
       // a fill or a whole outline: what the eye reads as a tile, a key or a pill (a hairline between rows is not)

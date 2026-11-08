@@ -813,6 +813,7 @@
       if (!e.lvl) {
         box = document.createElement('div');
         box.className = 'lvl'; box.setAttribute('role', 'slider'); box.tabIndex = 0;
+        box.setAttribute('data-hk-hero', '');   // the Tall block's one control, made to fill it (the grid audit's --stretch)
         box.setAttribute('aria-valuemin', '0'); box.setAttribute('aria-valuemax', '100');
         box.innerHTML = '<i class="fill"></i><b></b>';
         e.grid.appendChild(box);
