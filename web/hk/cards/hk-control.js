@@ -633,6 +633,9 @@ class HkControlCard extends HTMLElement {
       :host([size=S]) .big .ff .ar svg{width:24px;height:24px}
       .big :is(.ff,.hd) .nm b{${window.hkCards.typeCss('body')};font-weight:600;line-height:18px;display:block;white-space:nowrap;overflow-wrap:normal;letter-spacing:-.2px}
       :host([size=T]) .big :is(.ff,.hd) .nm b{${window.hkCards.typeCss('headline')};line-height:21px}
+      .big .hd{flex:none;display:flex;justify-content:center;margin-bottom:6px}
+      .big .tgr{flex:1 1 auto;min-height:0;display:flex;align-items:center;margin:0 calc(9px - var(--hk-pad-r,18px)) 0 calc(9px - var(--hk-pad-l,18px))}
+      .big .tgr .tg{flex:1 1 auto;min-width:0}
       .big :is(.ff,.hd) .nm i{${window.hkCards.typeCss('caption')};font-weight:400;line-height:16px}
       /* WIDE (2026-11-07, the review): Big Number always, as Small is -- the number large over the foot (the arrows
          either side of the name) in the left part, the modes a 2 x 2 of 44 px keys at the right, as Extra Large's
