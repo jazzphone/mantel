@@ -5,6 +5,8 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+## 1.51.0 - 2026-11-08
+
 **Added**
 - **The Holiday slide**: a screensaver slide counting the days to the next holiday. Christmas, Halloween, Thanksgiving and New Year's each have a painted scene (a 90s living room with the count on the TV, a haunted house with it on a tombstone, a dining room with it chalked on a board, a rooftop party with a split-flap board) and live effects. Every other holiday, birthday and date of your own stands outdoors on the sky's landscape. It comes among the photos or over a clock, once a holiday is near. Holiday Options sets which holiday, how many days before, the effects, the holidays it counts, your own dates and the scenes. It is off by default; the Holiday Whimsy Look turns it on.
 - **Tiles in a block sit 13 px in with 21 px corners** on HomeView's square cells (groups, Scenes, Security, Live TV), concentric with the block; headings stay put.
