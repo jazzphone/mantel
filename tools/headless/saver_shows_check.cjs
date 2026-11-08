@@ -69,7 +69,8 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
       : want === 'lay-align' ? [[screen, want, 1180, 820], [screen, want, 390, 844]]
       : want === 'lay-date' ? [[screen, want, 1180, 820], [screen, want, 820, 1180], [screen, want, 390, 844]]
       : want === 'big-corners' || want === 'planted' ? [[screen, want, 1180, 820], [screen, want, 820, 1180], [screen, want, 390, 844]] : [[screen, want, 1180, 820]])
-      // (--shard K/N: every N-th run from the K-th; tools/ci.py runs the N parts side by side)
+      // (--one-size: each Show at its first size, the release run's; --shard K/N: every N-th run from the K-th, side by side)
+      .filter(([screen, want], i, all) => !input.one_size || all.findIndex((r) => r[0] === screen) === i)
       .filter((_, i) => !input.shard || i % input.shard[1] === input.shard[0] - 1);
     console.log('saver shows: ' + runs.length + ' runs' + (input.shard && input.shard[1] > 1 ? ' (part ' + input.shard.join(' of ') + ')' : ''));
     say(runs.length > 0, 'this part has runs to make', runs.length);

@@ -160,7 +160,8 @@ def test_a_screen_gets_floors_choosers_and_only_its_own_real_home(cfg):
     assert c["configured"] and c["library_entry"] == "ma1" and c["volume"] == 0.35
     assert [f["name"] for f in c["floors"]] == ["Main Floor", "Upstairs", "Other"]
     assert c["playlists"][2] == {"name": "Decades", "icon": "mdi:playlist-music", "options": [
-        {"name": "1980s", "key": "pl_80s"}, {"name": "1990s", "key": "pl_90s"}]}
+        {"name": "1980s", "key": "pl_80s", "uris": ["library://playlist/148"]},
+        {"name": "1990s", "key": "pl_90s", "uris": ["library://playlist/155"]}]}
     assert c["home"] == OFF
     assert cfg.as_client("u2")["home"] is None, "a home room that is no longer a speaker"
     assert cfg.as_client(None)["home"] is None
@@ -942,9 +943,10 @@ def test_the_clients_playlists_carry_a_cover_where_there_is_one(cfg):
     plain = cfg.as_client(None)["playlists"]
     assert all("image" not in p for p in plain) and all("image" not in o for p in plain for o in p.get("options", []))
     got = cfg.as_client(None, {"pl_fav": "/ma/imageproxy/aa", "pl_90s": "/ma/imageproxy/dd"})["playlists"]
-    assert got[0] == {"name": "Favorites", "icon": plain[0]["icon"], "key": "pl_fav", "image": "/ma/imageproxy/aa"}
+    assert got[0] == {"name": "Favorites", "icon": plain[0]["icon"], "key": "pl_fav", "uris": ["library://playlist/147"],
+                      "image": "/ma/imageproxy/aa"}
     assert "image" not in got[1], "no cover: the screen draws its gradient"
     decades = got[2]
     assert decades["image"] == "/ma/imageproxy/dd", "the choices' pill: its first choice that has a picture"
-    assert decades["options"] == [{"name": "1980s", "key": "pl_80s"},
-                                  {"name": "1990s", "key": "pl_90s", "image": "/ma/imageproxy/dd"}]
+    assert decades["options"] == [{"name": "1980s", "key": "pl_80s", "uris": ["library://playlist/148"]},
+                                  {"name": "1990s", "key": "pl_90s", "uris": ["library://playlist/155"], "image": "/ma/imageproxy/dd"}]

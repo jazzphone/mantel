@@ -104,6 +104,7 @@
           ':host([wide]) .trend{flex:1;display:flex;flex-direction:column;padding:' + SP.cardPad + ';min-height:0}',
           ':host([wide]) .trend .axc{flex:1;min-height:72px;margin-top:8px}',
           ':host([wide]) .trend .tt2{margin-bottom:0}',
+          '.trend .nohist{flex:1;display:grid;place-items:center;min-height:72px;' + window.hkCards.typeCss('caption') + ';color:' + window.hkCards.v('ink-2') + '}',
           // A SHORT SCREEN: the thermostat's -- the ring the control on the
           // left (PANEL_CSS SHORT), as tall as the body, 0.86 as tall as wide,
           // and the tank's readings, the modes and the power beside it; the
@@ -343,7 +344,11 @@
           lo.textContent = Math.round(Math.min.apply(null, vs)) + '°';
           hi.textContent = Math.round(Math.max.apply(null, vs)) + '°';
         }
-        if (pts.length < 2) return;
+        // (no history yet: the wide sheet keeps its card and says so, as the thermostat's does -- 2026-11-07, the review)
+        if (pts.length < 2) {
+          if (this.hasAttribute('wide')) { this._tankKey = null; this._trend.hidden = false; this._trend.innerHTML = '<div class="tt2">Tank, last 24 hours</div><div class="nohist">No readings in the last 24 hours</div>'; }
+          return;
+        }
         // redrawn when the rows or the reading move, or the width changes
         var key = this._rows.length + '|' + at(this._stateObj, 'current_temperature');
         if (key === this._tankKey) return;

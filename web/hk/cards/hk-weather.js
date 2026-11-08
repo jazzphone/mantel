@@ -754,13 +754,13 @@
           // THE THREE PLACES: the left and the right sharing the row (the right taking what is left, as the band
           // always did); with something in the center, two equal sides and the center between them, truly centered
           '.bz{display:flex;align-items:center;gap:24px;min-width:0;height:60px}',
-          '.bl{flex:0 1 auto}.br{flex:1 1 auto;justify-content:flex-end}',
+          '.bl{flex:0 1 auto;min-width:auto}.br{flex:1 1 auto;justify-content:flex-end}',
           '.grid-band.has-center{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr)}',
           '.has-center .bc{justify-content:center}.has-center .bl{justify-content:flex-start}',
           '.bz:empty{min-width:0}',
           // (in the left or the center, the weather and the chips their own width, not the row's)
           '.bl .band-weather,.bc .band-weather{flex:0 1 auto}.bl .band-chips,.bc .band-chips{flex:0 1 auto}',
-          '.band-clock{flex:none;max-width:45%;min-width:0}',
+          '.band-clock{flex:none;min-width:0}',
           '.band-clock>[data-hk-clock=clock]{min-width:0!important}',
           '.band-weather{flex:1 1 240px;min-width:0;max-width:360px}',
           fitCss('.band-weather'),
@@ -1681,30 +1681,30 @@
           }).join('') + '</div>';
         };
         var hrs = this._hours(sz === 'XL' ? 5 : 6);
-        // EXTRA LARGE: the page in small. Each reading only when the house
-        // has it: feels like, humidity and wind from Settings' sensors or the
-        // weather entity, the chance of rain today's (else this hour's), the
-        // sun's next setting (its rising, after dark), and the UV index.
+        // EXTRA LARGE: the page in small. Each reading only when the house has it: feels like, humidity, wind, the chance
+        // of rain (today's, else this hour's), the sun's next setting (its rising, after dark), UV, pressure, visibility and
+        // dew point. (2026-11-08, the owner: the readings were bunched at the foot with glass above them: they fill the
+        // column as rows of one designed height (46 px on a square cell, 40 on a tile), up to six, centered, a short last row too.)
         if (sz === 'XL') {
           var rd = function (id, attr) { return id ? num((states[id] || {}).state) : num(a[attr]); };
           var feels = rd(src.feels, 'apparent_temperature'), hum = rd(src.humidity, 'humidity'), wind = rd(src.wind, 'wind_speed');
-          var h0 = hrs[0] || {}, rain = num(today.precipitation_probability);
-          if (rain === null) rain = num(h0.precipitation_probability);
-          var uv = num(a.uv_index);
-          if (uv === null) uv = num(h0.uv_index);
+          var h0 = hrs[0] || {}, rain = num(today.precipitation_probability), uv = num(a.uv_index), prs = num(a.pressure), vis = num(a.visibility), dew = num(a.dew_point);
+          if (rain === null) rain = num(h0.precipitation_probability); if (uv === null) uv = num(h0.uv_index);
           var sun = states['sun.sun'], sa = (sun && sun.attributes) || {}, up = !sun || sun.state !== 'below_horizon';
-          var at = fmtTime(up ? sa.next_setting : sa.next_rising), brg = num(a.wind_bearing);
+          var at = fmtTime(up ? sa.next_setting : sa.next_rising), brg = num(a.wind_bearing), blk = this._block(), tile = !!blk && blk.h < 380;
           var reads = [
-            ['mdi:thermometer', 'Feels like', feels !== null ? Math.round(feels) + '°' : null],
-            ['mdi:water-percent', 'Humidity', hum !== null ? Math.round(hum) + '%' : null],
-            ['mdi:weather-windy', 'Wind', wind !== null ? Math.round(wind) + ' ' + this._units().wind + (brg !== null ? ' ' + dir16(brg) : '') : null],
-            ['mdi:weather-rainy', 'Rain', rain !== null ? Math.round(rain) + '%' : null],
-            ['mdi:weather-sunset', up ? 'Sunset' : 'Sunrise', at],
-            ['mdi:white-balance-sunny', 'UV', uv !== null ? Math.round(uv) + ' ' + (uv < 3 ? 'Low' : uv < 6 ? 'Moderate' : uv < 8 ? 'High' : uv < 11 ? 'Very High' : 'Extreme') : null]
-          ].filter(function (r) { return r[2]; });
+            ['mdi:thermometer', 'Feels like', feels !== null ? Math.round(feels) + '°' : null], ['mdi:water-percent', 'Humidity', hum !== null ? Math.round(hum) + '%' : null],
+            ['mdi:weather-windy', 'Wind' + (brg !== null ? ' ' + dir16(brg) : ''), wind !== null ? Math.round(wind) + ' ' + this._units().wind : null],
+            ['mdi:weather-rainy', 'Rain', rain !== null ? Math.round(rain) + '%' : null], ['mdi:weather-sunset', up ? 'Sunset' : 'Sunrise', at],
+            ['mdi:white-balance-sunny', 'UV', uv !== null ? Math.round(uv) + ' ' + (uv < 3 ? 'Low' : uv < 6 ? 'Moderate' : uv < 8 ? 'High' : uv < 11 ? 'Very High' : 'Extreme') : null],
+            ['mdi:gauge', 'Pressure', prs !== null ? (a.pressure_unit === 'inHg' ? prs.toFixed(2) : Math.round(prs)) + ' ' + (a.pressure_unit || '') : null],
+            ['mdi:eye', 'Visibility', vis !== null ? Math.round(vis) + ' ' + (a.visibility_unit || '') : null], ['mdi:thermometer-water', 'Dew point', dew !== null ? Math.round(dew) + '°' : null]
+          ].filter(function (r) { return r[2]; }).slice(0, 6);
+          var per = tile ? 3 : 2, odd = reads.length % per;    // (12 grid columns: 2 readings across a square cell, 3 across a tile; a short last row shares them)
           return done(this, plate('Weather forecast', '<div class="lc">' + top + (hrs.length ? hourCells(hrs) : '') +
-            (reads.length ? '<div class="rds">' + reads.map(function (r) {
-              return '<span><hk-icon icon="' + r[0] + '" aria-hidden="true"></hk-icon><small>' + esc(r[1]) + '</small><b>' + esc(r[2]) + '</b></span>';
+            (reads.length ? '<div class="rds"' + (reads.length <= per ? ' style="flex:none"' : '') + '>' + reads.map(function (r, i) {
+              var first = odd && i === reads.length - odd, st = first ? 'grid-column:' + (1 + (12 - odd * 12 / per) / 2) + ' / span ' + 12 / per : 'grid-column:span ' + 12 / per;
+              return '<span style="' + st + '"><hk-icon icon="' + r[0] + '" aria-hidden="true"></hk-icon><small>' + esc(r[1]) + '</small><b>' + esc(r[2]) + '</b></span>';
             }).join('') + '</div>' : '') + '</div>' +
             (allDays.length ? '<div class="rc"><b class="lab">' + allDays.length + '-Day Forecast</b>' + dayRows(allDays) + '</div>' : '')));
         }
@@ -2051,10 +2051,10 @@
           // EXTRA LARGE, a small Weather page: the top, the hours and the
           // readings (two across, with room between) on the left; seven days
           // on the right, one under the other, not spread to its foot
-          '.wb.XL{display:grid;grid-template-columns:260px minmax(0,1fr);column-gap:24px;align-items:stretch}',
+          '.wb.XL{display:grid;grid-template-columns:276px minmax(0,1fr);column-gap:24px;align-items:stretch}.wb.XL .lc:only-child{grid-column:1/-1}',
           '.wb.XL .lc{display:flex;flex-direction:column;justify-content:space-between;gap:12px;min-width:0;min-height:0}',
           '.wb.XL .hrs{padding-top:10px}.wb.XL .hr{gap:2px}',
-          '.wb.XL .rds{display:grid;grid-template-columns:1fr 1fr;gap:14px;border-top:1px solid ' + RULE + ';padding-top:12px}',
+          '.wb.XL .rds{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:0 14px;border-top:1px solid ' + RULE + ';flex:1 1 auto;min-height:0;grid-auto-rows:46px;align-content:center;align-items:center}',
           '.wb.XL .rds span{display:grid;grid-template-columns:18px minmax(0,1fr);column-gap:6px;align-items:center;min-width:0}',
           '.wb.XL .rds hk-icon{width:16px;height:16px;--mdc-icon-size:16px;color:' + C.v('ink-2') + ';display:block;line-height:0}',
           '.wb.XL .rds small{' + C.typeCss('caption') + ';line-height:16px;color:' + C.v('ink-2') + '}',
@@ -2064,9 +2064,9 @@
           '.wb.XL .rc .lab{' + C.labelCss('label') + ';line-height:18px}',
           '.wb.XL .days{border-top:0;padding-top:0;gap:8px}',
           // (on a tile: the readings three across, each its value under it)
-          '@container hk-cell (max-height:380px){.wb.XL{grid-template-columns:272px minmax(0,1fr)}.wb.XL .lc{gap:8px}.wb.XL .hrs{padding-top:6px}' +
-            '.wb.XL .rds{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding-top:8px}.wb.XL .rds span{grid-template-columns:16px minmax(0,1fr);column-gap:4px}' +
-            '.wb.XL .rds b{grid-column:1/-1}.wb.XL .days{gap:6px}}',
+          '@container hk-cell (max-height:380px){.wb.XL{grid-template-columns:288px minmax(0,1fr)}.wb.XL .lc{gap:8px}.wb.XL .hrs{padding-top:6px}' +
+            '.wb.XL .rds{column-gap:8px;grid-auto-rows:40px}.wb.XL .rds span{grid-template-columns:16px minmax(0,1fr);column-gap:4px}' +
+            '.wb.XL .rds b{grid-column:1/-1}}',
           // LARGE AND EXTRA LARGE FILL THEIR BLOCK (2026-11-01, the owner: "lots of space above and below"): the
           // temperature as large as the block's height allows, the hours' figures a step up, and the days sharing
           // the room left under them (Large) or down the right column from its label (Extra Large), each a row
@@ -2080,7 +2080,7 @@
           '.wb.L .day,.wb.XL .day{height:auto;min-height:20px;font-size:clamp(13px,3.8cqh,18px)}',
           '.wb.L .day svg,.wb.XL .day svg{width:clamp(18px,5cqh,26px);height:auto}',
           '.wb.L .day,.wb.XL .day{grid-template-columns:minmax(52px,auto) clamp(20px,5cqh,26px) 36px minmax(0,1fr) 36px}',
-          '.wb.XL .rc{justify-content:flex-start}',
+          '.wb.XL .rc{justify-content:flex-start}.wb.XL .days{grid-auto-rows:32px;gap:4px;align-content:center}@container hk-cell (max-height:380px){.wb.XL .days{grid-auto-rows:26px}}',
           // (the 7-Day label on the place name's baseline, the owner, 2026-11-01: one line box for both, the smaller
           // label nudged down the 2 px its smaller type sits high)
           '.wb.XL .place-name,.wb.XL .rc .lab{line-height:22px}.wb.XL .rc .lab{padding-top:2px;margin-bottom:-2px}',
@@ -2962,7 +2962,7 @@
                ':host([size]){overflow:hidden}' +
                ':host([size]) hk-plate.clock{' + window.hkCards.plate('card') + ';box-sizing:border-box;height:100%;' +
                'padding:' + window.hkCards.blockPad(window.hkCards.CARD.pad) + ';display:flex;flex-direction:column;justify-content:center;overflow:hidden}' +
-               ':host([size]) [data-hk-clock=clock]{min-width:0!important;width:100%}' +
+               ':host([size]) [data-hk-clock=clock]{min-width:0!important;width:100%}:host([size]) [data-hk-clock=clock],:host([size]) [data-hk-clock=clock] *{justify-content:center!important;align-items:center!important;text-align:center!important}' + /* centered on its block, StandBy's clock: equal margins all round (2026-11-07, the review) */
                ':host([size]) [data-hk-clock=date]{font-weight:500!important;letter-spacing:0!important}' +
                // BARE (the Clock block's Hide Box): the time on the wallpaper,
                // with the header's glow (`shadow`) to read on it
@@ -2971,8 +2971,8 @@
       // the clock's sizes by block: time, AM / PM, date (px)
       _gridSizes(sz) {
         // (L and the Full Width block, 2026-10-24: the Clock block comes in every size)
-        if (sz === 'XL' || sz === 'XXL') return ['clamp(72px, min(18cqw, 40cqh), 150px)', '26px', window.hkCards.TYPE.headline.size + 'px'];
-        if (sz === 'L') return ['clamp(56px, min(22cqw, 36cqh), 120px)', '24px', window.hkCards.TYPE.headline.size + 'px'];
+        if (sz === 'XL' || sz === 'XXL') return ['clamp(72px, min(24cqw, 50cqh), 200px)', '30px', window.hkCards.TYPE.headline.size + 'px'];
+        if (sz === 'L') return ['clamp(56px, min(25cqw, 42cqh), 150px)', '26px', window.hkCards.TYPE.headline.size + 'px'];
         if (sz === 'S') return ['min(40px, 20cqw)', '14px', window.hkCards.TYPE.caption.size + 'px'];
         // (Tall: one column wide -- its time and AM / PM ran past the plate's edge, 2026-10-30)
         if (sz === 'T') return ['min(56px, 22cqw)', '14px', window.hkCards.TYPE.caption.size + 'px'];
@@ -3392,7 +3392,7 @@
       ':host{display:block;color:' + v('ink') + '}',
       '.wp{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:' + SP.region + 'px;align-items:start}',
       '.col{display:flex;flex-direction:column;gap:' + SP.block + 'px;min-width:0}',
-      '.wp.one{grid-template-columns:minmax(0,1fr)}',
+      '.wp.one{grid-template-columns:minmax(0,1fr)}' + /* TWO COLUMNS FILL THE SHEET (2026-11-07, the review; HomeView's Weather: the place's temperature centered, large, the condition and the day's range under it): the summary takes what the hours and conditions leave, its reading centered in it; the days share the right column's height */ '.wp:not(.one){flex:1;min-height:0;align-items:stretch}.wp:not(.one) .wx-summary,.wp:not(.one) .wx-days,.wp:not(.one) .dys{flex:1;display:flex;flex-direction:column;min-height:0}.wp:not(.one) .reading{flex:1;flex-direction:column;justify-content:center;text-align:center;gap:2px;margin-top:0}.wp:not(.one) .reading .t{font-size:56px;line-height:60px}.wp:not(.one) .dy{flex:1 1 0;min-height:44px}',
       '.wx-section{' + C.plate('card') + ';border-radius:' + SP.cardR + 'px;padding:' + SP.cardPad + ';background:' + v('key') + ';box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none;min-width:0}',
       '.lab{display:flex;justify-content:space-between;align-items:baseline;gap:' + SP.block + 'px;' + C.labelCss('label') + ';line-height:16px;margin:0}',
       '.lab .n{text-transform:none;letter-spacing:0;font-size:13px;font-weight:500;text-align:right}',

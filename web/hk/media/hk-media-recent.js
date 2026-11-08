@@ -46,7 +46,7 @@
     // ask keeps what it had and tries again after RECENT_RETRY.
     var RECENT_AGE = 10 * 60 * 1000, RECENT_RETRY = 60 * 1000;
     // [covers in the grid, columns, rows] by size (L and XL: the last above them)
-    var RECENT = { S: [0, 1, 1], W: [4, 4, 1], T: [6, 2, 3], L: [8, 4, 2], XL: [12, 6, 2] };
+    var RECENT = { S: [0, 1, 1], W: [4, 4, 1], T: [6, 2, 3], L: [8, 4, 2], XL: [12, 4, 1] };
     function recentCovers(items) {
       var seen = {}, out = [];
       (items || []).forEach(function (it) {
@@ -79,6 +79,27 @@
         } else if (p.key) out.push({ playlist: p.key, name: p.name, key: p.name, artist: 'Playlist', icon: p.icon || null, image: p.image || null });
       });
       return out;
+    }
+    // THE LAST PLAYED PLAYLIST (2026-11-08, the owner: "the card [should] know the last playlist played and offer that as the
+    // Hero"): Music Assistant's library playlists by when each last played -- played here, on the Music page or anywhere
+    // else -- asked once for every Music block (LASTPL_AGE, and again just after a block plays one), and the first the
+    // Music page's playlists hold (a playlist, or a choice of one, by its items: `uris`) is the block's first cover
+    var LASTPL_AGE = 3 * 60 * 1000, LASTPL = { uris: null, due: 0, busy: false, cards: [] };
+    function heroFirst(tiles, pls) {
+      var uris = LASTPL.uris || [], hit = /** @type {any} */ (null);
+      for (var i = 0; i < uris.length && !hit; i++) {
+        (pls || []).some(function (p) {
+          var o = (p.options || []).filter(function (x) { return (x.uris || []).indexOf(uris[i]) >= 0; })[0];
+          if (o) hit = { playlist: o.key, name: o.name, key: p.name + o.name, artist: 'Last Played', icon: p.icon || null, image: o.image || null };
+          else if ((p.uris || []).indexOf(uris[i]) >= 0) hit = { name: p.name };
+          return !!hit;
+        });
+      }
+      if (!hit) return tiles;
+      if (hit.playlist) return [hit].concat(tiles);
+      var at = tiles.map(function (t) { return t.name; }).indexOf(hit.name);
+      if (at < 0) return tiles;
+      return [Object.assign({}, tiles[at], { artist: 'Last Played' })].concat(tiles.slice(0, at), tiles.slice(at + 1));
     }
     var MU_CSS = [
       ':host{display:block;height:100%}',
@@ -141,6 +162,11 @@
       '.t2{display:block;' + C.typeCss('caption') + ';line-height:17px;color:' + C.v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
       '.top{display:flex;gap:16px;align-items:flex-start;flex:none}',
       '.mu.L .last,.mu.XL .last{--big:min(120px, 100cqh - 160px)}',
+      // EXTRA LARGE (2026-11-08, the owner: "the last played playlist showing up at the top, and then below it, all of the
+      // playlists with a horizontal scroll"): five across, the last played above as big as the height left lets it
+      '.mu.XL .top .col{align-self:stretch}.pp{all:unset;box-sizing:border-box;margin-top:auto;align-self:flex-start;height:44px;padding:0 20px 0 14px;border-radius:22px;display:inline-flex;align-items:center;gap:6px;cursor:pointer;' +
+      '  background:rgba(255,255,255,.94);color:#1c1c1e;' + C.typeCss('headline') + ';-webkit-tap-highlight-color:transparent}.pp:active{transform:scale(.96)}.pp hk-icon{width:22px;height:22px;--mdc-icon-size:22px}',
+      '.mu.XL .cv{--across:5}.mu.XL .cvw{flex:none}.mu.XL .top{flex:1;min-height:0}.mu.XL .last{height:100%;width:auto;aspect-ratio:1}',
       '.top .col{display:flex;flex-direction:column;min-width:0;flex:1}',
       '.top .t1{' + C.typeCss('title') + ';line-height:27px;margin-top:2px}',
       // (the second ink, not Music's pink -- 2026-11-01, the owner: "I don't like the Red Playlist Font color")
@@ -148,7 +174,7 @@
       '.hr{height:1px;flex:none;margin:14px 0 4px;background:' + C.v('line') + '}',
       '.none{flex:1;display:grid;place-items:center;text-align:center;' + C.typeCss('caption') + ';color:' + C.v('ink-2') + '}',
       // ON A TILE CELL (196 x 150 a cell): a row fewer
-      '@container hk-cell (max-height:379px){.mu.T .cv{--r:2}.mu.L .cv,.mu.XL .cv{--r:1}}'
+      '@container hk-cell (max-height:379px){.mu.T .cv{--r:2}.mu.L .cv{--r:1}}'
     ].join('');
 
     class HkRecentMusicCard extends HkBase {
@@ -164,13 +190,33 @@
       _tiles() {
         var Mu = window.hkMusic, pls = Mu && Mu.playlists ? Mu.playlists() : [], m = this._mode();
         if (m === 'recent') return null;
-        var one = m === 'playlist' ? (this._config.playlist || (pls[0] || {}).name) : null;
-        return playlistTiles(pls, one);
+        var one = m === 'playlist' ? (this._config.playlist || (pls[0] || {}).name) : null, s = this._size();
+        if (m !== 'presets' || !(s === 'S' || s === 'L' || s === 'XL')) return playlistTiles(pls, one);
+        this._lastPl();
+        return heroFirst(playlistTiles(pls, null), pls);
       }
       // what is drawn: the size, the covers, and whether music is set up
       _sigOf() {
         var Mu = window.hkMusic;
         return JSON.stringify([this._size(), this._mode(), this._tiles(), this._items || null, !!(Mu && Mu.libraryEntry && Mu.libraryEntry()), musicMissing()]);
+      }
+      _lastPl() {
+        var Mu = window.hkMusic, entry = Mu && Mu.libraryEntry && Mu.libraryEntry(), h = this.client;
+        if (LASTPL.cards.indexOf(this) < 0) LASTPL.cards.push(this);
+        if (!h || !h.callWS || !entry || LASTPL.busy || Date.now() < LASTPL.due) return;
+        LASTPL.busy = true;
+        LASTPL.due = Date.now() + LASTPL_AGE;
+        var msg = { type: 'call_service', domain: 'music_assistant', service: 'get_library', return_response: true,
+                    service_data: { config_entry_id: entry, media_type: 'playlist', order_by: 'last_played_desc', limit: 25 } };
+        var port = window.hkClient && window.hkClient.isWrite(msg) ? this._actions() : h;
+        Promise.resolve(port ? port.callWS(msg) : Promise.reject(new Error('no port'))).then(function (res) {
+          var resp = (res && res.response) || res || {};
+          LASTPL.uris = (resp.items || []).map(function (it) { return it && it.uri; }).filter(Boolean);
+        }, function () { LASTPL.due = Date.now() + RECENT_RETRY; }).then(function () {
+          LASTPL.busy = false;
+          LASTPL.cards = LASTPL.cards.filter(function (c) { return c.isConnected; });
+          LASTPL.cards.forEach(function (c) { c.redraw(); });
+        });
       }
       _load() {
         var Mu = window.hkMusic, entry = Mu && Mu.libraryEntry && Mu.libraryEntry(), h = this.client, self = this;
@@ -200,7 +246,7 @@
         var s = this._size(), R = RECENT[s], items = tiles || this._items, list = items || [], self = this;
         // (a playlist's own name over its choices; Presets, the page's playlists)
         var lab = mode === 'presets' ? 'Playlists' : mode === 'playlist' ? (tiles[0] && tiles[0].artist !== 'Playlist' ? tiles[0].artist : 'Playlist') : 'Recently Played';
-        // (every cover past the first: the grid scrolls -- across in Wide and Extra Large, down in Tall and Large)
+        // (every cover past the first: the grid scrolls -- across in Wide, down in Tall, Large and Extra Large)
         var last = list[0], more = s === 'W' || s === 'T' ? list.slice() : list.slice(1), axis = s === 'W' || s === 'XL' ? 'x' : 'y';
         // (still asking: the covers' places, empty)
         if (!items) { last = null; more = []; for (var i = 0; i < R[0]; i++) more.push(null); }
@@ -221,7 +267,10 @@
           (last ? '<button type="button" class="go" data-i="0" aria-label="Play ' + esc(last.name) + '"><hk-icon icon="mdi:play"></hk-icon></button>' : '') +
           '<div class="ft">' + words + '</div>';
         else if (s === 'W' || s === 'T') body = '<span class="lab">' + lab + '</span>' + grid;
-        else body = '<div class="top">' + lastBtn + '<div class="col"><span class="lab">' + lab + '</span>' + words + '</div></div><div class="hr"></div>' + grid;
+        else body = '<div class="top">' + lastBtn + '<div class="col"><span class="lab">' + lab + '</span>' + words +
+          // (Extra Large: Play at the cover's foot, the column beside it not left empty)
+          (s === 'XL' && last ? '<button type="button" class="pp" data-i="0"><hk-icon icon="mdi:play"></hk-icon>Play</button>' : '') +
+          '</div></div><div class="hr"></div>' + grid;
         this._root.innerHTML = '<hk-plate class="mu ' + s + '" data-hk-role="card">' + body + '</hk-plate>';
         var plate = this._root.querySelector('hk-plate');
         this._across();
@@ -243,9 +292,16 @@
         if (!cv || !w || typeof ResizeObserver !== 'function') return;
         var fit = function () {
           // (no sizes, nothing to fit: a page not laid out yet, or HK Frontend's test DOM, which has no computed styles)
-          var W = w.clientWidth, H = w.clientHeight, cs = W && H ? getComputedStyle(cv) : null;
+          var W = w.clientWidth, H = w.clientHeight, cs = W ? getComputedStyle(cv) : null;
           if (!cs || !cs.getPropertyValue || !cv.style.setProperty) return;
-          var r = +(cs.getPropertyValue('--r') || 1) || 1;
+          var r = +(cs.getPropertyValue('--r') || 1) || 1, across = +cs.getPropertyValue('--across') || 0;
+          if (across) {                // (Extra Large: so many across, the next peeking; the last played above takes the rest)
+            var each = Math.floor((W - across * 10) / (across + 0.4));
+            if (cv.style.getPropertyValue('--cv') !== each + 'px') cv.style.setProperty('--cv', each + 'px');
+            if (w.style.height !== each + 21 + 'px') w.style.height = each + 21 + 'px';
+            return;
+          }
+          if (!H) return;
           var tall = Math.floor((H - (r - 1) * 10) / r - 21);     // (the cover the height holds, its name under it)
           var seen = (W + 10) / (tall + 10), n = Math.max(1, Math.floor(seen));
           var size = seen - n >= 0.25 ? tall : Math.floor((W - n * 10) / (n + 0.4));
@@ -284,6 +340,10 @@
       }
       _play(it, el) {
         if (el && el._busyOn) el = el._busyOn;
+        // (what just started is the last played: asked again once Music Assistant has it)
+        var me = this;
+        LASTPL.due = Math.min(LASTPL.due, Date.now() + 6000);
+        setTimeout(function () { if (me.isConnected) me.redraw(); }, 6500);
         if (it.options) { this._choose(it, el); return; }
         if (it.playlist) { this._playList(it, el); return; }
         var Mu = window.hkMusic, player = this._target(), self = this;
@@ -371,6 +431,6 @@
 
     // what the shell and the later parts use of this one
     K.HkMusicPlaylistsCard = HkMusicPlaylistsCard; K.HkRecentMusicCard = HkRecentMusicCard;
-    K.playlistTiles = playlistTiles; K.RECENT = RECENT; K.recentCovers = recentCovers; K.tintOf = tintOf;
+    K.playlistTiles = playlistTiles; K.heroFirst = heroFirst; K.LASTPL = LASTPL; K.RECENT = RECENT; K.recentCovers = recentCovers; K.tintOf = tintOf;
   };
 })();

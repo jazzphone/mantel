@@ -1,0 +1,271 @@
+{
+  "status": "complete",
+  "request": "docs/artwork-handoff/holiday-scenes-2/ARTWORK-REQUEST.md",
+  "assets": [
+    {
+      "path": "output/ny-balloons.png",
+      "sha256": "6800395297e50a74b99e6dd6cd6937f3e49ab5fdf7fc3c99c1f62d3647f00cae",
+      "bytes": 2537204,
+      "width": 1348,
+      "height": 2152,
+      "mode": "RGBA"
+    },
+    {
+      "path": "output/ny-board.png",
+      "sha256": "f1005135abdbbec485b0f174b4bea4a0d0b9c95cd7a8f63b127470aea863d108",
+      "bytes": 1322381,
+      "width": 2000,
+      "height": 1515,
+      "mode": "RGBA"
+    },
+    {
+      "path": "output/ny-crate.png",
+      "sha256": "7d84e39945b43df0359ccb473110033c407fe45034c46aab3e45dec53683d996",
+      "bytes": 816390,
+      "width": 2004,
+      "height": 232,
+      "mode": "RGBA"
+    },
+    {
+      "path": "output/ny-party.png",
+      "sha256": "03552c2f19a160880d8e9d9ae7df9a0c2a758ce76c11bcc1bbeb34e958373a0f",
+      "bytes": 531110,
+      "width": 1240,
+      "height": 656,
+      "mode": "RGBA"
+    },
+    {
+      "path": "output/ny-rooftop.png",
+      "sha256": "5da83673249a2a9211b830320a0b89d298d69cbb4c5121a48c5e4cfb63c7c8de",
+      "bytes": 2064343,
+      "width": 3200,
+      "height": 520,
+      "mode": "RGBA"
+    },
+    {
+      "path": "output/ny-sky.png",
+      "sha256": "19c0aaa3b8c1645cf30752785e68cf6a36b38d66576bda1c6539ebfab427ef69",
+      "bytes": 3170607,
+      "width": 2560,
+      "height": 1600,
+      "mode": "RGBA"
+    },
+    {
+      "path": "output/ny-skyline.png",
+      "sha256": "a28e2f127ea3f910cf35bc1393dd8b95e217ee3a78e82f0fe97f25fe28f0b040",
+      "bytes": 2695899,
+      "width": 3200,
+      "height": 900,
+      "mode": "RGBA"
+    },
+    {
+      "path": "output/ny-streamers.png",
+      "sha256": "cc938fac431f1a4ed8a9fe27a291a2bfec803e07c980b0d2717d1e2ac15d1e70",
+      "bytes": 292811,
+      "width": 1400,
+      "height": 272,
+      "mode": "RGBA"
+    },
+    {
+      "path": "output/ny-string-lights.json",
+      "sha256": "0279e97be856d342a4e105bf50b4825cb3308197bb06bd4b86f3f139b820ecfd",
+      "bytes": 1469
+    },
+    {
+      "path": "output/ny-string-lights.png",
+      "sha256": "554dfdba428267707d74d8ceab3f075491248eb1062ca4780e9cf384c1b64811",
+      "bytes": 312772,
+      "width": 3200,
+      "height": 300,
+      "mode": "RGBA"
+    },
+    {
+      "path": "output/preview-newyear-ipad.png",
+      "sha256": "4662beb195c7dd518362e1c90756621bde195f1701370594c335761922b74254",
+      "bytes": 1056836,
+      "width": 820,
+      "height": 1180,
+      "mode": "RGB"
+    },
+    {
+      "path": "output/preview-newyear-pane.png",
+      "sha256": "7eb35ff3996c4445836a1e53af728f2638ab542df75a43db8563ff9fd2d9dac6",
+      "bytes": 897186,
+      "width": 880,
+      "height": 800,
+      "mode": "RGB"
+    },
+    {
+      "path": "output/preview-newyear-phone.png",
+      "sha256": "21c58b6fef516bd76ccb73cd5d4eeb7cc9d7358747fedec038128020771b96f2",
+      "bytes": 407765,
+      "width": 390,
+      "height": 844,
+      "mode": "RGB"
+    },
+    {
+      "path": "output/preview-newyear-side.png",
+      "sha256": "85f96afbe63de12e9bbb8f398cfb9d55b4986440a7b5bed9a8c27f23232c9b36",
+      "bytes": 431702,
+      "width": 844,
+      "height": 390,
+      "mode": "RGB"
+    },
+    {
+      "path": "output/preview-newyear-wall.png",
+      "sha256": "396a809c3ea5b433aac0cbb653ec859d2844324b15311fbad7e72c0ac836bb6d",
+      "bytes": 1275942,
+      "width": 1280,
+      "height": 800,
+      "mode": "RGB"
+    },
+    {
+      "path": "output/preview-thanks-ipad.png",
+      "sha256": "97d01a49119682c724c3085f9bd50b035a9859f47c67ed7602473a918d0f62f2",
+      "bytes": 1229746,
+      "width": 820,
+      "height": 1180,
+      "mode": "RGB"
+    },
+    {
+      "path": "output/preview-thanks-pane.png",
+      "sha256": "c199811650db4693449d795ec96793166b4089aaf766550ee5f39abae17843fe",
+      "bytes": 851837,
+      "width": 880,
+      "height": 800,
+      "mode": "RGB"
+    },
+    {
+      "path": "output/preview-thanks-phone.png",
+      "sha256": "da6fbea85122b7cdbc8b983393f5c122a4b6e1669281ed902eaf4a892455f498",
+      "bytes": 422312,
+      "width": 390,
+      "height": 844,
+      "mode": "RGB"
+    },
+    {
+      "path": "output/preview-thanks-side.png",
+      "sha256": "674ff61909be3682ca7fb0a77acca8a26c5cdd80b63c7b1a5940b8839f2409c9",
+      "bytes": 326231,
+      "width": 844,
+      "height": 390,
+      "mode": "RGB"
+    },
+    {
+      "path": "output/preview-thanks-wall.png",
+      "sha256": "d6bb93da1a808f5f6550c8d8847f086dff045c0a58b1c4672cb1f96e723bcc81",
+      "bytes": 1216830,
+      "width": 1280,
+      "height": 800,
+      "mode": "RGB"
+    },
+    {
+      "path": "output/thanks-board.png",
+      "sha256": "308bef02ddafa93c0c4ca1460b99978d2568936323cee0577f8f919807af53d6",
+      "bytes": 4113592,
+      "width": 2000,
+      "height": 1515,
+      "mode": "RGBA"
+    },
+    {
+      "path": "output/thanks-console.png",
+      "sha256": "eb8344837d915eb3e0a47d5c0cacf2b71f587dac696dd6d5c54a6f768fcc96b2",
+      "bytes": 685336,
+      "width": 2004,
+      "height": 232,
+      "mode": "RGBA"
+    },
+    {
+      "path": "output/thanks-floor.png",
+      "sha256": "f355243f63cbfd5cbc248e01090917537ea46b48b3a3ccdbcb4949da9d6e8b78",
+      "bytes": 1779484,
+      "width": 1024,
+      "height": 1024,
+      "mode": "RGBA"
+    },
+    {
+      "path": "output/thanks-harvest.png",
+      "sha256": "671b0e85282fa3a7a7055a835e52a4bbdf635f29b32b97b71b1f9c0f7f5f3602",
+      "bytes": 476071,
+      "width": 1400,
+      "height": 272,
+      "mode": "RGBA"
+    },
+    {
+      "path": "output/thanks-hutch.png",
+      "sha256": "2789cf8b7d4fc5fe52d60a72d61b179b0f65b2551833aabb72817e854d4f8170",
+      "bytes": 4745268,
+      "width": 1348,
+      "height": 2152,
+      "mode": "RGBA"
+    },
+    {
+      "path": "output/thanks-table.json",
+      "sha256": "b2d11d9c7febf39ea4e2b6e1d1705cb815333f0ec7771d52488d323446dac650",
+      "bytes": 257
+    },
+    {
+      "path": "output/thanks-table.png",
+      "sha256": "0f1e17427dea917349bc42e10d787066058d4cecb2068233474f36b4b79225ed",
+      "bytes": 1368891,
+      "width": 1240,
+      "height": 656,
+      "mode": "RGBA"
+    },
+    {
+      "path": "output/thanks-wainscot.png",
+      "sha256": "e65c8d21a0db87dfb4612941918e271f6ecdc56449a866adc1b52e8e2cf5c067",
+      "bytes": 1346501,
+      "width": 2048,
+      "height": 400,
+      "mode": "RGBA"
+    },
+    {
+      "path": "output/thanks-wall.png",
+      "sha256": "8223e76857bbf89928e72df1d8c839321b2e0b3c5e906b96e0ef4326a491d6ea",
+      "bytes": 1172446,
+      "width": 1024,
+      "height": 1024,
+      "mode": "RGBA"
+    },
+    {
+      "path": "output/thanks-window-outside.png",
+      "sha256": "0df1fdf8b45e7ef68d4ae542adf900cf534a95e4123b3e80c8e1d6503eed6e63",
+      "bytes": 2157991,
+      "width": 1000,
+      "height": 920,
+      "mode": "RGBA"
+    },
+    {
+      "path": "output/thanks-window.png",
+      "sha256": "c5a254515b0b8e8373f6826bf3d1a0cc6ade6757d43c2df48a572ca314c83e05",
+      "bytes": 1397813,
+      "width": 1160,
+      "height": 1136,
+      "mode": "RGBA"
+    }
+  ],
+  "previews": [
+    "output/preview-newyear-ipad.png",
+    "output/preview-newyear-pane.png",
+    "output/preview-newyear-phone.png",
+    "output/preview-newyear-side.png",
+    "output/preview-newyear-wall.png",
+    "output/preview-thanks-ipad.png",
+    "output/preview-thanks-pane.png",
+    "output/preview-thanks-phone.png",
+    "output/preview-thanks-side.png",
+    "output/preview-thanks-wall.png"
+  ],
+  "checks": [
+    "check_assets.py: ALL PASS",
+    "19 PNG paintings: exact required sizes, 8-bit RGBA, embedded sRGB; two valid coordinate JSON files",
+    "Viewed all ten final previews individually at native screen sizes after the final ALL PASS run",
+    "Reviewed every cut-out on flat black and white in 200% composites and boundary crops",
+    "Reviewed repeated wallpaper, oak floor, wainscot, skyline, rooftop and light strips",
+    "Visually verified two candle wicks, three hot-food steam origins, and all 40 real bulb centers",
+    "Inspected every piece for writing, logos, signs, people, faces, animals and recognizable real landmarks; repainted ambiguous skyline window interiors",
+    "Revalidated SHA-256 for all 31 delivered files before creating this status file"
+  ],
+  "notes": "Original paintings made with the built-in image generation tool, matched to the first batch's material detail and camera. Technical export registered clear glass and board opening, cleaned straight-alpha edges, and reconciled repeats. Repainted balloon margins, console gourds/support geometry, and empty city windows. Supplied narrow-screen placements crop the hutch/balloons and omit some props; placements were preserved. High-top cocktail table retains natural proportions with transparent side padding. All live effects and artwork text remain for code; previews contain checker stand-ins only. Full review, prompts, sources, QA studies, log and inventory are in output/work/. Static artwork review completed; live integration and device acceptance were not part of this request. First batch and all other project files left alone; no commit, branch or push. This status file was created as the final file operation."
+}

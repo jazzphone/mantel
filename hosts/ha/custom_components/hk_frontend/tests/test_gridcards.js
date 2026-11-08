@@ -28,6 +28,7 @@ load(HK_ROOT + '/frontend/cards/hk-base.js');
 load(HK_ROOT + '/frontend/cards/hk-tile.js');
 load(HK_ROOT + '/frontend/cards/hk-room.js');
 load(HK_ROOT + '/frontend/cards/hk-strategy.js');
+load(HK_ROOT + '/frontend/cards/hk-chip.js');
 load(HK_ROOT + '/frontend/cards/hk-grid-catalog.js');
 load(HK_ROOT + '/frontend/cards/hk-grid-cards.js');
 
@@ -104,12 +105,12 @@ function () {
      /Math\.sqrt\(b\.width \* b\.height\)/.test(esrc) && /ink \* 0\.78 \/ mean/.test(esrc) && window.hkCards.TILE.centred.ink === 0.83 &&
      /window\.hkInkScale\(inkName, window\.hkCards\.TILE\.centred\.ink\)/.test(tsrc) && /e\.icon\.setAttribute\('ink', String\(C\.TILE\.centred\.ink\)\)/.test(gsrc));
   ok('the Room and Accessories blocks hand Centred to each tile, and redraw when it changes', /if \(centred\) el\.setAttribute\('tile', 'centred'\);/.test(gsrc) &&
-     /var key = JSON\.stringify\(\[p\.tiles, p\.more, p\.size, !!p\.scroll, centred, !!p\.half, !!p\.color\]\);/.test(gsrc) && /return \['size', 'tile'\];/.test(gsrc));
+     /var key = JSON\.stringify\(\[p\.tiles, p\.more, p\.size, !!p\.scroll, centred, !!p\.half, !!p\.color, gm\]\);/.test(gsrc) && /return \['size', 'tile'\];/.test(gsrc));
   window.hkCards.createCard = factory;
   // the CSS: one variant, the tiles' own parts, from the table (hk-base.js TILE.centred)
   var tileCss = customElements.get('hk-tile-card').CSS, keyCss = customElements.get('hk-action-card').CSS, T = window.hkCards.TILE.centred;
   ok('the tile and the key each have the variant, keyed by the attribute', tileCss.indexOf(':host([tile=centred])') >= 0 && keyCss.indexOf(':host([tile=centred])') >= 0);
-  ok('...a 196 x 150 cell\'s numbers, then a square cell\'s', tileCss.indexOf('top:' + T.tall.at + '%') >= 0 && tileCss.indexOf('@container hk-cell (min-height:180px) or (max-aspect-ratio: 6 / 5) or style(--hk-cell-shape: square){') >= 0 &&
+  ok('...a 196 x 150 cell\'s numbers, then a square cell\'s', tileCss.indexOf('top:' + T.tall.at + '%') >= 0 && tileCss.indexOf('@container hk-cell (min-height:170px) or (max-aspect-ratio: 6 / 5) or style(--hk-cell-shape: square){') >= 0 &&
      tileCss.indexOf('width:' + T.square.glyph + 'px !important;height:' + T.square.glyph + 'px !important') >= 0);
   ok('...the lock\'s and Lock Up\'s, the lights\' and the scenes\' tiles: hk-tile\'s and the key\'s', keyCss.indexOf('top:' + T.square.text + '%') >= 0);
   ok('...the glyph bare, off and lit -- no circle (2026-10-31, HomeView has none)', tileCss.indexOf(':host([tile=centred]) .well{background:none !important}') >= 0 &&
@@ -174,10 +175,14 @@ function () {
   var t = C.table();
   eq('the options each declares (home_grid.CATALOG\'s: a pytest holds them equal)',
      [t.room.opts, t.scene_suggested.opts, t.action.opts, t.everything.opts],
-     [{ area: 'area', surface: 'surface', accessory_display: 'room_display', tap: 'tap_target' }, { windows: 'windows' }, { action: 'action', area: 'area', color: 'boolean' }, {}]);
+     [{ area: 'area', surface: 'surface', accessory_display: 'room_display', tap: 'tap_target' }, { windows: 'windows' }, { action: 'action', area: 'area', color: 'boolean' }, { tap: 'tap_target', more: 'everything_more' }]);
+  // (2026-11-08, round two) Everything's More Places and On Now's Categories, carried into the card only when not the default
+  eq('...Everything\'s More Places, On Now\'s Categories', [t.on_now.opts, C.config({ card: 'everything', size: 'L', opts: { more: 'scroll' } }, ctx).more,
+     C.config({ card: 'everything', size: 'L', opts: { more: 'page' } }, ctx).more, C.config({ card: 'on_now', size: 'L', opts: { open: 'page' } }, ctx).open,
+     C.config({ card: 'on_now', size: 'L', opts: { open: 'sheet' } }, ctx).open], [{ tap: 'tap_target', open: 'on_now_open' }, 'scroll', undefined, 'page', undefined]);
   // (2026-10-31) the widget blocks, and Scenes' and Accessories' Height and Color
   eq('...the widget blocks and their sizes', [t.on_now.sizes, t.todo.sizes, t.energy_rings.sizes, t.energy_rings.opts, t.todo.opts],
-     [['S', 'W', 'T', 'L', 'XL'], ['S', 'T', 'L', 'XL'], ['S', 'W', 'T', 'L', 'XL'], { period: 'period', tap: 'tap_target' }, { entity: 'todo', tap: 'tap_target' }]);
+     [['S', 'W', 'T', 'L', 'XL'], ['S', 'W', 'T', 'L', 'XL'], ['S', 'W', 'T', 'L', 'XL'], { period: 'period', tap: 'tap_target' }, { entity: 'todo', tap: 'tap_target' }]);
   eq('...Scenes and Accessories: Height and Color', [t.scenes.opts.height, t.scenes.opts.color, t.accessories.opts.height, t.accessories.opts.color, t.scene.opts.color],
      ['tile_height', 'boolean', 'tile_height', 'boolean', 'boolean']);
 },
@@ -240,9 +245,11 @@ function () {
   var slots = card._e.tiles.children.filter(function (c) { return c.className === 'slot'; });
   eq('a slot per pill', slots.length, 4);
   var oldHeight = card._h; card._h = 220;
-  var ordinary = card._plan().tiles.length;
+  var ordinary = card._plan().geom;
   card.setAttribute('data-grid-pager', '');
-  ok('paged rooms keep accessory targets clear of the dots', card._plan().tiles.length < ordinary);
+  // (2026-11-08: the same tiles, as many, each the dots' room (24 px) shorter -- never a tile's size that follows the block)
+  var paged = card._plan().geom;
+  ok('paged rooms keep accessory targets clear of the dots', paged.th < ordinary.th && paged.n === ordinary.n && paged.tw === ordinary.tw);
   card.removeAttribute('data-grid-pager'); card._h = oldHeight;
   var pend = slots[1];                       // light.kitchen_pendant
   var fire = function (el, t, ev) { (el._listeners[t] || []).forEach(function (f) { f(ev); }); };
@@ -407,9 +414,9 @@ function () {
      { type: 'custom:hk-grid-cameras-card', cameras: ['camera.driveway', 'camera.garden'] });
   eq('...its own, and its refresh', C.config({ card: 'cameras', size: 'XL', opts: { cameras: ['camera.garden'], refresh: 30 } }, ctx),
      { type: 'custom:hk-grid-cameras-card', cameras: ['camera.garden'], refresh: 30 });
-  eq('...a house with no camera: the stand-in', C.config({ card: 'cameras', size: 'XL' }, {}).type, 'custom:hk-key-card');
+  eq('...a house with no camera: the stand-in', C.config({ card: 'cameras', size: 'XL' }, {}).type, 'custom:hk-grid-panel-card');
   eq('...its sizes and options', [C.table().cameras.sizes, C.table().cameras.opts], [['XL', 'XXL', 'F'], { cameras: 'cameras', refresh: 'refresh' }]);
-  eq('the Camera block comes Small too (2026-10-31): one still in a cell', C.table().camera.sizes, ['S', 'W', 'L', 'XL']);
+  eq('the Camera block comes Small too (2026-10-31): one still in a cell', C.table().camera.sizes, ['S', 'W', 'T', 'L', 'XL']);
   eq('Full is the grid\'s own columns and rows', [C.SIZES.F, C.span('F', 3, 3), C.span('F', 2, 4), C.span('XL', 6, 4)], [[0, 0], [3, 3], [2, 4], [3, 2]]);
 },
 function () {

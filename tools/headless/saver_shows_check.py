@@ -16,6 +16,9 @@ after it; and a Show with no layout never draws one.
 
 --only TEXT runs just the screens with TEXT in their names (saver-lay-, say), to work on one.
 
+--one-size runs each Show at its first size only (a tablet's): what tools/ci.py's full run does since 2026-11-08 (whole,
+the check was a third of the run); by hand, without it, every size.
+
 --shard K/N runs every N-th of the runs (each Show at each size), from the K-th: tools/ci.py runs the N parts side by
 side, each with its own server and WebKit (2026-11-01: whole, it was a full run's last ~3 minutes alone).
 
@@ -29,6 +32,7 @@ ap = argparse.ArgumentParser(description=__doc__)
 ap.add_argument('--node', default=os.environ.get('NODE') or shutil.which('node'))
 ap.add_argument('--shots', type=Path)
 ap.add_argument('--shard', default='1/1', help='K/N: every N-th run, from the K-th')
+ap.add_argument('--one-size', action='store_true', help="each Show at its first size only (tools/ci.py's release run)")
 ap.add_argument('--only', default='', help='only the screens whose name has this in it (saver-lay-, say), for working on one')
 args = ap.parse_args()
 try:
@@ -272,7 +276,7 @@ async def main():
                                                         stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, env=os.environ)
             out, err = await proc.communicate(json.dumps({'origin': str(server.make_url('')).rstrip('/'), 'cookie': cookie,
                                                           'shows': {k: v[1] for k, v in SHOWS.items()}, 'python': sys.executable,
-                                                          'shard': [shard, shards], 'only': args.only,
+                                                          'shard': [shard, shards], 'only': args.only, 'one_size': args.one_size,
                                                           'shots': str(args.shots) if args.shots else None}).encode())
             print(out.decode())
             if err.strip():

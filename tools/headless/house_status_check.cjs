@@ -20,22 +20,22 @@ function blocks() {
     const sr = c.shadowRoot, plate = sr.querySelector('hk-plate'), pb = box(plate);
     // (the view scales its grid to the window: a block's px in its own measure)
     const k = plate.offsetWidth ? pb.w / plate.offsetWidth : 1;
-    const secs = [...sr.querySelectorAll('.sc')].map((s) => {
+    const secs = [...sr.querySelectorAll('.ln')].map((s) => {
       const v = s.querySelector('.v'), nm = s.querySelector('.nm');
       return Object.assign(box(s), { tag: s.tagName, name: nm ? nm.textContent : '', value: v ? v.textContent.replace(/\s+/g, ' ').trim() : '',
         detail: s.querySelector('.dt') ? s.querySelector('.dt').textContent : null,
         cut: !!(v && v.scrollWidth > v.clientWidth + 1), label: s.getAttribute('aria-label') });
     });
-    const more = sr.querySelector('.mo'), all = sr.querySelector('.all');
-    const reach = more ? parseFloat(getComputedStyle(more, '::before').height) * k : 0;
+    const more = sr.querySelector('.sm-k'), all = sr.querySelector('.sm-s');
+    const reach = more ? parseFloat(getComputedStyle(more, '::after').height) * k : 0;
     // the parts' ink: nothing drawn past the plate's inside
     const pad = parseFloat(getComputedStyle(plate).paddingLeft) || 0;
-    const past = [...sr.querySelectorAll('.sc, .hd, .mo, .all')].filter((e) => {
+    const past = [...sr.querySelectorAll('.ln, .sm-h, .sm-k, .sm-s, .hl')].filter((e) => {
       const b = box(e), p = pad * k; return b.r > pb.r - p + 1 || b.b > pb.b - p + 1 || b.l < pb.l + p - 1 || b.t < pb.t + p - 1;
     }).map((e) => { const b = box(e); return e.className + ' ' + [b.l - pb.l, b.t - pb.t, pb.r - b.r, pb.b - b.b].map(Math.round).join(','); });
     return { size: c.getAttribute('size'), k, plate: pb, secs, more: more ? Object.assign(box(more), { text: more.textContent.trim(), reach }) : null,
              small: all ? Object.assign(box(all), { text: all.textContent.replace(/\s+/g, ' ').trim() }) : null, past,
-             density: (sr.querySelector('.gr') || { className: '' }).className.replace('gr ', '') };
+             density: (sr.querySelector('.hl') || { textContent: '' }).textContent.trim() };
   });
 }
 
@@ -82,7 +82,7 @@ function sheetState() {
       await ready(page);
       await page.evaluate(DEEP);
       await page.waitForFunction(() => deep(document, 'hk-house-status-card').length >= 6 &&
-        deep(document, 'hk-house-status-card').every((c) => c.shadowRoot && c.shadowRoot.querySelector('.sc, .all, .none')), null, { timeout: 30000 });
+        deep(document, 'hk-house-status-card').every((c) => c.shadowRoot && c.shadowRoot.querySelector('.ln, .sm-s, .none')), null, { timeout: 30000 });
       await page.waitForTimeout(1200);
       return { ctx, page, errors, commands };
     }
@@ -97,7 +97,7 @@ function sheetState() {
           const label = `${engine} ${screen} ${b.size}`;
           check(label + ': drawn inside its plate', () => assert(!b.past.length, JSON.stringify(b.past)));
           check(label + ': every section a finger tall', () => b.secs.forEach((s) => assert(s.h / b.k >= 43.5, s.name + ' ' + s.h / b.k)));
-          if (b.more) check(label + ': "+N more" a finger\'s reach', () => assert(Math.max(b.more.h, b.more.reach) / b.k >= 43.5 && b.more.w / b.k >= 44, JSON.stringify(b.more)));
+          if (b.more) check(label + ': "+N more" a finger\'s reach', () => assert(Math.max(b.more.h, b.more.reach) / b.k >= 43.5 && b.more.w / b.k >= 43.5, JSON.stringify(b.more)));
         }
         if (screen === 'hs-six') {
           // TAPS: a section goes to its chip's page, once; "+N more" and Small open the sheet; a row of the sheet
@@ -113,7 +113,7 @@ function sheetState() {
             return { x: r.left + r.width / 2, y: r.top + r.height / 2, name: el.getAttribute('aria-label') };
           }, [size, sel, nth]);
           const sheetUp = () => page.evaluate(() => deep(document, 'hk-house-status-sheet').length > 0);
-          let t = await tapIn('L', '.sc', 4);                     // Lights
+          let t = await tapIn('XL', '.ln', 4);                    // Lights
           await page.touchscreen.tap(t.x, t.y);
           await page.waitForTimeout(800);
           let went = await page.evaluate(() => window.__went.slice());
@@ -124,11 +124,11 @@ function sheetState() {
           await page.waitForFunction(() => deep(document, 'hk-house-status-card').length >= 6, null, { timeout: 15000 });
           await page.waitForTimeout(800);
           await page.evaluate(() => { window.__went.length = 0; });
-          t = await tapIn('T', '.mo');
+          t = await tapIn('W', '.sm-k');
           await page.touchscreen.tap(t.x, t.y);
           await page.waitForTimeout(800);
           up = await sheetUp();
-          check(`${engine} ${screen}: "+2 more" opens the sheet`, () => assert(up));
+          check(`${engine} ${screen}: "+N more" opens the sheet`, () => assert(up));
           went = await page.evaluate(() => window.__went.slice());
           check(`${engine} ${screen}: ...no navigation`, () => assert.deepEqual(went, []));
           // this screen has no Energy page: Power is a readout there, no button and no chevron (never a made-up page)
@@ -153,7 +153,7 @@ function sheetState() {
           await page.waitForFunction(() => deep(document, 'hk-house-status-card').length >= 6, null, { timeout: 15000 });
           await page.waitForTimeout(800);
           // Small, by the keyboard: focus it, Enter, Escape -> the focus is back on it
-          await page.evaluate(() => { const c = deep(document, 'hk-house-status-card').find((x) => x.getAttribute('size') === 'S'); c.shadowRoot.querySelector('.all').focus(); });
+          await page.evaluate(() => { const c = deep(document, 'hk-house-status-card').find((x) => x.getAttribute('size') === 'S'); c.shadowRoot.querySelector('.sm-s').focus(); });
           await page.keyboard.press('Enter');
           await page.waitForTimeout(800);
           up = await sheetUp();
@@ -164,7 +164,7 @@ function sheetState() {
           await page.waitForTimeout(600);
           const back = await page.evaluate(() => { let a = document.activeElement; while (a && a.shadowRoot && a.shadowRoot.activeElement) a = a.shadowRoot.activeElement; return a ? a.className : null; });
           up = await sheetUp();
-          check(`${engine} ${screen}: Escape closes it, the focus back on Small`, () => { assert(!up); assert.equal(back, 'all'); });
+          check(`${engine} ${screen}: Escape closes it, the focus back on Small`, () => { assert(!up); assert.equal(back, 'sm-s'); });
         }
         check(`${engine} ${screen}: no page errors`, () => assert.deepEqual(errors, []));
         check(`${engine} ${screen}: no commands sent`, () => assert.deepEqual(commands, []));

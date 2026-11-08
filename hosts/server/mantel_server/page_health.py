@@ -52,7 +52,7 @@ from .connectors import Ctx, ws_handlers
 
 log = logging.getLogger("mantel.page_health")
 
-EVENTS = ("load", "beat", "draw", "fps")
+EVENTS = ("load", "beat", "draw", "fps", "motion")
 PREV = ("clean", "died", "none")
 PAGES = ("home", "settings")
 PLATFORMS = ("iPad", "iPhone", "Android", "Mac", "Windows", "Linux", "Other")
@@ -91,6 +91,23 @@ def _style(v: Any) -> str:
 
 def _sig(v: Any) -> str:
     return v if isinstance(v, str) and SIG.match(v) else ""
+
+
+KINDS = ("page", "view", "block")
+
+
+def _motion(msg: dict) -> str:
+    """A ``motion`` frame as one log line: how the swipes of the last minute were drawn on this device (hk-drag.js
+    motion), or "" for a frame that says nothing usable."""
+    swipes, frames, ms = _count(msg.get("swipes")), _count(msg.get("frames")), _count(msg.get("ms"))
+    late, worst, p95 = _count(msg.get("late")), _count(msg.get("worst")), _count(msg.get("p95"))
+    if not swipes or not frames or not ms or late is None or late > frames:
+        return ""
+    kinds = msg.get("kinds") if isinstance(msg.get("kinds"), dict) else {}
+    what = ", ".join(f"{_count(kinds[k])} {k}" for k in KINDS if _count(kinds.get(k)))
+    return (f"{swipes} times ({what or 'swipes'}): {round(frames * 1000 / ms, 1)} frames a second while moving, "
+            f"{round(100 * late / frames)}% of frames late, 95% within {p95} ms, the worst {worst} ms; "
+            f"{_style(msg.get('style')) or 'no style'} on {_screen(msg.get('screen')) or 'a screen'}")
 
 
 def _secure(v: Any) -> bool | None:
@@ -311,6 +328,13 @@ async def page_health(ctx: Ctx, msg: dict) -> None:
             ctx.state["page_health_fps_at"] = now
             RING.add(ctx, msg)
             log.info("page health: %s drew %s frames a second", _who(ctx), _fps(msg.get("fps")))
+        return
+    if msg["event"] == "motion":                # at most once a minute, after swipes
+        if now - ctx.state.get("page_health_motion_at", -EVERY) >= EVERY:
+            ctx.state["page_health_motion_at"] = now
+            line = _motion(msg)
+            if line:
+                log.info("page health: %s swiped %s", _who(ctx), line)
         return
     last = ctx.state.get("page_health_at")
     if msg["event"] == "beat" and last is not None and now - last < EVERY:

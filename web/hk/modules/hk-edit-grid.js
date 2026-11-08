@@ -118,6 +118,12 @@
   }
 
   // ------------------------------------------------------------ the layout (pure)
+  // (a Tiny block, half a cell: its top or bottom half, as hk-layout.js places it -- 2026-11-08)
+  function half(el, size, at) {
+    if (size !== 'XS') return;
+    var gap = parseFloat(getComputedStyle(el.parentNode || el).rowGap) || 10;
+    el.style.alignSelf = at[2] ? 'end' : 'start'; el.style.height = 'calc((100% - ' + gap + 'px) / 2)';
+  }
   function find(grid, id) { for (var i = 0; i < grid.items.length; i++) if (grid.items[i].id === id) return grid.items[i]; return null; }
   // A NEW SIZE for a block: where it is if it fits there, else the nearest
   // place in its view where it fits with nothing else moved; null: nowhere
@@ -552,6 +558,7 @@
     var top = this.bandRow();
     t.style.gridColumn = (at[0] + 1) + ' / span ' + z[0];
     t.style.gridRow = (at[1] + 1 + top) + ' / span ' + z[1];
+    half(t, c.it ? c.it.size : c.size, at);
     t.classList.toggle('bad', !!bad);
   };
   Part.prototype.carryMove = function (ev) {
@@ -560,9 +567,9 @@
     var dx = ev.clientX - c.p.x0, dy = ev.clientY - c.p.y0, k = c.box.scale || 1;
     c.p.cell.style.setProperty('translate', (dx / k) + 'px ' + (dy / k) + 'px');
     var at = X().landing(c.cx + dx, c.cy + dy, c.box, c.box.cols, c.box.rows, c.box.gap, c.it.size);
-    if (at[0] === c.at[0] && at[1] === c.at[1]) return;
+    if (at[0] === c.at[0] && at[1] === c.at[1] && (at[2] | 0) === (c.at[2] | 0)) return;
     c.at = at;
-    var home = at[0] === c.it.at[0] && at[1] === c.it.at[1];
+    var home = at[0] === c.it.at[0] && at[1] === c.it.at[1] && (at[2] | 0) === (c.it.at[2] | 0);
     var cand = home ? this.grid : X().makeRoom(this.grid, c.it.id, at);
     c.cand = cand; c.bad = !cand;
     this.aimAt(at, !cand);
@@ -581,6 +588,7 @@
       var z = G().span(it.size, grid.cols, grid.rows);
       cell.style.gridColumn = (it.at[0] + 1) + ' / span ' + z[0];
       cell.style.gridRow = (it.at[1] + 1 + top) + ' / span ' + z[1];
+      half(cell, it.size, it.at);
     });
     this.glide(first, c.p && c.p.cell);
   };

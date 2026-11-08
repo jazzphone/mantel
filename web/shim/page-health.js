@@ -22,6 +22,8 @@
 // sky and camera settings on it (`sig`, "blur:a1w1r1f0c1"), which HK Settings' "a lighter look for a slow tablet" -- one
 // step at a time -- reads (GET /api/performance/tablets).
 //
+// SWIPES (2026-11-08): a `motion` frame, once a minute when there were any, says how this device drew the swipes in it.
+//
 // SECURE CONTEXT (2026-11-02, docs/phase13/CAMERAS-DIRECT.md "The HTTPS check"): the `load` and `beat` frames also say
 // whether this page is a secure context (window.isSecureContext: HTTPS with a certificate the browser trusts, or
 // localhost -- the only pages a browser gives the microphone to) and the address it loaded from (location.origin), so
@@ -71,7 +73,16 @@ export function pageHealth(hub, page = 'home', marks = null) {
   hub.tell('page_health', { event: 'load', prev, prev_heap: before && before.heap, prev_up: before && before.up, ...heap(), ...counts(), ...device(), ...where() });
   const beat = () => { const h = heap(); keep({ heap: h.heap, up: up(), closed: false }); return h; };
   beat();
-  const timer = setInterval(() => { const h = beat(); hub.tell('page_health', { event: 'beat', up: up(), ...h, ...counts(), ...where() }); }, 60000);
+  // SWIPES (2026-11-08): how this device drew its swipes since the last minute (hk-drag.js motion: frames, late frames,
+  // the worst), with the style and the screen they were drawn with -- the tablet's own measure of what a finger feels
+  const motion = () => {
+    let m = null, style = null;
+    try { m = window.hkDrag && window.hkDrag.motion ? window.hkDrag.motion.take() : null; } catch (e) { m = null; }
+    if (!m) return;
+    try { style = window.hkSettings && window.hkSettings.glass ? window.hkSettings.glass() : null; } catch (e) { style = null; }
+    hub.tell('page_health', { event: 'motion', ...m, style, screen: (location.pathname.split('/')[1] || null), ...counts() });
+  };
+  const timer = setInterval(() => { const h = beat(); hub.tell('page_health', { event: 'beat', up: up(), ...h, ...counts(), ...where() }); motion(); }, 60000);
   window.addEventListener('pagehide', () => keep({ ...heap(), up: up(), closed: true }));
   // THE FRAME RATE: HK's one sampler (/hk/modules/hk-fps.js: 5 s of requestAnimationFrame, only when the page is idle
   // and lit). The dashboard's is the one hk-loader starts -- each sample is told, with the screen and the style it was

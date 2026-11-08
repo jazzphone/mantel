@@ -30,6 +30,13 @@ def test_a_screen_is_generated_with_no_layout_by_default():
     assert "home_style" not in M.board_stored({}) and "home_grid" not in M.board_stored({})
 
 
+def test_two_tiny_blocks_share_a_cell_top_and_bottom():
+    g = HG.check(grid(block("a1", "accessory", "XS", [2, 1]), block("a2", "accessory", "XS", [2, 1, 1]),
+                      block("a3", "accessory", "XS", [3, 1, 0]), block("a4", "timers", "S", [3, 2])))
+    assert [it["at"] for it in g["items"]] == [[2, 1], [2, 1, 1], [3, 1], [3, 2]], "the top half is written [c, r]"
+    assert HG.cells(g["items"][1], 6, 4) == {(0, 2, 1)}
+
+
 def test_a_stored_layout_reads_back_checked_and_stored_whole():
     g = grid(block("a1", "room", "L", [0, 0], pages={"source": "rooms", "start": "tablet_room"}),
              block("a2", "timers", "S", [2, 0]))
@@ -78,13 +85,19 @@ def test_six_to_two_columns(cols):
     ([], "grid"),
     (grid(*[block(f"b{i}", "timers", "S", [i % 6, i // 6]) for i in range(25)], rows=6), "grid_items"),
     (grid(block("a1", "toaster", "S", [0, 0])), "grid_card"),
-    (grid(block("a1", "timers", "L", [0, 0])), "grid_size"),
+    (grid(block("a1", "scene", "XL", [0, 0])), "grid_size"),
     (grid(block("a1", "camera", "XL", [0, 0]), cols=2), "grid_fit"),
     (grid(block("a1", "thermostat", "T", [0, 3])), "grid_place"),
     (grid(block("a1", "camera", "L", [5, 0])), "grid_place"),
     (grid(block("a1", "camera", "L", [0, 3])), "grid_place"),
     (grid(block("a1", "camera", "L", [-1, 0])), "grid_place"),
     (grid(block("a1", "camera", "L", [0, 0]), block("a2", "timers", "S", [1, 1])), "grid_overlap"),
+    # TINY (2026-11-08): half a cell -- its own half only, never a Small's cell, and a third place number for it alone
+    (grid(block("a1", "accessory", "XS", [0, 0]), block("a2", "accessory", "XS", [0, 0])), "grid_overlap"),
+    (grid(block("a1", "accessory", "XS", [0, 0, 1]), block("a2", "timers", "S", [0, 0])), "grid_overlap"),
+    (grid(block("a1", "timers", "S", [0, 0, 1])), "grid_place"),
+    (grid(block("a1", "accessory", "XS", [0, 0, 2])), "grid_place"),
+    (grid(block("a1", "timers", "XS", [0, 0])), "grid_size"),
     (grid(block("a1", "timers", "S", [0, 0]), block("a1", "timers", "S", [1, 0])), "grid_item"),
     (grid(block("Bad Id", "timers", "S", [0, 0])), "grid_item"),
     (grid(block("a1", "timers", "S", [0, 0], colour="red")), "grid_item"),
@@ -125,8 +138,8 @@ def test_the_tablets_room_is_an_options_value():
 @pytest.mark.parametrize("tap", ["auto", "page", "sheet", "none"])
 def test_when_tapped_is_kept_on_every_block_that_has_something_to_open(tap):
     opening = [k for k, c in HG.CATALOG.items() if c["opts"].get("tap") == "tap_target"]
-    assert {"weather", "calendar", "todo", "battery", "power", "water", "energy_rings", "on_now", "people", "room"} <= set(opening)
-    assert not {"accessory", "scene", "action", "everything", "camera"} & set(opening)
+    assert {"weather", "calendar", "todo", "battery", "power", "water", "energy_rings", "on_now", "people", "room", "everything"} <= set(opening)
+    assert not {"accessory", "scene", "action", "camera"} & set(opening)
     for key in opening:
         size = HG.CATALOG[key]["sizes"][0]
         b, errors = write(grid(block("a1", key, size, [0, 0], opts={"tap": tap})))
@@ -297,7 +310,7 @@ def test_the_catalog_and_its_python_mirror_agree(tmp_path):
     assert out["sources"] == list(HG.SOURCES) and out["room"] == HG.TABLET_ROOM
     # ...and hk-base.js's size-class table is the same one
     base = (ROOT / "web/hk/cards/hk-base.js").read_text()
-    assert "var HOME_GRID = { sizes: { S: [1, 1], W: [2, 1], T: [1, 2], L: [2, 2], XL: [3, 2], XXL: [6, 2], F: [0, 0], C: [3, 1] }" in base
+    assert "var HOME_GRID = { sizes: { S: [1, 1], W: [2, 1], T: [1, 2], L: [2, 2], XL: [3, 2], XXL: [6, 2], F: [0, 0], C: [3, 1], XS: [1, 1] }" in base
     # every page source a card names is a source
     assert all(set(v["sources"]) <= set(HG.SOURCES) for v in HG.CATALOG.values())
 
@@ -322,7 +335,7 @@ def test_conditional_block_roundtrip_with_same_sized_fallback(kind):
     {'when': {'kind': 'entity_state', 'entity': 'light.lamp', 'state': ''}, 'fallback': {'card': 'clock'}},
     {'when': {'kind': 'music_playing', 'state': 'anything'}, 'fallback': {'card': 'clock'}},
     {'when': {'kind': 'music_playing'}},
-    {'when': {'kind': 'music_playing'}, 'fallback': {'card': 'thermostat'}},  # no W
+    {'when': {'kind': 'music_playing'}, 'fallback': {'card': 'cameras'}},  # no W (Calendar has had one since 2026-11-07)
     {'when': {'kind': 'music_playing'}, 'fallback': {'card': 'clock', 'when': {'kind': 'doorbell'}}},
     {'when': {'kind': 'music_playing'}, 'fallback': {'card': 'clock', 'at': [2, 0]}},
     {'fallback': {'card': 'clock'}},
@@ -385,7 +398,7 @@ def test_rules_check_and_refuse():
     bad = [
         rules * 2,                                                                         # more than four
         [{"when": {"all": [{"kind": "music_playing"}] * 4}, "card": "now_playing"}],       # more than three conditions
-        [{"when": {"kind": "music_playing"}, "card": "timers"}],                           # timers don't come in L
+        [{"when": {"kind": "music_playing"}, "card": "cameras"}],                         # cameras don't come in L
         [{"when": {"kind": "time", "from": "09:00", "to": "09:00"}, "card": "now_playing"}],
         [{"when": {"kind": "time", "from": "9:00", "to": "10:00"}, "card": "now_playing"}],
         [{"when": {"kind": "time", "entity": "sun.sun", "from": "06:00", "to": "09:00"}, "card": "now_playing"}],
@@ -582,6 +595,22 @@ def test_a_layout_is_cut_to_the_entities_a_person_may_view():
     assert by["pg"]["pages"]["list"] == [{"opts": {}}, {"opts": {"entity": "camera.garden"}}]
     assert HG.only_viewable(g, HG.entity_ids(g)) == g and "camera.porch" in json.dumps(g), "the layout itself is untouched"
     assert HG.layout(cut)["items"] == cut["items"]
+
+
+def test_on_now_categories_and_everythings_more_places():
+    """Round two (2026-11-08, the owner): On Now's Categories -- a tapped kind shows its sheet (`sheet`, also what no key
+    means) or goes to its page (`page`); Everything's More Places -- "+N" opens the page (`page`, as before) or the places
+    scroll in the block (`scroll`). Each its own block's, nothing else."""
+    for key, opt, values in (("on_now", "open", ("sheet", "page")), ("everything", "more", ("page", "scroll"))):
+        for value in values:
+            b, errors = write(grid(block("a1", key, "L", [0, 0], opts={opt: value})))
+            assert errors == {} and b["home_grid"]["items"][0]["opts"][opt] == value
+        for bad in ("popup", "", True, None, [values[1]]):
+            _, errors = write(grid(block("a1", key, "L", [0, 0], opts={opt: bad})))
+            assert errors, (key, bad)
+    _, errors = write(grid(block("a1", "house_status", "L", [0, 0], opts={"open": "page"})))
+    assert errors
+    assert HG.CATALOG["on_now"]["opts"]["open"] == "on_now_open" and HG.CATALOG["everything"]["opts"]["more"] == "everything_more"
 
 
 def test_now_playings_background_is_the_album_or_the_card():

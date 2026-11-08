@@ -79,15 +79,18 @@ function () {
   house.set('sensor.running_quick_timers', '1', { running: [{ name: 'Pasta', entity_id: 'timer.quick_1', finishes_at: iso(420) }] });
   var p = sized('hk-timer-strip-card', 'W', { entity: 'sensor.running_quick_timers' })._e.__html;
   ok('paused: the ring resumes it, play at its centre, the time held', /data-service="start" aria-label="Resume Pasta"/.test(p) && /mdi:play/.test(p) && /hold="240"/.test(p));
-  ok('...one timer on Wide: quick starts and + beside it, the timer\'s own layout', /Start another/.test(p) && /class="ft qs">/.test(p) &&
-     (p.match(/data-preset=/g) || []).length === 2 && /<button class="add" data-new aria-label="Create a Timer">/.test(p));
+  ok('...one timer on Wide: a second place, "Start another" and one + ring beside it (a ring, a Stop and a + are the three controls)', /Start another/.test(p) && /class="gt idle two"/.test(p) &&
+     (p.match(/data-preset=/g) || []).length === 0 && /<button class="rk add" data-new aria-label="Create a Timer">/.test(p));
   house.set('sensor.running_quick_timers', '0', { running: [] });
   house.set('timer.quick_1', 'idle', { friendly_name: 'Quick Timer 1' });
   var none = sized('hk-timer-strip-card', 'S', { entity: 'sensor.running_quick_timers' })._e.__html;
-  ok('none running, Small: the orange Timers, None running, two quick starts as keys and +', /<b class="nm">Timers<\/b>/.test(none) && /None running/.test(none) &&
-     (none.match(/data-preset=/g) || []).length === 2 && /data-preset="5"[^>]*>5m</.test(none) && /data-new/.test(none));
+  ok('none running, Small: the orange Timers, None running, and one key, Start a timer (Small is its state and one action)', /<b class="nm">Timers<\/b>/.test(none) && /None running/.test(none) &&
+     (none.match(/data-preset=/g) || []).length === 0 && /class="rk cap" data-new aria-label="Create a Timer"><hk-icon icon="mdi:plus"><\/hk-icon>Start a timer</.test(none));
   none = sized('hk-timer-strip-card', 'W', { entity: 'sensor.running_quick_timers' })._e.__html;
-  ok('...Wide: five quick starts across the block and +', /class="gt wide"/.test(none) && (none.match(/data-preset=/g) || []).length === 5 && />1h</.test(none) === false && />30m</.test(none));
+  ok('...Wide: "Start a timer" beside three rings -- the 5 and 10 minute starts as arcs of an hour, and +', /class="gt idle xl c"/.test(none) && (none.match(/data-preset=/g) || []).length === 2 &&
+     /data-preset="5" style="--a:8\.3\d*"[\s\S]*>5m</.test(none) && />10m</.test(none) && /class="rk add"/.test(none) && />30m</.test(none) === false);
+  var big = sized('hk-timer-strip-card', 'L', { entity: 'sensor.running_quick_timers' })._e.__html;
+  ok('...Large: all five starts and +, ring-shaped, the group centered (nothing stretches: one --k, whole columns)', (big.match(/data-preset=/g) || []).length === 5 && /class="qs g" style="--k:\d+px;--qc:3"/.test(big) && />30m</.test(big));
   ok('a square cell: the mock-up\'s ring and Stop (76 and 52 on Small, 72 and 48 on Wide)',
      SRC.indexOf(":host([size=S]) hk-plate.strip{--ring:76px;--stop:52px}") > 0 && SRC.indexOf(":host([size=W]) hk-plate.strip{--ring:72px;--stop:48px}") > 0);
   ok('...a tile cell\'s at least a finger\'s 44', SRC.indexOf("overflow:hidden;--ring:56px;--stop:44px}") > 0);
@@ -97,8 +100,9 @@ function () {
   H.section('Who\'s Home: Small fills the block with faces, those away dimmed, and says who is where');
   var s = sized('hk-people-card', 'S', {}), html = s._root.__html;
   ok('the heading', /<b class="lab">Who’s Home<\/b>/.test(html));
-  eq('every face, A to Z, a button opening their sheet', (html.match(/<button class="pr/g) || []).length, 3);
-  ok('...the one away dimmed (class away), those home not', /class="pr away" data-id="person.robin"/.test(html) && /class="pr home" data-id="person.sam"/.test(html));
+  eq('every face, A to Z, drawn and not a button (Small: the plate opens the sheet)', (html.match(/<div class="pr/g) || []).length, 3);
+  ok('...no face is a button or carries a tap', !/<button/.test(html) && !/data-id=/.test(html));
+  ok('...the one away dimmed (class away), those home not', /class="pr away" style="[^"]*" aria-label="Robin/.test(html) || /class="pr away" aria-label="Robin/.test(html) && /class="pr home/.test(html));
   ok('...each in a color of its own', /--fc:#ff9f0a/.test(html) && /--fc:#0a84ff/.test(html) && /--fc:#bf5af2/.test(html));
   ok('the line: how many are home, where the one away is', /<div class="line">2 home · Robin at Work<\/div>/.test(html), html);
   var line = function (states) {
@@ -116,8 +120,8 @@ function () {
 function () {
   H.section('The Vacuum block: big Clean and Dock; rooms to tick from Large up, "Clean 2 rooms"');
   var s = sized('hk-vacuum-card', 'S', { entity: 'vacuum.downstairs' }), html = s._root.__html;
-  ok('Small: its glyph and battery, name, state, Clean and Dock', /class="pct ">92%</.test(html) && /<b class="nm">Downstairs<\/b>/.test(html) &&
-     /class="key go" data-svc="start" aria-label="Clean Downstairs"/.test(html) && /class="key dk" data-svc="return_to_base"/.test(html));
+  ok('Small: its glyph and battery, name, state and one key, Clean (Dock is the sheet\'s)', /class="pct ">92%</.test(html) && /<b class="nm">Downstairs<\/b>/.test(html) &&
+     /class="key go" data-svc="start" aria-label="Clean Downstairs"/.test(html) && !/data-svc="return_to_base"/.test(html));
   house.calls.length = 0;
   tap(s, { 'data-svc': 'start' });
   return H.tick().then(function () {
@@ -155,8 +159,32 @@ function () {
       FEED.added = ['clean_areas'];
       ok('the grid\'s Large and Extra Large vacuum is the card\'s own block at that size',
          /this\._mount\(this\._root\.querySelector\('\.body'\), \{ type: 'custom:hk-vacuum-card', entity: this\._config\.entity \}, sizeOf\(this\) \|\| 'L'\)/.test(readFile(HK_ROOT + '/frontend/cards/hk-grid-cards.js')));
-      ok('more rooms than fit: whole rows, and "N more" opening every room over the page',
-         /class="vr more" data-more/.test(SRC) && /type: 'custom:hk-area-select-card', layout: 'panel'/.test(SRC));
+      ok('more rooms than fit: each a row of its own size (48 px) and the list scrolls -- no "N more" tile',
+         /grid-auto-rows:48px/.test(SRC) && /\.vb \.rooms\{[^}]*overflow-y:auto/.test(SRC) && !/class="vr more"/.test(SRC));
+      // TALL AND WIDE: the Rooms key and the sheet that picks (2026-11-08)
+      var P = window.hkHome.picked['vacuum.downstairs'];
+      P.clear();
+      var t = sized('hk-vacuum-card', 'T', { entity: 'vacuum.downstairs' });
+      H.attach(t);
+      SUBS[SUBS.length - 1].on({ configured: true, areas: ['kitchen', 'living_room', 'hallway'] });
+      var th = t._root.__html;
+      ok('Tall: a Rooms row saying All rooms, then Clean with Dock', /class="rrow" data-rooms[^>]*><span>All rooms<\/span>/.test(th) && /data-svc="start" aria-label="Clean Downstairs"/.test(th) && /data-svc="return_to_base"/.test(th));
+      P.add('kitchen'); P.add('living_room'); t._render();
+      th = t._root.__html;
+      ok('...one or two picked are named on the row, and Clean sends them (the sheet and the block share the picks)', /class="rrow on" data-rooms[^>]*><span>Kitchen, Living Room<\/span>/.test(th) && /data-svc="rooms" aria-label="Clean Downstairs"/.test(th));
+      P.add('hallway'); t._render();
+      ok('...three are a count', /<span>3 rooms<\/span>/.test(t._root.__html));
+      var w = sized('hk-vacuum-card', 'W', { entity: 'vacuum.downstairs' });
+      H.attach(w);
+      SUBS[SUBS.length - 1].on({ configured: true, areas: ['kitchen', 'living_room', 'hallway'] });
+      var wh = w._root.__html;
+      ok('Wide: Clean over Rooms and Dock, the key counting them and the rooms named under the state', /class="key rm on" data-rooms[^>]*><hk-icon icon="mdi:floor-plan"><\/hk-icon><span>3 rooms<\/span>/.test(wh) && /class="rm-note">Hallway, Kitchen, Living Room<\/span>/.test(wh) && /class="pair"/.test(wh));
+      ok('the Rooms key opens the vacuum\'s picker sheet: the Vacuums page\'s own picker on this vacuum\'s picks, Done in place of Start Cleaning',
+         /pick: this\._config\.entity/.test(SRC) && /pk \? 'Done'/.test(SRC) && /this\._config\.pick \? picked\(this\._config\.pick\)/.test(SRC));
+      P.clear();
+      house.set('vacuum.downstairs', 'cleaning', { friendly_name: 'Downstairs', battery_level: 80 });
+      ok('...while it cleans there is nothing to pick: no Rooms row', !/data-rooms/.test(sized('hk-vacuum-card', 'T', { entity: 'vacuum.downstairs' })._root.__html));
+      house.set('vacuum.downstairs', 'docked', { friendly_name: 'Downstairs', battery_level: 92 });
       var page = H.make('hk-vacuum-card'); hkGive(page, hass()); page.setConfig({ entity: 'vacuum.downstairs' });
       ok('a page keeps its card (the chips, the four commands)', page._built === true && !!page._e.meta);
     });

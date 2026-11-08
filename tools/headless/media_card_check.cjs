@@ -103,7 +103,8 @@ async function flicker(browser) {
     assert.equal(w.touched, 0, id + ': nothing done to the blurred cover across ' + w.renders + ' draws');
   }
   const wells = await p.evaluate(() => __mc.wells());
-  assert.ok(wells.length >= 6, 'wells measured: ' + wells.length);
+  // (Speakers and Browse are on the Large and Extra Large blocks and the page's players only: Small, Wide and Tall have the keys alone, 2026-11-08)
+  assert.ok(wells.length >= 4, 'wells measured: ' + wells.length);
   for (const w of wells) assert.ok(w.bare && Math.abs(w.dx) < 0.3 && Math.abs(w.dy) < 0.3, w.at + ': the glyph centered in its button, no well (' + w.dx.toFixed(2) + ', ' + w.dy.toFixed(2) + ' px, bare ' + w.bare + ')');
   assert.ok(titles.size >= 2, 'a new title reached the card: ' + [...titles].join(', '));
   assert.deepEqual(errors, [], 'page errors');

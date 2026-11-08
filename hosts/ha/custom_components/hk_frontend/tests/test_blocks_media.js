@@ -1,6 +1,7 @@
 // THE MEDIA BLOCKS AS WIDGETS (2026-10-31, the Home Grid blocks mock-up the
 // owner approved): Now Playing's sizes (a new Small, the volume under the
-// transport on Wide, Tall and Large, Speakers and Browse either side), the
+// transport on Large and Extra Large, Speakers and Browse either side; Small, Wide and Tall only the keys, what
+// does not fit is on the player's sheet, 2026-11-08), the
 // Music block (Music's Recently Played: hk-media.js hk-recent-music-card) and
 // the Live TV block (its channels: hk-tv-channels-card), each mounted by the
 // panel block (hk-grid-cards.js). A fictional house: nothing here names a real one.
@@ -60,28 +61,31 @@ function () {
   H.section('Now Playing: what each size is handed (the catalog)');
   var G = window.hkGridCatalog, at = function (s) { return G.config({ card: 'now_playing', size: s, opts: {} }, {}); };
   eq('Small: the player alone, no progress or volume card', [!!at('S').sub_card, !!at('S').meta_card], [false, false]);
-  eq('Wide: the volume under the transport', [!!at('W').sub_card, (at('W').meta_card || {}).parts], [false, ['volume']]);
-  eq('Tall: the progress, then the volume', [(at('T').sub_card || {}).parts, (at('T').meta_card || {}).parts], [['progress'], ['volume']]);
-  eq('Large: as before, progress and volume', [(at('L').sub_card || {}).parts, (at('L').meta_card || {}).parts], [['progress'], ['volume']]);
-  ok('...each following the screen\'s music', at('W').meta_card.entity_from && at('W').meta_card.entity_from.music === true);
+  eq('Wide: the progress, no volume (the sheet has it)', [(at('W').sub_card || {}).parts, !!at('W').meta_card], [['progress'], false]);
+  eq('Tall: the progress, no volume', [(at('T').sub_card || {}).parts, !!at('T').meta_card], [['progress'], false]);
+  eq('Large: the progress and the volume', [(at('L').sub_card || {}).parts, (at('L').meta_card || {}).parts], [['progress'], ['volume']]);
+  eq('Extra Large: the same', [(at('XL').sub_card || {}).parts, (at('XL').meta_card || {}).parts], [['progress'], ['volume']]);
+  ok('...each following the screen\'s music', at('L').meta_card.entity_from && at('L').meta_card.entity_from.music === true && at('W').sub_card.entity_from.music === true);
 },
 function () {
   H.section('Now Playing: the sizes\' layouts');
   var css = customElements.get('hk-now-playing-card').CSS;
-  ok('Small: the cover and Speakers on top, back / play / next along the foot',
-     css.indexOf('"art art . . spk" "title title title title title" "artist artist artist artist artist" ". . . . ." "prev . play . next"') >= 0);
+  ok('Small: the cover and play / pause on top, the song under them',
+     css.indexOf('"art play" ". ." "title title" "artist artist"') >= 0 && css.indexOf(':host(:is([size=S],[size=W],[size=T])) .np .spk,:host(:is([size=S],[size=W],[size=T])) .np .brw{display:none}') >= 0);
   ok('...on a tile cell the artist goes and the cover takes the height left', /@container hk-cell \(max-height:179px\)\{:host\(\[size=S\]\)[^}]*--np-art[^}]*\}:host\(\[size=S\]\) \.np \.artist\{display:none\}/.test(css));
-  ok('Wide: Speakers and Browse at the transport\'s ends, the volume under it',
-     css.indexOf('"art spk prev play next brw" "art meta meta meta meta meta"') >= 0);
-  ok('...five 44 px controls beside the cover (the cover gives way)', css.indexOf("' - 236px)") < 0 && /--np-art:min\(\(100cqh[^;]*- 236px\)/.test(css));
-  ok('Tall: the label, the song, the progress, the transport with Speakers and Browse, the volume',
-     css.indexOf('"lab lab lab lab lab" "title title title title title" "artist artist artist artist artist" ". . . . ." "sub sub sub sub sub" "prev . play . next" "spk meta meta meta brw"') >= 0 &&
-     css.indexOf('--hk-np-cols:44px minmax(0,1fr) 44px minmax(0,1fr) 44px;') >= 0);
-  ok('...the transport up off the foot: the bottom inset 6 px more', /:host\(\[size=T\]\) hk-plate\.np\{--hk-np-pad:[^;]*calc\(var\(--hk-pad-b,20px\) \+ 6px\)/.test(css));
-  ok('...no longer Speakers and Browse in the top corners', css.indexOf('position:absolute;top:12px;width:32px') < 0);
-  ok('Large: the label over the song, the volume under the transport',
-     css.indexOf('"art art lab lab lab"') >= 0 && css.indexOf('"spk prev play next brw" "meta meta meta meta meta"') >= 0);
-  ok('the volume a 44 px place on W, T and L', css.indexOf(':host([size=W]) .np .meta,:host([size=T]) .np .meta,:host([size=L]) .np .meta{display:flex;align-items:center;gap:10px;padding:0;--hk-range-h:44px}') >= 0);
+  ok('Wide: the song, the progress and the three keys, a cluster 44 px wide each with 12 px between',
+     css.indexOf('"art . prev . play . next ."') >= 0 && css.indexOf('minmax(0,1fr) 44px 12px 44px 12px 44px minmax(0,1fr)') >= 0);
+  ok('...the cover as big as the controls\' 190 px leave it', /--np-art:min\(\(100cqh[^;]*- 190px\)/.test(css));
+  ok('Tall: the cover, the label, the song, the progress, the three keys with 8 px between',
+     css.indexOf('"lab lab lab lab lab lab lab" "title title title title title title title" "artist artist artist artist artist artist artist" "sub sub sub sub sub sub sub" ". prev . play . next ."') >= 0 &&
+     css.indexOf('--hk-np-cols:minmax(0,1fr) 44px 8px 44px 8px 44px minmax(0,1fr);') >= 0);
+  ok('...the cover on the block\'s axis', css.indexOf(':host([size=T]) .np .art{justify-self:center;align-self:start}') >= 0);
+  ok('...the bottom inset 6 px more', /:host\(\[size=T\]\) hk-plate\.np\{--hk-np-pad:[^;]*calc\(var\(--hk-pad-b,20px\) \+ 6px\)/.test(css));
+  ok('Large: the label over the song, the keys a cluster, the volume under it',
+     css.indexOf('"pre pre pre pre pre pre pre pre pre pre pre" "lab lab') >= 0 && css.indexOf('". spk . prev . play . next . brw ."') >= 0);
+  ok('Extra Large: the group between two flexible rows, centered on the cover',
+     css.indexOf('--hk-np-rows:minmax(0,1fr) min-content min-content min-content min-content 57px min-content minmax(0,1fr)') >= 0);
+  ok('the volume a 44 px place on L and XL', css.indexOf(':host(:is([size=L],[size=XL])) .np .meta{display:flex;align-items:center;gap:10px;padding:0;--hk-range-h:44px}') >= 0);
   ok('in a pager: no volume row', css.indexOf(':host([size][data-grid-pager]) hk-plate.np{--hk-np-pad:20px 22px 44px;--np-vol:0px}') >= 0);
 },
 function () {
@@ -165,7 +169,10 @@ function () {
   mu.client = client();
   var asks = house.ws.length;
   mu._render();
-  eq('Presets asks the library for nothing', house.ws.length, asks);
+  // (2026-11-08: Large and Extra Large -- and Small -- lead with the last played; the playlists by when each last played, asked once)
+  var lp = house.ws.slice(asks).filter(function (m) { return m.service_data && m.service_data.media_type === 'playlist'; });
+  ok('Presets asks the library only for its playlists by last played', house.ws.length - asks <= 1 &&
+     lp.every(function (m) { return m.service_data.order_by === 'last_played_desc'; }), JSON.stringify(house.ws.slice(asks)));
   var html = String(mu._root.innerHTML);
   eq('...the first playlist above, the rest in the grid', (html.match(/data-i="/g) || []).length, 3);
   ok('...labelled Playlists', html.indexOf('<span class="lab">Playlists</span>') >= 0, html.slice(0, 300));
@@ -197,9 +204,24 @@ function () {
     b.client = client();
     b._render();
     var bh = String(b._root.innerHTML);
-    eq(z + ': ' + (z === 'W' || z === 'XL' ? 'across' : 'down') + ', every playlist in it', [bh.indexOf('class="cv ' + (z === 'W' || z === 'XL' ? 'x' : 'y') + '"') >= 0,
-       (bh.match(/data-i="/g) || []).length], [true, 3]);
+    // (XL, 2026-11-08: the last played above five across, its Play beside it)
+    var across = z === 'W' || z === 'XL';
+    eq(z + ': ' + (across ? 'across' : 'down') + ', every playlist in it', [bh.indexOf('class="cv ' + (across ? 'x' : 'y') + '"') >= 0,
+       (bh.match(/data-i="/g) || []).length], [true, z === 'XL' ? 4 : 3]);
   });
+  // THE LAST PLAYED FIRST (2026-11-08, the owner): matched by the playlists' items, a choice of one its own tile
+  var lpls = [{ name: 'Favorites', key: 'f', uris: ['library://playlist/1'] }, { name: 'Christmas', key: 'c', uris: ['library://playlist/2'] },
+              { name: 'Decades', options: [{ name: '1990s', key: 'd90', uris: ['library://playlist/3'] }] }];
+  var lt = Mx.playlistTiles(lpls, null), L0 = Mx.LASTPL.uris;
+  try {
+    Mx.LASTPL.uris = ['library://playlist/99', 'library://playlist/2', 'library://playlist/1'];
+    eq('the last played the house has leads, the rest in their order', Mx.heroFirst(lt, lpls).map(function (t) { return t.name + '/' + t.artist; }),
+       ['Christmas/Last Played', 'Favorites/Playlist', 'Decades/1 Playlists']);
+    Mx.LASTPL.uris = ['library://playlist/3'];
+    eq('...a choice of one: that choice, before them all', Mx.heroFirst(lt, lpls).map(function (t) { return t.name; }), ['1990s', 'Favorites', 'Christmas', 'Decades']);
+    Mx.LASTPL.uris = ['library://playlist/99'];
+    eq('...none of them played: as they are', Mx.heroFirst(lt, lpls).map(function (t) { return t.name; }), ['Favorites', 'Christmas', 'Decades']);
+  } finally { Mx.LASTPL.uris = L0; }
   // WHEN TAPPED: the Music page by default; Choose a Playlist, the playlists' sheet, Decades asking which next
   eq('a tap on the plate: the Music page', sm._tapTarget()[0], { page: 'playmusic' });
   // ...its Plays On a preset: the speaker's sheet opens on the preset's first room, never on the preset
@@ -307,7 +329,7 @@ function () {
   ask.resolve(CHANNELS);
   return H.tick().then(function () {
     tv._render();
-    var plate = tv._root.children[0], tiles = plate.children;
+    var plate = tv._root.children[0], tiles = plate.children[plate.children.length - 1].children;    // (the tiles' group is the plate's last child; Large and Extra Large have a label row before it)
     eq('Wide: the first two, in the page\'s order', tiles.length, 2);
     eq('...what is on, then the channel', [tiles[0].querySelector('b').textContent, tiles[0].querySelector('small').textContent], ['Evening News', 'Channel 4']);
     ok('...a bar of how far through, when the guide says', tv._bars.length === 1 && Math.abs(parseFloat(tv._bars[0].el.style.width) - 50) < 2);
@@ -320,7 +342,8 @@ function () {
     var xl = sized('hk-tv-channels-card', 'XL');
     xl.client = client(); xl._channels = CHANNELS.channels; xl._configured = true;
     xl._render();
-    eq('fewer channels than places: as many tiles as channels', xl._root.children[0].children.length, 3);
+    eq('fewer channels than places: as many tiles as channels', xl._root.children[0].children[1].children.length, 3);
+    ok('Extra Large opens with its label row: Live TV', xl._root.children[0].children[0].className === 'lh' && xl._root.children[0].children[1].className === 'gr');
   });
 },
 function () {

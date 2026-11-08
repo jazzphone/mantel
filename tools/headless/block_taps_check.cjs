@@ -122,7 +122,26 @@ const PLATE_POINTS = (n) => {
         const went = await p.evaluate(() => window.__taps.slice());
         res.push({ ...box, control: null, centre: true, on: 'centre', went: went.map(w => w.join(':')) });
       }
-      console.log('CELL ' + JSON.stringify({ screen: input.screen, size: input.size, id: c.id, tag: c.tag, bsize: c.size, w: c.w, h: c.h, pts: res }));
+      // THE PARTS (2026-11-08, `--parts`): each part of the block that stands for something -- On Now's kinds, House
+      // Status's sections, Everything's "+N" -- tapped in its middle, and where it went
+      const parts = [];
+      if (input.parts) {
+        const at = await p.evaluate(([id, sel]) => {
+          const all = (r, s) => [...r.querySelectorAll('*')].flatMap(e => [...(e.matches(s) ? [e] : []), ...(e.shadowRoot ? all(e.shadowRoot, s) : [])]);
+          const cell = all(document, '.cell[data-id="' + id + '"]')[0];
+          return cell ? all(cell, sel).map(e => { const r = e.getBoundingClientRect();
+            return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2), w: Math.round(r.width), h: Math.round(r.height),
+                     what: e.getAttribute('data-open-kind') || e.getAttribute('aria-label') || e.textContent.trim().slice(0, 30) }; }) : [];
+        }, [c.id, input.parts]);
+        for (const pt of at) {
+          await clear(c.id, pt.x, pt.y);
+          await p.evaluate(() => { window.__taps.length = 0; });
+          await p.mouse.click(pt.x, pt.y);
+          await p.waitForTimeout(60);
+          parts.push({ ...pt, went: (await p.evaluate(() => window.__taps.slice())).map(w => w.join(':')) });
+        }
+      }
+      console.log('CELL ' + JSON.stringify({ screen: input.screen, size: input.size, id: c.id, tag: c.tag, bsize: c.size, w: c.w, h: c.h, pts: res, parts }));
       if (input.shots && c.id === (input.shotOf || '')) await p.screenshot({ path: input.shots + '/' + input.screen + '-' + c.id + '.png' });
     }
     if (input.shots) await p.screenshot({ path: input.shots + '/' + input.screen + '-' + input.size + '.png' });

@@ -970,8 +970,8 @@
         '  -webkit-tap-highlight-color:transparent;transition:transform .12s ease}',
         '.xp:active{transform:scale(0.97);background:' + v('key-strong') + '}',
         '.xp[aria-pressed=true]{background:' + v('key-strong') + '}',
-        // (its edges: the sheet's shadows, BASE_CSS .hk-edge -- was a fade)
-        '.lst{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;padding-bottom:12px}',
+        // (its edges: the sheet's shadows, BASE_CSS .hk-edge -- was a fade; pan-y: a sideways swipe over it is the page's, 2026-11-08)
+        '.lst{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y pinch-zoom;scrollbar-width:none;padding-bottom:12px}',
         '.lst::-webkit-scrollbar{display:none}',
         '.ar{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid ' + v('line') + '}',
         '.ar:last-child{border-bottom:0}',
@@ -2105,7 +2105,7 @@
       // the history rows
       // (its edges: the sheet's shadows, BASE_CSS .hk-edge -- was a fade)
       '.hsf{margin-top:4px;flex:1 1 0}',
-      '.hs{flex:1 1 0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none}',
+      '.hs{flex:1 1 0;min-height:0;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y pinch-zoom;scrollbar-width:none}',
       '.hs::-webkit-scrollbar{display:none}',
       '.r{display:grid;grid-template-columns:22px minmax(0,1fr) auto;align-items:center;gap:10px;padding:10px 0;border-top:1px solid ' + v('line') + '}',
       '.r:first-child{border-top:0}',
@@ -2344,7 +2344,7 @@
       // at both ends as it scrolls (BASE_CSS .hk-edge)
       '.hist .lab{padding-bottom:' + SP.line + 'px;border-bottom:1px solid ' + v('line') + '}',
       '.hsf{flex:1 1 0}',
-      '.hs{flex:1 1 0;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none}',
+      '.hs{flex:1 1 0;min-height:0;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y pinch-zoom;scrollbar-width:none}',
       '.hs::-webkit-scrollbar{display:none}',
       '.r{display:block;padding:10px 0;border-top:1px solid ' + v('line') + '}',
       '.r:first-child{border-top:0}',

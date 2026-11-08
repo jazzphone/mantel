@@ -1,11 +1,14 @@
 """Draw Mantel's app icon (a mantelpiece with a warm hearth) at every size the web app and the Apple apps use.
 
-Run: .venv/bin/python tools/make_app_icons.py
-Writes web/app/art/*.png (the Home Screen web app) and the AppIcon set in apple/ (the iPhone/iPad/Mac apps).
+Run: .venv/bin/python tools/make_app_icons.py [--apple ../mantel-ios] [--mac ../mantel-mac]
+Writes web/app/art/*.png (the Home Screen web app); with --apple, the iPhone/iPad app's AppIcon set in a jazzphone/mantel-ios
+checkout (Mantel/Resources/Assets.xcassets/AppIcon.appiconset: the 1024, iOS makes the rest); with --mac, the Mac app's
+in a jazzphone/mantel-mac checkout (MantelMac/Resources/Assets.xcassets/AppIcon.appiconset: every Mac size, with corners).
 Original artwork drawn here with Pillow: no Apple glyph or font is used, so the files are safe to commit.
 """
 from __future__ import annotations
 
+import argparse
 import json
 from pathlib import Path
 
@@ -13,7 +16,8 @@ from PIL import Image, ImageDraw, ImageFilter
 
 ROOT = Path(__file__).resolve().parents[1]
 WEB = ROOT / "web/app/art"
-APPLE = ROOT / "apple/Mantel/Resources/Assets.xcassets/AppIcon.appiconset"
+APPICONSET = "Mantel/Resources/Assets.xcassets/AppIcon.appiconset"   # in a jazzphone/mantel-ios checkout
+MAC_APPICONSET = "MantelMac/Resources/Assets.xcassets/AppIcon.appiconset"   # in a jazzphone/mantel-mac checkout
 SS = 4  # supersampling
 
 
@@ -65,24 +69,47 @@ def draw(size: int, *, maskable: bool = False, transparent_corners: bool = False
     return out
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
+    p = argparse.ArgumentParser(description="Draw Mantel's app icon for the web app and, with --apple and --mac, the Apple apps.")
+    p.add_argument("--apple", type=Path, metavar="DIR", help="a jazzphone/mantel-ios checkout to write the AppIcon set into")
+    p.add_argument("--mac", type=Path, metavar="DIR", help="a jazzphone/mantel-mac checkout to write the AppIcon set into")
+    a = p.parse_args(argv)
     WEB.mkdir(parents=True, exist_ok=True)
     draw(180).convert("RGB").save(WEB / "apple-touch-icon.png", optimize=True)    # iOS masks it itself
     draw(192).save(WEB / "mantel-192.png", optimize=True)
     draw(512).save(WEB / "mantel-512.png", optimize=True)
     draw(512, maskable=True).save(WEB / "mantel-maskable-512.png", optimize=True)
     draw(96).save(WEB / "badge-96.png", optimize=True)
-    # the Apple apps' AppIcon: one 1024 for iOS (the system makes the rest), the Mac's sizes with its corners
-    APPLE.mkdir(parents=True, exist_ok=True)
-    draw(1024).convert("RGB").save(APPLE / "icon-1024.png", optimize=True)
-    images = [{"filename": "icon-1024.png", "idiom": "universal", "platform": "ios", "size": "1024x1024"}]
-    for pt in (16, 32, 128, 256, 512):
-        for scale in (1, 2):
-            name = f"mac-{pt}@{scale}x.png"
-            draw(pt * scale, transparent_corners=True).save(APPLE / name, optimize=True)
-            images.append({"filename": name, "idiom": "mac", "scale": f"{scale}x", "size": f"{pt}x{pt}"})
-    (APPLE / "Contents.json").write_text(json.dumps({"images": images, "info": {"author": "xcode", "version": 1}},
-                                                    indent=2) + "\n")
+    if a.apple is not None:
+        apple = checkout(a.apple, "mantel-ios") / APPICONSET
+        apple.mkdir(parents=True, exist_ok=True)
+        draw(1024).convert("RGB").save(apple / "icon-1024.png", optimize=True)
+        catalog(apple, [{"filename": "icon-1024.png", "idiom": "universal", "platform": "ios", "size": "1024x1024"}])
+    if a.mac is not None:
+        mac = checkout(a.mac, "mantel-mac") / MAC_APPICONSET
+        mac.mkdir(parents=True, exist_ok=True)
+        images = []
+        for pt in (16, 32, 128, 256, 512):
+            for scale in (1, 2):
+                name = f"mac-{pt}@{scale}x.png"
+                draw(pt * scale, transparent_corners=True).save(mac / name, optimize=True)
+                images.append({"filename": name, "idiom": "mac", "scale": f"{scale}x", "size": f"{pt}x{pt}"})
+        catalog(mac, images)
+
+
+def checkout(root: Path, repo: str) -> Path:
+    if not (root / "Mantel.xcodeproj").is_dir():
+        raise SystemExit(f"{root} is not a jazzphone/{repo} checkout (no Mantel.xcodeproj)")
+    return root
+
+
+def catalog(iconset: Path, images: list[dict]) -> None:
+    """The set's Contents.json, and the catalog's own beside it."""
+    info = {"info": {"author": "xcode", "version": 1}}
+    (iconset / "Contents.json").write_text(json.dumps({"images": images, **info}, indent=2) + "\n")
+    top = iconset.parent / "Contents.json"
+    if not top.exists():
+        top.write_text(json.dumps(info, indent=2) + "\n")
 
 
 if __name__ == "__main__":

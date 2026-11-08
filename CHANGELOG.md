@@ -4,7 +4,80 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Added**
+- **The tiles in a block sit closer to its edge, with rounder corners** (HomeView's square cells): a group of accessories, Scenes, Security's keypad and locks, Live TV's channels and the Recent picture sit 13 px in -- the grid's gap -- with 21 px corners concentric with the block's 34 (they were 18 in, 16 px corners); headings and words stay where they were.
+- **Tiny, an Accessory in half a cell**: two share a cell, top and bottom, or one sits alone. On a HomeView-style screen it is HomeView's tile laid sideways at half height -- the glyph bare and large, the name over its state centered beside it, the block's own corners (a name takes two lines on square cells, one under page dots); on Home style, the Accessory Group's half pill. The editor and Edit mode place, move and make room for it by halves.
+- **A temperature or humidity sensor shows its reading** ("71°", "49%") where the glyph would be on a Centered tile, its room under its name.
+- **A Wide Accessory is a slider** for a light, a fan or a shade: the whole tile, as Control Center's -- drag across it to set the level, its fill in the thing's own color, its level at the right; a tap is still the tile's own.
+- **Music's Extra Large leads with the last played**: its cover large at the top with Play beside it, and every playlist five across under it, scrolling sideways. In Playlists, Large, Extra Large and Small now lead with the playlist last played (anywhere: Music Assistant's own record), a choice of one (a decade) as itself.
+- **An Accessory Group in Small**: two half-height pills (or one tile with Height: Full).
+- **Security's HomeView Extra Large keeps its keypad**, its locks and garage doors beside it as HomeView tiles or pills (Height: Half by default, Full when chosen -- both now take), or the ones chosen under Entries. Entries offers the locks and garage doors (not every blind) and Choose starts from what Automatic shows; each chosen one is drawn, and the entries no longer go blank when the block changes shape (as in the editor's preview).
+
+**Changed**
+- **Half-height pills fill their block to equal margins**, and a block's title sits on the same inset as its sides.
+- **Short wide tiles keep their words clear of the foot** (a Room's Wide tiles on square cells, for one).
+
 **Fixed**
+- **Pre-rendered glass no longer flickers as a swipe lands**: a page just landed on kept the last page's blur behind its cards for a few frames, until the sky caught up (Calendar's cards went Weather's purple for a moment). It now keeps its own picture, or blurs live, until then.
+- **The Pages screen lands sharp and at its full size from Home**: its icons could land blurred, then small and to the left for a second, then jump to their places.
+- **A swipe over a row that scrolls sideways turns the page when the row can't go that way** (Music's rows at their start or end, on the wall tablets): the row scrolls as before, and a swipe past its end is the page's. On an iPad the rows keep every swipe, as before.
+- **A swipe over a list that scrolls up and down turns the page** on a wall tablet: Security's Recent Activity, Calendar's day list and hours, Energy's, Music's speakers and the grid's panels take only up-and-down swipes now (they could take a sideways one).
+- **Accessory Groups no longer redraw in one column on the way back Home**: a group updated while another page showed laid itself out for the wrong cell shape (Kitchen's pills in one column), and showed it for a moment on return.
+
+## 0.1.153 - 2026-11-08
+
+**Added**
+- **Security's Height option** on Large and Extra Large: the locks and garage doors as HomeView tiles (Full) or half-height pills (Half). Beside the keypad, Half is the default, the pills starting level with the keypad's readout and the open doors and windows line level with Home, Away and Disarm.
+
+**Changed**
+- **A block shows a title only when you gave it one** ("Kitchen", "Routines"); Accessories and Scenes no longer say "Accessories" and "Scenes", and "N More" is their last tile.
+- **The Rooms and More sheet on a tablet spans the window**, with room around it to tap out: a house's rooms in as few rows as the width allows.
+- **A block with nothing to show says its name and where to set it up** (it was a small key at the block's top).
+- **The iPhone and Mac apps live in their own repositories** (mantel-ios, mantel-mac).
+
+**Fixed**
+- **An Accessory Group that pages shows one row of dots**, its tiles under its title.
+- **Half-height pills keep their second row**: a Wide block of four shows all four.
+- **Security's locks lay out the same in the editor and on the tablet**, their names whole on two lines where needed.
+- **Pre-rendered glass pictures are smaller and quicker to make on the Android tablets** (lossless WebP where the browser writes it).
+- **No more flash of the last page's blur behind the cards after a swipe** (Pre-rendered glass, Bright or Blur). As a drag began, the page being left was repainted in the next page's sky, and the page landed on wore the page it left for a frame or two before its own; coming back, the first page wore the wrong blur until it was repainted. Each page now keeps its own picture for the whole swipe, and the fresh one fades in once it lands.
+- **Pre-rendered glass repaints faster on the wall tablets.** On a page whose sky moves, the glass is repainted every 2 seconds to follow the clouds; each repaint now takes about a third less of an Android tablet's time (the blur is applied by the canvas itself, and the picture is kept as lossless WebP, with the same result), and none starts until 1.5 seconds after the last touch, so quick flicks run clear of them.
+
+## 0.1.152 - 2026-11-08
+
+**Changed**
+- **Nothing in a block stretches any more.** Tiles, rows, keys and pills keep their designed size at each block size; a bigger block shows more of them, centered with equal margins, instead of bigger ones (as HomeView does). Room, Accessories and Scenes keep one tile size per block size, with the last row centered and "More" for the rest; Scenes and Accessories have a heading.
+- **On Now and House Status, redesigned together:** a headline that answers the glance ("8 On", "1 Window Open", "All Good") over the categories as lines, each with its glyph lit in its color and where it is on. New option: a category opens a sheet or goes to its page.
+- **Recent, rebuilt:** glyphs in each kind's color, who and where, camera pictures (the latest as the hero), the morning summary as glyphs, and finished empty states.
+- **Now Playing** follows the screensaver's Music slide: the song, progress and keys one centered group beside the cover; Tall's cover centered; Speakers, Browse and the volume in the player's sheet on the smaller sizes.
+- **Timers with none running** read as a block of their own: "Start a timer" and the quick lengths as rings.
+- **The Vacuum's Wide and Tall pick rooms** in a "Rooms to Clean" sheet and name them on the block; Large and Extra Large rooms scroll.
+- **The Thermostat's modes** moved off the top of Tall into one "Mode" key at its foot (Wide too); a range is set as one reading.
+- **Weather Extra Large** spreads its readings and tightens its days; **Live TV tiles** show what is on behind each channel, dimmed; **Security Extra Large** leads with the keypad, its locks and garage as larger tiles and the open doors and windows in one line.
+- **Calendar with nothing scheduled, Doors & Windows, Who's Home** read as finished blocks in every state; small controls moved to their sheets where a block had too many.
+- **Everything** can scroll in its block or open its page (a new option). The Home Grid editor's previews draw in the screen's Tile Style.
+
+**Fixed**
+- **Swiping between pages is lighter on the wall tablets in Pre-rendered glass.** While a page moved, its glass and the glass of the page coming in blurred live instead of wearing their picture, and a page reached by a swipe went on blurring live for as long as it was up. The picture now stays still under the moving pages, and each page keeps it after it lands (measured: half the drawing work in a drag, a third less in the settle, and a quarter of it on the page it lands on).
+
+- **Quick flicks between pages all take.** A run of fast flicks lost pages: the page beyond wasn't ready, so a flick landed on its title and refused touches while it was built, and a flick that caught the last one's settle early only finished that page. Each flick now goes one page, the next page is made ready while the last one moves, and a swipe can start on the Side Pane.
+
+**Added**
+- **Each wall tablet reports how its swipes are drawn.** Once a minute after swiping, Mantel's log says how many frames a second the tablet drew while a page or a block moved, how many came late and the worst one, with its glass style and screen.
+
+## 0.1.151 - 2026-11-08
+
+**Added**
+- **Every Home Grid block in more sizes.** New: Accessory Tall (the light's, fan's, shade's or speaker's level as a capsule you drag), Accessories and Scenes Tall, Room Small and Tall, Thermostat Wide, Calendar Wide, To-do Wide, Timers Tall, Large and Extra Large, Who's Home Tall, Large and Extra Large, Camera Tall, Vacuum Tall, Power Tall, Everything Tall, Security Tall, Action Wide, Recent Small and Tall, Now Playing Extra Large, Suggested Scene Small and Tall.
+- **A block answers a tap by where it lands.** On Now's Lights open the lights that are on, its Fans the fans, a row its thing; Wide's chips open their kind and keep Off as its own key.
+- **When Tapped on Vacuum and Everything, and Color on an Accessory**, as the other blocks have them.
+
+**Changed**
+- **Blocks and detail sheets use their space, with equal margins all round** (the review at the wall tablets' 1280 × 800): no holes in a group of tiles, lists that fill their block, one Wide tile layout for Accessory, Scene, Action and Intercom, Security Small as a centered tile, Battery and the clocks sized to their blocks, the wide thermostat, water heater and Weather sheets filling their height, Intercom's sheet centered. HomeView's look is recorded in DESIGN.md.
+
+**Fixed**
+- **The Home Grid's clock no longer runs under the weather** on a narrower grid.
+- **The Calendar event sheet's colors fit at 1280 × 800**, and the Person sheet's day axis starts at its bar.
 - **The screensaver's forecast along the bottom shows its hours and days again.** The weather Band showed only the temperature: its columns shared a class name with the screensaver's own forecast slide, whose rules hid them.
 
 ## 0.1.150 - 2026-11-07

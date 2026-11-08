@@ -44,21 +44,32 @@ House Status sends a command.
 
 ## The block
 
-S, W, T, L and XL, on square cells (196 × 196) and tile cells (196 × 150). The layout is worked out from the
-block's measure (`layout()`), not fixed per size:
+S, W, T, L and XL, on square cells (196 × 196) and tile cells (196 × 150). Since round two (2026-11-08, the owner:
+"the layouts don't follow anything else ... It would be great if On Now and Home Status shared a similar look"; and of a
+first try in tiles, "we don't necessarily have to use Tiles ... Let's be intentional on layout") House Status and On Now
+are composed of the same parts (`window.hkHouseStatus.tiles`: `plan`, `compose`, the CSS; On Now's file asks for this
+one), built from the On Now Tall he liked:
 
-| Size | Sections | Square cells |
-| --- | --- | --- |
-| Small | One button: the section that matters most (an alert, else one asking for attention, else the first) and the count | |
-| Wide | Up to 4, two by two | Name over the reading. On tile cells, one line each with a tighter heading |
-| Tall | Up to 4, a column | "+N more" at its foot (no room beside the heading) |
-| Large | Up to 6, two by three | With a line of detail |
-| Extra Large | Up to 6 three by two, or 8 four by two | Larger readings, two lines of detail |
+- **The headline** answers the glance: the one thing that matters most, in words -- "1 Window Open", "8:38 Left", "Wind
+  Advisory" -- and under it its section and how many others need a look ("Doors & Windows · 1 more to check"); when
+  nothing needs a look, "All Good" with a green check and "Nothing needs a look".
+- **The sections as lines**, not boxes: each a row -- its glyph on a disc (lit in its chip's color while it asks for a
+  look or something is on, playing or open; a neutral disc at rest), the name, the reading at the end and a line of
+  detail under the name (on a narrow block the reading goes under the name, so a name like "Doors & Windows" is never
+  cut). The whole row is the tap; a hairline between rows.
+- **Nothing stretches**: a row is 44 px on Wide and Tall, 56 on Large and Extra Large (48 on a tile cell's Large); a
+  block shows as many rows as fit, the group centered in what the headline leaves, and the rest are "+N more".
 
-Fewer sections are laid out for fewer: three on a Large is a column of three, not six slots with three filled. A
-section is never under 44 px tall. Rows that would be shorter go to "+N more", and readable text is never shrunk to fit.
-"+N more" never loses one: the sheet has them all. Glyphs are bare and in the ink. A section that asks for attention
-(an alert, a running timer, a door open, a lock open or not reporting) takes its chip's color.
+| Size | Composed |
+| --- | --- |
+| Small | The label, the headline at the foot, its section and how many more to check |
+| Wide | The headline in the left third ("+N more" at its foot), three lines beside it (two on a tile cell) |
+| Tall | The label ("+N" at its end), the headline, six lines (four on a tile cell) |
+| Large | The label, the headline and its sentence, four lines of 56 (three of 48 on a tile cell) |
+| Extra Large | A column of its own for the label, the headline and its sentence; six lines of 56 beside it (five on a tile cell) |
+
+"+N more" never loses one: the sheet has them all. Each line says a thing once (a detail that only repeats the reading
+is left out). The label's key is a 24 px capsule whose 44 px reach goes up into the inset, never over a line.
 
 The block has no options (`opts: {}` in both catalogs). It shows the screen's Status Chips, and the editor says where
 to change them. There is no When Tapped option, because each section opens its own place.

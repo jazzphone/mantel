@@ -56,8 +56,8 @@ var np = G.config({ card: 'now_playing', size: 'L', opts: { speaker: 'tablet_roo
 ok('the tablet\'s room is not an entity (resolved by G3/G4)', np.type === 'custom:hk-now-playing-card' && !np.entity);
 var sc = G.config({ card: 'scenes', size: 'W', pages: { source: 'list', list: [{ opts: { scenes: ['scene.dinner'] } }, { opts: { scenes: ['scene.good_night'] } }] } }, ctx);
 ok('a block with list pages is a pager too', sc.type === 'custom:hk-pager-card' && G.pages(sc.item, ctx)[0].card.scenes[0] === 'scene.dinner');
-ok('a key the catalog lacks is a stand-in, not an error', G.config({ card: 'toaster', size: 'S' }, ctx).type === 'custom:hk-key-card');
-ok('...and so is a block with nothing in the house to show', G.config({ card: 'thermostat', size: 'T' }, {}).type === 'custom:hk-key-card');
+ok('a key the catalog lacks is a stand-in, not an error', G.config({ card: 'toaster', size: 'S' }, ctx).type === 'custom:hk-grid-panel-card');
+ok('...and so is a block with nothing in the house to show', G.config({ card: 'thermostat', size: 'T' }, {}).type === 'custom:hk-grid-panel-card');
 
 // ---- the view
 var View = customElements.get('hk-home-grid-view');

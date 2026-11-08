@@ -9,7 +9,7 @@
   'use strict';
   (window.hkGridCardsParts = window.hkGridCardsParts || {})['hk-grid-faces'] = function (K) {
     var C = K.C, CAM_MAX = K.CAM_MAX, camGrid = K.camGrid, camRing = K.camRing, FULL_CSS = K.FULL_CSS,
-        HkGridFull = /** @type {HkLooseElementConstructor} */ (K.HkGridFull), setting = K.setting, sizeOf = K.sizeOf;
+        HkGridFull = /** @type {HkLooseElementConstructor} */ (K.HkGridFull), setting = K.setting, sizeOf = K.sizeOf, v = K.v;
 
     // THE CLOCK BLOCK (2026-10-24, the owner: "many clocks", for a phone on
     // a nightstand): HK's own clock (hk-clock-card, the header's type), or
@@ -28,8 +28,24 @@
     // (the block clips the face, not the face itself: scaled down, its own box is smaller than its drawing)
     var CLOCK_CSS = '.body{height:100%}.ck .ckroot{overflow:visible}.ck{position:relative;height:100%;box-sizing:border-box;overflow:hidden;border-radius:var(--hk-block-radius, ' + C.R.plate + 'px)}' +
       '.ck.plate{' + C.plate('card') + '}';
+    // THE DIALS USE THEIR BLOCK (2026-11-07, the review: an Analog face in Wide or Tall sat small in the middle with 124 px of bare
+    // plate on both sides, 458 at XXL): a round face -- Analog, Classic, Analog Numbers -- in a block that is not square is the
+    // face as large as the height lets it and, beside it (Wide, Extra Large, Full Width) or under it (Tall), the weekday and the
+    // date -- Wide and wider the time too, as a figure -- as the HomeView clock widget has them. The face stays bare as HomeView draws it.
+    var ROUND = { analog: 1, classic: 1, numbers: 1 };
+    var SPLIT_CSS = '.ck.split{display:flex;align-items:center;justify-content:center;gap:18px;padding:' + C.blockPad('14px') + ';text-shadow:' + v('glow') + '}' +
+      '.ck.split .cf{position:relative;flex:none;height:100%;aspect-ratio:1/1;min-width:0}' +
+      '.ck.split.xx{justify-content:space-evenly}' +
+      '.ck.split.t{flex-direction:column;gap:12px}.ck.split.t .cf{flex:none;width:100%;height:auto;aspect-ratio:1/1}' +
+      '.ck.split .ct{min-width:0;display:flex;flex-direction:column;gap:2px;color:' + v('ink') + '}.ck.split.t .ct{flex:none;align-items:center;text-align:center;width:100%}' +
+      '.ck.split .d1{' + C.typeCss('title') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
+      '.ck.split.xw .d1{' + C.typeCss('figure-l') + '}' +
+      '.ck.split .d2{' + C.typeCss('headline') + ';color:' + v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
+      '.ck.split .d3{' + C.typeCss('figure') + ';font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap;margin-top:8px}' +
+      '.ck.split.xw .d3{' + C.typeCss('figure-l') + ';font-weight:600}' +
+      '.ck.split.t .d3{margin-top:4px}';
     class HkGridClockCard extends HkGridFull {
-      static get CSS() { return FULL_CSS + CLOCK_CSS; }
+      static get CSS() { return FULL_CSS + CLOCK_CSS + SPLIT_CSS; }
       getCardSize() { return 2; }
       // (the plate's tap, hk-base.js openTarget) a clock leads to the Timers page, as iOS's clock widget opens Clock
       _tapTarget() { return [{ page: 'timers' }]; }
@@ -46,7 +62,7 @@
       _sigOf() { var c = this._config || {}; return JSON.stringify([c.clock_style || '', this._bare(), sizeOf(this), this._h24()]); }
       _render() {
         var c = Object.assign({}, this._config || {}, { bare: this._bare() }), style = c.clock_style || '', key = this._sigOf(), self = this;
-        if (this._built && this._key === key) { if (this._face && this._face.setClient) this._face.setClient(this.client); return; }
+        if (this._built && this._key === key) { if (this._face && this._face.setClient) this._face.setClient(this.client); if (this._go) this._go(); return; }
         this._key = key; this._built = true; this._kids = [];
         if (this._face) { try { this._face.destroy(); } catch (e) { /* gone */ } this._face = null; }
         if (!style) {
@@ -56,13 +72,32 @@
           if (c.bare) k.setAttribute('bare', '');
           return;
         }
-        this._root.innerHTML = '<div class="ck' + (c.bare ? '' : ' plate') + '"></div>';
-        var box = this._root.querySelector('.ck'), run = this._run = (this._run || 0) + 1;
+        var sz = sizeOf(this) || 'S', split = ROUND[style] && /^(W|T|XL|XXL)$/.test(sz);
+        this._root.innerHTML = '<div class="ck' + (c.bare ? '' : ' plate') + (split ? ' split' + (sz === 'T' ? ' t' : sz === 'W' ? '' : sz === 'XXL' ? ' xw xx' : ' xw') : '') + '">' +
+          (split ? '<div class="cf"></div><div class="ct"><div class="d1"></div><div class="d2"></div>' + '<div class="d3"></div>' + '</div>' : '') + '</div>';
+        var ck = this._root.querySelector('.ck'), box = split ? ck.querySelector('.cf') : ck, run = this._run = (this._run || 0) + 1;
+        if (split) this._tick(ck);
         clockModule().then(function (M) {
           if (!M || run !== self._run || !box.isConnected) return;
           self._face = M.mount(box, { style: style, h24: self._h24(), bg: 'none', scrim: false, client: self.client });
-          self._fillWatch(box, !!c.bare, style);
+          self._fillWatch(box, !!c.bare, style, split);
         });
+      }
+      // the weekday, the date and the time beside or under a dial, kept to the minute
+      _tick(ck) {
+        var self = this, set = function (sel, t) { var e = ck.querySelector(sel); if (e && e.textContent !== t) e.textContent = t; };
+        var go = function () {
+          if (!ck.isConnected) return;
+          // the house's time, in the screen's locale: its zone (hkStats.tz, the Energy page's), its clock (12 or 24 hours)
+          var L = window.hkLocale, S = window.hkStats, d = new Date(), tag, zone;
+          try { tag = L && L.tag ? L.tag() : undefined; zone = S && S.tz ? S.tz() : undefined; } catch (e) { tag = undefined; zone = undefined; }
+          var f = function (o) { try { return new Intl.DateTimeFormat(tag, Object.assign({ timeZone: zone }, o)).format(d); } catch (e) { return new Intl.DateTimeFormat(tag, o).format(d); } };
+          set('.d1', f({ weekday: 'long' })); set('.d2', f({ month: 'long', day: 'numeric' }));
+          set('.d3', f({ hour: 'numeric', minute: '2-digit', hour12: !self._h24() }));
+        };
+        this._go = go; go();
+        clearInterval(this._tk);
+        this._tk = setInterval(go, 15000);
       }
       // THE FACE FILLS ITS BLOCK (2026-10-24, the owner on the nightstand
       // layouts: StandBy's digits fill the screen). A face is sized for a
@@ -72,7 +107,7 @@
       // height is wider than a Tall block. Measured again as the block
       // resizes and once the face's fonts are in.
       // (Analog Numbers bare fills its block to the edge of its disc, as HomeView's does)
-      _fillWatch(box, bare, style) {
+      _fillWatch(box, bare, style, split) {
         var root = box.querySelector('.ckroot'), self = this;
         if (!root) return;
         var fill = function () {
@@ -85,7 +120,7 @@
             l = Math.min(l, q.left); t = Math.min(t, q.top); r = Math.max(r, q.right); btm = Math.max(btm, q.bottom);
           });
           if (!(r > l && btm > t)) return;
-          var m = bare ? (style === 'numbers' ? 1 : 0.92) : 0.8, k = Math.min(b.width * m / (r - l), b.height * m / (btm - t), 3);
+          var m = split ? 0.98 : bare ? (style === 'numbers' ? 1 : 0.92) : 0.8, k = Math.min(b.width * m / (r - l), b.height * m / (btm - t), 3);
           // centred on the drawing's own middle, not the block's
           var dx = (b.left + b.width / 2) - (l + r) / 2, dy = (b.top + b.height / 2) - (t + btm) / 2;
           if (Math.abs(k - 1) > 0.02) root.style.transform = 'translate(' + dx.toFixed(1) + 'px,' + dy.toFixed(1) + 'px) scale(' + k.toFixed(3) + ')';
@@ -106,6 +141,7 @@
         if (super.disconnectedCallback) super.disconnectedCallback();
         if (this._face) { try { this._face.destroy(); } catch (e) { /* gone */ } this._face = null; }
         if (this._fillRO) { this._fillRO.disconnect(); this._fillRO = null; }
+        clearInterval(this._tk); this._tk = null;
         this._built = false; this._run = (this._run || 0) + 1;
       }
     }

@@ -212,6 +212,178 @@ curve" failed now and then on that). They set off after the flush now, and lead 
 | Sky and wallpaper animation | inspected | CSS on the compositor; off under Reduce Motion, asleep and hidden. At rest with a page waiting beside Home: 77-91 ms of main thread over 12 s, against 77 (its cards' own timers) |
 | `hk-fps.js` | inspected | still samples only at rest, as it should; it no longer decides whether a tablet sees its pages |
 
+### The glass under a moving page (2026-11-08)
+
+The owner, after all of the above: swiping "still feels horrible on the tablets". The checks had passed; 20 of 83 local
+runs had failed only on timing noise. They slow the CPU, and a wall tablet's trouble was its GPU, which a slowed CPU never
+shows (Chromium's CPU throttling slows the page's main thread, not the compositor or the GPU process).
+
+The house: four of the five wall tablets wear Bright Glass in Pre-rendered mode (the Kitchen Shared Layer), on a Home
+Grid at 1280 x 800, device pixel ratio 1.5 to 2, a wallpaper sky. Rebuilt in the lab from the house's own screen settings
+(the devices fictional), with Chromium's compositor drawing in software, a stand-in for a weak GPU whose cost is the
+pixels it blends and blurs:
+
+| Living Room HomeView, ms to draw a frame | at rest | dragging | settling | the page it landed on |
+|---|---|---|---|---|
+| Pre-rendered, before | 11 | 25.5 | 33 | 24 (Weather), 19 (Home, swiped back) |
+| Pre-rendered, after | 11.8 | 12.2 | 21.7 | 6.4 (Weather), 8.1 (Home) |
+| Shared Layer, for comparison | 23.4 | 29.7 | 35 | 23.4 |
+| Clear (no blur on the cards) | 13 | 14 | 20.7 | 4.8 |
+
+Two causes, both in `web/hk/modules/hk-glass.js`:
+
+- **A page moved by a swipe went back to live blur.** The picture is fixed to the screen; a transformed page is the box its
+  fixed children sit in, so the picture moved with the page, was out of line, and every layer on both pages blurred
+  live until the landing: the lightest mode was the heaviest for exactly the moments a finger was on it.
+  `hkGlass.along` now hears where each page in the slot is (`hk-pageswipe.js` `glassAlong`, from `setX` and `restore`:
+  its x, its box's corner, its transition) and moves each picture back by as much, on the same transition: measured
+  frame by frame, the picture is 0 px off the screen's corner in Chromium in every moving frame (one frame 3.6 px in
+  WebKit, at a settle's start). A page waiting beside this one wears its own picture (the filter is painted into it:
+  Home's Bright Glass, Blur beside it), the one painted when it was last shown; a page never shown yet blurs live until it
+  has been. A layer in something scaled inside the page (a pager's track) can't line up, and blurs live as before.
+- **A page reached by a swipe blurred live for as long as it was up.** Its layers were made while it waited, fixed to the
+  screen by the swipe, and were taken for a sheet's (`overContent`): Weather after a swipe wore a 1253 x 1218 live blur,
+  loaded directly its picture. A page of the screen is never "over content" now.
+
+The settle's sky cross-fade adds about 6 ms a frame in the same measure; the Side Pane's and the tab bar's following add
+under 1. Not changed.
+
+**The tablets measure their own swipes now.** `hkDrag.motion` counts each swipe's frames (a page, Home Grid's views, a
+block's pages) from its start to the frame after it lands, by `requestAnimationFrame`, which runs at the pace the screen
+is drawn; a frame over 25 ms after the last missed a refresh. Mantel's page sends what was counted once a minute
+(`web/shim/page-health.js`, a `motion` frame) and the log says, per tablet:
+
+    page health: tablet 'Living Room' swiped 3 times (2 page, 1 block): 42.9 frames a second while moving, 33% of frames
+    late, 95% within 60 ms, the worst 180 ms; bright_pre on living-room-homeview
+
+Read those, not a check on a Mac, for how a swipe feels on a tablet.
+
+### Quick flicks (2026-11-08)
+
+The owner, after the glass change: "Sometimes pages swipe, sometimes they don't. At times they bounce back and don't
+move at all ... especially on fast swipes ... it doesn't feel natural. Fast swipes are common here since a user may fast
+swipe to the page they want." Every check so far had been a slow drag. A new bench fires real-touch flicks back to back
+on the device's own clock (not awaited, so a busy page gets coalesced moves as a tablet does): 90 ms, 220 px, speeding up
+to the lift, 4 forward and 4 back, on the Living Room HomeView rebuilt in the lab.
+
+| Flicks this far apart (lift to next touch), 4x CPU | before: pages reached of 8 | after |
+|---|---|---|
+| 400 ms | 7, one refused | 8 |
+| 250 ms | 6, one refused | 8 |
+| 150 ms | 6 (1 of 4 forward at 6x CPU) | 8 (8 at 6x) |
+| 120 ms | 2 (home, weather, home) | 8 |
+| 500 ms, short flicks of 70-100 px | 3 of 4, one refused | 4 of 4 |
+
+What lost them, each found in the bench's per-flick record (the swipe's own `why`, its state, long animation frames):
+
+- **The page beyond wasn't there.** The page on each side is made at a quiet moment (`plan`), and `makeReady` would not
+  put a page in while a finger or a settle was on, so in a run of flicks the next page was always the title stand-in.
+  A flick to it landed there (`commit`) and refused every touch while the page was built: "sometimes they don't swipe".
+  Now a settle toward a page asks the host for the page after it as soon as the settle is under way (`ahead`, the
+  compositor moving the page), a landing asks for the far side's page at once, and a page made while a finger drags
+  takes its stand-in's place.
+- **A caught settle under half way lost the flick.** A finger on a settle that had not reached half way held the old
+  page, and the flick only finished the first one's page: two flicks, one page. A settle on its way to a ready page has
+  now landed there when it is caught, however far it had got (`catchIt`, `chain`), and a flick on the way it was going goes
+  a page further; every page then moves together (`run`, `pass`), so none passes another. A finger on a settle toward a
+  stand-in holds it rather than landing on it and refusing the finger.
+- **A catch did its work under the finger.** The tab bar's and the Side Pane's first follow ran inside the press (30-60 ms
+  at 4x CPU, with a sky render); they wait for the next frame now, as every other move's do. The landing itself still runs
+  in the press (`arrive`: the host told, the Side Pane, a layout; ~40 ms at 4x), so a catch's page moves 60-130 ms after the
+  finger at 4-6x CPU, against 20-60 for a fresh flick: what is left to take on.
+- **A third of Home refused every swipe.** A swipe that began on the Side Pane was "off the page". It is the page's now
+  (its own sideways things keep theirs).
+
+The bench is `.ci/motion-evidence/flick-2026-11-08` (flick.cjs: pages reached, refusals and their `why`, the first move
+after each touch, long frames; overlap.cjs: no page passes another, frame by frame).
+
+### The wrong picture at the edges of a swipe (2026-11-08)
+
+After the release the owner saw "pop in from the previous screen's blur behind the cards" (Bright Glass, Pre-rendered).
+Probed frame by frame (which picture each page's layers wear; the lab's Living Room HomeView, Bright Pre-rendered,
+4x CPU, slow drags and flicks, Chromium and WebKit), two causes:
+
+| When | What it wore | Why | Now |
+|---|---|---|---|
+| The drag begins | the page being left: the next page's sky (0.2/255 off Weather's, 5 off Home's), remembered as its own | the swipe paints the next page's sky under a still copy (hk-sky.js swipeCover), hk-sky-change said so, and preTick painted it as this page's | preTick waits while `hkSky.swipingTo()` names a page |
+| It lands | Weather: Home's picture for 66 ms, then its own | `arrive` puts the page back (along null) before the address and the sky change, so "the page's picture" was still Home's | along(el, null) keeps the picture of the page it was moved as |
+
+After: Home wears its own picture until it is gone, Weather its remembered one until its fresh one fades in. (The lab's
+landprobe.cjs is in .ci/motion-evidence/flick-2026-11-08.)
+
+### A Pre-rendered repaint's cost (2026-11-08)
+
+On a page with a live sky (the house's room pages: Weather's realistic clouds) the picture is painted again every
+PRE_TRACK (2 s) and fades in over that time: the blur follows the clouds, by design. So a repaint's cost is paid all the
+time. Measured in the lab (Living Room HomeView, Weather, 1280x800, CPU 4x; WebKit unthrottled), median of 8:
+
+| Part | Chromium 4x | WebKit |
+|---|---|---|
+| The sky drawn (collect + paint) | ~27 ms | ~1 ms |
+| The look's filter, as a PNG in an SVG decoded back | ~30 ms | ~10 ms |
+| The picture's own PNG (toBlob) / its decode | 7.7 / 3.2 ms | 1 / 3 ms |
+
+What changed: a canvas that takes a `filter` (Chrome, the wall tablets) is given the look's filter itself -- no PNG, no
+SVG. A whole repaint: Bright 35 -> 26 ms, Blur 53 -> 36 ms. The two routes agree to a mean 0.5/255, at most 2/255
+(animations paused, same frame). WebKit has no canvas filter and keeps the SVG. And a cloud-following repaint waits
+1.5 s after the last touch (was 0.7 s, a gap between quick flicks).
+
+The picture's format, measured (4x CPU; pixels against the canvas it came from):
+
+| Format | Chromium: KB, encode | Pixels off (mean / max of 255) |
+|---|---|---|
+| PNG | 30 KB, 10.3 ms | 0 / 0 |
+| WebP lossless (quality 1) | 17 KB, 3.3 ms | 0 / 0 |
+| WebP 95 / 90 | 2-3 KB, ~3.5 ms | 0.8-1.2 / 5-11 |
+| JPEG 98 / 95 | 4-7 KB, ~3 ms | 0.6-0.8 / 4-6 |
+
+So it is lossless WebP: the same picture, less time. WebKit writes no WebP and gives a PNG (its encode holds the main
+thread ~0 ms). The lossy ones shift the color: left.
+
+The cards already share their pictures: one per glass layer (a row or grid), its cards cut out of it. Living Room's
+Home: 82 cards, 47 shapes, 7 pictures; the other rooms' pages 1-3 pictures, 0.1-0.8 MB in all. One per page would need
+the pictures as CSS backgrounds again, whose tiles the browser drops (the flash preImg was made to end).
+
+Looked at and left: the layers drawing from the painted canvas, skipping the picture's decode (~3 ms, mostly off the main
+thread, and WebKit draws an undecoded background -- the pinned glass -- as nothing for a frame);
+painting a page's picture before its first visit (its sky would have to be drawn where it shows, or in a swipe, where
+the paint costs the drag a frame; a page has one once seen, and a tablet keeps the last 12).
+
+### The owner's video: flicker and the Pages screen's jump (2026-11-08)
+
+A 29 s phone video of the Living Room tablet on 0.1.153 (Bright Glass, Pre-rendered), walked frame by frame (60 fps),
+and a scan of every frame for a sudden change: the glass flickering as pages land, and the Pages screen from Home blurred
+(at landing), then its icons small and to the left, then in their places. Reproduced in the lab with a screencast of
+each swipe (every composited frame, 4x CPU), a frame-difference scan after each settle, and the pictures each layer
+wears:
+
+| What | Why | Now |
+|---|---|---|
+| Calendar's cards in Weather's purple for 2 frames, ~250 ms after the swipe settled | the address changes 50-70 ms before the sky (more on a tablet); a layer looked at in between (preCheck) asked for "the picture the sky is at", the page it left | a page landed on keeps its own picture (or blurs live) until the sky reaches it (hk-glass.js landedAt; wearAll and viewShown leave it too) |
+| The Pages screen landing blurred, every icon (Pages screen -> Home -> Pages screen) | the swipe's still ground (a blur of the sky, hk-pageswipe.js ground) went in just before the page being left; the Pages screen, kept from before Home was shown, came before Home in the slot, so the blur was over it -- at full strength as it landed | the ground goes in before the first page in the slot |
+| The Pages screen's icons drawn 880 px wide for a second | Home's Side Pane room (400 px) left on the view for a frame (hk-menu.js syncs on the next frame); a push in that frame drew the screen in it, and a box that only lived between frames never fires a ResizeObserver | the view's margins written at once on hk-pane (style writes, no read); the screen looks at its size the frame after every draw |
+
+After: a frame-difference scan of each swipe (Pages screen, Weather, Calendar, Cameras, Energy, Power, Security,
+Climate, each to the next) shows the settle and nothing after it; Home to the Pages screen drew small in 3 of 6 runs
+before, 0 of 6 after. Seen and left: one camera tile black for a moment on Cameras (its stream), a cold page's first
+swipe stalling a third of the way while it is built (Pages screen to Weather), and on Power the house picture gone for
+~50 ms after landing on the tablet (not reproduced in the lab).
+
+### A row that scrolls sideways, at its end (2026-11-08)
+
+The owner: on the Music page "the discovery section doesn't allow the page switch". Mapped point by point (which part
+of the page hkDrag.sideways gives the swipe to): everything right of the player was its rows', which keep every
+sideways pan -- the browser took the gesture (pointercancel) even at a row's end, with nothing to scroll. Measured in
+Chromium: a touch-action of `pan-y pan-right` set before the finger comes down lets a rightward drag through as
+pointer events; set in the pointerdown, too late.
+
+Now a row that scrolls (hkCards.fitPan -> hkDrag.panRow, which Music's rows, a room's, the weather's hours and the speakers' strips
+already use) pans only the way it still can at an end -- `pan-right` at its start, `pan-left` at its end, both in
+between -- kept as it scrolls; the page swipe takes a row only so marked (hkDrag.sidewaysRow) and only a drag the row
+cannot make (rowTakes, at the first move). On the Music page: at a row's start a swipe right goes back a page and left
+scrolls the row; at its end left goes on and right scrolls back; in the middle the row scrolls. WebKit has no
+pan-left / pan-right (CSS.supports says so: hkDrag.EDGE_PAN): there a row keeps every pan, as before.
+
 ## What a browser here cannot say
 
 Headless Chromium and desktop WebKit on a fast Mac approximate a tablet; slowing the CPU approximates it further. None of

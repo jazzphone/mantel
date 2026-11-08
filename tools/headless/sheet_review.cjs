@@ -62,6 +62,8 @@ function measure() {
     lr: u ? [Math.round(u[0] - b.left), Math.round(b.right - u[2])] : null,
     pad: [parseFloat(sc.paddingLeft), parseFloat(sc.paddingRight)], xright: xr ? Math.round(r.right - xr.right) : null,
     tb: u ? [Math.round(u[1] - b.top), Math.round(b.bottom - u[3])] : null,
+    // (the review, 2026-11-07: what is left under the last thing drawn, to the sheet's own edge, and its side margin)
+    foot: u ? [Math.round(r.bottom - u[3]), Math.round(u[0] - r.left)] : null,
   };
 }
 

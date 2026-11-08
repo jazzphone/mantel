@@ -23,9 +23,13 @@
     power: 'Power', music: 'Music', doors: 'Doors & Locks', live_tv: 'Live TV', water: 'Water',
     on_now: 'On Now', todo: 'To-do', energy_rings: 'Energy Rings', timeline: 'Recent', intercom: 'Intercom', house_status: 'House Status' };
   // C, Compact (2026-11-07): 3 x 1, Security's HomeView presentation's alone
-  var SIZE_NAMES = { S: 'Small', W: 'Wide', C: 'Compact', T: 'Tall', L: 'Large', XL: 'Extra Large', XXL: 'Full Width', F: 'Full View' };
+  var SIZE_NAMES = { XS: 'Tiny', S: 'Small', W: 'Wide', C: 'Compact', T: 'Tall', L: 'Large', XL: 'Extra Large', XXL: 'Full Width', F: 'Full View' };
   // a size on a chip or a segment, short enough for four in a row
-  var SIZE_SHORT = { S: 'Small', W: 'Wide', C: 'Compact', T: 'Tall', L: 'Large', XL: 'X-Large', XXL: 'Full', F: 'Full View' };
+  var SIZE_SHORT = { XS: 'Tiny', S: 'Small', W: 'Wide', C: 'Compact', T: 'Tall', L: 'Large', XL: 'X-Large', XXL: 'Full', F: 'Full View' };
+  // TINY (XS, 2026-11-08): half a cell, at[2] 1 its bottom half -- the places here count in half rows: a Tiny block one, the rest two
+  function y2(it) { return it.at[1] * 2 + (it.size === 'XS' && it.at[2] ? 1 : 0); }
+  function h2(size) { return size === 'XS' ? 1 : SIZES[size][1] * 2; }
+  function atY2(size, col, y) { return size === 'XS' && y % 2 ? [col, (y - 1) / 2, 1] : [col, y >> 1]; }
   // a size a block's card offers, with its options: Compact is Security's HomeView's alone (home_grid.py _security_size)
   function offersSize(card, size, opts) { return size !== 'C' || (card === 'security' && (opts || {}).presentation === 'homeview'); }
   // EVERY CATALOG KEY IS IN ONE OF THESE (2026-10-31, the owner: On Now, To-do and Energy Rings were missing from the
@@ -103,12 +107,12 @@
     if ((a.view || 0) !== (b.view || 0)) return false;
     var x = SIZES[a.size], y = SIZES[b.size];
     return a.at[0] < b.at[0] + y[0] && b.at[0] < a.at[0] + x[0] &&
-      a.at[1] < b.at[1] + y[1] && b.at[1] < a.at[1] + x[1];
+      y2(a) < y2(b) + h2(b.size) && y2(b) < y2(a) + h2(a.size);
   }
   function fits(grid, item) {
     sized(grid);
     var z = SIZES[item.size];
-    return !!z && item.at.every(Number.isInteger) && item.at[0] >= 0 && item.at[1] >= 0 &&
+    return !!z && item.at.every(Number.isInteger) && item.at[0] >= 0 && item.at[1] >= 0 && (item.at.length === 2 || (item.size === 'XS' && item.at.length === 3 && item.at[2] === 1)) &&
       item.at[0] + z[0] <= grid.cols && item.at[1] + z[1] <= grid.rows;
   }
   function valid(grid) {
@@ -129,7 +133,7 @@
     var out = copy(grid), item = out.items.find(function (it) { return it.id === id; });
     if (!item || !SIZES[size || item.size]) return null;
     var old = copy(item), resizing = size && size !== item.size;
-    item.at = at.slice(); item.size = size || item.size;
+    item.size = size || item.size; item.at = at.slice(0, item.size === 'XS' ? 3 : 2);
     if (!fits(out, item)) return null;
     var hit = out.items.filter(function (it) { return it.id !== id && overlap(item, it); });
     if (hit.length) {
@@ -157,7 +161,7 @@
     if (!me || !at || !SIZES[me.size] || !fits(out, { size: me.size, at: at })) return null;
     var from = me.at.slice(), view = me.view || 0;
     me.at = at.slice();
-    if (from[0] === at[0] && from[1] === at[1]) return out;
+    if (from[0] === at[0] && from[1] === at[1] && (from[2] | 0) === (at[2] | 0)) return out;
     var mine = out.items.filter(function (it) { return it !== me && (it.view || 0) === view; });
     var hit = mine.filter(function (it) { return overlap(me, it); });
     var stay = mine.filter(function (it) { return hit.indexOf(it) < 0; });
@@ -168,39 +172,40 @@
     return valid(out) ? out : null;
   }
   function cssId(id) { return window.CSS && CSS.escape ? CSS.escape(id) : String(id).replace(/["\\]/g, '\\$&'); }
-  function readAt(grid, at) { return at[1] * grid.cols + at[0]; }
+  function readAt(grid, at) { return (at[1] * 2 + (at[2] ? 1 : 0)) * grid.cols + at[0]; }
   // the cells a view's blocks take, as a list a cell each (row by row)
   function taken(grid, items) {
     var t = [];
     sized(grid);
-    for (var i = 0; i < grid.cols * grid.rows; i++) t.push(false);
+    for (var i = 0; i < grid.cols * grid.rows * 2; i++) t.push(false);
     items.forEach(function (it) { mark(grid, t, it.size, it.at, true); });
     return t;
   }
   function mark(grid, t, size, at, on) {
-    var z = SIZES[size];
-    for (var y = at[1]; y < at[1] + z[1]; y++) for (var x = at[0]; x < at[0] + z[0]; x++) t[y * grid.cols + x] = on;
+    var z = SIZES[size], y0 = y2({ size: size, at: at });
+    for (var y = y0; y < y0 + h2(size); y++) for (var x = at[0]; x < at[0] + z[0]; x++) t[y * grid.cols + x] = on;
   }
   // every place a block of `size` fits among the cells not taken, in reading order
   function spots(grid, t, size) {
-    var z = SIZES[size], out = [];
-    for (var row = 0; row + z[1] <= grid.rows; row++) for (var col = 0; col + z[0] <= grid.cols; col++) {
+    var z = SIZES[size], hh = h2(size), out = [];
+    for (var row = 0; row + hh <= grid.rows * 2; row += size === 'XS' ? 1 : 2) for (var col = 0; col + z[0] <= grid.cols; col++) {
       var clear = true;
-      for (var y = row; clear && y < row + z[1]; y++) for (var x = col; x < col + z[0]; x++) if (t[y * grid.cols + x]) { clear = false; break; }
-      if (clear) out.push([col, row]);
+      for (var y = row; clear && y < row + hh; y++) for (var x = col; x < col + z[0]; x++) if (t[y * grid.cols + x]) { clear = false; break; }
+      if (clear) out.push(atY2(size, col, row));
     }
     return out;
   }
   // 1. the blocks landed on, as they were, into the space the block left (the nearest way there)
   function together(me, from, hit) {
-    var z = SIZES[me.size], x0 = Infinity, y0 = Infinity, x1 = 0, y1 = 0, best = null;
+    var z = SIZES[me.size], x0 = Infinity, y0 = Infinity, x1 = 0, y1 = 0, best = null, f2 = y2({ size: me.size, at: from });
     hit.forEach(function (it) {
       var s = SIZES[it.size];
-      x0 = Math.min(x0, it.at[0]); y0 = Math.min(y0, it.at[1]); x1 = Math.max(x1, it.at[0] + s[0]); y1 = Math.max(y1, it.at[1] + s[1]);
+      x0 = Math.min(x0, it.at[0]); y0 = Math.min(y0, y2(it)); x1 = Math.max(x1, it.at[0] + s[0]); y1 = Math.max(y1, y2(it) + h2(it.size));
     });
-    for (var y = from[1]; y + y1 - y0 <= from[1] + z[1]; y++) for (var x = from[0]; x + x1 - x0 <= from[0] + z[0]; x++) {
-      var dx = x - x0, dy = y - y0, d = Math.abs(dx) + Math.abs(dy);
-      var moved = hit.map(function (it) { return [it, [it.at[0] + dx, it.at[1] + dy]]; });
+    for (var y = f2; y + y1 - y0 <= f2 + h2(me.size); y++) for (var x = from[0]; x + x1 - x0 <= from[0] + z[0]; x++) {
+      var dx = x - x0, dy = y - y0, d = Math.abs(dx) + Math.abs(dy) / 2;
+      if (hit.some(function (it) { return it.size !== 'XS' && dy % 2; })) continue;          // (only a Tiny block moves by half a row)
+      var moved = hit.map(function (it) { return [it, atY2(it.size, it.at[0] + dx, y2(it) + dy)]; });
       if (moved.some(function (m) { return overlap(me, { size: m[0].size, at: m[1], view: me.view }); })) continue;
       if (!best || d < best.d) best = { d: d, plan: moved };
     }
@@ -216,8 +221,8 @@
     var area = function (it) { var s = SIZES[it.size]; return s[0] * s[1]; };
     var order = hit.slice().sort(function (a, b) { return area(b) - area(a) || readAt(grid, a.at) - readAt(grid, b.at); }).concat(extra);
     var inGone = function (at, size) {
-      var s = SIZES[size];
-      return at[0] >= from[0] && at[1] >= from[1] && at[0] + s[0] <= from[0] + z[0] && at[1] + s[1] <= from[1] + z[1];
+      var s = SIZES[size], a2 = y2({ size: size, at: at }), f2 = y2({ size: me.size, at: from });
+      return at[0] >= from[0] && a2 >= f2 && at[0] + s[0] <= from[0] + z[0] && a2 + h2(size) <= f2 + h2(me.size);
     };
     var go = function (i) {
       if (i === order.length) return true;
@@ -290,8 +295,8 @@
   }
   function firstSpace(grid, size, view) {
     sized(grid);
-    for (var row = 0; row < grid.rows; row++) for (var col = 0; col < grid.cols; col++) {
-      var it = { size: size, at: [col, row], view: view === undefined ? VIEW : view };
+    for (var row = 0; row < grid.rows; row++) for (var col = 0; col < grid.cols; col++) for (var hf = 0; hf < (size === 'XS' ? 2 : 1); hf++) {
+      var it = { size: size, at: hf ? [col, row, 1] : [col, row], view: view === undefined ? VIEW : view };   // (a Tiny: a cell's free half, top first)
       if (fits(grid, it) && !grid.items.some(function (x) { return overlap(it, x); })) return it.at;
     }
     return null;
@@ -461,7 +466,8 @@
   function landing(x, y, rect, cols, rows, gap, size) {
     var z = SIZES[size], cw = (rect.width - (cols - 1) * gap) / cols, ch = (rect.height - (rows - 1) * gap) / rows;
     var c = Math.round((x - rect.left) / (cw + gap) - z[0] / 2), r = Math.round((y - rect.top) / (ch + gap) - z[1] / 2);
-    return [Math.max(0, Math.min(cols - z[0], c)), Math.max(0, Math.min(rows - z[1], r))];
+    var r2 = Math.max(0, Math.min(rows * 2 - 1, Math.floor((y - rect.top) / (ch + gap) * 2)));          // (a Tiny one: the half under the pointer)
+    return size === 'XS' ? atY2('XS', Math.max(0, Math.min(cols - 1, Math.floor((x - rect.left) / (cw + gap)))), r2) : [Math.max(0, Math.min(cols - z[0], c)), Math.max(0, Math.min(rows - z[1], r))];
   }
   // WHY A BLOCK CAN'T TAKE A SIZE whatever room there is round it (its
   // pages, its rules' cards), in words; null: it can (the dashboard's Edit
@@ -745,7 +751,7 @@
           var delta = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
           if (!delta) return;
           e.preventDefault(); self.selected = it.id;
-          var next = makeRoom(self.grid, it.id, [it.at[0] + delta[0], it.at[1] + delta[1]]);
+          var next = makeRoom(self.grid, it.id, it.size === 'XS' ? atY2('XS', it.at[0] + delta[0], y2(it) + delta[1]) : [it.at[0] + delta[0], it.at[1] + delta[1]]);
           if (next) { self.change(next); self.overlay.querySelector('[data-id="' + it.id + '"]').focus(); }
           else self.say('That move does not fit.');
         });
@@ -761,7 +767,8 @@
     position(el, it) {
       var gap = this.cellGap || 10, z = SIZES[it.size], w = (this.overlay.clientWidth - (this.grid.cols - 1) * gap) / this.grid.cols;
       var h = (this.overlay.clientHeight - (this.grid.rows - 1) * gap) / this.grid.rows;
-      Object.assign(el.style, { left: it.at[0] * (w + gap) + 'px', top: it.at[1] * (h + gap) + 'px', width: (w + gap) * z[0] - gap + 'px', height: (h + gap) * z[1] - gap + 'px' });
+      Object.assign(el.style, { left: it.at[0] * (w + gap) + 'px', top: it.at[1] * (h + gap) + (it.size === 'XS' && it.at[2] ? (h + gap) / 2 : 0) + 'px', width: (w + gap) * z[0] - gap + 'px',
+        height: (it.size === 'XS' ? (h - gap) / 2 : (h + gap) * z[1] - gap) + 'px' });
     }
     // MOVING A BLOCK (2026-10-30, the owner: "It would be cool if the tiles
     // could adapt while you move/relocate existing tiles"): the block follows
@@ -776,8 +783,8 @@
       this.select(it.id);
       var self = this, start = [e.clientX, e.clientY], moved = false, key = null, at = null, next = null, z = SIZES[it.size];
       var ghost = this.h('div', { class: 'ghost' });
-      var origin = snap(e.clientX, e.clientY, this.overlay.getBoundingClientRect(), this.grid.cols, this.grid.rows);
-      var home = function (a) { return a[0] === it.at[0] && a[1] === it.at[1]; };
+      var tiny = it.size === 'XS', rows = this.grid.rows * (tiny ? 2 : 1), origin = snap(e.clientX, e.clientY, this.overlay.getBoundingClientRect(), this.grid.cols, rows);
+      var home = function (a) { return a[0] === it.at[0] && a[1] === it.at[1] && (a[2] | 0) === (it.at[2] | 0); };
       button.setPointerCapture(e.pointerId);
       var follow = function (ev) {
         if (!moved && Math.hypot(ev.clientX - start[0], ev.clientY - start[1]) < 4) return;
@@ -785,10 +792,11 @@
         self.carry(it.id, ev.clientX - start[0], ev.clientY - start[1], r);
         if (!moved) { moved = true; self.lift(it.id, true); window.addEventListener('keydown', escape, true); }
         var inside = ev.clientX >= r.left && ev.clientX <= r.right && ev.clientY >= r.top && ev.clientY <= r.bottom;
-        var pos = snap(ev.clientX, ev.clientY, r, self.grid.cols, self.grid.rows);
-        // (a block held by its edge still lands inside the grid)
+        var pos = snap(ev.clientX, ev.clientY, r, self.grid.cols, rows);
+        // (a block held by its edge still lands inside the grid; a Tiny one in half rows)
         at = inside ? [Math.max(0, Math.min(self.grid.cols - z[0], it.at[0] + pos[0] - origin[0])),
-          Math.max(0, Math.min(self.grid.rows - z[1], it.at[1] + pos[1] - origin[1]))] : null;
+          Math.max(0, Math.min(rows - (tiny ? 1 : z[1]), (tiny ? y2(it) : it.at[1]) + pos[1] - origin[1]))] : null;
+        if (at && tiny) at = atY2('XS', at[0], at[1]);
         // the layout is worked out again only when the cells change
         if ((at ? at.join() : 'off') === key) return;
         key = at ? at.join() : 'off';
@@ -977,7 +985,7 @@
       if (view && view._showView && (this.grid.views || 1) > 1) view._showView(VIEW);
       var cell = view && view._config && view._config.grid && view.shadowRoot &&
         // (one that isn't sliding out of a moved block's way: makeRoom's, drag())
-        [].find.call(view.shadowRoot.querySelectorAll((this.grid.views || 1) > 1 ? '.cell[data-view="' + VIEW + '"]' : '.cell'), (c) => !c.style.translate);
+        [].find.call(view.shadowRoot.querySelectorAll((this.grid.views || 1) > 1 ? '.cell[data-view="' + VIEW + '"]' : '.cell'), (c) => !c.style.translate && c.getAttribute('size') !== 'XS');
       if (cell) {
         var r = cell.getBoundingClientRect(), it = view._config.cards.find((x) => x.hk_cell && x.hk_cell.id === cell.dataset.id).hk_cell;
         var gap = cellOf(this.grid).gap * (view._gridScale || 1); this.cellGap = gap; this.overlay.style.gap = gap + 'px';
@@ -1307,7 +1315,7 @@
       var chips = h('div', { class: 'chips', role: 'group', 'aria-label': NAMES[k] + ' size' }, this.sizesOf(k).map((s) => {
         var full = !this.pickerTarget && this.grid && !firstSpace(this.grid, s);
         return h('button', { class: 'chip', type: 'button', 'data-size': s, 'data-full': String(!!full), 'aria-pressed': String(s === size),
-          title: SIZE_NAMES[s] + ' · ' + SIZES[s][0] + ' × ' + SIZES[s][1] + (full ? ' · no free space' : ''), text: SIZE_SHORT[s] });
+          title: SIZE_NAMES[s] + ' · ' + (s === 'XS' ? 'half a cell' : SIZES[s][0] + ' × ' + SIZES[s][1]) + (full ? ' · no free space' : ''), text: SIZE_SHORT[s] });
       }));
       var row = h('div', { class: 'cell pal-row', role: 'button', tabindex: '0', 'data-card': k, 'aria-expanded': String(open),
         'aria-label': NAMES[k] + ', ' + DESCRIPTIONS[k] + (this.pickerTarget ? '' : '. Drag onto the grid, or press Enter to preview.') },
@@ -1730,7 +1738,7 @@
       var fields = G.table()[key].opts || {}, opts = {}, self = this;
       Object.keys(fields).forEach(function (name) {
         var kind = fields[name];
-        if (['secondary', 'title', 'room_display', 'thermostat_style', 'tile_height', 'period', 'name_tag', 'tap_target', 'music_tap', 'tv_channel', 'music_show', 'music_playlist', 'music_speaker', 'timeline_show', 'np_background', 'security_presentation', 'security_members'].includes(kind)) return;
+        if (['secondary', 'title', 'room_display', 'thermostat_style', 'tile_height', 'period', 'name_tag', 'tap_target', 'music_tap', 'tv_channel', 'music_show', 'music_playlist', 'music_speaker', 'timeline_show', 'np_background', 'on_now_open', 'everything_more', 'security_presentation', 'security_members'].includes(kind)) return;
         if (kind === 'accessories') { opts[name] = self.choices('entity').filter((op) => /^(light|switch|fan|sensor)\./.test(op[0])).slice(0, 4).map((op) => ({ entity: op[0] })); if (!opts[name].length) delete opts[name]; return; }
         var choices = self.choices(kind).filter((op) => op[0] !== 'tablet_room');
         if (kind === 'scene' && key === 'scene') choices = choices.filter((op) => op[0].indexOf('scene.') === 0);
@@ -1798,7 +1806,7 @@
       if (this.catalogOff) this.catalogOff();
       var sz = box.dataset.previewSize, z = SIZES[sz], ctx = this.previewView._config.grid_ctx || {};
       var unit = cellOf(this.grid), gap = unit.gap;
-      var width = unit.w * z[0] + gap * (z[0] - 1), height = unit.h * z[1] + gap * (z[1] - 1);
+      var width = unit.w * z[0] + gap * (z[0] - 1), height = sz === 'XS' ? (unit.h - gap) / 2 : unit.h * z[1] + gap * (z[1] - 1);
       var scale = Math.min(1, (box.clientWidth || 220) / width);
       box.style.height = height * scale + 'px';
       // Keep every descendant in the screen's custom-element registry. Adopting
@@ -1833,6 +1841,9 @@
         var sample = fw.hkCards.previewClient(this.catalogClient(fw.hkCards.client()));
         var card = fw.hkCards.createCard(fw.hkGridCatalog.config(it, ctx), sample);
         card.setAttribute('size', sz); card.inert = true;
+        // THE SCREEN'S TILE STYLE (2026-11-08, the owner: "the card previews followed the appearance default for tiles (centered vs home)"):
+        // set on the card as the screen's grid sets it on a block (hk-layout.js, hk-strategy.js homeGridView)
+        if (this.screenTile(box.dataset.previewCard, sz, it.opts)) card.setAttribute('tile', 'centred');
         Object.assign(card.style, { display: 'block', width: '100%', height: '100%' });
         cell.appendChild(card); view.appendChild(cell); doc.body.replaceChildren(view);
         fw.galleryCard = card; box.removeAttribute('data-loading');
@@ -2050,13 +2061,19 @@
       Object.keys(data.boards || {}).forEach((path) => { if (path !== here) from((data.boards[path] || {}).home_grid, path); });
       return out;
     }
+    // THE SCREEN'S TILE STYLE, as the screen resolves it (hk-strategy.js homeGridView): this screen's own, else All Screens', Automatic
+    // being Centered on square cells; true where a block of this card and size draws Centered (Security past Small does not, as on the screen)
+    screenTile(card, size, opts) {
+      var own = this.o && this.o.board && this.o.board.tile_style, all = (((this.panel.data || {}).settings || {}).look || {}).tile_style;
+      var ts = ['auto', 'home', 'centred'].indexOf(own) >= 0 ? own : ['auto', 'home', 'centred'].indexOf(all) >= 0 ? all : 'auto';
+      var keeps = card === 'security' && size !== 'S' && (opts || {}).presentation !== 'homeview';
+      return !keeps && (ts === 'centred' || (ts === 'auto' && !!this.grid && this.grid.cell === 'square'));
+    }
     // PREVIEW SHEET: the real sheet, in the preview's page, over the house as the preview has it; nothing in it answers a tap
     previewSheet(item) {
       var w = (this.iframe && this.iframe.contentWindow) || window, D = w.hkDetail, sheet = item.interaction && item.interaction.custom_sheet;
       if (!D || !D.openSheet || !sheet) { this.say('The preview isn’t ready yet.'); return; }
-      var own = this.o && this.o.board && this.o.board.tile_style, all = (((this.panel.data || {}).settings || {}).look || {}).tile_style;
-      var screenTiles = ['auto', 'home', 'centred'].indexOf(own) >= 0 ? own : all;
-      var style = screenTiles === 'centred' || ((!screenTiles || screenTiles === 'auto') && this.grid.cell === 'square') ? 'centred' : 'home';
+      var style = this.screenTile('', 'S') ? 'centred' : 'home';
       D.openSheet(sheet, { title: NAMES[item.card], style: style, preview: true });
     }
     update(id, patch) {
@@ -2110,7 +2127,11 @@
         }
         // SCENES AND ACCESSORIES (2026-10-31): Full or Half height, glass or Color; an Energy Rings block's period
         if (kind === 'tile_height') {
-          rows.push(K.seg({ label: 'Height', value: opts[key] || 'full', options: [['full', 'Full'], ['half', 'Half']], onChange: (v) => set(key, v === 'full' ? null : v) }));
+          // (Security's: only beside its locks -- Large's Classic, Extra Large's either -- and Half its default beside the keypad;
+          // 2026-11-08, the owner: "Half and Full still aren't working": Full was stored as the default, which there is Half)
+          var sec = card === 'security', dflt = sec && o.size === 'XL' ? 'half' : 'full';
+          if (sec && !(o.size === 'XL' || (o.size === 'L' && opts.presentation !== 'homeview'))) return;
+          rows.push(K.seg({ label: 'Height', value: opts[key] || dflt, options: [['full', 'Full'], ['half', 'Half']], onChange: (v) => set(key, v === dflt ? null : v) }));
           return;
         }
         // A CAMERA'S NAME at its foot (2026-10-31): Automatic (on a tile cell, not HomeView's square ones), Show, Hide
@@ -2131,6 +2152,18 @@
         // ...a Music block's, with Choose a Playlist (2026-11-01, the owner): five, so a list rather than a segment
         if (kind === 'music_tap') {
           rows.push(K.select({ label: 'When Tapped', value: opts[key] || 'auto', options: G.MUSIC_TAPS, onChange: (v) => set(key, v === 'auto' ? null : v) }));
+          return;
+        }
+        // ON NOW'S CATEGORIES (2026-11-08, the owner: "either show a pop up or go to those pages... users decisions")
+        if (kind === 'on_now_open') {
+          if (o.size === 'S') return;
+          rows.push(K.seg({ label: 'Categories', value: opts[key] || 'sheet', options: [['sheet', 'Show a Sheet'], ['page', 'Go to Its Page']], onChange: (v) => set(key, v === 'sheet' ? null : v) }));
+          return;
+        }
+        // EVERYTHING'S REST (2026-11-08, the owner: "scroll within the card or go to the page with the + button")
+        if (kind === 'everything_more') {
+          if (o.size === 'S') return;
+          rows.push(K.seg({ label: 'More Places', value: opts[key] || 'page', options: [['page', '+ Opens the Page'], ['scroll', 'Scroll in the Block']], onChange: (v) => set(key, v === 'page' ? null : v) }));
           return;
         }
         // NOW PLAYING'S BACKGROUND (2026-11-05, the owner): the blurred album, or the plate every other block has
@@ -2188,9 +2221,19 @@
         // ...and HomeView's entries: Automatic (the house's locks, then its garage doors) or the ones chosen, in order
         if (kind === 'security_members') {
           if (opts.presentation !== 'homeview') return;
-          var mem = opts[key] || [], doors = self.choices('entity').filter((op) => /^(lock|cover)\./.test(op[0]));
+          // (its locks and garage doors, as Automatic's -- not every blind and a car's charge port; and Choose starts from what
+          // Automatic shows, the house's lists, not the first six by name -- 2026-11-08, the owner's Kitchen block)
+          var st = (self.panel.client && self.panel.client.states) || {}, HS = window.hkSettings;
+          var garageish = (id) => /^cover\./.test(id) && st[id] && ['garage', 'gate'].includes((st[id].attributes || {}).device_class);
+          var mem = opts[key] || [], doors = self.choices('entity').filter((op) => /^lock\./.test(op[0]) || garageish(op[0]) || mem.includes(op[0]));
+          var house = () => {
+            var l = HS && HS.get ? HS.get('kinds.locks', null) : null, g = HS && HS.get ? HS.get('kinds.garage', null) : null;
+            var auto = (Array.isArray(l) && l.length ? l : doors.map((op) => op[0]).filter((id) => /^lock\./.test(id)))
+              .concat(Array.isArray(g) && g.length ? g : doors.map((op) => op[0]).filter(garageish));
+            return auto.filter((id) => st[id]).slice(0, G.SHEET.max);
+          };
           rows.push(K.seg({ label: 'Entries', value: mem.length ? 'chosen' : '', options: [['', 'Automatic'], ['chosen', 'Choose']],
-            onChange: (v) => set(key, v ? doors.slice(0, 6).map((op) => op[0]) : null) }));
+            onChange: (v) => set(key, v ? house() : null) }));
           if (!mem.length) { rows.push(K.info({ label: 'The house’s locks, then its garage doors' })); return; }
           mem.forEach((id, i) => {
             var nm = (doors.find((op) => op[0] === id) || [id, id + ' (Unavailable)'])[1];

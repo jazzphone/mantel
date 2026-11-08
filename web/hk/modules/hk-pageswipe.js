@@ -264,9 +264,30 @@
     PROPS.forEach(function (p) {
       if (o[p][0]) el.style.setProperty(p, o[p][0], o[p][1]); else el.style.removeProperty(p);
     });
+    glassAlong(el, null);
   }
   function setX(el, x, base) {
     el.style.setProperty('transform', 'translateX(' + (+x).toFixed(1) + 'px)' + (base && base !== 'none' ? ' ' + base : ''));
+    glassAlong(el, x, base);
+  }
+  // THE GLASS GOES WITH THE PAGE (hkGlass.along; 2026-11-08): where the page is drawn, from the corner of its box, on
+  // the transition it moves by -- so Pre-rendered glass keeps its picture still under a moving page, rather than every
+  // layer on both pages blurring live for the whole swipe. Nothing is read: the box is the press's (measure, place). A
+  // page scaled aside (a full rail: `base`) can't keep a still picture under it, and blurs live as it did.
+  function glassAlong(el, x, base) {
+    var Gl = window.hkGlass;
+    if (!Gl || !Gl.along) return;
+    var st = ST, at = null;
+    if (x !== null && x !== undefined && !(base && base !== 'none') && st && st.rect) {
+      var here = st.items && st.items[st.at];
+      if (el === st.view) at = { left: st.rect.left, top: st.vtop || 0, path: here ? here.path : null };
+      else {
+        var all = Object.keys(st.nb).map(function (k) { return st.nb[k]; }).concat(st.spare || []);
+        all.forEach(function (N) { if (N && N.el === el && N.real) at = { left: N.left || 0, top: st.top, path: N.item ? N.item.path : null }; });
+      }
+    }
+    if (at) { at.x = +x || 0; at.tr = el.style.getPropertyValue('transition') || ''; }
+    try { Gl.along(el, at); } catch (e) { /* the glass is its own */ }
   }
   // where it is drawn right now, mid-transition too
   function drawnX(el, fallback) {
@@ -336,6 +357,7 @@
     if (base) view.style.setProperty('transform', 'none');
     var r = view.getBoundingClientRect();
     if (base) view.style.setProperty('transform', base);
+    st.vtop = r.top;
     var se = document.scrollingElement || document.documentElement, body = document.body;
     var scrolled = Math.max(window.scrollY || 0, se ? se.scrollTop : 0, body ? body.scrollTop : 0);
     var left = r.left, width = r.width || window.innerWidth || 1;
@@ -521,6 +543,17 @@
     groundKnown(st.view, true);
     relook(st);
   }
+  // THE PAGE AFTER THE ONE A SETTLE IS GOING TO (2026-11-08): asked of the host once the settle is under way (the
+  // compositor moves the page, so the main thread is free), so the next flick finds it built: the host keeps it, and
+  // the landing's own makeReady takes it from there at once
+  function ahead(item) {
+    var H = host();
+    if (!item || !H || !H.warm || making[item.path]) return;
+    later(function () { later(function () {
+      try { var w = H.warm(viewSeg(item.path)); if (w && w.catch) w.catch(function () { /* made again when wanted */ }); }
+      catch (e) { /* made again when wanted */ }
+    }); });
+  }
   function makeReady(st, dir, item) {
     var H = host(), key = item.path;
     if (!H || !H.warm || making[key]) return;
@@ -533,8 +566,11 @@
       if (gen !== planGen || ST !== st || !p || !st.view.isConnected) return;
       var N = st.nb[dir];
       if (N && (N.real || N.item.path !== item.path)) return;
-      // a settle running to the stand-in goes on with it: the page it lands on is ready for then
-      if (G || A || L) { planSoon(250); return; }
+      // a settle running to the stand-in goes on with it: the page it lands on is ready for then. A finger on the page
+      // takes the real one as soon as it is made (2026-11-08, the owner: quick flicks "sometimes don't swipe" -- the
+      // page beyond was made only at a quiet moment, which a run of flicks never has, so each second flick found a
+      // stand-in, landed on it and refused every touch while it was built)
+      if (A || L) { planSoon(250); return; }
       if (N) drop(N);
       delete st.nb[dir];
       var R = adopt(st, dir, item, p);
@@ -577,10 +613,20 @@
     d.className = 'hk-swipe-ground';
     d.setAttribute('aria-hidden', 'true');
     d.style.cssText = 'position:fixed;inset:0;pointer-events:none;opacity:' + (k || 0) + ';-webkit-backdrop-filter:' + f + ';backdrop-filter:' + f;
-    parent.insertBefore(d, st.view);
+    // UNDER EVERY PAGE IN THE SLOT, not just under this one: a page beside it can come first (the Pages screen, kept
+    // from before Home was shown), and over it the blur fell on its icons as it landed -- every icon a blur until the
+    // landing let go of it (the owner's video, 2026-11-08)
+    parent.insertBefore(d, firstPage(st, parent));
     el.style.setProperty('--hk-ground-hide', '1');
     d._of = el;
     return d;
+  }
+  function firstPage(st, parent) {
+    var pages = [st.view];
+    Object.keys(st.nb).forEach(function (k) { if (st.nb[k]) pages.push(st.nb[k].el); });
+    (st.spare || []).forEach(function (o) { if (o && o.el) pages.push(o.el); });
+    for (var c = parent.firstElementChild; c; c = c.nextElementSibling) if (pages.indexOf(c) >= 0) return c;
+    return st.view;
   }
   function shade(d, k, ms) {
     if (!d) return;
@@ -665,11 +711,16 @@
     // on the Live TV page ... it isn't letting me swipe": its channels end a third of the way down, and below them is
     // the view's slot, not the page)
     var slot = viewSlot(), under = !!slot && path[0] === slot;
-    if (path.indexOf(view) < 0 && !under) { why = 'off the page'; return; }
+    // ...or the Side Pane beside it (2026-11-08, the owner: swipes that "sometimes don't swipe" -- on Home the pane is a
+    // third of the screen, and a flick that began on it did nothing; its own sideways things still keep theirs)
+    var pane = null;
+    path.forEach(function (n) { if (!pane && n && n.localName === 'hk-side-pane') pane = n; });
+    if (path.indexOf(view) < 0 && !under && !pane) { why = 'off the page'; return; }
     var sa = safe();
     if (atEdge(e.clientX, window.innerWidth || 0, sa.left, sa.right)) { why = 'edge'; return; }
-    var drag = D();
-    if (!drag || !drag.sideways || drag.sideways(path, under ? slot : view)) { why = 'its own'; return; }
+    var drag = D(), stop = pane && path.indexOf(view) < 0 ? pane : under ? slot : view, row = null;
+    // (a row at an end that pans only one way: a swipe the other way is ours -- decided at the first move, onMove)
+    if (!drag || !drag.sideways || (drag.sideways(path, stop) && !(row = drag.sidewaysRow ? drag.sidewaysRow(path, stop) : null))) { why = 'its own'; return; }
     var items = list(), nb = neighbors(items, location.pathname, isHere);
     if (nb.at < 0) { why = 'not in the order'; return; }
     var grid = null;
@@ -680,7 +731,7 @@
     st.items = items;
     st.at = nb.at;
     G = { id: e.pointerId, type: e.pointerType, x0: e.clientX, y0: e.clientY, stage: st, target: path[0] || null,
-          grid: grid, live: false, calm: reduced(), pts: [[t, e.clientX]], dx: 0 };
+          grid: grid, row: row, live: false, calm: reduced(), pts: [[t, e.clientX]], dx: 0 };
     if (e.pointerType !== 'mouse') holdTarget(path[0]);
     measure(st);
   }
@@ -695,6 +746,8 @@
       var k = window.hkDrag.classify(dx, dy, { axis: 'x', slop: START, ratio: RATIO });
       if (k === 'press') return;
       if (k === 'scroll') { letGo(); return; }
+      // (a row that can still scroll this way: the browser pans it)
+      if (G.row && window.hkDrag.rowTakes && window.hkDrag.rowTakes(G.row, dx)) { letGo(); return; }
       begin(e, dx);
     }
     // (each move the tablet coalesced into this one: the flick's speed from all of them)
@@ -714,6 +767,8 @@
   // far; the card under the finger lets go (as it would for a scroll)
   function begin(e, dx) {
     G.live = true;
+    var Dm = D();
+    if (!G.calm && Dm && Dm.motion) Dm.motion.begin('page');          // its frames counted on this device (hk-drag.js motion)
     G.x0 += Math.max(-START, Math.min(START, dx || 0));
     var st = G.stage, view = st.view;
     if (!G.calm) heat(st);
@@ -869,6 +924,9 @@
     }
     var dir = raw < 0 ? 1 : -1, to = st.items[st.at + dir] || null;
     var goes = e.type === 'pointerup' && !!to && lands(raw, st.rect.width, v);
+    // (a flick that caught a settle, on the way it was going: the page after the one it caught, wherever it was)
+    var fd = v < 0 ? 1 : -1, on = G.chain && fd === G.chain && Math.abs(v) > FLICK && st.items[st.at + fd];
+    if (e.type === 'pointerup' && on) { dir = fd; to = on; goes = true; }
     settle(goes ? to : null, raw, to ? v : v * GIVE);
   }
 
@@ -904,11 +962,14 @@
     var tr = 'transform ' + ms + 'ms ' + c.ease;
     var T = window.hkTabBar, P = window.hkSidePane;
     var moved = [st.view], side = x < 0 ? 1 : -1;
+    // (on to a page from the far side of this one -- a flick on from a settle it caught early, chain: this page is still
+    // mostly where the last one was -- every page goes by together, the same way, so none passes another)
+    var pass = !!to && side !== dir;
     // (where each is now is what it moves from, not the last frame's)
     setX(st.view, x, st.base);
     Object.keys(st.nb).forEach(function (k) {
       var M = st.nb[k];
-      if (M) { setX(M.el, M.off + (M.dir === side ? x : 0), st.base); moved.push(M.el); }
+      if (M) { setX(M.el, M.off + (pass || M.dir === side ? x : 0), st.base); moved.push(M.el); }
     });
     if (typeof getComputedStyle === 'function') { try { void getComputedStyle(st.view).transform; } catch (e) { /* a test page */ } }
     // (the highlight and the Side Pane set off after that flush, in the same style update as the page: before it, they
@@ -922,10 +983,11 @@
     Object.keys(st.nb).forEach(function (k) {
       var M = st.nb[k];
       if (!M) return;
-      setX(M.el, M === N ? 0 : M.off, st.base);
+      setX(M.el, M === N ? 0 : M.off + (pass ? target : 0), st.base);
       shade(M.ground, M === N ? 1 : 0, ms);
     });
     var a = A = { st: st, to: to, dir: dir, N: N, spring: s, ms: ms, t0: now(), timer: 0, off: null, sky: null };
+    if (to) ahead(st.items[st.at + 2 * dir]);
     if (sky && !sky.alive()) sky = null;
     var there = !!sky && !!to && to.path === sky.path;
     if (sky) {
@@ -964,6 +1026,8 @@
     if (A !== a) return;
     A = null;
     a.off();
+    var Dm = D();
+    if (Dm && Dm.motion) Dm.motion.end();
     var st = a.st;
     if (a.to) { arrive(st, a.to, a.dir, a.N, 0); return; }
     backHome(st);
@@ -999,28 +1063,35 @@
     var to = a.to, sky = a.sky && a.sky.alive() ? a.sky : null;
     // (its background, on its way with the page: where the page is going on, the rest of the way at once; else the
     // finger's again, where it is now)
-    if (sky && to && Math.abs(x) >= st.rect.width * ADVANCE) { sky.done(true, FADE_MS, STANDARD); sky = null; }
-    // ...to a page not ready yet (its stand-in): it lands, and is built; the finger waits for it. Caught each time, a quick
-    // run of flicks never landed it at all, and stood on its title (2026-11-04, WebKit)
-    if (to && !(a.N && a.N.real) && Math.abs(x) >= st.rect.width * ADVANCE) {
-      why = 'landing';
-      arrive(st, to, a.dir, a.N, 0);
-      return;
-    }
-    if (to && a.N && a.N.real && Math.abs(x) >= st.rect.width * ADVANCE) {
+    // A RUN OF FLICKS COUNTS EVERY FLICK (2026-11-08, the owner: "fast swipes are common here since a user may fast swipe
+    // to the page they want", and two quick flicks went one page): a settle on its way to a page that is ready has
+    // landed there when a finger catches it, however far it had got -- where the pages are on the screen doesn't change,
+    // only which one the finger holds -- and a flick on the way it was going goes on to the page after (onUp, `chain`).
+    // (Past ADVANCE only, before: caught under half way, the next flick finished the first one's page.)
+    var arriving = !!(to && a.N && a.N.real);
+    if (sky && to && (arriving || Math.abs(x) >= st.rect.width * ADVANCE)) { sky.done(true, FADE_MS, STANDARD); sky = null; }
+    // (...to a page not ready yet, its stand-in: the finger holds it where it is, as for one ready, and the real page
+    // takes the stand-in's place when it is made -- makeReady. It once landed there and refused the finger while the
+    // page was built: the owner's flicks that "sometimes don't swipe", 2026-11-08)
+    var chain = 0;
+    if (arriving) {
       arrive(st, to, a.dir, a.N, x + a.dir * st.rect.width);
       st = ST;
       x = st.x;
       to = null;
+      chain = a.dir;
       // (however little was left of the way: the finger is moving this page now, and what it wears has to come back)
       heat(st);
     }
     G = { id: e.pointerId, type: e.pointerType, x0: e.clientX, y0: e.clientY, stage: st, target: null, grid: null, live: true,
-          calm: false, pts: [[e.timeStamp || Date.now(), e.clientX]], dx: 0, caught: { to: to },
+          calm: false, pts: [[e.timeStamp || Date.now(), e.clientX]], dx: 0, caught: { to: to }, chain: chain,
           from: st.items[st.at + (x < 0 ? 1 : -1)] ? x : x / GIVE, sky: sky || null, skyAsk: sky ? sky.path : null };
     if (sky) sky.set(Math.min(1, Math.abs(x) / st.rect.width));
     why = '';
-    companions(G);
+    // (what goes with the page, the next frame, as for any move: here it held the press up 30-60 ms at 4x CPU)
+    var g = G;
+    g.frame = true;
+    later(function () { g.frame = false; if (G === g) companions(g); });
     capturePointer(st.view, e.pointerId);
     var H = host();
     if (H && H.busy) H.busy(true);
@@ -1088,6 +1159,8 @@
       back.el.style.removeProperty('will-change');
     }
     landed(N.el);
+    var far = next.items[next.at + dir];
+    if (far && !next.nb[dir]) makeReady(next, dir, far);
     planSoon(0);
   }
   // (the page it left is not the page now, and the page it landed on is: what waited for that -- hk-popup.js -- looks

@@ -246,7 +246,7 @@
     // (the glyphs 15 % larger, 2026-10-31, the owner with HomeView beside them: Apple's ink is ~30 % of the tile's
     // height -- the lock 34 of 120, the lights 39 -- and ours was 25 %)
     tall: { box: 64, glyph: 58, at: 31, text: 55, name: 17, sub: 16, line: 22 },
-    square: { box: 82, glyph: 76, at: 33, text: 57.7, name: 21, sub: 20, line: 27 },
+    square: { box: 82, glyph: 76, at: 33, text: 57.7, name: 21, sub: 20, line: 27 }, short: { box: 50, glyph: 44, at: 29, text: 49, name: 17, sub: 16, line: 21 },  // (short: a wide tile under 140 px, its words clear of the foot -- 2026-11-08)
     track: -0.3, inset: 10,
     // what of the glyph's box its drawing fills, whatever the glyph (hk-icon
     // `ink`): about 63 px of a 76 px box, HomeView's (2026-10-31, the alarm
@@ -266,7 +266,7 @@
   // reads its class from its `size` attribute and its cell from
   // --hk-cell-w / --hk-cell-h. F (Full: the view's whole grid) is 0 x 0 here:
   // its cell says how many columns and rows (--hk-span-c / --hk-span-r).
-  var HOME_GRID = { sizes: { S: [1, 1], W: [2, 1], T: [1, 2], L: [2, 2], XL: [3, 2], XXL: [6, 2], F: [0, 0], C: [3, 1] }, gap: TILE.gridGap, band: 60, pad: 1280 * 0.015 + 8 };
+  var HOME_GRID = { sizes: { S: [1, 1], W: [2, 1], T: [1, 2], L: [2, 2], XL: [3, 2], XXL: [6, 2], F: [0, 0], C: [3, 1], XS: [1, 1] }, gap: TILE.gridGap, band: 60, pad: 1280 * 0.015 + 8 };
   // SQUARE CELLS (2026-10-30, docs/phase11/HOMEVIEW-LOOK.md "The numbers"): a
   // grid's `cell: square` -- 196 x 196, the tile's width with a square's
   // height, and HomeView's 13 px gap (6.7 % of a cell; tiles keep 10). A
@@ -373,9 +373,9 @@
       at('', [s.name]) + '{' + text + ';font-weight:600' + I + '}' +
       at('', s.sub) + '{' + text + ';font-weight:400' + I + ';color:' + v('ink-2') + I + '}' +
       at(s.lit, s.sub) + '{color:' + v('ink-on-state') + I + '}' +
-      // (square where 180 px tall or about square -- a Large Accessories block's ~179 px tiles, 2026-11-07; fit: grows past 196, <= 45cqmin)
-      one(C0.tall) + '@container hk-cell (min-height:180px) or (max-aspect-ratio: 6 / 5) or style(--hk-cell-shape: square){' + one(C0.square) +
-        at('', [s.well]) + '{width:' + fit(C0.square.box) + I + ';height:' + fit(C0.square.box) + I + '}' + at('', [s.icon]) + '{width:' + fit(C0.square.glyph) + I + ';height:' + fit(C0.square.glyph) + I + '}}';
+      // (square where 170 px tall or about square -- a Large Accessories block's ~179 px tiles, an XL group's 2 x 2 ~178, 2026-11-07; fit: grows past 196, <= 45cqmin)
+      one(C0.tall) + '@container hk-cell (min-height:170px) or (max-aspect-ratio: 6 / 5) or style(--hk-cell-shape: square){' + one(C0.square) +
+        at('', [s.well]) + '{width:' + fit(C0.square.box) + I + ';height:' + fit(C0.square.box) + I + '}' + at('', [s.icon]) + '{width:' + fit(C0.square.glyph) + I + ';height:' + fit(C0.square.glyph) + I + '}}' + '@container hk-cell (max-height:140px) and (min-aspect-ratio: 6 / 5){' + one(C0.short) + '}';
   }
   // ONE TITLE ROW (the Energy page's): the name left, the detail right, one
   // baseline, 20 px tall. `sel` is the row (default .ttl); its <b> is the
@@ -4709,14 +4709,14 @@
   // Pages, hk-pageswipe.js): a scroll container takes every sideways pan for
   // itself, scrollable or not, so the browser cancelled the page's swipe over
   // a row with nothing to scroll (the favorites, a room's status row on a
-  // tablet). One that fits says touch-action pan-y; one that scrolls keeps
-  // its own. Measured in the next frame, once however often it is asked.
+  // tablet). One that fits says pan-y; one that scrolls pans only the way it still can at an end (hkDrag.panRow).
   window.hkCards.fitPan = function (el) {
     if (!el || el.__hkFitPan) return;
     var later = typeof requestAnimationFrame === 'function' ? requestAnimationFrame : function (f) { return setTimeout(f, 16); };
     el.__hkFitPan = later(function () {
       el.__hkFitPan = 0;
-      if (el.scrollWidth <= el.clientWidth + 1) el.style.setProperty('touch-action', 'pan-y pinch-zoom');
+      if (window.hkDrag && window.hkDrag.panRow) window.hkDrag.panRow(el);
+      else if (el.scrollWidth <= el.clientWidth + 1) el.style.setProperty('touch-action', 'pan-y pinch-zoom');
       else el.style.removeProperty('touch-action');
     });
   };
@@ -4761,13 +4761,13 @@
   // THE BLOCK'S INSET (2026-10-30, the owner: "proper understanding of edge padding"): one padding for every Home
   // Grid block's plate -- the grid's cell sets --hk-pad-t / -r / -b / -l (hk-layout.js: 14 px on tiles, 18 on
   // square cells, a Square screen's corner inset added), and where no grid does (a card on a page) the plate keeps
-  // `pad`, its own (CSS, one to four values). Tiles keep TILE.pad (DESIGN.md Rule 5): this is for the blocks.
-  window.hkCards.blockPad = function (pad) {
+  // `pad`, its own (CSS, one to four values). Tiles keep TILE.pad (DESIGN.md Rule 5): this is for the blocks. (shape: the inset of the shapes in a block -- 13 on square cells, the grid's gap; text keeps 18)
+  window.hkCards.blockPad = function (pad, shape) {
     var p = String(pad || '14px').trim().split(/\s+/);
     if (p.length === 1) p = [p[0], p[0], p[0], p[0]];
     else if (p.length === 2) p = [p[0], p[1], p[0], p[1]];
     else if (p.length === 3) p = [p[0], p[1], p[2], p[1]];
-    return 'var(--hk-pad-t,' + p[0] + ') var(--hk-pad-r,' + p[1] + ') var(--hk-pad-b,' + p[2] + ') var(--hk-pad-l,' + p[3] + ')';
+    var k = shape ? '--hk-spad-' : '--hk-pad-'; return 'var(' + k + 't,' + p[0] + ') var(' + k + 'r,' + p[1] + ') var(' + k + 'b,' + p[2] + ') var(' + k + 'l,' + p[3] + ')';
   };
   window.hkCards.titleRow = titleRow;
   window.hkCards.labelCss = labelCss;
