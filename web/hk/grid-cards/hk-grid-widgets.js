@@ -402,11 +402,13 @@
     // action port, as the room pages' toggles are (a speaker pauses).
     // ROUND TWO (2026-11-08, the owner: Wide "isn't really utilizing its space ... pretty small touch areas", Large
     // "seems cluttered ... I prefer the categories, but more info for each category in the larger cards"; "On Now and
-    // Home Status shared a similar look"): drawn with House Status's summary tiles (hk-house-status.js, `tiles`) --
-    //   S             the kinds' glyphs, the count large, what it is
-    //   W, T, L, XL   the heading with All Off at its end, under it every kind the house has as a tile, always in the
-    //                 same place: one with something on in its color, saying how many, where and how bright; one with
-    //                 nothing on at rest ("Off"). The tile's shape (the block's) says more or less.
+    // Home Status shared a similar look"; of tiles, "not a fan ... Let's be intentional on layout"): composed of House
+    // Status's parts (hk-house-status.js, `tiles`), from the first Tall he liked -- the count as the headline (quiet:
+    // "All Off", once), every kind the house has as a line in the same place, its glyph on a disc lit in its color while
+    // something is on, its count, where, and on Large and Extra Large how bright, how fast, what is playing:
+    //   S   the count over the kinds' discs             W   the count in a third, the kinds as discs with their counts
+    //   T   the count over the lines (All Off above)    L   the count and a sentence over lines of 56
+    //   XL  a column for the count beside the lines
     // A KIND'S TAP (`open`, the owner: "Each category should either show a pop up or go to those pages... users
     // decisions"): Show a Sheet (the default) -- the things of that kind that are on, or, none on, all of them -- or Go
     // to Its Page (the Lights page; a kind with no page here, its sheet). A kind is a button (hk-base.js TAP_CONTROLS),
@@ -488,7 +490,7 @@
       'hk-plate.wg{text-shadow:none}',
       '.none{' + type('body') + ';color:' + v('ink-2') + '}'
     ].join('');
-    // THE TILES' KIT, House Status's file (a lazy one): asked for once, the card drawn again when it is here
+    // THE PARTS, House Status's file (a lazy one): asked for once, the card drawn again when it is here
     function sumKit(card) {
       var T = window.hkHouseStatus && window.hkHouseStatus.tiles;
       if (T) {

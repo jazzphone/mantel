@@ -2,10 +2,10 @@
 // hk-house-status.js -- House Status (docs/phase11/HOUSE-STATUS.md): this screen's status chips as a Home Grid block
 // and a sheet, in HomeView's look rather than the chip row's pills.
 //
-//   hk-house-status-card    `house_status` (S, W, T, L, XL; hk-grid-catalog.js): the sections at a glance, as the
-//                           summary tiles On Now shares (round two, 2026-11-08) -- each tile at its size's designed
-//                           size, as many as fit, each its own tap to the page its chip opens; the rest are "+N more",
-//                           which opens the sheet. Small is one button: the section that matters most, and the sheet.
+//   hk-house-status-card    `house_status` (S, W, T, L, XL; hk-grid-catalog.js): the sections at a glance in the
+//                           language On Now shares (round two, 2026-11-08) -- the one thing that matters most as a
+//                           headline, the sections as lines at their size's height, each its own tap to the page its
+//                           chip opens; the rest are "+N more", which opens the sheet. Small is one button.
 //   hk-house-status-sheet   the sheet's body, in the shared detail sheet (hkDetail.open {panel}): every section the
 //                           screen shows. Wide (820) when two columns of panels fit the window, else the standard
 //                           sheet's rows (in two columns on a short, wide window); the body scrolls, never shrinks.

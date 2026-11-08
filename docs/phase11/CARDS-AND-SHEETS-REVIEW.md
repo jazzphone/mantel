@@ -146,59 +146,61 @@ What the owner said, on his tablets:
 - Then, for every block: things that do not fit move to a sheet; **nothing stretches** ("entities in a card should
   maintain dimensions"); and a fixed size must still fill the plate deliberately, weighted and centered.
 
-### One look for On Now and House Status: the summary tiles
+### One look for On Now and House Status
 
-Three directions were drawn on the fictional house at 1280 x 800 (screenshots in the round's shots folder, `dirA`, `dB`,
-`dC`):
+**First pass, tiles.** Three directions were drawn on the fictional house at 1280 x 800 (screenshots `dirA`, `dB`, `dC`):
+A, category tiles (the Room block's inner tiles); B, rows on hairlines; C, HomeView's centered tiles. A was built at
+every size with fixed tile sizes. The lead's review found the two blocks shared a material but not a tile layout, names
+cut in narrow tiles ("Doors & Win..."), and a reading said twice ("All Locked / All locked"); then the owner: "I'm not a
+fan of the new On Now layout either... we don't necessarily have to use Tiles to display this data... Let's be
+intentional on layout here."
 
-- **A, category tiles** (chosen): a heading on the top inset (the label, one key at its end), and the categories as
-  the Room block's inner tiles -- Apple Home's category row: a glyph, a name, a reading, the whole tile one tap.
-- **B, rows on hairlines** (On Now Tall's language everywhere): read as the House Status he had rejected -- text
-  floating on the glass with nothing to hold it, the touch areas invisible.
-- **C, HomeView's centered tiles**: lovely for one thing, wrong for a summary -- a centered line of rooms or a song
-  clips on both sides, and the readings do not line up from tile to tile.
+**Second pass, a headline over lines** (what shipped), built from the block he did like, On Now's first Tall:
 
-A wins because it is what the rest of the grid already is (Room, Scenes and Accessories are blocks of inner tiles), its
-touch areas are whole tiles (88 x 88 at the smallest), its ink lines up on the inset's left line in every tile, and the
-same tile says more as it grows: one line, a stack (glyph over the reading over the name), a pill (Apple Home's: the
-glyph beside the name over the reading, and a line of detail at 74 px and up) or a card (the glyph and name on top,
-the reading large, two lines of detail). Code: `hk-house-status.js` (`window.hkHouseStatus.tiles`: `DESIGN`, `layout`,
-the CSS and markup); On Now asks for that file (`customElements.whenDefined('hk-house-status-card')`, which the loader
-turns into the import) and draws with it.
+- **The headline answers the glance.** On Now: the count with "On" (the hero's 44, or 72 where it has a column or a
+  square Tall of its own); quiet, a calm "All Off" said once. House Status: the one thing that matters most in words
+  ("1 Window Open", "8:38 Left"), its section and how many more to check under it; nothing to check, "All Good" with a
+  green check.
+- **The categories as lines, not boxes.** Each a row: the glyph on a disc -- lit in the kind's color while something is
+  on (the Home app's lit glyph), a neutral disc at rest -- the name, the count or reading at the end, and a short line
+  of where under the name (the rooms; on Large and Extra Large also the brightness as a small bar, the fan's speed, the
+  song). The whole row is the tap; hairlines between; a kind at rest reads in the secondary ink, never hidden.
+- **Nothing stretches.** Rows are 44 on Wide and Tall, 56 on Large and Extra Large (48 on a tile cell's Large); the group
+  is centered where it is shorter than the block.
 
-**Nothing stretches.** Each block size has its designed tile per cell shape -- the kind, the columns, the height --
-chosen so that a full block is filled edge to edge at the inset, and never grown to fill: what fits is shown, the
-group is centered with a short last row centered, the rest "+N more".
+Two ways were drawn for Wide and Large (busy, square and tile cells; `options/`):
 
-| | On Now (counts, four kinds at most) | House Status (readings in words) |
+- Wide: the headline in its third with the kinds as lines two across, or as their discs with the count and name under
+  each (the Batteries widget's way). Lines two across cut "Speakers" and "Switches" to "Spe..." and "S..."; **the discs
+  won** for On Now. House Status keeps lines on Wide (its readings are words: "All Locked", "1 Window"), one across.
+- Large: the headline and a sentence over the lines, or the headline in a column beside them. Beside them squeezed the
+  label ("HOU...") and cut every line's detail; **the headline on top won**, and the column is Extra Large's alone.
+
+| | On Now | House Status |
 | --- | --- | --- |
-| S | the kinds' glyphs, the count large ("8 On"), "6 lights · 1 speaker · 1 fan" | the leading section's glyph, its reading large, "Doors & Windows · 7 statuses" |
-| W | square: pills 2 x 2 (58); tiles: four stacks across (88) | square: pills 2 x 2; tiles: three stacks across (the words need 118 px) |
-| T | a column of pills (square 76 with a line of where, tiles 56) | a column of five pills (60) / four (56) |
-| L | cards 2 x 2 (square 162, tiles 120): the count large, where, how bright / what is playing | pills 2 x 4 (square 76 with detail, tiles 56) |
-| XL | cards 2 x 2, wider (the rooms and the level in full) | stacks 4 x 2 (square 162 with two lines of detail, tiles 120) |
+| S | the count over the kinds' discs | the headline in words, its section and how many more |
+| W | the count in a third, All Off (44 px) at its foot; the kinds as discs with counts | the headline in a third, "+N more" at its foot; three lines (two on tiles) |
+| T | the label and All Off, the count (72 on square cells), the four kinds as lines | the label and "+N", the headline, six lines (four on tiles) |
+| L | the count and a sentence ("6 lights, 1 speaker and 1 fan"), the kinds as lines of 56 with the brightness bar and the song | the headline and its sentence, four lines of 56 (three of 48 on tiles) |
+| XL | a column: the label, the count at 72, the sentence, All Off; the lines beside it | the same column with "+N more", six lines beside it (five on tiles) |
 
 ### On Now
 
-- Every kind the house has is a tile, always in the same place (Lights, Speakers, Fans, Switches, as Apple Home's
-  row): a kind with something on in its color saying how many, where (the rooms; switches by name) and a level (the
-  lights' brightness, the fans' speed, what is playing); a kind with nothing on at rest -- the glyph dim, "Off"
-  ("Idle" for speakers) and how many it has. So the quiet house is the same layout, finished, and says it once:
-  never "0" with "Nothing is on" twice. Small, quiet: the kinds' glyphs and "All Off".
-- All Off is the heading's one key at every size from Wide (24 px capsule, 44 px reach). **Moved to a sheet:** Wide's
-  per-kind Off keys and Large's per-thing rows with their Off keys -- the small targets he called rushed and cluttered.
-  A kind's sheet (or page) has every thing with its own control.
+- Every kind the house has is a line, always in the same place (Lights, Speakers, Fans, Switches): with something on,
+  its disc lit, its count, where; at rest, a neutral disc, "Off" ("Idle" for speakers) and how many it has. So the quiet
+  house is the same layout, finished, and says "All Off" once -- never "0" with "Nothing is on" twice.
+- **Moved to a sheet:** Wide's per-kind Off keys and Large's per-thing rows with their Off keys -- the small targets he
+  called rushed and cluttered. A kind's sheet (or page) has every thing with its own control. All Off stays: the label
+  row's key on Tall and Large, a 44 px key at the foot of the count's column on Wide and Extra Large.
 - **Categories** (`open`, both mirrors; the editor's "Categories: Show a Sheet / Go to Its Page"): Show a Sheet (the
   default) opens the things of that kind that are on -- or, none on, all of them; one thing, its own sheet -- and Go
   to Its Page opens the kind's page on this screen (Lights; Speakers the music page; Fans the Climate page; a kind with
   no page here, its sheet).
-- Tall was the one he liked. It keeps its column of kinds, each with its count, and All Off (now in the heading); the
-  big total gave its room to the tiles, which are now whole targets (the touch the new look needed).
 
 ### House Status
 
-Keeps its information, order and taps (each section opens its chip's page; Small, "+N more" and the plate open the
-sheet). Its layout is the summary tiles above; its label takes the Security page's teal. The sheet is unchanged.
+Keeps its information, order and taps (each line opens its chip's page; Small, "+N more" and the plate open the sheet).
+Its label takes the Security page's teal. The sheet is unchanged.
 
 ### Everything
 
@@ -213,6 +215,13 @@ scrolled up to; a row stops where a row starts; up and down is the block's, side
   tiles, 1280 x 800, and Everything with `--opts everything='{"more":"scroll"}'` (its "text hidden" lines are the
   places scrolled out of sight, on purpose).
 - `block_taps_check.py --parts` (new: each part that stands for something is tapped too -- On Now's kinds, House
-  Status's sections, Everything's "+N" -- and where it went printed; `--opts` sets a block's options): every kind under
-  Show a Sheet and Go to Its Page, every section, "+N", at 1280 x 800 and 390 x 844, both cells.
-- `house_status_check.py` (WebKit and Chromium, the blocks and the sheet at every window size): all passed.
+  Status's lines, Everything's "+N" -- and where it went printed; `--opts` sets a block's options): every kind under
+  Show a Sheet and Go to Its Page, every line, "+N", at 1280 x 800 and 390 x 844, both cells.
+- `house_status_check.py` (WebKit and Chromium, the blocks and the sheet at every window size).
+
+### For the controls audit
+
+The label row's key (All Off on Tall and Large, "+N more") is a 24 px capsule whose 44 px reach (`::after`) goes 14 px
+up into the inset and 6 px down: it ends 2 px above the first line's hit area and never overlaps it. The ~8 px clear
+between hit areas the new rule asks for would need a taller label row on every block; it was left at 2 px. Wide's and
+Extra Large's All Off is a 44 px key of its own.
