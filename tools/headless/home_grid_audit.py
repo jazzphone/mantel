@@ -45,6 +45,7 @@ import argparse
 import asyncio
 import copy
 import json
+import os
 import sys
 import tempfile
 import time
@@ -93,7 +94,8 @@ EXTRA["climate.office"] = ("office", ("heat", {"friendly_name": "Heat Pump", "cu
                                                "min_temp": 50, "max_temp": 90, "supported_features": 25, "current_humidity": 41}))
 EXTRA["weather.home"] = (None, ("partlycloudy", {"friendly_name": "Home", "temperature": 64, "temperature_unit": "°F",
                                                  "humidity": 52, "wind_speed": 6, "wind_speed_unit": "mph", "wind_bearing": 315,
-                                                 "apparent_temperature": 62, "uv_index": 2}))
+                                                 "apparent_temperature": 62, "uv_index": 2, "pressure": 1015, "pressure_unit": "hPa",
+                                                 "visibility": 10, "visibility_unit": "mi", "dew_point": 48}))
 SUNSET = time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(time.time() + 3 * 3600))
 EXTRA["sun.sun"] = (None, ("above_horizon", {"friendly_name": "Sun", "elevation": 40.0, "azimuth": 180.0, "next_setting": SUNSET}))
 # the rooms Clean Areas offers the vacuum's Large and Extra Large blocks (stood in on the page, below)
@@ -106,7 +108,23 @@ OPTS = {"accessory": {"entity": "light.living_room_lamps"}, "scene": {"scene": "
 ACCESSORIES = ["light.living_room_lamps", "fan.bedroom_ceiling", "light.living_room_ceiling", "media_player.living_room",
                "lock.front_door", "light.kitchen_pendants", "cover.garage_door", "switch.garage_outlet", "light.office_desk",
                "light.porch", "light.bedroom_lamps", "light.backyard_string"]
-SIZED = {"accessories": lambda s: {"accessories": [{"entity": e} for e in ACCESSORIES[:{"W": 2, "L": 4, "XL": 6, "XXL": 12}[s]]]}}
+SIZED = {"accessories": lambda s: {"accessories": [] if STATES[STATE["name"]].get("accessories_none") else [{"entity": e} for e in ACCESSORIES[:COUNT["n"] or {"S": 2, "W": 2, "T": 2, "L": 4, "XL": 6, "XXL": 12}[s]]
+                                                    [:{"S": 2, "W": 2, "T": 2, "L": 4, "XL": 6, "XXL": 12}[s]]]}}
+# MORE OR FEWER OF THEM (2026-11-08, round three, the tile groups): `--count N` gives the Living Room N lights, an Accessories block N
+# entries (never more than its size's capacity: hk_core checks it) and a Scenes block N scenes -- a house with one and a house with
+# fourteen, to see the tiles keep their size
+COUNT: dict = {"n": 0}
+MORE_NAMES = ["Reading", "Sunset", "Cabin", "Hall", "Mantel", "Arch", "Corner", "Shelf", "Floor", "Bay", "Nook", "Sconce", "Stair", "Cove"]
+
+
+def stand_in_count(n: int) -> None:
+    COUNT["n"] = n
+    for i, name in enumerate(MORE_NAMES[:max(0, n - 4)]):
+        EXTRA[f"scene.audit_{i}"] = (None, ("unknown", {"friendly_name": f"{name} Scene"}))
+    for i, name in enumerate(MORE_NAMES[:max(0, n - 2)]):
+        EXTRA[f"light.living_room_audit_{i}"] = ("living_room", ("on" if i % 2 else "off", {"friendly_name": f"{name} Light", "supported_color_modes": ["brightness"], "brightness": 150}))
+    scenes = ["scene.good_morning", "scene.movie_night", "scene.dinner", "scene.good_night"] + [f"scene.audit_{i}" for i in range(len(MORE_NAMES))]
+    OPTS["scenes"] = {"scenes": scenes[:n]}
 # the forecast, as the forecast sensors Settings -> Weather can name
 def _forecast(step: int, n: int, temps: list[int], conds: list[str]) -> list[dict]:
     t0 = int(time.time() // step * step) + step
@@ -158,12 +176,29 @@ for _id, (_n, _items) in TODO.items():
 TV = [("4.1", "Channel 4", "Evening News", 37, 60), ("7.1", "Food", "Coastal Kitchens", 9, 30),
       ("9.1", "Comedy", "Night Owls", 24, 30), ("11.1", "Sports", "Evening Match", 54, 120),
       ("13.1", "Nature", "Wild Coasts", 12, 60), ("20.1", "Kids", "Story Time", 21, 30)]
-for _no, _name, _on, _in, _long in TV:
+# (what is on's art: `image` on the now sensor, as the Live TV page's tiles draw it behind the channel -- these stand-ins are the
+# site's own landscapes; the audit's default house has it on four channels and not on two, Live TV's mixed state)
+TV_ART = {"4.1": "/hk/landscapes/03.webp", "7.1": "/hk/landscapes/15.webp", "9.1": None, "11.1": "/hk/landscapes/42.webp",
+          "13.1": "/hk/landscapes/39.webp", "20.1": None}
+
+
+def _tv_now(no, name, on, mins_in, mins_long, image):
+    attrs = {"friendly_name": f"{name} Now", "subtitle": "",
+             "start": time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(time.time() - mins_in * 60)),
+             "end": time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(time.time() + (mins_long - mins_in) * 60))}
+    if image:
+        attrs["image"] = image
+    return (on, attrs)
+
+
+# ...and six more the guide has (the `tv_many` state lists twelve: the block shows what its size holds and says "N more")
+TV_EXTRA = [("22.1", "Movies", "The Long Road", 40, 120), ("24.1", "Weather", "Local Forecast", 3, 10), ("26.1", "Music", "Top Videos", 15, 60),
+            ("28.1", "Cooking", "Weeknight Dinners", 5, 30), ("30.1", "History", "Ancient Seas", 33, 60), ("32.1", "Science", "Deep Space", 10, 60)]
+TV_ART.update({"22.1": "/hk/landscapes/19.webp", "24.1": None, "26.1": "/hk/landscapes/23.webp", "28.1": None, "30.1": "/hk/landscapes/35.webp", "32.1": "/hk/landscapes/22.webp"})
+for _no, _name, _on, _in, _long in TV + TV_EXTRA:
     _id = _no.replace(".", "_")
     EXTRA[f"camera.channel_{_id}"] = (None, ("idle", {"friendly_name": _name}))
-    EXTRA[f"sensor.channel_{_id}_now"] = (None, (_on, {"friendly_name": f"{_name} Now", "subtitle": "",
-        "start": time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(time.time() - _in * 60)),
-        "end": time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(time.time() + (_long - _in) * 60))}))
+    EXTRA[f"sensor.channel_{_id}_now"] = (None, _tv_now(_no, _name, _on, _in, _long, TV_ART[_no]))
 LONG = " and the Long Way Round"       # the `long` pass: every name this much longer
 
 # THE ENERGY FEATURE'S METERS (2026-10-31, the widget blocks: Energy Rings, Battery, Power and Water): Home
@@ -283,7 +318,7 @@ MEASURE = r"""(() => {
     while (n && n !== cell) {
       if (n.nodeType === 1) { const cs = getComputedStyle(n);
         if (cs.overflowX !== 'visible' || cs.overflowY !== 'visible' || cs.clipPath !== 'none')
-          out.push({ el: n, ellipsis: cs.textOverflow === 'ellipsis' || +cs.webkitLineClamp > 0 || cs.webkitLineClamp !== 'none' && cs.webkitLineClamp !== undefined && cs.webkitLineClamp !== '' }); }
+          out.push({ el: n, scroll: /auto|scroll/.test(cs.overflowX + ' ' + cs.overflowY), ellipsis: cs.textOverflow === 'ellipsis' || +cs.webkitLineClamp > 0 || cs.webkitLineClamp !== 'none' && cs.webkitLineClamp !== undefined && cs.webkitLineClamp !== '' }); }
       n = n.assignedSlot || n.parentNode || (n.host || null);
       if (n && n.nodeType === 11) n = n.host;
     } return out; };
@@ -337,15 +372,22 @@ MEASURE = r"""(() => {
         const cl = clippers(t, cell);
         for (const r of rs) {
           let vis = { left: r.left, top: r.top, right: r.right, bottom: r.bottom }, cut = null;
+          // (a list that scrolls is cut at its edge on purpose -- DESIGN.md "Lists that scroll": what it hides a finger reaches)
+          let away = false;           // (scrolled out of its list's view: not an issue, it is a row the list reaches by scrolling)
           for (const k of cl) { const b = k.el.getBoundingClientRect();
+            if (k.scroll) { vis = { left: Math.max(vis.left, b.left), top: Math.max(vis.top, b.top), right: Math.min(vis.right, b.right), bottom: Math.min(vis.bottom, b.bottom) };
+              if (vis.right - vis.left <= 0.5 || vis.bottom - vis.top <= 0.5) { away = true; break; } continue; }
             const nv = { left: Math.max(vis.left, b.left), top: Math.max(vis.top, b.top), right: Math.min(vis.right, b.right), bottom: Math.min(vis.bottom, b.bottom) };
             const lost = (vis.right - vis.left) - Math.max(0, nv.right - nv.left) + (vis.bottom - vis.top) - Math.max(0, nv.bottom - nv.top);
             if (lost > 1.5 && !k.ellipsis && !cut) cut = name(k.el);
             vis = nv; }
+          if (away) continue;
           const txt = t.data.trim().slice(0, 30);
           // a word broken across lines ("Hea / t"): one word, more than one line box
           if (rs.length > 1 && !/\s/.test(t.data.trim()) && new Set(rs.map(q => Math.round(q.top))).size > 1) {
             rec.issues.push('a word broken across lines: "' + txt + '"'); break; }
+          // (a line past a -webkit-line-clamp is laid out and clipped on purpose: the clamp's ellipsis ends the text above it)
+          if ((vis.right - vis.left <= 0.5 || vis.bottom - vis.top <= 0.5) && !cut && cl.some(k => k.ellipsis && +getComputedStyle(k.el).webkitLineClamp > 0)) continue;
           if (vis.right - vis.left <= 0.5 || vis.bottom - vis.top <= 0.5) { rec.issues.push('text hidden by ' + (cut || 'a box') + ': "' + txt + '"'); break; }
           if (cut) { rec.issues.push('text cut by ' + cut + ': "' + txt + '"'); break; }
           if (!inside(vis)) { rec.issues.push('text outside the cell: "' + txt + '" ' + JSON.stringify(box(r))); break; }
@@ -376,18 +418,96 @@ MEASURE = r"""(() => {
         // (a choice in a segmented control is measured by its track: DESIGN.md's 44 px control, 36 px choices)
         const r = el.getBoundingClientRect(), up = el.parentElement, t = up ? up.getBoundingClientRect() : r;
         let h = el.classList.contains('segment') && up ? Math.max(r.height, t.height) : r.height, w = r.width;
-        // A transparent ::after may deliberately extend a visible label's hit target.
-        const hit = getComputedStyle(el, '::after');
-        if (hit.content !== 'none' && hit.content !== 'normal' && hit.position === 'absolute') {
+        // A transparent ::after (or ::before: House Status's "N more", 2026-11-07) may deliberately extend a visible
+        // label's hit target -- by its insets, or by its own size
+        for (const pseudo of ['::after', '::before']) {
+          const hit = getComputedStyle(el, pseudo);
+          if (hit.content === 'none' || hit.content === 'normal' || hit.position !== 'absolute') continue;
           const top = parseFloat(hit.top), bottom = parseFloat(hit.bottom), left = parseFloat(hit.left), right = parseFloat(hit.right);
           if (Number.isFinite(top) && Number.isFinite(bottom)) h = Math.max(h, r.height - top - bottom);
           if (Number.isFinite(left) && Number.isFinite(right)) w = Math.max(w, r.width - left - right);
+          if (parseFloat(hit.height) > 0) h = Math.max(h, parseFloat(hit.height));
+          if (parseFloat(hit.width) > 0) w = Math.max(w, parseFloat(hit.width));
         }
         // (in the block's own px: the grid is drawn scaled to the screen -- 0.74 on square cells at 1280 x 800 --
         // and a control is laid out at 44 before that, 2026-10-31)
         const gs = view._gridScale || 1;
         if (r.width >= 1 && r.height >= 1 && (w / gs < 43.5 || h / gs < 43.5))
           rec.issues.push('a control under 44 px: ' + name(el) + ' ' + Math.round(r.width / gs) + 'x' + Math.round(r.height / gs)); }
+    }
+    // NO HIT AREA OVERLAPS ANOTHER (2026-11-08, the owner: the thermostat's "modes get hit while using" its arrows): every control's
+    // touchable box -- its own, out to a transparent ::after / ::before's insets or size -- against every other's, where neither holds
+    // the other (a control inside a control, a card's name over its plate, is nested on purpose); more than 2 px each way is a clash
+    if (window.__hitsCheck) {
+      const hits = [];
+      for (const el of all) {
+        if (!shown(el)) continue; const tag = el.localName, role = el.getAttribute('role');
+        if (!(tag === 'button' || role === 'button' || role === 'slider' || tag === 'input' || tag === 'a' || el.hasAttribute('data-ring'))) continue;   // (the dial's ring takes a touch anywhere in its box)
+        const r = el.getBoundingClientRect(); if (r.width < 1 || r.height < 1) continue;
+        let h = { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
+        for (const pseudo of ['::after', '::before']) { const hit = getComputedStyle(el, pseudo);
+          if (hit.content === 'none' || hit.content === 'normal' || hit.position !== 'absolute') continue;
+          if (getComputedStyle(el).position === 'static') { rec.issues.push('the ::after hit area of ' + name(el) + ' is not anchored to it (it is not positioned: it reaches over the block)'); continue; }
+          const f = k => parseFloat(hit[k]); const L = f('left'), R = f('right'), T = f('top'), B = f('bottom');
+          if (Number.isFinite(L)) h.left = Math.min(h.left, r.left + L); if (Number.isFinite(R)) h.right = Math.max(h.right, r.right - R);
+          if (Number.isFinite(T)) h.top = Math.min(h.top, r.top + T); if (Number.isFinite(B)) h.bottom = Math.max(h.bottom, r.bottom - B); }
+        // (a control a list scrolls or clips away is touchable only where its box shows)
+        for (const k of clippers(el, cell)) { const b = k.el.getBoundingClientRect();
+          h = { left: Math.max(h.left, b.left), top: Math.max(h.top, b.top), right: Math.min(h.right, b.right), bottom: Math.min(h.bottom, b.bottom) }; }
+        if (h.right - h.left < 1 || h.bottom - h.top < 1) continue;
+        hits.push({ el, h }); }
+      const holds = (a, b) => a.contains(b) || b.contains(a);
+      for (let i = 0; i < hits.length; i++) for (let j = i + 1; j < hits.length; j++) {
+        const A = hits[i], B = hits[j]; if (holds(A.el, B.el)) continue;
+        const w = Math.min(A.h.right, B.h.right) - Math.max(A.h.left, B.h.left), t = Math.min(A.h.bottom, B.h.bottom) - Math.max(A.h.top, B.h.top);
+        if (w > 2 && t > 2) rec.issues.push('hit areas overlap by ' + Math.round(w) + 'x' + Math.round(t) + ': ' + name(A.el) + ' and ' + name(B.el)); }
+    }
+    // THE CONTROLS (2026-11-08, the owner's round three: Small = state + at most one primary action; Wide/Tall = at most 2-3, each 44 px with
+    // ~8 px clear): `--controls` lists the separate tap targets inside the plate (hk-base.js TAP_CONTROLS, the plate itself and a block-sized
+    // button left out; a control inside a button is the button's), each one's touchable box (its ::after too, cut by a list that clips it)
+    // in the block's px, the smallest of those boxes and the smallest gap between two (negative: they overlap). Reported, never failed:
+    // a list of rows that each open their own thing is content, and the report says so for the lead to judge (CONTROLS_RULES)
+    if (window.__controlsCheck) {
+      const sel = (window.hkCards && window.hkCards.TAP_CONTROLS) || 'button,a,input,select,[role=button],[role=slider]', gs = view._gridScale || 1;
+      const NATIVE = 'button,a,input,select,textarea,summary,[role=button],[role=link],[role=slider],[role=switch],[role=checkbox],[role=menuitem]';
+      const found = [];
+      for (const el of all) {
+        if (!shown(el) || !el.matches(sel) || el.hasAttribute('data-notap')) continue;
+        const r = el.getBoundingClientRect(); if (r.width < 1 || r.height < 1) continue;
+        if (r.width >= c.width * 0.8 && r.height >= c.height * 0.8) continue;                    // the plate, a whole-block button
+        let h = { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
+        for (const pseudo of ['::after', '::before']) { const hit = getComputedStyle(el, pseudo);
+          if (hit.content === 'none' || hit.content === 'normal' || hit.position !== 'absolute') continue;
+          const f = k => parseFloat(hit[k]), L = f('left'), R = f('right'), T = f('top'), B = f('bottom');
+          if (Number.isFinite(L)) h.left = Math.min(h.left, r.left + L); if (Number.isFinite(R)) h.right = Math.max(h.right, r.right - R);
+          if (Number.isFinite(T)) h.top = Math.min(h.top, r.top + T); if (Number.isFinite(B)) h.bottom = Math.max(h.bottom, r.bottom - B); }
+        for (const k of clippers(el, cell)) { const b = k.el.getBoundingClientRect();
+          h = { left: Math.max(h.left, b.left), top: Math.max(h.top, b.top), right: Math.min(h.right, b.right), bottom: Math.min(h.bottom, b.bottom) }; }
+        if (h.right - h.left < 1 || h.bottom - h.top < 1) continue;                               // scrolled or cut away
+        found.push({ el, h });
+      }
+      // (a segmented control -- a tablist, a radiogroup, `.seg` / `.segments`, a `.segment`, a row of pressed-state buttons that touch -- is one control: its choices are measured by
+      // their track, DESIGN.md's 44 px with 36 px choices; a `.ring` that is not the dial's [data-ring] is a picture)
+      const isSeg = el => el.classList.contains('segment') || (el.parentElement && (/^(tablist|radiogroup)$/.test(el.parentElement.getAttribute('role') || '') ||
+        /(^|\s)seg(ments)?(\s|$)/.test(typeof el.parentElement.className === 'string' ? el.parentElement.className : '') ||
+        (el.hasAttribute('aria-pressed') && [...el.parentElement.children].some(o => { if (o === el || !o.hasAttribute('aria-pressed')) return false;
+          const a = el.getBoundingClientRect(), b = o.getBoundingClientRect(); return Math.max(b.left - a.right, a.left - b.right, b.top - a.bottom, a.top - b.bottom) < 2; }))));
+      const tracks = new Map();
+      for (const a of found) if (isSeg(a.el)) { const t = a.el.parentElement, u = tracks.get(t) || { h: t.getBoundingClientRect() };      // (the track: its own box and its choices' touchable boxes, joined)
+        tracks.set(t, { el: t, h: { left: Math.min(u.h.left, a.h.left), top: Math.min(u.h.top, a.h.top), right: Math.max(u.h.right, a.h.right), bottom: Math.max(u.h.bottom, a.h.bottom) } }); }
+      const mine = found.filter(a => !isSeg(a.el) && !(a.el.classList.contains('ring') && !a.el.hasAttribute('data-ring')) &&
+        !found.some(b => b !== a && b.el !== a.el && b.el.matches(NATIVE) && b.el.contains(a.el))).concat([...tracks.values()]);
+      let gap = null, small = null, tight = '';
+      for (const a of mine) { const m = Math.min(a.h.right - a.h.left, a.h.bottom - a.h.top) / gs; if (small === null || m < small) small = m; }
+      for (let i = 0; i < mine.length; i++) for (let j = i + 1; j < mine.length; j++) {
+        const A = mine[i].h, B = mine[j].h; if (mine[i].el.contains(mine[j].el) || mine[j].el.contains(mine[i].el)) continue;
+        const gx = Math.max(B.left - A.right, A.left - B.right) / gs, gy = Math.max(B.top - A.bottom, A.top - B.bottom) / gs;
+        const g = gx > 0 && gy > 0 ? Math.hypot(gx, gy) : Math.max(gx, gy);          // (both negative: they overlap by the smaller)
+        if (gap === null || g < gap) { gap = g; tight = name(mine[i].el) + ' | ' + name(mine[j].el); } }
+      const names = {}; for (const a of mine) { const n = name(a.el); names[n] = (names[n] || 0) + 1; }
+      // (a stepper -- the arrows either side of a value, [data-big-step] -- is ONE control: one action, two directions)
+      const steps = mine.filter(a => a.el.hasAttribute('data-big-step')).length;
+      rec.controls = { n: mine.length - Math.max(0, steps - 1), small: small === null ? null : Math.round(small * 10) / 10, gap: gap === null ? null : Math.round(gap * 10) / 10, tight, names };
     }
     // Dial text belongs inside its open centre, not across the track/knobs.
     const ring = card.shadowRoot && card.shadowRoot.querySelector('[data-ring]');
@@ -420,7 +540,8 @@ MEASURE = r"""(() => {
     // Check the material contract as well as geometry. Media may paint its
     // own image; every other plate must follow the active screen's material.
     const rendering = window.hkSettings && window.hkSettings.rendering();
-    const media = ['hk-camera-mosaic-card', 'hk-scene-card', 'hk-suggested-scene-card', 'hk-now-playing-card'].includes(card.localName);
+    // (the Cameras face too, 2026-11-07: its stills are the block, edge to edge, as one camera's are)
+    const media = ['hk-camera-mosaic-card', 'hk-grid-cameras-card', 'hk-scene-card', 'hk-suggested-scene-card', 'hk-now-playing-card'].includes(card.localName);
     if (outer && !media && rendering) {
       const material = getComputedStyle(outer.el), lookShadow = material.getPropertyValue('--hk-look-shadow').trim();
       rec.material = { flat: !!rendering.flat, marker: material.getPropertyValue('--hk-glass-surface').trim(),
@@ -455,19 +576,249 @@ MEASURE = r"""(() => {
 })()"""
 
 
+def timers_state(n: int, paused: tuple[int, ...] = ()) -> dict:
+    """STATES' entities for n running quick timers (those at the indexes in `paused` held): the sensor the block reads and each
+    timer's name, length and finish."""
+    names, mins, left = ["Pasta", "Laundry", "Tea", "Oven", "Bread", "Dryer"], [12, 45, 5, 50, 90, 30], [420, 1800, 150, 2400, 3600, 900]
+    at = lambda secs: time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(time.time() + secs))
+    ents: dict = {}
+    run = []
+    for i in range(6):
+        eid, dur = f"timer.quick_{i + 1}", f"{mins[i] // 60}:{mins[i] % 60:02d}:00"
+        if i >= n:
+            ents[eid] = ("idle", {"friendly_name": f"Quick Timer {i + 1}", "duration": dur})
+        elif i in paused:
+            ents[eid] = ("paused", {"friendly_name": names[i], "duration": dur, "remaining": f"0:{left[i] // 60:02d}:{left[i] % 60:02d}"})
+            run.append({"name": names[i], "entity_id": eid})
+        else:
+            ents[eid] = ("active", {"friendly_name": names[i], "duration": dur, "remaining": dur, "finishes_at": at(left[i])})
+            run.append({"name": names[i], "entity_id": eid, "finishes_at": at(left[i])})
+    ents["sensor.running_quick_timers"] = (str(n), {"friendly_name": "Running Quick Timers", "running": run})
+    return ents
+
+
+# EVERY STATE, NOT ONLY A BUSY HOUSE (2026-11-08, the owner: the Timers block "always shows a timer in your test", and
+# with none it "is not good looking at all"). `--state NAME` draws the house in another state: each entry turns the
+# stood-in house into it (domain -> state for everything of that domain, then entity -> (state, attributes) over
+# that), and `events` / `channels_now` say whether the calendar has events and the channels say what is on. A block
+# must look finished in every state: empty and idle as carefully as full. Add the states your blocks have.
+STATES: dict[str, dict] = {
+    "busy": {},                                   # the default: timers running, music, lights on, events, the guide
+    # nothing going on: no timers, every light, fan and switch off, music stopped, locked and closed, nothing on the
+    # calendar, the vacuum docked, the alarm disarmed
+    "quiet": {"domains": {"light": "off", "fan": "off", "switch": "off", "media_player": "idle", "timer": "idle",
+                          "lock": "locked", "cover": "closed", "binary_sensor": "off", "alarm_control_panel": "disarmed",
+                          "vacuum": "docked"},
+              "entities": {"sensor.running_quick_timers": ("0", {"friendly_name": "Running Quick Timers", "running": []})},
+              "events": False},
+    # THE TILE GROUPS' EMPTY HOUSE (2026-11-08, round three: Room, Accessories, Scenes): no scenes, nothing in the Living Room that a
+    # tile could show, and an Accessories block with none chosen
+    "tiles_none": {"remove": ["scene.", "light.living_room", "media_player.living_room"], "accessories_none": True},
+    # THE TIMELINE'S STATES (2026-11-08, the Recent block): `timeline` names the rows seeded into Mantel's own store
+    # (seed_timeline; busy is the default and "quiet" the quiet house's) -- a new house with no rows at all, a quiet
+    # night (two rows last evening, nothing since, everything locked), and a busy day with pictures (busy's own)
+    "recent_empty": {"timeline": "empty"},
+    "recent_quiet": {"domains": {"lock": "locked", "cover": "closed", "binary_sensor": "off", "alarm_control_panel": "armed_night"},
+                     "timeline": "quiet"},
+    "recent_busy": {"timeline": "busy"},
+    # TIMERS (2026-11-08): one running, six (the Extra Large block's most), two with one held
+    # THE THERMOSTAT's other modes (2026-11-08): the block's thermostat (`--opts thermostat='{"entity": "climate.office"}'`) on Cool, on Off
+    "thermostat_cool": {"entities": {"climate.office": ("cool", {**EXTRA["climate.office"][1][1], "temperature": 72, "hvac_action": "cooling"})}},
+    "thermostat_off": {"entities": {"climate.office": ("off", {**EXTRA["climate.office"][1][1], "temperature": None, "hvac_action": "off"})}},
+    "timers_one": {"entities": timers_state(1)},
+    "timers_many": {"entities": timers_state(6)},
+    "timers_paused": {"entities": timers_state(2, paused=(0,))},
+    # THE VACUUM (2026-11-08): what it is doing, and the rooms Clean Areas offers (`rooms`: six, the default; `twelve` more than a
+    # Large block holds) and which of them are ticked before the shot (`picked`: area ids, the block's rooms to clean)
+    "vacuum_cleaning": {"entities": {"vacuum.downstairs": ("cleaning", {"friendly_name": "Downstairs Vacuum", "battery_level": 64, "supported_features": 16383})}},
+    "vacuum_paused": {"entities": {"vacuum.downstairs": ("paused", {"friendly_name": "Downstairs Vacuum", "battery_level": 64, "supported_features": 16383})}},
+    "vacuum_returning": {"entities": {"vacuum.downstairs": ("returning", {"friendly_name": "Downstairs Vacuum", "battery_level": 31, "supported_features": 16383})}},
+    "vacuum_error": {"entities": {"vacuum.downstairs": ("error", {"friendly_name": "Downstairs Vacuum", "battery_level": 12, "supported_features": 16383})}},
+    "vacuum_picked": {"entities": {"vacuum.downstairs": ("docked", {"friendly_name": "Downstairs Vacuum", "battery_level": 92, "supported_features": 16383})},
+                      "picked": ["kitchen", "office"]},
+    "vacuum_picked3": {"picked": ["kitchen", "office", "bedroom"]},
+    "vacuum_twelve": {"twelve": True},
+    "vacuum_twelve_picked": {"twelve": True, "picked": ["kitchen", "den", "pantry", "garage"]},
+}
+# THE PLAYER'S STATES (2026-11-08, the Now Playing round): the house plays a song with no cover (the default above), so
+# these draw what the owner's tablets show -- a cover, a pause, nothing playing, a very long song. `attrs` merges over an
+# entity's attributes (a None drops one); `media_player` sets a state for the whole domain first.
+COVER = ("data:image/svg+xml," + __import__("urllib.parse").parse.quote(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="640" viewBox="0 0 640 640"><defs>'
+    '<linearGradient id="g" x2="1" y2="1"><stop stop-color="#1c3f94"/><stop offset=".5" stop-color="#b4467a"/>'
+    '<stop offset="1" stop-color="#f4a259"/></linearGradient></defs><rect width="640" height="640" fill="url(#g)"/>'
+    '<circle cx="320" cy="320" r="190" fill="none" stroke="#fff" stroke-opacity=".4" stroke-width="3"/>'
+    '<circle cx="320" cy="320" r="120" fill="#fff" fill-opacity=".16"/><path d="M250 400V250l150-30v140" fill="none" '
+    'stroke="#fff" stroke-width="16" stroke-linejoin="round"/></svg>'))
+LONG_SONG = {"media_title": "Blue in Green (Alternate Take, Remastered for the Fortieth Anniversary Edition)",
+             "media_artist": "The Fictional Trio with the Fictional Philharmonic Orchestra",
+             "media_album_name": "Kind of Fictional: The Complete Studio Sessions"}
+LR = "media_player.living_room"
+STATES.update({
+    "art": {"attrs": {LR: {"entity_picture": COVER}}},                       # playing, with its cover
+    "noart": {},                                                              # playing, no cover (the house's default)
+    "paused": {"attrs": {LR: {"entity_picture": COVER}}, "entities_state": {LR: "paused"}},
+    "pausednoart": {"entities_state": {LR: "paused"}},
+    # nothing playing, everything else busy: what a stopped player has (no song, no times, no cover)
+    "idle": {"entities_state": {LR: "idle"}, "attrs": {LR: dict.fromkeys(
+        ("media_title", "media_artist", "media_album_name", "media_duration", "media_position", "media_position_updated_at"))}},
+    "off": {"entities_state": {LR: "off"}, "attrs": {LR: dict.fromkeys(
+        ("media_title", "media_artist", "media_album_name", "media_duration", "media_position", "media_position_updated_at"))}},
+    "longsong": {"attrs": {LR: dict(LONG_SONG, entity_picture=COVER)}},
+    "longsongnoart": {"attrs": {LR: LONG_SONG}},
+})
+# THE WEATHER'S READINGS (2026-11-08, the owner's notes: the Extra Large's readings): a house whose weather says only the
+# temperature and the sky (nothing else to read, the sun down), and one that adds a fifth reading to a row of three
+# (humidity and wind, no feels like, no UV)
+STATES["wx_few"] = {"entities": {"weather.home": ("cloudy", {"friendly_name": "Home", "temperature": 41, "temperature_unit": "°F"}),
+                                 "sun.sun": ("below_horizon", {"friendly_name": "Sun", "elevation": -20.0, "azimuth": 10.0,
+                                                               "next_rising": time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(time.time() + 9 * 3600))})}}
+STATES["wx_five"] = {"entities": {"weather.home": ("rainy", {"friendly_name": "Home", "temperature": 52, "temperature_unit": "°F", "humidity": 88,
+                                                             "wind_speed": 14, "wind_speed_unit": "mph", "wind_bearing": 200, "pressure": 29.71,
+                                                             "pressure_unit": "inHg"})}}
+# LIVE TV'S ART (2026-11-08, the owner: the What's On art behind each channel): every channel with its picture, and none
+STATES["tv_art"] = {"entities": {f"sensor.channel_{n.replace('.', '_')}_now": _tv_now(n, name, on, i, l, f"/hk/landscapes/{k:02d}.webp")
+                                 for k, (n, name, on, i, l) in zip((3, 15, 19, 42, 39, 22), TV)}}
+STATES["tv_many"] = {}
+STATES["tv_noart"] = {"entities": {f"sensor.channel_{n.replace('.', '_')}_now": _tv_now(n, name, on, i, l, None) for n, name, on, i, l in TV}}
+# SECURITY'S STATES (2026-11-08, the owner: the locks, the garage and the open doors and windows at Large and Extra Large): armed
+# with everything locked and closed; triggered with a window open; disarmed with a lock unlocked, the garage open, a door and
+# a window open (the strip's "+N open"); and a big house -- six locks, two garage doors, a dozen doors and windows ("N more")
+_SECURE = {"domains": {"lock": "locked", "cover": "closed", "binary_sensor": "off"}}
+STATES["sec_armed"] = {"domains": dict(_SECURE["domains"], alarm_control_panel="armed_away")}
+STATES["sec_trig"] = {"domains": {"alarm_control_panel": "triggered", "lock": "locked", "cover": "closed"}}
+STATES["sec_open"] = {"domains": {"cover": "open", "binary_sensor": "on"},
+                      "entities": {"lock.front_door": ("unlocked", {"friendly_name": "Front Door"})}}
+STATES["sec_many"] = {"entities": {**{f"lock.extra_{i}": ("locked", {"friendly_name": n}) for i, n in enumerate(
+    ("Garage Entry", "Side Door", "Patio Door", "Basement Door"))},
+    "cover.garage_two": ("closed", {"friendly_name": "Workshop Door", "device_class": "garage"}),
+    **{f"binary_sensor.extra_window_{i}": ("off", {"friendly_name": f"Window {i}", "device_class": "window"}) for i in range(8)}}}
+# THE CALENDAR, DOORS AND WHO'S HOME (2026-11-08, round three): a calendar with nothing today and the next event tomorrow; doors
+# and windows: one window open, two doors open (a door and the garage), many open; a house of one person at home, and of four
+STATES["cal_later"] = {"events": "later"}
+STATES["doors_window"] = {"domains": {"cover": "closed", "binary_sensor": "off"},
+                          "entities": {"binary_sensor.office_window": ("on", {"friendly_name": "Office Window", "device_class": "window"})}}
+STATES["doors_two"] = {"domains": {"cover": "closed", "binary_sensor": "off"},
+                       "entities": {"cover.garage_door": ("open", {"friendly_name": "Garage Door", "device_class": "garage"}),
+                                    "binary_sensor.front_door": ("on", {"friendly_name": "Front Door", "device_class": "door"})}}
+STATES["doors_many"] = {"domains": {"cover": "open", "binary_sensor": "on"},
+                        "entities": {**{f"binary_sensor.extra_window_{i}": ("on", {"friendly_name": f"Window {i}", "device_class": "window"}) for i in range(8)}}}
+STATES["people_home"] = {"domains": {"person": "home"}}
+STATES["people_four"] = {"entities": {"person.jo": ("home", {"friendly_name": "Jo"}), "person.kit": ("School", {"friendly_name": "Kit"})}}
+STATE = {"name": "busy", "hits": False}
+# six more rooms for a house with twelve (the Vacuum block's rooms scroll when they do not fit)
+MORE_ROOMS = [("den", "Den", "main"), ("pantry", "Pantry", "main"), ("laundry", "Laundry", "main"), ("hallway", "Hallway", "upstairs"),
+              ("nursery", "Nursery", "upstairs"), ("bathroom", "Bathroom", "upstairs")]
+# the window (a phone: AUDIT_VIEW=390x844 -- the grid is then drawn as the screen draws it there)
+VIEW = tuple(int(x) for x in os.environ.get("AUDIT_VIEW", "1280x800").split("x"))
+
+
+def seed_timeline(app, kind: str) -> None:
+    """The House Timeline's rows for STATES' `timeline` (busy unless a state says): written oldest first into Mantel's
+    own store, so the newest have the highest ids as on a house. Busy: a day at the house -- the front door's camera
+    saw a person and a ring and a package, the backyard's an animal and a vehicle (each with its pictures: HK's own
+    landscapes, as the gallery's cameras' stills), locks, the garage, the alarm, an arrival -- and a night with rows in
+    the digest's window. Quiet: the back door locked and the alarm armed before the night, nothing since. Empty: none."""
+    from hk_core.timeline import words as W
+    from mantel_server.timeline.api import window_of
+    from mantel_server.timeline.store import Row
+    if kind == "empty":
+        return
+    tl, pics, now = app["timeline"], app["timeline_pictures"], time.time()
+    start, end, _ = window_of(app, "overnight", now)
+    rooms = dict((a, n) for a, n, _ in gallery.ROOMS)
+    alex = {"actor_name": "Alex", "how": "home"}
+    sam_tab = {"actor_name": "Sam", "device_name": "Hallway tablet", "how": "tablet"}
+    rows = []
+
+    def row(t, family, kind_, label, entity, area, pictures=0, **who):
+        rows.append((t, family, kind_, label, entity, area, pictures, who))
+    night = lambda f: start + f * (end - start)               # noqa: E731
+    if kind == "quiet":
+        row(start - 50 * 60, "lock", "locked", "Back Door", "lock.back_door", "kitchen", **sam_tab)
+        row(start - 48 * 60, "alarm", "armed_night", "Home Alarm", "alarm_control_panel.home", None, **sam_tab)
+    else:
+        row(night(0.12), "lock", "locked", "Back Door", "lock.back_door", "kitchen", **sam_tab)
+        row(night(0.13), "alarm", "armed_night", "Home Alarm", "alarm_control_panel.home", None, **sam_tab)
+        row(night(0.45), "detection", "animal", "Backyard", "camera.backyard", "backyard", 2)
+        row(night(0.8), "detection", "package", "Front Door", "camera.front_door", "porch", 1)
+        row(night(0.93), "garage", "opened", "Garage Door", "cover.garage_door", "garage", how="hand_or_automation")
+        row(night(0.95), "garage", "closed", "Garage Door", "cover.garage_door", "garage", how="hand_or_automation")
+        for mins, family, kind_, label, entity, area, n, who in (
+                (330, "door", "opened", "Front Door", "binary_sensor.front_door", "porch", 0, {}),
+                (329, "door", "closed", "Front Door", "binary_sensor.front_door", "porch", 0, {}),
+                (250, "alarm", "disarmed", "Home Alarm", "alarm_control_panel.home", None, 0, sam_tab),
+                (190, "detection", "vehicle", "Backyard", "camera.backyard", "backyard", 2, {}),
+                (132, "garage", "opened", "Garage Door", "cover.garage_door", "garage", 0, alex),
+                (125, "garage", "closed", "Garage Door", "cover.garage_door", "garage", 0, alex),
+                (80, "detection", "package", "Front Door", "camera.front_door", "porch", 1, {}),
+                (52, "arrival", "arrived", "Alex", "person.alex", None, 0, {}),
+                (41, "lock", "unlocked", "Front Door", "lock.front_door", "porch", 0, alex),
+                (18, "doorbell", "ring", "Front Door", "camera.front_door", "porch", 2, {}),
+                (3, "detection", "person", "Front Door", "camera.front_door", "porch", 2, {})):
+            row(now - mins * 60, family, kind_, label, entity, area, n, **who)
+    still = {"camera.front_door": "07.webp", "camera.backyard": "21.webp"}
+    real = tl.clock
+    for i, (t, family, kind_, label, entity, area, n, who) in enumerate(sorted(rows, key=lambda r: r[0])):
+        title = W.title(family, kind_, label, {})
+        r = Row(src=f"audit:{i}", at=t, family=family, kind=kind_, title=title, entity=entity, area=area,
+                search=W.search_words(family, kind_, label, rooms.get(area), title), detail={"s": kind_},
+                actor_name=who.get("actor_name"), device_name=who.get("device_name"), how=who.get("how"))
+        tl.rows.write([("row", r)])
+        if n:
+            from io import BytesIO
+            from PIL import Image
+            img = Image.open(ROOT / "web/hk/landscapes" / still[entity]).convert("RGB")
+            img.thumbnail((640, 640))
+            eid = tl.rows.by_src([r.src])[0]["id"]
+            for k in range(n):
+                out = BytesIO()
+                img.crop((k * 24, 0, img.width - (n - 1 - k) * 24, img.height)).save(out, "JPEG", quality=72)
+                tl.clock = lambda at=t + 2 + 5 * k: at
+                pics.store(eid, entity, out.getvalue())
+    tl.clock = real
+
+
+def apply_state(name: str) -> None:
+    """Turn the stood-in house (gallery.HOUSE, EXTRA already in it) into STATES[name]."""
+    st = STATES[name]
+    STATE["name"] = name
+    for eid in [e for e in gallery.HOUSE if any(e.startswith(pre) for pre in st.get("remove", []))]:
+        del gallery.HOUSE[eid]
+    for eid, (area, (state, attrs)) in list(gallery.HOUSE.items()):
+        dom = eid.split(".", 1)[0]
+        if dom in st.get("domains", {}):
+            gallery.HOUSE[eid] = (area, (st["domains"][dom], attrs))
+    for eid, (state, attrs) in st.get("entities", {}).items():
+        area = gallery.HOUSE.get(eid, (None,))[0]
+        gallery.HOUSE[eid] = (area, (state, attrs))
+    for eid, state in st.get("entities_state", {}).items():
+        area, (_, attrs) = gallery.HOUSE[eid]
+        gallery.HOUSE[eid] = (area, (state, attrs))
+    for eid, more in st.get("attrs", {}).items():
+        area, (state, attrs) = gallery.HOUSE[eid]
+        gallery.HOUSE[eid] = (area, (state, {**{k: v for k, v in attrs.items() if k not in more}, **{k: v for k, v in more.items() if v is not None}}))
+
+
 def stand_in_reads() -> None:
     """The reads the test server cannot answer: the family calendar's events and Live TV's channels."""
     from client_smoke import OfflineReads
 
     async def calendar_events(self, entity_id, start, end):
-        return _events() if entity_id == "calendar.family" else []
+        if STATES[STATE["name"]].get("events") is False:
+            return []
+        if entity_id != "calendar.family":
+            return []
+        # ("later": nothing today, the events from tomorrow on -- the Calendar block's "nothing scheduled today, Dentist next")
+        return [e for e in _events() if e["start"].get("dateTime", e["start"].get("date", ""))[:10] > time.strftime("%Y-%m-%d")] \
+            if STATES[STATE["name"]].get("events") == "later" else _events()
     OfflineReads.get_calendar_events = calendar_events
     ask = OfflineReads.request
 
     async def request(self, msg):
         if msg.get("type") == "hk_tv/channels":
             return {"configured": True, "channels": [{"number": n, "name": name, "camera": f"camera.channel_{n.replace('.', '_')}",
-                                                     "now": f"sensor.channel_{n.replace('.', '_')}_now"} for n, name, *_ in TV]}
+                                                     "now": f"sensor.channel_{n.replace('.', '_')}_now"} for n, name, *_ in TV + (TV_EXTRA if STATE["name"] == "tv_many" else [])]}
         return await ask(self, msg)
     OfflineReads.request = request
 
@@ -484,6 +835,11 @@ def stand_in_app(app) -> None:
     app["read_routes"]["hk_frontend/todo/items"] = Route(request=todo_items)
     hub = app["hub"]
     hub.readproxy.energy_prefs, hub.readproxy.stat_rows = ENERGY_PREFS, stat_rows
+
+
+def clean_areas() -> list[str]:
+    """The rooms Clean Areas offers in the state: CLEAN_AREAS, or twelve of them."""
+    return CLEAN_AREAS + [r[0] for r in MORE_ROOMS] if STATES[STATE["name"]].get("twelve") else CLEAN_AREAS
 
 
 def feed_script() -> str:
@@ -504,12 +860,18 @@ def feed_script() -> str:
         v.get = function (p, f) { if (p === 'added') return ['energy', 'live_tv', 'clean_areas']; if (p === 'energy') return """ + plan + """;
           return get.apply(this, arguments); };
         v.subscribe = function (conn, msg, on) { if (msg && msg.type === 'hk_clean_areas/subscribe') {
-          setTimeout(() => on({ configured: true, areas: """ + json.dumps(CLEAN_AREAS) + """ }), 0); return () => {}; }
+          setTimeout(() => on({ configured: true, areas: """ + json.dumps(clean_areas()) + """ }), 0); return () => {}; }
           return sub.apply(this, arguments); }; } }); })()"""
 
 
 async def audit(keys: list[str], looks: list[str], shots: Path | None, long: bool, nobar: list[str]) -> dict:
     gallery.HOUSE.update(EXTRA)
+    apply_state(STATE["name"])
+    if STATES[STATE["name"]].get("twelve"):
+        gallery.ROOMS.extend(r for r in MORE_ROOMS if r not in gallery.ROOMS)
+        for rid, rname, _ in MORE_ROOMS:        # (the page's registry keeps an area only when something in it is let through)
+            gallery.HOUSE[f"sensor.{rid}_temperature"] = (rid, ("68", {"friendly_name": f"{rname} Temperature", "unit_of_measurement": "°F",
+                                                                       "device_class": "temperature", "state_class": "measurement"}))
     if long:
         for eid, (area, (state, attrs)) in list(gallery.HOUSE.items()):
             if "friendly_name" in attrs and not eid.startswith("sun."):
@@ -522,13 +884,23 @@ async def audit(keys: list[str], looks: list[str], shots: Path | None, long: boo
         app, cookie = await gallery.build(Path(folder))
         hub = app["hub"]
         stand_in_app(app)
+        tl_kind = STATES[STATE["name"]].get("timeline", "quiet" if STATE["name"] == "quiet" else "busy")
+        seed_timeline(app, tl_kind)
         async with TestServer(app) as server:
+            # (Mantel's own start-up row, "Mantel started", is the real clock's: not part of the made-up house)
+            app["timeline"].flush()
+            with app["timeline"].db:
+                app["timeline"].db.execute("DELETE FROM timeline_events WHERE src NOT LIKE 'audit:%'")
             origin = str(server.make_url("")).rstrip("/")
-            async with Browser(width=1280, height=800, port=9391) as b:
+            async with Browser(width=VIEW[0], height=VIEW[1], port=9391) as b:
                 await b.restrict_origin(origin)
                 # the page has the focus, as a wall tablet's does (cameras rest without it: cameras.focus_pause)
                 await b.send("Emulation.setFocusEmulationEnabled", enabled=True)
                 await b.send("Page.addScriptToEvaluateOnNewDocument", source=feed_script())
+                if STATE["hits"]:
+                    await b.send("Page.addScriptToEvaluateOnNewDocument", source="window.__hitsCheck = true")
+                if STATE.get("controls"):
+                    await b.send("Page.addScriptToEvaluateOnNewDocument", source="window.__controlsCheck = true")
                 sun = None
                 for key, look, bar in passes:
                     elev = SUN.get(look, 40.0)
@@ -545,12 +917,88 @@ async def audit(keys: list[str], looks: list[str], shots: Path | None, long: boo
                         if (e.localName === 'hk-home-grid-view') return e; if (e.shadowRoot) { const f = d(e.shadowRoot); if (f) return f; } }
                         return null; }; const v = d(document); return v && v.shadowRoot.querySelectorAll('.cell').length > 0; })()""", 20)
                     await asyncio.sleep(2.0)            # pictures, fonts and the sky settle
+                    picked = STATES[STATE["name"]].get("picked")
+                    if picked and key == "vacuum":      # the rooms ticked on the Vacuum block (hk-home.js: hkHome.picked, by vacuum)
+                        await b.eval("(() => { if (!window.hkHome || !window.hkHome.picked) return; const s = (window.hkHome.picked['vacuum.downstairs'] = window.hkHome.picked['vacuum.downstairs'] || new Set()); s.clear(); %s.forEach(a => s.add(a));"
+                                     " window.dispatchEvent(new Event('hk-vacuum-rooms')); })()" % json.dumps(picked))
+                        await asyncio.sleep(0.8)
                     got = await b.eval(MEASURE)
+                    if STATE.get("stretch"):
+                        grew = await b.eval(STRETCH + f"({STRETCH_DELTA})")
+                        for cell in got.get("cells", []):
+                            cell["issues"] += (grew or {}).get(cell.get("size"), [])
+                    if os.environ.get("AUDIT_PROBE"):      # (a probe of one's own, in the page: AUDIT_PROBE='<js expression>', printed)
+                        print("probe", await b.eval(os.environ["AUDIT_PROBE"]), flush=True)
                     got["errors"] = [c for c in b.console[mark:] if c.startswith(("EXCEPTION", "error"))][:8]
                     report.setdefault(key, {})[look + ("" if bar else " (no bar)")] = got
                     if shots:
-                        await b.screenshot(shots / f"{name}{'-long' if long else ''}.png")
+                        tail = ('-long' if long else '') + ('' if STATE["name"] == "busy" else '-' + STATE["name"])
+                        await b.screenshot(shots / f"{name}{tail}.png")
     return report
+
+
+# NOTHING STRETCHES (2026-11-08, the owner: "entities in a card should maintain dimensions ... the vertical and horizontal
+# stretching of entities in our cards I just don't like at all"; DESIGN.md "Using the space"). `--stretch` draws each
+# block, then makes its cell DELTA px wider and taller and draws it again: a tile, row, pill or button (a painted box
+# with words or a glyph in it, holding no such box itself, smaller than the plate) that grew with its block is
+# stretched. A box that grew taller by DELTA/4 or more fails; one that grew wider fails unless it spans its column (a
+# list row, a full-width key: designed to). Pictures, bars, containers, a picture's stand-in glyph and a block-sized
+# button are not counted: they may follow the block.
+STRETCH_DELTA = 24
+STRETCH = r"""(async (delta) => {
+  const view = (function d(r) { for (const e of r.querySelectorAll('*')) { if (e.localName === 'hk-home-grid-view') return e;
+    if (e.shadowRoot) { const f = d(e.shadowRoot); if (f) return f; } } return null; })(document);
+  if (!view) return {};
+  const k = view._gridScale || 1, frame = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const kids = (n) => [...n.children, ...(n.shadowRoot ? n.shadowRoot.children : [])];
+  const isBox = (e, c) => {
+      if (/^(style|script|template|slot|link|svg|img|video|canvas|ha-icon|hk-icon)$/.test(e.localName)) return false;
+      if (e.hasAttribute('data-hk-hero')) return false;     // an element made to be big says so (the Accessory Tall's level)
+      const cs = getComputedStyle(e); if (cs.display === 'none' || cs.visibility === 'hidden') return false;
+      const r = e.getBoundingClientRect();
+      // a fill or a whole outline: what the eye reads as a tile, a key or a pill (a hairline between rows is not)
+      const bw = ['Top', 'Right', 'Bottom', 'Left'].map((x) => parseFloat(cs['border' + x + 'Width']) || 0);
+      const paints = (!/rgba\\(0, 0, 0, 0\\)|transparent/.test(cs.backgroundColor) && cs.backgroundColor !== 'rgba(0, 0, 0, 0)')
+                     || cs.backgroundImage !== 'none' || bw.every((x) => x > 0);
+      const blockSized = r.width >= c.width * 0.8 && r.height >= c.height * 0.8;      // the plate, a whole-block button
+      const text = (e.textContent || '').trim();
+      const art = text.length <= 2 && !/[0-9A-Za-z]/.test(text);                     // a stand-in glyph for a picture
+      const says = text || (e.querySelector && (e.querySelector('svg,ha-icon,hk-icon') || (e.shadowRoot && e.shadowRoot.querySelector('svg,ha-icon,hk-icon'))));
+      return paints && !blockSized && !art && says && r.width >= 20 && r.height >= 16; };
+  const boxes = (card, c) => { const out = []; const walk = (e, path) => {
+      const kidsOf = kids(e);
+      if (isBox(e, c)) {
+        // a container of other boxes (a column, a strip of keys) is not judged itself: what it holds is
+        const inner = (function has(n) { for (const x of kids(n)) { if (isBox(x, c) || has(x)) return true; } return false; })(e);
+        if (!inner) { const r = e.getBoundingClientRect(), par = e.parentElement || (e.getRootNode() && e.getRootNode().host);
+          const pr = par ? par.getBoundingClientRect() : r, ps = par ? getComputedStyle(par) : null;
+          const pw = ps ? pr.width - parseFloat(ps.paddingLeft) - parseFloat(ps.paddingRight) - parseFloat(ps.borderLeftWidth) - parseFloat(ps.borderRightWidth) : r.width;
+          out.push({ path, w: r.width / k, h: r.height / k, spans: r.width >= pw * 0.95, font: getComputedStyle(e).fontSize,
+                     label: e.localName + (typeof e.className === 'string' && e.className.trim() ? '.' + e.className.trim().split(/\\s+/).slice(0, 2).join('.') : '')
+                            + ' "' + (e.textContent || '').trim().replace(/\\s+/g, ' ').slice(0, 24) + '"' }); } }
+      kidsOf.forEach((x, i) => walk(x, path + '/' + i)); };
+    walk(card, ''); return out; };
+  const res = {};
+  for (const cell of view.shadowRoot.querySelectorAll('.cell')) {
+    const card = cell.firstElementChild; if (!card) continue;
+    const c0 = cell.getBoundingClientRect(), before = boxes(card, c0);
+    const pad = parseFloat(getComputedStyle(cell).getPropertyValue('--hk-block-pad')) || 14;
+    const keep = cell.getAttribute('style') || '';
+    cell.style.width = (c0.width / k + delta) + 'px'; cell.style.height = (c0.height / k + delta) + 'px';
+    cell.style.justifySelf = 'start'; cell.style.alignSelf = 'start';
+    await frame(); await new Promise((r) => setTimeout(r, 350)); await frame();
+    const after = new Map(boxes(card, cell.getBoundingClientRect()).map((b) => [b.path, b]));
+    const span = c0.width / k - 2 * pad, bad = [];
+    for (const b of before) { const a = after.get(b.path); if (!a || a.label !== b.label) continue;
+      if (a.font !== b.font) continue;            // a hero whose type is sized to its block: made to be big
+      const dh = a.h - b.h, dw = a.w - b.w;
+      if (dh >= delta / 4) bad.push('stretches taller with its block: ' + b.label + ' ' + b.h.toFixed(0) + ' -> ' + a.h.toFixed(0) + ' px');
+      else if (dw >= delta / 4 && !b.spans && b.w < span * 0.9) bad.push('stretches wider with its block: ' + b.label + ' ' + b.w.toFixed(0) + ' -> ' + a.w.toFixed(0) + ' px'); }
+    cell.setAttribute('style', keep); await frame();
+    res[cell.getAttribute('size') || '?'] = [...new Set(bad)].slice(0, 6);
+  }
+  return res;
+})"""
 
 
 def summary(report: dict) -> tuple[int, list[str]]:
@@ -585,6 +1033,41 @@ def summary(report: dict) -> tuple[int, list[str]]:
     return bad, lines
 
 
+# THE CONTROLS RULE (2026-11-08, the owner's round three): Small = state + at most one primary action (the plate opens the sheet);
+# Wide and Tall = at most 3 primary controls, each 44 px with 8 px clear between hit areas; Large and Extra Large may show more, never crowded
+CONTROLS_RULES = {"S": 1, "W": 3, "T": 3}
+CLEAR = 8
+
+
+def controls_breaks(size: str, c: dict) -> list[str]:
+    """What a block's controls (`--controls`) break of CONTROLS_RULES: [] when it keeps them."""
+    out = []
+    if size in CONTROLS_RULES and c["n"] > CONTROLS_RULES[size]:
+        out.append(f"{c['n']} targets (max {CONTROLS_RULES[size]})")
+    if c["n"] and c["small"] is not None and c["small"] < 43.5:
+        out.append(f"smallest hit area {c['small']:.0f} px")
+    if c["gap"] is not None and c["gap"] < CLEAR - 0.5:
+        out.append(f"gap {c['gap']:.0f} px")
+    return out
+
+
+def controls_table(report: dict) -> list[str]:
+    """One line per block that has tap targets inside its plate: key, look, size, n, smallest hit area, least gap, the rule it breaks."""
+    lines = ["", "CONTROLS (separate tap targets inside the plate; hit areas in the block's px)"]
+    for key, by_look in report.items():
+        for look, got in by_look.items():
+            for cell in got.get("cells", []):
+                c = cell.get("controls")
+                if c is None:
+                    continue
+                broke = controls_breaks(cell["size"], c)
+                names = ", ".join(f"{n} x{k}" if k > 1 else n for n, k in sorted(c["names"].items(), key=lambda x: -x[1])[:5])
+                lines.append(f"{'BREAKS' if broke else 'ok    '} {key:12} {look:10} {cell['size']:3} n={c['n']:<2} small={'-' if c['small'] is None else format(c['small'], '.0f'):>3}"
+                             f" gap={'-' if c['gap'] is None else format(c['gap'], '.0f'):>3}  {'; '.join(broke)}  [{names}]"
+                             + (f" tightest: {c['tight']}" if broke and c.get("tight") and c["gap"] is not None and c["gap"] < CLEAR - 0.5 else ""))
+    return lines
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     G2 = ["accessory", "scene", "scenes", "now_playing", "thermostat", "camera", "security", "timers", "weather",
@@ -600,7 +1083,21 @@ def main(argv=None) -> int:
     ap.add_argument("--homeview", action="store_true", help="square cells, Centred tiles, Big Number, Analog Numbers")
     ap.add_argument("--opts", nargs="*", default=[], metavar="KEY=JSON",
                     help="what a block names, over the audit's own (thermostat='{\"entity\": \"climate.office\"}')")
+    ap.add_argument("--state", choices=list(STATES), default="busy",
+                    help="the house's state (STATES): busy (default) or quiet -- every block must look finished in each")
+    ap.add_argument("--count", type=int, default=0, help="N lights in the Living Room, N accessories, N scenes (stand_in_count)")
+    ap.add_argument("--hits", action="store_true", help="also fail where one control's touchable box (its ::after too) overlaps another's")
+    ap.add_argument("--controls", action="store_true",
+                    help="also print each block's tap targets: how many, the smallest, the least gap, and where CONTROLS_RULES is broken")
+    ap.add_argument("--stretch", action="store_true",
+                    help="also fail a tile, row, pill or button that grows with its block (STRETCH: nothing stretches)")
     a = ap.parse_args(argv)
+    STATE["name"] = a.state
+    if a.count:
+        stand_in_count(a.count)
+    STATE["stretch"] = a.stretch
+    STATE["hits"] = a.hits
+    STATE["controls"] = a.controls
     for o in a.opts:
         k, _, v = o.partition("=")
         OPTS[k] = {**OPTS.get(k, {}), **json.loads(v)}
@@ -616,6 +1113,8 @@ def main(argv=None) -> int:
         a.json.write_text(json.dumps(report, indent=1))
     bad, lines = summary(report)
     print("\n".join(lines))
+    if a.controls:
+        print("\n".join(controls_table(report)))
     print(f"{'FAIL' if bad else 'ok'}: {bad} block(s) with a problem, {len(keys)} card(s) x {len(a.looks)} look(s)"
           f" with the tab bar, x {len(a.nobar)} without")
     return 1 if bad else 0

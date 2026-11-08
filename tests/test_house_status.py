@@ -34,11 +34,12 @@ const TI = { S: [168, 122], W: [374, 122], T: [168, 282], L: [374, 282], XL: [58
 const out = { square: {}, tile: {}, sweep: [], wide: {}, mode: {}, card: {} };
 for (const [name, box] of [['square', SQ], ['tile', TI]]) {
   for (const size of ['W', 'T', 'L', 'XL']) {
-    out[name][size] = [0, 1, 3, 4, 6, 8, 11, 20].map((n) => { const x = L.layout(size, box[size][0], box[size][1], n);
-      return [n, x.cols, x.rows, x.shown, x.more, x.density, x.foot > 0]; });
+    out[name][size] = [0, 1, 3, 4, 6, 8, 11, 20].map((n) => { const x = L.plan(size, box[size][0], box[size][1], n, { words: true });
+      return [n, x.cols, x.rows, x.shown, x.more, x.rowH, x.sentence]; });
     for (let n = 0; n <= 24; n++) {
-      const x = L.layout(size, box[size][0], box[size][1], n);
-      out.sweep.push({ size, n, whole: x.shown + x.more === n, cap: x.shown <= L.CAP[size], tall: !n || x.rowH >= L.TAP });
+      const x = L.plan(size, box[size][0], box[size][1], n, { words: true }), [iw, ih] = box[size];
+      const used = x.rows * x.rowH + (size === 'W' || size === 'XL' ? 0 : L.LABEL + L.headH({ words: true }) + 8 + (x.sentence ? 21 : 0));
+      out.sweep.push({ size, n, whole: x.shown + x.more === n, tall: x.rowH >= L.TAP, fits: used <= ih });
     }
   }
 }
@@ -70,33 +71,30 @@ def got() -> dict:
 
 
 # -- the layout ----------------------------------------------------------------------------------------------------
+# ROUND TWO (2026-11-08): a headline over the sections as lines, each at its size's height (NOTHING STRETCHES), the
+# language On Now shares: [n, cols, rows, shown, more, row height, a sentence under the headline]
 @needs_node
 def test_each_size_holds_what_the_design_says_on_square_cells(got):
-    # [n, cols, rows, shown, more, density, "+N more" at the foot]
     sq = {size: {row[0]: row[1:] for row in rows} for size, rows in got["square"].items()}
-    assert sq["W"][6] == [2, 2, 4, 2, "two", False]          # two by two, the name over the reading
-    assert sq["W"][3] == [3, 1, 3, 0, "rich", False]         # three, laid out for three
-    assert sq["T"][6] == [1, 4, 4, 2, "two", True]           # a column of four, "+2 more" under it (no room beside the heading)
-    assert sq["L"][6] == [2, 3, 6, 0, "rich", False]         # two by three, a line of detail each
-    assert sq["L"][4] == [2, 2, 4, 0, "full", False]         # four: two by two, room for more
-    assert sq["XL"][6] == [3, 2, 6, 0, "full", False]        # three by two, larger
-    assert sq["XL"][8] == [4, 2, 8, 0, "full", False]        # four by two past six
-    assert sq["XL"][11] == [4, 2, 8, 3, "full", False]
+    assert sq["W"][6] == [1, 3, 3, 3, 44, False]            # the headline in a third, three lines beside it
+    assert sq["T"][8] == [1, 6, 6, 2, 44, False]            # the headline over six lines
+    assert sq["L"][6] == [1, 4, 4, 2, 56, True]             # the headline and its sentence over four lines of 56
+    assert sq["XL"][8] == [1, 6, 6, 2, 56, True]            # a headline column beside six lines
     assert sq["XL"][0][2:4] == [0, 0]
 
 
 @needs_node
 def test_tile_cells_keep_a_fingers_height_by_saying_less(got):
     ti = {size: {row[0]: row[1:] for row in rows} for size, rows in got["tile"].items()}
-    assert ti["W"][6] == [2, 2, 4, 2, "one", False]          # 150 tall: one line a section, the heading tighter
-    assert ti["T"][6] == [1, 4, 4, 2, "two", True]           # the heading tighter, "+2 more" at the foot
-    assert ti["L"][6] == [2, 3, 6, 0, "two", False]
-    assert ti["XL"][6] == [3, 2, 6, 0, "rich", False]
+    assert ti["W"][6] == [1, 2, 2, 4, 44, False]
+    assert ti["T"][6] == [1, 4, 4, 2, 44, False]
+    assert ti["L"][6] == [1, 3, 3, 3, 48, True]
+    assert ti["XL"][6] == [1, 5, 5, 1, 56, True]
 
 
 @needs_node
 def test_more_never_loses_a_section_and_none_is_under_a_finger(got):
-    assert got["sweep"] and all(s["whole"] and s["cap"] for s in got["sweep"]), [s for s in got["sweep"] if not (s["whole"] and s["cap"])]
+    assert got["sweep"] and all(s["whole"] and s["fits"] for s in got["sweep"]), [s for s in got["sweep"] if not (s["whole"] and s["fits"])]
     assert all(s["tall"] for s in got["sweep"]), [s for s in got["sweep"] if not s["tall"]]
 
 

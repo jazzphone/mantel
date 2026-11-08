@@ -252,10 +252,11 @@ def test_the_microphone_press_is_a_pointer_event_with_pointercancel_and_no_touch
 
 def test_the_block_wears_the_other_blocks_tile_language_standard_and_homeview():
     """Not a look of its own (the owner, 2026-11-04): the key's well, name and state lines of KEY_CSS, the centred tile's numbers
-    in the HomeView look (hkCards.centredTile, the glyph's ink), and Wide drawn as the Scenes block draws it."""
+    in the HomeView look (hkCards.centredTile), and Wide (2026-11-07, the owner: one Wide tile for the Scene, the Accessory and
+    this) drawn by hkTile.wideTile, its glyph Apple's five rounded bars."""
     card = (ROOT / "web/hk/cards/hk-intercom.js").read_text()
-    for needle in ("C.centredTile({ host: ':host([tile=centred])'", "TILE.centred.square.box", "C.blockPad('14px')", "TILE.lineH",
-                   "TILE.rowGap", "e.icon.setAttribute('ink'", "observedAttributes"):
+    for needle in ("C.centredTile({ host: ':host([tile=centred])'", "T.wideTile({ host: ':host([tile=centred][size=W])'", "TILE.lineH",
+                   "TILE.rowGap", "TILE.wellGap", "stroke-linecap=\"round\"", "observedAttributes"):
         assert needle in card, needle
     assert "max-width:110px" not in card, "no chip cut in two by a width of its own: whole rooms, then +N"
 

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mantel"
-version = "0.1.150"
+version = "0.1.153"
 description = "Mantel: Home Assistant dashboards inspired by Apple's Home app, with real accounts, roles, wall tablets and an audit log"
 readme = "README.md"
 license = "MIT"
@@ -60,7 +60,7 @@ cache_dir = ".ci/mypy_cache"
 # ruff with the pyflakes rules only (undefined names, unused imports, redefinitions): a ratchet per file
 # (tools/typecheck/ruff_baseline.json)
 [tool.ruff]
-extend-exclude = ["spikes", "hosts/ha/custom_components/*/hk_core", "apple"]
+extend-exclude = ["spikes", "hosts/ha/custom_components/*/hk_core"]
 
 [tool.ruff.lint]
 select = ["F"]

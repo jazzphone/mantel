@@ -1,4 +1,4 @@
-"""A fictional Mantel on this Mac for the iPhone/iPad/Mac apps in the Simulator (docs/phase10/APPLE-APPS.md, apple/README.md).
+"""A fictional Mantel on this Mac for the iPhone/iPad/Mac apps in the Simulator (docs/phase10/APPLE-APPS.md; the apps are jazzphone/mantel-ios and jazzphone/mantel-mac).
 
 Run: .venv/bin/python tools/app_dev_server.py --data-dir /tmp/mantel-app-dev [--port 8766]
 

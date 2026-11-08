@@ -166,6 +166,49 @@
     return (C.ACCENTS && C.ACCENTS[name]) || '#bf5af2';
   }
 
+  // THE LEVEL A TALL BLOCK DRAGS (2026-11-07, the review: an Accessory's T size, HomeView's Tall tile): what an
+  // accessory has that runs from 0 to 100 -- a light's brightness, a fan's speed, a shade's position, a speaker's
+  // volume -- and the calls that set it and toggle it (through the card's action port, HkBase._call). null: nothing
+  // to drag (a switch, a lock, a door), the tile stays a tall tile that toggles.
+  var DOOR_CLASSES = { garage: 1, gate: 1, door: 1 };
+  function levelOf(id, st) {
+    if (!id || !st || st.state === 'unavailable' || st.state === 'unknown') return null;
+    var d = String(id).split('.')[0], a = st.attributes || {}, f = Number(a.supported_features) || 0, n = function (x) { return typeof x === 'number' && isFinite(x); };
+    var data = function (extra) { return Object.assign({ entity_id: id }, extra); };
+    if (d === 'light') {
+      var modes = a.supported_color_modes;
+      if (!(Array.isArray(modes) ? modes.some(function (m) { return m !== 'onoff'; }) : n(a.brightness))) return null;
+      return { what: 'brightness', pct: st.state === 'on' ? (n(a.brightness) ? Math.max(1, Math.round(a.brightness / 2.55)) : 100) : 0,
+               set: function (p) { return p <= 0 ? ['light', 'turn_off', data()] : ['light', 'turn_on', data({ brightness_pct: p })]; },
+               toggle: ['homeassistant', 'toggle', data()] };
+    }
+    if (d === 'fan') {
+      if (!(n(a.percentage) || (f & 1))) return null;
+      return { what: 'speed', pct: st.state === 'on' ? Math.round(Number(a.percentage) || 0) : 0,
+               set: function (p) { return p <= 0 ? ['fan', 'turn_off', data()] : ['fan', 'set_percentage', data({ percentage: p })]; },
+               toggle: ['homeassistant', 'toggle', data()] };
+    }
+    if (d === 'cover') {
+      if (DOOR_CLASSES[a.device_class] || !(n(a.current_position) || (f & 4))) return null;
+      return { what: 'position', pct: Math.round(Number(a.current_position) || (st.state === 'open' ? 100 : 0)),
+               set: function (p) { return ['cover', 'set_cover_position', data({ position: p })]; },
+               toggle: ['cover', 'toggle', data()], words: ['Closed', 'Open'] };
+    }
+    if (d === 'media_player') {
+      if (!(n(a.volume_level) || (f & 4))) return null;
+      return { what: 'volume', pct: Math.round((Number(a.volume_level) || 0) * 100), off: st.state === 'off' || st.state === 'standby',
+               set: function (p) { return ['media_player', 'volume_set', data({ volume_level: p / 100 })]; },
+               toggle: ['media_player', 'volume_mute', data({ is_volume_muted: !a.is_volume_muted })] };
+    }
+    return null;
+  }
+  // a light's own color, as css, unless it is near white (on the white plate it would not show)
+  function lightRgb(st) {
+    var c = st && st.state === 'on' && st.attributes && st.attributes.rgb_color;
+    if (!Array.isArray(c) || c.length < 3) return null;
+    return (0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]) / 255 > 0.85 ? null : 'rgb(' + c[0] + ',' + c[1] + ',' + c[2] + ')';
+  }
+
   // BARE_ICON IS AN ON-STATE RULE ONLY, and getting this wrong is invisible
   // until something is playing. Transparency belongs to the ON state's well
   // colour alone -- OFF stays rgba(0,0,0,0.14). A card that wants a
@@ -210,6 +253,73 @@
   // ha-card rules under HK's name, elements/hk-elements.js) and the
   // --ha-card-* variables, as every HK card's plate does.
   var TILE = window.hkCards.TILE;
+  // THE WIDE TILE, CENTERED (2026-11-07, the owner: every block uses its space and keeps equal margins all the way
+  // round; a Scene, an Accessory and the Intercom at Wide are one layout): HomeView's tile laid sideways -- the glyph
+  // bare at the size the Small tile draws it on that cell (TILE.centred: 64 on tiles, 82 on square cells), its box
+  // centered on a third of the block's width (a quarter left the pair 70 px from the left and 140 from the right; a third balances a name of usual length -- 2026-11-07); the name over the room or state (17 / 16 on tiles, 21 / 20 on
+  // squares: the Small tile's) left-aligned a gutter (16 px) right of the glyph's box, the pair centered on the glyph's
+  // middle, ending in an ellipsis at the block's right inset (--hk-pad-r). `s`: { host, well, icon, name, sub (a list),
+  // temp (a thermostat's reading, in the glyph's place) } -- as hkCards.centredTile's, over its rules.
+  // (a sensor's reading for a Centered tile's glyph: a temperature rounded with its degree, a humidity with its percent)
+  function readingOf(id, st) {
+    var n = st ? Number(st.state) : NaN, dc = st && st.attributes && st.attributes.device_class;
+    if (String(id || '').indexOf('sensor.') !== 0 || !st || st.state === '' || isNaN(n)) return null;
+    return dc === 'temperature' ? Math.round(n) + '\u00b0' : dc === 'humidity' ? Math.round(n) + '%' : null;
+  }
+  function wideTile(s) {
+    var C0 = window.hkCards.TILE.centred, I = ' !important';
+    var at = function (parts) { return parts.map(function (p) { return s.host + ' ' + p; }).join(','); };
+    var one = function (g) {
+      var left = 'calc(33.33% + ' + (g.box / 2 + 16) + 'px)' + I;
+      var text = 'left:' + left + ';right:var(--hk-pad-r,14px)' + I + ';text-align:left' + I + ';line-height:' + g.line + 'px' + I;
+      return at([s.well]) + '{left:33.33%' + I + ';top:50%' + I + ';width:' + g.box + 'px' + I + ';height:' + g.box + 'px' + I + '}' +
+        at([s.icon]) + '{width:' + g.glyph + 'px' + I + ';height:' + g.glyph + 'px' + I + '}' +
+        at([s.name]) + '{' + text + ';top:calc(50% - ' + g.line + 'px)' + I + ';font-size:' + g.name + 'px' + I + '}' +
+        at(s.sub) + '{' + text + ';top:50%' + I + ';font-size:' + g.sub + 'px' + I + '}' +
+        (s.temp ? at([s.temp]) + '{left:33.33%' + I + ';top:50%' + I + '}' : '');
+    };
+    return one(C0.tall) + '@container hk-cell (min-height:180px) or style(--hk-cell-shape: square){' + one(C0.square) + '}';
+  }
+
+  // THE TINY TILE, CENTERED (2026-11-08, the owner: "a half height accessory card on its own"; then "We don't have to have the
+  // circle/well ... leave room for a bigger glyph ... it has to look like it belongs"): HomeView's tile in half a cell -- the
+  // glyph bare (DESIGN.md: never in a circle or well), as large as the half's height lets it (56 % of it, 40 to 52 px: 40 on a
+  // 70 px half of a tile cell, 51 on a square cell's), a block's inset from the left; the name over the state (the short
+  // tile's 17 / 16 on 21 px lines) a gutter right of it, left-aligned, the pair centered on the height as one ("your 2 line
+  // names with status also aren't vertically aligned"): the tile's own grid, not the centered tile's absolute places. A
+  // square cell's half (84 px or more) gives a name two lines -- not under a block's page dots ("it should just default to 1
+  // line truncated there")
+  function tinyTile(s) {
+    var g = window.hkCards.TILE.centred.short, I = ' !important', box = 'calc(var(--hk-tg) + 6px)';
+    var at = function (parts, host) { return parts.map(function (p) { return (host || s.host) + ' ' + p; }).join(','); };
+    var flow = 'position:static' + I + ';transform:none' + I + ';left:auto' + I + ';right:auto' + I + ';top:auto' + I + ';bottom:auto' + I + ';margin:0' + I;
+    var text = flow + ';text-align:left' + I + ';line-height:' + g.line + 'px' + I + ';white-space:nowrap' + I + ';overflow:hidden;text-overflow:ellipsis;min-width:0';
+    return s.host + '{--hk-tg:clamp(40px,56cqh,52px)}' +
+      at([s.plate]) + '{padding:0 var(--hk-pad-r,14px) 0 var(--hk-pad-l,14px)' + I + '}' +
+      // (the glyph off the grid, centered on the height a block's inset in -- in the grid it stretched one-line rows apart)
+      at([s.grid]) + '{display:grid' + I + ';height:100%' + I + ';grid-template-columns:' + box + ' minmax(0,1fr)' + I + ';grid-template-rows:auto auto' + I +
+        ';grid-template-areas:". n" ". l"' + I + ';column-gap:14px' + I + ';row-gap:0' + I + ';align-content:center' + I + '}' +
+      at([s.well]) + '{position:absolute' + I + ';left:calc(var(--hk-pad-l,14px) + var(--hk-tg) / 2 + 3px)' + I + ';top:50%' + I + ';transform:translate(-50%,-50%)' + I +
+        ';width:' + box + I + ';height:' + box + I + '}' +
+      at([s.icon]) + '{width:var(--hk-tg)' + I + ';height:var(--hk-tg)' + I + '}' +
+      at([s.name]) + '{' + text + ';grid-area:n' + I + ';font-size:' + g.name + 'px' + I + '}' +
+      at(s.sub) + '{' + text + ';grid-area:l' + I + ';font-size:' + g.sub + 'px' + I + '}' +
+      (s.temp ? at([s.temp]) + '{position:absolute' + I + ';left:calc(var(--hk-pad-l,14px) + var(--hk-tg) / 2 + 3px)' + I + ';top:50%' + I + ';transform:translate(-50%,-50%)' + I + ';font-size:22px' + I + '}' : '') +
+      '@container hk-cell (min-height:84px){' + at([s.name], s.host.replace(/\)$/, ':not([data-grid-pager]))')) + '{white-space:normal' + I +
+        ';display:-webkit-box' + I + ';-webkit-line-clamp:2;-webkit-box-orient:vertical}}';
+  }
+
+  // THE TALL TILE'S TOPS (Centered, a level under the words): from the block's top inset (--hk-pad-t) the glyph's box
+  // (g.box), the name a gutter under it, the second line a line under that, the capsule 10 px under that -- g: a cell's
+  // numbers (TILE.centred.tall / .square), `pad`: that cell's inset, `q`: the container query it holds for ('' for tiles)
+  function levelTile(g, pad, q) {
+    var H = ':host([tile=centred][level][size=T])', T = 'calc(var(--hk-pad-t,' + pad + 'px) + ', I = ' !important', name = g.box + 6;
+    var css = H + ' .lvl{position:absolute;margin:0;left:var(--hk-pad-l,' + pad + 'px);right:var(--hk-pad-r,' + pad + 'px);bottom:var(--hk-pad-b,' + pad + 'px);top:' + T + (name + 2 * g.line + 10) + 'px)}' +
+      H + ' .well{top:' + T + g.box / 2 + 'px)' + I + '}' +
+      H + ' .name{top:' + T + name + 'px)' + I + '}' +
+      H + ' .label,' + H + ' .room{top:' + T + (name + g.line) + 'px)' + I + '}';
+    return q ? q + '{' + css + '}' : css;
+  }
   var CSS = [
     ':host{display:block}',
     'hk-plate.card{',
@@ -563,6 +673,7 @@
     ':host([tile=centred]) .card.roomed .label{display:none !important}',
     // a thermostat's reading stands where the glyph would
     ':host([tile=centred]) .card .temp{position:absolute;left:50%;top:32%;transform:translate(-50%,-50%);font-size:44px;letter-spacing:-0.5px}',
+    ':host([tile=centred]) .card.reading .well{visibility:hidden}:host([tile=centred]) .card.reading .temp{font-weight:600;line-height:1;color:' + window.hkCards.v('ink') + '}',
     window.hkCards.centredTile({ host: ':host([tile=centred])', plate: 'hk-plate.card', lit: 'hk-plate.card[data-on="1"]',
                                  well: '.well', icon: '.icon', name: '.name', sub: ['.label', '.room'] }),
     // (...a thermostat has no glyph: its reading is the glyph, as in its tall tile)
@@ -579,20 +690,9 @@
       ':host([tile=centred]) .icon{width:var(--hk-cg) !important;height:var(--hk-cg) !important}' +
       ':host([tile=centred]) .name{top:calc(30% + var(--hk-cg) / 2 + 5px) !important;font-size:15px !important;line-height:19px !important}' +
       ':host([tile=centred]) .label,:host([tile=centred]) .room{top:calc(30% + var(--hk-cg) / 2 + 24px) !important;font-size:13px !important;line-height:17px !important}}',
-    // A SCENE BLOCK AT WIDE (2026-10-31, the widget mock-up; the owner: "the
-    // glyph at the tiles' 58 px beside its name and what it does"): the glyph
-    // at a Centred tile's size on the block's inset, the name and what the
-    // scene sets beside it, the two lines together in the middle
-    ':host([tile=centred][size=W]) hk-plate.card.scene{padding:' + window.hkCards.blockPad('14px') + ' !important}',
-    ':host([tile=centred][size=W]) hk-plate.card.scene .grid{display:grid !important;grid-template-columns:' + TILE.centred.square.box + 'px minmax(0,1fr);' +
-      'grid-template-areas:none !important;grid-template-rows:auto auto;align-content:center;column-gap:18px;height:100%}',
-    ':host([tile=centred][size=W]) hk-plate.card.scene .well{position:relative !important;left:auto !important;top:auto !important;transform:none !important;' +
-      'grid-column:1;grid-row:1 / span 2;align-self:center;width:' + TILE.centred.square.box + 'px !important;height:' + TILE.centred.square.box + 'px !important}',
-    ':host([tile=centred][size=W]) hk-plate.card.scene .icon{width:' + TILE.centred.square.glyph + 'px !important;height:' + TILE.centred.square.glyph + 'px !important}',
-    ':host([tile=centred][size=W]) hk-plate.card.scene .name{position:static !important;grid-column:2;grid-row:1;text-align:left !important;align-self:end;' +
-      'font-size:' + TILE.centred.square.name + 'px !important;line-height:26px !important}',
-    ':host([tile=centred][size=W]) hk-plate.card.scene .room{position:static !important;grid-column:2;grid-row:2;text-align:left !important;align-self:start;' +
-      'font-size:17px !important;line-height:22px !important;white-space:normal !important;display:-webkit-box !important;-webkit-box-orient:vertical;-webkit-line-clamp:2}',
+    // THE WIDE TILE (see wideTile): Scene and Accessory at Wide, Centered. Home style is the pill (_layout).
+    wideTile({ host: ':host([tile=centred][size=W])', well: '.well', icon: '.icon', name: '.name', sub: ['.label', '.room'], temp: '.card .temp' }),
+    tinyTile({ host: ':host([tile=centred][size=XS])', plate: 'hk-plate.card', grid: '.grid', well: '.well', icon: '.icon', name: '.name', sub: ['.label', '.room'], temp: '.card .temp' }),
     // IN ITS OWN COLOR (2026-10-31, the owner's notes on the widget mock-up:
     // "Color: the same tile on a gradient of its own color"): a tile whose
     // block has Color on (`block_color` in its config). A scene stands on its
@@ -605,7 +705,54 @@
     // (over the lit plate's own colors, Centred's !important ones too)
     ':host hk-plate.card[data-hk-grad]:not(.hk-tapped) .name,:host([tile]) hk-plate.card[data-on][data-hk-grad]:not(.hk-tapped) .name{color:#fff !important}',
     ':host hk-plate.card[data-hk-grad]:not(.hk-tapped) .label,:host hk-plate.card[data-hk-grad]:not(.hk-tapped) .room,' +
-      ':host([tile]) hk-plate.card[data-on][data-hk-grad]:not(.hk-tapped) .label,:host([tile]) hk-plate.card[data-on][data-hk-grad]:not(.hk-tapped) .room{color:rgba(255,255,255,0.85) !important}'
+      ':host([tile]) hk-plate.card[data-on][data-hk-grad]:not(.hk-tapped) .label,:host([tile]) hk-plate.card[data-on][data-hk-grad]:not(.hk-tapped) .room{color:rgba(255,255,255,0.85) !important}',
+    // ================================================= THE TALL TILE (T, 2026-11-07, the review)
+    // HomeView's Tall tile in a block two cells high. A thing with a level (a light, a fan, a shade, a speaker) has its
+    // capsule under the glyph and the words (hk-tile.js _levelDraw: `level` on the host), filling the rest of the plate on
+    // the block's inset (--hk-pad-*, 14 on tiles, 18 on square cells); a thing with none (a switch, a lock) is the tile
+    // with a larger glyph. Centered: the glyph over the name and the second line, all centered; Home: the glyph top left.
+    ':host([level][size=T]) hk-plate.card{position:relative;padding:var(--hk-pad-t,14px) var(--hk-pad-r,14px) var(--hk-pad-b,14px) var(--hk-pad-l,14px)}',
+    ':host([level]) hk-plate.card:has(.lvl:active){transform:none;filter:none}',
+    ':host([level]) .card.tall .grid{grid-template-areas:"i" "n" "l" "c" !important;grid-template-rows:44px auto auto minmax(0,1fr);row-gap:3px}',
+    '.lvl{position:relative;grid-area:c;margin-top:10px;min-height:60px;box-sizing:border-box;border-radius:var(--hk-inner-radius,12px);overflow:hidden;',
+    '  touch-action:none;cursor:pointer;outline:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;background:' + window.hkCards.v('key-strong') + '}',
+    '.lvl:focus-visible{box-shadow:0 0 0 3px rgba(100,181,255,0.8)}',
+    '.lvl .fill{position:absolute;left:0;right:0;bottom:0;height:0;background:' + window.hkCards.v('track-fill') + ';transition:height .18s ease}',
+    '.lvl.drag .fill{transition:none}',
+    '.lvl b{position:absolute;left:0;right:0;bottom:12px;text-align:center;' + window.hkCards.typeCss('headline') + ';line-height:22px;font-variant-numeric:tabular-nums;',
+    '  color:' + window.hkCards.v('ink') + ';text-shadow:' + window.hkCards.v('glow') + ';pointer-events:none}',
+    // (lit, on the white plate: a dark track, the filled part its own color; on its gradient: a white wash, a white fill)
+    'hk-plate.card[data-on="1"] .lvl{background:rgba(0,0,0,0.09)}',
+    'hk-plate.card[data-on="1"] .lvl b{color:rgba(0,0,0,0.55);text-shadow:none}',
+    'hk-plate.card[data-hk-grad] .lvl{background:rgba(255,255,255,0.24)}',
+    'hk-plate.card[data-hk-grad] .lvl b{color:#fff;text-shadow:none}',
+    // (the words over the filled part are dark on it, whatever lies under the rest)
+    'hk-plate.card .lvl.hi b{color:rgba(0,0,0,0.55);text-shadow:none}',
+    // WIDE (2026-11-08): the whole tile the slider -- a clear layer over it takes the drag, the fill a layer under the glyph and the words
+    // (the light's own color, softer, on the lit white plate; white on a gradient), the percent the tile's own second line
+    '.lvl.wide{position:absolute;inset:0;margin:0;min-height:0;grid-area:auto;border-radius:inherit;background:none !important;z-index:3;touch-action:pan-y}',
+    '.lvl.wide .fill{display:none}',
+    // (its level at the tile's right edge, on its own inset, the second line staying the room's)
+    '.lvl.wide b{left:auto;right:var(--hk-pad-r,18px);bottom:auto;top:50%;transform:translateY(-50%);text-align:right}',
+    '.lvbg{position:absolute;inset:0;border-radius:inherit;overflow:hidden;pointer-events:none;z-index:0}',
+    '.lvbg .fill{position:absolute;left:0;top:0;bottom:0;width:0;opacity:.28;background:' + window.hkCards.v('track-fill') + ';transition:width .18s ease}',
+    ':host([level]) hk-plate.card:has(.lvl.wide.drag) .lvbg .fill{transition:none}',
+    'hk-plate.card[data-hk-grad] .lvbg .fill{opacity:.3}',
+    ':host([level][size=W]) hk-plate.card{position:relative}',
+    ':host([level]) hk-plate.card:has(.lvbg) .grid{position:relative;z-index:1}',
+    // CENTERED, the glyph and its words from the block's top inset, the capsule from under them (levelTile: the cell's numbers,
+    // hk-base.js TILE.centred)
+    levelTile(window.hkCards.TILE.centred.tall, 14, ''),
+    levelTile(window.hkCards.TILE.centred.square, 18, '@container hk-cell style(--hk-cell-shape: square)'),
+    // ...no level: the tile with its glyph larger, the group a little above the middle
+    ':host([tile=centred][size=T]:not([level])) .well{width:104px !important;height:104px !important;top:37% !important}',
+    ':host([tile=centred][size=T]:not([level])) .icon{width:96px !important;height:96px !important}',
+    ':host([tile=centred][size=T]:not([level])) .name{top:62% !important}',
+    ':host([tile=centred][size=T]:not([level])) .label,:host([tile=centred][size=T]:not([level])) .room{top:calc(62% + 27px) !important}',
+    // ...Home: the glyph's well larger
+    ':host(:not([tile=centred])[size=T]:not([level])) .well{width:60px;height:60px}',
+    ':host(:not([tile=centred])[size=T]:not([level])) .icon{width:34px;height:34px}',
+    ':host(:not([tile=centred])[size=T]:not([level])) .card.tall .grid{grid-template-rows:60px minmax(0,1fr) auto auto}'
   ].join('');
 
   // `on:` UNQUOTED IN YAML IS THE BOOLEAN true, so an icon_states map keyed on
@@ -691,8 +838,131 @@
     getCardSize() { return this._layout() === 'tall' || this._layout() === 'climate_tall' ? 2 : 1; }
     _layout() {
       var cfg = this._config || {};
-      // on a Home Grid the block decides: its tall layout, whatever the size
-      return sizedLayout(LAYOUTS[cfg.layout] ? cfg.layout : 'standard', this._cellSize() ? 'tall' : cfg.size);
+      // on a Home Grid the block decides: its tall layout, whatever the size -- but Wide (2026-11-07, the owner) is Apple
+      // Home's wide tile: the pill (Centered keeps the tall layout: wideTile)
+      var cell = this._cellSize();
+      return sizedLayout(LAYOUTS[cfg.layout] ? cfg.layout : 'standard', cell ? (cell === 'W' && this.getAttribute('tile') !== 'centred' ? 'regular' : 'tall') : cfg.size);
+    }
+
+    // THE LEVEL (T, 2026-11-07, the review): under the glyph and the words, a capsule the rest of the block tall -- the
+    // detail sheet's dimmer (a rounded capsule, the filled part in the thing's own color or white) with its percent.
+    // A drag up or down sets it (relative to where the finger lands, the whole capsule being 100 %; sent once, on
+    // letting go: the room card's dimmer does the same), a tap toggles. Sideways it does nothing -- pages swipe.
+    // `fill`: the filled part's color; `grad`: the plate is the own-color gradient (white fill, white words).
+    _levelDraw(lv, st, on, fill, grad) {
+      var e = this._els, box;
+      this._lv = lv;
+      if (!lv) {
+        if (e.lvl) { e.lvl.remove(); e.lvl = null; }
+        if (e.lvbg) { e.lvbg.remove(); e.lvbg = null; }
+        if (this.hasAttribute('level')) this.removeAttribute('level');
+        return;
+      }
+      this.setAttribute('level', '');
+      if (!e.lvl) {
+        box = document.createElement('div');
+        box.className = 'lvl'; box.setAttribute('role', 'slider'); box.tabIndex = 0;
+        box.setAttribute('data-hk-hero', '');   // the Tall block's one control, made to fill it (the grid audit's --stretch)
+        box.setAttribute('aria-valuemin', '0'); box.setAttribute('aria-valuemax', '100');
+        box.innerHTML = '<i class="fill"></i><b></b>';
+        e.grid.appendChild(box);
+        if (this._cellSize() === 'W') {
+          // WIDE: the slider is the whole tile -- its fill a layer under the glyph and the words (.lvbg), the drag a clear one over them
+          box.classList.add('wide'); box.setAttribute('data-hk-control', '');
+          e.grid.parentNode.appendChild(box);      // (over the whole plate, not the words' grid)
+          var bg = document.createElement('i'); bg.className = 'lvbg'; bg.innerHTML = '<i class="fill"></i>';
+          e.grid.parentNode.insertBefore(bg, e.grid.parentNode.firstChild);
+          e.lvbg = bg;
+        }
+        e.lvl = box;
+        this._levelWire(box);
+      }
+      var pct = this._lvDrag != null ? this._lvDrag : (this._lvHold && Date.now() < this._lvHold.until ? this._lvHold.pct : lv.pct);
+      var fillEl = e.lvl.firstChild, label = e.lvl.lastChild;
+      box = e.lvl;
+      if (e.lvbg) { fillEl = e.lvbg.firstChild; fillEl.style.width = pct + '%'; }      // (Wide: the fill under the words, across)
+      else fillEl.style.height = pct + '%';
+      fillEl.style.background = fill || '';
+      box.classList.toggle('hi', pct >= 22);
+      box.classList.toggle('drag', this._lvDrag != null);
+      var word = pct <= 0 && lv.words ? lv.words[0] : pct >= 100 && lv.words ? lv.words[1] : (!on && pct <= 0) || lv.off ? 'Off' : pct + '%';
+      if (label.textContent !== word) label.textContent = word;
+      var nm = (this._config && this._config.name) || (st && st.attributes && st.attributes.friendly_name) || '';
+      box.setAttribute('aria-label', (nm ? nm + ' ' : '') + lv.what);
+      box.setAttribute('aria-valuenow', String(pct));
+      box.setAttribute('aria-valuetext', word);
+    }
+    _levelWire(box) {
+      var self = this, s = null, eat = false;
+      var send = function (c) {
+        self._call(c[0], c[1], c[2]).then(function (ok) { if (!ok) { self._lvHold = null; self.redraw(); } });
+      };
+      var set = function (p) {
+        var lv = self._lv;
+        if (!lv) return;
+        self._lvHold = { pct: p, until: Date.now() + 2500 };
+        clearTimeout(self._lvT); self._lvT = setTimeout(function () { self._lvHold = null; self.redraw(); }, 2600);
+        send(lv.set(p));
+        self.redraw();
+      };
+      box.addEventListener('pointerdown', function (ev) {
+        if (ev.button > 0 || !self._lv) return;
+        var r = box.getBoundingClientRect();
+        s = { id: ev.pointerId, x: ev.clientX, y: ev.clientY, pct: self._lv.pct, h: Math.max(1, r.height), w: Math.max(1, r.width), moved: false, across: box.classList.contains('wide') };
+        try { box.setPointerCapture(ev.pointerId); } catch (x) { /* a test page */ }
+      });
+      box.addEventListener('pointermove', function (ev) {
+        if (!s || ev.pointerId !== s.id) return;
+        var dy = ev.clientY - s.y;
+        if (s.side) return;
+        if (s.across) {
+          // (Wide: across sets it; a drag that starts up or down is the page's scroll, and no tap)
+          var dx = ev.clientX - s.x;
+          if (!s.moved && Math.hypot(dx, dy) >= 6 && Math.abs(dy) > Math.abs(dx)) { s.side = true; return; }
+          if (!s.moved && Math.abs(dx) < 6) return;
+          s.moved = true;
+          ev.preventDefault();
+          self._lvDrag = Math.max(0, Math.min(100, Math.round(s.pct + dx / s.w * 100)));
+          self.redraw();
+          return;
+        }
+        // (a drag that starts sideways is no one's here: pages swipe -- and it is no tap either)
+        if (!s.moved && Math.hypot(dy, ev.clientX - s.x) >= 6 && Math.abs(ev.clientX - s.x) > Math.abs(dy)) { s.side = true; return; }
+        if (!s.moved && Math.abs(dy) < 6) return;
+        s.moved = true;
+        ev.preventDefault();
+        self._lvDrag = Math.max(0, Math.min(100, Math.round(s.pct - dy / s.h * 100)));
+        self.redraw();
+      });
+      var end = function (ev, ok) {
+        if (!s || ev.pointerId !== s.id) return;
+        var d = s; s = null;
+        if (d.side) { eat = ok; setTimeout(function () { eat = false; }, 0); return; }
+        if (!d.moved) return;
+        eat = ok; setTimeout(function () { eat = false; }, 0);
+        var p = self._lvDrag;
+        self._lvDrag = null;
+        if (ok && p != null && p !== d.pct) set(p); else self.redraw();
+      };
+      box.addEventListener('pointerup', function (ev) { end(ev, true); });
+      box.addEventListener('pointercancel', function (ev) { end(ev, false); });
+      // a tap toggles (and is the capsule's, never the plate's); the click that ends a drag is the drag's
+      box.addEventListener('click', function (ev) {
+        if (box.classList.contains('wide') && !eat) return;          // (Wide: a tap is the tile's own -- it falls through to the plate)
+        ev.stopPropagation();
+        if (eat) { eat = false; return; }
+        if (self._lv) send(self._lv.toggle);
+      });
+      box.addEventListener('keydown', function (ev) {
+        var lv = self._lv, k = ev.key;
+        if (!lv) return;
+        if (k === 'ArrowUp' || k === 'ArrowRight' || k === 'ArrowDown' || k === 'ArrowLeft') {
+          ev.preventDefault();
+          var up = k === 'ArrowUp' || k === 'ArrowRight';
+          set(Math.max(0, Math.min(100, (self._lvHold && Date.now() < self._lvHold.until ? self._lvHold.pct : lv.pct) + (up ? 5 : -5))));
+        } else if (k === 'Enter' || k === ' ') { ev.preventDefault(); send(lv.toggle); }
+      });
+      box.addEventListener('contextmenu', function (ev) { ev.stopPropagation(); });
     }
 
     // Subclasses answer these four; everything else is shared.
@@ -782,6 +1052,11 @@
       var st = this._st(cfg.entity);
       var on = !!this._isOn(st) || this._pressed();
       var layout = this._layout();
+      // (a tall block's level, HomeView's Tall tile: this._levelDraw, below)
+      // (Wide too, 2026-11-08, the owner: "the Wide accessory ... the same function as the tall ... with a horizontal slider", for
+      // "anything that can slide like that": the whole Wide tile is the slider, as Control Center's -- a light, a fan, a shade)
+      var cs = this._cellSize(), lv = cs === 'T' || cs === 'W' ? levelOf(cfg.entity, st) : null;
+      if (lv && cs === 'W' && lv.what === 'volume') lv = null;
 
       if (!this._built) {
         this._root.innerHTML =
@@ -906,6 +1181,8 @@
       }
       if (wb !== null) e.well.style.background = wb;
       e.icon.style.color = ic;
+      // (the filled part: white on the gradient; lit on white, the light's own color, else the well's -- or, with no circle, the glyph's)
+      this._levelDraw(lv, st, on, grad ? '#fff' : on ? (cfg.entity.indexOf('light.') === 0 && lightRgb(st)) || (wb && wb !== 'transparent' ? wb : ic) : '', !!grad);
       if (cfg.icon_size) {
         e.icon.style.width = cfg.icon_size;
         e.icon.style.height = cfg.icon_size;
@@ -943,9 +1220,16 @@
             value = a[secondary.attribute];
             lb = value == null || typeof value === 'object' ? '—' : String(value) + (secondary.unit ? ' ' + secondary.unit : '');
           }
-        }
+        } else if (lv && lv.what !== 'volume' && st) lb = titled(st.state);   // (the capsule says the percent: the line says the state)
         if (e.label.textContent !== lb) e.label.textContent = lb;
       }
+      // A SENSOR'S READING (2026-11-08, the owner of the Tiny tile: "does it look like with a sensor...like temperature"): on a
+      // Centered tile a temperature's or a humidity's number stands where the glyph would, as a thermostat's does
+      var rd = this.getAttribute('tile') === 'centred' ? readingOf(cfg.entity, st) : null;
+      e.card.classList.toggle('reading', !!rd);
+      if (rd && (!this._readEl || this._readEl.parentNode !== e.grid)) { this._readEl = document.createElement('div'); this._readEl.className = 'temp'; e.grid.appendChild(this._readEl); }
+      if (rd && this._readEl.textContent !== rd) this._readEl.textContent = rd;
+      if (!rd && this._readEl && this._readEl.parentNode) this._readEl.remove();
     }
   }
 
@@ -1711,6 +1995,7 @@
   window.hkTile.iconColour = iconColour;
   // (a Home Grid block in its own color: hk-grid-cards.js's Action and Everything)
   window.hkTile.hexOf = hexOf;
+  window.hkTile.wideTile = wideTile;   // (the Intercom's Wide tile, hk-intercom.js)
   window.hkTile.ownTint = ownTint;
   // hk-chip / hk-stat drawn before this file ran used fallback colours:
   // tell them the palette is here (MODULE WAKE, hk-base.js).

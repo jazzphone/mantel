@@ -294,6 +294,14 @@
     });
     return out.join('');
   }
+  // the picture with its edge pixels drawn out P further on every side
+  function edged(src, P) {
+    var W = src.width, H = src.height, c = newCanvas(W + 2 * P, H + 2 * P), x = ctxOf(c);
+    x.drawImage(src, P, P);
+    x.drawImage(src, 0, 0, 1, H, 0, P, P, H); x.drawImage(src, W - 1, 0, 1, H, P + W, P, P, H);
+    x.drawImage(c, 0, P, W + 2 * P, 1, 0, 0, W + 2 * P, P); x.drawImage(c, 0, P + H - 1, W + 2 * P, 1, 0, P + H, W + 2 * P, P);
+    return c;
+  }
   // THE FILTER DRAWN BY THE BROWSER: the canvas as an image inside an SVG
   // that applies it -> a Promise of the filtered canvas. Native code in
   // WebKit (which ignores a canvas's own filter) and Chrome alike. This
@@ -303,18 +311,28 @@
   // (2026-10-10). `hold`: the picture's edges held (it is the sky to its
   // edges), its edge pixels drawn out that far first -- Chrome does not
   // honor feGaussianBlur's edgeMode.
-  function nativeFilter(src, prims, hold) {
+  // A CANVAS THAT FILTERS ITSELF (Chrome, so the wall tablets; `css`: the same list, its lengths in canvas pixels) is
+  // handed the list as it is, with no PNG and no SVG to decode: 30 of a 57 ms repaint at 4x CPU went on that round trip
+  // (2026-11-08); the two agree to within rounding (measured in Chrome, see Motion.md). WebKit keeps the SVG.
+  var OWN_FILTER = (function () {
+    try { var t = document.createElement('canvas').getContext('2d'); return !!t && 'filter' in t && (t.filter = 'blur(1px)', t.filter === 'blur(1px)'); }
+    catch (e) { return false; }
+  })();
+  function nativeFilter(src, prims, hold, css) {
     if (!prims) return Promise.resolve(src);
     var W = src.width, H = src.height, P = hold ? Math.ceil(hold) : 0, c = src;
-    if (P) {
-      c = newCanvas(W + 2 * P, H + 2 * P);
-      var x = ctxOf(c);
-      x.drawImage(src, P, P);
-      x.drawImage(src, 0, 0, 1, H, 0, P, P, H); x.drawImage(src, W - 1, 0, 1, H, P + W, P, P, H);
-      x.drawImage(c, 0, P, W + 2 * P, 1, 0, 0, W + 2 * P, P); x.drawImage(c, 0, P + H - 1, W + 2 * P, 1, 0, P + H, W + 2 * P, P);
+    if (css && OWN_FILTER) {
+      var e = src;
+      if (P) e = edged(src, P);
+      var o = newCanvas(W, H), ox = ctxOf(o);
+      ox.filter = css;
+      ox.drawImage(e, -P, -P);
+      ox.filter = 'none';
+      return Promise.resolve(o);
     }
+    if (P) c = edged(src, P);
     var url, cw = c.width, ch = c.height;
-    try { url = c.toDataURL('image/png'); } catch (e) { return Promise.resolve(src); }
+    try { url = c.toDataURL('image/png'); } catch (e2) { return Promise.resolve(src); }
     var svg = '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="' + cw + '" height="' + ch + '">' +
       '<filter id="f" filterUnits="userSpaceOnUse" x="0" y="0" width="' + cw + '" height="' + ch + '" color-interpolation-filters="sRGB">' + prims + '</filter>' +
       '<image width="' + cw + '" height="' + ch + '" href="' + url + '" xlink:href="' + url + '" filter="url(#f)"/></svg>';
@@ -910,7 +928,9 @@
         if (!fl.length) return c;
         var reach = 0;
         fl.forEach(function (f) { if (f.f === 'blur') reach += 3 * (parseFloat(f.v) || 0) * kz; });
-        return nativeFilter(c, svgPrims(fl, kz, check), reach + 2);
+        var css = fl.every(function (f) { return f.f === 'blur' || matrixOf(f.f, f.v); }) ?
+          fl.map(function (f) { return f.f === 'blur' ? 'blur(' + fmt((parseFloat(f.v) || 0) * kz) + 'px)' : f.f + '(' + f.v + ')'; }).join(' ') : null;
+        return nativeFilter(c, svgPrims(fl, kz, check), reach + 2, css);
       }).then(function (out) {
         check.ms.total = Math.round(performance.now() - t0);
         return { canvas: out, check: check };

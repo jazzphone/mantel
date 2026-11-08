@@ -362,18 +362,22 @@
         if (!this._ro && typeof ResizeObserver !== 'undefined') {
           // (a new size draws on the next frame, never inside the observer's
           // own delivery: the draw lays the page out again)
-          this._ro = new ResizeObserver(function () {
-            if (self._roRaf) return;
-            self._roRaf = requestAnimationFrame(function () {
-              self._roRaf = 0;
-              var z = self._size();
-              if (self._built && self._sizeWas && z.W === self._sizeWas.W && z.H === self._sizeWas.H) return;
-              self.redraw();
-            });
-          });
+          this._ro = new ResizeObserver(function () { self._sizeSoon(); });
         }
         if (this._ro) this._ro.observe(this);
         this._tick();
+      }
+      // ITS SIZE LOOKED AT ON THE NEXT FRAME, drawn again if it is not what it was drawn at: after a resize, and after
+      // every draw -- one read mid-change (a box the screen never showed) has no resize to put it right (hk-menu.js)
+      _sizeSoon() {
+        var self = this;
+        if (this._roRaf || typeof requestAnimationFrame !== 'function') return;
+        this._roRaf = requestAnimationFrame(function () {
+          self._roRaf = 0;
+          var z = self._size();
+          if (!z || (self._built && self._sizeWas && z.W === self._sizeWas.W && z.H === self._sizeWas.H)) return;
+          self.redraw();
+        });
       }
       disconnectedCallback() {
         super.disconnectedCallback();
@@ -464,6 +468,7 @@
         this._mountWidgets(d);
         this._wire(d);
         this._skies();
+        this._sizeSoon();
       }
       // HELD UNTIL STILL: each draw while settling waits SETTLE_QUIET again -- a size that changes as the tab bar's or
       // the Side Pane's room arrives, the glyphs coming in -- and never longer than SETTLE_MAX from the first draw

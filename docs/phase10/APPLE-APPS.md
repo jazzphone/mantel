@@ -1,5 +1,7 @@
 # Phase 10 (plan): Mantel for iPhone, iPad and the Mac
 
+> Since 2026-11-08 the Apple apps' code (`apple/` here) is in its own repositories, without the `apple/` prefix: `jazzphone/mantel-ios` (the iPhone and iPad app, `MantelKit/`, `Common/`, `tools/testflight.py`) and `jazzphone/mantel-mac` (the Mac app; mantel-ios is its `ios/` submodule).
+
 Status (2026-10-19, evening): **slices 10.0-10.5 and 10.7-10.9 built on branch `claude/apple-apps-928197`**, not
 merged, nothing installed on the house; the apps run in the iOS 27 Simulator and, as a Debug build on Avery's iPhone
 (team `TEAMID0000`, prefix `com.jazzphone.mantel`), against a fictional test Mantel on the Mac. What was

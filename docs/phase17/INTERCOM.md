@@ -1,5 +1,7 @@
 # Phase 17: a one-way intercom to the HomePods (plan, 2026-11-03)
 
+> Since 2026-11-08 the Apple apps' code (`apple/` here) is in its own repositories, without the `apple/` prefix: `jazzphone/mantel-ios` (the iPhone and iPad app, `MantelKit/`, `Common/`, `tools/testflight.py`) and `jazzphone/mantel-mac` (the Mac app; mantel-ios is its `ios/` submodule).
+
 **Status: built 2026-11-03 (17.1-17.7); released to the house in Mantel 0.1.123 (2026-11-04, phase 15's bundle) with
 Live off (decision 17), and tested there on two HomePods: single rooms work, two at once can leave one silent (the
 house's AirPlay timing). The slice 0 proof: Live works but starts about 7.5 s behind the talker, over the 4 s target, so

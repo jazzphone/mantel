@@ -103,8 +103,9 @@
   // 2026-10-11: "the chips are not updated" -- they lagged a cloud right
   // behind them by up to 30 s). Never while the page is being touched or
   // scrolled (PRE_QUIET after the last of it): a paint is ~25-75 ms of the
-  // main thread at a tablet's speed, and one in a swipe would be felt.
-  var PRE_TRACK = 2000, PRE_QUIET = 700, PRE_STUCK = 10000, PIN_STEPS = 8, lastInput = 0, touching = 0;
+  // main thread at a tablet's speed, and one in a swipe would be felt. (0.7 s was a gap between quick flicks, and a
+  // paint that began in it held up the next touch: 1.5 s, the clouds' blur a moment later, 2026-11-08.)
+  var PRE_TRACK = 2000, PRE_QUIET = 1500, PRE_STUCK = 10000, PIN_STEPS = 8, lastInput = 0, touching = 0;
   function maxAge() {
     var HS = window.hkSettings, look = HS && HS.skyLook ? HS.skyLook() : null;
     if (!(look && look.animations)) return PRE_MAX;
@@ -156,7 +157,7 @@
     if (!(PRE && active)) return;
     wearNext();
     // no picture of this page yet: its layers blur live until there is one
-    if (!ownPicture()) eachLayer(function (L) { if (!L._hkOverlay) preUndress(L); });
+    if (!ownPicture()) eachLayer(function (L) { if (!L._hkOverlay && !aside(L) && !landedAt(viewOf(L))) preUndress(L); });
   }
   // the picture waiting for this page, on now
   function wearNext() {
@@ -507,8 +508,18 @@
   // lined up, so it blurs live (2026-10-10; it once went live only because
   // a sheet's opening transform put its picture out of line, and stayed
   // live for good).
+  // A PAGE OF THE SCREEN is not over anything (2026-11-08): the page a swipe
+  // keeps waiting beside this one is fixed to the screen by the swipe
+  // (hk-pageswipe.js place), and its layers, made then, were taken for a
+  // sheet's and blurred live for as long as the page was up -- every page
+  // reached by a swipe, on the wall tablets that chose Pre-rendered because
+  // live blur is what they can't afford (Weather reached by a swipe: a
+  // 1253 x 1218 live blur; loaded, its picture). Where a page is is the
+  // swipe's business: along(), below.
   function overContent(layer) {
+    var box = viewContainer();
     for (var n = flatParent(layer); n && n.nodeType === 1 && n !== document.documentElement; n = flatParent(n)) {
+      if (box && n.parentNode === box && VIEWS.indexOf(n.tagName) >= 0) return false;
       var pos = getComputedStyle(n).position;
       if (pos === 'fixed' || pos === 'sticky') return true;
     }
@@ -560,16 +571,21 @@
   // right by definition; the pinned glass keeps its fade.
   function ownPicture() { return fresh() && pre.path === skyAt(); }
   function preDress(L) {
-    if (!PRE || !ownPicture() || L._hkOverlay) { preUndress(L); return; }
+    var want = PRE && !L._hkOverlay ? pictureFor(L) : null;
+    if (!want) { preUndress(L); return; }
     // the live blur off FIRST: a backdrop-filter makes its own element the
     // box a fixed child sits in, so measured under it every picture would
     // read as out of line
     L.style.backdropFilter = 'none';
     L.style.webkitBackdropFilter = 'none';
     if (!L._hkPre) {
-      var img = preImg(pre.url);
+      var img = preImg(want), m = alongOf(L);
       L.appendChild(img);
-      if (!lined(img)) { img.remove(); preUndress(L); return; }
+      if (m) shiftPic(img, m);
+      // (a layer in something scaled inside the page -- a pager's track -- is
+      // out of line however the page is moved: it blurs live, and along()
+      // leaves it so until it is looked at again with the page at rest)
+      if (!lined(img)) { img.remove(); L._hkNoPic = true; preUndress(L); return; }
       L._hkPre = img;
     }
   }
@@ -577,9 +593,12 @@
   // wears the picture again (all in this task: never painted half-way)
   function preCheck(L) {
     if (L._hkOverlay) return;
-    if (L._hkPre) { if (!lined(L._hkPre)) preUndress(L); }
-    else preDress(L);
+    var m = alongOf(L);
+    if (!m) L._hkNoPic = false;
+    if (L._hkPre) { if (!lined(L._hkPre)) { L._hkNoPic = true; preUndress(L); } }
+    else if (!L._hkNoPic) preDress(L);
   }
+
   function preUndress(L) {
     var f = 'var(--hk-blur-filter,' + MAT + ')';
     if (L._hkPre) { L._hkPre.remove(); L._hkPre = null; }
@@ -587,6 +606,80 @@
     L.style.backdropFilter = f;
     L.style.webkitBackdropFilter = f;
   }
+  // ---- THE PAGE SWIPE: the picture stays where the screen is ----
+  // A page moved by a swipe is transformed, and a transformed page is the box
+  // its layers' fixed pictures sit in: they moved with it, out of line with
+  // the sky, so every layer on the page -- and on the page coming in --
+  // went back to live blur for the whole swipe (2026-11-08, the owner:
+  // swiping "still feels horrible on the tablets"). Measured on the house's
+  // Living Room HomeView with the compositor drawing in software, a stand-in
+  // for a wall tablet's GPU: 11.5 ms a frame at rest, 25 dragging, 33
+  // settling; Shared Layer's own 23 / 30 / 35. The swipe now says where each
+  // page in the slot is (hk-pageswipe.js along: its x, its box's corner, its
+  // transition), and each picture is moved back by as much, on the same
+  // transition: the cut-outs slide over a picture that holds still, as they
+  // do in a scroll. A page waiting beside this one wears ITS picture (the
+  // filter is in the picture: Home's Bright Glass, Blur beside it), the one
+  // painted when it was last shown (cache); a page never shown yet blurs
+  // live until it has been.
+  function alongOf(L) { var v = viewOf(L); return v && v.__hkAlong ? v.__hkAlong : null; }
+  // a layer of a page that isn't the one shown: it keeps its own picture
+  function aside(L) { var m = alongOf(L); return !!(m && m.path && m.path !== here()); }
+  function pictureFor(L, path) {
+    if (path === undefined) { var m = alongOf(L); path = m && m.path; if (!path) path = landedAt(viewOf(L)); }
+    if (!path) return ownPicture() ? pre.url : null;
+    if (pre.url && pre.path === path) return pre.url;
+    var c = cache.get(path), r = c && c.url ? pics.get(c.url) : null;
+    if (r && r.done) return c.url;
+    if (c && c.url) decoded(c.url);
+    return null;
+  }
+  // (its own fade kept beside it: __hkOpa, what wearAll gave it)
+  function shiftPic(img, m) {
+    var opa = img.__hkOpa !== undefined ? img.__hkOpa : 'opacity ' + PRE_FADE + 'ms linear';
+    var parts = [opa, m && m.tr && m.tr !== 'none' ? m.tr : ''].filter(Boolean);
+    img.style.transition = parts.length ? parts.join(', ') : 'none';
+    img.style.transform = m ? 'translate(' + (-(m.left + m.x)).toFixed(1) + 'px,' + (-m.top).toFixed(1) + 'px)' : '';
+  }
+  // `m`: { x, left, top, tr, path } -- the page `el` drawn x px from its
+  // box, whose corner is at left, top, moving on `tr`; null: back in its place
+  // A PAGE PUT BACK IN ITS PLACE (m null) keeps the picture of the page it is: a swipe lands it before the address and
+  // the sky say so, and "the page's picture" was still the page it left -- the landing page wore that page's blur for a
+  // frame or two, then its own again (the owner, 2026-11-08: "pop in from the previous screen's blur"; probed: Weather
+  // landing in Home's picture for 66 ms at 4x CPU). The address and the sky catch up, and wearNext carries it on.
+  // ...AND UNTIL THE SKY SAYS SO TOO: a layer looked at again in between (preCheck, the next layout pass) asked for "the
+  // picture the sky is at" -- the page it left -- and wore it: Calendar's pills in Weather's purple for two frames,
+  // 50-70 ms after landing at 4x CPU, longer on a wall tablet (the owner's video, 2026-11-08: "a lot of flickering").
+  // The page it landed on is its own until the sky reaches it (or, a sky that never says, LANDED_MS on).
+  var LANDED_MS = 2000;
+  function landedAt(v) {
+    var l = v && v.__hkLanded;
+    if (!l) return undefined;
+    if (skyAt() === l.path || Date.now() - l.at > LANDED_MS) { v.__hkLanded = null; return undefined; }
+    return l.path;
+  }
+  function along(el, m) {
+    if (!el) return;
+    var was = el.__hkAlong, keep = !m && was && was.path ? was.path : undefined;
+    el.__hkAlong = m || null;
+    el.__hkLanded = keep ? { path: keep, at: Date.now() } : null;
+    if (!PRE || !active) return;
+    eachLayer(function (L) {
+      if (L._hkOverlay || viewOf(L) !== el) return;
+      var want = L._hkNoPic ? null : pictureFor(L, keep);
+      if (!want) { if (L._hkPre) preUndress(L); return; }
+      if (L._hkPre && picOf(L._hkPre) !== want) { L._hkPre.remove(); L._hkPre = null; }
+      if (!L._hkPre) {
+        L.style.backdropFilter = 'none';
+        L.style.webkitBackdropFilter = 'none';
+        L._hkPre = preImg(want);
+        L.appendChild(L._hkPre);
+      }
+      // (the one it wore before, still fading out under it after a repaint, too)
+      Array.prototype.forEach.call(L.querySelectorAll('[data-hk-pre]'), function (img) { shiftPic(img, m); });
+    });
+  }
+
   function eachLayer(fn) { layers.forEach(function (rec) { rec.layers.forEach(function (L) { if (L.isConnected) fn(L); }); }); }
   // ---- PINNED: each its own slice of the picture ----
   // (in the surface's own CSS pixels: under a car dashboard's zoom `z` a
@@ -797,11 +890,16 @@
     var old = pre.url;
     pre.url = url; pre.path = path;
     eachLayer(function (L) {
-      if (L._hkOverlay) return;
+      if (L._hkOverlay || aside(L)) return;
+      // (a page just landed on keeps its own until the sky reaches it: landedAt)
+      var lp = landedAt(viewOf(L));
+      if (lp && lp !== path) return;
       if (!L._hkPre) { preDress(L); return; }
       if (picOf(L._hkPre) === url) return;
       var was = L._hkPre, img = preImg(url);
       if (!same) img.style.transition = 'none'; else { img.style.transition = 'opacity ' + ms + 'ms linear'; img.style.opacity = '0'; }
+      var am = alongOf(L);
+      if (am) { img.__hkOpa = same ? 'opacity ' + ms + 'ms linear' : ''; shiftPic(img, am); }
       L.appendChild(img);
       L._hkPre = img;
       // THE OLD PICTURE GOES ONCE THE NEW ONE IS IN -- counted from when its
@@ -897,7 +995,9 @@
     return window.hkSkyShot.render(sky, { scale: PRE_SCALE, moves: window.hkSky && window.hkSky.moves, filter: f, settle: PRE_AHEAD }).then(function (shot) {
       if (!shot) return null;
       return new Promise(function (res) {
-        try { shot.canvas.toBlob(function (blob) { res(blob ? { url: URL.createObjectURL(blob), check: shot.check } : null); }, 'image/png'); } catch (e) { res(null); }
+        // LOSSLESS WEBP where the browser can write it (Chrome: the same pixels as the PNG, 40% smaller, a third of the
+        // time -- 3.3 ms against 10 at 4x CPU, 2026-11-08); WebKit can't, and gives a PNG, as it always has
+        try { shot.canvas.toBlob(function (blob) { res(blob ? { url: URL.createObjectURL(blob), check: shot.check } : null); }, 'image/webp', 1); } catch (e) { res(null); }
       });
     });
   }
@@ -928,6 +1028,16 @@
     if (shows && shows !== path && now - (pre.navAt || 0) < VIEW_UP_MS) {
       clearTimeout(pre.timer);
       pre.timer = setTimeout(function () { pre.timer = null; preTick(force); }, pre.navAt + VIEW_UP_MS - now + 20);
+      return;
+    }
+    // NOR WHILE A SWIPE PAINTS THE NEXT PAGE'S SKY under a still copy of this one (hkSky.swipingTo, 2026-11-08, the
+    // owner: "pop in from the previous screen's blur behind the cards"): the sky said it changed as the drag began,
+    // and the page being left was painted in the next page's sky, wore it as it went (5/255 off its own; 0.2 off the
+    // next page's) and remembered it -- worn again, then repainted, on the way back. Landed, the sky says so again.
+    var going = window.hkSky && typeof window.hkSky.swipingTo === 'function' ? window.hkSky.swipingTo() : null;
+    if (going) {
+      clearTimeout(pre.timer);
+      pre.timer = setTimeout(function () { pre.timer = null; preTick(force); }, 400);
       return;
     }
     var big = !pre.url || pre.drawn !== path || s.big !== pre.big;
@@ -1487,6 +1597,9 @@
       if (PRE && active) pinAll(false);
     },
     unpin: function (el) { if (!el) return; pinned.delete(el); unpinEl(el); },
+    // THE PAGE SWIPE (hk-pageswipe.js): where page `el` is, as it moves
+    // (`m`: { x, left, top, tr, path }), or null once it is back in its place
+    along: along,
     repin: function () { if (PRE && active) pinAll(false); },
     // One update now, without waiting for a frame (debugging; a hidden tab
     // runs no animation frames).

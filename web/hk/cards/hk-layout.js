@@ -1825,14 +1825,14 @@
         // THE BLOCK'S INSET (hkCards.blockPad): 14 px on tiles, 18 on square cells (a 34 px corner's curve comes 10 px
         // in), and a Square screen's outer corner on top (cellInset's --hk-in-*)
         '--hk-block-pad:14px;--hk-pad-t:calc(var(--hk-block-pad) + var(--hk-in-t,0px));--hk-pad-r:calc(var(--hk-block-pad) + var(--hk-in-r,0px));' +
-        '--hk-pad-b:calc(var(--hk-block-pad) + var(--hk-in-b,0px));--hk-pad-l:calc(var(--hk-block-pad) + var(--hk-in-l,0px))}' +
+        '--hk-pad-b:calc(var(--hk-block-pad) + var(--hk-in-b,0px));--hk-pad-l:calc(var(--hk-block-pad) + var(--hk-in-l,0px));--hk-shape-pad:var(--hk-block-pad);--hk-text-in:calc(var(--hk-block-pad) - var(--hk-shape-pad));--hk-spad-t:calc(var(--hk-shape-pad) + var(--hk-in-t,0px));--hk-spad-r:calc(var(--hk-shape-pad) + var(--hk-in-r,0px));--hk-spad-b:calc(var(--hk-shape-pad) + var(--hk-in-b,0px));--hk-spad-l:calc(var(--hk-shape-pad) + var(--hk-in-l,0px))}' +
         // ...and its cells say they are square (2026-10-31, the owner: the glyphs small on a 1280 x 800 tablet): a block
         // asked "a square cell?" by its height (180 px or more), and beside the Side Pane a square cell is ~154 px. The
         // blocks ask `(min-height:180px) or style(--hk-cell-shape: square)`: where style() is unknown, as it was
-        ':host([cell=square]) .cell{--hk-block-pad:18px;--hk-cell-shape:square}' +
+        ':host([cell=square]) .cell{--hk-block-pad:18px;--hk-shape-pad:13px;--hk-cell-shape:square}' +   // (shapes on the inset at the grid's gap, 13 -- text keeps 18: 2026-11-08)
         // ...and on square cells what sits inside a block's plate on its inset is concentric with it (34 - 18); tiles keep
         // their pills' own corners (at 23.5 - 14 they would be near square)
-        ':host([cell=square]) .cell{--hk-inner-radius:max(12px, calc(var(--hk-block-radius, 34px) - var(--hk-block-pad)))}' +
+        ':host([cell=square]) .cell{--hk-inner-radius:max(12px, calc(var(--hk-block-radius, 34px) - var(--hk-shape-pad)))}' +
         '.cell>*,.band>*{display:block;box-sizing:border-box;width:100%;max-height:100%;margin:0!important}' +
         '.cell>*{height:100%}' +
         // HIDE BOX (2026-10-24): the block's boxes (card and panel plates, hkCards.plate) clear, no edge, no shadow and
@@ -1999,7 +1999,7 @@
           var vw = g.views > 1 ? Math.max(0, Math.min(g.views - 1, cell.view | 0)) : -1;
           if (vw >= 0) { slot.setAttribute('data-view', String(vw)); slot.style.setProperty('--v', String(vw)); } else slot.removeAttribute('data-view');
           slot.style.gridColumn = (c + 1) + ' / span ' + sz[0];
-          slot.style.gridRow = (r + 1 + top) + ' / span ' + sz[1];
+          slot.style.gridRow = (r + 1 + top) + ' / span ' + sz[1]; if (cell.size === 'XS') { slot.style.alignSelf = cell.at && cell.at[2] ? 'end' : 'start'; slot.style.height = 'calc((100% - ' + cellShape(g).gap + 'px) / 2)'; }   // (Tiny: its cell's top or bottom half, a gap between two)
           // (a Full block's card reads its span here: hkCards HkBase._block)
           if (full) { slot.style.setProperty('--hk-span-c', String(sz[0])); slot.style.setProperty('--hk-span-r', String(sz[1])); }
           // (square cells: the block's corners, read by its plate -- hkCards.plate)
@@ -2429,9 +2429,9 @@
       var root = this._root;
       root.innerHTML = '';
       var pager = document.createElement('div');
-      // (a Room block draws the rooms' dots in its own foot line, beside what is scrolled out of sight:
+      // (a Room or Accessories block draws its pages' dots in its own foot line -- two rows of dots otherwise, 2026-11-08 --
       // hk-grid-cards.js, 2026-10-31)
-      pager.className = 'pager' + (n < 2 ? ' one' : '') + (((this._config || {}).item || {}).card === 'room' ? ' own' : '');
+      pager.className = 'pager' + (n < 2 ? ' one' : '') + (/^(room|accessories)$/.test(((this._config || {}).item || {}).card || '') ? ' own' : '');
       var track = document.createElement('div');
       track.className = 'track';
       var dots = document.createElement('div');
@@ -2612,8 +2612,8 @@
     _moving() {
       var pager = this._track && this._pager, self = this;
       if (!pager) return;
-      pager.classList.add('moving');
-      this.setAttribute('data-moving', '');
+      pager.classList.add('moving'); this.setAttribute('data-moving', '');
+      if (window.hkDrag && window.hkDrag.motion) window.hkDrag.motion.begin('block');     // counted to its glide's end (hk-drag.js)
       clearTimeout(this._stillT);
       this._stillT = setTimeout(function () {
         if (self._drag && self._drag.moved) { self._moving(); return; }

@@ -75,10 +75,23 @@ def test_an_action_that_is_not_one_is_refused(opts):
     assert errors == {"home_grid": "grid_option"}
 
 
-@pytest.mark.parametrize("size", ["W", "L"])
-def test_an_action_is_small_only(size):
+@pytest.mark.parametrize("size", ["L", "XL"])
+def test_an_action_is_small_or_wide_only(size):
     _, errors = write({"id": "a1", "card": "action", "size": size, "at": [0, 0]})
     assert errors == {"home_grid": "grid_size"}
+
+
+def test_an_action_comes_wide_too():
+    # (2026-11-07, the review) Shortcuts' wide button
+    _, errors = write({"id": "a1", "card": "action", "size": "W", "at": [0, 0]})
+    assert errors == {}
+
+
+@pytest.mark.parametrize("key,size", [("everything", "T"), ("scene_suggested", "S"), ("thermostat", "W"), ("power", "T"),
+                                      ("timeline", "S"), ("timeline", "T"), ("now_playing", "XL")])
+def test_the_sizes_the_cards_review_added(key, size):
+    _, errors = write({"id": "a1", "card": key, "size": size, "at": [0, 0]})
+    assert errors == {}
 
 
 @pytest.mark.parametrize("size", ["W", "L", "XL"])

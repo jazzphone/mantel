@@ -59,6 +59,9 @@
   //
   // A card on this sets `_auto` (show the rooms Clean Areas offers, live) and
   // `_sel` (a Set) before it draws, and redraws in _render.
+  // THE ROOMS PICKED FOR A VACUUM (2026-11-08, the owner: Tall and Wide pick their rooms in a sheet and name them on the block): one Set a vacuum,
+  // shared by its block and the Rooms sheet that edits it; a pick tells the others by hk-vacuum-rooms
+  var PICKED = {}, picked = (id) => PICKED[id] || (PICKED[id] = new Set());
   function areaPicking(Base) {
     return class extends Base {
       // THROUGH hkSettings.subscribe, as every lasting subscription here is: the
@@ -81,9 +84,11 @@
       connectedCallback() {
         super.connectedCallback();
         this._subAreas();
+        window.addEventListener('hk-vacuum-rooms', this._onPick = () => { if (this._config && (this._config.pick || this._cellSize())) this._render(); });
       }
       disconnectedCallback() {
         super.disconnectedCallback();
+        window.removeEventListener('hk-vacuum-rooms', this._onPick);
         var close = this._areaSub;
         this._areaSub = null;
         if (typeof close === 'function') close();
@@ -145,9 +150,9 @@
 
       _toggle(id) {
         this._sel.has(id) ? this._sel.delete(id) : this._sel.add(id);
-        this._render();
+        this._render(); window.dispatchEvent(new Event('hk-vacuum-rooms'));
       }
-      _clear() { this._sel.clear(); this._render(); }
+      _clear() { this._sel.clear(); this._render(); window.dispatchEvent(new Event('hk-vacuum-rooms')); }
 
       // SAME RULE AS THE TIMER KEYPAD: the selection survives a failed dispatch.
       // Six rooms chosen, one tap, a rejected call: clearing then would wipe
@@ -214,7 +219,7 @@
             r.plan.forEach(function (step) {
               if (bad[step.vacuum]) keep = keep.concat(step.areas || []);
             });
-            self._sel = new Set(keep.filter(function (a) { return areas.indexOf(a) !== -1; }));
+            self._sel.clear(); keep.forEach(function (a) { if (areas.indexOf(a) !== -1) self._sel.add(a); });
           }
           // Home Assistant's own refusal (res.error), else the service's answer.
           self._setStatus('failed', r.message || res.error ||
@@ -251,49 +256,30 @@
         // and at a fixed 188 the four buttons would be pushed out of the card
         // and cut off. Every ordinary card is exactly 188; one
         // with more to say grows.
-        'hk-plate.vac{box-sizing:border-box;display:block;min-height:188px;',
-        '  border-radius:' + window.hkCards.M.radius + ';padding:16px 18px;overflow:hidden;cursor:pointer;',
-        '  ' + window.hkCards.M.glass + ';',
-        '  border:' + window.hkCards.M.border + ';',
-        '  box-shadow:var(--hk-look-shadow, ' + window.hkCards.v('glass-shadow-tall') + ');',
-        '  --ha-ripple-hover-opacity:0;--ha-ripple-pressed-opacity:0}',
-        '.vac .grid{display:grid;min-height:156px;',
-        '  grid-template-areas:"ico label label label" "meta meta meta meta" "start pause locate home";',
-        '  grid-template-columns:52px 1fr 1fr 1fr;',
-        '  grid-template-rows:52px min-content 1fr;',
+        'hk-plate.vac{box-sizing:border-box;display:block;min-height:188px;  border-radius:' + window.hkCards.M.radius + ';padding:16px 18px;overflow:hidden;cursor:pointer;  ' + window.hkCards.M.glass + ';',
+        '  border:' + window.hkCards.M.border + ';  box-shadow:var(--hk-look-shadow, ' + window.hkCards.v('glass-shadow-tall') + ');  --ha-ripple-hover-opacity:0;--ha-ripple-pressed-opacity:0}',
+        '.vac .grid{display:grid;min-height:156px;  grid-template-areas:"ico label label label" "meta meta meta meta" "start pause locate home";  grid-template-columns:52px 1fr 1fr 1fr;  grid-template-rows:52px min-content 1fr;',
         '  column-gap:14px;row-gap:10px;align-items:center}',
-        '.vac .ico{grid-area:ico;justify-self:start;width:52px;height:52px;',
-        '  border-radius:26px;display:flex;align-items:center;justify-content:center;',
-        '  background:' + window.hkCards.v('key-strong') + ';transition:background-color .25s ease}',
+        '.vac .ico{grid-area:ico;justify-self:start;width:52px;height:52px;  border-radius:26px;display:flex;align-items:center;justify-content:center;  background:' + window.hkCards.v('key-strong') + ';transition:background-color .25s ease}',
         // LIVE is green with dark ink -- the same "it is doing something right
         // now" signal the progress chip uses.
         '.vac .ico[data-live="1"]{background:rgba(48,209,88,0.95)}',
-        '.vac .ico hk-icon{--mdc-icon-size:28px;width:28px;height:28px;',
-        '  color:var(--hk-glyph,rgba(255,255,255,0.80))}',
+        '.vac .ico hk-icon{--mdc-icon-size:28px;width:28px;height:28px;  color:var(--hk-glyph,rgba(255,255,255,0.80))}',
         '.vac .ico[data-live="1"] hk-icon{color:rgba(0,0,0,0.82)}',
-        '.vac .label{grid-area:label;justify-self:start;align-self:center;',
-        '  min-width:0;overflow:hidden;font-size:18px;font-weight:600;',
-        '  letter-spacing:-0.45px;color:' + window.hkCards.v('ink') + ';line-height:1.25;',
+        '.vac .label{grid-area:label;justify-self:start;align-self:center;  min-width:0;overflow:hidden;font-size:18px;font-weight:600;  letter-spacing:-0.45px;color:' + window.hkCards.v('ink') + ';line-height:1.25;',
         '  text-align:left;white-space:nowrap;text-overflow:ellipsis;width:100%}',
-        '.vac .meta{grid-area:meta;justify-self:start;align-self:center;',
-        '  min-width:0;display:flex;flex-wrap:wrap;gap:7px}',
-        '.vac .chip{display:inline-flex;align-items:center;gap:5px;',
-        '  padding:4px 10px;border-radius:11px;font-size:12px;font-weight:600;',
-        '  letter-spacing:0.1px;line-height:1.25;white-space:nowrap;',
+        '.vac .meta{grid-area:meta;justify-self:start;align-self:center;  min-width:0;display:flex;flex-wrap:wrap;gap:7px}',
+        '.vac .chip{display:inline-flex;align-items:center;gap:5px;  padding:4px 10px;border-radius:11px;font-size:12px;font-weight:600;  letter-spacing:0.1px;line-height:1.25;white-space:nowrap;',
         '  background:' + window.hkCards.v('key') + ';color:' + window.hkCards.v('ink') + '}',
         '.vac .chip.warn{background:rgba(255,159,10,0.92);color:rgba(0,0,0,0.85)}',
         '.vac .chip.bad{background:rgba(255,69,58,0.92);color:rgba(0,0,0,0.85)}',
         '.vac .chip.err{background:rgba(255,69,58,0.95);color:rgba(255,255,255,0.97)}',
         '.vac .chip.good{background:rgba(48,209,88,0.92);color:rgba(0,0,0,0.85)}',
-        '.vac .cmd{justify-self:stretch;height:52px;border-radius:18px;padding:0;',
-        '  border:none;box-shadow:none;background:' + window.hkCards.v('key') + ';',
-        '  display:flex;align-items:center;justify-content:center;cursor:pointer;',
+        '.vac .cmd{justify-self:stretch;height:52px;border-radius:18px;padding:0;  border:none;box-shadow:none;background:' + window.hkCards.v('key') + ';  display:flex;align-items:center;justify-content:center;cursor:pointer;',
         '  transition:background-color .25s ease,transform .12s ease}',
         '.vac .cmd:active{transform:scale(0.97);filter:brightness(0.93)}',
-        '.vac .cmd hk-icon{width:23px;height:23px;--mdc-icon-size:23px;',
-        '  color:' + window.hkCards.v('glyph') + '}',
-        '@media (prefers-reduced-motion:reduce){',
-        '  .vac .cmd,.vac .cmd:active,.vac .ico{transition:none;transform:none}}',
+        '.vac .cmd hk-icon{width:23px;height:23px;--mdc-icon-size:23px;  color:' + window.hkCards.v('glyph') + '}',
+        '@media (prefers-reduced-motion:reduce){  .vac .cmd,.vac .cmd:active,.vac .ico{transition:none;transform:none}}',
         // ON A HOME GRID (the `vacuum` block; redrawn as a widget, 2026-10-31,
         // the owner: "big Clean / Dock keys", the mock-up's Vacuum): built
         // round what a vacuum is for -- what it is doing and its battery, one
@@ -329,28 +315,32 @@
         '  --vb-r:calc(var(--vb-key) / 2);border-radius:var(--vb-r);background:' + C.v('key-strong') + ';color:' + C.v('ink') + ';font-family:inherit;' + C.typeCss('headline') + ';white-space:nowrap;cursor:pointer}',
         '.vb .key>span{min-width:0;overflow:hidden;text-overflow:ellipsis}',
         '.vb .key.go{flex:1 1 auto;min-width:0;padding:0 10px;background:' + SELECTED_BG + ';color:' + SELECTED_TEXT + '}',
-        '.vb .key.wide{padding:0 18px}',
+        // (TALL'S KEYS, 2026-11-08, the owner: nothing stretches -- Clean is as wide as its word, Dock round beside it, the pair centered)
+        '.vb[data-s=T] .keys{justify-content:center;gap:6px}.vb[data-s=T] .key.go{flex:none;padding:0 16px}.vb[data-s=T] .key.go hk-icon{display:none}',
         '.vb .key hk-icon{flex:none;width:22px;height:22px;--mdc-icon-size:22px}',
         '.vb .key[aria-disabled=true]{opacity:.45;pointer-events:none}',
-        '.vb .key:active,.vb .vr:active{transform:scale(0.97)}',
-        '.vb .key:focus-visible,.vb .vr:focus-visible{outline:2px solid ' + C.v('ink-2') + ';outline-offset:2px}',
+        '.vb .key:active,.vb .vr:active{transform:scale(0.97)}.vb .key:focus-visible,.vb .vr:focus-visible{outline:2px solid ' + C.v('ink-2') + ';outline-offset:2px}',
         // WIDE: the vacuum and its battery large on the left, the two keys stacked on the right
         '.vb[data-s=W]{flex-direction:row;gap:16px}',
         '.vb[data-s=W] .col{display:flex;flex-direction:column;min-width:0;flex:1 1 auto}',
         // (its name at the top, the battery and what it is doing at the foot, level with the Dock key)
         '.vb[data-s=W] .col .big{margin-top:auto}',
-        '.vb[data-s=W] .side{flex:0 0 132px;display:flex;flex-direction:column;justify-content:center;gap:8px}',
+        '.vb[data-s=W] .side{flex:0 0 132px;display:flex;flex-direction:column;justify-content:flex-end;gap:8px}',
         '.vb[data-s=W] .side .key{flex:none;width:100%;--vb-key:48px}',
-        // THE ROOMS, two across, filling the room down to the keys (a tile grows to 76 px; a few rooms
-        // never leave a band of nothing over the keys); more than fit, as many whole rows as fill it and
-        // the last tile "3 more", which opens every room over the page (--vb-row and the count: _fitRooms)
-        '.vb .rooms{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:var(--vb-row,minmax(var(--vb-key),76px));gap:8px;align-content:start;',
-        '  flex:1 1 auto;min-height:0;margin-top:6px;overflow:hidden}',
-        '.vb .vr.more{color:' + C.v('ink-2') + '}',
-        '.vb .vr{all:unset;box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:6px;min-width:0;padding:0 10px;cursor:pointer;',
-        '  border-radius:var(--hk-inner-radius, 12px);background:' + C.v('key') + ';color:' + C.v('ink') + ';font-family:inherit;font-size:13px;font-weight:600}',
-        '.vb .vr>span{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-        '.vb .vr hk-icon{flex:none;width:16px;height:16px;--mdc-icon-size:16px}',
+        // THE ROOMS, two across, each a row of its own size (48 px; nothing stretches, 2026-11-08, the owner: "do the rooms scroll in the card if there
+        // are more than what the card allows? If not, it should"): as many as the block holds, the rest scrolling (a cut row says so); few
+        // rooms are centered in what is left (data-fit: _fitRooms)
+        '.vb .rooms{display:grid;grid-template-columns:repeat(2,var(--vb-cw));justify-content:center;grid-auto-rows:48px;gap:8px;align-content:start;flex:1 1 auto;min-height:0;margin-top:6px;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;touch-action:pan-x pan-y;scrollbar-width:none}',
+        '.vb .rooms::-webkit-scrollbar{display:none}.vb .rooms[data-fit]{align-content:center}',
+        // ...and no stretching across the width (2026-11-08): a room is --vb-cw wide (176 on Large, 170 on Extra Large -- two across and the gap
+        // nearly fill the column), the label, grid and keys one column of that width, centered in what the block's column leaves
+        '.vb[data-s=L]{--vb-cw:176px}.vb[data-s=XL]{--vb-cw:170px}.vb[data-r] :is(.lab,.rooms,.keys){width:calc(var(--vb-cw) * 2 + 8px);align-self:center;box-sizing:border-box}',
+        // TALL AND WIDE with rooms on offer: the Rooms key opens the sheet that picks them, and says what is picked ("Kitchen, Office", "3 rooms")
+        '.vb .rrow{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:8px;flex:none;height:44px;padding:0 8px 0 14px;margin-top:10px;border-radius:22px;background:' + C.v('key') + ';color:' + C.v('ink-2') + ';font-family:inherit;' + C.typeCss('caption') + ';cursor:pointer}',
+        '.vb .rrow>span{flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.vb .rrow.on{color:' + C.v('ink') + ';font-weight:600}.vb .rrow hk-icon{flex:none;width:20px;height:20px;--mdc-icon-size:20px}.vb .rrow:active{transform:scale(0.98)}.vb .rrow:focus-visible{outline:2px solid ' + C.v('ink-2') + ';outline-offset:2px}',
+        '.vb .pair{display:flex;gap:8px}.vb .pair .key.rm{flex:1 1 0;min-width:0;padding:0 8px;font-size:15px}.vb .pair .key.rm.on{font-weight:700}.vb .side .pair .key.dk{width:auto}.vb .pair .key.rm hk-icon{display:none}.vb .rm-note{display:block;' + C.typeCss('caption') + ';font-weight:600;color:' + C.v('ink') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+        '.vb .vr{all:unset;box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:6px;min-width:0;padding:0 10px;cursor:pointer;  border-radius:var(--hk-inner-radius, 12px);background:' + C.v('key') + ';color:' + C.v('ink') + ';font-family:inherit;font-size:13px;font-weight:600}',
+        '.vb .vr>span{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.vb .vr hk-icon{flex:none;width:16px;height:16px;--mdc-icon-size:16px}',
         '.vb .vr[aria-pressed=true]{background:' + SELECTED_BG + ';color:' + SELECTED_TEXT + '}',
         // EXTRA LARGE: the vacuum, its battery as a ring and its last run on the left; the rooms on the right
         '.vb[data-s=XL]{flex-direction:row;gap:22px}',
@@ -362,25 +352,19 @@
         '.vb[data-s=XL] .rcol .lab{margin-top:0}',
         '.vb[data-s=XL] .key.dk{padding:0 18px}',
         '.vb .ring{position:relative;flex:none;width:104px;height:104px;margin:10px auto;display:grid;place-items:center;text-align:center}',
+        // TALL (2026-11-07, the review): Small's parts stacked -- the glyph, the name, the battery as a ring in the middle
+        // (--vb-r, to what the block leaves), what it is doing, then Clean with Dock beside it
+        '.vb[data-s=T] .nm{margin-top:8px}.vb[data-s=T] .ring{width:var(--vb-r,96px);height:var(--vb-r,96px);margin:0 auto}',
         '.vb .ring svg{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg);overflow:visible}',
-        '.vb .ring circle{fill:none;stroke-width:8px;stroke:' + C.v('line-strong') + '}',
-        '.vb .ring .fill{stroke:' + C.ACCENTS.green + ';stroke-linecap:round}',
+        '.vb .ring circle{fill:none;stroke-width:8px;stroke:' + C.v('line-strong') + '}.vb .ring .fill{stroke:' + C.ACCENTS.green + ';stroke-linecap:round}',
         '.vb .ring .fill.warn{stroke:' + C.ACCENTS.orange + '}.vb .ring .fill.bad{stroke:' + C.ACCENTS.red + '}',
         '.vb .ring b{display:block;font-size:22px;font-weight:500;line-height:1.1;font-variant-numeric:tabular-nums}',
         '.vb .ring small{display:block;' + C.typeCss('caption') + ';color:' + C.v('ink-2') + '}',
         // (a Large or Extra Large block with no rooms to offer: the battery large in the middle)
         '.vb .mid{flex:1 1 auto;display:flex;flex-direction:column;justify-content:center;min-height:0}',
         // ON A SQUARE CELL (196 x 196): the mock-up's sizes
-        '@container hk-cell (min-height:180px) or style(--hk-cell-shape: square){',
-        '  hk-plate.vb{--vb-key:48px;--vb-gl:34px}',
-        '  .vb[data-s=S] .nm{margin-top:8px}',
-        '  .vb .big{font-size:36px}',
-        '  .vb .keys{padding-top:12px}',
-        '  .vb .lab{margin-top:12px}',
-        '  .vb[data-s=W] .side{flex-basis:140px;gap:10px}',
-        '  .vb[data-s=W] .side .key{--vb-key:56px;font-size:17px}',
-        '  .vb[data-s=W] .top .gl{--vb-gl:30px}',
-        '  .vb .ring{width:120px;height:120px;margin:14px auto}',
+        '@container hk-cell (min-height:180px) or style(--hk-cell-shape: square){  hk-plate.vb{--vb-key:48px;--vb-gl:34px}  .vb[data-s=S] .nm{margin-top:8px}  .vb .big{font-size:36px}  .vb .keys{padding-top:12px}',
+        '  .vb .lab{margin-top:12px}  .vb[data-s=W] .side{flex-basis:140px;gap:10px}  .vb[data-s=W] .side .key{--vb-key:56px;font-size:17px}  .vb[data-s=W] .top .gl{--vb-gl:30px}  .vb .ring{width:120px;height:120px;margin:14px auto}',
         '  .vb .ring b{font-size:30px}',
         '}'
       ].join('');
@@ -391,8 +375,10 @@
       super.setConfig(config);
     }
     // (the rooms ticked on a Large or Extra Large block: this element's alone, areaPicking)
-    _onConfig() { this._sel = new Set(); }
+    _onConfig() { this._sel = picked(this._config.entity); }
     getCardSize() { return 3; }
+    // (a block's tap, hk-base.js openTarget; When Tapped chooses) the Vacuums page, else this vacuum's sheet
+    _tapTarget() { var id = (this._config || {}).entity; return [{ page: 'vacuums' }, id && { sheet: id }]; }
 
     // The card reads four sensors its `entity` does not name -- and the
     // vacuum's own attributes (battery_level), so last_updated, not state:
@@ -541,8 +527,10 @@
         var m = Math.round((Date.now() - Date.parse(st.last_changed)) / 60000);
         since = !(m >= 1) ? '' : m < 60 ? m + ' min' : m < 48 * 60 ? Math.round(m / 60) + ' h' : Math.round(m / 1440) + ' days';
       }
+      // (the state line's "Ran 31 min ago", Wide and Large and Tall; Extra Large says "Last run" in its own words)
+      var ran = since ? ' \u00B7 Ran ' + esc(since) + ' ago' : '';
       // THE ROOMS (Large up, with Clean Areas or the house's script)
-      var roomsOn = (sz === 'L' || sz === 'XL') && this._picker();
+      var big = sz === 'L' || sz === 'XL', roomsOn = sz !== 'S' && this._picker();
       this._auto = roomsOn;
       if (roomsOn) this._subAreas();
       var floors = roomsOn ? this._floors() : null;
@@ -551,7 +539,7 @@
       // THE KEYS: Clean (Pause while it runs, Resume when paused; with rooms
       // ticked, "Clean 2 rooms") and Dock
       var go = state === 'cleaning' ? ['pause', 'mdi:pause', 'Pause'] : state === 'paused' ? ['start', 'mdi:play', 'Resume']
-        : n ? ['rooms', 'mdi:play', 'Clean ' + n + (n === 1 ? ' room' : ' rooms')] : ['start', 'mdi:play', 'Clean'];
+        : n ? ['rooms', 'mdi:play', big ? 'Clean ' + n + (n === 1 ? ' room' : ' rooms') : 'Clean'] : ['start', 'mdi:play', 'Clean'];
       if (this._busy) go = ['', 'mdi:play', 'Sending…'];
       var key = function (k, cls, words) {
         return '<button type="button" class="key ' + cls + '" data-svc="' + k[0] + '" aria-label="' + esc(k[2] + ' ' + nm) + '"' +
@@ -561,41 +549,51 @@
       var glyph = '<hk-icon class="gl' + (faulty ? ' bad' : '') + '" icon="mdi:robot-vacuum"></hk-icon>';
       var status = this._hkStatus, stNode = '<div class="hk-status" role="status" aria-live="polite"' +
         (status ? ' data-kind="' + esc(status.kind) + '">' + esc(status.text) : '>') + '</div>';
-      var rooms = '', cap = this._vbCap || Infinity;
-      if (roomsOn) {
-        var list = floors ? floors.reduce(function (o, f) { return o.concat(f.areas || []); }, []) : null;
+      var rooms = '', list = floors ? floors.reduce(function (o, f) { return o.concat(f.areas || []); }, []) : null, chosen = list ? list.filter(function (r) { return self._sel.has(r.id); }).map(function (r) { return r.name; }) : [];
+      if (roomsOn && big) {
         rooms = '<b class="lab">Rooms</b>' + (list === null ? '<div class="note">Reading the rooms…</div>'
           : !list.length ? '<div class="note">No room can be cleaned by area yet.</div>'
-          : '<div class="rooms" role="group" aria-label="Rooms to clean"' + (this._vbRow ? ' style="--vb-row:' + this._vbRow + 'px"' : '') + '>' +
-            list.slice(0, list.length > cap ? cap - 1 : cap).map(function (r) {
+          : '<div class="rooms" role="group" aria-label="Rooms to clean">' + list.map(function (r) {
               var on = self._sel.has(r.id);
               return '<button type="button" class="vr" data-area="' + esc(r.id) + '" aria-pressed="' + on + '">' +
                 (on ? '<hk-icon icon="mdi:check"></hk-icon>' : '') + '<span>' + esc(r.name) + '</span></button>';
-            }).join('') + (list.length > cap ? '<button type="button" class="vr more" data-more aria-label="Every room to clean"><span>' +
-              (list.length - cap + 1) + ' more</span></button>' : '') + '</div>');
+            }).join('') + '</div>');
       }
+      // (Tall and Wide: the rooms picked in a sheet, named where they are picked -- one or two by name, more by count -- only while it can start a clean)
+      var pickable = (sz === 'T' || sz === 'W') && roomsOn && list && list.length && !/^(cleaning|returning|paused)$/.test(state), said = chosen.length > 2 ? chosen.length + ' rooms' : chosen.join(', ');
+      var rkey = pickable ? (sz === 'T' ? '<button type="button" class="rrow' + (said ? ' on' : '') + '" data-rooms aria-label="' + (said ? 'Rooms to clean: ' + esc(chosen.join(', ')) + '. Change' : 'Rooms to clean: the whole house. Choose') +
+          '"><span>' + (said ? esc(said) : 'All rooms') + '</span><hk-icon icon="mdi:chevron-right"></hk-icon></button>'
+        : '<button type="button" class="key rm' + (said ? ' on' : '') + '" data-rooms aria-label="Choose rooms to clean' + (said ? ': ' + esc(chosen.join(', ')) : '') + '"><hk-icon icon="mdi:floor-plan"></hk-icon><span>' + (chosen.length ? chosen.length + (chosen.length === 1 ? ' room' : ' rooms') : 'Rooms') + '</span></button>') : '';
+      // THE BATTERY AS A RING (Tall and Extra Large): the level, the state under it
+      var pct = bat ? Math.max(0, Math.min(100, bat.n)) : 0;
+      var ring = '<div class="ring" role="img" aria-label="' + esc((bat ? bat.t : 'Battery unknown') + ', ' + C.sentenceCase(state.replace(/_/g, ' '))) + '">' +
+        '<svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="54"></circle>' +
+        (bat ? '<circle class="fill ' + bat.c + '" cx="60" cy="60" r="54" pathLength="100" stroke-dasharray="' + pct.toFixed(1) + ' 100"></circle>' : '') +
+        '</svg><span><b>' + esc(bat ? bat.t : '\u2013') + '</b><small>' + words(rest.slice(0, 1)) + '</small></span></div>';
       var html;
       if (sz === 'S') {
         html = '<div class="top">' + glyph + (bat ? '<span class="pct ' + bat.c + '">' + esc(bat.t) + '</span>' : '') + '</div>' +
           '<b class="nm">' + esc(nm) + '</b><span class="sub">' + words(rest) + '</span>' +
-          '<div class="keys">' + key(go, 'go', true) + key(dock, 'dk', false) + '</div>';
+          '<div class="keys">' + key(go, 'go', true) + '</div>';
       } else if (sz === 'W') {
         html = '<div class="col"><div class="top">' + glyph + '<b class="nm">' + esc(nm) + '</b></div>' +
           (bat ? '<div class="big ' + bat.c + '">' + esc(bat.t) + '</div>' : '') +
-          '<span class="sub two">' + words(rest) + (since ? ' \u00B7 ' + esc(since) + ' since its last run' : '') + '</span></div>' +
-          '<div class="side">' + key(go, 'go', true) + key(dock, 'dk', true) + '</div>';
+          '<span class="sub">' + words(rest) + (said ? '</span><span class="rm-note">' + esc(chosen.join(', ')) : ran) + '</span></div>' +
+          '<div class="side">' + key(go, 'go', true) + (pickable ? '<div class="pair">' + rkey + key(dock, 'dk', false) + '</div>' : key(dock, 'dk', true)) + '</div>';
+      } else if (sz === 'T') {
+        var bk = this._block(), more = rest.slice(1);
+        html = '<div class="top">' + glyph + '</div><b class="nm">' + esc(nm) + '</b>' +
+          '<div class="mid" style="--vb-r:' + (bk ? Math.max(72, Math.min(120, bk.h - (pickable ? 278 : 226))) : 96) + 'px">' + ring + '</div>' +
+          '<div class="rt">' + stNode + '<span class="sub two">' + (more.length ? words(more) + ran : ran.slice(3)) + '</span></div>' + rkey +
+          '<div class="keys">' + key(go, 'go', true) + key(dock, 'dk', false) + '</div>';
       } else if (sz === 'XL') {
-        var pct = bat ? Math.max(0, Math.min(100, bat.n)) : 0;
         var run = [since ? 'Last run ' + since + ' ago' : ''];
         // (how much it cleaned and how long, where the vacuum says: older Xiaomi and Roborock integrations do)
         if (isFinite(Number(a.cleaned_area)) && isFinite(Number(a.cleaning_time)) && a.cleaned_area != null && a.cleaning_time != null) {
           run.push(Math.round(Number(a.cleaned_area)) + ' m\u00B2 in ' + Math.round(Number(a.cleaning_time)) + ' min');
         }
         var left = '<div class="top">' + glyph + '<b class="nm">' + esc(nm) + '</b></div>' +
-          '<div class="ring" role="img" aria-label="' + esc((bat ? bat.t : 'Battery unknown') + ', ' + C.sentenceCase(state.replace(/_/g, ' '))) + '">' +
-          '<svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="54"></circle>' +
-          (bat ? '<circle class="fill ' + bat.c + '" cx="60" cy="60" r="54" pathLength="100" stroke-dasharray="' + pct.toFixed(1) + ' 100"></circle>' : '') +
-          '</svg><span><b>' + esc(bat ? bat.t : '\u2013') + '</b><small>' + words(rest.slice(0, 1)) + '</small></span></div>' +
+          ring +
           '<div class="rt">' + stNode + '<span class="sub two">' + (rest.length > 1 ? words(rest.slice(1)) + '<br>' : '') +
           esc(run.filter(Boolean).join('\n')).replace(/\n/g, '<br>') + '</span></div>';
         html = '<div class="lcol">' + left + (roomsOn ? '' : '<div class="keys">' + key(go, 'go', true) + key(dock, 'dk', true) + '</div>') + '</div>' +
@@ -605,21 +603,22 @@
         html = '<div class="top">' + glyph + '<span class="rt"><b class="nm">' + esc(nm) + '</b>' + stNode +
           '<span class="sub">' + words(chips) + '</span></span></div>' +
           (roomsOn ? rooms : '<div class="mid">' + (bat ? '<div class="big ' + bat.c + '">' + esc(bat.t) + '</div>' : '') +
-            '<span class="sub two">' + words(rest) + (since ? ' \u00B7 ' + esc(since) + ' since its last run' : '') + '</span></div>') +
+            '<span class="sub two">' + words(rest) + ran + '</span></div>') +
           '<div class="keys">' + key(go, 'go', true) + key(dock, 'dk', false) + '</div>';
       }
-      C.morph(this._root, '<hk-plate class="vb" data-s="' + sz + '" data-hk-role="card">' + html + '</hk-plate>');
+      C.morph(this._root, '<hk-plate class="vb" data-s="' + sz + '"' + (roomsOn && big ? ' data-r' : '') + ' data-hk-role="card">' + html + '</hk-plate>');
       this._fitRooms();
       if (!this._blockTaps) {
         // ONE LISTENER for the block: a room ticks, a key acts, anywhere else opens the vacuum's sheet
         this._blockTaps = true;
         this._root.addEventListener('click', function (e) {
           if (!self._cellSize()) return;            // (the page card's own taps)
-          var t = e.target.closest && e.target.closest('[data-svc],[data-area],[data-more]');
+          var t = e.target.closest && e.target.closest('[data-svc],[data-area],[data-rooms]');
           e.stopPropagation();
-          if (!t) { self._act((self._config || {}).tap_action, true); return; }
+          // (the plate and the battery ring: the block's tap, _tapTarget -- the ring counts as a control to openTarget, so it is asked here)
+          if (!t) { if (!e._hkBlockTap) window.hkCards.openTarget(self, self._tapTarget()); return; }
           if (t.hasAttribute('data-area')) { self._toggle(t.getAttribute('data-area')); return; }
-          if (t.hasAttribute('data-more')) { self._allRooms(); return; }
+          if (t.hasAttribute('data-rooms')) { self._pickRooms(); return; }
           var svc = t.getAttribute('data-svc');
           if (svc === 'rooms') self._start();
           else if (svc && self.client) self._call('vacuum', svc, { entity_id: self._config.entity });
@@ -627,31 +626,18 @@
       }
     }
   }
-  // THE ROOMS' ROWS, to the room the block leaves them: every room's row up
-  // to 76 px when they all fit, else as many whole rows (each a finger's 44
-  // at least) as fill it exactly, the rest scrolling under the fade. Measured
-  // after the draw (the keys and the heading take what they take); the next
-  // draw writes the same height into its markup, so a morph keeps it.
+  // THE ROOMS' ROWS keep their size (48 px) and scroll when the block holds fewer than there are; a few are centered in what is left.
+  // Measured after the draw, the keys and the heading taking what they take
   HkVacuumCard.prototype._fitRooms = function () {
     var rm = this._root.querySelector('.rooms');
-    if (!rm || !(rm.clientHeight > 0)) return;
-    var all = (this._floors() || []).reduce(function (n, f) { return n + (f.areas || []).length; }, 0);
-    var h = rm.clientHeight, gap = 8, key = parseFloat(getComputedStyle(rm).getPropertyValue('--vb-key')) || 44;
-    var need = Math.ceil(all / 2), fit = Math.max(1, Math.floor((h + gap) / (key + gap)));
-    var rows = Math.min(need, fit), row = Math.floor((h - (rows - 1) * gap) / rows);
-    if (need <= fit) row = Math.min(76, row);
-    var cap = need <= fit ? Infinity : fit * 2, was = this._vbCap || Infinity;
-    if (row !== this._vbRow) { this._vbRow = row; rm.style.setProperty('--vb-row', row + 'px'); }
-    // (a different count drawn again, once: the room the rooms have does not change with how many there are)
-    if (cap !== was) { this._vbCap = cap; this._render(); }
+    if (rm && rm.clientHeight > 0) rm.toggleAttribute('data-fit', rm.scrollHeight <= rm.clientHeight + 1);
   };
-  // EVERY ROOM, over the page: the Vacuums page's own picker (Clean Areas'
-  // panel) in a sheet, larger than the block, for a house with more rooms
-  // than the block holds
-  HkVacuumCard.prototype._allRooms = function () {
+  // THE ROOMS SHEET (Tall and Wide, 2026-11-08): the Vacuums page's own picker (hk-area-select-card, `pick`: this vacuum's rooms, shared with
+  // the block) over the page, a Done key in place of Start Cleaning -- the clean is the block's Clean key
+  HkVacuumCard.prototype._pickRooms = function () {
     var D = window.hkDetail;
-    if (D && D.open) D.open(null, { name: 'Rooms to Clean', icon: 'mdi:robot-vacuum' },
-      { cards: { cards: [{ type: 'custom:hk-area-select-card', layout: 'panel' }] } });
+    if (D && D.open) D.open(null, { name: 'Rooms to Clean', icon: 'mdi:floor-plan' },
+      { cards: { cards: [{ type: 'custom:hk-area-select-card', layout: 'panel', pick: this._config.entity }] } });
   };
   // grid-area, glyph, vacuum service, aria-label.
   HkVacuumCard.COMMANDS = [
@@ -680,8 +666,7 @@
         // --hk-track is what css/hk-responsive.css redefines below 640px to
         // reflow a grid to two columns, and a literal width cannot hear it.
         // On a phone this would be the one pill grid that does not reflow.
-        '.grid{display:grid;grid-template-columns:repeat(auto-fill,var(--hk-track,' + window.hkCards.TILE.w + 'px));',
-        '  grid-auto-rows:40px;gap:' + window.hkCards.TILE.gridGap + 'px;margin:0 0 14px 0}',
+        '.grid{display:grid;grid-template-columns:repeat(auto-fill,var(--hk-track,' + window.hkCards.TILE.w + 'px));  grid-auto-rows:40px;gap:' + window.hkCards.TILE.gridGap + 'px;margin:0 0 14px 0}',
         // 40px PILLS, not 70px tiles: the action row matches the area pills
         // above it. Icon-well tiles here would stack two materials on one
         // grid. Play Music's equivalent row -- Clear, Transfer, Browse Music
@@ -690,15 +675,12 @@
         //
         // The rule below separates them, which is what carries the
         // "these act on the house" meaning that the shape does not.
-        '.actions{display:grid;grid-template-columns:repeat(auto-fill,var(--hk-track,' + window.hkCards.TILE.w + 'px));',
-        '  grid-auto-rows:40px;gap:' + window.hkCards.TILE.gridGap + 'px;margin:0 0 14px 0}',
-        '.floor{font-size:15px;font-weight:600;letter-spacing:-0.2px;',
-        '  color:' + window.hkCards.v('ink-2') + ';padding:6px 4px 8px 4px}',
+        '.actions{display:grid;grid-template-columns:repeat(auto-fill,var(--hk-track,' + window.hkCards.TILE.w + 'px));  grid-auto-rows:40px;gap:' + window.hkCards.TILE.gridGap + 'px;margin:0 0 14px 0}',
+        '.floor{font-size:15px;font-weight:600;letter-spacing:-0.2px;  color:' + window.hkCards.v('ink-2') + ';padding:6px 4px 8px 4px}',
         // THE RULE separates two DIFFERENT kinds of thing: the pills above
         // only change a selection, the pills below act on the house. Without
         // it the action row reads as more pills that happen to look odd.
-        '.rule{height:1px;margin:6px 4px 16px 4px;padding:0;border:none;',
-        '  border-radius:0;box-shadow:none;background:' + window.hkCards.v('line') + '}',
+        '.rule{height:1px;margin:6px 4px 16px 4px;padding:0;border:none;  border-radius:0;box-shadow:none;background:' + window.hkCards.v('line') + '}',
         '.empty{font-size:15px;line-height:1.35;color:' + window.hkCards.v('ink-2') + ';padding:4px 4px 16px 4px}',
         // ------------------------------------------------------ THE PANEL
         // `layout: panel` (the Vacuums page, 2026-10-16): the floors on a page
@@ -718,14 +700,13 @@
         '.plate .hk-status:empty{display:none}',
         // narrow (an upright iPad's rail, a phone): the count on a line of
         // its own over the two buttons, and the rooms two across, sharing the width
-        '@container (max-width:' + window.hkCards.BP.cardSide + 'px){.bar{grid-template-columns:repeat(2,minmax(0,1fr))}.bar .n{grid-column:1 / -1}',
-        '  .plate .grid{grid-template-columns:repeat(2,minmax(0,1fr))}}',
+        '@container (max-width:' + window.hkCards.BP.cardSide + 'px){.bar{grid-template-columns:repeat(2,minmax(0,1fr))}.bar .n{grid-column:1 / -1}  .plate .grid{grid-template-columns:repeat(2,minmax(0,1fr))}}',
         // a phone: stacked under the vacuum cards, which sit one grid deeper,
         // the plate steps in 4 px a side to share their edges
         '@media (max-width:' + window.hkCards.BP.phone + 'px){.plate{padding:16px;margin:0 4px}}',
         // in a Home Grid block (data-fill): the plate is the block's lower part, and its rooms scroll inside it
         ':host([data-fill]){display:block;height:100%}',
-        ':host([data-fill]) .plate{height:100%;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none}',
+        ':host([data-fill]) .plate{height:100%;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y pinch-zoom;scrollbar-width:none}',
         ':host([data-fill]) .plate::-webkit-scrollbar{display:none}',
         '.pill:focus-visible{outline:2px solid ' + window.hkCards.v('ink-2') + ';outline-offset:2px}'
       ].join('');
@@ -736,7 +717,7 @@
     // (hk_clean_areas/subscribe), grouped by Home Assistant's floors and named
     // by its areas. `floors:` written out still wins.
     _onConfig() {
-      this._sel = new Set();
+      this._sel = this._config.pick ? picked(this._config.pick) : new Set();
       this._auto = !Array.isArray(this._config.floors) || !this._config.floors.length;
     }
     // Reads NO entity: everything it draws is the card-local selection, and
@@ -830,18 +811,19 @@
       var plate = document.createElement('div'); plate.className = 'plate';
       var bar = document.createElement('div'); bar.className = 'bar';
       var cnt = document.createElement('div'); cnt.className = 'n';
-      cnt.textContent = n === 0 ? 'Choose rooms, then start' : n === 1 ? '1 room selected' : n + ' rooms selected';
+      var pk = !!this._config.pick;          // (the vacuum block's Rooms sheet: what is picked is the block's to clean, Done shuts the sheet)
+      cnt.textContent = n === 0 ? (pk ? 'None chosen: the whole house' : 'Choose rooms, then start') : n === 1 ? '1 room selected' : n + ' rooms selected';
       cnt.setAttribute('aria-live', 'polite');
       bar.appendChild(cnt);
       var clr = this._pill('Clear', function () { self._clear(); });
       if (!n) { clr.setAttribute('aria-disabled', 'true'); clr.style.opacity = '0.45'; clr.style.pointerEvents = 'none'; clr.setAttribute('tabindex', '-1'); }
       bar.appendChild(clr);
-      var go = this._pill(this._busy ? 'Sending…' : 'Start Cleaning', function () { self._start(); });
+      var go = this._pill(pk ? 'Done' : this._busy ? 'Sending…' : 'Start Cleaning', function () { if (pk) window.hkDetail.close(); else self._start(); });
       go.classList.add('go');
       // THE ONE THAT ACTS, in the selected material once there is something to send
-      go.setAttribute('aria-pressed', n && !this._busy ? 'true' : 'false');
-      if (!n || this._busy) { go.setAttribute('aria-disabled', 'true'); go.setAttribute('tabindex', '-1'); }
-      go.setAttribute('aria-label', n ? 'Start cleaning ' + n + (n === 1 ? ' room' : ' rooms') : 'Start Cleaning: choose rooms first');
+      go.setAttribute('aria-pressed', pk || n && !this._busy ? 'true' : 'false');
+      if (!pk && (!n || this._busy)) { go.setAttribute('aria-disabled', 'true'); go.setAttribute('tabindex', '-1'); }
+      go.setAttribute('aria-label', pk ? 'Done' : n ? 'Start cleaning ' + n + (n === 1 ? ' room' : ' rooms') : 'Start Cleaning: choose rooms first');
       bar.appendChild(go);
       plate.appendChild(bar);
       plate.appendChild(this._statusNode());
@@ -941,41 +923,29 @@
         // tablet page's 1229 and only two fit (measured). The number is about
         // the page width, not about nesting.
         // 10 apart, as every card on the page (hk-base TILE.gridGap)
-        '.grid{display:grid;grid-template-columns:repeat(auto-fill,388px);',
-        '  grid-auto-rows:196px;column-gap:' + window.hkCards.TILE.gridGap + 'px;row-gap:' + window.hkCards.TILE.gridGap + 'px;margin:0 0 14px 0}',
+        '.grid{display:grid;grid-template-columns:repeat(auto-fill,388px);  grid-auto-rows:196px;column-gap:' + window.hkCards.TILE.gridGap + 'px;row-gap:' + window.hkCards.TILE.gridGap + 'px;margin:0 0 14px 0}',
         // 196 exactly: 52 (head) + 48 (countdown and its bar, which
         // hkTimers.html emits as ONE wrapper and so occupies one row) + 52
         // (buttons) + two 12px gaps + 32 of padding.
-        '.tc{height:196px;padding:16px 18px;border-radius:' + M.radius + ';',
-        '  ' + M.glass + ';border:' + M.border + ';',
-        '  box-shadow:var(--hk-look-shadow, ' + window.hkCards.v('glass-shadow-lg') + ');',
-        '  display:grid;column-gap:12px;row-gap:12px;align-items:center;',
-        '  grid-template-columns:repeat(4,minmax(0,1fr));',
-        '  grid-template-rows:52px minmax(0,1fr) 52px;',
-        '  grid-template-areas:"head head head head" "count count count count"',
-        '                     "pause restart plus finish"}',
+        '.tc{height:196px;padding:16px 18px;border-radius:' + M.radius + ';  ' + M.glass + ';border:' + M.border + ';  box-shadow:var(--hk-look-shadow, ' + window.hkCards.v('glass-shadow-lg') + ');',
+        '  display:grid;column-gap:12px;row-gap:12px;align-items:center;  grid-template-columns:repeat(4,minmax(0,1fr));  grid-template-rows:52px minmax(0,1fr) 52px;',
+        '  grid-template-areas:"head head head head" "count count count count"                     "pause restart plus finish"}',
         '.tc > .head{grid-area:head;justify-self:stretch;min-width:0;overflow:hidden}',
         '.tc > .count{grid-area:count;justify-self:stretch;align-self:center;min-width:0}',
         // The four controls, with an
         // explicit 21px icon row -- an <hk-icon> has no intrinsic height, so a
         // min-content row collapses it to nothing and the buttons render as
         // bare captions. The caption row CAN be min-content; text sizes itself.
-        '.tb{height:52px;border-radius:18px;background:' + window.hkCards.v('key') + ';',
-        '  border:none;box-shadow:none;padding:0;justify-self:stretch;',
-        '  display:grid;grid-template-columns:minmax(0,1fr);',
-        '  grid-template-rows:21px min-content;align-content:center;',
-        '  justify-items:center;row-gap:3px;cursor:pointer;user-select:none}',
-        '.tb hk-icon{--mdc-icon-size:19px;width:19px;height:19px;',
-        '  color:' + window.hkCards.v('glyph') + '}',
-        '.tb > span{font-size:11px;font-weight:600;letter-spacing:0.1px;',
-        '  line-height:1;color:' + window.hkCards.v('ink-2') + '}',
+        '.tb{height:52px;border-radius:18px;background:' + window.hkCards.v('key') + ';  border:none;box-shadow:none;padding:0;justify-self:stretch;  display:grid;grid-template-columns:minmax(0,1fr);',
+        '  grid-template-rows:21px min-content;align-content:center;  justify-items:center;row-gap:3px;cursor:pointer;user-select:none}',
+        '.tb hk-icon{--mdc-icon-size:19px;width:19px;height:19px;  color:' + window.hkCards.v('glyph') + '}',
+        '.tb > span{font-size:11px;font-weight:600;letter-spacing:0.1px;  line-height:1;color:' + window.hkCards.v('ink-2') + '}',
         // The empty state is a LINE OF TEXT, not a card. A full-width glass
         // plate with one grey sentence in it looks out of place: a plate is
         // this frontend's shape for a THING YOU CAN TOUCH, and there is nothing
         // here to touch. Sitting the sentence directly under the heading says
         // "this section is empty" without pretending to be a control.
-        '.empty{padding:2px 4px 14px 4px;font-size:15px;font-weight:500;',
-        '  letter-spacing:-0.2px;color:' + window.hkCards.v('ink-3') + '}',
+        '.empty{padding:2px 4px 14px 4px;font-size:15px;font-weight:500;  letter-spacing:-0.2px;color:' + window.hkCards.v('ink-3') + '}',
         // PHONE. The 388px track above is a TABLET number -- it is the page
         // width divided by three, and `auto-fill` with a fixed track cannot
         // shrink below it, so at 402px it would lay one 388px card into ~354px
@@ -983,8 +953,7 @@
         // instead; the card's own four control tracks are already
         // `minmax(0,1fr)` and divide whatever they are given (~70px each at
         // 402px, against 52px tall buttons, which is fine).
-        '@media (max-width:' + window.hkCards.BP.phone + 'px){',
-        '  .grid{grid-template-columns:minmax(0,1fr)}',
+        '@media (max-width:' + window.hkCards.BP.phone + 'px){  .grid{grid-template-columns:minmax(0,1fr)}',
         '}',
         // ------------------------------------------------ FIT (the Timers page)
         // `fit: true` -- the card fills the running column of the one-page
@@ -1008,17 +977,14 @@
         // round so the cards' shadows are not cut at its edges (the row's
         // negative margin puts the cards back where a grid would have them),
         // and 32 px apart so the next page never shows in that padding.
-        '.pages{display:grid;grid-auto-flow:column;grid-auto-columns:100%;column-gap:32px;',
-        '  overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scroll-padding:0 16px;',
-        '  padding:16px;margin:-16px;overscroll-behavior-x:contain;scrollbar-width:none;',
-        '  -webkit-overflow-scrolling:touch}',
+        '.pages{display:grid;grid-auto-flow:column;grid-auto-columns:100%;column-gap:32px;  overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scroll-padding:0 16px;',
+        '  padding:16px;margin:-16px;overscroll-behavior-x:contain;scrollbar-width:none;  -webkit-overflow-scrolling:touch}',
         '.pages::-webkit-scrollbar{display:none;width:0;height:0}',
         // its own formatting context, so the row's negative margin is taken
         // back inside it -- as a plain child it escapes, and the card comes
         // out 16 px taller than its two rows
         '.pw{display:flow-root}',
-        '.page{scroll-snap-align:start;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));',
-        '  grid-template-rows:repeat(2,164px);gap:12px;align-content:start}',
+        '.page{scroll-snap-align:start;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));  grid-template-rows:repeat(2,164px);gap:12px;align-content:start}',
         // THE HEADING IS THIS CARD'S in `fit` (config `heading`), so the dots
         // sit at the right of it: pages cost no height, and the House timers
         // under the grid stay level with the keypad however many there are.
@@ -1026,19 +992,13 @@
         // The dots: 24 px targets around an 8 px dot. Swiping is the way;
         // a dot is a jump to that page.
         '.dots{display:flex;justify-content:flex-end;gap:2px;height:24px;margin-top:5px}',
-        '.dots button{all:unset;width:24px;height:24px;display:flex;align-items:center;',
-        '  justify-content:center;cursor:pointer;-webkit-tap-highlight-color:transparent}',
-        '.dots i{width:8px;height:8px;border-radius:4px;background:' + window.hkCards.v('ink-3') + ';',
-        '  transition:background-color .2s ease}',
+        '.dots button{all:unset;width:24px;height:24px;display:flex;align-items:center;  justify-content:center;cursor:pointer;-webkit-tap-highlight-color:transparent}',
+        '.dots i{width:8px;height:8px;border-radius:4px;background:' + window.hkCards.v('ink-3') + ';  transition:background-color .2s ease}',
         '.dots button[aria-current="true"] i{background:' + window.hkCards.v('ink') + '}',
         // PHONE: one column and no sideways pages -- the page itself scrolls,
         // so every running timer is simply the next card down.
-        '@media (max-width:' + window.hkCards.BP.phone + 'px){',
-        '  .grid.fit{grid-template-columns:minmax(0,1fr)}',
-        '  .pages{display:block;overflow:visible;padding:0;margin:0}',
-        '  .pw{display:block}',
-        '  .page{grid-template-columns:minmax(0,1fr);grid-template-rows:none;grid-auto-rows:164px;margin:0 0 12px}',
-        '  .page:last-child{margin-bottom:0}',
+        '@media (max-width:' + window.hkCards.BP.phone + 'px){  .grid.fit{grid-template-columns:minmax(0,1fr)}  .pages{display:block;overflow:visible;padding:0;margin:0}  .pw{display:block}',
+        '  .page{grid-template-columns:minmax(0,1fr);grid-template-rows:none;grid-auto-rows:164px;margin:0 0 12px}  .page:last-child{margin-bottom:0}',
         '  .dots{display:none}',
         '}',
         '@media (prefers-reduced-motion: reduce){.dots i{transition:none}}'
@@ -1467,26 +1427,22 @@
         // and full width. The keys derive from the column (repeat(3,1fr)), so
         // they follow automatically -- that is the whole point of sizing them
         // FROM the column rather than pinning them.
-        '@media (max-width:' + window.hkCards.BP.phone + 'px){',
-        '  .wrap{grid-template-columns:minmax(0,1fr);gap:18px}',
+        '@media (max-width:' + window.hkCards.BP.phone + 'px){  .wrap{grid-template-columns:minmax(0,1fr);gap:18px}',
         '}',
         // ...AND BY ITS OWN WIDTH on someone else's dashboard: a section or a
         // Masonry column is narrower than the two columns on any screen, and
         // the name, chips and Start ran out of it. Stacked as on a phone. HK's
         // own pages keep the screen-width rule above (no container there).
         ':host([data-hk-foreign]){container-type:inline-size}',
-        '@container (max-width:' + window.hkCards.BP.phone + 'px){',
-        '  .wrap:not(.panel){grid-template-columns:minmax(0,1fr);gap:18px}',
+        '@container (max-width:' + window.hkCards.BP.phone + 'px){  .wrap:not(.panel){grid-template-columns:minmax(0,1fr);gap:18px}',
         '}',
         '.readout{height:104px;border-radius:' + M.radius + ';padding:0 24px;margin:0 0 14px 0;',
         '  ' + M.glass + ';border:' + M.border + ';box-shadow:var(--hk-look-shadow, 0 10px 28px rgba(0,0,0,0.12));',
         '  display:flex;align-items:center}',
         '.big{font-size:44px;font-weight:300;letter-spacing:-1.2px;line-height:1}',
         '.sub{font-size:14px;font-weight:500;margin-top:8px;color:' + window.hkCards.v('ink-2') + '}',
-        '.pad{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));',
-        '  grid-auto-rows:62px;gap:12px}',
-        '.key{height:62px;border-radius:22px;padding:0;' + M.glass + ';',
-        '  border:' + M.border + ';box-shadow:var(--hk-look-shadow, 0 6px 18px rgba(0,0,0,0.10));',
+        '.pad{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));  grid-auto-rows:62px;gap:12px}',
+        '.key{height:62px;border-radius:22px;padding:0;' + M.glass + ';  border:' + M.border + ';box-shadow:var(--hk-look-shadow, 0 6px 18px rgba(0,0,0,0.10));',
         '  display:flex;align-items:center;justify-content:center;cursor:pointer;',
         '  user-select:none;font-size:19.7px;letter-spacing:-0.45px;font-weight:700;',
         '  color:' + window.hkCards.v('ink') + ';transition:transform .12s ease}',
@@ -1496,10 +1452,8 @@
         // whole right-hand side. minmax(0,1fr)
         // rather than 1fr is what lets a long chip ellipsize instead of
         // widening its track and pushing the other five out of the card.
-        '.chips{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));',
-        '  grid-auto-rows:48px;gap:10px;margin:0 0 14px 0}',
-        '.chip2{height:48px;border-radius:17px;padding:0 10px;min-width:0;border:' + M.border + ';',
-        '  box-shadow:none;' + M.glass + ';display:flex;align-items:center;',
+        '.chips{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));  grid-auto-rows:48px;gap:10px;margin:0 0 14px 0}',
+        '.chip2{height:48px;border-radius:17px;padding:0 10px;min-width:0;border:' + M.border + ';  box-shadow:none;' + M.glass + ';display:flex;align-items:center;',
         '  justify-content:center;cursor:pointer;user-select:none;font-size:16px;',
         '  font-weight:600;letter-spacing:-0.3px;color:' + window.hkCards.v('ink') + ';',
         '  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;',
@@ -1508,20 +1462,15 @@
         '.chip2[aria-pressed="true"]{background:' + SELECTED_BG + ';color:' + SELECTED_TEXT + '}',
         // A real <input>, which is the point: it keeps its own value and its
         // own caret, and nothing re-renders while somebody is typing.
-        '.namebox{height:58px;border-radius:20px;padding:8px 16px;margin:0 0 14px 0;',
-        '  ' + M.glass + ';border:' + M.border + ';display:flex;align-items:center}',
-        '.namebox input{all:unset;width:100%;font-size:19px;font-weight:600;',
-        '  letter-spacing:-0.3px;color:' + window.hkCards.v('ink') + ';font-family:inherit}',
+        '.namebox{height:58px;border-radius:20px;padding:8px 16px;margin:0 0 14px 0;  ' + M.glass + ';border:' + M.border + ';display:flex;align-items:center}',
+        '.namebox input{all:unset;width:100%;font-size:19px;font-weight:600;  letter-spacing:-0.3px;color:' + window.hkCards.v('ink') + ';font-family:inherit}',
         '.namebox input::placeholder{color:' + window.hkCards.v('ink-3') + '}',
-        '.start{height:70px;border-radius:' + M.radius + ';' + M.glass + ';border:' + M.border + ';',
-        '  box-shadow:' + M.shSm + ';display:flex;align-items:center;justify-content:center;',
+        '.start{height:70px;border-radius:' + M.radius + ';' + M.glass + ';border:' + M.border + ';  box-shadow:' + M.shSm + ';display:flex;align-items:center;justify-content:center;',
         '  font-size:17px;font-weight:600;letter-spacing:-0.3px;cursor:pointer;',
         '  user-select:none;transition:transform .12s ease}',
         '.start:active{transform:scale(0.97)}',
         '.start[aria-disabled="true"]{opacity:0.45;pointer-events:none}',
-        '@media (prefers-reduced-motion: reduce){',
-        '  .key,.key:active,.chip2,.chip2:active,.start,.start:active{',
-        '    transition:none;transform:none}}',
+        '@media (prefers-reduced-motion: reduce){  .key,.key:active,.chip2,.chip2:active,.start,.start:active{    transition:none;transform:none}}',
         // ------------------------------------------------------ THE PANEL
         // `layout: panel` -- one column on its own glass plate, the right-hand
         // side of the one-page Timers layout (hk-timers-page-card): what it
@@ -1554,8 +1503,7 @@
         // above would otherwise win: same specificity, later)
         '.panel .chip2[aria-pressed="true"]{background:' + SELECTED_BG + ';color:' + SELECTED_TEXT + '}',
         '.panel .start{height:56px;border-radius:18px;margin-top:auto;font-size:18px;font-weight:700}',
-        '.panel .start[aria-disabled="false"]{background:var(--hk-timer-tint,rgba(255,159,10,0.95));border-color:transparent;',
-        '  color:rgba(0,0,0,0.85)}',
+        '.panel .start[aria-disabled="false"]{background:var(--hk-timer-tint,rgba(255,159,10,0.95));border-color:transparent;  color:rgba(0,0,0,0.85)}',
         '.panel .start[aria-disabled="true"]{opacity:1;color:' + window.hkCards.v('ink-3') + ';background:' + window.hkCards.v('key') + '}',
         // WIDE (`data-wide`, set by hk-timers-page-card when the page stacks:
         // an iPad held upright, a tablet with the menu docked): this panel
@@ -1567,8 +1515,7 @@
         // row. The right column is the
         // pad's own four 56 px rows, 10 apart: the name beside 1-2-3, the two
         // rows of names beside 4-5-6 and 7-8-9, Start beside 00-0-delete.
-        ':host([data-wide]) .wrap.panel{display:grid;height:auto;column-gap:24px;row-gap:10px;',
-        '  grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:auto repeat(4,56px);',
+        ':host([data-wide]) .wrap.panel{display:grid;height:auto;column-gap:24px;row-gap:10px;  grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:auto repeat(4,56px);',
         '  grid-template-areas:"ro ." "pad name" "pad chips" "pad chips" "pad start"}',
         ':host([data-wide]) .panel .ro{grid-area:ro}',
         ':host([data-wide]) .panel .pad{grid-area:pad;margin:0}',
@@ -1964,9 +1911,7 @@
         ':host([data-stack]) .pg{grid-template-columns:minmax(0,1fr)}',
         ':host([data-stack]) .s-house{margin-top:0}',
         ':host([data-stack]) .side{margin-top:22px}',
-        '@media (max-width:' + window.hkCards.BP.phone + 'px){',
-        '  .pg{display:flex;flex-direction:column;gap:18px}',
-        '  .main{display:contents}',
+        '@media (max-width:' + window.hkCards.BP.phone + 'px){  .pg{display:flex;flex-direction:column;gap:18px}  .main{display:contents}',
         '  .s-run{order:1;margin:0}.s-qs{order:2}.side{order:3}.s-house{order:4;margin:0;padding:0}',
         '  .qs{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}',
         '  .hgrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}',
@@ -2214,9 +2159,10 @@
       this._unwire();
     }
     static get CSS() {
+      // (Large's rules and Extra Large's, 2026-11-07: a selector list over both)
+      var lx = (sel, body) => ':host([size=L]) ' + sel + ',:host([size=XL]) ' + sel + '{' + body + '}';
       return [
-        'hk-plate.strip{background:none;box-shadow:none;border:none;',
-        '  padding:0;margin:0;display:block}',
+        'hk-plate.strip{background:none;box-shadow:none;border:none;  padding:0;margin:0;display:block}',
         // The screensaver's row is wrapped in a position:fixed div by strip()
         // itself, so its host must take no space and must not clip.
         'hk-plate.strip.fixed{height:0;overflow:visible}',
@@ -2231,10 +2177,10 @@
         // cell's sizes after.
         ':host([size]) hk-plate.strip{display:flex;flex-direction:column;justify-content:center;gap:8px;box-sizing:border-box;',
         '  height:100%;padding:' + window.hkCards.blockPad('14px') + ';' + window.hkCards.plate('card') + ';overflow:hidden;--ring:56px;--stop:44px}',
-        '.tg{display:grid;grid-template-columns:repeat(var(--cols,1),minmax(0,1fr));gap:18px;flex:1 1 auto;min-height:0}',
+        '.tg{display:grid;grid-template-columns:repeat(var(--cols,1),minmax(0,1fr));grid-auto-rows:minmax(0,1fr);gap:var(--rg,8px) 18px;flex:1 1 auto;min-height:0}',
         '.gt{display:flex;flex-direction:column;min-width:0;min-height:0}',
         '.gt .hd{display:flex;align-items:baseline;gap:8px;min-width:0}',
-        '.gt .nm{min-width:0;font-size:15px;font-weight:600;line-height:1.25;color:' + window.hkCards.ACCENTS.orange + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+        '.gt .nm{min-width:0;font-size:15px;font-weight:600;line-height:1.25;color:' + window.hkCards.ACCENTS.orange + ';text-shadow:' + window.hkCards.v('glow') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
         '.gt .more{margin-left:auto;flex:none;' + window.hkCards.typeCss('caption') + ';color:' + window.hkCards.v('ink-2') + '}',
         '.gt hk-countdown{display:block;font-size:30px;font-weight:300;letter-spacing:-0.02em;line-height:1.05;color:' + window.hkCards.v('ink') + ';margin-top:2px}',
         '.gt .ft{display:flex;align-items:flex-end;justify-content:space-between;gap:8px;margin-top:auto;padding-top:6px}',
@@ -2247,28 +2193,36 @@
         '.gt .pr hk-icon{position:relative;width:calc(var(--ring) * 0.36);height:calc(var(--ring) * 0.36);--mdc-icon-size:calc(var(--ring) * 0.36);color:' + window.hkCards.ACCENTS.orange + '}',
         '.gt .stop{width:var(--stop);height:var(--stop);background:' + window.hkCards.ACCENTS.red + '}',
         '.gt .stop hk-icon{width:calc(var(--stop) * 0.46);height:calc(var(--stop) * 0.46);--mdc-icon-size:calc(var(--stop) * 0.46);color:#fff}',
-        '.gt .pr:active,.gt .stop:active{transform:scale(0.95)}',
-        '.gt .pr:focus-visible,.gt .stop:focus-visible{outline:2px solid ' + window.hkCards.v('ink-2') + ';outline-offset:2px}',
-        '@container hk-cell (min-height:180px) or style(--hk-cell-shape: square){',
-        '  :host([size=S]) hk-plate.strip{--ring:76px;--stop:52px}',
+        '.gt .pr:active,.gt .stop:active{transform:scale(0.95)}.gt .pr:focus-visible,.gt .stop:focus-visible{outline:2px solid ' + window.hkCards.v('ink-2') + ';outline-offset:2px}',
+        '@container hk-cell (min-height:180px) or style(--hk-cell-shape: square){  :host([size=S]) hk-plate.strip{--ring:76px;--stop:52px}',
         '  :host([size=W]) hk-plate.strip{--ring:72px;--stop:48px}',
         '  :host([size=S]) .gt hk-countdown{font-size:36px}',
         '  :host([size=W]) .gt hk-countdown{font-size:34px}',
         '}',
-        // NONE RUNNING (2026-10-31, the owner: Create a Timer "looks way off from our latest design"): the
-        // running timer's own layout -- the orange name, then what there is in place of a time, then at the foot
-        // where the ring and Stop sit, quick starts as round keys and an orange + for any other length
-        '.gt .none{' + window.hkCards.typeCss('body') + ';color:' + window.hkCards.v('ink-2') + ';margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-        '.gt .ft.qs{align-items:center;gap:8px}',
-        '.qs button{all:unset;box-sizing:border-box;flex:1 1 0;max-width:var(--stop);min-width:44px;height:var(--stop);border-radius:' + window.hkCards.R.capsule('var(--stop)') + ';display:grid;place-items:center;cursor:pointer;',
-        '  background:' + window.hkCards.v('key') + ';color:' + window.hkCards.v('ink') + ';' + window.hkCards.typeCss('body') + ';font-weight:600;font-variant-numeric:tabular-nums;-webkit-tap-highlight-color:transparent}',
-        '.qs button.add{background:' + window.hkCards.ACCENTS.orange + ';color:#fff}.qs button.add hk-icon{width:24px;height:24px;--mdc-icon-size:24px}',
-        '.qs button:active{transform:scale(0.95)}.qs button:focus-visible{outline:2px solid ' + window.hkCards.v('ink-2') + ';outline-offset:2px}',
-        // (Wide with none: the row runs the block's width, each a pill)
-        '.gt.wide .qs button{max-width:none}',
-        // (round, whatever room they get: a share of the row narrower than their height made them tall ovals --
-        // 2026-11-01, the owner. Only Wide's are pills.)
-        '.gt:not(.wide) .qs button{flex:0 1 var(--stop);height:auto;aspect-ratio:1;min-width:0}'
+        '@container hk-cell (min-height:360px){:host([size=T]) hk-plate.strip{--ring:64px;--stop:48px}:host([size=T]) .gt hk-countdown{font-size:34px}',
+        '  ' + lx('hk-plate.strip', '--ring:72px;--stop:48px') + lx('.gt hk-countdown', 'font-size:34px') + '  :host([size=L]) .tg.k2 hk-countdown{font-size:44px}}',
+        // TALL AND LARGE (2026-11-07, the review): Tall stacks the running timers (two fit; "N more" at the foot, a
+        // second place says Start another), Large puts up to four in a 2 x 2 -- fewer are bigger: one fills the
+        // block, two are rows. Each is the same column as Small's: name, time, ring and Stop at its foot
+        '.tg.k1{--ring:112px;--stop:64px}' + lx('.tg.k1 hk-countdown', 'font-size:72px') + '.tg.k1 .nm{font-size:17px}.tg.k2{--rg:10px}:host([size=L]) .tg.k2 hk-countdown{font-size:36px}',
+        // (Extra Large: three across are cells of 180, the time and ring larger than Large's)
+        ':host([size=XL]) .tg.k2{--ring:88px;--stop:52px}:host([size=XL]) .tg.k2 hk-countdown{font-size:44px}',
+        ':host([size=T]) .tg{--rg:10px}.tg.k4{--rg:18px}:host([size=T]) .gt+.gt,:host([size=L]) .tg.k2 .gt+.gt{border-top:1px solid ' + window.hkCards.v('line') + ';padding-top:10px}',
+        '.mf{flex:none;' + window.hkCards.typeCss('caption') + ';color:' + window.hkCards.v('ink-2') + ';text-shadow:' + window.hkCards.v('glow') + '}',
+        // NONE RUNNING (2026-11-08, the owner: "the card when no timer is displayed is not good looking at all"): the running timer's own
+        // column -- the orange name, a line in the time's light type in place of the time ("Start a timer"), and in place of the ring and
+        // Stop the quick starts as rings: each draws its length as the share of an hour its orange arc covers, the length inside, and an
+        // orange + for any other. A grid (Tall, Large, Extra Large) fills the block, the rings --k to what it leaves them
+        '.gt.idle .none{display:block;font-size:var(--sf);font-weight:300;letter-spacing:-0.02em;line-height:1.15;color:' + window.hkCards.v('ink') + ';text-shadow:' + window.hkCards.v('glow') + ';margin-top:4px;text-wrap:balance}',
+        '.gt.two .none{font-weight:400;color:' + window.hkCards.v('ink-2') + ';white-space:nowrap}',
+        '.qs{display:flex;align-items:center;justify-content:center;gap:12px;margin-top:auto;padding-top:8px}.qs.g{display:grid;grid-template-columns:repeat(var(--qc),var(--k));justify-content:center;align-content:center;flex:1 1 auto;margin-top:0}',
+        '.gt.xl{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto 1fr;column-gap:22px}.gt.xl.c{grid-template-rows:1fr auto auto 1fr}.gt.xl.c .hd{grid-row:2}.gt.xl.c .none{grid-row:3}.gt.xl.c .qs{grid-row:1 / 5}.gt.xl .hd,.gt.xl .none{grid-column:1}.gt.xl .none{align-self:start}.gt.xl .qs{grid-column:2;grid-row:1 / 3;padding:0;margin:0;align-self:center}',
+        '.rk{all:unset;box-sizing:border-box;position:relative;flex:none;width:var(--k);height:var(--k);border-radius:50%;display:grid;place-items:center;cursor:pointer;-webkit-tap-highlight-color:transparent}',
+        '.rk svg{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg);overflow:visible}.rk circle{fill:none;stroke-width:10px;stroke:' + window.hkCards.v('line-strong') + '}',
+        '.rk .left{stroke:' + window.hkCards.ACCENTS.orange + ';stroke-linecap:round;stroke-dasharray:var(--a) 100}',
+        '.rk b{position:relative;font-size:max(13px,calc(var(--k) * 0.3));font-weight:600;letter-spacing:-0.02em;color:' + window.hkCards.v('ink') + ';font-variant-numeric:tabular-nums}',
+        '.rk.add,.rk.cap{background:' + window.hkCards.ACCENTS.orange + ';color:#fff}.rk.cap{width:auto;height:44px;padding:0 18px;border-radius:22px;grid-auto-flow:column;gap:8px;' + window.hkCards.typeCss('headline') + '}.rk.cap hk-icon{width:22px;height:22px;--mdc-icon-size:22px}.rk.add hk-icon{width:calc(var(--k) * 0.46);height:calc(var(--k) * 0.46);--mdc-icon-size:calc(var(--k) * 0.46)}.rk:active{transform:scale(0.95)}',
+        '.rk:focus-visible{outline:2px solid ' + window.hkCards.v('ink-2') + ';outline-offset:2px}'
       ].join('');
     }
     getCardSize() { return 1; }
@@ -2310,23 +2264,39 @@
       // NONE RUNNING, or a Wide block's second place: the quick starts (Settings' presets) as keys, + for the rest
       var presets = (window.hkSettings && window.hkSettings.get('headers.timers.presets', null)) || [5, 10, 15, 20, 30, 60];
       var short = (m) => m < 60 ? m + 'm' : m % 60 ? Math.floor(m / 60) + 'h' + (m % 60) : m / 60 + 'h';
-      var idle = (n, sub, wide) => '<div class="gt' + (wide ? ' wide' : '') + '"><div class="hd"><b class="nm">Timers</b></div><span class="none">' + esc(sub) + '</span>' +
-        '<div class="ft qs">' + presets.slice(0, n).map((m) => '<button data-preset="' + Number(m) + '" aria-label="Start a ' + esc(HkTimersPageCard.label(Number(m))) + ' timer">' + esc(short(Number(m))) + '</button>').join('') +
-        '<button class="add" data-new aria-label="Create a Timer"><hk-icon icon="mdi:plus"></hk-icon></button></div></div>';
-      if (!rows.length) return '<div class="tg">' + idle(sized === 'W' ? 5 : 2, 'None running', sized === 'W') + '</div>';
-      var max = sized === 'S' ? 1 : 2, shown = rows.slice(0, max), left = rows.length - shown.length;
-      return '<div class="tg" style="--cols:' + max + '">' + shown.map(function (r, i) {
+      // (the block's room inside its inset: Tall's second place, Large's grid of keys and what fits are sized by it)
+      var b = this._block(), cs = typeof getComputedStyle === 'function' ? getComputedStyle(this) : null, pd = (k) => cs && parseFloat(cs.getPropertyValue('--hk-pad-' + k)) || 14;
+      var iw = b ? b.w - pd('l') - pd('r') : 168, ih = b ? b.h - pd('t') - pd('b') : 286, big = sized === 'T' || sized === 'L' || sized === 'XL';
+      // NONE RUNNING, or a second place (Start another): nothing stretches (the owner, 2026-11-08) -- each size has its one ring size (tile cell /
+      // square cell), the quick starts as many as the size shows, the group centered: Small one key (Start a timer), Wide 3 in a row beside the words, Tall 3
+      // stacked, Large 6 in a 3 x 2, Extra Large the same beside the words (the line is the hero, 60 px); a second place is one + ring
+      var idle = (second) => {
+        var S = sized, sq = b && b.h > (S === 'S' || S === 'W' ? 170 : 350), K = { W: [52, 64], T: [56, 72], L: [72, 96], XL: [80, 104] }[S], k = second ? 48 : K ? K[+sq] : 0;
+        var qc = second ? 0 : { T: 1, L: 3, XL: 3 }[S] || 0, n = second ? 0 : S === 'S' ? 0 : S === 'L' || S === 'XL' ? 5 : 2, sf = second ? 15 : { S: 22, W: 26, T: 22, L: 36, XL: 72 }[S], xl = (S === 'XL' || S === 'W') && !second;
+        var keys = presets.slice(0, n).map((m) => '<button class="rk" data-preset="' + Number(m) + '" style="--a:' + Math.min(100, Number(m) * 100 / 60) + '" aria-label="Start a ' + esc(HkTimersPageCard.label(Number(m))) + ' timer"><svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="45"></circle><circle class="left" cx="50" cy="50" r="45" pathLength="100"></circle></svg><b>' + esc(short(Number(m))) + '</b></button>').join('');
+        return '<div class="gt idle' + (second ? ' two' : xl ? ' xl' + (S === 'W' ? ' c' : '') : '') + '" style="--sf:' + sf + 'px"><div class="hd"><b class="nm">Timers</b></div><span class="none">' + (second ? 'Start another' : S === 'S' ? 'None running' : 'Start a timer') + '</span>' +
+          '<div class="qs' + (qc ? ' g' : '') + '" style="--k:' + k + 'px;--qc:' + qc + '">' + keys + (S === 'S' && !second ? '<button class="rk cap" data-new aria-label="Create a Timer"><hk-icon icon="mdi:plus"></hk-icon>Start a timer</button>' : '<button class="rk add" data-new aria-label="Create a Timer"><hk-icon icon="mdi:plus"></hk-icon></button>') + '</div></div>';
+      };
+      if (!rows.length) return '<div class="tg">' + idle() + '</div>';
+      // (Tall: as many stacked as fit, two units of 124 px at least, a line for "N more" held back when some are cut)
+      var fit = (room) => Math.max(1, Math.floor((room + 8) / 132)), slots = fit(ih);
+      if (sized === 'T' && rows.length > slots) slots = fit(ih - 24);
+      // (Extra Large, 2026-11-07: up to six, a 3 x 2 grid; one or two are big across, three go three across, four are 2 x 2, five leave a place for Start another)
+      var xl = sized === 'XL', nn = rows.length, max = sized === 'S' ? 1 : sized === 'T' ? slots : xl ? 6 : sized === 'L' ? 4 : 2, shown = rows.slice(0, max), left = nn - shown.length;
+      var cls = xl ? ' k' + ([0, 1, 1, 2][nn] || 4) : sized === 'L' ? (nn < 3 ? ' k' + nn : ' k4') : '';
+      return '<div class="tg' + cls + '" style="--cols:' + (xl ? [0, 1, 2, 3, 2][nn] || 3 : sized === 'S' || sized === 'T' ? 1 : sized === 'L' ? (nn > 2 ? 2 : 1) : max) + '">' + shown.map(function (r, i) {
         var paused = r.state === 'paused', total = T ? T.secs(r.attrs.duration) : 0, nm = esc(r.name || 'Timer');
         var clock = paused ? 'hold="' + (T ? T.secs(r.attrs.remaining) : 0) + '"' : 'deadline="' + Date.parse(r.attrs.finishes_at) + '"';
         // (the countdown is the column's child: it writes the fraction left, --hk-left, on the column, and the ring reads it)
         return '<div class="gt"><div class="hd"><b class="nm">' + nm + '</b>' +
-          (left && i === shown.length - 1 ? '<span class="more">+' + left + ' more</span>' : '') + '</div>' +
+          (left && sized !== 'T' && i === shown.length - 1 ? '<span class="more">+' + left + ' more</span>' : '') + '</div>' +
           '<hk-countdown ' + clock + ' total="' + total + '"></hk-countdown>' +
           '<div class="ft"><button class="pr" data-timer="' + esc(r.id) + '" data-service="' + (paused ? 'start' : 'pause') + '" aria-label="' + (paused ? 'Resume' : 'Pause') + ' ' + nm + '">' +
           '<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="45"></circle><circle class="left" cx="50" cy="50" r="45" pathLength="100"></circle></svg>' +
           '<hk-icon icon="mdi:' + (paused ? 'play' : 'pause') + '"></hk-icon></button>' +
           '<button class="stop" data-timer="' + esc(r.id) + '" data-service="cancel" aria-label="Stop ' + nm + '"><hk-icon icon="mdi:stop"></hk-icon></button></div></div>';
-      }).join('') + (shown.length < max ? idle(2, 'Start another') : '') + '</div>';
+      }).join('') + (xl || sized === 'L' ? (nn === (xl ? 5 : 3) ? idle(true) : '') : shown.length < max ? idle(true) : '') + '</div>' +
+        (left && sized === 'T' ? '<div class="mf">' + left + ' more</div>' : '');
     }
     _sigOf() {
       var h = this.client;
@@ -2488,20 +2458,31 @@
     return s.state === 'home' ? 'Home' : s.state === 'not_home' ? 'Away'
       : /^(unknown|unavailable)$/.test(s.state) ? 'Unknown' : String(s.state).replace(/(^|[\s_])(\w)/g, function (m, a, c) { return (a === '_' ? ' ' : a) + c.toUpperCase(); });
   }
-  // THE FACES' GRID on a Small block: the columns and rows that draw them
-  // largest in (w x h), each cell a finger's 44 at least; when they cannot
-  // all fit, as many as do, the last cell saying how many more. -> {c, f, fit}
-  function faceGrid(n, w, h) {
-    var best = null;
+  // THE FACES' GRID on a Small or Large block: the columns and rows that draw them largest in (w x h), each cell a
+  // finger's 44 at least with `tx` px of words under its face, the face to `cap`; ties go to the fuller grid, and
+  // with `one` (Small) a single row wins while its faces are 40 or more -- no 2 + 1 wrap; where there are words (Large) a grid with faces
+  // down to 80 % of the largest wins if it fills the block more, rows weighing most (3 as 2 + 1, not a row in the middle of it), a full last row 1.8 times (4 as 2 x 2, 6 as 3 x 2, not 3 + 1 or 5 + 1). When they cannot all fit,
+  // as many as do, the last cell saying how many more. -> {c, f, fit}
+  function faceGrid(n, w, h, tx, cap, one) {
+    var best = null, all = [];
     for (var c = 1; c <= Math.max(1, n); c++) {
-      var r = Math.ceil(n / c), cw = (w - (c - 1) * PP.g) / c, ch = (h - (r - 1) * PP.g) / r;
-      var f = Math.min(cw, ch, 64);
-      if (cw >= 44 && ch >= 44 && (!best || f > best.f)) best = { c: c, f: f, fit: n };
+      var r = Math.ceil(n / c), cw = (w - (c - 1) * PP.g) / c, ch = (h - (r - 1) * PP.g) / r - tx, f = Math.min(cw, ch, cap);
+      if (cw >= 44 && ch >= 44) all.push({ c: c, f: f, r: r, fit: n, box: c * f * r * (f + tx) * (tx && n > 2 && n % c === 0 ? 1.8 : 1) });
+      if (one && c === n && cw >= 44 && ch >= 44 && f >= 40) return { c: c, f: f, fit: n };
     }
+    var top = all.reduce(function (m, x) { return Math.max(m, x.f); }, 0);
+    all.forEach(function (x) { if (x.f >= top * (tx ? 0.8 : 1) - 0.5 && (!best || x.box * (tx && n > 2 ? x.r : 1) >= best.box * (tx && n > 2 ? best.r : 1))) best = x; });
     if (best) return best;
     // (too many for the block: the most cells of 44 that it holds)
-    var mc = Math.max(1, Math.floor((w + PP.g) / (44 + PP.g))), mr = Math.max(1, Math.floor((h + PP.g) / (44 + PP.g)));
-    return { c: mc, f: Math.min((w - (mc - 1) * PP.g) / mc, (h - (mr - 1) * PP.g) / mr, 64), fit: mc * mr - 1 };
+    var mc = Math.max(1, Math.floor((w + PP.g) / (44 + PP.g))), mr = Math.max(1, Math.floor((h + PP.g) / (44 + tx + PP.g)));
+    return { c: mc, f: Math.min((w - (mc - 1) * PP.g) / mc, (h - (mr - 1) * PP.g) / mr - tx, cap), fit: mc * mr - 1 };
+  }
+  // (a grid of faces, its last row centered: the cells span two of twice the columns, the row's first one starts after the rest)
+  function lastRow(i, t, c) { var m = t % c || c; return i === t - m && m < c ? 'grid-column:' + (c - m + 1) + '/span 2' : ''; }
+  // (Tall's caption: how long they have been there -- the time today, else the weekday)
+  function sinceOf(s) {
+    var t = s.last_changed ? new Date(s.last_changed) : null;
+    return !t || isNaN(t) ? '' : ' · ' + (t.toDateString() === new Date().toDateString() ? t.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : t.toLocaleDateString([], { weekday: 'short' }));
   }
   class HkPeopleCard extends HkBase {
     // (a block's tap, hk-base.js openTarget) a person's sheet -- the first at home, else the first -- and from it
@@ -2515,8 +2496,7 @@
       return [
         'hk-plate.pp{display:flex;flex-direction:column;justify-content:center;box-sizing:border-box;height:100%;',
         '  padding:' + C.blockPad(C.CARD.pad) + ';margin:0;' + C.plate('card') + ';overflow:hidden}',
-        '.pp .row{display:grid;grid-template-columns:repeat(var(--n,4),minmax(' + PP.w + 'px,1fr));gap:0 ' + PP.gap + 'px;',
-        '  justify-content:start}',
+        '.pp .row{display:grid;grid-template-columns:repeat(var(--n,4),minmax(' + PP.w + 'px,1fr));gap:0 ' + PP.gap + 'px;  justify-content:start}',
         '.pr{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0;min-height:44px;margin:0;padding:0;',
         '  border:0;background:none;font:inherit;color:' + C.v('ink') + ';cursor:pointer;-webkit-tap-highlight-color:transparent}',
         '.pr:active{opacity:.6}',
@@ -2527,8 +2507,7 @@
         '.pr.home .av{box-shadow:0 0 0 2px ' + PP.home + '}',
         '.av img{width:100%;height:100%;object-fit:cover;display:block}',
         '.pr b{' + C.typeCss('body') + ';line-height:19px;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-        '.pr span{' + C.typeCss('caption') + ';line-height:16px;color:' + C.v('ink-2') + ';max-width:100%;',
-        '  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+        '.pr span{' + C.typeCss('caption') + ';line-height:16px;color:' + C.v('ink-2') + ';max-width:100%;  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
         // ---- THE BLOCK: the heading, then the faces in their own colors (no ring)
         ':host([size]) hk-plate.pp{justify-content:flex-start;padding:' + C.blockPad('14px') + '}',
         '.pp .lab{flex:none;font-size:15px;font-weight:600;line-height:' + PP.lab + 'px;letter-spacing:-0.1px;text-transform:uppercase;color:' + C.v('ink-2') + '}',
@@ -2538,15 +2517,23 @@
         '.pp .mo{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0}',
         '.pp .mo .face{background:' + C.v('key-strong') + ';color:' + C.v('ink') + ';font-size:calc(var(--f) * 0.3)}',
         // (Small: a grid of faces filling what the heading and the line leave, those away dimmed)
-        '.pp .fc{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:repeat(var(--c),minmax(0,1fr));grid-auto-rows:minmax(0,1fr);',
+        '.pp .fc{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:repeat(var(--c2),minmax(0,1fr));grid-auto-rows:minmax(0,1fr);',
         '  gap:' + PP.g + 'px;align-content:center;margin:' + PP.g + 'px 0}',
+        '.pp .fc>*{grid-column:span 2}',
         '.pp .fc .pr,.pp .fc .mo{width:100%;height:100%;min-height:44px;justify-content:center}',
-        '.pp .fc .away .face{opacity:.45}',
+        '.pp .fc .away .face{opacity:.45}.pp .fc:not(.lg) .pr{cursor:inherit;pointer-events:none}',
         '.pp .line{flex:none;font-size:15px;line-height:' + PP.line + 'px;color:' + C.v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
         // (Wide: spread evenly, each with its name and where, in the middle of what the heading leaves)
         '.pp .wide{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:' + PP.gap + 'px;align-content:center;align-items:center}',
-        '.pp .wide .pr b,.pp .wide .mo b{font-size:15px;font-weight:600;line-height:19px;margin-top:2px}',
-        '.pp .wide .pr span:not(.face){font-size:13px;line-height:16px}'
+        '.pp .wide .pr b,.pp .wide .mo b,.pp .lg .pr b,.pp .lg .mo b{font-size:15px;font-weight:600;line-height:19px;margin-top:2px}',
+        '.pp .wide .pr span:not(.face),.pp .lg .pr span:not(.face){font-size:13px;line-height:16px}',
+        // TALL AND LARGE (2026-11-07, the review): Tall a list, each person a row -- face 44, first name, where and since -- at a fixed
+        // height (52; 56 on a square cell, 2026-11-08) and grouped on the middle of the block, never spread down it; Large the faces as large as the block holds them (to 88), name and where under each
+        '.pp .lst{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;justify-content:center;margin-top:' + PP.g + 'px}',
+        '.pp .lst .pr{flex:none;height:var(--rh,52px);flex-direction:row;justify-content:flex-start;gap:12px;width:100%;text-align:left}',
+        '.pp .lst .tx{display:flex;flex-direction:column;min-width:0}.pp .lst .tx b{' + C.typeCss('headline') + ';text-shadow:' + C.v('glow') + '}',
+        '.pp .lst .tx span{' + C.typeCss('caption') + ';color:' + C.v('ink-2') + '}',
+        '.pp .mf{flex:none;margin-top:' + PP.g + 'px;' + C.typeCss('caption') + ';line-height:' + PP.line + 'px;color:' + C.v('ink-2') + '}'
       ].join('');
     }
     getCardSize() { return 2; }
@@ -2564,11 +2551,11 @@
         '|' + (this._cellSize() || '') + '|' + (this._blockKey || '');
     }
     // ONE PERSON'S FACE on a block, as a button opening their sheet (the
-    // caller closes it): their picture, else their initials, on their color
-    _face(id, i, cls) {
+    // caller closes it); on Small (2026-11-08, the controls audit) a plain face, the plate opens the sheet: their picture, else their initials, on their color
+    _face(id, i, cls, sty) {
       var esc = C.esc, s = this.client.states[id], a = s.attributes || {}, nm = String(a.friendly_name || id);
       var ini = nm.split(/\s+/).filter(Boolean).slice(0, 2).map(function (w) { return w[0]; }).join('').toUpperCase();
-      return '<button class="pr' + (cls ? ' ' + cls : '') + '" data-id="' + esc(id) + '" aria-label="' + esc(nm + ', ' + whereOf(s)) + '">' +
+      return (this._cellSize() === 'S' ? '<div class="pr' : '<button data-id="' + esc(id) + '" class="pr') + (cls ? ' ' + cls : '') + '"' + (sty ? ' style="' + sty + '"' : '') + ' aria-label="' + esc(nm + ', ' + whereOf(s)) + '">' +
         '<span class="face" style="--fc:' + C.ACCENTS[FACE[i % FACE.length]] + '">' +
         (a.entity_picture ? '<img alt="" data-initials="' + esc(ini) + '" src="' + esc(a.entity_picture) + '">' : esc(ini)) + '</span>';
     }
@@ -2594,13 +2581,25 @@
         var pad = function (k) { var x = cs ? parseFloat(cs.getPropertyValue('--hk-pad-' + k)) : NaN; return x >= 0 ? x : 14; };
         // (before the view has measured: a tile cell's block)
         var iw = b ? b.w - pad('l') - pad('r') : sz === 'W' ? 374 : 168, ih = b ? b.h - pad('t') - pad('b') : 122;
-        if (sz === 'S') {
-          var gr = faceGrid(ids.length, iw, ih - PP.lab - PP.line - 2 * PP.g), fit = Math.min(ids.length, gr.fit);
-          html = '<b class="lab">Who’s Home</b><div class="fc" role="list" style="--c:' + gr.c + ';--f:' + Math.floor(gr.f) + 'px">' +
+        if (sz === 'S' || sz === 'L' || sz === 'XL') {
+          // (Small: the faces, one line under them. Large: the faces as large as fit, each with its name and where under it. Extra Large, 2026-11-07: to 120, one or two to 160, the since beside where)
+          var lg = sz !== 'S', gr = lg ? faceGrid(ids.length, iw, ih - PP.lab - 2 * PP.g, 46, sz === 'XL' ? (ids.length < 3 ? 160 : 120) : 88) : faceGrid(ids.length, iw, ih - PP.lab - PP.line - 2 * PP.g, 0, 64, true);
+          var fit = Math.min(ids.length, gr.fit), cutf = ids.length - fit, tot = fit + (cutf ? 1 : 0);
+          html = '<b class="lab">Who’s Home</b><div class="fc' + (lg ? ' lg' : '') + '" role="list" style="--c2:' + gr.c * 2 + ';--f:' + Math.floor(gr.f) + 'px">' +
             ids.slice(0, fit).map(function (id, i) {
-              return self._face(id, i, h.states[id].state === 'home' ? 'home' : 'away') + '</button>';
-            }).join('') + (ids.length > fit ? '<span class="mo" aria-label="' + (ids.length - fit) + ' more"><span class="face">+' + (ids.length - fit) + '</span></span>' : '') +
-            '</div><div class="line">' + esc(ids.length ? this._line(ids) : 'Nobody added') + '</div>';
+              var s = h.states[id], nm = String((s.attributes || {}).friendly_name || id);
+              return self._face(id, i, s.state === 'home' ? 'home' : 'away', lastRow(i, tot, gr.c)) +
+                (lg ? '<b>' + esc(nm.split(/\s+/)[0]) + '</b><span>' + esc(whereOf(s) + (sz === 'XL' && iw / gr.c >= 120 ? sinceOf(s) : '')) + '</span>' : '') + (lg ? '</button>' : '</div>');
+            }).join('') + (cutf ? '<span class="mo" style="' + lastRow(fit, tot, gr.c) + '" aria-label="' + cutf + ' more"><span class="face">+' + cutf + '</span>' + (lg ? '<b>More</b>' : '') + '</span>' : '') +
+            '</div>' + (lg ? ids.length ? '' : '<div class="line">Nobody added</div>' : '<div class="line">' + esc(ids.length ? this._line(ids) : 'Nobody added') + '</div>');
+        } else if (sz === 'T') {
+          // (rows of 52, 56 on a square cell, a line for "N more" held back when some are cut)
+          var rh = ih >= 340 ? 56 : 52, room = ih - PP.lab - PP.g, rows = Math.max(1, Math.floor(room / rh));
+          if (ids.length > rows) rows = Math.max(1, Math.floor((room - PP.line - PP.g) / rh));
+          html = '<b class="lab">Who’s Home</b><div class="lst" role="list" style="--f:44px;--rh:' + rh + 'px">' + ids.slice(0, rows).map(function (id, i) {
+            var s = h.states[id], nm = String((s.attributes || {}).friendly_name || id);
+            return self._face(id, i, s.state === 'home' ? 'home' : '') + '<span class="tx"><b>' + esc(nm.split(/\s+/)[0]) + '</b><span>' + esc(whereOf(s) + sinceOf(s)) + '</span></span></button>';
+          }).join('') + '</div>' + (ids.length > rows ? '<div class="mf">' + (ids.length - rows) + ' more</div>' : ids.length ? '' : '<span class="line">Nobody added</span>');
         } else {
           // (as many as the width holds, each at least 72 across; the face as large as the height leaves, to 64)
           var n = Math.max(1, Math.floor((iw + PP.gap) / (PP.w + PP.gap))), cut = ids.length > n ? n - 1 : ids.length;
@@ -2685,6 +2684,6 @@
     ],
     function () { return { entity: 'sensor.running_quick_timers' }; });
 
-  window.hkHome = { version: '1.0.0' };
+  window.hkHome = { version: '1.0.0', picked: PICKED };
   });
 })();

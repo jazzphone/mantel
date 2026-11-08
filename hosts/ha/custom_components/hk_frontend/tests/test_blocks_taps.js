@@ -441,7 +441,10 @@ function () {
   H.section('Security\'s HomeView: its sizes, its taps, its overview');
   var SHEETS = [];
   window.hkDetail.openSheet = function (sheet, o) { SHEETS.push({ sheet: sheet, o: o }); return true; };
-  ['S', 'W', 'C', 'L', 'XL'].forEach(function (size) {
+  // (Extra Large keeps the keypad in HomeView too, 2026-11-08: the keypad card, its entries as HomeView tiles or pills)
+  var bx = block('security', 'XL', 'square', { presentation: 'homeview' });
+  ok('XL in HomeView keeps the keypad (hk-grid-keypad-card)', bx.tag === 'hk-grid-keypad-card', bx.tag);
+  ['S', 'W', 'C', 'L'].forEach(function (size) {
     var b = block('security', size, 'square', { presentation: 'homeview' });
     ok(size + ' is the HomeView presentation (' + b.tag + ')', /hk-grid-security-(hv|key)-card/.test(b.tag));
     SHEETS.length = 0; WENT.length = 0;

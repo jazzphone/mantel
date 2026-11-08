@@ -24,7 +24,7 @@ slice 10.5; decision M10-2: no relay while the app is TestFlight-only, the house
   and ``send`` answers ``failed``; the tests use an injected transport.
 
 UNVERIFIED until the Apple Developer account exists (M10-6): the provider token and request shape follow Apple's
-documentation; the app's side is tested in the Simulator with ``xcrun simctl push`` (apple/README.md).
+documentation; the app's side is tested in the Simulator with ``xcrun simctl push`` (jazzphone/mantel-ios's README).
 """
 from __future__ import annotations
 

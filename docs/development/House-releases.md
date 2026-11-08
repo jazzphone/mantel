@@ -676,3 +676,43 @@ Records of releases made with `release_house.py mantel` (phase 15) are written b
 - Strict health 200, all services healthy, mantel-server built from `af1b577`, Home Assistant connected for 63 s; no "Traceback" or "ERROR" in Mantel's log.
 - Linux suite passed.
 - Times: preflight 3 s, release commit on main 34 s, images run started 4 s, images built and pushed 257 s, the LXC updated and healthy 177 s, Linux suite passed 2 s, tagged 2 s, promoted (latest, ha-apps) 66 s, GitHub Release 1 s; 9.1 minutes in all.
+
+## Mantel 0.1.151 (2026-11-08)
+
+- Mantel 0.1.151, release commit `acf53a7`, tagged `v0.1.151`; the LXC 0.1.150 -> 0.1.151 (build `7203dc24ed8d50ce`).
+- Images run 42477724650 (stage=images), promote run 42478166335, GitHub Release `v0.1.151`.
+- Strict health 200, all services healthy, mantel-server built from `acf53a7`, Home Assistant connected for 62 s; no "Traceback" or "ERROR" in Mantel's log.
+- Linux suite passed.
+- Times: preflight 3 s, release commit on main 30 s, images run started 3 s, images built and pushed 224 s, the LXC updated and healthy 148 s, Linux suite passed 2 s, tagged 1 s, promoted (latest, ha-apps) 97 s, GitHub Release 1 s; 8.5 minutes in all.
+
+## Mantel 0.1.152 (2026-11-08)
+
+- Mantel 0.1.152, release commit `27ea48e`, tagged `v0.1.152`; the LXC 0.1.151 -> 0.1.152 (build `c811242322e829e8`).
+- Images run 42494903048 (stage=images), promote run 42495421164, GitHub Release `v0.1.152`.
+- Strict health 200, all services healthy, mantel-server built from `27ea48e`, Home Assistant connected for 63 s; no "Traceback" or "ERROR" in Mantel's log.
+- Linux suite passed.
+- Times: preflight 3 s, release commit on main 29 s, images run started 3 s, images built and pushed 208 s, the LXC updated and healthy 151 s, Linux suite passed 2 s, tagged 1 s, promoted (latest, ha-apps) 65 s, GitHub Release 1 s; 7.7 minutes in all.
+
+## HK Frontend 1.49.0 (2026-11-08)
+
+- hk-frontend 1.49.0, commit `2526bb8`, tagged `hk-frontend/v1.49.0`, copied with rsync --inplace; diff -rq shows no difference.
+- Home Assistant restarted and serves `/hk/panels/hk-settings.js` (45 s from the restart).
+- Mantel on the LXC reconnected to Home Assistant and was still healthy a minute later (63 s).
+- Published to jazzphone/hk-frontend main as `16966a5`, tagged `v1.49.0` and released on GitHub.
+- The Wiki had no changes.
+
+## Mantel 0.1.153 (2026-11-08)
+
+- Mantel 0.1.153, release commit `ca96004`, tagged `v0.1.153`; the LXC 0.1.152 -> 0.1.153 (build `4eff91c7c68e54ba`).
+- Images run 42507010512 (stage=images), promote run 42507538464, GitHub Release `v0.1.153`.
+- Strict health 200, all services healthy, mantel-server built from `ca96004`, Home Assistant connected for 62 s; no "Traceback" or "ERROR" in Mantel's log.
+- Linux suite passed.
+- Times: preflight 3 s, release commit on main 35 s, images run started 3 s, images built and pushed 239 s, the LXC updated and healthy 147 s, Linux suite passed 2 s, tagged 2 s, promoted (latest, ha-apps) 81 s, GitHub Release 1 s; 8.5 minutes in all.
+
+## HK Frontend 1.50.0 (2026-11-08)
+
+- hk-frontend 1.50.0, commit `edb0078`, tagged `hk-frontend/v1.50.0`, copied with rsync --inplace; diff -rq shows no difference.
+- Home Assistant restarted and serves `/hk/panels/hk-settings.js` (40 s from the restart).
+- Mantel on the LXC reconnected to Home Assistant and was still healthy a minute later (64 s).
+- Published to jazzphone/hk-frontend main as `e692151`, tagged `v1.50.0` and released on GitHub.
+- The Wiki had no changes.

@@ -2185,7 +2185,7 @@
         // EVERY DEVICE, MOST FIRST, scrolling inside the card; the last row
         // fades so it reads as more below. Two columns across a whole row.
         // (its edges: the sheet's shadows, BASE_CSS .hk-edge -- was a fade)
-        '.ml{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;display:flex;flex-direction:column;gap:12px;',
+        '.ml{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y pinch-zoom;display:flex;flex-direction:column;gap:12px;',
         '  padding:2px 6px 18px 0;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,0.25) transparent}',
         '@container (min-width:' + window.hkCards.BP.cardTwo + 'px){.ml{display:grid;grid-template-columns:1fr 1fr;column-gap:28px;row-gap:12px;align-content:start}}',
         '.most .mh{font-size:13px;font-weight:600;letter-spacing:0.3px;text-transform:uppercase;color:' + window.hkCards.v('ink-2') + '}',
@@ -2913,7 +2913,7 @@
   // large and light, a line under it; rows of figures two by two; a row of
   // bars. The Battery and Energy Rings blocks share them.
   var WIDGET_CSS = [
-    '.wl{font-size:15px;font-weight:600;line-height:19px;letter-spacing:0.2px;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:none}',
+    '.wl{font-size:15px;font-weight:600;line-height:19px;letter-spacing:0.2px;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:none;text-shadow:' + window.hkCards.v('glow') + '}',
     '.wb{font-size:44px;font-weight:300;letter-spacing:-0.9px;line-height:1.04;font-variant-numeric:tabular-nums;white-space:nowrap;margin-top:2px;flex:none}',
     '.ws{' + window.hkCards.typeCss('body') + ';line-height:19px;color:' + window.hkCards.v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '.ws.wrap{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}',
@@ -2922,7 +2922,7 @@
     '.wc{display:block}',
     '.waxis{display:flex;justify-content:space-between;margin-top:6px;' + window.hkCards.typeCss('micro') + ';color:' + window.hkCards.v('ink-3') + '}',
     '.wgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 18px}.wgrid>div{display:flex;flex-direction:column;min-width:0}',
-    '.wgrid b{' + window.hkCards.typeCss('label') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '.wgrid b{' + window.hkCards.typeCss('label') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:' + window.hkCards.v('glow') + '}',
     '.wgrid span{font-size:22px;font-weight:600;letter-spacing:-0.3px;line-height:1.2;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'
   ].join('');
   // A BLOCK'S BOX in px, and inside its inset: the view's measure, else a
@@ -3183,8 +3183,7 @@
         '@container (max-width:720px){.bt2{grid-template-columns:1fr;gap:20px;margin-top:30px}}',
         '.cell{position:relative;height:118px;border-radius:24px;border:6px solid var(--hk-battery-shell,rgba(255,255,255,.42));padding:6px;margin-right:16px;box-sizing:border-box}',
         '.cell:after{content:"";position:absolute;right:-16px;top:32px;width:10px;height:42px;border-radius:0 7px 7px 0;background:var(--hk-battery-shell,rgba(255,255,255,.42))}',
-        '.cell .fill{position:relative;overflow:hidden;height:100%;border-radius:13px;background:' + window.hkCards.v('battery-fill') + ';box-shadow:inset 0 1px 0 rgba(255,255,255,0.35);',
-        '  animation:growX 1.2s cubic-bezier(.22,.8,.25,1) backwards;transform-origin:0 50%;transition:width .6s ease}',
+        '.cell .fill{position:relative;overflow:hidden;height:100%;border-radius:13px;background:' + window.hkCards.v('battery-fill') + ';box-shadow:inset 0 1px 0 rgba(255,255,255,0.35);  animation:growX 1.2s cubic-bezier(.22,.8,.25,1) backwards;transform-origin:0 50%;transition:width .6s ease}',
         '.cell .fill.low{background:' + window.hkCards.v('battery-fill-low') + '}',
         '@keyframes growX{from{transform:scaleX(0)}}',
         '.hshim{position:absolute;top:0;bottom:0;width:35%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.45),transparent);animation:hRun 1.8s linear infinite}',
@@ -3195,12 +3194,10 @@
         '.cell .txt b u{text-decoration:none;font-size:18px;margin-left:2px;opacity:.8}',
         // ONE line under the level: the stored kWh and the backup time. Two
         // lines left the figures a few px off the fill's edges.
-        '.cell .txt span{font-size:14px;line-height:18px;font-weight:600;color:rgba(255,255,255,.9);margin-top:8px;text-shadow:0 1px 2px rgba(0,0,0,.25);padding-right:12px;',
-        '  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+        '.cell .txt span{font-size:14px;line-height:18px;font-weight:600;color:rgba(255,255,255,.9);margin-top:8px;text-shadow:0 1px 2px rgba(0,0,0,.25);padding-right:12px;  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
         // a mark is a tick through the battery's outline, top and bottom --
         // never a line through the figures inside it
-        '.mk{position:absolute;top:-10px;bottom:-10px;width:0;border-left:2px dashed;',
-        '  -webkit-mask-image:linear-gradient(to bottom,#000 22px,transparent 22px,transparent calc(100% - 22px),#000 calc(100% - 22px));',
+        '.mk{position:absolute;top:-10px;bottom:-10px;width:0;border-left:2px dashed;  -webkit-mask-image:linear-gradient(to bottom,#000 22px,transparent 22px,transparent calc(100% - 22px),#000 calc(100% - 22px));',
         '  mask-image:linear-gradient(to bottom,#000 22px,transparent 22px,transparent calc(100% - 22px),#000 calc(100% - 22px))}',
         '.mkl{position:absolute;bottom:calc(100% + 14px);transform:translateX(-50%);font-style:normal;font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;white-space:nowrap}',
         '.side2{display:flex;flex-direction:column;gap:14px;min-width:0}',
@@ -3228,13 +3225,16 @@
         '.bring .in small{' + window.hkCards.typeCss('caption') + ';color:' + window.hkCards.v('ink-2') + ';margin-top:4px}',
         '.bw{display:flex;gap:18px;flex:1;min-height:0}.bw>.wcol{flex:1}',
         '.bt{display:flex;flex-direction:column;flex:1;min-height:0}.bt .bring{margin:auto}',
-        '.blg{display:flex;flex-direction:column;justify-content:space-evenly;flex:1;min-height:0}',
+        '.blg{display:flex;flex-direction:column;justify-content:space-between;flex:1;min-height:0}',
         '.blg .top{display:flex;gap:18px;align-items:center;min-width:0}',
         '.bx{display:flex;gap:24px;flex:1;min-height:0}',
-        '.bx .lft{flex:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center}',
+        '.bx .lft{flex:none;display:flex;flex-direction:column;align-items:center;justify-content:space-between;gap:10px;text-align:center}.bx .lft>.wl{align-self:stretch;text-align:left}',
         '.bx .rt{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0}',
         '.bx .wbars{flex:1;min-height:40px;margin-top:8px}',
-        '.bx .wgrid{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px 10px;margin-top:12px}.bx .wgrid span{font-size:17px}'
+        '.bx .wgrid{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px 10px;margin-top:12px}.bx .wgrid span{font-size:17px}',
+        // (THE FOUR FIGURES ARE TARGETS, 2026-11-08, the controls audit: each 44 px tall at least, 12 px clear between them)
+        '.blg .wgrid>div,.bx .wgrid>div{min-height:44px;',
+        '  justify-content:center}'
       ].join('');
     }
     // a block also reads the Energy feature's sun, house and grid (and is
@@ -3266,9 +3266,9 @@
       var name = esc(c.title || (sized === 'S' || sized === 'T' ? 'Battery' : 'House Battery'));
       var lab = '<div class="wl" style="color:' + col + '">' + name + '</div>';
       if (sized === 'S') {
-        // the ring as large as the room under the level leaves (a tile cell is 150 tall)
-        var sp = Math.max(36, Math.min(64, b.ih - 19 - 46 - 6));
-        this._paint(lab + '<div class="wb">' + pct + '</div><div class="wf">' + ring(sp, icon(Math.round(sp * 0.42))) + '</div>');
+        // (2026-11-07, the review: a 64 px ring in the corner under the level left half the block bare) one ring as large as the block, the level and what it is doing inside it
+        var sp = Math.max(64, Math.min(b.iw, b.ih - 19 - 6));
+        this._paint('<div class="bt">' + lab + ring(sp, face(sp, Math.round(sp * 0.24))) + '</div>');
         return;
       }
       if (sized === 'W') {
@@ -3306,7 +3306,7 @@
           stat(fullK, col, full, c.level);
       };
       if (sized === 'L') {
-        var lp = Math.max(96, Math.min(150, b.ih - 2 * 44 - 12 - 24));
+        var lp = Math.max(96, Math.min(Math.round(b.iw * 0.48), b.ih - 2 * 44 - 12 - 36));
         this._paint('<div class="blg"><div class="top">' + ring(lp, face(lp, Math.round(lp * 0.21))) +
           '<div class="wcol">' + lab + '<div class="wb" style="font-size:30px">' + (stored != null ? fx(stored, 1) + ' kWh' : pct) + '</div>' +
           (backup ? '<div class="ws wrap">About ' + esc(backup) + '</div>' : '') + '</div></div>' +
@@ -3315,10 +3315,10 @@
       }
       // XL: the ring and what is stored on the left; the day's charge as bars, then the four figures
       var xp = Math.max(120, Math.min(190, b.ih - 44, Math.round(b.iw * 0.34)));
-      this._paint('<div class="bx"><div class="lft" style="width:' + Math.max(xp, 200) + 'px">' + ring(xp, face(xp, Math.round(xp * 0.21))) +
+      this._paint('<div class="bx"><div class="lft" style="width:' + Math.max(xp, 200) + 'px">' + lab + ring(xp, face(xp, Math.round(xp * 0.21))) +
         (both ? '<div class="ws wrap">' + esc(both) + '</div>' : '') + '</div>' +
         '<div class="rt"><div class="wl" style="color:' + window.hkCards.v('ink-2') + '">Today</div>' +
-        '<div class="wbars">' + this._dayBars(c, lvl, col, b.iw - Math.max(xp, 200) - 24, Math.max(40, b.ih - 19 - 8 - 19 - 12 - 40)) + '</div>' +
+        '<div class="wbars">' + this._dayBars(c, lvl, col, b.iw - Math.max(xp, 200) - 24, Math.max(40, b.ih - 19 - 8 - 19 - 12 - 44)) + '</div>' +
         '<div class="waxis"><span>12 AM</span><span>6</span><span>12 PM</span><span>6</span></div>' +
         '<div class="wgrid">' + four(true) + '</div></div></div>');
     }
@@ -4037,7 +4037,7 @@
     WIDGET_CSS,
     '.rings{display:block;flex:none}.rings .tick{fill:#fff;filter:drop-shadow(0 0 2px rgba(0,0,0,.55))}',
     // THE SWITCH: three choices on a track, the chosen one white; each a
-    // 44 px target (its ::after reaches above and below the 30 px pill)
+    // 44 px target (its ::after reaches above and below the 30 px pill); Tall's, nothing stretching (2026-11-08): each as wide as its word, centered
     '.per{display:flex;gap:2px;padding:3px;border-radius:' + window.hkCards.R.capsule('33px') + ';background:' + window.hkCards.v('key') + ';flex:none;z-index:1}',
     '.per button{all:unset;position:relative;box-sizing:border-box;min-width:46px;padding:5px 11px;border-radius:' + window.hkCards.R.capsule('27px') + ';text-align:center;cursor:pointer;',
     '  ' + window.hkCards.typeCss('caption') + ';font-weight:600;line-height:17px;color:' + window.hkCards.v('ink-2') + '}',
@@ -4045,7 +4045,7 @@
     '.per button[aria-pressed=true]{background:#fff;color:#1c1c1e}',
     '.per button:focus-visible{outline:2px solid ' + window.hkCards.v('ink-2') + ';outline-offset:2px}',
     '.per.tr{position:absolute;top:var(--hk-pad-t,14px);right:var(--hk-pad-r,14px)}',
-    '.per.sm{align-self:stretch;justify-content:space-between}.per.sm button{flex:1;min-width:0;padding:5px 4px}',
+    '.per.sm{align-self:center}.per.sm button{flex:none;min-width:0;padding:5px 7px}',
     // the figures: a dot in the ring's color, the name, the amount
     '.ev{display:flex;flex-direction:column;gap:5px;min-width:0}',
     '.ev>div{display:grid;grid-template-columns:10px minmax(0,1fr) auto;column-gap:8px;align-items:center}',

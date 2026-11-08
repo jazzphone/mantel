@@ -240,11 +240,12 @@ class MusicConfig:
                 if c is None:
                     c = choosers[p.chooser] = {"name": p.chooser, "icon": p.icon, "options": []}
                     pills.append(c)
-                c["options"].append(dict({"name": p.name, "key": p.key}, **_cover(covers, p.key)))
+                c["options"].append(dict({"name": p.name, "key": p.key, "uris": list(p.items)}, **_cover(covers, p.key)))
                 if p.key in covers and "image" not in c:       # (the choices' pill: its first choice's picture)
                     c["image"] = covers[p.key]
             else:
-                pills.append(dict({"name": p.name, "icon": p.icon, "key": p.key}, **_cover(covers, p.key)))
+                # (its Music Assistant items: what the Music block's last played is matched against -- 2026-11-08)
+                pills.append(dict({"name": p.name, "icon": p.icon, "key": p.key, "uris": list(p.items)}, **_cover(covers, p.key)))
         home = self.homes.get(user_id or "")
         return {
             # Music Assistant's live config entry, for Browse's get_library --

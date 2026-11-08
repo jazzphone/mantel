@@ -6261,10 +6261,10 @@
     // the mounted sky element, or null (hk-glass.js paints its pre-rendered
     // frost from it)
     element: function () { return mounted; },
-    // the page whose sky this is now -- set as that page's view takes the sky
-    // over (render), a frame or two after the view itself is on the page
-    // (hk-glass.js wears a page's picture from then, 2026-10-13)
+    // the page whose sky this is now -- set as that page's view takes the sky over (render), a frame or two after the
+    // view itself is on the page (hk-glass.js wears a page's picture from then, 2026-10-13)
     path: function () { return mounted && mounted.isConnected ? mountedPath : null; },
+    swipingTo: function () { return swiping() || null; },     // a swipe's next page, its sky painted under (swipeCover)
     // for a pre-rendered blur (hk-glass.js): what the sky shows (skySig),
     // and whether more of it is on its way (the realistic clouds)
     // what the sky SHOWS: the last change said (announce, hk-sky-change) --

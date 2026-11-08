@@ -1,5 +1,7 @@
 # Phase 10: making the iPhone app feel native (plan, 2026-10-20)
 
+> Since 2026-11-08 the Apple apps' code (`apple/` here) is in its own repositories, without the `apple/` prefix: `jazzphone/mantel-ios` (the iPhone and iPad app, `MantelKit/`, `Common/`, `tools/testflight.py`) and `jazzphone/mantel-mac` (the Mac app; mantel-ios is its `ios/` submodule).
+
 Avery's question after using the app on his iPhone: what would make it feel like a native app and not a fancy website?
 He chose all seven items below. This is the plan: what each is, how it is built, what it touches, how it is checked,
 and the order. Nothing here changes what the house decides: the app still asks, the gateway still decides, and every

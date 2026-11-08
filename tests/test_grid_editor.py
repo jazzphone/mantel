@@ -45,7 +45,7 @@ check(JSON.stringify(g) === original, 'making room leaves the draft alone');
 check(!E.makeRoom(g,'a',[5,0]), 'making room: past the edge');
 check(E.firstSpace(g,'W').join() === '4,0', 'first fit');
 check(E.add(g,'scene','W').items[3].at.join() === '4,0', 'catalog placement');
-check(!E.add(g,'action','W'), 'card does not support class');
+check(!E.add(g,'action','L'), 'card does not support class');
 check(!E.add(g,'gone','S'), 'unknown card');
 check(E.snap(300,250,{left:100,top:50,width:600,height:400},6,4).join() === '2,2', 'snap scaled frame');
 check(!E.valid(Object.assign({},g,{cols:3})), 'shrinking keeps blocks in bounds');
@@ -55,6 +55,18 @@ var full = Object.assign({},g,{items:[]});
 for(var y=0;y<4;y++) for(var x=0;x<6;x++) full.items.push({id:'b'+x+'_'+y,card:'timers',size:'S',at:[x,y]});
 check(E.firstSpace(full,'S') === null, 'full grid');
 check(!E.add(full,'timers','S'), 'item limit');
+// TINY (2026-11-08): half a cell, two to a cell -- placed, moved and made room for by halves
+var t = {v:1,cols:6,rows:4,frame:[1280,800],band:true,items:[{id:'t1',card:'accessory',size:'XS',at:[0,0]},
+{id:'t2',card:'accessory',size:'XS',at:[0,0,1]}, {id:'s',card:'timers',size:'S',at:[1,0]}]};
+check(E.valid(t), 'two Tiny blocks share a cell');
+check(E.firstSpace(Object.assign({},t,{items:[t.items[0]]}),'XS').join() === '0,0,1', 'Tiny: the free bottom half first');
+check(!E.valid({v:1,cols:6,rows:4,frame:[1280,800],band:true,items:[{id:'x',card:'timers',size:'S',at:[0,0,1]}]}), 'only Tiny has a half');
+var tm = E.makeRoom(t,'s',[0,0]);
+check(tm && E.valid(tm) && tm.items[2].at.join() === '0,0' && tm.items[0].at.join() === '1,0' && tm.items[1].at.join() === '1,0,1',
+      'a Small onto two Tiny: the two move together into the space it left');
+var tt = E.makeRoom(t,'t2',[1,0,1]);
+check(tt && E.valid(tt) && tt.items[1].at.join() === '1,0,1', 'a Tiny onto the bottom half of a Small: the Small moves aside');
+check(E.place(t,'t1',[2,0],'S').items[0].at.join() === '2,0', 'a Tiny made Small: its place whole');
 print('ALL placement checks PASS');
 ''')
     run = subprocess.run([str(JSC), str(script)], capture_output=True, text=True)

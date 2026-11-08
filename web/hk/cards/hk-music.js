@@ -271,7 +271,7 @@
     '.mu.idle .pon{display:none}',
     // THE HOUSE: a card for each thing playing
     // (capped on two or three columns, scrolling within itself: _houseFit)
-    '.house{flex:none;display:flex;flex-direction:column;gap:6px;margin-bottom:12px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none}',
+    '.house{flex:none;display:flex;flex-direction:column;gap:6px;margin-bottom:12px;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y pinch-zoom;scrollbar-width:none}',
     '.house::-webkit-scrollbar{display:none}',
     '.house > *{flex:none}',
     '.house:empty{display:none}',
@@ -358,7 +358,7 @@
     // ...and nothing is drawn before the page knows its columns: built as two,
     // its first frame on a phone was the two-column page (_layout sets cols)
     '.mu:not([cols]){visibility:hidden}',
-    '.mu[cols="1"] .left{position:fixed;left:0;right:0;top:0;bottom:0;z-index:19;box-sizing:border-box;overflow-y:auto;overscroll-behavior:contain;',
+    '.mu[cols="1"] .left{position:fixed;left:0;right:0;top:0;bottom:0;z-index:19;box-sizing:border-box;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y pinch-zoom;',
     // (its sides clear of a side safe area, its glass under it: hk-base.js SAFE)
     '  padding:max(10px,env(safe-area-inset-top,0px)) calc(20px + var(--hk-safe-right,env(safe-area-inset-right,0px))) max(24px,env(safe-area-inset-bottom,0px)) calc(20px + var(--hk-safe-left,env(safe-area-inset-left,0px)));transform:translateY(100%);visibility:hidden;',
     '  transition:transform .42s cubic-bezier(.32,.72,0,1),visibility 0s linear .42s;',

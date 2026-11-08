@@ -5,6 +5,58 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+**Added**
+- **Tiles in a block sit 13 px in with 21 px corners** on HomeView's square cells (groups, Scenes, Security, Live TV), concentric with the block; headings stay put.
+- **Tiny**: an Accessory in half a cell, two to a cell -- HomeView's tile at half height, its glyph bare; a sensor's reading ("71°") in a Centered tile's glyph place.
+- **A Wide Accessory is a slider** for a light, a fan or a shade (the whole tile, as Control Center's); **an Accessory Group in Small** (two half-height pills); **Music's Extra Large the last played on top**, every playlist five across under it (and the Music block's Playlists lead with the one last played); **Security's HomeView Extra Large keeps its keypad**.
+
+**Changed**
+- **Half-height pills fill their block to equal margins**, titles sit on the block's inset, and short wide tiles keep their words clear of the foot.
+
+**Fixed**
+- **Pre-rendered glass no longer flickers as a swipe lands** (the last page's blur behind the cards for a few frames), and **the Pages screen lands sharp and at its full size from Home** (its icons could land blurred, then small and to the left for a second).
+- **A swipe over a row that scrolls sideways turns the page when the row can't go that way** (Music's rows at their start or end; on an iPad the rows keep every swipe, as before).
+- **A swipe over a list that scrolls up and down turns the page** (Security's Recent Activity, Calendar's day list and hours, and the rest take only up-and-down swipes).
+- **Accessory Groups no longer redraw in one column on the way back Home** (one updated while another page showed laid itself out for the wrong cell shape).
+
+## 1.50.0 - 2026-11-08
+
+**Added**
+- **Security's Height option** on Large and Extra Large: the locks and garage doors as HomeView tiles (Full) or half-height pills (Half, the default beside the keypad, lined up with it).
+
+**Changed**
+- **A block shows a title only when you gave it one**; Accessories and Scenes no longer show a generic label, and "N More" is their last tile.
+- **The Rooms and More sheet on a tablet spans the window**, with room around it to tap out.
+- **A block with nothing to show says its name and where to set it up.**
+
+**Fixed**
+- **An Accessory Group that pages shows one row of dots**, its tiles under its title; **half-height pills keep their second row**.
+- **Security's locks lay out the same in the editor and on the tablet**, their names whole.
+- **Swiping between pages in Pre-rendered glass** no longer flashes the last page's blur, and the glass repaints for less.
+
+**Fixed**
+- **No flash of the last page's blur behind the cards after a swipe** in Pre-rendered glass: each page keeps its own picture through the swipe, and the fresh one fades in once it lands.
+- **Pre-rendered glass repaints faster on Android tablets**, and waits for a pause in swiping before it does.
+
+## 1.49.0 - 2026-11-08
+
+**Added**
+- **A Custom Detail Sheet on any Home Grid block.** Edit a block, then Detail Sheet → When Tapped → Custom Detail Sheet: a title, an icon, a tile style and the accessories you choose, in your order.
+- **Security in HomeView's style**, with a new Compact size (3 × 1); its Extra Large leads with the keypad, the locks and garage doors as tiles and the open doors and windows in one line.
+- **More sizes for the Home Grid blocks** (Accessory Tall with a level you drag, Room Small and Tall, Thermostat Wide, Calendar and To-do Wide, Timers, Who's Home and more), and **a block answers a tap by where it lands**: On Now's categories open a sheet of those things, or their page (a new option, Categories).
+- **The Vacuum block picks rooms:** Wide and Tall have a Rooms key that opens "Rooms to Clean" and name the rooms on the block; Clean cleans them, or the whole house when none are picked.
+- **Everything can scroll in its block** or open its page (a new option, More Places).
+
+**Changed**
+- **Nothing in a block stretches.** Tiles, rows, keys and pills keep their designed size at each block size; a bigger block shows more of them, centered with equal margins. Room, Accessories and Scenes keep one tile size per block size, with "More" for the rest.
+- **On Now and House Status, redesigned together:** a headline ("8 On", "1 Window Open", "All Good") over the categories as lines, each glyph lit in its color.
+- **Now Playing follows the screensaver's Music slide**; Timers with none running, Calendar with nothing scheduled, Doors & Windows and Who's Home read as finished blocks in every state; the Thermostat's modes sit behind one Mode key on Wide and Tall; Weather Extra Large spreads its readings; Live TV tiles show what is on behind each channel.
+- **The Home Grid editor's previews draw in the screen's Tile Style.**
+
+**Fixed**
+- **Swiping between pages is lighter in Pre-rendered glass**, and quick flicks one after another all turn the page.
+- **The screensaver's forecast along the bottom shows its hours and days again**, and the Home Grid's clock no longer runs under the weather.
+
 ## 1.48.3 - 2026-11-07
 
 **Fixed**

@@ -2057,8 +2057,12 @@
     // in the frame it happens in (the view's margins are laid out with that frame). Each said it as a page swipe landed
     // between Home and the Pages screen, and each sync read the panel's box after the other had moved the page: three
     // layouts of the whole document in that one moment (2026-11-07, 15-22 ms each at 4x CPU)
+    // THE VIEW'S MARGINS AT ONCE, though (written, nothing read): left for the frame, a page measuring itself before
+    // it -- a push drawing the Pages screen as a swipe landed on it from Home -- drew in the Side Pane's old room, and
+    // no resize ever told it otherwise: its icons small and to the left for a second (2026-11-08, the owner's video)
     var paneFrame = 0;
     window.addEventListener('hk-pane', function () {
+      try { room(!!S.wasDock && M.on()); } catch (e) { /* the frame's sync puts it right */ }
       if (paneFrame || navFrame) return;
       paneFrame = requestAnimationFrame(function () { paneFrame = 0; sync(); });
     });

@@ -181,8 +181,8 @@ function () {
   eq('a move changes only the cell: the same card', R.keyOf(Object.assign({}, CFG0.cards[0], { hk_cell: { id: 'clock', at: [1, 1] } })), R.keyOf(CFG0.cards[0]));
   var big = R.cardsFor(CFG0, R.resized(X, copy(LAYOUT), 'thermo', 'L'), 'auto').filter(function (c) { return c.hk_cell && c.hk_cell.id === 'thermo'; })[0];
   eq('a size the card draws by its cell alone (the thermostat Large): the same card', R.keyOf(big), R.keyOf(CFG0.cards[6]));
-  var tall = R.cardsFor(CFG0, R.resized(X, copy(LAYOUT), 'np', 'T'), 'auto').filter(function (c) { return c.hk_cell && c.hk_cell.id === 'np'; })[0];
-  ok('a size that changes the card (Now Playing Tall: its progress): another card', R.keyOf(tall) !== R.keyOf(CFG0.cards[3]));
+  var tall = R.cardsFor(CFG0, R.resized(X, copy(LAYOUT), 'np', 'S'), 'auto').filter(function (c) { return c.hk_cell && c.hk_cell.id === 'np'; })[0];
+  ok('a size that changes the card (Now Playing Small: no progress): another card', R.keyOf(tall) !== R.keyOf(CFG0.cards[3]));
 },
 function () {
   H.section('the surface: a Home Grid\'s Home is offered Edit');
@@ -214,7 +214,7 @@ function () {
   eq('every block has its cover', cells(VIEW).map(function (c) { return !!coverOf(VIEW, c.attrs['data-id']); }), [true, true, true, true, true, true, true]);
   ok('...a minus on each', !!btnOf(VIEW, 'clock', 'remove') && btnOf(VIEW, 'clock', 'remove').attrs['aria-label'] === 'Remove Clock');
   ok('...a size where the card has more than one', !!btnOf(VIEW, 'clock', 'size') && !btnOf(VIEW, 'timers', 'size') === false);
-  eq('...none where it has one (an action is Small only)', !!btnOf(VIEW, 'lock', 'size'), false);
+  eq('...an action has Small and Wide, so it has one too (2026-11-07)', !!btnOf(VIEW, 'lock', 'size'), true);
   eq('nothing to save yet', s.saves(), []);
   eq('the bar has Add', s.parts.some(function (p) { return (p.buttons || []).some(function (b) { return b.label === 'Add'; }); }), true);
 
@@ -237,13 +237,13 @@ function () {
   eq('...from the view', !!cellOf(VIEW, 'timers'), false);
   eq('...the bar says so', E._.barMessage(), 'Timers removed. Cancel puts it back.');
 
-  // a size: Now Playing Tall -- another card, made once
-  var next = R.resized(X, part.grid, 'np', 'T');
-  ok('Now Playing can be Tall', !!next);
+  // a size: Now Playing Small -- another card (no progress card), made once
+  var next = R.resized(X, part.grid, 'np', 'S');
+  ok('Now Playing can be Small', !!next);
   part.commit(next);
   eq('...the view shows a new element for it', MADE.length, 1);
   eq('...in its cell', cellOf(VIEW, 'np').firstChild, MADE[0]);
-  eq('...its size badge says so', cellOf(VIEW, 'np').attrs.size, 'T');
+  eq('...its size badge says so', cellOf(VIEW, 'np').attrs.size, 'S');
   part.commit(R.resized(X, part.grid, 'np', 'W'));
   eq('...and back to Wide: its own element again, nothing more made', [cellOf(VIEW, 'np').firstChild === els0[3], MADE.length], [true, 1]);
 

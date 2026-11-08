@@ -19,7 +19,7 @@ You'll get an answer as soon as the maintainer can look at it. A fix ships as a 
 - Mantel Server (`hosts/server/`), its sign-in, sessions, wall-tablet credentials, roles and grants, the command gateway and its audit log.
 - The packaging in `packaging/` (the Home Assistant App, Docker images, the LXC script, the push relay).
 - Mantel Link and HK Frontend's Home Assistant integrations (`hosts/ha/`).
-- The iPhone, iPad and Mac apps (`apple/`).
+- The iPhone, iPad and Mac apps (their own repositories since 2026-11-08: `jazzphone/mantel-ios` and `jazzphone/mantel-mac`).
 
 Problems in Home Assistant, Music Assistant or a browser itself belong to those projects.
 

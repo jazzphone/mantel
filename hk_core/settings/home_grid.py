@@ -53,8 +53,11 @@ TABLET_ROOM = "tablet_room"
 # own" (span()) -- at [0, 0] only and so the only block in its view; offered for `cameras` alone
 # C, Compact (2026-11-07, docs/phase11/HOME-GRID.md "Security's HomeView sizes"): three columns by one row, a size of its
 # own -- never W or T read another way. Offered for Security's HomeView presentation alone (_security_size)
+# XS, Tiny (2026-11-08, the owner: "a half height accessory card on its own ... essentially the half height pill size"): one
+# cell's top or bottom half -- its place a third number, 1 the bottom ([c, r, 1]) -- two of them sharing a cell
 SIZES: dict[str, tuple[int, int]] = {"S": (1, 1), "W": (2, 1), "T": (1, 2), "L": (2, 2), "XL": (3, 2), "XXL": (6, 2),
-                                     "F": (0, 0), "C": (3, 1)}
+                                     "F": (0, 0), "C": (3, 1), "XS": (1, 1)}
+TINY = "XS"
 FULL = "F"
 
 
@@ -66,16 +69,16 @@ def span(size: str, cols: int, rows: int) -> tuple[int, int]:
 # THE CATALOG'S MIRROR: key -> its sizes, the page sources it swipes through besides `list` (every card has
 # `list`), and its options (name -> kind, OPTION_KINDS).
 CATALOG: dict[str, dict[str, Any]] = {
-    "accessory": {"sizes": ("S", "W"), "sources": (), "opts": {"entity": "entity", "secondary": "secondary"}},
-    "accessories": {"sizes": ("W", "L", "XL", "XXL"), "sources": ("accessories",), "opts": {"accessories": "accessories", "title": "title", "surface": "surface",
+    "accessory": {"sizes": ("XS", "S", "W", "T"), "sources": (), "opts": {"entity": "entity", "secondary": "secondary", "color": "boolean"}},
+    "accessories": {"sizes": ("S", "W", "T", "L", "XL", "XXL"), "sources": ("accessories",), "opts": {"accessories": "accessories", "title": "title", "surface": "surface",
                                                                               "height": "tile_height", "color": "boolean"}},
     "scene": {"sizes": ("S", "W"), "sources": (), "opts": {"scene": "scene", "color": "boolean"}},
-    "scenes": {"sizes": ("W", "L", "XL", "XXL"), "sources": ("scenes",), "opts": {"scenes": "scenes", "surface": "surface", "height": "tile_height", "color": "boolean"}},
-    "now_playing": {"sizes": ("S", "W", "T", "L"), "sources": ("speakers",), "opts": {"speaker": "speaker", "background": "np_background", "tap": "tap_target"}},
+    "scenes": {"sizes": ("W", "T", "L", "XL", "XXL"), "sources": ("scenes",), "opts": {"scenes": "scenes", "surface": "surface", "height": "tile_height", "color": "boolean"}},
+    "now_playing": {"sizes": ("S", "W", "T", "L", "XL"), "sources": ("speakers",), "opts": {"speaker": "speaker", "background": "np_background", "tap": "tap_target"}},
     # style (2026-10-30): the dial, or Big Number (docs/phase11/HOMEVIEW-LOOK.md, Phase C)
-    "thermostat": {"sizes": ("S", "T", "L", "XL"), "sources": ("thermostats",), "opts": {"entity": "climate", "style": "thermostat_style", "tap": "tap_target"}},
+    "thermostat": {"sizes": ("S", "W", "T", "L", "XL"), "sources": ("thermostats",), "opts": {"entity": "climate", "style": "thermostat_style", "tap": "tap_target"}},
     # (S, 2026-10-31, the owner: "a small option to the camera": one still in a cell)
-    "camera": {"sizes": ("S", "W", "L", "XL"), "sources": ("cameras",),
+    "camera": {"sizes": ("S", "W", "T", "L", "XL"), "sources": ("cameras",),
                # follow (2026-10-24): swiping all cameras, turn to the one a selector or the latest motion picks
                "opts": {"entity": "camera", "follow": "camera_follow", "follow_select": "select",
                         # name (2026-10-31, the owner): the camera's name at the foot -- Automatic shows it on a
@@ -87,18 +90,18 @@ CATALOG: dict[str, dict[str, Any]] = {
     # Large and Extra Large (2026-10-24): the alarm's keypad. presentation (2026-11-07): "homeview", the five HomeView
     # compositions (Small, Wide, Compact, Large, Extra Large) -- absent, the block as it always was, keypads and all;
     # members: the locks and garage doors it shows, in order (absent: the house's, automatically)
-    "security": {"sizes": ("S", "W", "C", "L", "XL"), "sources": (),
+    "security": {"sizes": ("S", "W", "C", "T", "L", "XL"), "sources": (),
                  "opts": {"entity": "alarm", "tap": "tap_target", "presentation": "security_presentation",
-                          "members": "security_members"}},
-    "timers": {"sizes": ("S", "W"), "sources": (), "opts": {"tap": "tap_target"}},
+                          "members": "security_members", "height": "tile_height"}},
+    "timers": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"tap": "tap_target"}},
     "weather": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"entity": "weather", "sky": "boolean", "big": "boolean", "tap": "tap_target"}},
-    "calendar": {"sizes": ("S", "T", "L", "XL"), "sources": (), "opts": {"calendars": "calendars", "days": "days", "month": "boolean", "tap": "tap_target"}},
+    "calendar": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"calendars": "calendars", "days": "days", "month": "boolean", "tap": "tap_target"}},
     "battery": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"tap": "tap_target"}},
-    "people": {"sizes": ("S", "W"), "sources": (), "opts": {"tap": "tap_target"}},
+    "people": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"tap": "tap_target"}},
     # Large and Extra Large (2026-10-24): its controls with Clean Areas
-    "vacuum": {"sizes": ("S", "W", "L", "XL"), "sources": (), "opts": {"entity": "vacuum"}},
+    "vacuum": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"entity": "vacuum", "tap": "tap_target"}},
     "clock": {"sizes": ("S", "W", "T", "L", "XL", "XXL"), "sources": (), "opts": {"clock_style": "clock_style", "bare": "boolean", "tap": "tap_target"}},
-    "power": {"sizes": ("S", "W", "L", "XL"), "sources": (), "opts": {"tap": "tap_target"}},
+    "power": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"tap": "tap_target"}},
     # show (2026-10-31, the owner): what it shows -- Recently Played (none stored), the Music page's playlists (presets), or
     # one playlist, named by `playlist` (its name in Music's settings)
     # tap (2026-11-01, the owner): When Tapped's choices, and Choose a Playlist -- every playlist in the Music page's
@@ -109,15 +112,15 @@ CATALOG: dict[str, dict[str, Any]] = {
     "live_tv": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"channel": "tv_channel", "tap": "tap_target"}},
     "water": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"tap": "tap_target"}},
     # the new cards (G3)
-    "room": {"sizes": ("W", "L", "XL", "XXL"), "sources": ("rooms",), "opts": {"area": "area", "surface": "surface", "accessory_display": "room_display", "tap": "tap_target"}},
-    "scene_suggested": {"sizes": ("W", "L"), "sources": (), "opts": {"windows": "windows"}},
+    "room": {"sizes": ("S", "W", "T", "L", "XL", "XXL"), "sources": ("rooms",), "opts": {"area": "area", "surface": "surface", "accessory_display": "room_display", "tap": "tap_target"}},
+    "scene_suggested": {"sizes": ("S", "W", "T", "L"), "sources": (), "opts": {"windows": "windows"}},
     # `area`: the room an action keeps to (All Lights Off in one room); the others ignore it
-    "action": {"sizes": ("S",), "sources": (), "opts": {"action": "action", "area": "area", "color": "boolean"}},
-    "everything": {"sizes": ("S", "W", "L", "XL"), "sources": (), "opts": {}},
+    "action": {"sizes": ("S", "W"), "sources": (), "opts": {"action": "action", "area": "area", "color": "boolean"}},
+    "everything": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"tap": "tap_target", "more": "everything_more"}},
     # THE WIDGET BLOCKS (2026-10-31, docs/phase11/HOMEVIEW-LOOK.md "Blocks as widgets"): what is on now, a to-do
     # list, and the Energy page's rings over a period of the block's own
-    "on_now": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"tap": "tap_target"}},
-    "todo": {"sizes": ("S", "T", "L", "XL"), "sources": (), "opts": {"entity": "todo", "tap": "tap_target"}},
+    "on_now": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"tap": "tap_target", "open": "on_now_open"}},
+    "todo": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"entity": "todo", "tap": "tap_target"}},
     "energy_rings": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"period": "period", "tap": "tap_target"}},
     # THE INTERCOM (2026-11-03, docs/phase17/INTERCOM.md): a button that opens its sheet; Wide also shows the last rooms
     # picked. Always the sheet, so no When Tapped
@@ -125,7 +128,7 @@ CATALOG: dict[str, dict[str, Any]] = {
     # RECENT (2026-11-03, docs/phase19/HOUSE-TIMELINE.md "The views"): the House Timeline's last rows. Mantel's own: a
     # host with no Timeline (Home Assistant) never offers it and draws a stand-in for a layout that has one. show:
     # Automatic (the morning summary from 5 to 11 AM, the rows after), Latest Events, or Morning Summary
-    "timeline": {"sizes": ("W", "L", "XL"), "sources": (), "opts": {"show": "timeline_show", "tap": "tap_target"}},
+    "timeline": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"show": "timeline_show", "tap": "tap_target"}},
     # HOUSE STATUS (2026-11-07, docs/phase11/HOUSE-STATUS.md): this screen's status chips as sections, each a tap to its
     # chip's page, the rest in a sheet. No options: what it shows is the screen's Status Chips (chips, chips_quiet,
     # chips_extra, chips_custom), drawn whether or not the screen shows its chip row. No When Tapped: each section
@@ -409,6 +412,26 @@ def _np_background(v: Any) -> str:
     return v
 
 
+# ON NOW'S CATEGORIES (2026-11-08, the owner: "Each category should either show a pop up or go to those pages... users
+# decisions"): a tapped kind shows its sheet (the default) or goes to its page
+ON_NOW_OPENS = ("sheet", "page")
+# EVERYTHING'S REST (2026-11-08, the owner: "scroll within the card or go to the page with the + button"): the last
+# place, "+N", opens the page (the default, as before) or the places scroll in the block
+EVERYTHING_MORE = ("page", "scroll")
+
+
+def _on_now_open(v: Any) -> str:
+    if v not in ON_NOW_OPENS:
+        raise GridInvalid("grid_option")
+    return v
+
+
+def _everything_more(v: Any) -> str:
+    if v not in EVERYTHING_MORE:
+        raise GridInvalid("grid_option")
+    return v
+
+
 def _clock_style(v: Any) -> str:
     if v not in CLOCK_FACES:
         raise GridInvalid("grid_option")
@@ -431,6 +454,8 @@ OPTION_KINDS = {
     "tap_target": _tap_target,
     "music_tap": _music_tap,
     "np_background": _np_background,
+    "on_now_open": _on_now_open,
+    "everything_more": _everything_more,
     "security_presentation": _security_presentation,
     "security_members": _security_members,
     "tv_channel": _tv_channel,
@@ -700,9 +725,10 @@ def _security_size(v: Mapping[str, Any], size: Any) -> None:
 def _capacity(v: Mapping[str, Any], size: str) -> None:
     if v.get("card") != "accessories":
         return
-    per = {"W": 2, "L": 4, "XL": 6, "XXL": 12}[size]
-    # (Half height, 2026-10-31: the shorter button, two rows in each of Full's)
-    if v.get("opts", {}).get("height") == "half":
+    per = {"S": 1, "W": 2, "T": 2, "L": 4, "XL": 6, "XXL": 12}[size]
+    # (Half height, 2026-10-31: the shorter button, two rows in each of Full's; Small is Half unless Full is chosen, 2026-11-08)
+    height = v.get("opts", {}).get("height")
+    if height == "half" or (size == "S" and height != "full"):
         per *= 2
     base = v.get("opts", {}).get("accessories", [])
     pages = v.get("pages", {})
@@ -747,12 +773,13 @@ def item(v: Any, cols: int, rows: int) -> dict[str, Any]:
     if w > cols or h > rows:
         raise GridInvalid("grid_fit")
     at = v.get("at")
-    if not isinstance(at, list) or len(at) != 2:
+    if not isinstance(at, list) or len(at) not in (2, 3) or (len(at) == 3 and size != TINY):
         raise GridInvalid("grid_place")
-    c, r = (_whole(x, 0, 99, "grid_place") for x in at)
+    c, r = (_whole(x, 0, 99, "grid_place") for x in at[:2])
     if c + w > cols or r + h > rows:
         raise GridInvalid("grid_place")
-    out = {"id": v["id"], "card": card, "size": size, "at": [c, r]}
+    half = _whole(at[2], 0, 1, "grid_place") if len(at) == 3 else 0
+    out = {"id": v["id"], "card": card, "size": size, "at": [c, r, 1] if half else [c, r]}
     opts = _opts(card, v.get("opts"))
     if opts:
         out["opts"] = opts
@@ -793,9 +820,18 @@ def item(v: Any, cols: int, rows: int) -> dict[str, Any]:
 
 def cells(it: Mapping[str, Any], cols: int = COLS[0], rows: int = ROWS_DEFAULT) -> set[tuple[int, int, int]]:
     """The cells a checked block covers on a `cols` x `rows` grid, in its view (blocks overlap only within one):
-    a Full block, all of them."""
-    (c, r), (w, h), view = it["at"], span(it["size"], cols, rows), it.get("view", 0)
+    a Full block, all of them (a Tiny one, its cell)."""
+    c, r = it["at"][0], it["at"][1]
+    (w, h), view = span(it["size"], cols, rows), it.get("view", 0)
     return {(view, c + x, r + y) for x in range(w) for y in range(h)}
+
+
+def halves(it: Mapping[str, Any], cols: int = COLS[0], rows: int = ROWS_DEFAULT) -> set[tuple[int, int, int, int]]:
+    """What two blocks may not share: each cell's top and bottom half (0 and 1) -- a Tiny block covers one of them."""
+    if it["size"] == TINY:
+        v, c, r = next(iter(cells(it, cols, rows)))
+        return {(v, c, r, it["at"][2] if len(it["at"]) == 3 else 0)}
+    return {cell + (half,) for cell in cells(it, cols, rows) for half in (0, 1)}
 
 
 def _frame(v: Any) -> list[int]:
@@ -900,14 +936,14 @@ def check(v: Any) -> dict[str, Any] | None:
     if v is None:
         return None
     out = _shape(v)
-    taken: set[tuple[int, int]] = set()
+    taken: set[tuple[int, int, int, int]] = set()
     ids: set[str] = set()
     items = []
     for raw in out["items"]:
         it = item(raw, out["cols"], out["rows"])
         if it["id"] in ids or it.get("view", 0) >= out.get("views", 1):
             raise GridInvalid("grid_item")
-        here = cells(it, out["cols"], out["rows"])
+        here = halves(it, out["cols"], out["rows"])
         if here & taken:
             raise GridInvalid("grid_overlap")
         ids.add(it["id"])
@@ -926,7 +962,7 @@ def layout(v: Any) -> dict[str, Any] | None:
         out = _shape(v)
     except (GridInvalid, TypeError, KeyError):      # read, never raise: one stored screen never stops every feed
         return None
-    taken: set[tuple[int, int]] = set()
+    taken: set[tuple[int, int, int, int]] = set()
     ids: set[str] = set()
     items = []
     for raw in out["items"]:
@@ -934,7 +970,7 @@ def layout(v: Any) -> dict[str, Any] | None:
             it = item(raw, out["cols"], out["rows"])
         except (GridInvalid, TypeError, KeyError):
             continue
-        here = cells(it, out["cols"], out["rows"])
+        here = halves(it, out["cols"], out["rows"])
         if it["id"] in ids or here & taken or it.get("view", 0) >= out.get("views", 1):
             continue
         ids.add(it["id"])
@@ -1103,7 +1139,7 @@ def _chunks(xs: list[str], n: int) -> list[list[str]]:
 
 def _scenes_block(iid: str, size: str, at: list[int], scenes: list[str]) -> dict[str, Any]:
     """A scenes block holding the house's scenes: one page of them, or pages that swipe."""
-    per = {"W": 2, "L": 4, "XL": 6, "XXL": 12}[size]
+    per = {"W": 2, "T": 2, "L": 4, "XL": 6, "XXL": 12}[size]
     pages = _chunks(scenes[:LIST_MAX * PAGES_MAX], per)
     out: dict[str, Any] = {"id": iid, "card": "scenes", "size": size, "at": at}
     if len(pages) == 1:

@@ -368,12 +368,17 @@ window.__drawn = null;
 fire('pointerdown', ev(700, 400, path(made.lights)));
 var cg = P._.state().G;
 ok('a finger on it mid-settle catches it: the settle is over, the finger has it', !P._.state().A && cg && cg.live && cg.caught);
-ok('...nothing is left running', made.lights.style.transition === 'none' && made.climate.style.transition === 'none');
+ok('...nothing is left running', !/transform \d/.test(made.lights.style.transition) && !/transform \d/.test(made.climate.style.transition),
+   [made.lights.style.transition, made.climate.style.transition]);
+// (a settle on its way to a page that is ready has landed there when it is caught, however far it had got: the finger
+// holds the page it was going to, where it is on the screen, so a flick on goes a page further -- 2026-11-08)
+ok('...it has landed on the page it was going to: the host is told, and the finger holds that page',
+   navTo.join() === '/dashboard-hall/climate' && cg.stage.view === made.climate && cg.chain === 1, [navTo, cg.chain]);
 var before = navTo.length;
 run();
 ok('...and what that settle had queued does nothing now', navTo.length === before && !P._.state().L && P._.state().G === cg);
 fire('pointerup', ev(700, 400, path(made.lights)));
-ok('let go where it was caught: on to where it was going', P._.state().A && P._.state().A.to.path === '/dashboard-hall/climate');
+ok('let go where it was caught: on to where it was going', P._.state().A && !P._.state().A.to && P._.state().A.st.view === made.climate);
 var a2 = P._.state().A;
 run();
 drainPromises();
@@ -413,9 +418,12 @@ var toGhost = P._.state().A;
 ok('a swipe to a page not made ready yet goes to its stand-in', toGhost && toGhost.N && !toGhost.N.real, toGhost && toGhost.N);
 // (it is already more than half the way)
 fire('pointerdown', ev(700, 400, path(homeEl)));
-ok('...a finger then, well on its way: it lands, and is built, rather than starting over', !P._.state().A && P._.state().L && navTo.join() === '/dashboard-hall/lights' && P._.state().why === 'landing',
-   [navTo, P._.state().why]);
+// (2026-11-08: it once landed there and refused every touch while the page was built -- the owner's flicks that
+// "sometimes don't swipe")
+ok('...a finger then, well on its way: the finger holds it where it is, nothing refused, nothing landed yet', !P._.state().A && !P._.state().L &&
+   P._.state().G && P._.state().G.caught && navTo.length === 0 && P._.state().why === '', [navTo, P._.state().why]);
 fire('pointerup', ev(700, 400, path(homeEl)));
+ok('...let go there: on to the stand-in, where it was going', P._.state().A && P._.state().A.to && P._.state().A.to.path === '/dashboard-hall/lights');
 window.hkViewHost = null;
 window.hkShell.navigate = function (p) { navTo.push(p); location.pathname = p; };
 window.hkShell.view = function () { return page; };

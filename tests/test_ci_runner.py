@@ -36,7 +36,10 @@ def test_quick_is_part_of_full_and_full_adds_the_rest():
     assert {"edit-mode-check-chromium-1280x800", "edit-mode-check-webkit-1180x820"} <= set(full)
     assert "side-strip-check" in full and "side-strip-check" not in quick
     assert {"page-swipe-check-chromium-1280x800", "page-swipe-check-webkit-1180x820"} <= set(full)
-    assert {"swipe-motion-check-chromium-1280x800", "swipe-motion-check-webkit-1180x820"} <= set(full)
+    # the frame-timing checks are by hand (2026-11-08): never in a whole run, run when named
+    assert not any(n.startswith(("swipe-motion", "pre-glass-motion")) for n in full)
+    assert [s.name for s in ci.select(steps, "full", ["swipe-motion-check-webkit-1180"])] == ["swipe-motion-check-webkit-1180x820"]
+    assert ci.select(steps, "quick", ["swipe-motion"]) == []
     assert not any(n.startswith(("edit-mode", "page-swipe")) for n in quick)
     # `versions`, a release's re-check, never in quick or full itself; it knows bump_version's files
     assert [s.name for s in ci.select(steps, "versions")][-1] == "version-tests" and "version-tests" not in full
@@ -273,7 +276,8 @@ def test_each_browser_check_and_hk_frontend_suite_names_what_it_reads():
     assert browser and browser | {"hk-frontend-py", "hk-frontend-js", "types-py"} == keyed
     # (what runs in seconds, builds what the others need, or reads everything: always)
     assert not keyed & {"build-tools", "main-suite", "private-words", "ha-build", "caddy-image", "check-links"}
-    shows = next(s for s in full if s.name == "saver-shows-check-1of8")
+    shows = next(s for s in full if s.name == f"saver-shows-check-1of{ci.SAVER_SHARDS}")
+    assert "--one-size" in shows.cmd
     got = shows.inputs()
     assert {"web/", "hk_core/", "hosts/server/mantel_server/", "tools/headless/saver_shows_check.py",
             "tools/headless/saver_shows_check.cjs", "tools/headless/gallery.py", "tools/app_dev_server.py"} <= set(got)
@@ -285,12 +289,13 @@ def test_each_browser_check_and_hk_frontend_suite_names_what_it_reads():
     assert "hosts/ha/" in next(s for s in full if s.name == "hk-frontend-js").inputs
 
 
-def test_page_swipes_steps_are_the_checks_own_sizes():
+def test_page_swipes_steps_are_some_of_the_checks_own_sizes():
     import ast
     tree = ast.parse((ROOT / "tools/headless/page_swipe_check.py").read_text())
     sizes = next(ast.literal_eval(n.value) for n in ast.walk(tree) if isinstance(n, ast.Assign)
                  and any(getattr(t, "id", "") == "ENGINE_SIZES" for t in n.targets))
-    assert sizes == ci.PAGE_SWIPE
+    assert all(set(ci.PAGE_SWIPE[e]) <= set(sizes[e]) for e in ci.PAGE_SWIPE)    # the release run's: some of them
+    assert ci.PAGE_SWIPE == {"chromium": ("1280x800",), "webkit": ("1180x820", "390x844")}
 
 
 def test_imported_follows_a_checks_imports_and_its_other_half(tmp_path):

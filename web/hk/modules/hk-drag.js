@@ -142,7 +142,7 @@
       if (stopped) return;
       if (!t0) t0 = t;
       var e = t - t0;
-      if (e >= s.ms) { draw(x1); if (done) done(); return; }
+      if (e >= s.ms) { draw(x1); moEnd(); if (done) done(); return; }
       draw(s.at(e));
       raf = global.requestAnimationFrame(step);
     };
@@ -198,6 +198,7 @@
             return;
           }
           d.on = true;
+          moBegin('view');
           // (from here, not with a jump by the 10 px it waited; and a view still sliding is caught where it is)
           d.x += dx < 0 ? -10 : 10;
           d.from = grid._sliding ? drawnOff(grid) : 0;
@@ -245,6 +246,7 @@
       else if (Math.abs(off) > 0.5) grid._slideFor(c.ms);
       grid._slideMs = 0;
       grid._eatClick = Date.now();
+      setTimeout(moEnd, c.ms);
     }
   }
 
@@ -283,6 +285,55 @@
     if (t === 'none') return true;
     if (t !== 'pan-y' || n.hasAttribute('data-pager-part')) return false;
     return !(cs.overflowY === 'auto' || cs.overflowY === 'scroll');
+  }
+  // A ROW THAT KEEPS IT ONLY BECAUSE IT SCROLLS (nothing else on the way in: no control, no pager): the row, else null.
+  // At an end it pans only the way it still can (panRow), so the page swipe asks rowTakes at the first move.
+  function sidewaysRow(path, stop) {
+    var list = path || [];
+    for (var i = 0; i < list.length && list[i] !== stop; i++) {
+      var n = list[i];
+      if (!n || n.nodeType !== 1 || !n.matches) continue;
+      if (n.localName === 'hk-pager-card') { if ((n._pages || []).length > 1) return null; continue; }
+      if (n.matches(SIDEWAYS)) return null;
+      var cs = style(n);
+      if (claimsSideways(n, cs)) return null;
+      if (scrollsSideways(n, cs)) return /pan-(left|right)/.test(n.style.touchAction || '') ? n : null;
+    }
+    return null;
+  }
+  // can row `n` still scroll the way a finger moving dx goes (left: toward its end)?
+  function rowTakes(n, dx) {
+    var max = n.scrollWidth - n.clientWidth, x = Math.abs(n.scrollLeft);
+    return dx < 0 ? x < max - 1 : x > 1;
+  }
+  // A ROW'S TOUCH-ACTION (hkCards.fitPan, measured in a frame): one that fits takes no sideways pan (the page's), one
+  // that scrolls only the pan it can still make at an end (2026-11-08, the owner: on the Music page "the discovery
+  // section doesn't allow the page switch"): at its start pan-right (a finger going left), at its end pan-left, in
+  // between both -- so a swipe the way it cannot go is the page's (sidewaysRow). Kept as it scrolls. Set ahead: the
+  // browser reads it as the finger comes down (set in the pointerdown it was already too late, measured). WebKit has
+  // no pan-left / pan-right: there a row keeps every pan.
+  var EDGE_PAN = (function () {
+    try { return !!(window.CSS && CSS.supports && CSS.supports('touch-action', 'pan-y pan-right')); } catch (e) { return false; }
+  })();
+  function panOf(el, max) {
+    if (max <= 1) return 'pan-y pinch-zoom';
+    if (!EDGE_PAN || el.__hkRtl) return '';
+    var x = Math.abs(el.scrollLeft), back = x > 1, on = x < max - 1;
+    return back && on ? '' : on ? 'pan-y pan-right pinch-zoom' : back ? 'pan-y pan-left pinch-zoom' : '';
+  }
+  function setPan(el, ta) {
+    if (!ta) { if (el.style.touchAction) el.style.removeProperty('touch-action'); }
+    else if (el.style.touchAction !== ta) el.style.setProperty('touch-action', ta);
+  }
+  function panRow(el) {
+    el.__hkPanMax = el.scrollWidth - el.clientWidth;
+    if (EDGE_PAN && el.__hkPanMax > 1 && !el.__hkPanEdge) {
+      el.__hkPanEdge = true;
+      el.__hkRtl = (style(el) || {}).direction === 'rtl';
+      // (its width as measured here, not on every scroll)
+      el.addEventListener('scroll', function () { setPan(el, panOf(el, el.__hkPanMax)); }, { passive: true });
+    }
+    setPan(el, panOf(el, el.__hkPanMax));
   }
   function sideways(path, stop) {
     var list = path || [];
@@ -356,8 +407,70 @@
     };
   }
 
+  // HOW A SWIPE WENT, ON THIS DEVICE (2026-11-08). The swipe checks run on a
+  // Mac, with its CPU slowed down; a wall tablet's trouble was its GPU, which
+  // no slowed CPU shows, and the owner felt what no check caught. So each
+  // swipe counts its own frames, from the moment it begins to the frame after
+  // it lands: requestAnimationFrame runs at the pace the screen is drawn, and
+  // a frame more than LATE_MS after the last one missed a refresh. Nothing
+  // runs between swipes. page-health.js (Mantel's page) tells Mantel once a
+  // minute what was counted (a `motion` frame), so the log says, per tablet,
+  // how its swipes went.
+  //   motion.begin(kind)  something starts moving with a finger ('page' a
+  //                       page swipe, 'view' Home Grid's views, 'block' a
+  //                       block's pages); again while it runs: the same run
+  //   motion.end()        it has landed: counted to the next frame (a
+  //                       glide's end says it itself)
+  //   motion.take()       { swipes, frames, ms, late, worst, p95, kinds } since
+  //                       the last take, or null for none
+  var LATE_MS = 25, RUN_MAX_MS = 8000, GAPS_MAX = 2000;
+  var mo = { run: null, acc: null };
+  function moNow() { return typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now(); }
+  function moBegin(kind) {
+    if (typeof requestAnimationFrame !== 'function') return;
+    var r = mo.run;
+    if (r) { r.ending = false; return; }
+    r = mo.run = { kind: kind || 'page', t0: moNow(), last: 0, frames: 0, late: 0, worst: 0, gaps: [], ending: false };
+    var tick = function (t) {
+      if (mo.run !== r) return;
+      if (r.last) {
+        var gap = t - r.last;
+        r.frames++;
+        r.gaps.push(gap);
+        if (gap > LATE_MS) r.late++;
+        if (gap > r.worst) r.worst = gap;
+      }
+      r.last = t;
+      if (r.ending || t - r.t0 > RUN_MAX_MS) { moDone(r); return; }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }
+  function moEnd() { if (mo.run) mo.run.ending = true; }
+  function moDone(r) {
+    mo.run = null;
+    if (!r.frames) return;
+    var a = mo.acc || (mo.acc = { swipes: 0, frames: 0, ms: 0, late: 0, worst: 0, gaps: [], kinds: {} });
+    a.swipes++;
+    a.frames += r.frames;
+    a.ms += r.gaps.reduce(function (s, g) { return s + g; }, 0);
+    a.late += r.late;
+    a.worst = Math.max(a.worst, r.worst);
+    a.kinds[r.kind] = (a.kinds[r.kind] || 0) + 1;
+    if (a.gaps.length < GAPS_MAX) a.gaps = a.gaps.concat(r.gaps.slice(0, GAPS_MAX - a.gaps.length));
+  }
+  function moTake() {
+    var a = mo.acc;
+    mo.acc = null;
+    if (!a || !a.frames) return null;
+    var g = a.gaps.slice().sort(function (x, y) { return x - y; });
+    return { swipes: a.swipes, frames: a.frames, ms: Math.round(a.ms), late: a.late, worst: Math.round(a.worst),
+             p95: Math.round(g[Math.min(g.length - 1, Math.floor(g.length * 0.95))] || 0), kinds: a.kinds };
+  }
+
   global.hkDrag = { HOLD_MS: HOLD_MS, SLOP_TOUCH: SLOP_TOUCH, SLOP_MOUSE: SLOP_MOUSE,
+                    motion: { begin: moBegin, end: moEnd, take: moTake },
                     press: press, holdStill: holdStill, ghost: ghost, classify: classify,
-                    sideways: sideways, SIDEWAYS: SIDEWAYS,
+                    sideways: sideways, sidewaysRow: sidewaysRow, rowTakes: rowTakes, panRow: panRow, EDGE_PAN: EDGE_PAN, SIDEWAYS: SIDEWAYS,
                     speed: speed, lands: lands, spring: spring, easing: easing, curve: curve, glide: glide, viewSwipe: viewSwipe };
 })(typeof window !== 'undefined' ? window : globalThis);
