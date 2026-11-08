@@ -4,6 +4,8 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+## 0.1.153 - 2026-11-08
+
 **Added**
 - **Security's Height option** on Large and Extra Large: the locks and garage doors as HomeView tiles (Full) or half-height pills (Half). Beside the keypad, Half is the default, the pills starting level with the keypad's readout and the open doors and windows line level with Home, Away and Disarm.
 
