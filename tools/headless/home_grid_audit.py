@@ -376,12 +376,16 @@ MEASURE = r"""(() => {
         // (a choice in a segmented control is measured by its track: DESIGN.md's 44 px control, 36 px choices)
         const r = el.getBoundingClientRect(), up = el.parentElement, t = up ? up.getBoundingClientRect() : r;
         let h = el.classList.contains('segment') && up ? Math.max(r.height, t.height) : r.height, w = r.width;
-        // A transparent ::after may deliberately extend a visible label's hit target.
-        const hit = getComputedStyle(el, '::after');
-        if (hit.content !== 'none' && hit.content !== 'normal' && hit.position === 'absolute') {
+        // A transparent ::after (or ::before: House Status's "N more", 2026-11-07) may deliberately extend a visible
+        // label's hit target -- by its insets, or by its own size
+        for (const pseudo of ['::after', '::before']) {
+          const hit = getComputedStyle(el, pseudo);
+          if (hit.content === 'none' || hit.content === 'normal' || hit.position !== 'absolute') continue;
           const top = parseFloat(hit.top), bottom = parseFloat(hit.bottom), left = parseFloat(hit.left), right = parseFloat(hit.right);
           if (Number.isFinite(top) && Number.isFinite(bottom)) h = Math.max(h, r.height - top - bottom);
           if (Number.isFinite(left) && Number.isFinite(right)) w = Math.max(w, r.width - left - right);
+          if (parseFloat(hit.height) > 0) h = Math.max(h, parseFloat(hit.height));
+          if (parseFloat(hit.width) > 0) w = Math.max(w, parseFloat(hit.width));
         }
         // (in the block's own px: the grid is drawn scaled to the screen -- 0.74 on square cells at 1280 x 800 --
         // and a control is laid out at 44 before that, 2026-10-31)

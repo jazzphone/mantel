@@ -169,6 +169,10 @@
       // caption, on the block's inset) -- the owner, 2026-10-31: "different than All Lights Off and Lock Up"
       'hk-plate.sec[size=S] .big{' + type('headline') + ';line-height:21px;margin-top:0}',
       'hk-plate.sec[size=S] .sub{' + type('caption') + ';line-height:17px}',
+      // ...and in the Centered tile style (2026-11-07, the review: beside Lock Up and the lamps it alone sat on the
+      // inset's corner): HomeView's tile -- the shield bare at a third, the state and what it says centered under it
+      C.centredTile({ host: ':host([tile=centred])', plate: 'hk-plate.sec[size=S]', lit: 'hk-plate.sec.lit[size=S]', well: 'hk-plate.sec[size=S] .wl',
+                      icon: 'hk-plate.sec[size=S] .wl hk-icon', name: 'hk-plate.sec[size=S] .big', sub: ['hk-plate.sec[size=S] .sub'] }),
       '.side{display:flex;flex-direction:column;flex:0 0 150px;min-width:0}',
       '.hd{display:flex;align-items:center;gap:12px;min-width:0;flex:none;min-height:44px}',
       '.hd .tx{display:flex;flex-direction:column;min-width:0}',

@@ -87,3 +87,7 @@ Detail sheets: see "Sheets" below.
   (the summary centered and large, HomeView's Weather; the days share the right column); the Person sheet's history
   axis starts at its bar (it took the charts' 48 px y-axis inset). `sheet_review.py` gains the owner's 1280 x 800 and
   a bottom-heavy check (glass under a non-scrolling sheet's last thing beyond its side margin + 40).
+- 2026-11-07: Security Small takes HomeView's centered tile in the Centered style (it alone sat on the inset's corner);
+  the widget blocks' labels (Battery, Energy Rings: `WIDGET_CSS`) carry the glass glow; Battery Small is one ring the
+  size of the block with the level inside, Large's rows sit on the top and foot insets with a larger ring, Extra
+  Large labels its ring column beside "Today". `home_grid_audit.py` counts a `::before` hit area as it does `::after`.

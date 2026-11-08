@@ -2913,7 +2913,7 @@
   // large and light, a line under it; rows of figures two by two; a row of
   // bars. The Battery and Energy Rings blocks share them.
   var WIDGET_CSS = [
-    '.wl{font-size:15px;font-weight:600;line-height:19px;letter-spacing:0.2px;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:none}',
+    '.wl{font-size:15px;font-weight:600;line-height:19px;letter-spacing:0.2px;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:none;text-shadow:' + window.hkCards.v('glow') + '}',
     '.wb{font-size:44px;font-weight:300;letter-spacing:-0.9px;line-height:1.04;font-variant-numeric:tabular-nums;white-space:nowrap;margin-top:2px;flex:none}',
     '.ws{' + window.hkCards.typeCss('body') + ';line-height:19px;color:' + window.hkCards.v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '.ws.wrap{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}',
@@ -2922,7 +2922,7 @@
     '.wc{display:block}',
     '.waxis{display:flex;justify-content:space-between;margin-top:6px;' + window.hkCards.typeCss('micro') + ';color:' + window.hkCards.v('ink-3') + '}',
     '.wgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 18px}.wgrid>div{display:flex;flex-direction:column;min-width:0}',
-    '.wgrid b{' + window.hkCards.typeCss('label') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '.wgrid b{' + window.hkCards.typeCss('label') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:' + window.hkCards.v('glow') + '}',
     '.wgrid span{font-size:22px;font-weight:600;letter-spacing:-0.3px;line-height:1.2;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'
   ].join('');
   // A BLOCK'S BOX in px, and inside its inset: the view's measure, else a
@@ -3228,10 +3228,10 @@
         '.bring .in small{' + window.hkCards.typeCss('caption') + ';color:' + window.hkCards.v('ink-2') + ';margin-top:4px}',
         '.bw{display:flex;gap:18px;flex:1;min-height:0}.bw>.wcol{flex:1}',
         '.bt{display:flex;flex-direction:column;flex:1;min-height:0}.bt .bring{margin:auto}',
-        '.blg{display:flex;flex-direction:column;justify-content:space-evenly;flex:1;min-height:0}',
+        '.blg{display:flex;flex-direction:column;justify-content:space-between;flex:1;min-height:0}',
         '.blg .top{display:flex;gap:18px;align-items:center;min-width:0}',
         '.bx{display:flex;gap:24px;flex:1;min-height:0}',
-        '.bx .lft{flex:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center}',
+        '.bx .lft{flex:none;display:flex;flex-direction:column;align-items:center;justify-content:space-between;gap:10px;text-align:center}.bx .lft>.wl{align-self:stretch;text-align:left}',
         '.bx .rt{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0}',
         '.bx .wbars{flex:1;min-height:40px;margin-top:8px}',
         '.bx .wgrid{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px 10px;margin-top:12px}.bx .wgrid span{font-size:17px}'
@@ -3266,9 +3266,9 @@
       var name = esc(c.title || (sized === 'S' || sized === 'T' ? 'Battery' : 'House Battery'));
       var lab = '<div class="wl" style="color:' + col + '">' + name + '</div>';
       if (sized === 'S') {
-        // the ring as large as the room under the level leaves (a tile cell is 150 tall)
-        var sp = Math.max(36, Math.min(64, b.ih - 19 - 46 - 6));
-        this._paint(lab + '<div class="wb">' + pct + '</div><div class="wf">' + ring(sp, icon(Math.round(sp * 0.42))) + '</div>');
+        // (2026-11-07, the review: a 64 px ring in the corner under the level left half the block bare) one ring as large as the block, the level and what it is doing inside it
+        var sp = Math.max(64, Math.min(b.iw, b.ih - 19 - 6));
+        this._paint('<div class="bt">' + lab + ring(sp, face(sp, Math.round(sp * 0.24))) + '</div>');
         return;
       }
       if (sized === 'W') {
@@ -3306,7 +3306,7 @@
           stat(fullK, col, full, c.level);
       };
       if (sized === 'L') {
-        var lp = Math.max(96, Math.min(150, b.ih - 2 * 44 - 12 - 24));
+        var lp = Math.max(96, Math.min(Math.round(b.iw * 0.48), b.ih - 2 * 44 - 12 - 36));
         this._paint('<div class="blg"><div class="top">' + ring(lp, face(lp, Math.round(lp * 0.21))) +
           '<div class="wcol">' + lab + '<div class="wb" style="font-size:30px">' + (stored != null ? fx(stored, 1) + ' kWh' : pct) + '</div>' +
           (backup ? '<div class="ws wrap">About ' + esc(backup) + '</div>' : '') + '</div></div>' +
@@ -3315,7 +3315,7 @@
       }
       // XL: the ring and what is stored on the left; the day's charge as bars, then the four figures
       var xp = Math.max(120, Math.min(190, b.ih - 44, Math.round(b.iw * 0.34)));
-      this._paint('<div class="bx"><div class="lft" style="width:' + Math.max(xp, 200) + 'px">' + ring(xp, face(xp, Math.round(xp * 0.21))) +
+      this._paint('<div class="bx"><div class="lft" style="width:' + Math.max(xp, 200) + 'px">' + lab + ring(xp, face(xp, Math.round(xp * 0.21))) +
         (both ? '<div class="ws wrap">' + esc(both) + '</div>' : '') + '</div>' +
         '<div class="rt"><div class="wl" style="color:' + window.hkCards.v('ink-2') + '">Today</div>' +
         '<div class="wbars">' + this._dayBars(c, lvl, col, b.iw - Math.max(xp, 200) - 24, Math.max(40, b.ih - 19 - 8 - 19 - 12 - 40)) + '</div>' +
