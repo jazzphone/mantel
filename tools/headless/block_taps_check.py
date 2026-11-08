@@ -58,6 +58,9 @@ parser.add_argument('--json', type=Path)
 parser.add_argument('--shots', type=Path)
 parser.add_argument('--debug', action='store_true', help='for a tap that went nowhere, the path it took')
 parser.add_argument('--lattice', type=int, default=7, help='points across a block, each way')
+parser.add_argument('--opts', nargs='*', default=[], metavar='KEY=JSON', help='a block\'s options over the audit\'s (on_now=\'{"open": "page"}\')')
+parser.add_argument('--parts', action='store_true',
+                    help='also tap each part that stands for something (On Now\'s kinds, House Status\'s sections, Everything\'s "+N") and print where it went')
 args = parser.parse_args()
 
 
@@ -80,6 +83,9 @@ async def main():
         print('SKIPPED the block taps: set PLAYWRIGHT_PATH and NODE (edit_mode_check.py\'s)')
         return 0
     A.CELL.update(cell='square' if args.homeview else args.cell, homeview=args.homeview)
+    for o in args.opts:
+        k, _, v = o.partition('=')
+        A.OPTS[k] = {**A.OPTS.get(k, {}), **json.loads(v)}
     keys = args.only or list(HG.CATALOG)
     parts = A.parts(keys)
     look = 'flat_light'
@@ -102,7 +108,8 @@ async def main():
                                                             stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE)
                 out, _ = await proc.communicate(json.dumps({
                     'origin': origin, 'cookie': cookie, 'screen': A.screen(part, look), 'size': args.size, 'engine': 'webkit',
-                    'feed': A.feed_script(), 'lattice': args.lattice, 'debug': args.debug, 'shots': str(args.shots or '')}).encode())
+                    'feed': A.feed_script(), 'lattice': args.lattice, 'debug': args.debug, 'shots': str(args.shots or ''),
+                    'parts': '[data-open-kind],.sm-t[data-i],.app.mo' if args.parts else ''}).encode())
                 if proc.returncode != 0:
                     errors.append(f'{part}: the page failed')
                 for line in out.decode().splitlines():
@@ -135,6 +142,13 @@ async def main():
             else:
                 line = 'ok   ' + line if args.expect else line
             print(line)
+            if args.parts:
+                for c in cells:
+                    if c['key'] == key and c['bsize'] == size:
+                        for pt in c.get('parts', []):
+                            print(f"       part {pt['what'][:28]:28} {pt['w']}x{pt['h']} -> " + (', '.join(pt['went']) or 'nothing'))
+                            if not pt['went'] and args.expect:
+                                bad.append(f"{key} {size} part {pt['what']}")
         if key not in table:
             print(f'{key:16} not drawn')
             bad.append(key + ' not drawn')

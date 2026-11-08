@@ -35,10 +35,11 @@ const out = { square: {}, tile: {}, sweep: [], wide: {}, mode: {}, card: {} };
 for (const [name, box] of [['square', SQ], ['tile', TI]]) {
   for (const size of ['W', 'T', 'L', 'XL']) {
     out[name][size] = [0, 1, 3, 4, 6, 8, 11, 20].map((n) => { const x = L.layout(size, box[size][0], box[size][1], n);
-      return [n, x.cols, x.rows, x.shown, x.more, x.density, x.foot > 0]; });
+      return [n, x.cols, x.rows, x.shown, x.more, x.kind, x.th]; });
     for (let n = 0; n <= 24; n++) {
-      const x = L.layout(size, box[size][0], box[size][1], n);
-      out.sweep.push({ size, n, whole: x.shown + x.more === n, cap: x.shown <= L.CAP[size], tall: !n || x.rowH >= L.TAP });
+      const x = L.layout(size, box[size][0], box[size][1], n), [iw, ih] = box[size];
+      out.sweep.push({ size, n, whole: x.shown + x.more === n, tall: x.th >= L.TAP,
+                       fits: x.cols * x.tw + (x.cols - 1) * x.gap <= iw - 2 && x.rows * x.th + Math.max(0, x.rows - 1) * x.gap <= ih - 2 - x.head });
     }
   }
 }
@@ -70,33 +71,33 @@ def got() -> dict:
 
 
 # -- the layout ----------------------------------------------------------------------------------------------------
+# ROUND TWO (2026-11-08): the summary tiles On Now shares, each at its designed size per block size and cell shape
+# (NOTHING STRETCHES): [n, cols, rows, shown, more, kind, height]
 @needs_node
 def test_each_size_holds_what_the_design_says_on_square_cells(got):
-    # [n, cols, rows, shown, more, density, "+N more" at the foot]
     sq = {size: {row[0]: row[1:] for row in rows} for size, rows in got["square"].items()}
-    assert sq["W"][6] == [2, 2, 4, 2, "two", False]          # two by two, the name over the reading
-    assert sq["W"][3] == [3, 1, 3, 0, "rich", False]         # three, laid out for three
-    assert sq["T"][6] == [1, 4, 4, 2, "two", True]           # a column of four, "+2 more" under it (no room beside the heading)
-    assert sq["L"][6] == [2, 3, 6, 0, "rich", False]         # two by three, a line of detail each
-    assert sq["L"][4] == [2, 2, 4, 0, "full", False]         # four: two by two, room for more
-    assert sq["XL"][6] == [3, 2, 6, 0, "full", False]        # three by two, larger
-    assert sq["XL"][8] == [4, 2, 8, 0, "full", False]        # four by two past six
-    assert sq["XL"][11] == [4, 2, 8, 3, "full", False]
+    assert sq["W"][6] == [2, 2, 4, 2, "pill", 58]            # two by two pills (Apple Home's category), "+2 more"
+    assert sq["W"][3] == [2, 2, 3, 0, "pill", 58]            # three: the last row's one centered, not stretched
+    assert sq["T"][6] == [1, 5, 5, 1, "pill", 60]            # a column of five
+    assert sq["L"][6] == [2, 3, 6, 0, "pill", 76]            # pills two across with a line of detail
+    assert sq["L"][11] == [2, 4, 8, 3, "pill", 76]
+    assert sq["XL"][6] == [4, 2, 6, 0, "stack", 162]         # stacks four across
+    assert sq["XL"][11] == [4, 2, 8, 3, "stack", 162]
     assert sq["XL"][0][2:4] == [0, 0]
 
 
 @needs_node
 def test_tile_cells_keep_a_fingers_height_by_saying_less(got):
     ti = {size: {row[0]: row[1:] for row in rows} for size, rows in got["tile"].items()}
-    assert ti["W"][6] == [2, 2, 4, 2, "one", False]          # 150 tall: one line a section, the heading tighter
-    assert ti["T"][6] == [1, 4, 4, 2, "two", True]           # the heading tighter, "+2 more" at the foot
-    assert ti["L"][6] == [2, 3, 6, 0, "two", False]
-    assert ti["XL"][6] == [3, 2, 6, 0, "rich", False]
+    assert ti["W"][6] == [3, 1, 3, 3, "stack", 88]           # 150 tall: three stacks across, "+3 more"
+    assert ti["T"][6] == [1, 4, 4, 2, "pill", 56]
+    assert ti["L"][6] == [2, 3, 6, 0, "pill", 56]
+    assert ti["XL"][6] == [4, 2, 6, 0, "stack", 120]
 
 
 @needs_node
 def test_more_never_loses_a_section_and_none_is_under_a_finger(got):
-    assert got["sweep"] and all(s["whole"] and s["cap"] for s in got["sweep"]), [s for s in got["sweep"] if not (s["whole"] and s["cap"])]
+    assert got["sweep"] and all(s["whole"] and s["fits"] for s in got["sweep"]), [s for s in got["sweep"] if not (s["whole"] and s["fits"])]
     assert all(s["tall"] for s in got["sweep"]), [s for s in got["sweep"] if not s["tall"]]
 
 

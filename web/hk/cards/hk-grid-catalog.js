@@ -162,10 +162,16 @@
       return Object.assign({ type: 'custom:hk-suggested-scene-card', size: s }, o.windows ? { windows: o.windows } : {}); } },
     action: { sizes: ['S', 'W'], sources: [], opts: { action: 'action', area: 'area', color: 'boolean' }, card: function (s, o) {
       return Object.assign({ type: 'custom:hk-action-card', action: o.action || 'lock_up' }, o.area ? { area: o.area } : {}, o.color ? { color: true } : {}); } },
-    everything: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { tap: 'tap_target' }, card: function () { return { type: 'custom:hk-everything-card' }; } },
+    // more (2026-11-08, the owner: "if they want to scroll within the card or go to the page with the + button"): page
+    // (the default, as before: the last place, "+N", opens the Pages screen or More) or scroll (every place, in the block)
+    everything: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { tap: 'tap_target', more: 'everything_more' }, card: function (s, o) {
+      return Object.assign({ type: 'custom:hk-everything-card' }, o.more === 'scroll' ? { more: 'scroll' } : {}); } },
     // THE WIDGET BLOCKS (2026-10-31, docs/phase11/HOMEVIEW-LOOK.md "Blocks as widgets"): what is on now, a to-do
     // list, and the Energy page's rings over a period of the block's own
-    on_now: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { tap: 'tap_target' }, card: function () { return { type: 'custom:hk-on-now-card' }; } },
+    // open (2026-11-08, the owner: a category should "either show a pop up or go to those pages... users decisions"):
+    // sheet (the default) or page
+    on_now: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { tap: 'tap_target', open: 'on_now_open' }, card: function (s, o) {
+      return Object.assign({ type: 'custom:hk-on-now-card' }, o.open === 'page' ? { open: 'page' } : {}); } },
     todo: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { entity: 'todo', tap: 'tap_target' }, card: function (s, o) {
       return Object.assign({ type: 'custom:hk-todo-card' }, o.entity ? { entity: o.entity } : {}); } },
     energy_rings: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { period: 'period', tap: 'tap_target' }, card: function (s, o) {

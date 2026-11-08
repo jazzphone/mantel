@@ -1730,7 +1730,7 @@
       var fields = G.table()[key].opts || {}, opts = {}, self = this;
       Object.keys(fields).forEach(function (name) {
         var kind = fields[name];
-        if (['secondary', 'title', 'room_display', 'thermostat_style', 'tile_height', 'period', 'name_tag', 'tap_target', 'music_tap', 'tv_channel', 'music_show', 'music_playlist', 'music_speaker', 'timeline_show', 'np_background', 'security_presentation', 'security_members'].includes(kind)) return;
+        if (['secondary', 'title', 'room_display', 'thermostat_style', 'tile_height', 'period', 'name_tag', 'tap_target', 'music_tap', 'tv_channel', 'music_show', 'music_playlist', 'music_speaker', 'timeline_show', 'np_background', 'on_now_open', 'everything_more', 'security_presentation', 'security_members'].includes(kind)) return;
         if (kind === 'accessories') { opts[name] = self.choices('entity').filter((op) => /^(light|switch|fan|sensor)\./.test(op[0])).slice(0, 4).map((op) => ({ entity: op[0] })); if (!opts[name].length) delete opts[name]; return; }
         var choices = self.choices(kind).filter((op) => op[0] !== 'tablet_room');
         if (kind === 'scene' && key === 'scene') choices = choices.filter((op) => op[0].indexOf('scene.') === 0);
@@ -2131,6 +2131,18 @@
         // ...a Music block's, with Choose a Playlist (2026-11-01, the owner): five, so a list rather than a segment
         if (kind === 'music_tap') {
           rows.push(K.select({ label: 'When Tapped', value: opts[key] || 'auto', options: G.MUSIC_TAPS, onChange: (v) => set(key, v === 'auto' ? null : v) }));
+          return;
+        }
+        // ON NOW'S CATEGORIES (2026-11-08, the owner: "either show a pop up or go to those pages... users decisions")
+        if (kind === 'on_now_open') {
+          if (o.size === 'S') return;
+          rows.push(K.seg({ label: 'Categories', value: opts[key] || 'sheet', options: [['sheet', 'Show a Sheet'], ['page', 'Go to Its Page']], onChange: (v) => set(key, v === 'sheet' ? null : v) }));
+          return;
+        }
+        // EVERYTHING'S REST (2026-11-08, the owner: "scroll within the card or go to the page with the + button")
+        if (kind === 'everything_more') {
+          if (o.size === 'S') return;
+          rows.push(K.seg({ label: 'More Places', value: opts[key] || 'page', options: [['page', '+ Opens the Page'], ['scroll', 'Scroll in the Block']], onChange: (v) => set(key, v === 'page' ? null : v) }));
           return;
         }
         // NOW PLAYING'S BACKGROUND (2026-11-05, the owner): the blurred album, or the plate every other block has

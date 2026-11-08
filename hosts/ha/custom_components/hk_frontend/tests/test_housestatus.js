@@ -168,35 +168,46 @@ print('\n=== the block\'s layout: sizes, cells, counts ===');
 // the block inside its inset: square cells (18 a side) and tile cells (14)
 var BOX = { square: { S: [160, 160], W: [369, 160], T: [160, 369], L: [369, 369], XL: [578, 369] },
             tile: { S: [168, 122], W: [374, 122], T: [168, 282], L: [374, 282], XL: [580, 282] } };
-function lay(cell, size, n) { var b = BOX[cell][size]; return L.layout(size, b[0], b[1], n); }
+function lay(cell, size, n, block) { var b = BOX[cell][size]; return L.layout(size, b[0], b[1], n, block); }
+// ROUND TWO (2026-11-08): the summary tiles, each at its designed size (NOTHING STRETCHES), the group centered
 var x = lay('square', 'W', 6);
-eq('Wide, square: two by two, the name over the reading, "+2 more"', [x.cols, x.rows, x.shown, x.more, x.density, x.head], [2, 2, 4, 2, 'two', 44]);
+eq('Wide, square: two by two pills (Apple Home\'s category), "+2 more"', [x.cols, x.rows, x.shown, x.more, x.kind, x.th, x.head], [2, 2, 4, 2, 'pill', 58, 32]);
 x = lay('tile', 'W', 6);
-eq('Wide, tile: two by two on one line each, the heading tighter', [x.cols, x.rows, x.shown, x.density, x.head], [2, 2, 4, 'one', 26]);
+eq('Wide, tile: three stacks across (the glyph over the reading over the name)', [x.cols, x.rows, x.shown, x.more, x.kind, x.th], [3, 1, 3, 3, 'stack', 88]);
 x = lay('square', 'T', 6);
-eq('Tall: a column of four, "+2 more" at its foot', [x.cols, x.rows, x.shown, x.more, x.foot > 0], [1, 4, 4, 2, true]);
+eq('Tall: a column of five pills, "+1 more"', [x.cols, x.rows, x.shown, x.more, x.kind], [1, 5, 5, 1, 'pill']);
+x = lay('tile', 'T', 6);
+eq('...on a tile cell, four', [x.rows, x.shown, x.more, x.th], [4, 4, 2, 56]);
 x = lay('square', 'L', 6);
-eq('Large: two by three, with a line of detail', [x.cols, x.rows, x.shown, x.density], [2, 3, 6, 'rich']);
+eq('Large: pills two across, a line of detail each', [x.cols, x.rows, x.shown, x.kind, x.th, L.lines(x.kind, x.th)[0]], [2, 3, 6, 'pill', 76, true]);
 x = lay('square', 'XL', 6);
-eq('Extra Large: three by two, larger, with two lines', [x.cols, x.rows, x.shown, x.density], [3, 2, 6, 'full']);
+eq('Extra Large: stacks four across, a short last row (centered by the CSS)', [x.cols, x.rows, x.shown, x.kind], [4, 2, 6, 'stack']);
 x = lay('square', 'XL', 11);
-eq('Extra Large past six: four by two, the rest "+3 more"', [x.cols, x.rows, x.shown, x.more], [4, 2, 8, 3]);
+eq('Extra Large past eight: the rest "+3 more"', [x.cols, x.rows, x.shown, x.more], [4, 2, 8, 3]);
 x = lay('square', 'L', 3);
-eq('three on a Large: a column of three, not six slots', [x.cols, x.rows, x.shown], [1, 3, 3]);
+eq('three on a Large: three pills at their own size, not stretched to six slots', [x.cols, x.rows, x.shown, x.th], [2, 2, 3, 76]);
+x = lay('square', 'L', 4, 'count');
+eq('On Now\'s Large: four cards, two by two', [x.cols, x.rows, x.shown, x.kind, x.th], [2, 2, 4, 'card', 162]);
+x = lay('tile', 'W', 4, 'count');
+eq('On Now\'s Wide on a tile cell: four stacks across', [x.cols, x.shown, x.kind], [4, 4, 'stack']);
 x = lay('square', 'W', 0);
 eq('none: nothing to lay out', [x.shown, x.more], [0, 0]);
-var whole = true, tall = true;
+var whole = true, tall = true, fits = true;
 ['square', 'tile'].forEach(function (cell) {
   ['W', 'T', 'L', 'XL'].forEach(function (size) {
-    for (var n = 0; n <= 16; n++) {
-      var y = lay(cell, size, n);
-      if (y.shown + y.more !== n || y.shown > L.CAP[size]) whole = false;
-      if (n && y.rowH < L.TAP) tall = false;
-    }
+    ['words', 'count'].forEach(function (block) {
+      for (var n = 0; n <= 16; n++) {
+        var y = lay(cell, size, n, block), b = BOX[cell][size];
+        if (y.shown + y.more !== n) whole = false;
+        if (y.th < L.TAP) tall = false;
+        if (y.cols * y.tw + (y.cols - 1) * y.gap > b[0] - 2 || y.rows * y.th + Math.max(0, y.rows - 1) * y.gap > b[1] - 2 - y.head) fits = false;
+      }
+    });
   });
 });
 ok('every count 0 to 16, every size, both cells: shown + more is all of them (more never loses one)', whole);
-ok('...and no section is ever under a finger\'s 44 px', tall);
+ok('...no tile is ever under a finger\'s 44 px', tall);
+ok('...and the tiles at their size always fit inside the plate', fits);
 
 print('\n=== the sheet ===');
 ok('wide on a tablet across (1180 x 820), for two or more', L.wantWide(1180, 820, 6, 0) && !L.wantWide(1180, 820, 1, 0));

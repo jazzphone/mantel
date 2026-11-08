@@ -109,6 +109,9 @@
     // rooms (hkCards.iconGradient / roomTint) -- a tap goes straight there, the
     // last place opens the rest; a heading says what is on. Tall (2026-11-07): two columns of icons, labels on. The
     // plate's own tap is More, When Tapped choosing as elsewhere.
+    // MORE PLACES (`more`, 2026-11-08, the owner: "scroll within the card or go to the page with the + button"): + Opens
+    // the Page (the default) -- the last place, "+N", opens the Pages screen where the screen has one, else More, as
+    // before -- or Scroll in the Block: every place, the rows the size shows at a time, the rest scrolled up to.
     function menuItems(client) {
       var M = C.menu, H = window.hkMenu && window.hkMenu._, cfg = null;
       try { cfg = M && M.config ? M.config() : null; } catch (e) { cfg = null; }
@@ -125,7 +128,10 @@
       var rooms = (m.rooms || []).map(function (it, i) {
         return { title: it.title, icon: glyph(it.icon), path: it.path, hex: A[C.roomTint ? C.roomTint(i) : 'orange'] || A.orange };
       });
-      return pages.concat(rooms);
+      var all = pages.concat(rooms);
+      // (the Pages screen, Phase J, where the screen has it: "+N"'s page)
+      /** @type {any} */ (all).pagesPath = m.pages ? m.pages.path : null;
+      return all;
     }
     // WHAT IS ON NOW: the lights, switches and fans on, the speakers playing
     // (none hidden, none a group)
@@ -155,6 +161,11 @@
       '.app:focus-visible i{outline:2px solid ' + v('ink-2') + ';outline-offset:3px}',
       '.app small{' + type('micro') + ';line-height:14px;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:' + v('glow') + '}',
       '.app.mo i{background:rgba(255,255,255,0.2);' + type('headline') + '}',
+      // SCROLL IN THE BLOCK (`more: scroll`, 2026-11-08): every place, the rows the block shows at a time, the rest under
+      // them -- up and down is the block's, sideways the pager's; a row stops where a row starts
+      '.apps.scroll{align-content:start;grid-auto-rows:var(--rh);overflow-y:auto;overflow-x:hidden;overscroll-behavior-y:contain;scrollbar-width:none;',
+      '  scroll-snap-type:y mandatory;scroll-padding-top:10px;touch-action:pan-y}',
+      '.apps.scroll::-webkit-scrollbar{display:none}.apps.scroll .app{scroll-snap-align:start;touch-action:pan-y}',
       '@media (prefers-reduced-motion:reduce){.app i{transition:none}.app:active i{transform:none}}'
     ].join('');
     class HkEverythingCard extends HkGridKey {
@@ -162,7 +173,7 @@
       _size() { return sizeOf(this) || 'S'; }
       _items() { return menuItems(this.client) || []; }
       _sigOf() {
-        return JSON.stringify([this._items().map(function (x) { return x.path; }), onNow(this.client), this._size(), this._blockKey || '',
+        return JSON.stringify([this._items().map(function (x) { return x.path; }), onNow(this.client), this._size(), this._blockKey || '', (this._config || {}).more || '',
                                C.menu && C.menu.sig ? C.menu.sig() : '']);
       }
       _look() {
@@ -182,6 +193,13 @@
         var M = C.menu, B = window.hkTabBar;
         if (M && M.tabBar && M.tabBar() && B && typeof B.open === 'function') { B.open('more'); return; }
         if (M && M.open) M.open();
+      }
+      // "+N" (`more: page`, the default): the page of every place -- the Pages screen, where the screen has it -- else
+      // what the plate opens, More
+      _more() {
+        var p = this._items().pagesPath;
+        if (p) { C.navigate(p, this); return; }
+        this._tap();
       }
       // (the plate's tap, hk-base.js openTarget) the same, from anywhere on a larger block than the key
       _tapTarget() { var self = this; return [{ run: function () { self._tap(); } }]; }
@@ -212,8 +230,16 @@
         e.apps.style.setProperty('--c', String(cols));
         e.apps.style.setProperty('--px', px + 'px');
         e.apps.style.setProperty('--rg', rg + 'px');
-        var places = cols * rows, cut = items.length > places, shown = cut ? items.slice(0, places - 1) : items;
-        var key = JSON.stringify([shown, cut ? items.length - shown.length : 0, labels]);
+        // (scroll: every place, `rows` of them in sight at a time; else the last place says "+N")
+        var scroll = (this._config || {}).more === 'scroll', places = cols * rows;
+        var cut = !scroll && items.length > places, shown = cut ? items.slice(0, places - 1) : items;
+        e.apps.classList.toggle('scroll', scroll);
+        // (a row's height from the list's own, less its 10 px top: a scroller's percentages are of no definite height)
+        var ch = scroll ? e.apps.clientHeight - 10 : 0;
+        e.apps.style.setProperty('--rh', (ch > 0 ? ch : free) / rows - (rows - 1) * rg / rows + 'px');
+        // (and a gap under Wide's one row, so the next starts out of sight)
+        if (scroll && !rg) e.apps.style.setProperty('--rg', '14px');
+        var key = JSON.stringify([shown, cut ? items.length - shown.length : 0, labels, scroll]);
         if (key === this._appKey) return;
         this._appKey = key;
         e.apps.innerHTML = '';
@@ -232,7 +258,7 @@
           m.type = 'button'; m.className = 'app mo'; m.setAttribute('role', 'listitem'); m.setAttribute('aria-label', rest + ' more: every page and room');
           m.innerHTML = '<i></i>' + (labels ? '<small>All</small>' : '');
           m.querySelector('i').textContent = '+' + rest;
-          m.addEventListener('click', function (ev) { ev.stopPropagation(); self._tap(); });
+          m.addEventListener('click', function (ev) { ev.stopPropagation(); self._more(); });
           e.apps.appendChild(m);
         }
       }
@@ -466,7 +492,7 @@
     function sumKit(card) {
       var T = window.hkHouseStatus && window.hkHouseStatus.tiles;
       if (T) {
-        if (!card._kitCss) { card._kitCss = document.createElement('style'); card._kitCss.textContent = T.CSS; card.shadowRoot.insertBefore(card._kitCss, card._root); }
+        if (!card._kitCss) { card._kitCss = document.createElement('style'); card._kitCss.textContent = T.CSS; card.shadowRoot.appendChild(card._kitCss); }
         return T;
       }
       if (!card._kitWait && window.customElements) {

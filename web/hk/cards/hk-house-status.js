@@ -265,12 +265,12 @@
   var SUM_CSS = [
     '.sm-h{display:flex;align-items:center;justify-content:space-between;gap:8px;height:24px;margin-bottom:8px;flex:none;min-width:0}',
     '.sm-l{' + type('label') + ';line-height:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;text-shadow:' + v('glow') + '}',
-    // the heading's key: a 30 px capsule with a finger's reach round it
-    '.sm-k{all:unset;box-sizing:border-box;position:relative;flex:none;display:flex;align-items:center;gap:2px;height:30px;padding:0 13px;border-radius:15px;',
-    '  background:' + v('key') + ';' + type('caption') + ';font-weight:600;color:' + v('ink') + ';cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent}',
-    '.sm-k::after{content:"";position:absolute;left:-6px;right:-6px;top:-7px;bottom:-7px}',
+    // the heading's key: a capsule the heading's height, at least a finger wide, with a finger's reach round it
+    '.sm-k{all:unset;box-sizing:border-box;position:relative;flex:none;display:flex;align-items:center;justify-content:center;gap:2px;height:24px;min-width:44px;padding:0 12px;',
+    '  border-radius:12px;background:' + v('key') + ';' + type('caption') + ';font-weight:600;color:' + v('ink') + ';cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent}',
+    '.sm-k::after{content:"";position:absolute;left:-6px;right:-6px;top:-10px;bottom:-10px}',
     '.sm-k:active{filter:brightness(0.9)}',
-    '.sm-k.q{background:none;padding:0 0 0 8px;color:' + v('ink-2') + ';font-weight:500;text-shadow:' + v('glow') + '}',
+    '.sm-k.q{background:none;padding:0 0 0 8px;justify-content:flex-end;color:' + v('ink-2') + ';font-weight:500;text-shadow:' + v('glow') + '}',
     '.sm-k hk-icon{width:12px;height:12px;--mdc-icon-size:12px;color:' + v('mark') + '}',
     // the tiles at their size, the group centered in what the heading leaves, a short last row centered
     '.sm-g{flex:1;min-height:0;display:flex;flex-wrap:wrap;align-content:center;justify-content:center;gap:' + GAP + 'px}',
