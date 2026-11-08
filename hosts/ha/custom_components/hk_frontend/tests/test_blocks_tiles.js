@@ -72,15 +72,27 @@ function scenePills(n) { var out = []; for (var i = 0; i < n; i++) out.push({ ty
 
 H.run('BLOCKS (TILES)', [
 function () {
-  H.section('Scenes: Height and Color, the grid as many as there are');
+  H.section('Scenes, Accessories and Room: a designed grid of tiles that keep their size (2026-11-08, round three)');
   var at = function (size, n, o) { return plan(Object.assign({ hk_cell: size, room: true, scenes: scenePills(n) }, o || {}), {}, null).config; };
-  eq('Wide, Full: two scenes, not four', [at('W', 6).cols, at('W', 6).rows, at('W', 6).pills.length], [2, 1, 2]);
-  eq('Wide, Half: twice as many, two by two', [at('W', 6, { height: 'half' }).cols, at('W', 6, { height: 'half' }).rows], [2, 2]);
-  eq('Large, Full four; Half eight', [at('L', 12).pills.length, at('L', 12, { height: 'half' }).pills.length], [4, 8]);
-  eq('Extra Large, Full six; Half twelve', [at('XL', 20).pills.length, at('XL', 20, { height: 'half' }).pills.length], [6, 12]);
-  eq('fewer than a row: one row of them', [at('XL', 2).cols, at('XL', 2).rows], [2, 1]);
-  eq('...else the rows they fill, never an empty one', [at('L', 5, { height: 'half' }).cols, at('L', 5, { height: 'half' }).rows], [2, 3]);
+  // the plan keeps every scene and says Height and Color; how many show is the geometry's (hk-chip.js groupGeom)
+  eq('the plan keeps all six scenes, whatever the size', [at('W', 6).pills.length, at('XL', 6).pills.length], [6, 6]);
   eq('Color and Half travel with the plan', [at('L', 4, { color: true, height: 'half' }).color, at('L', 4, { color: true, height: 'half' }).half], [true, true]);
+  var G = window.hkChip.groupGeom, was = globalThis.getComputedStyle;
+  var cell = function (h) { globalThis.getComputedStyle = function () { return { getPropertyValue: function () { return String(h); } }; }; return {}; };
+  var g = function (h, size, o) { var x = G(cell(h), size, o); return [x.cols, x.rows, x.tw, x.th, x.gap]; };
+  // a tile cell (196 x 150, inset 14, 8 apart) and a square cell (196 x 196, inset 18, 10 apart): each size has its tile
+  eq('tile cells: W two, T two stacked, L 2 x 2, XL 3 x 2, XXL 6 x 2',
+     [g(150, 'W'), g(150, 'T'), g(150, 'L'), g(150, 'XL'), g(150, 'XXL')],
+     [[2, 1, 182, 120, 8], [1, 2, 166, 136, 8], [2, 2, 182, 136, 8], [3, 2, 187, 136, 8], [6, 2, 192, 136, 8]]);
+  eq('square cells: W two, T two stacked, L 2 x 2, XL 3 x 2, XXL 6 x 2',
+     [g(196, 'W'), g(196, 'T'), g(196, 'L'), g(196, 'XL'), g(196, 'XXL')],
+     [[2, 1, 178, 158, 10], [1, 2, 158, 178, 10], [2, 2, 178, 178, 10], [3, 2, 185, 178, 10], [6, 2, 192, 178, 10]]);
+  eq('Half: the pill\'s 70 px, as many rows as the cell shape holds (tiles three at Large, square four)',
+     [g(150, 'L', { pill: true }), g(196, 'L', { pill: true }), g(150, 'W', { pill: true }), g(196, 'W', { pill: true })],
+     [[2, 3, 182, 70, 8], [2, 4, 178, 70, 10], [2, 1, 182, 70, 8], [2, 2, 178, 70, 10]]);
+  eq('a Room\'s heading and its dots come off the tiles\' room, never out of the tiles\' size',
+     [g(150, 'L', { head: 53 }), g(196, 'L', { head: 53, foot: 24 })], [[2, 2, 182, 109, 8], [2, 2, 178, 140, 10]]);
+  globalThis.getComputedStyle = was;
   // the block's tiles: Full Centred with "Scene" under the name, Half the scene pill; Color their gradient
   var bp = window.hkChip.scenes.blockPill, one = { type: 'custom:hk-scene-card', entity: 'scene.reading' };
   var full = bp(one, { color: true }), half = bp(one, { half: true });
@@ -92,17 +104,24 @@ function () {
   var card = H.make('hk-grid-accessories-card');
   var acc = ['light.den_lamp', 'light.den_ceiling', 'media_player.den_speaker', 'switch.den_fan', 'lock.front_door'].map(function (e) { return { entity: e }; });
   card.setAttribute('size', 'L');
-  card.setConfig({ accessories: acc, color: true });
+  card.setConfig({ accessories: acc.slice(0, 4), color: true });
   hkGive(card, hass());
   var p = card._plan();
-  eq('Full at Large: four, two by two, Centred, no heading, in color', [p.tiles.length, p.cols, p.rows, p.centred, p.head, p.color], [4, 2, 2, true, false, true]);
+  eq('Full at Large: four, two by two, Centred, under a label row, in color', [p.tiles.length, p.geom.cols, p.geom.rows, p.centred, p.lbl, p.color], [4, 2, 2, true, true, true]);
   card.setConfig({ accessories: acc, height: 'half' });
   p = card._plan();
-  eq('Half at Large: all five, the rows they fill', [p.tiles.length, p.cols, p.rows, p.half, p.centred], [5, 2, 3, true, false]);
+  eq('Half at Large on tile cells: three rows of pills, five fit six places', [p.tiles.length, p.geom.cols, p.geom.rows, p.geom.th, p.half, p.centred, p.more], [5, 2, 3, 70, true, false, 0]);
   card.setAttribute('size', 'W');
   card.setConfig({ accessories: acc.slice(0, 1) });
   p = card._plan();
-  eq('one accessory: one tile across the block', [p.cols, p.rows], [1, 1]);
+  eq('one accessory in a Wide block on tile cells: the pill row of two places, the group centered (never one tile across the block)', [p.tiles.length, p.geom.tw, p.geom.th, p.geom.n], [1, 182, 70, 2]);
+  card.setConfig({ accessories: acc, height: 'half' });
+  p = card._plan();
+  eq('more than the places: "+N more" in the label row, no tile for it (Wide on tile cells: two pills, three more)', [p.tiles.length, p.more, p.hmore], [2, 0, 3]);
+  card.setAttribute('size', 'L');
+  card.setConfig({ accessories: acc.concat(acc, acc), height: 'half' });
+  p = card._plan();
+  eq('...Large, Half, under the label row: six places, six tiles and 9 more', [p.tiles.length, p.more, p.hmore], [6, 0, 9]);
 },
 function () {
   H.section('a tile in its own color (block_color)');

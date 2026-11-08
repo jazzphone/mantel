@@ -28,6 +28,7 @@ load(HK_ROOT + '/frontend/cards/hk-base.js');
 load(HK_ROOT + '/frontend/cards/hk-tile.js');
 load(HK_ROOT + '/frontend/cards/hk-room.js');
 load(HK_ROOT + '/frontend/cards/hk-strategy.js');
+load(HK_ROOT + '/frontend/cards/hk-chip.js');
 load(HK_ROOT + '/frontend/cards/hk-grid-catalog.js');
 load(HK_ROOT + '/frontend/cards/hk-grid-cards.js');
 
@@ -104,7 +105,7 @@ function () {
      /Math\.sqrt\(b\.width \* b\.height\)/.test(esrc) && /ink \* 0\.78 \/ mean/.test(esrc) && window.hkCards.TILE.centred.ink === 0.83 &&
      /window\.hkInkScale\(inkName, window\.hkCards\.TILE\.centred\.ink\)/.test(tsrc) && /e\.icon\.setAttribute\('ink', String\(C\.TILE\.centred\.ink\)\)/.test(gsrc));
   ok('the Room and Accessories blocks hand Centred to each tile, and redraw when it changes', /if \(centred\) el\.setAttribute\('tile', 'centred'\);/.test(gsrc) &&
-     /var key = JSON\.stringify\(\[p\.tiles, p\.more, p\.size, !!p\.scroll, centred, !!p\.half, !!p\.color, cols, rows, last\]\);/.test(gsrc) && /return \['size', 'tile'\];/.test(gsrc));
+     /var key = JSON\.stringify\(\[p\.tiles, p\.more, p\.size, !!p\.scroll, centred, !!p\.half, !!p\.color, gm\]\);/.test(gsrc) && /return \['size', 'tile'\];/.test(gsrc));
   window.hkCards.createCard = factory;
   // the CSS: one variant, the tiles' own parts, from the table (hk-base.js TILE.centred)
   var tileCss = customElements.get('hk-tile-card').CSS, keyCss = customElements.get('hk-action-card').CSS, T = window.hkCards.TILE.centred;
@@ -244,9 +245,11 @@ function () {
   var slots = card._e.tiles.children.filter(function (c) { return c.className === 'slot'; });
   eq('a slot per pill', slots.length, 4);
   var oldHeight = card._h; card._h = 220;
-  var ordinary = card._plan().tiles.length;
+  var ordinary = card._plan().geom;
   card.setAttribute('data-grid-pager', '');
-  ok('paged rooms keep accessory targets clear of the dots', card._plan().tiles.length < ordinary);
+  // (2026-11-08: the same tiles, as many, each the dots' room (24 px) shorter -- never a tile's size that follows the block)
+  var paged = card._plan().geom;
+  ok('paged rooms keep accessory targets clear of the dots', paged.th < ordinary.th && paged.n === ordinary.n && paged.tw === ordinary.tw);
   card.removeAttribute('data-grid-pager'); card._h = oldHeight;
   var pend = slots[1];                       // light.kitchen_pendant
   var fire = function (el, t, ev) { (el._listeners[t] || []).forEach(function (f) { f(ev); }); };
