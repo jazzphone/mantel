@@ -754,13 +754,13 @@
           // THE THREE PLACES: the left and the right sharing the row (the right taking what is left, as the band
           // always did); with something in the center, two equal sides and the center between them, truly centered
           '.bz{display:flex;align-items:center;gap:24px;min-width:0;height:60px}',
-          '.bl{flex:0 1 auto}.br{flex:1 1 auto;justify-content:flex-end}',
+          '.bl{flex:0 1 auto;min-width:auto}.br{flex:1 1 auto;justify-content:flex-end}',
           '.grid-band.has-center{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr)}',
           '.has-center .bc{justify-content:center}.has-center .bl{justify-content:flex-start}',
           '.bz:empty{min-width:0}',
           // (in the left or the center, the weather and the chips their own width, not the row's)
           '.bl .band-weather,.bc .band-weather{flex:0 1 auto}.bl .band-chips,.bc .band-chips{flex:0 1 auto}',
-          '.band-clock{flex:none;max-width:45%;min-width:0}',
+          '.band-clock{flex:none;min-width:0}',
           '.band-clock>[data-hk-clock=clock]{min-width:0!important}',
           '.band-weather{flex:1 1 240px;min-width:0;max-width:360px}',
           fitCss('.band-weather'),
