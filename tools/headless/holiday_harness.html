@@ -1,0 +1,40 @@
+<!doctype html><meta charset="utf-8"><title>Holiday Slide Harness</title>
+<!-- tools/headless/holiday_scenes_check.py's page: the Holiday slide alone (hk-saver-holiday.js and its modules), at the
+     size, date and holiday the query names, a stand-in slide corner beside it (the screensaver's own is checked in
+     saver_shows_check.py). Every name in it is fictional. -->
+<style>html,body{margin:0;background:#000;overflow:hidden}#host{position:relative;overflow:hidden;font-family:-apple-system,system-ui,sans-serif}
+.scn{position:absolute;inset:0;z-index:8;pointer-events:none;color:#fff}.scs{position:absolute;top:var(--m);display:flex;flex-direction:column;gap:6px}
+.scs.tl{left:var(--m)}.scs.tr{right:var(--m);align-items:flex-end}.ct{font-weight:200;line-height:.82}.cl{font-weight:600;white-space:nowrap;text-shadow:0 1px 8px rgba(0,0,0,.45)}</style>
+<div id="host"></div>
+<script>
+var P = new URLSearchParams(location.search), W = +P.get('w') || 1280, H = +P.get('h') || 800;
+var D = P.get('date'); if (D) { var T0 = Date.parse(D + 'T15:00:00'); Date.now = function () { return T0; }; }
+// (animation frames counted, so the check can see none is left once the slide has gone)
+var RAF = window.requestAnimationFrame.bind(window), CAF = window.cancelAnimationFrame.bind(window), pending = new Set();
+window.requestAnimationFrame = function (f) { var id = RAF(function (t) { pending.delete(id); f(t); }); pending.add(id); return id; };
+window.cancelAnimationFrame = function (id) { pending.delete(id); CAF(id); };
+window.__pending = function () { return pending.size; };
+window.hkLocale = { tag: function () { return 'en-US'; } };
+window.hkSettings = { get: function (k, d) { return k === 'sky.birthdays' ? [{ name: 'Emma', month: 3, day: 14 }] : d; }, skyLook: function () { return { animations: P.get('still') !== '1' }; }, rendering: function () { return { flat: P.get('flat') === '1', motion: P.get('still') !== '1' }; } };
+</script>
+<script src="/hk/modules/hk-holidays.js"></script>
+<script src="/hk/modules/hk-saver-holiday-scenes.js"></script>
+<script src="/hk/modules/hk-saver-holiday-fx.js"></script>
+<script src="/hk/modules/hk-saver-holiday.js"></script>
+<script>
+var host = document.getElementById('host'); host.style.width = W + 'px'; host.style.height = H + 'px';
+var u = Math.min(W, H) / 100, m = 6 * u;
+var scn = document.createElement('div'); scn.className = 'scn'; scn.style.setProperty('--m', m + 'px');
+var tsz = (+P.get('tsz') || 100) / 100;
+scn.innerHTML = '<div class="scs tl"><div class="ct" style="font-size:' + (2.7 * u * 2.6 * tsz) + 'px">9:41</div><div class="cl" style="font-size:' + 2.7 * u + 'px">Sunday, November 8</div><div class="cl" style="font-size:' + 2.7 * u + 'px">48° Partly Cloudy</div></div><div class="scs tr"><div class="cl" style="font-size:' + 2.7 * u + 'px">Disarmed · 1 Lock Unlocked</div></div>';
+var cfg = { holiday_slide: true, holiday_pick: P.get('pick') || 'one', holiday_one: P.get('hol') || 'christmas', holiday_days: 400, holiday_fx: P.get('fx') || 'full',
+  holiday_outdoors: P.get('out') ? P.get('out').split(',') : [], holiday_hide: P.get('hide') ? P.get('hide').split(',') : [], holiday_own: [{ name: 'Beach Trip', month: 7, day: 12, scene: 'summer' }] };
+var ctl = window.hkSaverHoliday.create({ cfg: cfg });
+host.appendChild(ctl.el); host.appendChild(scn);
+ctl.layout(W, H);
+window.__go = function () { var ok = ctl.ready(null); ctl.draw(null); ctl.el.style.setProperty('--hk-hl-fade', '0ms'); ctl.el.classList.add('on'); ctl.layout(W, H); return ok; };
+window.__ctl = ctl;
+var tries = 0; (function go() { ctl.ready(null); var S = window.hkHolidayScenes, h = window.hkHolidays.pick(window.hkHolidays.today(Date.now()), { pick: 'one', one: cfg.holiday_one, days: 400, own: cfg.holiday_own, birthdays: [{ name: 'Emma', month: 3, day: 14 }] });
+  if (h && h.scene && P.get('out') !== h.id && !S.ready(h.scene) && tries++ < 60) { setTimeout(go, 100); return; }
+  setTimeout(function () { window.__go(); window.__ready = true; if (P.get('arrive') === '1') ctl.arrived(); }, 300); })();
+</script>
