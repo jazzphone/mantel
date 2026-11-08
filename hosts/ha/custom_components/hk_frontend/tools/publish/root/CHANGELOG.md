@@ -13,6 +13,7 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 **Fixed**
 - **Pre-rendered glass no longer flickers as a swipe lands** (the last page's blur behind the cards for a few frames), and **the Pages screen lands sharp and at its full size from Home** (its icons could land blurred, then small and to the left for a second).
+- **A swipe over a row that scrolls sideways turns the page when the row can't go that way** (Music's rows at their start or end; on an iPad the rows keep every swipe, as before).
 
 ## 1.50.0 - 2026-11-08
 

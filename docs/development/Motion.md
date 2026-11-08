@@ -369,6 +369,21 @@ before, 0 of 6 after. Seen and left: one camera tile black for a moment on Camer
 swipe stalling a third of the way while it is built (Pages screen to Weather), and on Power the house picture gone for
 ~50 ms after landing on the tablet (not reproduced in the lab).
 
+### A row that scrolls sideways, at its end (2026-11-08)
+
+The owner: on the Music page "the discovery section doesn't allow the page switch". Mapped point by point (which part
+of the page hkDrag.sideways gives the swipe to): everything right of the player was its rows', which keep every
+sideways pan -- the browser took the gesture (pointercancel) even at a row's end, with nothing to scroll. Measured in
+Chromium: a touch-action of `pan-y pan-right` set before the finger comes down lets a rightward drag through as
+pointer events; set in the pointerdown, too late.
+
+Now a row that scrolls (hkCards.fitPan -> hkDrag.panRow, which Music's rows, a room's, the weather's hours and the speakers' strips
+already use) pans only the way it still can at an end -- `pan-right` at its start, `pan-left` at its end, both in
+between -- kept as it scrolls; the page swipe takes a row only so marked (hkDrag.sidewaysRow) and only a drag the row
+cannot make (rowTakes, at the first move). On the Music page: at a row's start a swipe right goes back a page and left
+scrolls the row; at its end left goes on and right scrolls back; in the middle the row scrolls. WebKit has no
+pan-left / pan-right (CSS.supports says so: hkDrag.EDGE_PAN): there a row keeps every pan, as before.
+
 ## What a browser here cannot say
 
 Headless Chromium and desktop WebKit on a fast Mac approximate a tablet; slowing the CPU approximates it further. None of

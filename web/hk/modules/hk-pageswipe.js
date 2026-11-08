@@ -718,8 +718,9 @@
     if (path.indexOf(view) < 0 && !under && !pane) { why = 'off the page'; return; }
     var sa = safe();
     if (atEdge(e.clientX, window.innerWidth || 0, sa.left, sa.right)) { why = 'edge'; return; }
-    var drag = D();
-    if (!drag || !drag.sideways || drag.sideways(path, pane && path.indexOf(view) < 0 ? pane : under ? slot : view)) { why = 'its own'; return; }
+    var drag = D(), stop = pane && path.indexOf(view) < 0 ? pane : under ? slot : view, row = null;
+    // (a row at an end that pans only one way: a swipe the other way is ours -- decided at the first move, onMove)
+    if (!drag || !drag.sideways || (drag.sideways(path, stop) && !(row = drag.sidewaysRow ? drag.sidewaysRow(path, stop) : null))) { why = 'its own'; return; }
     var items = list(), nb = neighbors(items, location.pathname, isHere);
     if (nb.at < 0) { why = 'not in the order'; return; }
     var grid = null;
@@ -730,7 +731,7 @@
     st.items = items;
     st.at = nb.at;
     G = { id: e.pointerId, type: e.pointerType, x0: e.clientX, y0: e.clientY, stage: st, target: path[0] || null,
-          grid: grid, live: false, calm: reduced(), pts: [[t, e.clientX]], dx: 0 };
+          grid: grid, row: row, live: false, calm: reduced(), pts: [[t, e.clientX]], dx: 0 };
     if (e.pointerType !== 'mouse') holdTarget(path[0]);
     measure(st);
   }
@@ -745,6 +746,8 @@
       var k = window.hkDrag.classify(dx, dy, { axis: 'x', slop: START, ratio: RATIO });
       if (k === 'press') return;
       if (k === 'scroll') { letGo(); return; }
+      // (a row that can still scroll this way: the browser pans it)
+      if (G.row && window.hkDrag.rowTakes && window.hkDrag.rowTakes(G.row, dx)) { letGo(); return; }
       begin(e, dx);
     }
     // (each move the tablet coalesced into this one: the flick's speed from all of them)

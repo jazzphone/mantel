@@ -4709,14 +4709,14 @@
   // Pages, hk-pageswipe.js): a scroll container takes every sideways pan for
   // itself, scrollable or not, so the browser cancelled the page's swipe over
   // a row with nothing to scroll (the favorites, a room's status row on a
-  // tablet). One that fits says touch-action pan-y; one that scrolls keeps
-  // its own. Measured in the next frame, once however often it is asked.
+  // tablet). One that fits says pan-y; one that scrolls pans only the way it still can at an end (hkDrag.panRow).
   window.hkCards.fitPan = function (el) {
     if (!el || el.__hkFitPan) return;
     var later = typeof requestAnimationFrame === 'function' ? requestAnimationFrame : function (f) { return setTimeout(f, 16); };
     el.__hkFitPan = later(function () {
       el.__hkFitPan = 0;
-      if (el.scrollWidth <= el.clientWidth + 1) el.style.setProperty('touch-action', 'pan-y pinch-zoom');
+      if (window.hkDrag && window.hkDrag.panRow) window.hkDrag.panRow(el);
+      else if (el.scrollWidth <= el.clientWidth + 1) el.style.setProperty('touch-action', 'pan-y pinch-zoom');
       else el.style.removeProperty('touch-action');
     });
   };

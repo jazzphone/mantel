@@ -286,6 +286,55 @@
     if (t !== 'pan-y' || n.hasAttribute('data-pager-part')) return false;
     return !(cs.overflowY === 'auto' || cs.overflowY === 'scroll');
   }
+  // A ROW THAT KEEPS IT ONLY BECAUSE IT SCROLLS (nothing else on the way in: no control, no pager): the row, else null.
+  // At an end it pans only the way it still can (panRow), so the page swipe asks rowTakes at the first move.
+  function sidewaysRow(path, stop) {
+    var list = path || [];
+    for (var i = 0; i < list.length && list[i] !== stop; i++) {
+      var n = list[i];
+      if (!n || n.nodeType !== 1 || !n.matches) continue;
+      if (n.localName === 'hk-pager-card') { if ((n._pages || []).length > 1) return null; continue; }
+      if (n.matches(SIDEWAYS)) return null;
+      var cs = style(n);
+      if (claimsSideways(n, cs)) return null;
+      if (scrollsSideways(n, cs)) return /pan-(left|right)/.test(n.style.touchAction || '') ? n : null;
+    }
+    return null;
+  }
+  // can row `n` still scroll the way a finger moving dx goes (left: toward its end)?
+  function rowTakes(n, dx) {
+    var max = n.scrollWidth - n.clientWidth, x = Math.abs(n.scrollLeft);
+    return dx < 0 ? x < max - 1 : x > 1;
+  }
+  // A ROW'S TOUCH-ACTION (hkCards.fitPan, measured in a frame): one that fits takes no sideways pan (the page's), one
+  // that scrolls only the pan it can still make at an end (2026-11-08, the owner: on the Music page "the discovery
+  // section doesn't allow the page switch"): at its start pan-right (a finger going left), at its end pan-left, in
+  // between both -- so a swipe the way it cannot go is the page's (sidewaysRow). Kept as it scrolls. Set ahead: the
+  // browser reads it as the finger comes down (set in the pointerdown it was already too late, measured). WebKit has
+  // no pan-left / pan-right: there a row keeps every pan.
+  var EDGE_PAN = (function () {
+    try { return !!(window.CSS && CSS.supports && CSS.supports('touch-action', 'pan-y pan-right')); } catch (e) { return false; }
+  })();
+  function panOf(el, max) {
+    if (max <= 1) return 'pan-y pinch-zoom';
+    if (!EDGE_PAN || el.__hkRtl) return '';
+    var x = Math.abs(el.scrollLeft), back = x > 1, on = x < max - 1;
+    return back && on ? '' : on ? 'pan-y pan-right pinch-zoom' : back ? 'pan-y pan-left pinch-zoom' : '';
+  }
+  function setPan(el, ta) {
+    if (!ta) { if (el.style.touchAction) el.style.removeProperty('touch-action'); }
+    else if (el.style.touchAction !== ta) el.style.setProperty('touch-action', ta);
+  }
+  function panRow(el) {
+    el.__hkPanMax = el.scrollWidth - el.clientWidth;
+    if (EDGE_PAN && el.__hkPanMax > 1 && !el.__hkPanEdge) {
+      el.__hkPanEdge = true;
+      el.__hkRtl = (style(el) || {}).direction === 'rtl';
+      // (its width as measured here, not on every scroll)
+      el.addEventListener('scroll', function () { setPan(el, panOf(el, el.__hkPanMax)); }, { passive: true });
+    }
+    setPan(el, panOf(el, el.__hkPanMax));
+  }
   function sideways(path, stop) {
     var list = path || [];
     for (var i = 0; i < list.length && list[i] !== stop; i++) {
@@ -422,6 +471,6 @@
   global.hkDrag = { HOLD_MS: HOLD_MS, SLOP_TOUCH: SLOP_TOUCH, SLOP_MOUSE: SLOP_MOUSE,
                     motion: { begin: moBegin, end: moEnd, take: moTake },
                     press: press, holdStill: holdStill, ghost: ghost, classify: classify,
-                    sideways: sideways, SIDEWAYS: SIDEWAYS,
+                    sideways: sideways, sidewaysRow: sidewaysRow, rowTakes: rowTakes, panRow: panRow, EDGE_PAN: EDGE_PAN, SIDEWAYS: SIDEWAYS,
                     speed: speed, lands: lands, spring: spring, easing: easing, curve: curve, glide: glide, viewSwipe: viewSwipe };
 })(typeof window !== 'undefined' ? window : globalThis);
