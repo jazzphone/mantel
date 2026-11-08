@@ -85,7 +85,13 @@ function sheetState() {
         const got = await page.evaluate(security);
         await shot(page, `${engine}-${screen}`);
         console.log(engine, screen, JSON.stringify(got.map((b) => [b.size, b.tile, b.big, b.line, b.ents.map((e) => (e.more ? '+' : '') + e.name + ':' + e.state)])));
-        check(`${engine} ${screen}: the five sizes drawn`, () => assert.deepEqual(got.map((b) => b.size).sort(), ['C', 'L', 'S', 'W', 'XL']));
+        // (Extra Large keeps the keypad in HomeView since 2026-11-08: the keypad card, not HomeView's own -- the other four are HomeView's)
+        check(`${engine} ${screen}: the four HomeView sizes drawn`, () => assert.deepEqual(got.map((b) => b.size).sort(), ['C', 'L', 'S', 'W']));
+        const kp = await page.evaluate(() => {
+          const d = (r) => { for (const e of r.querySelectorAll('*')) { if (e.localName === 'hk-grid-keypad-card') return e; if (e.shadowRoot) { const f = d(e.shadowRoot); if (f) return f; } } return null; };
+          const k = d(document); return !!(k && k.shadowRoot && k.shadowRoot.querySelector('.kpad'));
+        });
+        check(`${engine} ${screen}: Extra Large keeps the keypad`, () => assert.equal(kp, true));
         for (const b of got) {
           const label = `${engine} ${screen} ${b.size}`;
           check(label + ': its entries inside its plate', () => assert.equal(b.past, 0));
