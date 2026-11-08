@@ -5,6 +5,23 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+**Added**
+- **A Custom Detail Sheet on any Home Grid block.** Edit a block, then Detail Sheet → When Tapped → Custom Detail Sheet: a title, an icon, a tile style and the accessories you choose, in your order.
+- **Security in HomeView's style**, with a new Compact size (3 × 1); its Extra Large leads with the keypad, the locks and garage doors as tiles and the open doors and windows in one line.
+- **More sizes for the Home Grid blocks** (Accessory Tall with a level you drag, Room Small and Tall, Thermostat Wide, Calendar and To-do Wide, Timers, Who's Home and more), and **a block answers a tap by where it lands**: On Now's categories open a sheet of those things, or their page (a new option, Categories).
+- **The Vacuum block picks rooms:** Wide and Tall have a Rooms key that opens "Rooms to Clean" and name the rooms on the block; Clean cleans them, or the whole house when none are picked.
+- **Everything can scroll in its block** or open its page (a new option, More Places).
+
+**Changed**
+- **Nothing in a block stretches.** Tiles, rows, keys and pills keep their designed size at each block size; a bigger block shows more of them, centered with equal margins. Room, Accessories and Scenes keep one tile size per block size, with "More" for the rest.
+- **On Now and House Status, redesigned together:** a headline ("8 On", "1 Window Open", "All Good") over the categories as lines, each glyph lit in its color.
+- **Now Playing follows the screensaver's Music slide**; Timers with none running, Calendar with nothing scheduled, Doors & Windows and Who's Home read as finished blocks in every state; the Thermostat's modes sit behind one Mode key on Wide and Tall; Weather Extra Large spreads its readings; Live TV tiles show what is on behind each channel.
+- **The Home Grid editor's previews draw in the screen's Tile Style.**
+
+**Fixed**
+- **Swiping between pages is lighter in Pre-rendered glass**, and quick flicks one after another all turn the page.
+- **The screensaver's forecast along the bottom shows its hours and days again**, and the Home Grid's clock no longer runs under the weather.
+
 ## 1.48.3 - 2026-11-07
 
 **Fixed**
