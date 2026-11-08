@@ -600,9 +600,9 @@ class HkControlCard extends HTMLElement {
       .big .tt{all:unset;position:relative;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;
         padding:4px 8px;border-radius:var(--hk-inner-radius,12px);cursor:pointer;-webkit-tap-highlight-color:transparent;min-width:0}
       :host([size=S]) .big .tt{min-width:68px;min-height:60px}
-      /* (THE TARGETS' DESIGNED SIZES, 2026-11-08, the stretch audit: a target is a number of one size per block size and cell shape, never
-         a share of the block's height -- Small 44; Wide 46 on a tile cell, 56 on a square one; Tall 48 and 54) */
-      :host([size=S]) .big .tt b{font-size:44px}
+      /* (THE TARGETS' DESIGNED SIZE, 2026-11-08, the stretch audit: a range's two numbers are the hero role's 44 at Small, Wide and Tall, on a
+         tile cell and a square one -- never a share of the block's height) */
+      .big .tt b{font-size:44px}
       :host([size=S]) .big .tg{gap:8px}
       :host([size=T]) .big .tg{flex-direction:column;align-items:center;gap:10px}
       :host([size=T]) .big .one b{font-size:min(96px,26cqh,40cqw)}
@@ -611,7 +611,6 @@ class HkControlCard extends HTMLElement {
       /* (THE RANGE IN SMALL, WIDE AND TALL, 2026-11-08, the owner's controls rule -- Small one action, Wide and Tall two or three: the two
          targets are the reading, not keys; the arrows move the pair together, each end on its own is the sheet's. Tall stacks them,
          cool over heat, between the arrows) */
-      :host([size=T]) .big .tt b{font-size:54px}
       /* ...Tall's Mode key (2026-11-08, the owner: "the modes are too close to the temp up and down arrows... the modes get hit while using them",
          then "the modes at the top throw the card off"; any card may send more controls to its sheet): the arrows flank the target, the
          centre of weight, the name heads the block, and the modes are the thermostat sheet's -- one 44 px key on the foot opens it, a
@@ -619,7 +618,7 @@ class HkControlCard extends HTMLElement {
       .big .mb{all:unset;box-sizing:border-box;flex:none;align-self:stretch;height:44px;margin-top:12px;border-radius:22px;display:grid;place-items:center;background:${window.hkCards.v('key')};color:${window.hkCards.v('ink')};
         ${window.hkCards.typeCss('headline')};cursor:pointer;-webkit-tap-highlight-color:transparent}
       .big .mb:focus-visible{outline:2px solid ${window.hkCards.v('ink-2')};outline-offset:2px}
-      @container hk-cell (max-height:380px){.big .mb{margin-top:8px}:host([size=T]) .big .tt{padding:4px 2px}:host([size=T]) .big .tt b{font-size:48px}}
+      @container hk-cell (max-height:380px){.big .mb{margin-top:8px}:host([size=T]) .big .tt{padding:4px 2px}}
       /* ...the foot: 24 px arrows (28 on Tall) in 40 x 44 keys, each reaching 4 px outward (the face's
          ::after): 44 x 44, and the name 6 px above and below its two lines -- a finger's 44 in the block's px */
       .big .ff{flex:none;display:grid;grid-template-columns:40px minmax(0,1fr) 40px;align-items:center;min-height:44px}
@@ -642,8 +641,6 @@ class HkControlCard extends HTMLElement {
       :host([size=W]) .big .one b{font-size:min(88px,calc((100cqh - var(--hk-pad-t,18px) - var(--hk-pad-b,18px) - 44px) * .8),30cqw)}
       :host([size=W]) .big .one.long b{font-size:min(60px,calc((100cqh - var(--hk-pad-t,18px) - var(--hk-pad-b,18px) - 44px) * .6),20cqw)}
       :host([size=W]) .big .tt{min-width:68px;min-height:60px}
-      :host([size=W]) .big .tt b{font-size:56px}
-      @container hk-cell (max-height:170px){:host([size=W]) .big .tt b{font-size:46px}}
       :host([size=W]) .big .tg{gap:8px}
       :host([size=W]) .big .ff .ar svg{width:24px;height:24px}
       /* (Wide's one Mode key, 2026-11-08, the owner: four mode circles were more controls than Wide holds, and small: the face and its arrows
