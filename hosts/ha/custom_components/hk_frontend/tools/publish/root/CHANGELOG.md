@@ -5,6 +5,19 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+**Added**
+- **Security's Height option** on Large and Extra Large: the locks and garage doors as HomeView tiles (Full) or half-height pills (Half, the default beside the keypad, lined up with it).
+
+**Changed**
+- **A block shows a title only when you gave it one**; Accessories and Scenes no longer show a generic label, and "N More" is their last tile.
+- **The Rooms and More sheet on a tablet spans the window**, with room around it to tap out.
+- **A block with nothing to show says its name and where to set it up.**
+
+**Fixed**
+- **An Accessory Group that pages shows one row of dots**, its tiles under its title; **half-height pills keep their second row**.
+- **Security's locks lay out the same in the editor and on the tablet**, their names whole.
+- **Swiping between pages in Pre-rendered glass** no longer flashes the last page's blur, and the glass repaints for less.
+
 **Fixed**
 - **No flash of the last page's blur behind the cards after a swipe** in Pre-rendered glass: each page keeps its own picture through the swipe, and the fresh one fades in once it lands.
 - **Pre-rendered glass repaints faster on Android tablets**, and waits for a pause in swiping before it does.

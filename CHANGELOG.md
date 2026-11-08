@@ -4,7 +4,20 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Added**
+- **Security's Height option** on Large and Extra Large: the locks and garage doors as HomeView tiles (Full) or half-height pills (Half). Beside the keypad, Half is the default, the pills starting level with the keypad's readout and the open doors and windows line level with Home, Away and Disarm.
+
+**Changed**
+- **A block shows a title only when you gave it one** ("Kitchen", "Routines"); Accessories and Scenes no longer say "Accessories" and "Scenes", and "N More" is their last tile.
+- **The Rooms and More sheet on a tablet spans the window**, with room around it to tap out: a house's rooms in as few rows as the width allows.
+- **A block with nothing to show says its name and where to set it up** (it was a small key at the block's top).
+- **The iPhone and Mac apps live in their own repositories** (mantel-ios, mantel-mac).
+
 **Fixed**
+- **An Accessory Group that pages shows one row of dots**, its tiles under its title.
+- **Half-height pills keep their second row**: a Wide block of four shows all four.
+- **Security's locks lay out the same in the editor and on the tablet**, their names whole on two lines where needed.
+- **Pre-rendered glass pictures are smaller and quicker to make on the Android tablets** (lossless WebP where the browser writes it).
 - **No more flash of the last page's blur behind the cards after a swipe** (Pre-rendered glass, Bright or Blur). As a drag began, the page being left was repainted in the next page's sky, and the page landed on wore the page it left for a frame or two before its own; coming back, the first page wore the wrong blur until it was repainted. Each page now keeps its own picture for the whole swipe, and the fresh one fades in once it lands.
 - **Pre-rendered glass repaints faster on the wall tablets.** On a page whose sky moves, the glass is repainted every 2 seconds to follow the clouds; each repaint now takes about a third less of an Android tablet's time (the blur is applied by the canvas itself, and the picture is kept as lossless WebP, with the same result), and none starts until 1.5 seconds after the last touch, so quick flicks run clear of them.
 
