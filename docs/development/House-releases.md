@@ -684,3 +684,11 @@ Records of releases made with `release_house.py mantel` (phase 15) are written b
 - Strict health 200, all services healthy, mantel-server built from `acf53a7`, Home Assistant connected for 62 s; no "Traceback" or "ERROR" in Mantel's log.
 - Linux suite passed.
 - Times: preflight 3 s, release commit on main 30 s, images run started 3 s, images built and pushed 224 s, the LXC updated and healthy 148 s, Linux suite passed 2 s, tagged 1 s, promoted (latest, ha-apps) 97 s, GitHub Release 1 s; 8.5 minutes in all.
+
+## Mantel 0.1.152 (2026-11-08)
+
+- Mantel 0.1.152, release commit `27ea48e`, tagged `v0.1.152`; the LXC 0.1.151 -> 0.1.152 (build `c811242322e829e8`).
+- Images run 42494903048 (stage=images), promote run 42495421164, GitHub Release `v0.1.152`.
+- Strict health 200, all services healthy, mantel-server built from `27ea48e`, Home Assistant connected for 63 s; no "Traceback" or "ERROR" in Mantel's log.
+- Linux suite passed.
+- Times: preflight 3 s, release commit on main 29 s, images run started 3 s, images built and pushed 208 s, the LXC updated and healthy 151 s, Linux suite passed 2 s, tagged 1 s, promoted (latest, ha-apps) 65 s, GitHub Release 1 s; 7.7 minutes in all.
