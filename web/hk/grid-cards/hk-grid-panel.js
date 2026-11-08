@@ -474,12 +474,10 @@
           return '<div data-more="' + esc(x.id) + '">' + gly(g, 24, x.open ? ACC.orange : null) + '<span class="wt"><b>' + esc(name(x)) + '</b>' +
             (s ? '<small>' + esc(s) + '</small>' : '') + '</span><em' + col + '>' + (x.open ? 'Open' : 'Closed') + '</em></div>';
         };
-        // (a square cell, 405 px tall, gives the hero 96 -- a few rows leave the room, and a bigger figure fills it, not bigger rows)
-        var hp = box.ih >= 340 ? 96 : 72, heroH = open.length ? Math.round(hp * 1.04) + 19 : hp * 0.6 + 40;
+        var heroH = open.length ? 94 : 100;
         var hero = function (xl) {
           if (!xl) return big;
-          return open.length ? '<div class="wb xl"' + (hp > 72 ? ' style="font-size:96px;letter-spacing:-2px"' : '') + '>' + open.length + '</div><div class="ws">Open</div>'
-            : ok(Math.round(hp * 0.6)) + '<div class="wb m" style="margin-top:6px">All Closed</div>';
+          return open.length ? '<div class="wb xl">' + open.length + '</div><div class="ws">Open</div>' : ok(44) + '<div class="wb m" style="margin-top:6px">All Closed</div>';
         };
         if (size === 'T' || size === 'L') {
           var room = box.ih - 19 - 6, xl = room - heroH - 8 >= Math.min(list.length, 3) * 48, rest = room - (xl ? heroH : 52) - 8;

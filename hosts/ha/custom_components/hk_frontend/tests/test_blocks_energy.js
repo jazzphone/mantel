@@ -241,23 +241,23 @@ function () {
      (html.match(/<em>\d+ gal<\/em>/g) || []).length >= 3, html);
   house.set('binary_sensor.sink_leak', 'off');
   html = H.morphed(panel('doors', 'S')._own.plate);
-  ok('Doors S: how many are open, large, and which', /class="wb xl">1</.test(html) && /open · Office Window/.test(html) && /mdi:window-open/.test(html), html);
+  ok('Doors S: how many are open, large, and which', /class="wb xl">1</.test(html) && /Open · Office Window/.test(html) && /mdi:window-open/.test(html), html);
   html = H.morphed(panel('doors', 'W')._own.plate);
-  ok('Doors W: the count beside the list, the open one first and in orange', /1 open/.test(html) && /All doors closed/.test(html) &&
+  ok('Doors W: the count beside the list, the open one first and in orange', />1 Open</.test(html) && /class="ws">Office Window</.test(html) && !/All doors closed/.test(html) &&
      html.indexOf('Office Window') < html.indexOf('Front Door') && /color:#ff9f0a">Open</.test(html), html);
   ok('...a row opens its own sheet; the locks are Security\'s, not here', /data-more="binary_sensor.front_door"/.test(html) && !/lock.front_door/.test(html));
   // Large and Extra Large (2026-10-31, the owner: not the house picture): the same list, 44 px rows; Extra Large the count beside it
   var pl = panel('doors', 'L');
   ok('Doors L: its own plate, not the house picture', !!pl._own && pl._own.spec.own === 'doors');
   html = H.morphed(pl._own.plate);
-  ok('...the count over rows that grow to 44 or more, the open one first, a foot saying how many', /class="wb[^"]*">(1|1 open)</.test(html) && /class="wr grow"/.test(html) && /4 total · 3 closed/.test(html) &&
+  ok('...the count over rows at their own 48 px (nothing stretches), the open one first, no foot', /class="wb xl">1</.test(html) && /class="wr tall"/.test(html) && !/wr grow|total/.test(html) &&
      html.indexOf('Office Window') < html.indexOf('Front Door'), html);
   html = H.morphed(panel('doors', 'XL')._own.plate);
   ok('Doors XL: the count in its own column beside the list', /class="wsplit"/.test(html) && /flex:0 0 200px/.test(html) &&
-     /All doors closed/.test(html) && (html.match(/<div data-more=/g) || []).length === 4, html);
+     /class="ws">Office Window</.test(html) && !/All doors closed/.test(html) && (html.match(/<div data-more=/g) || []).length === 4, html);
   var closed = house.set('binary_sensor.office_window', 'off');
   html = H.morphed(panel('doors', 'T', closed)._own.plate);
-  ok('Doors T: all closed, the list under it', />All<\/div><div class="ws">closed/.test(html) && (html.match(/<div data-more=/g) || []).length === 4, html);
+  ok('Doors T: all closed, with a check, the list under it', /mdi:check-circle/.test(html) && />All Closed<\/div>/.test(html) && (html.match(/<div data-more=/g) || []).length === 4, html);
   var p2 = panel('doors', 'S'), sig = p2._sigOf();
   hkGive(p2, house.set('binary_sensor.back_door', 'on'));
   ok('a door opening redraws the block (its signature reads them)', p2._sigOf() !== sig);

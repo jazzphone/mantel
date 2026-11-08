@@ -408,8 +408,8 @@ The lead's review of round two found these (`--state quiet`, `--stretch`, `--hit
 stretches" and "every state". Each was fixed, then checked at every size, tiles and square HomeView, 1280 x 800.
 
 - **Calendar with nothing scheduled (hk-calendar.js).** Wide, Tall and Large drew the date and a small "Nothing scheduled" floating in
-  a mostly empty plate. Now the empty day is one group on the plate's optical center: the weekday and the date as the hero (Tall 54
-  px, Large 72, the busy block's own numbers or bigger -- a sparse size gets a bigger hero, not stretched things), "Nothing
+  a mostly empty plate. Now the empty day is one group on the plate's optical center: the weekday and the date as the hero (Tall the
+  busy block's own number, Large 72 -- a sparse size gets a bigger hero, not stretched things), "Nothing
   scheduled" in the title role, and under it a calm line ("The next 7 days are clear") or, when only later days have something
   (Wide), "Nothing scheduled today" over the next event as its row ("Dentist / Tomorrow · 9:00 AM", the row opens the event's
   sheet). Wide is the same group in a row. Small is the same language (date, line, centered). Tall and Large with later events keep
@@ -419,7 +419,7 @@ stretches" and "every state". Each was fixed, then checked at every size, tiles 
   a wrapper only, the arrows 8 px apart. New audit state `cal_later` (nothing today, the events from tomorrow).
 - **Doors & Windows (hk-grid-panel.js).** (a) Extra Large, Large and Tall spread their rows to fill the block (rows 44 to 88 px, the
   `grow` list): rows keep 48 px, as many as fit with "N more", and the hero and the rows are one group centered under the label
-  (the hero is 72 px, 96 on a square cell, where three rows still fit under it; else one compact line). The "N total · N closed"
+  (the hero is 72 px where three rows still fit under it; else one compact line). The "N total · N closed"
   foot is gone (the hero and the list say it). (b) The copy said "1 open" over "All doors closed" while a window was open. Now
   "1 Open" over the open ones by name ("Office Window", "Front Door · Garage Door", "Front Door + 10 more"); nothing open is
   "All Closed" with a check over what the block watches ("2 doors · 1 window"). (c) Small quiet showed "0": now the check, "All Closed"

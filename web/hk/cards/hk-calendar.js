@@ -1397,7 +1397,7 @@
     '.wg .et{' + window.hkCards.typeCss('title') + ';line-height:26px;text-wrap:balance;text-align:center;flex:none}.wg .ls>.et:only-child{margin:auto}.wg .es{font-size:15px;line-height:19px;color:' + window.hkCards.v('ink-2') + ';text-align:center;text-wrap:balance;margin-top:4px}',
     ':host([size]) .wg.em{align-items:center;justify-content:center;gap:0;padding-bottom:calc(var(--hk-pad-b,14px) + 10px)}:host([size]) .wg.em.W{flex-direction:row;gap:22px}:host([size]) .wg.em.T,:host([size]) .wg.em.L{flex-direction:column}',
     '.wg.em .c1{flex:none}.wg.em .c2{flex:0 1 auto;align-items:center}.wg.em.W .c2{align-items:flex-start}.wg.em.W :is(.et,.es){text-align:left}',
-    '.wg.em .dn{margin-bottom:8px}.wg.em.T .dn{font-size:54px}.wg.em.L .dn{font-size:72px}.wg.em .ev2{align-self:center;max-width:100%;margin-top:8px;padding:6px 0}.wg.em .wd{text-align:center}.wg.em.W .wd{text-align:left}',
+    '.wg.em .dn{margin-bottom:8px}.wg.em.L .dn{font-size:72px}.wg.em .ev2{align-self:center;max-width:100%;margin-top:8px;padding:6px 0}.wg.em .wd{text-align:center}.wg.em.W .wd{text-align:left}',
     // Extra Large: the month (seven columns of a finger's width), the chosen day beside it. The month's name and
     // arrows sit over the month on a square cell; on a tile (150 px) over the day, the weeks taking the height.
     '.wg .mon{flex:0 0 322px;min-width:0;display:flex;flex-direction:column}',
