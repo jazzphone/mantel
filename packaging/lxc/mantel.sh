@@ -374,7 +374,7 @@ push_source() {  # push_source CTID: copy this checkout's source into the contai
   # number, and the server then refuses to start), so the CODE trees are removed first (once the tarball has been
   # read through): never packaging/compose (its .env and backups/), never the data or the secrets, which live
   # elsewhere (the Docker volume, /etc/hk/secrets).
-  local trees="hosts hk_core web apple tools packaging/docker packaging/ha-app packaging/lxc packaging/connect-app packaging/push-relay"
+  local trees="hosts hk_core web tools packaging/docker packaging/ha-app packaging/lxc packaging/connect-app packaging/push-relay"
   pct exec "$ctid" -- bash -c "mkdir -p ${INSTALL_DIR} && tar -tzf /root/mantel-src.tar.gz >/dev/null && cd ${INSTALL_DIR} && rm -rf ${trees} && tar -xzf /root/mantel-src.tar.gz -C ${INSTALL_DIR} && rm /root/mantel-src.tar.gz"
 }
 

@@ -13,7 +13,7 @@ Each section links the design note that has the detail.
 | **HK Frontend** | `hosts/ha/custom_components/hk_frontend/`, `hosts/ha/frontend/` | The Home Assistant integration installed from HACS. `tools/build_ha.py` composes it from this component, `web/`, `hk_core/` and the HA adapters. |
 | **Mantel Link** | `hosts/ha/custom_components/mantel/` | Home Assistant's side of Mantel: one authenticated link to Mantel Server, the wall tablets' entities, and the actions automations call. It replaces HK Frontend's linked mode. |
 | **Packaging** | `packaging/` | One image, run three ways: Docker Compose, an LXC, or a Home Assistant App. Plus Mantel Connect, which puts a Mantel that runs elsewhere into Home Assistant's sidebar. |
-| **Apple apps** | `apple/` | SwiftUI apps for iPhone, iPad and the Mac: a native shell around Mantel's own pages. The server decides everything; the apps ask. See [apple/README.md](../../apple/README.md). |
+| **Apple apps** | `jazzphone/mantel-ios`, `jazzphone/mantel-mac` | SwiftUI apps for iPhone, iPad and the Mac: a native shell around Mantel's own pages. The server decides everything; the apps ask. Their own repositories since 2026-11-08 (the Mac's takes the iPhone's as a submodule for the shared `MantelKit` and `Common`); each README has the details. Nothing from `web/` is built into them. |
 
 ## How they talk
 

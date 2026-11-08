@@ -150,18 +150,18 @@ they travel.
 **Notifications need the signed build.** macOS lets an app receive them only
 if it is signed by an Apple developer team with Push Notifications on the
 app's identifier. The Mac app you [build yourself](#build-the-apps-yourself)
-is signed that way (`MAC_TEAM_SIGNING` is on in `apple/make_project.py`).
+is signed that way (`MAC_TEAM_SIGNING` is on in the Mac repository's `make_project.py`).
 A Mac build signed only to run locally (`MAC_TEAM_SIGNING = False`) works
 without them, and its menu says **Notifications Need the Signed Build**.
 
 **What your Apple Developer account needs** to build it with notifications:
 
-1. In Xcode, **Settings → Apple Accounts**, sign in to your team's account. Use
-   `MANTEL_TEAM_ID` when you write the project, as above, and build **MantelMac**
-   with `-allowProvisioningUpdates`:
+1. In Xcode, **Settings → Apple Accounts**, sign in to your team's account. Put
+   your team in `Config/Local.xcconfig`, as below, and build **MantelMac**
+   with `-allowProvisioningUpdates` in the Mac app's checkout:
 
    ```bash
-   xcodebuild -project apple/Mantel.xcodeproj -scheme MantelMac -destination 'platform=macOS' -allowProvisioningUpdates build
+   xcodebuild -project Mantel.xcodeproj -scheme MantelMac -destination 'platform=macOS' -allowProvisioningUpdates build
    ```
 
    The first build creates two identifiers in your account, `com.jazzphone.mantel.mac`
@@ -187,23 +187,28 @@ without them, and its menu says **Notifications Need the Signed Build**.
 
 ## Build the apps yourself
 
-You need a Mac with Xcode and an Apple developer account. Everything is in
-`apple/` in this repository; `apple/README.md` has the details.
+You need a Mac with Xcode and an Apple developer account. The apps have their
+own repositories: **mantel-ios** (the iPhone and iPad app, and the code both
+apps share) and **mantel-mac** (the menu bar app, which takes mantel-ios as a
+submodule at `ios/`). Each one's README has the details. Clone them beside
+this repository (as `mantel-ios` and `mantel-mac` next to `mantel`): their
+scripts find it there for Mantel's version, the house's icons and the
+fictional house below.
 
-1. Set your Apple team id, then write the Xcode project:
+1. Put your Apple team id in `Config/Local.xcconfig` in each app's checkout
+   (git ignores the file):
 
-   ```bash
-   export MANTEL_TEAM_ID=ABCDE12345     # your team id; not a secret
-   python3 apple/make_project.py
    ```
-
-   `make_project.py` reads `MANTEL_TEAM_ID` and writes `apple/Mantel.xcodeproj`.
-2. Open `apple/Mantel.xcodeproj`. The schemes are **Mantel** (iPhone and iPad)
-   and **MantelMac** (the menu bar app). Build and run on your device.
+   DEVELOPMENT_TEAM = ABCDE12345
+   ```
+2. Open `Mantel.xcodeproj` there. The scheme is **Mantel** (iPhone and iPad)
+   in mantel-ios and **MantelMac** (the menu bar app) in mantel-mac. Build and
+   run on your device. (`python3 make_project.py` writes the project again
+   after a change to its targets or settings.)
 
 Under your own Apple account, the app's identifiers must be yours too. The
-bundle prefix (`PREFIX` in `apple/make_project.py`) and the App Group and
-Keychain group in `apple/Config/*.entitlements` name the publisher's prefix;
+bundle prefix (`PREFIX` in each `make_project.py`) and the App Group and
+Keychain group in each `Config/*.entitlements` name the publisher's prefix;
 change them to a prefix your team owns (they are written in those files, not read from a setting).
 
 **Notifications from your own build.** Apple gives each app's developer one
@@ -216,8 +221,8 @@ directly with your key. See
 
 `tools/app_dev_server.py` runs a fictional Mantel on your Mac (no Home
 Assistant; commands change only fictional states). It prints a pairing link
-for the Simulator; `--music` adds a fictional Music Assistant. See
-`apple/README.md`.
+for the Simulator; `--music` adds a fictional Music Assistant. See the apps'
+READMEs.
 
 ## Not built yet
 
