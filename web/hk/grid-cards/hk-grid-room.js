@@ -36,6 +36,15 @@
       '.st{' + type('caption') + ';line-height:17px;color:' + v('ink-2') + ';text-shadow:' + v('glow') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}',
       '.room[size=W] .st{margin-left:auto}',
       '.st:empty{display:none}',
+      // AN ACCESSORIES BLOCK'S HEADING (2026-11-08, the lead's review: a sparse block read as a lost tile): the label row on the top
+      // inset -- its title in the label role, "+N more" at the right (a 44 px key: its ::after) when some do not fit; no "N more" tile
+      '.mo{display:none}',
+      '.room.lbl .hd{flex-direction:row;align-items:center;justify-content:space-between;gap:10px}',
+      '.room.lbl .nm{' + C.labelCss('label') + ';line-height:16px;text-shadow:' + v('glow') + '}',
+      '.room.lbl .st{display:none}',
+      '.room.lbl .mo{all:unset;position:relative;display:block;flex:none;cursor:pointer;white-space:nowrap;' + C.labelCss('label') + ';line-height:16px;text-shadow:' + v('glow') + ';-webkit-tap-highlight-color:transparent}',
+      '.room.lbl .mo::after{content:"";position:absolute;left:-10px;right:-10px;top:-14px;bottom:-14px}',
+      '.room.lbl .mo[hidden]{display:none}',
       // THE TILES (2026-11-08, round three, the owner: "entities in a card should maintain dimensions"): a designed size --
       // --tw x --th, --gap apart (hk-chip.js groupGeom: per block size and cell shape, never the block's room divided by the
       // count) -- in rows the group centers, its last row too, in what the heading leaves. A bigger block shows more tiles.
@@ -50,7 +59,13 @@
       '.tiles.scrolling .slot{touch-action:pan-x pan-y}',
       // (a slot is a cell of its own, not the grid's: it is no square because the grid's cells are -- hk-layout.js)
       '.slot{container-type:size;container-name:hk-cell;--hk-cell-shape:none;min-width:0;min-height:0}.slot > *{display:block;width:100%;height:100%}',
-      '.more{border:0;border-radius:var(--hk-inner-radius,' + v('glass-radius') + ');' + C.plate('tile') + ';color:' + v('ink') + ';' + type('headline') + ';text-shadow:' + v('glow') + ';min-height:44px;cursor:pointer}',
+      // "N MORE" AS A TILE (2026-11-08, the lead's review: its text was a speck in a full-size tile): the ellipsis in the tile's glyph place
+      // and "N More" in its name role, like Security's "... 3 more" row
+      '.more{border:0;border-radius:var(--hk-inner-radius,' + v('glass-radius') + ');' + C.plate('tile') + ';color:' + v('ink') + ';' + type('headline') + ';text-shadow:' + v('glow') + ';min-height:44px;cursor:pointer;',
+      '  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px}',
+      // (the Centred tile's own numbers: the glyph over the name, the name role, the glyph larger on a square cell)
+      '.more hk-icon{width:44px;height:44px;--mdc-icon-size:100%;display:flex;color:' + v('ink-2') + '}',
+      '.tiles[data-sq] .more hk-icon{width:56px;height:56px}',
       '.slot{position:relative;touch-action:pan-x;-webkit-user-select:none;user-select:none;',
       '  -webkit-touch-callout:none}',
       '.none{flex:none;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;' + type('body') + ';color:' + v('ink-2') + ';text-shadow:' + v('glow') + '}',
@@ -168,7 +183,7 @@
       _sigOf() {
         var p = this._plan();
         this._p = p;
-        return JSON.stringify([p.area, p.size, p.name, p.status, p.icon, p.more, !!p.scroll, this._config.surface, p.tiles.map(function (t) { return t.entity; }),
+        return JSON.stringify([p.area, p.size, p.name, p.status, p.icon, p.more, p.hmore, !!p.scroll, this._config.surface, p.tiles.map(function (t) { return t.entity; }),
                                p.geom, this._height(), !!window.hkStrategy, !!window.hkRoom, this.getAttribute('tile')]);
       }
       // EACH NEW CLIENT: every pill gets it (they gate their own draws)
@@ -201,15 +216,16 @@
         this._p = null;
         if (!this._built) {
           this._root.innerHTML = '<div class="room"><div class="hd"><button class="nm" type="button"><span></span>' +
-            '<i aria-hidden="true">›</i></button><span class="st"></span></div>' +
+            '<i aria-hidden="true">›</i></button><span class="st"></span><button class="mo" type="button" hidden></button></div>' +
             '<div class="tiles" role="list"></div>' +
             '<div class="ft" hidden><button class="fd" type="button"></button><b></b><span></span></div>' +
             '<button class="rs" type="button"><div class="well"><hk-icon class="icon"></hk-icon></div><div class="tx"><div class="name"></div><div class="state"></div></div></button></div>';
           var q = this._root.querySelector.bind(this._root);
-          this._e = { box: q('.room'), hd: q('.hd'), nm: q('.nm'), name: q('.nm span'), chev: q('.nm i'), st: q('.st'), tiles: q('.tiles'),
+          this._e = { box: q('.room'), hd: q('.hd'), nm: q('.nm'), name: q('.nm span'), chev: q('.nm i'), st: q('.st'), mo: q('.mo'), tiles: q('.tiles'),
                       ft: q('.ft'), fd: q('.fd'), sep: q('.ft b'), below: q('.ft span'), rs: q('.rs'), rsIcon: q('.rs .icon'), rsName: q('.rs .name'), rsState: q('.rs .state') };
           this._e.rs.addEventListener('click', function (e) { e.stopPropagation(); self._openRoom(); });
           this._e.nm.addEventListener('click', function (e) { e.stopPropagation(); self._openRoom(); });
+          this._e.mo.addEventListener('click', function (e) { e.stopPropagation(); self._openRoom(); });
           // a tap on the dots: a room back or on, by the side of the current dot it lands
           this._e.fd.addEventListener('click', function (e) {
             e.stopPropagation();
@@ -227,6 +243,11 @@
         C.groupSurface(e.box, this._config.surface);
         e.hd.style.display = p.head === false ? 'none' : '';
         e.box.classList.toggle('hdr', p.head !== false);
+        e.box.classList.toggle('lbl', !!p.lbl);
+        var moText = p.hmore ? '+' + p.hmore + ' more' : '';
+        if (e.mo.textContent !== moText) e.mo.textContent = moText;
+        e.mo.hidden = !p.hmore;
+        if (p.hmore) e.mo.setAttribute('aria-label', p.hmore + ' more, open them all');
         if (p.size === 'S') {
           // (the tile's words; the glyph by what it draws, as the other Small tiles' -- TILE.centred.ink)
           if (e.rsName.textContent !== (p.name || 'Room')) e.rsName.textContent = p.name || 'Room';
@@ -245,6 +266,7 @@
         e.tiles.style.setProperty('--tw', gm.tw + 'px');
         e.tiles.style.setProperty('--th', gm.th + 'px');
         e.tiles.style.setProperty('--gap', gm.gap + 'px');
+        if (gm.sq) e.tiles.setAttribute('data-sq', ''); else e.tiles.removeAttribute('data-sq');
         e.tiles.classList.toggle('scrolling', !!p.scroll && p.tiles.length > cols * rows);
         if (e.name.textContent !== (p.name || 'Room')) e.name.textContent = p.name || 'Room';
         if (e.st.textContent !== (p.status || '')) e.st.textContent = p.status || '';
@@ -301,7 +323,10 @@
           });
           if (p.more) {
             var more = document.createElement('button'); more.className = 'more';
-            more.textContent = '+' + p.more + ' more';
+            var mic = document.createElement('hk-icon'), mt = document.createElement('span');
+            mic.icon = 'mdi:dots-horizontal'; mt.textContent = p.more + ' More';
+            more.appendChild(mic); more.appendChild(mt);
+            more.setAttribute('aria-label', p.more + ' more, open them all');
             more.addEventListener('click', () => self._openRoom()); e.tiles.appendChild(more);
           }
         }
@@ -540,17 +565,19 @@
       }
       _sigOf() { return super._sigOf() + JSON.stringify(this._config.accessories || []); }
       // HEIGHT AND COLOR (2026-10-31, the owner's notes on the widget
-      // mock-up): the block is its tiles, no heading. Full, HomeView's tile
+      // mock-up): the block is its tiles (2026-11-08: under a label row). Full, HomeView's tile
       // (Centred, the state under the name) on any dashboard -- W two, L
       // four, XL six; Half, the Home app's pill, as many rows as the block
       // holds. Color: each one lit on its own color.
       // THE TILES ARE A DESIGNED SIZE (2026-11-08, round three: hk-chip.js groupGeom) -- the same for one accessory as for
-      // a full block, the group centered; more than the places, the last one is "N more" (it opens them all in a sheet).
+      // a full block, the group centered; more than the places, "+N more" in the label row (it opens them all in a sheet).
       // (Half's rows the pill's 70 px, 2026-11-01, never stretched: four in a Large block on square cells, three on tiles)
       _plan() {
-        var client = this.client, size = this._size(), cfg = this._config, half = cfg.height === 'half';
-        var gm = this._geom(size, half, 0, 0), all = cfg.accessories || [], more = all.length > gm.n;
-        var entries = all.slice(0, more ? Math.max(0, gm.n - 1) : gm.n);
+        var client = this.client, size = this._size(), cfg = this._config;
+        // (a Wide block on a tile cell has no room for HomeView's tile under its heading: the Home app's pill row, as the Room block's)
+        var sq = window.hkChip.cellSquare(this), half = cfg.height === 'half' || (size === 'W' && !sq);
+        var gm = this._geom(size, half, this._head(size), 0), all = cfg.accessories || [];
+        var entries = all.slice(0, gm.n);
         var tiles = entries.map(function (entry) {
           var S = window.hkStrategy, id = entry.entity;
           var t = S && S.tileFor && client ? S.tileFor(client, id, friendly(client, id)) : { type: 'custom:hk-tile-card', entity: id };
@@ -560,9 +587,11 @@
           if (!half) { delete t.icon_size; delete t.bare_icon; delete t.well_background; }
           return t;
         });
-        return { area: null, size: size, tiles: tiles, more: more ? all.length - entries.length : 0, name: cfg.title || 'Accessories', empty: 'Choose accessories in the editor',
-                 head: false, geom: gm, half: half, centred: !half, color: !!cfg.color };
+        return { area: null, size: size, tiles: tiles, more: 0, hmore: all.length - entries.length, lbl: true, name: cfg.title || 'Accessories',
+                 empty: 'Choose accessories in the editor', geom: gm, half: half, centred: !half, color: !!cfg.color };
       }
+      // the label row's room: its 16 px line and the 8 px under it (hk-chip.js GROUP_HEAD)
+      _head(size) { return size ? window.hkChip.groupHead : 0; }
       _render() {
         super._render();
         this._e.nm.disabled = true;

@@ -1681,6 +1681,8 @@
   //   o.pill  the Home app's pill, 70 px, as many rows as the block holds (Half) -- else the tall tile, two rows (one at Wide)
   // -> { sq, cols, rows, n (the places), tw, th, gap }; `el` says the cell shape: the grid's --hk-cell-h (196 on square cells)
   var GROUP_COLS = { W: 2, T: 1, L: 2, XL: 3, XXL: 6 }, GROUP_ROWS = { W: 1, T: 2, L: 2, XL: 2, XXL: 2 };
+  // (the heading above the tiles of Scenes and Accessories: the label's 16 px line and its 8 px gap)
+  var GROUP_HEAD = 24;
   function cellSquare(el) {
     var h = 0;
     try { h = parseFloat(getComputedStyle(el).getPropertyValue('--hk-cell-h')); } catch (e) { h = 0; }
@@ -1744,7 +1746,7 @@
     });
     // (a Home Grid block with no scene to show is not gone: a plate that says so -- 2026-11-08, every state finished)
     if (show && !pills.length && cfg.hk_cell && C0().HOME_GRID.sizes[cfg.hk_cell] && !cfg.room) {
-      return { auto: auto, config: { hk_cell: cfg.hk_cell, surface: cfg.surface, half: false, color: false, pills: [] } };
+      return { auto: auto, config: { hk_cell: cfg.hk_cell, name: cfg.name || 'Scenes', surface: cfg.surface, half: false, color: false, pills: [] } };
     }
     if (!show || !pills.length) return { auto: auto, config: null };
     // ON A HOME GRID (docs/phase11/HOME-GRID.md): the block draws a designed grid of scene tiles (groupGeom: W two,
@@ -1757,7 +1759,7 @@
     // Full, a scene a cell -- W two, L four, XL six; Half, the shorter button,
     // the Home app's 70 px pill in the rows the block holds.
     if (cell) {
-      return { auto: auto, config: { hk_cell: cfg.hk_cell, surface: cfg.surface, half: cfg.height === 'half', color: !!cfg.color, pills: pills } };
+      return { auto: auto, config: { hk_cell: cfg.hk_cell, name: cfg.name || 'Scenes', surface: cfg.surface, half: cfg.height === 'half', color: !!cfg.color, pills: pills } };
     }
     return { auto: auto, config: { type: 'grid', columns: 1, square: false, cards: [
       { type: 'custom:hk-heading-card', name: cfg.name || 'Scenes' },
@@ -1871,9 +1873,13 @@
     // Centred tile takes the sizes for the room it has. Color: each on a gradient of its own color (hk-tile.js block_color).
     // THE TILES ARE A DESIGNED SIZE (2026-11-08, round three, groupGeom): the same size however many scenes there are and
     // whatever the block's room beyond its own, 8 px (10 on square cells) apart, the group -- its last row too --
-    // centered; more scenes than places, the last place is "N more", which opens them all in a sheet. Half's rows are the
+    // centered. Half's rows are the
     // pill's own 70 px (2026-11-01, the owner: "Half Height cards should be the height of a standard pill card... not
     // stretch itself out"), as many as the block holds.
+    // THE HEADING (2026-11-08, the lead's review: a sparse block read as a lost tile in an empty plate): a label row on the
+    // top inset -- "Scenes" in the label role, "+N more" at its right when some do not fit (a 44 px key that opens them all
+    // in a sheet; the grid has no "+N more" tile) -- and the tile group centered in the room under it. A Wide block on a
+    // tile cell has no room for HomeView's tile under it (96 px): its row is the Home app's pill, as the Room block's is.
     _grid(plan) {
       if (this._el) { if (this._el.parentNode === this) this.removeChild(this._el); this._el = null; }
       if (!this._box) {
@@ -1882,7 +1888,7 @@
       }
       var box = this._box;
       box.style.cssText = C0().plate('card') + ';box-sizing:border-box;padding:var(--hk-pad-t,12px) var(--hk-pad-r,12px) calc(var(--hk-pad-b,12px) + var(--hk-pager-safe,0px)) var(--hk-pad-l,12px);' +
-        'display:flex;flex-wrap:wrap;justify-content:center;align-content:center;width:100%;height:100%;overflow:hidden;--hk-pill:100%';
+        'display:flex;flex-direction:column;gap:8px;width:100%;height:100%;overflow:hidden;--hk-pill:100%';
       delete box._hkGroupBase; C0().groupSurface(box, plan.surface);
       this._gplan = plan; this._gkey = null;
       this._watch();
@@ -1900,51 +1906,63 @@
     _fit() {
       var plan = this._gplan, box = this._box, size = this.getAttribute('size');
       if (!plan || !box || !size) return;
-      var gm = groupGeom(this, size, { pill: plan.half }), n = plan.pills.length, more = n > gm.n;
-      var shown = more ? Math.max(0, gm.n - 1) : n, key = JSON.stringify([gm, n]);
+      var pill = plan.half || (size === 'W' && !cellSquare(this));
+      var gm = groupGeom(this, size, { pill: pill, head: GROUP_HEAD }), n = plan.pills.length, shown = Math.min(n, gm.n), left = n - shown;
+      var key = JSON.stringify([gm, n, pill]);
       if (key === this._gkey) return;
       this._gkey = key;
-      var client = this.client, dim = 'flex:none;width:' + gm.tw + 'px;height:' + gm.th + 'px';
-      box.style.gap = gm.gap + 'px';
+      var client = this.client, dim = 'flex:none;width:' + gm.tw + 'px;height:' + gm.th + 'px', ink2 = C0().v('ink-2'), glow = C0().v('glow');
       while (box.firstChild) box.removeChild(box.firstChild);
-      if (!n) {
-        // NO SCENES (2026-11-08): the glyph and a line, centered on the plate, in the quiet ink -- the block is there, saying what it holds
-        var none = document.createElement('div'), ic = document.createElement('hk-icon');
-        none.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;color:' + C0().v('ink-2') + ';text-shadow:' + C0().v('glow') + ';' + C0().typeCss('body');
-        ic.style.cssText = 'width:34px;height:34px;--mdc-icon-size:100%;display:flex';
-        ic.icon = 'mdi:palette-outline';
-        var nt = document.createElement('span'); nt.textContent = 'No scenes';
-        none.appendChild(ic); none.appendChild(nt);
-        box.appendChild(none);
-        this._tiles = [];
-        return;
-      }
-      this._tiles = plan.pills.slice(0, shown).map(function (pill) {
-        var cfg = blockPill(pill, plan);
-        var slot = document.createElement('div');
-        // (the tile's numbers: HomeView's square tile on square cells -- the one set of type and glyph for every tile of the group)
-        slot.style.cssText = 'position:relative;min-width:0;min-height:0;container-type:size;container-name:hk-cell;' + dim +
-          ';--hk-cell-shape:' + (gm.sq && !plan.half ? 'square' : 'none');
-        var t = window.hkCards.create(cfg);
-        t.setAttribute('data-group-fill', '');
-        t.style.cssText = 'display:block;min-width:0;min-height:0;width:100%;height:100%';
-        slot.appendChild(t);
-        box.appendChild(slot);
-        if (client) t.hkSetClient(client);
-        return t;
-      });
-      if (more) {
-        var b = document.createElement('button'), ids = plan.pills.map(function (p) { return p.entity; }).filter(Boolean);
-        b.type = 'button';
-        b.textContent = '+' + (n - shown) + ' more';
-        b.style.cssText = dim + ';border:0;cursor:pointer;color:' + C0().v('ink') + ';' + C0().typeCss('headline') + ';text-shadow:' + C0().v('glow') + ';-webkit-tap-highlight-color:transparent;' + C0().plate('tile');
-        b.addEventListener('click', function (e) {
+      var hd = document.createElement('div'), nm = document.createElement('span');
+      hd.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:10px;flex:none;min-width:0;padding:0 2px';
+      nm.textContent = plan.name || 'Scenes';
+      nm.style.cssText = C0().labelCss('label') + ';line-height:16px;text-shadow:' + glow + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0';
+      hd.appendChild(nm);
+      if (left) {
+        var mo = document.createElement('button'), ids = plan.pills.map(function (p) { return p.entity; }).filter(Boolean);
+        mo.type = 'button';
+        mo.textContent = '+' + left + ' more';
+        mo.setAttribute('aria-label', left + ' more scenes, open them all');
+        // (a 44 px reach round the 16 px line: ::after is no inline style, so the key's own padding and a negative margin make it)
+        mo.style.cssText = 'all:unset;cursor:pointer;flex:none;box-sizing:content-box;padding:14px 8px;margin:-14px -8px;white-space:nowrap;' + C0().labelCss('label') +
+          ';line-height:16px;text-shadow:' + glow + ';-webkit-tap-highlight-color:transparent';
+        mo.addEventListener('click', function (e) {
           e.stopPropagation();
           var D = window.hkDetail;
           if (D && D.openGroup) D.openGroup('Scenes', ids, { icon: 'mdi:palette' });
         });
-        box.appendChild(b);
+        hd.appendChild(mo);
       }
+      box.appendChild(hd);
+      var tiles = document.createElement('div');
+      tiles.style.cssText = 'display:flex;flex-wrap:wrap;justify-content:center;align-content:center;flex:1;min-height:0;gap:' + gm.gap + 'px';
+      box.appendChild(tiles);
+      if (!n) {
+        // NO SCENES (2026-11-08): the glyph and a line, centered under the heading, in the secondary ink -- the block is there, saying what it holds
+        var none = document.createElement('div'), ic = document.createElement('hk-icon'), nt = document.createElement('span');
+        none.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;color:' + ink2 + ';text-shadow:' + glow + ';' + C0().typeCss('body');
+        ic.style.cssText = 'width:34px;height:34px;--mdc-icon-size:100%;display:flex';
+        ic.icon = 'mdi:palette-outline';
+        nt.textContent = 'No scenes';
+        none.appendChild(ic); none.appendChild(nt);
+        tiles.appendChild(none);
+        this._tiles = [];
+        return;
+      }
+      this._tiles = plan.pills.slice(0, shown).map(function (p) {
+        var cfg = blockPill(p, Object.assign({}, plan, { half: pill }));
+        var slot = document.createElement('div');
+        // (the tile's numbers: HomeView's square tile on square cells -- the one set of type and glyph for every tile of the group)
+        slot.style.cssText = 'position:relative;min-width:0;min-height:0;container-type:size;container-name:hk-cell;' + dim +
+          ';--hk-cell-shape:' + (gm.sq && !pill ? 'square' : 'none');
+        var t = window.hkCards.create(cfg);
+        t.setAttribute('data-group-fill', '');
+        t.style.cssText = 'display:block;min-width:0;min-height:0;width:100%;height:100%';
+        slot.appendChild(t);
+        tiles.appendChild(slot);
+        if (client) t.hkSetClient(client);
+        return t;
+      });
     }
   }
 
@@ -2082,7 +2100,7 @@
   window.hkChip.HkStatusChipCard = HkStatusChipCard;
   window.hkChip.HkChipsCard = HkChipsCard;
   window.hkChip.HkScenesCard = HkScenesCard;
-  window.hkChip.groupGeom = groupGeom; window.hkChip.cellSquare = cellSquare;
+  window.hkChip.groupGeom = groupGeom; window.hkChip.groupHead = GROUP_HEAD; window.hkChip.cellSquare = cellSquare;
   window.hkChip.scenes = { plan: scenesPlan, pill: scenePill, page: pagePill, blockPill: blockPill };
   window.hkChip.kinds = { ORDER: KIND_ORDER, NAMES: KIND_NAMES, QUIET: QUIET_DEFAULT, PAGES: KIND_PAGES,
                           config: kindConfig, auto: autoKinds, found: found, rowPlan: rowPlan,

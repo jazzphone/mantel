@@ -107,21 +107,21 @@ function () {
   card.setConfig({ accessories: acc.slice(0, 4), color: true });
   hkGive(card, hass());
   var p = card._plan();
-  eq('Full at Large: four, two by two, Centred, no heading, in color', [p.tiles.length, p.geom.cols, p.geom.rows, p.centred, p.head, p.color], [4, 2, 2, true, false, true]);
+  eq('Full at Large: four, two by two, Centred, under a label row, in color', [p.tiles.length, p.geom.cols, p.geom.rows, p.centred, p.lbl, p.color], [4, 2, 2, true, true, true]);
   card.setConfig({ accessories: acc, height: 'half' });
   p = card._plan();
   eq('Half at Large on tile cells: three rows of pills, five fit six places', [p.tiles.length, p.geom.cols, p.geom.rows, p.geom.th, p.half, p.centred, p.more], [5, 2, 3, 70, true, false, 0]);
   card.setAttribute('size', 'W');
   card.setConfig({ accessories: acc.slice(0, 1) });
   p = card._plan();
-  eq('one accessory: the same tile as a full block\'s, the group centered (never one tile across the block)', [p.tiles.length, p.geom.tw, p.geom.th], [1, 182, 120]);
+  eq('one accessory in a Wide block on tile cells: the pill row of two places, the group centered (never one tile across the block)', [p.tiles.length, p.geom.tw, p.geom.th, p.geom.n], [1, 182, 70, 2]);
   card.setConfig({ accessories: acc, height: 'half' });
   p = card._plan();
-  eq('more than the places: the last place says "N more" (Wide on tile cells: one pill and the rest)', [p.tiles.length, p.more], [1, 4]);
+  eq('more than the places: "+N more" in the label row, no tile for it (Wide on tile cells: two pills, three more)', [p.tiles.length, p.more, p.hmore], [2, 0, 3]);
   card.setAttribute('size', 'L');
   card.setConfig({ accessories: acc.concat(acc, acc), height: 'half' });
   p = card._plan();
-  eq('...six places, five tiles and "+10 more"', [p.tiles.length, p.more], [5, 10]);
+  eq('...Large, Half, under the label row: six places, six tiles and 9 more', [p.tiles.length, p.more, p.hmore], [6, 0, 9]);
 },
 function () {
   H.section('a tile in its own color (block_color)');
