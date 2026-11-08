@@ -2160,6 +2160,8 @@
       this._unwire();
     }
     static get CSS() {
+      // (Large's rules and Extra Large's, 2026-11-07: a selector list over both)
+      var lx = (sel, body) => ':host([size=L]) ' + sel + ',:host([size=XL]) ' + sel + '{' + body + '}';
       return [
         'hk-plate.strip{background:none;box-shadow:none;border:none;  padding:0;margin:0;display:block}',
         // The screensaver's row is wrapped in a position:fixed div by strip()
@@ -2192,23 +2194,21 @@
         '.gt .pr hk-icon{position:relative;width:calc(var(--ring) * 0.36);height:calc(var(--ring) * 0.36);--mdc-icon-size:calc(var(--ring) * 0.36);color:' + window.hkCards.ACCENTS.orange + '}',
         '.gt .stop{width:var(--stop);height:var(--stop);background:' + window.hkCards.ACCENTS.red + '}',
         '.gt .stop hk-icon{width:calc(var(--stop) * 0.46);height:calc(var(--stop) * 0.46);--mdc-icon-size:calc(var(--stop) * 0.46);color:#fff}',
-        '.gt .pr:active,.gt .stop:active{transform:scale(0.95)}',
-        '.gt .pr:focus-visible,.gt .stop:focus-visible{outline:2px solid ' + window.hkCards.v('ink-2') + ';outline-offset:2px}',
+        '.gt .pr:active,.gt .stop:active{transform:scale(0.95)}.gt .pr:focus-visible,.gt .stop:focus-visible{outline:2px solid ' + window.hkCards.v('ink-2') + ';outline-offset:2px}',
         '@container hk-cell (min-height:180px) or style(--hk-cell-shape: square){  :host([size=S]) hk-plate.strip{--ring:76px;--stop:52px}',
         '  :host([size=W]) hk-plate.strip{--ring:72px;--stop:48px}',
         '  :host([size=S]) .gt hk-countdown{font-size:36px}',
         '  :host([size=W]) .gt hk-countdown{font-size:34px}',
         '}',
-        '@container hk-cell (min-height:360px){',
-        '  :host([size=T]) hk-plate.strip{--ring:64px;--stop:48px}:host([size=T]) .gt hk-countdown{font-size:34px}',
-        '  :host([size=L]) hk-plate.strip{--ring:72px;--stop:48px}:host([size=L]) .gt hk-countdown{font-size:34px}:host([size=L]) .tg.k2 hk-countdown{font-size:44px}',
-        '}',
+        '@container hk-cell (min-height:360px){:host([size=T]) hk-plate.strip{--ring:64px;--stop:48px}:host([size=T]) .gt hk-countdown{font-size:34px}',
+        '  ' + lx('hk-plate.strip', '--ring:72px;--stop:48px') + lx('.gt hk-countdown', 'font-size:34px') + '  :host([size=L]) .tg.k2 hk-countdown{font-size:44px}}',
         // TALL AND LARGE (2026-11-07, the review): Tall stacks the running timers (two fit; "N more" at the foot, a
         // second place says Start another), Large puts up to four in a 2 x 2 -- fewer are bigger: one fills the
         // block, two are rows. Each is the same column as Small's: name, time, ring and Stop at its foot
-        '.tg.k1{--ring:112px;--stop:64px}:host([size=L]) .tg.k1 hk-countdown{font-size:72px}.tg.k1 .nm{font-size:17px}',
-        '.tg.k2{--rg:10px}:host([size=L]) .tg.k2 hk-countdown{font-size:36px}',
-        ':host([size=T]) .tg{--rg:10px}.tg.k4{--rg:18px}:host([size=T]) .gt+.gt,.tg.k2 .gt+.gt{border-top:1px solid ' + window.hkCards.v('line') + ';padding-top:10px}',
+        '.tg.k1{--ring:112px;--stop:64px}' + lx('.tg.k1 hk-countdown', 'font-size:72px') + '.tg.k1 .nm{font-size:17px}.tg.k2{--rg:10px}:host([size=L]) .tg.k2 hk-countdown{font-size:36px}',
+        // (Extra Large: three across are cells of 180, the time and ring larger than Large's)
+        ':host([size=XL]) .tg.k2{--ring:88px;--stop:52px}:host([size=XL]) .tg.k2 hk-countdown{font-size:44px}',
+        ':host([size=T]) .tg{--rg:10px}.tg.k4{--rg:18px}:host([size=T]) .gt+.gt,:host([size=L]) .tg.k2 .gt+.gt{border-top:1px solid ' + window.hkCards.v('line') + ';padding-top:10px}',
         '.mf{flex:none;' + window.hkCards.typeCss('caption') + ';color:' + window.hkCards.v('ink-2') + ';text-shadow:' + window.hkCards.v('glow') + '}',
         // (none running: the quick starts and + as round keys in a grid, --k to what the block leaves them)
         '.gt .qs.big{display:grid;grid-template-columns:repeat(var(--qc),minmax(0,1fr));grid-auto-rows:minmax(0,1fr);flex:1 1 auto;margin-top:0;padding-top:8px;gap:8px;place-items:center}',
@@ -2216,12 +2216,11 @@
         // NONE RUNNING (2026-10-31, the owner: Create a Timer "looks way off from our latest design"): the
         // running timer's own layout -- the orange name, then what there is in place of a time, then at the foot
         // where the ring and Stop sit, quick starts as round keys and an orange + for any other length
-        '.gt .none{' + window.hkCards.typeCss('body') + ';color:' + window.hkCards.v('ink-2') + ';margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-        '.gt .ft.qs{align-items:center;gap:8px}',
+        '.gt .none{' + window.hkCards.typeCss('body') + ';color:' + window.hkCards.v('ink-2') + ';margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.gt .ft.qs{align-items:center;gap:8px}',
         '.qs button{all:unset;box-sizing:border-box;flex:1 1 0;max-width:var(--stop);min-width:44px;height:var(--stop);border-radius:' + window.hkCards.R.capsule('var(--stop)') + ';display:grid;place-items:center;cursor:pointer;',
         '  background:' + window.hkCards.v('key') + ';color:' + window.hkCards.v('ink') + ';' + window.hkCards.typeCss('body') + ';font-weight:600;font-variant-numeric:tabular-nums;-webkit-tap-highlight-color:transparent}',
-        '.qs button.add{background:' + window.hkCards.ACCENTS.orange + ';color:#fff}.qs button.add hk-icon{width:24px;height:24px;--mdc-icon-size:24px}',
-        '.qs button:active{transform:scale(0.95)}.qs button:focus-visible{outline:2px solid ' + window.hkCards.v('ink-2') + ';outline-offset:2px}',
+        '.qs button.add{background:' + window.hkCards.ACCENTS.orange + ';color:#fff}.qs button.add hk-icon{width:24px;height:24px;--mdc-icon-size:24px}.qs button:active{transform:scale(0.95)}',
+        '.qs button:focus-visible{outline:2px solid ' + window.hkCards.v('ink-2') + ';outline-offset:2px}',
         // (Wide with none: the row runs the block's width, each a pill)
         '.gt.wide .qs button{max-width:none}',
         // (round, whatever room they get: a share of the row narrower than their height made them tall ovals --
@@ -2270,21 +2269,22 @@
       var short = (m) => m < 60 ? m + 'm' : m % 60 ? Math.floor(m / 60) + 'h' + (m % 60) : m / 60 + 'h';
       // (the block's room inside its inset: Tall's second place, Large's grid of keys and what fits are sized by it)
       var b = this._block(), cs = typeof getComputedStyle === 'function' ? getComputedStyle(this) : null, pd = (k) => cs && parseFloat(cs.getPropertyValue('--hk-pad-' + k)) || 14;
-      var iw = b ? b.w - pd('l') - pd('r') : 168, ih = b ? b.h - pd('t') - pd('b') : 286, big = sized === 'T' || sized === 'L';
+      var iw = b ? b.w - pd('l') - pd('r') : 168, ih = b ? b.h - pd('t') - pd('b') : 286, big = sized === 'T' || sized === 'L' || sized === 'XL';
       var idle = (n, sub, wide, qc) => {
         // (Tall and Large with none running: the quick starts and + as round keys in a grid filling the block, as large as it lets them)
-        var rws = Math.ceil((n + 1) / (qc || 1)), k = qc ? Math.max(44, Math.min(88, Math.floor(Math.min((iw - (qc - 1) * 8) / qc, (ih - 60 - rws * 8) / rws)))) : 0;
+        var rws = Math.ceil((n + 1) / (qc || 1)), k = qc ? Math.max(44, Math.min(sized === 'XL' ? 112 : 88, Math.floor(Math.min((iw - (qc - 1) * 8) / qc, (ih - 60 - rws * 8) / rws)))) : 0;
         return '<div class="gt' + (wide ? ' wide' : '') + '"><div class="hd"><b class="nm">Timers</b></div><span class="none">' + esc(sub) + '</span>' +
           '<div class="ft qs' + (qc ? ' big" style="--qc:' + qc + ';--k:' + k + 'px' : '') + '">' + presets.slice(0, n).map((m) => '<button data-preset="' + Number(m) + '" aria-label="Start a ' + esc(HkTimersPageCard.label(Number(m))) + ' timer">' + esc(short(Number(m))) + '</button>').join('') +
           '<button class="add" data-new aria-label="Create a Timer"><hk-icon icon="mdi:plus"></hk-icon></button></div></div>';
       };
-      if (!rows.length) return '<div class="tg">' + idle(big ? 5 : sized === 'W' ? 5 : 2, 'None running', sized === 'W', sized === 'T' ? 2 : sized === 'L' ? 3 : 0) + '</div>';
+      if (!rows.length) return '<div class="tg">' + idle(big ? 5 : sized === 'W' ? 5 : 2, 'None running', sized === 'W', sized === 'T' ? 2 : sized === 'L' || sized === 'XL' ? 3 : 0) + '</div>';
       // (Tall: as many stacked as fit, two units of 124 px at least, a line for "N more" held back when some are cut)
       var fit = (room) => Math.max(1, Math.floor((room + 8) / 132)), slots = fit(ih);
       if (sized === 'T' && rows.length > slots) slots = fit(ih - 24);
-      var max = sized === 'S' ? 1 : sized === 'T' ? slots : sized === 'L' ? 4 : 2, shown = rows.slice(0, max), left = rows.length - shown.length;
-      var cls = sized === 'L' ? (rows.length < 3 ? ' k' + rows.length : ' k4') : '';
-      return '<div class="tg' + cls + '" style="--cols:' + (sized === 'S' || sized === 'T' ? 1 : sized === 'L' && rows.length > 2 ? 2 : sized === 'L' ? 1 : max) + '">' + shown.map(function (r, i) {
+      // (Extra Large, 2026-11-07: up to six, a 3 x 2 grid; one or two are big across, three go three across, four are 2 x 2, five leave a place for Start another)
+      var xl = sized === 'XL', nn = rows.length, max = sized === 'S' ? 1 : sized === 'T' ? slots : xl ? 6 : sized === 'L' ? 4 : 2, shown = rows.slice(0, max), left = nn - shown.length;
+      var cls = xl ? ' k' + ([0, 1, 1, 2][nn] || 4) : sized === 'L' ? (nn < 3 ? ' k' + nn : ' k4') : '';
+      return '<div class="tg' + cls + '" style="--cols:' + (xl ? [0, 1, 2, 3, 2][nn] || 3 : sized === 'S' || sized === 'T' ? 1 : sized === 'L' ? (nn > 2 ? 2 : 1) : max) + '">' + shown.map(function (r, i) {
         var paused = r.state === 'paused', total = T ? T.secs(r.attrs.duration) : 0, nm = esc(r.name || 'Timer');
         var clock = paused ? 'hold="' + (T ? T.secs(r.attrs.remaining) : 0) + '"' : 'deadline="' + Date.parse(r.attrs.finishes_at) + '"';
         // (the countdown is the column's child: it writes the fraction left, --hk-left, on the column, and the ring reads it)
@@ -2295,7 +2295,7 @@
           '<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="45"></circle><circle class="left" cx="50" cy="50" r="45" pathLength="100"></circle></svg>' +
           '<hk-icon icon="mdi:' + (paused ? 'play' : 'pause') + '"></hk-icon></button>' +
           '<button class="stop" data-timer="' + esc(r.id) + '" data-service="cancel" aria-label="Stop ' + nm + '"><hk-icon icon="mdi:stop"></hk-icon></button></div></div>';
-      }).join('') + (sized === 'L' ? (rows.length === 3 ? idle(2, 'Start another') : '') : shown.length < max ? idle(2, 'Start another') : '') + '</div>' +
+      }).join('') + (xl || sized === 'L' ? (nn === (xl ? 5 : 3) ? idle(2, 'Start another') : '') : shown.length < max ? idle(2, 'Start another') : '') + '</div>' +
         (left && sized === 'T' ? '<div class="mf">' + left + ' more</div>' : '');
     }
     _sigOf() {
@@ -2461,13 +2461,13 @@
   // THE FACES' GRID on a Small or Large block: the columns and rows that draw them largest in (w x h), each cell a
   // finger's 44 at least with `tx` px of words under its face, the face to `cap`; ties go to the fuller grid, and
   // with `one` (Small) a single row wins while its faces are 40 or more -- no 2 + 1 wrap; where there are words (Large) a grid with faces
-  // down to 80 % of the largest wins if it fills the block more, rows weighing most (3 as 2 + 1, not a row in the middle of it). When they cannot all fit,
+  // down to 80 % of the largest wins if it fills the block more, rows weighing most (3 as 2 + 1, not a row in the middle of it), a full last row 1.8 times (4 as 2 x 2, 6 as 3 x 2, not 3 + 1 or 5 + 1). When they cannot all fit,
   // as many as do, the last cell saying how many more. -> {c, f, fit}
   function faceGrid(n, w, h, tx, cap, one) {
     var best = null, all = [];
     for (var c = 1; c <= Math.max(1, n); c++) {
       var r = Math.ceil(n / c), cw = (w - (c - 1) * PP.g) / c, ch = (h - (r - 1) * PP.g) / r - tx, f = Math.min(cw, ch, cap);
-      if (cw >= 44 && ch >= 44) all.push({ c: c, f: f, r: r, fit: n, box: c * f * r * (f + tx) });
+      if (cw >= 44 && ch >= 44) all.push({ c: c, f: f, r: r, fit: n, box: c * f * r * (f + tx) * (tx && n > 2 && n % c === 0 ? 1.8 : 1) });
       if (one && c === n && cw >= 44 && ch >= 44 && f >= 40) return { c: c, f: f, fit: n };
     }
     var top = all.reduce(function (m, x) { return Math.max(m, x.f); }, 0);
@@ -2582,15 +2582,15 @@
         var pad = function (k) { var x = cs ? parseFloat(cs.getPropertyValue('--hk-pad-' + k)) : NaN; return x >= 0 ? x : 14; };
         // (before the view has measured: a tile cell's block)
         var iw = b ? b.w - pad('l') - pad('r') : sz === 'W' ? 374 : 168, ih = b ? b.h - pad('t') - pad('b') : 122;
-        if (sz === 'S' || sz === 'L') {
-          // (Small: the faces, one line under them. Large: the faces as large as fit, each with its name and where under it)
-          var lg = sz === 'L', gr = lg ? faceGrid(ids.length, iw, ih - PP.lab - 2 * PP.g, 46, 88) : faceGrid(ids.length, iw, ih - PP.lab - PP.line - 2 * PP.g, 0, 64, true);
+        if (sz === 'S' || sz === 'L' || sz === 'XL') {
+          // (Small: the faces, one line under them. Large: the faces as large as fit, each with its name and where under it. Extra Large, 2026-11-07: to 120, one or two to 160, the since beside where)
+          var lg = sz !== 'S', gr = lg ? faceGrid(ids.length, iw, ih - PP.lab - 2 * PP.g, 46, sz === 'XL' ? (ids.length < 3 ? 160 : 120) : 88) : faceGrid(ids.length, iw, ih - PP.lab - PP.line - 2 * PP.g, 0, 64, true);
           var fit = Math.min(ids.length, gr.fit), cutf = ids.length - fit, tot = fit + (cutf ? 1 : 0);
           html = '<b class="lab">Who’s Home</b><div class="fc' + (lg ? ' lg' : '') + '" role="list" style="--c2:' + gr.c * 2 + ';--f:' + Math.floor(gr.f) + 'px">' +
             ids.slice(0, fit).map(function (id, i) {
               var s = h.states[id], nm = String((s.attributes || {}).friendly_name || id);
               return self._face(id, i, s.state === 'home' ? 'home' : 'away', lastRow(i, tot, gr.c)) +
-                (lg ? '<b>' + esc(nm.split(/\s+/)[0]) + '</b><span>' + esc(whereOf(s)) + '</span>' : '') + '</button>';
+                (lg ? '<b>' + esc(nm.split(/\s+/)[0]) + '</b><span>' + esc(whereOf(s) + (sz === 'XL' && iw / gr.c >= 120 ? sinceOf(s) : '')) + '</span>' : '') + '</button>';
             }).join('') + (cutf ? '<span class="mo" style="' + lastRow(fit, tot, gr.c) + '" aria-label="' + cutf + ' more"><span class="face">+' + cutf + '</span>' + (lg ? '<b>More</b>' : '') + '</span>' : '') +
             '</div>' + (lg ? ids.length ? '' : '<div class="line">Nobody added</div>' : '<div class="line">' + esc(ids.length ? this._line(ids) : 'Nobody added') + '</div>');
         } else if (sz === 'T') {

@@ -78,7 +78,7 @@ def test_six_to_two_columns(cols):
     ([], "grid"),
     (grid(*[block(f"b{i}", "timers", "S", [i % 6, i // 6]) for i in range(25)], rows=6), "grid_items"),
     (grid(block("a1", "toaster", "S", [0, 0])), "grid_card"),
-    (grid(block("a1", "timers", "XL", [0, 0])), "grid_size"),
+    (grid(block("a1", "scene", "XL", [0, 0])), "grid_size"),
     (grid(block("a1", "camera", "XL", [0, 0]), cols=2), "grid_fit"),
     (grid(block("a1", "thermostat", "T", [0, 3])), "grid_place"),
     (grid(block("a1", "camera", "L", [5, 0])), "grid_place"),

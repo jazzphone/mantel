@@ -63,8 +63,10 @@ that size; Cameras stays Extra Large, Full Width and Full, Intercom Small and Wi
 | Thermostat | S, T, L, XL | W: Big Number with the modes beside it |
 | Calendar | S, T, L, XL | W: the day beside its next events |
 | To-do | S, T, L, XL | W: the count beside the first items |
-| Timers | S, W | T, L |
-| Who's Home | S, W | T, L |
+| Timers | S, W | T, L, XL |
+| Who's Home | S, W | T, L, XL |
+| Security | S, W, C, L, XL | T |
+| Suggested Scene | S, W, L | T |
 | Camera | S, W, L, XL | T |
 | Vacuum | S, W, L, XL | T |
 | Power | S, W, L, XL | T |
@@ -120,3 +122,7 @@ Detail sheets: see "Sheets" below.
 - 2026-11-07: One Wide tile for Accessory W, Scene W and Intercom W (hk-tile.js `wideTile`): Home style is Apple Home's wide tile (the 42 px well at the left, the name over its state, centered); Centred is HomeView's tile laid sideways -- the glyph's box centered on a quarter of the width, the words a gutter right of it, the pair centered on the glyph, ellipsis at the right inset.
 - 2026-11-07: Intercom: the glyph is five rounded vertical bars (Apple's waveform), the second line says the rooms last picked or "Everywhere" (Wide's room chips are gone, the line carries them), and the sheet's talk group is centered on the rooms panel's line on a tablet (hk-intercom.js).
 - 2026-11-07: a spanning tile (Room, Scenes, Accessories) keeps its row's tile type; a centered tile takes the square type from 170 px tall (an Extra Large group's 2 x 2 tiles are ~178).
+- 2026-11-07: Security T (hk-grid-security.js; both mirrors): the shield and state on top (the state line may take two lines), the rows through the middle, at the foot Home and Away side by side with Disarm under them (three 44 px keys do not fit 168 px); a tap on the heading opens the alarm's sheet. The rows of every size share the room they are given, 44 to 64 px (`--rh`), the shown rows and "N more" filling it, a short list centered. In the HomeView presentation T is Large's composition at 1 x 2 (the plate says L; no chevron, the heading's line free to take two lines); its entry rows share the band, 54 to 64 px, and an entry given 92 px or more is HomeView's stack -- the glyph over the name over its state.
+- 2026-11-07: Timers XL (hk-home.js; both mirrors): up to six running timers, each the existing column (orange name, time, ring = pause, red Stop) -- one or two are big across (the time 72 px, as Large's one), three go three across (time 44, ring 88), four are 2 x 2, five and six a 3 x 2, the sixth place saying Start another when there are five; none running, the quick starts as round keys in a 3 x 2 grid (to 112 px) filling the block. `lx()` writes Large's rules and Extra Large's as one selector list, so the file does not grow.
+- 2026-11-07: Who's Home XL (hk-home.js; both mirrors): Large's grid with the faces to 120 (one or two people to 160), the first name and where and since under each ("Home · 10:51 PM"; the since drops where a cell is under 120 px wide). `faceGrid` gives a grid whose last row is full 1.8 times the weight, so four are 2 x 2 and six 3 x 2, not 3 + 1 and 5 + 1; three stay 2 + 1 on a tall block.
+- 2026-11-07: Suggested Scene T (hk-grid-widgets.js; both mirrors): Large's composition at 1 x 2 -- the gradient plate and time-of-day art, the glyph at the top, label, name and "Until 5:00 AM" at the foot.
