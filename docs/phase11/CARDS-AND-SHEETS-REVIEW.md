@@ -170,3 +170,12 @@ fills its space by how many things it shows and where it puts them, the group ce
 - Checks: `home_grid_audit.py --state` gains wx_few, wx_five (the weather), tv_art, tv_noart (Live TV; the default house is mixed: four
   channels with art, two without), sec_armed, sec_trig, sec_open, sec_many (Security); `AUDIT_VIEW=390x844` draws the audit at a phone's
   size (the grid is the same, scaled).
+- Round two, the lead's review: (1) Security Wide's rows are the glyph and two lines, the name whole over its state (they were one line, and
+  "Front Door" was cut beside the shield's column); (2) Live TV Large and Extra Large open with a label row -- LIVE TV at the label role and
+  "N more" (the channels the guide has beyond those shown) at its right -- and the tiles stand under it in a group of their own; the tile
+  shape is the tallest of 4 : 3, 3 : 2 and 16 : 10 that shows every channel the block names in the room it has (still one shape per
+  block, never stretched), which fills the plate to about an eighth of margin where the 16 : 10 tiles left a fifth; `tv_many`
+  (twelve channels) shows six and "6 more"; (3) the keypad's Home, Away and Disarm were 44 px in the block's own px (33 on the HomeView
+  screen's 0.74 scale): they are now as tall as the block's keys where it has the room (53 px on a square cell, 56 on a tile), 44 at
+  the least (`--hk-kp-pill`, set by the grid block; the alarm's sheet keeps its 44). The audit's `AUDIT_PROBE='<js>'` prints a probe of
+  one's own for each block (measured them).
