@@ -832,8 +832,8 @@ async def audit(keys: list[str], looks: list[str], shots: Path | None, long: boo
                         return null; }; const v = d(document); return v && v.shadowRoot.querySelectorAll('.cell').length > 0; })()""", 20)
                     await asyncio.sleep(2.0)            # pictures, fonts and the sky settle
                     picked = STATES[STATE["name"]].get("picked")
-                    if picked:                          # the rooms ticked on the Vacuum block (hk-home.js: hkHome.picked, by vacuum)
-                        await b.eval("(() => { const s = (window.hkHome.picked['vacuum.downstairs'] = window.hkHome.picked['vacuum.downstairs'] || new Set()); s.clear(); %s.forEach(a => s.add(a));"
+                    if picked and key == "vacuum":      # the rooms ticked on the Vacuum block (hk-home.js: hkHome.picked, by vacuum)
+                        await b.eval("(() => { if (!window.hkHome || !window.hkHome.picked) return; const s = (window.hkHome.picked['vacuum.downstairs'] = window.hkHome.picked['vacuum.downstairs'] || new Set()); s.clear(); %s.forEach(a => s.add(a));"
                                      " window.dispatchEvent(new Event('hk-vacuum-rooms')); })()" % json.dumps(picked))
                         await asyncio.sleep(0.8)
                     got = await b.eval(MEASURE)
