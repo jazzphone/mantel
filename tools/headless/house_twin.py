@@ -242,6 +242,7 @@ def main(argv=None) -> int:
     r.add_argument("--path", default="home", help="the page under each screen (home, or another page's path)")
     r.add_argument("--js", default="", help="run this in the page before the shot (open a sheet: it may await)")
     r.add_argument("--tag", default="", help="a word added to the shot's name")
+    r.add_argument("--insets", action="store_true", help="print each block's margins (house_twin_insets.js) and flag the uneven ones")
     r.add_argument("--busy", action="store_true", help="the house with things going on (busy()): lights on, timers, music, a door open")
     r.add_argument("--sheets", action="store_true", help="also open the sheet of every entity the screen's Home Grid names, a shot each")
     r.add_argument("--set", action="append", default=[], metavar="SCREEN:ITEM.KEY=VALUE",
@@ -254,6 +255,8 @@ def main(argv=None) -> int:
     if not os.environ.get("PLAYWRIGHT_PATH"):
         raise SystemExit("house_twin: render needs PLAYWRIGHT_PATH (and NODE)")
     w, h = (int(x) for x in a.size.split("x"))
+    if a.insets:
+        a.js = (Path(__file__).parent / "house_twin_insets.js").read_text()
     return asyncio.run(render(a.screens, (w, h), a.engine, a.shots, a.path, a.set, a.js, a.tag, a.sheets, a.busy))
 
 

@@ -40,7 +40,8 @@
       // inset -- its title in the label role, "+N more" at the right (a 44 px key: its ::after) when some do not fit; no "N more" tile
       '.mo{display:none}',
       '.room.lbl .hd{flex-direction:row;align-items:center;justify-content:space-between;gap:10px}',
-      '.room.lbl .nm{' + C.labelCss('label') + ';line-height:16px;text-shadow:' + v('glow') + '}',
+      // (the label's capitals start ~3 px under the top of its 16 px line: lifted so their ink sits on the block's inset, as the sides' do)
+      '.room.lbl .nm{' + C.labelCss('label') + ';line-height:16px;text-shadow:' + v('glow') + ';position:relative;top:-3px}',
       '.room.lbl .st{display:none}',
       '.room.lbl .mo{all:unset;position:relative;display:block;flex:none;cursor:pointer;white-space:nowrap;' + C.labelCss('label') + ';line-height:16px;text-shadow:' + v('glow') + ';-webkit-tap-highlight-color:transparent}',
       '.room.lbl .mo::after{content:"";position:absolute;left:-10px;right:-10px;top:-14px;bottom:-14px}',

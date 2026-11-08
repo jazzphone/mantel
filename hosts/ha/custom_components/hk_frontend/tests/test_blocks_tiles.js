@@ -87,9 +87,9 @@ function () {
   eq('square cells: W two, T two stacked, L 2 x 2, XL 3 x 2, XXL 6 x 2',
      [g(196, 'W'), g(196, 'T'), g(196, 'L'), g(196, 'XL'), g(196, 'XXL')],
      [[2, 1, 178, 158, 10], [1, 2, 158, 178, 10], [2, 2, 178, 178, 10], [3, 2, 185, 178, 10], [6, 2, 192, 178, 10]]);
-  eq('Half: the pill\'s 70 px, as many rows as the cell shape holds (tiles three at Large, square four)',
+  eq('Half: as many 70 px rows as the cell shape holds (tiles three at Large, square four), each as tall as leaves the margins equal, up to 82',
      [g(150, 'L', { pill: true }), g(196, 'L', { pill: true }), g(150, 'W', { pill: true }), g(196, 'W', { pill: true })],
-     [[2, 3, 182, 70, 8], [2, 4, 178, 70, 10], [2, 2, 182, 56, 8], [2, 2, 178, 70, 10]]);
+     [[2, 3, 182, 82, 8], [2, 4, 178, 82, 10], [2, 2, 182, 56, 8], [2, 2, 178, 74, 10]]);
   // (2026-11-08, the owner: a Wide block of four drew one row of two under its label) where 70 px leaves one row and two fit
   // at 56, two rows of the height that fills the room: a square Wide under a label row has 134 px -- two rows of 62
   eq('Half under a label row: two rows, not one, where two fit at the shortest pill', g(196, 'W', { pill: true, head: 24 }), [2, 2, 178, 62, 10]);
@@ -117,7 +117,7 @@ function () {
   card.setConfig({ accessories: acc.slice(0, 4), color: true });
   card.setConfig({ accessories: acc, height: 'half' });
   p = card._plan();
-  eq('Half at Large on tile cells: three rows of pills, five fit six places', [p.tiles.length, p.geom.cols, p.geom.rows, p.geom.th, p.half, p.centred, p.more], [5, 2, 3, 70, true, false, 0]);
+  eq('Half at Large on tile cells: three rows of pills, five fit six places', [p.tiles.length, p.geom.cols, p.geom.rows, p.geom.th, p.half, p.centred, p.more], [5, 2, 3, 82, true, false, 0]);
   card.setAttribute('size', 'W');
   card.setConfig({ accessories: acc.slice(0, 1) });
   p = card._plan();

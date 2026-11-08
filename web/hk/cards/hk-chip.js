@@ -1688,7 +1688,7 @@
     try { h = parseFloat(getComputedStyle(el).getPropertyValue('--hk-cell-h')); } catch (e) { h = 0; }
     return h >= 180;
   }
-  var PILL_MIN = 56;      // the shortest a half pill may be: its 36 px glyph circle and two lines with their inset
+  var PILL_MIN = 56, PILL_MAX = 82;      // the shortest a half pill may be (its 36 px glyph circle and two lines with their inset), and the tallest
   function groupGeom(el, size, o) {
     o = o || {};
     var T = C0().TILE, G = C0().HOME_GRID, sq = cellSquare(el), cw = T.w, ch = sq ? G.square.h : T.tall;
@@ -1700,7 +1700,9 @@
     // 70 px rows as fit -- but where that leaves one row and two fit at PILL_MIN, two rows of the height that fills
     // the room: still a designed size (the block's, never the count's or a measure), the second row not lost
     var rows = o.pill ? Math.max(1, Math.floor((H + gap) / (T.h + gap)), Math.min(2, Math.floor((H + gap) / (PILL_MIN + gap)))) : r;
-    var th = o.pill ? Math.min(T.h, Math.floor((H - (rows - 1) * gap) / rows)) : Math.floor((H - (rows - 1) * gap) / rows);
+    // (and up to PILL_MAX where that leaves the block's margins equal all round -- 2026-11-08, the owner: the pills sat 23 px from the
+    // top and bottom, 19 from the sides; still the block size's design, never the count's)
+    var th = o.pill ? Math.min(PILL_MAX, Math.floor((H - (rows - 1) * gap) / rows)) : Math.floor((H - (rows - 1) * gap) / rows);
     return { sq: sq, cols: c, rows: rows, n: c * rows, tw: Math.floor((W - (c - 1) * gap) / c), th: th, gap: gap };
   }
   function scenesPlan(cfg, b, client, away) {

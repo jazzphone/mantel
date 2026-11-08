@@ -13,7 +13,19 @@ const spec = JSON.parse(require('fs').readFileSync(0, 'utf8'));
     await page.goto(spec.origin + '/' + s + '/' + spec.path);
     await page.waitForFunction(() => window.__mantelReady === true, null, { timeout: 30000 }).catch(() => {});
     await page.waitForTimeout(5000);                 // pictures, fonts, the sky and the glass settle
-    if (spec.js) { console.log('house_twin: js -> ' + JSON.stringify(await page.evaluate('(async () => { ' + spec.js + ' })()'))); await page.waitForTimeout(1200); }
+    if (spec.js) {
+      const got = await page.evaluate('(async () => { ' + spec.js + ' })()');
+      // (--insets: one line a block, "UNEVEN" where top and bottom or left and right differ by more than 4 px, or the margins above and
+      // below are wider than at the sides)
+      if (Array.isArray(got) && got.every((x) => typeof x === 'string' && x.split(' ').length === 6)) {
+        for (const line of got) {
+          const [t, r, b, l] = line.split(' ')[5].split('/').map(Number), side = Math.min(l, r), vert = Math.min(t, b);
+          const uneven = Math.abs(t - b) > 4 || Math.abs(l - r) > 4 || vert - side > 4;
+          console.log('house_twin: ' + s + ' ' + (uneven ? 'UNEVEN ' : 'even   ') + line);
+        }
+      } else console.log('house_twin: js -> ' + JSON.stringify(got));
+      await page.waitForTimeout(1200);
+    }
     const file = spec.shots + '/' + s.replace(/[^\w-]+/g, '_') + '-' + spec.path.replace(/\W+/g, '_') + '-' + spec.engine + '-' + spec.w + 'x' + spec.h + (spec.tag ? '-' + spec.tag : '') + '.png';
     await page.screenshot({ path: file });
     console.log('house_twin: ' + file);
