@@ -155,6 +155,10 @@
       'hk-plate.sec{box-sizing:border-box;height:100%;display:flex;flex-direction:column;gap:10px;padding:' + C.blockPad('14px') + ';overflow:hidden;' + C.plate('card') + ';color:' + v('ink') + ';',
       '  -webkit-tap-highlight-color:transparent;--ha-ripple-hover-opacity:0;--ha-ripple-pressed-opacity:0}',
       'hk-plate.sec[size=W],hk-plate.sec.kp{flex-direction:row;gap:18px}',
+      // (shapes on its inset -- the keypad, the locks, the ways to arm -- at the shape inset, 13 on a square cell, their corners 34 - 13;
+      // the heading keeps the text's 18 -- 2026-11-08, the owner's group-block rule "across all the cards")
+      'hk-plate.sec.kp,hk-plate.sec[size=L],hk-plate.sec[size=T]{padding:' + C.blockPad('14px', true) + '}',
+      'hk-plate.sec[size=L] .hd,hk-plate.sec[size=T] .hd{margin:var(--hk-text-in,0px) var(--hk-text-in,0px) 0 var(--hk-text-in,0px)}',
       '[role=button]{cursor:pointer}',
       '[role=button]:focus-visible,button:focus-visible{outline:2px solid ' + v('ink-2') + ';outline-offset:2px}',
       // the shield bare, in the state's color (gray disarmed), as the Small blocks beside it draw their glyphs
@@ -634,6 +638,8 @@
       'hk-plate.hv{box-sizing:border-box;height:100%;display:flex;gap:12px;padding:' + C.blockPad('14px') + ';overflow:hidden;' + C.plate('card') + ';color:' + v('ink') + ';',
       '  -webkit-tap-highlight-color:transparent;--ha-ripple-hover-opacity:0;--ha-ripple-pressed-opacity:0}',
       'hk-plate.hv[size=L]{flex-direction:column}',
+      // (its entries on the shape inset, the alarm's words on the text's -- 2026-11-08)
+      'hk-plate.hv{padding:' + C.blockPad('14px', true) + '}hk-plate.hv .al{margin:var(--hk-text-in,0px) 0 var(--hk-text-in,0px) var(--hk-text-in,0px)}hk-plate.hv[size=L] .al{margin:var(--hk-text-in,0px) var(--hk-text-in,0px) 0 var(--hk-text-in,0px)}',
       '[role=button]{cursor:pointer;-webkit-tap-highlight-color:transparent}',
       '[role=button]:focus-visible{outline:2px solid ' + v('ink-2') + ';outline-offset:2px}',
       // THE ALARM'S AREA: the shield bare in its state's color (as the legacy block, and the Small keys), the state and

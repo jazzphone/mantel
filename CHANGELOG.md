@@ -5,6 +5,7 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 ## Unreleased
 
 **Added**
+- **The tiles in a block sit closer to its edge, with rounder corners** (HomeView's square cells): a group of accessories, Scenes, Security's keypad and locks, Live TV's channels and the Recent picture sit 13 px in -- the grid's gap -- with 21 px corners concentric with the block's 34 (they were 18 in, 16 px corners); headings and words stay where they were.
 - **Tiny, an Accessory in half a cell**: two share a cell, top and bottom, or one sits alone. On a HomeView-style screen it is HomeView's tile laid sideways at half height -- the glyph bare and large, the name over its state centered beside it, the block's own corners (a name takes two lines on square cells, one under page dots); on Home style, the Accessory Group's half pill. The editor and Edit mode place, move and make room for it by halves.
 - **A temperature or humidity sensor shows its reading** ("71°", "49%") where the glyph would be on a Centered tile, its room under its name.
 - **A Wide Accessory is a slider** for a light, a fan or a shade: the whole tile, as Control Center's -- drag across it to set the level, its fill in the thing's own color, its level at the right; a tap is still the tile's own.

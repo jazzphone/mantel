@@ -1825,14 +1825,14 @@
         // THE BLOCK'S INSET (hkCards.blockPad): 14 px on tiles, 18 on square cells (a 34 px corner's curve comes 10 px
         // in), and a Square screen's outer corner on top (cellInset's --hk-in-*)
         '--hk-block-pad:14px;--hk-pad-t:calc(var(--hk-block-pad) + var(--hk-in-t,0px));--hk-pad-r:calc(var(--hk-block-pad) + var(--hk-in-r,0px));' +
-        '--hk-pad-b:calc(var(--hk-block-pad) + var(--hk-in-b,0px));--hk-pad-l:calc(var(--hk-block-pad) + var(--hk-in-l,0px))}' +
+        '--hk-pad-b:calc(var(--hk-block-pad) + var(--hk-in-b,0px));--hk-pad-l:calc(var(--hk-block-pad) + var(--hk-in-l,0px));--hk-shape-pad:var(--hk-block-pad);--hk-text-in:calc(var(--hk-block-pad) - var(--hk-shape-pad));--hk-spad-t:calc(var(--hk-shape-pad) + var(--hk-in-t,0px));--hk-spad-r:calc(var(--hk-shape-pad) + var(--hk-in-r,0px));--hk-spad-b:calc(var(--hk-shape-pad) + var(--hk-in-b,0px));--hk-spad-l:calc(var(--hk-shape-pad) + var(--hk-in-l,0px))}' +
         // ...and its cells say they are square (2026-10-31, the owner: the glyphs small on a 1280 x 800 tablet): a block
         // asked "a square cell?" by its height (180 px or more), and beside the Side Pane a square cell is ~154 px. The
         // blocks ask `(min-height:180px) or style(--hk-cell-shape: square)`: where style() is unknown, as it was
-        ':host([cell=square]) .cell{--hk-block-pad:18px;--hk-cell-shape:square}' +
+        ':host([cell=square]) .cell{--hk-block-pad:18px;--hk-shape-pad:13px;--hk-cell-shape:square}' +   // (shapes on the inset at the grid's gap, 13 -- text keeps 18: 2026-11-08)
         // ...and on square cells what sits inside a block's plate on its inset is concentric with it (34 - 18); tiles keep
         // their pills' own corners (at 23.5 - 14 they would be near square)
-        ':host([cell=square]) .cell{--hk-inner-radius:max(12px, calc(var(--hk-block-radius, 34px) - var(--hk-block-pad)))}' +
+        ':host([cell=square]) .cell{--hk-inner-radius:max(12px, calc(var(--hk-block-radius, 34px) - var(--hk-shape-pad)))}' +
         '.cell>*,.band>*{display:block;box-sizing:border-box;width:100%;max-height:100%;margin:0!important}' +
         '.cell>*{height:100%}' +
         // HIDE BOX (2026-10-24): the block's boxes (card and panel plates, hkCards.plate) clear, no edge, no shadow and

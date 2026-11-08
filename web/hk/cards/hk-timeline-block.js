@@ -428,7 +428,8 @@
     '.lead.up .ic{width:72px;height:72px}',
     // THE PICTURE, LARGE (Tall, Large, Extra Large): the newest row that kept one, to the inner radius, its words on it
     // with the camera tiles' soft halo (hk-cameras.js .age); a tap opens its camera
-    '.hero{position:relative;flex:none;border-radius:var(--hk-inner-radius,12px);overflow:hidden;background:' + v('key') + ';cursor:pointer;outline:none}',
+    // (the picture out to the shape inset, concentric with the block; the words keep the text's -- 2026-11-08)
+    '.hero{position:relative;flex:none;border-radius:var(--hk-inner-radius,12px);overflow:hidden;background:' + v('key') + ';cursor:pointer;outline:none;margin-left:calc(-1 * var(--hk-text-in,0px));margin-right:calc(-1 * var(--hk-text-in,0px))}',
     '.hero img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}',
     '.hero .cap{position:absolute;left:0;right:0;bottom:0;display:flex;align-items:center;gap:8px;padding:28px 12px 10px;',
     '  background:linear-gradient(rgba(0,0,0,0),rgba(0,0,0,.45));color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.55)}',

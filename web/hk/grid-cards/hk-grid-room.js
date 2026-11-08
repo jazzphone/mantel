@@ -17,12 +17,13 @@
     // ===================================================== hk-grid-room-card
     var ROOM_CSS = [
       ':host{display:block;height:100%;position:relative}',
-      '.room{box-sizing:border-box;height:100%;display:flex;flex-direction:column;overflow:hidden;padding:' + C.blockPad('14px') + ';gap:8px;' + C.plate('card') + ';',
+      '.room{box-sizing:border-box;height:100%;display:flex;flex-direction:column;overflow:hidden;padding:' + C.blockPad('14px', true) + ';gap:8px;' + C.plate('card') + ';',
       '  --hk-pill:100%}',
       // THE NAME (the widget mock-up, 2026-10-31): Wide, a headline with what
       // the room is doing at its right on the same line; Large and up, a
       // title with that line under it -- and the way into its page, when it has one
-      '.hd{display:flex;align-items:baseline;gap:10px;min-width:0;flex:none;padding:0 2px}',
+      // (on the text's inset, not the tiles': where it always was -- the tiles went out to the shape inset, 2026-11-08)
+      '.hd{display:flex;align-items:baseline;gap:10px;min-width:0;flex:none;padding:0 2px;margin:var(--hk-text-in,0px) var(--hk-text-in,0px) 0}',
       '.room:not([size=W]) .hd{flex-direction:column;align-items:flex-start;gap:1px}',
       '.nm{all:unset;position:relative;cursor:pointer;min-width:0;max-width:100%;display:flex;align-items:center;gap:5px;',
       '  ' + type('headline') + ';line-height:22px;color:' + v('ink') + ';text-shadow:' + v('glow') + ';-webkit-tap-highlight-color:transparent}',
@@ -76,7 +77,7 @@
       // more below' (dots, not '1 of 4 rooms')"): one short line, centred --
       // the rooms' dots when the block pages through them, a tap beside the
       // current one a room back or on, and what is scrolled out of sight
-      '.ft{flex:none;display:flex;align-items:center;justify-content:center;gap:8px;height:16px;min-width:0;' + type('micro') + ';line-height:16px;color:' + v('ink-2') + ';text-shadow:' + v('glow') + '}',
+      '.ft{flex:none;display:flex;align-items:center;justify-content:center;gap:8px;height:16px;min-width:0;margin-bottom:var(--hk-text-in,0px);' + type('micro') + ';line-height:16px;color:' + v('ink-2') + ';text-shadow:' + v('glow') + '}',
       '.ft[hidden],.ft [hidden]{display:none}',
       '.fd{all:unset;position:relative;display:flex;gap:6px;align-items:center;height:16px;cursor:pointer;-webkit-tap-highlight-color:transparent}',
       // (the dots' 44 px target, reaching up over the tiles' gap and down into the inset)
@@ -623,7 +624,7 @@
                  lbl: lbl, head: lbl ? undefined : false, name: cfg.title || 'Accessories',
                  empty: 'Choose accessories in the editor', geom: gm, half: half, centred: !half, color: !!cfg.color };
       }
-      // the label row's room: its 16 px line and the 8 px under it (hk-chip.js GROUP_HEAD)
+      // the label row's room: its 19 px row and the 8 px under it (hk-chip.js GROUP_HEAD)
       _head(size) { return size ? window.hkChip.groupHead : 0; }
       _render() {
         super._render();

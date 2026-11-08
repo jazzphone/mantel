@@ -80,21 +80,22 @@ function () {
   var G = window.hkChip.groupGeom, was = globalThis.getComputedStyle;
   var cell = function (h) { globalThis.getComputedStyle = function () { return { getPropertyValue: function () { return String(h); } }; }; return {}; };
   var g = function (h, size, o) { var x = G(cell(h), size, o); return [x.cols, x.rows, x.tw, x.th, x.gap]; };
-  // a tile cell (196 x 150, inset 14, 8 apart) and a square cell (196 x 196, inset 18, 10 apart): each size has its tile
+  // a tile cell (196 x 150, inset 14, 8 apart) and a square cell (196 x 196, the tiles' inset 13 -- the grid's gap, 2026-11-08 -- 10 apart):
+  // each size has its tile
   eq('tile cells: W two, T two stacked, L 2 x 2, XL 3 x 2, XXL 6 x 2',
      [g(150, 'W'), g(150, 'T'), g(150, 'L'), g(150, 'XL'), g(150, 'XXL')],
      [[2, 1, 182, 120, 8], [1, 2, 166, 136, 8], [2, 2, 182, 136, 8], [3, 2, 187, 136, 8], [6, 2, 192, 136, 8]]);
   eq('square cells: W two, T two stacked, L 2 x 2, XL 3 x 2, XXL 6 x 2',
      [g(196, 'W'), g(196, 'T'), g(196, 'L'), g(196, 'XL'), g(196, 'XXL')],
-     [[2, 1, 178, 158, 10], [1, 2, 158, 178, 10], [2, 2, 178, 178, 10], [3, 2, 185, 178, 10], [6, 2, 192, 178, 10]]);
+     [[2, 1, 183, 168, 10], [1, 2, 168, 183, 10], [2, 2, 183, 183, 10], [3, 2, 188, 183, 10], [6, 2, 193, 183, 10]]);
   eq('Half: as many 70 px rows as the cell shape holds (tiles three at Large, square four), each as tall as leaves the margins equal, up to 82',
      [g(150, 'L', { pill: true }), g(196, 'L', { pill: true }), g(150, 'W', { pill: true }), g(196, 'W', { pill: true })],
-     [[2, 3, 182, 82, 8], [2, 4, 178, 82, 10], [2, 2, 182, 56, 8], [2, 2, 178, 74, 10]]);
+     [[2, 3, 182, 82, 8], [2, 4, 183, 82, 10], [2, 2, 182, 56, 8], [2, 2, 183, 79, 10]]);
   // (2026-11-08, the owner: a Wide block of four drew one row of two under its label) where 70 px leaves one row and two fit
-  // at 56, two rows of the height that fills the room: a square Wide under a label row has 134 px -- two rows of 62
-  eq('Half under a label row: two rows, not one, where two fit at the shortest pill', g(196, 'W', { pill: true, head: 24 }), [2, 2, 178, 62, 10]);
+  // at 56, two rows of the height that fills the room: a square Wide under a label row (and the 5 px its text keeps) has 139 px -- two rows of 64
+  eq('Half under a label row: two rows, not one, where two fit at the shortest pill', g(196, 'W', { pill: true, head: 24 }), [2, 2, 183, 64, 10]);
   eq('a Room\'s heading and its dots come off the tiles\' room, never out of the tiles\' size',
-     [g(150, 'L', { head: 53 }), g(196, 'L', { head: 53, foot: 24 })], [[2, 2, 182, 109, 8], [2, 2, 178, 140, 10]]);
+     [g(150, 'L', { head: 53 }), g(196, 'L', { head: 53, foot: 24 })], [[2, 2, 182, 109, 8], [2, 2, 183, 140, 10]]);
   globalThis.getComputedStyle = was;
   // the block's tiles: Full Centred with "Scene" under the name, Half the scene pill; Color their gradient
   var bp = window.hkChip.scenes.blockPill, one = { type: 'custom:hk-scene-card', entity: 'scene.reading' };

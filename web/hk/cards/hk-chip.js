@@ -1682,8 +1682,9 @@
   // -> { sq, cols, rows, n (the places), tw, th, gap }; `el` says the cell shape: the grid's --hk-cell-h (196 on square cells)
   // (Small, 2026-11-08, the owner: "an Accessories Group card in the Small size ... 2 half height pills": one place, or its pills' rows)
   var GROUP_COLS = { S: 1, W: 2, T: 1, L: 2, XL: 3, XXL: 6 }, GROUP_ROWS = { S: 1, W: 1, T: 2, L: 2, XL: 2, XXL: 2 };
-  // (the heading above the tiles of Scenes and Accessories: the label's 16 px line and its 8 px gap)
-  var GROUP_HEAD = 24;
+  // (the heading above the tiles of Scenes and Accessories: the label's row as drawn -- its 16 px line and the name's 1 + 2 px
+  // padding, 19 (2026-11-08: at 16 the tiles came 3 px too tall and took it from the bottom margin) -- and its 8 px gap)
+  var GROUP_HEAD = 27;
   // (out of the document -- a page held while another shows, its cards still fed -- it has no style to read: the shape it
   // last read in place, which a page put away cannot change. Read as tiles, a Kitchen group drew its two pills in one
   // column, and showed them so on the way back Home -- the owner's recording, 2026-11-08)
@@ -1698,10 +1699,12 @@
   function groupGeom(el, size, o) {
     o = o || {};
     var T = C0().TILE, G = C0().HOME_GRID, sq = cellSquare(el), cw = T.w, ch = sq ? G.square.h : T.tall;
-    var g = sq ? G.square.gap : G.gap, pad = sq ? 18 : 14, gap = sq ? 10 : 8;
+    // (the tiles on the shape inset -- 13 on a square cell, the grid's gap, their corners 34 - 13; a heading and the dots keep the
+    // text's 18: 5 more each -- 2026-11-08, the owner: "this looks a lot better", "make sure [the headings don't shift]")
+    var g = sq ? G.square.gap : G.gap, pad = sq ? 13 : 14, gap = sq ? 10 : 8, tin = sq ? 5 : 0;
     var c = GROUP_COLS[size] || 2, r = GROUP_ROWS[size] || 1;
     // (the plate's own 1 px edge is inside the block: 2 px less each way)
-    var W = c * cw + (c - 1) * g - 2 * pad - 2, H = r * ch + (r - 1) * g - 2 * pad - 2 - (o.head || 0) - (o.foot || 0);
+    var W = c * cw + (c - 1) * g - 2 * pad - 2, H = r * ch + (r - 1) * g - 2 * pad - 2 - (o.head ? o.head + tin : 0) - (o.foot ? o.foot + tin : 0);
     // HALF PILLS (the Home app's 70 px; 2026-11-08, the owner: a Wide block of four showed one row of two): as many
     // 70 px rows as fit -- but where that leaves one row and two fit at PILL_MIN, two rows of the height that fills
     // the room: still a designed size (the block's, never the count's or a measure), the second row not lost
@@ -1899,7 +1902,7 @@
         this.appendChild(this._box);
       }
       var box = this._box;
-      box.style.cssText = C0().plate('card') + ';box-sizing:border-box;padding:var(--hk-pad-t,12px) var(--hk-pad-r,12px) calc(var(--hk-pad-b,12px) + var(--hk-pager-safe,0px)) var(--hk-pad-l,12px);' +
+      box.style.cssText = C0().plate('card') + ';box-sizing:border-box;padding:var(--hk-spad-t,12px) var(--hk-spad-r,12px) calc(var(--hk-spad-b,12px) + var(--hk-pager-safe,0px)) var(--hk-spad-l,12px);' +
         'display:flex;flex-direction:column;gap:8px;width:100%;height:100%;overflow:hidden;--hk-pill:100%';
       delete box._hkGroupBase; C0().groupSurface(box, plan.surface);
       this._gplan = plan; this._gkey = null;

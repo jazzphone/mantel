@@ -55,7 +55,9 @@
       // has -- as wide as the block's columns make it (set by _fit: --tw, --ar), as many as the room holds, the group centered with equal
       // margins and its last row centered, never a tile spanning it. Large and Extra Large open with a label row, as the widget blocks
       // do: LIVE TV at the label role, and how many more channels the guide has at its right
-      'hk-plate.tv:not(.one){display:flex;flex-direction:column;gap:10px}',
+      'hk-plate.tv:not(.one){display:flex;flex-direction:column;gap:10px;padding:' + C.blockPad('14px', true) + '}',
+      // (the channels on the shape inset, LIVE TV on the text's -- 2026-11-08)
+      'hk-plate.tv:not(.one) .lh{margin:var(--hk-text-in,0px) var(--hk-text-in,0px) 0 var(--hk-text-in,0px)}',
       '.gr{flex:1 1 0;min-height:0;display:flex;flex-wrap:wrap;gap:10px;justify-content:center;align-content:center}',
       '.gr .ch{flex:none;width:var(--tw,160px);aspect-ratio:var(--ar,16/10)}',
       '.lh{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex:none;min-width:0;' + C.labelCss('label') + ';line-height:18px;color:' + C.v('ink-2') + '}',
