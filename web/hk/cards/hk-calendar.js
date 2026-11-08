@@ -1550,10 +1550,10 @@
       for (var i = 0; i < this._days(); i++) {
         var d = addDays(d0, i), evs = onDay(this._evs, d).filter(function (e) { return e.end > now && shown.indexOf(e) < 0; });
         if (!i) todayN = evs.length;
-        if (i && evs.length) rows.push('<div class="gh">' + esc(i === 1 ? 'Tomorrow' : DOW_LONG[d.getDay()] + ', ' + MON3[d.getMonth()] + ' ' + d.getDate()) + '</div>');
+        if (i && evs.length && sized !== 'W') rows.push('<div class="gh">' + esc(i === 1 ? 'Tomorrow' : DOW_LONG[d.getDay()] + ', ' + MON3[d.getMonth()] + ' ' + d.getDate()) + '</div>');
         evs.forEach(function (e) {
           shown.push(e);
-          rows.push(evRow(h, e, d, shown.length - 1, i, sized === 'T' || sized === 'W' ? 'start' : 'span'));
+          rows.push(evRow(h, e, d, shown.length - 1, i, sized === 'W' ? 'day' : sized === 'T' ? 'start' : 'span'));
         });
       }
       this._shown = shown;
@@ -1664,7 +1664,7 @@
   // ONE EVENT'S ROW in a block: its color as a bar, its name, and when -- the start (Tall), or from and to and
   // where (Large, Extra Large); `day` is the day it is listed under
   function evRow(h, e, day, n, i, how, past) {
-    var sub = how === 'start' ? whenShort(e, day, true) : whenShort(e, day) + (e.loc ? ' · ' + e.loc : '');
+    var sub = how === 'span' ? whenShort(e, day) + (e.loc ? ' · ' + e.loc : '') : (how === 'day' && i ? (i === 1 ? 'Tomorrow' : DOW_LONG[day.getDay()]) + ' · ' : '') + whenShort(e, day, true);
     return '<div class="ev2' + (past ? ' past' : '') + '" role="button" tabindex="0" data-ev="' + n + '" data-i="' + i + '" aria-label="' + esc(e.title + ', ' + sub) + '">' +
       '<i class="bar" style="background:' + rgba(evRgb(e, h), 1) + '"></i><span class="rt"><b>' + esc(e.title) + '</b><small>' + esc(sub) + '</small></span></div>';
   }

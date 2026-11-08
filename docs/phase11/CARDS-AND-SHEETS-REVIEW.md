@@ -99,3 +99,4 @@ Detail sheets: see "Sheets" below.
 - 2026-11-07: Camera T (hk-cameras.js): the still fills the 1 x 2 block; the name tag follows the block's inset, Tall's has the full width, and is hidden on square cells only (a tile's tall blocks showed none before).
 - 2026-11-07: Colored labels get the glass glow: Calendar's weekday and Month View's month, To-do's list name, Timers' orange names (hk-calendar.js, hk-home.js).
 - 2026-11-07: the calendar event sheet's left column fits at 1280 x 800 and 1180 x 820: the little month's rows are 32 (a 44 reach from an ::after), so the Color card ends inside the sheet.
+- 2026-11-07: Calendar Wide drops the day headings and says the day in each event's line ("Tomorrow · 9:00 AM"), so two to three events fit where one did.
