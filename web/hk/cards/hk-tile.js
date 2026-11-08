@@ -253,7 +253,7 @@
   // ha-card rules under HK's name, elements/hk-elements.js) and the
   // --ha-card-* variables, as every HK card's plate does.
   var TILE = window.hkCards.TILE;
-  // THE WIDE TILE, CENTRED (2026-11-07, the owner: every block uses its space and keeps equal margins all the way
+  // THE WIDE TILE, CENTERED (2026-11-07, the owner: every block uses its space and keeps equal margins all the way
   // round; a Scene, an Accessory and the Intercom at Wide are one layout): HomeView's tile laid sideways -- the glyph
   // bare at the size the Small tile draws it on that cell (TILE.centred: 64 on tiles, 82 on square cells), its box
   // centered on a third of the block's width (a quarter left the pair 70 px from the left and 140 from the right; a third balances a name of usual length -- 2026-11-07); the name over the room or state (17 / 16 on tiles, 21 / 20 on
@@ -275,7 +275,7 @@
     return one(C0.tall) + '@container hk-cell (min-height:180px) or style(--hk-cell-shape: square){' + one(C0.square) + '}';
   }
 
-  // THE TALL TILE'S TOPS (Centred, a level under the words): from the block's top inset (--hk-pad-t) the glyph's box
+  // THE TALL TILE'S TOPS (Centered, a level under the words): from the block's top inset (--hk-pad-t) the glyph's box
   // (g.box), the name a gutter under it, the second line a line under that, the capsule 10 px under that -- g: a cell's
   // numbers (TILE.centred.tall / .square), `pad`: that cell's inset, `q`: the container query it holds for ('' for tiles)
   function levelTile(g, pad, q) {
@@ -655,7 +655,7 @@
       ':host([tile=centred]) .icon{width:var(--hk-cg) !important;height:var(--hk-cg) !important}' +
       ':host([tile=centred]) .name{top:calc(30% + var(--hk-cg) / 2 + 5px) !important;font-size:15px !important;line-height:19px !important}' +
       ':host([tile=centred]) .label,:host([tile=centred]) .room{top:calc(30% + var(--hk-cg) / 2 + 24px) !important;font-size:13px !important;line-height:17px !important}}',
-    // THE WIDE TILE (see wideTile): Scene and Accessory at Wide, Centred. Home style is the pill (_layout).
+    // THE WIDE TILE (see wideTile): Scene and Accessory at Wide, Centered. Home style is the pill (_layout).
     wideTile({ host: ':host([tile=centred][size=W])', well: '.well', icon: '.icon', name: '.name', sub: ['.label', '.room'], temp: '.card .temp' }),
     // IN ITS OWN COLOR (2026-10-31, the owner's notes on the widget mock-up:
     // "Color: the same tile on a gradient of its own color"): a tile whose
@@ -674,7 +674,7 @@
     // HomeView's Tall tile in a block two cells high. A thing with a level (a light, a fan, a shade, a speaker) has its
     // capsule under the glyph and the words (hk-tile.js _levelDraw: `level` on the host), filling the rest of the plate on
     // the block's inset (--hk-pad-*, 14 on tiles, 18 on square cells); a thing with none (a switch, a lock) is the tile
-    // with a larger glyph. Centred: the glyph over the name and the second line, all centered; Home: the glyph top left.
+    // with a larger glyph. Centered: the glyph over the name and the second line, all centered; Home: the glyph top left.
     ':host([level]) hk-plate.card{position:relative;padding:var(--hk-pad-t,14px) var(--hk-pad-r,14px) var(--hk-pad-b,14px) var(--hk-pad-l,14px)}',
     ':host([level]) hk-plate.card:has(.lvl:active){transform:none;filter:none}',
     ':host([level]) .card.tall .grid{grid-template-areas:"i" "n" "l" "c" !important;grid-template-rows:44px auto auto minmax(0,1fr);row-gap:3px}',
@@ -692,7 +692,7 @@
     'hk-plate.card[data-hk-grad] .lvl b{color:#fff;text-shadow:none}',
     // (the words over the filled part are dark on it, whatever lies under the rest)
     'hk-plate.card .lvl.hi b{color:rgba(0,0,0,0.55);text-shadow:none}',
-    // CENTRED, the glyph and its words from the block's top inset, the capsule from under them (levelTile: the cell's numbers,
+    // CENTERED, the glyph and its words from the block's top inset, the capsule from under them (levelTile: the cell's numbers,
     // hk-base.js TILE.centred)
     levelTile(window.hkCards.TILE.centred.tall, 14, ''),
     levelTile(window.hkCards.TILE.centred.square, 18, '@container hk-cell style(--hk-cell-shape: square)'),
@@ -791,7 +791,7 @@
     _layout() {
       var cfg = this._config || {};
       // on a Home Grid the block decides: its tall layout, whatever the size -- but Wide (2026-11-07, the owner) is Apple
-      // Home's wide tile: the pill (Centred keeps the tall layout: wideTile)
+      // Home's wide tile: the pill (Centered keeps the tall layout: wideTile)
       var cell = this._cellSize();
       return sizedLayout(LAYOUTS[cfg.layout] ? cfg.layout : 'standard', cell ? (cell === 'W' && this.getAttribute('tile') !== 'centred' ? 'regular' : 'tall') : cfg.size);
     }

@@ -36,7 +36,7 @@
     // sideways -- the glyph bare, at the size the Centered Small tile draws it on that cell (TILE.centred tall or square: the
     // box and the glyph), its box centered at a third of the block's width (balancing a name of usual length); the name over the state left-aligned, the text column
     // 16 px right of the glyph's box, the pair centered on the glyph's center, an ellipsis at the right inset. In its color's
-    // gradient as Small has it. The Centred rules (hkCards.centredTile, all !important) are outvoted by longer selectors.
+    // gradient as Small has it. The Centered rules (hkCards.centredTile, all !important) are outvoted by longer selectors.
     var AW = ':host([size=W]) hk-plate.k', AH = ':host([size=W]:not([tile=centred])) hk-plate.k', AC = ':host([size=W][tile=centred]) hk-plate.k';
     var IMP = function (css) { return css.split(';').filter(Boolean).map(function (d) { return d + ' !important'; }).join(';'); };
     var CT = TILE.centred, SQ = '@container hk-cell (min-height:180px) or (max-aspect-ratio: 6 / 5) or style(--hk-cell-shape: square)';
@@ -271,7 +271,7 @@
       ':host([size="L"]) hk-plate.sg,:host([size="T"]) hk-plate.sg{flex-direction:column;align-items:flex-start;justify-content:space-between}',
       ':host([size="L"]) .well,:host([size="T"]) .well{width:64px;height:64px}',
       // S (2026-11-07, the review): the scene as one tile -- its glyph bare, its name, and its time of day (the label) as the
-      // second line, nothing else. Centred: HomeView's (hkCards.centredTile over the card's own parts); Home: the glyph at
+      // second line, nothing else. Centered: HomeView's (hkCards.centredTile over the card's own parts); Home: the glyph at
       // the top and the two lines at the foot, a tile's padding.
       ':host([size="S"]) .cap{display:none}',
       ':host([size="S"]) .lb{' + type('caption') + ';text-transform:none;letter-spacing:0;font-weight:400;line-height:17px}',

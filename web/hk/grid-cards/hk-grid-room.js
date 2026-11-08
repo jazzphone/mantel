@@ -83,7 +83,7 @@
       '.dim b{position:relative;' + type('title') + ';color:' + v('ink') + ';font-variant-numeric:tabular-nums}',
       // THE ROOM AS ONE TILE (S, 2026-11-07, the review): HomeView's tile -- the room's glyph, its name, what it is doing --
       // that opens the room's page. Home style: the glyph in its well at the top, the words at the foot, on the block's inset;
-      // Centred: the Centred tile's numbers (hkCards.centredTile), as the other Small blocks.
+      // Centered: the Centered tile's numbers (hkCards.centredTile), as the other Small blocks.
       '.rs{display:none}',
       '.room[size=S]{display:block;position:relative;padding:0}',
       '.room[size=S] .hd,.room[size=S] .tiles,.room[size=S] .ft{display:none}',
