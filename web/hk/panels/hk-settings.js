@@ -888,7 +888,7 @@
         first.classList.contains('grp') && !(first.firstElementChild && first.firstElementChild.classList.contains('gh'))));
       this.skyPreview(pg.preview ? pg.sky : null);
       this._saverEnergy = !!pg.saverEnergy;
-      this._saverWx = !!pg.saverWeather;
+      this._saverWx = !!pg.saverWeather; this._saverHl = !!pg.saverHoliday;
       // what the frame shows: the screen, the screensaver alone, or the look alone (previewSrc)
       this._frameMode = pg.preview ? (pg.saverPreview ? 'saver' : pg.lookPreview ? 'look' : null) : null;
       this.frameSrc();
@@ -963,15 +963,15 @@
         if (S && typeof S.preview === 'function') {
           S.preview(on, shape || null, !!house, on ? self._saverOver : null);
           if (S.previewPane) S.previewPane(self._saverPanePreview == null ? null : self._saverPanePreview);
-          if (S.previewSlide) S.previewSlide(on ? self._saverEnergy ? 'energy' : self._saverWx ? 'weather' : self._saverSlide || null : null);
+          if (S.previewSlide) S.previewSlide(on ? self._saverEnergy ? 'energy' : self._saverWx ? 'weather' : self._saverHl ? 'holiday' : self._saverSlide || null : null);
           return true;
         }
         return false;
       };
       if (!go()) self._saverWait = setInterval(function () { if (go() || ++n > 80) clearInterval(self._saverWait); }, 250);
-      if (on && (this._saverEnergy || this._saverWx)) {
+      if (on && (this._saverEnergy || this._saverWx || this._saverHl)) {
         box.parentNode.insertBefore(h('div', { class: 'pvsaver' }, [h('p', { class: 'gf',
-          text: (this._saverWx ? 'The weather' : 'Home Energy') + ' as this screen shows it, held while you change these. Only this preview changes.' })]), box.nextSibling);
+          text: (this._saverWx ? 'The weather' : this._saverHl ? 'The Holiday slide' : 'Home Energy') + ' as this screen shows it, held while you change these. Only this preview changes.' })]), box.nextSibling);
       } else if (on) {
         var seg = h('div', { class: 'seg pvmoment', role: 'radiogroup', 'aria-label': 'Preview a photo' });
         [['', 'Any Photo'], ['portrait', 'Portrait'], ['landscape', 'Landscape']].forEach(function (o) {
@@ -988,7 +988,7 @@
       if (on) {
         var wrap = col.querySelector('.pvsaver'), info = h('p', { class: 'gf', role: 'status', 'aria-live': 'polite' });
         if (wrap) {
-          if (!this._saverEnergy && !this._saverWx) wrap.appendChild(K.select({ label: 'Preview Slide', value: this._saverSlide || '', options: [['', 'Screensaver'], ['forecast', 'Forecast'], ['weather', 'Weather'], ['music', 'Music'], ['energy', 'Home Energy']], onChange: function (v) { self._saverSlide = v; self.saverPreview(true); } }));
+          if (!this._saverEnergy && !this._saverWx && !this._saverHl) wrap.appendChild(K.select({ label: 'Preview Slide', value: this._saverSlide || '', options: [['', 'Screensaver'], ['forecast', 'Forecast'], ['weather', 'Weather'], ['music', 'Music'], ['energy', 'Home Energy'], ['holiday', 'Holidays']], onChange: function (v) { self._saverSlide = v; self.saverPreview(true); } }));
           wrap.appendChild(K.select({ label: 'Side Pane Preview', value: this._saverPanePreview == null ? 'saved' : this._saverPanePreview ? 'show' : 'hide', options: [['saved', 'As Saved'], ['show', 'Show'], ['hide', 'Hide']], onChange: function (v) { self._saverPanePreview = v === 'saved' ? null : v === 'show'; self.saverPreview(true); } }));
           wrap.appendChild(info);
           var status = function () {

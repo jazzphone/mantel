@@ -197,14 +197,14 @@ def look_shows():
         os.unlink(f.name)
     out = {}
     for lid, o in looks:
-        slides = dict(o, extra_music=True, weather_slide=True, energy_slide=True, extra_forecast=True)
+        slides = dict(o, extra_music=True, weather_slide=True, energy_slide=True, extra_forecast=True, holiday_slide=True)
         out[f'saver-look-{lid}'] = (slides, 'look-slides')
         out[f'saver-look-{lid}-fb'] = (dict(slides, forecast_layout='big'), 'look-fb')
     # (the Slides section's own settings, 2026-11-02: the corner's time at 200 % and no weather; Music Full Screen
     # without its album, volume and Up Next)
     for lid, o in looks:
         if lid == 'photo':
-            out['saver-look-photo-own'] = (dict(o, extra_music=True, weather_slide=True, energy_slide=True, extra_forecast=True, corner_time_size=200,
+            out['saver-look-photo-own'] = (dict(o, extra_music=True, weather_slide=True, energy_slide=True, extra_forecast=True, holiday_slide=True, corner_time_size=200,
                                                 corner_hide=['weather'], music_hide=['album', 'volume', 'next']), 'look-slides')
     return out
 

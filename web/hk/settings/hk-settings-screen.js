@@ -299,6 +299,12 @@
           wpg.saverPreview = true; wpg.saverWeather = true;
           return wpg;
         }
+        if (s === 'screensaver' && sub[1] === 'holiday') {
+          var hpg = mk('Holidays', function (c) { self.saverHoliday(c, M.saverOptions(b.screensaver_options), self.saverPutB(path)); },
+                       ['Screensaver Options', base + '/screensaver']);
+          hpg.saverPreview = true; hpg.saverHoliday = true;
+          return hpg;
+        }
         if (s === 'screensaver' && sub[1] === 'energy') {
           var epg = mk('Home Energy', function (c) { self.saverEnergy(c, M.saverOptions(b.screensaver_options), self.saverPutB(path)); },
                        ['Screensaver Options', base + '/screensaver']);

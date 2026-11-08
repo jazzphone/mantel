@@ -184,7 +184,7 @@
   var GROUPS = ['Time and Calendar', 'Weather and Sky', 'Home', 'People and Travel', 'Energy', 'Media and Photos', 'Cameras', 'Any Sensor'];
   var GROUP_ALIAS = { People: 'People and Travel' };
   var CORNER_NAMES = { time: 'Time', date: 'Date', weather: 'Weather', status: 'House Status' };
-  var SLIDE_KINDS = [['', 'None'], ['music', 'Music'], ['forecast', 'Forecast'], ['weather', 'Weather'], ['energy', 'Home Energy']];
+  var SLIDE_KINDS = [['', 'None'], ['music', 'Music'], ['forecast', 'Forecast'], ['weather', 'Weather'], ['energy', 'Home Energy'], ['holiday', 'Holidays']];
   var OPS = [['is', 'Is'], ['not', 'Is Not'], ['above', 'Is Above'], ['below', 'Is Below']];
   var OP_WORDS = { is: 'is', not: 'is not', above: 'is above', below: 'is below' };
   // a piece's options, in the words a person uses (a piece's own wording first: 'alarm.entity')
@@ -504,7 +504,7 @@
     // and music playing in the house put Music Full Screen over it (2026-11-01, on the house). See a Slide shows one.
     still() {
       var o = copy(this.opts);
-      ['music_first', 'music_slide', 'energy_slide', 'weather_slide', 'extra_music', 'extra_forecast'].forEach(function (k) { o[k] = false; });
+      ['music_first', 'music_slide', 'energy_slide', 'weather_slide', 'holiday_slide', 'extra_music', 'extra_forecast'].forEach(function (k) { o[k] = false; });
       if (o.show === 'both') o.show = 'photos';
       return o;
     }
@@ -1287,9 +1287,19 @@
         { make: function () {
           return see(K.toggle({ label: 'Home Energy', sub: self.cornerWords('energy'), on: !!o.energy_slide,
             onChange: function (on) { self.change(function (x) { x.energy_slide = on; }); } }), 'energy');
+        } },
+        // (the Holiday slide, phase 20: only once a holiday is near; its options on the Screensaver page)
+        { make: function () {
+          return see(K.toggle({ label: 'Holidays', sub: self.cornerWords('holiday'), on: !!o.holiday_slide,
+            onChange: function (on) { self.change(function (x) { x.holiday_slide = on; }); } }), 'holiday');
+        } },
+        { applies: function () { return !!o.holiday_slide; }, make: function () {
+          var pick = { turns: 'Take Turns', one: 'One Holiday' }[o.holiday_pick] || 'Next Up';
+          return K.nav({ label: 'Holiday Options', value: pick + ' · ' + (o.holiday_days === 30 || o.holiday_days === 90 ? o.holiday_days : 60) + ' Days',
+            href: (self.o.house ? '#/house/screensaver' : '#/screens/' + encodeURIComponent(self.o.path) + '/screensaver') + '/holiday', sk: 'saver:holiday_options' });
         } }
       ];
-      var any = o.music_first || o.music_slide || o.weather_slide || o.energy_slide || forecastOn;
+      var any = o.music_first || o.music_slide || o.weather_slide || o.energy_slide || o.holiday_slide || forecastOn;
       var oft = [
         { applies: function (s) { return any && s.slidesOver === 'photos'; }, make: function () {
           var cur = Number(o.forecast_every) || 5;

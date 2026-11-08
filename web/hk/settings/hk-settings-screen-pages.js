@@ -1129,7 +1129,8 @@
         var mf = !!cur.music_first, muKnown = self.saverKnown('music_slide'), mu = muKnown && !!cur.music_slide;
         var enKnown = self.saverKnown('energy_slide'), en = enKnown && !!cur.energy_slide;
         var energyHref = String(styleHref || '').replace(/clock-style$/, 'energy');
-        var weatherHref = String(styleHref || '').replace(/clock-style$/, 'weather');
+        var weatherHref = String(styleHref || '').replace(/clock-style$/, 'weather'), holidayHref = String(styleHref || '').replace(/clock-style$/, 'holiday');
+        var hlKnown = self.saverKnown('holiday_slide'), hl = hlKnown && !!cur.holiday_slide;
         var every = function (n) { return 'Every ' + n + ' Photos'; };
         // PHOTOS: where they come from (All Screens' folder, a host's album), then how they show (Slideshow)
         var srcDrew = photoSrc ? photoSrc(c) : false;
@@ -1150,19 +1151,21 @@
         if (photos && !ck) {
           var muSlide = mu && !mf;
           var wxKnown = self.saverKnown('weather_slide'), wx = wxKnown && !!cur.weather_slide;
-          var turns = [muSlide && 'the music', both && 'the forecast', wx && 'the weather', en && 'Home Energy'].filter(Boolean);
+          var turns = [muSlide && 'the music', both && 'the forecast', wx && 'the weather', en && 'Home Energy', hl && 'the holidays'].filter(Boolean);
           c.appendChild(K.group({ header: 'Now and Then', footer: turns.length
               ? 'After every few photos a slide fades in for as long as a photo shows, then the photos go on.' +
                 (turns.length > 1 ? ' ' + M.listText(turns).replace(/^t/, 'T') + ' take turns.' : '') +
                 (muSlide ? ' The music only while something plays; its buttons skip or pause without closing the screensaver, and a tap on its album art opens Music.' : '') +
-                (en ? ' Home Energy skips its turn until it has the day’s numbers; a tap on it opens Energy.' : '')
-              : 'Slides among the photos: the forecast' + (mf ? '' : ', what’s playing') + (wxKnown ? ', the weather' : '') + (enKnown ? ', and Home Energy.' : '.') }, [
+                (en ? ' Home Energy skips its turn until it has the day’s numbers; a tap on it opens Energy.' : '') +
+                (hl ? ' The holidays only once one is near.' : '')
+              : 'Slides among the photos: the forecast' + (mf ? '' : ', what’s playing') + (wxKnown ? ', the weather' : '') + (enKnown ? ', Home Energy' : '') + (hlKnown ? ', and the holidays.' : '.') }, [
             K.toggle({ label: 'Forecast', sub: 'The forecast over the live sky, as one of the photos. Its sky only moves while it is on screen.',
                        on: both, sk: 'saver:slide_forecast', onChange: function (on) { put('show', on ? 'both' : 'photos'); } })
           // (one key for Music Full Screen, phase 13: the editor's and this page's are the same choice -- music_first)
           ].concat(muKnown ? [tog('Music Full Screen', 'music_first', 'While something plays: the album art, the song and what’s up next, with buttons for the previous or next song.')] : [],
                    wxKnown ? this.weatherRows(cur, tog, weatherHref) : [],
                    enKnown ? this.energyRows(cur, tog, energyHref) : [],
+                   hlKnown ? this.holidayRows(cur, tog, holidayHref) : [],
                    turns.length ? [K.select({ label: 'A Slide', sk: 'saver:forecast_every', value: String(cur.forecast_every),
                                       options: [3, 5, 10, 20].concat([3, 5, 10, 20].indexOf(cur.forecast_every) < 0 ? [cur.forecast_every] : [])
                                         .map(function (n) { return [String(n), every(n)]; }),
@@ -1248,6 +1251,100 @@
         c.appendChild(K.group({ header: 'Along the Bottom', footer: 'From the weather in Weather, as the forecast’s details have them. Behind it all, the live sky as it is outside (Sky Only). A tap on the screen opens the Weather page.' }, [
           part('hours', 'Next Hours'), part('days', 'Coming Days')]));
       }
+      // THE HOLIDAY SLIDE'S ROWS (phase 20): its switch, and its options once on
+      holidayRows(cur, tog, href) {
+        var rows = [tog('Holidays', 'holiday_slide', 'How many days until the next holiday, in its own scene.')];
+        if (cur.holiday_slide) rows.push(K.nav({ label: 'Holiday Options', value: this.holidayShown(cur), href: href, sk: 'saver:holiday_options' }));
+        return rows;
+      }
+      // its options as Holiday Options' row says them: "Next Up · 60 Days"
+      holidayShown(o) {
+        var pick = { turns: 'Take Turns', one: 'One Holiday' }[o && o.holiday_pick] || 'Next Up';
+        return pick + ' · ' + (o && (o.holiday_days === 30 || o.holiday_days === 90) ? o.holiday_days : 60) + ' Days';
+      }
+      // HOLIDAY OPTIONS (phase 20, docs/phase20/HOLIDAY-SLIDE.md; hk-saver-holiday.js): which holiday and when it starts,
+      // the effects, the holidays it counts down to (and your own dates), the painted scenes or outdoors, and the row
+      // along the bottom. The preview holds the slide.
+      saverHoliday(c, cur, put) {
+        var self = this, HH = window.hkHolidays, HOLIDAY_PARTS = ['count', 'next'], HOLIDAY_PICKS = [['next', 'Next Up'], ['turns', 'Take Turns'], ['one', 'One Holiday']];
+        var HOLIDAY_SCENES = [['christmas', '90s Living Room', 'Christmas'], ['halloween', 'Haunted House', 'Halloween'], ['thanksgiving', 'Dining Room', 'Thanksgiving'], ['newyear', 'Rooftop Party', 'New Year’s']];
+        if (!HH) {
+          var u = '/hk/modules/hk-holidays.js';
+          import(window.hkV ? window.hkV(u) : u).then(function () { if (window.hkHolidays) self.render(); }, function () { /* the page without its calendar */ });
+          c.appendChild(K.group({}, [K.info({ label: 'Holidays', value: 'Loading…' })]));
+          return;
+        }
+        var bd = self.hs('sky.birthdays'), own = Array.isArray(cur.holiday_own) ? cur.holiday_own : [], off = Array.isArray(cur.holiday_off) ? cur.holiday_off : [];
+        var outd = Array.isArray(cur.holiday_outdoors) ? cur.holiday_outdoors : [], hide = Array.isArray(cur.holiday_hide) ? cur.holiday_hide : [];
+        var opts = { tz: window.hkStats && window.hkStats.tz ? window.hkStats.tz() : undefined, off: off, own: own, birthdays: Array.isArray(bd) ? bd : [],
+                     days: cur.holiday_days || 60, pick: cur.holiday_pick || 'next', one: cur.holiday_one || 'christmas' };
+        var today = HH.today(Date.now(), opts.tz), near = HH.inRange(today, opts), all = HH.list(today, Object.assign({}, opts, { off: [] }));
+        var fmt = function (p) { return new Date(Date.UTC(p.y, p.m - 1, p.d)).toLocaleDateString('en-US', { month: 'long', day: 'numeric', timeZone: 'UTC' }); };
+        var when = function (n) { return n === 0 ? 'today' : n === 1 ? 'tomorrow' : n + ' days away'; };
+        var shows = HH.pick(today, Object.assign({}, opts, { pick: opts.pick === 'turns' ? 'next' : opts.pick }));
+        c.appendChild(K.group({ footer: shows ? (opts.pick === 'turns' && near.length > 1 ? 'Each time the slide comes, the next of ' + near.length + ' near holidays.' : near.length > 1 ? (near.length - 1) + ' more within ' + opts.days + ' days.' : '')
+            : 'With none near, the slide stays away and the others carry on.' },
+          [K.info({ label: shows ? 'Today it would show ' + shows.name : 'No holiday within ' + opts.days + ' days', value: shows ? when(shows.days) : '' })]));
+        var pickRows = [K.seg({ label: 'Which Holiday', sk: 'saver:holiday_pick', value: opts.pick, options: HOLIDAY_PICKS, onChange: function (v) { put('holiday_pick', v); } })];
+        if (opts.pick === 'one') pickRows.push(K.select({ label: 'Holiday', sk: 'saver:holiday_one', value: opts.one,
+          options: all.map(function (h) { return [h.id, h.name]; }).concat(all.some(function (h) { return h.id === opts.one; }) ? [] : [[opts.one, 'A Date No Longer Listed']]),
+          onChange: function (v) { put('holiday_one', v); } }));
+        pickRows.push(K.seg({ label: 'Starts', sk: 'saver:holiday_days', value: opts.days, options: [[30, '30 Days'], [60, '60 Days'], [90, '90 Days']], onChange: function (v) { put('holiday_days', Number(v)); } }));
+        pickRows.push(K.seg({ label: 'Effects', sk: 'saver:holiday_fx', value: cur.holiday_fx || 'full', options: [['full', 'Full'], ['gentle', 'Gentle'], ['off', 'Off']], onChange: function (v) { put('holiday_fx', v); } }));
+        c.appendChild(K.group({ header: 'The Slide', footer: 'Next Up shows the soonest holiday once it is within the days you choose; Take Turns shows each near one in turn; One Holiday shows only the one you pick. ' +
+            'Effects run only while the slide is up. Gentle has fewer and slower; Off, Reduce Motion or Flat draw one still picture.' }, pickRows));
+        // THE HOLIDAYS it counts down to: each built-in one, the sky's birthdays, your own dates
+        var turn = function (id, on) { var next = off.filter(function (x) { return x !== id; }); if (!on) next.push(id); put('holiday_off', HH.IDS.concat(['birthdays']).filter(function (x) { return next.indexOf(x) >= 0; })); };
+        var rows = HH.IDS.map(function (id) {
+          var h = all.filter(function (x) { return x.id === id; })[0];
+          return K.toggle({ label: h ? h.name : id, sub: h ? fmt(h.date) : null, on: off.indexOf(id) < 0, sk: 'saver:holiday_off:' + id, onChange: function (on) { turn(id, on); } });
+        });
+        var nb = Array.isArray(bd) ? bd.length : 0;
+        rows.push(K.toggle({ label: 'Birthdays', sub: nb ? 'From the sky’s Birthdays: ' + nb : 'Add them in Seasonal Sky’s Birthdays', on: off.indexOf('birthdays') < 0, sk: 'saver:holiday_off:birthdays', onChange: function (on) { turn('birthdays', on); } }));
+        c.appendChild(K.group({ header: 'Holidays', footer: 'Hanukkah, Diwali, Lunar New Year and other dates that move each year: add them below, for this year.' }, rows));
+        var SC = window.hkHolidays.OWN_SCENES;
+        if (own.length) c.appendChild(K.listEditor({ fk: 'holown', reorder: false, shownHeader: 'Your Own Dates', announce: this.announce ? this.announce.bind(this) : null,
+          rows: own.map(function (o, i) {
+            return { value: String(i), label: o.name, sub: new Date(Date.UTC(o.year || 2024, o.month - 1, o.day)).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: o.year ? 'numeric' : undefined, timeZone: 'UTC' }) +
+              (o.year ? '' : ' · Every Year') + ' · ' + ((SC[o.scene] || SC.spring).label) };
+          }),
+          onChange: function (values) { put('holiday_own', values.map(function (v) { return own[Number(v)]; }).filter(Boolean)); } }));
+        // ADD A DATE: a name, its day (every year, or once), and which scene it wears
+        var d = this._holDraft = this._holDraft || { name: '', month: today.m, day: today.d, year: '', scene: 'spring' };
+        var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+        var dmax = new Date(Date.UTC(Number(d.year) || 2024, d.month, 0)).getUTCDate();
+        if (d.day > dmax) d.day = dmax;
+        var full = own.length >= HH.OWN_MAX;
+        c.appendChild(K.group({ header: 'Add a Date', footer: full ? 'Up to ' + HH.OWN_MAX + ' dates of your own. Remove one to add another.' : 'Dates of your own stand outdoors, in the scene you choose. A date for one year leaves the list once it has passed.' }, [
+          K.text({ label: 'Name', sk: 'saver:holiday_new:name', value: d.name, placeholder: 'Beach Trip', maxlength: HH.NAME_MAX, onCommit: function (v) { d.name = v; self.render(); } }),
+          K.select({ label: 'Month', sk: 'saver:holiday_new:month', value: String(d.month), options: MONTHS.map(function (m, i) { return [String(i + 1), m]; }), onChange: function (v) { d.month = Number(v); self.render(); } }),
+          K.select({ label: 'Day', sk: 'saver:holiday_new:day', value: String(d.day), options: Array.apply(null, Array(dmax)).map(function (_, i) { return [String(i + 1), String(i + 1)]; }), onChange: function (v) { d.day = Number(v); self.render(); } }),
+          K.select({ label: 'Repeats', sk: 'saver:holiday_new:year', value: String(d.year), options: [['', 'Every Year'], [String(today.y), 'Only in ' + today.y], [String(today.y + 1), 'Only in ' + (today.y + 1)], [String(today.y + 2), 'Only in ' + (today.y + 2)]],
+            onChange: function (v) { d.year = v; self.render(); } }),
+          K.select({ label: 'Scene', sk: 'saver:holiday_new:scene', value: d.scene, options: Object.keys(SC).map(function (k) { return [k, SC[k].label]; }), onChange: function (v) { d.scene = v; } }),
+          K.button({ label: 'Add the Date', sk: 'saver:holiday_new:add', disabled: full || !d.name.trim(), onClick: function () {
+            var item = { name: d.name.trim().slice(0, HH.NAME_MAX), month: d.month, day: d.day, scene: d.scene };
+            if (d.year) item.year = Number(d.year);
+            self._holDraft = null;
+            put('holiday_own', own.concat([item]));
+          } })]));
+        // THE SCENES: Christmas, Halloween, Thanksgiving and New Year's in their painted rooms, or outdoors
+        c.appendChild(K.group({ header: 'Scenes', footer: 'Off, a holiday stands outdoors on the sky’s landscape instead, with its own effects.' },
+          HOLIDAY_SCENES.map(function (x) {
+            return K.toggle({ label: x[1], sub: x[2], on: outd.indexOf(x[0]) < 0, sk: 'saver:holiday_outdoors:' + x[0], onChange: function (on) {
+              var next = outd.filter(function (y) { return y !== x[0]; }); if (!on) next.push(x[0]);
+              put('holiday_outdoors', HH.PAINTED.filter(function (y) { return next.indexOf(y) >= 0; }));
+            } });
+          })));
+        var part = function (k, label, sub) {
+          return K.toggle({ label: label, sub: sub, on: hide.indexOf(k) < 0, sk: 'saver:holiday_hide:' + k, onChange: function (on) {
+            var next = hide.filter(function (x) { return x !== k; }); if (!on) next.push(k);
+            put('holiday_hide', HOLIDAY_PARTS.filter(function (x) { return next.indexOf(x) >= 0; }));
+          } });
+        };
+        c.appendChild(K.group({ header: 'Along the Bottom', footer: 'The Countdown hides in the last week. The time, the date, the weather and House Status are the slide corner’s, as over every slide.' }, [
+          part('count', 'The Countdown', 'Weeks and Weekends Left'), part('next', 'Coming Up', 'The next three after this one')]));
+      }
       // ADDITIONAL SCREENS (2026-10-14): over the forecast or the clock, now
       // and then -- the forecast (on Show: Clock), the music and Home Energy,
       // taking turns on one timer. `mf`: Music First, which covers the music
@@ -1259,8 +1356,9 @@
         var wxOn = base === 'clock' && this.saverKnown('weather_slide');
         if (wxOn) rows = rows.concat(this.weatherRows(cur, tog, String(href).replace(/energy$/, 'weather')));
         rows = rows.concat(this.energyRows(cur, tog, href));
+        if (this.saverKnown('holiday_slide')) rows = rows.concat(this.holidayRows(cur, tog, String(href).replace(/energy$/, 'holiday')));
         var on = [base === 'clock' && !bgSky && cur.extra_forecast && 'the forecast', !mf && cur.extra_music && 'the music',
-                  wxOn && cur.weather_slide && 'the weather', cur.energy_slide && 'Home Energy'].filter(Boolean);
+                  wxOn && cur.weather_slide && 'the weather', cur.energy_slide && 'Home Energy', cur.holiday_slide && 'the holidays'].filter(Boolean);
         var mins = function (n) { return n === 1 ? '1 Minute' : n + ' Minutes'; };
         var secs = function (n) { return n < 60 ? n + ' Seconds' : n === 60 ? '1 Minute' : (n % 60 ? Math.round(n / 6) / 10 : n / 60) + ' Minutes'; };
         if (on.length) {

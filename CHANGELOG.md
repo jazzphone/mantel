@@ -4,7 +4,10 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+## 0.1.154 - 2026-11-08
+
 **Added**
+- **The Holiday slide**: a fifth screensaver slide counting the days to the next holiday. Christmas, Halloween, Thanksgiving and New Year's each have a painted scene: a 90s living room with the count on the TV, a haunted house with it carved in a tombstone, a dining room with it chalked on a board, a rooftop party with a split-flap board. Their effects run live: chasing tree lights, snow and leaves past the windows, bats, candles and fireworks. Every other holiday, birthday and date of your own stands outdoors on the sky's landscape. It comes among the photos or over a clock, as Weather and Home Energy do, and only once a holiday is near. The slide corner adds the time, the date, the weather and House Status. Holiday Options sets which holiday (Next Up, Take Turns or One Holiday), how many days before, the effects, the holidays it counts, your own dates, the scenes, and the row along the bottom. It is off by default; the Holiday Whimsy Look turns it on.
 - **The tiles in a block sit closer to its edge, with rounder corners** (HomeView's square cells): a group of accessories, Scenes, Security's keypad and locks, Live TV's channels and the Recent picture sit 13 px in -- the grid's gap -- with 21 px corners concentric with the block's 34 (they were 18 in, 16 px corners); headings and words stay where they were.
 - **Tiny, an Accessory in half a cell**: two share a cell, top and bottom, or one sits alone. On a HomeView-style screen it is HomeView's tile laid sideways at half height -- the glyph bare and large, the name over its state centered beside it, the block's own corners (a name takes two lines on square cells, one under page dots); on Home style, the Accessory Group's half pill. The editor and Edit mode place, move and make room for it by halves.
 - **A temperature or humidity sensor shows its reading** ("71°", "49%") where the glyph would be on a Centered tile, its room under its name.

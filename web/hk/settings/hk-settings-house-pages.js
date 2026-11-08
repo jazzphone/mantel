@@ -339,6 +339,13 @@
             hwpg.saverWeather = true;
             return hwpg;
           }
+          if (sub[0] === 'holiday') {
+            var hcur = M.saverOptions(this.hs('look.saver'));
+            var hhpg = mk('Holidays', function (c) { self.saverHoliday(c, hcur, self.saverPutH()); });
+            if (pv) { hhpg.preview = pv; hhpg.saverPreview = true; hhpg.saverHouse = true; }
+            hhpg.saverHoliday = true;
+            return hhpg;
+          }
           if (sub[0] === 'energy') {
             var ecur = M.saverOptions(this.hs('look.saver'));
             var hepg = mk('Home Energy', function (c) { self.saverEnergy(c, ecur, self.saverPutH()); });

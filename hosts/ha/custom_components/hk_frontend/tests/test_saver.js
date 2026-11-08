@@ -236,6 +236,27 @@ ok('...an additional screen over every background but the photos',
    JSON.stringify(U.extrasOf({ show: 'clock', clock_bg: 'gradient', extra_forecast: true, weather_slide: true, energy_slide: true })) === '["forecast","weather","energy"]' &&
    JSON.stringify(U.extrasOf({ show: 'forecast', weather_slide: true, energy_slide: true })) === '["weather","energy"]' &&
    ['glance', 'month', 'day'].every(function (sh) { return JSON.stringify(U.extrasOf({ show: sh, weather_slide: true, energy_slide: true })) === '["weather","energy"]'; }));
+// THE HOLIDAY SLIDE (phase 20): off by default; its options checked; a turn among the slides once a holiday is near
+ok('Holidays: off by default, Next Up within 60 days, Full effects, nothing left out',
+   d.holiday_slide === false && d.holiday_pick === 'next' && d.holiday_one === 'christmas' && d.holiday_days === 60 && d.holiday_fx === 'full' &&
+   d.holiday_off.length === 0 && d.holiday_own.length === 0 && d.holiday_outdoors.length === 0 && d.holiday_hide.length === 0);
+ok('...its options checked: unknown choices fall back, lists keep only words, own dates only named ones (up to twelve)',
+   U.readCfg({ holiday_slide: 1 }).holiday_slide === false && U.readCfg({ holiday_slide: true }).holiday_slide === true &&
+   U.readCfg({ holiday_pick: 'random' }).holiday_pick === 'next' && U.readCfg({ holiday_pick: 'turns' }).holiday_pick === 'turns' &&
+   U.readCfg({ holiday_days: 45 }).holiday_days === 60 && U.readCfg({ holiday_days: 90 }).holiday_days === 90 &&
+   U.readCfg({ holiday_fx: 'max' }).holiday_fx === 'full' && U.readCfg({ holiday_fx: 'off' }).holiday_fx === 'off' &&
+   JSON.stringify(U.readCfg({ holiday_off: ['easter', 2], holiday_hide: ['next', null], holiday_outdoors: ['halloween', {}] })) .indexOf('"holiday_off":["easter"]') >= 0 &&
+   U.readCfg({ holiday_hide: ['next', null] }).holiday_hide.join() === 'next' && U.readCfg({ holiday_outdoors: ['halloween', {}] }).holiday_outdoors.join() === 'halloween' &&
+   U.readCfg({ holiday_own: [{ name: 'Beach Trip', month: 7, day: 12 }, 'x', { month: 1 }] }).holiday_own.length === 1 &&
+   U.readCfg({ holiday_own: new Array(20).join('.').split('.').map(function () { return { name: 'A', month: 1, day: 1 }; }) }).holiday_own.length === 12);
+var W5 = { show: 'both', music_slide: true, weather_slide: true, energy_slide: true, holiday_slide: true };
+ok('...the Holiday slide takes its turn after Home Energy, then the music again',
+   U.slideOf(W5, true, 'weather', true, true, true) === 'energy' &&
+   U.slideOf(W5, true, 'energy', true, true, true) === 'holiday' && U.slideOf(W5, true, 'holiday', true, true, true) === 'music');
+ok('...with no holiday near: skipped', U.slideOf(W5, false, 'energy', true, true, false) === 'forecast' && U.slideOf({ show: 'photos', holiday_slide: true }, false, '', false, false, false) === null);
+ok('...an additional screen over a clock, after Home Energy', U.EXTRA_ORDER.join() === 'forecast,music,weather,energy,holiday' &&
+   JSON.stringify(U.extrasOf({ show: 'clock', clock_bg: 'gradient', energy_slide: true, holiday_slide: true })) === '["energy","holiday"]' &&
+   U.extrasOf({ show: 'photos', holiday_slide: true }).length === 0);
 ok('...they take turns, round and round', U.turnOf(['forecast', 'music', 'energy'], ['forecast', 'energy'], '') === 'forecast' &&
    U.turnOf(['forecast', 'music', 'energy'], ['forecast', 'energy'], 'forecast') === 'energy' &&
    U.turnOf(['forecast', 'music', 'energy'], ['forecast', 'energy'], 'energy') === 'forecast' &&

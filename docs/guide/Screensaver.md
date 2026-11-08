@@ -22,7 +22,7 @@ With nothing tapped, the right side has four sections, always in this order.
 
 - **Look:** the **Background** (**Photos**, **Landscape**, **Sky Only**, **Moving Color**, **Wallpaper**, **HK Landscapes**, **Soft Photos**, **The Day's Art**, **Calm Color**, **Paper** or **Black**) and its own options, such as how much to darken photos or a Moving Color pattern and its **Motion**. Then the **Big** element (**Time**, **Temperature**, **Date**, **Month** or **None**), its **Face** (the **Today** face also draws the weather and the song under the time: **Weather** and **What's Playing** turn each off), **Color**, **24-Hour Time**, **Size**, **Position** and **Align**. **Depth** is **In Front** or **Behind**: on photos the subject stands in front of the time, as on the iPhone's Lock Screen, with any face; on the Landscape the hills do. Where the background can't put anything in front, Depth says why instead. The **Planted** face (solid figures standing in the meadow) is on the Landscape. Over busy backgrounds, **Legibility** adds a soft shadow and an outline.
 - **Info:** what is placed, a list with each piece's picture, shape and place; tap one to open it. **Ink** is **Auto**, **White** or **Black**: one ink for every piece on the screen, never some white and some black; Auto picks it from what is behind them. **Color Accents** adds a little color where it means something: rings, glyphs and status dots. **The Row** has one **Size** for every piece in it (60 to 200 %) and where it goes: **Under the Big Element**, or **Along the Bottom**, which keeps the middle of a photo, where faces usually are, clear. **Upright Screens** is **Same as Sideways** or **Its Own**.
-- **Slides:** the screens that come now and then over the screensaver, each on or off: the forecast among the photos (**Classic** or **Big**), **Music Full Screen**, **Weather** and **Home Energy**, and **How Often**. Each says what its corner adds (the time, the date and Home Status, in the Look's own face and color) and has a **See It** button. **The Slide Corner** sets the corner's **Time Size** (100 to 250 %) and what it adds at all: **Time**, **Date**, **Weather** and **House Status**. **Music Full Screen** sets what the music slide shows beside the album art: the **Room**, the **Album**, its **Progress**, the **Buttons**, the **Volume** and **Up Next**.
+- **Slides:** the screens that come now and then over the screensaver, each on or off: the forecast among the photos (**Classic** or **Big**), **Music Full Screen**, **Weather**, **Home Energy** and **Holidays**, and **How Often**. Each says what its corner adds (the time, the date and Home Status, in the Look's own face and color) and has a **See It** button. **The Slide Corner** sets the corner's **Time Size** (100 to 250 %) and what it adds at all: **Time**, **Date**, **Weather** and **House Status**. **Music Full Screen** sets what the music slide shows beside the album art: the **Room**, the **Album**, its **Progress**, the **Buttons**, the **Volume** and **Up Next**.
 - **Timing:** **Starts After, Night Mode and More** opens the Screensaver page.
 
 At the foot, **Reset…** puts the screensaver back to how it looked before you opened the editor.
@@ -52,10 +52,35 @@ Things line up by what you see, not by their boxes: the top of the time is level
 
 **Wall Tablet**, **iPad Upright**, **Phone** and the phone on its side show the same screensaver at each shape, so you can check that it fits. Pieces that would meet something move out of the way or are left out, and the editor says which.
 
-**See a Slide** shows a slide (Music, the forecast, Weather, Home Energy) over the screen with its corner, and **Day** / **Night** shows Night Mode. Both are for the preview only: they are off each time the editor opens and change nothing that is saved. **Preview** hides the green places and shows the screensaver alone; **Edit** brings them back.
+**See a Slide** shows a slide (Music, the forecast, Weather, Home Energy, Holidays) over the screen with its corner, and **Day** / **Night** shows Night Mode. Both are for the preview only: they are off each time the editor opens and change nothing that is saved. **Preview** hides the green places and shows the screensaver alone; **Edit** brings them back.
 
 ### Save and Undo
 
 **Save** stores the screensaver for the screen. Everything stays a draft until then, and **Cancel** asks before it throws a draft away. **Undo** (⌘Z or Ctrl+Z) takes back the last change, one at a time.
 
 The editor is the only place to change what the screensaver shows and how it looks: the background, the time and its face, the pieces, the legibility over photos, and which slides come now and then, and how often. **Screensaver Options** keeps what cannot be laid out on the screen: where the photos come from (a folder, or Mantel Photos), how they show (one at a time or a mosaic, their order, **Each Photo For**, **Slow Zoom**, and how portrait and landscape photos fit), the wallpaper when the background is Wallpaper, **Night Mode**, the **Side Pane** (each screen's own, even when the rest follows All Screens; All Screens' page names the screens that have their own), **Starts After** and the other timing, and the entities for automations. The editor's **Starts After, Night Mode and More** row opens it (**Choose the Wallpaper**, when the background is Wallpaper). A screen with a saved layout can go back to its old look with **Remove the Layout…** there.
+
+## The Holiday slide
+
+**Holidays** (Edit Screensaver → Slides, or Screensaver Options → Now and Then) counts down to the next holiday: how many days until it, themed for it. It comes among the photos or now and then over a clock, as Weather and Home Energy do, and only once a holiday is near. Its corner adds the time, the date, the weather and House Status, with the corner's Time Size and switches.
+
+- **Christmas** is a 90s living room at night: the count on the TV as a VCR's blue on-screen display, the tree's lights chasing, snow falling past the window.
+- **Halloween** is a haunted house on a hill, the count carved in a tombstone, bats leaving the attic and fog drifting.
+- **Thanksgiving** is a 90s dining room at dusk, the count chalked on a board in front of the set table, candles flickering and leaves falling past the window.
+- **New Year's** is a rooftop party at midnight, the count on a split-flap board, fireworks over the skyline.
+- **Every other holiday** (Valentine's Day, Easter, Mother's Day, Father's Day, the Fourth of July, birthdays from Seasonal Sky's Birthdays, and your own dates) stands outdoors on the sky's landscape: a big number on the meadow with its own effects.
+
+On the day itself the number gives way to a greeting. Along the bottom: **The Countdown** (weeks and weekends left; it hides in the last week) and **Coming Up** (the next three).
+
+**Holiday Options** (on the Screensaver page):
+
+- **Which Holiday:** **Next Up** (the soonest), **Take Turns** (each near one in turn) or **One Holiday** (only the one you pick).
+- **Starts:** 30, 60 or 90 days before (60 by default).
+- **Effects:** **Full**, **Gentle** (fewer and slower) or **Off**. Off, Reduce Motion, Flat and the sky's Animations off all draw one still picture.
+- **Holidays:** each one on or off. A house outside the US starts with Thanksgiving and the Fourth of July off.
+- **Add a Date:** a name, a month and day (every year, or only one year), and the scene it wears. Up to 12; a one-year date leaves the list once it has passed. Use it for Hanukkah, Diwali, Lunar New Year and other dates that move each year.
+- **Scenes:** turn one off to show that holiday outdoors instead of in its painted room.
+- **Along the Bottom:** The Countdown and Coming Up, each on or off.
+
+The Holiday Whimsy Look turns the slide on. The effects run only while the slide is on screen. Tapping it wakes the screen.
+

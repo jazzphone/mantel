@@ -131,6 +131,18 @@
         // or an additional screen over the clock; and what it leaves out
         weather_slide: raw.weather_slide === true,
         weather_hide: Array.isArray(raw.weather_hide) ? raw.weather_hide.filter(function (x) { return typeof x === 'string'; }) : [],
+        // THE HOLIDAY SLIDE (phase 20, hk-saver-holiday.js): a slide among the photos, or an additional screen over a
+        // clock; which holiday (Next Up, Take Turns, One Holiday), within how many days, those left out, your own dates,
+        // the effects, the scenes sent outdoors, and what its row leaves out (hk-holidays.js reads the dates)
+        holiday_slide: raw.holiday_slide === true,
+        holiday_pick: raw.holiday_pick === 'turns' || raw.holiday_pick === 'one' ? raw.holiday_pick : 'next',
+        holiday_one: typeof raw.holiday_one === 'string' && raw.holiday_one ? raw.holiday_one : 'christmas',
+        holiday_days: raw.holiday_days === 30 || raw.holiday_days === 90 ? raw.holiday_days : 60,
+        holiday_off: Array.isArray(raw.holiday_off) ? raw.holiday_off.filter(function (x) { return typeof x === 'string'; }) : [],
+        holiday_own: Array.isArray(raw.holiday_own) ? raw.holiday_own.filter(function (x) { return x && typeof x === 'object' && typeof x.name === 'string'; }).slice(0, 12) : [],
+        holiday_fx: raw.holiday_fx === 'gentle' || raw.holiday_fx === 'off' ? raw.holiday_fx : 'full',
+        holiday_outdoors: Array.isArray(raw.holiday_outdoors) ? raw.holiday_outdoors.filter(function (x) { return typeof x === 'string'; }) : [],
+        holiday_hide: Array.isArray(raw.holiday_hide) ? raw.holiday_hide.filter(function (x) { return typeof x === 'string'; }) : [],
         // THE SLIDES' OWN SETTINGS (2026-11-02, settings.py): the slide corner's time size and what it leaves out; what
         // Music Full Screen leaves out
         corner_time_size: n(raw.corner_time_size, 100, 250, 100),
@@ -271,15 +283,17 @@
       return out;
     }
     // Which slide comes next among the photos: the music (only while it
-    // plays), the forecast (Photos & Forecast), the weather and Home Energy
-    // (each once it has something to show) take turns, in that order.
-    var SLIDE_ORDER = ['music', 'forecast', 'weather', 'energy'];
-    function slideOf(c, playing, last, energy, weather) {
+    // plays), the forecast (Photos & Forecast), the weather, Home Energy and
+    // the Holiday slide (each once it has something to show: a holiday near)
+    // take turns, in that order.
+    var SLIDE_ORDER = ['music', 'forecast', 'weather', 'energy', 'holiday'];
+    function slideOf(c, playing, last, energy, weather, holiday) {
       var on = [];
       if (c && c.music_slide === true && playing) on.push('music');
       if (c && c.show === 'both') on.push('forecast');
       if (c && c.weather_slide === true && weather) on.push('weather');
       if (c && c.energy_slide === true && energy) on.push('energy');
+      if (c && c.holiday_slide === true && holiday) on.push('holiday');
       return turnOf(SLIDE_ORDER, on, last);
     }
     // the next of `on` after `last`, round `order`
@@ -292,7 +306,7 @@
     // are on -- the forecast (Show: Clock, over a background that isn't the
     // forecast's own), the music (not when it takes the screen anyway: Music
     // First, or the older music_slide over the forecast) and Home Energy
-    var EXTRA_ORDER = ['forecast', 'music', 'weather', 'energy'];
+    var EXTRA_ORDER = ['forecast', 'music', 'weather', 'energy', 'holiday'];
     // SLIDES ARE OVERLAYS (2026-11-02, phase 13): every slide over every background but the photos (whose slides come
     // between them) -- the Weather slide over the Landscape, the Weather and Home Energy over Calm Color, Paper and the Day
     // face too (they were offered there and never came)
@@ -303,6 +317,7 @@
       if (c.extra_music && !c.music_first && !c.music_slide) a.push('music');
       if (c.weather_slide) a.push('weather');
       if (c.energy_slide) a.push('energy');
+      if (c.holiday_slide) a.push('holiday');
       return a;
     }
     // m:ss (h:mm:ss past an hour)

@@ -6,6 +6,8 @@ import re
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from . import saver_holidays as HOLIDAYS
+
 FACES = ("solar", "prism", "world", "hotel", "terminal", "atelier", "meridian", "markets", "brief", "modular")
 CHOICES = {
     "solar_dial": ("rays", "edge", "minimal"),
@@ -153,6 +155,11 @@ def saver_options(v: Any, legacy: Any = None) -> dict[str, Any] | None:
             out[k] = got
         elif k == "layout":
             out[k] = SLAY.layout(val) if val is not None else None
+        elif k in HOLIDAYS.KEYS:
+            got = HOLIDAYS.value(k, val)
+            if got is None:
+                return None
+            out[k] = got
         elif k in ("energy_hide", "weather_hide", "corner_hide", "music_hide"):
             parts = {"energy_hide": M.SAVER_ENERGY_PARTS, "weather_hide": M.SAVER_WEATHER_PARTS, "corner_hide": M.SAVER_CORNER_PARTS,
                      "music_hide": M.SAVER_MUSIC_PARTS}[k]

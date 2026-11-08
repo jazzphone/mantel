@@ -383,7 +383,7 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
           const corner = {}; ['time', 'date', 'weather', 'status'].forEach((k) => { const e = sr.querySelector('.scn .hksw.p-' + k); corner[k] = e && getComputedStyle(e).display !== 'none' && host.hasAttribute('scorner') ? ink(e) : null; });
           // (the slide's own words and small pictures: the forecast's, the Weather slide's, Home Energy's)
           const own = (sel) => [...sr.querySelectorAll(sel)].find((e) => !e.closest('.lay, .ck, .face, .hkf, .scn'));
-          const layer = host.hasAttribute('enslide') ? own('.en') : host.hasAttribute('wxslide') ? own('.wx') : host.hasAttribute('fcslide') ? own('.fc') : null;
+          const layer = host.hasAttribute('enslide') ? own('.en') : host.hasAttribute('wxslide') ? own('.wx') : host.hasAttribute('hlslide') ? own('.hl') : host.hasAttribute('fcslide') ? own('.fc') : null;
           const marks = [];
           if (layer) (function walk(n) {
             if (n.nodeType === 3) { if (n.textContent.trim()) { const rg = document.createRange(); rg.selectNodeContents(n); const r = rg.getBoundingClientRect(); if (r.width > 0 && r.height > 0) marks.push(box(r)); } return; }
@@ -400,9 +400,12 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
         });
         const inScr = (b) => !!b && b.l >= -1 && b.t >= -1 && b.r <= W + 1 && b.b <= H + 1;
         const meet = (a, b) => !!(a && b && a.l < b.r - 1 && b.l < a.r - 1 && a.t < b.b - 1 && b.t < a.b - 1);
-        const SHOWS_OF = { music: ['music'], forecast: ['weather'], forecast_big: ['weather', 'time'], weather: ['weather', 'readings'], energy: ['energy'] };
-        const slides = want === 'look-fb' ? ['forecast'] : [null, 'music', 'forecast', 'weather', 'energy'];
+        const SHOWS_OF = { music: ['music'], forecast: ['weather'], forecast_big: ['weather', 'time'], weather: ['weather', 'readings'], energy: ['energy'], holiday: ['holiday'] };
+        const slides = want === 'look-fb' ? ['forecast'] : [null, 'music', 'forecast', 'weather', 'energy', 'holiday'];
         for (const sl of slides) {
+          // (the Holiday slide, phase 20: a pinned day, so a holiday is near whatever the real date -- November 8, 2026,
+          // Thanksgiving 18 days away in its painted dining room; the clock's timers keep running)
+          if (sl === 'holiday') await page.clock.setFixedTime(new Date(2026, 10, 8, 12, 0, 0));
           const shown = await page.evaluate((sl) => window.hkSaver.previewSlide ? window.hkSaver.previewSlide(sl) : false, sl);
           await settle(sl ? 2600 : 600);
           const m = await look();
