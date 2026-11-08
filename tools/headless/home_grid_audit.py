@@ -483,6 +483,27 @@ MEASURE = r"""(() => {
 })()"""
 
 
+def timers_state(n: int, paused: tuple[int, ...] = ()) -> dict:
+    """STATES' entities for n running quick timers (those at the indexes in `paused` held): the sensor the block reads and each
+    timer's name, length and finish."""
+    names, mins, left = ["Pasta", "Laundry", "Tea", "Oven", "Bread", "Dryer"], [12, 45, 5, 50, 90, 30], [420, 1800, 150, 2400, 3600, 900]
+    at = lambda secs: time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(time.time() + secs))
+    ents: dict = {}
+    run = []
+    for i in range(6):
+        eid, dur = f"timer.quick_{i + 1}", f"{mins[i] // 60}:{mins[i] % 60:02d}:00"
+        if i >= n:
+            ents[eid] = ("idle", {"friendly_name": f"Quick Timer {i + 1}", "duration": dur})
+        elif i in paused:
+            ents[eid] = ("paused", {"friendly_name": names[i], "duration": dur, "remaining": f"0:{left[i] // 60:02d}:{left[i] % 60:02d}"})
+            run.append({"name": names[i], "entity_id": eid})
+        else:
+            ents[eid] = ("active", {"friendly_name": names[i], "duration": dur, "remaining": dur, "finishes_at": at(left[i])})
+            run.append({"name": names[i], "entity_id": eid, "finishes_at": at(left[i])})
+    ents["sensor.running_quick_timers"] = (str(n), {"friendly_name": "Running Quick Timers", "running": run})
+    return ents
+
+
 # EVERY STATE, NOT ONLY A BUSY HOUSE (2026-11-08, the owner: the Timers block "always shows a timer in your test", and
 # with none it "is not good looking at all"). `--state NAME` draws the house in another state: each entry turns the
 # stood-in house into it (domain -> state for everything of that domain, then entity -> (state, attributes) over
@@ -497,8 +518,27 @@ STATES: dict[str, dict] = {
                           "vacuum": "docked"},
               "entities": {"sensor.running_quick_timers": ("0", {"friendly_name": "Running Quick Timers", "running": []})},
               "events": False},
+    # TIMERS (2026-11-08): one running, six (the Extra Large block's most), two with one held
+    "timers_one": {"entities": timers_state(1)},
+    "timers_many": {"entities": timers_state(6)},
+    "timers_paused": {"entities": timers_state(2, paused=(0,))},
+    # THE VACUUM (2026-11-08): what it is doing, and the rooms Clean Areas offers (`rooms`: six, the default; `twelve` more than a
+    # Large block holds) and which of them are ticked before the shot (`picked`: area ids, the block's rooms to clean)
+    "vacuum_cleaning": {"entities": {"vacuum.downstairs": ("cleaning", {"friendly_name": "Downstairs Vacuum", "battery_level": 64, "supported_features": 16383})}},
+    "vacuum_paused": {"entities": {"vacuum.downstairs": ("paused", {"friendly_name": "Downstairs Vacuum", "battery_level": 64, "supported_features": 16383})}},
+    "vacuum_returning": {"entities": {"vacuum.downstairs": ("returning", {"friendly_name": "Downstairs Vacuum", "battery_level": 31, "supported_features": 16383})}},
+    "vacuum_error": {"entities": {"vacuum.downstairs": ("error", {"friendly_name": "Downstairs Vacuum", "battery_level": 12, "supported_features": 16383})}},
+    "vacuum_picked": {"entities": {"vacuum.downstairs": ("docked", {"friendly_name": "Downstairs Vacuum", "battery_level": 92, "supported_features": 16383})},
+                      "picked": ["kitchen", "office"]},
+    "vacuum_picked3": {"picked": ["kitchen", "office", "bedroom"]},
+    "vacuum_twelve": {"twelve": True},
+    "vacuum_twelve_picked": {"twelve": True, "picked": ["kitchen", "den", "pantry", "garage"]},
 }
 STATE = {"name": "busy", "hits": False}
+# six more rooms for a house with twelve (the Vacuum block's rooms scroll when they do not fit)
+MORE_ROOMS = [("den", "Den", "main"), ("pantry", "Pantry", "main"), ("laundry", "Laundry", "main"), ("hallway", "Hallway", "upstairs"),
+              ("nursery", "Nursery", "upstairs"), ("bathroom", "Bathroom", "upstairs")]
+
 
 
 def apply_state(name: str) -> None:
@@ -547,6 +587,11 @@ def stand_in_app(app) -> None:
     hub.readproxy.energy_prefs, hub.readproxy.stat_rows = ENERGY_PREFS, stat_rows
 
 
+def clean_areas() -> list[str]:
+    """The rooms Clean Areas offers in the state: CLEAN_AREAS, or twelve of them."""
+    return CLEAN_AREAS + [r[0] for r in MORE_ROOMS] if STATES[STATE["name"]].get("twelve") else CLEAN_AREAS
+
+
 def feed_script() -> str:
     """THE ENERGY FEATURE, stood in on the page: its plan's house battery is what the `battery` block shows, and the
     test server's settings feed has no Energy feature to send (hkSettings.get answers `added` and `energy` as a house
@@ -565,13 +610,15 @@ def feed_script() -> str:
         v.get = function (p, f) { if (p === 'added') return ['energy', 'live_tv', 'clean_areas']; if (p === 'energy') return """ + plan + """;
           return get.apply(this, arguments); };
         v.subscribe = function (conn, msg, on) { if (msg && msg.type === 'hk_clean_areas/subscribe') {
-          setTimeout(() => on({ configured: true, areas: """ + json.dumps(CLEAN_AREAS) + """ }), 0); return () => {}; }
+          setTimeout(() => on({ configured: true, areas: """ + json.dumps(clean_areas()) + """ }), 0); return () => {}; }
           return sub.apply(this, arguments); }; } }); })()"""
 
 
 async def audit(keys: list[str], looks: list[str], shots: Path | None, long: bool, nobar: list[str]) -> dict:
     gallery.HOUSE.update(EXTRA)
     apply_state(STATE["name"])
+    if STATES[STATE["name"]].get("twelve"):
+        gallery.ROOMS.extend(r for r in MORE_ROOMS if r not in gallery.ROOMS)
     if long:
         for eid, (area, (state, attrs)) in list(gallery.HOUSE.items()):
             if "friendly_name" in attrs and not eid.startswith("sun."):
@@ -609,6 +656,11 @@ async def audit(keys: list[str], looks: list[str], shots: Path | None, long: boo
                         if (e.localName === 'hk-home-grid-view') return e; if (e.shadowRoot) { const f = d(e.shadowRoot); if (f) return f; } }
                         return null; }; const v = d(document); return v && v.shadowRoot.querySelectorAll('.cell').length > 0; })()""", 20)
                     await asyncio.sleep(2.0)            # pictures, fonts and the sky settle
+                    picked = STATES[STATE["name"]].get("picked")
+                    if picked:                          # the rooms ticked on the Vacuum block (hk-home.js: hkHome.picked, by vacuum)
+                        await b.eval("(() => { const s = (window.hkHome.picked = window.hkHome.picked || {})['vacuum.downstairs'] = new Set(%s);"
+                                     " window.dispatchEvent(new CustomEvent('hk-vacuum-rooms', { detail: s })); })()" % json.dumps(picked))
+                        await asyncio.sleep(0.8)
                     got = await b.eval(MEASURE)
                     got["errors"] = [c for c in b.console[mark:] if c.startswith(("EXCEPTION", "error"))][:8]
                     report.setdefault(key, {})[look + ("" if bar else " (no bar)")] = got

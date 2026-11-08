@@ -604,40 +604,36 @@ class HkControlCard extends HTMLElement {
       :host([size=S]) .big .tt b{font-size:min(44px,calc((100cqh - var(--hk-pad-t,18px) - var(--hk-pad-b,18px) - 44px - 26px) * .9))}
       :host([size=S]) .big .tg{gap:8px}
       :host([size=T]) .big .tg{flex-direction:column;align-items:stretch;gap:6px}
-      :host([size=T]) .big .one b{font-size:min(96px,26cqh,50cqw)}
-      :host([size=T]) .big .one.long b{font-size:min(66px,18cqh,30cqw)}
+      :host([size=T]) .big .one b{font-size:min(96px,26cqh,40cqw)}
+      :host([size=T]) .big .one.long b{font-size:min(66px,18cqh,28cqw)}
       :host([size=T]) .big .tt{padding:6px 8px}
-      :host([size=T]) .big .tt b{font-size:min(66px,16cqh)}
+      :host([size=T]) .big .tt b{font-size:min(66px,16cqh,32cqw)}
       /* ...Tall's modes: a row of four, Heat, Cool, Auto, Off, each 44 px,
          the one it is in white -- out into the inset to 9 px from the plate's edge, so four keys are 44 across (the foot's too).
-         ON TOP, THE FOOT THE ARROWS' OWN (2026-11-08, the owner: "the modes are too close to the temp up and down
-         arrows... the modes get hit while using them"): the row sat 8 to 12 px over the arrows, whose hit areas
-         reached 4 px up; now the targets lie between them, 100 px and more, and no hit area touches another */
-      .big .mr{flex:none;align-self:stretch;height:44px;margin:0 calc(9px - var(--hk-pad-r,18px)) 12px calc(9px - var(--hk-pad-l,18px));display:flex;justify-content:space-between;border-radius:22px;background:${window.hkCards.v('key')}}
+         2026-11-08, the owner: "the modes are too close to the temp up and down arrows... the modes get hit while using them",
+         and then "the modes at the top throw the card off": the arrows now flank the target (the card's centre of weight), the name
+         heads the block and the modes are the foot's, a whole target's height from the arrows; no hit area touches another */
+      .big .mr{flex:none;align-self:stretch;height:44px;margin:12px calc(9px - var(--hk-pad-r,18px)) 0 calc(9px - var(--hk-pad-l,18px));display:flex;justify-content:space-between;border-radius:22px;background:${window.hkCards.v('key')}}
       /* (the row keeps the block's inset, 2026-11-07, the review: 176 px wide it ran 8 px into it on a 196 cell -- four keys share the
-         width, a hair under 44 each; a choice of a segmented track is 36 wide at the least, and none reaches past its own slot,
-         2026-11-08: the hit areas that did overlapped each other) */
+         width, a hair under 44 each; and none reaches past its own slot: the hit areas that did overlapped each other) */
       .big .mr button{all:unset;position:relative;box-sizing:border-box;flex:1 1 0;min-width:0;height:44px;border-radius:22px;display:grid;place-items:center;color:${window.hkCards.v('ink')};cursor:pointer;-webkit-tap-highlight-color:transparent}
       .big .mr button.on{background:#fff;color:#1c1c1e}
       .big .mr hk-icon{width:22px;height:22px;--mdc-icon-size:22px;display:block;line-height:0}
       .big .mr button:focus-visible{outline:2px solid ${window.hkCards.v('ink-2')};outline-offset:2px}
       /* (on tile cells: two rows are 310 tall, not 405 -- hk-cell is the block's whole cell) */
-      @container hk-cell (max-height:380px){.big .mr{margin-bottom:8px}:host([size=T]) .big .tt{padding:4px 8px}}
+      @container hk-cell (max-height:380px){.big .mr{margin-top:8px}:host([size=T]) .big .tt{padding:4px 8px}}
       /* ...the foot: 24 px arrows (28 on Tall) in 40 x 44 keys, each reaching 4 px outward (the face's
          ::after): 44 x 44, and the name 6 px above and below its two lines -- a finger's 44 in the block's px */
       .big .ff{flex:none;display:grid;grid-template-columns:40px minmax(0,1fr) 40px;align-items:center;min-height:44px}
-      .big .ff .ar{width:40px;height:44px;border-radius:12px;z-index:1}
-      .big .ff .ar svg{width:28px;height:28px;stroke-width:2.2}
+      .big :is(.ff,.tgr) .ar{width:40px;height:44px;border-radius:12px;z-index:1}
+      .big :is(.ff,.tgr) .ar svg{width:28px;height:28px;stroke-width:2.2}
       /* (the foot's hit areas touch and never overlap, 2026-11-08: each arrow's own 44 tall, reaching 4 px out toward the edge only,
          the name's from its own edges -- they overlapped each other by 8 px, and the arrows reached 4 px up into what is above) */
-      .big .ff .ar::after{top:0;bottom:0;right:0}.big .ff .ar:last-child::after{left:0;right:-4px}.big .ff .nm::after{left:0;right:0}
+      .big :is(.ff,.tgr) .ar::after{top:0;bottom:0;right:0}.big :is(.ff,.tgr) .ar:last-child::after{left:0;right:-4px}.big :is(.ff,.hd) .nm::after{left:0;right:0}
       :host([size=S]) .big .ff .ar svg{width:24px;height:24px}
-      .big .ff .nm b{${window.hkCards.typeCss('body')};font-weight:600;line-height:18px;display:block;white-space:nowrap;overflow-wrap:normal;letter-spacing:-.2px}
-      :host([size=T]) .big .ff .nm b{${window.hkCards.typeCss('headline')};line-height:21px}
-      /* (Tall's foot out into the inset, the arrows 12 px from the edge, so a name such as "Heat Pump" has
-         its 17 px between them) */
-      :host([size=T]) .big .ff{margin:0 calc(9px - var(--hk-pad-r,18px)) 0 calc(9px - var(--hk-pad-l,18px))}
-      .big .ff .nm i{${window.hkCards.typeCss('caption')};font-weight:400;line-height:16px}
+      .big :is(.ff,.hd) .nm b{${window.hkCards.typeCss('body')};font-weight:600;line-height:18px;display:block;white-space:nowrap;overflow-wrap:normal;letter-spacing:-.2px}
+      :host([size=T]) .big :is(.ff,.hd) .nm b{${window.hkCards.typeCss('headline')};line-height:21px}
+      .big :is(.ff,.hd) .nm i{${window.hkCards.typeCss('caption')};font-weight:400;line-height:16px}
       /* WIDE (2026-11-07, the review): Big Number always, as Small is -- the number large over the foot (the arrows
          either side of the name) in the left part, the modes a 2 x 2 of 44 px keys at the right, as Extra Large's
          column has them; the face's and the keys' room is the block's inset, so a tile cell (150 tall) holds both */
@@ -868,11 +864,10 @@ class HkControlCard extends HTMLElement {
       : sz === "XL" ? (room || how) : (room ? room + " · " + how : how);
     const arrow = (dir, d, label) => `<button class="ar" type="button" data-big-step="${dir}" aria-label="${label}"${idle ? " disabled" : ""}>` +
       `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${d}"/></svg></button>`;
-    const foot = cls => `<div class="${cls}">
-        ${arrow(-1, "M5.5 9.5 12 16l6.5-6.5", range ? (pick === "low" ? "Lower the heating target" : "Lower the cooling target") : "Lower the target")}
-        <button class="nm" type="button" data-tstat-details aria-label="${name}${sub ? ", " + sub : ""}, open the thermostat"><b>${name}</b>${sub ? `<i>${sub}</i>` : ""}</button>
-        ${arrow(1, "M5.5 14.5 12 8l6.5 6.5", range ? (pick === "low" ? "Raise the heating target" : "Raise the cooling target") : "Raise the target")}
-      </div>`;
+    const down = arrow(-1, "M5.5 9.5 12 16l6.5-6.5", range ? (pick === "low" ? "Lower the heating target" : "Lower the cooling target") : "Lower the target");
+    const up = arrow(1, "M5.5 14.5 12 8l6.5 6.5", range ? (pick === "low" ? "Raise the heating target" : "Raise the cooling target") : "Raise the target");
+    const nm = `<button class="nm" type="button" data-tstat-details aria-label="${name}${sub ? ", " + sub : ""}, open the thermostat"><b>${name}</b>${sub ? `<i>${sub}</i>` : ""}</button>`;
+    const foot = cls => `<div class="${cls}">${down}${nm}${up}</div>`;
     const held = `<div class="modes" role="group" aria-label="Mode">${modes.map(m => `<button class="segment${mode === m ? " active" : ""}" type="button" data-mode="${this._esc(m)}">${this._esc(this._pretty(m))}</button>`).join("")}</div>`;
     const four = (cls, words) => `<div class="${cls}" role="group" aria-label="Mode">${words ? "<b>Mode</b>" : ""}${FOUR.map(m => `<button class="${mode === m ? "on" : ""}" type="button" data-big-mode="${this._esc(m)}" aria-pressed="${mode === m}"` +
       `${words ? "" : ` aria-label="${this._esc(this._pretty(m))}"`}><hk-icon icon="${GLYPH[m]}" aria-hidden="true"></hk-icon>${words ? this._esc(this._pretty(m)) : ""}</button>`).join("")}` +
@@ -887,10 +882,10 @@ class HkControlCard extends HTMLElement {
       const text = mode === "off" ? "Off" : idle ? "—" : t(single);
       const one = `<div class="one${kind}${text.length > 2 ? " long" : ""}">${sz === "T" && !idle ? `<small>${word}</small>` : ""}<b>${text}</b></div>`;
       const tg = range ? (sz === "T" ? tt("high", hi, "Cool to", "cool") + tt("low", lo, "Heat to", "heat") : tt("low", lo, "Heat to", "heat") + tt("high", hi, "Cool to", "cool")) : one;
-      return `${top}<div class="in">
-        ${sz === "T" ? four("mr", false) : ""}
-        <div class="tg" data-big-num aria-label="${label}">${tg}</div>
-        ${foot("ff")}
+      // TALL (2026-11-08, the owner: modes on top "throws the card off"): the name over the target with its arrows either side of it,
+      // the centre of weight; the modes the foot's, clear of the arrows by the whole target's height
+      const tgd = `<div class="tg" data-big-num aria-label="${label}">${tg}</div>`;
+      return `${top}<div class="in">${sz === "T" ? `<div class="hd">${nm}</div><div class="tgr">${down}${tgd}${up}</div>${four("mr", false)}` : tgd + foot("ff")}
       </div>${sz === "W" ? four("mq", false) : ""}${held}</div>`;
     }
     const pk = (which, v, verb) => `<button class="pk${pick === which ? " sel" : ""}" type="button" data-big-pick="${which}" aria-pressed="${pick === which}" aria-label="${verb} ${t(v)} degrees">${t(v)}</button>`;
