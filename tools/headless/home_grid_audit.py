@@ -627,6 +627,18 @@ STATES["sec_many"] = {"entities": {**{f"lock.extra_{i}": ("locked", {"friendly_n
     ("Garage Entry", "Side Door", "Patio Door", "Basement Door"))},
     "cover.garage_two": ("closed", {"friendly_name": "Workshop Door", "device_class": "garage"}),
     **{f"binary_sensor.extra_window_{i}": ("off", {"friendly_name": f"Window {i}", "device_class": "window"}) for i in range(8)}}}
+# THE CALENDAR, DOORS AND WHO'S HOME (2026-11-08, round three): a calendar with nothing today and the next event tomorrow; doors
+# and windows: one window open, two doors open (a door and the garage), many open; a house of one person at home, and of four
+STATES["cal_later"] = {"events": "later"}
+STATES["doors_window"] = {"domains": {"cover": "closed", "binary_sensor": "off"},
+                          "entities": {"binary_sensor.office_window": ("on", {"friendly_name": "Office Window", "device_class": "window"})}}
+STATES["doors_two"] = {"domains": {"cover": "closed", "binary_sensor": "off"},
+                       "entities": {"cover.garage_door": ("open", {"friendly_name": "Garage Door", "device_class": "garage"}),
+                                    "binary_sensor.front_door": ("on", {"friendly_name": "Front Door", "device_class": "door"})}}
+STATES["doors_many"] = {"domains": {"cover": "open", "binary_sensor": "on"},
+                        "entities": {**{f"binary_sensor.extra_window_{i}": ("on", {"friendly_name": f"Window {i}", "device_class": "window"}) for i in range(8)}}}
+STATES["people_home"] = {"domains": {"person": "home"}}
+STATES["people_four"] = {"entities": {"person.jo": ("home", {"friendly_name": "Jo"}), "person.kit": ("School", {"friendly_name": "Kit"})}}
 STATE = {"name": "busy", "hits": False}
 # six more rooms for a house with twelve (the Vacuum block's rooms scroll when they do not fit)
 MORE_ROOMS = [("den", "Den", "main"), ("pantry", "Pantry", "main"), ("laundry", "Laundry", "main"), ("hallway", "Hallway", "upstairs"),
@@ -727,7 +739,11 @@ def stand_in_reads() -> None:
     async def calendar_events(self, entity_id, start, end):
         if STATES[STATE["name"]].get("events") is False:
             return []
-        return _events() if entity_id == "calendar.family" else []
+        if entity_id != "calendar.family":
+            return []
+        # ("later": nothing today, the events from tomorrow on -- the Calendar block's "nothing scheduled today, Dentist next")
+        return [e for e in _events() if e["start"].get("dateTime", e["start"].get("date", ""))[:10] > time.strftime("%Y-%m-%d")] \
+            if STATES[STATE["name"]].get("events") == "later" else _events()
     OfflineReads.get_calendar_events = calendar_events
     ask = OfflineReads.request
 

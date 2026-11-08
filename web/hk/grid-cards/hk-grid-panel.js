@@ -158,15 +158,16 @@
       '.wr>div{display:flex;align-items:center;gap:10px;height:36px;flex:none;border-bottom:1px solid ' + v('line') + ';cursor:pointer;-webkit-tap-highlight-color:transparent}' +
       '.wr>div:last-child{border-bottom:0}' +
       // (Large and up: 44 px rows, a tap target each, the name over since when)
-      '.wr.tall>div{height:44px}.wr .wt{display:flex;flex-direction:column;flex:1;min-width:0}.wr .wt b{flex:none}' +
+      '.wr.tall>div{height:48px}.wr .wt{display:flex;flex-direction:column;flex:1;min-width:0}.wr .wt b{flex:none}' +
       '.wr .wt small{' + type('caption') + ';line-height:15px;color:' + v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
       '.wr b{' + type('body') + ';font-weight:600;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
       '.wr em{font-style:normal;' + type('caption') + ';color:' + v('ink-2') + ';white-space:nowrap}' +
       '.wr>div.more{cursor:default}.wr>div.more b{font-weight:500;color:' + v('ink-2') + '}' +
-      // (A LIST THAT GROWS TO ITS BLOCK, 2026-11-07, the review -- Doors under a short list left 40 to 50 % of the plate bare: rows
-      // take the free height, each 44 to its --rmax px, the name a headline, and the list sits at the top of what is left)
-      '.wr.grow{flex:1}.wr.grow>div{height:auto;flex:1 1 0;min-height:44px;max-height:var(--rmax,64px)}' +
-      '.wr.grow b{' + type('headline') + '}.wr.grow em{' + type('body') + '}.wr.grow .wt small{' + type('caption') + ';line-height:17px}' +
+      // (THE DOORS' GROUP, 2026-11-08: the hero and the rows one group on the middle of what the label leaves; rows keep their 48 px --
+      // the list used to grow to its block, rows 44 to 88 px, and the owner: nothing stretches)
+      '.wmid{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center}.wmid>hk-icon{margin-bottom:0}' +
+      '.wr.tall b{' + type('headline') + '}.wr.tall em{' + type('body') + '}.wr.tall .wt small{' + type('caption') + ';line-height:17px}' +
+      '.wb.ok{display:flex;align-items:center;gap:8px}' +
       '.wg hk-icon{display:block;flex:none;--mdc-icon-size:100%}' +
       '.wsplit{display:flex;gap:18px;flex:1;min-height:0}.wsplit>:last-child{flex:1}' +
       '.waxis{display:flex;justify-content:space-between;margin-top:6px;flex:none;' + type('micro') + ';color:' + v('ink-3') + '}';
@@ -442,28 +443,29 @@
             (x.open ? ' style="color:' + ACC.orange + '"' : '') + '>' + (x.open ? 'Open' : 'Closed') + '</em></div>';
         };
         var lab = '<div class="wl" style="color:' + ACC.teal + '">Doors &amp; Windows</div>';
-        var ways = open.filter(function (x) { return x.kind !== 'window'; }).length, wins = open.length - ways;
-        var line = !open.length ? 'All closed' : !ways ? 'All doors closed' : !wins ? 'All windows closed'
-          : plural(ways, 'door', 'doors') + ' · ' + plural(wins, 'window', 'windows');
+        // THE COPY, PLAINLY (2026-11-08, the review: "1 open" over "All doors closed" while a window was open): what is open
+        // and by name -- "1 Open" over "Office Window" -- or "All Closed" with a check over what the block watches; no zero
+        var ways = list.filter(function (x) { return x.kind !== 'window'; }).length, wins = list.length - ways;
+        var names = open.length < 3 ? open.map(name).join(' · ') : name(open[0]) + ' + ' + (open.length - 1) + ' more';
+        var line = open.length ? names : [ways ? plural(ways, 'door', 'doors') : '', wins ? plural(wins, 'window', 'windows') : ''].filter(Boolean).join(' · ');
+        var ok = function (px) { return gly('mdi:check-circle', px, ACC.teal); };
         if (size === 'S') {
           var first = open[0];
-          return gly(first ? WAY_GLYPH[first.kind][0] : 'mdi:door-closed', 34, first ? ACC.orange : ACC.teal) +
-            '<div class="wb xl">' + open.length + '</div>' +
-            '<div class="ws">' + esc(open.length === 1 ? 'open · ' + name(first) : open.length ? 'open' : 'All closed') + '</div>';
+          if (!first) return ok(34) + '<div class="wb m" style="margin-top:8px">All Closed</div><div class="ws">Doors &amp; Windows</div>';
+          return gly(WAY_GLYPH[first.kind][0], 34, ACC.orange) + '<div class="wb xl">' + open.length + '</div><div class="ws">' + esc(open.length === 1 ? 'Open · ' + name(first) : 'Open') + '</div>';
         }
-        var big = '<div class="wb m">' + (open.length ? open.length + ' open' : 'All closed') + '</div>';
+        var big = open.length ? '<div class="wb m">' + open.length + ' Open</div>' : '<div class="wb m ok">' + ok(24) + 'All Closed</div>';
         if (size === 'W') {
           return '<div class="wsplit"><div class="wcol" style="flex:0 0 170px">' + lab + big + '<div class="ws">' + esc(line) + '</div></div>' +
-            '<div class="wcol wr">' + fitRows(list, box.ih, row) + '</div></div>';
+            '<div class="wcol wr" style="justify-content:center">' + fitRows(list, box.ih, row) + '</div></div>';
         }
-        // (T, L and XL: the list grows to the block -- rows 44 to 64 (XL 88) tall, a headline each -- and a summary foot says
-        // how many there are, so no band of bare plate is left under a short list)
-        var total = list.length, foot = '<div class="ws wf" style="padding-top:8px">' + total + ' total · ' + (total - open.length) + ' closed</div>';
+        // (T, L and XL, 2026-11-08, the owner: nothing stretches -- rows keep their 48 px, as many as fit with "N more", and the hero and
+        // the rows are one group centered under the label; the figure is the hero's 72 where three rows still fit under it)
         var since = function (st) {
           var t = Date.parse(st.last_changed || ''), L = window.hkLocale;
           if (!t) return '';
           var d = new Date(t), today = new Date().toDateString() === d.toDateString(), tag = L ? L.tag() : undefined;
-          return 'Open since ' + (today ? d.toLocaleTimeString(tag, { hour: 'numeric', minute: '2-digit' }) : d.toLocaleDateString(tag, { weekday: 'short' }));
+          return (size === 'T' ? 'Since ' : 'Open since ') + (today ? d.toLocaleTimeString(tag, { hour: 'numeric', minute: '2-digit' }) : d.toLocaleDateString(tag, { weekday: 'short' }));
         };
         var tall = function (x) {
           var g = WAY_GLYPH[x.kind][x.open ? 0 : 1], s = x.open ? since(x.st) : '', col = x.open ? ' style="color:' + ACC.orange + '"' : '';
@@ -472,15 +474,20 @@
           return '<div data-more="' + esc(x.id) + '">' + gly(g, 24, x.open ? ACC.orange : null) + '<span class="wt"><b>' + esc(name(x)) + '</b>' +
             (s ? '<small>' + esc(s) + '</small>' : '') + '</span><em' + col + '>' + (x.open ? 'Open' : 'Closed') + '</em></div>';
         };
+        // (a square cell, 405 px tall, gives the hero 96 -- a few rows leave the room, and a bigger figure fills it, not bigger rows)
+        var hp = box.ih >= 340 ? 96 : 72, heroH = open.length ? Math.round(hp * 1.04) + 19 : hp * 0.6 + 40;
+        var hero = function (xl) {
+          if (!xl) return big;
+          return open.length ? '<div class="wb xl"' + (hp > 72 ? ' style="font-size:96px;letter-spacing:-2px"' : '') + '>' + open.length + '</div><div class="ws">Open</div>'
+            : ok(Math.round(hp * 0.6)) + '<div class="wb m" style="margin-top:6px">All Closed</div>';
+        };
         if (size === 'T' || size === 'L') {
-          // the figure large (the hero's 72) where the rows and the foot keep their 44 px
-          var left = box.ih - 19 - 6 - 27 - Math.min(list.length, 3) * 44, hero = left >= 75;
-          var hd = hero ? '<div class="wb xl">' + (open.length ? open.length : 'All') + '</div><div class="ws">' + (open.length ? 'open' : 'closed') + '</div>' : big;
-          return lab + hd + '<div class="wr grow" style="margin-top:6px;--rmax:64px">' + fitRows(list, box.ih - 19 - (hero ? 75 + 19 : 33) - 6 - 27, tall, 44) + '</div>' + foot;
+          var room = box.ih - 19 - 6, xl = room - heroH - 8 >= Math.min(list.length, 3) * 48, rest = room - (xl ? heroH : 52) - 8;
+          return lab + '<div class="wmid">' + hero(xl) + '<div class="wr tall" style="margin-top:8px">' + fitRows(list, rest, tall, 48) + '</div></div>';
         }
         return '<div class="wsplit" style="gap:22px"><div class="wcol" style="flex:0 0 200px">' + lab +
-          '<div style="margin:auto 0">' + (open.length ? '<div class="wb xl">' + open.length + '</div><div class="ws">open</div>' : '<div class="wb m">All closed</div>') +
-          '<div class="ws">' + esc(line) + '</div></div>' + foot.replace('padding-top:8px', 'margin-top:auto') + '</div><div class="wcol wr tall grow" style="--rmax:88px">' + fitRows(list, box.ih, tall, 44) + '</div></div>';
+          '<div class="wmid">' + hero(true) + '<div class="ws">' + esc(line) + '</div>' +
+          '</div></div><div class="wcol wmid wr tall">' + fitRows(list, box.ih, tall, 48) + '</div></div>';
       }
       // WATER: today's large; Small and Tall the last twelve hours as a
       // short chart (Tall the days before under it); Wide the day's hours

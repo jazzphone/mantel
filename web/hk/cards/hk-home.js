@@ -315,7 +315,8 @@
         '  --vb-r:calc(var(--vb-key) / 2);border-radius:var(--vb-r);background:' + C.v('key-strong') + ';color:' + C.v('ink') + ';font-family:inherit;' + C.typeCss('headline') + ';white-space:nowrap;cursor:pointer}',
         '.vb .key>span{min-width:0;overflow:hidden;text-overflow:ellipsis}',
         '.vb .key.go{flex:1 1 auto;min-width:0;padding:0 10px;background:' + SELECTED_BG + ';color:' + SELECTED_TEXT + '}',
-        '.vb .key.wide{padding:0 18px}',
+        // (TALL'S KEYS, 2026-11-08, the owner: nothing stretches -- Clean is as wide as its word, Dock round beside it, the pair centered)
+        '.vb[data-s=T] .keys{justify-content:center;gap:6px}.vb[data-s=T] .key.go{flex:none;padding:0 16px}.vb[data-s=T] .key.go hk-icon{display:none}',
         '.vb .key hk-icon{flex:none;width:22px;height:22px;--mdc-icon-size:22px}',
         '.vb .key[aria-disabled=true]{opacity:.45;pointer-events:none}',
         '.vb .key:active,.vb .vr:active{transform:scale(0.97)}.vb .key:focus-visible,.vb .vr:focus-visible{outline:2px solid ' + C.v('ink-2') + ';outline-offset:2px}',
@@ -2526,12 +2527,11 @@
         '.pp .wide{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:' + PP.gap + 'px;align-content:center;align-items:center}',
         '.pp .wide .pr b,.pp .wide .mo b,.pp .lg .pr b,.pp .lg .mo b{font-size:15px;font-weight:600;line-height:19px;margin-top:2px}',
         '.pp .wide .pr span:not(.face),.pp .lg .pr span:not(.face){font-size:13px;line-height:16px}',
-        // TALL AND LARGE (2026-11-07, the review): Tall a list, each person a row -- face 44, first name, where and since --
-        // spread down the block, none over 64 tall; Large the faces as large as the block holds them (to 88), name and where under each
-        '.pp .lst{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;justify-content:space-between;margin-top:' + PP.g + 'px}',
-        '.pp .lst .pr{flex:0 1 64px;flex-direction:row;justify-content:flex-start;gap:12px;width:100%;text-align:left}',
-        '.pp .lst .tx{display:flex;flex-direction:column;min-width:0}',
-        '.pp .lst .tx b{' + C.typeCss('headline') + ';text-shadow:' + C.v('glow') + '}',
+        // TALL AND LARGE (2026-11-07, the review): Tall a list, each person a row -- face 44, first name, where and since -- at a fixed
+        // height (52; 56 on a square cell, 2026-11-08) and grouped on the middle of the block, never spread down it; Large the faces as large as the block holds them (to 88), name and where under each
+        '.pp .lst{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;justify-content:center;margin-top:' + PP.g + 'px}',
+        '.pp .lst .pr{flex:none;height:var(--rh,52px);flex-direction:row;justify-content:flex-start;gap:12px;width:100%;text-align:left}',
+        '.pp .lst .tx{display:flex;flex-direction:column;min-width:0}.pp .lst .tx b{' + C.typeCss('headline') + ';text-shadow:' + C.v('glow') + '}',
         '.pp .lst .tx span{' + C.typeCss('caption') + ';color:' + C.v('ink-2') + '}',
         '.pp .mf{flex:none;margin-top:' + PP.g + 'px;' + C.typeCss('caption') + ';line-height:' + PP.line + 'px;color:' + C.v('ink-2') + '}'
       ].join('');
@@ -2593,10 +2593,10 @@
             }).join('') + (cutf ? '<span class="mo" style="' + lastRow(fit, tot, gr.c) + '" aria-label="' + cutf + ' more"><span class="face">+' + cutf + '</span>' + (lg ? '<b>More</b>' : '') + '</span>' : '') +
             '</div>' + (lg ? ids.length ? '' : '<div class="line">Nobody added</div>' : '<div class="line">' + esc(ids.length ? this._line(ids) : 'Nobody added') + '</div>');
         } else if (sz === 'T') {
-          // (rows of 52 at least, a line for "N more" held back when some are cut)
-          var room = ih - PP.lab - PP.g, rows = Math.max(1, Math.floor(room / 52));
-          if (ids.length > rows) rows = Math.max(1, Math.floor((room - PP.line - PP.g) / 52));
-          html = '<b class="lab">Who’s Home</b><div class="lst" role="list" style="--f:44px">' + ids.slice(0, rows).map(function (id, i) {
+          // (rows of 52, 56 on a square cell, a line for "N more" held back when some are cut)
+          var rh = ih >= 340 ? 56 : 52, room = ih - PP.lab - PP.g, rows = Math.max(1, Math.floor(room / rh));
+          if (ids.length > rows) rows = Math.max(1, Math.floor((room - PP.line - PP.g) / rh));
+          html = '<b class="lab">Who’s Home</b><div class="lst" role="list" style="--f:44px;--rh:' + rh + 'px">' + ids.slice(0, rows).map(function (id, i) {
             var s = h.states[id], nm = String((s.attributes || {}).friendly_name || id);
             return self._face(id, i, s.state === 'home' ? 'home' : '') + '<span class="tx"><b>' + esc(nm.split(/\s+/)[0]) + '</b><span>' + esc(whereOf(s) + sinceOf(s)) + '</span></span></button>';
           }).join('') + '</div>' + (ids.length > rows ? '<div class="mf">' + (ids.length - rows) + ' more</div>' : ids.length ? '' : '<span class="line">Nobody added</span>');

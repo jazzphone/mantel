@@ -401,3 +401,36 @@ The label row's key (All Off on Tall and Large, "+N more") is a 24 px capsule wh
 up into the inset and 6 px down: it ends 2 px above the first line's hit area and never overlaps it. The ~8 px clear
 between hit areas the new rule asks for would need a taller label row on every block; it was left at 2 px. Wide's and
 Extra Large's All Off is a 44 px key of its own.
+
+## Round three (2026-11-08): Calendar's empty day, Doors & Windows, Who's Home Tall, the keys that stretched
+
+The lead's review of round two found these (`--state quiet`, `--stretch`, `--hits`); the owner's round-three rules are "nothing
+stretches" and "every state". Each was fixed, then checked at every size, tiles and square HomeView, 1280 x 800.
+
+- **Calendar with nothing scheduled (hk-calendar.js).** Wide, Tall and Large drew the date and a small "Nothing scheduled" floating in
+  a mostly empty plate. Now the empty day is one group on the plate's optical center: the weekday and the date as the hero (Tall 54
+  px, Large 72, the busy block's own numbers or bigger -- a sparse size gets a bigger hero, not stretched things), "Nothing
+  scheduled" in the title role, and under it a calm line ("The next 7 days are clear") or, when only later days have something
+  (Wide), "Nothing scheduled today" over the next event as its row ("Dentist / Tomorrow · 9:00 AM", the row opens the event's
+  sheet). Wide is the same group in a row. Small is the same language (date, line, centered). Tall and Large with later events keep
+  their list (they show more, and say "N more"). Extra Large's month keeps its grid and says "Nothing scheduled" in the same title
+  role, centered in the day's column ("Nothing planned" is gone). `--hits` found the XL month's two arrows overlapping by 3-4 px
+  (not the day chips): `.mh span` also matched the arrows inside the wrapper, each with the wrapper's -4 px margin; the pair is now
+  a wrapper only, the arrows 8 px apart. New audit state `cal_later` (nothing today, the events from tomorrow).
+- **Doors & Windows (hk-grid-panel.js).** (a) Extra Large, Large and Tall spread their rows to fill the block (rows 44 to 88 px, the
+  `grow` list): rows keep 48 px, as many as fit with "N more", and the hero and the rows are one group centered under the label
+  (the hero is 72 px, 96 on a square cell, where three rows still fit under it; else one compact line). The "N total · N closed"
+  foot is gone (the hero and the list say it). (b) The copy said "1 open" over "All doors closed" while a window was open. Now
+  "1 Open" over the open ones by name ("Office Window", "Front Door · Garage Door", "Front Door + 10 more"); nothing open is
+  "All Closed" with a check over what the block watches ("2 doors · 1 window"). (c) Small quiet showed "0": now the check, "All Closed"
+  and "Doors & Windows"; Small with one open keeps the glyph and the count. Tall says "Since 8:51 AM" (it was cut short at 145 px).
+  New states `doors_window`, `doors_two`, `doors_many`.
+- **Who's Home Tall (hk-home.js).** The rows were spread over the whole height (`space-between`, 64 px at most). They are 52 px
+  high (56 on a square cell), the group centered under the label; the rows that do not fit are "N more". New states
+  `people_home`, `people_four`.
+- **Keys that stretched.** Vacuum Tall's Clean key (`flex: 1 1 auto`) grew with the block: it is as wide as its word now (Clean,
+  Pause, Resume; the play icon is dropped on Tall, where the word says it), Dock round beside it, the pair centered. Energy Rings
+  Tall's Today / Week / Month switch (`space-between`, `flex: 1`) is as wide as its three words, centered.
+- **Checked.** `--stretch` and `--hits` are clean for calendar, doors, people, vacuum and energy_rings, tiles and HomeView, in
+  busy, quiet and each new state (vacuum cleaning and paused too); `block_taps_check.py` passes for all five at both cells.
+  hk-calendar.js, hk-home.js and hk-energy.js did not grow (CSS lines joined to make room).

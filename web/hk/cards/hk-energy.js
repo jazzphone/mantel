@@ -4037,7 +4037,7 @@
     WIDGET_CSS,
     '.rings{display:block;flex:none}.rings .tick{fill:#fff;filter:drop-shadow(0 0 2px rgba(0,0,0,.55))}',
     // THE SWITCH: three choices on a track, the chosen one white; each a
-    // 44 px target (its ::after reaches above and below the 30 px pill)
+    // 44 px target (its ::after reaches above and below the 30 px pill); Tall's, nothing stretching (2026-11-08): each as wide as its word, centered
     '.per{display:flex;gap:2px;padding:3px;border-radius:' + window.hkCards.R.capsule('33px') + ';background:' + window.hkCards.v('key') + ';flex:none;z-index:1}',
     '.per button{all:unset;position:relative;box-sizing:border-box;min-width:46px;padding:5px 11px;border-radius:' + window.hkCards.R.capsule('27px') + ';text-align:center;cursor:pointer;',
     '  ' + window.hkCards.typeCss('caption') + ';font-weight:600;line-height:17px;color:' + window.hkCards.v('ink-2') + '}',
@@ -4045,7 +4045,7 @@
     '.per button[aria-pressed=true]{background:#fff;color:#1c1c1e}',
     '.per button:focus-visible{outline:2px solid ' + window.hkCards.v('ink-2') + ';outline-offset:2px}',
     '.per.tr{position:absolute;top:var(--hk-pad-t,14px);right:var(--hk-pad-r,14px)}',
-    '.per.sm{align-self:stretch;justify-content:space-between}.per.sm button{flex:1;min-width:0;padding:5px 4px}',
+    '.per.sm{align-self:center}.per.sm button{flex:none;min-width:0;padding:5px 7px}',
     // the figures: a dot in the ring's color, the name, the amount
     '.ev{display:flex;flex-direction:column;gap:5px;min-width:0}',
     '.ev>div{display:grid;grid-template-columns:10px minmax(0,1fr) auto;column-gap:8px;align-items:center}',
