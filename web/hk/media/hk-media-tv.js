@@ -50,6 +50,11 @@
       '.ch:active{transform:scale(.98)}',
       '.ch:focus-visible{outline:2px solid #fff;outline-offset:-4px}',
       '.one .ch{position:absolute;inset:0;border-radius:inherit;padding:' + C.blockPad('14px') + '}',
+      // NOTHING STRETCHES (2026-11-08, the owner; DESIGN.md "Using the space"): a channel is one tile of a designed shape, 16 : 10 --
+      // the guide's pictures are 16 : 9 -- as wide as the block's columns make it (set by _fit: --tw), as many as the room holds,
+      // the group centered with equal margins and its last row centered, never a tile spanning it
+      'hk-plate.tv:not(.one){display:flex;flex-wrap:wrap;justify-content:center;align-content:center}',
+      'hk-plate.tv:not(.one) .ch{flex:none;width:var(--tw,160px);aspect-ratio:16/10}',
       // ITS MARK: the guide's logo on white where it has one, else its number
       '.lg{display:grid;place-items:center;flex:none;align-self:flex-start;min-width:38px;height:38px;padding:0 7px;box-sizing:border-box;',
       '  border-radius:' + C.R.small + 'px;background:rgba(255,255,255,.25);' + C.typeCss('body') + ';font-weight:800;font-variant-numeric:tabular-nums;text-shadow:none}',
@@ -100,7 +105,7 @@
         return JSON.stringify([this._size(), this._channels ? this._shown().map(function (c) {
           var st = c.now && h.states[c.now];
           return [c.number, c.name, c.camera, st ? st.last_updated : 'x'];
-        }) : null, !!this._configured]);
+        }) : null, !!this._configured, this._blockKey || '']);
       }
       // the open player follows the house, as the page's does
       _receiveClient() {
@@ -147,6 +152,7 @@
         var h = this.client, s = this._size(), self = this;
         if (!h) return;
         this._watchConn();
+        if (this._watchBlock) this._watchBlock();
         if (!this._channels) this._fetch();
         var list = this._shown(), g = tvGrid(s, Math.max(1, list.length));
         this._bars = [];
@@ -166,8 +172,6 @@
           var b = document.createElement('button');
           b.type = 'button'; b.className = 'ch';
           b.style.setProperty('--c1', t[0]); b.style.setProperty('--c2', t[1]);
-          // (the last of an odd few takes the row's room: no hole in the block)
-          if (i === list.length - 1 && g[1] > 1 && list.length < g[0] * g[1]) b.style.gridColumn = 'span ' + (g[0] * g[1] - list.length + 1);
           b.setAttribute('aria-label', 'Watch ' + (ch.name || ch.number) + ', ' + on);
           b.innerHTML = (a.image ? '<span class="bg"></span>' : '') + '<span class="lg"></span><span class="tx"><b></b><small></small></span>' + (a.start && a.end ? '<i class="bar"><i></i></i>' : '');
           if (a.image) { b.classList.add('art'); self._artImage(a.image, b.querySelector('.bg'), '', s === 'S' || self._chosen() ? 600 : 300); }
@@ -182,7 +186,20 @@
         });
         this._root.innerHTML = '';
         this._root.appendChild(plate);
+        this._fit(plate, g);
         this._tick();
+      }
+      // THE TILES' SIZE AND HOW MANY (2026-11-08): the width the columns give a tile in the room inside the plate, its height 10 : 16 of
+      // that; the rows the room holds say how many show (what the block's size names, at most); the rest are left to the page
+      _fit(plate, g) {
+        if (plate.classList.contains('one') || typeof getComputedStyle !== 'function' || !plate.clientWidth) return;
+        var cs = getComputedStyle(plate), gap = 10, W = plate.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight),
+            H = plate.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom), cols = g[0];
+        var tw = (W - (cols - 1) * gap) / cols, th = tw * 10 / 16, rows = Math.max(1, Math.floor((H + gap) / (th + gap)));
+        // (too short for a second row of that shape: the tile shrinks to its one row, never stretches)
+        if (th > H) { th = H; tw = th * 1.6; }
+        plate.style.setProperty('--tw', Math.floor(tw) + 'px');
+        Array.prototype.slice.call(plate.children).forEach(function (k, i) { k.style.display = i >= cols * rows ? 'none' : ''; });
       }
       // how far through, moved every half minute without a redraw
       _tick() {
