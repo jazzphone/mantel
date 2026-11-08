@@ -5,6 +5,9 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+**Changed**
+- **Half pills in a group lose their well on HomeView-style screens**: an Accessory Group's or Room's half-height tiles take Tiny's look -- the glyph bare and sized to the pill, a sensor's reading in its place -- as the screen's Tile Style chooses; Home style keeps the Home app's pill.
+
 ## 1.51.0 - 2026-11-08
 
 **Added**

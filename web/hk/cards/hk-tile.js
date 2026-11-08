@@ -294,7 +294,7 @@
     var at = function (parts, host) { return parts.map(function (p) { return (host || s.host) + ' ' + p; }).join(','); };
     var flow = 'position:static' + I + ';transform:none' + I + ';left:auto' + I + ';right:auto' + I + ';top:auto' + I + ';bottom:auto' + I + ';margin:0' + I;
     var text = flow + ';text-align:left' + I + ';line-height:' + g.line + 'px' + I + ';white-space:nowrap' + I + ';overflow:hidden;text-overflow:ellipsis;min-width:0';
-    return s.host + '{--hk-tg:clamp(40px,56cqh,52px)}' +
+    return s.host.replace(/\)$/, ':not([data-group-pill]))') + '{--hk-tg:clamp(40px,56cqh,52px)}' +
       at([s.plate]) + '{padding:0 var(--hk-pad-r,14px) 0 var(--hk-pad-l,14px)' + I + '}' +
       // (the glyph off the grid, centered on the height a block's inset in -- in the grid it stretched one-line rows apart)
       at([s.grid]) + '{display:grid' + I + ';height:100%' + I + ';grid-template-columns:' + box + ' minmax(0,1fr)' + I + ';grid-template-rows:auto auto' + I +
@@ -305,7 +305,7 @@
       at([s.name]) + '{' + text + ';grid-area:n' + I + ';font-size:' + g.name + 'px' + I + '}' +
       at(s.sub) + '{' + text + ';grid-area:l' + I + ';font-size:' + g.sub + 'px' + I + '}' +
       (s.temp ? at([s.temp]) + '{position:absolute' + I + ';left:calc(var(--hk-pad-l,14px) + var(--hk-tg) / 2 + 3px)' + I + ';top:50%' + I + ';transform:translate(-50%,-50%)' + I + ';font-size:22px' + I + '}' : '') +
-      '@container hk-cell (min-height:84px){' + at([s.name], s.host.replace(/\)$/, ':not([data-grid-pager]))')) + '{white-space:normal' + I +
+      '@container hk-cell (min-height:84px){' + at([s.name], s.host.replace(/\)$/, ':not([data-grid-pager]):not([data-group-pill]))')) + '{white-space:normal' + I +
         ';display:-webkit-box' + I + ';-webkit-line-clamp:2;-webkit-box-orient:vertical}}';
   }
 
