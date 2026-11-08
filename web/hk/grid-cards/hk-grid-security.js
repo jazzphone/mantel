@@ -225,9 +225,10 @@
       '.ent .in{box-sizing:border-box;width:100%;height:100%;display:flex;align-items:center;gap:10px;padding:0 12px}',
       '.ent hk-icon{width:26px;height:26px;--mdc-icon-size:100%;display:flex;flex:none;color:' + v('ink-2') + '}.ent.lk hk-icon{color:var(--lk)}',
       '.ent .tt{display:flex;flex-direction:column;min-width:0}',
-      '.ent .n{' + type('body') + ';font-weight:600;line-height:19px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+      // (a name is read whole: two lines where it needs them -- "Black Beauty Lock", "Crawl Space Lock" -- never cut, 2026-11-08)
+      '.ent .n{' + type('body') + ';font-weight:600;font-size:15px;line-height:18px;white-space:normal;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow-wrap:anywhere}',
       '.ent .s{' + type('caption') + ';line-height:17px;color:' + v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-      '.ents.st .ent .in{flex-direction:column;justify-content:center;text-align:center;gap:3px;padding:6px}.ents.st .ent hk-icon{width:34px;height:34px;margin-bottom:3px}.ents.st .ent .tt{align-items:center;max-width:100%}.ents.st .ent .n{font-size:17px;line-height:22px}.ents.st .ent .s{font-size:15px;line-height:20px}',
+      '.ents.st .ent .in{flex-direction:column;justify-content:center;text-align:center;gap:3px;padding:6px}.ents.st .ent hk-icon{width:34px;height:34px;margin-bottom:3px}.ents.st .ent .tt{align-items:center;max-width:100%}.ents.st .ent .n{font-size:15px;line-height:18px}.ents.st .ent .s{font-size:15px;line-height:20px}',
       '.ent.open{background:#fff;--hk-glass-backdrop:none;-webkit-backdrop-filter:none;backdrop-filter:none}.ent.open .n{color:#000}.ent.open .s{color:' + v('ink-on-state') + '}.ent.open hk-icon{color:' + v('warn') + '}',
       '.ops{display:flex;justify-content:center;gap:8px;flex:none;min-width:0}',
       '.op{box-sizing:border-box;flex:0 1 auto;min-width:0;max-width:100%;height:44px;display:flex;align-items:center;justify-content:center;gap:8px;padding:0 18px;border-radius:22px;background:' + v('key') + ';cursor:pointer;color:' + v('ink-2') + ';-webkit-tap-highlight-color:transparent}',
@@ -447,15 +448,26 @@
       // its last row too
       _fitTiles() {
         var e = this._e, box = e.ents, list = this._tiles || [], n = list.length, G = 8, best = null;
-        box.style.flex = ''; box.style.height = ''; box.style.margin = '';    // (measured as the room the others leave)
+        box.style.flex = ''; box.style.height = ''; box.style.margin = ''; box.style.maxWidth = '';    // (measured as the room the others leave -- its last
+        // width too: kept, the box measured its own last layout and never found room for two columns again, 2026-11-08)
         var W = box.clientWidth, H = box.clientHeight;
         // (the box takes the room the heading, the strip and the keys leave; its tiles keep their own size inside it)
         if (!W || H <= 0) return;
-        (this._size() === 'XL' ? [{ w: 136, h: 112, st: true }, { w: 168, h: 64, st: false }] : [{ w: 116, h: 96, st: true }, { w: 150, h: 64, st: false }]).forEach(function (o) {
-          var across = Math.max(1, Math.floor((W + G) / (o.w + G))), rows = Math.floor((H + G) / (o.h + G)), cap = across * rows;
-          if (cap > 0 && (!best || (best.cap < n ? cap > best.cap : false))) best = { w: o.w, h: o.h, st: o.st, across: across, cap: cap };
+        // TWO COLUMNS OF HOMEVIEW TILES (2026-11-08, the owner on his Kitchen tablet: one column of pills beside the keypad "looks
+        // horrible"): the stacked tile -- glyph, name (two lines where it needs them), state -- at the largest of a few designed sizes
+        // that stands two across in the room the keypad leaves; only a column too narrow for two of the smallest takes one column of
+        // rows. Never a size measured to fit: one of these, the group centered.
+        var sizes = this._size() === 'XL' ? [{ w: 136, h: 112 }, { w: 124, h: 104 }, { w: 112, h: 100 }] : [{ w: 116, h: 96 }, { w: 108, h: 96 }, { w: 100, h: 92 }];
+        sizes.some(function (o) {
+          var across = Math.min(3, Math.floor((W + G) / (o.w + G))), rows = Math.floor((H + G) / (o.h + G));
+          if (across < 2 || rows < 1) return false;
+          best = { w: o.w, h: o.h, st: true, across: across, cap: across * rows };
+          return true;
         });
-        if (!best) best = { w: 150, h: 64, st: false, across: 1, cap: 1 };
+        if (!best) {
+          var rw = Math.min(W, 168), rr = Math.max(1, Math.floor((H + G) / (64 + G)));
+          best = { w: rw, h: 64, st: false, across: 1, cap: rr };
+        }
         var show = n <= best.cap ? n : Math.max(0, best.cap - 1), slots = show < n ? show + 1 : show;
         var rowsNeeded = Math.max(1, Math.ceil(slots / best.across)), c = Math.max(1, Math.ceil(slots / rowsNeeded));
         box.classList.toggle('st', best.st);

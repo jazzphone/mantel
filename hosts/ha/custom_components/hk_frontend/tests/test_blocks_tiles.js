@@ -89,7 +89,10 @@ function () {
      [[2, 1, 178, 158, 10], [1, 2, 158, 178, 10], [2, 2, 178, 178, 10], [3, 2, 185, 178, 10], [6, 2, 192, 178, 10]]);
   eq('Half: the pill\'s 70 px, as many rows as the cell shape holds (tiles three at Large, square four)',
      [g(150, 'L', { pill: true }), g(196, 'L', { pill: true }), g(150, 'W', { pill: true }), g(196, 'W', { pill: true })],
-     [[2, 3, 182, 70, 8], [2, 4, 178, 70, 10], [2, 1, 182, 70, 8], [2, 2, 178, 70, 10]]);
+     [[2, 3, 182, 70, 8], [2, 4, 178, 70, 10], [2, 2, 182, 56, 8], [2, 2, 178, 70, 10]]);
+  // (2026-11-08, the owner: a Wide block of four drew one row of two under its label) where 70 px leaves one row and two fit
+  // at 56, two rows of the height that fills the room: a square Wide under a label row has 134 px -- two rows of 62
+  eq('Half under a label row: two rows, not one, where two fit at the shortest pill', g(196, 'W', { pill: true, head: 24 }), [2, 2, 178, 62, 10]);
   eq('a Room\'s heading and its dots come off the tiles\' room, never out of the tiles\' size',
      [g(150, 'L', { head: 53 }), g(196, 'L', { head: 53, foot: 24 })], [[2, 2, 182, 109, 8], [2, 2, 178, 140, 10]]);
   globalThis.getComputedStyle = was;
@@ -107,21 +110,28 @@ function () {
   card.setConfig({ accessories: acc.slice(0, 4), color: true });
   hkGive(card, hass());
   var p = card._plan();
-  eq('Full at Large: four, two by two, Centred, under a label row, in color', [p.tiles.length, p.geom.cols, p.geom.rows, p.centred, p.lbl, p.color], [4, 2, 2, true, true, true]);
+  eq('Full at Large: four, two by two, Centred, no label row (no title given), in color', [p.tiles.length, p.geom.cols, p.geom.rows, p.centred, p.lbl, p.color], [4, 2, 2, true, false, true]);
+  card.setConfig({ accessories: acc.slice(0, 4), color: true, title: 'Den', label: true });
+  p = card._plan();
+  eq('...a title the block was given is its label row', [p.lbl, p.name, p.head], [true, 'Den', undefined]);
+  card.setConfig({ accessories: acc.slice(0, 4), color: true });
   card.setConfig({ accessories: acc, height: 'half' });
   p = card._plan();
   eq('Half at Large on tile cells: three rows of pills, five fit six places', [p.tiles.length, p.geom.cols, p.geom.rows, p.geom.th, p.half, p.centred, p.more], [5, 2, 3, 70, true, false, 0]);
   card.setAttribute('size', 'W');
   card.setConfig({ accessories: acc.slice(0, 1) });
   p = card._plan();
-  eq('one accessory in a Wide block on tile cells: the pill row of two places, the group centered (never one tile across the block)', [p.tiles.length, p.geom.tw, p.geom.th, p.geom.n], [1, 182, 70, 2]);
+  eq('one accessory in a Wide block on tile cells, no label row: two rows of two places (56 px pills), the group centered (never one tile across the block)', [p.tiles.length, p.geom.tw, p.geom.th, p.geom.n], [1, 182, 56, 4]);
   card.setConfig({ accessories: acc, height: 'half' });
   p = card._plan();
-  eq('more than the places: "+N more" in the label row, no tile for it (Wide on tile cells: two pills, three more)', [p.tiles.length, p.more, p.hmore], [2, 0, 3]);
+  eq('more than the places, no title: "N More" the last place (Wide on tile cells: three pills and two more)', [p.tiles.length, p.more, p.hmore], [3, 2, 0]);
   card.setAttribute('size', 'L');
   card.setConfig({ accessories: acc.concat(acc, acc), height: 'half' });
   p = card._plan();
-  eq('...Large, Half, under the label row: six places, six tiles and 9 more', [p.tiles.length, p.more, p.hmore], [6, 0, 9]);
+  eq('...Large, Half, no title: six places, five tiles and "10 More"', [p.tiles.length, p.more, p.hmore], [5, 10, 0]);
+  card.setConfig({ accessories: acc.concat(acc, acc), height: 'half', title: 'Den', label: true });
+  p = card._plan();
+  eq('...with a title: "+N more" in its label row, six tiles', [p.tiles.length, p.more, p.hmore], [6, 0, 9]);
 },
 function () {
   H.section('a tile in its own color (block_color)');

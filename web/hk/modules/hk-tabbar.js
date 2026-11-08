@@ -127,6 +127,8 @@
   // in from each side of the page, so there is page all round to tap out on.
   // A tablet: its shorter side at least SHEET_TABLET.
   var SHEET_BIG = 1040, SHEET_OUT = 72, SHEET_TABLET = 600;
+  // (a tablet's sheet of its own leaves this much page above it: still a wide band to tap out on)
+  var BIG_TOP = 56;
   // AN ITEM'S APP ICON: this size (a tablet's sheet the bigger), its corner
   // and its glyph shares of it -- iPadOS's 22.4 %, the Pages screen's
   var APP_ICON = 60, APP_ICON_BIG = 76, ICON_CORNER = 0.224, ICON_GLYPH = 0.53;
@@ -605,7 +607,14 @@
       // A TABLET'S SHEET IS BIGGER (the owner: "It can be a lot bigger on the
       // tablet, as long as there is enough room around it to tap out"): up to
       // SHEET_BIG wide, SHEET_OUT clear of each side, the icons APP_ICON_BIG
-      '.bigsheet .grid{grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:8px}',
+      '.bigsheet .grid{grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:8px}',
+      // ...AND ITS SIZE IS THE WINDOW'S (2026-11-08, the owner: "can't the pop up ... be bigger ... calculated on window size with
+      // enough room to tap outside of it to close it"): a sheet of its own (not More grown from the bar) spans the window, over a
+      // Side Pane too, SHEET_OUT clear of each side and BIG_TOP of the top -- the rooms in as few rows as the width allows,
+      // scrolling only past that. (A bar on the left, the right or in the side strip keeps its own placement.)
+      ':host(:not([data-pos=left]):not([data-pos=right]):not([data-pos=top]):not([data-strip])) .root.bigsheet:not(.joined) .sheet{' +
+      '  left:max(' + SHEET_OUT + 'px, var(--hk-safe-left,env(safe-area-inset-left,0px)));right:max(' + SHEET_OUT + 'px, var(--hk-safe-right,env(safe-area-inset-right,0px)));' +
+      '  max-width:none;max-height:calc(var(--hk-vh,100dvh) - var(--bh) - ' + (10 + BIG_TOP) + 'px - ' + LIFT_CSS + ' - env(safe-area-inset-top,0px))}',
       appIconCss(APP_ICON_BIG, '.bigsheet ') +
       '.bigsheet .it{min-height:132px;gap:10px;' + C.typeCss('body') + ';font-weight:600}',
       '.bigsheet .sheet{padding:22px 18px 0}.bigsheet .sheet h2{' + C.typeCss('title') + ';margin:0 8px 14px}',

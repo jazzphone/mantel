@@ -576,8 +576,13 @@
         var client = this.client, size = this._size(), cfg = this._config;
         // (a Wide block on a tile cell has no room for HomeView's tile under its heading: the Home app's pill row, as the Room block's)
         var sq = window.hkChip.cellSquare(this), half = cfg.height === 'half' || (size === 'W' && !sq);
-        var gm = this._geom(size, half, this._head(size), 0), all = cfg.accessories || [];
-        var entries = all.slice(0, gm.n);
+        // (a page of an Accessory Group keeps its foot for the pager's dots, as a Room does: its tiles under the label, not over it -- 2026-11-08)
+        // A TITLE ONLY WHEN IT SAYS SOMETHING (2026-11-08, the owner: "I'm not sure any cards need titles ... most cards should be self
+        // explanatory"): the label row is a title the block was given ("Kitchen"), never a generic "Accessories"; without it the tiles
+        // have the whole block and "N More" is the last place, a tile like the others
+        var lbl = !!cfg.label;
+        var gm = this._geom(size, half, lbl ? this._head(size) : 0, this.hasAttribute('data-grid-pager') ? 24 : 0), all = cfg.accessories || [];
+        var over = all.length > gm.n, entries = all.slice(0, over && !lbl ? Math.max(0, gm.n - 1) : gm.n);
         var tiles = entries.map(function (entry) {
           var S = window.hkStrategy, id = entry.entity;
           var t = S && S.tileFor && client ? S.tileFor(client, id, friendly(client, id)) : { type: 'custom:hk-tile-card', entity: id };
@@ -587,7 +592,8 @@
           if (!half) { delete t.icon_size; delete t.bare_icon; delete t.well_background; }
           return t;
         });
-        return { area: null, size: size, tiles: tiles, more: 0, hmore: all.length - entries.length, lbl: true, name: cfg.title || 'Accessories',
+        return { area: null, size: size, tiles: tiles, more: lbl ? 0 : all.length - entries.length, hmore: lbl ? all.length - entries.length : 0,
+                 lbl: lbl, head: lbl ? undefined : false, name: cfg.title || 'Accessories',
                  empty: 'Choose accessories in the editor', geom: gm, half: half, centred: !half, color: !!cfg.color };
       }
       // the label row's room: its 16 px line and the 8 px under it (hk-chip.js GROUP_HEAD)

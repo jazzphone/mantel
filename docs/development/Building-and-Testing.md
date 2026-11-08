@@ -296,6 +296,18 @@ runs it as `page-swipe-check-<engine>-<size>`, three steps since 2026-11-08 (`ci
 Chromium, the iPad and a phone in WebKit; the check's other `ENGINE_SIZES` run when it is run by hand), skipped without
 `PLAYWRIGHT_PATH` or `NODE`.
 
+### The house's screens, drawn by this checkout (the twin)
+
+`tools/headless/house_twin.py` draws the owner's own screens with this checkout's code, at a wall tablet's size, without
+the live site, a browser or a sign-in (2026-11-08: the cards review had judged blocks on the gallery's invented screens,
+whose cells are bigger than any tablet's beside a Side Pane). `pull` reads the house's settings documents read-only from
+Mantel's database on the LXC over SSH (house.json's `lxc_ssh` / `lxc_key`) and Home Assistant's states and registries with
+the admin token, into `~/.cache/mantel-twin/` -- the house's own data, never the repository (camera tokens dropped).
+`render SCREEN...` serves a test Mantel Server over them (commands reach nothing) and screenshots each screen's Home at
+`--size` (1280x800) in `--engine` webkit or chromium; Energy, Live TV, the to-do lists and Clean Areas are the grid audit's
+stand-ins. `--set SCREEN:ITEM.KEY=VALUE` changes one block's option for a render, `--js` runs page code first (open a
+sheet), `screens` lists them. Judge every block of every HomeView screen here before calling a layout change done.
+
 ### How a swipe moves, frame by frame
 
 `tools/headless/swipe_motion_check.py` (with its `.cjs`) watches a full-page swipe on its way rather than where it ends, at

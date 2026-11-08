@@ -414,7 +414,7 @@ function () {
      { type: 'custom:hk-grid-cameras-card', cameras: ['camera.driveway', 'camera.garden'] });
   eq('...its own, and its refresh', C.config({ card: 'cameras', size: 'XL', opts: { cameras: ['camera.garden'], refresh: 30 } }, ctx),
      { type: 'custom:hk-grid-cameras-card', cameras: ['camera.garden'], refresh: 30 });
-  eq('...a house with no camera: the stand-in', C.config({ card: 'cameras', size: 'XL' }, {}).type, 'custom:hk-key-card');
+  eq('...a house with no camera: the stand-in', C.config({ card: 'cameras', size: 'XL' }, {}).type, 'custom:hk-grid-panel-card');
   eq('...its sizes and options', [C.table().cameras.sizes, C.table().cameras.opts], [['XL', 'XXL', 'F'], { cameras: 'cameras', refresh: 'refresh' }]);
   eq('the Camera block comes Small too (2026-10-31): one still in a cell', C.table().camera.sizes, ['S', 'W', 'T', 'L', 'XL']);
   eq('Full is the grid\'s own columns and rows', [C.SIZES.F, C.span('F', 3, 3), C.span('F', 2, 4), C.span('XL', 6, 4)], [[0, 0], [3, 3], [2, 4], [3, 2]]);

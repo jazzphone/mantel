@@ -71,7 +71,7 @@ for (var r = 0; r < 20; r++) many.rooms.push('room_' + r);
 ok('at most 12 pages, as hk_core checks a list', G.pages({ card: 'room', size: 'L', pages: { source: 'rooms' } }, many).length === G.PAGES_MAX &&
    G.PAGES_MAX === 12);
 var none = G.pages({ card: 'thermostat', size: 'T', pages: { source: 'thermostats' } }, {});
-ok('nothing in the house to show: one page, the block\'s card as it is', none.length === 1 && none[0].card.type === 'custom:hk-key-card');
+ok('nothing in the house to show: one page, the block\'s card as it is', none.length === 1 && none[0].card.type === 'custom:hk-grid-panel-card' && none[0].card.panel === 'note');
 ok('a source the card can\'t page is no pager', G.config({ card: 'room', size: 'L', pages: { source: 'cameras' } }, ctx).type !== 'custom:hk-pager-card');
 
 // ---- the tablet's room

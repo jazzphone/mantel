@@ -1688,6 +1688,7 @@
     try { h = parseFloat(getComputedStyle(el).getPropertyValue('--hk-cell-h')); } catch (e) { h = 0; }
     return h >= 180;
   }
+  var PILL_MIN = 56;      // the shortest a half pill may be: its 36 px glyph circle and two lines with their inset
   function groupGeom(el, size, o) {
     o = o || {};
     var T = C0().TILE, G = C0().HOME_GRID, sq = cellSquare(el), cw = T.w, ch = sq ? G.square.h : T.tall;
@@ -1695,8 +1696,11 @@
     var c = GROUP_COLS[size] || 2, r = GROUP_ROWS[size] || 1;
     // (the plate's own 1 px edge is inside the block: 2 px less each way)
     var W = c * cw + (c - 1) * g - 2 * pad - 2, H = r * ch + (r - 1) * g - 2 * pad - 2 - (o.head || 0) - (o.foot || 0);
-    var rows = o.pill ? Math.max(1, Math.floor((H + gap) / (T.h + gap))) : r;
-    var th = o.pill ? T.h : Math.floor((H - (rows - 1) * gap) / rows);
+    // HALF PILLS (the Home app's 70 px; 2026-11-08, the owner: a Wide block of four showed one row of two): as many
+    // 70 px rows as fit -- but where that leaves one row and two fit at PILL_MIN, two rows of the height that fills
+    // the room: still a designed size (the block's, never the count's or a measure), the second row not lost
+    var rows = o.pill ? Math.max(1, Math.floor((H + gap) / (T.h + gap)), Math.min(2, Math.floor((H + gap) / (PILL_MIN + gap)))) : r;
+    var th = o.pill ? Math.min(T.h, Math.floor((H - (rows - 1) * gap) / rows)) : Math.floor((H - (rows - 1) * gap) / rows);
     return { sq: sq, cols: c, rows: rows, n: c * rows, tw: Math.floor((W - (c - 1) * gap) / c), th: th, gap: gap };
   }
   function scenesPlan(cfg, b, client, away) {
@@ -1907,38 +1911,20 @@
       var plan = this._gplan, box = this._box, size = this.getAttribute('size');
       if (!plan || !box || !size) return;
       var pill = plan.half || (size === 'W' && !cellSquare(this));
-      var gm = groupGeom(this, size, { pill: pill, head: GROUP_HEAD }), n = plan.pills.length, shown = Math.min(n, gm.n), left = n - shown;
+      // (no title row: "Scenes" says nothing the scenes don't -- 2026-11-08, the owner; the tiles have the whole block and "N More" is
+      // the last place, a tile like the others)
+      var gm = groupGeom(this, size, { pill: pill, head: 0 }), n = plan.pills.length, shown = n > gm.n ? Math.max(0, gm.n - 1) : n, left = n - shown;
       var key = JSON.stringify([gm, n, pill]);
       if (key === this._gkey) return;
       this._gkey = key;
       var client = this.client, dim = 'flex:none;width:' + gm.tw + 'px;height:' + gm.th + 'px', ink2 = C0().v('ink-2'), glow = C0().v('glow');
       while (box.firstChild) box.removeChild(box.firstChild);
-      var hd = document.createElement('div'), nm = document.createElement('span');
-      hd.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:10px;flex:none;min-width:0;padding:0 2px';
-      nm.textContent = plan.name || 'Scenes';
-      nm.style.cssText = C0().labelCss('label') + ';line-height:16px;text-shadow:' + glow + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0';
-      hd.appendChild(nm);
-      if (left) {
-        var mo = document.createElement('button'), ids = plan.pills.map(function (p) { return p.entity; }).filter(Boolean);
-        mo.type = 'button';
-        mo.textContent = '+' + left + ' more';
-        mo.setAttribute('aria-label', left + ' more scenes, open them all');
-        // (a 44 px reach round the 16 px line: ::after is no inline style, so the key's own padding and a negative margin make it)
-        mo.style.cssText = 'all:unset;cursor:pointer;flex:none;box-sizing:content-box;padding:14px 8px;margin:-14px -8px;white-space:nowrap;' + C0().labelCss('label') +
-          ';line-height:16px;text-shadow:' + glow + ';-webkit-tap-highlight-color:transparent';
-        mo.addEventListener('click', function (e) {
-          e.stopPropagation();
-          var D = window.hkDetail;
-          if (D && D.openGroup) D.openGroup('Scenes', ids, { icon: 'mdi:palette' });
-        });
-        hd.appendChild(mo);
-      }
-      box.appendChild(hd);
+      var ids = plan.pills.map(function (p) { return p.entity; }).filter(Boolean);
       var tiles = document.createElement('div');
       tiles.style.cssText = 'display:flex;flex-wrap:wrap;justify-content:center;align-content:center;flex:1;min-height:0;gap:' + gm.gap + 'px';
       box.appendChild(tiles);
       if (!n) {
-        // NO SCENES (2026-11-08): the glyph and a line, centered under the heading, in the secondary ink -- the block is there, saying what it holds
+        // NO SCENES (2026-11-08): the glyph and a line, centered in the block, in the secondary ink -- the block is there, saying what it holds
         var none = document.createElement('div'), ic = document.createElement('hk-icon'), nt = document.createElement('span');
         none.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;color:' + ink2 + ';text-shadow:' + glow + ';' + C0().typeCss('body');
         ic.style.cssText = 'width:34px;height:34px;--mdc-icon-size:100%;display:flex';
@@ -1963,6 +1949,25 @@
         if (client) t.hkSetClient(client);
         return t;
       });
+      if (left) {
+        // "N MORE", THE LAST PLACE: a tile like the others -- the ellipsis in the glyph's place, "N More" in the name's role (as a Room's)
+        var mo = document.createElement('button'), mi = document.createElement('hk-icon'), mt = document.createElement('span');
+        mo.type = 'button';
+        mo.setAttribute('aria-label', left + ' more scenes, open them all');
+        mo.style.cssText = 'all:unset;box-sizing:border-box;' + dim + ';border-radius:var(--hk-inner-radius,16px);' + C0().plate('tile') + ';cursor:pointer;' +
+          'display:flex;flex-direction:' + (pill ? 'row' : 'column') + ';align-items:center;justify-content:center;gap:' + (pill ? 10 : 6) + 'px;color:' + C0().v('ink') + ';' +
+          C0().typeCss('headline') + ';text-shadow:' + glow + ';-webkit-tap-highlight-color:transparent';
+        mi.icon = 'mdi:dots-horizontal';
+        mi.style.cssText = 'width:' + (pill ? 28 : gm.sq ? 56 : 44) + 'px;height:' + (pill ? 28 : gm.sq ? 56 : 44) + 'px;--mdc-icon-size:100%;display:flex;color:' + ink2;
+        mt.textContent = left + ' More';
+        mo.appendChild(mi); mo.appendChild(mt);
+        mo.addEventListener('click', function (e) {
+          e.stopPropagation();
+          var D = window.hkDetail;
+          if (D && D.openGroup) D.openGroup('Scenes', ids, { icon: 'mdi:palette' });
+        });
+        tiles.appendChild(mo);
+      }
     }
   }
 

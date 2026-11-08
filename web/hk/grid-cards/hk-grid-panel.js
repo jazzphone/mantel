@@ -305,7 +305,8 @@
         if (this._built && this._key === key) { this._readings(); this._drawOwn(); return; }
         this._key = key; this._kids = []; this._built = true; this._own = null;
         if (!parts) {
-          var e = PANEL_EMPTY[this._config.panel] || ['', ''];
+          // (a block with nothing to show, `panel: 'note'`: the name and line it was given -- hk-grid-catalog.js stand())
+          var e = PANEL_EMPTY[this._config.panel] || [this._config.name || '', this._config.text || ''];
           this._root.innerHTML = '<hk-plate class="full" data-hk-role="card"><div class="ttl"><b></b></div><div class="empty"></div></hk-plate>';
           this._root.querySelector('b').textContent = e[0];
           this._root.querySelector('.empty').textContent = e[1];

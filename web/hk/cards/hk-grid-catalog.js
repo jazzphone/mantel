@@ -36,7 +36,9 @@
   var TABLET_ROOM = 'tablet_room';
 
   // a block whose card isn't drawn yet (G3), or with nothing in the house to show
-  function stand(name, icon) { return { type: 'custom:hk-key-card', name: name, icon: icon }; }
+  // A BLOCK WITH NOTHING TO SHOW YET: its name and where to set it up, as the panels' empty states say it (2026-11-08: it was a header
+  // key, a small pill at the top of the block on the owner's Tesla HomeView -- seen in the house's twin, tools/headless/house_twin.py)
+  function stand(name, icon, text) { return { type: 'custom:hk-grid-panel-card', panel: 'note', name: name, text: text || 'Not set up yet.' }; }
   function own(v) { return v && v !== TABLET_ROOM ? v : null; }
   // THE CLOCK FACES a block offers (hk-saverclock.js ids; '' is HK's own):
   // the ones that read at a block's size (Poster fills its screen edge to
@@ -59,14 +61,15 @@
   // that names nothing of its own.
   var CARDS = {
     accessory: { sizes: ['S', 'W', 'T'], sources: [], opts: { entity: 'entity', secondary: 'secondary', color: 'boolean' }, card: function (s, o) {
-      return o.entity ? Object.assign({ type: 'custom:hk-grid-entity-card', entity: o.entity, secondary: o.secondary, kind: 'accessory', size: s }, o.color ? { color: true } : {}) : stand('Accessory', 'mdi:lightbulb'); } },
+      return o.entity ? Object.assign({ type: 'custom:hk-grid-entity-card', entity: o.entity, secondary: o.secondary, kind: 'accessory', size: s }, o.color ? { color: true } : {}) : stand('Accessory', 'mdi:lightbulb', 'Choose an accessory in the editor.'); } },
     // (height, color 2026-10-31: Full, HomeView's square tile, or Half, the shorter button; each on its own
     // color's gradient or glass)
     accessories: { sizes: ['W', 'T', 'L', 'XL', 'XXL'], sources: ['accessories'], opts: { accessories: 'accessories', title: 'title', surface: 'surface', height: 'tile_height', color: 'boolean' }, card: function (s, o) {
       return Object.assign({ type: 'custom:hk-grid-accessories-card', accessories: o.accessories || [], title: o.title || 'Accessories', surface: o.surface },
+                           o.title ? { label: true } : {},
                            o.height ? { height: o.height } : {}, o.color ? { color: true } : {}); } },
     scene: { sizes: ['S', 'W'], sources: [], opts: { scene: 'scene', color: 'boolean' }, card: function (s, o) {
-      return o.scene ? Object.assign({ type: 'custom:hk-grid-entity-card', entity: o.scene, kind: 'scene', size: s }, o.color ? { color: true } : {}) : stand('Scene', 'mdi:palette'); } },
+      return o.scene ? Object.assign({ type: 'custom:hk-grid-entity-card', entity: o.scene, kind: 'scene', size: s }, o.color ? { color: true } : {}) : stand('Scene', 'mdi:palette', 'Choose a scene in the editor.'); } },
     scenes: { sizes: ['W', 'T', 'L', 'XL', 'XXL'], sources: ['scenes'], opts: { scenes: 'scenes', surface: 'surface', height: 'tile_height', color: 'boolean' }, card: function (s, o) {
       return Object.assign({ type: 'custom:hk-scenes-card', surface: o.surface }, o.scenes ? { scenes: o.scenes } : {},
                            o.height ? { height: o.height } : {}, o.color ? { color: true } : {}); } },
@@ -91,20 +94,20 @@
       // the dial (hk-control.js), sized to the block (G2) -- or its Big Number
       // (Wide, 2026-11-07, the review: always Big Number, as Small is -- the ring has no room across a short cell)
       return id ? Object.assign({ type: 'custom:hk-control-card', entity: id }, o.style === 'big' || s === 'W' ? { style: 'big' } : {})
-                : stand('Thermostat', 'hk:thermostat'); } },
+                : stand('Thermostat', 'hk:thermostat', 'No thermostat yet.'); } },
     // (S, 2026-10-31, the owner: "a small option to the camera": one still in a cell)
     camera: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: ['cameras'], opts: { entity: 'camera', follow: 'camera_follow', follow_select: 'select', name: 'name_tag' }, card: function (s, o, ctx) {
       var ids = o.entity ? [o.entity] : (ctx.cameras || []).slice(0, 1);
       return ids.length ? { type: 'custom:hk-camera-mosaic-card', own_cameras: true, height: 195, seam: 2, snapshot_cap: '480x270',
                             cameras: ids.map(function (id) { return { entity: id }; }), name_tag: o.name || 'auto' }
-                        : stand('Cameras', 'hk:camera'); } },
+                        : stand('Cameras', 'hk:camera', 'No cameras yet.'); } },
     // THE CAMERAS FACE (2026-10-30; hk-grid-cards.js hk-grid-cameras-card):
     // up to nine stills at once, arranged to the block -- the ones named, else
     // every camera in Cameras' order (ctx.cameras)
     cameras: { sizes: ['XL', 'XXL', 'F'], sources: [], opts: { cameras: 'cameras', refresh: 'refresh' }, card: function (s, o, ctx) {
       var ids = o.cameras && o.cameras.length ? o.cameras : (ctx.cameras || []);
       return ids.length ? Object.assign({ type: 'custom:hk-grid-cameras-card', cameras: ids.slice() }, o.refresh ? { refresh: o.refresh } : {})
-                        : stand('Cameras', 'hk:camera'); } },
+                        : stand('Cameras', 'hk:camera', 'No cameras yet.'); } },
     // Large and Extra Large: the alarm's keypad (2026-10-24). HomeView (2026-11-07, `presentation: homeview`): the five
     // HomeView compositions, Compact (3 x 1) among them -- hk-grid-security.js hk-grid-security-hv-card; absent, the
     // block as it always was. members: the locks and garage doors it shows, in order (none: the house's)
@@ -119,7 +122,7 @@
     weather: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { entity: 'weather', sky: 'boolean', big: 'boolean', tap: 'tap_target' }, card: function (s, o, ctx) {
       var id = o.entity || ctx.weather;
       return id ? Object.assign({ type: 'custom:hk-weather-band-card', section: 'hero', entity: id, sky: o.sky === true }, o.big ? { big: true } : {})
-                : stand('Weather', 'hk:weather-partly-cloudy'); } },
+                : stand('Weather', 'hk:weather-partly-cloudy', 'Choose a weather entity in Settings → Weather.'); } },
     calendar: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { calendars: 'calendars', days: 'days', month: 'boolean', tap: 'tap_target' }, card: function (s, o) {
       return Object.assign({ type: 'custom:hk-calendar-pane-card' }, o.calendars ? { calendars: o.calendars } : {}, o.days ? { days: o.days } : {},
                            o.month ? { month: true } : {}); } },
@@ -128,12 +131,12 @@
       var B = ctx.battery;
       return B && B.level ? { type: 'custom:hk-house-battery-card', level: B.level, stored: B.stored, backup: B.backup,
                               reserve: B.reserve, charge: B.charge, discharge: B.discharge }
-                          : stand('Battery', 'mdi:home-battery'); } },
+                          : stand('Battery', 'mdi:home-battery', 'Add Energy with a house battery in Settings to show it here.'); } },
     people: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { tap: 'tap_target' }, card: function () { return { type: 'custom:hk-people-card' }; } },
     // Large and Extra Large: its controls with Clean Areas (2026-10-24)
     vacuum: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { entity: 'vacuum', tap: 'tap_target' }, card: function (s, o, ctx) {
       var id = o.entity || ctx.vacuum;
-      if (!id) return stand('Vacuum', 'hk:robot-vacuum');
+      if (!id) return stand('Vacuum', 'hk:robot-vacuum', 'No vacuum yet.');
       return { type: s === 'L' || s === 'XL' ? 'custom:hk-grid-vacuum-card' : 'custom:hk-vacuum-card', entity: id }; } },
     // every size, HK's clock or a screensaver face, with or without its box (2026-10-24)
     clock: { sizes: ['S', 'W', 'T', 'L', 'XL', 'XXL'], sources: [], opts: { clock_style: 'clock_style', bare: 'boolean', tap: 'tap_target' }, card: function (s, o) {
@@ -187,7 +190,7 @@
     // Assistant's HK Frontend, a person whose role has none) draws a stand-in, and the editors never offer it there
     // (hkShell.hostPage, asked here as the Timeline page's own entry is). show: auto (default), latest, digest
     timeline: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { show: 'timeline_show', tap: 'tap_target' }, card: function (s, o) {
-      if (!hostHas('timeline')) return stand('Recent', 'mdi:history');
+      if (!hostHas('timeline')) return stand('Recent', 'mdi:history', 'Recent isn\'t available here.');
       return { type: 'custom:hk-timeline-block-card', size: s, show: o.show === 'latest' || o.show === 'digest' ? o.show : 'auto' }; } },
     // HOUSE STATUS (2026-11-07, docs/phase11/HOUSE-STATUS.md, hk-house-status.js): this screen's status chips as
     // sections, each a tap to its chip's page; the rest, and Small, open the House Status sheet. No options: it shows
@@ -211,7 +214,7 @@
   // never an error card on a wall tablet.
   function config(item, ctx) {
     var it = item || {}, c = CARDS[it.card];
-    if (!c) return stand('Unavailable', 'mdi:help-circle-outline');
+    if (!c) return stand('Unavailable', 'mdi:help-circle-outline', 'This block isn\'t available here.');
     if ((it.rules && it.rules.length) || (it.when && it.fallback)) return { type: 'custom:hk-grid-conditional-card', item: it, ctx: ctx || {}, force: it._conditionPreview };
     if (paged(it)) return { type: 'custom:hk-pager-card', item: it, ctx: ctx || {} };
     return tapped(c.card(it.size, it.opts || {}, ctx || {}), it.opts);
@@ -247,7 +250,7 @@
   function perPage(it) { return (PER_PAGE[it.size] || 2) * (((it.opts || {}).height === 'half') ? 2 : 1); }
   function pages(item, ctx) {
     var it = item || {}, c = CARDS[it.card], x = ctx || {};
-    if (!c) return [{ card: stand('Unavailable', 'mdi:help-circle-outline') }];
+    if (!c) return [{ card: stand('Unavailable', 'mdi:help-circle-outline', 'This block isn\'t available here.') }];
     var p = it.pages || {}, base = it.opts || {}, areas = x.areas || {};
     function page(opts, extra) {
       var o = Object.assign({}, base, opts), cfg = tapped(c.card(it.size, o, x), o);

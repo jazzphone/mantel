@@ -2429,9 +2429,9 @@
       var root = this._root;
       root.innerHTML = '';
       var pager = document.createElement('div');
-      // (a Room block draws the rooms' dots in its own foot line, beside what is scrolled out of sight:
+      // (a Room or Accessories block draws its pages' dots in its own foot line -- two rows of dots otherwise, 2026-11-08 --
       // hk-grid-cards.js, 2026-10-31)
-      pager.className = 'pager' + (n < 2 ? ' one' : '') + (((this._config || {}).item || {}).card === 'room' ? ' own' : '');
+      pager.className = 'pager' + (n < 2 ? ' one' : '') + (/^(room|accessories)$/.test(((this._config || {}).item || {}).card || '') ? ' own' : '');
       var track = document.createElement('div');
       track.className = 'track';
       var dots = document.createElement('div');
