@@ -175,7 +175,8 @@ function () {
               charge: 'sensor.charge', discharge: 'sensor.discharge' };
   var draw = function (size, hass) { var c = sized('hk-house-battery-card', size, cfg); c.hass = hass || house.hass(); return H.morphed(c._card); };
   var s = draw('S');
-  ok('S: its name, the level large and its ring with the bolt', /Battery</.test(s) && /class="wb">82%</.test(s) && /class="bring"/.test(s) && /mdi:lightning-bolt/.test(s), s);
+  // (2026-11-07, the review: one ring as large as the block, the level and what it is doing inside it)
+  ok('S: its name, and one ring with the level and its state inside', /Battery</.test(s) && /class="bring"/.test(s) && /class="in"><b[^>]*>82%<\/b><small>Charging</.test(s), s);
   var w = draw('W');
   ok('W: charging and the stored kWh, the backup at the foot, a larger ring', /Charging · 11.2 kWh/.test(w) && /About 9h 30m of backup/.test(w) && /width:120px/.test(w), w);
   var t = draw('T');

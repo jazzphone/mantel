@@ -164,7 +164,7 @@ async function tiles(inp) {
   const covers = await ge(t, 'covers');
   assert.equal(covers.length, 7, 'every block drawn');
   assert(covers.every(c => c.cover && c.x), 'every block has its cover and its minus: ' + JSON.stringify(covers));
-  assert.deepEqual(covers.filter(c => c.sz).map(c => c.id).sort(), ['cam', 'clock', 'np', 'thermo', 'timers', 'weather'], 'a size where the card has more than one');
+  assert.deepEqual(covers.filter(c => c.sz).map(c => c.id).sort(), ['cam', 'clock', 'lock', 'np', 'thermo', 'timers', 'weather'], 'a size where the card has more than one (an Accessory has Small, Wide and Tall since 2026-11-07)');
   const bar = await ge(t, 'bar'), rb = await ge(t, 'rootBox');
   assert(bar.b <= rb.t + 2, 'the grid fits under the Edit bar: ' + JSON.stringify([bar, rb]));
   const tb = await p.evaluate(() => { const sr = document.getElementById('hk-tabbar').shadowRoot, pill = sr && sr.querySelector('.pill'); return pill ? __ge.box(pill) : null; });

@@ -322,7 +322,7 @@ def test_conditional_block_roundtrip_with_same_sized_fallback(kind):
     {'when': {'kind': 'entity_state', 'entity': 'light.lamp', 'state': ''}, 'fallback': {'card': 'clock'}},
     {'when': {'kind': 'music_playing', 'state': 'anything'}, 'fallback': {'card': 'clock'}},
     {'when': {'kind': 'music_playing'}},
-    {'when': {'kind': 'music_playing'}, 'fallback': {'card': 'calendar'}},  # no W
+    {'when': {'kind': 'music_playing'}, 'fallback': {'card': 'cameras'}},  # no W (Calendar has had one since 2026-11-07)
     {'when': {'kind': 'music_playing'}, 'fallback': {'card': 'clock', 'when': {'kind': 'doorbell'}}},
     {'when': {'kind': 'music_playing'}, 'fallback': {'card': 'clock', 'at': [2, 0]}},
     {'fallback': {'card': 'clock'}},
