@@ -200,8 +200,8 @@
       'hk-plate.sec[size=T] .arm{flex-wrap:wrap}hk-plate.sec[size=T] .arm button[data-m=off]{flex:1 1 100%}',
       'hk-plate.sec[size=T] .hd small{white-space:normal;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}',
       // (2026-11-08, the owner's rule -- "anything that does not fit cleanly moves to the detail sheet": Tall is the alarm and its three
-      // ways to arm, the shield and the state centered in the room between them; the locks and doors are one tap away, in the alarm's
-      // sheet -- the heading, which says what is open, opens it)
+      // ways to arm, the shield and the state centered in the room between them; the locks and doors are the Security page's and
+      // the block's Custom Detail Sheet's; the heading says what is open and opens the alarm's sheet)
       'hk-plate.sec[size=T] .hd{flex:1 1 auto;flex-direction:column;justify-content:center;text-align:center;gap:8px}hk-plate.sec[size=T] .hd .wl{width:56px;height:56px}hk-plate.sec[size=T] .hd .tx{align-items:center;max-width:100%}',
       // LARGE AND EXTRA LARGE (2026-11-08, the owner: "the touch points for the locks/garage door ... a tad bigger ... the keypad first,
       // the locks and garage door represented cleanly and easy to interact with, then ... open windows and doors in a compact way"; and
