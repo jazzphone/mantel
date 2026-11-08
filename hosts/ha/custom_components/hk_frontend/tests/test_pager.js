@@ -60,8 +60,8 @@ var sp = G.pages({ card: 'now_playing', size: 'L', opts: { speaker: 'tablet_room
 ok('speakers: one per speaker or group', ids(sp).join() === 'media_player.kitchen,media_player.den,media_player.downstairs' &&
    sp[1].card.entity === 'media_player.den', ids(sp));
 ok('...the page\'s option over the block\'s own (tablet_room here)', sp[0].card.entity === 'media_player.kitchen');
-['W', 'L', 'XL'].forEach(function (size) {
-  var per = { W: 2, L: 4, XL: 6 }[size], sc = G.pages({ card: 'scenes', size: size, pages: { source: 'scenes' } }, ctx);
+['W', 'T', 'L', 'XL'].forEach(function (size) {
+  var per = { W: 2, T: 2, L: 4, XL: 6 }[size], sc = G.pages({ card: 'scenes', size: size, pages: { source: 'scenes' } }, ctx);
   ok('scenes at ' + size + ': ' + per + ' to a page, as many pages as that takes',
      sc.length === Math.ceil(7 / per) && sc[0].card.scenes.length === per && sc[sc.length - 1].card.scenes.slice(-1)[0] === 'scene.g' &&
      sc[0].card.room === true, sc.map(function (p) { return p.card.scenes.length; }));

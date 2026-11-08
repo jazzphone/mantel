@@ -66,11 +66,11 @@ def span(size: str, cols: int, rows: int) -> tuple[int, int]:
 # THE CATALOG'S MIRROR: key -> its sizes, the page sources it swipes through besides `list` (every card has
 # `list`), and its options (name -> kind, OPTION_KINDS).
 CATALOG: dict[str, dict[str, Any]] = {
-    "accessory": {"sizes": ("S", "W"), "sources": (), "opts": {"entity": "entity", "secondary": "secondary"}},
-    "accessories": {"sizes": ("W", "L", "XL", "XXL"), "sources": ("accessories",), "opts": {"accessories": "accessories", "title": "title", "surface": "surface",
+    "accessory": {"sizes": ("S", "W", "T"), "sources": (), "opts": {"entity": "entity", "secondary": "secondary", "color": "boolean"}},
+    "accessories": {"sizes": ("W", "T", "L", "XL", "XXL"), "sources": ("accessories",), "opts": {"accessories": "accessories", "title": "title", "surface": "surface",
                                                                               "height": "tile_height", "color": "boolean"}},
     "scene": {"sizes": ("S", "W"), "sources": (), "opts": {"scene": "scene", "color": "boolean"}},
-    "scenes": {"sizes": ("W", "L", "XL", "XXL"), "sources": ("scenes",), "opts": {"scenes": "scenes", "surface": "surface", "height": "tile_height", "color": "boolean"}},
+    "scenes": {"sizes": ("W", "T", "L", "XL", "XXL"), "sources": ("scenes",), "opts": {"scenes": "scenes", "surface": "surface", "height": "tile_height", "color": "boolean"}},
     "now_playing": {"sizes": ("S", "W", "T", "L", "XL"), "sources": ("speakers",), "opts": {"speaker": "speaker", "background": "np_background", "tap": "tap_target"}},
     # style (2026-10-30): the dial, or Big Number (docs/phase11/HOMEVIEW-LOOK.md, Phase C)
     "thermostat": {"sizes": ("S", "W", "T", "L", "XL"), "sources": ("thermostats",), "opts": {"entity": "climate", "style": "thermostat_style", "tap": "tap_target"}},
@@ -109,7 +109,7 @@ CATALOG: dict[str, dict[str, Any]] = {
     "live_tv": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"channel": "tv_channel", "tap": "tap_target"}},
     "water": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"tap": "tap_target"}},
     # the new cards (G3)
-    "room": {"sizes": ("W", "L", "XL", "XXL"), "sources": ("rooms",), "opts": {"area": "area", "surface": "surface", "accessory_display": "room_display", "tap": "tap_target"}},
+    "room": {"sizes": ("S", "W", "T", "L", "XL", "XXL"), "sources": ("rooms",), "opts": {"area": "area", "surface": "surface", "accessory_display": "room_display", "tap": "tap_target"}},
     "scene_suggested": {"sizes": ("S", "W", "L"), "sources": (), "opts": {"windows": "windows"}},
     # `area`: the room an action keeps to (All Lights Off in one room); the others ignore it
     "action": {"sizes": ("S", "W"), "sources": (), "opts": {"action": "action", "area": "area", "color": "boolean"}},
@@ -700,7 +700,7 @@ def _security_size(v: Mapping[str, Any], size: Any) -> None:
 def _capacity(v: Mapping[str, Any], size: str) -> None:
     if v.get("card") != "accessories":
         return
-    per = {"W": 2, "L": 4, "XL": 6, "XXL": 12}[size]
+    per = {"W": 2, "T": 2, "L": 4, "XL": 6, "XXL": 12}[size]
     # (Half height, 2026-10-31: the shorter button, two rows in each of Full's)
     if v.get("opts", {}).get("height") == "half":
         per *= 2
@@ -1103,7 +1103,7 @@ def _chunks(xs: list[str], n: int) -> list[list[str]]:
 
 def _scenes_block(iid: str, size: str, at: list[int], scenes: list[str]) -> dict[str, Any]:
     """A scenes block holding the house's scenes: one page of them, or pages that swipe."""
-    per = {"W": 2, "L": 4, "XL": 6, "XXL": 12}[size]
+    per = {"W": 2, "T": 2, "L": 4, "XL": 6, "XXL": 12}[size]
     pages = _chunks(scenes[:LIST_MAX * PAGES_MAX], per)
     out: dict[str, Any] = {"id": iid, "card": "scenes", "size": size, "at": at}
     if len(pages) == 1:

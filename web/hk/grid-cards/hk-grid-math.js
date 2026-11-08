@@ -116,12 +116,28 @@
     // that don't fit are left out (the room's page has them all).
     // (8 px between them: the widget mock-up's tight grid, 2026-10-31)
     var PILL_H = 70, GAP = 8;
-    var COLS = { W: 2, L: 2, XL: 3, XXL: 6 };
-    var HEAD = { W: 42, L: 66, XL: 66, XXL: 66 };
+    var COLS = { S: 1, W: 2, T: 1, L: 2, XL: 3, XXL: 6 };
+    var HEAD = { W: 42, T: 66, L: 66, XL: 66, XXL: 66 };
     function fit(size, height) {
       var rows = Math.max(0, Math.floor((height - (HEAD[size] || HEAD.W) + GAP) / (PILL_H + GAP)));
       rows = Math.min(rows, size === 'W' ? 1 : 2);
       return rows * (COLS[size] || 2);
+    }
+    // NO HOLES (2026-11-07, the review; as hk-chip.js gridShape): `n` things in at most `cols` x `rows` places -- the
+    // rows they need, then the columns those rows need, so a short last row leaves no gap: the last thing is wider.
+    // 3 in 2 x 2 -> the last spans both; 4 in 3 x 2 -> 2 x 2; 5 in 3 x 2 -> the last spans two. { cols, rows, last }
+    function shape(n, cols, rows) {
+      n = Math.max(1, Math.min(n | 0, cols * rows));
+      var r = Math.ceil(n / cols), c = Math.ceil(n / r);
+      return { cols: c, rows: r, last: 1 + (c - (n % c || c)) };
+    }
+    // TWO THINGS, ALWAYS (a Wide or Tall room, 2026-11-07): the lights first, the room's speaker only when there is room
+    // for it (fewer than two lights); the rest is counted, "+N more", in the heading's line. { tiles, more }
+    function twoOf(parts, client) {
+      var sp = speakerOf(client, parts.speakers), total = parts.lights.length + (sp ? 1 : 0);
+      var tiles = parts.lights.slice(0, 2).map(function (c) { return pill(c, true); });
+      if (tiles.length < 2 && sp) tiles.push(pill(sp, false));
+      return { tiles: tiles, more: total - tiles.length };
     }
     function layout(parts, size, places, client) {
       var sp = speakerOf(client, parts.speakers);
@@ -385,7 +401,8 @@
     K.HOLD_MS = HOLD_MS; K.holds = holds; K.houseMinutes = houseMinutes; K.isGroup = isGroup; K.kind = kind;
     K.layout = layout; K.menuCounts = menuCounts; K.minutes = minutes; K.OFF = OFF; K.own = own; K.percent = percent;
     K.pill = pill; K.PILL_H = PILL_H; K.plan = plan; K.plural = plural; K.roomLine = roomLine; K.roomOf = roomOf;
-    K.roomParts = roomParts; K.sceneSays = sceneSays; K.setting = setting; K.SLOP = SLOP; K.speakerOf = speakerOf;
+    K.roomParts = roomParts; K.sceneSays = sceneSays; K.setting = setting; K.shape = shape; K.SLOP = SLOP; K.speakerOf = speakerOf;
+    K.twoOf = twoOf;
     K.suggestion = suggestion; K.TABLET_ROOM = TABLET_ROOM;
   };
 })();
