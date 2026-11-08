@@ -1671,6 +1671,15 @@
              icon_color: lk.color || p[2],
              tap_action: { action: 'navigate', navigation_path: './' + path } };
   }
+  // NO HOLES (2026-11-07, the review; as hk-grid-math.js shape): `n` things in a block of at most `cols` x `rows` places --
+  // the rows they need (never an empty one), then the columns those rows need, so a short last row is no gap: its
+  // last thing is wider. 3 in 2 x 2 -> the last spans both; 4 in 3 x 2 -> 2 x 2, wider; 5 in 3 x 2 -> the last spans two.
+  // { cols, rows, last } -- `last`: how many columns the last thing spans.
+  function gridShape(n, cols, rows) {
+    n = Math.max(1, Math.min(n | 0, cols * rows));
+    var r = Math.ceil(n / cols), c = Math.ceil(n / r);
+    return { cols: c, rows: r, last: 1 + (c - (n % c || c)) };
+  }
   function scenesPlan(cfg, b, client, away) {
     b = b || {};
     var T = C0().TILE;
@@ -1729,9 +1738,8 @@
     // row, one row of them; else the rows they fill, never an empty one.
     if (cell) {
       var half = cfg.height === 'half', cols = cell[0], rows = cell[1] * (half ? 2 : 1);
-      var n = Math.min(pills.length, cols * rows);
-      if (n <= cols) { cols = Math.max(1, n); rows = 1; } else rows = Math.ceil(n / cols);
-      return { auto: auto, config: { hk_cell: cfg.hk_cell, cols: cols, rows: rows, surface: cfg.surface, half: half, color: !!cfg.color,
+      var n = Math.min(pills.length, cols * rows), sh = gridShape(n, cols, rows);
+      return { auto: auto, config: { hk_cell: cfg.hk_cell, cols: sh.cols, rows: sh.rows, last: sh.last, surface: cfg.surface, half: half, color: !!cfg.color,
                                      pills: pills.slice(0, n) } };
     }
     return { auto: auto, config: { type: 'grid', columns: 1, square: false, cards: [
@@ -1864,10 +1872,11 @@
         (plan.half ? 'align-content:center;' : '') + 'overflow:hidden;--hk-pill:100%';
       delete box._hkGroupBase; C0().groupSurface(box, plan.surface);
       while (box.firstChild) box.removeChild(box.firstChild);
-      this._tiles = plan.pills.map(function (pill) {
+      this._tiles = plan.pills.map(function (pill, i) {
         var cfg = blockPill(pill, plan);
         var slot = document.createElement('div');
-        slot.style.cssText = 'position:relative;min-width:0;min-height:0;container-type:size;container-name:hk-cell;--hk-cell-shape:none';
+        slot.style.cssText = 'position:relative;min-width:0;min-height:0;container-type:size;container-name:hk-cell;--hk-cell-shape:none' +
+          (plan.last > 1 && i === plan.pills.length - 1 ? ';grid-column:span ' + plan.last : '');
         var t = window.hkCards.create(cfg);
         t.setAttribute('data-group-fill', '');
         t.style.cssText = 'display:block;min-width:0;min-height:0;width:100%;height:100%';
@@ -2030,7 +2039,7 @@
   window.hkChip.HkStatusChipCard = HkStatusChipCard;
   window.hkChip.HkChipsCard = HkChipsCard;
   window.hkChip.HkScenesCard = HkScenesCard;
-  window.hkChip.scenes = { plan: scenesPlan, pill: scenePill, page: pagePill, blockPill: blockPill };
+  window.hkChip.scenes = { plan: scenesPlan, shape: gridShape, pill: scenePill, page: pagePill, blockPill: blockPill };
   window.hkChip.kinds = { ORDER: KIND_ORDER, NAMES: KIND_NAMES, QUIET: QUIET_DEFAULT, PAGES: KIND_PAGES,
                           config: kindConfig, auto: autoKinds, found: found, rowPlan: rowPlan,
                           entityChip: entityChip, scenesPlan: scenesPlan, rowItems: rowItems,

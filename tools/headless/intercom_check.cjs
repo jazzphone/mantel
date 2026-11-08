@@ -159,13 +159,13 @@ const MEASURE = () => {
         const blocks = await page.evaluate(() => deep(document, 'hk-intercom-card').map((c) => {
           const s = c.shadowRoot, r = c.getBoundingClientRect();
           return { size: s.querySelector('.k').getAttribute('size'), state: s.querySelector('.state').textContent, state_shown: s.querySelector('.state').style.display !== 'none',
-                   chips: [...s.querySelectorAll('.chip')].map((x) => x.textContent), name: s.querySelector('.name').textContent, box: [r.width | 0, r.height | 0], aria: s.querySelector('.k').getAttribute('aria-label') };
+                   name: s.querySelector('.name').textContent, box: [r.width | 0, r.height | 0], aria: s.querySelector('.k').getAttribute('aria-label') };
         }));
         const S = blocks.find((b) => b.size === 'S'), W = blocks.find((b) => b.size === 'W');
         if (!S || !W) fail(name, 'both blocks drawn', blocks);
         else {
           if (!/^Living Room(, Kitchen| \+1)$/.test(S.state)) fail(name, 'the Small block names the rooms last picked: whole names, then +N', S);
-          if (W.chips.join() !== 'Living Room,Kitchen') fail(name, 'the Wide block shows them as chips', W);
+          if (!/^Living Room(, Kitchen| \+1)$/.test(W.state)) fail(name, 'the Wide block names them on its second line too, as the Small one does (no chips: one Wide tile)', W);
         }
         await shot('block');
         out(`ok ${name} block`);
@@ -382,7 +382,7 @@ const MEASURE = () => {
             await page.mouse.click(p.x, p.y);
             await page.waitForFunction(() => !!hkEdit.active() && !!hkEditGrid.active() && hkEditGrid.active().ready, null, { timeout: 10000 });
             await page.waitForTimeout(1200);
-            const ed = await page.evaluate(() => deep(document, 'hk-intercom-card').map((c) => { const r = c.getBoundingClientRect(), k = c.shadowRoot.querySelector('.k').getBoundingClientRect(), ch = c.shadowRoot.querySelector('.chips').getBoundingClientRect(); return { w: c.getAttribute('size'), box: [r.width | 0, r.height | 0], k: [k.width | 0, k.height | 0], chips: [ch.width | 0, ch.height | 0] }; }));
+            const ed = await page.evaluate(() => deep(document, 'hk-intercom-card').map((c) => { const r = c.getBoundingClientRect(), k = c.shadowRoot.querySelector('.k').getBoundingClientRect(); return { w: c.getAttribute('size'), box: [r.width | 0, r.height | 0], k: [k.width | 0, k.height | 0] }; }));
             if (ed.length !== 2 || ed.some((b) => b.k[0] < 40)) fail(name, 'both blocks drawn in Edit mode', ed);
             await shot('edit');
             out(`ok ${name} edit mode`);

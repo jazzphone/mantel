@@ -1140,6 +1140,9 @@
     // under it at the foot, 15 / 600 on 16.5 px lines), and in the HomeView look (Tile Style Centred, square cells) the centred
     // tile's own numbers (hkCards.centredTile). Wide is that same key on the left, and the rooms last picked as whole chips on
     // the right: the rooms that fit, then "+N", never a name cut in two.
+    // THE BLOCK'S GLYPH (2026-11-07, the review): Apple's Intercom is five rounded vertical bars, tall in the middle (a
+    // waveform), not a microphone -- drawn here, a stroke each, in the box the glyph has (the bars' ink is 87 % of it)
+    var BARS = '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 9v6M7.75 6v12M12 3v18M16.25 7v10M20.5 10v4" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"></path></svg>';
     var BLOCK_CSS = [
       ':host{display:block;height:100%}',
       'hk-plate.k{box-sizing:border-box;height:100%;display:flex;flex-direction:row;align-items:stretch;gap:12px;',
@@ -1151,41 +1154,31 @@
       'hk-plate.k[aria-disabled="true"]{cursor:default}',
       '.lft{display:flex;flex-direction:column;justify-content:space-between;min-width:0;flex:1 1 auto}',
       '.well{width:42px;height:42px;border-radius:50%;background:' + v('key') + ';display:flex;align-items:center;justify-content:center;flex:none}',
-      '.icon{width:' + TILE.glyph + 'px;height:' + TILE.glyph + 'px;--mdc-icon-size:100%;display:flex;color:' + v('glyph') + ';transition:color ' + C.DUR.fade + ' ease}',
+      '.icon{width:' + TILE.glyph + 'px;height:' + TILE.glyph + 'px;display:block;color:' + v('glyph') + ';transition:color ' + C.DUR.fade + ' ease}',
       '.tx{display:flex;flex-direction:column;gap:' + TILE.rowGap + 'px;min-width:0}',
       '.name,.state{font-size:15px;line-height:' + TILE.lineH + 'px;letter-spacing:-0.23px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
       '.name{font-weight:600;color:' + v('ink') + '}',
       '.state{font-weight:500;color:' + v('ink-2') + '}',
-      '.chips{display:none}',
-      // WIDE, the standard tile: the key on the left, the rooms on the right, standing on the same foot as the state line
-      ':host([size=W]) .lft{flex:0 1 auto;min-width:96px}',
-      ':host([size=W]) .chips{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;align-content:flex-end;align-self:flex-end;flex:1 1 0;min-width:0;max-height:66px;overflow:hidden}',
-      '.chip{height:30px;padding:0 12px;border-radius:15px;background:' + v('key') + ';color:' + v('ink') + ';display:inline-flex;align-items:center;flex:none;max-width:100%;',
-      '  font-size:13px;font-weight:600;letter-spacing:-0.1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-      '.chip.more{color:' + v('ink-2') + '}',
-      '.chip.hint{background:none;border:1px solid ' + v('line-strong') + ';color:' + v('ink-2') + '}',
+      // WIDE (2026-11-07, the owner: one Wide tile for the Scene, the Accessory and this), Home style: Apple Home's wide tile -- the
+      // 42 px well at the left, the name over the rooms last picked beside it, the pair centered; the rooms are the line, no chips
+      ':host([size=W]) .lft{flex-direction:row;align-items:center;justify-content:flex-start;gap:' + TILE.wellGap + 'px}',
       '@media (prefers-reduced-motion:reduce){hk-plate.k,hk-plate.k:active{transition:none;transform:none}}',
       'hk-plate.k{border-radius:var(--hk-block-radius, ' + C.M.radius + ')}',
       // CENTRED (the HomeView look; hk-base.js TILE.centred): the glyph bare over the name and what it says, all centred
       ':host([tile=centred]) hk-plate.k{display:block}',
       ':host([tile=centred]) .lft{display:contents}',
       C.centredTile({ host: ':host([tile=centred])', plate: 'hk-plate.k', lit: 'hk-plate.k.lit', well: '.well', icon: '.icon', name: '.tx .name', sub: ['.tx .state'] }),
-      // ...and Wide, as the Scenes block is at Wide: the glyph at the square tile's size on the block's inset, the name and its
-      // line beside it, the rooms on the right
-      ':host([tile=centred][size=W]) hk-plate.k{display:flex !important;flex-direction:row;align-items:center;gap:18px;padding:' + C.blockPad('14px') + '}',
-      ':host([tile=centred][size=W]) .lft{display:flex;flex-direction:row;align-items:center;justify-content:flex-start;gap:16px;flex:0 1 auto;min-width:0}',
-      ':host([tile=centred][size=W]) .well{position:relative !important;left:auto !important;top:auto !important;transform:none !important;flex:none;' +
-        'width:' + TILE.centred.square.box + 'px !important;height:' + TILE.centred.square.box + 'px !important}',
-      ':host([tile=centred][size=W]) .icon{width:' + TILE.centred.square.glyph + 'px !important;height:' + TILE.centred.square.glyph + 'px !important}',
-      ':host([tile=centred][size=W]) .tx .name,:host([tile=centred][size=W]) .tx .state{position:static !important;left:auto !important;right:auto !important;top:auto !important;text-align:left !important}',
-      ':host([tile=centred][size=W]) .tx .name{font-size:' + TILE.centred.square.name + 'px !important;line-height:26px !important}',
-      ':host([tile=centred][size=W]) .tx .state{font-size:17px !important;line-height:22px !important}',
-      ':host([tile=centred][size=W]) .chips{align-self:center;max-height:72px;gap:8px}',
-      ':host([tile=centred][size=W]) .chip{height:32px;border-radius:16px;font-size:14px}'
+      // ...and Wide (2026-11-07, the owner: one Wide tile for the Scene, the Accessory and this): hkTile.wideTile's, the glyph on a
+      // quarter of the width, the name over the rooms last picked beside it
+      ':host([tile=centred][size=W]) hk-plate.k{display:block}',
+      '@@WIDE@@'
     ].join('');
 
     class HkIntercomCard extends HkBase {
-      static get CSS() { return BLOCK_CSS; }
+      static get CSS() {
+        var T = window.hkTile;
+        return BLOCK_CSS.replace('@@WIDE@@', T && T.wideTile ? T.wideTile({ host: ':host([tile=centred][size=W])', well: '.well', icon: '.icon', name: '.tx .name', sub: ['.tx .state'] }) : '');
+      }
       static get observedAttributes() { return ['size', 'tile']; }
       attributeChangedCallback() { if (this._config) { this._hkSig = null; this.redraw(); } }
       getCardSize() { return 2; }
@@ -1219,19 +1212,18 @@
         var want = ((shared.mem || {}).rooms || []), ids = {};
         f.rooms.forEach(function (r) { ids[r.room] = r.name; });
         var picked = want.filter(function (id) { return ids[id]; }).map(function (id) { return ids[id]; });
-        return { state: 'Talk to the house', label: 'Intercom', picked: picked, off: false };
+        return { state: 'Everywhere', label: 'Intercom', picked: picked, off: false };
       }
       _render() {
         if (!this._config) return;
         if (!this._built) {
           this._root.innerHTML = '<hk-plate class="k" data-hk-role="card" role="button" tabindex="0">' +
-            '<div class="lft"><div class="well"><hk-icon class="icon"></hk-icon></div><div class="tx"><div class="name">Intercom</div><div class="state"></div></div></div>' +
-            '<div class="chips"></div></hk-plate>';
+            '<div class="lft"><div class="well">' + BARS + '</div><div class="tx"><div class="name">Intercom</div><div class="state"></div></div></div>' +
+            '</hk-plate>';
           var self = this, k = this._root.querySelector('.k');
           k.addEventListener('click', function (ev) { ev.stopPropagation(); self._tap(); });
           k.addEventListener('keydown', function (ev) { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); self._tap(); } });
-          this._e = { k: k, icon: k.querySelector('.icon'), state: k.querySelector('.state'), chips: k.querySelector('.chips') };
-          this._e.icon.icon = 'mdi:microphone';
+          this._e = { k: k, icon: k.querySelector('.icon'), state: k.querySelector('.state') };
           this._built = true;
           // what fits depends on the box: drawn again when it changes (and once the fonts are in)
           if (window.ResizeObserver) {
@@ -1248,39 +1240,21 @@
         e.k.setAttribute('size', size);
         e.k.setAttribute('aria-label', l.label + (l.picked && l.picked.length ? ', ' + names(l.picked, 3) : l.state && !l.off ? ', ' + l.state : l.off && l.state ? ', ' + l.state : ''));
         e.k.setAttribute('aria-disabled', l.off ? 'true' : 'false');
-        // (Centred: the glyph by what is drawn, as the other tiles' -- TILE.centred.ink)
-        if (this.getAttribute('tile') === 'centred') e.icon.setAttribute('ink', String(C.TILE.centred.ink)); else e.icon.removeAttribute('ink');
         this._fit();
       }
-      // THE WORDS THAT FIT: Small names the rooms last picked on one line, Wide counts them and draws each as a chip. Whole
-      // names only: as many as the line (or the chips' two rows) holds, then "+N"; if not even one name fits, the count.
+      // THE WORDS THAT FIT: the rooms last picked on one line, Small and Wide alike (2026-11-07: Wide's chips are gone), or
+      // "Everywhere" when none was picked. Whole names only: as many as the line holds, then "+N"; if not even one fits, the count.
       _fit() {
         var e = this._e, l = this._l;
         if (!e || !l) return;
-        var size = this._size(), picked = l.picked || [], more;
-        var line = size === 'W' ? (picked.length ? plural(picked.length, 'room', 'rooms') : l.state) : picked.length ? names(picked, picked.length) : l.state;
+        var picked = l.picked || [];
+        var line = picked.length ? names(picked, picked.length) : l.state;
         if (e.state.textContent !== line) e.state.textContent = line;
-        if (size === 'S' && picked.length > 1 && e.state.clientWidth) {
+        if (picked.length > 1 && e.state.clientWidth) {
           var n = picked.length;
           while (n > 1 && e.state.scrollWidth > e.state.clientWidth + 1) { n--; e.state.textContent = names(picked, n); }
           if (e.state.scrollWidth > e.state.clientWidth + 1) e.state.textContent = plural(picked.length, 'room', 'rooms');
         }
-        var html = '';
-        if (size === 'W' && !l.off) {
-          if (!picked.length) html = '<span class="chip hint">Choose Rooms</span>';
-          else {
-            var chip = function (n, cls) { return '<span class="chip' + (cls ? ' ' + cls : '') + '">' + esc(n) + '</span>'; };
-            var draw = function (n) {
-              more = picked.length - n;
-              e.chips.innerHTML = picked.slice(0, n).map(function (x) { return chip(x); }).join('') + (more > 0 ? chip('+' + more, 'more') : '');
-            };
-            draw(picked.length);
-            var shown = picked.length;
-            if (e.chips.clientWidth) while (shown > 1 && e.chips.scrollHeight > e.chips.clientHeight + 1) { shown--; draw(shown); }
-            html = e.chips.innerHTML;
-          }
-        }
-        if (e.chips.innerHTML !== html) e.chips.innerHTML = html;
       }
       _tap() {
         var l = this._lines();
@@ -1303,7 +1277,10 @@
       ':host{display:block}',
       '.sh{container-type:inline-size;display:block;padding:2px 0 0}',
       '.cols{display:flex;flex-direction:column;gap:' + SPC.piece + 'px}',
-      '@container (min-width:680px){.cols{display:grid;grid-template-columns:minmax(300px,340px) minmax(0,1fr);align-items:start}}',
+      '@container (min-width:680px){.cols{display:grid;grid-template-columns:minmax(300px,340px) minmax(0,1fr);align-items:start}',
+      // THE TALK GROUP ON THE ROOMS PANEL'S CENTER LINE (2026-11-07, the review): the button, its word and the line were
+      // top-weighted ~65 px above the panel's middle on a 1280 x 800 tablet; a taller list of rooms still scrolls past it
+      '  .talk{align-self:center}}',
       // the talk side stays in view while a long list of rooms scrolls -- only where it fits: taller than the sheet, its
       // own buttons would never come into view (a phone on its side, 2026-11-05)
       '@media (min-height:760px){@container (min-width:680px){.talk{position:sticky;top:0}}}',

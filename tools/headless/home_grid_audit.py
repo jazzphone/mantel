@@ -106,7 +106,7 @@ OPTS = {"accessory": {"entity": "light.living_room_lamps"}, "scene": {"scene": "
 ACCESSORIES = ["light.living_room_lamps", "fan.bedroom_ceiling", "light.living_room_ceiling", "media_player.living_room",
                "lock.front_door", "light.kitchen_pendants", "cover.garage_door", "switch.garage_outlet", "light.office_desk",
                "light.porch", "light.bedroom_lamps", "light.backyard_string"]
-SIZED = {"accessories": lambda s: {"accessories": [{"entity": e} for e in ACCESSORIES[:{"W": 2, "L": 4, "XL": 6, "XXL": 12}[s]]]}}
+SIZED = {"accessories": lambda s: {"accessories": [{"entity": e} for e in ACCESSORIES[:{"W": 2, "T": 2, "L": 4, "XL": 6, "XXL": 12}[s]]]}}
 # the forecast, as the forecast sensors Settings -> Weather can name
 def _forecast(step: int, n: int, temps: list[int], conds: list[str]) -> list[dict]:
     t0 = int(time.time() // step * step) + step
