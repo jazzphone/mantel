@@ -14,6 +14,10 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 - **Half-height pills fill their block to equal margins**, and a block's title sits on the same inset as its sides.
 - **Short wide tiles keep their words clear of the foot** (a Room's Wide tiles on square cells, for one).
 
+**Fixed**
+- **Pre-rendered glass no longer flickers as a swipe lands**: a page just landed on kept the last page's blur behind its cards for a few frames, until the sky caught up (Calendar's cards went Weather's purple for a moment). It now keeps its own picture, or blurs live, until then.
+- **The Pages screen lands sharp and at its full size from Home**: its icons could land blurred, then small and to the left for a second, then jump to their places.
+
 ## 0.1.153 - 2026-11-08
 
 **Added**

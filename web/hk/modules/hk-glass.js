@@ -157,7 +157,7 @@
     if (!(PRE && active)) return;
     wearNext();
     // no picture of this page yet: its layers blur live until there is one
-    if (!ownPicture()) eachLayer(function (L) { if (!L._hkOverlay && !aside(L)) preUndress(L); });
+    if (!ownPicture()) eachLayer(function (L) { if (!L._hkOverlay && !aside(L) && !landedAt(viewOf(L))) preUndress(L); });
   }
   // the picture waiting for this page, on now
   function wearNext() {
@@ -626,7 +626,7 @@
   // a layer of a page that isn't the one shown: it keeps its own picture
   function aside(L) { var m = alongOf(L); return !!(m && m.path && m.path !== here()); }
   function pictureFor(L, path) {
-    if (path === undefined) { var m = alongOf(L); path = m && m.path; }
+    if (path === undefined) { var m = alongOf(L); path = m && m.path; if (!path) path = landedAt(viewOf(L)); }
     if (!path) return ownPicture() ? pre.url : null;
     if (pre.url && pre.path === path) return pre.url;
     var c = cache.get(path), r = c && c.url ? pics.get(c.url) : null;
@@ -647,10 +647,22 @@
   // the sky say so, and "the page's picture" was still the page it left -- the landing page wore that page's blur for a
   // frame or two, then its own again (the owner, 2026-11-08: "pop in from the previous screen's blur"; probed: Weather
   // landing in Home's picture for 66 ms at 4x CPU). The address and the sky catch up, and wearNext carries it on.
+  // ...AND UNTIL THE SKY SAYS SO TOO: a layer looked at again in between (preCheck, the next layout pass) asked for "the
+  // picture the sky is at" -- the page it left -- and wore it: Calendar's pills in Weather's purple for two frames,
+  // 50-70 ms after landing at 4x CPU, longer on a wall tablet (the owner's video, 2026-11-08: "a lot of flickering").
+  // The page it landed on is its own until the sky reaches it (or, a sky that never says, LANDED_MS on).
+  var LANDED_MS = 2000;
+  function landedAt(v) {
+    var l = v && v.__hkLanded;
+    if (!l) return undefined;
+    if (skyAt() === l.path || Date.now() - l.at > LANDED_MS) { v.__hkLanded = null; return undefined; }
+    return l.path;
+  }
   function along(el, m) {
     if (!el) return;
     var was = el.__hkAlong, keep = !m && was && was.path ? was.path : undefined;
     el.__hkAlong = m || null;
+    el.__hkLanded = keep ? { path: keep, at: Date.now() } : null;
     if (!PRE || !active) return;
     eachLayer(function (L) {
       if (L._hkOverlay || viewOf(L) !== el) return;
@@ -879,6 +891,9 @@
     pre.url = url; pre.path = path;
     eachLayer(function (L) {
       if (L._hkOverlay || aside(L)) return;
+      // (a page just landed on keeps its own until the sky reaches it: landedAt)
+      var lp = landedAt(viewOf(L));
+      if (lp && lp !== path) return;
       if (!L._hkPre) { preDress(L); return; }
       if (picOf(L._hkPre) === url) return;
       var was = L._hkPre, img = preImg(url);

@@ -11,6 +11,9 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 **Changed**
 - **Half-height pills fill their block to equal margins**, titles sit on the block's inset, and short wide tiles keep their words clear of the foot.
 
+**Fixed**
+- **Pre-rendered glass no longer flickers as a swipe lands** (the last page's blur behind the cards for a few frames), and **the Pages screen lands sharp and at its full size from Home** (its icons could land blurred, then small and to the left for a second).
+
 ## 1.50.0 - 2026-11-08
 
 **Added**

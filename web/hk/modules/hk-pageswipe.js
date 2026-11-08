@@ -613,10 +613,20 @@
     d.className = 'hk-swipe-ground';
     d.setAttribute('aria-hidden', 'true');
     d.style.cssText = 'position:fixed;inset:0;pointer-events:none;opacity:' + (k || 0) + ';-webkit-backdrop-filter:' + f + ';backdrop-filter:' + f;
-    parent.insertBefore(d, st.view);
+    // UNDER EVERY PAGE IN THE SLOT, not just under this one: a page beside it can come first (the Pages screen, kept
+    // from before Home was shown), and over it the blur fell on its icons as it landed -- every icon a blur until the
+    // landing let go of it (the owner's video, 2026-11-08)
+    parent.insertBefore(d, firstPage(st, parent));
     el.style.setProperty('--hk-ground-hide', '1');
     d._of = el;
     return d;
+  }
+  function firstPage(st, parent) {
+    var pages = [st.view];
+    Object.keys(st.nb).forEach(function (k) { if (st.nb[k]) pages.push(st.nb[k].el); });
+    (st.spare || []).forEach(function (o) { if (o && o.el) pages.push(o.el); });
+    for (var c = parent.firstElementChild; c; c = c.nextElementSibling) if (pages.indexOf(c) >= 0) return c;
+    return st.view;
   }
   function shade(d, k, ms) {
     if (!d) return;

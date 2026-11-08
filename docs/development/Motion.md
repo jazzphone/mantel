@@ -349,6 +349,26 @@ thread, and WebKit draws an undecoded background -- the pinned glass -- as nothi
 painting a page's picture before its first visit (its sky would have to be drawn where it shows, or in a swipe, where
 the paint costs the drag a frame; a page has one once seen, and a tablet keeps the last 12).
 
+### The owner's video: flicker and the Pages screen's jump (2026-11-08)
+
+A 29 s phone video of the Living Room tablet on 0.1.153 (Bright Glass, Pre-rendered), walked frame by frame (60 fps),
+and a scan of every frame for a sudden change: the glass flickering as pages land, and the Pages screen from Home blurred
+(at landing), then its icons small and to the left, then in their places. Reproduced in the lab with a screencast of
+each swipe (every composited frame, 4x CPU), a frame-difference scan after each settle, and the pictures each layer
+wears:
+
+| What | Why | Now |
+|---|---|---|
+| Calendar's cards in Weather's purple for 2 frames, ~250 ms after the swipe settled | the address changes 50-70 ms before the sky (more on a tablet); a layer looked at in between (preCheck) asked for "the picture the sky is at", the page it left | a page landed on keeps its own picture (or blurs live) until the sky reaches it (hk-glass.js landedAt; wearAll and viewShown leave it too) |
+| The Pages screen landing blurred, every icon (Pages screen -> Home -> Pages screen) | the swipe's still ground (a blur of the sky, hk-pageswipe.js ground) went in just before the page being left; the Pages screen, kept from before Home was shown, came before Home in the slot, so the blur was over it -- at full strength as it landed | the ground goes in before the first page in the slot |
+| The Pages screen's icons drawn 880 px wide for a second | Home's Side Pane room (400 px) left on the view for a frame (hk-menu.js syncs on the next frame); a push in that frame drew the screen in it, and a box that only lived between frames never fires a ResizeObserver | the view's margins written at once on hk-pane (style writes, no read); the screen looks at its size the frame after every draw |
+
+After: a frame-difference scan of each swipe (Pages screen, Weather, Calendar, Cameras, Energy, Power, Security,
+Climate, each to the next) shows the settle and nothing after it; Home to the Pages screen drew small in 3 of 6 runs
+before, 0 of 6 after. Seen and left: one camera tile black for a moment on Cameras (its stream), a cold page's first
+swipe stalling a third of the way while it is built (Pages screen to Weather), and on Power the house picture gone for
+~50 ms after landing on the tablet (not reproduced in the lab).
+
 ## What a browser here cannot say
 
 Headless Chromium and desktop WebKit on a fast Mac approximate a tablet; slowing the CPU approximates it further. None of
