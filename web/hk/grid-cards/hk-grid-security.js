@@ -359,6 +359,12 @@
           this._built = true;
         }
         var e = this._e, st = alarm && this.client && this.client.states[alarm], look = alarmLook(st), rows = secRows(this.client), says = secSays(rows);
+        // THE BLOCK'S OWN ENTRIES (members, HomeView's Entries: Choose -- 2026-11-08, the keypad kept in HomeView's Extra Large): its
+        // locks and garage doors those, in its order; the doors and windows still the line under them
+        var mem = Array.isArray((this._config || {}).members) && this._config.members.length ? this._config.members : null;
+        if (mem) rows = rows.filter(function (r) { return !r.tile; }).concat(mem.map(function (id) {
+          return rows.filter(function (r) { return r.tile && r.id === id; })[0];
+        }).filter(Boolean));
         if (e.icon.icon !== look.icon) e.icon.icon = look.icon;
         if (look.color) e.card.style.setProperty('--c', look.color); else e.card.style.removeProperty('--c');
         if (look.text) e.card.style.setProperty('--t', look.text); else e.card.style.removeProperty('--t');

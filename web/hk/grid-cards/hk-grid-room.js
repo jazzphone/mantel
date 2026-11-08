@@ -97,20 +97,20 @@
       // that opens the room's page. Home style: the glyph in its well at the top, the words at the foot, on the block's inset;
       // Centered: the Centered tile's numbers (hkCards.centredTile), as the other Small blocks.
       '.rs{display:none}',
-      '.room[size=S]{display:block;position:relative;padding:0}',
-      '.room[size=S] .hd,.room[size=S] .tiles,.room[size=S] .ft{display:none}',
-      '.room[size=S] .rs{all:unset;position:absolute;inset:0;display:flex;flex-direction:column;justify-content:space-between;box-sizing:border-box;cursor:pointer;',
+      '.room[size=S].rt{display:block;position:relative;padding:0}',
+      '.room[size=S].rt .hd,.room[size=S].rt .tiles,.room[size=S].rt .ft{display:none}',
+      '.room[size=S].rt .rs{all:unset;position:absolute;inset:0;display:flex;flex-direction:column;justify-content:space-between;box-sizing:border-box;cursor:pointer;',
       '  padding:' + C.blockPad('14px') + ';-webkit-tap-highlight-color:transparent;border-radius:inherit}',
-      '.room[size=S] .rs:focus-visible{outline:2px solid ' + v('ink-2') + ';outline-offset:-4px}',
-      '.room[size=S]:active{transform:scale(0.97);filter:brightness(0.93)}',
+      '.room[size=S].rt .rs:focus-visible{outline:2px solid ' + v('ink-2') + ';outline-offset:-4px}',
+      '.room[size=S].rt:active{transform:scale(0.97);filter:brightness(0.93)}',
       '.rs .well{width:42px;height:42px;display:flex;align-items:center;justify-content:center;flex:none}',
       '.rs .icon{width:34px;height:34px;--mdc-icon-size:100%;display:flex;color:' + v('glyph') + '}',
       '.rs .tx{display:flex;flex-direction:column;min-width:0}',
       '.rs .name,.rs .state{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-0.23px}',
       '.rs .name{' + type('headline') + ';line-height:21px;color:' + v('ink') + ';text-shadow:' + v('glow') + '}',
       '.rs .state{' + type('caption') + ';line-height:17px;color:' + v('ink-2') + ';text-shadow:' + v('glow') + '}',
-      ':host([tile=centred]) .room[size=S] .rs{display:block}',
-      C.centredTile({ host: ':host([tile=centred])', plate: '.room[size=S]', lit: '.room[size=S].lit', well: '.rs .well', icon: '.rs .icon', name: '.rs .name', sub: ['.rs .state'] })
+      ':host([tile=centred]) .room[size=S].rt .rs{display:block}',
+      C.centredTile({ host: ':host([tile=centred])', plate: '.room[size=S].rt', lit: '.room[size=S].rt.lit', well: '.rs .well', icon: '.rs .icon', name: '.rs .name', sub: ['.rs .state'] })
     ].join('');
 
     class HkGridRoomCard extends HkBase {
@@ -249,7 +249,8 @@
         if (e.mo.textContent !== moText) e.mo.textContent = moText;
         e.mo.hidden = !p.hmore;
         if (p.hmore) e.mo.setAttribute('aria-label', p.hmore + ' more, open them all');
-        if (p.size === 'S') {
+        e.box.classList.toggle('rt', p.size === 'S' && !!p.area);      // (a Room's Small: the room as one tile -- .rt's styles)
+        if (p.size === 'S' && p.area) {          // (a Room's Small is the room as one tile; an Accessory Group's Small is its pills)
           // (the tile's words; the glyph by what it draws, as the other Small tiles' -- TILE.centred.ink)
           if (e.rsName.textContent !== (p.name || 'Room')) e.rsName.textContent = p.name || 'Room';
           if (e.rsState.textContent !== (p.status || '')) e.rsState.textContent = p.status || '';
@@ -576,7 +577,8 @@
       _plan() {
         var client = this.client, size = this._size(), cfg = this._config;
         // (a Wide block on a tile cell has no room for HomeView's tile under its heading: the Home app's pill row, as the Room block's)
-        var sq = window.hkChip.cellSquare(this), half = cfg.height === 'half' || (size === 'W' && !sq);
+        // (Small: two half-height pills unless Full is chosen -- 2026-11-08)
+        var sq = window.hkChip.cellSquare(this), half = cfg.height === 'half' || (size === 'W' && !sq) || (size === 'S' && cfg.height !== 'full');
         // (a page of an Accessory Group keeps its foot for the pager's dots, as a Room does: its tiles under the label, not over it -- 2026-11-08)
         // A TITLE ONLY WHEN IT SAYS SOMETHING (2026-11-08, the owner: "I'm not sure any cards need titles ... most cards should be self
         // explanatory"): the label row is a title the block was given ("Kitchen"), never a generic "Accessories"; without it the tiles

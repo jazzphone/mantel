@@ -108,8 +108,8 @@ OPTS = {"accessory": {"entity": "light.living_room_lamps"}, "scene": {"scene": "
 ACCESSORIES = ["light.living_room_lamps", "fan.bedroom_ceiling", "light.living_room_ceiling", "media_player.living_room",
                "lock.front_door", "light.kitchen_pendants", "cover.garage_door", "switch.garage_outlet", "light.office_desk",
                "light.porch", "light.bedroom_lamps", "light.backyard_string"]
-SIZED = {"accessories": lambda s: {"accessories": [] if STATES[STATE["name"]].get("accessories_none") else [{"entity": e} for e in ACCESSORIES[:COUNT["n"] or {"W": 2, "T": 2, "L": 4, "XL": 6, "XXL": 12}[s]]
-                                                    [:{"W": 2, "T": 2, "L": 4, "XL": 6, "XXL": 12}[s]]]}}
+SIZED = {"accessories": lambda s: {"accessories": [] if STATES[STATE["name"]].get("accessories_none") else [{"entity": e} for e in ACCESSORIES[:COUNT["n"] or {"S": 2, "W": 2, "T": 2, "L": 4, "XL": 6, "XXL": 12}[s]]
+                                                    [:{"S": 2, "W": 2, "T": 2, "L": 4, "XL": 6, "XXL": 12}[s]]]}}
 # MORE OR FEWER OF THEM (2026-11-08, round three, the tile groups): `--count N` gives the Living Room N lights, an Accessories block N
 # entries (never more than its size's capacity: hk_core checks it) and a Scenes block N scenes -- a house with one and a house with
 # fourteen, to see the tiles keep their size

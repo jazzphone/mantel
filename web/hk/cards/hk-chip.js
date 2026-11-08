@@ -1680,7 +1680,8 @@
   //   o.head  what the block keeps above its tiles (a Room's heading and its gap); o.foot what it keeps below (its dots)
   //   o.pill  the Home app's pill, 70 px, as many rows as the block holds (Half) -- else the tall tile, two rows (one at Wide)
   // -> { sq, cols, rows, n (the places), tw, th, gap }; `el` says the cell shape: the grid's --hk-cell-h (196 on square cells)
-  var GROUP_COLS = { W: 2, T: 1, L: 2, XL: 3, XXL: 6 }, GROUP_ROWS = { W: 1, T: 2, L: 2, XL: 2, XXL: 2 };
+  // (Small, 2026-11-08, the owner: "an Accessories Group card in the Small size ... 2 half height pills": one place, or its pills' rows)
+  var GROUP_COLS = { S: 1, W: 2, T: 1, L: 2, XL: 3, XXL: 6 }, GROUP_ROWS = { S: 1, W: 1, T: 2, L: 2, XL: 2, XXL: 2 };
   // (the heading above the tiles of Scenes and Accessories: the label's 16 px line and its 8 px gap)
   var GROUP_HEAD = 24;
   function cellSquare(el) {

@@ -67,7 +67,7 @@ def span(size: str, cols: int, rows: int) -> tuple[int, int]:
 # `list`), and its options (name -> kind, OPTION_KINDS).
 CATALOG: dict[str, dict[str, Any]] = {
     "accessory": {"sizes": ("S", "W", "T"), "sources": (), "opts": {"entity": "entity", "secondary": "secondary", "color": "boolean"}},
-    "accessories": {"sizes": ("W", "T", "L", "XL", "XXL"), "sources": ("accessories",), "opts": {"accessories": "accessories", "title": "title", "surface": "surface",
+    "accessories": {"sizes": ("S", "W", "T", "L", "XL", "XXL"), "sources": ("accessories",), "opts": {"accessories": "accessories", "title": "title", "surface": "surface",
                                                                               "height": "tile_height", "color": "boolean"}},
     "scene": {"sizes": ("S", "W"), "sources": (), "opts": {"scene": "scene", "color": "boolean"}},
     "scenes": {"sizes": ("W", "T", "L", "XL", "XXL"), "sources": ("scenes",), "opts": {"scenes": "scenes", "surface": "surface", "height": "tile_height", "color": "boolean"}},
@@ -722,9 +722,10 @@ def _security_size(v: Mapping[str, Any], size: Any) -> None:
 def _capacity(v: Mapping[str, Any], size: str) -> None:
     if v.get("card") != "accessories":
         return
-    per = {"W": 2, "T": 2, "L": 4, "XL": 6, "XXL": 12}[size]
-    # (Half height, 2026-10-31: the shorter button, two rows in each of Full's)
-    if v.get("opts", {}).get("height") == "half":
+    per = {"S": 1, "W": 2, "T": 2, "L": 4, "XL": 6, "XXL": 12}[size]
+    # (Half height, 2026-10-31: the shorter button, two rows in each of Full's; Small is Half unless Full is chosen, 2026-11-08)
+    height = v.get("opts", {}).get("height")
+    if height == "half" or (size == "S" and height != "full"):
         per *= 2
     base = v.get("opts", {}).get("accessories", [])
     pages = v.get("pages", {})
