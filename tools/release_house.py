@@ -111,7 +111,7 @@ def _load(name: str):
 
 
 CI = _load("ci")                     # tools/ci.py: its passed runs, and what a release commit may change
-LOCAL_ONLY = CI.LOCAL_ONLY           # the signing team: changed here, never committed
+LOCAL_ONLY = CI.LOCAL_ONLY           # files changed here and never committed (none now)
 
 
 def run(*cmd: str, cwd: Path = ROOT, env: dict | None = None, quiet: bool = False) -> str:

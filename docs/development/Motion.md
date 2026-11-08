@@ -297,6 +297,43 @@ What lost them, each found in the bench's per-flick record (the swipe's own `why
 The bench is `.ci/motion-evidence/flick-2026-11-08` (flick.cjs: pages reached, refusals and their `why`, the first move
 after each touch, long frames; overlap.cjs: no page passes another, frame by frame).
 
+### The wrong picture at the edges of a swipe (2026-11-08)
+
+After the release the owner saw "pop in from the previous screen's blur behind the cards" (Bright Glass, Pre-rendered).
+Probed frame by frame (which picture each page's layers wear; the lab's Living Room HomeView, Bright Pre-rendered,
+4x CPU, slow drags and flicks, Chromium and WebKit), two causes:
+
+| When | What it wore | Why | Now |
+|---|---|---|---|
+| The drag begins | the page being left: the next page's sky (0.2/255 off Weather's, 5 off Home's), remembered as its own | the swipe paints the next page's sky under a still copy (hk-sky.js swipeCover), hk-sky-change said so, and preTick painted it as this page's | preTick waits while `hkSky.swipingTo()` names a page |
+| It lands | Weather: Home's picture for 66 ms, then its own | `arrive` puts the page back (along null) before the address and the sky change, so "the page's picture" was still Home's | along(el, null) keeps the picture of the page it was moved as |
+
+After: Home wears its own picture until it is gone, Weather its remembered one until its fresh one fades in. (The lab's
+landprobe.cjs is in .ci/motion-evidence/flick-2026-11-08.)
+
+### A Pre-rendered repaint's cost (2026-11-08)
+
+On a page with a live sky (the house's room pages: Weather's realistic clouds) the picture is painted again every
+PRE_TRACK (2 s) and fades in over that time: the blur follows the clouds, by design. So a repaint's cost is paid all the
+time. Measured in the lab (Living Room HomeView, Weather, 1280x800, CPU 4x; WebKit unthrottled), median of 8:
+
+| Part | Chromium 4x | WebKit |
+|---|---|---|
+| The sky drawn (collect + paint) | ~27 ms | ~1 ms |
+| The look's filter, as a PNG in an SVG decoded back | ~30 ms | ~10 ms |
+| The picture's own PNG (toBlob) / its decode | 7.7 / 3.2 ms | 1 / 3 ms |
+
+What changed: a canvas that takes a `filter` (Chrome, the wall tablets) is given the look's filter itself -- no PNG, no
+SVG. A whole repaint: Bright 35 -> 26 ms, Blur 53 -> 36 ms. The two routes agree to a mean 0.5/255, at most 2/255
+(animations paused, same frame). WebKit has no canvas filter and keeps the SVG. And a cloud-following repaint waits
+1.5 s after the last touch (was 0.7 s, a gap between quick flicks).
+
+Looked at and left: JPEG for the picture (2 ms against 7.7, but up to 7/255 off: a look change); the layers drawing from
+the painted canvas, skipping the PNG's decode (~3 ms, mostly off the main thread, and WebKit draws an undecoded
+background -- the pinned glass -- as nothing for a frame); one picture shared by every layer (each is 214x134, ~115 KB);
+painting a page's picture before its first visit (its sky would have to be drawn where it shows, or in a swipe, where
+the paint costs the drag a frame; a page has one once seen, and a tablet keeps the last 12).
+
 ## What a browser here cannot say
 
 Headless Chromium and desktop WebKit on a fast Mac approximate a tablet; slowing the CPU approximates it further. None of

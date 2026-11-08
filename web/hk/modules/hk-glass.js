@@ -103,8 +103,9 @@
   // 2026-10-11: "the chips are not updated" -- they lagged a cloud right
   // behind them by up to 30 s). Never while the page is being touched or
   // scrolled (PRE_QUIET after the last of it): a paint is ~25-75 ms of the
-  // main thread at a tablet's speed, and one in a swipe would be felt.
-  var PRE_TRACK = 2000, PRE_QUIET = 700, PRE_STUCK = 10000, PIN_STEPS = 8, lastInput = 0, touching = 0;
+  // main thread at a tablet's speed, and one in a swipe would be felt. (0.7 s was a gap between quick flicks, and a
+  // paint that began in it held up the next touch: 1.5 s, the clouds' blur a moment later, 2026-11-08.)
+  var PRE_TRACK = 2000, PRE_QUIET = 1500, PRE_STUCK = 10000, PIN_STEPS = 8, lastInput = 0, touching = 0;
   function maxAge() {
     var HS = window.hkSettings, look = HS && HS.skyLook ? HS.skyLook() : null;
     if (!(look && look.animations)) return PRE_MAX;
@@ -624,8 +625,8 @@
   function alongOf(L) { var v = viewOf(L); return v && v.__hkAlong ? v.__hkAlong : null; }
   // a layer of a page that isn't the one shown: it keeps its own picture
   function aside(L) { var m = alongOf(L); return !!(m && m.path && m.path !== here()); }
-  function pictureFor(L) {
-    var m = alongOf(L), path = m && m.path;
+  function pictureFor(L, path) {
+    if (path === undefined) { var m = alongOf(L); path = m && m.path; }
     if (!path) return ownPicture() ? pre.url : null;
     if (pre.url && pre.path === path) return pre.url;
     var c = cache.get(path), r = c && c.url ? pics.get(c.url) : null;
@@ -642,13 +643,18 @@
   }
   // `m`: { x, left, top, tr, path } -- the page `el` drawn x px from its
   // box, whose corner is at left, top, moving on `tr`; null: back in its place
+  // A PAGE PUT BACK IN ITS PLACE (m null) keeps the picture of the page it is: a swipe lands it before the address and
+  // the sky say so, and "the page's picture" was still the page it left -- the landing page wore that page's blur for a
+  // frame or two, then its own again (the owner, 2026-11-08: "pop in from the previous screen's blur"; probed: Weather
+  // landing in Home's picture for 66 ms at 4x CPU). The address and the sky catch up, and wearNext carries it on.
   function along(el, m) {
     if (!el) return;
+    var was = el.__hkAlong, keep = !m && was && was.path ? was.path : undefined;
     el.__hkAlong = m || null;
     if (!PRE || !active) return;
     eachLayer(function (L) {
       if (L._hkOverlay || viewOf(L) !== el) return;
-      var want = L._hkNoPic ? null : pictureFor(L);
+      var want = L._hkNoPic ? null : pictureFor(L, keep);
       if (!want) { if (L._hkPre) preUndress(L); return; }
       if (L._hkPre && picOf(L._hkPre) !== want) { L._hkPre.remove(); L._hkPre = null; }
       if (!L._hkPre) {
@@ -1005,6 +1011,16 @@
     if (shows && shows !== path && now - (pre.navAt || 0) < VIEW_UP_MS) {
       clearTimeout(pre.timer);
       pre.timer = setTimeout(function () { pre.timer = null; preTick(force); }, pre.navAt + VIEW_UP_MS - now + 20);
+      return;
+    }
+    // NOR WHILE A SWIPE PAINTS THE NEXT PAGE'S SKY under a still copy of this one (hkSky.swipingTo, 2026-11-08, the
+    // owner: "pop in from the previous screen's blur behind the cards"): the sky said it changed as the drag began,
+    // and the page being left was painted in the next page's sky, wore it as it went (5/255 off its own; 0.2 off the
+    // next page's) and remembered it -- worn again, then repainted, on the way back. Landed, the sky says so again.
+    var going = window.hkSky && typeof window.hkSky.swipingTo === 'function' ? window.hkSky.swipingTo() : null;
+    if (going) {
+      clearTimeout(pre.timer);
+      pre.timer = setTimeout(function () { pre.timer = null; preTick(force); }, 400);
       return;
     }
     var big = !pre.url || pre.drawn !== path || s.big !== pre.big;

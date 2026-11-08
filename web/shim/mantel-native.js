@@ -1,4 +1,4 @@
-// mantel-native.js -- the page's side of the iPhone and iPad app (apple/Mantel/HouseWebView.swift injects
+// mantel-native.js -- the page's side of the iPhone and iPad app (jazzphone/mantel-ios: Mantel/HouseWebView.swift injects
 // window.mantelNative: the `ios` host). Everywhere else there is no bridge, and nothing here runs.
 // docs/phase10/NATIVE-FEEL.md, items 3, 4 and 6.
 //

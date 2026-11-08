@@ -5,6 +5,10 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+**Fixed**
+- **No flash of the last page's blur behind the cards after a swipe** in Pre-rendered glass: each page keeps its own picture through the swipe, and the fresh one fades in once it lands.
+- **Pre-rendered glass repaints faster on Android tablets**, and waits for a pause in swiping before it does.
+
 ## 1.49.0 - 2026-11-08
 
 **Added**

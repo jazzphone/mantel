@@ -81,7 +81,7 @@ SWIPE_MOTION = {"chromium": ("1280x800", "390x844"), "webkit": ("1180x820", "390
 PAGE_SWIPE = {"chromium": ("1280x800",), "webkit": ("1180x820", "390x844")}
 # Edit mode's sections that depend on the engine, the input or the size (edit_mode_check.py SECTIONS has the rest)
 EDIT_GESTURES = ("bar", "room", "pages", "menu", "still", "frost")
-LOCAL_ONLY = ("apple/Mantel.xcodeproj/project.pbxproj",)    # the signing team: changed here, never committed
+LOCAL_ONLY: tuple[str, ...] = ()   # files changed here and never committed (none since the Apple apps moved out, 2026-11-08)
 # WHAT A RELEASE CHANGES (2026-11-01). A full run of one commit speaks for another when nothing else differs: only
 # version lines in VERSION_FILES (bump_version.py's files, tools/check_version.py FILES, and the components'
 # manifests release_house.py sets), and anything in CHANGELOGS. Then `versions` re-runs what reads them.

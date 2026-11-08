@@ -1,5 +1,7 @@
 # Phase 14: system alerts and the update check (plan, 2026-11-02)
 
+> Since 2026-11-08 the Apple apps' code (`apple/` here) is in its own repositories, without the `apple/` prefix: `jazzphone/mantel-ios` (the iPhone and iPad app, `MantelKit/`, `Common/`, `tools/testflight.py`) and `jazzphone/mantel-mac` (the Mac app; mantel-ios is its `ios/` submodule).
+
 **Status: built on 2026-11-02 (14.0–14.9 on main; 14.10, the Mac, last). See the Build log. Not released.**
 
 ## The ask (the owner, 2026-11-02)
