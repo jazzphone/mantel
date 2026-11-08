@@ -470,11 +470,17 @@ MEASURE = r"""(() => {
         if (h.right - h.left < 1 || h.bottom - h.top < 1) continue;                               // scrolled or cut away
         found.push({ el, h });
       }
-      // (a segmented control is one control: its choices are measured by their track, DESIGN.md's 44 px with 36 px choices)
+      // (a segmented control -- a tablist, a radiogroup, `.seg` / `.segments`, a `.segment`, a row of pressed-state buttons that touch -- is one control: its choices are measured by
+      // their track, DESIGN.md's 44 px with 36 px choices; a `.ring` that is not the dial's [data-ring] is a picture)
+      const isSeg = el => el.classList.contains('segment') || (el.parentElement && (/^(tablist|radiogroup)$/.test(el.parentElement.getAttribute('role') || '') ||
+        /(^|\s)seg(ments)?(\s|$)/.test(typeof el.parentElement.className === 'string' ? el.parentElement.className : '') ||
+        (el.hasAttribute('aria-pressed') && [...el.parentElement.children].some(o => { if (o === el || !o.hasAttribute('aria-pressed')) return false;
+          const a = el.getBoundingClientRect(), b = o.getBoundingClientRect(); return Math.max(b.left - a.right, a.left - b.right, b.top - a.bottom, a.top - b.bottom) < 2; }))));
       const tracks = new Map();
-      for (const a of found) if (a.el.classList.contains('segment') && a.el.parentElement) {
-        const t = a.el.parentElement; if (!tracks.has(t)) tracks.set(t, { el: t, h: t.getBoundingClientRect() }); }
-      const mine = found.filter(a => !a.el.classList.contains('segment') && !found.some(b => b !== a && b.el !== a.el && b.el.matches(NATIVE) && b.el.contains(a.el))).concat([...tracks.values()]);
+      for (const a of found) if (isSeg(a.el)) { const t = a.el.parentElement, u = tracks.get(t);      // (the track: its choices' touchable boxes, joined)
+        tracks.set(t, { el: t, h: u ? { left: Math.min(u.h.left, a.h.left), top: Math.min(u.h.top, a.h.top), right: Math.max(u.h.right, a.h.right), bottom: Math.max(u.h.bottom, a.h.bottom) } : a.h }); }
+      const mine = found.filter(a => !isSeg(a.el) && !(a.el.classList.contains('ring') && !a.el.hasAttribute('data-ring')) &&
+        !found.some(b => b !== a && b.el !== a.el && b.el.matches(NATIVE) && b.el.contains(a.el))).concat([...tracks.values()]);
       let gap = null, small = null, tight = '';
       for (const a of mine) { const m = Math.min(a.h.right - a.h.left, a.h.bottom - a.h.top) / gs; if (small === null || m < small) small = m; }
       for (let i = 0; i < mine.length; i++) for (let j = i + 1; j < mine.length; j++) {
