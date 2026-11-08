@@ -75,6 +75,20 @@ def test_a_command_while_the_socket_is_down_is_refused_in_the_hubs_own_words(obs
     assert observed["down"]["pending"] == 0                                         # and no entry left behind
 
 
+def test_a_press_between_sockets_is_held_and_sent_on_the_next_one(observed):
+    """BACK AT ONCE (hub.js, 2026-11-08): the iPhone app back from the background pressed into a closed socket and
+    nothing happened. A press then waits for the next socket and its server's word on commands, and is sent there."""
+    h = observed["held"]
+    assert h["newSocket"] and h["onOld"] == 0 and h["frames"] == 1
+    assert h["result"] == "resolved"
+
+
+def test_a_held_press_is_never_sent_to_a_server_whose_commands_are_off(observed):
+    """The commands-off contract holds across the hold: the new socket's first frame is not `capabilities`, so the kept
+    answer goes and the press is refused in the page."""
+    assert observed["heldOff"] == {"result": "commands_disabled", "frames": 0, "enabled": False}
+
+
 def test_pings_nobody_answered_are_not_kept(observed):
     """WEB-3 (fixed): hub.js ping(): a waiter that timed out stays in this.pings until some pong"""
     assert observed["pings"]["waiting"] == 0

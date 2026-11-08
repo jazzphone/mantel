@@ -19,16 +19,19 @@ vm.runInThisContext(clientSrc);
 vm.runInThisContext(shimSrc);
 
 const realTimeout = setTimeout;
-globalThis.setTimeout = (fn, ms) => realTimeout(fn, Math.min(ms, 3));      // the hub's 2 s retry and 5 s ping, fast
+// the hub's 2 s retry, fast; a press's 5 s hold (hub.js HOLD) 80 ms, longer than a reconnect takes here
+globalThis.setTimeout = (fn, ms) => realTimeout(fn, ms === 5000 ? 80 : Math.min(ms, 3));
 const tick = (ms = 40) => new Promise((r) => realTimeout(r, ms));
 
 let sockets = [];
 let serverFrames = [];                  // what the next socket's server says on open (a function of the server's setting)
 let silent = false;
+let unreachable = false;                // every new socket is refused (the house can't be reached)
 class FakeWS {
   constructor(url) {
     this.url = url; this.sent = []; this.readyState = 0; sockets.push(this);
     realTimeout(() => {
+      if (unreachable) { this.readyState = 3; this.onclose && this.onclose(); return; }
       this.readyState = 1; this.onopen && this.onopen();
       for (const f of serverFrames) this.onmessage({ data: JSON.stringify(f) });
     }, 1);
@@ -84,15 +87,44 @@ const out = {};
   out.off.clientUpdates = events.filter((e) => e === 'hk-client-update').length;
 }
 
-// ============ a command pressed while the socket is down (stale capabilities say on)
+// ============ a command pressed while the socket is down, and no socket comes back (stale capabilities say on)
+{
+  const { hub, host } = await page(true);
+  const s0 = sockets[0];
+  unreachable = true;
+  s0.drop();
+  const r = await tryLight(host);                                  // held for the next socket, which never opens
+  out.down = { result: r, pending: [...hub.pending.values()].filter((p) => p.command).length,
+               frames: sockets.reduce((n, ws) => n + commandFrames(ws), 0) };
+  unreachable = false;
+  await tick(60);
+}
+
+// ============ a press between sockets: held, and sent on the next one once its server says commands are on
 {
   const { hub, host } = await page(true);
   const s0 = sockets[0];
   serverFrames = [{ type: 'capabilities', commands: true, door: 'lan' }];
-  s0.drop();                                                       // the retry is a few ms away
-  const r = await tryLight(host);
-  out.down = { result: r, pending: [...hub.pending.values()].filter((p) => p.command).length };
-  await tick(60);
+  s0.drop();
+  const p = tryLight(host);
+  await tick(30);
+  const s1 = sockets[sockets.length - 1];
+  const cmd = s1.sent.find((m) => m.type === 'command');
+  out.held = { newSocket: s1 !== s0, frames: commandFrames(s1), onOld: commandFrames(s0) };
+  if (cmd) s1.say({ type: 'command_result', id: cmd.id, result: {} });
+  out.held.result = await Promise.race([p, tick(200).then(() => 'pending')]);
+}
+
+// ============ ...and when the next socket's server has commands off: refused in the page, nothing sent
+{
+  const { hub, host } = await page(true);
+  const s0 = sockets[0];
+  serverFrames = [];
+  s0.drop();
+  const p = tryLight(host);
+  out.heldOff = { result: await Promise.race([p, tick(200).then(() => 'pending')]) };
+  out.heldOff.frames = sockets.reduce((n, ws) => n + commandFrames(ws), 0);
+  out.heldOff.enabled = hub.commandsEnabled();
 }
 
 // ============ Control of the House OFF -> ON while a page is open

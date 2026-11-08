@@ -29,6 +29,11 @@ import '/hk/shell/hk-view-host.js';
 // HK's own toast layer: Mantel draws no toast of its own (hkShell.hostToast() is false)
 import '/hk/shell/hk-overlays.js';
 
+// THE APP WAITS FOR THE SCREEN, NOT THE FILE (2026-11-08): the iPhone and iPad app showed this page as soon as its file
+// had loaded, before the house's states had come, so a slow open showed tiles with no names that did nothing. This page
+// says it will tell the app when its first screen is drawn (`mantelNative.drawn`, below); until then the app keeps the
+// last screen's still up. (Read by HouseWebView.swift as the file finishes loading; a page without it is shown then.)
+window.__mantelWillDraw = true;
 const T0 = performance.now();
 const marks = { module_start: Math.round(T0) };   // ms since navigation start; the others are ms after it
 const mark = (n) => { marks[n] = Math.round(performance.now() - T0); };
@@ -316,6 +321,14 @@ mark('rendered');
   document.addEventListener('config-refresh', (ev) => { ev.stopPropagation(); rebuild(); });
 }
 health.drawn();                 // the first screen is on the glass: its time goes to Mantel's Performance page
+// ...and the iPhone and iPad app shows it now (THE APP WAITS FOR THE SCREEN, above): after the frame it is painted in
+// (a timer too, in case a page the app still hides gets no frames)
+if (window.mantelNative && typeof window.mantelNative.drawn === 'function') {
+  let told = false;
+  const tell = () => { if (!told) { told = true; window.mantelNative.drawn(); } };
+  requestAnimationFrame(() => requestAnimationFrame(tell));
+  setTimeout(tell, 300);
+}
 // THE HOUSE'S POP-UPS' CARDS, once the first screen is up: they open over any page at any moment (a doorbell's
 // camera, live: hk-sheet-security.js makes an hk-doorbell-card) and should not wait for their code then
 setTimeout(() => {

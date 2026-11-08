@@ -45,7 +45,9 @@ def test_what_was_waiting_is_told_and_nothing_hangs(run):
 
 def test_retries_back_off(run):
     assert run["sockets"] == 3                      # the drop, one refused retry, then the one that opened
-    first, second = run["waits"][:2]
+    # (the reconnect's waits only: not the new socket's wait for its server's word on commands, CAPS_WAIT, or how long
+    # a closed one keeps it, CAPS_KEEP)
+    first, second = [w for w in run["waits"] if w not in (1500, 10000)][:2]
     assert 1500 <= first <= 2500 and 3000 <= second <= 5000
 
 
@@ -70,5 +72,16 @@ def test_a_visible_page_pings_every_45_seconds_and_finds_a_dead_socket(run):
     assert v["timer"] == [45000]
     assert v["pingsHidden"] == 0, "a hidden page is not pinged"
     assert v["pinged"] == 1 and v["closed"] and v["newSockets"] == 1 and v["reconnected"] == 1
-    assert v["waiting"] == 1 and v["between"] == 0, "nothing is pinged while the reconnect is pending"
+    assert v["openedAtOnce"] == 1, "a socket the check let go is replaced at once, not after a back-off"
+    assert v["between"] == 0, "nothing is pinged meanwhile"
     assert run["unhandled"] == []
+
+
+# BACK AT ONCE (2026-11-08, the iPhone app: half-loaded and unresponsive after it came back): iOS closes a suspended
+# app's socket; shown again, the page reconnected only when its back-off ran out (2 s to 30 s, frozen while away)
+def test_a_page_shown_again_with_its_socket_closed_reconnects_at_once(run):
+    b = run["back"]
+    assert b["whileAway"] == 0, "away, nothing is opened"
+    assert b["atOnce"] == 1 and b["reconnected"] == 1, "shown again: a new socket now, not when the back-off ends"
+    assert b["resent"] == [{"type": "subscribe", "entity_ids": ["lock.front"], "areas": [], "all": False}]
+    assert b["afterBackoff"] == 1, "the back-off it replaced opens no second socket"

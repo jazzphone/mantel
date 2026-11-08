@@ -116,15 +116,38 @@ pg.doc.visibilityState = 'hidden'; pg.every(45000);                 // a hidden 
 const pingsHidden = pings(wallWs);
 held = [];
 pg.doc.visibilityState = 'visible'; pg.every(45000);
-await tick(40);                                                      // the ping gave up; the reconnect waits
-const waiting = held.length;
+await tick(40);                                                      // the ping gave up: a new socket at once
+const openedAtOnce = sockets.length - wallBefore;                    // (every back-off timer is still held)
 pg.fire('focus'); pg.fire('online'); pg.fire('visibilitychange'); pg.every(45000);   // nothing is pinged meanwhile
 const between = pings(wallWs) - 1 + sockets.slice(wallBefore).reduce((n, ws) => n + pings(ws), 0);
 const release = held; held = null; release.forEach((fn) => realTimeout(fn, 1));
 await tick(60);
 const visible = {
-  timer, pingsHidden, pinged: pings(wallWs), closed: !!wallWs.closedByPage, between, waiting,
+  timer, pingsHidden, pinged: pings(wallWs), closed: !!wallWs.closedByPage, between, openedAtOnce,
   newSockets: sockets.length - wallBefore, reconnected: wallBack,
 };
 
-console.log(JSON.stringify(Object.assign(first, { wake, healthy, visible, unhandled })));
+// BACK AT ONCE: an app back from the background finds its socket already closed (iOS closed it), the reconnect
+// waiting out its back-off -- shown again, the page reconnects now, not when the back-off is over
+answerPings = true;
+pg = page();
+const away = new Hub();
+let awayBack = 0;
+away.onReconnect = () => { awayBack++; };
+await away.connect();
+away.subscribe(['lock.front'], [], false);
+const awayBefore = sockets.length;
+held = [];
+pg.doc.visibilityState = 'hidden'; pg.fire('visibilitychange');
+sockets[awayBefore - 1].drop();                                      // closed while the app was away
+await tick(20);
+const whileAway = sockets.length - awayBefore;                       // the back-off is held: nothing yet
+pg.doc.visibilityState = 'visible'; pg.fire('visibilitychange');     // back to the front
+await tick(20);
+const back = { whileAway, atOnce: sockets.length - awayBefore, reconnected: awayBack,
+               resent: sockets[sockets.length - 1].sent.filter((m) => m.type === 'subscribe') };
+const releaseAway = held; held = null; releaseAway.forEach((fn) => realTimeout(fn, 1));
+await tick(30);
+back.afterBackoff = sockets.length - awayBefore;                     // the held back-off, run late, opens no second one
+
+console.log(JSON.stringify(Object.assign(first, { wake, healthy, visible, back, unhandled })));

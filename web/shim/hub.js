@@ -33,6 +33,21 @@ const lost = () => Object.assign(new Error('connection lost'), { code: 'unavaila
 const LIVE_PING = 3000;
 const LIVE_EVERY = 45000;
 const LIVE_GAP = 10000;
+// BACK AT ONCE (2026-11-08, the iPhone app: "things don't load all the way and it is unresponsive"): iOS closes a
+// suspended app's sockets, and the page that comes back found its socket closed with the reconnect still waiting out
+// its back-off (2 s at best, 30 s after a few refusals while the phone was locked -- a timer iOS froze, not skipped).
+// Every press meanwhile was answered "connection lost" and did nothing. So a page shown again, focused or back online
+// whose socket is not open reconnects NOW (`wake`), and a silent socket the liveness check let go is replaced at once.
+// A PRESS BETWEEN SOCKETS IS HELD, NOT LOST: what the last socket's server said about commands is kept while the next
+// one opens (the controls stay live), and a press then waits for that socket, up to HOLD, and is sent on it -- or
+// answered `unavailable` if none opened. Nothing is sent before the new socket's server has spoken: `capabilities` is
+// the first frame a server with commands on sends (server.py run()), so a new socket whose first frame is anything
+// else -- or that says nothing in CAPS_WAIT -- is a server with commands off, and the kept answer goes (the press is
+// then refused in the page, sending nothing: the commands-off contract, tests/test_web_lifecycle.py). A socket down
+// longer than CAPS_KEEP lets the kept answer go too, so a page cut off for good offers no controls.
+const HOLD = 5000;
+const CAPS_WAIT = 1500;
+const CAPS_KEEP = 10000;
 
 export class Hub {
   constructor() {
@@ -55,6 +70,11 @@ export class Hub {
     this.bytes = 0; this.msgs = 0; // what arrived, for the numbers in the page's console
     this._checking = null;         // the liveness check under way (checkAlive)
     this._checked = 0;             // when the last one started
+    this._spoken = false;          // this socket's server has said whether commands are on (BACK AT ONCE, above)
+    this._spokenWaiters = [];      // presses held for that (command, HOLD)
+    this._again = null;            // the reconnect waiting out its back-off: run early by wake()
+    this._capsTimer = 0;           // CAPS_WAIT on a new socket
+    this._keepTimer = 0;           // CAPS_KEEP on a closed one
     this._watch();
   }
 
@@ -66,6 +86,10 @@ export class Hub {
       ws.onopen = () => {
         this.connected = true;
         this.retry = RETRY_MIN;
+        clearTimeout(this._keepTimer);
+        this._spoken = false;
+        clearTimeout(this._capsTimer);
+        this._capsTimer = setTimeout(() => this._silent(ws), CAPS_WAIT);
         if (again) { this.reconnects++; this._resume(); }
         else for (const id of this.intercoms.keys()) this._send({ type: 'intercom/subscribe', id });     // (asked for before the socket was open)
         resolve();
@@ -76,19 +100,28 @@ export class Hub {
         if (this.ws !== ws || over) return;
         over = true;
         this._dropCommands();
-        // what this socket's server said is over with it: the next one says again (a server whose commands
-        // were turned off sends no capabilities at all, so a kept `commands: true` would offer dead controls)
-        if (this.capabilities) { this.capabilities = null; this.onCapabilities(null); }
-        if (this.closing) return;
+        this._spoken = false;
+        clearTimeout(this._capsTimer);
+        // what this socket's server said is over with it, but kept while the next one opens (BACK AT ONCE): the
+        // next one says again, or its silence takes it away (_silent); down for long, it goes anyway
+        clearTimeout(this._keepTimer);
+        if (this.closing) { this._forgetCaps(); return; }
+        this._keepTimer = setTimeout(() => { if (!this._open()) this._forgetCaps(); }, CAPS_KEEP);
         const wait = this.retry * (0.75 + Math.random() / 2);
         this.retry = Math.min(this.retry * 2, RETRY_MAX);
-        setTimeout(() => {
+        const again = () => {
+          if (this._again !== again) return;           // run early by wake(), or a newer one took its place
+          this._again = null;
           this.connect().then(() => { if (this.onReconnect) this.onReconnect(); }, () => { /* its own close retries */ });
-        }, wait);
+        };
+        this._again = again;
+        setTimeout(again, wait);
       };
       ws.onmessage = (ev) => {
         this.msgs++; this.bytes += ev.data.length;
         const m = JSON.parse(ev.data);
+        // the socket's first frame: `capabilities` from a server with commands on, anything else from one with them off
+        if (!this._spoken && this.ws === ws && m.type !== 'capabilities') this._silent(ws);
         if (m.type === 'snapshot') { if (m.registry) this.onRegistry(m.registry); this.onSnapshot(m); }
         else if (m.type === 'diff') this.onDiff(m);
         else if (m.type === 'registry') this.onRegistry(m.digest);
@@ -102,8 +135,11 @@ export class Hub {
           const p = this.pending.get(m.id);
           if (p && p.cb) p.cb(m.event);
         } else if (m.type === 'capabilities') {
+          const had = this.capabilities;
           this.capabilities = m;
-          this.onCapabilities(m);
+          // (the same answer again on a new socket: the page's clients already act on it, nothing to make again)
+          if (!had || JSON.stringify(had) !== JSON.stringify(m)) this.onCapabilities(m);
+          if (this.ws === ws) this._spoke();
         } else if (m.type === 'settings_result') {
           const p = this.pending.get(m.id);
           if (!p || !p.save) return;
@@ -144,6 +180,50 @@ export class Hub {
         }
       };
     });
+  }
+
+  // this socket's server said nothing about commands (its first frame was another, or CAPS_WAIT passed): they are off
+  _silent(ws) {
+    if (this.ws !== ws || this._spoken) return;
+    this._forgetCaps();
+    this._spoke();
+  }
+
+  _spoke() {
+    clearTimeout(this._capsTimer);
+    this._spoken = true;
+    const w = this._spokenWaiters;
+    this._spokenWaiters = [];
+    w.forEach((f) => f(true));
+  }
+
+  _forgetCaps() {
+    if (this.capabilities) { this.capabilities = null; this.onCapabilities(null); }
+  }
+
+  // resolves true once a socket is open and its server has spoken (_spoke), false after `ms`
+  _whenSpoken(ms) {
+    if (this._open() && this._spoken) return Promise.resolve(true);
+    return new Promise((resolve) => {
+      let done = false;
+      const fin = (ok) => { if (done) return; done = true; clearTimeout(t); resolve(ok); };
+      const t = setTimeout(() => { this._spokenWaiters = this._spokenWaiters.filter((f) => f !== fin); fin(false); }, ms);
+      this._spokenWaiters.push(fin);
+    });
+  }
+
+  // BACK AT ONCE: a page shown again (the app back to the front, a tablet waking) whose socket is not open
+  // reconnects now instead of waiting out its back-off; an open one is checked (checkAlive). The iPhone app also
+  // calls this as it comes to the front (HouseWebView.wake).
+  wake() {
+    if (this.closing) return;
+    const ws = this.ws;
+    if (ws && ws.readyState >= 2) this.cycle();        // closed, or closing, with its close event not here yet
+    if (this._open()) { this.checkAlive(); return; }
+    const again = this._again;
+    if (!again) return;                                // opening already
+    this.retry = RETRY_MIN;
+    again();
   }
 
   // a socket that closed answers no command, save or read: each waiting one is told, none is re-sent. A
@@ -197,7 +277,7 @@ export class Hub {
     const ws = this.ws;
     const done = (alive) => { this._checking = null; return alive; };
     this._checking = this.ping(LIVE_PING).then(() => done(true), () => {
-      if (this.ws === ws) { console.warn('[hub] no answer from Mantel in 3 s: reconnecting'); this.cycle(); }
+      if (this.ws === ws) { console.warn('[hub] no answer from Mantel in 3 s: reconnecting'); this.cycle(); this.wake(); }
       return done(false);
     });
     return this._checking;
@@ -209,7 +289,7 @@ export class Hub {
     const win = typeof window !== 'undefined' ? window : null;
     if (!doc || typeof doc.addEventListener !== 'function' || !win || typeof win.addEventListener !== 'function') return;
     const visible = () => doc.visibilityState !== 'hidden';
-    const check = () => { this.checkAlive(); };
+    const check = () => { this.wake(); };
     doc.addEventListener('visibilitychange', () => { if (visible()) check(); });
     win.addEventListener('pageshow', (e) => { if (e && e.persisted) check(); });
     win.addEventListener('online', check);
@@ -310,8 +390,13 @@ export class Hub {
     if (!this.commandsEnabled()) {
       return Promise.resolve({ type: 'command_result', error: { code: 'commands_disabled', message: 'commands are disabled' } });
     }
-    if (!this._open()) {          // between sockets: an answer with a code, not a send that throws
-      return Promise.resolve({ type: 'command_result', error: { code: 'unavailable', message: 'connection lost' } });
+    if (!this._open() || !this._spoken) {
+      // between sockets (BACK AT ONCE): held for the next one, and its server's word on commands; an answer with a
+      // code, never a send that throws, if none comes in time
+      if (this.closing) return Promise.resolve({ type: 'command_result', error: { code: 'unavailable', message: 'connection lost' } });
+      return this._whenSpoken(HOLD).then((ok) => (ok && this._open()
+        ? this.command(body)
+        : { type: 'command_result', error: { code: 'unavailable', message: 'connection lost' } }));
     }
     const id = this.nextId++;
     return new Promise((resolve, reject) => {
