@@ -434,3 +434,8 @@ stretches" and "every state". Each was fixed, then checked at every size, tiles 
 - **Checked.** `--stretch` and `--hits` are clean for calendar, doors, people, vacuum and energy_rings, tiles and HomeView, in
   busy, quiet and each new state (vacuum cleaning and paused too); `block_taps_check.py` passes for all five at both cells.
   hk-calendar.js, hk-home.js and hk-energy.js did not grow (CSS lines joined to make room).
+- **The controls audit's findings in these files (same day).** Who's Home Small: the three faces are drawn, not buttons (the plate
+  opens the sheet; a tap on a face goes through to it). Doors & Windows Wide: rows are 44 px (it shows one fewer, "N more" says the
+  rest). House Battery Large and Extra Large: the four figures are 44 px tall at least (12 px clear), and the day's bars give the 4 px
+  back. Power Extra Large: today's top users are 44 px rows with 8 px clear and no rules between, as many as fit with "N more", the
+  group centered under its label.

@@ -168,6 +168,8 @@
       '.wmid{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center}.wmid>hk-icon{margin-bottom:0}' +
       '.wr.tall b{' + type('headline') + '}.wr.tall em{' + type('body') + '}.wr.tall .wt small{' + type('caption') + ';line-height:17px}' +
       '.wb.ok{display:flex;align-items:center;gap:8px}' +
+      // (ROWS THAT ARE TARGETS, 2026-11-08, the controls audit: Doors Wide's 44 px tall; Power Extra Large's 44 with 8 px clear, no rules between)
+      '.wr.t44>div{height:44px}.wr.sp{gap:8px}.wr.sp>div{height:44px;border-bottom:0}' +
       '.wg hk-icon{display:block;flex:none;--mdc-icon-size:100%}' +
       '.wsplit{display:flex;gap:18px;flex:1;min-height:0}.wsplit>:last-child{flex:1}' +
       '.waxis{display:flex;justify-content:space-between;margin-top:6px;flex:none;' + type('micro') + ';color:' + v('ink-3') + '}';
@@ -398,12 +400,13 @@
         // XL: the chart on the left; today's top users on the right -- the
         // whole house, then the Energy page's devices by what they used today
         var lw = Math.round((box.iw - 22) * 0.58), users = this._topUsers(h);
-        var room = Math.max(1, Math.floor((box.ih - 19 - 6) / 36));
+        // (rows 44 px with 8 clear, as many as fit and "N more": each is a target of its own, so none touches the next)
+        var urow = function (u) {
+          return '<div' + (u.more ? ' data-more="' + esc(u.more) + '"' : ' style="cursor:default"') + '>' + gly(u.icon, 20, null) + '<b>' + esc(u.name) + '</b><em>' + u.v + '</em></div>';
+        };
         return '<div class="wsplit" style="gap:22px"><div class="wcol" style="flex:0 0 ' + lw + 'px">' + lab + big + sub + chart(lw, chH) + axis + '</div>' +
-          '<div class="wcol"><div class="wl" style="color:' + v('ink-2') + '">Today</div><div class="wr" style="margin-top:6px">' +
-          users.slice(0, room).map(function (u) {
-            return '<div' + (u.more ? ' data-more="' + esc(u.more) + '"' : ' style="cursor:default"') + '>' + gly(u.icon, 20, null) + '<b>' + esc(u.name) + '</b><em>' + u.v + '</em></div>';
-          }).join('') + '</div></div></div>';
+          '<div class="wcol"><div class="wl" style="color:' + v('ink-2') + '">Today</div><div class="wmid"><div class="wr sp">' +
+          fitRows(users, box.ih - 19 - 6 + 8, urow, 52) + '</div></div></div></div>';
       }
       // TODAY'S TOP USERS (Extra Large): the house so far today (the Energy
       // page's own sum, hkEnergy.summary), then each device the Energy page
@@ -457,7 +460,7 @@
         var big = open.length ? '<div class="wb m">' + open.length + ' Open</div>' : '<div class="wb m ok">' + ok(24) + 'All Closed</div>';
         if (size === 'W') {
           return '<div class="wsplit"><div class="wcol" style="flex:0 0 170px">' + lab + big + '<div class="ws">' + esc(line) + '</div></div>' +
-            '<div class="wcol wr" style="justify-content:center">' + fitRows(list, box.ih, row) + '</div></div>';
+            '<div class="wcol wr t44" style="justify-content:center">' + fitRows(list, box.ih, row, 44) + '</div></div>';
         }
         // (T, L and XL, 2026-11-08, the owner: nothing stretches -- rows keep their 48 px, as many as fit with "N more", and the hero and
         // the rows are one group centered under the label; the figure is the hero's 72 where three rows still fit under it)

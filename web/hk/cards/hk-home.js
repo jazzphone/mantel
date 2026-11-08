@@ -2521,7 +2521,7 @@
         '  gap:' + PP.g + 'px;align-content:center;margin:' + PP.g + 'px 0}',
         '.pp .fc>*{grid-column:span 2}',
         '.pp .fc .pr,.pp .fc .mo{width:100%;height:100%;min-height:44px;justify-content:center}',
-        '.pp .fc .away .face{opacity:.45}',
+        '.pp .fc .away .face{opacity:.45}.pp .fc:not(.lg) .pr{cursor:inherit;pointer-events:none}',
         '.pp .line{flex:none;font-size:15px;line-height:' + PP.line + 'px;color:' + C.v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
         // (Wide: spread evenly, each with its name and where, in the middle of what the heading leaves)
         '.pp .wide{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:' + PP.gap + 'px;align-content:center;align-items:center}',
@@ -2551,11 +2551,11 @@
         '|' + (this._cellSize() || '') + '|' + (this._blockKey || '');
     }
     // ONE PERSON'S FACE on a block, as a button opening their sheet (the
-    // caller closes it): their picture, else their initials, on their color
+    // caller closes it); on Small (2026-11-08, the controls audit) a plain face, the plate opens the sheet: their picture, else their initials, on their color
     _face(id, i, cls, sty) {
       var esc = C.esc, s = this.client.states[id], a = s.attributes || {}, nm = String(a.friendly_name || id);
       var ini = nm.split(/\s+/).filter(Boolean).slice(0, 2).map(function (w) { return w[0]; }).join('').toUpperCase();
-      return '<button class="pr' + (cls ? ' ' + cls : '') + '" data-id="' + esc(id) + '"' + (sty ? ' style="' + sty + '"' : '') + ' aria-label="' + esc(nm + ', ' + whereOf(s)) + '">' +
+      return (this._cellSize() === 'S' ? '<div class="pr' : '<button data-id="' + esc(id) + '" class="pr') + (cls ? ' ' + cls : '') + '"' + (sty ? ' style="' + sty + '"' : '') + ' aria-label="' + esc(nm + ', ' + whereOf(s)) + '">' +
         '<span class="face" style="--fc:' + C.ACCENTS[FACE[i % FACE.length]] + '">' +
         (a.entity_picture ? '<img alt="" data-initials="' + esc(ini) + '" src="' + esc(a.entity_picture) + '">' : esc(ini)) + '</span>';
     }
@@ -2589,7 +2589,7 @@
             ids.slice(0, fit).map(function (id, i) {
               var s = h.states[id], nm = String((s.attributes || {}).friendly_name || id);
               return self._face(id, i, s.state === 'home' ? 'home' : 'away', lastRow(i, tot, gr.c)) +
-                (lg ? '<b>' + esc(nm.split(/\s+/)[0]) + '</b><span>' + esc(whereOf(s) + (sz === 'XL' && iw / gr.c >= 120 ? sinceOf(s) : '')) + '</span>' : '') + '</button>';
+                (lg ? '<b>' + esc(nm.split(/\s+/)[0]) + '</b><span>' + esc(whereOf(s) + (sz === 'XL' && iw / gr.c >= 120 ? sinceOf(s) : '')) + '</span>' : '') + (lg ? '</button>' : '</div>');
             }).join('') + (cutf ? '<span class="mo" style="' + lastRow(fit, tot, gr.c) + '" aria-label="' + cutf + ' more"><span class="face">+' + cutf + '</span>' + (lg ? '<b>More</b>' : '') + '</span>' : '') +
             '</div>' + (lg ? ids.length ? '' : '<div class="line">Nobody added</div>' : '<div class="line">' + esc(ids.length ? this._line(ids) : 'Nobody added') + '</div>');
         } else if (sz === 'T') {

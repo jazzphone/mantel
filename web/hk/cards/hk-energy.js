@@ -3183,8 +3183,7 @@
         '@container (max-width:720px){.bt2{grid-template-columns:1fr;gap:20px;margin-top:30px}}',
         '.cell{position:relative;height:118px;border-radius:24px;border:6px solid var(--hk-battery-shell,rgba(255,255,255,.42));padding:6px;margin-right:16px;box-sizing:border-box}',
         '.cell:after{content:"";position:absolute;right:-16px;top:32px;width:10px;height:42px;border-radius:0 7px 7px 0;background:var(--hk-battery-shell,rgba(255,255,255,.42))}',
-        '.cell .fill{position:relative;overflow:hidden;height:100%;border-radius:13px;background:' + window.hkCards.v('battery-fill') + ';box-shadow:inset 0 1px 0 rgba(255,255,255,0.35);',
-        '  animation:growX 1.2s cubic-bezier(.22,.8,.25,1) backwards;transform-origin:0 50%;transition:width .6s ease}',
+        '.cell .fill{position:relative;overflow:hidden;height:100%;border-radius:13px;background:' + window.hkCards.v('battery-fill') + ';box-shadow:inset 0 1px 0 rgba(255,255,255,0.35);  animation:growX 1.2s cubic-bezier(.22,.8,.25,1) backwards;transform-origin:0 50%;transition:width .6s ease}',
         '.cell .fill.low{background:' + window.hkCards.v('battery-fill-low') + '}',
         '@keyframes growX{from{transform:scaleX(0)}}',
         '.hshim{position:absolute;top:0;bottom:0;width:35%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.45),transparent);animation:hRun 1.8s linear infinite}',
@@ -3195,12 +3194,10 @@
         '.cell .txt b u{text-decoration:none;font-size:18px;margin-left:2px;opacity:.8}',
         // ONE line under the level: the stored kWh and the backup time. Two
         // lines left the figures a few px off the fill's edges.
-        '.cell .txt span{font-size:14px;line-height:18px;font-weight:600;color:rgba(255,255,255,.9);margin-top:8px;text-shadow:0 1px 2px rgba(0,0,0,.25);padding-right:12px;',
-        '  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+        '.cell .txt span{font-size:14px;line-height:18px;font-weight:600;color:rgba(255,255,255,.9);margin-top:8px;text-shadow:0 1px 2px rgba(0,0,0,.25);padding-right:12px;  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
         // a mark is a tick through the battery's outline, top and bottom --
         // never a line through the figures inside it
-        '.mk{position:absolute;top:-10px;bottom:-10px;width:0;border-left:2px dashed;',
-        '  -webkit-mask-image:linear-gradient(to bottom,#000 22px,transparent 22px,transparent calc(100% - 22px),#000 calc(100% - 22px));',
+        '.mk{position:absolute;top:-10px;bottom:-10px;width:0;border-left:2px dashed;  -webkit-mask-image:linear-gradient(to bottom,#000 22px,transparent 22px,transparent calc(100% - 22px),#000 calc(100% - 22px));',
         '  mask-image:linear-gradient(to bottom,#000 22px,transparent 22px,transparent calc(100% - 22px),#000 calc(100% - 22px))}',
         '.mkl{position:absolute;bottom:calc(100% + 14px);transform:translateX(-50%);font-style:normal;font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;white-space:nowrap}',
         '.side2{display:flex;flex-direction:column;gap:14px;min-width:0}',
@@ -3234,7 +3231,10 @@
         '.bx .lft{flex:none;display:flex;flex-direction:column;align-items:center;justify-content:space-between;gap:10px;text-align:center}.bx .lft>.wl{align-self:stretch;text-align:left}',
         '.bx .rt{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0}',
         '.bx .wbars{flex:1;min-height:40px;margin-top:8px}',
-        '.bx .wgrid{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px 10px;margin-top:12px}.bx .wgrid span{font-size:17px}'
+        '.bx .wgrid{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px 10px;margin-top:12px}.bx .wgrid span{font-size:17px}',
+        // (THE FOUR FIGURES ARE TARGETS, 2026-11-08, the controls audit: each 44 px tall at least, 12 px clear between them)
+        '.blg .wgrid>div,.bx .wgrid>div{min-height:44px;',
+        '  justify-content:center}'
       ].join('');
     }
     // a block also reads the Energy feature's sun, house and grid (and is
@@ -3318,7 +3318,7 @@
       this._paint('<div class="bx"><div class="lft" style="width:' + Math.max(xp, 200) + 'px">' + lab + ring(xp, face(xp, Math.round(xp * 0.21))) +
         (both ? '<div class="ws wrap">' + esc(both) + '</div>' : '') + '</div>' +
         '<div class="rt"><div class="wl" style="color:' + window.hkCards.v('ink-2') + '">Today</div>' +
-        '<div class="wbars">' + this._dayBars(c, lvl, col, b.iw - Math.max(xp, 200) - 24, Math.max(40, b.ih - 19 - 8 - 19 - 12 - 40)) + '</div>' +
+        '<div class="wbars">' + this._dayBars(c, lvl, col, b.iw - Math.max(xp, 200) - 24, Math.max(40, b.ih - 19 - 8 - 19 - 12 - 44)) + '</div>' +
         '<div class="waxis"><span>12 AM</span><span>6</span><span>12 PM</span><span>6</span></div>' +
         '<div class="wgrid">' + four(true) + '</div></div></div>');
     }
