@@ -173,7 +173,7 @@
       '.bar{position:relative;height:28px;border-radius:9px;background:rgba(255,255,255,0.10);margin-top:' + SP.block + 'px;overflow:hidden}',
       '.bar i{position:absolute;top:0;bottom:0;min-width:2px}',
       '.bar .q{position:absolute;top:0;bottom:0;width:1px;background:rgba(255,255,255,0.08)}',
-      '.axx{position:relative;height:14px;margin-top:8px;font-size:12px;line-height:14px;color:' + window.hkCards.v('ink-3') + '}',
+      '.axx{position:relative;height:14px;margin:8px 0 0;font-size:12px;line-height:14px;color:' + window.hkCards.v('ink-3') + '}',
       '.axx span{position:absolute;top:0;white-space:nowrap;transform:translateX(-50%)}',
       '.axx span:first-child{transform:none}.axx span:last-child{transform:translateX(-100%)}',
       '.map{position:relative;flex:1;min-height:280px;border-radius:' + SP.cardR + 'px;overflow:hidden;background:#1b1d22}',

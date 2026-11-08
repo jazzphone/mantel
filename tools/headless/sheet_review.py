@@ -39,8 +39,9 @@ ap.add_argument('--look', choices=['bright'])
 ap.add_argument('--wallpaper', default='ribbons_rose')
 args = ap.parse_args()
 
-# phone upright (small, common), phone on its side (small, common), iPad upright and on its side, the large iPad, the car
-SIZES = ['375x667', '390x844', '667x375', '844x390', '820x1180', '1180x820', '1366x1024', '1280x720']
+# phone upright (small, common), phone on its side (small, common), iPad upright and on its side, the large iPad, the
+# wall tablet (1280 x 800, the owner's), the car
+SIZES = ['375x667', '390x844', '667x375', '844x390', '820x1180', '1180x820', '1366x1024', '1280x800', '1280x720']
 NOW = gallery.NOW
 
 # entity_id -> (area, (state, attributes)): what the gallery's house lacks for a sheet of every kind
@@ -111,6 +112,11 @@ def faults(size, m, name=''):
     # (10: the thermostat's ring and the alarm's word sit a line's leading below the body's top)
     if h <= 500 and w > h and m['tb'] is not None and abs(m['tb'][0] - m['tb'][1]) > 10:
         out.append('top/bottom %s' % m['tb'])
+    # A SHEET NO TALLER THAN IT HAS TO BE (2026-11-07, the review): under its last thing, no more glass than its side
+    # margin and a line's worth (40) -- a sheet that does not scroll ends where it ends, as the house's tablet showed the
+    # thermostat's with 100 px of nothing under its modes
+    if m.get('foot') and m['scroll'] <= 2 and m['foot'][0] > m['foot'][1] + 40 and name not in SCROLLS:
+        out.append('bottom-heavy: %d under, %d at the side' % tuple(m['foot']))
     if m['small']:
         out.append('under 30: ' + ', '.join(m['small']))
     look = m.get('look')

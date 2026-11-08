@@ -117,7 +117,8 @@
           // the chart takes whatever height is left, so the right column is
           // exactly as tall as the dial column: tops AND bottoms line up
           ':host([wide]) .trend .axc{flex:1;min-height:72px;margin-top:8px}',
-          ':host([wide]) .trend .t{margin-bottom:0}'
+          ':host([wide]) .trend .t{margin-bottom:0}',
+          '.trend .nohist{flex:1;display:grid;place-items:center;min-height:72px;' + window.hkCards.typeCss('caption') + ';color:' + window.hkCards.v('ink-2') + '}'
         ].join('');
       }
       hkWidthKind() { return 'climate'; }
@@ -159,7 +160,9 @@
         var key = rows.length + '|' + (rows.length ? rows[rows.length - 1].lu : '') + '|' + at(live, 'current_temperature');
         if (!window.hkChart || key === this._trendKey) return;
         var pts = trendOf(rows, now, live);
-        if (pts.length < 2) return;
+        // NO HISTORY YET (2026-11-07, the review: a new install, a recorder that keeps none): the wide sheet keeps its
+        // card, saying so, so the right column still ends where the dial's does -- never a band of empty glass under it
+        if (pts.length < 2) { if (this.hasAttribute('wide')) this._noTrend('Inside, last 24 hours'); return; }
         this._trendKey = key;
         this._trend.hidden = false;
         // the wide sheet's trend is a real chart with both axes; a phone's is
@@ -170,6 +173,11 @@
                       colour: 'orange', fluid: wide });
         scrub(this._trend);
         this._alignTop();
+      }
+      _noTrend(title) {
+        this._trendKey = null;
+        this._trend.hidden = false;
+        this._trend.innerHTML = '<div class="t">' + title + '</div><div class="nohist">No readings in the last 24 hours</div>';
       }
       // THE RIGHT COLUMN STARTS WHERE THE DIAL IS SEEN TO START. The dial
       // card's ring has empty space above its track (the track's top is

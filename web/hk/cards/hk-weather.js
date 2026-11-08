@@ -3392,7 +3392,7 @@
       ':host{display:block;color:' + v('ink') + '}',
       '.wp{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:' + SP.region + 'px;align-items:start}',
       '.col{display:flex;flex-direction:column;gap:' + SP.block + 'px;min-width:0}',
-      '.wp.one{grid-template-columns:minmax(0,1fr)}',
+      '.wp.one{grid-template-columns:minmax(0,1fr)}' + /* TWO COLUMNS FILL THE SHEET (2026-11-07, the review; HomeView's Weather: the place's temperature centered, large, the condition and the day's range under it): the summary takes what the hours and conditions leave, its reading centered in it; the days share the right column's height */ '.wp:not(.one){flex:1;min-height:0;align-items:stretch}.wp:not(.one) .wx-summary,.wp:not(.one) .wx-days,.wp:not(.one) .dys{flex:1;display:flex;flex-direction:column;min-height:0}.wp:not(.one) .reading{flex:1;flex-direction:column;justify-content:center;text-align:center;gap:2px;margin-top:0}.wp:not(.one) .reading .t{font-size:56px;line-height:60px}.wp:not(.one) .dy{flex:1 1 0;min-height:44px}',
       '.wx-section{' + C.plate('card') + ';border-radius:' + SP.cardR + 'px;padding:' + SP.cardPad + ';background:' + v('key') + ';box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none;min-width:0}',
       '.lab{display:flex;justify-content:space-between;align-items:baseline;gap:' + SP.block + 'px;' + C.labelCss('label') + ';line-height:16px;margin:0}',
       '.lab .n{text-transform:none;letter-spacing:0;font-size:13px;font-weight:500;text-align:right}',

@@ -82,3 +82,8 @@ Detail sheets: see "Sheets" below.
 ## Build log
 
 - 2026-11-07: the band's clock (hk-weather.js `.bl` / `.band-clock`).
+- 2026-11-07: sheets. The wide thermostat and water heater keep their history card when there is no history yet ("No
+  readings in the last 24 hours"), so the right column ends with the dial's; the wide Weather sheet fills its height
+  (the summary centered and large, HomeView's Weather; the days share the right column); the Person sheet's history
+  axis starts at its bar (it took the charts' 48 px y-axis inset). `sheet_review.py` gains the owner's 1280 x 800 and
+  a bottom-heavy check (glass under a non-scrolling sheet's last thing beyond its side margin + 40).
