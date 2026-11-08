@@ -201,7 +201,8 @@ function () {
     b.client = client();
     b._render();
     var bh = String(b._root.innerHTML);
-    eq(z + ': ' + (z === 'W' || z === 'XL' ? 'across' : 'down') + ', every playlist in it', [bh.indexOf('class="cv ' + (z === 'W' || z === 'XL' ? 'x' : 'y') + '"') >= 0,
+    // (XL scrolls down since 2026-11-08: two rows and a peek, no cover above them)
+    eq(z + ': ' + (z === 'W' ? 'across' : 'down') + ', every playlist in it', [bh.indexOf('class="cv ' + (z === 'W' ? 'x' : 'y') + '"') >= 0,
        (bh.match(/data-i="/g) || []).length], [true, 3]);
   });
   // WHEN TAPPED: the Music page by default; Choose a Playlist, the playlists' sheet, Decades asking which next

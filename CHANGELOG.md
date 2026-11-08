@@ -6,6 +6,7 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 **Added**
 - **A Wide Accessory is a slider** for a light, a fan or a shade: the whole tile, as Control Center's -- drag across it to set the level, its fill in the thing's own color, its level at the right; a tap is still the tile's own.
+- **Music's Extra Large is a grid of playlists**: two rows and the next peeking, scrolling down (it was one row across under a large cover).
 - **An Accessory Group in Small**: two half-height pills (or one tile with Height: Full).
 - **Security's HomeView Extra Large keeps its keypad**, its locks and garage doors beside it as HomeView tiles or pills (Height), or the ones chosen under Entries.
 

@@ -46,7 +46,8 @@
     // ask keeps what it had and tries again after RECENT_RETRY.
     var RECENT_AGE = 10 * 60 * 1000, RECENT_RETRY = 60 * 1000;
     // [covers in the grid, columns, rows] by size (L and XL: the last above them)
-    var RECENT = { S: [0, 1, 1], W: [4, 4, 1], T: [6, 2, 3], L: [8, 4, 2], XL: [12, 6, 2] };
+    // (XL, 2026-11-08, the owner: "at least 2 rows of playlist with a vertical scroll": four across, two rows and a peek, no cover above)
+    var RECENT = { S: [0, 1, 1], W: [4, 4, 1], T: [6, 2, 3], L: [8, 4, 2], XL: [12, 4, 2] };
     function recentCovers(items) {
       var seen = {}, out = [];
       (items || []).forEach(function (it) {
@@ -148,7 +149,7 @@
       '.hr{height:1px;flex:none;margin:14px 0 4px;background:' + C.v('line') + '}',
       '.none{flex:1;display:grid;place-items:center;text-align:center;' + C.typeCss('caption') + ';color:' + C.v('ink-2') + '}',
       // ON A TILE CELL (196 x 150 a cell): a row fewer
-      '@container hk-cell (max-height:379px){.mu.T .cv{--r:2}.mu.L .cv,.mu.XL .cv{--r:1}}'
+      '@container hk-cell (max-height:379px){.mu.T .cv{--r:2}.mu.L .cv{--r:1}.mu.XL .cv{--n:6}}'   // (XL: its two rows kept, six across on a short cell -- 2026-11-08)
     ].join('');
 
     class HkRecentMusicCard extends HkBase {
@@ -200,8 +201,8 @@
         var s = this._size(), R = RECENT[s], items = tiles || this._items, list = items || [], self = this;
         // (a playlist's own name over its choices; Presets, the page's playlists)
         var lab = mode === 'presets' ? 'Playlists' : mode === 'playlist' ? (tiles[0] && tiles[0].artist !== 'Playlist' ? tiles[0].artist : 'Playlist') : 'Recently Played';
-        // (every cover past the first: the grid scrolls -- across in Wide and Extra Large, down in Tall and Large)
-        var last = list[0], more = s === 'W' || s === 'T' ? list.slice() : list.slice(1), axis = s === 'W' || s === 'XL' ? 'x' : 'y';
+        // (every cover past the first: the grid scrolls -- across in Wide, down in Tall, Large and Extra Large)
+        var last = list[0], more = s === 'W' || s === 'T' || s === 'XL' ? list.slice() : list.slice(1), axis = s === 'W' ? 'x' : 'y';
         // (still asking: the covers' places, empty)
         if (!items) { last = null; more = []; for (var i = 0; i < R[0]; i++) more.push(null); }
         var cell = function (it, i) {
@@ -209,7 +210,7 @@
                  self._cover(it) + '<span class="nm">' + (it ? esc(it.name) : '&nbsp;') + '</span></button>';
         };
         var grid = '<div class="cvw"><div class="cv ' + axis + '" style="--n0:' + R[1] + ';--r0:' + R[2] + '">' + more.map(function (it, j) {
-          return cell(it, s === 'W' || s === 'T' ? j : j + 1); }).join('') + '</div></div>';
+          return cell(it, s === 'W' || s === 'T' || s === 'XL' ? j : j + 1); }).join('') + '</div></div>';
         var lastBtn = '<button type="button" class="last" data-i="0"' + (last ? ' aria-label="Play ' + esc(last.name) + '"' : ' disabled') + '>' +
                       this._cover(last) + (s === 'S' && last ? '<span class="pl"><hk-icon icon="mdi:play"></hk-icon></span>' : '') + '</button>';
         // (no "Playlist" under a playlist where the label already says Playlists)
@@ -220,7 +221,7 @@
         else if (s === 'S') body = '<span class="bg">' + this._cover(last) + '</span><span class="sh"></span>' +
           (last ? '<button type="button" class="go" data-i="0" aria-label="Play ' + esc(last.name) + '"><hk-icon icon="mdi:play"></hk-icon></button>' : '') +
           '<div class="ft">' + words + '</div>';
-        else if (s === 'W' || s === 'T') body = '<span class="lab">' + lab + '</span>' + grid;
+        else if (s === 'W' || s === 'T' || s === 'XL') body = '<span class="lab">' + lab + '</span>' + grid;
         else body = '<div class="top">' + lastBtn + '<div class="col"><span class="lab">' + lab + '</span>' + words + '</div></div><div class="hr"></div>' + grid;
         this._root.innerHTML = '<hk-plate class="mu ' + s + '" data-hk-role="card">' + body + '</hk-plate>';
         var plate = this._root.querySelector('hk-plate');
