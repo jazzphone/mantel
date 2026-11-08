@@ -256,7 +256,7 @@
   // THE WIDE TILE, CENTRED (2026-11-07, the owner: every block uses its space and keeps equal margins all the way
   // round; a Scene, an Accessory and the Intercom at Wide are one layout): HomeView's tile laid sideways -- the glyph
   // bare at the size the Small tile draws it on that cell (TILE.centred: 64 on tiles, 82 on square cells), its box
-  // centered on a quarter of the block's width; the name over the room or state (17 / 16 on tiles, 21 / 20 on
+  // centered on a third of the block's width (a quarter left the pair 70 px from the left and 140 from the right; a third balances a name of usual length -- 2026-11-07); the name over the room or state (17 / 16 on tiles, 21 / 20 on
   // squares: the Small tile's) left-aligned a gutter (16 px) right of the glyph's box, the pair centered on the glyph's
   // middle, ending in an ellipsis at the block's right inset (--hk-pad-r). `s`: { host, well, icon, name, sub (a list),
   // temp (a thermostat's reading, in the glyph's place) } -- as hkCards.centredTile's, over its rules.
@@ -264,13 +264,13 @@
     var C0 = window.hkCards.TILE.centred, I = ' !important';
     var at = function (parts) { return parts.map(function (p) { return s.host + ' ' + p; }).join(','); };
     var one = function (g) {
-      var left = 'calc(25% + ' + (g.box / 2 + 16) + 'px)' + I;
+      var left = 'calc(33.33% + ' + (g.box / 2 + 16) + 'px)' + I;
       var text = 'left:' + left + ';right:var(--hk-pad-r,14px)' + I + ';text-align:left' + I + ';line-height:' + g.line + 'px' + I;
-      return at([s.well]) + '{left:25%' + I + ';top:50%' + I + ';width:' + g.box + 'px' + I + ';height:' + g.box + 'px' + I + '}' +
+      return at([s.well]) + '{left:33.33%' + I + ';top:50%' + I + ';width:' + g.box + 'px' + I + ';height:' + g.box + 'px' + I + '}' +
         at([s.icon]) + '{width:' + g.glyph + 'px' + I + ';height:' + g.glyph + 'px' + I + '}' +
         at([s.name]) + '{' + text + ';top:calc(50% - ' + g.line + 'px)' + I + ';font-size:' + g.name + 'px' + I + '}' +
         at(s.sub) + '{' + text + ';top:50%' + I + ';font-size:' + g.sub + 'px' + I + '}' +
-        (s.temp ? at([s.temp]) + '{left:25%' + I + ';top:50%' + I + '}' : '');
+        (s.temp ? at([s.temp]) + '{left:33.33%' + I + ';top:50%' + I + '}' : '');
     };
     return one(C0.tall) + '@container hk-cell (min-height:180px) or style(--hk-cell-shape: square){' + one(C0.square) + '}';
   }

@@ -34,7 +34,7 @@
     // one geometry). Home style: Apple Home's wide tile -- the 42 px well at the left inset, vertically centered, the name
     // (15 / 600) over the state (15 / 500) on 18.6 px lines beside it, the pair centered. Centered style: HomeView's tile laid
     // sideways -- the glyph bare, at the size the Centered Small tile draws it on that cell (TILE.centred tall or square: the
-    // box and the glyph), its box centered at 25 % of the block's width; the name over the state left-aligned, the text column
+    // box and the glyph), its box centered at a third of the block's width (balancing a name of usual length); the name over the state left-aligned, the text column
     // 16 px right of the glyph's box, the pair centered on the glyph's center, an ellipsis at the right inset. In its color's
     // gradient as Small has it. The Centred rules (hkCards.centredTile, all !important) are outvoted by longer selectors.
     var AW = ':host([size=W]) hk-plate.k', AH = ':host([size=W]:not([tile=centred])) hk-plate.k', AC = ':host([size=W][tile=centred]) hk-plate.k';
@@ -53,9 +53,9 @@
       AH + ' .tx .name{' + IMP('font-size:15px;font-weight:600;line-height:18.6px') + '}',
       AH + ' .tx .state{' + IMP('font-size:15px;font-weight:500;line-height:18.6px') + '}',
       // CENTERED STYLE
-      AC + ' .well{' + IMP('position:absolute;left:25%;top:50%;transform:translate(-50%,-50%);margin:0;background:none;border-radius:50%;width:var(--wbox);height:var(--wbox)') + '}',
+      AC + ' .well{' + IMP('position:absolute;left:33.33%;top:50%;transform:translate(-50%,-50%);margin:0;background:none;border-radius:50%;width:var(--wbox);height:var(--wbox)') + '}',
       AC + ' .icon{' + IMP('width:var(--wglyph);height:var(--wglyph)') + '}',
-      AC + ' .tx{' + IMP('position:absolute;left:calc(25% + var(--wbox) / 2 + 16px);right:var(--hk-pad-r,14px);top:50%;transform:translateY(-50%)') + '}',
+      AC + ' .tx{' + IMP('position:absolute;left:calc(33.33% + var(--wbox) / 2 + 16px);right:var(--hk-pad-r,14px);top:50%;transform:translateY(-50%)') + '}',
       AC + ' .tx .name{' + IMP('font-size:var(--wname);font-weight:600;line-height:var(--wline)') + '}',
       AC + ' .tx .state{' + IMP('font-size:var(--wsub);font-weight:400;line-height:var(--wline)') + '}',
       SQ + '{' + AW + '{--wbox:' + CT.square.box + 'px;--wglyph:' + CT.square.glyph + 'px;--wname:' + CT.square.name + 'px;--wsub:' + CT.square.sub + 'px;--wline:' + CT.square.line + 'px}}'
