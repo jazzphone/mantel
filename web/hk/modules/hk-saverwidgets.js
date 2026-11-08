@@ -159,12 +159,12 @@
     '.hksw .sep{flex:none;align-self:stretch;width:1px;margin:calc(var(--u) * 1.6) 0;background:currentColor;opacity:.2}',
     '.hksw .fcs{flex:1;min-width:0;display:flex;flex-wrap:wrap;align-items:center;align-content:flex-start;height:calc(var(--u) * 11);overflow:hidden;column-gap:calc(var(--u) * .8)}',
     '.hksw .fcs .sep{height:calc(var(--u) * 9.4);margin:calc(var(--u) * .8) calc(var(--u) * .8)}',
-    '.hksw .fc{flex:1 0 calc(var(--u) * 6.4);min-width:0;height:calc(var(--u) * 11);display:flex;flex-direction:column;justify-content:center;text-align:center;line-height:1.25;white-space:nowrap}',
-    '.hksw .fc.dy{flex-basis:calc(var(--u) * 9.6)}',
-    '.hksw .fc .t{opacity:.8;font-size:calc(var(--u) * 2.1)}',
-    '.hksw .fc svg{width:calc(var(--u) * 4.2);height:calc(var(--u) * 4.2);margin:calc(var(--u) * .4) auto}',
-    '.hksw .fc .v{font-size:calc(var(--u) * 2.5)}',
-    '.hksw .fc .v i{font-style:normal;opacity:.6}',
+    '.hksw .wfc{flex:1 0 calc(var(--u) * 6.4);min-width:0;height:calc(var(--u) * 11);display:flex;flex-direction:column;justify-content:center;text-align:center;line-height:1.25;white-space:nowrap}',
+    '.hksw .wfc.dy{flex-basis:calc(var(--u) * 9.6)}',
+    '.hksw .wfc .t{opacity:.8;font-size:calc(var(--u) * 2.1)}',
+    '.hksw .wfc svg{width:calc(var(--u) * 4.2);height:calc(var(--u) * 4.2);margin:calc(var(--u) * .4) auto}',
+    '.hksw .wfc .v{font-size:calc(var(--u) * 2.5)}',
+    '.hksw .wfc .v i{font-style:normal;opacity:.6}',
     // card: about 30 u wide, as tall as it draws, from one left edge
     // (a card with no backdrop has no padding: its words and its art on the margin, as every other piece's -- 2026-11-02, the
     // owner: the music "pushed to the right" of the weather under it. With a backdrop, the backdrop's edge is on the margin)
@@ -761,13 +761,15 @@
           return { main: w ? deg(w.temp) : DASH, says: w ? w.says || '' : '', cond: w ? w.cond : '', night: night(t), tf: fahr(X, w && w.temp, w && w.unit), hrs: hrs, days: days };
         },
         draw: function (s) {
-          var col = function (c, v) { return '<div class="fc"><div class="t">' + esc(c.t) + '</div>' + (c.c ? wxGlyph(c.c, c.n) : '<svg viewBox="0 0 24 24" aria-hidden="true"></svg>') + '<div class="v">' + v + '</div></div>'; };
+          var col = function (c, v) { return '<div class="wfc"><div class="t">' + esc(c.t) + '</div>' + (c.c ? wxGlyph(c.c, c.n) : '<svg viewBox="0 0 24 24" aria-hidden="true"></svg>') + '<div class="v">' + v + '</div></div>'; };
+          // (each column `wfc`, never `fc`: the screensaver's own forecast slide is .fc in the same shadow root, and its rules
+          // -- hidden, display:none under a generated clock -- hid every column, 2026-11-07)
           // (the hours and the days in one row that wraps out of sight: where the screen is too narrow for them all -- a
           // phone -- the last go first, the days, and never squeezed into each other, 2026-11-02)
           return '<div class="tod"><div class="tw"><div class="big">' + esc(s.main) + '</div>' + (s.cond ? wxGlyph(s.cond, s.night) : '') + '</div><div class="s1">' + esc(s.says || ' ') + '</div></div>' +
             '<div class="fcs">' +
             (s.hrs.length ? '<div class="sep"></div>' + s.hrs.map(function (c) { return col(c, esc(c.v)); }).join('') : '') +
-            (s.days.length ? '<div class="sep"></div>' + s.days.map(function (c) { return col(c, esc(c.hi) + ' <i>' + esc(c.lo) + '</i>').replace('class="fc"', 'class="fc dy"'); }).join('') : '') +
+            (s.days.length ? '<div class="sep"></div>' + s.days.map(function (c) { return col(c, esc(c.hi) + ' <i>' + esc(c.lo) + '</i>').replace('class="wfc"', 'class="wfc dy"'); }).join('') : '') +
             '</div>';
         },
         w: function () { return 80; },

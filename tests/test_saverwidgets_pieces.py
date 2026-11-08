@@ -183,7 +183,7 @@ print(JSON.stringify({ errors: errors, got: got, texts: texts, none: W.sample('w
     t = out["texts"]
     assert "64°" in t["weather_inline"] and "Cloudy" in t["weather_inline"]
     assert "H 72°" in t["weather_card"] and "L 55°" in t["weather_card"]
-    assert t["weather_band"].count('class="fc"') + t["weather_band"].count('class="fc dy"') == 10                       # six hours and four days
+    assert t["weather_band"].count('class="wfc"') + t["weather_band"].count('class="wfc dy"') == 10                       # six hours and four days
     assert "Night Harbor" in t["music_card"] and "The Fictional Trio" in t["music_card"] and "<img" not in t["music_card"]
     assert "Night Harbor" in t["music_inline"]
     assert "4:12" in t["timers_circ"] and "Pasta" in t["timers_card"]
@@ -307,7 +307,7 @@ r.warns = WARNS;
 print(JSON.stringify(r));
 """, before=SMALL_HOUSE + CTX + FAKES)
     assert out["warns"] == []
-    assert out["band"].count('class="fc"') + out["band"].count('class="fc dy"') == 10
+    assert out["band"].count('class="wfc"') + out["band"].count('class="wfc dy"') == 10
     assert "64°" in out["band"] and "Cloudy" in out["band"] and "8 PM" in out["band"] and "Tue" in out["band"] and "Fri" in out["band"]
     assert "Mon" not in out["band"]                                         # today is the Today block, not a day
     assert sorted(out["band_calls"]) == ["daily|weather.home", "hourly|weather.home"]
@@ -423,3 +423,16 @@ print(JSON.stringify(r));
     assert ">November 2, 2026<" in out["noday"]["html"] and out["twonoday"]["h"] == 36 and "dl" not in out["twonoday"]["html"]
     assert 'class="il dw-bold dc-upper"' in out["caps"]["html"] and out["pill2"] == 80
     assert "<span>Monday</span><span>November 2</span>" in out["sample"]
+
+
+def test_no_piece_wears_a_class_the_screensaver_styles_as_its_own():
+    """The pieces are drawn in the screensaver's shadow root, so a class it styles at its top level reaches them too: the
+    forecast band's hour and day columns were `.fc`, the forecast slide's, and its rules hid every one (2026-11-07)."""
+    import re
+    root = Path(__file__).resolve().parent.parent
+    pieces = (root / "web/hk/modules/hk-saverwidgets.js").read_text()
+    worn = {c for m in re.findall(r'class=\\?"([a-z0-9 -]+)', pieces) for c in m.split()}
+    saver = (root / "web/hk/saver/hk-saver-css.js").read_text()
+    # its own layers, styled bare or under :host(...): .fc, .fcb, .ph, .ck ...
+    own = set(re.findall(r"(?:^|['},]|\)\s)\s*\.([a-z][a-z0-9-]*)", saver, re.M))
+    assert not worn & own, sorted(worn & own)

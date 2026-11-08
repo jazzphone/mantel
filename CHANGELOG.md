@@ -4,6 +4,9 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Fixed**
+- **The screensaver's forecast along the bottom shows its hours and days again.** The weather Band showed only the temperature: its columns shared a class name with the screensaver's own forecast slide, whose rules hid them.
+
 ## 0.1.150 - 2026-11-07
 
 **Added**
