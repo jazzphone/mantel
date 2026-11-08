@@ -149,8 +149,9 @@ on a time column, so Tall's titles cut after five letters, and it was still most
 
 **What it is now:**
 
-- **A row** is the Timeline page's: the glyph on its kind's tint (or the row's picture, 44 square at the snapshots'
-  12, its glyph on a small badge in the kind's color), the title in the headline role, the room and who under it,
+- **A row** is the Timeline page's, with its glyph white on its kind's solid color, the Home app's lit well (a 22 %
+  tint all but vanished on the Blur look). A row with a picture shows the picture instead, 44 square at the snapshots'
+  12, its glyph on a small badge in the same color. Then the title in the headline role, the room and who under it,
   how long ago on the title's line ("Now", "4 min", "2 hr", then the clock, "Yesterday", the weekday). A row is 44
   high on Wide and Tall and 56 on Large and Extra Large, never grown. The block shows as many whole rows as fit, and
   what it read but could not show is "N more" in the label's line (the block reads the newest 25; "22+ more" when
@@ -159,16 +160,18 @@ on a time column, so Tall's titles cut after five letters, and it was still most
   radius, its glyph, title, room and "3 min ago" on it with the camera tiles' halo. At Tall and Large it takes the
   height the rows leave; at Extra Large it is the left half beside the rows. With no picture kept, **the newest event
   is the hero**: its glyph on a large well, its words in the title role (Large a row of 84; Tall and Extra Large
-  stacked and centered).
+  stacked and centered). With a few events at Large and Extra Large, the stacked hero and the rows under it are one
+  centered column, rather than the hero at the left and two rows floating at the right.
 - **Small** is HomeView's centered tile: the newest event's glyph in its kind's color, the thing ("Front Door",
   "Person", "Doorbell", "Alex"), and what it did and when ("Unlocked · 41m", "Front Door · 3m", "Armed night · Yest.").
 - **The morning summary** (`show: digest`, and Automatic from 5 to 11 AM) is glyphs, not lines. It leads with a
   status: what is still open or unlocked (orange), else how the house is right now (green), else "A quiet night" under
   a moon. The night's kinds are tiles of a fixed size, each with its glyph, count and name, as a centered group. At
   Large the night's newest picture sits between the status and a row of the kinds; at Extra Large it is beside them.
-  Tall lists the kinds as 44 px rows and Wide puts the status beside small tiles. A quiet night is the moon alone,
+  Tall lists the kinds as 44 px rows and Wide puts the status beside small tiles, as many as fit inside the inset. A quiet night is the moon alone,
   centered.
-- **Empty** (a new house): HomeView's centered tile on the plate -- the history glyph in teal, "Nothing yet", "Doors,
+- **Empty** (a new house) and **a quiet night** are scaled to their block: the glyph 56 px on Tall and 76 on Large and
+  Extra Large, the words in the title role, one group centered a touch above the middle. Empty is the history glyph in teal, "Nothing yet", "Doors,
   locks and cameras show up here". **A quiet day** (a row or two): the newest is the hero, the rest under it, and
   "Nothing earlier" closes the group, which is centered a touch above the middle.
 - **Taps:** a row opens what it stands for. A camera's row (doorbell, detection, motion) opens its camera, or the

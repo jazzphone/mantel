@@ -438,7 +438,7 @@
     '.hero:active{opacity:.85}',
     // THE MORNING SUMMARY: how the house is, in its glyph and a headline, and the night's kinds as tiles -- each its
     // glyph, its count, its name
-    '.st{display:flex;align-items:center;gap:12px;flex:none;min-width:0}',
+    '.st{display:flex;align-items:center;gap:12px;flex:none;min-width:0}.cols>.st{flex:1 1 0}',
     '.st .g{width:40px;height:40px;flex:none;display:flex;align-items:center;justify-content:center}',
     '.st .g hk-icon{width:34px;height:34px;--mdc-icon-size:100%}',
     '.st b{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;' + type('headline') + ';line-height:21px}',
@@ -464,9 +464,11 @@
     // the glyph at a third, the words under it
     '.calm{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:4px;padding-bottom:6%}',
     '.calm hk-icon{width:44px;height:44px;--mdc-icon-size:100%;margin-bottom:8px}.calm>div{display:flex;flex-direction:column;align-items:center;gap:3px}',
-    ':host([size=L]) .calm hk-icon,:host([size=XL]) .calm hk-icon{width:60px;height:60px;margin-bottom:12px}',
-    ':host([size=L]) .calm b,:host([size=XL]) .calm b{' + type('title') + ';line-height:27px}',
     '.calm b{' + type('headline') + ';line-height:21px}',
+    // (scaled to its block, 2026-11-08, the lead's review: Tall a 56 px glyph; Large and Extra Large 76, the title role)
+    ':host([size=T]) .calm hk-icon{width:56px;height:56px;margin-bottom:10px}',
+    ':host([size=L]) .calm hk-icon,:host([size=XL]) .calm hk-icon{width:76px;height:76px;margin-bottom:14px}',
+    ':host([size=L]) .calm b,:host([size=XL]) .calm b{' + type('title') + ';line-height:28px}',
     '.calm span{' + type('caption') + ';line-height:17px;color:' + v('ink-2') + ';max-width:260px}',
     '.calm.side{flex-direction:row;text-align:left;gap:14px;padding:0}.calm.side hk-icon{margin:0;flex:none}.calm.side>div{align-items:flex-start;gap:2px;min-width:0}',
     // the loading rows
@@ -611,7 +613,7 @@
       }
       // THE PICTURE TAKES WHAT THE ROWS LEAVE (Tall and Large: as many rows as fit under a picture of at least its
       // least, it the rest; Extra Large: half the block); the rows keep their own height
-      var room = box.ih - HEAD, heroEv = size === 'W' ? null : heroOf(all), hero = '', gap = 12, h = ROW_H[size] || 56, n;
+      var room = box.ih - HEAD, heroEv = size === 'W' ? null : heroOf(all), hero = '', gap = 12, h = ROW_H[size] || 56, n, few = false;
       if (heroEv) {
         var hr = rowView(heroEv, now, ctx), hh = room, hw = 0;
         rows = rows.filter(function (r) { return r.id !== hr.id; });
@@ -627,23 +629,26 @@
           '<div class="cap"><hk-icon icon="' + esc(hr.icon) + '" style="color:' + inkOf(hr.color) + '"></hk-icon><div class="tx"><b>' + esc(size === 'T' ? hr.a : hr.title) + '</b><span>' +
           esc(size === 'T' ? hr.agoLong : [hr.room, hr.agoLong].filter(Boolean).join(' · ')) + '</span></div></div></div>';
       } else if (size !== 'W') {
-        // (no picture: the newest event is the hero, large)
-        var ld = rows.shift(), up = size !== 'L', lh = size === 'L' ? 84 : size === 'T' ? 150 : room;
+        // (no picture: the newest event is the hero, large. A FEW EVENTS, Large and Extra Large: the hero stacked and the
+        // rest under it as one centered column -- not the hero left and two rows floating right, 2026-11-08)
+        few = (size === 'L' || size === 'XL') && 150 + gap + (rows.length - 1) * h <= room;
+        var ld = rows.shift(), up = size !== 'L' || few, lh = few ? 150 : size === 'L' ? 84 : size === 'T' ? 150 : room;
         hero = '<div class="lead' + (up ? ' up' : '') + '" role="button" tabindex="0" data-ev="' + esc(ld.id) + '" aria-label="' + esc(ld.title + ', ' + ld.agoLong) + '" style="height:' + lh + 'px' +
-          (size === 'XL' ? ';width:' + Math.round((box.iw - 18) / 2) + 'px' : '') + '">' + well(ld, up ? 72 : 56) + '<div><b>' + esc(size === 'T' ? ld.a : ld.title) + '</b>' +
+          (size === 'XL' && !few ? ';width:' + Math.round((box.iw - 18) / 2) + 'px' : '') + '">' + well(ld, up ? 72 : 56) + '<div><b>' + esc(size === 'T' ? ld.a : ld.title) + '</b>' +
           (size === 'T' ? '<span>' + esc(ld.b || ld.room) + '</span><span>' + esc(ld.agoLong) + '</span>'
                         : '<span>' + esc([ld.sub, size === 'XL' ? '' : ld.agoLong].filter(Boolean).join(' · ')) + '</span>' + (size === 'XL' ? '<span>' + esc(ld.agoLong) + '</span>' : '')) + '</div></div>';
-        if (size !== 'XL') room -= lh + gap;
+        if (size !== 'XL' || few) room -= lh + gap;
       }
       var fit = rowsFit(rows.length, room, h), shown = rows.slice(0, fit.n), more = rows.length - shown.length;
       var narrow = size === 'T', fits = !more && fit.rest >= 44;
       // (cut: the rows centered in their place, the few px left split above and below; all shown: the rows and a quiet
       // line as one group, centered a touch above the middle with the hero over them)
-      var list = '<div class="list' + (more || fits ? ' mid' : '') + (fits && size !== 'XL' ? ' fit' : '') + '">' + shown.map(function (r) { return self._row(r, h, narrow); }).join('') +
+      var single = size !== 'XL' || few;
+      var list = '<div class="list' + (more || fits ? ' mid' : '') + (fits && single ? ' fit' : '') + '"' + (few ? ' style="width:' + Math.min(box.iw, 420) + 'px;align-self:center"' : '') + '>' + shown.map(function (r) { return self._row(r, h, narrow); }).join('') +
         (fits ? '<div class="quiet">' + (shown.length ? 'Nothing earlier' : 'Nothing else') + '</div>' : '') + '</div>';
       var moreWord = more || this._capped ? (more || 0) + (this._capped ? '+' : '') + ' more' : '';
       var hd = head('Recent', moreWord);
-      if (size === 'XL' && hero) return hd + '<div class="cols">' + hero + list + '</div>';
+      if (size === 'XL' && hero && !few) return hd + '<div class="cols">' + hero + list + '</div>';
       var stack = (hero ? hero + '<div style="height:' + gap + 'px;flex:none"></div>' : '') + list;
       return hd + (fits ? '<div class="body grp">' + stack + '</div>' : stack);
     }
@@ -653,7 +658,7 @@
       if (narrow) return open + well(r, 32) + '<div class="tx"><div class="ti">' + esc(r.a) + '</div><div class="sb">' + esc([r.b || r.room, r.ago].filter(Boolean).join(' · ')) + '</div></div></div>';
       // (the badge on a picture: the kind's color, the glyph white -- a tint over a photograph reads as mud)
       var lead = r.thumb ? '<div class="ph"><img src="' + esc(r.thumb) + '" alt="" loading="lazy" decoding="async" draggable="false">' +
-        '<div class="ic" style="background:' + inkOf(r.color) + ';color:#fff">' + icon(r.icon, 14) + '</div></div>' : well(r, 38);
+        '<div class="ic" style="background:' + tint(r.color, 0.92) + ';color:#fff">' + icon(r.icon, 14) + '</div></div>' : well(r, 38);
       return open + lead + '<div class="tx"><div class="t1"><div class="ti">' + esc(r.title) + '</div><div class="tm">' + esc(r.ago) + '</div></div>' +
         (r.sub ? '<div class="sb">' + esc(r.sub) + '</div>' : '') + '</div></div>';
     }
@@ -679,12 +684,12 @@
       }
       var tiles = function (list, W, H, small, flush) {
         var t = small ? KIND_TILE.small : KIND_TILE.big, g = fitGrid(list.length, W, H, t[0], t[1], 10);
-        return '<div class="kt" style="max-width:' + Math.round(g.cols * (t[0] + 10) - 10) + 'px;align-self:center' + (flush ? ';margin-top:0;flex:none' : '') + '">' + list.slice(0, g.n).map(function (k) {
+        return '<div class="kt" style="width:' + Math.round(g.cols * (t[0] + 10) - 10) + 'px;max-width:100%;align-self:center' + (flush ? ';margin-top:0;flex:none' : '') + '">' + list.slice(0, g.n).map(function (k) {
           return '<div class="k' + (small ? ' s' : '') + '" title="' + esc(k.label) + '">' + tinted(k.icon, 24, k.color) + '<div class="n"><b>' + k.n + '</b><span>' + esc(k.label) + '</span></div></div>';
         }).join('') + '</div>';
       };
       // WIDE: the status left, the kinds as small tiles right
-      if (size === 'W') return hd + '<div class="cols" style="align-items:center">' + status + tiles(d.counts, (box.iw - 18) / 2, room, true, true) + '</div>';
+      if (size === 'W') return hd + '<div class="cols" style="align-items:center">' + status + tiles(d.counts, Math.floor((box.iw - 18) / 2), room, true, true) + '</div>';
       var picEv = heroOf(d.events), hr = picEv ? rowView(picEv, now, ctx) : null;
       var pic = function (w, h) {
         return '<div class="hero" role="button" tabindex="0" data-ev="' + esc(hr.id) + '" aria-label="' + esc(hr.title + ', ' + hr.agoLong) + '" style="height:' + h + 'px' + (w ? ';width:' + w + 'px' : '') + '">' +
@@ -710,9 +715,10 @@
   function head(label, right) {
     return '<div class="hd"><div class="wl" style="color:' + ACC.teal + '">' + esc(label) + '</div>' + (right ? '<div class="mr">' + esc(right) + '</div>' : '') + '</div>';
   }
-  // a row's glyph on its kind's tint (the Timeline page's .ic)
+  // A ROW'S GLYPH: white on its kind's solid color (the Home app's lit well; 2026-11-08, the lead's review -- a 22 %
+  // tint all but vanished on the Blur look's glass)
   function well(r, px) {
-    return '<div class="ic" style="background:' + tint(r.color, 0.22) + ';color:' + inkOf(r.color) + '">' + icon(r.icon, Math.round(px * 0.56)) + '</div>';
+    return '<div class="ic" style="background:' + tint(r.color, 0.92) + ';color:#fff">' + icon(r.icon, Math.round(px * 0.56)) + '</div>';
   }
   // SMALL'S SECOND LINE: what it did and when, short enough for the tile ("Unlocked · 41m", "Armed night · Yest.")
   function tileLine(r) {
