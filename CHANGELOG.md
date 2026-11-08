@@ -4,6 +4,15 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Added**
+- **A Wide Accessory is a slider** for a light, a fan or a shade: the whole tile, as Control Center's -- drag across it to set the level, its fill in the thing's own color, its level at the right; a tap is still the tile's own.
+- **An Accessory Group in Small**: two half-height pills (or one tile with Height: Full).
+- **Security's HomeView Extra Large keeps its keypad**, its locks and garage doors beside it as HomeView tiles or pills (Height), or the ones chosen under Entries.
+
+**Changed**
+- **Half-height pills fill their block to equal margins**, and a block's title sits on the same inset as its sides.
+- **Short wide tiles keep their words clear of the foot** (a Room's Wide tiles on square cells, for one).
+
 ## 0.1.153 - 2026-11-08
 
 **Added**

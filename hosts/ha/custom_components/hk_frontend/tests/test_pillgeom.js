@@ -71,6 +71,8 @@ var cc = window.hkCards.centredTile({ host: ':host([tile=centred])', plate: 'hk-
 check('the CSS is the table\'s: the name 600 at 21 px in a square cell, the room 400, centred', /@container hk-cell \(min-height:170px\) or \(max-aspect-ratio: 6 \/ 5\) or style\(--hk-cell-shape: square\)\{[^@]*\.name\{top:57\.7% !important;font-size:21px !important;line-height:27px !important\}/.test(cc) &&
       /\.label\{position:absolute[^}]*text-align:center[^}]*font-weight:400/.test(cc) && /\.name\{position:absolute[^}]*font-weight:600/.test(cc));
 check('...and only under the variant: every rule begins with its :host', cc.split('}').filter(function (r) { return r.trim() && r.indexOf('{') >= 0; })
-      .every(function (r) { return /^(@container hk-cell \(min-height:170px\) or \(max-aspect-ratio: 6 \/ 5\) or style\(--hk-cell-shape: square\)\{)?:host\(\[tile=centred\]\)/.test(r.trim()); }));
+      .every(function (r) { return /^(@container hk-cell (\(min-height:170px\) or \(max-aspect-ratio: 6 \/ 5\) or style\(--hk-cell-shape: square\)|\(max-height:140px\) and \(min-aspect-ratio: 6 \/ 5\))\{)?:host\(\[tile=centred\]\)/.test(r.trim()); }));
+// (a short wide tile, under 140 px, 2026-11-08: its words clear of the foot)
+check('a short wide tile: a 44 px glyph at 29 %, the name from 49 %', CT.short.glyph === 44 && CT.short.at === 29 && CT.short.text === 49 && /max-height:140px\) and \(min-aspect-ratio: 6 \/ 5\)\{[^@]*\.name\{top:49% !important/.test(cc));
 
 print(fail ? 'FAIL ' + fail + ' PILL GEOMETRY TESTS' : 'ALL ' + pass + ' PILL GEOMETRY TESTS PASS');

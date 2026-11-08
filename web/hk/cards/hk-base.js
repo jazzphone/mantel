@@ -246,7 +246,7 @@
     // (the glyphs 15 % larger, 2026-10-31, the owner with HomeView beside them: Apple's ink is ~30 % of the tile's
     // height -- the lock 34 of 120, the lights 39 -- and ours was 25 %)
     tall: { box: 64, glyph: 58, at: 31, text: 55, name: 17, sub: 16, line: 22 },
-    square: { box: 82, glyph: 76, at: 33, text: 57.7, name: 21, sub: 20, line: 27 },
+    square: { box: 82, glyph: 76, at: 33, text: 57.7, name: 21, sub: 20, line: 27 }, short: { box: 50, glyph: 44, at: 29, text: 49, name: 17, sub: 16, line: 21 },  // (short: a wide tile under 140 px, its words clear of the foot -- 2026-11-08)
     track: -0.3, inset: 10,
     // what of the glyph's box its drawing fills, whatever the glyph (hk-icon
     // `ink`): about 63 px of a 76 px box, HomeView's (2026-10-31, the alarm
@@ -375,7 +375,7 @@
       at(s.lit, s.sub) + '{color:' + v('ink-on-state') + I + '}' +
       // (square where 170 px tall or about square -- a Large Accessories block's ~179 px tiles, an XL group's 2 x 2 ~178, 2026-11-07; fit: grows past 196, <= 45cqmin)
       one(C0.tall) + '@container hk-cell (min-height:170px) or (max-aspect-ratio: 6 / 5) or style(--hk-cell-shape: square){' + one(C0.square) +
-        at('', [s.well]) + '{width:' + fit(C0.square.box) + I + ';height:' + fit(C0.square.box) + I + '}' + at('', [s.icon]) + '{width:' + fit(C0.square.glyph) + I + ';height:' + fit(C0.square.glyph) + I + '}}';
+        at('', [s.well]) + '{width:' + fit(C0.square.box) + I + ';height:' + fit(C0.square.box) + I + '}' + at('', [s.icon]) + '{width:' + fit(C0.square.glyph) + I + ';height:' + fit(C0.square.glyph) + I + '}}' + '@container hk-cell (max-height:140px) and (min-aspect-ratio: 6 / 5){' + one(C0.short) + '}';
   }
   // ONE TITLE ROW (the Energy page's): the name left, the detail right, one
   // baseline, 20 px tall. `sel` is the row (default .ttl); its <b> is the

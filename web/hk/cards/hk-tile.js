@@ -279,7 +279,7 @@
   // (g.box), the name a gutter under it, the second line a line under that, the capsule 10 px under that -- g: a cell's
   // numbers (TILE.centred.tall / .square), `pad`: that cell's inset, `q`: the container query it holds for ('' for tiles)
   function levelTile(g, pad, q) {
-    var H = ':host([tile=centred][level])', T = 'calc(var(--hk-pad-t,' + pad + 'px) + ', I = ' !important', name = g.box + 6;
+    var H = ':host([tile=centred][level][size=T])', T = 'calc(var(--hk-pad-t,' + pad + 'px) + ', I = ' !important', name = g.box + 6;
     var css = H + ' .lvl{position:absolute;margin:0;left:var(--hk-pad-l,' + pad + 'px);right:var(--hk-pad-r,' + pad + 'px);bottom:var(--hk-pad-b,' + pad + 'px);top:' + T + (name + 2 * g.line + 10) + 'px)}' +
       H + ' .well{top:' + T + g.box / 2 + 'px)' + I + '}' +
       H + ' .name{top:' + T + name + 'px)' + I + '}' +
@@ -675,7 +675,7 @@
     // capsule under the glyph and the words (hk-tile.js _levelDraw: `level` on the host), filling the rest of the plate on
     // the block's inset (--hk-pad-*, 14 on tiles, 18 on square cells); a thing with none (a switch, a lock) is the tile
     // with a larger glyph. Centered: the glyph over the name and the second line, all centered; Home: the glyph top left.
-    ':host([level]) hk-plate.card{position:relative;padding:var(--hk-pad-t,14px) var(--hk-pad-r,14px) var(--hk-pad-b,14px) var(--hk-pad-l,14px)}',
+    ':host([level][size=T]) hk-plate.card{position:relative;padding:var(--hk-pad-t,14px) var(--hk-pad-r,14px) var(--hk-pad-b,14px) var(--hk-pad-l,14px)}',
     ':host([level]) hk-plate.card:has(.lvl:active){transform:none;filter:none}',
     ':host([level]) .card.tall .grid{grid-template-areas:"i" "n" "l" "c" !important;grid-template-rows:44px auto auto minmax(0,1fr);row-gap:3px}',
     '.lvl{position:relative;grid-area:c;margin-top:10px;min-height:60px;box-sizing:border-box;border-radius:var(--hk-inner-radius,12px);overflow:hidden;',
@@ -692,6 +692,18 @@
     'hk-plate.card[data-hk-grad] .lvl b{color:#fff;text-shadow:none}',
     // (the words over the filled part are dark on it, whatever lies under the rest)
     'hk-plate.card .lvl.hi b{color:rgba(0,0,0,0.55);text-shadow:none}',
+    // WIDE (2026-11-08): the whole tile the slider -- a clear layer over it takes the drag, the fill a layer under the glyph and the words
+    // (the light's own color, softer, on the lit white plate; white on a gradient), the percent the tile's own second line
+    '.lvl.wide{position:absolute;inset:0;margin:0;min-height:0;grid-area:auto;border-radius:inherit;background:none !important;z-index:3;touch-action:pan-y}',
+    '.lvl.wide .fill{display:none}',
+    // (its level at the tile's right edge, on its own inset, the second line staying the room's)
+    '.lvl.wide b{left:auto;right:var(--hk-pad-r,18px);bottom:auto;top:50%;transform:translateY(-50%);text-align:right}',
+    '.lvbg{position:absolute;inset:0;border-radius:inherit;overflow:hidden;pointer-events:none;z-index:0}',
+    '.lvbg .fill{position:absolute;left:0;top:0;bottom:0;width:0;opacity:.28;background:' + window.hkCards.v('track-fill') + ';transition:width .18s ease}',
+    ':host([level]) hk-plate.card:has(.lvl.wide.drag) .lvbg .fill{transition:none}',
+    'hk-plate.card[data-hk-grad] .lvbg .fill{opacity:.3}',
+    ':host([level][size=W]) hk-plate.card{position:relative}',
+    ':host([level]) hk-plate.card:has(.lvbg) .grid{position:relative;z-index:1}',
     // CENTERED, the glyph and its words from the block's top inset, the capsule from under them (levelTile: the cell's numbers,
     // hk-base.js TILE.centred)
     levelTile(window.hkCards.TILE.centred.tall, 14, ''),
@@ -806,6 +818,7 @@
       this._lv = lv;
       if (!lv) {
         if (e.lvl) { e.lvl.remove(); e.lvl = null; }
+        if (e.lvbg) { e.lvbg.remove(); e.lvbg = null; }
         if (this.hasAttribute('level')) this.removeAttribute('level');
         return;
       }
@@ -817,13 +830,22 @@
         box.setAttribute('aria-valuemin', '0'); box.setAttribute('aria-valuemax', '100');
         box.innerHTML = '<i class="fill"></i><b></b>';
         e.grid.appendChild(box);
+        if (this._cellSize() === 'W') {
+          // WIDE: the slider is the whole tile -- its fill a layer under the glyph and the words (.lvbg), the drag a clear one over them
+          box.classList.add('wide'); box.setAttribute('data-hk-control', '');
+          e.grid.parentNode.appendChild(box);      // (over the whole plate, not the words' grid)
+          var bg = document.createElement('i'); bg.className = 'lvbg'; bg.innerHTML = '<i class="fill"></i>';
+          e.grid.parentNode.insertBefore(bg, e.grid.parentNode.firstChild);
+          e.lvbg = bg;
+        }
         e.lvl = box;
         this._levelWire(box);
       }
       var pct = this._lvDrag != null ? this._lvDrag : (this._lvHold && Date.now() < this._lvHold.until ? this._lvHold.pct : lv.pct);
       var fillEl = e.lvl.firstChild, label = e.lvl.lastChild;
       box = e.lvl;
-      fillEl.style.height = pct + '%';
+      if (e.lvbg) { fillEl = e.lvbg.firstChild; fillEl.style.width = pct + '%'; }      // (Wide: the fill under the words, across)
+      else fillEl.style.height = pct + '%';
       fillEl.style.background = fill || '';
       box.classList.toggle('hi', pct >= 22);
       box.classList.toggle('drag', this._lvDrag != null);
@@ -850,13 +872,24 @@
       box.addEventListener('pointerdown', function (ev) {
         if (ev.button > 0 || !self._lv) return;
         var r = box.getBoundingClientRect();
-        s = { id: ev.pointerId, x: ev.clientX, y: ev.clientY, pct: self._lv.pct, h: Math.max(1, r.height), moved: false };
+        s = { id: ev.pointerId, x: ev.clientX, y: ev.clientY, pct: self._lv.pct, h: Math.max(1, r.height), w: Math.max(1, r.width), moved: false, across: box.classList.contains('wide') };
         try { box.setPointerCapture(ev.pointerId); } catch (x) { /* a test page */ }
       });
       box.addEventListener('pointermove', function (ev) {
         if (!s || ev.pointerId !== s.id) return;
         var dy = ev.clientY - s.y;
         if (s.side) return;
+        if (s.across) {
+          // (Wide: across sets it; a drag that starts up or down is the page's scroll, and no tap)
+          var dx = ev.clientX - s.x;
+          if (!s.moved && Math.hypot(dx, dy) >= 6 && Math.abs(dy) > Math.abs(dx)) { s.side = true; return; }
+          if (!s.moved && Math.abs(dx) < 6) return;
+          s.moved = true;
+          ev.preventDefault();
+          self._lvDrag = Math.max(0, Math.min(100, Math.round(s.pct + dx / s.w * 100)));
+          self.redraw();
+          return;
+        }
         // (a drag that starts sideways is no one's here: pages swipe -- and it is no tap either)
         if (!s.moved && Math.hypot(dy, ev.clientX - s.x) >= 6 && Math.abs(ev.clientX - s.x) > Math.abs(dy)) { s.side = true; return; }
         if (!s.moved && Math.abs(dy) < 6) return;
@@ -879,6 +912,7 @@
       box.addEventListener('pointercancel', function (ev) { end(ev, false); });
       // a tap toggles (and is the capsule's, never the plate's); the click that ends a drag is the drag's
       box.addEventListener('click', function (ev) {
+        if (box.classList.contains('wide') && !eat) return;          // (Wide: a tap is the tile's own -- it falls through to the plate)
         ev.stopPropagation();
         if (eat) { eat = false; return; }
         if (self._lv) send(self._lv.toggle);
@@ -983,7 +1017,10 @@
       var on = !!this._isOn(st) || this._pressed();
       var layout = this._layout();
       // (a tall block's level, HomeView's Tall tile: this._levelDraw, below)
-      var lv = this._cellSize() === 'T' ? levelOf(cfg.entity, st) : null;
+      // (Wide too, 2026-11-08, the owner: "the Wide accessory ... the same function as the tall ... with a horizontal slider", for
+      // "anything that can slide like that": the whole Wide tile is the slider, as Control Center's -- a light, a fan, a shade)
+      var cs = this._cellSize(), lv = cs === 'T' || cs === 'W' ? levelOf(cfg.entity, st) : null;
+      if (lv && cs === 'W' && lv.what === 'volume') lv = null;
 
       if (!this._built) {
         this._root.innerHTML =
