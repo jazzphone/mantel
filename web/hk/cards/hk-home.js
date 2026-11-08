@@ -255,8 +255,7 @@
         '  border:' + window.hkCards.M.border + ';  box-shadow:var(--hk-look-shadow, ' + window.hkCards.v('glass-shadow-tall') + ');  --ha-ripple-hover-opacity:0;--ha-ripple-pressed-opacity:0}',
         '.vac .grid{display:grid;min-height:156px;  grid-template-areas:"ico label label label" "meta meta meta meta" "start pause locate home";  grid-template-columns:52px 1fr 1fr 1fr;  grid-template-rows:52px min-content 1fr;',
         '  column-gap:14px;row-gap:10px;align-items:center}',
-        '.vac .ico{grid-area:ico;justify-self:start;width:52px;height:52px;  border-radius:26px;display:flex;align-items:center;justify-content:center;',
-        '  background:' + window.hkCards.v('key-strong') + ';transition:background-color .25s ease}',
+        '.vac .ico{grid-area:ico;justify-self:start;width:52px;height:52px;  border-radius:26px;display:flex;align-items:center;justify-content:center;  background:' + window.hkCards.v('key-strong') + ';transition:background-color .25s ease}',
         // LIVE is green with dark ink -- the same "it is doing something right
         // now" signal the progress chip uses.
         '.vac .ico[data-live="1"]{background:rgba(48,209,88,0.95)}',
@@ -999,10 +998,8 @@
         '.dots button[aria-current="true"] i{background:' + window.hkCards.v('ink') + '}',
         // PHONE: one column and no sideways pages -- the page itself scrolls,
         // so every running timer is simply the next card down.
-        '@media (max-width:' + window.hkCards.BP.phone + 'px){  .grid.fit{grid-template-columns:minmax(0,1fr)}  .pages{display:block;overflow:visible;padding:0;margin:0}',
-        '  .pw{display:block}',
-        '  .page{grid-template-columns:minmax(0,1fr);grid-template-rows:none;grid-auto-rows:164px;margin:0 0 12px}',
-        '  .page:last-child{margin-bottom:0}',
+        '@media (max-width:' + window.hkCards.BP.phone + 'px){  .grid.fit{grid-template-columns:minmax(0,1fr)}  .pages{display:block;overflow:visible;padding:0;margin:0}  .pw{display:block}',
+        '  .page{grid-template-columns:minmax(0,1fr);grid-template-rows:none;grid-auto-rows:164px;margin:0 0 12px}  .page:last-child{margin-bottom:0}',
         '  .dots{display:none}',
         '}',
         '@media (prefers-reduced-motion: reduce){.dots i{transition:none}}'
@@ -2202,17 +2199,18 @@
         '  :host([size=S]) .gt hk-countdown{font-size:36px}',
         '  :host([size=W]) .gt hk-countdown{font-size:34px}',
         '}',
-        '@container hk-cell (min-height:360px){  :host([size=T]) hk-plate.strip{--ring:64px;--stop:48px}:host([size=T]) .gt hk-countdown{font-size:34px}',
-        '  :host([size=L]) hk-plate.strip{--ring:72px;--stop:48px}:host([size=L]) .gt hk-countdown{font-size:34px}:host([size=L]) .tg.k2 hk-countdown{font-size:48px}',
+        '@container hk-cell (min-height:360px){',
+        '  :host([size=T]) hk-plate.strip{--ring:64px;--stop:48px}:host([size=T]) .gt hk-countdown{font-size:34px}',
+        '  :host([size=L]) hk-plate.strip{--ring:72px;--stop:48px}:host([size=L]) .gt hk-countdown{font-size:34px}:host([size=L]) .tg.k2 hk-countdown{font-size:44px}',
         '}',
         // TALL AND LARGE (2026-11-07, the review): Tall stacks the running timers (two fit; "N more" at the foot, a
         // second place says Start another), Large puts up to four in a 2 x 2 -- fewer are bigger: one fills the
         // block, two are rows. Each is the same column as Small's: name, time, ring and Stop at its foot
-        ':host([size=T]) .tg,:host([size=L]) .tg.k1,:host([size=L]) .tg.k2{--cols:1}',
         '.tg.k1{--ring:112px;--stop:64px}:host([size=L]) .tg.k1 hk-countdown{font-size:72px}.tg.k1 .nm{font-size:17px}',
-        '.tg.k2 hk-countdown{font-size:40px}',
-        ':host([size=T]) .tg,.tg.k2{--rg:10px}.tg.k4{--rg:18px}:host([size=T]) .gt+.gt,.tg.k2 .gt+.gt{border-top:1px solid ' + window.hkCards.v('line') + ';padding-top:10px}',
+        '.tg.k2{--rg:10px}:host([size=L]) .tg.k2 hk-countdown{font-size:36px}',
+        ':host([size=T]) .tg{--rg:10px}.tg.k4{--rg:18px}:host([size=T]) .gt+.gt,.tg.k2 .gt+.gt{border-top:1px solid ' + window.hkCards.v('line') + ';padding-top:10px}',
         '.mf{flex:none;' + window.hkCards.typeCss('caption') + ';color:' + window.hkCards.v('ink-2') + ';text-shadow:' + window.hkCards.v('glow') + '}',
+        // (none running: the quick starts and + as round keys in a grid, --k to what the block leaves them)
         '.gt .qs.big{display:grid;grid-template-columns:repeat(var(--qc),minmax(0,1fr));grid-auto-rows:minmax(0,1fr);flex:1 1 auto;margin-top:0;padding-top:8px;gap:8px;place-items:center}',
         '.gt .qs.big button{flex:none;border-radius:50%;width:var(--k);height:var(--k);max-width:none;min-width:0;aspect-ratio:auto}',
         // NONE RUNNING (2026-10-31, the owner: Create a Timer "looks way off from our latest design"): the
@@ -2271,7 +2269,7 @@
       var presets = (window.hkSettings && window.hkSettings.get('headers.timers.presets', null)) || [5, 10, 15, 20, 30, 60];
       var short = (m) => m < 60 ? m + 'm' : m % 60 ? Math.floor(m / 60) + 'h' + (m % 60) : m / 60 + 'h';
       // (the block's room inside its inset: Tall's second place, Large's grid of keys and what fits are sized by it)
-      var b = this._block(), cs = getComputedStyle(this), pd = (k) => parseFloat(cs.getPropertyValue('--hk-pad-' + k)) || 14;
+      var b = this._block(), cs = typeof getComputedStyle === 'function' ? getComputedStyle(this) : null, pd = (k) => cs && parseFloat(cs.getPropertyValue('--hk-pad-' + k)) || 14;
       var iw = b ? b.w - pd('l') - pd('r') : 168, ih = b ? b.h - pd('t') - pd('b') : 286, big = sized === 'T' || sized === 'L';
       var idle = (n, sub, wide, qc) => {
         // (Tall and Large with none running: the quick starts and + as round keys in a grid filling the block, as large as it lets them)
@@ -2462,15 +2460,18 @@
   }
   // THE FACES' GRID on a Small or Large block: the columns and rows that draw them largest in (w x h), each cell a
   // finger's 44 at least with `tx` px of words under its face, the face to `cap`; ties go to the fuller grid, and
-  // with `one` (Small) a single row wins while its faces are 40 or more -- no 2 + 1 wrap. When they cannot all fit,
+  // with `one` (Small) a single row wins while its faces are 40 or more -- no 2 + 1 wrap; where there are words (Large) a grid with faces
+  // down to 80 % of the largest wins if it fills the block more, rows weighing most (3 as 2 + 1, not a row in the middle of it). When they cannot all fit,
   // as many as do, the last cell saying how many more. -> {c, f, fit}
   function faceGrid(n, w, h, tx, cap, one) {
-    var best = null;
+    var best = null, all = [];
     for (var c = 1; c <= Math.max(1, n); c++) {
       var r = Math.ceil(n / c), cw = (w - (c - 1) * PP.g) / c, ch = (h - (r - 1) * PP.g) / r - tx, f = Math.min(cw, ch, cap);
-      if (cw >= 44 && ch >= 44 && (!best || f > best.f + 0.5 || Math.abs(f - best.f) <= 0.5 && c * r >= best.c * best.r)) best = { c: c, f: f, r: r, fit: n };
+      if (cw >= 44 && ch >= 44) all.push({ c: c, f: f, r: r, fit: n, box: c * f * r * (f + tx) });
       if (one && c === n && cw >= 44 && ch >= 44 && f >= 40) return { c: c, f: f, fit: n };
     }
+    var top = all.reduce(function (m, x) { return Math.max(m, x.f); }, 0);
+    all.forEach(function (x) { if (x.f >= top * (tx ? 0.8 : 1) - 0.5 && (!best || x.box * (tx && n > 2 ? x.r : 1) >= best.box * (tx && n > 2 ? best.r : 1))) best = x; });
     if (best) return best;
     // (too many for the block: the most cells of 44 that it holds)
     var mc = Math.max(1, Math.floor((w + PP.g) / (44 + PP.g))), mr = Math.max(1, Math.floor((h + PP.g) / (44 + tx + PP.g)));
@@ -2591,7 +2592,7 @@
               return self._face(id, i, s.state === 'home' ? 'home' : 'away', lastRow(i, tot, gr.c)) +
                 (lg ? '<b>' + esc(nm.split(/\s+/)[0]) + '</b><span>' + esc(whereOf(s)) + '</span>' : '') + '</button>';
             }).join('') + (cutf ? '<span class="mo" style="' + lastRow(fit, tot, gr.c) + '" aria-label="' + cutf + ' more"><span class="face">+' + cutf + '</span>' + (lg ? '<b>More</b>' : '') + '</span>' : '') +
-            '</div>' + (lg ? '' : '<div class="line">' + esc(ids.length ? this._line(ids) : 'Nobody added') + '</div>');
+            '</div>' + (lg ? ids.length ? '' : '<div class="line">Nobody added</div>' : '<div class="line">' + esc(ids.length ? this._line(ids) : 'Nobody added') + '</div>');
         } else if (sz === 'T') {
           // (rows of 52 at least, a line for "N more" held back when some are cut)
           var room = ih - PP.lab - PP.g, rows = Math.max(1, Math.floor(room / 52));

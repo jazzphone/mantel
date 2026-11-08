@@ -78,7 +78,7 @@ def test_six_to_two_columns(cols):
     ([], "grid"),
     (grid(*[block(f"b{i}", "timers", "S", [i % 6, i // 6]) for i in range(25)], rows=6), "grid_items"),
     (grid(block("a1", "toaster", "S", [0, 0])), "grid_card"),
-    (grid(block("a1", "timers", "L", [0, 0])), "grid_size"),
+    (grid(block("a1", "timers", "XL", [0, 0])), "grid_size"),
     (grid(block("a1", "camera", "XL", [0, 0]), cols=2), "grid_fit"),
     (grid(block("a1", "thermostat", "T", [0, 3])), "grid_place"),
     (grid(block("a1", "camera", "L", [5, 0])), "grid_place"),
@@ -385,7 +385,7 @@ def test_rules_check_and_refuse():
     bad = [
         rules * 2,                                                                         # more than four
         [{"when": {"all": [{"kind": "music_playing"}] * 4}, "card": "now_playing"}],       # more than three conditions
-        [{"when": {"kind": "music_playing"}, "card": "timers"}],                           # timers don't come in L
+        [{"when": {"kind": "music_playing"}, "card": "cameras"}],                         # cameras don't come in L
         [{"when": {"kind": "time", "from": "09:00", "to": "09:00"}, "card": "now_playing"}],
         [{"when": {"kind": "time", "from": "9:00", "to": "10:00"}, "card": "now_playing"}],
         [{"when": {"kind": "time", "entity": "sun.sun", "from": "06:00", "to": "09:00"}, "card": "now_playing"}],
