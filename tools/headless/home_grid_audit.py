@@ -528,6 +528,9 @@ STATES: dict[str, dict] = {
               "entities": {"sensor.running_quick_timers": ("0", {"friendly_name": "Running Quick Timers", "running": []})},
               "events": False},
     # TIMERS (2026-11-08): one running, six (the Extra Large block's most), two with one held
+    # THE THERMOSTAT's other modes (2026-11-08): the block's thermostat (`--opts thermostat='{"entity": "climate.office"}'`) on Cool, on Off
+    "thermostat_cool": {"entities": {"climate.office": ("cool", {**EXTRA["climate.office"][1][1], "temperature": 72, "hvac_action": "cooling"})}},
+    "thermostat_off": {"entities": {"climate.office": ("off", {**EXTRA["climate.office"][1][1], "temperature": None, "hvac_action": "off"})}},
     "timers_one": {"entities": timers_state(1)},
     "timers_many": {"entities": timers_state(6)},
     "timers_paused": {"entities": timers_state(2, paused=(0,))},

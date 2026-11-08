@@ -91,7 +91,11 @@ H.run('CLIMATE BLOCKS', [
     H.section('the thermostat, Tall: the name, the targets between their arrows, the Mode key');
     var t = big('heat_cool', { target_temp_low: 68, target_temp_high: 72 }, 'T'), html = t.html();
     H.ok('cool over heat, each labelled in its colour, the picked (heat) on its plate', /class="tt cool"[\s\S]*<small>Cool to<\/small><b>72<\/b>[\s\S]*class="tt heat sel"[\s\S]*<small>Heat to<\/small><b>68<\/b>/.test(html), html.slice(0, 700));
-    H.ok('the name heads the block, the target with its arrows either side of it, then one Mode key that opens the sheet (the modes are the sheet\'s)', /class="hd"><button class="nm"[^>]*><b>Thermostat<\/b>[\s\S]*class="tgr"><button class="ar"[^>]*data-big-step="-1"[\s\S]*class="tg" data-big-num[\s\S]*data-big-step="1"[\s\S]*<button class="mb" type="button" data-tstat-details[^>]*>Mode · Auto ›<\/button>/.test(html) && !/class="mr"/.test(html), html);
+    H.ok('a range: the name heads the block, the two targets one above the other, the arrows in the picked one\'s row (a space in the other), then one Mode key that opens the sheet', /class="hd"><button class="nm"[^>]*><b>Thermostat<\/b>[\s\S]*class="rng" data-big-num[\s\S]*class="trow"><span class="ph"><\/span><button class="tt cool"[\s\S]*<span class="ph"><\/span><\/div><div class="trow sel"><button class="ar"[^>]*data-big-step="-1"[\s\S]*class="tt heat sel"[\s\S]*data-big-step="1"[\s\S]*<button class="mb" type="button" data-tstat-details[^>]*>Mode · Auto ›<\/button>/.test(html) && !/class="mr"/.test(html), html);
+    var sh = big('heat', { temperature: 68 }, 'T').html();
+    H.ok('one target: the arrows either side of it, the modes the sheet\'s', /class="tgr"><button class="ar"[^>]*data-big-step="-1"[\s\S]*class="tg" data-big-num[\s\S]*data-big-step="1"[\s\S]*class="mb"[^>]*>Mode · Heat ›/.test(sh) && !/class="rng"/.test(sh), sh);
+    var wd = big('heat_cool', { target_temp_low: 68, target_temp_high: 72 }, 'W').html();
+    H.ok('Wide: one Mode key, not four circles', /class="mq"><button class="mb"[^>]*>Mode · Auto ›<\/button><\/div>/.test(wd) && !/data-big-mode=/.test(wd), wd.slice(-400));
     H.ok('...no row of modes and no foot: the arrows flank the target', !/class="ff"/.test(html) && !/data-big-mode=/.test(html));
     var one = big('cool', { temperature: 74 }, 'T');
     H.ok('one target: its label and the number', /<div class="one cool"><small>Cool to<\/small><b>74<\/b><\/div>/.test(one.html()), one.html().slice(0, 300));

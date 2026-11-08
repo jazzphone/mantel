@@ -329,16 +329,16 @@
         // THE ROOMS, two across, each a row of its own size (48 px; nothing stretches, 2026-11-08, the owner: "do the rooms scroll in the card if there
         // are more than what the card allows? If not, it should"): as many as the block holds, the rest scrolling (a cut row says so); few
         // rooms are centered in what is left (data-fit: _fitRooms)
-        '.vb .rooms{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:48px;gap:8px;align-content:start;flex:1 1 auto;min-height:0;margin-top:6px;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;touch-action:pan-x pan-y;scrollbar-width:none}',
+        '.vb .rooms{display:grid;grid-template-columns:repeat(2,var(--vb-cw));justify-content:center;grid-auto-rows:48px;gap:8px;align-content:start;flex:1 1 auto;min-height:0;margin-top:6px;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;touch-action:pan-x pan-y;scrollbar-width:none}',
         '.vb .rooms::-webkit-scrollbar{display:none}.vb .rooms[data-fit]{align-content:center}',
+        // ...and no stretching across the width (2026-11-08): a room is --vb-cw wide (176 on Large, 170 on Extra Large -- two across and the gap
+        // nearly fill the column), the label, grid and keys one column of that width, centered in what the block's column leaves
+        '.vb[data-s=L]{--vb-cw:176px}.vb[data-s=XL]{--vb-cw:170px}.vb[data-r] :is(.lab,.rooms,.keys){width:calc(var(--vb-cw) * 2 + 8px);align-self:center;box-sizing:border-box}',
         // TALL AND WIDE with rooms on offer: the Rooms key opens the sheet that picks them, and says what is picked ("Kitchen, Office", "3 rooms")
-        '.vb .rrow{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:8px;flex:none;height:44px;padding:0 10px 0 16px;margin-top:10px;border-radius:22px;background:' + C.v('key') + ';color:' + C.v('ink-2') + ';font-family:inherit;font-size:15px;cursor:pointer}',
-        '.vb .rrow>span{flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.vb .rrow.on{color:' + C.v('ink') + ';font-weight:600}.vb .rrow hk-icon{flex:none;width:20px;height:20px;--mdc-icon-size:20px}',
-        '.vb .rrow:active{transform:scale(0.98)}.vb .rrow:focus-visible{outline:2px solid ' + C.v('ink-2') + ';outline-offset:2px}',
-        '.vb .pair{display:flex;gap:8px}.vb .pair .key.rm{flex:1 1 0;min-width:0;padding:0 8px;font-size:15px}.vb .pair .key.rm.on{font-weight:700}.vb .side .pair .key.dk{width:auto}.vb .pair .key.rm hk-icon{display:none}',
-        '.vb .rm-note{display:block;' + C.typeCss('caption') + ';font-weight:600;color:' + C.v('ink') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-        '.vb .vr{all:unset;box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:6px;min-width:0;padding:0 10px;cursor:pointer;',
-        '  border-radius:var(--hk-inner-radius, 12px);background:' + C.v('key') + ';color:' + C.v('ink') + ';font-family:inherit;font-size:13px;font-weight:600}',
+        '.vb .rrow{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:8px;flex:none;height:44px;padding:0 8px 0 14px;margin-top:10px;border-radius:22px;background:' + C.v('key') + ';color:' + C.v('ink-2') + ';font-family:inherit;' + C.typeCss('caption') + ';cursor:pointer}',
+        '.vb .rrow>span{flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.vb .rrow.on{color:' + C.v('ink') + ';font-weight:600}.vb .rrow hk-icon{flex:none;width:20px;height:20px;--mdc-icon-size:20px}.vb .rrow:active{transform:scale(0.98)}.vb .rrow:focus-visible{outline:2px solid ' + C.v('ink-2') + ';outline-offset:2px}',
+        '.vb .pair{display:flex;gap:8px}.vb .pair .key.rm{flex:1 1 0;min-width:0;padding:0 8px;font-size:15px}.vb .pair .key.rm.on{font-weight:700}.vb .side .pair .key.dk{width:auto}.vb .pair .key.rm hk-icon{display:none}.vb .rm-note{display:block;' + C.typeCss('caption') + ';font-weight:600;color:' + C.v('ink') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+        '.vb .vr{all:unset;box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:6px;min-width:0;padding:0 10px;cursor:pointer;  border-radius:var(--hk-inner-radius, 12px);background:' + C.v('key') + ';color:' + C.v('ink') + ';font-family:inherit;font-size:13px;font-weight:600}',
         '.vb .vr>span{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.vb .vr hk-icon{flex:none;width:16px;height:16px;--mdc-icon-size:16px}',
         '.vb .vr[aria-pressed=true]{background:' + SELECTED_BG + ';color:' + SELECTED_TEXT + '}',
         // EXTRA LARGE: the vacuum, its battery as a ring and its last run on the left; the rooms on the right
@@ -605,7 +605,7 @@
             '<span class="sub two">' + words(rest) + ran + '</span></div>') +
           '<div class="keys">' + key(go, 'go', true) + key(dock, 'dk', false) + '</div>';
       }
-      C.morph(this._root, '<hk-plate class="vb" data-s="' + sz + '" data-hk-role="card">' + html + '</hk-plate>');
+      C.morph(this._root, '<hk-plate class="vb" data-s="' + sz + '"' + (roomsOn && big ? ' data-r' : '') + ' data-hk-role="card">' + html + '</hk-plate>');
       this._fitRooms();
       if (!this._blockTaps) {
         // ONE LISTENER for the block: a room ticks, a key acts, anywhere else opens the vacuum's sheet
