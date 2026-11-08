@@ -62,6 +62,13 @@ CI_JOBS=22 ~/.venvs/mantel/bin/python tools/ci.py full --all  # ~220 s, not ~320
   own pace, so a busy machine slowing everything flags nothing. Each line says what to do: run the check in parts,
   cut its fixed waits, or look at what the change added. A warning never fails the run; read it before you push the
   change that caused it.
+- **What the release run leaves out** (2026-11-08, the owner: "a lot of these tests aren't needed"). A step with
+  `tier="by-hand"` runs only when named (`full --only NAME`), never in a whole run: the frame-timing checks
+  (`swipe-motion-check`, `pre-glass-motion-check`). The screensaver Shows' check runs each Show at its first size
+  (`--one-size`; whole, at three and four sizes, it was a third of the run's step time) and Swipe Between Pages at
+  three sizes; run either script by hand for every size. Before adding a browser check to `full`, ask what it guards
+  that the main suite can't, and give it the fewest engines and sizes that say so: a one-off bug's guard belongs in
+  the main suite or by hand.
 - **Waiting on the page, not the clock** (2026-11-02). The screensaver Shows' check (`saver_shows_check.cjs`
   `settle`) waits until the screensaver is still (nothing on the network, no fade running, its pictures and fonts in,
   what it draws unchanged a moment), never longer than the fixed wait it replaced: 1,822 s in all, not 2,163 s, the
@@ -285,8 +292,9 @@ swipe on a tile turns the page and back, the tab bar's highlight on the page's t
 rail); one on the scenes row, a slider or a block that swipes its pages does not; a Home Grid turns its views first
 and lands on its last view coming back; from the left 24 px the side menu opens; Off turns nothing; an up-and-down
 swipe still scrolls. `--engine`, `--size` and `--shots DIR` narrow it and keep the screenshots. `tools/ci.py full`
-runs it as `page-swipe-check-<engine>-<size>`, eight steps (`ci.py` `PAGE_SWIPE`, the check's own `ENGINE_SIZES`),
-skipped without `PLAYWRIGHT_PATH` or `NODE`.
+runs it as `page-swipe-check-<engine>-<size>`, three steps since 2026-11-08 (`ci.py` `PAGE_SWIPE`: the wall tablet in
+Chromium, the iPad and a phone in WebKit; the check's other `ENGINE_SIZES` run when it is run by hand), skipped without
+`PLAYWRIGHT_PATH` or `NODE`.
 
 ### How a swipe moves, frame by frame
 
@@ -299,8 +307,10 @@ tap on a settling page, rapid flicks through every page and back, repeated swipe
 the back button under a swipe, a tab to the page waiting beside this one, a new config, Reduce Motion's cross-fade, a Home
 Grid's hand-off, and a pager's glide. Times are not asserted; positions, order and state are. Chromium's finger is CDP's,
 WebKit's is synthetic pointer events, which say nothing of a real iPad: [Motion](Motion.md#what-a-browser-here-cannot-say).
-Without `PLAYWRIGHT_PATH` or `NODE` it says so and exits 2. `tools/ci.py full` runs it as `swipe-motion-check-<engine>-<size>`, four steps, skipped there (and counted as a skip)
-without them.
+Without `PLAYWRIGHT_PATH` or `NODE` it says so and exits 2. It is **by hand** since 2026-11-08 (the owner's call):
+`tools/ci.py full --only swipe-motion` runs its four steps (`swipe-motion-check-<engine>-<size>`), and a whole full run
+never does. In the full runs of 2026-11-05 to 11-07 it failed 20 times on a busy Mac's timing, more than any other step,
+and passed while swiping still felt wrong on the wall tablets. `pre-glass-motion-check` is by hand the same way.
 
 ### The screensaver's faces in WebKit
 

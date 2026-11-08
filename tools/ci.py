@@ -9,6 +9,7 @@ checks"). One runner, one table, one record:
     tools/ci.py full --all       # every step, whatever passed before
     tools/ci.py versions         # what reads the version files and changelogs (seconds): a release's re-check
     tools/ci.py full --only js   # only the steps whose name contains "js"
+    tools/ci.py full --only swipe-motion  # a by-hand check (swipe-motion, pre-glass-motion): never in a whole run
     tools/ci.py quick --skip-passed  # (the pre-push hook) a tree that already passed: only the commit messages
     tools/ci.py --list           # the steps of each tier
     tools/ci.py --install-hooks  # pre-commit: private words; pre-push: quick --skip-passed
@@ -62,7 +63,8 @@ CADDY_IMAGE = "mantel-caddy:ci"
 # the screensaver's Shows in parts side by side, each its own server and WebKit (2026-11-01: one part took ~7 minutes
 # of a full run's ~7 alone; the others end within ~4. 2026-11-02: every Look under every slide made each of four parts
 # ~510 s, the full run's last five minutes alone). This many until a run has timed them; then next_parts' count.
-SAVER_SHARDS = 8
+# (2026-11-08: a third of every full run's step time at three and four sizes; the release run checks each at one size)
+SAVER_SHARDS = 4
 # HOW LONG A STEP MAY TAKE (2026-11-02: the Shows' check grew from ~150 s to ~2000 s in one commit and nothing said so).
 # A check in parts is cut again so its longest part stays near PART_TARGET (next_parts), between MIN_PARTS and
 # MAX_PARTS; any step past STEP_BUDGET, or much slower than its own last runs, is named under the table (timing_warnings).
@@ -74,8 +76,9 @@ HISTORY = 10                                   # each step's last passed times k
 # engine's four were ~140 s together)
 # how a swipe moves (swipe_motion_check.py): a tablet and a phone per engine, each a step (one engine was 264 s)
 SWIPE_MOTION = {"chromium": ("1280x800", "390x844"), "webkit": ("1180x820", "390x844")}
-PAGE_SWIPE = {"chromium": ("1280x800", "800x1280", "390x844", "844x390"),
-              "webkit": ("1180x820", "820x1180", "390x844", "844x390")}
+# THE RELEASE RUN'S SIZES (the owner, 2026-11-08: "a lot of these tests aren't needed"): the wall tablet, the iPad and a
+# phone; the check's other sizes (page_swipe_check.py ENGINE_SIZES) run when it is run by hand
+PAGE_SWIPE = {"chromium": ("1280x800",), "webkit": ("1180x820", "390x844")}
 # Edit mode's sections that depend on the engine, the input or the size (edit_mode_check.py SECTIONS has the rest)
 EDIT_GESTURES = ("bar", "room", "pages", "menu", "still", "frost")
 LOCAL_ONLY = ("apple/Mantel.xcodeproj/project.pbxproj",)    # the signing team: changed here, never committed
@@ -116,7 +119,8 @@ def python() -> str:
 class Step:
     name: str
     cmd: list[str] | Callable[[], list[str]]
-    tier: str = "quick"                      # quick steps run in both tiers; full steps only in full
+    tier: str = "quick"                      # quick steps run in both tiers; full steps only in full; by-hand ones
+                                             # only when named (full --only NAME)
     skip: Callable[[], str | None] = lambda: None   # a reason to skip, checked just before the step runs
     env: dict[str, str] = field(default_factory=dict)
     cwd: Path | Callable[[], Path] = ROOT
@@ -306,7 +310,8 @@ def steps(build: Build | None = None, parts: dict[str, int] | None = None) -> li
                  timeout=900, skip=playwright_missing, **check_inputs("tools/headless/custom_sheet_check.py", e))
             for e in ("webkit", "chromium")]
     # Pre-rendered glass (Blur and Bright Glass) over a moving wallpaper, the real detector and painter (2026-11-07)
-    out.append(Step("pre-glass-motion-check", [py, "tools/headless/pre_glass_motion_check.py"], tier="full", timeout=600,
+    # (by hand since 2026-11-08, like swipe-motion below: a frame-timing check that fails on a busy Mac, not on a regression)
+    out.append(Step("pre-glass-motion-check", [py, "tools/headless/pre_glass_motion_check.py"], tier="by-hand", timeout=600,
                     skip=playwright_missing, **check_inputs("tools/headless/pre_glass_motion_check.py")))
     # the page beside the iPhone Duo's side strip, in WebKit (its insets stood in; 2026-10-30)
     out.append(Step("side-strip-check", [py, "tools/headless/side_strip_check.py"], tier="full", timeout=600,
@@ -317,7 +322,9 @@ def steps(build: Build | None = None, parts: dict[str, int] | None = None) -> li
                  tier="full", timeout=900, skip=playwright_missing, **check_inputs("tools/headless/page_swipe_check.py", e))
             for e, sizes in PAGE_SWIPE.items() for z in sizes]
     # ...and how it moves, frame by frame: the finger, the release, what comes in, a new finger mid-settle (2026-11-04)
-    out += [Step(f"swipe-motion-check-{e}-{z}", [py, "tools/headless/swipe_motion_check.py", "--engine", e, "--size", z], tier="full",
+    # BY HAND (the owner, 2026-11-08): 20 of the 33 failed full runs since 2026-11-05 were these four on timing noise, and
+    # they passed while swiping still felt bad on the tablets. Run them when working on swipes: full --only swipe-motion
+    out += [Step(f"swipe-motion-check-{e}-{z}", [py, "tools/headless/swipe_motion_check.py", "--engine", e, "--size", z], tier="by-hand",
                  timeout=900, skip=playwright_missing, **check_inputs("tools/headless/swipe_motion_check.py", e))
             for e, sizes in SWIPE_MOTION.items() for z in sizes]
     # a Home Grid block that swipes moves as a whole block, cut off in its gutter, in WebKit in four looks (2026-11-06)
@@ -349,8 +356,9 @@ def steps(build: Build | None = None, parts: dict[str, int] | None = None) -> li
     out.append(Step("looks-check", [py, "tools/headless/looks_check.py"], tier="full", timeout=900,
                     skip=playwright_missing, **check_inputs("tools/headless/looks_check.py")))
     # the screensaver's Shows the way a house starts them: a screen's settings -> the strategy -> the screensaver
-    # (in `shows` parts side by side, each every `shows`-th of its runs)
-    out += [Step(f"saver-shows-check-{i}of{shows}", [py, "tools/headless/saver_shows_check.py", "--shard",
+    # (in `shows` parts side by side, each every `shows`-th of its runs; each Show at its first size, 2026-11-08: the
+    # phone and portrait sizes run when the check is run by hand)
+    out += [Step(f"saver-shows-check-{i}of{shows}", [py, "tools/headless/saver_shows_check.py", "--one-size", "--shard",
                                                     f"{i}/{shows}"], tier="full", timeout=900, family="saver-shows-check",
                  skip=playwright_missing, **check_inputs("tools/headless/saver_shows_check.py"))
             for i in range(1, shows + 1)]
@@ -375,7 +383,7 @@ def version_readers(root: Path = ROOT) -> list[str]:
 
 
 def select(all_steps: list[Step], tier: str, only: list[str] | None = None) -> list[Step]:
-    chosen = [s for s in all_steps if in_tier(s, tier)]
+    chosen = [s for s in all_steps if in_tier(s, tier) or (only and tier == "full" and s.tier == "by-hand")]
     if only:
         chosen = [s for s in chosen if any(o in s.name for o in only)]
         build = [s for s in all_steps if s.name == "ha-build"]
