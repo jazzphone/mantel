@@ -264,9 +264,30 @@
     PROPS.forEach(function (p) {
       if (o[p][0]) el.style.setProperty(p, o[p][0], o[p][1]); else el.style.removeProperty(p);
     });
+    glassAlong(el, null);
   }
   function setX(el, x, base) {
     el.style.setProperty('transform', 'translateX(' + (+x).toFixed(1) + 'px)' + (base && base !== 'none' ? ' ' + base : ''));
+    glassAlong(el, x, base);
+  }
+  // THE GLASS GOES WITH THE PAGE (hkGlass.along; 2026-11-08): where the page is drawn, from the corner of its box, on
+  // the transition it moves by -- so Pre-rendered glass keeps its picture still under a moving page, rather than every
+  // layer on both pages blurring live for the whole swipe. Nothing is read: the box is the press's (measure, place). A
+  // page scaled aside (a full rail: `base`) can't keep a still picture under it, and blurs live as it did.
+  function glassAlong(el, x, base) {
+    var Gl = window.hkGlass;
+    if (!Gl || !Gl.along) return;
+    var st = ST, at = null;
+    if (x !== null && x !== undefined && !(base && base !== 'none') && st && st.rect) {
+      var here = st.items && st.items[st.at];
+      if (el === st.view) at = { left: st.rect.left, top: st.vtop || 0, path: here ? here.path : null };
+      else {
+        var all = Object.keys(st.nb).map(function (k) { return st.nb[k]; }).concat(st.spare || []);
+        all.forEach(function (N) { if (N && N.el === el && N.real) at = { left: N.left || 0, top: st.top, path: N.item ? N.item.path : null }; });
+      }
+    }
+    if (at) { at.x = +x || 0; at.tr = el.style.getPropertyValue('transition') || ''; }
+    try { Gl.along(el, at); } catch (e) { /* the glass is its own */ }
   }
   // where it is drawn right now, mid-transition too
   function drawnX(el, fallback) {
@@ -336,6 +357,7 @@
     if (base) view.style.setProperty('transform', 'none');
     var r = view.getBoundingClientRect();
     if (base) view.style.setProperty('transform', base);
+    st.vtop = r.top;
     var se = document.scrollingElement || document.documentElement, body = document.body;
     var scrolled = Math.max(window.scrollY || 0, se ? se.scrollTop : 0, body ? body.scrollTop : 0);
     var left = r.left, width = r.width || window.innerWidth || 1;
@@ -714,6 +736,8 @@
   // far; the card under the finger lets go (as it would for a scroll)
   function begin(e, dx) {
     G.live = true;
+    var Dm = D();
+    if (!G.calm && Dm && Dm.motion) Dm.motion.begin('page');          // its frames counted on this device (hk-drag.js motion)
     G.x0 += Math.max(-START, Math.min(START, dx || 0));
     var st = G.stage, view = st.view;
     if (!G.calm) heat(st);
@@ -964,6 +988,8 @@
     if (A !== a) return;
     A = null;
     a.off();
+    var Dm = D();
+    if (Dm && Dm.motion) Dm.motion.end();
     var st = a.st;
     if (a.to) { arrive(st, a.to, a.dir, a.N, 0); return; }
     backHome(st);

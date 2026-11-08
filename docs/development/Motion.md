@@ -212,6 +212,52 @@ curve" failed now and then on that). They set off after the flush now, and lead 
 | Sky and wallpaper animation | inspected | CSS on the compositor; off under Reduce Motion, asleep and hidden. At rest with a page waiting beside Home: 77-91 ms of main thread over 12 s, against 77 (its cards' own timers) |
 | `hk-fps.js` | inspected | still samples only at rest, as it should; it no longer decides whether a tablet sees its pages |
 
+### The glass under a moving page (2026-11-08)
+
+The owner, after all of the above: swiping "still feels horrible on the tablets". The checks had passed; 20 of 83 local
+runs had failed only on timing noise. They slow the CPU, and a wall tablet's trouble was its GPU, which a slowed CPU never
+shows (Chromium's CPU throttling slows the page's main thread, not the compositor or the GPU process).
+
+The house: four of the five wall tablets wear Bright Glass in Pre-rendered mode (the Kitchen Shared Layer), on a Home
+Grid at 1280 x 800, device pixel ratio 1.5 to 2, a wallpaper sky. Rebuilt in the lab from the house's own screen settings
+(the devices fictional), with Chromium's compositor drawing in software, a stand-in for a weak GPU whose cost is the
+pixels it blends and blurs:
+
+| Living Room HomeView, ms to draw a frame | at rest | dragging | settling | the page it landed on |
+|---|---|---|---|---|
+| Pre-rendered, before | 11 | 25.5 | 33 | 24 (Weather), 19 (Home, swiped back) |
+| Pre-rendered, after | 11.8 | 12.2 | 21.7 | 6.4 (Weather), 8.1 (Home) |
+| Shared Layer, for comparison | 23.4 | 29.7 | 35 | 23.4 |
+| Clear (no blur on the cards) | 13 | 14 | 20.7 | 4.8 |
+
+Two causes, both in `web/hk/modules/hk-glass.js`:
+
+- **A page moved by a swipe went back to live blur.** The picture is fixed to the screen; a transformed page is the box its
+  fixed children sit in, so the picture moved with the page, was out of line, and every layer on both pages blurred
+  live until the landing: the lightest mode was the heaviest for exactly the moments a finger was on it.
+  `hkGlass.along` now hears where each page in the slot is (`hk-pageswipe.js` `glassAlong`, from `setX` and `restore`:
+  its x, its box's corner, its transition) and moves each picture back by as much, on the same transition: measured
+  frame by frame, the picture is 0 px off the screen's corner in Chromium in every moving frame (one frame 3.6 px in
+  WebKit, at a settle's start). A page waiting beside this one wears its own picture (the filter is painted into it:
+  Home's Bright Glass, Blur beside it), the one painted when it was last shown; a page never shown yet blurs live until it
+  has been. A layer in something scaled inside the page (a pager's track) can't line up, and blurs live as before.
+- **A page reached by a swipe blurred live for as long as it was up.** Its layers were made while it waited, fixed to the
+  screen by the swipe, and were taken for a sheet's (`overContent`): Weather after a swipe wore a 1253 x 1218 live blur,
+  loaded directly its picture. A page of the screen is never "over content" now.
+
+The settle's sky cross-fade adds about 6 ms a frame in the same measure; the Side Pane's and the tab bar's following add
+under 1. Not changed.
+
+**The tablets measure their own swipes now.** `hkDrag.motion` counts each swipe's frames (a page, Home Grid's views, a
+block's pages) from its start to the frame after it lands, by `requestAnimationFrame`, which runs at the pace the screen
+is drawn; a frame over 25 ms after the last missed a refresh. Mantel's page sends what was counted once a minute
+(`web/shim/page-health.js`, a `motion` frame) and the log says, per tablet:
+
+    page health: tablet 'Living Room' swiped 3 times (2 page, 1 block): 42.9 frames a second while moving, 33% of frames
+    late, 95% within 60 ms, the worst 180 ms; bright_pre on living-room-homeview
+
+Read those, not a check on a Mac, for how a swipe feels on a tablet.
+
 ## What a browser here cannot say
 
 Headless Chromium and desktop WebKit on a fast Mac approximate a tablet; slowing the CPU approximates it further. None of

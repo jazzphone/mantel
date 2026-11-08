@@ -4,6 +4,12 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Fixed**
+- **Swiping between pages is lighter on the wall tablets in Pre-rendered glass.** While a page moved, its glass and the glass of the page coming in blurred live instead of wearing their picture, and a page reached by a swipe went on blurring live for as long as it was up. The picture now stays still under the moving pages, and each page keeps it after it lands (measured: half the drawing work in a drag, a third less in the settle, and a quarter of it on the page it lands on).
+
+**Added**
+- **Each wall tablet reports how its swipes are drawn.** Once a minute after swiping, Mantel's log says how many frames a second the tablet drew while a page or a block moved, how many came late and the worst one, with its glass style and screen.
+
 ## 0.1.151 - 2026-11-08
 
 **Added**

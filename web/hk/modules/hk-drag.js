@@ -142,7 +142,7 @@
       if (stopped) return;
       if (!t0) t0 = t;
       var e = t - t0;
-      if (e >= s.ms) { draw(x1); if (done) done(); return; }
+      if (e >= s.ms) { draw(x1); moEnd(); if (done) done(); return; }
       draw(s.at(e));
       raf = global.requestAnimationFrame(step);
     };
@@ -198,6 +198,7 @@
             return;
           }
           d.on = true;
+          moBegin('view');
           // (from here, not with a jump by the 10 px it waited; and a view still sliding is caught where it is)
           d.x += dx < 0 ? -10 : 10;
           d.from = grid._sliding ? drawnOff(grid) : 0;
@@ -245,6 +246,7 @@
       else if (Math.abs(off) > 0.5) grid._slideFor(c.ms);
       grid._slideMs = 0;
       grid._eatClick = Date.now();
+      setTimeout(moEnd, c.ms);
     }
   }
 
@@ -356,7 +358,69 @@
     };
   }
 
+  // HOW A SWIPE WENT, ON THIS DEVICE (2026-11-08). The swipe checks run on a
+  // Mac, with its CPU slowed down; a wall tablet's trouble was its GPU, which
+  // no slowed CPU shows, and the owner felt what no check caught. So each
+  // swipe counts its own frames, from the moment it begins to the frame after
+  // it lands: requestAnimationFrame runs at the pace the screen is drawn, and
+  // a frame more than LATE_MS after the last one missed a refresh. Nothing
+  // runs between swipes. page-health.js (Mantel's page) tells Mantel once a
+  // minute what was counted (a `motion` frame), so the log says, per tablet,
+  // how its swipes went.
+  //   motion.begin(kind)  something starts moving with a finger ('page' a
+  //                       page swipe, 'view' Home Grid's views, 'block' a
+  //                       block's pages); again while it runs: the same run
+  //   motion.end()        it has landed: counted to the next frame (a
+  //                       glide's end says it itself)
+  //   motion.take()       { swipes, frames, ms, late, worst, p95, kinds } since
+  //                       the last take, or null for none
+  var LATE_MS = 25, RUN_MAX_MS = 8000, GAPS_MAX = 2000;
+  var mo = { run: null, acc: null };
+  function moNow() { return typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now(); }
+  function moBegin(kind) {
+    if (typeof requestAnimationFrame !== 'function') return;
+    var r = mo.run;
+    if (r) { r.ending = false; return; }
+    r = mo.run = { kind: kind || 'page', t0: moNow(), last: 0, frames: 0, late: 0, worst: 0, gaps: [], ending: false };
+    var tick = function (t) {
+      if (mo.run !== r) return;
+      if (r.last) {
+        var gap = t - r.last;
+        r.frames++;
+        r.gaps.push(gap);
+        if (gap > LATE_MS) r.late++;
+        if (gap > r.worst) r.worst = gap;
+      }
+      r.last = t;
+      if (r.ending || t - r.t0 > RUN_MAX_MS) { moDone(r); return; }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }
+  function moEnd() { if (mo.run) mo.run.ending = true; }
+  function moDone(r) {
+    mo.run = null;
+    if (!r.frames) return;
+    var a = mo.acc || (mo.acc = { swipes: 0, frames: 0, ms: 0, late: 0, worst: 0, gaps: [], kinds: {} });
+    a.swipes++;
+    a.frames += r.frames;
+    a.ms += r.gaps.reduce(function (s, g) { return s + g; }, 0);
+    a.late += r.late;
+    a.worst = Math.max(a.worst, r.worst);
+    a.kinds[r.kind] = (a.kinds[r.kind] || 0) + 1;
+    if (a.gaps.length < GAPS_MAX) a.gaps = a.gaps.concat(r.gaps.slice(0, GAPS_MAX - a.gaps.length));
+  }
+  function moTake() {
+    var a = mo.acc;
+    mo.acc = null;
+    if (!a || !a.frames) return null;
+    var g = a.gaps.slice().sort(function (x, y) { return x - y; });
+    return { swipes: a.swipes, frames: a.frames, ms: Math.round(a.ms), late: a.late, worst: Math.round(a.worst),
+             p95: Math.round(g[Math.min(g.length - 1, Math.floor(g.length * 0.95))] || 0), kinds: a.kinds };
+  }
+
   global.hkDrag = { HOLD_MS: HOLD_MS, SLOP_TOUCH: SLOP_TOUCH, SLOP_MOUSE: SLOP_MOUSE,
+                    motion: { begin: moBegin, end: moEnd, take: moTake },
                     press: press, holdStill: holdStill, ghost: ghost, classify: classify,
                     sideways: sideways, SIDEWAYS: SIDEWAYS,
                     speed: speed, lands: lands, spring: spring, easing: easing, curve: curve, glide: glide, viewSwipe: viewSwipe };

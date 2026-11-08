@@ -156,7 +156,7 @@
     if (!(PRE && active)) return;
     wearNext();
     // no picture of this page yet: its layers blur live until there is one
-    if (!ownPicture()) eachLayer(function (L) { if (!L._hkOverlay) preUndress(L); });
+    if (!ownPicture()) eachLayer(function (L) { if (!L._hkOverlay && !aside(L)) preUndress(L); });
   }
   // the picture waiting for this page, on now
   function wearNext() {
@@ -507,8 +507,18 @@
   // lined up, so it blurs live (2026-10-10; it once went live only because
   // a sheet's opening transform put its picture out of line, and stayed
   // live for good).
+  // A PAGE OF THE SCREEN is not over anything (2026-11-08): the page a swipe
+  // keeps waiting beside this one is fixed to the screen by the swipe
+  // (hk-pageswipe.js place), and its layers, made then, were taken for a
+  // sheet's and blurred live for as long as the page was up -- every page
+  // reached by a swipe, on the wall tablets that chose Pre-rendered because
+  // live blur is what they can't afford (Weather reached by a swipe: a
+  // 1253 x 1218 live blur; loaded, its picture). Where a page is is the
+  // swipe's business: along(), below.
   function overContent(layer) {
+    var box = viewContainer();
     for (var n = flatParent(layer); n && n.nodeType === 1 && n !== document.documentElement; n = flatParent(n)) {
+      if (box && n.parentNode === box && VIEWS.indexOf(n.tagName) >= 0) return false;
       var pos = getComputedStyle(n).position;
       if (pos === 'fixed' || pos === 'sticky') return true;
     }
@@ -560,16 +570,21 @@
   // right by definition; the pinned glass keeps its fade.
   function ownPicture() { return fresh() && pre.path === skyAt(); }
   function preDress(L) {
-    if (!PRE || !ownPicture() || L._hkOverlay) { preUndress(L); return; }
+    var want = PRE && !L._hkOverlay ? pictureFor(L) : null;
+    if (!want) { preUndress(L); return; }
     // the live blur off FIRST: a backdrop-filter makes its own element the
     // box a fixed child sits in, so measured under it every picture would
     // read as out of line
     L.style.backdropFilter = 'none';
     L.style.webkitBackdropFilter = 'none';
     if (!L._hkPre) {
-      var img = preImg(pre.url);
+      var img = preImg(want), m = alongOf(L);
       L.appendChild(img);
-      if (!lined(img)) { img.remove(); preUndress(L); return; }
+      if (m) shiftPic(img, m);
+      // (a layer in something scaled inside the page -- a pager's track -- is
+      // out of line however the page is moved: it blurs live, and along()
+      // leaves it so until it is looked at again with the page at rest)
+      if (!lined(img)) { img.remove(); L._hkNoPic = true; preUndress(L); return; }
       L._hkPre = img;
     }
   }
@@ -577,9 +592,12 @@
   // wears the picture again (all in this task: never painted half-way)
   function preCheck(L) {
     if (L._hkOverlay) return;
-    if (L._hkPre) { if (!lined(L._hkPre)) preUndress(L); }
-    else preDress(L);
+    var m = alongOf(L);
+    if (!m) L._hkNoPic = false;
+    if (L._hkPre) { if (!lined(L._hkPre)) { L._hkNoPic = true; preUndress(L); } }
+    else if (!L._hkNoPic) preDress(L);
   }
+
   function preUndress(L) {
     var f = 'var(--hk-blur-filter,' + MAT + ')';
     if (L._hkPre) { L._hkPre.remove(); L._hkPre = null; }
@@ -587,6 +605,63 @@
     L.style.backdropFilter = f;
     L.style.webkitBackdropFilter = f;
   }
+  // ---- THE PAGE SWIPE: the picture stays where the screen is ----
+  // A page moved by a swipe is transformed, and a transformed page is the box
+  // its layers' fixed pictures sit in: they moved with it, out of line with
+  // the sky, so every layer on the page -- and on the page coming in --
+  // went back to live blur for the whole swipe (2026-11-08, the owner:
+  // swiping "still feels horrible on the tablets"). Measured on the house's
+  // Living Room HomeView with the compositor drawing in software, a stand-in
+  // for a wall tablet's GPU: 11.5 ms a frame at rest, 25 dragging, 33
+  // settling; Shared Layer's own 23 / 30 / 35. The swipe now says where each
+  // page in the slot is (hk-pageswipe.js along: its x, its box's corner, its
+  // transition), and each picture is moved back by as much, on the same
+  // transition: the cut-outs slide over a picture that holds still, as they
+  // do in a scroll. A page waiting beside this one wears ITS picture (the
+  // filter is in the picture: Home's Bright Glass, Blur beside it), the one
+  // painted when it was last shown (cache); a page never shown yet blurs
+  // live until it has been.
+  function alongOf(L) { var v = viewOf(L); return v && v.__hkAlong ? v.__hkAlong : null; }
+  // a layer of a page that isn't the one shown: it keeps its own picture
+  function aside(L) { var m = alongOf(L); return !!(m && m.path && m.path !== here()); }
+  function pictureFor(L) {
+    var m = alongOf(L), path = m && m.path;
+    if (!path) return ownPicture() ? pre.url : null;
+    if (pre.url && pre.path === path) return pre.url;
+    var c = cache.get(path), r = c && c.url ? pics.get(c.url) : null;
+    if (r && r.done) return c.url;
+    if (c && c.url) decoded(c.url);
+    return null;
+  }
+  // (its own fade kept beside it: __hkOpa, what wearAll gave it)
+  function shiftPic(img, m) {
+    var opa = img.__hkOpa !== undefined ? img.__hkOpa : 'opacity ' + PRE_FADE + 'ms linear';
+    var parts = [opa, m && m.tr && m.tr !== 'none' ? m.tr : ''].filter(Boolean);
+    img.style.transition = parts.length ? parts.join(', ') : 'none';
+    img.style.transform = m ? 'translate(' + (-(m.left + m.x)).toFixed(1) + 'px,' + (-m.top).toFixed(1) + 'px)' : '';
+  }
+  // `m`: { x, left, top, tr, path } -- the page `el` drawn x px from its
+  // box, whose corner is at left, top, moving on `tr`; null: back in its place
+  function along(el, m) {
+    if (!el) return;
+    el.__hkAlong = m || null;
+    if (!PRE || !active) return;
+    eachLayer(function (L) {
+      if (L._hkOverlay || viewOf(L) !== el) return;
+      var want = L._hkNoPic ? null : pictureFor(L);
+      if (!want) { if (L._hkPre) preUndress(L); return; }
+      if (L._hkPre && picOf(L._hkPre) !== want) { L._hkPre.remove(); L._hkPre = null; }
+      if (!L._hkPre) {
+        L.style.backdropFilter = 'none';
+        L.style.webkitBackdropFilter = 'none';
+        L._hkPre = preImg(want);
+        L.appendChild(L._hkPre);
+      }
+      // (the one it wore before, still fading out under it after a repaint, too)
+      Array.prototype.forEach.call(L.querySelectorAll('[data-hk-pre]'), function (img) { shiftPic(img, m); });
+    });
+  }
+
   function eachLayer(fn) { layers.forEach(function (rec) { rec.layers.forEach(function (L) { if (L.isConnected) fn(L); }); }); }
   // ---- PINNED: each its own slice of the picture ----
   // (in the surface's own CSS pixels: under a car dashboard's zoom `z` a
@@ -797,11 +872,13 @@
     var old = pre.url;
     pre.url = url; pre.path = path;
     eachLayer(function (L) {
-      if (L._hkOverlay) return;
+      if (L._hkOverlay || aside(L)) return;
       if (!L._hkPre) { preDress(L); return; }
       if (picOf(L._hkPre) === url) return;
       var was = L._hkPre, img = preImg(url);
       if (!same) img.style.transition = 'none'; else { img.style.transition = 'opacity ' + ms + 'ms linear'; img.style.opacity = '0'; }
+      var am = alongOf(L);
+      if (am) { img.__hkOpa = same ? 'opacity ' + ms + 'ms linear' : ''; shiftPic(img, am); }
       L.appendChild(img);
       L._hkPre = img;
       // THE OLD PICTURE GOES ONCE THE NEW ONE IS IN -- counted from when its
@@ -1487,6 +1564,9 @@
       if (PRE && active) pinAll(false);
     },
     unpin: function (el) { if (!el) return; pinned.delete(el); unpinEl(el); },
+    // THE PAGE SWIPE (hk-pageswipe.js): where page `el` is, as it moves
+    // (`m`: { x, left, top, tr, path }), or null once it is back in its place
+    along: along,
     repin: function () { if (PRE && active) pinAll(false); },
     // One update now, without waiting for a frame (debugging; a hidden tab
     // runs no animation frames).

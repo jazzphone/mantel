@@ -2612,8 +2612,8 @@
     _moving() {
       var pager = this._track && this._pager, self = this;
       if (!pager) return;
-      pager.classList.add('moving');
-      this.setAttribute('data-moving', '');
+      pager.classList.add('moving'); this.setAttribute('data-moving', '');
+      if (window.hkDrag && window.hkDrag.motion) window.hkDrag.motion.begin('block');     // counted to its glide's end (hk-drag.js)
       clearTimeout(this._stillT);
       this._stillT = setTimeout(function () {
         if (self._drag && self._drag.moved) { self._moving(); return; }
