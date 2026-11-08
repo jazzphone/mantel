@@ -180,9 +180,9 @@
       '.hd b{' + type('title') + ';font-weight:600;line-height:27px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
       '.hd small{' + type('caption') + ';color:' + v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
       '.col{display:flex;flex-direction:column;gap:10px;flex:1;min-width:0;min-height:0}',
-      '.rows{display:flex;flex-direction:column;justify-content:center;flex:1;min-height:0;min-width:0;overflow:hidden}',
-      '.row{display:flex;align-items:center;gap:10px;height:var(--rh,' + SEC_ROW + 'px);flex:none;box-sizing:border-box;border-bottom:1px solid ' + v('line') + ';min-width:0}',
-      '.row:last-child,.row.end{border-bottom:0}',
+      // (2026-11-08, the owner's rule -- a control is 44 px with 8 px clear round it: Wide's rows are keys, the room between them)
+      '.rows{display:flex;flex-direction:column;justify-content:center;gap:8px;flex:1;min-height:0;min-width:0;overflow:hidden}',
+      '.row{display:flex;align-items:center;gap:10px;height:' + SEC_ROW + 'px;flex:none;box-sizing:border-box;padding:0 14px;border-radius:' + (C.R.inner + 'px') + ';background:' + v('key') + ';min-width:0}',
       '.row hk-icon{width:20px;height:20px;--mdc-icon-size:100%;display:flex;flex:none;color:' + v('ink-2') + '}',
       '.row span{' + type('body') + ';flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
       '.row em{font-style:normal;' + type('caption') + ';color:' + v('ink-2') + ';white-space:nowrap;flex:none}',
@@ -198,7 +198,36 @@
       // side by side with Disarm under them (three 44 px keys in a row do not fit a block this narrow); the state's line may
       // take two lines, so "Office Window open" is read whole
       'hk-plate.sec[size=T] .arm{flex-wrap:wrap}hk-plate.sec[size=T] .arm button[data-m=off]{flex:1 1 100%}',
-      'hk-plate.sec[size=T] .hd small{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}',
+      'hk-plate.sec[size=T] .hd small{white-space:normal;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}',
+      // (2026-11-08, the owner's rule -- "anything that does not fit cleanly moves to the detail sheet": Tall is the alarm and its three
+      // ways to arm, the shield and the state centered in the room between them; the locks and doors are one tap away, in the alarm's
+      // sheet -- the heading, which says what is open, opens it)
+      'hk-plate.sec[size=T] .hd{flex:1 1 auto;flex-direction:column;justify-content:center;text-align:center;gap:8px}hk-plate.sec[size=T] .hd .wl{width:56px;height:56px}hk-plate.sec[size=T] .hd .tx{align-items:center;max-width:100%}',
+      // LARGE AND EXTRA LARGE (2026-11-08, the owner: "the touch points for the locks/garage door ... a tad bigger ... the keypad first,
+      // the locks and garage door represented cleanly and easy to interact with, then ... open windows and doors in a compact way"; and
+      // "entities in a card should maintain dimensions": NOTHING STRETCHES, DESIGN.md "Using the space"): the locks and the garage as
+      // tiles of ONE designed size -- 116 x 96 with the glyph over the name over its state, or, where that fits fewer, 150 x 64 with the
+      // glyph beside them -- as many as the room holds (what is left is "N more", a tile as big as the rest), the group centered, its
+      // last row centered too; each a tap that opens its sheet; one not secured the white of HomeView's lit tile. Under them one
+      // 44 px strip for the doors and windows (as wide as its words): "Doors & windows closed" (a tap opens that page), else the open ones
+      // (Extra Large: no heading -- the keypad's readout says the alarm's state, and the strip says what is open)
+      'hk-plate.sec.kp .hd{display:none}',
+      // (the tiles and the strip are one group, centered in what the heading and the keys leave: auto margins at its two ends)
+      '.ents{flex:1 1 0;min-height:0;width:100%;margin:0 auto;display:flex;flex-wrap:wrap;justify-content:center;align-content:center;gap:8px}',
+      '.ent{box-sizing:border-box;flex:none;min-width:0;border-radius:var(--hk-inner-radius,' + C.R.inner + 'px);' + C.plate('tile') + ';cursor:pointer;transition:transform ' + C.DUR.press + ' ease}',
+      '.ent:active{transform:scale(0.97)}',
+      '.ent .in{box-sizing:border-box;width:100%;height:100%;display:flex;align-items:center;gap:10px;padding:0 12px}',
+      '.ent hk-icon{width:26px;height:26px;--mdc-icon-size:100%;display:flex;flex:none;color:' + v('ink-2') + '}.ent.lk hk-icon{color:var(--lk)}',
+      '.ent .tt{display:flex;flex-direction:column;min-width:0}',
+      '.ent .n{' + type('body') + ';font-weight:600;line-height:19px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+      '.ent .s{' + type('caption') + ';line-height:17px;color:' + v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+      '.ents.st .ent .in{flex-direction:column;justify-content:center;text-align:center;gap:3px;padding:6px}.ents.st .ent hk-icon{width:34px;height:34px;margin-bottom:3px}.ents.st .ent .tt{align-items:center;max-width:100%}.ents.st .ent .n{font-size:17px;line-height:22px}.ents.st .ent .s{font-size:15px;line-height:20px}',
+      '.ent.open{background:#fff;--hk-glass-backdrop:none;-webkit-backdrop-filter:none;backdrop-filter:none}.ent.open .n{color:#000}.ent.open .s{color:' + v('ink-on-state') + '}.ent.open hk-icon{color:' + v('warn') + '}',
+      '.ops{display:flex;justify-content:center;gap:8px;flex:none;min-width:0}',
+      '.op{box-sizing:border-box;flex:0 1 auto;min-width:0;max-width:100%;height:44px;display:flex;align-items:center;justify-content:center;gap:8px;padding:0 18px;border-radius:22px;background:' + v('key') + ';cursor:pointer;color:' + v('ink-2') + ';-webkit-tap-highlight-color:transparent}',
+      '.op:active{background:' + v('key-strong') + '}.op hk-icon{width:20px;height:20px;--mdc-icon-size:100%;display:flex;flex:none}',
+      '.op span{' + type('body') + ';font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}',
+      '.op.open{color:' + v('warn') + ';text-shadow:' + v('glow') + '}',
       // (Extra Large: the alarm's keypad, its keys sized to the block)
       '.kpad{flex:0 0 264px;min-width:0;min-height:0}.kpad.side{flex-basis:330px}.kpad > *{display:block;height:100%}'
     ].join('');
@@ -221,12 +250,12 @@
       var locks = (kind('locks') || own(client, 'lock')).filter(function (id) { return dom(id) === 'lock' && st[id]; });
       locks.forEach(function (id) {
         var s = st[id].state, open = s === 'unlocked' || s === 'open';
-        out.push({ id: id, name: friendly(client, id), icon: open ? 'mdi:lock-open-variant' : 'mdi:lock', value: open ? 'Unlocked' : OFF[s] ? 'Unknown' : 'Locked', open: open, lock: !open });
+        out.push({ id: id, name: friendly(client, id), icon: open ? 'mdi:lock-open-variant' : 'mdi:lock', value: open ? 'Unlocked' : OFF[s] ? 'Unknown' : 'Locked', open: open, lock: !open, tile: true });
       });
       var garage = (kind('garage') || own(client, 'cover').filter(function (id) { return DOORS[attr(st[id], 'device_class')]; })).filter(function (id) { return st[id]; });
       garage.forEach(function (id) {
         var s = st[id].state, shut = s === 'closed' || s === 'off';
-        out.push({ id: id, name: friendly(client, id), icon: shut ? 'mdi:garage' : 'mdi:garage-open', value: shut ? 'Closed' : OFF[s] ? 'Unknown' : 'Open', open: !shut && !OFF[s] });
+        out.push({ id: id, name: friendly(client, id), icon: shut ? 'mdi:garage' : 'mdi:garage-open', value: shut ? 'Closed' : OFF[s] ? 'Unknown' : 'Open', open: !shut && !OFF[s], tile: true });
       });
       ['doors', 'windows'].forEach(function (k) {
         var dc = k === 'doors' ? 'door' : 'window';
@@ -298,11 +327,13 @@
           var head = '<div class="hd"><div class="wl"><hk-icon></hk-icon></div><div class="tx"><b></b><small></small></div></div>';
           var html = size === 'S' ? '<div class="wl"><hk-icon></hk-icon></div><div class="one"><div class="big"></div><div class="sub"></div></div>'
             : size === 'W' ? '<div class="side"><div class="wl"><hk-icon></hk-icon></div><div class="one"><div class="big"></div><div class="sub"></div></div></div><div class="rows"></div>'
-            : keys ? '<div class="kpad" data-notap></div><div class="col">' + head + '<div class="rows"></div></div>'
+            : keys ? '<div class="kpad" data-notap></div><div class="col">' + head + '<div class="ents"></div><div class="ops"></div></div>'
+            : size === 'L' ? head + '<div class="ents"></div><div class="ops"></div><div class="arm"><button type="button" data-m="home">Home</button><button type="button" data-m="away">Away</button><button type="button" data-m="off">Disarm</button></div>'
+            : size === 'T' ? head + '<div class="arm"><button type="button" data-m="home">Home</button><button type="button" data-m="away">Away</button><button type="button" data-m="off">Disarm</button></div>'
             : head + '<div class="rows"></div><div class="arm"><button type="button" data-m="home">Home</button><button type="button" data-m="away">Away</button><button type="button" data-m="off">Disarm</button></div>';
           this._root.innerHTML = '<hk-plate class="sec' + (keys ? ' kp' : '') + '" data-hk-role="card" size="' + size + '">' + html + '</hk-plate>';
           var q = this._root.querySelector.bind(this._root), all = this._root.querySelectorAll.bind(this._root);
-          this._e = { card: q('.sec'), wl: q('.wl'), icon: q('.wl hk-icon'), big: q('.big') || q('.hd b'), sub: q('.sub') || q('.hd small'), rows: q('.rows') };
+          this._e = { card: q('.sec'), wl: q('.wl'), icon: q('.wl hk-icon'), big: q('.big') || q('.hd b'), sub: q('.sub') || q('.hd small'), rows: q('.rows'), ents: q('.ents'), ops: q('.ops') };
           // the tap: Small the whole block, Wide its state, Large its heading -- the alarm's sheet, with its PIN
           var hit = size === 'S' ? this._e.card : size === 'W' ? q('.side') : q('.hd');
           this._button(hit, function () { if (self._config.tap !== 'none') self._tap(); });
@@ -361,6 +392,39 @@
           }
           e.card.style.setProperty('--lk', C.ACCENTS.teal);
         }
+        if (e.ents) {
+          // (the locks and the garage as tiles, the doors and windows as the strip under them; a house with no lock or garage
+          // door shows its doors and windows as the tiles)
+          var tiles = rows.filter(function (r) { return r.tile; }), ops = rows.filter(function (r) { return !r.tile; });
+          if (!tiles.length) { tiles = ops; ops = []; }
+          var tkey = JSON.stringify([tiles, ops]);
+          if (tkey !== this._tileKey) {
+            this._tileKey = tkey; this._tiles = tiles;
+            e.ents.innerHTML = ''; e.ops.innerHTML = '';
+            var mk = function (cls, html, label, fn) {
+              var d = document.createElement('div'); d.className = cls; d.innerHTML = html; self._button(d, fn); d.setAttribute('aria-label', label); return d;
+            };
+            tiles.forEach(function (r) {
+              var d = mk('ent' + (r.open ? ' open' : '') + (r.lock ? ' lk' : ''), '<div class="in"><hk-icon></hk-icon><div class="tt"><span class="n"></span><span class="s"></span></div></div>', r.name + ', ' + r.value, function () { window.hkShell.moreInfo(r.id, self); });
+              d.querySelector('hk-icon').icon = r.icon; d.querySelector('.n').textContent = r.name; d.querySelector('.s').textContent = r.value;
+              e.ents.appendChild(d);
+            });
+            var more = mk('ent more', '<div class="in"><hk-icon></hk-icon><div class="tt"><span class="n"></span></div></div>', '', function () { self._tap(); });
+            more.querySelector('hk-icon').icon = 'mdi:dots-horizontal'; more.style.display = 'none';
+            e.ents.appendChild(more); this._moreTile = more;
+            // (the strip: what is open, by name; else "All closed", a tap to the doors and windows page)
+            var open = ops.filter(function (r) { return r.open; }), go = function () { if (!window.hkCards.openTarget(self, [{ page: 'doors-windows' }, alarm && { sheet: alarm }])) self._tap(); };
+            if (ops.length && !open.length) e.ops.appendChild(mk('op', '<hk-icon></hk-icon><span>Doors & windows closed</span>', 'Doors and windows: all closed', go));
+            if (open.length) {
+              var d = mk('op open', '<hk-icon></hk-icon><span></span>', open.length + ' open: ' + open.map(function (r) { return r.name; }).join(', '), open.length === 1 ? function () { window.hkShell.moreInfo(open[0].id, self); } : go);
+              d.querySelector('hk-icon').icon = open[0].icon;
+              d.querySelector('span').textContent = open.length === 1 ? open[0].name + ' ' + open[0].value.toLowerCase() : open.map(function (r) { return r.name; }).join(', ');
+              e.ops.appendChild(d);
+            }
+            e.ops.style.display = e.ops.children.length ? '' : 'none';
+          }
+          e.card.style.setProperty('--lk', C.ACCENTS.teal);
+        }
         if (this._pad) {
           // the keys and their gaps fill the block's height: the readout, four rows of keys, the ways to arm
           var h = bk ? bk.h - 36 : 369;
@@ -368,17 +432,46 @@
         }
         this._fit();
       }
+      // THE TILES IN THE ROOM THEY HAVE (2026-11-08): each of one designed size, never grown (DESIGN.md "Using the space"): the stacked
+      // tile (116 x 96) or the tile in a row (150 x 64), the stacked one when it holds them all, else whichever holds more; as many as fit, the
+      // last place "N more" when there are more (the alarm's sheet); the group as even as it can be -- four are 2 + 2 -- and centered,
+      // its last row too
+      _fitTiles() {
+        var e = this._e, box = e.ents, list = this._tiles || [], n = list.length, G = 8, best = null;
+        box.style.flex = ''; box.style.height = ''; box.style.margin = '';    // (measured as the room the others leave)
+        var W = box.clientWidth, H = box.clientHeight;
+        // (the box takes the room the heading, the strip and the keys leave; its tiles keep their own size inside it)
+        if (!W || H <= 0) return;
+        (this._size() === 'XL' ? [[136, 112, true], [168, 64, false]] : [[116, 96, true], [150, 64, false]]).forEach(function (o) {
+          var across = Math.max(1, Math.floor((W + G) / (o[0] + G))), rows = Math.floor((H + G) / (o[1] + G)), cap = across * rows;
+          if (cap > 0 && (!best || (best.cap < n ? cap > best.cap : false))) best = { w: o[0], h: o[1], st: o[2], across: across, cap: cap };
+        });
+        if (!best) best = { w: 150, h: 64, st: false, across: 1, cap: 1 };
+        var show = n <= best.cap ? n : Math.max(0, best.cap - 1), slots = show < n ? show + 1 : show;
+        var rowsNeeded = Math.max(1, Math.ceil(slots / best.across)), c = Math.max(1, Math.ceil(slots / rowsNeeded));
+        box.classList.toggle('st', best.st);
+        box.style.maxWidth = (c * best.w + (c - 1) * G) + 'px';
+        box.style.flex = 'none'; box.style.height = (rowsNeeded * best.h + (rowsNeeded - 1) * G) + 'px'; box.style.margin = 'auto auto 0';
+        if (e.ops) e.ops.style.marginBottom = 'auto';
+        var all = Array.prototype.filter.call(box.children, function (k) { return k !== this._moreTile; }, this), vis = all.slice(0, show).concat(show < n ? [this._moreTile] : []);
+        all.concat(this._moreTile).forEach(function (k) { k.style.display = vis.indexOf(k) < 0 ? 'none' : ''; k.style.width = best.w + 'px'; k.style.height = best.h + 'px'; });
+        if (show < n) {
+          var t = (n - show) + ' more';
+          this._moreTile.querySelector('.n').textContent = t;
+          this._moreTile.setAttribute('aria-label', t + ': the alarm’s sheet');
+        }
+      }
       // THE LIST IN THE ROOM IT HAS: whole rows; what does not fit, "N more"
       _fit() {
         var e = this._e;
+        if (e && e.ents) return this._fitTiles();
         if (!e || !e.rows || !this._more) return;
         var list = Array.prototype.filter.call(e.rows.children, function (c) { return c !== this._more; }, this);
         var h = e.rows.clientHeight;
         if (!h) return;
-        var fits = Math.max(0, Math.floor((h + 1) / SEC_ROW)), cut = list.length > fits, show = cut ? Math.max(0, fits - 1) : list.length;
-        // (the rows share the room, 44 to 64 each: what is shown, or the shown and "N more", fills the middle -- 2026-11-07)
-        e.rows.style.setProperty('--rh', Math.max(SEC_ROW, Math.min(64, Math.floor(h / Math.max(1, cut ? fits : list.length)))) + 'px');
-        list.forEach(function (r, i) { r.style.display = i >= show ? 'none' : ''; r.classList.toggle('end', !cut && i === show - 1); });
+        var fits = Math.max(0, Math.floor((h + 8) / (SEC_ROW + 8))), cut = list.length > fits, show = cut ? Math.max(0, fits - 1) : list.length;
+        // (a row is 44 px, never grown -- 2026-11-08, "nothing stretches" -- 8 px between; what is shown, or the shown and "N more", stands centered in the room)
+        list.forEach(function (r, i) { r.style.display = i >= show ? 'none' : ''; });
         this._more.style.display = cut && fits > 0 ? '' : 'none';
         if (cut) {
           var t = (list.length - show) + ' more';

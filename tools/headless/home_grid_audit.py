@@ -503,6 +503,18 @@ STATES["wx_five"] = {"entities": {"weather.home": ("rainy", {"friendly_name": "H
 STATES["tv_art"] = {"entities": {f"sensor.channel_{n.replace('.', '_')}_now": _tv_now(n, name, on, i, l, f"/hk/landscapes/{k:02d}.webp")
                                  for k, (n, name, on, i, l) in zip((3, 15, 19, 42, 39, 22), TV)}}
 STATES["tv_noart"] = {"entities": {f"sensor.channel_{n.replace('.', '_')}_now": _tv_now(n, name, on, i, l, None) for n, name, on, i, l in TV}}
+# SECURITY'S STATES (2026-11-08, the owner: the locks, the garage and the open doors and windows at Large and Extra Large): armed
+# with everything locked and closed; triggered with a window open; disarmed with a lock unlocked, the garage open, a door and
+# a window open (the strip's "+N open"); and a big house -- six locks, two garage doors, a dozen doors and windows ("N more")
+_SECURE = {"domains": {"lock": "locked", "cover": "closed", "binary_sensor": "off"}}
+STATES["sec_armed"] = {"domains": dict(_SECURE["domains"], alarm_control_panel="armed_away")}
+STATES["sec_trig"] = {"domains": {"alarm_control_panel": "triggered", "lock": "locked", "cover": "closed"}}
+STATES["sec_open"] = {"domains": {"cover": "open", "binary_sensor": "on"},
+                      "entities": {"lock.front_door": ("unlocked", {"friendly_name": "Front Door"})}}
+STATES["sec_many"] = {"entities": {**{f"lock.extra_{i}": ("locked", {"friendly_name": n}) for i, n in enumerate(
+    ("Garage Entry", "Side Door", "Patio Door", "Basement Door"))},
+    "cover.garage_two": ("closed", {"friendly_name": "Workshop Door", "device_class": "garage"}),
+    **{f"binary_sensor.extra_window_{i}": ("off", {"friendly_name": f"Window {i}", "device_class": "window"}) for i in range(8)}}}
 STATE = {"name": "busy"}
 
 

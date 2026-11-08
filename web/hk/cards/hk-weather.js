@@ -1684,7 +1684,7 @@
         // EXTRA LARGE: the page in small. Each reading only when the house has it: feels like, humidity, wind, the chance
         // of rain (today's, else this hour's), the sun's next setting (its rising, after dark), UV, pressure, visibility and
         // dew point. (2026-11-08, the owner: the readings were bunched at the foot with glass above them: they fill the
-        // column's free height now, 8 on a square cell and 6 on a tile, and a short last row's readings share its width.)
+        // column as rows of one designed height (46 px on a square cell, 40 on a tile), up to six, centered, a short last row too.)
         if (sz === 'XL') {
           var rd = function (id, attr) { return id ? num((states[id] || {}).state) : num(a[attr]); };
           var feels = rd(src.feels, 'apparent_temperature'), hum = rd(src.humidity, 'humidity'), wind = rd(src.wind, 'wind_speed');
@@ -1699,12 +1699,12 @@
             ['mdi:white-balance-sunny', 'UV', uv !== null ? Math.round(uv) + ' ' + (uv < 3 ? 'Low' : uv < 6 ? 'Moderate' : uv < 8 ? 'High' : uv < 11 ? 'Very High' : 'Extreme') : null],
             ['mdi:gauge', 'Pressure', prs !== null ? (a.pressure_unit === 'inHg' ? prs.toFixed(2) : Math.round(prs)) + ' ' + (a.pressure_unit || '') : null],
             ['mdi:eye', 'Visibility', vis !== null ? Math.round(vis) + ' ' + (a.visibility_unit || '') : null], ['mdi:thermometer-water', 'Dew point', dew !== null ? Math.round(dew) + '°' : null]
-          ].filter(function (r) { return r[2]; }).slice(0, tile ? 6 : 8);
-          var per = tile ? 3 : 2, odd = reads.length % per;    // (6 grid columns: 2 readings across a square cell, 3 across a tile; a short last row shares them)
+          ].filter(function (r) { return r[2]; }).slice(0, 6);
+          var per = tile ? 3 : 2, odd = reads.length % per;    // (12 grid columns: 2 readings across a square cell, 3 across a tile; a short last row shares them)
           return done(this, plate('Weather forecast', '<div class="lc">' + top + (hrs.length ? hourCells(hrs) : '') +
             (reads.length ? '<div class="rds"' + (reads.length <= per ? ' style="flex:none"' : '') + '>' + reads.map(function (r, i) {
-              var span = odd && i >= reads.length - odd ? 6 / odd : 6 / per;
-              return '<span style="grid-column:span ' + span + '"><hk-icon icon="' + r[0] + '" aria-hidden="true"></hk-icon><small>' + esc(r[1]) + '</small><b>' + esc(r[2]) + '</b></span>';
+              var first = odd && i === reads.length - odd, st = first ? 'grid-column:' + (1 + (12 - odd * 12 / per) / 2) + ' / span ' + 12 / per : 'grid-column:span ' + 12 / per;
+              return '<span style="' + st + '"><hk-icon icon="' + r[0] + '" aria-hidden="true"></hk-icon><small>' + esc(r[1]) + '</small><b>' + esc(r[2]) + '</b></span>';
             }).join('') + '</div>' : '') + '</div>' +
             (allDays.length ? '<div class="rc"><b class="lab">' + allDays.length + '-Day Forecast</b>' + dayRows(allDays) + '</div>' : '')));
         }
@@ -2054,7 +2054,7 @@
           '.wb.XL{display:grid;grid-template-columns:276px minmax(0,1fr);column-gap:24px;align-items:stretch}.wb.XL .lc:only-child{grid-column:1/-1}',
           '.wb.XL .lc{display:flex;flex-direction:column;justify-content:space-between;gap:12px;min-width:0;min-height:0}',
           '.wb.XL .hrs{padding-top:10px}.wb.XL .hr{gap:2px}',
-          '.wb.XL .rds{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:0 14px;border-top:1px solid ' + RULE + ';flex:1 1 auto;min-height:0;grid-auto-rows:minmax(34px,52px);align-content:center;align-items:center}',
+          '.wb.XL .rds{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:0 14px;border-top:1px solid ' + RULE + ';flex:1 1 auto;min-height:0;grid-auto-rows:46px;align-content:center;align-items:center}',
           '.wb.XL .rds span{display:grid;grid-template-columns:18px minmax(0,1fr);column-gap:6px;align-items:center;min-width:0}',
           '.wb.XL .rds hk-icon{width:16px;height:16px;--mdc-icon-size:16px;color:' + C.v('ink-2') + ';display:block;line-height:0}',
           '.wb.XL .rds small{' + C.typeCss('caption') + ';line-height:16px;color:' + C.v('ink-2') + '}',
@@ -2065,7 +2065,7 @@
           '.wb.XL .days{border-top:0;padding-top:0;gap:8px}',
           // (on a tile: the readings three across, each its value under it)
           '@container hk-cell (max-height:380px){.wb.XL{grid-template-columns:288px minmax(0,1fr)}.wb.XL .lc{gap:8px}.wb.XL .hrs{padding-top:6px}' +
-            '.wb.XL .rds{column-gap:8px}.wb.XL .rds span{grid-template-columns:16px minmax(0,1fr);column-gap:4px}' +
+            '.wb.XL .rds{column-gap:8px;grid-auto-rows:40px}.wb.XL .rds span{grid-template-columns:16px minmax(0,1fr);column-gap:4px}' +
             '.wb.XL .rds b{grid-column:1/-1}}',
           // LARGE AND EXTRA LARGE FILL THEIR BLOCK (2026-11-01, the owner: "lots of space above and below"): the
           // temperature as large as the block's height allows, the hours' figures a step up, and the days sharing
@@ -2080,7 +2080,7 @@
           '.wb.L .day,.wb.XL .day{height:auto;min-height:20px;font-size:clamp(13px,3.8cqh,18px)}',
           '.wb.L .day svg,.wb.XL .day svg{width:clamp(18px,5cqh,26px);height:auto}',
           '.wb.L .day,.wb.XL .day{grid-template-columns:minmax(52px,auto) clamp(20px,5cqh,26px) 36px minmax(0,1fr) 36px}',
-          '.wb.XL .rc{justify-content:flex-start}.wb.XL .days{grid-auto-rows:clamp(26px,7.6cqh,32px);gap:4px;align-content:center}',
+          '.wb.XL .rc{justify-content:flex-start}.wb.XL .days{grid-auto-rows:32px;gap:4px;align-content:center}@container hk-cell (max-height:380px){.wb.XL .days{grid-auto-rows:26px}}',
           // (the 7-Day label on the place name's baseline, the owner, 2026-11-01: one line box for both, the smaller
           // label nudged down the 2 px its smaller type sits high)
           '.wb.XL .place-name,.wb.XL .rc .lab{line-height:22px}.wb.XL .rc .lab{padding-top:2px;margin-bottom:-2px}',
