@@ -6,7 +6,7 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 ## Unreleased
 
 **Added**
-- **A Wide Accessory is a slider** for a light, a fan or a shade (the whole tile, as Control Center's); **an Accessory Group in Small** (two half-height pills); **Music's Extra Large a grid of playlists**, two rows scrolling down; **Security's HomeView Extra Large keeps its keypad**.
+- **A Wide Accessory is a slider** for a light, a fan or a shade (the whole tile, as Control Center's); **an Accessory Group in Small** (two half-height pills); **Music's Extra Large the last played on top**, every playlist five across under it (and the Music block's Playlists lead with the one last played); **Security's HomeView Extra Large keeps its keypad**.
 
 **Changed**
 - **Half-height pills fill their block to equal margins**, titles sit on the block's inset, and short wide tiles keep their words clear of the foot.

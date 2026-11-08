@@ -6,7 +6,7 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 **Added**
 - **A Wide Accessory is a slider** for a light, a fan or a shade: the whole tile, as Control Center's -- drag across it to set the level, its fill in the thing's own color, its level at the right; a tap is still the tile's own.
-- **Music's Extra Large is a grid of playlists**: two rows and the next peeking, scrolling down (it was one row across under a large cover).
+- **Music's Extra Large leads with the last played**: its cover large at the top with Play beside it, and every playlist five across under it, scrolling sideways. In Playlists, Large, Extra Large and Small now lead with the playlist last played (anywhere: Music Assistant's own record), a choice of one (a decade) as itself.
 - **An Accessory Group in Small**: two half-height pills (or one tile with Height: Full).
 - **Security's HomeView Extra Large keeps its keypad**, its locks and garage doors beside it as HomeView tiles or pills (Height: Half by default, Full when chosen -- both now take), or the ones chosen under Entries. Entries offers the locks and garage doors (not every blind) and Choose starts from what Automatic shows; each chosen one is drawn, and the entries no longer go blank when the block changes shape (as in the editor's preview).
 
