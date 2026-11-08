@@ -2962,7 +2962,7 @@
                ':host([size]){overflow:hidden}' +
                ':host([size]) hk-plate.clock{' + window.hkCards.plate('card') + ';box-sizing:border-box;height:100%;' +
                'padding:' + window.hkCards.blockPad(window.hkCards.CARD.pad) + ';display:flex;flex-direction:column;justify-content:center;overflow:hidden}' +
-               ':host([size]) [data-hk-clock=clock]{min-width:0!important;width:100%}' +
+               ':host([size]) [data-hk-clock=clock]{min-width:0!important;width:100%}:host([size]) [data-hk-clock=clock],:host([size]) [data-hk-clock=clock] *{justify-content:center!important;align-items:center!important;text-align:center!important}' + /* centered on its block, StandBy's clock: equal margins all round (2026-11-07, the review) */
                ':host([size]) [data-hk-clock=date]{font-weight:500!important;letter-spacing:0!important}' +
                // BARE (the Clock block's Hide Box): the time on the wallpaper,
                // with the header's glow (`shadow`) to read on it
@@ -2971,8 +2971,8 @@
       // the clock's sizes by block: time, AM / PM, date (px)
       _gridSizes(sz) {
         // (L and the Full Width block, 2026-10-24: the Clock block comes in every size)
-        if (sz === 'XL' || sz === 'XXL') return ['clamp(72px, min(18cqw, 40cqh), 150px)', '26px', window.hkCards.TYPE.headline.size + 'px'];
-        if (sz === 'L') return ['clamp(56px, min(22cqw, 36cqh), 120px)', '24px', window.hkCards.TYPE.headline.size + 'px'];
+        if (sz === 'XL' || sz === 'XXL') return ['clamp(72px, min(24cqw, 50cqh), 200px)', '30px', window.hkCards.TYPE.headline.size + 'px'];
+        if (sz === 'L') return ['clamp(56px, min(25cqw, 42cqh), 150px)', '26px', window.hkCards.TYPE.headline.size + 'px'];
         if (sz === 'S') return ['min(40px, 20cqw)', '14px', window.hkCards.TYPE.caption.size + 'px'];
         // (Tall: one column wide -- its time and AM / PM ran past the plate's edge, 2026-10-30)
         if (sz === 'T') return ['min(56px, 22cqw)', '14px', window.hkCards.TYPE.caption.size + 'px'];

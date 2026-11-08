@@ -110,3 +110,4 @@ Detail sheets: see "Sheets" below.
 - 2026-11-07: Now Playing Extra Large (new; hk-media-now.js): the cover square at the inner radius on the left, the label, song, progress, transport and volume in the column beside it; the block's background option kept.
 - 2026-11-07: Clock (hk-grid-faces.js): a round face (Analog, Classic, Analog Numbers) in Wide, Tall, Extra Large and Full Width is as large as its block lets it, the weekday, date and time beside or under it.
 - 2026-11-07: On Now Tall's kinds share the height between the count and All Off (up to 60 px a row).
+- 2026-11-07: the digital Clock block centers its time and date (StandBy's clock), Large and Extra Large set the time larger to the block's width.
