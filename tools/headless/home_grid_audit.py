@@ -159,12 +159,25 @@ for _id, (_n, _items) in TODO.items():
 TV = [("4.1", "Channel 4", "Evening News", 37, 60), ("7.1", "Food", "Coastal Kitchens", 9, 30),
       ("9.1", "Comedy", "Night Owls", 24, 30), ("11.1", "Sports", "Evening Match", 54, 120),
       ("13.1", "Nature", "Wild Coasts", 12, 60), ("20.1", "Kids", "Story Time", 21, 30)]
+# (what is on's art: `image` on the now sensor, as the Live TV page's tiles draw it behind the channel -- these stand-ins are the
+# site's own landscapes; the audit's default house has it on four channels and not on two, Live TV's mixed state)
+TV_ART = {"4.1": "/hk/landscapes/03.webp", "7.1": "/hk/landscapes/15.webp", "9.1": None, "11.1": "/hk/landscapes/42.webp",
+          "13.1": "/hk/landscapes/39.webp", "20.1": None}
+
+
+def _tv_now(no, name, on, mins_in, mins_long, image):
+    attrs = {"friendly_name": f"{name} Now", "subtitle": "",
+             "start": time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(time.time() - mins_in * 60)),
+             "end": time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(time.time() + (mins_long - mins_in) * 60))}
+    if image:
+        attrs["image"] = image
+    return (on, attrs)
+
+
 for _no, _name, _on, _in, _long in TV:
     _id = _no.replace(".", "_")
     EXTRA[f"camera.channel_{_id}"] = (None, ("idle", {"friendly_name": _name}))
-    EXTRA[f"sensor.channel_{_id}_now"] = (None, (_on, {"friendly_name": f"{_name} Now", "subtitle": "",
-        "start": time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(time.time() - _in * 60)),
-        "end": time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(time.time() + (_long - _in) * 60))}))
+    EXTRA[f"sensor.channel_{_id}_now"] = (None, _tv_now(_no, _name, _on, _in, _long, TV_ART[_no]))
 LONG = " and the Long Way Round"       # the `long` pass: every name this much longer
 
 # THE ENERGY FEATURE'S METERS (2026-10-31, the widget blocks: Energy Rings, Battery, Power and Water): Home
@@ -486,6 +499,10 @@ STATES["wx_few"] = {"entities": {"weather.home": ("cloudy", {"friendly_name": "H
 STATES["wx_five"] = {"entities": {"weather.home": ("rainy", {"friendly_name": "Home", "temperature": 52, "temperature_unit": "°F", "humidity": 88,
                                                              "wind_speed": 14, "wind_speed_unit": "mph", "wind_bearing": 200, "pressure": 29.71,
                                                              "pressure_unit": "inHg"})}}
+# LIVE TV'S ART (2026-11-08, the owner: the What's On art behind each channel): every channel with its picture, and none
+STATES["tv_art"] = {"entities": {f"sensor.channel_{n.replace('.', '_')}_now": _tv_now(n, name, on, i, l, f"/hk/landscapes/{k:02d}.webp")
+                                 for k, (n, name, on, i, l) in zip((3, 15, 19, 42, 39, 22), TV)}}
+STATES["tv_noart"] = {"entities": {f"sensor.channel_{n.replace('.', '_')}_now": _tv_now(n, name, on, i, l, None) for n, name, on, i, l in TV}}
 STATE = {"name": "busy"}
 
 

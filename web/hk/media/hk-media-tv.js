@@ -59,6 +59,14 @@
       // nor the cell from inside the panel answers a size query in WebKit -- its mark and its words as large as the room)
       '.one.big .lg{min-width:76px;height:76px;padding:0 10px;font-size:30px;line-height:34px}.one.big .lg img{max-width:120px}',
       '.one.big .tx b{' + C.typeCss('title') + ';line-height:27px}.one.big .tx small{' + C.typeCss('body') + ';line-height:20px}',
+      // WHAT'S ON'S ART BEHIND THE CHANNEL (2026-11-08, the owner: "the What's On artwork that the Live TV page displays as the
+      // background for the channels ... a little dim"): the page's picture (the now sensor's `image`, as the page's tile draws it) fills
+      // the tile, the channel's color over it and a scrim -- lighter at the top, where the mark is, darker under the words -- so the white
+      // mark and words pass 4.5:1 on any picture; no picture (or one that never loads), the color alone
+      '.bg{position:absolute;inset:0;border-radius:inherit;overflow:hidden;pointer-events:none}.bg img{display:block;width:100%;height:100%;object-fit:cover}',
+      '.bg::before,.bg::after{content:"";position:absolute;inset:0}.bg::before{background:linear-gradient(150deg,var(--c1),var(--c2));opacity:.32}',
+      '.bg::after{background:linear-gradient(180deg,rgba(0,0,0,.3),rgba(0,0,0,.38) 40%,rgba(0,0,0,.74))}',
+      '.ch>:not(.bg){position:relative}.art .lg:not(.pic){background:rgba(0,0,0,.34)}.art .bar{background:rgba(255,255,255,.34)}',
       '.tx{display:flex;flex-direction:column;min-width:0;margin-top:auto}',
       '.tx b{' + C.typeCss('body') + ';font-weight:600;line-height:19px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
       '.tx small{' + C.typeCss('caption') + ';line-height:16px;color:rgba(255,255,255,.86);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
@@ -161,7 +169,8 @@
           // (the last of an odd few takes the row's room: no hole in the block)
           if (i === list.length - 1 && g[1] > 1 && list.length < g[0] * g[1]) b.style.gridColumn = 'span ' + (g[0] * g[1] - list.length + 1);
           b.setAttribute('aria-label', 'Watch ' + (ch.name || ch.number) + ', ' + on);
-          b.innerHTML = '<span class="lg"></span><span class="tx"><b></b><small></small></span>' + (a.start && a.end ? '<i class="bar"><i></i></i>' : '');
+          b.innerHTML = (a.image ? '<span class="bg"></span>' : '') + '<span class="lg"></span><span class="tx"><b></b><small></small></span>' + (a.start && a.end ? '<i class="bar"><i></i></i>' : '');
+          if (a.image) { b.classList.add('art'); self._artImage(a.image, b.querySelector('.bg'), '', s === 'S' || self._chosen() ? 600 : 300); }
           var lg = b.querySelector('.lg'), mono = esc(ch.number || String(ch.name || '').slice(0, 2));
           if (a.logo) { lg.classList.add('pic'); self._artImage(a.logo, lg, mono, 150); lg.addEventListener('error', function () { lg.classList.remove('pic'); }, true); }
           else lg.innerHTML = mono;
