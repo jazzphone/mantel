@@ -301,6 +301,7 @@
         return JSON.stringify([parts, sizeOf(this), st ? st.last_updated : null, own, own ? this._blockKey || '' : null]);
       }
       _render() {
+        if (!this._config) return;      // (a client update can come before the config: nothing to draw yet -- media-card-check, 2026-11-08)
         var parts = this._parts(), key = JSON.stringify(parts);
         if (this._built && this._key === key) { this._readings(); this._drawOwn(); return; }
         this._key = key; this._kids = []; this._built = true; this._own = null;

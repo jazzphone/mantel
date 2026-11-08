@@ -89,7 +89,7 @@ CATALOG: dict[str, dict[str, Any]] = {
     # members: the locks and garage doors it shows, in order (absent: the house's, automatically)
     "security": {"sizes": ("S", "W", "C", "T", "L", "XL"), "sources": (),
                  "opts": {"entity": "alarm", "tap": "tap_target", "presentation": "security_presentation",
-                          "members": "security_members"}},
+                          "members": "security_members", "height": "tile_height"}},
     "timers": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"tap": "tap_target"}},
     "weather": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"entity": "weather", "sky": "boolean", "big": "boolean", "tap": "tap_target"}},
     "calendar": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"calendars": "calendars", "days": "days", "month": "boolean", "tap": "tap_target"}},

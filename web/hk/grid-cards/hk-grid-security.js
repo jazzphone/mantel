@@ -457,11 +457,17 @@
         // horrible"): the stacked tile -- glyph, name (two lines where it needs them), state -- at the largest of a few designed sizes
         // that stands two across in the room the keypad leaves; only a column too narrow for two of the smallest takes one column of
         // rows. Never a size measured to fit: one of these, the group centered.
-        var sizes = this._size() === 'XL' ? [{ w: 136, h: 112 }, { w: 124, h: 104 }, { w: 112, h: 100 }] : [{ w: 116, h: 96 }, { w: 108, h: 96 }, { w: 100, h: 92 }];
+        // (beside the keypad too: the owner, 2026-11-08, tried a wider keypad and one column of pills -- "those cards are super wide
+        // now ... 2 column is the best here")
+        // HALF (the block's Height): half-height pills, two across at the widest of three designed widths -- the glyph beside the
+        // name, which takes two lines where it needs them
+        // (beside the keypad Half is the default -- the owner, 2026-11-08: "that looks the best"; Full, the HomeView tiles, when chosen)
+        var hc = (this._config || {}).height, half = hc === 'half' || (!hc && !!this._pad);
+        var sizes = half ? [{ w: 150, h: 64, st: false }, { w: 140, h: 64, st: false }, { w: 130, h: 64, st: false }] : this._size() === 'XL' ? [{ w: 136, h: 112 }, { w: 124, h: 104 }, { w: 112, h: 100 }] : [{ w: 116, h: 96 }, { w: 108, h: 96 }, { w: 100, h: 92 }];
         sizes.some(function (o) {
           var across = Math.min(3, Math.floor((W + G) / (o.w + G))), rows = Math.floor((H + G) / (o.h + G));
           if (across < 2 || rows < 1) return false;
-          best = { w: o.w, h: o.h, st: true, across: across, cap: across * rows };
+          best = { w: o.w, h: o.h, st: o.st !== false, across: across, cap: across * rows };
           return true;
         });
         if (!best) {
@@ -472,8 +478,11 @@
         var rowsNeeded = Math.max(1, Math.ceil(slots / best.across)), c = Math.max(1, Math.ceil(slots / rowsNeeded));
         box.classList.toggle('st', best.st);
         box.style.maxWidth = (c * best.w + (c - 1) * G) + 'px';
-        box.style.flex = 'none'; box.style.height = (rowsNeeded * best.h + (rowsNeeded - 1) * G) + 'px'; box.style.margin = 'auto auto 0';
-        if (e.ops) e.ops.style.marginBottom = 'auto';
+        box.style.flex = 'none'; box.style.height = (rowsNeeded * best.h + (rowsNeeded - 1) * G) + 'px';
+        // BESIDE THE KEYPAD the column lines up with it (the owner, 2026-11-08: the doors-and-windows line "should align to the bottom
+        // of the Arm/Disarm buttons"): the locks from the readout's top, the line on the arm keys' foot; elsewhere one centered group
+        box.style.margin = this._pad ? '0 auto' : 'auto auto 0';
+        if (e.ops) { e.ops.style.marginBottom = this._pad ? '0' : 'auto'; e.ops.style.marginTop = this._pad ? 'auto' : ''; }
         var all = Array.prototype.filter.call(box.children, function (k) { return k !== this._moreTile; }, this), vis = all.slice(0, show).concat(show < n ? [this._moreTile] : []);
         all.concat(this._moreTile).forEach(function (k) { k.style.display = vis.indexOf(k) < 0 ? 'none' : ''; k.style.width = best.w + 'px'; k.style.height = best.h + 'px'; });
         if (show < n) {
