@@ -394,6 +394,28 @@ MEASURE = r"""(() => {
         if (r.width >= 1 && r.height >= 1 && (w / gs < 43.5 || h / gs < 43.5))
           rec.issues.push('a control under 44 px: ' + name(el) + ' ' + Math.round(r.width / gs) + 'x' + Math.round(r.height / gs)); }
     }
+    // NO HIT AREA OVERLAPS ANOTHER (2026-11-08, the owner: the thermostat's "modes get hit while using" its arrows): every control's
+    // touchable box -- its own, out to a transparent ::after / ::before's insets or size -- against every other's, where neither holds
+    // the other (a control inside a control, a card's name over its plate, is nested on purpose); more than 2 px each way is a clash
+    if (window.__hitsCheck) {
+      const hits = [];
+      for (const el of all) {
+        if (!shown(el)) continue; const tag = el.localName, role = el.getAttribute('role');
+        if (!(tag === 'button' || role === 'button' || role === 'slider' || tag === 'input' || tag === 'a' || el.hasAttribute('data-ring'))) continue;   // (the dial's ring takes a touch anywhere in its box)
+        const r = el.getBoundingClientRect(); if (r.width < 1 || r.height < 1) continue;
+        let h = { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
+        for (const pseudo of ['::after', '::before']) { const hit = getComputedStyle(el, pseudo);
+          if (hit.content === 'none' || hit.content === 'normal' || hit.position !== 'absolute') continue;
+          const f = k => parseFloat(hit[k]); const L = f('left'), R = f('right'), T = f('top'), B = f('bottom');
+          if (Number.isFinite(L)) h.left = Math.min(h.left, r.left + L); if (Number.isFinite(R)) h.right = Math.max(h.right, r.right - R);
+          if (Number.isFinite(T)) h.top = Math.min(h.top, r.top + T); if (Number.isFinite(B)) h.bottom = Math.max(h.bottom, r.bottom - B); }
+        hits.push({ el, h }); }
+      const holds = (a, b) => a.contains(b) || b.contains(a);
+      for (let i = 0; i < hits.length; i++) for (let j = i + 1; j < hits.length; j++) {
+        const A = hits[i], B = hits[j]; if (holds(A.el, B.el)) continue;
+        const w = Math.min(A.h.right, B.h.right) - Math.max(A.h.left, B.h.left), t = Math.min(A.h.bottom, B.h.bottom) - Math.max(A.h.top, B.h.top);
+        if (w > 2 && t > 2) rec.issues.push('hit areas overlap by ' + Math.round(w) + 'x' + Math.round(t) + ': ' + name(A.el) + ' and ' + name(B.el)); }
+    }
     // Dial text belongs inside its open centre, not across the track/knobs.
     const ring = card.shadowRoot && card.shadowRoot.querySelector('[data-ring]');
     if (ring) {
@@ -476,7 +498,7 @@ STATES: dict[str, dict] = {
               "entities": {"sensor.running_quick_timers": ("0", {"friendly_name": "Running Quick Timers", "running": []})},
               "events": False},
 }
-STATE = {"name": "busy"}
+STATE = {"name": "busy", "hits": False}
 
 
 def apply_state(name: str) -> None:
@@ -569,6 +591,8 @@ async def audit(keys: list[str], looks: list[str], shots: Path | None, long: boo
                 # the page has the focus, as a wall tablet's does (cameras rest without it: cameras.focus_pause)
                 await b.send("Emulation.setFocusEmulationEnabled", enabled=True)
                 await b.send("Page.addScriptToEvaluateOnNewDocument", source=feed_script())
+                if STATE["hits"]:
+                    await b.send("Page.addScriptToEvaluateOnNewDocument", source="window.__hitsCheck = true")
                 sun = None
                 for key, look, bar in passes:
                     elev = SUN.get(look, 40.0)
@@ -643,8 +667,10 @@ def main(argv=None) -> int:
                     help="what a block names, over the audit's own (thermostat='{\"entity\": \"climate.office\"}')")
     ap.add_argument("--state", choices=list(STATES), default="busy",
                     help="the house's state (STATES): busy (default) or quiet -- every block must look finished in each")
+    ap.add_argument("--hits", action="store_true", help="also fail where one control's touchable box (its ::after too) overlaps another's")
     a = ap.parse_args(argv)
     STATE["name"] = a.state
+    STATE["hits"] = a.hits
     for o in a.opts:
         k, _, v = o.partition("=")
         OPTS[k] = {**OPTS.get(k, {}), **json.loads(v)}
