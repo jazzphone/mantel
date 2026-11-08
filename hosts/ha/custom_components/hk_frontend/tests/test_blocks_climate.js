@@ -88,11 +88,11 @@ H.run('CLIMATE BLOCKS', [
     H.ok('...Tall keeps the dial it was given', /data-ring/.test(big('heat_cool', { target_temp_low: 68, target_temp_high: 72 }, 'T', 'dial').html()));
   },
   function () {
-    H.section('the thermostat, Tall: the targets stacked, a row of modes, the foot');
+    H.section('the thermostat, Tall: the name, the targets between their arrows, the Mode key');
     var t = big('heat_cool', { target_temp_low: 68, target_temp_high: 72 }, 'T'), html = t.html();
     H.ok('cool over heat, each labelled in its colour, the picked (heat) on its plate', /class="tt cool"[\s\S]*<small>Cool to<\/small><b>72<\/b>[\s\S]*class="tt heat sel"[\s\S]*<small>Heat to<\/small><b>68<\/b>/.test(html), html.slice(0, 700));
-    H.ok('the modes in a row: Heat, Cool, Auto, Off, the one it is in on', /class="mr" role="group" aria-label="Mode"><button class="" type="button" data-big-mode="heat"[^>]*aria-label="Heat"><hk-icon icon="mdi:fire"[\s\S]*data-big-mode="cool"[\s\S]*class="on" type="button" data-big-mode="heat_cool"[^>]*aria-label="Auto"[\s\S]*data-big-mode="off"/.test(html), html);
-    H.ok('...then the foot', /class="mr"[\s\S]*class="ff"[\s\S]*<i>Auto · 66°<\/i>/.test(html));
+    H.ok('the name heads the block, the target with its arrows either side of it, then one Mode key that opens the sheet (the modes are the sheet\'s)', /class="hd"><button class="nm"[^>]*><b>Thermostat<\/b>[\s\S]*class="tgr"><button class="ar"[^>]*data-big-step="-1"[\s\S]*class="tg" data-big-num[\s\S]*data-big-step="1"[\s\S]*<button class="mb" type="button" data-tstat-details[^>]*>Mode · Auto ›<\/button>/.test(html) && !/class="mr"/.test(html), html);
+    H.ok('...no row of modes and no foot: the arrows flank the target', !/class="ff"/.test(html) && !/data-big-mode=/.test(html));
     var one = big('cool', { temperature: 74 }, 'T');
     H.ok('one target: its label and the number', /<div class="one cool"><small>Cool to<\/small><b>74<\/b><\/div>/.test(one.html()), one.html().slice(0, 300));
     // (the row's binding, on a stand-in for the block: a tap is set_hvac_mode)
@@ -117,7 +117,7 @@ H.run('CLIMATE BLOCKS', [
     H.ok('...heat and cool: the two on the face, the picked one\'s dot', /class="pk sel"[^>]*data-big-pick="low"[^>]*>68<\/button><span class="ds"/.test(xr), xr.slice(0, 500));
     var css = big('heat', { temperature: 68 }, 'S')._extraCss();
     H.ok('the dot is the face\'s; Small and Tall pick by the plate', /\.big \.bn \.pk\.sel::before\{/.test(css) && /\.big \.tt\.sel\{background:/.test(css));
-    H.ok('Tall\'s modes 44 px, four across the inset (a hit area out to 44 each)', /\.big \.mr\{[^}]*align-self:stretch;height:44px/.test(css) && /\.big \.mr button\{[^}]*flex:1 1 0;min-width:0;height:44px/.test(css) && /\.big \.mr button::after\{[^}]*left:-2px;right:-2px/.test(css));
+    H.ok('Tall\'s Mode key 44 px, the arrows 40 x 44 with a hit area out 4 px toward the edge only (none overlaps another)', /\.big \.mb\{[^}]*align-self:stretch;height:44px/.test(css) && /\.big :is\(\.ff,\.tgr\) \.ar\{width:40px;height:44px/.test(css) && /\.ar:last-child::after\{left:0;right:-4px\}/.test(css));
     H.ok('Extra Large\'s face leaves the column its room', /:host\(\[size=XL\]\) \.big \.face\{right:calc\(var\(--hk-pad-r,18px\) \+ 200px\)\}/.test(css));
     H.ok('Small\'s number takes what the foot leaves, the same above and below', /:host\(\[size=S\]\) \.big \.one b\{font-size:min\(78px,calc\(\(100cqh/.test(css) && /\.big \.tg\{flex:1 1 auto;[^}]*align-items:center;justify-content:center/.test(css));
   },

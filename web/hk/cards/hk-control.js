@@ -572,7 +572,7 @@ class HkControlCard extends HTMLElement {
       .big .pk::after{content:"";position:absolute;left:-6px;right:-6px;top:-10px;bottom:-10px}
       .big .nm::after{content:"";position:absolute;left:-4px;right:-4px;top:-6px;bottom:-6px}
       .big .ar svg{width:58px;height:58px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
-      .big .nm{all:unset;min-width:0;display:flex;flex-direction:column;align-items:center;text-align:center;cursor:pointer;-webkit-tap-highlight-color:transparent}
+      .big .nm{all:unset;position:relative;min-width:0;display:flex;flex-direction:column;align-items:center;text-align:center;cursor:pointer;-webkit-tap-highlight-color:transparent}
       .big .nm b,.big .nm i{max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
       .big .nm b{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow-wrap:anywhere}
       .big .nm b{font-size:${window.hkCards.TILE.centred.square.name}px;font-weight:600;line-height:${window.hkCards.TILE.centred.square.line}px;letter-spacing:-.3px;color:${window.hkCards.v('ink')}}
@@ -603,25 +603,19 @@ class HkControlCard extends HTMLElement {
       :host([size=S]) .big .tt{min-width:68px;min-height:60px}
       :host([size=S]) .big .tt b{font-size:min(44px,calc((100cqh - var(--hk-pad-t,18px) - var(--hk-pad-b,18px) - 44px - 26px) * .9))}
       :host([size=S]) .big .tg{gap:8px}
-      :host([size=T]) .big .tg{flex-direction:column;align-items:stretch;gap:6px}
+      :host([size=T]) .big .tg{flex-direction:column;align-items:center;gap:6px}
       :host([size=T]) .big .one b{font-size:min(96px,26cqh,40cqw)}
       :host([size=T]) .big .one.long b{font-size:min(66px,18cqh,28cqw)}
-      :host([size=T]) .big .tt{padding:6px 8px}
+      :host([size=T]) .big .tt{padding:6px 14px;min-width:72px}
       :host([size=T]) .big .tt b{font-size:min(66px,16cqh,32cqw)}
-      /* ...Tall's modes: a row of four, Heat, Cool, Auto, Off, each 44 px,
-         the one it is in white -- out into the inset to 9 px from the plate's edge, so four keys are 44 across (the foot's too).
-         2026-11-08, the owner: "the modes are too close to the temp up and down arrows... the modes get hit while using them",
-         and then "the modes at the top throw the card off": the arrows now flank the target (the card's centre of weight), the name
-         heads the block and the modes are the foot's, a whole target's height from the arrows; no hit area touches another */
-      .big .mr{flex:none;align-self:stretch;height:44px;margin:12px calc(9px - var(--hk-pad-r,18px)) 0 calc(9px - var(--hk-pad-l,18px));display:flex;justify-content:space-between;border-radius:22px;background:${window.hkCards.v('key')}}
-      /* (the row keeps the block's inset, 2026-11-07, the review: 176 px wide it ran 8 px into it on a 196 cell -- four keys share the
-         width, a hair under 44 each; and none reaches past its own slot: the hit areas that did overlapped each other) */
-      .big .mr button{all:unset;position:relative;box-sizing:border-box;flex:1 1 0;min-width:0;height:44px;border-radius:22px;display:grid;place-items:center;color:${window.hkCards.v('ink')};cursor:pointer;-webkit-tap-highlight-color:transparent}
-      .big .mr button.on{background:#fff;color:#1c1c1e}
-      .big .mr hk-icon{width:22px;height:22px;--mdc-icon-size:22px;display:block;line-height:0}
-      .big .mr button:focus-visible{outline:2px solid ${window.hkCards.v('ink-2')};outline-offset:2px}
-      /* (on tile cells: two rows are 310 tall, not 405 -- hk-cell is the block's whole cell) */
-      @container hk-cell (max-height:380px){.big .mr{margin-top:8px}:host([size=T]) .big .tt{padding:4px 8px}}
+      /* ...Tall's Mode key (2026-11-08, the owner: "the modes are too close to the temp up and down arrows... the modes get hit while using them",
+         then "the modes at the top throw the card off"; any card may send more controls to its sheet): the arrows flank the target, the
+         centre of weight, the name heads the block, and the modes are the thermostat sheet's -- one 44 px key on the foot opens it, a
+         whole target's height from the arrows, as the dial's Mode key does */
+      .big .mb{all:unset;box-sizing:border-box;flex:none;align-self:stretch;height:44px;margin-top:12px;border-radius:22px;display:grid;place-items:center;background:${window.hkCards.v('key')};color:${window.hkCards.v('ink')};
+        ${window.hkCards.typeCss('headline')};cursor:pointer;-webkit-tap-highlight-color:transparent}
+      .big .mb:focus-visible{outline:2px solid ${window.hkCards.v('ink-2')};outline-offset:2px}
+      @container hk-cell (max-height:380px){.big .mb{margin-top:8px}:host([size=T]) .big .tt{padding:4px 8px}}
       /* ...the foot: 24 px arrows (28 on Tall) in 40 x 44 keys, each reaching 4 px outward (the face's
          ::after): 44 x 44, and the name 6 px above and below its two lines -- a finger's 44 in the block's px */
       .big .ff{flex:none;display:grid;grid-template-columns:40px minmax(0,1fr) 40px;align-items:center;min-height:44px}
@@ -885,10 +879,10 @@ class HkControlCard extends HTMLElement {
       const text = mode === "off" ? "Off" : idle ? "—" : t(single);
       const one = `<div class="one${kind}${text.length > 2 ? " long" : ""}">${sz === "T" && !idle ? `<small>${word}</small>` : ""}<b>${text}</b></div>`;
       const tg = range ? (sz === "T" ? tt("high", hi, "Cool to", "cool") + tt("low", lo, "Heat to", "heat") : tt("low", lo, "Heat to", "heat") + tt("high", hi, "Cool to", "cool")) : one;
-      // TALL (2026-11-08, the owner: modes on top "throws the card off"): the name over the target with its arrows either side of it,
-      // the centre of weight; the modes the foot's, clear of the arrows by the whole target's height
+      // TALL (2026-11-08, the owner: modes on top "throws the card off", and any card may send more controls to its sheet): the name over
+      // the target with its arrows either side of it, the centre of weight; the modes are the sheet's -- one Mode key at the foot opens it
       const tgd = `<div class="tg" data-big-num aria-label="${label}">${tg}</div>`;
-      return `${top}<div class="in">${sz === "T" ? `<div class="hd">${nm}</div><div class="tgr">${down}${tgd}${up}</div>${four("mr", false)}` : tgd + foot("ff")}
+      return `${top}<div class="in">${sz === "T" ? `<div class="hd">${nm}</div><div class="tgr">${down}${tgd}${up}</div><button class="mb" type="button" data-tstat-details aria-label="Change mode, currently ${how}">Mode · ${how} ›</button>` : tgd + foot("ff")}
       </div>${sz === "W" ? four("mq", false) : ""}${held}</div>`;
     }
     const pk = (which, v, verb) => `<button class="pk${pick === which ? " sel" : ""}" type="button" data-big-pick="${which}" aria-pressed="${pick === which}" aria-label="${verb} ${t(v)} degrees">${t(v)}</button>`;

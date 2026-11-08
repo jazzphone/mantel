@@ -338,11 +338,15 @@ MEASURE = r"""(() => {
         for (const r of rs) {
           let vis = { left: r.left, top: r.top, right: r.right, bottom: r.bottom }, cut = null;
           // (a list that scrolls is cut at its edge on purpose -- DESIGN.md "Lists that scroll": what it hides a finger reaches)
-          for (const k of cl) { if (k.scroll) continue; const b = k.el.getBoundingClientRect();
+          let away = false;           // (scrolled out of its list's view: not an issue, it is a row the list reaches by scrolling)
+          for (const k of cl) { const b = k.el.getBoundingClientRect();
+            if (k.scroll) { vis = { left: Math.max(vis.left, b.left), top: Math.max(vis.top, b.top), right: Math.min(vis.right, b.right), bottom: Math.min(vis.bottom, b.bottom) };
+              if (vis.right - vis.left <= 0.5 || vis.bottom - vis.top <= 0.5) { away = true; break; } continue; }
             const nv = { left: Math.max(vis.left, b.left), top: Math.max(vis.top, b.top), right: Math.min(vis.right, b.right), bottom: Math.min(vis.bottom, b.bottom) };
             const lost = (vis.right - vis.left) - Math.max(0, nv.right - nv.left) + (vis.bottom - vis.top) - Math.max(0, nv.bottom - nv.top);
             if (lost > 1.5 && !k.ellipsis && !cut) cut = name(k.el);
             vis = nv; }
+          if (away) continue;
           const txt = t.data.trim().slice(0, 30);
           // a word broken across lines ("Hea / t"): one word, more than one line box
           if (rs.length > 1 && !/\s/.test(t.data.trim()) && new Set(rs.map(q => Math.round(q.top))).size > 1) {
@@ -406,9 +410,14 @@ MEASURE = r"""(() => {
         let h = { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
         for (const pseudo of ['::after', '::before']) { const hit = getComputedStyle(el, pseudo);
           if (hit.content === 'none' || hit.content === 'normal' || hit.position !== 'absolute') continue;
+          if (getComputedStyle(el).position === 'static') { rec.issues.push('the ::after hit area of ' + name(el) + ' is not anchored to it (it is not positioned: it reaches over the block)'); continue; }
           const f = k => parseFloat(hit[k]); const L = f('left'), R = f('right'), T = f('top'), B = f('bottom');
           if (Number.isFinite(L)) h.left = Math.min(h.left, r.left + L); if (Number.isFinite(R)) h.right = Math.max(h.right, r.right - R);
           if (Number.isFinite(T)) h.top = Math.min(h.top, r.top + T); if (Number.isFinite(B)) h.bottom = Math.max(h.bottom, r.bottom - B); }
+        // (a control a list scrolls or clips away is touchable only where its box shows)
+        for (const k of clippers(el, cell)) { const b = k.el.getBoundingClientRect();
+          h = { left: Math.max(h.left, b.left), top: Math.max(h.top, b.top), right: Math.min(h.right, b.right), bottom: Math.min(h.bottom, b.bottom) }; }
+        if (h.right - h.left < 1 || h.bottom - h.top < 1) continue;
         hits.push({ el, h }); }
       const holds = (a, b) => a.contains(b) || b.contains(a);
       for (let i = 0; i < hits.length; i++) for (let j = i + 1; j < hits.length; j++) {
@@ -619,6 +628,9 @@ async def audit(keys: list[str], looks: list[str], shots: Path | None, long: boo
     apply_state(STATE["name"])
     if STATES[STATE["name"]].get("twelve"):
         gallery.ROOMS.extend(r for r in MORE_ROOMS if r not in gallery.ROOMS)
+        for rid, rname, _ in MORE_ROOMS:        # (the page's registry keeps an area only when something in it is let through)
+            gallery.HOUSE[f"sensor.{rid}_temperature"] = (rid, ("68", {"friendly_name": f"{rname} Temperature", "unit_of_measurement": "°F",
+                                                                       "device_class": "temperature", "state_class": "measurement"}))
     if long:
         for eid, (area, (state, attrs)) in list(gallery.HOUSE.items()):
             if "friendly_name" in attrs and not eid.startswith("sun."):
@@ -658,8 +670,8 @@ async def audit(keys: list[str], looks: list[str], shots: Path | None, long: boo
                     await asyncio.sleep(2.0)            # pictures, fonts and the sky settle
                     picked = STATES[STATE["name"]].get("picked")
                     if picked:                          # the rooms ticked on the Vacuum block (hk-home.js: hkHome.picked, by vacuum)
-                        await b.eval("(() => { const s = (window.hkHome.picked = window.hkHome.picked || {})['vacuum.downstairs'] = new Set(%s);"
-                                     " window.dispatchEvent(new CustomEvent('hk-vacuum-rooms', { detail: s })); })()" % json.dumps(picked))
+                        await b.eval("(() => { const s = (window.hkHome.picked['vacuum.downstairs'] = window.hkHome.picked['vacuum.downstairs'] || new Set()); s.clear(); %s.forEach(a => s.add(a));"
+                                     " window.dispatchEvent(new Event('hk-vacuum-rooms')); })()" % json.dumps(picked))
                         await asyncio.sleep(0.8)
                     got = await b.eval(MEASURE)
                     got["errors"] = [c for c in b.console[mark:] if c.startswith(("EXCEPTION", "error"))][:8]
