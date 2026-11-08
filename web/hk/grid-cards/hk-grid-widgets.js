@@ -267,9 +267,9 @@
       // the art is lit: its words keep the dark plate's white on a light page
       'hk-plate.sg.lit{' + C.LIGHT_OFF + '}',
       'hk-plate.sg.lit .tx{text-shadow:' + v('glow') + '}',
-      // L: the glyph at the top, the words at the bottom
-      ':host([size="L"]) hk-plate.sg{flex-direction:column;align-items:flex-start;justify-content:space-between}',
-      ':host([size="L"]) .well{width:64px;height:64px}',
+      // L, and T (2026-11-07, the review: Large's composition at 1 x 2): the glyph at the top, the words at the bottom
+      ':host([size="L"]) hk-plate.sg,:host([size="T"]) hk-plate.sg{flex-direction:column;align-items:flex-start;justify-content:space-between}',
+      ':host([size="L"]) .well,:host([size="T"]) .well{width:64px;height:64px}',
       // S (2026-11-07, the review): the scene as one tile -- its glyph bare, its name, and its time of day (the label) as the
       // second line, nothing else. Centred: HomeView's (hkCards.centredTile over the card's own parts); Home: the glyph at
       // the top and the two lines at the foot, a tile's padding.
