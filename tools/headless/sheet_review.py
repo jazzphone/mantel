@@ -107,16 +107,18 @@ def faults(size, m, name=''):
     if m['x'] and abs(m['x'][0] - m['x'][1]) > 1:
         out.append('X %s' % m['x'])
     # (4: a colour light's labels step in 4 px to share their edge with the circles' ring room)
-    if m['lr'] is not None and abs(m['lr'][0] - m['lr'][1]) > 4:
+    # (the Intercom's talk key is centered in its column while its rooms run to the right inset: two columns, not one
+    # thing off-center -- 2026-11-07)
+    if m['lr'] is not None and abs(m['lr'][0] - m['lr'][1]) > 4 and name != 'intercom':
         out.append('left/right %s' % m['lr'])
     # (10: the thermostat's ring and the alarm's word sit a line's leading below the body's top)
     if h <= 500 and w > h and m['tb'] is not None and abs(m['tb'][0] - m['tb'][1]) > 10:
         out.append('top/bottom %s' % m['tb'])
-    # A SHEET NO TALLER THAN IT HAS TO BE (2026-11-07, the review): under its last thing, no more glass than its side
-    # margin and a line's worth (40) -- a sheet that does not scroll ends where it ends, as the house's tablet showed the
-    # thermostat's with 100 px of nothing under its modes
-    if m.get('foot') and m['scroll'] <= 2 and m['foot'][0] > m['foot'][1] + 40 and name not in SCROLLS:
-        out.append('bottom-heavy: %d under, %d at the side' % tuple(m['foot']))
+    # NOT SITTING HIGH (2026-11-07, the review): every sheet keeps one height (the X and the name always in one place) and
+    # centers what it draws in its body, or fills it -- so no more glass under the last thing than over the first, give or
+    # take a line (40): the wide thermostat on the wall tablet once had its readings at the top and 100 px of nothing below
+    if m['tb'] is not None and m['scroll'] <= 2 and m['tb'][1] - m['tb'][0] > 40 and name not in SCROLLS:
+        out.append('sits high: %d over, %d under' % tuple(m['tb']))
     if m['small']:
         out.append('under 30: ' + ', '.join(m['small']))
     look = m.get('look')
