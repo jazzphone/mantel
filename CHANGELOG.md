@@ -4,6 +4,18 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Changed**
+- **Nothing in a block stretches any more.** Tiles, rows, keys and pills keep their designed size at each block size; a bigger block shows more of them, centered with equal margins, instead of bigger ones (as HomeView does). Room, Accessories and Scenes keep one tile size per block size, with the last row centered and "More" for the rest; Scenes and Accessories have a heading.
+- **On Now and House Status, redesigned together:** a headline that answers the glance ("8 On", "1 Window Open", "All Good") over the categories as lines, each with its glyph lit in its color and where it is on. New option: a category opens a sheet or goes to its page.
+- **Recent, rebuilt:** glyphs in each kind's color, who and where, camera pictures (the latest as the hero), the morning summary as glyphs, and finished empty states.
+- **Now Playing** follows the screensaver's Music slide: the song, progress and keys one centered group beside the cover; Tall's cover centered; Speakers, Browse and the volume in the player's sheet on the smaller sizes.
+- **Timers with none running** read as a block of their own: "Start a timer" and the quick lengths as rings.
+- **The Vacuum's Wide and Tall pick rooms** in a "Rooms to Clean" sheet and name them on the block; Large and Extra Large rooms scroll.
+- **The Thermostat's modes** moved off the top of Tall into one "Mode" key at its foot (Wide too); a range is set as one reading.
+- **Weather Extra Large** spreads its readings and tightens its days; **Live TV tiles** show what is on behind each channel, dimmed; **Security Extra Large** leads with the keypad, its locks and garage as larger tiles and the open doors and windows in one line.
+- **Calendar with nothing scheduled, Doors & Windows, Who's Home** read as finished blocks in every state; small controls moved to their sheets where a block had too many.
+- **Everything** can scroll in its block or open its page (a new option). The Home Grid editor's previews draw in the screen's Tile Style.
+
 **Fixed**
 - **Swiping between pages is lighter on the wall tablets in Pre-rendered glass.** While a page moved, its glass and the glass of the page coming in blurred live instead of wearing their picture, and a page reached by a swipe went on blurring live for as long as it was up. The picture now stays still under the moving pages, and each page keeps it after it lands (measured: half the drawing work in a drag, a third less in the settle, and a quarter of it on the page it lands on).
 
