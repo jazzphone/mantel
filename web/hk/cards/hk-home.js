@@ -315,7 +315,8 @@
         '  --vb-r:calc(var(--vb-key) / 2);border-radius:var(--vb-r);background:' + C.v('key-strong') + ';color:' + C.v('ink') + ';font-family:inherit;' + C.typeCss('headline') + ';white-space:nowrap;cursor:pointer}',
         '.vb .key>span{min-width:0;overflow:hidden;text-overflow:ellipsis}',
         '.vb .key.go{flex:1 1 auto;min-width:0;padding:0 10px;background:' + SELECTED_BG + ';color:' + SELECTED_TEXT + '}',
-        '.vb .key.wide{padding:0 18px}',
+        // (TALL'S KEYS, 2026-11-08, the owner: nothing stretches -- Clean is as wide as its word, Dock round beside it, the pair centered)
+        '.vb[data-s=T] .keys{justify-content:center;gap:6px}.vb[data-s=T] .key.go{flex:none;padding:0 16px}.vb[data-s=T] .key.go hk-icon{display:none}',
         '.vb .key hk-icon{flex:none;width:22px;height:22px;--mdc-icon-size:22px}',
         '.vb .key[aria-disabled=true]{opacity:.45;pointer-events:none}',
         '.vb .key:active,.vb .vr:active{transform:scale(0.97)}.vb .key:focus-visible,.vb .vr:focus-visible{outline:2px solid ' + C.v('ink-2') + ';outline-offset:2px}',
@@ -2520,18 +2521,17 @@
         '  gap:' + PP.g + 'px;align-content:center;margin:' + PP.g + 'px 0}',
         '.pp .fc>*{grid-column:span 2}',
         '.pp .fc .pr,.pp .fc .mo{width:100%;height:100%;min-height:44px;justify-content:center}',
-        '.pp .fc .away .face{opacity:.45}',
+        '.pp .fc .away .face{opacity:.45}.pp .fc:not(.lg) .pr{cursor:inherit;pointer-events:none}',
         '.pp .line{flex:none;font-size:15px;line-height:' + PP.line + 'px;color:' + C.v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
         // (Wide: spread evenly, each with its name and where, in the middle of what the heading leaves)
         '.pp .wide{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:' + PP.gap + 'px;align-content:center;align-items:center}',
         '.pp .wide .pr b,.pp .wide .mo b,.pp .lg .pr b,.pp .lg .mo b{font-size:15px;font-weight:600;line-height:19px;margin-top:2px}',
         '.pp .wide .pr span:not(.face),.pp .lg .pr span:not(.face){font-size:13px;line-height:16px}',
-        // TALL AND LARGE (2026-11-07, the review): Tall a list, each person a row -- face 44, first name, where and since --
-        // spread down the block, none over 64 tall; Large the faces as large as the block holds them (to 88), name and where under each
-        '.pp .lst{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;justify-content:space-between;margin-top:' + PP.g + 'px}',
-        '.pp .lst .pr{flex:0 1 64px;flex-direction:row;justify-content:flex-start;gap:12px;width:100%;text-align:left}',
-        '.pp .lst .tx{display:flex;flex-direction:column;min-width:0}',
-        '.pp .lst .tx b{' + C.typeCss('headline') + ';text-shadow:' + C.v('glow') + '}',
+        // TALL AND LARGE (2026-11-07, the review): Tall a list, each person a row -- face 44, first name, where and since -- at a fixed
+        // height (52; 56 on a square cell, 2026-11-08) and grouped on the middle of the block, never spread down it; Large the faces as large as the block holds them (to 88), name and where under each
+        '.pp .lst{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;justify-content:center;margin-top:' + PP.g + 'px}',
+        '.pp .lst .pr{flex:none;height:var(--rh,52px);flex-direction:row;justify-content:flex-start;gap:12px;width:100%;text-align:left}',
+        '.pp .lst .tx{display:flex;flex-direction:column;min-width:0}.pp .lst .tx b{' + C.typeCss('headline') + ';text-shadow:' + C.v('glow') + '}',
         '.pp .lst .tx span{' + C.typeCss('caption') + ';color:' + C.v('ink-2') + '}',
         '.pp .mf{flex:none;margin-top:' + PP.g + 'px;' + C.typeCss('caption') + ';line-height:' + PP.line + 'px;color:' + C.v('ink-2') + '}'
       ].join('');
@@ -2551,11 +2551,11 @@
         '|' + (this._cellSize() || '') + '|' + (this._blockKey || '');
     }
     // ONE PERSON'S FACE on a block, as a button opening their sheet (the
-    // caller closes it): their picture, else their initials, on their color
+    // caller closes it); on Small (2026-11-08, the controls audit) a plain face, the plate opens the sheet: their picture, else their initials, on their color
     _face(id, i, cls, sty) {
       var esc = C.esc, s = this.client.states[id], a = s.attributes || {}, nm = String(a.friendly_name || id);
       var ini = nm.split(/\s+/).filter(Boolean).slice(0, 2).map(function (w) { return w[0]; }).join('').toUpperCase();
-      return '<button class="pr' + (cls ? ' ' + cls : '') + '" data-id="' + esc(id) + '"' + (sty ? ' style="' + sty + '"' : '') + ' aria-label="' + esc(nm + ', ' + whereOf(s)) + '">' +
+      return (this._cellSize() === 'S' ? '<div class="pr' : '<button data-id="' + esc(id) + '" class="pr') + (cls ? ' ' + cls : '') + '"' + (sty ? ' style="' + sty + '"' : '') + ' aria-label="' + esc(nm + ', ' + whereOf(s)) + '">' +
         '<span class="face" style="--fc:' + C.ACCENTS[FACE[i % FACE.length]] + '">' +
         (a.entity_picture ? '<img alt="" data-initials="' + esc(ini) + '" src="' + esc(a.entity_picture) + '">' : esc(ini)) + '</span>';
     }
@@ -2589,14 +2589,14 @@
             ids.slice(0, fit).map(function (id, i) {
               var s = h.states[id], nm = String((s.attributes || {}).friendly_name || id);
               return self._face(id, i, s.state === 'home' ? 'home' : 'away', lastRow(i, tot, gr.c)) +
-                (lg ? '<b>' + esc(nm.split(/\s+/)[0]) + '</b><span>' + esc(whereOf(s) + (sz === 'XL' && iw / gr.c >= 120 ? sinceOf(s) : '')) + '</span>' : '') + '</button>';
+                (lg ? '<b>' + esc(nm.split(/\s+/)[0]) + '</b><span>' + esc(whereOf(s) + (sz === 'XL' && iw / gr.c >= 120 ? sinceOf(s) : '')) + '</span>' : '') + (lg ? '</button>' : '</div>');
             }).join('') + (cutf ? '<span class="mo" style="' + lastRow(fit, tot, gr.c) + '" aria-label="' + cutf + ' more"><span class="face">+' + cutf + '</span>' + (lg ? '<b>More</b>' : '') + '</span>' : '') +
             '</div>' + (lg ? ids.length ? '' : '<div class="line">Nobody added</div>' : '<div class="line">' + esc(ids.length ? this._line(ids) : 'Nobody added') + '</div>');
         } else if (sz === 'T') {
-          // (rows of 52 at least, a line for "N more" held back when some are cut)
-          var room = ih - PP.lab - PP.g, rows = Math.max(1, Math.floor(room / 52));
-          if (ids.length > rows) rows = Math.max(1, Math.floor((room - PP.line - PP.g) / 52));
-          html = '<b class="lab">Who’s Home</b><div class="lst" role="list" style="--f:44px">' + ids.slice(0, rows).map(function (id, i) {
+          // (rows of 52, 56 on a square cell, a line for "N more" held back when some are cut)
+          var rh = ih >= 340 ? 56 : 52, room = ih - PP.lab - PP.g, rows = Math.max(1, Math.floor(room / rh));
+          if (ids.length > rows) rows = Math.max(1, Math.floor((room - PP.line - PP.g) / rh));
+          html = '<b class="lab">Who’s Home</b><div class="lst" role="list" style="--f:44px;--rh:' + rh + 'px">' + ids.slice(0, rows).map(function (id, i) {
             var s = h.states[id], nm = String((s.attributes || {}).friendly_name || id);
             return self._face(id, i, s.state === 'home' ? 'home' : '') + '<span class="tx"><b>' + esc(nm.split(/\s+/)[0]) + '</b><span>' + esc(whereOf(s) + sinceOf(s)) + '</span></span></button>';
           }).join('') + '</div>' + (ids.length > rows ? '<div class="mf">' + (ids.length - rows) + ' more</div>' : ids.length ? '' : '<span class="line">Nobody added</span>');

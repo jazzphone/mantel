@@ -1369,63 +1369,56 @@
     // rows fill the block (Large beside the date), a later day under its own heading, "N more" at the foot when
     // they don't all fit. Extra Large: the month, a dot under each day with something on it, and the chosen
     // day's events beside it. Each size on a tile cell first, then on a square one (below).
-    ':host([size]) .blk{' + window.hkCards.plate('card') + ';box-sizing:border-box;height:100%;padding:' + window.hkCards.blockPad(window.hkCards.CARD.pad) + ';',
-    '  overflow:hidden;display:flex;flex-direction:column}',
-    '.wg .wd{font-size:15px;font-weight:600;line-height:18px;letter-spacing:0.2px;text-transform:uppercase;color:' + CAL_RED + ';flex:none;',
-    '  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:' + window.hkCards.v('glow') + '}',
+    ':host([size]) .blk{' + window.hkCards.plate('card') + ';box-sizing:border-box;height:100%;padding:' + window.hkCards.blockPad(window.hkCards.CARD.pad) + ';  overflow:hidden;display:flex;flex-direction:column}',
+    '.wg .wd{font-size:15px;font-weight:600;line-height:18px;letter-spacing:0.2px;text-transform:uppercase;color:' + CAL_RED + ';flex:none;  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:' + window.hkCards.v('glow') + '}',
     '.wg .dn{font-weight:300;line-height:1.02;letter-spacing:-0.02em;font-variant-numeric:tabular-nums;margin-top:2px;flex:none}',
-    '.wg.S .dn{font-size:36px}.wg.T .dn{font-size:44px}.wg.L .dn,.wg.W .dn{font-size:54px}',
-    '.wg .rt{display:flex;flex-direction:column;min-width:0;flex:1}',
-    '.wg .rt b,.wg .rt small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-    '.wg .rt b{' + window.hkCards.typeCss('headline') + ';line-height:21px}',
-    '.wg .rt small{' + window.hkCards.typeCss('caption') + ';line-height:17px;color:' + window.hkCards.v('ink-2') + '}',
-    '.wg .bar{flex:none;width:4px;align-self:stretch;border-radius:calc(4px / 2)}',
+    '.wg.S .dn{font-size:36px}.wg.T .dn{font-size:44px}.wg.L .dn,.wg.W .dn{font-size:54px}.wg .rt{display:flex;flex-direction:column;min-width:0;flex:1}',
+    '.wg .rt b,.wg .rt small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.wg .rt b{' + window.hkCards.typeCss('headline') + ';line-height:21px}',
+    '.wg .rt small{' + window.hkCards.typeCss('caption') + ';line-height:17px;color:' + window.hkCards.v('ink-2') + '}.wg .bar{flex:none;width:4px;align-self:stretch;border-radius:calc(4px / 2)}',
     '.wg .ft{flex:none;margin-top:auto;padding-top:6px;font-size:15px;line-height:18px;color:' + window.hkCards.v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '.wg .nil{flex:none;font-size:15px;line-height:18px;padding:10px 0;color:' + window.hkCards.v('ink-2') + '}.wg .end{flex:1 1 auto;display:flex;align-items:center;justify-content:center;font-size:15px;line-height:18px;color:' + window.hkCards.v('ink-2') + '}',
     // THE ROWS: a tap opens the event's sheet; 54 px, a finger's and more
     '.wg .ls{flex:1 1 0;min-height:0;display:flex;flex-direction:column;overflow:hidden;margin-top:6px}',
-    '.wg .ev2{box-sizing:border-box;display:flex;align-items:center;gap:10px;min-height:54px;padding:8px 0;flex:none;min-width:0;',
-    '  cursor:pointer;-webkit-tap-highlight-color:transparent}',
+    '.wg .ev2{box-sizing:border-box;display:flex;align-items:center;gap:10px;min-height:54px;padding:8px 0;flex:none;min-width:0;  cursor:pointer;-webkit-tap-highlight-color:transparent}',
     '.wg .ev2+.ev2{border-top:1px solid ' + window.hkCards.v('line') + '}',
     '.wg .ev2:active{opacity:0.6}.wg .ev2.past{opacity:0.5}',
     '.wg [role=button]:focus-visible{outline:2px solid ' + window.hkCards.v('ink-2') + ';outline-offset:2px}',
     '.wg .gh{flex:none;font-size:15px;font-weight:600;line-height:18px;letter-spacing:0.2px;text-transform:uppercase;color:' + window.hkCards.v('ink-2') + ';padding:12px 0 4px}',
     // Small: one tap -- the next event's sheet, or the Calendar page
     '.wg.S{cursor:pointer;-webkit-tap-highlight-color:transparent}',
-    '.wg.S .nx{display:flex;gap:8px;margin-top:6px;min-width:0;flex:none}',
-    '.wg.S .rt b{font-size:15px;line-height:19px}.wg.S .rt small{font-size:13px;line-height:16px}',
+    '.wg.S .nx{display:flex;gap:8px;margin-top:6px;min-width:0;flex:none}.wg.S .rt b{font-size:15px;line-height:19px}.wg.S .rt small{font-size:13px;line-height:16px}',
     '.wg.S .ft{font-size:13px;line-height:16px}',
     // Large: the date in a column of its own, the rows beside it
     ':host([size]) .wg.W,:host([size]) .wg.L,:host([size]) .wg.XL{flex-direction:row;gap:22px}',
     '.wg .c1{flex:0 0 104px;min-width:0;display:flex;flex-direction:column}',
     '.wg .c2{flex:1 1 0;min-width:0;display:flex;flex-direction:column}',
     '.wg.L .ls,.wg.W .ls{margin-top:0}',
+    // THE EMPTY DAY (2026-11-08): the date, a title line and the next event (or a calm line) one group on the block's optical center -- Wide in a row, Tall and Large in a column
+    '.wg .et{' + window.hkCards.typeCss('title') + ';line-height:26px;text-wrap:balance;text-align:center;flex:none}.wg .ls>.et:only-child{margin:auto}.wg .es{font-size:15px;line-height:19px;color:' + window.hkCards.v('ink-2') + ';text-align:center;text-wrap:balance;margin-top:4px}',
+    ':host([size]) .wg.em{align-items:center;justify-content:center;gap:0;padding-bottom:calc(var(--hk-pad-b,14px) + 10px)}:host([size]) .wg.em.W{flex-direction:row;gap:22px}:host([size]) .wg.em.T,:host([size]) .wg.em.L{flex-direction:column}',
+    '.wg.em .c1{flex:none}.wg.em .c2{flex:0 1 auto;align-items:center}.wg.em.W .c2{align-items:flex-start}.wg.em.W :is(.et,.es){text-align:left}',
+    '.wg.em .dn{margin-bottom:8px}.wg.em.L .dn{font-size:72px}.wg.em .ev2{align-self:center;max-width:100%;margin-top:8px;padding:6px 0}.wg.em .wd{text-align:center}.wg.em.W .wd{text-align:left}',
     // Extra Large: the month (seven columns of a finger's width), the chosen day beside it. The month's name and
     // arrows sit over the month on a square cell; on a tile (150 px) over the day, the weeks taking the height.
     '.wg .mon{flex:0 0 322px;min-width:0;display:flex;flex-direction:column}',
     '.wg .mh{flex:none;display:flex;align-items:center;justify-content:space-between;height:44px;min-width:0}',
     '.wg .mh b{' + window.hkCards.typeCss('title') + ';line-height:26px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-    '.wg .mh span{display:flex;flex:none;margin-right:-4px}',
+    '.wg .mh>span{display:flex;gap:8px;flex:none;margin-right:-4px}',
     '.wg .ch{all:unset;cursor:pointer;width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:50%;color:' + window.hkCards.v('ink') + '}',
     '.wg .ch:active{opacity:0.6}',
     '.wg .mon .mh{display:none}.wg .c2 .mh{display:flex;margin:-10px 0 2px}',
     '.wg .mg2{flex:1 1 0;min-height:0;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));grid-template-rows:16px repeat(var(--w),minmax(0,1fr))}',
     '.wg .mg2 .w{' + window.hkCards.labelCss('label-small') + ';line-height:16px;text-align:center}',
-    '.wg .md{all:unset;box-sizing:border-box;min-width:0;min-height:0;display:flex;align-items:center;justify-content:center;cursor:pointer;-webkit-tap-highlight-color:transparent}',
-    '.wg .md b{position:relative;display:flex;align-items:center;justify-content:center;height:min(38px,100%);aspect-ratio:1;border-radius:50%;',
+    '.wg .md{all:unset;box-sizing:border-box;min-width:0;min-height:0;display:flex;align-items:center;justify-content:center;cursor:pointer;-webkit-tap-highlight-color:transparent}.wg .md b{position:relative;display:flex;align-items:center;justify-content:center;height:min(38px,100%);aspect-ratio:1;border-radius:50%;',
     '  font-size:17px;font-weight:500;font-variant-numeric:tabular-nums}',
-    '.wg .md em{position:absolute;left:0;right:0;bottom:3px;display:flex;justify-content:center;gap:2px}',
-    '.wg .md u{width:5px;height:5px;border-radius:50%}',
+    '.wg .md em{position:absolute;left:0;right:0;bottom:3px;display:flex;justify-content:center;gap:2px}.wg .md u{width:5px;height:5px;border-radius:50%}',
     '.wg .md.today b{box-shadow:inset 0 0 0 2px ' + CAL_RED + '}',
     // the chosen day filled: the ink's own color, its number the ground's (dark on the sky, light on Flat Light)
-    '.wg .md.sel b{background:' + window.hkCards.v('ink') + ';color:var(--hk-flat-ground,#1c1c1e);font-weight:600}',
-    '.wg .md.sel.today b{background:' + CAL_RED + ';color:#fff;box-shadow:none}',
-    '.wg .md:active b{opacity:0.6}',
-    '.wg .md.out{cursor:default}',
+    '.wg .md.sel b{background:' + window.hkCards.v('ink') + ';color:var(--hk-flat-ground,#1c1c1e);font-weight:600}.wg .md.sel.today b{background:' + CAL_RED + ';color:#fff;box-shadow:none}',
+    '.wg .md:active b{opacity:0.6}.wg .md.out{cursor:default}',
     // (the cell is the block's own, so a square one is 180 px and up for Small, two rows' 360 for the rest)
     '@container hk-cell (min-height:180px) or style(--hk-cell-shape: square){.wg.S .dn{font-size:44px}.wg.S .nx{margin-top:8px}}',
-    '@container hk-cell (min-height:360px){.wg.T .dn{font-size:54px}.wg.L .dn{font-size:64px}',
-    '  .wg .mon .mh{display:flex;margin-top:-13px}.wg .c2 .mh{display:none}}',
+    '@container hk-cell (min-height:360px){.wg.T .dn{font-size:54px}.wg.L .dn{font-size:64px}  .wg .mon .mh{display:flex;margin-top:-13px}.wg .c2 .mh{display:none}}',
     // MONTH VIEW: seven columns, the weeks' rows sharing the height; the day's
     // number sized to its cell (container units: the block is a container)
     '.blk.mo{gap:6px}',
@@ -1546,29 +1539,36 @@
     // WHAT IS NEXT: what is still to come today, all-day first, then the coming days (`days`) each under its
     // own heading -- Small the first of them; Tall and Large as many rows as fit
     _renderNext(sized, d0) {
-      var h = this.client, now = new Date(), shown = [], rows = [], todayN = 0;
+      var h = this.client, now = new Date(), shown = [], rows = [], todayN = 0, fd = d0, fi = 0;
       for (var i = 0; i < this._days(); i++) {
         var d = addDays(d0, i), evs = onDay(this._evs, d).filter(function (e) { return e.end > now && shown.indexOf(e) < 0; });
         if (!i) todayN = evs.length;
         if (i && evs.length && sized !== 'W') rows.push('<div class="gh">' + esc(i === 1 ? 'Tomorrow' : DOW_LONG[d.getDay()] + ', ' + MON3[d.getMonth()] + ' ' + d.getDate()) + '</div>');
         evs.forEach(function (e) {
-          shown.push(e);
+          if (shown.push(e) === 1) { fd = d; fi = i; }
           rows.push(evRow(h, e, d, shown.length - 1, i, sized === 'W' ? 'day' : sized === 'T' ? 'start' : 'span'));
         });
       }
       this._shown = shown;
       var head = '<div class="wd">' + esc(DOW_LONG[d0.getDay()]) + '</div><div class="dn">' + d0.getDate() + '</div>';
       var empty = '<div class="nil">' + (this._calIds(h).length ? (shown.length ? 'Nothing more today' : 'Nothing scheduled') : 'No calendars') + '</div>';
+      // THE EMPTY DAY (2026-11-08, the review): nothing left today and none ahead (or, Wide, only later days) -- the date, a title line and the next event or a calm line, one group centered; Tall and Large with later events keep their list
+      if (sized !== 'S' && !todayN && this._calIds(h).length && (sized === 'W' || !shown.length)) {
+        var dd = this._days(), nxt = shown.length ? evRow(h, shown[0], fd, 0, fi, 'day') : '<div class="es">' + (dd > 1 ? 'The next ' + dd + ' days are clear' : 'A clear day') + '</div>';
+        this._root.innerHTML = '<div class="blk wg em ' + sized + '">' + (sized === 'W' ? '<div class="c1">' + head + '</div>' : head) +
+          '<div class="c2"><div class="et">Nothing scheduled' + (shown.length ? ' today' : '') + '</div>' + nxt + '</div></div>';
+        this._wireTaps(); return;
+      }
       if (sized === 'S') {
         // the next event (today's, else the coming days' first) and how many more today
         var e = shown[0], sub = e ? whenShort(e, e.start < d0 ? d0 : e.start, true) : '';
         if (e && !sameDay(e.start < d0 ? d0 : e.start, d0)) sub = (sameDay(e.start, addDays(d0, 1)) ? 'Tomorrow' : DOW_LONG[e.start.getDay()]) + ' · ' + sub;
         // (one today: nothing else; none today, tomorrow's shown: nothing more)
         var foot = !e ? '' : todayN > 1 ? (todayN - 1) + ' more today' : todayN ? 'Nothing else today' : 'Nothing more today';
-        this._root.innerHTML = '<div class="blk wg S" role="button" tabindex="0" data-go="1" aria-label="' +
+        this._root.innerHTML = '<div class="blk wg' + (e ? '' : ' em') + ' S" role="button" tabindex="0" data-go="1" aria-label="' +
           esc(DOW_LONG[d0.getDay()] + ', ' + MON[d0.getMonth()] + ' ' + d0.getDate() + (e ? '. Next: ' + e.title + ', ' + sub : '') + (foot ? '. ' + foot : '')) + '">' +
           head + (e ? '<div class="nx"><i class="bar" style="background:' + rgba(evRgb(e, h), 1) + '"></i><span class="rt"><b>' + esc(e.title) +
-          '</b><small>' + esc(sub) + '</small></span></div>' : empty) + (foot ? '<div class="ft">' + esc(foot) + '</div>' : '') + '</div>';
+          '</b><small>' + esc(sub) + '</small></span></div>' : empty.replace('"nil"', '"es"')) + (foot ? '<div class="ft">' + esc(foot) + '</div>' : '') + '</div>';
       } else {
         var list = shown.length ? (todayN ? '' : empty) + rows.join('') : empty;
         var ls = '<div class="ls">' + list + '</div><div class="ft" style="display:none"></div>';
@@ -1618,7 +1618,7 @@
       var lab = (sameDay(sel, now) ? 'Today, ' : DOW_LONG[sel.getDay()] + ', ') + MON3[sel.getMonth()] + ' ' + sel.getDate();
       this._root.innerHTML = '<div class="blk wg XL"><div class="mon">' + mh + '<div class="mg2" style="--w:' + weeks + '">' + cells + '</div></div>' +
         '<div class="c2">' + mh + '<div class="wd">' + esc(lab) + '</div><div class="ls">' +
-        (rows || '<div class="nil">' + (this._calIds(h).length ? 'Nothing planned' : 'No calendars') + '</div>') +
+        (rows || (this._calIds(h).length ? '<div class="et">Nothing scheduled</div>' : '<div class="nil">No calendars</div>')) +
         '</div><div class="ft" style="display:none"></div></div></div>';
       var cut = fitRows(this._root.querySelector('.ls'), this._root.querySelector('.ft'));
       if (cut) this._root.querySelector('.ft').textContent = cut.filter(function (r) { return r.hasAttribute('data-ev'); }).length + ' more';

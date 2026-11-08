@@ -100,8 +100,9 @@ function () {
   H.section('Who\'s Home: Small fills the block with faces, those away dimmed, and says who is where');
   var s = sized('hk-people-card', 'S', {}), html = s._root.__html;
   ok('the heading', /<b class="lab">Who’s Home<\/b>/.test(html));
-  eq('every face, A to Z, a button opening their sheet', (html.match(/<button class="pr/g) || []).length, 3);
-  ok('...the one away dimmed (class away), those home not', /class="pr away" data-id="person.robin"/.test(html) && /class="pr home" data-id="person.sam"/.test(html));
+  eq('every face, A to Z, drawn and not a button (Small: the plate opens the sheet)', (html.match(/<div class="pr/g) || []).length, 3);
+  ok('...no face is a button or carries a tap', !/<button/.test(html) && !/data-id=/.test(html));
+  ok('...the one away dimmed (class away), those home not', /class="pr away" style="[^"]*" aria-label="Robin/.test(html) || /class="pr away" aria-label="Robin/.test(html) && /class="pr home/.test(html));
   ok('...each in a color of its own', /--fc:#ff9f0a/.test(html) && /--fc:#0a84ff/.test(html) && /--fc:#bf5af2/.test(html));
   ok('the line: how many are home, where the one away is', /<div class="line">2 home · Robin at Work<\/div>/.test(html), html);
   var line = function (states) {
