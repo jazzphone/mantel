@@ -86,7 +86,7 @@
     // Music page's playlists hold (a playlist, or a choice of one, by its items: `uris`) is the block's first cover
     var LASTPL_AGE = 3 * 60 * 1000, LASTPL = { uris: null, due: 0, busy: false, cards: [] };
     function heroFirst(tiles, pls) {
-      var uris = LASTPL.uris || [], hit = null;
+      var uris = LASTPL.uris || [], hit = /** @type {any} */ (null);
       for (var i = 0; i < uris.length && !hit; i++) {
         (pls || []).some(function (p) {
           var o = (p.options || []).filter(function (x) { return (x.uris || []).indexOf(uris[i]) >= 0; })[0];

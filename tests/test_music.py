@@ -1593,7 +1593,7 @@ async def test_a_playlist_pill_gets_the_artwork_of_what_it_is_built_with(on):
     pills = {p["name"]: p for p in got["event"]["playlists"]}
     proxied =f"/ma/imageproxy/{MF.PROXY_ID}?size=256"
     assert pills["Songs"]["image"] == proxied, "the first song with an album picture"
-    assert pills["Mixes"]["image"] == proxied and pills["Mixes"]["options"] == [
+    assert pills["Mixes"]["image"] == proxied and [{k: v for k, v in o.items() if k != "uris"} for o in pills["Mixes"]["options"]] == [
         {"name": "Dead then album", "key": "pl_a", "image": proxied}, {"name": "Plain", "key": "pl_b"}], \
         "a dead link is passed over; the album's own picture; a choice with none is drawn plain"
     assert "image" not in pills["Nothing"]
