@@ -461,11 +461,44 @@ MEASURE = r"""(() => {
 })()"""
 
 
+# EVERY STATE, NOT ONLY A BUSY HOUSE (2026-11-08, the owner: the Timers block "always shows a timer in your test", and
+# with none it "is not good looking at all"). `--state NAME` draws the house in another state: each entry turns the
+# stood-in house into it (domain -> state for everything of that domain, then entity -> (state, attributes) over
+# that), and `events` / `channels_now` say whether the calendar has events and the channels say what is on. A block
+# must look finished in every state: empty and idle as carefully as full. Add the states your blocks have.
+STATES: dict[str, dict] = {
+    "busy": {},                                   # the default: timers running, music, lights on, events, the guide
+    # nothing going on: no timers, every light, fan and switch off, music stopped, locked and closed, nothing on the
+    # calendar, the vacuum docked, the alarm disarmed
+    "quiet": {"domains": {"light": "off", "fan": "off", "switch": "off", "media_player": "idle", "timer": "idle",
+                          "lock": "locked", "cover": "closed", "binary_sensor": "off", "alarm_control_panel": "disarmed",
+                          "vacuum": "docked"},
+              "entities": {"sensor.running_quick_timers": ("0", {"friendly_name": "Running Quick Timers", "running": []})},
+              "events": False},
+}
+STATE = {"name": "busy"}
+
+
+def apply_state(name: str) -> None:
+    """Turn the stood-in house (gallery.HOUSE, EXTRA already in it) into STATES[name]."""
+    st = STATES[name]
+    STATE["name"] = name
+    for eid, (area, (state, attrs)) in list(gallery.HOUSE.items()):
+        dom = eid.split(".", 1)[0]
+        if dom in st.get("domains", {}):
+            gallery.HOUSE[eid] = (area, (st["domains"][dom], attrs))
+    for eid, (state, attrs) in st.get("entities", {}).items():
+        area = gallery.HOUSE.get(eid, (None,))[0]
+        gallery.HOUSE[eid] = (area, (state, attrs))
+
+
 def stand_in_reads() -> None:
     """The reads the test server cannot answer: the family calendar's events and Live TV's channels."""
     from client_smoke import OfflineReads
 
     async def calendar_events(self, entity_id, start, end):
+        if STATES[STATE["name"]].get("events") is False:
+            return []
         return _events() if entity_id == "calendar.family" else []
     OfflineReads.get_calendar_events = calendar_events
     ask = OfflineReads.request
@@ -516,6 +549,7 @@ def feed_script() -> str:
 
 async def audit(keys: list[str], looks: list[str], shots: Path | None, long: bool, nobar: list[str]) -> dict:
     gallery.HOUSE.update(EXTRA)
+    apply_state(STATE["name"])
     if long:
         for eid, (area, (state, attrs)) in list(gallery.HOUSE.items()):
             if "friendly_name" in attrs and not eid.startswith("sun."):
@@ -555,7 +589,8 @@ async def audit(keys: list[str], looks: list[str], shots: Path | None, long: boo
                     got["errors"] = [c for c in b.console[mark:] if c.startswith(("EXCEPTION", "error"))][:8]
                     report.setdefault(key, {})[look + ("" if bar else " (no bar)")] = got
                     if shots:
-                        await b.screenshot(shots / f"{name}{'-long' if long else ''}.png")
+                        tail = ('-long' if long else '') + ('' if STATE["name"] == "busy" else '-' + STATE["name"])
+                        await b.screenshot(shots / f"{name}{tail}.png")
     return report
 
 
@@ -606,7 +641,10 @@ def main(argv=None) -> int:
     ap.add_argument("--homeview", action="store_true", help="square cells, Centred tiles, Big Number, Analog Numbers")
     ap.add_argument("--opts", nargs="*", default=[], metavar="KEY=JSON",
                     help="what a block names, over the audit's own (thermostat='{\"entity\": \"climate.office\"}')")
+    ap.add_argument("--state", choices=list(STATES), default="busy",
+                    help="the house's state (STATES): busy (default) or quiet -- every block must look finished in each")
     a = ap.parse_args(argv)
+    STATE["name"] = a.state
     for o in a.opts:
         k, _, v = o.partition("=")
         OPTS[k] = {**OPTS.get(k, {}), **json.loads(v)}
