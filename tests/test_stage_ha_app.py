@@ -145,6 +145,10 @@ def test_the_real_plan_holds_none_of_the_licensed_assets(pairs):
     for src, dest in pairs:
         low = dest.lower()
         assert "sf-pro." not in low or low.endswith(".css"), dest
+        # (the one exception: the Holiday slide's four open-license fonts, by their exact paths, each with its license)
+        if any(dest == "app/" + p for p in stage.OPEN_FONTS):
+            assert stage.open_font(src), dest
+            continue
         assert "hk-glyphs" not in low and not low.endswith((".woff", ".woff2", ".ttf", ".otf")), dest
 
 
@@ -164,3 +168,14 @@ def test_the_staged_app_is_readable_whatever_the_stagers_umask(tmp_path, monkeyp
     files = [p for p in target.rglob("*") if p.is_file()]
     assert files and all(p.stat().st_mode & 0o777 == 0o644 for p in files)
     assert all(p.stat().st_mode & 0o777 == 0o755 for p in [target, *target.rglob("*")] if p.is_dir())
+
+
+def test_only_the_open_fonts_by_path_and_with_their_license(tmp_path):
+    """The Holiday slide's open-license fonts pass by their exact paths; the same file anywhere else is a font file."""
+    real = ROOT / "web/hk/holiday/fonts/vt323.woff2"
+    assert stage.open_font(real)
+    other = tmp_path / "vt323.woff2"
+    other.write_bytes(real.read_bytes())
+    assert not stage.open_font(other)
+    assert stage.scan([(other, "app/web/hk/fonts/vt323.woff2")]), "a font outside the list is refused"
+    assert not stage.scan([(real, "app/web/hk/holiday/fonts/vt323.woff2")])

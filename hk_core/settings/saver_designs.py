@@ -1,11 +1,12 @@
 """Bounded saved screensavers; snapshots contain ordinary saver options only."""
 from __future__ import annotations
 
-import calendar
 import json
 import re
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+from . import saver_holidays as HOLIDAYS
 
 FACES = ("solar", "prism", "world", "hotel", "terminal", "atelier", "meridian", "markets", "brief", "modular")
 CHOICES = {
@@ -84,48 +85,6 @@ def designs(value, read):
     return out
 
 
-_HOLIDAY_REF = re.compile(r"(?:birthday|own):[a-z0-9]+(?:-[a-z0-9]+)*")
-
-
-def holiday_value(key: str, val: Any) -> Any:
-    """One of the Holiday slide's own options, cleaned, or None when it cannot be used (phase 20,
-    docs/phase20/HOLIDAY-SLIDE.md "Settings"; hk-holidays.js reads them). holiday_one names a holiday (a built-in one,
-    a birthday or one of your own dates, as hk-holidays.js ids them); holiday_off and holiday_outdoors are lists of
-    built-in ones (holiday_off also 'birthdays'), kept in the calendar's order; holiday_own is up to twelve dates of
-    your own, each {name, month, day, year?, scene}."""
-    from . import model as M
-    if key == "holiday_days":
-        return val if not isinstance(val, bool) and isinstance(val, int) and val in M.HOLIDAY_DAYS else None
-    if key == "holiday_one":
-        ok = isinstance(val, str) and (val in M.HOLIDAY_IDS or (len(val) <= 49 and _HOLIDAY_REF.fullmatch(val)))
-        return val if ok else None
-    if key in ("holiday_off", "holiday_outdoors"):
-        allowed = M.HOLIDAY_IDS + ("birthdays",) if key == "holiday_off" else M.HOLIDAY_PAINTED
-        if not isinstance(val, list) or any(x not in allowed for x in val):
-            return None
-        return [x for x in allowed if x in val]
-    if not isinstance(val, list) or len(val) > M.HOLIDAY_OWN_MAX:
-        return None
-    out = []
-    for item in val:
-        if not isinstance(item, dict) or not {"name", "month", "day"} <= item.keys() or not item.keys() <= {"name", "month", "day", "year", "scene"}:
-            return None
-        name, month, day, year, scene = item["name"], item["month"], item["day"], item.get("year"), item.get("scene", "spring")
-        if not isinstance(name, str) or not 1 <= len(name.strip()) <= M.HOLIDAY_NAME_MAX or any(c in name for c in "<>\n\r\t"):
-            return None
-        if any(isinstance(n, bool) or not isinstance(n, int) for n in (month, day)) or not 1 <= month <= 12:
-            return None
-        if year is not None and (isinstance(year, bool) or not isinstance(year, int) or not 1900 <= year <= 2200):
-            return None
-        if not 1 <= day <= calendar.monthrange(year if year is not None else 2024, month)[1] or scene not in M.HOLIDAY_OWN_SCENES:
-            return None
-        clean = {"name": name.strip(), "month": month, "day": day, "scene": scene}
-        if year is not None:
-            clean["year"] = year
-        out.append(clean)
-    return out
-
-
 def saver_options(v: Any, legacy: Any = None) -> dict[str, Any] | None:
     """The screensaver's options over the defaults, or None when `v` is not a
     mapping or holds a value that cannot be used (the form says so). With no
@@ -196,14 +155,14 @@ def saver_options(v: Any, legacy: Any = None) -> dict[str, Any] | None:
             out[k] = got
         elif k == "layout":
             out[k] = SLAY.layout(val) if val is not None else None
-        elif k in ("holiday_days", "holiday_one", "holiday_off", "holiday_outdoors", "holiday_own"):
-            got = holiday_value(k, val)
+        elif k in HOLIDAYS.KEYS:
+            got = HOLIDAYS.value(k, val)
             if got is None:
                 return None
             out[k] = got
-        elif k in ("energy_hide", "weather_hide", "corner_hide", "music_hide", "holiday_hide"):
+        elif k in ("energy_hide", "weather_hide", "corner_hide", "music_hide"):
             parts = {"energy_hide": M.SAVER_ENERGY_PARTS, "weather_hide": M.SAVER_WEATHER_PARTS, "corner_hide": M.SAVER_CORNER_PARTS,
-                     "music_hide": M.SAVER_MUSIC_PARTS, "holiday_hide": M.SAVER_HOLIDAY_PARTS}[k]
+                     "music_hide": M.SAVER_MUSIC_PARTS}[k]
             if not isinstance(val, list) or any(x not in parts for x in val):
                 return None
             out[k] = [x for x in parts if x in val]

@@ -1,3 +1,4 @@
+// @ts-check
 // hk-saver-holiday-scenes.js -- THE HOLIDAY SLIDE'S PAINTED SCENES (phase 20, docs/phase20/HOLIDAY-SLIDE.md "The
 // scenes"): a 90s living room at night for Christmas, a haunted house on a hill for Halloween, a 90s dining room at
 // dusk for Thanksgiving and a rooftop party at midnight for New Year's. Each is a list of painted pieces (Codex's,
@@ -109,7 +110,7 @@
   var FEET = {};
   function footOf(n) {
     if (FEET[n]) return FEET[n];
-    var out = [0.06, 0.94, 1];
+    /** @type {any[]} */ var out = [0.06, 0.94, 1];
     try {
       var im = REAL[n], w = 240, h = Math.max(1, Math.round(w * im.naturalHeight / im.naturalWidth)), cv0 = document.createElement('canvas');
       cv0.width = w; cv0.height = h; var x = cv0.getContext('2d', { willReadFrequently: true }); x.drawImage(im, 0, 0, w, h);
@@ -385,13 +386,13 @@
     c.strokeStyle = '#141418'; c.lineWidth = 4 * mz; c.lineCap = 'round';
     c.beginPath(); c.moveTo(poleX, roofY + 6 * z); c.lineTo(poleX, poleTop); c.stroke();
     c.fillStyle = '#1c1c22'; c.beginPath(); c.arc(poleX, poleTop, 5 * mz, 0, 7); c.fill();
-    var runs = [[[-30 * z, poleTop + 10 * z], [bv[0] + 14 * z, bv[1] + 10 * z], 60 * z], [[bv[0] + bv[2] - 14 * z, bv[1] + 10 * z], [poleX, poleTop + 4 * z], 90 * z]];
+    /** @type {Array<[number[], number[], number]>} */ var runs = [[[-30 * z, poleTop + 10 * z], [bv[0] + 14 * z, bv[1] + 10 * z], 60 * z], [[bv[0] + bv[2] - 14 * z, bv[1] + 10 * z], [poleX, poleTop + 4 * z], 90 * z]];
     d.bulbs = [];
     runs.forEach(function (r) {
       var a = r[0], b = r[1], cx = (a[0] + b[0]) / 2, cy = Math.max(a[1], b[1]) + r[2] * 2;
       var pt = function (u) { return [(1 - u) * (1 - u) * a[0] + 2 * (1 - u) * u * cx + u * u * b[0], (1 - u) * (1 - u) * a[1] + 2 * (1 - u) * u * cy + u * u * b[1]]; };
       c.strokeStyle = '#18181c'; c.lineWidth = 1.6 * mz; c.beginPath(); c.moveTo(a[0], a[1]); c.quadraticCurveTo(cx, cy, b[0], b[1]); c.stroke();
-      var len = 0, prev = a, pts = [];
+      var len = 0, prev = a, /** @type {Array<[number[], number]>} */ pts = [];
       for (var u = 0; u <= 1.0001; u += 0.005) { var p = pt(u); len += Math.hypot(p[0] - prev[0], p[1] - prev[1]); prev = p; pts.push([p, len]); }
       var gap = 34 * mz, j = 0;
       for (var dist = gap / 2; dist < len; dist += gap) {

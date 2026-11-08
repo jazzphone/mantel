@@ -8,6 +8,16 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def _stage():
+    spec = importlib.util.spec_from_file_location("stage_ha_app", ROOT / "tools/stage_ha_app.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+STAGE = _stage()
+
+
 def builder():
     spec = importlib.util.spec_from_file_location("build_ha", ROOT / "tools/build_ha.py")
     module = importlib.util.module_from_spec(spec)
@@ -30,7 +40,9 @@ def test_ha_build_has_one_frontend_source_and_no_server_or_house_files():
     assert dests[prefix + "fonts/sf-pro.css"].is_file()
     assert all(Path(src).is_relative_to(ROOT) for src, _ in pairs)
     assert not any("mantel_server" in dest or "mantel_connect" in dest for dest in dests)
-    assert not any(Path(dest).suffix.lower() in {".woff2", ".ttf", ".otf", ".key", ".db"} for dest in dests)
+    # (fonts: only the Holiday slide's four open-license ones, by path -- tools/stage_ha_app.py OPEN_FONTS)
+    open_fonts = {prefix + p.removeprefix("web/hk/") for p in STAGE.OPEN_FONTS}
+    assert not any(Path(dest).suffix.lower() in {".woff2", ".ttf", ".otf", ".key", ".db"} and dest not in open_fonts for dest in dests)
     assert not (ROOT / "hosts/ha/custom_components/hk_frontend/frontend").exists()
     for url, source in json.loads((ROOT / "web/shared-assets.json").read_text()).items():
         assert dests[prefix + url] == ROOT / "web" / source

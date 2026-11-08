@@ -1,3 +1,4 @@
+// @ts-check
 // hk-saver-holiday-fx.js -- THE HOLIDAY SLIDE'S EFFECTS (phase 20, docs/phase20/HOLIDAY-SLIDE.md "The rules for the
 // effects"): what moves and glows over a holiday's scene -- the tree's chasing lights and the garland's, snow past the
 // living room's window and the sleigh now and then, the haunted house's flickering windows, a figure crossing one, a

@@ -1,3 +1,4 @@
+// @ts-check
 // hk-saver-holiday.js -- THE SCREENSAVER'S HOLIDAY SLIDE (phase 20, docs/phase20/HOLIDAY-SLIDE.md): how many days
 // until the next holiday, themed for it. Christmas, Halloween, Thanksgiving and New Year's wear a painted scene (a 90s
 // living room, a haunted house, a 90s dining room, a rooftop party: hk-saver-holiday-scenes.js) with the count on its

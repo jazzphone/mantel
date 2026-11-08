@@ -12,6 +12,7 @@ import pytest
 from hk_core.settings import looks as L
 from hk_core.settings import model as M
 from hk_core.settings import saver_designs as S
+from hk_core.settings import saver_holidays as HOL
 
 ROOT = Path(__file__).resolve().parents[1]
 JSC = Path("/System/Library/Frameworks/JavaScriptCore.framework/Versions/A/Helpers/jsc")
@@ -22,7 +23,7 @@ def test_off_by_default_with_the_plans_defaults():
     assert {k: v for k, v in d.items() if k.startswith("holiday_")} == {
         "holiday_slide": False, "holiday_pick": "next", "holiday_one": "christmas", "holiday_days": 60, "holiday_off": [],
         "holiday_own": [], "holiday_fx": "full", "holiday_outdoors": [], "holiday_hide": []}
-    assert M.SAVER_HOLIDAY_PARTS == ("count", "next")
+    assert HOL.PARTS == ("count", "next")
 
 
 def test_good_values_are_kept_and_cleaned():
@@ -80,7 +81,7 @@ def test_the_calendar_names_the_same_holidays(tmp_path):
                        "print(JSON.stringify({ids: H.IDS, painted: H.PAINTED, us: H.US_ONLY, scenes: Object.keys(H.OWN_SCENES),"
                        " max: H.OWN_MAX, name: H.NAME_MAX}));\n")
     out = json.loads(subprocess.run([str(JSC), str(prelude)], capture_output=True, text=True, check=True, timeout=30).stdout)
-    assert tuple(out["ids"]) == M.HOLIDAY_IDS
-    assert set(out["painted"]) == set(M.HOLIDAY_PAINTED) and set(out["us"]) == set(M.HOLIDAY_US_ONLY)
-    assert tuple(out["scenes"]) == M.HOLIDAY_OWN_SCENES
-    assert (out["max"], out["name"]) == (M.HOLIDAY_OWN_MAX, M.HOLIDAY_NAME_MAX)
+    assert tuple(out["ids"]) == HOL.IDS
+    assert set(out["painted"]) == set(HOL.PAINTED) and set(out["us"]) == set(HOL.US_ONLY)
+    assert tuple(out["scenes"]) == HOL.OWN_SCENES
+    assert (out["max"], out["name"]) == (HOL.OWN_MAX, HOL.NAME_MAX)

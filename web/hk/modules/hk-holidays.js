@@ -1,3 +1,4 @@
+// @ts-check
 // hk-holidays.js -- THE HOLIDAY CALENDAR (phase 20, docs/phase20/HOLIDAY-SLIDE.md): which holidays there are, when
 // each falls, and how many whole days away it is in the house's own time zone. Pure dates, no DOM: the screensaver's
 // Holiday slide (hk-saver-holiday.js) and its options page read it, and tests drive it with any day.

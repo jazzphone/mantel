@@ -44,6 +44,23 @@ FORBIDDEN_NAME = re.compile(r"(^|/)(spikes|fixtures|secrets|\.env(\..*)?|.*\.(ke
                             r".*token.*|hk-glyphs[^/]*|hk_local)(/|$)", re.I)
 # Apple's font files themselves (SF-Pro.woff2, ...): any font suffix is refused below. HK's sf-pro.css
 # only points at /hk/fonts/SF-Pro.* (served from "Your files" when a home has them) and is fine.
+# THE OPEN FONTS (phase 20, docs/phase20/HOLIDAY-SLIDE.md): the Holiday slide's four scene fonts are under the SIL Open
+# Font License (Google Fonts' files, cut by tools/holiday_art.py), free to redistribute -- the only font files the App may
+# carry, each by its exact path and only with its license text beside it. Apple's fonts and the glyphs stay refused.
+OPEN_FONTS = {"web/hk/holiday/fonts/vt323.woff2": "VT323-OFL.txt", "web/hk/holiday/fonts/cinzel.woff2": "Cinzel-OFL.txt",
+              "web/hk/holiday/fonts/cabin-sketch-bold.woff2": "CabinSketch-OFL.txt", "web/hk/holiday/fonts/oswald-500.woff2": "Oswald-OFL.txt"}
+
+
+def open_font(src: Path) -> bool:
+    """`src` is one of the open fonts, its license beside it."""
+    try:
+        rel = src.resolve().relative_to(Path(__file__).resolve().parents[1]).as_posix()
+    except ValueError:
+        return False
+    lic = OPEN_FONTS.get(rel)
+    return bool(lic) and (src.parent / lic).is_file()
+
+
 SKIP_PARTS = {"__pycache__", ".DS_Store", ".pytest_cache", "node_modules", ".git"}
 PRIVATE = [
     r"\b192\.168\.\d{1,3}\.\d{1,3}\b", r"\b10\.\d{1,3}\.\d{1,3}\.\d{1,3}\b",
@@ -117,7 +134,7 @@ def scan(pairs: list[tuple[Path, str]]) -> list[str]:
         if FORBIDDEN_NAME.search(dest):
             hits.append(f"{dest}: a private kind of file (fixtures, secrets, keys, tokens, databases, Apple fonts/glyphs)")
             continue
-        if src.suffix.lower() in FONT_SUFFIXES:
+        if src.suffix.lower() in FONT_SUFFIXES and not open_font(src):
             hits.append(f"{dest}: a font file (fonts are each home's own, through Your files)")
             continue
         if src.suffix.lower() not in TEXT_SUFFIXES or src.stat().st_size > 5_000_000:
