@@ -333,6 +333,12 @@ def steps(build: Build | None = None, parts: dict[str, int] | None = None) -> li
     # the screensaver's HomeView-style faces and Time Behind in WebKit, a tablet either way and a phone (2026-10-30)
     out.append(Step("saver-faces-check", [py, "tools/headless/saver_faces_check.py"], tier="full", timeout=600,
                     skip=playwright_missing, **check_inputs("tools/headless/saver_faces_check.py")))
+    # (the Holiday slide's scenes placed at five sizes, phase 20: its words, the corner and row clear, nothing floating,
+    # its effects only while it is up -- a page of its own, no server)
+    for e in ("webkit", "chromium"):
+        out.append(Step(f"holiday-scenes-check-{e}", [py, "tools/headless/holiday_scenes_check.py", "--engine", e], tier="full", timeout=1500,
+                        skip=playwright_missing, **dict(check_inputs("tools/headless/holiday_scenes_check.py", e),
+                        inputs=lambda: (*PAGE_INPUTS, *imported(["tools/headless/holiday_scenes_check.py"]), "tools/headless/holiday_harness.html"))))
     # the Screensaver editor in WebKit (phase 13): Looks that keep the Info, the four sections, a piece's page, the library
     out += [Step(f"saver-designs-check-{e}-{z}", [py, "tools/headless/saver_designs_check.py", "--engine", e, "--size", z],
                  tier="full", timeout=600, skip=playwright_missing, **check_inputs("tools/headless/saver_designs_check.py", e))

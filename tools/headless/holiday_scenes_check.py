@@ -49,6 +49,12 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         pass
 
 
+class Server(http.server.ThreadingHTTPServer):
+    """(a browser asks for a scene's pieces all at once: the default queue of 5 reset some of them)"""
+    request_queue_size = 128
+    daemon_threads = True
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--node", default=os.environ.get("NODE") or shutil.which("node"))
@@ -61,7 +67,7 @@ def main() -> int:
         return 0
     if a.shots:
         a.shots.mkdir(parents=True, exist_ok=True)
-    srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), functools.partial(Handler, directory=str(ROOT / "web")))
+    srv = Server(("127.0.0.1", 0), functools.partial(Handler, directory=str(ROOT / "web")))
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     try:
         sizes = [[k, *SIZES[k]] for k in ([a.size] if a.size else SIZES)]

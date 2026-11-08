@@ -35,6 +35,6 @@ ctl.layout(W, H);
 window.__go = function () { var ok = ctl.ready(null); ctl.draw(null); ctl.el.style.setProperty('--hk-hl-fade', '0ms'); ctl.el.classList.add('on'); ctl.layout(W, H); return ok; };
 window.__ctl = ctl;
 var tries = 0; (function go() { ctl.ready(null); var S = window.hkHolidayScenes, h = window.hkHolidays.pick(window.hkHolidays.today(Date.now()), { pick: 'one', one: cfg.holiday_one, days: 400, own: cfg.holiday_own, birthdays: [{ name: 'Emma', month: 3, day: 14 }] });
-  if (h && h.scene && P.get('out') !== h.id && !S.ready(h.scene) && tries++ < 60) { setTimeout(go, 100); return; }
+  if (h && h.scene && P.get('out') !== h.id && !S.ready(h.scene) && tries++ < 300) { setTimeout(go, 100); return; }
   setTimeout(function () { window.__go(); window.__ready = true; if (P.get('arrive') === '1') ctl.arrived(); }, 300); })();
 </script>

@@ -308,7 +308,19 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
     // ---- Slides: toggles with See It, the Forecast's Classic / Big, How Often
     const slides = await E((ed, sr, $, $$) => ({ labels: $$('aside.sidebar .lbl .t').map((t) => t.textContent), see: $$('.seeit').length, subs: $$('aside.sidebar .lbl small').map((s) => s.textContent).filter((t) => /Its corner adds/.test(t)).length }));
     // (on the Landscape the forecast and the weather are the background: no row for them)
-    say(['Music Full Screen', 'Home Energy'].every((x) => slides.labels.includes(x)) && slides.see === 2 && slides.subs === 2, 'Slides on the Landscape: Music and Home Energy, each with its corner and See It', slides);
+    say(['Music Full Screen', 'Home Energy', 'Holidays'].every((x) => slides.labels.includes(x)) && slides.see === 3 && slides.subs === 3, 'Slides on the Landscape: Music, Home Energy and Holidays, each with its corner and See It', slides);
+    // THE HOLIDAY SLIDE (phase 20): on, its options a row away on the Screensaver page, See It asks the preview for it
+    await E((ed, sr, $, $$) => { $$('aside.sidebar .cell').find((c) => /^Holidays/.test(c.textContent.trim())).querySelector('.sw').click(); return true; });
+    await page.waitForTimeout(400);
+    const hol = await E((ed, sr, $, $$) => { const nav = $$('aside.sidebar a').find((c) => /Holiday Options/.test(c.textContent));
+      return { on: ed.opts.holiday_slide, nav: nav ? nav.textContent.replace(/\s+/g, ' ').trim() : null, href: nav ? nav.getAttribute('href') : null }; });
+    say(hol.on === true && /Next Up · 60 Days/.test(hol.nav || '') && /\/screensaver\/holiday$/.test(hol.href || ''), 'Holidays on: Holiday Options a row away, Next Up · 60 Days, on the Screensaver page', hol);
+    await page.evaluate(() => { window.__slides = []; });
+    await E((ed, sr, $, $$) => { $$('aside.sidebar .cell').find((c) => /^Holidays/.test(c.textContent.trim())).querySelector('.seeit').click(); return true; });
+    await page.waitForTimeout(400);
+    say((await page.evaluate(() => window.__slides)).includes('holiday'), 'See It asks the preview for the Holiday slide', await page.evaluate(() => window.__slides));
+    await E((ed) => { ed.setSlide(''); ed.undo(); return true; });
+    await page.waitForTimeout(300);
     await E((ed) => { ed.change((o) => { Object.assign(o, { show: 'photos' }); }); ed.libraryMarks(); return true; });
     await page.waitForTimeout(300);
     const ph = await E((ed, sr, $, $$) => $$('aside.sidebar .lbl .t').map((t) => t.textContent));
@@ -330,7 +342,7 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
     say((await E((ed) => !ed.dirty())) === true, 'Reset: the screensaver as it was before the editor', null);
 
     // ---- Save: a v2 layout hk-saverlayout.js takes
-    await E((ed) => { ed.change((o) => { o.layout.zones.tr.push({ piece: 'status', shape: 'inline', back: 'none', color: 'auto' }); }); return true; });
+    await E((ed) => { ed.change((o) => { o.layout.zones.tr.push({ piece: 'status', shape: 'inline', back: 'none', color: 'auto' }); o.holiday_slide = true; o.holiday_pick = 'turns'; }); return true; });
     const saved = await page.evaluate(async () => {
       const deep = (r, s) => [...r.querySelectorAll('*')].flatMap((e) => [...(e.matches(s) ? [e] : []), ...(e.shadowRoot ? deep(e.shadowRoot, s) : [])]);
       const ed = deep(document, 'hk-saver-editor')[0]; let got = null;
@@ -338,9 +350,10 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
       ed.o.onSaved = () => {};
       await ed.save();
       const L = window.hkSaverLayout;
-      return got && { v: got.layout.v, code: L.check(got.layout), clean: JSON.stringify(L.clean(got.layout)) === JSON.stringify(got.layout), n: ed.message.textContent };
+      return got && { v: got.layout.v, code: L.check(got.layout), clean: JSON.stringify(L.clean(got.layout)) === JSON.stringify(got.layout), n: ed.message.textContent, hol: [got.holiday_slide, got.holiday_pick] };
     });
     say(!!saved && saved.v === 2 && saved.code === null && saved.clean, 'Save writes a v2 layout that passes hkSaverLayout.check', saved);
+    say(!!saved && saved.hol[0] === true && saved.hol[1] === 'turns', '...and the Holiday slide\u2019s options with it', saved && saved.hol);
 
     // ---- the editor at a phone\'s window and sideways: the shapes bar has Phone Sideways
     const dev = await E((ed, sr, $, $$) => $$('.pills')[0].querySelectorAll('button').length ? [...$$('.pills')[0].querySelectorAll('button')].map((b) => b.textContent) : []);
