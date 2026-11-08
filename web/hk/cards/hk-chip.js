@@ -1684,9 +1684,14 @@
   var GROUP_COLS = { S: 1, W: 2, T: 1, L: 2, XL: 3, XXL: 6 }, GROUP_ROWS = { S: 1, W: 1, T: 2, L: 2, XL: 2, XXL: 2 };
   // (the heading above the tiles of Scenes and Accessories: the label's 16 px line and its 8 px gap)
   var GROUP_HEAD = 24;
+  // (out of the document -- a page held while another shows, its cards still fed -- it has no style to read: the shape it
+  // last read in place, which a page put away cannot change. Read as tiles, a Kitchen group drew its two pills in one
+  // column, and showed them so on the way back Home -- the owner's recording, 2026-11-08)
   function cellSquare(el) {
+    if (el && el.isConnected === false && el.__hkSq !== undefined) return el.__hkSq;
     var h = 0;
     try { h = parseFloat(getComputedStyle(el).getPropertyValue('--hk-cell-h')); } catch (e) { h = 0; }
+    if (el && el.isConnected) el.__hkSq = h >= 180;
     return h >= 180;
   }
   var PILL_MIN = 56, PILL_MAX = 82;      // the shortest a half pill may be (its 36 px glyph circle and two lines with their inset), and the tallest
