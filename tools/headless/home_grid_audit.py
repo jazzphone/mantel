@@ -357,11 +357,15 @@ MEASURE = r"""(() => {
         for (const r of rs) {
           let vis = { left: r.left, top: r.top, right: r.right, bottom: r.bottom }, cut = null;
           // (a list that scrolls is cut at its edge on purpose -- DESIGN.md "Lists that scroll": what it hides a finger reaches)
-          for (const k of cl) { if (k.scroll) continue; const b = k.el.getBoundingClientRect();
+          let away = false;           // (scrolled out of its list's view: not an issue, it is a row the list reaches by scrolling)
+          for (const k of cl) { const b = k.el.getBoundingClientRect();
+            if (k.scroll) { vis = { left: Math.max(vis.left, b.left), top: Math.max(vis.top, b.top), right: Math.min(vis.right, b.right), bottom: Math.min(vis.bottom, b.bottom) };
+              if (vis.right - vis.left <= 0.5 || vis.bottom - vis.top <= 0.5) { away = true; break; } continue; }
             const nv = { left: Math.max(vis.left, b.left), top: Math.max(vis.top, b.top), right: Math.min(vis.right, b.right), bottom: Math.min(vis.bottom, b.bottom) };
             const lost = (vis.right - vis.left) - Math.max(0, nv.right - nv.left) + (vis.bottom - vis.top) - Math.max(0, nv.bottom - nv.top);
             if (lost > 1.5 && !k.ellipsis && !cut) cut = name(k.el);
             vis = nv; }
+          if (away) continue;
           const txt = t.data.trim().slice(0, 30);
           // a word broken across lines ("Hea / t"): one word, more than one line box
           if (rs.length > 1 && !/\s/.test(t.data.trim()) && new Set(rs.map(q => Math.round(q.top))).size > 1) {
@@ -414,6 +418,33 @@ MEASURE = r"""(() => {
         const gs = view._gridScale || 1;
         if (r.width >= 1 && r.height >= 1 && (w / gs < 43.5 || h / gs < 43.5))
           rec.issues.push('a control under 44 px: ' + name(el) + ' ' + Math.round(r.width / gs) + 'x' + Math.round(r.height / gs)); }
+    }
+    // NO HIT AREA OVERLAPS ANOTHER (2026-11-08, the owner: the thermostat's "modes get hit while using" its arrows): every control's
+    // touchable box -- its own, out to a transparent ::after / ::before's insets or size -- against every other's, where neither holds
+    // the other (a control inside a control, a card's name over its plate, is nested on purpose); more than 2 px each way is a clash
+    if (window.__hitsCheck) {
+      const hits = [];
+      for (const el of all) {
+        if (!shown(el)) continue; const tag = el.localName, role = el.getAttribute('role');
+        if (!(tag === 'button' || role === 'button' || role === 'slider' || tag === 'input' || tag === 'a' || el.hasAttribute('data-ring'))) continue;   // (the dial's ring takes a touch anywhere in its box)
+        const r = el.getBoundingClientRect(); if (r.width < 1 || r.height < 1) continue;
+        let h = { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
+        for (const pseudo of ['::after', '::before']) { const hit = getComputedStyle(el, pseudo);
+          if (hit.content === 'none' || hit.content === 'normal' || hit.position !== 'absolute') continue;
+          if (getComputedStyle(el).position === 'static') { rec.issues.push('the ::after hit area of ' + name(el) + ' is not anchored to it (it is not positioned: it reaches over the block)'); continue; }
+          const f = k => parseFloat(hit[k]); const L = f('left'), R = f('right'), T = f('top'), B = f('bottom');
+          if (Number.isFinite(L)) h.left = Math.min(h.left, r.left + L); if (Number.isFinite(R)) h.right = Math.max(h.right, r.right - R);
+          if (Number.isFinite(T)) h.top = Math.min(h.top, r.top + T); if (Number.isFinite(B)) h.bottom = Math.max(h.bottom, r.bottom - B); }
+        // (a control a list scrolls or clips away is touchable only where its box shows)
+        for (const k of clippers(el, cell)) { const b = k.el.getBoundingClientRect();
+          h = { left: Math.max(h.left, b.left), top: Math.max(h.top, b.top), right: Math.min(h.right, b.right), bottom: Math.min(h.bottom, b.bottom) }; }
+        if (h.right - h.left < 1 || h.bottom - h.top < 1) continue;
+        hits.push({ el, h }); }
+      const holds = (a, b) => a.contains(b) || b.contains(a);
+      for (let i = 0; i < hits.length; i++) for (let j = i + 1; j < hits.length; j++) {
+        const A = hits[i], B = hits[j]; if (holds(A.el, B.el)) continue;
+        const w = Math.min(A.h.right, B.h.right) - Math.max(A.h.left, B.h.left), t = Math.min(A.h.bottom, B.h.bottom) - Math.max(A.h.top, B.h.top);
+        if (w > 2 && t > 2) rec.issues.push('hit areas overlap by ' + Math.round(w) + 'x' + Math.round(t) + ': ' + name(A.el) + ' and ' + name(B.el)); }
     }
     // Dial text belongs inside its open centre, not across the track/knobs.
     const ring = card.shadowRoot && card.shadowRoot.querySelector('[data-ring]');
@@ -482,6 +513,27 @@ MEASURE = r"""(() => {
 })()"""
 
 
+def timers_state(n: int, paused: tuple[int, ...] = ()) -> dict:
+    """STATES' entities for n running quick timers (those at the indexes in `paused` held): the sensor the block reads and each
+    timer's name, length and finish."""
+    names, mins, left = ["Pasta", "Laundry", "Tea", "Oven", "Bread", "Dryer"], [12, 45, 5, 50, 90, 30], [420, 1800, 150, 2400, 3600, 900]
+    at = lambda secs: time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(time.time() + secs))
+    ents: dict = {}
+    run = []
+    for i in range(6):
+        eid, dur = f"timer.quick_{i + 1}", f"{mins[i] // 60}:{mins[i] % 60:02d}:00"
+        if i >= n:
+            ents[eid] = ("idle", {"friendly_name": f"Quick Timer {i + 1}", "duration": dur})
+        elif i in paused:
+            ents[eid] = ("paused", {"friendly_name": names[i], "duration": dur, "remaining": f"0:{left[i] // 60:02d}:{left[i] % 60:02d}"})
+            run.append({"name": names[i], "entity_id": eid})
+        else:
+            ents[eid] = ("active", {"friendly_name": names[i], "duration": dur, "remaining": dur, "finishes_at": at(left[i])})
+            run.append({"name": names[i], "entity_id": eid, "finishes_at": at(left[i])})
+    ents["sensor.running_quick_timers"] = (str(n), {"friendly_name": "Running Quick Timers", "running": run})
+    return ents
+
+
 # EVERY STATE, NOT ONLY A BUSY HOUSE (2026-11-08, the owner: the Timers block "always shows a timer in your test", and
 # with none it "is not good looking at all"). `--state NAME` draws the house in another state: each entry turns the
 # stood-in house into it (domain -> state for everything of that domain, then entity -> (state, attributes) over
@@ -503,6 +555,24 @@ STATES: dict[str, dict] = {
     "recent_quiet": {"domains": {"lock": "locked", "cover": "closed", "binary_sensor": "off", "alarm_control_panel": "armed_night"},
                      "timeline": "quiet"},
     "recent_busy": {"timeline": "busy"},
+    # TIMERS (2026-11-08): one running, six (the Extra Large block's most), two with one held
+    # THE THERMOSTAT's other modes (2026-11-08): the block's thermostat (`--opts thermostat='{"entity": "climate.office"}'`) on Cool, on Off
+    "thermostat_cool": {"entities": {"climate.office": ("cool", {**EXTRA["climate.office"][1][1], "temperature": 72, "hvac_action": "cooling"})}},
+    "thermostat_off": {"entities": {"climate.office": ("off", {**EXTRA["climate.office"][1][1], "temperature": None, "hvac_action": "off"})}},
+    "timers_one": {"entities": timers_state(1)},
+    "timers_many": {"entities": timers_state(6)},
+    "timers_paused": {"entities": timers_state(2, paused=(0,))},
+    # THE VACUUM (2026-11-08): what it is doing, and the rooms Clean Areas offers (`rooms`: six, the default; `twelve` more than a
+    # Large block holds) and which of them are ticked before the shot (`picked`: area ids, the block's rooms to clean)
+    "vacuum_cleaning": {"entities": {"vacuum.downstairs": ("cleaning", {"friendly_name": "Downstairs Vacuum", "battery_level": 64, "supported_features": 16383})}},
+    "vacuum_paused": {"entities": {"vacuum.downstairs": ("paused", {"friendly_name": "Downstairs Vacuum", "battery_level": 64, "supported_features": 16383})}},
+    "vacuum_returning": {"entities": {"vacuum.downstairs": ("returning", {"friendly_name": "Downstairs Vacuum", "battery_level": 31, "supported_features": 16383})}},
+    "vacuum_error": {"entities": {"vacuum.downstairs": ("error", {"friendly_name": "Downstairs Vacuum", "battery_level": 12, "supported_features": 16383})}},
+    "vacuum_picked": {"entities": {"vacuum.downstairs": ("docked", {"friendly_name": "Downstairs Vacuum", "battery_level": 92, "supported_features": 16383})},
+                      "picked": ["kitchen", "office"]},
+    "vacuum_picked3": {"picked": ["kitchen", "office", "bedroom"]},
+    "vacuum_twelve": {"twelve": True},
+    "vacuum_twelve_picked": {"twelve": True, "picked": ["kitchen", "den", "pantry", "garage"]},
 }
 # THE PLAYER'S STATES (2026-11-08, the Now Playing round): the house plays a song with no cover (the default above), so
 # these draw what the owner's tablets show -- a cover, a pause, nothing playing, a very long song. `attrs` merges over an
@@ -557,7 +627,10 @@ STATES["sec_many"] = {"entities": {**{f"lock.extra_{i}": ("locked", {"friendly_n
     ("Garage Entry", "Side Door", "Patio Door", "Basement Door"))},
     "cover.garage_two": ("closed", {"friendly_name": "Workshop Door", "device_class": "garage"}),
     **{f"binary_sensor.extra_window_{i}": ("off", {"friendly_name": f"Window {i}", "device_class": "window"}) for i in range(8)}}}
-STATE = {"name": "busy"}
+STATE = {"name": "busy", "hits": False}
+# six more rooms for a house with twelve (the Vacuum block's rooms scroll when they do not fit)
+MORE_ROOMS = [("den", "Den", "main"), ("pantry", "Pantry", "main"), ("laundry", "Laundry", "main"), ("hallway", "Hallway", "upstairs"),
+              ("nursery", "Nursery", "upstairs"), ("bathroom", "Bathroom", "upstairs")]
 # the window (a phone: AUDIT_VIEW=390x844 -- the grid is then drawn as the screen draws it there)
 VIEW = tuple(int(x) for x in os.environ.get("AUDIT_VIEW", "1280x800").split("x"))
 
@@ -680,6 +753,11 @@ def stand_in_app(app) -> None:
     hub.readproxy.energy_prefs, hub.readproxy.stat_rows = ENERGY_PREFS, stat_rows
 
 
+def clean_areas() -> list[str]:
+    """The rooms Clean Areas offers in the state: CLEAN_AREAS, or twelve of them."""
+    return CLEAN_AREAS + [r[0] for r in MORE_ROOMS] if STATES[STATE["name"]].get("twelve") else CLEAN_AREAS
+
+
 def feed_script() -> str:
     """THE ENERGY FEATURE, stood in on the page: its plan's house battery is what the `battery` block shows, and the
     test server's settings feed has no Energy feature to send (hkSettings.get answers `added` and `energy` as a house
@@ -698,13 +776,18 @@ def feed_script() -> str:
         v.get = function (p, f) { if (p === 'added') return ['energy', 'live_tv', 'clean_areas']; if (p === 'energy') return """ + plan + """;
           return get.apply(this, arguments); };
         v.subscribe = function (conn, msg, on) { if (msg && msg.type === 'hk_clean_areas/subscribe') {
-          setTimeout(() => on({ configured: true, areas: """ + json.dumps(CLEAN_AREAS) + """ }), 0); return () => {}; }
+          setTimeout(() => on({ configured: true, areas: """ + json.dumps(clean_areas()) + """ }), 0); return () => {}; }
           return sub.apply(this, arguments); }; } }); })()"""
 
 
 async def audit(keys: list[str], looks: list[str], shots: Path | None, long: bool, nobar: list[str]) -> dict:
     gallery.HOUSE.update(EXTRA)
     apply_state(STATE["name"])
+    if STATES[STATE["name"]].get("twelve"):
+        gallery.ROOMS.extend(r for r in MORE_ROOMS if r not in gallery.ROOMS)
+        for rid, rname, _ in MORE_ROOMS:        # (the page's registry keeps an area only when something in it is let through)
+            gallery.HOUSE[f"sensor.{rid}_temperature"] = (rid, ("68", {"friendly_name": f"{rname} Temperature", "unit_of_measurement": "°F",
+                                                                       "device_class": "temperature", "state_class": "measurement"}))
     if long:
         for eid, (area, (state, attrs)) in list(gallery.HOUSE.items()):
             if "friendly_name" in attrs and not eid.startswith("sun."):
@@ -730,6 +813,8 @@ async def audit(keys: list[str], looks: list[str], shots: Path | None, long: boo
                 # the page has the focus, as a wall tablet's does (cameras rest without it: cameras.focus_pause)
                 await b.send("Emulation.setFocusEmulationEnabled", enabled=True)
                 await b.send("Page.addScriptToEvaluateOnNewDocument", source=feed_script())
+                if STATE["hits"]:
+                    await b.send("Page.addScriptToEvaluateOnNewDocument", source="window.__hitsCheck = true")
                 sun = None
                 for key, look, bar in passes:
                     elev = SUN.get(look, 40.0)
@@ -746,6 +831,11 @@ async def audit(keys: list[str], looks: list[str], shots: Path | None, long: boo
                         if (e.localName === 'hk-home-grid-view') return e; if (e.shadowRoot) { const f = d(e.shadowRoot); if (f) return f; } }
                         return null; }; const v = d(document); return v && v.shadowRoot.querySelectorAll('.cell').length > 0; })()""", 20)
                     await asyncio.sleep(2.0)            # pictures, fonts and the sky settle
+                    picked = STATES[STATE["name"]].get("picked")
+                    if picked:                          # the rooms ticked on the Vacuum block (hk-home.js: hkHome.picked, by vacuum)
+                        await b.eval("(() => { const s = (window.hkHome.picked['vacuum.downstairs'] = window.hkHome.picked['vacuum.downstairs'] || new Set()); s.clear(); %s.forEach(a => s.add(a));"
+                                     " window.dispatchEvent(new Event('hk-vacuum-rooms')); })()" % json.dumps(picked))
+                        await asyncio.sleep(0.8)
                     got = await b.eval(MEASURE)
                     if os.environ.get("AUDIT_PROBE"):      # (a probe of one's own, in the page: AUDIT_PROBE='<js expression>', printed)
                         print("probe", await b.eval(os.environ["AUDIT_PROBE"]), flush=True)
@@ -806,8 +896,10 @@ def main(argv=None) -> int:
                     help="what a block names, over the audit's own (thermostat='{\"entity\": \"climate.office\"}')")
     ap.add_argument("--state", choices=list(STATES), default="busy",
                     help="the house's state (STATES): busy (default) or quiet -- every block must look finished in each")
+    ap.add_argument("--hits", action="store_true", help="also fail where one control's touchable box (its ::after too) overlaps another's")
     a = ap.parse_args(argv)
     STATE["name"] = a.state
+    STATE["hits"] = a.hits
     for o in a.opts:
         k, _, v = o.partition("=")
         OPTS[k] = {**OPTS.get(k, {}), **json.loads(v)}
