@@ -5,6 +5,8 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+## 1.49.0 - 2026-11-08
+
 **Added**
 - **A Custom Detail Sheet on any Home Grid block.** Edit a block, then Detail Sheet → When Tapped → Custom Detail Sheet: a title, an icon, a tile style and the accessories you choose, in your order.
 - **Security in HomeView's style**, with a new Compact size (3 × 1); its Extra Large leads with the keypad, the locks and garage doors as tiles and the open doors and windows in one line.
