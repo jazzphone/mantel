@@ -442,9 +442,9 @@
         var W = box.clientWidth, H = box.clientHeight;
         // (the box takes the room the heading, the strip and the keys leave; its tiles keep their own size inside it)
         if (!W || H <= 0) return;
-        (this._size() === 'XL' ? [[136, 112, true], [168, 64, false]] : [[116, 96, true], [150, 64, false]]).forEach(function (o) {
-          var across = Math.max(1, Math.floor((W + G) / (o[0] + G))), rows = Math.floor((H + G) / (o[1] + G)), cap = across * rows;
-          if (cap > 0 && (!best || (best.cap < n ? cap > best.cap : false))) best = { w: o[0], h: o[1], st: o[2], across: across, cap: cap };
+        (this._size() === 'XL' ? [{ w: 136, h: 112, st: true }, { w: 168, h: 64, st: false }] : [{ w: 116, h: 96, st: true }, { w: 150, h: 64, st: false }]).forEach(function (o) {
+          var across = Math.max(1, Math.floor((W + G) / (o.w + G))), rows = Math.floor((H + G) / (o.h + G)), cap = across * rows;
+          if (cap > 0 && (!best || (best.cap < n ? cap > best.cap : false))) best = { w: o.w, h: o.h, st: o.st, across: across, cap: cap };
         });
         if (!best) best = { w: 150, h: 64, st: false, across: 1, cap: 1 };
         var show = n <= best.cap ? n : Math.max(0, best.cap - 1), slots = show < n ? show + 1 : show;

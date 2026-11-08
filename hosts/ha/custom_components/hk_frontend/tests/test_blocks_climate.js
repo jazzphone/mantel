@@ -148,13 +148,16 @@ H.run('CLIMATE BLOCKS', [
     H.section('Extra Large, a small Weather page');
     var x = block('XL');
     H.ok('the left column: the top, five hours, the readings', /<div class="lc"><div class="top">[\s\S]*class="hrs"[\s\S]*<div class="rds">/.test(x) && count(x, /class="hr"/g) === 5, x.slice(0, 300));
-    H.ok('...feels like, humidity, wind with its direction', /Feels like<\/small><b>62°<\/b>/.test(x) && /Humidity<\/small><b>52%<\/b>/.test(x) && /Wind<\/small><b>6 mph NW<\/b>/.test(x), x);
+    H.ok('...feels like, humidity, wind (its direction in the label)', /Feels like<\/small><b>62°<\/b>/.test(x) && /Humidity<\/small><b>52%<\/b>/.test(x) && /Wind NW<\/small><b>6 mph<\/b>/.test(x), x);
+    H.ok('...six readings at most, two across a square cell: each its own 6 of 12 columns, none stretched', count(x, /<span style="grid-column:span \d+">/g) === 6, x);
+    var more = block('XL', { 'weather.openweathermap': ['sunny', { temperature: 64, friendly_name: 'OpenWeatherMap', pressure: 1015, pressure_unit: 'hPa', visibility: 10, visibility_unit: 'mi', dew_point: 48, humidity: 52 }] });
+    H.ok('...pressure, visibility and dew point when the house has them (after the six, so cut)', /Rain<\/small>/.test(more) && count(more, /<span style="grid-column:/g) === 6, more);
     H.ok('...the chance of rain today, sunset, UV', /Rain<\/small><b>20%<\/b>/.test(x) && /Sunset<\/small><b>[0-9:]+ [AP]M<\/b>/.test(x) && /UV<\/small><b>2 Low<\/b>/.test(x));
     H.ok('the right: seven days, named', /<div class="rc"><b class="lab">7-Day Forecast<\/b><div class="days">/.test(x) && count(x, /class="day"/g) === 7);
     var dark = block('XL', { 'sun.sun': ['below_horizon', { next_setting: '2026-11-01T22:36:00Z', next_rising: '2026-11-01T11:10:00Z' }] });
     H.ok('after dark, the sunrise', /Sunrise<\/small>/.test(dark) && !/Sunset<\/small>/.test(dark));
     var bare = block('XL', { 'weather.openweathermap': ['sunny', { temperature: 64, friendly_name: 'OpenWeatherMap' }], 'sensor.openweathermap_apparent_temperature': ['unknown', {}],
                              'sensor.openweathermap_humidity': ['unknown', {}], 'sensor.openweathermap_wind_speed': ['unknown', {}] });
-    H.ok('a reading the house lacks is left out, not shown empty', !/Feels like|Humidity|Wind</.test(bare) && /Rain<\/small>/.test(bare), bare);
+    H.ok('a reading the house lacks is left out, not shown empty', !/Feels like|Humidity|Wind/.test(bare) && /Rain<\/small>/.test(bare), bare);
   }
 ]);
