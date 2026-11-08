@@ -4,6 +4,15 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Added**
+- **A Custom Detail Sheet on any Home Grid block.** Edit a block, then Detail Sheet → When Tapped → Custom Detail Sheet: a title, an icon, a tile style (Same as Screen, Home or Tall), and the accessories you choose, in your order, each with its own name, icon, color, tile style and line under its name in that sheet only. Add several at once, duplicate an entry, copy another block's sheet, or duplicate the whole block. A one-button block (an accessory, a scene, an action) opens its sheet without toggling; other blocks open it from anywhere but their own controls, or from a button in their corner. Back from an accessory returns to the sheet where you left it. Someone who may not see an accessory never sees it in a sheet.
+- **Security in HomeView's style.** Security's Presentation can be HomeView: Small, Wide, a new Compact (3 × 1), Large and Extra Large show the alarm with your locks and garage doors as accessory tiles, white where one isn't secured, with "N more" when they don't fit. Tap the alarm for the Security overview, or an entry for its own sheet. Classic Security, keypads included, is unchanged.
+
+**Fixed**
+- **Near-square Centered tiles take the square cell's glyph**, so a Large Accessories block's tiles are no longer drawn with the smaller one.
+- **Half pill rows are centered** in Accessories and Scenes blocks.
+- **Wide and Extra Large Music covers fill the block's height.**
+
 ## 0.1.149 - 2026-11-07
 
 **Fixed**
