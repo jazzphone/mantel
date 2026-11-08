@@ -4,6 +4,8 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+## 0.1.152 - 2026-11-08
+
 **Changed**
 - **Nothing in a block stretches any more.** Tiles, rows, keys and pills keep their designed size at each block size; a bigger block shows more of them, centered with equal margins, instead of bigger ones (as HomeView does). Room, Accessories and Scenes keep one tile size per block size, with the last row centered and "More" for the rest; Scenes and Accessories have a heading.
 - **On Now and House Status, redesigned together:** a headline that answers the glance ("8 On", "1 Window Open", "All Good") over the categories as lines, each with its glyph lit in its color and where it is on. New option: a category opens a sheet or goes to its page.
