@@ -242,8 +242,10 @@
         if (this._ro) { this._ro.disconnect(); this._ro = null; }
         if (!cv || !w || typeof ResizeObserver !== 'function') return;
         var fit = function () {
-          var W = w.clientWidth, H = w.clientHeight, r = +(getComputedStyle(cv).getPropertyValue('--r') || 1) || 1;
-          if (!W || !H) return;
+          // (no sizes, nothing to fit: a page not laid out yet, or HK Frontend's test DOM, which has no computed styles)
+          var W = w.clientWidth, H = w.clientHeight, cs = W && H ? getComputedStyle(cv) : null;
+          if (!cs || !cs.getPropertyValue || !cv.style.setProperty) return;
+          var r = +(cs.getPropertyValue('--r') || 1) || 1;
           var tall = Math.floor((H - (r - 1) * 10) / r - 21);     // (the cover the height holds, its name under it)
           var seen = (W + 10) / (tall + 10), n = Math.max(1, Math.floor(seen));
           var size = seen - n >= 0.25 ? tall : Math.floor((W - n * 10) / (n + 0.4));

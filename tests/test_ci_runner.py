@@ -232,7 +232,15 @@ def test_steps_run_side_by_side_but_the_first_ones_first_and_a_lane_in_order(tmp
     def stamp(name, secs=0.4):
         return ci.Step(name, [sys.executable, "-c", f"import time,sys; open({str(log)!r},'a').write('{name}+\\n'); "
                                                     f"time.sleep({secs}); open({str(log)!r},'a').write('{name}-\\n')"], timeout=30)
-    a, b, c = stamp("a"), stamp("b"), stamp("c")
+    # (a, b and c each wait, 10 s at most, until all three have started: a fixed sleep let one end before another's
+    # Python had started on a loaded machine -- the release's versions run, 2026-11-07, twice. Run one at a time,
+    # each still ends before the next starts, and the test fails as it should.)
+    def together(name):
+        wait = (f"t=time.time()\nwhile time.time()-t<10 and not all(x+'+' in open({str(log)!r}).read().split() for x in 'abc'): "
+                f"time.sleep(0.02)\n")
+        return ci.Step(name, [sys.executable, "-c", f"import time\nopen({str(log)!r},'a').write('{name}+\\n')\n{wait}"
+                                                    f"open({str(log)!r},'a').write('{name}-\\n')"], timeout=30)
+    a, b, c = together("a"), together("b"), together("c")
     first = stamp("build", 0.1); first.first = True
     l1, l2 = stamp("lane1", 0.2), stamp("lane2", 0.2)
     l1.lane = l2.lane = "port"

@@ -5,6 +5,8 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+## 1.48.3 - 2026-11-07
+
 **Fixed**
 - **Pre-rendered glass shows the new page’s background after a page change.** A repaint asked just as the page changed could draw the last page’s sky onto the new page’s cards and keep it for that page; it now waits until the new page’s sky is up.
 

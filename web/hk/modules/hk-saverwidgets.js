@@ -402,21 +402,24 @@
   // Align a corner's visible ink, including a digit's side bearing and the weather SVG's view-box padding.
   // Scale is the preview frame's transform: margins are in layout pixels, measurements in screen pixels.
   // Cache the actual glyph edge: mathematical font bounds can include nearly transparent edge pixels.
-  // (drawn 4x and the edge kept to a quarter pixel: measured whole at 1x and then scaled, a 78 px clock digit at 1920 x
-  // 1080 came out 1.2 px off the date's edge -- 2026-11-07)
-  var cornerCtx = null, cornerInk = {}, INK_SS = 4;
-  function glyphLeft(font, ch, size) {
-    var key = font + '|' + ch;
+  // (THE PIXELS THE SCREEN LIGHTS, 2026-11-07: the glyph drawn at its size on screen -- the font size times the
+  // frame's scale -- and at the same fraction of a pixel as its origin there, so its first lit column is the one the
+  // screen lights; the corner then moves by whole pixels and that fraction stays. Drawn at the layout size and scaled,
+  // a 78 px clock digit at 1920 x 1080 came out 1.2 px off the date; drawn finer, its geometric edge, the leading
+  // digit of the hour decided which pixel lit, and a check passed or failed by the time of day.)
+  var cornerCtx = null, cornerInk = {};
+  function glyphLeft(font, ch, px, frac) {
+    var key = font + '|' + ch + '|' + px.toFixed(2) + '|' + Math.round(frac * 16);
     if (cornerInk[key] !== undefined) return cornerInk[key];
-    var canvas = document.createElement('canvas'), pad = Math.ceil(size * INK_SS);
+    var canvas = document.createElement('canvas'), pad = Math.ceil(px);
     canvas.width = canvas.height = pad * 3;
     var ctx = canvas.getContext('2d');
     if (!ctx) return 0;
-    ctx.font = font.replace(/(^|\s)([\d.]+)px/, function (m, sp, n) { return sp + parseFloat(n) * INK_SS + 'px'; });
-    ctx.fillStyle = '#fff'; ctx.fillText(ch, pad, pad * 2);
+    ctx.font = font.replace(/(^|\s)([\d.]+)px/, function (m, sp) { return sp + px + 'px'; });
+    ctx.fillStyle = '#fff'; ctx.fillText(ch, pad + Math.round(frac * 16) / 16, pad * 2);
     var data = ctx.getImageData(0, 0, canvas.width, canvas.height).data, left = 0;
     outer: for (var x = 0; x < canvas.width; x++) for (var y = 0; y < canvas.height; y++) {
-      if (data[(y * canvas.width + x) * 4 + 3] > 64) { left = (x - pad) / INK_SS; break outer; }
+      if (data[(y * canvas.width + x) * 4 + 3] > 64) { left = x - pad; break outer; }
     }
     if (Object.keys(cornerInk).length >= 48) cornerInk = {};
     return (cornerInk[key] = left);
@@ -458,7 +461,8 @@
         var r = range.getBoundingClientRect(), mt = cornerCtx.measureText(ch);
         // Tabular figures center a proportional glyph in its wider digit cell.
         var cell = /[0-9]/.test(ch) && /tabular-nums/.test(cs.fontVariantNumeric) ? (r.width / scale - mt.width) / 2 : 0;
-        x = r.left + (cell + glyphLeft(font, ch, parseFloat(cs.fontSize))) * scale;
+        var x0 = r.left + cell * scale, base = Math.floor(x0);
+        x = base + glyphLeft(font, ch, parseFloat(cs.fontSize) * scale, x0 - base);
       }
       if (x !== null && isFinite(x) && Math.abs((left - x) / scale) > 0.03) piece.style.marginLeft = (prior + (left - x) / scale).toFixed(3) + 'px';
     });

@@ -102,7 +102,11 @@ const input = JSON.parse(fs.readFileSync(0, 'utf8'));
         }
         const ink = await require('./corner_look.cjs')(page, 'hk-screensaver .scn .tl', input.python);
         const xs = ink.map(r=>r.left);
-        assert(xs.length === 3 && xs.every(x=>x!==null) && Math.max(...xs)-Math.min(...xs)<=(ink.some(r=>parseFloat(r.font)<14)?2:1), 'slide corner ink aligned: '+JSON.stringify(ink));
+        // (a pixel either way, two where the fonts are small or the slide is drawn larger than its layout -- 1.26x at 1920 x
+        // 1080, where text and the weather's icon round their antialiased edges to opposite screen pixels: under two of
+        // the layout's pixels, 2026-11-07)
+        const zoomed = W >= 1600;   // (the slide's scale past a 1280 x 800 layout: 1.26 at 1920 x 1080)
+        assert(xs.length === 3 && xs.every(x=>x!==null) && Math.max(...xs)-Math.min(...xs)<=(ink.some(r=>parseFloat(r.font)<14)||zoomed?2:1), 'slide corner ink aligned: '+JSON.stringify(ink));
         if(input.shots)await page.screenshot({path:`${input.shots}/${W}x${H}-${side}-slide.png`});
         await page.evaluate(fs.readFileSync(__dirname+'/player_look.js','utf8'));
         const sl=await page.evaluate(()=>playerLook(document.querySelector('hk-screensaver').shadowRoot.querySelector('.mu'),{bar:'.mbar',pp:'.mpp svg',vol:'.mvt',buttons:'.mctl .mbtn'}));
