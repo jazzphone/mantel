@@ -475,8 +475,81 @@ STATES: dict[str, dict] = {
                           "vacuum": "docked"},
               "entities": {"sensor.running_quick_timers": ("0", {"friendly_name": "Running Quick Timers", "running": []})},
               "events": False},
+    # THE TIMELINE'S STATES (2026-11-08, the Recent block): `timeline` names the rows seeded into Mantel's own store
+    # (seed_timeline; busy is the default and "quiet" the quiet house's) -- a new house with no rows at all, a quiet
+    # night (two rows last evening, nothing since, everything locked), and a busy day with pictures (busy's own)
+    "recent_empty": {"timeline": "empty"},
+    "recent_quiet": {"domains": {"lock": "locked", "cover": "closed", "binary_sensor": "off", "alarm_control_panel": "armed_night"},
+                     "timeline": "quiet"},
+    "recent_busy": {"timeline": "busy"},
 }
 STATE = {"name": "busy"}
+
+
+def seed_timeline(app, kind: str) -> None:
+    """The House Timeline's rows for STATES' `timeline` (busy unless a state says): written oldest first into Mantel's
+    own store, so the newest have the highest ids as on a house. Busy: a day at the house -- the front door's camera
+    saw a person and a ring and a package, the backyard's an animal and a vehicle (each with its pictures: HK's own
+    landscapes, as the gallery's cameras' stills), locks, the garage, the alarm, an arrival -- and a night with rows in
+    the digest's window. Quiet: the back door locked and the alarm armed before the night, nothing since. Empty: none."""
+    from hk_core.timeline import words as W
+    from mantel_server.timeline.api import window_of
+    from mantel_server.timeline.store import Row
+    if kind == "empty":
+        return
+    tl, pics, now = app["timeline"], app["timeline_pictures"], time.time()
+    start, end, _ = window_of(app, "overnight", now)
+    rooms = dict((a, n) for a, n, _ in gallery.ROOMS)
+    alex = {"actor_name": "Alex", "how": "home"}
+    sam_tab = {"actor_name": "Sam", "device_name": "Hallway tablet", "how": "tablet"}
+    rows = []
+
+    def row(t, family, kind_, label, entity, area, pictures=0, **who):
+        rows.append((t, family, kind_, label, entity, area, pictures, who))
+    night = lambda f: start + f * (end - start)               # noqa: E731
+    if kind == "quiet":
+        row(start - 50 * 60, "lock", "locked", "Back Door", "lock.back_door", "kitchen", **sam_tab)
+        row(start - 48 * 60, "alarm", "armed_night", "Home Alarm", "alarm_control_panel.home", None, **sam_tab)
+    else:
+        row(night(0.12), "lock", "locked", "Back Door", "lock.back_door", "kitchen", **sam_tab)
+        row(night(0.13), "alarm", "armed_night", "Home Alarm", "alarm_control_panel.home", None, **sam_tab)
+        row(night(0.45), "detection", "animal", "Backyard", "camera.backyard", "backyard", 2)
+        row(night(0.8), "detection", "package", "Front Door", "camera.front_door", "porch", 1)
+        row(night(0.93), "garage", "opened", "Garage Door", "cover.garage_door", "garage", how="hand_or_automation")
+        row(night(0.95), "garage", "closed", "Garage Door", "cover.garage_door", "garage", how="hand_or_automation")
+        for mins, family, kind_, label, entity, area, n, who in (
+                (330, "door", "opened", "Front Door", "binary_sensor.front_door", "porch", 0, {}),
+                (329, "door", "closed", "Front Door", "binary_sensor.front_door", "porch", 0, {}),
+                (250, "alarm", "disarmed", "Home Alarm", "alarm_control_panel.home", None, 0, sam_tab),
+                (190, "detection", "vehicle", "Backyard", "camera.backyard", "backyard", 2, {}),
+                (132, "garage", "opened", "Garage Door", "cover.garage_door", "garage", 0, alex),
+                (125, "garage", "closed", "Garage Door", "cover.garage_door", "garage", 0, alex),
+                (80, "detection", "package", "Front Door", "camera.front_door", "porch", 1, {}),
+                (52, "arrival", "arrived", "Alex", "person.alex", None, 0, {}),
+                (41, "lock", "unlocked", "Front Door", "lock.front_door", "porch", 0, alex),
+                (18, "doorbell", "ring", "Front Door", "camera.front_door", "porch", 2, {}),
+                (3, "detection", "person", "Front Door", "camera.front_door", "porch", 2, {})):
+            row(now - mins * 60, family, kind_, label, entity, area, n, **who)
+    still = {"camera.front_door": "07.webp", "camera.backyard": "21.webp"}
+    real = tl.clock
+    for i, (t, family, kind_, label, entity, area, n, who) in enumerate(sorted(rows, key=lambda r: r[0])):
+        title = W.title(family, kind_, label, {})
+        r = Row(src=f"audit:{i}", at=t, family=family, kind=kind_, title=title, entity=entity, area=area,
+                search=W.search_words(family, kind_, label, rooms.get(area), title), detail={"s": kind_},
+                actor_name=who.get("actor_name"), device_name=who.get("device_name"), how=who.get("how"))
+        tl.rows.write([("row", r)])
+        if n:
+            from io import BytesIO
+            from PIL import Image
+            img = Image.open(ROOT / "web/hk/landscapes" / still[entity]).convert("RGB")
+            img.thumbnail((640, 640))
+            eid = tl.rows.by_src([r.src])[0]["id"]
+            for k in range(n):
+                out = BytesIO()
+                img.crop((k * 24, 0, img.width - (n - 1 - k) * 24, img.height)).save(out, "JPEG", quality=72)
+                tl.clock = lambda at=t + 2 + 5 * k: at
+                pics.store(eid, entity, out.getvalue())
+    tl.clock = real
 
 
 def apply_state(name: str) -> None:
@@ -562,7 +635,13 @@ async def audit(keys: list[str], looks: list[str], shots: Path | None, long: boo
         app, cookie = await gallery.build(Path(folder))
         hub = app["hub"]
         stand_in_app(app)
+        tl_kind = STATES[STATE["name"]].get("timeline", "quiet" if STATE["name"] == "quiet" else "busy")
+        seed_timeline(app, tl_kind)
         async with TestServer(app) as server:
+            # (Mantel's own start-up row, "Mantel started", is the real clock's: not part of the made-up house)
+            app["timeline"].flush()
+            with app["timeline"].db:
+                app["timeline"].db.execute("DELETE FROM timeline_events WHERE src NOT LIKE 'audit:%'")
             origin = str(server.make_url("")).rstrip("/")
             async with Browser(width=1280, height=800, port=9391) as b:
                 await b.restrict_origin(origin)
