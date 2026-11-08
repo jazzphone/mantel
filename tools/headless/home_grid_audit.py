@@ -283,7 +283,7 @@ MEASURE = r"""(() => {
     while (n && n !== cell) {
       if (n.nodeType === 1) { const cs = getComputedStyle(n);
         if (cs.overflowX !== 'visible' || cs.overflowY !== 'visible' || cs.clipPath !== 'none')
-          out.push({ el: n, ellipsis: cs.textOverflow === 'ellipsis' || +cs.webkitLineClamp > 0 || cs.webkitLineClamp !== 'none' && cs.webkitLineClamp !== undefined && cs.webkitLineClamp !== '' }); }
+          out.push({ el: n, scroll: /auto|scroll/.test(cs.overflowX + ' ' + cs.overflowY), ellipsis: cs.textOverflow === 'ellipsis' || +cs.webkitLineClamp > 0 || cs.webkitLineClamp !== 'none' && cs.webkitLineClamp !== undefined && cs.webkitLineClamp !== '' }); }
       n = n.assignedSlot || n.parentNode || (n.host || null);
       if (n && n.nodeType === 11) n = n.host;
     } return out; };
@@ -337,7 +337,8 @@ MEASURE = r"""(() => {
         const cl = clippers(t, cell);
         for (const r of rs) {
           let vis = { left: r.left, top: r.top, right: r.right, bottom: r.bottom }, cut = null;
-          for (const k of cl) { const b = k.el.getBoundingClientRect();
+          // (a list that scrolls is cut at its edge on purpose -- DESIGN.md "Lists that scroll": what it hides a finger reaches)
+          for (const k of cl) { if (k.scroll) continue; const b = k.el.getBoundingClientRect();
             const nv = { left: Math.max(vis.left, b.left), top: Math.max(vis.top, b.top), right: Math.min(vis.right, b.right), bottom: Math.min(vis.bottom, b.bottom) };
             const lost = (vis.right - vis.left) - Math.max(0, nv.right - nv.left) + (vis.bottom - vis.top) - Math.max(0, nv.bottom - nv.top);
             if (lost > 1.5 && !k.ellipsis && !cut) cut = name(k.el);
@@ -424,7 +425,8 @@ MEASURE = r"""(() => {
     // Check the material contract as well as geometry. Media may paint its
     // own image; every other plate must follow the active screen's material.
     const rendering = window.hkSettings && window.hkSettings.rendering();
-    const media = ['hk-camera-mosaic-card', 'hk-scene-card', 'hk-suggested-scene-card', 'hk-now-playing-card'].includes(card.localName);
+    // (the Cameras face too, 2026-11-07: its stills are the block, edge to edge, as one camera's are)
+    const media = ['hk-camera-mosaic-card', 'hk-grid-cameras-card', 'hk-scene-card', 'hk-suggested-scene-card', 'hk-now-playing-card'].includes(card.localName);
     if (outer && !media && rendering) {
       const material = getComputedStyle(outer.el), lookShadow = material.getPropertyValue('--hk-look-shadow').trim();
       rec.material = { flat: !!rendering.flat, marker: material.getPropertyValue('--hk-glass-surface').trim(),
