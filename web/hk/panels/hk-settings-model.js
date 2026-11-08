@@ -668,10 +668,10 @@
     grid_items: 'A Home Grid holds at most 24 blocks.', grid_item: 'A block in that layout couldn’t be read.',
     grid_card: 'That card can’t go on a Home Grid.', grid_size: 'That card doesn’t come in that size.',
     grid_fit: 'That size is bigger than the grid.', grid_place: 'A block is past the edge of the grid.',
-    grid_overlap: 'Two blocks are in the same place.', grid_pages: 'A block’s pages couldn’t be read.',
-    grid_condition: 'Choose a condition and a fallback card.', grid_fallback: 'Choose a fallback card that supports this block’s size.',
-    grid_source: 'That card can’t swipe through those pages.', grid_option: 'A block’s option isn’t one it can use.'
-  };
+    grid_overlap: 'Two blocks are in the same place.', grid_pages: 'A block’s pages couldn’t be read.', grid_sheet: 'A block’s detail sheet has a setting it can’t use.',
+    grid_condition: 'Choose a condition and a fallback card.', grid_fallback: 'Choose a fallback card that supports this block’s size.', grid_sheet_full: 'A detail sheet holds at most 24 accessories.',
+    grid_source: 'That card can’t swipe through those pages.', grid_option: 'A block’s option isn’t one it can use.',
+    grid_sheet_empty: 'A block opens a detail sheet with nothing in it. Add an accessory, or set When Tapped back to the block’s own.' };
   // A PAGE PILL'S OWN LOOK (hk-chip.js PAGE_PILLS): name, icon, color
   var PAGE_PILL_DEFAULTS = {
     weather: ['Weather', 'hk:weather-partly-cloudy', 'white'], calendar: ['Calendar', 'mdi:calendar-month', 'white'], cameras: ['Cameras', 'hk:camera', 'white'],

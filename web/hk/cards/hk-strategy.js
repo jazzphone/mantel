@@ -1570,9 +1570,9 @@
       // tiles. Never the screen's Centred on a Security block past Small: its
       // mode buttons piled over its name, 2026-10-30. A block's own Centred is
       // its own.)
-      var ts = it.tile || tiles || 'auto', keeps = it.card === 'security' && it.size !== 'S' && it.tile !== 'centred';
+      var ts = it.tile || tiles || 'auto', keeps = it.card === 'security' && it.size !== 'S' && it.tile !== 'centred' && (it.opts || {}).presentation !== 'homeview';
       if (!keeps && (ts === 'centred' || (ts === 'auto' && grid.cell === 'square'))) cell.tile = 'centred';
-      cards.push(Object.assign(window.hkGridCatalog.config(it, ctx), { hk_cell: cell }));
+      cards.push(window.hkGridCatalog.placed(it, ctx, cell, grid.cell, tiles));   // (its card, and its custom sheet on its cell)
     });
     (listeners || []).forEach(function (c) { cards.push(c); });
     return Object.assign({}, o, { type: 'custom:hk-home-grid-view', layout: undefined, cards: cards, grid_ctx: ctx,

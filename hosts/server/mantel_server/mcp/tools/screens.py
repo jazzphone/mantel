@@ -112,13 +112,18 @@ async def grid_cards(caller, args: dict) -> dict:
     from hk_core.settings import home_grid as HG
     return {"cols": list(HG.COLS), "rows": {"min": HG.ROWS[0], "max": HG.ROWS[1], "default": HG.ROWS_DEFAULT},
             "sizes": {k: {"cols": w, "rows": h} for k, (w, h) in HG.SIZES.items()},
-            "size_notes": "F (Full) fills its whole view, at [0, 0], alone; offered for `cameras` only",
+            "size_notes": "F (Full) fills its whole view, at [0, 0], alone; offered for `cameras` only. C (Compact, 3 x 1) "
+                          "is Security's HomeView presentation's alone (opts.presentation: homeview)",
+            "custom_sheet": {"interaction": "{tap: default|custom_sheet, custom_sheet?: {v: 1, title?, icon?, tile_style?: "
+                                            "home|centred, entries: [{id, entity, name?, icon?, color?, tile_style?, "
+                                            "secondary?}]}}", "entries_max": HG.LIST_MAX,
+                             "colors": list(HG.ACCENT_NAMES) + ["#rrggbb"], "secondary": list(HG.ENTRY_SECONDARY)},
             "items_max": HG.ITEMS_MAX, "views_max": HG.VIEWS_MAX, "page_sources": list(HG.SOURCES),
             "tablet_room": HG.TABLET_ROOM,
             "cards": {k: {"sizes": list(c["sizes"]), "pages_from": list(c["sources"]), "options": dict(c["opts"])}
                       for k, c in HG.CATALOG.items()},
             "layout": {"v": HG.VERSION, "cols": "one of cols", "rows": "rows", "band": "the top band (true)",
-                       "items": "[{id, card, size, at: [col, row], opts?, pages?, view?}]"},
+                       "items": "[{id, card, size, at: [col, row], opts?, pages?, view?, interaction?}]"},
             "starters": list(HG.STARTERS)}
 
 
@@ -212,7 +217,7 @@ TOOLS = [
          {"screen": SCREEN}, screen_remove, needs="screens", required=("screen",), write=True, destructive=True,
          like="DELETE /api/screens/{key}"),
     Tool("grid_cards", "Home Grid catalogue",
-         "The Home Grid's cards: each card's sizes (S, W, T, L, XL, XXL, F as columns x rows), its options and the "
+         "The Home Grid's cards: each card's sizes (S, W, C, T, L, XL, XXL, F as columns x rows), its options and the "
          "pages it can swipe through; the grid's columns and rows; the starters.", {}, grid_cards, idempotent=True),
     Tool("grid_starter", "A starter Home Grid",
          "A 6 x 4 layout to start from (concept A, C, R, M, S, F or Q), filled from the scenes, rooms (area ids), "

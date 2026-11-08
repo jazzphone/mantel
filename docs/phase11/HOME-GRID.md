@@ -1635,3 +1635,39 @@ icons only and with labels, 64 cases in all. Ends and sides were even in every c
 The update installed on the first request; the first health check came before the restart finished. Strict health is
 OK with Home Assistant connected, and build `8b7d558f415f1cb0` matches the staged release. No log line matches
 "Traceback" or "ERROR".
+
+### Custom Detail Sheets and Security's HomeView sizes (2026-11-07)
+
+From docs/development/Handoff-2026-11-07-homegrid-custom-detail-security.md.
+
+- **Schema** (`hk_core/settings/home_grid.py`, `interaction()`): a block's `interaction` is `{tap: default|custom_sheet,
+  custom_sheet?: {v: 1, title?, icon?, tile_style?: home|centred, entries: [{id, entity, name?, icon?, color?,
+  tile_style?, secondary?}]}}`. Block-level: it goes with moves, resizes, rules, pages, copies and Duplicate Block
+  (entry ids regenerated: `hkGridCatalog.copySheet`). Up to `LIST_MAX` (24) entries; ids unique, entities may repeat;
+  icons a set and a name, colors a named accent or `#rrggbb`; `secondary` the accessories' modes plus `room`. On with
+  no entries is refused (`grid_sheet_empty`); `default` keeps a sheet as a draft. Strict on the write, tolerant on the
+  read (a bad sheet costs its own block). Entries are in `entity_ids()` and cut by `only_viewable()` -- the entry with
+  its name, icon and color. `hk-grid-catalog.js SHEET` mirrors the numbers (tests/test_hk_core_home_grid_sheet.py).
+- **Routing** (`hkGridCatalog.sheetSlot`, called by `hk-home-grid-view` for each cell): one place for every card, in the
+  capture phase. `sheetRoute`: *primary* (accessory, scene, action, intercom, everything) -- any tap or Enter opens the
+  sheet, never the card's toggle; *surface* -- any tap that is no control (a card's whole-plate button counts as
+  surface), plus a 54 px corner button (44 on screen at a 1180 x 820 tablet's scale); *own* -- Security's HomeView opens
+  its overview itself. Never after a 10 px move (a pager or view swipe), a 500 ms hold, or in Edit mode.
+- **Sheet** (`hkDetail.openSheet`, `hk-sheet-group.js`): the group sheet, with entries in order, each the dashboard's
+  own tile with this sheet's look over it, tap = more-info, `glass: false`. Runs of Home pills and HomeView tiles are
+  separate grids; HomeView tiles are square `hk-cell`s with `data-group-fill`, as a Room block's are, so
+  `centredTile()`'s measured numbers apply. Five or more HomeView tiles take the wide sheet (`group_wide`). Back returns
+  to the sheet with its scroll and the opened tile focused; closing returns focus to the block. Clean scroll edges.
+- **Security HomeView** (`opts.presentation: homeview`, `members`): S is a key (`hk-grid-security-key-card`); W, C,
+  L, XL `hk-grid-security-hv-card`. C (3 x 1) is a new size, offered to this presentation alone and checked on the
+  server. Entry states are their own (`entryState`): nothing not positively Locked/Closed is called so. W, C and L
+  draw Home-pill rows (54 px); XL slots use `centredTile()` where a slot is 150 px or taller, else the bare glyph over
+  the name and state at 40 / 17 / 15. Classic L and XL keep their keypads.
+- **Owner review (2026-11-07)**: Compact's first draft (four narrow tall slots) was rejected; it is now a 2 x 2 of
+  pills. Extra Large's slots clipped their state with the Tall numbers forced into 117 px; fixed as above.
+- **Checks**: tests/test_hk_core_home_grid_sheet.py; test_blocks_taps.js (every key and size through the real grid
+  view), test_detail_behaviour.js, test_grideditor.js; tools/headless/custom_sheet_check.py (WebKit and Chromium,
+  commands off).
+- **Not done here**: a real iPad touch review; the full appearance matrix by eye (the check runs in the gallery's
+  look); DESIGN.md (the house docs, read-only from Mantel) still says 66 px glyphs and a sheet-list fade -- current is
+  76 / 58 px and clean edges.

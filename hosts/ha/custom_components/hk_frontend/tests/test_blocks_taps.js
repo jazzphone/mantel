@@ -307,5 +307,170 @@ function () {
     });
   });
   ok('the choices are the Side Pane\'s four', CAT.TAP_TARGETS.map(function (t) { return t[0]; }).join() === 'auto,page,sheet,none');
+},
+function () {
+  // A BLOCK'S CUSTOM DETAIL SHEET (2026-11-07): the grid view is the one place a tap is read for it. Every key, at
+  // every size, in a real hk-home-grid-view slot: a tap on its plate opens the sheet and nothing of the card's; a tap
+  // on a control of a block that is controls and readings keeps the control's; a block that IS one button opens the
+  // sheet from anywhere and never toggles; a swipe, a long press or Edit mode opens nothing.
+  H.section('Custom Detail Sheet: every key, every size, through the grid view');
+  (function () {                 // (the view's slots need what the jsc DOM lacks: test_homegrid.js's shim)
+    var E = Object.getPrototypeOf(document.createElement('div'));
+    if (!E.insertBefore) {
+      E.insertBefore = function (c, ref) {
+        if (c.parentNode) c.parentNode.removeChild(c);
+        var i = ref ? this.children.indexOf(ref) : -1;
+        if (i < 0) this.children.push(c); else this.children.splice(i, 0, c);
+        c.parentNode = this; return c;
+      };
+    }
+    if (!Object.getOwnPropertyDescriptor(E, 'childNodes')) Object.defineProperty(E, 'childNodes', { configurable: true, get: function () { return this.children; } });
+    if (!Object.getOwnPropertyDescriptor(E, 'lastChild')) Object.defineProperty(E, 'lastChild', { configurable: true, get: function () { return this.children[this.children.length - 1] || null; } });
+    if (!('firstChild' in E)) Object.defineProperty(E, 'firstChild', { configurable: true, get: function () { return this.children[0] || null; } });
+  })();
+  var SHEETS = [];
+  window.hkDetail.openSheet = function (sheet, o) { SHEETS.push([sheet.title || o.title, sheet.entries.length, o.style]); return true; };
+  var SH = { v: 1, title: 'Mine', entries: [{ id: 'e1', entity: 'lock.front_door' }, { id: 'e2', entity: 'light.den_lamp' }] };
+  var View = customElements.get('hk-home-grid-view');
+  function slotFor(key, size, opts) {
+    var b = block(key, size, 'square', opts), it = { card: key, size: size, opts: Object.assign({}, OPTS[key] || {}, opts || {}), interaction: { tap: 'custom_sheet', custom_sheet: SH } };
+    var v = new View();
+    v.setConfig({ grid: { cols: 6, rows: 4, band: false }, cards: [{ hk_cell: { id: 'x', size: size === 'F' ? 'F' : size, at: [0, 0],
+      sheet: { sheet: SH, route: CAT.sheetRoute(it), title: CAT.NAMES[key], style: 'centred' } } }] });
+    v.cards = [b.el];
+    return { slot: v._root.childNodes[0], el: b.el, view: v, route: CAT.sheetRoute(it) };
+  }
+  // a click at the slot, from a target that is (or is in) a control, the card's whole plate, or neither
+  function slotClick(x, kind, moved) {
+    WENT.length = 0; SHEETS.length = 0;
+    var stopped = false;
+    var t = { tagName: 'DIV', classList: { contains: function () { return false; } }, matches: function () { return kind === 'control' || kind === 'plate'; },
+              getAttribute: function (n) { return n === 'data-hk-role' && kind === 'plate' ? 'card' : null; } };
+    var at = function (type, xx) { return { type: type, pointerId: 1, clientX: xx, clientY: 0, timeStamp: 1000, target: t } };
+    (x.slot._listeners.pointerdown || []).forEach(function (f) { f(at('pointerdown', 0)); });
+    if (moved) (x.slot._listeners.pointermove || []).forEach(function (f) { f(at('pointermove', 40)); });
+    var ev = { type: 'click', target: t, timeStamp: 1100, defaultPrevented: false, composedPath: function () { return [t, x.el, x.slot]; },
+               stopPropagation: function () { stopped = true; }, preventDefault: function () { this.defaultPrevented = true; } };
+    (x.slot._listeners.click || []).forEach(function (f) { f(ev); });
+    // the card's own listeners hear the click only when the view let it through
+    if (!stopped) tapAt(x.el, clickFrom(kind === 'control'));
+    return { sheets: SHEETS.slice(), went: WENT.slice(), stopped: stopped };
+  }
+  KEYS.forEach(function (key) {
+    TABLE[key].sizes.forEach(function (size) {
+      if (size === 'F') return;
+      var x = slotFor(key, size), label = key + ' ' + size + ' (' + x.route + ')';
+      var plate = slotClick(x, 'surface');
+      ok(label + ': a tap on its plate opens the sheet and nothing of the card\'s', plate.sheets.length === 1 && plate.went.length === 0 && plate.stopped, plate);
+      var ctl = slotClick(x, 'control');
+      if (x.route === 'primary') ok(label + ': a tap anywhere is the sheet, never the card\'s toggle or run', ctl.sheets.length === 1 && ctl.went.length === 0, ctl);
+      else ok(label + ': a control inside keeps its own tap', ctl.sheets.length === 0 && !ctl.stopped, ctl);
+      var whole = slotClick(x, 'plate');
+      ok(label + ': the card\'s whole plate as its one button opens the sheet', whole.sheets.length === 1 && whole.went.length === 0, whole);
+      ok(label + ': a swipe opens nothing', slotClick(x, 'surface', true).sheets.length === 0);
+      var go = x.slot.children.filter(function (c) { return c.className === 'sheet-go'; });
+      ok(label + ': a 44 px corner button where it is controls and readings, none where it is one button', go.length === (x.route === 'surface' ? 1 : 0), go.length);
+    });
+  });
+  var x = slotFor('weather', 'L');
+  if (!document.documentElement) document.documentElement = document.createElement('html');
+  document.documentElement.setAttribute('data-hk-editing', '');
+  ok('Edit mode: a tap moves the block, never opens its sheet', slotClick(x, 'surface').sheets.length === 0);
+  document.documentElement.removeAttribute('data-hk-editing');
+  ok('...out of Edit mode, it opens again', slotClick(x, 'surface').sheets.length === 1);
+  eq('the sheet is the block\'s: its title, its entries, the screen\'s style', slotClick(x, 'surface').sheets[0], ['Mine', 2, 'centred']);
+  // the corner button
+  var go = x.slot.children.filter(function (c) { return c.className === 'sheet-go'; })[0];
+  SHEETS.length = 0;
+  (go._listeners.click || []).forEach(function (f) { f({ stopPropagation: function () {}, preventDefault: function () {} }); });
+  ok('the corner button opens it, and says what it opens', SHEETS.length === 1 && /Mine: open details/.test(go.attrs['aria-label']), go.attrs);
+  // the sheet turned off: the slot forgets it, the button goes, the card's own tap is back
+  x.view.setConfig({ grid: { cols: 6, rows: 4, band: false }, cards: [{ hk_cell: { id: 'x', size: 'L', at: [0, 0] } }] });
+  x.view.cards = [x.el];
+  var off = slotClick(x, 'surface');
+  ok('without a sheet the card opens its own again', off.sheets.length === 0 && off.went.length === 1 && !off.stopped, off);
+  ok('...and the corner button is gone', x.slot.children.filter(function (c) { return c.className === 'sheet-go'; }).length === 0);
+  // a key on the keyboard on a one-button block
+  var k = slotFor('accessory', 'S'), kd = 0;
+  SHEETS.length = 0;
+  (k.slot._listeners.keydown || []).forEach(function (f) { f({ key: 'Enter', stopPropagation: function () { kd++; }, preventDefault: function () {} }); });
+  ok('Enter on a one-button block opens its sheet, not the toggle', SHEETS.length === 1 && kd === 1);
+},
+function () {
+  H.section('Security\'s HomeView: what it says of its entries, never "Locked" unless it is');
+  var S = window.hkGridCards._.secHv;
+  var st = function (s) { return s == null ? null : { state: s, attributes: {} }; };
+  [['lock.a', 'locked', 'Locked', 'secure'], ['lock.a', 'unlocked', 'Unlocked', 'open'], ['lock.a', 'open', 'Open', 'open'],
+   ['lock.a', 'jammed', 'Jammed', 'jammed'], ['lock.a', 'locking', 'Locking…', 'moving'], ['lock.a', 'unlocking', 'Unlocking…', 'moving'],
+   ['lock.a', 'opening', 'Opening…', 'moving'], ['lock.a', 'unknown', 'Unknown', 'unknown'], ['lock.a', 'unavailable', 'Unavailable', 'unknown'],
+   ['lock.a', null, 'Unavailable', 'unknown'], ['lock.a', 'weird_state', 'Weird state', 'unknown'],
+   ['cover.g', 'closed', 'Closed', 'secure'], ['cover.g', 'open', 'Open', 'open'], ['cover.g', 'opening', 'Opening…', 'moving'],
+   ['cover.g', 'closing', 'Closing…', 'moving'], ['cover.g', 'unavailable', 'Unavailable', 'unknown'], ['cover.g', 'stopped', 'Stopped', 'unknown']
+  ].forEach(function (r) {
+    eq(r[0] + ' ' + r[2], S.entryState(st(r[1]), r[0]), { word: r[2], kind: r[3] });
+  });
+  // the house: an alarm and five entries, the last (hidden behind N more on a small block) unlocked
+  var H2 = function (alarm, crawl, garage) {
+    var h = hass();
+    h.states['alarm_control_panel.house'] = { entity_id: 'alarm_control_panel.house', state: alarm, attributes: { friendly_name: 'House Alarm' } };
+    ['front', 'back', 'entry', 'crawl'].forEach(function (n) {
+      h.states['lock.' + n] = { entity_id: 'lock.' + n, state: n === 'crawl' ? crawl : 'locked', attributes: { friendly_name: n.charAt(0).toUpperCase() + n.slice(1) } };
+    });
+    h.states['cover.garage_door'] = { entity_id: 'cover.garage_door', state: garage, attributes: { friendly_name: 'Garage Door', device_class: 'garage' } };
+    return window.hkHostClient.from(h);
+  };
+  var cfg = { members: ['lock.front', 'lock.back', 'lock.entry', 'cover.garage_door', 'lock.crawl'] };
+  var line = function (a, c, g) { return S.line(S.model(H2(a, c, g), cfg)); };
+  eq('all secured, disarmed: the alarm\'s state, never "all secured"', line('disarmed', 'locked', 'closed'), 'Disarmed');
+  eq('armed: Armed and its mode', line('armed_home', 'locked', 'closed'), 'Armed · Home');
+  eq('one entry unlocked, even the last: its name', line('armed_away', 'unlocked', 'closed'), 'Crawl unlocked');
+  eq('two not secured', line('disarmed', 'unlocked', 'open'), '2 not secured');
+  eq('triggered comes first', line('triggered', 'unlocked', 'open'), 'Triggered');
+  eq('moving after not secured', line('disarmed', 'locking', 'closed'), 'Crawl locking…');
+  eq('unavailable after moving', line('disarmed', 'unavailable', 'closed'), 'Crawl unavailable');
+  eq('arming is the alarm\'s own word', line('arming', 'locked', 'closed'), 'Arming…');
+  var m = S.model(H2('disarmed', 'unlocked', 'closed'), { members: ['lock.front', 'lock.gone'] });
+  ok('a member gone from the house is Unavailable, never secured', m.entries[1].kind === 'unknown' && m.secure.length === 1, m.entries);
+  var noAlarm = S.model(H2('disarmed', 'locked', 'closed'), { members: ['lock.front'], entity: 'alarm_control_panel.none' });
+  noAlarm.alarm = null;
+  eq('no alarm and all secured: the doors', S.line(noAlarm), 'All doors secured');
+  var auto = S.model(client, {});
+  eq('Automatic: the house\'s locks, then its garage doors', auto.entries.map(function (e) { return e.id; }), ['lock.front_door', 'cover.garage_door']);
+},
+function () {
+  H.section('Security\'s HomeView: its sizes, its taps, its overview');
+  var SHEETS = [];
+  window.hkDetail.openSheet = function (sheet, o) { SHEETS.push({ sheet: sheet, o: o }); return true; };
+  ['S', 'W', 'C', 'L', 'XL'].forEach(function (size) {
+    var b = block('security', size, 'square', { presentation: 'homeview' });
+    ok(size + ' is the HomeView presentation (' + b.tag + ')', /hk-grid-security-(hv|key)-card/.test(b.tag));
+    SHEETS.length = 0; WENT.length = 0;
+    tapAt(b.el, clickFrom(false));
+    if (size === 'S') {
+      // the key's plate is its button
+      var plate = b.el._e && b.el._e.card;
+      (plate && plate._listeners.click || []).forEach(function (f) { f({ stopPropagation: function () {} }); });
+    } else {
+      (b.el._e.al._listeners.click || []).forEach(function (f) { f({ stopPropagation: function () {} }); });
+    }
+    ok(size + ': the alarm opens the Security overview, the alarm and every entry as tiles', SHEETS.length === 1 &&
+       SHEETS[0].sheet.entries.map(function (e) { return e.entity; }).join() === 'alarm_control_panel.house,lock.front_door,cover.garage_door' && WENT.length === 0, SHEETS);
+    if (size !== 'S') {
+      var slot = b.el._slots[0];
+      WENT.length = 0;
+      (slot._listeners.click || []).forEach(function (f) { f({ stopPropagation: function () {} }); });
+      if (size === 'W') ok('W: the lock\'s line opens its own sheet (one lock: its name)', WENT.length === 1 && WENT[0][1] === 'lock.front_door', WENT);
+      else ok(size + ': an entry opens its own sheet, never operates it', WENT.length === 1 && WENT[0][0] === 'moreInfo' && WENT[0][1] === 'lock.front_door', WENT);
+    }
+  });
+  // the block's own custom sheet is the overview when it has one
+  var b2 = block('security', 'W', 'square', { presentation: 'homeview' });
+  b2.el.setConfig(Object.assign({}, b2.el._config, { custom_sheet: { v: 1, title: 'Doors', entries: [{ id: 'e1', entity: 'lock.front_door' }] } }));
+  SHEETS.length = 0;
+  (b2.el._e.al._listeners.click || []).forEach(function (f) { f({ stopPropagation: function () {} }); });
+  // (the jsc DOM keeps one element per selector across a redraw, so the redrawn block's area may be heard twice here)
+  ok('a block\'s own custom sheet is its overview', SHEETS.length >= 1 && SHEETS.every(function (q) { return q.sheet.title === 'Doors'; }), JSON.stringify(SHEETS.map(function (q) { return q.sheet; })));
+  // an old Security layout keeps its keypad
+  eq('a Large Security block without HomeView keeps the keypad', block('security', 'L', 'square').tag, 'hk-grid-keypad-card');
 }
 ]);

@@ -303,6 +303,93 @@ step(function () {
   ok('...US spelling in what the picker says', offered.filter(function (k) { return /favour|colour|centre|grey/i.test(GE.NAMES[k] + ' ' + GE.DESCRIPTIONS[k]); }), []);
 });
 
+// A BLOCK'S CUSTOM DETAIL SHEET (2026-11-07): When Tapped, the sheet's settings and its entries, bulk Add, Duplicate,
+// Copy from Another Block, Remove Sheet -- each a change of the draft, every copy independent of what it came from.
+// The panel's rows are read as the kit is handed them (each row its options), and answered as a person would.
+step(function () {
+  var pg = page([]);
+  pg.client = { states: { 'lock.front': { attributes: { friendly_name: 'Front Door' } }, 'lock.back': { attributes: { friendly_name: 'Back Door' } },
+                          'cover.garage': { attributes: { friendly_name: 'Garage Door' } }, 'alarm_control_panel.house': { attributes: { friendly_name: 'Alarm' } } } };
+  pg.data.boards['dashboard-den'] = { home_style: 'grid', home_grid: { v: 1, cols: 6, rows: 4, frame: [1280, 800], band: true, items: [
+    { id: 'd1', card: 'clock', size: 'S', at: [0, 0], interaction: { tap: 'custom_sheet', custom_sheet: { v: 1, title: 'Den Doors', entries: [{ id: 'e1', entity: 'lock.back', name: 'Patio' }] } } }] } };
+  pg.data.dashboards = [{ path: 'dashboard-den', title: 'Den' }, { path: 'dashboard-hall', title: 'Hall' }];
+  var ed = editor(pg, true);
+  ed.load(pg.data.boards['dashboard-hall']);
+  var rows = [], K0 = ed.K;
+  var rec = function (kind) { return function (o) { var r = Object.assign({ kind: kind }, o); rows.push(r); return r; }; };
+  ed.K = Object.assign({}, K0, { select: rec('select'), seg: rec('seg'), text: rec('text'), button: rec('button'), check: rec('check'), info: rec('info'),
+                                 toggle: rec('toggle'), group: function (o, r) { return { group: o, rows: r }; } });
+  ed.sidebar = { appendChild: function () {} };
+  var item = function () { return ed.grid.items.find(function (x) { return x.id === 'a1'; }); };
+  var draw = function () { rows.length = 0; ed.sheetGroup(item()); return rows; };
+  var row = function (label) { return draw().filter(function (r) { return r.label === label; })[0]; };
+  ok('a block starts with its own tap', row('When Tapped').value, 'default');
+  row('When Tapped').onChange('custom_sheet');
+  ok('Custom Detail Sheet: an empty sheet, on', item().interaction, { tap: 'custom_sheet', custom_sheet: { v: 1, entries: [] } });
+  ok('...which says it needs an accessory before it can be saved', draw().some(function (r) { return r.kind === 'info' && r.label === 'Add an accessory'; }), true);
+  row('Add Accessories…').onClick();
+  draw().filter(function (r) { return r.kind === 'check' && (r.label === 'Garage Door' || r.label === 'Front Door'); }).forEach(function (r) { r.onClick(true); });
+  row('Add 2 Accessories').onClick();
+  ok('Add puts the ticked ones in at once, in the list\'s order, each its own id', item().interaction.custom_sheet.entries,
+     [{ id: 'e1', entity: 'lock.front' }, { id: 'e2', entity: 'cover.garage' }]);
+  row('Title').onCommit('Security');
+  row('Tile Style').onChange('centred');
+  ok('the sheet\'s title and its tile style', [item().interaction.custom_sheet.title, item().interaction.custom_sheet.tile_style], ['Security', 'centred']);
+  row('Header Icon').onCommit('javascript:alert(1)');
+  ok('an icon that is no set and name is refused', item().interaction.custom_sheet.icon, undefined);
+  // an entry's look, then Duplicate
+  ed.sheetEntry = 'e1';
+  row('Name').onCommit('Front');
+  row('Color').onChange('teal');
+  rows.length = 0; ed.sheetGroup(item());
+  rows.filter(function (r) { return r.label === 'Duplicate'; })[0].onClick();
+  var es = item().interaction.custom_sheet.entries;
+  ok('Duplicate: right after it, a new id, the same accessory and look', es.map(function (e) { return [e.id, e.entity, e.name || '', e.color || '']; }),
+     [['e1', 'lock.front', 'Front', 'teal'], ['e3', 'lock.front', 'Front', 'teal'], ['e2', 'cover.garage', '', '']]);
+  ed.sheetEntry = 'e3';
+  row('Name').onCommit('Front Battery');
+  ok('...and a copy: changing it leaves the first as it was', item().interaction.custom_sheet.entries.map(function (e) { return e.name || ''; }), ['Front', 'Front Battery', '']);
+  rows.length = 0; ed.sheetGroup(item());
+  rows.filter(function (r) { return r.label === 'Move Up'; })[2].onClick();
+  ok('Move Up: the order is the sheet\'s, ids kept', item().interaction.custom_sheet.entries.map(function (e) { return e.id; }), ['e1', 'e2', 'e3']);
+  ed.sheetEntry = 'e1';
+  row('Reset Look').onClick();
+  ok('Reset Look takes the entry\'s own look away, nothing resolved stored in its place', item().interaction.custom_sheet.entries[0], { id: 'e1', entity: 'lock.front' });
+  // back to the block's own tap: the sheet kept as a draft
+  row('When Tapped').onChange('default');
+  ok('the block\'s own tap again keeps the sheet as a draft', [item().interaction.tap, item().interaction.custom_sheet.entries.length], ['default', 3]);
+  row('When Tapped').onChange('custom_sheet');
+  // Duplicate Block: the sheet goes with it, its entries new ids, and is its own
+  ed.duplicate('a1');
+  var dup = ed.grid.items[ed.grid.items.length - 1];
+  ok('Duplicate Block: a block of its own in the first free place, its sheet with it', [dup.id !== 'a1', dup.at, dup.interaction.custom_sheet.entries.length, dup.interaction.custom_sheet.title], [true, [1, 0], 3, 'Security']);
+  dup.interaction.custom_sheet.entries[0].name = 'Changed';
+  ok('...and a copy, not a link', item().interaction.custom_sheet.entries[0].name, undefined);
+  // Copy Sheet From: another screen's block, by its screen, card and title
+  var from = row('Copy Sheet From');
+  var den = from.options.filter(function (o) { return /Den · Clock · Den Doors/.test(o[1]); })[0];
+  ok('Copy Sheet From names the screen, the card and the sheet', !!den, true);
+  return Promise.resolve(from.onChange(den[0])).then(function () {
+    ok('...and copies it, every entry a new id', item().interaction.custom_sheet, { v: 1, title: 'Den Doors', entries: [{ id: 'e1', entity: 'lock.back', name: 'Patio' }] });
+    item().interaction.custom_sheet.entries[0].name = 'Mine';
+    ok('...never linked to the one it came from', pg.data.boards['dashboard-den'].home_grid.items[0].interaction.custom_sheet.entries[0].name, 'Patio');
+    row('Remove Sheet').onClick();
+    ok('Remove Sheet takes it away: the block as it was', item().interaction, undefined);
+    ok('a draft that holds a sheet is still a valid layout', window.hkGridEditor.valid(ed.grid), true);
+  });
+});
+
+// COMPACT (2026-11-07): Security's HomeView's 3 x 1, a size no other card has, and no old Security block
+step(function () {
+  var GE = window.hkGridEditor, g = { v: 1, cols: 6, rows: 4, frame: [1280, 800], band: true, items: [] };
+  ok('Compact is three columns by one row', window.hkGridCatalog.SIZES.C, [3, 1]);
+  ok('...named Compact', [GE.SIZE_NAMES.C, GE.SIZE_SHORT.C], ['Compact', 'Compact']);
+  g.items = [{ id: 'a', card: 'security', size: 'C', at: [0, 0], opts: { presentation: 'homeview' } }];
+  ok('Security\'s HomeView at Compact is a valid layout', GE.valid(g), true);
+  g.items = [{ id: 'a', card: 'security', size: 'C', at: [0, 0] }];
+  ok('...an old Security block at Compact is not', GE.valid(g), false);
+});
+
 steps.reduce(function (p, f) { return p.then(f); }, Promise.resolve()).then(function () {
   print(fail ? 'FAIL ' + fail + ' GRID EDITOR TESTS' : 'ALL ' + pass + ' GRID EDITOR TESTS PASS');
 }).catch(function (e) { print('Exception: ' + e + ' ' + (e.stack || '')); print('FAIL GRID EDITOR TESTS'); });

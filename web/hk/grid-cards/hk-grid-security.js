@@ -376,6 +376,300 @@
       }
     }
 
+    // ===================================================== Security as HomeView has it
+    // SECURITY'S HOMEVIEW PRESENTATION (2026-11-07, docs/phase11/HOME-GRID.md "Security's HomeView sizes"; the
+    // block's `presentation: homeview`): the alarm and the house's entries -- its locks and garage doors -- as the
+    // accessory tiles beside it are drawn, never a look of its own. Small is a key (the shield, Security and one line);
+    // Wide the alarm beside its locks and garage in a line each; Compact (3 x 1) the alarm beside a slot for each
+    // entry; Large the alarm over a row for each; Extra Large the alarm beside two columns of slots. What does not fit
+    // ends in an "N more" slot, as big as the rest; the alarm is no entry slot. An entry that is not secured -- a lock
+    // unlocked, a garage open, a lock jammed -- is the white tile every accessory that is on is; a secured one rests.
+    // The whole tile (or row) is its tap, and opens: the alarm and "N more" the Security overview (the block's own
+    // custom sheet when it has one, else the alarm and every entry as tiles); an entry its own sheet, where it is
+    // unlocked or opened by holding, as ever. Nothing here operates a lock, a door or the alarm.
+    var LOCK_WORDS = { locked: ['Locked', 'secure'], unlocked: ['Unlocked', 'open'], open: ['Open', 'open'], jammed: ['Jammed', 'jammed'],
+                       locking: ['Locking…', 'moving'], unlocking: ['Unlocking…', 'moving'], opening: ['Opening…', 'moving'] };
+    var DOOR_WORDS = { closed: ['Closed', 'secure'], open: ['Open', 'open'], opening: ['Opening…', 'moving'], closing: ['Closing…', 'moving'] };
+    // ONE ENTRY'S STATE, said as it is: {word, kind} -- kind secure, open, jammed, moving or unknown. Nothing that is
+    // not positively Locked or Closed is ever called so: an unknown, unavailable, jammed or moving entry is its own.
+    function entryState(st, id) {
+      if (!st) return { word: 'Unavailable', kind: 'unknown' };
+      var s = st.state;
+      if (s === 'unavailable') return { word: 'Unavailable', kind: 'unknown' };
+      if (s === 'unknown' || s == null || s === '') return { word: 'Unknown', kind: 'unknown' };
+      var w = (dom(id) === 'lock' ? LOCK_WORDS : DOOR_WORDS)[s];
+      return w ? { word: w[0], kind: w[1] } : { word: String(s).charAt(0).toUpperCase() + String(s).slice(1).replace(/_/g, ' '), kind: 'unknown' };
+    }
+    // its glyph, the accessory tiles' own pair (hk-strategy.js favorites: a lock's, a garage door's)
+    function entryIcon(id, kind) {
+      if (dom(id) === 'lock') return kind === 'open' || kind === 'jammed' ? 'hk:lock-open-variant' : 'hk:lock';
+      return kind === 'open' || kind === 'moving' ? 'hk:garage-open-variant' : 'hk:garage-variant';
+    }
+    // WHO IS IN IT: the block's own (members, in its order), else the house's locks and then its garage doors -- the
+    // lists Security's other blocks read (kinds), else what the house has. An entry named but gone is still one: it
+    // reads Unavailable and is never counted secured. (What a person may not view never reached the page.)
+    function hvMembers(client, cfg) {
+      var st = (client && client.states) || {};
+      if (Array.isArray(cfg.members) && cfg.members.length) return cfg.members.slice();
+      var locks = (kind('locks') || own(client, 'lock')).filter(function (id) { return dom(id) === 'lock' && st[id]; });
+      var garage = (kind('garage') || own(client, 'cover').filter(function (id) { return DOORS[attr(st[id], 'device_class')]; }))
+        .filter(function (id) { return dom(id) === 'cover' && st[id]; });
+      return locks.concat(garage);
+    }
+    function hvAlarm(client, cfg) {
+      return cfg.entity || setting('security.alarm', null) ||
+        Object.keys((client && client.states) || {}).filter(function (id) { return dom(id) === 'alarm_control_panel'; })[0] || null;
+    }
+    // THE BLOCK'S FACTS: the alarm, each entry {id, name, word, kind, icon}, and the counts over ALL of them -- one
+    // unlocked behind "N more" is still one unlocked
+    function hvModel(client, cfg) {
+      var st = (client && client.states) || {}, alarm = hvAlarm(client, cfg);
+      var entries = hvMembers(client, cfg).map(function (id) {
+        var s = entryState(st[id], id);
+        return { id: id, name: st[id] ? friendly(client, id) : id.split('.')[1].replace(/_/g, ' '), word: s.word, kind: s.kind, icon: entryIcon(id, s.kind) };
+      });
+      var by = function (k) { return entries.filter(function (e) { return e.kind === k; }); };
+      return { alarm: alarm, alarmSt: alarm ? st[alarm] || null : null, entries: entries,
+               open: by('open').concat(by('jammed')), moving: by('moving'), unknown: by('unknown'), secure: by('secure') };
+    }
+    // ONE LINE (Small, and the alarm area's second line): Triggered first; then what is not secured; then what is
+    // moving; then what cannot be read; else the alarm's own state (its arming too) -- or, with no alarm, the doors
+    function hvLine(m) {
+      var a = m.alarmSt, look = alarmLook(a);
+      if (a && a.state === 'triggered') return 'Triggered';
+      var one = function (list, tail) { return list.length === 1 ? list[0].name + ' ' + list[0].word.toLowerCase() : list.length + ' ' + tail; };
+      if (m.open.length) return one(m.open, 'not secured');
+      if (m.moving.length) return one(m.moving, 'moving');
+      if (m.unknown.length) return one(m.unknown, 'unavailable');
+      if (m.alarm) return look.word + (look.mode ? ' · ' + look.mode : '');
+      return m.entries.length ? 'All doors secured' : 'Nothing to show';
+    }
+    // everything, for a screen reader: the alarm, then each kind of entry
+    function hvSpoken(m) {
+      var look = alarmLook(m.alarmSt), parts = [];
+      if (m.alarm) parts.push('Alarm ' + look.word + (look.mode ? ' ' + look.mode : ''));
+      m.entries.forEach(function (e) { parts.push(e.name + ' ' + e.word); });
+      return 'Security. ' + parts.join(', ');
+    }
+    // THE SECURITY OVERVIEW: the block's own custom sheet (the editor's), else the alarm and every entry, as tiles
+    function hvOverview(el) {
+      var cfg = el._config || {}, D = window.hkDetail;
+      if (!D || !D.openSheet) return false;
+      var sheet = cfg.custom_sheet;
+      if (!sheet) {
+        var m = hvModel(el.client, cfg), ids = (m.alarm ? [m.alarm] : []).concat(m.entries.map(function (e) { return e.id; }));
+        sheet = { v: 1, title: 'Security', entries: ids.map(function (id, i) { return { id: 's' + (i + 1), entity: id }; }) };
+      }
+      return D.openSheet(sheet, { title: 'Security', icon: 'mdi:shield-home', style: cfg.sheet_style, opener: el });
+    }
+
+    // SMALL: a key, as the Small blocks beside it -- in Home's look or HomeView's (the block's Tile Style)
+    class HkGridSecurityKey extends HkGridKey {
+      _sigOf() { var m = hvModel(this.client, this._config || {}); return JSON.stringify([hvLine(m), m.alarm, m.alarmSt && m.alarmSt.state, this.getAttribute('tile')]); }
+      _look() {
+        var m = hvModel(this.client, this._config || {}), look = alarmLook(m.alarmSt);
+        return { name: 'Security', icon: m.alarm ? look.icon : 'mdi:shield-home', state: hvLine(m), color: look.color };
+      }
+      _render() {
+        super._render();
+        if (this._e) this._e.card.setAttribute('aria-label', hvSpoken(hvModel(this.client, this._config || {})) + '. Opens Security.');
+      }
+      _tap() { if ((this._config || {}).tap !== 'none' || this._config.custom_sheet) hvOverview(this); }
+    }
+
+    var HV_CSS = [
+      ':host{display:block;height:100%}',
+      'hk-plate.hv{box-sizing:border-box;height:100%;display:flex;gap:12px;padding:' + C.blockPad('14px') + ';overflow:hidden;' + C.plate('card') + ';color:' + v('ink') + ';',
+      '  -webkit-tap-highlight-color:transparent;--ha-ripple-hover-opacity:0;--ha-ripple-pressed-opacity:0}',
+      'hk-plate.hv[size=L]{flex-direction:column}',
+      '[role=button]{cursor:pointer;-webkit-tap-highlight-color:transparent}',
+      '[role=button]:focus-visible{outline:2px solid ' + v('ink-2') + ';outline-offset:2px}',
+      // THE ALARM'S AREA: the shield bare in its state's color (as the legacy block, and the Small keys), the state and
+      // its one line. Wide, Compact and Extra Large: a column at the left; Large: a heading
+      '.al{display:flex;flex-direction:column;justify-content:space-between;min-width:0;flex:0 0 auto;border-radius:' + (C.R.inner + 'px') + ';transition:transform ' + C.DUR.press + ' ease}',
+      '.al:active{transform:scale(0.97)}',
+      'hk-plate.hv[size=W] .al{flex-basis:42%}',
+      'hk-plate.hv[size=C] .al,hk-plate.hv[size=XL] .al{flex-basis:calc((100% - 24px) / 3)}',
+      'hk-plate.hv[size=L] .al{flex-direction:row;align-items:center;gap:12px;flex:none;min-height:44px}',
+      '.al .wl{width:34px;height:34px;display:flex;flex:none}',
+      '.al .wl hk-icon{width:100%;height:100%;--mdc-icon-size:100%;display:flex;color:var(--c,' + v('ink-2') + ')}',
+      '.al .tx{display:flex;flex-direction:column;min-width:0}',
+      '.al b{' + type('title') + ';font-weight:600;line-height:27px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--t,' + v('ink') + ')}',
+      '.al small{' + type('body') + ';color:' + v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+      'hk-plate.hv[size=L] .al .tx{flex:1}',
+      'hk-plate.hv[size=L] .al .go{width:20px;height:20px;--mdc-icon-size:100%;display:flex;color:' + v('ink-2') + ';flex:none}',
+      // THE ENTRIES: slots (Compact, Extra Large), rows (Large, and Wide's two groups), laid out by fit()
+      '.ents{flex:1;min-width:0;min-height:0;display:grid;gap:8px;align-content:stretch}',
+      'hk-plate.hv[size=C] .ents,hk-plate.hv[size=L] .ents,hk-plate.hv[size=W] .ents{grid-auto-rows:var(--row,54px);align-content:start}',
+      // an entry: a tile of the accessory tiles' plate, resting or (not secured) the white of one that is on
+      '.en{box-sizing:border-box;min-width:0;min-height:0;border-radius:' + (C.R.inner + 'px') + ';' + C.plate('tile') + ';display:flex;flex-direction:column;align-items:center;justify-content:center;',
+      '  gap:2px;padding:8px 6px;text-align:center;transition:transform ' + C.DUR.press + ' ease,background-color .25s ease}',
+      '.en:active{transform:scale(0.97)}',
+      '.en hk-icon{width:30px;height:30px;--mdc-icon-size:100%;display:flex;flex:none;color:' + v('glyph') + '}',
+      '.en:not(.ct) .gw{margin-bottom:4px}',
+      '.en .n{' + type('body') + ';font-weight:600;line-height:19px;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+      '.en .s{' + type('caption') + ';line-height:17px;color:' + v('ink-2') + ';max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+      // a row (Large, Wide): the glyph, the name, the state at the right
+      // A ROW (Large, Wide) is a Home pill's parts: the glyph at the left, the name over its state (15 / 600 on 16.5 px lines)
+      'hk-plate.hv[size=C] .en,hk-plate.hv[size=L] .en,hk-plate.hv[size=W] .en{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-rows:auto auto;align-content:center;column-gap:' + TILE.wellGap + 'px;row-gap:' + TILE.rowGap + 'px;padding:0 12.8px 0 ' + TILE.padL + 'px;text-align:left}',
+      'hk-plate.hv[size=C] .en .gw,hk-plate.hv[size=L] .en .gw,hk-plate.hv[size=W] .en .gw{grid-row:1 / span 2;align-self:center}',
+      'hk-plate.hv[size=C] .en .n,hk-plate.hv[size=C] .en .s,hk-plate.hv[size=L] .en .n,hk-plate.hv[size=W] .en .n,hk-plate.hv[size=L] .en .s,hk-plate.hv[size=W] .en .s{line-height:' + TILE.lineH + 'px}',
+      'hk-plate.hv[size=C] .en .s,hk-plate.hv[size=L] .en .s,hk-plate.hv[size=W] .en .s{font-size:15px;font-weight:500}',
+      'hk-plate.hv[size=C] .en hk-icon,hk-plate.hv[size=L] .en hk-icon,hk-plate.hv[size=W] .en hk-icon{width:24px;height:24px}hk-plate.hv[size=C] .en .gw,hk-plate.hv[size=L] .en .gw,hk-plate.hv[size=W] .en .gw{margin:0}',
+
+      // NOT SECURED: the white plate, dark name, the state's ink on white, the glyph lit in its own color
+      '.en.lit{background:#fff;--hk-glass-backdrop:none;-webkit-backdrop-filter:none;backdrop-filter:none}',
+      '.en.lit .n{color:#000}.en.lit .s{color:' + v('ink-on-state') + '}.en.lit hk-icon{color:var(--lit)}',
+      '.en.unk .s{color:' + v('ink-3') + '}',
+      '.en.more hk-icon{color:' + v('ink-2') + '}',
+      // EXTRA LARGE'S SLOTS ARE HOMEVIEW'S TILES (DESIGN.md "square cells", hkCards.centredTile): each slot a cell of its
+      // own (hk-cell), the glyph bare in its box at 31 % (33 % where about square), sized by its ink, the name and its
+      // one line centered under it -- the measured numbers, never this block's own
+      '.en.ct{display:block;padding:0;container-type:size;container-name:hk-cell}',
+      // (a slot under 150 px -- three rows of them on square cells -- is too short for those numbers: the same parts,
+      // the glyph bare above the name and its one line, at the size it holds; the text never shrunk past a tile's)
+      'hk-plate.hv[size=XL] .en:not(.ct) hk-icon{width:40px;height:40px}hk-plate.hv[size=XL] .en:not(.ct) .n{font-size:17px;line-height:22px}hk-plate.hv[size=XL] .en:not(.ct) .s{font-size:15px;line-height:20px}',
+      '.en .gw{display:flex;align-items:center;justify-content:center}',
+      C.centredTile({ host: ':host', plate: '.en.ct', lit: '.en.ct.lit', well: '.en.ct .gw', icon: '.en.ct .gw hk-icon', name: '.en.ct .n', sub: ['.en.ct .s'] }),
+      '@media (prefers-reduced-motion:reduce){.en,.al{transition:none}.en:active,.al:active{transform:none}}',
+      'hk-plate.hv{border-radius:var(--hk-block-radius, ' + C.M.radius + ')}',
+      // (inside a square cell's block, its tiles concentric with it)
+      '.en{border-radius:var(--hk-inner-radius,' + (C.R.inner + 'px') + ')}'
+    ].join('');
+    // a slot at its smallest: Compact's across, Extra Large's down; a row's height
+    var HV_PILL_W = 150, HV_SLOT_H = 96, HV_ROW = 54, HV_GAP = 8;
+
+    class HkGridSecurityHV extends HkBase {
+      static get CSS() { return HV_CSS; }
+      getCardSize() { return 2; }
+      _size() { return sizeOf(this) || (this._config || {}).size || 'W'; }
+      _sigOf() {
+        var m = hvModel(this.client, this._config || {});
+        return JSON.stringify([m.alarm, m.alarmSt && m.alarmSt.state, m.entries, this._size(), this._blockKey || '']);
+      }
+      _button(el, fn) {
+        el.setAttribute('role', 'button'); el.setAttribute('tabindex', '0');
+        el.addEventListener('click', function (ev) { ev.stopPropagation(); fn(); });
+        el.addEventListener('keydown', function (ev) { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); ev.stopPropagation(); fn(); } });
+      }
+      _overview() { var c = this._config || {}; if (c.tap !== 'none' || c.custom_sheet) hvOverview(this); }
+      connectedCallback() {
+        super.connectedCallback();
+        var self = this;
+        if (!this._fitRO && typeof ResizeObserver === 'function') {
+          this._fitRO = new ResizeObserver(function () { self._fit(); });
+          this._fitRO.observe(this);
+        }
+      }
+      disconnectedCallback() {
+        if (this._fitRO) { this._fitRO.disconnect(); this._fitRO = null; }
+        super.disconnectedCallback();
+      }
+      _render() {
+        this._watchBlock();
+        var self = this, size = this._size(), m = hvModel(this.client, this._config || {});
+        if (!this._built || this._shape !== size) {
+          this._shape = size;
+          this._root.innerHTML = '<hk-plate class="hv" data-hk-role="card" size="' + size + '">' +
+            '<div class="al"><div class="wl"><hk-icon></hk-icon></div><div class="tx"><b></b><small></small></div>' +
+            (size === 'L' ? '<hk-icon class="go" icon="mdi:chevron-right"></hk-icon>' : '') + '</div><div class="ents"></div></hk-plate>';
+          var q = this._root.querySelector.bind(this._root);
+          this._e = { card: q('.hv'), al: q('.al'), icon: q('.al .wl hk-icon'), big: q('.al b'), sub: q('.al small'), ents: q('.ents') };
+          this._button(this._e.al, function () { self._overview(); });
+          this._entKey = null;
+          this._built = true;
+        }
+        var e = this._e, look = alarmLook(m.alarmSt);
+        e.icon.icon = m.alarm ? look.icon : 'mdi:shield-home';
+        if (look.color && m.alarm) e.card.style.setProperty('--c', look.color); else e.card.style.removeProperty('--c');
+        if (look.text) e.card.style.setProperty('--t', look.text); else e.card.style.removeProperty('--t');
+        e.big.textContent = m.alarm ? look.word : 'Security';
+        // (the alarm's mode, or -- with nothing to say of it -- the one line Small says)
+        var line = hvLine(m);
+        e.sub.textContent = m.alarm && line === look.word + (look.mode ? ' · ' + look.mode : '') ? (look.mode || '') : line;
+        e.al.setAttribute('aria-label', hvSpoken(m) + '. Opens Security.');
+        e.card.style.setProperty('--lit', (C.PALETTE.icon || {}).mint || C.ACCENTS.mint);
+        // THE ENTRIES, built again only when who is in them or what they say changed; their order is the block's
+        var items = size === 'W' ? this._groups(m) : m.entries;
+        var key = JSON.stringify(items);
+        if (key !== this._entKey) {
+          this._entKey = key;
+          e.ents.innerHTML = '';
+          this._slots = items.map(function (it) { return self._slot(it); });
+          this._more = this._slot({ more: true });
+          this._slots.forEach(function (el) { e.ents.appendChild(el); });
+          e.ents.appendChild(this._more);
+        }
+        this._fit();
+      }
+      // WIDE: two lines -- the locks together, the garage doors together (one: its own name) -- each its count
+      _groups(m) {
+        var out = [], locks = m.entries.filter(function (x) { return dom(x.id) === 'lock'; }), doors = m.entries.filter(function (x) { return dom(x.id) !== 'lock'; });
+        var group = function (list, one, many, secureWord) {
+          if (!list.length) return;
+          if (list.length === 1) { out.push(list[0]); return; }
+          var bad = list.filter(function (x) { return x.kind !== 'secure'; }), open = list.filter(function (x) { return x.kind === 'open' || x.kind === 'jammed'; });
+          // (short, so the group's name keeps its room: "1 unlocked", "2 open", "1 unsure", "All locked")
+          var word = !bad.length ? 'All ' + secureWord : open.length ? open.length + (list === locks ? ' unlocked' : ' open') : bad.length + ' unsure';
+          out.push({ id: '', group: true, name: many, word: word, kind: open.length ? 'open' : bad.length ? 'unknown' : 'secure',
+                     icon: list === locks ? entryIcon('lock.x', open.length ? 'open' : 'secure') : entryIcon('cover.x', open.length ? 'open' : 'secure') });
+        };
+        group(locks, 'Lock', 'Locks', 'locked');
+        group(doors, 'Garage', 'Garage Doors', 'closed');
+        return out;
+      }
+      _slot(it) {
+        var self = this, d = document.createElement('div');
+        d.className = 'en' + (it.more ? ' more' : it.kind === 'open' || it.kind === 'jammed' ? ' lit' : it.kind === 'unknown' ? ' unk' : '');
+        d.innerHTML = '<span class="gw"><hk-icon></hk-icon></span><span class="n"></span><span class="s"></span>';
+        d.querySelector('hk-icon').icon = it.more ? 'mdi:dots-horizontal' : it.icon;
+        d.querySelector('.n').textContent = it.more ? '' : it.name;
+        d.querySelector('.s').textContent = it.more ? '' : it.word;
+        if (!it.more) d.setAttribute('aria-label', it.name + ', ' + it.word + (it.group ? '. Opens Security.' : ''));
+        this._button(d, function () {
+          // an entry its own sheet (its controls: hold to unlock or open); a group or "N more" the overview
+          if (it.more || it.group || !it.id) self._overview();
+          else window.hkShell.moreInfo(it.id, self);
+        });
+        return d;
+      }
+      // HOW MANY FIT, from the room the entries have (the block's, measured): Compact a row of slots at least 84 px
+      // wide; Extra Large two columns of slots at least 96 px tall; Large and Wide rows of 52 px. More than fit: the
+      // last place is "N more", as big as the rest and a tap to the overview -- never a badge
+      _fit() {
+        var e = this._e;
+        if (!e || !this._slots || !this._more) return;
+        var size = this._size(), W = e.ents.clientWidth, H = e.ents.clientHeight;
+        if (!W || !H) return;
+        var cols = 1, rows = 1;
+        // (Compact: Home pills, as many to a row as are 150 px wide, as many rows as are 54 tall -- 2 x 2 in its two cells)
+        if (size === 'C') { cols = Math.max(1, Math.floor((W + HV_GAP) / (HV_PILL_W + HV_GAP))); rows = Math.max(1, Math.floor((H + HV_GAP) / (HV_ROW + HV_GAP))); }
+        else if (size === 'XL') { cols = 2; rows = Math.max(1, Math.floor((H + HV_GAP) / (HV_SLOT_H + HV_GAP))); }
+        else rows = Math.max(1, Math.floor((H + HV_GAP) / (HV_ROW + HV_GAP)));
+        var n = this._slots.length, cap = cols * rows, cut = n > cap, show = cut ? cap - 1 : n;
+        // (a few slots share the room evenly; Compact's never more than the slots there are)
+        var useCols = cols;
+        e.ents.style.gridTemplateColumns = 'repeat(' + useCols + ',minmax(0,1fr))';
+        e.ents.style.gridTemplateRows = size === 'XL' || size === 'C' ? 'repeat(' + rows + ',minmax(0,1fr))' : '';
+        if (size === 'L' || size === 'W') e.ents.style.setProperty('--row', HV_ROW + 'px');
+        this._slots.forEach(function (el, i) { el.style.display = i < show ? '' : 'none'; });
+        // HomeView's measured tile where a slot is 150 px tall or more (its own px: the block's measure, not the screen's)
+        var tall = size === 'XL' && (H - (rows - 1) * HV_GAP) / rows >= 150;
+        this._slots.concat([this._more]).forEach(function (el) {
+          el.classList.toggle('ct', tall);
+          var ic = el.querySelector('hk-icon');
+          if (tall) ic.setAttribute('ink', String(C.TILE.centred.ink)); else ic.removeAttribute('ink');
+        });
+        this._more.style.display = cut ? '' : 'none';
+        if (cut) {
+          var t = (n - show) + ' more';
+          this._more.querySelector('.n').textContent = t;
+          var hidden = this._slots.slice(show).map(function (el) { return el.getAttribute('aria-label'); }).filter(Boolean);
+          this._more.setAttribute('aria-label', t + ': ' + hidden.join('; ') + '. Opens Security.');
+        }
+      }
+    }
+
     // ===================================================== the full-control blocks
     // (2026-10-24, the owner: "the detail sheets that are useful as blocks"):
     // a Large or Extra Large Vacuum block is its controls with Clean Areas --
@@ -435,5 +729,7 @@
     K.alarmLook = alarmLook; K.APP_CORNER = APP_CORNER; K.FULL_CSS = FULL_CSS; K.HkGridFull = HkGridFull;
     K.HkGridKey = HkGridKey; K.HkGridKeypadCard = HkGridKeypadCard; K.HkGridSecurityCard = HkGridSecurityCard;
     K.HkGridVacuumFull = HkGridVacuumFull; K.KEY_CSS = KEY_CSS; K.secRows = secRows; K.secSays = secSays;
+    K.HkGridSecurityHV = HkGridSecurityHV; K.HkGridSecurityKey = HkGridSecurityKey; K.secEntryState = entryState;
+    K.secHvModel = hvModel; K.secHvLine = hvLine;
   };
 })();

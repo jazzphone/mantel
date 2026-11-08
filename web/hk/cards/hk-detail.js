@@ -661,7 +661,7 @@
       // HK's generic sheet (Phase 2 P2.5): a state, a few lines, at most a button
       generic: STD,
       // a room's "3 Windows": two full pills a row (2 x 196 + 10 of its ~410)
-      group: STD,
+      group: STD, group_wide: WIDE,
       // a custom pop-up's own cards: narrow or wide, as it asks
       cards: STD, cards_wide: WIDE,
       // a camera: the camera pop-ups' 1200 (16:9 -> 675 of picture);
@@ -2269,7 +2269,7 @@
       // rather than stacking a second: pushing again would leave the first
       // entry behind, and the next Back press would land on it and do nothing.
       var reuse = false;
-      var returnGroup = D.el && D.kind === 'group' && D.group && D.group.row ? D.group
+      var returnGroup = D.el && D.kind === 'group' && D.group && (D.group.row || D.group.back) ? D.group
         : D.el && D.returnGroup ? D.returnGroup : null;
       if (D.el) { reuse = D.pushed && ours(D); close(true); }
 
@@ -2295,7 +2295,7 @@
       // close.
       panel.setConfig(Object.assign({ entity: id, kind: kind, src: src || {}, glass: false, event: opts.event || null },
         opts.group ? { entities: opts.group.ids, room: opts.group.room, groupKind: opts.group.kind,
-                       row: opts.group.row, resolve: opts.group.resolve } :
+                       row: opts.group.row, resolve: opts.group.resolve, group: opts.group } :
         opts.cards ? { cards: opts.cards.cards, width: opts.cards.width, height: opts.cards.height } : Object.assign({}, (opts.panel || {}).config || {})));
 
       D = {
@@ -2492,9 +2492,8 @@
         return;
       }
       d.closing = true;
-      if (d.prevFocus && d.prevFocus.isConnected && d.prevFocus.focus) {
-        try { d.prevFocus.focus({ preventScroll: true }); } catch (e) { /* ok */ }
-      }
+      var back = (d.group && d.group.opener) || (all && d.returnGroup && d.returnGroup.opener) || d.prevFocus;   // (a block's sheet: its block)
+      if (back && back.isConnected && back.focus) { try { back.focus({ preventScroll: true }); } catch (e) { /* ok */ } }
       if (d.covers) { d.covers = false; covering(-1); }
       clearTimeout(d.auto);
       if (d.off) d.off();
@@ -2639,7 +2638,7 @@
     // suites) starts at once, in the same turn.
     var SHEETS = ['hk-sheet-base.js', 'hk-sheet-light.js', 'hk-sheet-lock.js', 'hk-sheet-climate.js', 'hk-sheet-media.js', 'hk-sheet-sensor.js', 'hk-sheet-controls.js', 'hk-sheet-generic.js', 'hk-sheet-vacuum.js', 'hk-sheet-appliances.js', 'hk-sheet-waterheater.js', 'hk-sheet-security.js', 'hk-sheet-group.js'];
     var arcPath, CHEV, CLIENT_FED, DAY, dayRows, def, dur, energyPlan, energyRec, GENERIC_SKIP,
-        genericControl, genericRows, money, openGroup, Panel, PANEL_CSS, PANELS, reportsAction,
+        genericControl, genericRows, money, openGroup, openSheet, Panel, PANEL_CSS, PANELS, reportsAction,
         restoreGroup, runTimes, SENSE_CSS, sinceText, spansOf, trendOf;
     function kit() {
       return {
@@ -2661,7 +2660,7 @@
       arcPath = K.arcPath; CHEV = K.CHEV; CLIENT_FED = K.CLIENT_FED; DAY = K.DAY; dayRows = K.dayRows;
       def = K.def; dur = K.dur; energyPlan = K.energyPlan; energyRec = K.energyRec;
       GENERIC_SKIP = K.GENERIC_SKIP; genericControl = K.genericControl; genericRows = K.genericRows;
-      money = K.money; openGroup = K.openGroup; Panel = K.Panel; PANEL_CSS = K.PANEL_CSS; PANELS = K.PANELS;
+      money = K.money; openGroup = K.openGroup; openSheet = K.openSheet; Panel = K.Panel; PANEL_CSS = K.PANEL_CSS; PANELS = K.PANELS;
       reportsAction = K.reportsAction; restoreGroup = K.restoreGroup; runTimes = K.runTimes;
       SENSE_CSS = K.SENSE_CSS; sinceText = K.sinceText; spansOf = K.spansOf; trendOf = K.trendOf;
       wire();
@@ -2864,7 +2863,7 @@
       window.hkDetail = {
         version: '1.0.0',
         open: open,
-        openGroup: openGroup,
+        openGroup: openGroup, openSheet: openSheet,
         close: close,
         navigateFrom: navigateFrom,
         kindOf: kindOf,

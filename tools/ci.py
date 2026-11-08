@@ -300,6 +300,11 @@ def steps(build: Build | None = None, parts: dict[str, int] | None = None) -> li
     out += [Step(f"house-status-check-{e}-{p}", [py, "tools/headless/house_status_check.py", "--engine", e, "--only", p], tier="full",
                  timeout=900, skip=playwright_missing, **check_inputs("tools/headless/house_status_check.py", e))
             for e in ("webkit", "chromium") for p in ("blocks", "sheet")]
+    # A block's Custom Detail Sheet and Security's HomeView sizes (2026-11-07, docs/phase11/HOME-GRID.md), house commands
+    # off: the five sizes on square and tile cells, the overview and Back, the sheet at phone to tablet sizes
+    out += [Step(f"custom-sheet-check-{e}", [py, "tools/headless/custom_sheet_check.py", "--engine", e], tier="full",
+                 timeout=900, skip=playwright_missing, **check_inputs("tools/headless/custom_sheet_check.py", e))
+            for e in ("webkit", "chromium")]
     # Pre-rendered glass (Blur and Bright Glass) over a moving wallpaper, the real detector and painter (2026-11-07)
     out.append(Step("pre-glass-motion-check", [py, "tools/headless/pre_glass_motion_check.py"], tier="full", timeout=600,
                     skip=playwright_missing, **check_inputs("tools/headless/pre_glass_motion_check.py")))

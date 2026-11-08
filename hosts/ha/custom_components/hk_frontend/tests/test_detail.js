@@ -255,7 +255,9 @@ ok('the thermostat: two columns in a wide sheet, the trend fluid so both columns
 // Safari matches no @container rule in a shadow tree against :host: the
 // width is decided in script (the wide attribute), never by a container query
 ok('no panel relies on a CSS container query (Safari would keep the thermostat stacked)',
-   !/'@container/.test(src) && !/container-type:/.test(src) && (src.match(/_wideAt\(\) \{ return 700; \}/g) || []).length === 2 &&
+   // (a block's custom sheet gives each HomeView tile a cell of its own, hk-cell, as the Home Grid's .cell does: the
+   // tile's own Centred rules query it from inside the tile; no panel's layout is ever a container query)
+   !/'@container/.test(src) && !/container-type:/.test(src.replace("'.cc{position:relative;aspect-ratio:1;min-width:0;container-type:size;container-name:hk-cell;--hk-cell-shape:square}'", '')) && (src.match(/_wideAt\(\) \{ return 700; \}/g) || []).length === 2 &&
    /_wideAt\(\) \{ return window\.matchMedia && matchMedia\(SHORT_MQ\)\.matches \? Infinity : 700; \}/.test(src) &&
    /new ResizeObserver/.test(src));
 ok('the water heater dial sweeps 270 degrees from the lower left', /A0: 135, SWEEP: 270/.test(src) && /^M/.test(_.arcPath(0.5)));

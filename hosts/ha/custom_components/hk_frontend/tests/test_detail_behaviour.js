@@ -1067,6 +1067,68 @@ print('\n=== Climate category sheets ===');
   C.create = originalCreate;
 })();
 
+print('\n=== a Home Grid block\'s custom detail sheet ===');
+(function () {
+  D.close(true); resetHistory(); __resetTimers();
+  var h = house({ 'alarm_control_panel.example': ['disarmed', { friendly_name: 'Example Alarm' }],
+                  'lock.example_front': ['unlocked', { friendly_name: 'Front Door Lock' }],
+                  'lock.example_back': ['locked', { friendly_name: 'Back Door Lock' }],
+                  'cover.example_garage': ['closed', { friendly_name: 'Garage Door', device_class: 'garage' }],
+                  'sensor.example_battery': ['80', { friendly_name: 'Front Lock Battery', unit_of_measurement: '%' }] });
+  h.areas = { porch: { name: 'Porch' } };
+  h.entities = { 'lock.example_front': { area_id: 'porch' } };
+  h.devices = {};
+  HA.hass = h;
+  C.hass = function () { return HA.hass; };
+  var originalCreate = C.create;
+  C.create = function (cfg) { var el = document.createElement('div'); el.config = cfg; return el; };
+  var sheet = { v: 1, title: 'Security', tile_style: 'centred', entries: [
+    { id: 'e1', entity: 'alarm_control_panel.example' },
+    { id: 'e2', entity: 'lock.example_front', name: 'Front Door', color: 'teal', secondary: { mode: 'room' } },
+    { id: 'e3', entity: 'lock.example_front', tile_style: 'home', secondary: { mode: 'attribute', attribute: 'battery_level', unit: '%' } },
+    { id: 'e4', entity: 'lock.example_back', icon: 'mdi:door' },
+    { id: 'e5', entity: 'cover.example_garage' },
+    { id: 'e6', entity: 'lock.example_gone' }] };
+  var before = JSON.stringify(sheet);
+  ok('a block\'s sheet opens', D.openSheet(sheet, { title: 'Security', style: 'home' }));
+  var d = D._.state(), panel = d.panel, cfgs = panel._kids.map(function (k) { return k.config; });
+  ok('it is a group sheet, titled by the block\'s sheet', d.kind === 'group' && d.tt.textContent === 'Security');
+  ok('each entry its tile, in order, the same accessory twice', cfgs.map(function (c) { return c.entity; }).join() ===
+     ['alarm_control_panel.example', 'lock.example_front', 'lock.example_front', 'lock.example_back', 'cover.example_garage', 'lock.example_gone'].join(), cfgs.map(function (c) { return c.entity; }));
+  ok('the sheet\'s style for the tiles that do not say, an entry\'s own where it does', cfgs[0].tile === 'centred' && cfgs[1].tile === 'centred' && !cfgs[2].tile && cfgs[2].size === 'regular');
+  ok('a local name, color and icon: on this tile alone', cfgs[1].name === 'Front Door' && cfgs[1].icon_color === 'teal' && cfgs[3].icon === 'mdi:door' && !cfgs[3].icon_states);
+  ok('...the native glyph kept where the entry sets none: one entry\'s look never reaches the other', cfgs[1].icon === cfgs[2].icon &&
+     JSON.stringify(cfgs[1].icon_states) === JSON.stringify(cfgs[2].icon_states) && cfgs[2].name !== 'Front Door' && cfgs[2].icon_color !== 'teal');
+  ok('the line under the name: its room, an attribute', cfgs[1].room === 'Porch' && cfgs[2].secondary.mode === 'attribute' && cfgs[2].secondary.attribute === 'battery_level');
+  ok('every tile opens its accessory\'s sheet; none toggles', cfgs.every(function (c) { return c.tap_action && c.tap_action.action === 'more-info' && !c.icon_tap_action && !c.hold_action; }));
+  ok('and none joins the shared glass', cfgs.every(function (c) { return c.glass === false; }));
+  ok('the sheet it was given is untouched', JSON.stringify(sheet) === before);
+  ok('five or more HomeView tiles: the wide sheet', panel.hkWidthKind() === 'group_wide' || panel.hkWidthKind() === 'group');
+  var kid = panel._kids[1];
+  h.states['lock.example_front'] = Object.assign({}, h.states['lock.example_front'], { state: 'locked', last_updated: 'u9' });
+  HA.hass = Object.assign({}, h); panel.hass = HA.hass;
+  ok('a state change goes to the tiles in place: nothing rebuilt or reordered', panel._kids[1] === kid);
+  // an accessory from it, and Back
+  panel._config.group.last = 'e4';
+  ok('a tile opens its accessory', D.open('lock.example_back', {}));
+  ok('...and keeps the sheet to come back to', D._.state().returnGroup && D._.state().returnGroup.custom === true && D._.state().returnGroup.last === 'e4');
+  D.close();
+  ok('Back is the same sheet, its entries and their looks', D._.state().kind === 'group' && D._.state().panel._kids.length === 6 &&
+     D._.state().panel._kids[1].config.name === 'Front Door' && D._.state().tt.textContent === 'Security');
+  D.close(); flushPops();
+  ok('closing it leaves no history behind', !D._.state().el && HIST.i === 0);
+  // nothing left to show (a person who may view none of it)
+  ok('a sheet with nothing it may show still opens, to say so', D.openSheet({ v: 1, entries: [] }, { title: 'Doors' }) && D._.state().panel._kids.length === 0);
+  D.close(); flushPops();
+  // the editor's preview: the real sheet, inert
+  D.openSheet(sheet, { title: 'Security', preview: true });
+  ok('the preview is the sheet, and nothing in it answers', D._.state().panel.hasAttribute('preview'));
+  D.open('lock.example_back', {});
+  ok('...nor comes back to it', !D._.state().returnGroup);
+  D.close(); flushPops();
+  C.create = originalCreate;
+})();
+
 print('\n=== the Energy page, from an accessory\'s gear and its sheet ===');
 (function () {
   D.close(true); __resetTimers(); resetHistory();

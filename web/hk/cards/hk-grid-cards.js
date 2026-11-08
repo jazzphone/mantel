@@ -102,7 +102,7 @@
     }
     function sizeOf(el) {
       var s = (el.getAttribute && el.getAttribute('size')) || (el._config || {}).size;
-      return /^(S|W|T|L|XL|XXL)$/.test(s || '') ? s : null;
+      return /^(S|W|C|T|L|XL|XXL)$/.test(s || '') ? s : null;
     }
     // a size attribute set after the card is drawn (the view sets it on
     // placing the card) draws it again
@@ -114,7 +114,7 @@
 
     var ACTION_OPTIONS, actionHex, alarmLook, HkActionCard, HkEverythingCard, HkGridAccessoriesCard,
         HkGridCamerasCard, HkGridClockCard, HkGridEntityCard, HkGridKeypadCard, HkGridPanelCard, HkGridRoomCard,
-        HkGridSecurityCard, HkGridVacuumFull, HkOnNowCard, HkSuggestedSceneCard, menuItems, onNow, secRows, secSays,
+        HkGridSecurityCard, HkGridSecurityHV, HkGridSecurityKey, secHv, HkGridVacuumFull, HkOnNowCard, HkSuggestedSceneCard, menuItems, onNow, secRows, secSays,
         whatsOn;
     function kit() {
       return {
@@ -130,7 +130,9 @@
       HkGridAccessoriesCard = K.HkGridAccessoriesCard; HkGridCamerasCard = K.HkGridCamerasCard;
       HkGridClockCard = K.HkGridClockCard; HkGridEntityCard = K.HkGridEntityCard;
       HkGridKeypadCard = K.HkGridKeypadCard; HkGridPanelCard = K.HkGridPanelCard; HkGridRoomCard = K.HkGridRoomCard;
-      HkGridSecurityCard = K.HkGridSecurityCard; HkGridVacuumFull = K.HkGridVacuumFull; HkOnNowCard = K.HkOnNowCard;
+      HkGridSecurityCard = K.HkGridSecurityCard; HkGridSecurityHV = K.HkGridSecurityHV; HkGridSecurityKey = K.HkGridSecurityKey;
+      secHv = { model: K.secHvModel, line: K.secHvLine, entryState: K.secEntryState };
+      HkGridVacuumFull = K.HkGridVacuumFull; HkOnNowCard = K.HkOnNowCard;
       HkSuggestedSceneCard = K.HkSuggestedSceneCard; HOLD_MS = K.HOLD_MS; holds = K.holds;
       houseMinutes = K.houseMinutes; layout = K.layout; menuCounts = K.menuCounts; menuItems = K.menuItems;
       minutes = K.minutes; onNow = K.onNow; percent = K.percent; plan = K.plan; roomLine = K.roomLine;
@@ -145,7 +147,7 @@
         _: { roomOf: roomOf, roomParts: roomParts, fit: fit, layout: layout, percent: percent,
              dims: dims, dragged: dragged, dimCall: dimCall, suggestion: suggestion, holds: holds, minutes: minutes,
              houseMinutes: houseMinutes, plan: plan, menuCounts: menuCounts, DEFAULT_WINDOWS: DEFAULT_WINDOWS,
-             HOLD_MS: HOLD_MS, camGrid: camGrid, camRing: camRing } };
+             HOLD_MS: HOLD_MS, camGrid: camGrid, camRing: camRing, secHv: secHv } };
       watchSize(HkGridRoomCard);
 
       C.register('hk-grid-room-card', HkGridRoomCard, 'HK Room',
@@ -164,6 +166,13 @@
         { name: 'accessories', selector: { object: {} } }], function () { return {}; });
       watchSize(HkGridSecurityCard);
       C.register('hk-grid-security-card', HkGridSecurityCard, 'HK Grid Security', 'The alarm’s state, its locks, doors and windows, and the alarm’s own controls with its PIN.', [{ name: 'entity', label: 'Alarm', selector: { entity: { filter: { domain: 'alarm_control_panel' } } } }], function () { return {}; });
+      // SECURITY'S HOMEVIEW PRESENTATION (2026-11-07, hk-grid-security.js): Small a key, the rest the alarm and its entries
+      watchSize(HkGridSecurityHV);
+      C.register('hk-grid-security-hv-card', HkGridSecurityHV, 'HK Grid Security (HomeView)', 'The alarm and the locks and garage doors, as HomeView draws accessories: a tap opens Security or the one tapped.',
+        [{ name: 'entity', label: 'Alarm', selector: { entity: { filter: { domain: 'alarm_control_panel' } } } }], function () { return {}; });
+      watchSize(HkGridSecurityKey);
+      C.register('hk-grid-security-key-card', HkGridSecurityKey, 'HK Grid Security Key', 'Security in one key: the shield, and the one thing to know.',
+        [{ name: 'entity', label: 'Alarm', selector: { entity: { filter: { domain: 'alarm_control_panel' } } } }], function () { return {}; });
       watchSize(HkGridKeypadCard);
       C.register('hk-grid-keypad-card', HkGridKeypadCard, 'HK Grid Keypad', 'The alarm keypad beside its locks, doors and windows, sized to a Home Grid block.',
         [{ name: 'entity', label: 'Alarm', selector: { entity: { filter: { domain: 'alarm_control_panel' } } } }], function () { return {}; });

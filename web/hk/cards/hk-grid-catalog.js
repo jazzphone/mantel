@@ -13,7 +13,9 @@
 // G3's, in hk-grid-cards.js. A block with `pages` is an hk-pager-card
 // (hk-layout.js, G4) holding one of its card per page: pages() below says which.
 //
-// Plain data and pure functions, loaded at parse time: no hk-base.js needed.
+// Plain data and pure functions, loaded at parse time: no hk-base.js needed. (One exception, 2026-11-07: a
+// block's custom sheet is read off a tap here, sheetSlot -- hk-layout.js's view calls it -- reaching hkCards and
+// hkDetail only when a block is placed or tapped.)
 // @ts-check
 (function () {
   'use strict';
@@ -23,7 +25,8 @@
   // F, Full (2026-10-30, the Cameras face): the view's whole grid -- 0 is
   // "the grid's own" (span()) -- at [0, 0] only, so the only block in its
   // view; offered for `cameras` alone
-  var SIZES = { S: [1, 1], W: [2, 1], T: [1, 2], L: [2, 2], XL: [3, 2], XXL: [6, 2], F: [0, 0] };
+  // C, Compact (2026-11-07): three columns by one row, Security's HomeView presentation's alone (home_grid.py)
+  var SIZES = { S: [1, 1], W: [2, 1], T: [1, 2], L: [2, 2], XL: [3, 2], XXL: [6, 2], F: [0, 0], C: [3, 1] };
   function span(size, cols, rows) { var z = SIZES[size]; return z ? [z[0] || cols, z[1] || rows] : null; }
   // A CELL'S SHAPE (the grid's `cell`; 2026-10-30, docs/phase11/HOMEVIEW-LOOK.md):
   // a tile, 196 x 150 with a 10 px gap, or a square, 196 x 196 with HomeView's
@@ -100,8 +103,12 @@
       var ids = o.cameras && o.cameras.length ? o.cameras : (ctx.cameras || []);
       return ids.length ? Object.assign({ type: 'custom:hk-grid-cameras-card', cameras: ids.slice() }, o.refresh ? { refresh: o.refresh } : {})
                         : stand('Cameras', 'hk:camera'); } },
-    // Large and Extra Large: the alarm's keypad (2026-10-24)
-    security: { sizes: ['S', 'W', 'L', 'XL'], sources: [], opts: { entity: 'alarm', tap: 'tap_target' }, card: function (s, o) {
+    // Large and Extra Large: the alarm's keypad (2026-10-24). HomeView (2026-11-07, `presentation: homeview`): the five
+    // HomeView compositions, Compact (3 x 1) among them -- hk-grid-security.js hk-grid-security-hv-card; absent, the
+    // block as it always was. members: the locks and garage doors it shows, in order (none: the house's)
+    security: { sizes: ['S', 'W', 'C', 'L', 'XL'], sources: [], opts: { entity: 'alarm', tap: 'tap_target', presentation: 'security_presentation', members: 'security_members' }, card: function (s, o) {
+      if (o.presentation === 'homeview') return Object.assign({ type: s === 'S' ? 'custom:hk-grid-security-key-card' : 'custom:hk-grid-security-hv-card', size: s }, o.entity ? { entity: o.entity } : {},
+                                                             o.members && o.members.length ? { members: o.members.slice() } : {});
       if (s === 'L' || s === 'XL') return Object.assign({ type: 'custom:hk-grid-keypad-card' }, o.entity ? { entity: o.entity } : {});
       return Object.assign({ type: 'custom:hk-grid-security-card' }, o.entity ? { entity: o.entity } : {}); } },
     timers: { sizes: ['S', 'W'], sources: [], opts: { tap: 'tap_target' }, card: function () {
@@ -345,6 +352,149 @@
     return -1;
   }
 
+  // ------------------------------------------------------------ a block's Custom Detail Sheet
+  // CUSTOM DETAIL SHEET (2026-11-07, docs/phase11/HOME-GRID.md "Custom Detail Sheet"): any block may open a sheet of
+  // accessories it names -- the block's `interaction` (home_grid.py interaction(): these are its numbers). `tap`:
+  // 'default' (the card's own tap; a sheet kept as a draft) or 'custom_sheet'. The sheet is the block's, whatever card
+  // its rules or pages show.
+  var SHEET = { v: 1, max: 24, titleMax: 60, nameMax: 60, taps: ['default', 'custom_sheet'], styles: ['home', 'centred'],
+                secondary: ['auto', 'state', 'room', 'brightness', 'attribute', 'none'],
+                colors: ['orange', 'yellow', 'green', 'mint', 'teal', 'cyan', 'blue', 'indigo', 'purple', 'pink', 'red', 'gray'],
+                icon: /^[a-z0-9_-]{1,12}:[a-z0-9_-]{1,64}$/, entryId: /^[a-z0-9][a-z0-9_-]{0,31}$/, hex: /^#[0-9a-fA-F]{6}$/ };
+  // the sheet a tap opens now: the block's, when it is on and has something in it; else null (the card's own tap)
+  function sheetOf(item) {
+    var act = item && item.interaction, sh = act && act.custom_sheet;
+    return act && act.tap === 'custom_sheet' && sh && Array.isArray(sh.entries) ? sh : null;
+  }
+  // a fresh entry id, none of `taken`'s
+  function entryId(taken) {
+    var have = {}, n = (taken || []).length + 1;
+    (taken || []).forEach(function (e) { if (e && e.id) have[e.id] = 1; });
+    while (have['e' + n]) n++;
+    return 'e' + n;
+  }
+  // AN INDEPENDENT COPY of a sheet (Copy from Another Block, Duplicate Block): every part copied, every entry a new id
+  function copySheet(sheet) {
+    var out = JSON.parse(JSON.stringify(sheet || { v: 1, entries: [] })), seen = [];
+    out.entries = (out.entries || []).map(function (e) { var x = Object.assign({}, e, { id: entryId(seen) }); seen.push(x); return x; });
+    return out;
+  }
+  // WHERE A TAP ON A BLOCK OPENS ITS SHEET (hk-layout.js hk-home-grid-view, the one place it is decided): a block that
+  // IS one button (an accessory, a scene, an action, the intercom) opens it wherever it is tapped, never toggling under
+  // it; a card that draws its own sheet entry (Security's HomeView) opens it from its own parts; every other card from
+  // anywhere that is no control of its own -- and, as some are all controls, from a 44 px button in its corner.
+  var SHEET_PRIMARY = { accessory: 1, scene: 1, action: 1, intercom: 1, everything: 1 };
+  function sheetRoute(item) {
+    var it = item || {};
+    if (it.card === 'security' && (it.opts || {}).presentation === 'homeview') return 'own';
+    return SHEET_PRIMARY[it.card] ? 'primary' : 'surface';
+  }
+  // A BLOCK'S CUSTOM DETAIL SHEET (2026-11-07, docs/phase11/HOME-GRID.md "Custom Detail Sheet"): the one place a tap on a
+  // block is read for it, whatever the card -- its rules, pages and controls included. `info`: { sheet, route, title,
+  // style } (placed(), below), null for a block without one. route (hk-grid-catalog.js sheetRoute):
+  //   primary   the block is one button (an accessory, a scene, an action): a tap or Enter anywhere opens the sheet,
+  //             and never also toggles, runs or opens what the card would
+  //   surface   anywhere that is no control of the card's own (a slider, a transport key, a row with its own sheet
+  //             keep theirs), or the card's whole plate when that is its one button; and the corner button
+  //   own       the card opens it from its own parts (Security's HomeView)
+  // Never from a swipe (a pager's page, the views), a long press, a drag, or in Edit mode. Taken in the capture phase,
+  // so the card under it never sees a tap the sheet answered.
+  var SHEET_SLOP = 10, SHEET_HOLD = 500;
+  function sheetOpen(slot, info) {
+    var D = window.hkDetail;
+    if (!D || !D.openSheet || !info) return false;
+    return D.openSheet(info.sheet, { title: info.title, style: info.style, opener: slot.querySelector('.sheet-go') || slot });
+  }
+  function sheetEditing(view) {
+    var root = view && view._root;
+    try { if (document.documentElement.hasAttribute('data-hk-editing')) return true; } catch (e) { /* no document */ }
+    return !!(root && root.classList && root.classList.contains('hk-editing'));
+  }
+  // what a tap at the end of `path` landed on, from the slot down: 'control' (one of the card's own), 'plate' (the
+  // card's whole plate as its one button: data-hk-role=card) or 'surface'
+  function sheetHit(path, slot) {
+    var C0 = window.hkCards, sel = C0 && C0.TAP_CONTROLS;
+    for (var i = 0; i < path.length; i++) {
+      var n = path[i];
+      if (n === slot) break;
+      if (!n || !n.matches) continue;
+      if (n.classList && n.classList.contains('sheet-go')) return 'go';
+      if (sel && n.matches(sel)) return n.getAttribute('data-hk-role') === 'card' ? 'plate' : 'control';
+    }
+    return 'surface';
+  }
+  function sheetSlot(slot, info, view) {
+    slot._hkSheet = info;
+    var go = null;
+    for (var k = 0; k < slot.childNodes.length; k++) { var ch = slot.childNodes[k]; if (ch.classList && ch.classList.contains('sheet-go')) go = ch; }
+    if (info && info.route === 'surface') {
+      if (!go) {
+        go = document.createElement('button');
+        go.type = 'button';
+        go.className = 'sheet-go';
+        go.innerHTML = '<i><hk-icon icon="mdi:dots-horizontal"></hk-icon></i>';
+        go.addEventListener('click', function (e) { e.stopPropagation(); e.preventDefault(); if (!sheetEditing(view)) sheetOpen(slot, slot._hkSheet); });
+        slot.appendChild(go);
+      }
+      go.setAttribute('aria-label', (info.sheet.title || info.title) + ': open details');
+    } else if (go) slot.removeChild(go);
+    if (slot._hkSheetWired) return;
+    slot._hkSheetWired = true;
+    var down = null;
+    slot.addEventListener('pointerdown', function (e) { down = { x: e.clientX, y: e.clientY, t: e.timeStamp || Date.now(), id: e.pointerId }; }, true);
+    slot.addEventListener('pointermove', function (e) {
+      if (down && e.pointerId === down.id && Math.hypot(e.clientX - down.x, e.clientY - down.y) > SHEET_SLOP) down.moved = true;
+    }, true);
+    slot.addEventListener('click', function (e) {
+      var info2 = slot._hkSheet, d = down;
+      down = null;
+      if (!info2 || info2.route === 'own' || e.defaultPrevented || sheetEditing(view)) return;
+      // (a swipe, a drag or a long press ends in a click too: never a sheet)
+      if (d && (d.moved || (e.timeStamp || Date.now()) - d.t > SHEET_HOLD)) return;
+      var hit = sheetHit(e.composedPath ? e.composedPath() : [e.target], slot);
+      if (hit === 'go') return;
+      if (info2.route === 'surface' && hit === 'control') return;
+      e.stopPropagation(); e.preventDefault();
+      sheetOpen(slot, info2);
+    }, true);
+    slot.addEventListener('keydown', function (e) {
+      var info2 = slot._hkSheet;
+      if (!info2 || info2.route !== 'primary' || (e.key !== 'Enter' && e.key !== ' ') || sheetEditing(view)) return;
+      e.stopPropagation(); e.preventDefault();
+      sheetOpen(slot, info2);
+    }, true);
+  }
+
+  // ...its corner button's look: a sheet's close button's -- the key well, the ink (hk-layout.js adds it to the view's CSS);
+  // its reach 54 px, so it is 44 on screen in a grid scaled to a 1180 x 820 tablet (about 0.83)
+  function sheetCss(v) {
+    return '.cell>.sheet-go{all:unset;position:absolute;z-index:3;top:calc(var(--hk-in-t,0px) + 4px);right:calc(var(--hk-in-r,0px) + 4px);width:54px;height:54px;' +
+      'display:flex;align-items:center;justify-content:center;cursor:pointer;-webkit-tap-highlight-color:transparent}' +
+      '.cell>.sheet-go i{width:28px;height:28px;border-radius:14px;display:flex;align-items:center;justify-content:center;background:' + v('key') + ';color:' + v('ink') + '}' +
+      '.cell>.sheet-go hk-icon{width:18px;height:18px;--mdc-icon-size:100%;display:flex}' +
+      '.cell>.sheet-go:focus-visible i{outline:2px solid ' + v('ink-2') + ';outline-offset:2px}' +
+      '#root.hk-editing .cell>.sheet-go{display:none}';
+  }
+  // A BLOCK AS THE HOME GRID'S VIEW TAKES IT (hk-strategy.js homeGridView): its card, with its cell -- and on the cell,
+  // its custom sheet when it has one on, what it is called without a title of its own, and the screen's tile style
+  // (its own, else All Screens'; Automatic by the cell's shape) for a sheet that says Same as Screen. Security's
+  // HomeView draws its own way into its overview, so its card is handed the sheet and the style too.
+  function placed(item, ctx, cell, gridCell, tiles) {
+    var it = item || {}, sh = sheetOf(it), screen = tiles || 'auto';
+    var style = screen === 'centred' || (screen === 'auto' && gridCell === 'square') ? 'centred' : 'home';
+    if (sh) cell.sheet = { sheet: sh, route: sheetRoute(it), title: NAMES[it.card] || 'Accessories', style: style };
+    var made = config(it, ctx);
+    if (made && /^custom:hk-grid-security-(hv|key)-card$/.test(made.type)) made = Object.assign({}, made, { sheet_style: style }, sh ? { custom_sheet: sh } : {});
+    return Object.assign(made, { hk_cell: cell });
+  }
+  // A CARD'S NAME, for a sheet's title when it has none of its own (and the editor's palette)
+  var NAMES = { accessory: 'Accessory', accessories: 'Accessory Group', scene: 'Scene', scenes: 'Scenes', now_playing: 'Now Playing',
+    thermostat: 'Thermostat', camera: 'Camera', security: 'Security', timers: 'Timers', weather: 'Weather',
+    calendar: 'Calendar', battery: 'House Battery', people: 'People', vacuum: 'Vacuum', clock: 'Clock',
+    room: 'Room', scene_suggested: 'Suggested Scene', action: 'Action', everything: 'Everything', cameras: 'Cameras',
+    power: 'Power', music: 'Music', doors: 'Doors & Locks', live_tv: 'Live TV', water: 'Water',
+    on_now: 'On Now', todo: 'To-do', energy_rings: 'Energy Rings', timeline: 'Recent', intercom: 'Intercom', house_status: 'House Status' };
+
   // the catalog as data, for the parity test and the editor (G5)
   function table() {
     var out = {};
@@ -357,6 +507,8 @@
 
   window.hkGridCatalog = { version: '1.0.0', SIZES: SIZES, span: span, CELLS: CELLS, SOURCES: SOURCES, TABLET_ROOM: TABLET_ROOM,
                            PAGES_MAX: PAGES_MAX, PER_PAGE: PER_PAGE, perPage: perPage, CLOCK_FACES: CLOCK_FACES, THERMOSTAT_STYLES: THERMOSTAT_STYLES, TAP_TARGETS: TAP_TARGETS, MUSIC_TAPS: MUSIC_TAPS,
+                           SHEET: SHEET, sheetOf: sheetOf, entryId: entryId, copySheet: copySheet, sheetRoute: sheetRoute, NAMES: NAMES,
+                           sheetSlot: sheetSlot, sheetCss: sheetCss, placed: placed,
                            CONDITIONS: CONDITIONS, hostHas: hostHas, matches: matches, rulesOf: rulesOf, choose: choose, houseNow: houseNow, config: config, pages: pages, tabletRoom: tabletRoom, table: table };
   try { window.dispatchEvent(new CustomEvent('hk-grid-catalog-ready')); } catch (e) { /* a test page without events */ }
 })();

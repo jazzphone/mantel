@@ -132,9 +132,26 @@
           '.summary{color:' + window.hkCards.v('ink-2') + ';font-size:16px;padding:0 0 18px;text-align:center}' +
           '.grp{display:grid;grid-template-columns:repeat(2,' + T.w + 'px);grid-auto-rows:auto;gap:' + T.gridGap + 'px;' +
           '  justify-content:center;align-content:start;padding:2px 0 8px}' +
-          '@media (max-width:' + C.BP.phone + 'px){.grp{grid-template-columns:repeat(2,minmax(0,1fr))}}';
+          '@media (max-width:' + C.BP.phone + 'px){.grp{grid-template-columns:repeat(2,minmax(0,1fr))}}' +
+          // A CUSTOM DETAIL SHEET (openSheet): its entries in order, a run of Home pills or of HomeView's tiles at a
+          // time -- each run its own grid, so a Tall tile never stretches a pill beside it, nor leaves a gap. The
+          // pills keep their 196 px (as many to a row as the sheet holds); HomeView's tiles are square cells, as
+          // many to a row as fit at 150 px or more, each a cell (hk-cell) the tile's Centred CSS reads, as a Home
+          // Grid block's is (hkCards.centredTile: the square numbers, the glyph fitted to the cell)
+          '.runs{display:flex;flex-direction:column;gap:' + T.gridGap + 'px;padding:2px 0 8px}' +
+          '.runs .grp{padding:0}' +
+          ':host([wide]) .runs .grp{grid-template-columns:repeat(auto-fill,' + T.w + 'px)}' +
+          '.cgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;align-content:start}' +
+          '.cc{position:relative;aspect-ratio:1;min-width:0;container-type:size;container-name:hk-cell;--hk-cell-shape:square}' +
+          '.cc > *{display:block;width:100%;height:100%}' +
+          '.none{color:' + window.hkCards.v('ink-2') + ';font-size:16px;text-align:center;padding:48px 16px}' +
+          // the editor's preview: the real sheet, but nothing in it answers a tap
+          ':host([preview]) .runs{pointer-events:none}';
       }
-      hkWidthKind() { return 'group'; }
+      hkWidthKind() {
+        var g = (this._config || {}).group;
+        return g && g.custom && sheetWide(g) ? 'group_wide' : 'group';
+      }
       hkFill() { return true; }
       // null: every update goes on to the pills, which gate themselves. The
       // LIST is worked out again (resolve -- a page's members, a walk of the
@@ -156,6 +173,8 @@
         // reads through the client; each pill gets what goes with it (the host adapter decides)
         var c = this.client, cfg = this._config || {};
         if (!c) return;
+        // (a block's custom sheet: hk-detail.js hands the group itself, openSheet's)
+        if (cfg.group && cfg.group.custom) { this._renderEntries(c, cfg.group); return; }
         if (this._built && this._lsig === this._listSig(c)) {
           (this._kids || []).forEach(function (el) { feedPill(el, c); });
           return;
@@ -216,6 +235,114 @@
         (this._kids || []).forEach(function (el) { feedPill(el, c); });
       }
     }
+    // A CUSTOM DETAIL SHEET'S TILES (openSheet): each entry the dashboard's own tile for its accessory, with this
+    // sheet's own look over it (a name, an icon, a color, its tile style, the line under its name) -- never a look of
+    // the accessory's anywhere else, and never its state: a lock reads Unlocked however it is colored. A tile opens
+    // its accessory's sheet (the whole tile, never a toggle), and Back comes here again.
+    function entryTile(h, e, style) {
+      // (a reading its own tile: a temperature or humidity as the Climate lists draw it; anything else the dashboard's)
+      var dc = at(stOf(h, e.entity), 'device_class'), S = window.hkStrategy, nm = accName(e.entity) || at(stOf(h, e.entity), 'friendly_name') || e.entity;
+      var own = dc !== 'temperature' && dc !== 'humidity' && S && S.tileFor ? S.tileFor(h, e.entity, nm) : null;
+      var t = Object.assign({}, own || groupTile(h, e.entity, '', dc === 'temperature' || dc === 'humidity' ? dc : ''));
+      delete t.view_layout;
+      t.glass = false;
+      if (e.name) t.name = e.name;
+      if (e.icon) { t.icon = e.icon; delete t.icon_states; }
+      if (e.color) t.icon_color = e.color;
+      var sec = e.secondary;
+      if (sec && sec.mode === 'room') {
+        var en = (h.entities || {})[e.entity] || {}, dev = (h.devices || {})[en.device_id] || {};
+        t.room = ((h.areas || {})[en.area_id || dev.area_id] || {}).name || '';
+        t.layout = t.room ? 'favourite' : 'standard';
+      } else if (sec && sec.mode && sec.mode !== 'auto') {
+        t.secondary = Object.assign({}, sec);
+      }
+      // HomeView's tile (DESIGN.md, square cells): the tall tile's parts, filling its cell, Centred -- as a Room block's
+      // tiles are (hk-grid-room.js): the glyph bare at the tile's own size, never in a well
+      if (style === 'centred') { t.size = 'tall'; t.tile = 'centred'; delete t.icon_size; delete t.bare_icon; delete t.well_background; }
+      else { delete t.tile; t.size = 'regular'; }
+      t.tap_action = { action: 'more-info' };
+      delete t.icon_tap_action;
+      delete t.hold_action;
+      delete t.double_tap_action;
+      return t;
+    }
+    // an entry's style: its own, else the sheet's (resolved by openSheet: the sheet's own, else the screen's)
+    function styleOf(e, cfg) { return e.tile_style || cfg.style || 'home'; }
+    // a wider sheet when HomeView's tiles are many: four to a row on a tablet, not two in a tall column
+    function sheetWide(cfg) {
+      return (cfg.entries || []).filter(function (e) { return styleOf(e, cfg) === 'centred'; }).length >= 5;
+    }
+    // `cfg`: the group openSheet made -- its entries, their style, preview -- where the entry opened and how far the
+    // list was scrolled are noted, for Back to come to them (restoreGroup)
+    GroupPanel.prototype._renderEntries = function (c, cfg) {
+      var self = this, entries = Array.isArray(cfg.entries) ? cfg.entries : [];
+      if (sheetWide(cfg)) this.setAttribute('wide', ''); else this.removeAttribute('wide');
+      if (cfg.preview) this.setAttribute('preview', ''); else this.removeAttribute('preview');
+      // the list is built again only when what it is built from moves -- the entries, the registries, the settings --
+      // never on a state: a state goes to the tiles in place, so nothing reorders or restarts under a finger
+      var regs = [c.entities, c.devices, c.areas];
+      if (!this._regs || regs.some(function (r, i) { return r !== this._regs[i]; }, this)) { this._regs = regs; this._regN = (this._regN || 0) + 1; }
+      var HS = window.hkSettings, sig = this._regN + '|' + this._hkGen + '|' + (HS && HS.version) + '|' + (cfg.style || '') + '|' + JSON.stringify(entries);
+      if (!this._built || this._esig !== sig) {
+        this._built = true;
+        this._esig = sig;
+        var scroll = this.parentNode && this.parentNode.scrollTop;
+        this._root.innerHTML = '';
+        this._kids = [];
+        if (!entries.length) {
+          var none = document.createElement('div');
+          none.className = 'none';
+          none.textContent = cfg.emptyText || 'Nothing to show here.';
+          this._root.appendChild(none);
+        } else {
+          var runs = document.createElement('div');
+          runs.className = 'runs';
+          var run = null, runStyle = null;
+          entries.forEach(function (e) {
+            var st = styleOf(e, cfg);
+            if (!run || st !== runStyle) {
+              run = document.createElement('div');
+              run.className = st === 'centred' ? 'cgrid' : 'grp';
+              runStyle = st;
+              runs.appendChild(run);
+            }
+            var el = C.create(entryTile(c, e, st));
+            if (!el) return;
+            el.setAttribute('data-entry', e.id || '');
+            if (st === 'centred') {
+              el.setAttribute('size', 'S'); el.setAttribute('data-group-fill', ''); el.setAttribute('tile', 'centred');
+              var cell = document.createElement('div');
+              cell.className = 'cc';
+              cell.appendChild(el);
+              run.appendChild(cell);
+            } else run.appendChild(el);
+            self._kids.push(el);
+          });
+          this._root.appendChild(runs);
+          // which entry was opened, for Back to come to it (restoreGroup)
+          runs.addEventListener('click', function (ev) {
+            var path = ev.composedPath ? ev.composedPath() : [ev.target];
+            for (var i = 0; i < path.length; i++) {
+              var id = path[i] && path[i].getAttribute && path[i].getAttribute('data-entry');
+              if (id != null) { cfg.last = id; break; }
+            }
+            cfg.scroll = self.parentNode ? self.parentNode.scrollTop : 0;
+          }, true);
+        }
+        if (this.parentNode && scroll != null) this.parentNode.scrollTop = scroll;
+      }
+      this._ids = entries.map(function (e) { return e.entity; });
+      (this._kids || []).forEach(function (el) { feedPill(el, c); });
+    };
+    // focus an entry's tile (Back from its accessory): the tile's own focusable part, else the tile
+    GroupPanel.prototype.focusEntry = function (id) {
+      var el = this._root.querySelector('[data-entry="' + String(id).replace(/["\\]/g, '') + '"]');
+      if (!el) return false;
+      var f = el.shadowRoot && el.shadowRoot.querySelector('[tabindex]:not([tabindex="-1"]),button,[role=button]');
+      try { (f || el).focus({ preventScroll: true }); } catch (e) { return false; }
+      return true;
+    };
     // A PILL (hkCards.create) gets what goes with the client once it is
     // configured; anything else straight through the host adapter.
     function feedPill(el, client) {
@@ -285,13 +412,34 @@
       var current = g.resolve && g.resolve(C.client());
       // An empty category still needs a way back out after its last member
       // was removed while a device's controls were open.
-      return open(null, { name: current ? current.title : g.title, icon: g.icon,
-                          icon_color: g.color || 'rgba(255,255,255,0.92)' },
+      var ok = open(null, { name: current ? current.title : g.title, icon: g.icon,
+                            icon_color: g.color || 'rgba(255,255,255,0.92)' },
         { group: Object.assign({}, g, { ids: current ? current.ids : g.ids }) });
+      // A CUSTOM SHEET COMES BACK AS IT WAS LEFT: where it was scrolled to, and the tile that was opened focused
+      if (ok && g.custom) {
+        var d = sheetState(), body = d.sheet && d.sheet.querySelector('.body');
+        if (body && g.scroll) body.scrollTop = g.scroll;
+        if (g.last != null && d.panel && d.panel.focusEntry) d.panel.focusEntry(g.last);
+      }
+      return ok;
+    }
+    // A BLOCK'S CUSTOM DETAIL SHEET (docs/phase11/HOME-GRID.md "Custom Detail Sheet"; hk-grid-catalog.js sheetOf):
+    // openSheet(sheet, { title, icon, style, opener, preview }) -- `sheet` the block's {title, icon, tile_style,
+    // entries}; `title` and `icon` what it is called without its own (the block's card's); `style` the screen's tile
+    // style, for a sheet that says Same as Screen; `opener` what focus goes back to when it closes. Its entries are
+    // what the person may view (the settings feed cut the rest: home_grid.only_viewable); none left, it says so.
+    function openSheet(sheet, o) {
+      o = o || {};
+      var sh = sheet || {}, entries = (Array.isArray(sh.entries) ? sh.entries : []).filter(function (e) { return e && typeof e.entity === 'string'; });
+      var title = sh.title || o.title || 'Accessories', icon = sh.icon || o.icon || 'mdi:view-grid-outline';
+      var g = { title: title, ids: entries.map(function (e) { return e.entity; }), entries: JSON.parse(JSON.stringify(entries)),
+                style: sh.tile_style || (o.style === 'centred' ? 'centred' : 'home'), custom: true, icon: icon, color: o.color,
+                opener: o.opener || null, preview: !!o.preview, back: !o.preview };
+      return open(null, { name: title, icon: icon, icon_color: o.color || 'rgba(255,255,255,0.92)' }, { group: g });
     }
 
     // what the shell and the later sheet files use of this one
     K.CLIENT_FED = CLIENT_FED; K.def = def; K.openGroup = openGroup; K.PANELS = PANELS;
-    K.restoreGroup = restoreGroup;
+    K.restoreGroup = restoreGroup; K.openSheet = openSheet;
   };
 })();

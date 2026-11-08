@@ -51,8 +51,10 @@ TABLET_ROOM = "tablet_room"
 
 # Size classes: (columns, rows). F, Full (2026-10-30, the Cameras face): the view's whole grid -- 0 is "the grid's
 # own" (span()) -- at [0, 0] only and so the only block in its view; offered for `cameras` alone
+# C, Compact (2026-11-07, docs/phase11/HOME-GRID.md "Security's HomeView sizes"): three columns by one row, a size of its
+# own -- never W or T read another way. Offered for Security's HomeView presentation alone (_security_size)
 SIZES: dict[str, tuple[int, int]] = {"S": (1, 1), "W": (2, 1), "T": (1, 2), "L": (2, 2), "XL": (3, 2), "XXL": (6, 2),
-                                     "F": (0, 0)}
+                                     "F": (0, 0), "C": (3, 1)}
 FULL = "F"
 
 
@@ -82,8 +84,12 @@ CATALOG: dict[str, dict[str, Any]] = {
     # THE CAMERAS FACE (2026-10-30): up to nine stills at once, arranged to the block; Full is the whole view.
     # cameras: the ones shown (none: all, in Cameras' order); refresh: s between stills
     "cameras": {"sizes": ("XL", "XXL", "F"), "sources": (), "opts": {"cameras": "cameras", "refresh": "refresh"}},
-    # Large and Extra Large (2026-10-24): the alarm's keypad
-    "security": {"sizes": ("S", "W", "L", "XL"), "sources": (), "opts": {"entity": "alarm", "tap": "tap_target"}},
+    # Large and Extra Large (2026-10-24): the alarm's keypad. presentation (2026-11-07): "homeview", the five HomeView
+    # compositions (Small, Wide, Compact, Large, Extra Large) -- absent, the block as it always was, keypads and all;
+    # members: the locks and garage doors it shows, in order (absent: the house's, automatically)
+    "security": {"sizes": ("S", "W", "C", "L", "XL"), "sources": (),
+                 "opts": {"entity": "alarm", "tap": "tap_target", "presentation": "security_presentation",
+                          "members": "security_members"}},
     "timers": {"sizes": ("S", "W"), "sources": (), "opts": {"tap": "tap_target"}},
     "weather": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"entity": "weather", "sky": "boolean", "big": "boolean", "tap": "tap_target"}},
     "calendar": {"sizes": ("S", "T", "L", "XL"), "sources": (), "opts": {"calendars": "calendars", "days": "days", "month": "boolean", "tap": "tap_target"}},
@@ -368,6 +374,22 @@ def _music_speaker(v: Any) -> str:
     return _domain("media_player")(v)
 
 
+SECURITY_PRESENTATIONS = ("homeview",)
+# what a Security block may list as its entries: locks and garage doors (covers)
+SECURITY_DOMAINS = ("lock", "cover")
+
+
+def _security_presentation(v: Any) -> str:
+    if v not in SECURITY_PRESENTATIONS:
+        raise GridInvalid("grid_option")
+    return v
+
+
+def _security_members(v: Any) -> list[str]:
+    """Ordered, each once: the order is the block's and never moves when one unlocks."""
+    return _list(_domain(*SECURITY_DOMAINS))(v)
+
+
 def _tap_target(v: Any) -> str:
     if v not in TAP_TARGETS:
         raise GridInvalid("grid_option")
@@ -409,6 +431,8 @@ OPTION_KINDS = {
     "tap_target": _tap_target,
     "music_tap": _music_tap,
     "np_background": _np_background,
+    "security_presentation": _security_presentation,
+    "security_members": _security_members,
     "tv_channel": _tv_channel,
     "music_show": _music_show,
     "timeline_show": _timeline_show,
@@ -543,6 +567,136 @@ def rules(v: Any, size: str) -> list[dict[str, Any]]:
     return out
 
 
+# ------------------------------------------------------------ a block's Custom Detail Sheet
+# CUSTOM DETAIL SHEET (2026-11-07, docs/phase11/HOME-GRID.md "Custom Detail Sheet"): any block may open a sheet of
+# accessories of its own choosing instead of what its card opens. It is the block's, not one card's: it stays while
+# rules, a fallback or pages change what the block shows, and goes with the block through a move, a resize, a copy and
+# a duplicate. `interaction.tap`: "default" -- the card's own tap (a populated sheet kept as a draft) -- or
+# "custom_sheet". The sheet: a title, a header icon, a tile style and its entries, in order; each entry an accessory
+# and its look IN THIS SHEET alone (a name, an icon, a color, a tile style, the line under its name). The same
+# accessory may be in a sheet twice (two readouts of it); each entry has an id of its own. hk-grid-catalog.js SHEET is
+# the frontend's copy of these numbers (a test holds them equal).
+INTERACTION_TAPS = ("default", "custom_sheet")
+SHEET_VERSION = 1
+SHEET_TITLE_MAX = 60
+SHEET_NAME_MAX = 60
+# the sheet's tile style: absent "Same as Screen"; an entry's: absent "Same as Sheet"
+SHEET_TILE_STYLES = TILE_STYLES
+# the line under an entry's name: the accessories' modes (_secondary) and its room
+ENTRY_SECONDARY = ("auto", "state", "room", "brightness", "attribute", "none")
+ENTRY_ID = re.compile(r"^[a-z0-9][a-z0-9_-]{0,31}\Z")
+# an icon by name, as the icon fields take one: a set and a glyph ("mdi:lock", "hk:garage-open"); never a URL or markup
+ICON_NAME = re.compile(r"^[a-z0-9_-]{1,12}:[a-z0-9_-]{1,64}\Z")
+# a color: one of the named accents (hk-base.js ACCENTS, and gray), or #rrggbb
+ACCENT_NAMES = ("orange", "yellow", "green", "mint", "teal", "cyan", "blue", "indigo", "purple", "pink", "red", "gray")
+HEX_COLOR = re.compile(r"^#[0-9a-fA-F]{6}\Z")
+
+
+def _icon_name(v: Any) -> str:
+    if not isinstance(v, str) or not ICON_NAME.match(v):
+        raise GridInvalid("grid_sheet")
+    return v
+
+
+def _color(v: Any) -> str:
+    if isinstance(v, str) and (v in ACCENT_NAMES or HEX_COLOR.match(v)):
+        return v.lower()
+    raise GridInvalid("grid_sheet")
+
+
+def _text(v: Any, most: int) -> str:
+    if not isinstance(v, str) or not 0 < len(v.strip()) <= most or any(ord(c) < 32 for c in v):
+        raise GridInvalid("grid_sheet")
+    return v.strip()
+
+
+def _entry_secondary(v: Any) -> dict[str, str]:
+    if not isinstance(v, dict) or v.get("mode") not in ENTRY_SECONDARY:
+        raise GridInvalid("grid_sheet")
+    if v["mode"] == "room":
+        if set(v) != {"mode"}:
+            raise GridInvalid("grid_sheet")
+        return {"mode": "room"}
+    try:
+        return _secondary(v)
+    except GridInvalid:
+        raise GridInvalid("grid_sheet") from None
+
+
+def _entry(v: Any) -> dict[str, Any]:
+    if not isinstance(v, dict) or set(v) - {"id", "entity", "name", "icon", "color", "tile_style", "secondary"}:
+        raise GridInvalid("grid_sheet")
+    eid = v.get("id")
+    if not isinstance(eid, str) or not ENTRY_ID.match(eid):
+        raise GridInvalid("grid_sheet")
+    entity = v.get("entity")
+    if not isinstance(entity, str) or not ENTITY_ID.match(entity):
+        raise GridInvalid("grid_sheet")
+    out: dict[str, Any] = {"id": eid, "entity": entity}
+    if v.get("name") is not None:
+        out["name"] = _text(v["name"], SHEET_NAME_MAX)
+    if v.get("icon") is not None:
+        out["icon"] = _icon_name(v["icon"])
+    if v.get("color") is not None:
+        out["color"] = _color(v["color"])
+    if v.get("tile_style") is not None:
+        if v["tile_style"] not in SHEET_TILE_STYLES:
+            raise GridInvalid("grid_sheet")
+        out["tile_style"] = v["tile_style"]
+    if v.get("secondary") is not None:
+        sec = _entry_secondary(v["secondary"])
+        if sec != {"mode": "auto"}:
+            out["secondary"] = sec
+    return out
+
+
+def custom_sheet(v: Any) -> dict[str, Any]:
+    """A Custom Detail Sheet as written, checked: {v, title?, icon?, tile_style?, entries}. At most LIST_MAX entries,
+    each id once; none is a draft (a sheet that is ON with none is refused by interaction())."""
+    if not isinstance(v, dict) or set(v) - {"v", "title", "icon", "tile_style", "entries"}:
+        raise GridInvalid("grid_sheet")
+    ver = v.get("v", SHEET_VERSION)
+    if type(ver) is not int or ver != SHEET_VERSION:
+        raise GridInvalid("grid_sheet")
+    out: dict[str, Any] = {"v": SHEET_VERSION}
+    if v.get("title") is not None:
+        out["title"] = _text(v["title"], SHEET_TITLE_MAX)
+    if v.get("icon") is not None:
+        out["icon"] = _icon_name(v["icon"])
+    if v.get("tile_style") is not None:
+        if v["tile_style"] not in SHEET_TILE_STYLES:
+            raise GridInvalid("grid_sheet")
+        out["tile_style"] = v["tile_style"]
+    entries = v.get("entries", [])
+    if not isinstance(entries, list):
+        raise GridInvalid("grid_sheet")
+    if len(entries) > LIST_MAX:
+        raise GridInvalid("grid_sheet_full")
+    out["entries"] = [_entry(e) for e in entries]
+    ids = [e["id"] for e in out["entries"]]
+    if len(set(ids)) != len(ids):
+        raise GridInvalid("grid_sheet")
+    return out
+
+
+def interaction(v: Any) -> dict[str, Any]:
+    """A block's When Tapped, as written: {tap, custom_sheet?}. "custom_sheet" needs a sheet with an entry."""
+    if not isinstance(v, dict) or set(v) - {"tap", "custom_sheet"} or v.get("tap") not in INTERACTION_TAPS:
+        raise GridInvalid("grid_sheet")
+    out: dict[str, Any] = {"tap": v["tap"]}
+    if v.get("custom_sheet") is not None:
+        out["custom_sheet"] = custom_sheet(v["custom_sheet"])
+    if out["tap"] == "custom_sheet" and not (out.get("custom_sheet") or {}).get("entries"):
+        raise GridInvalid("grid_sheet_empty")
+    return out
+
+
+def _security_size(v: Mapping[str, Any], size: str) -> None:
+    """Compact is Security's HomeView presentation's alone: a block (or a rule's card) at C says so."""
+    if size == "C" and (v.get("card") != "security" or v.get("opts", {}).get("presentation") != "homeview"):
+        raise GridInvalid("grid_size")
+
+
 def _capacity(v: Mapping[str, Any], size: str) -> None:
     if v.get("card") != "accessories":
         return
@@ -572,13 +726,14 @@ def variant(v: Any, size: str) -> dict[str, Any]:
     if v.get("pages") is not None:
         out["pages"] = _pages(card, v["pages"])
     _capacity(out, size)
+    _security_size(out, size)
     return out
 
 
 def item(v: Any, cols: int, rows: int) -> dict[str, Any]:
     """One block, checked against a grid of `cols` x `rows` (its place, not its neighbours)."""
     if not isinstance(v, dict) or set(v) - {"id", "card", "size", "at", "opts", "pages", "when", "fallback", "rules", "bare", "view",
-                                              "tile"}:
+                                              "tile", "interaction"}:
         raise GridInvalid("grid_item")
     if not isinstance(v.get("id"), str) or not ITEM_ID.match(v["id"]):
         raise GridInvalid("grid_item")
@@ -628,7 +783,11 @@ def item(v: Any, cols: int, rows: int) -> dict[str, Any]:
         if v["tile"] not in TILE_STYLES:
             raise GridInvalid("grid_option")
         out["tile"] = v["tile"]
+    # WHEN TAPPED, the block's (2026-11-07): its own Custom Detail Sheet, or the card's tap with a sheet kept as a draft
+    if v.get("interaction") is not None:
+        out["interaction"] = interaction(v["interaction"])
     _capacity(out, size)
+    _security_size(out, size)
     return out
 
 
@@ -793,7 +952,7 @@ def layout(v: Any) -> dict[str, Any] | None:
 # card does what it does with none (the first camera, no scenes row, its automatic place). Pure.
 _ENTITY_KINDS = frozenset({"entity", "scene", "speaker", "climate", "alarm", "camera", "weather", "vacuum", "todo",
                            "select", "music_speaker"})
-_LIST_KINDS = frozenset({"scenes", "calendars", "cameras"})
+_LIST_KINDS = frozenset({"scenes", "calendars", "cameras", "security_members"})
 
 
 def _opt_ids(card: str, opts: Any) -> set[str]:
@@ -857,6 +1016,28 @@ def entity_ids(grid: Any) -> set[str]:
                 out |= _opt_ids(card, opts)
         for when in [it.get("when")] + [r.get("when") for r in it.get("rules") or [] if isinstance(r, dict)]:
             out |= {c["entity"] for c in _conditions_of(when) if isinstance(c.get("entity"), str)}
+        out |= {e["entity"] for e in _sheet_entries(it) if isinstance(e.get("entity"), str)}
+    return out
+
+
+def _sheet_entries(it: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """A block's Custom Detail Sheet's entries (on or a draft), however it was stored."""
+    act = it.get("interaction")
+    sheet = act.get("custom_sheet") if isinstance(act, dict) else None
+    entries = sheet.get("entries") if isinstance(sheet, dict) else None
+    return [e for e in entries if isinstance(e, dict)] if isinstance(entries, list) else []
+
+
+def _cut_interaction(act: Any, ok: Any) -> Any:
+    """The block's sheet without the entries a person may not view -- the entry and its own name, icon and color all
+    go, so neither its id nor what the Owner calls it, nor how many there were, reaches them. A sheet left with
+    none still opens, to say so (the editor never shows such a person the sheet's settings)."""
+    if not isinstance(act, dict):
+        return act
+    out = copy.deepcopy(act)
+    sheet = out.get("custom_sheet")
+    if isinstance(sheet, dict) and isinstance(sheet.get("entries"), list):
+        sheet["entries"] = [e for e in sheet["entries"] if isinstance(e, dict) and e.get("entity") in ok]
     return out
 
 
@@ -903,6 +1084,8 @@ def only_viewable(grid: Any, ok: Any) -> Any:
                     new["rules"] = kept
                 else:
                     new.pop("rules", None)
+        if "interaction" in it:
+            new["interaction"] = _cut_interaction(it["interaction"], ok)
         items.append(new)
     out["items"] = items
     return out
