@@ -540,6 +540,11 @@
     back(hash) {
       var cur = hashOf(location.hash || '#/');
       if (this.from[cur] && hashOf(hash) === this.staticBack(cur)) hash = this.from[cur];
+      // (never the browser's Back beside a preview frame: the frame's loads -- the screen, the screensaver alone, the
+      // look alone, its own page moving -- are entries in the browser's history too, and Back undid the frame's
+      // instead, taking Safari to the frame's address, the screensaver alone, full screen. 2026-11-08, the owner: "anytime
+      // I hit the back [button] on a screensaver settings page". As the editor's leaveTo)
+      if (this.pageEl && this.pageEl.querySelector('.pvbox iframe')) { this.leaveTo(hash); return; }
       if (this.hist.length > 1 && this.hist[this.hist.length - 2] === hash) history.back();
       else this.go(hash);
     }

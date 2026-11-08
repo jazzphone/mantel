@@ -67,6 +67,24 @@ ok('...its address changed in one place, never on a redraw (frameSrc)', /var at 
 // address, the screensaver alone, full screen -- so a loaded frame goes there in its own history entry)
 ok('...in the frame\'s own history entry once it has a page (location.replace), its src only before', [/loaded\.replace\(new URL\(want, location\.href\)\.href\); return;/.test(SRC), /fr\.setAttribute\('data-src', want\);/.test(SRC)], [true, true]);
 ok('the Screensaver editor leaves in its own history entry, never by Back', [/leaveTo\(hash\) \{[\s\S]{0,160}location\.replace\(/.test(SRC), /onSaved: function \(\) \{ delete self\._saverEditors\[key\]; self\.leaveTo\(o\.back\[1\]\); \}/.test(SRC)], [true, true]);
+// (2026-11-08, the owner: Back on any Screensaver settings page could load the screensaver alone, full screen -- the
+// frame's loads are the browser's history entries too, so the page's Back never uses the browser's beside a frame)
+(function () {
+  if (typeof history === 'undefined') window.history = { back: function () {} };
+  var was = history.back, calls = [];
+  history.back = function () { calls.push('browser back'); };
+  var fake = function (frame) {
+    return { from: {}, staticBack: function () { return null; }, hist: ['#/screens/x/screensaver', '#/screens/x/screensaver/holiday'],
+             pageEl: { querySelector: function (s) { return frame && s === '.pvbox iframe' ? {} : null; } },
+             leaveTo: function (h) { calls.push('leave ' + h); }, go: function (h) { calls.push('go ' + h); } };
+  };
+  location.hash = '#/screens/x/screensaver/holiday';
+  P.back.call(fake(true), '#/screens/x/screensaver');
+  P.back.call(fake(false), '#/screens/x/screensaver');
+  history.back = was;
+  ok('Back beside a preview frame goes in the page\'s own history entry; without one, the browser\'s Back', calls,
+     ['leave #/screens/x/screensaver', 'browser back']);
+})();
 ok('...and a frame on its way to the screensaver alone, or back, is asked nothing until it is there',
    /if \(\/hk_preview=saver\/\.test\(bound\) !== \/hk_preview=saver\/\.test\(at\)\) return false;/.test(SRC), true);
 
