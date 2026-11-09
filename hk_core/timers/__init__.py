@@ -34,10 +34,21 @@ def is_made(entity_id: str) -> bool:
     return bool(MADE.match(entity_id))
 
 
-def counts(entity_id: str, ignore: Iterable[str] = ()) -> bool:
-    """A timer someone set: a quick slot or one a host made, and not on the House Timers list (Night, Nap and the rest).
-    Never the rest of the house's timers, which are mostly automations' plumbing."""
+def counts(entity_id: str, ignore: Iterable[str] = (), include: Iterable[str] = ()) -> bool:
+    """A timer that shows and rings: one turned on in Which Timers, whatever it is; else a timer someone set (a quick slot or
+    one a host made) that isn't ignored. Off by default, the rest of the house's timers, which are mostly automations' plumbing."""
+    if not entity_id.startswith("timer."):
+        return False
+    if entity_id in include:
+        return True
     return bool(QUICK.match(entity_id) or MADE.match(entity_id)) and entity_id not in ignore
+
+
+def rules(features: Mapping[str, Any]) -> tuple[set[str], set[str]]:
+    """(ignored, turned on), from the settings: House Timers and Which Timers' own ignored ones are ignored, unless turned on."""
+    include = {e for e in features.get("timer_include") or [] if isinstance(e, str)}
+    ignore = {e for e in (features.get("house_timers") or []) + (features.get("timer_ignore") or []) if isinstance(e, str)}
+    return ignore - include, include
 
 
 def object_id(entity_id: str) -> str:
@@ -170,17 +181,17 @@ def clip_pcm(tone: Any, rate: int = CLIP_RATE, level: float = 0.5) -> bytes:
     return struct.pack(f"<{n}h", *(int(level * 32767 * v / peak) for v in samples))
 
 
-def sensor_attributes(states: Mapping[str, Mapping[str, Any]], ignore: Iterable[str] = ()) -> tuple[int, dict[str, Any]]:
+def sensor_attributes(states: Mapping[str, Mapping[str, Any]], ignore: Iterable[str] = (), include: Iterable[str] = ()) -> tuple[int, dict[str, Any]]:
     """(how many are running, the attributes of sensor.running_quick_timers) over every timer that counts, with the same
-    `running` rows the helpers' own sensor gives, soonest first, and `made`: the made timers running or paused, so a card
-    can list them without walking every state."""
-    ignored = set(ignore)
+    `running` rows the helpers' own sensor gives, soonest first, and `made`: the timers no card was configured with, running or
+    paused (those a host made, and those turned on in Which Timers), so a card can list them without walking every state."""
+    ignored, turned_on = set(ignore), set(include)
     rows, made = [], []
     for eid, st in states.items():
-        if not eid.startswith("timer.") or not counts(eid, ignored):
+        if not eid.startswith("timer.") or not counts(eid, ignored, turned_on):
             continue
         s = st.get("s")
-        if is_made(eid) and s in ("active", "paused"):
+        if (is_made(eid) or eid in turned_on) and s in ("active", "paused"):
             made.append(eid)
         if s == "active":
             rows.append({"entity_id": eid, "name": name_of(states, eid), "finishes_at": (st.get("a") or {}).get("finishes_at")})

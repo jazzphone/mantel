@@ -7,9 +7,15 @@ from io import BytesIO
 import intercom_fakes as IF
 from hk_core import timers as R
 from intercom_fakes import ANNOUNCE, KITCHEN
+from mantel_server.settings_store import Actor as SettingsActor
 from mantel_server.timers import Row
 
 ic = IF.fixture(commands=True)
+
+
+def settings(env, **features):
+    """As Settings saves them."""
+    env.m.app["settings"].store.write([("house", "settings", {"features": features})], actor=SettingsActor(label="test"))
 
 
 def ringing(ic, area="kitchen"):
@@ -21,7 +27,7 @@ def ringing(ic, area="kitchen"):
 
 
 async def test_it_plays_in_its_room_at_its_volume_with_no_chime_and_every_row(ic):
-    ic.m.app["features"].settings.setdefault("features", {}).update(timer_volume=35)
+    settings(ic, timer_volume=35)
     host, row = ringing(ic)
     await host._speak(row)
     (a,) = ic.ma.announcements
@@ -40,7 +46,7 @@ async def test_the_clip_is_a_real_wav(ic):
 
 
 async def test_never_above_the_houses_highest_volume(ic):
-    ic.m.app["features"].settings.setdefault("features", {}).update(timer_volume=95)
+    settings(ic, timer_volume=95)
     host, row = ringing(ic)
     await host._speak(row)
     assert ic.ma.announcements[-1]["volume_level"] == 70
@@ -64,17 +70,17 @@ async def test_nothing_plays_with_the_speaker_off_in_another_room_or_with_no_add
     await host._speak(row)
     assert ic.ma.announcements == []
     host, row = ringing(ic)
-    ic.m.app["features"].settings.setdefault("features", {}).update(timer_speaker=False)
+    settings(ic, timer_speaker=False)
     await host._speak(row)
     assert ic.ma.announcements == []
-    ic.m.app["features"].settings["features"].update(timer_speaker=True)
+    settings(ic, timer_speaker=True)
     ic.edit(stream_base=None)
     await host._speak(row)
     assert ic.ma.announcements == []
 
 
 async def test_also_play_in_and_the_whole_house(ic):
-    ic.m.app["features"].settings.setdefault("features", {}).update(timer_also=["all"])
+    settings(ic, timer_also=["all"])
     host, row = ringing(ic, area="office")
     await host._speak(row)
     assert len(ic.ma.announcements) >= 2

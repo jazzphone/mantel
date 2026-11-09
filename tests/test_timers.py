@@ -9,6 +9,7 @@ import pytest
 import gateway_fakes as GF
 from hk_core import timers as R
 from mantel_server.ha_client import HaCommandError
+from mantel_server.settings_store import Actor as SettingsActor
 
 gw, service = GF.gw, GF.service          # (the fixture, by name)
 
@@ -348,6 +349,11 @@ async def test_a_wall_tablet_sees_starts_and_stops_timers_and_nothing_else_of_th
     await ws.close()
 
 
+def settings(env, **features):
+    """As Settings saves them: into the house's `features` document."""
+    env.m.app["settings"].store.write([("house", "settings", {"features": features})], actor=SettingsActor(label="test"))
+
+
 # ---- the ring
 async def ring(gw, ws, h, *, i=1, name="Pasta", **data):
     got = await start(gw, ws, i=i, digits="15", name=name)
@@ -445,7 +451,7 @@ async def test_a_ring_carries_on_after_mantel_restarts(gw):
 
 async def test_house_timers_and_where_it_rings_come_from_the_settings(gw):
     h = House(gw)
-    gw.m.app["features"].settings.setdefault("features", {}).update(house_timers=["timer.quick_2"], timer_tablet=False, timer_sound="chime", timer_ring_for="stop", timer_phone="porch")
+    settings(gw, house_timers=["timer.quick_2"], timer_tablet=False, timer_sound="chime", timer_ring_for="stop", timer_phone="porch")
     await gw.login("avery", "owner")
     ws = await gw.socket()
     h.put("timer.quick_2", "active", finishes_at=iso(gw.m.app["clock"]() + 30))
@@ -497,3 +503,95 @@ async def test_the_sensor_is_there_in_a_house_with_no_timers(gw):
     h.hub.on_change({"light.kitchen"})
     assert h.hub.store.states[R.SENSOR]["s"] == "0" and h.hub.store.states[R.SENSOR]["a"]["made"] == []
     assert "script.quick_timer_ring" in h.hub.store.states
+
+
+# ---- Which Timers
+def test_which_timers_rules():
+    ignore, include = R.rules({"house_timers": ["timer.nap", "timer.night"], "timer_ignore": ["timer.quick_2"], "timer_include": ["timer.night", "timer.fan"]})
+    assert ignore == {"timer.nap", "timer.quick_2"} and include == {"timer.night", "timer.fan"}
+    assert R.counts("timer.quick_1", ignore, include) and not R.counts("timer.quick_2", ignore, include)      # a quick slot, turned off
+    assert R.counts("timer.night", ignore, include) and not R.counts("timer.nap", ignore, include)            # a House Timer, turned on; one not
+    assert R.counts("timer.fan", ignore, include) and not R.counts("timer.other", ignore, include)            # anything, turned on; the rest off
+    assert not R.counts("light.fan", ignore, {"light.fan"})
+
+
+async def test_the_settings_are_read_where_settings_saves_them(gw):
+    """(a real bug on 0.1.155: they were read from another document, so every setting read as its default)"""
+    from hk_core.settings import model as SM
+    h = House(gw)
+    settings(gw, timer_sound="kitchen", timer_ring_for=30, timer_volume=25)
+    got = SM.merged(gw.m.app["features"].stored().options)["features"]
+    assert got["timer_sound"] == "kitchen"                             # the same document Settings' own reader takes
+    o = h.host.options()
+    assert o["timer_sound"] == "kitchen" and o["timer_ring_for"] == 30 and o["timer_volume"] == 25 and o["timer_tablet"] is True
+
+
+def test_settings_takes_every_timer_setting_when_saved():
+    """What the page sends goes through the same check it does in Settings, and comes back out of the merged settings."""
+    from hk_core.settings import changes as C, model as SM
+    values = {"features.timer_sound": "chime", "features.timer_ring_for": "stop", "features.timer_tablet": False, "features.timer_speaker": False,
+              "features.timer_also": ["all"], "features.timer_phone": "kitchen", "features.timer_volume": 35, "features.timer_wake": False,
+              "features.timer_include": ["timer.groot_timer"], "features.timer_ignore": ["timer.quick_1"]}
+    options, errors = C.apply_house({"dashboard": {}}, values)
+    assert not errors, errors
+    got = SM.merged(options)["features"]
+    assert {f"features.{k}": got[k] for k in (x.split(".")[1] for x in values)} == values
+
+
+async def test_a_timer_turned_on_rings_and_is_never_deleted_and_one_turned_off_doesnt(gw):
+    h = House(gw)
+    settings(gw, timer_include=["timer.groot_timer"], timer_ignore=["timer.quick_1"])
+    await gw.login("avery", "owner")
+    ws = await gw.socket()
+    clock = gw.m.app["clock"]()
+    h.put("timer.groot_timer", "active", friendly_name="Groot", duration="1:00:00", finishes_at=iso(clock + 30))
+    h.put("timer.quick_1", "active", finishes_at=iso(clock + 30))
+    h.put("timer.kitchen_no_motion", "active", finishes_at=iso(clock + 30))
+    st = h.hub.store.states[R.SENSOR]
+    assert [r["name"] for r in st["a"]["running"]] == ["Groot"] and st["a"]["made"] == ["timer.groot_timer"]
+    h.host.rows["timer.groot_timer"].finishes_at = clock - 1
+    h.put("timer.groot_timer", "idle", friendly_name="Groot", duration="0:00:00")
+    await h.settle()
+    assert [r["name"] for r in h.hub.store.states[R.SENSOR]["a"]["ringing"]] == ["Groot"]
+    await act(gw, ws, 9, op="again", entity_id="timer.groot_timer")
+    assert gw.fake.frames[-1]["service_data"] == {"entity_id": "timer.groot_timer", "duration": "01:00:00"}    # its own length
+    h.host.rows["timer.groot_timer"].finishes_at = clock - 1
+    h.put("timer.groot_timer", "idle", friendly_name="Groot", duration="0:00:00")
+    await act(gw, ws, 10, op="stop")
+    await h.settle()
+    assert not h.sent("timer/delete") and "timer.groot_timer" in h.hub.store.states           # Home Assistant's, not ours
+    await ws.close()
+
+
+async def test_a_tablet_may_see_and_control_a_timer_turned_on_and_no_other(gw):
+    h = House(gw)
+    await gw.login("avery", "owner")
+    r = await gw.m.post("/api/devices/enroll", {"name": "Kitchen tablet", "room": "kitchen"})
+    assert r.status == 201
+    ws = await gw.socket()
+    before = await gw.command(ws, id=1, **service("timer", "cancel", "timer.groot_timer"))
+    assert before["error"]["reason"] == "no_grant"
+    settings(gw, timer_include=["timer.groot_timer"])
+    h.put("timer.groot_timer", "active", friendly_name="Groot", finishes_at=iso(gw.m.app["clock"]() + 300))
+    after = await gw.command(ws, id=2, **service("timer", "cancel", "timer.groot_timer"))
+    assert "result" in after
+    other = await gw.command(ws, id=3, **service("timer", "cancel", "timer.kitchen_no_motion"))
+    assert other["error"]["reason"] == "no_grant"
+    settings(gw)                                                       # turned off again
+    h.hub.on_change({"timer.groot_timer"})
+    again = await gw.command(ws, id=4, **service("timer", "cancel", "timer.groot_timer"))
+    assert again["error"]["reason"] == "no_grant"
+    await ws.close()
+
+
+async def test_a_settings_save_reaches_the_screens_with_no_timer_changing(gw):
+    h = House(gw)
+    h.put("timer.groot_timer", "active", friendly_name="Groot", finishes_at=iso(gw.m.app["clock"]() + 300))
+    h.host.settings_look()
+    assert h.hub.store.states[R.SENSOR]["s"] == "0"
+    settings(gw, timer_include=["timer.groot_timer"])
+    h.host.settings_look()
+    assert h.hub.store.states[R.SENSOR]["s"] == "1" and h.host.turned_on == {"timer.groot_timer"}
+    h.hub.store.states[R.SENSOR]["s"] = "stale"
+    h.host.settings_look()                                             # nothing new: nothing sent
+    assert h.hub.store.states[R.SENSOR]["s"] == "stale"

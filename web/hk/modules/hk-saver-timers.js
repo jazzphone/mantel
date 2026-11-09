@@ -221,7 +221,7 @@
       var me = null;
       try { me = S && S.tablet && h ? S.tablet(h) : null; } catch (e) { /* no tablets here */ }
       onTablet = !!me; room = (me && me.room) || '';
-      var list = T && T.userTimers && h ? T.userTimers(h.states, (S && S.get && S.get('features.house_timers')) || [], Date.now()) : [];
+      var list = T && T.userTimers && h ? T.userTimers(h.states, T.rulesOf(S), Date.now()) : [];
       if (!list.some(function (/** @type {any} */ r) { return !r.paused; }) && o.sample && o.sample()) {
         var now = Date.now();
         return SAMPLE.map(function (r) { return r.paused ? { id: r.id, name: r.name, total: r.total, left: r.left, paused: true } : { id: r.id, name: r.name, total: r.total, end: now + r.left * 1000, left: r.left }; });

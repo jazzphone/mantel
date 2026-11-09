@@ -101,6 +101,7 @@
         if (s0 === 'order' && PAGE_ORDERS[key]) return { title: 'Tile Order', back: [title, base], scope: this.orderScope(key),
                                                         body: function (c) { self.a_pageOrder(c, key); } };
         if (key === 'timers' && s0 === 'house') return mk('House Timers', function (c) { self.h_timers(c); });
+        if (key === 'timers' && s0 === 'which') return mk('Which Timers', function (c) { self.h_whichTimers(c); });
         if (key === 'weather' && s0 === 'sensors') return mk('Sensors', function (c) { self.h_weatherSensors(c); });
         if (key === 'weather' && s0 === 'forecast') return mk('Forecast & Details', function (c) { self.h_weatherForecast(c); });
         if (key === 'weather' && s0 === 'radar') {
@@ -169,6 +170,9 @@
           var ht = this.hs('features.house_timers') || [];
           c.appendChild(K.group({ header: 'House Timers', footer: 'One-tap timers on the Timers page — a nap, bedtime. Their names and icons are Home Assistant’s. They never show on the screensaver or ring: add a timer here to keep it off.' }, [
             K.nav({ label: 'House Timers', value: ht.length ? String(ht.length) : 'None', href: base + '/house', sk: 'features.house_timers' })]));
+          var wh = this.whichTimers();
+          c.appendChild(K.group({ header: 'Which Timers', footer: 'What shows on the screensaver and rings, and what is ignored.' }, [
+            K.nav({ label: 'Which Timers', value: wh.waiting ? '' : wh.on.length + ' On \u00B7 ' + wh.off.length + ' Ignored', href: base + '/which', sk: 'features.timer_include' })]));
           this.h_timerEnds(c);
         }
         if (key === 'vacuums') {
@@ -383,6 +387,47 @@
         }
         return this.p_overview();
       }
+      // WHICH TIMERS (phase 21): every timer in the house, on or ignored, as the slide and the ring decide it (hkTimers.counts). A
+      // timer someone sets from the Timers page isn't listed: those come and go, and always count.
+      // (this panel doesn't load what a screen loads: the timers' rules and their sound, as these pages first need them)
+      timerModules() {
+        var self = this;
+        if (window.hkTimers && window.hkTimerRing) return true;
+        if (!this._timerMods) {
+          this._timerMods = Promise.all(['hk-timers.js', 'hk-timer-ring.js'].map(function (f) { return import('/hk/modules/' + f); })).then(function () {
+            if (self.isConnected && self.render) self.render();
+          }).catch(function (e) { self._timerMods = null; console.warn('[hk-settings] timers', e && e.message); });
+        }
+        return false;
+      }
+      whichTimers() {
+        var self = this, T = window.hkTimers;
+        if (!this.timerModules() || !T) return { on: [], off: [], st: {}, waiting: true };
+        var st = (this.client && this.client.states) || {}, rules = T.rulesOf({ get: function (p) { return self.hs(p); } });
+        var ids = this.entityIds({ domains: ['timer'] }).filter(function (id) { return !/^timer\.hk_timer_\d+$/.test(id); });
+        ids.sort(function (a, b) { return self.name(a).localeCompare(self.name(b)); });
+        return { on: ids.filter(function (id) { return T.counts(id, rules); }), off: ids.filter(function (id) { return !T.counts(id, rules); }), st: st };
+      }
+      h_whichTimers(c) {
+        var self = this, wh = this.whichTimers(), house = this.hs('features.house_timers') || [];
+        if (wh.waiting) return;
+        var list = function (k) { var v = self.hs('features.' + k); return Array.isArray(v) ? v.slice() : []; };
+        // ON: not ignored, and turned on if it wouldn't count by itself. OFF: not turned on, and ignored if it would.
+        var flip = function (id) { return function (on) {
+          var quick = /^timer\.quick_\d+$/.test(id), inc = list('timer_include').filter(function (x) { return x !== id; }), ign = list('timer_ignore').filter(function (x) { return x !== id; });
+          if (on && (!quick || house.indexOf(id) >= 0)) inc.push(id);
+          if (!on && quick) ign.push(id);
+          self.setH({ 'features.timer_include': inc, 'features.timer_ignore': ign });
+        }; };
+        var row = function (id, on) {
+          var kind = /^timer\.quick_\d+$/.test(id) ? 'Quick timer' : house.indexOf(id) >= 0 ? 'House Timer' : 'From Home Assistant', s = wh.st[id] && wh.st[id].state;
+          return K.toggle({ label: self.name(id), sub: kind + (s === 'active' ? ' \u00B7 Running now' : s === 'paused' ? ' \u00B7 Paused' : ''), fk: 'which:' + id, sk: 'features.timer_include', on: on, onChange: flip(id) });
+        };
+        c.appendChild(K.group({ header: 'On', footer: 'These show on the screensaver, hold its last minute and ring. Timers you start from the Timers page or a preset always do, and aren\u2019t listed.' },
+          wh.on.length ? wh.on.map(function (id) { return row(id, true); }) : [K.note ? K.note({ text: 'None' }) : K.nav({ label: 'None' })]));
+        c.appendChild(K.group({ header: 'Ignored', footer: 'Automations use most of these. Turn one on only if you want to know when it ends: it rings every time, even when an automation started it.' },
+          wh.off.length ? wh.off.map(function (id) { return row(id, false); }) : [K.note ? K.note({ text: 'None' }) : K.nav({ label: 'None' })]));
+      }
       // WHEN A TIMER ENDS (phase 21, docs/phase21/TIMER-SLIDE.md): the host that rings them says so on the sensor it keeps (`made`,
       // `rooms`). A host with no such thing has no sound for a timer ending.
       h_timerEnds(c) {
@@ -393,6 +438,7 @@
         }
         var F = function (k, d) { var v = self.hs('features.' + k); return v === undefined || v === null ? d : v; };
         var put = function (k) { return function (v) { var o = {}; o['features.' + k] = v; self.setH(o); }; };
+        this.timerModules();             // (Hear It)
         var rooms = at.rooms || [], tone = F('timer_sound', 'bell'), ring = F('timer_ring_for', 60), also = F('timer_also', []);
         c.appendChild(K.group({ header: 'When a Timer Ends', footer: 'Every tablet shows a timer\u2019s last minute and Time\u2019s Up. Stop on any screen stops it everywhere. A tablet can\u2019t play sound until it has been touched once, unless its kiosk app allows it.' }, [
           K.seg({ label: 'Sound', sk: 'features.timer_sound', value: tone, options: [['bell', 'Soft Bell'], ['chime', 'Chime'], ['kitchen', 'Kitchen Timer']],

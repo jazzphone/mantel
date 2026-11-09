@@ -258,11 +258,15 @@ class Authz:
     # -- the policy -------------------------------------------------------------------------------
     def policy_for(self, subject: Subject) -> Policy:
         base = self.rbac.policy()            # cached by the store until a grant/role/scope write
+        # (a timer turned on in Which Timers belongs to no room, and every tablet shows its last minute, as a quick timer's)
+        timers = getattr(self.app.get("timers"), "turned_on", None) or ()
+        key = tuple(sorted(timers))
         cached = self._derived.get(subject.door)
-        if cached is not None and cached[0] is base:
+        if cached is not None and cached[0] is base and cached[2] == key:
             return cached[1]
-        got = replace(base, grants=tuple(base.grants) + HOUSE_GRANTS)
-        self._derived[subject.door] = (base, got)
+        extra = tuple(Grant(effect="allow", actions=frozenset({"view", "control"}), resource_kind="entity", resource=e, roles=frozenset({"wall_tablet"})) for e in key)
+        got = replace(base, grants=tuple(base.grants) + HOUSE_GRANTS + extra)
+        self._derived[subject.door] = (base, got, key)
         return got
 
     def decide(self, subject: Subject, action: str, entity_id: str | None, *, feature: str | None = None,

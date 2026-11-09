@@ -737,6 +737,8 @@ HOUSE: dict[str, Callable[[Any], Any]] = {
     "features.timer_phone": lambda v: v if isinstance(v, str) and AREA_OR_EMPTY.match(v) else _choice(())(v),
     "features.timer_volume": lambda v: v if isinstance(v, int) and not isinstance(v, bool) and 5 <= v <= 100 else _choice(())(v),
     "features.timer_wake": _bool,
+    "features.timer_include": _entities("timer"),
+    "features.timer_ignore": _entities("timer"),
     "features.vacuum_script": _entity("script"),
     "features.alarm_bad_code": _entity("input_boolean", "binary_sensor"),
     "clock.time": SENSOR,

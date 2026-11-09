@@ -156,7 +156,7 @@
     car: { dashboards: [], widths: {} },
     generated: { exclude_areas: [], exclude_devices: [], exclude_entities: [], include_entities: [] },
     features: { vacuum_script: null, alarm_bad_code: null, thermostats: [], temperature: null, power: null,
-                house_timers: [], timer_sound: 'bell', timer_ring_for: 60, timer_tablet: true, timer_speaker: true, timer_also: [], timer_phone: '', timer_volume: 40, timer_wake: true },
+                house_timers: [], timer_sound: 'bell', timer_ring_for: 60, timer_tablet: true, timer_speaker: true, timer_also: [], timer_phone: '', timer_volume: 40, timer_wake: true, timer_include: [], timer_ignore: [] },
     menu: { glyph: 'sidebar', clock: true,
             // All Screens' menu, for the screens that don't set their own
             // (settings.py MENU_KEYS); a screen reads it already filled in

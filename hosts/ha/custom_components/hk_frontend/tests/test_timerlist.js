@@ -23,15 +23,24 @@ var HOUSE = {
   'timer.hk_timer_7': on(90, 'Oven'),
   'timer.kitchen_no_motion': on(5, 'Kitchen - No Motion'), 'timer.nap_timer': on(10, 'Nap'), 'light.kitchen': { state: 'on', attributes: {} }
 };
-var got = T.userTimers(HOUSE, [], NOW);
+var NONE = { ignore: {}, include: {} };
+var got = T.userTimers(HOUSE, NONE, NOW);
 ok('only the timers people set: not an automation\'s, not an idle slot', ids(got) === 'timer.quick_2,timer.hk_timer_7,timer.quick_1,timer.quick_3');
 ok('soonest first, paused last', got[0].left === 30 && got[1].left === 90 && got[2].left === 300 && got[3].paused === true && got[3].left === 300);
 ok('a quick slot\'s name from its helper, else the timer\'s', got[2].name === 'Pasta' && got[0].name === 'Quick Timer 2' && got[1].name === 'Oven');
 ok('its length, for the ring', got[0].total === 900 && got[3].total === 600);
-ok('House Timers are ignored, even a quick slot on the list', ids(T.userTimers(HOUSE, ['timer.quick_2', 'timer.nap_timer'], NOW)) === 'timer.hk_timer_7,timer.quick_1,timer.quick_3');
-ok('a running timer past its end reads 0 until the house says it ended', T.userTimers({ 'timer.quick_1': on(-5, 'x') }, [], NOW)[0].left === 0);
-ok('a timer with no end time is left out, and nothing at all is nothing', T.userTimers({ 'timer.quick_1': { state: 'active', attributes: {} } }, [], NOW).length === 0 && T.userTimers(null, null, NOW).length === 0);
-ok('a timer whose id only starts the same is not one', T.userTimers({ 'timer.quick_x': on(5, 'a'), 'timer.hk_timer_': on(5, 'b'), 'timer.quick_1_old': on(5, 'c') }, [], NOW).length === 0);
+ok('House Timers are ignored, even a quick slot on the list', ids(T.userTimers(HOUSE, { ignore: { 'timer.quick_2': true, 'timer.nap_timer': true }, include: {} }, NOW)) === 'timer.hk_timer_7,timer.quick_1,timer.quick_3');
+ok('a running timer past its end reads 0 until the house says it ended', T.userTimers({ 'timer.quick_1': on(-5, 'x') }, NONE, NOW)[0].left === 0);
+ok('a timer with no end time is left out, and nothing at all is nothing', T.userTimers({ 'timer.quick_1': { state: 'active', attributes: {} } }, NONE, NOW).length === 0 && T.userTimers(null, null, NOW).length === 0);
+ok('a timer whose id only starts the same is not one', T.userTimers({ 'timer.quick_x': on(5, 'a'), 'timer.hk_timer_': on(5, 'b'), 'timer.quick_1_old': on(5, 'c') }, NONE, NOW).length === 0);
+
+// ---- Which Timers
+var RULES = T.rulesOf({ get: function (k) { return { 'features.house_timers': ['timer.nap_timer', 'timer.night'], 'features.timer_ignore': ['timer.quick_2'], 'features.timer_include': ['timer.night', 'timer.kitchen_no_motion'] }[k]; } });
+ok('a timer turned on counts, whatever it is, even a House Timer', T.counts('timer.kitchen_no_motion', RULES) && T.counts('timer.night', RULES));
+ok('a House Timer, and a quick slot turned off, do not', !T.counts('timer.nap_timer', RULES) && !T.counts('timer.quick_2', RULES));
+ok('...the rest as before', T.counts('timer.quick_1', RULES) && T.counts('timer.hk_timer_7', RULES) && !T.counts('timer.other', RULES));
+ok('the list follows them', ids(T.userTimers(HOUSE, RULES, NOW)) === 'timer.kitchen_no_motion,timer.hk_timer_7,timer.quick_1,timer.quick_3');
+ok('no settings: as they come', ids(T.userTimers(HOUSE, T.rulesOf(null), NOW)) === ids(got));
 
 // ---- what rings, and where
 var RING = { entity_id: 'timer.hk_timer_1', name: 'Pasta', tablet: true, areas: ['kitchen'], speakers: ['Kitchen'], tone: 'bell' };

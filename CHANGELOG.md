@@ -4,9 +4,12 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
-**Fixed**
-- **Tapping the alarm's state on a HomeView-style Security block opens the alarm**: its keypad, or Home, Away and Off when it takes no code, as Classic's Home, Away and Disarm already did (it opened the Security overview). "+N more" and a group still open the overview, and a block's own custom sheet still wins.
+**Added**
+- **Which Timers**: Settings → Timers lists every timer in the house, on or ignored, with a switch. Turn on one that Home Assistant or an automation runs, or turn off one you don't want to hear about.
 
+**Fixed**
+- **Timer settings now take effect**: the server read them from the wrong place, so Sound, Rings For, where it plays and the rest stayed at their defaults on Mantel 0.1.155.
+- **Tapping the alarm's state on a HomeView-style Security block opens the alarm**: its keypad, or Home, Away and Off when it takes no code, as Classic's Home, Away and Disarm already did (it opened the Security overview). "+N more" and a group still open the overview, and a block's own custom sheet still wins.
 
 ## 0.1.155 - 2026-11-08
 

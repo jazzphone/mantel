@@ -668,17 +668,28 @@
       return list.concat(made.filter(function (id) { return states[id] && !list.some(function (t) { return t.entity === id; }); })
         .map(function (id) { return { entity: id, label: (states[id].attributes || {}).friendly_name || 'Timer', glyph: 'mdi:timer-outline' }; }));
     },
-    // THE TIMERS PEOPLE SET (phase 21, docs/phase21/TIMER-SLIDE.md), soonest first and paused ones last, for what a
-    // whole house shows and rings: the quick slots and the ones Mantel makes, never `ignore` (General -> House Timers:
-    // Night, Nap and the rest) and never the rest of the house's timers, which are mostly automations' plumbing
-    // (no-motion and fan timers). A quick slot's name is in its helper (helpers/quick_timers.yaml).
-    userTimers: function (states, ignore, now) {
-      var out = [], self = this, skip = {};
-      (Array.isArray(ignore) ? ignore : []).forEach(function (id) { skip[id] = true; });
+    // WHICH TIMERS (Settings -> Timers): is this timer one that shows and rings? Turned on there, whatever it is; else a timer
+    // someone set (a quick slot, or one Mantel made) that isn't ignored. Off by default, the rest of the house's timers.
+    // `rules`: {ignore: {id: true}, include: {id: true}}, from the settings (rulesOf).
+    counts: function (id, rules) {
+      if (rules.include[id]) return /^timer\./.test(id);
+      return /^timer\.(?:quick_\d+|hk_timer_\d+)$/.test(id) && !rules.ignore[id];
+    },
+    rulesOf: function (S) {
+      var get = function (k) { var v = S && S.get && S.get('features.' + k); return Array.isArray(v) ? v : []; }, out = { ignore: {}, include: {} };
+      get('timer_include').forEach(function (id) { out.include[id] = true; });
+      get('house_timers').concat(get('timer_ignore')).forEach(function (id) { if (!out.include[id]) out.ignore[id] = true; });
+      return out;
+    },
+    // THE TIMERS THAT COUNT (phase 21, docs/phase21/TIMER-SLIDE.md), soonest first and paused ones last. A quick slot's name is
+    // in its helper (helpers/quick_timers.yaml).
+    userTimers: function (states, rules, now) {
+      var out = [], self = this;
+      rules = rules || { ignore: {}, include: {} };
       Object.keys(states || {}).forEach(function (id) {
-        var m = /^timer\.(?:quick_(\d+)|hk_timer_\d+)$/.exec(id), st = m && !skip[id] ? states[id] : null;
+        var m = /^timer\.quick_(\d+)$/.exec(id), st = self.counts(id, rules) ? states[id] : null;
         if (!st || (st.state !== 'active' && st.state !== 'paused')) return;
-        var a = st.attributes || {}, slot = m[1] ? states['input_text.quick_timer_' + m[1] + '_name'] : null;
+        var a = st.attributes || {}, slot = m ? states['input_text.quick_timer_' + m[1] + '_name'] : null;
         var given = slot && slot.state && slot.state !== 'unknown' && slot.state !== 'unavailable' ? slot.state : '';
         var row = { id: id, name: given || a.friendly_name || 'Timer', total: self.secs(a.duration) };
         if (st.state === 'paused') { row.paused = true; row.left = self.secs(a.remaining); }

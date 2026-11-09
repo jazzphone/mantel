@@ -1908,7 +1908,7 @@
     ['Alarm Panel', 'page/security', 'security.alarm', 'security keypad'],
     ['Indoor Temperature', 'screen/chips/climate', 'features.temperature', 'climate chip reading', true],
     ['Power Use', 'screen/chips/energy', 'features.power', 'energy chip watts reading', true],
-    ['House Timers', 'page/timers/house', 'features.house_timers', 'nap bedtime timers page'],
+    ['House Timers', 'page/timers/house', 'features.house_timers', 'nap bedtime timers page'], ['Which Timers', 'page/timers/which', 'features.timer_include', 'ignored ignore timers screensaver slide ring show automation'],
     ['Accessory Types', 'accessories', 'counts', 'what counts status & chips status and chips types kinds smoke carbon monoxide co alarm lights fans doors windows locks blinds leaks thermostats timers vacuums speakers count chips'],
     ['Weather Service', 'page/weather', 'weather.entity', 'forecast'],
     ['Place', 'page/weather', 'weather.place', 'location label'],

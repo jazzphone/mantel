@@ -42,6 +42,7 @@ log = logging.getLogger("mantel.timers")
 WATCHED = ("timer.", "input_text.quick_timer_", R.SENSOR, "script.quick_timer_")
 ICON = "mdi:timer-outline"
 SPEAK_EVERY = 20.0      # seconds between a speaker's clips, from the start of one (music dips for each)
+SETTINGS_EVERY = 5.0    # seconds between looks at whether the house's settings changed
 
 
 @dataclass
@@ -90,6 +91,9 @@ class Timers:
         self.deleting: set[str] = set()
         self.tasks: set[asyncio.Task] = set()
         self.clips: dict[str, bytes] = {}
+        self.turned_on: set[str] = set()     # Which Timers: what authz.py lets a wall tablet see, too
+        self.settings_version = -1
+        self.looking: asyncio.Task | None = None
         self.lock = asyncio.Lock()
         self.on_end: Callable[[Row, bool], None] = self._log_end   # hears each end: (the row, too late to ring)
         self.ringers: dict[str, asyncio.Task] = {}
@@ -100,12 +104,25 @@ class Timers:
     def _states(self) -> dict[str, dict]:
         return self.hub.store.states
 
-    def _ignore(self) -> set[str]:
-        """General -> House Timers: Night, Nap and the rest never count."""
+    def _features(self) -> dict[str, Any]:
+        """The house's `features` settings as stored: House Timers, Which Timers and When a Timer Ends. The defaults are ours."""
         try:
-            return set(self.app["features"].settings["features"]["house_timers"])
-        except Exception:  # noqa: BLE001 -- no settings yet: nothing is on the list
-            return set()
+            return dict(self.app["settings"].store.body("house", "settings").get("features") or {})
+        except Exception:  # noqa: BLE001 -- no settings yet: as they come
+            return {}
+
+    def _rules(self) -> tuple[set[str], set[str]]:
+        """(ignored, turned on), and every screen told if what is turned on changed: a tablet may see a timer turned on."""
+        ignore, include = R.rules(self._features())
+        if include != self.turned_on:
+            self.turned_on = include
+            for session in list(getattr(self.hub, "sessions", ())):
+                try:
+                    session.view.policy_changed()
+                    session.wake.set()
+                except Exception:  # noqa: BLE001 -- that one screen catches up at its next look
+                    log.debug("timers: a screen wasn't told", exc_info=True)
+        return ignore, include
 
     def _ready(self) -> bool:
         ha = getattr(self.hub, "ha", None)
@@ -119,11 +136,8 @@ class Timers:
         """General -> Timers: what happens when a timer ends."""
         out = {"timer_sound": "bell", "timer_ring_for": 60, "timer_tablet": True, "timer_speaker": True, "timer_also": [],
                "timer_phone": "", "timer_volume": 40, "timer_wake": True}
-        try:
-            got = self.app["features"].settings["features"]
-            out.update({k: got[k] for k in out if k in got})
-        except Exception:  # noqa: BLE001 -- no settings yet: as they come
-            pass
+        got = self._features()
+        out.update({k: got[k] for k in out if k in got})
         return out
 
     def _music_rooms(self) -> list[tuple[str, str | None]]:
@@ -171,6 +185,14 @@ class Timers:
             pass
         attrs["rooms"] = sorted(({"id": a, "name": n or a} for a, n in names.items()), key=lambda x: x["name"])
 
+    def settings_look(self) -> None:
+        """A settings save, within a few seconds: every screen hears (Which Timers, where it rings), with no timer changing."""
+        got = self.app["settings"].store.get("house", "settings")
+        version = got.version if got is not None else 0
+        if version != self.settings_version:
+            self.settings_version = version
+            self._push()
+
     def _push(self) -> None:
         """The ring changed: every screen hears, as a change of the sensor."""
         self.hub.on_change({R.SENSOR})
@@ -181,9 +203,9 @@ class Timers:
         # (the sensor is always there, in a house with no timers too: it is how a screen knows sound is possible here)
         if R.SENSOR in states and not any(e.startswith(WATCHED) for e in changed):
             return changed
-        ignore = self._ignore()
-        self._follow(ignore)
-        n, attrs = R.sensor_attributes(states, ignore)
+        ignore, include = self._rules()
+        self._follow(ignore, include)
+        n, attrs = R.sensor_attributes(states, ignore, include)
         self._publish(attrs, states)
         attrs["plumbing"] = True           # (never offered as an accessory)
         old = states.get(R.SENSOR)
@@ -202,10 +224,10 @@ class Timers:
                 changed = changed | {script}
         return changed
 
-    def _follow(self, ignore: set[str]) -> None:
+    def _follow(self, ignore: set[str], include: set[str]) -> None:
         states, now = self._states(), self.clock()
         for eid, st in list(states.items()):
-            if not eid.startswith("timer.") or not R.counts(eid, ignore) or eid in self.starting:
+            if not eid.startswith("timer.") or not R.counts(eid, ignore, include) or eid in self.starting:
                 continue
             row, s = self.rows.get(eid), st.get("s")
             if s == "active" or s == "paused":
@@ -226,7 +248,7 @@ class Timers:
         for eid, row in list(self.rows.items()):
             if eid in self.starting or eid in self.deleting:
                 continue
-            if not R.counts(eid, ignore):
+            if not R.counts(eid, ignore, include):
                 self._quiet(eid)
                 self._forget(eid)            # put on the House Timers list while it ran
                 continue
@@ -248,7 +270,7 @@ class Timers:
                 self._forget(eid)
                 if row.made:
                     self._delete(eid)
-        self._arm_wake(ignore)
+        self._arm_wake(ignore, include)
 
     def _ended(self, row: Row, now: float) -> None:
         late = R.is_late(row.finishes_at or now, now)
@@ -377,13 +399,13 @@ class Timers:
         return got
 
     # -- a dark tablet, woken for its room's timer's last minute ----------------------------------------------------
-    def _arm_wake(self, ignore: set[str]) -> None:
+    def _arm_wake(self, ignore: set[str], include: set[str]) -> None:
         if self._wake_t is not None:
             self._wake_t.cancel()
             self._wake_t = None
         now, soon = self.clock(), None
         for row in self.rows.values():
-            if row.finishes_at is None or row.woken or row.ring_until is not None or not R.counts(row.entity_id, ignore):
+            if row.finishes_at is None or row.woken or row.ring_until is not None or not R.counts(row.entity_id, ignore, include):
                 continue
             left = row.finishes_at - now
             if left <= R.LAST_MINUTE:
@@ -393,7 +415,7 @@ class Timers:
                 soon = left - R.LAST_MINUTE if soon is None else min(soon, left - R.LAST_MINUTE)
         if soon is not None:
             try:
-                self._wake_t = asyncio.get_running_loop().call_later(soon + 0.05, lambda: self._arm_wake(self._ignore()))
+                self._wake_t = asyncio.get_running_loop().call_later(soon + 0.05, lambda: self._arm_wake(*self._rules()))
             except RuntimeError:      # no loop (a test reading the rules)
                 pass
 
@@ -526,7 +548,7 @@ class Timers:
     async def close(self) -> None:
         if self._wake_t is not None:
             self._wake_t.cancel()
-        for task in list(self.tasks) + list(self.ringers.values()):
+        for task in list(self.tasks) + list(self.ringers.values()) + ([self.looking] if self.looking else []):
             task.cancel()
 
 
@@ -536,7 +558,19 @@ def register(app: web.Application, hub: Any) -> Timers:
     app["timers"] = host
     hub.overlays.append(host.overlay)
 
+    async def look() -> None:
+        while True:
+            await asyncio.sleep(SETTINGS_EVERY)
+            try:
+                host.settings_look()
+            except Exception:  # noqa: BLE001 -- the next look
+                log.debug("timers: the settings' look failed", exc_info=True)
+
+    async def start(_app: web.Application) -> None:
+        host.looking = asyncio.ensure_future(look())      # (its own: `tasks` are the ones that finish)
+
     async def stop(_app: web.Application) -> None:
         await host.close()
+    app.on_startup.append(start)
     app.on_cleanup.append(stop)
     return host

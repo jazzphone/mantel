@@ -1180,7 +1180,7 @@ DEFAULTS: dict[str, dict[str, Any]] = {
                  "thermostats": [], "temperature": None, "power": None,
                  # The Timers page's "House timers": the timers people start
                  # themselves (a nap, bedtime), in order, one tap each.
-                 "house_timers": [], "timer_sound": "bell", "timer_ring_for": 60, "timer_tablet": True, "timer_speaker": True, "timer_also": [], "timer_phone": "", "timer_volume": 40, "timer_wake": True},
+                 "house_timers": [], "timer_sound": "bell", "timer_ring_for": 60, "timer_tablet": True, "timer_speaker": True, "timer_also": [], "timer_phone": "", "timer_volume": 40, "timer_wake": True, "timer_include": [], "timer_ignore": []},
     # The menu of pages and rooms. OFF on every dashboard until one is
     # listed here, so a house that never sets it up sees no change.
     # docked: the dashboards whose menu is always shown beside the page (with

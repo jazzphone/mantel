@@ -327,7 +327,7 @@
       var held = false, t = null, at = 0, later = null, asked = false;
       function rows() {
         var T = window.hkTimers, S = window.hkSettings, h = d.client();
-        return T && T.userTimers && h ? T.userTimers(h.states, (S && S.get && S.get('features.house_timers')) || [], Date.now()).filter(function (r) { return !r.paused; }) : [];
+        return T && T.userTimers && h ? T.userTimers(h.states, T.rulesOf(S), Date.now()).filter(function (r) { return !r.paused; }) : [];
       }
       function hold() {
         var S = d.slot;

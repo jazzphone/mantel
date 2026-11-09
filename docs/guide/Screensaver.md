@@ -66,7 +66,7 @@ The editor is the only place to change what the screensaver shows and how it loo
 
 **Timers Come Up** is **More Often** (every other slide) or **As Often as the Others**. For a timer's last minute, the slide stays on every tablet that isn't dark, over the photos, the music and Night Mode, and the ring restarts as one full 60-second sweep. It doesn't take over while someone is using the tablet.
 
-The timers on **General → House Timers**, such as Night and Nap, never show, and neither do timers that automations use. To keep another timer off the slide, add it to that list.
+Settings → **Timers** → **Which Timers** lists every timer in the house, on or ignored, each with a switch. Timers you start from the Timers page or a preset always count, so they aren't listed. **House Timers**, such as Night and Nap, and timers from Home Assistant start ignored, and quick timers start on. A timer you turn on shows, holds the last minute and rings, even when an automation started it, so turn on only those you want to hear about.
 
 On Mantel, a timer you set is its own timer in Home Assistant, so there's no limit of four and no helpers to install. Mantel creates it when you press Start, and deletes it when it ends or you cancel it. An automation in Home Assistant can see it like any other timer while it runs. This needs Mantel's Home Assistant user to be an administrator; if it isn't, Mantel uses the four quick timers instead. Inside Home Assistant, HK Frontend keeps using the four quick timers, and they make no sound.
 
