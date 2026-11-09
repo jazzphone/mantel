@@ -955,8 +955,8 @@
           ':host(:is([size=L],[size=XL])) .np.idle .grid>:not(.npi):not(.bg):not(.shade){display:none!important}',
           ':host(:is([size=L],[size=XL])) .np.idle .npi{display:flex;flex-direction:column;flex:1;min-width:0;min-height:0;justify-content:center;gap:12px;z-index:2}',
           ':host([size=XL]) .np.idle .npi{flex-direction:row;gap:' + NP_PAD.l + ';justify-content:stretch}',
-          ':host([size=XL]) .np.idle .npi-l{flex:none;width:var(--np-pw);display:flex;flex-direction:column;justify-content:center;gap:16px}',
-          ':host([size=L]) .np.idle .npi-l{display:flex;flex-direction:column;gap:16px;flex:none}',
+          ':host([size=XL]) .np.idle .npi-l{flex:none;width:var(--np-pw);display:flex;flex-direction:column;justify-content:center;gap:24px}',
+          ':host([size=L]) .np.idle .npi-l{display:flex;flex-direction:column;gap:24px;flex:none}',
           ':host(:is([size=L],[size=XL])) .np.idle .npi-top{display:flex;gap:' + NP_PAD.l + ';align-items:flex-start;min-width:0}',
           ':host(:is([size=L],[size=XL])) .np.idle .npi-top.nol{align-items:center}',
           // a cover: its gradient, its picture over it, a note while it has none
@@ -976,19 +976,17 @@
           ':host(:is([size=L],[size=XL])) .np.idle .npi-play::after{content:"";position:absolute;inset:-8px -6px}',
           ':host(:is([size=L],[size=XL])) .np.idle .npi-play svg{width:18px;height:18px;fill:currentColor}',
           ':host(:is([size=L],[size=XL])) .np.idle .npi-play:active{transform:scale(.96)}',
-          // Browse and the speaker: two buttons side by side, 56 px, a glyph, a word and a gray line; the 12 px between them
-          ':host(:is([size=L],[size=XL])) .np.idle .npi-btns{display:flex;gap:12px}',
-          ':host(:is([size=L],[size=XL])) .np.idle .npi-b{flex:1;min-width:0;display:flex;align-items:center;gap:10px;height:56px;padding:0 14px;border:0;border-radius:' + window.hkCards.R.inner + 'px;',
-          '  background:rgba(255,255,255,.14);color:#fff;font:inherit;text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent}',
-          ':host(:is([size=L],[size=XL])) .np.idle .npi-b:active{background:rgba(255,255,255,.26)}',
-          ':host(:is([size=L],[size=XL])) .np.idle .npi-b>svg,:host(:is([size=L],[size=XL])) .np.idle .npi-b>hk-icon{flex:none;width:22px;height:22px;--mdc-icon-size:22px;fill:currentColor;color:rgba(255,255,255,.85)}',
-          ':host(:is([size=L],[size=XL])) .np.idle .npi-b span{display:flex;flex-direction:column;min-width:0}',
-          ':host(:is([size=L],[size=XL])) .np.idle .npi-b b{font-size:15px;line-height:19px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-          ':host(:is([size=L],[size=XL])) .np.idle .npi-b small{font-size:13px;line-height:15px;color:rgba(255,255,255,.7);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-          // (a column of 280 px holds two buttons of a word each: the gray line goes there)
-          ':host([size=XL]) .np.idle .npi-b small{display:none}',
-          ':host([size=XL]) .np.idle .npi-b:first-child{flex:none}',
-          ':host(:is([size=L],[size=XL])) .np.idle .npi-b{padding:0 12px;gap:8px}',
+          // Browse and the speaker: THE STANDARD PILLS (2026-11-09, the owner: "the Play Music card's Browse and Speaker buttons really
+          // don't follow anything else. We need to move those to the standard pills") -- Up Next's Browse pill (.npqb): drawn 40 px, a
+          // capsule, the key's fill, an 18 px glyph and a word, as wide as its word; its touch 56 px tall (44 on the screen), and 8 px
+          // clear between the two (16 between the pills, each reaching 4 past its ends)
+          ':host(:is([size=L],[size=XL])) .np.idle .npi-btns{display:flex;gap:16px;min-width:0}',
+          ':host(:is([size=L],[size=XL])) .np.idle .npi-b{position:relative;flex:none;min-width:0;max-width:100%;display:inline-flex;align-items:center;gap:7px;height:40px;padding:0 16px;border:0;border-radius:20px;',
+          '  background:rgba(255,255,255,.16);color:#fff;font:inherit;font-size:15px;font-weight:600;line-height:1;cursor:pointer;-webkit-tap-highlight-color:transparent}',
+          ':host(:is([size=L],[size=XL])) .np.idle .npi-b::after{content:"";position:absolute;inset:-8px -4px}',
+          ':host(:is([size=L],[size=XL])) .np.idle .npi-b:active{background:rgba(255,255,255,.28)}',
+          ':host(:is([size=L],[size=XL])) .np.idle .npi-b>svg,:host(:is([size=L],[size=XL])) .np.idle .npi-b>hk-icon{flex:none;width:18px;height:18px;--mdc-icon-size:18px;fill:currentColor;display:flex}',
+          ':host(:is([size=L],[size=XL])) .np.idle .npi-b b{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}',
           // Large's playlists: a heading, a row of covers with their names, scrolling across, the fade at its end
           window.hkCards.headCss(':host([size=L]) .np.idle .npi-h'),
           ':host([size=L]) .np.idle .npi-h{color:rgba(255,255,255,.7);margin-bottom:8px}',
@@ -1638,10 +1636,8 @@
           (last ? '<span class="npi-lab">Last Played</span><b class="npi-t">' + esc(last.name) + '</b><span class="npi-a">' + esc(last.artist) + '</span>' +
                   '<button class="npi-play" type="button" data-ia="play" aria-label="Play ' + esc(last.name) + '">' + S.svg(S.ICON.play) + 'Play</button>'
                 : '<b class="npi-t">Nothing Playing</b>') + '</div></div>';
-        var btns = '<div class="npi-btns"><button class="npi-b" type="button" data-ia="browse">' + S.svg(S.ICON.search) +
-          '<span><b>Browse</b><small>Search, artists, playlists</small></span></button>' +
-          '<button class="npi-b" type="button" data-ia="spk">' + '<hk-icon icon="hk:homepod"></hk-icon>' +
-          '<span><b>' + esc(room) + '</b><small>Playing here · change</small></span></button></div>';
+        var btns = '<div class="npi-btns"><button class="npi-b" type="button" data-ia="browse">' + S.svg(S.ICON.search) + '<b>Browse</b></button>' +
+          '<button class="npi-b" type="button" data-ia="spk" aria-label="Speaker: ' + esc(room) + '">' + '<hk-icon icon="hk:homepod"></hk-icon><b>' + esc(room) + '</b></button></div>';
         var list = size === 'XL'
           ? '<div class="npq-h"><span>Playlists</span></div><div class="npql">' + (pls.length ? pls.map(function (it, i) {
               return '<button class="npqr" type="button" data-pi="' + i + '" aria-label="' + (it.options ? 'Choose from ' : 'Play ') + esc(it.name) + '">' +
