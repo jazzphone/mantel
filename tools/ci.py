@@ -359,6 +359,10 @@ def steps(build: Build | None = None, parts: dict[str, int] | None = None) -> li
     out += [Step(f"music-pane-check-{e}", [py, "tools/headless/music_pane_check.py", "--engine", e], tier="full", timeout=600,
                  skip=playwright_missing, **check_inputs("tools/headless/music_pane_check.py", e))
             for e in ("chromium", "webkit")]
+    # the Music page's player (2026-11-09): the controls strip's touch rules, the pause halfway, a phone's mini player and sheet
+    out += [Step(f"music-page-check-{e}", [py, "tools/headless/music_page_check.py", "--engine", e], tier="full", timeout=600,
+                 skip=playwright_missing, **check_inputs("tools/headless/music_page_check.py", e))
+            for e in ("chromium", "webkit")]
     # the Now Playing page: every size, its corner and controls, beside a pane, and swiping from Home
     out += [Step(f"now-playing-page-check-{e}", [py, "tools/headless/now_playing_page_check.py", "--engine", e], tier="full", timeout=600,
                  skip=playwright_missing, **check_inputs("tools/headless/now_playing_page_check.py", e))

@@ -193,7 +193,8 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       await page.waitForTimeout(2000);
       const volAt = () => page.evaluate(() => {
         const deep = (r, sel) => { const x = r.querySelector(sel); if (x) return x; for (const e of r.querySelectorAll('*')) { if (e.shadowRoot) { const y = deep(e.shadowRoot, sel); if (y) return y; } } return null; };
-        const t = deep(document, '.vol .tk'), b = t && t.getBoundingClientRect();
+        // (the controls strip's volume track since 2026-11-09, hk-np-strip.js -- the Music page's own, not the Side Pane's)
+        const m = deep(document, 'hk-music-card'), t = m && m.shadowRoot && m.shadowRoot.querySelector('.hks .mvt'), b = t && t.getBoundingClientRect();
         return b && { x: b.left, y: b.top + b.height / 2, w: b.width, v: +getComputedStyle(t).getPropertyValue('--v'), path: location.pathname };
       });
       const v0 = await volAt();

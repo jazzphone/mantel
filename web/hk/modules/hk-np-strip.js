@@ -44,14 +44,18 @@
   // Speakers and Browse at the ends; o.stop: a stop button after next; o.roles: data-hk-role on each piece (the Now
   // Playing card's, which its suites find them by); o.tag: the buttons' element ('div', or 'button' for a player
   // whose buttons are buttons); o.progHtml / o.volHtml: what a 'slot' holds from the start (a player's own markup);
-  // o.playing: drawn with the pause glyph (a player that draws its markup afresh rather than painting it: play())
+  // o.playing: drawn with the pause glyph (a player that draws its markup afresh rather than painting it: play());
+  // o.keys: an attribute name and, per control, its value, for a player that finds its taps by its own attribute (the
+  // Music page's data-k: { attr: 'data-k', spk: 'speakers', ... }); o.end: the right end's label and glyph when it is
+  // not Browse (the Music page's Queue: { label, glyph })
   function html(o) {
     o = o || {};
     var tag = o.tag === 'button' ? 'button' : 'div';
     var role = function (r) { return o.roles ? ' data-hk-role="' + r + '"' : ''; };
     var btn = function (act, cls, label, glyph, r) {
+      var key = o.keys && o.keys[act] ? ' ' + o.keys.attr + '="' + o.keys[act] + '"' : '';
       return '<' + tag + (tag === 'button' ? ' type="button"' : ' role="button"') + ' class="mbtn' + (cls ? ' ' + cls : '') + '" data-act="' + act +
-        '" aria-label="' + label + '"' + role(r) + '>' + glyph + '</' + tag + '>';
+        '"' + key + ' aria-label="' + label + '"' + role(r) + '>' + glyph + '</' + tag + '>';
     };
     var prog = o.prog === 'bar' ? '<div class="mbar"><i></i></div><div class="mtimes"><span></span><span></span></div>' : o.progHtml || '';
     var vol = o.vol === 'bar' ? svg(ICON.vlo) + '<div class="mvt"><i></i><b></b></div>' + svg(ICON.vhi)
@@ -64,7 +68,7 @@
       btn('pp', 'mpp', o.playing ? 'Pause' : 'Play', svg(o.playing ? ICON.pause : ICON.play), 'play') +
       btn('next', '', 'Next', svg(ICON.next), 'next') +
       (o.stop ? btn('stop', '', 'Stop', svg(ICON.stop), 'stop') : '') +
-      btn('brw', 'mx', 'Browse Music', svg(ICON.lib), 'brw') +
+      btn('brw', 'mx', o.end ? o.end.label : 'Browse Music', o.end ? o.end.glyph : svg(ICON.lib), 'brw') +
       '</div>' +
       (o.vol ? '<div class="mvol"' + (o.vol === 'bar' ? ' data-act="vol"' : '') + '>' + vol + '</div>' : '') +
       '<div class="mslot"></div></div>';

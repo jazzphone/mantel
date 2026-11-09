@@ -311,38 +311,27 @@
     '.art hk-icon{--mdc-icon-size:72px;width:72px;height:72px;color:var(--hk-glyph,rgba(255,255,255,.4))}',
     '.tt{font-size:26px;font-weight:700;letter-spacing:-.3px;margin-top:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:none}',
     '.st{font-size:17px;opacity:.75;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:none}',
-    '.prog{margin-top:16px;flex:none}',
-    '.prog .b{height:5px;border-radius:3px;background:' + window.hkCards.v('line-strong') + ';overflow:hidden}',
-    '.prog .b i{display:block;height:100%;background:rgba(255,255,255,.92);transform-origin:0 50%;transform:scaleX(0)}',
-    '.prog .t{display:flex;justify-content:space-between;font-size:12px;opacity:.6;margin-top:6px;font-variant-numeric:tabular-nums}',
-    // the transport across the column, Speakers' and Queue's ink in line with the bars' ends. BARE BUTTONS
-    // (2026-11-07, the owner: "do we need the wells (circles) behind the icons?"): bigger glyphs, a press dims
-    // one; the progress bar and the volume's track as far from the pause glyph's ink (player_look_check.py)
-    '.tr{display:flex;align-items:center;justify-content:space-between;margin:12px -9px 0;flex:none}',
-    '.tr .p{width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:opacity .15s}',
-    '.tr .p:active,.tr .x:active{opacity:.5}',
-    '.tr .p svg{width:36px;height:36px;fill:var(--hk-glyph,#fff)}',
-    '.tr .p.big svg{width:52px;height:52px}',
-    '.tr .x{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer}',
-    '.tr .x svg{width:25px;height:25px;fill:var(--hk-glyph,#fff);opacity:.75}',
-    '.tr .x hk-icon{--mdc-icon-size:26px;width:26px;height:26px;color:var(--hk-glyph,#fff);opacity:.75;display:flex}',
-    '.tr .x.on{background:#fff;box-shadow:none}',
-    '.tr .x.on svg{fill:#1d1426;opacity:1}.tr .x.on hk-icon{color:#1d1426;opacity:1}',
-    '.tr .x.gone{visibility:hidden}',
+    // THE CONTROLS STRIP (hk-np-strip.js; 2026-11-09, the owner: "more space in general above and below the play button" --
+    // "move the music page too"): its geometry, this page's sizes. A page is drawn 1:1, so a target is 44 px: back and next
+    // 56, play / pause 64 (the biggest), Queue and Speakers 44, the volume's row 44 (its whole row the target); 12 px clear
+    // above the keys and below them, the pause glyph's ink halfway between the progress bar and the volume's track
+    // (player_look.js). Speakers' and Queue's ink in line with the bars' ends, as before. BARE BUTTONS (2026-11-07, the
+    // owner: "do we need the wells (circles) behind the icons?"): a press dims one; a lit one (its panel open) is white
+    window.hkNpStrip.CSS,
+    '.front .hks{flex:none;margin-top:16px;--hks-b:56px;--hks-pp:64px;--hks-x:44px;--hks-gb:36px;--hks-gpp:52px;--hks-gx:26px;',
+    '  --hks-tf:12px;--hks-th:22px;--hks-ink:var(--hk-glyph,#fff);--hks-ink2:var(--hk-glyph,rgba(255,255,255,.75));',
+    '  --hks-track:' + window.hkCards.v('line-strong') + ';--hks-fill:var(--hk-glyph,#fff)}',
+    '.front .hks .mx svg,.front .hks .mx hk-icon{opacity:.75}.front .hks .mx.on svg,.front .hks .mx.on hk-icon{opacity:1}',
+    '.front .hks .mtimes{opacity:.6}',
+    '.hks .mx.on{color:#1d1426}',
+    '.hks .mx.gone{visibility:hidden}',
     // FLAT: the empty art sits on the page itself, so it is raised as the
     // playlist pills beside it are -- the cards' surface and their one contact
     // shadow (DESIGN.md "Raised or set in"). Lit, a button stays white.
     ':host([hk-flat]) .art{background:' + window.hkCards.M.bg + '}',
-    ':host([hk-flat]) .tr .x.on{box-shadow:var(--hk-look-shadow)}',
-    '.idle .tr .p:not(.big){opacity:.35;pointer-events:none}',
-    '.vol{display:flex;align-items:center;gap:12px;margin-top:20px;flex:none;touch-action:none}',
-    '.vol svg{width:18px;height:18px;fill:var(--hk-glyph,rgba(255,255,255,.7));flex:none}',
-    '.vol .tk{position:relative;flex:1;height:30px;cursor:pointer}',
-    '.vol .tk::before{content:"";position:absolute;left:0;right:0;top:12px;height:6px;border-radius:3px;background:' + window.hkCards.v('line-strong') + '}',
-    // (the screensaver slide's volume, as every player's: the ink filled, not purple -- 2026-11-07, the owner)
-    '.vol .tk i{position:absolute;left:0;top:12px;height:6px;width:calc(var(--v,0) * 100%);border-radius:3px;background:var(--hk-glyph,#fff)}',
-    '.vol .tk b{position:absolute;top:4px;left:calc(var(--v,0) * 100%);width:22px;height:22px;margin-left:-11px;border-radius:50%;background:#fff;box-shadow:0 1px 6px rgba(0,0,0,.3)}',
-    '.idle .vol,[novol] .vol{visibility:hidden}',
+    ':host([hk-flat]) .hks .mx.on{box-shadow:var(--hk-look-shadow)}',
+    '.idle .hks .mbtn:not(.mpp):not(.mx){opacity:.35;pointer-events:none}',
+    '.idle .hks .mvol,[novol] .hks .mvol{visibility:hidden}',
     '.nx{display:flex;align-items:center;gap:12px;margin-top:16px;min-width:0;flex:none}',
     '.nx[hidden]{display:none}',
     '.nx .th{width:40px;height:40px;border-radius:7px;background:' + window.hkCards.v('key') + ';flex:none;overflow:hidden;display:flex;align-items:center;justify-content:center}',
@@ -378,7 +367,9 @@
     // ...its own, when the dashboard's bar is not up (none on this screen,
     // or dismissed): a row in the page under the search -- never over the
     // tab bar or anything else (a floating one covered a floating tab bar)
-    '.mini{display:none;margin:0 0 14px;height:64px;border-radius:18px;align-items:center;gap:12px;padding:0 6px 0 7px;box-sizing:border-box;color:' + window.hkCards.v('ink') + ';',
+    // (THE COVER'S GAP TO THE SONG ITS MARGIN TO THE EDGE, 2026-11-09, the owner: "the same margin/gap from the album art to the
+    // edge as the album art to the text": 12 and 12, it sat 7 from the edge)
+    '.mini{display:none;margin:0 0 14px;height:64px;border-radius:18px;align-items:center;gap:12px;padding:0 6px 0 12px;box-sizing:border-box;color:' + window.hkCards.v('ink') + ';',
     '  background:' + M.bg + ';border:' + M.border + ';box-shadow:var(--hk-look-shadow, 0 6px 18px rgba(0,0,0,.10))}',
     '.mini.on{display:flex}',
     '.mini .th{width:50px;height:50px;border-radius:10px;overflow:hidden;flex:none;background:' + window.hkCards.v('key') + ';display:flex;align-items:center;justify-content:center;cursor:pointer}',
@@ -387,7 +378,8 @@
     '.mini .t{flex:1;min-width:0;cursor:pointer}',
     '.mini .t b{display:block;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '.mini .t small{display:block;font-size:13px;opacity:.72;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-    '.mini .pp{width:44px;height:44px;display:flex;align-items:center;justify-content:center;flex:none;cursor:pointer}',
+    // (play / pause the bigger target, 48 against Speakers' 44 -- the touch rules every player keeps, 2026-11-09)
+    '.mini .pp{width:48px;height:48px;display:flex;align-items:center;justify-content:center;flex:none;cursor:pointer}',
     '.mini .pp svg{width:26px;height:26px;fill:var(--hk-glyph,#fff)}',
     '.mini .rb{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:none;cursor:pointer}',
     '.mini .rb:active{opacity:.5}',
@@ -603,13 +595,11 @@
             '<div class="front">' +
               '<div class="artbox"><div class="art"><hk-icon icon="mdi:music"></hk-icon></div></div>' +
               '<div class="tt"></div><div class="st"></div>' +
-              '<div class="prog"><div class="b"><i></i></div><div class="t"><span></span><span></span></div></div>' +
-              '<div class="tr"><div class="x" data-k="speakers" role="button" aria-label="Speakers"><hk-icon icon="hk:homepod"></hk-icon></div>' +
-                '<div class="p" data-k="previous" role="button" aria-label="Previous">' + svg(ICON.prev) + '</div>' +
-                '<div class="p big" data-k="play_pause" role="button" aria-label="Play or pause">' + svg(ICON.play) + '</div>' +
-                '<div class="p" data-k="next" role="button" aria-label="Next">' + svg(ICON.next) + '</div>' +
-                '<div class="x" data-k="queue" role="button" aria-label="Queue">' + svg(ICON.queue) + '</div></div>' +
-              '<div class="vol">' + svg(ICON.vlo) + '<div class="tk"><i></i><b></b></div>' + svg(ICON.vhi) + '</div>' +
+              // THE CONTROLS STRIP (2026-11-09, the owner: "more space in general above and below the play button", then
+              // "move the music page too"; hk-np-strip.js): the progress, the keys and the volume every music player draws
+              // with -- its taps found by data-k as before, Queue at the right end where the others have Browse
+              window.hkNpStrip.html({ prog: 'bar', vol: 'bar', end: { label: 'Queue', glyph: svg(ICON.queue) },
+                                      keys: { attr: 'data-k', spk: 'speakers', prev: 'previous', pp: 'play_pause', next: 'next', brw: 'queue' } }) +
               '<div class="nx" hidden><div class="th">' + svg(ICON.note) + '</div><div style="min-width:0"><small>UP NEXT</small><div class="t"></div></div></div>' +
             '</div>' +
           '</section>' +
@@ -623,10 +613,10 @@
       // the page's font, once it has loaded (measured before, a name was cut)
       if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { self._fitLines(); });
       this._e = { mu: q('.mu'), left: q('.left'), pon: q('.pon'), ponS: q('.pon small'), ponB: q('.pon b'), house: q('.house'),
-                  front: q('.front'), art: q('.art'), tt: q('.tt'), st: q('.st'), bar: q('.prog i'), t0: q('.prog .t span:first-child'),
-                  t1: q('.prog .t span:last-child'), pp: q('[data-k="play_pause"] path'), vol: q('.vol'), tk: q('.vol .tk'),
+                  front: q('.front'), art: q('.art'), tt: q('.tt'), st: q('.st'), bar: q('.hks .mbar i'), t0: q('.hks .mtimes span:first-child'),
+                  t1: q('.hks .mtimes span:last-child'), strip: q('.hks'), vol: q('.hks .mvol'), tk: q('.hks .mvt'),
                   nx: q('.nx'), nxT: q('.nx .t'), nxTh: q('.nx .th'), right: q('.right'), rooms: q('.rooms'),
-                  scrim: q('.scrim'), toast: q('.toast'), spk: q('.tr [data-k="speakers"]'), qbtn: q('[data-k="queue"]'),
+                  scrim: q('.scrim'), toast: q('.toast'), spk: q('.hks [data-act=spk]'), qbtn: q('.hks [data-act=brw]'),
                   mini: q('.mini'), miniTh: q('.mini .th'), miniB: q('.mini .t b'), miniS: q('.mini .t small'), miniPP: q('.mini .pp path'), grab: q('.grab') };
       this._built = true;
       this._artUrl = undefined; this._houseSig = null; this._nextFor = ''; this._next = null;
@@ -848,7 +838,7 @@
       }
       e.tt.textContent = c ? (c.title || a.media_title || this._label()) : 'Nothing Playing';
       e.st.textContent = c ? [c.artist || a.media_artist, a.media_album_name].filter(Boolean).join(' · ') : 'Pick a playlist, or search, to start';
-      e.pp.setAttribute('d', c && c.playing ? ICON.pause : ICON.play);
+      window.hkNpStrip.play(e.strip, !!(c && c.playing));
       this._pos = c ? { dur: Number(a.media_duration) || 0, pos: Number(a.media_position) || 0,
                         at: Date.parse(a.media_position_updated_at) || 0, playing: !!c.playing } : null;
       this._progress();
@@ -1082,7 +1072,7 @@
       if (cmd === 'play_pause' && this._pos) {
         var p = this._pos;
         p.pos = Math.min(p.dur || Infinity, p.pos + (p.playing && p.at ? (Date.now() - p.at) / 1000 : 0)); p.at = Date.now(); p.playing = !p.playing;
-        this._e.pp.setAttribute('d', p.playing ? ICON.pause : ICON.play);
+        window.hkNpStrip.play(this._e.strip, p.playing);
         this._tickOn();
       }
     }
@@ -1113,20 +1103,22 @@
         if (!d) { send(); return; }
         if (now - d.sent >= VOL_EVERY) send(); else if (!d.t) d.t = setTimeout(send, VOL_EVERY - (now - d.sent));
       };
-      tk.addEventListener('pointerdown', function (ev) {
+      // (the whole row is the volume's target, its speakers too: hk-np-strip.js -- the track alone was 30 px)
+      var row = this._e.vol;
+      row.addEventListener('pointerdown', function (ev) {
         if (!self._ctx()) return;
         self._drag = { id: ev.pointerId, sent: 0, t: null };
-        try { tk.setPointerCapture(ev.pointerId); } catch (e) { /* a mouse */ }
+        try { row.setPointerCapture(ev.pointerId); } catch (e) { /* a mouse */ }
         move(ev.clientX);
       });
-      tk.addEventListener('pointermove', function (ev) { if (self._drag && ev.pointerId === self._drag.id) move(ev.clientX); });
+      row.addEventListener('pointermove', function (ev) { if (self._drag && ev.pointerId === self._drag.id) move(ev.clientX); });
       var end = function (ev) {
         if (!self._drag || (ev && ev.pointerId !== self._drag.id)) return;
         send(); self._drag = null;
         if (self._vol) self._vol.until = Date.now() + VOL_HOLD;
       };
-      tk.addEventListener('pointerup', end);
-      tk.addEventListener('pointercancel', end);
+      row.addEventListener('pointerup', end);
+      row.addEventListener('pointercancel', end);
     }
     _switchTo(key) {
       var Mu = this._M();
