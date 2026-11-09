@@ -97,6 +97,8 @@ EXTRA["weather.home"] = (None, ("partlycloudy", {"friendly_name": "Home", "tempe
                                                  "apparent_temperature": 62, "uv_index": 2, "pressure": 1015, "pressure_unit": "hPa",
                                                  "visibility": 10, "visibility_unit": "mi", "dew_point": 48}))
 SUNSET = time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(time.time() + 3 * 3600))
+# a second scene in the Living Room: the Extra Large Room block runs up to two of its area's scenes (2026-11-09, mockup 13)
+EXTRA["scene.relax"] = ("living_room", ("unknown", {"friendly_name": "Relax"}))
 EXTRA["sun.sun"] = (None, ("above_horizon", {"friendly_name": "Sun", "elevation": 40.0, "azimuth": 180.0, "next_setting": SUNSET}))
 # the rooms Clean Areas offers the vacuum's Large and Extra Large blocks (stood in on the page, below)
 CLEAN_AREAS = ["kitchen", "living_room", "dining_room", "office", "bedroom", "guest_room"]
@@ -638,6 +640,11 @@ STATES: dict[str, dict] = {
     # THE TIMELINE'S STATES (2026-11-08, the Recent block): `timeline` names the rows seeded into Mantel's own store
     # (seed_timeline; busy is the default and "quiet" the quiet house's) -- a new house with no rows at all, a quiet
     # night (two rows last evening, nothing since, everything locked), and a busy day with pictures (busy's own)
+    # THE ROOM'S EXTRA LARGE (2026-11-09, mockup 13): nine accessories in the Living Room (its tiles scroll under a fade), and a room with
+    # no climate sensor and no scene (its left column starts with what is going on)
+    "room_many": {"count": 9},
+    "room_bare": {"remove": ["sensor.living_room", "climate.main_floor", "scene.movie_night", "scene.relax"]},
+    "room_empty": {"remove": ["sensor.living_room", "climate.main_floor", "scene.movie_night", "scene.relax", "light.living_room", "media_player.living_room", "vacuum."]},
     "recent_empty": {"timeline": "empty"},
     "recent_quiet": {"domains": {"lock": "locked", "cover": "closed", "binary_sensor": "off", "alarm_control_panel": "armed_night"},
                      "timeline": "quiet"},
@@ -1132,8 +1139,8 @@ def main(argv=None) -> int:
                     help="also fail a tile, row, pill or button that grows with its block (STRETCH: nothing stretches)")
     a = ap.parse_args(argv)
     STATE["name"] = a.state
-    if a.count:
-        stand_in_count(a.count)
+    if a.count or STATES[a.state].get("count"):
+        stand_in_count(a.count or STATES[a.state]["count"])
     STATE["stretch"] = a.stretch
     STATE["hits"] = a.hits
     STATE["controls"] = a.controls
