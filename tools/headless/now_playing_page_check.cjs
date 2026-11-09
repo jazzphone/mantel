@@ -108,6 +108,27 @@ const measure = new Function('return ' + measureSrc.toString().replace('PLAYER_L
           await card.locator('.mpanel.up [data-k="close"]').tap();
           await card.locator('.mpanel').waitFor({ state: 'detached' });
         }
+        // UP NEXT SCROLLS (2026-11-09, the owner: "the up next should scroll ... in all of the music players that show up
+        // next"): the page's rows, all of them, in a box that keeps its room (the cover and the controls stay), no
+        // scrollbar, a fade while more are below; a wheel moves the rows and leaves the page, and a tap on a row opens the Queue
+        if (screen === 'np-pane') {
+          const q0 = await card.evaluate((c) => { const r = c.shadowRoot, ql = r.querySelector('.mu .mq .mql'), cs = getComputedStyle(ql),
+            art = r.querySelector('.mu .mart').getBoundingClientRect(), meta = r.querySelector('.mu .mmeta').getBoundingClientRect(), b = ql.getBoundingClientRect();
+            return { n: ql.children.length, open: ql.scrollHeight > ql.clientHeight + 4, more: ql.hasAttribute('more'), mask: cs.webkitMaskImage || cs.maskImage, bar: cs.scrollbarWidth, over: cs.overscrollBehaviorY,
+              minH: Math.min(...[...ql.children].map((e) => e.offsetHeight)), metaB: meta.bottom, artB: art.bottom, artH: art.height, x: b.left + b.width / 2, y: b.top + b.height / 2, top: ql.scrollTop }; });
+          assert(q0.n > 10 && q0.open && q0.more && /gradient/.test(q0.mask) && q0.bar === 'none' && q0.over === 'contain' && q0.minH >= 44 && q0.metaB <= q0.artB + 1 && q0.top === 0, tag + ': Up Next scrolls ' + JSON.stringify(q0));
+          if (input.shots) await page.screenshot({ path: `${input.shots}/${W}x${H}-${screen}-queue.png` });
+          await page.mouse.move(q0.x, q0.y); await page.mouse.wheel(0, 150); await page.waitForTimeout(500);
+          const q1 = await card.evaluate((c) => { const r = c.shadowRoot, ql = r.querySelector('.mu .mq .mql');
+            return { top: ql.scrollTop, artH: r.querySelector('.mu .mart').getBoundingClientRect().height, metaB: r.querySelector('.mu .mmeta').getBoundingClientRect().bottom, page: scrollY }; });
+          assert(q1.top > 40 && Math.abs(q1.artH - q0.artH) < 1 && Math.abs(q1.metaB - q0.metaB) < 1 && q1.page === 0, tag + ': Up Next scrolled, the page stayed ' + JSON.stringify([q0, q1]));
+          if (input.shots) await page.screenshot({ path: `${input.shots}/${W}x${H}-${screen}-queue-scrolled.png` });
+          await card.locator('.mu .mq .mqr').nth(1).evaluate((e) => e.scrollIntoView({ block: 'nearest' }));
+          await card.locator('.mu .mq .mqr').nth(1).tap();
+          await card.locator('.mpanel.up [data-p="queue"]:not([hidden])').waitFor({ state: 'visible' });
+          await card.locator('.mpanel.up [data-k="close"]').tap();
+          await card.locator('.mpanel').waitFor({ state: 'detached' });
+        }
 
       }
       // SWIPE RIGHT ON HOME: Now Playing first, before Home; a finger's swipe right lands there

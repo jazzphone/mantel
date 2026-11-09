@@ -117,7 +117,7 @@
       hkUnheard, hostPhotoList, hostPhotoSource, houseBlock, inkOf, INKS, isFlat, isImage, kiosk, LANDSCAPES,
       landShares, layoutOf, layoutMusicView, load, minsOf, mmss, MOSAIC_COLORS, mosaicAssign, mosaicPlan, MOSAICS, MU_BG, MU_GRACE,
       MU_SLOP, muGrace, mus, musicHas, musicNow, musicOf, musicPage, musicPaneView, musicParts, musicPlaying, musicUsed, previewMusicData, previewPaneOf,
-      musicView, nextArt, PANE_OWN, PANE_VARS, panel, PANEL_IDLE, PANEL_TURN, paneOf, photoLum, photoOpts, photoUrl,
+      musicView, queueDrag, queueRowAt, nextArt, PANE_OWN, PANE_VARS, panel, PANEL_IDLE, PANEL_TURN, paneOf, photoLum, photoOpts, photoUrl,
       pieceFile, piecesStarted, progress, rampBacklight, readCfg, reducedMotion, refreshSoon, rememberedTabletId,
       sansClock, sansShapes, sansSlides, scaleOf, sendWS, setAttr, setBacklight, shapeOfPh, shuffle, sigOf,
       slideMarks, slideOf, slideView, SLOP, store, sunDown, tabletId, tagOf, TB_COVER, TB_WAIT, tbKey, tbShare,
@@ -365,6 +365,8 @@
       }
       return;
     }
+    // A FINGER ON UP NEXT'S ROWS (below): a drag scrolls the list, a tap opens the Queue
+    if (queueDrag(e, { on: on, hit: musicHit, act: musicAct, touched: saverTouched, inPanel: !!(pnl && inPanel(e)) })) return;
     // THE MUSIC'S PANEL OPEN: what is in it is its own (taps, scrolling, the
     // search box's typing); anything else closes it -- never a wake -- but
     // the music's buttons beside it still act
@@ -2897,12 +2899,9 @@
       // the volume) -- no slop round them, which reached 28 px over the room between the transport and the volume
       var sh = window.hkNpStrip.hitAt(v.el, x, y);   // (and the speaker line over the title, its 44 px touch area)
       if (sh) return sh.act !== 'vol' ? { btn: sh.el, view: v } : v.el.hasAttribute('novol') ? null : { vol: true, view: v };
-      var bs = v.el.querySelectorAll('.mq .mbtn');
-      for (var j = 0; j < bs.length; j++) {
-        var r = bs[j].getBoundingClientRect();
-        if (r.width && x >= r.left - MU_SLOP && x <= r.right + MU_SLOP && y >= r.top - MU_SLOP && y <= r.bottom + MU_SLOP &&
-            getComputedStyle(bs[j]).visibility !== 'hidden') return { btn: bs[j], view: v };
-      }
+      // (Up Next's rows by their own boxes, as far as the scrolling list shows them: hk-saver-music.js)
+      var qb = queueRowAt(v.el, x, y);
+      if (qb) return { btn: qb, view: v };
       // THE ALBUM ART opens Play Music
       var ar = v.el.querySelector('.msq').getBoundingClientRect();
       if (ar.width && x >= ar.left && x <= ar.right && y >= ar.top && y <= ar.bottom) return { art: true, view: v };
@@ -4057,7 +4056,7 @@
     MOSAIC_COLORS = K.MOSAIC_COLORS; mosaicAssign = K.mosaicAssign; mosaicPlan = K.mosaicPlan; MOSAICS = K.MOSAICS;
     MU_BG = K.MU_BG; MU_GRACE = K.MU_GRACE; MU_SLOP = K.MU_SLOP; muGrace = K.muGrace; mus = K.mus;
     previewMusicData = K.previewMusicData; previewPaneOf = K.previewPaneOf; musicParts = K.musicParts; musicHas = K.musicHas; musicNow = K.musicNow; musicOf = K.musicOf; musicPage = K.musicPage;
-    musicPaneView = K.musicPaneView; musicPlaying = K.musicPlaying; musicUsed = K.musicUsed; musicView = K.musicView;
+    musicPaneView = K.musicPaneView; musicPlaying = K.musicPlaying; musicUsed = K.musicUsed; musicView = K.musicView; queueDrag = K.queueDrag; queueRowAt = K.queueRowAt;
     nextArt = K.nextArt; PANE_OWN = K.PANE_OWN; PANE_VARS = K.PANE_VARS; panel = K.panel; PANEL_IDLE = K.PANEL_IDLE;
     PANEL_TURN = K.PANEL_TURN; paneOf = K.paneOf; photoLum = K.photoLum; photoOpts = K.photoOpts;
     photoUrl = K.photoUrl; pieceFile = K.pieceFile; piecesStarted = K.piecesStarted; progress = K.progress;

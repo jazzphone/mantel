@@ -1286,7 +1286,16 @@
       '.np2 .art{width:88px;height:88px;border-radius:12px}.np2 .tx > b{font-size:20px}',
       '.npp{height:4px;border-radius:2px;background:' + v('line-strong') + ';overflow:hidden}',
       '.npp i{display:block;height:100%;background:' + v('ink') + ';transform-origin:left center}',
-      '.npqueue{display:grid;gap:6px;margin-top:12px;padding-top:16px;border-top:1px solid ' + v('line') + '}',
+      // UP NEXT SCROLLS (2026-11-09, the owner: "the up next should scroll ... in all of the music players that show up
+      // next"): every song in the queue, in a box as tall as the room the sections leave (_queue sets its height); the
+      // heading stays above, the rows (.qs) scroll by finger with no scrollbar drawn and a soft fade at the foot while
+      // more are below (the `more` mark, set on scroll)
+      '.npqueue{display:flex;flex-direction:column;box-sizing:border-box;gap:6px;margin-top:12px;padding-top:16px;border-top:1px solid ' + v('line') + '}',
+      '.npqueue .qs{display:grid;gap:6px;align-content:start;flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;',
+      '  -webkit-overflow-scrolling:touch;touch-action:pan-y;scrollbar-width:none}',
+      '.npqueue .qs::-webkit-scrollbar{display:none}',
+      '.npqueue .qs[more]{-webkit-mask-image:linear-gradient(180deg,#000 80%,transparent);mask-image:linear-gradient(180deg,#000 80%,transparent)}',
+      '.npqueue .qh{flex:none}',
       '.npqueue .qh{all:unset;display:flex;justify-content:space-between;align-items:center;cursor:pointer;font-size:13px;font-weight:600;color:' + v('ink-2') + ';height:28px}',
       '.npqueue .qh span{font-size:12px;font-weight:500}',
       '.npqueue .qr{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:12px;height:56px;cursor:pointer;border-radius:10px;min-width:0}',
@@ -1567,6 +1576,8 @@
     // never makes another section shrink or disappear; its rows open the full queue.
     _queue(c) {
       var old = this._secs.querySelector('.npqueue');
+      // (drawn again with the pane: where the list was scrolled to stays, for the same song)
+      var oldQs = old && old.querySelector('.qs'), kept = oldQs && this._npQueue && this._npQueue.sig === this._npQueue.drawn ? oldQs.scrollTop : 0;
       if (old && old.parentNode) old.parentNode.removeChild(old);
       var sec = this._secs.querySelector('[data-k="now_playing"][data-size="more"]');
       var m = musicOf(c), self = this;
@@ -1585,20 +1596,27 @@
       var used = 0, secs = this._secs;
       Array.prototype.forEach.call(secs.children, function (n) { if (!n.classList.contains('gap')) used += n.offsetHeight; });
       used += Math.max(0, secs.children.length - 1) * (parseFloat(getComputedStyle(secs).rowGap) || 0);
-      // Header, inset and the section's grid gap, then whole rows only.
-      var count = Math.min(q.items.length, Math.floor((secs.clientHeight - used - 70) / 62));
-      if (count < 1) return;
+      // The room the sections leave, less the section's own grid gap: the box is that tall and its rows scroll;
+      // where the heading and one row do not fit, none.
+      var room = secs.clientHeight - used - (parseFloat(getComputedStyle(sec).rowGap) || 0) - 12 - 2;
+      if (room < 16 + 28 + 6 + 56) return;
       var el = document.createElement('div'); el.className = 'npqueue';
-      el.innerHTML = '<button class="qh" type="button" data-act="queue">Up Next<span>View Queue</span></button>' +
-        q.items.slice(0, count).map(function (it, i) {
+      el.style.height = Math.min(room, 16 + 28 + 6 + 62 * q.items.length) + 'px';
+      el.innerHTML = '<button class="qh" type="button" data-act="queue">Up Next<span>View Queue</span></button><div class="qs">' +
+        q.items.map(function (it, i) {
           // (the song's cover at its left, a note where Music Assistant has none yet -- 2026-11-07, the owner;
           // Apple's 1000 px covers asked for at a thumbnail's size)
           var img = it.image ? String(it.image).replace(/\/(\d+)x(\d+)(bb|cc|sr)?\.(jpg|jpeg|png|webp)$/, '/160x160$3.$4') : '';
           return '<button class="qr" type="button" data-act="queue" aria-label="View queue: ' + esc(it.title) + '"><span class="qa"' +
             (img ? ' style="background-image:url(&quot;' + esc(img) + '&quot;)">' : '>' + icon('mdi:music-note')) +
             '</span><span class="qt"><b>' + esc(it.title) + '</b><small>' + esc(it.artist || '') + '</small></span></button>';
-        }).join('');
+        }).join('') + '</div>';
       sec.appendChild(el);
+      var qs = el.querySelector('.qs'), fade = function () { qs.toggleAttribute('more', qs.scrollHeight - qs.scrollTop - qs.clientHeight > 2); };
+      qs.addEventListener('scroll', fade, { passive: true });
+      q.drawn = sig;
+      if (kept) qs.scrollTop = kept;
+      fade();
     }
     // THE ALBUM ART BEHIND THE WHOLE PANE (2026-10-30, the owner: "if something
     // is playing, the whole pane should have the album art blur"): while Now

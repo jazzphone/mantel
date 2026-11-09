@@ -418,9 +418,18 @@
       ':host([murow]) .mu .hks{grid-column:1/-1;grid-row:3 / 5;margin-top:0}',
       // (Up Next under the song, beside the cover: drawQueueRows; only here)
       '.mq{display:none}',
-      ':host([murow]) .mu .mq:not(:empty){display:block;margin-top:calc(18px * var(--z))}',
+      ':host([murow]) .mu .mq:not(:empty){display:flex;flex-direction:column;margin-top:calc(18px * var(--z))}',
+      // UP NEXT SCROLLS (2026-11-09, the owner: "the up next should scroll"): the heading stays, the rows (.mql) scroll in
+      // the room the layout gives the box (max-height, layoutMusicView) -- no scrollbar drawn, a soft fade at the foot
+      // while more are below, dropped at the end (the `more` mark, queueFade). On the screensaver the finger is
+      // followed by hk-saver.js (its views take no pointer events); the Now Playing page scrolls it natively
+      '.mqh{flex:none}',
+      '.mql{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;',
+      '  scrollbar-width:none}',
+      '.mql::-webkit-scrollbar{display:none}',
+      '.mql[more]{-webkit-mask-image:linear-gradient(180deg,#000 80%,transparent);mask-image:linear-gradient(180deg,#000 80%,transparent)}',
       '.mqh{font-size:calc(13px * var(--z));font-weight:600;opacity:.66;padding-bottom:calc(6px * var(--z))}',
-      '.mbtn.mqr{width:auto;height:auto;border-radius:0;justify-content:flex-start;gap:calc(12px * var(--z));padding:calc(7px * var(--z)) 0;',
+      '.mbtn.mqr{flex:none;box-sizing:border-box;min-height:44px;width:auto;height:auto;border-radius:0;justify-content:flex-start;gap:calc(12px * var(--z));padding:calc(7px * var(--z)) 0;',
       '  box-shadow:0 -.5px 0 rgba(255,255,255,.14);text-align:left}',
       '.mqt{flex:none;width:calc(40px * var(--z));height:calc(40px * var(--z));border-radius:calc(6px * var(--z));background:rgba(255,255,255,.10) center/cover}',
       '.mqx{min-width:0;flex:1}',

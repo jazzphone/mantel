@@ -22,7 +22,7 @@ const input = JSON.parse(fs.readFileSync(0, 'utf8'));
           const pane = () => page.evaluate(()=>{
             const p=document.querySelector('hk-side-pane[mode="dash"]'),r=p.shadowRoot,s=r.querySelector('.secs');
             const buttons=[...r.querySelectorAll('.hks .mctl .mbtn')].map(e=>{const b=e.getBoundingClientRect();return {l:b.left,r:b.right};});
-            return {rows:r.querySelectorAll('.qr').length,scroll:s.scrollHeight-s.clientHeight,buttons,
+            const q=r.querySelector('.npqueue');return {rows:Math.round(q?q.getBoundingClientRect().height:0),scroll:s.scrollHeight-s.clientHeight,buttons,
               fit:getComputedStyle(r.querySelector('.artbg b.on')).backgroundSize};
           });
           const a=await pane();
@@ -40,10 +40,10 @@ const input = JSON.parse(fs.readFileSync(0, 'utf8'));
           console.log(`  Side Pane player (${side}): targets ${JSON.stringify(ps.targets)}, keys to volume ${ps.gapTV} px, progress to keys ${ps.gapPT} px`);
           const mixed = await page.evaluate(()=>{
             const p=document.querySelector('hk-side-pane[mode="dash"]'),original=p._o.list;
-            const before=p.shadowRoot.querySelectorAll('.qr').length;
+            const before=Math.round(p.shadowRoot.querySelector('.npqueue').getBoundingClientRect().height);
             p._o.list=[{kind:'clock',size:'less'},...original.map(s=>({...s,place:'bottom'}))];p.redraw();
             const r=p.shadowRoot,s=r.querySelector('.secs'),m=r.querySelector('[data-k="now_playing"]');
-            const result={before,after:r.querySelectorAll('.qr').length,size:m.dataset.size,clock:!!r.querySelector('[data-k="clock"]'),scroll:s.scrollHeight-s.clientHeight};
+            const result={before,after:Math.round(r.querySelector('.npqueue')?.getBoundingClientRect().height||0),size:m.dataset.size,clock:!!r.querySelector('[data-k="clock"]'),scroll:s.scrollHeight-s.clientHeight};
             p._o.list=original;p.redraw();return result;
           });
           assert(mixed.clock&&mixed.size==='more'&&mixed.after<mixed.before&&mixed.scroll<=1,JSON.stringify(mixed));
@@ -53,6 +53,23 @@ const input = JSON.parse(fs.readFileSync(0, 'utf8'));
           const b=await pane();assert(b.rows>a.rows,JSON.stringify([a,b]));assert(b.scroll<=1);
           await page.setViewportSize({width:W,height:H});await page.waitForTimeout(500);
           if(input.shots)await page.screenshot({path:`${input.shots}/${W}x${H}-${side}-player.png`});
+          // UP NEXT SCROLLS (2026-11-09, the owner: "the up next should scroll ... in all of the music players that show up next"):
+          // every song (the 39 after the one playing) is in the box, which keeps the room it had (the pane does not scroll), the heading stays above, the
+          // fade is on while more are below and off at the end, no scrollbar is drawn, and a wheel moves the rows
+          const sc0=await page.evaluate(()=>{const r=document.querySelector('hk-side-pane[mode="dash"]').shadowRoot,qs=r.querySelector('.npqueue .qs'),cs=getComputedStyle(qs);
+            const rows=[...qs.querySelectorAll('.qr')].map(e=>e.offsetHeight);
+            return {n:rows.length,minH:Math.min(...rows),open:qs.scrollHeight>qs.clientHeight+10,more:qs.hasAttribute('more'),mask:cs.webkitMaskImage||cs.maskImage,bar:cs.scrollbarWidth,top:qs.scrollTop,
+              head:r.querySelector('.npqueue .qh').getBoundingClientRect().top};});
+          assert(sc0.n===39&&sc0.minH>=56&&sc0.open&&sc0.more&&/gradient/.test(sc0.mask)&&sc0.bar==='none'&&sc0.top===0,'Up Next list: '+JSON.stringify(sc0));
+          const qbox=await page.locator('hk-side-pane[mode="dash"]').locator('.npqueue .qs').boundingBox();
+          await page.mouse.move(qbox.x+qbox.width/2,qbox.y+qbox.height/2);await page.mouse.wheel(0,200);await page.waitForTimeout(400);
+          const sc1=await page.evaluate(()=>{const r=document.querySelector('hk-side-pane[mode="dash"]').shadowRoot,qs=r.querySelector('.npqueue .qs');
+            return {top:qs.scrollTop,head:r.querySelector('.npqueue .qh').getBoundingClientRect().top,page:r.querySelector('.secs').scrollTop};});
+          assert(sc1.top>50&&sc1.head===sc0.head&&sc1.page===0,'Up Next scrolled: '+JSON.stringify(sc1));
+          await page.screenshot({path:`${input.shots||'/tmp'}/${W}x${H}-${side}-player-scrolled.png`});
+          await page.mouse.wheel(0,20000);await page.waitForTimeout(500);
+          assert(await page.evaluate(()=>!document.querySelector('hk-side-pane[mode="dash"]').shadowRoot.querySelector('.npqueue .qs').hasAttribute('more')),'Up Next fade stays at the end');
+          await page.evaluate(()=>{document.querySelector('hk-side-pane[mode="dash"]').shadowRoot.querySelector('.npqueue .qs').scrollTop=0;});
           await page.locator('hk-side-pane[mode="dash"]').locator('.qh').click();
           await page.waitForTimeout(300);
           assert(await page.evaluate(()=>[...document.querySelectorAll('*')].some(e=>e.shadowRoot?.querySelector('.mpanel.dr [data-p="queue"]:not([hidden])'))));
@@ -68,7 +85,7 @@ const input = JSON.parse(fs.readFileSync(0, 'utf8'));
           const row=host.hasAttribute('murow');
           const transportBottom=Math.max(...[...mu.querySelectorAll('.mctl .mbtn,.mvol svg')].filter(e=>getComputedStyle(e).visibility!=='hidden'&&e.getBoundingClientRect().height>0).map(e=>e.getBoundingClientRect().bottom));
           return {transportBottom,next:box('.mu .mnext'),row,up:host.hasAttribute('muup'),pane:host.hasAttribute('pane'),area:box('.mu .mbody'),art:box('.mu .mart'),col:box(row?'.mu .mstage':'.mu .mcol'),meta:box('.mu .mmeta'),album:box('.mu .malbum'),
-            buttons:[...mu.querySelectorAll('.mbtn')].filter(e=>e.getBoundingClientRect().width>0).map(e=>{const b=e.getBoundingClientRect();return {l:b.left,r:b.right,t:b.top,b:b.bottom};})};
+            buttons:[...mu.querySelectorAll('.mbtn:not(.mqr), .mq .mql')].filter(e=>e.getBoundingClientRect().width>0).map(e=>{const b=e.getBoundingClientRect();return {l:b.left,r:b.right,t:b.top,b:b.bottom};})};
         });
         if(slide.pane&&W<1900&&W>H)assert(slide.row||slide.up,JSON.stringify(slide));
         assert(Math.abs(slide.art.w-slide.art.h)<1,JSON.stringify(slide));
@@ -107,6 +124,32 @@ const input = JSON.parse(fs.readFileSync(0, 'utf8'));
             title.textContent=original;mu.classList.toggle('h-room',roomHidden);mu.classList.toggle('h-album',albumHidden);window.hkSaver._.music.layout();return out;
           });
           assert(variants.every(v=>v.delta<2&&v.text<=v.art),JSON.stringify(variants));
+          // UP NEXT SCROLLS ON THE SCREENSAVER (2026-11-09, the owner: "the up next should scroll ... in all of the music
+          // players that show up next"): its views take no pointer events, so a drag over the rows is followed by place
+          // (hk-saver.js): it moves the list, not the cover or the text, is not a tap on a row (the Queue stays shut), a
+          // plain tap on a row still opens the Queue, and the fade is on while more are below
+          const qa=await page.evaluate(()=>{
+            const r=document.querySelector('hk-screensaver').shadowRoot,ql=r.querySelector('.mu .mq .mql');
+            if(!ql||getComputedStyle(r.querySelector('.mu .mq')).display==='none')return null;
+            const b=ql.getBoundingClientRect(),cs=getComputedStyle(ql),mu=r.querySelector('.mu'),meta=r.querySelector('.mu .mmeta').getBoundingClientRect(),art=r.querySelector('.mu .mart').getBoundingClientRect();
+            return {x:b.left+b.width/2,y:b.top+Math.min(b.height-4,30),box:b.height,n:ql.children.length,open:ql.scrollHeight>ql.clientHeight+4,more:ql.hasAttribute('more'),mask:cs.webkitMaskImage||cs.maskImage,bar:cs.scrollbarWidth,
+              minH:Math.min(...[...ql.children].map(e=>e.offsetHeight)),metaB:meta.bottom,artB:art.bottom,artH:art.height,over:cs.overscrollBehaviorY};
+          });
+          if(qa){
+            assert(qa.n===40&&qa.open&&qa.more&&/gradient/.test(qa.mask)&&qa.bar==='none'&&qa.minH>=44&&qa.over==='contain'&&qa.metaB<=qa.artB+1,'saver Up Next: '+JSON.stringify(qa));
+            if(input.shots)await page.screenshot({path:`${input.shots}/${W}x${H}-${side}-slide-queue.png`});
+            await page.mouse.move(qa.x,qa.y);await page.mouse.down();
+            for(let k=1;k<=8;k++){await page.mouse.move(qa.x,qa.y-k*12);await page.waitForTimeout(20);}
+            await page.mouse.up();await page.waitForTimeout(300);
+            const qb=await page.evaluate(()=>{const r=document.querySelector('hk-screensaver').shadowRoot,ql=r.querySelector('.mu .mq .mql');
+              return {top:ql.scrollTop,panel:!!r.querySelector('.mpanel'),art:r.querySelector('.mu .mart').getBoundingClientRect().height,metaB:r.querySelector('.mu .mmeta').getBoundingClientRect().bottom};});
+            assert(qb.top>=60&&!qb.panel&&Math.abs(qb.art-qa.artH)<1&&Math.abs(qb.metaB-qa.metaB)<1,'saver Up Next dragged: '+JSON.stringify([qa,qb]));
+            if(input.shots)await page.screenshot({path:`${input.shots}/${W}x${H}-${side}-slide-queue-scrolled.png`});
+            await page.mouse.move(qa.x,qa.y);await page.mouse.down();await page.mouse.move(qa.x,qa.y+3);await page.mouse.up();await page.waitForTimeout(500);
+            assert(await page.evaluate(()=>!!document.querySelector('hk-screensaver').shadowRoot.querySelector('.mpanel [data-p="queue"]:not([hidden])')),'a tap on a row opens the Queue');
+            await page.mouse.click(5,H-5);await page.waitForTimeout(2500);   // (a tap outside shuts the panel)
+            assert(await page.evaluate(()=>!document.querySelector('hk-screensaver').shadowRoot.querySelector('.mpanel')),'the panel shut');
+          }
         }
         const ink = await require('./corner_look.cjs')(page, 'hk-screensaver .scn .tl', input.python);
         const xs = ink.map(r=>r.left);
