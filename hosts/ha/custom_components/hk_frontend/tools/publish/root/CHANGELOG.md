@@ -5,6 +5,10 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+**Fixed**
+- **Tapping the alarm's state on a HomeView-style Security block opens the alarm**: its keypad, or Home, Away and Off when it takes no code, as Classic's Home, Away and Disarm already did (it opened the Security overview). "+N more" and a group still open the overview, and a block's own custom sheet still wins.
+
+
 ## 1.52.0 - 2026-11-08
 
 **Added**

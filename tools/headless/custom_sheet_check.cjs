@@ -28,7 +28,8 @@ function security() {
     const al = sr.querySelector('.al') || sr.querySelector('hk-plate');
     return { tag: c.localName, size: c.getAttribute('size'), tile: c.getAttribute('tile'), k, plate: pb, ents, past,
              line: ((sr.querySelector('.al small') || sr.querySelector('.state')) || {}).textContent,
-             big: ((sr.querySelector('.al b') || sr.querySelector('.name')) || {}).textContent, alarm: Object.assign(box(al), { label: al.getAttribute('aria-label') }) };
+             big: ((sr.querySelector('.al b') || sr.querySelector('.name')) || {}).textContent, alarm: Object.assign(box(al), { label: al.getAttribute('aria-label') }),
+             lm: (() => { const m = sr.querySelector('.lm'); return m && !m.hidden ? box(m) : null; })() };
   });
 }
 
@@ -116,14 +117,23 @@ function sheetState() {
           });
         }
         if (want('taps') && screen === 'cs-square') {
-          // Large's alarm: the overview -- the six as HomeView's tiles; a lock from it, then Back
+          // Large's alarm: the alarm's own sheet (its keypad -- 2026-11-08, the owner); its "+N more": the overview -- the six as
+          // HomeView's tiles; a lock from it, then Back
           const L = got.find((b) => b.size === 'L');
           let c = center(L.alarm);
           await page.touchscreen.tap(c.x, c.y);
           await page.waitForTimeout(900);
           let s = await page.evaluate(sheetState);
+          check(`${engine}: Large's alarm opens the alarm's own sheet`, () => assert.equal(s && s.kind, 'hk-detail-alarm'));
+          await page.keyboard.press('Escape');
+          await page.waitForTimeout(700);
+          check(`${engine}: Large has "+N more" in its heading`, () => assert(L.lm));
+          c = center(L.lm || L.alarm);
+          await page.touchscreen.tap(c.x, c.y);
+          await page.waitForTimeout(900);
+          s = await page.evaluate(sheetState);
           await shot(page, `${engine}-${screen}-overview`);
-          check(`${engine}: Large's alarm opens the Security overview, the six as tiles`, () => {
+          check(`${engine}: its "+N more" opens the Security overview, the six as tiles`, () => {
             assert(s && s.kind === 'group', JSON.stringify(s && s.kind)); assert.equal(s.title, 'Security'); assert.equal(s.tiles.length, 6);
             assert(s.tiles.every((t) => t.centred), 'HomeView tiles on a square-celled screen');
           });

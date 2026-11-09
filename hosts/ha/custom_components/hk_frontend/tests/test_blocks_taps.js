@@ -456,8 +456,14 @@ function () {
     } else {
       (b.el._e.al._listeners.click || []).forEach(function (f) { f({ stopPropagation: function () {} }); });
     }
-    ok(size + ': the alarm opens the Security overview, the alarm and every entry as tiles', SHEETS.length === 1 &&
+    // (2026-11-08, the owner: "Shouldn't tapping arm/disarm text ... open the alarm keypad": the alarm's own sheet; the overview is
+    // "+N more"'s and a group's)
+    ok(size + ': the alarm opens the alarm\'s own sheet (its keypad), not the overview', SHEETS.length === 0 && WENT.length === 1 && WENT[0][1] === 'alarm_control_panel.house', [SHEETS, WENT]);
+    SHEETS.length = 0; WENT.length = 0;
+    if (size !== 'S') b.el._overview();
+    if (size !== 'S') ok(size + ': the overview: the alarm and every entry as tiles', SHEETS.length === 1 &&
        SHEETS[0].sheet.entries.map(function (e) { return e.entity; }).join() === 'alarm_control_panel.house,lock.front_door,cover.garage_door' && WENT.length === 0, SHEETS);
+    WENT.length = 0;
     if (size !== 'S') {
       var slot = b.el._slots[0];
       WENT.length = 0;

@@ -416,7 +416,8 @@
           this._root.innerHTML = '<hk-plate class="sec' + (keys ? ' kp' : '') + '" data-hk-role="card" size="' + size + '">' + html + '</hk-plate>';
           var q = this._root.querySelector.bind(this._root), all = this._root.querySelectorAll.bind(this._root);
           this._e = { card: q('.sec'), wl: q('.wl'), icon: q('.wl hk-icon'), big: q('.big') || q('.hd b'), sub: q('.sub') || q('.hd small'), rows: q('.rows'), ents: q('.ents'), ops: q('.ops'), lm: q('.lm') };
-          if (this._e.lm) this._e.lm.addEventListener('click', function (ev) { ev.stopPropagation(); self._tap(); });
+          // ("+N more": the Security page where the screen has one, else the alarm's sheet)
+          if (this._e.lm) this._e.lm.addEventListener('click', function (ev) { ev.stopPropagation(); var a = self._alarm(); if (!window.hkCards.openTarget(self, [{ page: 'security' }, a && { sheet: a }])) self._tap(); });
           // the tap: Small the whole block, Wide its state, Large its heading -- the alarm's sheet, with its PIN
           var hit = size === 'S' ? this._e.card : size === 'W' ? q('.side') : q('.hd');
           this._button(hit, function () { if (self._config.tap !== 'none') self._tap(); });
@@ -716,9 +717,17 @@
       }
       _render() {
         super._render();
-        if (this._e) this._e.card.setAttribute('aria-label', hvSpoken(hvModel(this.client, this._config || {})) + '. Opens Security.');
+        if (this._e) { var m0 = hvModel(this.client, this._config || {}); this._e.card.setAttribute('aria-label', hvSpoken(m0) + (m0.alarm && !(this._config || {}).custom_sheet ? '. Opens the alarm.' : '. Opens Security.')); }
       }
-      _tap() { if ((this._config || {}).tap !== 'none' || this._config.custom_sheet) hvOverview(this); }
+      // (the block's own custom sheet when it has one; else the alarm's sheet -- its keypad, or Home, Away and Off where it takes no
+      // code -- 2026-11-08, the owner: "Shouldn't tapping arm/disarm text ... open the alarm keypad"; with no alarm, the overview)
+      _tap() {
+        var c = this._config || {};
+        if (c.custom_sheet) return hvOverview(this);
+        if (c.tap === 'none') return;
+        var m = hvModel(this.client, c);
+        if (m.alarm) window.hkShell.moreInfo(m.alarm, this); else hvOverview(this);
+      }
     }
 
     var HV_CSS = [
@@ -822,6 +831,13 @@
         el.addEventListener('keydown', function (ev) { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); ev.stopPropagation(); fn(); } });
       }
       _overview() { var c = this._config || {}; if (c.tap !== 'none' || c.custom_sheet) hvOverview(this); }
+      // THE ALARM'S WORDS open the alarm's sheet (its keypad, or its modes where it takes no code), as the Classic blocks' keys do;
+      // "+N more", a group and the chevron's Large heading's rest go on to the overview (the block's custom sheet when it has one)
+      _alarmSheet() {
+        var c = this._config || {}, m = hvModel(this.client, c);
+        if (c.custom_sheet || !m.alarm) return this._overview();
+        if (c.tap !== 'none') window.hkShell.moreInfo(m.alarm, this);
+      }
       connectedCallback() {
         super.connectedCallback();
         var self = this;
@@ -851,7 +867,8 @@
           var q = this._root.querySelector.bind(this._root);
           this._e = { card: q('.hv'), al: q('.al'), icon: q('.al .wl hk-icon'), big: q('.al b'), sub: q('.al small'), ents: q('.ents'), ops: q('.ops'), lm: q('.lm'), go: q('.go') };
           this._opsKey = null;
-          this._button(this._e.al, function () { self._overview(); });
+          this._button(this._e.al, function () { self._alarmSheet(); });
+          if (this._e.lm) this._e.lm.addEventListener('click', function (ev) { ev.stopPropagation(); self._overview(); });
           this._entKey = null;
           this._built = true;
         }
@@ -863,7 +880,7 @@
         // (the alarm's mode, or -- with nothing to say of it -- the one line Small says)
         var line = hvLine(m);
         e.sub.textContent = m.alarm && line === look.word + (look.mode ? ' · ' + look.mode : '') ? (look.mode || '') : line;
-        e.al.setAttribute('aria-label', hvSpoken(m) + '. Opens Security.');
+        e.al.setAttribute('aria-label', hvSpoken(m) + (m.alarm && !(this._config || {}).custom_sheet ? '. Opens the alarm.' : '. Opens Security.'));
         e.card.style.setProperty('--lit', (C.PALETTE.icon || {}).mint || C.ACCENTS.mint);
         e.card.style.setProperty('--lk', C.ACCENTS.teal);
         if (e.ops) {
