@@ -112,12 +112,12 @@
         // the mode the alarm is in: its button lit in the mode's own color
         '.a.cur{background:color-mix(in srgb,var(--c) 20%,transparent);border-color:color-mix(in srgb,var(--c) 50%,transparent)}',
         '.a.cur hk-icon{color:var(--c)}',
-        '.a.home{--c:' + P.blue + '}.a.away{--c:' + P.green + '}.a.off{--c:' + P.red + '}',
+        // (armed modes Security's teal; Disarm, the calm state, the plain ink -- not red while all is well)
+        '.a.home{--c:' + P.teal + '}.a.away{--c:' + P.teal + '}.a.off{--c:' + v('ink-2') + '}',
         // a panel with no code: taller buttons, the only thing to press
         '.tap .a{height:var(--hk-kp-key,48px);border-radius:' + R.capsule('48px') + ';font-size:var(--hk-kp-a-fs,15px)}',
         '.foot{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:auto;padding-top:12px;font-size:11px;font-weight:600;color:' + v('ink-2') + '}',
-        '.foot hk-icon{--mdc-icon-size:13px;width:13px;height:13px;display:flex;color:' + P.green + '}',
-        '.foot.open hk-icon{color:' + v('warn') + '}',
+        '.foot hk-icon{--mdc-icon-size:13px;width:13px;height:13px;display:flex;color:' + P.teal + '}',
         // SIDE BY SIDE (`layout: 'side'`, a Home Grid's Large Security block,
         // 2026-10-24): the keys on the left, the field and the ways to arm
         // stacked on the right, so the keys keep their height in a 310 px
@@ -144,25 +144,27 @@
     // alarm is doing instead of a separate Status block beside it (whose glyph
     // could never sit on the column of the pills under it). The readout says
     // it while nobody is typing: the shield of the button that sets that
-    // state, in that button's colour -- Disarm red, Home blue, Away green --
-    // amber while it is on its way, and the word. `status: false` keeps the
+    // state and the word: armed (every mode) and arming in Security's teal,
+    // disarmed and disarming the plain glyph gray, pending and triggered red
+    // (DESIGN.md's colors, the owner 2026-11-09: "Not sure why things are
+    // orange"; it was Disarm red, Home blue, Away green, amber on its way). `status: false` keeps the
     // plain dash (the alarm sheet, which leads with the state word already).
     static status(s) {
-      var P = C.PALETTE.icon, st = s && s.state;
+      var P = C.PALETTE.icon, st = s && s.state, OFF = 'var(--hk-glyph,rgba(255,255,255,0.55))';
       var M2 = {
-        disarmed: ['hk:shield-off', P.red, 'Disarmed'],
-        armed_home: ['hk:shield-home', P.blue, 'Armed Home'],
-        armed_night: ['hk:shield-home', P.blue, 'Armed Night'],
-        armed_away: ['hk:shield-lock', P.green, 'Armed Away'],
-        armed_vacation: ['hk:shield-lock', P.green, 'Armed Vacation'],
-        armed_custom_bypass: ['hk:shield-lock', P.green, 'Armed'],
-        arming: ['hk:shield-lock', P.orange, 'Arming\u2026'],
-        pending: ['hk:shield-alert', P.orange, 'Pending\u2026'],
-        disarming: ['hk:shield-off', P.orange, 'Disarming\u2026'],
+        disarmed: ['hk:shield-off', OFF, 'Disarmed'],
+        armed_home: ['hk:shield-home', P.teal, 'Armed Home'],
+        armed_night: ['hk:shield-home', P.teal, 'Armed Night'],
+        armed_away: ['hk:shield-lock', P.teal, 'Armed Away'],
+        armed_vacation: ['hk:shield-lock', P.teal, 'Armed Vacation'],
+        armed_custom_bypass: ['hk:shield-lock', P.teal, 'Armed'],
+        arming: ['hk:shield-lock', P.teal, 'Arming\u2026'],
+        pending: ['hk:shield-alert', P.red, 'Pending\u2026'],
+        disarming: ['hk:shield-off', OFF, 'Disarming\u2026'],
         triggered: ['hk:shield-alert', P.red, 'Triggered']
       };
       // (the glyphs are the shield family of hkCards.alarmGlyph, hk-grid-security.js: the same table)
-      var m = M2[st] || ['hk:shield-off', 'var(--hk-glyph,rgba(255,255,255,0.55))',
+      var m = M2[st] || ['hk:shield-off', OFF,
                          !s || st === 'unavailable' || st === 'unknown' ? 'Unavailable' : String(st)];
       return { icon: m[0], color: m[1], word: m[2] };
     }

@@ -156,7 +156,7 @@
     // SECURITY AS A WIDGET (2026-10-31, the widget mock-up): the one fact, big
     // -- the alarm's state in its color. Small: its shield, the state large
     // and the mode and the locks under it. Wide: that beside the locks, the
-    // garage and the doors and windows, the open ones first and in orange.
+    // garage and the doors and windows, the open ones first, lit in teal.
     // Tall (2026-11-07): the same in a narrow block -- the state a word over its line, Home and Away side by side with
     // Disarm under them. Large: the shield and "Armed · Home" over that list, Home, Away and
     // Disarm at the foot. Extra Large (hk-grid-keypad-card): the alarm's
@@ -165,17 +165,17 @@
     // it has, a row of 44 px each, and says "N more" for what does not fit.
     var SEC_ROW = 44;
     // THE DOORS AND WINDOWS AT A BLOCK'S FOOT (2026-11-08, the owner's "toast for the windows and doors that open"): nothing while all
-    // are closed -- the room is the list's; else a flat strip in orange: "Office Window open", or "3 open · " and their names. Extra
+    // are closed -- the room is the list's; else a flat strip (the glyph teal): "Office Window open", or "3 open · " and their names. Extra
     // Large's keypad block, and HomeView's Large, Tall and Wide.
     // "+N MORE" in a heading's line, as an Accessory Group's: a label, its 44 px tap round it
     var LM_CSS = '.lm{all:unset;position:relative;cursor:pointer;-webkit-tap-highlight-color:transparent;flex:none}' + C.headCss('.lm') + '.lm{overflow:visible}' +
       '.lm::after{content:"";position:absolute;left:-10px;right:-10px;top:-14px;bottom:-14px}.lm[hidden]{display:none}';
     var NOTICE_CSS = [
       // (flat, the earlier strip's look -- the owner, 2026-11-08: "I prefer the flatter toast style", not a button like the rows): a pill of
-      // the key's fill as wide as the rows, the glyph and the words in orange, one line; its tap a finger's 44 px on screen round it
-      '.ops .op.toast{position:relative;width:100%;height:44px;justify-content:flex-start;gap:10px;padding:0 16px;border-radius:22px;background:' + v('key') + ';color:' + v('warn') + ';text-shadow:' + v('glow') + '}',
+      // the key's fill as wide as the rows, the glyph teal and the words in the first ink, one line (DESIGN.md's colors, the owner 2026-11-09: "Not sure why things are orange"); its tap a finger's 44 px on screen round it
+      '.ops .op.toast{position:relative;width:100%;height:44px;justify-content:flex-start;gap:10px;padding:0 16px;border-radius:22px;background:' + v('key') + ';color:' + v('ink') + '}',
       '.ops .op.toast::after{content:"";position:absolute;left:0;right:0;top:-6px;bottom:-6px}',
-      '.ops .op.toast hk-icon{width:20px;height:20px;color:' + v('warn') + '}',
+      '.ops .op.toast hk-icon{width:20px;height:20px;color:' + C.ACCENTS.teal + '}',
     ].join('');
     function doorsNotice(self, box, rows, go, short) {
       var open = rows.filter(function (r) { return r.open; });
@@ -253,7 +253,7 @@
       // in one line): the row is the glyph and two lines, the name whole and the state under it, 44 px as before
       '.row{display:grid;grid-template-columns:20px minmax(0,1fr);gap:0 10px;align-content:center}.row hk-icon{grid-row:1 / span 2;align-self:center}',
       '.row span{flex:none;grid-column:2;line-height:19px}.row em{grid-column:2;line-height:16px}.row.mo span{grid-row:1 / span 2;align-self:center}',
-      '.row.open hk-icon,.row.open em{color:' + v('warn') + '}',
+      '.row.open hk-icon{color:' + C.ACCENTS.teal + '}.row.open em{color:' + v('ink') + '}',
       '.row.lk hk-icon{color:var(--lk)}',
       '.row.mo span{color:' + v('ink-2') + '}',
       // Home, Away and Disarm along the foot, where a thumb is: the mode it is in lit
@@ -292,25 +292,25 @@
       '.ent .n{' + type('body') + ';font-weight:600;font-size:15px;line-height:18px;white-space:normal;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow-wrap:anywhere}',
       '.ent .s{' + type('caption') + ';line-height:17px;color:' + v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
       '.ents.st .ent .in{flex-direction:column;justify-content:center;text-align:center;gap:3px;padding:6px}.ents.st .ent hk-icon{width:34px;height:34px;margin-bottom:3px}.ents.st .ent .tt{align-items:center;max-width:100%}.ents.st .ent .n{font-size:15px;line-height:18px}.ents.st .ent .s{font-size:15px;line-height:20px}',
-      '.ent.open{background:#fff;--hk-glass-backdrop:none;-webkit-backdrop-filter:none;backdrop-filter:none}.ent.open .n{color:#000}.ent.open .s{color:' + v('ink-on-state') + '}.ent.open hk-icon{color:' + v('warn') + '}',
+      '.ent.open{background:#fff;--hk-glass-backdrop:none;-webkit-backdrop-filter:none;backdrop-filter:none}.ent.open .n{color:#000}.ent.open .s{color:' + v('ink-on-state') + '}.ent.open hk-icon{color:' + C.ACCENTS.teal + '}',
       '.ops{display:flex;justify-content:center;gap:8px;flex:none;min-width:0}',
       '.op{box-sizing:border-box;flex:0 1 auto;min-width:0;max-width:100%;height:44px;display:flex;align-items:center;justify-content:center;gap:8px;padding:0 18px;border-radius:22px;background:' + v('key') + ';cursor:pointer;color:' + v('ink-2') + ';-webkit-tap-highlight-color:transparent}',
       '.op:active{background:' + v('key-strong') + '}.op hk-icon{width:20px;height:20px;--mdc-icon-size:100%;display:flex;flex:none}',
       '.op span{' + type('body') + ';font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}',
-      '.op.open{color:' + v('warn') + ';text-shadow:' + v('glow') + '}',
+      '.op.open{color:' + v('ink') + '}.op.open hk-icon{color:' + C.ACCENTS.teal + '}',
       // EXTRA LARGE BESIDE THE KEYPAD, DRAWN AGAIN (2026-11-08, the owner: "back to the drawing board ... the keypad, my locks, garage door,
       // and the toast for the windows and doors that open"; the tiles "just bump to the top of the edge", "there should be a heading"):
       // a label row over the column, as an Accessory Group's -- LOCKS & DOORS, "+N more" at its right when some do not fit; each lock and
       // garage door a row of the column's width (56 px, never grown): its glyph, its name whole, its state at the right -- not secured,
-      // the white of a lit tile, the state in orange; at the foot, on the arm keys' line, the doors and windows: nothing while all
-      // are closed, else a notice -- an orange badge, what is open and the rest under it
+      // the white of a lit tile, the glyph teal, the state in the first ink; at the foot, on the arm keys' line, the doors and windows: nothing while all
+      // are closed, else a notice -- a teal glyph, what is open and the rest under it
       '.lh{display:none}',
       'hk-plate.sec.kp .col{gap:8px}',
       'hk-plate.sec.kp .lh{display:flex;align-items:center;justify-content:space-between;gap:10px;height:19px;flex:none;margin:var(--hk-text-in,0px) var(--hk-text-in,0px) 0}',
       C.headCss('.lh .lt'),
       LM_CSS,
       // THE LOCKS AS ONE LIST, NO PLATE PER ROW (2026-11-09, mockup 4b, the owner: "the busy look came from a plate behind every row"): the
-      // rows On Now and House Status have -- a 36 px disc (a dim well, the glyph teal while secured; orange with a white glyph when not
+      // rows On Now and House Status have -- a 36 px disc (a dim well, the glyph teal while secured; lit teal with a white glyph when not
       // secured), the name, the state at the right, a hairline between rows; the whole row is the tap, 56 px, never grown
       '.ents.lst{display:flex;flex-direction:column;flex-wrap:nowrap;justify-content:flex-start;align-content:stretch;gap:0;margin:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;touch-action:pan-y}',
       '.ents.lst::-webkit-scrollbar{display:none}',
@@ -320,12 +320,12 @@
       '.ents.lst .ent .dk{display:grid;place-items:center;width:36px;height:36px;border-radius:50%;flex:none;background:' + v('key') + '}',
       // (the glyph centered in its disc: 2026-11-09's `.dk.dk>hk-icon`, as House Status and On Now have it)
       '.ents.lst .ent .dk.dk>hk-icon{display:flex;width:20px;height:20px;--mdc-icon-size:100%;color:var(--lk)}',
-      '.ents.lst .ent.open .dk{background:' + v('warn') + '}.ents.lst .ent.open .dk.dk>hk-icon{color:#fff}',
+      '.ents.lst .ent.open .dk{background:' + C.ACCENTS.teal + '}.ents.lst .ent.open .dk.dk>hk-icon{color:#fff}',
       '.ents.lst .ent .in{gap:12px;padding:0 4px 0 0}',
       '.ents.lst .ent .tt{flex:1;flex-direction:row;align-items:center;justify-content:space-between;gap:10px}',
       '.ents.lst .ent .n{font-size:17px;line-height:22px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;overflow-wrap:normal;flex:0 1 auto;color:' + v('ink') + '}',
       '.ents.lst .ent .s{font-size:15px;line-height:20px;flex:none}',
-      '.ents.lst .ent.open .s{color:' + v('warn') + ';font-weight:600}',
+      '.ents.lst .ent.open .s{color:' + v('ink') + ';font-weight:600}',
       'hk-plate.sec.hv .ents.lst .ent .dk.dk>hk-icon{color:' + v('glyph') + '}hk-plate.sec.hv .ents.lst .ent.open .dk.dk>hk-icon{color:#fff}',
       'hk-plate.sec.kp .ops{margin-top:auto;justify-content:flex-start}',
       // LARGE (Classic) THE SAME (2026-11-08, the owner: its tiles' words ran into their edges, the strip wider than the tiles -- "it
@@ -341,11 +341,11 @@
       // keypad's area white and triggered (`.trg`) red, as hk-grid-security-hv-card lights its alarm area (Light Up When Armed): the
       // inks the keypad reads are the custom properties set there; the block and its entries stay the glass, as disarmed
       'hk-plate.sec.hv .wl hk-icon{color:var(--c,' + v('glyph') + ')}hk-plate.sec.hv .ent hk-icon,hk-plate.sec.hv .row hk-icon,hk-plate.sec.hv .ent.lk hk-icon,hk-plate.sec.hv .row.lk hk-icon{color:' + v('glyph') + '}',
-      'hk-plate.sec.hv .ent.open hk-icon,hk-plate.sec.hv .row.open hk-icon{color:' + v('warn') + '}',
+      'hk-plate.sec.hv .ent.open hk-icon,hk-plate.sec.hv .row.open hk-icon{color:' + C.ACCENTS.teal + '}',
       'hk-plate.sec.on .kpad,hk-plate.sec.trg .kpad,hk-plate.sec.hv.on:not(.kp) .hd,hk-plate.sec.hv.trg:not(.kp) .hd{padding:10px;border-radius:var(--hk-inner-radius,' + (C.R.inner + 'px') + ')}',
       'hk-plate.sec.on .kpad,hk-plate.sec.hv.on:not(.kp) .hd{background:#fff;--hk-ink:rgba(0,0,0,0.88);--hk-ink-2:' + v('ink-on-state') + ';--hk-ink-3:rgba(60,60,67,0.45);',
       '  --hk-glyph:rgba(0,0,0,0.78);--hk-key:rgba(0,0,0,0.06);--hk-key-strong:rgba(0,0,0,0.12);--hk-glow:none}',
-      'hk-plate.sec.on .arm button.on{background:' + C.ACCENTS.blue + ';color:#fff}',
+      'hk-plate.sec.on .arm button.on{background:' + C.ACCENTS.teal + ';color:#fff}',
       'hk-plate.sec.trg .kpad,hk-plate.sec.hv.trg:not(.kp) .hd{background:var(--trg,' + C.ACCENTS.red + ');',
       '  --hk-ink:#fff;--hk-ink-2:rgba(255,255,255,0.86);--hk-ink-3:rgba(255,255,255,0.6);--hk-glyph:#fff;--hk-glow:none;--hk-kp-st:#fff}'
     ].join('');
@@ -359,7 +359,7 @@
       var armed = /^armed_/.test(s);
       // (the glyph is Apple Home's shield for the state, hkCards.alarmGlyph -- one for every place the alarm shows, 2026-11-09)
       return { word: w[0], mode: w[1], icon: C.alarmGlyph(s), armed: armed, triggered: s === 'triggered',
-               color: s === 'triggered' ? A.red : armed ? A.teal : /ing$|pending/.test(s) ? A.orange : null, text: s === 'triggered' ? A.red : null };
+               color: s === 'triggered' ? A.red : armed || s === 'arming' ? A.teal : s === 'pending' ? A.red : null, text: s === 'triggered' ? A.red : null };
     }
     // LIGHT UP WHEN ARMED (2026-11-09, the owner: "when the alarm is set, the background of the card was white, but the tiles that are locked
     // still showed locked"): the HomeView presentation's option `lit` (on unless false) -- armed, the block is the white plate of an
@@ -503,7 +503,7 @@
         var hv = !!(this._config || {}).hv, lit = hv && alarm ? hvLit(this._config, look) : '';
         e.card.classList.toggle('hv', hv); e.card.classList.toggle('on', lit === 'on'); e.card.classList.toggle('trg', lit === 'trg');
         if (lit === 'trg') e.card.style.setProperty('--trg', 'linear-gradient(180deg,' + C.iconGradient(C.ACCENTS.red).join(',') + ')'); else e.card.style.removeProperty('--trg');
-        var glyphC = lit === 'on' ? C.ACCENTS.blue : lit === 'trg' ? null : look.color;
+        var glyphC = lit === 'on' ? C.ACCENTS.teal : lit === 'trg' ? null : look.color;
         if (glyphC) e.card.style.setProperty('--c', glyphC); else e.card.style.removeProperty('--c');
         if (look.text && !lit) e.card.style.setProperty('--t', look.text); else e.card.style.removeProperty('--t');
         var big = size === 'S' || size === 'W' || size === 'T' ? look.word : look.word + (look.mode ? ' · ' + look.mode : '');
@@ -775,7 +775,7 @@
         var m = hvModel(this.client, this._config || {}), look = alarmLook(m.alarmSt), lit = m.alarm ? hvLit(this._config, look) : '';
         // (armed and lit: the white plate with the shield in blue; triggered and lit: the red plate, the shield and words white)
         return { name: 'Security', icon: m.alarm ? look.icon : 'hk:shield-home', state: hvLine(m), lit: lit === 'on',
-                 color: lit === 'on' ? C.ACCENTS.blue : look.color, paint: lit === 'trg' ? C.ACCENTS.red : undefined };
+                 color: lit === 'on' ? C.ACCENTS.teal : look.color, paint: lit === 'trg' ? C.ACCENTS.red : undefined };
       }
       _render() {
         super._render();
@@ -856,14 +856,14 @@
       '@media (prefers-reduced-motion:reduce){.en,.al{transition:none}.en:active,.al:active{transform:none}}',
       'hk-plate.hv{border-radius:var(--hk-block-radius, ' + C.M.radius + ')}',
       // DRAWN AGAIN WITH EXTRA LARGE (2026-11-08): a secured lock's glyph teal, a garage door's at rest; one not secured the white of a
-      // lit tile, its glyph and state orange. Large: each a row of the block's width -- the name whole, the state at its right -- from
+      // lit tile, its glyph teal, its state in the first ink. Large: each a row of the block's width -- the name whole, the state at its right -- from
       // the top, under the alarm; Large and Tall end in the doors and windows' line (NOTICE_CSS); the rows a designed height, never grown
       'hk-plate.hv .ops{display:flex;justify-content:flex-start;gap:8px;flex:none;min-width:0;margin-top:auto}',
       'hk-plate.hv .op{box-sizing:border-box;flex:0 1 auto;min-width:0;max-width:100%;height:44px;display:flex;align-items:center;justify-content:center;gap:8px;padding:0 18px;border-radius:22px;cursor:pointer;-webkit-tap-highlight-color:transparent}',
       'hk-plate.hv .op hk-icon{width:20px;height:20px;--mdc-icon-size:100%;display:flex;flex:none}',
       'hk-plate.hv .op span{' + type('body') + ';font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}',
       NOTICE_CSS, LM_CSS, 'hk-plate.hv .al .lm{top:0}',
-      '.en.lit hk-icon,.en.lit .s{color:' + v('warn') + '}.en.lit .s{font-weight:600}',
+      '.en.lit hk-icon{color:' + C.ACCENTS.teal + '}.en.lit .s{color:' + v('ink') + ';font-weight:600}',
       // (its rows to the foot, their bottom the strip's -- the shield is the top's)
       'hk-plate.hv[size=W] .ents{align-content:end}',
       'hk-plate.hv[size=W] .lc{flex:0 0 42%;display:flex;flex-direction:column;gap:8px;min-width:0;min-height:0}hk-plate.hv[size=W] .lc .al{flex:1 1 auto;min-height:0}',
@@ -947,7 +947,7 @@
         var lit = m.alarm ? hvLit(this._config, look) : '';
         e.card.classList.toggle('on', lit === 'on'); e.card.classList.toggle('trg', lit === 'trg');
         if (lit === 'trg') e.card.style.setProperty('--trg', 'linear-gradient(180deg,' + C.iconGradient(C.ACCENTS.red).join(',') + ')'); else e.card.style.removeProperty('--trg');
-        var glyphC = lit === 'on' ? C.ACCENTS.blue : lit === 'trg' ? null : look.color, textC = lit ? null : look.text;
+        var glyphC = lit === 'on' ? C.ACCENTS.teal : lit === 'trg' ? null : look.color, textC = lit ? null : look.text;
         if (glyphC && m.alarm) e.card.style.setProperty('--c', glyphC); else e.card.style.removeProperty('--c');
         if (textC) e.card.style.setProperty('--t', textC); else e.card.style.removeProperty('--t');
         e.big.textContent = m.alarm ? look.word : 'Security';
