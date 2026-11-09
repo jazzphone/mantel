@@ -2152,7 +2152,9 @@
         // (a tile cell's Wide is 117 px inside its inset, the two keys stacked 120: the name sits over the ring alone, the keys span the unit's height and may use the inset's last pixels)
         ':host([size=W]) .gt{display:grid;grid-template-columns:var(--ring) 56px;grid-template-rows:auto auto;column-gap:6px;justify-content:center;align-content:center;align-items:center}',
         ':host([size=W]) .gt .rg{display:contents}:host([size=W]) .gt .hd{grid-column:1;grid-row:1}:host([size=W]) .gt .rw{grid-column:1;grid-row:2}',
-        ':host([size=W]) .gt .kk{grid-column:2;grid-row:1 / 3;flex-direction:column}',
+        // (Wide's keys, 2026-11-09, the owner: "the Pause and stop buttons seem weirdly aligned. They could probably align with the bottom of the
+        // ring and the top of the text"): the column spans the name and the ring -- Pause's top on the name's top, Stop's foot on the ring's foot
+        ':host([size=W]) .gt .kk{grid-column:2;grid-row:1 / 3;flex-direction:column;align-self:stretch;justify-content:space-between}',
                 ':host([size=W]) hk-plate.strip{--ring:96px}:host([size=S]) hk-plate.strip{--ring:96px}',
         ':host([size=T]) hk-plate.strip{--ring:128px}:host([size=L]) hk-plate.strip{--ring:136px}:host([size=XL]) hk-plate.strip{--ring:136px}',
         // (a tile cell's block is the smaller: the ring gives way before the keys do)
