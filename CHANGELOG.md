@@ -4,6 +4,8 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+## 0.1.155 - 2026-11-08
+
 **Added**
 - **Timers ring**: when a timer ends, the tablet and the HomePod in its room ring, and Time's Up shows **Stop**, **+1 Min** and **Restart** on the slide, or in a pop-up over a page in use. Choose the sound, how long it rings, where it plays and whether a dark tablet wakes in Settings → Timers, or pick another room for one timer with **Rings In**. Speakers need the Intercom's address, not the Intercom. See [the Screensaver guide](docs/guide/Screensaver.md#when-a-timer-ends).
 - **Timers you set are real Home Assistant timers, with no limit of four**: Mantel creates each one when you press Start, and deletes it when it ends or you cancel it. It notices a real end across a restart of Mantel or Home Assistant. No helpers are needed. HK Frontend inside Home Assistant keeps its four quick timers.
