@@ -537,7 +537,10 @@
         if (!w || !h) return;
         var changed = Math.round(w) !== W || Math.round(h) !== H;
         W = Math.round(w); H = Math.round(h);
-        if (cur && (changed || showing)) render(false);
+        // (drawn again only for a new size: the screensaver asks every few seconds -- its forecast tick -- and each
+        // drawing scattered the effects afresh, the snow jumping instead of falling, 2026-11-09, the owner)
+        if (cur && changed) render(false);
+        else if (cur && showing) quiet();
       },
       setClient: function (cl) {
         client = cl;

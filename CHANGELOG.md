@@ -4,6 +4,9 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Fixed**
+- **The snow past the Holiday slide's window falls**: the screensaver laid the slide out every few seconds, and each time the snow and the other effects started again in new places, so they jumped about instead of falling. They now keep falling, each flake drifting at its own pace.
+
 ## 0.1.156 - 2026-11-08
 
 **Changed**

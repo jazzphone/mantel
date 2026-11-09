@@ -94,6 +94,19 @@ const measure = () => {
         }
       }
     }
+    // THE SNOW FALLS (2026-11-09, the owner: "kind of dancing back and forth"): the screensaver lays the slide out every
+    // few seconds, and each layout scattered the effects afresh -- now what falls keeps falling where it was
+    {
+      const page = await open('hol=christmas&date=2026-11-08', 1280, 800);
+      const a = await page.evaluate(() => window.__ctl.info().counts.first);
+      await page.evaluate(() => { window.__ctl.layout(1280, 800); window.__ctl.layout(1280, 800); });
+      await page.waitForTimeout(500);
+      const b = await page.evaluate(() => window.__ctl.info().counts.first);
+      const fell = a && b && b[1] >= a[1] && b[1] - a[1] < 60 && Math.abs(b[0] - a[0]) <= 12;
+      const wrapped = a && b && b[1] < a[1] - 100;     // (one that reached the sill starts again at the top)
+      say(!!(fell || wrapped), eng + ': a layout of the same size keeps the snow falling where it was', [a, b]);
+      await page.close();
+    }
     // EFFECTS OFF, REDUCE MOTION (the sky's Animations off): one still picture, no loop
     for (const q of ['hol=christmas&date=2026-11-08&fx=off', 'hol=thanksgiving&date=2026-11-08&still=1', 'hol=easter&date=2027-03-01&fx=off']) {
       const page = await open(q, 1280, 800);
