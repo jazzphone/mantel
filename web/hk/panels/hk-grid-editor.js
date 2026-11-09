@@ -2220,7 +2220,7 @@
         // LIGHT UP WHEN ARMED (2026-11-09, the owner): on unless the option is false -- so Off is what is stored
         if (kind === 'security_lit') {
           if (opts.presentation !== 'homeview') return;
-          rows.push(K.toggle({ label: 'Light Up When Armed', sub: 'White while the alarm is armed, red if it goes off. Each lock still shows its own state.',
+          rows.push(K.toggle({ label: 'Light Up When Armed', sub: 'The alarm turns white while it is armed, red if it goes off. The locks beside it stay on the glass.',
             on: opts[key] !== false, onChange: (on) => set(key, on ? null : false) }));
           return;
         }

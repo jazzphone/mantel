@@ -327,21 +327,16 @@
       // (Extra Large: the alarm's keypad, its keys sized to the block)
       '.kpad{flex:0 0 264px;min-width:0;min-height:0}.kpad.side{flex-basis:330px}.kpad > *{display:block;height:100%}',
       // HOMEVIEW'S EXTRA LARGE (`.hv`, the catalog's flag): every glyph on the glass white, as the HomeView blocks have them; armed (`.on`) the
-      // white plate and triggered (`.trg`) the red one, exactly as hk-grid-security-hv-card draws them (Light Up When Armed): the inks the
-      // keypad and the rows read are the custom properties set here, the entries keep their own state (gray tile and dark glyph when
-      // secured, an orange one when not), the mode the alarm is in the blue key
+      // keypad's area white and triggered (`.trg`) red, as hk-grid-security-hv-card lights its alarm area (Light Up When Armed): the
+      // inks the keypad reads are the custom properties set there; the block and its entries stay the glass, as disarmed
       'hk-plate.sec.hv .wl hk-icon{color:var(--c,' + v('glyph') + ')}hk-plate.sec.hv .ent hk-icon,hk-plate.sec.hv .row hk-icon,hk-plate.sec.hv .ent.lk hk-icon,hk-plate.sec.hv .row.lk hk-icon{color:' + v('glyph') + '}',
       'hk-plate.sec.hv .ent.open hk-icon,hk-plate.sec.hv .row.open hk-icon{color:' + v('warn') + '}',
-      'hk-plate.sec.on{background:#fff;border-color:transparent;-webkit-backdrop-filter:none;backdrop-filter:none;--hk-glass-backdrop:none;',
-      '  --hk-ink:rgba(0,0,0,0.88);--hk-ink-2:' + v('ink-on-state') + ';--hk-ink-3:rgba(60,60,67,0.45);--hk-glyph:rgba(0,0,0,0.78);',
-      '  --hk-key:rgba(0,0,0,0.06);--hk-key-strong:rgba(0,0,0,0.12);--hk-glow:none;--hk-warn:#b25400}',
-      'hk-plate.sec.on .ent:not(.open){background:rgba(0,0,0,0.06);border-color:transparent;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none}',
-      'hk-plate.sec.on .ent.open{background:' + C.ACCENTS.orange + ';border-color:transparent;box-shadow:none}',
-      'hk-plate.sec.on .ent.open .n{color:#000}hk-plate.sec.on .ent.open hk-icon{color:rgba(0,0,0,0.82)}hk-plate.sec.on .ents.lst .ent.open .s,hk-plate.sec.on .ent.open .s{color:rgba(0,0,0,0.72)}',
+      'hk-plate.sec.on .kpad,hk-plate.sec.trg .kpad,hk-plate.sec.hv.on:not(.kp) .hd,hk-plate.sec.hv.trg:not(.kp) .hd{padding:10px;border-radius:var(--hk-inner-radius,' + (C.R.inner + 'px') + ')}',
+      'hk-plate.sec.on .kpad,hk-plate.sec.hv.on:not(.kp) .hd{background:#fff;--hk-ink:rgba(0,0,0,0.88);--hk-ink-2:' + v('ink-on-state') + ';--hk-ink-3:rgba(60,60,67,0.45);',
+      '  --hk-glyph:rgba(0,0,0,0.78);--hk-key:rgba(0,0,0,0.06);--hk-key-strong:rgba(0,0,0,0.12);--hk-glow:none}',
       'hk-plate.sec.on .arm button.on{background:' + C.ACCENTS.blue + ';color:#fff}',
-      'hk-plate.sec.trg{background:var(--trg,' + C.ACCENTS.red + ');border-color:transparent;-webkit-backdrop-filter:none;backdrop-filter:none;--hk-glass-backdrop:none;',
-      '  --hk-ink:#fff;--hk-ink-2:rgba(255,255,255,0.86);--hk-ink-3:rgba(255,255,255,0.6);--hk-glyph:#fff;--hk-glow:none;--hk-kp-st:#fff}',
-      'hk-plate.sec.trg .op.open,hk-plate.sec.trg .op.open hk-icon,hk-plate.sec.trg .ops .op.toast,hk-plate.sec.trg .ops .op.toast hk-icon{color:#fff}'
+      'hk-plate.sec.trg .kpad,hk-plate.sec.hv.trg:not(.kp) .hd{background:var(--trg,' + C.ACCENTS.red + ');',
+      '  --hk-ink:#fff;--hk-ink-2:rgba(255,255,255,0.86);--hk-ink-3:rgba(255,255,255,0.6);--hk-glyph:#fff;--hk-glow:none;--hk-kp-st:#fff}'
     ].join('');
     var SEC_WORDS = { disarmed: ['Disarmed', ''], armed_home: ['Armed', 'Home'], armed_away: ['Armed', 'Away'], armed_night: ['Armed', 'Night'],
                       armed_vacation: ['Armed', 'Vacation'], armed_custom_bypass: ['Armed', 'Custom'], arming: ['Arming…', ''], pending: ['Pending…', ''],
@@ -858,20 +853,14 @@
       'hk-plate.hv[size=L]:not(.tl) .en .s{grid-column:3;grid-row:1;font-size:15px;line-height:20px;text-align:right}',
       // (inside a square cell's block, its tiles concentric with it)
       '.en{border-radius:var(--hk-inner-radius,' + (C.R.inner + 'px') + ')}',
-      // LIGHT UP WHEN ARMED (2026-11-09): armed (`.on`), the block is the white plate of an accessory that is on -- dark words, the shield in
-      // blue -- and its inks are the lit tile's (the custom properties every part reads: ink, the glyph's, the strip's fill, the warm word).
-      // Each entry keeps its own state on it: secured, a gray tile with a dark glyph; not secured, an orange one (the alert is a fill, as a
-      // white tile would vanish on white); unknown, its words faint. Triggered (`.trg`) is the red plate, everything on it white
-      'hk-plate.hv.on{background:#fff;border-color:transparent;-webkit-backdrop-filter:none;backdrop-filter:none;--hk-glass-backdrop:none;',
-      '  --hk-ink:rgba(0,0,0,0.88);--hk-ink-2:' + v('ink-on-state') + ';--hk-ink-3:rgba(60,60,67,0.45);--hk-glyph:rgba(0,0,0,0.78);',
-      '  --hk-key:rgba(0,0,0,0.06);--hk-glow:none;--hk-warn:#b25400}',
-      'hk-plate.hv.on .en:not(.lit){background:rgba(0,0,0,0.06);border-color:transparent;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none}',
-      'hk-plate.hv.on .en.lit{background:' + C.ACCENTS.orange + ';border-color:transparent;box-shadow:none}',
-      'hk-plate.hv.on .en.lit .n{color:#000}hk-plate.hv.on .en.lit hk-icon{color:rgba(0,0,0,0.82)}',
-      'hk-plate.hv.on .en.lit .s,hk-plate.hv.on .en.ct.lit .s{color:rgba(0,0,0,0.72) !important}',
-      'hk-plate.hv.trg{background:var(--trg,' + C.ACCENTS.red + ');border-color:transparent;-webkit-backdrop-filter:none;backdrop-filter:none;--hk-glass-backdrop:none;',
-      '  --hk-ink:#fff;--hk-ink-2:rgba(255,255,255,0.86);--hk-ink-3:rgba(255,255,255,0.6);--hk-glyph:#fff;--hk-glow:none}',
-      'hk-plate.hv.trg .ops .op.toast,hk-plate.hv.trg .ops .op.toast hk-icon{color:#fff}'
+      // LIGHT UP WHEN ARMED (2026-11-09): armed (`.on`), the alarm's own area is the white tile of an accessory that is on -- dark
+      // words, the shield in blue -- and the block stays the glass, its entries the very pills they are disarmed, on the dashboard's
+      // background (the owner, 2026-11-09: the pills should not share the white). Triggered (`.trg`) that area is the red tile, its
+      // words white. Its inks are the custom properties every part of it reads, set on the area alone.
+      'hk-plate.hv.on .al,hk-plate.hv.trg .al{margin:0;padding:12px 14px;border-radius:var(--hk-inner-radius,' + (C.R.inner + 'px') + ')}',
+      'hk-plate.hv[size=L].on .al,hk-plate.hv[size=L].trg .al{padding:8px 14px}',
+      'hk-plate.hv.on .al{background:#fff;--hk-ink:rgba(0,0,0,0.88);--hk-ink-2:' + v('ink-on-state') + ';--hk-ink-3:rgba(60,60,67,0.45);--hk-glyph:rgba(0,0,0,0.78);--hk-glow:none}',
+      'hk-plate.hv.trg .al{background:var(--trg,' + C.ACCENTS.red + ');--hk-ink:#fff;--hk-ink-2:rgba(255,255,255,0.86);--hk-ink-3:rgba(255,255,255,0.6);--hk-glyph:#fff;--hk-glow:none}'
     ].join('');
     // a slot at its smallest: Compact's across, Extra Large's down; a row's height
     var HV_PILL_W = 150, HV_SLOT_H = 96, HV_ROW = 54, HV_GAP = 8;
