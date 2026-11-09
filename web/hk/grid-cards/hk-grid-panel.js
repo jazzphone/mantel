@@ -499,12 +499,17 @@
             (x.open ? ' class="o"' : '') + '>' + (x.open ? 'Open' : 'Closed') + '</em></div>';
         };
         // the headline column (Extra Large, Wide): the glyph over the count over the line, top left; the gap to the list is the block's inset
-        var col = function (w) {
-          return '<div class="wcol" style="flex:0 0 ' + w + 'px">' + head(36) + '<div class="dt" style="margin-top:10px">' + esc(title) + '</div><div class="ws" style="white-space:normal">' + esc(line) + '</div></div>';
+        // (WHAT DID NOT FIT, 2026-11-09: Wide on a tile cell has room for two rows -- "1 row plus 2 more" wasted one on the count: every row
+        // that fits is a door, open ones first, and "+N more" is the headline column's foot, the block's tap opening them all)
+        var col = function (w, extra) {
+          return '<div class="wcol" style="flex:0 0 ' + w + 'px">' + head(36) + '<div class="dt" style="margin-top:10px">' + esc(title) + '</div><div class="ws" style="white-space:normal">' + esc(line) + '</div>' +
+            // (not twice: where the line already ends "+ N more", the open ones' count says it)
+            (extra && !/ more$/.test(line) ? '<div class="ws" style="margin-top:auto">+' + extra + ' more</div>' : '') + '</div>';
         };
         var gap = 'gap:var(--hk-pad-l,18px)';
         if (size === 'XL' || size === 'W') {
-          return '<div class="wsplit" style="' + gap + '">' + col(size === 'XL' ? 150 : 130) + '<div class="wcol wr tall dl" role="list">' + fitRows(list, box.ih, row, 56) + '</div></div>';
+          var fitN = Math.max(1, Math.floor(box.ih / 56)), extra = Math.max(0, list.length - fitN);
+          return '<div class="wsplit" style="' + gap + '">' + col(size === 'XL' ? 150 : 130, extra) + '<div class="wcol wr tall dl" role="list">' + list.slice(0, fitN).map(row).join('') + '</div></div>';
         }
         // Large and Tall: the headline (the glyph beside the count, the line under it), then as many rows as fit -- three at least
         var headH = 26 + 19 + 12;
