@@ -327,6 +327,9 @@
     // A BLOCK WITH NO HEADING (On Now's, 2026-11-09, the owner: "we can remove the On Now heading"): its content starts at the top inset, never
     // centered in what the headline leaves
     '.tp .bd{justify-content:flex-start}.tp .dw{align-items:flex-start}.sx.tp>.sc .grp{justify-content:flex-start}.sm-s.tp .hl{margin-top:0}.tp>.mr{margin-top:14px}',
+    // (House Status, 2026-11-09, mockup 7b, the owner: no heading; the headline top left on the first row's line, "+N more" at the foot on the
+    // last row's -- Extra Large's column is as tall as its lines (inline), its group from the top and its key at the bottom)
+    '.sx.tp>.sc .grp .ft{margin-top:auto}',
     // (Wide, the discs with their counts: each a column -- the disc, the count, the name -- the whole of it a tap)
     // (the discs a centered group 8 px apart, never spread across the row: nothing stretches, and their hit areas clear, 2026-11-08)
     '.dw{display:flex;justify-content:center;gap:8px;align-items:center;flex:1;min-width:0}',
@@ -408,7 +411,9 @@
     }
     if (size === 'XL') {
       var rest = m.restDiscs ? '<div class="dr">' + m.rows.map(function (r) { return disc(r.icon, 26, r.lit); }).join('') + '</div>' : '';
-      return '<div class="sx' + (m.top ? ' tp' : '') + '" style="--sw:' + P.side + 'px;--sg:22px"><div class="sc">' + row(m.key) + '<div class="grp"' + (m.label ? '' : ' style="margin-bottom:0"') + '>' + headline(m.head, P.big) + snt + rest +
+      // (a block with no heading, 2026-11-09, mockup 7b: the column is as tall as its lines, so its foot key sits on the last line's level)
+      var colH = m.top && m.foot ? 'align-self:flex-start;height:' + (P.rows * P.rowH) + 'px' : '';
+      return '<div class="sx' + (m.top ? ' tp' : '') + '" style="--sw:' + P.side + 'px;--sg:22px"><div class="sc"' + (colH ? ' style="' + colH + '"' : '') + '>' + row(m.key) + '<div class="grp"' + (m.label ? '' : ' style="margin-bottom:0"') + '>' + headline(m.head, P.big) + snt + rest +
         (m.side ? '<div class="ft">' + m.side + '</div>' : '') + '</div></div>' +
         '<div class="bd">' + lines(m, P, box.iw - P.side - 22) + '</div></div>';
     }
@@ -466,7 +471,7 @@
       var more = P.more > 0 ? '<button type="button" class="sm-k q" data-all aria-label="' + esc('All ' + count(m.total) + ': opens House Status') + '">+' + P.more +
         (box.iw < 200 ? '' : ' more') + CHEV + '</button>' : '';
       // (2026-11-08, the owner: "if the card's name is printed on the card...it can go": no label; its "+N more" at the foot, as Wide's was)
-      var model = { label: '', head: head, sentence: sentence, words: true, key: more, side: size === 'W' || size === 'XL' ? more : '',
+      var model = { label: '', top: true, head: head, sentence: sentence, words: true, key: more, foot: true, side: size === 'W' || size === 'XL' ? more : '',
         lead: need ? { icon: function (px, col) { return glyph(sec, px, col); }, lit: litOf(sec) || (C.ACCENTS && C.ACCENTS.orange) }
                    : { icon: function (px, col) { return '<hk-icon icon="mdi:check" style="width:' + px + 'px;height:' + px + 'px;color:' + col + '"></hk-icon>'; }, lit: green },
         small: { attrs: 'data-all', aria: 'House Status: ' + (need ? words(sec.reading) + ', ' + sec.name : 'all good') + (others ? ', ' + others + ' more to check' : '') + '. Opens House Status' },

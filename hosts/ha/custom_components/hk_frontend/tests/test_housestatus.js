@@ -234,4 +234,15 @@ el.connectedCallback(); el.connectedCallback(); el.disconnectedCallback();
 after = (globalThis.__winL && (globalThis.__winL['hk-module-ready'] || []).length) || 0;
 ok('attached again and again: one listener at most, none after', after <= before + 1, after);
 
+print('\n=== Extra Large: no heading, the headline top left, "+N more" at the foot (2026-11-09, mockup 7b) ===');
+var TK = window.hkHouseStatus.tiles;
+var ico = function () { return ''; };
+var xm = { label: '', top: true, foot: true, head: { words: '1 Window Open' }, sentence: 'Office Window', words: true, key: '', side: '<button class="sm-k q" data-all>+1 more</button>',
+  rows: [1, 2, 3, 4, 5].map(function (i) { return { live: true, attrs: 'data-i="' + i + '"', icon: ico, lit: null, name: 'N' + i, reading: '<span class="v">' + i + '</span>', detail: null }; }) };
+var xp = TK.plan('XL', 574, 333, 6, { words: true, nolabel: true, foot: true });
+var xh = TK.compose(xm, 'XL', { iw: 574, ih: 333 }, xp);
+ok('XL: no label row, the group from the top (.tp)', xh.indexOf('class="sx tp"') >= 0 && xh.indexOf('sm-h') < 0 && xh.indexOf('sm-l') < 0);
+ok('XL: the left column is as tall as its lines, so the foot key sits on the last line', xh.indexOf('align-self:flex-start;height:' + (xp.rows * xp.rowH) + 'px') >= 0, xp.rows + 'x' + xp.rowH);
+ok('XL: "+N more" is in the column\'s foot', /<div class="ft"><button class="sm-k q" data-all>\+1 more/.test(xh));
+
 print('\n' + (fail ? 'FAILURES: ' + fail : 'ALL ' + pass + ' HOUSE STATUS TESTS PASS'));
