@@ -760,5 +760,141 @@
         return { area: a || 'living_room' };
       });
     window.hkRoom.Card = HkRoomStatusCard;
+
+    // ------------------------------------------------------------ a room's sheet
+    // A ROOM AS A SHEET (2026-11-09, the owner: a Room block's When Tapped -> Detail Sheet should open "a pop up that is
+    // formatted/laid out similar to the Room page itself ... so a user could easily turn things on and off in that room").
+    // The room page's own cards (hkStrategy.roomCards: its status row, its cameras, its scenes, then Climate, Lights,
+    // Speakers & TVs, Security, Water and Other), less its title bar -- the sheet's header is the room's name -- so the
+    // sheet is the page, never a second idea of it. Its pills keep the page's 196 px (an iPad's band and a phone narrow
+    // them on the page; a sheet is its own width), as many to a row as the sheet holds, the column as wide as those rows
+    // and centered, so a section's heading starts where its first pill does. A tile's tap is its own (a light toggles); a
+    // hold, or a count in the status row, opens a sheet of its own, and Back comes here again (hk-detail.js hkKeepBack).
+    var RS = { pill: C.TILE.w, gap: C.TILE.gridGap };
+    var SHEET_CSS = [
+      ':host{display:block;--hk-pill:' + RS.pill + 'px;--hk-track:' + RS.pill + 'px;--hk-cell-bleed:0px;--hk-pill-end:0px}',
+      '.col{display:flex;flex-direction:column;box-sizing:border-box;margin:0 auto;width:var(--hk-room-w,100%);max-width:100%;padding:2px 0 8px}',
+      // (the page's cards sit 4 px in from a view's edge, as a grid's children do: the column gives the same 4 px back)
+      '.col > *{display:block;margin:0 -4px}',
+      '.none{color:' + window.hkCards.v('ink-2') + ';font-size:15px;text-align:center;padding:48px 16px}',
+      // a phone: two pills across what the sheet holds (~300 px), as a room's "3 Windows" sheet has them -- a track with a
+      // floor, since the grids auto-fill and a floor of 0 would be one column
+      '@media (max-width:' + C.BP.phone + 'px){:host{--hk-track:minmax(130px,1fr)}.col{width:100%}}'
+    ].join('');
+    // the room's cards, kept while what they are built from is the same (the room page's build walks every entity)
+    function sheetCards(client, area, name) {
+      var S = window.hkStrategy, HS = window.hkSettings;
+      if (!S || !S.roomCards) return [];
+      // HIDDEN ACCESSORIES (HK Settings; `generated`): what the room's page leaves out, the sheet does too (as the Room
+      // block's own tiles, hk-grid-math.js roomParts)
+      var G = (HS && HS.get && HS.get('generated', null)) || {}, hides = {};
+      ['exclude_entities', 'exclude_devices', 'exclude_areas', 'include_entities'].forEach(function (k) { if (Array.isArray(G[k])) hides[k] = G[k]; });
+      var cards = [];
+      try { cards = S.roomCards(client, [area], name, hides) || []; } catch (e) { cards = []; }
+      // (the page's title bar -- its back button and its name -- is the sheet's header)
+      return cards.filter(function (c) { return c && !c.page_header; }).map(function (c) {
+        var o = Object.assign({}, c);
+        delete o.view_layout;
+        return o;
+      });
+    }
+    class HkRoomSheet extends HkBase {
+      static get CSS() { return SHEET_CSS; }
+      // ITS WIDTH (hk-detail.js takes a number as the panel's own): four of the page's pills and their gaps, the sheet's 24 px
+      // padding a side and its 1 px border -- the page's rows four across, not three and a gap (without the border the body
+      // was 812 of the 814 four need)
+      hkWidthKind() { return 4 * RS.pill + 3 * RS.gap + 2 * 24 + 2; }
+      hkFill() { return true; }
+      hkNoGear() { return true; }
+      // an accessory, a count's list or a camera opened from here comes back here (hk-detail.js open)
+      hkKeepBack() { return true; }
+      _area() { return (this._config || {}).area || null; }
+      _name(h) {
+        var a = this._area(), r = h && h.areas && a ? h.areas[a] : null;
+        return (r && r.name) || (this._config || {}).name || 'Room';
+      }
+      // the header: the room's glyph (the room page's, as the Room block's Small tile shows it) in the ink, and its name
+      hkHead(h, d) {
+        d.well.style.background = '';
+        d.icon.style.color = window.hkCards.v('ink');
+        d.icon.icon = (this._config || {}).icon || 'mdi:sofa';
+        d.tt.textContent = this._name(h);
+        return true;
+      }
+      connectedCallback() {
+        super.connectedCallback();
+        var self = this;
+        if (!this._ro && typeof ResizeObserver !== 'undefined') {
+          this._ro = new ResizeObserver(function () { self._fit(); });
+          this._ro.observe(/** @type {Element} */ (/** @type {unknown} */ (this)));
+        }
+      }
+      disconnectedCallback() {
+        super.disconnectedCallback();
+        if (this._ro) { this._ro.disconnect(); this._ro = null; }
+      }
+      // AS MANY PILLS ACROSS AS THE SHEET HOLDS, the column exactly that wide (a tablet's sheet: four)
+      _fit() {
+        // (the layout width, not the drawn one: the sheet opens at scale(.98), and 814 px read as 797 is three pills, not four)
+        var w = /** @type {any} */ (this).offsetWidth || 0;
+        if (!(w > 0) || w === this._w) return;
+        this._w = w;
+        var phone = false;
+        try { phone = window.matchMedia('(max-width:' + C.BP.phone + 'px)').matches; } catch (e) { phone = false; }
+        if (phone) { this.style.removeProperty('--hk-room-w'); return; }   // (a phone's: the CSS above)
+        var n = Math.max(1, Math.floor((w + RS.gap) / (RS.pill + RS.gap)));
+        this.style.setProperty('--hk-room-w', (n * RS.pill + (n - 1) * RS.gap) + 'px');
+      }
+      _sigOf() { return null; }
+      _render() {
+        var c = this.client, area = this._area();
+        if (!c) return;
+        // built again only when what the page is built from moves -- the registries, the settings, the house's entities --
+        // never on a state: a state goes to the cards in place, so nothing is made again under a finger
+        var HS = window.hkSettings, regs = [c.entities, c.devices, c.areas];
+        if (!this._regs || regs.some(function (r, i) { return r !== this._regs[i]; }, this)) { this._regs = regs; this._regN = (this._regN || 0) + 1; }
+        var key = area + '|' + this._regN + '|' + (HS ? HS.version : '') + '|' + Object.keys(c.states || {}).length;
+        if (!this._built || key !== this._key) {
+          var cards = area ? sheetCards(c, area, this._name(c)) : [], sig = JSON.stringify(cards);
+          this._key = key;
+          if (!this._built || sig !== this._sig) {
+            this._built = true;
+            this._sig = sig;
+            var scroll = this.parentNode && /** @type {any} */ (this.parentNode).scrollTop;
+            this._root.innerHTML = '';
+            this._kids = [];
+            var col = document.createElement('div');
+            col.className = 'col';
+            var self = this;
+            cards.forEach(function (cfg) {
+              var el = C.createCard(cfg, c);
+              if (el) { col.appendChild(el); self._kids.push(el); }
+            });
+            if (!this._kids.length) {
+              var none = document.createElement('div');
+              none.className = 'none';
+              none.textContent = area ? 'Nothing in this room yet.' : 'No room.';
+              col.appendChild(none);
+            }
+            this._root.appendChild(col);
+            if (this.parentNode && scroll != null) /** @type {any} */ (this.parentNode).scrollTop = scroll;
+            this._fit();
+          }
+        }
+        (this._kids || []).forEach(function (el) {
+          if (el.hkSetClient) el.hkSetClient(c); else window.hkHostClient.bridge(el, c);
+        });
+      }
+    }
+    if (!customElements.get('hk-detail-room')) customElements.define('hk-detail-room', HkRoomSheet);
+    // openSheet(area, { name, icon }): the room's sheet, over the page it is opened on; false when there is no sheet to open
+    window.hkRoom.openSheet = function (area, o) {
+      var D = window.hkDetail;
+      o = o || {};
+      if (!area || !D || typeof D.open !== 'function') return false;
+      return !!D.open(null, { name: o.name || 'Room', icon: o.icon || 'mdi:sofa' },
+        { panel: { tag: 'hk-detail-room', config: { area: area, name: o.name || '', icon: o.icon || '' } } });
+    };
+    window.hkRoom.Sheet = HkRoomSheet;
   });
 })();

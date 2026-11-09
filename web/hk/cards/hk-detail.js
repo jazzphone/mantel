@@ -2270,7 +2270,7 @@
       // entry behind, and the next Back press would land on it and do nothing.
       var reuse = false;
       var returnGroup = D.el && D.kind === 'group' && D.group && (D.group.row || D.group.back) ? D.group
-        : D.el && D.returnGroup ? D.returnGroup : null;
+        : D.el && D.returnGroup ? D.returnGroup : null, panelBack = D.el && D.kind === 'panel' && D.panel.hkKeepBack && D.panel.hkKeepBack() && !opts.back ? D.back0 : null;
       if (D.el) { reuse = D.pushed && ours(D); close(true); }
 
       var s = stOf(h, id);
@@ -2314,10 +2314,10 @@
       D.returnGroup = !opts.group && !opts.cards && !opts.panel ? returnGroup : null;
       // BACK TO THE SHEET IT CAME FROM (a person's Other Members, a
       // notification's picture): { id, src, opts }; back0 is this one, for
-      // a sheet opened from it
-      D.back = opts.back || null;
+      // a sheet opened from it -- and a panel that asks (hkKeepBack: a room's sheet, hk-room.js) is come back to the same way
+      D.back = opts.back || panelBack || null;
       D.back0 = { id: id, src: src || null, opts: opts };
-      var wpx = WIDTH[panel.hkWidthKind ? panel.hkWidthKind(h, s) : kind] || 440;
+      var wk = panel.hkWidthKind ? panel.hkWidthKind(h, s) : kind, wpx = typeof wk === 'number' ? wk : WIDTH[wk] || 440;   // (a number: the panel's own)
       sheet.style.setProperty('--hkd-w', wpx + 'px');
       if (panel.hkFill && panel.hkFill()) panel.classList.add('fill');
       // A sheet as tall as its content (the camera's picture) instead of the

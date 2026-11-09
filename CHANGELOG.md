@@ -4,6 +4,9 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Added**
+- **A room in a sheet**: set a Room block's **When Tapped** to **Detail Sheet** and tapping it (Small's tile, the room's name or **+N more** too) opens the room over the screen, laid out as its page: the status line, cameras, scenes, then Climate, Lights, Speakers & TVs and the rest, four of the page's pills across on a tablet and two on a phone. Tap a light to turn it on or off; an accessory's own sheet opened from it has **Back** to the room. Before this, Detail Sheet on a Room block still went to the page. A screen with no page for the room now opens the sheet instead of doing nothing.
+
 ## 0.1.156 - 2026-11-08
 
 **Changed**

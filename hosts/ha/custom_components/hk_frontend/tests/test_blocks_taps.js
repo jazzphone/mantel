@@ -297,7 +297,32 @@ function () {
   eq('To-do, Page: it has no page, so its list', tap('todo', 'L', 'page'), [['list', 'todo.shopping']]);
   PAGES = false;
   eq('Weather, Page, on a screen without one: the sheet', tap('weather', 'L', 'page'), [['moreInfo', 'weather.home']]);
+  // A ROOM AS A SHEET (2026-11-09, the owner): Detail Sheet opens the room's own sheet (hk-room.js), laid out as its page;
+  // a screen with no page for the room opens it too
+  eq('Room, Automatic, on a screen without its page: the room\'s sheet', tap('room', 'L', 'auto'), [['detail', null]]);
+  eq('...Small too', tap('room', 'S', 'auto'), [['detail', null]]);
   PAGES = true;
+  eq('Room, Automatic: its page', tap('room', 'L', 'auto'), [['navigate', '/hk-kitchen/room-kitchen']]);
+  eq('Room, Detail Sheet: the room\'s sheet', tap('room', 'L', 'sheet'), [['detail', null]]);
+  eq('...Small, the room as one tile, too', tap('room', 'S', 'sheet'), [['detail', null]]);
+  eq('Room, Nothing: nothing', tap('room', 'L', 'none'), []);
+  (function () {
+    // the room's own ways in -- the Small tile, the heading, "N More" -- go where When Tapped says too
+    var b = block('room', 'S', 'square', { tap: 'sheet' });
+    WENT.length = 0; b.el._openRoom(true);
+    eq('the Small tile, Detail Sheet: the sheet', WENT.slice(), [['detail', null]]);
+    b = block('room', 'L', 'square', { tap: 'none' });
+    WENT.length = 0; b.el._openRoom(true);
+    eq('the Small tile, Nothing: nothing (it is the plate)', WENT.slice(), []);
+    WENT.length = 0; b.el._openRoom();
+    eq('the heading, Nothing: still the room (it says it opens it)', WENT.slice(), [['navigate', '/hk-kitchen/room-kitchen']]);
+    // what the sheet is asked for: the room, its name, the page's glyph
+    var asked = null, R = window.hkRoom, was = R.openSheet;
+    R.openSheet = function (a, o) { asked = [a, o.name]; return true; };
+    block('room', 'L', 'square', { tap: 'sheet' }).el._openRoom();
+    R.openSheet = was;
+    eq('the sheet is the block\'s room', asked, ['kitchen', 'Kitchen']);
+  })();
   // every block with the option: each choice does what it says, none opens nothing, and the others open something
   KEYS.filter(function (k) { return TABLE[k].opts && TABLE[k].opts.tap === 'tap_target'; }).forEach(function (key) {
     TABLE[key].sizes.forEach(function (size) {

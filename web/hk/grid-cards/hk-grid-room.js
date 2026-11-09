@@ -218,7 +218,7 @@
           var q = this._root.querySelector.bind(this._root);
           this._e = { box: q('.room'), hd: q('.hd'), nm: q('.nm'), name: q('.nm span'), chev: q('.nm i'), st: q('.st'), mo: q('.mo'), tiles: q('.tiles'),
                       ft: q('.ft'), fd: q('.fd'), sep: q('.ft b'), below: q('.ft span'), rs: q('.rs'), rsIcon: q('.rs .icon'), rsName: q('.rs .name'), rsState: q('.rs .state') };
-          this._e.rs.addEventListener('click', function (e) { e.stopPropagation(); self._openRoom(); });
+          this._e.rs.addEventListener('click', function (e) { e.stopPropagation(); self._openRoom(true); });
           this._e.nm.addEventListener('click', function (e) { e.stopPropagation(); self._openRoom(); });
           this._e.mo.addEventListener('click', function (e) { e.stopPropagation(); self._openRoom(); });
           // a tap on the dots: a room back or on, by the side of the current dot it lands
@@ -268,7 +268,8 @@
         e.tiles.classList.toggle('scrolling', !!p.scroll && p.tiles.length > cols * rows);
         if (e.name.textContent !== (p.name || 'Room')) e.name.textContent = p.name || 'Room';
         if (e.st.textContent !== (p.status || '')) e.st.textContent = p.status || '';
-        var path = this._roomPath(p.area);
+        // (the chevron: somewhere to go -- the room's page, or the room as a sheet on a screen without one)
+        var path = this._roomPath(p.area) || (p.area && window.hkRoom && window.hkRoom.openSheet ? 'sheet' : null);
         e.chev.style.display = path ? '' : 'none';
         e.nm.setAttribute('aria-label', (p.name || 'Room') + (path ? ', open the room' : ''));
         // the pills: made again only when what they are changes
@@ -390,12 +391,26 @@
         var H = window.hkMenu && window.hkMenu._;
         return (H && H.glyph ? H.glyph(icon || 'mdi:sofa') : icon) || 'mdi:sofa';
       }
-      _openRoom() {
-        var path = this._roomPath(this._area());
-        if (path) C.navigate(path, this);
+      // THE ROOM'S OWN WAYS IN -- the Small tile, the heading, "N More": where When Tapped says (its page, or the room as a
+      // sheet, hk-room.js), the other when the screen has none of it. The Small tile IS the block's plate, so Nothing is
+      // nothing there; the heading and "N More" say they open the room, so they still do (the page first).
+      _openRoom(plate) {
+        var a = this._area();
+        if (!a || C.openTarget(this, this._tapTarget()) || plate) return;
+        if (this._config.tap === 'none') C.openTarget({ _config: {} }, this._tapTarget());
       }
-      // (the plate's tap, hk-base.js openTarget: the heading's, anywhere the block has no accessory)
-      _tapTarget() { var a = this._area(); return a ? [{ room: a }] : []; }
+      // the room as a sheet: the room page's cards, in the shared detail sheet (hk-room.js hkRoom.openSheet)
+      _openSheet() {
+        var a = this._area(), R = window.hkRoom, h = this.client;
+        if (!a || !R || typeof R.openSheet !== 'function') return false;
+        return R.openSheet(a, { name: ((h && h.areas && h.areas[a]) || {}).name || a, icon: this._roomGlyph(a) });
+      }
+      // (the plate's tap, hk-base.js openTarget: the heading's, anywhere the block has no accessory) -- its page, else
+      // (Detail Sheet first, or a screen with no page for the room) the room as a sheet (2026-11-09, the owner)
+      _tapTarget() {
+        var a = this._area(), self = this;
+        return a ? [{ room: a }, { run: function () { if (!self._openSheet()) throw new Error('no sheet'); } }] : [];
+      }
 
       // PRESS AND HOLD: the pill's own tap toggles; held still for HOLD_MS it
       // is the dimmer -- a drag up or down sets the brightness, sent once on
