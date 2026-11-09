@@ -85,8 +85,9 @@ function () {
   house.set('sensor.running_quick_timers', '0', { running: [] });
   house.set('timer.quick_1', 'idle', { friendly_name: 'Quick Timer 1' });
   var none = sized('hk-timer-strip-card', 'S', { entity: 'sensor.running_quick_timers' })._e.__html;
-  ok('none running, Small: no Timers title (2026-11-09), None running, and one key, Start a timer (Small is its state and one action)', !/class="nm"/.test(none) && /None running/.test(none) &&
-     (none.match(/data-preset=/g) || []).length === 0 && /class="rk cap" data-new aria-label="Create a Timer"><hk-icon icon="mdi:plus"><\/hk-icon>Start a timer</.test(none));
+  ok('none running, Small: no Timers title, "Start a Timer" over its one key, the orange + (2026-11-09: no pill wider than the block)', !/class="nm"/.test(none) &&
+     /class="gt idle dg"><span class="dir">Start a Timer<\/span>/.test(none) && (none.match(/data-preset=/g) || []).length === 0 &&
+     (none.match(/<button class="rk add" data-new aria-label="Create a Timer">/g) || []).length === 1 && !/rk cap/.test(none));
   none = sized('hk-timer-strip-card', 'W', { entity: 'sensor.running_quick_timers' })._e.__html;
   // (mockup 5, 2026-11-09: "Start a Timer" a direction -- one line over the rings, the two one group centered)
   ok('...Wide: "Start a Timer" over three rings -- the 5 and 10 minute starts as arcs of an hour, and + (three controls at most)',

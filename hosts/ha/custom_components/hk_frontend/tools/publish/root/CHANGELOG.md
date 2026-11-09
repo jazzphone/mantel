@@ -6,6 +6,11 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 ## Unreleased
 
 **Fixed**
+- **The Small Timers block with nothing running** says "Start a Timer" over an orange + that opens the New Timer sheet, as the bigger sizes do. The "Start a timer" button no longer runs off the block's edge, and "None running" no longer uses the countdown's light type.
+
+## 1.54.0 - 2026-11-09
+
+**Fixed**
 - **The snow past the Holiday slide's window falls**: the screensaver laid the slide out every few seconds, and each time the snow and the other effects started again in new places, so they jumped about instead of falling. They now keep falling, each flake drifting at its own pace.
 
 **Changed**
