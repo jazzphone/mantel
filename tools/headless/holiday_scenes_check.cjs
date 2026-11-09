@@ -56,7 +56,7 @@ const measure = () => {
 
 (async () => {
   for (const eng of input.engines) {
-    const browser = await PW[eng].launch();
+    let browser = await PW[eng].launch();
     const errors = [];
     const open = async (q, W, H) => {
       const page = await browser.newPage({ viewport: { width: W, height: H } });
@@ -78,6 +78,9 @@ const measure = () => {
       await page.close();
     }
     for (const [sn, W, H] of SIZES) {
+      // (a fresh browser for each size: after some 250 pages in one, WebKit stopped answering a page load on a Mac short of memory)
+      await browser.close();
+      browser = await PW[eng].launch();
       for (const [tag, hol, date, scene, days, extra] of CASES) {
         for (const tsz of [100, 250]) {
           const name = eng + ' ' + sn + ' ' + tag + ' corner ' + tsz + '%';

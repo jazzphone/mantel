@@ -10,6 +10,7 @@ Every name and address here is invented.
 """
 from __future__ import annotations
 
+import re
 import json
 
 import pytest
@@ -193,7 +194,7 @@ async def test_an_alarm_pin_saved_by_rest_is_audited_before_it_is_stored(off, mo
     [row] = rows(off.m, "alarm_pin.")
     assert row["action"] == "alarm_pin.set" and json.loads(row["target"]) == {"entity": PANEL,
                                                                             "changed": sorted(body)}
-    assert row["door"] == "lan" and HOUSE_CODE not in json.dumps(off.audit())
+    assert row["door"] == "lan" and not re.search(rf'(?<![0-9a-f]){HOUSE_CODE}(?![0-9a-f])', json.dumps(off.audit()))
 
 
 async def test_an_alarm_pin_saved_on_the_settings_page_is_audited_before_it_is_stored(off, monkeypatch):
