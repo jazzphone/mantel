@@ -23,6 +23,7 @@
     power: 'Power', music: 'Music', doors: 'Doors & Locks', live_tv: 'Live TV', water: 'Water',
     on_now: 'On Now', todo: 'To-do', energy_rings: 'Energy Rings', timeline: 'Recent', intercom: 'Intercom', house_status: 'House Status' };
   // C, Compact (2026-11-07): 3 x 1, Security's HomeView presentation's alone
+  var MAP_SUB = 'Extra Large: where everyone is, on a map, for anyone who can see this screen.';   // (Who's Home's Show Map says so: mockup 13b)
   var SIZE_NAMES = { XS: 'Tiny', S: 'Small', W: 'Wide', C: 'Compact', T: 'Tall', L: 'Large', XL: 'Extra Large', XXL: 'Full Width', F: 'Full View' };
   // a size on a chip or a segment, short enough for four in a row
   var SIZE_SHORT = { XS: 'Tiny', S: 'Small', W: 'Wide', C: 'Compact', T: 'Tall', L: 'Large', XL: 'X\u2011Large', XXL: 'Full', F: 'Full View' };
@@ -319,6 +320,9 @@
     ['square', 'Square', 3, 3, false, [800, 800], 'square']
   ];
   // a grid's cells: their size, gap and (a Square screen's) edge -- hk-grid-catalog.js CELLS
+  // A SAMPLE'S ENTITIES: of these domains in this order, each with a name a person gave (no radio address "0x00158d008...", 2026-11-09)
+  var rawName = function (op) { var t = String(op[1] || op[0]).replace(/^[a-z_]+\./, ''); return /^0x[0-9a-f]/i.test(t) || (/^[0-9a-f]{8,}\b/i.test(t) && /\d/.test(t.split(/\s/)[0])) || !/[a-z]{3}/i.test(t); };
+  function sampleEntities(choices, domains) { return domains.reduce(function (out, d) { return out.concat(choices.filter(function (op) { return op[0].indexOf(d + '.') === 0 && !rawName(op); })); }, []); }
   function cellOf(grid) { return G.CELLS[grid && grid.cell === 'square' ? 'square' : 'tile']; }
   // A NIGHTSTAND (Phone, Landscape: a phone on its side by the bed, as
   // StandBy has it): starters of its own, a big clock on the wallpaper first
@@ -1739,10 +1743,10 @@
       Object.keys(fields).forEach(function (name) {
         var kind = fields[name];
         if (['secondary', 'title', 'room_display', 'thermostat_style', 'tile_height', 'period', 'name_tag', 'tap_target', 'music_tap', 'tv_channel', 'music_show', 'music_playlist', 'music_speaker', 'timeline_show', 'np_background', 'on_now_open', 'everything_more', 'security_presentation', 'security_members', 'security_lit'].includes(kind)) return;
-        if (kind === 'accessories') { opts[name] = self.choices('entity').filter((op) => /^(light|switch|fan|sensor)\./.test(op[0])).slice(0, 4).map((op) => ({ entity: op[0] })); if (!opts[name].length) delete opts[name]; return; }
+        if (kind === 'accessories') { opts[name] = sampleEntities(self.choices('entity'), ['light', 'switch', 'fan', 'sensor']).slice(0, 4).map((op) => ({ entity: op[0] })); if (!opts[name].length) delete opts[name]; return; }
         var choices = self.choices(kind).filter((op) => op[0] !== 'tablet_room');
         if (kind === 'scene' && key === 'scene') choices = choices.filter((op) => self.sceneIds().indexOf(op[0]) >= 0);
-        if (kind === 'entity') choices = choices.filter((op) => /^(light|switch|fan)\./.test(op[0]));
+        if (kind === 'entity') choices = sampleEntities(choices, ['light', 'switch', 'fan']);
         if (kind === 'speaker') choices.sort((a, b) => (self.panel.client.states[b[0]]?.state === 'playing') - (self.panel.client.states[a[0]]?.state === 'playing'));
         if (kind === 'scenes' || kind === 'calendars') { if (choices.length) opts[name] = choices.slice(0, kind === 'scenes' ? 6 : 2).map((op) => op[0]); return; }
         if (kind === 'cameras' || kind === 'refresh') return;                  // (the face: every camera, its own refresh)
@@ -1800,8 +1804,7 @@
       var w = this.iframe.contentWindow;
       if (!w || !w.hkCards || !this.previewView) return;
       var box = this.palette.querySelector('[data-preview-card]'); if (!box) return;
-      // (its frame is the whole screen again: made once for this card, never
-      // again for a change elsewhere in the draft)
+      // (its frame is the whole screen again: made once for this card, never again for a change elsewhere in the draft)
       if (box.querySelector('iframe')) return;
       if (this.catalogOff) this.catalogOff();
       var sz = box.dataset.previewSize, z = SIZES[sz], ctx = this.previewView._config.grid_ctx || {};
@@ -1826,11 +1829,12 @@
         var doc = fw.document, cell = doc.createElement('div'); cell.className = 'cell'; cell.setAttribute('size', sz);
         Object.assign(cell.style, { width: width + 'px', height: height + 'px', position: 'fixed', inset: '0', containerType: 'size', containerName: 'hk-cell' });
         cell.style.setProperty('--hk-cell-w', (width + gap) / z[0] - gap + 'px'); cell.style.setProperty('--hk-cell-h', (height + gap) / z[1] - gap + 'px');
-        // (a square grid's cell as the grid gives it -- hk-layout.js: its inset, its inner corners, and that it is square,
-        // which the blocks ask by style(); the preview had none of them, so a block could look unlike its place on the grid)
+        // (a square grid's cell as the grid gives it, hk-layout.js: its insets, inner corners and shape -- else a block looks unlike its place)
         var sq = this.grid && this.grid.cell === 'square';
         cell.style.setProperty('--hk-block-pad', sq ? '18px' : '14px');
-        ['t', 'r', 'b', 'l'].forEach(function (s) { cell.style.setProperty('--hk-pad-' + s, 'var(--hk-block-pad)'); });
+        // (and the SHAPES' inset, the grid cell's 13 on a square cell -- without it a square Wide Accessory Group's tiles had 375 px for 376 and stacked, 2026-11-09)
+        cell.style.setProperty('--hk-shape-pad', sq ? '13px' : 'var(--hk-block-pad)'); cell.style.setProperty('--hk-text-in', 'calc(var(--hk-block-pad) - var(--hk-shape-pad))');
+        ['t', 'r', 'b', 'l'].forEach(function (s) { cell.style.setProperty('--hk-pad-' + s, 'var(--hk-block-pad)'); cell.style.setProperty('--hk-spad-' + s, 'var(--hk-shape-pad)'); });
         if (sq) {
           cell.style.setProperty('--hk-cell-shape', 'square');
           cell.style.setProperty('--hk-inner-radius', 'max(12px, calc(var(--hk-block-radius, 34px) - var(--hk-block-pad)))');
@@ -1847,8 +1851,7 @@
         Object.assign(card.style, { display: 'block', width: '100%', height: '100%' });
         cell.appendChild(card); view.appendChild(cell); doc.body.replaceChildren(view);
         fw.galleryCard = card; box.removeAttribute('data-loading');
-        // Sample readings are fixed for this illustration. Subscribing the
-        // sample back to the frame's live client hub would feed it into itself.
+        // (sample readings, fixed: subscribed back to the frame's live hub they would feed into themselves)
       };
       frame.addEventListener('load', load, { once: true });
     }
@@ -2107,9 +2110,7 @@
           if (o.list && !o.page) return;
           self.accessoryFields(opts[key] || [], (v) => set(key, v), rows, o.page ? G.PER_PAGE[o.size] : 24); return;
         }
-        // (Who's Home's map shows where everyone is to anyone in front of the screen: it says so -- 2026-11-09, mockup 13b)
-        if (kind === 'boolean') { rows.push(K.toggle({ label: label, sub: card === 'people' && key === 'map' ? 'Extra Large: where everyone is, on a map, for anyone who can see this screen.' : undefined,
-                                                    on: opts[key] === true, onChange: (on) => set(key, on || null) })); return; }
+        if (kind === 'boolean') { rows.push(K.toggle({ label: label, sub: card === 'people' && key === 'map' ? MAP_SUB : undefined, on: opts[key] === true, onChange: (on) => set(key, on || null) })); return; }
         if (kind === 'windows') { self.windows(opts, set, rows); return; }
         if (kind === 'clock_style') {
           rows.push(K.select({ label: 'Style', value: opts[key] || '', options: G.CLOCK_FACES, onChange: (v) => set(key, v || null) }));

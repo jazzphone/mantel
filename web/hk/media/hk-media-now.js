@@ -825,6 +825,11 @@
           '  --hk-np-areas:"art ." "art line" "art title" "art artist" "art strip" "art .";',
           '  --hk-np-rows:minmax(0,1fr) min-content min-content min-content min-content minmax(0,1fr)}',
           ':host([size=W]) .np .grid{column-gap:0;row-gap:0;height:var(--np-art)}',
+          // THE COVER ON THE BLOCK'S MIDDLE, not the grid's (2026-11-09, the owner: "Album art isn't aligned correctly and is pushed
+          // towards the bottom"): the song's column -- its speaker line's 56 px touch area from the block's top edge, the keys and
+          // the volume -- is taller than the cover, so in the grid the cover sat in the middle of what they made, 20 px under the
+          // top and 8 over the foot (more on a square cell). Out of the rows, on the plate: its column keeps its place
+          ':host([size=W]) .np .art{position:absolute;left:' + NP_PAD.l + ';top:50%;transform:translateY(-50%);margin:0}',
           // (the speaker line over the song: no room is left for the progress, which the sheet has -- the owner's order:
           // the volume first, then the progress, 2026-11-09)
           ':host([size=W]) .np .hks .mprog{display:none!important}',
@@ -949,6 +954,8 @@
           '  --hk-np-areas:"art line" "art title" "art strip";--hk-np-rows:min-content minmax(0,1fr) min-content}',
           ':host([size=W][data-grid-pager]) .np .hks .mprog{display:none!important}',
           ':host([size=W][data-grid-pager]) .np .artist{display:none}',
+          // (the cover on the middle of what the dots leave: 20 over, 44 under -- 12 px above the plate's middle)
+          ':host([size=W][data-grid-pager]) .np .art{top:calc(50% - 12px)}',
           ':host([size=T][data-grid-pager]) hk-plate.np{--np-art:min(100cqw - 76px,100cqh - 174px)}',
           // BACKGROUND: CARD (2026-11-05, the owner): the plate every other block has, in the screen's look, and its inks --
           // on a light look the player's white would be gone. No cover behind it, no wash; the glyphs lose the

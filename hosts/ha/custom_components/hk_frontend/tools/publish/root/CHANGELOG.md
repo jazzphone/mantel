@@ -11,6 +11,9 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 **Fixed**
 - **Glyphs sit in the center of their circles** on On Now and House Status: the circle's icon was drawn as a block inside a line box and sat 1 to 3 px low; it is now centered exactly, and the audit checks every circle's glyph to within half a pixel.
+- **The card picker's previews match the screen on square cells**: an Accessory Group (and any block that lays out tiles on the cell's inset) drew its tiles one over another in a column in the picker though it laid them side by side on the screen; the preview's cell now has the grid's own insets. The preview's sample accessories are named lights first, never one named only by its device's address.
+- **The Wide Now Playing block's album art sits on the block's middle**, not low: the song's column beside it is taller than the art, and the art was centered on that.
+- **An empty Small Music block keeps its inset**: "Recently Played" no longer runs past the block's edge before anything has played.
 - **A segmented control with many choices splits into two rows** when they don't fit, instead of drawing one choice over the next -- a block's six sizes in the editor on a phone read Small, Wide, Compact over Tall, Large, X-Large. "X-Large" no longer breaks at its hyphen.
 - **The Small Timers block with nothing running** says "Start a Timer" over an orange + that opens the New Timer sheet, as the bigger sizes do. The "Start a timer" button no longer runs off the block's edge, and "None running" no longer uses the countdown's light type.
 

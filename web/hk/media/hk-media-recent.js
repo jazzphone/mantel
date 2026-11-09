@@ -143,6 +143,9 @@
       // SMALL (2026-11-01, the owner): the cover is the whole block, play in its middle, the name over its foot; a tap
       // anywhere else is the block's When Tapped (Choose a Playlist, the Music page...)
       'hk-plate.mu.S{padding:0;position:relative}',
+      // (...but not when nothing has played: the words keep the block's inset -- with none, "Recently Played" ran past the
+      // block's edge, 2026-11-09, the card picker's preview)
+      'hk-plate.mu.S.em{padding:' + C.blockPad('14px') + '}',
       '.mu.S .bg{position:absolute;inset:0;border-radius:inherit;overflow:hidden}',
       '.mu.S .bg .cvr{width:100%;height:100%;border-radius:0;box-shadow:none}',
       '.mu.S .bg .cvr hk-icon{width:44px;height:44px;--mdc-icon-size:44px;opacity:0}',
@@ -315,7 +318,7 @@
           // (Extra Large: Play at the cover's foot, the column beside it not left empty)
           (s === 'XL' && last ? '<button type="button" class="pp" data-i="0"><hk-icon icon="mdi:play"></hk-icon>Play</button>' : '') +
           '</div></div><div class="hr"></div>' + grid;
-        this._root.innerHTML = '<hk-plate class="mu ' + s + (s === 'XL' && mode !== 'playlist' && !(items && !items.length) ? ' xl2' : '') + '" data-hk-role="card">' + body + '</hk-plate>';
+        this._root.innerHTML = '<hk-plate class="mu ' + s + (s === 'XL' && mode !== 'playlist' && !(items && !items.length) ? ' xl2' : '') + (items && !items.length ? ' em' : '') + '" data-hk-role="card">' + body + '</hk-plate>';
         var plate = this._root.querySelector('hk-plate');
         this._across();
         this._fade();
