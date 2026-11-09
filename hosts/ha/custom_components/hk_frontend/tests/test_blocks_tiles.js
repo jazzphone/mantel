@@ -234,5 +234,18 @@ function () {
   eq('...said in a few words', P.secSays(rows), 'Den Window open');
   ok('Extra Large keeps the keypad beside the list; Large is the list with Home, Away and Disarm',
      H.make('hk-grid-keypad-card')._keys() === true && H.make('hk-grid-security-card')._keys() === false);
-}
+},
+function () {
+  H.section('Scenes at Extra Large: the scene for now beside the others (2026-11-09, mockup 13)');
+  var pl = function (o) { return plan(Object.assign({ hk_cell: 'XL', room: true, scenes: scenePills(3) }, o || {}), {}, null).config; };
+  var wins = [{ start: '00:00', end: '23:59', scene: 'scene.reading', label: 'Reading' }];
+  eq('the plan carries the block\'s own windows, none when it sets none', [pl({ windows: wins }).windows, pl().windows], [wins, null]);
+  var cat = window.hkGridCatalog.config({ id: 'x', card: 'scenes', size: 'XL', at: [0, 0], opts: { windows: wins } }, {});
+  eq('the catalog hands the windows to the card', cat && cat.windows, wins);
+  var G = window.hkGridCards._;
+  var st = { 'scene.movie_night': { state: 'unknown', attributes: { friendly_name: 'Movie Night' } }, 'scene.reading': { state: 'unknown', attributes: { friendly_name: 'Reading' } } };
+  var pick = function (w, ids) { var mine = {}; ids.forEach(function (i) { mine[i] = st[i]; }); var s = G.suggestion({ states: mine, entities: {} }, w, 600); return s && s.scene; };
+  eq('its own window picks its exact scene, among the block\'s scenes only', [pick(wins, ['scene.reading', 'scene.movie_night']), pick(wins, ['scene.movie_night'])], ['scene.reading', null]);
+  eq('the window\'s time is said the house\'s way, by the Suggested Scene block\'s helper', typeof G.clockText('17:00'), 'string');
+},
 ]);

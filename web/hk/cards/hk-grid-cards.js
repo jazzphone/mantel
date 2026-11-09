@@ -90,7 +90,7 @@
     });
   }
   // ------------------------------------------------------------ end of the parts loader
-  var camGrid, camRing, DEFAULT_WINDOWS, dimCall, dims, dragged, fit, HOLD_MS, holds, houseMinutes, layout,
+  var camGrid, camRing, clockText, DEFAULT_WINDOWS, dimCall, dims, dragged, fit, HOLD_MS, holds, houseMinutes, layout,
       menuCounts, minutes, percent, plan, roomLine, roomOf, roomParts, sceneSays, suggestion;
 
   whenBase(function (C) {
@@ -137,7 +137,7 @@
       houseMinutes = K.houseMinutes; layout = K.layout; menuCounts = K.menuCounts; menuItems = K.menuItems;
       minutes = K.minutes; onNow = K.onNow; percent = K.percent; plan = K.plan; roomLine = K.roomLine;
       roomOf = K.roomOf; roomParts = K.roomParts; sceneSays = K.sceneSays; secRows = K.secRows; secSays = K.secSays;
-      suggestion = K.suggestion; whatsOn = K.whatsOn;
+      suggestion = K.suggestion; whatsOn = K.whatsOn; clockText = K.clockText;
     }
 
     loadParts(function () {
@@ -145,7 +145,7 @@
 
       window.hkGridCards = { version: '1.0.0',
         _: { roomOf: roomOf, roomParts: roomParts, fit: fit, layout: layout, percent: percent,
-             dims: dims, dragged: dragged, dimCall: dimCall, suggestion: suggestion, holds: holds, minutes: minutes,
+             dims: dims, dragged: dragged, dimCall: dimCall, suggestion: suggestion, clockText: clockText, holds: holds, minutes: minutes,
              houseMinutes: houseMinutes, plan: plan, menuCounts: menuCounts, DEFAULT_WINDOWS: DEFAULT_WINDOWS,
              HOLD_MS: HOLD_MS, camGrid: camGrid, camRing: camRing, secHv: secHv } };
       watchSize(HkGridRoomCard);

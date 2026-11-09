@@ -70,8 +70,9 @@
                            o.height ? { height: o.height } : {}, o.color ? { color: true } : {}); } },
     scene: { sizes: ['S', 'W'], sources: [], opts: { scene: 'scene', color: 'boolean' }, card: function (s, o) {
       return o.scene ? Object.assign({ type: 'custom:hk-grid-entity-card', entity: o.scene, kind: 'scene', size: s }, o.color ? { color: true } : {}) : stand('Scene', 'mdi:palette', 'Choose a scene in the editor.'); } },
-    scenes: { sizes: ['W', 'T', 'L', 'XL', 'XXL'], sources: ['scenes'], opts: { scenes: 'scenes', surface: 'surface', height: 'tile_height', color: 'boolean' }, card: function (s, o) {
-      return Object.assign({ type: 'custom:hk-scenes-card', surface: o.surface }, o.scenes ? { scenes: o.scenes } : {},
+    scenes: { sizes: ['W', 'T', 'L', 'XL', 'XXL'], sources: ['scenes'], opts: { scenes: 'scenes', surface: 'surface', height: 'tile_height', color: 'boolean', windows: 'windows' }, card: function (s, o) {
+      // windows (2026-11-09, mockup 13): Extra Large's suggested scene, picked as the Suggested Scene block picks it
+      return Object.assign({ type: 'custom:hk-scenes-card', surface: o.surface }, o.scenes ? { scenes: o.scenes } : {}, o.windows ? { windows: o.windows } : {},
                            o.height ? { height: o.height } : {}, o.color ? { color: true } : {}); } },
     now_playing: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: ['speakers'], opts: { speaker: 'speaker', background: 'np_background', tap: 'tap_target' }, card: function (s, o) {
       // T, L and XL: the progress above the transport (the Home app's and Apple
