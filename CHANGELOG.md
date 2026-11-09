@@ -4,6 +4,8 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+## 0.1.157 - 2026-11-09
+
 **Changed**
 - **Who's Home can show a map at Extra Large**: turn on Show Map in the block's options and the left side becomes a map of where everyone is -- each person with a location as their picture on it, the house marked, zoomed to fit everyone (the neighborhood when all are home) -- with everyone listed on the right: Home, then Away with the place and how far. It's off by default, since anyone who can see the screen sees where everyone is.
 - **Live TV's Extra Large size is two columns**: the channel that is on fills the left -- its picture, its number and name ("4.1 · Channel 4") and the show's name over a dark foot with how far through it is -- and the other channels are rows on the right under a "Channels" heading (number on the picture, the show over its channel, a small progress bar). A tap on the picture plays full screen; a tap on a row tunes it. The list scrolls with a soft fade when there are more channels than fit. The left is the channel the block chooses, else the last one you played from it, else the first.
