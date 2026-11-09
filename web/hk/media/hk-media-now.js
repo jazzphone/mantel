@@ -998,8 +998,12 @@
           ':host([size=L]) .np.idle .npi-pc:active{opacity:.6}',
           ':host([size=L]) .np.idle .npic.pl{width:72px;height:72px;border-radius:' + window.hkCards.R.inner + 'px}',
           ':host([size=L]) .np.idle .npi-pc span:last-child{font-size:13px;line-height:16px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-          // (a block of 300 px has no room for the covers under the buttons: the player's top and the buttons, centered)
-          '@container hk-cell (max-height:379px){:host([size=L]) .np.idle .npi-r{display:none}}',
+          // A SHORT LARGE (a tile cell, about 260 px inside -- 2026-11-09: it left the playlists out): the label "Last Played" goes (the
+          // song and Play say it), the art 80, the covers 48 with their names -- the top, the pills and the playlists all fit, the pills'
+          // touch 8 clear of Play's and of the covers'
+          '@container hk-cell (max-height:379px){:host([size=L]) .np.idle .npi-lab{display:none}:host([size=L]) .np.idle .npic.big{width:80px;height:80px}',
+          '  :host([size=L]) .np.idle .npi{gap:8px}:host([size=L]) .np.idle .npi-pc{width:56px;gap:4px}:host([size=L]) .np.idle .npic.pl{width:48px;height:48px}',
+          '  :host([size=L]) .np.idle .npi-h{margin-bottom:6px}:host([size=L]) .np.idle .npi-pc span:last-child{font-size:12px;line-height:15px}}',
           // Extra Large's playlists: Up Next's heading and rows (.npq-h, .npql, .npqr above), the rows' covers 40
           ':host([size=XL]) .np.idle .npi-r{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column}',
           window.hkCards.headCss(':host([size=XL]) .np.idle .npq-h>span'),
