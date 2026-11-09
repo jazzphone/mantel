@@ -68,15 +68,33 @@
     // low, mostly behind the digits; a sun or a moon glows into the sky
     '.wx .wxin .hero{position:relative;width:420px;height:400px;flex:none}',
     '.wx .wxin .hin{position:absolute;inset:0}',
-    '.wx .wxin .bd{position:absolute;line-height:0;font-size:300px;left:-41px;top:-42px;filter:drop-shadow(0 10px 40px rgba(0,10,30,.25))}',
+    // NO FILTER, NO BIG BLUR, NO CASCADE OF LAYERS (2026-11-09, the owner's photo of an
+    // Android tablet: a near-black box, the digits' size, over the 54 and half the
+    // sun). The symbol's paths animate on the compositor (an SVG child's transform
+    // animation), and Chromium cannot tell what such a layer overlaps, so EVERYTHING
+    // painted after it -- the digits with their 30 px text-shadow, every reading,
+    // every line of the foot: 15 layers in 1280 x 800 headless, 3 with the symbol
+    // held still -- became a layer of its own over it. The clip (a rectangle past the
+    // symbol's own, where its shadow fades out) is the bound Chromium needs, so only
+    // what really is over the symbol is. The soft shadow under it is painted, not a
+    // filter: a drop-shadow's 40 px blur of a symbol whose paths turn was a filter
+    // layer redone on every frame. (A white symbol, 70 %, wears it too: .pale)
+    '.wx .wxin .bd{position:absolute;line-height:0;font-size:300px;left:-41px;top:-42px;isolation:isolate;clip-path:inset(-110px)}',
+    '.wx .wxin .bd::before{content:"";position:absolute;z-index:-1;left:6%;top:14%;width:88%;height:88%;border-radius:50%;',
+    '  background:radial-gradient(closest-side,rgba(0,10,30,.2),rgba(0,10,30,.12) 55%,rgba(0,10,30,0))}',
     '.wx .wxin .bd svg{display:block}',
     // (a white symbol -- a cloud, the moon, snow -- behind white digits: eased back)
     '.wx .wxin .hero.pale .bd{opacity:.7}',
     '.wx .wxin .glow{position:absolute;left:-151px;top:-146px;width:520px;height:520px;border-radius:50%;',
     '  background:radial-gradient(circle,rgba(255,214,10,.28),rgba(255,214,10,0) 62%)}',
     '.wx[night] .wxin .glow{background:radial-gradient(circle,rgba(220,230,255,.16),rgba(220,230,255,0) 62%)}',
-    '.wx .wxin .tp{position:absolute;left:73px;bottom:96px;font-size:210px;font-weight:200;letter-spacing:-9px;line-height:.8;white-space:nowrap;',
-    '  text-shadow:0 0 2px rgba(0,10,30,.35),0 6px 30px rgba(0,10,30,.55),0 2px 8px rgba(0,10,30,.3)}',
+    // (the digits' wide, soft shadow is painted too, a gradient behind them -- it was a
+    // 30 px text-shadow, a blur of the whole number redone in the layer the digits
+    // are in; the two close shadows stay)
+    '.wx .wxin .tp{position:absolute;left:73px;bottom:96px;font-size:210px;font-weight:200;letter-spacing:-9px;line-height:.8;white-space:nowrap;isolation:isolate;',
+    '  text-shadow:0 0 2px rgba(0,10,30,.35),0 2px 8px rgba(0,10,30,.3)}',
+    '.wx .wxin .tp::before{content:"";position:absolute;z-index:-1;inset:-40px -40px -30px -36px;',
+    '  background:radial-gradient(closest-side,rgba(0,10,30,.18),rgba(0,10,30,.1) 55%,rgba(0,10,30,0))}',
     '.wx .wxin .hl{position:absolute;left:79px;bottom:46px;font-size:24px;font-weight:600;opacity:.95;white-space:nowrap}',
     '.wx .wxin .bar{position:absolute;left:79px;bottom:16px;width:300px;height:8px;border-radius:4px;background:rgba(255,255,255,.22)}',
     '.wx .wxin .bar i{position:absolute;inset:0;border-radius:4px;background:linear-gradient(90deg,#64d2ff,#ffd60a,#ff9f0a)}',
