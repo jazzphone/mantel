@@ -85,7 +85,35 @@
       // (a short tile -- three down a Tall block on tile cells: its words and its
       // bar; the query reads the tile's content box, inside its 12 px padding)
       '@container (max-height:84px){.lg{display:none}}',
-      '.none{grid-column:1 / -1;align-self:center;text-align:center;' + C.typeCss('caption') + ';color:' + C.v('ink-2') + '}'
+      '.none{grid-column:1 / -1;align-self:center;text-align:center;' + C.typeCss('caption') + ';color:' + C.v('ink-2') + '}',
+      // EXTRA LARGE IN TWO COLUMNS (2026-11-09, mockup 13, the owner: "the TV is showing on the left, with how far in it is; the other channels on
+      // the right, a tap tunes one"): the channel that is on, a 268 px picture the block's height, its number and room over its show and a bar
+      // in a dark foot; the rest as 56 px rows in a list that scrolls, in the shape of Now Playing's. The gap between the columns and the picture's
+      // margin to the edge are the block's inset
+      'hk-plate.tv.xl{display:flex;flex-direction:row;gap:' + C.blockPad('14px').replace(/^.*?(var\(--hk-pad-l,[^)]*\)).*$/, '$1') + ';padding:' + C.blockPad('14px') + '}',
+      '.xl .lf{all:unset;box-sizing:border-box;position:relative;flex:none;width:268px;align-self:stretch;overflow:hidden;cursor:pointer;color:#fff;',
+      '  border-radius:var(--hk-inner-radius,' + C.R.inner + 'px);background:linear-gradient(150deg,var(--c1),var(--c2));text-shadow:0 1px 2px rgba(0,0,0,.22);-webkit-tap-highlight-color:transparent}',
+      '.xl .lf:active{opacity:.85}.xl .lf:focus-visible{outline:2px solid #fff;outline-offset:-4px}',
+      '.xl .lf .bg::before{opacity:.18}.xl .lf .bg::after{background:none}',
+      '.xl .ft{position:absolute;left:0;right:0;bottom:0;display:flex;flex-direction:column;padding:40px 14px 14px;background:linear-gradient(rgba(0,0,0,0),rgba(0,0,0,.76))}',
+      '.xl .ft small{' + C.typeCss('caption') + ';line-height:16px;color:rgba(255,255,255,.86);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+      '.xl .ft b{font-size:22px;font-weight:600;line-height:27px;letter-spacing:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+      '.xl .ft .bar{margin-top:8px}',
+      '.xl .rt{flex:1;min-width:0;display:flex;flex-direction:column}',
+      C.headRowCss('.xl .hd') + C.headCss('.xl .hd>span'),
+      '.xl .ql{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;scrollbar-width:none}',
+      '.xl .ql::-webkit-scrollbar{display:none}',
+      '.xl .ql.more{-webkit-mask-image:linear-gradient(180deg,#000 calc(100% - 56px),transparent);mask-image:linear-gradient(180deg,#000 calc(100% - 56px),transparent)}',
+      '.xl .rw{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:12px;width:100%;height:56px;cursor:pointer;color:' + C.v('ink') + ';',
+      '  border-bottom:1px solid rgba(255,255,255,.1);-webkit-tap-highlight-color:transparent}',
+      '.xl .rw:last-child{border-bottom:0}.xl .rw:active{opacity:.55}.xl .rw:focus-visible{outline:2px solid ' + C.v('ink') + ';outline-offset:-2px}',
+      '.xl .pc{position:relative;flex:none;width:56px;height:40px;overflow:hidden;border-radius:' + C.R.small + 'px;background:linear-gradient(150deg,var(--c1),var(--c2))}',
+      '.xl .pc .bg{border-radius:0}.xl .pc .bg::before{opacity:.18}.xl .pc .bg::after{background:none}',
+      '.xl .pc i{position:absolute;left:3px;top:3px;padding:1px 5px;border-radius:' + C.R.capsule('15px') + ';background:rgba(0,0,0,.55);color:#fff;font-style:normal;font-size:11px;font-weight:700;line-height:13px;font-variant-numeric:tabular-nums}',
+      '.xl .wd{flex:1;min-width:0;display:flex;flex-direction:column}',
+      '.xl .wd b{' + C.typeCss('body') + ';color:' + C.v('ink') + ';font-weight:600;line-height:19px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+      '.xl .wd small{' + C.typeCss('caption') + ';line-height:16px;color:' + C.v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+      '.xl .rw .bar{width:46px;margin:0;background:rgba(255,255,255,.2)}'
     ].join('');
 
     class HkTvChannelsCard extends HkBase {
@@ -99,6 +127,8 @@
         return n ? (this._channels || []).filter(function (c) { return c.number === n; })[0] || null : null;
       }
       _shown() {
+        // (Extra Large lists every channel: its right column scrolls, 2026-11-09, mockup 13)
+        if (this._size() === 'XL') return this._channels || [];
         var one = this._chosen();
         return one ? [one] : (this._channels || []).slice(0, TV_SLOTS[this._size()]);
       }
@@ -165,8 +195,9 @@
             ? 'No channels yet. Add some in ' + window.hkShell.settingsPlace('Pages → Live TV') + '.' : 'Add Live TV to show its channels here.';
           return;
         }
+        if (s === 'XL') { this._renderXL(list); return; }
         var plate = document.createElement('hk-plate');
-        plate.className = 'tv' + (s === 'S' || this._chosen() ? ' one' : '') + (this._chosen() && /^(T|L|XL)$/.test(s) ? ' big' : '');
+        plate.className = 'tv' + (s === 'S' || this._chosen() ? ' one' : '') + (this._chosen() && /^(T|L)$/.test(s) ? ' big' : '');
         plate.setAttribute('data-hk-role', 'card');
         plate.style.setProperty('--n', g[0]); plate.style.setProperty('--r', g[1]);
         var gr = plate;
@@ -196,6 +227,66 @@
         this._fit(plate, g);
         this._tick();
       }
+      // WHICH CHANNEL IS ON (2026-11-09): the page's player is this screen's own stream (hk-cameras.js tvPlayer, a camera
+      // entity in a full-screen viewer), not a media_player, so nothing in the house's states says what a screen is showing
+      // -- it can't be read. So the left is the block's chosen channel, else the last one played from this block, else the
+      // guide's first
+      _onNow(list) {
+        var n = this._played, one = this._chosen();
+        return one || (n && list.filter(function (c) { return c.number === n; })[0]) || list[0];
+      }
+      _renderXL(list) {
+        var h = this.client, self = this, on = this._onNow(list);
+        var rest = list.filter(function (c) { return c !== on; });
+        var plate = document.createElement('hk-plate');
+        plate.className = 'tv xl'; plate.setAttribute('data-hk-role', 'card');
+        var info = function (ch) {
+          var st = (ch.now && h.states[ch.now]) || { state: '', attributes: {} }, a = st.attributes || {};
+          return { a: a, show: st.state && st.state !== 'unknown' && st.state !== 'unavailable' ? st.state : 'Live', t: tintOf(ch.number || ch.name) };
+        };
+        var pic = function (box, a, px) { if (a.image) { box.insertAdjacentHTML('afterbegin', '<span class="bg"></span>'); self._artImage(a.image, box.querySelector('.bg'), '', px); } };
+        var tune = function (b, ch) { b.addEventListener('click', function (e) { e.stopPropagation(); self._open(ch); }); };
+        var i0 = info(on), lf = document.createElement('button');
+        lf.type = 'button'; lf.className = 'lf';
+        lf.style.setProperty('--c1', i0.t[0]); lf.style.setProperty('--c2', i0.t[1]);
+        lf.setAttribute('aria-label', 'Watch ' + (on.name || on.number) + ', ' + i0.show);
+        lf.innerHTML = '<span class="ft"><small></small><b></b>' + (i0.a.start && i0.a.end ? '<i class="bar"><i></i></i>' : '') + '</span>';
+        pic(lf, i0.a, 600);
+        lf.querySelector('small').textContent = (on.number || '') + (on.number && on.name ? ' · ' : '') + (on.name || '');
+        lf.querySelector('b').textContent = i0.show;
+        if (i0.a.start && i0.a.end) this._bars.push({ el: lf.querySelector('.bar i'), a: i0.a });
+        tune(lf, on);
+        plate.appendChild(lf);
+        if (rest.length) {
+          var rt = document.createElement('div'); rt.className = 'rt';
+          var hd = document.createElement('div'), ql = document.createElement('div');
+          hd.className = 'hd'; ql.className = 'ql';
+          var hs = document.createElement('span'); hs.textContent = 'Channels'; hd.appendChild(hs);
+          rt.appendChild(hd); rt.appendChild(ql);
+          rest.forEach(function (ch) {
+            var d = info(ch), b = document.createElement('button');
+            b.type = 'button'; b.className = 'rw';
+            b.style.setProperty('--c1', d.t[0]); b.style.setProperty('--c2', d.t[1]);
+            b.setAttribute('aria-label', 'Watch ' + (ch.name || ch.number) + ', ' + d.show);
+            b.innerHTML = '<span class="pc"><i></i></span><span class="wd"><b></b><small></small></span>' + (d.a.start && d.a.end ? '<i class="bar"><i></i></i>' : '');
+            pic(b.querySelector('.pc'), d.a, 150);
+            b.querySelector('.pc i').textContent = ch.number || String(ch.name || '').slice(0, 2);
+            b.querySelector('b').textContent = d.show;
+            b.querySelector('small').textContent = ch.name || '';
+            if (d.a.start && d.a.end) self._bars.push({ el: b.querySelector('.bar i'), a: d.a });
+            tune(b, ch);
+            ql.appendChild(b);
+          });
+          var fade = function () { ql.classList.toggle('more', ql.scrollHeight - ql.clientHeight - ql.scrollTop > 4); };
+          ql.addEventListener('scroll', fade, { passive: true });
+          plate.appendChild(rt);
+          this._fade = fade;
+        } else plate.classList.add('solo');
+        this._root.innerHTML = '';
+        this._root.appendChild(plate);
+        if (this._fade) { this._fade(); if (typeof requestAnimationFrame === 'function') requestAnimationFrame(this._fade); }
+        this._tick();
+      }
       // THE TILES' SIZE AND HOW MANY (2026-11-08): the width the columns give a tile in the room in the block; its shape the tallest of
       // 4 : 3, 3 : 2 and 16 : 10 that has every channel the block names in the room (none does: 16 : 10, as many as the rows hold); the
       // rest are the page's
@@ -220,6 +311,7 @@
       // THE LIVE TV PAGE'S PLAYER, full screen (hk-cameras.js), once its file is in
       _open(ch) {
         if (!ch || !ch.camera) return;
+        this._played = ch.number;
         var self = this, go = function () {
           var K = window.hkCameras;
           if (!K || !K.tvPlayer || self.isConnected === false) return;

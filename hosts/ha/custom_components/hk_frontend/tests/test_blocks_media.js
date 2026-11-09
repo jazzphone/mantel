@@ -334,8 +334,8 @@ function () {
 function () {
   H.section('Live TV: the page\'s channels, a tile each, a tap plays it full screen');
   eq('S one, W two, T three, L four, XL six', ['S', 'W', 'T', 'L', 'XL'].map(function (s) { return Mx.TV_SLOTS[s]; }), [1, 2, 3, 4, 6]);
-  eq('the tiles\' arrangement: W across, T down, L two by two, XL three by two',
-     [Mx.tvGrid('W', 2), Mx.tvGrid('T', 3), Mx.tvGrid('L', 4), Mx.tvGrid('XL', 6), Mx.tvGrid('XL', 3)], [[2, 1], [1, 3], [2, 2], [3, 2], [3, 1]]);
+  eq('the tiles\' arrangement: W across, T down, L two by two (Extra Large is two columns, below)',
+     [Mx.tvGrid('W', 2), Mx.tvGrid('T', 3), Mx.tvGrid('L', 4)], [[2, 1], [1, 3], [2, 2]]);
   var tv = sized('hk-tv-channels-card', 'W');
   tv.client = client();
   tv._render();
@@ -357,9 +357,25 @@ function () {
     var xl = sized('hk-tv-channels-card', 'XL');
     xl.client = client(); xl._channels = CHANNELS.channels; xl._configured = true;
     xl._render();
-    eq('fewer channels than places: as many tiles as channels', xl._root.children[0].children[0].children.length, 3);
-    // (no LIVE TV label row since 2026-11-08 -- the owner: a block's own name printed on it goes)
-    ok('Extra Large is its channels alone, no label row', xl._root.children[0].children[0].className === 'gr' && xl._root.children[0].children.every(function (c) { return c.className !== 'lh'; }));
+    // EXTRA LARGE IN TWO COLUMNS (2026-11-09, mockup 13): the channel on at the left, the others as rows at the right
+    var plateX = xl._root.children[0];
+    eq('Extra Large: the first channel on the left, the rest as rows', [plateX.className, plateX.children[0].className, plateX.children[1].children[1].children.length], ['tv xl', 'lf', CHANNELS.channels.length - 1]);
+    eq('...the left names the channel and its show', [plateX.children[0].querySelector('small').textContent, plateX.children[0].querySelector('b').textContent].join('|'), '4.1 \u00b7 Channel 4|Evening News');
+    eq('...the right is headed Channels', plateX.children[1].children[0].children[0].textContent, 'Channels');
+    var rows = plateX.children[1].children[1].children;
+    eq('...a row: the show over the channel', [rows[0].querySelector('b').textContent, rows[0].querySelector('small').textContent], ['Coastal Kitchens', 'Food']);
+    var xo = [];
+    window.hkCameras = { tvPlayer: function (owner, ch) { xo.push(ch.number); return { close: function () {}, update: function () {} }; } };
+    xl.isConnected = true;
+    (plateX.children[0]._listeners.click || [])[0]({ stopPropagation: function () {} });
+    (rows[0]._listeners.click || [])[0]({ stopPropagation: function () {} });
+    eq('the left plays the one on; a row tunes its channel', xo, ['4.1', '7.1']);
+    xl._render();
+    eq('the last one played is the one on, after', xl._root.children[0].children[0].querySelector('small').textContent, '7.1 \u00b7 Food');
+    var xc = sized('hk-tv-channels-card', 'XL');
+    xc.client = client(); xc._channels = CHANNELS.channels; xc._configured = true; xc._config = { channel: '9.1' };
+    xc._render();
+    eq('a channel chosen is the one on, whatever was played', xc._root.children[0].children[0].querySelector('small').textContent.slice(0, 3), '9.1');
   });
 },
 function () {
