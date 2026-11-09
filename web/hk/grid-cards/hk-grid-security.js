@@ -51,6 +51,9 @@
       // iconGradient) -- its glyph and words white. Off a HomeView dashboard it
       // is Shortcuts' button: the glyph bare at the top, the name and its state
       // larger at the foot, on the block's inset
+      // LIT (a key that is on: Security armed, with Light Up When Armed): the white plate of a tile that is on, dark words
+      'hk-plate.k.lit{background:#fff;border-color:transparent;--hk-glass-backdrop:none;-webkit-backdrop-filter:none;backdrop-filter:none}',
+      'hk-plate.k.lit .name{color:rgba(0,0,0,0.88)}hk-plate.k.lit .state{color:' + v('ink-on-state') + '}',
       'hk-plate.k[data-paint]{background:linear-gradient(180deg,var(--k-a),var(--k-b)) !important;--hk-glass-backdrop:none;-webkit-backdrop-filter:none;backdrop-filter:none}',
       'hk-plate.k[data-paint] .name{color:#fff !important}hk-plate.k[data-paint] .state{color:rgba(255,255,255,0.85) !important}',
       ':host(:not([tile=centred])) hk-plate.k[data-paint]{padding:' + C.blockPad('14px') + '}',
@@ -117,6 +120,7 @@
         // (Centred: the glyph by what is drawn, as the tiles' -- TILE.centred.ink)
         if (this.getAttribute('tile') === 'centred') e.icon.setAttribute('ink', String(C.TILE.centred.ink)); else e.icon.removeAttribute('ink');
         e.icon.style.color = g ? '#fff' : k.color || '';
+        e.card.classList.toggle('lit', !!k.lit);
         if (e.name.textContent !== k.name) e.name.textContent = k.name;
         var said = this._said || null;
         var text = said ? said.text : k.state;
@@ -311,7 +315,23 @@
       'hk-plate.sec .hd .lm{top:0;margin-left:auto}',
       NOTICE_CSS,
       // (Extra Large: the alarm's keypad, its keys sized to the block)
-      '.kpad{flex:0 0 264px;min-width:0;min-height:0}.kpad.side{flex-basis:330px}.kpad > *{display:block;height:100%}'
+      '.kpad{flex:0 0 264px;min-width:0;min-height:0}.kpad.side{flex-basis:330px}.kpad > *{display:block;height:100%}',
+      // HOMEVIEW'S EXTRA LARGE (`.hv`, the catalog's flag): every glyph on the glass white, as the HomeView blocks have them; armed (`.on`) the
+      // white plate and triggered (`.trg`) the red one, exactly as hk-grid-security-hv-card draws them (Light Up When Armed): the inks the
+      // keypad and the rows read are the custom properties set here, the entries keep their own state (gray tile and dark glyph when
+      // secured, an orange one when not), the mode the alarm is in the blue key
+      'hk-plate.sec.hv .wl hk-icon{color:var(--c,' + v('glyph') + ')}hk-plate.sec.hv .ent hk-icon,hk-plate.sec.hv .row hk-icon,hk-plate.sec.hv .ent.lk hk-icon,hk-plate.sec.hv .row.lk hk-icon{color:' + v('glyph') + '}',
+      'hk-plate.sec.hv .ent.open hk-icon,hk-plate.sec.hv .row.open hk-icon{color:' + v('warn') + '}',
+      'hk-plate.sec.on{background:#fff;border-color:transparent;-webkit-backdrop-filter:none;backdrop-filter:none;--hk-glass-backdrop:none;',
+      '  --hk-ink:rgba(0,0,0,0.88);--hk-ink-2:' + v('ink-on-state') + ';--hk-ink-3:rgba(60,60,67,0.45);--hk-glyph:rgba(0,0,0,0.78);',
+      '  --hk-key:rgba(0,0,0,0.06);--hk-key-strong:rgba(0,0,0,0.12);--hk-glow:none;--hk-warn:#b25400}',
+      'hk-plate.sec.on .ent:not(.open){background:rgba(0,0,0,0.06);border-color:transparent;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none}',
+      'hk-plate.sec.on .ent.open{background:' + C.ACCENTS.orange + ';border-color:transparent;box-shadow:none}',
+      'hk-plate.sec.on .ent.open .n{color:#000}hk-plate.sec.on .ent.open hk-icon{color:rgba(0,0,0,0.82)}hk-plate.sec.on .ents.lst .ent.open .s,hk-plate.sec.on .ent.open .s{color:rgba(0,0,0,0.72)}',
+      'hk-plate.sec.on .arm button.on{background:' + C.ACCENTS.blue + ';color:#fff}',
+      'hk-plate.sec.trg{background:var(--trg,' + C.ACCENTS.red + ');border-color:transparent;-webkit-backdrop-filter:none;backdrop-filter:none;--hk-glass-backdrop:none;',
+      '  --hk-ink:#fff;--hk-ink-2:rgba(255,255,255,0.86);--hk-ink-3:rgba(255,255,255,0.6);--hk-glyph:#fff;--hk-glow:none;--hk-kp-st:#fff}',
+      'hk-plate.sec.trg .op.open,hk-plate.sec.trg .op.open hk-icon,hk-plate.sec.trg .ops .op.toast,hk-plate.sec.trg .ops .op.toast hk-icon{color:#fff}'
     ].join('');
     var SEC_WORDS = { disarmed: ['Disarmed', ''], armed_home: ['Armed', 'Home'], armed_away: ['Armed', 'Away'], armed_night: ['Armed', 'Night'],
                       armed_vacation: ['Armed', 'Vacation'], armed_custom_bypass: ['Armed', 'Custom'], arming: ['Arming…', ''], pending: ['Pending…', ''],
@@ -319,10 +339,18 @@
     // the alarm's state as the block says it: the word, its mode, the shield and its color
     function alarmLook(st) {
       var s = st && st.state, w = SEC_WORDS[s], A = C.ACCENTS;
-      if (!w) return { word: s === 'unavailable' || s === 'unknown' || !st ? 'Unavailable' : String(s), mode: '', icon: 'mdi:shield-off', color: null };
+      if (!w) return { word: s === 'unavailable' || s === 'unknown' || !st ? 'Unavailable' : String(s), mode: '', icon: C.alarmGlyph(s), color: null };
       var armed = /^armed_/.test(s);
-      return { word: w[0], mode: w[1], icon: s === 'disarmed' ? 'mdi:shield-off' : s === 'triggered' ? 'mdi:shield-alert' : s === 'armed_home' ? 'mdi:shield-home' : 'mdi:shield-lock',
+      // (the glyph is Apple Home's shield for the state, hkCards.alarmGlyph -- one for every place the alarm shows, 2026-11-09)
+      return { word: w[0], mode: w[1], icon: C.alarmGlyph(s), armed: armed, triggered: s === 'triggered',
                color: s === 'triggered' ? A.red : armed ? A.teal : /ing$|pending/.test(s) ? A.orange : null, text: s === 'triggered' ? A.red : null };
+    }
+    // LIGHT UP WHEN ARMED (2026-11-09, the owner: "when the alarm is set, the background of the card was white, but the tiles that are locked
+    // still showed locked"): the HomeView presentation's option `lit` (on unless false) -- armed, the block is the white plate of an
+    // accessory that is on (`on`); triggered, the red one (`trg`); disarmed, arming and the rest rest on the glass. '' when the option is off.
+    function hvLit(cfg, look) {
+      if ((cfg || {}).lit === false || !look) return '';
+      return look.triggered ? 'trg' : look.armed ? 'on' : '';
     }
     // ITS LIST: the locks, the garage, the doors and windows (the house's
     // lists, else what it has), each {id, name, icon, value, open, lock}; the
@@ -368,7 +396,7 @@
       _keys() { return false; }
       _sigOf() {
         var id = this._alarm(), st = id && this.client && this.client.states[id];
-        return JSON.stringify([id, st && st.state, secRows(this.client), this._size(), this._blockKey || '']);
+        return JSON.stringify([id, st && st.state, secRows(this.client), this._size(), this._blockKey || '', (this._config || {}).lit, (this._config || {}).hv]);
       }
       _tap() { var id = this._alarm(); if (id) window.hkShell.moreInfo(id, this); }
       // (the plate's tap, hk-base.js openTarget: Small the whole block, Wide its state and Large its heading already
@@ -454,8 +482,14 @@
                    value: shut ? 'Closed' : 'Open', open: !shut, tile: true };
         }));
         if (e.icon.icon !== look.icon) e.icon.icon = look.icon;
-        if (look.color) e.card.style.setProperty('--c', look.color); else e.card.style.removeProperty('--c');
-        if (look.text) e.card.style.setProperty('--t', look.text); else e.card.style.removeProperty('--t');
+        // HOMEVIEW'S EXTRA LARGE (the keypad beside its entries; the catalog says `hv`): white glyphs on the glass, and Light Up When Armed
+        // as the HomeView blocks have it (hvLit) -- armed the white plate and the shield in blue, triggered the red one
+        var hv = !!(this._config || {}).hv, lit = hv && alarm ? hvLit(this._config, look) : '';
+        e.card.classList.toggle('hv', hv); e.card.classList.toggle('on', lit === 'on'); e.card.classList.toggle('trg', lit === 'trg');
+        if (lit === 'trg') e.card.style.setProperty('--trg', 'linear-gradient(180deg,' + C.iconGradient(C.ACCENTS.red).join(',') + ')'); else e.card.style.removeProperty('--trg');
+        var glyphC = lit === 'on' ? C.ACCENTS.blue : lit === 'trg' ? null : look.color;
+        if (glyphC) e.card.style.setProperty('--c', glyphC); else e.card.style.removeProperty('--c');
+        if (look.text && !lit) e.card.style.setProperty('--t', look.text); else e.card.style.removeProperty('--t');
         var big = size === 'S' || size === 'W' || size === 'T' ? look.word : look.word + (look.mode ? ' · ' + look.mode : '');
         var sub = size === 'S' ? [look.mode, says && (/^All /.test(says) ? 'all ' + says.slice(4) : says)].filter(Boolean).join(' · ') : size === 'W' ? (look.mode || says) : size === 'T' ? [look.mode, says].filter(Boolean).join(' · ') : says;
         if (size === 'S' && !look.mode) sub = says;
@@ -705,15 +739,17 @@
         var m = hvModel(el.client, cfg), ids = (m.alarm ? [m.alarm] : []).concat(m.entries.map(function (e) { return e.id; }));
         sheet = { v: 1, title: 'Security', entries: ids.map(function (id, i) { return { id: 's' + (i + 1), entity: id }; }) };
       }
-      return D.openSheet(sheet, { title: 'Security', icon: 'mdi:shield-home', style: cfg.sheet_style, opener: el });
+      return D.openSheet(sheet, { title: 'Security', icon: 'hk:shield-home', style: cfg.sheet_style, opener: el });
     }
 
     // SMALL: a key, as the Small blocks beside it -- in Home's look or HomeView's (the block's Tile Style)
     class HkGridSecurityKey extends HkGridKey {
-      _sigOf() { var m = hvModel(this.client, this._config || {}); return JSON.stringify([hvLine(m), m.alarm, m.alarmSt && m.alarmSt.state, this.getAttribute('tile')]); }
+      _sigOf() { var m = hvModel(this.client, this._config || {}); return JSON.stringify([hvLine(m), m.alarm, m.alarmSt && m.alarmSt.state, this.getAttribute('tile'), (this._config || {}).lit]); }
       _look() {
-        var m = hvModel(this.client, this._config || {}), look = alarmLook(m.alarmSt);
-        return { name: 'Security', icon: m.alarm ? look.icon : 'mdi:shield-home', state: hvLine(m), color: look.color };
+        var m = hvModel(this.client, this._config || {}), look = alarmLook(m.alarmSt), lit = m.alarm ? hvLit(this._config, look) : '';
+        // (armed and lit: the white plate with the shield in blue; triggered and lit: the red plate, the shield and words white)
+        return { name: 'Security', icon: m.alarm ? look.icon : 'hk:shield-home', state: hvLine(m), lit: lit === 'on',
+                 color: lit === 'on' ? C.ACCENTS.blue : look.color, paint: lit === 'trg' ? C.ACCENTS.red : undefined };
       }
       _render() {
         super._render();
@@ -747,7 +783,7 @@
       'hk-plate.hv[size=C] .al,hk-plate.hv[size=XL] .al{flex-basis:calc((100% - 24px) / 3)}',
       'hk-plate.hv[size=L] .al{flex-direction:row;align-items:center;gap:12px;flex:none;min-height:44px}',
       '.al .wl{width:34px;height:34px;display:flex;flex:none}',
-      '.al .wl hk-icon{width:100%;height:100%;--mdc-icon-size:100%;display:flex;color:var(--c,' + v('ink-2') + ')}',
+      '.al .wl hk-icon{width:100%;height:100%;--mdc-icon-size:100%;display:flex;color:var(--c,' + v('glyph') + ')}',
       '.al .tx{display:flex;flex-direction:column;min-width:0}',
       '.al b{' + type('title') + ';font-weight:600;line-height:27px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--t,' + v('ink') + ')}',
       '.al small{' + type('body') + ';color:' + v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
@@ -781,7 +817,7 @@
       '.en.lit{background:#fff;--hk-glass-backdrop:none;-webkit-backdrop-filter:none;backdrop-filter:none}',
       '.en.lit .n{color:#000}.en.lit .s{color:' + v('ink-on-state') + '}.en.lit hk-icon{color:var(--lit)}',
       '.en.unk .s{color:' + v('ink-3') + '}',
-      '.en.more hk-icon{color:' + v('ink-2') + '}',
+      '.en.more hk-icon{color:' + v('glyph') + '}',
       // EXTRA LARGE'S SLOTS ARE HOMEVIEW'S TILES (DESIGN.md "square cells", hkCards.centredTile): each slot a cell of its
       // own (hk-cell), the glyph bare in its box at 31 % (33 % where about square), sized by its ink, the name and its
       // one line centered under it -- the measured numbers, never this block's own
@@ -801,7 +837,6 @@
       'hk-plate.hv .op hk-icon{width:20px;height:20px;--mdc-icon-size:100%;display:flex;flex:none}',
       'hk-plate.hv .op span{' + type('body') + ';font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}',
       NOTICE_CSS, LM_CSS, 'hk-plate.hv .al .lm{top:0}',
-      '.en.lk:not(.lit) hk-icon{color:var(--lk)}',
       '.en.lit hk-icon,.en.lit .s{color:' + v('warn') + '}.en.lit .s{font-weight:600}',
       // (its rows to the foot, their bottom the strip's -- the shield is the top's)
       'hk-plate.hv[size=W] .ents{align-content:end}',
@@ -812,7 +847,21 @@
       'hk-plate.hv[size=L]:not(.tl) .en .n{grid-column:2;font-size:17px;line-height:22px}',
       'hk-plate.hv[size=L]:not(.tl) .en .s{grid-column:3;grid-row:1;font-size:15px;line-height:20px;text-align:right}',
       // (inside a square cell's block, its tiles concentric with it)
-      '.en{border-radius:var(--hk-inner-radius,' + (C.R.inner + 'px') + ')}'
+      '.en{border-radius:var(--hk-inner-radius,' + (C.R.inner + 'px') + ')}',
+      // LIGHT UP WHEN ARMED (2026-11-09): armed (`.on`), the block is the white plate of an accessory that is on -- dark words, the shield in
+      // blue -- and its inks are the lit tile's (the custom properties every part reads: ink, the glyph's, the strip's fill, the warm word).
+      // Each entry keeps its own state on it: secured, a gray tile with a dark glyph; not secured, an orange one (the alert is a fill, as a
+      // white tile would vanish on white); unknown, its words faint. Triggered (`.trg`) is the red plate, everything on it white
+      'hk-plate.hv.on{background:#fff;border-color:transparent;-webkit-backdrop-filter:none;backdrop-filter:none;--hk-glass-backdrop:none;',
+      '  --hk-ink:rgba(0,0,0,0.88);--hk-ink-2:' + v('ink-on-state') + ';--hk-ink-3:rgba(60,60,67,0.45);--hk-glyph:rgba(0,0,0,0.78);',
+      '  --hk-key:rgba(0,0,0,0.06);--hk-glow:none;--hk-warn:#b25400}',
+      'hk-plate.hv.on .en:not(.lit){background:rgba(0,0,0,0.06);border-color:transparent;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none}',
+      'hk-plate.hv.on .en.lit{background:' + C.ACCENTS.orange + ';border-color:transparent;box-shadow:none}',
+      'hk-plate.hv.on .en.lit .n{color:#000}hk-plate.hv.on .en.lit hk-icon{color:rgba(0,0,0,0.82)}',
+      'hk-plate.hv.on .en.lit .s,hk-plate.hv.on .en.ct.lit .s{color:rgba(0,0,0,0.72) !important}',
+      'hk-plate.hv.trg{background:var(--trg,' + C.ACCENTS.red + ');border-color:transparent;-webkit-backdrop-filter:none;backdrop-filter:none;--hk-glass-backdrop:none;',
+      '  --hk-ink:#fff;--hk-ink-2:rgba(255,255,255,0.86);--hk-ink-3:rgba(255,255,255,0.6);--hk-glyph:#fff;--hk-glow:none}',
+      'hk-plate.hv.trg .ops .op.toast,hk-plate.hv.trg .ops .op.toast hk-icon{color:#fff}'
     ].join('');
     // a slot at its smallest: Compact's across, Extra Large's down; a row's height
     var HV_PILL_W = 150, HV_SLOT_H = 96, HV_ROW = 54, HV_GAP = 8;
@@ -823,7 +872,7 @@
       _size() { return sizeOf(this) || (this._config || {}).size || 'W'; }
       _sigOf() {
         var m = hvModel(this.client, this._config || {});
-        return JSON.stringify([m.alarm, m.alarmSt && m.alarmSt.state, m.entries, this._size(), this._blockKey || '']);
+        return JSON.stringify([m.alarm, m.alarmSt && m.alarmSt.state, m.entries, this._size(), this._blockKey || '', (this._config || {}).lit]);
       }
       _button(el, fn) {
         el.setAttribute('role', 'button'); el.setAttribute('tabindex', '0');
@@ -873,16 +922,20 @@
           this._built = true;
         }
         var e = this._e, look = alarmLook(m.alarmSt);
-        e.icon.icon = m.alarm ? look.icon : 'mdi:shield-home';
-        if (look.color && m.alarm) e.card.style.setProperty('--c', look.color); else e.card.style.removeProperty('--c');
-        if (look.text) e.card.style.setProperty('--t', look.text); else e.card.style.removeProperty('--t');
+        e.icon.icon = m.alarm ? look.icon : 'hk:shield-home';
+        // (Light Up When Armed: armed, the white plate and the shield in blue; triggered, the red plate and everything white on it)
+        var lit = m.alarm ? hvLit(this._config, look) : '';
+        e.card.classList.toggle('on', lit === 'on'); e.card.classList.toggle('trg', lit === 'trg');
+        if (lit === 'trg') e.card.style.setProperty('--trg', 'linear-gradient(180deg,' + C.iconGradient(C.ACCENTS.red).join(',') + ')'); else e.card.style.removeProperty('--trg');
+        var glyphC = lit === 'on' ? C.ACCENTS.blue : lit === 'trg' ? null : look.color, textC = lit ? null : look.text;
+        if (glyphC && m.alarm) e.card.style.setProperty('--c', glyphC); else e.card.style.removeProperty('--c');
+        if (textC) e.card.style.setProperty('--t', textC); else e.card.style.removeProperty('--t');
         e.big.textContent = m.alarm ? look.word : 'Security';
         // (the alarm's mode, or -- with nothing to say of it -- the one line Small says)
         var line = hvLine(m);
         e.sub.textContent = m.alarm && line === look.word + (look.mode ? ' · ' + look.mode : '') ? (look.mode || '') : line;
         e.al.setAttribute('aria-label', hvSpoken(m) + (m.alarm && !(this._config || {}).custom_sheet ? '. Opens the alarm.' : '. Opens Security.'));
         e.card.style.setProperty('--lit', (C.PALETTE.icon || {}).mint || C.ACCENTS.mint);
-        e.card.style.setProperty('--lk', C.ACCENTS.teal);
         if (e.ops) {
           var dw = secRows(this.client).filter(function (r) { return !r.tile; }), ok = JSON.stringify(dw);
           if (ok !== this._opsKey) {

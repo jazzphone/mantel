@@ -57,6 +57,16 @@
   // panel knows the code. A refused call answers with an error, which this
   // card shows as "Wrong code" for 3s (a `bad_code_entity` flag is also read
   // for a panel that fails silently).
+  // AN ALARM'S GLYPH, ONE FOR EVERY PLACE IT SHOWS (2026-11-09, the owner: "Should the alarm glyph be the Apple alarm glyph?"): the
+  // shield family -- Apple Home's Security System -- by the state: shield.slash disarmed, checkmark.shield armed at home or at night,
+  // lock.shield armed away (and on its way to it), exclamationmark.shield pending and triggered. The keypad's readout (status), the
+  // Security sheet, the Security blocks, the side pane and the generated alarm tile all take it from hkCards.alarmGlyph.
+  var ALARM_GLYPHS = { disarmed: 'hk:shield-off', disarming: 'hk:shield-off', armed_home: 'hk:shield-home', armed_night: 'hk:shield-home',
+                       armed_away: 'hk:shield-lock', armed_vacation: 'hk:shield-lock', armed_custom_bypass: 'hk:shield-lock', arming: 'hk:shield-lock',
+                       pending: 'hk:shield-alert', triggered: 'hk:shield-alert' };
+  C.ALARM_GLYPHS = ALARM_GLYPHS;
+  C.alarmGlyph = function (state) { return ALARM_GLYPHS[state] || 'hk:shield-off'; };
+
   class HkAlarmKeypadCard extends HkBase {
     // THE KEYPAD (2026-10-15, the page headers' Security System box): the
     // code in a recessed field that says "Enter code", the digits in a 3 x 4
@@ -142,20 +152,21 @@
     static status(s) {
       var P = C.PALETTE.icon, st = s && s.state;
       var M2 = {
-        disarmed: ['hk:shield-off', P.red, 'Disarmed'],
-        armed_home: ['hk:shield-home', P.blue, 'Armed Home'],
-        armed_night: ['hk:shield-home', P.blue, 'Armed Night'],
-        armed_away: ['hk:shield-lock', P.green, 'Armed Away'],
-        armed_vacation: ['hk:shield-lock', P.green, 'Armed Vacation'],
-        armed_custom_bypass: ['hk:shield-lock', P.green, 'Armed'],
-        arming: ['hk:shield-lock', P.orange, 'Arming\u2026'],
-        pending: ['hk:shield-alert', P.orange, 'Pending\u2026'],
-        disarming: ['hk:shield-off', P.orange, 'Disarming\u2026'],
-        triggered: ['hk:shield-alert', P.red, 'Triggered']
+        disarmed: [P.red, 'Disarmed'],
+        armed_home: [P.blue, 'Armed Home'],
+        armed_night: [P.blue, 'Armed Night'],
+        armed_away: [P.green, 'Armed Away'],
+        armed_vacation: [P.green, 'Armed Vacation'],
+        armed_custom_bypass: [P.green, 'Armed'],
+        arming: [P.orange, 'Arming\u2026'],
+        pending: [P.orange, 'Pending\u2026'],
+        disarming: [P.orange, 'Disarming\u2026'],
+        triggered: [P.red, 'Triggered']
       };
-      var m = M2[st] || ['hk:shield-off', 'var(--hk-glyph,rgba(255,255,255,0.55))',
+      var m = M2[st] || ['var(--hk-glyph,rgba(255,255,255,0.55))',
                          !s || st === 'unavailable' || st === 'unknown' ? 'Unavailable' : String(st)];
-      return { icon: m[0], color: m[1], word: m[2] };
+      // (--hk-kp-st: a block that paints the plate in the state's own color -- Security's red when triggered -- says its glyph's)
+      return { icon: C.alarmGlyph(st), color: 'var(--hk-kp-st,' + m[0] + ')', word: m[1] };
     }
 
     // AN ALARM THAT TAKES NO CODE (its code_format null -- a panel that arms

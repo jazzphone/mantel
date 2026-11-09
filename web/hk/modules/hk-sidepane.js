@@ -278,6 +278,7 @@
     var id = setting('security.alarm', null) || domainIds(c, 'alarm_control_panel')[0];
     return id ? { id: id, st: states(c)[id] } : null;
   }
+  function shieldOf(a) { var C = window.hkCards; return a && C && C.alarmGlyph ? C.alarmGlyph(a) : KINDS.security[1]; }
   var ALARM = { disarmed: 'Disarmed', armed_home: 'Armed · Home', armed_away: 'Armed · Away',
                 armed_night: 'Armed · Night', armed_vacation: 'Armed · Vacation', triggered: 'Alarm!',
                 arming: 'Arming', pending: 'Pending', armed_custom_bypass: 'Armed' };
@@ -771,7 +772,7 @@
       var lockLine = !locks.length ? '' : un.length ? un.length + ' unlocked' : 'All locked';
       var state = a ? ALARM[a] || a : locks.length ? (un.length ? 'Unlocked' : 'Locked') : 'No alarm';
       if (s === 'tiny') return tiny('security', esc(state), esc(lockLine));
-      var top = '<div class="r2 big">' + icon(KINDS.security[1], ' class="shield"') + '<span class="tx">' + esc(state) + '</span></div>';
+      var top = '<div class="r2 big">' + icon(shieldOf(a), ' class="shield"') + '<span class="tx">' + esc(state) + '</span></div>';
       // ONLY WHAT IS OPEN (the owner, 2026-10-31: "if all windows, doors, and locks are closed and locked, I don't
       // really need to know that... I just need to know when something opens"): All Locked the all-clear, then
       // the windows and doors open, if any -- never "all windows closed"
@@ -780,7 +781,7 @@
         var gist = [lockLine, open.length ? n(open.length, 'window', 'windows') : '', doors.length ? n(doors.length, 'door', 'doors') : '']
           .filter(Boolean).join(' · ');
         // ONE LINE (2026-10-31, the owner: two lines "doesn't look great"): the state, and what is open at its right
-        return box('security', s, head('security') + '<div class="r2 big">' + icon(KINDS.security[1], ' class="shield"') + '<span class="tx">' + esc(state) + '</span>' +
+        return box('security', s, head('security') + '<div class="r2 big">' + icon(shieldOf(a), ' class="shield"') + '<span class="tx">' + esc(state) + '</span>' +
           (gist ? '<span class="v2 sub2">' + esc(gist) + '</span>' : '') + '</div>');
       }
       var list = locks.slice(0, s === 'full' ? 8 : 4).map(function (id) { var x = states(c)[id] || {}; return [nameOf(x, id), x.state === 'unlocked' ? 'Unlocked' : x.state === 'locked' ? 'Locked' : String(x.state || ''), x.state === 'unlocked' ? 'mdi:lock-open-variant' : 'mdi:lock', x.state === 'unlocked' ? 'warn' : '', id]; });

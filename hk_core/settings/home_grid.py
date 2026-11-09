@@ -89,10 +89,11 @@ CATALOG: dict[str, dict[str, Any]] = {
     "cameras": {"sizes": ("XL", "XXL", "F"), "sources": (), "opts": {"cameras": "cameras", "refresh": "refresh"}},
     # Large and Extra Large (2026-10-24): the alarm's keypad. presentation (2026-11-07): "homeview", the five HomeView
     # compositions (Small, Wide, Compact, Large, Extra Large) -- absent, the block as it always was, keypads and all;
-    # members: the locks and garage doors it shows, in order (absent: the house's, automatically)
+    # members: the locks and garage doors it shows, in order (absent: the house's, automatically); lit (2026-11-09): Light Up When
+    # Armed, a boolean that is on unless it is false -- the block is the white plate of a tile that is on while the alarm is armed
     "security": {"sizes": ("S", "W", "C", "T", "L", "XL"), "sources": (),
                  "opts": {"entity": "alarm", "tap": "tap_target", "presentation": "security_presentation",
-                          "members": "security_members", "height": "tile_height"}},
+                          "members": "security_members", "lit": "security_lit", "height": "tile_height"}},
     "timers": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"tap": "tap_target"}},
     "weather": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"entity": "weather", "sky": "boolean", "big": "boolean", "tap": "tap_target"}},
     "calendar": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"calendars": "calendars", "days": "days", "month": "boolean", "tap": "tap_target"}},
@@ -458,6 +459,7 @@ OPTION_KINDS = {
     "everything_more": _everything_more,
     "security_presentation": _security_presentation,
     "security_members": _security_members,
+    "security_lit": _boolean,
     "tv_channel": _tv_channel,
     "music_show": _music_show,
     "timeline_show": _timeline_show,

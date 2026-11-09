@@ -157,7 +157,8 @@
     pot: 30, popcorn: 26, dresser: 25, seat: 26, 'audio-video': 32, projector: 32, 'remote-tv': 26,
     'television-speaker': 30, 'speaker-multiple': 30, radio: 28, 'volume-high': 26, 'router-wireless': 30,
     wifi: 26, laptop: 30, cellphone: 24, tablet: 25, watch: 24, printer: 26, 'party-popper': 26, balloon: 26,
-    paw: 26, 'ev-station': 26, clock: 24, alarm: 25, 'trash-can': 24
+    paw: 26, 'ev-station': 26, clock: 24, alarm: 25, 'trash-can': 24,
+    'shield-off': 24, 'shield-home': 24, 'shield-lock': 24, 'shield-alert': 24
   };
   Object.keys(PX_KIN).forEach(function (k) { if (!PX[k]) PX[k] = PX_KIN[k]; });
   // ON A FAVORITE, where the hand-written favorites drew a glyph at a size of
@@ -286,13 +287,10 @@
         icon_tap_action: { action: 'perform-action', perform_action: 'button.press', target: { entity_id: id } } });
     },
     alarm_control_panel: function (id, name) {
-      var armed = {};
-      ['armed_home', 'armed_away', 'armed_night', 'armed_vacation', 'armed_custom_bypass',
-       'arming', 'triggered'].forEach(function (s) { armed[s] = 'hk:alarm-light'; });
-      // A tap opens the alarm's keypad sheet, as any device's tap opens its
-      // sheet.
-      return sized({ type: 'custom:hk-tall-card', entity: id, name: name, icon: 'hk:alarm-light-off',
-        icon_states: armed, icon_color: 'mint', bare_icon: true, well_background: 'transparent',
+      var glyphs = Object.assign({}, (window.hkCards && window.hkCards.ALARM_GLYPHS) || {});   // the state's shield, as everywhere (hk-security.js)
+      // A tap opens the alarm's keypad sheet, as any device's tap opens its sheet.
+      return sized({ type: 'custom:hk-tall-card', entity: id, name: name, icon: 'hk:shield-off',
+        icon_states: glyphs, icon_color: 'mint', bare_icon: true, well_background: 'transparent',
         label_mode: 'alarm', view_layout: TALL });
     }
   };
