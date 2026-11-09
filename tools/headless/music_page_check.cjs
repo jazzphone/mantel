@@ -18,7 +18,8 @@ function measureSrc() {
   const cols = q('.mu') && q('.mu').getAttribute('cols'), shown = (e) => e && e.getBoundingClientRect().width > 0 && getComputedStyle(e).display !== 'none';
   const out = { cols, sheet: !!(left && left.classList.contains('sheetup')), card: R(card) };
   if (strip && window.hkNpStrip) {
-    out.strip = window.hkNpStrip.check(strip, { min: 44 });
+    out.strip = window.hkNpStrip.check(strip, { min: 44, line: q('.ttl .hksl') });
+    out.ends = [...r.querySelectorAll('.hks .mctl > [data-act]')].filter((e) => e.getBoundingClientRect().width > 0 && getComputedStyle(e).visibility !== 'hidden').map((e) => e.getAttribute('data-act'));
     out.look = playerLook(r, { bar: '.mbar', pp: '.mpp svg', vol: '.mvt', buttons: '.hks .mbtn' });
     // (the column's margins either side: the strip's bars to the left section's edges)
     const L = R(left), bar = R(q('.hks .mbar'));
@@ -66,7 +67,15 @@ const measure = new Function('return ' + measureSrc.toString().replace('PLAYER_L
       if (input.shots) await page.screenshot({ path: `${input.shots}/${tag}-music.png` });
       if (!input.only) {
         assert(m.strip, tag + ': the player is the controls strip ' + JSON.stringify(m));
-        assert(!m.strip.breaks.length && m.strip.gapTV >= 12 && m.strip.gapPT >= 12, tag + ': 44 px targets, play / pause the biggest, nothing overlapping, 12 px clear round the keys ' + JSON.stringify(m.strip));
+        assert(!m.strip.breaks.length && m.strip.gapTV >= 12 && m.strip.gapPT >= 12 && m.strip.gapL >= 12 && m.strip.targets.line[1] >= 43.5,
+               tag + ': 44 px targets (the speaker line\'s too), play / pause the biggest, nothing overlapping, 12 px clear round the keys and the line ' + JSON.stringify(m.strip));
+        // (the owner's mockup 12h, 2026-11-09: Browse at the row's left end, Up Next at its right; the speaker line opens the speakers)
+        assert.deepEqual([m.ends[0], m.ends[m.ends.length - 1]], ['brw', 'queue'], tag + ': Browse left, Up Next right ' + JSON.stringify(m.ends));
+        const card = page.locator('hk-music-card');
+        await card.locator('.ttl .hksl').tap();
+        await card.locator('.mpanel [data-p="speakers"]:not([hidden])').first().waitFor({ state: 'visible', timeout: 8000 });
+        await page.waitForTimeout(700);
+        if (input.shots) await page.screenshot({ path: `${input.shots}/${tag}-speakers.png` });
         assert(!m.look.wells.length && m.look.above !== undefined && Math.abs(m.look.above - m.look.below) <= 3, tag + ': the player bare, the pause halfway ' + JSON.stringify(m.look));
         assert(Math.abs(m.margins.left - m.margins.right) <= 1, tag + ': the column\'s margins even ' + JSON.stringify(m.margins));
         console.log(`PASS ${input.engine} ${tag} (${m.cols} column${m.cols === '1' ? ', the sheet' : 's'}): targets ${JSON.stringify(m.strip.targets)}, keys to volume ${m.strip.gapTV} px, ` +

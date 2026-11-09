@@ -35,9 +35,9 @@ GRID = {'v': 1, 'cols': 6, 'rows': 4, 'frame': [1280, 800], 'band': True, 'items
     {'id': 's', 'card': 'now_playing', 'size': 'S', 'at': [0, 2]}]}
 # the block's buttons, the cover and the transport, as rectangles
 LAYOUT = """(id)=>{let r=np(id).shadowRoot,R=e=>{let b=e.getBoundingClientRect();return [b.left,b.top,b.right,b.bottom]};
-  return {plate:R(r.querySelector('hk-plate')),art:R(r.querySelector('.art')),spk:R(r.querySelector('[data-act=spk]')),brw:R(r.querySelector('[data-act=brw]')),
+  return {plate:R(r.querySelector('hk-plate')),art:R(r.querySelector('.art')),spk:R(r.querySelector('[data-act=queue]')),brw:R(r.querySelector('[data-act=brw]')),line:R(r.querySelector('.hksl')),
           prev:R(r.querySelector('[data-act=prev]')),play:R(r.querySelector('[data-act=pp]')),next:R(r.querySelector('[data-act=next]')),
-          shown:getComputedStyle(r.querySelector('[data-act=spk]')).display!=='none'&&getComputedStyle(r.querySelector('[data-act=brw]')).display!=='none',
+          shown:getComputedStyle(r.querySelector('[data-act=queue]')).display!=='none'&&getComputedStyle(r.querySelector('[data-act=brw]')).display!=='none',
           vol:getComputedStyle(r.querySelector('.mvol')).display!=='none'}}"""
 
 
@@ -67,7 +67,9 @@ async def main():
             state('media_player.living_room', 'playing')
             assert await b.wait("['w','t','l','x','s'].every(id=>np(id)&&np(id).shadowRoot.querySelector('[data-act=spk]'))", 20)
             await asyncio.sleep(1.5)
-            # Large and Extra Large: Speakers and Browse shown, inside the block, apart (8 px) from the cover and the transport
+            # Large and Extra Large: Browse and Up Next shown at the row's ends (`spk` here is Up Next since the owner's mockup 12h,
+            # 2026-11-09: the Speakers key became the speaker line over the title), inside the block, apart (8 px) from the cover
+            # and the transport; the speaker line 56 px tall, 12 px clear of the keys
             for bid in ('l', 'x'):
                 lay = await b.eval('(' + LAYOUT + ")('" + bid + "')")
                 z = await b.eval("np('" + bid + "').getBoundingClientRect().width/np('" + bid + "').offsetWidth")
@@ -79,6 +81,8 @@ async def main():
                     for o in ('art', 'prev', 'play', 'next'):
                         assert apart(lay[k], lay[o], 8 * z), (bid, k, o, lay)
                 assert apart(lay['prev'], lay['play'], 8 * z) and apart(lay['play'], lay['next'], 8 * z), (bid, lay)
+                tl = await b.eval("hkNpStrip.check(np('" + bid + "').shadowRoot.querySelector('.hks'),{min:56,scale:" + str(z) + ",line:np('" + bid + "').shadowRoot.querySelector('.hksl')})")
+                assert not tl['breaks'] and tl['targets']['line'][1] >= 55.5 and tl['gapL'] >= 12, (bid, tl)
             # Small, Wide and Tall: no Speakers or Browse (the sheet has them); the keys 44 px with 8 px clear; Wide and Tall
             # the volume again (2026-11-09, the owner: "Looks like the tall and the wide cards lost their volume slider?") --
             # but not on this grid's tile-sized Wide, 110 px inside, where the keys and the volume do not both fit as targets

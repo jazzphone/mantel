@@ -556,11 +556,12 @@ let lastMinuteDone = false;
             say(u.words.length > 0 && !hit, tag + ': ...none on the slide\u2019s words', [hit, u.words]);
           }
           // THE MUSIC'S BUTTONS ACT AND LEAVE IT UP (2026-11-02, the owner: "when touching the buttons on the Music Slide... skip,
-          // browse, speaker... it kills the screensaver and goes back to the dashboard"): a finger on Next, Speakers and Browse
-          for (const act of ['next', 'spk', 'brw']) {
+          // browse, speaker... it kills the screensaver and goes back to the dashboard"): a finger on Next, Speakers (the speaker
+          // line over the title since the owner's mockup 12h, 2026-11-09), Browse and Up Next
+          for (const act of ['next', 'spk', 'brw', 'queue']) {
             const at = await page.evaluate((act) => {
               const deep = (r) => [...r.querySelectorAll('*')].flatMap((e) => [e, ...(e.shadowRoot ? deep(e.shadowRoot) : [])]);
-              const b = deep(document).find((e) => e.classList && e.classList.contains('mbtn') && e.getAttribute('data-act') === act && e.closest('.mu') && e.getBoundingClientRect().width > 0);
+              const b = deep(document).find((e) => e.classList && (e.classList.contains('mbtn') || e.classList.contains('hksl')) && e.getAttribute('data-act') === act && e.closest('.mu .mcol') && e.getBoundingClientRect().width > 0);
               if (!b) return null; const r = b.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
             }, act);
             if (!at) { say(false, tag + ': ...the music slide has its ' + act + ' button', null); continue; }

@@ -40,7 +40,8 @@ const HELP = () => {
     // Speakers' and Browse's glyphs: each ink's middle from its button's, in px, and nothing drawn behind it (bare
     // since 2026-11-07, the owner: "do we need the wells (circles) behind the icons?")
     // (the card's buttons are the controls strip's since 2026-11-09, hk-np-strip.js: found by their data-act)
-    wells: () => deep(document, 'hk-now-playing-card').flatMap(c => ['[data-act=spk]', '[data-act=brw]'].map(k => {
+    // (the row's ends since the owner's mockup 12h, 2026-11-09: Browse and Up Next)
+    wells: () => deep(document, 'hk-now-playing-card').flatMap(c => ['[data-act=brw]', '[data-act=queue]'].map(k => {
       const e = c.shadowRoot.querySelector('.np .hks ' + k);
       if (!e || getComputedStyle(e).display === 'none') return null;
       const r = e.getBoundingClientRect(), ic = e.querySelector('hk-icon');

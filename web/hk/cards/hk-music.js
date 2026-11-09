@@ -259,6 +259,10 @@
     // PLAYING ON: as tall as the search beside it and level with it; Change
     // a button inside it, inset 7 px and concentric with it (18 - 7 = 11)
     '.pon{flex:none;display:flex;align-items:center;gap:10px;height:50px;padding:0 7px 0 14px;border-radius:18px;margin-bottom:14px;box-sizing:border-box}',
+    // (the Playing On pill gives way to the speaker line over the song -- mockup 12h, 2026-11-09; kept, unseen, for what reads it)
+    '.left > .pon{display:none}',
+    '.ttl{flex:none;margin-top:16px;font-size:15px;font-weight:600;opacity:.8;line-height:20px}',
+    '.ttl + .tt{margin-top:2px}',
     '.pon hk-icon{--mdc-icon-size:22px;width:22px;height:22px;color:var(--hk-glyph,#fff);flex:none;display:flex}',
     '.pon .tx{flex:1;min-width:0;line-height:1.2}',
     '.pon .tx small{display:block;font-size:11px;font-weight:600;letter-spacing:0.4px;opacity:.6;text-transform:uppercase}',
@@ -594,12 +598,16 @@
             '<div class="house"></div>' +
             '<div class="front">' +
               '<div class="artbox"><div class="art"><hk-icon icon="mdi:music"></hk-icon></div></div>' +
+              // THE SPEAKER LINE over the song (the owner's mockup 12h, 2026-11-09): where it plays, a tap the speakers --
+              // the Playing On pill's and the Speakers key's place, both gone
+              '<div class="ttl">' + window.hkNpStrip.lineHtml({ keys: { attr: 'data-k', spk: 'speakers' } }) + '</div>' +
               '<div class="tt"></div><div class="st"></div>' +
               // THE CONTROLS STRIP (2026-11-09, the owner: "more space in general above and below the play button", then
               // "move the music page too"; hk-np-strip.js): the progress, the keys and the volume every music player draws
               // with -- its taps found by data-k as before, Queue at the right end where the others have Browse
-              window.hkNpStrip.html({ prog: 'bar', vol: 'bar', end: { label: 'Queue', glyph: svg(ICON.queue) },
-                                      keys: { attr: 'data-k', spk: 'speakers', prev: 'previous', pp: 'play_pause', next: 'next', brw: 'queue' } }) +
+              // (Browse at the row's left end, the search box to hand; Up Next, the queue, at its right)
+              window.hkNpStrip.html({ prog: 'bar', vol: 'bar',
+                                      keys: { attr: 'data-k', brw: 'browse', prev: 'previous', pp: 'play_pause', next: 'next', queue: 'queue' } }) +
               '<div class="nx" hidden><div class="th">' + svg(ICON.note) + '</div><div style="min-width:0"><small>UP NEXT</small><div class="t"></div></div></div>' +
             '</div>' +
           '</section>' +
@@ -616,7 +624,7 @@
                   front: q('.front'), art: q('.art'), tt: q('.tt'), st: q('.st'), bar: q('.hks .mbar i'), t0: q('.hks .mtimes span:first-child'),
                   t1: q('.hks .mtimes span:last-child'), strip: q('.hks'), vol: q('.hks .mvol'), tk: q('.hks .mvt'),
                   nx: q('.nx'), nxT: q('.nx .t'), nxTh: q('.nx .th'), right: q('.right'), rooms: q('.rooms'),
-                  scrim: q('.scrim'), toast: q('.toast'), spk: q('.hks [data-act=spk]'), qbtn: q('.hks [data-act=brw]'),
+                  scrim: q('.scrim'), toast: q('.toast'), spk: q('.ttl .hksl'), line: q('.ttl .hksl'), qbtn: q('.hks [data-act=queue]'),
                   mini: q('.mini'), miniTh: q('.mini .th'), miniB: q('.mini .t b'), miniS: q('.mini .t small'), miniPP: q('.mini .pp path'), grab: q('.grab') };
       this._built = true;
       this._artUrl = undefined; this._houseSig = null; this._nextFor = ''; this._next = null;
@@ -629,6 +637,7 @@
         if (k === 'now') { self._sheet(true); return; }
         if (k === 'change' || k === 'speakers') { self._openPanel('speakers'); return; }
         if (k === 'queue') { self._openPanel('queue'); return; }
+        if (k === 'browse') { self._browse(); return; }
         if (k === 'play_pause' || k === 'next' || k === 'previous') self._transport(k);
       });
       this._e.scrim.addEventListener('click', function () { self._closePanel(true); });
@@ -811,6 +820,7 @@
       e.ponS.textContent = c ? 'Playing on' : 'Ready on';
       // (where the music IS -- never the rooms picked for the next pick)
       e.ponB.setAttribute('data-fit', (c ? c.members : this._targetRooms()).join(','));
+      window.hkNpStrip.line(e.line, (c ? c.members : this._targetRooms()).map(this._nameOf, this));
       // THE HOUSE: a card for each thing playing, when there is more than
       // this page's -- or when what plays is not this page's
       this._drawHouse(c);
@@ -990,6 +1000,12 @@
     // every [data-fit] line: as many room names as fit, then "and N more" --
     // measured on the line itself (a canvas measure in the page's font came
     // out narrower than the page drew it, and a name was cut)
+    // BROWSE (the transport's left end, 2026-11-09): the page's own search -- over a phone's sheet, the sheet put away first
+    _browse() {
+      this._sheet(false);
+      var lib = this._lib, s = lib && lib.shadowRoot && lib.shadowRoot.querySelector('.search');
+      if (s) try { s.focus(); } catch (x) { /* not focusable yet */ }
+    }
     _fitLines() {
       var self = this, root = this._root;
       if (!root || !root.querySelectorAll) return;

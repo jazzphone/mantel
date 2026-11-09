@@ -334,7 +334,13 @@
       // <img>, a faint light border round the no-artwork placeholder (seen on
       // the tablets, 2026-10-11) -- the big art's and Up Next's alike
       '.mu img:not([src]),.pm img:not([src]){visibility:hidden}',
-      '.mroom,.martist,.malbum,.mnt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+      '.martist,.malbum,.mnt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+      // THE SPEAKER LINE in the room's place (hk-np-strip.js; mockup 12h, 2026-11-09): the room's size and weight, its
+      // touch area 44 px tall round the words -- not clipped, so the row does not clip it; the words cut short instead
+      '.mroom{min-width:0;max-width:100%}.mroom .hksl{text-transform:none;letter-spacing:.1px}',
+      '.mu .mroom .hksl,.pm .mroom .hksl{--hksl-h:max(44px,calc(44px * var(--z)))}',
+      // (narrow places, the first room alone: the screensaver's pane and the Side Pane's Full player)
+      '.pm .hksl-t i{display:none}',
       '.mroom{font-size:calc(19px * var(--z));font-weight:600;opacity:.74;letter-spacing:.1px}',
       '.mtitle{font-size:calc(44px * var(--z));font-weight:700;letter-spacing:-.6px;line-height:1.1;margin-top:calc(10px * var(--z));',
       '  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}',

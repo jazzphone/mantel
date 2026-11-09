@@ -279,15 +279,18 @@ ok('Now Playing: Tiny the song and a pause; More the mini player a size up (2026
    X.SEC.now_playing('tiny', {}, client, ctx).indexOf('Late Light') > 0 && /data-act="pp"/.test(X.SEC.now_playing('tiny', {}, client, ctx)) &&
    !/data-slot="np"/.test(more) && /class="r2 np np2"/.test(more) && /data-act="spk"/.test(more) && /data-act="brw"/.test(more) &&
    /data-slot="np"/.test(X.SEC.now_playing('full', {}, client, ctx)), more);
-ok('...More shows the song\'s progress over the row, Less does not', /class="npp" role="progressbar"/.test(more) && more.indexOf('class="npp"') < more.indexOf('data-act="spk"') &&
+ok('...More shows the song\'s progress over the row, Less does not', /class="npp" role="progressbar"/.test(more) && more.indexOf('class="npp"') < more.indexOf('data-act="brw"') &&
    !/class="npp"/.test(X.SEC.now_playing('less', {}, client, ctx)));
 ok('...Full takes what the pane has left', /class="sec mp grow"/.test(X.SEC.now_playing('full', {}, client, ctx)));
 var less = X.SEC.now_playing('less', {}, client, ctx);
 var at = function (h, act) { return h.indexOf('data-act="' + act + '"'); };
-ok('...Less, a mini player (2026-10-31, the owner\'s pick): the song, then Speakers, back, play / pause, next, Browse on one row',
-   /data-act="spk"[^>]*aria-label="Speakers"/.test(less) && /data-act="brw"[^>]*aria-label="Browse Music"/.test(less) &&
-   less.indexOf('Late Light') < at(less, 'spk') && at(less, 'spk') < at(less, 'prev') && at(less, 'prev') < at(less, 'pp') &&
-   at(less, 'pp') < at(less, 'next') && at(less, 'next') < at(less, 'brw') && /class="mbtn mpp"/.test(less), less);   // (the controls strip's keys since 2026-11-09: hk-np-strip.js)
+// (the owner's mockup 12h, 2026-11-09: the speaker line over the song is the Speakers key -- its first room -- and the row
+// Browse, back, play / pause, next, Up Next)
+ok('...Less, a mini player (2026-10-31, the owner\'s pick): the speaker line over the song, then Browse, back, play / pause, next, Up Next on one row',
+   /class="hksl" data-act="spk"[^>]*aria-label="Speakers"/.test(less) && /data-act="brw"[^>]*aria-label="Browse Music"/.test(less) &&
+   /data-act="queue"[^>]*aria-label="Up Next"/.test(less) &&
+   at(less, 'spk') < less.indexOf('Late Light') && less.indexOf('Late Light') < at(less, 'brw') && at(less, 'brw') < at(less, 'prev') && at(less, 'prev') < at(less, 'pp') &&
+   at(less, 'pp') < at(less, 'next') && at(less, 'next') < at(less, 'queue') && /class="mbtn mpp"/.test(less), less);   // (the controls strip's keys since 2026-11-09: hk-np-strip.js)
 var src = readFile(HK_ROOT + '/frontend/modules/hk-sidepane.js');
 // (as a drawer from the section since 2026-11-01: the player risen to the pane's top, the tabs under it)
 ok('...Speakers, Browse and Up Next open the screensaver\'s panel over the pane, its four tabs', /musicPanel\(this, act === 'spk' \? 'speakers' : act === 'queue' \? 'queue' : 'browse', b\.closest\('\[data-k="now_playing"\]'\), 'drawer'\)/.test(src) &&

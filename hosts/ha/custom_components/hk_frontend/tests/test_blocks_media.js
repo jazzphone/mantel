@@ -82,20 +82,25 @@ function () {
   ok('...on a tile cell the artist goes and the cover takes the height left', /@container hk-cell \(max-height:179px\)\{:host\(\[size=S\]\)[^}]*--np-art[^}]*\}:host\(\[size=S\]\) \.np \.artist\{display:none\}/.test(css));
   ok('every block: the strip\'s targets 56 px, play / pause 64, 12 px clear above and below the keys, the volume\'s row 56',
      css.indexOf('--hks-min:56px;--hks-b:56px;--hks-pp:64px;--hks-x:56px;--hks-vh:56px;--hks-g1:12px;--hks-g2:12px;') >= 0);
-  ok('Wide: the song and the strip beside the cover', css.indexOf('"art ." "art title" "art artist" "art strip" "art ."') >= 0);
+  // (the speaker line over the title at every size with one -- the owner's mockup 12h, 2026-11-09: its own row, `line`)
+  ok('every block but Small: the speaker line over the title, a 56 px touch area', css.indexOf('grid-area:line;') >= 0 && css.indexOf('--hksl-h:56px') >= 0 &&
+     css.indexOf(':host([size=S]) .np .hksl{display:none}') >= 0);
+  ok('Wide: the speaker line, the song and the strip beside the cover', css.indexOf('"art ." "art line" "art title" "art artist" "art strip" "art ."') >= 0);
   ok('...the cover as big as the keys\' 178 px and the gap beside it (the block\'s inset) leave it', /--np-art:min\(\(100cqh[^;]*- 178px - var\(--hk-pad-l,22px\)\)/.test(css));
   // (the thin line stays in the progress's place, never along the foot -- 2026-11-09, the owner: "it looks bad at the bottom
   // like that")
-  ok('...its progress the thin read-only line under the song, the volume a full row', css.indexOf(':host([size=W]) .np .hks .mprog{pointer-events:none;--hk-prog-h:3px;--hk-prog-times:none') >= 0);
-  ok('...on a tile cell (110 px) the keys and the line: the volume on the sheet', css.indexOf('@container hk-cell (max-height:179px){:host([size=W]) .np .hks .mvol{display:none}}') >= 0);
-  ok('Tall: the cover, the song, the strip', css.indexOf('--hk-np-areas:"art" "title" "artist" "strip";') >= 0);
+  // (2026-11-09: the speaker line over the song took the thin progress line's room -- the owner's order, the volume first,
+  // then the progress; the sheet has it)
+  ok('...no progress, the volume a full row', css.indexOf(':host([size=W]) .np .hks .mprog{display:none!important}') >= 0);
+  ok('...on a tile cell (110 px) the keys alone: the volume on the sheet', css.indexOf('@container hk-cell (max-height:179px){:host([size=W]) .np .hks .mvol{display:none}}') >= 0);
+  ok('Tall: the cover, the speaker line, the song, the strip', css.indexOf('--hk-np-areas:"art" "line" "title" "artist" "strip";') >= 0);
   ok('...the cover on the block\'s axis', css.indexOf(':host([size=T]) .np .art{justify-self:center;align-self:start}') >= 0);
   ok('...the bottom inset 6 px more', /:host\(\[size=T\]\) hk-plate\.np\{--hk-np-pad:[^;]*calc\(var\(--hk-pad-b,20px\) \+ 6px\)/.test(css));
-  ok('Large: the song beside the cover, the strip under them', css.indexOf('--hk-np-areas:"pre" "title" "artist" "post" "." "strip";') >= 0);
+  ok('Large: the speaker line and the song beside the cover, the strip under them', css.indexOf('--hk-np-areas:"pre" "line" "title" "artist" "post" "." "strip";') >= 0);
   ok('...on a tile cell the progress is the thin line, the volume keeps its slider', css.indexOf(':host([size=L]) .np .hks .mprog{pointer-events:none;--hk-prog-h:3px') >= 0);
   ok('Tall on a tile cell: the same', css.indexOf(':host([size=T]) .np .hks .mprog{pointer-events:none;--hk-prog-h:3px') >= 0);
   ok('Extra Large: the group between two flexible rows, centered on the cover',
-     css.indexOf('--hk-np-rows:minmax(0,1fr) min-content min-content min-content minmax(0,1fr)') >= 0 && css.indexOf('"art ." "art title" "art artist" "art strip" "art ."') >= 0);
+     css.indexOf('--hk-np-rows:minmax(0,1fr) min-content min-content min-content min-content minmax(0,1fr)') >= 0 && css.indexOf('"art ." "art line" "art title" "art artist" "art strip" "art ."') >= 0);
   ok('in a pager: no volume row', css.indexOf(':host([size][data-grid-pager]) hk-plate.np{--hk-np-pad:20px 22px 44px;--np-vol:0px}') >= 0);
 },
 function () {
@@ -106,7 +111,7 @@ function () {
     np._turn = function (tab) { turned.push(s + ':' + tab); };
     hkGive(np, house.hass());
     np._render();
-    var spk = np._root.querySelector('[data-act=spk]');
+    var spk = np._root.querySelector('.hksl');   // (the speaker line over the title since 2026-11-09: the Speakers key's place)
     (spk._listeners.click || [])[0]();
   });
   eq('Small: Volume (no slider of its own); Wide: Speakers', turned, ['S:volume', 'W:speakers']);

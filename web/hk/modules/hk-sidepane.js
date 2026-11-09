@@ -254,7 +254,7 @@
     var members = Array.isArray(ctx.members) && ctx.members.length > 1 ? ctx.members.slice() : [ctx.key];
     var vols = members.map(function (k) { return num(attr(all[k], 'volume_level')); }).filter(function (x) { return x !== null; });
     var vol = members.length > 1 ? (vols.length ? vols.reduce(function (n, x) { return n + x; }, 0) / vols.length : null) : num(a.volume_level);
-    return { key: ctx.key, members: members, playing: playing, title: ctx.title || a.media_title || '', artist: ctx.artist || a.media_artist || '',
+    return { key: ctx.key, members: members, rooms: window.hkNpStrip.rooms({ states: all }, ctx.key, members), playing: playing, title: ctx.title || a.media_title || '', artist: ctx.artist || a.media_artist || '',
              pic: pic, at: dur ? Math.max(0, Math.min(1, t / dur)) : 0, left: dur ? Math.max(0, dur - t) : 0, vol: vol };
   }
   // ...held a grace after it stops (All Screens -> Now Playing -> Hide After a Pause)
@@ -750,7 +750,10 @@
         var vol = m.vol === null ? '' : '<input type="range" min="0" max="100" step="1" data-act="vol" aria-label="Volume" value="' +
             Math.round(m.vol * 100) + '" style="--f:' + Math.round(m.vol * 100) + '%">';
         return box('now_playing', s, (s === 'more' ? head('now_playing') : '') + '<div class="r2 np' + (s === 'more' ? ' np2' : '') + '">' + (m.pic ? pic(m.pic, { cls: 'art', ph: 'note' }) : '<span class="art">' + icon('mdi:music') + '</span>') +
-          '<span class="tx"><b>' + esc(m.title) + '</b><i>' + esc(m.artist) + '</i></span></div>' +
+          // (THE SPEAKER LINE over the song, its first room -- the owner's mockup 12h, 2026-11-09: a tap the Speakers
+          // key's, which it replaced; Browse and Up Next at the keys' ends)
+          '<span class="tx">' + window.hkNpStrip.lineHtml({ tag: 'button' }).replace('<b></b>', '<b>' + esc((m.rooms || [])[0] || '') + '</b>') +
+          '<b>' + esc(m.title) + '</b><i>' + esc(m.artist) + '</i></span></div>' +
           window.hkNpStrip.html({ tag: 'button', playing: m.playing, prog: prog ? 'slot' : null, progHtml: prog, vol: vol ? 'slot' : null, volHtml: vol }));
       }
       // FULL: the screensaver's music pane itself (hk-music-pane-card,
@@ -1254,7 +1257,7 @@
       '.evd:first-child{padding-top:0}',
       '.ev:has(+ .evd){border-bottom:0}',
       '.np .art{width:56px;height:56px;border-radius:10px;object-fit:cover;flex:none;background:' + v('key') + ';display:grid;place-items:center}',
-      '.np .tx b{display:block;overflow:hidden;text-overflow:ellipsis}.np .tx i{display:block;font:500 15px/1.3 var(--hk-font-body,inherit);font-style:normal;color:' + v('ink-2') + ';overflow:hidden;text-overflow:ellipsis}',
+      '.np .tx{overflow:visible}.np .tx > b{display:block;overflow:hidden;text-overflow:ellipsis}.np .tx > i{display:block;font:500 15px/1.3 var(--hk-font-body,inherit);font-style:normal;color:' + v('ink-2') + ';overflow:hidden;text-overflow:ellipsis}',
       // BARE BUTTONS (2026-11-07, the owner: "do we need the wells (circles) behind the icons?"): the glyphs bigger,
       // each its whole button to tap; a press dims it
       '.pp{all:unset;cursor:pointer;flex:none;display:grid;place-items:center;width:40px;height:40px;border-radius:50%}',
@@ -1271,11 +1274,16 @@
       '  --hks-g1:calc(var(--hks-g2) + var(--_vh) / 2 - 3px);margin-top:14px;--hks-b:44px;--hks-pp:52px;--hks-x:44px;--hks-gb:34px;--hks-gpp:46px;--hks-gx:24px;--hks-th:0px;',
       '  --hks-ink:' + v('ink') + ';--hks-ink2:' + v('ink-2') + '}',
       '.sec[data-size=less] .hks{margin-top:0;--hks-g1:10px}',
+      // (the speaker line: the label's size, a 44 px touch area on the screen; Up Next at the keys' right end, empty
+      // where the queue is listed right under them -- mockup 12h, 2026-11-09)
+      '.np .tx .hksl{display:flex;width:max-content;font-size:13px;line-height:18px;font-weight:600;color:' + v('ink-2') + ';--hksl-h:calc(44px / var(--hk-pin-z,1))}',
+      '.np .tx .hksl-t i{display:none}',
+      '.sec:has(.npqueue) .hks [data-act=queue]{visibility:hidden;pointer-events:none}',
       // (THE GAP BESIDE THE COVER IS ITS MARGIN (2026-11-09, the owner: "generally I'd like the same margin/gap from
       // the album art to the edge as the album art to the text on the right"): on a plate -- a band's, a widget's --
       // the section's 16 px inset; on the pane's own ground the pane's 28)
       '.r2.np{gap:16px}:host(:not([mode="widget"]):not([side="band"])) .r2.np{gap:28px}',
-      '.np2 .art{width:88px;height:88px;border-radius:12px}.np2 .tx b{font-size:20px}',
+      '.np2 .art{width:88px;height:88px;border-radius:12px}.np2 .tx > b{font-size:20px}',
       '.npp{height:4px;border-radius:2px;background:' + v('line-strong') + ';overflow:hidden}',
       '.npp i{display:block;height:100%;background:' + v('ink') + ';transform-origin:left center}',
       '.npqueue{display:grid;gap:6px;margin-top:12px;padding-top:16px;border-top:1px solid ' + v('line') + '}',

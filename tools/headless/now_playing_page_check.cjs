@@ -29,7 +29,9 @@ function measureSrc() {
     words, queue: [...r.querySelectorAll('.mu .mqr')].filter(seen).length,
     look: playerLook(r, { bar: '.mbar', pp: '.mpp svg', vol: '.mvt', buttons: '.mctl .mbtn' }),
     // THE TOUCH RULES, MEASURED (hk-np-strip.js check; 2026-11-09, the owner: a tap meant for play landed on the volume)
-    strip: window.hkNpStrip.check(r.querySelector('.mu .hks'), { min: 44 }),
+    strip: window.hkNpStrip.check(r.querySelector('.mu .hks'), { min: 44, line: r.querySelector('.mu .hksl') }),
+    // (the ends since the owner's mockup 12h, 2026-11-09: Browse at the left, Up Next at the right)
+    ends: [...r.querySelectorAll('.mu .hks .mctl > [data-act]')].filter((e) => e.getBoundingClientRect().width > 0 && getComputedStyle(e).visibility !== 'hidden').map((e) => e.getAttribute('data-act')),
     // THE THREE MARGINS (2026-11-09, the owner: the art's gap to the right edge as the column's to the left, and between them
     // the same): the column's to the left edge, the art's (or, beside the pane, the bars') to the right, the gap between
     margins: ((r) => { const q = s => r.querySelector(s), R = e => e.getBoundingClientRect(), body = R(q('.mu .mbody')), art = R(q('.mu .mart')), bar = R(q('.mu .mbar'));
@@ -80,7 +82,8 @@ const measure = new Function('return ' + measureSrc.toString().replace('PLAYER_L
           if (w.l < m.card.l + m.card.w / 2 && w.r > m.card.l) assert(w.t >= low - 1, tag + ': the music under the corner ' + JSON.stringify([w, low]));
         }
         assert(!m.look.wells.length && m.look.above !== undefined && Math.abs(m.look.above - m.look.below) <= 3, tag + ': the player bare, the pause halfway ' + JSON.stringify(m.look));
-        assert(!m.strip.breaks.length && m.strip.gapTV >= 12 && m.strip.gapPT >= 12, tag + ': 44 px targets, nothing overlapping, 12 px clear round the keys ' + JSON.stringify(m.strip));
+        assert(!m.strip.breaks.length && m.strip.gapTV >= 12 && m.strip.gapPT >= 12 && m.strip.gapL >= 12 && m.strip.targets.line[1] >= 43.5, tag + ': 44 px targets (the speaker line\'s too), nothing overlapping, 12 px clear round the keys and the line ' + JSON.stringify(m.strip));
+        assert.deepEqual([m.ends[0], m.ends[m.ends.length - 1]], ['brw', 'queue'], tag + ': Browse at the row\'s left end, Up Next at its right ' + JSON.stringify(m.ends));
         if (!m.up) assert(Math.abs(m.margins.left - m.margins.right) <= 1 && Math.abs(m.margins.gap - m.margins.left) <= 1, tag + ': one margin left, right and between ' + JSON.stringify(m.margins));
         if (screen === 'np-pane') {
           assert(m.pane && m.row, tag + ': beside the pane, the cover and the song side by side ' + JSON.stringify(m));
@@ -92,14 +95,16 @@ const measure = new Function('return ' + measureSrc.toString().replace('PLAYER_L
         assert(!m.look.volumeEdges || m.look.volumeEdges.every(x=>Math.abs(x)<=1), tag+': volume row ends aligned '+JSON.stringify(m.look));
         if (input.shots) await page.screenshot({ path: `${input.shots}/${W}x${H}-${screen}.png` });
         console.log(`PASS ${input.engine} ${tag}: the song under the corner, the player bare and even` + (screen === 'np-pane' ? ', Up Next beside the cover' : '') +
-                    ` (targets ${JSON.stringify(m.strip.targets)}, keys to volume ${m.strip.gapTV} px, progress to keys ${m.strip.gapPT} px; margins ${JSON.stringify(m.margins)})`);
+                    ` (targets ${JSON.stringify(m.strip.targets)}, keys to volume ${m.strip.gapTV} px, progress to keys ${m.strip.gapPT} px, the speaker line to a control ${m.strip.gapL} px; margins ${JSON.stringify(m.margins)})`);
         const card = page.locator('hk-now-playing-page-card:visible');
-        for (const [act, tab] of [['spk', 'speakers'], ['brw', 'browse']]) {
-          await card.locator(`.mu .mbtn[data-act="${act}"]`).tap();
+        // (the speaker line opens the speakers, as the Speakers key it replaced did; Browse and Up Next their tabs)
+        for (const [sel, tab] of [['.mu .hksl', 'speakers'], ['.mu .hks .mbtn[data-act="brw"]', 'browse'], ['.mu .hks .mbtn[data-act="queue"]', 'queue']]) {
+          await card.locator(sel).tap();
           await card.locator(`.mpanel.up [data-p="${tab}"]:not([hidden])`).waitFor({ state: 'visible' });
           await page.waitForTimeout(700);
           const pb = await card.locator('.mpanel.up').boundingBox();
           assert(pb && pb.x >= m.card.l - 1 && pb.x + pb.width <= m.card.r + 1 && pb.y >= m.card.t - 1 && pb.y + pb.height <= m.card.b + 1, tag + ': the music panel stays inside the page ' + JSON.stringify(pb));
+          if (input.shots && tab === 'speakers') await page.screenshot({ path: `${input.shots}/${W}x${H}-${screen}-speakers.png` });
           await card.locator('.mpanel.up [data-k="close"]').tap();
           await card.locator('.mpanel').waitFor({ state: 'detached' });
         }

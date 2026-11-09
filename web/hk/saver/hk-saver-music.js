@@ -73,7 +73,7 @@
       var M = window.hkMusic;
       if (!ctx) {
         var r = M && M.resolve && h ? M.resolve(h) : null;
-        return r && r.player ? { idle: true, key: r.player, room: r.name || '' } : null;
+        return r && r.player ? { idle: true, key: r.player, room: r.name || '', rooms: [r.name || ''] } : null;
       }
       var st = h.states[ctx.key] || {}, a = st.attributes || {};
       // entity_picture_local first: Music Assistant's entity_picture is an
@@ -87,7 +87,9 @@
         .filter(function (x) { return x !== null; });
       var vol = members.length > 1 ? (vols.length ? vols.reduce(function (n, x) { return n + x; }, 0) / vols.length : null)
         : typeof a.volume_level === 'number' ? a.volume_level : null;
-      return { idle: false, key: ctx.key, members: members, room: M.label ? M.label(ctx) : ctx.key, playing: st.state === 'playing',
+      // (the speaker line's rooms: the player's, then the ones joined to it -- hk-np-strip.js rooms)
+      return { idle: false, key: ctx.key, members: members, room: M.label ? M.label(ctx) : ctx.key, rooms: window.hkNpStrip.rooms(h, ctx.key, members),
+               playing: st.state === 'playing',
                title: ctx.title || a.media_title || '', artist: ctx.artist || a.media_artist || '', album: a.media_album_name || '',
                pic: pic, dur: Number(a.media_duration) || 0, pos: Number(a.media_position) || 0,
                posAt: Date.parse(a.media_position_updated_at) || 0, vol: vol };
@@ -110,7 +112,7 @@
         (isFlat() ? '<div class="mbgf"></div><div class="mbgf"></div>' : '<div class="mbgf"><canvas class="mbg"></canvas></div><div class="mbgf"><canvas class="mbg"></canvas></div>') + '<div class="mshade"></div>' +
         '<div class="mbody">' + (sl ? '<div class="mstage">' : '') + '<div class="mart"><div class="msq"><div class="mph">' + svg(ICON.note) + '</div>' +
         '<div class="mfr"><img alt=""></div><div class="mfr"><img alt=""></div></div></div>' +
-        '<div class="mcol">' + (sl ? '<div class="mmeta">' : '') + '<div class="mroom"></div><div class="mtitle"></div><div class="martist"></div><div class="malbum"></div>' + (sl ? '<div class="mq"></div></div>' : '') +
+        '<div class="mcol">' + (sl ? '<div class="mmeta">' : '') + '<div class="mroom">' + window.hkNpStrip.lineHtml() + '</div><div class="mtitle"></div><div class="martist"></div><div class="malbum"></div>' + (sl ? '<div class="mq"></div></div>' : '') +
         // THE CONTROLS STRIP (2026-11-09, the owner: "more space in general above and below the play button"): the
         // progress, the transport and the volume are the one strip every player draws with (modules/hk-np-strip.js)
         window.hkNpStrip.html({ prog: 'bar', vol: 'bar' }) +
@@ -119,7 +121,7 @@
       var q = function (s) { return el.querySelector(s); };
       var v = { kind: kind, el: el, flat: isFlat(), flip: 0, pic: null, d: null, ready: Promise.resolve(),
                 bgf: el.querySelectorAll('.mbgf'), bg: /** @type {NodeListOf<HTMLCanvasElement>} */ (el.querySelectorAll('canvas.mbg')), fr: el.querySelectorAll('.mfr'),
-                room: q('.mroom'), title: q('.mtitle'), artist: q('.martist'), album: q('.malbum'),
+                room: q('.mroom'), line: q('.hksl'), title: q('.mtitle'), artist: q('.martist'), album: q('.malbum'),
                 strip: q('.hks'), nextImg: q('.mnext img'), nextT: q('.mnt'), vt: q('.mvt'), vh: q('.mvol'), mq: q('.mq') };
       v.bg.forEach(function (c) { c.width = MU_BG; c.height = MU_BG; });
       v.nextImg.onerror = function () {
@@ -233,7 +235,9 @@
       setAttr(v.strip, 'noends', !window.hkSaverPanel);
       setAttr(v.el, 'idle', idle);
       setAttr(v.el, 'none', !d);
-      setText(v.room, !d ? '' : d.room);
+      // THE SPEAKER LINE where the room's name was (mockup 12h, 2026-11-09): where it plays, a tap the speakers
+      window.hkNpStrip.line(v.line, !d ? [] : d.rooms || [d.room]);
+      v.line.classList.toggle('dis', !window.hkSaverPanel);
       setAttr(v.el, 'novol', idle || d.vol === null);
       window.hkNpStrip.volume(v.strip, idle ? null : d.vol);
       setText(v.title, idle ? 'Not Playing' : d.title);

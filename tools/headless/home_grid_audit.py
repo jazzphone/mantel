@@ -423,11 +423,13 @@ MEASURE = r"""(() => {
         for (const pseudo of ['::after', '::before']) {
           const hit = getComputedStyle(el, pseudo);
           if (hit.content === 'none' || hit.content === 'normal' || hit.position !== 'absolute') continue;
-          const top = parseFloat(hit.top), bottom = parseFloat(hit.bottom), left = parseFloat(hit.left), right = parseFloat(hit.right);
+          // (a pseudo's insets are the element's own px: the grid is drawn scaled, its box's are the screen's -- 2026-11-09)
+          const zk = el.offsetWidth ? r.width / el.offsetWidth : 1;
+          const top = parseFloat(hit.top) * zk, bottom = parseFloat(hit.bottom) * zk, left = parseFloat(hit.left) * zk, right = parseFloat(hit.right) * zk;
           if (Number.isFinite(top) && Number.isFinite(bottom)) h = Math.max(h, r.height - top - bottom);
           if (Number.isFinite(left) && Number.isFinite(right)) w = Math.max(w, r.width - left - right);
-          if (parseFloat(hit.height) > 0) h = Math.max(h, parseFloat(hit.height));
-          if (parseFloat(hit.width) > 0) w = Math.max(w, parseFloat(hit.width));
+          if (parseFloat(hit.height) > 0) h = Math.max(h, parseFloat(hit.height) * zk);
+          if (parseFloat(hit.width) > 0) w = Math.max(w, parseFloat(hit.width) * zk);
         }
         // (in the block's own px: the grid is drawn scaled to the screen -- 0.74 on square cells at 1280 x 800 --
         // and a control is laid out at 44 before that, 2026-10-31)
@@ -448,7 +450,7 @@ MEASURE = r"""(() => {
         for (const pseudo of ['::after', '::before']) { const hit = getComputedStyle(el, pseudo);
           if (hit.content === 'none' || hit.content === 'normal' || hit.position !== 'absolute') continue;
           if (getComputedStyle(el).position === 'static') { rec.issues.push('the ::after hit area of ' + name(el) + ' is not anchored to it (it is not positioned: it reaches over the block)'); continue; }
-          const f = k => parseFloat(hit[k]); const L = f('left'), R = f('right'), T = f('top'), B = f('bottom');
+          const zk = el.offsetWidth ? r.width / el.offsetWidth : 1, f = k => parseFloat(hit[k]) * zk; const L = f('left'), R = f('right'), T = f('top'), B = f('bottom');
           if (Number.isFinite(L)) h.left = Math.min(h.left, r.left + L); if (Number.isFinite(R)) h.right = Math.max(h.right, r.right - R);
           if (Number.isFinite(T)) h.top = Math.min(h.top, r.top + T); if (Number.isFinite(B)) h.bottom = Math.max(h.bottom, r.bottom - B); }
         // (a control a list scrolls or clips away is touchable only where its box shows)
@@ -468,7 +470,10 @@ MEASURE = r"""(() => {
     // and the transport
     if (window.__hitsCheck && window.hkNpStrip && card.shadowRoot) {
       const st = card.shadowRoot.querySelector('.hks:not([cells])');
-      if (st) { const m = window.hkNpStrip.check(st, { min: 56, scale: view._gridScale || 1 }); rec.strip = { targets: m.targets, gapTV: m.gapTV, gapPT: m.gapPT, gapB: m.gapB };
+      // (and its speaker line over the title, mockup 12h, 2026-11-09: a 56 px touch area, 12 px clear of the keys)
+      const ln = card.shadowRoot.querySelector('.hksl'), lineOn = ln && getComputedStyle(ln).display !== 'none';
+      if (st) { const m = window.hkNpStrip.check(st, { min: 56, scale: view._gridScale || 1, line: lineOn ? ln : null });
+                rec.strip = { targets: m.targets, gapTV: m.gapTV, gapPT: m.gapPT, gapB: m.gapB, gapL: m.gapL };
                 for (const b of m.breaks) rec.issues.push('controls strip: ' + b); }
     }
     // THE CONTROLS (2026-11-08, the owner's round three: Small = state + at most one primary action; Wide/Tall = at most 2-3, each 44 px with
@@ -487,7 +492,7 @@ MEASURE = r"""(() => {
         let h = { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
         for (const pseudo of ['::after', '::before']) { const hit = getComputedStyle(el, pseudo);
           if (hit.content === 'none' || hit.content === 'normal' || hit.position !== 'absolute') continue;
-          const f = k => parseFloat(hit[k]), L = f('left'), R = f('right'), T = f('top'), B = f('bottom');
+          const zk = el.offsetWidth ? r.width / el.offsetWidth : 1, f = k => parseFloat(hit[k]) * zk, L = f('left'), R = f('right'), T = f('top'), B = f('bottom');
           if (Number.isFinite(L)) h.left = Math.min(h.left, r.left + L); if (Number.isFinite(R)) h.right = Math.max(h.right, r.right - R);
           if (Number.isFinite(T)) h.top = Math.min(h.top, r.top + T); if (Number.isFinite(B)) h.bottom = Math.max(h.bottom, r.bottom - B); }
         for (const k of clippers(el, cell)) { const b = k.el.getBoundingClientRect();
@@ -1050,7 +1055,8 @@ def summary(report: dict) -> tuple[int, list[str]]:
 CONTROLS_RULES = {"S": 1, "W": 3, "T": 3}
 # ...but Now Playing's Wide and Tall have a fourth, the volume (2026-11-09, the owner: "Looks like the tall and the wide cards lost
 # their volume slider?"; "Volume is more important than the progress bar for these cards"): the three keys and the slider
-CONTROLS_RULES_OF = {"now_playing": {"W": 4, "T": 4}}
+# -- and a fifth, the speaker line over the title (2026-11-09, the owner's mockup 12h: it took the Speakers key's place)
+CONTROLS_RULES_OF = {"now_playing": {"W": 5, "T": 5}}
 CLEAR = 8
 
 

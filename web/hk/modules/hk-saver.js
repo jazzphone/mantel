@@ -2895,7 +2895,7 @@
       if (v.kind === 'dash' || !v.el.isConnected || (v.kind === 'slide' && !muShowing) || !seen(v.el)) continue;
       // THE STRIP'S CONTROLS BY THEIR OWN BOXES (hk-np-strip.js; 2026-11-09, the owner: a tap meant for play landed on
       // the volume) -- no slop round them, which reached 28 px over the room between the transport and the volume
-      var sh = window.hkNpStrip.hitAt(v.strip, x, y);
+      var sh = window.hkNpStrip.hitAt(v.el, x, y);   // (and the speaker line over the title, its 44 px touch area)
       if (sh) return sh.act !== 'vol' ? { btn: sh.el, view: v } : v.el.hasAttribute('novol') ? null : { vol: true, view: v };
       var bs = v.el.querySelectorAll('.mq .mbtn');
       for (var j = 0; j < bs.length; j++) {
@@ -3114,8 +3114,8 @@
   }
   function panelButtons() {
     mus.views.forEach(function (v) {
-      Array.prototype.forEach.call(v.el.querySelectorAll('.mbtn.mx'), function (b) {
-        var tab = b.getAttribute('data-act') === 'spk' ? 'speakers' : 'browse';
+      Array.prototype.forEach.call(v.el.querySelectorAll('.mbtn.mx,.hksl'), function (b) {
+        var tab = { spk: 'speakers', queue: 'queue' }[b.getAttribute('data-act')] || 'browse';
         b.classList.toggle('on', !!pnl && pnl.view === v && pnl.p.tab() === tab);
       });
     });
@@ -3295,7 +3295,7 @@
       var path = e.composedPath ? e.composedPath() : [];
       if (path.indexOf(pnl.p.el) >= 0) { panelTouched(); return; }
       // (its own buttons: Speakers / Browse switch or close it themselves)
-      var mx = pnl.view.el.querySelectorAll('.mbtn.mx');
+      var mx = pnl.view.el.querySelectorAll('.mbtn.mx,.hksl');
       for (var i = 0; i < mx.length; i++) if (path.indexOf(mx[i]) >= 0) return;
       closePanel(true);
     };
@@ -4185,7 +4185,7 @@
           v.el.addEventListener('click', function (e) {
             var sw = v.host && v.host._swallow;
             if (sw && Date.now() - sw < 400) return;
-            var b = e.target.closest ? e.target.closest('.mbtn') : null;
+            var b = e.target.closest ? e.target.closest('.mbtn,.hksl') : null;
             if (b) { musicAct({ btn: b, view: v }); return; }
             if (e.target.closest && e.target.closest('.msq')) musicAct({ art: true, view: v });
           });

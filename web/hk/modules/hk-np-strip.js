@@ -35,19 +35,23 @@
                play: 'M8 5.14v13.72a1 1 0 0 0 1.52.85l10.6-6.86a1 1 0 0 0 0-1.7L9.52 4.29A1 1 0 0 0 8 5.14z',
                pause: 'M7 5h3.2a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zm6.8 0H17a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-3.2a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z',
                stop: 'M7 6h10a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1z',
-               lib: 'M4 6H2v14a2 2 0 0 0 2 2h14v-2H4V6zm16-4H8a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2zm-2 5h-3v5.5a2.5 2.5 0 1 1-1-2V5h4v2z',
+               search: 'M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5z',
+               queue: 'M3 6h12v2H3zm0 4h12v2H3zm0 4h8v2H3zm14-4v5.2a2.5 2.5 0 1 0 2 2.3V12h2v-2h-4z',
+               chevron: 'M7.4 8.6 12 13.2l4.6-4.6L18 10l-6 6-6-6z',
                vlo: 'M7 9v6h4l5 5V4l-5 5H7z',
                vhi: 'M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.47 4.47 0 0 0 2.5-4zM14 3.23v2.06a7 7 0 0 1 0 13.42v2.06A9 9 0 0 0 14 3.23z' };
   function svg(d) { return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="' + d + '"/></svg>'; }
 
-  // THE MARKUP. o.prog / o.vol: 'bar' (drawn here), 'slot' (an empty box for the player's own), or nothing; o.ends:
-  // Speakers and Browse at the ends; o.stop: a stop button after next; o.roles: data-hk-role on each piece (the Now
+  // THE MARKUP (2026-11-09, the owner's mockup 12h, "Yes, build it": Browse at the row's left end, Up Next at its right,
+  // the Speakers key gone to the speaker line over the title -- lineHtml below). o.prog / o.vol: 'bar' (drawn here),
+  // 'slot' (an empty box for the player's own), or nothing; o.ends: false for neither end; o.queue: false where the
+  // player has no queue to open, or lists it right under (the right end kept, unseen, so the keys stay centered as a
+  // group); o.stop: a stop button after next; o.roles: data-hk-role on each piece (the Now
   // Playing card's, which its suites find them by); o.tag: the buttons' element ('div', or 'button' for a player
   // whose buttons are buttons); o.progHtml / o.volHtml: what a 'slot' holds from the start (a player's own markup);
   // o.playing: drawn with the pause glyph (a player that draws its markup afresh rather than painting it: play());
   // o.keys: an attribute name and, per control, its value, for a player that finds its taps by its own attribute (the
-  // Music page's data-k: { attr: 'data-k', spk: 'speakers', ... }); o.end: the right end's label and glyph when it is
-  // not Browse (the Music page's Queue: { label, glyph })
+  // Music page's data-k: { attr: 'data-k', brw: 'browse', ... })
   function html(o) {
     o = o || {};
     var tag = o.tag === 'button' ? 'button' : 'div';
@@ -60,18 +64,51 @@
     var prog = o.prog === 'bar' ? '<div class="mbar"><i></i></div><div class="mtimes"><span></span><span></span></div>' : o.progHtml || '';
     var vol = o.vol === 'bar' ? svg(ICON.vlo) + '<div class="mvt"><i></i><b></b></div>' + svg(ICON.vhi)
             : svg(ICON.vlo) + '<div class="mvs"' + (o.volHtml ? '' : ' data-act="vol"') + role('meta') + '>' + (o.volHtml || '') + '</div>' + svg(ICON.vhi);
-    return '<div class="hks"' + (o.ends === false ? ' noends' : '') + (o.stop ? ' stop' : '') + '>' +
+    return '<div class="hks"' + (o.ends === false ? ' noends' : '') + (o.queue === false ? ' noqueue' : '') + (o.stop ? ' stop' : '') + '>' +
       (o.prog ? '<div class="mprog"' + role('sub') + '>' + prog + '</div>' : '') +
       '<div class="mctl">' +
-      btn('spk', 'mx', 'Speakers', '<hk-icon icon="hk:homepod"></hk-icon>', 'spk') +
+      btn('brw', 'mx', 'Browse Music', svg(ICON.search), 'brw') +
       btn('prev', '', 'Previous', svg(ICON.prev), 'prev') +
       btn('pp', 'mpp', o.playing ? 'Pause' : 'Play', svg(o.playing ? ICON.pause : ICON.play), 'play') +
       btn('next', '', 'Next', svg(ICON.next), 'next') +
       (o.stop ? btn('stop', '', 'Stop', svg(ICON.stop), 'stop') : '') +
-      btn('brw', 'mx', o.end ? o.end.label : 'Browse Music', o.end ? o.end.glyph : svg(ICON.lib), 'brw') +
+      // (its drawing sits a unit low in its 24: drawn a unit up, so its ink is centered in the key as the others')
+      btn('queue', 'mx', 'Up Next', svg(ICON.queue).replace('viewBox="0 0 24 24"', 'viewBox="0 1 24 24"'), 'queue') +
       '</div>' +
       (o.vol ? '<div class="mvol"' + (o.vol === 'bar' ? ' data-act="vol"' : '') + '>' + vol + '</div>' : '') +
       '<div class="mslot"></div></div>';
+  }
+
+  // THE SPEAKER LINE (mockup 12h): over the title, where the room's name was -- the speaker glyph, where it plays ("Living
+  // Room + Kitchen", the rooms joined to it lighter; a narrow place shows the first alone) and a chevron saying it opens:
+  // a tap is what the Speakers key's was. Text-sized, its touch area a full target tall round the words (::after: 44,
+  // a block's 56 -- --hksl-h). o.keys as html()'s; o.tag 'button' for a player whose buttons are buttons.
+  function lineHtml(o) {
+    o = o || {};
+    var tag = o.tag === 'button' ? 'button' : 'div', key = o.keys && o.keys.spk ? ' ' + o.keys.attr + '="' + o.keys.spk + '"' : '';
+    return '<' + tag + (tag === 'button' ? ' type="button"' : ' role="button"') + ' class="hksl" data-act="spk"' + key +
+      (o.roles ? ' data-hk-role="spk"' : '') + ' aria-label="Speakers"><hk-icon icon="hk:homepod"></hk-icon><span class="hksl-t"><b></b><i></i></span>' +
+      '<svg class="hksl-c" viewBox="0 0 24 24" aria-hidden="true"><path d="' + ICON.chevron + '"/></svg></' + tag + '>';
+  }
+  // ...where it plays: the room first, then the rooms joined to it
+  function line(root, names) {
+    var el = !root ? null : root.classList && root.classList.contains('hksl') ? root : root.querySelector('.hksl');
+    if (!el) return;
+    names = (names || []).filter(Boolean);
+    var b = el.querySelector('b'), i = el.querySelector('i'), one = names[0] || '', rest = names.length > 1 ? ' + ' + names.slice(1).join(' + ') : '';
+    if (b && b.textContent !== one) b.textContent = one;
+    if (i && i.textContent !== rest) i.textContent = rest;
+    var label = 'Speakers: ' + (one + rest || 'none');
+    if (el.getAttribute('aria-label') !== label) el.setAttribute('aria-label', label);
+  }
+  // ...and their names: hkMusic's short ones ("Kitchen"), the player first, a virtual pair one room (hkMusic.fold);
+  // h the client (its states), key the player, members its rooms where the caller knows them (else its group_members)
+  function rooms(h, key, members) {
+    var M = global.hkMusic, states = (h && h.states) || {}, a = ((states[key] || {}).attributes) || {};
+    var name = function (e) { var x = states[e]; return (M && M.known && M.known(e) && M.nameOf && M.nameOf(e)) || (x && x.attributes && x.attributes.friendly_name) || e; };
+    var g = members && members.length ? members : (M && M.fold ? M.fold(a.group_members || []) : (a.group_members || []));
+    if (!key) return [];
+    return [name(key)].concat((g || []).filter(function (e) { return e !== key; }).map(name));
   }
 
   // THE GEOMETRY, one source. A player sets the numbers it needs on the strip or anything above it (none is required):
@@ -106,6 +143,7 @@
     '  margin:var(--_g1) calc((var(--_x) - var(--_gx)) / -2) 0}',
     '.hks[noends] .mctl{justify-content:center;margin-left:0;margin-right:0}',
     '.hks[noends] .mx,.hks:not([stop]) .mbtn[data-act=stop]{display:none}',
+    '.hks[noqueue] .mbtn[data-act=queue]{visibility:hidden;pointer-events:none}',
     '.hks .mbtn{flex:none;box-sizing:border-box;width:var(--_b);height:var(--_b);margin:0;padding:0;border:0;background:none;font:inherit;',
     '  display:flex;align-items:center;justify-content:center;border-radius:50%;color:var(--hks-ink,#fff);cursor:pointer;',
     '  -webkit-tap-highlight-color:transparent;transition:transform .15s ease,opacity .15s ease}',
@@ -146,9 +184,24 @@
     '.hks[cells] .mslot{display:none}',
     '.hks[cells] .mprog{grid-area:sub}.hks[cells] .mvol{grid-area:meta;margin:0}',
     '.hks[cells] .mbtn{justify-self:center;align-self:center;z-index:2}',
-    '.hks[cells] [data-act=spk]{grid-area:spk}.hks[cells] [data-act=prev]{grid-area:prev}.hks[cells] [data-act=pp]{grid-area:play}',
-    '.hks[cells] [data-act=next]{grid-area:next}.hks[cells] [data-act=stop]{grid-area:stop}.hks[cells] [data-act=brw]{grid-area:brw}',
-    '@media (prefers-reduced-motion:reduce){.hks .mbtn,.hks .mvt b{transition:none}}'
+    // (the ends' areas keep their old names as places: spk the left end, brw the right -- Browse and Up Next since 2026-11-09)
+    '.hks[cells] [data-act=brw]{grid-area:spk}.hks[cells] [data-act=prev]{grid-area:prev}.hks[cells] [data-act=pp]{grid-area:play}',
+    '.hks[cells] [data-act=next]{grid-area:next}.hks[cells] [data-act=stop]{grid-area:stop}.hks[cells] [data-act=queue]{grid-area:brw}',
+    // THE SPEAKER LINE: the words at the size the host gives (the room's label had it), the touch area round them
+    '.hksl{position:relative;display:inline-flex;align-items:center;gap:.35em;max-width:100%;min-width:0;box-sizing:border-box;margin:0;padding:0;',
+    '  border:0;background:none;font:inherit;color:inherit;letter-spacing:inherit;text-transform:inherit;text-align:left;cursor:pointer;',
+    '  -webkit-tap-highlight-color:transparent;vertical-align:top;transition:opacity .15s ease}',
+    // (--hksl-dy moves the area down where the place's edge is near above the words)
+    '.hksl::after{content:"";position:absolute;left:-6px;right:-6px;top:calc(50% - var(--hksl-h,44px) / 2 + var(--hksl-dy,0px));',
+    '  bottom:calc(50% - var(--hksl-h,44px) / 2 - var(--hksl-dy,0px))}',
+    '.hksl hk-icon{--mdc-icon-size:1em;width:1em;height:1em;flex:none;display:flex;color:inherit}',
+    '.hksl-t{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+    '.hksl-t b{font-weight:inherit}.hksl-t i{font-style:normal;font-weight:400;opacity:.72}',
+    '.hksl-c{flex:none;width:.85em;height:.85em;fill:currentColor;opacity:.72;transition:transform .2s ease}',
+    '.hksl.on .hksl-c{transform:rotate(180deg)}',
+    '.hksl:active{opacity:.6}',
+    '.hksl.dis{pointer-events:none}.hksl.dis .hksl-c{display:none}',
+    '@media (prefers-reduced-motion:reduce){.hks .mbtn,.hks .mvt b,.hksl,.hksl-c{transition:none}}'
   ].join('\n');
 
   function strip(root) { return !root ? null : root.classList && root.classList.contains('hks') ? root : root.querySelector('.hks'); }
@@ -188,12 +241,23 @@
     }
     return r;
   }
+  // (a control's touch area: its box, out to a transparent ::after's insets -- the speaker line's)
+  function touch(e, r) {
+    var a = getComputedStyle(e, '::after');
+    if (!a || a.content === 'none' || a.content === 'normal' || a.position !== 'absolute') return r;
+    // (its insets are the element's own px: on a page drawn scaled -- a Home Grid block -- the screen's are fewer)
+    var z = e.offsetWidth ? r.width / e.offsetWidth : 1, f = function (k) { var n = parseFloat(a[k]); return isFinite(n) ? n * z : 0; };
+    return { left: Math.min(r.left, r.left + f('left')), right: Math.max(r.right, r.right - f('right')),
+             top: Math.min(r.top, r.top + f('top')), bottom: Math.max(r.bottom, r.bottom - f('bottom')),
+             get width() { return this.right - this.left; }, get height() { return this.bottom - this.top; } };
+  }
+  // every control in root (the strip, or a whole view: its speaker line and list rows too) and its touch area
   function hits(root) {
-    var s = strip(root), out = [];
+    var s = root && root.querySelectorAll ? root : null, out = [];
     if (!s) return out;
     Array.prototype.forEach.call(s.querySelectorAll('[data-act]'), function (e) {
       var r = shown(e);
-      if (r) out.push({ act: e.getAttribute('data-act'), el: e, rect: r });
+      if (r) out.push({ act: e.getAttribute('data-act'), el: e, rect: touch(e, r) });
     });
     return out;
   }
@@ -213,9 +277,10 @@
   function check(root, o) {
     o = o || {};
     var s = strip(root), k = o.scale || 1, min = o.min || 44, clear = o.clear == null ? 12 : o.clear;
-    var out = { targets: {}, gapTV: null, gapPT: null, gapB: null, breaks: [] };
+    var out = { targets: {}, gapTV: null, gapPT: null, gapB: null, gapL: null, breaks: [] };
     if (!s) { out.breaks.push('no strip'); return out; }
-    var hs = hits(s), px = function (n) { return Math.round(n / k * 10) / 10; };
+    // (o.line: the player's speaker line -- a control too, its touch area measured with the strip's)
+    var ln = o.line && shown(o.line), hs = hits(s).concat(ln ? [{ act: 'line', el: o.line, rect: touch(o.line, ln) }] : []), px = function (n) { return Math.round(n / k * 10) / 10; };
     var gap = function (a, b) {
       var gx = Math.max(b.left - a.right, a.left - b.right), gy = Math.max(b.top - a.bottom, a.top - b.bottom);
       return px(gx > 0 && gy > 0 ? Math.hypot(gx, gy) : Math.max(gx, gy));
@@ -235,13 +300,21 @@
     }
     var pp = hs.filter(function (h) { return h.act === 'pp'; })[0];
     if (pp) hs.forEach(function (h) {
-      if (h !== pp && h.act !== 'vol' && h.rect.width * h.rect.height > pp.rect.width * pp.rect.height + 1) out.breaks.push(h.act + ' bigger than play / pause');
+      if (h !== pp && h.act !== 'vol' && h.act !== 'line' && h.rect.width * h.rect.height > pp.rect.width * pp.rect.height + 1) out.breaks.push(h.act + ' bigger than play / pause');
     });
     if (vol) transport.forEach(function (t) {
       var g = gap(t.rect, vol.rect);
       if (out.gapTV === null || g < out.gapTV) out.gapTV = g;
     });
     if (out.gapTV !== null && out.gapTV < clear - 0.5) out.breaks.push('transport to volume ' + out.gapTV + ' px (under ' + clear + ')');
+    var L = hs.filter(function (h) { return h.act === 'line'; })[0];
+    if (o.line && !L) out.breaks.push('no speaker line shown');
+    if (L) hs.forEach(function (h) {
+      if (h === L) return;
+      var g = gap(L.rect, h.rect);
+      if (out.gapL === null || g < out.gapL) out.gapL = g;
+    });
+    if (out.gapL !== null && out.gapL < clear - 0.5) out.breaks.push('speaker line to a control ' + out.gapL + ' px (under ' + clear + ')');
     // (the progress: its bar, with the times that hang under it)
     var pr = s.querySelector('.mprog'), prr = pr && shown(pr);
     if (prr) {
@@ -259,6 +332,6 @@
     return out;
   }
 
-  global.hkNpStrip = { ICON: ICON, svg: svg, html: html, CSS: CSS, strip: strip, attr: attr, play: play, progress: progress,
+  global.hkNpStrip = { ICON: ICON, svg: svg, html: html, lineHtml: lineHtml, line: line, rooms: rooms, CSS: CSS, strip: strip, attr: attr, play: play, progress: progress,
                        volume: volume, hits: hits, hitAt: hitAt, check: check };
 })(globalThis);

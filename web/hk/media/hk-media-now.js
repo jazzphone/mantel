@@ -424,7 +424,9 @@
           '.np.bar .hks .mx.lit{background:rgba(255,255,255,.18);color:rgba(255,255,255,.82)}',
           // ON THE MUSIC PAGE (a phone's: the bar is its mini player) there is
           // nothing to browse to
-          '.np.bar.onmusic .hks [data-act=brw]{display:none}',
+          '.np.bar.onmusic .hks .mx{display:none}',
+          // (the speaker line: a Home Grid block's alone -- elsewhere a grid child with no area of its own)
+          '.np .hksl{display:none}',
           // NO CLOSE BUTTON (2026-10-11): the bar is put away by swiping it
           // down (_swipe), as a phone's mini player -- the X took 54px of a
           // phone's title. Its element stays: the full player has none either.
@@ -609,7 +611,7 @@
           '  --hk-np-areas:"art title spk prev play next"',
           '                "art artist spk prev play next"',
           '                "art sub spk prev play next"}',
-          '  .np.bar .hks [data-act=stop],.np.bar .hks [data-act=brw]{display:none}}',
+          '  .np.bar .hks [data-act=stop],.np.bar .hks [data-act=queue]{display:none}}',
           // PHONE.
           //
           // The 860 plan bottoms out at EXACTLY a phone, which is why this is a
@@ -784,6 +786,12 @@
           // and the volume are on the player's sheet (a tap on the plate opens it, _tapTarget), where there is room for every
           // one. L and XL keep them, with the room they have.
           ':host(:is([size=S],[size=W],[size=T])) .np .hks .mx{display:none}',
+          // THE SPEAKER LINE over the title (mockup 12h, 2026-11-09): the label's size, its touch area 56 px tall round the
+          // words; Tall and Wide the first room alone; Small none (no title line there)
+          ':host([size]) .np .hksl{display:inline-flex;grid-area:line;justify-self:start;align-self:end;z-index:3;--hksl-h:56px;',
+          '  font-size:13px;line-height:18px;font-weight:600;color:rgba(255,255,255,.75)}',
+          ':host([size=S]) .np .hksl{display:none}:host(:is([size=T],[size=W])) .np .hksl-t i{display:none}',
+          ':host([size]) .np.plain .hksl{color:' + window.hkCards.v('ink-2') + '}',
           ':host(:is([size=S],[size=W],[size=T])) .np .hks .mctl{justify-content:center;margin-left:0;margin-right:0}',
           // S: the cover top left, play / pause top right (its glyph on the inset's corner, the 44 px target reaching into it),
           // the song under them at the foot
@@ -806,19 +814,24 @@
           ':host([size=W]) hk-plate.np{display:flex;flex-direction:column;justify-content:center;',
           // (2026-11-09: the three keys' targets 56, 64 and 56 with 8 clear -- the column at least 178 wide, the row reaching
           // 8 px past it either side -- and under them the volume again (the owner: "Looks like the tall and the wide cards
-          // lost their volume slider?"), each a full target: the progress the thin line under the song, play / pause 60 (4
-          // over the others), and the artist gone, so the song, the line, the keys and the volume fit the block's 170. On a
-          // tile's 110 px the keys and the volume do not both fit: the keys and the line, the volume on the sheet.)
+          // lost their volume slider?"), each a full target: play / pause 60 (4 over the others), the artist gone, and since
+          // the speaker line came over the song (mockup 12h) no progress, so the line, the song, the keys and the volume fit
+          // the block's 170. On a tile's 110 px the keys and the volume do not both fit: the volume is on the sheet.)
           // (THE GAP BESIDE THE COVER IS ITS MARGIN (2026-11-09, the owner: "generally I'd like the same margin/gap
           // from the album art to the edge as the album art to the text on the right"): the cover's gap to the song
           // is the block's inset -- the column 178 at least)
           '  --np-art:min(' + NP_H + ', ' + NP_W + ' - 178px - ' + NP_PAD.l + ');',
           '  --hk-np-cols:calc(var(--np-art) + ' + NP_PAD.l + ') minmax(0,1fr);',
-          '  --hk-np-areas:"art ." "art title" "art artist" "art strip" "art .";',
-          '  --hk-np-rows:minmax(0,1fr) min-content min-content min-content minmax(0,1fr)}',
+          '  --hk-np-areas:"art ." "art line" "art title" "art artist" "art strip" "art .";',
+          '  --hk-np-rows:minmax(0,1fr) min-content min-content min-content min-content minmax(0,1fr)}',
           ':host([size=W]) .np .grid{column-gap:0;row-gap:0;height:var(--np-art)}',
-          ':host([size=W]) .np .hks{margin-top:4px;--hks-pp:60px}:host([size=W]) .np .hks .mctl{margin-left:-8px;margin-right:-8px}',
-          ':host([size=W]) .np .hks .mprog' + NP_THIN,
+          // (the speaker line over the song: no room is left for the progress, which the sheet has -- the owner's order:
+          // the volume first, then the progress, 2026-11-09)
+          ':host([size=W]) .np .hks .mprog{display:none!important}',
+          ':host([size=W]) .np .hks{margin-top:0;--hks-pp:60px}:host([size=W]) .np .hks .mctl{margin-left:-8px;margin-right:-8px}',
+          // (the speaker line's 56 px area from the plate's top edge down, 12 clear of the keys: the words 2 px into the
+          // inset, the area 3 px below their middle -- every target in the block's 196 px, the volume's reaching its foot)
+          ':host([size=W]) .np .hksl{margin-top:-2px;--hksl-dy:3px}',
           ':host([size=W]) .np .artist{display:none}',
           '@container hk-cell (max-height:179px){:host([size=W]) .np .hks .mvol{display:none}}',
           // T: the cover across the top, on the block's axis (the owner: "the album art isn't centered in the card" -- it was
@@ -830,16 +843,16 @@
           // block's insets, the glyphs where they were; the volume under them again -- the owner: "Looks like the tall and
           // the wide cards lost their volume slider?" -- the cover giving up the room. On a tile the progress is the thin
           // line in its place and the artist goes.)
-          '  --np-art:min(' + NP_W + ', ' + NP_H + ' - 236px);',
+          '  --np-art:min(' + NP_W + ', ' + NP_H + ' - 254px);',
           '  --hk-np-cols:minmax(0,1fr);',
-          '  --hk-np-areas:"art" "title" "artist" "strip";',
-          '  --hk-np-rows:calc(var(--np-art) + 12px) min-content min-content min-content}',
+          '  --hk-np-areas:"art" "line" "title" "artist" "strip";',
+          '  --hk-np-rows:calc(var(--np-art) + 12px) min-content min-content min-content min-content}',
           ':host([size=T]) .np .grid{column-gap:0;row-gap:0;align-content:center}',
           ':host([size=T]) .np .art{justify-self:center;align-self:start}',
           ':host([size=T]) .np .hks{margin-top:10px;--hks-gb:28px;--hks-gpp:36px}',
           ':host([size=T]) .np .hks .mctl{margin-left:calc(0px - ' + NP_PAD.l + ');margin-right:calc(0px - ' + NP_PAD.r + ')}',
           ':host([size=T]) .np.tall .shade,:host([size=T]) .np .shade{background:linear-gradient(180deg,rgba(8,9,12,.10) 0%,rgba(8,9,12,.30) 45%,rgba(8,9,12,.74) 100%)}',
-          '@container hk-cell (max-height:379px){:host([size=T]) hk-plate.np{--np-art:min(' + NP_W + ', ' + NP_H + ' - 191px)}',
+          '@container hk-cell (max-height:379px){:host([size=T]) hk-plate.np{--np-art:min(' + NP_W + ', ' + NP_H + ' - 209px)}',
           '  :host([size=T]) .np .artist{display:none}:host([size=T]) .np .hks .mprog' + NP_THIN + '}',
           // L (2026-11-08, the owner: every player follows the Music slide's grouping): the cover with the song beside it, then the
           // progress, the five keys and the volume -- the cover sets no track, so the song sits 14 px from it (it sat a whole
@@ -851,14 +864,15 @@
           // and the gap over the progress is 16; on a tile's shorter block the progress is the thin line in its place, the
           // volume keeps its slider -- the owner: "Volume is more important than the progress bar")
           ':host([size=L]) hk-plate.np{--np-art:min(' + NP_H + ' - 190px, ' + NP_W + ' - 174px);',
-          '  --np-flank:calc((var(--np-art) - 68px) / 2);',
+          '  --np-flank:calc((var(--np-art) - 64px) / 2);',
           '  --hk-np-cols:minmax(0,1fr);',
-          '  --hk-np-areas:"pre" "title" "artist" "post" "." "strip";',
-          '  --hk-np-rows:var(--np-flank) min-content min-content var(--np-flank) 16px min-content}',
+          '  --hk-np-areas:"pre" "line" "title" "artist" "post" "." "strip";',
+          '  --hk-np-rows:var(--np-flank) min-content min-content min-content var(--np-flank) 16px min-content}',
+          ':host([size=L]) .np .hksl{margin-left:calc(var(--np-art) + ' + NP_PAD.l + ')}',
           '@container hk-cell (max-height:379px){:host([size=L]) hk-plate.np{--np-art:min(' + NP_H + ' - 166px, ' + NP_W + ' - 174px)}',
           '  :host([size=L]) .np .hks .mprog' + NP_THIN + '}',
           ':host([size=L]) .np .grid{column-gap:0;align-content:center}',
-          ':host([size=L]) .np .art{grid-area:1/1/5/-1;justify-self:start;align-self:start}',
+          ':host([size=L]) .np .art{grid-area:1/1/6/-1;justify-self:start;align-self:start}',
           // (the song as far from the cover as the cover from the block's edge: its inset -- 2026-11-09, the owner)
           ':host([size=L]) .np .title,:host([size=L]) .np .artist{padding-left:calc(var(--np-art) + ' + NP_PAD.l + ');justify-self:stretch}',
           // (Speakers' and Browse's targets reach 8 px past the bars' ends, no further: a block's inset can be 14, and the plate
@@ -885,8 +899,8 @@
           // (and the cover's gap to the column its inset, as its margin to the block's edge -- 2026-11-09, the owner)
           ':host([size=XL]) hk-plate.np{--np-art:min(' + NP_H + ', ' + NP_W + ' - 312px - ' + NP_PAD.l + ');--np-lead:20px;',
           '  --hk-np-cols:calc(var(--np-art) + ' + NP_PAD.l + ') minmax(0,1fr);',
-          '  --hk-np-areas:"art ." "art title" "art artist" "art strip" "art .";',
-          '  --hk-np-rows:minmax(0,1fr) min-content min-content min-content minmax(0,1fr)}',
+          '  --hk-np-areas:"art ." "art line" "art title" "art artist" "art strip" "art .";',
+          '  --hk-np-rows:minmax(0,1fr) min-content min-content min-content min-content minmax(0,1fr)}',
           ':host([size=XL]) .np .hks{margin-top:var(--np-lead)}',
           ':host([size=XL]) .np .art{align-self:center;justify-self:start}',
           ':host([size=XL]) .np .grid{column-gap:0}',
@@ -895,7 +909,7 @@
           ':host([size][data-grid-pager]) hk-plate.np{--hk-np-pad:20px 22px 44px;--np-vol:0px}',
           ':host([size][data-grid-pager]) .np .hks .mvol{display:none}',
           ':host([size=W][data-grid-pager]) hk-plate.np{--np-art:calc(100cqh - 64px);',
-          '  --hk-np-areas:"art title" "art strip";--hk-np-rows:minmax(0,1fr) min-content}',
+          '  --hk-np-areas:"art line" "art title" "art strip";--hk-np-rows:min-content minmax(0,1fr) min-content}',
           ':host([size=W][data-grid-pager]) .np .hks .mprog{display:none!important}',
           ':host([size=W][data-grid-pager]) .np .artist{display:none}',
           ':host([size=T][data-grid-pager]) hk-plate.np{--np-art:min(100cqw - 76px,100cqh - 174px)}',
@@ -975,10 +989,10 @@
       // home-assistant to hear them. It closes on a tap outside, on its X,
       // a moment after a request has landed, when the music goes, and when
       // the page changes.
-      _openSpk() {
+      _openSpk(tab, from) {
         var P = window.hkSaverPanel, self = this, h = this.client;
         if (this._spk) { this._closeSpk(); return; }
-        var btn = this._root && this._root.querySelector('[data-act=spk]'), card = this._root && this._root.querySelector('hk-plate');
+        var btn = from || (this._root && this._root.querySelector('[data-act=queue]')), card = this._root && this._root.querySelector('hk-plate');
         if (!P || !btn || !card || !h || !this._musicCtx()) return;
         var phone = window.innerWidth <= 640, b = btn.getBoundingClientRect(), top = card.getBoundingClientRect().top;
         var W = phone ? window.innerWidth : 430, H = phone ? Math.round(Math.min(640, window.innerHeight * 0.86)) : Math.round(Math.min(560, top - 28));
@@ -1014,7 +1028,8 @@
           'transform-origin:' + Math.round(b.left + b.width / 2 - left) + 'px 100%';
         sr.appendChild(el);
         me.p.size(W, H, 1);
-        me.p.show('speakers');
+        me.p.show(tab || 'speakers');
+        me.btn = btn;
         scrim.addEventListener('click', function () { self._closeSpk(); });
         me.key = function (ev) { if (ev.key === 'Escape') self._closeSpk(); };
         window.addEventListener('keydown', me.key);
@@ -1038,8 +1053,7 @@
           if (me.turn.isConnected) this._turnAnim(me, false, fin); else { if (me.anim) me.anim.cancel(); fin(); }
           return;
         }
-        var btn = this._root && this._root.querySelector('[data-act=spk]');
-        if (btn) btn.classList.remove('lit');
+        if (me.btn) me.btn.classList.remove('lit');
         me.p.el.classList.remove('in'); me.scrim.classList.remove('on');
         setTimeout(function () { me.p.destroy(); me.host.remove(); }, 320);
       }
@@ -1347,6 +1361,14 @@
       // An UNKNOWN selection says so rather than quietly showing another room:
       // a map that silently falls back to some other speaker shows that room's
       // artwork and title with nothing on screen admitting it.
+      // THE SPEAKER LINE'S ROOMS: the player's own name, then the rooms joined to it (as _playerLine names them)
+      _rooms(p) {
+        var M = window.hkMusic, self = this;
+        if (!p) { var r0 = this._res(); return r0.player ? [r0.name || r0.player] : []; }
+        var name = function (e) { var o = self._st(e); return (M && M.known(e) && M.nameOf(e)) || (o && o.attributes && o.attributes.friendly_name) || e; };
+        var a = p.attributes || {}, g = M && M.fold ? M.fold(a.group_members || []) : (a.group_members || []);
+        return [name(p.entity_id)].concat(g.filter(function (e) { return e !== p.entity_id; }).map(name));
+      }
       _playerLine(p) {
         if (!p) {
           var r0 = this._res();
@@ -1455,9 +1477,11 @@
             //
             // STOP (the bar's, and the wide layout's): the bar is shown by "the selected speaker is playing", so pause
             // would leave it on screen against a frozen track while stop ends playback and takes the bar with it.
-            // SPEAKERS AND BROWSE (the bar's since 2026-10-11, the large blocks' since 2026-10-31): either side of the
-            // transport, as on the screensaver.
-            window.hkNpStrip.html({ prog: 'slot', vol: 'slot', stop: true, roles: true }) +
+            // BROWSE AND UP NEXT at the transport's ends, the Speakers key gone to THE SPEAKER LINE over the title (the
+            // owner's mockup 12h, 2026-11-09, "Yes, build it"): where it plays, a tap the speakers -- on a Home Grid block
+            // (not Small: no title line there); the docked bar has no line (its song is its button to the page, and its
+            // 104 px leave no room for a 44 px line clear of it): the speakers are its Up Next panel's first tab.
+            window.hkNpStrip.html({ prog: 'slot', vol: 'slot', stop: true, roles: true }) + window.hkNpStrip.lineHtml({ roles: true }) +
             // CLOSE, as a CONTROL IN THE ROW rather than pop-up chrome -- drawn nowhere since 2026-10-11 (the bar is
             // swiped away); its element stays.
             '<div class="tb close" role="button" aria-label="Close"' +
@@ -1466,7 +1490,7 @@
           var q = this._root.querySelector.bind(this._root);
           this._e = { plate: q('hk-plate.np'), bg: q('.bg'), art: q('.art'), title: q('.title'),
                       artist: q('.artist'), player: q('.player'), meta: q('.mvs'), strip: q('.hks'),
-                      sub: q('.mprog'), play: q('.mpp'), spk: q('[data-act=spk]') };
+                      sub: q('.mprog'), play: q('.mpp'), spk: q('.hksl'), line: q('.hksl') };
           var self = this;
           q('[data-act=prev]').addEventListener('click', function () { self._svc('previous'); });
           q('[data-act=pp]').addEventListener('click', function () { self._svc('play_pause'); });
@@ -1508,11 +1532,11 @@
             });
           }
           if (cfg.bar) {
-            // SPEAKERS: on the Music page, the page's own (it has Play Next On);
-            // anywhere else the screensaver's panel, over the bar
-            q('[data-act=spk]').addEventListener('click', function () {
+            // UP NEXT: on the Music page, the page's own speakers (it has Play Next On); anywhere else the
+            // screensaver's panel over the bar, on its Queue (Speakers its first tab)
+            q('[data-act=queue]').addEventListener('click', function () {
               if (onMusicPage()) { window.dispatchEvent(new CustomEvent('hk-music-bar', { detail: { what: 'speakers' } })); return; }
-              self._openSpk();
+              self._openSpk('queue', this);
             });
             // BROWSE: the Music page, in its search box
             q('[data-act=brw]').addEventListener('click', function () {
@@ -1523,10 +1547,12 @@
             // ON A HOME GRID (a block of its own, `size`): the card turns over
             // -- a Small block's Speakers to the Volume, the one it has no
             // slider for (the mock-up, 2026-10-31)
-            q('[data-act=spk]').addEventListener('click', function () {
+            // (the speaker line: the Speakers key's turn, 2026-11-09; Up Next the turn's Queue)
+            q('.hksl').addEventListener('click', function () {
               if (self.hasAttribute('size')) self._turn(self.getAttribute('size') === 'S' ? 'volume' : 'speakers');
             });
             q('[data-act=brw]').addEventListener('click', function () { if (self.hasAttribute('size')) self._turn('browse'); });
+            q('[data-act=queue]').addEventListener('click', function () { if (self.hasAttribute('size')) self._turn('queue'); });
           }
           q('.close').addEventListener('click', function () { self._putAway(); });
           if (cfg.bar) this._swipe(q('hk-plate'));
@@ -1661,6 +1687,7 @@
         // this block runs on every position tick.
         this._paintPlayButton(p);
         if (e.spk) e.spk.classList.toggle('dis', !this._musicCtx());
+        window.hkNpStrip.line(e.line, this._rooms(p));
 
         var t = this._title(p);
         if (e.title.textContent !== t) e.title.textContent = t;

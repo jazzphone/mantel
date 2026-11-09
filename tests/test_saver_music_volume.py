@@ -18,6 +18,7 @@ SCRIPT = r"""
 var window = this, location = { origin: 'http://mantel.test' };
 var CALLS = [], T = 1000;
 setTimeout = function () { return 1; }; clearTimeout = function () {};
+load(STRIP);   // (the music players' controls strip: a bootstrap file every page has before the screensaver)
 load(FILE);
 var K = { actionsNow: function () { return { callService: function (d, s, data) { CALLS.push([d, s, data]); } }; },
           clearCanvas: function () {}, clientNow: function () { return null; }, clock: { now: function () { return T; } },
@@ -45,7 +46,7 @@ print(JSON.stringify(out));
 @pytest.fixture(scope="module")
 def got(tmp_path_factory):
     f = tmp_path_factory.mktemp("saver") / "t.js"
-    f.write_text("var FILE = " + json.dumps(str(FILE)) + ";\n" + SCRIPT)
+    f.write_text("var FILE = " + json.dumps(str(FILE)) + ", STRIP = " + json.dumps(str(ROOT / "web/hk/modules/hk-np-strip.js")) + ";\n" + SCRIPT)
     out = subprocess.run([str(JSC), str(f)], capture_output=True, text=True, timeout=60)
     assert out.returncode == 0, out.stderr + out.stdout
     return json.loads(out.stdout.strip().splitlines()[-1])
