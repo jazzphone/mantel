@@ -16,7 +16,7 @@
     // in its color, what is on, a progress bar); a tap opens that channel full
     // screen as the Live TV page does. No remote buttons"), mounted in the
     // Home Grid's `live_tv` panel block (hk-grid-cards.js). Small one
-    // channel, Wide two, Tall three, Large four, Extra Large six -- the Live
+    // channel, Wide two, Tall three, Large six (two across, three down, 2026-11-09), Extra Large six -- the Live
     // TV page's first, in its order.
     //
     // THE PAGE'S OWN CHANNELS AND PLAYER (hk-cameras.js hk-tv-guide-card):
@@ -25,7 +25,7 @@
     // yet"); each channel's `now` sensor for what is on; and its full-screen
     // player, hkCameras.tvPlayer, with its viewer heartbeat and idle hold.
     // A Mantel page loads hk-cameras.js when it is first needed (hkNeed).
-    var TV_SLOTS = { S: 1, W: 2, T: 3, L: 4, XL: 6 };
+    var TV_SLOTS = { S: 1, W: 2, T: 3, L: 6, XL: 6 };
     var TV_BACKOFF = [5000, 15000, 60000, 300000];
     function tvShare(a) {
       var s = +new Date(a.start), e = +new Date(a.end), n = Date.now();
@@ -34,7 +34,9 @@
     // [columns, rows] for k channels in a size's slots
     function tvGrid(size, k) {
       if (size === 'T') return [1, k];
-      if (size === 'L' || size === 'XL') { var r = k > (size === 'XL' ? 3 : 2) ? 2 : 1; return [Math.ceil(k / r), r]; }
+      // (Large: two across and as many down as there are, up to three -- 2026-11-09, mockup 9)
+      if (size === 'L') return k > 1 ? [2, Math.ceil(k / 2)] : [2, 1];
+      if (size === 'XL') { var r = k > 3 ? 2 : 1; return [Math.ceil(k / r), r]; }
       return [k, 1];
     }
     var TV_CSS = [
@@ -57,6 +59,9 @@
       // it the "N more" at its right (the block already shows what the size holds; the rest are the page's): the tiles take its room
       'hk-plate.tv:not(.one){display:flex;flex-direction:column;gap:10px;padding:' + C.blockPad('14px', true) + '}',
       '.gr{flex:1 1 0;min-height:0;display:flex;flex-wrap:wrap;gap:10px;justify-content:center;align-content:center}',
+      // LARGE: THE CHANNELS FILLING THE BLOCK (2026-11-09, mockup 9, approved: "two across and three down, one designed size, so it is not a
+      // stretch"): _fit sizes the tiles for six places; fewer channels start top-left and keep that size
+      '.g6 .gr{flex:1 1 0;align-self:center;width:calc(var(--tw,160px) * 2 + 10px);justify-content:flex-start;align-content:flex-start}',
       '.gr .ch{flex:none;width:var(--tw,160px);aspect-ratio:var(--ar,16/10)}',
       // ITS MARK: the guide's logo on white where it has one, else its number
       '.lg{display:grid;place-items:center;flex:none;align-self:flex-start;min-width:38px;height:38px;padding:0 7px;box-sizing:border-box;',
@@ -197,7 +202,7 @@
         }
         if (s === 'XL') { this._renderXL(list); return; }
         var plate = document.createElement('hk-plate');
-        plate.className = 'tv' + (s === 'S' || this._chosen() ? ' one' : '') + (this._chosen() && /^(T|L)$/.test(s) ? ' big' : '');
+        plate.className = 'tv' + (s === 'S' || this._chosen() ? ' one' : '') + (this._chosen() && /^(T|L)$/.test(s) ? ' big' : '') + (s === 'L' ? ' g6' : '');
         plate.setAttribute('data-hk-role', 'card');
         plate.style.setProperty('--n', g[0]); plate.style.setProperty('--r', g[1]);
         var gr = plate;
@@ -295,6 +300,14 @@
         if (!gr || typeof getComputedStyle !== 'function' || !gr.clientWidth) return;
         var gap = 10, W = gr.clientWidth, H = gr.clientHeight, cols = g[0], kids = Array.prototype.slice.call(gr.children), n = kids.length;
         var tw = (W - (cols - 1) * gap) / cols, need = Math.ceil(n / cols), pick = null;
+        if (plate.classList.contains('g6')) {
+          // Large: one designed size for six places, 16 : 10 two across, as wide as the columns make it and no taller than a third of the
+          // room between the gaps (mockup 9: 184 x 119); fewer channels keep it and start top-left
+          var tw6 = Math.min(tw, (H - 2 * gap) / 3 / 0.625);
+          gr.style.setProperty('--tw', Math.floor(tw6) + 'px'); gr.style.setProperty('--ar', '16/10');
+          kids.forEach(function (k, i) { k.style.display = i >= 6 ? 'none' : ''; });
+          return;
+        }
         [{ r: 3 / 4, ar: '4/3' }, { r: 2 / 3, ar: '3/2' }, { r: 10 / 16, ar: '16/10' }].forEach(function (o) { if (!pick && need * tw * o.r + (need - 1) * gap <= H) pick = o; });
         pick = pick || { r: 10 / 16, ar: '16/10' };
         var th = tw * pick.r, rows = Math.max(1, Math.floor((H + gap) / (th + gap)));

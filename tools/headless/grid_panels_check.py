@@ -91,12 +91,12 @@ async def main():
                 await b.eval(STUB % json.dumps(POWER))
                 await asyncio.sleep(2.5)
                 if screen == 'panels':
-                    # Live TV's channels (the integration's list, stood in): a Large block shows four as tiles
+                    # Live TV's channels (the integration's list, stood in): a Large block shows up to six as tiles (five here)
                     # (2026-10-31, the widget: channels, not a remote)
                     await b.eval("(()=>{let t=deep(cell('tv'),'hk-tv-channels-card')[0];t._configured=true;"
                                  "t._channels=[1,2,3,4,5].map(i=>({name:'Channel '+i,number:i+'.1',now:null}));t._hkSig=null;t.redraw();void 0})()")
                     await asyncio.sleep(0.5)
-                    assert await b.eval("deep(cell('tv'),'hk-tv-channels-card')[0].shadowRoot.querySelectorAll('.ch').length") == 4
+                    assert await b.eval("deep(cell('tv'),'hk-tv-channels-card')[0].shadowRoot.querySelectorAll('.ch').length") == 5
                 # every block's parts stay inside it
                 got = await b.eval("""(()=>{let out={};%s.forEach(id=>{let c=cell(id),r=c.getBoundingClientRect(),p=deep(c,'hk-grid-panel-card')[0],
                   kids=[...p.shadowRoot.querySelectorAll('.part > *')];

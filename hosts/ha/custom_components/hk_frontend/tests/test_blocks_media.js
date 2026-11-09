@@ -354,9 +354,9 @@ function () {
 },
 function () {
   H.section('Live TV: the page\'s channels, a tile each, a tap plays it full screen');
-  eq('S one, W two, T three, L four, XL six', ['S', 'W', 'T', 'L', 'XL'].map(function (s) { return Mx.TV_SLOTS[s]; }), [1, 2, 3, 4, 6]);
-  eq('the tiles\' arrangement: W across, T down, L two by two (Extra Large is two columns, below)',
-     [Mx.tvGrid('W', 2), Mx.tvGrid('T', 3), Mx.tvGrid('L', 4)], [[2, 1], [1, 3], [2, 2]]);
+  eq('S one, W two, T three, L six (2026-11-09), XL six', ['S', 'W', 'T', 'L', 'XL'].map(function (s) { return Mx.TV_SLOTS[s]; }), [1, 2, 3, 6, 6]);
+  eq('the tiles\' arrangement: W across, T down, L two across (Extra Large is two columns, below)',
+     [Mx.tvGrid('W', 2), Mx.tvGrid('T', 3), Mx.tvGrid('L', 4), Mx.tvGrid('L', 6), Mx.tvGrid('L', 1)], [[2, 1], [1, 3], [2, 2], [2, 3], [2, 1]]);
   var tv = sized('hk-tv-channels-card', 'W');
   tv.client = client();
   tv._render();
@@ -393,6 +393,12 @@ function () {
     eq('the left plays the one on; a row tunes its channel', xo, ['4.1', '7.1']);
     xl._render();
     eq('the last one played is the one on, after', xl._root.children[0].children[0].querySelector('small').textContent, '7.1 \u00b7 Food');
+    // LARGE, THE CHANNELS FILLING THE BLOCK (2026-11-09, mockup 9): up to six, two across; the plate is marked for _fit's six places
+    var lg = sized('hk-tv-channels-card', 'L'), six = [1, 2, 3, 4, 5, 6, 7].map(function (i) { return { number: i + '.1', name: 'C' + i, camera: 'camera.c' + i, now: null }; });
+    lg.client = client(); lg._channels = six; lg._configured = true;
+    lg._render();
+    var lp = lg._root.children[0];
+    eq('Large: six of seven channels, on a plate sized for six places', [/ g6/.test(' ' + lp.className), lp.children[lp.children.length - 1].children.length], [true, 6]);
     var xc = sized('hk-tv-channels-card', 'XL');
     xc.client = client(); xc._channels = CHANNELS.channels; xc._configured = true; xc._config = { channel: '9.1' };
     xc._render();
