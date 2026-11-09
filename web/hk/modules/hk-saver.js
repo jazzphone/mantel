@@ -2429,7 +2429,14 @@
   function hideForecastSlide() {
     if (!fcShowing) return;
     fcShowing = false;
-    if (host) host.removeAttribute('fcslide');
+    // [fcout] WHILE IT FADES (2026-11-09): what the slide placed stays where it was until it has gone -- the slide
+    // corner's date jumped up beside Big Weather's top line as the photo came in (screen-recorded on the Loft)
+    if (host) {
+      host.setAttribute('fcout', '');
+      if (exOutT) clearTimeout(exOutT);
+      exOutT = setTimeout(function () { exOutT = null; if (host && !fcShowing) host.removeAttribute('fcout'); }, CROSSFADE_MS + 100);
+      host.removeAttribute('fcslide');
+    }
     updateBand();
     forecastTick(false);
     layoutSoon();
@@ -2777,14 +2784,8 @@
   }
   function hideForecastExtra() {
     if (!fcShowing) return;
-    var gen = mode === 'clock';
     // (under a clock's own background the forecast stays drawn until the
-    // clock has faded back over it)
-    if (gen && host) {
-      host.setAttribute('fcout', '');
-      if (exOutT) clearTimeout(exOutT);
-      exOutT = setTimeout(function () { exOutT = null; if (host && !fcShowing) host.removeAttribute('fcout'); }, CROSSFADE_MS + 100);
-    }
+    // clock has faded back over it: [fcout], set by hideForecastSlide)
     hideForecastSlide();
   }
   function leaveExtras() {

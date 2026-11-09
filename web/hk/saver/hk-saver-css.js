@@ -163,8 +163,10 @@
       '.scn .scs > *{position:relative}',
       // (Big Weather as a slide tells the weather and the time on its own top line, on its 7.3-unit margin: what the corner
       // adds stands under them, on the same margin, where its own screen puts Home Status)
-      ':host([fcbig][fcslide]:not([pane])) .scn .scs{top:13.1vmin}',
-      ':host([fcbig][fcslide]:not([pane])) .scn .scs.tl{left:7.3vmin}:host([fcbig][fcslide]:not([pane])) .scn .scs.tr{right:7.3vmin}',
+      // ...and while it fades out ([fcout]): the corner fades where it stood, never jumping to the photos' margin
+      ':host([fcbig][fcslide]:not([pane])) .scn .scs,:host([fcbig][fcout]:not([pane])) .scn .scs{top:13.1vmin}',
+      ':host([fcbig][fcslide]:not([pane])) .scn .scs.tl,:host([fcbig][fcout]:not([pane])) .scn .scs.tl{left:7.3vmin}',
+      ':host([fcbig][fcslide]:not([pane])) .scn .scs.tr,:host([fcbig][fcout]:not([pane])) .scn .scs.tr{right:7.3vmin}',
       ':host([scorner]) .info > *:not([muonly]){opacity:0!important;transition:opacity ' + CROSSFADE_MS + 'ms ease}',
       // (with a layout the slide corner tells the time: the old corner clock kept for under the music never comes back
       // over it -- the forecast over a clock drew both, 2026-11-02)
