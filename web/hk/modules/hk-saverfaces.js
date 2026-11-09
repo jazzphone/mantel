@@ -135,7 +135,10 @@
     '.hkf.weather .wash{position:absolute;inset:0;background:linear-gradient(180deg,rgba(4,12,30,.18),rgba(4,12,30,0) 30%,rgba(4,12,30,0) 62%,rgba(4,12,30,.28))}',
     '.hkf.weather .cn{position:absolute;left:7.3cqmin;top:6.1cqmin;font-size:3.4cqmin;font-weight:600;line-height:1.3}',
     '.hkf.weather .cn svg{width:3.7cqmin;height:3.7cqmin;vertical-align:-.5cqmin;margin-right:.6cqmin}',
-    '.hkf.weather .cn .hl{opacity:.85}',
+    // (dimmed by its color, never opacity: an inline span with opacity over the planted numerals' 3D layers was made a
+    // layer of its own, and the tablets' WebView drew it a line too high and opaque -- a black box over "Sunny" for
+    // the whole Forecast slide, screen-recorded on the Loft, 2026-11-09)
+    '.hkf.weather .cn .hl{color:color-mix(in srgb,currentColor 85%,transparent)}',
     '.hkf.weather .tm{position:absolute;right:7.3cqmin;top:6.1cqmin;font-size:5.4cqmin;font-weight:600;line-height:1}',
     // THE BIG NUMBER STANDS ON THE GROUND (2026-10-31, the owner: it "sits a little above"): its foot on the
     // landscape's meadow, not a fixed distance from the top. The art covers the screen from its foot (hk-sky.js
