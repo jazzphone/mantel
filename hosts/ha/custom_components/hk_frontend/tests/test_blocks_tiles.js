@@ -85,6 +85,10 @@ function () {
   eq('tile cells: W two, T two stacked, L 2 x 2, XL 3 x 2, XXL 6 x 2',
      [g(150, 'W'), g(150, 'T'), g(150, 'L'), g(150, 'XL'), g(150, 'XXL')],
      [[2, 1, 182, 120, 8], [1, 2, 166, 136, 8], [2, 2, 182, 136, 8], [3, 2, 187, 136, 8], [6, 2, 192, 136, 8]]);
+  // SCENES, EXTRA LARGE AND FULL WIDTH (2026-11-09, mockup 8b): Large's tile size, three or six across, from the top-left; no Suggested column, no `windows` option
+  var csrc = readFile(HK_ROOT + '/frontend/cards/hk-chip.js');
+  ok('XL and XXL start at the top-left, not centered', /var big = n && \(size === 'XL' \|\| size === 'XXL'\);/.test(csrc) && /';align-content:' \+ \(big \? 'flex-start' : 'center'\)/.test(csrc));
+  ok('no two-column Scenes: the Suggested column and the windows option are gone', csrc.indexOf('_fitXL') < 0 && !/windows/.test(readFile(HK_ROOT + '/frontend/cards/hk-grid-catalog.js').split("scenes: {")[1].split('\n')[0]));
   eq('square cells: W two, T two stacked, L 2 x 2, XL 3 x 2, XXL 6 x 2',
      [g(196, 'W'), g(196, 'T'), g(196, 'L'), g(196, 'XL'), g(196, 'XXL')],
      [[2, 1, 183, 168, 10], [1, 2, 168, 183, 10], [2, 2, 183, 183, 10], [3, 2, 188, 183, 10], [6, 2, 193, 183, 10]]);
@@ -234,18 +238,5 @@ function () {
   eq('...said in a few words', P.secSays(rows), 'Den Window open');
   ok('Extra Large keeps the keypad beside the list; Large is the list with Home, Away and Disarm',
      H.make('hk-grid-keypad-card')._keys() === true && H.make('hk-grid-security-card')._keys() === false);
-},
-function () {
-  H.section('Scenes at Extra Large: the scene for now beside the others (2026-11-09, mockup 13)');
-  var pl = function (o) { return plan(Object.assign({ hk_cell: 'XL', room: true, scenes: scenePills(3) }, o || {}), {}, null).config; };
-  var wins = [{ start: '00:00', end: '23:59', scene: 'scene.reading', label: 'Reading' }];
-  eq('the plan carries the block\'s own windows, none when it sets none', [pl({ windows: wins }).windows, pl().windows], [wins, null]);
-  var cat = window.hkGridCatalog.config({ id: 'x', card: 'scenes', size: 'XL', at: [0, 0], opts: { windows: wins } }, {});
-  eq('the catalog hands the windows to the card', cat && cat.windows, wins);
-  var G = window.hkGridCards._;
-  var st = { 'scene.movie_night': { state: 'unknown', attributes: { friendly_name: 'Movie Night' } }, 'scene.reading': { state: 'unknown', attributes: { friendly_name: 'Reading' } } };
-  var pick = function (w, ids) { var mine = {}; ids.forEach(function (i) { mine[i] = st[i]; }); var s = G.suggestion({ states: mine, entities: {} }, w, 600); return s && s.scene; };
-  eq('its own window picks its exact scene, among the block\'s scenes only', [pick(wins, ['scene.reading', 'scene.movie_night']), pick(wins, ['scene.movie_night'])], ['scene.reading', null]);
-  eq('the window\'s time is said the house\'s way, by the Suggested Scene block\'s helper', typeof G.clockText('17:00'), 'string');
-},
+}
 ]);

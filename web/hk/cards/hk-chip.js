@@ -1788,8 +1788,7 @@
     // Full, a scene a cell -- W two, L four, XL six; Half, the shorter button,
     // the Home app's 70 px pill in the rows the block holds.
     if (cell) {
-      return { auto: auto, config: { hk_cell: cfg.hk_cell, name: cfg.name || 'Scenes', surface: cfg.surface, half: cfg.height === 'half', color: !!cfg.color, pills: pills,
-                                   windows: Array.isArray(cfg.windows) && cfg.windows.length ? cfg.windows : null } };
+      return { auto: auto, config: { hk_cell: cfg.hk_cell, name: cfg.name || 'Scenes', surface: cfg.surface, half: cfg.height === 'half', color: !!cfg.color, pills: pills } };
     }
     return { auto: auto, config: { type: 'grid', columns: 1, square: false, cards: [
       { type: 'custom:hk-heading-card', name: cfg.name || 'Scenes' },
@@ -1835,8 +1834,6 @@
       window.removeEventListener('hk-module-ready', this._wake);
       if (this._icOff) { this._icOff(); this._icOff = null; }
       if (this._gRO) { this._gRO.disconnect(); this._gRO = null; }
-      if (this._xlTick) { clearInterval(this._xlTick); this._xlTick = null; }
-      if (this._xlWait) { clearTimeout(this._xlWait); this._xlWait = null; }
       if (window.__hkGlassCards && window.__hkGlassCards.delete(this) && window.hkGlass) window.hkGlass.changed(this, false);
     }
     _glass() {
@@ -1853,8 +1850,6 @@
       this._seenClient = client;
       if (C0().tone) C0().tone(this, client);
       if (first || (this._auto && n !== this._n)) { this._n = n; this._plan(); }
-      // (Extra Large's suggestion reads the client: drawn again when it first arrives)
-      if (first && this._box && this.getAttribute('size') === 'XL') { this._gkey = null; this._fit(); }
       if (this._el) window.hkHostClient.bridge(this._el, client);
       (this._tiles || []).forEach(function (t) { t.hkSetClient(client); });
     }
@@ -1929,117 +1924,6 @@
       this._fit();
       this._glass();
     }
-    // EXTRA LARGE IN TWO COLUMNS (2026-11-09, mockup 13: "Extra Large in two columns", the owner approved it): the scene for
-    // now on the left -- "Suggested", its glyph in a 96 px circle, its name and its window ("Night · from 10 PM"; the next
-    // window "Next: Morning · from 5 AM") over a white 56 px Run -- and the block's other scenes on the right, two across,
-    // scrolling with a fade when more than six. It is picked as the Suggested Scene block picks it (hkGridCards suggestion,
-    // its default windows or the block's own `windows`), among this block's scenes only. One scene in all is the suggestion
-    // and the right is empty; none picked (more than one scene, no window with a scene): false, and today's grid draws.
-    // Half height is the pill's 70 px rows. Returns true when it drew.
-    _fitXL(plan) {
-      var self = this, box = this._box, G = window.hkGridCards && window.hkGridCards._;
-      if (!G) {
-        // (hk-grid-cards.js is a lazy file on Mantel -- asked for by name -- and a Lovelace resource in HK Frontend: either way, again when it is there)
-        var again = function () { self._xlWait = null; self._gkey = null; self._fit(); };
-        if (!this._xlAsked && window.hkNeed && window.hkNeed.file) { this._xlAsked = true; Promise.resolve(window.hkNeed.file('hk-grid-cards.js')).then(function () { setTimeout(again, 0); }, function () {}); }
-        if (!this._xlWait && (this._xlTries = (this._xlTries || 0) + 1) < 25) this._xlWait = setTimeout(again, 400);
-        return false;
-      }
-      if (!plan.pills.length) return false;
-      var client = this.client, st = (client && client.states) || {};
-      var ids = plan.pills.map(function (p) { return p.entity; }).filter(Boolean);
-      var mine = {};
-      ids.forEach(function (id) { if (st[id]) mine[id] = st[id]; });
-      var s = G.suggestion({ states: mine, entities: (client && client.entities) || {} }, plan.windows, G.houseMinutes(new Date()));
-      var pick = s && ids.indexOf(s.scene) >= 0 ? s.scene : (ids.length === 1 && plan.pills.length === 1 ? ids[0] : null);
-      if (!pick) return false;
-      var sp = plan.pills.filter(function (p) { return p.entity === pick; })[0];
-      var others = plan.pills.filter(function (p) { return p !== sp; });
-      var H = Math.round(box.clientHeight);
-      var line = !s || s.scene !== pick ? '' : (s.next ? 'Next: ' : '') + (s.label || ({ morning: 'Morning', day: 'Day', evening: 'Evening', night: 'Night' })[s.art] || '') + ' · from ' + G.clockText(s.start);
-      var key = JSON.stringify(['xl', H, sp, line, others.map(function (p) { return p.entity || p; }), plan.half, plan.color, !!client]);
-      if (!this._xlTick) this._xlTick = setInterval(function () { self._fit(); }, 60000);
-      if (key === this._xlKey) return true;
-      this._xlKey = key; this._gkey = null;
-      var C = C0(), R = C.R, ink2 = C.v('ink-2'), glow = C.v('glow');
-      var gap = 12;
-      while (box.firstChild) box.removeChild(box.firstChild);
-      // 18 px by default: the block's text inset, the gap between the columns too (the owner's rule, mockup 13)
-      box.style.padding = 'var(--hk-pad-t,18px) var(--hk-pad-r,18px) calc(var(--hk-pad-b,18px) + var(--hk-pager-safe,0px)) var(--hk-pad-l,18px)';
-      box.style.flexDirection = 'row'; box.style.gap = 'var(--hk-pad-l,18px)';
-      var css = document.createElement('style');
-      css.textContent = [C.headRowCss('.hksx .hd'), C.headCss('.hksx .hd span'),
-        '.hksx .ring{width:96px;height:96px;border-radius:50%;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;flex:none}',
-        '.hksx .run{all:unset;box-sizing:border-box;width:100%;height:56px;flex:none;border-radius:' + R.capsule('56px') + ';background:#fff;color:#000;display:flex;align-items:center;justify-content:center;gap:8px;' +
-          C.typeCss('headline') + ';cursor:pointer;-webkit-tap-highlight-color:transparent}',
-        '.hksx .run:active{filter:brightness(.88)}',
-        '.hksx .list{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;scrollbar-width:none;display:grid;grid-template-columns:1fr 1fr;align-content:start}',
-        '.hksx .list::-webkit-scrollbar{display:none}',
-        '.hksx .list.more{-webkit-mask-image:linear-gradient(180deg,#000 calc(100% - 56px),transparent);mask-image:linear-gradient(180deg,#000 calc(100% - 56px),transparent)}'
-      ].join('');
-      box.className = 'hksx';
-      box.appendChild(css);
-      var left = document.createElement('div');
-      left.style.cssText = 'width:214px;flex:none;display:flex;flex-direction:column;min-height:0;min-width:0';
-      var hd = document.createElement('div'), hs = document.createElement('span');
-      hd.className = 'hd'; hs.textContent = 'Suggested'; hd.appendChild(hs); left.appendChild(hd);
-      var mid = document.createElement('div');
-      mid.style.cssText = 'flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:8px;min-width:0;color:' + C.v('ink') + ';text-shadow:' + glow;
-      var ring = document.createElement('div'), gi = document.createElement('hk-icon'), nm = document.createElement('div'), ln = document.createElement('div');
-      ring.className = 'ring';
-      gi.style.cssText = 'width:50px;height:50px;--mdc-icon-size:100%;display:flex;color:' + ((C.PALETTE.icon || {})[sp.icon_color] || '#fff');
-      gi.icon = sp.icon || 'mdi:palette';
-      ring.appendChild(gi);
-      nm.style.cssText = 'font-size:22px;font-weight:600;line-height:26px;margin-top:6px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
-      nm.textContent = sp.name || '';
-      ln.style.cssText = 'font-size:15px;line-height:19px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:' + ink2;
-      ln.textContent = line;
-      mid.appendChild(ring); mid.appendChild(nm); if (line) mid.appendChild(ln);
-      left.appendChild(mid);
-      var run = document.createElement('button'), ri = document.createElement('hk-icon'), rt = document.createElement('span');
-      run.type = 'button'; run.className = 'run'; run.setAttribute('aria-label', 'Run ' + (sp.name || 'scene'));
-      ri.icon = 'mdi:play'; ri.style.cssText = 'width:20px;height:20px;--mdc-icon-size:100%;display:flex;color:#000';
-      rt.textContent = 'Run';
-      run.appendChild(ri); run.appendChild(rt);
-      run.addEventListener('click', function (e) {
-        e.stopPropagation();
-        var tap = C.sceneTap(pick), call = tap.perform_action ? tap.perform_action.split('.') : null, act = self.client && self.client.actions;
-        if (call && act) { try { act.callService(call[0], call[1], { entity_id: pick }); } catch (er) { /* the link is down: nothing to run */ } }
-        else if (window.hkDetail && window.hkDetail.open) window.hkDetail.open(pick);
-      });
-      left.appendChild(run);
-      box.appendChild(left);
-      var right = document.createElement('div');
-      right.className = 'list';
-      right.style.gap = gap + 'px';
-      box.appendChild(right);
-      var pillH = plan.half;
-      if (others.length) {
-        var sq = cellSquare(this), th = 70;
-        if (!pillH) {
-          // rows fill the column: two to four scenes in two rows, five or six in three, more of three's height, scrolling
-          var rows = others.length <= 4 ? 2 : 3, Hc = right.clientHeight || H;
-          th = Math.max(56, Math.floor((Hc - gap * (rows - 1)) / rows));
-        }
-        right.style.gridAutoRows = th + 'px';
-        this._tiles = others.map(function (p) {
-          var cfg = Object.assign({}, p, pillH ? { size: 'regular', tile: 'home' } : { tile: 'centred' }, plan.color ? { block_color: true } : {});
-          var slot = document.createElement('div');
-          slot.style.cssText = 'position:relative;min-width:0;min-height:0;container-type:size;container-name:hk-cell;--hk-cell-shape:' + (sq && !pillH ? 'square' : 'none');
-          var t = C.create(cfg);
-          t.setAttribute('data-group-fill', '');
-          t.style.cssText = 'display:block;min-width:0;min-height:0;width:100%;height:100%';
-          slot.appendChild(t); right.appendChild(slot);
-          if (client) t.hkSetClient(client);
-          return t;
-        });
-        var more = function () { right.classList.toggle('more', right.scrollTop + right.clientHeight < right.scrollHeight - 2); };
-        right.addEventListener('scroll', more, { passive: true });
-        more();
-      } else this._tiles = [];
-      this._glass();
-      return true;
-    }
     // (the view measures its cells after the cards are in, and again for a new cell style: drawn again when the
     // geometry it gives them is not the one drawn)
     _watch() {
@@ -2051,9 +1935,6 @@
     _fit() {
       var plan = this._gplan, box = this._box, size = this.getAttribute('size');
       if (!plan || !box || !size) return;
-      if (size === 'XL' && this._fitXL(plan)) return;
-      // (it drew the two columns and now has no suggestion: the grid, on a fresh box)
-      if (this._xlKey) { this._xlKey = null; box.className = ''; this._grid(plan); return; }
       var pill = plan.half || (size === 'W' && !cellSquare(this));
       // (no title row: "Scenes" says nothing the scenes don't -- 2026-11-08, the owner; the tiles have the whole block and "N More" is
       // the last place, a tile like the others)
@@ -2068,7 +1949,10 @@
       // A ROW OF FEWER TILES STARTS IN THE LEFT COLUMN (2026-11-09, the owner: "Fix it" -- "Movie Night" centered under three): the rows start left in a box as wide as the widest row,
       // that box centered in the block (as a Room's tiles, hk-grid-room.js --gw); no scenes: the line centered
       var across = Math.max(1, Math.min(gm.cols, shown + (left ? 1 : 0)));
-      tiles.style.cssText = 'display:flex;flex-wrap:wrap;justify-content:' + (n ? 'flex-start' : 'center') + ';align-content:center;flex:1;min-height:0;gap:' + gm.gap + 'px;width:100%;margin:0 auto;max-width:' + (n ? (across * gm.tw + (across - 1) * gm.gap) + 'px' : '100%');
+      // EXTRA LARGE AND FULL WIDTH (2026-11-09, mockup 8b, the owner: "I actually prefer your 8b"): Large's tile size, three across (six
+      // at Full Width), from the top-left of the block, two rows -- never a short group centered in it
+      var big = n && (size === 'XL' || size === 'XXL');
+      tiles.style.cssText = 'display:flex;flex-wrap:wrap;justify-content:' + (n ? 'flex-start' : 'center') + ';align-content:' + (big ? 'flex-start' : 'center') + ';flex:1;min-height:0;gap:' + gm.gap + 'px;width:100%;margin:' + (big ? '0' : '0 auto') + ';max-width:' + (n && !big ? (across * gm.tw + (across - 1) * gm.gap) + 'px' : '100%');
       box.appendChild(tiles);
       if (!n) {
         // NO SCENES (2026-11-08): the glyph and a line, centered in the block, in the secondary ink -- the block is there, saying what it holds

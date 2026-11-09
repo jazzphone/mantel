@@ -11,7 +11,7 @@
     var areaOf = K.areaOf, C = K.C, COLS = K.COLS, dimCall = K.dimCall, dims = K.dims, dom = K.dom,
         dragged = K.dragged, friendly = K.friendly, GAP = K.GAP, HkBase = /** @type {HkLooseElementConstructor} */ (K.HkBase), HOLD_MS = K.HOLD_MS,
         layout = K.layout, percent = K.percent, pill = K.pill, roomLine = K.roomLine,
-        roomOf = K.roomOf, roomHumidity = K.roomHumidity, roomParts = K.roomParts, roomTemp = K.roomTemp, sceneSays = K.sceneSays, sizeOf = K.sizeOf, SLOP = K.SLOP,
+        roomOf = K.roomOf, roomParts = K.roomParts, sceneSays = K.sceneSays, sizeOf = K.sizeOf, SLOP = K.SLOP,
         speakerOf = K.speakerOf, TABLET_ROOM = K.TABLET_ROOM, twoOf = K.twoOf, type = K.type, v = K.v;
 
     // ===================================================== hk-grid-room-card
@@ -49,6 +49,8 @@
       // sideways the pager's
       // ...a Wide Room's row on the bottom inset, under its heading (2026-11-07, the review), not floating mid-block
       '.room.hdr[size=W] .tiles{align-content:flex-end}',
+      // XL and Full Width, a room's (.ar: not an Accessories group's; 2026-11-09, mockup 8b): from the top-left, 8 px under the heading's row, never centered in the block
+      '.room.ar[size=XL] .tiles,.room.ar[size=XXL] .tiles{align-content:flex-start;margin:0;max-width:none}',
       '.tiles.scrolling{align-content:flex-start;overflow-y:auto;overflow-x:hidden;overscroll-behavior-y:contain;scrollbar-width:none}',
       '.tiles.scrolling::-webkit-scrollbar{display:none}',
       '.tiles.scrolling .slot{touch-action:pan-x pan-y}',
@@ -104,39 +106,6 @@
       '.rs .name{' + type('headline') + ';line-height:21px;color:' + v('ink') + ';text-shadow:' + v('glow') + '}',
       '.rs .state{' + type('caption') + ';line-height:17px;color:' + v('ink-2') + ';text-shadow:' + v('glow') + '}',
       ':host([tile=centred]) .room[size=S].rt .rs{display:block}',
-      // EXTRA LARGE IN TWO COLUMNS (2026-11-09, mockup 13, the owner approved): the room itself on the left -- its name (a tap
-      // opens its page), the temperature, what is going on, two of its scenes -- its accessories on the right, as tiles in two
-      // columns that fill the column's height (two rows for up to four, three for five and six; more scroll, the tiles keeping
-      // their size). The columns are a block's inset apart; the left is 214 px.
-      '.xb,.xs{display:none}',
-      '.room.x2{display:grid;grid-template-columns:214px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) auto;column-gap:var(--hk-pad-l,18px);',
-      '  grid-template-areas:"hd rt" "xb rt" "xs rt"}',
-      '.room.x2.pg{grid-template-rows:auto minmax(0,1fr) auto auto;grid-template-areas:"hd rt" "xb rt" "xs rt" "ft ft"}',
-      '.room.x2 .hd{grid-area:hd}.room.x2 .st,.room.x2 .mo{display:none}.room.x2 .ft{grid-area:ft}',
-      '.room.x2 .xb{grid-area:xb;display:flex;flex-direction:column;min-height:0;margin:0 var(--hk-text-in,0px);overflow:hidden}',
-      '.room.x2 .xs{grid-area:xs;display:flex;flex-direction:column;gap:8px}',
-      '.xt{margin-top:6px;font-size:60px;font-weight:300;line-height:64px;letter-spacing:-1px;color:' + v('ink') + ';text-shadow:' + v('glow') + ';font-variant-numeric:tabular-nums;white-space:nowrap}',
-      '.xh{margin-top:2px;' + type('body') + ';color:' + v('ink-2') + ';text-shadow:' + v('glow') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-      '.xw{display:flex;flex-direction:column;gap:8px;margin-top:18px;min-width:0}',
-      '.xw > div{display:flex;align-items:center;gap:8px;min-width:0;' + type('body') + ';color:' + v('ink') + ';text-shadow:' + v('glow') + '}',
-      '.xw hk-icon{width:18px;height:18px;--mdc-icon-size:100%;display:flex;flex:none}',
-      '.xw span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}',
-      '.xw .off{color:' + v('ink-2') + '}.xw .off hk-icon{color:' + v('ink-3') + '}',
-      // a scene's key: 56 px tall and the column's width, one over the other 8 px apart (the owner, 2026-11-09: "Should the Scenes be stacked on each other instead of side by side?")
-      '.sc{all:unset;box-sizing:border-box;position:relative;flex:none;width:100%;height:56px;padding:0 8px;border-radius:28px;background:rgba(255,255,255,0.16);',
-      '  display:flex;align-items:center;justify-content:center;cursor:pointer;-webkit-tap-highlight-color:transparent;color:' + v('ink') + ';' + type('body') + ';font-weight:600;text-shadow:' + v('glow') + '}',
-      '.sc span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}',
-      '.sc:active{background:rgba(255,255,255,0.28)}',
-      '.sc:focus-visible{outline:2px solid ' + v('ink-2') + ';outline-offset:2px}',
-      // its tiles: a grid of two columns, the rows the column's third or half (never the tile count's), from the left; what
-      // does not fit scrolls under a soft fade at the foot -- the pattern of Up Next's list (hk-media-now.js .npql)
-      '.room.x2 .tiles{grid-area:rt;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:var(--rh,96px);align-content:start;justify-content:stretch;',
-      '  gap:var(--gap,8px);flex:none;width:auto;max-width:none;margin:0;min-height:0;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;',
-      '  touch-action:pan-y;scrollbar-width:none;contain:size}',
-      '.room.x2 .tiles::-webkit-scrollbar{display:none}',
-      '.room.x2 .tiles.more{-webkit-mask-image:linear-gradient(180deg,#000 calc(100% - 56px),transparent);mask-image:linear-gradient(180deg,#000 calc(100% - 56px),transparent)}',
-      '.room.x2 .tiles > .slot{width:auto;height:100%;touch-action:pan-x pan-y}',
-      '.room.x2 .tiles > .none{grid-column:1 / -1;flex-direction:row;align-items:flex-start;text-align:left}.room.x2 .none hk-icon{display:none}',
       C.centredTile({ host: ':host([tile=centred])', plate: '.room[size=S].rt', lit: '.room[size=S].rt.lit', well: '.rs .well', icon: '.rs .icon', name: '.rs .name', sub: ['.rs .state'] })
     ].join('');
 
@@ -184,12 +153,6 @@
         var parts = roomParts(h, area), name = (h.areas[area] || {}).name || area, status = roomLine(h, area, parts, size);
         // THE ROOM AS ONE TILE (S): its glyph, name and line -- no accessories drawn
         if (size === 'S') return { area: area, size: size, tiles: [], more: 0, name: name, status: status, icon: this._roomGlyph(area) };
-        // EXTRA LARGE (2026-11-09, mockup 13): every accessory the room's page has, as tiles in two columns, and the room's facts
-        if (size === 'XL') {
-          var xg = this._geom(size, false, 0, 0);
-          return { area: area, size: size, xl: true, tiles: this._xTiles(parts),
-                   more: 0, name: name, status: status, geom: xg, empty: 'No accessories in this room', x: this._facts(h, area, parts) };
-        }
         // A WIDE ROOM'S ROW on a tile cell is the Home app's pill (2026-11-01, the owner: "half cards need to be fixed here like we
         // did on the Accessories card"): 70 px from the top, the glyph beside the words, never a Centred tile squeezed into a
         // short row. On a square cell (2026-11-08) it has the room for HomeView's tile under the heading: two of them, 130 px tall
@@ -211,34 +174,21 @@
         }
         // (the places the designed grid has, the last one the "N more" tile when there are more things than places)
         var places = gm.n, total = parts.lights.length + (speakerOf(h, parts.speakers) ? 1 : 0), more = total > places;
+        // EXTRA LARGE AND FULL WIDTH (2026-11-09, mockup 8b, the owner: "I actually prefer your 8b", "8b everywhere"): Large's tile size,
+        // three across (six at Full Width), every place a thing, the rest counted as "+N more" at the heading's right in place of the
+        // status -- not a tile that spends a place
+        if (more && (size === 'XL' || size === 'XXL')) {
+          return { area: area, size: size, parts: parts, tiles: layout(parts, size, places, h), more: 0, hmore: total - places, lbl: true,
+                   name: name, status: status, half: half, geom: gm };
+        }
         return { area: area, size: size, parts: parts, tiles: layout(parts, size, Math.max(0, places - (more ? 1 : 0)), h),
                  more: more ? total - Math.max(0, places - 1) : 0, name: name, status: status, half: half, geom: gm };
-      }
-      // THE TILES, in the order the mockup has them: the lights (and fans), the speakers, then whatever else the room's page holds
-      _xTiles(parts) {
-        var rank = function (c) { return parts.lights.indexOf(c) >= 0 ? 0 : parts.speakers.indexOf(c) >= 0 ? 1 : 2; };
-        return parts.all.map(function (c, i) { return { c: c, i: i }; }).sort(function (a, b) { return rank(a.c) - rank(b.c) || a.i - b.i; })
-          .map(function (o) { return pill(o.c, ['light', 'switch', 'input_boolean', 'fan'].indexOf(dom(o.c.entity)) >= 0); });
-      }
-      // WHAT THE LEFT COLUMN SAYS (Extra Large): the temperature, the humidity, one line per kind of thing going on (the lights'
-      // and a speaker playing -- the facts roomLine has), and up to two of the scenes in the room's area, by name
-      _facts(h, area, parts) {
-        var st = h.states || {}, ents = h.entities || {}, lights = parts.all.filter(function (c) { return dom(c.entity) === 'light'; });
-        var lit = lights.filter(function (c) { return st[c.entity] && st[c.entity].state === 'on'; }).length, lines = [];
-        if (lights.length) lines.push({ k: 'light', on: lit > 0, text: lit ? lit + (lit === 1 ? ' light on' : ' lights on') : 'Lights off' });
-        if (parts.speakers.some(function (c) { return st[c.entity] && st[c.entity].state === 'playing'; })) lines.push({ k: 'speaker', on: true, text: 'Speaker playing' });
-        // (the house's scenes: HA's, and what Settings -> Accessories -> Scenes counts as one)
-        var HC = window.hkCards, scenes = (HC && HC.sceneIds ? HC.sceneIds(h) : []).filter(function (id) {
-          return areaOf(h, id) === area && !(ents[id] && (ents[id].hidden || ents[id].entity_category));
-        }).map(function (id) { return { id: id, name: String((st[id].attributes || {}).friendly_name || id) }; })
-          .sort(function (a, b) { return a.name.localeCompare(b.name); }).slice(0, 2);
-        return { temp: roomTemp(h, area), hum: roomHumidity(h, area), lines: lines, scenes: scenes };
       }
       _sigOf() {
         var p = this._plan();
         this._p = p;
         return JSON.stringify([p.area, p.size, p.name, p.status, p.icon, p.more, p.hmore, !!p.scroll, this._config.surface, p.tiles.map(function (t) { return t.entity; }),
-                               p.geom, p.x, this._height(), !!window.hkStrategy, !!window.hkRoom, this.getAttribute('tile')]);
+                               p.geom, this._height(), !!window.hkStrategy, !!window.hkRoom, this.getAttribute('tile')]);
       }
       // EACH NEW CLIENT: every pill gets it (they gate their own draws)
       _receiveClient() {
@@ -271,12 +221,11 @@
         if (!this._built) {
           this._root.innerHTML = '<div class="room"><div class="hd"><button class="nm" type="button"><span></span>' +
             '<i aria-hidden="true">›</i></button><span class="st"></span><button class="mo" type="button" hidden></button></div>' +
-            '<div class="xb"><div class="xt"></div><div class="xh"></div><div class="xw"></div></div><div class="xs"></div>' +
             '<div class="tiles" role="list"></div>' +
             '<div class="ft" hidden><button class="fd" type="button"></button><b></b><span></span></div>' +
             '<button class="rs" type="button"><div class="well"><hk-icon class="icon"></hk-icon></div><div class="tx"><div class="name"></div><div class="state"></div></div></button></div>';
           var q = this._root.querySelector.bind(this._root);
-          this._e = { box: q('.room'), hd: q('.hd'), xt: q('.xt'), xh: q('.xh'), xw: q('.xw'), xs: q('.xs'), nm: q('.nm'), name: q('.nm span'), chev: q('.nm i'), st: q('.st'), mo: q('.mo'), tiles: q('.tiles'),
+          this._e = { box: q('.room'), hd: q('.hd'), nm: q('.nm'), name: q('.nm span'), chev: q('.nm i'), st: q('.st'), mo: q('.mo'), tiles: q('.tiles'),
                       ft: q('.ft'), fd: q('.fd'), sep: q('.ft b'), below: q('.ft span'), rs: q('.rs'), rsIcon: q('.rs .icon'), rsName: q('.rs .name'), rsState: q('.rs .state') };
           this._e.rs.addEventListener('click', function (e) { e.stopPropagation(); self._openRoom(true); });
           this._e.nm.addEventListener('click', function (e) { e.stopPropagation(); self._openRoom(); });
@@ -295,14 +244,11 @@
         }
         var e = this._e;
         e.box.setAttribute('size', p.size);
-        e.box.classList.toggle('x2', !!p.xl);
-        e.box.classList.toggle('r3', !!p.xl && p.tiles.length > 4);
-        this._xl = !!p.xl;
-        if (p.xl) this._drawFacts(p.x);
         C.groupSurface(e.box, this._config.surface);
         e.hd.style.display = p.head === false ? 'none' : '';
         e.box.classList.toggle('hdr', p.head !== false);
         e.box.classList.toggle('lbl', !!p.lbl);
+        e.box.classList.toggle('ar', !!p.area);
         var moText = p.hmore ? '+' + p.hmore + ' more' : '';
         if (e.mo.textContent !== moText) e.mo.textContent = moText;
         e.mo.hidden = !p.hmore;
@@ -329,7 +275,7 @@
         var across = Math.max(1, Math.min(cols, p.tiles.length + (p.more ? 1 : 0)));
         e.tiles.style.setProperty('--gw', (across * gm.tw + (across - 1) * gm.gap) + 'px');
         if (gm.sq) e.tiles.setAttribute('data-sq', ''); else e.tiles.removeAttribute('data-sq');
-        e.tiles.classList.toggle('scrolling', !!p.scroll && !p.xl && p.tiles.length > cols * rows);
+        e.tiles.classList.toggle('scrolling', !!p.scroll && p.tiles.length > cols * rows);
         if (e.name.textContent !== (p.name || 'Room')) e.name.textContent = p.name || 'Room';
         if (e.st.textContent !== (p.status || '')) e.st.textContent = p.status || '';
         // (the chevron: somewhere to go -- the room's page, or the room as a sheet on a screen without one)
@@ -349,7 +295,7 @@
         // well/circle behind the glyph"): the Tiny tile's look (hk-tile.js tinyTile) -- the glyph bare, sized by the pill's height --
         // the screen's Tile Style choosing it, as it chooses Tiny's; Classic keeps the Home app's pill and its well
         var hvHalf = !!p.half && this.getAttribute('tile') === 'centred';
-        var key = JSON.stringify([p.tiles, p.more, p.size, !!p.xl, !!p.scroll, centred, !!p.half, hvHalf, !!p.color, gm]);
+        var key = JSON.stringify([p.tiles, p.more, p.size, !!p.scroll, centred, !!p.half, hvHalf, !!p.color, gm]);
         if (key !== this._key) {
           this._key = key;
           e.tiles.innerHTML = '';
@@ -422,8 +368,7 @@
           if (pg) e.fd.setAttribute('aria-label', (p.name || 'Room') + ', room ' + (pg.at + 1) + ' of ' + pg.of + '. Tap beside the dot for the room before or after.');
         }
         e.fd.hidden = !pg;
-        e.box.classList.toggle('pg', !!pg && !!p.xl);
-        this._scrolls = !!p.scroll && !p.xl && p.tiles.length > cols * rows;
+        this._scrolls = !!p.scroll && p.tiles.length > cols * rows;
         e.ft.hidden = !pg && !this._scrolls;
         this._below();
       }
@@ -432,15 +377,6 @@
       _below() {
         var e = this._e;
         if (!e) return;
-        // (Extra Large: a fade at the tiles' foot while more is under them, not a line of words)
-        var tl = e.tiles;
-        tl.classList.toggle('more', !!this._xl && tl.scrollTop + tl.clientHeight < tl.scrollHeight - 1);
-        // ...and its rows: the column's half (up to four tiles) or third (more), in px -- a percent of a grid in a grid's row
-        // is left unresolved while it holds many tiles (2026-11-09)
-        if (this._xl && tl.clientHeight) {
-          var rows = e.box.classList.contains('r3') ? 3 : 2, gap = parseFloat(tl.style.getPropertyValue('--gap')) || 8;
-          tl.style.setProperty('--rh', Math.floor((tl.clientHeight - (rows - 1) * gap) / rows) + 'px');
-        }
         var n = 0;
         if (this._scrolls) {
           var t = e.tiles, bottom = t.scrollTop + t.clientHeight + 1;
@@ -450,33 +386,6 @@
         if (e.below.textContent !== text) e.below.textContent = text;
         e.below.hidden = !n;
         e.sep.hidden = !n || e.fd.hidden;
-      }
-      // the left column, drawn (Extra Large): the temperature large and light, the humidity under it, a glyph and a line for each
-      // kind of thing going on, the scenes as keys; whatever the room has none of is not drawn
-      _drawFacts(x) {
-        var e = this._e, self = this, key = JSON.stringify(x);
-        if (e.xKey === key) return;
-        e.xKey = key;
-        e.xt.hidden = x.temp === null; e.xt.textContent = x.temp === null ? '' : Math.round(x.temp) + '°';
-        e.xh.hidden = x.hum === null || x.temp === null; e.xh.textContent = x.hum === null ? '' : x.hum + '% humidity';
-        e.xw.style.marginTop = x.temp === null ? '4px' : '';
-        e.xw.innerHTML = '';
-        x.lines.forEach(function (l) {
-          var row = document.createElement('div'), ic = document.createElement('hk-icon'), tx = document.createElement('span');
-          ic.icon = l.k === 'light' ? 'hk:lightbulb' : 'hk:speaker';
-          if (l.on) ic.style.color = l.k === 'light' ? C.ACCENTS.yellow : C.ACCENTS.pink;
-          tx.textContent = l.text;
-          if (!l.on) row.className = 'off';
-          row.appendChild(ic); row.appendChild(tx); e.xw.appendChild(row);
-        });
-        e.xs.innerHTML = '';
-        x.scenes.forEach(function (sc) {
-          var b = document.createElement('button'), t = document.createElement('span');
-          b.type = 'button'; b.className = 'sc'; t.textContent = sc.name; b.appendChild(t);
-          b.setAttribute('aria-label', 'Run ' + sc.name);
-          b.addEventListener('click', function (ev) { ev.stopPropagation(); var d = dom(sc.id), svc = d === 'scene' || d === 'script' ? 'turn_on' : 'press'; self._call(d, svc, { entity_id: sc.id }); });
-          e.xs.appendChild(b);
-        });
       }
       _roomPath(area) {
         var M = C.menu;
