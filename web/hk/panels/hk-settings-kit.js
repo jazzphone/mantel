@@ -178,6 +178,11 @@
     '.cell.stack .seg button{padding:0 6px;min-width:0}',
     '.cell.stack.fitc .seg{grid-auto-columns:auto}',
     '.cell.stack.fitc .seg button{padding:4px 6px;height:auto;min-height:28px;white-space:normal;line-height:17px}',
+    // TWO ROWS (2026-11-09, the owner's screenshot: a block's six sizes in one row -- "Compact" drawn over "Tall",
+    // "X-Large" broken at its hyphen): when the choices still do not fit as their words, they split into two even rows,
+    // each segment as wide as the widest of its column, none clipped or wrapped
+    '.cell.stack.rows .seg{grid-auto-flow:row;grid-template-columns:repeat(var(--seg-cols,3),minmax(0,1fr));row-gap:2px}',
+    '.cell.stack.rows .seg button{height:28px;white-space:nowrap;padding:0 6px;box-shadow:none}',
     // POP-UP MENU (a system <select> over the value)
     '.pop{position:relative;flex:0 1 auto;min-width:0;display:inline-flex;align-items:center;gap:6px;color:var(--hk-label2)}',
     '.pop .pv{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
@@ -375,7 +380,7 @@
     if (!w || w === cell._fitW) return;            // its own height changing is no reason
     cell._fitW = w;
     var box = cell.querySelector('.seg'), lbl = cell.querySelector('.lbl');
-    cell.classList.remove('fitc');
+    cell.classList.remove('fitc', 'rows');
     if (!cell._stackAlways) {
       cell.classList.remove('stack');
       var cr = cell.getBoundingClientRect(), br = box.getBoundingClientRect();
@@ -384,6 +389,12 @@
     // stacked: equal segments, as Apple draws them -- unless a choice is
     // then too wide for its share ("Photos & Forecast"): each as its words
     if (cell.classList.contains('stack') && spills(box)) cell.classList.add('fitc');
+    // ...and when even that spills, or breaks a choice inside its segment, two rows of them
+    if (cell.classList.contains('fitc') && box.children.length > 3 && (spills(box) || [].some.call(box.children, function (b) { return broken(b); }))) {
+      cell.classList.remove('fitc');
+      cell.classList.add('rows');
+      box.style.setProperty('--seg-cols', String(Math.ceil(box.children.length / 2)));
+    }
   }
   // ROWS WITH A VALUE (fitRow): measured at their natural widths, then left
   // alone if both fit, else `vkeep` or `lkeep` (the CSS above)

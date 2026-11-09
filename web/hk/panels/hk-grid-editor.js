@@ -25,7 +25,7 @@
   // C, Compact (2026-11-07): 3 x 1, Security's HomeView presentation's alone
   var SIZE_NAMES = { XS: 'Tiny', S: 'Small', W: 'Wide', C: 'Compact', T: 'Tall', L: 'Large', XL: 'Extra Large', XXL: 'Full Width', F: 'Full View' };
   // a size on a chip or a segment, short enough for four in a row
-  var SIZE_SHORT = { XS: 'Tiny', S: 'Small', W: 'Wide', C: 'Compact', T: 'Tall', L: 'Large', XL: 'X-Large', XXL: 'Full', F: 'Full View' };
+  var SIZE_SHORT = { XS: 'Tiny', S: 'Small', W: 'Wide', C: 'Compact', T: 'Tall', L: 'Large', XL: 'X\u2011Large', XXL: 'Full', F: 'Full View' };
   // TINY (XS, 2026-11-08): half a cell, at[2] 1 its bottom half -- the places here count in half rows: a Tiny block one, the rest two
   function y2(it) { return it.at[1] * 2 + (it.size === 'XS' && it.at[2] ? 1 : 0); }
   function h2(size) { return size === 'XS' ? 1 : SIZES[size][1] * 2; }
