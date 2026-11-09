@@ -197,7 +197,7 @@
       '.xl2 .rw:focus-visible{outline:2px solid ' + C.v('ink') + ';outline-offset:-2px}',
       '.xl2 .rw .cvr{width:44px;height:44px;box-shadow:none}.xl2 .rw .cvr hk-icon{width:20px;height:20px;--mdc-icon-size:20px}',
       '.xl2 .rw .tx{display:flex;flex-direction:column;min-width:0;flex:1}',
-      '.xl2 .rw .rt{font-size:16px;font-weight:600;line-height:20px;color:' + C.v('ink') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+      '.xl2 .rw .rt{font-size:15px;font-weight:600;line-height:19px;color:' + C.v('ink') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
       '.xl2 .rw .ra{font-size:13px;font-weight:400;line-height:17px;color:' + C.v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
       '.xl2 .nn{flex:1;display:grid;place-items:center;text-align:center;' + C.typeCss('caption') + ';color:' + C.v('ink-2') + '}',
       '.top .t1{' + C.typeCss('title') + ';line-height:27px;margin-top:2px}',

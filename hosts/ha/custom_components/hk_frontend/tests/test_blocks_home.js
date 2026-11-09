@@ -131,6 +131,21 @@ function () {
   ok('...each face and row opens its person', (xl.match(/<button class="x[fw][ "][^>]*data-id="person\./g) || []).length === 3);
   ok('...nobody home says so, and who left last', /<b>Nobody Home<\/b><span>\w+ left /.test((function () { var c = H.make('hk-people-card'); c._clientExplicit = true; c._hkClient = { states: { 'person.a': { state: 'not_home', last_changed: '2026-11-09T09:02:00', attributes: { friendly_name: 'Alex Park' } } } }; return c._xl(['person.a']); })()));
   ok('...the two columns\' gap is the block\'s inset, the rows 56 and the lists scroll with a fade', PSRC.indexOf("gap:var(--hk-pad-l,18px)") > 0 && PSRC.indexOf("height:56px;flex:none") > 0 && PSRC.indexOf(".pp .xs.more{") > 0);
+  // SHOW MAP (mockup 13b, 2026-11-09): the person sheet's OpenStreetMap tiles, each located person's face, the house; the list
+  // grouped Home, then Away with the place and how far; off by default (the block option), and none with no place to show
+  var mapOf = function (states) { var c = H.make('hk-people-card'); c._clientExplicit = true; c._config = { map: true }; c._hkClient = { states: states, config: { unit_system: { length: 'mi' } } }; return c._xlMap(Object.keys(states).filter(function (k) { return k.indexOf('person.') === 0; }), 540, 320); };
+  var HOME = { latitude: 33.9806, longitude: -117.3755 };
+  var mp = mapOf({ 'zone.home': { state: 'zoning', attributes: HOME }, 'person.a': { state: 'home', attributes: Object.assign({ friendly_name: 'Sam' }, HOME) },
+                   'person.b': { state: 'Work', attributes: { friendly_name: 'Robin', latitude: 33.9533, longitude: -117.3962 } },
+                   'person.c': { state: 'School', attributes: { friendly_name: 'Kit' } } });
+  ok('Show Map: tiles from OpenStreetMap, the house marked, a face on the map for each located person, credit given',
+     /src="https:\/\/tile\.openstreetmap\.org\/\d+\/\d+\/\d+\.png"/.test(mp) && /class="xhm"/.test(mp) && (mp.match(/class="xp"/g) || []).length === 2 && /© OpenStreetMap/.test(mp), mp);
+  ok('...the list: Home, then Away with the place and how far (no place: the zone only), each a row that opens its person',
+     /<b class="lab">Home<\/b>[\s\S]*<b class="lab">Away<\/b>/.test(mp) && /<b>Robin<\/b><span>Work · 2(\.\d)? mi<\/span>/.test(mp) && /<b>Kit<\/b><span>School<\/span>/.test(mp) &&
+     (mp.match(/<button class="xw"[^>]*data-id="person\./g) || []).length === 3, mp);
+  ok('...everyone home: Arrived', /<b class="lab">Arrived<\/b>/.test(mapOf({ 'zone.home': { state: 'zoning', attributes: HOME }, 'person.a': { state: 'home', attributes: Object.assign({ friendly_name: 'Sam' }, HOME) } })));
+  ok('...no house and nobody located: the two columns without a map', !/tile\.openstreetmap/.test(mapOf({ 'person.a': { state: 'home', attributes: { friendly_name: 'Sam' } } })));
+  ok('...off by default: the catalog passes map only when the block asks', /o\.map \? \{ map: true \}/.test(readFile(HK_ROOT + '/frontend/cards/hk-grid-catalog.js')));
   ok('the page card keeps its row of avatars', /class="row" role="list"/.test((function () { var c = H.make('hk-people-card'); hkGive(c, hass()); c.setConfig({}); return c._root.__html; })()));
 },
 function () {

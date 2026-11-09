@@ -735,6 +735,16 @@ STATES["doors_many"] = {"domains": {"cover": "open", "binary_sensor": "on"},
 STATES["people_home"] = {"domains": {"person": "home"}}
 STATES["people_none"] = {"domains": {"person": "not_home"}}
 STATES["people_many"] = {"entities": {f"person.guest_{i}": ("home", {"friendly_name": f"Guest {i}"}) for i in range(5)}}
+# (Who's Home with Show Map, mockup 13b: stand-in places around Riverside, the fictional house's town -- never a household's)
+_HOME_LL = {"latitude": 33.9806, "longitude": -117.3755}
+STATES["people_map"] = {"entities": {"zone.home": ("zoning", {"friendly_name": "Home", "radius": 100, **_HOME_LL}),
+                                     "person.sam": ("home", {"friendly_name": "Sam", **_HOME_LL}),
+                                     "person.robin": ("Work", {"friendly_name": "Robin", "latitude": 33.9533, "longitude": -117.3962}),
+                                     "person.alex": ("not_home", {"friendly_name": "Alex", "latitude": 34.0555, "longitude": -117.1825})},
+                        "opts": {"people": {"map": True}}}
+STATES["people_map_home"] = {"entities": {"zone.home": ("zoning", {"friendly_name": "Home", "radius": 100, **_HOME_LL}),
+                                          **{f"person.{n}": ("home", {"friendly_name": n.title(), **_HOME_LL}) for n in ("sam", "robin", "alex")}},
+                             "opts": {"people": {"map": True}}}
 STATES["people_four"] = {"entities": {"person.jo": ("home", {"friendly_name": "Jo"}), "person.kit": ("School", {"friendly_name": "Kit"})}}
 STATE = {"name": "busy", "hits": False}
 # six more rooms for a house with twelve (the Vacuum block's rooms scroll when they do not fit)

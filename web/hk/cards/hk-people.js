@@ -138,6 +138,16 @@
         '.pp .xw .tx b{' + C.typeCss('headline') + ';line-height:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
         '.pp .xw .tx span,.pp .xw .sn{font-size:13px;line-height:16px;color:' + C.v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
         '.pp .xw .sn{flex:none;margin-left:auto}',
+        // (the map: the person sheet's tiles and darkening, hk-person.js; the faces with a white ring, the house over those home)
+        '.pp .xm{position:relative;overflow:hidden;border-radius:' + C.R.inner + 'px;background:#1b1d22;align-self:stretch}',
+        '.pp .xt{position:absolute;inset:0;filter:invert(.92) hue-rotate(180deg) saturate(.35) brightness(1.05) contrast(.95)}',
+        '.pp .xt img{position:absolute;width:256px;height:256px;max-width:none;pointer-events:none;-webkit-user-select:none;user-select:none}',
+        '.pp .xp,.pp .xhm{position:absolute;transform:translate(-50%,-50%);pointer-events:none}',
+        '.pp .xp .face{box-shadow:0 0 0 3px #fff,0 4px 12px rgba(0,0,0,.5)}',
+        '.pp .xhm{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:rgba(28,28,32,.9);box-shadow:0 0 0 2px rgba(255,255,255,.7)}',
+        '.pp .xhm hk-icon{width:18px;height:18px;--mdc-icon-size:18px;display:flex;color:#fff}',
+        '.pp .xcr{position:absolute;right:8px;bottom:6px;font-size:11px;line-height:14px;color:rgba(255,255,255,.6);pointer-events:none}',
+        '.pp .xmap .hd{flex:none}.pp .xmap .hd~.hd{margin-top:' + PP.g + 'px}',
         '.pp .mf{flex:none;margin-top:' + PP.g + 'px;' + C.typeCss('caption') + ';line-height:' + PP.line + 'px;color:' + C.v('ink-2') + '}'
       ].join('');
     }
@@ -152,7 +162,9 @@
     _sigOf() {
       var h = this.client;
       if (!h) return null;
-      return this._ids().map(function (id) { var s = h.states[id]; return id + '=' + s.state + '/' + ((s.attributes || {}).entity_picture || ''); }).join(';') +
+      var map = !!this._config.map, z = h.states['zone.home'], at = function (a) { return a && isFinite(a.latitude) ? Number(a.latitude).toFixed(4) + ',' + Number(a.longitude).toFixed(4) : ''; };
+      return this._ids().map(function (id) { var s = h.states[id]; return id + '=' + s.state + '/' + ((s.attributes || {}).entity_picture || '') + (map ? '@' + at(s.attributes) : ''); }).join(';') +
+        (map ? '|' + at(z && z.attributes) : '') +
         '|' + (this._cellSize() || '') + '|' + (this._blockKey || '');
     }
     // ONE PERSON'S FACE on a block, as a button opening their sheet (the
@@ -207,6 +219,79 @@
       }).join('') + '</div>';
       return '<div class="xl"><div class="xc xh">' + hd('Home') + left + '</div><div class="xc xa">' + hd(all ? 'Arrived' : 'Away') + right + '</div></div>';
     }
+    // EXTRA LARGE WITH THE MAP (2026-11-09, mockup 13b, the owner: "Would the Who's Home XL card look better with a map on the
+    // left side showing the current locations"; Show Map, a block option, off by default -- a wall tablet would otherwise show
+    // where everyone is to anyone in the room). The map is the person sheet's (hk-person.js): OpenStreetMap's tiles darkened to
+    // the look, no map library. Each person with a location is their face on it, the house is marked and those home sit beside
+    // it; the map fits everyone in sight -- the neighborhood when all are home. Everyone is listed on the right: Home, then Away
+    // with the place, how far and since when (all home: Arrived, latest first). Someone with no location is in the list only.
+    _xlMap(ids, iw, ih) {
+      var h = this.client, st = h.states, esc = C.esc;
+      var ll = function (a) { return a && isFinite(a.latitude) && isFinite(a.longitude) && (a.latitude || a.longitude) ? [Number(a.latitude), Number(a.longitude)] : null; };
+      var zh = st['zone.home'], home = ll(zh && zh.attributes);
+      var homeIds = ids.filter(function (id) { return st[id].state === 'home'; }), away = ids.filter(function (id) { return st[id].state !== 'home'; });
+      if (!home) { var hp = homeIds.map(function (id) { return ll(st[id].attributes); }).filter(Boolean)[0]; home = hp || null; }
+      var pts = away.map(function (id) { return { id: id, p: ll(st[id].attributes) }; }).filter(function (x) { return x.p; });
+      // (no house and nobody located: the two columns without the map)
+      if (!home && !pts.length) return this._xl(ids);
+      var W = Math.round(Math.min(320, iw * 0.55)), H = Math.round(ih), T = 256, PAD = 30;
+      var wx = function (p, z) { return (p[1] + 180) / 360 * T * Math.pow(2, z); };
+      var wy = function (p, z) { var la = p[0] * Math.PI / 180; return (1 - Math.log(Math.tan(la) + 1 / Math.cos(la)) / Math.PI) / 2 * T * Math.pow(2, z); };
+      var all = (home ? [home] : []).concat(pts.map(function (x) { return x.p; }));
+      // (the closest zoom that holds everyone inside the padding; the neighborhood, 15, when only the house is on it)
+      var z = 15;
+      for (; z > 3; z--) {
+        var xs = all.map(function (p) { return wx(p, z); }), ys = all.map(function (p) { return wy(p, z); });
+        if (Math.max.apply(null, xs) - Math.min.apply(null, xs) <= W - 2 * PAD - 20 && Math.max.apply(null, ys) - Math.min.apply(null, ys) <= H - 2 * PAD - 20) break;
+      }
+      var X = all.map(function (p) { return wx(p, z); }), Y = all.map(function (p) { return wy(p, z); });
+      var cx = (Math.max.apply(null, X) + Math.min.apply(null, X)) / 2, cy = (Math.max.apply(null, Y) + Math.min.apply(null, Y)) / 2;
+      var ox = cx - W / 2, oy = cy - H / 2, n = Math.pow(2, z), tiles = '';
+      for (var tx = Math.floor(ox / T); tx <= Math.floor((ox + W) / T); tx++) for (var ty = Math.floor(oy / T); ty <= Math.floor((oy + H) / T); ty++) {
+        if (ty < 0 || ty >= n) continue;
+        tiles += '<img alt="" src="https://tile.openstreetmap.org/' + z + '/' + (((tx % n) + n) % n) + '/' + ty + '.png" style="left:' + Math.round(tx * T - ox) + 'px;top:' + Math.round(ty * T - oy) + 'px">';
+      }
+      var face = function (id, d) {
+        var a = st[id].attributes || {}, nm = String(a.friendly_name || id), ini = nm.split(/\s+/).filter(Boolean).slice(0, 2).map(function (w) { return w[0]; }).join('').toUpperCase();
+        return '<span class="face" style="--f:' + d + 'px;--fc:' + C.ACCENTS[FACE[ids.indexOf(id) % FACE.length]] + '">' +
+          (a.entity_picture ? '<img alt="" data-initials="' + esc(ini) + '" src="' + esc(a.entity_picture) + '">' : esc(ini)) + '</span>';
+      };
+      var at = function (p) { return 'left:' + Math.round(wx(p, z) - ox) + 'px;top:' + Math.round(wy(p, z) - oy) + 'px'; };
+      // (those home: beside the house, in an arc above it, the house drawn over them)
+      var pins = pts.map(function (x) { return '<span class="xp" style="' + at(x.p) + '">' + face(x.id, 40) + '</span>'; }).join('');
+      if (home) {
+        var hx = wx(home, z) - ox, hy = wy(home, z) - oy, k = homeIds.length;
+        pins += homeIds.map(function (id, i) {
+          var ang = (k === 1 ? -45 : -150 + 120 * i / (k - 1)) * Math.PI / 180, r = 44;
+          return '<span class="xp" style="left:' + Math.round(hx + r * Math.cos(ang)) + 'px;top:' + Math.round(hy + r * Math.sin(ang)) + 'px">' + face(id, 36) + '</span>';
+        }).join('') + '<span class="xhm" style="left:' + Math.round(hx) + 'px;top:' + Math.round(hy) + 'px"><hk-icon icon="mdi:home"></hk-icon></span>';
+      }
+      // (how far from home, in the house's units -- the person sheet's words without "from home")
+      var mi = !!(h.config && h.config.unit_system && h.config.unit_system.length === 'mi');
+      var far = function (p) {
+        if (!home || !p) return '';
+        var R = 6371, r = Math.PI / 180, dl = (p[0] - home[0]) * r, dn = (p[1] - home[1]) * r;
+        var q = Math.sin(dl / 2) * Math.sin(dl / 2) + Math.cos(home[0] * r) * Math.cos(p[0] * r) * Math.sin(dn / 2) * Math.sin(dn / 2);
+        var v = 2 * R * Math.asin(Math.sqrt(q)) * (mi ? 0.621371 : 1);
+        return v < 0.1 ? '' : (v < 10 ? Math.round(v * 10) / 10 : Math.round(v)) + (mi ? ' mi' : ' km');
+      };
+      var lbl = function (id) { return ' data-id="' + esc(id) + '" aria-label="' + esc(String((st[id].attributes || {}).friendly_name || id) + ', ' + whereOf(st[id])) + '"'; };
+      var atT = function (id) { var t = Date.parse(st[id].last_changed); return isNaN(t) ? 0 : t; };
+      // (the place and how far under the name, the time at the right -- the rows of the two columns without the map)
+      var row = function (id, words) {
+        var t = timeOf(st[id]);
+        return '<button class="xw"' + lbl(id) + '>' + face(id, 44) + '<span class="tx"><b>' + esc(firstOf1(st, id)) + '</b><span>' + esc(words) + '</span></span>' +
+          (t ? '<span class="sn">' + esc(t) + '</span>' : '') + '</button>';
+      };
+      var hd = function (t) { return '<div class="hd"><b class="lab">' + t + '</b></div>'; };
+      var homeRows = function (list) { return list.map(function (id) { return row(id, 'Home'); }).join(''); };
+      var list = !away.length ? hd('Arrived') + homeRows(homeIds.slice().sort(function (a, b) { return atT(b) - atT(a); }))
+        : (homeIds.length ? hd('Home') + homeRows(homeIds) : '') + hd('Away') + away.map(function (id) {
+          return row(id, [whereOf(st[id]), far(ll(st[id].attributes))].filter(Boolean).join(' \u00b7 '));
+        }).join('');
+      return '<div class="xl"><div class="xm" style="flex:0 0 ' + W + 'px"><div class="xt">' + tiles + '</div>' + pins +
+        '<span class="xcr">\u00a9 OpenStreetMap</span></div><div class="xc xa"><div class="xs xmap">' + list + '</div></div></div>';
+    }
     _render() {
       var h = this.client;
       if (!h) return;
@@ -220,7 +305,7 @@
         // (before the view has measured: a tile cell's block)
         var iw = b ? b.w - pad('l') - pad('r') : sz === 'W' ? 374 : 168, ih = b ? b.h - pad('t') - pad('b') : 122;
         if (sz === 'XL') {
-          html = this._xl(ids);
+          html = this._config.map ? this._xlMap(ids, iw, ih) : this._xl(ids);
         } else if (sz === 'S' || sz === 'L') {
           // (Small: the faces, one line under them. Large: the faces as large as fit, each with its name and where under it. Extra Large is two columns, _xl)
           var lg = sz !== 'S', gr = lg ? faceGrid(ids.length, iw, ih - PP.lab - 2 * PP.g, 46, 88) : faceGrid(ids.length, iw, ih - PP.lab - PP.line - 2 * PP.g, 0, 64, true);
@@ -272,6 +357,11 @@
       this._root.querySelectorAll('.av img, .face img').forEach(function (img) {
         // once (the browser's own error can follow the hand-made one, on an image no longer in the page)
         img.onerror = function () { img.onerror = null; if (img.parentNode) img.parentNode.textContent = img.getAttribute('data-initials'); };
+        if (img.complete && !img.naturalWidth) img.onerror();
+      });
+      // (a map tile that will not load is left out, not the broken-picture glyph)
+      this._root.querySelectorAll('.xt img').forEach(function (img) {
+        img.onerror = function () { img.style.visibility = 'hidden'; };
         if (img.complete && !img.naturalWidth) img.onerror();
       });
       if (!this._wired) {

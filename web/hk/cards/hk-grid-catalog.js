@@ -146,7 +146,7 @@
       return B && B.level ? { type: 'custom:hk-house-battery-card', level: B.level, stored: B.stored, backup: B.backup,
                               reserve: B.reserve, charge: B.charge, discharge: B.discharge }
                           : stand('Battery', 'mdi:home-battery', 'Add Energy with a house battery in Settings to show it here.'); } },
-    people: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { tap: 'tap_target' }, card: function () { return { type: 'custom:hk-people-card' }; } },
+    people: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { tap: 'tap_target', map: 'boolean' }, card: function (s, o) { return Object.assign({ type: 'custom:hk-people-card' }, o.map ? { map: true } : {}); } },
     // Large and Extra Large: its controls with Clean Areas (2026-10-24)
     vacuum: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { entity: 'vacuum', tap: 'tap_target' }, card: function (s, o, ctx) {
       var id = o.entity || ctx.vacuum;

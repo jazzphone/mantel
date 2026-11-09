@@ -66,7 +66,7 @@
     speaker: 'Speaker', scene: 'Scene', scenes: 'Scenes', calendars: 'Calendars', area: 'Room', action: 'Does', windows: 'Time Windows', alarm: 'Alarm',
     cameras: 'Cameras', refresh: 'Refresh', todo: 'List' };
   var RULE_MARK = '#rule:';                 // (a block's id has no # in it: hk_core ITEM_ID)
-  var NAME_LABELS = { sky: 'Sky Background', title: 'Group Name', clock_style: 'Style', bare: 'Hide Box', big: 'Big Temperature', month: 'Month View', color: 'Color' };
+  var NAME_LABELS = { sky: 'Sky Background', title: 'Group Name', clock_style: 'Style', bare: 'Hide Box', big: 'Big Temperature', month: 'Month View', color: 'Color', map: 'Show Map' };
   // ONE THING OR PAGES THAT SWIPE, in each card's words: [one, its automatic source]
   var SHOW = { room: ['One Room', 'Swipe Between Rooms'], camera: ['One Camera', 'Swipe All Cameras'],
     thermostat: ['One Thermostat', 'Swipe All Thermostats'], now_playing: ['One Speaker', 'Swipe All Speakers'],
@@ -2107,7 +2107,9 @@
           if (o.list && !o.page) return;
           self.accessoryFields(opts[key] || [], (v) => set(key, v), rows, o.page ? G.PER_PAGE[o.size] : 24); return;
         }
-        if (kind === 'boolean') { rows.push(K.toggle({ label: label, on: opts[key] === true, onChange: (on) => set(key, on || null) })); return; }
+        // (Who's Home's map shows where everyone is to anyone in front of the screen: it says so -- 2026-11-09, mockup 13b)
+        if (kind === 'boolean') { rows.push(K.toggle({ label: label, sub: card === 'people' && key === 'map' ? 'Extra Large: where everyone is, on a map, for anyone who can see this screen.' : undefined,
+                                                    on: opts[key] === true, onChange: (on) => set(key, on || null) })); return; }
         if (kind === 'windows') { self.windows(opts, set, rows); return; }
         if (kind === 'clock_style') {
           rows.push(K.select({ label: 'Style', value: opts[key] || '', options: G.CLOCK_FACES, onChange: (v) => set(key, v || null) }));
