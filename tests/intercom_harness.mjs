@@ -781,7 +781,7 @@ test('message_record_stop_sends_sent', async () => {
   eq(s.mic.calls.filter((c) => c[0] === 'rec').map((c) => c[1]), [true, false]);
   await flush();
   eq(s.mic.texts().at(-1), { type: 'send', rooms: [K, L], override: false });
-  assert.equal(lines(s), 'Sending…');
+  assert.equal(lines(s), 'To Kitchen, Living Room');           // the big word says Sending…; the line says where to, not the same word
   s.mic.server({ type: 'rooms', rooms: [{ room: K, state: 'ok' }, { room: L, state: 'ok' }] });
   s.mic.server({ type: 'sending', rooms: 2 });
   s.mic.server({ type: 'sent', rooms: 2, failed: [] });

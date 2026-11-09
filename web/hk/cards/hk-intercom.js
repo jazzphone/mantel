@@ -308,7 +308,8 @@
           return { text: lag != null ? 'Live, about ' + Math.max(1, Math.round(lag / 1000)) + ' s behind you' : 'Live', kind: 'live' };
         }
         return { text: '', kind: 'live' };              // the button says it: its word is the time, its hint the time left
-      case 'sending': return this.fallback.length ? { text: this._fallbackLine(), kind: 'info' } : { text: WORDS.sending, kind: 'pending' };
+      // (the big word already says "Sending…": the line under it says where to, never the same word again)
+      case 'sending': return this.fallback.length ? { text: this._fallbackLine(), kind: 'info' } : { text: names.length ? 'To ' + (names.length > 2 ? plural(names.length, 'room', 'rooms') : names.join(', ')) : '', kind: 'pending' };
       case 'sent': return this._sentLine();
       case 'review': return names.length ? { text: 'Ready to send to ' + names.join(', '), kind: 'info' } : { text: WORDS.chooseRooms, kind: 'info' };
       case 'error': return { text: WORDS.lost, kind: 'failed' };
@@ -1309,8 +1310,12 @@
       '.mic[data-kind="rec"] .mb{--c:' + TALK.rec + '}',
       '.mic[data-kind="live"] .mb{--c:' + TALK.live + '}',
       '.mic[data-kind="wait"] .mb{--c:' + TALK.wait + '}',
+      // SENDING'S PULSE is a color, not opacity (2026-11-09, the owner: "a box around the microphone button column ... a hard edge
+      // under the sending text"): an opacity animation gets the core a compositor layer of its own, and on the wall tablets'
+      // WebView that layer and the sheet's backdrop-filter glass were drawn apart -- a lighter rectangle the talk column's size.
+      // A background-color animation is painted in the page's own layer.
       '.mic[data-kind="busy"] .core{animation:hki-pulse 1.1s ease-in-out infinite}',
-      '@keyframes hki-pulse{50%{opacity:.6}}',
+      '@keyframes hki-pulse{50%{background-color:color-mix(in srgb,var(--c) 62%,transparent)}}',
       '.mic[data-kind="off"] .mb{--c:rgba(255,255,255,0.22);cursor:default}',
       '.wd{font-size:38px;font-weight:600;letter-spacing:-1px;line-height:44px;text-align:center;font-variant-numeric:tabular-nums;color:' + v('ink') + '}',
       '.mt{font-size:15px;font-weight:500;color:' + v('ink-2') + ';min-height:20px;line-height:20px;text-align:center;font-variant-numeric:tabular-nums}',
