@@ -2913,7 +2913,7 @@
   // large and light, a line under it; rows of figures two by two; a row of
   // bars. The Battery and Energy Rings blocks share them.
   var WIDGET_CSS = [
-    '.wl{font-size:15px;font-weight:600;line-height:19px;letter-spacing:0.2px;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:none;text-shadow:' + window.hkCards.v('glow') + '}',
+    window.hkCards.headCss('.wl') + '.wl{flex:none}',
     '.wb{font-size:44px;font-weight:300;letter-spacing:-0.9px;line-height:1.04;font-variant-numeric:tabular-nums;white-space:nowrap;margin-top:2px;flex:none}',
     '.ws{' + window.hkCards.typeCss('body') + ';line-height:19px;color:' + window.hkCards.v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '.ws.wrap{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}',
@@ -2922,7 +2922,7 @@
     '.wc{display:block}',
     '.waxis{display:flex;justify-content:space-between;margin-top:6px;' + window.hkCards.typeCss('micro') + ';color:' + window.hkCards.v('ink-3') + '}',
     '.wgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 18px}.wgrid>div{display:flex;flex-direction:column;min-width:0}',
-    '.wgrid b{' + window.hkCards.typeCss('label') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:' + window.hkCards.v('glow') + '}',
+    '.wgrid b{font-size:13px;font-weight:600;letter-spacing:0;text-transform:none;color:' + window.hkCards.v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:' + window.hkCards.v('glow') + '}.wgrid b i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:0.5px}',  // 2026-11-09, the owner, on the colored capitals: "Fix it" -- Title Case, gray, the color a small dot before the word
     '.wgrid span{font-size:22px;font-weight:600;letter-spacing:-0.3px;line-height:1.2;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'
   ].join('');
   // A BLOCK'S BOX in px, and inside its inset: the view's measure, else a
@@ -3298,7 +3298,7 @@
           window.hkLocale.clock({ hour: 'numeric', minute: '2-digit', timeZone: window.hkStats && window.hkStats.tz() }));
       } else if (bw > 0 && level >= 100) full = 'Full';
       else { fullK = 'Lasts'; full = bh != null ? hm(bh) : '—'; }
-      var stat = function (k, cl, val, more) { return '<div' + moreAttr(more) + '><b style="color:' + cl + '">' + k + '</b><span>' + esc(val) + '</span></div>'; };
+      var stat = function (k, cl, val, more) { return '<div' + moreAttr(more) + '><b><i style="background:' + cl + '"></i>' + k + '</b><span>' + esc(val) + '</span></div>'; };
       var four = function (short) {
         return stat(short ? 'Solar' : 'Solar In', NAMED.yellow, sun == null ? 'None' : kw(sun), c.solar || W.solar) +
           stat(short ? 'Using' : 'House Using', NAMED.orange, kw(home), c.home || W.home) +
@@ -4116,7 +4116,7 @@
       var per = s && s.periods && s.periods[this._period];
       if (!per) {
         card.removeAttribute('aria-label');
-        window.hkCards.morph(card, '<div class="wl" style="color:' + RING.energy + '">Energy</div><div class="wait">' +
+        window.hkCards.morph(card, '<div class="wl">Energy</div><div class="wait">' +
           (plan() ? 'Loading…' : 'Add Energy in Settings to show its rings here.') + '</div>');
         return;
       }
@@ -4141,7 +4141,7 @@
       };
       var grid = function (cls) {
         return '<div class="wgrid ' + cls + '">' + per.rings.map(function (r) {
-          return '<div><b style="color:' + r.c + '">' + esc(r.name) + '</b><span>' + amount(r, true) + '</span><small>' + usual(r) + '</small></div>';
+          return '<div><b><i style="background:' + r.c + '"></i>' + esc(r.name) + '</b><span>' + amount(r, true) + '</span><small>' + usual(r) + '</small></div>';
         }).join('') + '</div>';
       };
       var html, evH = per.rings.length * 23, grH = Math.ceil(per.rings.length / 2);

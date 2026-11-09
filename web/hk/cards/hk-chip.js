@@ -1932,7 +1932,10 @@
       while (box.firstChild) box.removeChild(box.firstChild);
       var ids = plan.pills.map(function (p) { return p.entity; }).filter(Boolean);
       var tiles = document.createElement('div');
-      tiles.style.cssText = 'display:flex;flex-wrap:wrap;justify-content:center;align-content:center;flex:1;min-height:0;gap:' + gm.gap + 'px';
+      // A ROW OF FEWER TILES STARTS IN THE LEFT COLUMN (2026-11-09, the owner: "Fix it" -- "Movie Night" centered under three): the rows start left in a box as wide as the widest row,
+      // that box centered in the block (as a Room's tiles, hk-grid-room.js --gw); no scenes: the line centered
+      var across = Math.max(1, Math.min(gm.cols, shown + (left ? 1 : 0)));
+      tiles.style.cssText = 'display:flex;flex-wrap:wrap;justify-content:' + (n ? 'flex-start' : 'center') + ';align-content:center;flex:1;min-height:0;gap:' + gm.gap + 'px;width:100%;margin:0 auto;max-width:' + (n ? (across * gm.tw + (across - 1) * gm.gap) + 'px' : '100%');
       box.appendChild(tiles);
       if (!n) {
         // NO SCENES (2026-11-08): the glyph and a line, centered in the block, in the secondary ink -- the block is there, saying what it holds

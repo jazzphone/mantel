@@ -623,8 +623,8 @@ STATES: dict[str, dict] = {
     "recent_busy": {"timeline": "busy"},
     # TIMERS (2026-11-08): one running, six (the Extra Large block's most), two with one held
     # THE THERMOSTAT's other modes (2026-11-08): the block's thermostat (`--opts thermostat='{"entity": "climate.office"}'`) on Cool, on Off
-    "thermostat_cool": {"entities": {"climate.office": ("cool", {**EXTRA["climate.office"][1][1], "temperature": 72, "hvac_action": "cooling"})}},
-    "thermostat_off": {"entities": {"climate.office": ("off", {**EXTRA["climate.office"][1][1], "temperature": None, "hvac_action": "off"})}},
+    "thermostat_cool": {"entities": {"climate.office": ("cool", {**EXTRA["climate.office"][1][1], "temperature": 72, "hvac_action": "cooling"})}, "opts": {"thermostat": {"entity": "climate.office"}}},
+    "thermostat_off": {"entities": {"climate.office": ("off", {**EXTRA["climate.office"][1][1], "temperature": None, "hvac_action": "off"})}, "opts": {"thermostat": {"entity": "climate.office"}}},
     "timers_one": {"entities": timers_state(1)},
     "timers_many": {"entities": timers_state(6)},
     "timers_paused": {"entities": timers_state(2, paused=(0,))},
@@ -1098,6 +1098,8 @@ def main(argv=None) -> int:
     STATE["stretch"] = a.stretch
     STATE["hits"] = a.hits
     STATE["controls"] = a.controls
+    for k, v in STATES[a.state].get("opts", {}).items():     # (2026-11-09: a state names the block's own option too -- thermostat_off draws the climate.office it changes, not Main Floor)
+        OPTS[k] = {**OPTS.get(k, {}), **v}
     for o in a.opts:
         k, _, v = o.partition("=")
         OPTS[k] = {**OPTS.get(k, {}), **json.loads(v)}

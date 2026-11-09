@@ -5,6 +5,13 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+**Fixed**
+- **The snow past the Holiday slide's window falls**: the screensaver laid the slide out every few seconds, and each time the snow and the other effects started again in new places, so they jumped about instead of falling. They now keep falling, each flake drifting at its own pace.
+
+**Changed**
+- **The last colored capital labels are gone**: Battery's and Energy Rings' figures (Solar, Using, Grid, Full By; Energy, Cost, Solar, Water) and the Thermostat's Heat, Cool, Cool To and Heat To read in Title Case in the gray, a small colored dot where the color means something. **Scenes' last row starts in the left column**, as Rooms' and Groups' do. **Timers** no longer prints "Timers" or "Timer" as a title -- a timer you named shows its name in the gray heading style. **The Calendar's empty day** keeps the weekday and the date at the top-left, as a busy day has them.
+
+
 ## 1.53.0 - 2026-11-08
 
 **Changed**

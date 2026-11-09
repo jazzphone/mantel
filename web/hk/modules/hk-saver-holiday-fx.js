@@ -34,7 +34,7 @@
   function create(cv, env) {
     var ctx = cv.getContext('2d'), sw = 1280, sh = 800, q = 1, Z = 1, raf = 0, last = 0, kind = '', level = 'full', isDay = false, h = {};
     var ps = [], sparks = [], rockets = [], perched = [], pile = null, spr = {}, bulbL = null, cross = null, crossT = 0, spiders = [];
-    var qz = [], qf = null, scene = null, glow = {}, figT = 0, flash = 0, flashT = 22, fwT = 0, tall = false;
+    var qz = [], qf = null, scene = null, glow = {}, figT = 0, flash = 0, flashT = 22, fwT = 0, tall = false, lastSig = '';
     function img(n) { if (!spr[n]) { var i = new Image(); i.decoding = 'async'; i.src = env.sprite(n); spr[n] = i; } return spr[n]; }
     function ok(i) { return i && i.complete && i.naturalWidth; }
     function rnd(a, b) { return a + Math.random() * (b - a); }
@@ -91,7 +91,7 @@
       if (kind === 'bats') { for (i = 0; i < count(2); i++) spiders.push({ x: sw * rnd(0.3, 0.92), len: sh * rnd(0.1, 0.3), ph: rnd(0, 6) }); }
     }
     function flake(any) { var d = Math.random(); return { t: 'f', x: rnd(0, sw), y: any ? rnd(-20, sh) : -10, r: (d < 0.55 ? rnd(0.9, 1.5) : d < 0.9 ? rnd(1.6, 2.5) : rnd(2.8, 3.8)) * mz(0.7), v: (d < 0.55 ? rnd(22, 36) : d < 0.9 ? rnd(38, 56) : rnd(60, 80)) * mz(0.7), ph: rnd(0, 6), sw: rnd(0.4, 1.1), a: d < 0.55 ? 0.55 : d < 0.9 ? 0.8 : 0.95, near: d >= 0.55 }; }
-    function winFlake(any) { var w = scene.win, d = Math.random(); return { t: 'w', x: rnd(w.x, w.x + w.w), y: any ? rnd(w.y, w.y + w.h) : w.y - 4, r: (d < 0.7 ? rnd(0.8, 1.3) : rnd(1.5, 2.3)) * mz(0.6), v: (d < 0.7 ? rnd(14, 24) : rnd(26, 40)) * mz(0.6), ph: rnd(0, 6), a: d < 0.7 ? 0.65 : 0.95 }; }
+    function winFlake(any) { var w = scene.win, d = Math.random(); return { t: 'w', x: rnd(w.x, w.x + w.w), y: any ? rnd(w.y, w.y + w.h) : w.y - 4, r: (d < 0.7 ? rnd(0.8, 1.3) : rnd(1.5, 2.3)) * mz(0.6), v: (d < 0.7 ? rnd(14, 24) : rnd(26, 40)) * mz(0.6), ph: rnd(0, 6), sw: rnd(0.45, 1.25), amp: rnd(2, 6) * mz(0.6), a: d < 0.7 ? 0.65 : 0.95 }; }
     // a soft light, drawn once per color and stamped: dozens of these every frame cost almost nothing
     function glowOf(col) {
       if (glow[col]) return glow[col];
@@ -133,7 +133,7 @@
           var p = ps[i]; if (p.t !== 'w') continue;
           p.y += p.v * dt;
           if (p.y > d.win.y + d.win.h + 3) { Object.assign(p, winFlake(false)); continue; }
-          ctx.globalAlpha = p.a; ctx.beginPath(); ctx.arc(p.x + Math.sin(p.ph + t * 0.0009) * 6, p.y, p.r, 0, 6.3); ctx.fill();
+          ctx.globalAlpha = p.a; ctx.beginPath(); ctx.arc(p.x + Math.sin(p.ph + t * 0.0007 * p.sw) * p.amp, p.y, p.r, 0, 6.3); ctx.fill();
         }
         ctx.globalAlpha = 1; ctx.restore();
         // the frame and drapes back over the snow, only within the glass's rows above the couch's back
@@ -443,9 +443,15 @@
       },
       // what to draw: the scene ('room', 'haunt', 'thanks', 'newyear') or the outdoor effects ('snow', 'leaves',
       // 'hearts', 'petals', 'butterflies', 'balloons', 'fireworks', 'bats'); its level; the day itself; the scene's data
+      // (the same scene again -- the same kind, level, size and painted picture -- keeps what is falling where it is:
+      // seeded afresh, every flake jumped to a new place)
       reset: function (k, lv, day, data, hol, z) {
-        kind = k || ''; level = lv; isDay = !!day; scene = data || null; h = hol || {}; Z = z || 1; glow = {};
+        var sig = [k || '', lv, !!day, sw, sh, z || 1, (hol || {}).id].join('|'), keep = sig === lastSig && (data || null) === scene && ps.length > 0;
+        lastSig = sig;
+        kind = k || ''; level = lv; isDay = !!day; scene = data || null; h = hol || {}; Z = z || 1;
         SPRITES.forEach(img);
+        if (keep) return;
+        glow = {};
         if (scene) pile = null; else buildMask();
         seed();
       },
@@ -461,7 +467,7 @@
       frame: function () { if (kind) { if (level === 'off') still(); else step(0, last || 1000); } },
       stop: function () { if (raf) cancelAnimationFrame(raf); raf = 0; },
       running: function () { return !!raf; },
-      counts: function () { return { particles: ps.length, sparks: sparks.length, perched: perched.length }; }
+      counts: function () { var p = ps[0]; return { particles: ps.length, sparks: sparks.length, perched: perched.length, first: p ? [Math.round(p.x), Math.round(p.y)] : null }; }
     };
   }
 

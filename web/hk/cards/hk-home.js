@@ -2174,10 +2174,10 @@
         '  height:100%;padding:' + window.hkCards.blockPad('14px') + ';' + window.hkCards.plate('card') + ';overflow:hidden;--ring:56px;--stop:44px}',
         '.tg{display:grid;grid-template-columns:repeat(var(--cols,1),minmax(0,1fr));grid-auto-rows:minmax(0,1fr);gap:var(--rg,8px) 18px;flex:1 1 auto;min-height:0}',
         '.gt{display:flex;flex-direction:column;min-width:0;min-height:0}',
-        '.gt .hd{display:flex;align-items:baseline;gap:8px;min-width:0}',
-        '.gt .nm{min-width:0;font-size:15px;font-weight:600;line-height:1.25;color:' + window.hkCards.ACCENTS.orange + ';text-shadow:' + window.hkCards.v('glow') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-        '.gt .more{margin-left:auto;flex:none;' + window.hkCards.typeCss('caption') + ';color:' + window.hkCards.v('ink-2') + '}',
-        '.gt hk-countdown{display:block;font-size:30px;font-weight:300;letter-spacing:-0.02em;line-height:1.05;color:' + window.hkCards.v('ink') + ';margin-top:2px}',
+        // THE TIMER'S TITLE (2026-11-09, the owner: "We don't need the word Timer as a title, it should go. Title of the timer itself, yes, it needs to [match] the rest of the title/headings."): a named timer's name in the block heading (hkCards.headCss: gray, 13 / 600) on the heading row; a timer with no name of its own has no title, and the block's own name ("Timers") is never printed
+        window.hkCards.headRowCss('.gt .hd') + '.gt .hd{margin-bottom:0}' + window.hkCards.headCss('.gt .nm'),
+        '.gt .more{margin-left:auto;flex:none;font-size:13px;font-weight:600;color:' + window.hkCards.v('ink-2') + '}',
+        '.gt hk-countdown{display:block;font-size:30px;font-weight:300;letter-spacing:-0.02em;line-height:1.05;color:' + window.hkCards.v('ink') + ';margin-top:2px}.gt>hk-countdown:first-child{padding-top:.08em}',  // (no title row above the time: room for its glyphs, or the column's edge cuts them)
         '.gt .ft{display:flex;align-items:flex-end;justify-content:space-between;gap:8px;margin-top:auto;padding-top:6px}',
         // THE RING IS THE PAUSE: time left in orange round its track, pause or play at its centre
         '.gt .pr,.gt .stop{all:unset;box-sizing:border-box;position:relative;flex:none;border-radius:50%;display:grid;place-items:center;cursor:pointer;-webkit-tap-highlight-color:transparent}',
@@ -2199,7 +2199,7 @@
         // TALL AND LARGE (2026-11-07, the review): Tall stacks the running timers (two fit; "N more" at the foot, a
         // second place says Start another), Large puts up to four in a 2 x 2 -- fewer are bigger: one fills the
         // block, two are rows. Each is the same column as Small's: name, time, ring and Stop at its foot
-        '.tg.k1{--ring:112px;--stop:64px}' + lx('.tg.k1 hk-countdown', 'font-size:72px') + '.tg.k1 .nm{font-size:17px}.tg.k2{--rg:10px}:host([size=L]) .tg.k2 hk-countdown{font-size:36px}',
+        '.tg.k1{--ring:112px;--stop:64px}' + lx('.tg.k1 hk-countdown', 'font-size:72px') + '.tg.k2{--rg:10px}:host([size=L]) .tg.k2 hk-countdown{font-size:36px}',
         // (Extra Large: three across are cells of 180, the time and ring larger than Large's)
         ':host([size=XL]) .tg.k2{--ring:88px;--stop:52px}:host([size=XL]) .tg.k2 hk-countdown{font-size:44px}',
         ':host([size=T]) .tg{--rg:10px}.tg.k4{--rg:18px}:host([size=T]) .gt+.gt,:host([size=L]) .tg.k2 .gt+.gt{border-top:1px solid ' + window.hkCards.v('line') + ';padding-top:10px}',
@@ -2211,7 +2211,8 @@
         '.gt.idle .none{display:block;font-size:var(--sf);font-weight:300;letter-spacing:-0.02em;line-height:1.15;color:' + window.hkCards.v('ink') + ';text-shadow:' + window.hkCards.v('glow') + ';margin-top:4px;text-wrap:balance}',
         '.gt.two .none{font-weight:400;color:' + window.hkCards.v('ink-2') + ';white-space:nowrap}',
         '.qs{display:flex;align-items:center;justify-content:center;gap:12px;margin-top:auto;padding-top:8px}.qs.g{display:grid;grid-template-columns:repeat(var(--qc),var(--k));justify-content:center;align-content:center;flex:1 1 auto;margin-top:0}',
-        '.gt.xl{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto 1fr;column-gap:22px}.gt.xl.c{grid-template-rows:1fr auto auto 1fr}.gt.xl.c .hd{grid-row:2}.gt.xl.c .none{grid-row:3}.gt.xl.c .qs{grid-row:1 / 5}.gt.xl .hd,.gt.xl .none{grid-column:1}.gt.xl .none{align-self:start}.gt.xl .qs{grid-column:2;grid-row:1 / 3;padding:0;margin:0;align-self:center}',
+        '.gt.xl{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto 1fr;column-gap:22px}.gt.xl.c{grid-template-rows:1fr auto 1fr}.gt.xl.c .none{grid-row:2}.gt.xl.c .qs{grid-row:1 / 4}.gt.xl .none{grid-column:1;align-self:start}.gt.xl .qs{grid-column:2;grid-row:1 / 3;padding:0;margin:0;align-self:center}',
+        ':host([size=XL]) .gt.xl .none{' + window.hkCards.typeCss('title') + ';line-height:1.15;white-space:nowrap;margin-top:0;grid-row:1 / 3;align-self:center}',  // 2026-11-09, the owner: "Start a timer" on Extra Large "is huge two-line type": the title size, one line
         '.rk{all:unset;box-sizing:border-box;position:relative;flex:none;width:var(--k);height:var(--k);border-radius:50%;display:grid;place-items:center;cursor:pointer;-webkit-tap-highlight-color:transparent}',
         '.rk svg{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg);overflow:visible}.rk circle{fill:none;stroke-width:10px;stroke:' + window.hkCards.v('line-strong') + '}',
         '.rk .left{stroke:' + window.hkCards.ACCENTS.orange + ';stroke-linecap:round;stroke-dasharray:var(--a) 100}',
@@ -2267,9 +2268,9 @@
       // stacked, Large 6 in a 3 x 2, Extra Large the same beside the words (the line is the hero, 60 px); a second place is one + ring
       var idle = (second) => {
         var S = sized, sq = b && b.h > (S === 'S' || S === 'W' ? 170 : 350), K = { W: [52, 64], T: [56, 72], L: [72, 96], XL: [80, 104] }[S], k = second ? 48 : K ? K[+sq] : 0;
-        var qc = second ? 0 : { T: 1, L: 3, XL: 3 }[S] || 0, n = second ? 0 : S === 'S' ? 0 : S === 'L' || S === 'XL' ? 5 : 2, sf = second ? 15 : { S: 22, W: 26, T: 22, L: 36, XL: 72 }[S], xl = (S === 'XL' || S === 'W') && !second;
+        var qc = second ? 0 : { T: 1, L: 3, XL: 3 }[S] || 0, n = second ? 0 : S === 'S' ? 0 : S === 'L' || S === 'XL' ? 5 : 2, sf = second ? 15 : { S: 22, W: 26, T: 22, L: 36, XL: 22 }[S], xl = (S === 'XL' || S === 'W') && !second;
         var keys = presets.slice(0, n).map((m) => '<button class="rk" data-preset="' + Number(m) + '" style="--a:' + Math.min(100, Number(m) * 100 / 60) + '" aria-label="Start a ' + esc(HkTimersPageCard.label(Number(m))) + ' timer"><svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="45"></circle><circle class="left" cx="50" cy="50" r="45" pathLength="100"></circle></svg><b>' + esc(short(Number(m))) + '</b></button>').join('');
-        return '<div class="gt idle' + (second ? ' two' : xl ? ' xl' + (S === 'W' ? ' c' : '') : '') + '" style="--sf:' + sf + 'px"><div class="hd"><b class="nm">Timers</b></div><span class="none">' + (second ? 'Start another' : S === 'S' ? 'None running' : 'Start a timer') + '</span>' +
+        return '<div class="gt idle' + (second ? ' two' : xl ? ' xl' + (S === 'W' ? ' c' : '') : '') + '" style="--sf:' + sf + 'px"><span class="none">' + (second ? 'Start another' : S === 'S' ? 'None running' : 'Start a timer') + '</span>' +
           '<div class="qs' + (qc ? ' g' : '') + '" style="--k:' + k + 'px;--qc:' + qc + '">' + keys + (S === 'S' && !second ? '<button class="rk cap" data-new aria-label="Create a Timer"><hk-icon icon="mdi:plus"></hk-icon>Start a timer</button>' : '<button class="rk add" data-new aria-label="Create a Timer"><hk-icon icon="mdi:plus"></hk-icon></button>') + '</div></div>';
       };
       if (!rows.length) return '<div class="tg">' + idle() + '</div>';
@@ -2280,11 +2281,10 @@
       var xl = sized === 'XL', nn = rows.length, max = sized === 'S' ? 1 : sized === 'T' ? slots : xl ? 6 : sized === 'L' ? 4 : 2, shown = rows.slice(0, max), left = nn - shown.length;
       var cls = xl ? ' k' + ([0, 1, 1, 2][nn] || 4) : sized === 'L' ? (nn < 3 ? ' k' + nn : ' k4') : '';
       return '<div class="tg' + cls + '" style="--cols:' + (xl ? [0, 1, 2, 3, 2][nn] || 3 : sized === 'S' || sized === 'T' ? 1 : sized === 'L' ? (nn > 2 ? 2 : 1) : max) + '">' + shown.map(function (r, i) {
-        var paused = r.state === 'paused', total = T ? T.secs(r.attrs.duration) : 0, nm = esc(r.name || 'Timer');
+        var paused = r.state === 'paused', total = T ? T.secs(r.attrs.duration) : 0, nm = esc(r.name || 'Timer'), ttl = r.name && !/^(quick |hk )?timer( \d+)?$/i.test(r.name.trim()) ? '<b class="nm">' + nm + '</b>' : '', more = left && sized !== 'T' && i === shown.length - 1 ? '<span class="more">+' + left + ' more</span>' : '';  // (the hub's own "Timer" for one without a name is no name)
         var clock = paused ? 'hold="' + (T ? T.secs(r.attrs.remaining) : 0) + '"' : 'deadline="' + Date.parse(r.attrs.finishes_at) + '"';
         // (the countdown is the column's child: it writes the fraction left, --hk-left, on the column, and the ring reads it)
-        return '<div class="gt"><div class="hd"><b class="nm">' + nm + '</b>' +
-          (left && sized !== 'T' && i === shown.length - 1 ? '<span class="more">+' + left + ' more</span>' : '') + '</div>' +
+        return '<div class="gt">' + (ttl || more ? '<div class="hd">' + ttl + more + '</div>' : '') +
           '<hk-countdown ' + clock + ' total="' + total + '"></hk-countdown>' +
           '<div class="ft"><button class="pr" data-timer="' + esc(r.id) + '" data-service="' + (paused ? 'start' : 'pause') + '" aria-label="' + (paused ? 'Resume' : 'Pause') + ' ' + nm + '">' +
           '<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="45"></circle><circle class="left" cx="50" cy="50" r="45" pathLength="100"></circle></svg>' +
