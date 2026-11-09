@@ -101,6 +101,9 @@
     // (S, 2026-10-31, the owner: "a small option to the camera": one still in a cell)
     camera: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: ['cameras'], opts: { entity: 'camera', follow: 'camera_follow', follow_select: 'select', name: 'name_tag' }, card: function (s, o, ctx) {
       var ids = o.entity ? [o.entity] : (ctx.cameras || []).slice(0, 1);
+      // EXTRA LARGE (2026-11-09, mockup 13): the picture beside what that camera saw today -- where the host keeps a Timeline
+      // (Mantel); elsewhere (Home Assistant's HK Frontend) it stays the full picture
+      if (s === 'XL' && ids.length && hostHas('timeline')) return { type: 'custom:hk-camera-today-card', camera: ids[0] };
       return ids.length ? { type: 'custom:hk-camera-mosaic-card', own_cameras: true, height: 195, seam: 2, snapshot_cap: '480x270',
                             cameras: ids.map(function (id) { return { entity: id }; }), name_tag: o.name || 'auto' }
                         : stand('Cameras', 'hk:camera', 'No cameras yet.'); } },

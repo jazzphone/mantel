@@ -16,7 +16,11 @@
 //                          events of that camera, each a small card with its first picture; a tap opens that row's
 //                          sheet (the page's own, hk-timeline.js openSheet). A refusal (a role with no Timeline) hides it.
 //
-// Both read the way the page does -- client.callApi('GET', 'timeline?...'), 'timeline/summary' and the live
+// hk-camera-today-card    "Camera" at Extra Large (2026-11-09, mockup 13): the camera's live picture at the left, today's events
+//                          from THAT camera at the right as 56 px rows (a thumbnail, the kind over where, how long ago), "Today:
+//                          N events" at the foot. A tap on an event opens the Timeline's own sheet for it (its pictures). The
+//                          catalog draws it only where the host keeps a Timeline; elsewhere Extra Large stays the full picture.
+// All three read the way the page does -- client.callApi('GET', 'timeline?...'), 'timeline/summary' and the live
 // subscription 'timeline/subscribe' -- and draw nothing of their own that the page's pure part (window.hkTimeline.lib,
 // hk-timeline.js, loaded on first use) already says. Mantel's own: a host with no Timeline (Home Assistant's HK
 // Frontend) never offers either (hkShell.hostPage), and a layout that has the block draws a stand-in there.
@@ -208,13 +212,25 @@
   function stripPath(camera) { return 'timeline?camera=' + encodeURIComponent(camera) + '&limit=' + STRIP_MAX; }
   function stripMessage(camera) { return { type: 'timeline/subscribe', camera: camera }; }
   function blockPath(size) { return 'timeline?limit=' + limitOf(size); }
+  // THE CAMERA'S TODAY (2026-11-09, mockup 13): that camera's rows since the house's midnight -- the server's `since` --
+  // newest first, up to TODAY_KEEP; "Today: 7 events" says how many ("50+" when the day had more than were read)
+  var TODAY_KEEP = 50;
+  function todayStart(nowMs, ctx) { var L = T(); return L.dayEnd(L.shiftKey(L.dayKey(nowMs, ctx), -1), ctx); }
+  function todayPath(camera, since) { return 'timeline?camera=' + encodeURIComponent(camera) + '&since=' + since + '&limit=' + TODAY_KEEP; }
+  // a row: the kind ("Person", "Doorbell"), where it was (the zone the camera named, else the camera's area), how long ago
+  function todayRow(ev, nowMs, ctx) {
+    var r = rowView(ev, nowMs, ctx);
+    return { id: ev.id, icon: r.icon, color: r.color, kind: shortTitle(ev), where: ev.zone ? String(ev.zone) : r.room, ago: r.ago, agoLong: r.agoLong, thumb: r.thumb };
+  }
+  function todayFoot(n, more) { return 'Today: ' + n + (more ? '+' : '') + (n === 1 && !more ? ' event' : ' events'); }
 
   var LIB = {
     LIMIT: LIMIT, READ: READ, ROW_H: ROW_H, KIND_TILE: KIND_TILE, HEAD: HEAD, STRIP_MAX: STRIP_MAX, MODES: MODES, EMPTY: EMPTY,
     NEW_HOUSE: NEW_HOUSE, showOf: showOf, viewNow: viewNow, limitOf: limitOf, rowsFit: rowsFit, dayWord: dayWord, ago: ago,
     halves: halves, rowView: rowView, wideTime: wideTime, pick: pick, merge: merge, heroOf: heroOf, openOf: openOf,
     digestView: digestView, digestParts: digestParts, fitGrid: fitGrid, errorWord: errorWord, shortTitle: shortTitle,
-    stripView: stripView, stripPath: stripPath, stripMessage: stripMessage, blockPath: blockPath
+    stripView: stripView, stripPath: stripPath, stripMessage: stripMessage, blockPath: blockPath,
+    TODAY_KEEP: TODAY_KEEP, todayStart: todayStart, todayPath: todayPath, todayRow: todayRow, todayFoot: todayFoot
   };
   window.hkTimelineBlock = { version: '1.0.0', lib: LIB };
 
@@ -820,10 +836,186 @@
     }
   }
 
+  // ======================================================================== the camera, Extra Large
+  // THE LAYOUT (mockup 13, 2026-11-09: "the picture as large as it can be on the left, still live; what it saw today on the
+  // right, a tap plays that moment"): the picture 66 % of the room inside the block's inset, the gap between the columns that
+  // inset again (--hk-pad-l); the picture is the Camera block's own live tile (hk-cameras.js), made to fit it
+  var PIC_SHARE = 0.664;                                // 372 of the 560 px an Extra Large block has inside its inset
+  var TODAY_CSS = [
+    ':host{display:block;height:100%}',
+    'hk-plate.cx{box-sizing:border-box;height:100%;position:relative;display:flex;gap:var(--hk-pad-l,18px);overflow:hidden;padding:' + C.blockPad('18px') + ';' +
+      C.plate('card') + ';color:' + v('ink') + ';text-shadow:' + v('glow') + ';-webkit-tap-highlight-color:transparent}',
+    // THE PICTURE: to the inner radius, at the block's inset from the edge; its red Live badge at the top left, as the age
+    // chip (hk-cameras.js .age) sits at the top right
+    '.pic{position:relative;flex:none;border-radius:var(--hk-inner-radius,12px);overflow:hidden;background:#0b0d12}',
+    '.pic>hk-camera-mosaic-card{display:block}',
+    '.lvb{position:absolute;left:12px;top:12px;z-index:3;box-sizing:border-box;height:21px;padding:0 9px 0 8px;border-radius:' + C.R.capsule('21px') + ';background:' + v('float-plate') + ';',
+    '  color:#fff;font-size:12px;font-weight:600;line-height:21px;display:flex;align-items:center;gap:6px;pointer-events:none;text-shadow:none}',
+    '.lvb::before{content:"";width:7px;height:7px;border-radius:50%;background:#ff3b30;flex:none}',
+    '.col{flex:1 1 0;min-width:0;min-height:0;display:flex;flex-direction:column}',
+    // THE HEADING in the Weather page's style (the camera's name; the card's own name is not printed)
+    C.headCss('.wl'), C.headRowCss('.hd'),
+    // THE EVENTS: each a 56 px button -- the picture (56 x 40), the kind over where, how long ago -- scrolling by finger, no
+    // scrollbar, a soft fade at the foot while there is more below (Now Playing's Up Next, hk-media-now.js)
+    '.ql{flex:1;min-height:0;display:flex;flex-direction:column;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;scrollbar-width:none}',
+    '.ql::-webkit-scrollbar{display:none}',
+    '.ql.more{-webkit-mask-image:linear-gradient(180deg,#000 calc(100% - 56px),transparent);mask-image:linear-gradient(180deg,#000 calc(100% - 56px),transparent)}',
+    '.ev{position:relative;display:flex;align-items:center;gap:8px;flex:none;width:100%;height:56px;box-sizing:border-box;padding:0;border:0;background:none;color:inherit;',
+    '  font:inherit;text-align:left;cursor:pointer;text-shadow:inherit;-webkit-tap-highlight-color:transparent}',
+    '.ev::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1px;background:' + v('line') + '}',
+    '.ev:last-child::after{display:none}',
+    '.ev:active{opacity:.6}.ev:focus-visible{outline:2px solid rgba(100,181,255,.8);outline-offset:-2px;border-radius:8px}',
+    '.th{flex:none;width:56px;height:40px;border-radius:' + C.R.small + 'px;overflow:hidden;background:' + v('key') + ';display:flex;align-items:center;justify-content:center}',
+    '.th img{width:100%;height:100%;object-fit:cover;display:block}',
+    '.th hk-icon{--mdc-icon-size:22px;width:22px;height:22px;color:#fff}',
+    '.tx{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center}',
+    '.k1{' + type('headline') + ';line-height:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '.k2{' + type('caption') + ';line-height:16px;color:' + v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '.ag{flex:none;' + type('caption') + ';line-height:20px;color:' + v('ink-2') + ';font-variant-numeric:tabular-nums;white-space:nowrap}',
+    '.ft{flex:none;margin-top:8px;' + type('caption') + ';line-height:16px;color:' + v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    // NOTHING TODAY, said quietly in gray
+    '.none{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;text-align:center;' + type('body') + ';color:' + v('ink-3') + '}',
+    '.sk{display:flex;align-items:center;gap:10px;height:56px;flex:none}',
+    '.sk i{display:block;background:' + v('key') + ';border-radius:' + C.R.small + 'px}',
+    '.sk .a{width:56px;height:40px;flex:none}.sk .b{flex:1;display:flex;flex-direction:column;gap:7px}.sk .b i{height:12px}.sk .b i + i{width:50%;height:10px}',
+    '@keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}',
+    '.sks{animation:pulse 1.4s ease-in-out infinite}',
+    '@media (prefers-reduced-motion:reduce){.sks{animation:none}}'
+  ].join('');
+
+  class HkCameraTodayCard extends HkTimelineFeed {
+    static get CSS() { return TODAY_CSS; }
+    getCardSize() { return 4; }
+    _camera() { return String((this._config || {}).camera || ''); }
+    _path() { return todayPath(this._camera(), todayStart(Date.now(), ctxNow())); }
+    _message() { return stripMessage(this._camera()); }
+    _keep() { return TODAY_KEEP; }
+    // the feed is that camera's already (see the strip); only today's rows stay
+    _wants(ev) { return !!ev && ev.at >= todayStart(Date.now(), ctxNow()); }
+    _sigOf() { return 'camera-today'; }
+    _took(res) { this._more = !!(res && res.next_before); }
+
+    setConfig(config) {
+      if (!config || !config.camera) throw new Error('hk-camera-today-card: camera is required');
+      this._more = false;
+      super.setConfig(config);
+    }
+    // each minute "4 min" moves on; a day that turned reads again (midnight: yesterday's rows go)
+    _onConnect() {
+      var self = this;
+      clearInterval(this._tick);
+      this._tick = setInterval(function () {
+        if (!self._lib) return;
+        var day = T().dayKey(Date.now(), ctxNow());
+        if (self._day && day !== self._day) self._load(true);
+        self._day = day;
+        self._paint();
+      }, 60 * 1000);
+    }
+    _onDisconnect() { clearInterval(this._tick); this._tick = null; }
+    _beginData() { this._day = T().dayKey(Date.now(), ctxNow()); }
+    _receiveClient() {
+      super._receiveClient();
+      if (this._kid && this._kid.hkSetClient && this.client) this._kid.hkSetClient(this.client);
+      this._paint();
+    }
+    _name() {
+      var c = (C.client && C.client()) || this.client, id = this._camera(), st = c && c.states && c.states[id];
+      return (this._config && this._config.name) || (st && st.attributes && st.attributes.friendly_name) || id;
+    }
+    // THE ROOM INSIDE THE BLOCK'S INSET, and the picture's share of it
+    _room() {
+      this._watchBlock();
+      var b = this._block(), cs = null, pad = {};
+      try { cs = getComputedStyle(/** @type {any} */ (this)); } catch (e) { cs = null; }
+      ['t', 'r', 'b', 'l'].forEach(function (k) { var n = cs ? parseFloat(cs.getPropertyValue('--hk-pad-' + k)) : NaN; pad[k] = n >= 0 ? n : 18; });
+      var bw = b ? b.w : SQ_BLOCK.XL[0], bh = b ? b.h : SQ_BLOCK.XL[1], iw = bw - pad.l - pad.r, ih = bh - pad.t - pad.b;
+      return { w: Math.round((iw - pad.l) * PIC_SHARE), h: Math.round(ih) };
+    }
+    _picture(room) {
+      var key = this._camera() + '|' + room.w + 'x' + room.h;
+      if (this._kid && this._kidKey === key) return;
+      if (this._kid && this._kid.parentNode) this._kid.parentNode.removeChild(this._kid);
+      this._kidKey = key;
+      var kid = C.create({ type: 'custom:hk-camera-mosaic-card', own_cameras: true, cameras: [{ entity: this._camera() }], height: room.h, fit_w: room.w, fit_h: room.h,
+                           seam: 0, snapshot_cap: '480x270', name_tag: 'hide', radius: 'var(--hk-inner-radius,12px)', shadow: 'none' });
+      this._kid = kid;
+      if (!kid) return;
+      kid.setAttribute('size', 'XL');
+      kid.style.setProperty('--hk-block-pad', '12px');
+      if (this.client && kid.hkSetClient) kid.hkSetClient(this.client);
+      this._pic.insertBefore(kid, this._pic.firstChild);
+    }
+
+    _render() {
+      var self = this;
+      if (!this._built) {
+        this._built = true;
+        this._root.innerHTML = '<hk-plate class="cx" data-hk-role="card" role="group"><div class="pic"><span class="lvb">Live</span></div>' +
+          '<div class="col"><div class="hd"><div class="wl"></div></div><div class="ql"></div><div class="ft"></div></div></hk-plate>';
+        this._plate = this._root.querySelector('hk-plate');
+        this._pic = this._root.querySelector('.pic');
+        this._wl = this._root.querySelector('.wl');
+        this._ql = this._root.querySelector('.ql');
+        this._ft = this._root.querySelector('.ft');
+        this._ql.addEventListener('scroll', function () { self._fade(); }, { passive: true });
+        this._root.addEventListener('click', function (e) {
+          var t = e.target && e.target.closest ? e.target.closest('[data-ev]') : null;
+          if (t) self._open(t.getAttribute('data-ev'));
+        });
+        this._kid = null;
+        this._kidKey = '';
+      }
+      var room = this._room();
+      this._pic.style.width = room.w + 'px';
+      this._pic.style.height = room.h + 'px';
+      this._picture(room);
+      var name = this._name();
+      this._plate.setAttribute('aria-label', name);
+      this._wl.textContent = name;
+      var html = '', foot = '';
+      if (!this._lib || this._state === 'loading') {
+        for (var i = 0; i < 4; i++) html += '<div class="sk sks"><i class="a"></i><div class="b"><i></i><i></i></div></div>';
+      } else if (this._state === 'error') {
+        html = '<div class="none">' + esc(errorWord(this._err)) + '</div>';
+      } else if (!this._events.length) {
+        html = '<div class="none">Nothing Today</div>';
+      } else {
+        var ctx = ctxNow(), now = Date.now();
+        html = this._events.map(function (ev) {
+          var r = todayRow(ev, now, ctx);
+          var th = r.thumb ? '<img src="' + esc(r.thumb) + '" alt="" loading="lazy" decoding="async" draggable="false">'
+                           : icon(r.icon, 22);
+          return '<button type="button" class="ev" data-ev="' + esc(r.id) + '" aria-label="' + esc([r.kind, r.where, r.agoLong].filter(Boolean).join(', ')) + '">' +
+            '<span class="th"' + (r.thumb ? '' : ' style="background:' + tint(r.color, 0.92) + '"') + '>' + th + '</span>' +
+            '<span class="tx"><span class="k1">' + esc(r.kind) + '</span>' + (r.where ? '<span class="k2">' + esc(r.where) + '</span>' : '') + '</span>' +
+            '<span class="ag">' + esc(r.ago) + '</span></button>';
+        }).join('');
+        foot = todayFoot(this._events.length, this._more);
+      }
+      C.morph(this._ql, html);
+      this._ft.textContent = foot;
+      this._ft.hidden = !foot;
+      this._fade();
+    }
+    // THE FADE AT THE LIST'S FOOT while more is below it
+    _fade() {
+      var l = this._ql;
+      if (l) l.classList.toggle('more', l.scrollHeight - l.clientHeight - l.scrollTop > 4);
+    }
+    // A TAP PLAYS THAT MOMENT as the Timeline does: its own sheet for the event, every picture it kept
+    _open(id) {
+      var ev = null, i, P = window.hkTimeline;
+      for (i = 0; i < this._events.length; i++) if (String(this._events[i].id) === String(id)) ev = this._events[i];
+      if (ev && P && typeof P.openSheet === 'function') P.openSheet(ev, this.client, { noAll: true });
+    }
+  }
+
   register('hk-timeline-block-card', HkTimelineBlockCard, 'HK Recent', 'The last events at the house, or in the morning how the night went. Made for a Home Grid, where the host keeps a timeline.');
   register('hk-timeline-strip-card', HkTimelineStripCard, 'HK Recent Strip', 'The last events of one camera, under its live view. Made for the camera sheet, where the host keeps a timeline.');
+  register('hk-camera-today-card', HkCameraTodayCard, 'HK Camera Today', 'One camera live, and what it saw today. Made for the Camera block at Extra Large, where the host keeps a timeline.');
   // blocks and strips, never cards to add by hand
-  if (C.unlisted) { C.unlisted('hk-timeline-block-card'); C.unlisted('hk-timeline-strip-card'); }
+  if (C.unlisted) { C.unlisted('hk-timeline-block-card'); C.unlisted('hk-timeline-strip-card'); C.unlisted('hk-camera-today-card'); }
   window.hkTimelineBlock.card = HkTimelineBlockCard;
   window.hkTimelineBlock.strip = HkTimelineStripCard;
   window.hkTimelineBlock.hostHas = hostHas;

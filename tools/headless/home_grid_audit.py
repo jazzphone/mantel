@@ -642,6 +642,7 @@ STATES: dict[str, dict] = {
     "recent_quiet": {"domains": {"lock": "locked", "cover": "closed", "binary_sensor": "off", "alarm_control_panel": "armed_night"},
                      "timeline": "quiet"},
     "recent_busy": {"timeline": "busy"},
+    "camera_many": {"timeline": "many"},
     # TIMERS (2026-11-08): one running, six (the Extra Large block's most), two with one held
     # THE THERMOSTAT's other modes (2026-11-08): the block's thermostat (`--opts thermostat='{"entity": "climate.office"}'`) on Cool, on Off
     "thermostat_cool": {"entities": {"climate.office": ("cool", {**EXTRA["climate.office"][1][1], "temperature": 72, "hvac_action": "cooling"})}, "opts": {"thermostat": {"entity": "climate.office"}}},
@@ -780,6 +781,12 @@ def seed_timeline(app, kind: str) -> None:
                 (18, "doorbell", "ring", "Front Door", "camera.front_door", "porch", 2, {}),
                 (3, "detection", "person", "Front Door", "camera.front_door", "porch", 2, {})):
             row(now - mins * 60, family, kind_, label, entity, area, n, **who)
+        if kind == "many":
+            # A DAY AT THE CAMERA (2026-11-09, mockup 13, the Camera block at Extra Large): a dozen more detections at the
+            # backyard's camera and the front door's, so its list of today's events scrolls
+            for i in range(12):
+                cam = ("Backyard", "camera.backyard", "backyard") if i % 2 else ("Front Door", "camera.front_door", "porch")
+                row(now - (7 + i * 9) * 60, "detection", ("person", "animal", "vehicle", "package")[i % 4], *cam, 1 + i % 2)
     still = {"camera.front_door": "07.webp", "camera.backyard": "21.webp"}
     real = tl.clock
     for i, (t, family, kind_, label, entity, area, n, who) in enumerate(sorted(rows, key=lambda r: r[0])):

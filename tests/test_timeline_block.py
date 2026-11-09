@@ -117,6 +117,17 @@ const st = B.stripView(ev(7, '2026-11-03T18:00:00Z', { family: 'doorbell', kind:
 out.strip = [st.title, st.time, st.day, st.thumb, st.icon, st.color];
 const sn = B.stripView(ev(8, '2026-11-03T04:28:00Z', { family: 'detection', kind: 'package', title: 'Package at Front Door' }), NOW, ctx);
 out.stripNoPic = [sn.title, sn.time, sn.day, sn.thumb, sn.icon, sn.color];
+
+// ---- the camera at Extra Large: that camera's rows since the house's midnight, a row's words, the foot
+out.todayStart = [B.todayStart(NOW, ctx), B.todayStart(ms('2026-11-03T05:59:00Z'), ctx), B.todayStart(ms('2026-11-03T06:00:00Z'), ctx)];
+out.todayPath = [B.todayPath('camera.front_door', 1793685600), B.todayPath('camera.a b', 5), B.TODAY_KEEP];
+const tr = (e) => { const r = B.todayRow(e, NOW, ctx); return [r.kind, r.where, r.ago, r.agoLong, r.thumb, r.icon]; };
+out.todayRows = [
+  tr(ev(1, '2026-11-03T21:26:00Z', { family: 'detection', kind: 'person', title: 'Person at Backyard', area_name: 'Backyard', pics: pic })),
+  tr(ev(2, '2026-11-03T20:00:00Z', { family: 'detection', kind: 'motion', title: 'Motion at Backyard', area_name: 'Backyard', zone: 'Patio' })),
+  tr(ev(3, '2026-11-03T14:00:00Z', { family: 'doorbell', kind: 'ring', title: 'Someone rang Front Door', area_name: null })),
+  tr(ev(4, '2026-11-03T21:29:40Z', { family: 'detection', kind: 'package', title: 'Package at Front Door', area_name: 'Porch' }))];
+out.todayFoot = [B.todayFoot(7, false), B.todayFoot(1, false), B.todayFoot(0, false), B.todayFoot(50, true)];
 console.log(JSON.stringify(out));
 """
 
@@ -139,6 +150,15 @@ out.mantel = run({ hostPage: (name) => name === 'timeline' });
 out.ha = run({});
 out.broken = run({ hostPage: () => { throw new Error('no'); } });
 out.noShell = run(undefined);
+// THE CAMERA BLOCK AT EXTRA LARGE (2026-11-09, mockup 13): beside what it saw today where the host keeps a Timeline, else the full picture
+const cam = (host, size, opts, cams) => {
+  delete globalThis.hkGridCatalog;
+  globalThis.hkShell = host;
+  (0, eval)(fs.readFileSync(process.argv[2], 'utf8'));
+  return window.hkGridCatalog.config({ id: 'c', card: 'camera', size, at: [0, 0], opts }, { cameras: cams === undefined ? ['camera.front_door', 'camera.yard'] : cams });
+};
+const mantel = { hostPage: (name) => name === 'timeline' };
+out.cameraXl = [cam(mantel, 'XL', {}), cam(mantel, 'XL', { entity: 'camera.yard' }), cam(mantel, 'L', {}), cam({}, 'XL', {}), cam(mantel, 'XL', {}, [])];
 console.log(JSON.stringify(out));
 """
 
@@ -279,6 +299,20 @@ def test_the_strip_says_it_in_few_words(got):
     assert got["stripNoPic"] == ["Package", "10:28 PM", "Yesterday", "", "hk:package-variant", "brown"]
 
 
+@needs_node
+def test_the_camera_at_extra_large_reads_that_cameras_day_and_says_it_in_few_words(got):
+    # the house's midnight (CST, UTC-6: 6 AM UTC), not the browser's, and the day before it for a row just past the house's midnight
+    assert got["todayStart"] == [1793685600, 1793599200, 1793685600]
+    assert got["todayPath"] == ["timeline?camera=camera.front_door&since=1793685600&limit=50", "timeline?camera=camera.a%20b&since=5&limit=50", 50]
+    # a row: its kind, where it was (the zone the camera named, else the camera's area), how long ago, its picture (else its glyph)
+    assert got["todayRows"] == [
+        ["Person", "Backyard", "4 min", "4 min ago", "/api/timeline/pic/" + "a" * 32, "hk:walk"],
+        ["Motion", "Patio", "1 hr", "1 hr ago", "", "hk:camera"],
+        ["Doorbell", "", "8:00 AM", "8:00 AM", "", "hk:doorbell-video"],
+        ["Package", "Porch", "Now", "Just now", "", "hk:package-variant"]]
+    assert got["todayFoot"] == ["Today: 7 events", "Today: 1 event", "Today: 0 events", "Today: 50+ events"]
+
+
 # -- the catalog's entry: Mantel's own ---------------------------------------------------------------------------------
 @pytest.fixture(scope="module")
 def catalog() -> dict:
@@ -300,6 +334,16 @@ def test_the_catalog_draws_the_block_where_the_host_has_a_timeline_and_a_stand_i
                    {"type": "custom:hk-grid-panel-card", "panel": "note", "name": "Recent", "text": "Recent isn't available here."}
                    for c in cfg[:5]), host
         assert cfg[6] is False, host
+
+
+@needs_node
+def test_the_camera_block_at_extra_large_shows_what_it_saw_today_only_where_the_host_has_a_timeline(catalog):
+    xl, named, large, ha, none = catalog["cameraXl"]
+    assert xl == {"type": "custom:hk-camera-today-card", "camera": "camera.front_door"}
+    assert named == {"type": "custom:hk-camera-today-card", "camera": "camera.yard"}
+    assert large["type"] == "custom:hk-camera-mosaic-card" and large["height"] == 195          # the other sizes are as they were
+    assert ha["type"] == "custom:hk-camera-mosaic-card" and ha["cameras"] == [{"entity": "camera.front_door"}]   # no Timeline: the full picture
+    assert none["type"] == "custom:hk-grid-panel-card"                                          # no camera: the note
 
 
 # -- the Python mirror ---------------------------------------------------------------------------------------------
@@ -342,7 +386,7 @@ def test_the_mirror_and_the_catalog_name_the_same_option():
 def test_the_block_is_wired_in_the_way_the_other_blocks_are():
     from mantel_server import hk_cards
     assert "hk-timeline-block.js" in hk_cards.LAZY                      # loaded when its card is asked for
-    assert hk_cards.tags_of(ROOT / "web/hk/cards/hk-timeline-block.js") == ("hk-timeline-block-card", "hk-timeline-strip-card")
+    assert hk_cards.tags_of(ROOT / "web/hk/cards/hk-timeline-block.js") == ("hk-camera-today-card", "hk-timeline-block-card", "hk-timeline-strip-card")
     editor = (ROOT / "web/hk/panels/hk-grid-editor.js").read_text()
     assert "timeline: 'Recent'" in editor and "'people', 'vacuum', 'timeline', 'everything'" in editor
     assert "offered(k) && self.sizesOf(k)" in editor                    # the picker lists it only where the host has the page
