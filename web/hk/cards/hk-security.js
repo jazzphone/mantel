@@ -128,9 +128,13 @@
         '.side .pad{grid-column:1;grid-row:1 / span 2;align-content:space-between}',
         '.side .acts{grid-column:2;grid-row:2;grid-template-columns:minmax(0,1fr);align-content:end;gap:8px;margin:0}',
         '.side.tap .acts{grid-column:1 / span 2;grid-row:1 / span 2;grid-template-columns:repeat(2,minmax(0,1fr));align-content:center}',
-        // (no code, on its own in a host with a height -- the Home Grid's Extra Large: the buttons in the middle of the room under the
-        // readout, not along its top, 2026-11-09)
-        '.tapfill{display:flex;flex-direction:column;height:100%}.tapfill > .acts.tap{flex:1 1 auto;align-content:center}',
+        // (no code, on its own in a host with a height -- the Home Grid's Extra Large, 2026-11-09: the buttons fill the room under the
+        // readout -- the owner: centered they left it empty, "make them way bigger to fill in the space" -- each a tall key, its glyph
+        // over its word)
+        '.tapfill{display:flex;flex-direction:column;height:100%}',
+        '.tapfill > .acts.tap{flex:1 1 auto;min-height:0;grid-auto-rows:minmax(0,1fr);align-content:stretch}',
+        '.tapfill .tap .a{height:auto;min-height:0;flex-direction:column;gap:8px;border-radius:' + R.inner + 'px;font-size:17px}',
+        '.tapfill .tap .a hk-icon{--mdc-icon-size:28px;width:28px;height:28px}',
         '@media (prefers-reduced-motion: reduce){.k,.k:active,.a,.a:active{transition:none;transform:none}}'
       ].join('');
     }
