@@ -394,9 +394,10 @@
       // (a Small with no discs -- House Status's -- the leading thing's glyph on its disc over the headline, as a tile has)
       var ld = !m.discs && m.lead ? '<div class="sld">' + disc(m.lead.icon, 30, m.lead.lit) + '</div>' : '';
       // (On Now's Small, 2026-11-09: the total, then each kind's count beside its disc, a 2 x 2 -- 30 px discs in a square cell, 24 in a tile)
+      // (a kind with nothing on says what Wide says -- Off, or Idle for speakers -- never "0": 2026-11-09)
       var dpx = P.shape === 'square' ? 30 : 24;
       if (m.counts) ds = '<div class="dcs' + (P.shape === 'square' ? ' sq' : '') + '">' + m.rows.map(function (r) {
-        return '<span class="dcn' + (r.rest ? ' at' : '') + '">' + disc(r.icon, dpx, r.lit) + '<b>' + esc(String(r.n || 0)) + '</b></span>';
+        return '<span class="dcn' + (r.rest ? ' at' : '') + '">' + disc(r.icon, dpx, r.lit) + '<b>' + esc(String(r.count != null ? r.count : r.n || 0)) + '</b></span>';
       }).join('') + '</div>';
       return '<button type="button" class="sm-s' + (m.top ? ' tp' : '') + '"' + (m.small.attrs ? ' ' + m.small.attrs : '') + ' aria-label="' + esc(m.small.aria) + '">' + row() + ld +
         headline(m.head, false) + (m.discs || m.counts ? '' : snt) + ds + '</button>';
