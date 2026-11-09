@@ -113,13 +113,15 @@
     // Large and Extra Large: the alarm's keypad (2026-10-24). HomeView (2026-11-07, `presentation: homeview`): the five
     // HomeView compositions, Compact (3 x 1) among them -- hk-grid-security.js hk-grid-security-hv-card; absent, the
     // block as it always was. members: the locks and garage doors it shows, in order (none: the house's)
-    security: { sizes: ['S', 'W', 'C', 'T', 'L', 'XL'], sources: [], opts: { entity: 'alarm', tap: 'tap_target', presentation: 'security_presentation', members: 'security_members', height: 'tile_height' }, card: function (s, o) {
+    security: { sizes: ['S', 'W', 'C', 'T', 'L', 'XL'], sources: [], opts: { entity: 'alarm', tap: 'tap_target', presentation: 'security_presentation', members: 'security_members', lit: 'security_lit', height: 'tile_height' }, card: function (s, o) {
       // (HomeView's Extra Large keeps the keypad -- 2026-11-08, the owner: "when you set it to HomeView mode, the Keypad goes away": the
       // keypad beside its entries as HomeView tiles or pills (Height), the entries its own when chosen)
       if (o.presentation === 'homeview' && s === 'XL') return Object.assign({ type: 'custom:hk-grid-keypad-card' }, o.entity ? { entity: o.entity } : {},
-        o.height === 'half' || o.height === 'full' ? { height: o.height } : {}, o.members && o.members.length ? { members: o.members.slice() } : {});
+        o.height === 'half' || o.height === 'full' ? { height: o.height } : {}, o.members && o.members.length ? { members: o.members.slice() } : {},
+        { hv: true }, o.lit === false ? { lit: false } : {});
+      // (lit, 2026-11-09: Light Up When Armed, on unless false)
       if (o.presentation === 'homeview') return Object.assign({ type: s === 'S' ? 'custom:hk-grid-security-key-card' : 'custom:hk-grid-security-hv-card', size: s }, o.entity ? { entity: o.entity } : {},
-                                                             o.members && o.members.length ? { members: o.members.slice() } : {});
+                                                             o.members && o.members.length ? { members: o.members.slice() } : {}, o.lit === false ? { lit: false } : {});
       // (Height, 2026-11-08, the owner: "are you offering half height pills too?": Large and Extra Large's locks as HomeView tiles, or half-height pills)
       var hh = o.height === 'half' || o.height === 'full' ? { height: o.height } : {};
       if (s === 'L' || s === 'XL') return Object.assign({ type: 'custom:hk-grid-keypad-card' }, o.entity ? { entity: o.entity } : {}, hh);

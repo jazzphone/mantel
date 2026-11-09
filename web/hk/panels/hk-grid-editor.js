@@ -1738,7 +1738,7 @@
       var fields = G.table()[key].opts || {}, opts = {}, self = this;
       Object.keys(fields).forEach(function (name) {
         var kind = fields[name];
-        if (['secondary', 'title', 'room_display', 'thermostat_style', 'tile_height', 'period', 'name_tag', 'tap_target', 'music_tap', 'tv_channel', 'music_show', 'music_playlist', 'music_speaker', 'timeline_show', 'np_background', 'on_now_open', 'everything_more', 'security_presentation', 'security_members'].includes(kind)) return;
+        if (['secondary', 'title', 'room_display', 'thermostat_style', 'tile_height', 'period', 'name_tag', 'tap_target', 'music_tap', 'tv_channel', 'music_show', 'music_playlist', 'music_speaker', 'timeline_show', 'np_background', 'on_now_open', 'everything_more', 'security_presentation', 'security_members', 'security_lit'].includes(kind)) return;
         if (kind === 'accessories') { opts[name] = self.choices('entity').filter((op) => /^(light|switch|fan|sensor)\./.test(op[0])).slice(0, 4).map((op) => ({ entity: op[0] })); if (!opts[name].length) delete opts[name]; return; }
         var choices = self.choices(kind).filter((op) => op[0] !== 'tablet_room');
         if (kind === 'scene' && key === 'scene') choices = choices.filter((op) => op[0].indexOf('scene.') === 0);
@@ -2215,6 +2215,13 @@
         if (kind === 'security_presentation') {
           rows.push(K.seg({ label: 'Presentation', value: opts[key] || '', options: [['', 'Classic'], ['homeview', 'HomeView']],
             onChange: (v) => { if (!v && o.size === 'C') { self.say('Compact is HomeView’s. Choose another size first.'); self.side(); return; } set(key, v || null); } }));
+          return;
+        }
+        // LIGHT UP WHEN ARMED (2026-11-09, the owner): on unless the option is false -- so Off is what is stored
+        if (kind === 'security_lit') {
+          if (opts.presentation !== 'homeview') return;
+          rows.push(K.toggle({ label: 'Light Up When Armed', sub: 'White while the alarm is armed, red if it goes off. Each lock still shows its own state.',
+            on: opts[key] !== false, onChange: (on) => set(key, on ? null : false) }));
           return;
         }
         // ...and HomeView's entries: Automatic (the house's locks, then its garage doors) or the ones chosen, in order
