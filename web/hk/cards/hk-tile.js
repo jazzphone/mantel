@@ -235,9 +235,21 @@
     // (Bright Glass, 2026-10-30: white, the background supplies the color --
     // --hk-look-glyph-off, unset in every other look)
     if (!on) return 'var(--hk-look-glyph-off, ' + window.hkCards.flatColor(colourFor(cfg, stateObj), 'glyph') + ')';
+    // A WHITE OWN COLOR ON THE WHITE PLATE (2026-11-09, the owner: a tapped Routines button's glyph vanished): a lit tile's
+    // plate is white, so a glyph that is white -- an input_button or a light given `icon_color: white` -- takes the lit
+    // tiles' near-black for as long as it is lit (a tap's PRESS_MS too), bare or on its own white circle
+    var own = cfg.bare_icon ? (cfg.bare_icon_color || colourFor(cfg, stateObj)) : colourFor(cfg, stateObj);
+    if (nearWhite(own)) return 'rgba(0, 0, 0, 0.95)';
     if (!cfg.bare_icon) return 'white';
     // (lit and bare: Flat's Light takes the bright color, hk-base flatColor)
-    return window.hkCards.flatColor(cfg.bare_icon_color || colourFor(cfg, stateObj), 'on');
+    return window.hkCards.flatColor(own, 'on');
+  }
+  // a color (a #rrggbb, an rgb()/rgba(), a palette name) the white plate would swallow: luminance over 0.85, as lightRgb's
+  function nearWhite(c) {
+    var h = hexOf(c);
+    if (!h) return false;
+    var r = parseInt(h.slice(1, 3), 16), g = parseInt(h.slice(3, 5), 16), b = parseInt(h.slice(5, 7), 16);
+    return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255 > 0.85;
   }
 
   // TWO LEVELS, not one:
@@ -318,6 +330,18 @@
       H + ' .well{top:' + T + g.box / 2 + 'px)' + I + '}' +
       H + ' .name{top:' + T + name + 'px)' + I + '}' +
       H + ' .label,' + H + ' .room{top:' + T + (name + g.line) + 'px)' + I + '}';
+    return q ? q + '{' + css + '}' : css;
+  }
+  // THE WIDE TILE'S WORDS (Centered, a level beside them): the glyph, the name and the second line stacked as the Tall's
+  // (g: the cell's numbers, TILE.centred.tall / .square) and centered on the plate's height, each centered in the column left
+  // of the capsule -- from the block's inset (--hk-pad-l, `pad` by default) to a gutter (10 px) short of the capsule's left edge
+  // (--hk-wcol); a name too long for it ends in an ellipsis
+  function wideLevelTile(g, pad, q) {
+    var H = ':host([tile=centred][level][size=W])', I = ' !important', total = g.box + 6 + 2 * g.line,
+        T = 'calc(50% - ' + total / 2 + 'px + ', name = g.box + 6, col = 'left:var(--hk-pad-l,' + pad + 'px)' + I + ';right:calc(100% - var(--hk-wcol) + 10px)' + I + ';text-align:center' + I;
+    var css = H + ' .well{left:calc((var(--hk-pad-l,' + pad + 'px) + var(--hk-wcol) - 10px) / 2)' + I + ';top:' + T + g.box / 2 + 'px)' + I + '}' +
+      H + ' .name{' + col + ';top:' + T + name + 'px)' + I + '}' +
+      H + ' .label,' + H + ' .room{' + col + ';top:' + T + (name + g.line) + 'px)' + I + '}';
     return q ? q + '{' + css + '}' : css;
   }
   var CSS = [
@@ -728,22 +752,24 @@
     'hk-plate.card[data-hk-grad] .lvl b{color:#fff;text-shadow:none}',
     // (the words over the filled part are dark on it, whatever lies under the rest)
     'hk-plate.card .lvl.hi b{color:rgba(0,0,0,0.55);text-shadow:none}',
-    // WIDE (2026-11-08): the whole tile the slider -- a clear layer over it takes the drag, the fill a layer under the glyph and the words
-    // (the light's own color, softer, on the lit white plate; white on a gradient), the percent the tile's own second line
-    '.lvl.wide{position:absolute;inset:0;margin:0;min-height:0;grid-area:auto;border-radius:inherit;background:none !important;z-index:3;touch-action:pan-y}',
-    '.lvl.wide .fill{display:none}',
-    // (its level at the tile's right edge, on its own inset, the second line staying the room's)
-    '.lvl.wide b{left:auto;right:var(--hk-pad-r,18px);bottom:auto;top:50%;transform:translateY(-50%);text-align:right}',
-    '.lvbg{position:absolute;inset:0;border-radius:inherit;overflow:hidden;pointer-events:none;z-index:0}',
-    '.lvbg .fill{position:absolute;left:0;top:0;bottom:0;width:0;opacity:.28;background:' + window.hkCards.v('track-fill') + ';transition:width .18s ease}',
-    ':host([level]) hk-plate.card:has(.lvl.wide.drag) .lvbg .fill{transition:none}',
-    'hk-plate.card[data-hk-grad] .lvbg .fill{opacity:.3}',
-    ':host([level][size=W]) hk-plate.card{position:relative}',
-    ':host([level]) hk-plate.card:has(.lvbg) .grid{position:relative;z-index:1}',
     // CENTERED, the glyph and its words from the block's top inset, the capsule from under them (levelTile: the cell's numbers,
     // hk-base.js TILE.centred)
     levelTile(window.hkCards.TILE.centred.tall, 14, ''),
     levelTile(window.hkCards.TILE.centred.square, 18, '@container hk-cell style(--hk-cell-shape: square)'),
+    // WIDE (2026-11-09, the owner: "the wide accessory card with slider doesn't match ... the tall"): the Tall turned sideways -- the
+    // glyph and the words in a column on the left, the same capsule (the .lvl above: its radius, track, fill, percent) filling the rest
+    // of the plate on the block's inset, its fill growing left to right (.side), the percent inside it at its start
+    ':host([level][size=W]){--hk-wcol:46%}',
+    ':host([level][size=W]) hk-plate.card{position:relative;padding:var(--hk-pad-t,14px) var(--hk-pad-r,14px) var(--hk-pad-b,14px) var(--hk-pad-l,14px)}',
+    '.lvl.side{position:absolute;margin:0;min-height:0;grid-area:auto;left:var(--hk-wcol);right:var(--hk-pad-r,14px);top:var(--hk-pad-t,14px);bottom:var(--hk-pad-b,14px);touch-action:pan-y}',
+    '.lvl.side .fill{right:auto;top:0;height:auto;width:0;transition:width .18s ease}',
+    '.lvl.side.drag .fill{transition:none}',
+    '.lvl.side b{left:12px;right:auto;bottom:auto;top:50%;transform:translateY(-50%);text-align:left}',
+    // (Home, the pill: its glyph and words stay left of the capsule)
+    ':host(:not([tile=centred])[level][size=W]) .card .grid{box-sizing:border-box;width:calc(var(--hk-wcol) - var(--hk-pad-l,14px) - 10px);min-width:0;flex:none}',
+    ':host(:not([tile=centred])[level][size=W]) .card .grid .name,:host(:not([tile=centred])[level][size=W]) .card .grid .label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+    wideLevelTile(window.hkCards.TILE.centred.tall, 14, ''),
+    wideLevelTile(window.hkCards.TILE.centred.square, 18, '@container hk-cell (min-height:180px) or style(--hk-cell-shape: square)'),
     // ...no level: the tile with its glyph larger, the group a little above the middle
     ':host([tile=centred][size=T]:not([level])) .well{width:104px !important;height:104px !important;top:37% !important}',
     ':host([tile=centred][size=T]:not([level])) .icon{width:96px !important;height:96px !important}',
@@ -854,7 +880,6 @@
       this._lv = lv;
       if (!lv) {
         if (e.lvl) { e.lvl.remove(); e.lvl = null; }
-        if (e.lvbg) { e.lvbg.remove(); e.lvbg = null; }
         if (this.hasAttribute('level')) this.removeAttribute('level');
         return;
       }
@@ -866,24 +891,20 @@
         box.setAttribute('aria-valuemin', '0'); box.setAttribute('aria-valuemax', '100');
         box.innerHTML = '<i class="fill"></i><b></b>';
         e.grid.appendChild(box);
-        if (this._cellSize() === 'W') {
-          // WIDE: the slider is the whole tile -- its fill a layer under the glyph and the words (.lvbg), the drag a clear one over them
-          box.classList.add('wide'); box.setAttribute('data-hk-control', '');
-          e.grid.parentNode.appendChild(box);      // (over the whole plate, not the words' grid)
-          var bg = document.createElement('i'); bg.className = 'lvbg'; bg.innerHTML = '<i class="fill"></i>';
-          e.grid.parentNode.insertBefore(bg, e.grid.parentNode.firstChild);
-          e.lvbg = bg;
-        }
+        // WIDE (2026-11-09, the owner: "the wide accessory card with slider doesn't match ... the tall"): the Tall's capsule turned
+        // sideways -- beside the glyph and the words, filling the rest of the plate, its fill growing left to right (.side)
+        if (this._cellSize() === 'W') box.classList.add('side');
         e.lvl = box;
         this._levelWire(box);
       }
       var pct = this._lvDrag != null ? this._lvDrag : (this._lvHold && Date.now() < this._lvHold.until ? this._lvHold.pct : lv.pct);
       var fillEl = e.lvl.firstChild, label = e.lvl.lastChild;
       box = e.lvl;
-      if (e.lvbg) { fillEl = e.lvbg.firstChild; fillEl.style.width = pct + '%'; }      // (Wide: the fill under the words, across)
-      else fillEl.style.height = pct + '%';
+      var side = box.classList.contains('side');
+      if (side) fillEl.style.width = pct + '%'; else fillEl.style.height = pct + '%';
       fillEl.style.background = fill || '';
-      box.classList.toggle('hi', pct >= 22);
+      // (the words' dark ink over the filled part: 22 % of a tall capsule's height, a third of a wide one's width)
+      box.classList.toggle('hi', pct >= (side ? 34 : 22));
       box.classList.toggle('drag', this._lvDrag != null);
       var word = pct <= 0 && lv.words ? lv.words[0] : pct >= 100 && lv.words ? lv.words[1] : (!on && pct <= 0) || lv.off ? 'Off' : pct + '%';
       if (label.textContent !== word) label.textContent = word;
@@ -908,7 +929,7 @@
       box.addEventListener('pointerdown', function (ev) {
         if (ev.button > 0 || !self._lv) return;
         var r = box.getBoundingClientRect();
-        s = { id: ev.pointerId, x: ev.clientX, y: ev.clientY, pct: self._lv.pct, h: Math.max(1, r.height), w: Math.max(1, r.width), moved: false, across: box.classList.contains('wide') };
+        s = { id: ev.pointerId, x: ev.clientX, y: ev.clientY, pct: self._lv.pct, h: Math.max(1, r.height), w: Math.max(1, r.width), moved: false, across: box.classList.contains('side') };
         try { box.setPointerCapture(ev.pointerId); } catch (x) { /* a test page */ }
       });
       box.addEventListener('pointermove', function (ev) {
@@ -948,7 +969,6 @@
       box.addEventListener('pointercancel', function (ev) { end(ev, false); });
       // a tap toggles (and is the capsule's, never the plate's); the click that ends a drag is the drag's
       box.addEventListener('click', function (ev) {
-        if (box.classList.contains('wide') && !eat) return;          // (Wide: a tap is the tile's own -- it falls through to the plate)
         ev.stopPropagation();
         if (eat) { eat = false; return; }
         if (self._lv) send(self._lv.toggle);
