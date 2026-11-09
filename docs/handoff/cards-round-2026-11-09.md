@@ -7,7 +7,7 @@ Security and Timers (below). Each build is committed in its own local-disk workt
 
 | Mockup | Block | Commit | Worktree | Notes |
 |---|---|---|---|---|
-| 4b | Doors & Locks (`doors`, hk-grid-panel.js) | `6c619437` | /private/tmp/mantel-xl-doors | one calm list; headline "1 Open" / "All Closed"; audit counts a `role=list` of rows as one control |
+| 4b | Doors & Locks (`doors`, hk-grid-panel.js) | `6c619437` | /private/tmp/mantel-xl-doors | one calm list; headline "1 Open" / "All Closed"; audit counts a `role=list` of rows as one control. **Recolor before pushing** (see Colors below): its open disc is orange -- make it lit teal |
 | 6 | Suggested Scene (`scene_suggested`) | `f4185c1d` | /private/tmp/mantel-xl-sugg | Run Now, a "Later" list; adds an XL size (catalog + home_grid.py); `laterScenes` in hk-grid-math.js |
 | 7b | House Status (hk-house-status.js) | `2954a0ac` | /private/tmp/mantel-xl-hs | headline top-left, "All Good"; L too |
 | 8b | Room + Scenes (hk-grid-room.js, hk-chip.js) | `86ab267e` | /private/tmp/mantel-xl-8b | reverts today's two-column XL (4b20f762, c12d31b7); XL three across, Full Width six, top-left; the Scenes `windows` option removed |
@@ -21,7 +21,7 @@ alarm showing when armed and using the apple icon. Also needs to open the keypad
 I'd like a combination of both." Mockup 14 A (scratchpad mock2/m14.py, m14.png):
 - The **HomeView** presentation (`hk-plate.hv`, the house's) keeps the alarm as it is (Apple's shield, Light Up When Armed: the alarm alone lit, a tap on it the
   keypad when the alarm has a code, else its sheet) and takes 4b's rows for the locks: no plate per row, the disc, the state at the right (Wide: under the name),
-  the unlocked one orange. d08e36de changed only the standard presentation's rows: keep those, add the HomeView ones.
+  the unlocked one lit (Colors below). d08e36de changed only the standard presentation's rows: keep those, add the HomeView ones.
 - Check commits 74ef14cb, a9c98047, 1d5f8289, 9bd8a35f, fa8ee1bf (other sessions) are all still in effect after the change.
 
 **Mockup 14b supersedes 14** (scratchpad mock2/m15.py, m15.png; the owner asked to see it before the build): Security at every size (XL keypad + rows +
@@ -38,7 +38,18 @@ the toast at the foot.
 glyph and wells, do they follow HomeViews styling?"): the alarm reads "Armed" or "Disarmed" (no mode, no "Tap for the keypad"), its one line under it
 ("1 unlocked · 1 open"); the tap still opens the keypad or the sheet. Its glyph is the real one, `C.alarmGlyph` (hk:shield-off disarmed, shield-home armed home,
 shield-lock away -- Apple's SF Symbols from the house's hk-glyphs.js; the mockups now draw them too, scratchpad mock2/sfkit.py). The rows' glyphs are the house's
-hk: icons; their circles are the list discs On Now and House Status use (`.dk`), colored as HomeView colors a lock: teal locked, orange when it needs a look.
+hk: icons; their circles are the list discs On Now and House Status use (`.dk`).
+
+**Colors: DESIGN.md's, no orange in Security** (the owner: "the colors on this aren't right. Not sure why things are orange"). Mockups 14b and 14d were redrawn
+(m15_s.png, m16_s.png). DESIGN.md: Security's accent is teal (the block's `--lk`, `C.ACCENTS.teal`); "lit wells their own colors"; "white glyphs in a colored
+lit well"; the alarm a bare glyph. So:
+- secured (locked, closed): an off well (`--hk-look-well`), the glyph teal, the state in the second ink;
+- needs a look (unlocked, open): lit -- the disc filled teal, the glyph white, the state in the first ink (never orange, never `warn`);
+- the Doors & Windows toast: the key ground, the glyph teal, the words in the first ink (today's `.op.open` is `warn` with a glow: drop it);
+- the alarm: disarmed the siren light off in the second ink, bare; armed the white lit plate, the siren light teal; triggered red;
+- the XL keypad's readout: the siren light and "Armed" / "Disarmed" (no mode), teal when armed; Home / Away / Disarm keys as today.
+Today's Security also draws a not-secured tile white with an orange glyph and state (`.ent.open hk-icon{color:warn}`, the XL rows' "state in orange"): change those
+to the rule above too. Orange stays where DESIGN.md puts it: Timers (the page's accent) and HK's highlight.
 
 **The alarm glyph is the siren light, not a shield** (the owner: "That is not the Alarm glyph for Apple... Apple uses like an Alarm Bell style Glyph", then chose
 "The siren light"). Change `ALARM_GLYPHS` in web/hk/grid-cards/hk-grid-security.js (it feeds `C.alarmGlyph`: the Security blocks, the Side Pane, the generated alarm
