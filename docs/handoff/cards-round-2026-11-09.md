@@ -28,7 +28,11 @@ I'd like a combination of both." Mockup 14 A (scratchpad mock2/m14.py, m14.png):
 to be added to the Large and X-Large card as well." Mockup 14 B:
 - **Large, nothing running:** "Start a Timer", four preset rings across, then the New Timer card's block layout (the wheels, a name, Start), as Extra Large's maker
   (hk-home.js `_mountMaker`, `layout: 'block'`).
-- **Extra Large running one or two timers:** the timers, and the maker beside them (about 300-340 px). Three or more: the timers take the block; "+" opens the sheet.
+- **Extra Large running one or two timers:** the timers, and the maker beside them (about 300-340 px). Three or more: the timers take the block.
+- **Always a way to make another** (the owner: "Your 3 or more timer XL card has no way of creating another timer...there should always be a way right?... a simple plus
+  button to create a new timer when it is full"): any running block with no spare place for "Start another" (Extra Large with three, Large with two, Tall, Wide with two)
+  shows a plain orange "+" (a 56 px target) at the top right, on the heading row beside "+N more", that opens the New Timer sheet (`_newGridTimer`, the wheels).
+  Small has no room: a tap on Small opens the Timers page, which has Create a Timer.
 - **Large running:** its two timers (as e947f726).
 - Decisions already made: Wide shows two running timers with their keys (`CONTROLS_RULES_OF["timers"] = {"W": 4}`); Extra Large shows up to three, "+N more".
 
