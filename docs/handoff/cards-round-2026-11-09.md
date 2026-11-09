@@ -31,7 +31,7 @@ armed (the alarm alone lit). Timers below follow 14b too.
 **Mockup 14d** (scratchpad mock2/m16.py, m16.png) sets Security's Wide and Compact: the owner, "I only want Locks and Garages... I still want the toast for windows
 and doors but maybe it just belongs under the Locks and Garage Doors on the right side". So: the alarm alone on the left, in the upper left (DESIGN.md since a26d4115: the headline is the upper left, across the board; its line "1 unlocked · 1 open");
 on the right the locks and the garage doors only, as 4b rows (the state under the name; Compact two columns), and under them the flat Doors & Windows toast. Nothing
-open: no toast. (The toast under the alarm, 14b, "looks really awkward"; the open window as a row, 14c, was not what he wanted.) Large, Tall and Extra Large keep
+open: no toast. Armed, the alarm's white plate fills its column top to bottom, its words in the upper left (the owner: "It should fill the space vertically in the card, so there is not gap below it"). (The toast under the alarm, 14b, "looks really awkward"; the open window as a row, 14c, was not what he wanted.) Large, Tall and Extra Large keep
 the toast at the foot.
 
 **The alarm's words and glyphs** (the owner: "I also don't know why Home and the Tap text is there... is the mock up just using that icon and not apples?... the
@@ -84,7 +84,7 @@ security tiles after all the tweaks we made"): fix only what breaks a rule, and 
 - Doors & Locks (ee65958e) and Security (0c8a30d4): teal, needs-a-look lit; no orange, blue or green; the keypad's readout gray while disarmed.
 - Now Playing idle (26ed2a31): Browse and the speaker are the standard pills; the player's white is on its own dark ground in every look (fine).
 - Suggested Scene: its white is on the scene's own colored ground (fine). House Status, Room + Scenes, Live TV: no colors added.
-- Timers (3f0276c2): readable name and time. Orange stays (the Timers page's accent).
+- Timers (3f0276c2, 3c6251df): readable name and time; Wide's keys from the name's top to the ring's foot (the owner: "weirdly aligned"). Orange stays (the Timers page's accent).
 - The headline is the upper left across the board (the owner: "No no no, I want the upper left corner back!"): never re-centered.
 - DESIGN.md (house docs, a26d4115 + 28d9a462): the headline rule, Security as approved (14b / 14d), the standard pill, read from across the room.
 - Still to check when building Security: today's standard Tall puts "Disarmed" in the middle and Wide near the foot -- 14b / 14d put the alarm
