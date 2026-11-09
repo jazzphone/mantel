@@ -313,7 +313,11 @@
         '.vb .key>span{min-width:0;overflow:hidden;text-overflow:ellipsis}',
         '.vb .key.go{flex:1 1 auto;min-width:0;padding:0 10px;background:' + SELECTED_BG + ';color:' + SELECTED_TEXT + '}',
         // (TALL'S KEYS, 2026-11-08, the owner: nothing stretches -- Clean is as wide as its word, Dock round beside it, the pair centered)
-        '.vb[data-s=T] .keys{justify-content:center;gap:6px}.vb[data-s=T] .key.go{flex:none;padding:0 16px}.vb[data-s=T] .key.go hk-icon{display:none}',
+        // (TALL'S KEYS, 2026-11-09, the owner: "The clean and home button need to fill out to match the width of the All Rooms button above it":
+        // Clean takes the row's width less the round 56 px Dock and 8 px clear, both 56 tall, at either cell shape)
+        '.vb[data-s=T]{--vb-key:56px}.vb[data-s=T] .keys{gap:8px}.vb[data-s=T] .key.go{padding:0 8px}.vb[data-s=T] .key.go hk-icon{display:none}',
+        // (the state in words where there is no ring to hold it: no battery and not cleaning, 2026-11-09)
+        '.vb .none{text-align:center}.vb .none b{display:block;font-size:22px;font-weight:500;line-height:1.2}',
         '.vb .key hk-icon{flex:none;width:22px;height:22px;--mdc-icon-size:22px}',
         '.vb .key[aria-disabled=true]{opacity:.45;pointer-events:none}',
         '.vb .key:active,.vb .vr:active{transform:scale(0.97)}.vb .key:focus-visible,.vb .vr:focus-visible{outline:2px solid ' + C.v('ink-2') + ';outline-offset:2px}',
@@ -343,7 +347,7 @@
         '.vb[data-s=XL]{flex-direction:row;gap:22px}',
         // (the ring in the middle of what its column has left, the last run at the foot, level with the keys)
         '.vb[data-s=XL] .lcol{flex:0 0 200px;display:flex;flex-direction:column;min-width:0}',
-        '.vb[data-s=XL] .lcol .ring{margin-top:auto;margin-bottom:auto}',
+        '.vb[data-s=XL] .lcol :is(.ring,.none){margin-top:auto;margin-bottom:auto}',
         '.vb[data-s=XL] .lcol .rt{min-height:var(--vb-key);justify-content:flex-end}',
         '.vb[data-s=XL] .rcol{flex:1 1 auto;display:flex;flex-direction:column;min-width:0}',
         '.vb[data-s=XL] .rcol .lab{margin-top:0}',
@@ -385,7 +389,7 @@
     _sigOf() {
       var h = this.client, c = this._config;
       if (!h || !c) return null;
-      var ids = [c.entity, c.battery, c.error, c.dock_error, c.room, c.progress]
+      var ids = [c.entity, this._sib('battery'), c.error, c.dock_error, c.room, this._sib('progress')]
                   .filter(Boolean);
       var out = '';
       for (var i = 0; i < ids.length; i++) {
@@ -405,6 +409,27 @@
       return added.indexOf('clean_areas') >= 0 || !!(HS && HS.get && HS.get('features.vacuum_script', null));
     }
 
+    // THE READINGS ON THE SAME DEVICE (2026-11-09): a Home Grid block is made with the vacuum's id alone, where the Vacuums page's
+    // card is handed its battery and progress sensors (hk-strategy.js sibling/siblingLike). A block finds them the same way:
+    // a sensor on the vacuum's device with device_class battery, or an id with cleaning_progress. The vacuum's own
+    // `battery_level` attribute comes first, in _chips.
+    _sib(kind) {
+      var c = this._config, h = this.client, ents = h && h.entities;
+      if (c[kind]) return c[kind];
+      if (!ents || !c.entity) return null;
+      var memo = this._sibs && this._sibs.id === c.entity ? this._sibs : (this._sibs = { id: c.entity });
+      if (kind in memo) return memo[kind];
+      var dev = ents[c.entity] && ents[c.entity].device_id, hit = null;
+      if (dev) {
+        hit = Object.keys(ents).filter(function (k) {
+          var st = h.states[k];
+          return k !== c.entity && ents[k].device_id === dev && k.indexOf('sensor.') === 0 && st &&
+            (kind === 'battery' ? st.attributes && st.attributes.device_class === 'battery' : /cleaning_progress/.test(k));
+        }).sort()[0] || null;
+      }
+      return (memo[kind] = hit);
+    }
+
     _v(id) {
       var s = id && this._st(id);
       return s ? s.state : undefined;
@@ -421,7 +446,7 @@
       out.push({ t: C.sentenceCase(String(state).replace(/_/g, ' ')) });
 
       var b = a.battery_level;
-      if (b == null && cfg.battery) b = this._v(cfg.battery);
+      if (b == null && this._sib('battery')) b = this._v(this._sib('battery'));
       var bn = Number(b);
       if (b != null && b !== 'unknown' && b !== 'unavailable' && isFinite(bn)) {
         // Colour the battery the way the Home app does: only shout when it is low.
@@ -434,7 +459,7 @@
       if (state === 'cleaning' || state === 'returning') {
         var room = this._v(cfg.room);
         if (room && room !== 'unknown' && room !== 'unavailable') out.push({ t: room });
-        var pr = Number(this._v(cfg.progress));
+        var pr = Number(this._v(this._sib('progress')));
         if (isFinite(pr) && pr > 0) out.push({ t: Math.round(pr) + '% done', c: 'good' });
       }
 
@@ -560,12 +585,19 @@
       var rkey = pickable ? (sz === 'T' ? '<button type="button" class="rrow' + (said ? ' on' : '') + '" data-rooms aria-label="' + (said ? 'Rooms to clean: ' + esc(chosen.join(', ')) + '. Change' : 'Rooms to clean: the whole house. Choose') +
           '"><span>' + (said ? esc(said) : 'All rooms') + '</span><hk-icon icon="mdi:chevron-right"></hk-icon></button>'
         : '<button type="button" class="key rm' + (said ? ' on' : '') + '" data-rooms aria-label="Choose rooms to clean' + (said ? ': ' + esc(chosen.join(', ')) : '') + '"><hk-icon icon="mdi:floor-plan"></hk-icon><span>' + (chosen.length ? chosen.length + (chosen.length === 1 ? ' room' : ' rooms') : 'Rooms') + '</span></button>') : '';
-      // THE BATTERY AS A RING (Tall and Extra Large): the level, the state under it
-      var pct = bat ? Math.max(0, Math.min(100, bat.n)) : 0;
-      var ring = '<div class="ring" role="img" aria-label="' + esc((bat ? bat.t : 'Battery unknown') + ', ' + C.sentenceCase(state.replace(/_/g, ' '))) + '">' +
+      // THE RING (Tall and Extra Large), 2026-11-09, the owner: "not sure if the big circle showing clean percentage is relevant here?"
+      // While cleaning, the progress (the card's `progress` sensor); otherwise the battery, the state under it. Neither: no ring, the
+      // state in words -- never a "\u2013" placeholder.
+      var prog = Number(this._v(this._sib('progress'))), cleaning = state === 'cleaning' && isFinite(prog) && prog > 0;
+      var rv = cleaning ? { n: prog, t: Math.round(prog) + '%', c: '' } : bat ? { n: bat.n, t: bat.t, c: bat.c } : null;
+      var stWords = C.sentenceCase(state.replace(/_/g, ' '));
+      var pct = rv ? Math.max(0, Math.min(100, rv.n)) : 0;
+      var under = cleaning ? 'Cleaning' : words(rest.slice(0, 1)) || esc(stWords);
+      var ring = rv ? '<div class="ring" role="img" aria-label="' + esc((cleaning ? 'Cleaning, ' + rv.t + ' done' : rv.t + ' battery, ' + stWords)) + '">' +
         '<svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="54"></circle>' +
-        (bat ? '<circle class="fill ' + bat.c + '" cx="60" cy="60" r="54" pathLength="100" stroke-dasharray="' + pct.toFixed(1) + ' 100"></circle>' : '') +
-        '</svg><span><b>' + esc(bat ? bat.t : '\u2013') + '</b><small>' + words(rest.slice(0, 1)) + '</small></span></div>';
+        '<circle class="fill ' + rv.c + '" cx="60" cy="60" r="54" pathLength="100" stroke-dasharray="' + pct.toFixed(1) + ' 100"></circle>' +
+        '</svg><span><b>' + esc(rv.t) + '</b><small>' + under + '</small></span></div>'
+        : '<div class="none"><b>' + (words(rest.slice(0, 1)) || esc(stWords)) + '</b></div>';
       var html;
       if (sz === 'S') {
         html = '<div class="hd"><b class="nm">' + esc(nm) + '</b></div>' +
@@ -579,7 +611,7 @@
       } else if (sz === 'T') {
         var bk = this._block(), more = rest.slice(1);
         html = '<div class="hd"><b class="nm">' + esc(nm) + '</b></div>' +
-          '<div class="mid" style="--vb-r:' + (bk ? Math.max(72, Math.min(120, bk.h - (pickable ? 278 : 226))) : 96) + 'px">' + ring + '</div>' +
+          '<div class="mid" style="--vb-r:' + (bk ? Math.max(72, Math.min(120, bk.h - (pickable ? 286 : 234))) : 96) + 'px">' + ring + '</div>' +
           '<div class="rt">' + stNode + '<span class="sub two">' + (more.length ? words(more) + ran : ran.slice(3)) + '</span></div>' + rkey +
           '<div class="keys">' + key(go, 'go', true) + key(dock, 'dk', false) + '</div>';
       } else if (sz === 'XL') {

@@ -660,6 +660,9 @@ STATES: dict[str, dict] = {
     # THE VACUUM (2026-11-08): what it is doing, and the rooms Clean Areas offers (`rooms`: six, the default; `twelve` more than a
     # Large block holds) and which of them are ticked before the shot (`picked`: area ids, the block's rooms to clean)
     "vacuum_cleaning": {"entities": {"vacuum.downstairs": ("cleaning", {"friendly_name": "Downstairs Vacuum", "battery_level": 64, "supported_features": 16383})}},
+    # (2026-11-09: a vacuum that reports no battery -- no ring, the state in words, never a "\u2013")
+    "vacuum_nobattery": {"entities": {"vacuum.downstairs": ("docked", {"friendly_name": "Downstairs Vacuum", "supported_features": 16383})}},
+    "vacuum_nobattery_cleaning": {"entities": {"vacuum.downstairs": ("cleaning", {"friendly_name": "Downstairs Vacuum", "supported_features": 16383})}},
     "vacuum_paused": {"entities": {"vacuum.downstairs": ("paused", {"friendly_name": "Downstairs Vacuum", "battery_level": 64, "supported_features": 16383})}},
     "vacuum_returning": {"entities": {"vacuum.downstairs": ("returning", {"friendly_name": "Downstairs Vacuum", "battery_level": 31, "supported_features": 16383})}},
     "vacuum_error": {"entities": {"vacuum.downstairs": ("error", {"friendly_name": "Downstairs Vacuum", "battery_level": 12, "supported_features": 16383})}},

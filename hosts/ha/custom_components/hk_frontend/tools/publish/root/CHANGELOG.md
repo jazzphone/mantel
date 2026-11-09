@@ -5,6 +5,9 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+**Changed**
+- **The Vacuum block's ring shows what matters.** While it cleans: the cleaning progress; otherwise the battery, with the state under it. A vacuum that reports neither shows its state in words, never a dash. On Tall, Clean and Dock now fill the width of the "All rooms" row together (Dock stays round, 8 px clear).
+
 **Fixed**
 - **A segmented control with many choices splits into two rows** when they don't fit, instead of drawing one choice over the next -- a block's six sizes in the editor on a phone read Small, Wide, Compact over Tall, Large, X-Large. "X-Large" no longer breaks at its hyphen.
 - **The Small Timers block with nothing running** says "Start a Timer" over an orange + that opens the New Timer sheet, as the bigger sizes do. The "Start a timer" button no longer runs off the block's edge, and "None running" no longer uses the countdown's light type.
