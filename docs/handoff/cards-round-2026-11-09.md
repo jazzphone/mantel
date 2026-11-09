@@ -28,6 +28,15 @@ I'd like a combination of both." Mockup 14 A (scratchpad mock2/m14.py, m14.png):
 toast; L and T alarm, rows, toast at the foot; Wide and Compact the toast under the alarm, the owner's ask; Small the shield and "1 unlocked · 1 open"), disarmed and
 armed (the alarm alone lit). Timers below follow 14b too.
 
+**Mockup 14c** (scratchpad mock2/m16.py, m16.png) replaces 14b's Wide and Compact: the toast under the alarm "looks really awkward and it makes those cards weighted
+heavily to the left" (the owner). There the open window (or garage, or door) is the list's FIRST ROW, a 4b row like the locks, its circle orange and its state
+orange (under the name on these sizes); the alarm alone in its column, centered, its line "1 unlocked · 1 open". Nothing open: the locks alone. Large, Tall and Extra
+Large keep the toast at the foot.
+
+**Compact won't add** (the owner's screenshot, Kitchen HomeView, a 5 x 4 square grid with four free cells in its top row): choosing Compact (3 x 1) in the card picker
+says "A Compact Security doesn't fit there. Drop it nearer the middle, or pick a smaller size." and Add does nothing, though a 3 x 1 place is free. Find why
+(hk-grid-editor.js: the picker's `firstSpace` / the drop's placement for size `C`, and Compact being HomeView Security's alone), fix it, and add a check.
+
 **Timers** (`e947f726`, /private/tmp/mantel-xl-timers: the running half of mockup 5). The owner: "the roller to create a new timer isn't implemented here. I'd like that
 to be added to the Large and X-Large card as well." Mockup 14 B:
 - **Large, nothing running:** "Start a Timer", four preset rings across, then the New Timer card's block layout (the wheels, a name, Start), as Extra Large's maker
