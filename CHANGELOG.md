@@ -4,6 +4,8 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+## 0.1.158 - 2026-11-09
+
 **Changed**
 - **The Vacuum block's ring shows what matters.** While it cleans: the cleaning progress; otherwise the battery, with the state under it. A vacuum that reports neither shows its state in words, never a dash. On Tall, Clean and Dock now fill the width of the "All rooms" row together (Dock stays round, 8 px clear).
 - **The On Now block loses its heading at every size.** The count (or "All Off") now starts at the block's top inset, top left on Extra Large, and the lists start there too. **The Small block shows more:** the total, then a 2 x 2 of each kind's circle with its count beside it (lights, speakers, fans, plugs); the circles are pictures, the block's one tap still opens the On Now sheet.
