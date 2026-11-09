@@ -1282,9 +1282,9 @@
       // THE TALK GROUP ON THE ROOMS PANEL'S CENTER LINE (2026-11-07, the review): the button, its word and the line were
       // top-weighted ~65 px above the panel's middle on a 1280 x 800 tablet; a taller list of rooms still scrolls past it
       '  .talk{align-self:center}}',
-      // the talk side stays in view while a long list of rooms scrolls -- only where it fits: taller than the sheet, its
-      // own buttons would never come into view (a phone on its side, 2026-11-05)
-      '@media (min-height:760px){@container (min-width:680px){.talk{position:sticky;top:0}}}',
+      // (NOT STICKY, 2026-11-09: position:sticky made the talk side a layer of its own inside the sheet's backdrop-filter
+      // glass, and the wall tablets drew it a shade lighter, a box with a hard edge under the status line -- the owner's
+      // photo. Nine rooms fit beside it at 1280 x 800; a longer list scrolls the talk side with it.)
       '@media (max-width:' + C.BP.phone + 'px){.cols{gap:' + SPC.piecePhone + 'px}}',
       C.segCss('.seg', { on: '.sel', fill: true }),
       '.seg{align-self:stretch}',
