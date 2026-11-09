@@ -4,6 +4,7 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
 (async () => {
   const browser = await pw.webkit.launch({ headless: true });
   let fails = 0;
+let lastMinuteDone = false;
   const say = (ok, what, got) => { if (!ok) fails++; console.log((ok ? 'PASS ' : 'FAIL ') + what + (ok ? '' : '  got ' + JSON.stringify(got))); };
   // WAITING AS LONG AS THE PAGE NEEDS (2026-11-02): each run waited fixed seconds (2 s, 4 s, 2.6 s a slide ...), most of
   // the ~2100 s the check took. settle(ceiling) returns once the screensaver is still -- nothing in flight on the network
@@ -400,8 +401,8 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
         });
         const inScr = (b) => !!b && b.l >= -1 && b.t >= -1 && b.r <= W + 1 && b.b <= H + 1;
         const meet = (a, b) => !!(a && b && a.l < b.r - 1 && b.l < a.r - 1 && a.t < b.b - 1 && b.t < a.b - 1);
-        const SHOWS_OF = { music: ['music'], forecast: ['weather'], forecast_big: ['weather', 'time'], weather: ['weather', 'readings'], energy: ['energy'], holiday: ['holiday'] };
-        const slides = want === 'look-fb' ? ['forecast'] : [null, 'music', 'forecast', 'weather', 'energy', 'holiday'];
+        const SHOWS_OF = { music: ['music'], forecast: ['weather'], forecast_big: ['weather', 'time'], weather: ['weather', 'readings'], energy: ['energy'], holiday: ['holiday'], timer: ['timer'] };
+        const slides = want === 'look-fb' ? ['forecast'] : [null, 'music', 'forecast', 'weather', 'energy', 'holiday', 'timer'];
         for (const sl of slides) {
           // (the Holiday slide, phase 20: a pinned day, so a holiday is near whatever the real date -- November 8, 2026,
           // Thanksgiving 18 days away in its painted dining room; the clock's timers keep running)
@@ -458,6 +459,29 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
           if (input.shots) await page.screenshot({ path: input.shots + '/' + screen + '-' + W + 'x' + H + '-' + (want === 'look-fb' ? 'forecast-big' : sl) + '.png' });
         }
         await page.evaluate(() => window.hkSaver.previewSlide && window.hkSaver.previewSlide(null));
+        // THE LAST MINUTE, FOR REAL (phase 21): out of the preview, a timer running in the house's states holds the Timer slide
+        // up, a House Timer doesn't, and it lets go once the timer has ended. Once per run: the rules are test_timerlist's.
+        if (!lastMinuteDone && want !== 'look-fb') {
+          lastMinuteDone = true;
+          const stateOf = async () => page.evaluate(() => { const s = window.hkSaver.stats(); return { slide: s.timerSlide, held: s.timerHeld, extra: s.extra }; });
+          const setTimer = (id, left) => page.evaluate(([id, left]) => { const st = window.hkCards.client().states; if (left === null) st[id] = { entity_id: id, state: 'idle', attributes: { duration: '0:15:00' } };
+            else st[id] = { entity_id: id, state: 'active', attributes: { finishes_at: new Date(Date.now() + left * 1000).toISOString(), duration: '0:15:00', friendly_name: 'Pasta' } }; window.hkSaver._.timer.watch(); }, [id, left]);
+          await page.evaluate(() => { window.hkSaver.preview(false); window.hkSaver.force(true); window.hkSaver.start(); });
+          await settle(1500);
+          await setTimer('timer.nap_timer', 40);
+          await settle(1500);
+          say(!(await stateOf()).slide, tag + ': another of the house\'s timers in its last minute: nothing', await stateOf());
+          await setTimer('timer.quick_1', 45);
+          await settle(1500); await page.evaluate(() => window.hkSaver._.timer.watch()); await settle(2600);
+          const up = await stateOf();
+          say(up.slide && up.held && up.extra === 'timer', tag + ': a timer in its last minute holds the Timer slide up', up);
+          await setTimer('timer.quick_1', null);
+          await settle(1500); await page.evaluate(() => window.hkSaver._.timer.watch()); await settle(800);
+          const down = await stateOf();
+          say(!down.slide && !down.held, tag + ': ...and lets go once it has ended', down);
+          await page.evaluate(() => { delete window.hkCards.client().states['timer.nap_timer']; window.hkSaver.stop && window.hkSaver.stop('test'); window.hkSaver.force(false); window.hkSaver.preview(true); });
+          await settle(800);
+        }
         say(!errors.length, tag + ': no page errors', errors.slice(0, 3));
         await ctx.close();
         continue;

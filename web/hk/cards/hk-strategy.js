@@ -2906,7 +2906,7 @@
       // Home Energy and the additional screens (hk-saver.js readCfg checks them)
       energy_slide: o.energy_slide === true, extra_music: o.extra_music === true, extra_forecast: o.extra_forecast === true,
       extra_every: o.extra_every, extra_for: o.extra_for, energy_hide: Array.isArray(o.energy_hide) ? o.energy_hide.slice() : [],
-      weather_slide: o.weather_slide === true, weather_hide: Array.isArray(o.weather_hide) ? o.weather_hide.slice() : [], holiday_slide: o.holiday_slide === true, holiday_pick: o.holiday_pick, holiday_one: o.holiday_one, holiday_days: o.holiday_days, holiday_fx: o.holiday_fx,
+      weather_slide: o.weather_slide === true, weather_hide: Array.isArray(o.weather_hide) ? o.weather_hide.slice() : [], timer_slide: o.timer_slide !== false, timer_often: o.timer_often, holiday_slide: o.holiday_slide === true, holiday_pick: o.holiday_pick, holiday_one: o.holiday_one, holiday_days: o.holiday_days, holiday_fx: o.holiday_fx,
       corner_time_size: o.corner_time_size || 100, corner_hide: Array.isArray(o.corner_hide) ? o.corner_hide.slice() : [],
       music_hide: Array.isArray(o.music_hide) ? o.music_hide.slice() : [], holiday_off: (o.holiday_off || []).slice(), holiday_own: JSON.parse(JSON.stringify(o.holiday_own || [])), holiday_outdoors: (o.holiday_outdoors || []).slice(), holiday_hide: (o.holiday_hide || []).slice(),
       forecast_every: o.forecast_every || 5,

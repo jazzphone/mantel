@@ -339,6 +339,11 @@ def steps(build: Build | None = None, parts: dict[str, int] | None = None) -> li
         out.append(Step(f"holiday-scenes-check-{e}", [py, "tools/headless/holiday_scenes_check.py", "--engine", e], tier="full", timeout=1500,
                         skip=playwright_missing, **dict(check_inputs("tools/headless/holiday_scenes_check.py", e),
                         inputs=lambda: (*PAGE_INPUTS, *imported(["tools/headless/holiday_scenes_check.py"]), "tools/headless/holiday_harness.html"))))
+    # (the Timer slide at five sizes, phase 21: on the screen, nothing on anything, no frame asked for -- a page of its own, no server)
+    for e in ("webkit", "chromium"):
+        out.append(Step(f"timer-slide-check-{e}", [py, "tools/headless/timer_slide_check.py", "--engine", e], tier="full", timeout=600,
+                        skip=playwright_missing, **dict(check_inputs("tools/headless/timer_slide_check.py", e),
+                        inputs=lambda: (*PAGE_INPUTS, *imported(["tools/headless/timer_slide_check.py"]), "tools/headless/timer_slide_harness.html"))))
     # the Screensaver editor in WebKit (phase 13): Looks that keep the Info, the four sections, a piece's page, the library
     out += [Step(f"saver-designs-check-{e}-{z}", [py, "tools/headless/saver_designs_check.py", "--engine", e, "--size", z],
                  tier="full", timeout=600, skip=playwright_missing, **check_inputs("tools/headless/saver_designs_check.py", e))

@@ -249,12 +249,24 @@ ok('...its options checked: unknown choices fall back, lists keep only words, ow
    U.readCfg({ holiday_hide: ['next', null] }).holiday_hide.join() === 'next' && U.readCfg({ holiday_outdoors: ['halloween', {}] }).holiday_outdoors.join() === 'halloween' &&
    U.readCfg({ holiday_own: [{ name: 'Beach Trip', month: 7, day: 12 }, 'x', { month: 1 }] }).holiday_own.length === 1 &&
    U.readCfg({ holiday_own: new Array(20).join('.').split('.').map(function () { return { name: 'A', month: 1, day: 1 }; }) }).holiday_own.length === 12);
+// THE TIMER SLIDE (phase 21): on by default; every other turn while a timer runs, the others carrying on in their order
+ok('Timers: on unless turned off, More Often unless asked', U.readCfg({}).timer_slide === true && U.readCfg({ timer_slide: false }).timer_slide === false &&
+   U.readCfg({}).timer_often === 'more' && U.readCfg({ timer_often: 'same' }).timer_often === 'same' && U.readCfg({ timer_often: 'x' }).timer_often === 'more');
+var WT = { show: 'both', weather_slide: true, energy_slide: true, timer_slide: true, timer_often: 'more' };
+ok('...every other turn, and the others keep their order', U.slideOf(WT, false, 'forecast', true, true, false, true, '') === 'timer' &&
+   U.slideOf(WT, false, 'timer', true, true, false, true, 'forecast') === 'weather' && U.slideOf(WT, false, 'weather', true, true, false, true, 'forecast') === 'timer' &&
+   U.slideOf(WT, false, 'timer', true, true, false, true, 'weather') === 'energy' && U.slideOf(WT, false, 'timer', true, true, false, true, 'energy') === 'forecast');
+ok('...no timer running: never its turn', U.slideOf(WT, false, 'forecast', true, true, false, false, '') === 'weather');
+ok('...the only slide: still its turn', U.slideOf({ show: 'photos', timer_slide: true }, false, 'timer', false, false, false, true, '') === 'timer');
+ok('...As Often as the Others: a turn like the rest', U.slideOf(Object.assign({}, WT, { timer_often: 'same' }), false, 'forecast', true, true, false, true, '') === 'weather' &&
+   U.slideOf(Object.assign({}, WT, { timer_often: 'same' }), false, 'energy', true, true, false, true, '') === 'timer');
+ok('...an additional screen over a clock', JSON.stringify(U.extrasOf({ show: 'clock', clock_bg: 'gradient', timer_slide: true })) === '["timer"]');
 var W5 = { show: 'both', music_slide: true, weather_slide: true, energy_slide: true, holiday_slide: true };
 ok('...the Holiday slide takes its turn after Home Energy, then the music again',
    U.slideOf(W5, true, 'weather', true, true, true) === 'energy' &&
    U.slideOf(W5, true, 'energy', true, true, true) === 'holiday' && U.slideOf(W5, true, 'holiday', true, true, true) === 'music');
 ok('...with no holiday near: skipped', U.slideOf(W5, false, 'energy', true, true, false) === 'forecast' && U.slideOf({ show: 'photos', holiday_slide: true }, false, '', false, false, false) === null);
-ok('...an additional screen over a clock, after Home Energy', U.EXTRA_ORDER.join() === 'forecast,music,weather,energy,holiday' &&
+ok('...an additional screen over a clock, after Home Energy', U.EXTRA_ORDER.join() === 'forecast,music,weather,energy,holiday,timer' &&
    JSON.stringify(U.extrasOf({ show: 'clock', clock_bg: 'gradient', energy_slide: true, holiday_slide: true })) === '["energy","holiday"]' &&
    U.extrasOf({ show: 'photos', holiday_slide: true }).length === 0);
 ok('...they take turns, round and round', U.turnOf(['forecast', 'music', 'energy'], ['forecast', 'energy'], '') === 'forecast' &&

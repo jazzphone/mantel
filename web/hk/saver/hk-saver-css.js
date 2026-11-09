@@ -110,7 +110,7 @@
       // HOME ENERGY over a clock (the energy layer is opaque over a clock's own
       // background, so that clock stays), and the forecast as an additional
       // screen: the clock fades off it
-      ':host([enslide]:not([ckgen])) .ck,:host([wxslide]:not([ckgen])) .ck,:host([hlslide]:not([ckgen])) .ck,:host([ckmode][fcslide]) .ck{opacity:0}',
+      ':host([enslide]:not([ckgen])) .ck,:host([wxslide]:not([ckgen])) .ck,:host([hlslide]:not([ckgen])) .ck,:host([tmslide]:not([ckgen])) .ck,:host([ckmode][fcslide]) .ck{opacity:0}',
       // ...the forecast under a clock's own background, while it shows and
       // until the clock is back over it
       ':host([ckgen][fcslide]) .fc,:host([ckgen][fcout]) .fc{display:block}',
@@ -119,6 +119,7 @@
       ':host([enslide]) .info > hk-screensaver-now-card,:host([enslide]) .info > hk-timer-strip-card,',
       ':host([wxslide]) .info > hk-screensaver-now-card,:host([wxslide]) .info > hk-timer-strip-card,',
       ':host([hlslide]) .info > hk-screensaver-now-card,:host([hlslide]) .info > hk-timer-strip-card{opacity:0}',
+      ':host([tmslide]) .info > hk-screensaver-now-card,:host([tmslide]) .info > hk-timer-strip-card{opacity:0}',
       // ...and the corner clock and weather: Home Energy tells the time itself,
       // smaller, so its rings keep their size (the user, 2026-10-14)
       // ...on a layer of its own for good, as the weather line's and what
@@ -127,6 +128,7 @@
       ':host([enslide]) .info > hk-clock-card,:host([enslide]) .info > hk-weather-strip-card,',
       ':host([wxslide]) .info > hk-clock-card,:host([wxslide]) .info > hk-weather-strip-card,',
       ':host([hlslide]) .info > hk-clock-card,:host([hlslide]) .info > hk-weather-strip-card{opacity:0}',
+      ':host([tmslide]) .info > hk-clock-card,:host([tmslide]) .info > hk-weather-strip-card{opacity:0}',
       // ...and the corner clock tells the time in its place (Show: Clock or a
       // Large clock with Music First: the slide covered every clock there)
       '.info > [muonly]{display:none}',
@@ -605,11 +607,11 @@
       // ...and while it shows, the clock is the photo's: the corner clock and a Large clock step aside, and the rest of
       // the corner (the weather, what is playing, the timers) keeps the corner, upper left, above the figures (2026-10-31,
       // the owner: under the time, centred, it "left the corner" -- back where Clock has it)
-      ':host([tb]:not([forecast]):not([fcslide]):not([muslide]):not([enslide]):not([wxslide]):not([hlslide])) .info > hk-clock-card{display:none}',
-      ':host([tb]:not([forecast]):not([fcslide]):not([muslide]):not([enslide]):not([wxslide]):not([hlslide])) .ck{opacity:0}',
+      ':host([tb]:not([forecast]):not([fcslide]):not([muslide]):not([enslide]):not([wxslide]):not([hlslide]):not([tmslide])) .info > hk-clock-card{display:none}',
+      ':host([tb]:not([forecast]):not([fcslide]):not([muslide]):not([enslide]):not([wxslide]):not([hlslide]):not([tmslide])) .ck{opacity:0}',
       // ...on a phone, the weather at the size its narrower time calls for (its 36 px type and 60 px glyph are a
       // tablet's), and the photo's title clear of what is playing, under it at the left
-      '@media (max-width:599px){:host([tb]:not([forecast]):not([fcslide]):not([muslide]):not([enslide]):not([wxslide]):not([hlslide])) .info > hk-weather-strip-card{zoom:.7}',
+      '@media (max-width:599px){:host([tb]:not([forecast]):not([fcslide]):not([muslide]):not([enslide]):not([wxslide]):not([hlslide]):not([tmslide])) .info > hk-weather-strip-card{zoom:.7}',
       '  .ph .ttl .tt{bottom:calc(8.5cqmin + 112px)}',
       // (and what is playing as wide as the phone allows: at 46 % of it, its song was "Bl...")
       '  :host{--hk-ss-now-max:calc(100vw - 40px)}}',

@@ -4,6 +4,9 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Added**
+- **The Timers slide on the screensaver**: while a timer you set is running, a slide with the timer ending first on a big ring and the others as small rings beside it comes every other slide (or as often as the others). A timer's last minute holds it on every tablet that isn't dark. House Timers and timers that automations use never show. It's silent for now: the sound comes next. See [the Screensaver guide](docs/guide/Screensaver.md#the-timer-slide).
+
 **Fixed**
 - **Back on a Screensaver settings page no longer opens the screensaver full screen**: beside the preview, the page's Back button could step the preview back instead and show its screensaver in the whole window. It now always goes back a page.
 - **A screen back from the background is live at once**: a page shown again (the iPhone and iPad app back to the front, a tablet waking), focused or back online whose connection had closed waited out its reconnect back-off -- 2 s, up to 30 s after a few refusals -- and every press meanwhile did nothing. It now reconnects straight away, and a silent connection the page's check lets go is replaced at once.

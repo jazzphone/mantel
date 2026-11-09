@@ -101,3 +101,41 @@ start with [Architecture](Architecture.md); for running it, [Operations](../OPER
 |---|---|
 | [phase10/APPLE-APPS.md](../phase10/APPLE-APPS.md) | Mantel for iPhone, iPad and the Mac: the plan and the slices built. |
 | [phase10/NATIVE-FEEL.md](../phase10/NATIVE-FEEL.md) | What makes the iPhone app feel native rather than a website, and the order to build it. |
+
+## The screensaver's plan and its switch
+
+Moved from the top of `web/hk/modules/hk-saver.js`.
+
+WHAT IT IS
+A generated wall tablet's screen (Screens -> the screen -> Behavior ->
+Photo Screensaver, with a Tablet User) gets `hk_screensaver:` in its
+dashboard config (hk-strategy.js hkSaver()); a YAML dashboard can write the
+same block, or get it from its screen's HK settings (fromSettings below).
+After the screen has been left alone for `starts_after` seconds -- or the
+moment its switch turns on -- the house's photos cross-fade
+full screen, with the clock, the weather, what is playing and the running
+timers over them (the same HK cards the header and the pages use). A touch
+takes it away again, and does not press whatever was under the finger.
+
+
+WHAT IT COSTS. Nothing while the dashboard is in use: no element, no timer
+but one idle timeout, no listener work beyond noting the time. While the
+photos show, only the 3 s cross-fade animates, once per photo; the sky and
+every card behind the photos hold still (hk-sky `hidden`, hk-base
+`hk-asleep`), which on a wall tablet's WebView is what lets the page stop
+drawing frames between photos.
+
+Written for HK Frontend from its own plan (hk_house/docs/PLAN-HK-SCREENSAVER.md)
+and from how the tablets behave; it replaces WallPanel (HACS), which a
+screen can still choose instead (screensaver_engine).
+
+THE SWITCH (input_boolean.wallpanel_screensaver_<room>, the name kept from
+the WallPanel days so no automation changes) is two-way, exactly as the
+house's tablet scripts and want sensor expect:
+  * the screensaver starting by itself turns it ON; a touch turns it OFF --
+    the only way a tablet gets back to photos while it is awake;
+  * the house turning it on (the sleep script, under Fully's dark) starts
+    the screensaver; turning it off (wake, the doorbell) stops it.
+Only the tablet's own user ever runs this, so only the tablet writes it: a
+desk opening the same dashboard never gets a screensaver and never touches
+the switch.

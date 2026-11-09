@@ -1,37 +1,6 @@
 // hk-saver.js -- HK Frontend's photo screensaver, for a wall tablet's own user.
 //
-// WHAT IT IS
-// A generated wall tablet's screen (Screens -> the screen -> Behavior ->
-// Photo Screensaver, with a Tablet User) gets `hk_screensaver:` in its
-// dashboard config (hk-strategy.js hkSaver()); a YAML dashboard can write the
-// same block, or get it from its screen's HK settings (fromSettings below).
-// After the screen has been left alone for `starts_after` seconds -- or the
-// moment its switch turns on -- the house's photos cross-fade
-// full screen, with the clock, the weather, what is playing and the running
-// timers over them (the same HK cards the header and the pages use). A touch
-// takes it away again, and does not press whatever was under the finger.
-//
-// Written for HK Frontend from its own plan (hk_house/docs/PLAN-HK-SCREENSAVER.md)
-// and from how the tablets behave; it replaces WallPanel (HACS), which a
-// screen can still choose instead (screensaver_engine).
-//
-// THE SWITCH (input_boolean.wallpanel_screensaver_<room>, the name kept from
-// the WallPanel days so no automation changes) is two-way, exactly as the
-// house's tablet scripts and want sensor expect:
-//   * the screensaver starting by itself turns it ON; a touch turns it OFF --
-//     the only way a tablet gets back to photos while it is awake;
-//   * the house turning it on (the sleep script, under Fully's dark) starts
-//     the screensaver; turning it off (wake, the doorbell) stops it.
-// Only the tablet's own user ever runs this, so only the tablet writes it: a
-// desk opening the same dashboard never gets a screensaver and never touches
-// the switch.
-//
-// WHAT IT COSTS. Nothing while the dashboard is in use: no element, no timer
-// but one idle timeout, no listener work beyond noting the time. While the
-// photos show, only the 3 s cross-fade animates, once per photo; the sky and
-// every card behind the photos hold still (hk-sky `hidden`, hk-base
-// `hk-asleep`), which on a wall tablet's WebView is what lets the page stop
-// drawing frames between photos.
+// What it is, what it costs, its plan's history and THE SWITCH: docs/development/Design-Notes.md, "The screensaver's plan and its switch".
 // @ts-check
 (function () {
   'use strict';
@@ -143,7 +112,7 @@
   var actionsNow, afterDraw, afterFade, alignOf, ANALOG, BACKDROP_SMALL, backdropSmall, behindAt, BLACK_KEY,
       blackPage, BRIGHT_KEY, callWS, ckFx, cleanDepth, cleanFocus, cleanVariants, clearCanvas, clientNow, coverRect,
       coverShare, CSS, DASH_CSS, DASH_SWIPE, dashLive, dashSeg, dashViews, DAY_GAP, deg, drawBackdrop, drawMusic,
-      drawnRect, elapsed, energyPage, EX_PREVIEW_MS, EXTRA_ORDER, extrasOf, FACE_SHOWS, faceOrigin, facesModule,
+      drawnRect, elapsed, energyPage, EX_PREVIEW_MS, EXTRA_ORDER, extrasOf, timedTurn, timerHold, FACE_SHOWS, faceOrigin, facesModule,
       faceWindow, FC_TICK_MS, feedCard, faceScale, fitOf, FOCUS_F, framed, fromSettings, gate, glyphBox, go, held, hkBoard,
       hkUnheard, hostPhotoList, hostPhotoSource, houseBlock, inkOf, INKS, isFlat, isImage, kiosk, LANDSCAPES,
       landShares, layoutOf, layoutMusicView, load, minsOf, mmss, MOSAIC_COLORS, mosaicAssign, mosaicPlan, MOSAICS, MU_BG, MU_GRACE,
@@ -559,7 +528,7 @@
     if (host) host.removeAttribute('tb');
     leaveExtras();
     leaveEnergy();
-    slideLeave(WX); slideLeave(HL);
+    slideLeave(WX); slideLeave(HL); slideLeave(TM); if (TW) TW.leave();
     leaveForecast();
     leaveMusic();
     leaveClock();
@@ -728,7 +697,7 @@
     // HOME ENERGY: its numbers asked for now, so its first turn has them;
     // the additional screens' timer
     energyPrep();
-    slidePrep(WX); slidePrep(HL);
+    slidePrep(WX); slidePrep(HL); tmWatch();
     exArm();
     if (previewOn) setTimeout(syncPreviewSlide, 0);
     return true;
@@ -1051,7 +1020,7 @@
       return false;
     }).catch(function () { return false; }).then(function (painted) {
       if (!active()) return;
-      if (painted && mode === 'photos' && !exKind) { hideForecastSlide(); hideMusicSlide(); hideEnergySlide(); slideHide(WX); slideHide(HL); }
+      if (painted && mode === 'photos' && !exKind) { hideForecastSlide(); hideMusicSlide(); hideEnergySlide(); slideHide(WX); slideHide(HL); slideHide(TM); }
       busy = false;
       if (!on) return;
       if (mode !== 'photos') { queued = null; return; }
@@ -1082,13 +1051,14 @@
       // the music holding the screen stays (musicWatch lets it go); an
       // additional screen over the photos behind the clock holds them
       if ((muShowing && takeover()) || exKind) { schedule(); return; }
-      if (fcShowing || muShowing || enShowing || WX.showing || HL.showing) { showNext(false); return; }    // advance() takes the slide away
+      if (fcShowing || muShowing || enShowing || WX.showing || HL.showing || TM.showing) { showNext(false); return; }    // advance() takes the slide away
       // A SLIDE every few photos: the music, the forecast and Home Energy
       // take turns (the music only while it plays)
       if (sinceFc >= cfg.forecast_every) {
-        var s = slideOf(cfg, musicPlaying(), lastSlide, energyReady(), slideReady(WX), slideReady(HL));
+        if (lastSlide && lastSlide !== 'timer') slideBefore = lastSlide;
+        var s = slideOf(cfg, musicPlaying(), lastSlide, energyReady(), slideReady(WX), slideReady(HL), slideReady(TM), slideBefore);
         if (s === 'music' && showMusicSlide()) { schedule(); return; }
-        if ((s === 'weather' || s === 'holiday') && slideShow(s === 'weather' ? WX : HL)) { schedule(); return; }
+        if ((s === 'weather' || s === 'holiday' || s === 'timer') && slideShow(s === 'weather' ? WX : s === 'timer' ? TM : HL)) { schedule(); return; }
         if (s === 'energy' && showEnergySlide()) { schedule(); return; }
         if (s && cfg.show === 'both') { showForecastSlide(); schedule(); return; }
       }
@@ -1412,7 +1382,7 @@
     if (!previewOn || !on) return false;
     var kind = previewSelected;
     if (!kind) return true;
-    var ok = kind === 'music' ? (muShowing || showMusicSlide()) : kind === 'weather' ? (WX.showing || slideShow(WX)) : kind === 'holiday' ? (HL.showing || slideShow(HL)) :
+    var ok = kind === 'music' ? (muShowing || showMusicSlide()) : kind === 'weather' ? (WX.showing || slideShow(WX)) : kind === 'holiday' ? (HL.showing || slideShow(HL)) : kind === 'timer' ? (TM.showing || slideShow(TM)) :
       kind === 'energy' ? (enShowing || showEnergySlide()) : fcShowing || showForecastExtra();
     if (ok) exKind = kind;
     return !!ok;
@@ -1529,6 +1499,7 @@
     if (muShowing) return 'music';
     if (enShowing) return 'energy';
     if (WX.showing) return 'weather';
+    if (TM.showing) return 'timer';
     if (HL.showing) return 'holiday';
     if (fcShowing) return bigWanted() ? 'forecast_big' : 'forecast';
     return null;
@@ -1621,7 +1592,7 @@
     // Slides"): each side's stack drops below whatever of the slide it would meet -- Big Weather's two lines at the top,
     // the Weather slide's and Home Energy's own -- by the words and small pictures the slide shows (the music's words
     // move under the corner instead: layoutMusic)
-    var sl = key === 'energy' ? enCtl && enCtl.el : key === 'weather' ? WX.ctl && WX.ctl.el : key === 'holiday' ? HL.ctl && HL.ctl.el : key === 'forecast' || key === 'forecast_big' ? root.querySelector('.fc') : null;
+    var sl = key === 'energy' ? enCtl && enCtl.el : key === 'weather' ? WX.ctl && WX.ctl.el : key === 'holiday' ? HL.ctl && HL.ctl.el : key === 'timer' ? TM.ctl && TM.ctl.el : key === 'forecast' || key === 'forecast_big' ? root.querySelector('.fc') : null;
     if (sl && k1 > 0) {
       var marks = slideMarks(sl), gap1 = 1.6 * u * k1;
       [scn.tl, scn.tr].forEach(function (st) {
@@ -2581,18 +2552,18 @@
     }
     return false;
   }
+  // (the landscape's blurred copy is drawn as a photo's is, its foot at the foot)
+  function overBackdrop(c, h) {
+    var look = energyLook(), img = look === 'photo' ? curImg() : look === 'land' ? landImg() : null, foot = look === 'land' ? 1 : 0.5, sky = foot === 1 ? skyStops() : null;
+    return c.draw(h, look === 'land' ? 'photo' : look, img ? function (cv) { drawBackdrop(cv, img, BACKDROP_SMALL, foot, sky); } : null);
+  }
   function showEnergySlide(first) {
     if (!on || !root || !host || enShowing || !enCtl) return false;
     var h = clientNow(), info = root.querySelector('.info');
     if (!enCtl.ready(h)) return false;
     // above whatever came after it (a clock mounted again), under the corner cards
     if (!underCards(enCtl.el, info)) root.insertBefore(enCtl.el, info);
-    var look = energyLook(), img = look === 'photo' ? curImg() : look === 'land' ? landImg() : null;
-    // (the landscape's blurred copy is drawn as a photo's is, its foot at the foot)
-    var foot = look === 'land' ? 1 : 0.5;
-    if (look === 'land') look = 'photo';
-    var sky = foot === 1 ? skyStops() : null;
-    if (!enCtl.draw(h, look, img ? function (c) { drawBackdrop(c, img, BACKDROP_SMALL, foot, sky); } : null)) return false;
+    if (!overBackdrop(enCtl, h)) return false;
     enShowing = true; sinceFc = 0; lastSlide = 'energy';
     host.setAttribute('enslide', '');
     updateBand();
@@ -2638,6 +2609,9 @@
              make: function (X) { return X.create({ hide: cfg.weather_hide, h24: cfg.clock_24, corner: false }); }, again: function (c) { c.setHide(cfg.weather_hide); } };
   var HL = { key: 'holiday', file: 'hk-saver-holiday.js', glob: 'hkSaverHoliday', attr: 'hlslide', fade: '--hk-hl-fade', ctl: null, load: null, showing: false, t: null, run: 0,
              make: function (X) { return X.create({ cfg: cfg, h24: cfg.clock_24 }); }, again: function (c) { c.setCfg(cfg); } };
+  // THE TIMER SLIDE (phase 21, hk-saver-timers.js): over a blurred photo as Home Energy is, so its own draw
+  var TM = { key: 'timer', file: 'hk-saver-timers.js', glob: 'hkSaverTimers', attr: 'tmslide', fade: '--hk-tm-fade', ctl: null, load: null, showing: false, t: null, run: 0, draw: overBackdrop,
+             make: function (X) { return X.create({ h24: cfg.clock_24, sample: function () { return previewOn; } }); }, again: function (c) { c.setH24(cfg.clock_24); } };
   var EN_MOD = { key: 'energy', file: 'hk-saver-energy.js', glob: 'hkSaverEnergy', load: null };
   function slideModule(S) {
     if (window[S.glob]) return Promise.resolve(window[S.glob]);
@@ -2679,7 +2653,7 @@
     if (!S.ctl.ready(h)) return false;
     if (!underCards(S.ctl.el, info)) root.insertBefore(S.ctl.el, info);
     slideLayout(S);
-    if (!S.ctl.draw(h)) { S.ctl.leave(); return false; }
+    if (!(S.draw ? S.draw(S.ctl, h) : S.ctl.draw(h))) { S.ctl.leave(); return false; }
     S.showing = true; sinceFc = 0; lastSlide = S.key;
     host.setAttribute(S.attr, '');
     updateBand();
@@ -2717,6 +2691,27 @@
     if (host) host.removeAttribute(S.attr);
   }
 
+  // ------------------------------------------------------------ a timer's last minute
+  // THE LAST MINUTE (phase 21): hk-saver-helpers.js timerHold decides; these are what it does here
+  var slideBefore = '', exBefore = '', TW = null;
+  function tmWatch() {
+    (TW = TW || timerHold({
+      up: function () { return on && !!cfg && !previewOn; }, wanted: function () { return !!cfg.timer_slide; }, now: function () { return clock.now(); },
+      client: clientNow, slot: TM, prep: function () { slidePrep(TM); }, night: function () { return !!(host && host.hasAttribute('cknight')); },
+      blocked: function () { return black() || document.hidden || !!pnl; }, show: function () { return slideShow(TM); },
+      clear: function () {     // everything else makes way: the additional screens, the music's takeover (musicWatch waits), the photos' slides
+        if (exT) { clearTimeout(exT); exT = null; }
+        if (exKind && exKind !== 'timer') exHide();
+        if (muShowing) hideMusicSlide();
+        if (enShowing) hideEnergySlide();
+        slideHide(WX); slideHide(HL);
+        if (fcShowing && mode !== 'forecast') hideForecastSlide();
+      },
+      hold: function () { exKind = 'timer'; }, again: exArm,
+      leave: function (ended) { if (exKind === 'timer') { exHide(); exArm(); } else { slideHide(TM); if (ended && mode === 'photos') showNext(false); else exArm(); } }
+    })).watch();
+  }
+
   // ------------------------------------------------------------ additional screens
   // ADDITIONAL SCREENS (2026-10-14): over the forecast or the clock, one
   // every extra_every minutes for extra_for seconds -- the forecast (Show:
@@ -2734,9 +2729,10 @@
   function exNext() {
     var run = photoRun;
     var held = document.hidden || pnl || black() || exKind || (host && host.hasAttribute('cknight')) || (muShowing && takeover());
-    var kind = held ? null : turnOf(EXTRA_ORDER, extrasOf(cfg).filter(function (k) {
-      return k === 'music' ? musicPlaying() : k === 'energy' ? energyReady() : k === 'weather' ? slideReady(WX) : k === 'holiday' ? slideReady(HL) : true;
-    }), exLast);
+    if (exLast && exLast !== 'timer') exBefore = exLast;
+    var kind = held ? null : timedTurn(cfg, EXTRA_ORDER, extrasOf(cfg).filter(function (k) {
+      return k === 'music' ? musicPlaying() : k === 'energy' ? energyReady() : k === 'weather' ? slideReady(WX) : k === 'holiday' ? slideReady(HL) : k === 'timer' ? slideReady(TM) : true;
+    }), exLast, exBefore);
     if (kind && exShow(kind)) {
       exT = setTimeout(function () { exT = null; if (on && run === photoRun) { exHide(); exArm(); } }, cfg.extra_for * 1000);
       return;
@@ -2744,7 +2740,7 @@
     exArm();
   }
   function exShow(kind) {
-    var ok = kind === 'energy' ? showEnergySlide() : kind === 'weather' ? slideShow(WX) : kind === 'holiday' ? slideShow(HL) : kind === 'music' ? showMusicSlide() : kind === 'forecast' ? showForecastExtra() : false;
+    var ok = kind === 'energy' ? showEnergySlide() : kind === 'weather' ? slideShow(WX) : kind === 'holiday' ? slideShow(HL) : kind === 'timer' ? slideShow(TM) : kind === 'music' ? showMusicSlide() : kind === 'forecast' ? showForecastExtra() : false;
     if (ok) { exKind = kind; exLast = kind; }
     return ok;
   }
@@ -2752,13 +2748,13 @@
     var kind = exKind;
     exKind = '';
     if (kind === 'energy') hideEnergySlide();
-    else if (kind === 'weather' || kind === 'holiday') slideHide(kind === 'weather' ? WX : HL);
+    else if (kind === 'weather' || kind === 'holiday' || kind === 'timer') slideHide(kind === 'weather' ? WX : kind === 'timer' ? TM : HL);
     else if (kind === 'music') { if (muShowing && !takeover()) hideMusicSlide(); else return; }
     else if (kind === 'forecast') hideForecastExtra();
     else return;
     // the photos behind the clock: their layer was emptied as the screen
     // came over it, so the next photo comes in
-    if (kind !== 'energy' && kind !== 'weather' && kind !== 'holiday' && mode === 'photos') showNext(false);
+    if (kind !== 'energy' && kind !== 'weather' && kind !== 'holiday' && kind !== 'timer' && mode === 'photos') showNext(false);
   }
   // THE FORECAST AS AN ADDITIONAL SCREEN (Show: Clock): under a clock's own
   // background it is put there at once and the clock fades off it; over
@@ -3163,7 +3159,7 @@
     var v = buildMusicSlide(), run = photoRun;
     // (Home Energy over everything: the music in its place)
     if (enShowing) { hideEnergySlide(); if (exKind === 'energy') exKind = ''; }
-    [WX, HL].forEach(function (S) { if (S.showing) { slideHide(S); if (exKind === S.key) exKind = ''; } });
+    [WX, HL, TM].forEach(function (S) { if (S.showing) { slideHide(S); if (exKind === S.key) exKind = ''; } });
     muShowing = true; sinceFc = 0; lastSlide = 'music'; mus.lostAt = 0;
     musicParts(v, cfg.music_hide);
     renderMusic();
@@ -3226,7 +3222,7 @@
       mus.graceT = setTimeout(function () { mus.watchAt = 0; musicWatch(); }, g - (now - mus.lastActive) + 100);
     }
     if (!takeover()) return;
-    if (!muShowing) { if (ctx && ctx.playing) showMusicSlide(); return; }
+    if (!muShowing) { if (ctx && ctx.playing && !(TW && TW.held())) showMusicSlide(); return; }
     if ((ctx && ctx.playing) || inUse) mus.lostAt = 0;
     else if (!mus.lostAt) mus.lostAt = Math.max(now, mus.lastActive);
     else if (now - Math.max(mus.lostAt, mus.lastActive) > g) {
@@ -3916,7 +3912,7 @@
     if (fscene) fscene.pause(dark || !fcVisible());
     layoutPane();
     if (enShowing) energyLayout();
-    [WX, HL].forEach(function (S) { if (S.showing) slideLayout(S); });
+    [WX, HL, TM].forEach(function (S) { if (S.showing) slideLayout(S); });
     // The band is measured and centred only while it shows: it was every
     // tick (~20 rects each) for the whole of a Photos & Forecast session,
     // between forecast slides and under the black as well. Shown again, it
@@ -4023,7 +4019,7 @@
   var hubOff = null;
   function hookClient() {
     if (hubOff || !(window.hkCards && window.hkCards.onClient)) return false;
-    hubOff = window.hkCards.onClient(function (h) { refreshSoon(); onUpdate(h); if (on) musicWatch(); });
+    hubOff = window.hkCards.onClient(function (h) { refreshSoon(); onUpdate(h); if (on) { musicWatch(); tmWatch(); } });
     if (window.hkMusic && window.hkMusic.onChange) window.hkMusic.onChange(function () {
       if (on) { mus.watchAt = 0; musicWatch(); }
     });
@@ -4051,7 +4047,7 @@
     CSS = K.CSS; DASH_CSS = K.DASH_CSS; DASH_SWIPE = K.DASH_SWIPE; dashLive = K.dashLive; dashSeg = K.dashSeg;
     dashViews = K.dashViews; DAY_GAP = K.DAY_GAP; deg = K.deg; drawBackdrop = K.drawBackdrop; drawMusic = K.drawMusic;
     drawnRect = K.drawnRect; elapsed = K.elapsed; energyPage = K.energyPage; EX_PREVIEW_MS = K.EX_PREVIEW_MS;
-    EXTRA_ORDER = K.EXTRA_ORDER; extrasOf = K.extrasOf; FACE_SHOWS = K.FACE_SHOWS; faceOrigin = K.faceOrigin;
+    EXTRA_ORDER = K.EXTRA_ORDER; extrasOf = K.extrasOf; timedTurn = K.timedTurn; timerHold = K.timerHold; FACE_SHOWS = K.FACE_SHOWS; faceOrigin = K.faceOrigin;
     facesModule = K.facesModule; faceWindow = K.faceWindow; FC_TICK_MS = K.FC_TICK_MS; feedCard = K.feedCard;
     faceScale = K.faceScale; fitOf = K.fitOf; FOCUS_F = K.FOCUS_F; framed = K.framed; fromSettings = K.fromSettings; gate = K.gate;
     glyphBox = K.glyphBox; go = K.go; held = K.held; hkBoard = K.hkBoard; hkUnheard = K.hkUnheard;
@@ -4311,19 +4307,19 @@
       // THE EDITOR'S SEE A SLIDE AND DAY / NIGHT (phase 13): in the preview only -- a slide shown now, with its slide
       // corner (null: none), and Night Mode on or off whatever the hour (null: as the clock says). Nothing is saved
       previewSlide: function (kind) {
-        kind = ['music', 'weather', 'energy', 'holiday', 'forecast'].indexOf(kind) >= 0 ? kind : '';
+        kind = ['music', 'weather', 'energy', 'holiday', 'timer', 'forecast'].indexOf(kind) >= 0 ? kind : '';
         var changed = previewSelected !== kind;
         previewSelected = kind;
         if (!on || !previewOn) return false;
         if (changed) {
           if (muShowing) hideMusicSlide();
-          slideHide(WX); slideHide(HL);
+          slideHide(WX); slideHide(HL); slideHide(TM);
           if (enShowing) hideEnergySlide();
           if (fcShowing && mode !== 'forecast') hideForecastExtra();
           exKind = '';
           if (exT) { clearTimeout(exT); exT = null; }
           if (kind === 'energy') energyPrep();
-          if (kind === 'weather' || kind === 'holiday') slidePrep(kind === 'weather' ? WX : HL);
+          if (kind === 'weather' || kind === 'holiday' || kind === 'timer') slidePrep(kind === 'weather' ? WX : kind === 'timer' ? TM : HL);
         }
         return syncPreviewSlide();
       },
@@ -4420,7 +4416,7 @@
                  shown_shape: lastPh ? shapeOfPh(lastPh) : null, shown_url: lastPh ? lastPh.url : null,
                  band: !!(host && host.hasAttribute('band')),
                  calendar: !!(host && host.hasAttribute('pcal')), pane: !!(host && host.hasAttribute('pane')), paneW: paneW, musicIn: mus.paneIn, paneNext: mus.paneNext, musicFirst: takeover(), paneCard: !!paneCard,
-                 energySlide: on && enShowing, weatherSlide: on && WX.showing, holidaySlide: on && HL.showing, previewWeather: previewWeather, extra: exKind || null, extras: cfg ? extrasOf(cfg) : [], previewEnergy: previewEnergy,
+                 energySlide: on && enShowing, weatherSlide: on && WX.showing, holidaySlide: on && HL.showing, timerSlide: on && TM.showing, timerHeld: !!(TW && TW.held()), previewWeather: previewWeather, extra: exKind || null, extras: cfg ? extrasOf(cfg) : [], previewEnergy: previewEnergy,
                  musicSlide: on && muShowing, musicPane: !!musicPaneView(), music: mus.key, upNext: mus.next ? mus.next.title : null,
                  panel: pnl ? pnl.p.tab() : null };
       },
@@ -4450,6 +4446,7 @@
            energy: { show: showEnergySlide, hide: hideEnergySlide, ready: energyReady, prep: energyPrep, layout: energyLayout,
                      ctl: function () { return enCtl; } },
            weather: { show: function (f) { return slideShow(WX, f); }, hide: function () { slideHide(WX); }, ready: function () { return slideReady(WX); }, prep: function () { slidePrep(WX); }, layout: function () { slideLayout(WX); }, ctl: function () { return WX.ctl; } },
+           timer: { show: function (f) { return slideShow(TM, f); }, hide: function () { slideHide(TM); }, ready: function () { return slideReady(TM); }, prep: function () { slidePrep(TM); }, watch: function () { if (TW) TW.again(); tmWatch(); }, ctl: function () { return TM.ctl; } },
            holiday: { show: function (f) { return slideShow(HL, f); }, hide: function () { slideHide(HL); }, ready: function () { return slideReady(HL); }, prep: function () { slidePrep(HL); }, layout: function () { slideLayout(HL); }, ctl: function () { return HL.ctl; } },
            extras: { next: exNext, hide: exHide, arm: exArm, kind: function () { return exKind; }, last: function () { return exLast; } },
            // tests: the music without real speakers

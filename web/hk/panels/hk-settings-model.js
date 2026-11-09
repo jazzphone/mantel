@@ -2147,7 +2147,7 @@
   var FORECAST_BIG = [['temp', 'Temperature'], ['clock', 'Clock']];
   Object.assign(SAVER_DEFAULTS, { forecast_big: 'temp', tb_size: 24, tb_top: 6, tb_dim: 0 });
   Object.assign(SAVER_DEFAULTS, { forecast_planted: true });
-  Object.assign(SAVER_DEFAULTS, { layout: null, designs: [], active_design: '', clock_options: {}, holiday_slide: false, holiday_pick: 'next', holiday_one: 'christmas', holiday_days: 60, holiday_off: [], holiday_own: [], holiday_fx: 'full', holiday_outdoors: [], holiday_hide: [] });
+  Object.assign(SAVER_DEFAULTS, { layout: null, designs: [], active_design: '', clock_options: {}, timer_slide: true, timer_often: 'more', holiday_slide: false, holiday_pick: 'next', holiday_one: 'christmas', holiday_days: 60, holiday_off: [], holiday_own: [], holiday_fx: 'full', holiday_outdoors: [], holiday_hide: [] });
   CLOCK_STYLES.push(['liquid', 'Liquid', 'Soft, glossy numerals that drift slowly over a pastel gradient'],
                     ['giant', 'Giant Numerals', 'An analog clock with 12, 3, 6 and 9 drawn huge on a strong color'],
                     ['scattered', 'Scattered Numerals', 'A quiet analog face whose numerals lean and fade, on a soft color'],

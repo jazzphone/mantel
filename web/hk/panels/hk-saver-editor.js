@@ -184,7 +184,7 @@
   var GROUPS = ['Time and Calendar', 'Weather and Sky', 'Home', 'People and Travel', 'Energy', 'Media and Photos', 'Cameras', 'Any Sensor'];
   var GROUP_ALIAS = { People: 'People and Travel' };
   var CORNER_NAMES = { time: 'Time', date: 'Date', weather: 'Weather', status: 'House Status' };
-  var SLIDE_KINDS = [['', 'None'], ['music', 'Music'], ['forecast', 'Forecast'], ['weather', 'Weather'], ['energy', 'Home Energy'], ['holiday', 'Holidays']];
+  var SLIDE_KINDS = [['', 'None'], ['music', 'Music'], ['forecast', 'Forecast'], ['weather', 'Weather'], ['energy', 'Home Energy'], ['holiday', 'Holidays'], ['timer', 'Timers']];
   var OPS = [['is', 'Is'], ['not', 'Is Not'], ['above', 'Is Above'], ['below', 'Is Below']];
   var OP_WORDS = { is: 'is', not: 'is not', above: 'is above', below: 'is below' };
   // a piece's options, in the words a person uses (a piece's own wording first: 'alarm.entity')
@@ -504,7 +504,7 @@
     // and music playing in the house put Music Full Screen over it (2026-11-01, on the house). See a Slide shows one.
     still() {
       var o = copy(this.opts);
-      ['music_first', 'music_slide', 'energy_slide', 'weather_slide', 'holiday_slide', 'extra_music', 'extra_forecast'].forEach(function (k) { o[k] = false; });
+      ['music_first', 'music_slide', 'energy_slide', 'weather_slide', 'holiday_slide', 'timer_slide', 'extra_music', 'extra_forecast'].forEach(function (k) { o[k] = false; });
       if (o.show === 'both') o.show = 'photos';
       return o;
     }
@@ -1287,6 +1287,15 @@
         { make: function () {
           return see(K.toggle({ label: 'Home Energy', sub: self.cornerWords('energy'), on: !!o.energy_slide,
             onChange: function (on) { self.change(function (x) { x.energy_slide = on; }); } }), 'energy');
+        } },
+        // (the Timer slide, phase 21: only while a timer runs, and always for a timer's last minute)
+        { make: function () {
+          return see(K.toggle({ label: 'Timers', sub: 'Only while a timer runs, and always for its last minute. ' + self.cornerWords('timer'), on: o.timer_slide !== false,
+            onChange: function (on) { self.change(function (x) { x.timer_slide = on; }); } }), 'timer');
+        } },
+        { applies: function () { return o.timer_slide !== false; }, make: function () {
+          return K.seg({ label: 'Timers Come Up', value: o.timer_often === 'same' ? 'same' : 'more', options: [['more', 'More Often'], ['same', 'As Often as the Others']],
+            onChange: function (v) { self.change(function (x) { x.timer_often = v; }); } });
         } },
         // (the Holiday slide, phase 20: only once a holiday is near; its options on the Screensaver page)
         { make: function () {

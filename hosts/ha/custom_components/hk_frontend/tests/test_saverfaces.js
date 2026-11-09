@@ -198,7 +198,7 @@ ok('...on a portrait tablet and a phone, from the shorter side', [U.glyphBox(820
    [[152, 115, 516, 142], [100, 72, 191, 67]]);
 // WHERE THE REST OF THE CORNER GOES (2026-10-31, the owner: "why did the weather leave the upper-left corner?"): the
 // corner clock steps aside for the photo's time, and the weather keeps the corner -- no rule moves the corner itself
-var TBQ = ':host([tb]:not([forecast]):not([fcslide]):not([muslide]):not([enslide]):not([wxslide]):not([hlslide]))';
+var TBQ = ':host([tb]:not([forecast]):not([fcslide]):not([muslide]):not([enslide]):not([wxslide]):not([hlslide]):not([tmslide]))';
 ok('Time Behind: the corner clock steps aside', U.CSS.indexOf(TBQ + ' .info > hk-clock-card{display:none}') >= 0, true);
 ok('...and the weather keeps the corner (no rule places the corner under the time)', [U.CSS.indexOf(TBQ + ' .info{'), U.CSS.indexOf('--hk-tb-foot'), U.CSS.indexOf("[tb][pane]")], [-1, -1, -1]);
 // A LIGHT FACE'S CORNERS (2026-10-31): the ink the corner cards draw with goes dark, not only the box's colour

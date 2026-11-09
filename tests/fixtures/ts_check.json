@@ -44,6 +44,7 @@
   "web/hk/modules/hk-saver-holiday-fx.js",
   "web/hk/modules/hk-saver-holiday-scenes.js",
   "web/hk/modules/hk-saver-holiday.js",
+  "web/hk/modules/hk-saver-timers.js",
   "web/hk/modules/hk-saver.js",
   "web/hk/modules/hk-saverfaces.js",
   "web/hk/modules/hk-saverlayout.js",

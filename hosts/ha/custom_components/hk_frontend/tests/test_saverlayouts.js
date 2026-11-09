@@ -28,6 +28,7 @@ function ok(n, c) { if (c) { pass++; print('PASS ' + n); } else { fail++; print(
 // the corner's switches take any away, as over every slide
 load(HK_ROOT + '/frontend/modules/hk-saverlayout.js');
 var LM = window.hkSaverLayout;
+ok('Timers: its corner adds the time, the date, the weather and House Status', LM.cornerFor('timer').join() === 'time,date,weather,status');
 ok('Holidays: its corner adds the time, the date, the weather and House Status', LM.cornerFor('holiday').join() === 'time,date,weather,status' && LM.SLIDES.holiday.name === 'Holidays');
 ok('...and corner_hide takes them away', LM.cornerFor('holiday').filter(function (k) { return ['weather', 'status'].indexOf(k) < 0; }).join() === 'time,date');
 print(fail ? 'FAIL ' + fail + ' SAVER LAYOUT TESTS' : 'ALL ' + pass + ' SAVER LAYOUT TESTS PASS');

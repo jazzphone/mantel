@@ -134,6 +134,10 @@
         // THE HOLIDAY SLIDE (phase 20, hk-saver-holiday.js): a slide among the photos, or an additional screen over a
         // clock; which holiday (Next Up, Take Turns, One Holiday), within how many days, those left out, your own dates,
         // the effects, the scenes sent outdoors, and what its row leaves out (hk-holidays.js reads the dates)
+        // THE TIMER SLIDE (phase 21, hk-saver-timers.js): on unless turned off (it only comes while a timer runs); every
+        // other turn (More Often) or a turn like the rest (As Often as the Others)
+        timer_slide: raw.timer_slide !== false,
+        timer_often: raw.timer_often === 'same' ? 'same' : 'more',
         holiday_slide: raw.holiday_slide === true,
         holiday_pick: raw.holiday_pick === 'turns' || raw.holiday_pick === 'one' ? raw.holiday_pick : 'next',
         holiday_one: typeof raw.holiday_one === 'string' && raw.holiday_one ? raw.holiday_one : 'christmas',
@@ -286,15 +290,24 @@
     // plays), the forecast (Photos & Forecast), the weather, Home Energy and
     // the Holiday slide (each once it has something to show: a holiday near)
     // take turns, in that order.
-    var SLIDE_ORDER = ['music', 'forecast', 'weather', 'energy', 'holiday'];
-    function slideOf(c, playing, last, energy, weather, holiday) {
+    var SLIDE_ORDER = ['music', 'forecast', 'weather', 'energy', 'holiday', 'timer'];
+    function slideOf(c, playing, last, energy, weather, holiday, timer, before) {
       var on = [];
       if (c && c.music_slide === true && playing) on.push('music');
       if (c && c.show === 'both') on.push('forecast');
       if (c && c.weather_slide === true && weather) on.push('weather');
       if (c && c.energy_slide === true && energy) on.push('energy');
       if (c && c.holiday_slide === true && holiday) on.push('holiday');
-      return turnOf(SLIDE_ORDER, on, last);
+      if (c && c.timer_slide === true && timer) on.push('timer');
+      return timedTurn(c, SLIDE_ORDER, on, last, before);
+    }
+    // THE TIMERS' TURN (phase 21): every other one while a timer runs, unless As Often as the Others. `before` is the
+    // slide before the timers' last turn: the others carry on from it, or the first of them would come every time.
+    function timedTurn(c, order, on, last, before) {
+      if (on.indexOf('timer') < 0 || (c && c.timer_often === 'same')) return turnOf(order, on, last);
+      if (last !== 'timer') return 'timer';
+      var rest = on.filter(function (k) { return k !== 'timer'; });
+      return rest.length ? turnOf(order, rest, before || '') : 'timer';
     }
     // the next of `on` after `last`, round `order`
     function turnOf(order, on, last) {
@@ -306,7 +319,45 @@
     // are on -- the forecast (Show: Clock, over a background that isn't the
     // forecast's own), the music (not when it takes the screen anyway: Music
     // First, or the older music_slide over the forecast) and Home Energy
-    var EXTRA_ORDER = ['forecast', 'music', 'weather', 'energy', 'holiday'];
+    // THE LAST MINUTE (phase 21, docs/phase21/TIMER-SLIDE.md): a timer within its last minute holds the Timer slide up,
+    // on every screen, whatever else is there. Not over the black, a hidden page or the music's panel. The slide's module
+    // loads only once a timer runs. No ticking until then: a state change, or one timeout for the minute's start. `d` is
+    // what it does in the shell (hk-saver.js tmWatch), so all the deciding is here and testable.
+    function timerHold(d) {
+      var held = false, t = null, at = 0, later = null, asked = false;
+      function rows() {
+        var T = window.hkTimers, S = window.hkSettings, h = d.client();
+        return T && T.userTimers && h ? T.userTimers(h.states, (S && S.get && S.get('features.house_timers')) || [], Date.now()).filter(function (r) { return !r.paused; }) : [];
+      }
+      function hold() {
+        var S = d.slot;
+        if (held && S.showing) { S.ctl.setNight(d.night()); return; }
+        if (!S.ctl || d.blocked()) return;
+        d.clear();
+        if (!S.showing && !d.show()) { d.again(); return; }
+        held = true;
+        d.hold();
+        S.ctl.setNight(d.night());
+      }
+      function watch() {
+        if (!d.up()) return;
+        // (the house's states change many times a second: at most once a second, and the last one always looked at)
+        var now = d.now();
+        if (now - at < 1000) { if (!later) later = setTimeout(function () { later = null; watch(); }, 1000 - (now - at)); return; }
+        at = now;
+        if (t) { clearTimeout(t); t = null; }
+        var S = d.slot, list = d.wanted() ? rows() : [], soon = list.length ? list[0].left : null, close = soon !== null && soon <= 60;
+        if (list.length && !S.ctl && !asked) { asked = true; d.prep(); }     // (once: a second ask would drop the first)
+        if (S.ctl) S.ctl.setClient(d.client());
+        if (soon !== null) t = setTimeout(watch, close ? 1000 : (soon - 60) * 1000 + 50);
+        if (close) hold();
+        else if (held) { held = false; d.leave(!list.length); }
+        else if (!list.length && S.showing) d.leave(true);     // nothing left to count, its ordinary turn still up
+      }
+      return { watch: watch, held: function () { return held; }, again: function () { at = 0; },
+               leave: function () { held = false; asked = false; at = 0; if (t) { clearTimeout(t); t = null; } if (later) { clearTimeout(later); later = null; } } };
+    }
+    var EXTRA_ORDER = ['forecast', 'music', 'weather', 'energy', 'holiday', 'timer'];
     // SLIDES ARE OVERLAYS (2026-11-02, phase 13): every slide over every background but the photos (whose slides come
     // between them) -- the Weather slide over the Landscape, the Weather and Home Energy over Calm Color, Paper and the Day
     // face too (they were offered there and never came)
@@ -318,6 +369,7 @@
       if (c.weather_slide) a.push('weather');
       if (c.energy_slide) a.push('energy');
       if (c.holiday_slide) a.push('holiday');
+      if (c.timer_slide) a.push('timer');
       return a;
     }
     // m:ss (h:mm:ss past an hour)
@@ -819,7 +871,7 @@
     K.isImage = isImage; K.LANDSCAPES = LANDSCAPES; K.layoutOf = layoutOf; K.mmss = mmss;
     K.MOSAIC_COLORS = MOSAIC_COLORS; K.mosaicAssign = mosaicAssign; K.mosaicPlan = mosaicPlan; K.MOSAICS = MOSAICS;
     K.panel = panel; K.paneOf = paneOf; K.photoUrl = photoUrl; K.readCfg = readCfg; K.screenEdge = screenEdge;
-    K.shuffle = shuffle; K.slideOf = slideOf; K.SLOP = SLOP; K.sunDown = sunDown; K.tabletId = tabletId;
+    K.shuffle = shuffle; K.slideOf = slideOf; K.timedTurn = timedTurn; K.timerHold = timerHold; K.SLOP = SLOP; K.sunDown = sunDown; K.tabletId = tabletId;
     K.tabletNow = tabletNow; K.tagOf = tagOf; K.TB_COVER = TB_COVER; K.TB_WAIT = TB_WAIT; K.tbKey = tbKey;
     K.tbShare = tbShare; K.tbShares = tbShares; K.turnOf = turnOf; K.user = user; K.viewFont = viewFont;
     K.weatherPage = weatherPage; K.withPane = withPane; K.previewPaneOf = previewPaneOf; K.zoneOf = zoneOf;

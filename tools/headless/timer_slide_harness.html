@@ -1,0 +1,45 @@
+<!doctype html><meta charset="utf-8"><title>Timer Slide Harness</title>
+<!-- tools/headless/timer_slide_check.py's page: the Timer slide alone (hk-saver-timers.js and hk-timers.js), at the size and
+     with the timers the query names, a stand-in slide corner beside it (the screensaver's own is checked in
+     saver_shows_check.py). Every name in it is fictional. -->
+<style>html,body{margin:0;background:#000;overflow:hidden}#host{position:relative;overflow:hidden;font-family:-apple-system,system-ui,sans-serif}
+.scn{position:absolute;inset:0;z-index:8;pointer-events:none;color:#fff}.scs{position:absolute;top:var(--m);display:flex;flex-direction:column;gap:6px}
+.scs.tl{left:var(--m)}.scs.tr{right:var(--m);align-items:flex-end}.ct{font-weight:200;line-height:.82}.cl{font-weight:600;white-space:nowrap;text-shadow:0 1px 8px rgba(0,0,0,.45)}</style>
+<div id="host"></div>
+<script>
+var P = new URLSearchParams(location.search), W = +P.get('w') || 1280, H = +P.get('h') || 800;
+var RAF = window.requestAnimationFrame.bind(window), rafs = 0;
+window.requestAnimationFrame = function (f) { rafs++; return RAF(f); };
+window.__rafs = function () { return rafs; };
+window.hkLocale = { tag: function () { return 'en-US'; }, clock: function (o) { return o; } };
+window.hkSettings = { get: function (k, d) { return k === 'features.house_timers' ? ['timer.nap_timer'] : d; } };
+</script>
+<script src="/hk/modules/hk-timers.js"></script>
+<script src="/hk/modules/hk-saver-timers.js"></script>
+<script>
+var host = document.getElementById('host'); host.style.width = W + 'px'; host.style.height = H + 'px';
+var u = Math.min(W, H) / 100, m = 6 * u;
+var scn = document.createElement('div'); scn.className = 'scn'; scn.style.setProperty('--m', m + 'px');
+var tsz = (+P.get('tsz') || 100) / 100;
+scn.innerHTML = '<div class="scs tl"><div class="ct" style="font-size:' + (2.7 * u * 2.6 * tsz) + 'px">9:41</div><div class="cl" style="font-size:' + 2.7 * u + 'px">Sunday, November 8</div><div class="cl" style="font-size:' + 2.7 * u + 'px">48° Partly Cloudy</div></div>' +
+  '<div class="scs tr"><div class="cl" style="font-size:' + 2.7 * u + 'px">Disarmed</div></div>';
+// timers=Name:secondsLeft:totalSeconds[:paused],...
+function states() {
+  var s = { 'timer.nap_timer': { state: 'active', attributes: { finishes_at: new Date(Date.now() + 5000).toISOString(), duration: '1:00:00', friendly_name: 'Nap' } } };
+  (P.get('timers') || '').split(',').filter(Boolean).forEach(function (t, i) {
+    var a = t.split(':'), left = +a[1], total = +a[2], hms = function (x) { return Math.floor(x / 3600) + ':' + Math.floor(x / 60) % 60 + ':' + x % 60; };
+    s['timer.hk_timer_' + i] = a[3] ? { state: 'paused', attributes: { remaining: hms(left), duration: hms(total), friendly_name: a[0] } }
+      : { state: 'active', attributes: { finishes_at: window.__t0(left), duration: hms(total), friendly_name: a[0] } };
+  });
+  return s;
+}
+var T0 = Date.now(); window.__t0 = function (left) { return new Date(T0 + left * 1000).toISOString(); };
+var client = { states: states(), config: { time_zone: 'America/New_York' } };
+var ctl = window.hkSaverTimers.create({ h24: false });
+host.appendChild(ctl.el); host.appendChild(scn);
+ctl.layout(W, H);
+window.__ctl = ctl; window.__client = client;
+window.__ok = ctl.ready(client) && ctl.draw(client, P.get('look') || 'plain');
+ctl.el.style.setProperty('--hk-tm-fade', '0ms'); ctl.el.classList.add('on'); ctl.layout(W, H);
+window.__ready = true;
+</script>

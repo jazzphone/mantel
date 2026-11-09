@@ -81,6 +81,7 @@ declare global {
     hkSaverEnergy: any;
     hkSaverFaces: any;
     hkSaverHoliday: any;
+    hkSaverTimers: any;
     hkSaverLayout: any;
     hkSaverPanel: any;
     hkSaverParts: any;

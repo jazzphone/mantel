@@ -211,7 +211,7 @@
                      // the Screensaver editor's layout (settings.py, 2026-11-01)
                      layout: null, designs: [], active_design: '', clock_options: {},
                      // the Holiday slide (settings.py, phase 20)
-                     holiday_slide: false, holiday_pick: 'next', holiday_one: 'christmas', holiday_days: 60, holiday_off: [], holiday_own: [], holiday_fx: 'full', holiday_outdoors: [], holiday_hide: [] } },
+                     timer_slide: true, timer_often: 'more', holiday_slide: false, holiday_pick: 'next', holiday_one: 'christmas', holiday_days: 60, holiday_off: [], holiday_own: [], holiday_fx: 'full', holiday_outdoors: [], holiday_hide: [] } },
     // The Calendar page and the screensaver's calendar pane (All Screens ->
     // Calendar): the calendars shown, in order (empty: every calendar), and
     // each one's colour (a page pill colour)

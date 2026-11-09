@@ -308,7 +308,7 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
     // ---- Slides: toggles with See It, the Forecast's Classic / Big, How Often
     const slides = await E((ed, sr, $, $$) => ({ labels: $$('aside.sidebar .lbl .t').map((t) => t.textContent), see: $$('.seeit').length, subs: $$('aside.sidebar .lbl small').map((s) => s.textContent).filter((t) => /Its corner adds/.test(t)).length }));
     // (on the Landscape the forecast and the weather are the background: no row for them)
-    say(['Music Full Screen', 'Home Energy', 'Holidays'].every((x) => slides.labels.includes(x)) && slides.see === 3 && slides.subs === 3, 'Slides on the Landscape: Music, Home Energy and Holidays, each with its corner and See It', slides);
+    say(['Music Full Screen', 'Home Energy', 'Holidays', 'Timers'].every((x) => slides.labels.includes(x)) && slides.see === 4 && slides.subs === 4, 'Slides on the Landscape: Music, Home Energy, Holidays and Timers, each with its corner and See It', slides);
     // THE HOLIDAY SLIDE (phase 20): on, its options a row away on the Screensaver page, See It asks the preview for it
     await E((ed, sr, $, $$) => { $$('aside.sidebar .cell').find((c) => /^Holidays/.test(c.textContent.trim())).querySelector('.sw').click(); return true; });
     await page.waitForTimeout(400);

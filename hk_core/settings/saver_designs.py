@@ -7,6 +7,7 @@ from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from . import saver_holidays as HOLIDAYS
+from . import saver_timers as TIMERS  # noqa: F401 -- model.py takes it from here
 
 FACES = ("solar", "prism", "world", "hotel", "terminal", "atelier", "meridian", "markets", "brief", "modular")
 CHOICES = {
