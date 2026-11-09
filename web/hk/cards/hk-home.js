@@ -2129,14 +2129,18 @@
         '.strip > div.tg{overflow:visible}.tg{display:grid;grid-template-columns:repeat(var(--cols,1),minmax(0,1fr));grid-auto-rows:minmax(0,1fr);align-content:center;gap:var(--rg,8px) var(--hk-pad-l,18px);flex:1 1 auto;min-height:0}',
         '.gt{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:0;min-height:0}',
         // THE TIMER'S TITLE (2026-11-09, the owner: "We don't need the word Timer as a title, it should go. Title of the timer itself, yes, it needs to [match] the rest of the title/headings."): a named timer's name in the block heading (hkCards.headCss: gray, 13 / 600) on the heading row; a timer with no name of its own has no title -- its row stays, so the rings line up (mockup 5) -- and the block's own name ("Timers") is never printed
-        window.hkCards.headRowCss('.gt .hd') + '.gt .hd{margin-bottom:8px;justify-content:center;align-self:stretch}' + window.hkCards.headCss('.gt .nm'),
+        window.hkCards.headRowCss('.gt .hd') + '.gt .hd{height:22px;margin-bottom:8px;justify-content:center;align-self:stretch}' + window.hkCards.headCss('.gt .nm') +
+        // (READABLE FROM ACROSS THE ROOM, 2026-11-09, the owner: "The text above the active timers should probably be bigger right? And so should the
+        // time inside the circle. It needs to be readable"): the name 17 / 600 in the first ink, not the 13 px gray heading; the time 25 % of the ring
+        // in a medium weight (it was 21 % light), an hour or more (h:mm:ss, seven figures) 19 % so it stays inside the ring
+        '.gt .nm{font-size:17px;line-height:22px;font-weight:600;color:' + window.hkCards.v('ink') + '}',
         '.gt .rg{display:flex;flex-direction:column;align-items:center;gap:8px;flex:none}',
         '.gt .rw{position:relative;flex:none;width:var(--ring);height:var(--ring);display:grid;place-items:center}',
         // (the countdown is the ring's child: it writes the fraction left, --hk-left, on the ring, and the circle reads it)
         '.gt .rw svg{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg);overflow:visible}',
         '.gt .rw circle{fill:none;stroke-width:8px;stroke:' + window.hkCards.v('line-strong') + '}',
         '.gt .rw .left{stroke:' + window.hkCards.ACCENTS.orange + ';stroke-linecap:round;stroke-dasharray:calc(var(--hk-left,1)*100) 100}',
-        '.gt .rw hk-countdown{position:relative;display:block;font-size:calc(var(--ring) * 0.21);font-weight:300;letter-spacing:-0.02em;line-height:1;white-space:nowrap;font-variant-numeric:tabular-nums;color:' + window.hkCards.v('ink') + '}',
+        '.gt.hr .rw hk-countdown{font-size:calc(var(--ring) * 0.19)}.gt .rw hk-countdown{position:relative;display:block;font-size:calc(var(--ring) * 0.25);font-weight:500;letter-spacing:-0.02em;line-height:1;white-space:nowrap;font-variant-numeric:tabular-nums;color:' + window.hkCards.v('ink') + '}',
         '.gt.held .rw hk-countdown{color:' + window.hkCards.v('ink-2') + '}',
         '.gt .kk{display:flex;gap:8px;flex:none}',
         '.gt .pr,.gt .stop{all:unset;box-sizing:border-box;position:relative;flex:none;width:56px;height:56px;display:grid;place-items:center;cursor:pointer;-webkit-tap-highlight-color:transparent}',
@@ -2288,7 +2292,8 @@
         // (the countdown is the ring's child: it writes the fraction left, --hk-left, on the ring, and the circle reads it; the heading row is always there, empty for an unnamed timer, so the rings line up)
         var keys = sized === 'S' ? '' : '<div class="kk"><button class="pr" data-timer="' + esc(r.id) + '" data-service="' + (paused ? 'start' : 'pause') + '" aria-label="' + (paused ? 'Resume' : 'Pause') + ' ' + nm + '"><hk-icon icon="mdi:' + (paused ? 'play' : 'pause') + '"></hk-icon></button>' +
           '<button class="stop" data-timer="' + esc(r.id) + '" data-service="cancel" aria-label="Stop ' + nm + '"><hk-icon icon="mdi:stop"></hk-icon></button></div>';
-        return '<div class="gt' + (paused ? ' held' : '') + '"><div class="hd">' + ttl + '</div><div class="rg"><div class="rw">' +
+        var secsLeft = paused ? (T ? T.secs(r.attrs.remaining) : 0) : (Date.parse(r.attrs.finishes_at) - Date.now()) / 1000;
+        return '<div class="gt' + (paused ? ' held' : '') + (secsLeft >= 3600 ? ' hr' : '') + '"><div class="hd">' + ttl + '</div><div class="rg"><div class="rw">' +
           '<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="46"></circle><circle class="left" cx="50" cy="50" r="46" pathLength="100"></circle></svg>' +
           '<hk-countdown ' + clock + ' total="' + total + '"></hk-countdown></div>' + keys + '</div></div>';
       });
