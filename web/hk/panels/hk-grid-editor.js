@@ -2127,10 +2127,9 @@
         }
         // SCENES AND ACCESSORIES (2026-10-31): Full or Half height, glass or Color; an Energy Rings block's period
         if (kind === 'tile_height') {
-          // (Security's: only beside its locks -- Large's Classic, Extra Large's either -- and Half its default beside the keypad;
-          // 2026-11-08, the owner: "Half and Full still aren't working": Full was stored as the default, which there is Half)
-          var sec = card === 'security', dflt = sec && o.size === 'XL' ? 'half' : 'full';
-          if (sec && !(o.size === 'XL' || (o.size === 'L' && opts.presentation !== 'homeview'))) return;
+          // (none for Security: its locks are a list of rows since 2026-11-08's redraw)
+          var dflt = 'full';
+          if (card === 'security') return;
           rows.push(K.seg({ label: 'Height', value: opts[key] || dflt, options: [['full', 'Full'], ['half', 'Half']], onChange: (v) => set(key, v === dflt ? null : v) }));
           return;
         }

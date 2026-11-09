@@ -14,6 +14,7 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 - **The iPhone and iPad app shows a screen once it is drawn**: the page tells the app when its first screen is up with the house's states in, so an open no longer shows tiles with no names that do nothing (the app keeps its picture of the last screen until then; the app's side is in TestFlight 0.1.154).
 
 **Changed**
+- **Security, drawn again**: Extra Large keeps the keypad and beside it a LOCKS & DOORS heading, each lock and garage door a row with its name whole and its state at the right, and at the foot, on the arm keys' line, a notice with an orange badge when doors or windows are open. Large (both looks) is the same list under the alarm, with Classic's Home, Away and Disarm on the same edges, and HomeView's Large and Tall end in the same notice. Rows are a finger's 44 px on the tablet's screen; what doesn't fit is "+N more" in the heading, and anything not secured and the garage doors stay in view first. A locked lock's glyph is teal, one not secured is white with its glyph and state in orange. Security no longer has a Height choice.
 - **Half pills in a group lose their well on HomeView-style screens**: an Accessory Group's or Room's half-height tiles take Tiny's look -- the glyph bare and sized to the pill, a sensor's reading in its place -- as the screen's Tile Style chooses; Home style keeps the Home app's pill.
 
 ## 0.1.154 - 2026-11-08
