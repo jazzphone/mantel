@@ -97,6 +97,8 @@ EXTRA["weather.home"] = (None, ("partlycloudy", {"friendly_name": "Home", "tempe
                                                  "apparent_temperature": 62, "uv_index": 2, "pressure": 1015, "pressure_unit": "hPa",
                                                  "visibility": 10, "visibility_unit": "mi", "dew_point": 48}))
 SUNSET = time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(time.time() + 3 * 3600))
+# a second scene in the Living Room: the Extra Large Room block runs up to two of its area's scenes (2026-11-09, mockup 13)
+EXTRA["scene.relax"] = ("living_room", ("unknown", {"friendly_name": "Relax"}))
 EXTRA["sun.sun"] = (None, ("above_horizon", {"friendly_name": "Sun", "elevation": 40.0, "azimuth": 180.0, "next_setting": SUNSET}))
 # the rooms Clean Areas offers the vacuum's Large and Extra Large blocks (stood in on the page, below)
 CLEAN_AREAS = ["kitchen", "living_room", "dining_room", "office", "bedroom", "guest_room"]
@@ -638,10 +640,16 @@ STATES: dict[str, dict] = {
     # THE TIMELINE'S STATES (2026-11-08, the Recent block): `timeline` names the rows seeded into Mantel's own store
     # (seed_timeline; busy is the default and "quiet" the quiet house's) -- a new house with no rows at all, a quiet
     # night (two rows last evening, nothing since, everything locked), and a busy day with pictures (busy's own)
+    # THE ROOM'S EXTRA LARGE (2026-11-09, mockup 13): nine accessories in the Living Room (its tiles scroll under a fade), and a room with
+    # no climate sensor and no scene (its left column starts with what is going on)
+    "room_many": {"count": 9},
+    "room_bare": {"remove": ["sensor.living_room", "climate.main_floor", "scene.movie_night", "scene.relax"]},
+    "room_empty": {"remove": ["sensor.living_room", "climate.main_floor", "scene.movie_night", "scene.relax", "light.living_room", "media_player.living_room", "vacuum."]},
     "recent_empty": {"timeline": "empty"},
     "recent_quiet": {"domains": {"lock": "locked", "cover": "closed", "binary_sensor": "off", "alarm_control_panel": "armed_night"},
                      "timeline": "quiet"},
     "recent_busy": {"timeline": "busy"},
+    "camera_many": {"timeline": "many"},
     # TIMERS (2026-11-08): one running, six (the Extra Large block's most), two with one held
     # THE THERMOSTAT's other modes (2026-11-08): the block's thermostat (`--opts thermostat='{"entity": "climate.office"}'`) on Cool, on Off
     "thermostat_cool": {"entities": {"climate.office": ("cool", {**EXTRA["climate.office"][1][1], "temperature": 72, "hvac_action": "cooling"})}, "opts": {"thermostat": {"entity": "climate.office"}}},
@@ -725,6 +733,18 @@ STATES["doors_two"] = {"domains": {"cover": "closed", "binary_sensor": "off"},
 STATES["doors_many"] = {"domains": {"cover": "open", "binary_sensor": "on"},
                         "entities": {**{f"binary_sensor.extra_window_{i}": ("on", {"friendly_name": f"Window {i}", "device_class": "window"}) for i in range(8)}}}
 STATES["people_home"] = {"domains": {"person": "home"}}
+STATES["people_none"] = {"domains": {"person": "not_home"}}
+STATES["people_many"] = {"entities": {f"person.guest_{i}": ("home", {"friendly_name": f"Guest {i}"}) for i in range(5)}}
+# (Who's Home with Show Map, mockup 13b: stand-in places around Riverside, the fictional house's town -- never a household's)
+_HOME_LL = {"latitude": 33.9806, "longitude": -117.3755}
+STATES["people_map"] = {"entities": {"zone.home": ("zoning", {"friendly_name": "Home", "radius": 100, **_HOME_LL}),
+                                     "person.sam": ("home", {"friendly_name": "Sam", **_HOME_LL}),
+                                     "person.robin": ("Work", {"friendly_name": "Robin", "latitude": 33.9533, "longitude": -117.3962}),
+                                     "person.alex": ("not_home", {"friendly_name": "Alex", "latitude": 34.0555, "longitude": -117.1825})},
+                        "opts": {"people": {"map": True}}}
+STATES["people_map_home"] = {"entities": {"zone.home": ("zoning", {"friendly_name": "Home", "radius": 100, **_HOME_LL}),
+                                          **{f"person.{n}": ("home", {"friendly_name": n.title(), **_HOME_LL}) for n in ("sam", "robin", "alex")}},
+                             "opts": {"people": {"map": True}}}
 STATES["people_four"] = {"entities": {"person.jo": ("home", {"friendly_name": "Jo"}), "person.kit": ("School", {"friendly_name": "Kit"})}}
 STATE = {"name": "busy", "hits": False}
 # six more rooms for a house with twelve (the Vacuum block's rooms scroll when they do not fit)
@@ -778,6 +798,12 @@ def seed_timeline(app, kind: str) -> None:
                 (18, "doorbell", "ring", "Front Door", "camera.front_door", "porch", 2, {}),
                 (3, "detection", "person", "Front Door", "camera.front_door", "porch", 2, {})):
             row(now - mins * 60, family, kind_, label, entity, area, n, **who)
+        if kind == "many":
+            # A DAY AT THE CAMERA (2026-11-09, mockup 13, the Camera block at Extra Large): a dozen more detections at the
+            # backyard's camera and the front door's, so its list of today's events scrolls
+            for i in range(12):
+                cam = ("Backyard", "camera.backyard", "backyard") if i % 2 else ("Front Door", "camera.front_door", "porch")
+                row(now - (7 + i * 9) * 60, "detection", ("person", "animal", "vehicle", "package")[i % 4], *cam, 1 + i % 2)
     still = {"camera.front_door": "07.webp", "camera.backyard": "21.webp"}
     real = tl.clock
     for i, (t, family, kind_, label, entity, area, n, who) in enumerate(sorted(rows, key=lambda r: r[0])):
@@ -1123,8 +1149,8 @@ def main(argv=None) -> int:
                     help="also fail a tile, row, pill or button that grows with its block (STRETCH: nothing stretches)")
     a = ap.parse_args(argv)
     STATE["name"] = a.state
-    if a.count:
-        stand_in_count(a.count)
+    if a.count or STATES[a.state].get("count"):
+        stand_in_count(a.count or STATES[a.state]["count"])
     STATE["stretch"] = a.stretch
     STATE["hits"] = a.hits
     STATE["controls"] = a.controls

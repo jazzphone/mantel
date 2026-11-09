@@ -70,8 +70,9 @@
                            o.height ? { height: o.height } : {}, o.color ? { color: true } : {}); } },
     scene: { sizes: ['S', 'W'], sources: [], opts: { scene: 'scene', color: 'boolean' }, card: function (s, o) {
       return o.scene ? Object.assign({ type: 'custom:hk-grid-entity-card', entity: o.scene, kind: 'scene', size: s }, o.color ? { color: true } : {}) : stand('Scene', 'mdi:palette', 'Choose a scene in the editor.'); } },
-    scenes: { sizes: ['W', 'T', 'L', 'XL', 'XXL'], sources: ['scenes'], opts: { scenes: 'scenes', surface: 'surface', height: 'tile_height', color: 'boolean' }, card: function (s, o) {
-      return Object.assign({ type: 'custom:hk-scenes-card', surface: o.surface }, o.scenes ? { scenes: o.scenes } : {},
+    scenes: { sizes: ['W', 'T', 'L', 'XL', 'XXL'], sources: ['scenes'], opts: { scenes: 'scenes', surface: 'surface', height: 'tile_height', color: 'boolean', windows: 'windows' }, card: function (s, o) {
+      // windows (2026-11-09, mockup 13): Extra Large's suggested scene, picked as the Suggested Scene block picks it
+      return Object.assign({ type: 'custom:hk-scenes-card', surface: o.surface }, o.scenes ? { scenes: o.scenes } : {}, o.windows ? { windows: o.windows } : {},
                            o.height ? { height: o.height } : {}, o.color ? { color: true } : {}); } },
     now_playing: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: ['speakers'], opts: { speaker: 'speaker', background: 'np_background', tap: 'tap_target' }, card: function (s, o) {
       // T, L and XL: the progress above the transport (the Home app's and Apple
@@ -100,6 +101,9 @@
     // (S, 2026-10-31, the owner: "a small option to the camera": one still in a cell)
     camera: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: ['cameras'], opts: { entity: 'camera', follow: 'camera_follow', follow_select: 'select', name: 'name_tag' }, card: function (s, o, ctx) {
       var ids = o.entity ? [o.entity] : (ctx.cameras || []).slice(0, 1);
+      // EXTRA LARGE (2026-11-09, mockup 13): the picture beside what that camera saw today -- where the host keeps a Timeline
+      // (Mantel); elsewhere (Home Assistant's HK Frontend) it stays the full picture
+      if (s === 'XL' && ids.length && hostHas('timeline')) return { type: 'custom:hk-camera-today-card', camera: ids[0] };
       return ids.length ? { type: 'custom:hk-camera-mosaic-card', own_cameras: true, height: 195, seam: 2, snapshot_cap: '480x270',
                             cameras: ids.map(function (id) { return { entity: id }; }), name_tag: o.name || 'auto' }
                         : stand('Cameras', 'hk:camera', 'No cameras yet.'); } },
@@ -142,7 +146,7 @@
       return B && B.level ? { type: 'custom:hk-house-battery-card', level: B.level, stored: B.stored, backup: B.backup,
                               reserve: B.reserve, charge: B.charge, discharge: B.discharge }
                           : stand('Battery', 'mdi:home-battery', 'Add Energy with a house battery in Settings to show it here.'); } },
-    people: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { tap: 'tap_target' }, card: function () { return { type: 'custom:hk-people-card' }; } },
+    people: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { tap: 'tap_target', map: 'boolean' }, card: function (s, o) { return Object.assign({ type: 'custom:hk-people-card' }, o.map ? { map: true } : {}); } },
     // Large and Extra Large: its controls with Clean Areas (2026-10-24)
     vacuum: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { entity: 'vacuum', tap: 'tap_target' }, card: function (s, o, ctx) {
       var id = o.entity || ctx.vacuum;

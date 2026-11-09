@@ -21,13 +21,14 @@ window.hkSettings = {
 };
 load(HK_ROOT + '/frontend/cards/hk-base.js');
 load(HK_ROOT + '/frontend/cards/hk-home.js');
+load(HK_ROOT + '/frontend/cards/hk-people.js');
 load(HK_ROOT + '/frontend/cards/hk-grid-cards.js');
 load(HK_ROOT + '/frontend/modules/hk-sidepane.js');
 
 var ok = H.ok, eq = H.eq, C = window.hkCards;
 // what a block draws: the markup handed to morph (this shim does not parse it)
 C.morph = function (el, html) { el.__html = html; };
-var SRC = readFile(HK_ROOT + '/frontend/cards/hk-home.js');
+var SRC = readFile(HK_ROOT + '/frontend/cards/hk-home.js'), PSRC = readFile(HK_ROOT + '/frontend/cards/hk-people.js');
 
 var NOW = Date.now(), iso = function (s) { return new Date(NOW + s * 1000).toISOString(); };
 var house = H.house({
@@ -87,8 +88,14 @@ function () {
   ok('none running, Small: no Timers title (2026-11-09), None running, and one key, Start a timer (Small is its state and one action)', !/class="nm"/.test(none) && /None running/.test(none) &&
      (none.match(/data-preset=/g) || []).length === 0 && /class="rk cap" data-new aria-label="Create a Timer"><hk-icon icon="mdi:plus"><\/hk-icon>Start a timer</.test(none));
   none = sized('hk-timer-strip-card', 'W', { entity: 'sensor.running_quick_timers' })._e.__html;
-  ok('...Wide: "Start a timer" beside three rings -- the 5 and 10 minute starts as arcs of an hour, and +', /class="gt idle xl c"/.test(none) && (none.match(/data-preset=/g) || []).length === 2 &&
+  // (mockup 5, 2026-11-09: "Start a Timer" a direction -- one line over the rings, the two one group centered)
+  ok('...Wide: "Start a Timer" over three rings -- the 5 and 10 minute starts as arcs of an hour, and + (three controls at most)',
+     /class="gt idle dg"><span class="dir">Start a Timer<\/span>/.test(none) && (none.match(/data-preset=/g) || []).length === 2 &&
      /data-preset="5" style="--a:8\.3\d*"[\s\S]*>5m</.test(none) && />10m</.test(none) && /class="rk add"/.test(none) && />30m</.test(none) === false);
+  var xl = sized('hk-timer-strip-card', 'XL', { entity: 'sensor.running_quick_timers' })._e.__html;
+  ok('...Extra Large makes one (mockup 5c): six presets under the direction, and a kept place for the New Timer card\'s wheels -- no +, the wheels are there',
+     /class="gt idle mkr"><div class="ql"><span class="dir">Start a Timer<\/span>/.test(xl) && (xl.match(/data-preset=/g) || []).length === 6 &&
+     /<div class="mk" data-keep data-notap[^>]*--hk-mk-row:\d+px/.test(xl) && !/class="rk add"/.test(xl));
   var big = sized('hk-timer-strip-card', 'L', { entity: 'sensor.running_quick_timers' })._e.__html;
   ok('...Large: all five starts and +, ring-shaped, the group centered (nothing stretches: one --k, whole columns)', (big.match(/data-preset=/g) || []).length === 5 && /class="qs g" style="--k:\d+px;--qc:3"/.test(big) && />30m</.test(big));
   ok('a square cell: the mock-up\'s ring and Stop (76 and 52 on Small, 72 and 48 on Wide)',
@@ -115,6 +122,30 @@ function () {
   var w = sized('hk-people-card', 'W', {})._root.__html;
   ok('Wide: spread evenly, a column each, name and where', /class="wide" role="list" style="--n:3;/.test(w) && /<b>Robin<\/b><span>Work<\/span>/.test(w) && /<b>Sam<\/b><span>Home<\/span>/.test(w));
   ok('...nobody dimmed there (where each is is under them)', !/class="pr away"/.test(w));
+  var xl = sized('hk-people-card', 'XL', {})._root.__html;
+  ok('Extra Large (mockup 13): Home on the left, one person large with their name; Away on the right, 56 px rows with where and since',
+     /<b class="lab">Home<\/b>/.test(xl) && /<b class="lab">Away<\/b>/.test(xl) && !/Who’s Home/.test(xl) && (xl.match(/class="xf"/g) || []).length === 2 &&
+     (xl.match(/class="xw"/g) || []).length === 1 && /<b>Robin<\/b><span>Work<\/span>/.test(xl));
+  var xs = (function () { var c = H.make('hk-people-card'); c._clientExplicit = true; c._hkClient = { states: { 'person.a': { state: 'home', last_changed: '2026-11-09T09:02:00', attributes: { friendly_name: 'Sam' } }, 'person.b': { state: 'Work', last_changed: '2026-11-09T08:00:00', attributes: { friendly_name: 'Robin' } } } }; return c._xl(['person.a', 'person.b']); })();
+  ok('...one at home: "Home since" under the name; away: "Since" at the row\'s right', /class="xf x1"/.test(xs) && />Home since \d/.test(xs) && /class="sn">Since \d/.test(xs), xs);
+  ok('...each face and row opens its person', (xl.match(/<button class="x[fw][ "][^>]*data-id="person\./g) || []).length === 3);
+  ok('...nobody home says so, and who left last', /<b>Nobody Home<\/b><span>\w+ left /.test((function () { var c = H.make('hk-people-card'); c._clientExplicit = true; c._hkClient = { states: { 'person.a': { state: 'not_home', last_changed: '2026-11-09T09:02:00', attributes: { friendly_name: 'Alex Park' } } } }; return c._xl(['person.a']); })()));
+  ok('...the two columns\' gap is the block\'s inset, the rows 56 and the lists scroll with a fade', PSRC.indexOf("gap:var(--hk-pad-l,18px)") > 0 && PSRC.indexOf("height:56px;flex:none") > 0 && PSRC.indexOf(".pp .xs.more{") > 0);
+  // SHOW MAP (mockup 13b, 2026-11-09): the person sheet's OpenStreetMap tiles, each located person's face, the house; the list
+  // grouped Home, then Away with the place and how far; off by default (the block option), and none with no place to show
+  var mapOf = function (states) { var c = H.make('hk-people-card'); c._clientExplicit = true; c._config = { map: true }; c._hkClient = { states: states, config: { unit_system: { length: 'mi' } } }; return c._xlMap(Object.keys(states).filter(function (k) { return k.indexOf('person.') === 0; }), 540, 320); };
+  var HOME = { latitude: 33.9806, longitude: -117.3755 };
+  var mp = mapOf({ 'zone.home': { state: 'zoning', attributes: HOME }, 'person.a': { state: 'home', attributes: Object.assign({ friendly_name: 'Sam' }, HOME) },
+                   'person.b': { state: 'Work', attributes: { friendly_name: 'Robin', latitude: 33.9533, longitude: -117.3962 } },
+                   'person.c': { state: 'School', attributes: { friendly_name: 'Kit' } } });
+  ok('Show Map: tiles from OpenStreetMap, the house marked, a face on the map for each located person, credit given',
+     /src="https:\/\/tile\.openstreetmap\.org\/\d+\/\d+\/\d+\.png"/.test(mp) && /class="xhm"/.test(mp) && (mp.match(/class="xp"/g) || []).length === 2 && /© OpenStreetMap/.test(mp), mp);
+  ok('...the list: Home, then Away with the place and how far (no place: the zone only), each a row that opens its person',
+     /<b class="lab">Home<\/b>[\s\S]*<b class="lab">Away<\/b>/.test(mp) && /<b>Robin<\/b><span>Work · 2(\.\d)? mi<\/span>/.test(mp) && /<b>Kit<\/b><span>School<\/span>/.test(mp) &&
+     (mp.match(/<button class="xw"[^>]*data-id="person\./g) || []).length === 3, mp);
+  ok('...everyone home: Arrived', /<b class="lab">Arrived<\/b>/.test(mapOf({ 'zone.home': { state: 'zoning', attributes: HOME }, 'person.a': { state: 'home', attributes: Object.assign({ friendly_name: 'Sam' }, HOME) } })));
+  ok('...no house and nobody located: the two columns without a map', !/tile\.openstreetmap/.test(mapOf({ 'person.a': { state: 'home', attributes: { friendly_name: 'Sam' } } })));
+  ok('...off by default: the catalog passes map only when the block asks', /o\.map \? \{ map: true \}/.test(readFile(HK_ROOT + '/frontend/cards/hk-grid-catalog.js')));
   ok('the page card keeps its row of avatars', /class="row" role="list"/.test((function () { var c = H.make('hk-people-card'); hkGive(c, hass()); c.setConfig({}); return c._root.__html; })()));
 },
 function () {

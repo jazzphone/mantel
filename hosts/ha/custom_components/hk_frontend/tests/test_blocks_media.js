@@ -150,6 +150,22 @@ function () {
   ask.resolve({ response: { items: [{ uri: 'library://track/1', name: 'Low Tide' }] } });
   return H.tick().then(function () {
     eq('the answer is kept', mu._items.map(function (i) { return i.name; }), ['Low Tide']);
+    // EXTRA LARGE, Recently Played (2026-11-09, mockup 13): the last large with Play and Browse, "Also Played" as rows
+    var xl = sized('hk-recent-music-card', 'XL');
+    xl.client = c;
+    xl._items = [{ uri: 'u1', name: 'One', artist: 'A', key: 'k1' }, { uri: 'u2', name: 'Two', artist: 'B', key: 'k2' }, { uri: 'u3', name: 'Three', artist: 'C', key: 'k3' }];
+    xl._render();
+    var xh = String(xl._root.innerHTML);
+    eq('XL: the last in the left column, the rest as rows under Also Played, Play and Browse at the foot',
+       [xh.indexOf('xl2') >= 0, xh.indexOf('Also Played') >= 0, (xh.match(/class="rw"/g) || []).length, xh.indexOf('class="pp"') >= 0, xh.indexOf('class="br"') >= 0, xh.indexOf('class="al"') >= 0],
+       [true, true, 2, true, true, true]);
+    var rb = xl._root.querySelectorAll('.rw'), before0 = house.calls.length;
+    xl._play(xl._items[1], document.createElement('button'));     // (the row's own listener: fake clicks carry no stopPropagation)
+    var rcall = house.calls[before0];
+    eq('...a row plays its song', rcall && rcall.data.media_content_id, 'u2');
+    xl._items = [{ uri: 'u1', name: 'One', artist: 'A', key: 'k1' }];
+    xl._render();
+    ok('XL with one thing played: no rows, the right column says so', String(xl._root.innerHTML).indexOf('Nothing else yet') >= 0);
     window.hkMusic.setFocus('media_player.kitchen_homepod_ma');
     var el = document.createElement('button'), before = house.calls.length;
     mu._play(mu._items[0], el);
@@ -221,8 +237,13 @@ function () {
     var bh = String(b._root.innerHTML);
     // (XL, 2026-11-08: the last played above five across, its Play beside it)
     var across = z === 'W' || z === 'XL';
+    if (z === 'XL') {
+      // (XL, 2026-11-09 mockup 13: two columns -- the last played with Play and Browse, the rest as 56 px rows)
+      eq('XL: two columns, the first playlist large, the rest as rows', [bh.indexOf('xl2') >= 0, bh.indexOf('class="cv ') < 0, (bh.match(/class="rw"/g) || []).length, bh.indexOf('class="br"') >= 0], [true, true, 2, true]);
+      return;
+    }
     eq(z + ': ' + (across ? 'across' : 'down') + ', every playlist in it', [bh.indexOf('class="cv ' + (across ? 'x' : 'y') + '"') >= 0,
-       (bh.match(/data-i="/g) || []).length], [true, z === 'XL' ? 4 : 3]);
+       (bh.match(/data-i="/g) || []).length], [true, 3]);
   });
   // THE LAST PLAYED FIRST (2026-11-08, the owner): matched by the playlists' items, a choice of one its own tile
   var lpls = [{ name: 'Favorites', key: 'f', uris: ['library://playlist/1'] }, { name: 'Christmas', key: 'c', uris: ['library://playlist/2'] },
@@ -334,8 +355,8 @@ function () {
 function () {
   H.section('Live TV: the page\'s channels, a tile each, a tap plays it full screen');
   eq('S one, W two, T three, L four, XL six', ['S', 'W', 'T', 'L', 'XL'].map(function (s) { return Mx.TV_SLOTS[s]; }), [1, 2, 3, 4, 6]);
-  eq('the tiles\' arrangement: W across, T down, L two by two, XL three by two',
-     [Mx.tvGrid('W', 2), Mx.tvGrid('T', 3), Mx.tvGrid('L', 4), Mx.tvGrid('XL', 6), Mx.tvGrid('XL', 3)], [[2, 1], [1, 3], [2, 2], [3, 2], [3, 1]]);
+  eq('the tiles\' arrangement: W across, T down, L two by two (Extra Large is two columns, below)',
+     [Mx.tvGrid('W', 2), Mx.tvGrid('T', 3), Mx.tvGrid('L', 4)], [[2, 1], [1, 3], [2, 2]]);
   var tv = sized('hk-tv-channels-card', 'W');
   tv.client = client();
   tv._render();
@@ -357,9 +378,25 @@ function () {
     var xl = sized('hk-tv-channels-card', 'XL');
     xl.client = client(); xl._channels = CHANNELS.channels; xl._configured = true;
     xl._render();
-    eq('fewer channels than places: as many tiles as channels', xl._root.children[0].children[0].children.length, 3);
-    // (no LIVE TV label row since 2026-11-08 -- the owner: a block's own name printed on it goes)
-    ok('Extra Large is its channels alone, no label row', xl._root.children[0].children[0].className === 'gr' && xl._root.children[0].children.every(function (c) { return c.className !== 'lh'; }));
+    // EXTRA LARGE IN TWO COLUMNS (2026-11-09, mockup 13): the channel on at the left, the others as rows at the right
+    var plateX = xl._root.children[0];
+    eq('Extra Large: the first channel on the left, the rest as rows', [plateX.className, plateX.children[0].className, plateX.children[1].children[1].children.length], ['tv xl', 'lf', CHANNELS.channels.length - 1]);
+    eq('...the left names the channel and its show', [plateX.children[0].querySelector('small').textContent, plateX.children[0].querySelector('b').textContent].join('|'), '4.1 \u00b7 Channel 4|Evening News');
+    eq('...the right is headed Channels', plateX.children[1].children[0].children[0].textContent, 'Channels');
+    var rows = plateX.children[1].children[1].children;
+    eq('...a row: the show over the channel', [rows[0].querySelector('b').textContent, rows[0].querySelector('small').textContent], ['Coastal Kitchens', 'Food']);
+    var xo = [];
+    window.hkCameras = { tvPlayer: function (owner, ch) { xo.push(ch.number); return { close: function () {}, update: function () {} }; } };
+    xl.isConnected = true;
+    (plateX.children[0]._listeners.click || [])[0]({ stopPropagation: function () {} });
+    (rows[0]._listeners.click || [])[0]({ stopPropagation: function () {} });
+    eq('the left plays the one on; a row tunes its channel', xo, ['4.1', '7.1']);
+    xl._render();
+    eq('the last one played is the one on, after', xl._root.children[0].children[0].querySelector('small').textContent, '7.1 \u00b7 Food');
+    var xc = sized('hk-tv-channels-card', 'XL');
+    xc.client = client(); xc._channels = CHANNELS.channels; xc._configured = true; xc._config = { channel: '9.1' };
+    xc._render();
+    eq('a channel chosen is the one on, whatever was played', xc._root.children[0].children[0].querySelector('small').textContent.slice(0, 3), '9.1');
   });
 },
 function () {

@@ -1455,7 +1455,7 @@
       this._watchBlock();
       var block = this._block(), under = null, liveH = H;
       if (block && plan.live) {
-        H = block.h; liveW = block.w; liveH = H;
+        H = this._num('fit_h', block.h); liveW = this._num('fit_w', block.w); liveH = H;
         under = this._cellSize() === 'L' && plan.cols.length ? plan.cols[0][0] : null;
         if (under) liveH = (H - SEAM) / 2;
         plan.cols = [];

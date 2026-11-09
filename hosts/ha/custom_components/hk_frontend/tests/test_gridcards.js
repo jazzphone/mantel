@@ -105,7 +105,7 @@ function () {
      /Math\.sqrt\(b\.width \* b\.height\)/.test(esrc) && /ink \* 0\.78 \/ mean/.test(esrc) && window.hkCards.TILE.centred.ink === 0.83 &&
      /window\.hkInkScale\(inkName, window\.hkCards\.TILE\.centred\.ink\)/.test(tsrc) && /e\.icon\.setAttribute\('ink', String\(C\.TILE\.centred\.ink\)\)/.test(gsrc));
   ok('the Room and Accessories blocks hand Centred to each tile, and redraw when it changes', /if \(centred\) el\.setAttribute\('tile', 'centred'\);/.test(gsrc) &&
-     /var key = JSON\.stringify\(\[p\.tiles, p\.more, p\.size, !!p\.scroll, centred, !!p\.half, hvHalf, !!p\.color, gm\]\);/.test(gsrc) && /return \['size', 'tile'\];/.test(gsrc));
+     /var key = JSON\.stringify\(\[p\.tiles, p\.more, p\.size, !!p\.xl, !!p\.scroll, centred, !!p\.half, hvHalf, !!p\.color, gm\]\);/.test(gsrc) && /return \['size', 'tile'\];/.test(gsrc));
   // (2026-11-08, the owner: a HomeView screen's half pills "should work like the new tiny tiles with no well/circle")
   ok('...a HomeView screen\'s half pills are Tiny\'s tile: bare glyph, one line, sized by the pill', /var hvHalf = !!p\.half && this\.getAttribute\('tile'\) === 'centred';/.test(gsrc) &&
      /el\.setAttribute\('size', 'XS'\); el\.setAttribute\('tile', 'centred'\); el\.setAttribute\('data-group-pill', ''\);/.test(gsrc) &&
@@ -225,6 +225,33 @@ function () {
   eq('a cell too short for a pill: none', P.fit('W', 100), 0);
   ok('a light pill toggles on a tap, at its regular size', l[0].tap_action.action === 'toggle' && !l[0].hk_place && !l[0].view_layout);
   ok('the speaker\'s pill keeps its own tap', !l[3].tap_action || l[3].tap_action.action !== 'toggle');
+},
+function () {
+  var fire2 = function (el, t, ev) { (el._listeners[t] || []).forEach(function (f) { f(ev); }); };
+  // EXTRA LARGE IN TWO COLUMNS (2026-11-09, mockup 13): the room on the left, its accessories on the right
+  H.section('the room, Extra Large: its facts on the left, its tiles in two columns');
+  var xl = H.make('hk-grid-room-card');
+  xl.setAttribute('size', 'XL');
+  xl.setConfig({ area: 'kitchen', size: 'XL' });
+  hkGive(xl, hass());
+  xl._h = 405;
+  H.attach(xl);
+  xl._render();
+  var xslots = xl._e.tiles.children.filter(function (c) { return c.className === 'slot'; }), x = xl._plan().x;
+  ok('two columns: the block is the grid, three rows for five tiles', xl._e.box.classList.contains('x2') && xl._e.box.classList.contains('r3') && xslots.length === 5);
+  eq('the lights, then the speaker, then the rest', xl._plan().tiles.map(function (c) { return c.entity; }),
+     ['light.kitchen_counter', 'light.kitchen_pendant', 'light.kitchen_strip', 'media_player.kitchen_speaker', 'media_player.kitchen_tv']);
+  eq('the scenes in the room\'s area, A to Z (not the den\'s)', x.scenes.map(function (sc) { return sc.id; }), ['scene.dinner_time', 'scene.good_morning']);
+  ok('one key per scene, 56 px tall, stacked full width', xl._e.xs.children.length === 2 && /\.sc\{[^}]*width:100%;height:56px/.test(xl.constructor.CSS) && /\.xs\{[^}]*flex-direction:column/.test(xl.constructor.CSS));
+  house.calls.length = 0;
+  fire2(xl._e.xs.children[0], 'click', { stopPropagation: function () {} });
+  eq('a scene key runs the scene', house.calls, [{ domain: 'scene', service: 'turn_on', data: { entity_id: 'scene.dinner_time' } }]);
+  ok('a room with no humidity sensor draws no humidity line', x.hum === null && xl._e.xh.hidden);
+  ok('the column scrolls under a fade, the tiles keeping their size', /\.room\.x2 \.tiles\.more\{[^}]*mask-image/.test(xl.constructor.CSS) && /touch-action:pan-y/.test(xl.constructor.CSS));
+  var other = H.make('hk-grid-room-card');
+  other.setAttribute('size', 'L'); other.setConfig({ area: 'kitchen', size: 'L' }); hkGive(other, hass()); other._h = 334; H.attach(other); other._render();
+  ok('the other sizes are as they were: no two columns', !other._e.box.classList.contains('x2') && !other._plan().xl);
+  H.detach(xl); H.detach(other);
 },
 function () {
   H.section('press and hold: the dimmer');

@@ -76,9 +76,10 @@
     // never a setpoint: hkRoom.climateReading), the lights on, and at Extra
     // Large a speaker playing -- "71° · 2 lights on"; Wide, beside the name,
     // the short form "71° · 2 on"
-    function roomLine(client, area, parts, size) {
+    // THE ROOM'S TEMPERATURE: a sensor's, else its thermostat's reading (as the house reports it, the way the thermostat's tile
+    // says it -- no conversion); null when it has none
+    function roomTemp(client, area) {
       var st = client.states || {}, temp = null;
-      // (as the house reports it, the way the thermostat's tile says it -- no conversion)
       var ids = Object.keys(st).filter(function (id) {
         return areaOf(client, id) === area && ((dom(id) === 'sensor' && attr(st[id], 'device_class') === 'temperature') || dom(id) === 'climate');
       }).sort(function (a, b) { return (dom(a) === 'sensor' ? 0 : 1) - (dom(b) === 'sensor' ? 0 : 1); });
@@ -86,6 +87,22 @@
         var raw = dom(ids[i]) === 'climate' ? attr(st[ids[i]], 'current_temperature') : st[ids[i]].state;
         if (raw != null && raw !== '' && isFinite(Number(raw)) && !OFF[st[ids[i]].state]) temp = Number(raw);
       }
+      return temp;
+    }
+    // ...and its humidity, whole percent: a humidity sensor's, else a thermostat's reading (the Extra Large Room's line under
+    // the temperature, 2026-11-09, mockup 13)
+    function roomHumidity(client, area) {
+      var st = client.states || {}, ids = Object.keys(st).filter(function (id) {
+        return areaOf(client, id) === area && ((dom(id) === 'sensor' && attr(st[id], 'device_class') === 'humidity') || dom(id) === 'climate');
+      }).sort(function (a, b) { return (dom(a) === 'sensor' ? 0 : 1) - (dom(b) === 'sensor' ? 0 : 1); });
+      for (var i = 0; i < ids.length; i++) {
+        var raw = dom(ids[i]) === 'climate' ? attr(st[ids[i]], 'current_humidity') : st[ids[i]].state;
+        if (raw != null && raw !== '' && isFinite(Number(raw)) && !OFF[st[ids[i]].state]) return Math.round(Number(raw));
+      }
+      return null;
+    }
+    function roomLine(client, area, parts, size) {
+      var st = client.states || {}, temp = roomTemp(client, area);
       var lit = parts.all.filter(function (c) { return dom(c.entity) === 'light' && st[c.entity] && st[c.entity].state === 'on'; }).length;
       var playing = parts.speakers.some(function (c) { return st[c.entity] && st[c.entity].state === 'playing'; });
       var out = [];
@@ -401,7 +418,7 @@
     K.HOLD_MS = HOLD_MS; K.holds = holds; K.houseMinutes = houseMinutes; K.isGroup = isGroup; K.kind = kind;
     K.layout = layout; K.menuCounts = menuCounts; K.minutes = minutes; K.OFF = OFF; K.own = own; K.percent = percent;
     K.pill = pill; K.PILL_H = PILL_H; K.plan = plan; K.plural = plural; K.roomLine = roomLine; K.roomOf = roomOf;
-    K.roomParts = roomParts; K.sceneSays = sceneSays; K.setting = setting; K.shape = shape; K.SLOP = SLOP; K.speakerOf = speakerOf;
+    K.roomParts = roomParts; K.roomTemp = roomTemp; K.roomHumidity = roomHumidity; K.sceneSays = sceneSays; K.setting = setting; K.shape = shape; K.SLOP = SLOP; K.speakerOf = speakerOf;
     K.twoOf = twoOf;
     K.suggestion = suggestion; K.TABLET_ROOM = TABLET_ROOM;
   };

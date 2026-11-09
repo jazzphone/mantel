@@ -168,6 +168,38 @@
       '  background:rgba(255,255,255,.94);color:#1c1c1e;' + C.typeCss('headline') + ';-webkit-tap-highlight-color:transparent}.pp:active{transform:scale(.96)}.pp hk-icon{width:22px;height:22px;--mdc-icon-size:22px}',
       '.mu.XL .cv{--across:5}.mu.XL .cvw{flex:none}.mu.XL .top{flex:1;min-height:0}.mu.XL .last{height:100%;width:auto;aspect-ratio:1}',
       '.top .col{display:flex;flex-direction:column;min-width:0;flex:1}',
+      // EXTRA LARGE IN TWO COLUMNS (2026-11-09, mockup 13: "the last thing played large on the left, with Play and Browse (56 px);
+      // the rest of what was played on the right, scrolling. Today the art sits top-left and the row of covers runs off the
+      // edge"): a 232 px column (heading, the 196 px cover, its name, Play and a round Browse at the foot), the gap the
+      // block's inset, and the rest as 56 px rows that scroll with the fade at the foot (hk-media-now.js .npql)
+      'hk-plate.mu.xl2{flex-direction:row;gap:var(--hk-pad-l,14px)}',
+      '.xl2 .lc{display:flex;flex-direction:column;flex:none;width:232px;min-width:0;min-height:0}',
+      C.headRowCss('.xl2 .hd2') + '.xl2 .hd2{justify-content:flex-start}',
+      C.headCss('.xl2 .hd2 span'),
+      '.xl2 .lc .last{--big:196px;width:196px;height:196px;aspect-ratio:auto;flex:none;margin-bottom:10px}',
+      '.xl2 .lc .t1{' + C.typeCss('headline') + ';font-size:17px;font-weight:600;line-height:22px;margin:0}',
+      '.xl2 .lc .t2{font-size:15px;font-weight:400;line-height:20px;color:' + C.v('ink-2') + '}',
+      '.xl2 .acts{display:flex;gap:10px;margin-top:auto;flex:none}',
+      '.xl2 .acts button{all:unset;box-sizing:border-box;height:56px;display:inline-flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;-webkit-tap-highlight-color:transparent}',
+      '.xl2 .acts .pp{flex:1;border-radius:28px;background:rgba(255,255,255,.94);color:#1c1c1e;' + C.typeCss('headline') + '}',
+      '.xl2 .acts .br{flex:none;width:56px;border-radius:50%;background:rgba(255,255,255,.16);color:' + C.v('ink') + '}',
+      '.xl2 .acts button:active{transform:scale(.96)}',
+      '.xl2 .acts button:focus-visible{outline:2px solid ' + C.v('ink') + ';outline-offset:2px}',
+      '.xl2 .acts .pp hk-icon{width:22px;height:22px;--mdc-icon-size:22px}',
+      '.xl2 .acts .br hk-icon{width:26px;height:26px;--mdc-icon-size:26px}',
+      '.xl2 .rc{display:flex;flex-direction:column;flex:1;min-width:0;min-height:0}',
+      '.xl2 .al{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;scrollbar-width:none}',
+      '.xl2 .al::-webkit-scrollbar{display:none}',
+      '.xl2 .al.more{-webkit-mask-image:linear-gradient(180deg,#000 calc(100% - 56px),transparent);mask-image:linear-gradient(180deg,#000 calc(100% - 56px),transparent)}',
+      '.xl2 .rw{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:12px;width:100%;height:56px;cursor:pointer;border-bottom:1px solid ' + C.v('line') + ';-webkit-tap-highlight-color:transparent}',
+      '.xl2 .rw:last-child{border-bottom:0}',
+      '.xl2 .rw:active{opacity:.55}.xl2 .rw.busy{opacity:.55}',
+      '.xl2 .rw:focus-visible{outline:2px solid ' + C.v('ink') + ';outline-offset:-2px}',
+      '.xl2 .rw .cvr{width:44px;height:44px;box-shadow:none}.xl2 .rw .cvr hk-icon{width:20px;height:20px;--mdc-icon-size:20px}',
+      '.xl2 .rw .tx{display:flex;flex-direction:column;min-width:0;flex:1}',
+      '.xl2 .rw .rt{font-size:15px;font-weight:600;line-height:19px;color:' + C.v('ink') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+      '.xl2 .rw .ra{font-size:13px;font-weight:400;line-height:17px;color:' + C.v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+      '.xl2 .nn{flex:1;display:grid;place-items:center;text-align:center;' + C.typeCss('caption') + ';color:' + C.v('ink-2') + '}',
       '.top .t1{' + C.typeCss('title') + ';line-height:27px;margin-top:2px}',
       // (the second ink, not Music's pink -- 2026-11-01, the owner: "I don't like the Red Playlist Font color")
       '.top .t2{' + C.typeCss('body') + ';line-height:19px;color:' + C.v('ink-2') + '}',
@@ -267,13 +299,28 @@
           (last ? '<button type="button" class="go" data-i="0" aria-label="Play ' + esc(last.name) + '"><hk-icon icon="mdi:play"></hk-icon></button>' : '') +
           '<div class="ft">' + words + '</div>';
         else if (s === 'W' || s === 'T') body = '<span class="lab">' + lab + '</span>' + grid;
+        else if (s === 'XL' && mode !== 'playlist') {
+          // (Extra Large, 2026-11-09 mockup 13: no list of the rest, the right column says so; the left column keeps its places while asking)
+          var rows = more.map(function (it, j) {
+            return '<button type="button" class="rw" data-i="' + (j + 1) + '"' + (it ? ' aria-label="Play ' + esc(it.name) + '"' : ' disabled') + '>' + self._cover(it) +
+              '<span class="tx"><span class="rt">' + (it ? esc(it.name) : '&nbsp;') + '</span><span class="ra">' + (it ? esc(it.artist === 'Playlist' ? '' : it.artist) : '&nbsp;') + '</span></span></button>';
+          }).join('');
+          body = '<div class="lc"><div class="hd2"><span>' + lab + '</span></div>' + lastBtn + words +
+            '<div class="acts"><button type="button" class="pp" data-i="0"' + (last ? '' : ' disabled') + '><hk-icon icon="mdi:play"></hk-icon>Play</button>' +
+            '<button type="button" class="br" aria-label="Browse music"><hk-icon icon="mdi:magnify"></hk-icon></button></div></div>' +
+            '<div class="rc"><div class="hd2"><span>' + (mode === 'presets' ? 'More Playlists' : 'Also Played') + '</span></div>' +
+            (rows ? '<div class="al">' + rows + '</div>' : '<div class="nn">Nothing else yet.</div>') + '</div>';
+        }
         else body = '<div class="top">' + lastBtn + '<div class="col"><span class="lab">' + lab + '</span>' + words +
           // (Extra Large: Play at the cover's foot, the column beside it not left empty)
           (s === 'XL' && last ? '<button type="button" class="pp" data-i="0"><hk-icon icon="mdi:play"></hk-icon>Play</button>' : '') +
           '</div></div><div class="hr"></div>' + grid;
-        this._root.innerHTML = '<hk-plate class="mu ' + s + '" data-hk-role="card">' + body + '</hk-plate>';
+        this._root.innerHTML = '<hk-plate class="mu ' + s + (s === 'XL' && mode !== 'playlist' && !(items && !items.length) ? ' xl2' : '') + '" data-hk-role="card">' + body + '</hk-plate>';
         var plate = this._root.querySelector('hk-plate');
         this._across();
+        this._fade();
+        var br = this._root.querySelector('.br');
+        if (br) br.addEventListener('click', function (e) { e.stopPropagation(); self._browse(); });
         if (s === 'S' && last && last.image) this._artImage(last.image, this._root.querySelector('.bg .cvr'), '<hk-icon icon="' + esc(last.icon || 'mdi:music') + '"></hk-icon>', 600);
         this._root.querySelectorAll('[data-i]').forEach(function (b) {
           var it = list[+b.getAttribute('data-i')];
@@ -282,6 +329,21 @@
           if (s === 'S') b._busyOn = plate;            // (Small's busy look is the whole block's)
           b.addEventListener('click', function (e) { e.stopPropagation(); self._play(it, b); });
         });
+      }
+      // THE FADE AT THE FOOT of Extra Large's list while more is below it (hk-media-now.js _qFade; none once scrolled to the end)
+      _fade() {
+        var l = this._root.querySelector('.al');
+        if (this._ro2) { this._ro2.disconnect(); this._ro2 = null; }
+        if (!l) return;
+        var f = function () { l.classList.toggle('more', l.scrollHeight - l.clientHeight - l.scrollTop > 4); };
+        l.addEventListener('scroll', f, { passive: true });
+        f();
+        if (typeof ResizeObserver === 'function') { var ro = new ResizeObserver(f); ro.observe(l); this._ro2 = ro; }
+      }
+      // BROWSE (2026-11-09, mockup 13): what a tap on the block's plate opens -- the Music page's browse, else its player page
+      _browse() {
+        var M = window.hkCards.menu, path = M && M.pagePath ? (M.pagePath('music-browse') || M.pagePath('playmusic')) : null;
+        if (path) window.hkShell.navigate(path);
       }
       // HOW BIG ACROSS (2026-11-07, the owner: a Wide Playlists block's covers "could fill out the space better",
       // its spare height all under the names): each cover as tall as the block's height lets it, the next one
@@ -313,6 +375,7 @@
       }
       disconnectedCallback() {
         if (this._ro) { this._ro.disconnect(); this._ro = null; }
+        if (this._ro2) { this._ro2.disconnect(); this._ro2 = null; }
         if (super.disconnectedCallback) super.disconnectedCallback();
       }
       connectedCallback() {

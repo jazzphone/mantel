@@ -117,28 +117,36 @@ H.run('TIMERS PAGE', [
   function () {
     H.section('hk-timer-new-card, layout: panel');
     var W = customElements.get('hk-timer-new-card').words;
-    H.eq('Start says what it starts', [W({ total: 1500, h: 0, m: 25 }), W({ total: 3600, h: 1, m: 0 }), W({ total: 5400, h: 1, m: 30 })],
-         ['25 min', '1 hr', '1 hr 30 min']);
+    H.eq('Start says what it starts, to the second', [W({ total: 1500, h: 0, m: 25, s: 0 }), W({ total: 3600, h: 1, m: 0, s: 0 }), W({ total: 5400, h: 1, m: 30, s: 0 }),
+                                                      W({ total: 45, h: 0, m: 0, s: 45 }), W({ total: 90, h: 0, m: 1, s: 30 })],
+         ['25 min', '1 hr', '1 hr 30 min', '45 sec', '1 min 30 sec']);
     var p = H.make('hk-timer-new-card');
     real(p._root);
     p.setConfig({ layout: 'panel', name_chips: ['Pasta', 'Oven', 'Laundry', 'Tea', 'Kids', 'Break', 'Extra'], tint: 'rgb(1, 2, 3)' });
     var wrap = p._root.children[0], parts = wrap.children.map(function (c) { return c.className; });
-    H.eq('one column, no caption: the duration, the keypad, the name, the chips, Start',
-         parts, ['ro', 'pad', 'namebox', 'chips', 'start']);
+    // (the roller, hk-roller.js -- the owner's mockup 5c, 2026-11-09: hours, minutes and seconds on wheels where the keypad was)
+    H.eq('one column, no caption: the wheels, when it ends, the name, the chips, Start',
+         parts, ['hkr', 'ro', 'namebox', 'chips', 'start']);
     H.eq('the plate carries the tint for Start', [wrap.className, wrap.style['--hk-timer-tint']], ['wrap panel', 'rgb(1, 2, 3)']);
-    H.ok('the status line shares the hint\'s place beside the duration',
-         wrap.children[0].children[1].className === 'side' && wrap.children[0].children[1].children[1].className === 'hk-status');
-    var pad = wrap.children[1].children;
-    H.eq('twelve keys, the last is Delete', [pad.length, pad[9].textContent, pad[11].getAttribute('aria-label')], [12, '00', 'Delete']);
+    H.ok('the status line shares the end time\'s place under the wheels',
+         wrap.children[1].children[0].className === 'ends' && wrap.children[1].children[1].className === 'hk-status');
+    var cols = wrap.children[0].children.filter(function (c) { return c.className === 'hkr-col'; });
+    H.eq('three wheels: hours, minutes, seconds, each a spin button with its unit',
+         cols.map(function (c) { return [c.children[0].getAttribute('role'), c.children[0].getAttribute('aria-label'), c.children[1].textContent]; }),
+         [['spinbutton', 'Hours', 'hr'], ['spinbutton', 'Minutes', 'min'], ['spinbutton', 'Seconds', 'sec']]);
+    H.eq('...0 to 23 hours, 0 to 59 minutes and seconds (and the two pads either end)',
+         cols.map(function (c) { return c.children[0].children.length - 2; }), [24, 60, 60]);
     H.eq('six name chips, never more (three by two)', wrap.children[3].children.length, 6);
     var start = wrap.children[4];
-    H.eq('empty: Start is off and the readout asks for a duration',
-         [start.getAttribute('aria-disabled'), start.textContent, wrap.children[0].children[1].children[0].textContent],
-         ['true', 'Start Timer', 'Type a duration']);
-    pad[1].click(); pad[4].click();      // 2, 5
-    H.eq('25 typed: "Start 25 min", and when it would end',
-         [start.getAttribute('aria-disabled'), start.textContent, /^Ends /.test(wrap.children[0].children[1].children[0].textContent)],
-         ['false', 'Start 25 min', true]);
+    H.eq('it opens on 15 minutes, ready to start', [start.getAttribute('aria-disabled'), start.textContent], ['false', 'Start 15 min']);
+    p._setDur({ h: 0, m: 0, s: 0 });
+    H.eq('all wheels at 0: Start is off and the line asks for a duration',
+         [start.getAttribute('aria-disabled'), start.textContent, wrap.children[1].children[0].textContent],
+         ['true', 'Start Timer', 'Set a duration']);
+    p._setDur({ h: 0, m: 25, s: 30 });
+    H.eq('25 min 30 sec set: "Start 25 min 30 sec", and when it would end',
+         [start.getAttribute('aria-disabled'), start.textContent, /^Ends /.test(wrap.children[1].children[0].textContent)],
+         ['false', 'Start 25 min 30 sec', true]);
     wrap.children[3].children[3].click();   // Tea
     H.eq('a chip is the name', [p._name, wrap.children[3].children[3].getAttribute('aria-pressed')], ['Tea', 'true']);
     H.attach(p);

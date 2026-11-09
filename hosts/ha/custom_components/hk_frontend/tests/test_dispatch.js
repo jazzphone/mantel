@@ -186,16 +186,16 @@ tick().then(function () {
     return base._call('x', 'y', {}).then(function (v) { boolOnOk = v; }).then(function () {
     check('an accepted call resolves true', boolOnOk === true);
 
-    // --- the timer keypad ------------------------------------------------
+    // --- the timer wheels (hk-roller.js since 2026-11-09) ----------------
     var kp = card('hk-timer-new-card', {});
-    kp._digits = '130'; kp._name = 'Pasta';
+    kp._dur = { h: 1, m: 30, s: 0 }; kp._name = 'Pasta';
     kp._paint = function () {};
-    kp._parse = function () { return { total: 5400 }; };
+    kp._parse = function () { return { h: 1, m: 30, s: 0, total: 5400 }; };
 
     hkGive(kp, hassThat('reject'));
     kp._start();
     return tick().then(function () {
-      check('a failed timer keeps the digits', kp._digits === '130');
+      check('a failed timer keeps the duration', kp._dur.h === 1 && kp._dur.m === 30);
       check('a failed timer keeps the name', kp._name === 'Pasta');
       check('a failed timer releases the busy latch', kp._busy === false);
 
@@ -203,7 +203,7 @@ tick().then(function () {
       hkGive(kp, hassThat('ok'));
       kp._start();
       return tick().then(function () {
-        check('a successful timer clears the digits', kp._digits === '');
+        check('a successful timer keeps the wheels where they were (the Clock app\'s)', kp._dur.h === 1 && kp._dur.m === 30);
         check('a successful timer clears the name', kp._name === '');
 
         // Double-tap during the round trip sends once.
@@ -211,14 +211,14 @@ tick().then(function () {
           callService: function (d, s) { this.sent.push(d + '.' + s);
             var self = this; return new Promise(function (r) { self._res = r; }); } };
         var kp2 = card('hk-timer-new-card', {});
-        kp2._digits = '15'; kp2._name = ''; kp2._paint = function () {};
-        kp2._parse = function () { return { total: 900 }; };
+        kp2._dur = { h: 0, m: 15, s: 0 }; kp2._name = 'Tea'; kp2._paint = function () {};
+        kp2._parse = function () { return { h: 0, m: 15, s: 0, total: 900 }; };
         hkGive(kp2, slow);
         kp2._start(); kp2._start(); kp2._start();
         check('three taps during one flight send one call', slow.sent.length === 1);
         slow._res({});
         return tick().then(function () {
-          check('the form clears once the slow call lands', kp2._digits === '');
+          check('the name clears once the slow call lands', kp2._name === '');
 
           // --- the vacuum area picker --------------------------------------
           var vac = card('hk-area-select-card', { floors: [], start_script: 'script.clean' });
@@ -368,9 +368,9 @@ function hassReturning(resp) {
 
 function keypad(hass) {
   var kp = card('hk-timer-new-card', {});
-  kp._digits = '15'; kp._name = 'Pasta';
+  kp._dur = { h: 0, m: 15, s: 30 }; kp._name = 'Pasta';
   kp._paint = function () {}; kp._render = function () {};
-  kp._parse = function () { return { total: 900 }; };
+  kp._parse = function () { return { h: 0, m: 15, s: 30, total: 930 }; };
   hkGive(kp, hass);
   return kp;
 }
@@ -383,13 +383,13 @@ function outcomes() {
   var k0 = keypad(hassReturning({ started: true, slot: 'timer.quick_1' }));
   k0._start();
   return tick().then(function () {
-    check('the keypad calls the script directly, not script.turn_on',
-          k0.hass.sent[0].call === 'script.quick_timer_create');
+    check('the wheels call the start script directly, not script.turn_on',
+          k0.hass.sent[0].call === 'script.quick_timer_start');
     check('the keypad asks for the service response',
           k0.hass.sent[0].wantsResponse === true);
-    check('the keypad sends the digits and the name',
-          k0.hass.sent[0].data.digits === '15' && k0.hass.sent[0].data.name === 'Pasta');
-    check('a started timer clears the form', k0._digits === '' && k0._name === '');
+    check('the wheels send the duration to the second, HH:MM:SS, and the name',
+          k0.hass.sent[0].data.duration === '00:15:30' && k0.hass.sent[0].data.name === 'Pasta');
+    check('a started timer clears the name and keeps the wheels', k0._name === '' && k0._dur.s === 30);
     check('a started timer reports success', statusOf(k0).kind === 'sent');
 
     // --- all four slots busy -------------------------------------------------
@@ -400,7 +400,7 @@ function outcomes() {
       check('a full timer rack is NOT reported as success',
             statusOf(k1).kind === 'warn');
       check('a full timer rack says so', /too many timers/i.test(statusOf(k1).text));
-      check('a full timer rack KEEPS the typed duration', k1._digits === '15');
+      check('a full timer rack KEEPS the duration', k1._dur.m === 15);
       check('a full timer rack keeps the typed name', k1._name === 'Pasta');
 
       // --- nothing typed ------------------------------------------------------
@@ -419,7 +419,7 @@ function outcomes() {
         return tick().then(function () {
           check('a rejected dispatch reports failure, not warning',
                 statusOf(k3).kind === 'failed');
-          check('a rejected dispatch keeps the digits', k3._digits === '15');
+          check('a rejected dispatch keeps the duration', k3._dur.m === 15);
 
           // --- an HA that returns no response at all --------------------------
           // A timer script that returns nothing. "Accepted" is all that is
@@ -429,7 +429,7 @@ function outcomes() {
           k4._start();
           return tick().then(function () {
             check('no response means sent, not started', statusOf(k4).kind === 'sent');
-            check('no response still clears the form', k4._digits === '');
+            check('no response still clears the name', k4._name === '');
 
             // --- failures must not expire ---------------------------------
             // A 'sent' message is informative and times out. A 'warn' or a
@@ -483,7 +483,7 @@ function outcomes() {
                           statusOf(k9).kind === 'failed' && /helpers/.test(statusOf(k9).text));
                     check('no timer helpers: not "could not reach Home Assistant"',
                           !/reach/i.test(statusOf(k9).text));
-                    check('no timer helpers: the typed duration is kept', k9._digits === '15');
+                    check('no timer helpers: the duration is kept', k9._dur.m === 15);
 
                     print(fail ? 'FAIL ' + fail + ' DISPATCH TESTS'
                                : 'ALL ' + pass + ' DISPATCH TESTS PASS');
