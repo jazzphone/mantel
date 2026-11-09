@@ -308,7 +308,8 @@
           return { text: lag != null ? 'Live, about ' + Math.max(1, Math.round(lag / 1000)) + ' s behind you' : 'Live', kind: 'live' };
         }
         return { text: '', kind: 'live' };              // the button says it: its word is the time, its hint the time left
-      case 'sending': return this.fallback.length ? { text: this._fallbackLine(), kind: 'info' } : { text: WORDS.sending, kind: 'pending' };
+      // (the big word already says "Sending…": the line under it says where to, never the same word again)
+      case 'sending': return this.fallback.length ? { text: this._fallbackLine(), kind: 'info' } : { text: names.length ? 'To ' + (names.length > 2 ? plural(names.length, 'room', 'rooms') : names.join(', ')) : '', kind: 'pending' };
       case 'sent': return this._sentLine();
       case 'review': return names.length ? { text: 'Ready to send to ' + names.join(', '), kind: 'info' } : { text: WORDS.chooseRooms, kind: 'info' };
       case 'error': return { text: WORDS.lost, kind: 'failed' };
@@ -1281,9 +1282,9 @@
       // THE TALK GROUP ON THE ROOMS PANEL'S CENTER LINE (2026-11-07, the review): the button, its word and the line were
       // top-weighted ~65 px above the panel's middle on a 1280 x 800 tablet; a taller list of rooms still scrolls past it
       '  .talk{align-self:center}}',
-      // the talk side stays in view while a long list of rooms scrolls -- only where it fits: taller than the sheet, its
-      // own buttons would never come into view (a phone on its side, 2026-11-05)
-      '@media (min-height:760px){@container (min-width:680px){.talk{position:sticky;top:0}}}',
+      // (NOT STICKY, 2026-11-09: position:sticky made the talk side a layer of its own inside the sheet's backdrop-filter
+      // glass, and the wall tablets drew it a shade lighter, a box with a hard edge under the status line -- the owner's
+      // photo. Nine rooms fit beside it at 1280 x 800; a longer list scrolls the talk side with it.)
       '@media (max-width:' + C.BP.phone + 'px){.cols{gap:' + SPC.piecePhone + 'px}}',
       C.segCss('.seg', { on: '.sel', fill: true }),
       '.seg{align-self:stretch}',
@@ -1309,8 +1310,12 @@
       '.mic[data-kind="rec"] .mb{--c:' + TALK.rec + '}',
       '.mic[data-kind="live"] .mb{--c:' + TALK.live + '}',
       '.mic[data-kind="wait"] .mb{--c:' + TALK.wait + '}',
+      // SENDING'S PULSE is a color, not opacity (2026-11-09, the owner: "a box around the microphone button column ... a hard edge
+      // under the sending text"): an opacity animation gets the core a compositor layer of its own, and on the wall tablets'
+      // WebView that layer and the sheet's backdrop-filter glass were drawn apart -- a lighter rectangle the talk column's size.
+      // A background-color animation is painted in the page's own layer.
       '.mic[data-kind="busy"] .core{animation:hki-pulse 1.1s ease-in-out infinite}',
-      '@keyframes hki-pulse{50%{opacity:.6}}',
+      '@keyframes hki-pulse{50%{background-color:color-mix(in srgb,var(--c) 62%,transparent)}}',
       '.mic[data-kind="off"] .mb{--c:rgba(255,255,255,0.22);cursor:default}',
       '.wd{font-size:38px;font-weight:600;letter-spacing:-1px;line-height:44px;text-align:center;font-variant-numeric:tabular-nums;color:' + v('ink') + '}',
       '.mt{font-size:15px;font-weight:500;color:' + v('ink-2') + ';min-height:20px;line-height:20px;text-align:center;font-variant-numeric:tabular-nums}',
