@@ -189,12 +189,15 @@ async def main():
             assert await b.wait("(()=>{const l=np('x').shadowRoot.querySelector('.npql'),t=l.scrollTop;"
                                 "return new Promise(r=>setTimeout(()=>r(l.scrollTop===t),250))})()", 5)
             t = await b.eval("(()=>{const e=np('x').shadowRoot.querySelectorAll('.npqr')[16].getBoundingClientRect();return {x:e.left+40,y:(e.top+e.bottom)/2}})()")
+            # (what the tap asks for, recorded: the card's own "playing it" mark clears as soon as the server answers, which
+            # a loaded machine's check could miss -- 2026-11-09, the release run)
+            await b.eval("window.__played=[];np('x')._playQueued=function(id){window.__played.push(id)}")
             for _ in range(2):
                 await b.send('Input.dispatchTouchEvent', type='touchStart', touchPoints=[{'x': t['x'], 'y': t['y']}])
                 await b.send('Input.dispatchTouchEvent', type='touchEnd', touchPoints=[])
-                if await b.wait("np('x')._qBusy==='17'", 3):
+                if await b.wait("window.__played.length>0", 3):
                     break
-            assert await b.eval("np('x')._qBusy==='17'"), 'a tap on the 17th song plays it'
+            assert await b.eval("window.__played[0]==='17'"), ('a tap on the 17th song plays it', await b.eval("window.__played"))
             print('  x: Up Next scrolls by finger, a tap plays the song')
             # the Extra Large block: its Browse (the button in Up Next's heading since mockup 12i), then the X
             await b.eval("np('x').shadowRoot.querySelector('.npqb').click()")

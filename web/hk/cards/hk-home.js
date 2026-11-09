@@ -2145,7 +2145,7 @@
         '.rk svg{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg);overflow:visible}.rk circle{fill:none;stroke-width:10px;stroke:' + window.hkCards.v('line-strong') + '}',
         '.rk .left{stroke:' + window.hkCards.ACCENTS.orange + ';stroke-linecap:round;stroke-dasharray:var(--a) 100}',
         '.rk b{position:relative;font-size:max(13px,calc(var(--k) * 0.3));font-weight:600;letter-spacing:-0.02em;color:' + window.hkCards.v('ink') + ';font-variant-numeric:tabular-nums}',
-        '.rk.add,.rk.cap{background:' + window.hkCards.ACCENTS.orange + ';color:#fff}.rk.cap{width:auto;height:44px;padding:0 18px;border-radius:22px;grid-auto-flow:column;gap:8px;' + window.hkCards.typeCss('headline') + '}.rk.cap hk-icon{width:22px;height:22px;--mdc-icon-size:22px}.rk.add hk-icon{width:calc(var(--k) * 0.46);height:calc(var(--k) * 0.46);--mdc-icon-size:calc(var(--k) * 0.46)}.rk:active{transform:scale(0.95)}',
+        '.rk.add{background:' + window.hkCards.ACCENTS.orange + ';color:#fff}.rk.add hk-icon{width:calc(var(--k) * 0.46);height:calc(var(--k) * 0.46);--mdc-icon-size:calc(var(--k) * 0.46)}.rk:active{transform:scale(0.95)}',
         '.rk:focus-visible{outline:2px solid ' + window.hkCards.v('ink-2') + ';outline-offset:2px}'
       ].join('');
     }
@@ -2216,10 +2216,15 @@
       var fitK = (cols, rows, max, w, gap) => Math.max(40, Math.min(max, Math.floor(((w || iw) - (cols - 1) * gap) / cols), Math.floor((ih - 36 - (rows - 1) * gap) / rows)));
       var idle = (second) => {
         var S = sized;
-        // A SECOND PLACE (Start another) and SMALL (its state and one key) as they were
-        if (second || S === 'S') {
-          return '<div class="gt idle' + (second ? ' two' : '') + '" style="--sf:' + (second ? 15 : 22) + 'px"><span class="none">' + (second ? 'Start another' : 'None running') + '</span>' +
-            '<div class="qs" style="--k:48px;--qc:0">' + (S === 'S' && !second ? '<button class="rk cap" data-new aria-label="Create a Timer"><hk-icon icon="mdi:plus"></hk-icon>Start a timer</button>' : plus) + '</div></div>';
+        // A SECOND PLACE (Start another) as it was
+        if (second) {
+          return '<div class="gt idle two" style="--sf:15px"><span class="none">Start another</span><div class="qs" style="--k:48px;--qc:0">' + plus + '</div></div>';
+        }
+        // SMALL (2026-11-09, the owner: "The button is getting clipped. Also the font here, doesn't seem to match anything else"): as the
+        // other sizes, the direction over its one key -- "Start a Timer" over the orange +, which opens the New Timer sheet; not a
+        // "Start a timer" pill wider than the block under "None running" in the countdown's light type
+        if (S === 'S') {
+          return '<div class="gt idle dg"><span class="dir">Start a Timer</span><div class="qs g" style="--k:' + fitK(1, 1, 72, 0, 12) + 'px;--qc:1">' + plus + '</div></div>';
         }
         // NONE RUNNING (the owner's mockup 5, approved 2026-11-09: "It's not really a heading though, but more of a direction"): "Start a
         // Timer" one line at the body's headline size, right over the preset rings, the two one group centered in the block -- Wide

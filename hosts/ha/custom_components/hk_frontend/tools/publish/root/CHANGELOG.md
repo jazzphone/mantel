@@ -5,6 +5,9 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+**Fixed**
+- **The Small Timers block with nothing running** says "Start a Timer" over an orange + that opens the New Timer sheet, as the bigger sizes do. The "Start a timer" button no longer runs off the block's edge, and "None running" no longer uses the countdown's light type.
+
 ## 1.54.0 - 2026-11-09
 
 **Fixed**
