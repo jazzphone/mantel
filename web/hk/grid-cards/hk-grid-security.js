@@ -151,27 +151,28 @@
     // it has, a row of 44 px each, and says "N more" for what does not fit.
     var SEC_ROW = 44;
     // THE DOORS AND WINDOWS AT A BLOCK'S FOOT (2026-11-08, the owner's "toast for the windows and doors that open"): nothing while all
-    // are closed -- the room is the list's (rows a finger's 44 px on the tablet's screen leave no room for both); else a notice -- an orange badge with the open one's glyph, what is open, and the rest under it. Extra Large's
-    // keypad block, and HomeView's Large and Tall.
+    // are closed -- the room is the list's; else a flat strip in orange: "Office Window open", or "3 open · " and their names. Extra
+    // Large's keypad block, and HomeView's Large, Tall and Wide.
     // "+N MORE" in a heading's line, as an Accessory Group's: a label, its 44 px tap round it
     var LM_CSS = '.lm{all:unset;' + C.labelCss('label') + ';line-height:16px;text-shadow:' + v('glow') + ';position:relative;top:-3px;white-space:nowrap;cursor:pointer;-webkit-tap-highlight-color:transparent;flex:none}' +
       '.lm::after{content:"";position:absolute;left:-10px;right:-10px;top:-14px;bottom:-14px}.lm[hidden]{display:none}';
     var NOTICE_CSS = [
-      '.op.toast{width:100%;height:auto;min-height:56px;justify-content:flex-start;gap:12px;padding:8px 14px 8px 10px;border-radius:var(--hk-inner-radius,' + C.R.inner + 'px);' + C.plate('tile') + ';color:' + v('ink') + ';text-shadow:none}',
-      '.op.toast .bd{width:36px;height:36px;border-radius:' + C.R.inner + 'px;background:' + v('warn') + ';display:flex;align-items:center;justify-content:center;flex:none}',
-      '.op.toast .bd hk-icon{width:24px;height:24px;color:#fff}',
-      '.op.toast .tw{display:flex;flex-direction:column;min-width:0;text-align:left}',
-      '.op.toast b{' + type('body') + ';font-weight:600;line-height:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-      '.op.toast small{' + type('caption') + ';line-height:17px;color:' + v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+      // (flat, the earlier strip's look -- the owner, 2026-11-08: "I prefer the flatter toast style", not a button like the rows): a pill of
+      // the key's fill as wide as the rows, the glyph and the words in orange, one line; its tap a finger's 44 px on screen round it
+      '.ops .op.toast{position:relative;width:100%;height:44px;justify-content:flex-start;gap:10px;padding:0 16px;border-radius:22px;background:' + v('key') + ';color:' + v('warn') + ';text-shadow:' + v('glow') + '}',
+      '.ops .op.toast::after{content:"";position:absolute;left:0;right:0;top:-6px;bottom:-6px}',
+      '.ops .op.toast hk-icon{width:20px;height:20px;color:' + v('warn') + '}',
     ].join('');
     function doorsNotice(self, box, rows, go, short) {
       var open = rows.filter(function (r) { return r.open; });
       box.innerHTML = '';
       var mk = function (cls, html, label, fn) { var d = document.createElement('div'); d.className = cls; d.innerHTML = html; self._button(d, fn); d.setAttribute('aria-label', label); return d; };
       if (open.length) {
-        var tt = open.length === 1 ? open[0].name + ' open' : open.length + (short ? ' open' : ' doors & windows open'), ts = open.length === 1 ? 'Tap to see it' : open.map(function (r) { return r.name; }).join(', ');
-        var to = mk('op toast', '<i class="bd"><hk-icon></hk-icon></i><div class="tw"><b></b><small></small></div>', tt + ': ' + open.map(function (r) { return r.name; }).join(', '), open.length === 1 ? function () { window.hkShell.moreInfo(open[0].id, self); } : go);
-        to.querySelector('hk-icon').icon = open[0].icon; to.querySelector('b').textContent = tt; to.querySelector('small').textContent = ts;
+        var names = open.map(function (r) { return r.name; }).join(', ');
+        // (short -- Wide's, under the alarm -- the count alone: its names were cut to a word)
+        var tt = short ? open.length + ' open' : open.length === 1 ? open[0].name + ' ' + (open[0].value || 'open').toLowerCase() : open.length + ' open · ' + names;
+        var to = mk('op toast', '<hk-icon></hk-icon><span></span>', open.length + ' open: ' + names, open.length === 1 ? function () { window.hkShell.moreInfo(open[0].id, self); } : go);
+        to.querySelector('hk-icon').icon = open[0].icon; to.querySelector('span').textContent = tt;
         box.appendChild(to);
       }
       box.style.display = box.children.length ? '' : 'none';
@@ -793,6 +794,9 @@
       NOTICE_CSS, LM_CSS, 'hk-plate.hv .al .lm{top:0}',
       '.en.lk:not(.lit) hk-icon{color:var(--lk)}',
       '.en.lit hk-icon,.en.lit .s{color:' + v('warn') + '}.en.lit .s{font-weight:600}',
+      // (its rows to the foot, their bottom the strip's -- the shield is the top's)
+      'hk-plate.hv[size=W] .ents{align-content:end}',
+      'hk-plate.hv[size=W] .lc{flex:0 0 42%;display:flex;flex-direction:column;gap:8px;min-width:0;min-height:0}hk-plate.hv[size=W] .lc .al{flex:1 1 auto;min-height:0}',
       'hk-plate.hv[size=L]{gap:8px}hk-plate.hv[size=L] .ents{align-content:start}',
       'hk-plate.hv[size=L]:not(.tl) .en{grid-template-columns:26px minmax(0,1fr) auto;grid-template-rows:auto;column-gap:12px;padding:0 16px 0 14px}',
       'hk-plate.hv[size=L]:not(.tl) .en .gw{grid-row:auto}hk-plate.hv[size=L]:not(.tl) .en hk-icon{width:26px;height:26px}',
@@ -837,10 +841,13 @@
           this._shape = size;
           // (TALL, 2026-11-07, the review, is Large's composition at 1 x 2: the plate says L; its heading has no chevron, the
           // block is too narrow for one beside "Disarmed")
+          var alHtml = '<div class="al"><div class="wl"><hk-icon></hk-icon></div><div class="tx"><b></b><small></small></div>' +
+            (size === 'L' ? '<button type="button" class="lm" hidden></button><hk-icon class="go" icon="mdi:chevron-right"></hk-icon>' : '') + '</div>';
           this._root.innerHTML = '<hk-plate class="hv' + (size === 'T' ? ' tl' : '') + '" data-hk-role="card" size="' + (size === 'T' ? 'L' : size) + '">' +
-            '<div class="al"><div class="wl"><hk-icon></hk-icon></div><div class="tx"><b></b><small></small></div>' +
-            (size === 'L' ? '<button type="button" class="lm" hidden></button><hk-icon class="go" icon="mdi:chevron-right"></hk-icon>' : '') + '</div><div class="ents"></div>' +
-            (size === 'L' || size === 'T' ? '<div class="ops"></div>' : '') + '</hk-plate>';
+            // (Wide: the doors and windows' strip under the alarm's words, at the left -- 2026-11-08, the owner: so "the entity buttons
+            // wouldn't get smaller")
+            (size === 'W' ? '<div class="lc">' + alHtml + '<div class="ops"></div></div><div class="ents"></div>'
+              : alHtml + '<div class="ents"></div>' + (size === 'L' || size === 'T' ? '<div class="ops"></div>' : '')) + '</hk-plate>';
           var q = this._root.querySelector.bind(this._root);
           this._e = { card: q('.hv'), al: q('.al'), icon: q('.al .wl hk-icon'), big: q('.al b'), sub: q('.al small'), ents: q('.ents'), ops: q('.ops'), lm: q('.lm'), go: q('.go') };
           this._opsKey = null;
@@ -864,7 +871,7 @@
           if (ok !== this._opsKey) {
             this._opsKey = ok;
             var al = m.alarm, go = function () { if (!window.hkCards.openTarget(self, [{ page: 'doors-windows' }, al && { sheet: al }])) self._overview(); };
-            doorsNotice(this, e.ops, dw, go, this._size() === 'T');   // (Tall's narrow: "3 open", their names under it)
+            doorsNotice(this, e.ops, dw, go, this._size() === 'W');
           }
         }
         // THE ENTRIES, built again only when who is in them or what they say changed; their order is the block's
