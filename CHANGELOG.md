@@ -20,6 +20,7 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 - **The Small On Now block says "Off" (and "Idle" for speakers) for a kind with nothing on**, as the Wide block does, instead of "0".
 - **The Vacuum block's "All rooms" row is a 56 px touch target** on Tall, as the block's other keys are, instead of 44 px.
 - **A Compact Security block can be added again**: in the Home Grid editor, choosing Security at Compact (3 x 1) said it didn't fit and Add did nothing, though a 3 x 1 place was free -- the new block was checked as Compact without Security's HomeView presentation, which only Compact allows, so it was refused. A new Compact Security now starts as HomeView.
+- **Running timers are one piece each.** The Timers block shows each timer's name, its ring with the time left inside it, and Pause (or Resume) and a red Stop right under the ring: three across on Extra Large, two on Large, one on Tall ("+N more" under it), two on Wide with the keys beside each ring, and on Small the ring alone. The ring is no longer the pause key.
 
 ## 0.1.158 - 2026-11-09
 

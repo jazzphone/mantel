@@ -1124,7 +1124,9 @@ CONTROLS_RULES = {"S": 1, "W": 3, "T": 3}
 # ...but Now Playing's Wide and Tall have a fourth, the volume (2026-11-09, the owner: "Looks like the tall and the wide cards lost
 # their volume slider?"; "Volume is more important than the progress bar for these cards"): the three keys and the slider
 # -- and a fifth, the speaker line over the title (2026-11-09, the owner's mockup 12h: it took the Speakers key's place)
-CONTROLS_RULES_OF = {"now_playing": {"W": 5, "T": 5}}
+# ...and the Timers block's running timers (2026-11-09, the owner's decision on mockup 5: "Running timers on Wide... Follow the mockup"): two
+# timers, each its Pause (Resume) and its red Stop -- four keys, more than three, because each running timer is one piece with its own keys
+CONTROLS_RULES_OF = {"now_playing": {"W": 5, "T": 5}, "timers": {"W": 4}}
 CLEAR = 8
 
 

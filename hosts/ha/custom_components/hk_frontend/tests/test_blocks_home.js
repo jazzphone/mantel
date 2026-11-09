@@ -64,23 +64,31 @@ function tap(card, attrs) {
 
 H.run('HOME BLOCKS', [
 function () {
-  H.section('Timers: the ring is the pause, a big red Stop; Small one, Wide two');
+  H.section('Timers: each running timer one piece (ring with its time, Pause and Stop under it); Small one, Wide two');
   window.hkTimers = { secs: function (v) { var p = String(v || '0').split(':').map(Number); return p.length === 3 ? p[0] * 3600 + p[1] * 60 + p[2] : 0; } };
   var s = sized('hk-timer-strip-card', 'S', { entity: 'sensor.running_quick_timers' }), html = s._e.__html;
   ok('Small: one timer, its name and its time, the soonest', /class="nm">Pasta</.test(html) && html.indexOf('Laundry</b>') < 0);
-  ok('...the other said at its top', /\+1 more/.test(html));
-  ok('...the ring is a key that pauses it, pause at its centre',
-     /<button class="pr" data-timer="timer.quick_1" data-service="pause" aria-label="Pause Pasta">/.test(html) && /mdi:pause/.test(html));
-  ok('...the red Stop cancels it', /<button class="stop" data-timer="timer.quick_1" data-service="cancel" aria-label="Stop Pasta"><hk-icon icon="mdi:stop">/.test(html));
-  ok('...the countdown is the column\'s own child, so the ring reads its fraction (--hk-left)',
-     /<div class="gt"><div class="hd">[\s\S]*?<\/div><hk-countdown deadline="\d+" total="720">/.test(html));
+  ok('...no "+1 more" line on Small: the ring alone', !/\+1 more/.test(html));
+  // (mockup 5, approved 2026-11-09: each running timer one piece -- name, ring with the time inside, Pause and Stop under it; Small the ring alone)
+  ok('...Small: the ring alone with the time inside it, no keys (the block\'s tap opens the Timers page)', !/class="pr"/.test(html) && !/class="stop"/.test(html) &&
+     /<div class="rw"><svg[\s\S]*?<hk-countdown deadline="\d+" total="720"><\/hk-countdown><\/div>/.test(html));
+  ok('...the countdown is the ring\'s own child, so the circle reads its fraction (--hk-left)', /<div class="gt"><div class="hd"><b class="nm">Pasta<\/b><\/div><div class="rg"><div class="rw"><svg/.test(html));
+  var lx = sized('hk-timer-strip-card', 'L', { entity: 'sensor.running_quick_timers' })._e.__html;
+  ok('Large: Pause is its own key under the ring, the red Stop beside it, the ring no longer a button',
+     /<button class="pr" data-timer="timer.quick_1" data-service="pause" aria-label="Pause Pasta"><hk-icon icon="mdi:pause">/.test(lx) &&
+     /<button class="stop" data-timer="timer.quick_1" data-service="cancel" aria-label="Stop Pasta"><hk-icon icon="mdi:stop">/.test(lx) &&
+     /<\/div><div class="kk"><button class="pr"/.test(lx) && !/<button class="pr"[^>]*><svg/.test(lx));
+  var xt = sized('hk-timer-strip-card', 'XL', { entity: 'sensor.running_quick_timers' })._e.__html;
+  ok('Extra Large: up to three across', /--cols:3/.test(xt));
+  var tall = sized('hk-timer-strip-card', 'T', { entity: 'sensor.running_quick_timers' })._e.__html;
+  ok('Tall: one, "+1 more" under it', (tall.match(/class="gt/g) || []).length === 1 && /<div class="mf">\+1 more<\/div>/.test(tall));
   var wide = sized('hk-timer-strip-card', 'W', { entity: 'sensor.running_quick_timers' })._e.__html;
   ok('Wide: two, side by side', /--cols:2/.test(wide) && /Pasta/.test(wide) && /Laundry/.test(wide) && !/more<\/span>/.test(wide));
   house.set('timer.quick_1', 'paused', { friendly_name: 'Quick Timer 1', duration: '0:12:00', remaining: '0:04:00' });
   house.set('sensor.running_quick_timers', '1', { running: [{ name: 'Pasta', entity_id: 'timer.quick_1', finishes_at: iso(420) }] });
   var p = sized('hk-timer-strip-card', 'W', { entity: 'sensor.running_quick_timers' })._e.__html;
-  ok('paused: the ring resumes it, play at its centre, the time held', /data-service="start" aria-label="Resume Pasta"/.test(p) && /mdi:play/.test(p) && /hold="240"/.test(p));
-  ok('...one timer on Wide: a second place, "Start another" and one + ring beside it (a ring, a Stop and a + are the three controls)', /Start another/.test(p) && /class="gt idle two"/.test(p) &&
+  ok('paused: its key resumes it, play on the key, the time held', /data-service="start" aria-label="Resume Pasta"/.test(p) && /mdi:play/.test(p) && /hold="240"/.test(p));
+  ok('...one timer on Wide: a second place, "Start another" and one + ring beside it (a timer\'s two keys and a +)', /Start another/.test(p) && /class="gt idle two"/.test(p) &&
      (p.match(/data-preset=/g) || []).length === 0 && /<button class="rk add" data-new aria-label="Create a Timer">/.test(p));
   house.set('sensor.running_quick_timers', '0', { running: [] });
   house.set('timer.quick_1', 'idle', { friendly_name: 'Quick Timer 1' });
@@ -99,9 +107,7 @@ function () {
      /<div class="mk" data-keep data-notap[^>]*--hk-mk-row:\d+px/.test(xl) && !/class="rk add"/.test(xl));
   var big = sized('hk-timer-strip-card', 'L', { entity: 'sensor.running_quick_timers' })._e.__html;
   ok('...Large: all five starts and +, ring-shaped, the group centered (nothing stretches: one --k, whole columns)', (big.match(/data-preset=/g) || []).length === 5 && /class="qs g" style="--k:\d+px;--qc:3"/.test(big) && />30m</.test(big));
-  ok('a square cell: the mock-up\'s ring and Stop (76 and 52 on Small, 72 and 48 on Wide)',
-     SRC.indexOf(":host([size=S]) hk-plate.strip{--ring:76px;--stop:52px}") > 0 && SRC.indexOf(":host([size=W]) hk-plate.strip{--ring:72px;--stop:48px}") > 0);
-  ok('...a tile cell\'s at least a finger\'s 44', SRC.indexOf("overflow:hidden;--ring:56px;--stop:44px}") > 0);
+  ok('the ring is a drawn size (mockup 5), the keys 56 px targets', SRC.indexOf(".gt .rw{position:relative;flex:none;width:var(--ring);height:var(--ring)") > 0 && SRC.indexOf("flex:none;width:56px;height:56px;display:grid") > 0);
   ok('the morph does not leave the countdowns blank: each paints again', /cd\._hkLast = null;[\s\S]*cd\.setAttribute\('total'/.test(SRC));
 },
 function () {
