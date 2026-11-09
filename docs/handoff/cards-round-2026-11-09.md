@@ -28,10 +28,11 @@ I'd like a combination of both." Mockup 14 A (scratchpad mock2/m14.py, m14.png):
 toast; L and T alarm, rows, toast at the foot; Wide and Compact the toast under the alarm, the owner's ask; Small the shield and "1 unlocked · 1 open"), disarmed and
 armed (the alarm alone lit). Timers below follow 14b too.
 
-**Mockup 14c** (scratchpad mock2/m16.py, m16.png) replaces 14b's Wide and Compact: the toast under the alarm "looks really awkward and it makes those cards weighted
-heavily to the left" (the owner). There the open window (or garage, or door) is the list's FIRST ROW, a 4b row like the locks, its circle orange and its state
-orange (under the name on these sizes); the alarm alone in its column, centered, its line "1 unlocked · 1 open". Nothing open: the locks alone. Large, Tall and Extra
-Large keep the toast at the foot.
+**Mockup 14d** (scratchpad mock2/m16.py, m16.png) sets Security's Wide and Compact: the owner, "I only want Locks and Garages... I still want the toast for windows
+and doors but maybe it just belongs under the Locks and Garage Doors on the right side". So: the alarm alone on the left, centered (its line "1 unlocked · 1 open");
+on the right the locks and the garage doors only, as 4b rows (the state under the name; Compact two columns), and under them the flat Doors & Windows toast. Nothing
+open: no toast. (The toast under the alarm, 14b, "looks really awkward"; the open window as a row, 14c, was not what he wanted.) Large, Tall and Extra Large keep
+the toast at the foot.
 
 **Compact won't add** (the owner's screenshot, Kitchen HomeView, a 5 x 4 square grid with four free cells in its top row): choosing Compact (3 x 1) in the card picker
 says "A Compact Security doesn't fit there. Drop it nearer the middle, or pick a smaller size." and Add does nothing, though a 3 x 1 place is free. Find why
