@@ -238,8 +238,11 @@
         var pname = o.kind ? this.placeName(o.kind) : '';
         var n = this.byRoomGroups(c, ids, row, ck ? 'Hidden: not counted, and not on ' + pname + '. Added: counted though it isn’t found by itself. Tap one for its settings — Where It Shows and Also Count As.'
                                                   : 'Tap one for its name, icon, room and Where It Shows.');
-        if (!n) c.appendChild(K.group({ footer: ck ? 'HK finds none in this house. Add one below — a group helper, say.' : 'None in this house.' }, []));
-        if (ck) c.appendChild(K.group({ header: 'Added', footer: 'Count something more as one of these — an outlet with a lamp, a group helper. It joins its room above, marked Added.' }, [this.countAdd(o.kind, ck)]));
+        // (Scenes: what's added is a button or script that runs a routine, 2026-11-09)
+        var sc = o.kind === 'scenes';
+        if (!n) c.appendChild(K.group({ footer: ck ? 'HK finds none in this house. Add one below — ' + (sc ? 'a button that runs a routine' : 'a group helper') + ', say.' : 'None in this house.' }, []));
+        if (ck) c.appendChild(K.group({ header: 'Added', footer: (sc ? 'Count a button or script as a scene — an input_button whose automation runs a routine. It joins the scene blocks, its room’s scene row and Suggested Scene, marked Added.'
+                                                                      : 'Count something more as one of these — an outlet with a lamp, a group helper. It joins its room above, marked Added.') }, [this.countAdd(o.kind, ck)]));
         // ITS CHIP (2026-10-13): which chips count this type, and on which
         // screens -- each a tap from Always / When Active for every screen
         if (o.kind) {
@@ -314,8 +317,10 @@
       // the Home Assistant scenes in the room -- or its own list, where an
       // empty one is no row at all (a room that uses no scenes).
       roomScenesAuto(aid) {
-        var self = this;
-        return this.entityIds({ domains: ['scene'], shown: true }).filter(function (id) { return self.areaOf(id) === aid; })
+        // the house's scenes (Accessories -> Scenes: HA's, and the buttons and scripts added as one)
+        var self = this, ck = (this.data.counts || {}).scenes, found = ck && Array.isArray(ck.found) ? ck.found : null;
+        return (found ? found.filter(function (id) { return !!self.client.states[id]; }) : this.entityIds({ domains: ['scene'], shown: true }))
+          .filter(function (id) { return self.areaOf(id) === aid; })
           .sort(function (a, b) { return self.name(a).localeCompare(self.name(b)); });
       }
       roomScenesLabel(aid) {
@@ -329,7 +334,7 @@
         var save = function (v) { self.ws({ type: DOMAIN + '/accessory/room_scenes', area_id: aid, entities: v }); };
         var row = function (id) { return { value: id, label: self.name(id), sub: self.client.states[id] ? id : id + ' (missing)' }; };
         c.appendChild(K.listEditor({ fk: 'rs', auto: auto, announce: this.announce.bind(this), shownHeader: 'Scenes',
-          autoFooter: 'Automatic: the Home Assistant scenes in this room, A to Z' + (autoIds.length ? '.' : ' — it has none, so there’s no row.'),
+          autoFooter: 'Automatic: the scenes in this room, A to Z' + (autoIds.length ? '.' : ' — it has none, so there’s no row.'),
           emptyText: auto ? 'No scenes in this room' : 'No scenes row',
           rows: cur.map(row),
           onAuto: function (on) { save(on ? null : autoIds.slice()); },

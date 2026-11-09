@@ -55,6 +55,10 @@ KINDS: dict[str, Kind] = {
     "vacuums": Kind(("vacuum",), also=("vacuum",)),
     # Speakers, not screens: a TV and an AV receiver are left out.
     "speakers": Kind(("media_player",), not_classes=("tv", "receiver"), also=("media_player",)),
+    # Not a chip: the scene blocks, the rooms' scene rows and Suggested Scene. Every
+    # Home Assistant scene, and -- Also count -- a button or script that works as one:
+    # an input_button whose automation runs a routine (2026-11-09, the owner).
+    "scenes": Kind(("scene",), also=("input_button", "button", "script")),
 }
 
 # The older lists Status & Chips replaced (an entry from an older version may

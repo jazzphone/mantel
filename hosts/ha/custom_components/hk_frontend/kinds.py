@@ -109,7 +109,8 @@ def candidates(hass: HomeAssistant) -> list[Candidate]:
         # a group of other entities counts its members twice: a helper's
         # (entity_id) or, since Home Assistant 2026, any integration's -- a
         # Hue room, a Zigbee group (group_entities)
-        group = any(isinstance(st.attributes.get(k), list) for k in ("entity_id", "group_entities"))
+        # (a scene lists the entities it sets in entity_id: it is no group)
+        group = domain != "scene" and any(isinstance(st.attributes.get(k), list) for k in ("entity_id", "group_entities"))
         listed = True
         device_id = area_id = None
         if entry is not None:

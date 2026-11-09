@@ -76,6 +76,7 @@ PLACES: dict[str, tuple[str, str]] = {
     "timers": ("Timers", "The Timers page and chip"),
     "vacuums": ("Vacuums", "The Vacuums page and chip"),
     "speakers": ("Speakers", "The Speakers chip"),
+    "scenes": ("Scenes", "Scene blocks, rooms’ scene rows and Suggested Scene"),
 }
 assert set(PLACES) == {"home", "room", *kinds.KINDS}, "a kind with no place"
 ORDER = list(PLACES)

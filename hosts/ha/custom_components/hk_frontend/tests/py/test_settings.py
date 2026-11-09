@@ -26,7 +26,7 @@ def test_defaults_assume_no_house():
     assert m["sky"]["hemisphere"] == "north" and len(m["sky"]["themes"]) == 10
     assert set(m["counts"]) == {"smoke", "lights", "fans", "doors", "windows", "garage", "locks", "blinds",
                                 "leaks", "thermostats", "timers", "vacuums", "speakers", "temperature", "humidity",
-                                "motion", "occupancy", "valves"}
+                                "motion", "occupancy", "valves", "scenes"}
     assert all(v is None for v in m["counts"].values()), "every kind automatic"
 
 

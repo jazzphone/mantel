@@ -182,6 +182,12 @@ def _area(v: Any) -> str:
     raise GridInvalid("grid_option")
 
 
+# What a scene block, a Scenes block and Suggested Scene may run: a scene, or what
+# Settings -> Accessories -> Scenes counts as one (kinds.py "scenes": a button or a
+# script; the editor offers only those, a check here can't see the house).
+SCENE_DOMAINS = ("scene", "script", "input_button", "button")
+
+
 def _window(v: Any) -> dict[str, str]:
     if not isinstance(v, dict) or set(v) - {"start", "end", "scene", "label"}:
         raise GridInvalid("grid_option")
@@ -190,7 +196,7 @@ def _window(v: Any) -> dict[str, str]:
             or start == end:
         raise GridInvalid("grid_option")
     scene = v.get("scene")
-    if not isinstance(scene, str) or not ENTITY_ID.match(scene) or scene.split(".")[0] not in ("scene", "script"):
+    if not isinstance(scene, str) or not ENTITY_ID.match(scene) or scene.split(".")[0] not in SCENE_DOMAINS:
         raise GridInvalid("grid_option")
     out = {"start": start, "end": end, "scene": scene}
     label = v.get("label")
@@ -208,7 +214,7 @@ def _windows(v: Any) -> list[dict[str, str]]:
 
 
 def _action(v: Any) -> str:
-    if v in ACTIONS or (isinstance(v, str) and ENTITY_ID.match(v) and v.split(".")[0] in ("scene", "script")):
+    if v in ACTIONS or (isinstance(v, str) and ENTITY_ID.match(v) and v.split(".")[0] in SCENE_DOMAINS):
         return v
     raise GridInvalid("grid_option")
 
@@ -475,8 +481,8 @@ OPTION_KINDS = {
     "secondary": _secondary,
     "accessories": _accessories,
     "entity": _domain(),
-    "scene": _domain("scene"),
-    "scenes": _list(_domain("scene")),
+    "scene": _domain(*SCENE_DOMAINS),
+    "scenes": _list(_domain(*SCENE_DOMAINS)),
     "speaker": _domain("media_player", room=True),
     "climate": _domain("climate", room=True),
     "alarm": _domain("alarm_control_panel"),
@@ -1309,7 +1315,7 @@ def starter_request(data: Any) -> dict[str, Any]:
         raise GridInvalid("grid")
     if data.get("concept") not in STARTERS or not isinstance(data.get("tab_bar", True), bool):
         raise GridInvalid("grid")
-    for key, one in (("scenes", _domain("scene")), ("rooms", _area),
+    for key, one in (("scenes", _domain(*SCENE_DOMAINS)), ("rooms", _area),
                      ("cameras", _domain("camera")), ("climate", _domain("climate"))):
         values = data.get(key, [])
         if not isinstance(values, list) or len(values) > 512:

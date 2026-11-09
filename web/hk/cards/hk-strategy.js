@@ -778,9 +778,9 @@
     GROUPS.forEach(function (g) { if (groups[g]) cards.push(section(g, groups[g])); });
     return cards;
   }
-  // A ROOM'S SCENES: the lists its areas have of their own (the Deck's
-  // after the Backyard's), else every shown scene in them, A to Z. A list
-  // that is empty is a room with no row.
+  // A ROOM'S SCENES: the lists its areas have of their own (the Deck's after
+  // the Backyard's), else every shown scene in them, A to Z -- HA's and what
+  // Accessories -> Scenes counts as one. An empty list is a room with no row.
   function roomScenes(client, areas, opts) {
     var A = setting('accessories'), own = (A && A.scenes && typeof A.scenes === 'object') ? A.scenes : {};
     var mine = areas.filter(function (a) { return Array.isArray(own[a]); });
@@ -791,10 +791,10 @@
       });
       return out;
     }
-    var want = {};
+    var want = {}, st = client.states, ents = client.entities || {}, HC = window.hkCards;
     areas.forEach(function (a) { want[a] = true; });
-    var st = client.states;
-    return shown(client, opts, 'scene', null).filter(function (id) { return want[areaOf(client, id)]; })
+    return (HC && HC.sceneIds ? HC.sceneIds(client) : shown(client, opts, 'scene', null)).filter(function (id) {
+      var e = ents[id] || {}; return want[areaOf(client, id)] && !e.hidden && !e.entity_category && !hidden(client, opts, id); })
       .sort(function (x, y) {
         return String(st[x].attributes.friendly_name || x).localeCompare(String(st[y].attributes.friendly_name || y));
       });

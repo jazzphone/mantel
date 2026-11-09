@@ -1121,7 +1121,7 @@
       rooms = rooms.slice(0, 512);
       var tablet = Object.values(this.panel.data.tablets || {}).find((t) => t.screen === this.o.path && t.room);
       var menu = board.menu;            // as read: a button's style All Screens' unless the screen owns it (settings.py resolved())
-      return { concept: concept, scenes: board.scenes && board.scenes.length ? board.scenes.filter((id) => id.indexOf('scene.') === 0) : ids('scene'), rooms: rooms,
+      return { concept: concept, scenes: board.scenes && board.scenes.length ? board.scenes.filter((id) => id.indexOf('scene.') === 0) : this.sceneIds().slice(0, 512), rooms: rooms,
         cameras: board.cameras && board.cameras.length ? board.cameras : ids('camera'), climate: ids('climate'),
         tablet_room: tablet ? tablet.room : null, tab_bar: menu === 'tabbar' || menu === 'auto' || !menu };
     }
@@ -1741,7 +1741,7 @@
         if (['secondary', 'title', 'room_display', 'thermostat_style', 'tile_height', 'period', 'name_tag', 'tap_target', 'music_tap', 'tv_channel', 'music_show', 'music_playlist', 'music_speaker', 'timeline_show', 'np_background', 'on_now_open', 'everything_more', 'security_presentation', 'security_members', 'security_lit'].includes(kind)) return;
         if (kind === 'accessories') { opts[name] = self.choices('entity').filter((op) => /^(light|switch|fan|sensor)\./.test(op[0])).slice(0, 4).map((op) => ({ entity: op[0] })); if (!opts[name].length) delete opts[name]; return; }
         var choices = self.choices(kind).filter((op) => op[0] !== 'tablet_room');
-        if (kind === 'scene' && key === 'scene') choices = choices.filter((op) => op[0].indexOf('scene.') === 0);
+        if (kind === 'scene' && key === 'scene') choices = choices.filter((op) => self.sceneIds().indexOf(op[0]) >= 0);
         if (kind === 'entity') choices = choices.filter((op) => /^(light|switch|fan)\./.test(op[0]));
         if (kind === 'speaker') choices.sort((a, b) => (self.panel.client.states[b[0]]?.state === 'playing') - (self.panel.client.states[a[0]]?.state === 'playing'));
         if (kind === 'scenes' || kind === 'calendars') { if (choices.length) opts[name] = choices.slice(0, kind === 'scenes' ? 6 : 2).map((op) => op[0]); return; }
@@ -2259,7 +2259,7 @@
           return;
         }
         var choices = self.choices(kind);
-        if (card === 'scene' && kind === 'scene') choices = choices.filter((op) => op[0].indexOf('scene.') === 0);
+        if (card === 'scene' && kind === 'scene') { var sids = self.sceneIds(); choices = choices.filter((op) => sids.indexOf(op[0]) >= 0); }
         if (kind === 'cameras' && !(opts[key] || []).length) rows.push(K.info({ label: 'All Cameras, in the Cameras page’s order. Tick some to choose.' }));
         if (kind === 'scenes' || kind === 'calendars' || kind === 'cameras') {
           choices.forEach((op) => rows.push(K.check({ label: op[1], multi: true, on: (opts[key] || []).indexOf(op[0]) >= 0, onClick: (on) => {
@@ -2342,16 +2342,22 @@
       }
       return this._tv;
     }
+    // THE HOUSE'S SCENES (Accessories -> Scenes): HA's and the buttons and scripts added as one; before the counts load, HA's
+    sceneIds() { var st = this.panel.client.states || {}, ck = ((this.panel.data || {}).counts || {}).scenes; return ck && Array.isArray(ck.found) ? ck.found.filter((id) => !!st[id]) : Object.keys(st).filter((id) => id.indexOf('scene.') === 0); }
     choices(kind) {
       var client = this.panel.client, states = client.states || {};
+      if (kind === 'scene' || kind === 'scenes' || kind === 'action') {   // a scene block, a Scenes block: the house's scenes; a window, an Action: and every script
+        var ids = this.sceneIds(), sl = ids.concat(kind === 'scenes' ? [] : Object.keys(states).filter((id) => id.indexOf('script.') === 0 && ids.indexOf(id) < 0))
+          .map((id) => [id, (states[id].attributes || {}).friendly_name || id]).sort((a, b) => a[1].localeCompare(b[1]));
+        return kind === 'action' ? [['lock_up', 'Lock Up'], ['lights_off', 'All Lights Off'], ['garage', 'Garage']].concat(sl) : sl;
+      }
       if (kind === 'area') return [['tablet_room', 'Tablet’s Room']].concat(Object.keys(client.areas || {}).map((id) => [id, client.areas[id].name || id]));
-      var domains = { scene: ['scene', 'script'], scenes: ['scene'], speaker: ['media_player'], climate: ['climate'], camera: ['camera'],
-        timer: ['timer'], alarm: ['alarm_control_panel'], select: ['input_select', 'select'], doorbell: ['binary_sensor', 'camera'], weather: ['weather'], vacuum: ['vacuum'], calendars: ['calendar'], action: ['scene', 'script'],
+      var domains = { speaker: ['media_player'], climate: ['climate'], camera: ['camera'],
+        timer: ['timer'], alarm: ['alarm_control_panel'], select: ['input_select', 'select'], doorbell: ['binary_sensor', 'camera'], weather: ['weather'], vacuum: ['vacuum'], calendars: ['calendar'],
         cameras: ['camera'], todo: ['todo'] }[kind];
       var list = Object.keys(states).filter((id) => !domains || domains.indexOf(id.split('.')[0]) >= 0).map((id) => [id, (states[id].attributes || {}).friendly_name || id]);
       list.sort((a, b) => a[1].localeCompare(b[1]));
       if (kind === 'speaker' || kind === 'climate') list.unshift(['tablet_room', 'Tablet’s Room']);
-      if (kind === 'action') list = [['lock_up', 'Lock Up'], ['lights_off', 'All Lights Off'], ['garage', 'Garage']].concat(list);
       return list;
     }
     windows(opts, set, rows) {

@@ -256,6 +256,7 @@ ok('...a script runs the script', sceneTapOf({ entity: 'script.x' }).perform_act
 ok('...an automation triggers', sceneTapOf({ entity: 'automation.y' }).perform_action, 'automation.trigger');
 ok('...its own tap_action wins', sceneTapOf({ entity: 'scene.movie', tap_action: { action: 'none' } }).action, 'none');
 ok('...no entity, no tap invented', sceneTapOf({ tap_action: undefined }), undefined);
+ok('...a button counted as a scene is pressed', window.hkCards.sceneTap('input_button.good_night').perform_action, 'input_button.press');
 
 // A SCENE PILL IN ITS CHOSEN COLOUR (an accessory's Color, a page pill's):
 // off, the glyph wears it; lit, it fills the circle behind a white glyph.

@@ -63,7 +63,7 @@
     ['speakers', 'Speakers', 'Media players that aren’t TVs or receivers (or Music’s rooms, when it’s added). The Speakers chip counts the ones playing.', 'The Speakers chip counts the ones playing.'],
     ['motion', 'Motion', 'Motion sensors. The status rows of Doors & Windows and Security say which rooms have motion.', 'Doors & Windows’ and Security’s status rows.'],
     ['occupancy', 'Occupancy', 'Occupancy and presence sensors. The status rows say which rooms are occupied.', 'Doors & Windows’ and Security’s status rows.'],
-    ['valves', 'Valves', 'Water valves: a sprinkler, the house’s main water. Not gas valves. The Water page lists them and its status row says which are running.', 'The Water page and its status row.']
+    ['valves', 'Valves', 'Water valves: a sprinkler, the house’s main water. Not gas valves. The Water page lists them and its status row says which are running.', 'The Water page and its status row.'], ['scenes', 'Scenes', 'Every Home Assistant scene. Add a button or script that works as one — an input_button that runs a routine — and it joins the scene blocks, the rooms’ scene rows and Suggested Scene.', 'Scene blocks, rooms’ scene rows and Suggested Scene.']
   ];
   // THE SCREENSAVER'S CLOCKS (2026-10-13; hk-saverclock.js STYLES / BGS,
   // settings.py SAVER_CLOCK_STYLES / SAVER_CLOCK_BGS): [id, name, what it is]
@@ -210,7 +210,7 @@
      'Their tiles on Home and their rooms’ pages. The Speakers chip leaves them out.'],
     ['vacuums', 'Vacuums', 'mdi:robot-vacuum', '#30b0c7', { kind: 'vacuums', order: 'vacuums' }],
     ['valves', 'Valves', 'mdi:valve', '#007aff', { kind: 'valves' }],
-    ['timers', 'Timers', 'mdi:timer-outline', '#ff9500', { kind: 'timers' }],
+    ['timers', 'Timers', 'mdi:timer-outline', '#ff9500', { kind: 'timers' }], ['scenes', 'Scenes', 'mdi:palette', '#af52de', { kind: 'scenes' }],
     ['cameras', 'Cameras', 'mdi:cctv', '#ff2d55', { domains: ['camera'], link: ['Cameras Settings', 'page/cameras', 'Which cameras each screen shows, in what order, and which one plays live.'] },
      'Their tiles on Home and their rooms’ pages, the camera row and the Cameras page.'],
     ['energy', 'Circuits & Meters', 'mdi:lightning-bolt', '#34c759', { energy: true },
@@ -1909,7 +1909,7 @@
     ['Indoor Temperature', 'screen/chips/climate', 'features.temperature', 'climate chip reading', true],
     ['Power Use', 'screen/chips/energy', 'features.power', 'energy chip watts reading', true],
     ['House Timers', 'page/timers/house', 'features.house_timers', 'nap bedtime timers page'], ['Which Timers', 'page/timers/which', 'features.timer_include', 'ignored ignore timers screensaver slide ring show automation'],
-    ['Accessory Types', 'accessories', 'counts', 'what counts status & chips status and chips types kinds smoke carbon monoxide co alarm lights fans doors windows locks blinds leaks thermostats timers vacuums speakers count chips'],
+    ['Accessory Types', 'accessories', 'counts', 'what counts status & chips status and chips types kinds smoke carbon monoxide co alarm lights fans doors windows locks blinds leaks thermostats timers vacuums speakers scenes routines input buttons count chips'],
     ['Weather Service', 'page/weather', 'weather.entity', 'forecast'],
     ['Place', 'page/weather', 'weather.place', 'location label'],
     ['Weather Sensors', 'page/weather/sensors', 'weather.sensors', 'feels like humidity wind gust uv forecast alerts outside temperature'],

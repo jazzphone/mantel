@@ -428,4 +428,21 @@ var MK = window.hkMenu && window.hkMenu._ && window.hkMenu._.kinds;
 ok('the menu\'s kind order is hk-chip\'s', MK && JSON.stringify(MK.ORDER) === JSON.stringify(window.hkChip.kinds.ORDER));
 ok('the menu\'s kind pages are hk-chip\'s', MK && JSON.stringify(MK.PAGES) === JSON.stringify(window.hkChip.kinds.PAGES));
 
+// THE HOUSE'S SCENES (Accessories -> Scenes, kinds.py "scenes", 2026-11-09):
+// the host's list -- HA's scenes and the buttons added as one -- once it has
+// answered; before then (or from a host too old to know it), HA's shown scenes.
+(function () {
+  var sst = function (id) { return { entity_id: id, state: 't', attributes: {} }; };
+  var C = { states: { 'scene.movie': sst('scene.movie'), 'scene.hid': sst('scene.hid'), 'input_button.good_night': sst('input_button.good_night') },
+            entities: { 'scene.hid': { hidden: true } } };
+  var was = window.hkSettings;
+  try {
+    window.hkSettings = { get: function (p, d) { return p === 'kinds' ? { lights: [] } : d; } };
+    ok('scenes before the host knows the kind: HA\'s shown scenes', HC.sceneIds(C).join() === 'scene.movie', HC.sceneIds(C).join());
+    window.hkSettings = { get: function (p, d) { return p === 'kinds' ? { scenes: ['scene.movie', 'input_button.good_night', 'input_button.gone'] } : d; } };
+    ok('...after: the host\'s list, a button added as one, nothing gone', HC.sceneIds(C).join() === 'scene.movie,input_button.good_night', HC.sceneIds(C).join());
+  } finally { window.hkSettings = was; }
+  ok('...and a button counted as a scene is pressed', HC.sceneTap('input_button.good_night').perform_action === 'input_button.press');
+})();
+
 print('\n' + (fail ? 'FAILURES: ' + fail : 'ALL ' + pass + ' CHIP KIND TESTS PASS'));

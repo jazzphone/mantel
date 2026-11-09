@@ -1611,6 +1611,20 @@
   var SCENE_ICON = { scene: 'mdi:palette', script: 'mdi:script-text-play', button: 'mdi:gesture-tap-button',
                      input_button: 'mdi:gesture-tap-button', automation: 'mdi:robot' };
   function sceneTap(id) { return window.hkCards.sceneTap(id); }
+  // THE HOUSE'S SCENES (HK Settings -> Accessories -> Scenes, kinds.py
+  // "scenes"): every Home Assistant scene, and what was added to count as
+  // one -- an input_button whose automation runs a routine, a script. The
+  // scene blocks, the rooms' scene rows and Suggested Scene read this list.
+  // Before the host has answered (or from one too old to know the kind), the
+  // shown scenes.
+  if (window.hkCards) window.hkCards.sceneIds = function (client) {
+    var S = window.hkSettings, k = S && S.get ? S.get('kinds', null) : null;
+    var st = (client && client.states) || {}, ents = (client && client.entities) || {};
+    if (k && Array.isArray(k.scenes)) return k.scenes.filter(function (id) { return !!st[id]; });
+    return Object.keys(st).filter(function (id) {
+      return id.split('.')[0] === 'scene' && !(ents[id] && (ents[id].hidden || ents[id].entity_category));
+    }).sort();
+  };
   // between a Home Grid block's scenes (the widget mock-up's tight grid, 2026-10-31)
   var BLOCK_GAP = 8;
   function scenePill(client, id, look) {

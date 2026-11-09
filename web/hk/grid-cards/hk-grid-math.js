@@ -224,10 +224,7 @@
     }
     // a default window's scene: the first shown scene whose name has its words
     function sceneFor(client, words) {
-      var st = (client && client.states) || {}, ents = (client && client.entities) || {};
-      var ids = Object.keys(st).filter(function (id) {
-        return dom(id) === 'scene' && !(ents[id] && (ents[id].hidden || ents[id].entity_category));
-      }).sort();
+      var C = window.hkCards, ids = (C && C.sceneIds ? C.sceneIds(client) : []).slice().sort();
       for (var i = 0; i < words.length; i++) {
         var w = new RegExp('\\b' + words[i], 'i');
         for (var j = 0; j < ids.length; j++) if (w.test(friendly(client, ids[j]))) return ids[j];
@@ -365,6 +362,13 @@
                    (d === 'scene' ? 'mdi:palette' : 'mdi:script-text-play'),
                  hot: run, state: run ? 'Running' : d === 'scene' ? 'Scene' : 'Script',
                  calls: [[d, 'turn_on', { entity_id: action }]], sheet: null };
+      }
+      // a button counted as a scene (Settings -> Accessories -> Scenes): pressed
+      if ((d === 'input_button' || d === 'button') && st[action]) {
+        var bent = ((client.entities || {})[action]) || {};
+        var bacc = ((setting('accessories', {}) || {}).entities || {})[action] || {};
+        return { name: friendly(client, action), icon: bacc.icon || bent.icon || attr(st[action], 'icon') || 'mdi:palette',
+                 hot: false, state: 'Scene', calls: [[d, 'press', { entity_id: action }]], sheet: null };
       }
       return { name: 'Action', icon: 'mdi:gesture-tap', hot: false, state: 'Not Found', calls: [], sheet: null };
     }

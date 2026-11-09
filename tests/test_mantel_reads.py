@@ -338,6 +338,22 @@ def test_resolve_is_has_automatic_adjusted_by_leave_out_also_count_and_the_acces
     assert "binary_sensor.motion_kitchen" not in got["motion"], "a group helper never counts by itself"
 
 
+def test_a_scene_counts_by_itself_and_a_routine_button_once_added_as_one():
+    """Accessories -> Scenes (kinds.py "scenes", 2026-11-09): every HA scene, though it lists the entities it
+    sets in entity_id as a group helper does; an input_button that runs a routine only through Also count."""
+    from mantel_server.hidden import resolve
+    hub = FakeHub()
+    hub.store.states["scene.movie_night"] = {"s": "2026-11-09T20:00:00+00:00",
+                                             "a": {"entity_id": ["light.lamp", "switch.coffee"]}, "lc": 1, "lu": 1}
+    hub.store.states["input_button.good_night"] = {"s": "unknown", "a": {}, "lc": 1, "lu": 1}
+    h = Hiding(hub.store, hub.registry)
+    assert resolve(h.candidates(), {})["scenes"] == ["scene.movie_night"], "a scene is no group; a button is not one"
+    snap = h.snapshot({}, ["input_button.good_night"])
+    assert snap["also"]["input_button.good_night"] == ["scenes"], "Also Count As offers Scenes for a button"
+    got = resolve(h.candidates(), {"counts": {"scenes": {"exclude": [], "include": ["input_button.good_night"]}}})
+    assert got["scenes"] == ["scene.movie_night", "input_button.good_night"]
+
+
 def _ready(env):
     import types
     env.service.house_ready = lambda: True

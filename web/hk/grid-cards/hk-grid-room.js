@@ -227,8 +227,9 @@
         var lit = lights.filter(function (c) { return st[c.entity] && st[c.entity].state === 'on'; }).length, lines = [];
         if (lights.length) lines.push({ k: 'light', on: lit > 0, text: lit ? lit + (lit === 1 ? ' light on' : ' lights on') : 'Lights off' });
         if (parts.speakers.some(function (c) { return st[c.entity] && st[c.entity].state === 'playing'; })) lines.push({ k: 'speaker', on: true, text: 'Speaker playing' });
-        var scenes = Object.keys(st).filter(function (id) {
-          return dom(id) === 'scene' && areaOf(h, id) === area && !(ents[id] && (ents[id].hidden || ents[id].entity_category));
+        // (the house's scenes: HA's, and what Settings -> Accessories -> Scenes counts as one)
+        var HC = window.hkCards, scenes = (HC && HC.sceneIds ? HC.sceneIds(h) : []).filter(function (id) {
+          return areaOf(h, id) === area && !(ents[id] && (ents[id].hidden || ents[id].entity_category));
         }).map(function (id) { return { id: id, name: String((st[id].attributes || {}).friendly_name || id) }; })
           .sort(function (a, b) { return a.name.localeCompare(b.name); }).slice(0, 2);
         return { temp: roomTemp(h, area), hum: roomHumidity(h, area), lines: lines, scenes: scenes };
@@ -473,7 +474,7 @@
           var b = document.createElement('button'), t = document.createElement('span');
           b.type = 'button'; b.className = 'sc'; t.textContent = sc.name; b.appendChild(t);
           b.setAttribute('aria-label', 'Run ' + sc.name);
-          b.addEventListener('click', function (ev) { ev.stopPropagation(); self._call('scene', 'turn_on', { entity_id: sc.id }); });
+          b.addEventListener('click', function (ev) { ev.stopPropagation(); var d = dom(sc.id), svc = d === 'scene' || d === 'script' ? 'turn_on' : 'press'; self._call(d, svc, { entity_id: sc.id }); });
           e.xs.appendChild(b);
         });
       }

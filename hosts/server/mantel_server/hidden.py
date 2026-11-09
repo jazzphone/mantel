@@ -62,6 +62,7 @@ PLACES: dict[str, tuple[str, str]] = {
     "timers": ("Timers", "The Timers page and chip"),
     "vacuums": ("Vacuums", "The Vacuums page and chip"),
     "speakers": ("Speakers", "The Speakers chip"),
+    "scenes": ("Scenes", "Scene blocks, rooms’ scene rows and Suggested Scene"),
 }
 assert set(PLACES) == {"home", "room", *KINDS}, "a kind with no place"
 ORDER = list(PLACES)
@@ -238,7 +239,8 @@ class Hiding:
                 continue
             attrs = st.get("a") or {}
             entry = entries.get(eid)
-            group = any(isinstance(attrs.get(k), list) for k in ("entity_id", "group_entities"))
+            # (a scene lists the entities it sets in entity_id: it is no group)
+            group = domain != "scene" and any(isinstance(attrs.get(k), list) for k in ("entity_id", "group_entities"))
             listed = True
             device_id = area_id = None
             if entry is not None:

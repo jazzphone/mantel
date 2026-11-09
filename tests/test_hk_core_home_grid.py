@@ -72,6 +72,18 @@ def test_six_to_two_columns(cols):
     assert errors == {} and b["home_grid"]["cols"] == cols
 
 
+def test_a_scene_block_takes_a_button_counted_as_a_scene():
+    """Accessories -> Scenes may count an input_button that runs a routine as a scene (2026-11-09): the
+    scene block, a Scenes block and Suggested Scene's windows take one; a light still isn't one."""
+    b, errors = write(grid(block("a1", "scene", "S", [0, 0], opts={"scene": "input_button.good_night"}),
+                           block("a2", "scenes", "W", [1, 0], opts={"scenes": ["scene.a", "input_button.relax"]}),
+                           block("a3", "scene_suggested", "S", [3, 0], opts={"windows": [
+                               {"start": "20:00", "end": "23:00", "scene": "input_button.good_night"}]})))
+    assert errors == {}, errors
+    _, errors = write(grid(block("a1", "scene", "S", [0, 0], opts={"scene": "light.kitchen"})))
+    assert errors, "a light is no scene"
+
+
 @pytest.mark.parametrize("g,code", [
     (grid(cols=7), "grid_cols"),
     (grid(cols=True), "grid_cols"),
