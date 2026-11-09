@@ -11,6 +11,16 @@
     var attr = K.attr, C = K.C, dom = K.dom, DOORS = K.DOORS, friendly = K.friendly, HkBase = /** @type {HkLooseElementConstructor} */ (K.HkBase), kind = K.kind,
         OFF = K.OFF, own = K.own, setting = K.setting, sizeOf = K.sizeOf, TILE = K.TILE, type = K.type, v = K.v;
 
+    // AN ALARM'S GLYPH, ONE FOR EVERY PLACE IT SHOWS (2026-11-09, the owner: "Should the alarm glyph be the Apple alarm glyph?"): the
+    // shield family -- Apple Home's Security System -- by the state: shield.slash disarmed, checkmark.shield armed at home or at night,
+    // lock.shield armed away (and on its way to it), exclamationmark.shield pending and triggered. The keypad's readout (hk-security.js status, the same
+    // table), the Security sheet, the Security blocks, the side pane and the generated alarm tile take it from hkCards.alarmGlyph.
+    var ALARM_GLYPHS = { disarmed: 'hk:shield-off', disarming: 'hk:shield-off', armed_home: 'hk:shield-home', armed_night: 'hk:shield-home',
+                         armed_away: 'hk:shield-lock', armed_vacation: 'hk:shield-lock', armed_custom_bypass: 'hk:shield-lock', arming: 'hk:shield-lock',
+                         pending: 'hk:shield-alert', triggered: 'hk:shield-alert' };
+    C.ALARM_GLYPHS = ALARM_GLYPHS;
+    C.alarmGlyph = function (state) { return ALARM_GLYPHS[state] || 'hk:shield-off'; };
+
     // ===================================================== the small tiles
     // THE S TILE: Lock Up, All Lights Off, Garage, a scene or script, and
     // Everything. A key with a state: the glyph in its well at the top, the
