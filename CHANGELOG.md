@@ -4,6 +4,8 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+## 0.1.159 - 2026-11-09
+
 **Changed**
 - **Now Playing's Browse and speaker buttons are the standard pills** (40 px capsules, a 56 px touch), as Up Next's Browse; a short Large block (a tile cell) keeps its playlists under them.
 - **Doors & Locks Wide fits two rows** on a tile cell: every row that fits is a door, open ones first, and "+N more" sits under the headline.
