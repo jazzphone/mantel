@@ -24,6 +24,10 @@ I'd like a combination of both." Mockup 14 A (scratchpad mock2/m14.py, m14.png):
   the unlocked one orange. d08e36de changed only the standard presentation's rows: keep those, add the HomeView ones.
 - Check commits 74ef14cb, a9c98047, 1d5f8289, 9bd8a35f, fa8ee1bf (other sessions) are all still in effect after the change.
 
+**Mockup 14b supersedes 14** (scratchpad mock2/m15.py, m15.png; the owner asked to see it before the build): Security at every size (XL keypad + rows +
+toast; L and T alarm, rows, toast at the foot; Wide and Compact the toast under the alarm, the owner's ask; Small the shield and "1 unlocked · 1 open"), disarmed and
+armed (the alarm alone lit). Timers below follow 14b too.
+
 **Timers** (`e947f726`, /private/tmp/mantel-xl-timers: the running half of mockup 5). The owner: "the roller to create a new timer isn't implemented here. I'd like that
 to be added to the Large and X-Large card as well." Mockup 14 B:
 - **Large, nothing running:** "Start a Timer", four preset rings across, then the New Timer card's block layout (the wheels, a name, Start), as Extra Large's maker
@@ -32,7 +36,9 @@ to be added to the Large and X-Large card as well." Mockup 14 B:
 - **Always a way to make another** (the owner: "Your 3 or more timer XL card has no way of creating another timer...there should always be a way right?... a simple plus
   button to create a new timer when it is full"): any running block with no spare place for "Start another" (Extra Large with three, Large with two, Tall, Wide with two)
   shows a plain orange "+" (a 56 px target) at the top right, on the heading row beside "+N more", that opens the New Timer sheet (`_newGridTimer`, the wheels).
-  Small has no room: a tap on Small opens the Timers page, which has Create a Timer.
+  14b puts the + on EVERY running size, Small included (its one key): the owner, "There needs to be a way to add a timer at all times with these cards."
+- **Keys a finger can hit** (the owner: "should the touch services for the timers be easier for a finger to hit? The same small and close together"): Pause and
+  Stop 52 px with 14 px between, in 56 px targets; the + 52 px. e947f726 has 48 px discs in 56 px targets with 8 px clear: raise them.
 - **Large running:** its two timers (as e947f726).
 - Decisions already made: Wide shows two running timers with their keys (`CONTROLS_RULES_OF["timers"] = {"W": 4}`); Extra Large shows up to three, "+N more".
 
