@@ -5,6 +5,8 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+## 1.52.0 - 2026-11-08
+
 **Added**
 - **The Timers slide on the screensaver**: while a timer you set is running, a slide with the timer ending first on a big ring and the others as small rings beside it comes every other slide, or as often as the others. A timer's last minute holds it on the screen. House Timers and timers that automations use never show.
 
