@@ -506,12 +506,16 @@ MEASURE = r"""(() => {
         /(^|\s)seg(ments)?(\s|$)/.test(typeof el.parentElement.className === 'string' ? el.parentElement.className : '') ||
         (el.hasAttribute('aria-pressed') && [...el.parentElement.children].some(o => { if (o === el || !o.hasAttribute('aria-pressed')) return false;
           const a = el.getBoundingClientRect(), b = o.getBoundingClientRect(); return Math.max(b.left - a.right, a.left - b.right, b.top - a.bottom, a.top - b.bottom) < 2; }))));
+      // (a SCROLLING LIST's rows -- Now Playing Extra Large's Up Next, 2026-11-09 -- are one control too: rows of a list touch, as every
+      // list's do, and the one cut by its foot scrolls whole into view; the list is measured by its box against the controls round it)
+      const scrolls = el => { const p = el.parentElement; return !!p && /^(auto|scroll)$/.test(getComputedStyle(p).overflowY); };
+      const isSegOrRow = el => isSeg(el) || scrolls(el);
       const tracks = new Map();
-      for (const a of found) if (isSeg(a.el)) { const t = a.el.parentElement, u = tracks.get(t) || { h: t.getBoundingClientRect() };      // (the track: its own box and its choices' touchable boxes, joined)
+      for (const a of found) if (isSegOrRow(a.el)) { const t = a.el.parentElement, u = tracks.get(t) || { h: t.getBoundingClientRect() };      // (the track: its own box and its choices' touchable boxes, joined)
         tracks.set(t, { el: t, h: { left: Math.min(u.h.left, a.h.left), top: Math.min(u.h.top, a.h.top), right: Math.max(u.h.right, a.h.right), bottom: Math.max(u.h.bottom, a.h.bottom) } }); }
       // (a slider's own input inside the wrapper that takes its touches -- hk-control.js's .range-wrap -- is that one control,
       // 2026-11-09: it was counted twice)
-      const mine = found.filter(a => !isSeg(a.el) && !(a.el.classList.contains('ring') && !a.el.hasAttribute('data-ring')) &&
+      const mine = found.filter(a => !isSegOrRow(a.el) && !(a.el.classList.contains('ring') && !a.el.hasAttribute('data-ring')) &&
         !found.some(b => b !== a && b.el !== a.el && b.el.matches(NATIVE) && b.el.contains(a.el)) &&
         !(a.el.localName === 'input' && found.some(b => b !== a && b.el !== a.el && b.el.contains(a.el)))).concat([...tracks.values()]);
       let gap = null, small = null, tight = '';
@@ -836,6 +840,10 @@ def stand_in_reads() -> None:
         if msg.get("type") == "hk_tv/channels":
             return {"configured": True, "channels": [{"number": n, "name": name, "camera": f"camera.channel_{n.replace('.', '_')}",
                                                      "now": f"sensor.channel_{n.replace('.', '_')}_now"} for n, name, *_ in TV + (TV_EXTRA if STATE["name"] == "tv_many" else [])]}
+        # (Music Assistant's queue: what plays, then eight songs -- Extra Large's Up Next lists them, scrolling)
+        if msg.get("type") == "hk_music/queue":
+            return {"ok": True, "items": [{"id": str(i), "title": f"Upcoming Song {i}" if i else "Blue in Green", "artist": "The Fictional Trio",
+                                           "duration": 180} for i in range(min(9, msg.get("limit", 40)))]}
         return await ask(self, msg)
     OfflineReads.request = request
 

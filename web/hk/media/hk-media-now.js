@@ -884,26 +884,63 @@
           // TWO LINES OF TITLE where the song's group has the room (the slide's -webkit-line-clamp:2): a long one is not cut at
           // "Blue in Green (Alternate Ta..." with half the column empty under it
           ':host(:is([size=L],[size=XL])) .np .title{' + window.hkCards.typeCss('title') + ';line-height:27px;white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}',
-          // XL (2026-11-07, the review; Apple's Now Playing): the cover large on the left, square at the inner radius and
-          // centered in the block's height, as big as the right column's 282 px (the five keys and their gaps) allow; the song's
-          // label, title and artist, the progress, the keys and the volume in the column beside it -- L's pieces, set beside the
-          // cover. The block's own cover blur or card plate stays behind it, as at every size.
-          // ONE GROUP, CENTERED (2026-11-08, the owner: "why is the title / artist so close to the top and the media controls so
-          // close to the bottom ... this info and media controls should follow ... the Music slide"): the Music slide's column
-          // is the song, then the progress, the buttons and the volume, close together as one block, and so is this -- the
-          // block's slack is a flexible row above and one below, so the group stands on the cover's axis with the same air
-          // each side, and the progress follows the artist by the slide's 22 px (--np-lead). Nothing in it is stretched: the keys
-          // are L's cluster, the progress and the volume the column's width
-          // (2026-11-09: the column 312 px at least -- five targets and four 8 px gaps, reaching 8 px past the right end --
-          // so the cover gives up 30 and the gap beside it is the block's inset)
-          // (and the cover's gap to the column its inset, as its margin to the block's edge -- 2026-11-09, the owner)
-          ':host([size=XL]) hk-plate.np{--np-art:min(' + NP_H + ', ' + NP_W + ' - 312px - ' + NP_PAD.l + ');--np-lead:20px;',
-          '  --hk-np-cols:calc(var(--np-art) + ' + NP_PAD.l + ') minmax(0,1fr);',
-          '  --hk-np-areas:"art ." "art line" "art title" "art artist" "art strip" "art .";',
-          '  --hk-np-rows:minmax(0,1fr) min-content min-content min-content min-content minmax(0,1fr)}',
-          ':host([size=XL]) .np .hks{margin-top:var(--np-lead)}',
-          ':host([size=XL]) .np .art{align-self:center;justify-self:start}',
-          ':host([size=XL]) .np .grid{column-gap:0}',
+          // XL (mockup 12i, 2026-11-09, the owner: "this player should work more like the Large card (vertical style
+          // layout), but also have the queue on the right side"; option B, "B is better, but it needs to be a larger touch
+          // point"): Large's player -- the cover with the speaker line and the song beside it, the progress, back / play /
+          // next and the volume -- in a column on the left, centered in the block's height, and Up Next filling the right:
+          // its heading with Browse a button at its right, the songs scrolling under it (.npq). The play row is the three
+          // keys alone, centered ("play/pause is no longer in the middle" with four), Up Next's key gone with the list in
+          // sight. The player's column is a little over half the block, the gap between the two its inset again.
+          ':host([size=XL]) hk-plate.np{--np-pw:max(260px, (' + NP_W + ' - ' + NP_PAD.l + ') * .52);',
+          '  --np-art:min(' + NP_H + ' - 190px, var(--np-pw) - 174px);',
+          '  --np-flank:calc((var(--np-art) - 64px) / 2);',
+          '  --hk-np-cols:var(--np-pw) minmax(0,1fr);',
+          '  --hk-np-areas:". queue" "pre queue" "line queue" "title queue" "artist queue" "post queue" ". queue" "strip queue" ". queue";',
+          '  --hk-np-rows:minmax(0,1fr) var(--np-flank) min-content min-content min-content var(--np-flank) 16px min-content minmax(0,1fr)}',
+          ':host([size=XL]) .np .grid{column-gap:' + NP_PAD.l + ';row-gap:2px;height:100%}',
+          ':host([size=XL]) .np .art{grid-area:2/1/7/2;justify-self:start;align-self:start}',
+          ':host([size=XL]) .np .hksl{margin-left:calc(var(--np-art) + ' + NP_PAD.l + ')}',
+          ':host([size=XL]) .np .title,:host([size=XL]) .np .artist{padding-left:calc(var(--np-art) + ' + NP_PAD.l + ');justify-self:stretch}',
+          ':host([size=XL]) .np .hks .mx{display:none}',
+          ':host([size=XL]) .np .hks .mctl{justify-content:center;margin-left:0;margin-right:0}',
+          '@container hk-cell (max-height:379px){:host([size=XL]) hk-plate.np{--np-art:min(' + NP_H + ' - 166px, var(--np-pw) - 174px)}',
+          '  :host([size=XL]) .np .hks .mprog' + NP_THIN + '}',
+          // UP NEXT: the heading in the Weather page's style (hk-base.js headCss) on a 40 px row, Browse a pill at its
+          // right drawn 40 px and taking a 56 px touch (44 on the screen) -- 12 px past the pill into the block's inset
+          // above, 4 below, and 8 clear of the list under it
+          '.np .npq{display:none}',
+          ':host([size=XL]) .np .npq{display:flex;flex-direction:column;grid-area:queue;align-self:stretch;min-width:0;min-height:0;contain:size;z-index:2}',
+          ':host([size=XL]) .np .npqh{display:flex;align-items:center;justify-content:space-between;gap:10px;height:40px;flex:none;margin:0 0 12px}',
+          window.hkCards.headCss(':host([size=XL]) .np .npqh>span'),
+          ':host([size=XL]) .np .npqh>span{color:rgba(255,255,255,.7)}',
+          ':host([size=XL]) .np .npqb{position:relative;display:inline-flex;align-items:center;gap:7px;height:40px;padding:0 16px;border:0;border-radius:20px;',
+          '  background:rgba(255,255,255,.16);color:#fff;font:inherit;font-size:15px;font-weight:600;line-height:1;cursor:pointer;flex:none;-webkit-tap-highlight-color:transparent}',
+          ':host([size=XL]) .np .npqb svg{width:18px;height:18px;fill:currentColor}',
+          ':host([size=XL]) .np .npqb::after{content:"";position:absolute;inset:-12px -8px -4px -8px}',
+          ':host([size=XL]) .np .npqb:active{background:rgba(255,255,255,.28)}',
+          // the songs: each row a 56 px button, the cover 40, the title over the artist; the list scrolls by finger, no
+          // scrollbar, a soft fade at its foot while there is more below (the owner: "the up next should scroll")
+          ':host([size=XL]) .np .npql{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;',
+          '  touch-action:pan-y;scrollbar-width:none;margin-right:-8px;padding-right:8px}',
+          ':host([size=XL]) .np .npql::-webkit-scrollbar{display:none}',
+          ':host([size=XL]) .np .npql.more{-webkit-mask-image:linear-gradient(180deg,#000 calc(100% - 56px),transparent);mask-image:linear-gradient(180deg,#000 calc(100% - 56px),transparent)}',
+          ':host([size=XL]) .np .npqr{display:flex;align-items:center;gap:12px;width:100%;min-height:56px;padding:0;border:0;background:none;color:#fff;',
+          '  font:inherit;text-align:left;cursor:pointer;border-bottom:1px solid rgba(255,255,255,.1);-webkit-tap-highlight-color:transparent}',
+          ':host([size=XL]) .np .npqr:last-child{border-bottom:0}',
+          ':host([size=XL]) .np .npqr:active,:host([size=XL]) .np .npqr.busy{opacity:.55}',
+          ':host([size=XL]) .np .npqa{flex:none;width:40px;height:40px;border-radius:8px;background:rgba(255,255,255,.14) center/cover no-repeat;',
+          '  display:flex;align-items:center;justify-content:center}',
+          ':host([size=XL]) .np .npqa svg{width:18px;height:18px;fill:rgba(255,255,255,.7)}',
+          ':host([size=XL]) .np .npqt{display:flex;flex-direction:column;min-width:0}',
+          ':host([size=XL]) .np .npqt b,:host([size=XL]) .np .npqt small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+          ':host([size=XL]) .np .npqt b{font-size:15px;line-height:19px;font-weight:600}',
+          ':host([size=XL]) .np .npqt small{font-size:13px;line-height:17px;color:rgba(255,255,255,.7)}',
+          ':host([size=XL]) .np .npqn{font-size:15px;line-height:20px;color:rgba(255,255,255,.7);padding-top:4px}',
+          ':host([size=XL]) .np.plain .npqh>span,:host([size=XL]) .np.plain .npqt small,:host([size=XL]) .np.plain .npqn{color:' + window.hkCards.v('ink-2') + '}',
+          ':host([size=XL]) .np.plain .npqr,:host([size=XL]) .np.plain .npqb{color:' + window.hkCards.v('ink') + '}',
+          ':host([size=XL]) .np.plain .npqr{border-bottom-color:' + window.hkCards.v('line') + '}',
+          ':host([size=XL]) .np.plain .npqb,:host([size=XL]) .np.plain .npqa{background-color:' + window.hkCards.v('key') + '}',
+          ':host([size=XL]) .np.plain .npqa svg{fill:' + window.hkCards.v('ink-2') + '}',
           // IN A PAGER (hk-pager-card): its dots under the block's foot, so no
           // volume and no label
           ':host([size][data-grid-pager]) hk-plate.np{--hk-np-pad:20px 22px 44px;--np-vol:0px}',
@@ -1440,6 +1477,61 @@
         if (player) this._call('hk_frontend', 'music_transport', { player: player, command: command });
       }
 
+      // UP NEXT ON EXTRA LARGE: Music Assistant's queue (hk_music/queue, the integration's: {id, title, artist,
+      // image}, the first what plays), asked once a song -- as the screensaver's rows and the Side Pane ask it
+      _queue(p) {
+        // (paused or stopped too: a speaker's queue outlives its song, and a row starts it again)
+        var key = this._res().player, sig = key ? key + '|' + this._title(p) + '|' + this._artist(p) : '', self = this;
+        if (sig !== this._qFor) {
+          this._qFor = sig; this._q = null;
+          if (sig && this.client && this.client.callWS) {
+            this.client.callWS({ type: 'hk_music/queue', entity_id: key, limit: 40 }).then(function (r) {
+              if (self._qFor !== sig) return;
+              self._q = r && r.ok && Array.isArray(r.items) ? r.items.slice(1) : [];
+              self._drawQueue();
+            }, function () { if (self._qFor === sig) { self._q = []; self._drawQueue(); } });
+          }
+        }
+        this._drawQueue();
+        this._qFade();
+      }
+      _drawQueue() {
+        var e = this._e;
+        if (!e || !e.ql) return;
+        var esc = function (t) { return String(t == null ? '' : t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+        // (Apple's 1000 px covers asked for at a thumbnail's size, as the other lists ask)
+        var small = function (u) { return String(u).replace(/\/(\d+)x(\d+)(bb|cc|sr)?\.(jpg|jpeg|png|webp)$/, '/160x160$3.$4'); };
+        var note = window.hkNpStrip.svg('M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z');
+        var items = this._q || [], busy = this._qBusy;
+        var html = this._qFor && !this._q ? ''
+          : !items.length ? '<div class="npqn">Nothing queued.</div>'
+          : items.map(function (it) {
+              var img = it.image && /^https?:|^\//.test(it.image) ? small(it.image) : '';
+              return '<button class="npqr' + (busy === it.id ? ' busy' : '') + '" type="button" data-qid="' + esc(it.id) + '" aria-label="Play ' + esc(it.title) + '">' +
+                '<span class="npqa"' + (img ? ' style="background-image:url(&quot;' + esc(img) + '&quot;)">' : '>' + note) + '</span>' +
+                '<span class="npqt"><b>' + esc(it.title) + '</b><small>' + esc(it.artist) + '</small></span></button>';
+            }).join('');
+        if (e.ql.__t === html) return;
+        var top = e.ql.scrollTop;
+        e.ql.__t = html; e.ql.innerHTML = html;
+        e.ql.scrollTop = top;
+        this._qFade();
+      }
+      // THE FADE AT THE LIST'S FOOT while more is below it (none once it is scrolled to the end)
+      _qFade() {
+        var l = this._e && this._e.ql;
+        if (!l) return;
+        if (!l.__fade) { var self = this; l.__fade = true; l.addEventListener('scroll', function () { self._qFade(); }, { passive: true }); }
+        l.classList.toggle('more', l.scrollHeight - l.clientHeight - l.scrollTop > 4);
+      }
+      _playQueued(id) {
+        var key = this._res().player, act = this._actions(), self = this;
+        if (!id || !key || !act || this._qBusy) return;
+        this._qBusy = id; this._drawQueue();
+        var done = function () { self._qBusy = null; self._qFor = ''; self._render(); };
+        act.callWS({ type: 'hk_music/queue_play', entity_id: key, item_id: id }).then(done, done);
+      }
+
       _render() {
         var cfg = this._config;
         // (a client update can reach the card before its config: nothing to draw yet -- media-card-check, 2026-11-08)
@@ -1482,6 +1574,12 @@
             // (not Small: no title line there); the docked bar has no line (its song is its button to the page, and its
             // 104 px leave no room for a 44 px line clear of it): the speakers are its Up Next panel's first tab.
             window.hkNpStrip.html({ prog: 'slot', vol: 'slot', stop: true, roles: true }) + window.hkNpStrip.lineHtml({ roles: true }) +
+            // THE QUEUE BESIDE THE PLAYER (Extra Large only; the owner's mockup 12i, option B, 2026-11-09: "B is better, but
+            // it needs to be a larger touch point"): Up Next, with Browse a button at its heading's right -- so back, play
+            // and next are alone and centered in the play row -- and the songs after this one under it, scrolling. A row
+            // plays that song. (data-notap: a tap between its controls is not the block's tap)
+            '<div class="npq" data-notap><div class="npqh"><span>Up Next</span><button class="npqb" type="button" aria-label="Browse Music">' +
+            window.hkNpStrip.svg(window.hkNpStrip.ICON.search) + 'Browse</button></div><div class="npql"></div></div>' +
             // CLOSE, as a CONTROL IN THE ROW rather than pop-up chrome -- drawn nowhere since 2026-10-11 (the bar is
             // swiped away); its element stays.
             '<div class="tb close" role="button" aria-label="Close"' +
@@ -1490,7 +1588,8 @@
           var q = this._root.querySelector.bind(this._root);
           this._e = { plate: q('hk-plate.np'), bg: q('.bg'), art: q('.art'), title: q('.title'),
                       artist: q('.artist'), player: q('.player'), meta: q('.mvs'), strip: q('.hks'),
-                      sub: q('.mprog'), play: q('.mpp'), spk: q('.hksl'), line: q('.hksl') };
+                      sub: q('.mprog'), play: q('.mpp'), spk: q('.hksl'), line: q('.hksl'),
+                      ql: q('.npql') };
           var self = this;
           q('[data-act=prev]').addEventListener('click', function () { self._svc('previous'); });
           q('[data-act=pp]').addEventListener('click', function () { self._svc('play_pause'); });
@@ -1553,6 +1652,11 @@
             });
             q('[data-act=brw]').addEventListener('click', function () { if (self.hasAttribute('size')) self._turn('browse'); });
             q('[data-act=queue]').addEventListener('click', function () { if (self.hasAttribute('size')) self._turn('queue'); });
+            q('.npqb').addEventListener('click', function () { if (self.hasAttribute('size')) self._turn('browse'); });
+            q('.npql').addEventListener('click', function (ev) {
+              var b = ev.target.closest && ev.target.closest('[data-qid]');
+              if (b) self._playQueued(b.getAttribute('data-qid'));
+            });
           }
           q('.close').addEventListener('click', function () { self._putAway(); });
           if (cfg.bar) this._swipe(q('hk-plate'));
@@ -1700,6 +1804,7 @@
         // (no block label since 2026-11-08; the song decides the block's idle look)
         var song = !!p && (p.state === 'playing' || p.state === 'paused') && !!(p.attributes && p.attributes.media_title);
         if (e.plate) e.plate.classList.toggle('idle', !song);
+        if (this.getAttribute('size') === 'XL') this._queue(p);
         // feed(), not a plain bridge: the nested card may not be upgraded yet.
         if (this._metaCard && this.client) feed(this._metaCard, this.client);
         if (this._subCard && this.client) feed(this._subCard, this.client);

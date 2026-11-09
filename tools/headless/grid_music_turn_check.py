@@ -18,6 +18,8 @@ sys.path[:0] = [str(ROOT / p) for p in ('tools/headless', 'tools', 'hosts/server
 import gallery
 from cdp import Browser
 from aiohttp.test_utils import TestServer
+from unittest.mock import patch
+from client_smoke import OfflineReads
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--shots', type=Path)
@@ -51,7 +53,14 @@ def apart(a, b, gap=0):
 
 async def main():
     gallery.SETTINGS['boards']['blocks'] = {'home_style': 'grid', 'home_grid': GRID, 'menu_custom': True, 'menu': 'tabbar'}
-    with tempfile.TemporaryDirectory() as td:
+    # (Music Assistant's queue: what plays and twenty songs, more than Extra Large's Up Next shows at once)
+    ask = OfflineReads.request
+
+    async def queue(self, msg):
+        if msg['type'] != 'hk_music/queue':
+            return await ask(self, msg)
+        return {'ok': True, 'items': [{'id': str(i), 'title': f'Upcoming Song {i}', 'artist': 'The Fictional Trio', 'duration': 180} for i in range(21)]}
+    with tempfile.TemporaryDirectory() as td, patch.object(OfflineReads, 'request', queue):
         app, cookie = await gallery.build(Path(td))
 
         def state(entity, value):
@@ -67,12 +76,30 @@ async def main():
             state('media_player.living_room', 'playing')
             assert await b.wait("['w','t','l','x','s'].every(id=>np(id)&&np(id).shadowRoot.querySelector('[data-act=spk]'))", 20)
             await asyncio.sleep(1.5)
-            # Large and Extra Large: Browse and Up Next shown at the row's ends (`spk` here is Up Next since the owner's mockup 12h,
+            # Large: Browse and Up Next shown at the row's ends (`spk` here is Up Next since the owner's mockup 12h,
             # 2026-11-09: the Speakers key became the speaker line over the title), inside the block, apart (8 px) from the cover
             # and the transport; the speaker line 56 px tall, 12 px clear of the keys
             for bid in ('l', 'x'):
                 lay = await b.eval('(' + LAYOUT + ")('" + bid + "')")
                 z = await b.eval("np('" + bid + "').getBoundingClientRect().width/np('" + bid + "').offsetWidth")
+                if bid == 'x':
+                    # EXTRA LARGE (mockup 12i, option B, 2026-11-09): back / play / next alone, play centered under the player's
+                    # column; Browse a button in Up Next's heading, its touch 56 px (the owner: "it needs to be a larger touch
+                    # point"), inside the block and 8 px clear of the list under it and the player beside it
+                    assert not lay['shown'] and lay['vol'], (bid, lay)
+                    q = await b.eval("""(()=>{const r=np('x').shadowRoot,R=e=>{const b=e.getBoundingClientRect();return [b.left,b.top,b.right,b.bottom]},
+                      p=r.querySelector('.npqb'),a=getComputedStyle(p,'::after'),k=p.getBoundingClientRect().width/p.offsetWidth,o=R(p);
+                      return {hit:[o[0]+parseFloat(a.left)*k,o[1]+parseFloat(a.top)*k,o[2]-parseFloat(a.right)*k,o[3]-parseFloat(a.bottom)*k],
+                              list:R(r.querySelector('.npql')),strip:R(r.querySelector('.hks')),queue:R(r.querySelector('.npq'))}})()""")
+                    h = q['hit']
+                    assert h[3] - h[1] >= 56 * z - 0.5 and h[2] - h[0] >= 56 * z - 0.5 and inside(h, lay['plate']), (q, lay)
+                    assert apart(h, q['list'], 8 * z) and apart(q['queue'], q['strip'], 8 * z), (q, lay)
+                    assert abs((lay['play'][0] + lay['play'][2]) / 2 - (q['strip'][0] + q['strip'][2]) / 2) <= 1, (q, lay)
+                    for x, y in (('prev', 'play'), ('play', 'next')):
+                        assert apart(lay[x], lay[y], 8 * z), (bid, lay)
+                    tl = await b.eval("hkNpStrip.check(np('x').shadowRoot.querySelector('.hks'),{min:56,scale:" + str(z) + ",line:np('x').shadowRoot.querySelector('.hksl')})")
+                    assert not tl['breaks'] and tl['gapL'] >= 12, tl
+                    continue
                 assert lay['shown'] and lay['vol'], (bid, lay)
                 for k in ('spk', 'brw', 'prev', 'play', 'next'):
                     assert inside(lay[k], lay['plate']), (bid, k, lay)
@@ -146,8 +173,25 @@ async def main():
             await b.send('Input.dispatchKeyEvent', type='keyDown', key='Escape', code='Escape', windowsVirtualKeyCode=27)
             await b.send('Input.dispatchKeyEvent', type='keyUp', key='Escape', code='Escape', windowsVirtualKeyCode=27)
             assert await b.wait("!turned() && getComputedStyle(np('x').shadowRoot.querySelector('hk-plate')).visibility==='visible'", 5)
-            # the Extra Large block: its Browse, then the X
-            await b.eval("np('x').shadowRoot.querySelector('[data-act=brw]').click()")
+            # EXTRA LARGE'S UP NEXT SCROLLS (2026-11-09, the owner: "the up next should scroll as well"): a finger's drag moves the
+            # list and plays nothing, the fade at its foot gone at the end; a tap on a song plays it (hk_music/queue_play)
+            assert await b.wait("np('x').shadowRoot.querySelectorAll('.npqr').length===20", 10)
+            r = await b.eval("(()=>{const l=np('x').shadowRoot.querySelector('.npql'),b=l.getBoundingClientRect();return {x:(b.left+b.right)/2,y:b.top+b.height*.75,more:l.classList.contains('more')}})()")
+            assert r['more'], r
+            await b.send('Input.synthesizeScrollGesture', x=r['x'], y=r['y'], yDistance=-160, gestureSourceType='touch', speed=600)
+            await asyncio.sleep(0.6)
+            got = await b.eval("({top:np('x').shadowRoot.querySelector('.npql').scrollTop,busy:np('x')._qBusy||null})")
+            assert got['top'] > 50 and not got['busy'], got
+            await b.send('Input.synthesizeScrollGesture', x=r['x'], y=r['y'], yDistance=-4000, gestureSourceType='touch', speed=4000)
+            await asyncio.sleep(0.8)
+            assert await b.eval("!np('x').shadowRoot.querySelector('.npql').classList.contains('more')")
+            t = await b.eval("(()=>{const e=np('x').shadowRoot.querySelectorAll('.npqr')[16].getBoundingClientRect();return {x:e.left+40,y:(e.top+e.bottom)/2}})()")
+            await b.send('Input.dispatchTouchEvent', type='touchStart', touchPoints=[{'x': t['x'], 'y': t['y']}])
+            await b.send('Input.dispatchTouchEvent', type='touchEnd', touchPoints=[])
+            assert await b.wait("np('x')._qBusy==='17'", 5), 'a tap on the 17th song plays it'
+            print('  x: Up Next scrolls by finger, a tap plays the song')
+            # the Extra Large block: its Browse (the button in Up Next's heading since mockup 12i), then the X
+            await b.eval("np('x').shadowRoot.querySelector('.npqb').click()")
             assert await b.wait('!!turned()', 5)
             await asyncio.sleep(1.2)
             await b.eval("turned().querySelector('[data-k=\"close\"]').click()")
