@@ -716,7 +716,6 @@ STATES.update({
 # (humidity and wind, no feels like, no UV)
 # SECURITY'S LOCK LIST (2026-11-09, mockup 4b): a lock unlocked (its disc orange) and the alarm armed away, as the list has them
 STATES["sec_unlocked"] = {"domains": {"cover": "closed", "binary_sensor": "off"}, "entities_state": {"lock.front_door": "unlocked"}}
-STATES["sec_armed"] = {"domains": {"lock": "locked", "cover": "closed", "binary_sensor": "off", "alarm_control_panel": "armed_away"}}
 STATES["wx_few"] = {"entities": {"weather.home": ("cloudy", {"friendly_name": "Home", "temperature": 41, "temperature_unit": "°F"}),
                                  "sun.sun": ("below_horizon", {"friendly_name": "Sun", "elevation": -20.0, "azimuth": 10.0,
                                                                "next_rising": time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(time.time() + 9 * 3600))})}}

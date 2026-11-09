@@ -243,8 +243,9 @@ function () {
   html = H.morphed(panel('doors', 'S')._own.plate);
   ok('Doors S: how many are open, large, and which', /class="dd hero on"/.test(html) && />1 Open</.test(html) && /class="ws">Office Window</.test(html) && /mdi:window-open/.test(html) && !/data-more/.test(html), html);
   html = H.morphed(panel('doors', 'W')._own.plate);
-  ok('Doors W: the count beside the list, the open one first and in orange', />1 Open</.test(html) && /class="ws"[^>]*>Office Window</.test(html) && !/All doors closed/.test(html) &&
-     /class="dd on"/.test(html) && /class="more"/.test(html) && /<em class="o">Open</.test(html), html);
+  // (2026-11-09: lit teal, not orange -- DESIGN.md; every row that fits a door, "+N more" the headline column's foot)
+  ok('Doors W: the count beside the list, the open one first and lit', />1 Open</.test(html) && /class="ws"[^>]*>Office Window</.test(html) && !/All doors closed/.test(html) &&
+     /class="dd on"/.test(html) && />\+\d+ more</.test(html) && !/class="more"/.test(html) && /<em class="o">Open</.test(html), html);
   ok('...a row opens its own sheet; the locks are Security\'s, not here', /data-more="binary_sensor.office_window"/.test(html) && !/lock.front_door/.test(html));
   // Large and Extra Large (2026-10-31, the owner: not the house picture): the same list, 44 px rows; Extra Large the count beside it
   var pl = panel('doors', 'L');

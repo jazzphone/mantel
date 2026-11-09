@@ -127,7 +127,9 @@ function () {
   ok('the idle face replaces the player\'s pieces on Large and Extra Large only',
      css.indexOf(':host(:is([size=L],[size=XL])) .np.idle .grid>:not(.npi):not(.bg):not(.shade){display:none!important}') >= 0 && css.indexOf('.np .npi{display:none}') >= 0);
   ok('Extra Large: the left column as wide as the player\'s, the playlists beside it', css.indexOf(':host([size=XL]) .np.idle .npi-l{flex:none;width:var(--np-pw)') >= 0);
-  ok('Browse, the speaker and Play: 56 px targets', css.indexOf('.np.idle .npi-b{flex:1;min-width:0;display:flex;align-items:center;gap:10px;height:56px') >= 0 && css.indexOf('.np.idle .npi-play::after{content:"";position:absolute;inset:-8px -6px}') >= 0);
+  // (Browse and the speaker the standard pills, 2026-11-09: drawn 40, a 56 px touch)
+  ok('Browse, the speaker and Play: 56 px targets', css.indexOf('.np.idle .npi-b{position:relative;flex:none;min-width:0;max-width:100%;display:inline-flex;align-items:center;gap:7px;height:40px') >= 0 &&
+     css.indexOf('.np.idle .npi-b::after{content:"";position:absolute;inset:-8px -4px}') >= 0 && css.indexOf('.np.idle .npi-play::after{content:"";position:absolute;inset:-8px -6px}') >= 0);
   var saved = window.hkMusic.playlists, turned = [], played = [];
   window.hkMusic.playlists = function () { return [{ name: 'Focus', key: 'focus' }, { name: 'Dinner Party', key: 'dinner' }]; };
   ['L', 'XL'].forEach(function (s) {
