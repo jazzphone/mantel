@@ -4,6 +4,8 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+## 0.1.156 - 2026-11-08
+
 **Added**
 - **Which Timers**: Settings → Timers lists every timer in the house, on or ignored, with a switch. Turn on one that Home Assistant or an automation runs, or turn off one you don't want to hear about.
 
