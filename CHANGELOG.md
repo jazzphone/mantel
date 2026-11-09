@@ -4,6 +4,9 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Changed**
+- **The Doors & Locks block is one calm list at every size.** The rows are those of On Now and House Status: a glyph in its circle (orange when open), the name, the state at the right, hairlines between, no plate behind a row. The headline is the open kind's glyph over "1 Open" and what is open, or a green check over "All Closed"; Extra Large and Wide put it beside the list, Large and Tall above it, Small shows it alone.
+
 ## 0.1.158 - 2026-11-09
 
 **Changed**

@@ -173,6 +173,14 @@
       '.wb.ok{display:flex;align-items:center;gap:8px}' +
       // (ROWS THAT ARE TARGETS, 2026-11-08, the controls audit: Doors Wide's 44 px tall; Power Extra Large's 44 with 8 px clear, no rules between)
       '.wr.t44>div{height:44px}.wr.sp{gap:8px}.wr.sp>div{height:44px;border-bottom:0}' +
+      // (THE DOORS' LIST, 2026-11-09, mockup 4b: rows of 56 with the disc of House Status -- .dk -- a gray well closed, orange with a white
+      // glyph open; the headline 22 / 600 and its glyph in line with it)
+      '.wr.dl>div{height:56px}.wr.dl b{' + type('headline') + ';font-weight:600}.wr.dl em{' + type('body') + ';color:' + v('ink-2') + '}.wr.dl em.o{color:' + ACC.orange + ';font-weight:600}' +
+      '.dd{display:grid;place-items:center;border-radius:50%;flex:none;box-sizing:border-box;background:' + v('key') + ';color:' + v('ink-2') + '}' +
+      '.dd.on{background:' + ACC.orange + ';color:#fff}.dd.ok{background:' + ACC.green + ';color:#fff}' +
+      '.dd.dd>hk-icon{display:flex;--mdc-icon-size:100%}' +
+      '.dt{font-size:22px;font-weight:600;line-height:26px;letter-spacing:-0.2px;white-space:nowrap;flex:none}' +
+      '.dh{display:flex;align-items:center;gap:10px;flex:none}.dsub{margin-top:2px;padding-left:36px}' +
       '.wg hk-icon{display:block;flex:none;--mdc-icon-size:100%}' +
       '.wsplit{display:flex;gap:18px;flex:1;min-height:0}.wsplit>:last-child{flex:1}' +
       '.waxis{display:flex;justify-content:space-between;margin-top:6px;flex:none;' + type('micro') + ';color:' + v('ink-3') + '}';
@@ -436,8 +444,13 @@
         });
         return out;
       }
-      // DOORS AND WINDOWS: how many are open, large; Wide the count beside
-      // the list, Tall over it -- the open ones first, in orange
+      // DOORS AND WINDOWS (2026-11-09, mockup 4b, approved "yes, all of this looks way better"; the owner: "The Doors & Locks card
+      // at all sizes looks pretty bad"): one calm list, the rows of On Now and House Status -- a glyph in its circle (a gray well
+      // closed, orange with a white glyph open), the name, a line under it only when there is one to say, the state at the right,
+      // hairlines between, no plate behind a row. The headline: the open kind's glyph in orange over "1 Open" over what is open,
+      // or a green check over "All Closed" and what the block watches. Extra Large and Wide: the headline column, the list beside
+      // it; Large and Tall: the headline above the list; Small: the headline alone. The open ones first; what does not fit is
+      // "N more" in the last row's place. Rows are 56 px -- each a tap target -- and a row opens that door's own sheet.
       _ownDoors(p, size, box, h) {
         var list = [];
         [['door', p.doors], ['garage', p.garage], ['window', p.windows]].forEach(function (x) {
@@ -445,55 +458,56 @@
         });
         list.sort(function (a, b) { return (b.open ? 1 : 0) - (a.open ? 1 : 0); });
         var open = list.filter(function (x) { return x.open; }), name = function (x) { return (C.accName && C.accName(x.id)) || attr(x.st, 'friendly_name') || x.id; };
-        var row = function (x) {
-          var g = WAY_GLYPH[x.kind][x.open ? 0 : 1];
-          return '<div data-more="' + esc(x.id) + '">' + gly(g, 20, x.open ? ACC.orange : null) + '<b>' + esc(name(x)) + '</b><em' +
-            (x.open ? ' style="color:' + ACC.orange + '"' : '') + '>' + (x.open ? 'Open' : 'Closed') + '</em></div>';
-        };
-        // (2026-11-08, the owner: "if the card's name is printed on the card...it can go": no "DOORS & WINDOWS" label, at any size)
-        // THE COPY, PLAINLY (2026-11-08, the review: "1 open" over "All doors closed" while a window was open): what is open
-        // and by name -- "1 Open" over "Office Window" -- or "All Closed" with a check over what the block watches; no zero
+        // THE COPY, PLAINLY (2026-11-08, the review): what is open and by name, or "All Closed" over what the block watches
         var ways = list.filter(function (x) { return x.kind !== 'window'; }).length, wins = list.length - ways;
-        var names = open.length < 3 ? open.map(name).join(' · ') : name(open[0]) + ' + ' + (open.length - 1) + ' more';
+        var kinds = {};
+        open.forEach(function (x) { kinds[x.kind] = (kinds[x.kind] || 0) + 1; });
+        var names = open.length < 3 ? open.map(name).join(', ') :
+          Object.keys(kinds).length === 1 ? plural(open.length, open[0].kind, open[0].kind === 'garage' ? 'garage doors' : open[0].kind + 's') : name(open[0]) + ' + ' + (open.length - 1) + ' more';
         var line = open.length ? names : [ways ? plural(ways, 'door', 'doors') : '', wins ? plural(wins, 'window', 'windows') : ''].filter(Boolean).join(' · ');
-        var ok = function (px) { return gly('mdi:check-circle', px, ACC.teal); };
-        if (size === 'S') {
-          var first = open[0];
-          if (!first) return ok(34) + '<div class="wb m" style="margin-top:8px">All Closed</div>';
-          return gly(WAY_GLYPH[first.kind][0], 34, ACC.orange) + '<div class="wb xl">' + open.length + '</div><div class="ws">' + esc(open.length === 1 ? 'Open · ' + name(first) : 'Open') + '</div>';
-        }
-        var big = open.length ? '<div class="wb m">' + open.length + ' Open</div>' : '<div class="wb m ok">' + ok(24) + 'All Closed</div>';
-        if (size === 'W') {
-          return '<div class="wsplit"><div class="wcol" style="flex:0 0 170px">' + big + '<div class="ws">' + esc(line) + '</div></div>' +
-            '<div class="wcol wr t44" style="justify-content:center">' + fitRows(list, box.ih, row, 44) + '</div></div>';
-        }
-        // (T, L and XL, 2026-11-08, the owner: nothing stretches -- rows keep their 48 px, as many as fit with "N more", and the hero and
-        // the rows are one group centered under the label; the figure is the hero's 72 where three rows still fit under it)
         var since = function (st) {
           var t = Date.parse(st.last_changed || ''), L = window.hkLocale;
           if (!t) return '';
           var d = new Date(t), today = new Date().toDateString() === d.toDateString(), tag = L ? L.tag() : undefined;
           return (size === 'T' ? 'Since ' : 'Open since ') + (today ? d.toLocaleTimeString(tag, { hour: 'numeric', minute: '2-digit' }) : d.toLocaleDateString(tag, { weekday: 'short' }));
         };
-        var tall = function (x) {
-          var g = WAY_GLYPH[x.kind][x.open ? 0 : 1], s = x.open ? since(x.st) : '', col = x.open ? ' style="color:' + ACC.orange + '"' : '';
-          // (Tall, 160 px across: the state is the line under the name -- "Open since 9:41 PM", "Closed" -- not a word beside it)
-          if (size === 'T') return '<div data-more="' + esc(x.id) + '">' + gly(g, 24, x.open ? ACC.orange : null) + '<span class="wt"><b>' + esc(name(x)) + '</b><small' + col + '>' + esc(s || 'Closed') + '</small></span></div>';
-          return '<div data-more="' + esc(x.id) + '">' + gly(g, 24, x.open ? ACC.orange : null) + '<span class="wt"><b>' + esc(name(x)) + '</b>' +
-            (s ? '<small>' + esc(s) + '</small>' : '') + '</span><em' + col + '>' + (x.open ? 'Open' : 'Closed') + '</em></div>';
+        // the glyph in its circle: the same disc as House Status's (.dk), orange when open
+        var disc = function (g, on, px) {
+          return '<span class="dd' + (on ? ' on' : '') + '" style="width:' + px + 'px;height:' + px + 'px">' + gly(g, Math.round(px * 0.56), null) + '</span>';
         };
-        var heroH = open.length ? 94 : 100;
-        var hero = function (xl) {
-          if (!xl) return big;
-          return open.length ? '<div class="wb xl">' + open.length + '</div><div class="ws">Open</div>' : ok(44) + '<div class="wb m" style="margin-top:6px">All Closed</div>';
+        var lead = open.length ? WAY_GLYPH[open[0].kind][0] : 'mdi:check';
+        var head = function (px) {
+          // (the headline's glyph: the open kind's, orange, bare -- or the green check-circle)
+          return open.length ? gly(lead, px, ACC.orange) : gly('mdi:check-circle', px, ACC.green);
         };
-        if (size === 'T' || size === 'L') {
-          var room = box.ih, xl = room - heroH - 8 >= Math.min(list.length, 3) * 48, rest = room - (xl ? heroH : 52) - 8;
-          return '<div class="wmid">' + hero(xl) + '<div class="wr tall" style="margin-top:8px">' + fitRows(list, rest, tall, 48) + '</div></div>';
+        var title = open.length ? open.length + ' Open' : 'All Closed';
+        if (size === 'S') {
+          var d = Math.min(44, Math.max(36, box.ih - 26 - 19 - 8));
+          return '<span class="dd hero' + (open.length ? ' on' : ' ok') + '" style="width:' + d + 'px;height:' + d + 'px">' + gly(lead, Math.round(d * 0.56), null) + '</span>' +
+            '<div class="dt" style="margin-top:8px">' + esc(title) + '</div><div class="ws">' + esc(line) + '</div>';
         }
-        return '<div class="wsplit" style="gap:22px"><div class="wcol" style="flex:0 0 200px">' +
-          '<div class="wmid">' + hero(true) + '<div class="ws">' + esc(line) + '</div>' +
-          '</div></div><div class="wcol wmid wr tall">' + fitRows(list, box.ih, tall, 48) + '</div></div>';
+        // a row: the disc, the name over since when, the state at the right (Tall's 160 px: the state is the line under the name)
+        var row = function (x) {
+          var g = WAY_GLYPH[x.kind][x.open ? 0 : 1], s = x.open ? since(x.st) : '';
+          if (size === 'T') {
+            return '<div data-more="' + esc(x.id) + '">' + disc(g, x.open, 36) + '<span class="wt"><b>' + esc(name(x)) + '</b><small' + (x.open ? ' style="color:' + ACC.orange + '"' : '') + '>' +
+              esc(s || 'Closed') + '</small></span></div>';
+          }
+          return '<div data-more="' + esc(x.id) + '">' + disc(g, x.open, 36) + '<span class="wt"><b>' + esc(name(x)) + '</b>' + (s ? '<small>' + esc(s) + '</small>' : '') + '</span><em' +
+            (x.open ? ' class="o"' : '') + '>' + (x.open ? 'Open' : 'Closed') + '</em></div>';
+        };
+        // the headline column (Extra Large, Wide): the glyph over the count over the line, top left; the gap to the list is the block's inset
+        var col = function (w) {
+          return '<div class="wcol" style="flex:0 0 ' + w + 'px">' + head(36) + '<div class="dt" style="margin-top:10px">' + esc(title) + '</div><div class="ws" style="white-space:normal">' + esc(line) + '</div></div>';
+        };
+        var gap = 'gap:var(--hk-pad-l,18px)';
+        if (size === 'XL' || size === 'W') {
+          return '<div class="wsplit" style="' + gap + '">' + col(size === 'XL' ? 150 : 130) + '<div class="wcol wr tall dl" role="list">' + fitRows(list, box.ih, row, 56) + '</div></div>';
+        }
+        // Large and Tall: the headline (the glyph beside the count, the line under it), then as many rows as fit -- three at least
+        var headH = 26 + 19 + 12;
+        return '<div class="dh">' + head(26) + '<span class="dt">' + esc(title) + '</span></div><div class="ws dsub">' + esc(line) + '</div>' +
+          '<div class="wr tall dl" role="list" style="margin-top:12px">' + fitRows(list, box.ih - headH - 12, row, 56) + '</div>';
       }
       // WATER: today's large; Small and Tall the last twelve hours as a
       // short chart (Tall the days before under it); Wide the day's hours

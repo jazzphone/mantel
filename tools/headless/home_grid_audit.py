@@ -510,7 +510,8 @@ MEASURE = r"""(() => {
           const a = el.getBoundingClientRect(), b = o.getBoundingClientRect(); return Math.max(b.left - a.right, a.left - b.right, b.top - a.bottom, a.top - b.bottom) < 2; }))));
       // (a SCROLLING LIST's rows -- Now Playing Extra Large's Up Next, 2026-11-09 -- are one control too: rows of a list touch, as every
       // list's do, and the one cut by its foot scrolls whole into view; the list is measured by its box against the controls round it)
-      const scrolls = el => { const p = el.parentElement; return !!p && /^(auto|scroll)$/.test(getComputedStyle(p).overflowY); };
+      // (and a `role=list` of row buttons that does not scroll -- Doors & Locks, 2026-11-09, mockup 4b: its rows touch, as a list's do)
+      const scrolls = el => { const p = el.parentElement; return !!p && (/^(auto|scroll)$/.test(getComputedStyle(p).overflowY) || p.getAttribute('role') === 'list'); };
       const isSegOrRow = el => isSeg(el) || scrolls(el);
       const tracks = new Map();
       for (const a of found) if (isSegOrRow(a.el)) { const t = a.el.parentElement, u = tracks.get(t) || { h: t.getBoundingClientRect() };      // (the track: its own box and its choices' touchable boxes, joined)
@@ -535,7 +536,7 @@ MEASURE = r"""(() => {
     // A GLYPH IN ITS WELL (2026-11-09, the owner on On Now: "the icons/glyphs inside the wells/circles are not aligned"): the
     // glyph's svg box centers on its disc (`.dk`) or well, within half a pixel
     for (const d of all) {
-      if (!shown(d) || !d.classList || !d.classList.contains('dk')) continue;
+      if (!shown(d) || !d.classList || !(d.classList.contains('dk') || d.classList.contains('dd'))) continue;
       const ic = d.querySelector('hk-icon'), sv = ic && ic.shadowRoot && ic.shadowRoot.querySelector('svg'); if (!sv) continue;
       const a = d.getBoundingClientRect(), b = sv.getBoundingClientRect(), z = view._gridScale || 1;
       const dx = ((b.left + b.width / 2) - (a.left + a.width / 2)) / z, dy = ((b.top + b.height / 2) - (a.top + a.height / 2)) / z;
