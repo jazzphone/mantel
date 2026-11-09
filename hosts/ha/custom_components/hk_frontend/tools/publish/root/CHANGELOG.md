@@ -7,6 +7,7 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 **Changed**
 - **The Doors & Locks block is one calm list at every size.** The rows are those of On Now and House Status: a glyph in its circle (orange when open), the name, the state at the right, hairlines between, no plate behind a row. The headline is the open kind's glyph over "1 Open" and what is open, or a green check over "All Closed"; Extra Large and Wide put it beside the list, Large and Tall above it, Small shows it alone.
+- **The Suggested Scene block shows the scene for now as the hero, with what comes later.** Its own glyph (silverware for dinner, a moon for night, a sun for morning) in a circle, "Up Next · Evening" over the scene's name and when it begins, and a white Run Now key; under it a "Later" list of the next scenes with their times, each a tap that runs it. Extra Large is new: the hero at the left, three later scenes at the right. Large and Tall show two (as many as fit); Wide gains a play key; Small stays as it was.
 
 ## 1.54.1 - 2026-11-09
 

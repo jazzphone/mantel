@@ -239,14 +239,17 @@
       var a = minutes(w.start);
       return a === null ? 'day' : a >= 300 && a < 600 ? 'morning' : a >= 600 && a < 1020 ? 'day' : a >= 1020 && a < 1320 ? 'evening' : 'night';
     }
-    // THE SUGGESTION: the window that holds now, with its scene; else the next
-    // one to come (`next`). null when no window has a scene the house has.
-    function suggestion(client, windows, now) {
-      var list = (Array.isArray(windows) && windows.length ? windows : DEFAULT_WINDOWS).map(function (w) {
+    function windowList(client, windows) {
+      return (Array.isArray(windows) && windows.length ? windows : DEFAULT_WINDOWS).map(function (w) {
         var id = w.scene || (w.words ? sceneFor(client, w.words) : null);
         var ok = id && client && client.states && client.states[id];
         return ok ? { start: w.start, end: w.end, scene: id, label: w.label || '', art: w.art || null } : null;
       }).filter(Boolean);
+    }
+    // THE SUGGESTION: the window that holds now, with its scene; else the next
+    // one to come (`next`). null when no window has a scene the house has.
+    function suggestion(client, windows, now) {
+      var list = windowList(client, windows);
       if (!list.length) return null;
       var cur = list.filter(function (w) { return holds(w, now); })[0];
       var next = false;
@@ -259,6 +262,22 @@
       var name = friendly(client, cur.scene);
       return { scene: cur.scene, name: name, label: cur.label || null, start: cur.start, end: cur.end, next: next,
                art: cur.art || artOf(cur, name) };
+    }
+    // WHAT COMES AFTER IT (2026-11-09, mockup 6, the owner: "what comes later today"): the same windows, in the order they
+    // begin after the suggestion's (or after now, when it is `next`), each scene once, the suggestion's own left out. At most n.
+    function laterScenes(client, windows, now, n) {
+      var list = windowList(client, windows), s = suggestion(client, windows, now);
+      if (!s) return [];
+      var from = minutes(s.start), seen = {};
+      seen[s.scene] = true;
+      return list.map(function (w) { return { w: w, d: (minutes(w.start) - from + 1440) % 1440 }; })
+        .filter(function (x) { return x.d > 0 || x.w.scene !== s.scene; })
+        .sort(function (x, y) { return x.d - y.d; })
+        .filter(function (x) { if (seen[x.w.scene]) return false; seen[x.w.scene] = true; return true; })
+        .slice(0, n || 3).map(function (x) {
+          var name = friendly(client, x.w.scene);
+          return { scene: x.w.scene, name: name, label: x.w.label || null, start: x.w.start, art: x.w.art || artOf(x.w, name) };
+        });
     }
     // "10:00" said the house's way (10:00 AM, 10:00)
     function clockText(hhmm) {
@@ -424,6 +443,6 @@
     K.pill = pill; K.PILL_H = PILL_H; K.plan = plan; K.plural = plural; K.roomLine = roomLine; K.roomOf = roomOf;
     K.roomParts = roomParts; K.roomTemp = roomTemp; K.roomHumidity = roomHumidity; K.sceneSays = sceneSays; K.setting = setting; K.shape = shape; K.SLOP = SLOP; K.speakerOf = speakerOf;
     K.twoOf = twoOf;
-    K.suggestion = suggestion; K.TABLET_ROOM = TABLET_ROOM;
+    K.suggestion = suggestion; K.laterScenes = laterScenes; K.TABLET_ROOM = TABLET_ROOM;
   };
 })();

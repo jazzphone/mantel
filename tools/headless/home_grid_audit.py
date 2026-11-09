@@ -737,6 +737,19 @@ STATES["sec_many"] = {"entities": {**{f"lock.extra_{i}": ("locked", {"friendly_n
     **{f"binary_sensor.extra_window_{i}": ("off", {"friendly_name": f"Window {i}", "device_class": "window"}) for i in range(8)}}}
 # THE CALENDAR, DOORS AND WHO'S HOME (2026-11-08, round three): a calendar with nothing today and the next event tomorrow; doors
 # and windows: one window open, two doors open (a door and the garage), many open; a house of one person at home, and of four
+# THE SUGGESTED SCENE'S LATER LIST (2026-11-09, mockup 6): windows laid round the clock as it is now -- Dinner holds now, then Good
+# Night, Good Morning and Movie Night begin -- so the block shows its hero and a list whatever the hour; `sugg_one` has only the
+# one window (the hero takes the block)
+def _sugg_windows(n: int) -> list[dict]:
+    now = time.gmtime(); m = now.tm_hour * 60 + now.tm_min
+    hh = lambda t: f"{(t // 60) % 24:02d}:{t % 60:02d}"
+    names = [("scene.dinner", "Evening", "evening"), ("scene.good_night", "Night", "night"), ("scene.good_morning", "Morning", "morning"),
+             ("scene.movie_night", "Movie", "evening")]
+    return [{"start": hh(m - 60 + 120 * i), "end": hh(m + 59 + 120 * i), "scene": sc, "label": lb} for i, (sc, lb, _a) in enumerate(names[:n])]
+STATES["sugg_next"] = {"opts": {"scene_suggested": {"windows": [dict(w, start=w["start"][:0] + _sugg_windows(4)[(i + 1) % 4]["start"], end=_sugg_windows(4)[(i + 1) % 4]["end"]) for i, w in enumerate(_sugg_windows(4)[:3])]}}}  # (none holds now: the first to come is "Up Next")
+STATES["sugg_many"] = {"opts": {"scene_suggested": {"windows": _sugg_windows(4)}}}
+STATES["sugg_one"] = {"opts": {"scene_suggested": {"windows": _sugg_windows(1)}}}
+STATES["sugg_two"] = {"opts": {"scene_suggested": {"windows": _sugg_windows(2)}}}
 STATES["cal_later"] = {"events": "later"}
 STATES["doors_window"] = {"domains": {"cover": "closed", "binary_sensor": "off"},
                           "entities": {"binary_sensor.office_window": ("on", {"friendly_name": "Office Window", "device_class": "window"})}}

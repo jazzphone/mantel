@@ -345,6 +345,19 @@ function () {
   eq('a block\'s own window, with its label', [b.scene, b.name, b.label], ['script.feed_the_cat', 'Feed the Cat', 'Breakfast']);
   eq('a window whose scene the house lacks is left out', P.suggestion(client, [{ start: '00:00', end: '23:59', scene: 'scene.gone' }], 600), null);
 
+  // WHAT COMES LATER (2026-11-09, mockup 6): the windows in the order they begin after the suggestion's, each scene once
+  var cyc = [{ start: '17:00', end: '22:00', scene: 'scene.dinner_time', label: 'Evening' },
+             { start: '22:00', end: '06:30', scene: 'scene.good_night', label: 'Night' },
+             { start: '06:30', end: '10:00', scene: 'scene.good_morning', label: 'Morning' }];
+  eq('later: the windows after the one holding now, in time order, round midnight',
+     P.laterScenes(client, cyc, M('19:00'), 3).map(function (l) { return [l.scene, l.start]; }),
+     [['scene.good_night', '22:00'], ['scene.good_morning', '06:30']]);
+  eq('later: at most n', P.laterScenes(client, cyc, M('19:00'), 1).length, 1);
+  eq('later: before the first window it follows the next one, said as next', P.laterScenes(client, cyc, M('12:00'), 3).map(function (l) { return l.scene; }),
+     ['scene.good_night', 'scene.good_morning']);
+  eq('later: one window, nothing later', P.laterScenes(client, [cyc[0]], M('19:00'), 3), []);
+  eq('later: its art, for a glyph', P.laterScenes(client, cyc, M('19:00'), 3)[0].art, 'night');
+
   var card = H.make('hk-suggested-scene-card');
   card.setAttribute('size', 'W');
   card._clock = function () { return new Date(2026, 9, 22, 7, 30); };

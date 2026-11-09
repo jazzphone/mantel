@@ -10,7 +10,7 @@
 //                            then let go), or opens its sheet when held still.
 //                            No sideways slider: a pager (G4) owns sideways
 //                            drags.
-//   hk-suggested-scene-card  `scene_suggested` (W, L): the scene for this time
+//   hk-suggested-scene-card  `scene_suggested` (S, W, T, L, XL): the scene for this time
 //                            of day, from the block's windows (Morning 05:00-
 //                            10:00 -> Good Morning...); the art follows it.
 //   hk-action-card           `action` (S): one tap for one job -- Lock Up, All
@@ -91,7 +91,7 @@
   }
   // ------------------------------------------------------------ end of the parts loader
   var camGrid, camRing, clockText, DEFAULT_WINDOWS, dimCall, dims, dragged, fit, HOLD_MS, holds, houseMinutes, layout,
-      menuCounts, minutes, percent, plan, roomLine, roomOf, roomParts, sceneSays, suggestion;
+      laterScenes, menuCounts, minutes, percent, plan, roomLine, roomOf, roomParts, sceneSays, suggestion;
 
   whenBase(function (C) {
     if (window.hkGridCards && window.hkGridCards.Room) return;
@@ -137,7 +137,7 @@
       houseMinutes = K.houseMinutes; layout = K.layout; menuCounts = K.menuCounts; menuItems = K.menuItems;
       minutes = K.minutes; onNow = K.onNow; percent = K.percent; plan = K.plan; roomLine = K.roomLine;
       roomOf = K.roomOf; roomParts = K.roomParts; sceneSays = K.sceneSays; secRows = K.secRows; secSays = K.secSays;
-      suggestion = K.suggestion; whatsOn = K.whatsOn; clockText = K.clockText;
+      suggestion = K.suggestion; laterScenes = K.laterScenes; whatsOn = K.whatsOn; clockText = K.clockText;
     }
 
     loadParts(function () {
@@ -145,7 +145,7 @@
 
       window.hkGridCards = { version: '1.0.0',
         _: { roomOf: roomOf, roomParts: roomParts, fit: fit, layout: layout, percent: percent,
-             dims: dims, dragged: dragged, dimCall: dimCall, suggestion: suggestion, clockText: clockText, holds: holds, minutes: minutes,
+             dims: dims, dragged: dragged, dimCall: dimCall, suggestion: suggestion, laterScenes: laterScenes, clockText: clockText, holds: holds, minutes: minutes,
              houseMinutes: houseMinutes, plan: plan, menuCounts: menuCounts, DEFAULT_WINDOWS: DEFAULT_WINDOWS,
              HOLD_MS: HOLD_MS, camGrid: camGrid, camRing: camRing, secHv: secHv } };
       watchSize(HkGridRoomCard);
