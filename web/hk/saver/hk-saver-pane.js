@@ -33,7 +33,7 @@
       ':host([side="left"]) .mpanel:not(.card){box-shadow:inset -1px 0 0 rgba(255,255,255,0.10),18px 0 44px rgba(0,0,0,.42),3px 0 12px rgba(0,0,0,.26)}',
       // its controls take taps (the screensaver's find them by place) -- the volume's whole row, its target (2026-11-09:
       // a ::before reached 18 px over the room above the track, toward the play button; hk-np-strip.js)
-      '.pm .mbtn,.pm .mvol,.pm .msq,.pm .hksl{pointer-events:auto;cursor:pointer}',
+      '.pm .mbtn,.pm .mvol,.pm .msq,.pm .hksl,.pm .mql{pointer-events:auto;cursor:pointer}',
       // (bare buttons, 2026-11-07: a pointer over one dims it, nothing drawn behind it)
       '@media (hover:hover){.pm .mbtn:hover{opacity:.75}}',
       // THE SIDE PANE'S FULL (inpane, hk-sidepane.js; 2026-11-07, the owner): the art's shadow kept inside the pane's
@@ -45,9 +45,9 @@
       ':host([inpane]:not([compact])) .pm[mqon] .mnext{display:none}',
       // (Up Next listed right under the keys: the row's right end empty, the keys still centered -- mockup 12h, 2026-11-09)
       ':host([inpane]:not([compact])) .pm[mqon] .hks [data-act=queue]{visibility:hidden;pointer-events:none}',
-      ':host([inpane]:not([compact])) .pm .mq:not(:empty){display:flex;flex-direction:column;flex-wrap:wrap;align-content:flex-start;flex:1 1 0;' +
+      ':host([inpane]:not([compact])) .pm .mq:not(:empty){display:flex;flex-direction:column;flex:1 1 0;' +
         'min-height:0;overflow:hidden;margin-top:calc(24px * var(--z));text-align:left}',
-      ':host([inpane]:not([compact])) .pm .mq>*{flex:none;width:100%}',
+      // (the box takes the room under the buttons and the rows scroll in it -- .mql, hk-saver-css.js)
       ':host([inpane]) .pm .mbtn.mqr{width:auto;height:auto}',
       ':host([inpane]) .pm .mqt{width:calc(44px * var(--z));height:calc(44px * var(--z))}'
     ].join('\n');
@@ -106,7 +106,7 @@
       '.mu .mbgf,.mu .mshade{display:none}',
       // (the page is narrowed by the Side Pane already: the slide's room for the screensaver's own pane is not taken)
       ':host([pane]) .mu .mbody{right:0;left:0}',
-      '.mu .mbtn,.mu .mvol,.mu .msq,.mu .hksl{pointer-events:auto;cursor:pointer}',
+      '.mu .mbtn,.mu .mvol,.mu .msq,.mu .hksl,.mu .mql{pointer-events:auto;cursor:pointer}',
       '@media (hover:hover){.mu .mbtn:hover{opacity:.75}}',
       // THE CORNER on the page's own edges
       '.info{position:absolute;inset:0;z-index:2;pointer-events:none}',

@@ -295,7 +295,57 @@
     // views; elsewhere the CSS hides the rows and Browse's panel has the queue.
     // (the pane's view lists more: the Side Pane's Full player, under its buttons -- 2026-11-07, the owner: "add the
     // queue to the Music Player in the side pane when Full sizing is selected")
-    var MQ_ROWS = 3, MQ_MAX = 12;
+    // UP NEXT SCROLLS (2026-11-09, the owner: "the up next should scroll ... It should scroll in all of the music players
+    // that show up next"): every song the queue has (MQ_MAX), in a box that keeps the room it had -- the heading fixed,
+    // the rows (.mql) moving under a finger, a soft fade at the foot while more are below (queueFade)
+    var MQ_MAX = 40;
+    // A FINGER ON THE SCREENSAVER'S UP NEXT: its views take no pointer events (a tap is found by place, musicHit), so the
+    // finger is followed from the shell's input (hk-saver.js onInput, which hands over what it has). A row's tap waits
+    // for the finger to lift and is not one if it moved QDRAG_PX or more; moving, the list follows it. A mouse is the
+    // same, dragged with the button down. The Now Playing page and the Side Pane's card scroll it natively.
+    var QDRAG_PX = 8, qd = null;
+    // the row at a point, as far as the scrolling list shows it (a row scrolled out is not there; no slop, which
+    // would lap over the next row)
+    function queueRowAt(el, x, y) {
+      var ql = el.querySelector('.mq .mql'), qb = ql && ql.getBoundingClientRect(), rows = el.querySelectorAll('.mq .mqr');
+      for (var j = 0; qb && j < rows.length; j++) {
+        var r = rows[j].getBoundingClientRect();
+        if (r.width && x >= r.left && x <= r.right && y >= Math.max(r.top, qb.top) && y <= Math.min(r.bottom, qb.bottom) &&
+            getComputedStyle(rows[j]).visibility !== 'hidden') return rows[j];
+      }
+      return null;
+    }
+    function queueDrag(e, c) {
+      var t = e.type;
+      if (!c.on || !window.PointerEvent) { qd = null; return false; }   // (no pointer events: a tap acts on touchstart, no scrolling)
+      if (qd && t !== 'pointerdown') {
+        if (t === 'pointermove') {
+          if (e.pointerId !== qd.id) return true;
+          var dy = e.clientY - qd.y;
+          if (!qd.moved && Math.abs(dy) < QDRAG_PX && Math.abs(e.clientX - qd.x) < QDRAG_PX) return true;
+          qd.moved = true;
+          qd.ql.scrollTop = qd.top - dy;
+          c.touched();
+          return true;
+        }
+        if (t === 'pointerup' || t === 'pointercancel') {
+          var q = qd; qd = null;
+          if (t === 'pointerup' && !q.moved) c.act(q.hit, e.clientX);
+          return true;
+        }
+        return t !== 'keydown' && t !== 'wheel';
+      }
+      qd = null;
+      if (t !== 'pointerdown' || e.isPrimary === false || c.inPanel) return false;
+      var h = c.hit(e.clientX, e.clientY);
+      if (!h || !h.btn || !h.btn.classList.contains('mqr') || !h.btn.parentNode) return false;
+      qd = { id: e.pointerId, x: e.clientX, y: e.clientY, ql: h.btn.parentNode, top: h.btn.parentNode.scrollTop, moved: false, hit: h };
+      c.touched();
+      return true;
+    }
+    function queueFade(ql) {
+      if (ql) setAttr(ql, 'more', ql.scrollHeight - ql.scrollTop - ql.clientHeight > 2);
+    }
     function drawQueueRows(v, d) {
       var sig = d && !d.idle && !d.sample ? sigOf(d) : '';
       if (sig && mus.qFor !== sig) {
@@ -312,7 +362,9 @@
         }
       }
       var pane = !v.el.classList.contains('mu');
-      var items = (sig && mus.qFor === sig && mus.q ? mus.q : []).slice(0, pane ? MQ_MAX : MQ_ROWS);
+      // (its fade follows the scroll, whoever scrolls: the finger on the Now Playing page, the screensaver's drag)
+      if (!v.mqScroll) { v.mqScroll = true; v.mq.addEventListener('scroll', function (e) { queueFade(e.target); }, true); }
+      var items = (sig && mus.qFor === sig && mus.q ? mus.q : []).slice(0, MQ_MAX);
       var key = items.map(function (it) { return it.id + '|' + it.title + '|' + (it.image || ''); }).join('/');
       if (pane) setAttr(v.el, 'mqon', items.length > 0);
       if (v.mqKey === key) return;
@@ -320,13 +372,14 @@
       var esc = function (t) { return String(t || '').replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
       // (Apple's covers, 1000 px, asked for at a thumbnail's size -- as nextArt does)
       var small = function (u) { return String(u).replace(/\/(\d+)x(\d+)(bb|cc|sr)?\.(jpg|jpeg|png|webp)$/, '/160x160$3.$4'); };
-      // (the heading and the first row one piece: where the pane's list has room for neither, both go -- .mq1)
-      v.mq.innerHTML = !items.length ? '' : items.map(function (it, i) {
+      // (the heading apart from the rows: it stays while they scroll)
+      v.mq.innerHTML = !items.length ? '' : '<div class="mqh">Up Next</div><div class="mql">' + items.map(function (it) {
         var row = '<div class="mbtn mqr" data-act="queue" aria-label="Queue: ' + esc(it.title) + '"><span class="mqt"' +
           (it.image ? ' style="background-image:url(&quot;' + esc(small(it.image)) + '&quot;)"' : '') + '></span><span class="mqx"><b>' + esc(it.title) +
           '</b><small>' + esc(it.artist) + '</small></span></div>';
-        return i ? row : '<div class="mq1"><div class="mqh">Up Next</div>' + row + '</div>';
-      }).join('');
+        return row;
+      }).join('') + '</div>';
+      queueFade(v.mq.querySelector('.mql'));
     }
     function sigOf(d) { return d && !d.idle ? d.key + '|' + d.title + '|' + d.artist : ''; }
     // (the layout's Up Next piece hears the slide's read: one ask per song, phase 13)
@@ -471,11 +524,19 @@
           return excess;
         };
         // (Up Next's rows beside the cover: as many as fit its height, none when none do -- drawQueueRows)
-        var qrows = v.el.querySelectorAll('.mqr'), meta = v.el.querySelector('.mmeta'), shown = qrows.length;
-        Array.prototype.forEach.call(qrows, function (q) { q.style.display = ''; });
+        // (all of them are there now and the box takes the room that is left -- the song's text measured without it --
+        // scrolling inside it; where the heading and one row do not fit, none)
+        var qrows = v.el.querySelectorAll('.mqr'), meta = v.el.querySelector('.mmeta'), shown = qrows.length, mql = v.mq.querySelector('.mql');
+        v.mq.style.maxHeight = ''; v.mq.style.display = 'none';
+        var bare = meta.getBoundingClientRect().height;
         v.mq.style.display = '';
-        while (shown && meta.getBoundingClientRect().height > a + 0.5) qrows[--shown].style.display = 'none';
+        if (shown) {
+          var need = v.mq.querySelector('.mqh').offsetHeight + qrows[0].offsetHeight,
+              qroom = a - bare - (parseFloat(getComputedStyle(v.mq).marginTop) || 0);
+          if (qroom < need) shown = 0; else v.mq.style.maxHeight = Math.floor(qroom) + 'px';
+        }
         if (!shown) v.mq.style.display = 'none';
+        else queueFade(mql);
         setAttr(v.el, 'mqon', shown > 0);
         for (var r2 = 0; r2 <= 2; r2++) {
           v.el.setAttribute('tight', String(r2));
@@ -520,7 +581,7 @@
     }
 
     // what the shell and the later parts use of this one
-    K.drawMusic = drawMusic; K.elapsed = elapsed; K.MU_BG = MU_BG; K.MU_GRACE = MU_GRACE; K.MU_SLOP = MU_SLOP;
+    K.drawMusic = drawMusic; K.queueDrag = queueDrag; K.queueRowAt = queueRowAt; K.elapsed = elapsed; K.MU_BG = MU_BG; K.MU_GRACE = MU_GRACE; K.MU_SLOP = MU_SLOP;
     K.muGrace = muGrace; K.mus = mus; K.musicNow = musicNow; K.musicOf = musicOf; K.musicPage = musicPage;
     K.musicPaneView = musicPaneView; K.musicPlaying = musicPlaying; K.musicUsed = musicUsed; K.musicView = musicView;
     K.nextArt = nextArt; K.PANEL_IDLE = PANEL_IDLE; K.PANEL_TURN = PANEL_TURN; K.progress = progress;
