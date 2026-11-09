@@ -2429,11 +2429,10 @@
   function hideForecastSlide() {
     if (!fcShowing) return;
     fcShowing = false;
-    // [fcout] WHILE IT FADES (2026-11-09): what the slide placed stays where it was until it has gone -- the slide
-    // corner's date jumped up beside Big Weather's top line as the photo came in (screen-recorded on the Loft)
+    // [fcout] WHILE IT FADES (2026-11-09): the slide corner stays put -- its date jumped up as the photo came in (Loft)
     if (host) {
       host.setAttribute('fcout', '');
-      if (exOutT) clearTimeout(exOutT);
+      clearTimeout(exOutT);
       exOutT = setTimeout(function () { exOutT = null; if (host && !fcShowing) host.removeAttribute('fcout'); }, CROSSFADE_MS + 100);
       host.removeAttribute('fcslide');
     }
