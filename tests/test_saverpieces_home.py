@@ -228,7 +228,7 @@ print(JSON.stringify(r));
         assert acc == color[s] == cacc, s
     assert out["armed_away"][3] == "#1f8a4c" and out["triggered"][3] == "#c4261a"                  # black ink's pair
     # the shield: a check when armed, a dash when disarmed, an exclamation when it is going off
-    assert "M8.5 12.2l2.5 2.5 4.6-5" in out["armed_away"][1] and "M9.4 12.2h5.2" in out["disarmed"][1] and "M12 8.2v4.4" in out["triggered"][1]
+    assert "M12 2.8v2.2" in out["armed_away"][1] and "M4 4.5l16 16" in out["disarmed"][1] and 'fill-opacity=".45"' in out["triggered"][1]   # the siren light (2026-11-09)
     assert "M8.5 12.2" not in out["disarmed"][1] and "M12 8.2" not in out["armed_away"][1]
     # the glyph in the circle: centered (50 - 12 x 1.5), its top at 24, over the label's baseline
     assert 'transform="translate(32 21) scale(1.5)"' in out["armed_away"][1]

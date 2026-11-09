@@ -787,11 +787,14 @@
 
     // SMALL: a key, as the Small blocks beside it -- in Home's look or HomeView's (the block's Tile Style)
     class HkGridSecurityKey extends HkGridKey {
-      _sigOf() { var m = hvModel(this.client, this._config || {}); return JSON.stringify([hvLine(m), m.alarm, m.alarmSt && m.alarmSt.state, this.getAttribute('tile'), (this._config || {}).lit]); }
+      // (its line as the other sizes' once something needs a look -- "1 unlocked · 1 open", 2026-11-09, mockup 14b; else the alarm's state)
+      _line(m) { var dw = secRows(this.client).filter(function (r) { return !r.tile; }), sum = hvSummary(m, dw);
+        return m.open.length || m.moving.length || m.unknown.length || dw.some(function (r) { return r.open; }) || (m.alarmSt && m.alarmSt.state === 'triggered') ? sum : hvLine(m); }
+      _sigOf() { var m = hvModel(this.client, this._config || {}); return JSON.stringify([this._line(m), m.alarm, m.alarmSt && m.alarmSt.state, this.getAttribute('tile'), (this._config || {}).lit]); }
       _look() {
         var m = hvModel(this.client, this._config || {}), look = alarmLook(m.alarmSt), lit = m.alarm ? hvLit(this._config, look) : '';
-        // (armed and lit: the white plate with the shield in blue; triggered and lit: the red plate, the shield and words white)
-        return { name: 'Security', icon: m.alarm ? look.icon : 'hk:shield-home', state: hvLine(m), lit: lit === 'on',
+        // (armed and lit: the white plate with the siren light in teal; triggered and lit: the red plate, the glyph and words white)
+        return { name: 'Security', icon: m.alarm ? look.icon : 'hk:alarm-light-off', state: this._line(m), lit: lit === 'on',
                  color: lit === 'on' ? C.ACCENTS.teal : look.color, paint: lit === 'trg' ? C.ACCENTS.red : undefined };
       }
       _render() {

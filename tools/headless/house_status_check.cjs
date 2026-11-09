@@ -164,7 +164,7 @@ function sheetState() {
           await page.waitForTimeout(600);
           const back = await page.evaluate(() => { let a = document.activeElement; while (a && a.shadowRoot && a.shadowRoot.activeElement) a = a.shadowRoot.activeElement; return a ? a.className : null; });
           up = await sheetUp();
-          check(`${engine} ${screen}: Escape closes it, the focus back on Small`, () => { assert(!up); assert.equal(back, 'sm-s'); });
+          check(`${engine} ${screen}: Escape closes it, the focus back on Small`, () => { assert(!up); assert(/(^| )sm-s( |$)/.test(back || ''), 'got ' + back); });
         }
         check(`${engine} ${screen}: no page errors`, () => assert.deepEqual(errors, []));
         check(`${engine} ${screen}: no commands sent`, () => assert.deepEqual(commands, []));

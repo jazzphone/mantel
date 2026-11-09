@@ -22,7 +22,8 @@ function security() {
     const ents = shown.map((e) => {
       const cs = getComputedStyle(e), n = e.querySelector('.n');
       return Object.assign(box(e), { name: n ? n.textContent : '', state: (e.querySelector('.s') || {}).textContent, more: e.classList.contains('more'),
-        lit: e.classList.contains('lit'), bg: cs.backgroundColor, ink: n ? getComputedStyle(n).color : '', label: e.getAttribute('aria-label') });
+        lit: e.classList.contains('lit'), bg: cs.backgroundColor, ink: n ? getComputedStyle(n).color : '', label: e.getAttribute('aria-label'),
+        disc: e.querySelector('.gw') ? getComputedStyle(e.querySelector('.gw')).backgroundColor : '', lock: e.classList.contains('lk') });
     });
     const past = shown.filter((e) => { const b = box(e); return b.r > pb.r + 1 || b.b > pb.b + 1 || b.l < pb.l - 1 || b.t < pb.t - 1; }).length;
     const al = sr.querySelector('.al') || sr.querySelector('hk-plate');
@@ -97,11 +98,13 @@ function sheetState() {
           const label = `${engine} ${screen} ${b.size}`;
           check(label + ': its entries inside its plate', () => assert.equal(b.past, 0));
           check(label + ': every entry a finger\'s 44 px on screen', () => b.ents.forEach((e) => assert(e.h >= 44 && e.w >= 44, e.name + ' ' + Math.round(e.w) + 'x' + Math.round(e.h))));
-          check(label + ': the hidden unlocked Crawl Space still in the alarm\'s line', () => assert(/Crawl Space unlocked/.test(b.line), b.line));
+          // (the line counts what needs a look since 2026-11-09, mockup 14b: "1 unlocked · 1 open" -- the hidden one counted, not named)
+          check(label + ': the hidden unlocked Crawl Space still in the alarm\'s line', () => assert(/\b1 unlocked\b/.test(b.line), b.line));
           const lit = b.ents.filter((e) => e.lit), rest = b.ents.filter((e) => !e.lit && !e.more);
-          check(label + ': not secured is the white plate with dark words; secured rests', () => {
-            lit.forEach((e) => { assert.equal(e.bg, 'rgb(255, 255, 255)', e.name); assert(/rgb\(0, 0, 0\)/.test(e.ink), e.ink); });
-            rest.forEach((e) => assert.notEqual(e.bg, 'rgb(255, 255, 255)', e.name));
+          // (one calm list since 2026-11-09, mockups 14b / 14d and DESIGN.md: not secured is LIT -- its disc teal, no white plate behind the row)
+          check(label + ': not secured is lit, its disc teal; secured rests', () => {
+            lit.forEach((e) => { assert.notEqual(e.bg, 'rgb(255, 255, 255)', e.name); assert.equal(e.disc, 'rgb(64, 200, 224)', e.name + ' ' + e.disc); });
+            rest.forEach((e) => { assert.notEqual(e.bg, 'rgb(255, 255, 255)', e.name); assert.notEqual(e.disc, 'rgb(64, 200, 224)', e.name); });
           });
           const more = b.ents.find((e) => e.more);
           if (more) {
@@ -154,7 +157,8 @@ function sheetState() {
           check(`${engine}: Escape closes it`, async () => assert(!(await sheetUp(page))));
           // an entry on Compact: its own sheet, nothing operated
           const C = (await page.evaluate(security)).find((b) => b.size === 'C');
-          c = center(C.ents[0]);
+          // (a lock's row: Compact shows what needs a look, then the garage doors, then the locks -- 2026-11-09)
+          c = center(C.ents.find((e) => e.lock && !e.more) || C.ents[0]);
           await page.touchscreen.tap(c.x, c.y);
           await page.waitForTimeout(900);
           s = await page.evaluate(sheetState);
