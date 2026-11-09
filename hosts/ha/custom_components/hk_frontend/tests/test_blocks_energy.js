@@ -296,7 +296,11 @@ function () {
   var draw = function (size, cfg) { var c = sized('hk-on-now-card', size, cfg || {}); hkGive(c, hass()); c._render(); return c; };
   // ROUND TWO (2026-11-08): the headline over the kinds as lines, House Status's parts (hk-house-status.js)
   var html = H.morphed(draw('S')._plate);
-  ok('S: the count large over the kinds\' discs', /<span class="n">5<\/span><span class="u">On<\/span>/.test(html) && (html.match(/class="dk"/g) || []).length === 4, html);
+  // (2026-11-09, the owner: "we can remove the On Now heading"; "The Small card could probably show more data": the total, then each kind's
+  // count beside its disc, a 2 x 2 of pictures -- the block's one button is the tap, the counts are no controls)
+  ok('S: the count large over a 2 x 2 of the kinds\' discs, each with its count; no heading', /<span class="n">5<\/span><span class="u">On<\/span>/.test(html) &&
+     (html.match(/class="dk"/g) || []).length === 4 && /<b>2<\/b>/.test(html) && (html.match(/<b>1<\/b>/g) || []).length === 3 && /class="dcs/.test(html) &&
+     (html.match(/<button/g) || []).length === 1 && !/sm-l|sm-h|On Now/.test(html.replace(/aria-label="[^"]*"/g, '')), html);
   html = H.morphed(draw('W')._plate);
   ok('W: the count in its column with All Off at its foot; the kinds as discs with their counts, each opening it',
      (html.match(/class="di" data-open-kind="/g) || []).length === 4 && /class="sm-k f" data-all/.test(html) && !/data-off-kind=/.test(html) && /<b>2<\/b><span>Lights<\/span>/.test(html), html);
@@ -308,7 +312,7 @@ function () {
   ok('L: a sentence under the count, lines saying where -- a switch by its name', /<div class="snt">2 lights, 1 speaker, 1 fan and 1 switch<\/div>/.test(html) &&
      /<span class="dt">Coffee Maker<\/span>/.test(html) && (html.match(/class="ln/g) || []).length === 4, html);
   html = H.morphed(draw('XL')._plate);
-  ok('XL: the count in a column of its own, All Off at its foot, the four lines beside it', /class="sx"/.test(html) && /class="sm-k f" data-all/.test(html) && (html.match(/class="ln/g) || []).length === 4, html);
+  ok('XL: the count top left in a column of its own (no heading), All Off at its foot, the four lines beside it', /class="sx tp"/.test(html) && /class="sm-k f" data-all/.test(html) && !/sm-l|sm-h/.test(html) && /<div class="sc"><div class="grp" style="margin-bottom:0"><div class="hl big">/.test(html) && (html.match(/class="ln/g) || []).length === 4, html);
   // TAP ZONES (2026-11-07): a kind opens a sheet of those things (one thing: its own sheet)
   var went = [], saveD = window.hkDetail, saveM = window.hkShell.moreInfo;
   window.hkDetail = { openGroup: function (title, ids, o) { went.push(['group', title, ids, o && o.icon]); return true; } };

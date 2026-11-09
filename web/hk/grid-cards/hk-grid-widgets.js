@@ -544,8 +544,8 @@
           this._built = true;
         }
         var T = sumKit(this), size = sizeOf(this) || 'L', o = whatsOn(this.client);
-        if (!T) { C.morph(this._plate, '<div class="sm-h"><div class="sm-l">On Now</div></div>'); return; }
-        var box = inner(this, size), P = T.plan(size, box.iw, box.ih, o.every.length, {}), rich = size === 'L' || size === 'XL';
+        if (!T) { C.morph(this._plate, ''); return; }
+        var box = inner(this, size), P = T.plan(size, box.iw, box.ih, o.every.length, { nolabel: true, foot: true, keep: o.n > 0 }), rich = size === 'L' || size === 'XL';
         var phrase = function (list) {
           var w = list.map(function (x) { return plural(x.ids.length, x.kind.one, x.kind.many); });
           return w.length > 1 ? w.slice(0, -1).join(', ') + ' and ' + w[w.length - 1] : w.join('');
@@ -553,9 +553,11 @@
         // All Off: the label row's key; Wide's and Extra Large's at the foot of the headline's column, a finger tall
         var all = function (cls) { return o.n ? '<button type="button" class="sm-k' + cls + '" data-all aria-label="' + esc('Turn off all ' + o.n + ' things on') + '">All Off</button>' : ''; };
         var model = {
-          label: 'On Now', key: size === 'XL' ? '' : all(''), side: all(' f'), // (Wide: the kinds as their discs with the counts under them, the Batteries widget's way -- drawn both ways on
+          // NO HEADING (2026-11-09, the owner: "we can remove the On Now heading"): the headline is the block's top, at Extra Large top left; All Off
+          // is the foot's key where there is no label row to carry it
+          label: '', top: true, counts: size === 'S', key: size === 'XL' ? '' : all(''), side: all(' f'), // (Wide: the kinds as their discs with the counts under them, the Batteries widget's way -- drawn both ways on
           // 2026-11-08, the lines two across cut "Speakers" and "Switches" to "Spe..." and "S...")
-          discs: size === 'S' || size === 'W',
+          discs: size === 'W',
           // the headline: the count on, or, quiet, a calm All Off said once
           head: o.n ? { num: o.n, unit: 'On' } : { words: 'All Off' },
           // (quiet, Extra Large's column says so under All Off, over the kinds' discs at rest)
@@ -568,9 +570,9 @@
             return { live: true, rest: !on, attrs: 'data-open-kind="' + x.kind.key + '"', name: many, count: on || x.kind.rest,
               icon: function (px, col) { return gly(x.kind.icon, px, col || null); }, lit: on ? x.kind.color : null,
               aria: 'Open ' + (on ? plural(on, x.kind.one, x.kind.many) + (x.kind.key === 'speakers' ? ' playing' : ' on') : many + ', ' + x.kind.rest.toLowerCase()),
-              reading: on ? String(on) : x.kind.rest, detail: detail, level: rich && on && x.kind.key === 'lights' ? ln.level : null };
+              n: on, reading: on ? String(on) : x.kind.rest, detail: detail, level: rich && on && x.kind.key === 'lights' ? ln.level : null };
           }) };
-        C.morph(this._plate, o.every.length || size === 'S' ? T.compose(model, size, box, P) : '<div class="sm-h"><div class="sm-l">On Now</div></div><div class="none" style="margin:auto">Nothing to show</div>');
+        C.morph(this._plate, o.every.length || size === 'S' ? T.compose(model, size, box, P) : '<div class="none" style="margin:auto">Nothing to show</div>');
       }
       // A KIND'S TAP (`open`): its page, where the screen has one and the block says so; else its sheet -- the things
       // of that kind that are on ("Lights On", "Fans On", "Speakers Playing", "Switches On"), none on, all of them; one

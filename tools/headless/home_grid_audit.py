@@ -532,6 +532,15 @@ MEASURE = r"""(() => {
       const steps = mine.filter(a => a.el.hasAttribute('data-big-step')).length;
       rec.controls = { n: mine.length - Math.max(0, steps - 1), small: small === null ? null : Math.round(small * 10) / 10, gap: gap === null ? null : Math.round(gap * 10) / 10, tight, names };
     }
+    // A GLYPH IN ITS WELL (2026-11-09, the owner on On Now: "the icons/glyphs inside the wells/circles are not aligned"): the
+    // glyph's svg box centers on its disc (`.dk`) or well, within half a pixel
+    for (const d of all) {
+      if (!shown(d) || !d.classList || !d.classList.contains('dk')) continue;
+      const ic = d.querySelector('hk-icon'), sv = ic && ic.shadowRoot && ic.shadowRoot.querySelector('svg'); if (!sv) continue;
+      const a = d.getBoundingClientRect(), b = sv.getBoundingClientRect(), z = view._gridScale || 1;
+      const dx = ((b.left + b.width / 2) - (a.left + a.width / 2)) / z, dy = ((b.top + b.height / 2) - (a.top + a.height / 2)) / z;
+      if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) rec.issues.push('a glyph is off the center of its disc by ' + dx.toFixed(1) + ', ' + dy.toFixed(1) + ' px: ' + name(d));
+    }
     // Dial text belongs inside its open centre, not across the track/knobs.
     const ring = card.shadowRoot && card.shadowRoot.querySelector('[data-ring]');
     if (ring) {

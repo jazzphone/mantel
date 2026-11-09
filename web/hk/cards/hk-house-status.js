@@ -41,7 +41,7 @@
   function shapeOf(size, ih) { return (size === 'S' || size === 'W' ? ih >= 145 : ih >= 330) ? 'square' : 'tile'; }
   // THE HEADLINE'S HEIGHT: a count 72 (its own column, a square Tall) or 44; words two lines of the title (22 / 28)
   function headH(o) { return o.words ? 56 : o.big ? 76 : 48; }
-  // HOW A BLOCK IS COMPOSED, iw x ih inside its inset, n lines, o {words: a headline in words}: {shape, rowH, rows,
+  // HOW A BLOCK IS COMPOSED, iw x ih inside its inset, n lines, o {words: a headline in words, nolabel, foot, keep}: {shape, rowH, rows,
   // shown, more, big, sentence, side (the left column's width: W and XL), cols (W's lines across)}
   function plan(size, iw, ih, n, o) {
     o = o || {};
@@ -64,7 +64,8 @@
       var go = function (r) { sentence = false; if (size === 'L' && (fit(r - SENTENCE) === fit(r) || fit(r - SENTENCE) >= n)) { sentence = true; r -= SENTENCE; } return r; };
       room = go(base);
       // (no label row to carry "+N more": a foot line under the lines, 32, when some are cut)
-      if (o.foot && n > Math.max(1, fit(room))) room = go(base - 32);
+      // (keep: a foot key that is always there -- On Now's All Off, 2026-11-09 -- has its 38 (the key's 24 and 14 for its reach up) whether or not lines are cut, so it never lands on the last line)
+      if ((o.foot && n > Math.max(1, fit(room))) || o.keep) room = go(base - (o.keep ? 38 : 32));
     }
     var rows = Math.max(1, Math.floor((room - 2) / rowH)), shown = Math.min(n, rows * cols);
     return { shape: shape, rowH: rowH, rows: Math.ceil(shown / cols), shown: shown, more: n - shown, big: big, sentence: sentence, side: side, cols: cols };
@@ -312,8 +313,20 @@
     // THE DISC: the glyph in white on its color while something is on or asks for a look; a neutral disc at rest
     '.dk{display:grid;place-items:center;border-radius:50%;color:#fff;flex:none}',
     '.dk.off{background:' + v('key') + ';color:' + v('ink-2') + '}',
-    '.dk hk-icon,.dk hk-state-icon{display:flex;--mdc-icon-size:100%}',
+    // (2026-11-09, the owner on On Now: "the icons/glyphs inside the wells/circles are not aligned". The blocks' own `.wg hk-icon{display:block}`
+    // was as specific as this rule and this sheet comes first in the cascade, so the glyph stayed a block: hk-icon's inline-flex inner box
+    // then sat in a line box, vertical-align:middle and the strut's line-height pushing it down 1-3 px. Two classes win it; as a flex
+    // item the inner box has no line box, and the disc's grid centers the glyph exactly)
+    '.dk.dk>hk-icon,.dk.dk>hk-state-icon{display:flex;--mdc-icon-size:100%}',
     '.dr{display:flex;gap:8px;flex:none;margin-top:8px}',
+    // SMALL'S KINDS WITH THEIR COUNTS (On Now, 2026-11-09, the owner: "The Small card could probably show more data as well"): a 2 x 2 at the
+    // foot, each a disc and the count on it beside it -- pictures, not controls: the block's one button is the tap
+    '.dcs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 8px;flex:none;margin-top:auto}.dcs.sq{gap:10px 10px}',
+    '.dcn{display:flex;align-items:center;gap:6px;min-width:0}',
+    '.dcn b{' + type('headline') + ';line-height:20px;font-variant-numeric:tabular-nums;text-shadow:' + v('glow') + '}.dcn.at b{color:' + v('ink-2') + '}',
+    // A BLOCK WITH NO HEADING (On Now's, 2026-11-09, the owner: "we can remove the On Now heading"): its content starts at the top inset, never
+    // centered in what the headline leaves
+    '.tp .bd{justify-content:flex-start}.tp .dw{align-items:flex-start}.sx.tp>.sc .grp{justify-content:flex-start}.sm-s.tp .hl{margin-top:0}.tp>.mr{margin-top:14px}',
     // (Wide, the discs with their counts: each a column -- the disc, the count, the name -- the whole of it a tap)
     // (the discs a centered group 8 px apart, never spread across the row: nothing stretches, and their hit areas clear, 2026-11-08)
     '.dw{display:flex;justify-content:center;gap:8px;align-items:center;flex:1;min-width:0}',
@@ -365,7 +378,7 @@
   }
   // THE BLOCK, composed for its size. m = {label, color, key (the label row's key, html), side (Wide's key, under its
   // headline), head ({num, unit} | {words}), sentence, rows, words (the lines' readings are words), discs (Wide: the
-  // discs with their counts instead of lines), small ({attrs, aria})}; box its inside; P its plan
+  // discs with their counts instead of lines), counts (Small's 2 x 2 of discs with counts), top (content from the top inset), small ({attrs, aria})}; box its inside; P its plan
   // (2026-11-08: Large was drawn both ways -- the headline over the lines, and beside them in a column of its own as
   // Extra Large has it; beside them squeezed the label and cut the lines' detail, so Large keeps the headline on top)
   function compose(m, size, box, P) {
@@ -377,24 +390,29 @@
       var ds = m.discs ? '<div class="dr">' + m.rows.map(function (r) { return disc(r.icon, 26, r.lit); }).join('') + '</div>' : '';
       // (a Small with no discs -- House Status's -- the leading thing's glyph on its disc over the headline, as a tile has)
       var ld = !m.discs && m.lead ? '<div class="sld">' + disc(m.lead.icon, 30, m.lead.lit) + '</div>' : '';
-      return '<button type="button" class="sm-s"' + (m.small.attrs ? ' ' + m.small.attrs : '') + ' aria-label="' + esc(m.small.aria) + '">' + row() + ld +
-        headline(m.head, false) + (m.discs ? '' : snt) + ds + '</button>';
+      // (On Now's Small, 2026-11-09: the total, then each kind's count beside its disc, a 2 x 2 -- 30 px discs in a square cell, 24 in a tile)
+      var dpx = P.shape === 'square' ? 30 : 24;
+      if (m.counts) ds = '<div class="dcs' + (P.shape === 'square' ? ' sq' : '') + '">' + m.rows.map(function (r) {
+        return '<span class="dcn' + (r.rest ? ' at' : '') + '">' + disc(r.icon, dpx, r.lit) + '<b>' + esc(String(r.n || 0)) + '</b></span>';
+      }).join('') + '</div>';
+      return '<button type="button" class="sm-s' + (m.top ? ' tp' : '') + '"' + (m.small.attrs ? ' ' + m.small.attrs : '') + ' aria-label="' + esc(m.small.aria) + '">' + row() + ld +
+        headline(m.head, false) + (m.discs || m.counts ? '' : snt) + ds + '</button>';
     }
     if (size === 'W') {
       var right = m.discs ? '<div class="dw">' + m.rows.map(function (r) {
         return '<button type="button" class="di' + (r.rest ? ' at' : '') + '" ' + r.attrs + ' aria-label="' + esc(r.aria || r.name) + '">' + disc(r.icon, 36, r.lit) +
           '<b>' + (r.count != null ? esc(String(r.count)) : '') + '</b><span>' + esc(r.name) + '</span></button>';
       }).join('') + '</div>' : '<div class="bd">' + lines(m, P, box.iw - P.side - 16) + '</div>';
-      return '<div class="sx" style="--sw:' + P.side + 'px">' + '<div class="sc">' + row() + headline(m.head, false) +
+      return '<div class="sx' + (m.top ? ' tp' : '') + '" style="--sw:' + P.side + 'px">' + '<div class="sc">' + row() + headline(m.head, false) +
         '<div class="ft">' + (m.side || '') + '</div></div>' + right + '</div>';
     }
     if (size === 'XL') {
       var rest = m.restDiscs ? '<div class="dr">' + m.rows.map(function (r) { return disc(r.icon, 26, r.lit); }).join('') + '</div>' : '';
-      return '<div class="sx" style="--sw:' + P.side + 'px;--sg:22px"><div class="sc">' + row(m.key) + '<div class="grp"' + (m.label ? '' : ' style="margin-bottom:0"') + '>' + headline(m.head, P.big) + snt + rest +
+      return '<div class="sx' + (m.top ? ' tp' : '') + '" style="--sw:' + P.side + 'px;--sg:22px"><div class="sc">' + row(m.key) + '<div class="grp"' + (m.label ? '' : ' style="margin-bottom:0"') + '>' + headline(m.head, P.big) + snt + rest +
         (m.side ? '<div class="ft">' + m.side + '</div>' : '') + '</div></div>' +
         '<div class="bd">' + lines(m, P, box.iw - P.side - 22) + '</div></div>';
     }
-    return '<div class="sm">' + row(m.key) + headline(m.head, P.big) + (P.sentence ? snt : '') + '<div class="bd">' + lines(m, P, box.iw) + '</div>' +
+    return '<div class="sm' + (m.top ? ' tp' : '') + '">' + row(m.key) + headline(m.head, P.big) + (P.sentence ? snt : '') + '<div class="bd">' + lines(m, P, box.iw) + '</div>' +
       (!m.label && m.key ? '<div class="mr">' + m.key + '</div>' : '') + '</div>';
   }
   window.hkHouseStatus.tiles = { CSS: SUM_CSS, plan: plan, compose: compose, disc: disc };
