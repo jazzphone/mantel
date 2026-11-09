@@ -242,3 +242,11 @@ def test_the_catalogs_sheet_numbers_are_the_servers(tmp_path):
     assert out["hv"][0] == "custom:hk-grid-security-key-card"
     assert out["hv"][1] == {"type": "custom:hk-grid-security-hv-card", "size": "C", "members": ["lock.a"]}
     assert out["hv"][2] == "custom:hk-grid-keypad-card", "an old Large Security block keeps its keypad"
+
+
+def test_compact_security_saves_on_a_square_five_by_four_grid():
+    # 2026-11-09, the owner, Kitchen: the editor refused to add it; the server takes the block the editor now builds
+    g = grid(block("c1", "clock", "S", [0, 1]), block("s1", "security", "C", [2, 0], opts={"presentation": "homeview"}), cols=5, rows=4)
+    assert HG.check(g)["items"][1]["size"] == "C"
+    with pytest.raises(HG.GridInvalid):   # Compact without HomeView: refused
+        HG.check(grid(block("s1", "security", "C", [2, 0]), cols=5, rows=4))

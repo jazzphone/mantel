@@ -22,7 +22,6 @@
     room: 'Room', scene_suggested: 'Suggested Scene', action: 'Action', everything: 'Everything', cameras: 'Cameras',
     power: 'Power', music: 'Music', doors: 'Doors & Locks', live_tv: 'Live TV', water: 'Water',
     on_now: 'On Now', todo: 'To-do', energy_rings: 'Energy Rings', timeline: 'Recent', intercom: 'Intercom', house_status: 'House Status' };
-  // C, Compact (2026-11-07): 3 x 1, Security's HomeView presentation's alone
   var MAP_SUB = 'Extra Large: where everyone is, on a map, for anyone who can see this screen.';   // (Who's Home's Show Map says so: mockup 13b)
   var SIZE_NAMES = { XS: 'Tiny', S: 'Small', W: 'Wide', C: 'Compact', T: 'Tall', L: 'Large', XL: 'Extra Large', XXL: 'Full Width', F: 'Full View' };
   // a size on a chip or a segment, short enough for four in a row
@@ -31,7 +30,8 @@
   function y2(it) { return it.at[1] * 2 + (it.size === 'XS' && it.at[2] ? 1 : 0); }
   function h2(size) { return size === 'XS' ? 1 : SIZES[size][1] * 2; }
   function atY2(size, col, y) { return size === 'XS' && y % 2 ? [col, (y - 1) / 2, 1] : [col, y >> 1]; }
-  // a size a block's card offers, with its options: Compact is Security's HomeView's alone (home_grid.py _security_size)
+  // C, Compact (2026-11-07): 3 x 1, Security's HomeView presentation's alone (home_grid.py _security_size); a new one carries that presentation from the start, which valid() asks for (2026-11-09, the owner: Add did nothing for a free 3 x 1)
+  function born(item) { if (item.card === 'security' && item.size === 'C') item.opts = { presentation: 'homeview' }; return item; }
   function offersSize(card, size, opts) { return size !== 'C' || (card === 'security' && (opts || {}).presentation === 'homeview'); }
   // EVERY CATALOG KEY IS IN ONE OF THESE (2026-10-31, the owner: On Now, To-do and Energy Rings were missing from the
   // card list -- the list is drawn from GROUPS, so a block added to the catalog and not here was never offered, in
@@ -489,7 +489,7 @@
     if (grid.items.length >= 24) return null;
     var out = copy(grid), n = 1;
     while (out.items.some(function (it) { return it.id === 'b' + n; })) n++;
-    var item = { id: 'b' + n, card: card, size: size, at: at || firstSpace(grid, size) };
+    var item = born({ id: 'b' + n, card: card, size: size, at: at || firstSpace(grid, size) });
     if (VIEW) item.view = VIEW;
     if (!item.at) return null;
     out.items.push(item);
@@ -510,7 +510,7 @@
     var fresh = function () {
       var out = copy(grid), n = 1;
       while (out.items.some(function (it) { return it.id === 'b' + n; })) n++;
-      var item = { id: 'b' + n, card: card, size: size, at: at.slice() };
+      var item = born({ id: 'b' + n, card: card, size: size, at: at.slice() });
       if (v) item.view = v;
       return { out: out, item: item };
     };

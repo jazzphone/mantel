@@ -173,5 +173,15 @@ ok('...one Undo puts every block back', JSON.stringify(ed.grid), JSON.stringify(
 ed.addCard('timers', 'S');
 ok('the Add button\'s own place is the first free one: none on a full grid, and it says what to do', [ed.grid.items.length, /drag the card onto the blocks it should replace/.test(ed.message.textContent)], [11, true]);
 
+// 10. COMPACT SECURITY (2026-11-09, the owner, Kitchen: a 5 x 4 square grid with the top row free; "A Compact Security
+// doesn't fit there", Add did nothing): a Compact block is born with its HomeView presentation, so valid() takes it
+var sq = { cols: 5, rows: 4, frame: [800, 800], items: [{ id: 'b1', card: 'clock', size: 'S', at: [0, 1] }] };
+ok('a free 3 x 1 is found for Compact', E.firstSpace(sq, 'C'), [0, 0]);
+var cs = E.add(sq, 'security', 'C');
+ok('Add places a Compact Security in the top row, as HomeView', cs && cs.items[1] && [cs.items[1].at, cs.items[1].opts], [[0, 0], { presentation: 'homeview' }]);
+var cd = E.addOver(sq, 'security', 'C', [2, 0]);
+ok('a Compact Security dropped on the row is placed', cd && cd.grid.items.length, 2);
+ok('...but a Compact of any other card is still refused', E.add(sq, 'clock', 'C'), null);
+
 print('');
 print(fail ? 'FAILED ' + fail + ' of ' + (pass + fail) : 'ALL ' + pass + ' GRID ROOM TESTS PASS');
