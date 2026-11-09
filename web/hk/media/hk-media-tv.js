@@ -53,15 +53,11 @@
       // NOTHING STRETCHES (2026-11-08, the owner; DESIGN.md "Using the space"): a channel is one tile of a designed shape -- 4 : 3,
       // 3 : 2 or 16 : 10 (the guide's pictures are 16 : 9), the tallest of them that shows every channel the block names in the room it
       // has -- as wide as the block's columns make it (set by _fit: --tw, --ar), as many as the room holds, the group centered with equal
-      // margins and its last row centered, never a tile spanning it. Large and Extra Large open with a label row, as the widget blocks
-      // do: LIVE TV at the label role, and how many more channels the guide has at its right
+      // margins and its last row centered, never a tile spanning it. LIVE TV'S LABEL IS GONE (2026-11-08, the owner: "if the card's name is printed on the card...it can go"), and with
+      // it the "N more" at its right (the block already shows what the size holds; the rest are the page's): the tiles take its room
       'hk-plate.tv:not(.one){display:flex;flex-direction:column;gap:10px;padding:' + C.blockPad('14px', true) + '}',
-      // (the channels on the shape inset, LIVE TV on the text's -- 2026-11-08)
-      'hk-plate.tv:not(.one) .lh{margin:var(--hk-text-in,0px) var(--hk-text-in,0px) 0 var(--hk-text-in,0px)}',
       '.gr{flex:1 1 0;min-height:0;display:flex;flex-wrap:wrap;gap:10px;justify-content:center;align-content:center}',
       '.gr .ch{flex:none;width:var(--tw,160px);aspect-ratio:var(--ar,16/10)}',
-      '.lh{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex:none;min-width:0;' + C.labelCss('label') + ';line-height:18px;color:' + C.v('ink-2') + '}',
-      '.lh em{font-style:normal;' + C.typeCss('caption') + ';line-height:18px;text-transform:none;letter-spacing:0;white-space:nowrap}',
       // ITS MARK: the guide's logo on white where it has one, else its number
       '.lg{display:grid;place-items:center;flex:none;align-self:flex-start;min-width:38px;height:38px;padding:0 7px;box-sizing:border-box;',
       '  border-radius:' + C.R.small + 'px;background:rgba(255,255,255,.25);' + C.typeCss('body') + ';font-weight:800;font-variant-numeric:tabular-nums;text-shadow:none}',
@@ -175,8 +171,6 @@
         plate.style.setProperty('--n', g[0]); plate.style.setProperty('--r', g[1]);
         var gr = plate;
         if (!plate.classList.contains('one')) {
-          // (Large and Extra Large: the label row over the tiles, which stand in a group of their own)
-          if (s === 'L' || s === 'XL') { var lh = document.createElement('div'); lh.className = 'lh'; lh.innerHTML = '<span>Live TV</span><em></em>'; plate.appendChild(lh); }
           gr = document.createElement('div'); gr.className = 'gr'; plate.appendChild(gr);
         }
         list.forEach(function (ch, i) {
@@ -202,9 +196,9 @@
         this._fit(plate, g);
         this._tick();
       }
-      // THE TILES' SIZE AND HOW MANY (2026-11-08): the width the columns give a tile in the room under the label row; its shape the tallest of
+      // THE TILES' SIZE AND HOW MANY (2026-11-08): the width the columns give a tile in the room in the block; its shape the tallest of
       // 4 : 3, 3 : 2 and 16 : 10 that has every channel the block names in the room (none does: 16 : 10, as many as the rows hold); the
-      // rest are the page's, said at the label row's right ("6 more")
+      // rest are the page's
       _fit(plate, g) {
         var gr = plate.querySelector('.gr');
         if (!gr || typeof getComputedStyle !== 'function' || !gr.clientWidth) return;
@@ -218,8 +212,6 @@
         gr.style.setProperty('--tw', Math.floor(tw) + 'px'); gr.style.setProperty('--ar', pick.ar);
         var shown = Math.min(n, cols * rows);
         kids.forEach(function (k, i) { k.style.display = i >= shown ? 'none' : ''; });
-        var em = plate.querySelector('.lh em'), more = Math.max(0, (this._channels || []).length - shown);
-        if (em) em.textContent = more ? more + ' more' : '';
       }
       // how far through, moved every half minute without a redraw
       _tick() {

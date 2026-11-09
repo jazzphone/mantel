@@ -148,11 +148,9 @@
     var EV_GRID = { W: [5, 1, false], T: [2, 0, true], L: [4, 3, true], XL: [6, 3, true], XXL: [10, 3, true] };
     var EV_CSS = [
       'hk-plate.ev{box-sizing:border-box;height:100%;display:flex;flex-direction:column;padding:' + C.blockPad('14px') + ';overflow:hidden;' + C.plate('card') + ';color:' + v('ink') + '}',
-      '.evh{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex:none;min-width:0}',
-      '.evh b{' + type('headline') + ';white-space:nowrap}',
-      '.evh span{' + type('caption') + ';color:' + v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}',
+      // (2026-11-08, the owner: "if the card's name is printed on the card...it can go": no "Everything" row, no "9 on now" -- the apps take its room)
       '.apps{flex:1;min-height:0;display:grid;grid-template-columns:repeat(var(--c),minmax(0,1fr));column-gap:8px;row-gap:var(--rg);',
-      '  justify-items:center;align-content:center;padding-top:10px}',
+      '  justify-items:center;align-content:center}',
       '.app{all:unset;box-sizing:border-box;position:relative;display:flex;flex-direction:column;align-items:center;gap:5px;min-width:0;max-width:100%;cursor:pointer;-webkit-tap-highlight-color:transparent}',
       '.app i{display:flex;align-items:center;justify-content:center;flex:none;width:var(--px);height:var(--px);border-radius:' + APP_CORNER + ';color:#fff;font-style:normal;',
       '  box-shadow:0 4px 10px rgba(0,0,0,0.22);transition:transform ' + C.DUR.press + ' ease}',
@@ -164,7 +162,7 @@
       // SCROLL IN THE BLOCK (`more: scroll`, 2026-11-08): every place, the rows the block shows at a time, the rest under
       // them -- up and down is the block's, sideways the pager's; a row stops where a row starts
       '.apps.scroll{align-content:start;grid-auto-rows:var(--rh);overflow-y:auto;overflow-x:hidden;overscroll-behavior-y:contain;scrollbar-width:none;',
-      '  scroll-snap-type:y mandatory;scroll-padding-top:10px;touch-action:pan-y}',
+      '  scroll-snap-type:y mandatory;touch-action:pan-y}',
       '.apps.scroll::-webkit-scrollbar{display:none}.apps.scroll .app{scroll-snap-align:start;touch-action:pan-y}',
       '@media (prefers-reduced-motion:reduce){.app i{transition:none}.app:active i{transform:none}}'
     ].join('');
@@ -214,19 +212,27 @@
         // THE ICONS' SIZE (2026-11-07, the review: Wide's five sat on the foot under a big empty band): by the room the
         // block has -- what is under its heading, less the labels -- as large as the width lets them (60 at most),
         // and the rows in the middle of it. Tall: as many rows as hold icons of 48 and over, in two columns.
-        var box = inner(this, size), rg = size === 'W' ? 0 : 12, free = box.ih - 22 - 10, lab = labels ? 20 : 0;
+        var box = inner(this, size), rg = size === 'W' ? 0 : 12, free = box.ih, lab = labels ? 20 : 0;
         if (!rows) rows = Math.max(2, Math.min(6, Math.floor((free + rg) / (48 + lab + rg))));
-        var px = Math.max(36, Math.min(labels ? 62 : 60, Math.floor((box.iw - (cols - 1) * 8) / cols) - (labels ? 6 : 0),
-                                      Math.floor((free - (rows - 1) * rg) / rows) - lab));
+        var sizeAt = function (n, gap) { return Math.max(36, Math.min(labels ? 62 : 60, Math.floor((box.iw - (cols - 1) * 8) / cols) - (labels ? 6 : 0),
+                                                                   Math.floor((free - (n - 1) * gap) / n) - lab)); };
+        var px = sizeAt(rows, rg);
+        // ANOTHER ROW WHERE ONE FITS (2026-11-08, the owner, once the heading had gone: "the everything cards, wide, large, and xlarge
+        // could get another row?"): as many rows as the block holds without the icons shrinking (4 px at most) -- on square cells
+        // Wide two, Large and Extra Large four; a tile cell's keep theirs
+        if (g[1]) for (var n = rows + 1, gap = size === 'W' ? 8 : rg; n <= rows + 3; n++) {
+          if (sizeAt(n, gap) < px - 4) break;
+          var keep = n; px = Math.min(px, sizeAt(n, gap));
+        }
+        if (keep) { rows = keep; if (size === 'W') rg = 8; px = sizeAt(rows, rg); }
         if (this._mode !== size || !this._built) {
           this._mode = size;
-          this._root.innerHTML = '<hk-plate class="ev" data-hk-role="card"><div class="evh"><b>Everything</b><span></span></div><div class="apps" role="list"></div></hk-plate>';
-          this._ev = { card: this._root.querySelector('.ev'), say: this._root.querySelector('.evh span'), apps: this._root.querySelector('.apps') };
+          this._root.innerHTML = '<hk-plate class="ev" data-hk-role="card"><div class="apps" role="list"></div></hk-plate>';
+          this._ev = { card: this._root.querySelector('.ev'), apps: this._root.querySelector('.apps') };
           this._appKey = null;
           this._built = true;
         }
-        var e = this._ev, said = onNowText(onNow(this.client));
-        if (e.say.textContent !== said) e.say.textContent = said;
+        var e = this._ev;
         e.apps.style.setProperty('--c', String(cols));
         e.apps.style.setProperty('--px', px + 'px');
         e.apps.style.setProperty('--rg', rg + 'px');
@@ -234,8 +240,8 @@
         var scroll = (this._config || {}).more === 'scroll', places = cols * rows;
         var cut = !scroll && items.length > places, shown = cut ? items.slice(0, places - 1) : items;
         e.apps.classList.toggle('scroll', scroll);
-        // (a row's height from the list's own, less its 10 px top: a scroller's percentages are of no definite height)
-        var ch = scroll ? e.apps.clientHeight - 10 : 0;
+        // (a row's height from the list's own: a scroller's percentages are of no definite height)
+        var ch = scroll ? e.apps.clientHeight : 0;
         e.apps.style.setProperty('--rh', (ch > 0 ? ch : free) / rows - (rows - 1) * rg / rows + 'px');
         // (and a gap under Wide's one row, so the next starts out of sight)
         if (scroll && !rg) e.apps.style.setProperty('--rg', '14px');
@@ -287,7 +293,9 @@
       '  justify-content:center;background:' + v('well-bg') + ';transition:background-color ' + C.DUR.fade + ' ease}',
       '.icon{width:' + TILE.sceneGlyph + 'px;height:' + TILE.sceneGlyph + 'px;--mdc-icon-size:100%;display:flex;color:#fff}',
       '.tx{position:relative;display:flex;flex-direction:column;gap:4px;min-width:0}',
-      '.lb{' + C.labelCss('label') + ';color:' + v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+      // (2026-11-08, the owner: every block's heading alike) the time of day is the block heading, Music's
+      C.headCss('.lb'),
+      ':host(:not([size="S"])) .lb{margin-bottom:' + C.HEAD.gap / 2 + 'px}', // (stays on its scene name: 8 px with the .tx gap)
       '.nm{' + type('title') + ';line-height:26px;color:' + v('ink') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
       '.cap{' + type('caption') + ';line-height:17px;color:' + v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
       // the art is lit: its words keep the dark plate's white on a light page
@@ -535,8 +543,8 @@
           });
           this._built = true;
         }
-        var T = sumKit(this), size = sizeOf(this) || 'L', o = whatsOn(this.client), orange = ACC.orange;
-        if (!T) { C.morph(this._plate, '<div class="wl" style="color:' + orange + '">On Now</div>'); return; }
+        var T = sumKit(this), size = sizeOf(this) || 'L', o = whatsOn(this.client);
+        if (!T) { C.morph(this._plate, '<div class="sm-h"><div class="sm-l">On Now</div></div>'); return; }
         var box = inner(this, size), P = T.plan(size, box.iw, box.ih, o.every.length, {}), rich = size === 'L' || size === 'XL';
         var phrase = function (list) {
           var w = list.map(function (x) { return plural(x.ids.length, x.kind.one, x.kind.many); });
@@ -545,7 +553,7 @@
         // All Off: the label row's key; Wide's and Extra Large's at the foot of the headline's column, a finger tall
         var all = function (cls) { return o.n ? '<button type="button" class="sm-k' + cls + '" data-all aria-label="' + esc('Turn off all ' + o.n + ' things on') + '">All Off</button>' : ''; };
         var model = {
-          label: 'On Now', color: orange, key: size === 'XL' ? '' : all(''), side: all(' f'), // (Wide: the kinds as their discs with the counts under them, the Batteries widget's way -- drawn both ways on
+          label: 'On Now', key: size === 'XL' ? '' : all(''), side: all(' f'), // (Wide: the kinds as their discs with the counts under them, the Batteries widget's way -- drawn both ways on
           // 2026-11-08, the lines two across cut "Speakers" and "Switches" to "Spe..." and "S...")
           discs: size === 'S' || size === 'W',
           // the headline: the count on, or, quiet, a calm All Off said once
@@ -562,7 +570,7 @@
               aria: 'Open ' + (on ? plural(on, x.kind.one, x.kind.many) + (x.kind.key === 'speakers' ? ' playing' : ' on') : many + ', ' + x.kind.rest.toLowerCase()),
               reading: on ? String(on) : x.kind.rest, detail: detail, level: rich && on && x.kind.key === 'lights' ? ln.level : null };
           }) };
-        C.morph(this._plate, o.every.length || size === 'S' ? T.compose(model, size, box, P) : '<div class="wl" style="color:' + orange + '">On Now</div><div class="none" style="margin:auto">Nothing to show</div>');
+        C.morph(this._plate, o.every.length || size === 'S' ? T.compose(model, size, box, P) : '<div class="sm-h"><div class="sm-l">On Now</div></div><div class="none" style="margin:auto">Nothing to show</div>');
       }
       // A KIND'S TAP (`open`): its page, where the screen has one and the block says so; else its sheet -- the things
       // of that kind that are on ("Lights On", "Fans On", "Speakers Playing", "Switches On"), none on, all of them; one

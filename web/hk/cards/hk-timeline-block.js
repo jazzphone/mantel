@@ -390,10 +390,10 @@
     // (the text glow on the plate, so every word on the glass carries it, as the widget blocks do)
     'hk-plate.tb{box-sizing:border-box;height:100%;position:relative;display:flex;flex-direction:column;overflow:hidden;padding:' + C.blockPad('14px') + ';' +
       C.plate('card') + ';color:' + v('ink') + ';text-shadow:' + v('glow') + ';-webkit-tap-highlight-color:transparent}',
-    '.wl{font-size:15px;font-weight:600;line-height:19px;letter-spacing:0.2px;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:none}',
-    // THE LABEL'S LINE: RECENT in teal, what is not shown ("9 more") or the digest's hours at its right
-    '.hd{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex:none;height:19px;margin-bottom:8px}',
-    '.hd .mr{' + type('caption') + ';line-height:19px;color:' + v('ink-2') + ';white-space:nowrap;font-variant-numeric:tabular-nums}',
+    // THE HEADING (2026-11-08, the owner: titles "all need to match"): the one block heading style, gray; "N more" at its right the same
+    C.headCss('.wl') + C.headCss('.hd .mr'),
+    // (its row: RECENT, and what is not shown ("9 more") or the digest's hours at its right)
+    C.headRowCss('.hd'),
     '.body{flex:1;min-height:0;display:flex;flex-direction:column}',
     '.cols{flex:1;min-height:0;display:flex;gap:18px}.cols>*{flex:1 1 0;min-width:0}',
     // A ROW (the Timeline page's): the glyph in its kind's color on its tint (or the row's picture), the thing over its
@@ -712,9 +712,9 @@
       return hd + '<div class="body grp">' + status + tiles(d.counts, box.iw, room - 54 - gap, false, true).replace('margin-top:0', 'margin-top:' + gap + 'px') + '</div>';
     }
   }
-  // the label's line: the label in teal, a word at its right
+  // the label's line: the label, a word at its right
   function head(label, right) {
-    return '<div class="hd"><div class="wl" style="color:' + ACC.teal + '">' + esc(label) + '</div>' + (right ? '<div class="mr">' + esc(right) + '</div>' : '') + '</div>';
+    return '<div class="hd"><div class="wl">' + esc(label) + '</div>' + (right ? '<div class="mr">' + esc(right) + '</div>' : '') + '</div>';
   }
   // A ROW'S GLYPH: white on its kind's solid color (the Home app's lit well; 2026-11-08, the lead's review -- a 22 %
   // tint all but vanished on the Blur look's glass)

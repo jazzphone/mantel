@@ -419,8 +419,6 @@
           // without one.
           '.np .stop{grid-area:stop;display:flex}',
           '.np .close{grid-area:close;display:none}',
-          // (a Home Grid block's label over the song: no area anywhere else)
-          '.np .lab{display:none}',
           // the bar's alone: hidden elsewhere, or each would take a track of its own
           '.np .spk,.np .brw{display:none}',
           '.np.bar .spk{grid-area:spk;display:flex}.np.bar .brw{grid-area:brw;display:flex}',
@@ -772,10 +770,8 @@
           ':host([size]) .np .title{' + window.hkCards.typeCss('headline') + ';letter-spacing:0;line-height:22px;align-self:end}',
           ':host([size]) .np .artist{' + window.hkCards.typeCss('body') + ';line-height:19px;letter-spacing:0}',
           ':host([size]) .np .player{display:none}',
-          // THE LABEL over the song (the widget's "NOW PLAYING"), on T and L
-          // (z-index: over the wash, as every row of the player)
-          ':host([size=T]) .np .lab,:host(:is([size=L],[size=XL])) .np .lab{display:block;grid-area:lab;z-index:2;' + window.hkCards.typeCss('label') + ';line-height:16px;',
-          '  color:rgba(255,255,255,.7);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;align-self:end;min-width:0}',
+          // NO LABEL over the song (2026-11-08, the owner: "if the card's name is printed on the card...it can go"): the
+          // NOW PLAYING label is gone at every size, its grid row with it; the song starts where it was
           // THE VOLUME under the transport on W, T and L: the slider in a 44 px
           // place for a finger, a small and a large speaker either side (the
           // pane's mini player's, 2026-10-31)
@@ -840,8 +836,8 @@
           ':host([size=T]) hk-plate.np{--hk-np-pad:' + NP_PAD.t + ' ' + NP_PAD.r + ' calc(' + NP_PAD.b + ' + 6px) ' + NP_PAD.l + ';',
           '  --np-art:min(' + NP_W + ', ' + NP_H + ' - 176px);',
           '  --hk-np-cols:minmax(0,1fr) 44px 8px 44px 8px 44px minmax(0,1fr);',
-          '  --hk-np-areas:"art art art art art art art" "lab lab lab lab lab lab lab" "title title title title title title title" "artist artist artist artist artist artist artist" "sub sub sub sub sub sub sub" ". prev . play . next .";',
-          '  --hk-np-rows:calc(var(--np-art) + 12px) min-content min-content min-content min-content 52px}',
+          '  --hk-np-areas:"art art art art art art art" "title title title title title title title" "artist artist artist artist artist artist artist" "sub sub sub sub sub sub sub" ". prev . play . next .";',
+          '  --hk-np-rows:calc(var(--np-art) + 12px) min-content min-content min-content 52px}',
           ':host([size=T]) .np .grid{column-gap:0;row-gap:0;align-content:center}',
           ':host([size=T]) .np .tb{align-self:end}',
           ':host([size=T]) .np .art{justify-self:center;align-self:start}',
@@ -849,7 +845,7 @@
           ':host([size=T]) .np .tb hk-icon{width:28px;height:28px;--mdc-icon-size:28px}',
           ':host([size=T]) .np .play hk-icon{width:36px;height:36px;--mdc-icon-size:36px}',
           ':host([size=T]) .np.tall .shade,:host([size=T]) .np .shade{background:linear-gradient(180deg,rgba(8,9,12,.10) 0%,rgba(8,9,12,.30) 45%,rgba(8,9,12,.74) 100%)}',
-          '@container hk-cell (max-height:379px){:host([size=T]) hk-plate.np{--np-art:min(' + NP_W + ', ' + NP_H + ' - 160px)}:host([size=T]) .np .lab{display:none}}',
+          '@container hk-cell (max-height:379px){:host([size=T]) hk-plate.np{--np-art:min(' + NP_W + ', ' + NP_H + ' - 160px)}}',
           // L (2026-11-08, the owner: every player follows the Music slide's grouping): the cover with the song beside it, then the
           // progress, the five keys and the volume -- the cover sets no track, so the song sits 14 px from it (it sat a whole
           // track away on a tile) and the cover takes the room the song's 160 px and the controls leave. The keys are a cluster at
@@ -859,15 +855,14 @@
           ':host([size=L]) hk-plate.np{--np-art:min(' + NP_H + ' - 170px, ' + NP_W + ' - 174px);',
           '  --np-flank:calc((var(--np-art) - 68px) / 2);',
           '  --hk-np-cols:minmax(0,1fr) 44px 8px 48px 8px 52px 8px 48px 8px 44px minmax(0,1fr);',
-          '  --hk-np-areas:"pre pre pre pre pre pre pre pre pre pre pre" "lab lab lab lab lab lab lab lab lab lab lab" "title title title title title title title title title title title" "artist artist artist artist artist artist artist artist artist artist artist" "post post post post post post post post post post post" ". . . . . . . . . . ." "sub sub sub sub sub sub sub sub sub sub sub" ". spk . prev . play . next . brw ." "meta meta meta meta meta meta meta meta meta meta meta";',
-          '  --hk-np-rows:var(--np-flank) min-content min-content min-content var(--np-flank) 22px min-content 57px min-content}',
+          '  --hk-np-areas:"pre pre pre pre pre pre pre pre pre pre pre" "title title title title title title title title title title title" "artist artist artist artist artist artist artist artist artist artist artist" "post post post post post post post post post post post" ". . . . . . . . . . ." "sub sub sub sub sub sub sub sub sub sub sub" ". spk . prev . play . next . brw ." "meta meta meta meta meta meta meta meta meta meta meta";',
+          '  --hk-np-rows:var(--np-flank) min-content min-content var(--np-flank) 22px min-content 57px min-content}',
           ':host([size=L]) .np .grid{column-gap:0;align-content:center}',
-          ':host([size=L]) .np .art{grid-area:1/1/6/-1;justify-self:start;align-self:start}',
-          ':host([size=L]) .np .lab,:host([size=L]) .np .title,:host([size=L]) .np .artist{padding-left:calc(var(--np-art) + 14px);justify-self:stretch}',
+          ':host([size=L]) .np .art{grid-area:1/1/5/-1;justify-self:start;align-self:start}',
+          ':host([size=L]) .np .title,:host([size=L]) .np .artist{padding-left:calc(var(--np-art) + 14px);justify-self:stretch}',
           ':host(:is([size=L],[size=XL])) .np .tb{align-self:start;width:48px;height:48px}',
           ':host(:is([size=L],[size=XL])) .np .play{width:52px;height:52px}',
           ':host([size]) .np .sub{align-self:end}:host(:is([size=L],[size=XL])) .np .sub{padding-top:12px}:host([size=L]) .np .sub{padding-top:0}',
-          ':host(:is([size=L],[size=XL])) .np .lab{padding-bottom:2px}',
           // TWO LINES OF TITLE where the song's group has the room (the slide's -webkit-line-clamp:2): a long one is not cut at
           // "Blue in Green (Alternate Ta..." with half the column empty under it
           ':host(:is([size=L],[size=XL])) .np .title{' + window.hkCards.typeCss('title') + ';line-height:27px;white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}',
@@ -888,8 +883,8 @@
           // are L's cluster, the progress and the volume the column's width
           ':host([size=XL]) hk-plate.np{--np-art:min(' + NP_H + ', ' + NP_W + ' - 282px);--np-lead:20px;',
           '  --hk-np-cols:calc(var(--np-art) + 14px) minmax(0,1fr) 44px 8px 48px 8px 52px 8px 48px 8px 44px minmax(0,1fr);',
-          '  --hk-np-areas:"art . . . . . . . . . . ." "art lab lab lab lab lab lab lab lab lab lab lab" "art title title title title title title title title title title title" "art artist artist artist artist artist artist artist artist artist artist artist" "art sub sub sub sub sub sub sub sub sub sub sub" "art . spk . prev . play . next . brw ." "art meta meta meta meta meta meta meta meta meta meta meta" "art . . . . . . . . . . .";',
-          '  --hk-np-rows:minmax(0,1fr) min-content min-content min-content min-content 57px min-content minmax(0,1fr)}',
+          '  --hk-np-areas:"art . . . . . . . . . . ." "art title title title title title title title title title title title" "art artist artist artist artist artist artist artist artist artist artist artist" "art sub sub sub sub sub sub sub sub sub sub sub" "art . spk . prev . play . next . brw ." "art meta meta meta meta meta meta meta meta meta meta meta" "art . . . . . . . . . . .";',
+          '  --hk-np-rows:minmax(0,1fr) min-content min-content min-content 57px min-content minmax(0,1fr)}',
           ':host([size=XL]) .np .sub{padding-top:var(--np-lead)}',
           // (the scrubber's and the volume's hit areas 8 px clear of the keys between them -- the controls audit, 2026-11-08)
           ':host(:is([size=L],[size=XL])) .np .sub{margin-bottom:2px}:host(:is([size=L],[size=XL])) .np .meta{margin-top:2px}',
@@ -898,7 +893,7 @@
           // IN A PAGER (hk-pager-card): its dots under the block's foot, so no
           // volume and no label
           ':host([size][data-grid-pager]) hk-plate.np{--hk-np-pad:20px 22px 44px;--np-vol:0px}',
-          ':host([size][data-grid-pager]) .np .meta,:host([size][data-grid-pager]) .np .lab{display:none}',
+          ':host([size][data-grid-pager]) .np .meta',
           ':host([size=W][data-grid-pager]) hk-plate.np{--np-art:calc(100cqh - 64px);',
           '  --hk-np-areas:"art title title title title title" "art spk prev play next brw";--hk-np-rows:minmax(0,1fr) 46px}',
           ':host([size=W][data-grid-pager]) .np .artist{display:none}',
@@ -912,7 +907,7 @@
           'hk-plate.np.plain{--hk-media-ink:' + window.hkCards.v('ink') + ';--hk-media-track:' + window.hkCards.v('line-strong') + '}',
           '.np.plain .bg,.np.plain .shade{display:none}',
           '.np.plain .title{color:' + window.hkCards.v('ink') + '}',
-          '.np.plain .artist,.np.plain .player,:host([size]) .np.plain .lab,:host([size]) .np.plain .vg{color:' + window.hkCards.v('ink-2') + '}',
+          '.np.plain .artist,.np.plain .player,:host([size]) .np.plain .vg{color:' + window.hkCards.v('ink-2') + '}',
           '.np.plain .art .none{background:' + window.hkCards.v('key') + ';color:' + window.hkCards.v('ink-2') + '}',
           '.np.plain .tb hk-icon,.np.plain .tb:active hk-icon,:host([size]) .np.plain .spk hk-icon{color:' + window.hkCards.v('ink') + ';filter:none}',
           '.np.plain .brw,:host([size]) .np.plain .spk,:host([size]) .np.plain .brw{color:' + window.hkCards.v('ink') + '}',
@@ -1455,7 +1450,6 @@
             '<div class="title" data-hk-role="title"></div>' +
             '<div class="artist" data-hk-role="artist"></div>' +
             '<div class="player" data-hk-role="player"></div>' +
-            '<div class="lab" data-hk-role="lab"></div>' +
             // (a Home Grid block's volume: a small and a large speaker either
             // side of the slider, only there -- the page's tall layout shows
             // every child of `meta`)
@@ -1512,7 +1506,7 @@
           var q = this._root.querySelector.bind(this._root);
           this._e = { plate: q('hk-plate.np'), bg: q('.bg'), art: q('.art'), title: q('.title'),
                       artist: q('.artist'), player: q('.player'), meta: q('.meta'),
-                      sub: q('.sub'), play: q('.play'), spk: q('.spk'), lab: q('.lab') };
+                      sub: q('.sub'), play: q('.play'), spk: q('.spk') };
           var self = this;
           q('.prev').addEventListener('click', function () { self._svc('previous'); });
           q('.play').addEventListener('click', function () { self._svc('play_pause'); });
@@ -1711,14 +1705,8 @@
         // the no-speaker case reads the same way.
         var pl = this._playerLine(p);
         if (e.player.__txt !== pl) { e.player.__txt = pl; e.player.textContent = pl; }
-        // a block's label: what the music is doing (the widget's "Now Playing")
-        // NOTHING PLAYING (2026-11-08, the Now Playing round): the label names the room a play would start in -- the Music
-        // slide's -- since "Not Playing" over "Nothing Playing" said it twice; and the block's progress goes (the slide's
-        // [idle] .mprog), so the controls close up under the words instead of a dead bar with dashes over them
+        // (no block label since 2026-11-08; the song decides the block's idle look)
         var song = !!p && (p.state === 'playing' || p.state === 'paused') && !!(p.attributes && p.attributes.media_title);
-        var room = !song && p ? ((window.hkMusic && window.hkMusic.known(p.entity_id) && window.hkMusic.nameOf(p.entity_id)) || (p.attributes && p.attributes.friendly_name) || '') : '';
-        var lb = !p ? 'Not Playing' : p.state === 'playing' ? 'Now Playing' : p.state === 'paused' ? 'Paused' : room || 'Not Playing';
-        if (e.lab && e.lab.textContent !== lb) e.lab.textContent = lb;
         if (e.plate) e.plate.classList.toggle('idle', !song);
         // feed(), not a plain bridge: the nested card may not be upgraded yet.
         if (this._metaCard && this.client) feed(this._metaCard, this.client);

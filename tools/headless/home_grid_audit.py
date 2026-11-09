@@ -523,7 +523,7 @@ MEASURE = r"""(() => {
     // (square cells: HomeView's 34 on the block, as a corner of the scale, and the pills inside following it --
     // --hk-inner-radius, 34 less the block's 18 px inset: 16)
     const SQUARE = view.getAttribute('cell') === 'square', PLATE = SQUARE ? 34 : 23.5;
-    const SCALE = [23.5, 22, 20, 12, 8, 0].concat(SQUARE ? [34, 16] : []);
+    const SCALE = [23.5, 22, 20, 12, 8, 0].concat(SQUARE ? [34, 21, 16] : []);   // (21: a tile inside a square cell's block, concentric with its 34 -- 2026-11-08)
     let outer = null, outerA = 0;
     for (const el of all) {
       if (!shown(el)) continue; const cs = getComputedStyle(el);

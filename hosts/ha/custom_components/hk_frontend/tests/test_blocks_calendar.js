@@ -152,14 +152,14 @@ H.run('CALENDAR AND TO-DO BLOCKS', [
       H.eq('none named: the house\'s first list, read as the Side Pane reads it', hs.ws.map(function (r) { return r.msg; }),
            [{ type: 'hk_frontend/todo/items', entity_id: 'todo.groceries', completed: false }]);
       H.ok('...into the Side Pane\'s own cache (one reader)', !!TODO['todo.groceries'] && !!TODO['todo.groceries'].got);
-      H.ok('Tall: the name in its color, the count large', s.indexOf('<div class="ln" style="color:' + window.hkCards.ACCENTS.orange + '">Groceries</div><div class="cn">3</div>') > 0, s.slice(0, 300));
+      H.ok('Tall: the name as the one gray heading (no color of its own), the count large', s.indexOf('<div class="ln">Groceries</div><div class="cn">3</div>') > 0 && s.indexOf('--hue:' + window.hkCards.ACCENTS.orange) > 0, s.slice(0, 300));
       H.eq('...the items, each with its circle', (s.match(/class="it" role="button"/g) || []).length, 3);
       H.ok('...the name and count a tap to the whole list', /class="hd" role="button" tabindex="0" data-open="todo.groceries"/.test(s));
       t = card;
       return block('S', { entity: 'todo.household' });
     }).then(function (card) {
       var s = html(card);
-      H.ok('Small: its own list, in the next color, the count and what is next', s.indexOf('color:' + window.hkCards.ACCENTS.blue + '">Household') > 0 &&
+      H.ok('Small: its own list, in the next color, the count and what is next', s.indexOf('--hue:' + window.hkCards.ACCENTS.blue) > 0 && s.indexOf('<div class="ln">Household') > 0 &&
            s.indexOf('<div class="cn">2</div>') > 0 && s.indexOf('Next: Bins out') > 0, s);
       H.ok('...the block one tap that opens the list', /class="blk tw S" role="button" tabindex="0" data-open="todo.household"/.test(s));
       return block('XL', { entity: 'todo.groceries' });

@@ -178,7 +178,7 @@ function () {
   var draw = function (size, hass) { var c = sized('hk-house-battery-card', size, cfg); c.hass = hass || house.hass(); return H.morphed(c._card); };
   var s = draw('S');
   // (2026-11-07, the review: one ring as large as the block, the level and what it is doing inside it)
-  ok('S: its name, and one ring with the level and its state inside', /Battery</.test(s) && /class="bring"/.test(s) && /class="in"><b[^>]*>82%<\/b><small>Charging</.test(s), s);
+  ok('S: no name (2026-11-08), one ring with the level and its state inside', !/Battery</.test(s) && /class="bring"/.test(s) && /class="in"><b[^>]*>82%<\/b><small>Charging</.test(s), s);
   var w = draw('W');
   ok('W: charging and the stored kWh, the backup at the foot, a larger ring', /Charging · 11.2 kWh/.test(w) && /About 9h 30m of backup/.test(w) && /width:120px/.test(w), w);
   var t = draw('T');
@@ -225,7 +225,7 @@ function () {
   html = H.morphed(panel('power', 'L')._own.plate);
   ok('Power L: the sun and the battery under the figure, the hours under the chart', /Solar 2.1 kW · Battery 76%/.test(html) && /12 AM/.test(html), html);
   html = H.morphed(panel('power', 'XL')._own.plate);
-  ok('Power XL: the chart left, today\'s top users right, the house first', /Today<\/div>/.test(html) && /<b>House<\/b>/.test(html) && /mdi:home/.test(html), html);
+  ok('Power XL: the chart left, today\'s top users right, the house first', /Today<\/span>/.test(html) && /<b>House<\/b>/.test(html) && /mdi:home/.test(html), html);
   html = H.morphed(panel('water', 'S')._own.plate);
   ok('Water S: today large (the hours since midnight and this one so far), gal today, twelve bars', /class="wb" data-more="sensor.water_meter">/.test(html) && /gal today/.test(html) &&
      (html.match(/<rect /g) || []).length === 12, html);
@@ -234,7 +234,7 @@ function () {
   html = H.morphed(panel('water', 'T')._own.plate);
   ok('Water T: the short chart, then This Week, the days before newest first', /This Week/.test(html) && (html.match(/<em>\d+ gal<\/em>/g) || []).length >= 2, html);
   html = H.morphed(panel('water', 'L')._own.plate);
-  ok('Water L: Today, "N gal" large, against usual and no leaks, the day\'s 24 hours', /Today<\/div><div class="wb" data-more="sensor.water_meter">[\d,]+ gal</.test(html) &&
+  ok('Water L: Today, "N gal" large, against usual and no leaks, the day\'s 24 hours', /Today<\/span><\/div><div class="wb" data-more="sensor.water_meter">[\d,]+ gal</.test(html) &&
      /no leaks/.test(html) && (html.match(/<rect /g) || []).length === 24, html);
   html = H.morphed(panel('water', 'XL', house.set('binary_sensor.sink_leak', 'on'))._own.plate);
   ok('Water XL: This Week beside it, today first; a wet sensor by name, in red', /This Week/.test(html) && /Leak: Sink Leak/.test(html) &&

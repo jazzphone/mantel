@@ -3228,9 +3228,11 @@
         '.blg{display:flex;flex-direction:column;justify-content:space-between;flex:1;min-height:0}',
         '.blg .top{display:flex;gap:18px;align-items:center;min-width:0}',
         '.bx{display:flex;gap:24px;flex:1;min-height:0}',
-        '.bx .lft{flex:none;display:flex;flex-direction:column;align-items:center;justify-content:space-between;gap:10px;text-align:center}.bx .lft>.wl{align-self:stretch;text-align:left}',
+        '.bx .lft{flex:none;display:flex;flex-direction:column;align-items:center;justify-content:space-between;gap:10px;text-align:center}',
+        // THE HEADINGS (2026-11-08, the owner: "if the card's name is printed on the card...it can go"): the block's own name is gone at every size; the graph's Today is the one gray heading
+        window.hkCards.headRowCss('.hh') + window.hkCards.headCss('.hh .hd'),
         '.bx .rt{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0}',
-        '.bx .wbars{flex:1;min-height:40px;margin-top:8px}',
+        '.bx .wbars{flex:1;min-height:40px}',
         '.bx .wgrid{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px 10px;margin-top:12px}.bx .wgrid span{font-size:17px}',
         // (THE FOUR FIGURES ARE TARGETS, 2026-11-08, the controls audit: each 44 px tall at least, 12 px clear between them)
         '.blg .wgrid>div,.bx .wgrid>div{min-height:44px;',
@@ -3263,17 +3265,15 @@
       var face = function (px, fs) { return '<div class="in"><b style="font-size:' + fs + 'px">' + pct + '</b><small>' + esc(doing === 'Powering the house' ? 'In use' : doing) + '</small></div>'; };
       var backup = bh != null ? hm(bh) + ' of backup' : '';
       var both = [stored != null ? fx(stored, 1) + ' kWh' : null, backup || null].filter(Boolean).join(' · ');
-      var name = esc(c.title || (sized === 'S' || sized === 'T' ? 'Battery' : 'House Battery'));
-      var lab = '<div class="wl" style="color:' + col + '">' + name + '</div>';
       if (sized === 'S') {
         // (2026-11-07, the review: a 64 px ring in the corner under the level left half the block bare) one ring as large as the block, the level and what it is doing inside it
-        var sp = Math.max(64, Math.min(b.iw, b.ih - 19 - 6));
-        this._paint('<div class="bt">' + lab + ring(sp, face(sp, Math.round(sp * 0.24))) + '</div>');
+        var sp = Math.max(64, Math.min(b.iw, b.ih));
+        this._paint('<div class="bt">' + ring(sp, face(sp, Math.round(sp * 0.24))) + '</div>');
         return;
       }
       if (sized === 'W') {
         var wp = Math.min(120, b.ih);
-        this._paint('<div class="bw"><div class="wcol">' + lab + '<div class="wb">' + pct + '</div>' +
+        this._paint('<div class="bw"><div class="wcol"><div class="wb">' + pct + '</div>' +
           '<div class="ws">' + esc([doing, stored != null ? fx(stored, 1) + ' kWh' : null].filter(Boolean).join(' · ')) + '</div>' +
           (backup ? '<div class="wf ws">About ' + esc(backup) + '</div>' : '') + '</div>' +
           '<div class="wcol" style="flex:none;justify-content:center">' + ring(wp, icon(Math.round(wp * 0.37))) + '</div></div>');
@@ -3281,8 +3281,8 @@
       }
       if (sized === 'T') {
         // the ring as large as the column, or the room the words leave it
-        var tp = Math.max(80, Math.min(b.iw, b.ih - 19 - 46 - 19 - 38 - 24));
-        this._paint('<div class="bt">' + lab + '<div class="wb">' + pct + '</div><div class="ws">' + esc(doing) + '</div>' +
+        var tp = Math.max(80, Math.min(b.iw, b.ih - 46 - 19 - 38 - 24));
+        this._paint('<div class="bt"><div class="wb">' + pct + '</div><div class="ws">' + esc(doing) + '</div>' +
           ring(tp, icon(Math.round(tp * 0.32))) + (both ? '<div class="ws wrap">' + esc(both) + '</div>' : '') + '</div>');
         return;
       }
@@ -3308,16 +3308,16 @@
       if (sized === 'L') {
         var lp = Math.max(96, Math.min(Math.round(b.iw * 0.48), b.ih - 2 * 44 - 12 - 36));
         this._paint('<div class="blg"><div class="top">' + ring(lp, face(lp, Math.round(lp * 0.21))) +
-          '<div class="wcol">' + lab + '<div class="wb" style="font-size:30px">' + (stored != null ? fx(stored, 1) + ' kWh' : pct) + '</div>' +
+          '<div class="wcol"><div class="wb" style="font-size:30px">' + (stored != null ? fx(stored, 1) + ' kWh' : pct) + '</div>' +
           (backup ? '<div class="ws wrap">About ' + esc(backup) + '</div>' : '') + '</div></div>' +
           '<div class="wgrid">' + four(false) + '</div></div>');
         return;
       }
       // XL: the ring and what is stored on the left; the day's charge as bars, then the four figures
       var xp = Math.max(120, Math.min(190, b.ih - 44, Math.round(b.iw * 0.34)));
-      this._paint('<div class="bx"><div class="lft" style="width:' + Math.max(xp, 200) + 'px">' + lab + ring(xp, face(xp, Math.round(xp * 0.21))) +
+      this._paint('<div class="bx"><div class="lft" style="width:' + Math.max(xp, 200) + 'px">' + ring(xp, face(xp, Math.round(xp * 0.21))) +
         (both ? '<div class="ws wrap">' + esc(both) + '</div>' : '') + '</div>' +
-        '<div class="rt"><div class="wl" style="color:' + window.hkCards.v('ink-2') + '">Today</div>' +
+        '<div class="rt"><div class="hh"><span class="hd">Today</span></div>' +
         '<div class="wbars">' + this._dayBars(c, lvl, col, b.iw - Math.max(xp, 200) - 24, Math.max(40, b.ih - 19 - 8 - 19 - 12 - 44)) + '</div>' +
         '<div class="waxis"><span>12 AM</span><span>6</span><span>12 PM</span><span>6</span></div>' +
         '<div class="wgrid">' + four(true) + '</div></div></div>');

@@ -120,7 +120,7 @@ function () {
 function () {
   H.section('The Vacuum block: big Clean and Dock; rooms to tick from Large up, "Clean 2 rooms"');
   var s = sized('hk-vacuum-card', 'S', { entity: 'vacuum.downstairs' }), html = s._root.__html;
-  ok('Small: its glyph and battery, name, state and one key, Clean (Dock is the sheet\'s)', /class="pct ">92%</.test(html) && /<b class="nm">Downstairs<\/b>/.test(html) &&
+  ok('Small: its name as the heading, battery and state, one key, Clean (Dock is the sheet\'s)', /92%<\/span> \u00B7 /.test(html) && /<b class="nm">Downstairs<\/b>/.test(html) &&
      /class="key go" data-svc="start" aria-label="Clean Downstairs"/.test(html) && !/data-svc="return_to_base"/.test(html));
   house.calls.length = 0;
   tap(s, { 'data-svc': 'start' });

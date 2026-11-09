@@ -291,19 +291,16 @@
         // Tile cells (196 x 150) first, a square cell's sizes after.
         ':host([size]){display:block;height:100%}',
         'hk-plate.vb{box-sizing:border-box;height:100%;display:flex;flex-direction:column;padding:' + C.blockPad(C.CARD.pad) + ';' + C.plate('card') + ';',
-        '  overflow:hidden;cursor:pointer;color:' + C.v('ink') + ';-webkit-tap-highlight-color:transparent;--vb-key:44px;--vb-gl:28px}',
-        '.vb .top{display:flex;align-items:center;gap:10px;min-width:0;flex:none}',
-        '.vb .gl{flex:none;width:var(--vb-gl);height:var(--vb-gl);--mdc-icon-size:var(--vb-gl);color:' + C.ACCENTS.mint + '}',
-        '.vb .gl.bad{color:' + C.ACCENTS.red + '}',
-        '.vb .pct{margin-left:auto;' + C.typeCss('caption') + ';color:' + C.v('ink-2') + ';font-variant-numeric:tabular-nums}',
-        '.vb .nm{display:block;min-width:0;' + C.typeCss('headline') + ';letter-spacing:-0.2px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-        '.vb .rt{display:flex;flex-direction:column;min-width:0}',
+        '  overflow:hidden;cursor:pointer;color:' + C.v('ink') + ';-webkit-tap-highlight-color:transparent;--vb-key:44px}',
+        // THE HEADING (2026-11-08, the owner: titles "all need to match"; "if the card's name is printed on the card..." it stays here, as it names the vacuum): the vacuum's name on the one heading row, no glyph; the battery at its right on Small
+        C.headRowCss('.vb .hd') + C.headCss('.vb .nm'),
+                '.vb .rt{display:flex;flex-direction:column;min-width:0}',
         '.vb .sub{display:block;min-width:0;font-size:15px;font-weight:400;line-height:1.3;color:' + C.v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
         '.vb[data-s=S] .sub{' + C.typeCss('caption') + '}',
         '.vb .sub.two{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}',
         '.vb .warn{color:' + C.ACCENTS.orange + '}.vb .bad,.vb .err{color:' + C.ACCENTS.red + '}.vb .good{color:' + C.ACCENTS.green + '}',
         '.vb .big{font-size:34px;font-weight:300;letter-spacing:-0.02em;line-height:1.05;font-variant-numeric:tabular-nums;margin-top:2px}',
-        '.vb .lab{display:block;font-size:15px;font-weight:600;letter-spacing:-0.1px;text-transform:uppercase;color:' + C.v('ink-2') + ';margin-top:10px;flex:none}',
+        C.headCss('.vb .lab') + '.vb .lab{display:block;flex:none;height:16px;padding:1.5px 0;margin:10px 0 8px}',
         '.vb .note{' + C.typeCss('caption') + ';line-height:1.3;color:' + C.v('ink-2') + ';margin-top:6px}',
         // the status of a clean just sent, in place of the line it is about
         '.vb .hk-status:empty{display:none}.vb .hk-status{' + C.typeCss('caption') + ';line-height:1.3;color:' + C.v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
@@ -329,9 +326,9 @@
         '.vb[data-s=W] .side .key{flex:none;width:100%;--vb-key:48px}',
         // THE ROOMS, two across, each a row of its own size (48 px; nothing stretches, 2026-11-08, the owner: "do the rooms scroll in the card if there
         // are more than what the card allows? If not, it should"): as many as the block holds, the rest scrolling (a cut row says so); few
-        // rooms are centered in what is left (data-fit: _fitRooms)
-        '.vb .rooms{display:grid;grid-template-columns:repeat(2,var(--vb-cw));justify-content:center;grid-auto-rows:48px;gap:8px;align-content:start;flex:1 1 auto;min-height:0;margin-top:6px;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;touch-action:pan-x pan-y;scrollbar-width:none}',
-        '.vb .rooms::-webkit-scrollbar{display:none}.vb .rooms[data-fit]{align-content:center}',
+        // rooms stay under their label (data-fit: _fitRooms)
+        '.vb .rooms{display:grid;grid-template-columns:repeat(2,var(--vb-cw));justify-content:center;grid-auto-rows:48px;gap:8px;align-content:start;flex:1 1 auto;min-height:0;margin-top:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;touch-action:pan-x pan-y;scrollbar-width:none}',
+        '.vb .rooms::-webkit-scrollbar{display:none}.vb .rooms[data-fit]{align-content:start}',
         // ...and no stretching across the width (2026-11-08): a room is --vb-cw wide (176 on Large, 170 on Extra Large -- two across and the gap
         // nearly fill the column), the label, grid and keys one column of that width, centered in what the block's column leaves
         '.vb[data-s=L]{--vb-cw:176px}.vb[data-s=XL]{--vb-cw:170px}.vb[data-r] :is(.lab,.rooms,.keys){width:calc(var(--vb-cw) * 2 + 8px);align-self:center;box-sizing:border-box}',
@@ -352,9 +349,9 @@
         '.vb[data-s=XL] .rcol .lab{margin-top:0}',
         '.vb[data-s=XL] .key.dk{padding:0 18px}',
         '.vb .ring{position:relative;flex:none;width:104px;height:104px;margin:10px auto;display:grid;place-items:center;text-align:center}',
-        // TALL (2026-11-07, the review): Small's parts stacked -- the glyph, the name, the battery as a ring in the middle
+        // TALL (2026-11-07, the review): Small's parts stacked -- the name, the battery as a ring in the middle
         // (--vb-r, to what the block leaves), what it is doing, then Clean with Dock beside it
-        '.vb[data-s=T] .nm{margin-top:8px}.vb[data-s=T] .ring{width:var(--vb-r,96px);height:var(--vb-r,96px);margin:0 auto}',
+        '.vb[data-s=T] .ring{width:var(--vb-r,96px);height:var(--vb-r,96px);margin:0 auto}',
         '.vb .ring svg{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg);overflow:visible}',
         '.vb .ring circle{fill:none;stroke-width:8px;stroke:' + C.v('line-strong') + '}.vb .ring .fill{stroke:' + C.ACCENTS.green + ';stroke-linecap:round}',
         '.vb .ring .fill.warn{stroke:' + C.ACCENTS.orange + '}.vb .ring .fill.bad{stroke:' + C.ACCENTS.red + '}',
@@ -363,8 +360,8 @@
         // (a Large or Extra Large block with no rooms to offer: the battery large in the middle)
         '.vb .mid{flex:1 1 auto;display:flex;flex-direction:column;justify-content:center;min-height:0}',
         // ON A SQUARE CELL (196 x 196): the mock-up's sizes
-        '@container hk-cell (min-height:180px) or style(--hk-cell-shape: square){  hk-plate.vb{--vb-key:48px;--vb-gl:34px}  .vb[data-s=S] .nm{margin-top:8px}  .vb .big{font-size:36px}  .vb .keys{padding-top:12px}',
-        '  .vb .lab{margin-top:12px}  .vb[data-s=W] .side{flex-basis:140px;gap:10px}  .vb[data-s=W] .side .key{--vb-key:56px;font-size:17px}  .vb[data-s=W] .top .gl{--vb-gl:30px}  .vb .ring{width:120px;height:120px;margin:14px auto}',
+        '@container hk-cell (min-height:180px) or style(--hk-cell-shape: square){  hk-plate.vb{--vb-key:48px}  .vb .big{font-size:36px}  .vb .keys{padding-top:12px}',
+        '  .vb .lab{margin-top:12px}  .vb[data-s=W] .side{flex-basis:140px;gap:10px}  .vb[data-s=W] .side .key{--vb-key:56px;font-size:17px}  .vb .ring{width:120px;height:120px;margin:14px auto}',
         '  .vb .ring b{font-size:30px}',
         '}'
       ].join('');
@@ -546,7 +543,6 @@
           (k[0] ? '' : ' aria-disabled="true"') + '><hk-icon icon="' + k[1] + '"></hk-icon>' + (words ? '<span>' + esc(k[2]) + '</span>' : '') + '</button>';
       };
       var dock = ['return_to_base', 'mdi:home', 'Dock'];
-      var glyph = '<hk-icon class="gl' + (faulty ? ' bad' : '') + '" icon="mdi:robot-vacuum"></hk-icon>';
       var status = this._hkStatus, stNode = '<div class="hk-status" role="status" aria-live="polite"' +
         (status ? ' data-kind="' + esc(status.kind) + '">' + esc(status.text) : '>') + '</div>';
       var rooms = '', list = floors ? floors.reduce(function (o, f) { return o.concat(f.areas || []); }, []) : null, chosen = list ? list.filter(function (r) { return self._sel.has(r.id); }).map(function (r) { return r.name; }) : [];
@@ -572,17 +568,17 @@
         '</svg><span><b>' + esc(bat ? bat.t : '\u2013') + '</b><small>' + words(rest.slice(0, 1)) + '</small></span></div>';
       var html;
       if (sz === 'S') {
-        html = '<div class="top">' + glyph + (bat ? '<span class="pct ' + bat.c + '">' + esc(bat.t) + '</span>' : '') + '</div>' +
-          '<b class="nm">' + esc(nm) + '</b><span class="sub">' + words(rest) + '</span>' +
+        html = '<div class="hd"><b class="nm">' + esc(nm) + '</b></div>' +
+          '<span class="sub">' + (bat ? '<span class="' + bat.c + '">' + esc(bat.t) + '</span> \u00B7 ' : '') + words(rest) + '</span>' +
           '<div class="keys">' + key(go, 'go', true) + '</div>';
       } else if (sz === 'W') {
-        html = '<div class="col"><div class="top">' + glyph + '<b class="nm">' + esc(nm) + '</b></div>' +
+        html = '<div class="col"><div class="hd"><b class="nm">' + esc(nm) + '</b></div>' +
           (bat ? '<div class="big ' + bat.c + '">' + esc(bat.t) + '</div>' : '') +
           '<span class="sub">' + words(rest) + (said ? '</span><span class="rm-note">' + esc(chosen.join(', ')) : ran) + '</span></div>' +
           '<div class="side">' + key(go, 'go', true) + (pickable ? '<div class="pair">' + rkey + key(dock, 'dk', false) + '</div>' : key(dock, 'dk', true)) + '</div>';
       } else if (sz === 'T') {
         var bk = this._block(), more = rest.slice(1);
-        html = '<div class="top">' + glyph + '</div><b class="nm">' + esc(nm) + '</b>' +
+        html = '<div class="hd"><b class="nm">' + esc(nm) + '</b></div>' +
           '<div class="mid" style="--vb-r:' + (bk ? Math.max(72, Math.min(120, bk.h - (pickable ? 278 : 226))) : 96) + 'px">' + ring + '</div>' +
           '<div class="rt">' + stNode + '<span class="sub two">' + (more.length ? words(more) + ran : ran.slice(3)) + '</span></div>' + rkey +
           '<div class="keys">' + key(go, 'go', true) + key(dock, 'dk', false) + '</div>';
@@ -592,7 +588,7 @@
         if (isFinite(Number(a.cleaned_area)) && isFinite(Number(a.cleaning_time)) && a.cleaned_area != null && a.cleaning_time != null) {
           run.push(Math.round(Number(a.cleaned_area)) + ' m\u00B2 in ' + Math.round(Number(a.cleaning_time)) + ' min');
         }
-        var left = '<div class="top">' + glyph + '<b class="nm">' + esc(nm) + '</b></div>' +
+        var left = '<div class="hd"><b class="nm">' + esc(nm) + '</b></div>' +
           ring +
           '<div class="rt">' + stNode + '<span class="sub two">' + (rest.length > 1 ? words(rest.slice(1)) + '<br>' : '') +
           esc(run.filter(Boolean).join('\n')).replace(/\n/g, '<br>') + '</span></div>';
@@ -600,8 +596,8 @@
           (roomsOn ? '<div class="rcol">' + rooms + '<div class="keys">' + key(go, 'go', true) + key(dock, 'dk', true) + '</div></div>' : '');
       } else {
         // LARGE: the vacuum at the top, the rooms under it, the keys at the foot
-        html = '<div class="top">' + glyph + '<span class="rt"><b class="nm">' + esc(nm) + '</b>' + stNode +
-          '<span class="sub">' + words(chips) + '</span></span></div>' +
+        html = '<div class="hd"><b class="nm">' + esc(nm) + '</b></div><div class="rt">' + stNode +
+          '<span class="sub">' + words(chips) + '</span></div>' +
           (roomsOn ? rooms : '<div class="mid">' + (bat ? '<div class="big ' + bat.c + '">' + esc(bat.t) + '</div>' : '') +
             '<span class="sub two">' + words(rest) + ran + '</span></div>') +
           '<div class="keys">' + key(go, 'go', true) + key(dock, 'dk', false) + '</div>';
@@ -2509,7 +2505,7 @@
         '.pr span{' + C.typeCss('caption') + ';line-height:16px;color:' + C.v('ink-2') + ';max-width:100%;  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
         // ---- THE BLOCK: the heading, then the faces in their own colors (no ring)
         ':host([size]) hk-plate.pp{justify-content:flex-start;padding:' + C.blockPad('14px') + '}',
-        '.pp .lab{flex:none;font-size:15px;font-weight:600;line-height:' + PP.lab + 'px;letter-spacing:-0.1px;text-transform:uppercase;color:' + C.v('ink-2') + '}',
+        C.headRowCss('.pp .hd') + '.pp .hd{margin:0}' + C.headCss('.pp .lab'),
         '.pp .face{flex:none;width:var(--f);height:var(--f);border-radius:50%;overflow:hidden;display:grid;place-items:center;',
         '  font-size:calc(var(--f) * 0.38);font-weight:600;line-height:1;color:#fff;background:var(--fc,' + C.v('key-strong') + ')}',
         '.pp .face img{width:100%;height:100%;object-fit:cover;display:block}',
@@ -2584,7 +2580,7 @@
           // (Small: the faces, one line under them. Large: the faces as large as fit, each with its name and where under it. Extra Large, 2026-11-07: to 120, one or two to 160, the since beside where)
           var lg = sz !== 'S', gr = lg ? faceGrid(ids.length, iw, ih - PP.lab - 2 * PP.g, 46, sz === 'XL' ? (ids.length < 3 ? 160 : 120) : 88) : faceGrid(ids.length, iw, ih - PP.lab - PP.line - 2 * PP.g, 0, 64, true);
           var fit = Math.min(ids.length, gr.fit), cutf = ids.length - fit, tot = fit + (cutf ? 1 : 0);
-          html = '<b class="lab">Who’s Home</b><div class="fc' + (lg ? ' lg' : '') + '" role="list" style="--c2:' + gr.c * 2 + ';--f:' + Math.floor(gr.f) + 'px">' +
+          html = '<div class="hd"><b class="lab">Who’s Home</b></div><div class="fc' + (lg ? ' lg' : '') + '" role="list" style="--c2:' + gr.c * 2 + ';--f:' + Math.floor(gr.f) + 'px">' +
             ids.slice(0, fit).map(function (id, i) {
               var s = h.states[id], nm = String((s.attributes || {}).friendly_name || id);
               return self._face(id, i, s.state === 'home' ? 'home' : 'away', lastRow(i, tot, gr.c)) +
@@ -2595,7 +2591,7 @@
           // (rows of 52, 56 on a square cell, a line for "N more" held back when some are cut)
           var rh = ih >= 340 ? 56 : 52, room = ih - PP.lab - PP.g, rows = Math.max(1, Math.floor(room / rh));
           if (ids.length > rows) rows = Math.max(1, Math.floor((room - PP.line - PP.g) / rh));
-          html = '<b class="lab">Who’s Home</b><div class="lst" role="list" style="--f:44px;--rh:' + rh + 'px">' + ids.slice(0, rows).map(function (id, i) {
+          html = '<div class="hd"><b class="lab">Who’s Home</b></div><div class="lst" role="list" style="--f:44px;--rh:' + rh + 'px">' + ids.slice(0, rows).map(function (id, i) {
             var s = h.states[id], nm = String((s.attributes || {}).friendly_name || id);
             return self._face(id, i, s.state === 'home' ? 'home' : '') + '<span class="tx"><b>' + esc(nm.split(/\s+/)[0]) + '</b><span>' + esc(whereOf(s) + sinceOf(s)) + '</span></span></button>';
           }).join('') + '</div>' + (ids.length > rows ? '<div class="mf">' + (ids.length - rows) + ' more</div>' : ids.length ? '' : '<span class="line">Nobody added</span>');
@@ -2603,7 +2599,7 @@
           // (as many as the width holds, each at least 72 across; the face as large as the height leaves, to 64)
           var n = Math.max(1, Math.floor((iw + PP.gap) / (PP.w + PP.gap))), cut = ids.length > n ? n - 1 : ids.length;
           var f = Math.max(36, Math.min(64, ih - PP.lab - 19 - 16 - 6 - 2 * PP.g));
-          html = '<b class="lab">Who’s Home</b><div class="wide" role="list" style="--n:' + Math.max(1, Math.min(n, ids.length)) + ';--f:' + f + 'px">' +
+          html = '<div class="hd"><b class="lab">Who’s Home</b></div><div class="wide" role="list" style="--n:' + Math.max(1, Math.min(n, ids.length)) + ';--f:' + f + 'px">' +
             ids.slice(0, cut).map(function (id, i) {
               var s = h.states[id], nm = String((s.attributes || {}).friendly_name || id);
               return self._face(id, i, s.state === 'home' ? 'home' : '') + '<b>' + esc(nm.split(/\s+/)[0]) + '</b><span>' + esc(whereOf(s)) + '</span></button>';

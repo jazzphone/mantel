@@ -34,7 +34,7 @@
   //   a sentence over richer lines; XL a headline column beside the lines. NOTHING STRETCHES: rows keep their height and
   //   the group is centered where it is shorter than the block. On Now (hk-grid-widgets.js) draws with the same parts.
   var ROW = { square: { W: 44, T: 44, L: 56, XL: 56 }, tile: { W: 44, T: 44, L: 48, XL: 56 } };
-  var LABEL = 30;                                      // the label's row (24) and the gap under it
+  var LABEL = 27;                                      // the label's row (19) and the gap under it (8), 2026-11-08: the one block heading
   var TAP = 44;                                        // a row is never shorter than a finger
   var SENTENCE = 21;                                   // a sentence under the headline (19) and its gap
   // a square cell's block or a tile's, by its height inside the inset (a one-row block: 160 or 122; two rows: 369 or 282)
@@ -58,10 +58,13 @@
       room = ih;
     } else {
       big = size === 'T' && shape === 'square' && !o.words;
-      room = ih - LABEL - headH({ words: o.words, big: big }) - 8;
+      var base = ih - (o.nolabel ? 0 : LABEL) - headH({ words: o.words, big: big }) - 8;
       // (Large's sentence where it costs no line, or every line still fits)
       var fit = function (r) { return Math.floor((r - 2) / rowH); };
-      if (size === 'L' && (fit(room - SENTENCE) === fit(room) || fit(room - SENTENCE) >= n)) { sentence = true; room -= SENTENCE; }
+      var go = function (r) { sentence = false; if (size === 'L' && (fit(r - SENTENCE) === fit(r) || fit(r - SENTENCE) >= n)) { sentence = true; r -= SENTENCE; } return r; };
+      room = go(base);
+      // (no label row to carry "+N more": a foot line under the lines, 32, when some are cut)
+      if (o.foot && n > Math.max(1, fit(room))) room = go(base - 32);
     }
     var rows = Math.max(1, Math.floor((room - 2) / rowH)), shown = Math.min(n, rows * cols);
     return { shape: shape, rowH: rowH, rows: Math.ceil(shown / cols), shown: shown, more: n - shown, big: big, sentence: sentence, side: side, cols: cols };
@@ -262,12 +265,14 @@
 
   // ======================================================================== the summary (On Now's too)
   // THE PARTS (ROUND TWO, 2026-11-08; the pure part's plan says where and how many): every size of House Status and of
-  // On Now (hk-grid-widgets.js) is composed of these -- the label's row (the label in the block's accent, one key at
+  // On Now (hk-grid-widgets.js) is composed of these -- the label's row (the label in the one heading gray, one key at
   // its end), the headline, a sentence, and the lines; Small and Wide also the discs.
   var SUM_CSS = [
     '.sm{flex:1;min-height:0;display:flex;flex-direction:column;min-width:0}',
-    '.sm-h{display:flex;align-items:center;justify-content:space-between;gap:8px;height:24px;margin-bottom:6px;flex:none;min-width:0}',
-    '.sm-l{' + type('label') + ';line-height:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;text-shadow:' + v('glow') + '}',
+    // THE HEADING (2026-11-08, the owner: titles "all need to match ... the same gray color, format/layout and spacing"): the one block heading
+    C.headRowCss('.sm-h'),
+    C.headCss('.sm-l'),
+    '.sm-h .sm-k{height:19px}.sm-h .sm-k::after{top:-17px;bottom:-8px}.sm-h .sm-k.q{padding-left:8px}',
     // the label's key (All Off, "+N more"): a capsule the row's height, at least a finger wide, a finger's reach round it
     '.sm-k{all:unset;box-sizing:border-box;position:relative;flex:none;display:flex;align-items:center;justify-content:center;gap:2px;height:24px;min-width:44px;padding:0 12px;',
     '  border-radius:12px;background:' + v('key') + ';' + type('caption') + ';font-weight:600;color:' + v('ink') + ';cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent}',
@@ -320,10 +325,10 @@
     '.sx{flex:1;min-height:0;display:flex;gap:var(--sg,16px);min-width:0}',
     '.sx>.sc{flex:none;width:var(--sw);display:flex;flex-direction:column;min-width:0}',
     '.sx>.sc .snt{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3}',
-    '.sx>.sc .ft{margin-top:auto;display:flex}',
+    '.sx>.sc .ft{margin-top:auto;display:flex}.sx>.sc .ft .sm-k.q{padding-left:0}.mr{flex:none;display:flex;justify-content:flex-end;height:24px;margin-top:8px}',
     // (Extra Large's column: the headline, its sentence and its key one group, centered on the lines' own center -- the
     // label's row above it given back under it, so the two columns share their middle)
-    '.sx>.sc .grp{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;margin-bottom:30px}',
+    '.sx>.sc .grp{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;margin-bottom:27px}',
     '.sx>.sc .grp .ft{margin-top:14px}.sx>.sc .grp .dr{margin-top:12px}',
     '.sx>.bd{flex:1;min-width:0;margin-top:0}',
     // SMALL: one button -- the label, the headline at the foot, the discs under it
@@ -364,14 +369,15 @@
   // (2026-11-08: Large was drawn both ways -- the headline over the lines, and beside them in a column of its own as
   // Extra Large has it; beside them squeezed the label and cut the lines' detail, so Large keeps the headline on top)
   function compose(m, size, box, P) {
-    var lab = '<div class="sm-l" style="color:' + m.color + '">' + esc(m.label) + '</div>';
-    var row = function (key) { return '<div class="sm-h">' + lab + (key || '') + '</div>'; };
+    // (a block with no label -- House Status's, the owner cutting its printed name -- has no row: its "+N more" is the foot's)
+    var lab = m.label ? '<div class="sm-l">' + esc(m.label) + '</div>' : '';
+    var row = function (key) { return m.label ? '<div class="sm-h">' + lab + (key || '') + '</div>' : ''; };
     var snt = m.sentence ? '<div class="snt">' + m.sentence + '</div>' : '';
     if (size === 'S') {
       var ds = m.discs ? '<div class="dr">' + m.rows.map(function (r) { return disc(r.icon, 26, r.lit); }).join('') + '</div>' : '';
       // (a Small with no discs -- House Status's -- the leading thing's glyph on its disc over the headline, as a tile has)
       var ld = !m.discs && m.lead ? '<div class="sld">' + disc(m.lead.icon, 30, m.lead.lit) + '</div>' : '';
-      return '<button type="button" class="sm-s"' + (m.small.attrs ? ' ' + m.small.attrs : '') + ' aria-label="' + esc(m.small.aria) + '">' + lab + ld +
+      return '<button type="button" class="sm-s"' + (m.small.attrs ? ' ' + m.small.attrs : '') + ' aria-label="' + esc(m.small.aria) + '">' + row() + ld +
         headline(m.head, false) + (m.discs ? '' : snt) + ds + '</button>';
     }
     if (size === 'W') {
@@ -379,16 +385,17 @@
         return '<button type="button" class="di' + (r.rest ? ' at' : '') + '" ' + r.attrs + ' aria-label="' + esc(r.aria || r.name) + '">' + disc(r.icon, 36, r.lit) +
           '<b>' + (r.count != null ? esc(String(r.count)) : '') + '</b><span>' + esc(r.name) + '</span></button>';
       }).join('') + '</div>' : '<div class="bd">' + lines(m, P, box.iw - P.side - 16) + '</div>';
-      return '<div class="sx" style="--sw:' + P.side + 'px">' + '<div class="sc">' + lab + '<div style="margin-top:6px">' + headline(m.head, false) + '</div>' +
+      return '<div class="sx" style="--sw:' + P.side + 'px">' + '<div class="sc">' + row() + headline(m.head, false) +
         '<div class="ft">' + (m.side || '') + '</div></div>' + right + '</div>';
     }
     if (size === 'XL') {
       var rest = m.restDiscs ? '<div class="dr">' + m.rows.map(function (r) { return disc(r.icon, 26, r.lit); }).join('') + '</div>' : '';
-      return '<div class="sx" style="--sw:' + P.side + 'px;--sg:22px"><div class="sc">' + row(m.key) + '<div class="grp">' + headline(m.head, P.big) + snt + rest +
+      return '<div class="sx" style="--sw:' + P.side + 'px;--sg:22px"><div class="sc">' + row(m.key) + '<div class="grp"' + (m.label ? '' : ' style="margin-bottom:0"') + '>' + headline(m.head, P.big) + snt + rest +
         (m.side ? '<div class="ft">' + m.side + '</div>' : '') + '</div></div>' +
         '<div class="bd">' + lines(m, P, box.iw - P.side - 22) + '</div></div>';
     }
-    return '<div class="sm">' + row(m.key) + headline(m.head, P.big) + (P.sentence ? snt : '') + '<div class="bd">' + lines(m, P, box.iw) + '</div></div>';
+    return '<div class="sm">' + row(m.key) + headline(m.head, P.big) + (P.sentence ? snt : '') + '<div class="bd">' + lines(m, P, box.iw) + '</div>' +
+      (!m.label && m.key ? '<div class="mr">' + m.key + '</div>' : '') + '</div>';
   }
   window.hkHouseStatus.tiles = { CSS: SUM_CSS, plan: plan, compose: compose, disc: disc };
 
@@ -400,8 +407,6 @@
     '.none{margin:auto;' + type('body') + ';color:' + v('ink-2') + ';text-align:center;text-shadow:' + v('glow') + '}'
   ].join('') + SUM_CSS;
   var CHEV = '<hk-icon icon="mdi:chevron-right" aria-hidden="true"></hk-icon>';
-  // the block's accent: the Security page's teal -- the house's state, as its chips are
-  function accent() { return (C.ACCENTS && C.ACCENTS.teal) || v('ink-2'); }
 
   class HkHouseStatusCard extends Mixin(HkBase) {
     static get CSS() { return BLOCK_CSS; }
@@ -425,9 +430,9 @@
           if (sec) go(self, sec, false);
         });
       }
-      var size = this._size(), m = this._sections(), lab = '<div class="sm-l" style="color:' + accent() + '">House Status</div>';
+      var size = this._size(), m = this._sections(), lab = '';
       if (!m) { C.morph(this._plate, lab); return; }
-      var box = inner(this, size), P = plan(size, box.iw, box.ih, m.total, { words: true });
+      var box = inner(this, size), P = plan(size, box.iw, box.ih, m.total, { words: true, nolabel: true, foot: true });
       var shown = m.sections.slice(0, size === 'S' ? 0 : P.shown);
       this._shown = shown;
       if (!m.sections.length && size !== 'S') { C.morph(this._plate, lab + '<div class="none">Nothing to report</div>'); return; }
@@ -439,10 +444,11 @@
       var head = need ? { words: reading(sec.reading) + (OPEN_WORD[sec.kind] ? ' ' + OPEN_WORD[sec.kind] : '') }
         : { words: (size === 'S' ? '' : '<hk-icon icon="mdi:check-circle" style="width:24px;height:24px;--mdc-icon-size:24px;color:' + green + '"></hk-icon>') + 'All Good' };
       var sentence = need ? esc(sec.name) + (others ? ' · ' + others + ' more to check' : '') : 'Nothing needs a look';
-      // (a Tall block's label row has room for the label and "+2" only)
+      // (the foot's key: "+2" where the block is narrow)
       var more = P.more > 0 ? '<button type="button" class="sm-k q" data-all aria-label="' + esc('All ' + count(m.total) + ': opens House Status') + '">+' + P.more +
         (box.iw < 200 ? '' : ' more') + CHEV + '</button>' : '';
-      var model = { label: 'House Status', color: accent(), head: head, sentence: sentence, words: true, key: more, side: size === 'W' ? more : '',
+      // (2026-11-08, the owner: "if the card's name is printed on the card...it can go": no label; its "+N more" at the foot, as Wide's was)
+      var model = { label: '', head: head, sentence: sentence, words: true, key: more, side: size === 'W' || size === 'XL' ? more : '',
         lead: need ? { icon: function (px, col) { return glyph(sec, px, col); }, lit: litOf(sec) || (C.ACCENTS && C.ACCENTS.orange) }
                    : { icon: function (px, col) { return '<hk-icon icon="mdi:check" style="width:' + px + 'px;height:' + px + 'px;color:' + col + '"></hk-icon>'; }, lit: green },
         small: { attrs: 'data-all', aria: 'House Status: ' + (need ? words(sec.reading) + ', ' + sec.name : 'all good') + (others ? ', ' + others + ' more to check' : '') + '. Opens House Status' },

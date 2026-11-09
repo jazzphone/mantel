@@ -1398,8 +1398,8 @@
     // they don't all fit. Extra Large: the month, a dot under each day with something on it, and the chosen
     // day's events beside it. Each size on a tile cell first, then on a square one (below).
     ':host([size]) .blk{' + window.hkCards.plate('card') + ';box-sizing:border-box;height:100%;padding:' + window.hkCards.blockPad(window.hkCards.CARD.pad) + ';  overflow:hidden;display:flex;flex-direction:column}',
-    '.wg .wd{font-size:15px;font-weight:600;line-height:18px;letter-spacing:0.2px;text-transform:uppercase;color:' + CAL_RED + ';flex:none;  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:' + window.hkCards.v('glow') + '}',
-    '.wg .dn{font-weight:300;line-height:1.02;letter-spacing:-0.02em;font-variant-numeric:tabular-nums;margin-top:2px;flex:none}',
+    window.hkCards.headCss('.wg .wd') + '.wg .wd{height:16px;padding:1.5px 0;margin-bottom:8px;flex:none}.wg .wd+.ls{margin-top:0}', // 2026-11-08, the owner: titles "all need to match" -- the one heading, Music's
+    '.wg .dn{font-weight:300;line-height:1.02;letter-spacing:-0.02em;font-variant-numeric:tabular-nums;flex:none}',
     '.wg.S .dn{font-size:36px}.wg.T .dn{font-size:44px}.wg.L .dn,.wg.W .dn{font-size:54px}.wg .rt{display:flex;flex-direction:column;min-width:0;flex:1}',
     '.wg .rt b,.wg .rt small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.wg .rt b{' + window.hkCards.typeCss('headline') + ';line-height:21px}',
     '.wg .rt small{' + window.hkCards.typeCss('caption') + ';line-height:17px;color:' + window.hkCards.v('ink-2') + '}.wg .bar{flex:none;width:4px;align-self:stretch;border-radius:calc(4px / 2)}',
@@ -1411,7 +1411,7 @@
     '.wg .ev2+.ev2{border-top:1px solid ' + window.hkCards.v('line') + '}',
     '.wg .ev2:active{opacity:0.6}.wg .ev2.past{opacity:0.5}',
     '.wg [role=button]:focus-visible{outline:2px solid ' + window.hkCards.v('ink-2') + ';outline-offset:2px}',
-    '.wg .gh{flex:none;font-size:15px;font-weight:600;line-height:18px;letter-spacing:0.2px;text-transform:uppercase;color:' + window.hkCards.v('ink-2') + ';padding:12px 0 4px}',
+    window.hkCards.headCss('.wg .gh') + '.wg .gh{flex:none;padding:12px 0 0;box-sizing:content-box;height:16px}',
     // Small: one tap -- the next event's sheet, or the Calendar page
     '.wg.S{cursor:pointer;-webkit-tap-highlight-color:transparent}',
     '.wg.S .nx{display:flex;gap:8px;margin-top:6px;min-width:0;flex:none}.wg.S .rt b{font-size:15px;line-height:19px}.wg.S .rt small{font-size:13px;line-height:16px}',
@@ -1429,12 +1429,12 @@
     // Extra Large: the month (seven columns of a finger's width), the chosen day beside it. The month's name and
     // arrows sit over the month on a square cell; on a tile (150 px) over the day, the weeks taking the height.
     '.wg .mon{flex:0 0 322px;min-width:0;display:flex;flex-direction:column}',
-    '.wg .mh{flex:none;display:flex;align-items:center;justify-content:space-between;height:44px;min-width:0}',
-    '.wg .mh b{' + window.hkCards.typeCss('title') + ';line-height:26px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    window.hkCards.headRowCss('.wg .mh'),
+    window.hkCards.headCss('.wg .mh b'),
     '.wg .mh>span{display:flex;gap:8px;flex:none;margin-right:-4px}',
     '.wg .ch{all:unset;cursor:pointer;width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:50%;color:' + window.hkCards.v('ink') + '}',
     '.wg .ch:active{opacity:0.6}',
-    '.wg .mon .mh{display:none}.wg .c2 .mh{display:flex;margin:-10px 0 2px}',
+    '.wg .mon .mh{display:none}.wg .c2 .mh{display:flex}',
     '.wg .mg2{flex:1 1 0;min-height:0;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));grid-template-rows:16px repeat(var(--w),minmax(0,1fr))}',
     '.wg .mg2 .w{' + window.hkCards.labelCss('label-small') + ';line-height:16px;text-align:center}',
     '.wg .md{all:unset;box-sizing:border-box;min-width:0;min-height:0;display:flex;align-items:center;justify-content:center;cursor:pointer;-webkit-tap-highlight-color:transparent}.wg .md b{position:relative;display:flex;align-items:center;justify-content:center;height:min(38px,100%);aspect-ratio:1;border-radius:50%;',
@@ -1446,11 +1446,11 @@
     '.wg .md:active b{opacity:0.6}.wg .md.out{cursor:default}',
     // (the cell is the block's own, so a square one is 180 px and up for Small, two rows' 360 for the rest)
     '@container hk-cell (min-height:180px) or style(--hk-cell-shape: square){.wg.S .dn{font-size:44px}.wg.S .nx{margin-top:8px}}',
-    '@container hk-cell (min-height:360px){.wg.T .dn{font-size:54px}.wg.L .dn{font-size:64px}  .wg .mon .mh{display:flex;margin-top:-13px}.wg .c2 .mh{display:none}}',
+    '@container hk-cell (min-height:360px){.wg.T .dn{font-size:54px}.wg.L .dn{font-size:64px}  .wg .mon .mh{display:flex}.wg .c2 .mh{display:none}}',
     // MONTH VIEW: seven columns, the weeks' rows sharing the height; the day's
     // number sized to its cell (container units: the block is a container)
     '.blk.mo{gap:6px}',
-    '.mo .mh{' + window.hkCards.labelCss('label') + ';color:' + CAL_RED + ';text-shadow:' + window.hkCards.v('glow') + ';line-height:16px;flex:none}',
+    window.hkCards.headCss('.mo .mh') + '.mo .mh{flex:none;height:16px;padding:1.5px 0;margin-bottom:2px}',
     '.mo .mg{flex:1;min-height:0;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));grid-template-rows:auto repeat(var(--w),minmax(0,1fr));align-items:center;justify-items:center;gap:2px 0}',
     '.mo .mw{' + window.hkCards.labelCss('label-small') + ';line-height:14px}',
     '.mo .md{all:unset;box-sizing:border-box;cursor:pointer;-webkit-tap-highlight-color:transparent;position:relative;display:flex;align-items:center;justify-content:center;height:100%;max-height:calc(100cqw / 7.6);aspect-ratio:1;border-radius:50%;',
@@ -1801,8 +1801,8 @@
     '.blk{' + window.hkCards.plate('card') + ';box-sizing:border-box;height:100%;padding:' + window.hkCards.blockPad(window.hkCards.CARD.pad) + ';',
     '  overflow:hidden;display:flex;flex-direction:column;min-height:240px}',
     ':host([size]) .blk{min-height:0}',
-    '.tw .ln{flex:none;font-size:15px;font-weight:600;line-height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:' + window.hkCards.v('glow') + '}',
-    '.tw .cn{flex:none;font-weight:300;line-height:1.02;letter-spacing:-0.02em;font-variant-numeric:tabular-nums;margin-top:2px}',
+    window.hkCards.headCss('.tw .ln') + '.tw .ln{height:16px;padding:1.5px 0;margin-bottom:8px;flex:none}.tw .ln+.ls{margin-top:0}', // 2026-11-08, the owner: titles "all need to match" -- the list's name is the one heading, no color of its own
+    '.tw .cn{flex:none;font-weight:300;line-height:1.02;letter-spacing:-0.02em;font-variant-numeric:tabular-nums}',
     '.tw.S .cn{font-size:36px}.tw.T .cn{font-size:36px}.tw.W .cn,.tw.L .cn,.tw.XL .cn{font-size:44px}',
     '.tw .hd{flex:none;display:flex;flex-direction:column;min-width:0;cursor:pointer;-webkit-tap-highlight-color:transparent}',
     '.tw.S{cursor:pointer;-webkit-tap-highlight-color:transparent}',
@@ -1922,7 +1922,7 @@
       var left = listLeft(h, a);
       if (left == null) left = items.length;
       var count = left + (left === 1 ? ' item' : ' items');
-      var head = '<div class="ln" style="color:' + hue + '">' + esc(name) + '</div><div class="cn">' + left + '</div>';
+      var head = '<div class="ln">' + esc(name) + '</div><div class="cn">' + left + '</div>';
       var rows = got.wait ? '<div class="nil">' + esc(got.wait) + '</div>'
         : items.length ? items.map(function (it) { return itemRow(a, it, t); }).join('') : '<div class="nil">Nothing left</div>';
       var hd = '<div class="hd" role="button" tabindex="0" data-open="' + esc(a) + '" aria-label="' + esc(name + ', ' + count + '. Show the list') + '">' + head + '</div>';
@@ -1946,7 +1946,7 @@
         var add = '<div class="addb" role="button" tabindex="0" data-add="' + esc(a) + '" aria-label="' + esc('Add an item to ' + name) + '">Add an Item</div>';
         this._root.innerHTML = '<div class="blk tw XL"' + style + '><div class="c1">' + hd + ft + add + '</div><div class="c2"><div class="ls">' + rows + '</div></div>' +
           '<div class="c3"' + (b ? ' style="--hue:' + listHue(h, b) + '"' : '') + '>' +
-          (b ? '<div class="ln" style="color:' + listHue(h, b) + '">' + esc(listName(h, b)) + '</div>' : '') + '<div class="ls">' + rowsB + '</div>' +
+          (b ? '<div class="ln">' + esc(listName(h, b)) + '</div>' : '') + '<div class="ls">' + rowsB + '</div>' +
           (b ? '<div class="ft" style="display:none"></div>' : '') + '</div></div>';
         if (b) this._fitList(this._root.querySelector('.c3 .ls'), this._root.querySelector('.c3 .ft'), listLeft(h, b), gb.items);
         else {

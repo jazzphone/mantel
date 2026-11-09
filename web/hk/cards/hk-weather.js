@@ -1989,9 +1989,10 @@
           // (_renderBlock). Square cells (196 tall, two rows 405) and tile
           // cells (150, two rows 310) each get their spacing by hk-cell query.
           'hk-plate.wb{' + window.hkCards.plate('card') + ';box-sizing:border-box;height:100%;margin:0;padding:' + window.hkCards.blockPad(window.hkCards.CARD.pad) + ';',
-          '  display:flex;flex-direction:column;justify-content:center;gap:12px;overflow:hidden;color:' + C.v('ink') + '}',
+          '  display:flex;flex-direction:column;justify-content:flex-start;gap:12px;overflow:hidden;color:' + C.v('ink') + '}',
           '.wb .top{display:flex;justify-content:space-between;align-items:center;gap:12px;min-width:0;flex:none}',
-          '.wb .place-now{min-width:0}.wb .place-name{display:block;' + C.typeCss('headline') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+          // THE HEADING (2026-11-08, the owner: titles "all need to match"): the place and the 7-day label are the one gray heading, on the text inset, content 8 px under
+          '.wb .place-now{min-width:0}' + C.headCss('.wb .place-name,.wb .rc .lab') + '.wb .place-name,.wb .rc .lab{display:block;flex:none;height:16px;padding:1.5px 0;margin:0 0 -4px}.wb .place-now .place-name{margin-bottom:8px}',
           '.wb .sym{line-height:0}.wb svg{display:block;flex:none}',
           '.wb .tpn{' + C.typeCss('hero') + ';line-height:1.08;font-weight:400;font-variant-numeric:tabular-nums}',
           '.wb .tx{display:flex;flex-direction:column;align-items:flex-end;min-width:0;gap:2px;text-align:right}',
@@ -2061,7 +2062,6 @@
           '.wb.XL .rds b{grid-column:2;' + C.typeCss('body') + ';font-weight:600;line-height:19px;font-variant-numeric:tabular-nums}',
           '.wb.XL .rds small,.wb.XL .rds b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}',
           '.wb.XL .rc{display:flex;flex-direction:column;justify-content:center;gap:10px;min-width:0}',
-          '.wb.XL .rc .lab{' + C.labelCss('label') + ';line-height:18px}',
           '.wb.XL .days{border-top:0;padding-top:0;gap:8px}',
           // (on a tile: the readings three across, each its value under it)
           '@container hk-cell (max-height:380px){.wb.XL{grid-template-columns:288px minmax(0,1fr)}.wb.XL .lc{gap:8px}.wb.XL .hrs{padding-top:6px}' +
@@ -2080,13 +2080,10 @@
           '.wb.L .day,.wb.XL .day{height:auto;min-height:20px;font-size:clamp(13px,3.8cqh,18px)}',
           '.wb.L .day svg,.wb.XL .day svg{width:clamp(18px,5cqh,26px);height:auto}',
           '.wb.L .day,.wb.XL .day{grid-template-columns:minmax(52px,auto) clamp(20px,5cqh,26px) 36px minmax(0,1fr) 36px}',
-          '.wb.XL .rc{justify-content:flex-start}.wb.XL .days{grid-auto-rows:32px;gap:4px;align-content:center}@container hk-cell (max-height:380px){.wb.XL .days{grid-auto-rows:26px}}',
-          // (the 7-Day label on the place name's baseline, the owner, 2026-11-01: one line box for both, the smaller
-          // label nudged down the 2 px its smaller type sits high)
-          '.wb.XL .place-name,.wb.XL .rc .lab{line-height:22px}.wb.XL .rc .lab{padding-top:2px;margin-bottom:-2px}',
+          '.wb.XL .rc{justify-content:center;gap:8px}.wb.XL .rc .lab{margin-bottom:0}.wb.XL .days{grid-auto-rows:32px;gap:4px;align-content:start}@container hk-cell (max-height:380px){.wb.XL .days{grid-auto-rows:26px}}',
           // BIG TEMPERATURE: the number sized to the block (its height first, its width for a wide one)
           '.wb.big{gap:2px;justify-content:center;align-items:flex-start}',
-          '.wb.big .place-name{max-width:100%}',
+          '.wb.big .place-name{max-width:100%;margin-bottom:6px}',
           '.wb.big .bn{font-size:clamp(44px,min(44cqh,30cqw),200px);line-height:1;font-weight:500;letter-spacing:-.02em;font-variant-numeric:tabular-nums;margin:2px 0 6px -.04em}',
           '.wb.big .bc{display:flex;align-items:center;gap:6px;min-width:0;max-width:100%}.wb.big .bc b{' + C.typeCss('headline') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
           '.wb.big .bh{' + C.typeCss('body') + ';color:' + C.v('ink-2') + ';font-variant-numeric:tabular-nums}',

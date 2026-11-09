@@ -19,38 +19,31 @@
       ':host{display:block;height:100%;position:relative}',
       '.room{box-sizing:border-box;height:100%;display:flex;flex-direction:column;overflow:hidden;padding:' + C.blockPad('14px', true) + ';gap:8px;' + C.plate('card') + ';',
       '  --hk-pill:100%}',
-      // THE NAME (the widget mock-up, 2026-10-31): Wide, a headline with what
-      // the room is doing at its right on the same line; Large and up, a
-      // title with that line under it -- and the way into its page, when it has one
-      // (on the text's inset, not the tiles': where it always was -- the tiles went out to the shape inset, 2026-11-08)
-      '.hd{display:flex;align-items:baseline;gap:10px;min-width:0;flex:none;padding:0 2px;margin:var(--hk-text-in,0px) var(--hk-text-in,0px) 0}',
-      '.room:not([size=W]) .hd{flex-direction:column;align-items:flex-start;gap:1px}',
-      '.nm{all:unset;position:relative;cursor:pointer;min-width:0;max-width:100%;display:flex;align-items:center;gap:5px;',
-      '  ' + type('headline') + ';line-height:22px;color:' + v('ink') + ';text-shadow:' + v('glow') + ';-webkit-tap-highlight-color:transparent}',
-      '.room:not([size=W]) .nm{' + type('title') + ';line-height:27px}',
+      // THE HEADING (2026-11-08, the owner: every block's title "the same gray color, format/layout and spacing", as Music's
+      // RECENTLY PLAYED): one label row on the text's inset (the tiles are on the shape inset) -- a Room's name and the way into its
+      // page (its chevron), what the room is doing at the right; an Accessory Group's title and "+N more" at the right (a 44 px key)
+      '.hd{display:flex;align-items:center;justify-content:space-between;gap:10px;height:' + C.HEAD.row + 'px;min-width:0;flex:none;margin:var(--hk-text-in,0px) var(--hk-text-in,0px) 0}',
+      '.nm{all:unset;position:relative;cursor:pointer;min-width:0;display:flex;align-items:center;gap:4px;-webkit-tap-highlight-color:transparent}',
+      C.headCss('.nm span'), C.headCss('.nm i'), '.nm i{font-style:normal;flex:none}',
       // a 44 px target round the line (DESIGN.md: touch targets)
-      '.nm::after{content:"";position:absolute;left:-8px;right:-8px;top:-12px;bottom:-12px}',
+      '.nm::after{content:"";position:absolute;left:-8px;right:-8px;top:-14px;bottom:-14px}',
       '.nm:disabled{cursor:default}',
-      '.nm span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:1px 0 2px 1px}',
-      '.nm i{font-style:normal;opacity:0.62;flex:none}',
       '.nm:focus-visible{outline:2px solid ' + v('ink-2') + ';outline-offset:4px;border-radius:' + C.R.small + 'px}',
-      '.st{' + type('caption') + ';line-height:17px;color:' + v('ink-2') + ';text-shadow:' + v('glow') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}',
-      '.room[size=W] .st{margin-left:auto}',
+      // (the name first: the line gives way, and a Tall block's row is the name's alone)
+      C.headCss('.st'), '.st{flex:0 100 auto;text-align:right}', '.nm{flex:0 1 auto}', '.room[size=T] .st{display:none}',
       '.st:empty{display:none}',
-      // AN ACCESSORIES BLOCK'S HEADING (2026-11-08, the lead's review: a sparse block read as a lost tile): the label row on the top
-      // inset -- its title in the label role, "+N more" at the right (a 44 px key: its ::after) when some do not fit; no "N more" tile
       '.mo{display:none}',
-      '.room.lbl .hd{flex-direction:row;align-items:center;justify-content:space-between;gap:10px}',
-      // (the label's capitals start ~3 px under the top of its 16 px line: lifted so their ink sits on the block's inset, as the sides' do)
-      '.room.lbl .nm{' + C.labelCss('label') + ';line-height:16px;text-shadow:' + v('glow') + ';position:relative;top:-3px}',
       '.room.lbl .st{display:none}',
-      '.room.lbl .mo{all:unset;position:relative;display:block;flex:none;cursor:pointer;white-space:nowrap;' + C.labelCss('label') + ';line-height:16px;text-shadow:' + v('glow') + ';-webkit-tap-highlight-color:transparent}',
+      '.room.lbl .mo{all:unset;position:relative;display:block;flex:none;cursor:pointer;-webkit-tap-highlight-color:transparent}', C.headCss('.room.lbl .mo'),
+      '.room.lbl .mo{overflow:visible}',
       '.room.lbl .mo::after{content:"";position:absolute;left:-10px;right:-10px;top:-14px;bottom:-14px}',
       '.room.lbl .mo[hidden]{display:none}',
       // THE TILES (2026-11-08, round three, the owner: "entities in a card should maintain dimensions"): a designed size --
       // --tw x --th, --gap apart (hk-chip.js groupGeom: per block size and cell shape, never the block's room divided by the
       // count) -- in rows the group centers, its last row too, in what the heading leaves. A bigger block shows more tiles.
-      '.tiles{display:flex;flex-wrap:wrap;justify-content:center;align-content:center;gap:var(--gap,8px);flex:1;min-height:0}',
+      // (a row's tiles from the left column -- the owner, 2026-11-08: a Large Room's third tile sat centered under two, "If there is 1
+      // card on a row, it should always be in the left column"; the group as wide as its widest row, centered in the block)
+      '.tiles{display:flex;flex-wrap:wrap;justify-content:flex-start;align-content:center;gap:var(--gap,8px);flex:1;min-height:0;width:100%;margin:0 auto;max-width:var(--gw,100%)}',
       '.tiles > .slot,.tiles > .more{flex:none;width:var(--tw);height:var(--th);box-sizing:border-box}',
       // ...or scrolling: as many rows in sight as the block holds (the rest under them) -- up and down is the room's,
       // sideways the pager's
@@ -148,8 +141,8 @@
       _geom(size, half, head, foot) {
         return window.hkChip.groupGeom(this, size, { pill: half, head: head, foot: foot });
       }
-      // the heading's room above the tiles: a Wide Room's line, or the title over its line (27 + 1 + 17), and the gap under it
-      _head(size) { return size === 'W' ? 22 + GAP : 45 + GAP; }
+      // the heading's room above the tiles: its label row and the gap under it, as every block's (hk-chip.js GROUP_HEAD)
+      _head(size) { return window.hkChip.groupHead; }
       // what it draws, in one go: the room, its pills, its line
       /** @returns {any} */
       _plan() {
@@ -269,6 +262,8 @@
         e.tiles.style.setProperty('--tw', gm.tw + 'px');
         e.tiles.style.setProperty('--th', gm.th + 'px');
         e.tiles.style.setProperty('--gap', gm.gap + 'px');
+        var across = Math.max(1, Math.min(cols, p.tiles.length + (p.more ? 1 : 0)));
+        e.tiles.style.setProperty('--gw', (across * gm.tw + (across - 1) * gm.gap) + 'px');
         if (gm.sq) e.tiles.setAttribute('data-sq', ''); else e.tiles.removeAttribute('data-sq');
         e.tiles.classList.toggle('scrolling', !!p.scroll && p.tiles.length > cols * rows);
         if (e.name.textContent !== (p.name || 'Room')) e.name.textContent = p.name || 'Room';

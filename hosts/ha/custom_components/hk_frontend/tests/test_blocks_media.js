@@ -76,15 +76,15 @@ function () {
   ok('Wide: the song, the progress and the three keys, a cluster 44 px wide each with 12 px between',
      css.indexOf('"art . prev . play . next ."') >= 0 && css.indexOf('minmax(0,1fr) 44px 12px 44px 12px 44px minmax(0,1fr)') >= 0);
   ok('...the cover as big as the controls\' 190 px leave it', /--np-art:min\(\(100cqh[^;]*- 190px\)/.test(css));
-  ok('Tall: the cover, the label, the song, the progress, the three keys with 8 px between',
-     css.indexOf('"lab lab lab lab lab lab lab" "title title title title title title title" "artist artist artist artist artist artist artist" "sub sub sub sub sub sub sub" ". prev . play . next ."') >= 0 &&
+  ok('Tall: the cover, the song, the progress, the three keys with 8 px between',
+     css.indexOf('"title title title title title title title" "artist artist artist artist artist artist artist" "sub sub sub sub sub sub sub" ". prev . play . next ."') >= 0 &&
      css.indexOf('--hk-np-cols:minmax(0,1fr) 44px 8px 44px 8px 44px minmax(0,1fr);') >= 0);
   ok('...the cover on the block\'s axis', css.indexOf(':host([size=T]) .np .art{justify-self:center;align-self:start}') >= 0);
   ok('...the bottom inset 6 px more', /:host\(\[size=T\]\) hk-plate\.np\{--hk-np-pad:[^;]*calc\(var\(--hk-pad-b,20px\) \+ 6px\)/.test(css));
-  ok('Large: the label over the song, the keys a cluster, the volume under it',
-     css.indexOf('"pre pre pre pre pre pre pre pre pre pre pre" "lab lab') >= 0 && css.indexOf('". spk . prev . play . next . brw ."') >= 0);
+  ok('Large: the song, the keys a cluster, the volume under it',
+     css.indexOf('"pre pre pre pre pre pre pre pre pre pre pre" "title') >= 0 && css.indexOf('". spk . prev . play . next . brw ."') >= 0);
   ok('Extra Large: the group between two flexible rows, centered on the cover',
-     css.indexOf('--hk-np-rows:minmax(0,1fr) min-content min-content min-content min-content 57px min-content minmax(0,1fr)') >= 0);
+     css.indexOf('--hk-np-rows:minmax(0,1fr) min-content min-content min-content 57px min-content minmax(0,1fr)') >= 0);
   ok('the volume a 44 px place on L and XL', css.indexOf(':host(:is([size=L],[size=XL])) .np .meta{display:flex;align-items:center;gap:10px;padding:0;--hk-range-h:44px}') >= 0);
   ok('in a pager: no volume row', css.indexOf(':host([size][data-grid-pager]) hk-plate.np{--hk-np-pad:20px 22px 44px;--np-vol:0px}') >= 0);
 },
@@ -104,7 +104,7 @@ function () {
   hkGive(np, house.hass());
   window.hkMusic.setFocus('media_player.kitchen_homepod_ma');
   np._render();
-  eq('the label says what the music is doing', np._root.querySelector('.lab').textContent, 'Now Playing');
+  ok('no label over the song (2026-11-08)', !/class="lab"|>Now Playing<|'Now Playing'/.test(readFile(HK_ROOT + '/frontend/media/hk-media-now.js')));
 },
 function () {
   H.section('Music: one cover per album, the last first');
@@ -342,8 +342,9 @@ function () {
     var xl = sized('hk-tv-channels-card', 'XL');
     xl.client = client(); xl._channels = CHANNELS.channels; xl._configured = true;
     xl._render();
-    eq('fewer channels than places: as many tiles as channels', xl._root.children[0].children[1].children.length, 3);
-    ok('Extra Large opens with its label row: Live TV', xl._root.children[0].children[0].className === 'lh' && xl._root.children[0].children[1].className === 'gr');
+    eq('fewer channels than places: as many tiles as channels', xl._root.children[0].children[0].children.length, 3);
+    // (no LIVE TV label row since 2026-11-08 -- the owner: a block's own name printed on it goes)
+    ok('Extra Large is its channels alone, no label row', xl._root.children[0].children[0].className === 'gr' && xl._root.children[0].children.every(function (c) { return c.className !== 'lh'; }));
   });
 },
 function () {

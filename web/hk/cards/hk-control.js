@@ -652,7 +652,8 @@ class HkControlCard extends HTMLElement {
       :host([size=XL]) .big .face{right:calc(var(--hk-pad-r,18px) + 200px)}
       .big .mc{position:absolute;top:var(--hk-pad-t,18px);bottom:var(--hk-pad-b,18px);right:var(--hk-pad-r,18px);width:200px;
         display:flex;flex-direction:column;justify-content:center;gap:8px}
-      .big .mc>b{${window.hkCards.labelCss('label')};line-height:18px}
+      /* (MODE, 2026-11-08, the owner: one gray heading style; it labels the keys, so it stays 8 px over them in the centered group) */
+      ${window.hkCards.headCss('.big .mc>b')}
       .big .mc button{all:unset;position:relative;box-sizing:border-box;flex:none;height:52px;border-radius:var(--hk-inner-radius,12px);display:flex;align-items:center;justify-content:center;gap:8px;
         background:${window.hkCards.v('key')};color:${window.hkCards.v('ink')};${window.hkCards.typeCss('body')};font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent}
       .big .mc button.on{background:#fff;color:#1c1c1e}

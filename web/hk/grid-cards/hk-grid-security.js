@@ -154,7 +154,7 @@
     // are closed -- the room is the list's; else a flat strip in orange: "Office Window open", or "3 open · " and their names. Extra
     // Large's keypad block, and HomeView's Large, Tall and Wide.
     // "+N MORE" in a heading's line, as an Accessory Group's: a label, its 44 px tap round it
-    var LM_CSS = '.lm{all:unset;' + C.labelCss('label') + ';line-height:16px;text-shadow:' + v('glow') + ';position:relative;top:-3px;white-space:nowrap;cursor:pointer;-webkit-tap-highlight-color:transparent;flex:none}' +
+    var LM_CSS = '.lm{all:unset;position:relative;cursor:pointer;-webkit-tap-highlight-color:transparent;flex:none}' + C.headCss('.lm') + '.lm{overflow:visible}' +
       '.lm::after{content:"";position:absolute;left:-10px;right:-10px;top:-14px;bottom:-14px}.lm[hidden]{display:none}';
     var NOTICE_CSS = [
       // (flat, the earlier strip's look -- the owner, 2026-11-08: "I prefer the flatter toast style", not a button like the rows): a pill of
@@ -292,7 +292,7 @@
       '.lh{display:none}',
       'hk-plate.sec.kp .col{gap:8px}',
       'hk-plate.sec.kp .lh{display:flex;align-items:center;justify-content:space-between;gap:10px;height:19px;flex:none;margin:var(--hk-text-in,0px) var(--hk-text-in,0px) 0}',
-      '.lh .lt{' + C.labelCss('label') + ';line-height:16px;text-shadow:' + v('glow') + ';position:relative;top:-3px;white-space:nowrap}',
+      C.headCss('.lh .lt'),
       LM_CSS,
       '.ents.lst{display:flex;flex-direction:column;flex-wrap:nowrap;justify-content:flex-start;align-content:stretch;gap:8px;margin:0}',
       '.ents.lst .ent{width:100%;height:' + SEC_LIST_ROW + 'px}',

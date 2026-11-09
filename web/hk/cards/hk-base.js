@@ -377,9 +377,7 @@
       one(C0.tall) + '@container hk-cell (min-height:170px) or (max-aspect-ratio: 6 / 5) or style(--hk-cell-shape: square){' + one(C0.square) +
         at('', [s.well]) + '{width:' + fit(C0.square.box) + I + ';height:' + fit(C0.square.box) + I + '}' + at('', [s.icon]) + '{width:' + fit(C0.square.glyph) + I + ';height:' + fit(C0.square.glyph) + I + '}}' + '@container hk-cell (max-height:140px) and (min-aspect-ratio: 6 / 5){' + one(C0.short) + '}';
   }
-  // ONE TITLE ROW (the Energy page's): the name left, the detail right, one
-  // baseline, 20 px tall. `sel` is the row (default .ttl); its <b> is the
-  // name, its <span> the detail.
+  // ONE TITLE ROW (the Energy page's): the name left, the detail right, one baseline, 20 px tall. `sel` is the row (default .ttl); its <b> is the name, its <span> the detail.
   function titleRow(sel) {
     sel = sel || '.ttl';
     return sel + '{display:flex;justify-content:space-between;align-items:baseline;gap:10px;min-height:20px;line-height:20px;flex:none}' +
@@ -391,18 +389,20 @@
     if (!t) throw new Error('hkCards: no type role ' + role);
     return t;
   }
-  // A LABEL (13 / 600 / 0.3 uppercase, secondary ink; `label-small` 11 /
-  // 0.4): declarations, no braces.
+  // A LABEL (13 / 600 / 0.3 uppercase, secondary ink; `label-small` 11 / 0.4): declarations, no braces.
   function labelCss(role) {
     var t = typeOf(role, 'label');
     return 'font-size:' + t.size + 'px;font-weight:' + t.weight + (t.track ? ';letter-spacing:' + t.track : '') +
       (t.upper ? ';text-transform:uppercase' : '') + ';color:' + v('ink-2');
   }
-  // THE PAGE CARD (the Energy page's, and the page headers'): the plate and
-  // padding at a fixed height (--hk-ep-h), the one title row (.ttl), and the
-  // shared pieces -- .wait, .num, the figure (.big, its unit in <u>), the
-  // caption (.cap) and the label (.k, its dot <i>). `cls` is the hk-plate's
-  // class. Defined below figureCss (it uses it), hoisted.
+  // A BLOCK'S HEADING (2026-11-08, the owner: titles "all need to match ... the same gray color, format/layout and spacing"; a block's own name printed on it goes; "The title of the music card, is how
+  // I would like the titles to look"; then "headings similar to the weather page, but without the glyph ... we aren't really using caps like this anywhere"): the Weather page's
+  // section title (.wxp .tt: 13 / 600, the secondary gray, as written -- "Recently Played", not capitals) everywhere, a 16 px line on the block's text inset (18 square, 14 tile), on a 19 px row (HEAD.row), the content HEAD.gap under it; a word at the row's right ("+3 more") the same style. headCss(sel): the heading's text; headRowCss(sel): its row.
+  var HEAD = { row: 19, gap: 8 };
+  function headCss(sel) { return sel + '{font-size:13px;font-weight:600;letter-spacing:0;text-transform:none;color:' + v('ink-2') + ';line-height:16px;margin:0;padding:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}'; }
+  function headRowCss(sel) { return sel + '{display:flex;align-items:center;justify-content:space-between;gap:10px;height:' + HEAD.row + 'px;flex:none;min-width:0;margin:0 0 ' + HEAD.gap + 'px 0}'; }
+  // THE PAGE CARD (the Energy page's, and the page headers'): the plate and padding at a fixed height (--hk-ep-h), the one title row (.ttl), and the shared pieces -- .wait, .num,
+  // the figure (.big, its unit in <u>), the caption (.cap) and the label (.k, its dot <i>). `cls` is the hk-plate's class. Defined below figureCss (it uses it), hoisted.
   function pageCardCss(cls) {
     return [
       'hk-plate.' + cls + '{box-sizing:border-box;display:flex;flex-direction:column;height:var(--hk-ep-h,320px);',
@@ -4770,7 +4770,7 @@
     var k = shape ? '--hk-spad-' : '--hk-pad-'; return 'var(' + k + 't,' + p[0] + ') var(' + k + 'r,' + p[1] + ') var(' + k + 'b,' + p[2] + ') var(' + k + 'l,' + p[3] + ')';
   };
   window.hkCards.titleRow = titleRow;
-  window.hkCards.labelCss = labelCss;
+  window.hkCards.labelCss = labelCss; window.hkCards.headCss = headCss; window.hkCards.headRowCss = headRowCss; window.hkCards.HEAD = HEAD;
   window.hkCards.figureCss = figureCss;
   window.hkCards.typeCss = typeCss;
   window.hkCards.pageCardCss = pageCardCss;

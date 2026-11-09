@@ -125,7 +125,8 @@
       '.rd .v{' + type('title') + ';font-variant-numeric:tabular-nums}' +
       // (the readings grow with their plate -- the Thermostat XL's left a band of nothing under them, 2026-10-30)
       '.rd .v{font-size:clamp(26px, 12cqh, 40px);line-height:1.1}' +
-      '.rd .row{display:flex;flex-direction:column;gap:6px}' +
+      // (Mode and Fan, 2026-11-08, the owner: one gray heading style)
+      '.rd .row{display:flex;flex-direction:column;gap:' + C.HEAD.gap + 'px}' + C.headCss('.rd .row .k') +
       C.segCss('.rd .seg', { on: '[aria-pressed="true"]', fill: true }) +
       // (each mode a finger's 44 px tall: the segments' own 36 were under it, 2026-10-31)
       '.rd .seg button{flex:1 1 0;min-height:44px}' +
@@ -142,6 +143,8 @@
     var ACC = C.ACCENTS;
     var WG_CSS = 'hk-plate.wg{box-sizing:border-box;height:100%;position:relative;display:flex;flex-direction:column;overflow:hidden;' +
         'padding:' + C.blockPad('14px') + ';' + C.plate('card') + ';color:' + v('ink') + ';text-shadow:' + v('glow') + '}' +
+      // THE HEADINGS (2026-11-08, the owner: "they all need to match and be the same gray color"): Using Now, Today, This Week
+      C.headRowCss('.hh') + C.headCss('.hh .hd') +
       '.wl{font-size:15px;font-weight:600;line-height:19px;letter-spacing:0.2px;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:none}' +
       '.wb{font-size:44px;font-weight:300;letter-spacing:-0.9px;line-height:1.04;font-variant-numeric:tabular-nums;white-space:nowrap;margin-top:2px;flex:none}' +
       '.wb.m{font-size:30px;font-weight:500;letter-spacing:-0.5px}' +
@@ -363,7 +366,7 @@
         var w = wattsOf(h, p.home), S = window.hkStats;
         var kw = function (x) { return x == null ? ['—', ''] : Math.abs(x) >= 1000 ? [(x / 1000).toLocaleString(numTag(), { minimumFractionDigits: 1, maximumFractionDigits: 1 }), 'kW'] : [Math.round(x).toLocaleString(numTag()), 'W']; };
         var fig = kw(w), more = p.home ? ' data-more="' + esc(p.home) + '"' : '';
-        var lab = '<div class="wl" style="color:' + ACC.green + '">Using Now</div>';
+        var lab = '<div class="hh"><span class="hd">Using Now</span></div>';
         if (size === 'S') {
           var five = S && p.home ? S.fiveMinute(h, [p.home], 37, this) : null;
           var rows = (five && five[p.home]) || [], closed = rows.slice(-37, -1), bars = [];
@@ -389,7 +392,7 @@
         var big = '<div class="wb"' + more + '>' + esc(fig.join(' ').trim()) + '</div>';
         var chart = function (cw, ch) { return '<div class="wf" role="img" aria-label="Today, hour by hour">' + wbars(day, cw, ch) + '</div>'; };
         var axis = '<div class="waxis"><span>12 AM</span><span>6</span><span>12 PM</span><span>6</span></div>';
-        if (size === 'W') return lab + big + chart(box.iw, Math.max(30, box.ih - 19 - 46 - 10));
+        if (size === 'W') return lab + big + chart(box.iw, Math.max(30, box.ih - 27 - 46 - 10));
         // the sun now and the battery's level, where the house has them
         var sun = p.solar ? wattsOf(h, p.solar) : null, lv = p.level && h.states[p.level] ? Number(h.states[p.level].state) : NaN;
         var bits = [sun != null ? 'Solar ' + kw(sun).join(' ') : '', isFinite(lv) ? 'Battery ' + Math.round(lv) + '%' : ''].filter(Boolean);
@@ -397,7 +400,7 @@
         // day's chart takes the rest of the height, the hours under it)
         var line = bits.join(' · '), tall = size === 'T', nl = tall ? bits.length : line ? 1 : 0;
         var sub = (tall ? bits : line ? [line] : []).map(function (t) { return '<div class="ws">' + esc(t) + '</div>'; }).join('');
-        var chH = Math.max(40, box.ih - 19 - 46 - nl * 19 - 12 - 19);
+        var chH = Math.max(40, box.ih - 27 - 46 - nl * 19 - 12 - 19);
         if (size === 'L' || tall) return lab + big + sub + chart(box.iw, chH) + axis;
         // XL: the chart on the left; today's top users on the right -- the
         // whole house, then the Energy page's devices by what they used today
@@ -407,8 +410,8 @@
           return '<div' + (u.more ? ' data-more="' + esc(u.more) + '"' : ' style="cursor:default"') + '>' + gly(u.icon, 20, null) + '<b>' + esc(u.name) + '</b><em>' + u.v + '</em></div>';
         };
         return '<div class="wsplit" style="gap:22px"><div class="wcol" style="flex:0 0 ' + lw + 'px">' + lab + big + sub + chart(lw, chH) + axis + '</div>' +
-          '<div class="wcol"><div class="wl" style="color:' + v('ink-2') + '">Today</div><div class="wmid"><div class="wr sp">' +
-          fitRows(users, box.ih - 19 - 6 + 8, urow, 52) + '</div></div></div></div>';
+          '<div class="wcol"><div class="hh"><span class="hd">Today</span></div><div class="wmid"><div class="wr sp">' +
+          fitRows(users, box.ih - 27 + 8, urow, 52) + '</div></div></div></div>';
       }
       // TODAY'S TOP USERS (Extra Large): the house so far today (the Energy
       // page's own sum, hkEnergy.summary), then each device the Energy page
@@ -447,7 +450,7 @@
           return '<div data-more="' + esc(x.id) + '">' + gly(g, 20, x.open ? ACC.orange : null) + '<b>' + esc(name(x)) + '</b><em' +
             (x.open ? ' style="color:' + ACC.orange + '"' : '') + '>' + (x.open ? 'Open' : 'Closed') + '</em></div>';
         };
-        var lab = '<div class="wl" style="color:' + ACC.teal + '">Doors &amp; Windows</div>';
+        // (2026-11-08, the owner: "if the card's name is printed on the card...it can go": no "DOORS & WINDOWS" label, at any size)
         // THE COPY, PLAINLY (2026-11-08, the review: "1 open" over "All doors closed" while a window was open): what is open
         // and by name -- "1 Open" over "Office Window" -- or "All Closed" with a check over what the block watches; no zero
         var ways = list.filter(function (x) { return x.kind !== 'window'; }).length, wins = list.length - ways;
@@ -456,12 +459,12 @@
         var ok = function (px) { return gly('mdi:check-circle', px, ACC.teal); };
         if (size === 'S') {
           var first = open[0];
-          if (!first) return ok(34) + '<div class="wb m" style="margin-top:8px">All Closed</div><div class="ws">Doors &amp; Windows</div>';
+          if (!first) return ok(34) + '<div class="wb m" style="margin-top:8px">All Closed</div>';
           return gly(WAY_GLYPH[first.kind][0], 34, ACC.orange) + '<div class="wb xl">' + open.length + '</div><div class="ws">' + esc(open.length === 1 ? 'Open · ' + name(first) : 'Open') + '</div>';
         }
         var big = open.length ? '<div class="wb m">' + open.length + ' Open</div>' : '<div class="wb m ok">' + ok(24) + 'All Closed</div>';
         if (size === 'W') {
-          return '<div class="wsplit"><div class="wcol" style="flex:0 0 170px">' + lab + big + '<div class="ws">' + esc(line) + '</div></div>' +
+          return '<div class="wsplit"><div class="wcol" style="flex:0 0 170px">' + big + '<div class="ws">' + esc(line) + '</div></div>' +
             '<div class="wcol wr t44" style="justify-content:center">' + fitRows(list, box.ih, row, 44) + '</div></div>';
         }
         // (T, L and XL, 2026-11-08, the owner: nothing stretches -- rows keep their 48 px, as many as fit with "N more", and the hero and
@@ -485,10 +488,10 @@
           return open.length ? '<div class="wb xl">' + open.length + '</div><div class="ws">Open</div>' : ok(44) + '<div class="wb m" style="margin-top:6px">All Closed</div>';
         };
         if (size === 'T' || size === 'L') {
-          var room = box.ih - 19 - 6, xl = room - heroH - 8 >= Math.min(list.length, 3) * 48, rest = room - (xl ? heroH : 52) - 8;
-          return lab + '<div class="wmid">' + hero(xl) + '<div class="wr tall" style="margin-top:8px">' + fitRows(list, rest, tall, 48) + '</div></div>';
+          var room = box.ih, xl = room - heroH - 8 >= Math.min(list.length, 3) * 48, rest = room - (xl ? heroH : 52) - 8;
+          return '<div class="wmid">' + hero(xl) + '<div class="wr tall" style="margin-top:8px">' + fitRows(list, rest, tall, 48) + '</div></div>';
         }
-        return '<div class="wsplit" style="gap:22px"><div class="wcol" style="flex:0 0 200px">' + lab +
+        return '<div class="wsplit" style="gap:22px"><div class="wcol" style="flex:0 0 200px">' +
           '<div class="wmid">' + hero(true) + '<div class="ws">' + esc(line) + '</div>' +
           '</div></div><div class="wcol wmid wr tall">' + fitRows(list, box.ih, tall, 48) + '</div></div>';
       }
@@ -496,17 +499,16 @@
       // short chart (Tall the days before under it); Wide the day's hours
       // beside the number, the chart on the block's foot
       _ownWater(p, size, box, h) {
-        var lab = '<div class="wl" style="color:' + ACC.cyan + '">Water</div>';
         var ids = waterIds(this, h, p.meter);
-        if (ids && !ids.length) return lab + '<div class="ws wf" style="white-space:normal">' + esc(PANEL_EMPTY.water[1]) + '</div>';
+        if (ids && !ids.length) return '<div class="ws wf" style="white-space:normal">' + esc(PANEL_EMPTY.water[1]) + '</div>';
         var d = ids ? waterDay(this, h, ids) : null;
-        if (!d) return lab + '<div class="ws wf">Loading today…</div>';
+        if (!d) return '<div class="ws wf">Loading today…</div>';
         var more = d.more ? ' data-more="' + esc(d.more) + '"' : '', unit = esc(d.unit), big = '<div class="wb"' + more + '>' + amount(d.tot) + '</div>';
         var last12 = d.seq.slice(-12).map(function (x) { return { v: x, c: ACC.cyan }; });
-        if (size === 'S') return lab + big + '<div class="ws">' + unit + ' today</div><div class="wf">' + wbars(last12, box.iw, shortH(box)) + '</div>';
+        if (size === 'S') return big + '<div class="ws">' + unit + ' today</div><div class="wf">' + wbars(last12, box.iw, shortH(box)) + '</div>';
         if (size === 'W') {
           var day = d.day24.map(function (x) { return { v: x.v, c: x.fut ? v('ink-3') : ACC.cyan, ghost: x.fut }; });
-          return '<div class="wsplit"><div class="wcol" style="flex:0 0 130px">' + lab + big + '<div class="ws">' + unit + ' today</div>' +
+          return '<div class="wsplit"><div class="wcol" style="flex:0 0 130px">' + big + '<div class="ws">' + unit + ' today</div>' +
             (d.cmp ? '<div class="ws">' + esc(d.cmp) + '</div>' : '') + '</div>' +
             '<div class="wcol" style="justify-content:flex-end">' + wbars(day, box.iw - 130 - 18, Math.max(40, box.ih - 30)) + '</div></div>';
         }
@@ -521,22 +523,22 @@
           var leak = wet.length ? '<span style="color:' + ACC.red + '">Leak: ' + esc((C.accName && C.accName(wet[0])) || attr(h.states[wet[0]], 'friendly_name') || wet[0]) + '</span>'
             : (p.leaks || []).length ? 'no leaks' : '';
           var line = [d.cmp ? esc(d.cmp) : '', leak].filter(Boolean).join(' · ');
-          var today = '<div class="wl" style="color:' + ACC.cyan + '">Today</div><div class="wb"' + more + '>' + amount(d.tot) + ' ' + unit + '</div>' +
+          var today = '<div class="hh"><span class="hd">Today</span></div><div class="wb"' + more + '>' + amount(d.tot) + ' ' + unit + '</div>' +
             (line ? '<div class="ws">' + line + '</div>' : '');
           var hours = d.day24.map(function (x) { return { v: x.v, c: x.fut ? v('ink-3') : ACC.cyan, ghost: x.fut }; });
-          var chH = Math.max(40, box.ih - 19 - 46 - (line ? 19 : 0) - 14);
+          var chH = Math.max(40, box.ih - 27 - 46 - (line ? 19 : 0) - 14);
           if (size === 'L') return today + '<div class="wf">' + wbars(hours, box.iw, chH) + '</div>';
           var lw = Math.round((box.iw - 22) * 0.58);
           return '<div class="wsplit" style="gap:22px"><div class="wcol" style="flex:0 0 ' + lw + 'px">' + today + '<div class="wf">' + wbars(hours, lw, chH) + '</div></div>' +
-            '<div class="wcol"><div class="wl" style="color:' + v('ink-2') + '">This Week</div>' +
+            '<div class="wcol"><div class="hh"><span class="hd">This Week</span></div>' +
             // (today first, as the mock-up's Sat over Fri, Thu, Wed)
-            '<div class="wr" style="margin-top:6px">' + fitRows([{ t: d.day0, v: d.tot }].concat(d.week), box.ih - 19 - 6, row) + '</div></div></div>';
+            '<div class="wr">' + fitRows([{ t: d.day0, v: d.tot }].concat(d.week), box.ih - 27, row) + '</div></div></div>';
         }
-        var room = box.ih - 19 - 46 - 19 - (d.cmp ? 19 : 0) - 12 - 44 - 14 - 19 - 4;
-        return lab + big + '<div class="ws">' + unit + ' today</div>' + (d.cmp ? '<div class="ws">' + esc(d.cmp) + '</div>' : '') +
+        var room = box.ih - 46 - (d.cmp ? 19 : 0) - 19 - 12 - 44 - 14 - 27;
+        return big + '<div class="ws">' + unit + ' today</div>' + (d.cmp ? '<div class="ws">' + esc(d.cmp) + '</div>' : '') +
           '<div style="margin-top:12px">' + wbars(last12, box.iw, 44) + '</div>' +
-          '<div class="wl" style="margin-top:14px;color:' + v('ink-2') + '">This Week</div>' +
-          '<div class="wr" style="margin-top:2px">' + fitRows(d.week, room, row) + '</div>';
+          '<div class="hh" style="margin-top:14px"><span class="hd">This Week</span></div>' +
+          '<div class="wr">' + fitRows(d.week, room, row) + '</div>';
       }
       // A THERMOSTAT'S READINGS AND CONTROLS beside its dial: inside,
       // humidity and outside (the sheet's three), then its modes and its fan

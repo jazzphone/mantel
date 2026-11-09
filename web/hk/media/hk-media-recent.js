@@ -106,7 +106,7 @@
       // (a size container: the covers are sized by the plate's room)
       'hk-plate.mu{box-sizing:border-box;height:100%;display:flex;flex-direction:column;overflow:hidden;container-type:size;',
       '  padding:' + C.blockPad('14px') + ';' + C.plate('card') + '}',
-      '.lab{display:block;' + C.typeCss('label') + ';line-height:16px;color:' + C.v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:none}',
+      C.headCss('.lab') + '.lab{display:block;flex:none}',
       // A COVER: its picture, or a gradient of its own with a note
       '.cvr{position:relative;display:grid;place-items:center;overflow:hidden;flex:none;border-radius:' + C.R.small + 'px;',
       '  background:linear-gradient(140deg,var(--c1),var(--c2));box-shadow:0 4px 12px rgba(0,0,0,.25);transition:transform .12s ease,opacity .2s}',
