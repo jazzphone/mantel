@@ -138,11 +138,18 @@ const input = JSON.parse(fs.readFileSync(0, 'utf8'));
           if(qa){
             assert(qa.n===40&&qa.open&&qa.more&&/gradient/.test(qa.mask)&&qa.bar==='none'&&qa.minH>=44&&qa.over==='contain'&&qa.metaB<=qa.artB+1,'saver Up Next: '+JSON.stringify(qa));
             if(input.shots)await page.screenshot({path:`${input.shots}/${W}x${H}-${side}-slide-queue.png`});
-            await page.mouse.move(qa.x,qa.y);await page.mouse.down();
-            for(let k=1;k<=8;k++){await page.mouse.move(qa.x,qa.y-k*12);await page.waitForTimeout(20);}
-            await page.mouse.up();await page.waitForTimeout(300);
-            const qb=await page.evaluate(()=>{const r=document.querySelector('hk-screensaver').shadowRoot,ql=r.querySelector('.mu .mq .mql');
-              return {top:ql.scrollTop,panel:!!r.querySelector('.mpanel'),art:r.querySelector('.mu .mart').getBoundingClientRect().height,metaB:r.querySelector('.mu .mmeta').getBoundingClientRect().bottom};});
+            // (once more where the first drag found no row: under a loaded machine's CI the slide can be laid out again
+            // between the measure and the drag -- 2026-11-09, a full run read scrollTop 0 that passes alone)
+            let qb;
+            for(let tries=0;tries<2;tries++){
+              await page.mouse.move(qa.x,qa.y);await page.mouse.down();
+              for(let k=1;k<=8;k++){await page.mouse.move(qa.x,qa.y-k*12);await page.waitForTimeout(20);}
+              await page.mouse.up();await page.waitForTimeout(300);
+              qb=await page.evaluate(()=>{const r=document.querySelector('hk-screensaver').shadowRoot,ql=r.querySelector('.mu .mq .mql');
+                return {top:ql.scrollTop,panel:!!r.querySelector('.mpanel'),art:r.querySelector('.mu .mart').getBoundingClientRect().height,metaB:r.querySelector('.mu .mmeta').getBoundingClientRect().bottom};});
+              if(qb.top>=60||qb.panel)break;
+              await page.waitForTimeout(500);
+            }
             assert(qb.top>=60&&!qb.panel&&Math.abs(qb.art-qa.artH)<1&&Math.abs(qb.metaB-qa.metaB)<1,'saver Up Next dragged: '+JSON.stringify([qa,qb]));
             if(input.shots)await page.screenshot({path:`${input.shots}/${W}x${H}-${side}-slide-queue-scrolled.png`});
             await page.mouse.move(qa.x,qa.y);await page.mouse.down();await page.mouse.move(qa.x,qa.y+3);await page.mouse.up();await page.waitForTimeout(500);

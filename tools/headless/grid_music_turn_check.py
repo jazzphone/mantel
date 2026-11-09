@@ -185,10 +185,16 @@ async def main():
             await b.send('Input.synthesizeScrollGesture', x=r['x'], y=r['y'], yDistance=-4000, gestureSourceType='touch', speed=4000)
             await asyncio.sleep(0.8)
             assert await b.eval("!np('x').shadowRoot.querySelector('.npql').classList.contains('more')")
+            # (the fling at rest before the tap: a touch on a list still moving stops it and is no tap -- as on an iPad)
+            assert await b.wait("(()=>{const l=np('x').shadowRoot.querySelector('.npql'),t=l.scrollTop;"
+                                "return new Promise(r=>setTimeout(()=>r(l.scrollTop===t),250))})()", 5)
             t = await b.eval("(()=>{const e=np('x').shadowRoot.querySelectorAll('.npqr')[16].getBoundingClientRect();return {x:e.left+40,y:(e.top+e.bottom)/2}})()")
-            await b.send('Input.dispatchTouchEvent', type='touchStart', touchPoints=[{'x': t['x'], 'y': t['y']}])
-            await b.send('Input.dispatchTouchEvent', type='touchEnd', touchPoints=[])
-            assert await b.wait("np('x')._qBusy==='17'", 5), 'a tap on the 17th song plays it'
+            for _ in range(2):
+                await b.send('Input.dispatchTouchEvent', type='touchStart', touchPoints=[{'x': t['x'], 'y': t['y']}])
+                await b.send('Input.dispatchTouchEvent', type='touchEnd', touchPoints=[])
+                if await b.wait("np('x')._qBusy==='17'", 3):
+                    break
+            assert await b.eval("np('x')._qBusy==='17'"), 'a tap on the 17th song plays it'
             print('  x: Up Next scrolls by finger, a tap plays the song')
             # the Extra Large block: its Browse (the button in Up Next's heading since mockup 12i), then the X
             await b.eval("np('x').shadowRoot.querySelector('.npqb').click()")
