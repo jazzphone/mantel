@@ -64,11 +64,36 @@ The editor is the only place to change what the screensaver shows and how it loo
 
 **Timers** (Edit Screensaver → Slides) is on unless you turn it off, and it shows only while a timer you set is running: one from the Timers page or a preset. The timer ending first is on the big ring, and the others are small rings beside it, soonest first. A paused timer stays at the end and never brings the slide up.
 
-**Timers Come Up** is **More Often** (every other slide) or **As Often as the Others**. For a timer's last minute, the slide stays on every tablet that isn't dark, over the photos, the music and Night Mode, and the ring restarts as one full 60-second sweep. It doesn't take over while someone is using the tablet. It doesn't make a sound yet.
+**Timers Come Up** is **More Often** (every other slide) or **As Often as the Others**. For a timer's last minute, the slide stays on every tablet that isn't dark, over the photos, the music and Night Mode, and the ring restarts as one full 60-second sweep. It doesn't take over while someone is using the tablet.
 
 The timers on **General → House Timers**, such as Night and Nap, never show, and neither do timers that automations use. To keep another timer off the slide, add it to that list.
 
-On Mantel, a timer you set is its own timer in Home Assistant, so there's no limit of four and no helpers to install. Mantel creates it when you press Start, and deletes it when it ends or you cancel it. An automation in Home Assistant can see it like any other timer while it runs. This needs Mantel's Home Assistant user to be an administrator; if it isn't, Mantel uses the four quick timers instead. Inside Home Assistant, HK Frontend keeps using the four quick timers.
+On Mantel, a timer you set is its own timer in Home Assistant, so there's no limit of four and no helpers to install. Mantel creates it when you press Start, and deletes it when it ends or you cancel it. An automation in Home Assistant can see it like any other timer while it runs. This needs Mantel's Home Assistant user to be an administrator; if it isn't, Mantel uses the four quick timers instead. Inside Home Assistant, HK Frontend keeps using the four quick timers, and they make no sound.
+
+### When a timer ends
+
+The big ring closes and pulses, and the slide shows **Stop**, **+1 Min** and **Restart**. If someone is using the tablet, the same choices appear in a pop-up over the page. Stop on any screen stops the timer everywhere, and tapping anywhere else on the slide stops it too, without leaving the screensaver.
+
+Set this up in Settings → **Timers**, under **When a Timer Ends**:
+
+| Setting | What it does |
+|---|---|
+| **Sound** | **Soft Bell**, **Chime** or **Kitchen Timer**. **Hear It on This Screen** plays it. |
+| **Rings For** | **30 Seconds**, **1 Minute** or **Until Stopped**, which ends by itself after 10 minutes. |
+| **Wake a Dark Screen** | Wakes the tablet in the timer's room for the last minute. Other rooms' dark tablets stay dark. |
+| **The Tablet in Its Room** | Plays through that tablet's own speaker, as a notification's sound does. |
+| **The Speaker in Its Room** | Plays on the HomePod or other speaker in that room, through Music Assistant. Music dips and comes back. |
+| **Set From a Phone** | A phone has no room, so a timer set on one rings here, or on **Every Tablet**. |
+| **Speaker Volume** | Never above the Intercom's **Highest Volume**. |
+| **Also Play In** | Rooms that play every timer, or **The Whole House**. |
+
+A timer's room is the room of the tablet it was set on. The **New Timer** sheet has a **Rings In** choice to pick another room for one timer. A timer rings whatever the time of day: the Intercom's quiet hours don't apply.
+
+Speakers need the **Address for Music Assistant** in Settings → **Intercom**. The Intercom itself can stay off, and its rooms don't need to be on. A speaker usually starts a little after the tablet.
+
+A tablet's browser may not play sound until it has been touched once. Fully Kiosk has an **Autoplay audio** setting that avoids this. Otherwise the tablet shows "Tap to hear the timer", and the first touch plays it.
+
+If a timer ended while Mantel or Home Assistant was restarting, it rings when they're back, if that's within 10 minutes. After that, you get a notification saying when it ended.
 
 ## The Holiday slide
 

@@ -1251,6 +1251,7 @@
       var client = this.client, ents = client.entities || {};
       return Object.keys(client.states).filter(function (id) {
         var dom = id.split('.')[0];
+        if (client.states[id].attributes.plumbing) return false;     // the host's own workings, not something to pick
         if (filter.domains && filter.domains.indexOf(dom) < 0) return false;
         if (filter.re && !filter.re.test(id)) return false;
         if (filter.dc && client.states[id].attributes.device_class !== filter.dc) return false;

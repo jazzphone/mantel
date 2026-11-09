@@ -85,6 +85,16 @@ def _ids(v: Any) -> list[str]:
     return list(dict.fromkeys(v))
 
 
+AREA_OR_EMPTY = re.compile(r"^[a-z0-9_]*$")
+
+
+def _timer_rooms(v: Any) -> list[str]:
+    """Also Play In: area ids, or 'all' for the whole house."""
+    if not isinstance(v, list) or len(v) > 40 or not all(isinstance(x, str) and x and AREA_OR_EMPTY.match(x) for x in v):
+        raise Invalid("list")
+    return list(dict.fromkeys(v))
+
+
 def _bool(v: Any) -> bool:
     if not isinstance(v, bool):
         raise Invalid("bool")
@@ -719,6 +729,14 @@ HOUSE: dict[str, Callable[[Any], Any]] = {
     "features.temperature": SENSOR,
     "features.power": SENSOR,
     "features.house_timers": _entities("timer"),
+    "features.timer_sound": _choice(("bell", "chime", "kitchen")),
+    "features.timer_ring_for": lambda v: v if v in (30, 60, "stop") and not isinstance(v, bool) else _choice(())(v),
+    "features.timer_tablet": _bool,
+    "features.timer_speaker": _bool,
+    "features.timer_also": lambda v: _timer_rooms(v),
+    "features.timer_phone": lambda v: v if isinstance(v, str) and AREA_OR_EMPTY.match(v) else _choice(())(v),
+    "features.timer_volume": lambda v: v if isinstance(v, int) and not isinstance(v, bool) and 5 <= v <= 100 else _choice(())(v),
+    "features.timer_wake": _bool,
     "features.vacuum_script": _entity("script"),
     "features.alarm_bad_code": _entity("input_boolean", "binary_sensor"),
     "clock.time": SENSOR,

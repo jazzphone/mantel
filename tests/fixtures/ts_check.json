@@ -53,6 +53,7 @@
   "web/hk/modules/hk-saverpieces-people.js",
   "web/hk/modules/hk-tabbar.js",
   "web/hk/modules/hk-tap.js",
+  "web/hk/modules/hk-timer-ring.js",
   "web/hk/modules/hk-timers.js",
   "web/hk/modules/hk-wallpapers.js",
   "web/hk/panels/hk-saver-designs.js",

@@ -418,7 +418,7 @@ async def test_save_seals_applies_at_once_and_never_shows_the_token(envs, caplog
         box.open(raw, "connection:ma")
     # hot apply: Mantel's HA connection is up with the new credential, no restart
     hub = env.app["hub"]
-    await wait_for(lambda: hub.ha.connected_since is not None and len(hub.store.states) == 2, 5)
+    await wait_for(lambda: hub.ha.connected_since is not None and len(hub.store.states) - len(hub.store.ours) == 2, 5)
     assert env.cfg.ha_url == url and fake.auth_seen[-1] == TOKEN_A
     status, body = await env.call("GET", "/api/connections")
     ha = body["connections"]["ha"]

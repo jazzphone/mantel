@@ -17,6 +17,14 @@ window.hkSettings = { get: function (k, d) { return k === 'features.house_timers
 <script src="/hk/modules/hk-timers.js"></script>
 <script src="/hk/modules/hk-saver-timers.js"></script>
 <script>
+// a stand-in for the cards' client, so hk-timer-ring.js sees what a screen would. `calls`: what its buttons sent.
+window.__calls = []; window.__listeners = [];
+window.hkCards = { onClient: function (f) { window.__listeners.push(f); }, client: function () { return window.__client || null; } };
+window.__tablet = P.get('room') === null ? null : { room: P.get('room') };
+window.hkSettings = Object.assign(window.hkSettings, { tablet: function () { return window.__tablet; } });
+</script>
+<script src="/hk/modules/hk-timer-ring.js"></script>
+<script>
 var host = document.getElementById('host'); host.style.width = W + 'px'; host.style.height = H + 'px';
 var u = Math.min(W, H) / 100, m = 6 * u;
 var scn = document.createElement('div'); scn.className = 'scn'; scn.style.setProperty('--m', m + 'px');
@@ -34,7 +42,16 @@ function states() {
   return s;
 }
 var T0 = Date.now(); window.__t0 = function (left) { return new Date(T0 + left * 1000).toISOString(); };
-var client = { states: states(), config: { time_zone: 'America/New_York' } };
+var client = { states: states(), config: { time_zone: 'America/New_York' }, actions: { callService: function (d, s, data) { window.__calls.push([d, s, data]); return Promise.resolve(); } } };
+// rings=Name,Name: ringing, on Mantel's sensor; where=none leaves it silent
+function sensor(names) {
+  var silent = P.get('where') === 'none';
+  client.states['sensor.running_quick_timers'] = { state: '0', attributes: { running: (P.get('lede') ? Object.keys(client.states).filter(function (e) { return /^timer\.hk/.test(e) && client.states[e].state === 'active'; }).map(function (e) { return { entity_id: e, tablet: !silent, areas: ['kitchen'], speakers: silent ? [] : ['Kitchen'], tone: 'bell' }; }) : []), made: [],
+    ringing: names.map(function (n, i) { return { entity_id: 'timer.hk_timer_' + (40 + i), name: n, until: 0, tablet: !silent, areas: ['kitchen'], speakers: silent ? [] : ['Kitchen'], tone: 'chime' }; }) } };
+}
+sensor((P.get('rings') || '').split(',').filter(Boolean));
+window.__ring = function (names) { sensor(names); ctl.setClient(client); window.__listeners.forEach(function (f) { f(client); }); };
+window.__client = client;
 var ctl = window.hkSaverTimers.create({ h24: false });
 host.appendChild(ctl.el); host.appendChild(scn);
 ctl.layout(W, H);

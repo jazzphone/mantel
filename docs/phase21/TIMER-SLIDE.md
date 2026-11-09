@@ -1,6 +1,6 @@
 # Phase 21: the Timer slide and timers that ring (plan, 2026-11-08)
 
-**Status: steps 1 (the silent slide) and 2 (timers on the server) built; steps 3 to 5 not started.** The owner approved the design on 2026-11-08. Nothing here has run on the house or on a wall tablet.
+**Status: all five steps built and on `main`; nothing has run on the house, on a wall tablet or on a real speaker.** The owner approved the design on 2026-11-08. The speakers are tested against a fake Music Assistant only: see "Not proven until it runs".
 
 - **Mock-up:** [mockup/timer-slide.html](mockup/timer-slide.html). It stands alone: open the file, or view the published copy. Its timers really count, with made-up names, and it touches nothing in the house.
 - **Line numbers** are left out on purpose, because `main` moves. Search for the names.
@@ -124,9 +124,10 @@ HA's code (`Timer.async_added_to_hass`) restores a timer only with `restore: tru
 3. **Speaker:** the Intercom's path: a `Spool` of a tone, a one-time link, `driver.announce` / `in_step`, and `music_assistant` playing it as an announcement so music dips and returns. It needs the stream listener set up, but not the Intercom's own switch or rooms, which stay off by default.
 4. **If a speaker fails,** the tablet still rings, and the failure is logged and audited. If the Intercom is talking, the ring waits for it to finish.
 5. **Volume:** its own setting, capped by the house's Highest Volume. Each speaker goes back to its level afterward, as the Intercom does.
-6. **No quiet hours.** The owner's call: a timer was set on purpose, so it rings whatever the time.
+6. **Speakers while the Intercom is off:** its stream listener runs only while a timer rings.
+7. **No quiet hours.** The owner's call: a timer was set on purpose, so it rings whatever the time.
 
-The sound is a real recorded or designed clip, not `tone_wav`'s plain sine. The mock-up's tones are placeholders for choosing a character.
+The sounds are synthesized from one recipe each (`hk_core/timers` TONES, played by `hk-timer-ring.js` on a tablet and rendered to a clip for a speaker), not recordings. A speaker plays a clip of three strikes, then again every 20 seconds while it rings, so Stop takes effect by the end of the clip at the latest.
 
 ## Settings
 
@@ -166,6 +167,8 @@ One session per step, in this order. The building session is Opus 5.5 Medium, an
 
 ## Not proven until it runs
 
+- **Hearing it on a HomePod:** the clip, its volume, music dipping and coming back. Nothing has played on a real speaker.
+- **The tablet's sound on a real kiosk,** and Wake a Dark Screen on a real tablet.
 - Creating, renaming and deleting a timer on a running HA. HA's code says the entity id stays the same; step 2 proves it first on the scratch HA. If not, entity ids come from the name, and Mantel recognizes its timers by its own table.
 - How late a HomePod starts after 0:00. The tablet will be first, and a gap of a few seconds is expected. If it's bad, Mantel starts the speaker early by the measured amount.
 - Whether each tablet's kiosk plays sound without a tap.

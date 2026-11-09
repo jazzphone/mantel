@@ -554,7 +554,7 @@ def live_ha(app: web.Application) -> dict:
     ha = getattr(hub, "ha", None)
     since = getattr(ha, "connected_since", None)
     return {"connected": since is not None, "connected_since": since, "version": getattr(ha, "ha_version", None),
-            "entities": len(hub.store.states) if hub is not None and since is not None else None,
+            "entities": len(hub.store.states) - len(hub.store.ours) if hub is not None and since is not None else None,
             "error": getattr(ha, "last_error", None)}
 
 

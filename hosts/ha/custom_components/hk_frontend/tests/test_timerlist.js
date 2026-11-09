@@ -33,6 +33,21 @@ ok('a running timer past its end reads 0 until the house says it ended', T.userT
 ok('a timer with no end time is left out, and nothing at all is nothing', T.userTimers({ 'timer.quick_1': { state: 'active', attributes: {} } }, [], NOW).length === 0 && T.userTimers(null, null, NOW).length === 0);
 ok('a timer whose id only starts the same is not one', T.userTimers({ 'timer.quick_x': on(5, 'a'), 'timer.hk_timer_': on(5, 'b'), 'timer.quick_1_old': on(5, 'c') }, [], NOW).length === 0);
 
+// ---- what rings, and where
+var RING = { entity_id: 'timer.hk_timer_1', name: 'Pasta', tablet: true, areas: ['kitchen'], speakers: ['Kitchen'], tone: 'bell' };
+ok('what is ringing is on the sensor; nothing in a house without it', T.rings({ 'sensor.running_quick_timers': { attributes: { ringing: [RING] } } }).length === 1 && T.rings({}).length === 0 && T.rings(null).length === 0);
+ok('its room\'s tablet plays it, another\'s doesn\'t, a phone never', T.heardHere(RING, 'kitchen', true) && !T.heardHere(RING, 'office', true) && !T.heardHere(RING, 'kitchen', false));
+ok('no room: every tablet', T.heardHere(Object.assign({}, RING, { areas: [] }), 'office', true));
+ok('The Tablet in Its Room off: none', !T.heardHere(Object.assign({}, RING, { tablet: false }), 'kitchen', true));
+ok('it says where', T.whereWords(RING, 'kitchen', true) === 'this tablet and the Kitchen speaker' && T.whereWords(RING, 'office', true) === 'the Kitchen speaker' &&
+   T.whereWords(Object.assign({}, RING, { speakers: ['Kitchen', 'Office'] }), 'kitchen', true) === 'this tablet, the Kitchen speaker and the Office speaker' &&
+   T.whereWords(Object.assign({}, RING, { speakers: [], tablet: false }), 'kitchen', true) === '');
+ok('each slot its own color', T.colorOf('timer.hk_timer_1') !== T.colorOf('timer.hk_timer_2') && T.colorOf('timer.quick_2') === T.colorOf('timer.hk_timer_2'));
+var sent = []; T.ringAct({ actions: { callService: function (d, s, x) { sent.push([d, s, x]); } } }, 'stop', null); T.ringAct({ actions: { callService: function (d, s, x) { sent.push([d, s, x]); } } }, 'more', 'timer.hk_timer_1');
+ok('Stop, +1 Min', JSON.stringify(sent) === JSON.stringify([['script', 'quick_timer_ring', { op: 'stop' }], ['script', 'quick_timer_ring', { op: 'more', entity_id: 'timer.hk_timer_1' }]]));
+var rooms = T.ringsInHtml({ 'sensor.running_quick_timers': { attributes: { rooms: [{ id: 'kitchen', name: 'Kit<chen' }] } } });
+ok('Rings In: the rooms with speakers, escaped; nothing in a house without them', /value="kitchen"/.test(rooms) && /Kit&lt;chen/.test(rooms) && T.ringsInHtml({}) === '');
+
 // ---- the hold
 load(HK_ROOT + '/frontend/saver/hk-saver-helpers.js');
 var K = {};
@@ -43,7 +58,7 @@ function world(left, opts) {
   if (opts && opts.noCtl) w.slot.ctl = null;
   w.hold = K.timerHold({
     up: function () { return w.up; }, wanted: function () { return w.wanted; }, now: function () { return w.t; },
-    client: function () { var s = {}; if (w.left !== null) s['timer.quick_1'] = { state: 'active', attributes: { finishes_at: new Date(Date.now() + w.left * 1000).toISOString(), duration: '1:00:00' } }; return { states: s }; },
+    client: function () { var s = {}; if (w.ringing) s['sensor.running_quick_timers'] = { attributes: { ringing: [RING] } }; if (w.left !== null) s['timer.quick_1'] = { state: 'active', attributes: { finishes_at: new Date(Date.now() + w.left * 1000).toISOString(), duration: '1:00:00' } }; return { states: s }; },
     slot: w.slot, prep: function () { w.log.push('prep'); }, night: function () { return w.night; }, blocked: function () { return w.blocked; },
     show: function () { w.log.push('show'); if (w.showOk) w.slot.showing = true; return w.showOk; }, clear: function () { w.log.push('clear'); },
     hold: function () { w.log.push('hold'); }, again: function () { w.log.push('again'); },
@@ -77,8 +92,12 @@ var g = world(45); g.go(); g.log.length = 0; g.left = 1000; g.go();
 ok('given more time, out of the minute: let go, a timer still running', g.log.join() === 'leave:false' && !g.hold.held());
 var h = world(null); h.slot.showing = true; h.go();
 ok('its ordinary turn up with nothing left to count: it goes', h.log.join() === 'leave:true');
+var r = world(null); r.ringing = true; r.go();
+ok('Time\'s Up holds it too, with nothing counting', r.log.join() === 'clear,show,hold' && r.hold.held());
+r.ringing = false; r.go();
+ok('...and lets go when it is stopped', r.log.slice(3).join() === 'leave:true' && !r.hold.held());
 var i = world(45); i.up = false; i.go();
 ok('a preview, or the saver down: nothing', i.log.length === 0);
-[a, b, c, d, e, f, g, h, i].forEach(function (w) { w.hold.leave(); });
+[a, b, c, d, e, f, g, h, i, r].forEach(function (w) { w.hold.leave(); });
 print('\n' + (fail ? fail + ' FAILED, ' : 'ALL ') + pass + ' TIMER LIST TESTS PASS');
 if (fail) throw new Error(fail + ' failed');

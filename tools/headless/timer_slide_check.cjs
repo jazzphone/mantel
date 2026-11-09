@@ -19,13 +19,16 @@ const CASES = [
   ['long-name', 'A Very Long Timer Name That Goes On And On:738:900,Another Quite Long Timer Name Here:1500:2700', { rings: 1, last: false }]
 ];
 
+// [tag, timers, rings, query]: Time's Up
+const DONE = [['done-one', '', ['Pasta']], ['done-others', 'Oven:1520:2700,Rice:40:900', ['Pasta']], ['done-two', 'Laundry:37:2700', ['Pasta', 'Oven']], ['done-long', '', ['A Very Long Timer Name That Goes On And On']], ['done-silent', '', ['Pasta'], '&where=none']];
+
 const measure = () => {
   const host = document.getElementById('host'), hr = host.getBoundingClientRect(), bad = [];
   const R = (e) => e.getBoundingClientRect();
   const meet = (a, b) => !!(a && b && a.left < b.right - 0.5 && b.left < a.right - 0.5 && a.top < b.bottom - 0.5 && b.top < a.bottom - 0.5);
   const inside = (r) => r.left >= hr.left - 1 && r.top >= hr.top - 1 && r.right <= hr.right + 1 && r.bottom <= hr.bottom + 1;
   const ink = (el) => { const g = document.createRange(); g.selectNodeContents(el); return g.getBoundingClientRect(); };
-  const words = [...host.querySelectorAll('.tm .tmdg,.tm .tmcs,.tm .tmeye,.tm .tmnm,.tm .tmsd,.tm .tmsn,.tm .tmse,.tm .k,.tm .v')].filter((e) => e.textContent.trim() && R(e).height > 0);
+  const words = [...host.querySelectorAll('.tm .tmdg,.tm .tmcs,.tm .tmeye,.tm .tmnm,.tm .tmsd,.tm .tmsn,.tm .tmse,.tm .k,.tm .v,.tm .tmlede,.tm .tmacts button')].filter((e) => e.textContent.trim() && R(e).height > 0);
   const ring = host.querySelector('.tmrw'), read = host.querySelector('.tmread'), corner = [...host.querySelectorAll('.scs .ct,.scs .cl')];
   // (a name too long for its place is cut with an ellipsis: its box is what shows)
   const shows = (e) => (getComputedStyle(e).overflow === 'hidden' ? R(e) : ink(e));
@@ -68,7 +71,50 @@ const measure = () => {
         say(!m.names.includes('Nap'), `${t}: a House Timer never shows`, m.names);
         if (input.shots && ['two', 'four', 'last-many', 'one'].includes(tag)) await p.screenshot({ path: `${input.shots}/${eng}-${size}-${tag}.png` });
       }
+      for (const [tag, timers, rings, q] of DONE) {
+        await p.goto(`${input.origin}/timer_slide_harness.html?w=${W}&h=${H}&room=kitchen&timers=${encodeURIComponent(timers)}&rings=${encodeURIComponent(rings.join(','))}${q || ''}`);
+        await p.waitForFunction('window.__ready === true');
+        const m = await p.evaluate(measure), t = `${eng} ${size} ${tag}`;
+        say(m.ok === true, `${t}: it draws`);
+        say(!m.bad.length, `${t}: everything on the screen, nothing on anything else`, m.bad);
+        const d = await p.evaluate(() => ({ done: document.querySelector('.tm').hasAttribute('done'), last: document.querySelector('.tm').hasAttribute('last'), text: document.querySelector('.tmread').innerText, stop: document.querySelector('.tmacts .stop').textContent, btn: document.querySelectorAll('.tmacts button').length }));
+        say(d.done && !d.last, `${t}: Time's Up`, d);
+        say(d.stop === (rings.length > 1 ? 'Stop All' : 'Stop') && d.btn === (rings.length > 1 ? 1 : 3), `${t}: its buttons`, d);
+        say(q ? /Silent, as set/.test(d.text) : /Ringing on this tablet and the Kitchen speaker/.test(d.text), `${t}: it says where`, d.text);
+        if (input.shots && ['done-others', 'done-two'].includes(tag)) await p.screenshot({ path: `${input.shots}/${eng}-${size}-${tag}.png` });
+      }
       if (size === 'wall') {
+        // A TAP: its buttons, and anywhere else stops the sound
+        const base = `${input.origin}/timer_slide_harness.html?w=${W}&h=${H}&room=kitchen&rings=Pasta`;
+        await p.goto(base);
+        await p.waitForFunction('window.__ready === true');
+        const taps = await p.evaluate(() => { const c = window.__ctl, out = [], at = (s) => { const r = document.querySelector(s).getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; };
+          out.push(c.tap(...at('.tmacts [data-a=more]'))); out.push(c.tap(5, 5)); return { out, calls: window.__calls }; });
+        say(taps.out.every(Boolean) && taps.calls[0][2].op === 'more' && taps.calls[0][2].entity_id === 'timer.hk_timer_40' && taps.calls[1][2].op === 'stop' && taps.calls[1][1] === 'quick_timer_ring', `${eng} a tap on Time's Up: +1 Min, and elsewhere Stop`, taps);
+        // OVER A PAGE: the pop-up and the sound, in this tablet's room; Stop on it; gone when the ring is
+        await p.goto(base);
+        await p.waitForFunction('window.__ready === true');
+        await p.mouse.click(5, 5);        // (a touch allows sound)
+        const ring = await p.evaluate(async () => { window.__ring(['Pasta']); await new Promise((r) => setTimeout(r, 200)); const h = document.getElementById('hk-timer-ring'); const s = h && h.shadowRoot; const st = window.hkTimerRing._.state();
+          const text = s && s.querySelector('.pop') ? s.querySelector('.pop').innerText : null; const stop = s && s.querySelector('.stop'); if (stop) stop.click(); const calls = window.__calls.slice(); window.__ring([]); await new Promise((r) => setTimeout(r, 100));
+          return { text, st, calls, after: window.hkTimerRing._.state(), left: !!s.querySelector('.scrim') }; });
+        say(/Pasta/.test(ring.text || '') && /Ringing on this tablet and the Kitchen speaker/.test(ring.text || ''), `${eng} over a page: Time's Up`, ring);
+        say(ring.st.sounding === 'chime', `${eng} ...and its sound, in this tablet's room`, ring.st);
+        say(ring.calls[0] && ring.calls[0][2].op === 'stop', `${eng} ...Stop on it stops it`, ring.calls);
+        say(!ring.after.sounding && !ring.left, `${eng} ...gone with the ring, sound and all`, ring.after);
+        for (const [room, hears, what] of [['office', false, "another room's tablet shows it and makes no sound"]]) {
+          await p.goto(base.replace('room=kitchen', 'room=' + room));
+          await p.waitForFunction('window.__ready === true');
+          const s2 = await p.evaluate(async () => { window.__ring(['Pasta']); await new Promise((r) => setTimeout(r, 100)); return { st: window.hkTimerRing._.state(), shown: !!document.getElementById('hk-timer-ring').shadowRoot.querySelector('.pop') }; });
+          say(s2.shown && !!s2.st.sounding === hears, `${eng} ${what}`, s2);
+        }
+        await p.goto(base.replace('room=kitchen&', ''));
+        await p.waitForFunction('window.__ready === true');
+        const s3 = await p.evaluate(async () => { window.__ring(['Pasta']); await new Promise((r) => setTimeout(r, 100)); return window.hkTimerRing._.state(); });
+        say(!s3.sounding, `${eng} a phone never plays it`, s3);
+        await p.goto(`${input.origin}/timer_slide_harness.html?w=${W}&h=${H}&room=kitchen&lede=1&timers=${encodeURIComponent('Pasta:738:900')}`);
+        await p.waitForFunction('window.__ready === true');
+        say(/Rings on this tablet and the Kitchen speaker/.test(await p.evaluate(() => (window.__ring([]), document.querySelector('.tmread').innerText))) , `${eng} before it ends, the slide says where it will ring`);
         // WHAT IT COSTS: nothing asks for a frame, the seconds move, and once it has left nothing ticks
         await p.goto(`${input.origin}/timer_slide_harness.html?w=${W}&h=${H}&timers=${encodeURIComponent('Pasta:30:900,Oven:1520:2700')}`);
         await p.waitForFunction('window.__ready === true');

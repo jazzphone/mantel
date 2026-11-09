@@ -5,7 +5,8 @@
 // (docs/phase21/mockup/timer-slide.html) is the reference. Which timers count is hkTimers.userTimers' (hk-timers.js).
 //
 // It draws NO time, date, weather or status of its own: the slide corner does (hkSaverLayout SLIDES.timer).
-// STEP 1 OF THE PLAN IS SILENT: nothing here rings, and a timer that ends just leaves. Time's Up comes with the sound.
+// TIME'S UP: a timer that ended (Mantel says, hkTimers.rings) has the big ring, closed and pulsing, and Stop, +1 Min and Restart.
+// A tap anywhere else on it stops the sound first and doesn't leave the screensaver. The sound itself is hk-timer-ring.js's.
 //
 // Loaded by hk-saver.js only once a timer runs -- never on its own.
 //
@@ -21,6 +22,7 @@
 //     ctl.draw(client, look, bg)   fill it in now; look: 'photo' | 'sky' | 'plain' (as Home Energy's)
 //     ctl.arrived()                the fade is done (nothing further to do: it holds still)
 //     ctl.layout(W, H)             the room it has (beside any pane)
+//     ctl.tap(x, y)                a touch while it rings: acted on (true), nothing to do with it (false)
 //     ctl.setClient(client), setNight(on), leave(), destroy(), info()
 (function () {
   'use strict';
@@ -29,8 +31,6 @@
   var FONT = '"SF Pro","SF Pro Display",-apple-system,system-ui,"Roboto",sans-serif';
   var LAST = 60, RED = 10;                     // the last minute; the ring reddens for its last ten seconds
   var ORANGE = '#ff9f0a', RED_C = '#ff453a', PAUSED = 'rgba(255,255,255,.5)';
-  // each timer keeps its color when it moves up: Home Energy's ring colors, in turn
-  var COLORS = ['#ff9f0a', '#64d2ff', '#30d158', '#bf5af2', '#ffd60a', '#ff6b3d'];
   var SAMPLE = [{ id: 'sample.1', name: 'Pasta', left: 738, total: 900 }, { id: 'sample.2', name: 'Oven', left: 1520, total: 2700 },
                 { id: 'sample.3', name: 'Laundry', left: 1390, total: 2700, paused: true }];
 
@@ -82,6 +82,14 @@
     '.tm .tmsb.long .tmsd{font-size:calc(18px * var(--z))}',
     '.tm .tmsn{font-size:calc(17px * var(--z));font-weight:600;margin-top:calc(9px * var(--z));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '.tm .tmse{font-size:calc(13.5px * var(--z));opacity:.62;margin-top:calc(1px * var(--z));white-space:nowrap}',
+    '.tm .tmlede{font-size:calc(21px * var(--z));font-weight:500;line-height:1.35;opacity:.88}',
+    '.tm .tmlede b{display:inline-block;vertical-align:.08em;margin-right:.45em;width:.55em;height:.55em;border-radius:50%;background:#ff9f0a;animation:tmglow 1.1s ease-in-out infinite}',
+    '.tm[done] circle.arc{animation:tmglow 1.6s ease-in-out infinite}',
+    '@keyframes tmglow{50%{opacity:.55}}',
+    '.tm .tmacts{display:flex;gap:calc(12px * var(--z));margin-top:calc(26px * var(--z))}',
+    '.tm .tmacts button{white-space:nowrap;font:inherit;font-weight:700;font-size:calc(22px * var(--z));height:calc(66px * var(--z));min-height:44px;border:0;border-radius:calc(33px * var(--z));padding:0 calc(30px * var(--z));background:rgba(255,255,255,.18);color:#fff}',
+    '.tm .tmacts button.stop{background:#ff9f0a;color:#1a0f00;min-width:calc(190px * var(--z))}',
+    '@media (prefers-reduced-motion:reduce){.tm[done] circle.arc,.tm .tmlede b{animation:none}}',
     '.tm .tmsb.more .tmsbr{display:flex;align-items:center;justify-content:center;font-size:calc(30px * var(--z));font-weight:700;opacity:.7}',
     // NARROW: beside a tablet's Side Pane
     '.tm[shape=narrow] .tmbody{flex-direction:column;gap:calc(14px * var(--z));top:calc(112px * var(--z));bottom:calc(20px * var(--z))}',
@@ -116,6 +124,14 @@
     '.tm[shape=tall] .tmst .k{font-size:calc(22px * var(--z))}',
     '.tm[shape=tall] .tmst .v{font-size:calc(44px * var(--z))}',
     '.tm[shape=tall] .tmstats{text-align:left}',
+    '.tm[shape=tall] .tmlede{font-size:calc(30px * var(--z))}',
+    '.tm[shape=tall] .tmacts,.tm[shape=narrow] .tmacts{justify-content:center}',
+    '.tm[shape=tall] .tmacts button{font-size:calc(34px * var(--z));height:calc(100px * var(--z));border-radius:calc(50px * var(--z))}',
+    '.tm[shape=tall][done] .tmrw{width:calc(440px * var(--z));height:calc(440px * var(--z))}',
+    '.tm[shape=tall][done] .tmdg{font-size:calc(110px * var(--z))}',
+    '.tm[shape=narrow] .tmlede{font-size:calc(18px * var(--z))}',
+    '.tm[shape=narrow] .tmacts{margin-top:calc(14px * var(--z))}',
+    '.tm[shape=short] .tmacts{margin-top:calc(12px * var(--z))}',
     // SHORT: a phone on its side, the corner on the left and the rings to its right
     '.tm[shape=short] .tmbody{top:calc(26px * var(--z));bottom:calc(8px * var(--z));justify-content:flex-end;padding-right:calc(70px * var(--z))}',
     '.tm[shape=short] .tmrw,.tm[shape=short][last] .tmrw{width:calc(420px * var(--z));height:calc(420px * var(--z))}',
@@ -154,12 +170,9 @@
     if (big && !r.paused && left <= LAST && r.total > LAST) return Math.max(0, Math.min(1, left / LAST));
     return r.total > 0 ? Math.max(0, Math.min(1, left / r.total)) : 0;
   }
-  // a color for this timer, the same on every screen and different from its neighbors': its slot's number
+  // a color for this timer (hk-timers.js: the same on the slide and the pop-up)
   /** @param {string} id */
-  function colorOf(id) {
-    var m = /(\d+)$/.exec(id);
-    return COLORS[(m ? Number(m[1]) : 0) % COLORS.length];
-  }
+  function colorOf(id) { return window.hkTimers && window.hkTimers.colorOf ? window.hkTimers.colorOf(id) : ORANGE; }
   // the shape, as Home Energy's sizes are chosen: 1 at the wall tablet's 1280 x 800
   /** @param {number} W @param {number} H */
   function shapeOf(W, H) {
@@ -197,11 +210,17 @@
     var alive = true, showing = false, W = 1280, H = 800, built = '';
     /** @type {any} */ var tick = null;
     /** @type {any[]} */ var rows = [];
+    /** @type {any[]} */ var rings = [];
+    var room = '', onTablet = false;
 
     // the house's list, soonest first (hk-timers.js), or a preview's samples while none runs
     /** @param {any} h */
     function read(h) {
       var T = window.hkTimers, S = window.hkSettings;
+      rings = T && T.rings && h ? T.rings(h.states) : [];
+      var me = null;
+      try { me = S && S.tablet && h ? S.tablet(h) : null; } catch (e) { /* no tablets here */ }
+      onTablet = !!me; room = (me && me.room) || '';
       var list = T && T.userTimers && h ? T.userTimers(h.states, (S && S.get && S.get('features.house_timers')) || [], Date.now()) : [];
       if (!list.some(function (/** @type {any} */ r) { return !r.paused; }) && o.sample && o.sample()) {
         var now = Date.now();
@@ -227,7 +246,26 @@
         '<div class="tmsn">' + esc(r.name) + '</div><div class="tmse">' + (r.paused ? 'Paused' : 'Ends ' + esc(endsAt(r.end))) + '</div></div>';
     }
     // THE WHOLE OF IT, only when what it holds changes: who, in what order, paused or not, the last minute's size
+    function buildDone() {
+      el.setAttribute('done', ''); el.removeAttribute('last');
+      var T = window.hkTimers, others = rows.filter(function (r) { return !rings.some(function (g) { return g.entity_id === r.id; }); });
+      var key = JSON.stringify(['done', rings.map(function (g) { return [g.entity_id, g.name, g.tablet, g.speakers]; }), others.map(function (r) { return [r.id, !!r.paused, r.end || 0]; }), W, H, room]);
+      if (key === built) return;
+      built = key;
+      var hero = rings[0], one = rings.length === 1, where = T.whereWords(hero, room, onTablet), shape = shapeOf(W, H).shape;
+      var max = W < 500 || (others.length > 3 && (shape === 'tall' || shape === 'short')) ? 2 : 3, shown = others.slice(0, max), more = others.length - shown.length;
+      body.innerHTML = '<div class="tmrw"><svg viewBox="0 0 220 220" role="img" aria-label="' + esc(hero.name) + ' timer has ended">' + circle(hero.entity_id, 96, 22, colorOf(hero.entity_id), 1) + '</svg>' +
+        '<div class="tmctr"><div class="tmdg">Done</div></div></div>' +
+        '<div class="tmread"><div class="tmeye">' + (one ? 'Time\u2019s Up' : 'Time\u2019s Up, ' + rings.length + ' Timers') + '</div>' +
+        '<div class="tmnm">' + esc(rings.map(function (g) { return g.name; }).join(' and ')) + '</div>' +
+        '<div class="tmlede">' + (where ? '<b></b>Ringing on ' + esc(where) + '.' : 'Silent, as set.') + '</div>' +
+        '<div class="tmacts"><button class="stop" data-a="stop">' + (one ? 'Stop' : 'Stop All') + '</button>' +
+        (one ? '<button data-a="more" data-id="' + esc(hero.entity_id) + '">+1 Min</button><button data-a="again" data-id="' + esc(hero.entity_id) + '">Restart</button>' : '') + '</div>' +
+        (others.length ? '<div class="tmsubs">' + shown.map(sub).join('') + (more ? '<div class="tmsb more"><div class="tmsbr">+' + more + '</div><div class="tmsn">More</div></div>' : '') + '</div>' : '') + '</div>';
+    }
     function build() {
+      if (rings.length) { buildDone(); return; }
+      el.removeAttribute('done');
       var hero = rows[0];
       if (!hero) { body.innerHTML = ''; built = ''; return; }
       var left = leftOf(hero), last = !hero.paused && left <= LAST;
@@ -239,7 +277,7 @@
       // (three small rings across, or two and +N where a fourth place wouldn't fit)
       var others = rows.slice(1), shape = shapeOf(W, H).shape, max = W < 500 || (others.length > 3 && (shape === 'tall' || shape === 'short')) ? 2 : 3;
       var shown = others.slice(0, max), more = others.length - shown.length;
-      var read1 = '<div class="tmeye">' + (others.length ? 'Ends First' : 'Timer') + '</div><div class="tmnm">' + esc(hero.name) + '</div>';
+      var read1 = '<div class="tmeye">' + (others.length ? 'Ends First' : 'Timer') + '</div><div class="tmnm">' + esc(hero.name) + '</div>' + ledeOf(hero);
       if (others.length) {
         read1 += '<div class="tmsubs">' + shown.map(sub).join('') +
           (more ? '<div class="tmsb more"><div class="tmsbr">+' + more + '</div><div class="tmsn">More</div></div>' : '') + '</div>';
@@ -251,18 +289,28 @@
         '<div class="tmctr"><div class="tmdg' + (long ? ' long' : '') + '" data-v="' + esc(hero.id) + '">' + clockOf(left) + '</div><div class="tmcs">' + (last ? 'Last Minute' : 'Ends ' + esc(endsAt(hero.end))) + '</div></div></div>' +
         '<div class="tmread">' + read1 + '</div>';
     }
+    // Rings on... under its name: on Mantel, which says where. Nothing in Home Assistant, where it doesn't ring.
+    /** @param {any} hero */
+    function ledeOf(hero) {
+      var q = client && client.states && client.states['sensor.running_quick_timers'], run = (q && q.attributes && q.attributes.running) || [];
+      var row = run.filter(function (r) { return r.entity_id === hero.id; })[0];
+      if (!row || row.tablet === undefined) return '';
+      var where = window.hkTimers.whereWords(row, room, onTablet);
+      return '<div class="tmlede">' + (where ? 'Rings on ' + esc(where) + '.' : 'Won\u2019t make a sound.') + '</div>';
+    }
     // ONE SECOND'S WORTH: only what changed. The size of the whole changes at the last minute (build), once.
     function paint() {
       if (!alive || !showing) return;
       build();
+      var heroAt = rings.length ? -1 : 0;
       rows.forEach(function (r, i) {
         if (r.paused) return;
-        var left = leftOf(r), txt = i === 0 ? clockOf(left) : smallOf(left);
+        var left = leftOf(r), txt = i === heroAt ? clockOf(left) : smallOf(left);
         body.querySelectorAll('[data-v="' + r.id + '"]').forEach(function (n) { if (n.textContent !== txt) n.textContent = txt; });
         body.querySelectorAll('circle.arc[data-t="' + r.id + '"]').forEach(function (a) {
-          var c = Number(a.getAttribute('data-c')), dash = (c * fraction(r, left, i === 0)).toFixed(1) + ' ' + c.toFixed(1);
+          var c = Number(a.getAttribute('data-c')), dash = (c * fraction(r, left, i === heroAt)).toFixed(1) + ' ' + c.toFixed(1);
           if (a.getAttribute('stroke-dasharray') !== dash) a.setAttribute('stroke-dasharray', dash);
-          var col = i === 0 && left <= RED ? RED_C : '';
+          var col = i === heroAt && left <= RED ? RED_C : '';
           if (a.getAttribute('data-red') !== col) { a.setAttribute('data-red', col); a.setAttribute('stroke', col || colorOf(r.id)); }
         });
       });
@@ -272,11 +320,11 @@
 
     return {
       el: el,
-      ready: function (/** @type {any} */ h) { client = h || client; rows = read(client); return rows.some(function (r) { return !r.paused; }); },
+      ready: function (/** @type {any} */ h) { client = h || client; rows = read(client); return !!rings.length || rows.some(function (r) { return !r.paused; }); },
       draw: function (/** @type {any} */ h, /** @type {string=} */ look, /** @type {any=} */ paintBg) {
         client = h || client;
         rows = read(client);
-        if (!rows.some(function (r) { return !r.paused; })) return false;
+        if (!rings.length && !rows.some(function (r) { return !r.paused; })) return false;
         el.setAttribute('look', look || 'plain');
         if (look === 'photo' && paintBg) { try { paintBg(el.querySelector('.tmbg')); } catch (e) { el.setAttribute('look', 'plain'); } }
         showing = true;
@@ -286,6 +334,14 @@
         return true;
       },
       arrived: function () { /* it holds still: nothing draws in */ },
+      tap: function (/** @type {number} */ x, /** @type {number} */ y) {
+        if (!rings.length) return false;
+        var T = window.hkTimers, hit = null;
+        body.querySelectorAll('button[data-a]').forEach(function (b) { var r = b.getBoundingClientRect(); if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) hit = b; });
+        /** @type {any} */ var on = hit;
+        T.ringAct(client, on ? on.getAttribute('data-a') : 'stop', on ? on.getAttribute('data-id') : null);
+        return true;
+      },
       layout: function (/** @type {number} */ w, /** @type {number} */ h) {
         W = w || W; H = h || H;
         var s = shapeOf(W, H);
@@ -297,7 +353,7 @@
       setH24: function (/** @type {boolean} */ v) { if (o.h24 !== v) { o.h24 = v; built = ''; } },
       setNight: function (/** @type {boolean} */ on) { if (on) el.setAttribute('night', ''); else el.removeAttribute('night'); },
       leave: function () { showing = false; stopTick(); el.removeAttribute('night'); },
-      info: function () { return { rows: rows.map(function (r) { return { id: r.id, name: r.name, paused: !!r.paused, left: Math.round(leftOf(r)) }; }), last: el.hasAttribute('last'), shape: el.getAttribute('shape'), W: W, H: H, showing: showing }; },
+      info: function () { return { rings: rings.map(function (g) { return g.name; }), done: el.hasAttribute('done'), rows: rows.map(function (r) { return { id: r.id, name: r.name, paused: !!r.paused, left: Math.round(leftOf(r)) }; }), last: el.hasAttribute('last'), shape: el.getAttribute('shape'), W: W, H: H, showing: showing }; },
       destroy: function () {
         alive = false; showing = false; stopTick();
         var c = /** @type {HTMLCanvasElement|null} */ (el.querySelector('.tmbg'));

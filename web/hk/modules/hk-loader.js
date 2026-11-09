@@ -52,6 +52,8 @@
                  // hk-timer-strip-card and hk-timers-card, so the module
                  // belongs here rather than being loaded by one card.
                  'hk-timers.js',
+                 // A timer that ended, on this screen (Mantel says): the sound and Time's Up. No work until one does.
+                 'hk-timer-ring.js',
                  // The photo screensaver for a wall tablet's own user
                  // (hk-saver.js). Nothing at all on a screen without one.
                  'hk-saver.js',

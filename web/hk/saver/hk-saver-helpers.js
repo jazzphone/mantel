@@ -346,10 +346,12 @@
         if (now - at < 1000) { if (!later) later = setTimeout(function () { later = null; watch(); }, 1000 - (now - at)); return; }
         at = now;
         if (t) { clearTimeout(t); t = null; }
-        var S = d.slot, list = d.wanted() ? rows() : [], soon = list.length ? list[0].left : null, close = soon !== null && soon <= 60;
-        if (list.length && !S.ctl && !asked) { asked = true; d.prep(); }     // (once: a second ask would drop the first)
+        var S = d.slot, list = d.wanted() ? rows() : [], soon = list.length ? list[0].left : null;
+        var h = d.client(), T = window.hkTimers, ringing = !!(d.wanted() && T && T.rings && h && T.rings(h.states).length);     // (Time's Up holds it too)
+        var close = ringing || (soon !== null && soon <= 60);
+        if ((list.length || ringing) && !S.ctl && !asked) { asked = true; d.prep(); }     // (once: a second ask would drop the first)
         if (S.ctl) S.ctl.setClient(d.client());
-        if (soon !== null) t = setTimeout(watch, close ? 1000 : (soon - 60) * 1000 + 50);
+        if (soon !== null || close) t = setTimeout(watch, close ? 1000 : (soon - 60) * 1000 + 50);
         if (close) hold();
         else if (held) { held = false; d.leave(!list.length); }
         else if (!list.length && S.showing) d.leave(true);     // nothing left to count, its ordinary turn still up

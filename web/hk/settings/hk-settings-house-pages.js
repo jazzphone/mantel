@@ -167,8 +167,9 @@
         }
         if (key === 'timers') {
           var ht = this.hs('features.house_timers') || [];
-          c.appendChild(K.group({ header: 'House Timers', footer: 'One-tap timers on the Timers page — a nap, bedtime. Their names and icons are Home Assistant’s.' }, [
+          c.appendChild(K.group({ header: 'House Timers', footer: 'One-tap timers on the Timers page — a nap, bedtime. Their names and icons are Home Assistant’s. They never show on the screensaver or ring: add a timer here to keep it off.' }, [
             K.nav({ label: 'House Timers', value: ht.length ? String(ht.length) : 'None', href: base + '/house', sk: 'features.house_timers' })]));
+          this.h_timerEnds(c);
         }
         if (key === 'vacuums') {
           this.pageFeature(c, 'clean');
@@ -382,6 +383,40 @@
         }
         return this.p_overview();
       }
+      // WHEN A TIMER ENDS (phase 21, docs/phase21/TIMER-SLIDE.md): the host that rings them says so on the sensor it keeps (`made`,
+      // `rooms`). A host with no such thing has no sound for a timer ending.
+      h_timerEnds(c) {
+        var self = this, q = (this.client && this.client.states || {})['sensor.running_quick_timers'], at = q && q.attributes;
+        if (!at || at.made === undefined) {
+          c.appendChild(K.group({ header: 'When a Timer Ends', footer: 'A timer that ends makes no sound here.' }, []));
+          return;
+        }
+        var F = function (k, d) { var v = self.hs('features.' + k); return v === undefined || v === null ? d : v; };
+        var put = function (k) { return function (v) { var o = {}; o['features.' + k] = v; self.setH(o); }; };
+        var rooms = at.rooms || [], tone = F('timer_sound', 'bell'), ring = F('timer_ring_for', 60), also = F('timer_also', []);
+        c.appendChild(K.group({ header: 'When a Timer Ends', footer: 'Every tablet shows a timer\u2019s last minute and Time\u2019s Up. Stop on any screen stops it everywhere. A tablet can\u2019t play sound until it has been touched once, unless its kiosk app allows it.' }, [
+          K.seg({ label: 'Sound', sk: 'features.timer_sound', value: tone, options: [['bell', 'Soft Bell'], ['chime', 'Chime'], ['kitchen', 'Kitchen Timer']],
+                  onChange: function (v) { put('timer_sound')(v); if (window.hkTimerRing) window.hkTimerRing.hear(v); } }),
+          K.button({ label: 'Hear It on This Screen', fk: 'timers:hear', onClick: function () { if (window.hkTimerRing) window.hkTimerRing.hear(F('timer_sound', 'bell')); } }),
+          K.seg({ label: 'Rings For', sk: 'features.timer_ring_for', value: String(ring), options: [['30', '30 Seconds'], ['60', '1 Minute'], ['stop', 'Until Stopped']],
+                  onChange: function (v) { put('timer_ring_for')(v === 'stop' ? v : Number(v)); } }),
+          K.toggle({ label: 'Wake a Dark Screen', sub: 'The tablet in the timer\u2019s room, for its last minute', sk: 'features.timer_wake', on: F('timer_wake', true), onChange: put('timer_wake') })]));
+        var where = [
+          K.toggle({ label: 'The Tablet in Its Room', sub: 'Through the tablet\u2019s own speaker', sk: 'features.timer_tablet', on: F('timer_tablet', true), onChange: put('timer_tablet') }),
+          K.toggle({ label: 'The Speaker in Its Room', sub: 'A HomePod or other speaker, through Music Assistant', sk: 'features.timer_speaker', on: F('timer_speaker', true), onChange: put('timer_speaker') })];
+        if (rooms.length) {
+          where.push(K.select({ label: 'Set From a Phone', sub: 'A phone has no room, so it rings here', sk: 'features.timer_phone', value: F('timer_phone', ''),
+                                options: [['', 'Every Tablet']].concat(rooms.map(function (r) { return [r.id, r.name]; })), onChange: put('timer_phone') }));
+          where.push(K.slider({ label: 'Speaker Volume', sub: 'Never above the house\u2019s Highest Volume', sk: 'features.timer_volume', min: 10, max: 100, step: 5, value: F('timer_volume', 40), unit: '%', onChange: put('timer_volume') }));
+        }
+        c.appendChild(K.group({ header: 'Where It Plays', footer: rooms.length ? 'The speakers use the Address for Music Assistant in Settings \u2192 Intercom. The Intercom itself can stay off. The New Timer sheet has a Rings In choice for one timer.' : 'Speakers show here once Music Assistant is connected.' }, where));
+        if (rooms.length) {
+          var flip = function (id) { return function (on) { put('timer_also')(on ? also.concat(id) : also.filter(function (x) { return x !== id; })); }; };
+          c.appendChild(K.group({ header: 'Also Play In', footer: 'These play every timer, wherever it was set.' },
+            [K.toggle({ label: 'The Whole House', sk: 'features.timer_also', fk: 'timers:all', on: also.indexOf('all') >= 0, onChange: flip('all') })].concat(
+              rooms.map(function (r) { return K.toggle({ label: r.name, sk: 'features.timer_also', fk: 'timers:' + r.id, on: also.indexOf(r.id) >= 0, onChange: flip(r.id) }); }))));
+        }
+      }
       h_timers(c) {
         var self = this, cur = this.hs('features.house_timers') || [];
         var set = function (v) { self.setH({ 'features.house_timers': v }); };
@@ -553,7 +588,7 @@
           var pr = (cur.presets || []).slice();
           c.appendChild(K.listEditor({ fk: 'hd:presets', shownHeader: 'Quick Durations', moreHeader: pr.length < 6 ? 'More' : null, minRows: 1,
             announce: this.announce.bind(this),
-            shownFooter: 'The buttons that start a timer in one tap, in this order. Up to six; the Timers page’s Quick Start needs the quick_timers.yaml package in Home Assistant.',
+            shownFooter: 'The buttons that start a timer in one tap, in this order. Up to six; inside Home Assistant, the Timers page’s Quick Start needs the quick_timers.yaml package in Home Assistant.',
             rows: pr.map(function (m) { return { value: m, label: mins(m) }; }),
             more: pr.length < 6 ? STEPS.filter(function (m) { return pr.indexOf(m) < 0; }).map(function (m) { return { value: m, label: mins(m) }; }) : [],
             onChange: function (v) { if (v.length) save('presets', v.map(Number).slice(0, 6)); } }));

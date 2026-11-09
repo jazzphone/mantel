@@ -177,7 +177,13 @@ async def test_a_real_end_is_noticed_and_the_helper_deleted(gw):
     h.host.rows[eid].finishes_at = gw.m.app["clock"]() - 1             # its time has come
     h.put(eid, "idle", friendly_name="Pasta")
     await h.settle()
-    assert ends == [("Pasta", False)] and eid not in h.host.rows
+    assert ends == [("Pasta", False)] and h.host.rows[eid].ring_until is not None and not h.sent("timer/delete")
+    ringing = h.hub.store.states[R.SENSOR]["a"]["ringing"]
+    assert [r["name"] for r in ringing] == ["Pasta"] and ringing[0]["tone"] == "bell" and ringing[0]["until"] > 0
+    got = await gw.command(ws, id=9, kind="service", domain="script", service="quick_timer_ring", data={"op": "stop"}, return_response=True)
+    assert got["result"]["response"] == {"ok": True, "timers": [eid]}
+    await h.settle()
+    assert eid not in h.host.rows and h.hub.store.states[R.SENSOR]["a"]["ringing"] == []
     assert [f["timer_id"] for f in h.sent("timer/delete")] == ["hk_timer_1"]
     assert eid not in h.hub.store.states and h.hub.store.states[R.SENSOR]["s"] == "0"
     assert not gw.m.app["store"].db.execute("SELECT 1 FROM timers").fetchall()
@@ -240,6 +246,7 @@ async def test_across_restarts(gw):
     h.put(c, "idle", friendly_name="Rice")
     await h.settle()
     assert sorted(ends) == [("Pasta", False), ("Rice", True)]
+    assert h.host.rows[a].ring_until is not None and c not in h.host.rows       # Pasta rings; Rice only says when it ended
     # Oven came back running: it carries on
     h.put(b, "active", friendly_name="Oven", finishes_at=iso(clock + 1200))
     assert b in h.host.rows and abs(h.host.rows[b].finishes_at - (clock + 1200)) < 1
@@ -271,6 +278,9 @@ async def test_other_timers_are_left_alone(gw):
     h.put("timer.quick_1", "active", finishes_at=iso(gw.m.app["clock"]() - 1))     # a quick slot is followed, never deleted
     assert "timer.quick_1" in h.host.rows and "timer.kitchen_no_motion" not in h.host.rows
     h.put("timer.quick_1", "idle")
+    await h.settle()
+    assert h.host.rows["timer.quick_1"].ring_until is not None         # a quick slot rings too
+    await gw.command(ws, id=9, kind="service", domain="script", service="quick_timer_ring", data={"op": "stop", "entity_id": "timer.quick_1"})
     await h.settle()
     assert "timer.quick_1" not in h.host.rows and not h.sent("timer/delete")
     assert "timer.kitchen_no_motion" in h.hub.store.states
@@ -336,3 +346,154 @@ async def test_a_wall_tablet_sees_starts_and_stops_timers_and_nothing_else_of_th
     other = await gw.command(ws, id=7, **service("timer", "start", "timer.nap_timer"))
     assert other["error"]["reason"] == "no_grant"
     await ws.close()
+
+
+# ---- the ring
+async def ring(gw, ws, h, *, i=1, name="Pasta", **data):
+    got = await start(gw, ws, i=i, digits="15", name=name)
+    eid = got["result"]["response"]["slot"]
+    h.host.rows[eid].room = data.get("room", h.host.rows[eid].room)
+    h.host.rows[eid].rings_in = data.get("rings_in")
+    h.host.rows[eid].finishes_at = gw.m.app["clock"]() - 1
+    a = h.hub.store.states[eid]["a"]
+    h.put(eid, "idle", friendly_name=a.get("friendly_name"), duration="0:00:00")      # (measured: an idle helper's own is 0)
+    await asyncio.sleep(0)
+    return eid
+
+
+def act(gw, ws, i, **data):
+    return gw.command(ws, id=i, kind="service", domain="script", service="quick_timer_ring", data=data, return_response=True)
+
+
+async def test_plus_one_minute_counts_again_for_a_minute(gw):
+    h = House(gw)
+    await gw.login("avery", "owner")
+    ws = await gw.socket()
+    eid = await ring(gw, ws, h)
+    got = await act(gw, ws, 9, op="more", entity_id=eid)
+    assert got["result"]["response"]["ok"] is True
+    assert gw.fake.frames[-1]["service"] == "start" and gw.fake.frames[-1]["service_data"] == {"entity_id": eid, "duration": "00:01:00"}
+    await h.settle()
+    row = h.host.rows[eid]
+    assert row.ring_until is None and h.hub.store.states[R.SENSOR]["a"]["ringing"] == [] and eid not in h.host.ringers
+    assert abs(row.finishes_at - (gw.m.app["clock"]() + 60)) < 2 and not h.sent("timer/delete")
+    await ws.close()
+
+
+async def test_restart_runs_its_own_length_again(gw):
+    h = House(gw)
+    await gw.login("avery", "owner")
+    ws = await gw.socket()
+    eid = await ring(gw, ws, h)
+    await act(gw, ws, 9, op="again", entity_id=eid)
+    assert gw.fake.frames[-1]["service_data"] == {"entity_id": eid, "duration": "00:15:00"}
+    # +1 Min, then it ends again: Restart is still its own length
+    h.host.rows[eid].finishes_at = gw.m.app["clock"]() - 1
+    h.put(eid, "idle", friendly_name="Pasta", duration="0:00:00")
+    await act(gw, ws, 10, op="more", entity_id=eid)
+    h.host.rows[eid].finishes_at = gw.m.app["clock"]() - 1
+    h.put(eid, "idle", friendly_name="Pasta", duration="0:00:00")
+    await act(gw, ws, 11, op="again", entity_id=eid)
+    assert gw.fake.frames[-1]["service_data"] == {"entity_id": eid, "duration": "00:15:00"}
+    await ws.close()
+
+
+async def test_stop_with_no_name_stops_every_one_ringing_and_rings_once(gw):
+    h = House(gw)
+    ends = []
+    h.host.on_end = lambda row, late: ends.append(row.name)
+    await gw.login("avery", "owner")
+    ws = await gw.socket()
+    a = await ring(gw, ws, h, name="Pasta")
+    b = await ring(gw, ws, h, i=2, name="Oven")
+    assert ends == ["Pasta", "Oven"]
+    h.hub.on_change({a, b})                                            # more news of the same end doesn't ring again
+    assert ends == ["Pasta", "Oven"]
+    got = await act(gw, ws, 9, op="stop")
+    assert sorted(got["result"]["response"]["timers"]) == [a, b] and not h.host.rows and not h.host.ringers
+    got = await act(gw, ws, 10, op="stop")
+    assert got["result"]["response"] == {"ok": False, "reason": "not_ringing"}
+    assert (await act(gw, ws, 11, op="nonsense"))["result"]["response"]["ok"] is False
+    await ws.close()
+
+
+async def test_it_stops_by_itself_when_its_time_is_up(gw):
+    h = House(gw)
+    await gw.login("avery", "owner")
+    ws = await gw.socket()
+    eid = await ring(gw, ws, h)
+    h.host._quiet(eid)
+    h.host.rows[eid].ring_until = gw.m.app["clock"]() - 1              # its time has come
+    h.host._ensure_ringer(eid)
+    await h.settle()
+    await asyncio.sleep(0.01)
+    await h.settle()
+    assert eid not in h.host.rows and [f["timer_id"] for f in h.sent("timer/delete")] == [R.object_id(eid)]
+    await ws.close()
+
+
+async def test_a_ring_carries_on_after_mantel_restarts(gw):
+    h = House(gw)
+    await gw.login("avery", "owner")
+    ws = await gw.socket()
+    eid = await ring(gw, ws, h)
+    until = h.host.rows[eid].ring_until
+    from mantel_server.timers import TimerStore
+    assert TimerStore(gw.m.app["store"].db).load()[eid].ring_until == until
+    await ws.close()
+
+
+async def test_house_timers_and_where_it_rings_come_from_the_settings(gw):
+    h = House(gw)
+    gw.m.app["features"].settings.setdefault("features", {}).update(house_timers=["timer.quick_2"], timer_tablet=False, timer_sound="chime", timer_ring_for="stop", timer_phone="porch")
+    await gw.login("avery", "owner")
+    ws = await gw.socket()
+    h.put("timer.quick_2", "active", finishes_at=iso(gw.m.app["clock"]() + 30))
+    assert "timer.quick_2" not in h.host.rows and h.hub.store.states[R.SENSOR]["s"] == "0"
+    eid = await ring(gw, ws, h)
+    (r,) = h.hub.store.states[R.SENSOR]["a"]["ringing"]
+    assert r["tablet"] is False and r["tone"] == "chime" and r["areas"] == ["porch"]         # set by a person's phone: its setting
+    assert h.host.rows[eid].ring_until - gw.m.app["clock"]() == pytest.approx(R.UNTIL_STOPPED, abs=2)
+    await act(gw, ws, 9, op="stop")
+    await ws.close()
+
+
+def test_where_it_rings():
+    assert R.area_for("office", "kitchen", "porch") == "office" and R.area_for(None, "kitchen", "porch") == "kitchen"
+    assert R.area_for(None, None, "porch") == "porch" and R.area_for(None, None, "") is None
+    rooms = [("media_player.kitchen", "kitchen"), ("media_player.office", "office"), ("media_player.none", None)]
+    assert R.speakers_for("kitchen", [], rooms, True) == ["media_player.kitchen"]
+    assert R.speakers_for("kitchen", [], rooms, False) == []
+    assert R.speakers_for("kitchen", ["office"], rooms, True) == ["media_player.kitchen", "media_player.office"]
+    assert R.speakers_for("kitchen", ["office"], rooms, False) == ["media_player.office"]
+    assert R.speakers_for(None, [], rooms, True) == []
+    assert R.speakers_for(None, ["all"], rooms, True) == [e for e, _a in rooms]
+
+
+def test_a_clip_is_real_audio():
+    import struct
+    for tone in ("bell", "chime", "kitchen", "nonsense"):
+        pcm = R.clip_pcm(tone)
+        n = len(pcm) // 2
+        vals = struct.unpack(f"<{n}h", pcm)
+        assert n > R.CLIP_RATE * 4 and 10000 < max(abs(v) for v in vals) <= 32767
+    assert R.ring_secs(30) == 30 and R.ring_secs("stop") == R.UNTIL_STOPPED and R.ring_secs(True) == 60 and R.ring_secs(None) == 60
+
+
+def test_its_settings_are_checked():
+    from hk_core.settings import changes as C
+    H = C.HOUSE
+    assert H["features.timer_sound"]("chime") == "chime" and H["features.timer_ring_for"]("stop") == "stop" and H["features.timer_ring_for"](30) == 30
+    assert H["features.timer_also"](["kitchen", "all", "kitchen"]) == ["kitchen", "all"] and H["features.timer_phone"]("") == "" and H["features.timer_volume"](40) == 40
+    for key, bad in (("features.timer_sound", "siren"), ("features.timer_ring_for", 45), ("features.timer_ring_for", True), ("features.timer_tablet", "yes"),
+                     ("features.timer_also", "kitchen"), ("features.timer_also", ["../x"]), ("features.timer_phone", "A B"), ("features.timer_volume", 500), ("features.timer_volume", True)):
+        with pytest.raises(C.Invalid):
+            H[key](bad)
+
+
+async def test_the_sensor_is_there_in_a_house_with_no_timers(gw):
+    h = House(gw)
+    h.hub.store.states.pop(R.SENSOR, None)
+    h.hub.on_change({"light.kitchen"})
+    assert h.hub.store.states[R.SENSOR]["s"] == "0" and h.hub.store.states[R.SENSOR]["a"]["made"] == []
+    assert "script.quick_timer_ring" in h.hub.store.states

@@ -41,6 +41,7 @@ def patch(old: dict, change: dict) -> dict:
 class StateStore:
     def __init__(self) -> None:
         self.states: dict[str, dict] = {}
+        self.ours: set[str] = set()         # Mantel's own, not Home Assistant's (timers.py): never counted as the house's
 
     def apply_event(self, event: dict) -> set[str]:
         """Apply one subscribe_entities event; return the entity_ids that changed."""

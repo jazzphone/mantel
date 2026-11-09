@@ -700,7 +700,7 @@
                 var ents = self.client.entities || {};
                 return Object.keys(self.client.states).filter(function (id) {
                   var e = ents[id] || {};
-                  return cur.indexOf(id) < 0 && !tiles[id] && !e.hidden && !e.entity_category;
+                  return cur.indexOf(id) < 0 && !tiles[id] && !e.hidden && !e.entity_category && !self.client.states[id].attributes.plumbing;
                 }).map(function (id) { return { value: id, label: self.name(id) }; });
               },
               onPick: function (v) { var add = [].concat(v || []); if (add.length) set(cur.concat(add)); } }));

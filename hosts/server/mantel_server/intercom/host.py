@@ -48,6 +48,7 @@ class IntercomHost:
         self.check_lock = asyncio.Lock()             # one Check Reach at a time (routes.api_check)
         self.last_broadcast: dict[str, Any] | None = None
         self.last_test = -1e9
+        self.for_timers = False                  # a timer is ringing on speakers (timers.py): the listener stays up
         self.testing: str | None = None          # Send Test holds the floor while its chime plays
         self._ma_cache: tuple[float, Any] | None = None
         self._parting: set[asyncio.Task] = set()     # temporary groups of a stopped Live talk, going back
@@ -150,7 +151,7 @@ class IntercomHost:
     async def apply(self) -> None:
         """Start or stop the stream listener to match the settings (on save, at start)."""
         async with self._apply_lock:
-            want = bool(self.stream_port) and self.doc()["enabled"] and self.app.get("gateway") is not None
+            want = bool(self.stream_port) and (self.doc()["enabled"] or self.for_timers) and self.app.get("gateway") is not None
             if want and (self.listener is None or not self.listener.running):
                 self.listener = StreamListener(self.links, self.bind, self.stream_port)
                 try:

@@ -411,8 +411,8 @@
       if (t === 'pointerdown' || t === 'touchstart' || t === 'mousedown') {
         var x = t === 'touchstart' ? (e.touches && e.touches[0] && e.touches[0].clientX) : e.clientX;
         var y = t === 'touchstart' ? (e.touches && e.touches[0] && e.touches[0].clientY) : e.clientY;
-        // A TAP ON THE FORECAST DETAILS opens the Weather page (ahead of
-        // the edges: the details run under both)
+        // Time's Up on the Timer slide: its buttons, and a tap anywhere stops the sound, not the screensaver
+        if (TM.showing && TM.ctl && TM.ctl.tap(x, y)) { pressStop = true; return; }
         // THE MUSIC'S BUTTONS act and leave it up
         var mh = musicHit(x, y);
         if (mh) { pressStop = !!mh.art; musicAct(mh, x); return; }
