@@ -152,19 +152,19 @@
     static status(s) {
       var P = C.PALETTE.icon, st = s && s.state, OFF = 'var(--hk-glyph,rgba(255,255,255,0.55))';
       var M2 = {
-        disarmed: ['hk:shield-off', OFF, 'Disarmed'],
-        armed_home: ['hk:shield-home', P.teal, 'Armed Home'],
-        armed_night: ['hk:shield-home', P.teal, 'Armed Night'],
-        armed_away: ['hk:shield-lock', P.teal, 'Armed Away'],
-        armed_vacation: ['hk:shield-lock', P.teal, 'Armed Vacation'],
-        armed_custom_bypass: ['hk:shield-lock', P.teal, 'Armed'],
-        arming: ['hk:shield-lock', P.teal, 'Arming\u2026'],
-        pending: ['hk:shield-alert', P.red, 'Pending\u2026'],
-        disarming: ['hk:shield-off', OFF, 'Disarming\u2026'],
-        triggered: ['hk:shield-alert', P.red, 'Triggered']
+        disarmed: ['hk:alarm-light-off', OFF, 'Disarmed'],
+        armed_home: ['hk:alarm-light', P.teal, 'Armed Home'],
+        armed_night: ['hk:alarm-light', P.teal, 'Armed Night'],
+        armed_away: ['hk:alarm-light', P.teal, 'Armed Away'],
+        armed_vacation: ['hk:alarm-light', P.teal, 'Armed Vacation'],
+        armed_custom_bypass: ['hk:alarm-light', P.teal, 'Armed'],
+        arming: ['hk:alarm-light', P.teal, 'Arming\u2026'],
+        pending: ['hk:alarm-light', P.red, 'Pending\u2026'],
+        disarming: ['hk:alarm-light-off', OFF, 'Disarming\u2026'],
+        triggered: ['hk:alarm-light', P.red, 'Triggered']
       };
-      // (the glyphs are the shield family of hkCards.alarmGlyph, hk-grid-security.js: the same table)
-      var m = M2[st] || ['hk:shield-off', OFF,
+      // (the glyphs are hkCards.alarmGlyph's, hk-grid-security.js: the siren light, off while disarmed -- 2026-11-09, the owner: "The siren light")
+      var m = M2[st] || ['hk:alarm-light-off', OFF,
                          !s || st === 'unavailable' || st === 'unknown' ? 'Unavailable' : String(st)];
       return { icon: m[0], color: m[1], word: m[2] };
     }

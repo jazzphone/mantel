@@ -61,7 +61,8 @@ from cdp import Browser  # noqa: E402
 from hk_core.settings import home_grid as HG  # noqa: E402
 
 # each size's place on a 6 x 4 grid, all at once
-PLACES = {"XL": [0, 0], "L": [3, 0], "T": [5, 0], "W": [0, 2], "S": [2, 2]}
+# (Compact, 3 x 1 -- HomeView Security's alone -- beside Small on the third row, 2026-11-09: it was never drawn)
+PLACES = {"XL": [0, 0], "L": [3, 0], "T": [5, 0], "W": [0, 2], "S": [2, 2], "C": [3, 2]}
 LOOKS = {
     "flat_light": {"flat": True, "flat_theme": "light", "glass": "house"},
     "flat_dark": {"flat": True, "flat_theme": "dark", "glass": "house"},

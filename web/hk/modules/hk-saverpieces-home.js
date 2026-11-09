@@ -108,12 +108,15 @@
       '<text x="50" y="72" text-anchor="middle" font-weight="600" font-size="' + fs + '">' + esc(label) + '</text></svg>';
   }
   var FILL = ' fill="currentColor" stroke="none"';
-  var SHIELD = 'M12 2.8l7.4 2.7v5.7c0 4.6-3 8.3-7.4 10-4.4-1.7-7.4-5.4-7.4-10V5.5z';
+  // THE SIREN LIGHT, not a shield (2026-11-09, the owner: "Apple uses like an Alarm Bell style Glyph" -- "The siren light"; the blocks draw
+  // Apple's alarm-light, hkCards.alarmGlyph): the dome on its base; armed, it glows and gives off rays; the alarm going, it glows more;
+  // disarmed, the dome alone, struck through, as Apple's alarm-light-off
+  var DOME = 'M7.8 17.5v-4.8a4.2 4.2 0 0 1 8.4 0v4.8z';
   function shield(k) {
-    var body = '<path d="' + SHIELD + '"' + (k === 'disarmed' ? '' : ' fill="currentColor" fill-opacity="' + (k === 'alarm' ? '.3' : '.2') + '"') + '/>';
-    if (k === 'armed') return body + '<path d="M8.5 12.2l2.5 2.5 4.6-5"/>';
-    if (k === 'alarm') return body + '<path d="M12 8.2v4.4M12 15.8v.1"/>';
-    return body + '<path d="M9.4 12.2h5.2"/>';
+    var base = '<path d="M5.5 20.5h13M6.5 20.5v-3h11v3"/>';
+    if (k === 'disarmed') return base + '<path d="' + DOME + '"/><path d="M4 4.5l16 16"/>';
+    var rays = '<path d="M12 2.8v2.2M5.3 5.6l1.5 1.5M18.7 5.6l-1.5 1.5M2.8 11.8h2.2M19 11.8h2.2"/>';
+    return base + '<path d="' + DOME + '" fill="currentColor" fill-opacity="' + (k === 'alarm' ? '.45' : '.25') + '"/>' + rays;
   }
   // the garage: a house's outline over the ground, the door in it shut (slats across) or up (the top slat alone)
   function garage(open) {

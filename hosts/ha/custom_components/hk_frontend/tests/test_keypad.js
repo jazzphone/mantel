@@ -48,13 +48,16 @@ K.prototype._paint.call(k4);
 ok('the optional indicator still shows "Wrong code"', span.textContent === 'Wrong code' && read.attrs['data-bad'] === '1');
 
 // THE STATUS IN THE READOUT: at rest the readout says what the
-// alarm is doing -- the shield and colour of the button that sets it.
+// alarm is doing -- the siren light, and DESIGN.md's Security colors
+// (2026-11-09): armed and arming teal, disarmed quiet, pending and
+// triggered red.
 var P = window.hkCards.PALETTE.icon;
 var st = function (x) { return K.status(x === undefined ? undefined : { state: x, attributes: {} }); };
-ok('disarmed: the Disarm button\'s red shield', st('disarmed').icon === 'hk:shield-off' && st('disarmed').color === P.red && st('disarmed').word === 'Disarmed');
-ok('armed home: Home\'s blue; away: Away\'s green', st('armed_home').color === P.blue && st('armed_home').icon === 'hk:shield-home' &&
-   st('armed_away').color === P.green && st('armed_away').icon === 'hk:shield-lock');
-ok('on its way: amber, with an ellipsis', st('arming').color === P.orange && /\u2026$/.test(st('arming').word));
+ok('disarmed: the siren light off, quiet', st('disarmed').icon === 'hk:alarm-light-off' && /--hk-glyph/.test(st('disarmed').color) && st('disarmed').word === 'Disarmed');
+ok('armed home and away: the siren light in teal', st('armed_home').color === P.teal && st('armed_home').icon === 'hk:alarm-light' &&
+   st('armed_away').color === P.teal && st('armed_away').icon === 'hk:alarm-light');
+ok('on its way: teal, with an ellipsis; pending and triggered red', st('arming').color === P.teal && /\u2026$/.test(st('arming').word) &&
+   st('pending').color === P.red && st('triggered').color === P.red);
 ok('no panel: Unavailable, never a throw', st(undefined).word === 'Unavailable' && st('unavailable').word === 'Unavailable');
 function stubRoot() {
   var el = function () { return { attrs: {}, style: {}, textContent: '',
@@ -69,7 +72,7 @@ k5._config.entity = 'alarm_control_panel.p'; k5._code = '';
 var r5 = stubRoot(); k5._root = r5.root; delete k5._paint;
 K.prototype._paint.call(k5);
 ok('at rest the readout is the status', r5.read.attrs['data-mode'] === 'status' &&
-   r5.parts['.st span'].textContent === 'Armed Away' && r5.parts['.st hk-icon'].attrs.icon === 'hk:shield-lock');
+   r5.parts['.st span'].textContent === 'Armed Away' && r5.parts['.st hk-icon'].attrs.icon === 'hk:alarm-light');
 k5._code = '12'; K.prototype._paint.call(k5);
 ok('typing puts the code line back', r5.read.attrs['data-mode'] === 'code' && r5.parts['.code'].textContent === '\u2022\u2022');
 k5._code = ''; k5._config.status = false; K.prototype._paint.call(k5);

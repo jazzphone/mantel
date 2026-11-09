@@ -15,11 +15,13 @@
     // shield family -- Apple Home's Security System -- by the state: shield.slash disarmed, checkmark.shield armed at home or at night,
     // lock.shield armed away (and on its way to it), exclamationmark.shield pending and triggered. The keypad's readout (hk-security.js status, the same
     // table), the Security sheet, the Security blocks, the side pane and the generated alarm tile take it from hkCards.alarmGlyph.
-    var ALARM_GLYPHS = { disarmed: 'hk:shield-off', disarming: 'hk:shield-off', armed_home: 'hk:shield-home', armed_night: 'hk:shield-home',
-                         armed_away: 'hk:shield-lock', armed_vacation: 'hk:shield-lock', armed_custom_bypass: 'hk:shield-lock', arming: 'hk:shield-lock',
-                         pending: 'hk:shield-alert', triggered: 'hk:shield-alert' };
+    // THE SIREN LIGHT (2026-11-09, the owner: "That is not the Alarm glyph for Apple... Apple uses like an Alarm Bell style Glyph" -- then
+    // "The siren light"): Apple's alarm-light, off while disarmed, on from arming to triggered; its color is the state's (alarmLook)
+    var ALARM_GLYPHS = { disarmed: 'hk:alarm-light-off', disarming: 'hk:alarm-light-off', armed_home: 'hk:alarm-light', armed_night: 'hk:alarm-light',
+                         armed_away: 'hk:alarm-light', armed_vacation: 'hk:alarm-light', armed_custom_bypass: 'hk:alarm-light', arming: 'hk:alarm-light',
+                         pending: 'hk:alarm-light', triggered: 'hk:alarm-light' };
     C.ALARM_GLYPHS = ALARM_GLYPHS;
-    C.alarmGlyph = function (state) { return ALARM_GLYPHS[state] || 'hk:shield-off'; };
+    C.alarmGlyph = function (state) { return ALARM_GLYPHS[state] || 'hk:alarm-light-off'; };
 
     // ===================================================== the small tiles
     // THE S TILE: Lock Up, All Lights Off, Garage, a scene or script, and
@@ -326,7 +328,8 @@
       '.ents.lst .ent .n{font-size:17px;line-height:22px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;overflow-wrap:normal;flex:0 1 auto;color:' + v('ink') + '}',
       '.ents.lst .ent .s{font-size:15px;line-height:20px;flex:none}',
       '.ents.lst .ent.open .s{color:' + v('ink') + ';font-weight:600}',
-      'hk-plate.sec.hv .ents.lst .ent .dk.dk>hk-icon{color:' + v('glyph') + '}hk-plate.sec.hv .ents.lst .ent.open .dk.dk>hk-icon{color:#fff}',
+      // (HomeView's too: secured, the glyph teal -- one rule at every size, DESIGN.md's Security, 2026-11-09)
+      'hk-plate.sec.hv .ents.lst .ent .dk.dk>hk-icon{color:' + C.ACCENTS.teal + '}hk-plate.sec.hv .ents.lst .ent.open .dk.dk>hk-icon{color:#fff}',
       'hk-plate.sec.kp .ops{margin-top:auto;justify-content:flex-start}',
       // LARGE (Classic) THE SAME (2026-11-08, the owner: its tiles' words ran into their edges, the strip wider than the tiles -- "it
       // looks thrown together"): the alarm's heading ("+N more" at its right), the rows, the notice and Home, Away and Disarm -- every
@@ -749,6 +752,20 @@
       if (m.alarm) return look.word + (look.mode ? ' · ' + look.mode : '');
       return m.entries.length ? 'All doors secured' : 'Nothing to show';
     }
+    // THE ALARM'S ONE LINE (2026-11-09, mockup 14b, the owner: "I also don't know why Home and the Tap text is there"): no mode, no
+    // "Tap for the keypad" -- what needs a look, counted: "1 unlocked · 1 open" (the doors and windows' open ones too), else all secure
+    function hvSummary(m, dw) {
+      if (m.alarmSt && m.alarmSt.state === 'triggered') return 'Triggered';
+      var lk = function (x) { return dom(x.id || 'lock.x') === 'lock'; };
+      var unl = m.open.filter(lk).length, open = m.open.filter(function (x) { return !lk(x); }).length + (dw || []).filter(function (r) { return r.open; }).length;
+      var parts = [];
+      if (unl) parts.push(unl + ' unlocked');
+      if (open) parts.push(open + ' open');
+      if (m.moving.length) parts.push(m.moving.length + ' moving');
+      if (m.unknown.length) parts.push(m.unknown.length + ' unavailable');
+      if (parts.length) return parts.join(' · ');
+      return m.entries.length || (dw || []).length ? 'All secure' : m.alarm ? '' : 'Nothing to show';
+    }
     // everything, for a screen reader: the alarm, then each kind of entry
     function hvSpoken(m) {
       var look = alarmLook(m.alarmSt), parts = [];
@@ -881,7 +898,38 @@
       'hk-plate.hv.on .al,hk-plate.hv.trg .al{margin:0;padding:12px 14px;border-radius:var(--hk-inner-radius,' + (C.R.inner + 'px') + ')}',
       'hk-plate.hv[size=L].on .al,hk-plate.hv[size=L].trg .al{padding:8px 14px}',
       'hk-plate.hv.on .al{background:#fff;--hk-ink:rgba(0,0,0,0.88);--hk-ink-2:' + v('ink-on-state') + ';--hk-ink-3:rgba(60,60,67,0.45);--hk-glyph:rgba(0,0,0,0.78);--hk-glow:none}',
-      'hk-plate.hv.trg .al{background:var(--trg,' + C.ACCENTS.red + ');--hk-ink:#fff;--hk-ink-2:rgba(255,255,255,0.86);--hk-ink-3:rgba(255,255,255,0.6);--hk-glyph:#fff;--hk-glow:none}'
+      'hk-plate.hv.trg .al{background:var(--trg,' + C.ACCENTS.red + ');--hk-ink:#fff;--hk-ink-2:rgba(255,255,255,0.86);--hk-ink-3:rgba(255,255,255,0.6);--hk-glyph:#fff;--hk-glow:none}',
+      // ONE CALM LIST (2026-11-09, mockups 14b and 14d -- the owner, of a tile behind every lock: "Do you need to put everything in an inner
+      // tile? This is a step back"): Large, Tall, Wide and Compact list the locks and garage doors as Doors & Locks and House Status do --
+      // no plate per row, the glyph in a 36 px disc, a hairline between rows (the top one clipped), each row 56 px and the whole of it the tap.
+      // DESIGN.md's colors: secured, the glyph teal in an off well; needs a look, LIT -- the disc teal, the glyph white, the state in the first ink
+      'hk-plate.hv .ents.ls{display:grid;gap:0 14px;grid-auto-rows:' + SEC_LIST_ROW + 'px;align-content:start;clip-path:inset(1px 0 0 0)}',
+      'hk-plate.hv .ents.ls .en{height:' + SEC_LIST_ROW + 'px;display:grid;grid-template-columns:36px minmax(0,1fr) auto;grid-template-rows:auto auto;column-gap:12px;row-gap:0;',
+      '  align-content:center;align-items:center;padding:0 4px 0 0;text-align:left;background:none;border:0;border-top:1px solid ' + v('line') + ';border-radius:0;box-shadow:none;',
+      '  --hk-glass-backdrop:none;-webkit-backdrop-filter:none;backdrop-filter:none;transition:opacity ' + C.DUR.press + ' ease}',
+      'hk-plate.hv .ents.ls .en:active{transform:none;opacity:.6}',
+      'hk-plate.hv .ents.ls .en .gw{grid-row:1 / span 2;grid-column:1;width:36px;height:36px;margin:0;border-radius:50%;background:' + v('key') + '}',
+      'hk-plate.hv .ents.ls .en .gw hk-icon{width:20px;height:20px;color:' + C.ACCENTS.teal + '}',
+      'hk-plate.hv .ents.ls .en .n{grid-column:2;font-size:17px;line-height:22px;font-weight:600;color:' + v('ink') + '}',
+      'hk-plate.hv .ents.ls .en .s{grid-column:2;font-size:13px;line-height:17px;font-weight:400;color:' + v('ink-2') + '}',
+      // (Large: the state at the right of the name, one line)
+      'hk-plate.hv[size=L]:not(.tl) .ents.ls .en .n{grid-row:1 / span 2}hk-plate.hv[size=L]:not(.tl) .ents.ls .en .s{grid-column:3;grid-row:1 / span 2;font-size:15px;line-height:20px;text-align:right}',
+      'hk-plate.hv .ents.ls .en.lit{background:none}hk-plate.hv .ents.ls .en.lit .n{color:' + v('ink') + '}',
+      'hk-plate.hv .ents.ls .en.lit .gw{background:' + C.ACCENTS.teal + '}hk-plate.hv .ents.ls .en.lit .gw hk-icon{color:#fff}hk-plate.hv .ents.ls .en.lit .s{color:' + v('ink') + ';font-weight:600}',
+      'hk-plate.hv .ents.ls .en.unk .gw hk-icon,hk-plate.hv .ents.ls .en.more .gw hk-icon{color:' + v('glyph') + '}',
+      // WIDE AND COMPACT: the alarm's column at the left, its words in its upper left (DESIGN.md: the headline is the upper left, across the
+      // board); armed, its white plate fills the column top to bottom (the owner: "It should fill the space vertically in the card, so there is
+      // not gap below it"); at the right the list, and the doors and windows' toast under it
+      'hk-plate.hv[size=W] .lc,hk-plate.hv[size=C] .lc{flex:0 0 38%;display:flex;flex-direction:column;min-width:0;min-height:0}',
+      'hk-plate.hv[size=C] .lc{flex-basis:calc((100% - 24px) / 3)}',
+      'hk-plate.hv[size=W] .lc .al,hk-plate.hv[size=C] .lc .al{flex:1 1 auto;justify-content:flex-start;gap:6px}',
+      'hk-plate.hv[size=W].on .lc .al,hk-plate.hv[size=W].trg .lc .al,hk-plate.hv[size=C].on .lc .al,hk-plate.hv[size=C].trg .lc .al{margin:0}',
+      'hk-plate.hv .rc{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;gap:8px}',
+      'hk-plate.hv .rc .ents{flex:1 1 auto}hk-plate.hv .rc .ops{margin-top:0}',
+      // (the toast's touch reaches 6 px past it: 6 more above it keeps it 8 clear of the list)
+      'hk-plate.hv .ents.ls + .ops,hk-plate.hv .rc .ents.ls + .ops{margin-top:6px}',
+      // (Large and Tall: the alarm's heading in the upper left -- the glyph, then the words -- the rows under it, the toast at the foot)
+      ':host([size=T]) hk-plate.hv .al{flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:6px}'
     ].join('');
     // a slot at its smallest: Compact's across, Extra Large's down; a row's height
     var HV_PILL_W = 150, HV_SLOT_H = 96, HV_ROW = 54, HV_GAP = 8;
@@ -931,9 +979,14 @@
           this._root.innerHTML = '<hk-plate class="hv' + (size === 'T' ? ' tl' : '') + '" data-hk-role="card" size="' + (size === 'T' ? 'L' : size) + '">' +
             // (Wide: the doors and windows' strip under the alarm's words, at the left -- 2026-11-08, the owner: so "the entity buttons
             // wouldn't get smaller")
-            (size === 'W' ? '<div class="lc">' + alHtml + '<div class="ops"></div></div><div class="ents"></div>'
-              : alHtml + '<div class="ents"></div>' + (size === 'L' || size === 'T' ? '<div class="ops"></div>' : '')) + '</hk-plate>';
+            // (WIDE AND COMPACT, 2026-11-09, mockup 14d, the owner: "I only want Locks and Garages... I still want the toast for windows and
+            // doors but maybe it just belongs under the Locks and Garage Doors on the right side": the alarm alone in the left column, in its
+            // upper left; the list, and the toast under it, at the right)
+            (size === 'W' || size === 'C' ? '<div class="lc">' + alHtml + '</div><div class="rc"><div class="ents ls"></div><div class="ops"></div></div>'
+              : alHtml + '<div class="ents' + (size === 'XL' ? '' : ' ls') + '"></div>' + (size === 'L' || size === 'T' ? '<div class="ops"></div>' : '')) + '</hk-plate>';
           var q = this._root.querySelector.bind(this._root);
+          // (the list is one control of rows that touch, as every list's do: a screen reader hears a list, the audit measures it whole)
+          if (q('.ents.ls')) q('.ents.ls').setAttribute('role', 'list');
           this._e = { card: q('.hv'), al: q('.al'), icon: q('.al .wl hk-icon'), big: q('.al b'), sub: q('.al small'), ents: q('.ents'), ops: q('.ops'), lm: q('.lm'), go: q('.go') };
           this._opsKey = null;
           this._button(this._e.al, function () { self._alarmSheet(); });
@@ -942,7 +995,7 @@
           this._built = true;
         }
         var e = this._e, look = alarmLook(m.alarmSt);
-        e.icon.icon = m.alarm ? look.icon : 'hk:shield-home';
+        e.icon.icon = m.alarm ? look.icon : 'hk:alarm-light-off';
         // (Light Up When Armed: armed, the white plate and the shield in blue; triggered, the red plate and everything white on it)
         var lit = m.alarm ? hvLit(this._config, look) : '';
         e.card.classList.toggle('on', lit === 'on'); e.card.classList.toggle('trg', lit === 'trg');
@@ -951,17 +1004,16 @@
         if (glyphC && m.alarm) e.card.style.setProperty('--c', glyphC); else e.card.style.removeProperty('--c');
         if (textC) e.card.style.setProperty('--t', textC); else e.card.style.removeProperty('--t');
         e.big.textContent = m.alarm ? look.word : 'Security';
-        // (the alarm's mode, or -- with nothing to say of it -- the one line Small says)
-        var line = hvLine(m);
-        e.sub.textContent = m.alarm && line === look.word + (look.mode ? ' · ' + look.mode : '') ? (look.mode || '') : line;
+        var dw = secRows(this.client).filter(function (r) { return !r.tile; });
+        e.sub.textContent = size === 'XL' ? hvLine(m) : hvSummary(m, dw);
         e.al.setAttribute('aria-label', hvSpoken(m) + (m.alarm && !(this._config || {}).custom_sheet ? '. Opens the alarm.' : '. Opens Security.'));
         e.card.style.setProperty('--lit', (C.PALETTE.icon || {}).mint || C.ACCENTS.mint);
         if (e.ops) {
-          var dw = secRows(this.client).filter(function (r) { return !r.tile; }), ok = JSON.stringify(dw);
+          var ok = JSON.stringify(dw);
           if (ok !== this._opsKey) {
             this._opsKey = ok;
             var al = m.alarm, go = function () { if (!window.hkCards.openTarget(self, [{ page: 'doors-windows' }, al && { sheet: al }])) self._overview(); };
-            doorsNotice(this, e.ops, dw, go, this._size() === 'W');
+            doorsNotice(this, e.ops, dw, go, size === 'T');
           }
         }
         // THE ENTRIES, built again only when who is in them or what they say changed; their order is the block's
@@ -1017,12 +1069,15 @@
         if (!e || !this._slots || !this._more) return;
         var size = this._size(), W = e.ents.clientWidth, H = e.ents.clientHeight;
         if (!W || !H) return;
-        var cols = 1, rows = 1;
-        // (Compact: Home pills, as many to a row as are 150 px wide, as many rows as are 54 tall -- 2 x 2 in its two cells)
-        if (size === 'C') { cols = Math.max(1, Math.floor((W + HV_GAP) / (HV_PILL_W + HV_GAP))); rows = Math.max(1, Math.floor((H + HV_GAP) / (HV_ROW + HV_GAP))); }
-        else if (size === 'XL') { cols = 2; rows = Math.max(1, Math.floor((H + HV_GAP) / (HV_SLOT_H + HV_GAP))); }
-        else rows = Math.max(1, Math.floor((H + HV_GAP) / ((size === 'L' || size === 'T' ? SEC_LIST_ROW : HV_ROW) + HV_GAP)));
+        var cols = 1, rows = 1, list = size !== 'XL';
+        // (THE LIST, 2026-11-09, mockup 14b: rows of 56 from the top, no gap, a hairline between -- Compact two columns of them)
+        if (list) { cols = size === 'C' ? 2 : 1; rows = Math.max(1, Math.floor((H + 1) / SEC_LIST_ROW)); }
+        else { cols = 2; rows = Math.max(1, Math.floor((H + HV_GAP) / (HV_SLOT_H + HV_GAP))); }
         var n = this._slots.length, cap = cols * rows, cut = n > cap, show = cut ? cap - 1 : n;
+        // (a list with room for ONE row -- Wide on the house's 150 px cells with the toast under it -- shows the row that matters most, not
+        // a lone "N more": the alarm's line already counts what needs a look, and the block's tap opens them all)
+        var lone = list && cut && cap === 1;
+        if (lone) show = 1;
         // (Large: "+N more" in the heading's line, where the chevron was -- as Extra Large's and an Accessory Group's -- every row an entry)
         var inHead = size === 'L' && !!e.lm;
         if (inHead) {
@@ -1032,18 +1087,8 @@
         // (a few slots share the room evenly; Compact's never more than the slots there are)
         var useCols = cols;
         e.ents.style.gridTemplateColumns = 'repeat(' + useCols + ',minmax(0,1fr))';
-        e.ents.style.gridTemplateRows = size === 'XL' || size === 'C' ? 'repeat(' + rows + ',minmax(0,1fr))' : '';
-        // (the rows share what the block leaves them, 54 to 64 each: what is shown, or the shown and "N more", fills the band)
-        if (size === 'L' || size === 'W' || size === 'T') {
-          var used = cut ? rows : Math.min(n, rows), raw = Math.floor((H - (used - 1) * HV_GAP) / Math.max(1, used));
-          // (Tall with 92 px or more to each: the entry is HomeView's stack -- the glyph over the name over its state -- to 100)
-          var stk = size === 'T' && raw >= 92;
-          e.ents.classList.toggle('stk', stk);
-          // (Large's and Tall's rows a designed height from the top since 2026-11-08 -- Large's one line 56, Tall's two 54; Wide's still share its band)
-          if (size === 'L' || (size === 'T' && cut)) { stk = false; e.ents.classList.remove('stk'); }
-          e.ents.style.setProperty('--row', (size === 'L' || (size === 'T' && !stk) ? listRow(H, n).rh : stk ? Math.min(100, raw) : size === 'T' ? HV_ROW : Math.max(HV_ROW, Math.min(64, raw))) + 'px');
-        }
-        var keep = size === 'L' || size === 'T' ? shownFirst(this._items || [], show) : null;
+        e.ents.style.gridTemplateRows = size === 'XL' ? 'repeat(' + rows + ',minmax(0,1fr))' : '';
+        var keep = list ? shownFirst(this._items || [], show) : null;
         this._slots.forEach(function (el, i) { el.style.display = (keep ? keep[i] : i < show) ? '' : 'none'; });
         // HomeView's measured tile where a slot is 150 px tall or more (its own px: the block's measure, not the screen's)
         var tall = size === 'XL' && (H - (rows - 1) * HV_GAP) / rows >= 150;
@@ -1052,7 +1097,7 @@
           var ic = el.querySelector('hk-icon');
           if (tall) ic.setAttribute('ink', String(C.TILE.centred.ink)); else ic.removeAttribute('ink');
         });
-        this._more.style.display = cut && !inHead ? '' : 'none';
+        this._more.style.display = cut && !inHead && !lone ? '' : 'none';
         if (cut) {
           var t = (n - show) + ' more';
           this._more.querySelector('.n').textContent = t;

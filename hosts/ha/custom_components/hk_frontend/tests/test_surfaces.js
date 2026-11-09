@@ -30,8 +30,8 @@ var EXCEPT = [
   ['hk-layout.js', /icon_colors, 'var\(--hk-glyph, rgba\(255,255,255,0\.75\)\)'/, 'info icon'],
   // the speaker route's chevron, drawn with the glyph token
   ['hk-library.js', /\.route svg/, 'route chevron'],
-  // the alarm disarmed: its shield quiet
-  ['hk-security.js', /hk:shield-off/, 'disarmed shield'],
+  // the alarm disarmed: its siren light quiet (the readout's OFF, 2026-11-09)
+  ['hk-security.js', /OFF = 'var\(--hk-glyph/, 'disarmed siren light'],
   // the moon tile's art: the moon and its dark disc
   ['hk-weather.js', /rgba\(226,232,240,0\.95\)|rgba\(0,0,0,0\.28\)/, 'moon art'],
   // a selection ring and a notch drawn over colored bars: they must read
