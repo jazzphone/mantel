@@ -42,7 +42,8 @@ hk: icons; their circles are the list discs On Now and House Status use (`.dk`),
 
 **The alarm glyph is the siren light, not a shield** (the owner: "That is not the Alarm glyph for Apple... Apple uses like an Alarm Bell style Glyph", then chose
 "The siren light"). Change `ALARM_GLYPHS` in web/hk/grid-cards/hk-grid-security.js (it feeds `C.alarmGlyph`: the Security blocks, the Side Pane, the generated alarm
-tile): disarmed and disarming `hk:alarm-light-off`; every armed state and arming `hk:alarm-light`; pending and triggered `hk:alarm-light` in red. Both glyphs are
+tile): disarmed and disarming `hk:alarm-light-off`; every armed state and arming `hk:alarm-light` -- its color the locks' teal (the owner: "The color isn't
+right. The green color you have for the locks is what the color should be"), not blue, also on the lit (white) plate; pending and triggered `hk:alarm-light` in red. Both glyphs are
 already in the house's hk-glyphs.js (Apple's SF Symbols); check the Material fallback names exist too for a house without the glyph file. The screensaver's own
 shield (hk-saverpieces-home.js SHIELD) should follow. Mockup 14d (m16.py) draws it.
 
