@@ -34,6 +34,12 @@ on the right the locks and the garage doors only, as 4b rows (the state under th
 open: no toast. (The toast under the alarm, 14b, "looks really awkward"; the open window as a row, 14c, was not what he wanted.) Large, Tall and Extra Large keep
 the toast at the foot.
 
+**The alarm's words and glyphs** (the owner: "I also don't know why Home and the Tap text is there... is the mock up just using that icon and not apples?... the
+glyph and wells, do they follow HomeViews styling?"): the alarm reads "Armed" or "Disarmed" (no mode, no "Tap for the keypad"), its one line under it
+("1 unlocked · 1 open"); the tap still opens the keypad or the sheet. Its glyph is the real one, `C.alarmGlyph` (hk:shield-off disarmed, shield-home armed home,
+shield-lock away -- Apple's SF Symbols from the house's hk-glyphs.js; the mockups now draw them too, scratchpad mock2/sfkit.py). The rows' glyphs are the house's
+hk: icons; their circles are the list discs On Now and House Status use (`.dk`), colored as HomeView colors a lock: teal locked, orange when it needs a look.
+
 **Compact won't add** (the owner's screenshot, Kitchen HomeView, a 5 x 4 square grid with four free cells in its top row): choosing Compact (3 x 1) in the card picker
 says "A Compact Security doesn't fit there. Drop it nearer the middle, or pick a smaller size." and Add does nothing, though a 3 x 1 place is free. Find why
 (hk-grid-editor.js: the picker's `firstSpace` / the drop's placement for size `C`, and Compact being HomeView Security's alone), fix it, and add a check.
