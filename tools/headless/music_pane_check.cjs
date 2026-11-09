@@ -67,7 +67,11 @@ const input = JSON.parse(fs.readFileSync(0, 'utf8'));
             return {top:qs.scrollTop,head:r.querySelector('.npqueue .qh').getBoundingClientRect().top,page:r.querySelector('.secs').scrollTop};});
           assert(sc1.top>50&&sc1.head===sc0.head&&sc1.page===0,'Up Next scrolled: '+JSON.stringify(sc1));
           await page.screenshot({path:`${input.shots||'/tmp'}/${W}x${H}-${side}-player-scrolled.png`});
-          await page.mouse.wheel(0,20000);await page.waitForTimeout(500);
+          await page.mouse.wheel(0,20000);
+          // (at rest first: Chromium's wheel scrolls smoothly, still on its way down after 500 ms -- 2026-11-09, it failed on main one run in two)
+          await page.waitForFunction(()=>{const q=document.querySelector('hk-side-pane[mode="dash"]').shadowRoot.querySelector('.npqueue .qs');
+            return q.scrollTop>=q.scrollHeight-q.clientHeight-2;},null,{timeout:5000});
+          await page.waitForTimeout(200);
           assert(await page.evaluate(()=>!document.querySelector('hk-side-pane[mode="dash"]').shadowRoot.querySelector('.npqueue .qs').hasAttribute('more')),'Up Next fade stays at the end');
           await page.evaluate(()=>{document.querySelector('hk-side-pane[mode="dash"]').shadowRoot.querySelector('.npqueue .qs').scrollTop=0;});
           await page.locator('hk-side-pane[mode="dash"]').locator('.qh').click();

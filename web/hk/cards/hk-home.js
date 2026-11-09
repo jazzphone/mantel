@@ -1392,34 +1392,29 @@
     preview: false
   });
   // ============================================================== new timer
-  // The timer creator: a duration keypad, a name, and Start.
+  // The timer creator: the duration on wheels (hk-roller.js), a name, and Start.
   // WHY THE TYPING LIVES HERE. Kept in input_text helpers, the half-typed
   // duration and name would be GLOBAL entities used as a scratchpad: two
   // tablets would share them, every keystroke would be a service call
   // broadcast to every connected client, and the partly-typed value would
   // sit in the state machine.
   // Here the value is a JS property and typing re-renders nothing; _paint()
-  // touches only the readout, the chips and the Start state, so the <input>
-  // keeps its caret.
-  // WHAT STILL HAPPENS SERVER-SIDE: script.quick_timer_create. It parses the
-  // digits the same way the readout below does and starts a real timer entity.
+  // touches only the end time, the chips and the Start state, so the <input>
+  // keeps its caret and the wheels their places.
+  // WHAT STILL HAPPENS SERVER-SIDE: script.quick_timer_start (or Mantel, which
+  // answers for it) takes the HH:MM:SS and starts a real timer entity.
   // This card collects; Home Assistant decides.
   class HkTimerNewCard extends HkBase {
     static get CSS() {
+      var R = window.hkRoller;
       return [
-        // THE LEFT COLUMN IS THE KEYPAD'S WIDTH, and the keypad's keys are
-        // sized FROM the column rather than the other way round. At 404px
-        // beside a keypad of 3x120 + 2x12 = 384, the duration readout above
-        // the keys overhangs them by 20px on the right. Deriving the keys
-        // from the column (repeat(3, 1fr), below)
-        // means the readout and the keypad cannot disagree: change this
-        // one number and both follow.
+        // THE ROLLER (hk-roller.js; the owner's mockup 5c, 2026-11-09): hours, minutes and seconds on three wheels, where the
+        // keypad was -- the same wheels in every layout here and in the Extra Large Timers block's maker
+        R ? R.CSS : '',
+        '.hkr{--hkr-ink:' + window.hkCards.v('ink') + ';--hkr-ink2:' + window.hkCards.v('ink-2') + ';--hkr-band:' + window.hkCards.v('key') + ';--hkr-band-r:' + window.hkCards.R.inner + 'px}',
+        // TWO COLUMNS by default: the wheels and when it ends on the left; the name, its chips and Start on the right
         '.wrap{display:grid;grid-template-columns:384px minmax(0,1fr);gap:28px}',
-        // PHONE: stack. 384 + 28 + a second column does not fit a 402px screen,
-        // and the keypad is the thing you came here to touch, so it goes first
-        // and full width. The keys derive from the column (repeat(3,1fr)), so
-        // they follow automatically -- that is the whole point of sizing them
-        // FROM the column rather than pinning them.
+        // PHONE: stacked, the wheels first and full width
         '@media (max-width:' + window.hkCards.BP.phone + 'px){  .wrap{grid-template-columns:minmax(0,1fr);gap:18px}',
         '}',
         // ...AND BY ITS OWN WIDTH on someone else's dashboard: a section or a
@@ -1429,22 +1424,15 @@
         ':host([data-hk-foreign]){container-type:inline-size}',
         '@container (max-width:' + window.hkCards.BP.phone + 'px){  .wrap:not(.panel){grid-template-columns:minmax(0,1fr);gap:18px}',
         '}',
-        '.readout{height:104px;border-radius:' + M.radius + ';padding:0 24px;margin:0 0 14px 0;',
-        '  ' + M.glass + ';border:' + M.border + ';box-shadow:var(--hk-look-shadow, 0 10px 28px rgba(0,0,0,0.12));',
-        '  display:flex;align-items:center}',
-        '.big{font-size:44px;font-weight:300;letter-spacing:-1.2px;line-height:1}',
-        '.sub{font-size:14px;font-weight:500;margin-top:8px;color:' + window.hkCards.v('ink-2') + '}',
-        '.pad{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));  grid-auto-rows:62px;gap:12px}',
-        '.key{height:62px;border-radius:22px;padding:0;' + M.glass + ';  border:' + M.border + ';box-shadow:var(--hk-look-shadow, 0 6px 18px rgba(0,0,0,0.10));',
-        '  display:flex;align-items:center;justify-content:center;cursor:pointer;',
-        '  user-select:none;font-size:19.7px;letter-spacing:-0.45px;font-weight:700;',
-        '  color:' + window.hkCards.v('ink') + ';transition:transform .12s ease}',
-        '.key:active{transform:scale(0.96)}',
-        // SIX ACROSS, ONE ROW. A grid with no template-columns is a single
-        // column, and the six name chips would stack one per row down the
-        // whole right-hand side. minmax(0,1fr)
-        // rather than 1fr is what lets a long chip ellipsize instead of
-        // widening its track and pushing the other five out of the card.
+        // WHEN IT WOULD END ("Ends 4:52 PM"), under the wheels; a message ("Too many timers are running.") takes its place
+        // while it shows -- the two share one cell
+        '.ro{display:grid;justify-items:center;min-height:18px;min-width:0}',
+        '.ro > *{grid-area:1 / 1;min-width:0}',
+        '.ro .ends{font-size:14px;font-weight:500;line-height:18px;color:' + window.hkCards.v('ink-2') + ';white-space:nowrap}',
+        '.ro .hk-status{margin:0;min-height:0;line-height:18px;font-size:14px;text-align:center}',
+        '.ro:has(.hk-status[data-kind]) .ends{visibility:hidden}',
+        // SIX ACROSS, ONE ROW. minmax(0,1fr) rather than 1fr is what lets a long chip ellipsize instead of widening its
+        // track and pushing the other five out of the card.
         '.chips{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));  grid-auto-rows:48px;gap:10px;margin:0 0 14px 0}',
         '.chip2{height:48px;border-radius:17px;padding:0 10px;min-width:0;border:' + M.border + ';  box-shadow:none;' + M.glass + ';display:flex;align-items:center;',
         '  justify-content:center;cursor:pointer;user-select:none;font-size:16px;',
@@ -1455,37 +1443,25 @@
         '.chip2[aria-pressed="true"]{background:' + SELECTED_BG + ';color:' + SELECTED_TEXT + '}',
         // A real <input>, which is the point: it keeps its own value and its
         // own caret, and nothing re-renders while somebody is typing.
-        '.namebox{height:58px;border-radius:20px;padding:8px 16px;margin:0 0 14px 0;  ' + M.glass + ';border:' + M.border + ';display:flex;align-items:center}',
-        '.namebox input{all:unset;width:100%;font-size:19px;font-weight:600;  letter-spacing:-0.3px;color:' + window.hkCards.v('ink') + ';font-family:inherit}',
-        '.namebox input::placeholder{color:' + window.hkCards.v('ink-3') + '}',
+        '.namebox{height:58px;border-radius:20px;padding:8px 16px;margin:0 0 14px 0;  ' + M.glass + ';border:' + M.border + ';display:flex;align-items:center;gap:10px}',
+        '.namebox hk-icon{flex:none;width:18px;height:18px;--mdc-icon-size:18px;color:' + window.hkCards.v('ink-2') + '}',
+        '.namebox input{all:unset;width:100%;height:100%;font-size:19px;font-weight:600;  letter-spacing:-0.3px;color:' + window.hkCards.v('ink') + ';font-family:inherit}',
+        '.namebox input::placeholder{color:' + window.hkCards.v('ink-3') + ';font-weight:400}',
         '.start{height:70px;border-radius:' + M.radius + ';' + M.glass + ';border:' + M.border + ';  box-shadow:' + M.shSm + ';display:flex;align-items:center;justify-content:center;',
         '  font-size:17px;font-weight:600;letter-spacing:-0.3px;cursor:pointer;',
         '  user-select:none;transition:transform .12s ease}',
         '.start:active{transform:scale(0.97)}',
         '.start[aria-disabled="true"]{opacity:0.45;pointer-events:none}',
-        '@media (prefers-reduced-motion: reduce){  .key,.key:active,.chip2,.chip2:active,.start,.start:active{    transition:none;transform:none}}',
+        '@media (prefers-reduced-motion: reduce){  .chip2,.chip2:active,.start,.start:active{    transition:none;transform:none}}',
         // ------------------------------------------------------ THE PANEL
-        // `layout: panel` -- one column on its own glass plate, the right-hand
-        // side of the one-page Timers layout (hk-timers-page-card): what it
-        // is and where a message lands, the duration and when it would end,
-        // the keypad, the name, its chips, and Start. The plate is the only
-        // glass surface; the keys and chips on it are tints, not plates.
+        // `layout: panel` -- one column on its own glass plate, the right-hand side of the one-page Timers layout
+        // (hk-timers-page-card) and the sheet a Timers block's "+" opens: the wheels and when it would end, the name, its
+        // chips, and Start. The plate is the only glass surface; the chips on it are tints, not plates.
         '.wrap.panel{display:flex;flex-direction:column;gap:12px;padding:20px;box-sizing:border-box;height:100%;',
         '  border-radius:' + M.radius + ';' + M.glass + ';border:' + M.border + ';',
         '  box-shadow:var(--hk-look-shadow, ' + window.hkCards.v('glass-shadow-lg') + ')}',
-        '.panel .ro{display:flex;align-items:baseline;justify-content:space-between;gap:12px;height:60px}',
-        '.panel .big{font-size:56px;font-weight:300;letter-spacing:-2px;line-height:60px;white-space:nowrap}',
-        '.panel .ends{font-size:14px;font-weight:500;color:' + window.hkCards.v('ink-2') + ';white-space:nowrap}',
-        // the hint and the status share one cell, right-aligned on the
-        // duration's baseline; a message hides the hint while it shows
-        '.panel .side{display:grid;justify-items:end;min-width:0}',
-        '.panel .side > *{grid-area:1 / 1;min-width:0}',
-        '.panel .side .hk-status{margin:0;min-height:0;line-height:1.3;font-size:14px;text-align:right}',
-        '.panel .side:has(.hk-status[data-kind]) .ends{visibility:hidden}',
-        '.panel .pad{grid-auto-rows:56px;gap:10px}',
-        '.panel .key,.panel .chip2,.panel .namebox{background:' + window.hkCards.v('key') + ';box-shadow:none}',
-        '.panel .key{height:56px;border-radius:18px;font-size:21px;font-weight:600}',
-        '.panel .namebox{height:48px;border-radius:16px;margin:0}',
+        '.panel .chip2,.panel .namebox{background:' + window.hkCards.v('key') + ';box-shadow:none}',
+        '.panel .namebox{height:48px;border-radius:24px;margin:0;border:0}',
         '.panel .namebox input{font-size:17px}',
         // THE NAMES AS A FIXED GRID, three by two: chips that wrap get
         // awkward as they shrink. Every chip
@@ -1495,55 +1471,58 @@
         // the chosen name in the selected material (the plate's key color
         // above would otherwise win: same specificity, later)
         '.panel .chip2[aria-pressed="true"]{background:' + SELECTED_BG + ';color:' + SELECTED_TEXT + '}',
-        '.panel .start{height:56px;border-radius:18px;margin-top:auto;font-size:18px;font-weight:700}',
+        '.panel .start{height:56px;border-radius:28px;margin-top:auto;font-size:18px;font-weight:700;border:0}',
         '.panel .start[aria-disabled="false"]{background:var(--hk-timer-tint,rgba(255,159,10,0.95));border-color:transparent;  color:rgba(0,0,0,0.85)}',
         '.panel .start[aria-disabled="true"]{opacity:1;color:' + window.hkCards.v('ink-3') + ';background:' + window.hkCards.v('key') + '}',
-        // WIDE (`data-wide`, set by hk-timers-page-card when the page stacks:
-        // an iPad held upright, a tablet with the menu docked): this panel
-        // runs the full width under the page, so its one column would be a
-        // 700 px calculator. Two columns instead -- the duration and keypad
-        // on the left; the name, its chips and Start on the right, Start
-        // level with the keypad's last row -- which is also half the height.
-        // ON THE KEYPAD'S ROWS: the name field lines up with the keypad's top
-        // row. The right column is the
-        // pad's own four 56 px rows, 10 apart: the name beside 1-2-3, the two
-        // rows of names beside 4-5-6 and 7-8-9, Start beside 00-0-delete.
-        ':host([data-wide]) .wrap.panel{display:grid;height:auto;column-gap:24px;row-gap:10px;  grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:auto repeat(4,56px);',
-        '  grid-template-areas:"ro ." "pad name" "pad chips" "pad chips" "pad start"}',
+        // WIDE (`data-wide`, set by hk-timers-page-card when the page stacks: an iPad held upright, a tablet with the
+        // menu docked): this panel runs the full width under the page, so its one column would be a tall strip. Two
+        // columns instead -- the wheels and when it ends on the left; the name, its chips and Start on the right.
+        ':host([data-wide]) .wrap.panel{display:grid;height:auto;column-gap:24px;row-gap:10px;  grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(4,56px) auto;',
+        '  grid-template-areas:"roll name" "roll chips" "roll chips" "roll start" "ro ."}',
+        ':host([data-wide]) .panel .hkr{grid-area:roll;align-self:center}',
         ':host([data-wide]) .panel .ro{grid-area:ro}',
-        ':host([data-wide]) .panel .pad{grid-area:pad;margin:0}',
-        ':host([data-wide]) .panel .namebox{grid-area:name;height:56px;margin:0}',
+        ':host([data-wide]) .panel .namebox{grid-area:name;height:56px;border-radius:28px}',
         ':host([data-wide]) .panel .chips{grid-area:chips;grid-auto-rows:56px;gap:10px;margin:0}',
         ':host([data-wide]) .panel .chip2{height:56px}',
         ':host([data-wide]) .panel .start{grid-area:start;margin:0}',
         // ------------------------------------------------------ THE SHEET
-        // `layout: sheet` -- the panel's one column inside a detail sheet
-        // (the Timers page's Create a Timer, 2026-10-16): the sheet is the
-        // plate, so no plate of its own; the quick names are the selectable
-        // pills' 40 px capsules, three by two, all one width.
-        '.wrap.panel.sheetl{background:none;border:0;box-shadow:none;padding:0;height:auto;min-height:100%;gap:12px}',
+        // `layout: sheet` -- the panel's one column inside a detail sheet (the Timers page's Create a Timer): the sheet
+        // is the plate, so no plate of its own; the quick names are the selectable pills' 40 px capsules, three by two
+        '.wrap.panel.sheetl{background:none;border:0;box-shadow:none;padding:0;height:auto;min-height:100%;gap:14px}',
         '.sheetl .chips{grid-template-columns:repeat(3,minmax(0,1fr));grid-auto-rows:40px;gap:10px}',
         '.sheetl .chip2{height:40px;border-radius:' + C.R.capsule('40px') + ';' + C.PILL_LABEL + ';padding:0 8px}',
-        '.sheetl .lab{font-size:13px;font-weight:600;color:' + window.hkCards.v('ink-2') + ';margin:2px 2px -4px}',
-        '.sheetl .start{margin-top:4px;height:52px}',
-        // ALL OF IT ON ONE SCREEN of a wall tablet's sheet: the keys and the
-        // duration a little shorter than the panel's
-        '.sheetl .ro{height:52px}',
-        '.sheetl .big{font-size:' + C.TYPE.hero.size + 'px;line-height:52px}',
-        '.sheetl .pad{grid-auto-rows:50px}',
-        '.sheetl .key{height:50px}',
-        '.sheetl .namebox{height:46px}',
-        '.sheetl .key:focus-visible,.sheetl .chip2:focus-visible,.sheetl .start:focus-visible{outline:2px solid ' + window.hkCards.v('ink-2') + ';outline-offset:2px}'
+        window.hkCards.headCss('.sheetl .lab') + '.sheetl .lab{margin:2px 2px -6px}',
+        '.sheetl .start{margin-top:4px}',
+        '.sheetl .hkr:focus-within .hkr-band{background:' + window.hkCards.v('key-strong') + '}',
+        '.sheetl .chip2:focus-visible,.sheetl .start:focus-visible{outline:2px solid ' + window.hkCards.v('ink-2') + ';outline-offset:2px}',
+        // ------------------------------------------------------ IN A BLOCK
+        // `layout: block` -- the Extra Large Timers block's maker (mockup 5c): the wheels, a name and Start on the
+        // block's inner tile; its row height is the block's to give (--hkr-row on the host). A message shows under the
+        // wheels only while there is one.
+        ':host([data-layout=block]){display:block;height:100%}',
+        '.wrap.panel.blockl{height:100%;padding:14px 16px 16px;gap:10px;border-radius:var(--hk-inner-radius,21px);border:0;justify-content:space-between;',
+        '  background:' + window.hkCards.v('key') + ';box-shadow:none}',
+        '.blockl .hkr{--hkr-row:var(--hk-mk-row,40px);--hkr-fs:var(--hk-mk-fs,24px);--hkr-w:40px;--hkr-uw:34px;--hkr-gap:14px;--hkr-band-x:-4px}',
+        '.blockl .ro{min-height:0}.blockl .ro .ends{display:none}',
+        '.blockl .namebox{height:56px;border-radius:28px;padding:0 16px;background:' + window.hkCards.v('key') + '}',
+        '.blockl .namebox input{font-size:15px;font-weight:500}',
+        '.blockl .start{height:56px;border-radius:28px;margin-top:0;font-size:17px;font-weight:600}',
+        ':host([data-noname]) .blockl .namebox{display:none}'
       ].join('');
     }
-    _onConfig() { this._digits = ''; this._name = ''; this._built = false; }
-    _panel() { return this._config && (this._config.layout === 'panel' || this._config.layout === 'sheet'); }
+    _onConfig() {
+      this._dur = Object.assign({}, HkTimerNewCard.last || { h: 0, m: 15, s: 0 });
+      this._name = ''; this._built = false;
+      if (this._config && this._config.layout === 'block') this.setAttribute('data-layout', 'block');
+    }
+    _panel() { var l = this._config && this._config.layout; return l === 'panel' || l === 'sheet' || l === 'block'; }
     // "Ends 10:52 PM" moves with the clock, so the panel refreshes it while
-    // it is on the page -- only that line, never the keypad or the input.
+    // it is on the page -- only that line, never the wheels or the input.
     connectedCallback() {
       if (super.connectedCallback) super.connectedCallback();
       var self = this;
       if (!this._endsT) this._endsT = setInterval(function () { self._paintEnds(); }, 15000);
+      if (this._roller) this._roller.sync();
     }
     disconnectedCallback() {
       if (super.disconnectedCallback) super.disconnectedCallback();
@@ -1555,61 +1534,57 @@
       var t = this._parse();
       el.textContent = t.total
         ? 'Ends ' + new Date(Date.now() + t.total * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
-        : 'Type a duration';
+        : 'Set a duration';
     }
-    // "25 min", "1 hr", "1 hr 30 min" -- what Start says it will start.
+    // "25 min", "1 hr", "1 hr 30 min", "45 sec", "1 min 30 sec" -- what Start says it will start.
     static words(t) {
       if (!t.total) return '';
-      if (!t.h) return t.m + ' min';
-      return t.h + ' hr' + (t.m ? ' ' + t.m + ' min' : '');
+      var out = [];
+      if (t.h) out.push(t.h + ' hr');
+      if (t.m) out.push(t.m + ' min');
+      if (t.s) out.push(t.s + ' sec');
+      return out.join(' ');
     }
-    // Reads no entity -- the digits and name are typed here. Same trap as the
+    // Reads no entity -- the wheels and the name are set here. Same trap as the
     // area picker: a null signature would repaint it on every state push (132
-    // mutations for 12 unchanged updates). Keys and inputs call _paint themselves.
+    // mutations for 12 unchanged updates). The wheels and inputs call _paint themselves.
     _sigOf() { return 'static'; }
 
-    // Digits shift in from the RIGHT into HHMM -- the same reading
-    // script.quick_timer_create does. If the two ever disagree the page would
-    // promise one duration and start another; keep them in step.
+    // THE DURATION is the wheels': hours, minutes, seconds
     _parse() {
-      var p = this._digits.replace(/[^0-9]/g, '').slice(-4);
-      while (p.length < 4) { p = '0' + p; }
-      var h = parseInt(p.slice(0, 2), 10), m = parseInt(p.slice(2), 10);
-      return { h: h, m: m, total: h * 3600 + m * 60 };
+      var d = this._dur || {}, h = d.h | 0, m = d.m | 0, s = d.s | 0;
+      return { h: h, m: m, s: s, total: h * 3600 + m * 60 + s };
     }
-    _press(d) {
-      if (d === 'back') this._digits = this._digits.slice(0, -1);
-      else this._digits = (this._digits + d).replace(/[^0-9]/g, '').slice(-4);
+    // (for a test, or anything that sets the wheels: they follow)
+    _setDur(v) {
+      this._dur = { h: v.h | 0, m: v.m | 0, s: v.s | 0 };
+      if (this._roller) this._roller.set(this._dur, true);
       this._paint();
     }
-    // THE FORM IS CLEARED ON SUCCESS, NOT ON TAP. Clearing it straight after
-    // the call -- synchronously, unconditionally, before the call has
-    // resolved -- loses the duration and the label when the call is
-    // rejected: no timer exists and nothing is said. You would retype it and
-    // assume you had mistyped.
+    // THE NAME IS CLEARED ON SUCCESS, NOT ON TAP; THE DURATION STAYS (as the
+    // Clock app keeps the wheels where they were -- the same timer again is one
+    // tap). Clearing straight after the call, before it has resolved, would
+    // lose the name when the call is rejected: no timer exists and nothing is
+    // said.
     //
     // `_busy` is the other half: without it a second tap during the round
-    // trip sends a second timer. It also keeps the keypad from being edited
-    // into a state that does not match what was sent.
+    // trip sends a second timer.
     //
-    // ACCEPTED IS NOT STARTED, AND THAT GAP IS VISIBLE HERE.
+    // ACCEPTED IS NOT STARTED, AND THAT GAP IS VISIBLE HERE. It is a BLOCKING
+    // call to the script itself, asking for the response the allocator
+    // returns ({started, slot} or {started, reason}; see
+    // helpers/quick_timers.yaml, and Mantel's timers.py, which answers the same
+    // way). Three distinct outcomes, three messages.
     //
-    // script.turn_on resolves the instant the script BEGINS. There are four
-    // timer slots: start a fifth that way and the call returns `true`, the
-    // keypad clears, and nothing runs -- you typed a duration, watched the
-    // form empty, and no timer exists anywhere on the page, with nothing on
-    // screen to explain it.
-    //
-    // So it is a BLOCKING call to the script itself, asking for the
-    // response the allocator returns ({started, slot} or {started, reason};
-    // see helpers/quick_timers.yaml). Three distinct outcomes, three messages, and
-    // the form is cleared for exactly one of them.
+    // THE START SCRIPT, with the wheels' HH:MM:SS: script.quick_timer_start
+    // takes a duration to the second and a name (the keypad's
+    // quick_timer_create read only hours and minutes).
     _start() {
       var t = this._parse();
       if (!t.total || !this.client) return;
-      // `create_script` is an entity id; a blocking call needs it split. A
+      // `start_script` is an entity id; a blocking call needs it split. A
       // configured value without a domain is assumed to be a script.
-      var ent = this._config.create_script || 'script.quick_timer_create';
+      var ent = this._config.start_script || 'script.quick_timer_start';
       var parts = ent.indexOf('.') === -1 ? ['script', ent] : ent.split('.');
       // NO SUCH SCRIPT: the quick-timer helpers are not installed (a card
       // placed by hand on a dashboard of one's own). Say that, not "could not
@@ -1620,23 +1595,21 @@
         return;
       }
       if (!this._begin('Starting timer…')) return;   // second tap: ignored
-      var self = this;
-      this._callResp(parts[0], parts[1], {
-        digits: this._digits, name: this._name.trim(), ...(this._ringsIn() ? { rings_in: this._ringsIn() } : {})
-      }).then(function (r) {
+      var self = this, name = this._name.trim();
+      this._callResp(parts[0], parts[1], Object.assign({ duration: window.hkRoller.hms(t) }, name ? { name: name } : {},
+        this._ringsIn() ? { rings_in: this._ringsIn() } : {})).then(function (r) {
         self._end();
-        // DISPATCH REJECTED. _call has logged it, every keystroke is still
-        // exactly as typed, and the message stays up until the next attempt.
+        // DISPATCH REJECTED. _call has logged it, the wheels and the name are
+        // exactly as set, and the message stays up until the next attempt.
         if (!r.ok) {
           self._setStatus('failed', 'Could not reach Home Assistant. Tap to retry.');
           self._paint();
           return;
         }
         var res = r.response;
-        // NO RESPONSE AT ALL. An older quick_timers.yaml, or a create_script
+        // NO RESPONSE AT ALL. An older quick_timers.yaml, or a start_script
         // pointed somewhere that returns nothing. Accepted is all that is
-        // known, so that is all that is claimed -- and the form is still
-        // cleared, as it is for any accepted call without an answer.
+        // known, so that is all that is claimed.
         if (!res || typeof res.started !== 'boolean') {
           self._clearForm();
           self._setStatus('sent', 'Sent to Home Assistant.', 4000);
@@ -1651,10 +1624,7 @@
             setTimeout(function () { window.hkDetail.close(); }, 700);
           }
         } else if (res.reason === 'no_free_slot') {
-          // THE ENTRY IS KEPT. All four slots are busy; cancel one on the
-          // Timers page and this same tap works. Wiping the duration would
-          // make the person retype it for no reason.
-          // Short enough for the panel's top line; says which four.
+          // THE ENTRY IS KEPT. Every slot is busy; cancel one and this same tap works.
           self._setStatus('warn', 'Too many timers are running.');
         } else {
           self._setStatus('warn', 'That works out to no time at all.');
@@ -1666,33 +1636,25 @@
     _addRingsIn(nb) { var T = window.hkTimers, h = T && T.ringsInHtml && this.client ? T.ringsInHtml(this.client.states) : ''; if (h) nb.insertAdjacentHTML('beforeend', h); }
     _ringsIn() { var el = this._root && this._root.querySelector('.ringsin'); return el ? el.value : ''; }
     _clearForm() {
-      this._digits = ''; this._name = '';
+      HkTimerNewCard.last = Object.assign({}, this._dur);
+      this._name = '';
       var inp = this._root.querySelector('.namebox input');
       if (inp) { inp.value = ''; }
     }
 
     // Repaints ONLY what changes. Rebuilding the card would blow away the
-    // <input> and the caret with it.
+    // <input> and the caret with it, and the wheels' places.
     _paint() {
-      var big = this._root.querySelector('.big');
-      if (!big) { return; }
-      var t = this._parse();
-      var sub = this._root.querySelector('.sub');
       var start = this._root.querySelector('.start');
-      big.textContent = t.total
-        ? (t.h ? t.h + ':' + (t.m < 10 ? '0' + t.m : t.m) : t.m + ' min')
-        : '0 min';
-      big.style.color = t.total ? '' + window.hkCards.v('ink') + '' : '' + window.hkCards.v('ink-3') + '';
-      var nm = this._name.trim();
-      if (sub) sub.textContent = t.total ? (nm || 'Unnamed') : 'Type a duration';
+      if (!start) { return; }
+      var t = this._parse(), nm = this._name.trim();
       this._paintEnds();
       // DISABLED WHILE IN FLIGHT as well as while empty. _begin already drops
       // a second submission; this is so the button LOOKS inert rather than
       // looking tappable and doing nothing.
       start.setAttribute('aria-disabled', (t.total && !this._busy) ? 'false' : 'true');
-      // The panel's Start says what it will start ("Start 25 min").
-      start.textContent = this._busy ? 'Starting…'
-        : (this._panel() && t.total ? 'Start ' + HkTimerNewCard.words(t) : 'Start Timer');
+      // Start says what it will start ("Start 25 min").
+      start.textContent = this._busy ? 'Starting…' : (t.total ? 'Start ' + HkTimerNewCard.words(t) : 'Start Timer');
       Array.prototype.forEach.call(this._root.querySelectorAll('.chip2'), function (c) {
         c.setAttribute('aria-pressed', c.getAttribute('data-name') === nm ? 'true' : 'false');
       });
@@ -1703,115 +1665,27 @@
       d.className = cls; d.textContent = text;
       return button(d, fn);
     }
-
-    _render() {
-      if (!this._config) { return; }
-      if (this._built) { this._paint(); return; }
-      if (this._panel()) { this._renderPanel(); return; }
-      var self = this;
-      this._root.innerHTML = '';
-      var wrap = document.createElement('div'); wrap.className = 'wrap';
-
-      var left = document.createElement('div');
-      var ro = document.createElement('div'); ro.className = 'readout';
-      var box = document.createElement('div');
-      var big = document.createElement('div'); big.className = 'big';
-      var sub = document.createElement('div'); sub.className = 'sub';
-      box.appendChild(big); box.appendChild(sub); ro.appendChild(box);
-      left.appendChild(ro);
-      var pad = document.createElement('div'); pad.className = 'pad';
-      ['1','2','3','4','5','6','7','8','9'].forEach(function (d) {
-        pad.appendChild(self._btn('key', d, function () { self._press(d); }));
-      });
-      pad.appendChild(self._btn('key', '00', function () { self._press('00'); }));
-      pad.appendChild(self._btn('key', '0', function () { self._press('0'); }));
-      pad.appendChild(self._btn('key', '\u232b', function () { self._press('back'); }));
-      left.appendChild(pad);
-
-      var right = document.createElement('div');
-      var nb = document.createElement('div'); nb.className = 'namebox';
-      var inp = document.createElement('input');
-      inp.type = 'text'; inp.placeholder = 'Name (optional)'; inp.maxLength = 32;
-      inp.addEventListener('input', function () { self._name = inp.value; self._paint(); });
-      nb.appendChild(inp); this._addRingsIn(nb); right.appendChild(nb);
-      var chips = document.createElement('div'); chips.className = 'chips';
-      (this._config.name_chips || []).forEach(function (n) {
-        var c = self._btn('chip2', n, function () {
-          self._name = (self._name.trim() === n) ? '' : n;
-          inp.value = self._name; self._paint();
-        });
-        c.setAttribute('data-name', n);
-        chips.appendChild(c);
-      });
-      right.appendChild(chips);
-      right.appendChild(this._btn('start', 'Start Timer', function () { self._start(); }));
-      // Below the button, in the flow. It holds its height empty, so a message
-      // arriving does not shift the keypad under somebody's finger.
-      right.appendChild(this._statusNode());
-
-      wrap.appendChild(left); wrap.appendChild(right);
-      this._root.appendChild(wrap);
-      this._built = true;
-      this._paint();
+    _wheels() {
+      var self = this, R = window.hkRoller;
+      if (!R) return null;
+      this._roller = R.create(R.timerCols(this._dur), { label: 'Timer length', onChange: function (v) { self._dur = v; self._paint(); } });
+      return this._roller.el;
     }
-
-    // The same parts as _render, in the panel's one column.
-    _renderPanel() {
-      var self = this;
-      this._root.innerHTML = '';
-      // THE PLATE FILLS THE HOST, so the page can stretch the panel to the
-      // left column's height (Start is pinned to the bottom of it).
-      this._root.style.height = '100%';
-      var sheet = this._config.layout === 'sheet';
-      var wrap = document.createElement('div'); wrap.className = 'wrap panel' + (sheet ? ' sheetl' : '');
-      if (this._config.tint) wrap.style.setProperty('--hk-timer-tint', window.hkCards.flatColor(this._config.tint, 'well'));
-      // A KEYBOARD TYPES THE DURATION too: digits, Backspace, Enter to start
-      // -- except in the name field, which keeps its own keys
-      wrap.addEventListener('keydown', function (e) {
-        var t = e.composedPath ? e.composedPath()[0] : e.target;
-        if (t && t.tagName === 'INPUT') { if (e.key === 'Enter') { e.preventDefault(); self._start(); } return; }
-        if (/^[0-9]$/.test(e.key)) { e.preventDefault(); self._press(e.key); }
-        else if (e.key === 'Backspace') { e.preventDefault(); self._press('back'); }
-        else if (e.key === 'Enter' && !(t && t.getAttribute && t.getAttribute('role') === 'button')) { e.preventDefault(); self._start(); }
-      });
-
-      // NO "NEW TIMER" CAPTION: the panel explains itself. The status line
-      // takes the hint's place beside the duration ("Type a duration" /
-      // "Ends 2:45 PM") while
-      // a message is showing -- see `.side` in the CSS.
-      var ro = document.createElement('div'); ro.className = 'ro';
-      var big = document.createElement('div'); big.className = 'big';
-      var side = document.createElement('div'); side.className = 'side';
-      var ends = document.createElement('div'); ends.className = 'ends';
-      side.appendChild(ends); side.appendChild(this._statusNode());
-      ro.appendChild(big); ro.appendChild(side);
-      wrap.appendChild(ro);
-
-      var pad = document.createElement('div'); pad.className = 'pad';
-      ['1','2','3','4','5','6','7','8','9','00','0'].forEach(function (d) {
-        pad.appendChild(self._btn('key', d, function () { self._press(d); }));
-      });
-      var del = self._btn('key', '\u232b', function () { self._press('back'); });
-      del.setAttribute('aria-label', 'Delete');
-      pad.appendChild(del);
-      wrap.appendChild(pad);
-
-      var nb = document.createElement('div'); nb.className = 'namebox';
+    _nameBox() {
+      var self = this, nb = document.createElement('div'); nb.className = 'namebox';
+      nb.innerHTML = '<hk-icon icon="mdi:pencil"></hk-icon>';
       var inp = document.createElement('input');
       inp.type = 'text'; inp.placeholder = 'Name (optional)'; inp.maxLength = 32;
       inp.setAttribute('aria-label', 'Timer name');
       inp.addEventListener('input', function () { self._name = inp.value; self._paint(); });
-      nb.appendChild(inp); this._addRingsIn(nb); wrap.appendChild(nb);
-
-      var chips = document.createElement('div'); chips.className = 'chips';
+      nb.appendChild(inp); this._addRingsIn(nb);
+      return nb;
+    }
+    _chips(inp) {
+      var self = this, chips = document.createElement('div'); chips.className = 'chips';
       // QUICK NAMES: a shortcut into the name field, never a duration. The
       // pressed one is whichever the field now says, so typing over it
       // clears it.
-      if (sheet && (this._config.name_chips || []).length) {
-        var lab = document.createElement('div'); lab.className = 'lab'; lab.textContent = 'Quick names';
-        wrap.appendChild(lab);
-        chips.setAttribute('role', 'group'); chips.setAttribute('aria-label', 'Quick names');
-      }
       (this._config.name_chips || []).slice(0, 6).forEach(function (n) {
         var c = self._btn('chip2', n, function () {
           self._name = (self._name.trim() === n) ? '' : n;
@@ -1820,19 +1694,68 @@
         c.setAttribute('data-name', n);
         chips.appendChild(c);
       });
-      wrap.appendChild(chips);
-      wrap.appendChild(this._btn('start', 'Start Timer', function () { self._start(); }));
+      return chips;
+    }
+    _readout() {
+      var ro = document.createElement('div'); ro.className = 'ro';
+      var ends = document.createElement('div'); ends.className = 'ends';
+      ro.appendChild(ends); ro.appendChild(this._statusNode());
+      return ro;
+    }
 
+    _render() {
+      if (!this._config) { return; }
+      if (this._built) { this._paint(); return; }
+      if (this._panel()) { this._renderPanel(); return; }
+      var self = this;
+      this._root.innerHTML = '';
+      var wrap = document.createElement('div'); wrap.className = 'wrap';
+      var left = document.createElement('div');
+      var wh = this._wheels();
+      if (wh) left.appendChild(wh);
+      left.appendChild(this._readout());
+      var right = document.createElement('div');
+      var nb = this._nameBox(); right.appendChild(nb);
+      right.appendChild(this._chips(nb.querySelector('input')));
+      right.appendChild(this._btn('start', 'Start Timer', function () { self._start(); }));
+      wrap.appendChild(left); wrap.appendChild(right);
       this._root.appendChild(wrap);
       this._built = true;
       this._paint();
-      // IN A SHEET THE KEYPAD HAS THE KEYBOARD: focus moves onto it (not the
-      // name field -- a tablet's keyboard would rise), so typed digits land
-      if (sheet) {
-        wrap.setAttribute('tabindex', '-1');
-        wrap.style.outline = 'none';
-        requestAnimationFrame(function () { try { wrap.focus({ preventScroll: true }); } catch (e) { /* ok */ } });
+    }
+
+    // The same parts in one column: the panel, the sheet, the block's maker.
+    _renderPanel() {
+      var self = this;
+      this._root.innerHTML = '';
+      // THE PLATE FILLS THE HOST, so the page can stretch the panel to the
+      // left column's height (Start is pinned to the bottom of it).
+      this._root.style.height = '100%';
+      var layout = this._config.layout, sheet = layout === 'sheet', block = layout === 'block';
+      var wrap = document.createElement('div'); wrap.className = 'wrap panel' + (sheet ? ' sheetl' : block ? ' blockl' : '');
+      if (this._config.tint) wrap.style.setProperty('--hk-timer-tint', window.hkCards.flatColor(this._config.tint, 'well'));
+      // ENTER STARTS, from the name field or a wheel (a wheel's arrows are its own)
+      wrap.addEventListener('keydown', function (e) {
+        var t = e.composedPath ? e.composedPath()[0] : e.target;
+        if (e.key === 'Enter' && !(t && t.getAttribute && t.getAttribute('role') === 'button')) { e.preventDefault(); self._start(); }
+      });
+      var wh = this._wheels();
+      if (wh) wrap.appendChild(wh);
+      wrap.appendChild(this._readout());
+      var nb = this._nameBox(); wrap.appendChild(nb);
+      if (!block) {
+        var chips = this._chips(nb.querySelector('input'));
+        if (sheet && chips.children.length) {
+          var lab = document.createElement('div'); lab.className = 'lab'; lab.textContent = 'Quick Names';
+          wrap.appendChild(lab);
+          chips.setAttribute('role', 'group'); chips.setAttribute('aria-label', 'Quick names');
+        }
+        wrap.appendChild(chips);
       }
+      wrap.appendChild(this._btn('start', 'Start Timer', function () { self._start(); }));
+      this._root.appendChild(wrap);
+      this._built = true;
+      this._paint();
     }
     getCardSize() { return 8; }
   }
@@ -2211,8 +2134,13 @@
         '.gt.idle .none{display:block;font-size:var(--sf);font-weight:300;letter-spacing:-0.02em;line-height:1.15;color:' + window.hkCards.v('ink') + ';text-shadow:' + window.hkCards.v('glow') + ';margin-top:4px;text-wrap:balance}',
         '.gt.two .none{font-weight:400;color:' + window.hkCards.v('ink-2') + ';white-space:nowrap}',
         '.qs{display:flex;align-items:center;justify-content:center;gap:12px;margin-top:auto;padding-top:8px}.qs.g{display:grid;grid-template-columns:repeat(var(--qc),var(--k));justify-content:center;align-content:center;flex:1 1 auto;margin-top:0}',
-        '.gt.xl{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto 1fr;column-gap:22px}.gt.xl.c{grid-template-rows:1fr auto 1fr}.gt.xl.c .none{grid-row:2}.gt.xl.c .qs{grid-row:1 / 4}.gt.xl .none{grid-column:1;align-self:start}.gt.xl .qs{grid-column:2;grid-row:1 / 3;padding:0;margin:0;align-self:center}',
-        ':host([size=XL]) .gt.xl .none{' + window.hkCards.typeCss('title') + ';line-height:1.15;white-space:nowrap;margin-top:0;grid-row:1 / 3;align-self:center}',  // 2026-11-09, the owner: "Start a timer" on Extra Large "is huge two-line type": the title size, one line
+        // THE DIRECTION over the preset rings (mockup 5): one line, the headline's size, centered with them as one group
+        '.gt.dg{flex:1 1 auto;align-items:center;justify-content:center}.gt.dg .qs.g{flex:none;padding:0;gap:12px}',
+        '.gt .dir{display:block;' + window.hkCards.typeCss('headline') + ';line-height:22px;color:' + window.hkCards.v('ink') + ';text-shadow:' + window.hkCards.v('glow') + ';text-align:center;white-space:nowrap;margin:0 0 14px}',
+        // EXTRA LARGE'S MAKER (mockup 5c): the presets' column on the left, the New Timer card's block layout filling the right
+        '.gt.mkr{display:grid;grid-template-columns:196px minmax(0,1fr);column-gap:13px;flex:1 1 auto;min-height:0}',
+        '.gt.mkr .ql{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:0}.gt.mkr .qs.g{flex:none;padding:0;gap:14px}',
+        '.gt.mkr .mk{min-width:0;min-height:0;height:100%}',
         '.rk{all:unset;box-sizing:border-box;position:relative;flex:none;width:var(--k);height:var(--k);border-radius:50%;display:grid;place-items:center;cursor:pointer;-webkit-tap-highlight-color:transparent}',
         '.rk svg{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg);overflow:visible}.rk circle{fill:none;stroke-width:10px;stroke:' + window.hkCards.v('line-strong') + '}',
         '.rk .left{stroke:' + window.hkCards.ACCENTS.orange + ';stroke-linecap:round;stroke-dasharray:var(--a) 100}',
@@ -2241,10 +2169,26 @@
         else { var M = window.hkCards.menu, path = M && M.pagePath('timers'); if (path) window.hkCards.navigate(path, this); }
       });
     }
+    // THE EXTRA LARGE MAKER'S CARD: one New Timer card (layout: block), made once and kept, put into the block's place for it
+    // whenever that place is drawn; the client handed on each time
+    _mountMaker() {
+      var mk = this._e && this._e.querySelector('.mk');
+      if (!mk) return;
+      if (!this._maker) {
+        this._maker = window.hkCards.create({ type: 'custom:hk-timer-new-card', layout: 'block',
+          name_chips: (window.hkSettings && window.hkSettings.get('headers.timers.names', null)) || undefined });
+      }
+      if (!this._maker) return;
+      if (this._maker.parentNode !== mk) mk.appendChild(this._maker);
+      if (mk.hasAttribute('data-noname')) this._maker.setAttribute('data-noname', ''); else this._maker.removeAttribute('data-noname');
+      if (this.client && this._maker.hkSetClient) this._maker.hkSetClient(this.client);
+    }
     _newGridTimer() {
       var D = window.hkDetail;
-      if (D) D.open(null, { name: 'Create a Timer', icon: 'mdi:timer-outline' }, {
-        cards: { cards: [{ type: 'custom:hk-timer-new-card', layout: 'panel',
+      // (the Timers page's own New Timer sheet, 2026-11-09: the sheet is the plate -- no second plate inside it -- and it goes
+      // once the timer starts)
+      if (D) D.open(null, { name: 'New Timer', icon: 'mdi:timer-plus-outline', icon_color: window.hkCards.ACCENTS.orange }, {
+        cards: { cards: [{ type: 'custom:hk-timer-new-card', layout: 'sheet', glass: false, close_on_start: true,
           name_chips: (window.hkSettings && window.hkSettings.get('headers.timers.names', null)) || undefined }] }
       });
     }
@@ -2266,12 +2210,37 @@
       // NONE RUNNING, or a second place (Start another): nothing stretches (the owner, 2026-11-08) -- each size has its one ring size (tile cell /
       // square cell), the quick starts as many as the size shows, the group centered: Small one key (Start a timer), Wide 3 in a row beside the words, Tall 3
       // stacked, Large 6 in a 3 x 2, Extra Large the same beside the words (the line is the hero, 60 px); a second place is one + ring
+      var ring = (m) => '<button class="rk" data-preset="' + Number(m) + '" style="--a:' + Math.min(100, Number(m) * 100 / 60) + '" aria-label="Start a ' + esc(HkTimersPageCard.label(Number(m))) + ' timer"><svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="45"></circle><circle class="left" cx="50" cy="50" r="45" pathLength="100"></circle></svg><b>' + esc(short(Number(m))) + '</b></button>';
+      var plus = '<button class="rk add" data-new aria-label="Create a Timer"><hk-icon icon="mdi:plus"></hk-icon></button>';
+      // (the rings as big as the room gives: cols x rows of them under the direction's line, 12 px apart -- 14 on Extra Large's)
+      var fitK = (cols, rows, max, w, gap) => Math.max(40, Math.min(max, Math.floor(((w || iw) - (cols - 1) * gap) / cols), Math.floor((ih - 36 - (rows - 1) * gap) / rows)));
       var idle = (second) => {
-        var S = sized, sq = b && b.h > (S === 'S' || S === 'W' ? 170 : 350), K = { W: [52, 64], T: [56, 72], L: [72, 96], XL: [80, 104] }[S], k = second ? 48 : K ? K[+sq] : 0;
-        var qc = second ? 0 : { T: 1, L: 3, XL: 3 }[S] || 0, n = second ? 0 : S === 'S' ? 0 : S === 'L' || S === 'XL' ? 5 : 2, sf = second ? 15 : { S: 22, W: 26, T: 22, L: 36, XL: 22 }[S], xl = (S === 'XL' || S === 'W') && !second;
-        var keys = presets.slice(0, n).map((m) => '<button class="rk" data-preset="' + Number(m) + '" style="--a:' + Math.min(100, Number(m) * 100 / 60) + '" aria-label="Start a ' + esc(HkTimersPageCard.label(Number(m))) + ' timer"><svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="45"></circle><circle class="left" cx="50" cy="50" r="45" pathLength="100"></circle></svg><b>' + esc(short(Number(m))) + '</b></button>').join('');
-        return '<div class="gt idle' + (second ? ' two' : xl ? ' xl' + (S === 'W' ? ' c' : '') : '') + '" style="--sf:' + sf + 'px"><span class="none">' + (second ? 'Start another' : S === 'S' ? 'None running' : 'Start a timer') + '</span>' +
-          '<div class="qs' + (qc ? ' g' : '') + '" style="--k:' + k + 'px;--qc:' + qc + '">' + keys + (S === 'S' && !second ? '<button class="rk cap" data-new aria-label="Create a Timer"><hk-icon icon="mdi:plus"></hk-icon>Start a timer</button>' : '<button class="rk add" data-new aria-label="Create a Timer"><hk-icon icon="mdi:plus"></hk-icon></button>') + '</div></div>';
+        var S = sized;
+        // A SECOND PLACE (Start another) and SMALL (its state and one key) as they were
+        if (second || S === 'S') {
+          return '<div class="gt idle' + (second ? ' two' : '') + '" style="--sf:' + (second ? 15 : 22) + 'px"><span class="none">' + (second ? 'Start another' : 'None running') + '</span>' +
+            '<div class="qs" style="--k:48px;--qc:0">' + (S === 'S' && !second ? '<button class="rk cap" data-new aria-label="Create a Timer"><hk-icon icon="mdi:plus"></hk-icon>Start a timer</button>' : plus) + '</div></div>';
+        }
+        // NONE RUNNING (the owner's mockup 5, approved 2026-11-09: "It's not really a heading though, but more of a direction"): "Start a
+        // Timer" one line at the body's headline size, right over the preset rings, the two one group centered in the block -- Wide
+        // three and +, a row; Tall five and +, two across; Large five and +, three across
+        if (S !== 'XL') {
+          // (Wide and Tall hold three controls at most -- the owner's round three, 2026-11-08: two presets and +)
+          var L = { W: [3, 1, 64, 2], T: [1, 3, 72, 2], L: [3, 2, 92, 5] }[S] || [3, 2, 92, 5], k = fitK(L[0], L[1], L[2], 0, 12);
+          return '<div class="gt idle dg"><span class="dir">Start a Timer</span><div class="qs g" style="--k:' + k + 'px;--qc:' + L[0] + '">' +
+            presets.slice(0, L[3]).map(ring).join('') + plus + '</div></div>';
+        }
+        // EXTRA LARGE MAKES ONE (mockup 5c, 2026-11-09, "Yes, build it"): the six presets under the direction on the left, and on
+        // the right the New Timer card in its block layout -- the wheels, a name and Start. Its place keeps what is mounted in it
+        // (data-keep: the block's morph leaves the card and its wheels alone); the wheels' rows are what the block's height gives
+        // (the tile's 30 px of padding, Start's 56 and the name's 56, 10 px between: the rest is the wheels' five rows)
+        var row = Math.floor((ih - 172) / 5), named = row >= 30;
+        if (!named) row = Math.floor((ih - 106) / 5);
+        row = Math.max(26, Math.min(40, row));
+        var kx = fitK(2, 3, 84, 196, 14);
+        return '<div class="gt idle mkr"><div class="ql"><span class="dir">Start a Timer</span><div class="qs g" style="--k:' + kx + 'px;--qc:2">' +
+          presets.slice(0, 6).map(ring).join('') + '</div></div><div class="mk" data-keep data-notap' + (named ? '' : ' data-noname') +
+          ' style="--hk-mk-row:' + row + 'px;--hk-mk-fs:' + Math.round(row * 0.6) + 'px"></div></div>';
       };
       if (!rows.length) return '<div class="tg">' + idle() + '</div>';
       // (Tall: as many stacked as fit, two units of 124 px at least, a line for "N more" held back when some are cut)
@@ -2319,6 +2288,7 @@
         var html0 = this._grid(on && on.attributes && on.attributes.running, sized);
         this._gridTap();
         window.hkCards.morph(this._e, html0);
+        if (sized === 'XL') this._mountMaker();
         // THE COUNTDOWNS PAINT AGAIN NOW: the morph took their text and their
         // column's --hk-left (neither is in the markup), and each skips a write
         // it thinks it has made -- the ring sat full, the time blank, until the

@@ -87,8 +87,14 @@ function () {
   ok('none running, Small: no Timers title (2026-11-09), None running, and one key, Start a timer (Small is its state and one action)', !/class="nm"/.test(none) && /None running/.test(none) &&
      (none.match(/data-preset=/g) || []).length === 0 && /class="rk cap" data-new aria-label="Create a Timer"><hk-icon icon="mdi:plus"><\/hk-icon>Start a timer</.test(none));
   none = sized('hk-timer-strip-card', 'W', { entity: 'sensor.running_quick_timers' })._e.__html;
-  ok('...Wide: "Start a timer" beside three rings -- the 5 and 10 minute starts as arcs of an hour, and +', /class="gt idle xl c"/.test(none) && (none.match(/data-preset=/g) || []).length === 2 &&
+  // (mockup 5, 2026-11-09: "Start a Timer" a direction -- one line over the rings, the two one group centered)
+  ok('...Wide: "Start a Timer" over three rings -- the 5 and 10 minute starts as arcs of an hour, and + (three controls at most)',
+     /class="gt idle dg"><span class="dir">Start a Timer<\/span>/.test(none) && (none.match(/data-preset=/g) || []).length === 2 &&
      /data-preset="5" style="--a:8\.3\d*"[\s\S]*>5m</.test(none) && />10m</.test(none) && /class="rk add"/.test(none) && />30m</.test(none) === false);
+  var xl = sized('hk-timer-strip-card', 'XL', { entity: 'sensor.running_quick_timers' })._e.__html;
+  ok('...Extra Large makes one (mockup 5c): six presets under the direction, and a kept place for the New Timer card\'s wheels -- no +, the wheels are there',
+     /class="gt idle mkr"><div class="ql"><span class="dir">Start a Timer<\/span>/.test(xl) && (xl.match(/data-preset=/g) || []).length === 6 &&
+     /<div class="mk" data-keep data-notap[^>]*--hk-mk-row:\d+px/.test(xl) && !/class="rk add"/.test(xl));
   var big = sized('hk-timer-strip-card', 'L', { entity: 'sensor.running_quick_timers' })._e.__html;
   ok('...Large: all five starts and +, ring-shaped, the group centered (nothing stretches: one --k, whole columns)', (big.match(/data-preset=/g) || []).length === 5 && /class="qs g" style="--k:\d+px;--qc:3"/.test(big) && />30m</.test(big));
   ok('a square cell: the mock-up\'s ring and Stop (76 and 52 on Small, 72 and 48 on Wide)',
