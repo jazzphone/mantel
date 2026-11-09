@@ -325,7 +325,7 @@
       'hk-plate.sec .hd .lm{top:0;margin-left:auto}',
       NOTICE_CSS,
       // (Extra Large: the alarm's keypad, its keys sized to the block)
-      '.kpad{flex:0 0 264px;min-width:0;min-height:0}.kpad.side{flex-basis:330px}.kpad > *{display:block;height:100%}',
+      '.kpad{flex:0 0 var(--kpw,264px);min-width:0;min-height:0}.kpad.side{flex-basis:var(--kpw,330px)}.kpad > *{display:block;height:100%}',
       // HOMEVIEW'S EXTRA LARGE (`.hv`, the catalog's flag): every glyph on the glass white, as the HomeView blocks have them; armed (`.on`) the
       // keypad's area white and triggered (`.trg`) red, as hk-grid-security-hv-card lights its alarm area (Light Up When Armed): the
       // inks the keypad reads are the custom properties set there; the block and its entries stay the glass, as disarmed
@@ -573,6 +573,15 @@
           var k6 = Math.floor((h - 50) / 6), pk = Math.max(36, Math.min(64, side ? Math.floor((h - 30) / 4) : k6 >= 44 ? k6 : Math.floor((h - 44 - 50) / 5)));
           this._pad.style.setProperty('--hk-kp-key', pk + 'px');
           this._pad.style.setProperty('--hk-kp-pill', Math.max(44, side ? Math.min(56, pk) : k6 >= 44 ? pk : 44) + 'px');
+          // AS WIDE AS THE BLOCK ALLOWS (2026-11-09, the owner: Home, Away and Disarm "don't look good at all ... make the keypad
+          // wider"): about half the block, 264 to 380 px (330 to 440 side by side), and the ways to arm in 15 px words with 18 px
+          // glyphs once each has the room ("Disarm" whole); the entries keep the rest, never under 180
+          var kw = bk ? Math.max(side ? 330 : 264, Math.min(side ? 440 : 380, Math.round(bk.w * 0.5), bk.w - 28 - 12 - 180)) : 0;
+          if (kw) e.card.style.setProperty('--kpw', kw + 'px'); else e.card.style.removeProperty('--kpw');
+          var roomy = (kw || 264) >= 320;
+          this._pad.style.setProperty('--hk-kp-a-fs', roomy ? '15px' : '13px');
+          this._pad.style.setProperty('--hk-kp-a-ic', roomy ? '18px' : '16px');
+          this._pad.style.setProperty('--hk-kp-a-pad', roomy ? '10px' : '6px');
         }
         this._fit();
       }
