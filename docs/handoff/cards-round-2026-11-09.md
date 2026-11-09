@@ -1,5 +1,12 @@
 # Cards round, 2026-11-09: the approved mockups still to land
 
+**LANDED (2026-11-09): on the house as Mantel 0.1.159 + HK Frontend 1.55.0** -- every build below, Security as 14b / 14d (the siren light, one
+calm list, teal), Timers as 14b (a + on every running size; Wide shows ONE timer with its keys and the +, since two and the + don't fit), the
+Compact add fix, and section 4's four small things. The worktrees are removed. Review page of every changed block:
+https://claude.ai/artifact/T7f3hHrBuQ4N5dTviFAL5J. Left as noted: Security Extra Large lists the locks from secRows (not hvMembers), so it
+can show fewer than the other sizes; House Status Small draws "Unlocked" with the Security chip's red; the Vacuum audit's "glyph off its disc"
+on Extra Large is its labeled Dock pill (a false flag).
+
 The owner reviewed side-by-side comparisons (today's house, 0.1.158, beside each proposed build) and said: "I like them all", with two changes:
 Security and Timers (below). Each build is committed in its own local-disk worktree, **not pushed**. Nothing here is on main or the house.
 
