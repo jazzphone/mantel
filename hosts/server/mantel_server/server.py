@@ -49,6 +49,7 @@ from .ha_oauth import HaOAuth
 from .readproxy import ReadProxy
 from .store import Store
 from .ha_client import HaClient, commander_for
+from .ha_client import SERVER_WRITES
 from .registry import Registry
 from .registry_feed import PUSH_DELAY, RegistryBodies, RegistryFeed
 from .state import StateStore
@@ -98,8 +99,15 @@ class Hub:
         # what else hears every batch, after the sessions (the House Timeline's tap): each must be cheap and never
         # wait for the disk; one that raises is logged and the others still run
         self.taps: list = []
+        # what corrects a batch ahead of the sessions, and may add to it (timers.py: the running-timers sensor)
+        self.overlays: list = []
 
     def on_change(self, changed: set[str]) -> None:
+        for overlay in self.overlays:
+            try:
+                changed = overlay(changed)
+            except Exception:  # noqa: BLE001 -- an overlay never breaks the hub
+                log.exception("a hub overlay failed (%d changes)", len(changed))
         performance.STATS.events(len(changed))
         for s in self.sessions:
             if s.view.on_change(changed):
@@ -838,7 +846,7 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     app["authz"] = authz
     writes = gateway.load_writes()
     app["gateway_writes"] = writes
-    commander = commander_for(cfg, token, writes)        # None unless cfg.commands_enabled
+    commander = commander_for(cfg, token, writes | SERVER_WRITES)        # None unless cfg.commands_enabled
     app["commander"] = commander
     gw = gateway.Gateway(app, authz, audit, commander, writes, lambda: app["clock"]()) if cfg.commands_enabled else None
     app["gateway"] = gw
@@ -927,6 +935,9 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     # Assistant; it speaks only through the gateway's intercom command and Music Assistant's play_announcement
     from .intercom import wiring as intercom_wiring
     intercom_wiring.register(app, hub, hooks)
+    # Phase 21: timers people set, made as Home Assistant helpers (timers.py), reached only through the gateway
+    from . import timers as timers_host
+    timers_host.register(app, hub)
     # linked mode's notify and the rest of the entry (Seasonal decorations, Alarm PIN through the
     # gateway as the person whose PIN it is, Live TV), published only while Mantel owns `house`
     linked_house.register(app, hub)
@@ -980,7 +991,7 @@ async def apply_commands(app: web.Application, hub: Hub, on: bool) -> None:
     conns: connections.Connections = app["connections"]
     old_gw, old_cmd = app.get("gateway"), app.get("commander")
     if on and old_gw is None:
-        commander = commander_for(cfg, conns.ha_token(), app["gateway_writes"])
+        commander = commander_for(cfg, conns.ha_token(), app["gateway_writes"] | SERVER_WRITES)
         gw = gateway.Gateway(app, app["authz"], app["audit"], commander, app["gateway_writes"], lambda: app["clock"]())
         _set(app, "commander", commander)
         _set(app, "gateway", gw)

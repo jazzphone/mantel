@@ -627,6 +627,13 @@
     // HA is inconsistent about which of these a timer attribute holds
     // depending on how the timer was configured, so every read goes through
     // here rather than assuming.
+    // A card's list and the timers Mantel made, running or paused: not on any list, since they come and go. The sensor names them.
+    withMade: function (list, states) {
+      var q = states && states['sensor.running_quick_timers'], made = (q && q.attributes && q.attributes.made) || [];
+      if (!made.length) return list;
+      return list.concat(made.filter(function (id) { return states[id] && !list.some(function (t) { return t.entity === id; }); })
+        .map(function (id) { return { entity: id, label: (states[id].attributes || {}).friendly_name || 'Timer', glyph: 'mdi:timer-outline' }; }));
+    },
     // THE TIMERS PEOPLE SET (phase 21, docs/phase21/TIMER-SLIDE.md), soonest first and paused ones last, for what a
     // whole house shows and rings: the quick slots and the ones Mantel makes, never `ignore` (General -> House Timers:
     // Night, Nap and the rest) and never the rest of the house's timers, which are mostly automations' plumbing

@@ -1651,7 +1651,7 @@
       this._callResp(p[0], p[1], { duration: minsHms(m) }).then(function (r) {
         self._end();
         if (!r.ok) self._setStatus('failed', 'Could not reach Home Assistant.');
-        else if (r.response && r.response.started === false) self._setStatus('warn', 'All four quick timers are busy.');
+        else if (r.response && r.response.started === false) self._setStatus('warn', 'Too many timers are running.');
         else self._setStatus('sent', 'Started ' + label, 4000);
         self.redraw();
       });

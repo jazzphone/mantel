@@ -1,6 +1,6 @@
 # Phase 21: the Timer slide and timers that ring (plan, 2026-11-08)
 
-**Status: step 1 (the silent slide) built; steps 2 to 5 not started.** The owner approved the design on 2026-11-08. Nothing here has run on the house or on a wall tablet.
+**Status: steps 1 (the silent slide) and 2 (timers on the server) built; steps 3 to 5 not started.** The owner approved the design on 2026-11-08. Nothing here has run on the house or on a wall tablet.
 
 - **Mock-up:** [mockup/timer-slide.html](mockup/timer-slide.html). It stands alone: open the file, or view the published copy. Its timers really count, with made-up names, and it touches nothing in the house.
 - **Line numbers** are left out on purpose, because `main` moves. Search for the names.
@@ -35,7 +35,7 @@ What was checked in Home Assistant's source (the version in `~/.venvs/hk-ha-test
 
 - `homeassistant/components/timer` registers `timer/create`, `timer/update` and `timer/delete` through `DictStorageCollectionWebsocket`. They are admin-only (`helpers/collection.py`).
 - A helper's entity id comes from its name at creation (`_get_suggested_id`). An update can't change the item's id (`async_update_item`), so a rename should leave the entity id alone.
-- `timer.change` exists, so **+1 Min is a real service**. The comment in `hk-home.js` that says no service adds time is out of date.
+- `timer.change` refuses to go above the timer's original length (measured: "Not possible to change timer beyond duration"), so it can't add time. **+1 Min restarts the timer with `timer.start` and the new time left**, which works, as the cards' +5 Min already does.
 - `timer.finished` and `timer.cancelled` are separate events.
 
 What Mantel needs in order to use them:
@@ -88,7 +88,7 @@ A new `web/hk/modules/hk-saver-timers.js`, built like `hk-saver-energy.js`: one 
 
 ### Time's Up
 
-- The ring closes and pulses. **Stop**, **+1 Min** (`timer.change`) and **Restart**. Two together read "Pasta and Oven" with **Stop All**.
+- The ring closes and pulses. **Stop**, **+1 Min** (`timer.start` with the time left) and **Restart**. Two together read "Pasta and Oven" with **Stop All**.
 - A tap stops the sound first and doesn't leave the screensaver.
 - After Stop, the next timer moves up if it's within a minute. Otherwise the slide leaves.
 - **While someone is using the tablet:** no takeover in the last minute, because the existing timer row keeps counting. At 0:00 a pop-up rings over the page. New, in `hk-timers.js` or beside it.

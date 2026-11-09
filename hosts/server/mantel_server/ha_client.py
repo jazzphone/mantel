@@ -641,6 +641,11 @@ def _spend(ticket: object, kind: str) -> None:
     ticket.used = True
 
 
+# What Mantel itself may send, on a ticket of its own, and never a client (they aren't in hkClient.WRITES, which is all the
+# gateway takes from a page). timers.py: a timer someone set, made as a helper and deleted once it is over.
+SERVER_WRITES = frozenset({"timer/create", "timer/update", "timer/delete"})
+
+
 def check_command(frame: object, ticket: object, writes: frozenset[str]) -> None:
     """A WebSocket command frame: call_service with its own keys, or a write from hkClient.WRITES."""
     kind = frame.get("type") if isinstance(frame, dict) else None

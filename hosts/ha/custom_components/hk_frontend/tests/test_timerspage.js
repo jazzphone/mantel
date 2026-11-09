@@ -231,8 +231,8 @@ H.run('TIMERS PAGE', [
       pc.hass = answering({ started: false, reason: 'no_free_slot' });
       pc._quick(5);
       return H.tick().then(function () {
-        H.ok('all four busy is a warning that names them, not "started"',
-             pc._hkStatus.kind === 'warn' && /four/.test(pc._hkStatus.text), pc._hkStatus);
+        H.ok('none free is a warning that says so, not "started"',
+             pc._hkStatus.kind === 'warn' && /too many timers/i.test(pc._hkStatus.text), pc._hkStatus);
         house.set('timer.nap_timer', 'active', {});
         house.set('timer.good_morning_timer', 'active', {});
         pc.hass = house.hass();
@@ -286,6 +286,21 @@ H.run('TIMERS PAGE', [
     card.setConfig({ fit: true, timers: ids.map(function (id) { return { entity: id }; }) });
     card.hass = house.hass();
     H.eq('fit, four running: its two compact rows', card.getCardSize(), 7);
+  },
+
+  // ---- the timers Mantel makes come and go: the running-timers sensor names them, and they join the list
+  function () {
+    H.section('hk-timers-card, a made timer');
+    var card = H.make('hk-timers-card');
+    card.setConfig({ timers: [{ entity: 'timer.quick_1', label: 'Quick Timer 1' }] });
+    var end = new Date(Date.now() + 600000).toISOString(), st = { state: 'active', attributes: { finishes_at: end, duration: '0:15:00', friendly_name: 'Pasta' }, last_updated: 'x', last_changed: 'x' };
+    var quick = { state: 'idle', attributes: { duration: '0:00:00' }, last_updated: 'x', last_changed: 'x' };
+    card.hass = { states: { 'timer.quick_1': quick, 'timer.hk_timer_3': st, 'sensor.running_quick_timers': { state: '1', attributes: { running: [], made: ['timer.hk_timer_3', 'timer.hk_timer_9'] } } } };
+    var list = card._list();
+    H.eq('it joins the list, by its own name, and one already gone is not listed', list.map(function (t) { return t.entity + '/' + t.label; }).join(), 'timer.quick_1/Quick Timer 1,timer.hk_timer_3/Pasta');
+    H.eq('and it counts as running', card._running().map(function (t) { return t.entity; }).join(), 'timer.hk_timer_3');
+    card.hass = { states: { 'timer.quick_1': quick } };
+    H.eq('with no sensor (a house with no helpers): only what the card was given', card._list().length, 1);
   }
 
 ]);

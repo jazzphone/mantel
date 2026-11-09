@@ -5,6 +5,8 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 ## Unreleased
 
 **Added**
+- **Timers you set are real Home Assistant timers, with no limit of four**: Mantel creates each one when you press Start, and deletes it when it ends or you cancel it. It notices a real end across a restart of Mantel or Home Assistant. No helpers are needed. HK Frontend inside Home Assistant keeps its four quick timers.
+- **Wall tablets can see and start timers you set**: they belong to no room, so a tablet's role left them out. House Timers and automations' timers stay out.
 - **The Timers slide on the screensaver**: while a timer you set is running, a slide with the timer ending first on a big ring and the others as small rings beside it comes every other slide (or as often as the others). A timer's last minute holds it on every tablet that isn't dark. House Timers and timers that automations use never show. It's silent for now: the sound comes next. See [the Screensaver guide](docs/guide/Screensaver.md#the-timer-slide).
 
 **Fixed**

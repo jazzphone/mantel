@@ -10,7 +10,7 @@ from argon2 import PasswordHasher
 
 from conftest import Mantel
 from mantel_server.accounts import totp
-from mantel_server.ha_client import check_command, check_http, check_upload
+from mantel_server.ha_client import SERVER_WRITES, check_command, check_http, check_upload
 
 HOUSE_AREAS = [{"area_id": "kitchen", "name": "Kitchen"}, {"area_id": "cody_room", "name": "Cody's Room"},
                {"area_id": "porch", "name": "Porch"}]
@@ -38,7 +38,7 @@ class FakeCommander:
     """Records what would have been sent; checks frames and tickets like HaCommander."""
 
     def __init__(self, writes):
-        self.writes = frozenset(writes)
+        self.writes = frozenset(writes) | SERVER_WRITES      # (as server.py gives the real one)
         self.sent: list[str] = []
         self.frames: list[dict] = []
         self.uploads: list[tuple] = []

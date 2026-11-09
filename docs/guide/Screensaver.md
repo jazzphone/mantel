@@ -68,6 +68,8 @@ The editor is the only place to change what the screensaver shows and how it loo
 
 The timers on **General → House Timers**, such as Night and Nap, never show, and neither do timers that automations use. To keep another timer off the slide, add it to that list.
 
+On Mantel, a timer you set is its own timer in Home Assistant, so there's no limit of four and no helpers to install. Mantel creates it when you press Start, and deletes it when it ends or you cancel it. An automation in Home Assistant can see it like any other timer while it runs. This needs Mantel's Home Assistant user to be an administrator; if it isn't, Mantel uses the four quick timers instead. Inside Home Assistant, HK Frontend keeps using the four quick timers.
+
 ## The Holiday slide
 
 **Holidays** (Edit Screensaver → Slides, or Screensaver Options → Now and Then) counts down to the next holiday: how many days until it, themed for it. It comes among the photos or now and then over a clock, as Weather and Home Energy do, and only once a holiday is near. Its corner adds the time, the date, the weather and House Status, with the corner's Time Size and switches.

@@ -65,6 +65,8 @@ from typing import Any, Awaitable, Callable, Iterable
 
 from aiohttp import web
 
+from hk_core.timers import SCRIPTS as TIMER_SCRIPTS
+
 from . import alarm_pin, readproxy
 from .authz import ENTITY_ID, Authz, Principal
 from .guards import guard
@@ -159,6 +161,8 @@ class Command:
     tablet: tuple[str, str] | None = None   # a wall tablet's kiosk app: (HK's tablet id, one of TABLET_VERBS)
     code: str | None = field(default=None, repr=False)  # the keypad's code: checked by Mantel, never sent
     intercom: tuple[str, int] | None = None  # the Intercom: (mode, rate) a /ws/intercom ticket is issued for
+    # A TIMER SOMEONE SET (timers.py): {"op", "data"}. Mantel makes it; with no way to, `frame` goes to the helpers' script.
+    timer: dict | None = None
 
 
 def _entity_list(value: Any) -> list[str]:
@@ -389,6 +393,10 @@ def classify(msg: dict, writes: frozenset[str]) -> Command:
     if kind == "intercom":
         return intercom_command(msg)
     from . import music      # HK's music actions and writes (hk_frontend.music_*, hk_music/*): music.py's checks
+    if kind == "service" and msg.get("domain") == "script" and msg.get("service") in TIMER_SCRIPTS:
+        cmd = service_command(msg.get("domain"), msg.get("service"), msg.get("data"), msg.get("target"), msg.get("return_response", False))
+        cmd.timer = {"op": TIMER_SCRIPTS[msg["service"]], "data": msg.get("data") or {}}
+        return cmd
     if kind == "service":
         got = music.classify_service(msg.get("domain"), msg.get("service"), msg.get("data"), msg.get("target"),
                                      msg.get("return_response", False))
@@ -960,6 +968,10 @@ class Gateway:
         engine = self._music_engine(cmd)
         if engine is not None:
             return await engine.run(principal, cmd.music, aid)
+        if cmd.timer is not None and self.app.get("timers") is not None:
+            got = await self.app["timers"].start(principal, cmd.timer, aid)
+            if got is not None:
+                return {"context": {"id": f"timer-{aid}"}, "response": got}      # as Home Assistant answers a blocking script
         if cmd.kind in ("service", "ws"):
             res = await self.commander.call(dict(cmd.frame or {}), CommandTicket(aid, "ws"))  # type: ignore[union-attr]
             if cmd.kind == "ws" and (cmd.frame or {}).get("type") in alarm_pin.PAGE_SAVES:

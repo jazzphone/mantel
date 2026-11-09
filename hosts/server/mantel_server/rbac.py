@@ -492,6 +492,10 @@ DEFAULT_ROLES: dict[str, Role] = {r.name: r for r in (
         _g("allow", ("view", "control", "control.sensitive", "history"), "area", SUBJECT_AREAS,
            note="what its room's dashboard shows; more by entity grants"),
         _g("allow", "view", "feature", "timeline", note="the Timeline's limited view: no names, no search"),
+        # TIMERS PEOPLE SET belong to no room, and every tablet shows a timer's last minute (docs/phase21/TIMER-SLIDE.md):
+        # by name, never the timer domain, which is mostly automations' plumbing (no-motion, fan and House Timers)
+        *(_g("allow", ("view", "control"), "entity", e, note="timers people set: every tablet shows and can start them")
+          for e in ("timer.quick_*", "timer.hk_timer_*", "input_text.quick_timer_*", "sensor.running_quick_timers", "script.quick_timer_*")),
     ), label="Wall Tablet"),
     Role("service", (), label="Service"),
 )}

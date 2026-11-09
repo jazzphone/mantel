@@ -399,7 +399,7 @@ function outcomes() {
     return tick().then(function () {
       check('a full timer rack is NOT reported as success',
             statusOf(k1).kind === 'warn');
-      check('a full timer rack says which four', /four/i.test(statusOf(k1).text));
+      check('a full timer rack says so', /too many timers/i.test(statusOf(k1).text));
       check('a full timer rack KEEPS the typed duration', k1._digits === '15');
       check('a full timer rack keeps the typed name', k1._name === 'Pasta');
 
