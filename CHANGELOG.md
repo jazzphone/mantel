@@ -4,11 +4,11 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+## 0.1.156 - 2026-11-08
+
 **Changed**
 - **Everything takes another row where one fits** (square cells: Wide two rows, Large and Extra Large four), now that its heading is gone; **a group's last row starts in the left column** (Rooms and Accessory Groups, full tiles and half pills), the group still centered in the block.
 - **Block headings match, and the ones that only named the block are gone**: every heading is the Weather page's section title -- the same gray, Title Case, the same size, on the block's top edge -- and a label for one part of a block (Mode, Rooms, This Week, Tomorrow) sits right on the thing it labels. Battery, Water, Doors & Windows, Everything, House Status, Live TV and Now Playing no longer print their own names; Calendar, Music, On Now, Who's Home, Power, Room, Security, Timeline, To-do, Vacuum, Weather, Suggested Scene and the Thermostat keep theirs in the one style.
-
-## 0.1.156 - 2026-11-08
 
 **Added**
 - **Which Timers**: Settings → Timers lists every timer in the house, on or ignored, with a switch. Turn on one that Home Assistant or an automation runs, or turn off one you don't want to hear about.
