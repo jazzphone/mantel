@@ -592,8 +592,11 @@ class HkControlCard extends HTMLElement {
       .big .one b,.big .tt b{font-weight:500;letter-spacing:-.03em;line-height:1;font-variant-numeric:tabular-nums}
       :host([size=S]) .big .one b{font-size:min(78px,calc((100cqh - var(--hk-pad-t,18px) - var(--hk-pad-b,18px) - 44px) * .72),48cqw)}
       :host([size=S]) .big .one.long b{font-size:min(56px,calc((100cqh - var(--hk-pad-t,18px) - var(--hk-pad-b,18px) - 44px) * .6),30cqw)}
-      .big .one small,.big .tt small{${window.hkCards.typeCss('label-small')};line-height:14px;color:${window.hkCards.v('ink-2')}}
-      .big .heat small{color:${window.hkCards.ACCENTS.orange}}.big .cool small{color:${window.hkCards.ACCENTS.teal}}.big .tt small{text-shadow:${window.hkCards.v('glow')}}
+      /* (2026-11-09, the owner, on the colored capitals: "Fix it") the Heat / Cool label in Title Case, the secondary gray, 13 / 600; the mode's color
+         only as a small dot before the word */
+      .big .one small,.big .tt small{font-size:13px;font-weight:600;letter-spacing:0;text-transform:none;line-height:16px;color:${window.hkCards.v('ink-2')};display:inline-flex;align-items:center;gap:6px}
+      .big .heat small::before,.big .cool small::before{content:"";width:8px;height:8px;border-radius:50%;flex:none}
+      .big .heat small::before{background:${window.hkCards.ACCENTS.orange}}.big .cool small::before{background:${window.hkCards.ACCENTS.teal}}.big .tt small{text-shadow:${window.hkCards.v('glow')}}
       /* ...heat and cool: the two side by side (Small) or cool over heat
          (Tall), each label in its colour, the picked one on a light plate;
          a tap picks one, the arrows step it */
@@ -877,10 +880,10 @@ class HkControlCard extends HTMLElement {
     // SMALL, WIDE AND TALL: the targets in a column with the foot (Wide: one Mode key at its right, opening the sheet's modes)
     if (sz === "S" || sz === "W" || sz === "T") {
       const tt = (v, verb, kind) => `<div class="tt ${kind}"><small>${sz === "T" ? verb : kind === "heat" ? "Heat" : "Cool"}</small><b>${t(v)}</b></div>`;
-      const word = { heat: "Heat to", cool: "Cool to" }[mode] || "Target", kind = mode === "heat" || mode === "cool" ? " " + mode : "";
+      const word = { heat: "Heat To", cool: "Cool To" }[mode] || "Target", kind = mode === "heat" || mode === "cool" ? " " + mode : "";
       const text = mode === "off" ? "Off" : idle ? "—" : t(single);
       const one = `<div class="one${kind}${text.length > 2 ? " long" : ""}">${sz === "T" && !idle ? `<small>${word}</small>` : ""}<b>${text}</b></div>`;
-      const tg = range ? (sz === "T" ? tt(hi, "Cool to", "cool") + tt(lo, "Heat to", "heat") : tt(lo, "Heat to", "heat") + tt(hi, "Cool to", "cool")) : one;
+      const tg = range ? (sz === "T" ? tt(hi, "Cool To", "cool") + tt(lo, "Heat To", "heat") : tt(lo, "Heat To", "heat") + tt(hi, "Cool To", "cool")) : one;
       // TALL (2026-11-08, the owner: modes on top "throws the card off", and any card may send more controls to its sheet): the name over
       // the target with its arrows either side of it, the centre of weight; the modes are the sheet's -- one Mode key at the foot opens it
       const tgd = `<div class="tg" data-big-num aria-label="${range ? `Heat to ${t(lo)}, cool to ${t(hi)} degrees, press and hold for the modes` : label}">${tg}</div>`;

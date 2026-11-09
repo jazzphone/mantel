@@ -84,7 +84,7 @@ function () {
   house.set('sensor.running_quick_timers', '0', { running: [] });
   house.set('timer.quick_1', 'idle', { friendly_name: 'Quick Timer 1' });
   var none = sized('hk-timer-strip-card', 'S', { entity: 'sensor.running_quick_timers' })._e.__html;
-  ok('none running, Small: the orange Timers, None running, and one key, Start a timer (Small is its state and one action)', /<b class="nm">Timers<\/b>/.test(none) && /None running/.test(none) &&
+  ok('none running, Small: no Timers title (2026-11-09), None running, and one key, Start a timer (Small is its state and one action)', !/class="nm"/.test(none) && /None running/.test(none) &&
      (none.match(/data-preset=/g) || []).length === 0 && /class="rk cap" data-new aria-label="Create a Timer"><hk-icon icon="mdi:plus"><\/hk-icon>Start a timer</.test(none));
   none = sized('hk-timer-strip-card', 'W', { entity: 'sensor.running_quick_timers' })._e.__html;
   ok('...Wide: "Start a timer" beside three rings -- the 5 and 10 minute starts as arcs of an hour, and +', /class="gt idle xl c"/.test(none) && (none.match(/data-preset=/g) || []).length === 2 &&

@@ -1421,11 +1421,11 @@
     '.wg .c1{flex:0 0 104px;min-width:0;display:flex;flex-direction:column}',
     '.wg .c2{flex:1 1 0;min-width:0;display:flex;flex-direction:column}',
     '.wg.L .ls,.wg.W .ls{margin-top:0}',
-    // THE EMPTY DAY (2026-11-08): the date, a title line and the next event (or a calm line) one group on the block's optical center -- Wide in a row, Tall and Large in a column
+    // THE EMPTY DAY (2026-11-08): the date, a title line and the next event (or a calm line) in the busy day's places (below)
     '.wg .et{' + window.hkCards.typeCss('title') + ';line-height:26px;text-wrap:balance;text-align:center;flex:none}.wg .ls>.et:only-child{margin:auto}.wg .es{font-size:15px;line-height:19px;color:' + window.hkCards.v('ink-2') + ';text-align:center;text-wrap:balance;margin-top:4px}',
-    ':host([size]) .wg.em{align-items:center;justify-content:center;gap:0;padding-bottom:calc(var(--hk-pad-b,14px) + 10px)}:host([size]) .wg.em.W{flex-direction:row;gap:22px}:host([size]) .wg.em.T,:host([size]) .wg.em.L{flex-direction:column}',
-    '.wg.em .c1{flex:none}.wg.em .c2{flex:0 1 auto;align-items:center}.wg.em.W .c2{align-items:flex-start}.wg.em.W :is(.et,.es){text-align:left}',
-    '.wg.em .dn{margin-bottom:8px}.wg.em.L .dn{font-size:72px}.wg.em .ev2{align-self:center;max-width:100%;margin-top:8px;padding:6px 0}.wg.em .wd{text-align:center}.wg.em.W .wd{text-align:left}',
+    // (2026-11-09, the owner, agreed: the weekday "should stay put" on an empty day -- the busy day's places: the weekday and the date at the top-left, the line beside the date (Large, Wide) or under it (Tall, Small), from the left)
+    ':host([size]) .wg.em{align-items:stretch;justify-content:flex-start}:host([size]) .wg.em.W,:host([size]) .wg.em.L{flex-direction:row;gap:22px}:host([size]) .wg.em.T{flex-direction:column}.wg.em .c2{flex:1 1 0;justify-content:flex-start;padding-top:22px}.wg.em.T .c2{padding-top:6px}',
+    '.wg.em :is(.et,.es,.wd){text-align:left}.wg.em .ev2{max-width:100%;margin-top:8px;padding:6px 0}',
     // Extra Large: the month (seven columns of a finger's width), the chosen day beside it. The month's name and
     // arrows sit over the month on a square cell; on a tile (150 px) over the day, the weeks taking the height.
     '.wg .mon{flex:0 0 322px;min-width:0;display:flex;flex-direction:column}',
@@ -1580,10 +1580,10 @@
       this._shown = shown;
       var head = '<div class="wd">' + esc(DOW_LONG[d0.getDay()]) + '</div><div class="dn">' + d0.getDate() + '</div>';
       var empty = '<div class="nil">' + (this._calIds(h).length ? (shown.length ? 'Nothing more today' : 'Nothing scheduled') : 'No calendars') + '</div>';
-      // THE EMPTY DAY (2026-11-08, the review): nothing left today and none ahead (or, Wide, only later days) -- the date, a title line and the next event or a calm line, one group centered; Tall and Large with later events keep their list
+      // THE EMPTY DAY (2026-11-08, the review): nothing left today and none ahead (or, Wide, only later days) -- the date, a title line and the next event or a calm line, where the busy day has them; Tall and Large with later events keep their list
       if (sized !== 'S' && !todayN && this._calIds(h).length && (sized === 'W' || !shown.length)) {
         var dd = this._days(), nxt = shown.length ? evRow(h, shown[0], fd, 0, fi, 'day') : '<div class="es">' + (dd > 1 ? 'The next ' + dd + ' days are clear' : 'A clear day') + '</div>';
-        this._root.innerHTML = '<div class="blk wg em ' + sized + '">' + (sized === 'W' ? '<div class="c1">' + head + '</div>' : head) +
+        this._root.innerHTML = '<div class="blk wg em ' + sized + '">' + (sized === 'W' || sized === 'L' ? '<div class="c1">' + head + '</div>' : head) +
           '<div class="c2"><div class="et">Nothing scheduled' + (shown.length ? ' today' : '') + '</div>' + nxt + '</div></div>';
         this._wireTaps(); return;
       }
