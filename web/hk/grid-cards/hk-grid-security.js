@@ -926,6 +926,8 @@
       'hk-plate.hv[size=W].on .lc .al,hk-plate.hv[size=W].trg .lc .al,hk-plate.hv[size=C].on .lc .al,hk-plate.hv[size=C].trg .lc .al{margin:0}',
       'hk-plate.hv .rc{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;gap:8px}',
       'hk-plate.hv .rc .ents{flex:1 1 auto}hk-plate.hv .rc .ops{margin-top:0}',
+      // (Wide and Compact's columns are narrow on the house's tablets: the name 15 px, "Front Door Lock" whole beside its disc)
+      'hk-plate.hv .rc .ents.ls .en .n{font-size:15px;line-height:19px}',
       // (the toast's touch reaches 6 px past it: 6 more above it keeps it 8 clear of the list)
       'hk-plate.hv .ents.ls + .ops,hk-plate.hv .rc .ents.ls + .ops{margin-top:6px}',
       // (Large and Tall: the alarm's heading in the upper left -- the glyph, then the words -- the rows under it, the toast at the foot)
@@ -1074,10 +1076,10 @@
         if (list) { cols = size === 'C' ? 2 : 1; rows = Math.max(1, Math.floor((H + 1) / SEC_LIST_ROW)); }
         else { cols = 2; rows = Math.max(1, Math.floor((H + HV_GAP) / (HV_SLOT_H + HV_GAP))); }
         var n = this._slots.length, cap = cols * rows, cut = n > cap, show = cut ? cap - 1 : n;
-        // (a list with room for ONE row -- Wide on the house's 150 px cells with the toast under it -- shows the row that matters most, not
-        // a lone "N more": the alarm's line already counts what needs a look, and the block's tap opens them all)
-        var lone = list && cut && cap === 1;
-        if (lone) show = 1;
+        // (a list with room for TWO places or fewer -- Wide and Compact on the house's 150 px cells, the toast under them -- shows the rows
+        // that matter most, not one of them and "N more": the alarm's line already counts what needs a look, and the block's tap opens them all)
+        var lone = list && cut && cap <= 2;
+        if (lone) show = cap;
         // (Large: "+N more" in the heading's line, where the chevron was -- as Extra Large's and an Accessory Group's -- every row an entry)
         var inHead = size === 'L' && !!e.lm;
         if (inHead) {
