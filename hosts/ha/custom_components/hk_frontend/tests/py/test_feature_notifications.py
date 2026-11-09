@@ -380,6 +380,10 @@ def test_a_vacuum_finishing():
     assert f("vacuum", "done", st("returning"), st("docked"))
     assert f("vacuum", "done", st("cleaning"), st("docked"))
     assert not f("vacuum", "done", st("idle"), st("docked"))
+    # a run starting: cleaning for 2 s, docked again to wash or empty -- not a finished run
+    assert not f("vacuum", "done", st("cleaning"), st("docked"), held=2)
+    assert not f("vacuum", "done", st("returning"), st("docked"), held=2)       # a blip on the dock
+    assert f("vacuum", "done", st("returning"), st("docked"), held=70)
     assert f("vacuum", "error", st("cleaning"), st("error"))
     assert f("vacuum", "cleaning", st("docked"), st("cleaning")) and not f("vacuum", "cleaning", st("paused"), st("cleaning"))
     assert rules.words("vacuum", "done", "Office Vacuum", st("docked")) == ("Office Vacuum", "Finished cleaning.")

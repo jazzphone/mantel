@@ -304,3 +304,21 @@ def test_the_rules_are_the_ones_the_host_re_exports():
     # (a smoke check that the moved module is whole: the HA feature imports it unchanged)
     assert rules.fires("garage", "open", ("closed", {}), ("opening", {}))
     assert rules.category_of("leak") == "leaks"
+
+
+def test_a_vacuum_starting_is_not_finished():
+    """Starting, a robot reports cleaning for ~2 s, then docked while it washes its mop: no Finishes Cleaning."""
+    from datetime import datetime, timedelta, timezone
+    h = house()
+    items = [{"id": "v", "entity": "vacuum.office_vacuum", "when": "done"}]
+    watched = {"v": {"vacuum.office_vacuum"}}
+    t = datetime(2026, 11, 3, 12, 30, tzinfo=timezone.utc)
+
+    def change(old, new, held):
+        return B.goes_off(h, items, watched, "vacuum.office_vacuum",
+                          State("vacuum.office_vacuum", old, {}, t),
+                          State("vacuum.office_vacuum", new, {}, t + timedelta(seconds=held)),
+                          last={}, mute={}, now=0, epoch=1000.0)
+
+    assert change("cleaning", "docked", 2) == []
+    assert change("returning", "docked", 75) == items

@@ -78,6 +78,13 @@ def only_ok(house: House, only: str) -> bool:
     return True
 
 
+def _held(old: State | None, new: State | None) -> float | None:
+    """How long the old state lasted (seconds), when both say when they began."""
+    if old is None or new is None or old.last_changed is None or new.last_changed is None:
+        return None
+    return (new.last_changed - old.last_changed).total_seconds()
+
+
 def _pair(st: State | None) -> rules.State:
     return (st.state, dict(st.attributes)) if st is not None else None
 
@@ -89,7 +96,7 @@ def goes_off(house: House, items: list[dict[str, Any]], watched: Mapping[str, An
     item id -> what it watches (members). `last` (key -> when it last went off, on the
     monotonic `now`) is Not Again For's, kept per accessory and recorded here; `mute` is Mute
     1 Hour's store (`epoch`: now, in epoch seconds)."""
-    o, n = _pair(old), _pair(new)
+    o, n, held = _pair(old), _pair(new), _held(old, new)
     now = time.monotonic() if now is None else now
     out = []
     for item in items:
@@ -97,7 +104,7 @@ def goes_off(house: House, items: list[dict[str, Any]], watched: Mapping[str, An
             continue
         k = kind(house, eid)
         when = item.get("when") or rules.default_when(k)
-        if not rules.fires(k, when, o, n, event=eid.startswith("event.")):
+        if not rules.fires(k, when, o, n, event=eid.startswith("event."), held=held):
             continue
         if not only_ok(house, item.get("only") or "always"):
             continue

@@ -142,11 +142,18 @@ def _s(st: State) -> str:
     return st[0] if st else ""
 
 
-def fires(kind: str, when: str, old: State, new: State, event: bool = False) -> bool:
+# A robot vacuum starting a run reports cleaning for a moment, then docked again while it washes its
+# mop or empties its bin, then leaves -- and blips docked -> returning -> docked on the dock. Neither
+# is a finished run: Finishes Cleaning wants the state it docks from held at least this long.
+VACUUM_RUN_S = 20
+
+
+def fires(kind: str, when: str, old: State, new: State, event: bool = False, held: float | None = None) -> bool:
     """Whether the change old -> new sets off a notification that goes off
     `when`. `event`: an event entity, whose state is the time of its last
     event -- any new time is one, but not the one restored at a start (no old
-    state) or after the device was unavailable."""
+    state) or after the device was unavailable. `held`: how long the old state
+    lasted, in seconds, when the host knows."""
     o, n = _s(old), _s(new)
     if new is None or n in GONE:
         return False
@@ -177,7 +184,8 @@ def fires(kind: str, when: str, old: State, new: State, event: bool = False) -> 
         return n == when if when != "any" else True
     if kind == "vacuum":
         if when == "done":            # back on its dock from a run (cleaning, returning, paused)
-            return n == "docked" and o in ("cleaning", "returning", "paused")
+            return n == "docked" and o in ("cleaning", "returning", "paused") \
+                and (held is None or held >= VACUUM_RUN_S)
         if when == "error":
             return n == "error"
         return n == "cleaning" and o not in ("cleaning", "paused", "returning")
