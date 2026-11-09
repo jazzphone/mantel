@@ -62,6 +62,16 @@ function tap(card, attrs) {
   (card._root._listeners.click || []).forEach(function (f) { f({ target: t, stopPropagation: function () {} }); });
 }
 
+// (a block of a given size in px, as the grid measures it)
+function sizedAt(tag, size, cfg, w, h) {
+  var card = H.make(tag);
+  card.setAttribute('size', size);
+  card._block = function () { return { w: w, h: h }; };
+  hkGive(card, hass());
+  card.setConfig(cfg);
+  return card;
+}
+
 H.run('HOME BLOCKS', [
 function () {
   H.section('Timers: each running timer one piece (ring with its time, Pause and Stop under it); Small one, Wide two');
@@ -83,13 +93,34 @@ function () {
   var tall = sized('hk-timer-strip-card', 'T', { entity: 'sensor.running_quick_timers' })._e.__html;
   ok('Tall: one, "+1 more" under it', (tall.match(/class="gt/g) || []).length === 1 && /<div class="mf">\+1 more<\/div>/.test(tall));
   var wide = sized('hk-timer-strip-card', 'W', { entity: 'sensor.running_quick_timers' })._e.__html;
-  ok('Wide: two, side by side', /--cols:2/.test(wide) && /Pasta/.test(wide) && /Laundry/.test(wide) && !/more<\/span>/.test(wide));
+  // (2026-11-09, mockup 14b: the + at the top right leaves a Wide block no room for a second timer's keys: one timer, "+1 more" at its foot)
+  ok('Wide: one timer with its keys, "+1 more"', /--cols:1/.test(wide) && /Pasta/.test(wide) && !/Laundry/.test(wide) && /<div class="mf">\+1 more<\/div>/.test(wide));
+  // ALWAYS A WAY TO ADD A TIMER (2026-11-09, mockup 14b): a plain orange + on every running size, opening the New Timer sheet
+  ['S', 'W', 'T', 'L', 'XL'].forEach(function (z) {
+    var h = sized('hk-timer-strip-card', z, { entity: 'sensor.running_quick_timers' })._e.__html;
+    ok(z + ': the + at the top right (a New Timer tap)', /<button class="pl" data-new aria-label="Add a timer"><hk-icon icon="mdi:plus"><\/hk-icon><\/button>/.test(h));
+  });
+  ok('...the + is a 52 px disc in a 56 px target, orange, a white glyph; the keys 52 in 56 with 14 between', SRC.indexOf("position:absolute;top:6px;right:6px;z-index:2;width:56px;height:56px") > 0 &&
+     SRC.indexOf(".pl::before{content:\"\";position:absolute;inset:2px;border-radius:50%;background:' + window.hkCards.ACCENTS.orange") > 0 && SRC.indexOf(".gt .kk{display:flex;gap:10px;flex:none}") > 0 &&
+     SRC.indexOf(".gt .pr::before,.gt .stop::before{content:\"\";position:absolute;inset:2px;") > 0);
+  var opened = [];
+  window.hkDetail = { open: function (a, b, c) { opened.push(c); } };
+  var wc = sized('hk-timer-strip-card', 'W', { entity: 'sensor.running_quick_timers' });
+  wc._newGridTimer();   // (what the +'s tap calls: _gridTap sends data-new here)
+  ok('...it opens the New Timer sheet with the wheels', opened.length === 1 && opened[0].cards.cards[0].layout === 'sheet' && SRC.indexOf("button.dataset.new !== undefined) { this._newGridTimer()") > 0);
+  delete window.hkDetail;
+  // EXTRA LARGE keeps the maker beside one or two timers where they fit (a 288 px maker and 122 px a timer), and has no +
+  var xm = sizedAt('hk-timer-strip-card', 'XL', { entity: 'sensor.running_quick_timers' }, 608, 310)._e.__html;
+  ok('Extra Large, two running in a 608 px block: both, and the maker beside them -- no +', /class="xm" style="--mw:\d+px"/.test(xm) && /--cols:2/.test(xm) && /Pasta/.test(xm) && /Laundry/.test(xm) &&
+     /<div class="mk" data-keep data-notap[^>]*--hk-mk-row:\d+px/.test(xm) && !/class="pl"/.test(xm));
+  var xm1 = sizedAt('hk-timer-strip-card', 'XL', { entity: 'sensor.running_quick_timers' }, 455, 300)._e.__html;
+  ok('...in a 455 px block one timer fits beside it: "+1 more" and the maker', /class="xm"/.test(xm1) && /--cols:1/.test(xm1) && !/Laundry/.test(xm1) && /\+1 more/.test(xm1) && /--mw:(2[89]\d|3[0-4]\d)px/.test(xm1));
+  ok('...where the maker leaves no room for one (a 300 px block) the timers take it, with the +', !/class="xm"/.test(xt) && /class="pl"/.test(xt));
   house.set('timer.quick_1', 'paused', { friendly_name: 'Quick Timer 1', duration: '0:12:00', remaining: '0:04:00' });
   house.set('sensor.running_quick_timers', '1', { running: [{ name: 'Pasta', entity_id: 'timer.quick_1', finishes_at: iso(420) }] });
   var p = sized('hk-timer-strip-card', 'W', { entity: 'sensor.running_quick_timers' })._e.__html;
   ok('paused: its key resumes it, play on the key, the time held', /data-service="start" aria-label="Resume Pasta"/.test(p) && /mdi:play/.test(p) && /hold="240"/.test(p));
-  ok('...one timer on Wide: a second place, "Start another" and one + ring beside it (a timer\'s two keys and a +)', /Start another/.test(p) && /class="gt idle two"/.test(p) &&
-     (p.match(/data-preset=/g) || []).length === 0 && /<button class="rk add" data-new aria-label="Create a Timer">/.test(p));
+  ok('...one timer on Wide: its two keys and the + (no "Start another" place any more)', !/Start another/.test(p) && /class="pl"/.test(p) && (p.match(/data-preset=/g) || []).length === 0);
   house.set('sensor.running_quick_timers', '0', { running: [] });
   house.set('timer.quick_1', 'idle', { friendly_name: 'Quick Timer 1' });
   var none = sized('hk-timer-strip-card', 'S', { entity: 'sensor.running_quick_timers' })._e.__html;
@@ -106,7 +137,10 @@ function () {
      /class="gt idle mkr"><div class="ql"><span class="dir">Start a Timer<\/span>/.test(xl) && (xl.match(/data-preset=/g) || []).length === 6 &&
      /<div class="mk" data-keep data-notap[^>]*--hk-mk-row:\d+px/.test(xl) && !/class="rk add"/.test(xl));
   var big = sized('hk-timer-strip-card', 'L', { entity: 'sensor.running_quick_timers' })._e.__html;
-  ok('...Large: all five starts and +, ring-shaped, the group centered (nothing stretches: one --k, whole columns)', (big.match(/data-preset=/g) || []).length === 5 && /class="qs g" style="--k:\d+px;--qc:3"/.test(big) && />30m</.test(big));
+  // LARGE, NOTHING RUNNING (2026-11-09, mockup 14b, the owner: "the roller to create a new timer isn't implemented here"): the headline upper left, four rings across (56 px), the maker's kept place under them
+  ok('...Large: "Start a Timer", four rings (5, 10, 15, 30), and the maker\'s place -- no +, the wheels are there', /class="gt idle lg"><span class="dir">Start a Timer<\/span>/.test(big) && (big.match(/data-preset=/g) || []).length === 4 &&
+     /class="qs g" style="--k:56px;--qc:4"/.test(big) && />30m</.test(big) && />15m</.test(big) && !/class="rk add"/.test(big) && /<div class="mk" data-keep data-notap[^>]*--hk-mk-row:\d+px;--hk-mk-fs:\d+px;--hk-mk-pad/.test(big));
+  ok('...its headline is left-aligned (DESIGN.md: the headline is the upper left)', SRC.indexOf(".gt.lg .dir{text-align:left;margin:0}") > 0);
   ok('the ring is a drawn size (mockup 5), the keys 56 px targets', SRC.indexOf(".gt .rw{position:relative;flex:none;width:var(--ring);height:var(--ring)") > 0 && SRC.indexOf("flex:none;width:56px;height:56px;display:grid") > 0);
   ok('the morph does not leave the countdowns blank: each paints again', /cd\._hkLast = null;[\s\S]*cd\.setAttribute\('total'/.test(SRC));
 },
