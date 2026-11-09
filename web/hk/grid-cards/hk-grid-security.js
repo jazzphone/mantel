@@ -194,10 +194,11 @@
     var SEC_LIST_ROW = 56;
     // THE ROW'S HEIGHT: as many 56 px rows as the room holds, then the tallest of three designed heights at which that many still fit --
     // never a measure to fit, never a gap a row's height of the room left over under the list
-    function listRow(H, n) {
-      var fits = Math.max(1, Math.floor((H + 8) / (SEC_LIST_ROW + 8))), k = Math.min(n, fits);
+    function listRow(H, n, g) {
+      if (g == null) g = 8;
+      var fits = Math.max(1, Math.floor((H + g) / (SEC_LIST_ROW + g))), k = Math.min(n, fits);
       if (n < fits) return { rh: SEC_LIST_ROW, fits: fits };
-      var rh = [64, 60, 56].filter(function (h) { return k * h + (k - 1) * 8 <= H; })[0] || SEC_LIST_ROW;
+      var rh = [64, 60, 56].filter(function (h) { return k * h + (k - 1) * g <= H; })[0] || SEC_LIST_ROW;
       return { rh: rh, fits: fits };
     }
     // WHICH ROWS SHOW WHEN NOT ALL FIT: what is not secured first, then the garage doors, then the rest in their order -- "+N more" is
@@ -308,14 +309,24 @@
       'hk-plate.sec.kp .lh{display:flex;align-items:center;justify-content:space-between;gap:10px;height:19px;flex:none;margin:var(--hk-text-in,0px) var(--hk-text-in,0px) 0}',
       C.headCss('.lh .lt'),
       LM_CSS,
-      '.ents.lst{display:flex;flex-direction:column;flex-wrap:nowrap;justify-content:flex-start;align-content:stretch;gap:8px;margin:0}',
-      '.ents.lst .ent{width:100%;height:' + SEC_LIST_ROW + 'px}',
-      '.ents.lst .ent .in{gap:12px;padding:0 16px 0 14px}',
-      '.ents.lst .ent hk-icon{width:26px;height:26px}',
-      '.ents.lst .ent .tt{flex:1;flex-direction:row;align-items:baseline;justify-content:space-between;gap:10px}',
-      '.ents.lst .ent .n{font-size:17px;line-height:22px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;overflow-wrap:normal;flex:0 1 auto}',
+      // THE LOCKS AS ONE LIST, NO PLATE PER ROW (2026-11-09, mockup 4b, the owner: "the busy look came from a plate behind every row"): the
+      // rows On Now and House Status have -- a 36 px disc (a dim well, the glyph teal while secured; orange with a white glyph when not
+      // secured), the name, the state at the right, a hairline between rows; the whole row is the tap, 56 px, never grown
+      '.ents.lst{display:flex;flex-direction:column;flex-wrap:nowrap;justify-content:flex-start;align-content:stretch;gap:0;margin:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;touch-action:pan-y}',
+      '.ents.lst::-webkit-scrollbar{display:none}',
+      '.ents.lst .ent{width:100%;height:' + SEC_LIST_ROW + 'px;border-radius:0;background:none;border:0;border-top:1px solid ' + v('line') + ';box-shadow:none;--hk-glass-backdrop:none;-webkit-backdrop-filter:none;backdrop-filter:none;transition:opacity ' + C.DUR.press + ' ease}',
+      '.ents.lst .ent.r0{border-top:0}.ents.lst .ent:active{transform:none;opacity:.6}',
+      '.ent .dk{display:contents}',
+      '.ents.lst .ent .dk{display:grid;place-items:center;width:36px;height:36px;border-radius:50%;flex:none;background:' + v('key') + '}',
+      // (the glyph centered in its disc: 2026-11-09's `.dk.dk>hk-icon`, as House Status and On Now have it)
+      '.ents.lst .ent .dk.dk>hk-icon{display:flex;width:20px;height:20px;--mdc-icon-size:100%;color:var(--lk)}',
+      '.ents.lst .ent.open .dk{background:' + v('warn') + '}.ents.lst .ent.open .dk.dk>hk-icon{color:#fff}',
+      '.ents.lst .ent .in{gap:12px;padding:0 4px 0 0}',
+      '.ents.lst .ent .tt{flex:1;flex-direction:row;align-items:center;justify-content:space-between;gap:10px}',
+      '.ents.lst .ent .n{font-size:17px;line-height:22px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;overflow-wrap:normal;flex:0 1 auto;color:' + v('ink') + '}',
       '.ents.lst .ent .s{font-size:15px;line-height:20px;flex:none}',
       '.ents.lst .ent.open .s{color:' + v('warn') + ';font-weight:600}',
+      'hk-plate.sec.hv .ents.lst .ent .dk.dk>hk-icon{color:' + v('glyph') + '}hk-plate.sec.hv .ents.lst .ent.open .dk.dk>hk-icon{color:#fff}',
       'hk-plate.sec.kp .ops{margin-top:auto;justify-content:flex-start}',
       // LARGE (Classic) THE SAME (2026-11-08, the owner: its tiles' words ran into their edges, the strip wider than the tiles -- "it
       // looks thrown together"): the alarm's heading ("+N more" at its right), the rows, the notice and Home, Away and Disarm -- every
@@ -545,7 +556,7 @@
               var d = document.createElement('div'); d.className = cls; d.innerHTML = html; self._button(d, fn); d.setAttribute('aria-label', label); return d;
             };
             tiles.forEach(function (r) {
-              var d = mk('ent' + (r.open ? ' open' : '') + (r.lock ? ' lk' : ''), '<div class="in"><hk-icon></hk-icon><div class="tt"><span class="n"></span><span class="s"></span></div></div>', r.name + ', ' + r.value, function () { window.hkShell.moreInfo(r.id, self); });
+              var d = mk('ent' + (r.open ? ' open' : '') + (r.lock ? ' lk' : ''), '<div class="in"><span class="dk"><hk-icon></hk-icon></span><div class="tt"><span class="n"></span><span class="s"></span></div></div>', r.name + ', ' + r.value, function () { window.hkShell.moreInfo(r.id, self); });
               d.querySelector('hk-icon').icon = r.icon; d.querySelector('.n').textContent = r.name; d.querySelector('.s').textContent = r.value;
               e.ents.appendChild(d);
             });
@@ -638,11 +649,12 @@
       // BESIDE THE KEYPAD: whole 56 px rows from the top, as many as the column holds; the rest "+N more" in the label row
       _fitList(box, list, H) {
         // (56 px: a finger's 44 on the tablet's screen, where a block is drawn at 0.8 -- the owner's rule; custom_sheet_check)
-        var n = list.length, lr = listRow(H, n), rh = lr.rh, fits = lr.fits, show = Math.min(n, fits), lm = this._e.lm;
+        var n = list.length, lr = listRow(H, n, 0), rh = lr.rh, fits = lr.fits, show = Math.min(n, fits), lm = this._e.lm;
         if (this._moreTile) this._moreTile.style.display = 'none';
         var kids = Array.prototype.filter.call(box.children, function (k) { return k !== this._moreTile; }, this), keep = shownFirst(list, show);
-        kids.forEach(function (k, i) { k.style.display = keep[i] ? '' : 'none'; k.style.width = ''; k.style.height = rh + 'px'; });
-        box.style.flex = 'none'; box.style.height = (show * rh + Math.max(0, show - 1) * 8) + 'px'; box.style.maxWidth = ''; box.style.margin = '0';
+        var first = true;
+        kids.forEach(function (k, i) { k.style.display = keep[i] ? '' : 'none'; k.style.width = ''; k.style.height = rh + 'px'; k.classList.toggle('r0', !!keep[i] && first); if (keep[i]) first = false; });
+        box.style.flex = 'none'; box.style.height = (show * rh) + 'px'; box.style.maxWidth = ''; box.style.margin = '0';
         if (lm) {
           lm.hidden = show >= n;
           lm.textContent = '+' + (n - show) + ' more';
