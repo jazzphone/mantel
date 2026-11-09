@@ -1443,8 +1443,8 @@
       '.hero .tp{position:relative;isolation:isolate;margin-top:.62em}',
       // (the symbol's own em is 1.4286 of the digits': .38 / .5023 of it
       // are the saver's .5429 / .7176 of theirs)
-      '.hero .bd{position:absolute;z-index:-1;pointer-events:none;line-height:0;font-size:1.4286em;letter-spacing:0;',
-      '  left:calc(18px - .38em);top:-.5023em;filter:drop-shadow(0 4px 16px rgba(0,10,30,.25))}',
+      '.hero .bd{position:absolute;z-index:-1;pointer-events:none;line-height:0;font-size:1.4286em;letter-spacing:0;left:calc(18px - .38em);top:-.5023em;clip-path:inset(-60px)}',
+      '.hero .bd::before{content:"";position:absolute;z-index:-1;left:6%;top:14%;width:88%;height:88%;border-radius:50%;background:radial-gradient(closest-side,rgba(0,10,30,.2),rgba(0,10,30,.12) 55%,rgba(0,10,30,0))}',
       '.hero .bd svg{display:block}',
       '.hero .pale .bd{opacity:.7}',
       '.hero .glow{position:absolute;z-index:-2;pointer-events:none;width:2.476em;height:2.476em;border-radius:50%;',
