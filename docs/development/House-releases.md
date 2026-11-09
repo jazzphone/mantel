@@ -740,3 +740,11 @@ Records of releases made with `release_house.py mantel` (phase 15) are written b
 - Strict health 200, all services healthy, mantel-server built from `e71be9e`, Home Assistant connected for 62 s; no "Traceback" or "ERROR" in Mantel's log.
 - Linux suite passed.
 - Times: preflight 4 s, release commit on main 34 s, images run started 4 s, images built and pushed 258 s, the LXC updated and healthy 164 s, Linux suite passed 2 s, tagged 2 s, promoted (latest, ha-apps) 65 s, GitHub Release 1 s; 8.9 minutes in all.
+
+## HK Frontend 1.52.0 (2026-11-08)
+
+- hk-frontend 1.52.0, commit `b3ece82`, tagged `hk-frontend/v1.52.0`, copied with rsync --inplace; diff -rq shows no difference.
+- Home Assistant restarted and serves `/hk/panels/hk-settings.js` (40 s from the restart).
+- Mantel on the LXC reconnected to Home Assistant and was still healthy a minute later (62 s).
+- Published to jazzphone/hk-frontend main as `d82837d`, tagged `v1.52.0` and released on GitHub.
+- The Wiki had no changes.
