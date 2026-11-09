@@ -173,11 +173,12 @@
       '.wb.ok{display:flex;align-items:center;gap:8px}' +
       // (ROWS THAT ARE TARGETS, 2026-11-08, the controls audit: Doors Wide's 44 px tall; Power Extra Large's 44 with 8 px clear, no rules between)
       '.wr.t44>div{height:44px}.wr.sp{gap:8px}.wr.sp>div{height:44px;border-bottom:0}' +
-      // (THE DOORS' LIST, 2026-11-09, mockup 4b: rows of 56 with the disc of House Status -- .dk -- a gray well closed, orange with a white
-      // glyph open; the headline 22 / 600 and its glyph in line with it)
-      '.wr.dl>div{height:56px}.wr.dl b{' + type('headline') + ';font-weight:600}.wr.dl em{' + type('body') + ';color:' + v('ink-2') + '}.wr.dl em.o{color:' + ACC.orange + ';font-weight:600}' +
+      // (THE DOORS' LIST, 2026-11-09, mockup 4b: rows of 56 with the disc of House Status -- .dk -- and DESIGN.md's colors, the owner: "Not sure
+      // why things are orange": Security's teal; closed, an off well with the glyph teal; open, LIT -- the disc teal, the glyph white, the state in
+      // the first ink; the headline 22 / 600 and its glyph in line with it. The colors are set per row (flatColor: Flat Light's own teal))
+      '.wr.dl>div{height:56px}.wr.dl b{' + type('headline') + ';font-weight:600}.wr.dl em{' + type('body') + ';color:' + v('ink-2') + '}.wr.dl em.o{color:' + v('ink') + ';font-weight:600}' +
       '.dd{display:grid;place-items:center;border-radius:50%;flex:none;box-sizing:border-box;background:' + v('key') + ';color:' + v('ink-2') + '}' +
-      '.dd.on{background:' + ACC.orange + ';color:#fff}.dd.ok{background:' + ACC.green + ';color:#fff}' +
+      '.dd.on{color:#fff}' +
       '.dd.dd>hk-icon{display:flex;--mdc-icon-size:100%}' +
       '.dt{font-size:22px;font-weight:600;line-height:26px;letter-spacing:-0.2px;white-space:nowrap;flex:none}' +
       '.dh{display:flex;align-items:center;gap:10px;flex:none}.dsub{margin-top:2px;padding-left:36px}' +
@@ -471,26 +472,27 @@
           var d = new Date(t), today = new Date().toDateString() === d.toDateString(), tag = L ? L.tag() : undefined;
           return (size === 'T' ? 'Since ' : 'Open since ') + (today ? d.toLocaleTimeString(tag, { hour: 'numeric', minute: '2-digit' }) : d.toLocaleDateString(tag, { weekday: 'short' }));
         };
-        // the glyph in its circle: the same disc as House Status's (.dk), orange when open
+        // the glyph in its circle: the same disc as House Status's (.dk) -- lit teal when open, the glyph teal in an off well when closed
         var disc = function (g, on, px) {
-          return '<span class="dd' + (on ? ' on' : '') + '" style="width:' + px + 'px;height:' + px + 'px">' + gly(g, Math.round(px * 0.56), null) + '</span>';
+          return '<span class="dd' + (on ? ' on' : '') + '" style="width:' + px + 'px;height:' + px + 'px;' + (on ? 'background:' + C.flatColor(ACC.teal, 'well') : 'color:' + C.flatColor(ACC.teal, 'glyph')) + '">' +
+            gly(g, Math.round(px * 0.56), null) + '</span>';
         };
         var lead = open.length ? WAY_GLYPH[open[0].kind][0] : 'mdi:check';
         var head = function (px) {
-          // (the headline's glyph: the open kind's, orange, bare -- or the green check-circle)
-          return open.length ? gly(lead, px, ACC.orange) : gly('mdi:check-circle', px, ACC.green);
+          // (the headline's glyph, bare, in Security's teal: the open kind's -- or the check-circle)
+          return gly(open.length ? lead : 'mdi:check-circle', px, C.flatColor(ACC.teal, 'on'));
         };
         var title = open.length ? open.length + ' Open' : 'All Closed';
         if (size === 'S') {
           var d = Math.min(44, Math.max(36, box.ih - 26 - 19 - 8));
-          return '<span class="dd hero' + (open.length ? ' on' : ' ok') + '" style="width:' + d + 'px;height:' + d + 'px">' + gly(lead, Math.round(d * 0.56), null) + '</span>' +
+          return disc(lead, !!open.length, d).replace('class="dd', 'class="dd hero') +
             '<div class="dt" style="margin-top:8px">' + esc(title) + '</div><div class="ws">' + esc(line) + '</div>';
         }
         // a row: the disc, the name over since when, the state at the right (Tall's 160 px: the state is the line under the name)
         var row = function (x) {
           var g = WAY_GLYPH[x.kind][x.open ? 0 : 1], s = x.open ? since(x.st) : '';
           if (size === 'T') {
-            return '<div data-more="' + esc(x.id) + '">' + disc(g, x.open, 36) + '<span class="wt"><b>' + esc(name(x)) + '</b><small' + (x.open ? ' style="color:' + ACC.orange + '"' : '') + '>' +
+            return '<div data-more="' + esc(x.id) + '">' + disc(g, x.open, 36) + '<span class="wt"><b>' + esc(name(x)) + '</b><small' + (x.open ? ' style="color:' + v('ink') + '"' : '') + '>' +
               esc(s || 'Closed') + '</small></span></div>';
           }
           return '<div data-more="' + esc(x.id) + '">' + disc(g, x.open, 36) + '<span class="wt"><b>' + esc(name(x)) + '</b>' + (s ? '<small>' + esc(s) + '</small>' : '') + '</span><em' +
@@ -506,6 +508,7 @@
         }
         // Large and Tall: the headline (the glyph beside the count, the line under it), then as many rows as fit -- three at least
         var headH = 26 + 19 + 12;
+        // (the headline in the upper left, the rows under it -- the owner, 2026-11-09: "I want the upper left corner back!", never centered)
         return '<div class="dh">' + head(26) + '<span class="dt">' + esc(title) + '</span></div><div class="ws dsub">' + esc(line) + '</div>' +
           '<div class="wr tall dl" role="list" style="margin-top:12px">' + fitRows(list, box.ih - headH - 12, row, 56) + '</div>';
       }
