@@ -725,6 +725,8 @@ STATES["doors_two"] = {"domains": {"cover": "closed", "binary_sensor": "off"},
 STATES["doors_many"] = {"domains": {"cover": "open", "binary_sensor": "on"},
                         "entities": {**{f"binary_sensor.extra_window_{i}": ("on", {"friendly_name": f"Window {i}", "device_class": "window"}) for i in range(8)}}}
 STATES["people_home"] = {"domains": {"person": "home"}}
+STATES["people_none"] = {"domains": {"person": "not_home"}}
+STATES["people_many"] = {"entities": {f"person.guest_{i}": ("home", {"friendly_name": f"Guest {i}"}) for i in range(5)}}
 STATES["people_four"] = {"entities": {"person.jo": ("home", {"friendly_name": "Jo"}), "person.kit": ("School", {"friendly_name": "Kit"})}}
 STATE = {"name": "busy", "hits": False}
 # six more rooms for a house with twelve (the Vacuum block's rooms scroll when they do not fit)

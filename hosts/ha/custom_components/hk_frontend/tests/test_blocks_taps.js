@@ -54,6 +54,7 @@ load(HK_ROOT + '/frontend/cards/hk-control.js');
 load(HK_ROOT + '/frontend/cards/hk-weather.js');
 load(HK_ROOT + '/frontend/cards/hk-energy.js');
 load(HK_ROOT + '/frontend/cards/hk-home.js');
+load(HK_ROOT + '/frontend/cards/hk-people.js');
 load(HK_ROOT + '/frontend/cards/hk-media.js');
 load(HK_ROOT + '/frontend/cards/hk-cameras.js');
 load(HK_ROOT + '/frontend/cards/hk-intercom.js');

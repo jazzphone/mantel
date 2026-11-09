@@ -21,13 +21,14 @@ window.hkSettings = {
 };
 load(HK_ROOT + '/frontend/cards/hk-base.js');
 load(HK_ROOT + '/frontend/cards/hk-home.js');
+load(HK_ROOT + '/frontend/cards/hk-people.js');
 load(HK_ROOT + '/frontend/cards/hk-grid-cards.js');
 load(HK_ROOT + '/frontend/modules/hk-sidepane.js');
 
 var ok = H.ok, eq = H.eq, C = window.hkCards;
 // what a block draws: the markup handed to morph (this shim does not parse it)
 C.morph = function (el, html) { el.__html = html; };
-var SRC = readFile(HK_ROOT + '/frontend/cards/hk-home.js');
+var SRC = readFile(HK_ROOT + '/frontend/cards/hk-home.js'), PSRC = readFile(HK_ROOT + '/frontend/cards/hk-people.js');
 
 var NOW = Date.now(), iso = function (s) { return new Date(NOW + s * 1000).toISOString(); };
 var house = H.house({
@@ -121,6 +122,15 @@ function () {
   var w = sized('hk-people-card', 'W', {})._root.__html;
   ok('Wide: spread evenly, a column each, name and where', /class="wide" role="list" style="--n:3;/.test(w) && /<b>Robin<\/b><span>Work<\/span>/.test(w) && /<b>Sam<\/b><span>Home<\/span>/.test(w));
   ok('...nobody dimmed there (where each is is under them)', !/class="pr away"/.test(w));
+  var xl = sized('hk-people-card', 'XL', {})._root.__html;
+  ok('Extra Large (mockup 13): Home on the left, one person large with their name; Away on the right, 56 px rows with where and since',
+     /<b class="lab">Home<\/b>/.test(xl) && /<b class="lab">Away<\/b>/.test(xl) && !/Who’s Home/.test(xl) && (xl.match(/class="xf"/g) || []).length === 2 &&
+     (xl.match(/class="xw"/g) || []).length === 1 && /<b>Robin<\/b><span>Work<\/span>/.test(xl));
+  var xs = (function () { var c = H.make('hk-people-card'); c._clientExplicit = true; c._hkClient = { states: { 'person.a': { state: 'home', last_changed: '2026-11-09T09:02:00', attributes: { friendly_name: 'Sam' } }, 'person.b': { state: 'Work', last_changed: '2026-11-09T08:00:00', attributes: { friendly_name: 'Robin' } } } }; return c._xl(['person.a', 'person.b']); })();
+  ok('...one at home: "Home since" under the name; away: "Since" at the row\'s right', /class="xf x1"/.test(xs) && />Home since \d/.test(xs) && /class="sn">Since \d/.test(xs), xs);
+  ok('...each face and row opens its person', (xl.match(/<button class="x[fw][ "][^>]*data-id="person\./g) || []).length === 3);
+  ok('...nobody home says so, and who left last', /<b>Nobody Home<\/b><span>\w+ left /.test((function () { var c = H.make('hk-people-card'); c._clientExplicit = true; c._hkClient = { states: { 'person.a': { state: 'not_home', last_changed: '2026-11-09T09:02:00', attributes: { friendly_name: 'Alex Park' } } } }; return c._xl(['person.a']); })()));
+  ok('...the two columns\' gap is the block\'s inset, the rows 56 and the lists scroll with a fade', PSRC.indexOf("gap:var(--hk-pad-l,18px)") > 0 && PSRC.indexOf("height:56px;flex:none") > 0 && PSRC.indexOf(".pp .xs.more{") > 0);
   ok('the page card keeps its row of avatars', /class="row" role="list"/.test((function () { var c = H.make('hk-people-card'); hkGive(c, hass()); c.setConfig({}); return c._root.__html; })()));
 },
 function () {

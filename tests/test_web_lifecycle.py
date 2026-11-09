@@ -196,9 +196,9 @@ console.log(JSON.stringify({ waits, reloads, shown, counted, after: store.k ?? n
 
 
 def test_the_people_cards_failed_picture_handler_survives_a_second_call():
-    """WEB-8 (fixed): hk-home.js:2242-2243: img.onerror() is also called by hand when the picture already failed, and then again
+    """WEB-8 (fixed): hk-people.js: img.onerror() is also called by hand when the picture already failed, and then again
     by the browser, when the img has left the page: parentNode is null"""
-    src = text("web/hk/cards/hk-home.js")
+    src = text("web/hk/cards/hk-people.js")
     i = src.index("img.onerror = function () {")
     line = src[i: src.index("\n", i)]
     assert "if (img.parentNode" in line or "img.parentNode &&" in line or "img.parentNode)" in line
