@@ -689,6 +689,10 @@ LONG_SONG = {"media_title": "Blue in Green (Alternate Take, Remastered for the F
              "media_artist": "The Fictional Trio with the Fictional Philharmonic Orchestra",
              "media_album_name": "Kind of Fictional: The Complete Studio Sessions"}
 LR = "media_player.living_room"
+# THE IDLE PLAYER'S MUSIC (2026-11-09, mockup 12b, Now Playing's idle face): what Music Assistant says was played last (gallery.NO_LAST: nothing), and the
+# Music page's playlists, each by its state's `music`: [a last played or not, how many playlists]
+PLAYLIST_NAMES = ("Late Train Home", "Paper Lanterns", "Saturday Morning", "Northern Lights", "Slow Tide", "Back Porch", "Sunday Roast", "Rainy Window",
+                  "Kitchen Dance", "Focus", "Dinner Party", "Wind Down")
 STATES.update({
     "art": {"attrs": {LR: {"entity_picture": COVER}}},                       # playing, with its cover
     "noart": {},                                                              # playing, no cover (the house's default)
@@ -696,6 +700,10 @@ STATES.update({
     "pausednoart": {"entities_state": {LR: "paused"}},
     # nothing playing, everything else busy: what a stopped player has (no song, no times, no cover)
     "idle": {"entities_state": {LR: "idle"}, "attrs": {LR: dict.fromkeys(
+        ("media_title", "media_artist", "media_album_name", "media_duration", "media_position", "media_position_updated_at"))}},
+    "idle_nolast": {"entities_state": {LR: "idle"}, "music": [False, 8], "attrs": {LR: dict.fromkeys(
+        ("media_title", "media_artist", "media_album_name", "media_duration", "media_position", "media_position_updated_at"))}},
+    "idle_few": {"entities_state": {LR: "idle"}, "music": [True, 3], "attrs": {LR: dict.fromkeys(
         ("media_title", "media_artist", "media_album_name", "media_duration", "media_position", "media_position_updated_at"))}},
     "off": {"entities_state": {LR: "off"}, "attrs": {LR: dict.fromkeys(
         ("media_title", "media_artist", "media_album_name", "media_duration", "media_position", "media_position_updated_at"))}},
@@ -849,6 +857,10 @@ def apply_state(name: str) -> None:
     """Turn the stood-in house (gallery.HOUSE, EXTRA already in it) into STATES[name]."""
     st = STATES[name]
     STATE["name"] = name
+    last, n = st.get("music", [True, 8])
+    gallery.NO_LAST["on"] = not last
+    gallery.PLAYLISTS[:] = [{"name": nm, "key": nm.lower().replace(" ", "_"), "icon": "mdi:music"} for nm in PLAYLIST_NAMES[:n]] \
+        if name.startswith("idle") else []
     for eid in [e for e in gallery.HOUSE if any(e.startswith(pre) for pre in st.get("remove", []))]:
         del gallery.HOUSE[eid]
     for eid, (area, (state, attrs)) in list(gallery.HOUSE.items()):

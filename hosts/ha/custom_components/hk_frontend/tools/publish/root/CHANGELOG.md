@@ -11,6 +11,7 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 - **House Status starts at the top at every size.** The headline ("1 Window Open", or "All Good" with its green check) now starts at the block's top inset, top left on Extra Large on the first line's level, and its sentence under it; "+N more" sits at the foot of that column on the last line's level. The lists start at the top too.
 - **The Room and Scenes blocks keep Large's tiles at Extra Large and Full Width**: three tiles across at Extra Large and six at Full Width, up to two rows, from the top-left (the Room under its name and status) -- not two columns and not a short row in the middle. A room with more than fit says "+N more" at the heading's right, which opens it; Scenes says "N More" in its last tile as before. The Scenes block has no Time Windows option and no Suggested column.
 - **The Large Live TV block fills with channels.** Six channel tiles, two across and three down, in one designed size (16 : 10) that fits the block; fewer channels start top left and keep that size. Tall, Wide, Small and Extra Large are unchanged.
+- **The Now Playing block with nothing playing, at Large and Extra Large:** the last thing played with a white Play key, Browse and the speaker as two full buttons (a word and a gray line each), and your playlists. Large lays the playlists in a row of covers; Extra Large puts them on the right as rows that scroll, as Up Next does. Once music plays, the block is the player again.
 
 ## 1.54.1 - 2026-11-09
 

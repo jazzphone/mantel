@@ -437,6 +437,9 @@ class GalleryLibrary(FictionalLibrary):
              "radio": ["Jazz Radio", "Morning Classical", "Indie Mix"]}
 
     async def library(self, media_type, **args):
+        # (a house that has played nothing: the audit's idle_nolast, the Music block's and the idle player's "last played")
+        if NO_LAST["on"] and media_type.rstrip("s") == "track":
+            return []
         items = await super().library(media_type, **args)
         names = self.NAMES.get(media_type.rstrip("s"), [])
         for n, item in enumerate(items):
@@ -644,6 +647,11 @@ SPEAKERS = [{"name": "Living Room", "entity": "media_player.living_room"},
             {"name": "Kitchen", "entity": "media_player.kitchen"}]
 
 
+# The Music page's playlists the feed sends (the audit's idle states fill it: tools/headless/home_grid_audit.py)
+PLAYLISTS: list = []
+NO_LAST = {"on": False}
+
+
 def stand_in_music(app) -> None:
     """Music Assistant set up, with the house's speakers (HK's music feed, as tools/app_dev_server.py has it)."""
     from mantel_server.connectors import Route
@@ -653,7 +661,8 @@ def stand_in_music(app) -> None:
 
     async def subscribe(ctx, msg, on_event):
         asyncio.get_running_loop().call_soon(on_event, {"configured": True, "library_entry": "fictional",
-                                                        "speakers": [dict(s) for s in SPEAKERS]})
+                                                        "speakers": [dict(s) for s in SPEAKERS],
+                                                        "playlists": [dict(p) for p in PLAYLISTS]})
 
         async def unsubscribe():
             return None

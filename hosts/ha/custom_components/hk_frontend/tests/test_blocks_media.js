@@ -122,6 +122,41 @@ function () {
   ok('no label over the song (2026-11-08)', !/class="lab"|>Now Playing<|'Now Playing'/.test(readFile(HK_ROOT + '/frontend/media/hk-media-now.js')));
 },
 function () {
+  H.section('Now Playing: nothing playing, Large and Extra Large (mockup 12b, 2026-11-09)');
+  var css = customElements.get('hk-now-playing-card').CSS;
+  ok('the idle face replaces the player\'s pieces on Large and Extra Large only',
+     css.indexOf(':host(:is([size=L],[size=XL])) .np.idle .grid>:not(.npi):not(.bg):not(.shade){display:none!important}') >= 0 && css.indexOf('.np .npi{display:none}') >= 0);
+  ok('Extra Large: the left column as wide as the player\'s, the playlists beside it', css.indexOf(':host([size=XL]) .np.idle .npi-l{flex:none;width:var(--np-pw)') >= 0);
+  ok('Browse, the speaker and Play: 56 px targets', css.indexOf('.np.idle .npi-b{flex:1;min-width:0;display:flex;align-items:center;gap:10px;height:56px') >= 0 && css.indexOf('.np.idle .npi-play::after{content:"";position:absolute;inset:-8px -6px}') >= 0);
+  var saved = window.hkMusic.playlists, turned = [], played = [];
+  window.hkMusic.playlists = function () { return [{ name: 'Focus', key: 'focus' }, { name: 'Dinner Party', key: 'dinner' }]; };
+  ['L', 'XL'].forEach(function (s) {
+    var np = sized('hk-now-playing-card', s);
+    np._turn = function (tab) { turned.push(s + ':' + tab); };
+    hkGive(np, house.hass());
+    np._eng = { _items: [{ uri: 'u1', name: 'Blue in Green', artist: 'The Fictional Trio', key: 'a' }], _play: function (it) { played.push(it.name); } };
+    np._render();
+    np._drawIdle(null, true);
+    var html = np._e.idle.__t; 
+    ok(s + ': Last Played, the song, Play, Browse, the speaker and the playlists',
+       /Last Played/.test(html) && /Blue in Green/.test(html) && /data-ia="play"/.test(html) && /data-ia="browse"/.test(html) && /data-ia="spk"/.test(html) && /Dinner Party/.test(html));
+    // (the mock DOM has no selectors over innerHTML: a tap is the button's attributes)
+    var tap = function (attr, val) { var b = { getAttribute: function (k) { return k === attr ? val : null; } }; np._idleTap({ target: { closest: function () { return b; } } }); };
+    tap('data-ia', 'browse'); tap('data-ia', 'spk'); tap('data-ia', 'play'); tap('data-pi', '1');
+  });
+  eq('Browse and the speaker turn the block; Play plays the last, a cover its playlist', [turned, played],
+     [['L:browse', 'L:speakers', 'XL:browse', 'XL:speakers'], ['Blue in Green', 'Dinner Party', 'Blue in Green', 'Dinner Party']]);
+  var none = sized('hk-now-playing-card', 'L');
+  hkGive(none, house.hass());
+  none._eng = { _items: [], _play: function () {} };
+  none._render(); none._drawIdle(null, true);
+  ok('no last played: "Nothing Playing" where the song goes, the buttons and playlists kept, no Play key',
+     /Nothing Playing/.test(none._e.idle.__t) && !/data-ia="play"/.test(none._e.idle.__t) && /data-ia="browse"/.test(none._e.idle.__t) && /Focus/.test(none._e.idle.__t));
+  none._drawIdle(null, false);
+  eq('once music plays the idle face is emptied', none._e.idle.__t, '');
+  window.hkMusic.playlists = saved;
+},
+function () {
   H.section('Music: one cover per album, the last first');
   var items = [
     { uri: 'library://track/1', name: 'Low Tide', image: 'a.jpg', album: { uri: 'library://album/1' }, artists: [{ name: 'Marlow Lane' }] },

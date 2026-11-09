@@ -325,6 +325,8 @@
         var br = this._root.querySelector('.br');
         if (br) br.addEventListener('click', function (e) { e.stopPropagation(); self._browse(); });
         if (s === 'S' && last && last.image) this._artImage(last.image, this._root.querySelector('.bg .cvr'), '<hk-icon icon="' + esc(last.icon || 'mdi:music') + '"></hk-icon>', 600);
+        // (the Now Playing block's idle face reads this card's last played: hk-media-now.js _idleEngine)
+        if (this.onDraw) this.onDraw(this);
         this._root.querySelectorAll('[data-i]').forEach(function (b) {
           var it = list[+b.getAttribute('data-i')];
           if (!it) return;
