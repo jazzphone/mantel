@@ -19,6 +19,7 @@ import '../cards/hk-metric.js';
 import './mantel-client.js';
 import './ha-elements.js';
 import '/hk/elements/hk-elements.js';
+import '/hk/modules/hk-np-strip.js';    // the music players' controls strip (2026-11-09)
 import { Host } from './mantel-host.js';
 import { Hub } from './hub.js';
 import { startAgain, started } from './boot-retry.js';

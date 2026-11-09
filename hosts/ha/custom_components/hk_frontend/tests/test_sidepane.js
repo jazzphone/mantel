@@ -287,7 +287,7 @@ var at = function (h, act) { return h.indexOf('data-act="' + act + '"'); };
 ok('...Less, a mini player (2026-10-31, the owner\'s pick): the song, then Speakers, back, play / pause, next, Browse on one row',
    /data-act="spk"[^>]*aria-label="Speakers"/.test(less) && /data-act="brw"[^>]*aria-label="Browse Music"/.test(less) &&
    less.indexOf('Late Light') < at(less, 'spk') && at(less, 'spk') < at(less, 'prev') && at(less, 'prev') < at(less, 'pp') &&
-   at(less, 'pp') < at(less, 'next') && at(less, 'next') < at(less, 'brw') && /class="pp big"/.test(less), less);
+   at(less, 'pp') < at(less, 'next') && at(less, 'next') < at(less, 'brw') && /class="mbtn mpp"/.test(less), less);   // (the controls strip's keys since 2026-11-09: hk-np-strip.js)
 var src = readFile(HK_ROOT + '/frontend/modules/hk-sidepane.js');
 // (as a drawer from the section since 2026-11-01: the player risen to the pane's top, the tabs under it)
 ok('...Speakers, Browse and Up Next open the screensaver\'s panel over the pane, its four tabs', /musicPanel\(this, act === 'spk' \? 'speakers' : act === 'queue' \? 'queue' : 'browse', b\.closest\('\[data-k="now_playing"\]'\), 'drawer'\)/.test(src) &&
@@ -297,7 +297,9 @@ client.states['media_player.kitchen'].attributes.volume_level = 0.42;
 var lessV = X.SEC.now_playing('less', {}, client, ctx);
 ok('...and its volume under the row where it does, set where it is let go', at(lessV, 'brw') < at(lessV, 'vol') && /data-act="vol"[^>]*value="42"/.test(lessV) &&
    /'media_player', 'volume_set', \{ volume_level:/.test(src), lessV);
-ok('...a 44 px place for a finger, its track 6 px', /\.vol input\{[^}]*height:44px/.test(src) && /\.vol input::-webkit-slider-runnable-track\{height:6px/.test(src));
+// (in the controls strip's volume row since 2026-11-09 -- hk-np-strip.js: the row 44 px on the screen, the slider as tall)
+ok('...a 44 px place for a finger, its track 6 px', /\.hks \.mvs input\{[^}]*height:100%/.test(src) && /--hks-min:calc\(44px \/ var\(--hk-pin-z,1\)\)/.test(src) &&
+   /\.hks \.mvs input::-webkit-slider-runnable-track\{height:6px/.test(src));
 ok('...back and next go to the music\'s player', /'media_previous_track' : 'media_next_track'/.test(src));
 delete client.states['media_player.kitchen'].attributes.volume_level;
 

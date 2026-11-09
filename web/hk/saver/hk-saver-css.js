@@ -340,52 +340,17 @@
       '  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}',
       '.martist{font-size:calc(28px * var(--z));font-weight:600;opacity:.92;margin-top:calc(6px * var(--z))}',
       '.malbum{font-size:calc(21px * var(--z));font-weight:500;opacity:.62;margin-top:calc(4px * var(--z))}',
-      '.mprog{position:relative;margin-top:calc(22px * var(--z))}',
-      '.mbar{height:calc(5px * var(--z));border-radius:99px;background:rgba(255,255,255,.22);overflow:hidden}',
-      '.mbar i{display:block;height:100%;background:rgba(255,255,255,.92);transform-origin:0 50%;transform:scaleX(0)}',
-      '.mtimes{position:absolute;left:0;right:0;top:100%;display:flex;justify-content:space-between;font-size:calc(15px * var(--z));opacity:.66;margin-top:calc(7px * var(--z));',
-      '  font-variant-numeric:tabular-nums}',
-      // as much room above the buttons as below them
-      // (the volume beside them, or on a row of its own where there is no room)
-      // EVEN ROOM ABOUT THE BUTTONS: the progress bar --g above them, the
-      // volume's bar --g below them. Both rows are as tall as their bar alone:
-      // the times hang under the progress bar in that room, the volume's
-      // icons and knob overflow its row evenly.
-      // BARE BUTTONS (2026-11-07, the owner: "do we need the wells (circles) behind the icons? ... looking at Apple's
-      // player, I think it looks better without them"): the glyphs bigger instead, each still its whole button to
-      // tap; spread across the column, Speakers' and Browse's ink in line with the bars' ends (the row's margin).
-      // --g plus the play/pause button's room round its ink (its box less the pause glyph's 14/24) is the even gap
-      // between the progress bar and that ink and between it and the volume bar (player_look_check.py measures it)
-      '.mctl{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;--g:calc(18px * var(--z));gap:var(--g) calc(22px * var(--z));',
-      '  margin:var(--g) calc(-10px * var(--z)) 0}',
-      '.mbtn{flex:none;width:calc(60px * var(--z));height:calc(60px * var(--z));border-radius:50%;display:flex;align-items:center;',
-      '  justify-content:center;transition:transform .15s ease,opacity .15s ease}',
-      '.mbtn svg{width:76%;height:76%;fill:#fff}',
-      '.mbtn.mpp{width:calc(76px * var(--z));height:calc(76px * var(--z))}',
-      '.mbtn.mpp svg{width:84%;height:84%}',
+      // THE CONTROLS STRIP (2026-11-09; modules/hk-np-strip.js): the progress, the transport and the volume are the one
+      // strip every player draws with -- its geometry there, at this view's scale; what follows sets only this view's
+      // sizes and places. (Before, the volume's track was found 28 px past its edges and the buttons 14 px past
+      // theirs: a tap meant for play / pause could land on the volume -- the owner, 2026-11-09.)
+      window.hkNpStrip.CSS,
+      '.mu .hks,.pm .hks{--hks-z:var(--z);margin-top:calc(22px * var(--z))}',
+      // (a row of the Up Next list is a button too, laid out as a row)
+      '.mbtn{display:flex;align-items:center;transition:transform .15s ease,opacity .15s ease}',
       '.mbtn.hit{transform:scale(.88);opacity:.6}',
-      // SPEAKERS AND BROWSE at the ends of the transport (hk-saver-panel.js):
-      // smaller and lighter than it, so play / pause stays the main thing; lit
-      // while their panel is open (the one well left: a button that is on)
-      '.mbtn.mx{width:calc(48px * var(--z));height:calc(48px * var(--z))}',
-      '.mbtn.mx svg{width:58%;height:58%;fill:rgba(255,255,255,.72)}',
-      '.mbtn.mx hk-icon{--mdc-icon-size:calc(28px * var(--z));width:calc(28px * var(--z));height:calc(28px * var(--z));color:rgba(255,255,255,.72);display:flex}',
-      '.mbtn.mx.on{background:#fff;box-shadow:none}',
-      '.mbtn.mx.on svg{fill:#111}',
-      '.mbtn.mx.on hk-icon{color:#111}',
-      '[nomx] .mbtn.mx{display:none}',
       '.mnext{display:flex;align-items:center;gap:calc(14px * var(--z));margin-top:calc(30px * var(--z));min-width:0}',
-      // THE VOLUME beside the buttons (its own row in the pane)
-      '.mvol{flex:1 0 calc(100% - 20px * var(--z));height:calc(6px * var(--z));display:flex;align-items:center;gap:calc(12px * var(--z));margin:0 calc(10px * var(--z))}',
-      '.mvol svg{flex:none;width:calc(22px * var(--z));height:calc(22px * var(--z));fill:rgba(255,255,255,.72)}',
-      '.mvt{position:relative;flex:1 1 auto;height:100%;border-radius:99px;background:rgba(255,255,255,.22)}',
-      '.mvt i{position:absolute;left:0;top:0;bottom:0;width:calc(var(--v,0) * 100%);border-radius:99px;background:rgba(255,255,255,.92)}',
-      '.mvt b{position:absolute;top:50%;left:calc(var(--v,0) * 100%);width:calc(20px * var(--z));height:calc(20px * var(--z));',
-      '  margin:calc(-10px * var(--z)) 0 0 calc(-10px * var(--z));border-radius:50%;background:#fff;box-shadow:0 1px 6px rgba(0,0,0,.3);',
-      '  transition:transform .12s ease}',
-      '[dragging] .mvt b{transform:scale(1.25)}',
-      '[novol] .mvol{visibility:hidden}',
-      '.pm[novol] .mvol{display:none}',
+      '.pm .hks[novol] .mvol{display:none}',
       // (the next song's cover when Music Assistant has it -- often not until it
       // plays -- over a note, as the big art's placeholder)
       '.mnth{position:relative;flex:none;width:calc(50px * var(--z));height:calc(50px * var(--z));border-radius:calc(8px * var(--z));',
@@ -395,7 +360,7 @@
       '.mnx{min-width:0}',
       '.mnl{font-size:calc(13px * var(--z));font-weight:700;letter-spacing:.8px;text-transform:uppercase;opacity:.55}',
       '.mnt{font-size:calc(18px * var(--z));font-weight:500;opacity:.86;margin-top:calc(2px * var(--z))}',
-      '[nodur] .mprog,[nonext] .mnext{display:none}',
+      '[nodur] .hks .mprog,[nonext] .mnext{display:none}',
       // A NEW SONG KEEPS THE ROWS' PLACES while Music Assistant is asked what
       // comes next (and while its duration catches up): the column is held at
       // its foot, so a row gone for that moment dropped the song and the
@@ -408,17 +373,21 @@
       '.pm[none]{display:none}',
       // THE SLIDE: the art on the right, the song below the clock, the date
       // and the weather on the left (what does not fit there goes: layoutMusic)
-      '.mu .mart{position:absolute;width:var(--a);height:var(--a);right:6cqw;top:calc(50cqh - var(--a) / 2)}',
-      '.mu .mcol{position:absolute;left:calc(50px * var(--z));bottom:max(7cqh,calc(40px * var(--z)));',
-      '  width:calc(100cqw - var(--a) - 6cqw - 114px * var(--z))}',
+      // ONE MARGIN THREE TIMES (2026-11-09, the owner: "the gap on the right from the album art to the edge doesn't match
+      // the gap from the text/controls on the left to the edge", and "the same margin/gap from the album art to the edge as
+      // the album art to the text"): the column's margin to the left edge, the art's to the right edge and the gap between
+      // them are one --mm, the column's own (it sat 50 px in, the art 6cqw in, 64 px between)
+      '.mu .mbody{--mm:calc(50px * var(--z))}',
+      '.mu .mart{position:absolute;width:var(--a);height:var(--a);right:var(--mm);top:calc(50cqh - var(--a) / 2)}',
+      '.mu .mcol{position:absolute;left:var(--mm);bottom:max(7cqh,calc(40px * var(--z)));',
+      '  width:calc(100cqw - var(--a) - 3 * var(--mm))}',
       '.mu[tight="1"] .mnext,.mu[tight="2"] .mnext,.mu[tight="2"] .malbum{display:none}',
       // A NARROW COLUMN (beside the pane): the volume on a row of its own, the
       // buttons centred between it and the progress bar above them
       '.mu .mcol{container-type:inline-size}',
       // (what the Slides section leaves out of Music Full Screen: musicParts)
-      '.mu.h-room .mroom,.mu.h-album .malbum,.mu.h-progress .mprog,.mu.h-buttons .mctl .mbtn,.mu.h-volume .mctl .mvol,.mu.h-next .mnext{display:none!important}',
-      '.mu.h-buttons.h-volume .mctl{display:none!important}',
-      '@container (max-width:470px){.mu .mctl{column-gap:calc(8px * var(--z))}.mu .mbtn.mx{width:calc(44px * var(--z));height:calc(44px * var(--z))}}',
+      '.mu.h-room .mroom,.mu.h-album .malbum,.mu.h-progress .mprog,.mu.h-buttons .hks .mctl,.mu.h-volume .hks .mvol,.mu.h-next .mnext{display:none!important}',
+      '.mu.h-buttons .hks .mvol{margin-top:0}',
       '.mu[tight="2"] .mtitle{-webkit-line-clamp:1}',
       // UPRIGHT (a phone, an iPad upright; phase 13): the art centered under the slide corner, the song and its buttons in
       // one column under it, the buttons on one line, the volume under them -- an iPhone's Now Playing
@@ -430,7 +399,7 @@
       // sharing one row. The text's center follows the cover even when lines wrap
       // or optional fields disappear; progress and transport span both columns.
       ':host([murow]) .mu .mstage{display:grid;position:absolute;left:var(--hk-mu-stage-x);top:var(--hk-mu-top);width:var(--hk-mu-stage-w);height:var(--hk-mu-stage-h);',
-      '  grid-template-columns:var(--a) minmax(0,1fr);grid-template-rows:var(--a) minmax(calc(24px * var(--z)),1fr) auto auto auto;column-gap:calc(32px * var(--z))}',
+      '  grid-template-columns:var(--a) minmax(0,1fr);grid-template-rows:var(--a) minmax(calc(24px * var(--z)),1fr) auto auto auto;column-gap:var(--hk-mu-stage-x,calc(56px * var(--z)))}',
       ':host([murow]) .mu .mart{position:relative;left:auto;right:auto;top:auto;grid-column:1;grid-row:1}',
       ':host([murow]) .mu .mcol{display:contents;container-type:normal}',
       ':host([murow]) .mu .mmeta{grid-column:2;grid-row:1;align-self:center}',
@@ -440,8 +409,7 @@
       ':host([murow]) .mu.h-room .mtitle,:host([murow]) .mu .mroom:empty+.mtitle{margin-top:0}',
       ':host([murow]) .mu .martist{font-size:calc(25px * var(--z));margin-top:calc(10px * var(--z))}',
       ':host([murow]) .mu .malbum{font-size:calc(18px * var(--z));margin-top:calc(6px * var(--z))}',
-      ':host([murow]) .mu .mprog{grid-column:1/-1;grid-row:3;margin-top:0}',
-      ':host([murow]) .mu .mctl{grid-column:1/-1;grid-row:4}',
+      ':host([murow]) .mu .hks{grid-column:1/-1;grid-row:3 / 5;margin-top:0}',
       // (Up Next under the song, beside the cover: drawQueueRows; only here)
       '.mq{display:none}',
       ':host([murow]) .mu .mq:not(:empty){display:block;margin-top:calc(18px * var(--z))}',
@@ -472,23 +440,18 @@
       ':host(:not([pcal])) .pm .mtitle{font-size:calc(25px * var(--z));letter-spacing:-.3px;margin-top:calc(6px * var(--z))}',
       ':host(:not([pcal])) .pm .martist{font-size:calc(18px * var(--z))}',
       ':host(:not([pcal])) .pm .malbum{font-size:calc(15px * var(--z))}',
-      ':host(:not([pcal])) .pm .mprog{margin-top:calc(16px * var(--z))}',
-      ':host(:not([pcal])) .pm .mtimes{font-size:calc(12px * var(--z))}',
-      '.pm .mvol{order:9}',
+      ':host(:not([pcal])) .pm .hks{margin-top:calc(16px * var(--z))}',
+      '.pm .hks{--hks-tf:calc(12px * var(--z));--hks-th:calc(22px * var(--z))}',
       // SPREAD ACROSS THE SONG'S WIDTH (2026-11-06, the owner: "too close together ... spread out in the Full size like
       // they are on the More size"): Speakers and Browse at the progress bar's ends, the transport between; the gap a
       // floor where the pane is narrow
-      ':host(:not([pcal])) .pm .mctl{--g:calc(20px * var(--z))}',
-      ':host(:not([pcal])) .pm .mbtn{width:calc(50px * var(--z));height:calc(50px * var(--z))}',
-      ':host(:not([pcal])) .pm .mbtn.mpp{width:calc(62px * var(--z));height:calc(62px * var(--z))}',
-      ':host(:not([pcal])) .pm .mbtn.mx,:host([pcal]) .pm .mbtn.mx{width:calc(42px * var(--z));height:calc(42px * var(--z))}',
-      '.pm .mbtn.mx hk-icon{--mdc-icon-size:calc(24px * var(--z));width:calc(24px * var(--z));height:calc(24px * var(--z))}',
+      '.pm .hks{--hks-b:calc(50px * var(--z));--hks-pp:calc(62px * var(--z));--hks-x:calc(42px * var(--z));',
+      '  --hks-gb:calc(38px * var(--z));--hks-gpp:calc(52px * var(--z));--hks-gx:calc(24px * var(--z))}',
       // (a narrow pane -- the band's sections, a 290 px strip: the five keep one
       // row, smaller and closer, rather than Browse dropping to a line of its
       // own, 2026-10-31)
-      '@container (max-width:360px){:host(:not([pcal])) .pm .mctl{column-gap:calc(8px * var(--z))}',
-      '  :host(:not([pcal])) .pm .mbtn{width:calc(44px * var(--z));height:calc(44px * var(--z))}:host(:not([pcal])) .pm .mbtn.mpp{width:calc(54px * var(--z));height:calc(54px * var(--z))}',
-      '  :host(:not([pcal])) .pm .mbtn.mx,:host([pcal]) .pm .mbtn.mx{width:calc(38px * var(--z));height:calc(38px * var(--z))}}',
+      // (the targets keep the rule's 44 px, their glyphs smaller)
+      '@container (max-width:360px){:host(:not([pcal])) .pm .hks{--hks-gb:calc(34px * var(--z));--hks-gpp:calc(46px * var(--z));--hks-gx:calc(22px * var(--z))}}',
       ':host(:not([pcal])) .pm .mnext{justify-content:center;margin-top:calc(28px * var(--z));text-align:left}',
       ':host(:not([pcal])) .pm .mnth{width:calc(38px * var(--z));height:calc(38px * var(--z))}',
       ':host(:not([pcal])) .pm .mnl{font-size:calc(10px * var(--z))}',
@@ -501,32 +464,25 @@
       ':host([pcal]) .pm .mbody::before{content:"";position:absolute;top:0;left:var(--hk-pane-pad,28px);right:var(--hk-pane-pad,28px);',
       '  border-top:1px solid rgba(255,255,255,0.14)}',
       ':host([pcal]) .pm .mbody{position:absolute;top:auto;left:0;right:0;bottom:0;display:grid;grid-template-columns:calc(120px * var(--z)) minmax(0,1fr);',
-      '  column-gap:calc(18px * var(--z));align-items:center;padding:calc(22px * var(--z)) var(--hk-pane-pad,28px) var(--hk-pm-foot,22px)}',
+      '  column-gap:var(--hk-pane-pad,28px);align-items:center;padding:calc(22px * var(--z)) var(--hk-pane-pad,28px) var(--hk-pm-foot,22px)}',
       ':host([pcal]) .pm .mart{grid-row:1 / span 4;width:calc(120px * var(--z));height:calc(120px * var(--z))}',
       ':host([pcal]) .pm .msq{border-radius:calc(12px * var(--z))}',
       ':host([pcal]) .pm .mfr img{border-radius:calc(12px * var(--z))}',
       ':host([pcal]) .pm .mcol{display:contents}',
       ':host([pcal]) .pm .mroom,:host([pcal]) .pm .mtitle,:host([pcal]) .pm .martist,:host([pcal]) .pm .malbum{grid-column:2}',
-      ':host([pcal]) .pm .mprog,:host([pcal]) .pm .mctl,:host([pcal]) .pm .mnext{grid-column:1 / -1}',
+      ':host([pcal]) .pm .hks,:host([pcal]) .pm .mnext{grid-column:1 / -1}',
       ':host([pcal]) .pm .mroom{font-size:calc(13px * var(--z))}',
       ':host([pcal]) .pm .mtitle{font-size:calc(22px * var(--z));letter-spacing:-.3px;margin-top:calc(4px * var(--z))}',
       ':host([pcal]) .pm .martist{font-size:calc(17px * var(--z));margin-top:calc(3px * var(--z))}',
       ':host([pcal]) .pm .malbum{font-size:calc(14px * var(--z));margin-top:calc(2px * var(--z))}',
-      ':host([pcal]) .pm .mprog{margin-top:calc(18px * var(--z))}',
-      ':host([pcal]) .pm .mtimes{font-size:calc(12px * var(--z))}',
-      ':host([pcal]) .pm .mctl{--g:calc(20px * var(--z));column-gap:calc(20px * var(--z))}',
-      // (without Speakers and Browse, the transport alone stays together in the middle)
-      '[nomx] .mctl{justify-content:center!important}',
-      ':host([pcal]) .pm .mvol{height:calc(5px * var(--z))}',
+      ':host([pcal]) .pm .hks{margin-top:calc(18px * var(--z));--hks-tk:calc(5px * var(--z))}',
       ':host([pcal]) .pm .mvol svg{width:calc(18px * var(--z));height:calc(18px * var(--z))}',
       ':host([pcal]) .pm .mvt b{width:calc(16px * var(--z));height:calc(16px * var(--z));margin:calc(-8px * var(--z)) 0 0 calc(-8px * var(--z))}',
-      ':host([pcal]) .pm .mbtn{width:calc(50px * var(--z));height:calc(50px * var(--z))}',
-      ':host([pcal]) .pm .mbtn.mpp{width:calc(62px * var(--z));height:calc(62px * var(--z))}',
       ':host([pcal]) .pm .mnext{margin-top:calc(24px * var(--z));gap:calc(12px * var(--z))}',
       ':host([pcal]) .pm .mnth{width:calc(38px * var(--z));height:calc(38px * var(--z));border-radius:calc(7px * var(--z))}',
       ':host([pcal]) .pm .mnl{font-size:calc(10px * var(--z))}',
       ':host([pcal]) .pm .mnt{font-size:calc(14px * var(--z))}',
-      ':host([pcal]) .pm[idle] .mctl{grid-column:1 / -1}',
+      ':host([pcal]) .pm[idle] .hks{grid-column:1 / -1}',
       '@media (prefers-reduced-motion:reduce){.ph,.phscrim,.fcscrim,.mu,.mfr,.mbgf{transition:none}.ph.zoom img.fg,.ph.mo.zoom .mocell canvas{animation:none}}'
     ].join('\n') + '\n' + [
       // THE HOMEVIEW-STYLE FACES (2026-10-30; docs/phase11/HOMEVIEW-LOOK.md, Phase I)

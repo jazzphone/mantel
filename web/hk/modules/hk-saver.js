@@ -2893,11 +2893,11 @@
       var v = mus.views[i];
       // (the dashboard's pane takes its own taps -- and lies under this)
       if (v.kind === 'dash' || !v.el.isConnected || (v.kind === 'slide' && !muShowing) || !seen(v.el)) continue;
-      if (!v.el.hasAttribute('novol')) {
-        var tr = v.vt.getBoundingClientRect();
-        if (tr.width && x >= tr.left - MU_SLOP && x <= tr.right + MU_SLOP && y >= tr.top - 2 * MU_SLOP && y <= tr.bottom + 2 * MU_SLOP) return { vol: true, view: v };
-      }
-      var bs = v.el.querySelectorAll('.mbtn');
+      // THE STRIP'S CONTROLS BY THEIR OWN BOXES (hk-np-strip.js; 2026-11-09, the owner: a tap meant for play landed on
+      // the volume) -- no slop round them, which reached 28 px over the room between the transport and the volume
+      var sh = window.hkNpStrip.hitAt(v.strip, x, y);
+      if (sh) return sh.act !== 'vol' ? { btn: sh.el, view: v } : v.el.hasAttribute('novol') ? null : { vol: true, view: v };
+      var bs = v.el.querySelectorAll('.mq .mbtn');
       for (var j = 0; j < bs.length; j++) {
         var r = bs[j].getBoundingClientRect();
         if (r.width && x >= r.left - MU_SLOP && x <= r.right + MU_SLOP && y >= r.top - MU_SLOP && y <= r.bottom + MU_SLOP &&
@@ -4189,7 +4189,7 @@
             if (b) { musicAct({ btn: b, view: v }); return; }
             if (e.target.closest && e.target.closest('.msq')) musicAct({ art: true, view: v });
           });
-          var vt = v.vt;
+          var vt = v.vh;   // (the volume's whole row, its target: hk-np-strip.js)
           vt.addEventListener('pointerdown', function (e) {
             if (v.el.hasAttribute('novol')) return;
             e.preventDefault(); e.stopPropagation();
@@ -4215,7 +4215,7 @@
           this.addEventListener('pointerdown', function (ev) {
             if (d || !self._v || (pnl && pnl.view === self._v) || (ev.pointerType === 'mouse' && ev.button !== 0)) return;
             var path = ev.composedPath ? ev.composedPath() : [];
-            if (path.indexOf(self._v.vt) >= 0) return;
+            if (path.indexOf(self._v.vh) >= 0) return;
             var sh = sheetOf();
             if (!sh) return;
             d = { id: ev.pointerId, x: ev.clientX, y: ev.clientY, sh: sh, w: sh.offsetWidth || 400, on: false,

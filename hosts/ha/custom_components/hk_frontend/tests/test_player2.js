@@ -120,13 +120,20 @@ function paintedIcon(state) {
   var states = { 'input_select.media_player_selection': { state: 'Kitchen' } };
   states[e('kitchen')] = { state: state, attributes: { media_title: 't' } };
   hkGive(c, { states: states });
-  var icon = document.createElement('hk-icon');
-  icon.setAttribute('icon', 'mdi:play');
+  // (the glyph is the controls strip's since 2026-11-09 -- hk-np-strip.js, one look in every player: an svg path,
+  // read back as the mdi name it draws)
+  var path = document.createElement('path');
+  path.setAttribute('d', window.hkNpStrip.ICON.play);
   var btn = document.createElement('div');
-  btn.querySelector = function () { return icon; };
+  btn.classList.add('mpp');
+  btn.querySelector = function () { return path; };
   c._e = { play: btn };
   c._paintPlayButton(c._player());
-  return { icon: icon.getAttribute('icon'), label: btn.getAttribute('aria-label') };
+  return { icon: glyphOf(path), label: btn.getAttribute('aria-label') };
+}
+function glyphOf(path) {
+  var d = path && path.getAttribute('d'), I = window.hkNpStrip.ICON;
+  return d === I.pause ? 'mdi:pause' : d === I.play ? 'mdi:play' : '(' + d + ')';
 }
 ok('playing shows PAUSE',        iconFor('playing'), 'mdi:pause');
 ok('paused shows play',          iconFor('paused'),  'mdi:play');
@@ -174,8 +181,8 @@ function renderedIcon(state) {
                            attributes: { media_title: 't', media_artist: 'a' } };
   c.hass = { states: states, callService: function () {} };
   var btn = c._e && c._e.play;
-  var ic = btn && btn.querySelector('hk-icon');
-  return { icon: ic ? ic.getAttribute('icon') : '(no button)',
+  var ic = btn && btn.querySelector('path');
+  return { icon: ic ? glyphOf(ic) : '(no button)',
            label: btn ? btn.getAttribute('aria-label') : '(no button)' };
   } finally { window.hkCards.morph = realMorph; }
 }

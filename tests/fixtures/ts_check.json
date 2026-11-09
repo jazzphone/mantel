@@ -38,6 +38,7 @@
   "web/hk/modules/hk-loader.js",
   "web/hk/modules/hk-mic-tap.js",
   "web/hk/modules/hk-mic.js",
+  "web/hk/modules/hk-np-strip.js",
   "web/hk/modules/hk-pairs.js",
   "web/hk/modules/hk-pcm-tap.js",
   "web/hk/modules/hk-saver-chooser.js",

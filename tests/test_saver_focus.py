@@ -16,6 +16,7 @@ import web_sources
 
 ROOT = Path(__file__).resolve().parents[1]
 SAVER = ROOT / "web/hk/modules/hk-saver.js"
+STRIP = ROOT / "web/hk/modules/hk-np-strip.js"
 
 pytestmark = pytest.mark.skipif(shutil.which("node") is None, reason="node not installed")
 
@@ -37,6 +38,8 @@ globalThis.HTMLElement = class {};
 globalThis.hkHostClient = { entry: noop };
 globalThis.hkShell = new Proxy({}, { get: () => () => null });
 globalThis.customElements = { get: () => null, define: noop, whenDefined: () => Promise.resolve() };
+// (the music players' controls strip, a bootstrap module every page has before the screensaver: its CSS part reads it)
+(0, eval)(readFileSync(process.argv[3], 'utf8'));
 // (the shell registers its parts' work once they have run: they are evaluated first, as the browser's import() would)
 for (const part of JSON.parse(process.argv[2])) (0, eval)(readFileSync(part, 'utf8'));
 (0, eval)(readFileSync(process.argv[1], 'utf8'));
@@ -47,7 +50,7 @@ const out = {};
 
 def run(body: str) -> dict:
     got = subprocess.run(["node", "-e", LOADER + body + "\nconsole.log(JSON.stringify(out)); process.exit(0);",
-                          str(SAVER), json.dumps([str(p) for p in web_sources.parts(SAVER)])], capture_output=True, text=True, timeout=60)
+                          str(SAVER), json.dumps([str(p) for p in web_sources.parts(SAVER)]), str(STRIP)], capture_output=True, text=True, timeout=60)
     assert got.returncode == 0, got.stderr
     return json.loads(got.stdout.strip().splitlines()[-1])
 

@@ -35,7 +35,7 @@ function bar() {
   // what is on the plate: the cards' boxes, then the art, the title and the controls inside the now-playing card
   const kids = [...sheet.children].filter(k => !k.hasAttribute('data-hk-glass-layer') && !k.classList.contains('x'));
   const np = deep(sheet, 'hk-now-playing-card')[0], inner = np && np.shadowRoot;
-  const parts = inner ? ['.art', '.title', '.play', '.next', '.prev', '.brw', '.spk', '.meta'].map(q => inner.querySelector(q)).filter(e => e && e.getBoundingClientRect().width > 0) : [];
+  const parts = inner ? ['.art', '.title', '[data-act=pp]', '[data-act=next]', '[data-act=prev]', '[data-act=brw]', '[data-act=spk]', '.mvol'].map(q => inner.querySelector(q)).filter(e => e && e.getBoundingClientRect().width > 0) : [];
   const fill = ['::before', '::after'].map(q => { const c = getComputedStyle(sheet, q); return { w: parseFloat(c.width) || 0, bg: c.backgroundColor, content: c.content }; });
   const td = deep(sheet, 'hk-timer-strip-card')[0], tdr = td && td.shadowRoot && td.shadowRoot.querySelector('.sg');
   const tdp = deep(sheet, 'hk-timer-strip-card')[0];

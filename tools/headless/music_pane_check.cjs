@@ -21,15 +21,22 @@ const input = JSON.parse(fs.readFileSync(0, 'utf8'));
           await page.waitForFunction(()=>document.querySelector('hk-side-pane[mode="dash"]')?.shadowRoot.querySelectorAll('.qr').length > 0);
           const pane = () => page.evaluate(()=>{
             const p=document.querySelector('hk-side-pane[mode="dash"]'),r=p.shadowRoot,s=r.querySelector('.secs');
-            const buttons=[...r.querySelectorAll('.trow button')].map(e=>{const b=e.getBoundingClientRect();return {l:b.left,r:b.right};});
+            const buttons=[...r.querySelectorAll('.hks .mctl .mbtn')].map(e=>{const b=e.getBoundingClientRect();return {l:b.left,r:b.right};});
             return {rows:r.querySelectorAll('.qr').length,scroll:s.scrollHeight-s.clientHeight,buttons,
               fit:getComputedStyle(r.querySelector('.artbg b.on')).backgroundSize};
           });
           const a=await pane();
           // EVERY PLAYER'S LOOK (player_look.js): no wells, the pause glyph's ink halfway between the bars
           await page.evaluate(fs.readFileSync(__dirname+'/player_look.js','utf8'));
-          const pl=await page.evaluate(()=>playerLook(document.querySelector('hk-side-pane[mode="dash"]').shadowRoot,{bar:'.npp',pp:'.pp.big hk-icon',vol:'.vol input',buttons:'.trow button'}));
+          // (the Side Pane's player is the controls strip since 2026-11-09: hk-np-strip.js -- its keys, its slots for the
+          // pane's own progress line and slider)
+          const pl=await page.evaluate(()=>playerLook(document.querySelector('hk-side-pane[mode="dash"]').shadowRoot,{bar:'.npp',pp:'.mpp svg',vol:'.mvs input',buttons:'.hks .mbtn'}));
           assert(!pl.wells.length&&pl.above!==undefined&&Math.abs(pl.above-pl.below)<=3,'Side Pane player: '+JSON.stringify(pl));
+          // THE TOUCH RULES, MEASURED (2026-11-09, the owner: a tap meant for play landed on the volume): every target 44 px,
+          // play / pause the biggest, none overlapping, 12 px clear between the keys and the volume and the progress and the keys
+          const ps=await page.evaluate(()=>hkNpStrip.check(document.querySelector('hk-side-pane[mode="dash"]').shadowRoot.querySelector('.hks'),{min:44}));
+          assert(!ps.breaks.length&&ps.gapTV>=12,'Side Pane player strip: '+JSON.stringify(ps));
+          console.log(`  Side Pane player (${side}): targets ${JSON.stringify(ps.targets)}, keys to volume ${ps.gapTV} px, progress to keys ${ps.gapPT} px`);
           const mixed = await page.evaluate(()=>{
             const p=document.querySelector('hk-side-pane[mode="dash"]'),original=p._o.list;
             const before=p.shadowRoot.querySelectorAll('.qr').length;
@@ -112,6 +119,15 @@ const input = JSON.parse(fs.readFileSync(0, 'utf8'));
         const sl=await page.evaluate(()=>playerLook(document.querySelector('hk-screensaver').shadowRoot.querySelector('.mu'),{bar:'.mbar',pp:'.mpp svg',vol:'.mvt',buttons:'.mctl .mbtn'}));
         assert(!sl.wells.length&&(sl.above===undefined||Math.abs(sl.above-sl.below)<=3),'music slide: '+JSON.stringify(sl));
         assert(!sl.volumeEdges || sl.volumeEdges.every(x=>Math.abs(x)<=1),'slide volume row ends aligned: '+JSON.stringify(sl));
+        // (the touch rules, measured -- hk-np-strip.js check: 44 px targets, nothing overlapping, 12 px clear round the keys)
+        const ss=await page.evaluate(()=>hkNpStrip.check(document.querySelector('hk-screensaver').shadowRoot.querySelector('.mu .hks'),{min:44}));
+        assert(!ss.breaks.length&&(ss.gapTV===null||ss.gapTV>=12),'music slide strip: '+JSON.stringify(ss));
+        // (one margin: the column's to the left edge, the art's to the right, the gap between -- 2026-11-09, the owner)
+        const mg=await page.evaluate(()=>((r) => { const q = s => r.querySelector(s), R = e => e.getBoundingClientRect(), body = R(q('.mu .mbody')), art = R(q('.mu .mart')), bar = R(q('.mu .mbar'));
+      const st = q('.mu .mstage'), row = !!(st && getComputedStyle(st).display === 'grid'), k = (n) => Math.round(n * 10) / 10;
+      if (row) return { row: true, left: k(art.left - body.left), right: k(body.right - bar.right), gap: k(R(q('.mu .mmeta')).left - art.right) };
+      const col = R(q('.mu .mcol')); return { left: k(col.left - body.left), right: k(body.right - art.right), gap: k(art.left - col.right) }; })(document.querySelector('hk-screensaver').shadowRoot));
+        if(!slide.up)assert(Math.abs(mg.left-mg.right)<=1&&Math.abs(mg.gap-mg.left)<=1,'music slide margins: '+JSON.stringify(mg));
         if(slide.row){
           const panel=await page.evaluate(()=>{
             window.hkSaver._.music.panel('slide','queue');
@@ -121,7 +137,8 @@ const input = JSON.parse(fs.readFileSync(0, 'utf8'));
           assert(panel.l>=slide.area.l&&panel.r<=slide.area.r&&panel.t>=slide.area.t&&panel.b<=slide.area.b,JSON.stringify(panel));
         }
         assert.deepEqual(errors,[]);
-        console.log(`PASS ${input.engine} ${W}x${H} ${side}: artwork and music slide${side!=='full'&&W>H&&W>=1000 ? ", controls and adaptive queue" : ""}`);
+        console.log(`PASS ${input.engine} ${W}x${H} ${side}: artwork and music slide${side!=='full'&&W>H&&W>=1000 ? ", controls and adaptive queue" : ""}` +
+                    ` (slide: targets ${JSON.stringify(ss.targets)}, keys to volume ${ss.gapTV} px, progress to keys ${ss.gapPT} px; margins ${JSON.stringify(mg)})`);
       }
       await context.close();
     }

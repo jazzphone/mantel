@@ -510,6 +510,11 @@ class HkControlCard extends HTMLElement {
          NO BACKTICKS IN HERE: this CSS is a template literal. */
       .media-bare.only-vol .range-wrap{margin-top:0}
       .media-bare.only-prog .prog-track{margin-top:0}
+      /* THE THIN LINE (2026-11-09, the owner: "Volume is more important than the progress bar for these cards"): a player
+         with no room for both full-size says so through --hk-prog-thin (hk-np-strip.js; the Now Playing block's Wide, and
+         Tall and Large on a tile) -- the progress a read-only line, no times; the volume keeps its slider. NO BACKTICKS. */
+      .media-bare.only-prog .prog-track{height:var(--hk-prog-h,6px);margin-bottom:var(--hk-prog-gap,6px)}
+      .media-bare.only-prog .prog-times{display:var(--hk-prog-times,flex)}
       /* EVERY PLAYER'S BARS, as the screensaver's music slide draws them (2026-11-07, the owner: "use the progress and
          volume sliders from the screensaver slides for the cards ... They don't need to be purple"): the ink on a quiet
          track, not the accent; the volume's track 6 px under a 22 px knob. The player says which ink (--hk-media-ink:

@@ -20,6 +20,7 @@ import './shim/mantel-client.js';
 import './shim/mantel-native.js';     // the iPhone and iPad app's hooks (nothing without its bridge)
 import './shim/ha-elements.js';
 import '/hk/elements/hk-elements.js';
+import '/hk/modules/hk-np-strip.js';    // the music players' controls strip (2026-11-09)
 import { Host, toast } from './shim/mantel-host.js';
 import { Hub } from './shim/hub.js';
 import { startAgain, started } from './shim/boot-retry.js';

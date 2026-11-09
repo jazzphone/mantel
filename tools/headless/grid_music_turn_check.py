@@ -35,10 +35,10 @@ GRID = {'v': 1, 'cols': 6, 'rows': 4, 'frame': [1280, 800], 'band': True, 'items
     {'id': 's', 'card': 'now_playing', 'size': 'S', 'at': [0, 2]}]}
 # the block's buttons, the cover and the transport, as rectangles
 LAYOUT = """(id)=>{let r=np(id).shadowRoot,R=e=>{let b=e.getBoundingClientRect();return [b.left,b.top,b.right,b.bottom]};
-  return {plate:R(r.querySelector('hk-plate')),art:R(r.querySelector('.art')),spk:R(r.querySelector('.spk')),brw:R(r.querySelector('.brw')),
-          prev:R(r.querySelector('.prev')),play:R(r.querySelector('.play')),next:R(r.querySelector('.next')),
-          shown:getComputedStyle(r.querySelector('.spk')).display!=='none'&&getComputedStyle(r.querySelector('.brw')).display!=='none',
-          vol:getComputedStyle(r.querySelector('.meta')).display!=='none'}}"""
+  return {plate:R(r.querySelector('hk-plate')),art:R(r.querySelector('.art')),spk:R(r.querySelector('[data-act=spk]')),brw:R(r.querySelector('[data-act=brw]')),
+          prev:R(r.querySelector('[data-act=prev]')),play:R(r.querySelector('[data-act=pp]')),next:R(r.querySelector('[data-act=next]')),
+          shown:getComputedStyle(r.querySelector('[data-act=spk]')).display!=='none'&&getComputedStyle(r.querySelector('[data-act=brw]')).display!=='none',
+          vol:getComputedStyle(r.querySelector('.mvol')).display!=='none'}}"""
 
 
 def inside(a, b):
@@ -65,7 +65,7 @@ async def main():
             assert await b.wait('window.__mantelReady===true', 30)
             await b.eval(DEEP)
             state('media_player.living_room', 'playing')
-            assert await b.wait("['w','t','l','x','s'].every(id=>np(id)&&np(id).shadowRoot.querySelector('.spk'))", 20)
+            assert await b.wait("['w','t','l','x','s'].every(id=>np(id)&&np(id).shadowRoot.querySelector('[data-act=spk]'))", 20)
             await asyncio.sleep(1.5)
             # Large and Extra Large: Speakers and Browse shown, inside the block, apart (8 px) from the cover and the transport
             for bid in ('l', 'x'):
@@ -79,11 +79,14 @@ async def main():
                     for o in ('art', 'prev', 'play', 'next'):
                         assert apart(lay[k], lay[o], 8 * z), (bid, k, o, lay)
                 assert apart(lay['prev'], lay['play'], 8 * z) and apart(lay['play'], lay['next'], 8 * z), (bid, lay)
-            # Small, Wide and Tall: no Speakers, Browse or volume (the sheet has them); the keys 44 px with 8 px clear
+            # Small, Wide and Tall: no Speakers or Browse (the sheet has them); the keys 44 px with 8 px clear; Wide and Tall
+            # the volume again (2026-11-09, the owner: "Looks like the tall and the wide cards lost their volume slider?") --
+            # but not on this grid's tile-sized Wide, 110 px inside, where the keys and the volume do not both fit as targets
             for bid, keys in (('s', ('play',)), ('w', ('prev', 'play', 'next')), ('t', ('prev', 'play', 'next'))):
                 lay = await b.eval('(' + LAYOUT + ")('" + bid + "')")
                 z = await b.eval("np('" + bid + "').getBoundingClientRect().width/np('" + bid + "').offsetWidth")
-                assert not lay['shown'] and not lay['vol'], (bid, lay)
+                short = lay['plate'][3] - lay['plate'][1] < 180 * z
+                assert not lay['shown'] and lay['vol'] == (bid != 's' and not short), (bid, lay)
                 for k in keys:
                     assert inside(lay[k], lay['plate']), (bid, k, lay)
                     assert lay[k][2] - lay[k][0] >= 44 * z - 0.5 and lay[k][3] - lay[k][1] >= 44 * z - 0.5, (bid, k, z, lay)
@@ -93,18 +96,22 @@ async def main():
             # the volume's track as far from the pause glyph's ink
             await b.eval((ROOT / 'tools/headless/player_look.js').read_text())
             for bid in ('w', 't', 'l', 'x'):
-                look = await b.eval("playerLook(np('" + bid + "').shadowRoot,{bar:'.prog-track',pp:'.play hk-icon',vol:'.range-wrap input',buttons:'.tb'})")
+                look = await b.eval("playerLook(np('" + bid + "').shadowRoot,{bar:'.prog-track',pp:'.mpp svg',vol:'.range-wrap input',buttons:'.hks .mbtn'})")
                 assert not look['wells'], (bid, look)
-                if bid in ('l', 'x'):
+                # (not where the progress is the thin read-only line -- a tile-sized Large, 2026-11-09, the owner: "Volume is
+                # more important than the progress bar": the line stays 12 px over the keys, the room it would take for the
+                # glyph's halfway is the cover's)
+                thin = await b.eval("deep(np('" + bid + "').shadowRoot,'.prog-track')[0].getBoundingClientRect().height < 4.5")
+                if bid in ('l', 'x') and not thin:
                     assert 'above' in look and abs(look['above'] - look['below']) <= 3, (bid, look)
                 print(f"  {bid}: no wells" + (f", {look['above']} px above the pause, {look['below']} below" if 'above' in look else ''))
             # music playing: Speakers can be tapped
-            assert not await b.eval("np('l').shadowRoot.querySelector('.spk').classList.contains('dis')")
+            assert not await b.eval("np('l').shadowRoot.querySelector('[data-act=spk]').classList.contains('dis')")
             if args.shots:
                 args.shots.mkdir(parents=True, exist_ok=True)
                 await b.screenshot(args.shots / 'turn-front.png')
             # Browse on the Large block: the card turns over into the panel, bigger than the block, on the screen
-            await b.eval("np('l').shadowRoot.querySelector('.brw').click()")
+            await b.eval("np('l').shadowRoot.querySelector('[data-act=brw]').click()")
             assert await b.wait('!!turned()', 5)
             await asyncio.sleep(1.2)
             back = await b.eval("""(()=>{let p=turned(),r=p.getBoundingClientRect(),c=np('l').shadowRoot.querySelector('hk-plate'),cr=c.getBoundingClientRect();
@@ -125,7 +132,7 @@ async def main():
             await b.eval("[...document.body.children].find(h=>h.shadowRoot&&h.shadowRoot.querySelector('.mpanel.turn')).shadowRoot.querySelector('.scrim').click()")
             assert await b.wait("!turned() && getComputedStyle(np('l').shadowRoot.querySelector('hk-plate')).visibility==='visible'", 5)
             # Speakers on the Extra Large block (on Speakers); Escape turns it back
-            await b.eval("np('x').shadowRoot.querySelector('.spk').click()")
+            await b.eval("np('x').shadowRoot.querySelector('[data-act=spk]').click()")
             assert await b.wait("!!turned() && turned().querySelector('.mptabs .on').textContent==='Speakers'", 5)
             await asyncio.sleep(1.2)
             if args.shots:
@@ -136,15 +143,15 @@ async def main():
             await b.send('Input.dispatchKeyEvent', type='keyUp', key='Escape', code='Escape', windowsVirtualKeyCode=27)
             assert await b.wait("!turned() && getComputedStyle(np('x').shadowRoot.querySelector('hk-plate')).visibility==='visible'", 5)
             # the Extra Large block: its Browse, then the X
-            await b.eval("np('x').shadowRoot.querySelector('.brw').click()")
+            await b.eval("np('x').shadowRoot.querySelector('[data-act=brw]').click()")
             assert await b.wait('!!turned()', 5)
             await asyncio.sleep(1.2)
             await b.eval("turned().querySelector('[data-k=\"close\"]').click()")
             assert await b.wait("!turned() && getComputedStyle(np('x').shadowRoot.querySelector('hk-plate')).visibility==='visible'", 5)
             # nothing playing: Speakers dims, Browse still opens (it is how something starts)
             state('media_player.living_room', 'idle')
-            assert await b.wait("np('l').shadowRoot.querySelector('.spk').classList.contains('dis')", 10)
-            await b.eval("np('l').shadowRoot.querySelector('.brw').click()")
+            assert await b.wait("np('l').shadowRoot.querySelector('[data-act=spk]').classList.contains('dis')", 10)
+            await b.eval("np('l').shadowRoot.querySelector('[data-act=brw]').click()")
             assert await b.wait('!!turned()', 5)
             await asyncio.sleep(1.5)
             assert await b.eval('!!turned()'), 'the back stays with nothing playing'

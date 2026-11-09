@@ -31,10 +31,9 @@
       // (the pane itself is hidden under it)
       ':host .mpanel:not(.card){box-shadow:inset 1px 0 0 rgba(255,255,255,0.10),-18px 0 44px rgba(0,0,0,.42),-3px 0 12px rgba(0,0,0,.26)}',
       ':host([side="left"]) .mpanel:not(.card){box-shadow:inset -1px 0 0 rgba(255,255,255,0.10),18px 0 44px rgba(0,0,0,.42),3px 0 12px rgba(0,0,0,.26)}',
-      // its controls take taps (the screensaver's find them by place)
-      '.pm .mbtn,.pm .mvt,.pm .msq{pointer-events:auto;cursor:pointer}',
-      '.pm .mvt{touch-action:none}',
-      '.pm .mvt::before{content:"";position:absolute;left:-14px;right:-14px;top:-18px;bottom:-18px}',
+      // its controls take taps (the screensaver's find them by place) -- the volume's whole row, its target (2026-11-09:
+      // a ::before reached 18 px over the room above the track, toward the play button; hk-np-strip.js)
+      '.pm .mbtn,.pm .mvol,.pm .msq{pointer-events:auto;cursor:pointer}',
       // (bare buttons, 2026-11-07: a pointer over one dims it, nothing drawn behind it)
       '@media (hover:hover){.pm .mbtn:hover{opacity:.75}}',
       // THE SIDE PANE'S FULL (inpane, hk-sidepane.js; 2026-11-07, the owner): the art's shadow kept inside the pane's
@@ -105,9 +104,7 @@
       '.mu .mbgf,.mu .mshade{display:none}',
       // (the page is narrowed by the Side Pane already: the slide's room for the screensaver's own pane is not taken)
       ':host([pane]) .mu .mbody{right:0;left:0}',
-      '.mu .mbtn,.mu .mvt,.mu .msq{pointer-events:auto;cursor:pointer}',
-      '.mu .mvt{touch-action:none}',
-      '.mu .mvt::before{content:"";position:absolute;left:-14px;right:-14px;top:-18px;bottom:-18px}',
+      '.mu .mbtn,.mu .mvol,.mu .msq{pointer-events:auto;cursor:pointer}',
       '@media (hover:hover){.mu .mbtn:hover{opacity:.75}}',
       // THE CORNER on the page's own edges
       '.info{position:absolute;inset:0;z-index:2;pointer-events:none}',
@@ -182,7 +179,7 @@
             if (b) { K.musicAct({ btn: b, view: v }); return; }
             if (e.target.closest && e.target.closest('.msq')) K.musicAct({ art: true, view: v });
           });
-          var vt = v.vt;
+          var vt = v.vh;   // (the volume's whole row, its target: hk-np-strip.js)
           vt.addEventListener('pointerdown', function (e) {
             if (v.el.hasAttribute('novol')) return;
             e.preventDefault(); e.stopPropagation();

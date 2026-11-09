@@ -36,6 +36,7 @@ CORE = (
     "modules/hk-ha-shell.js",          # HA's shell (needs hkShell)
     "modules/hk-metric.js",
     "elements/hk-elements.js",         # hk-icon, hk-plate
+    "modules/hk-np-strip.js",          # the music players' controls strip (the cards and the screensaver draw with it)
     "modules/hk-ha-elements.js",       # HA's hk-state-icon
     "modules/tesla-viewport.js",       # needs hkShell
     "modules/hk-pairs.js",             # a stereo pair as one speaker: before the strategy builds

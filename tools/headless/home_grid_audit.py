@@ -462,6 +462,15 @@ MEASURE = r"""(() => {
         const w = Math.min(A.h.right, B.h.right) - Math.max(A.h.left, B.h.left), t = Math.min(A.h.bottom, B.h.bottom) - Math.max(A.h.top, B.h.top);
         if (w > 2 && t > 2) rec.issues.push('hit areas overlap by ' + Math.round(w) + 'x' + Math.round(t) + ': ' + name(A.el) + ' and ' + name(B.el)); }
     }
+    // THE PLAYER'S CONTROLS STRIP (hk-np-strip.js; 2026-11-09, the owner: a tap meant for play landed on the volume): the
+    // strip's own measure of the touch rules, in the block's px -- every target 56 (a block is drawn at about 0.8), play / pause
+    // the biggest, nothing overlapping, 12 px clear between the transport's targets and the volume's and between the progress
+    // and the transport
+    if (window.__hitsCheck && window.hkNpStrip && card.shadowRoot) {
+      const st = card.shadowRoot.querySelector('.hks:not([cells])');
+      if (st) { const m = window.hkNpStrip.check(st, { min: 56, scale: view._gridScale || 1 }); rec.strip = { targets: m.targets, gapTV: m.gapTV, gapPT: m.gapPT, gapB: m.gapB };
+                for (const b of m.breaks) rec.issues.push('controls strip: ' + b); }
+    }
     // THE CONTROLS (2026-11-08, the owner's round three: Small = state + at most one primary action; Wide/Tall = at most 2-3, each 44 px with
     // ~8 px clear): `--controls` lists the separate tap targets inside the plate (hk-base.js TAP_CONTROLS, the plate itself and a block-sized
     // button left out; a control inside a button is the button's), each one's touchable box (its ::after too, cut by a list that clips it)
@@ -495,8 +504,11 @@ MEASURE = r"""(() => {
       const tracks = new Map();
       for (const a of found) if (isSeg(a.el)) { const t = a.el.parentElement, u = tracks.get(t) || { h: t.getBoundingClientRect() };      // (the track: its own box and its choices' touchable boxes, joined)
         tracks.set(t, { el: t, h: { left: Math.min(u.h.left, a.h.left), top: Math.min(u.h.top, a.h.top), right: Math.max(u.h.right, a.h.right), bottom: Math.max(u.h.bottom, a.h.bottom) } }); }
+      // (a slider's own input inside the wrapper that takes its touches -- hk-control.js's .range-wrap -- is that one control,
+      // 2026-11-09: it was counted twice)
       const mine = found.filter(a => !isSeg(a.el) && !(a.el.classList.contains('ring') && !a.el.hasAttribute('data-ring')) &&
-        !found.some(b => b !== a && b.el !== a.el && b.el.matches(NATIVE) && b.el.contains(a.el))).concat([...tracks.values()]);
+        !found.some(b => b !== a && b.el !== a.el && b.el.matches(NATIVE) && b.el.contains(a.el)) &&
+        !(a.el.localName === 'input' && found.some(b => b !== a && b.el !== a.el && b.el.contains(a.el)))).concat([...tracks.values()]);
       let gap = null, small = null, tight = '';
       for (const a of mine) { const m = Math.min(a.h.right - a.h.left, a.h.bottom - a.h.top) / gs; if (small === null || m < small) small = m; }
       for (let i = 0; i < mine.length; i++) for (let j = i + 1; j < mine.length; j++) {
@@ -1036,14 +1048,18 @@ def summary(report: dict) -> tuple[int, list[str]]:
 # THE CONTROLS RULE (2026-11-08, the owner's round three): Small = state + at most one primary action (the plate opens the sheet);
 # Wide and Tall = at most 3 primary controls, each 44 px with 8 px clear between hit areas; Large and Extra Large may show more, never crowded
 CONTROLS_RULES = {"S": 1, "W": 3, "T": 3}
+# ...but Now Playing's Wide and Tall have a fourth, the volume (2026-11-09, the owner: "Looks like the tall and the wide cards lost
+# their volume slider?"; "Volume is more important than the progress bar for these cards"): the three keys and the slider
+CONTROLS_RULES_OF = {"now_playing": {"W": 4, "T": 4}}
 CLEAR = 8
 
 
-def controls_breaks(size: str, c: dict) -> list[str]:
+def controls_breaks(size: str, c: dict, key: str = "") -> list[str]:
     """What a block's controls (`--controls`) break of CONTROLS_RULES: [] when it keeps them."""
     out = []
-    if size in CONTROLS_RULES and c["n"] > CONTROLS_RULES[size]:
-        out.append(f"{c['n']} targets (max {CONTROLS_RULES[size]})")
+    most = {**CONTROLS_RULES, **CONTROLS_RULES_OF.get(key, {})}
+    if size in most and c["n"] > most[size]:
+        out.append(f"{c['n']} targets (max {most[size]})")
     if c["n"] and c["small"] is not None and c["small"] < 43.5:
         out.append(f"smallest hit area {c['small']:.0f} px")
     if c["gap"] is not None and c["gap"] < CLEAR - 0.5:
@@ -1060,7 +1076,7 @@ def controls_table(report: dict) -> list[str]:
                 c = cell.get("controls")
                 if c is None:
                     continue
-                broke = controls_breaks(cell["size"], c)
+                broke = controls_breaks(cell["size"], c, key)
                 names = ", ".join(f"{n} x{k}" if k > 1 else n for n, k in sorted(c["names"].items(), key=lambda x: -x[1])[:5])
                 lines.append(f"{'BREAKS' if broke else 'ok    '} {key:12} {look:10} {cell['size']:3} n={c['n']:<2} small={'-' if c['small'] is None else format(c['small'], '.0f'):>3}"
                              f" gap={'-' if c['gap'] is None else format(c['gap'], '.0f'):>3}  {'; '.join(broke)}  [{names}]"

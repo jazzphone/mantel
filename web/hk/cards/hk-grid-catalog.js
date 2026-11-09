@@ -81,9 +81,11 @@
         return Object.assign({ type: 'custom:hk-media-control-card', color: 'purple', bare: true, parts: parts },
                              sp ? { entity: sp } : { entity_from: { music: true } });
       };
-      // (2026-11-08, the owner: what does not fit goes to the player's sheet) only L and XL carry the volume; T has the progress
-      var extra = s === 'L' || s === 'XL' ? { sub_card: ctl(['progress']), meta_card: ctl(['volume']) }
-                : s === 'T' || s === 'W' ? { sub_card: ctl(['progress']) } : {};
+      // (2026-11-08, the owner: what does not fit goes to the player's sheet) -- and back (2026-11-09, the owner: "Looks
+      // like the tall and the wide cards lost their volume slider?" and "Volume is more important than the progress bar for
+      // these cards"): W, T, L and XL carry the progress and the volume; where both do not fit as full targets the
+      // progress is a thin read-only line (hk-media-now.js), the volume keeps its slider. S has play / pause alone.
+      var extra = s === 'S' ? {} : { sub_card: ctl(['progress']), meta_card: ctl(['volume']) };
       // (background, 2026-11-05, the owner: the blurred album unless the block asks for the card every other block has)
       return Object.assign({ type: 'custom:hk-now-playing-card', music: true }, sp ? { entity: sp } : {}, o.background === 'card' ? { background: 'card' } : {}, extra); } },
     // Extra Large: the thermostat's full controls, its sheet (2026-10-24) -- in Big Number, its face with the modes

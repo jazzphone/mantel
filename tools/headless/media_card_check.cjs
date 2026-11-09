@@ -39,8 +39,9 @@ const HELP = () => {
     panel: () => [...document.body.children].map(h => h.shadowRoot && h.shadowRoot.querySelector('.mpanel')).filter(Boolean)[0],
     // Speakers' and Browse's glyphs: each ink's middle from its button's, in px, and nothing drawn behind it (bare
     // since 2026-11-07, the owner: "do we need the wells (circles) behind the icons?")
-    wells: () => deep(document, 'hk-now-playing-card').flatMap(c => ['.spk', '.brw'].map(k => {
-      const e = c.shadowRoot.querySelector('.np ' + k);
+    // (the card's buttons are the controls strip's since 2026-11-09, hk-np-strip.js: found by their data-act)
+    wells: () => deep(document, 'hk-now-playing-card').flatMap(c => ['[data-act=spk]', '[data-act=brw]'].map(k => {
+      const e = c.shadowRoot.querySelector('.np .hks ' + k);
       if (!e || getComputedStyle(e).display === 'none') return null;
       const r = e.getBoundingClientRect(), ic = e.querySelector('hk-icon');
       const paths = ic ? [...ic.shadowRoot.querySelectorAll('path')].filter(x => x.getAttribute('d')) : [...e.querySelectorAll('svg path')];
@@ -83,7 +84,7 @@ async function flicker(browser) {
   });
   assert.equal(bar, input.engine === 'webkit' ? 'transform' : 'auto', 'the docked bar\'s cover');
   for (const id of ['album', 'plain', 'cond']) await p.evaluate((i) => __mc.np(i).shadowRoot.querySelector('.bg') && __mc.watch(i), id);
-  const box = await p.evaluate(() => __mc.rect(__mc.np('album').shadowRoot.querySelector('.play')));
+  const box = await p.evaluate(() => __mc.rect(__mc.np('album').shadowRoot.querySelector('.mpp')));
   const seen = { album: [], plain: [], cond: [] }, titles = new Set();
   for (let i = 0; i < 26; i++) {
     for (const id of Object.keys(seen)) seen[id].push(await p.evaluate((b) => __mc.now(b), id));
@@ -122,7 +123,7 @@ async function background(browser) {
     try {
       const sh = (id) => __mc.np(id).shadowRoot;
       return !!(__mc.deep(__mc.cell('music'), 'hk-plate.mu')[0] && sh('album').querySelector('hk-plate.np .bg') && sh('plain').querySelector('hk-plate.np .bg') &&
-                sh('plain').querySelector('.shade') && sh('plain').querySelector('.title') && sh('plain').querySelector('.play hk-icon') &&
+                sh('plain').querySelector('.shade') && sh('plain').querySelector('.title') && sh('plain').querySelector('.mpp svg') &&
                 sh('plain').querySelector('.art img'));
     } catch (e) { return false; }
   }, null, { timeout: 20000 });
@@ -135,7 +136,7 @@ async function background(browser) {
              plainClass: P.classList.contains('plain'), plainBg: cs(sh('plain').querySelector('.bg')).display, plainShade: cs(sh('plain').querySelector('.shade')).display, plainImg: !!sh('plain').querySelector('.bg img'),
              coverStill: !!sh('plain').querySelector('.art img'),
              plate: [cs(P).backgroundColor, cs(P).borderTopColor, cs(P).boxShadow, cs(P).borderTopLeftRadius], music: [cs(mu).backgroundColor, cs(mu).borderTopColor, cs(mu).boxShadow, cs(mu).borderTopLeftRadius],
-             title: cs(sh('plain').querySelector('.title')).color, ink: ink ? cs(ink).color : null, glyph: cs(sh('plain').querySelector('.play hk-icon')).color, glyphShadow: cs(sh('plain').querySelector('.play hk-icon')).filter };
+             title: cs(sh('plain').querySelector('.title')).color, ink: ink ? cs(ink).color : null, glyph: cs(sh('plain').querySelector('.mpp svg')).fill, glyphShadow: cs(sh('plain').querySelector('.mpp svg')).filter };
   });
   assert.equal(got.albumPlain, false, 'the album is the default');
   assert.equal(got.albumBg, 'block'); assert.ok(got.albumImg);
@@ -176,7 +177,7 @@ async function pane(browser) {
     hkMusic.playlists = () => [{ name: 'Favorites Mix', icon: 'hk:star-fill', key: 'a', image: pic(10) }, { name: 'Country', icon: 'hk:guitar-acoustic', key: 'b', image: null },
                                { name: 'Your Essentials', icon: 'mdi:playlist-music', key: 'c', image: pic(270) }];
   });
-  const brw = await p.evaluate(() => __mc.rect(__mc.np('album').shadowRoot.querySelector('.brw')));
+  const brw = await p.evaluate(() => __mc.rect(__mc.np('album').shadowRoot.querySelector('[data-act=brw]')));
   await p.mouse.click(brw.x + brw.w / 2, brw.y + brw.h / 2);
   await p.waitForFunction(() => { const m = __mc.panel(); return !!m && m.querySelectorAll('.mppill').length === 3; }, null, { timeout: 15000 });
   await p.waitForTimeout(600);
@@ -290,8 +291,8 @@ async function hold(browser) {
   await p.evaluate(() => { __mc.watch('album'); __mc.watch('cond'); });
   await p.waitForTimeout(1500);
   const now = () => p.evaluate(() => Object.fromEntries(['album', 'cond'].map(id => [id, { ...__mc.now(id), renders: window.__mcw[id].renders, same: __mc.watched(id).same }])));
-  const r = await p.evaluate(() => Object.fromEntries(['album', 'cond'].map(id => [id, { tile: __mc.rect(__mc.cell(id)), moving: __mc.rect(__mc.np(id).shadowRoot.querySelector('.sub')) }])));
-  const play = await p.evaluate(() => __mc.rect(__mc.np('cond').shadowRoot.querySelector('.play')));
+  const r = await p.evaluate(() => Object.fromEntries(['album', 'cond'].map(id => [id, { tile: __mc.rect(__mc.cell(id)), moving: __mc.rect(__mc.np(id).shadowRoot.querySelector('.mprog')) }])));
+  const play = await p.evaluate(() => __mc.rect(__mc.np('cond').shadowRoot.querySelector('.mpp')));
   console.log(JSON.stringify({ rects: r, now: await now() }));
   // a pointer going over the transport now and again (the second recording), until the script has its frames
   const end = Date.now() + (input.seconds - 12) * 1000; let k = 0;

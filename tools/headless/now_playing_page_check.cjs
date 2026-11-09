@@ -27,7 +27,15 @@ function measureSrc() {
     row: card.hasAttribute('murow'), up: card.hasAttribute('muup'), pane: card.hasAttribute('pane'),
     corner, cornerLeft: r.querySelectorAll('.ptl > *').length, cornerRight: r.querySelectorAll('.ptr > *').length,
     words, queue: [...r.querySelectorAll('.mu .mqr')].filter(seen).length,
-    look: playerLook(r, { bar: '.mbar', pp: '.mpp svg', vol: '.mvt', buttons: '.mctl .mbtn' })
+    look: playerLook(r, { bar: '.mbar', pp: '.mpp svg', vol: '.mvt', buttons: '.mctl .mbtn' }),
+    // THE TOUCH RULES, MEASURED (hk-np-strip.js check; 2026-11-09, the owner: a tap meant for play landed on the volume)
+    strip: window.hkNpStrip.check(r.querySelector('.mu .hks'), { min: 44 }),
+    // THE THREE MARGINS (2026-11-09, the owner: the art's gap to the right edge as the column's to the left, and between them
+    // the same): the column's to the left edge, the art's (or, beside the pane, the bars') to the right, the gap between
+    margins: ((r) => { const q = s => r.querySelector(s), R = e => e.getBoundingClientRect(), body = R(q('.mu .mbody')), art = R(q('.mu .mart')), bar = R(q('.mu .mbar'));
+      const st = q('.mu .mstage'), row = !!(st && getComputedStyle(st).display === 'grid'), k = (n) => Math.round(n * 10) / 10;
+      if (row) return { row: true, left: k(art.left - body.left), right: k(body.right - bar.right), gap: k(R(q('.mu .mmeta')).left - art.right) };
+      const col = R(q('.mu .mcol')); return { left: k(col.left - body.left), right: k(body.right - art.right), gap: k(art.left - col.right) }; })(r)
   };
 }
 
@@ -72,6 +80,8 @@ const measure = new Function('return ' + measureSrc.toString().replace('PLAYER_L
           if (w.l < m.card.l + m.card.w / 2 && w.r > m.card.l) assert(w.t >= low - 1, tag + ': the music under the corner ' + JSON.stringify([w, low]));
         }
         assert(!m.look.wells.length && m.look.above !== undefined && Math.abs(m.look.above - m.look.below) <= 3, tag + ': the player bare, the pause halfway ' + JSON.stringify(m.look));
+        assert(!m.strip.breaks.length && m.strip.gapTV >= 12 && m.strip.gapPT >= 12, tag + ': 44 px targets, nothing overlapping, 12 px clear round the keys ' + JSON.stringify(m.strip));
+        if (!m.up) assert(Math.abs(m.margins.left - m.margins.right) <= 1 && Math.abs(m.margins.gap - m.margins.left) <= 1, tag + ': one margin left, right and between ' + JSON.stringify(m.margins));
         if (screen === 'np-pane') {
           assert(m.pane && m.row, tag + ': beside the pane, the cover and the song side by side ' + JSON.stringify(m));
           assert(m.queue >= 1, tag + ': Up Next beside the cover ' + m.queue);
@@ -81,7 +91,8 @@ const measure = new Function('return ' + measureSrc.toString().replace('PLAYER_L
         assert(xs.length === 3 && xs.every(x=>x!==null) && Math.max(...xs)-Math.min(...xs)<=(ink.some(r=>parseFloat(r.font)<14)?2:1), tag+': corner ink aligned '+JSON.stringify(ink));
         assert(!m.look.volumeEdges || m.look.volumeEdges.every(x=>Math.abs(x)<=1), tag+': volume row ends aligned '+JSON.stringify(m.look));
         if (input.shots) await page.screenshot({ path: `${input.shots}/${W}x${H}-${screen}.png` });
-        console.log(`PASS ${input.engine} ${tag}: the song under the corner, the player bare and even` + (screen === 'np-pane' ? ', Up Next beside the cover' : ''));
+        console.log(`PASS ${input.engine} ${tag}: the song under the corner, the player bare and even` + (screen === 'np-pane' ? ', Up Next beside the cover' : '') +
+                    ` (targets ${JSON.stringify(m.strip.targets)}, keys to volume ${m.strip.gapTV} px, progress to keys ${m.strip.gapPT} px; margins ${JSON.stringify(m.margins)})`);
         const card = page.locator('hk-now-playing-page-card:visible');
         for (const [act, tab] of [['spk', 'speakers'], ['brw', 'browse']]) {
           await card.locator(`.mu .mbtn[data-act="${act}"]`).tap();

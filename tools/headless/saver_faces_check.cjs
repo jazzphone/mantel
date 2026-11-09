@@ -82,7 +82,7 @@ function measure() {
         // (the card hub and host client hk-saver.js reads at load, stood in: no house here)
         await page.evaluate(() => { window.hkCards = { onClient: () => () => {}, client: () => null };
           window.hkHostClient = window.hkHostClient || { entry() {}, bridge() {} }; });
-        for (const s of ['/hk/modules/hk-saverclock.js', '/hk/modules/hk-saverfaces.js', '/hk/cards/hk-weather.js'].concat(how === 'photo' ? ['/client/hk-client.js', '/client/hk-host-shell.js', '/hk/modules/hk-saver.js'] : [])) {
+        for (const s of ['/hk/modules/hk-saverclock.js', '/hk/modules/hk-saverfaces.js', '/hk/cards/hk-weather.js'].concat(how === 'photo' ? ['/client/hk-client.js', '/client/hk-host-shell.js', '/hk/modules/hk-np-strip.js', '/hk/modules/hk-saver.js'] : [])) {
           await page.addScriptTag({ url: input.origin + s });
         }
         if (how === 'photo') await require('./grid_ready.cjs').saver(page);      // (hk-saver.js sets hkSaver once its parts have run)
