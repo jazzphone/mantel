@@ -5,6 +5,7 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 ## Unreleased
 
 **Changed**
+- **The screensaver's Forecast no longer shows a black box over its weather** when a Holiday slide is in the show (its styles reached the high and low line), **and the New Year board shows its countdown and words** again (its letters were hidden with the Forecast).
 - **Security Extra Large shows the Entries you chose**, in their order (it listed the house's locks instead), and its list's rows no longer draw a frosted band behind them on the Blur look.
 - **Security says when every door and window is closed**: the doors-and-windows toast reads "Doors & windows closed" (a tap opens Doors & Windows), and a list row may be 55 px where that lets one more row in.
 
