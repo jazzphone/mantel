@@ -914,13 +914,13 @@
       var bar = this._root && this._root.querySelector && this._root.querySelector('.bar'), cs = bar && this.isConnected && getComputedStyle(bar);
       if (!cs || cs.position !== 'sticky') return;
       var top = parseFloat(cs.top) || 0, r = bar.getBoundingClientRect(), was = bar.classList.contains('stuck');
-      var stuck = r.top <= top + 0.5 && (window.scrollY > 0 || (this._homeTop != null && r.top < this._homeTop - 1));
-      if (!was && (this._homeTop == null || r.top > top + 0.5)) this._homeTop = r.top;
-      if (stuck === was) return;
+      var sy = window.scrollY || 0; if (!was && r.top > top + 0.5) this._homeY = r.top + sy; // (a phone: by the scroll past the bar's place, not where iOS draws the sticky bar -- read a frame late, the bar folded and unfolded every frame, 2026-11-10; 4 px either way)
+      var stuck = sy > 0 && this._homeY != null ? sy + top - this._homeY > (was ? -4 : -0.5) : r.top <= top + 0.5 && (sy > 0 || (this._homeTop != null && r.top < this._homeTop - 1));
+      if (!was && (this._homeTop == null || r.top > top + 0.5)) this._homeTop = r.top; if (stuck === was) return;
       var h0 = bar.offsetHeight;
       bar.style.marginBottom = '';
       bar.classList.toggle('stuck', stuck);
-      if (stuck) bar.style.marginBottom = (parseFloat(getComputedStyle(bar).marginBottom) + h0 - bar.offsetHeight) + 'px';
+      if (stuck && !bar.closest('.narrow')) bar.style.marginBottom = (parseFloat(getComputedStyle(bar).marginBottom) + h0 - bar.offsetHeight) + 'px'; // (not on a phone, as Energy's: the spacer set as it folded threw iOS's scroll back to the top, every fold -- 2026-11-10)
     }
     // THE PAGE'S HEIGHT, on a wide screen: the panels reach the bottom of
     // the window, whatever is above them

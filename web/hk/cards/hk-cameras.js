@@ -2527,7 +2527,7 @@
         '  background:#000}',
         '.db.fill>img,.db.fill>video{object-fit:contain;border-radius:0}',
         // TUNING: what the player says until the picture moves, and why not.
-        '.tune{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);',
+        '.tune{position:absolute;left:50%;top:50%;translate:-50% -50%;',
         '  padding:14px 22px;border-radius:18px;background:rgba(28,28,30,.72);color:#fff;',
         '  font-size:18px;font-weight:600;text-align:center;max-width:70%;line-height:1.35;',
         '  pointer-events:none;transition:opacity .25s}',
@@ -3374,7 +3374,7 @@
         '.tv-art{position:relative;aspect-ratio:16/9;background:#0b0d12;overflow:hidden}',
         '.tv-pic{position:absolute;inset:0}',
         '.tv-pic img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}',
-        '.tv-art hk-icon{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);',
+        '.tv-art hk-icon{position:absolute;left:50%;top:50%;translate:-50% -50%;',
         '  --mdc-icon-size:44px;color:rgba(255,255,255,.4)}',
         '.tv-live{position:absolute;left:10px;top:10px;padding:3px 8px;border-radius:8px;',
         '  background:#ff3b30;color:#fff;font-size:12px;font-weight:700;letter-spacing:.04em}',
