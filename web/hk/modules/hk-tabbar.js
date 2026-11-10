@@ -147,8 +147,20 @@
   }
   // A TAB NARROWER THAN THIS (six on a phone: ~55 px) has no room for the
   // highlight's capsule -- it would be a cramped circle -- so the page you
-  // are on is its icon and name in the highlight colour, as iOS draws it
+  // are on is its icon and name in the highlight colour, as iOS draws it.
+  // ICONS ONLY has no name to make room for: its capsule shows whenever it
+  // comes out at least as wide as it is tall (plateFits). The Tesla's ten
+  // 63 px tabs lost it by a pixel and showed the page you were on only as a
+  // darker icon (2026-11-10, the owner)
   var PLATE_MIN = 64;
+  // the capsule round a tab `tab` wide on a bar `thick` thick: WIDEN-ish
+  // into the gaps each side (CSS .tab.here::before, var(--g) * 1.25), the
+  // bar's padding above and below (calc(var(--g) - 1px))
+  function plateFits(tab, thick, icons) {
+    if (!(icons === undefined ? iconsOnly : icons)) return tab >= PLATE_MIN;
+    var g = thick / GAP_RATIO;
+    return tab + 2.5 * g >= thick - 2 * (g - 1);
+  }
   var DOWN = 28, UP = 12, EDGE = 4, SHORT = 48;
 
   // ------------------------------------------------------------ the fit
@@ -176,7 +188,7 @@
     var cells = shown + (more ? 1 : 0);
     var inner = Math.min(avail, cells * maxW + Math.max(0, cells - 1) * tg);
     var tab = cells ? (inner - Math.max(0, cells - 1) * tg) / cells : 0;
-    return { shown: shown, more: more, width: Math.round(inner + 2 * pad), plate: tab >= PLATE_MIN };
+    return { shown: shown, more: more, width: Math.round(inner + 2 * pad), plate: plateFits(tab, barH(width, size, ph)) };
   }
 
   // THE RAIL'S FIT: as fit(), down a rail `height` tall
@@ -387,7 +399,7 @@
   }
 
   window.hkTabBar = { version: '1.0.0', _: { between: between, offsetsOf: offsetsOf, fit: fit, parts: parts, scrollStep: scrollStep, material: material,
-                                             roomsMode: roomsMode, roomsOf: roomsOf, moreOf: moreOf, phoneSet: phoneSet, railFit: railFit, position: position, room: room, scrollOf: scrollOf,
+                                             plateFits: plateFits, roomsMode: roomsMode, roomsOf: roomsOf, moreOf: moreOf, phoneSet: phoneSet, railFit: railFit, position: position, room: room, scrollOf: scrollOf,
                                              stripSide: stripSide, stripFit: stripFit,
                                              SIZES: { TAB_MIN_W: TAB_MIN_W, TAB_MAX_W: TAB_MAX_W, MAX_TABS: MAX_TABS,
                                                       GUTTER: GUTTER, GAP: GAP, ROUND: ROUND, PAD: PAD, RAIL_PAD: RAIL_PAD,

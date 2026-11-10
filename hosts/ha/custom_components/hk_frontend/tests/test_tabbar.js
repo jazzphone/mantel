@@ -65,6 +65,10 @@ ok('the Rooms setting: In More by default; a boolean from the first form read as
    rm(undefined) === 'more' && rm(true) === 'more' && rm(false) === 'off' && rm('off') === 'off' && rm('button') === 'button');
 ok('tabs too narrow for the highlight\'s capsule (a 300 px phone with a Rooms button) are tinted instead',
    fit(9, 3, 300, true).plate === false && fit(9, 3, 1280, true).plate === true);
+// (the Tesla, 2026-11-10: ten 63 px tabs on a 70 px Icons Only bar lost the capsule by a pixel)
+ok('Icons Only keeps the capsule while it is at least as wide as tall; with names a tab still needs 64 px',
+   T.plateFits(63, 70, true) === true && T.plateFits(63, 70, false) === false && T.plateFits(64, 70, false) === true &&
+   T.plateFits(40, 70, true) === false);
 ok('a screen with only Home: one tab', fit(1, 0, 402, true).shown === 1 && !fit(1, 0, 402, true).more);
 
 var MODEL = {

@@ -4,6 +4,9 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Fixed**
+- **An Icons Only tab bar keeps the highlight behind the page you're on when its tabs are narrow**: a car's 804 px window gave ten tabs 63 px each, a pixel short of the 64 a tab with a name needs, so the bar showed the current page only as a darker icon (on a gray accent, hardly different). Without names the capsule now shows as long as it comes out at least as wide as it is tall.
+
 ## 0.1.162 - 2026-11-10
 
 **Added**
