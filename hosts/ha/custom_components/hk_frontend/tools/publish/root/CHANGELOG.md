@@ -15,6 +15,7 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 - **The speaker line says "Master Bedroom + 10"** when three or more rooms play together (two still read as two names), and is a little bigger on the media blocks, an easier target.
 
 **Fixed**
+- **The Calendar's floating bar no longer bounces on a phone**: it folded and unfolded every frame near the top as iOS scrolled the page (it judged by where the sticky bar was drawn, a frame late); it now judges by how far the page has scrolled past its place, 4 px either way before it changes.
 - **The iPhone Duo's front screen keeps its tiles two across**: the status column down its right left about 330 px for the page, under the two tiles a phone's grids need, so every grid below Scenes went one tile to a row across the whole width; a phone's tiles may now be as narrow as 150 px.
 - **An iPhone turned upright puts its tab bar back at the bottom**: turned from sideways in the Mantel app, it kept the sideways Side Strip down the right (the clock and battery at its top, the Favorites one to a row beside it) -- a rotation's safe areas come after its resize, and the old ones were kept until the next.
 - **A volume slider moves only once your finger goes sideways**: scrolling a Volume tab's list, the Music page, a speaker's sheet or the Side Pane no longer catches a slider on the way and changes a speaker's volume (the rule the room controls' sliders already kept).
