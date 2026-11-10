@@ -2166,7 +2166,11 @@
         '.pl::before{content:"";position:absolute;inset:2px;border-radius:50%;background:' + window.hkCards.ACCENTS.orange + '}.pl hk-icon{position:relative;width:28px;height:28px;--mdc-icon-size:28px;color:#fff}.pl:active::before{transform:scale(0.95)}',
         '.pl:focus-visible{outline:2px solid ' + window.hkCards.v('ink-2') + ';outline-offset:-2px;border-radius:50%}',
         // (Small: its ring alone at the foot, under the +; Wide: one timer with its keys beside the +, "+N more" at its foot on the right)
-        ':host([size=S]) .gt{justify-content:flex-end}:host([size=W]) .mf{position:absolute;right:var(--hk-pad-r,14px);bottom:var(--hk-pad-b,14px)}',
+        // (SMALL'S RING AS BIG AS THE ROOM LEFT OF THE +, 2026-11-09, the owner: "If you move the Timer to the left some, the whole area could
+        // probably be bigger... treat the right edge of the timer where the left edge of the + button is": from the block's left inset to
+        // the +'s disc (60 px from the plate's right edge), no taller than the room under the name; never smaller than the 84 it had)
+        ':host([size=S]) hk-plate.strip{--ring:max(84px,min(calc(100cqw - var(--hk-pad-l,14px) - 60px),calc(100cqh - var(--hk-pad-t,14px) - var(--hk-pad-b,14px) - 30px)))}',
+        ':host([size=S]) .gt{justify-content:flex-end;justify-self:start;width:var(--ring)}:host([size=W]) .mf{position:absolute;right:var(--hk-pad-r,14px);bottom:var(--hk-pad-b,14px)}',
         '.mf{flex:none;' + window.hkCards.typeCss('caption') + ';color:' + window.hkCards.v('ink-2') + ';text-shadow:' + window.hkCards.v('glow') + '}',
         // NONE RUNNING (2026-11-08, the owner: "the card when no timer is displayed is not good looking at all"): the running timer's own
         // column -- the orange name, a line in the time's light type in place of the time ("Start a timer"), and in place of the ring and
