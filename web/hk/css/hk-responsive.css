@@ -131,8 +131,11 @@
 
 @media (max-width: 640px) {
   :root:not([data-hk-zoomed]) {
-    /* The tile grids. See the long note above for why the max must be 1fr. */
-    --hk-track: minmax(168px, 1fr);
+    /* The tile grids. See the long note above for why the max must be 1fr.
+       150, not 168 (2026-11-10, the owner: "everything below Scenes is stretched"): the iPhone Duo's front screen keeps
+       ~80px of its ~442 for its status column, so ~330px was left -- under two 168px tracks and their gap, every
+       grid one tile to a row the whole width. Two fit down to ~312px now; every other iPhone keeps its two. */
+    --hk-track: minmax(150px, 1fr);
     /* ...and the room its last pill's 8 px bleed needs at the right, so a
        pill grid ends as far from the edge as it starts (hk-strategy.js
        pillGrid; DESIGN.md "Page edges") */
