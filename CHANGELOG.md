@@ -5,7 +5,7 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 ## Unreleased
 
 **Changed**
-- **The Intercom's rooms are the Music page's speaker rows**: each speaker's well, its name over what is true of it (Plays with Office, Quiet hours, Unavailable, After you finish, You're here), the tick at the end, one to a line (two where there is room) -- the whole name fits, where two narrow columns cut most of them short on a phone.
+- **The Intercom's rooms are the Music page's speaker rows**: each speaker's well, its name over what is true of it (Plays with Office, Quiet hours, Unavailable, After you finish, You're here), the tick at the end, one to a line (two where there is room) -- the whole name fits, where two narrow columns cut most of them short on a phone.; **its groups** (Whole House, the floors, your presets) **are one row that scrolls sideways**, as the Music page's presets, not rows of their own over the rooms.
 - **A screensaver widget opens its page when tapped**: the weather the Weather page, the date the Calendar, music the Music page, a timer the Timers page, and so on; one about a single thing (a sensor, a person, a camera) opens its details. Each widget's When Tapped can say Nothing instead (the Screensaver editor).
 - **The screensaver's Music widget says where it plays as the players do** ("Master Bedroom + 10", where it said "EVERYWHERE"), and **goes away once the music stops** (a paused or stopped speaker kept it up).
 - **A Small Room block shows its room's own glyph** (Kitchen's fork and knife, the Loft's bookshelf -- the area's icon in Home Assistant) where its room page names none, not always the sofa. Hallway's and Attic's icons are now among the ones Mantel serves.

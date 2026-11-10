@@ -1353,14 +1353,17 @@
       '.clr[aria-disabled="true"]{color:' + v('ink-3') + ';cursor:default}',
       '.sec{display:flex;flex-direction:column;gap:' + SPC.block + 'px}',
       '.sec[hidden]{display:none}',
-      '.chips{display:flex;flex-wrap:wrap;gap:8px}',
+      // the groups: one row that scrolls sideways, edge to edge of the panel, as Music's presets (2026-11-10, the owner); the
+      // padding below keeps their shadow
+      '.chips{display:flex;flex-wrap:nowrap;gap:8px;overflow-x:auto;scrollbar-width:none;overscroll-behavior-x:contain;margin:0 -18px -6px;padding:0 18px 6px}',
+      '.chips::-webkit-scrollbar{display:none}',
       '.chips:empty{display:none}',
       // the rooms: Music's speaker rows, one to a line, two where the panel is wide (2026-11-10, the owner: "these are speakers")
       '.rooms{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:6px}',
       '.rooms:empty{display:none}',
       '.pill{min-width:0;position:relative;touch-action:manipulation;-webkit-tap-highlight-color:transparent}',
       // a group: a capsule as wide as its name
-      '.chips .pill{height:44px;border-radius:22px;padding:0 18px;display:flex;align-items:center}',
+      '.chips .pill{flex:none;height:44px;border-radius:22px;padding:0 18px;display:flex;align-items:center}',
       '.chips .pill .l b{font-weight:inherit;white-space:nowrap}',
       // A preset is a shortcut, not another room: the dashed border says "this fills the boxes below" (the speaker picker's)
       '.pill.preset{border:var(--hk-look-dash, ' + C.M.border + ');border-style:dashed}',
@@ -1398,7 +1401,7 @@
       // NARROW (a phone): the Lock sheet's phone button, the rooms two across, a long name on two lines
       '@container (max-width:479px){.mb{width:228px;height:228px}.mb .core{width:166px;height:166px}.mb .core svg{width:64px;height:64px}',
       '  .wd{font-size:32px;line-height:38px}',
-      '  .pick{padding:14px}}',
+      '  .pick{padding:14px}.chips{margin:0 -14px -6px;padding:0 14px 6px}}',
       // A SHORT SCREEN (a phone on its side, 2026-11-05, the owner: "that doesn't look good at all"): a narrow talk side
       // with a smaller button; the groups one row that scrolls sideways; the rooms scroll in their own panel, so the
       // button stays beside them; everything fits the sheet's height
@@ -1409,8 +1412,7 @@
       // (after a send the button and "Sent to 2 rooms" say it: the word steps aside for Play and Send Again)
       '  .talk:has(.rv:not([hidden])) .wd{display:none}',
       '  .pick{padding:12px 14px;gap:10px;max-height:calc(100dvh - 128px);overflow-y:auto;overscroll-behavior:contain}',
-      '  .chips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:0 -14px;padding:0 14px;overscroll-behavior-x:contain}',
-      '  .chips::-webkit-scrollbar{display:none}.chips .pill{flex:none}',
+      '  .chips{margin:0 -14px -6px;padding:0 14px 6px}',
       '  .rooms{gap:6px}}',
       '@media (max-height:520px){@container (min-width:600px){.cols{display:grid;grid-template-columns:200px minmax(0,1fr);align-items:start;gap:16px}}}',
       '@media (prefers-reduced-motion:reduce){.mb,.mb .core,.mb .prg,.rv button,.line{transition:none}.mb:active .core,.rv button:active{transform:none}',
