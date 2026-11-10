@@ -5,6 +5,10 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+**Changed**
+- **A Large Now Playing block's cover sits as far from the block's top as from its side**, the controls at its foot; a long song title stays on one line and drifts slowly when it does not fit, instead of wrapping and pushing the cover against the top.
+- **The speaker line says "Master Bedroom + 10"** when three or more rooms play together (two still read as two names), and is a little bigger on the media blocks, an easier target.
+
 ## 1.57.0 - 2026-11-10
 
 **Changed**

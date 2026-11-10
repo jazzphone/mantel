@@ -95,10 +95,13 @@
     var el = !root ? null : root.classList && root.classList.contains('hksl') ? root : root.querySelector('.hksl');
     if (!el) return;
     names = (names || []).filter(Boolean);
-    var b = el.querySelector('b'), i = el.querySelector('i'), one = names[0] || '', rest = names.length > 1 ? ' + ' + names.slice(1).join(' + ') : '';
+    // (three or more: the first room and how many more -- "Master Bedroom + 10", as the Music page's Plays On says it; the owner,
+    // 2026-11-10: "instead of listing them all individually"; two still read as two names; the spoken label names every one)
+    var b = el.querySelector('b'), i = el.querySelector('i'), one = names[0] || '', all = names.length > 1 ? ' + ' + names.slice(1).join(' + ') : '';
+    var rest = names.length > 2 ? ' + ' + (names.length - 1) : all;
     if (b && b.textContent !== one) b.textContent = one;
     if (i && i.textContent !== rest) i.textContent = rest;
-    var label = 'Speakers: ' + (one + rest || 'none');
+    var label = 'Speakers: ' + (one + all || 'none');
     if (el.getAttribute('aria-label') !== label) el.setAttribute('aria-label', label);
   }
   // ...and their names: hkMusic's short ones ("Kitchen"), the player first, a virtual pair one room (hkMusic.fold);

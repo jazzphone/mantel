@@ -85,6 +85,26 @@ function () {
   // (the speaker line over the title at every size with one -- the owner's mockup 12h, 2026-11-09: its own row, `line`)
   ok('every block but Small: the speaker line over the title, a 56 px touch area', css.indexOf('grid-area:line;') >= 0 && css.indexOf('--hksl-h:56px') >= 0 &&
      css.indexOf(':host([size=S]) .np .hksl{display:none}') >= 0);
+  // (2026-11-10, the owner: the HomePods "Master Bedroom + 7 ... instead of listing them all", the line "a tad bigger"; the cover's
+  // inset the same above as beside it -- the Large block its own container, the stack from the top; a long title one line, drifting)
+  (function () {
+    // (a stand-in line: this harness does not parse markup)
+    var b = { textContent: '' }, i = { textContent: '' }, attrs = {};
+    var el = { classList: { contains: function (c) { return c === 'hksl'; } }, querySelector: function (q) { return q === 'b' ? b : q === 'i' ? i : null; },
+               getAttribute: function (k) { return attrs[k] === undefined ? null : attrs[k]; }, setAttribute: function (k, v) { attrs[k] = String(v); } };
+    window.hkNpStrip.line(el, ['Master Bedroom', 'Kitchen', 'Loft', 'Office']);
+    ok('the speaker line: three or more rooms are the first and how many more', b.textContent === 'Master Bedroom' && i.textContent === ' + 3', [b.textContent, i.textContent]);
+    ok('...while the spoken label names every one', el.getAttribute('aria-label') === 'Speakers: Master Bedroom + Kitchen + Loft + Office', el.getAttribute('aria-label'));
+    window.hkNpStrip.line(el, ['Master Bedroom', 'Kitchen']);
+    ok('...two still read as two names', i.textContent === ' + Kitchen', i.textContent);
+  })();
+  ok('the speaker line on a block is 15 px', css.indexOf('font-size:15px;line-height:20px;font-weight:600;color:rgba(255,255,255,.75)') >= 0);
+  ok('Large: the block its own container, the cover what the strip leaves, the stack from the top',
+     css.indexOf(':host([size=L]) hk-plate.np{container-type:size;--np-art:min(100cqh - 203px, 100cqw - 174px);') >= 0 &&
+     css.indexOf(':host([size=L]) .np .grid{column-gap:0;align-content:stretch}') >= 0 && css.indexOf('minmax(16px,1fr) min-content}') >= 0);
+  ok('Large and Extra Large: the title one line, a long one drifting (still under reduced motion)',
+     css.indexOf('line-height:27px;white-space:nowrap;overflow:hidden') >= 0 && css.indexOf('@keyframes hk-np-mq') >= 0 &&
+     css.indexOf('@media (prefers-reduced-motion:no-preference){:host(:is([size=L],[size=XL])) .np .title.mq .mqt{animation') >= 0);
   ok('Wide: the speaker line, the song and the strip beside the cover', css.indexOf('"art ." "art line" "art title" "art artist" "art strip" "art ."') >= 0);
   ok('...the cover as big as the keys\' 178 px and the gap beside it (the block\'s inset) leave it', /--np-art:min\(\(100cqh[^;]*- 178px - var\(--hk-pad-l,22px\)\)/.test(css));
   // (the thin line stays in the progress's place, never along the foot -- 2026-11-09, the owner: "it looks bad at the bottom

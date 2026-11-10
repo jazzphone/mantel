@@ -789,7 +789,8 @@
           // THE SPEAKER LINE over the title (mockup 12h, 2026-11-09): the label's size, its touch area 56 px tall round the
           // words; Tall and Wide the first room alone; Small none (no title line there)
           ':host([size]) .np .hksl{display:inline-flex;grid-area:line;justify-self:start;align-self:end;z-index:3;--hksl-h:56px;',
-          '  font-size:13px;line-height:18px;font-weight:600;color:rgba(255,255,255,.75)}',
+          '  font-size:15px;line-height:20px;font-weight:600;color:rgba(255,255,255,.75)}',
+          // (15, was 13 -- 2026-11-10, the owner: "a tad bigger ... making it easier to press")
           ':host([size=S]) .np .hksl{display:none}:host(:is([size=T],[size=W])) .np .hksl-t i{display:none}',
           ':host([size]) .np.plain .hksl{color:' + window.hkCards.v('ink-2') + '}',
           ':host(:is([size=S],[size=W],[size=T])) .np .hks .mctl{justify-content:center;margin-left:0;margin-right:0}',
@@ -868,15 +869,16 @@
           // (2026-11-09: the strip's room -- 56 px targets, 64 for play, 12 clear above and below them -- comes off the cover,
           // and the gap over the progress is 16; on a tile's shorter block the progress is the thin line in its place, the
           // volume keeps its slider -- the owner: "Volume is more important than the progress bar")
-          ':host([size=L]) hk-plate.np{--np-art:min(' + NP_H + ' - 190px, ' + NP_W + ' - 174px);',
+          // (the cover's inset above as beside it, 2026-11-10, the owner: the stack ran taller than the block, the cover pushed up -- the block its own container, the cover what the strip leaves, the stack from the top)
+          ':host([size=L]) hk-plate.np{container-type:size;--np-art:min(100cqh - 203px, 100cqw - 174px);',
           '  --np-flank:calc((var(--np-art) - 64px) / 2);',
           '  --hk-np-cols:minmax(0,1fr);',
           '  --hk-np-areas:"pre" "line" "title" "artist" "post" "." "strip";',
-          '  --hk-np-rows:var(--np-flank) min-content min-content min-content var(--np-flank) 16px min-content}',
+          '  --hk-np-rows:var(--np-flank) min-content min-content min-content var(--np-flank) minmax(16px,1fr) min-content}',
           ':host([size=L]) .np .hksl{margin-left:calc(var(--np-art) + ' + NP_PAD.l + ')}',
-          '@container hk-cell (max-height:379px){:host([size=L]) hk-plate.np{--np-art:min(' + NP_H + ' - 166px, ' + NP_W + ' - 174px)}',
+          '@container hk-cell (max-height:379px){:host([size=L]) hk-plate.np{--np-art:min(100cqh - 203px, 100cqw - 174px)}',
           '  :host([size=L]) .np .hks .mprog' + NP_THIN + '}',
-          ':host([size=L]) .np .grid{column-gap:0;align-content:center}',
+          ':host([size=L]) .np .grid{column-gap:0;align-content:stretch}',
           ':host([size=L]) .np .art{grid-area:1/1/6/-1;justify-self:start;align-self:start}',
           // (the song as far from the cover as the cover from the block's edge: its inset -- 2026-11-09, the owner)
           ':host([size=L]) .np .title,:host([size=L]) .np .artist{padding-left:calc(var(--np-art) + ' + NP_PAD.l + ');justify-self:stretch}',
@@ -888,7 +890,12 @@
           ':host([size=XL]) .np .hks .mctl{margin-left:0}',
           // TWO LINES OF TITLE where the song's group has the room (the slide's -webkit-line-clamp:2): a long one is not cut at
           // "Blue in Green (Alternate Ta..." with half the column empty under it
-          ':host(:is([size=L],[size=XL])) .np .title{' + window.hkCards.typeCss('title') + ';line-height:27px;white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}',
+          ':host(:is([size=L],[size=XL])) .np .title{' + window.hkCards.typeCss('title') + ';line-height:27px;white-space:nowrap;overflow:hidden;text-overflow:clip}',
+          // (one line, 2026-11-10: two lines pushed the cover against the block's top; a long one drifts instead -- _marquee)
+          ':host(:is([size=L],[size=XL])) .np .title .mqt{display:inline-block;padding-right:2px}',
+          ':host(:is([size=L],[size=XL])) .np .title.mq{-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 18px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 18px),transparent)}',
+          '@media (prefers-reduced-motion:no-preference){:host(:is([size=L],[size=XL])) .np .title.mq .mqt{animation:hk-np-mq var(--mqt,14s) ease-in-out 3s infinite}}',
+          '@keyframes hk-np-mq{0%,22%{transform:translateX(0)}50%,64%{transform:translateX(var(--mqd,0px))}92%,100%{transform:translateX(0)}}',
           // XL (mockup 12i, 2026-11-09, the owner: "this player should work more like the Large card (vertical style
           // layout), but also have the queue on the right side"; option B, "B is better, but it needs to be a larger touch
           // point"): Large's player -- the cover with the speaker line and the song beside it, the progress, back / play /
@@ -1414,6 +1421,19 @@
         // back on the page with a bar already drawn: follow page changes again
         if (this._root && this._root.querySelector('hk-plate.bar')) this._closeGlyph();
       }
+      // A LONG TITLE DRIFTS (L and XL, 2026-11-10, the owner: "scroll horizontal on its own gently ... Don't make it too annoying"): one line,
+      // never pushing the cover up; where it does not fit it waits, drifts to its end at ~30 px a second, rests, drifts back (still under reduced motion)
+      _marquee() {
+        var self = this, raf = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); };
+        (window.cancelAnimationFrame || clearTimeout)(this._mqF);
+        this._mqF = raf(function () {
+          var ti = self._e && self._e.title, sp = ti && ti.firstElementChild;
+          var over = sp && /^(L|XL)$/.test(self.getAttribute('size') || '') ? Math.ceil(sp.scrollWidth - ti.clientWidth) : 0;
+          if (!sp) return;
+          ti.classList.toggle('mq', over > 2);
+          if (over > 2) { ti.style.setProperty('--mqd', -over + 'px'); ti.style.setProperty('--mqt', Math.round(10 + 2 * over / 30) + 's'); }
+        });
+      }
       disconnectedCallback() {
         if (super.disconnectedCallback) super.disconnectedCallback();
         if (this._musicOff) { this._musicOff(); this._musicOff = null; }
@@ -1745,6 +1765,7 @@
                       sub: q('.mprog'), play: q('.mpp'), spk: q('.hksl'), line: q('.hksl'),
                       ql: q('.npql'), idle: q('.npi') };
           var self = this;
+          if (typeof ResizeObserver === 'function') { this._mqRo = new ResizeObserver(function () { self._marquee(); }); this._mqRo.observe(this._e.title); }
           q('[data-act=prev]').addEventListener('click', function () { self._svc('previous'); });
           q('[data-act=pp]').addEventListener('click', function () { self._svc('play_pause'); });
           q('[data-act=next]').addEventListener('click', function () { self._svc('next'); });
@@ -1949,7 +1970,11 @@
         window.hkNpStrip.line(e.line, this._rooms(p));
 
         var t = this._title(p);
-        if (e.title.textContent !== t) e.title.textContent = t;
+        if (e.title.__t !== t) {
+          e.title.__t = t;
+          var mt = document.createElement('span'); mt.className = 'mqt'; mt.textContent = t;
+          e.title.textContent = ''; e.title.appendChild(mt); this._marquee();
+        }
         var ar = this._artist(p);
         if (e.artist.textContent !== ar) e.artist.textContent = ar;
         // innerHTML, not textContent: the separator is &nbsp;&#183;&nbsp; and
