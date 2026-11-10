@@ -65,7 +65,8 @@ def error_sensor_of(vacuum: str, device: str | None, entries: Mapping[str, Mappi
 
 def settings(headers: Mapping[str, Any] | None) -> tuple[bool, int]:
     """(Water Tank Reminder on, Clear After in hours; 0 is until cleared), from settings.headers.vacuums as saved."""
-    h = (headers or {}).get("vacuums") if isinstance((headers or {}).get("vacuums"), dict) else {}
+    v = (headers or {}).get("vacuums")
+    h: Mapping[str, Any] = v if isinstance(v, dict) else {}
     on = h.get("water_tank", DEFAULTS["water_tank"])
     hours = h.get("water_clear", DEFAULTS["water_clear"])
     return (on is not False, hours if isinstance(hours, int) and not isinstance(hours, bool) and hours in CLEAR_AFTER else DEFAULTS["water_clear"])
