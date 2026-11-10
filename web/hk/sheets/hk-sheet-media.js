@@ -72,7 +72,7 @@
           '.tp .pp{width:60px;height:60px;border-radius:30px}',
           // (the volume between a small and a large speaker, as every player has it)
           '.vw{display:flex;align-items:center;gap:10px}.vw[hidden]{display:none}.vw>hk-icon{flex:none;display:flex;color:' + window.hkCards.v('ink-2') + '}',
-          '.vol{position:relative;flex:1;min-width:0;height:28px;touch-action:none;cursor:pointer;margin:0 2px}',
+          '.vol{position:relative;flex:1;min-width:0;height:28px;touch-action:pan-y;cursor:pointer;margin:0 2px}',
           '.vol .t{position:absolute;left:0;right:0;top:11px;height:6px;border-radius:3px;background:rgba(255,255,255,0.28)}',
           // (the screensaver slide's volume, as every player's: white, not the accent -- 2026-11-07, the owner)
           '.vol .f{position:absolute;left:0;top:11px;height:6px;border-radius:3px;background:#fff}',
@@ -181,21 +181,25 @@
         this._e.pv.addEventListener('click', function () { self._svc('media_player', 'media_previous_track'); });
         this._e.nx.addEventListener('click', function () { self._svc('media_player', 'media_next_track'); });
         this._e.pp.addEventListener('click', function () { self._svc('media_player', 'media_play_pause'); });
-        // volume: drag or tap along the track
+        // volume: drag along the track (a mouse may click it)
         var vol = this._e.vol, sendV = throttle(function (v) { self._svc('media_player', 'volume_set', { volume_level: v }); }, 250);
-        var pick = function (e) {
+        var pick = function (x) {
           var r = vol.getBoundingClientRect();
-          var v = clamp((e.clientX - r.left) / r.width, 0, 1);
+          var v = clamp((x - r.left) / r.width, 0, 1);
           v = Math.round(v * 100) / 100;
           self._showVol(v);
           sendV(v);
         };
-        var down = false;
-        vol.addEventListener('pointerdown', function (e) { e.preventDefault(); down = true; self._volDrag = true; try { vol.setPointerCapture(e.pointerId); } catch (x) { /* ok */ } pick(e); });
-        vol.addEventListener('pointermove', function (e) { if (down) pick(e); });
-        var up = function (e) { if (down) { down = false; pick(e); setTimeout(function () { self._volDrag = false; }, 800); } };
-        vol.addEventListener('pointerup', up);
-        vol.addEventListener('pointercancel', function () { down = false; self._volDrag = false; });
+        // the finger's once it goes sideways, as every speaker volume (hkDrag.slider, 2026-11-10): down, the sheet scrolls
+        vol.setAttribute('data-hk-control', '');
+        var wire = function (D) {
+          D.slider(vol, {
+            start: function (t, x) { self._volDrag = true; pick(x); },
+            move: function (t, x) { pick(x); },
+            end: function () { setTimeout(function () { self._volDrag = false; }, 800); }
+          });
+        };
+        if (window.hkDrag && window.hkDrag.slider) wire(window.hkDrag); else window.addEventListener('hk-drag', function () { wire(window.hkDrag); }, { once: true });
         vol.addEventListener('keydown', function (e) {
           var cur = num(at(self._stateObj, 'volume_level')) || 0, v = null;
           if (e.key === 'ArrowRight' || e.key === 'ArrowUp') v = clamp(cur + 0.05, 0, 1);

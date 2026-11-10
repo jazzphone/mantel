@@ -124,6 +124,41 @@ function () {
   eq('lifted: null adds no class', Object.keys(el.classes), []);
 },
 function () {
+  H.section('a sideways slider in a list that scrolls (hkDrag.slider: the Volume tabs)');
+  var mk = function () {
+    var el = thing(), log = [];
+    D.slider(el, { start: function (t, x) { log.push(['start', x]); }, move: function (t, x) { log.push(['move', x]); },
+                   end: function (t, c) { log.push(['end', !!c]); } });
+    return { el: el, log: log };
+  };
+  var mv = function (x, y, kind) { var stop = { n: 0 }; return Object.assign(at(x, y, kind), { cancelable: true, preventDefault: function () { stop.n++; }, stop: stop }); };
+  var a = mk();
+  a.el.fire('pointerdown', at(100, 100));
+  eq('a touch: nothing yet (it may be the list\'s)', a.log, []);
+  a.el.fire('pointermove', mv(103, 112));
+  a.el.fire('pointermove', mv(104, 160));
+  a.el.fire('pointerup', at(104, 160));
+  eq('down: the list scrolled, the slider never moved', a.log, []);
+  var b = mk();
+  b.el.fire('pointerdown', at(100, 100));
+  b.el.fire('pointermove', mv(103, 101));
+  eq('under the slop: still nothing', b.log, []);
+  var m = mv(120, 104);
+  b.el.fire('pointermove', m);
+  eq('sideways: the slider is the finger\'s, from where it is', b.log, [['start', 120], ['move', 120]]);
+  eq('...held (captured), the page not scrolled', [b.el.captured, m.stop.n], [[7], 1]);
+  b.el.fire('pointermove', mv(150, 140));
+  b.el.fire('pointerup', at(150, 140));
+  eq('...then it follows even a slanting finger, and ends', b.log.slice(2), [['move', 150], ['end', false]]);
+  var c = mk();
+  c.el.fire('pointerdown', at(100, 100, 'mouse'));
+  eq('a mouse takes it at once', c.log, [['start', 100]]);
+  var d = mk();
+  d.el.fire('pointerdown', at(100, 100));
+  d.el.fire('pointerup', at(100, 100));
+  eq('a tap on the track is no drag', d.log, []);
+},
+function () {
   H.section('the lifted touchmove blocker and the ghost');
   var el = thing(), stopped = 0;
   D.holdStill(el);

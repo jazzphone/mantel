@@ -365,6 +365,8 @@
     // (Flat: no blur, so no veil -- the sheet's own ground, solid)
     ':host([hk-flat]) .mu[cols="1"] .left{background:#140d1e}',
     ':host([data-hk-light]) .mu[cols="1"] .left{color:#fff;' + Object.keys(C.LIGHT || {}).map(function (k) { return k + ':initial'; }).join(';') + '}',
+    // (the volume row lets a vertical finger scroll the page: its slider is the finger's once it goes sideways)
+    '.mu .hks .mvol[data-act=vol]{touch-action:pan-y}',
     '.mu[cols="1"] .grab{display:block;flex:none;width:100%;height:26px;margin:-4px 0 6px;cursor:pointer;touch-action:none;position:relative}',
     '.mu[cols="1"] .grab::before{content:"";position:absolute;left:50%;top:8px;width:42px;height:5px;margin-left:-21px;border-radius:3px;background:rgba(255,255,255,.5)}',
     '.mu[cols="1"] .front{flex:none}',
@@ -1120,22 +1122,24 @@
         if (!d) { send(); return; }
         if (now - d.sent >= VOL_EVERY) send(); else if (!d.t) d.t = setTimeout(send, VOL_EVERY - (now - d.sent));
       };
-      // (the whole row is the volume's target, its speakers too: hk-np-strip.js -- the track alone was 30 px)
+      // (the whole row is the volume's target, its speakers too: hk-np-strip.js -- the track alone was 30 px); the finger's
+      // once it goes sideways, as every speaker volume (hkDrag.slider, 2026-11-10: down, the page scrolls)
       var row = this._e.vol;
-      row.addEventListener('pointerdown', function (ev) {
-        if (!self._ctx()) return;
-        self._drag = { id: ev.pointerId, sent: 0, t: null };
-        try { row.setPointerCapture(ev.pointerId); } catch (e) { /* a mouse */ }
-        move(ev.clientX);
-      });
-      row.addEventListener('pointermove', function (ev) { if (self._drag && ev.pointerId === self._drag.id) move(ev.clientX); });
-      var end = function (ev) {
-        if (!self._drag || (ev && ev.pointerId !== self._drag.id)) return;
+      row.setAttribute('data-hk-control', '');
+      var end = function () {
+        if (!self._drag) return;
         send(); self._drag = null;
         if (self._vol) self._vol.until = Date.now() + VOL_HOLD;
       };
-      row.addEventListener('pointerup', end);
-      row.addEventListener('pointercancel', end);
+      var wire = function (D) {
+        D.slider(row, {
+          target: function () { return self._ctx() ? row : null; },
+          start: function (t, x) { self._drag = { sent: 0, t: null }; move(x); },
+          move: function (t, x) { if (self._drag) move(x); },
+          end: end
+        });
+      };
+      if (window.hkDrag && window.hkDrag.slider) wire(window.hkDrag); else window.addEventListener('hk-drag', function () { wire(window.hkDrag); }, { once: true });
     }
     _switchTo(key) {
       var Mu = this._M();

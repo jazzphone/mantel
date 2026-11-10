@@ -1204,8 +1204,6 @@
         me.p = P.create({
           tabs: ['speakers', 'volume', 'queue', 'browse'],
           client: function () { return self.client; },
-          // a Small block's Speakers sheet opens on the Volume tab: the whole group's slider first
-          group: self.getAttribute('size') === 'S',
           ctx: function () { return self._musicCtx(); },
           // the cover, blurred behind the panel as on the screensaver
           art: function () {

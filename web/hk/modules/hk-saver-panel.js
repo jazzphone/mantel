@@ -47,6 +47,8 @@
   if (window.hkSaverPanel) return;
 
   var VOL_EVERY = 200;          // a volume drag sends at most this often (ms)
+  // hkDrag's helpers, once hk-drag.js is in (it may load after this file)
+  function withDrag(fn) { if (window.hkDrag && window.hkDrag.slider) fn(window.hkDrag); else window.addEventListener('hk-drag', function () { fn(window.hkDrag); }, { once: true }); }
   var GROUP = '*';              // the Volume tab's group row, in place of a room's entity id
   var VOL_HOLD = 4000;          // ...and its own value stands this long after
   var DONE_MS = 1200;           // a request done: the answer read, then closed
@@ -254,7 +256,7 @@
     '.mpvhd b{flex:1;min-width:0;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '.mpvhd span{font-size:14px;opacity:.65;font-variant-numeric:tabular-nums}',
     // a finger-sized strip around a thin track
-    '.mpvs{position:relative;height:44px;margin-top:2px;cursor:pointer;touch-action:none}',
+    '.mpvs{position:relative;height:44px;margin-top:2px;cursor:pointer;touch-action:pan-y}',
     '.mpvs .tr{position:absolute;left:12px;right:12px;top:50%;height:6px;margin-top:-3px;border-radius:99px;background:rgba(255,255,255,.22)}',
     '.mpvs .tr i{position:absolute;left:0;top:0;bottom:0;width:calc(var(--v,0) * 100%);border-radius:99px;background:rgba(255,255,255,.92)}',
     '.mpvs .tr b{position:absolute;top:50%;left:calc(var(--v,0) * 100%);width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:50%;',
@@ -320,9 +322,9 @@
   // o: { client() -- the house: everything the panel reads, and its buttons
   // through the client's action port; ctx() -- the music on the screensaver (hkMusic's context) or
   // null, art() -- its blurred art (a canvas) or null, done(ms) -- close it,
-  // follow(key) -- the music moved here, wide() -- two columns fit, group -- the Volume tab opens with the
-  // whole group's slider (2026-10-31, the owner: a Small Now Playing block's Speakers listed only each
-  // speaker's own) }
+  // follow(key) -- the music moved here, wide() -- two columns fit }. The Volume tab opens with the
+  // whole group's slider wherever two rooms or more play (2026-10-31 a Small Now Playing block's; every Volume tab since
+  // 2026-11-10, the owner: "a Global Volume control as well on this tab")
   var TAB_NAME = { speakers: 'Speakers', volume: 'Volume', browse: 'Browse', queue: 'Queue' };
   function create(o) {
     var el = document.createElement('div');
@@ -604,7 +606,7 @@
         return { k: k, v: v };
       });
       // THE GROUP'S, first: the rooms' average
-      if (o.group && c && rows.length > 1) {
+      if (c && rows.length > 1) {
         var gm = S.vols[GROUP], gv = gm && (S.drag && S.drag.key === GROUP || t < gm.until) ? gm.val : null;
         if (gv === null) {
           var known = rows.filter(function (r) { return r.v !== null; });
@@ -617,7 +619,7 @@
         E.vol.__sig = sig;
         E.vol.innerHTML = rows.length ? rows.map(function (r) {
           return '<div class="mpvrow' + (r.group ? ' grp' : '') + '" data-vk="' + esc(r.k) + '"><div class="mpvhd"><b>' + esc(r.name || nameOf(r.k)) + '</b><span></span></div>' +
-                 '<div class="mpvs" data-vol="' + esc(r.k) + '"><div class="tr"><i></i><b></b></div></div></div>';
+                 '<div class="mpvs" data-vol="' + esc(r.k) + '" data-hk-control role="slider" aria-label="' + esc((r.name || nameOf(r.k)) + ' volume') + '"><div class="tr"><i></i><b></b></div></div></div>';
         }).join('') : '<div class="mpnone">Nothing is playing.</div>';
       }
       rows.forEach(function (r) {
@@ -660,27 +662,24 @@
       }
       try { act.callService('media_player', 'volume_set', { entity_id: key, volume_level: mine.val }); } catch (e) { /* offline */ }
     }
-    el.addEventListener('pointerdown', function (e) {
-      var s = e.target.closest && e.target.closest('[data-vol]');
-      if (!s) return;
-      S.drag = { key: s.getAttribute('data-vol'), el: s, sent: 0, t: null, id: e.pointerId };
-      S.lastVol = S.drag.key;
-      s.classList.add('drag');
-      try { s.setPointerCapture(e.pointerId); } catch (x) { /* a mouse */ }
-      volAt(e.clientX);
-    });
-    el.addEventListener('pointermove', function (e) { if (S.drag && e.pointerId === S.drag.id) volAt(e.clientX); });
-    var volEnd = function (e) {
+    // a slider is the finger's once it goes sideways: down, the list scrolls (hkDrag.slider, 2026-11-10)
+    var volEnd = function () {
       var d = S.drag;
-      if (!d || (e && e.pointerId !== d.id)) return;
+      if (!d) return;
       volSend();
       if (d.t) clearTimeout(d.t);
       d.el.classList.remove('drag');
       S.drag = null;
       if (S.vols[d.key]) S.vols[d.key].until = Date.now() + VOL_HOLD;
     };
-    el.addEventListener('pointerup', volEnd);
-    el.addEventListener('pointercancel', volEnd);
+    withDrag(function (D) {
+      D.slider(E.vol, {
+        target: function (e) { return e.target.closest && e.target.closest('[data-vol]'); },
+        start: function (s, x) { S.drag = { key: s.getAttribute('data-vol'), el: s, sent: 0, t: null }; S.lastVol = S.drag.key; s.classList.add('drag'); volAt(x); },
+        move: function (s, x) { if (S.drag) volAt(x); },
+        end: volEnd
+      });
+    });
 
     // ---- QUEUE: what plays, then what comes next (Music Assistant's queue,
     // asked again for each song); a tap plays that song

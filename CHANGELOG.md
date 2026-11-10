@@ -5,6 +5,7 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 ## Unreleased
 
 **Changed**
+- **Every Volume tab has the whole group's slider first** (the music's rooms together, then each room's own) wherever two rooms or more play -- the Music page's Speakers, the screensaver's, the Side Pane's and a Now Playing block's; only a Small Now Playing block had it.
 - **The Intercom's rooms are the Music page's speaker rows**: each speaker's well, its name over what is true of it (Plays with Office, Quiet hours, Unavailable, After you finish, You're here), the tick at the end, one to a line (two where there is room) -- the whole name fits, where two narrow columns cut most of them short on a phone.; **its groups** (Whole House, the floors, your presets) **are one row that scrolls sideways**, as the Music page's presets, not rows of their own over the rooms.
 - **A screensaver widget opens its page when tapped**: the weather the Weather page, the date the Calendar, music the Music page, a timer the Timers page, and so on; one about a single thing (a sensor, a person, a camera) opens its details. Each widget's When Tapped can say Nothing instead (the Screensaver editor).
 - **The screensaver's Music widget says where it plays as the players do** ("Master Bedroom + 10", where it said "EVERYWHERE"), and **goes away once the music stops** (a paused or stopped speaker kept it up).
@@ -13,6 +14,7 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 - **The speaker line says "Master Bedroom + 10"** when three or more rooms play together (two still read as two names), and is a little bigger on the media blocks, an easier target.
 
 **Fixed**
+- **A volume slider moves only once your finger goes sideways**: scrolling a Volume tab's list, the Music page, a speaker's sheet or the Side Pane no longer catches a slider on the way and changes a speaker's volume (the rule the room controls' sliders already kept).
 - **A long room name ends in "…" inside its pill** (the Vacuums page, a vacuum's sheet and every pill grid): it ran out of both ends of the pill, into the next one.
 - **The vacuum's sheet uses the Vacuums page's room pills**: the same height, look and centered names (they were taller, darker and their names sat at the left).
 - **The Music page's Your Playlists shows on a wall tablet without a reload**: it was drawn last in the page's redraw, so anything that stopped the redraw before it left the section missing; it now draws on its own as the list arrives.

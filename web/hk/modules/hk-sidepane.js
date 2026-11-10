@@ -1310,7 +1310,7 @@
       '@media (prefers-reduced-motion:reduce){.npp i{animation:none!important}}',
       // (each speaker a centered box: hk-icon's own box is inline, so the small one sat on its text line, below the
       // slider's -- the owner, 2026-11-01)
-      '.hks .mvs input{flex:1;min-width:0;-webkit-appearance:none;appearance:none;height:100%;background:transparent;margin:0;touch-action:pan-y;cursor:pointer}',
+      '.hks .mvs{cursor:pointer;touch-action:pan-y}.hks .mvs input{flex:1;min-width:0;-webkit-appearance:none;appearance:none;height:100%;background:transparent;margin:0;pointer-events:none}',
       // (filled with the ink up to the level, as the screensaver slide's volume and every player's, 2026-11-07)
       '.hks .mvs input::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:linear-gradient(to right,' + v('ink') + ' 0 var(--f,0%),' + v('line-strong') + ' var(--f,0%) 100%)}',
       '.hks .mvs input::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;margin-top:-8px;border-radius:50%;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.3)}',
@@ -1464,6 +1464,21 @@
       });
       // (its fill follows the finger: the track's --f)
       this._root.addEventListener('input', function (e) { var t = e.target; if (t && t.getAttribute('data-act') === 'vol') t.style.setProperty('--f', t.value + '%'); });
+      // A FINGER MOVES IT ONLY ONCE IT GOES SIDEWAYS, as every speaker volume (hkDrag.slider, 2026-11-10, the owner: "it's
+      // real easy to catch a volume slider" scrolling): the input itself takes no pointer (a touch on its track jumped it
+      // there), the keys still work; the thumb's center runs the track less half a thumb at each end, as the browser's
+      var root = this._root, volAt = function (t, x) {
+        var r = t.getBoundingClientRect(), v = Math.round(Math.max(0, Math.min(1, (x - r.left - 11) / Math.max(1, r.width - 22))) * 100);
+        if (String(v) !== t.value) { t.value = String(v); t.dispatchEvent(new Event('input', { bubbles: true })); }
+      };
+      var wire = function (D) {
+        D.slider(root, {
+          target: function (e) { var m = e.target.closest && e.target.closest('.mvs'); return m && m.querySelector('input[data-act="vol"]'); },
+          start: volAt, move: volAt,
+          end: function (t) { t.dispatchEvent(new Event('change', { bubbles: true })); }
+        });
+      };
+      if (window.hkDrag && window.hkDrag.slider) wire(window.hkDrag); else window.addEventListener('hk-drag', function () { wire(window.hkDrag); }, { once: true });
       this._root.addEventListener('submit', function (e) { self._submit(e); });
     }
     // what it shows now: { list (sections), place, doorbell (a camera) }

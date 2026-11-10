@@ -468,9 +468,47 @@
              p95: Math.round(g[Math.min(g.length - 1, Math.floor(g.length * 0.95))] || 0), kinds: a.kinds };
   }
 
+  // A SIDEWAYS SLIDER IN A LIST THAT SCROLLS (2026-11-10, the owner: "it's real easy to catch a volume slider" scrolling a
+  // Volume tab): a finger is the slider's only once it has gone sideways -- SLOP_TOUCH first, more across than down
+  // (classify, axis x); down, it was the list's, and the slider never moved. A mouse takes it at once. The element wears
+  // touch-action:pan-y (the browser scrolls the list, and says pointercancel) and data-hk-control (the page swipe leaves
+  // it be). h: target(e) -> the slider under the press or null, start(t, x), move(t, x), end(t, cancelled).
+  // (hk-control.js wireSlider is the same rule, for an <input type=range>.)
+  function slider(el, h) {
+    var g = null;
+    el.addEventListener('pointerdown', function (e) {
+      var t = h.target ? h.target(e) : el;
+      if (!t || e.isPrimary === false) return;
+      g = { id: e.pointerId, x: e.clientX, y: e.clientY, t: t, live: e.pointerType === 'mouse' };
+      if (g.live) { try { el.setPointerCapture(e.pointerId); } catch (x) { /* gone */ } h.start(t, e.clientX); }
+    });
+    el.addEventListener('pointermove', function (e) {
+      if (!g || e.pointerId !== g.id) return;
+      if (!g.live) {
+        var k = classify(e.clientX - g.x, e.clientY - g.y, { axis: 'x' });
+        if (k === 'press') return;
+        if (k === 'scroll') { g = null; return; }
+        g.live = true;
+        try { el.setPointerCapture(e.pointerId); } catch (x) { /* gone */ }
+        h.start(g.t, e.clientX);
+      }
+      h.move(g.t, e.clientX);
+      if (e.cancelable) e.preventDefault();
+    }, { passive: false });
+    var end = function (e) {
+      if (!g || e.pointerId !== g.id) return;
+      var was = g; g = null;
+      if (was.live) h.end(was.t, e.type === 'pointercancel');
+    };
+    el.addEventListener('pointerup', end);
+    el.addEventListener('pointercancel', end);
+  }
+
   global.hkDrag = { HOLD_MS: HOLD_MS, SLOP_TOUCH: SLOP_TOUCH, SLOP_MOUSE: SLOP_MOUSE,
                     motion: { begin: moBegin, end: moEnd, take: moTake },
-                    press: press, holdStill: holdStill, ghost: ghost, classify: classify,
+                    press: press, holdStill: holdStill, slider: slider, ghost: ghost, classify: classify,
                     sideways: sideways, sidewaysRow: sidewaysRow, rowTakes: rowTakes, panRow: panRow, EDGE_PAN: EDGE_PAN, SIDEWAYS: SIDEWAYS,
                     speed: speed, lands: lands, spring: spring, easing: easing, curve: curve, glide: glide, viewSwipe: viewSwipe };
+  // (a card wired before this file came in waits for it: window 'hk-drag')
+  try { global.dispatchEvent(new Event('hk-drag')); } catch (e) { /* no events here */ }
 })(typeof window !== 'undefined' ? window : globalThis);
