@@ -49,19 +49,19 @@ const MEASURE = () => {
     clear: root.querySelector('.clr') && root.querySelector('.clr').getAttribute('aria-disabled'),
     buttons: q('.rv button').map((b) => b.textContent), seg: q('.seg button').map((b) => b.textContent + (b.classList.contains('sel') ? '*' : '')),
     chips: q('.chips .pill').map((p) => p.querySelector('.l b').textContent.trim() + (p.getAttribute('aria-pressed') === 'true' ? '*' : '') + (p.classList.contains('preset') ? '~' : '')),
-    // name, * picked, + a glyph, [the muted second line]
-    pills: q('.rooms .pill').map((p) => p.querySelector('.l b').textContent.trim() + (p.getAttribute('aria-pressed') === 'true' ? '*' : '') + (p.querySelector('.pi') ? '+' : '') + (p.querySelector('.l i') ? '[' + p.querySelector('.l i').textContent + ']' : '')),
+    // name, * picked, [its line] (Music's speaker rows, 2026-11-10)
+    pills: q('.rooms .rm').map((p) => p.querySelector('.l b').textContent.trim() + (p.getAttribute('aria-pressed') === 'true' ? '*' : '') + (p.querySelector('.l small') ? '[' + p.querySelector('.l small').textContent + ']' : '')),
     // a row of pills that stops short of the section's edge is an orphan gap; so is a big empty area under the foot
     // every room one width and one height (one grid: the last row simply ends short); the groups one height
-    sizes: [...new Set(q('.rooms .pill').map((p) => { const r = p.getBoundingClientRect(); return Math.round(r.width) + 'x' + Math.round(r.height); }))],
+    sizes: [...new Set(q('.rooms .rm').map((p) => { const r = p.getBoundingClientRect(); return Math.round(r.width) + 'x' + Math.round(r.height); }))],
     chipHeights: [...new Set(q('.chips .pill').map((p) => Math.round(p.getBoundingClientRect().height)))],
-    cols: new Set(q('.rooms .pill').map((p) => Math.round(p.getBoundingClientRect().left))).size,
+    cols: new Set(q('.rooms .rm').map((p) => Math.round(p.getBoundingClientRect().left))).size,
     // a big empty area under the content (the lower of the talk side and the rooms)
     slack: sh ? Math.round(sh.getBoundingClientRect().bottom - Math.max(root.querySelector('.talk').getBoundingClientRect().bottom, root.querySelector('.pick').getBoundingClientRect().bottom)) : null,
     // the talk side and the rooms: beside each other, or one over the other
     // a room's name too long for its pill ends in "…", never cut off (2026-11-07)
-    clipped: q('.rooms .pill .l b').filter((b) => b.scrollWidth > b.clientWidth + 1 && getComputedStyle(b).textOverflow !== 'ellipsis').map((b) => b.textContent),
-    ellipsed: q('.rooms .pill .l b').filter((b) => b.scrollWidth > b.clientWidth + 1).map((b) => b.textContent),
+    clipped: q('.rooms .rm .l b').filter((b) => b.scrollWidth > b.clientWidth + 1 && getComputedStyle(b).textOverflow !== 'ellipsis').map((b) => b.textContent),
+    ellipsed: q('.rooms .rm .l b').filter((b) => b.scrollWidth > b.clientWidth + 1).map((b) => b.textContent),
     side: (() => { const a = root.querySelector('.talk').getBoundingClientRect(), b = root.querySelector('.pick').getBoundingClientRect(); return b.left >= a.right - 1 ? 'beside' : 'below'; })(),
     dashed: q('.chips .pill.preset').map((p) => getComputedStyle(p).borderStyle),
     touchAction: getComputedStyle(root.querySelector('.mb')).touchAction,
@@ -113,7 +113,7 @@ const MEASURE = () => {
       const lineIs = (re) => page.waitForFunction((src) => { const c = deep(document, 'hk-intercom-sheet-card')[0]; return !!c && new RegExp(src).test(c.shadowRoot.querySelector('.line').textContent); }, re.source, { timeout: 8000 });
       const openSheet = async () => {
         await page.evaluate(() => hkIntercom.open());
-        await page.waitForFunction(() => { const c = deep(document, 'hk-intercom-sheet-card')[0]; return !!c && c.shadowRoot.querySelectorAll('.rooms .pill').length > 0; }, null, { timeout: 15000 });
+        await page.waitForFunction(() => { const c = deep(document, 'hk-intercom-sheet-card')[0]; return !!c && c.shadowRoot.querySelectorAll('.rooms .rm').length > 0; }, null, { timeout: 15000 });
         await page.waitForTimeout(900);                       // the sheet slides in
       };
       const closeSheet = async () => {
@@ -172,7 +172,7 @@ const MEASURE = () => {
 
         // ---- the sheet, opened by a touch on the block
         await tapAt('hk-intercom-card');
-        await page.waitForFunction(() => { const c = deep(document, 'hk-intercom-sheet-card')[0]; return !!c && c.shadowRoot.querySelectorAll('.rooms .pill').length > 0; }, null, { timeout: 15000 });
+        await page.waitForFunction(() => { const c = deep(document, 'hk-intercom-sheet-card')[0]; return !!c && c.shadowRoot.querySelectorAll('.rooms .rm').length > 0; }, null, { timeout: 15000 });
         await page.waitForTimeout(900);
         let m = await page.evaluate(MEASURE);
         if (!m) { fail(name, 'the sheet opened'); await ctx.close(); continue; }
@@ -191,7 +191,7 @@ const MEASURE = () => {
         out(`ok ${name} the rooms are ${m.side} the talk button` + (m.ellipsed.length ? ` (with "…": ${m.ellipsed.join(', ')})` : ''));
         if (m.slack > 80) fail(name, 'the sheet is as tall as its content: no big empty area', m.slack);
         if (m.dashed.some((d) => d !== 'dashed')) fail(name, 'presets have a dashed border', m.dashed);
-        if (m.pills.join('|') !== 'Living Room*|Kitchen*|Dining Room+|Office+|Bedroom+|Guest Room|Nursery|Craft Room|Primary Suite HomePods|Laundry Room') fail(name, 'the room pills, picked ones marked; a group leader its link glyph (who it plays with on a tap), quiet hours the moon; no second line; no bare slash', m.pills);
+        if (m.pills.join('|') !== 'Living Room*|Kitchen*|Dining Room[Plays with Office]|Office[Plays with Dining Room]|Bedroom[Quiet hours]|Guest Room|Nursery|Craft Room|Primary Suite HomePods|Laundry Room') fail(name, 'the room rows, picked ones marked; a group leader says who it plays with; quiet hours says so', m.pills);
         if (m.touchAction !== 'none') fail(name, 'touch-action:none on the microphone', m.touchAction);
         if (m.line !== 'Living Room, Kitchen') fail(name, 'the status line names the rooms', m.line);
         await shot('picker');
@@ -207,15 +207,15 @@ const MEASURE = () => {
         await sheetTap('.chips .pill', 3);                                  // Dinner
         m = await page.evaluate(MEASURE);
         if (m.pills.filter((p) => p.includes('*')).map((p) => p.replace(/[*+]|\[.*\]/g, '')).join() !== 'Kitchen,Dining Room') fail(name, 'a preset picks its rooms', m.pills);
-        await sheetTap('.rooms .pill', 3);                                  // Office: leads
+        await sheetTap('.rooms .rm', 3);                                  // Office: leads
         m = await page.evaluate(MEASURE);
         if (m.line !== 'Dining Room leads Office' || m.pills[3].includes('*')) fail(name, 'a skipped pill says why and is not picked', [m.line, m.pills[3]]);
-        await sheetTap('.rooms .pill', 4);                                  // Bedroom: quiet
+        await sheetTap('.rooms .rm', 4);                                  // Bedroom: quiet
         m = await page.evaluate(MEASURE);
         if (m.line !== 'Bedroom: Quiet hours') fail(name, 'quiet hours, said', m.line);
         await sheetTap('.chips .pill', 3);                                  // back to none
-        await sheetTap('.rooms .pill', 0);
-        await sheetTap('.rooms .pill', 1);                                  // Living Room, Kitchen
+        await sheetTap('.rooms .rm', 0);
+        await sheetTap('.rooms .rm', 1);                                  // Living Room, Kitchen
         out(`ok ${name} picker with a finger`);
 
         // ---- Message: record, stop (it sends: rooms are picked), back to Tap to Talk, play, send again
@@ -294,7 +294,8 @@ const MEASURE = () => {
         m = await page.evaluate(MEASURE);
         if (m.seg.join() !== 'Message,Live*') fail(name, 'the Live / Message switch when the feed allows Live', m.seg);
         if (m.micLabel !== 'Hold to talk') fail(name, 'Live says hold to talk', m.micLabel);
-        if (!m.pills.some((p) => p.startsWith('Kitchen') && p.includes('+'))) fail(name, 'you are here: the Kitchen carries a glyph in Live', m.pills);
+        if (!m.pills.some((p) => p.startsWith('Kitchen') && p.includes('[You’re here]'))) fail(name, 'you are here: the Kitchen says so in Live', m.pills);
+        if (m.pills.some((p) => p.includes('[Live]'))) fail(name, 'a room live now has no line: the mode says Live', m.pills);
         if (m.line !== 'Guest Room: after you finish') fail(name, 'rooms that hear it after you finish', m.line);
         if (m.cut.length) fail(name, 'Live: nothing on the talk side cut off', m.cut);
         await shot('sheet-live');
