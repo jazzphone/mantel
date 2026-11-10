@@ -1133,6 +1133,39 @@
     0
    ],
    "scale": 0.868
+  },
+  "homepod-pair": {
+   "symbol": "homepod.2.fill",
+   "primary": [
+    1,
+    3
+   ],
+   "secondary": [
+    0,
+    2
+   ]
+  },
+  "homepod-mini-pair": {
+   "symbol": "homepod.mini.2.fill",
+   "primary": [
+    1,
+    3
+   ],
+   "secondary": [
+    0,
+    2
+   ]
+  },
+  "homepod-and-homepod-mini": {
+   "symbol": "homepod.and.homepod.mini.fill",
+   "primary": [
+    1,
+    3
+   ],
+   "secondary": [
+    0,
+    2
+   ]
   }
  },
  "weather": [

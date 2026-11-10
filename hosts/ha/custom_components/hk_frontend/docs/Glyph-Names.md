@@ -373,7 +373,10 @@ A symbol name that your version of SF Symbols doesn’t have (Apple renames one 
 | `hk:wrench` | `wrench.adjustable.fill` |  |
 | `hk:apple-tv` | `appletv.fill` | two-tone |
 | `hk:homepod` | `homepod.fill` | two-tone |
+| `hk:homepod-and-homepod-mini` | `homepod.and.homepod.mini.fill` | two-tone |
 | `hk:homepod-mini` | `homepod.mini.fill` | two-tone; scaled to 0.868 |
+| `hk:homepod-mini-pair` | `homepod.mini.2.fill` | two-tone |
+| `hk:homepod-pair` | `homepod.2.fill` | two-tone |
 | `hk:speaker` | `hifispeaker.fill` | two-tone |
 | `hk:television` | `tv` | two-tone |
 

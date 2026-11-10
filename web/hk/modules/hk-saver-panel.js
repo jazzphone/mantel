@@ -477,6 +477,14 @@
       var n = rs.map(nameOf);
       return n.length > 3 ? n.slice(0, 2).join(', ') + ' and ' + (n.length - 2) + ' more' : list(n);
     }
+    // each room's speaker as its tile draws it (its gear's Icon), a HomePod when none is chosen
+    // (its gear's Icon, an mdi: one through the hk: set, as hk-strategy.js accIcon draws a tile's; 2026-11-10, the owner: every
+    // room was a HomePod here and a HomePod mini on its tile)
+    function glyphOf(k) {
+      var HS = window.hkSettings, A = HS && HS.get ? HS.get('accessories', null) : null, a = A && A.entities && A.entities[k];
+      var v = a && a.icon ? String(a.icon) : '';
+      return v ? (/^mdi:/.test(v) ? 'hk:' + v.slice(4) : v) : 'hk:homepod';
+    }
     function drawSpeakers(c) {
       var m = M(), h = states();
       var ticks = picking(c) ? o.target().slice() : ticksNow();
@@ -506,7 +514,7 @@
         var line = mem ? '<span class="mpeq"><i></i><i></i><i></i></span>' + (c && c.playing ? 'Playing here' : 'Paused here')
                  : off ? 'Unavailable' : others[k] ? 'Playing ' + esc(others[k]) + stops : '';
         return '<div class="mproom' + (on ? ' sel' : '') + (off && !on && !mem ? ' off' : '') +
-               '" data-room="' + esc(k) + '"><div class="ri"><hk-icon icon="hk:homepod"></hk-icon></div><div class="rn"><b>' + esc(r.name) + '</b>' +
+               '" data-room="' + esc(k) + '"><div class="ri"><hk-icon icon="' + esc(glyphOf(k)) + '"></hk-icon></div><div class="rn"><b>' + esc(r.name) + '</b>' +
                (line ? '<small>' + line + '</small>' : '') + '</div><div class="mpck">' + svg(ICON.check) + '</div></div>';
       }).join('');
       if (E.rooms.__t !== html) { E.rooms.innerHTML = html; E.rooms.__t = html; }

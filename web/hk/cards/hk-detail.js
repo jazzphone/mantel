@@ -1349,7 +1349,7 @@
       sensor: ['motion-sensor', 'motion', 'contact-sensor', 'smoke-detector', 'molecule-co', 'molecule-co2',
                'air-filter', 'home-thermometer', 'water-percent', 'water', 'water-alert', 'pipe-leak',
                'lightning-bolt', 'home-battery', 'speedometer', 'doorbell-video', 'bell', 'mailbox-up', 'walk'],
-      media_player: ['television', 'apple-tv', 'homepod', 'homepod-mini', 'speaker', 'speaker-multiple',
+      media_player: ['television', 'apple-tv', 'homepod', 'homepod-mini', 'homepod-pair', 'homepod-mini-pair', 'homepod-and-homepod-mini', 'speaker', 'speaker-multiple',
                      'speaker-play', 'television-speaker', 'audio-video', 'amplifier', 'radio', 'projector',
                      'remote-tv', 'music', 'volume-high', 'monitor', 'laptop', 'cellphone', 'tablet', 'gamepad-variant'],
       lock: ['lock', 'lock-smart', 'door-closed-lock', 'door-french', 'door-sliding', 'gate', 'key-variant', 'garage',
