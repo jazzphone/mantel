@@ -76,6 +76,20 @@ const measure = new Function('return ' + measureSrc.toString().replace('PLAYER_L
         await card.locator('.mpanel [data-p="speakers"]:not([hidden])').first().waitFor({ state: 'visible', timeout: 8000 });
         await page.waitForTimeout(700);
         if (input.shots) await page.screenshot({ path: `${input.shots}/${tag}-speakers.png` });
+        // THE VOLUME TAB (2026-11-10, the owner: "a Global Volume control as well on this tab"): the whole group's slider first
+        // wherever two rooms or more play; every slider lets a vertical finger scroll the list (touch-action pan-y)
+        await card.locator('.mpanel [data-tab="volume"]').first().tap();
+        await card.locator('.mpanel [data-p="volume"]:not([hidden])').first().waitFor({ state: 'visible', timeout: 8000 });
+        await page.waitForTimeout(500);
+        const vt = await page.evaluate(() => {
+          const deep = (r, sel) => [...r.querySelectorAll('*')].flatMap((e) => [...(e.matches(sel) ? [e] : []), ...(e.shadowRoot ? deep(e.shadowRoot, sel) : [])]);
+          const rows = deep(document, '.mpanel [data-p="volume"] .mpvrow');
+          return { rows: rows.length, grp: rows.length ? rows[0].classList.contains('grp') : false,
+                   touch: [...new Set(deep(document, '.mpanel .mpvs').map((s) => getComputedStyle(s).touchAction))] };
+        });
+        if (input.shots) await page.screenshot({ path: `${input.shots}/${tag}-volume.png` });
+        assert(vt.rows < 3 || vt.grp, tag + ': two rooms or more, the whole group\'s slider first ' + JSON.stringify(vt));
+        assert.deepEqual(vt.touch, ['pan-y'], tag + ': a vertical finger scrolls the Volume tab ' + JSON.stringify(vt));
         assert(!m.look.wells.length && m.look.above !== undefined && Math.abs(m.look.above - m.look.below) <= 3, tag + ': the player bare, the pause halfway ' + JSON.stringify(m.look));
         assert(Math.abs(m.margins.left - m.margins.right) <= 1, tag + ': the column\'s margins even ' + JSON.stringify(m.margins));
         console.log(`PASS ${input.engine} ${tag} (${m.cols} column${m.cols === '1' ? ', the sheet' : 's'}): targets ${JSON.stringify(m.strip.targets)}, keys to volume ${m.strip.gapTV} px, ` +

@@ -495,13 +495,18 @@
       h.move(g.t, e.clientX);
       if (e.cancelable) e.preventDefault();
     }, { passive: false });
+    var swallow = 0;
     var end = function (e) {
       if (!g || e.pointerId !== g.id) return;
       var was = g; g = null;
-      if (was.live) h.end(was.t, e.type === 'pointercancel');
+      if (was.live) { swallow = Date.now(); h.end(was.t, e.type === 'pointercancel'); }
     };
     el.addEventListener('pointerup', end);
     el.addEventListener('pointercancel', end);
+    // a drag is not a tap on what it ended over (the Side Pane's player opened under a mouse let go on its volume)
+    el.addEventListener('click', function (e) {
+      if (swallow && Date.now() - swallow < 400) { swallow = 0; e.stopPropagation(); e.preventDefault(); }
+    }, true);
   }
 
   global.hkDrag = { HOLD_MS: HOLD_MS, SLOP_TOUCH: SLOP_TOUCH, SLOP_MOUSE: SLOP_MOUSE,

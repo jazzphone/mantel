@@ -150,6 +150,11 @@ function () {
   b.el.fire('pointermove', mv(150, 140));
   b.el.fire('pointerup', at(150, 140));
   eq('...then it follows even a slanting finger, and ends', b.log.slice(2), [['move', 150], ['end', false]]);
+  var stopped = 0;
+  b.el.fire('click', { stopPropagation: function () { stopped++; }, preventDefault: function () {} });
+  eq('...and the click it ends in is no tap on what is under it', stopped, 1);
+  b.el.fire('click', { stopPropagation: function () { stopped++; }, preventDefault: function () {} });
+  eq('...the next one is', stopped, 1);
   var c = mk();
   c.el.fire('pointerdown', at(100, 100, 'mouse'));
   eq('a mouse takes it at once', c.log, [['start', 100]]);
