@@ -194,15 +194,18 @@
     'alarm.entity': 'Alarm Sensor', 'trash.entity': 'Trash Calendar or Sensor', 'pollen.entity': 'Pollen Sensor', 'appliance.entity': 'Appliance',
     'appliance.entity2': 'Second Appliance', 'travel.entity': 'Place', 'travel.entity2': 'Second Place', 'price.entity': 'Price Sensor',
     'sensor.entity': 'Entity', 'sensor.entity2': 'Second Entity', 'camera.label': 'Name', 'camera.name': 'Custom Name',
-    lines: 'Lines', weekday: 'Weekday', month: 'Month', year: 'Year', weight: 'Weight', case: 'Letters'
+    lines: 'Lines', weekday: 'Weekday', month: 'Month', year: 'Year', weight: 'Weight', case: 'Letters', tap: 'When Tapped'
   };
   var OPT_SUBS = {
+    tap: 'A tap on it wakes the screen on its page (the Weather page for the weather, the Calendar for the date), or opens the details of what it shows (a sensor, a person, a camera). Nothing: a tap only wakes the screen.',
     match: 'The next event with these words in its title; empty, the next all-day event.', name: 'Empty: the entity’s own name.',
     min: 'The number where the ring is empty.', max: 'The number where the ring is full.'
   };
   var CHOICE_WORDS = { aqi: 'AQI', open: 'Only When Open', always: 'Always', normal: 'As Written', upper: 'All Capitals' };
   function titleCase(s) { return String(s).replace(/_/g, ' ').replace(/\b[a-z]/g, function (c) { return c.toUpperCase(); }); }
-  function choiceName(key, v) {
+  function choiceName(key, v, piece) {
+    // (When Tapped: a piece about one thing opens its details, the others their page -- hkSaverLayout.TAP_SHEETS / TAP_PAGES)
+    if (key === 'tap') { var LM0 = window.hkSaverLayout || {}; return v !== 'page' ? 'Nothing' : (LM0.TAP_SHEETS || {})[piece] && !(LM0.TAP_PAGES || {})[piece] ? 'Open Details' : 'Open Page'; }
     if (CHOICE_WORDS[v]) return CHOICE_WORDS[v];
     if (/^city2?$/.test(key)) return String(v).split('/').pop().replace(/_/g, ' ');
     return titleCase(v);
@@ -1469,7 +1472,7 @@
       var d = WG && WG.PIECES[w.piece], eff = d && WG._ && WG._.optsOf ? WG._.optsOf(d, w.opts) : {}, cur = w.opts && w.opts[k] != null ? w.opts[k] : eff[k];
       if (Array.isArray(spec)) {
         if (cur == null || spec.indexOf(cur) < 0) cur = spec[0];
-        var options = spec.map(function (c) { return [c, choiceName(k, c)]; });
+        var options = spec.map(function (c) { return [c, choiceName(k, c, w.piece)]; });
         return spec.length <= 5 ? K.seg({ label: label, sub: sub, value: cur, options: options, stack: spec.length > 3, onChange: setOpt })
                                 : K.select({ label: label, sub: sub, value: cur, options: options, onChange: setOpt });
       }

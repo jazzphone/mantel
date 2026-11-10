@@ -204,7 +204,8 @@
     '.hksw .cd.mc .mt > div{overflow:hidden;text-overflow:ellipsis}',
     '.hksw .cd.mc .m1{font-size:calc(var(--u) * 2.8);line-height:1.35;font-weight:700}',
     '.hksw .cd.mc .m2{font-size:calc(var(--u) * 2.2);line-height:1.35}',
-    '.hksw .cd.mc .m3{font-size:calc(var(--u) * 2);line-height:1.35;opacity:.7;letter-spacing:.03em;text-transform:uppercase}',
+    '.hksw .cd.mc .m3{display:flex;align-items:center;gap:.35em;font-size:calc(var(--u) * 2.2);line-height:1.35;font-weight:600;opacity:.8;white-space:nowrap}',
+    '.hksw .cd.mc .m3 hk-icon{--mdc-icon-size:1em;width:1em;height:1em;flex:none;display:flex}.hksw .cd.mc .m3 b{font-weight:inherit;overflow:hidden;text-overflow:ellipsis}.hksw .cd.mc .m3 i{flex:none;font-style:normal;font-weight:400;opacity:.72}',
     '.hksw .tr{display:flex;align-items:center;gap:calc(var(--u) * 1.2);height:calc(var(--u) * 5.4)}',
     '.hksw .tr + .tr{margin-top:calc(var(--u) * .4)}',
     '.hksw .tr .mr{width:calc(var(--u) * 5);height:calc(var(--u) * 5)}',
@@ -964,9 +965,18 @@
   });
 
   // ---- MUSIC: shows while the screensaver's music reading says something plays (ctx.music, from musicOf())
+  // (PLAYING, not just a player with a song: a paused or stopped HomePod keeps its title, and the widget stayed up for the whole
+  // screensaver -- the owner, 2026-11-10: "the Music Widget never disappears")
   function musicOn(X) {
     var m = X.ctx && X.ctx.music;
-    return m && !m.idle && m.title ? m : null;
+    return m && !m.idle && m.title && m.playing !== false ? m : null;
+  }
+  // where it plays as the players say it (hk-np-strip.js line): the first room and how many more -- "Master Bedroom + 10" -- where
+  // it was the group's name in capitals ("EVERYWHERE"; the owner, 2026-11-10: "the same kind of speaker text")
+  function roomsOf(m) {
+    var rs = (Array.isArray(m.rooms) ? m.rooms : []).filter(Boolean);
+    if (!rs.length) return { one: String(m.room || ''), more: '' };
+    return { one: rs[0], more: rs.length > 2 ? ' + ' + (rs.length - 1) : rs.length === 2 ? ' + ' + rs[1] : '' };
   }
   define('music', {
     name: 'Music', group: 'Media and Photos', wave: 'now', facts: ['music'], source: 'musicOf', when: 'while music plays', wakes: ['house'], pick: null, off: false, opts: {}, accent: null,
@@ -984,15 +994,16 @@
         // the art (a square with rounded corners; a note when there is none), the song, the artist, the room
         read: function (X) {
           var m = musicOn(X);
-          return m ? { title: String(m.title), artist: String(m.artist || ''), room: String(m.room || ''), pic: String(m.pic || '') } : { off: true };
+          var w = m ? roomsOf(m) : null;
+          return m ? { title: String(m.title), artist: String(m.artist || ''), room: w.one, more: w.more, pic: String(m.pic || '') } : { off: true };
         },
         draw: function (s) {
           return '<div class="cd mc">' + (s.pic ? '<img class="art" alt="" src="' + esc(s.pic) + '">' : '<span class="art">' + NOTE + '</span>') +
             '<div class="mt"><div class="m1">' + esc(s.title) + '</div>' + (s.artist ? '<div class="m2">' + esc(s.artist) + '</div>' : '') +
-            (s.room ? '<div class="m3">' + esc(s.room) + '</div>' : '') + '</div></div>';
+            (s.room ? '<div class="m3"><hk-icon icon="hk:homepod"></hk-icon><b>' + esc(s.room) + '</b>' + (s.more ? '<i>' + esc(s.more) + '</i>' : '') + '</div>' : '') + '</div></div>';
         },
         h: function () { return 16; },
-        sample: { title: 'Night Harbor', artist: 'The Fictional Trio', room: 'Kitchen', pic: '' }
+        sample: { title: 'Night Harbor', artist: 'The Fictional Trio', room: 'Kitchen', more: ' + 2', pic: '' }
       }
     }
   });

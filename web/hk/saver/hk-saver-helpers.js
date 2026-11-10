@@ -735,9 +735,34 @@
       var has = conf && Array.isArray(conf.views) && conf.views.some(function (v) { return v && v.path === 'weather'; });
       return has ? '/' + (String(location.pathname).split('/')[1] || '') + '/weather' : null;
     }
+    // A PIECE'S PAGE (2026-11-10, the owner: "all the widgets for the screensavers, when tapped, took you to their page ... an option to
+    // enable/disable per widget"): the screen's page for a view path, when it has one -- the Weather page's way for any page
+    function pageFor(path) {
+      var conf = dashConf();
+      var has = conf && Array.isArray(conf.views) && conf.views.some(function (v) { return v && v.path === path; });
+      return has ? '/' + (String(location.pathname).split('/')[1] || '') + '/' + path : null;
+    }
+    // ...and the page of the laid-out piece under a tap (a finger's slop round it): its kind's page (hkSaverLayout.TAP_PAGES), unless
+    // its When Tapped says Nothing (data-tap, set as it is made); none, null -- the tap only wakes the screen
+    function widgetPage(x, y, ly) {
+      var LM = window.hkSaverLayout, T = (LM && LM.TAP_PAGES) || {}, TS = (LM && LM.TAP_SHEETS) || {}, hit = null;
+      if (!ly || !ly.widgets || x == null || y == null) return null;
+      Object.keys(ly.widgets).forEach(function (k) {
+        var el = ly.widgets[k] && ly.widgets[k].el, p = el && (/(?:^|\s)p-([a-z0-9_]+)/.exec(el.className || '') || [])[1];
+        if (hit || !p || !(T[p] || TS[p]) || el.isConnected === false || el.getAttribute('data-tap') === 'none') return;
+        var r = el.getBoundingClientRect();
+        if (!(r.width > 0 && r.height > 0 && x >= r.left - SLOP && x <= r.right + SLOP && y >= r.top - SLOP && y <= r.bottom + SLOP)) return;
+        // (its thing's sheet: "sheet:<entity>", go() opens it; with none named, its kind's page)
+        var ent = TS[p] ? el.getAttribute('data-tap-entity') : '';
+        hit = ent ? 'sheet:' + ent : T[p] ? pageFor(T[p]) : null;
+      });
+      return hit || null;
+    }
     // as a navigate tap_action does (hk-base.js): HA follows location-changed;
     // the dashboard is still under the screensaver, drawing (stop's WAKE)
     function go(path) {
+      // (a piece's thing, "sheet:<entity>" -- widgetPage: its detail sheet over the screen it wakes on)
+      if (/^sheet:/.test(String(path))) { try { window.hkShell.moreInfo(String(path).slice(6)); } catch (e) { /* stay */ } return; }
       if (String(location.pathname) === path) return;
       try { window.hkShell.navigate(path); } catch (e) { /* stay */ }
     }
@@ -876,6 +901,6 @@
     K.shuffle = shuffle; K.slideOf = slideOf; K.timedTurn = timedTurn; K.timerHold = timerHold; K.SLOP = SLOP; K.sunDown = sunDown; K.tabletId = tabletId;
     K.tabletNow = tabletNow; K.tagOf = tagOf; K.TB_COVER = TB_COVER; K.TB_WAIT = TB_WAIT; K.tbKey = tbKey;
     K.tbShare = tbShare; K.tbShares = tbShares; K.turnOf = turnOf; K.user = user; K.viewFont = viewFont;
-    K.weatherPage = weatherPage; K.withPane = withPane; K.previewPaneOf = previewPaneOf; K.zoneOf = zoneOf;
+    K.weatherPage = weatherPage; K.widgetPage = widgetPage; K.pageFor = pageFor; K.withPane = withPane; K.previewPaneOf = previewPaneOf; K.zoneOf = zoneOf;
   };
 })();

@@ -81,6 +81,19 @@
     price: [['inline'], {entity: 'entity:sensor,input_number,number'}, 'Price', ['price'], 'picked'],
     sensor: [['inline', 'circular', 'rectangular'], {entity: 'entity:sensor,binary_sensor,input_number,number,input_boolean,switch,climate,lock,cover,device_tracker', entity2: 'entity:sensor,binary_sensor,input_number,number,input_boolean,switch,climate,lock,cover,device_tracker', name: 'text', min: 'text', max: 'text'}, 'Any Sensor', ['sensor'], 'sensor']
   };
+  // A TAP OPENS ITS PAGE (2026-11-10, the owner: "you tap weather, it goes to the weather page. Date goes to the Calendar page ... an option
+  // to enable/disable per widget"): the page a piece's tap opens (the screen's view path, when the screen has it), and its option
+  // `tap` -- Open Page first, the default -- on every piece that has one; hk_core/settings/saver_layout.py keeps the same
+  var TAP_PAGES = {weather: 'weather', readings: 'weather', rain: 'weather', alert: 'weather', uv: 'weather', wind: 'weather', pressure: 'weather',
+    feels: 'weather', moon: 'weather', sun: 'weather', date: 'calendar', events: 'calendar', countdown: 'calendar',
+    music: 'playmusic', upnext: 'playmusic', playin: 'playmusic', timers: 'timers', energy: 'energy', grid: 'energy', ev: 'energy',
+    status: 'security', security: 'security', doors: 'security', garage: 'security', leak: 'security', climate: 'climate',
+    lights: 'lights', vacuum: 'vacuums', camera: 'cameras', ring: 'cameras', package: 'cameras'};
+  // ...and a piece about one thing -- a person, a sensor, an appliance, a camera -- opens that thing's sheet (the option naming it; the
+  // owner, 2026-11-10: "all the widgets can be actionable if it makes sense"); a camera with none picked, the Cameras page
+  var TAP_SHEETS = {who: 'person', alarm: 'entity', trash: 'entity', pollen: 'entity', appliance: 'entity', travel: 'entity', price: 'entity',
+    sensor: 'entity', camera: 'camera'};
+  Object.keys(TAP_PAGES).concat(Object.keys(TAP_SHEETS)).forEach(function (k) { if (PIECES[k]) PIECES[k][1].tap = ['page', 'none']; });
   var SHAPES = ['inline', 'circular', 'rectangular', 'card', 'band'];
   var SHAPE_NAMES = { inline: 'Inline', circular: 'Circular', rectangular: 'Rectangular', card: 'Card', band: 'Band' };
   // THE FIRST LAYOUTS' WIDGETS (v1, 2026-11-01), each a piece in a shape now: [piece, shape, opts]
@@ -591,7 +604,7 @@
   }
 
   window.hkSaverLayout = {
-    VERSION: VERSION, PIECES: PIECES, SHAPES: SHAPES, SHAPE_NAMES: SHAPE_NAMES, V1: V1, CATALOG: CATALOG, ZONES: ZONES, ZONE_NAMES: ZONE_NAMES,
+    VERSION: VERSION, PIECES: PIECES, TAP_PAGES: TAP_PAGES, TAP_SHEETS: TAP_SHEETS, SHAPES: SHAPES, SHAPE_NAMES: SHAPE_NAMES, V1: V1, CATALOG: CATALOG, ZONES: ZONES, ZONE_NAMES: ZONE_NAMES,
     UNITS: UNITS, BIG: BIG, BIG_DEFAULT: BIG_DEFAULT, BACKS: BACKS, COLORS: COLORS, ALIGNS: ALIGNS, ITEM_SIZE: ITEM_SIZE, ROW_AT: ROW_AT, ROW_LINE: ROW_LINE,
     INKS: INKS, clean: clean, check: check, fits: fits, layoutFrom: layoutFrom, oriented: oriented, plan: plan, claims: claims,
     SLIDES: SLIDES, cornerFor: cornerFor,

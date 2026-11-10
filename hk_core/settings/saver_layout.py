@@ -86,6 +86,23 @@ PIECES: dict[str, tuple[tuple[str, ...], dict[str, tuple[str, ...] | str]]] = {
     "price": (("inline",), {"entity": "entity:sensor,input_number,number"}),
     "sensor": (("inline", "circular", "rectangular"), {"entity": ANY_ENTITY, "entity2": ANY_ENTITY, "name": "text", "min": "text", "max": "text"}),
 }
+# A TAP OPENS ITS PAGE (2026-11-10): the page a piece's tap opens, and its option `tap` (Open Page first, the default) on every
+# piece that has one -- web/hk/modules/hk-saverlayout.js keeps the same
+TAP_PAGES: dict[str, str] = {
+    "weather": "weather", "readings": "weather", "rain": "weather", "alert": "weather", "uv": "weather",
+    "wind": "weather", "pressure": "weather", "feels": "weather", "moon": "weather", "sun": "weather",
+    "date": "calendar", "events": "calendar", "countdown": "calendar", "music": "playmusic", "upnext": "playmusic",
+    "playin": "playmusic", "timers": "timers", "energy": "energy", "grid": "energy", "ev": "energy",
+    "status": "security", "security": "security", "doors": "security", "garage": "security", "leak": "security",
+    "climate": "climate", "lights": "lights", "vacuum": "vacuums", "camera": "cameras", "ring": "cameras",
+    "package": "cameras",
+}
+# ...and a piece about one thing opens that thing's sheet: the option naming it (a camera with none picked, the Cameras page)
+TAP_SHEETS: dict[str, str] = {"who": "person", "alarm": "entity", "trash": "entity", "pollen": "entity", "appliance": "entity",
+                              "travel": "entity", "price": "entity", "sensor": "entity", "camera": "camera"}
+for _k in [*TAP_PAGES, *TAP_SHEETS]:
+    if _k in PIECES:
+        PIECES[_k][1]["tap"] = ("page", "none")
 SHAPES = ("inline", "circular", "rectangular", "card", "band")
 # [zone] -> (the shapes it takes, its room). The row's room is in units: a circular piece is one, a rectangular two,
 # times its size. The pane down the side is the Side Pane's, with settings of its own: not a zone.

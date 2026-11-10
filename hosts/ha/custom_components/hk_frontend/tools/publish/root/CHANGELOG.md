@@ -6,6 +6,8 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 ## Unreleased
 
 **Changed**
+- **A screensaver widget opens its page when tapped**: the weather the Weather page, the date the Calendar, music the Music page, a timer the Timers page, and so on; one about a single thing (a sensor, a person, a camera) opens its details. Each widget's When Tapped can say Nothing instead (the Screensaver editor).
+- **The screensaver's Music widget says where it plays as the players do** ("Master Bedroom + 10", where it said "EVERYWHERE"), and **goes away once the music stops** (a paused or stopped speaker kept it up).
 - **A Small Room block shows its room's own glyph** (Kitchen's fork and knife, the Loft's bookshelf -- the area's icon in Home Assistant) where its room page names none, not always the sofa. Hallway's and Attic's icons are now among the ones Mantel serves.
 - **A Large Now Playing block's cover sits as far from the block's top as from its side**, the controls at its foot; a long song title stays on one line and drifts slowly when it does not fit, instead of wrapping and pushing the cover against the top.
 - **The speaker line says "Master Bedroom + 10"** when three or more rooms play together (two still read as two names), and is a little bigger on the media blocks, an easier target.

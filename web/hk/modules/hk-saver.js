@@ -122,7 +122,7 @@
       sansClock, sansShapes, sansSlides, scaleOf, sendWS, setAttr, setBacklight, shapeOfPh, shuffle, sigOf,
       slideMarks, slideOf, slideView, SLOP, store, sunDown, tabletId, tagOf, TB_COVER, TB_WAIT, tbKey, tbShare,
       tbShares, tellBlack, textBox, turnOf, upNextPiece, user, viewFont, volEnd, volFrom, wakeBrightness,
-      weatherEntity, weatherPage, within, withPane, zoneOf;
+      weatherEntity, weatherPage, widgetPage, within, withPane, zoneOf;
 
   function landscapes() { return !!(cfg && cfg.show === 'clock' && cfg.clock_bg === 'landscapes'); }
   // ONE RENDERER (2026-11-02, phase 13, phase 4; decision 5: "Every screen through one renderer"): a screen with no
@@ -427,7 +427,7 @@
           alertCtl.openAlerts();
           return;
         }
-        var wpage = weatherAt(x, y) && weatherPage();
+        var wpage = (weatherAt(x, y) && weatherPage()) || widgetPage(x, y, ly);   // (and any piece's page: its When Tapped)
         pressStop = true;
         if (wpage) { stop('touch'); go(wpage); return; }
         // A TAP ON HOME ENERGY opens the Energy page (anywhere on it)
@@ -1887,7 +1887,7 @@
         if (!ly.widgets[key] && WG) {
           try {
             ly.widgets[key] = WG.create(w.piece, w.shape, { u: wu, back: w.back, color: w.color, align: al, title: w.title, h24: cfg.clock_24, weather: weatherEntity(), opts: w.opts || {} });
-            if (ly.widgets[key]) ly.layer.appendChild(ly.widgets[key].el);
+            if (ly.widgets[key]) { var te = ly.widgets[key].el, tk = LM.TAP_SHEETS && LM.TAP_SHEETS[w.piece]; te.setAttribute('data-tap', (w.opts && w.opts.tap) || 'page'); if (tk && w.opts && w.opts[tk]) te.setAttribute('data-tap-entity', w.opts[tk]); ly.layer.appendChild(te); }
           } catch (e) { console.warn('[hk-saver] piece', w.piece, w.shape, e && e.message); }
         }
         var ctl = ly.widgets[key];
@@ -4069,7 +4069,7 @@
     tbKey = K.tbKey; tbShare = K.tbShare; tbShares = K.tbShares; tellBlack = K.tellBlack; textBox = K.textBox;
     turnOf = K.turnOf; upNextPiece = K.upNextPiece; user = K.user; viewFont = K.viewFont; volEnd = K.volEnd;
     volFrom = K.volFrom; wakeBrightness = K.wakeBrightness; weatherEntity = K.weatherEntity;
-    weatherPage = K.weatherPage; within = K.within; withPane = K.withPane; zoneOf = K.zoneOf; if (K.PageCard && window.hkHostClient && !customElements.get('hk-now-playing-page-card')) { window.hkHostClient.entry(K.PageCard); customElements.define('hk-now-playing-page-card', K.PageCard); }   // (the Now Playing page, hk-saver-pane.js)
+    weatherPage = K.weatherPage; widgetPage = K.widgetPage; within = K.within; withPane = K.withPane; zoneOf = K.zoneOf; if (K.PageCard && window.hkHostClient && !customElements.get('hk-now-playing-page-card')) { window.hkHostClient.entry(K.PageCard); customElements.define('hk-now-playing-page-card', K.PageCard); }   // (the Now Playing page, hk-saver-pane.js)
   }
 
   loadParts(function () {

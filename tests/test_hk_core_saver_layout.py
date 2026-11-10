@@ -285,3 +285,29 @@ def test_the_date_takes_its_lines_format_weight_and_capitals():
     for bad in ({"lines": "three"}, {"month": "roman"}, {"weight": 700}, {"case": "lower"}):
         with pytest.raises(C.Invalid):
             C._saver_options({"layout": {"v": 2, "zones": {"tl": [{"piece": "date", "shape": "inline", "opts": bad}]}}})
+
+
+@pytest.mark.parametrize("piece,shape,tap,ok", [
+    ("weather", "inline", "page", True), ("date", "inline", "none", True), ("music", "card", "page", True),
+    ("date", "inline", "open", False), ("time", "inline", "page", False), ("title", "inline", "none", False),
+    ("sensor", "inline", "page", True), ("who", "inline", "none", True), ("world", "inline", "page", False),
+])
+def test_a_piece_with_a_page_says_what_a_tap_does(piece, shape, tap, ok):
+    """2026-11-10, the owner: "all the widgets for the screensavers, when tapped, took you to their page ... an option to
+    enable/disable per widget": `tap` (Open Page, the default, or Nothing) on every piece with a page (TAP_PAGES), and on no other."""
+    lay = {"v": 2, "zones": {"tl": [{"piece": piece, "shape": shape, "opts": {"tap": tap}}]}}
+    if ok:
+        assert C._saver_options({"layout": lay})["layout"]["zones"]["tl"][0]["opts"] == {"tap": tap}
+    else:
+        with pytest.raises(C.Invalid):
+            C._saver_options({"layout": lay})
+
+
+def test_each_page_a_tap_opens_is_a_page_hk_has():
+    assert SL.TAP_PAGES["weather"] == "weather" and SL.TAP_PAGES["date"] == "calendar" and SL.TAP_PAGES["music"] == "playmusic"
+    assert set(SL.TAP_PAGES.values()) <= {"weather", "calendar", "playmusic", "timers", "energy", "security", "climate", "lights",
+                                          "vacuums", "cameras"}
+    assert all(SL.PIECES[p][1]["tap"] == ("page", "none") for p in [*SL.TAP_PAGES, *SL.TAP_SHEETS])
+    # (a piece about one thing opens its sheet: the option naming it is the piece's own)
+    assert all(SL.TAP_SHEETS[p] in SL.PIECES[p][1] for p in SL.TAP_SHEETS)
+    assert sorted(p for p in SL.PIECES if "tap" not in SL.PIECES[p][1]) == ["notify", "thisday", "time", "title", "world"]
