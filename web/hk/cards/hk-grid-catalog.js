@@ -358,8 +358,9 @@
   function wallNow(ms, zone) {
     var key = zone || '';
     try {
-      var f = zoneFmt[key] || (zoneFmt[key] = new Intl.DateTimeFormat('en-US', Object.assign({ year: 'numeric', month: 'numeric',
-        day: 'numeric', hour: 'numeric', minute: 'numeric', hourCycle: 'h23' }, zone ? { timeZone: zone } : {})));
+      /** @type {Intl.DateTimeFormatOptions} */
+      var o = { year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', hourCycle: 'h23', timeZone: zone || undefined };
+      var f = zoneFmt[key] || (zoneFmt[key] = new Intl.DateTimeFormat('en-US', o));
       var p = {};
       f.formatToParts(new Date(ms)).forEach(function (x) { p[x.type] = +x.value; });
       if (isFinite(p.year) && isFinite(p.day)) return [p.year, p.month, p.day, p.hour % 24, p.minute];
@@ -407,12 +408,12 @@
   }
   // the sunrise or sunset of day `day`: the one read for that day, else the nearest read moved by whole days
   function sunOn(ev, day, next, zone) {
-    var best = null, bestGap = Infinity;
-    SUN_SEEN[ev].concat([next]).forEach(function (t) {
-      var gap = Math.abs(dayOf(t, zone) - day);
-      if (gap <= bestGap) { best = t; bestGap = gap; }                // (the later read, of two for one day)
-    });
-    return best === null ? null : best + (day - dayOf(best, zone)) * DAY_MS;
+    var all = SUN_SEEN[ev].concat([next]), best = next, bestGap = Infinity;
+    for (var i = 0; i < all.length; i++) {
+      var gap = Math.abs(dayOf(all[i], zone) - day);
+      if (gap <= bestGap) { best = all[i]; bestGap = gap; }          // (the later read, of two for one day)
+    }
+    return best + (day - dayOf(best, zone)) * DAY_MS;
   }
   // one endpoint on day `day`, as an instant; null when it needs the sun and there is none
   function endpointOn(p, day, sun, zone) {
