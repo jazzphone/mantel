@@ -9,6 +9,8 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 - **Security, armed**: the keypad's display alone lights white (the keys no longer sit on a white edge); Wide's alarm tile is a cell wide, as Compact's.
 - **The Small Timers block's ring is bigger**: it runs from the block's left inset to the + button.
 
+- Doors & Locks: when the rows don't all fit, the list scrolls inside the block instead of ending in "+N more" (every door, window and garage door reachable; rows stay 56 px, open ones first, the headline fixed in the upper left, a soft fade at the foot while more is below).
+
 ## 0.1.159 - 2026-11-09
 
 **Changed**

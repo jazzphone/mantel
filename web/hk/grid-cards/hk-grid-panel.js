@@ -176,6 +176,12 @@
       // (THE DOORS' LIST, 2026-11-09, mockup 4b: rows of 56 with the disc of House Status -- .dk -- and DESIGN.md's colors, the owner: "Not sure
       // why things are orange": Security's teal; closed, an off well with the glyph teal; open, LIT -- the disc teal, the glyph white, the state in
       // the first ink; the headline 22 / 600 and its glyph in line with it. The colors are set per row (flatColor: Flat Light's own teal))
+      // THE LIST SCROLLS (2026-11-09, the owner, of House Status's rows: "If everything doesn't fit, maybe have a vertical scroll within the card
+      // for it to fit? Vertical scroll could apply to Doors & Locks too, right?"): rows stay 56, the list takes what the headline leaves and
+      // scrolls by finger as Now Playing's Up Next does (.npql), no scrollbar, a fade at the foot while more is below (.more, _doorsFade)
+      '.wr.dl{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;scrollbar-width:none}' +
+      '.wr.dl::-webkit-scrollbar{display:none}' +
+      '.wr.dl.more{-webkit-mask-image:linear-gradient(180deg,#000 calc(100% - 56px),transparent);mask-image:linear-gradient(180deg,#000 calc(100% - 56px),transparent)}' +
       '.wr.dl>div{height:56px}.wr.dl b{' + type('headline') + ';font-weight:600}.wr.dl em{' + type('body') + ';color:' + v('ink-2') + '}.wr.dl em.o{color:' + v('ink') + ';font-weight:600}' +
       '.dd{display:grid;place-items:center;border-radius:50%;flex:none;box-sizing:border-box;background:' + v('key') + ';color:' + v('ink-2') + '}' +
       '.dd.on{color:#fff}' +
@@ -363,6 +369,7 @@
         if (html === o.html) return;
         o.html = html;
         C.morph(o.plate, html);
+        if (p.own === 'doors') this._doorsFade(o.plate);
       }
       // POWER: what the house uses now, large. Small the last three hours in
       // fifteen-minute bars (the recorder's five-minute means, three to a
@@ -498,24 +505,28 @@
           return '<div data-more="' + esc(x.id) + '">' + disc(g, x.open, 36) + '<span class="wt"><b>' + esc(name(x)) + '</b>' + (s ? '<small>' + esc(s) + '</small>' : '') + '</span><em' +
             (x.open ? ' class="o"' : '') + '>' + (x.open ? 'Open' : 'Closed') + '</em></div>';
         };
-        // the headline column (Extra Large, Wide): the glyph over the count over the line, top left; the gap to the list is the block's inset
-        // (WHAT DID NOT FIT, 2026-11-09: Wide on a tile cell has room for two rows -- "1 row plus 2 more" wasted one on the count: every row
-        // that fits is a door, open ones first, and "+N more" is the headline column's foot, the block's tap opening them all)
-        var col = function (w, extra) {
-          return '<div class="wcol" style="flex:0 0 ' + w + 'px">' + head(36) + '<div class="dt" style="margin-top:10px">' + esc(title) + '</div><div class="ws" style="white-space:normal">' + esc(line) + '</div>' +
-            // (not twice: where the line already ends "+ N more", the open ones' count says it)
-            (extra && !/ more$/.test(line) ? '<div class="ws" style="margin-top:auto">+' + extra + ' more</div>' : '') + '</div>';
+        // the headline column (Extra Large, Wide): the glyph over the count over the line, top left; the gap to the list is the block's inset.
+        // The list beside it scrolls (2026-11-09: every door reachable, no "+N more" in the column -- the count line says how many are open)
+        var col = function (w) {
+          return '<div class="wcol" style="flex:0 0 ' + w + 'px">' + head(36) + '<div class="dt" style="margin-top:10px">' + esc(title) + '</div><div class="ws" style="white-space:normal">' + esc(line) + '</div></div>';
         };
         var gap = 'gap:var(--hk-pad-l,18px)';
         if (size === 'XL' || size === 'W') {
-          var fitN = Math.max(1, Math.floor(box.ih / 56)), extra = Math.max(0, list.length - fitN);
-          return '<div class="wsplit" style="' + gap + '">' + col(size === 'XL' ? 150 : 130, extra) + '<div class="wcol wr tall dl" role="list">' + list.slice(0, fitN).map(row).join('') + '</div></div>';
+          return '<div class="wsplit" style="' + gap + '">' + col(size === 'XL' ? 150 : 130) + '<div class="wcol wr tall dl" role="list">' + list.map(row).join('') + '</div></div>';
         }
-        // Large and Tall: the headline (the glyph beside the count, the line under it), then as many rows as fit -- three at least
-        var headH = 26 + 19 + 12;
+        // Large and Tall: the headline (the glyph beside the count, the line under it), then every row, the list scrolling
         // (the headline in the upper left, the rows under it -- the owner, 2026-11-09: "I want the upper left corner back!", never centered)
         return '<div class="dh">' + head(26) + '<span class="dt">' + esc(title) + '</span></div><div class="ws dsub">' + esc(line) + '</div>' +
-          '<div class="wr tall dl" role="list" style="margin-top:12px">' + fitRows(list, box.ih - headH - 12, row, 56) + '</div>';
+          '<div class="wr tall dl" role="list" style="margin-top:12px">' + list.map(row).join('') + '</div>';
+      }
+      // THE FADE at the list's foot while more is below (as Now Playing's _idleFade): the class is set after each draw, since the morph would drop it
+      _doorsFade(plate) {
+        var sc = plate.querySelector('.dl');
+        if (!sc) return;
+        var f = function () { sc.classList.toggle('more', sc.scrollHeight - sc.clientHeight - sc.scrollTop > 4); };
+        if (!sc.__fade) { sc.__fade = 1; sc.addEventListener('scroll', f, { passive: true }); }
+        f();
+        if (typeof ResizeObserver === 'function') { if (this._dlRo) this._dlRo.disconnect(); this._dlRo = new ResizeObserver(f); this._dlRo.observe(sc); }
       }
       // WATER: today's large; Small and Tall the last twelve hours as a
       // short chart (Tall the days before under it); Wide the day's hours

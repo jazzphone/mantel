@@ -243,9 +243,9 @@ function () {
   html = H.morphed(panel('doors', 'S')._own.plate);
   ok('Doors S: how many are open, large, and which', /class="dd hero on"/.test(html) && />1 Open</.test(html) && /class="ws">Office Window</.test(html) && /mdi:window-open/.test(html) && !/data-more/.test(html), html);
   html = H.morphed(panel('doors', 'W')._own.plate);
-  // (2026-11-09: lit teal, not orange -- DESIGN.md; every row that fits a door, "+N more" the headline column's foot)
+  // (2026-11-09: lit teal, not orange -- DESIGN.md; every door a row; the list scrolls, no "+N more")
   ok('Doors W: the count beside the list, the open one first and lit', />1 Open</.test(html) && /class="ws"[^>]*>Office Window</.test(html) && !/All doors closed/.test(html) &&
-     /class="dd on"/.test(html) && />\+\d+ more</.test(html) && !/class="more"/.test(html) && /<em class="o">Open</.test(html), html);
+     /class="dd on"/.test(html) && !/\+\d+ more</.test(html) && !/class="more"/.test(html) && /class="wcol wr tall dl" role="list"/.test(html) && /<em class="o">Open</.test(html), html);
   ok('...a row opens its own sheet; the locks are Security\'s, not here', /data-more="binary_sensor.office_window"/.test(html) && !/lock.front_door/.test(html));
   // Large and Extra Large (2026-10-31, the owner: not the house picture): the same list, 44 px rows; Extra Large the count beside it
   var pl = panel('doors', 'L');
@@ -253,6 +253,9 @@ function () {
   html = H.morphed(pl._own.plate);
   ok('...the headline over rows at their own 56 px (nothing stretches), the open one first, no foot', /class="dt">1 Open</.test(html) && /class="wr tall dl"/.test(html) && !/wr grow|total/.test(html) &&
      html.indexOf('Office Window') < html.indexOf('Front Door'), html);
+  // THE LIST SCROLLS (2026-11-09, the owner): every door a row, no "+N more", the list a scroller the rows keep 56 px in
+  ok('Doors L: every door is a row (no "N more"), in a vertical scroller', (html.match(/<div data-more=/g) || []).length === 4 && !/class="more"|\d+ more</.test(html), html);
+  ok('...the list is the scroller (.wr.dl: overflow-y, pan-y, a foot fade; CSS pinned by the snapshot), role=list', /<div class="wr tall dl" role="list"/.test(html), html);
   html = H.morphed(panel('doors', 'XL')._own.plate);
   ok('Doors XL: the count in its own column beside the list', /class="wsplit"/.test(html) && /flex:0 0 150px/.test(html) && /gap:var\(--hk-pad-l/.test(html) &&
      /class="ws"[^>]*>Office Window</.test(html) && !/All doors closed/.test(html) && (html.match(/<div data-more=/g) || []).length === 4, html);

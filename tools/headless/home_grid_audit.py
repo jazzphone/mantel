@@ -777,6 +777,32 @@ STATES["people_map_home"] = {"entities": {"zone.home": ("zoning", {"friendly_nam
                              "opts": {"people": {"map": True}}}
 STATES["people_four"] = {"entities": {"person.jo": ("home", {"friendly_name": "Jo"}), "person.kit": ("School", {"friendly_name": "Kit"})}}
 STATE = {"name": "busy", "hits": False}
+
+# THE DOORS' LIST SCROLLS (2026-11-09, the owner: "maybe have a vertical scroll within the card for it to fit?"): in each Doors & Locks
+# block, every row is 56 px, the list scrolls inside the block (the page does not), and scrolling to its end brings the last row fully in
+# view with the fade gone. A list that fits has nothing to scroll and must show every row in place.
+DOORS_SCROLL = r"""(async () => {
+  const find = (r, out) => { for (const e of r.querySelectorAll('*')) { if (e.matches && e.matches('.wr.dl')) out.push(e); if (e.shadowRoot) find(e.shadowRoot, out); } return out; };
+  const lists = find(document, []), res = [], frame = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  for (const l of lists) {
+    const rows = [...l.children].filter((x) => x.hasAttribute('data-more')), k = l.getBoundingClientRect().height / l.offsetHeight || 1;
+    const out = { rows: rows.length, tall: rows.every((x) => Math.abs(x.offsetHeight - 56) < 1), scrolls: l.scrollHeight > l.clientHeight + 1, issues: [] };
+    if (!out.tall) out.issues.push('rows are not 56 px');
+    if (getComputedStyle(l).overflowY !== 'auto') out.issues.push('the list does not scroll');
+    const last = rows[rows.length - 1];
+    if (out.scrolls) {
+      if (!l.classList.contains('more')) out.issues.push('no fade at the foot while more is below');
+      const before = last.getBoundingClientRect().bottom - l.getBoundingClientRect().bottom;
+      l.scrollTop = l.scrollHeight; await frame(); await frame();
+      const lr = l.getBoundingClientRect(), r = last.getBoundingClientRect();
+      if (before <= 1) out.issues.push('the last row was in view before scrolling');
+      if (r.top < lr.top - 1 || r.bottom > lr.bottom + 1) out.issues.push('the last row is not in view after scrolling');
+      if (l.classList.contains('more')) out.issues.push('the fade stays at the end');
+      l.scrollTop = 0;
+    } else if (l.classList.contains('more')) out.issues.push('a fade with nothing below');
+    res.push(out);
+  }
+  return res; })()"""
 # six more rooms for a house with twelve (the Vacuum block's rooms scroll when they do not fit)
 MORE_ROOMS = [("den", "Den", "main"), ("pantry", "Pantry", "main"), ("laundry", "Laundry", "main"), ("hallway", "Hallway", "upstairs"),
               ("nursery", "Nursery", "upstairs"), ("bathroom", "Bathroom", "upstairs")]
@@ -1012,6 +1038,11 @@ async def audit(keys: list[str], looks: list[str], shots: Path | None, long: boo
                         grew = await b.eval(STRETCH + f"({STRETCH_DELTA})")
                         for cell in got.get("cells", []):
                             cell["issues"] += (grew or {}).get(cell.get("size"), [])
+                    if STATE.get("doors_scroll") and key == "doors":
+                        sc = await b.eval(DOORS_SCROLL)
+                        for cell, one in zip([c for c in got.get("cells", []) if c.get("card") and "doors" in c["card"]], sc or []):
+                            cell["issues"] += one["issues"]
+                        print(f"scroll {key} {look:10} " + ", ".join(f"{x['rows']} rows {'scrolls' if x['scrolls'] else 'fits'}" for x in sc or []), flush=True)
                     if os.environ.get("AUDIT_PROBE"):      # (a probe of one's own, in the page: AUDIT_PROBE='<js expression>', printed)
                         print("probe", await b.eval(os.environ["AUDIT_PROBE"]), flush=True)
                     got["errors"] = [c for c in b.console[mark:] if c.startswith(("EXCEPTION", "error"))][:8]
@@ -1177,6 +1208,8 @@ def main(argv=None) -> int:
     ap.add_argument("--state", choices=list(STATES), default="busy",
                     help="the house's state (STATES): busy (default) or quiet -- every block must look finished in each")
     ap.add_argument("--count", type=int, default=0, help="N lights in the Living Room, N accessories, N scenes (stand_in_count)")
+    ap.add_argument("--doors-scroll", action="store_true", dest="doors_scroll",
+                    help="Doors & Locks: the list scrolls and its last row comes into view (DOORS_SCROLL)")
     ap.add_argument("--hits", action="store_true", help="also fail where one control's touchable box (its ::after too) overlaps another's")
     ap.add_argument("--controls", action="store_true",
                     help="also print each block's tap targets: how many, the smallest, the least gap, and where CONTROLS_RULES is broken")
@@ -1188,6 +1221,7 @@ def main(argv=None) -> int:
         stand_in_count(a.count)
     STATE["stretch"] = a.stretch
     STATE["hits"] = a.hits
+    STATE["doors_scroll"] = a.doors_scroll
     STATE["controls"] = a.controls
     for k, v in STATES[a.state].get("opts", {}).items():     # (2026-11-09: a state names the block's own option too -- thermostat_off draws the climate.office it changes, not Main Floor)
         OPTS[k] = {**OPTS.get(k, {}), **v}
