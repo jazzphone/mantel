@@ -9,7 +9,27 @@
   'use strict';
   (window.hkSettingsParts = window.hkSettingsParts || {})['hk-settings-accessories'] = function (KIT) {
     var DOMAIN = KIT.DOMAIN, loadCards = KIT.loadCards, PAGE_ORDERS = KIT.PAGE_ORDERS, SCENE_POOL = KIT.SCENE_POOL,
-        TILE_DOMAINS = KIT.TILE_DOMAINS;
+        TILE_DOMAINS = KIT.TILE_DOMAINS, PN = KIT.PN;
+
+    // HELPERS (2026-11-10, the owner): Home Assistant's helpers, by kind --
+    // [id, name, glyph, color, domain]. A helper is never an accessory by
+    // itself, room or not: most only drive automations (a house had 136, a
+    // dozen meant for a wall). It gets a tile once Helpers shows it -- it is
+    // then in generated.include_entities, as Added Accessories' are. Timers
+    // are a type of their own (the Timers chip), so Helpers only links them.
+    var HELPER_KINDS = [
+      ['toggles', 'Toggles', 'mdi:toggle-switch', '#ffcc00', 'input_boolean'],
+      ['buttons', 'Buttons', 'mdi:gesture-tap-button', '#007aff', 'input_button'],
+      ['numbers', 'Numbers', 'mdi:numeric', '#32ade6', 'input_number'],
+      ['lists', 'Lists', 'mdi:format-list-bulleted', '#5856d6', 'input_select'],
+      ['counters', 'Counters', 'mdi:counter', '#ff9500', 'counter'],
+      ['dates', 'Dates & Times', 'mdi:calendar-clock', '#ff3b30', 'input_datetime'],
+      ['text', 'Text', 'mdi:form-textbox', '#8e8e93', 'input_text'],
+      ['schedules', 'Schedules', 'mdi:calendar-range', '#34c759', 'schedule']
+    ];
+    var HELPER_DOMAIN = {};
+    HELPER_KINDS.forEach(function (k) { HELPER_DOMAIN[k[4]] = k; });
+    var isHelper = function (/** @type {string} */ id) { return !!HELPER_DOMAIN[id.split('.')[0]]; };
 
     var F, h, K, M;
     // (set when the page starts, not now: the shell calls bindLate() once it has assigned them)
@@ -24,13 +44,15 @@
       // ---------------------------------------------------------- accessories
       accIds() {
         var self = this, client = this.client, ents = client.entities || {}, acc = (this.data.accessories || {}).entities || {};
-        var chipIds = {};
+        var chipIds = {}, shown = {};
+        (this.data.settings.generated.include_entities || []).forEach(function (id) { shown[id] = true; });
         Object.keys(this.data.boards || {}).forEach(function (p) {
           ((self.data.boards[p] || {}).chips_extra || []).forEach(function (id) { chipIds[id] = true; });
         });
         return Object.keys(client.states).filter(function (id) {
           var e = ents[id] || {};
           if (acc[id] || chipIds[id]) return true;
+          if (isHelper(id)) return !!shown[id];               // (Helpers: only once it is shown)
           if (!TILE_DOMAINS.test(id) || e.hidden || e.entity_category) return false;
           return !!self.areaOf(id) || id.indexOf('timer.') === 0;
         });
@@ -58,6 +80,22 @@
         if (sub[0] === 'added' || sub[0] === 'also') return { title: 'Added Accessories', back: back,
           scope: 'Tiles for things HK doesn’t show by itself — a script, a scene, a sensor. Hidden Accessories is the other way.',
           body: function (c) { self.a_also(c); } };
+        // HELPERS (2026-11-10): every helper, shown or not; a kind's list; one helper
+        if (sub[0] === 'helpers') {
+          var hlb = ['Helpers', '#/accessories/helpers'];
+          if (sub[1] === 'kind' && HELPER_DOMAIN[sub[2]]) {
+            var HK = HELPER_DOMAIN[sub[2]];
+            return { title: HK[1], back: hlb, body: function (c) { self.a_helperKind(c, HK); } };
+          }
+          if (sub[1] === 'one' && sub[2]) {
+            var hid = sub[2], hk = HELPER_DOMAIN[hid.split('.')[0]];
+            return { title: this.name(hid), back: hk ? [hk[1], '#/accessories/helpers/kind/' + hk[4]] : hlb, scope: K.esc(hid),
+                     body: function (c) { self.a_helper(c, hid); } };
+          }
+          return { title: 'Helpers', back: back,
+                   scope: 'Home Assistant’s helpers: the toggles, buttons, numbers and lists your automations use. None shows on the tablets until you choose it here.',
+                   body: function (c) { self.a_helpers(c); } };
+        }
         // A TYPE (2026-10-13): what it lists, what its page and chip count, its
         // order -- What Counts' kind pages, folded in
         if (sub[0] === 'type' && M.accType(sub[1])) {
@@ -139,7 +177,7 @@
         if (dom === 'sensor') return dc === 'temperature' || dc === 'humidity' ? dc : null;
         if (dom === 'cover') return dc === 'garage' || dc === 'gate' ? 'garage' : 'blinds';
         if (dom === 'media_player') return dc === 'tv' || dc === 'receiver' ? 'tvs' : 'speakers';
-        return { light: 'lights', switch: 'switches', input_boolean: 'switches', fan: 'fans', climate: 'thermostats', humidifier: 'humidifiers',
+        return { light: 'lights', switch: 'switches', fan: 'fans', climate: 'thermostats', humidifier: 'humidifiers',
                  water_heater: 'water_heaters', lock: 'locks', alarm_control_panel: 'alarm', vacuum: 'vacuums', valve: 'valves',
                  timer: 'timers', camera: 'cameras' }[dom] || null;
       }
@@ -166,13 +204,14 @@
             ids.forEach(function (id) { seen[id] = 1; });
             var also = {};
             Object.keys(self.data.counts || {}).forEach(function (k) { (self.data.counts[k].also || []).forEach(function (d) { also[d] = 1; }); });
-            self.entityIds({ domains: Object.keys(also), shown: true }).forEach(function (id) { if (!seen[id]) { seen[id] = 1; pool.push(id); } });
+            self.entityIds({ domains: Object.keys(also).concat(Object.keys(HELPER_DOMAIN)), shown: true }).forEach(function (id) { if (!seen[id]) { seen[id] = 1; pool.push(id); } });
             var got = pool.filter(function (id) {
               return (self.name(id) + ' ' + id + ' ' + self.areaName(self.areaOf(id))).toLowerCase().indexOf(q) >= 0;
             }).sort(function (a, b) { return self.name(a).localeCompare(self.name(b)); }).slice(0, 200);
             box.appendChild(K.group({ header: 'Accessories', footer: got.length ? null : 'No accessories match.' }, got.map(function (id) {
               // the entity id beside its room: two "Water Heater"s (its climate
               // and its water_heater entity) are told apart without opening each
+              if (isHelper(id)) return self.helperRow(id, true);
               return K.nav({ label: self.name(id), sub: (self.areaName(self.areaOf(id)) || 'No room') + ' · ' + id, href: '#/accessories/' + encodeURIComponent(id),
                              icon: self.accGlyph(id), value: self.hideText(id) ? 'Hidden' : acc[id] ? 'Customized' : '' });
             })));
@@ -189,6 +228,9 @@
           var sensors = M.ACC_TYPES.filter(function (T) { return T[6]; }).map(typeRow).filter(Boolean);
           box.appendChild(K.group({ header: 'Types', footer: 'Each type, room by room: what its page and chip count, and what’s hidden from them or added to them. Cameras and the Energy page’s circuits are accessories too.' }, kinds));
           if (sensors.length) box.appendChild(K.group({ header: 'Sensors', footer: 'What the chips and status rows count: the doors left open, the rooms with motion, the Climate page’s temperatures.' }, sensors));
+          var hShown = self.helpersShown().length;
+          box.appendChild(K.group({ footer: 'Home Assistant’s toggles, buttons, numbers and lists. Each one is off the tablets until you choose it.' }, [
+            K.nav({ label: 'Helpers', tile: ['mdi:tune-variant', '#8e8e93'], value: hShown ? hShown + ' Shown' : 'None Shown', href: '#/accessories/helpers', fk: 'acc:helpers' })]));
           var count = {};
           ids.forEach(function (id) { var a = self.areaOf(id) || (id.indexOf('timer.') === 0 ? '~timers' : '-'); count[a] = (count[a] || 0) + 1; });
           var rows = self.areasAZ().filter(function (a) { return count[a]; }).map(function (a) {
@@ -198,7 +240,7 @@
           if (count['~timers']) rows.push(K.nav({ label: 'Timers', icon: 'mdi:timer-outline', value: String(count['~timers']), href: '#/accessories/room/~timers' }));
           if (count['-']) rows.push(K.nav({ label: 'No Room', icon: 'mdi:help-circle-outline', value: String(count['-']), href: '#/accessories/room/-' }));
           box.appendChild(K.group({ header: 'Rooms' }, rows));
-          var hidden = self.hiddenCount(), added = (g.include_entities || []).length;
+          var hidden = self.hiddenCount(), added = (g.include_entities || []).filter(function (id) { return !isHelper(id); }).length;
           box.appendChild(K.group({ header: 'Hidden & Added', footer: 'Hidden: kept off every screen, or off just some pages and chips — it stays in Home Assistant. Added: a tile for something HK doesn’t show by itself, such as a script or a sensor.' }, [
             K.nav({ label: 'Hidden Accessories', icon: 'mdi:eye-off-outline', value: hidden ? String(hidden) : 'None', href: '#/accessories/hidden', sk: 'generated.exclude' }),
             K.nav({ label: 'Added Accessories', icon: 'mdi:plus-circle-outline', value: added ? String(added) : 'None', href: '#/accessories/added', sk: 'generated.include_entities' })]));
@@ -304,13 +346,16 @@
         // BY TYPE, as Accessories is by type and then by room: a room's page is
         // the other way round
         var by = {}, other = [];
-        ids.forEach(function (id) { var t = self.typeOf(id); if (t) (by[t] = by[t] || []).push(id); else other.push(id); });
+        var helpers = [];
+        ids.forEach(function (id) { var t = self.typeOf(id); if (t) (by[t] = by[t] || []).push(id); else (isHelper(id) ? helpers : other).push(id); });
         var row = function (id) {
+          if (isHelper(id)) return self.helperRow(id);
           var a = acc[id] || {};
           return K.nav({ label: self.name(id), sub: id, icon: self.accGlyph(id),
                          value: self.hideText(id) ? 'Hidden' : Object.keys(a).length ? 'Customized' : '', href: '#/accessories/' + encodeURIComponent(id) });
         };
         M.ACC_TYPES.forEach(function (T) { if (by[T[0]]) c.appendChild(K.group({ header: T[1] }, by[T[0]].map(row))); });
+        if (helpers.length) c.appendChild(K.group({ header: 'Helpers' }, helpers.map(row)));
         if (other.length) c.appendChild(K.group({ header: 'Other' }, other.map(row)));
       }
       // A ROOM'S SCENES ROW on its page (accessories.py `scenes`): Automatic --
@@ -693,8 +738,9 @@
       // for something HK doesn't make one for by itself. Offered: what isn't
       // an accessory already, under its room as every picker has it.
       a_also(c) {
-        var self = this, cur = this.data.settings.generated.include_entities || [];
-        var set = function (v) { self.setH({ 'generated.include_entities': v }); };
+        var self = this, all = this.data.settings.generated.include_entities || [];
+        var cur = all.filter(function (id) { return !isHelper(id); }), kept = all.filter(isHelper);
+        var set = function (v) { self.setH({ 'generated.include_entities': v.concat(kept) }); };
         var tiles = {};
         this.accIds().forEach(function (id) { tiles[id] = 1; });
         c.appendChild(K.listEditor({ fk: 'also', reorder: false, shownHeader: 'Added', emptyText: 'Nothing added', announce: this.announce.bind(this),
@@ -705,12 +751,134 @@
                 var ents = self.client.entities || {};
                 return Object.keys(self.client.states).filter(function (id) {
                   var e = ents[id] || {};
-                  return cur.indexOf(id) < 0 && !tiles[id] && !e.hidden && !e.entity_category && !self.client.states[id].attributes.plumbing;
+                  return cur.indexOf(id) < 0 && !tiles[id] && !isHelper(id) && !e.hidden && !e.entity_category && !self.client.states[id].attributes.plumbing;
                 }).map(function (id) { return { value: id, label: self.name(id) }; });
               },
               onPick: function (v) { var add = [].concat(v || []); if (add.length) set(cur.concat(add)); } }));
           } }));
-        c.appendChild(K.group({ footer: 'Each one gets a tile in its room on Home and its room’s page, or in a section called More when it has no room. Remove one to take its tile away; it stays in Home Assistant.' }, []));
+        c.appendChild(K.group({ footer: 'Each one gets a tile in its room: on Home, on its room’s page and in its Room blocks. One with no room shows only in More at the end of the automatic Home, never on a Home Grid. Remove one to take its tile away; it stays in Home Assistant.' }, [
+          K.nav({ label: 'Helpers', tile: ['mdi:tune-variant', '#8e8e93'], sub: 'Toggles, buttons, numbers and lists are chosen there', href: '#/accessories/helpers', fk: 'also:helpers' })]));
+      }
+      // ---------------------------------------------------------- helpers
+      // HELPERS (2026-11-10, the owner, after adding input_boolean.guest_mode
+      // to Added Accessories put it nowhere a tablet looks: it had no room, and
+      // a roomless tile is only in the automatic Home's More). Every helper,
+      // shown or not, by kind; each one's page turns its tile on and gives it
+      // a room in the same place, and says where it will show.
+      helperIds(domain) {
+        var self = this, ents = this.client.entities || {};
+        return Object.keys(this.client.states).filter(function (id) {
+          var e = ents[id] || {};
+          return (domain ? id.split('.')[0] === domain : isHelper(id)) && !e.entity_category && !self.client.states[id].attributes.plumbing;
+        }).sort(function (a, b) { return self.name(a).localeCompare(self.name(b)); });
+      }
+      helpersShown() {
+        var self = this;
+        return (this.data.settings.generated.include_entities || []).filter(function (id) { return isHelper(id) && !!self.client.states[id]; });
+      }
+      // where a helper's tile is, in a few words (a row's second line)
+      helperWhere(id) {
+        if ((this.data.settings.generated.include_entities || []).indexOf(id) < 0) return 'Not shown';
+        var a = this.areaOf(id);
+        return a ? this.areaName(a) : 'No room: not on a Home Grid';
+      }
+      // (mark: say Shown at its end, where shown and not-shown ones are mixed: a search)
+      helperRow(id, mark) {
+        var on = (this.data.settings.generated.include_entities || []).indexOf(id) >= 0, k = HELPER_DOMAIN[id.split('.')[0]];
+        var g = this.accGlyph(id);
+        return K.nav({ label: this.name(id), sub: this.helperWhere(id) + ' · ' + id, icon: g === 'mdi:circle-small' && k ? k[2] : g,
+                       value: on && mark ? 'Shown' : '', href: '#/accessories/helpers/one/' + encodeURIComponent(id), fk: 'helper:' + id });
+      }
+      a_helpers(c) {
+        var self = this;
+        var sb = h('div', { class: 'search', style: 'margin:0 0 22px' });
+        sb.appendChild(K.icon('mdi:magnify', 'mag'));
+        var inp = h('input', { type: 'search', placeholder: 'Search Helpers', 'aria-label': 'Search helpers', 'data-fk': 'helpers:search' });
+        inp.value = this._hq || '';
+        sb.appendChild(inp);
+        c.appendChild(sb);
+        var box = h('div');
+        c.appendChild(box);
+        var paint = function () {
+          box.innerHTML = '';
+          var q = inp.value.trim().toLowerCase();
+          if (q) {
+            var got = self.helperIds(null).filter(function (id) {
+              return (self.name(id) + ' ' + id + ' ' + self.areaName(self.areaOf(id))).toLowerCase().indexOf(q) >= 0;
+            });
+            box.appendChild(K.group({ header: 'Helpers', footer: got.length ? null : 'No helpers match.' }, got.slice(0, 200).map(function (id) { return self.helperRow(id, true); })));
+            return;
+          }
+          var shown = self.helpersShown().sort(function (a, b) { return self.name(a).localeCompare(self.name(b)); });
+          var roomless = shown.filter(function (id) { return !self.areaOf(id); }).length;
+          box.appendChild(K.group({ header: 'Shown in ' + PN(), footer: !shown.length ? 'None yet. Open one below to give it a tile on the tablets.'
+              : roomless ? 'One with no room shows only at the end of the automatic Home, not on a Home Grid. Give it a room, or make it a Favorite.'
+              : 'Each one has a tile in its room: on Home, on the room’s page and in its Room blocks.' },
+            shown.map(function (id) { return self.helperRow(id); })));
+          var rows = HELPER_KINDS.map(function (k) {
+            var n = self.helperIds(k[4]).length;
+            if (!n) return null;
+            var on = shown.filter(function (id) { return id.split('.')[0] === k[4]; }).length;
+            return K.nav({ label: k[1], tile: [k[2], k[3]], sub: on ? on + ' shown' : null, value: String(n),
+                           href: '#/accessories/helpers/kind/' + k[4], fk: 'helpers:kind:' + k[4] });
+          }).filter(Boolean);
+          var timers = self.helperIds('timer').length;
+          if (timers) rows.push(K.nav({ label: 'Timers', tile: ['mdi:timer-outline', '#ff9500'], sub: 'A type of their own, with the Timers chip', value: String(timers),
+                                        href: '#/accessories/type/timers', fk: 'helpers:timers' }));
+          box.appendChild(K.group({ header: 'All Helpers', footer: 'Every helper in Home Assistant, shown or not. Most only drive automations and are best left off the tablets.' }, rows));
+        };
+        inp.addEventListener('input', function () { self._hq = inp.value; paint(); });
+        paint();
+      }
+      a_helperKind(c, k) {
+        var self = this, inc = this.data.settings.generated.include_entities || [];
+        var ids = this.helperIds(k[4]);
+        var on = ids.filter(function (id) { return inc.indexOf(id) >= 0; }), off = ids.filter(function (id) { return inc.indexOf(id) < 0; });
+        if (on.length) c.appendChild(K.group({ header: 'Shown in ' + PN() }, on.map(function (id) { return self.helperRow(id); })));
+        c.appendChild(K.group({ header: on.length ? 'Not Shown' : null, footer: !ids.length ? 'This house has none.'
+            : 'Tap one to show it on the tablets and choose its room.' + (k[4] === 'input_button' ? ' A button that runs a routine can be a scene instead: Scenes, under Types.' : '') },
+          off.map(function (id) { return self.helperRow(id); })));
+      }
+      a_helper(c, id) {
+        var self = this, client = this.client, st = client.states[id];
+        if (!st) { c.appendChild(K.group({ footer: 'This helper doesn’t exist any more.' }, [])); return; }
+        var inc = this.data.settings.generated.include_entities || [], on = inc.indexOf(id) >= 0;
+        var area = this.areaOf(id), room = area ? this.areaName(area) : null, dom = id.split('.')[0];
+        var says = !on ? 'Off: no tile anywhere. It still works in Home Assistant, and settings that use it — Do Not Disturb, the screensaver — still see it.'
+          : room ? 'Its tile is in ' + room + ': on Home, on ' + room + '’s page and in ' + room + '’s Room blocks.'
+          : 'It has no room, so it shows only at the end of the automatic Home — on no Home Grid. Choose a room below, or make it a Favorite.';
+        c.appendChild(K.group({ footer: says }, [
+          K.toggle({ label: 'Show in ' + PN(), sk: 'generated.include_entities', on: on, fk: 'helper:show',
+                     onChange: function (v) { self.setH({ 'generated.include_entities': v ? inc.concat([id]) : inc.filter(function (x) { return x !== id; }) }); } })]));
+        var e = (client.entities || {})[id];
+        if (!e) {
+          c.appendChild(K.group({ footer: 'Home Assistant can’t give this helper a room: it’s set up in YAML without a unique ID. Make it a Favorite to show it on a Home Grid.' },
+            [K.info({ label: 'Room', value: 'None' })]));
+        } else {
+          c.appendChild(K.group({ footer: 'Its room in Home Assistant: choosing one here changes it there too.' }, [
+            K.nav({ label: 'Room', value: room || 'None', sk: 'helper:room:' + id, fk: 'helper:room',
+                    href: this.picker('helper-room', { title: 'Room', value: area || null, none: 'No Room',
+                      items: function () {
+                        return self.areasAZ().map(function (a) { var x = client.areas[a]; return { value: a, label: x.name, icon: x.icon || 'mdi:texture-box' }; });
+                      },
+                      onPick: function (v) { self.helperRoom(id, v || null); } }) })]));
+        }
+        var more = [];
+        if (on) more.push(K.nav({ label: 'Accessory Settings', sub: 'Its name, glyph and color on the tablets', icon: 'mdi:cog-outline',
+                                  href: '#/accessories/' + encodeURIComponent(id), fk: 'helper:settings' }));
+        if (dom === 'input_button') more.push(K.nav({ label: 'Scenes', sub: 'A button that runs a routine can count as a scene', tile: ['mdi:palette', '#af52de'],
+                                                      href: '#/accessories/type/scenes', fk: 'helper:scenes' }));
+        if (more.length) c.appendChild(K.group({}, more));
+      }
+      // A HELPER'S ROOM is Home Assistant's area (as the accessory settings' Room is,
+      // hk-detail.js): the device's own area means following the device again
+      helperRoom(id, v) {
+        var self = this, ents = this.client.entities || {}, e = ents[id] || {}, devs = this.client.devices || {};
+        var devArea = e.device_id && devs[e.device_id] ? devs[e.device_id].area_id : null;
+        var area = v && v === devArea ? null : v;
+        return this.save({ type: 'config/entity_registry/update', entity_id: id, area_id: area }, ['helper:room:' + id], function () {
+          ents[id] = Object.assign({}, e, { area_id: area });
+        }, function () {});
       }
       a_one(c, id) {
         var self = this;

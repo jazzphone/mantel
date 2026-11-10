@@ -193,7 +193,7 @@
   //    order: page (accessories.pages), link: [label, route, footer] }, says, sensor]
   var ACC_TYPES = [
     ['lights', 'Lights', 'mdi:lightbulb', '#ffcc00', { kind: 'lights' }],
-    ['switches', 'Switches & Outlets', 'mdi:power-socket-us', '#ff9500', { domains: ['switch', 'input_boolean'] },
+    ['switches', 'Switches & Outlets', 'mdi:power-socket-us', '#ff9500', { domains: ['switch'] },
      'Their tiles on Home and their rooms’ pages. One that powers a lamp can count as a light: open it and turn on Also Count As.'],
     ['fans', 'Fans', 'mdi:fan', '#32ade6', { kind: 'fans' }],
     ['thermostats', 'Thermostats', 'mdi:thermostat', '#ff9500', { kind: 'thermostats' }],
@@ -2022,7 +2022,7 @@
     ['Reload All Tablets', 'house/tablets', 'tablets:reload', 'wall tablet reload clear cache all at once update'],
     ['Screensaver Photos', 'house/screensaver', 'look.photos', 'media folder wallpanel photos'],
     ['Hidden Accessories', 'accessories/hidden', 'generated.exclude', 'hidden from screens leave out left out hide rooms devices remove show on home include in status'],
-    ['Added Accessories', 'accessories/added', 'generated.include_entities', 'also shown add entities more extra tiles script scene sensor'],
+    ['Added Accessories', 'accessories/added', 'generated.include_entities', 'also shown add entities more extra tiles script scene sensor'], ['Helpers', 'accessories/helpers', 'acc:helpers', 'helpers input_boolean toggle input_number number input_select list dropdown counter input_datetime input_text input_button guest mode'],
     ['Also Count As', 'accessories', 'counts', 'what counts chips status rows count include sensor smoke temperature accessory'],
     ['Existing Dashboards', 'add-screen', 'add-screen', 'overview dashboard you already have own hk settings add screen use lovelace default'],
     ['Vacuums Tile Order', 'accessories/type/vacuums/order', 'accessories.pages.vacuums', 'vacuum page order'],
