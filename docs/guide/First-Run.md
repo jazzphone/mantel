@@ -115,7 +115,7 @@ Things to know on your first visit:
 - **Mantel is read-only.** Every state is live, but a tap on a light says **Commands are disabled in Mantel (read-only)** and nothing changes in Home Assistant. That's expected until you turn commands on: [Install → Turn on house commands](Install.md#turn-on-house-commands).
 - **Mantel Settings** is in the screen's menu, for everyone. Everyone sees their own page (**Me**). Owners and Admins also see **People**, **General**, **Connections**, **Your Files** and the **Audit Log**, and each wall tablet's page in **All Screens** → **Wall Tablets**; Owners also see **Roles & Grants** and **Service Accounts**, and Owners and Admins **Assistants (MCP)** ([Assistants](Assistants.md)).
 - **Setup Check** (in Mantel Settings, **Overview** → **Setup Check**) lists what is ready: Home Assistant, Music Assistant, Apple's font and glyphs, house commands, and how many screens Mantel has.
-- **Fonts and icons** look plain until you add Apple's SF Pro and SF Symbols glyphs in **Mantel Settings** → **Your Files**. Mantel ships neither; each home supplies its own.
+- **Fonts and icons** look plain until you add Apple's SF Pro and SF Symbols glyphs in **Mantel Settings** → **Your Files**. Mantel ships neither; each home supplies its own ([Your Files](Your-Files.md)).
 
 ![Mantel Settings: Me](../images/settings-me.webp)
 

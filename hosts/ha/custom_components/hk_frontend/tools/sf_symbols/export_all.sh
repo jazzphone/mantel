@@ -13,7 +13,9 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 OUT="${1:-$HERE/.sfcache}"
 CLI="${SFSYMBOLS_CLI:-}"
 for c in "/Applications/SF Symbols.app/Contents/Executables/sfsymbols" \
-         "/Applications/SF Symbols Beta.app/Contents/Executables/sfsymbols"; do
+         "/Applications/SF Symbols Beta.app/Contents/Executables/sfsymbols" \
+         "$HOME/Applications/SF Symbols.app/Contents/Executables/sfsymbols" \
+         "$HOME/Applications/SF Symbols Beta.app/Contents/Executables/sfsymbols"; do
   [ -z "$CLI" ] && [ -x "$c" ] && CLI="$c"
 done
 if [ -z "$CLI" ]; then

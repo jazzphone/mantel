@@ -64,7 +64,7 @@ Home Assistant does not reach Mantel, and the other way round.
 
 **Your files.** Apple's SF Pro font and the SF Symbols glyphs can't ship with
 Mantel either. Add them once in **Mantel Settings → Your Files**, from the
-same files HK Frontend uses.
+same files HK Frontend uses ([Your Files](Your-Files.md)).
 
 ## 2. Run side by side, read-only
 

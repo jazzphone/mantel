@@ -31,6 +31,7 @@
 * [Commands and Audit](Commands-and-Audit.md)
 * [Features](Features.md)
 * [Alerts](Alerts.md)
+* [Your Files](Your-Files.md)
 * [Assistants (MCP)](Assistants.md)
 * [HK Settings (HK Frontend's wiki)](https://github.com/jazzphone/hk-frontend/wiki/HK-Settings)
 

@@ -20,6 +20,9 @@ import subprocess
 CLI_CANDIDATES = [
     "/Applications/SF Symbols.app/Contents/Executables/sfsymbols",
     "/Applications/SF Symbols Beta.app/Contents/Executables/sfsymbols",
+    # the installer's "Install for me only" puts the app in the home folder's Applications
+    os.path.expanduser("~/Applications/SF Symbols.app/Contents/Executables/sfsymbols"),
+    os.path.expanduser("~/Applications/SF Symbols Beta.app/Contents/Executables/sfsymbols"),
 ]
 
 

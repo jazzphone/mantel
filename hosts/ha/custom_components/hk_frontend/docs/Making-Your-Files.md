@@ -52,7 +52,7 @@ Or skip the conversion and use `SF-Pro.ttf` as it is.
 
 ## Step 3: The glyphs
 
-1. Install Apple’s **SF Symbols** app from [developer.apple.com/sf-symbols](https://developer.apple.com/sf-symbols/), into `/Applications`.
+1. Install Apple’s **SF Symbols** app from [developer.apple.com/sf-symbols](https://developer.apple.com/sf-symbols/). The installer puts it in `/Applications`, or, if you choose to install it for yourself only (no administrator password needed), in the `Applications` folder in your home folder. Either works.
 2. Build the glyph file:
 
    ```sh
@@ -67,7 +67,7 @@ If the script stops:
 
 | Message | What to do |
 |---|---|
-| `sfsymbols CLI not found` | The script looks for `SF Symbols.app` or `SF Symbols Beta.app` in `/Applications`. Install the app there — a current version, which includes the `sfsymbols` exporter in its `Contents/Executables` folder — or set `SFSYMBOLS_CLI` to the exporter’s full path. |
+| `sfsymbols CLI not found` | The script looks for `SF Symbols.app` or `SF Symbols Beta.app` in `/Applications` and in your home folder’s `Applications`. Install the app in one of those — a current version, which includes the `sfsymbols` exporter in its `Contents/Executables` folder — or set `SFSYMBOLS_CLI` to the exporter’s full path. |
 | `SF symbol not found: <name>` | Your version of SF Symbols doesn’t have that symbol, or has renamed it. Try the current SF Symbols app; if it still fails, [open an issue](https://github.com/jazzphone/hk-frontend/issues) naming the symbol. |
 | `No module named 'svgpathtools'` | Run the tool with the environment’s Python (`~/.venvs/hk-sf/bin/python`), as shown. |
 
@@ -75,7 +75,7 @@ If the script stops:
 
 The SF Symbols app has to run on a Mac, but nothing else does. If the Mac you can use has no Python — or it isn’t yours — export the symbols there with a plain script, then build the glyph file on any computer with Python:
 
-1. On the Mac, with the SF Symbols app in `/Applications`, open Terminal in the folder where you unpacked the HK Frontend repository and run:
+1. On the Mac, with the SF Symbols app installed, open Terminal in the folder where you unpacked the HK Frontend repository and run:
 
    ```sh
    sh tools/sf_symbols/export_all.sh ~/Desktop/sf-exports

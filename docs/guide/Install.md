@@ -39,7 +39,7 @@ Optional, for the features that use them:
 |---|---|
 | Whole-home music | [Music Assistant](https://www.music-assistant.io), version 2.7 or newer for signing in from Mantel's Connections page. See [Music and Cameras](Music-and-Cameras.md). |
 | Live TV served by Mantel (Docker, LXC) | An HDHomeRun tuner. An Intel iGPU (QuickSync) makes the transcode much lighter. |
-| Apple's look | SF Pro and the SF Symbols glyphs, which each home supplies itself. Without them the screens use fallback fonts and icons. Upload them later in **Mantel Settings** → **Your Files**. |
+| Apple's look | SF Pro and the SF Symbols glyphs, which each home supplies itself. Without them the screens use fallback fonts and icons. Upload them later in **Mantel Settings** → **Your Files** ([how to make them](Your-Files.md#making-the-files)). |
 | A real certificate (Docker, LXC) | Your own domain at Cloudflare, Duck DNS, Porkbun, Route 53, DigitalOcean or deSEC, and an API token from it, for Caddy's DNS-01 certificates. Without one, Caddy uses its own certificate authority (the default), which you trust once on each device. |
 
 Mantel starts **read-only**: it shows your home but sends no commands until you turn commands on. See [Turn on house commands](#turn-on-house-commands).

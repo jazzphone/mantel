@@ -82,6 +82,7 @@ A symbol name that your version of SF Symbols doesn’t have (Apple renames one 
 | `hk:dehumidifier` | `dehumidifier.fill` |  |
 | `hk:desk` | `table.furniture.fill` |  |
 | `hk:desk-lamp` | `lamp.desk.fill` |  |
+| `hk:desktop-classic` | `pc` |  |
 | `hk:desktop-tower` | `desktopcomputer` |  |
 | `hk:dishwasher` | `dishwasher.fill` |  |
 | `hk:dishwasher-circle` | `dishwasher.circle.fill` |  |
@@ -206,7 +207,6 @@ A symbol name that your version of SF Symbols doesn’t have (Apple renames one 
 | `hk:party-popper` | `party.popper.fill` |  |
 | `hk:pause` | `pause.fill` |  |
 | `hk:paw` | `pawprint.fill` |  |
-| `hk:pc` | `pc` |  |
 | `hk:pine-tree` | `tree.fill` |  |
 | `hk:pipe-leak` | `pipe.and.drop.fill` |  |
 | `hk:play` | `play.fill` |  |
