@@ -30,10 +30,23 @@ function blocks() {
     const reach = more ? parseFloat(getComputedStyle(more, '::after').height) * k : 0;
     // the parts' ink: nothing drawn past the plate's inside
     const pad = parseFloat(getComputedStyle(plate).paddingLeft) || 0;
-    const past = [...sr.querySelectorAll('.ln, .sm-h, .sm-k, .sm-s, .hl')].filter((e) => {
+    // (2026-11-09: the lines are in one list that scrolls, so the list's box is what must lie inside, not a line scrolled out of it)
+    const past = [...sr.querySelectorAll('.ls, .sm-h, .sm-k, .sm-s, .hl')].filter((e) => {
       const b = box(e), p = pad * k; return b.r > pb.r - p + 1 || b.b > pb.b - p + 1 || b.l < pb.l + p - 1 || b.t < pb.t + p - 1;
     }).map((e) => { const b = box(e); return e.className + ' ' + [b.l - pb.l, b.t - pb.t, pb.r - b.r, pb.b - b.b].map(Math.round).join(','); });
-    return { size: c.getAttribute('size'), k, plate: pb, secs, more: more ? Object.assign(box(more), { text: more.textContent.trim(), reach }) : null,
+    // THE LIST (2026-11-09, the owner: "maybe have a vertical scroll within the card"): it scrolls where its lines do not fit, and its last line is
+    // reachable; the fade (`more`) wears while there is more below
+    const ls = sr.querySelector('.ls.sc');
+    let sc = null;
+    if (ls) {
+      const before = { sh: ls.scrollHeight, ch: ls.clientHeight, more: ls.classList.contains('more'), role: ls.getAttribute('role'), oy: getComputedStyle(ls).overflowY, ta: getComputedStyle(ls).touchAction };
+      ls.scrollTop = ls.scrollHeight;
+      ls.dispatchEvent(new Event('scroll'));
+      const rows = ls.querySelectorAll('.ln'), last = rows[rows.length - 1], lb = last ? last.getBoundingClientRect() : null, lr = ls.getBoundingClientRect();
+      sc = Object.assign(before, { endMore: ls.classList.contains('more'), lastIn: !last || (lb.bottom <= lr.bottom + 1 && lb.top >= lr.top - 1), rows: rows.length });
+      ls.scrollTop = 0; ls.dispatchEvent(new Event('scroll'));
+    }
+    return { size: c.getAttribute('size'), k, plate: pb, secs, sc, more: more ? Object.assign(box(more), { text: more.textContent.trim(), reach }) : null,
              small: all ? Object.assign(box(all), { text: all.textContent.replace(/\s+/g, ' ').trim() }) : null, past,
              density: (sr.querySelector('.hl') || { textContent: '' }).textContent.trim() };
   });
@@ -96,8 +109,14 @@ function sheetState() {
         for (const b of got) {
           const label = `${engine} ${screen} ${b.size}`;
           check(label + ': drawn inside its plate', () => assert(!b.past.length, JSON.stringify(b.past)));
-          check(label + ': every section a finger tall', () => b.secs.forEach((s) => assert(s.h / b.k >= 43.5, s.name + ' ' + s.h / b.k)));
-          if (b.more) check(label + ': "+N more" a finger\'s reach', () => assert(Math.max(b.more.h, b.more.reach) / b.k >= 43.5 && b.more.w / b.k >= 43.5, JSON.stringify(b.more)));
+          check(label + ': every section a finger tall', () => b.secs.forEach((s) => assert(s.h / b.k >= 55.5, s.name + ' ' + s.h / b.k)));
+          if (b.sc) {
+            check(label + ': a list of rows, contained, by finger (role=list, overflow-y, pan-y)', () => assert(b.sc.role === 'list' && /auto|scroll/.test(b.sc.oy) && b.sc.ta === 'pan-y', JSON.stringify(b.sc)));
+            check(label + ': it scrolls where its rows do not fit, to the last row, and the fade goes at the foot', () => {
+              assert(b.sc.lastIn, JSON.stringify(b.sc));
+              assert(b.sc.sh > b.sc.ch + 4 ? b.sc.more && !b.sc.endMore : !b.sc.more, JSON.stringify(b.sc));
+            });
+          }
         }
         if (screen === 'hs-six') {
           // TAPS: a section goes to its chip's page, once; "+N more" and Small open the sheet; a row of the sheet
@@ -124,11 +143,11 @@ function sheetState() {
           await page.waitForFunction(() => deep(document, 'hk-house-status-card').length >= 6, null, { timeout: 15000 });
           await page.waitForTimeout(800);
           await page.evaluate(() => { window.__went.length = 0; });
-          t = await tapIn('W', '.sm-k');
+          t = await tapIn('W', '.hl');
           await page.touchscreen.tap(t.x, t.y);
           await page.waitForTimeout(800);
           up = await sheetUp();
-          check(`${engine} ${screen}: "+N more" opens the sheet`, () => assert(up));
+          check(`${engine} ${screen}: the headline (the plate's tap) opens the sheet`, () => assert(up));
           went = await page.evaluate(() => window.__went.slice());
           check(`${engine} ${screen}: ...no navigation`, () => assert.deepEqual(went, []));
           // this screen has no Energy page: Power is a readout there, no button and no chevron (never a made-up page)

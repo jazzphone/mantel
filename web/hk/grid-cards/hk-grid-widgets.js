@@ -635,41 +635,44 @@
             if (!b) return;
             e.stopPropagation();
             if (b.hasAttribute('data-open-kind')) { self._openKind(b.getAttribute('data-open-kind')); return; }
-            if (b.hasAttribute('data-open-all')) { C.openTarget(self, self._tapTarget()); return; }
             self._off(b.getAttribute('data-off'), b.getAttribute('data-off-kind'), b.hasAttribute('data-all'));
           });
           this._built = true;
         }
         var T = sumKit(this), size = sizeOf(this) || 'L', o = whatsOn(this.client);
         if (!T) { C.morph(this._plate, ''); return; }
-        var box = inner(this, size), P = T.plan(size, box.iw, box.ih, o.every.length, { nolabel: true, foot: true, keep: o.n > 0 }), rich = size === 'L' || size === 'XL';
+        // THE KINDS THAT ARE ON FIRST (2026-11-09, the owner: "the individual things that are on are relatively small ... Would love it if the layout
+        // allowed for them to be bigger"): bigger lines mean fewer show at rest, so the ones with something on come before the quiet ones, and the
+        // rest scroll under them
+        var every = o.every.map(function (x, i) { return { x: x, i: i }; }).sort(function (a, b) { return (b.x.ids.length ? 1 : 0) - (a.x.ids.length ? 1 : 0) || a.i - b.i; })
+          .map(function (e) { return e.x; });
+        var box = inner(this, size), rich = size === 'L' || size === 'XL';
+        // (the All Off pill is Wide's and Extra Large's column's foot, Large's headline row, and Tall's foot under the lines: 56 of its own)
+        var P = T.plan(size, box.iw, box.ih, every.length, { nolabel: true, lead: size === 'S', hh: !o.n ? 28 : size === 'L' ? 52 : 0, foot: size === 'T' && o.n ? T.POOL : 0 });
         var phrase = function (list) {
           var w = list.map(function (x) { return plural(x.ids.length, x.kind.one, x.kind.many); });
           return w.length > 1 ? w.slice(0, -1).join(', ') + ' and ' + w[w.length - 1] : w.join('');
         };
-        // All Off: the label row's key; Wide's and Extra Large's at the foot of the headline's column, a finger tall
-        var all = function (cls) { return o.n ? '<button type="button" class="sm-k' + cls + '" data-all aria-label="' + esc('Turn off all ' + o.n + ' things on') + '">All Off</button>' : ''; };
+        var all = o.n && size !== 'S' ? '<button type="button" class="sm-k" data-all aria-label="' + esc('Turn off all ' + o.n + ' things on') + '">All Off</button>' : '';
+        var rows = every.map(function (x) {
+          var on = x.ids.length, ln = kindLines(self.client, x, o.things), many = cap(x.kind.many);
+          // (Large and Extra Large say more: where, and how bright, how fast, or what is playing)
+          var detail = on ? (rich && ln.extra && x.kind.key !== 'lights' ? [ln.detail, ln.extra].filter(Boolean).join(' · ') : ln.detail) : ln.detail;
+          return { live: true, rest: !on, attrs: 'data-open-kind="' + x.kind.key + '"', name: many, count: on || x.kind.rest,
+            icon: function (px, col) { return gly(x.kind.icon, px, col || null); }, lit: on ? x.kind.color : null,
+            aria: 'Open ' + (on ? plural(on, x.kind.one, x.kind.many) + (x.kind.key === 'speakers' ? ' playing' : ' on') : many + ', ' + x.kind.rest.toLowerCase()),
+            n: on, reading: on ? String(on) : x.kind.rest, say: on ? on + (x.kind.key === 'speakers' ? ' playing' : ' on') : x.kind.rest,
+            detail: detail, level: rich && on && x.kind.key === 'lights' ? ln.level : null };
+        });
         var model = {
-          // NO HEADING (2026-11-09, the owner: "we can remove the On Now heading"): the headline is the block's top, at Extra Large top left; All Off
-          // is the foot's key where there is no label row to carry it
-          label: '', top: true, counts: size === 'S', key: size === 'XL' ? '' : all(''), side: all(' f'), // (Wide: the kinds as their discs with the counts under them, the Batteries widget's way -- drawn both ways on
-          // 2026-11-08, the lines two across cut "Speakers" and "Switches" to "Spe..." and "S...")
-          discs: size === 'W',
+          // NO HEADING (2026-11-09, the owner: "we can remove the On Now heading"): the headline is the block's top, at Extra Large top left
+          label: '', top: true, pill: all, underAt: 200, rows: rows, sr: rows[0] || null,
           // the headline: the count on, or, quiet, a calm All Off said once
           head: o.n ? { num: o.n, unit: 'On' } : { words: 'All Off' },
-          // (quiet, Extra Large's column says so under All Off, over the kinds' discs at rest)
-          sentence: o.n ? esc(phrase(o.kinds)) : size === 'XL' ? 'Nothing is on' : '', restDiscs: !o.n && size === 'XL',
-          small: { attrs: 'data-open-all', aria: o.n ? 'On now: ' + phrase(o.kinds) : 'On now: all off' },
-          rows: o.every.map(function (x) {
-            var on = x.ids.length, ln = kindLines(self.client, x, o.things), many = cap(x.kind.many);
-            // (Large and Extra Large say more: where, and how bright, how fast, or what is playing)
-            var detail = on ? (rich && ln.extra && x.kind.key !== 'lights' ? [ln.detail, ln.extra].filter(Boolean).join(' · ') : ln.detail) : ln.detail;
-            return { live: true, rest: !on, attrs: 'data-open-kind="' + x.kind.key + '"', name: many, count: on || x.kind.rest,
-              icon: function (px, col) { return gly(x.kind.icon, px, col || null); }, lit: on ? x.kind.color : null,
-              aria: 'Open ' + (on ? plural(on, x.kind.one, x.kind.many) + (x.kind.key === 'speakers' ? ' playing' : ' on') : many + ', ' + x.kind.rest.toLowerCase()),
-              n: on, reading: on ? String(on) : x.kind.rest, detail: detail, level: rich && on && x.kind.key === 'lights' ? ln.level : null };
-          }) };
-        C.morph(this._plate, o.every.length || size === 'S' ? T.compose(model, size, box, P) : '<div class="none" style="margin:auto">Nothing to show</div>');
+          // (quiet, Extra Large's column says so under All Off)
+          sentence: o.n ? esc(phrase(o.kinds)) : size === 'XL' ? 'Nothing is on' : '' };
+        C.morph(this._plate, every.length || size === 'S' ? T.compose(model, size, box, P) : '<div class="none" style="margin:auto">Nothing to show</div>');
+        T.fade(this._plate);
       }
       // A KIND'S TAP (`open`): its page, where the screen has one and the block says so; else its sheet -- the things
       // of that kind that are on ("Lights On", "Fans On", "Speakers Playing", "Switches On"), none on, all of them; one

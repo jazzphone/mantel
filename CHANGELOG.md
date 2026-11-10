@@ -10,6 +10,7 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 - **The Small Timers block's ring is bigger**: it runs from the block's left inset to the + button.
 
 - Doors & Locks: when the rows don't all fit, the list scrolls inside the block instead of ending in "+N more" (every door, window and garage door reachable; rows stay 56 px, open ones first, the headline fixed in the upper left, a soft fade at the foot while more is below).
+- **On Now and House Status have real finger targets.** Every kind and section is a 56 px line (44 on a tablet block drawn at 0.8) in one list that touches as a list does, bigger discs, 15 / 600 names. On Now shows the kinds that are on first, its Small block is the count over one big line for its first kind (no 2 x 2 of pictures), and All Off is the standard pill (Wide and Extra Large in the headline's column, Large beside the count, Tall under the lines). House Status's list scrolls inside the block, its headline fixed, a fade at the foot while there is more, instead of "+N more" (owner, 2026-11-09: "really hard to touch ... especially on the small card"; "maybe have a vertical scroll within the card").
 
 ## 0.1.159 - 2026-11-09
 

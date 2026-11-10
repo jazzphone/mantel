@@ -35,10 +35,10 @@ const out = { square: {}, tile: {}, sweep: [], wide: {}, mode: {}, card: {} };
 for (const [name, box] of [['square', SQ], ['tile', TI]]) {
   for (const size of ['W', 'T', 'L', 'XL']) {
     out[name][size] = [0, 1, 3, 4, 6, 8, 11, 20].map((n) => { const x = L.plan(size, box[size][0], box[size][1], n, { words: true });
-      return [n, x.cols, x.rows, x.shown, x.more, x.rowH, x.sentence]; });
+      return [n, x.cols, x.vis, x.shown, x.more, x.rowH, x.sentence]; });
     for (let n = 0; n <= 24; n++) {
       const x = L.plan(size, box[size][0], box[size][1], n, { words: true }), [iw, ih] = box[size];
-      const used = x.rows * x.rowH + (size === 'W' || size === 'XL' ? 0 : L.LABEL + L.headH({ words: true }) + 8 + (x.sentence ? 21 : 0));
+      const used = (n ? x.vis : 0) * x.rowH + (size === 'W' || size === 'XL' ? 0 : L.LABEL + L.headH({ words: true }) + 8 + (x.sentence ? 21 : 0));
       out.sweep.push({ size, n, whole: x.shown + x.more === n, tall: x.rowH >= L.TAP, fits: used <= ih });
     }
   }
@@ -72,28 +72,29 @@ def got() -> dict:
 
 # -- the layout ----------------------------------------------------------------------------------------------------
 # ROUND TWO (2026-11-08): a headline over the sections as lines, each at its size's height (NOTHING STRETCHES), the
-# language On Now shares: [n, cols, rows, shown, more, row height, a sentence under the headline]
+# language On Now shares; 2026-11-09 (the owner: "the touch areas ... seem small. If everything doesn't fit, maybe have a vertical scroll"): every
+# line 56 px, all of them in the list, which scrolls: [n, cols, lines showing at rest, shown (all), more (0), row height, a sentence under the headline]
 @needs_node
 def test_each_size_holds_what_the_design_says_on_square_cells(got):
     sq = {size: {row[0]: row[1:] for row in rows} for size, rows in got["square"].items()}
-    assert sq["W"][6] == [1, 3, 3, 3, 44, False]            # the headline in a third, three lines beside it
-    assert sq["T"][8] == [1, 6, 6, 2, 44, False]            # the headline over six lines
-    assert sq["L"][6] == [1, 4, 4, 2, 56, True]             # the headline and its sentence over four lines of 56
-    assert sq["XL"][8] == [1, 6, 6, 2, 56, True]            # a headline column beside six lines
+    assert sq["W"][6] == [1, 2, 6, 0, 56, False]            # the headline in a third, two lines at rest beside it, six in all
+    assert sq["T"][8] == [1, 4, 8, 0, 56, False]            # the headline over four lines at rest, eight in all
+    assert sq["L"][6] == [1, 4, 6, 0, 56, True]             # the headline and its sentence over four lines of 56
+    assert sq["XL"][8] == [1, 6, 8, 0, 56, True]            # a headline column beside six lines at rest
     assert sq["XL"][0][2:4] == [0, 0]
 
 
 @needs_node
 def test_tile_cells_keep_a_fingers_height_by_saying_less(got):
     ti = {size: {row[0]: row[1:] for row in rows} for size, rows in got["tile"].items()}
-    assert ti["W"][6] == [1, 2, 2, 4, 44, False]
-    assert ti["T"][6] == [1, 4, 4, 2, 44, False]
-    assert ti["L"][6] == [1, 3, 3, 3, 48, True]
-    assert ti["XL"][6] == [1, 5, 5, 1, 56, True]
+    assert ti["W"][6] == [1, 2, 6, 0, 56, False]
+    assert ti["T"][6] == [1, 3, 6, 0, 56, False]
+    assert ti["L"][6] == [1, 3, 6, 0, 56, True]
+    assert ti["XL"][6] == [1, 5, 6, 0, 56, True]
 
 
 @needs_node
-def test_more_never_loses_a_section_and_none_is_under_a_finger(got):
+def test_nothing_is_cut_and_none_is_under_a_finger(got):
     assert got["sweep"] and all(s["whole"] and s["fits"] for s in got["sweep"]), [s for s in got["sweep"] if not (s["whole"] and s["fits"])]
     assert all(s["tall"] for s in got["sweep"]), [s for s in got["sweep"] if not s["tall"]]
 

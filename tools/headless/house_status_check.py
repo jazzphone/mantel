@@ -13,9 +13,9 @@ Three screens, each a Home Grid with House Status at every size (Small, Wide, Ta
              card House Status can't read, named in the sheet)
   hs-tiles   the same as hs-six on tile cells (196 x 150, the 10 px gap)
 
-It checks, at each size of block: the sections drawn and the "+N more" count (more never loses one: the sheet has them
-all), every section and "+N more" a finger's 44 px, nothing past the plate, a section's tap navigating once to its
-chip's page, "+N more" and Small opening the sheet. The sheet at the tablets' and phones' sizes (and the 640 / 500
+It checks, at each size of block: every section a line of 56 px in one list that scrolls (2026-11-09: no "+N more"; the
+list's last line reachable, its fade gone at the foot), nothing past the plate, a section's tap navigating once to its
+chip's page, the headline (the plate's tap) and Small opening the sheet. The sheet at the tablets' and phones' sizes (and the 640 / 500
 thresholds either side): wide panels or rows as its width allows, inside the window, its header fixed while the body
 scrolls, the first and last reachable, no sideways scroll, Escape closing it with the focus back where it was.
 

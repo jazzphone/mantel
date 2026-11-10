@@ -169,42 +169,44 @@ print('\n=== the block\'s layout: sizes, cells, counts ===');
 var BOX = { square: { S: [160, 160], W: [369, 160], T: [160, 369], L: [369, 369], XL: [578, 369] },
             tile: { S: [168, 122], W: [374, 122], T: [168, 282], L: [374, 282], XL: [580, 282] } };
 function lay(cell, size, n, words) { var b = BOX[cell][size]; return L.plan(size, b[0], b[1], n, { words: words !== false }); }
-// ROUND TWO (2026-11-08): a headline over the sections as lines, each line at its size's height (NOTHING STRETCHES)
+// TOUCH (2026-11-09, the owner: "The touch areas for the Tall Home Status/All Good cards also seem small. If everything doesn't fit, maybe have a
+// vertical scroll within the card for it to fit"): every line 56 px at every size, ALL of them in the list, which scrolls where they do not fit
 var x = lay('square', 'T', 7);
-eq('Tall, square: the headline over six lines of 44, "+1 more"', [x.shape, x.rowH, x.shown, x.more, x.cols], ['square', 44, 6, 1, 1]);
+eq('Tall, square: the headline over lines of 56, all seven in a list that scrolls; four show at rest', [x.shape, x.rowH, x.shown, x.more, x.vis, x.cols], ['square', 56, 7, 0, 4, 1]);
 x = lay('tile', 'T', 7);
-eq('...on a tile cell, four', [x.shape, x.shown, x.more], ['tile', 4, 3]);
+eq('...on a tile cell, three show at rest', [x.shape, x.shown, x.more, x.vis], ['tile', 7, 0, 3]);
 x = lay('square', 'W', 7);
-eq('Wide: the headline in a third, three lines of 44 beside it', [x.side, x.shown, x.more], [123, 3, 4]);
+eq('Wide: the headline in a third, two lines of 56 show beside it', [x.side, x.shown, x.vis], [123, 7, 2]);
 x = lay('tile', 'W', 7);
-eq('...on a tile cell, two', [x.shown, x.more], [2, 5]);
+eq('...on a tile cell, two', [x.shown, x.vis], [7, 2]);
 x = lay('square', 'L', 7);
-eq('Large: the headline and its sentence over four lines of 56', [x.rowH, x.shown, x.sentence], [56, 4, true]);
+eq('Large: the headline and its sentence over lines of 56, four at rest', [x.rowH, x.shown, x.vis, x.sentence], [56, 7, 4, true]);
 x = lay('tile', 'L', 7);
-eq('...on a tile cell, three of 48, the sentence where it costs no line', [x.rowH, x.shown, x.sentence], [48, 3, true]);
+eq('...on a tile cell, three, the sentence where it costs no line', [x.rowH, x.vis, x.sentence], [56, 3, true]);
 x = lay('square', 'XL', 7);
-eq('Extra Large: a headline column beside six lines of 56', [x.side, x.rowH, x.shown, x.more, x.big], [200, 56, 6, 1, true]);
+eq('Extra Large: a headline column beside lines of 56, six at rest', [x.side, x.rowH, x.shown, x.vis, x.more, x.big], [200, 56, 7, 6, 0, true]);
 x = lay('tile', 'L', 4, false);
-eq('On Now\'s Large on a tile cell: all four kinds', [x.shown, x.more], [4, 0]);
+eq('On Now\'s Large on a tile cell: all four kinds, three at rest', [x.shown, x.more, x.vis], [4, 0, 3]);
 x = lay('square', 'T', 4, false);
 eq('On Now\'s Tall on a square cell: the count large (72) over its four kinds', [x.big, x.shown], [true, 4]);
-var whole = true, tall = true, fits = true;
+x = L.plan('T', 168, 282, 4, { nolabel: true, foot: L.POOL });
+eq('On Now\'s Tall keeps 56 under its lines for the All Off pill: three show at rest on a tile cell', [x.vis, x.shown], [3, 4]);
+x = L.plan('S', 168, 122, 4, { nolabel: true, lead: true });
+eq('On Now\'s Small: one line of 56 under the count, no sentence where it does not fit; one at 160, with its sentence', [x.rowH, x.shown, x.sentence, L.plan('S', 160, 160, 4, { lead: true }).sentence], [56, 1, false, true]);
+var whole = true, tall = true;
 ['square', 'tile'].forEach(function (cell) {
   ['W', 'T', 'L', 'XL'].forEach(function (size) {
     [true, false].forEach(function (words) {
       for (var n = 0; n <= 16; n++) {
-        var y = lay(cell, size, n, words), b = BOX[cell][size];
+        var y = lay(cell, size, n, words);
         if (y.shown + y.more !== n) whole = false;
         if (y.rowH < L.TAP) tall = false;
-        var used = y.rows * y.rowH + (size === 'W' || size === 'XL' ? 0 : L.LABEL + L.headH({ words: words, big: y.big }) + 8 + (y.sentence ? 21 : 0));
-        if (used > b[1]) fits = false;
       }
     });
   });
 });
-ok('every count 0 to 16, every size, both cells: shown + more is all of them (more never loses one)', whole);
-ok('...no line is ever under a finger\'s 44 px', tall);
-ok('...and the lines at their height always fit inside the plate', fits);
+ok('every count 0 to 16, every size, both cells: every line is in the list (nothing is cut to "+N more")', whole);
+ok('...no line is ever under a finger\'s 56 px', tall);
 
 print('\n=== the sheet ===');
 ok('wide on a tablet across (1180 x 820), for two or more', L.wantWide(1180, 820, 6, 0) && !L.wantWide(1180, 820, 1, 0));
@@ -234,15 +236,29 @@ el.connectedCallback(); el.connectedCallback(); el.disconnectedCallback();
 after = (globalThis.__winL && (globalThis.__winL['hk-module-ready'] || []).length) || 0;
 ok('attached again and again: one listener at most, none after', after <= before + 1, after);
 
-print('\n=== Extra Large: no heading, the headline top left, "+N more" at the foot (2026-11-09, mockup 7b) ===');
+print('\n=== the lines: a list of 56 that scrolls, the headline fixed (2026-11-09) ===');
 var TK = window.hkHouseStatus.tiles;
 var ico = function () { return ''; };
-var xm = { label: '', top: true, foot: true, head: { words: '1 Window Open' }, sentence: 'Office Window', words: true, key: '', side: '<button class="sm-k q" data-all>+1 more</button>',
-  rows: [1, 2, 3, 4, 5].map(function (i) { return { live: true, attrs: 'data-i="' + i + '"', icon: ico, lit: null, name: 'N' + i, reading: '<span class="v">' + i + '</span>', detail: null }; }) };
-var xp = TK.plan('XL', 574, 333, 6, { words: true, nolabel: true, foot: true });
+var xm = { label: '', top: true, head: { words: '1 Window Open' }, sentence: 'Office Window', words: true,
+  rows: [1, 2, 3, 4, 5, 6, 7].map(function (i) { return { live: true, attrs: 'data-i="' + i + '"', icon: ico, lit: null, name: 'N' + i, reading: '<span class="v">' + i + '</span>', detail: null }; }) };
+var xp = TK.plan('XL', 574, 333, 7, { words: true, nolabel: true });
 var xh = TK.compose(xm, 'XL', { iw: 574, ih: 333 }, xp);
 ok('XL: no label row, the group from the top (.tp)', xh.indexOf('class="sx tp"') >= 0 && xh.indexOf('sm-h') < 0 && xh.indexOf('sm-l') < 0);
-ok('XL: the left column is as tall as its lines, so the foot key sits on the last line', xh.indexOf('align-self:flex-start;height:' + (xp.rows * xp.rowH) + 'px') >= 0, xp.rows + 'x' + xp.rowH);
-ok('XL: "+N more" is in the column\'s foot', /<div class="ft"><button class="sm-k q" data-all>\+1 more/.test(xh));
+ok('XL: all seven lines are in the one list, which scrolls and is one control (role=list), the rows 56 px', (xh.match(/class="ln/g) || []).length === 7 &&
+   /<div class="ls sc" role="list" style="--rh:56px;/.test(xh), xh);
+ok('...no "+N more" key: the plate\'s tap and the sheet are the reach of the whole', xh.indexOf('data-all') < 0 && xh.indexOf('more') < 0);
+var sheet = TK.compose(xm, 'T', { iw: 160, ih: 369 }, TK.plan('T', 160, 369, 7, { words: true, nolabel: true }));
+ok('T: the same list under the headline; a narrow one says its readings under the names', /<div class="ls sc nw" role="list"/.test(sheet) && /class="ln u r0"/.test(sheet), sheet);
+var CSSX = TK.CSS;
+ok('the list scrolls like Up Next\'s: contained, by finger, no scrollbar, a fade at its foot while there is more',
+   /\.ls\.sc\{overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;scrollbar-width:none\}/.test(CSSX) &&
+   /\.ls\.sc::-webkit-scrollbar\{display:none\}/.test(CSSX) && /\.ls\.sc\.more\{-webkit-mask-image/.test(CSSX));
+// the fade follows the scroll: a list with more below it wears `more`, and not at its foot
+var sc = { __fade: false, scrollHeight: 400, clientHeight: 160, scrollTop: 0, listeners: {}, cls: {},
+  classList: { toggle: function (n, on) { sc.cls[n] = on; } }, addEventListener: function (ev, fn) { sc.listeners[ev] = fn; } };
+TK.fade({ querySelectorAll: function () { return [sc]; } });
+ok('the fade: more below at the top', sc.cls.more === true);
+sc.scrollTop = 240; sc.listeners.scroll();
+ok('...gone at the foot', sc.cls.more === false);
 
 print('\n' + (fail ? 'FAILURES: ' + fail : 'ALL ' + pass + ' HOUSE STATUS TESTS PASS'));
