@@ -270,7 +270,9 @@
         '.vac .vk{display:flex;gap:10px}.vac .cmd{all:unset;box-sizing:border-box;height:56px;min-width:56px;border-radius:28px;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;',
         '  background:' + window.hkCards.v('key') + ';color:' + window.hkCards.v('ink') + ';font-family:inherit;font-size:17px;font-weight:600;transition:transform .12s ease}',
         '.vac .cmd.go{flex:1 1 auto;min-width:0;padding:0 14px;background:' + SELECTED_BG + ';color:' + SELECTED_TEXT + '}.vac .cmd:active{transform:scale(0.97)}',
-        '.vac .cmd.clr{flex:none;padding:0 20px;font-size:17px}.vac .cmd[hidden]{display:none}.vac .cmd:focus-visible{outline:2px solid ' + window.hkCards.v('ink-2') + ';outline-offset:2px}.vac .cmd hk-icon{width:22px;height:22px;--mdc-icon-size:22px;flex:none}',
+        '.vac .cmd.clr{flex:none;padding:0 20px;font-size:17px}.vac .cmd[hidden]{display:none}.vac .cmd:focus-visible{outline:2px solid ' + window.hkCards.v('ink-2') + ';outline-offset:2px}.vac .cmd hk-icon{width:22px;height:22px;--mdc-icon-size:22px;flex:none;display:flex;align-items:center;justify-content:center}',
+        // (a flex box, as a tile's well glyph is -- hk-base.js: under Home Assistant the glyph is an inline child on a line box,
+        // its half-leading pushing it low in the key; the owner, 2026-11-10: Clean, Locate and Dock off center in HK Frontend)
         '@media (prefers-reduced-motion:reduce){  .vac .cmd,.vac .cmd:active{transition:none;transform:none}}',
         // ON A HOME GRID (the `vacuum` block; redrawn as a widget, 2026-10-31,
         // the owner: "big Clean / Dock keys", the mock-up's Vacuum): built
@@ -310,7 +312,7 @@
         '.vb[data-s=T]{--vb-key:56px}.vb[data-s=T] .keys{gap:8px}.vb[data-s=T] .key.go{padding:0 8px}.vb[data-s=T] .key.go hk-icon{display:none}',
         // (the state in words where there is no ring to hold it: no battery and not cleaning, 2026-11-09)
         '.vb .none{text-align:center}.vb .none b{display:block;font-size:22px;font-weight:500;line-height:1.2}',
-        '.vb .key hk-icon{flex:none;width:22px;height:22px;--mdc-icon-size:22px}',
+        '.vb .key hk-icon{flex:none;width:22px;height:22px;--mdc-icon-size:22px;display:flex;align-items:center;justify-content:center}',
         '.vb .key[aria-disabled=true]{opacity:.45;pointer-events:none}',
         '.vb .key:active,.vb .vr:active{transform:scale(0.97)}.vb .key:focus-visible,.vb .vr:focus-visible{outline:2px solid ' + C.v('ink-2') + ';outline-offset:2px}',
         // WIDE: the vacuum and its battery large on the left, the two keys stacked on the right
@@ -345,6 +347,19 @@
         '.vb[data-s=XL] .rcol{flex:1 1 auto;display:flex;flex-direction:column;min-width:0}',
         '.vb[data-s=XL] .rcol .lab{margin-top:0}',
         '.vb[data-s=XL] .key.dk{padding:0 18px}',
+        // LARGE WITH ROOMS (2026-11-10): Extra Large's two columns -- the vacuum in two fifths at the left, its words at the foot level
+        // with the keys; the rooms one to a row down the right, as wide as the column, scrolling past what the block holds
+        '.vb[data-s=L][data-r]{flex-direction:row;gap:16px}',
+        '.vb[data-s=L][data-r] .lcol{flex:0 0 40%;display:flex;flex-direction:column;min-width:0}',
+        '.vb[data-s=L][data-r] .lcol .art{flex:1 1 0;min-height:0;margin:4px 0;display:flex;align-items:center;justify-content:center}',
+        '.vb[data-s=L][data-r] .lcol .art .hkva{max-height:100%;width:100%}',
+        '.vb[data-s=L][data-r] .lcol .rt{min-height:var(--vb-key);justify-content:flex-end}.vb[data-s=L] .state{font-size:17px}',
+        '.vb[data-s=L][data-r] .rcol{flex:1 1 auto;display:flex;flex-direction:column;min-width:0}',
+        '.vb[data-s=L][data-r] .rcol .lab{margin-top:0}',
+        '.vb[data-s=L][data-r] :is(.lab,.rooms,.keys){width:100%}',
+        '.vb[data-s=L] .rooms{grid-template-columns:minmax(0,1fr);grid-auto-rows:44px}.vb[data-s=L] .vr{justify-content:flex-start;padding:0 14px;font-size:15px}',
+        // (no rooms: the drawing as large as the block leaves it, centered)
+        '.vb[data-s=L]:not([data-r]) .mid .art{width:auto;height:100%;max-width:100%;margin:0 auto;display:flex;justify-content:center}.vb[data-s=L]:not([data-r]) .mid .hkva{height:100%;width:auto;max-width:100%}',
         // THE VACUUM DRAWN IN PLACE OF THE BATTERY RING (2026-11-09, hk-vacuum-art.js; the battery is in the line under what it is doing):
         // Extra Large's in the middle of its column, Tall's as big as --vb-r (what the block leaves) lets it, centered
         (window.hkVacuumArt ? window.hkVacuumArt.CSS : '') + '.vb .art{flex:none;width:100%;margin:6px auto}.vb .state{font-size:22px;font-weight:600;line-height:1.2}',
@@ -529,6 +544,8 @@
       }
       // (the state line's "Ran 31 min ago", Wide and Large and Tall; Extra Large says "Last run" in its own words)
       var ran = since ? ' \u00B7 Ran ' + esc(since) + ' ago' : '';
+      // (...after what the line already says, else on its own: no " · Ran" opening an empty line -- a vacuum with no battery, 2026-11-10)
+      var after = function (said) { return said ? said + ran : ran.replace(/^ \u00B7 /, ''); };
       // THE ROOMS (Large up, with Clean Areas or the house's script)
       var big = sz === 'L' || sz === 'XL', roomsOn = sz !== 'S' && this._picker();
       this._auto = roomsOn;
@@ -576,13 +593,13 @@
         // (Wide's Clear beside Dock, where the rooms key was -- under the words it squeezed the drawing to a speck, 2026-11-09)
         var wclr = clr ? '<button type="button" class="key rm" data-clear aria-label="Clear the water tank report for ' + esc(nm) + '"><span>Clear</span></button>' : '';
         html = '<div class="col"><div class="hd"><b class="nm">' + esc(nm) + '</b></div>' + art + what.replace(clr, '') +
-          '<span class="sub">' + words(subw) + (said ? '</span><span class="rm-note">' + esc(chosen.join(', ')) : ran) + '</span></div>' +
+          '<span class="sub">' + (said ? words(subw) + '</span><span class="rm-note">' + esc(chosen.join(', ')) : after(words(subw))) + '</span></div>' +
           '<div class="side">' + key(go, 'go', true) + (pickable || wclr ? '<div class="pair">' + (wclr || rkey) + key(dock, 'dk', false) + '</div>' : key(dock, 'dk', true)) + '</div>';
       } else if (sz === 'T') {
         var bk = this._block(), more = rest.slice(1);
         html = '<div class="hd"><b class="nm">' + esc(nm) + '</b></div>' +
           '<div class="mid" style="--vb-r:' + (bk ? Math.max(72, Math.min(120, bk.h - (pickable ? 286 : 234))) : 96) + 'px">' + art + '</div>' +
-          '<div class="rt">' + stNode + what + '<span class="sub two">' + words((bat ? [bat] : []).concat(more)) + ran + '</span></div>' + rkey +
+          '<div class="rt">' + stNode + what + '<span class="sub two">' + after(words((bat ? [bat] : []).concat(more))) + '</span></div>' + rkey +
           '<div class="keys">' + key(go, 'go', true) + key(dock, 'dk', false) + '</div>';
       } else if (sz === 'XL') {
         var run = [since ? 'Last run ' + since + ' ago' : ''];
@@ -596,12 +613,15 @@
         html = '<div class="lcol">' + left + (roomsOn ? '' : '<div class="keys">' + key(go, 'go', true) + key(dock, 'dk', true) + '</div>') + '</div>' +
           (roomsOn ? '<div class="rcol">' + rooms + '<div class="keys">' + key(go, 'go', true) + key(dock, 'dk', true) + '</div></div>' : '');
       } else {
-        // LARGE: the vacuum at the top, the rooms under it, the keys at the foot
-        html = '<div class="hd"><b class="nm">' + esc(nm) + '</b></div><div class="rt">' + stNode +
-          '<span class="sub">' + words(chips) + '</span></div>' +
-          (roomsOn ? rooms : '<div class="mid">' + (bat ? '<div class="big ' + bat.c + '">' + esc(bat.t) + '</div>' : '') +
-            '<span class="sub two">' + words(rest) + ran + '</span></div>') +
-          '<div class="keys">' + key(go, 'go', true) + key(dock, 'dk', false) + '</div>';
+        // LARGE (2026-11-10, the owner: "show the new animated vacuum, but still have some room selection ... a vertical scroll
+        // list"): Extra Large's shape in less room -- the vacuum drawn, what it is doing and its battery on the left; the rooms a
+        // list down the right that scrolls, Clean and Dock under it. No rooms on offer: the drawing in the middle over the keys
+        var say = '<div class="rt">' + stNode + what + '<span class="sub two">' + after(words(subw)) + '</span></div>';
+        html = roomsOn
+          ? '<div class="lcol"><div class="hd"><b class="nm">' + esc(nm) + '</b></div>' + art + say + '</div>' +
+            '<div class="rcol">' + rooms + '<div class="keys">' + key(go, 'go', true) + key(dock, 'dk', false) + '</div></div>'
+          : '<div class="hd"><b class="nm">' + esc(nm) + '</b></div><div class="mid">' + art + '</div>' + say +
+            '<div class="keys">' + key(go, 'go', true) + key(dock, 'dk', false) + '</div>';
       }
       C.morph(this._root, '<hk-plate class="vb" data-s="' + sz + '"' + (roomsOn && big ? ' data-r' : '') + ' data-hk-role="card">' + html + '</hk-plate>');
       this._fitRooms();

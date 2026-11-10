@@ -553,6 +553,9 @@ class HkControlCard extends HTMLElement {
         font-weight:500;letter-spacing:-.03em;font-variant-numeric:tabular-nums;font-size:min(44cqh,44cqw);line-height:1;
         user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;cursor:pointer;-webkit-tap-highlight-color:transparent}
       .big.range .bn{font-size:min(28cqh,24cqw)}
+      /* (three digits -- a water heater's 120 -- the range's size, the digits the thermostat's own height, and spaced by their own
+         ink: a tabular 1 is a full digit wide and pushed "120" off center; the owner, 2026-11-10: "too big and not centered") */
+      .big .bn.long{font-size:min(28cqh,24cqw);font-variant-numeric:proportional-nums}
       .big.idle .bn{font-size:min(24cqh,30cqw)}
       /* THE PICKED TARGET in heat and cool: a dot under its digits, not a rule
          (the owner, 2026-10-30: "not a fan of the line under 66"); the dash
@@ -698,10 +701,18 @@ class HkControlCard extends HTMLElement {
   // It once fell through to the climate dial and showed a thermostat's
   // Off / Heat / Cool / Auto, none of them its own.
   _heater() { return String(this._entityId() || "").indexOf("water_heater.") === 0; }
+  _bigWanted() {
+    if (this.hasAttribute('size')) return this._config.style === "big" || this.getAttribute('size') === "S" || this.getAttribute('size') === "W";
+    return this._config.big === true;
+  }
   _climate(s) {
-    if (this._heater()) return this._waterDial(s);
+    // (a water heater wears Big Number too where the thermostats do -- the Climate page's look.thermostat_style, a block's
+    // Style, Small and Wide -- its setpoint the number, its operation modes the modes; the owner, 2026-11-10: "why there
+    // isn't a big number version of the water heater")
+    if (this._heater() && !this._bigWanted()) { this.removeAttribute("bigpage"); return this._waterDial(s); }
     // (a Small block is Big Number whatever its style: a 196 x 150 tile has no room for the ring, its range
     // ran across it and the name and modes were cut -- the lead, 2026-10-31)
+    if (this._heater()) { this.toggleAttribute("bigpage", !this.hasAttribute('size')); return this._big(s); }
     if ((this._config.style === "big" || this.getAttribute('size') === "S" || this.getAttribute('size') === "W") && this.hasAttribute('size')) return this._big(s);
     // BIG NUMBER ON A PAGE OR IN A SHEET (`big: true`, no block around it; 2026-11-07, the owner: "an option for climate
     // page settings to use either the HomeView Style or this style of thermostat cards for the climate page and detail
@@ -844,7 +855,8 @@ class HkControlCard extends HTMLElement {
   }
   _big(s) {
     const a = s?.attributes || {}, mode = s?.state || "off", sz = ["S", "W", "T", "XL"].includes(this.getAttribute("size")) ? this.getAttribute("size") : "L";
-    let lo = Number(a.target_temp_low), hi = Number(a.target_temp_high), single = Number(a.temperature);
+    const wh = this._heater();
+    let lo = wh ? NaN : Number(a.target_temp_low), hi = wh ? NaN : Number(a.target_temp_high), single = Number(a.temperature);
     const hold = this._hold;
     if (hold && Date.now() < hold.until) {
       const took = hold.which === "single" ? single === hold.single : (lo === hold.lo && hi === hold.hi);
@@ -857,11 +869,17 @@ class HkControlCard extends HTMLElement {
     const pick = this._bigPick === "high" ? "high" : "low", t = v => this._esc(this._bigText(v, a));
     const ORDER = ["off", "heat", "cool", "heat_cool"];
     const has = Array.isArray(a.hvac_modes) && a.hvac_modes.length ? a.hvac_modes : ORDER;
-    const modes = ORDER.filter(m => has.includes(m)).concat(has.filter(m => !ORDER.includes(m)));
+    // (a water heater: off first where it can be turned off, then its operation list, as its dial has them -- _waterDial)
+    const whf = Number(a.supported_features) || 0, whOps = (a.operation_list || []).filter(m => m !== "off");
+    const whModes = (whf & 2) ? ((whf & 8) || (a.operation_list || []).includes("off") ? ["off"] : []).concat(whOps) : [];
+    const modes = wh ? whModes : ORDER.filter(m => has.includes(m)).concat(has.filter(m => !ORDER.includes(m)));
     // (the four the row and the column show: Auto is heat and cool, else the
     // entity's own auto; any other mode stays the hold's)
-    const FOUR = ["heat", "cool", has.includes("heat_cool") ? "heat_cool" : "auto", "off"].filter(m => has.includes(m));
-    const GLYPH = { heat: "mdi:fire", cool: "mdi:snowflake", heat_cool: "mdi:thermometer", auto: "mdi:thermometer", off: "mdi:power" };
+    const FOUR = wh ? whModes.slice(0, 5) : ["heat", "cool", has.includes("heat_cool") ? "heat_cool" : "auto", "off"].filter(m => has.includes(m));
+    const GLYPH = { heat: "mdi:fire", cool: "mdi:snowflake", heat_cool: "mdi:thermometer", auto: "mdi:thermometer", off: "mdi:power",
+                    eco: "mdi:leaf", electric: "mdi:flash", heat_pump: "mdi:heat-pump-outline", high_demand: "mdi:fire", performance: "mdi:fire", gas: "mdi:fire" };
+    const MODE = wh ? "data-wh" : "data-mode", PICKED = wh ? "data-wh" : "data-big-mode";
+    const word4 = m => wh ? (({ high_demand: "Demand", heat_pump: "Heat Pump" })[m] || this._pretty(m)) : this._pretty(m);
     const name = this._esc(this._name()), room = this._esc(this._room()), how = this._esc(this._pretty(mode));
     // (a reading the entity lacks is null, and Number(null) is 0: not a reading)
     const read = v => v == null || v === "" ? NaN : Number(v), cur = read(a.current_temperature), hum = read(a.current_humidity);
@@ -876,16 +894,16 @@ class HkControlCard extends HTMLElement {
     const nm = solo ? `<div class="nm"><b>${name}</b>${sub ? `<i>${sub}</i>` : ""}</div>`
       : `<button class="nm" type="button" data-tstat-details aria-label="${name}${sub ? ", " + sub : ""}, open the thermostat"><b>${name}</b>${sub ? `<i>${sub}</i>` : ""}</button>`;
     const foot = cls => `<div class="${cls}">${down}${nm}${up}</div>`;
-    const held = `<div class="modes" role="group" aria-label="Mode">${modes.map(m => `<button class="segment${mode === m ? " active" : ""}" type="button" data-mode="${this._esc(m)}">${this._esc(this._pretty(m))}</button>`).join("")}</div>`;
-    const four = (cls, words) => `<div class="${cls}" role="group" aria-label="Mode">${words ? "<b>Mode</b>" : ""}${FOUR.map(m => `<button class="${mode === m ? "on" : ""}" type="button" data-big-mode="${this._esc(m)}" aria-pressed="${mode === m}"` +
-      `${words ? "" : ` aria-label="${this._esc(this._pretty(m))}"`}><hk-icon icon="${GLYPH[m]}" aria-hidden="true"></hk-icon>${words ? this._esc(this._pretty(m)) : ""}</button>`).join("")}` +
-      `${words && Number.isFinite(cur) ? `<span>Inside ${Math.round(cur)}°${Number.isFinite(hum) ? ` · ${Math.round(hum)}% humidity` : ""}</span>` : ""}</div>`;
+    const held = `<div class="modes" role="group" aria-label="Mode">${modes.map(m => `<button class="segment${mode === m ? " active" : ""}" type="button" ${MODE}="${this._esc(m)}">${this._esc(word4(m))}</button>`).join("")}</div>`;
+    const four = (cls, words) => `<div class="${cls}" role="group" aria-label="Mode">${words ? "<b>Mode</b>" : ""}${FOUR.map(m => `<button class="${mode === m ? "on" : ""}" type="button" ${PICKED}="${this._esc(m)}" aria-pressed="${mode === m}"` +
+      `${words ? "" : ` aria-label="${this._esc(word4(m))}"`}><hk-icon icon="${GLYPH[m] || "mdi:water-boiler"}" aria-hidden="true"></hk-icon>${words ? this._esc(word4(m)) : ""}</button>`).join("")}` +
+      `${words && Number.isFinite(cur) ? `<span>${wh ? "Current" : "Inside"} ${Math.round(cur)}°${Number.isFinite(hum) ? ` · ${Math.round(hum)}% humidity` : ""}</span>` : ""}</div>`;
     const top = `<div class="surface big${range ? " range" : ""}${idle ? " idle" : ""}${this._bigModes ? " choosing" : ""}" data-big>`;
     const label = range ? "" : (mode === "off" ? "Off" : t(single) + " degrees") + ", press and hold for the modes";
     // SMALL, WIDE AND TALL: the targets in a column with the foot (Wide: one Mode key at its right, opening the sheet's modes)
     if (sz === "S" || sz === "W" || sz === "T") {
       const tt = (v, verb, kind) => `<div class="tt ${kind}"><small>${sz === "T" ? verb : kind === "heat" ? "Heat" : "Cool"}</small><b>${t(v)}</b></div>`;
-      const word = { heat: "Heat To", cool: "Cool To" }[mode] || "Target", kind = mode === "heat" || mode === "cool" ? " " + mode : "";
+      const word = wh ? "Heat To" : { heat: "Heat To", cool: "Cool To" }[mode] || "Target", kind = wh ? " heat" : mode === "heat" || mode === "cool" ? " " + mode : "";
       const text = mode === "off" ? "Off" : idle ? "—" : t(single);
       const one = `<div class="one${kind}${text.length > 2 ? " long" : ""}">${sz === "T" && !idle ? `<small>${word}</small>` : ""}<b>${text}</b></div>`;
       const tg = range ? (sz === "T" ? tt(hi, "Cool To", "cool") + tt(lo, "Heat To", "heat") : tt(lo, "Heat To", "heat") + tt(hi, "Cool To", "cool")) : one;
@@ -899,7 +917,7 @@ class HkControlCard extends HTMLElement {
     const pk = (which, v, verb) => `<button class="pk${pick === which ? " sel" : ""}" type="button" data-big-pick="${which}" aria-pressed="${pick === which}" aria-label="${verb} ${t(v)} degrees">${t(v)}</button>`;
     const bn = mode === "off" ? "Off" : idle ? "—" : range ? pk("low", lo, "Heat to") + '<span class="ds" aria-hidden="true"></span>' + pk("high", hi, "Cool to") : t(single);
     return `${top}<div class="face">
-      <div class="bn" data-big-num aria-label="${label}">${bn}</div>
+      <div class="bn${!range && !idle && t(single).length > 2 ? " long" : ""}" data-big-num aria-label="${label}">${bn}</div>
       ${foot("ft")}
       </div>${sz === "XL" ? four("mc", true) : ""}
       ${held}
@@ -937,7 +955,7 @@ class HkControlCard extends HTMLElement {
       const h = this._hold;
       if (!h) return;
       h.until = Date.now() + 8000;
-      call("climate", "set_temperature", h.which === "single" ? { temperature: h.single } : { target_temp_low: h.lo, target_temp_high: h.hi });
+      call(this._heater() ? "water_heater" : "climate", "set_temperature", h.which === "single" ? { temperature: h.single } : { target_temp_low: h.lo, target_temp_high: h.hi });
     }, 600);
   }
   // ...its taps: pick a target, step it, the modes on a hold of the number
@@ -964,6 +982,7 @@ class HkControlCard extends HTMLElement {
     }
     const box = el.querySelector(".modes");
     if (box) box.onclick = e => { if (e.target === box) { e.stopPropagation(); this._bigModes = false; this._render(); } };
+    el.querySelectorAll(".modes [data-wh]").forEach(b => b.addEventListener("click", () => { this._bigModes = false; this._render(); }));
     el.querySelectorAll(".modes [data-mode]").forEach(b => b.onclick = e => {
       e.stopPropagation(); this._bigModes = false;
       call("climate", "set_hvac_mode", { hvac_mode: b.dataset.mode });

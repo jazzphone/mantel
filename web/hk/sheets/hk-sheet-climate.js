@@ -118,6 +118,12 @@
           // exactly as tall as the dial column: tops AND bottoms line up
           ':host([wide]) .trend .axc{flex:1;min-height:72px;margin-top:8px}',
           ':host([wide]) .trend .t{margin-bottom:0}',
+          // BIG NUMBER'S SIDE A CARD OF ITS OWN (2026-11-10, the owner: "either should have a box around the big number side, or at
+          // least be centered to the content on the right"): the glass the readings sit on, and in the wide sheet as tall as
+          // the right column -- not a square taller than it, its number and arrows hanging below the column's middle
+          ':host([big]) .dial{border-radius:20px;background:rgba(255,255,255,0.08)}',
+          ':host([big][wide]) .dial{align-self:stretch}',
+          ':host([big][wide]) .dial > hk-thermostat-card{aspect-ratio:auto;flex:1 1 auto;min-height:300px}',
           '.trend .nohist{flex:1;display:grid;place-items:center;min-height:72px;' + window.hkCards.typeCss('caption') + ';color:' + window.hkCards.v('ink-2') + '}'
         ].join('');
       }

@@ -59,6 +59,37 @@ check('an entity that lists none gets the classic four', none.join() === 'off,he
   check('no away mode: no Home / Away', html.indexOf('data-wh-away') === -1);
 })();
 
+// ...AND IN BIG NUMBER (2026-11-10, the owner: "why there isn't a big number version of the water heater"): where the
+// Climate page draws its thermostats as Big Number (`big: true`) the water heater is one too -- its setpoint the number,
+// its own modes held under it, its arrows and its modes its own services
+(function () {
+  var C = customElements.get('hk-thermostat-card'), c = new C(), calls = [];
+  c.setConfig({ type: 'custom:hk-thermostat-card', entity: 'water_heater.tank', big: true });
+  var html = '';
+  Object.defineProperty(c.shadowRoot, 'innerHTML', { get: function () { return html; }, set: function (v) { html = String(v); } });
+  var a = { friendly_name: 'Water Heater', operation_list: ['off', 'eco', 'electric', 'high_demand', 'heat_pump'], operation_mode: 'eco', away_mode: 'off',
+            current_temperature: 114.8, temperature: 120, min_temp: 110, max_temp: 140, supported_features: 15 };
+  c.hass = { states: { 'water_heater.tank': { state: 'eco', attributes: a } }, callService: function (d, sv, data) { calls.push([d, sv, data]); return Promise.resolve(); } };
+  check('Big Number water heater: the big face, not the dial', /data-big/.test(html) && html.indexOf('data-ring') === -1 && c.hasAttribute('bigpage'), html.slice(0, 300));
+  check('...its setpoint the number, three digits at the range\'s size (`long`)', /class="bn long"[^>]*>120</.test(html), (html.match(/class="bn[^<]*<?[^<]*/) || [''])[0]);
+  var got = [], re = /data-wh="([^"]+)"/g, m;
+  while ((m = re.exec(html))) got.push(m[1]);
+  check('...its own modes held, off first', got.join() === 'off,eco,electric,high_demand,heat_pump', got);
+  check('...no thermostat modes', html.indexOf('data-mode=') === -1 && html.indexOf('data-big-mode=') === -1);
+  check('...its mode by the name', /Eco/.test(html));
+  // the up arrow: a water heater's set_temperature, 600 ms after the tap
+  var real = window.setTimeout, later = [];
+  window.setTimeout = function (f) { later.push(f); return later.length; };
+  try { c._bigNudge(1, function (d, sv, data) { calls.push([d, sv, data]); }); later.forEach(function (f) { f(); }); }
+  finally { window.setTimeout = real; }
+  var last = calls[calls.length - 1] || [];
+  check('...its arrows set its own temperature', last[0] === 'water_heater' && last[1] === 'set_temperature' && last[2].temperature === 121, calls);
+  // the dial again where Big Number is off
+  c.setConfig({ type: 'custom:hk-thermostat-card', entity: 'water_heater.tank' });
+  c.hass = { states: { 'water_heater.tank': { state: 'eco', attributes: a } }, callService: function () { return Promise.resolve(); } };
+  check('...the dial where Big Number is off', /data-ring/.test(html) && !c.hasAttribute('bigpage'));
+})();
+
 // hk-control.js is its own Lovelace resource and can run before hk-base.js,
 // whose material, palette and escaper it draws with. It must not draw until
 // that has run -- a frame from stand-ins would be held by the render gate --

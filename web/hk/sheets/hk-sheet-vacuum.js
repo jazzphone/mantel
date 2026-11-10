@@ -7,7 +7,7 @@
 (function () {
   'use strict';
   (window.hkSheets = window.hkSheets || {})['hk-sheet-vacuum'] = function (K) {
-    var at = K.at, BACK = K.BACK, C = K.C, CHEV = K.CHEV, esc = K.esc, glyph = K.glyph, num = K.num,
+    var at = K.at, BACK = K.BACK, bridge = K.bridge, C = K.C, CHEV = K.CHEV, esc = K.esc, glyph = K.glyph, num = K.num,
         Panel = K.Panel, PANEL_CSS = K.PANEL_CSS, pretty = K.pretty, unavailable = K.unavailable;
 
     // ------------------------------------------------------------ vacuum
@@ -39,6 +39,11 @@
           '  background:rgba(255,255,255,0.10);color:rgba(255,255,255,0.85);transition:background .25s,color .25s}',
           '.bot.live{background:rgba(48,209,88,0.20);color:#30d158}',
           '.bot.bad{background:rgba(255,69,58,0.18);color:#ff453a}',
+          // THE VACUUM DRAWN (2026-11-10, the owner: the sheets "should also get the updated animations"): the blocks' drawing
+          // (hk-vacuum-art.js) in place of the glyph in its circle -- docked, charging, cleaning, returning, paused, stuck -- as wide as the
+          // circle was, the circle's colors left to the drawing's own
+          '.bot.drawn{width:240px;height:auto;border-radius:0;background:none;display:block}.bot.drawn.live,.bot.drawn.bad{background:none;color:inherit}',
+          (window.hkVacuumArt ? window.hkVacuumArt.CSS : ''),
           '.big.w{font-size:40px}',
           '.chips{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;min-height:30px}',
           '.chips span{height:30px;padding:0 12px;border-radius:15px;display:inline-flex;align-items:center;',
@@ -74,7 +79,9 @@
           '.go:active{background:#28b84c}',
           '.go[disabled]{background:rgba(255,255,255,0.13);opacity:.5}',
           '.why{font-size:14px;color:#ff6961;text-align:center;min-height:18px;margin-top:-6px}',
-          '@media (max-width:' + C.BP.phone + 'px){.bot{width:170px;height:170px;border-radius:85px}',
+          // THE ROOMS WHERE CLEAN AREAS IS NOT HOME ASSISTANT'S OWN (Mantel; a house's cleaning script): the Vacuums page's picker in the sheet
+          '.pk{align-self:stretch;min-height:0}',
+          '@media (max-width:' + C.BP.phone + 'px){.bot{width:170px;height:170px;border-radius:85px}.bot.drawn{width:200px;height:auto;border-radius:0}',
           '  .cmds .ci{width:60px;height:60px;border-radius:30px}.big.w{font-size:34px}',
           '  .ag{max-height:320px}.ag .btn{height:44px;border-radius:22px;padding:0 10px}}'
         ].join('');
@@ -106,7 +113,8 @@
         var h = this.client, id = this._id;
         if (!h || !id) return null;
         var p = this._parts(), out = '';
-        [id, p.battery, p.room, p.progress, p.error, p.dock_error].forEach(function (k) {
+        var art = window.hkVacuumArt ? window.hkVacuumArt.ids(h, id, this._src.config || {}) : {};
+        [id, p.battery, p.room, p.progress, p.error, p.dock_error, art.error, art.charge, art.latch].forEach(function (k) {
           var st = k && h.states[k];
           out += (st ? st.last_updated : 'x') + '|';
         });
@@ -123,7 +131,7 @@
           this._built = true;
           var cmds = [['start', 'mdi:play', 'Start', VF.START], ['pause', 'mdi:pause', 'Pause', VF.PAUSE],
                       ['locate', 'mdi:map-marker', 'Locate', VF.LOCATE], ['return_to_base', 'mdi:home-import-outline', 'Dock', VF.RETURN_HOME]];
-          this._root.innerHTML = '<div class="pn"><div class="bot">' + glyph('mdi:robot-vacuum', 96) + '</div>' +
+          this._root.innerHTML = '<div class="pn"><div class="bot' + (window.hkVacuumArt ? ' drawn' : '') + '">' + (window.hkVacuumArt ? '' : glyph('mdi:robot-vacuum', 96)) + '</div>' +
             '<div class="big w"></div><div class="chips"></div><div class="cmds">' +
             cmds.map(function (c) {
               return '<button data-s="' + c[0] + '"' + (f & c[3] ? '' : ' disabled') + ' aria-label="' + c[2] + '">' +
@@ -156,6 +164,11 @@
         var bad = unavailable(s) || st === 'error' || errs.length > 0;
         this._bot.classList.toggle('live', live && !bad);
         this._bot.classList.toggle('bad', bad);
+        if (window.hkVacuumArt) {
+          var lk = window.hkVacuumArt.look(this.client, this._id, this._src.config || {});
+          var draw = window.hkVacuumArt.html(lk.state, (at(s, 'friendly_name') || this._id) + ', ' + lk.words);
+          if (this._drawn !== draw) { this._drawn = draw; this._bot.innerHTML = draw; }
+        }
         this._big.textContent = unavailable(s) ? 'Unavailable' : VAC_WORDS[st] || pretty(st);
         var html = chips.map(function (c) { return '<span class="' + c[1] + '">' + esc(c[0]) + '</span>'; }).join('');
         if (this._chipsHtml !== html) { this._chipsHtml = html; this._chips.innerHTML = html; }
@@ -187,8 +200,24 @@
       if (this._reach !== undefined) { add(); return; }
       this._reach = null;
       var C1 = window.hkCards;
-      if (!h || !C1 || !C1.added || !C1.added('clean_areas') || !h.services || !h.services.vacuum ||
-          !h.services.vacuum.clean_area) return;
+      // ROOMS WITHOUT HOME ASSISTANT'S clean_area (2026-11-10, the owner: "I also don't see room selection on the detail sheet anymore"):
+      // under Mantel neither the action nor HK Frontend's dry run is there, so the sheet offered none while the blocks did -- it offers the
+      // blocks' rooms then (Clean Areas added, or the house's cleaning script), picked in the Vacuums page's own picker
+      var haArea = !!(h && h.services && h.services.vacuum && h.services.vacuum.clean_area && h.services.hk_frontend);
+      var house = !!(C1 && ((C1.added && C1.added('clean_areas')) || (C1.setting && C1.setting('features.vacuum_script', null))));
+      if (!haArea && house) {
+        var pn0 = this._root.querySelector('.pn');
+        if (!pn0 || pn0.querySelector('.menu')) return;
+        var rb = document.createElement('button');
+        rb.className = 'btn menu';
+        rb.innerHTML = '<span>Rooms to Clean</span><span class="cur">Choose' + CHEV + '</span>';
+        rb.addEventListener('click', function () { self._view = 'areas'; self._built = false; self._render(); });
+        pn0.appendChild(rb);
+        this._reach = undefined;
+        this._house = true;
+        return;
+      }
+      if (!h || !C1 || !C1.added || !C1.added('clean_areas') || !haArea) return;
       var id = this._id;
       this._callResp('hk_frontend', 'clean_areas', { areas: Object.keys(h.areas || {}), dry_run: true }).then(function (res) {
         var plan = (res && res.response && res.response.plan) || [];
@@ -202,6 +231,27 @@
     };
     VacuumPanel.prototype._renderAreas = function () {
       var self = this;
+      // (the house's rooms: the Vacuums page's picker, its own Start Cleaning -- hk-area-select-card)
+      if (this._house) {
+        if (!this._built) {
+          this._built = true;
+          this._root.innerHTML = '<div class="pn"><div class="sub"><div class="bk"><button aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="' + BACK + '"/></svg></button><span class="t">Rooms to Clean</span></div><div class="pk"></div></div></div>';
+          this._root.querySelector('.bk button').addEventListener('click', function () { self._view = 'main'; self._built = false; self._pickCard = null; self._render(); });
+          // (made as the custom pop-up makes its cards: the picker's file may not have loaded yet -- hk-sheet-group.js)
+          var box = this._root.querySelector('.pk'), cfg = { type: 'custom:hk-area-select-card', layout: 'panel' };
+          if (typeof window.loadCardHelpers === 'function') {
+            window.loadCardHelpers().then(function (helpers) {
+              if (self._view !== 'areas' || !box.isConnected) return;
+              var pc = helpers.createCardElement(cfg);
+              bridge(pc, self.client);
+              box.appendChild(pc);
+              self._pickCard = pc;
+            }, function (e) { console.error('[hk-detail] vacuum rooms: no card helpers', e); });
+          }
+        }
+        if (this._pickCard && this._pickCard.isConnected) bridge(this._pickCard, this.client);
+        return;
+      }
       if (!this._pick) this._pick = new Set();
       if (!this._built) {
         this._built = true;
