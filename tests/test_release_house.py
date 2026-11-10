@@ -24,6 +24,14 @@ rh = importlib.util.module_from_spec(spec)
 sys.modules["release_house"] = rh
 spec.loader.exec_module(rh)
 
+
+@pytest.fixture(autouse=True)
+def _no_tablets(monkeypatch, request):
+    """No test reaches the house's tablets: refresh_kiosks is stubbed, except in its own tests (which stub the house)."""
+    if "refresh_kiosks" not in request.node.name and "kiosk_buttons" not in request.node.name:
+        monkeypatch.setattr(rh, "refresh_kiosks", lambda dry=False, settle=0: [])
+
+
 TODAY = datetime.date(2026, 10, 27)
 
 
@@ -1664,3 +1672,26 @@ def test_mantel_that_stops_answering_after_it_reconnected_is_refused(clock):
 def test_without_an_lxc_in_the_settings_nothing_is_checked(monkeypatch):
     monkeypatch.setattr(rh, "house_settings", lambda: {"ha_url": "https://ha.example.test"})
     assert rh.mantel_lxc() is None
+
+
+def test_kiosk_buttons_are_the_kiosk_satellite_tablets_clear_cache_and_reload_page():
+    """Every release ends with the tablets' cache cleared and their page reloaded (2026-11-09): found by maker, not by name."""
+    devices = [{"id": "k1", "manufacturer": "kiosk_satellite"}, {"id": "k2", "manufacturer": "Kiosk_Satellite"},
+               {"id": "x", "manufacturer": "Roborock"}]
+    entities = [{"entity_id": "button.kitchen_kiosk_clear_cache", "device_id": "k1"},
+                {"entity_id": "button.kitchen_kiosk_reload_page", "device_id": "k1"},
+                {"entity_id": "button.kitchen_kiosk_restart_app", "device_id": "k1"},
+                {"entity_id": "button.loft_kiosk_reload_page", "device_id": "k2"},
+                {"entity_id": "button.loft_kiosk_clear_cache", "device_id": "k2", "disabled_by": "user"},
+                {"entity_id": "button.vacuum_reload_page", "device_id": "x"},
+                {"entity_id": "sensor.kitchen_kiosk_clear_cache", "device_id": "k1"}]
+    clear, reload = rh.kiosk_buttons(devices, entities)
+    assert clear == ["button.kitchen_kiosk_clear_cache"]
+    assert reload == ["button.kitchen_kiosk_reload_page", "button.loft_kiosk_reload_page"]
+
+
+def test_refresh_kiosks_never_fails_a_release(monkeypatch):
+    monkeypatch.setattr(rh, "ha_url", lambda: (_ for _ in ()).throw(rh.Refused("no address")))
+    out = rh.refresh_kiosks()
+    assert len(out) == 1 and "NOT refreshed" in out[0] and "refresh-kiosks" in out[0]
+    assert "would" in rh.refresh_kiosks(dry=True)[0]

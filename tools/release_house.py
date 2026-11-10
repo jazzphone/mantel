@@ -7,6 +7,7 @@
     tools/release_house.py plan                                # what changed since each product's last release
     tools/release_house.py all                                 # every product that changed, next patch versions
     tools/release_house.py hk-frontend 1.41.0                  # HK Frontend, copied into HA's config
+    tools/release_house.py refresh-kiosks                      # clear the Kiosk Satellite tablets' cache, reload them (every release does)
     tools/release_house.py mantel-link 0.1.13                  # Mantel Link, likewise
     tools/release_house.py backfill-tags                       # once: hk-frontend/v*, mantel-link/v* from the public repos
     ... --from-origin                                          # from a clean worktree at origin/main (detached)
@@ -1050,6 +1051,51 @@ def next_version(version: str) -> str:
     return f"{major}.{minor}.{int(patch) + 1}"
 
 
+# ---------------------------------------------------------------- the wall tablets
+
+# EVERY RELEASE ENDS WITH THE TABLETS CLEARED AND RELOADED (2026-11-09, the owner: "everytime a new release gets pushed to the
+# house, that we clear cache and reloads the tablets" -- "Each tablet is Kiosk Satellite"): a tablet kept the old cards after a
+# release until its cache was cleared by hand. Kiosk Satellite tablets are Home Assistant devices of that maker, each with a
+# Clear cache and a Reload page button: every tablet's cache is cleared, then (once the app has let it go) every page reloaded.
+# Found by maker, so a new tablet needs no list; a tablet that is off is skipped by HA. A refresh that fails never fails a release.
+KIOSK_MAKER = "kiosk_satellite"
+KIOSK_SETTLE = 4.0
+
+
+def kiosk_buttons(devices: list[dict], entities: list[dict]) -> tuple[list[str], list[str]]:
+    """(the Clear cache buttons, the Reload page buttons) of the house's Kiosk Satellite tablets."""
+    tablets = {d.get("id") for d in devices if str(d.get("manufacturer") or "").lower() == KIOSK_MAKER}
+    mine = [e["entity_id"] for e in entities if e.get("device_id") in tablets and not e.get("disabled_by")
+            and str(e.get("entity_id", "")).startswith("button.")]
+    return (sorted(e for e in mine if e.endswith("_clear_cache")), sorted(e for e in mine if e.endswith("_reload_page")))
+
+
+def refresh_kiosks(dry: bool = False, settle: float = KIOSK_SETTLE) -> list[str]:
+    if dry:
+        return ["The Kiosk Satellite tablets would have their cache cleared and their page reloaded."]
+    try:
+        url, token = ha_url(), ha_token()
+
+        async def go() -> list[str]:
+            async with House(url, token) as house:
+                devices = await house.call({"type": "config/device_registry/list"})
+                entities = await house.call({"type": "config/entity_registry/list"})
+                clear, reload = kiosk_buttons(list(devices or []), list(entities or []))
+                if not reload:
+                    return ["No Kiosk Satellite tablet found: nothing reloaded."]
+                press = {"type": "call_service", "domain": "button", "service": "press"}
+                if clear:
+                    await house.call({**press, "target": {"entity_id": clear}})
+                    await asyncio.sleep(settle)
+                await house.call({**press, "target": {"entity_id": reload}})
+                names = ", ".join(e.split(".", 1)[1].replace("_kiosk_reload_page", "").replace("_reload_page", "").replace("_", " ")
+                                  for e in reload)
+                return [f"The {len(reload)} Kiosk Satellite tablets: cache cleared ({len(clear)}) and the page reloaded ({names})."]
+        return asyncio.run(go())
+    except Exception as e:                                              # noqa: BLE001 (the release is done; say so, go on)
+        return [f"The tablets were NOT refreshed ({e}): `release_house.py refresh-kiosks` to do it."]
+
+
 def release_plan() -> list[dict]:
     rows = []
     for product in PRODUCTS:
@@ -1325,12 +1371,14 @@ def release_all(args) -> int:
         if not args.dry_run:
             record(f"{NAMES[r['product']]} {version}", lines)
             print("\n".join(lines))
+    if not getattr(args, "no_kiosk_refresh", False):
+        print("\n".join(refresh_kiosks(args.dry_run)))
     return 0
 
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument("product", choices=(*PRODUCTS, "plan", "all", "backfill-tags"))
+    ap.add_argument("product", choices=(*PRODUCTS, "plan", "all", "backfill-tags", "refresh-kiosks"))
     ap.add_argument("version", nargs="?")
     ap.add_argument("--notes", type=Path, help="mantel: release notes (Markdown bullets) added to CHANGELOG.md's "
                     "\"## Unreleased\", which is what the release says (the default: what is there already)")
@@ -1352,6 +1400,8 @@ def main(argv: list[str] | None = None) -> int:
                     help="mantel --ha-app: put it on the house and tag it, but don't publish it (the release workflow "
                          "and the GitHub Release); publish it later from the tag (Releasing.md)")
     ap.add_argument("--versions", help="all: product=X.Y.Z,... instead of the next patch version")
+    ap.add_argument("--no-kiosk-refresh", action="store_true",
+                    help="don't clear the Kiosk Satellite tablets' cache and reload them after the release (it does by default)")
     args = ap.parse_args(argv)
     if args.product in PRODUCTS and not (args.version and VERSION.match(args.version)):
         print("the version is X.Y.Z", file=sys.stderr)
@@ -1371,6 +1421,9 @@ def main(argv: list[str] | None = None) -> int:
         if args.product == "backfill-tags":
             backfill_tags(args.dry_run)
             return 0
+        if args.product == "refresh-kiosks":
+            print("\n".join(refresh_kiosks(args.dry_run)))
+            return 0
         if args.product == "all":
             return release_all(args)
         if args.product == "mantel":
@@ -1386,6 +1439,8 @@ def main(argv: list[str] | None = None) -> int:
         else:
             lines = release_component(args.product, args.version, args.dry_run, args.github_release,
                                       from_origin=args.from_origin)
+        if not getattr(args, "no_kiosk_refresh", False):
+            lines = lines + refresh_kiosks(args.dry_run)
         if not args.dry_run:
             record(f"{NAMES[args.product]} {args.version}", lines)
             print("\n".join(lines))

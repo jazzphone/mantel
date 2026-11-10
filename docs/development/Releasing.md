@@ -239,6 +239,12 @@ records it in [`House-releases.md`](House-releases.md):
 ~/.venvs/mantel/bin/python tools/release_house.py mantel 0.1.121 --dry-run     # every check, nothing changed
 ```
 
+**Every house release ends with the wall tablets refreshed** (2026-11-09, the owner: "everytime a new release gets pushed to
+the house... clear cache and reloads the tablets"): each Kiosk Satellite tablet (a Home Assistant device of that maker) has its
+Clear cache button pressed, then, a few seconds later, its Reload page button, so no tablet keeps the old cards. The tablets
+are found by maker, so a new one needs no list. A refresh that fails is said in the release's lines, never fails the release.
+`--no-kiosk-refresh` skips it; `release_house.py refresh-kiosks` does it alone.
+
 - **Before anything:** `main` (or `--from-origin`), nothing uncommitted, not behind `origin/main`, and a passed
   whole `tools/ci.py full` run that speaks for HEAD (`tools/ci.py` keeps them by tree; Building-and-Testing.md,
   "Local checks"): one of HEAD itself, or of a commit HEAD differs from only in version lines (`bump_version.py`'s
