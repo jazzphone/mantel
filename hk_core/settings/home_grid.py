@@ -544,8 +544,15 @@ def _pages(card: str, v: Any) -> dict[str, Any]:
 # The frontend mirrors these named, bounded conditions; no templates or executable expressions.
 # "time" (2026-10-24): from "HH:MM" until "HH:MM" in the house's zone, past midnight too; "alarm_disarmed": the
 # alarm (the condition's, else the house's) is disarmed.
+# "solar_window" (2026-11-10, the owner: outdoor lights' controls from 15 minutes before sunset until 10 PM, and from
+# an hour before sunrise until half an hour after it): from one endpoint until the next time the other comes round,
+# each endpoint a clock time in the house's zone ({"at": "HH:MM"}) or sunrise / sunset with a signed offset in
+# minutes ({"sun": "sunset", "offset": -15}). The frontend reads Home Assistant's sun.sun (next_rising /
+# next_setting); without it the condition does not hold, so the block falls through to its next rule or its default.
 CONDITIONS = ("music_playing", "timer_running", "alarm_armed", "alarm_disarmed", "doorbell", "after_sunset",
-              "entity_state", "time")
+              "entity_state", "time", "solar_window")
+SUN_EVENTS = ("sunrise", "sunset")
+SUN_OFFSET_MAX = 360                    # minutes either side of the event: six hours
 # A BLOCK'S RULES (2026-10-24, the owner: "a default card, and certain cards in the same slot when a condition is
 # met"): the block's own card by default, and up to RULES_MAX rules, each its card when ALL of its conditions (up to
 # ALL_MAX) hold -- the first rule that matches wins. A block's older `when` + `fallback` still reads.
@@ -553,13 +560,26 @@ RULES_MAX = 4
 ALL_MAX = 3
 
 
-def condition(v: Any) -> dict[str, str]:
+def solar_endpoint(v: Any) -> dict[str, Any]:
+    """One end of a Solar Window: {"at": "HH:MM"} or {"sun": "sunrise" | "sunset", "offset": minutes} (offset 0 if
+    left out; whole minutes, SUN_OFFSET_MAX either side)."""
+    if isinstance(v, dict) and set(v) == {"at"}:
+        if isinstance(v["at"], str) and CLOCK.match(v["at"]):
+            return {"at": v["at"]}
+    elif isinstance(v, dict) and "sun" in v and not set(v) - {"sun", "offset"} and v["sun"] in SUN_EVENTS:
+        off = v.get("offset", 0)
+        if isinstance(off, int) and not isinstance(off, bool) and abs(off) <= SUN_OFFSET_MAX:
+            return {"sun": v["sun"], "offset": off}
+    raise GridInvalid("grid_condition")
+
+
+def condition(v: Any) -> dict[str, Any]:
     if not isinstance(v, dict) or set(v) - {"kind", "entity", "state", "from", "to"} or v.get("kind") not in CONDITIONS:
         raise GridInvalid("grid_condition")
     kind = v["kind"]
-    out = {"kind": kind}
+    out: dict[str, Any] = {"kind": kind}
     if "entity" in v:
-        if kind == "time":
+        if kind in ("time", "solar_window"):
             raise GridInvalid("grid_condition")
         out["entity"] = _domain()(v["entity"])
     if kind == "entity_state":
@@ -573,12 +593,17 @@ def condition(v: Any) -> dict[str, str]:
         if not (isinstance(start, str) and CLOCK.match(start) and isinstance(end, str) and CLOCK.match(end)) or start == end:
             raise GridInvalid("grid_condition")
         out["from"], out["to"] = start, end
+    elif kind == "solar_window":
+        start, end = solar_endpoint(v.get("from")), solar_endpoint(v.get("to"))
+        if start == end:                                    # a window that never opens
+            raise GridInvalid("grid_condition")
+        out["from"], out["to"] = start, end
     elif "from" in v or "to" in v:
         raise GridInvalid("grid_condition")
     return out
 
 
-def conditions(v: Any) -> dict[str, list[dict[str, str]]]:
+def conditions(v: Any) -> dict[str, list[dict[str, Any]]]:
     """A rule's conditions, all of which must hold: {"all": [condition, ...]} (a single condition reads as one)."""
     if isinstance(v, dict) and "all" in v:
         if set(v) != {"all"} or not isinstance(v["all"], list) or not 0 < len(v["all"]) <= ALL_MAX:

@@ -390,6 +390,52 @@ step(function () {
   ok('...an old Security block at Compact is not', GE.valid(g), false);
 });
 
+// SHOW WHEN's SOLAR WINDOW (2026-11-10): From and Until, each A Time or Sunrise / Sunset with an offset in minutes; the
+// window the screen would open now or next, from Home Assistant's sun.sun -- or that it can't tell without it
+step(function () {
+  var pg = page([]);
+  pg.client = { states: {} };
+  var ed = editor(pg, true);
+  ed.load(pg.data.boards['dashboard-hall']);
+  var rows = [], K0 = ed.K;
+  var rec = function (kind) { return function (o) { var r = Object.assign({ kind: kind }, o); rows.push(r); return r; }; };
+  ed.K = Object.assign({}, K0, { select: rec('select'), seg: rec('seg'), text: rec('text'), button: rec('button'), check: rec('check'), info: rec('info'),
+                                 toggle: rec('toggle'), group: function (o, r) { return { group: o, rows: r }; } });
+  ed.sidebar = { appendChild: function () {} };
+  var item = function () { return ed.grid.items.find(function (x) { return x.id === 'a1'; }); };
+  var draw = function () { rows.length = 0; ed.conditions(item()); return rows; };
+  var rows_ = function (label) { return draw().filter(function (r) { return r.label === label; }); };
+  ok('Solar Window is one of the conditions offered', rows_('Add Rule').length === 1 && window.hkGridCatalog.CONDITIONS.indexOf('solar_window') >= 0, true);
+  rows_('Add Rule')[0].onClick();
+  var when = rows_('When')[0];
+  ok('...named A Solar Window', when.options.filter(function (o) { return o[0] === 'solar_window'; })[0][1], 'A Solar Window');
+  when.onChange('solar_window');
+  var cond = function () { return item().rules[0].when.all[0]; };
+  ok('a new Solar Window: from 15 minutes before sunset until 10 PM', cond(), { kind: 'solar_window', from: { sun: 'sunset', offset: -15 }, to: { at: '22:00' } });
+  ok('...its rows: From, its Offset, Until, its Time', [rows_('From')[0].value, rows_('Offset')[0].value, rows_('Until')[0].value, rows_('Time')[0].value], ['sunset', -15, 'at', '22:00']);
+  ok('...and with no sun.sun, that the screen can\'t tell (the rule won\'t hold)', draw().some(function (r) { return r.kind === 'info' && r.label === 'Can’t Tell Now'; }), true);
+  // the morning: an hour before sunrise until half an hour after it
+  rows_('From')[0].onChange('sunrise');
+  ok('From Sunrise keeps its offset', cond().from, { sun: 'sunrise', offset: -15 });
+  rows_('Offset')[0].onCommit('-60');
+  rows_('Until')[0].onChange('sunrise');
+  rows_('Offset')[1].onCommit('+30');
+  ok('the morning: from Sunrise −60 until Sunrise +30', cond(), { kind: 'solar_window', from: { sun: 'sunrise', offset: -60 }, to: { sun: 'sunrise', offset: 30 } });
+  rows_('Offset')[0].onCommit('−45');
+  ok('...a typed minus sign (−) reads as one', cond().from, { sun: 'sunrise', offset: -45 });
+  rows_('Offset')[0].onCommit('400');
+  rows_('Offset')[0].onCommit('soon');
+  ok('...past six hours, or not a number, is not taken', cond().from, { sun: 'sunrise', offset: -45 });
+  rows_('Until')[0].onChange('at');
+  rows_('Time')[0].onCommit('06:30');
+  ok('Until A Time', cond().to, { at: '06:30' });
+  // with the sun: what the screen would do now
+  var now = Date.now(), H = 3600000;
+  pg.client.states = { 'sun.sun': { state: 'above_horizon', attributes: { next_rising: new Date(now + 2 * H).toISOString(), next_setting: new Date(now + 12 * H).toISOString() } } };
+  ok('with sun.sun: the window it opens next, or that it is open', draw().some(function (r) { return r.kind === 'info' && (r.label === 'Opens Next' || r.label === 'Open Now') && !!r.value; }), true);
+  ok('the layout with a Solar Window is valid', window.hkGridEditor.valid(ed.grid), true);
+});
+
 steps.reduce(function (p, f) { return p.then(f); }, Promise.resolve()).then(function () {
   print(fail ? 'FAIL ' + fail + ' GRID EDITOR TESTS' : 'ALL ' + pass + ' GRID EDITOR TESTS PASS');
 }).catch(function (e) { print('Exception: ' + e + ' ' + (e.stack || '')); print('FAIL GRID EDITOR TESTS'); });

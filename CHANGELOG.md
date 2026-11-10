@@ -4,7 +4,11 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Added**
+- **A Solar Window in Home Grid's Show When**: a rule that holds from one point of the day until the next, each a time (the home's time zone) or sunrise or sunset with an offset in minutes -- the outdoor lights' controls from 15 minutes before sunset until 10 PM, or from an hour before sunrise until half an hour after it. Sunrise and sunset are Home Assistant's own (`sun.sun`), the block changes at each edge without a reload, and a window can run past midnight and across a daylight saving change. Without the sun, the rule doesn't hold and the block shows its next rule or its own card. Mantel's MCP checks it (grid_set) and describes it (grid_cards).
+
 **Changed**
+- **A Time of Day rule changes at its edge**, not up to half a minute after it.
 - **Every Volume tab has the whole group's slider first** (the music's rooms together, then each room's own) wherever two rooms or more play -- the Music page's Speakers, the screensaver's, the Side Pane's and a Now Playing block's; only a Small Now Playing block had it.
 - **The Intercom's rooms are the Music page's speaker rows**: each speaker's well, its name over what is true of it (Plays with Office, Quiet hours, Unavailable, After you finish, You're here), the tick at the end, one to a line (two where there is room) -- the whole name fits, where two narrow columns cut most of them short on a phone.; **its groups** (Whole House, the floors, your presets) **are one row that scrolls sideways**, as the Music page's presets, not rows of their own over the rooms.
 - **A screensaver widget opens its page when tapped**: the weather the Weather page, the date the Calendar, music the Music page, a timer the Timers page, and so on; one about a single thing (a sensor, a person, a camera) opens its details. Each widget's When Tapped can say Nothing instead (the Screensaver editor).
