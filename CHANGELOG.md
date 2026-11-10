@@ -4,6 +4,9 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Changed**
+- **Security says when every door and window is closed**: the doors-and-windows toast reads "Doors & windows closed" (a tap opens Doors & Windows), and a list row may be 55 px where that lets one more row in.
+
 ## 0.1.160 - 2026-11-09
 
 **Changed**

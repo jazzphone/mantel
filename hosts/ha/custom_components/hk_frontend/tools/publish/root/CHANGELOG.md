@@ -5,6 +5,9 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+**Changed**
+- **Security says when every door and window is closed**: the doors-and-windows toast reads "Doors & windows closed" (a tap opens Doors & Windows), and a list row may be 55 px where that lets one more row in.
+
 ## 1.56.0 - 2026-11-09
 
 **Changed**

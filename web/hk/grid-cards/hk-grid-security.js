@@ -190,6 +190,12 @@
         var to = mk('op toast', '<hk-icon></hk-icon><span></span>', open.length + ' open: ' + names, open.length === 1 ? function () { window.hkShell.moreInfo(open[0].id, self); } : go);
         to.querySelector('hk-icon').icon = open[0].icon; to.querySelector('span').textContent = tt;
         box.appendChild(to);
+      } else if (rows.length) {
+        // ALL CLOSED SAYS SO TOO (2026-11-09, the owner: "I don't see the windows and doors closed toast at the bottom of the security card.
+        // Without it, it seems a bit empty"): the same toast, the closed door, a tap to the Doors & Windows page
+        var ok = mk('op toast', '<hk-icon></hk-icon><span></span>', 'Doors and windows: all closed. Opens Doors & Windows.', go);
+        ok.querySelector('hk-icon').icon = 'mdi:door-closed'; ok.querySelector('span').textContent = short ? 'All closed' : 'Doors & windows closed';
+        box.appendChild(ok);
       }
       box.style.display = box.children.length ? '' : 'none';
     }
@@ -911,8 +917,8 @@
       // tile? This is a step back"): Large, Tall, Wide and Compact list the locks and garage doors as Doors & Locks and House Status do --
       // no plate per row, the glyph in a 36 px disc, a hairline between rows (the top one clipped), each row 56 px and the whole of it the tap.
       // DESIGN.md's colors: secured, the glyph teal in an off well; needs a look, LIT -- the disc teal, the glyph white, the state in the first ink
-      'hk-plate.hv .ents.ls{display:grid;gap:0 14px;grid-auto-rows:' + SEC_LIST_ROW + 'px;align-content:start;clip-path:inset(1px 0 0 0)}',
-      'hk-plate.hv .ents.ls .en{height:' + SEC_LIST_ROW + 'px;display:grid;grid-template-columns:36px minmax(0,1fr) auto;grid-template-rows:auto auto;column-gap:12px;row-gap:0;',
+      'hk-plate.hv .ents.ls{display:grid;gap:0 14px;grid-auto-rows:var(--lr,' + SEC_LIST_ROW + 'px);align-content:start;clip-path:inset(1px 0 0 0)}',
+      'hk-plate.hv .ents.ls .en{height:var(--lr,' + SEC_LIST_ROW + 'px);display:grid;grid-template-columns:36px minmax(0,1fr) auto;grid-template-rows:auto auto;column-gap:12px;row-gap:0;',
       '  align-content:center;align-items:center;padding:0 4px 0 0;text-align:left;background:none;border:0;border-top:1px solid ' + v('line') + ';border-radius:0;box-shadow:none;',
       '  --hk-glass-backdrop:none;-webkit-backdrop-filter:none;backdrop-filter:none;transition:opacity ' + C.DUR.press + ' ease}',
       'hk-plate.hv .ents.ls .en:active{transform:none;opacity:.6}',
@@ -1084,7 +1090,14 @@
         if (!W || !H) return;
         var cols = 1, rows = 1, list = size !== 'XL';
         // (THE LIST, 2026-11-09, mockup 14b: rows of 56 from the top, no gap, a hairline between -- Compact two columns of them)
-        if (list) { cols = size === 'C' ? 2 : 1; rows = Math.max(1, Math.floor((H + 1) / SEC_LIST_ROW)); }
+        // (rows of 56, or 55 where that is what lets one more row in -- the owner, 2026-11-09, of a Compact showing two rows and a band under
+        // them: "there could be room for a third row" -- 55 is still a finger's 44 on the tablet, where a block is drawn at 0.8)
+        var lr = SEC_LIST_ROW;
+        if (list) {
+          cols = size === 'C' ? 2 : 1; rows = Math.max(1, Math.floor((H + 1) / SEC_LIST_ROW));
+          if (Math.floor((H + 1) / 55) > rows) { rows = Math.floor((H + 1) / 55); lr = 55; }
+          e.ents.style.setProperty('--lr', lr + 'px');
+        }
         else { cols = 2; rows = Math.max(1, Math.floor((H + HV_GAP) / (HV_SLOT_H + HV_GAP))); }
         var n = this._slots.length, cap = cols * rows, cut = n > cap, show = cut ? cap - 1 : n;
         // (a list with room for TWO places or fewer -- Wide and Compact on the house's 150 px cells, the toast under them -- shows the rows
