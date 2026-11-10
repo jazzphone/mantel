@@ -436,6 +436,85 @@ step(function () {
   ok('the layout with a Solar Window is valid', window.hkGridEditor.valid(ed.grid), true);
 });
 
+// SHOW WHEN TAKES TEN RULES (2026-11-10; four before): Add Rule to ten and no further, each rule's header its place,
+// a rule past the fourth set, previewed, moved up and down and removed; Preview a menu past four; valid() as hk_core
+step(function () {
+  var pg = page([]);
+  pg.client = { states: {} };
+  var ed = editor(pg, true);
+  ed.load(pg.data.boards['dashboard-hall']);
+  var rows = [], groups = [], K0 = ed.K, previews = 0;
+  var rec = function (kind) { return function (o) { var r = Object.assign({ kind: kind }, o); rows.push(r); return r; }; };
+  ed.K = Object.assign({}, K0, { select: rec('select'), seg: rec('seg'), text: rec('text'), button: rec('button'), check: rec('check'), info: rec('info'),
+                                 toggle: rec('toggle'), group: function (o, r) { groups.push(o); return { group: o, rows: r }; } });
+  ed.sidebar = { appendChild: function () {} };
+  ed.preview = function () { previews++; };
+  var item = function () { return ed.grid.items.find(function (x) { return x.id === 'a1'; }); };
+  var draw = function () { rows.length = 0; groups.length = 0; ed.conditions(item()); return rows; };
+  var rows_ = function (label) { return draw().filter(function (r) { return r.label === label; }); };
+  var G = window.hkGridCatalog, kinds = function () { return item().rules.map(function (r) { return r.when.all[0].kind; }); };
+  ok('the editor\'s numbers are hk_core\'s', [G.RULES_MAX, G.CONDITIONS_MAX], [10, 3]);
+  var adds = 0;
+  while (rows_('Add Rule')[0] && !rows_('Add Rule')[0].disabled && adds < 20) { rows_('Add Rule')[0].onClick(); adds++; }
+  ok('Add Rule adds ten, then is unavailable', [adds, item().rules.length, rows_('Add Rule')[0].disabled], [10, 10, true]);
+  rows_('Add Rule')[0].onClick();
+  ok('...a tap on it then adds nothing', item().rules.length, 10);
+  draw();
+  ok('...and says the block is full', groups.some(function (g) { return /up to 10 rules/.test(g.footer || ''); }), true);
+  ok('each rule\'s header says where it stands', groups.filter(function (g) { return /^Rule \d+ of 10 · /.test(g.header || ''); }).map(function (g) { return +/^Rule (\d+)/.exec(g.header)[1]; }),
+     [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+  // the seventh rule: its condition, a second one and a third, and no fourth
+  var whens = function () { return rows_('When'); };
+  whens()[6].onChange('after_sunset');
+  ok('the seventh rule\'s condition changes, the others stay', kinds().join(), 'music_playing,music_playing,music_playing,music_playing,music_playing,music_playing,after_sunset,music_playing,music_playing,music_playing');
+  var also = function () { return rows_('And Also'); };
+  also()[6].onChange('alarm_armed');
+  also()[6].onChange('timer_running');
+  ok('...takes three conditions', item().rules[6].when.all.map(function (c) { return c.kind; }), ['after_sunset', 'alarm_armed', 'timer_running']);
+  ok('...and offers no fourth', also().length, 9);
+  // the tenth: previewed from its own rows and from Preview, a menu with each rule's card
+  var preview = rows_('Preview')[0];
+  ok('ten rules: Preview is a menu of Live, Default and each rule', [preview.kind, preview.options.length, preview.options[11][0], /^Rule 10: /.test(preview.options[11][1])], ['select', 12, '9', true]);
+  preview.onChange('9');
+  ok('...the tenth previews, and its card is the one being set', [ed.conditionPreview, ed.editing, previews > 0], [9, 9, true]);
+  var edits = draw().filter(function (r) { return /^Edit .* Settings$/.test(r.label); });
+  ok('...its Edit Settings is the one already open', edits.map(function (r) { return !!r.disabled; }).indexOf(true), 9);
+  edits[4].onClick();
+  ok('Edit Settings on the fifth previews the fifth', [ed.conditionPreview, ed.editing], [4, 4]);
+  // move the seventh up to the first, and down to the last
+  var mark = function () { return item().rules.map(function (r) { return r.when.all.length; }).indexOf(3); };
+  for (var k = 0; k < 6; k++) rows_('Move Rule Up')[mark()].onClick();
+  ok('Move Rule Up takes the seventh to the first', mark(), 0);
+  ok('...the first has no Move Rule Up, the last no Move Rule Down', [rows_('Move Rule Up')[0].disabled, rows_('Move Rule Down')[9].disabled, rows_('Move Rule Down')[0].disabled], [true, true, false]);
+  for (k = 0; k < 9; k++) rows_('Move Rule Down')[mark()].onClick();
+  ok('Move Rule Down takes it to the tenth', [mark(), item().rules.length], [9, 10]);
+  ed.editing = 8;
+  rows_('Move Rule Down')[8].onClick();
+  ok('...the card being set moves with its rule', [ed.editing, mark()], [9, 8]);
+  // remove the ninth, then the tenth
+  rows_('Remove Rule')[8].onClick();
+  ok('Remove Rule on the ninth leaves nine, the others in order', [item().rules.length, mark()], [9, -1]);
+  ok('...and Add Rule is back', rows_('Add Rule')[0].disabled, false);
+  rows_('Remove Rule')[8].onClick();
+  ok('...then eight', item().rules.length, 8);
+  draw();
+  ok('past four Preview is still a menu; four or fewer, the segments as before', rows_('Preview')[0].kind, 'select');
+  while (item().rules.length > 4) rows_('Remove Rule')[4].onClick();
+  ok('...four rules: Live, Default, Rule 1 to Rule 4', [rows_('Preview')[0].kind, rows_('Preview')[0].options.map(function (o) { return o[1]; })], ['seg', ['Live', 'Default', 'Rule 1', 'Rule 2', 'Rule 3', 'Rule 4']]);
+  ok('the layout with its rules is valid', window.hkGridEditor.valid(ed.grid), true);
+  // valid(), as hk_core: ten rules, three conditions a rule
+  var GE = window.hkGridEditor, block = function (rules) { return { v: 1, cols: 6, rows: 4, frame: [1280, 800], band: true,
+    items: [{ id: 'b', card: 'calendar', size: 'L', at: [0, 0], rules: rules }] }; };
+  var rule = function (n) { var all = []; for (var j = 0; j < n; j++) all.push({ kind: 'music_playing' }); return { when: { all: all }, card: 'clock' }; };
+  var many = function (n, c) { var out = []; for (var j = 0; j < n; j++) out.push(rule(c || 1)); return out; };
+  ok('valid: ten rules', GE.valid(block(many(10))), true);
+  ok('...not eleven', GE.valid(block(many(11))), false);
+  ok('valid: three conditions', GE.valid(block(many(10, 3))), true);
+  ok('...not four', GE.valid(block(many(1, 4))), false);
+  ok('...nor none, nor an empty list', [GE.valid(block([rule(0)])), GE.valid(block([]))], [false, false]);
+  ok('...a block without rules as before', GE.valid(grid('a1')), true);
+});
+
 steps.reduce(function (p, f) { return p.then(f); }, Promise.resolve()).then(function () {
   print(fail ? 'FAIL ' + fail + ' GRID EDITOR TESTS' : 'ALL ' + pass + ' GRID EDITOR TESTS PASS');
 }).catch(function (e) { print('Exception: ' + e + ' ' + (e.stack || '')); print('FAIL GRID EDITOR TESTS'); });

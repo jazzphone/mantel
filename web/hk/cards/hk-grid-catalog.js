@@ -325,6 +325,19 @@
     return (t && t.room) || null;
   }
 
+  // SHOW WHEN's numbers (hk_core home_grid.py RULES_MAX / ALL_MAX; a test holds them equal): a block's rules (ten since
+  // 2026-11-10, four before), the first that holds winning, and each rule's conditions, all of which must hold
+  var RULES_MAX = 10, CONDITIONS_MAX = 3;
+  // a block's rules as hk_core rules() takes them (the editor's valid()): none (no key), or 1 to RULES_MAX, each of 1 to
+  // CONDITIONS_MAX conditions and a card that comes in the block's size
+  function rulesFit(it) {
+    var rules = it && it.rules;
+    if (rules == null) return true;
+    return Array.isArray(rules) && rules.length > 0 && rules.length <= RULES_MAX && rules.every(function (r) {
+      var all = r && r.when && (Array.isArray(r.when.all) ? r.when.all : [r.when]), cat = r && CARDS[r.card];
+      return !!all && all.length > 0 && all.length <= CONDITIONS_MAX && !!cat && cat.sizes.indexOf(it.size) >= 0;
+    });
+  }
   var CONDITIONS = ['music_playing', 'timer_running', 'alarm_armed', 'alarm_disarmed', 'doorbell', 'after_sunset', 'entity_state', 'time', 'solar_window'];
   function hhmm(t) { var m = /^(\d{2}):(\d{2})$/.exec(String(t || '')); return m ? (+m[1]) * 60 + (+m[2]) : null; }
   function houseZone() {
@@ -775,7 +788,7 @@
                            PAGES_MAX: PAGES_MAX, PER_PAGE: PER_PAGE, perPage: perPage, CLOCK_FACES: CLOCK_FACES, THERMOSTAT_STYLES: THERMOSTAT_STYLES, TAP_TARGETS: TAP_TARGETS, MUSIC_TAPS: MUSIC_TAPS,
                            SHEET: SHEET, sheetOf: sheetOf, entryId: entryId, copySheet: copySheet, sheetRoute: sheetRoute, NAMES: NAMES,
                            sheetSlot: sheetSlot, sheetCss: sheetCss, placed: placed,
-                           CONDITIONS: CONDITIONS, hostHas: hostHas, matches: matches, rulesOf: rulesOf, choose: choose, houseNow: houseNow,
+                           CONDITIONS: CONDITIONS, RULES_MAX: RULES_MAX, CONDITIONS_MAX: CONDITIONS_MAX, rulesFit: rulesFit, hostHas: hostHas, matches: matches, rulesOf: rulesOf, choose: choose, houseNow: houseNow,
                            nextChange: nextChange, armClock: armClock, alert: { rows: alertRows, sample: alertSample, KEYS: ALERT_KEYS, LIMITS: ALERT }, solar: { spans: solarSpans, rows: solarRows, fresh: solarFresh, atWall: atWall, dayOf: dayOf, OFFSET_MAX: SUN_OFFSET_MAX,
                              forget: function () { SUN_SEEN.sunrise = []; SUN_SEEN.sunset = []; } }, config: config, pages: pages, tabletRoom: tabletRoom, table: table };
   try { window.dispatchEvent(new CustomEvent('hk-grid-catalog-ready')); } catch (e) { /* a test page without events */ }
