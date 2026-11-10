@@ -32,7 +32,7 @@
       ':host([list]) .rl::-webkit-scrollbar{display:none}',
       ':host([list]) .rl .grid{grid-template-columns:minmax(0,1fr);grid-auto-rows:48px;gap:8px}',
       ':host([list="2"]) .rl .grid{grid-template-columns:repeat(2,minmax(0,1fr))}',
-      ':host([list]) .rl .pill{height:100%;border-radius:24px;padding:0 18px}:host([list]) .rl .pill > span{justify-self:start;text-align:left}',
+      ':host([list]) .rl .pill{height:100%;border-radius:calc(48px / 2);padding:0 18px}:host([list]) .rl .pill > span{justify-self:start;text-align:left}',
       // (its pills the sheet's own keys, not glass: hk-glass.js frosted them on a layer of their own, a box behind them in a sheet)
       ':host([list]) .pill{--hk-glass-surface:0;-webkit-backdrop-filter:none;backdrop-filter:none;box-shadow:none}',
       ':host([list]) .pill:not([aria-pressed="true"]){background:' + C.v('key') + '}'
