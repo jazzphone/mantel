@@ -354,12 +354,12 @@
         dkEl.style.background = m.color;
         C.morph(dkEl, this._glyph(m, Math.round(px * 0.58), '#fff'));
       }
-      var go = q('.go');
-      if (go && m.words) {
+      var pill = q('.go');
+      if (pill && m.words) {
         var long = size === 'L' || size === 'XL' || (size === 'W' && !P.pic);
-        go.querySelector('.gw').textContent = long ? m.words[1] : m.words[0];
-        C.morph(go.querySelector('.gi'), this._glyph(m, 20, m.color));
-        go.setAttribute('aria-label', m.words[1] + (m.never ? ': opens its controls' : ''));
+        pill.querySelector('.gw').textContent = long ? m.words[1] : m.words[0];
+        C.morph(pill.querySelector('.gi'), this._glyph(m, 20, m.color));
+        pill.setAttribute('aria-label', m.words[1] + (m.never ? ': opens its controls' : ''));
       }
       pl.setAttribute('aria-label', [m.title, m.sub].filter(Boolean).join(', '));
       var cl = this.client;
