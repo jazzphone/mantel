@@ -384,7 +384,7 @@
     timers: { what: 'What finishes when, and Quick Start', footer: 'The cards between the status row and the timers running.',
               defaults: { show: true, presets: [5, 10, 15, 20, 30, 60], names: ['Pasta', 'Oven', 'Laundry', 'Tea', 'Kids', 'Break'] } },
     vacuums: { what: 'The days’ cleaning, and each vacuum’s last run', footer: 'The cards between the status row and the vacuums.',
-               defaults: { show: true, counters: null } }
+               defaults: { show: true, counters: null, water_tank: true, water_clear: 24 } }
   };
   // THE PAGES SECTION (2026-10-16, PLAN-2026-10-16-pages-settings.md): every
   // generated page the house has, in the menu's order, each its own

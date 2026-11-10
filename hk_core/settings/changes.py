@@ -29,6 +29,7 @@ import copy
 import re
 from typing import Any
 
+from .. import vacuum_water as VW
 from ..sleep import rules as SR
 from . import home_grid as HG
 from . import saver_layout as SLAY
@@ -181,7 +182,7 @@ def _header(page: str) -> Callable[[Any], dict[str, Any]]:
         out = copy.deepcopy(default)
         for k, val in v.items():
             d = default[k]
-            if k in ("show", "left_on", "tonight", "callouts", "sky_follow"):
+            if k in ("show", "left_on", "tonight", "callouts", "sky_follow", "water_tank"):
                 out[k] = _bool(val)
             elif k == "rooms":
                 out[k] = within(val, S.HEADER_ROOMS)
@@ -203,6 +204,10 @@ def _header(page: str) -> Callable[[Any], dict[str, Any]]:
                 out[k] = one_or_none(val, "sensor")
             elif k == "supply":
                 out[k] = one_or_none(val, "valve", "switch")
+            elif k == "water_clear":
+                if isinstance(val, bool) or val not in VW.CLEAR_AFTER:
+                    raise Invalid("choice")
+                out[k] = int(val)
             elif k == "counters":
                 out[k] = ids_or_none(val, "sensor")
             elif k == "presets":

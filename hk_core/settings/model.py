@@ -753,7 +753,7 @@ HEADERS: dict[str, dict[str, Any]] = {
     "water": {"show": True, "meter": None, "supply": None},
     "timers": {"show": True, "presets": [5, 10, 15, 20, 30, 60],
                "names": ["Pasta", "Oven", "Laundry", "Tea", "Kids", "Break"]},
-    "vacuums": {"show": True, "counters": None},
+    "vacuums": {"show": True, "counters": None, "water_tank": True, "water_clear": 24},
 }
 HEADER_ROOMS = (2, 5)
 HEADER_PRESETS = (1, 6)          # how many quick durations

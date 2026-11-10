@@ -79,7 +79,7 @@
       security: { show: true, callouts: true, front_door: null, back_door: null, garage: null, low_battery: 20 },
       water: { show: true, meter: null, supply: null },
       timers: { show: true, presets: [5, 10, 15, 20, 30, 60], names: ['Pasta', 'Oven', 'Laundry', 'Tea', 'Kids', 'Break'] },
-      vacuums: { show: true, counters: null }
+      vacuums: { show: true, counters: null, water_tank: true, water_clear: 24 }
     },
     security: { alarm: null, garage: [], locks: [], doors: [], windows: [] },
     clock: { time: 'sensor.time', date: 'sensor.date' },

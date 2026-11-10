@@ -12,6 +12,12 @@
 //   hkVacuumArt.html(state, words)       the drawing for a state (one of STATES) -- a box of 200 : 140, as wide as its parent makes it
 //   hkVacuumArt.look(client, id, cfg)    { state, words } for a vacuum: its own state, its charge state and its error (found on its device)
 //   hkVacuumArt.ids(client, id, cfg)     the sensors look() reads, for a card's redraw signature
+//   hkVacuumArt.latch(client, id)        { since, words } while Mantel Server holds this vacuum's water tank report, else null
+//   hkVacuumArt.clearPill(name)          a block's Clear: the standard pill (DESIGN.md), data-clear for the card's tap handler
+//
+// THE WATER TANK, HELD (2026-11-09, the owner): a Roborock reports `water_tank_empty` for under a second and carries on, so a screen
+// never sees it. Mantel Server catches it and keeps it in its own sensor (hk_core/vacuum_water.py; mantel_server/vacuum_water.py), until
+// someone presses Clear or Clear After hours pass. look() draws a latched vacuum as 'water' with the report's words, after an error.
 // @ts-check
 (function (global) {
   'use strict';
@@ -20,6 +26,7 @@
   var STATES = ['docked', 'charging', 'cleaning', 'returning', 'paused', 'water', 'error', 'idle'];
   // a Matter vacuum's operational errors (RVC Operational State) and the other integrations' spellings of "fine"
   var OK = ['no_error', 'none', 'ok', 'unknown', 'unavailable', ''];
+  var LATCHES = 'sensor.vacuum_water_tanks';      // the server's own sensor: attribute `tanks` is { vacuum: { since, words } } (absent inside Home Assistant alone)
   var WATER = /water_tank|clean_water|dirty_water|water_box|mop_(cleaning_)?pad|mop_missing|water_shortage|no_water/i;
 
   // THE SENSORS ON THE VACUUM'S DEVICE: its operational error (not the dock's) and its battery's charge state
@@ -33,18 +40,27 @@
   }
   function ids(client, id, cfg) {
     var c = cfg || {};
-    return { error: c.error || find(client, id, /operational_error|_error$/, /dock/), charge: c.charge || find(client, id, /charge_state|charging_state/) };
+    return { error: c.error || find(client, id, /operational_error|_error$/, /dock/), charge: c.charge || find(client, id, /charge_state|charging_state/),
+             latch: client && client.states && client.states[LATCHES] ? LATCHES : null };
+  }
+  // WHAT MANTEL HAS HELD for this vacuum: its water tank report, until cleared
+  function latch(client, id) {
+    var st = client && client.states && client.states[LATCHES], t = st && st.attributes && st.attributes.tanks, row = t && t[id];
+    return row && typeof row === 'object' ? { since: Number(row.since) || 0, words: String(row.words || 'Water tank empty') } : null;
   }
   function words(s) { var t = String(s || '').replace(/_/g, ' ').trim(); return t.charAt(0).toUpperCase() + t.slice(1); }
 
-  // WHAT TO DRAW: the water tank and being stuck first (they need someone), then what it is doing
+  // WHAT TO DRAW: the water tank and being stuck first (they need someone), then what it is doing. A held water report comes after
+  // an error, which stays first, and before what it is doing: it is still cleaning, with the tank empty. `latched`: the Clear key is offered
   function look(client, id, cfg) {
     var states = (client && client.states) || {}, st = states[id], s = (st && st.state) || 'unknown', x = ids(client, id, cfg);
     var err = x.error && states[x.error] ? String(states[x.error].state) : '';
     var chg = x.charge && states[x.charge] ? String(states[x.charge].state) : '';
     var bad = err && OK.indexOf(err.toLowerCase()) < 0;
-    if (bad && WATER.test(err)) return { state: 'water', words: words(err) };
-    if (s === 'error' || bad) return { state: 'error', words: bad ? words(err) : 'Needs help' };
+    var held = latch(client, id);
+    if (bad && WATER.test(err)) return { state: 'water', words: words(err), latched: !!held };
+    if (s === 'error' || bad) return { state: 'error', words: bad ? words(err) : 'Needs help', latched: !!held };
+    if (held) return { state: 'water', words: held.words, latched: true };
     if (s === 'cleaning') return { state: 'cleaning', words: 'Cleaning' };
     if (s === 'returning') return { state: 'returning', words: 'Returning' };
     if (s === 'paused') return { state: 'paused', words: 'Paused' };
@@ -76,6 +92,12 @@
       (front ? V + front + '</svg>' : '') + over + '</div>';
   }
 
+  // THE CLEAR PILL on a block (Extra Large, Tall, Wide), under the state's words: the standard pill -- a 40 px capsule in the key's fill,
+  // a 15 / 600 word -- with a 56 px touch, 8 px clear of what is round it. The page card's Clear is one of its own 56 px keys.
+  function clearPill(name) {
+    return '<button type="button" class="hkclr" data-clear aria-label="Clear the water tank report for ' + String(name || '').replace(/[&<>"]/g, '') + '">Clear</button>';
+  }
+
   // (built when a card first asks: this file loads with the core, before hk-base.js has made hkCards)
   var built = '';
   function css() {
@@ -86,6 +108,9 @@
     '.hkva{position:relative;width:100%;aspect-ratio:200/140;flex:none;color:' + v('ink') + '}',
     '.hkva>svg,.hkva>.rb,.hkva>.rb>svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}',
     '.hkva .gl{position:absolute;left:14%;top:4.2857%;width:72%;height:102.857%;--mdc-icon-size:100%;display:block;color:inherit}',
+    '.hkclr{all:unset;box-sizing:border-box;position:relative;flex:none;align-self:flex-start;display:flex;align-items:center;justify-content:center;height:40px;margin:8px 0;padding:0 16px;',
+    '  border-radius:20px;background:' + v('key') + ';color:' + v('ink') + ';font-family:inherit;font-size:15px;font-weight:600;line-height:1;cursor:pointer;-webkit-tap-highlight-color:transparent}',
+    '.hkclr::after{content:"";position:absolute;inset:-8px -6px}.hkclr:active{filter:brightness(.9)}.hkclr:focus-visible{outline:2px solid ' + v('ink-2') + ';outline-offset:2px}',
     '.hkva .sh{fill:rgba(0,0,0,.28)}.hkva .dk{fill:' + v('key') + ';stroke:' + v('line-strong') + ';stroke-width:1.2}.hkva .led{fill:' + MINT + '}',
     '.hkva .sp line{stroke:' + MINT + ';stroke-width:2.6;stroke-linecap:round}',
     '.hkva .tr{fill:none;stroke:' + MINT + ';stroke-opacity:.55;stroke-width:3;stroke-linecap:round;stroke-dasharray:2 9}',
@@ -108,5 +133,5 @@
     ].join(''));
   }
 
-  global.hkVacuumArt = { STATES: STATES, get CSS() { return css(); }, html: html, look: look, ids: ids, WATER: WATER };
+  global.hkVacuumArt = { STATES: STATES, get CSS() { return css(); }, html: html, look: look, ids: ids, latch: latch, clearPill: clearPill, WATER: WATER, LATCHES: LATCHES };
 })(globalThis);

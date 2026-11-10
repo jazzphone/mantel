@@ -130,6 +130,8 @@ groups in the same order on each, the empty ones left out:
 | Timers → Quick Durations | 5, 10, 15, 20, 30, 60 min | Quick Start’s buttons, in order, up to six. |
 | Timers → Quick Names | Pasta, Oven, Laundry, Tea, Kids, Break | The names Create a Timer offers, up to six. |
 | Vacuums → Mission Counters | Automatic | The counters that say how a run ended. Automatic: each vacuum’s own successful, failed and canceled sensors. |
+| Vacuums → Water Tank Reminder | On | A mop vacuum says its water tank is empty for under a second. With the house’s own server, the report is kept on the vacuum’s card (and its Clear key) until someone clears it. Off: nothing is kept or shown. |
+| Vacuums → Clear After | 24 hours | How long a kept report stays: 12 hours, 24 hours, 48 hours or Until Cleared. |
 | House Timers | None | Timer helpers people start themselves (a nap, bedtime), shown as one-tap tiles on the Timers page, in order. |
 
 **A screen’s own page headers.** Screens → the screen → **Page Headers**

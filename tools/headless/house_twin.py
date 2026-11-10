@@ -137,6 +137,9 @@ def busy(ha: dict) -> dict:
                      finishes_at=time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(now + 720 * timers)))
         elif dom == "vacuum":
             st["state"] = "cleaning"
+            tanks = ha.setdefault("_tanks", {})
+            if not tanks:       # (2026-11-09: the first one's water tank is held, as the server keeps it -- sensor.vacuum_water_tanks)
+                tanks[eid] = {"since": now - 3600, "words": "Water tank empty"}
         elif dom == "media_player" and st["state"] in ("idle", "paused", "off", "standby", "on"):
             st["state"] = "playing"
             a.update(media_title=a.get("media_title") or "Blue in Green", media_artist=a.get("media_artist") or "Miles Davis",
@@ -220,6 +223,9 @@ async def render(screens: list[str], size: tuple[int, int], engine: str, shots: 
     with tempfile.TemporaryDirectory(prefix="mantel-twin-") as td:
         app, cookie = await gallery.build(Path(td), real_model=True)
         A.stand_in_app(app)
+        # (--busy: the first vacuum's water tank is held, as the server keeps it; the server's own sensor publishes it, overwriting any stand-in)
+        app["vacuum_water"].latches.update(ha.get("_tanks") or {})
+        app["hub"].on_change(set(ha.get("_tanks") or {}))
         settings = app["settings"]
         settings.store.write([(d["scope"], d["key"], d["body"]) for d in docs],
                              actor=settings_store.Actor(label="house twin"), action="import", message="the house's settings")

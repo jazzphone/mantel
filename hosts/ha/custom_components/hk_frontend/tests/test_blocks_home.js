@@ -249,6 +249,36 @@ function () {
       ok('...no error, docked and charging: charging', lk().state === 'charging');
       house.set('sensor.vac_chg', 'full_charge', {});
       ok('...fully charged: docked', lk().state === 'docked' && /class="hkva s-docked"/.test(VA.html('docked', 'x')));
+      // THE WATER TANK, HELD (2026-11-09, the owner): the server catches the one-second report and keeps it in sensor.vacuum_water_tanks
+      ok('nothing held: not latched, no Clear on any block', !lk().latched && !/data-clear/.test(sized('hk-vacuum-card', 'XL', { entity: 'vacuum.downstairs' })._root.__html));
+      house.set('sensor.vacuum_water_tanks', '1', { tanks: { 'vacuum.downstairs': { since: 1000, words: 'Water tank empty' } } });
+      var held = lk();
+      ok('held: drawn as the water tank, in the report\'s words, over docked (the report is gone from the sensor)', held.state === 'water' && held.words === 'Water tank empty' && held.latched === true);
+      house.set('sensor.vacuum_water_tanks', '1', { tanks: { 'vacuum.downstairs': { since: 1000, words: 'Water tank missing' } } });
+      ok('...the words are the report\'s own', lk().words === 'Water tank missing');
+      house.set('sensor.vac_err', 'stuck', {});
+      ok('...stuck stays first, and Clear is still offered', lk().state === 'error' && lk().words === 'Stuck' && lk().latched === true);
+      house.set('sensor.vac_err', 'no_error', {});
+      ok('...another vacuum\'s report is not this one\'s', !VA.look(house.hass(), 'vacuum.other', {}).latched && VA.latch(house.hass(), 'vacuum.downstairs').since === 1000);
+      var latched = {};
+      ['XL', 'T', 'W'].forEach(function (z) {
+        var h = sized('hk-vacuum-card', z, { entity: 'vacuum.downstairs', error: 'sensor.vac_err' })._root.__html;
+        ok(z + ': the water badge, the report in words and the Clear pill under them', /class="hkva s-water"/.test(h) && /<b class="state">Water tank missing<\/b><button type="button" class="hkclr" data-clear[^>]*>Clear<\/button>/.test(h));
+      });
+      ['S', 'L'].forEach(function (z) {
+        var h = sized('hk-vacuum-card', z, { entity: 'vacuum.downstairs', error: 'sensor.vac_err' })._root.__html;
+        ok(z + ': says so in its line, no pill, the tap opens the vacuum', /<span class="err">Water tank missing<\/span>/.test(h) && !/data-clear/.test(h));
+      });
+      var wc = sized('hk-vacuum-card', 'T', { entity: 'vacuum.downstairs' });
+      house.calls.length = 0;
+      tap(wc, { 'data-clear': '' });
+      return H.tick().then(function () {
+        eq('...Clear asks Mantel to clear that vacuum for every screen', house.calls.map(function (c) { return [c.domain, c.service, c.data.vacuum]; }), [['script', 'vacuum_water_clear', 'vacuum.downstairs']]);
+        ok('...the page card: a Clear key beside Clean, shown only while held (it is 56 px like its siblings)',
+           /class="cmd clr" data-clear hidden>Clear/.test(SRC) && /e\.clr\.hidden = !lk\.latched/.test(SRC) && /\.vac \.cmd\.clr\{[^}]*padding:0 20px/.test(SRC));
+        house.set('sensor.vacuum_water_tanks', '0', { tanks: {} });
+      });
+    }).then(function () {
       FEED.added = [];
       var bare = sized('hk-vacuum-card', 'L', { entity: 'vacuum.downstairs' })._root.__html;
       ok('without Clean Areas: no rooms, the battery large instead', !/class="lab">Rooms/.test(bare) && /class="mid"/.test(bare));

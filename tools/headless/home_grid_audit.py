@@ -667,6 +667,9 @@ STATES: dict[str, dict] = {
     # (2026-11-09: a vacuum that reports no battery -- no ring, the state in words, never a "\u2013")
     "vacuum_nobattery": {"entities": {"vacuum.downstairs": ("docked", {"friendly_name": "Downstairs Vacuum", "supported_features": 16383})}},
     "vacuum_nobattery_cleaning": {"entities": {"vacuum.downstairs": ("cleaning", {"friendly_name": "Downstairs Vacuum", "supported_features": 16383})}},
+    # (2026-11-09: the water tank held -- the server caught the one-second report and keeps it in its own sensor until Clear)
+    "vacuum_water": {"entities": {"vacuum.downstairs": ("docked", {"friendly_name": "Downstairs Vacuum", "battery_level": 64, "supported_features": 16383}),
+                                  "sensor.vacuum_water_tanks": ("1", {"tanks": {"vacuum.downstairs": {"since": 1762700000, "words": "Water tank empty"}}})}},
     "vacuum_paused": {"entities": {"vacuum.downstairs": ("paused", {"friendly_name": "Downstairs Vacuum", "battery_level": 64, "supported_features": 16383})}},
     "vacuum_returning": {"entities": {"vacuum.downstairs": ("returning", {"friendly_name": "Downstairs Vacuum", "battery_level": 31, "supported_features": 16383})}},
     "vacuum_error": {"entities": {"vacuum.downstairs": ("error", {"friendly_name": "Downstairs Vacuum", "battery_level": 12, "supported_features": 16383})}},

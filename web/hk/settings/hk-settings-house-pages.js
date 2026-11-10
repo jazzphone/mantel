@@ -580,6 +580,17 @@
             [K.toggle({ label: 'Follow the Sun', on: cur.sky_follow !== false, sk: 'headers.lights', fk: 'hd:sky_follow', onChange: function (on) { save('sky_follow', on); } })]
               .concat(al.length && cur.sky_follow !== false ? listRow('sky_source', 'Adaptive Lighting', null, ents(['switch'], function (id) { return al.indexOf(id) >= 0; }), 'Adaptive Lighting', 'Automatic') : [])));
         }
+        // THE WATER TANK (2026-11-09, the owner): the server catches the one-second "water tank empty" and keeps it on the card; its own group,
+        // before the header's early return -- it has nothing to do with the header
+        if (page === 'vacuums') {
+          var wt = cur.water_tank !== false;
+          c.appendChild(K.group({ header: 'Water Tank', footer: 'A mop vacuum says its water tank is empty for under a second, then carries on. ' +
+              'The house catches it and keeps it on the vacuum’s card, with a Clear key, until someone clears it or Clear After has passed. ' +
+              'It needs the house’s own server; with Home Assistant alone, only a tank that stays empty shows.' },
+            [K.toggle({ label: 'Water Tank Reminder', on: wt, sk: 'headers.vacuums', fk: 'hd:water_tank', onChange: function (on) { save('water_tank', on); } })]
+              .concat(wt ? [K.select({ label: 'Clear After', options: [[12, '12 hours'], [24, '24 hours'], [48, '48 hours'], [0, 'Until Cleared']],
+                value: cur.water_clear == null ? 24 : cur.water_clear, sk: 'headers.vacuums', fk: 'hd:water_clear', onChange: function (v) { save('water_clear', Number(v)); } })] : [])));
+        }
         if (cur.show === false) return;
         if (page === 'climate') {
           c.appendChild(K.group({ footer: 'Automatic counts every thermostat on the page that reports when it heats and cools (up to three).' },

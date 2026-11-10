@@ -176,7 +176,7 @@ def test_utility_header_settings() -> None:
     m = S.merged({})["headers"]
     assert m["water"] == {"show": True, "meter": None, "supply": None}
     assert m["timers"]["presets"] == [5, 10, 15, 20, 30, 60] and len(m["timers"]["names"]) == 6
-    assert m["vacuums"] == {"show": True, "counters": None}
+    assert m["vacuums"] == {"show": True, "counters": None, "water_tank": True, "water_clear": 24}
     # the defaults are never shared with what is merged
     m["timers"]["presets"].append(90)
     assert S.HEADERS["timers"]["presets"] == [5, 10, 15, 20, 30, 60]
@@ -188,12 +188,15 @@ def test_utility_header_settings() -> None:
     assert got["water"]["supply"] == "valve.main" and got["water"]["show"] is True
     assert got["timers"] == {"show": True, "presets": [3, 45], "names": ["Eggs", "Nap"]}
     assert got["vacuums"]["counters"] == ["sensor.r_successful_missions"]
+    o, e = A.apply_house({}, {"headers.vacuums": {"water_tank": False, "water_clear": 0}})     # Water Tank Reminder, Until Cleared
+    assert not e and S.merged(o)["headers"]["vacuums"]["water_clear"] == 0 and S.merged(o)["headers"]["vacuums"]["water_tank"] is False
     _o, e = A.apply_house({}, {"headers.water": {"supply": "switch.main_water"}})
     assert not e, "a supply may be a switch"
     for page, bad in (("water", {"meter": "light.a"}), ("water", {"supply": ["valve.main"]}),
                       ("timers", {"presets": []}), ("timers", {"presets": [5, 5]}), ("timers", {"presets": [0]}),
                       ("timers", {"presets": [1, 2, 3, 4, 5, 6, 7]}), ("timers", {"names": ["x" * 17]}),
-                      ("timers", {"names": [""]}), ("vacuums", {"counters": ["vacuum.r"]}), ("vacuums", {"nope": 1})):
+                      ("timers", {"names": [""]}), ("vacuums", {"counters": ["vacuum.r"]}), ("vacuums", {"nope": 1}),
+                      ("vacuums", {"water_clear": 36}), ("vacuums", {"water_clear": True}), ("vacuums", {"water_tank": "yes"})):
         _o, e = A.apply_house({}, {"headers." + page: bad})
         assert "headers." + page in e, (page, bad)
 

@@ -270,7 +270,7 @@
         '.vac .vk{display:flex;gap:10px}.vac .cmd{all:unset;box-sizing:border-box;height:56px;min-width:56px;border-radius:28px;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;',
         '  background:' + window.hkCards.v('key') + ';color:' + window.hkCards.v('ink') + ';font-family:inherit;font-size:17px;font-weight:600;transition:transform .12s ease}',
         '.vac .cmd.go{flex:1 1 auto;min-width:0;padding:0 14px;background:' + SELECTED_BG + ';color:' + SELECTED_TEXT + '}.vac .cmd:active{transform:scale(0.97)}',
-        '.vac .cmd:focus-visible{outline:2px solid ' + window.hkCards.v('ink-2') + ';outline-offset:2px}.vac .cmd hk-icon{width:22px;height:22px;--mdc-icon-size:22px;flex:none}',
+        '.vac .cmd.clr{flex:none;padding:0 20px;font-size:17px}.vac .cmd[hidden]{display:none}.vac .cmd:focus-visible{outline:2px solid ' + window.hkCards.v('ink-2') + ';outline-offset:2px}.vac .cmd hk-icon{width:22px;height:22px;--mdc-icon-size:22px;flex:none}',
         '@media (prefers-reduced-motion:reduce){  .vac .cmd,.vac .cmd:active{transition:none;transform:none}}',
         // ON A HOME GRID (the `vacuum` block; redrawn as a widget, 2026-10-31,
         // the owner: "big Clean / Dock keys", the mock-up's Vacuum): built
@@ -377,7 +377,7 @@
       var h = this.client, c = this._config;
       if (!h || !c) return null;
       var art = window.hkVacuumArt ? window.hkVacuumArt.ids(h, c.entity, c) : {};   // (the drawing's error and charge state)
-      var ids = [c.entity, this._sib('battery'), c.error, c.dock_error, c.room, this._sib('progress'), art.error, art.charge]
+      var ids = [c.entity, this._sib('battery'), c.error, c.dock_error, c.room, this._sib('progress'), art.error, art.charge, art.latch]
                   .filter(Boolean);
       var out = '';
       for (var i = 0; i < ids.length; i++) {
@@ -472,13 +472,14 @@
           '<span class="vst"></span><span class="meta" data-hk-role="meta"></span></div></div><div class="vk">' + cmds.map(function (c) {
             return '<button type="button" class="cmd' + (c[0] === 'go' ? ' go' : '') + '" data-hk-role="' + c[0] + '" data-svc="' + c[2] + '" aria-label="' + c[3] + '">' +
               '<hk-icon icon="' + c[1] + '"></hk-icon>' + (c[0] === 'go' ? '<span></span>' : '') + '</button>';
-          }).join('') + '</div></hk-plate>';
+          }).join('').replace('</button>', '</button><button type="button" class="cmd clr" data-clear hidden>Clear</button>') + '</div></hk-plate>';
         var q = this._root.querySelector.bind(this._root);
-        this._e = { card: q('.vac'), art: q('.art'), label: q('.label'), vst: q('.vst'), meta: q('.meta'), go: q('.cmd.go') };
+        this._e = { card: q('.vac'), art: q('.art'), label: q('.label'), vst: q('.vst'), meta: q('.meta'), go: q('.cmd.go'), clr: q('.cmd.clr') };
         this._root.querySelectorAll('.cmd').forEach(function (b) {
           b.addEventListener('click', function (ev) {
             ev.stopPropagation();                      // (the card's tap opens the vacuum; a key only does its own)
-            if (self.client) self._call('vacuum', b.getAttribute('data-svc'), { entity_id: self._config.entity });
+            if (b.hasAttribute('data-clear')) self._clearWater();
+            else if (self.client) self._call('vacuum', b.getAttribute('data-svc'), { entity_id: self._config.entity });
           });
         });
         this._bind(this._e.card, 'tap_action', null);
@@ -489,6 +490,8 @@
       if (e.label.textContent !== nm) e.label.textContent = nm;
       var lk = window.hkVacuumArt ? window.hkVacuumArt.look(this.client, cfg.entity, cfg) : { state: 'idle', words: C.sentenceCase(state.replace(/_/g, ' ')) };
       if (e.art.__s !== lk.state + lk.words) { e.art.__s = lk.state + lk.words; e.art.innerHTML = window.hkVacuumArt ? window.hkVacuumArt.html(lk.state, nm + ', ' + lk.words) : ''; }
+      // (Mantel is holding a water tank report: Clear beside Clean, in the row of keys -- it is the same 56 px capsule as the others)
+      e.clr.hidden = !lk.latched; e.clr.setAttribute('aria-label', 'Clear the water tank report for ' + nm);
       e.vst.textContent = lk.words; e.vst.className = 'vst' + (/^(water|error)$/.test(lk.state) ? ' err' : /^(docked|idle)$/.test(lk.state) ? ' idle' : '');
       // (the line: where it is and how far, the battery -- the state is said above it, an error in its color there)
       var chips = this._chips(st).slice(1).filter(function (c) { return c.c !== 'err'; });
@@ -507,6 +510,11 @@
       var st = this._st(cfg.entity), state = (st && st.state) || 'unknown', a = (st && st.attributes) || {};
       var nm = cfg.name || a.friendly_name || cfg.entity;
       var chips = this._chips(st), bat = chips.filter(function (c) { return c.k === 'battery'; })[0];
+      // THE WATER TANK HELD (hk-vacuum-art.js latch): Small and Large say so in their line; the larger blocks draw it and offer Clear
+      var lk = window.hkVacuumArt ? window.hkVacuumArt.look(this.client, cfg.entity, cfg) : { state: 'idle', words: C.sentenceCase(state.replace(/_/g, ' ')) };
+      var wline = lk.latched && lk.state === 'water' && !chips.some(function (c) { return c.c === 'err'; }) ? lk.words : '';
+      if (sz === 'L' && wline) chips.push({ t: wline, c: 'err' });
+      var clr = lk.latched && /^(XL|T|W)$/.test(sz) ? window.hkVacuumArt.clearPill(nm) : '';
       var words = function (list) {
         return list.map(function (c) { return c.c ? '<span class="' + c.c + '">' + esc(c.t) + '</span>' : esc(c.t); }).join(' \u00B7 ');
       };
@@ -550,19 +558,19 @@
                 (on ? '<hk-icon icon="mdi:check"></hk-icon>' : '') + '<span>' + esc(r.name) + '</span></button>';
             }).join('') + '</div>');
       }
-      // (Tall and Wide: the rooms picked in a sheet, named where they are picked -- one or two by name, more by count -- only while it can start a clean)
-      var pickable = (sz === 'T' || sz === 'W') && roomsOn && list && list.length && !/^(cleaning|returning|paused)$/.test(state), said = chosen.length > 2 ? chosen.length + ' rooms' : chosen.join(', ');
+      // (Tall and Wide: the rooms picked in a sheet, named where they are picked -- one or two by name, more by count -- only while it can start a clean, and not beside a Clear pill: three targets at most)
+      var pickable = (sz === 'T' || sz === 'W') && roomsOn && list && list.length && !/^(cleaning|returning|paused)$/.test(state) && !clr, said = chosen.length > 2 ? chosen.length + ' rooms' : chosen.join(', ');
       var rkey = pickable ? (sz === 'T' ? '<button type="button" class="rrow' + (said ? ' on' : '') + '" data-rooms aria-label="' + (said ? 'Rooms to clean: ' + esc(chosen.join(', ')) + '. Change' : 'Rooms to clean: the whole house. Choose') +
           '"><span>' + (said ? esc(said) : 'All rooms') + '</span><hk-icon icon="mdi:chevron-right"></hk-icon></button>'
         : '<button type="button" class="key rm' + (said ? ' on' : '') + '" data-rooms aria-label="Choose rooms to clean' + (said ? ': ' + esc(chosen.join(', ')) : '') + '"><hk-icon icon="mdi:floor-plan"></hk-icon><span>' + (chosen.length ? chosen.length + (chosen.length === 1 ? ' room' : ' rooms') : 'Rooms') + '</span></button>') : '';
       // THE VACUUM DRAWN (Extra Large, Tall, Wide; hk-vacuum-art.js) and what it is doing in words under it, the battery in the line after
-      var lk = window.hkVacuumArt ? window.hkVacuumArt.look(this.client, cfg.entity, cfg) : { state: 'idle', words: C.sentenceCase(state.replace(/_/g, ' ')) };
       var art = window.hkVacuumArt ? '<div class="art">' + window.hkVacuumArt.html(lk.state, nm + ', ' + lk.words) + '</div>' : '';
-      var subw = (bat ? [bat] : []).concat(rest.slice(1)), what = '<b class="state">' + esc(lk.words) + '</b>';
+      var subw = (bat ? [bat] : []).concat(rest.slice(1)), what = '<b class="state">' + esc(lk.words) + '</b>' + clr;
       var html;
       if (sz === 'S') {
         html = '<div class="hd"><b class="nm">' + esc(nm) + '</b></div>' +
-          '<span class="sub">' + (bat ? '<span class="' + bat.c + '">' + esc(bat.t) + '</span> \u00B7 ' : '') + words(rest) + '</span>' +
+          '<span class="sub' + (wline ? ' two' : '') + '">' + (wline ? '<span class="err">' + esc(wline) + '</span><br>' : '') +
+          (bat ? '<span class="' + bat.c + '">' + esc(bat.t) + '</span> \u00B7 ' : '') + words(rest) + '</span>' +
           '<div class="keys">' + key(go, 'go', true) + '</div>';
       } else if (sz === 'W') {
         html = '<div class="col"><div class="hd"><b class="nm">' + esc(nm) + '</b></div>' + art + what +
@@ -600,10 +608,11 @@
         this._blockTaps = true;
         this._root.addEventListener('click', function (e) {
           if (!self._cellSize()) return;            // (the page card's own taps)
-          var t = e.target.closest && e.target.closest('[data-svc],[data-area],[data-rooms]');
+          var t = e.target.closest && e.target.closest('[data-svc],[data-area],[data-rooms],[data-clear]');
           e.stopPropagation();
           // (the plate and the battery ring: the block's tap, _tapTarget -- the ring counts as a control to openTarget, so it is asked here)
           if (!t) { if (!e._hkBlockTap) window.hkCards.openTarget(self, self._tapTarget()); return; }
+          if (t.hasAttribute('data-clear')) { self._clearWater(); return; }
           if (t.hasAttribute('data-area')) { self._toggle(t.getAttribute('data-area')); return; }
           if (t.hasAttribute('data-rooms')) { self._pickRooms(); return; }
           var svc = t.getAttribute('data-svc');
@@ -618,6 +627,10 @@
   HkVacuumCard.prototype._fitRooms = function () {
     var rm = this._root.querySelector('.rooms');
     if (rm && rm.clientHeight > 0) rm.toggleAttribute('data-fit', rm.scrollHeight <= rm.clientHeight + 1);
+  };
+  // CLEAR (2026-11-09): Mantel Server holds a water tank report until someone clears it -- from any screen, for everyone (mantel_server/vacuum_water.py)
+  HkVacuumCard.prototype._clearWater = function () {
+    this._call('script', 'vacuum_water_clear', { vacuum: this._config.entity });
   };
   // THE ROOMS SHEET (Tall and Wide, 2026-11-08): the Vacuums page's own picker (hk-area-select-card, `pick`: this vacuum's rooms, shared with
   // the block) over the page, a Done key in place of Start Cleaning -- the clean is the block's Clean key
