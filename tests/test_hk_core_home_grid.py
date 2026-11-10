@@ -395,10 +395,21 @@ check(G.choose(block, states, false, null, 7*60) === 0, 'the first rule that hol
 check(G.config(block, {}).type === 'custom:hk-grid-conditional-card', 'rules wrap the block');
 var old = G.rulesOf({id:'b2',card:'clock',size:'W',at:[0,0],when:{kind:'music_playing'},fallback:{card:'weather'}});
 check(old.base.card === 'weather' && old.base.size === 'W' && old.rules.length === 1 && old.rules[0].card === 'clock', 'an older when + fallback reads as rules');
-print(JSON.stringify(G.CONDITIONS));
+// ten rules (2026-11-10): rule i holds from i:00 to i:30, and rules 3 and 8 also while music plays
+var ten = {id:'b3',card:'calendar',size:'L',at:[0,0],rules:[]};
+for (var i = 0; i < 10; i++) ten.rules.push({when:{all:[{kind:'time',from:(i < 10 ? '0' : '') + i + ':00',to:'0' + i + ':30'}]},card:'clock'});
+ten.rules[3].when.all = [{kind:'music_playing'}]; ten.rules[8].when.all = [{kind:'music_playing'}];
+check(G.choose(ten, {}, false, null, 12*60) === -1, 'ten rules, none holds: the default');
+check(G.choose(ten, {}, false, null, 9*60+10) === 9, 'the tenth rule, alone holding, shows');
+check(G.choose(ten, {}, false, null, 6*60+10) === 6, 'a rule past the fourth shows');
+check(G.choose(ten, states, false, null, 12*60) === 3, 'two hold (the fourth and ninth): the earlier wins');
+check(G.choose(ten, states, false, null, 1*60+10) === 1, '...and an earlier one still beats both');
+ten.rules.splice(8, 0, ten.rules.splice(3, 1)[0]);
+check(G.choose(ten, states, false, null, 12*60) === 7, 'moved down past the other: the other wins');
+print(JSON.stringify([G.CONDITIONS, G.RULES_MAX, G.CONDITIONS_MAX]));
 ''')
     run = subprocess.run([str(JSC), str(script)], capture_output=True, text=True, check=True)
-    assert json.loads(run.stdout) == list(HG.CONDITIONS)
+    assert json.loads(run.stdout.strip().splitlines()[-1]) == [list(HG.CONDITIONS), HG.RULES_MAX, HG.ALL_MAX], run.stdout
 
 
 EVENING = {"kind": "solar_window", "from": {"sun": "sunset", "offset": -15}, "to": {"at": "22:00"}}
@@ -453,7 +464,7 @@ def test_rules_check_and_refuse():
     assert out["items"][0]["rules"][2]["when"] == {"all": [{"kind": "after_sunset"}]}      # one condition reads as all
     assert M.board_stored({"home_grid": out})["home_grid"] == out
     bad = [
-        rules * 2,                                                                         # more than four
+        rules * 4,                                                                         # more than ten
         [{"when": {"all": [{"kind": "music_playing"}] * 4}, "card": "now_playing"}],       # more than three conditions
         [{"when": {"kind": "music_playing"}, "card": "cameras"}],                         # cameras don't come in L
         [{"when": {"kind": "time", "from": "09:00", "to": "09:00"}, "card": "now_playing"}],
@@ -468,6 +479,59 @@ def test_rules_check_and_refuse():
     with pytest.raises(HG.GridInvalid):                                                   # never both ways
         HG.check(grid(block("cal", "calendar", "L", [0, 0], rules=rules[:1], when={"kind": "music_playing"},
                             fallback={"card": "now_playing"})))
+
+
+# ------------------------------------------------------------ Show When: ten rules (2026-11-10; four before)
+L_CARDS = ("now_playing", "weather", "security", "clock", "timers")
+
+
+def numbered_rules(n):
+    """n rules told apart by their window (rule i holds from i:00 to i:30) and their card, each of the L block's size."""
+    return [{"when": {"all": [{"kind": "time", "from": f"{i:02d}:00", "to": f"{i:02d}:30"}]}, "card": L_CARDS[i % len(L_CARDS)]}
+            for i in range(n)]
+
+
+def test_ten_rules_are_the_most_and_three_conditions_a_rule():
+    assert (HG.RULES_MAX, HG.ALL_MAX) == (10, 3)
+    out = HG.check(grid(block("cal", "calendar", "L", [0, 0], rules=numbered_rules(10))))
+    assert [r["when"]["all"][0]["from"] for r in out["items"][0]["rules"]] == [f"{i:02d}:00" for i in range(10)]
+    with pytest.raises(HG.GridInvalid) as e:
+        HG.check(grid(block("cal", "calendar", "L", [0, 0], rules=numbered_rules(11))))
+    assert e.value.code == "grid_condition"
+    three = [{"kind": "music_playing"}, {"kind": "alarm_armed"}, {"kind": "time", "from": "06:00", "to": "09:00"}]
+    rules = numbered_rules(9) + [{"when": {"all": three}, "card": "now_playing"}]           # the tenth, three conditions
+    assert HG.check(grid(block("cal", "calendar", "L", [0, 0], rules=rules)))["items"][0]["rules"][9]["when"]["all"] == three
+    with pytest.raises(HG.GridInvalid) as e:
+        HG.check(grid(block("cal", "calendar", "L", [0, 0],
+                            rules=numbered_rules(9) + [{"when": {"all": three + [{"kind": "after_sunset"}]}, "card": "now_playing"}])))
+    assert e.value.code == "grid_condition"
+    _, errors = write(grid(block("cal", "calendar", "L", [0, 0], rules=numbered_rules(11))))
+    assert errors, "a screen's save refuses an eleventh rule"
+
+
+def test_ten_rules_save_and_read_back_whole_and_in_order():
+    rules = numbered_rules(10)
+    rules[7] = {**rules[7], "card": "weather", "opts": {"entity": "weather.home"}}
+    b, errors = write(grid(block("cal", "calendar", "L", [0, 0], rules=rules)))
+    assert errors == {}
+    stored = M.board_stored(b)
+    again = M.board(json.loads(json.dumps(stored)))                                       # as the store gives it back
+    got = again["home_grid"]["items"][0]["rules"]
+    assert len(got) == 10 and [r["card"] for r in got] == [r["card"] for r in rules]
+    assert [r["when"] for r in got] == [r["when"] for r in rules] and got[7]["opts"] == {"entity": "weather.home"}
+    assert again["home_grid"] == b["home_grid"] and M.board_stored(again)["home_grid"] == stored["home_grid"]
+
+
+@pytest.mark.parametrize("n", [1, 2, 3, 4])
+def test_a_layout_of_four_rules_or_fewer_reads_as_it_did(n):
+    g = grid(block("cal", "calendar", "L", [0, 0], rules=numbered_rules(n)))
+    assert HG.check(g) == g and M.board({"home_grid": g})["home_grid"] == g
+    assert M.board_stored({"home_grid": g})["home_grid"] == g
+
+
+def test_an_older_when_and_fallback_block_still_reads():
+    g = grid(block("np", "now_playing", "L", [0, 0], when={"kind": "music_playing"}, fallback={"card": "calendar"}))
+    assert HG.check(g) == g and M.board({"home_grid": g})["home_grid"] == g
 
 
 def test_fixed_grid_scale_and_full_width_groups():

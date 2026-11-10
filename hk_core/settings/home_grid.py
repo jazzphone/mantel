@@ -590,8 +590,10 @@ SUN_EVENTS = ("sunrise", "sunset")
 SUN_OFFSET_MAX = 360                    # minutes either side of the event: six hours
 # A BLOCK'S RULES (2026-10-24, the owner: "a default card, and certain cards in the same slot when a condition is
 # met"): the block's own card by default, and up to RULES_MAX rules, each its card when ALL of its conditions (up to
-# ALL_MAX) hold -- the first rule that matches wins. A block's older `when` + `fallback` still reads.
-RULES_MAX = 4
+# ALL_MAX) hold -- the first rule that matches wins. A block's older `when` + `fallback` still reads. Ten rules since
+# 2026-11-10 (four before; a layout of four or fewer reads as it did). hk-grid-catalog.js RULES_MAX / CONDITIONS_MAX are
+# the frontend's copy of these numbers (a test holds them equal).
+RULES_MAX = 10
 ALL_MAX = 3
 
 

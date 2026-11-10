@@ -8,6 +8,9 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 **Added**
 - **Alert, a card for Show When**: one thing that needs a look, in a block's own place while its rule holds, with the block's own card back when the rule clears (first match still wins). It has a headline, a line of its own with how long ("Open for 23 min", from when the accessory came into that state), a camera's still (tapping it opens the camera), and one action that does what the accessory's tile does. A garage door or a lock opens its own controls, which ask first. Small, Wide, Tall (stacked), Large (the picture and the action the block's width) and Extra Large, on square and tile cells. A camera that isn't available drops its picture, and the words and the action stay. In the editor (Change Card… → Alert) and the card list's preview, and the assistant can write one (grid_cards gives an example). docs/phase11/ALERT.md has the garage and laundry rules.
 
+**Changed**
+- **Show When takes up to ten rules** in a Home Grid block, not four. Each rule still has up to three conditions that must all hold, rules are checked in order with the first that holds winning, and the block shows its own card when none does; layouts saved with four or fewer rules, and older blocks saved with Otherwise Show, work as they did. In the editor each rule's header says where it stands (Rule 3 of 10), **Move Rule Down** sits beside Move Rule Up, past four rules **Preview** is a menu naming each rule's card, and Add Rule says when the block is full.
+
 ## 1.58.0 - 2026-11-10
 
 **Added**

@@ -124,7 +124,7 @@
         var cat = G.table()[it.card];
         if ((it.view || 0) >= (grid.views || 1)) return false;
         return cat && cat.sizes.indexOf(it.size) >= 0 && offersSize(it.card, it.size, it.opts) && (!it.when || it.fallback && G.table()[it.fallback.card] && G.table()[it.fallback.card].sizes.includes(it.size)) &&
-          (it.rules || []).every(function (r) { return G.table()[r.card] && G.table()[r.card].sizes.includes(it.size); }) && fits(grid, it) &&
+          G.rulesFit(it) && fits(grid, it) &&
           !grid.items.slice(i + 1).some(function (other) { return it.id === other.id || overlap(it, other); });
       });
   }
@@ -1677,18 +1677,18 @@
       });
       add(K.group({}, [K.button({ label: 'Add Page', disabled: n >= G.PAGES_MAX, onClick: () => { var p = copy(item.pages); p.list.push({ opts: {} }); this.update(item.id, { pages: p }); } })]));
     }
-    // SHOW WHEN (2026-10-24, the owner): the block's own card by default, and
-    // up to four rules -- each its card while all of its conditions (up to
-    // three) hold, the first that holds winning. Every card fills this space.
+    // SHOW WHEN (2026-10-24, the owner): the block's own card by default, and up to G.RULES_MAX rules (ten since
+    // 2026-11-10) -- each its card while all its conditions hold, the first that holds winning. Every card fills this
+    // space. Past four rules Preview is a menu (twelve segments don't fit), each rule named with its card.
     conditions(item) {
-      var K = this.K, add = (n) => this.sidebar.appendChild(n), rules = item.rules || [];
+      var K = this.K, add = (n) => this.sidebar.appendChild(n), rules = item.rules || [], n = rules.length, head = [], full = n >= G.RULES_MAX;
       var put = (next) => { this.conditionPreview = null; this.update(item.id, { rules: next.length ? next : null }); };
-      var head = [];
-      if (rules.length) head.push(K.seg({ label: 'Preview', value: this.conditionPreview == null ? 'live' : String(this.conditionPreview),
-        options: [['live', 'Live'], ['-1', 'Default']].concat(rules.map((r, i) => [String(i), 'Rule ' + (i + 1)])),
-        onChange: (v) => { this.conditionPreview = v === 'live' ? null : Number(v); if (v !== 'live') this.editing = Number(v); this.preview(); this.side(); } }));
-      add(K.group({ header: 'Show When', footer: rules.length
-        ? 'Shows ' + NAMES[item.card] + ' unless a rule holds; the first rule that holds wins. Each card fills exactly this space, so nothing moves.'
+      var swap = (i, j) => { var next = copy(rules); next.splice(j, 0, next.splice(i, 1)[0]); if (this.editing === i) this.editing = j; else if (this.editing === j) this.editing = i; put(next); };
+      var showing = (v) => { this.conditionPreview = v === 'live' ? null : Number(v); if (v !== 'live') this.editing = Number(v); this.preview(); this.side(); }, shown = this.conditionPreview == null ? 'live' : String(this.conditionPreview);
+      if (n) head.push(K[n <= 4 ? 'seg' : 'select']({ label: 'Preview', value: shown, onChange: showing, options: [['live', 'Live'], ['-1', n <= 4 ? 'Default' : 'Default: ' + NAMES[item.card]]]
+        .concat(rules.map((r, i) => n <= 4 ? [String(i), 'Rule ' + (i + 1)] : [String(i), 'Rule ' + (i + 1) + ': ' + NAMES[r.card], 'Rule ' + (i + 1)])) }));
+      add(K.group({ header: 'Show When', footer: n
+        ? 'Shows ' + NAMES[item.card] + ' unless a rule holds. Rules are checked in order, Rule 1 first, and the first that holds wins. Each card fills exactly this space, so nothing moves.'
         : 'Add a rule to show another card here while something is true: music playing, a time of day, the alarm still armed.' }, head));
       rules.forEach((r, i) => {
         var conds = (r.when && r.when.all) || [], rows = [];
@@ -1699,18 +1699,18 @@
           if (!next[i].when.all.length) next.splice(i, 1);
           put(next);
         }));
-        if (conds.length < 3) rows.push(K.select({ label: conds.length ? 'And Also' : 'When', value: '',
+        if (conds.length < G.CONDITIONS_MAX) rows.push(K.select({ label: conds.length ? 'And Also' : 'When', value: '',
           options: [['', 'Add a Condition…']].concat(G.CONDITIONS.map((k) => [k, CONDITION_NAMES[k]])),
           onChange: (k) => { if (k) putRule((x) => x.when.all.push(this.newCondition(k))); } }));
         rows.push(K.button({ label: 'Then Show: ' + NAMES[r.card] + '…', onClick: () => this.pickFor('rule:' + i) }));
         rows.push(K.button({ label: 'Edit ' + NAMES[r.card] + ' Settings', disabled: this.editing === i, onClick: () => this.editCard(i) }));
         // (the card being set stays the same card when its rule moves or another goes)
-        rows.push(K.button({ label: 'Move Rule Up', disabled: i === 0, onClick: () => { var next = copy(rules); next.splice(i - 1, 0, next.splice(i, 1)[0]); if (this.editing === i) this.editing = i - 1; else if (this.editing === i - 1) this.editing = i; put(next); } }));
+        rows.push(K.button({ label: 'Move Rule Up', disabled: i === 0, onClick: () => swap(i, i - 1) }), ...(n > 1 ? [K.button({ label: 'Move Rule Down', disabled: i === n - 1, onClick: () => swap(i, i + 1) })] : []));
         rows.push(K.button({ label: 'Remove Rule', destructive: true, onClick: () => { var next = copy(rules); next.splice(i, 1); if (this.editing === i) this.editing = -1; else if (this.editing > i) this.editing--; put(next); } }));
-        add(K.group({ header: 'Rule ' + (i + 1) + ' · ' + NAMES[r.card] }, rows));
+        add(K.group({ header: 'Rule ' + (i + 1) + (n > 1 ? ' of ' + n : '') + ' · ' + NAMES[r.card] }, rows));
       });
-      if (rules.length < 4) add(K.group({}, [K.button({ label: 'Add Rule', onClick: () => {
-        var other = Object.keys(G.table()).find((k) => k !== item.card && G.table()[k].sizes.includes(item.size)) || item.card;
+      add(K.group({ footer: full ? 'A block holds up to ' + G.RULES_MAX + ' rules. Remove one to add another.' : '' }, [K.button({ label: 'Add Rule', disabled: full, onClick: () => {
+        if (full) return; var other = Object.keys(G.table()).find((k) => k !== item.card && G.table()[k].sizes.includes(item.size)) || item.card;
         put(rules.concat([Object.assign({ when: { all: [this.newCondition('music_playing')] } }, this.variantFor(other))]));
       } })]));
     }

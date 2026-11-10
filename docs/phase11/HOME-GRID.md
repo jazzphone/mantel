@@ -1323,7 +1323,7 @@ The owner asked for three things after 0.1.70.
   The alarm is the block's, else the home's (`security.alarm`), else the first. The PIN is still checked by the alarm.
   Large Vacuum is `hk-grid-vacuum-card`: the vacuum card filling the block, or, with HK Clean Areas added, the vacuum
   card over the Clean Areas panel, whose rooms scroll inside its own plate.
-- **Rules.** `rules: [{when: {all: [...]}, card, opts?, pages?}]` (up to 4 rules, up to 3 conditions each) replaces
+- **Rules.** `rules: [{when: {all: [...]}, card, opts?, pages?}]` (up to 10 rules since 2026-11-10, 4 before; up to 3 conditions each) replaces
   `when` + `fallback`; the two are never saved together. The block's own card is the default and the first rule that
   holds wins. New conditions: `time` (from/to on the clock, may cross midnight) and `alarm_disarmed`. A legacy block
   reads as one rule (`rulesOf`). The editor's Show When lists the rules, with Preview: Live, Default or Rule N.

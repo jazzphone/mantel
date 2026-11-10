@@ -571,6 +571,44 @@ async def test_a_solar_window_rule_through_the_mcp(mantel):
     assert err and "grid_condition" in json.dumps(got)
 
 
+async def test_ten_show_when_rules_through_the_mcp(mantel):
+    """Show When takes ten rules (2026-11-10; four before): grid_cards says so, grid_set and grid_place plan and save all
+    ten in their order, an eleventh or a fourth condition is refused with grid_condition, and an export imports whole."""
+    token, _ = await setup(mantel)
+    rpc = Rpc(mantel, token)
+    cards, err = await rpc.tool("grid_cards")
+    assert not err and cards["rules"]["rules_max"] == 10 and cards["rules"]["conditions_per_rule_max"] == 3
+    rules = [{"when": {"all": [{"kind": "time", "from": f"{i:02d}:00", "to": f"{i:02d}:30"}]},
+              "card": "accessory", "opts": {"entity": "light.den_lamp"}} for i in range(10)]
+    rules[9]["when"]["all"] += [{"kind": "music_playing"}, {"kind": "alarm_armed"}]           # three conditions
+    clock = {"id": "clock", "card": "clock", "size": "S", "at": [2, 0], "rules": rules}
+
+    async def apply(name, **a):
+        plan, err = await rpc.tool(name, **a)
+        assert not err, plan
+        done, err = await rpc.tool(name, **a, dry_run=False, plan=plan["plan"])
+        assert not err, done
+
+    def saved(key="dashboard-kitchen"):
+        return mantel.app["settings"].store.body("board", key)["home_grid"]["items"]
+    await apply("grid_set", screen="dashboard-kitchen", home_grid={**GRID, "items": [GRID["items"][0], clock]})
+    assert [r["when"] for r in saved()[1]["rules"]] == [r["when"] for r in rules]
+    for bad in (rules + rules[:1],
+                rules[:9] + [{**rules[9], "when": {"all": rules[9]["when"]["all"] + [{"kind": "after_sunset"}]}}]):
+        got, err = await rpc.tool("grid_set", screen="dashboard-kitchen",
+                                  home_grid={**GRID, "items": [GRID["items"][0], {**clock, "rules": bad}]})
+        assert err and "grid_condition" in json.dumps(got)
+        got, err = await rpc.tool("grid_place", screen="dashboard-kitchen", block={**clock, "rules": bad})
+        assert err and "grid_condition" in json.dumps(got)
+    moved = rules[1:] + rules[:1]
+    await apply("grid_place", screen="dashboard-kitchen", block={**clock, "rules": moved})
+    assert [r["when"] for r in saved()[1]["rules"]] == [r["when"] for r in moved]
+    exp, err = await rpc.tool("screen_export", screen="dashboard-kitchen")
+    assert not err and len(exp["board"]["home_grid"]["items"][1]["rules"]) == 10
+    await apply("screen_import", export=exp, title="Ten Rules")
+    assert [r["when"] for r in saved("ten-rules")[1]["rules"]] == [r["when"] for r in moved]
+
+
 async def test_alerts_as_show_when_rules_through_the_mcp(mantel):
     """The Alert card (docs/phase11/ALERT.md): grid_cards describes it with an example, grid_set plans and saves a block's two
     alerts in their order behind its own card, and an option an alert doesn't take is refused with grid_option."""
