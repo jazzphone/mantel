@@ -63,6 +63,7 @@ ROUTE_RULES: dict[str, str] = {
     "mantel/live_tv/guide": "signed in",
     "mantel/energy/plan": "feature:energy",
     "mantel/clean_areas/coverage": "signed in",
+    "hk_clean_areas/coverage": "signed in; mantel/clean_areas/coverage by HK's own name (a vacuum sheet's rooms)",
     "hk_clean_areas/subscribe": "signed in; {configured, areas} from hk_core clean_areas over MantelHouse; an area "
                                 "is offered only through a vacuum the subject may view; carries nothing",
     "hk_frontend/todo/items": "signed in; hk_core todo over MantelHouse: todo.get_items through the gateway as the "

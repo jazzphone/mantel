@@ -110,7 +110,8 @@
         if (!o) return null;
         var A = (this.client && this.client.areas) || {}, FL = (this.client && this.client.floors) || {};
         // without HK Clean Areas a house's own script still cleans: every area
-        var ids = (o.missing || o.configured === false) && this._script() ? Object.keys(A) : (o.areas || []);
+        var ids = (o.missing || o.configured === false) && this._script() ? Object.keys(A) : (o.areas || []), only = this._config.only;
+        if (Array.isArray(only)) ids = ids.filter(function (id) { return only.indexOf(id) >= 0; });   // (`only`: one vacuum's rooms, its sheet's -- hk-sheet-vacuum.js)
         var by = {};
         ids.forEach(function (id) {
           var a = A[id];
@@ -857,10 +858,11 @@
           : 'No room can be cleaned by area yet. Map each vacuum’s rooms in its settings in Home Assistant.';
         plate.appendChild(e);
       }
+      var rows = this._config.list ? plate.appendChild(Object.assign(document.createElement('div'), { className: 'rl' })) : plate;   // (`list`: the rows scroll on their own, hk-sheet-vacuum.js)
       (floors || []).forEach(function (f) {
         var hd = document.createElement('div');
         hd.className = 'floor'; hd.textContent = f.name;
-        plate.appendChild(hd);
+        rows.appendChild(hd);
         var g = document.createElement('div'); g.className = 'grid';
         g.setAttribute('role', 'group'); g.setAttribute('aria-label', f.name);
         (f.areas || []).forEach(function (a) {
@@ -873,7 +875,7 @@
           b.appendChild(sp);
           g.appendChild(b);
         });
-        plate.appendChild(g);
+        rows.appendChild(g);
       });
       this._root.appendChild(plate);
       var back = had ? this._root.querySelector('[data-area="' + had.replace(/"/g, '') + '"]') : hadGo && n ? go : null;

@@ -651,7 +651,7 @@
     var WIDTH = {
       light: STD, light_colour: STD, toggle: STD, fan: STD, cover: STD,
       cover_buttons: STD, lock: STD, climate: WIDE, media: STD, media_tv: STD,
-      sensor: WIDE, state: STD, binary: STD, vacuum: STD, control: STD,
+      sensor: WIDE, state: STD, binary: STD, vacuum: STD, vacuum_rooms: WIDE, control: STD,
       // the water heater is the thermostat's sheet: its ring, its size, its
       // two columns -- the two are the same, and the same size
       number: STD, select: STD, humidifier: STD, water_heater: WIDE, alarm: STD,

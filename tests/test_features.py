@@ -644,6 +644,9 @@ async def test_the_clean_areas_coverage_lists_only_the_vacuums_a_person_may_view
     await ws.send_json({"type": "read", "id": 1, "msg": {"type": "mantel/clean_areas/coverage"}})
     got = (await GF.recv(ws))["result"]
     assert got["offered"] == ["kitchen"] and [v["vacuum"] for v in got["coverage"]] == [VACUUM]
+    # ...and by HK's own name, the same answer (a vacuum sheet's rooms, 2026-11-10)
+    await ws.send_json({"type": "read", "id": 2, "msg": {"type": "hk_clean_areas/coverage"}})
+    assert (await GF.recv(ws))["result"] == got
     await ws.close()
 
 

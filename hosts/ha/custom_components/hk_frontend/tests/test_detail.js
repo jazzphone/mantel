@@ -199,7 +199,7 @@ ok('a number maps its slider across min..max in its own steps', /r\.lo \+ Math\.
    /'set_value', \{ value:/.test(src));
 
 ok('Clean Areas: this robot\'s mapped rooms (a dry-run plan, nothing sent), sent to THIS robot only',
-   /'hk_frontend', 'clean_areas', \{ areas: Object\.keys\(h\.areas \|\| \{\}\), dry_run: true \}/.test(src) &&
+   /'hk_frontend', 'clean_areas', \{ areas: Object\.keys\(\(h && h\.areas\) \|\| \{\}\), dry_run: true \}/.test(src) &&
    /added\('clean_areas'\)/.test(src) &&
    /p\.vacuum === id && p\.action === 'clean_area'/.test(src) && /self\._svc\('vacuum', 'clean_area', \{ cleaning_area_id: areas \}\)/.test(src));
 // a failed send keeping the rooms picked is exercised in test_detail_behaviour.js
@@ -257,7 +257,8 @@ ok('the thermostat: two columns in a wide sheet, the trend fluid so both columns
 ok('no panel relies on a CSS container query (Safari would keep the thermostat stacked)',
    // (a block's custom sheet gives each HomeView tile a cell of its own, hk-cell, as the Home Grid's .cell does: the
    // tile's own Centred rules query it from inside the tile; no panel's layout is ever a container query)
-   !/'@container/.test(src) && !/container-type:/.test(src.replace("'.cc{position:relative;aspect-ratio:1;min-width:0;container-type:size;container-name:hk-cell;--hk-cell-shape:square}'", '')) && (src.match(/_wideAt\(\) \{ return 700; \}/g) || []).length === 2 &&
+   !/'@container/.test(src) && !/container-type:/.test(src.replace("'.cc{position:relative;aspect-ratio:1;min-width:0;container-type:size;container-name:hk-cell;--hk-cell-shape:square}'", '')) && (src.match(/_wideAt\(\) \{ return 700; \}/g) || []).length === 3 &&   // (the thermostat, a person or event, and the vacuum with rooms, 2026-11-10)
+  
    /_wideAt\(\) \{ return window\.matchMedia && matchMedia\(SHORT_MQ\)\.matches \? Infinity : 700; \}/.test(src) &&
    /new ResizeObserver/.test(src));
 ok('the water heater dial sweeps 270 degrees from the lower left', /A0: 135, SWEEP: 270/.test(src) && /^M/.test(_.arcPath(0.5)));

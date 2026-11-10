@@ -6,6 +6,8 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 ## Unreleased
 
 **Changed**
+- **A vacuum's sheet lists only the rooms that vacuum can clean** (its room map in Home Assistant, through Mantel's Clean Areas), two to a row in the wide sheet.
+- **The vacuum's sheet lists its rooms one to a row, scrolling**, sized to the sheet: on a tablet the sheet is wide -- the vacuum, what it is doing and its commands on the left, the rooms down the right with Start Cleaning over them; on a phone Rooms to Clean opens the same list, filling the sheet.
 - **The Large Vacuum block draws the vacuum**, as Tall and Extra Large do: the animated drawing, what it is doing and its battery on the left, the rooms a list down the right that scrolls, Clean and Dock under it.
 - **The vacuum's sheet draws the animated vacuum** in place of its glyph in a circle, and **offers its rooms again** under Mantel (Rooms to Clean, the Vacuums page's picker): it looked only for Home Assistant's own clean_area.
 - **The timer wheels take a finger anywhere in their column**: a swipe that starts on "hr", "min" or "sec", or between two wheels, spins the wheel.

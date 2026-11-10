@@ -1141,6 +1141,9 @@ def register(app: web.Application, hub: Any, hooks: Any = None) -> FeatureHost:
         "mantel/live_tv/guide": Route(request=tv_guide),
         "mantel/energy/plan": Route(request=energy),
         "mantel/clean_areas/coverage": Route(request=coverage),
+        # (the same read by a name HK's own cards may ask for -- a vacuum's sheet, its rooms -- with no host's name in it;
+        # Home Assistant answers neither, and the sheet keeps every room there. 2026-11-10)
+        "hk_clean_areas/coverage": Route(request=coverage),
         "hk_clean_areas/subscribe": Route(subscribe=clean_areas_subscribe),
     })
     # the settings feed's `added` / `energy` and panel/get's `features` (settings_store.SettingsService)

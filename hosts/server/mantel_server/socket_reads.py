@@ -47,6 +47,7 @@ READS_BY_TYPE: dict[str, Read] = {
     "history/history_during_period": Read("view", True), "logbook/get_events": Read("view", True),
     "recorder/statistics_during_period": Read("view", True),
     "hk_clean_areas/subscribe": Read("view", True), "mantel/clean_areas/coverage": Read("view", True),
+    "hk_clean_areas/coverage": Read("view", True),
     "hk_frontend/events/subscribe": Read("view", True), "hk_frontend/page_headers/subscribe": Read("view", True),
     "hk_frontend/settings/subscribe": Read("view", True, "the settings feed, cut per person (SRV-4)"),
     "hk_frontend/snooze/subscribe": Read("view", True), "hk_frontend/todo/items": Read("view", True),

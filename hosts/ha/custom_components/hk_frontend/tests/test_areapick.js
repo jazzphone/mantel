@@ -107,6 +107,20 @@ rf._sigOf(); drainMicrotasks(); rf._sigOf(); rf._sigOf(); drainMicrotasks();
 var once = tries;
 __runTimers(); drainMicrotasks();
 console.warn = warn;
+// ------------------------------------------------------------ one vacuum's rooms (`only`, its sheet's, 2026-11-10)
+(function () {
+  function offered(cfg) {
+    var v = card(cfg), give = null;
+    Object.defineProperty(v, 'isConnected', { value: true });
+    hkGive(v, hassWith(function (fn) { give = fn; return Promise.resolve(function () {}); }));
+    v._sigOf(); drainMicrotasks();
+    give({ configured: true, areas: ['loft', 'kitchen', 'den', 'attic'] });
+    return v._floors().map(function (fl) { return fl.areas.map(function (a) { return a.name; }).join('+'); }).join(',');
+  }
+  ok('`only`: a vacuum\'s sheet lists only the rooms that vacuum reaches', offered({ only: ['kitchen', 'den'] }) === 'Den+Kitchen', offered({ only: ['kitchen', 'den'] }));
+  ok('...without it, every room the house offers', offered({}) === 'Den+Kitchen,Attic+Loft', offered({}));
+})();
+
 var done = Promise.resolve().then(function () {}).then(function () {}).then(function () {
   ok('Clean Areas not added: the card knows', m._offer && m._offer.configured === false);
   ok('...and an empty list, which says to add it', m._floors().length === 0);

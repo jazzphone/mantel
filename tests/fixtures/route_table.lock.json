@@ -5500,6 +5500,17 @@
   "stream": "none",
   "why": "never for a page (readproxy.SERVER_ONLY_READS): an import's or Mantel's own read"
  },
+ "READ hk_clean_areas/coverage": {
+  "csrf": "-",
+  "handler": "/ws read",
+  "kind": "socket_read",
+  "mcp": [],
+  "module": "mantel_server.socket_reads",
+  "preview": true,
+  "reads": "view",
+  "stream": "none",
+  "why": "a page's read over its signed-in socket (/ws)"
+ },
  "READ hk_clean_areas/settings/get": {
   "csrf": "-",
   "handler": "/ws read",
