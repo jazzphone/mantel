@@ -5,6 +5,7 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 ## Unreleased
 
 **Changed**
+- **A Small Room block shows its room's own glyph** (Kitchen's fork and knife, the Loft's bookshelf -- the area's icon in Home Assistant) where its room page names none, not always the sofa. Hallway's and Attic's icons are now among the ones Mantel serves.
 - **A Large Now Playing block's cover sits as far from the block's top as from its side**, the controls at its foot; a long song title stays on one line and drifts slowly when it does not fit, instead of wrapping and pushing the cover against the top.
 - **The speaker line says "Master Bedroom + 10"** when three or more rooms play together (two still read as two names), and is a little bigger on the media blocks, an easier target.
 

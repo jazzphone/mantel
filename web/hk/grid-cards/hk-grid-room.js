@@ -391,13 +391,15 @@
         var M = C.menu;
         try { return M && M.roomPath ? M.roomPath(area) : null; } catch (e) { return null; }
       }
-      // ITS GLYPH (the Small tile's): the room page's own icon, as the dashboard's menu has it, else the sofa
+      // ITS GLYPH (the Small tile's): the room page's own icon, as the dashboard's menu has it, else the area's, else the sofa
       _roomGlyph(area) {
         var M = C.menu, cfg = null, icon = null;
         try { cfg = M && M.config ? M.config() : null; } catch (e) { cfg = null; }
         ((cfg && cfg.views) || []).forEach(function (view) {
           if (!icon && view && view.icon && (view.area === area || (view.strategy && view.strategy.area === area))) icon = view.icon;
         });
+        // ...else the area's own icon in Home Assistant, as the side menu has it (2026-11-10, the owner: "it says Kitchen and shows a Sofa")
+        if (!icon) { var A = (this.client && this.client.areas) || {}; icon = (A[area] && A[area].icon) || null; }
         var H = window.hkMenu && window.hkMenu._;
         return (H && H.glyph ? H.glyph(icon || 'mdi:sofa') : icon) || 'mdi:sofa';
       }
