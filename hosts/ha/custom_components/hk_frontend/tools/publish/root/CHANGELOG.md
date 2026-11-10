@@ -5,6 +5,8 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+## 1.56.0 - 2026-11-09
+
 **Changed**
 - **A vacuum's water tank that ran dry stays on its card until cleared.** A mop vacuum reports it for under a second and carries on, so no screen could show it; the always-on server now catches it, keeps it across restarts and shares it with every screen. The vacuum is drawn with the red water badge and "Water tank empty", and a Clear key (the Vacuums page's card; a pill on the Extra Large, Tall and Wide blocks) clears it for everyone; it clears itself after 24 hours. Small and Large say it in their line. Vacuums → Water Tank Reminder (on) and Clear After (12, 24, 48 hours, Until Cleared); works with any vacuum that reports it as an operational error sensor or in its attributes.
 - **The vacuum, drawn**: Apple's robot vacuum in place of the battery percentage on the Extra Large, Tall and Wide Vacuum blocks and on each vacuum's card on the Vacuums page, animated by what it is doing: on its dock, charging, cleaning (the side brush spins, its path draws itself), returning, paused, the water tank empty, stuck. The battery moves to the line under the state. Wide's keys take more of the width; the Vacuums page's cards have one row of 56 px keys (Clean or Pause, Locate, Dock).
