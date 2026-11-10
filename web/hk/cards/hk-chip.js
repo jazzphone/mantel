@@ -1220,7 +1220,7 @@
       }
       if (t.indexOf(TOK) === 0) { var lk = t.slice(TOK.length); add(t, copyAs(lk, lib[lk].card), undefined, lib[lk].name); return; }
       add(t, t.indexOf('.') > 0 ? entityChip(t, quiet.indexOf(t) >= 0)
-                                : { type: 'custom:hk-status-chip-card', kind: t, quiet: quiet.indexOf(t) >= 0 });
+                                : { type: 'custom:hk-status-chip-card', kind: t, quiet: quiet.indexOf(t) >= 0 || t === 'laundry' });   // (Laundry: only while it says something, on every screen)
     });
     // after: a kind (or an entity) in the row, `start` or `end`. A kind the
     // row does not show puts the chip at the end.
