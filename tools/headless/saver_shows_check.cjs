@@ -384,7 +384,7 @@ let lastMinuteDone = false;
           const corner = {}; ['time', 'date', 'weather', 'status'].forEach((k) => { const e = sr.querySelector('.scn .hksw.p-' + k); corner[k] = e && getComputedStyle(e).display !== 'none' && host.hasAttribute('scorner') ? ink(e) : null; });
           // (the slide's own words and small pictures: the forecast's, the Weather slide's, Home Energy's)
           const own = (sel) => [...sr.querySelectorAll(sel)].find((e) => !e.closest('.lay, .ck, .face, .hkf, .scn'));
-          const layer = host.hasAttribute('enslide') ? own('.en') : host.hasAttribute('wxslide') ? own('.wx') : host.hasAttribute('hlslide') ? own('.hl') : host.hasAttribute('fcslide') ? own('.fc') : null;
+          const layer = host.hasAttribute('enslide') ? own('.en') : host.hasAttribute('wxslide') ? own('.wx') : host.hasAttribute('hlslide') ? own('.hkhol') : host.hasAttribute('fcslide') ? own('.fc') : null;
           const marks = [];
           if (layer) (function walk(n) {
             if (n.nodeType === 3) { if (n.textContent.trim()) { const rg = document.createRange(); rg.selectNodeContents(n); const r = rg.getBoundingClientRect(); if (r.width > 0 && r.height > 0) marks.push(box(r)); } return; }

@@ -52,128 +52,130 @@
 
   var CSS = [
     // ONE LAYER FOR GOOD, hidden by its opacity alone, as Home Energy's and the weather's
-    '.hl{position:absolute;inset:0;z-index:3;opacity:0;pointer-events:none;overflow:hidden;background:#050b18;will-change:opacity;',
+    '.hkhol{position:absolute;inset:0;z-index:3;opacity:0;pointer-events:none;overflow:hidden;background:#050b18;will-change:opacity;',
     '  font-family:' + FONT + ';color:#fff;text-shadow:0 1px 10px rgba(0,0,0,.28);--z:1;--m:48px;',
     '  transition:opacity var(--hk-hl-fade,3000ms) ease}',
-    '.hl.on{opacity:1}',
+    '.hkhol.on{opacity:1}',
     // (what moves in CSS -- the fog, the TV's roll bar, the VCR's 12:00 -- holds still while it is not up, and never
     // under a still picture)
-    '.hl:not(.on) *,.hl:not(.on) *::before,.hl:not(.on) *::after{animation-play-state:paused!important}',
-    '.hl[still] *,.hl[still] *::before,.hl[still] *::after{animation:none!important}',
-    '.hl .hlsky,.hl .hlland,.hl .hllights,.hl .hlwash{position:absolute;inset:0}',
-    '.hl .hlsky > #hk-sky{position:absolute;inset:0}',
-    '.hl .hlland,.hl .hllights{background-size:cover;background-position:center bottom;background-repeat:no-repeat}',
-    '.hl .hlov{position:absolute;background-position:center;background-size:contain;background-repeat:no-repeat}',
-    '.hl .hlwash{background:linear-gradient(180deg,rgba(4,10,24,.2),rgba(4,10,24,0) 32%,rgba(4,10,24,.04) 50%,rgba(4,10,24,.62))}',
-    '.hl[light=day] .hlwash{background:linear-gradient(180deg,rgba(6,24,56,.34),rgba(6,24,56,.08) 34%,rgba(6,24,56,.2) 52%,rgba(6,20,30,.72))}',
-    '.hl[light=dusk] .hlwash{background:linear-gradient(180deg,rgba(10,10,40,.3),rgba(10,10,40,0) 36%,rgba(10,10,30,.14) 52%,rgba(8,6,24,.66))}',
-    '.hl .hlfog{position:absolute;left:-30%;right:-30%;height:34%;bottom:12%;background-size:100% 100%;opacity:.3;display:none;animation:hlfog 46s ease-in-out infinite alternate}',
+    '.hkhol:not(.on) *,.hkhol:not(.on) *::before,.hkhol:not(.on) *::after{animation-play-state:paused!important}',
+    '.hkhol[still] *,.hkhol[still] *::before,.hkhol[still] *::after{animation:none!important}',
+    '.hkhol .hlsky,.hkhol .hlland,.hkhol .hllights,.hkhol .hlwash{position:absolute;inset:0}',
+    '.hkhol .hlsky > #hk-sky{position:absolute;inset:0}',
+    '.hkhol .hlland,.hkhol .hllights{background-size:cover;background-position:center bottom;background-repeat:no-repeat}',
+    '.hkhol .hlov{position:absolute;background-position:center;background-size:contain;background-repeat:no-repeat}',
+    '.hkhol .hlwash{background:linear-gradient(180deg,rgba(4,10,24,.2),rgba(4,10,24,0) 32%,rgba(4,10,24,.04) 50%,rgba(4,10,24,.62))}',
+    '.hkhol[light=day] .hlwash{background:linear-gradient(180deg,rgba(6,24,56,.34),rgba(6,24,56,.08) 34%,rgba(6,24,56,.2) 52%,rgba(6,20,30,.72))}',
+    '.hkhol[light=dusk] .hlwash{background:linear-gradient(180deg,rgba(10,10,40,.3),rgba(10,10,40,0) 36%,rgba(10,10,30,.14) 52%,rgba(8,6,24,.66))}',
+    '.hkhol .hlfog{position:absolute;left:-30%;right:-30%;height:34%;bottom:12%;background-size:100% 100%;opacity:.3;display:none;animation:hlfog 46s ease-in-out infinite alternate}',
     '@keyframes hlfog{from{transform:translateX(-7%)}to{transform:translateX(7%)}}',
-    '.hl .hlweb{position:absolute;display:none;opacity:.55;background-size:contain;background-repeat:no-repeat;transform:scaleX(-1)}',
-    '.hl canvas{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none}',
-    '.hl canvas.hlpaint{z-index:1;display:none}',
-    '.hl canvas.hlpaint2{z-index:3;display:none}',
-    '.hl canvas.hlfx{z-index:3}',
-    '.hl:not([scene=land]) canvas.hlpaint,.hl[scene=haunt] canvas.hlpaint2{display:block}',
+    '.hkhol .hlweb{position:absolute;display:none;opacity:.55;background-size:contain;background-repeat:no-repeat;transform:scaleX(-1)}',
+    '.hkhol canvas{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none}',
+    '.hkhol canvas.hlpaint{z-index:1;display:none}',
+    '.hkhol canvas.hlpaint2{z-index:3;display:none}',
+    '.hkhol canvas.hlfx{z-index:3}',
+    '.hkhol:not([scene=land]) canvas.hlpaint,.hkhol[scene=haunt] canvas.hlpaint2{display:block}',
     // a scene's own picture: no sky, no land, no outdoor number
-    '.hl:not([scene=land]) .hlsky,.hl:not([scene=land]) .hlland,.hl:not([scene=land]) .hllights,.hl:not([scene=land]) .hlovs,',
-    '.hl:not([scene=land]) .hlhero,.hl:not([scene=land]) .hlweb{display:none!important}',
-    '.hl:not([scene=land]):not([scene=haunt]) .hlfog{display:none!important}',
-    '.hl[scene=room] .hlwash,.hl[scene=thanks] .hlwash{background:linear-gradient(180deg,rgba(6,10,8,.34),rgba(6,10,8,0) 30%,rgba(6,4,2,0) 70%,rgba(8,5,3,.82));z-index:2}',
-    '.hl[scene=haunt] .hlwash,.hl[scene=newyear] .hlwash{background:linear-gradient(180deg,rgba(4,6,20,.1),rgba(4,6,20,0) 40%,rgba(2,3,8,.8));z-index:2}',
-    '.hl[scene=haunt] .hlfog{display:block!important;z-index:2;bottom:16%;opacity:.26}',
+    '.hkhol:not([scene=land]) .hlsky,.hkhol:not([scene=land]) .hlland,.hkhol:not([scene=land]) .hllights,.hkhol:not([scene=land]) .hlovs,',
+    '.hkhol:not([scene=land]) .hlhero,.hkhol:not([scene=land]) .hlweb{display:none!important}',
+    '.hkhol:not([scene=land]):not([scene=haunt]) .hlfog{display:none!important}',
+    '.hkhol[scene=room] .hlwash,.hkhol[scene=thanks] .hlwash{background:linear-gradient(180deg,rgba(6,10,8,.34),rgba(6,10,8,0) 30%,rgba(6,4,2,0) 70%,rgba(8,5,3,.82));z-index:2}',
+    '.hkhol[scene=haunt] .hlwash,.hkhol[scene=newyear] .hlwash{background:linear-gradient(180deg,rgba(4,6,20,.1),rgba(4,6,20,0) 40%,rgba(2,3,8,.8));z-index:2}',
+    '.hkhol[scene=haunt] .hlfog{display:block!important;z-index:2;bottom:16%;opacity:.26}',
     // THE HERO OUTDOORS: the number standing on the meadow, then what it counts down to
-    '.hl .hlhero{position:absolute;left:var(--m);right:var(--m);bottom:var(--herob,120px);display:flex;align-items:flex-end;gap:calc(34px*var(--z))}',
-    '.hl .num{position:relative;z-index:4;flex:none;font-family:' + ROUNDED + ';font-weight:700;line-height:.8;font-size:var(--nf,300px);',
+    '.hkhol .hlhero{position:absolute;left:var(--m);right:var(--m);bottom:var(--herob,120px);display:flex;align-items:flex-end;gap:calc(34px*var(--z))}',
+    '.hkhol .num{position:relative;z-index:4;flex:none;font-family:' + ROUNDED + ';font-weight:700;line-height:.8;font-size:var(--nf,300px);',
     '  color:var(--numc,#fffaf0);text-shadow:0 calc(10px*var(--z)) calc(22px*var(--z)) rgba(0,8,24,.5),0 0 calc(50px*var(--z)) var(--numg,transparent);white-space:nowrap;padding-bottom:calc(6px*var(--z));font-variant-numeric:lining-nums}',
-    '.hl .num.foil{background:linear-gradient(180deg,#fff7d8 8%,#f4cb68 52%,#b98a2f 96%);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:none;filter:drop-shadow(0 calc(4px*var(--z)) calc(14px*var(--z)) rgba(0,8,24,.65))}',
-    '.hl .words{position:relative;z-index:6;min-width:0;padding-bottom:calc(14px*var(--z))}',
-    '.hl .eye{font-size:calc(15px*var(--z));font-weight:600;letter-spacing:.5px;text-transform:uppercase;opacity:.82}',
-    '.hl .hdl{font-size:var(--hf,74px);font-weight:700;letter-spacing:-.018em;line-height:1.02;margin:calc(4px*var(--z)) 0 calc(6px*var(--z));text-wrap:balance;text-shadow:0 2px 16px rgba(0,8,24,.5)}',
-    '.hl .dt{font-size:calc(22px*var(--z));font-weight:500;opacity:.92}',
+    '.hkhol .num.foil{background:linear-gradient(180deg,#fff7d8 8%,#f4cb68 52%,#b98a2f 96%);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:none;filter:drop-shadow(0 calc(4px*var(--z)) calc(14px*var(--z)) rgba(0,8,24,.65))}',
+    '.hkhol .words{position:relative;z-index:6;min-width:0;padding-bottom:calc(14px*var(--z))}',
+    '.hkhol .eye{font-size:calc(15px*var(--z));font-weight:600;letter-spacing:.5px;text-transform:uppercase;opacity:.82}',
+    '.hkhol .hdl{font-size:var(--hf,74px);font-weight:700;letter-spacing:-.018em;line-height:1.02;margin:calc(4px*var(--z)) 0 calc(6px*var(--z));text-wrap:balance;text-shadow:0 2px 16px rgba(0,8,24,.5)}',
+    '.hkhol .dt{font-size:calc(22px*var(--z));font-weight:500;opacity:.92}',
     // the day itself: the greeting takes the whole row
-    '.hl .hlhero.day{flex-direction:column;align-items:center;gap:calc(8px*var(--z))}',
-    '.hl .hello{position:relative;z-index:4;text-align:center;font-family:' + ROUNDED + ';font-weight:700;line-height:1.02;font-size:var(--gf,120px);color:var(--numc,#fff);text-shadow:0 4px 26px rgba(0,8,24,.6),0 0 50px var(--numg,transparent)}',
-    '.hl .hello span{white-space:nowrap}',
-    '.hl[tall] .hello span{display:block}',
-    '.hl .hlhero.day .words{text-align:center;padding-bottom:calc(6px*var(--z))}',
-    '.hl[tall] .hlhero{flex-direction:column;align-items:center;gap:calc(10px*var(--z))}',
-    '.hl[tall] .words{text-align:center}',
+    '.hkhol .hlhero.day{flex-direction:column;align-items:center;gap:calc(8px*var(--z))}',
+    '.hkhol .hello{position:relative;z-index:4;text-align:center;font-family:' + ROUNDED + ';font-weight:700;line-height:1.02;font-size:var(--gf,120px);color:var(--numc,#fff);text-shadow:0 4px 26px rgba(0,8,24,.6),0 0 50px var(--numg,transparent)}',
+    '.hkhol .hello span{white-space:nowrap}',
+    '.hkhol[tall] .hello span{display:block}',
+    '.hkhol .hlhero.day .words{text-align:center;padding-bottom:calc(6px*var(--z))}',
+    '.hkhol[tall] .hlhero{flex-direction:column;align-items:center;gap:calc(10px*var(--z))}',
+    '.hkhol[tall] .words{text-align:center}',
     // ALONG THE BOTTOM, standing apart, as Home Energy's row
-    '.hl .enfoot{position:absolute;z-index:6;left:var(--m);right:var(--m);bottom:calc(26px*var(--z));display:flex;justify-content:space-between;gap:calc(40px*var(--z));align-items:flex-start;border-top:1px solid rgba(255,255,255,.2);padding-top:calc(14px*var(--z))}',
-    '.hl .enfoot:empty{display:none}',
-    '.hl .fg .gh{font-size:calc(13px*var(--z));font-weight:700;letter-spacing:.5px;text-transform:uppercase;opacity:.92;margin-bottom:calc(8px*var(--z))}',
-    '.hl .fg .its{display:flex;gap:calc(36px*var(--z));align-items:flex-start}',
-    '.hl .fg.mo{margin-left:auto;padding-left:calc(36px*var(--z));border-left:1px solid rgba(255,255,255,.2)}',
-    '.hl .fg.mo:first-child{margin-left:0;padding-left:0;border-left:0}',
-    '.hl .enfoot .k{font-size:calc(13px*var(--z));font-weight:600;letter-spacing:.5px;text-transform:uppercase;opacity:.75;white-space:nowrap}',
-    '.hl .enfoot .k b{display:inline-block;width:calc(8px*var(--z));height:calc(8px*var(--z));border-radius:50%;margin-right:calc(6px*var(--z));vertical-align:calc(1px*var(--z))}',
-    '.hl .enfoot .v{font-size:calc(30px*var(--z));font-weight:700;letter-spacing:-.6px;margin-top:calc(3px*var(--z));font-variant-numeric:tabular-nums;white-space:nowrap}',
-    '.hl .enfoot .v u{text-decoration:none;font-weight:600;opacity:.75;letter-spacing:0;font-size:calc(17px*var(--z));margin-left:calc(4px*var(--z))}',
-    '.hl .enfoot .pace{font-size:calc(15px*var(--z));font-weight:500;opacity:.75;margin-left:calc(8px*var(--z));letter-spacing:0}',
-    '.hl[narrow] .enfoot{flex-direction:column;gap:calc(10px*var(--z));padding-top:calc(11px*var(--z))}',
-    '.hl[narrow] .fg{display:grid;width:100%;grid-template-columns:calc(112px*var(--z)) minmax(0,1fr);gap:calc(14px*var(--z));align-items:center}',
-    '.hl[narrow] .fg .gh{margin:0}',
-    '.hl[narrow] .fg .its{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:calc(12px*var(--z))}',
-    '.hl[narrow] .fg.mo{margin:0;padding:calc(10px*var(--z)) 0 0;border-left:0;border-top:1px solid rgba(255,255,255,.2)}',
-    '.hl[narrow] .fg.mo:first-child{padding-top:0;border-top:0}',
-    '.hl[tall] .enfoot{flex-direction:column;gap:calc(14px*var(--z))}',
-    '.hl[tall] .fg.mo{margin-left:0;padding-left:0;border-left:0}',
-    '.hl[tall] .fg .its{flex-wrap:wrap;row-gap:calc(10px*var(--z))}',
+    '.hkhol .enfoot{position:absolute;z-index:6;left:var(--m);right:var(--m);bottom:calc(26px*var(--z));display:flex;justify-content:space-between;gap:calc(40px*var(--z));align-items:flex-start;border-top:1px solid rgba(255,255,255,.2);padding-top:calc(14px*var(--z))}',
+    '.hkhol .enfoot:empty{display:none}',
+    '.hkhol .fg .gh{font-size:calc(13px*var(--z));font-weight:700;letter-spacing:.5px;text-transform:uppercase;opacity:.92;margin-bottom:calc(8px*var(--z))}',
+    '.hkhol .fg .its{display:flex;gap:calc(36px*var(--z));align-items:flex-start}',
+    '.hkhol .fg.mo{margin-left:auto;padding-left:calc(36px*var(--z));border-left:1px solid rgba(255,255,255,.2)}',
+    '.hkhol .fg.mo:first-child{margin-left:0;padding-left:0;border-left:0}',
+    '.hkhol .enfoot .k{font-size:calc(13px*var(--z));font-weight:600;letter-spacing:.5px;text-transform:uppercase;opacity:.75;white-space:nowrap}',
+    '.hkhol .enfoot .k b{display:inline-block;width:calc(8px*var(--z));height:calc(8px*var(--z));border-radius:50%;margin-right:calc(6px*var(--z));vertical-align:calc(1px*var(--z))}',
+    '.hkhol .enfoot .v{font-size:calc(30px*var(--z));font-weight:700;letter-spacing:-.6px;margin-top:calc(3px*var(--z));font-variant-numeric:tabular-nums;white-space:nowrap}',
+    '.hkhol .enfoot .v u{text-decoration:none;font-weight:600;opacity:.75;letter-spacing:0;font-size:calc(17px*var(--z));margin-left:calc(4px*var(--z))}',
+    '.hkhol .enfoot .pace{font-size:calc(15px*var(--z));font-weight:500;opacity:.75;margin-left:calc(8px*var(--z));letter-spacing:0}',
+    '.hkhol[narrow] .enfoot{flex-direction:column;gap:calc(10px*var(--z));padding-top:calc(11px*var(--z))}',
+    '.hkhol[narrow] .fg{display:grid;width:100%;grid-template-columns:calc(112px*var(--z)) minmax(0,1fr);gap:calc(14px*var(--z));align-items:center}',
+    '.hkhol[narrow] .fg .gh{margin:0}',
+    '.hkhol[narrow] .fg .its{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:calc(12px*var(--z))}',
+    '.hkhol[narrow] .fg.mo{margin:0;padding:calc(10px*var(--z)) 0 0;border-left:0;border-top:1px solid rgba(255,255,255,.2)}',
+    '.hkhol[narrow] .fg.mo:first-child{padding-top:0;border-top:0}',
+    '.hkhol[tall] .enfoot{flex-direction:column;gap:calc(14px*var(--z))}',
+    '.hkhol[tall] .fg.mo{margin-left:0;padding-left:0;border-left:0}',
+    '.hkhol[tall] .fg .its{flex-wrap:wrap;row-gap:calc(10px*var(--z))}',
     // THE LIVE PARTS, sized from their painted piece (--t: the piece's width)
-    '.hl .hlprop{position:absolute;z-index:4;left:0;top:0;width:0;height:0}',
+    '.hkhol .hlprop{position:absolute;z-index:4;left:0;top:0;width:0;height:0}',
     // CHRISTMAS: the TV picture in the entertainment center's screen opening, as a VCR's blue on-screen display
-    '.hl .tv{position:absolute;text-shadow:none}',
-    '.hl .scr{position:absolute;inset:0;overflow:hidden;border-radius:9% / 11%;background:radial-gradient(ellipse at 50% 45%,#1d3ff0 0,#1230d2 52%,#071a8a 100%)}',
-    '.hl .osd{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:calc(var(--t)*.02) calc(var(--t)*.05);color:#fff;font-family:"HK VT323","Courier New",monospace;text-shadow:0 0 calc(var(--t)*.012) rgba(190,215,255,.75);text-transform:uppercase;text-align:center;transform-origin:50% 50%}',
-    '.hl .osdt{position:absolute;left:calc(var(--t)*.05);right:calc(var(--t)*.05);top:calc(var(--t)*.032);display:flex;justify-content:space-between;font-size:calc(var(--t)*.05);line-height:1;letter-spacing:.04em}',
-    '.hl .osd .big{font-size:calc(var(--t)*.47);line-height:.74;letter-spacing:-.01em;margin-top:calc(var(--t)*.052)}',
-    '.hl .osd .gr{font-size:calc(var(--t)*.156);line-height:.86;margin-top:calc(var(--t)*.03)}',
-    '.hl .osdl{font-size:calc(var(--t)*.083);line-height:1;margin-top:calc(var(--t)*.026);white-space:nowrap}',
-    '.hl .osdd{font-size:calc(var(--t)*.054);line-height:1;margin-top:calc(var(--t)*.012);opacity:.92;white-space:nowrap}',
-    '.hl .scan{position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(180deg,rgba(0,0,20,.2) 0 1px,rgba(255,255,255,.015) 1px 3px)}',
-    '.hl .scan::before{content:"";position:absolute;left:0;right:0;height:16%;background:linear-gradient(180deg,rgba(255,255,255,0),rgba(255,255,255,.06),rgba(255,255,255,0));animation:hlroll 9s linear infinite}',
-    '.hl .scan::after{content:"";position:absolute;inset:0;background:linear-gradient(125deg,rgba(255,255,255,.12) 0,rgba(255,255,255,.02) 26%,rgba(255,255,255,0) 40%)}',
+    '.hkhol .tv{position:absolute;text-shadow:none}',
+    '.hkhol .scr{position:absolute;inset:0;overflow:hidden;border-radius:9% / 11%;background:radial-gradient(ellipse at 50% 45%,#1d3ff0 0,#1230d2 52%,#071a8a 100%)}',
+    '.hkhol .osd{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:calc(var(--t)*.02) calc(var(--t)*.05);color:#fff;font-family:"HK VT323","Courier New",monospace;text-shadow:0 0 calc(var(--t)*.012) rgba(190,215,255,.75);text-transform:uppercase;text-align:center;transform-origin:50% 50%}',
+    '.hkhol .osdt{position:absolute;left:calc(var(--t)*.05);right:calc(var(--t)*.05);top:calc(var(--t)*.032);display:flex;justify-content:space-between;font-size:calc(var(--t)*.05);line-height:1;letter-spacing:.04em}',
+    '.hkhol .osd .big{font-size:calc(var(--t)*.47);line-height:.74;letter-spacing:-.01em;margin-top:calc(var(--t)*.052)}',
+    '.hkhol .osd .gr{font-size:calc(var(--t)*.156);line-height:.86;margin-top:calc(var(--t)*.03)}',
+    '.hkhol .osdl{font-size:calc(var(--t)*.083);line-height:1;margin-top:calc(var(--t)*.026);white-space:nowrap}',
+    '.hkhol .osdd{font-size:calc(var(--t)*.054);line-height:1;margin-top:calc(var(--t)*.012);opacity:.92;white-space:nowrap}',
+    '.hkhol .scan{position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(180deg,rgba(0,0,20,.2) 0 1px,rgba(255,255,255,.015) 1px 3px)}',
+    '.hkhol .scan::before{content:"";position:absolute;left:0;right:0;height:16%;background:linear-gradient(180deg,rgba(255,255,255,0),rgba(255,255,255,.06),rgba(255,255,255,0));animation:hlroll 9s linear infinite}',
+    '.hkhol .scan::after{content:"";position:absolute;inset:0;background:linear-gradient(125deg,rgba(255,255,255,.12) 0,rgba(255,255,255,.02) 26%,rgba(255,255,255,0) 40%)}',
     '@keyframes hlroll{from{transform:translateY(-120%)}to{transform:translateY(720%)}}',
-    '.hl .tv.power .osd{animation:hlcrt 1s cubic-bezier(.22,.8,.25,1) both}',
+    '.hkhol .tv.power .osd{animation:hlcrt 1s cubic-bezier(.22,.8,.25,1) both}',
     '@keyframes hlcrt{0%{transform:scale(1,.006);filter:brightness(5);opacity:0}7%{opacity:1}36%{transform:scale(1,.006);filter:brightness(5)}72%{transform:scale(1,1.03);filter:brightness(1.6)}100%{transform:none;filter:none}}',
     // ...and 12:00 flashing in the VCR's clock window
-    '.hl .vcr{position:absolute;display:flex;align-items:center;justify-content:center;text-shadow:none}',
-    '.hl .vcr span{width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#020a05;font:400 calc(var(--vh)*.62)/1 "HK VT323","Courier New",monospace;color:#66ffa0;text-shadow:0 0 6px #33ff88;animation:hlblink 1.1s steps(1) infinite}',
+    '.hkhol .vcr{position:absolute;display:flex;align-items:center;justify-content:center;text-shadow:none}',
+    '.hkhol .vcr span{width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#020a05;font:400 calc(var(--vh)*.62)/1 "HK VT323","Courier New",monospace;color:#66ffa0;text-shadow:0 0 6px #33ff88;animation:hlblink 1.1s steps(1) infinite}',
     '@keyframes hlblink{0%,54%{opacity:1}55%,100%{opacity:.08}}',
     // HALLOWEEN: carved into the stone
-    '.hl .stn{position:absolute;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:#17191d;font-family:"HK Cinzel","Times New Roman",serif;text-shadow:0 1px 0 rgba(255,255,255,.3),0 -1px 0 rgba(0,0,0,.45);padding:15% 14% 10%;box-sizing:border-box}',
-    '.hl .stn .e1{font-size:calc(var(--t)*.052);font-weight:600;letter-spacing:.24em;text-transform:uppercase;opacity:.86}',
-    '.hl .stn .big{font-size:calc(var(--t)*.47);font-weight:800;line-height:.88;font-variant-numeric:lining-nums;margin:calc(var(--t)*.006) 0}',
-    '.hl .stn .gr{font-size:calc(var(--t)*.128);font-weight:800;line-height:1.02;text-transform:uppercase;margin-bottom:calc(var(--t)*.03)}',
-    '.hl .stn .e3{font-size:calc(var(--t)*.112);font-weight:800;line-height:1;text-transform:uppercase;letter-spacing:.015em;white-space:nowrap}',
-    '.hl .stn .e4{font-size:calc(var(--t)*.043);font-weight:600;line-height:1.2;margin-top:calc(var(--t)*.02);white-space:nowrap}',
+    '.hkhol .stn{position:absolute;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:#17191d;font-family:"HK Cinzel","Times New Roman",serif;text-shadow:0 1px 0 rgba(255,255,255,.3),0 -1px 0 rgba(0,0,0,.45);padding:15% 14% 10%;box-sizing:border-box}',
+    '.hkhol .stn .e1{font-size:calc(var(--t)*.052);font-weight:600;letter-spacing:.24em;text-transform:uppercase;opacity:.86}',
+    '.hkhol .stn .big{font-size:calc(var(--t)*.47);font-weight:800;line-height:.88;font-variant-numeric:lining-nums;margin:calc(var(--t)*.006) 0}',
+    '.hkhol .stn .gr{font-size:calc(var(--t)*.128);font-weight:800;line-height:1.02;text-transform:uppercase;margin-bottom:calc(var(--t)*.03)}',
+    '.hkhol .stn .e3{font-size:calc(var(--t)*.112);font-weight:800;line-height:1;text-transform:uppercase;letter-spacing:.015em;white-space:nowrap}',
+    '.hkhol .stn .e4{font-size:calc(var(--t)*.043);font-weight:600;line-height:1.2;margin-top:calc(var(--t)*.02);white-space:nowrap}',
     // THANKSGIVING: chalk on the board's face (x 6-94 %, y 8-92 %), written on line by line as it arrives
-    '.hl .chalk{position:absolute;text-shadow:none}',
-    '.hl .chalk .cw{position:absolute;left:7%;right:7%;top:9%;bottom:9%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;',
+    '.hkhol .chalk{position:absolute;text-shadow:none}',
+    '.hkhol .chalk .cw{position:absolute;left:7%;right:7%;top:9%;bottom:9%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;',
     '  font-family:"HK Cabin Sketch","Comic Sans MS",cursive;font-weight:700;color:rgba(246,243,232,.93);filter:drop-shadow(0 0 1px rgba(255,255,255,.35))}',
-    '.hl .chalk .c1{font-size:calc(var(--t)*.06);transform:rotate(-3deg)}',
-    '.hl .chalk .cbig{font-size:calc(var(--t)*.36);line-height:.9}',
-    '.hl .chalk .cg{font-size:calc(var(--t)*.13);line-height:1}',
-    '.hl .chalk .c2{font-size:calc(var(--t)*.074);line-height:1.05;margin-top:calc(var(--t)*.01)}',
-    '.hl .chalk .c3{font-size:calc(var(--t)*.046);opacity:.82;margin-top:calc(var(--t)*.02)}',
-    '.hl .chalk .c2 i{font-style:normal;color:#ffb36b}',
-    '.hl .chalk.write .cw > *{animation:hlchalk .9s steps(16) both}',
-    '.hl .chalk.write .cw > :nth-child(2){animation-delay:.6s;animation-duration:.7s}',
-    '.hl .chalk.write .cw > :nth-child(3){animation-delay:1.25s;animation-duration:1.1s}',
-    '.hl .chalk.write .cw > :nth-child(4){animation-delay:2.2s}',
+    '.hkhol .chalk .c1{font-size:calc(var(--t)*.06);transform:rotate(-3deg)}',
+    '.hkhol .chalk .cbig{font-size:calc(var(--t)*.36);line-height:.9}',
+    '.hkhol .chalk .cg{font-size:calc(var(--t)*.13);line-height:1}',
+    '.hkhol .chalk .c2{font-size:calc(var(--t)*.074);line-height:1.05;margin-top:calc(var(--t)*.01)}',
+    '.hkhol .chalk .c3{font-size:calc(var(--t)*.046);opacity:.82;margin-top:calc(var(--t)*.02)}',
+    '.hkhol .chalk .c2 i{font-style:normal;color:#ffb36b}',
+    '.hkhol .chalk.write .cw > *{animation:hlchalk .9s steps(16) both}',
+    '.hkhol .chalk.write .cw > :nth-child(2){animation-delay:.6s;animation-duration:.7s}',
+    '.hkhol .chalk.write .cw > :nth-child(3){animation-delay:1.25s;animation-duration:1.1s}',
+    '.hkhol .chalk.write .cw > :nth-child(4){animation-delay:2.2s}',
     '@keyframes hlchalk{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}',
     // NEW YEAR'S: split flaps in the board's opening (x 5.5-94.5 %, y 9.9-88.8 %), the board's frame over them
-    '.hl .flap{position:absolute;text-shadow:none}',
-    '.hl .flap .fbd{position:absolute;inset:0;background-position:center;background-size:100% 100%;background-repeat:no-repeat;pointer-events:none}',
-    '.hl .flap .fin{position:absolute;left:5.5%;top:9.9%;width:89%;height:78.9%;background:#0b0b0d;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:calc(var(--t)*.022)}',
-    '.hl .flap .fr{display:flex;gap:calc(var(--t)*.007)}',
-    '.hl .flap .fc{position:relative;display:block;width:calc(var(--t)*.067);height:calc(var(--t)*.092);line-height:calc(var(--t)*.092);text-align:center;font-family:"HK Oswald","Arial Narrow",sans-serif;font-weight:500;',
+    // (its letters .flc, never .fc: the screensaver's Forecast layer is .fc, hidden until it is up -- every letter of
+    // the New Year board was hidden with it, 2026-11-09)
+    '.hkhol .flap{position:absolute;text-shadow:none}',
+    '.hkhol .flap .fbd{position:absolute;inset:0;background-position:center;background-size:100% 100%;background-repeat:no-repeat;pointer-events:none}',
+    '.hkhol .flap .fin{position:absolute;left:5.5%;top:9.9%;width:89%;height:78.9%;background:#0b0b0d;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:calc(var(--t)*.022)}',
+    '.hkhol .flap .fr{display:flex;gap:calc(var(--t)*.007)}',
+    '.hkhol .flap .flc{position:relative;display:block;width:calc(var(--t)*.067);height:calc(var(--t)*.092);line-height:calc(var(--t)*.092);text-align:center;font-family:"HK Oswald","Arial Narrow",sans-serif;font-weight:500;',
     '  font-size:calc(var(--t)*.07);color:#f2efe6;border-radius:calc(var(--t)*.005);background:linear-gradient(180deg,#232327 0,#1a1a1d 49.2%,#030303 49.2%,#030303 50.8%,#151518 50.8%,#0f0f11 100%);',
     '  box-shadow:inset 0 1px 0 rgba(255,255,255,.07),0 1px 2px rgba(0,0,0,.8)}',
-    '.hl .flap .fr.big .fc{width:calc(var(--t)*.15);height:calc(var(--t)*.24);line-height:calc(var(--t)*.24);font-size:calc(var(--t)*.2)}',
-    '.hl .flap .fr.big .fc.gold{color:#f4cb68}',
-    '.hl .flap .fc.fl{animation:hlflip .09s linear}',
+    '.hkhol .flap .fr.big .flc{width:calc(var(--t)*.15);height:calc(var(--t)*.24);line-height:calc(var(--t)*.24);font-size:calc(var(--t)*.2)}',
+    '.hkhol .flap .fr.big .flc.gold{color:#f4cb68}',
+    '.hkhol .flap .flc.fl{animation:hlflip .09s linear}',
     '@keyframes hlflip{0%{transform:scaleY(1)}50%{transform:scaleY(.08)}100%{transform:scaleY(1)}}'
   ].join('\n');
 
@@ -213,7 +215,7 @@
   }
   function flapHtml(h, n) {
     return '<div class="flap"><div class="fin">' + flapRows(h, n).map(function (r) {
-      return '<div class="fr ' + r[1] + '">' + r[0].split('').map(function (ch) { return '<span class="fc' + (r[1].indexOf('gold') >= 0 ? ' gold' : '') + '" data-c="' + esc(ch) + '">' + (ch === ' ' ? '&nbsp;' : esc(ch)) + '</span>'; }).join('') + '</div>';
+      return '<div class="fr ' + r[1] + '">' + r[0].split('').map(function (ch) { return '<span class="flc' + (r[1].indexOf('gold') >= 0 ? ' gold' : '') + '" data-c="' + esc(ch) + '">' + (ch === ' ' ? '&nbsp;' : esc(ch)) + '</span>'; }).join('') + '</div>';
     }).join('') + '</div><div class="fbd"></div></div>';
   }
   function stoneHtml(h, n) {
@@ -245,7 +247,10 @@
   function create(opts) {
     opts = opts || {};
     var el = document.createElement('div');
-    el.className = 'hl';
+    // (hkhol, never 'hl': its <style> sits in the screensaver's shadow root and reaches every element there, and
+    // Big Weather's and the Weather slide's high/low lines are .hl -- they took this layer's dark background and
+    // will-change, a black box over the Forecast on the wall tablets while a Holiday slide was in the show, 2026-11-09)
+    el.className = 'hkhol';
     el.setAttribute('aria-hidden', 'true');
     el.setAttribute('scene', 'land');
     el.innerHTML = '<style>' + CSS + '</style><div class="hlsky"></div><canvas class="hlpaint"></canvas><canvas class="hlpaint2"></canvas>' +
@@ -475,7 +480,7 @@
     // THE SPLIT FLAPS: each runs through the alphabet to its own letter, left to right, the way a station board settles
     function flipTo(board) {
       clearInterval(flipT);
-      var cells = [].slice.call(board.querySelectorAll('.fc')), ABC = ' ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', start = performance.now();
+      var cells = [].slice.call(board.querySelectorAll('.flc')), ABC = ' ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', start = performance.now();
       cells.forEach(function (c, i) { c.__end = c.getAttribute('data-c'); c.__stop = 500 + i * 70 + Math.random() * 380; c.__done = false; c.textContent = ' '; });
       flipT = setInterval(function () {
         var now = performance.now() - start, busy = false;
@@ -492,7 +497,7 @@
     function settle() {
       if (rollT) { cancelAnimationFrame(rollT); rollT = 0; }
       if (flipT) { clearInterval(flipT); flipT = null; }
-      prop.querySelectorAll('.fc').forEach(function (c) { var e = c.getAttribute('data-c'); c.textContent = e === ' ' ? ' ' : e; c.classList.remove('fl'); });
+      prop.querySelectorAll('.flc').forEach(function (c) { var e = c.getAttribute('data-c'); c.textContent = e === ' ' ? ' ' : e; c.classList.remove('fl'); });
       var n = prop.querySelector('.hlnum') || heroEl.querySelector('.num');
       if (n && cur && cur.days) { n.textContent = cur.days; n.style.minWidth = ''; }
     }

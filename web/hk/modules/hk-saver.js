@@ -2556,7 +2556,7 @@
     if (!info || el.parentNode !== root) return false;
     for (var n = el.nextSibling; n; n = n.nextSibling) {
       if (n === info) return true;
-      if (!n.classList || !(n.classList.contains('en') || n.classList.contains('wx') || n.classList.contains('hl'))) return false;
+      if (!n.classList || !(n.classList.contains('en') || n.classList.contains('wx') || n.classList.contains('hkhol'))) return false;
     }
     return false;
   }
@@ -2610,7 +2610,7 @@
   // ------------------------------------------------------------ the weather and the holidays
   // WEATHER (2026-10-14, hk-saver-weather.js) and THE HOLIDAY SLIDE (phase 20, hk-saver-holiday.js), each loaded only
   // now: today's weather at a glance over the Live Sky (Sky Only), laid out as Home Energy is; how many days until the
-  // next holiday, in its painted scene or outdoors. The same kind of layer (.wx, .hl: above the clock, under the corner
+  // next holiday, in its painted scene or outdoors. The same kind of layer (.wx, .hkhol: above the clock, under the corner
   // cards), opaque -- its own sky or scene -- faded in over what is there, and one set of steps for both (a slot each:
   // its controller, whether it shows, its fade's timer and its run). The holiday's only when one is near (ready).
   var WX = { key: 'weather', file: 'hk-saver-weather.js', glob: 'hkSaverWeather', attr: 'wxslide', fade: '--hk-wx-fade', ctl: null, load: null, showing: false, t: null, run: 0,

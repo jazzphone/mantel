@@ -115,7 +115,7 @@
       // until the clock is back over it
       ':host([ckgen][fcslide]) .fc,:host([ckgen][fcout]) .fc{display:block}',
       // ...beside the pane; and what sits along the bottom steps aside for it
-      ':host([pane]) .en,:host([pane]) .wx,:host([pane]) .hl{right:var(--hk-pane-w,' + PANE_W + 'px)}',
+      ':host([pane]) .en,:host([pane]) .wx,:host([pane]) .hkhol{right:var(--hk-pane-w,' + PANE_W + 'px)}',
       ':host([enslide]) .info > hk-screensaver-now-card,:host([enslide]) .info > hk-timer-strip-card,',
       ':host([wxslide]) .info > hk-screensaver-now-card,:host([wxslide]) .info > hk-timer-strip-card,',
       ':host([hlslide]) .info > hk-screensaver-now-card,:host([hlslide]) .info > hk-timer-strip-card{opacity:0}',
@@ -309,7 +309,7 @@
       '  box-shadow:18px 0 44px rgba(0,0,0,.42),3px 0 12px rgba(0,0,0,.26)}',
       ':host([pside]) .ph[pw] img.fg{left:var(--hk-pane-w,0px)}',
       ':host([pside]) .ph[pw] .mowrap,:host([pside]) .ph[pw] .phscrim{right:0;left:var(--hk-pane-w,0px)}',
-      ':host([pside][pane]) .ck,:host([pside][pane]) .en,:host([pside][pane]) .wx,:host([pside][pane]) .hl{right:0;left:var(--hk-pane-w,' + PANE_W + 'px)}',
+      ':host([pside][pane]) .ck,:host([pside][pane]) .en,:host([pside][pane]) .wx,:host([pside][pane]) .hkhol{right:0;left:var(--hk-pane-w,' + PANE_W + 'px)}',
       ':host([pside][pane]) .info{left:var(--hk-pane-w,' + PANE_W + 'px)}',
       ':host([pside][pane]) .fc,:host([pside][pane]) .fcb,:host([pside][pane]) .mu .mbody{right:0;left:var(--hk-pane-w,0px)}',
       // THE SIDE PANE'S OWN SECTIONS (cfg.pane_list): drawn by hk-sidepane.js
