@@ -268,13 +268,6 @@
         icon_color: 'rgba(242, 144, 105, 0.98)', bare_icon: true, well_background: 'transparent',
         label_mode: 'vacuum', view_layout: TALL });
     },
-    // A WASHER OR DRYER (phase 22, hk-laundry.js): its status sensor stands for the machine; the house glyph, still (the owner:
-    // "no animation necessary though.. as none of the other animate"); "Drying · 24 min"; a tap opens its laundry sheet
-    laundry: function (id, name, m) {
-      var L = window.hkLaundry;
-      return sized({ type: 'custom:hk-tall-card', entity: id, name: (m && m.name) || name, machine: m && m.id,
-        icon: L ? L.glyph(m && m.kind) : 'hk:washing-machine', icon_color: 'blue', label_mode: 'laundry', tap_action: { action: 'laundry', machine: m && m.id }, view_layout: TALL });
-    },
     valve: function (id, name) {
       return { type: 'custom:hk-tall-card', entity: id, name: name, icon: 'hk:spigot',
         icon_color: 'rgba(58, 134, 247, 0.98)', label_mode: 'title', view_layout: TALL };
@@ -409,26 +402,12 @@
     var A = setting('accessories'), list = A && A.rooms && A.rooms[area];
     return Array.isArray(list) ? list : null;
   }
-  // THE HOUSE'S WASHERS AND DRYERS (hk-laundry.js): each machine's own entity -- its status, else its power or running sensor --
-  // stands for it in its room. {by: {entity: machine}, area: {entity: area}}
-  function laundryOf(client) {
-    var L = window.hkLaundry, out = { by: {}, area: {} };
-    if (!L || !client || !client.states) return out;
-    try {
-      L.machines(client).forEach(function (m) {
-        var id = m.status || m.power || m.running;
-        if (id && client.states[id]) { out.by[id] = m; out.area[id] = L.areaOf(client, m); }
-      });
-    } catch (e) { /* no machines, no tiles */ }
-    return out;
-  }
   function tileFor(client, id, name) { return stateNames(tileOf(client, id, name), id); }
   function tileOf(client, id, name) {
     var d = id.split('.')[0];
     var e = (client.entities || {})[id], dv = e && e.device_id && (client.devices || {})[e.device_id];
     var a = accOf(id), show = a && a.show_as;
-    var t, lm = laundryOf(client).by[id];
-    if (lm) return TILE.laundry(id, name, lm);
+    var t, lm = window.hkLaundry && window.hkLaundry.placed(client).by[id]; if (lm) return sized(Object.assign(window.hkLaundry.tile(lm, name), { entity: id, view_layout: TALL }));
     if (show && (d === 'switch' || d === 'light' || d === 'input_boolean')) {
       // drawn as what it is shown as: a switch's tile, with that glyph and,
       // for a fan, the fans' blue
@@ -541,8 +520,7 @@
   // object by Object.assign) and rooms() only picks and orders from it. Kept
   // per BUILD, not per client: a second build always looks again.
   function byArea(client, opts) {
-    var hide = hideOf(opts), into = INTO(), build = opts && opts.__build;
-    var laundry = laundryOf(client);
+    var hide = hideOf(opts), into = INTO(), build = opts && opts.__build, laundry = window.hkLaundry ? window.hkLaundry.placed(client) : { by: {}, area: {} };   // (washers, dryers)
     var key = JSON.stringify([opts.exclude_entities || [], opts.exclude_devices || [], opts.exclude_areas || [],
                               opts.include_entities || [], into, Object.keys(laundry.by)]);
     var memo = build && build.byArea;

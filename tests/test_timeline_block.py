@@ -388,7 +388,7 @@ def test_the_block_is_wired_in_the_way_the_other_blocks_are():
     assert "hk-timeline-block.js" in hk_cards.LAZY                      # loaded when its card is asked for
     assert hk_cards.tags_of(ROOT / "web/hk/cards/hk-timeline-block.js") == ("hk-camera-today-card", "hk-timeline-block-card", "hk-timeline-strip-card")
     editor = (ROOT / "web/hk/panels/hk-grid-editor.js").read_text()
-    assert "timeline: 'Recent'" in editor and "'people', 'vacuum', 'timeline', 'everything'" in editor
+    assert "timeline: 'Recent'" in editor and "'people', 'vacuum', 'laundry', 'timeline', 'everything'" in editor
     assert "offered(k) && self.sizesOf(k)" in editor                    # the picker lists it only where the host has the page
     assert "kind === 'timeline_show'" in editor and "'Morning Summary'" in editor
     edit = (ROOT / "web/hk/modules/hk-edit-grid.js").read_text()

@@ -242,7 +242,8 @@
       var all = L && this.client ? L.machines(this.client).length : 0;
       var body;
       if (!L || !list.length) {
-        body = '<div class="col none"><div class="ti">Laundry</div><div class="sb">No washer or dryer yet. Add one in HK Settings → Accessories → Laundry.</div></div>';
+        var where = window.hkShell && window.hkShell.settingsPlace ? window.hkShell.settingsPlace('Accessories \u2192 Laundry') : 'Accessories \u2192 Laundry';
+        body = '<div class="col none"><div class="ti">Laundry</div><div class="sb">No washer or dryer yet. Add one in ' + esc(where) + '.</div></div>';
       } else if (list.length === 1 || size === 'S') {
         body = this._one(size, box, list[0]) + (size === 'S' && all > 1 ? '<div class="more">+' + (all - 1) + '</div>' : '');
       } else {

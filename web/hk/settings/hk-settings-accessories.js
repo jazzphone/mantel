@@ -99,7 +99,7 @@
         // LAUNDRY (phase 22, docs/phase22/LAUNDRY.md): the machines, found or the person's own; one machine's parts; adding one
         if (sub[0] === 'laundry') {
           var lb = ['Laundry', '#/accessories/laundry'];
-          if (sub[1] === 'add') return { title: 'Add a Machine', back: lb, scope: 'A machine with no integration of its own: what tells Mantel it is running.',
+          if (sub[1] === 'add') return { title: 'Add a Machine', back: lb, scope: 'A machine with no integration of its own: what says it is running.',
                                          body: function (c) { self.a_laundryAdd(c); } };
           if (sub[1] === 'one' && sub[2]) {
             var lm = this.laundryList().filter(function (x) { return x.id === sub[2]; })[0];
@@ -931,11 +931,11 @@
                          href: '#/accessories/laundry/one/' + encodeURIComponent(m.id), fk: 'laundry:' + m.id });
         });
         c.appendChild(this.withError(K.group({ header: saved ? 'Machines' : 'Found Machines',
-          footer: !list.length ? 'Mantel found no washer or dryer. Add one below: a machine with an integration of its own, a power sensor, or a sensor that is on while it runs.'
+          footer: !list.length ? 'No washer or dryer was found. Add one below: a machine with an integration of its own, a power sensor, or a sensor that is on while it runs.'
             : saved ? 'Your machines, as you set them.' : 'Found on their devices. Changing one keeps these as your own; Find Machines Again goes back.' }, rows), 'features.laundry'));
         c.appendChild(K.group({}, [K.nav({ label: 'Add a Machine', icon: 'mdi:plus-circle-outline', href: '#/accessories/laundry/add', fk: 'laundry:add' })]));
         if (saved) {
-          c.appendChild(K.group({ footer: 'Forget your changes and use the machines Mantel finds.' }, [K.button({ label: 'Find Machines Again', center: true, fk: 'laundry:refind', onClick: function () {
+          c.appendChild(K.group({ footer: 'Forget your changes and use the machines found on their devices.' }, [K.button({ label: 'Find Machines Again', center: true, fk: 'laundry:refind', onClick: function () {
             K.confirm(self.shadowRoot, { title: 'Find Machines Again?', ok: 'Find Again', message: 'Your names, kinds and picked sensors go.' }).then(function (yes) {
               if (yes) self.setH({ 'features.laundry': [] }).then(function () { self.soon(); });
             });

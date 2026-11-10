@@ -64,7 +64,7 @@
                 'offline', 'leak'];
   var RUNNING = ['delayed', 'washing', 'rinsing', 'spinning', 'drying', 'cooling', 'paused', 'running'];
   var ROLES = ['status', 'phase', 'time', 'progress', 'door', 'remote', 'leak', 'power', 'running'];
-  var HELD = 'sensor.laundry_done';     // Mantel Server's own: attribute `machines` {machine id: {since, words}} (absent inside HA alone)
+  var HELD = 'sensor.laundry_done';     // the house server's own: attribute `machines` {machine id: {since, words}} (absent inside HA alone)
   var OFF_WORDS = ['off', 'false', 'closed', 'disabled', '0', 'dry', ''];
   var NAMES = { off: 'Off', delayed: 'Delayed Start', washing: 'Washing', rinsing: 'Rinsing', spinning: 'Spinning', drying: 'Drying',
                 cooling: 'Cooling', wrinkle: 'Done', paused: 'Paused', running: 'Running', done: 'Done', error: 'Needs Help',
@@ -434,6 +434,24 @@
     return list.slice().sort(function (a, b) { return rank(a) - rank(b) || (a.left == null ? 1e9 : a.left) - (b.left == null ? 1e9 : b.left); })[0] || null;
   }
 
+  // THE GENERATED PAGES (hk-strategy.js): each machine's own entity -- its status, else its power or running sensor -- stands for
+  // it in its room, {by: {entity: machine}, area: {entity: area}}; its tile is a tall tile with the house glyph, still (the owner:
+  // "no animation necessary though.. as none of the other animate"), "Drying · 24 min", a tap its laundry sheet
+  function placed(client) {
+    var out = { by: {}, area: {} };
+    if (!client || !client.states) return out;
+    try {
+      machines(client).forEach(function (m) {
+        var id = m.status || m.power || m.running;
+        if (id && client.states[id]) { out.by[id] = m; out.area[id] = areaOf(client, m); }
+      });
+    } catch (e) { /* no machines, no tiles */ }
+    return out;
+  }
+  function tile(m, name) {
+    return { type: 'custom:hk-tall-card', name: (m && m.name) || name, machine: m && m.id, icon: glyph(m && m.kind), icon_color: 'blue',
+             label_mode: 'laundry', tap_action: { action: 'laundry', machine: m && m.id } };
+  }
   // THE SHEET (hk-sheet-laundry.js), from anywhere: the block, a room's tile, the chip
   function open(id, client) {
     var C = global.hkCards, D = global.hkDetail;
@@ -445,7 +463,7 @@
   global.hkLaundry = {
     STATES: STATES, RUNNING: RUNNING, ROLES: ROLES, WORDS: WORDS, STEPS: STEPS, STEP_OF: STEP_OF, NAMES: NAMES, KIND_NAMES: KIND_NAMES,
     HELD: HELD, CLEAR: 'laundry_done_clear', tidy: tidy, word: word, found: found, machines: machines, byId: byId, areaOf: areaOf, stateOf: stateOf,
-    look: look, lookAll: lookAll, open: open, first: first, rank: rank, ids: ids, controls: controls, art: art, display: display, glyph: glyph,
+    look: look, lookAll: lookAll, open: open, placed: placed, tile: tile, first: first, rank: rank, ids: ids, controls: controls, art: art, display: display, glyph: glyph,
     get CSS() { return css(); }
   };
 })(globalThis);

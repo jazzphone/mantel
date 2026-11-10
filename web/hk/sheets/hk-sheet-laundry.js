@@ -108,7 +108,10 @@
       }
       _render() {
         var self = this, L = window.hkLaundry, m = this._machine();
-        if (!L || !m) { this._root.innerHTML = '<div class="pn"><div class="none">No washer or dryer is set up. Add one in HK Settings → Accessories → Laundry.</div></div>'; this._built = false; return; }
+        if (!L || !m) {
+          var where = window.hkShell && window.hkShell.settingsPlace ? window.hkShell.settingsPlace('Accessories \u2192 Laundry') : 'Accessories \u2192 Laundry';
+          this._root.innerHTML = '<div class="pn"><div class="none">No washer or dryer is set up. Add one in ' + esc(where) + '.</div></div>'; this._built = false; return;
+        }
         var list = this._list(), o = L.look(this.client, m), ctl = L.controls(this.client, m), wide = this.hasAttribute('wide');
         if (!this._built || this._builtFor !== m.id) {
           this._built = true; this._builtFor = m.id;

@@ -2457,10 +2457,8 @@
         this._call('homeassistant', 'toggle', { entity_id: cfg.entity });
         return;
       }
-      // the Intercom Button: `#intercom` loads the sheet's code and opens it (hk-loader.js); already there, open it again
-      // a washer or dryer (phase 22): its laundry sheet, not its status sensor's
-      if (action === 'laundry') { var LA = window.hkLaundry; if (LA && LA.open(spec.machine, this.client)) return; }
-      if (action === 'intercom') { var I = window.hkIntercom; if (location.hash === '#intercom' && I && I.open) I.open({ hashed: true }); else location.hash = '#intercom'; return; }
+      // a washer's or dryer's sheet (hk-laundry.js); the Intercom Button: `#intercom` loads the sheet's code and opens it (hk-loader.js), or again
+      if (action === 'laundry' && window.hkLaundry && window.hkLaundry.open(spec.machine, this.client)) return; if (action === 'intercom') { var I = window.hkIntercom; if (location.hash === '#intercom' && I && I.open) I.open({ hashed: true }); else location.hash = '#intercom'; return; }
       if (action === 'navigate' && spec.navigation_path) {
         navigate(navPath(spec), this);
         return;
