@@ -192,4 +192,60 @@ function editorFields(tag) {
   check('a push that changes neither draws nothing more', built - b0 <= 1 && c._sigOf() === c._sigOf());
   window.hkGridCatalog = oldCat; window.hkCards.createCard = oldCreate;
 })();
+// THE CLOCK MOVES ON (2026-11-10; hk-grid-catalog.js armClock): a block with a Time of Day or a Solar Window looks
+// again at its next edge, not on a half-minute poll -- at most five minutes apart -- and redraws only when the rule shown
+// changes. The real catalog; a Los Angeles house on 2026-11-10 (sunset 4:56 PM PST, 00:56Z), its clock and timers stubbed.
+load(root + '/frontend/cards/hk-grid-catalog.js');
+(function () {
+  var Cond = customElements.get('hk-grid-conditional-card'), G = window.hkGridCatalog, L = window.hkLocale;
+  var oldCreate = window.hkCards.createCard, oldSet = setTimeout, oldClear = clearTimeout, oldNow = Date.now, oldZone = L.zone;
+  var NOW = Date.parse('2026-11-11T00:40:00Z'), timers = [];
+  var sun = { 'sun.sun': { state: 'above_horizon', attributes: { next_rising: '2026-11-11T14:39:00Z', next_setting: '2026-11-11T00:56:00Z' } } };
+  var EVENING = { kind: 'solar_window', from: { sun: 'sunset', offset: -15 }, to: { at: '22:00' } };
+  var item = function (cond) { return { id: 'b', size: 'W', card: 'clock', at: [0, 0], rules: [{ card: 'weather', when: { all: [cond] } }] }; };
+  var live = function () { return timers.filter(function (t) { return t.live; }); };
+  var fire = function (t) { t.live = false; t.fn(); };
+  window.hkCards.createCard = function () { var el = document.createElement('div'); el.setAttribute = function () {}; return el; };
+  Date.now = function () { return NOW; };
+  L.zone = function () { return 'America/Los_Angeles'; };
+  globalThis.setTimeout = function (fn, ms) { timers.push({ fn: fn, ms: ms, live: true }); return timers.length; };
+  globalThis.clearTimeout = function (id) { if (id && timers[id - 1]) timers[id - 1].live = false; };
+  try {
+    G.solar.forget();
+    var c = new Cond(), redraws = 0, shown = -1;
+    if (c._root && !c._root.replaceChildren) c._root.replaceChildren = function () {};
+    c.setConfig({ item: item(EVENING), ctx: {} });
+    c.client = { states: sun };
+    c.isConnected = true;
+    c._shown = function () { return shown; };
+    c.redraw = function () { redraws++; };
+    c._lastShown = -1;
+    timers = [];
+    c._arm();
+    check('a solar window: one timer, for its next edge (4:41 PM, a quarter second past)', live().length === 1 && live()[0].ms === 60250, live().map(function (t) { return t.ms; }));
+    NOW += 60250; shown = 0;
+    fire(live()[0]);
+    check('...at the edge it looks again and redraws for the rule now shown', redraws === 1 && c._lastShown === 0, [redraws, c._lastShown]);
+    check('...and arms the next (10 PM), five minutes at most', live().length === 1 && live()[0].ms === 300000, live().map(function (t) { return t.ms; }));
+    fire(live()[0]);
+    check('...nothing changed: no redraw', redraws === 1 && live().length === 1);
+    G.solar.forget();
+    c.client = { states: {} };
+    c._arm();
+    check('no sun.sun: no edge to know, it still looks again in five minutes', live().length === 1 && live()[0].ms === 300000);
+    c.setConfig({ item: item({ kind: 'music_playing' }), ctx: {} });
+    c._arm();
+    check('a block without a time or a solar window keeps no timer', live().length === 0);
+    NOW = Date.parse('2026-11-11T00:59:59.900Z');
+    c.setConfig({ item: item({ kind: 'time', from: '16:30', to: '17:00' }), ctx: {} });
+    c._arm();
+    check('a Time of Day too (its 5 PM a tenth of a second off), never sooner than a second', live().length === 1 && live()[0].ms === 1000, live().map(function (t) { return t.ms; }));
+    c.isConnected = false;
+    c._arm();
+    check('...and none once it leaves the page', live().length === 0);
+  } finally {
+    globalThis.setTimeout = oldSet; globalThis.clearTimeout = oldClear; Date.now = oldNow; L.zone = oldZone;
+    window.hkCards.createCard = oldCreate; G.solar.forget();
+  }
+})();
 print(fail ? 'FAIL ' + fail + ' LAYOUT TESTS' : 'ALL ' + pass + ' LAYOUT TESTS PASS');

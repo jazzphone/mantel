@@ -547,6 +547,30 @@ async def test_a_home_grid_that_does_not_check_is_refused_with_why(mantel):
     assert err and "grid_size" in json.dumps(got)
 
 
+async def test_a_solar_window_rule_through_the_mcp(mantel):
+    """Show When's Solar Window (2026-11-10): grid_cards says its shape, grid_set plans and saves it as given, and a
+    window that can't be one is refused with grid_condition."""
+    token, _ = await setup(mantel)
+    rpc = Rpc(mantel, token)
+    cards, err = await rpc.tool("grid_cards")
+    assert not err and "solar_window" in cards["rules"]["conditions"] and cards["rules"]["first_match_wins"] is True
+    evening = {"kind": "solar_window", "from": {"sun": "sunset", "offset": -15}, "to": {"at": "22:00"}}
+    morning = {"kind": "solar_window", "from": {"sun": "sunrise", "offset": -60}, "to": {"sun": "sunrise", "offset": 30}}
+    clock = {"id": "clock", "card": "clock", "size": "S", "at": [2, 0],
+             "rules": [{"when": {"all": [evening]}, "card": "accessory", "opts": {"entity": "light.den_lamp"}},
+                       {"when": {"all": [morning]}, "card": "accessory", "opts": {"entity": "light.den_lamp"}}]}
+    grid = {**GRID, "items": [GRID["items"][0], clock]}
+    plan, err = await rpc.tool("grid_set", screen="dashboard-kitchen", home_grid=grid)
+    assert not err, plan
+    done, err = await rpc.tool("grid_set", screen="dashboard-kitchen", home_grid=grid, dry_run=False, plan=plan["plan"])
+    assert not err, done
+    saved = mantel.app["settings"].store.body("board", "dashboard-kitchen")["home_grid"]["items"][1]["rules"]
+    assert [r["when"] for r in saved] == [{"all": [evening]}, {"all": [morning]}]
+    bad = {**clock, "rules": [{"when": {"all": [{**evening, "from": {"sun": "sunset", "offset": 900}}]}, "card": "clock"}]}
+    got, err = await rpc.tool("grid_set", screen="dashboard-kitchen", home_grid={**GRID, "items": [GRID["items"][0], bad]})
+    assert err and "grid_condition" in json.dumps(got)
+
+
 async def test_placing_and_removing_one_block(mantel):
     token, _ = await setup(mantel)
     rpc = Rpc(mantel, token)

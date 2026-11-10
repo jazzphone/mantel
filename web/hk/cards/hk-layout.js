@@ -1597,8 +1597,9 @@
   // by default, and the card of the first rule whose conditions all hold --
   // music playing, a time window and the alarm still armed, a doorbell ...
   // It owns ONE mounted child; switching never changes its cell. A rule with
-  // a time window looks again every half minute; a doorbell ring counts for
-  // a minute. `force` (the editor's Preview): -1 the default, else a rule.
+  // a time or solar window looks again at its next edge (hk-grid-catalog.js
+  // armClock); a doorbell ring counts for a minute. `force` (the editor's
+  // Preview): -1 the default, else a rule.
   var cfgIds = new WeakMap(), cfgCount = 0;
   // A BLOCK'S TILE STYLE (2026-10-30): Centred, set on the block's card by
   // the grid, handed on to the card it holds (as `size` is)
@@ -1639,6 +1640,8 @@
       var cfg = this._config, shown = this._shown(), r = this._rules(), item = cfg.item;
       // the same card while neither the choice nor the saved block changed
       var key = JSON.stringify([shown, item, cfg.ctx]);
+      // (a new config -- the editor's -- may have new edges)
+      if (this._armedFor !== cfg) { this._armedFor = cfg; this._lastShown = shown; this._arm(); }
       if (this._child && this._childKey === key) return;
       this._childKey = key;
       var chosen = shown >= 0 && r.rules[shown] ? Object.assign({ size: item.size }, r.rules[shown]) : Object.assign({}, r.base);
@@ -1658,7 +1661,6 @@
     }
     connectedCallback() {
       super.connectedCallback();
-      var self = this;
       if (!this._onRing) this._onRing = (e) => {
         var event = e && e.detail;
         if (!event || event.type !== 'notification' || event.kind !== 'doorbell') return;
@@ -1667,15 +1669,12 @@
         this._ringTimer = setTimeout(() => { this._ringing = false; this.redraw(); }, 60000);
       };
       window.addEventListener('hk-house-event', this._onRing);
-      // the clock moves on: a time window looks again every half minute
-      clearInterval(this._tick);
-      if (this._conds().some(function (c) { return c.kind === 'time'; })) {
-        this._tick = setInterval(function () { if (self._shown() !== self._lastShown) { self._lastShown = self._shown(); self.redraw(); } }, 30000);
-      }
       this._lastShown = this._config ? this._shown() : null;
+      this._arm();
     }
+    _arm() { var G = window.hkGridCatalog; if (G && G.armClock) G.armClock(this); }
     disconnectedCallback() {
-      window.removeEventListener('hk-house-event', this._onRing); clearTimeout(this._ringTimer); clearInterval(this._tick);
+      window.removeEventListener('hk-house-event', this._onRing); clearTimeout(this._ringTimer); clearTimeout(this._tick); this._tick = null;
       this._ringing = false; super.disconnectedCallback();
     }
   }

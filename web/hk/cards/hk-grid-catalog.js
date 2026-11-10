@@ -313,21 +313,217 @@
     return (t && t.room) || null;
   }
 
-  var CONDITIONS = ['music_playing', 'timer_running', 'alarm_armed', 'alarm_disarmed', 'doorbell', 'after_sunset', 'entity_state', 'time'];
+  var CONDITIONS = ['music_playing', 'timer_running', 'alarm_armed', 'alarm_disarmed', 'doorbell', 'after_sunset', 'entity_state', 'time', 'solar_window'];
   function hhmm(t) { var m = /^(\d{2}):(\d{2})$/.exec(String(t || '')); return m ? (+m[1]) * 60 + (+m[2]) : null; }
+  function houseZone() {
+    try { var L = window.hkLocale; return (L && L.zone ? L.zone() : undefined) || undefined; } catch (e) { return undefined; }
+  }
   // the time of day in the house's zone, in minutes
   function houseNow(date) {
     var d = date || new Date();
     try {
-      var L = window.hkLocale, z = L && L.zone ? L.zone() : null;
+      var z = houseZone();
       var s = d.toLocaleTimeString('en-GB', Object.assign({ hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }, z ? { timeZone: z } : {}));
       var m = hhmm(s.slice(0, 5));
       if (m !== null) return m;
     } catch (e) { /* no Intl */ }
     return d.getHours() * 60 + d.getMinutes();
   }
+
+  // ------------------------------------------------------------ SOLAR WINDOW
+  // SOLAR WINDOW (2026-11-10, the owner: the outdoor lights' controls "from 15 minutes before sunset until 10 PM", and
+  // "from 60 minutes before sunrise until 30 minutes after sunrise"): from one endpoint until the next time the other
+  // comes round. An endpoint is a clock time in the house's zone ({at: 'HH:MM'}) or sunrise / sunset with a signed
+  // offset in minutes ({sun: 'sunset', offset: -15}); home_grid.py solar_endpoint() is the saved shape. Worked in
+  // instants, not minutes of the day, so a day of 23 or 25 hours and a window past midnight come out right.
+  //   The sun: Home Assistant's own sun.sun -- next_rising and next_setting -- and nothing else. Each is the NEXT one,
+  // so once today's sunset has passed, next_setting is tomorrow's. A day's event is the one the page saw for that day
+  // (each value it has read is kept, SUN_SEEN), else the nearest it has read moved by whole days (a minute or two
+  // off, as hk-saverpieces-weather.js sunDay reads today's sunrise). No sun.sun, an unreadable time, or one more than
+  // two days away (a polar summer): the window cannot be judged and the condition does not hold, so the block falls
+  // through to its next rule or its default.
+  var DAY_MS = 86400000, SUN_ATTR = { sunrise: 'next_rising', sunset: 'next_setting' }, SUN_OFFSET_MAX = 360;
+  var SUN_SEEN = { sunrise: [], sunset: [] };
+  var zoneFmt = {}, wallMemo = new Map();
+  // the wall clock in `zone` at instant `ms`: [year, month (1-12), day, hour, minute]. Kept by the minute: a block's
+  // rules are judged on every push of the house, and the same few dozen minutes come up each time
+  function wall(ms, zone) {
+    var memo = (zone || '') + '|' + Math.floor(ms / 60000), got = wallMemo.get(memo);
+    if (got) return got;
+    if (wallMemo.size > 2000) wallMemo.clear();
+    got = wallNow(ms, zone);
+    wallMemo.set(memo, got);
+    return got;
+  }
+  function wallNow(ms, zone) {
+    var key = zone || '';
+    try {
+      /** @type {Intl.DateTimeFormatOptions} */
+      var o = { year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', hourCycle: 'h23', timeZone: zone || undefined };
+      var f = zoneFmt[key] || (zoneFmt[key] = new Intl.DateTimeFormat('en-US', o));
+      var p = {};
+      f.formatToParts(new Date(ms)).forEach(function (x) { p[x.type] = +x.value; });
+      if (isFinite(p.year) && isFinite(p.day)) return [p.year, p.month, p.day, p.hour % 24, p.minute];
+    } catch (e) { /* no Intl: the browser's own zone */ }
+    var d = new Date(ms);
+    return [d.getFullYear(), d.getMonth() + 1, d.getDate(), d.getHours(), d.getMinutes()];
+  }
+  // the zone's offset from UTC at `ms`, in ms (whole minutes)
+  function zoneOffset(ms, zone) {
+    var w = wall(ms, zone);
+    return Date.UTC(w[0], w[1] - 1, w[2], w[3], w[4]) - Math.floor(ms / 60000) * 60000;
+  }
+  // a day number (days since 1970-01-01) for a calendar date, and back
+  function dayNo(y, m, d) { return Math.round(Date.UTC(y, m - 1, d) / DAY_MS); }
+  function dayOf(ms, zone) { var w = wall(ms, zone); return dayNo(w[0], w[1], w[2]); }
+  // THE INSTANT a wall-clock minute `min` of day `day` happens in `zone`. In a spring-forward gap (02:30 that never
+  // comes) the minute as many minutes after the change; in a fall-back hour (01:30 twice) the first of the two.
+  function atWall(day, min, zone) {
+    var g = day * DAY_MS + min * 60000, before = zoneOffset(g - DAY_MS, zone), after = zoneOffset(g + DAY_MS, zone);
+    var a = g - before, b = g - after;
+    var aOk = zoneOffset(a, zone) === before, bOk = zoneOffset(b, zone) === after;
+    if (aOk && bOk) return Math.min(a, b);
+    if (aOk) return a;
+    if (bOk) return b;
+    return g - before;                                               // (in the gap)
+  }
+  // the sun entity: sun.sun, else any sun.*
+  function sunState(states) {
+    var st = states || {};
+    if (st['sun.sun']) return st['sun.sun'];
+    var k = Object.keys(st).filter(function (id) { return id.indexOf('sun.') === 0; })[0];
+    return k ? st[k] : null;
+  }
+  // Home Assistant's next sunrise or sunset as an instant, kept in SUN_SEEN; null without one
+  function sunNext(states, ev, now) {
+    var s = sunState(states), a = s && s.attributes, t = a ? Date.parse(a[SUN_ATTR[ev]]) : NaN;
+    if (!s || s.state === 'unavailable' || s.state === 'unknown' || !isFinite(t) || Math.abs(t - now) > 2 * DAY_MS) return null;
+    var seen = SUN_SEEN[ev];
+    if (seen.indexOf(t) < 0) {
+      seen.push(t);
+      // (only the last few days': a day's event is the latest value read for it)
+      SUN_SEEN[ev] = seen.filter(function (x) { return Math.abs(x - now) <= 4 * DAY_MS; }).slice(-8);
+    }
+    return t;
+  }
+  // the sunrise or sunset of day `day`: the one read for that day, else the nearest read moved by whole days
+  function sunOn(ev, day, next, zone) {
+    var all = SUN_SEEN[ev].concat([next]), best = next, bestGap = Infinity;
+    for (var i = 0; i < all.length; i++) {
+      var gap = Math.abs(dayOf(all[i], zone) - day);
+      if (gap <= bestGap) { best = all[i]; bestGap = gap; }          // (the later read, of two for one day)
+    }
+    return best + (day - dayOf(best, zone)) * DAY_MS;
+  }
+  // one endpoint on day `day`, as an instant; null when it needs the sun and there is none
+  function endpointOn(p, day, sun, zone) {
+    if (p && typeof p.at === 'string') { var m = hhmm(p.at); return m === null ? null : atWall(day, m, zone); }
+    if (!p || !SUN_ATTR[p.sun] || sun[p.sun] == null) return null;
+    var off = Number(p.offset || 0), base = sunOn(p.sun, day, sun[p.sun], zone);
+    if (!isFinite(off) || Math.abs(off) > SUN_OFFSET_MAX || base === null) return null;
+    return base + Math.round(off) * 60000;
+  }
+  function sameEnd(a, b) { return !!a && !!b && a.at === b.at && a.sun === b.sun && (a.offset || 0) === (b.offset || 0); }
+  // THE WINDOWS around `now`: each opens at `from` on a day and closes at the first `to` after it. Answers { on, next,
+  // spans } -- on: true / false, or null when it can't be judged; next: the soonest instant after now it opens or
+  // closes (for the conditional block's timer); spans: [[open, close], ...] (the editor's "Today" line)
+  function solarSpans(c, states, now) {
+    var t = now == null ? Date.now() : +now, zone = houseZone(), sun = {};
+    if (!c || !c.from || !c.to || sameEnd(c.from, c.to)) return { on: null, next: null, spans: [] };
+    var needs = [c.from.sun, c.to.sun].filter(Boolean);
+    for (var i = 0; i < needs.length; i++) {
+      if (!SUN_ATTR[needs[i]]) return { on: null, next: null, spans: [] };
+      sun[needs[i]] = sunNext(states, needs[i], t);
+      if (sun[needs[i]] == null) return { on: null, next: null, spans: [] };
+    }
+    var today = dayOf(t, zone), spans = [], on = false, next = null;
+    for (var d = today - 2; d <= today + 2; d++) {
+      var open = endpointOn(c.from, d, sun, zone), close = null;
+      if (open === null) return { on: null, next: null, spans: [] };
+      for (var e = d - 1; e <= d + 2; e++) {
+        var x = endpointOn(c.to, e, sun, zone);
+        if (x !== null && x > open && (close === null || x < close)) close = x;
+      }
+      if (close === null) return { on: null, next: null, spans: [] };
+      spans.push([open, close]);
+      if (open <= t && t < close) on = true;
+      [open, close].forEach(function (b) { if (b > t && (next === null || b < next)) next = b; });
+    }
+    return { on: on, next: next, spans: spans };
+  }
+  // A TIME OF DAY's next turn (the conditional block's timer): the next `from` or `to` after now
+  function timeNext(c, now) {
+    var a = hhmm(c.from), b = hhmm(c.to), zone = houseZone(), today = dayOf(now, zone), next = null;
+    if (a === null || b === null) return null;
+    for (var d = today; d <= today + 1; d++) [a, b].forEach(function (m) { var x = atWall(d, m, zone); if (x > now && (next === null || x < next)) next = x; });
+    return next;
+  }
+  // WHEN A BLOCK'S RULES MAY NEXT CHANGE BY THE CLOCK ALONE: the soonest edge of any Time of Day or Solar Window in
+  // them, after `now` (ms); null when none has one. (A push of the house redraws by itself: the sun, the alarm...)
+  function nextChange(item, states, now) {
+    var t = now == null ? Date.now() : +now, next = null;
+    rulesOf(item).rules.forEach(function (r) {
+      var w = r && r.when || {};
+      (Array.isArray(w.all) ? w.all : [w]).forEach(function (c) {
+        var x = c && c.kind === 'time' ? timeNext(c, t) : c && c.kind === 'solar_window' ? solarSpans(c, states, t).next : null;
+        if (x !== null && x > t && (next === null || x < next)) next = x;
+      });
+    });
+    return next;
+  }
+
+  // A NEW SOLAR WINDOW (the editor's): the evening's outdoor lights, from 15 minutes before sunset until 10 PM
+  function solarFresh() { return { from: { sun: 'sunset', offset: -15 }, to: { at: '22:00' } }; }
+  // A SOLAR WINDOW'S ROWS in Show When (hk-grid-editor.js conditionRows; here, beside what judges it): From and Until,
+  // each A Time or Sunrise / Sunset and its Offset in minutes (minus is before), then when the screen would have it open
+  // now or next -- or that it can't tell without sun.sun. `K` the settings kit; `put(condition)`; `refuse()` puts back a
+  // field whose entry isn't taken.
+  function solarRows(K, c, rows, put, states, refuse) {
+    var setEnd = function (key, end) { var out = JSON.parse(JSON.stringify(c)); out[key] = end; put(out); };
+    [['from', 'From', '18:00'], ['to', 'Until', '22:00']].forEach(function (e) {
+      var key = e[0], p = c[key] || { at: e[2] }, kind = p.sun || 'at';
+      rows.push(K.select({ label: e[1], value: kind, options: [['at', 'A Time'], ['sunrise', 'Sunrise'], ['sunset', 'Sunset']],
+        onChange: function (v) { setEnd(key, v === 'at' ? { at: p.at || e[2] } : { sun: v, offset: p.sun ? p.offset || 0 : 0 }); } }));
+      if (kind === 'at') rows.push(K.text({ label: 'Time', type: 'time', value: p.at, onCommit: function (v) { if (hhmm(v) !== null) setEnd(key, { at: v }); else refuse(); } }));
+      else rows.push(K.text({ label: 'Offset', type: 'number', inputmode: 'numeric', unit: 'min', value: p.offset || 0,
+        sub: 'Minutes before (\u2212) or after ' + kind + ', up to ' + SUN_OFFSET_MAX / 60 + ' hours',
+        onCommit: function (v) {
+          var m = /^\s*([-+\u2212]?)\s*(\d{1,3})\s*$/.exec(String(v)), n = m ? (m[1] && m[1] !== '+' ? -1 : 1) * Number(m[2]) : NaN;
+          if (isFinite(n) && Math.abs(n) <= SUN_OFFSET_MAX) setEnd(key, { sun: kind, offset: n }); else refuse();
+        } }));
+    });
+    var now = Date.now(), got = solarSpans(c, states, now), zone = houseZone(), L = window.hkLocale;
+    var hm = function (t) { try { return L.time(t, { hour: 'numeric', minute: '2-digit' }); } catch (e) { return new Date(t).toLocaleTimeString(); } };
+    var tomorrow = function (t) { return dayOf(t, zone) > dayOf(now, zone) ? 'Tomorrow ' : ''; };
+    var span = got.spans.filter(function (x) { return x[1] > now; }).sort(function (a, b) { return a[0] - b[0]; })[0];
+    if (got.on === null || !span) rows.push(K.info({ label: 'Can\u2019t Tell Now', sub: 'Needs Home Assistant\u2019s sun (sun.sun). Until it reads, this rule doesn\u2019t hold.' }));
+    else rows.push(got.on ? K.info({ label: 'Open Now', value: 'Until ' + tomorrow(span[1]) + hm(span[1]) })
+      : K.info({ label: 'Opens Next', value: tomorrow(span[0]) + hm(span[0]) + ' \u2013 ' + hm(span[1]) }));
+  }
+
+  // THE CLOCK MOVES ON (2026-11-10; hk-layout.js hk-grid-conditional-card): a block with a Time of Day or a Solar
+  // Window looks again at its next edge -- the moment one opens or closes (nextChange) -- not on a poll, and at least
+  // every five minutes, so a tablet that slept, a clock set right or a sun.sun that moved catches up; it redraws only
+  // when the rule shown changes. (A push of the house redraws by itself.) The card keeps its timer in `_tick`.
+  var CLOCK_KINDS = { time: 1, solar_window: 1 }, CLOCK_MAX = 300000;
+  function armClock(card) {
+    clearTimeout(card._tick); card._tick = null;
+    var cfg = card._config, item = cfg && cfg.item, timed = false;
+    rulesOf(item).rules.forEach(function (r) { var w = r && r.when || {}; (Array.isArray(w.all) ? w.all : [w]).forEach(function (c) { if (c && CLOCK_KINDS[c.kind]) timed = true; }); });
+    if (!card.isConnected || !timed) return;
+    var now = Date.now(), next = null;
+    try { next = nextChange(item, card.client && card.client.states, now); } catch (e) { next = null; }
+    card._tick = setTimeout(function () {
+      card._tick = null;
+      var shown = card._shown();
+      if (shown !== card._lastShown) { card._lastShown = shown; card.redraw(); }
+      armClock(card);
+    }, Math.max(1000, Math.min(next === null ? CLOCK_MAX : next - now + 250, CLOCK_MAX)));
+  }
+
   // ONE CONDITION, or a rule's {all: [...]} (each must hold). `now`: minutes
-  // into the house's day (a test's), else the clock's. `speakers`: the house's
+  // into the house's day (a test's; a Time of Day's alone), a Date (every
+  // condition's), else the clock's. `speakers`: the house's
   // music speakers (ctx.speakers' entities): Music Is Playing with no speaker
   // chosen is any of THEM playing (2026-11-01, the owner: "whenever any music is
   // playing from any HomePod") -- not a TV or a receiver, which play for hours
@@ -335,10 +531,12 @@
     if (when && Array.isArray(when.all)) return when.all.length > 0 && when.all.every(function (c) { return matches(c, states, ringing, alarm, now, speakers); });
     var c = when || {}, st = states || {}, ids = c.entity ? [c.entity] : Object.keys(st);
     if (c.kind === 'time') {
-      var a = hhmm(c.from), b = hhmm(c.to), t = now == null ? houseNow() : now;
+      var a = hhmm(c.from), b = hhmm(c.to), t = now == null ? houseNow() : now instanceof Date ? houseNow(now) : now;
       if (a === null || b === null || a === b) return false;
       return a < b ? t >= a && t < b : t >= a || t < b;
     }
+    // (can't be judged -- no sun -- is false: the next rule, or the default)
+    if (c.kind === 'solar_window') return solarSpans(c, st, now instanceof Date ? now.getTime() : null).on === true;
     if (c.kind === 'alarm_disarmed') return (c.entity ? ids : alarm ? [alarm] : ids).some(function (id) { return id.split('.')[0] === 'alarm_control_panel' && st[id] && st[id].state === 'disarmed'; });
     var any = function (domain, test) { return ids.some(function (id) { return id.split('.')[0] === domain && st[id] && test(st[id].state); }); };
     if (c.kind === 'entity_state') return !!st[c.entity] && st[c.entity].state === c.state;
@@ -533,6 +731,8 @@
                            PAGES_MAX: PAGES_MAX, PER_PAGE: PER_PAGE, perPage: perPage, CLOCK_FACES: CLOCK_FACES, THERMOSTAT_STYLES: THERMOSTAT_STYLES, TAP_TARGETS: TAP_TARGETS, MUSIC_TAPS: MUSIC_TAPS,
                            SHEET: SHEET, sheetOf: sheetOf, entryId: entryId, copySheet: copySheet, sheetRoute: sheetRoute, NAMES: NAMES,
                            sheetSlot: sheetSlot, sheetCss: sheetCss, placed: placed,
-                           CONDITIONS: CONDITIONS, hostHas: hostHas, matches: matches, rulesOf: rulesOf, choose: choose, houseNow: houseNow, config: config, pages: pages, tabletRoom: tabletRoom, table: table };
+                           CONDITIONS: CONDITIONS, hostHas: hostHas, matches: matches, rulesOf: rulesOf, choose: choose, houseNow: houseNow,
+                           nextChange: nextChange, armClock: armClock, solar: { spans: solarSpans, rows: solarRows, fresh: solarFresh, atWall: atWall, dayOf: dayOf, OFFSET_MAX: SUN_OFFSET_MAX,
+                             forget: function () { SUN_SEEN.sunrise = []; SUN_SEEN.sunset = []; } }, config: config, pages: pages, tabletRoom: tabletRoom, table: table };
   try { window.dispatchEvent(new CustomEvent('hk-grid-catalog-ready')); } catch (e) { /* a test page without events */ }
 })();
