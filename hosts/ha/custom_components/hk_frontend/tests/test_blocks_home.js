@@ -167,7 +167,8 @@ function () {
   ok('Extra Large (mockup 13): Home on the left, one person large with their name; Away on the right, 56 px rows with where and since',
      /<b class="lab">Home<\/b>/.test(xl) && /<b class="lab">Away<\/b>/.test(xl) && !/Who’s Home/.test(xl) && (xl.match(/class="xf"/g) || []).length === 2 &&
      (xl.match(/class="xw"/g) || []).length === 1 && /<b>Robin<\/b><span>Work<\/span>/.test(xl));
-  var xs = (function () { var c = H.make('hk-people-card'); c._clientExplicit = true; c._hkClient = { states: { 'person.a': { state: 'home', last_changed: '2026-11-09T09:02:00', attributes: { friendly_name: 'Sam' } }, 'person.b': { state: 'Work', last_changed: '2026-11-09T08:00:00', attributes: { friendly_name: 'Robin' } } } }; return c._xl(['person.a', 'person.b']); })();
+  // (since a minute ago, today: a fixed day reads as its weekday once that day is past -- this failed on 2026-11-10)
+  var since = new Date(Date.now() - 60000).toISOString(), xs = (function () { var c = H.make('hk-people-card'); c._clientExplicit = true; c._hkClient = { states: { 'person.a': { state: 'home', last_changed: since, attributes: { friendly_name: 'Sam' } }, 'person.b': { state: 'Work', last_changed: since, attributes: { friendly_name: 'Robin' } } } }; return c._xl(['person.a', 'person.b']); })();
   ok('...one at home: "Home since" under the name; away: "Since" at the row\'s right', /class="xf x1"/.test(xs) && />Home since \d/.test(xs) && /class="sn">Since \d/.test(xs), xs);
   ok('...each face and row opens its person', (xl.match(/<button class="x[fw][ "][^>]*data-id="person\./g) || []).length === 3);
   ok('...nobody home says so, and who left last', /<b>Nobody Home<\/b><span>\w+ left /.test((function () { var c = H.make('hk-people-card'); c._clientExplicit = true; c._hkClient = { states: { 'person.a': { state: 'not_home', last_changed: '2026-11-09T09:02:00', attributes: { friendly_name: 'Alex Park' } } } }; return c._xl(['person.a']); })()));

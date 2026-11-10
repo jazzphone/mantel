@@ -2139,7 +2139,8 @@
         '.pl::before{content:"";position:absolute;inset:2px;border-radius:50%;background:' + window.hkCards.ACCENTS.orange + '}.pl hk-icon{position:relative;width:28px;height:28px;--mdc-icon-size:28px;color:#fff}.pl:active::before{transform:scale(0.95)}',
         '.pl:focus-visible{outline:2px solid ' + window.hkCards.v('ink-2') + ';outline-offset:-2px;border-radius:50%}',
         // (Small's ring from the left inset to the +'s disc, 60 px in, under the name, never under 84 -- the owner, 2026-11-09: "treat the right edge of the timer where the left edge of the + button is")
-        ':host([size=S]) hk-plate.strip{--ring:max(84px,min(calc(100cqw - var(--hk-pad-l,14px) - 60px),calc(100cqh - var(--hk-pad-t,14px) - var(--hk-pad-b,14px) - 30px)))}:host([size=S]) .gt{justify-content:flex-end;justify-self:start;width:var(--ring)}:host([size=W]) .mf{position:absolute;right:var(--hk-pad-r,14px);bottom:var(--hk-pad-b,14px)}',
+        // (...only while a timer runs: with none, "Start a Timer" and its + sit in the middle of the block -- the owner, 2026-11-10)
+        ':host([size=S]) hk-plate.strip{--ring:max(84px,min(calc(100cqw - var(--hk-pad-l,14px) - 60px),calc(100cqh - var(--hk-pad-t,14px) - var(--hk-pad-b,14px) - 30px)))}:host([size=S]) .gt:not(.idle){justify-content:flex-end;justify-self:start;width:var(--ring)}:host([size=W]) .mf{position:absolute;right:var(--hk-pad-r,14px);bottom:var(--hk-pad-b,14px)}',
         '.mf{flex:none;' + window.hkCards.typeCss('caption') + ';color:' + window.hkCards.v('ink-2') + ';text-shadow:' + window.hkCards.v('glow') + '}',
         // NONE RUNNING (2026-11-08, the owner: "the card when no timer is displayed is not good looking at all"): the running timer's own
         // column -- the orange name, a line in the time's light type in place of the time ("Start a timer"), and in place of the ring and
