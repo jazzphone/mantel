@@ -60,6 +60,7 @@ load(HK_ROOT + '/frontend/cards/hk-cameras.js');
 load(HK_ROOT + '/frontend/cards/hk-intercom.js');
 load(HK_ROOT + '/frontend/cards/hk-house-status.js');
 load(HK_ROOT + '/frontend/cards/hk-alert.js');
+load(HK_ROOT + '/frontend/cards/hk-laundry-card.js');
 load(HK_ROOT + '/frontend/modules/hk-sidepane.js');
 load(HK_ROOT + '/frontend/cards/hk-calendar.js');
 load(HK_ROOT + '/frontend/cards/hk-layout.js');      // hk-key-card: the stand-in of a block this host doesn't have (Recent)
@@ -114,6 +115,8 @@ var house = H.house({
   'cover.garage_door': ['closed', { friendly_name: 'Garage Door', device_class: 'garage' }],
   'binary_sensor.sink_leak': ['off', { friendly_name: 'Sink Leak', device_class: 'moisture' }],
   'vacuum.downstairs': ['docked', { friendly_name: 'Downstairs', battery_level: 92 }],
+  'sensor.washer_machine_state': ['run', { friendly_name: 'Washer Machine State', device_class: 'enum', options: ['pause', 'run', 'stop'] }],
+  'sensor.washer_job_state': ['wash', { friendly_name: 'Washer Job State', device_class: 'enum', options: ['wash', 'rinse', 'spin', 'drying', 'finish', 'none'] }],
   'person.sam': ['home', { friendly_name: 'Sam' }],
   'person.alex': ['not_home', { friendly_name: 'Alex' }],
   'media_player.kitchen_speaker': ['playing', { friendly_name: 'Kitchen Speaker', media_title: 'Song', media_artist: 'Band', volume_level: 0.4 }],
@@ -132,7 +135,8 @@ function hass() {
   h.areas = { kitchen: { area_id: 'kitchen', name: 'Kitchen' }, den: { area_id: 'den', name: 'Den' } };
   h.floors = {};
   var reg = function (a) { return { area_id: a }; };
-  h.entities = { 'light.kitchen_pendants': reg('kitchen'), 'light.den_lamp': reg('den'), 'media_player.kitchen_speaker': reg('kitchen') };
+  h.entities = { 'light.kitchen_pendants': reg('kitchen'), 'light.den_lamp': reg('den'), 'media_player.kitchen_speaker': reg('kitchen'),
+                 'sensor.washer_machine_state': { area_id: 'kitchen', device_id: 'w1' }, 'sensor.washer_job_state': { area_id: 'kitchen', device_id: 'w1' } };
   h.devices = {};
   return h;
 }
@@ -282,6 +286,8 @@ function () {
   // (the Alert: its plate opens the door's sheet; Small, one button, does the door's own tap -- a door is never one tap: its sheet)
   eq('the Alert opens its accessory\'s sheet', where('alert', 'L'), [['moreInfo', 'cover.garage_door']]);
   eq('...Small does the action: a door\'s is its sheet', where('alert', 'S'), [['moreInfo', 'cover.garage_door']]);
+  // (Laundry: its plate opens the laundry sheet, hk-sheet-laundry.js, through hkDetail -- not the status sensor's own)
+  eq('Laundry opens its sheet', where('laundry', 'L'), [['detail', null]]);
   eq('Everything opens More', where('everything', 'L'), [['more', 'more']]);
   eq('the Security block opens the alarm\'s sheet', where('security', 'W'), [['moreInfo', 'alarm_control_panel.house']]);
   eq('the room opens its page', where('room', 'L'), [['navigate', '/hk-kitchen/room-kitchen']]);

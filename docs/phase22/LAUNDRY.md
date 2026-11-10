@@ -1,6 +1,6 @@
 # Phase 22: Laundry (plan, 2026-11-10)
 
-**Status: planned and being built in one session.** The owner approved the mockup and the plan's direction on 2026-11-10.
+**Status: built on 2026-11-10, every step on `main`; not yet on the house.** The owner approved the mockup and the plan's direction the same day. Read against the owner's Samsung washer-dryer through the twin (tools/headless/house_twin.py: found by itself, drying, the right steps and times); every other brand only against the integrations' source and invented states (tests/test_laundry.py, tools/headless/laundry_check.py). Done held by the server is tested against fakes, never yet on a real cycle.
 
 - **Mockup:** [mockup/laundry.html](mockup/laundry.html). Open the file: it stands alone, with made-up numbers, and touches nothing in the house. Two of its parts were changed by the owner afterwards (see "The owner's changes to the mockup").
 - **Line numbers** are left out on purpose, because `main` moves. Search for the names.

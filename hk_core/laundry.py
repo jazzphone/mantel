@@ -187,7 +187,7 @@ def _num(v: Any) -> float | None:
 
 def is_on(st: Mapping[str, Any] | None) -> bool:
     """A binary-ish reading that says yes: on, open, wet, true, enabled."""
-    return bool(st) and tidy(st.get("s")) not in OFF_WORDS + ("unknown", "unavailable")
+    return st is not None and tidy(st.get("s")) not in OFF_WORDS + ("unknown", "unavailable")
 
 
 def state_of(m: Mapping[str, Any], states: Mapping[str, Any]) -> str:

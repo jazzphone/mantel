@@ -212,6 +212,13 @@ ENERGY_PREFS = {"energy_sources": [
     {"type": "solar", "stat_energy_from": "sensor.solar_energy"},
     {"type": "battery", "stat_energy_to": "sensor.battery_energy_in", "stat_energy_from": "sensor.battery_energy_out"},
     {"type": "water", "stat_energy_from": "sensor.water_meter"}], "device_consumption": []}
+# THE LAUNDRY (phase 22): a washer-dryer drying, found by itself (hk-laundry.js; the gallery's registry has rooms, not devices)
+EXTRA["sensor.washer_machine_state"] = ("garage", ("run", {"friendly_name": "Washer Machine State", "device_class": "enum", "options": ["pause", "run", "stop"]}))
+EXTRA["sensor.washer_job_state"] = ("garage", ("drying", {"friendly_name": "Washer Job State", "device_class": "enum",
+                                                           "options": ["wash", "rinse", "spin", "drying", "cooling", "finish", "none", "wrinkle_prevent"]}))
+EXTRA["sensor.washer_completion_time"] = ("garage", (time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(gallery.NOW + 24 * 60 + 20)),
+                                                     {"friendly_name": "Washer Completion Time", "device_class": "timestamp"}))
+EXTRA["sensor.washer_progress"] = ("garage", ("74", {"friendly_name": "Washer Progress", "unit_of_measurement": "%"}))
 EXTRA["sensor.water_meter"] = (None, ("48211", {"friendly_name": "Water Meter", "unit_of_measurement": "gal", "device_class": "water",
                                                 "state_class": "total_increasing"}))
 
