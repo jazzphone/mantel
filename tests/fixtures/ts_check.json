@@ -7,6 +7,7 @@
   "web/client/hk-card-state.js",
   "web/client/hk-client.js",
   "web/client/hk-host-shell.js",
+  "web/hk/cards/hk-alert.js",
   "web/hk/cards/hk-grid-cards.js",
   "web/hk/cards/hk-grid-catalog.js",
   "web/hk/cards/hk-house-status.js",

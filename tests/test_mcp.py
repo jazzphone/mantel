@@ -571,6 +571,31 @@ async def test_a_solar_window_rule_through_the_mcp(mantel):
     assert err and "grid_condition" in json.dumps(got)
 
 
+async def test_alerts_as_show_when_rules_through_the_mcp(mantel):
+    """The Alert card (docs/phase11/ALERT.md): grid_cards describes it with an example, grid_set plans and saves a block's two
+    alerts in their order behind its own card, and an option an alert doesn't take is refused with grid_option."""
+    token, _ = await setup(mantel)
+    rpc = Rpc(mantel, token)
+    cards, err = await rpc.tool("grid_cards")
+    assert not err and cards["cards"]["alert"]["sizes"] == ["S", "W", "T", "L", "XL"] and cards["alert"]["example"]["card"] == "alert"
+    garage = {"when": {"all": [{"kind": "entity_state", "entity": "binary_sensor.garage_door_open_too_long", "state": "on"}]},
+              "card": "alert", "opts": {"title": "Garage Still Open", "since": "cover.garage_door", "camera": "camera.garage",
+                                        "control": "cover.garage_door", "color": "teal"}}
+    laundry = {"when": {"all": [{"kind": "entity_state", "entity": "sensor.washer_job_state", "state": "finish"}]},
+               "card": "alert", "opts": {"title": "Laundry Ready", "text": "Cycle complete", "camera": "camera.washer"}}
+    status = {"id": "status", "card": "house_status", "size": "T", "at": [3, 0], "rules": [garage, laundry]}
+    grid = {**GRID, "items": [GRID["items"][0], status]}
+    plan, err = await rpc.tool("grid_set", screen="dashboard-kitchen", home_grid=grid)
+    assert not err, plan
+    done, err = await rpc.tool("grid_set", screen="dashboard-kitchen", home_grid=grid, dry_run=False, plan=plan["plan"])
+    assert not err, done
+    saved = mantel.app["settings"].store.body("board", "dashboard-kitchen")["home_grid"]["items"][1]
+    assert saved["card"] == "house_status" and [r["opts"]["title"] for r in saved["rules"]] == ["Garage Still Open", "Laundry Ready"]
+    bad = {**status, "rules": [{**garage, "opts": {**garage["opts"], "tap": "page"}}]}
+    got, err = await rpc.tool("grid_set", screen="dashboard-kitchen", home_grid={**GRID, "items": [GRID["items"][0], bad]})
+    assert err and "grid_option" in json.dumps(got)
+
+
 async def test_placing_and_removing_one_block(mantel):
     token, _ = await setup(mantel)
     rpc = Rpc(mantel, token)

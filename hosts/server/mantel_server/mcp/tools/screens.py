@@ -139,6 +139,17 @@ async def grid_cards(caller, args: dict) -> dict:
                                           "before}. From Home Assistant's sun.sun; without it the rule doesn't hold. "
                                           "E.g. {from: {sun: sunset, offset: -15}, to: {at: '22:00'}}"},
                       "refused_as": "grid_condition"},
+            # ALERT: made to be a rule's card, in the block's own place while the rule holds (docs/phase11/ALERT.md)
+            "alert": {"card": "alert", "sizes": list(HG.CATALOG["alert"]["sizes"]),
+                      "opts": "{title (<= 60), text? (<= 80), since? (an entity: 'Open for 23 min' from its last_changed), "
+                              "camera? (its still; the picture opens the camera), control? (an entity: its tile's own tap -- "
+                              "a door or a lock opens its controls, which ask first), icon? ('set:name'), color? (one of "
+                              f"{', '.join(HG.ALERT_COLORS)})}}",
+                      "example": {"when": {"all": [{"kind": "entity_state", "entity": "binary_sensor.garage_door_open_too_long",
+                                                    "state": "on"}]},
+                                  "card": "alert", "opts": {"title": "Garage Still Open", "since": "cover.garage_door",
+                                                            "camera": "camera.garage",
+                                                            "control": "cover.garage_door", "color": "teal"}}},
             "starters": list(HG.STARTERS)}
 
 

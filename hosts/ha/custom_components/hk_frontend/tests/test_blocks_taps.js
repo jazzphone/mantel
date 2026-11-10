@@ -59,6 +59,7 @@ load(HK_ROOT + '/frontend/cards/hk-media.js');
 load(HK_ROOT + '/frontend/cards/hk-cameras.js');
 load(HK_ROOT + '/frontend/cards/hk-intercom.js');
 load(HK_ROOT + '/frontend/cards/hk-house-status.js');
+load(HK_ROOT + '/frontend/cards/hk-alert.js');
 load(HK_ROOT + '/frontend/modules/hk-sidepane.js');
 load(HK_ROOT + '/frontend/cards/hk-calendar.js');
 load(HK_ROOT + '/frontend/cards/hk-layout.js');      // hk-key-card: the stand-in of a block this host doesn't have (Recent)
@@ -157,7 +158,8 @@ var OPTS = {
   scenes: { scenes: ['scene.good_morning', 'scene.dinner_time'] },
   action: { action: 'lock_up' },
   todo: { entity: 'todo.shopping' },
-  room: { area: 'kitchen' }
+  room: { area: 'kitchen' },
+  alert: { title: 'Garage Still Open', since: 'cover.garage_door', camera: 'camera.driveway', control: 'cover.garage_door' }
 };
 
 // ---- a tap on the plate: a click from a target that is no control, at the card's root and the card itself, and
@@ -277,6 +279,9 @@ function () {
   // (House Status: its plate -- the heading, a gap -- opens the House Status sheet; each section its own page)
   eq('House Status opens its sheet', where('house_status', 'L'), [['detail', null]]);
   eq('...Small too', where('house_status', 'S'), [['detail', null]]);
+  // (the Alert: its plate opens the door's sheet; Small, one button, does the door's own tap -- a door is never one tap: its sheet)
+  eq('the Alert opens its accessory\'s sheet', where('alert', 'L'), [['moreInfo', 'cover.garage_door']]);
+  eq('...Small does the action: a door\'s is its sheet', where('alert', 'S'), [['moreInfo', 'cover.garage_door']]);
   eq('Everything opens More', where('everything', 'L'), [['more', 'more']]);
   eq('the Security block opens the alarm\'s sheet', where('security', 'W'), [['moreInfo', 'alarm_control_panel.house']]);
   eq('the room opens its page', where('room', 'L'), [['navigate', '/hk-kitchen/room-kitchen']]);

@@ -210,8 +210,16 @@
     // what the screen's Status Chips say, whether or not the screen draws its chip row. No When Tapped: each section
     // opens its own place.
     house_status: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: {}, card: function (s) {
-      return { type: 'custom:hk-house-status-card', size: s }; } }
+      return { type: 'custom:hk-house-status-card', size: s }; } },
+    // ALERT (2026-11-10, docs/phase11/ALERT.md, hk-alert.js): one thing that needs a look -- a headline, a line of its own and how
+    // long (`since`: the accessory whose state it counts from), a camera's still, and one action (`control`: that accessory's
+    // own tile tap, so a door or a lock opens its controls and asks first). Made to be a Show When rule's card; no When Tapped
+    alert: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { title: 'title', text: 'alert_text', since: 'entity', camera: 'camera', control: 'entity', icon: 'alert_icon', color: 'alert_color' }, card: function (s, o) {
+      var out = { type: 'custom:hk-grid-alert-card', size: s };
+      ALERT_KEYS.forEach(function (k) { if (o[k] != null && o[k] !== '') out[k] = o[k]; });
+      return out; } }
   };
+  var ALERT_KEYS = ['title', 'text', 'since', 'camera', 'control', 'icon', 'color'];
   // A BLOCK ONLY SOME HOSTS HAVE: asked of the host (hkShell.hostPage), never assumed -- no shell, no host page
   function hostHas(name) {
     var SH = window.hkShell;
@@ -715,7 +723,39 @@
     calendar: 'Calendar', battery: 'House Battery', people: 'People', vacuum: 'Vacuum', clock: 'Clock',
     room: 'Room', scene_suggested: 'Suggested Scene', action: 'Action', everything: 'Everything', cameras: 'Cameras',
     power: 'Power', music: 'Music', doors: 'Doors & Locks', live_tv: 'Live TV', water: 'Water',
-    on_now: 'On Now', todo: 'To-do', energy_rings: 'Energy Rings', timeline: 'Recent', intercom: 'Intercom', house_status: 'House Status' };
+    on_now: 'On Now', todo: 'To-do', energy_rings: 'Energy Rings', timeline: 'Recent', intercom: 'Intercom', house_status: 'House Status', alert: 'Alert' };
+
+  // ------------------------------------------------------------ an Alert's settings
+  // AN ALERT'S ROWS (hk-grid-editor.js fields, for card `alert`): the headline, its own line, the accessory it counts the time
+  // from, the camera's still, the one action, and its glyph and color. `K` the settings kit; `set(key, value)` (null or '' takes
+  // the option away); `choices(kind)` the editor's [[id, name]] (entity, camera).
+  var ALERT = { titleMax: 60, textMax: 80, colors: ['orange', 'yellow', 'green', 'mint', 'teal', 'cyan', 'blue', 'indigo', 'purple', 'pink', 'red', 'gray'] };
+  function alertRows(K, o, set, choices) {
+    var rows = [], none = [['', 'None']];
+    var pick = function (key, label, list, sub) {
+      var all = none.concat(list);
+      if (o[key] && !all.some(function (op) { return op[0] === o[key]; })) all.push([o[key], o[key] + ' (Unavailable)']);
+      rows.push(K.select({ label: label, sub: sub, value: o[key] || '', options: all, onChange: function (v) { set(key, v || null); } }));
+    };
+    rows.push(K.text({ label: 'Headline', value: o.title || '', maxlength: ALERT.titleMax, placeholder: 'Garage Still Open', onCommit: function (v) { set('title', v.trim() || null); } }));
+    rows.push(K.text({ label: 'Supporting Text', value: o.text || '', maxlength: ALERT.textMax, placeholder: 'Optional', onCommit: function (v) { set('text', v.trim() || null); } }));
+    pick('since', 'Time Since', choices('entity'), 'How long this accessory has been as it is: “Open for 23 min”');
+    pick('camera', 'Camera Snapshot', choices('camera'), 'Tapping the picture opens the camera');
+    pick('control', 'Action', choices('entity'), 'Does what the accessory’s tile does. A door or lock opens its controls, which ask first');
+    rows.push(K.select({ label: 'Color', value: o.color || 'orange', options: ALERT.colors.map(function (c) { return [c, c.charAt(0).toUpperCase() + c.slice(1)]; }),
+      onChange: function (v) { set('color', v === 'orange' ? null : v); } }));
+    rows.push(K.text({ label: 'Glyph', value: o.icon || '', maxlength: 77, placeholder: 'The accessory’s own', onCommit: function (v) {
+      var x = String(v || '').trim(); set('icon', SHEET.icon.test(x) ? x : null); } }));
+    rows.push(K.info({ label: 'Made for Show When', sub: 'Add a rule to a block and choose Alert as its card: it shows in the block’s place while the rule holds.' }));
+    return rows;
+  }
+  // AN ALERT IN THE CARD LIST'S PREVIEW: the house's first garage door (else any door or cover) open for a while, its camera
+  function alertSample(choices, states) {
+    var st = states || {}, covers = choices('entity').filter(function (op) { return op[0].indexOf('cover.') === 0; });
+    var door = covers.filter(function (op) { var a = (st[op[0]] || {}).attributes || {}; return a.device_class === 'garage'; })[0] || covers[0];
+    var cams = choices('camera'), cam = cams.filter(function (op) { return /garage/i.test(op[0] + op[1]); })[0] || cams[0];
+    return Object.assign({ title: 'Garage Still Open' }, door ? { since: door[0], control: door[0] } : {}, cam ? { camera: cam[0] } : {});
+  }
 
   // the catalog as data, for the parity test and the editor (G5)
   function table() {
@@ -732,7 +772,7 @@
                            SHEET: SHEET, sheetOf: sheetOf, entryId: entryId, copySheet: copySheet, sheetRoute: sheetRoute, NAMES: NAMES,
                            sheetSlot: sheetSlot, sheetCss: sheetCss, placed: placed,
                            CONDITIONS: CONDITIONS, hostHas: hostHas, matches: matches, rulesOf: rulesOf, choose: choose, houseNow: houseNow,
-                           nextChange: nextChange, armClock: armClock, solar: { spans: solarSpans, rows: solarRows, fresh: solarFresh, atWall: atWall, dayOf: dayOf, OFFSET_MAX: SUN_OFFSET_MAX,
+                           nextChange: nextChange, armClock: armClock, alert: { rows: alertRows, sample: alertSample, KEYS: ALERT_KEYS, LIMITS: ALERT }, solar: { spans: solarSpans, rows: solarRows, fresh: solarFresh, atWall: atWall, dayOf: dayOf, OFFSET_MAX: SUN_OFFSET_MAX,
                              forget: function () { SUN_SEEN.sunrise = []; SUN_SEEN.sunset = []; } }, config: config, pages: pages, tabletRoom: tabletRoom, table: table };
   try { window.dispatchEvent(new CustomEvent('hk-grid-catalog-ready')); } catch (e) { /* a test page without events */ }
 })();

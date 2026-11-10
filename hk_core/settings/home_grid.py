@@ -135,6 +135,13 @@ CATALOG: dict[str, dict[str, Any]] = {
     # chips_extra, chips_custom), drawn whether or not the screen shows its chip row. No When Tapped: each section
     # opens its own place
     "house_status": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {}},
+    # ALERT (2026-11-10, docs/phase11/ALERT.md): one thing that needs a look, made to be a Show When rule's card -- a headline
+    # (title), a line of its own (text), how long an accessory has been as it is (since: its last_changed), a camera's still
+    # (camera), one action (control: that accessory's own tile tap -- a door or a lock opens its controls, which ask first),
+    # its glyph and color. No When Tapped: the picture opens the camera, the action the accessory, the plate its sheet
+    "alert": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (),
+              "opts": {"title": "title", "text": "alert_text", "since": "entity", "camera": "camera", "control": "entity",
+                       "icon": "alert_icon", "color": "alert_color"}},
 }
 SOURCES = ("list", "rooms", "cameras", "thermostats", "speakers", "scenes", "accessories")
 # the sources that can open on the tablet's own room (or its speaker)
@@ -439,6 +446,31 @@ def _everything_more(v: Any) -> str:
     return v
 
 
+# AN ALERT'S OWN WORDS AND LOOK (the `alert` card): a line under its headline, at most ALERT_TEXT_MAX characters and no control
+# characters; a glyph by name (a set and a glyph: "mdi:garage-alert", "hk:garage-open"); a color, one of the named accents
+ALERT_TEXT_MAX = 80
+ALERT_ICON = re.compile(r"^[a-z0-9_-]{1,12}:[a-z0-9_-]{1,64}\Z")
+ALERT_COLORS = ("orange", "yellow", "green", "mint", "teal", "cyan", "blue", "indigo", "purple", "pink", "red", "gray")
+
+
+def _alert_text(v: Any) -> str:
+    if not isinstance(v, str) or not 0 < len(v.strip()) <= ALERT_TEXT_MAX or any(ord(c) < 32 for c in v):
+        raise GridInvalid("grid_option")
+    return v.strip()
+
+
+def _alert_icon(v: Any) -> str:
+    if not isinstance(v, str) or not ALERT_ICON.match(v):
+        raise GridInvalid("grid_option")
+    return v
+
+
+def _alert_color(v: Any) -> str:
+    if v not in ALERT_COLORS:
+        raise GridInvalid("grid_option")
+    return v
+
+
 def _clock_style(v: Any) -> str:
     if v not in CLOCK_FACES:
         raise GridInvalid("grid_option")
@@ -466,6 +498,9 @@ OPTION_KINDS = {
     "security_presentation": _security_presentation,
     "security_members": _security_members,
     "security_lit": _boolean,
+    "alert_text": _alert_text,
+    "alert_icon": _alert_icon,
+    "alert_color": _alert_color,
     "tv_channel": _tv_channel,
     "music_show": _music_show,
     "timeline_show": _timeline_show,
