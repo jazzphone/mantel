@@ -1,0 +1,658 @@
+<meta charset="utf-8">
+<title>Mantel Laundry Mockup</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: a working sheet -- controls up top, then the wall tablet's dark glass "stage" bands for the drawing, every Home Grid size,
+   a room page and the detail sheet, then HK Settings (iOS grouped lists) and the brand table. The stage is always the tablet's dark look. */
+:root{
+  --bg:#f2f2f7; --fg:#1c1c1e; --fg2:rgba(60,60,67,.68); --fg3:rgba(60,60,67,.42);
+  --card:#ffffff; --line:rgba(60,60,67,.16); --key:rgba(118,118,128,.14); --key-on:#1c1c1e; --key-on-fg:#fff;
+  --accent:#0a84ff; --mint:#30c8c0;
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,sans-serif;
+  --font-d:-apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue",Arial,sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,monospace;
+  /* the tablet's own world (fixed: the wall tablets run the dark glass look) */
+  --t-ink:rgba(255,255,255,.94); --t-ink2:rgba(255,255,255,.68); --t-ink3:rgba(255,255,255,.40);
+  --t-plate:rgba(28,28,32,.52); --t-key:rgba(255,255,255,.10); --t-key2:rgba(255,255,255,.18); --t-line:rgba(255,255,255,.10);
+  --t-line2:rgba(255,255,255,.18); --t-mint:#63e6e2; --t-red:#ff453a; --t-water:#64d2ff; --t-warm:#ffb15c;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#000; --fg:rgba(255,255,255,.94); --fg2:rgba(235,235,245,.62); --fg3:rgba(235,235,245,.36);
+  --card:#1c1c1e; --line:rgba(255,255,255,.12); --key:rgba(118,118,128,.28); --key-on:#f2f2f7; --key-on-fg:#000;
+  --accent:#0a84ff; --mint:#63e6e2; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#000; --fg:rgba(255,255,255,.94); --fg2:rgba(235,235,245,.62); --fg3:rgba(235,235,245,.36);
+  --card:#1c1c1e; --line:rgba(255,255,255,.12); --key:rgba(118,118,128,.28); --key-on:#f2f2f7; --key-on-fg:#000;
+  --accent:#0a84ff; --mint:#63e6e2; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:15px/1.45 var(--font);margin:0;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1360px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 64px}
+h1{font:700 34px/1.1 var(--font-d);letter-spacing:-.6px;margin:0 0 8px;text-wrap:balance}
+h2{font:700 22px/1.2 var(--font-d);letter-spacing:-.35px;margin:0 0 4px;text-wrap:balance}
+.lede{color:var(--fg2);max-width:70ch;margin:0}
+section{margin-top:44px}
+.sub{color:var(--fg2);margin:0 0 16px;max-width:75ch}
+.lbl{font:600 13px/1 var(--font);letter-spacing:.3px;text-transform:uppercase;color:var(--fg2)}
+
+/* controls */
+.controls{position:relative;z-index:5;margin-top:20px;padding:12px 14px;border-radius:18px;background:color-mix(in srgb,var(--card) 88%,transparent);
+  backdrop-filter:blur(20px) saturate(1.4);-webkit-backdrop-filter:blur(20px) saturate(1.4);border:1px solid var(--line);display:flex;flex-direction:column;gap:10px}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.crow{display:flex;gap:10px 14px;align-items:center;flex-wrap:wrap}
+.crow .lbl{width:84px;flex:none}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg button,.tog{all:unset;cursor:pointer;font:600 14px/1 var(--font);padding:9px 13px;border-radius:999px;background:var(--key);color:var(--fg)}
+.seg button[aria-pressed="true"]{background:var(--key-on);color:var(--key-on-fg)}
+.seg button:focus-visible,.tog:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.tog[aria-pressed="true"]{background:var(--key-on);color:var(--key-on-fg)}
+@media (max-width:640px){.crow .lbl{width:100%}}
+@media (min-width:900px) and (min-height:700px){.controls{position:sticky;top:env(safe-area-inset-top,0px)}}
+
+/* the tablet stage */
+.stage{border-radius:28px;padding:28px;overflow-x:auto;color:var(--t-ink);
+  background:radial-gradient(120% 90% at 15% 10%,#3b4a63 0%,transparent 55%),radial-gradient(90% 80% at 90% 90%,#40354f 0%,transparent 60%),linear-gradient(160deg,#1d2433,#14161d 70%)}
+.stage .inner{min-width:0}
+@media (max-width:640px){.stage{padding:18px;border-radius:22px}}
+.plate{position:relative;border-radius:34px;background:var(--t-plate);backdrop-filter:blur(20px) saturate(1.4) brightness(.82);-webkit-backdrop-filter:blur(20px) saturate(1.4) brightness(.82);overflow:hidden;flex:none}
+.cap{font:600 11px/1 var(--font);letter-spacing:.4px;text-transform:uppercase;color:var(--t-ink3);margin:0 0 8px 4px}
+.sizes{display:flex;flex-wrap:wrap;gap:26px 13px;align-items:flex-start}
+.sizes>div{display:flex;flex-direction:column}
+
+/* THE DRAWING */
+.lm{display:block;overflow:visible}
+.lm .sh{fill:rgba(0,0,0,.30)}
+.lm .body{fill:#f2f2f7}
+.lm .cut{fill:#1a1c22}
+.lm .glass{fill:#14161c}
+.lm .disp{fill:#1a1c22}
+.lm .dt{font:700 8.5px/1 var(--mono);fill:var(--t-mint);text-anchor:middle}
+.lm .knob{fill:#1a1c22}.lm .knobm{stroke:#f2f2f7;stroke-width:2;stroke-linecap:round}
+.lm .water{fill:var(--t-water);opacity:.55}
+.lm.s-rinsing .water{opacity:.38}
+.lm .c1{fill:#9aa3b5}.lm .c2{fill:#c9cdd6}.lm .c3{fill:#6c7486}
+.lm .glint{fill:none;stroke:rgba(255,255,255,.22);stroke-width:2.4;stroke-linecap:round}
+.lm .warmglass{fill:var(--t-warm);opacity:0}
+.lm.s-drying .warmglass{opacity:.16}
+.lm .doneglass{fill:var(--t-mint);opacity:0}
+.lm.s-done .doneglass{opacity:.14}
+.lm .heat path{fill:none;stroke:var(--t-warm);stroke-width:2.6;stroke-linecap:round;opacity:.85}
+.lm .air path{fill:none;stroke:rgba(255,255,255,.55);stroke-width:2.4;stroke-linecap:round}
+.lm .arc{fill:none;stroke:rgba(255,255,255,.6);stroke-width:2.6;stroke-linecap:round}
+.lm .bub{fill:rgba(255,255,255,.75)}
+.lm .puddle{fill:var(--t-water);opacity:.5}
+.lm .bg{fill:#fff}.lm .bg-mk{fill:#1c1c1e}.lm .bg-st{stroke:#1c1c1e;stroke-width:2.6;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.lm .bgw{fill:var(--t-red)}.lm .bgw-mk{fill:#fff}
+.lm .bgd{fill:var(--t-mint)}
+.lm.s-off .glass,.lm.s-offline .glass{fill:#20232b}
+.lm.s-offline{opacity:.42}
+@media (prefers-reduced-motion:no-preference){
+  .motion .lm .drum{transform-box:view-box}
+  .motion .lm.s-washing .drum{animation:lm-wash 2.6s ease-in-out infinite alternate}
+  .motion .lm.s-rinsing .drum{animation:lm-wash 3.2s ease-in-out infinite alternate}
+  .motion .lm.s-running .drum{animation:lm-wash 2.8s ease-in-out infinite alternate}
+  .motion .lm.s-spinning .drum{animation:lm-spin .42s linear infinite}
+  .motion .lm.s-drying .drum{animation:lm-spin 3.4s linear infinite}
+  .motion .lm.s-cooling .drum{animation:lm-spin 6s linear infinite}
+  .motion .lm.s-wrinkle .drum{animation:lm-nudge 6s ease-in-out infinite}
+  .motion .lm .wave{animation:lm-wave 1.8s linear infinite}
+  .motion .lm.s-rinsing .bub{animation:lm-rise 2.2s ease-in infinite}
+  .motion .lm.s-rinsing .bub:nth-of-type(2){animation-delay:.7s}.motion .lm.s-rinsing .bub:nth-of-type(3){animation-delay:1.4s}
+  .motion .lm.s-spinning .mach{animation:lm-shake .14s linear infinite}
+  .motion .lm.s-spinning .arc{animation:lm-fade .42s linear infinite alternate}
+  .motion .lm .heat path{animation:lm-heat 2.4s ease-out infinite}
+  .motion .lm .heat path:nth-child(2){animation-delay:.8s}.motion .lm .heat path:nth-child(3){animation-delay:1.6s}
+  .motion .lm .air path{animation:lm-air 2.6s ease-in-out infinite}
+  .motion .lm .air path:nth-child(2){animation-delay:.9s}
+  .motion .lm.s-leak .badge,.motion .lm.s-error .badge{transform-box:fill-box;transform-origin:center;animation:lm-pulse 1.8s ease-in-out infinite}
+  .motion .lm.s-error .mach{animation:lm-err 3s ease-in-out infinite}
+  .motion .lm.s-delayed .hand{transform-box:view-box;animation:lm-spin 4s linear infinite}
+}
+@keyframes lm-wash{0%{transform:rotate(-70deg)}100%{transform:rotate(110deg)}}
+@keyframes lm-spin{to{transform:rotate(360deg)}}
+@keyframes lm-nudge{0%,78%{transform:rotate(0)}92%,100%{transform:rotate(120deg)}}
+@keyframes lm-wave{to{transform:translateX(-24px)}}
+@keyframes lm-rise{0%{transform:translateY(0);opacity:0}20%{opacity:1}100%{transform:translateY(-22px);opacity:0}}
+@keyframes lm-shake{0%{transform:translate(0,0)}25%{transform:translate(.7px,-.4px)}50%{transform:translate(-.6px,.3px)}75%{transform:translate(.5px,.4px)}100%{transform:translate(0,0)}}
+@keyframes lm-fade{from{opacity:.15}to{opacity:.8}}
+@keyframes lm-heat{0%{transform:translateY(4px);opacity:0}30%{opacity:.9}100%{transform:translateY(-8px);opacity:0}}
+@keyframes lm-air{0%,100%{transform:translateX(0);opacity:.25}50%{transform:translateX(5px);opacity:.85}}
+@keyframes lm-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
+@keyframes lm-err{0%,82%,100%{transform:translateX(0)}85%{transform:translateX(-2px)}88%{transform:translateX(2px)}91%{transform:translateX(-1.5px)}94%{transform:translateX(1px)}}
+
+/* the states gallery */
+.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(124px,1fr));gap:13px}
+.gcell{border-radius:24px;background:var(--t-plate);padding:14px 10px 12px;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center}
+.gcell .n{font:600 15px/1.2 var(--font);color:var(--t-ink)}
+.gcell .w{font:500 12.5px/1.25 var(--font);color:var(--t-ink2);min-height:2.5em}
+
+/* block parts */
+.blk{position:absolute;inset:0;padding:18px;display:flex}
+.t-name{font:600 17px/22px var(--font);color:var(--t-ink)}
+.t-title{font:700 22px/26px var(--font-d);letter-spacing:-.35px;color:var(--t-ink)}
+.t-hero{font:700 30px/34px var(--font-d);letter-spacing:-.6px;color:var(--t-ink)}
+.t-sub{font:500 15px/20px var(--font);color:var(--t-ink2)}
+.t-cap{font:500 13px/18px var(--font);color:var(--t-ink2)}
+.t-lbl{font:600 11px/1 var(--font);letter-spacing:.4px;text-transform:uppercase;color:var(--t-ink3)}
+.mint{color:var(--t-mint)}.red{color:var(--t-red)}
+.ctile{flex:1;display:flex;flex-direction:column;align-items:center;text-align:center;min-width:0}
+.ctile .nm{font:600 21px/27px var(--font);color:var(--t-ink);white-space:nowrap}
+.ctile .st{font:400 20px/27px var(--font);color:var(--t-ink2);white-space:nowrap}
+.ctile .st.mint{color:var(--t-mint)}.ctile .st.red{color:var(--t-red)}
+.ctile.sm .nm{font-size:17px;line-height:22px}.ctile.sm .st{font-size:16px;line-height:22px}
+.pill{all:unset;box-sizing:border-box;display:inline-flex;align-items:center;gap:7px;height:40px;padding:0 16px;border-radius:20px;background:var(--t-key);color:var(--t-ink);font:600 15px/1 var(--font);cursor:pointer;white-space:nowrap}
+.pill svg{width:18px;height:18px}
+.pill.red{color:var(--t-red)}
+.pill[disabled]{opacity:.4;cursor:default}
+.pills{display:flex;gap:16px;flex-wrap:wrap}
+.track{display:flex;gap:6px;width:100%}
+.track .st{flex:1;display:flex;flex-direction:column;gap:6px;min-width:0}
+.track .bar{height:6px;border-radius:3px;background:var(--t-line2);overflow:hidden;position:relative}
+.track .bar i{position:absolute;inset:0;background:var(--t-mint);transform-origin:left;display:block}
+.track .lb{font:600 11px/1 var(--font);letter-spacing:.4px;text-transform:uppercase;color:var(--t-ink3);white-space:nowrap}
+.track .st.now .lb{color:var(--t-ink)}
+.track .st.done .lb{color:var(--t-ink2)}
+.rows{display:flex;flex-direction:column;width:100%}
+.rows .r{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-top:1px solid var(--t-line);font:500 15px/20px var(--font);color:var(--t-ink2)}
+.rows .r:first-child{border-top:0}
+.rows .r b{font-weight:600;color:var(--t-ink);text-align:right}
+.split{display:flex;gap:13px;flex:1;min-width:0}
+.split>div{flex:1;min-width:0}
+.hairv{width:1px;background:var(--t-line);align-self:stretch;flex:none}
+.hairh{height:1px;background:var(--t-line);flex:none}
+
+/* room page */
+.room{display:flex;flex-direction:column;gap:16px}
+.chips{display:flex;gap:10px;flex-wrap:wrap}
+.chip{height:43px;border-radius:22px;background:var(--t-plate);backdrop-filter:blur(20px) saturate(1.4) brightness(.82);-webkit-backdrop-filter:blur(20px) saturate(1.4) brightness(.82);display:flex;align-items:center;gap:8px;padding:0 16px 0 10px;font:600 13.3px/1.15 var(--font);color:var(--t-ink)}
+.chip .cg{width:28px;height:28px;flex:none}
+.chip small{display:block;font:500 12.6px/1.15 var(--font);color:var(--t-ink2)}
+.chip.lit small{color:var(--t-mint)}
+.rtitle{font:700 34px/1 var(--font-d);letter-spacing:-.6px;color:var(--t-ink);margin:6px 0 0}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,196px);gap:10px}
+.tile{width:196px;height:70px;border-radius:23.5px;background:var(--t-plate);backdrop-filter:blur(20px) saturate(1.4) brightness(.82);-webkit-backdrop-filter:blur(20px) saturate(1.4) brightness(.82);display:flex;align-items:center;gap:9.6px;padding:0 12px 0 10.7px;color:var(--t-ink)}
+.tile .wl{width:42px;height:42px;border-radius:21px;background:var(--t-key);display:grid;place-items:center;flex:none}
+.tile .wl svg{width:24px;height:24px}
+.tile .tn{font:600 15px/16.5px var(--font)}
+.tile .ts{font:600 15px/16.5px var(--font);color:var(--t-ink2);margin-top:2px}
+.tile.tall{height:150px;grid-row:span 2;flex-direction:column;align-items:flex-start;justify-content:space-between;padding:12.8px 12.8px 9.8px}
+.tile.lit{background:rgba(255,255,255,.88);color:#1c1c1e}
+.tile.lit .ts{color:rgba(60,60,67,.75)}
+.tile.lit .ts.mint{color:#0f8f89}
+
+/* sheet */
+.sheetwrap{display:flex;justify-content:center}
+.sheet{width:820px;max-width:100%;border-radius:38px;background:rgba(28,28,32,.52);backdrop-filter:blur(34px) saturate(1.9);-webkit-backdrop-filter:blur(34px) saturate(1.9);padding:20px 24px 26px;color:var(--t-ink);box-shadow:0 30px 80px rgba(0,0,0,.35)}
+.sh-head{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.sh-x{width:30px;height:30px;border-radius:15px;background:var(--t-key);display:grid;place-items:center;flex:none}
+.sh-head .t{font:700 22px/1.2 var(--font-d);letter-spacing:-.35px}
+.sh-head .r{font:500 15px/1 var(--font);color:var(--t-ink2);margin-left:auto}
+.sh-seg{display:flex;gap:4px;background:var(--t-key);padding:3px;border-radius:999px;margin-left:auto}
+.sh-seg span{font:600 14px/1 var(--font);padding:8px 14px;border-radius:999px;color:var(--t-ink2);cursor:pointer}
+.sh-seg span.on{background:var(--t-key2);color:var(--t-ink)}
+.sh-cols{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.sh-l{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:6px;padding:8px 0}
+.sh-hero{font:600 44px/1.05 var(--font-d);letter-spacing:-1.5px}
+.sh-card{background:rgba(255,255,255,.06);border-radius:20px;padding:14px 18px 16px;display:flex;flex-direction:column;gap:10px}
+.sh-r{display:flex;flex-direction:column;gap:12px}
+.prog{width:78%;height:8px;border-radius:4px;background:var(--t-line2);overflow:hidden;margin-top:8px}
+.prog i{display:block;height:100%;background:var(--t-mint);border-radius:4px}
+.note{font:500 13px/18px var(--font);color:var(--t-ink3)}
+@media (max-width:760px){.sh-cols{grid-template-columns:1fr}.sheet{border-radius:30px;padding:16px}}
+
+/* HK Settings mock (iOS grouped) */
+.phones{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px}
+.ios{background:var(--bg);border:1px solid var(--line);border-radius:28px;padding:14px 16px 20px;min-width:0}
+.ios-nav{display:flex;align-items:center;gap:6px;color:var(--accent);font:400 17px/1 var(--font);margin:4px 0 10px}
+.ios-t{font:700 30px/1.15 var(--font-d);letter-spacing:-.5px;margin:0 0 14px;color:var(--fg)}
+.ios-h{font:400 13px/1.3 var(--font);text-transform:uppercase;color:var(--fg2);margin:18px 16px 6px}
+.ios-g{background:var(--card);border-radius:10px;overflow:hidden}
+.ios-r{display:flex;align-items:center;gap:12px;min-height:44px;padding:0 16px;font:400 17px/1.25 var(--font);color:var(--fg)}
+.ios-r+.ios-r{box-shadow:inset 46px 1px 0 -45px transparent;border-top:.5px solid var(--line)}
+.ios-r .v{margin-left:auto;color:var(--fg2);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.ios-r .ch{color:var(--fg3);flex:none}
+.ios-r .ico{width:29px;height:29px;border-radius:7px;display:grid;place-items:center;flex:none;color:#fff}
+.ios-r .ico svg{width:19px;height:19px}
+.ios-f{font:400 13px/1.35 var(--font);color:var(--fg2);margin:6px 16px 0}
+.sw{width:51px;height:31px;border-radius:16px;background:#34c759;position:relative;margin-left:auto;flex:none}
+.sw::after{content:"";position:absolute;right:2px;top:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.2)}
+.sw.off{background:var(--key)}.sw.off::after{right:auto;left:2px}
+.found{font:500 13px/1.35 var(--font);color:var(--fg2);padding:10px 16px 12px;border-top:.5px solid var(--line)}
+.found code{font:500 12px/1 var(--mono);color:var(--fg)}
+
+/* how it fits + brands */
+.fit{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.fitc{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px 18px}
+.fitc h3{font:600 17px/1.25 var(--font);margin:0 0 6px}
+.fitc p{margin:0;color:var(--fg2)}
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:16px;background:var(--card)}
+table{border-collapse:collapse;width:100%;min-width:860px;font-size:14px}
+th,td{text-align:left;padding:10px 14px;border-top:1px solid var(--line);vertical-align:top}
+thead th{border-top:0;font:600 12px/1.2 var(--font);letter-spacing:.3px;text-transform:uppercase;color:var(--fg2)}
+td code{font:500 12.5px/1.4 var(--mono)}
+td.b{font-weight:600}
+.map{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px 18px;margin-top:14px}
+.map div{font-size:14px;color:var(--fg2)}.map b{color:var(--fg);font-weight:600}
+</style>
+
+<div class="wrap motion" id="root">
+  <h1>Laundry on Mantel</h1>
+  <p class="lede">A mockup of the Laundry card at every Home Grid size, its tile and chip on a generated room page, its detail sheet, and where it's set up. Pick a setup and a state below and everything on the page follows. It's drawn with the wall tablet's dark glass at real pixel sizes. Every number is made up.</p>
+
+  <div class="controls" role="group" aria-label="Mockup controls">
+    <div class="crow"><span class="lbl">Setup</span><div class="seg" id="setup"></div></div>
+    <div class="crow"><span class="lbl">State</span><div class="seg" id="state"></div></div>
+    <div class="crow"><span class="lbl">Options</span><div class="seg">
+      <button class="tog" id="remote" aria-pressed="false">Remote Control on</button>
+      <button class="tog" id="motion" aria-pressed="true">Motion</button></div></div>
+  </div>
+
+  <section>
+    <h2>The drawing</h2>
+    <p class="sub">A front-loader drawn in the house glyphs' style, animated by what it's doing, the way the vacuum is. A combo uses the washer drawing; a dryer has a dial and no water. Badges sit at the upper right as on the vacuum: white for pause and delayed start, mint for done, red for a leak or an error. With Reduce Motion (or Motion off above) every state is still and reads from its badge and words.</p>
+    <div class="stage"><div class="gallery" id="gallery"></div></div>
+  </section>
+
+  <section>
+    <h2>Home Grid, every size</h2>
+    <p class="sub">Small 196 × 196, Wide 405 × 196, Tall 196 × 405, Large 405 × 405 and Extra Large 614 × 405, on square cells. The headline is at the upper left wherever there is one. Small is HomeView's centered tile. Two machines share the block rather than needing two blocks. Pause and Stop only appear while the machine allows remote control; Clear appears on Done.</p>
+    <div class="stage"><div class="inner"><div class="sizes" id="sizes"></div></div></div>
+  </section>
+
+  <section>
+    <h2>On a generated room page</h2>
+    <p class="sub">The Laundry Room page gets each machine as a tall tile, as vacuums do. It lights while running and turns mint at Done. A Laundry chip joins every screen's chip row while a machine runs or waits to be unloaded, and goes away once it's cleared.</p>
+    <div class="stage"><div class="inner room" id="room"></div></div>
+  </section>
+
+  <section>
+    <h2>Detail sheet</h2>
+    <p class="sub">Opens from the block, the tile or the chip. The drawing and the state are on the left; the cycle, its settings, what it used and what's around it are on the right. With two machines, a segmented control switches between them. Keys the machine won't accept are shown dimmed, with the reason underneath.</p>
+    <div class="stage"><div class="sheetwrap" id="sheet"></div></div>
+  </section>
+
+  <section>
+    <h2>Setup, with no new settings page</h2>
+    <p class="sub">Laundry becomes a kind under Accessories, next to Vacuums and Leak Sensors. Machines with their own integration are found automatically. A plug or a vibration sensor is added as a machine, the same way an outlet with a lamp can count as a light today. Each machine's settings live on its own accessory page.</p>
+    <div class="phones" id="phones"></div>
+  </section>
+
+  <section>
+    <h2>How it reads any brand</h2>
+    <p class="sub">Every source is reduced to one set of states before anything is drawn, so the card, chip, tile and sheet never know the brand. A machine's own integration is read from the entities on its device: the status and cycle-step sensors' raw values are matched to the shared states, and time left, finish time and progress are read whichever way the integration gives them. A machine with no integration is read from power, vibration, or both, by Mantel Server, which also keeps Done until it's cleared.</p>
+    <div class="tbl"><table id="brands"></table></div>
+    <div class="map" id="map"></div>
+  </section>
+</div>
+
+<script>
+// What each integration gives (read from Home Assistant's source, 2026-11-10; HACS ones from their repos). Not run against live devices.
+window.LAUNDRY_BRANDS=[
+ ['Samsung (SmartThings)','<code>machine_state</code>: run, pause, stop','<code>job_state</code>: wash, rinse, spin, drying, cooling, wrinkle_prevent, finish…','<code>completion_time</code> (a time), <code>progress</code> %','Door, child lock, <code>remote_control</code>; a run/pause/stop select while remote is on; no error entity','Dual-drum: an “Upper washer” set on one device'],
+ ['LG (ThinQ)','<code>current_state</code>: running, rinsing, spinning, drying, cooling, wrinkle_care, end, error, reserved…','Inside the status','<code>remain</code> (a time), <code>total</code> min','Remote start sensor; start/stop select; <code>event.notification</code> (washing_is_complete…) and <code>event.error</code>; no door','WashTower: two sets, named by location; WashCombo'],
+ ['Bosch, Siemens, Neff (Home Connect)','<code>operation_state</code>: run, pause, delayedstart, finished, actionrequired, error','None (the program only)','<code>program_finish_time</code>, <code>program_progress</code> %','Door open/closed/locked, child lock, remote start; Pause, Resume, Stop buttons','Washer-dryer is one device'],
+ ['Miele','<code>status</code>: in_use, pause, waiting_to_start, program_ended, failure…','<code>program_phase</code>: main_wash, rinse, spin, drying, cooling_down, anti_crease…','<code>remaining_time</code> min, <code>finish</code> (a time)','Door, remote control, failure; Start, Pause, Stop buttons when the machine allows','Washer-dryer is one device'],
+ ['Whirlpool, Maytag','<code>washer_state</code> / <code>dryer_state</code>: cycle_washing, cycle_rinsing, cycle_spinning, running_postcycle, complete, exception…','Inside the status','<code>end_time</code> (a time; updates every 5 min)','Door only; no controls','Separate devices'],
+ ['GE (SmartHQ, HACS)','<code>machine_state</code>: Run, Paused, Finished, Delay Run…','<code>sub_cycle</code>: Wash, Rinse, Spin, Drying, Cool Down, Extended Tumble…','<code>time_remaining</code> min','Door, remote status; a Start button only','Combo is one device'],
+ ['Electrolux, AEG (HACS)','<code>applianceState</code>: RUNNING, PAUSED, DELAYED_START, END_OF_CYCLE, ALARM','<code>cyclePhase</code>: WASH, RINSE, SPIN, DRY, ANTICREASE','<code>timeToEnd</code> seconds','Door, door lock, remote; Start, Pause, Resume, Stop buttons; an <code>alerts</code> sensor','Not confirmed'],
+ ['Haier, Candy, Hoover (hOn, HACS)','<code>machMode</code>: running, pause, scheduled, ending, error','<code>prPhase</code>: washing, rinse, spin, drying, cooldown, tumbling','<code>remainingTimeMM</code> min','Door, door lock; start/stop buttons, a pause switch; an <code>errors</code> sensor','Combo (WD) is one device'],
+ ['Power monitor (plug or clamp)','Running above 10 W for 2 min; done below 3 W for 5 min (longer than a soak)','None','How long it has run, and an estimate from its last runs','A 240 V dryer needs a clamp on its circuit; a heat-pump or gas dryer can use a plug','One machine per sensor'],
+ ['Vibration sensor','Running after 2 min of shaking; done after 5 min still','None','How long it has run, and an estimate','A door contact tells Mantel it was unloaded','One machine per sensor']
+];
+window.LAUNDRY_MAP=[
+ ['Washing','wash, ai_wash, pre_wash, main_wash, cycle_washing, cycle_filling, washing, WASH, Fill, Soak'],
+ ['Rinsing','rinse, ai_rinse, rinsing, cycle_rinsing, RINSE, Rinse'],
+ ['Spinning','spin, ai_spin, spinning, cycle_spinning, SPIN, Spin, Extra Spin, Drain'],
+ ['Drying','drying, ai_drying, DRY, Drying, Tumble, tumbling'],
+ ['Cooling','cooling, cool_down, cooling_down, cooldown, Cool Down'],
+ ['Wrinkle Care','wrinkle_prevent, wrinkle_care, anti_crease, ANTICREASE, Extended Tumble, running_postcycle'],
+ ['Paused','pause, paused, PAUSED, Paused, delay_paused'],
+ ['Delayed Start','delayedstart, delay_wash, reserved, waiting_to_start, smart_delay, delay_countdown, Delay Run, DELAYED_START, scheduled'],
+ ['Done','finish, finished, end, complete, program_ended, END_OF_CYCLE, Finished, ending'],
+ ['Needs Help','error, failure, actionrequired, exception, hard_stop_or_error, ALARM, and LG’s error events'],
+ ['Off','stop, power_off, off, inactive, standby, ready, none, OFF, IDLE']
+];
+</script>
+<script>
+(function(){
+'use strict';
+var root=document.getElementById('root');
+var uid=0;
+var esc=function(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});};
+
+// ---------------------------------------------------------------- the drawing
+// kind: washer | dryer | combo. state: off delayed washing rinsing spinning drying cooling wrinkle paused done leak error offline running
+function drawing(kind,state,w,disp){
+  var id='g'+(++uid), dry=kind==='dryer', wet=!dry&&/^(washing|rinsing|running|paused|leak)$/.test(state)&&!(kind==='combo'&&state==='paused'&&false);
+  if(kind==='combo'&&/^(drying|cooling|wrinkle)$/.test(state)) wet=false;
+  if(dry) wet=false;
+  var lvl=state==='rinsing'?84:state==='spinning'?999:92;
+  var s='<svg class="lm s-'+state+' k-'+kind+'" viewBox="0 0 140 150" width="'+w+'" height="'+Math.round(w*150/140)+'" aria-hidden="true">';
+  s+='<defs><clipPath id="'+id+'"><circle cx="70" cy="90" r="25.5"/></clipPath></defs>';
+  if(state==='leak') s+='<ellipse class="puddle" cx="64" cy="142" rx="58" ry="6.5"/>';
+  s+='<ellipse class="sh" cx="70" cy="141" rx="50" ry="4.5"/>';
+  // heat above (drying), spin arcs (spinning)
+  if(state==='drying') s+='<g class="heat"><path d="M52 12c-3 3 3 6 0 9"/><path d="M70 10c-3 3 3 6 0 9"/><path d="M88 12c-3 3 3 6 0 9"/></g>';
+  s+='<g class="mach">';
+  s+='<rect class="body" x="24" y="24" width="92" height="114" rx="17"/>';
+  s+='<rect class="cut" x="24" y="48" width="92" height="3.2"/>';
+  if(dry){ s+='<rect class="disp" x="34" y="30" width="34" height="12" rx="6"/><circle class="knob" cx="98" cy="36" r="7"/><line class="knobm" x1="98" y1="36" x2="98" y2="31.5"/>'; }
+  else { s+='<circle class="cut" cx="36" cy="36" r="4.2"/><circle class="cut" cx="48" cy="36" r="4.2"/><rect class="disp" x="72" y="30" width="34" height="12" rx="6"/>'; }
+  var dx=dry?51:89;
+  if(disp) s+='<text class="dt" x="'+dx+'" y="39">'+esc(disp)+'</text>';
+  s+='<circle class="cut" cx="70" cy="90" r="32"/><circle class="body" cx="70" cy="90" r="28.6"/><circle class="glass" cx="70" cy="90" r="25.5"/>';
+  s+='<g clip-path="url(#'+id+')">';
+  s+='<circle class="warmglass" cx="70" cy="90" r="26"/><circle class="doneglass" cx="70" cy="90" r="26"/>';
+  if(wet&&state!=='spinning') s+='<g class="wave"><path class="water" d="M30 '+lvl+' q6 -3.2 12 0 t12 0 t12 0 t12 0 t12 0 t12 0 t12 0 t12 0 V124 H30Z"/></g>';
+  if(state==='spinning'&&!dry) s+='<circle class="water" cx="70" cy="90" r="25" style="opacity:.18"/>';
+  // clothes in the drum (rotate about the door's center)
+  var lie=/^(off|done|offline|delayed)$/.test(state);
+  if(lie) s+='<g><ellipse class="c1" cx="61" cy="106" rx="13" ry="6"/><ellipse class="c3" cx="80" cy="108" rx="11" ry="5"/><ellipse class="c2" cx="72" cy="102" rx="9" ry="4.5"/></g>';
+  else s+='<g class="drum" style="transform-origin:70px 90px"><ellipse class="c1" cx="58" cy="102" rx="11" ry="6" transform="rotate(-20 58 102)"/><ellipse class="c2" cx="80" cy="100" rx="9" ry="5" transform="rotate(25 80 100)"/><ellipse class="c3" cx="70" cy="74" rx="8" ry="4.5"/></g>';
+  if(state==='rinsing') s+='<circle class="bub" cx="60" cy="104" r="1.8"/><circle class="bub" cx="74" cy="108" r="1.4"/><circle class="bub" cx="83" cy="102" r="1.6"/>';
+  s+='</g>';
+  s+='<path class="glint" d="M53 78a21 21 0 0 1 11-8.5"/>';
+  if(state==='spinning') s+='<path class="arc" d="M33 74a40 40 0 0 1 9-13"/><path class="arc" d="M107 106a40 40 0 0 1-9 13"/>';
+  if(state==='cooling') s+='<g class="air"><path d="M104 80h10"/><path d="M104 96h8"/></g>';
+  s+='</g>';
+  // badges, as the vacuum's: on the machine's upper right corner
+  var bx=114, by=26;
+  if(state==='paused') s+='<g class="badge"><circle class="bg" cx="'+bx+'" cy="'+by+'" r="15"/><rect class="bg-mk" x="'+(bx-6.5)+'" y="'+(by-7)+'" width="4.2" height="14" rx="2"/><rect class="bg-mk" x="'+(bx+2.3)+'" y="'+(by-7)+'" width="4.2" height="14" rx="2"/></g>';
+  if(state==='delayed') s+='<g class="badge"><circle class="bg" cx="'+bx+'" cy="'+by+'" r="15"/><circle class="bg-st" cx="'+bx+'" cy="'+by+'" r="8"/><g class="hand" style="transform-origin:'+bx+'px '+by+'px"><line class="bg-st" x1="'+bx+'" y1="'+by+'" x2="'+bx+'" y2="'+(by-5)+'"/></g><line class="bg-st" x1="'+bx+'" y1="'+by+'" x2="'+(bx+3.5)+'" y2="'+(by+1.5)+'"/></g>';
+  if(state==='done'||state==='wrinkle') s+='<g class="badge"><circle class="bgd" cx="'+bx+'" cy="'+by+'" r="15"/><path class="bg-st" d="M'+(bx-6.5)+' '+by+'l4.5 4.6 8.5-9.2"/></g>';
+  if(state==='leak') s+='<g class="badge"><circle class="bgw" cx="'+bx+'" cy="'+by+'" r="16"/><path class="bgw-mk" d="M'+bx+' '+(by-9.5)+'C'+(bx-3.8)+' '+(by-4.3)+' '+(bx-7.2)+' '+(by-.2)+' '+(bx-7.2)+' '+(by+3.4)+'a7.2 7.2 0 0 0 14.4 0C'+(bx+7.2)+' '+(by-.2)+' '+(bx+3.8)+' '+(by-4.3)+' '+bx+' '+(by-9.5)+'Z"/></g>';
+  if(state==='error') s+='<g class="badge"><circle class="bgw" cx="'+bx+'" cy="'+by+'" r="15"/><rect class="bgw-mk" x="'+(bx-2.3)+'" y="'+(by-9)+'" width="4.6" height="12" rx="2.3"/><circle class="bgw-mk" cx="'+bx+'" cy="'+(by+7)+'" r="2.6"/></g>';
+  return s+'</svg>';
+}
+// a small washer glyph for chips and tile wells (the house's hk:washing-machine stands here on the real screens)
+function glyph(kind,c){
+  c=c||'currentColor';
+  var dryer=kind==='dryer';
+  return '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="3.4" fill="none" stroke="'+c+'" stroke-width="1.9"/><path d="M4 7.6h16" stroke="'+c+'" stroke-width="1.6"/>'+
+    (dryer?'<circle cx="16.4" cy="5.3" r="1" fill="'+c+'"/>':'<circle cx="7" cy="5.3" r="1" fill="'+c+'"/><circle cx="9.6" cy="5.3" r="1" fill="'+c+'"/>')+
+    '<circle cx="12" cy="14" r="4.4" fill="none" stroke="'+c+'" stroke-width="1.9"/></svg>';
+}
+
+// ---------------------------------------------------------------- the house, per setup
+var COMBO_STATES=['off','delayed','washing','rinsing','spinning','drying','cooling','wrinkle','paused','done','leak','error','offline'];
+var NAMES={off:'Off',delayed:'Delayed Start',washing:'Washing',rinsing:'Rinsing',spinning:'Spinning',drying:'Drying',cooling:'Cooling',wrinkle:'Wrinkle Care',paused:'Paused',done:'Done',leak:'Water Leak',error:'Needs Help',offline:'Unavailable',running:'Running'};
+var SETUPS={
+  combo:{label:'Samsung combo',states:COMBO_STATES},
+  pair:{label:'Washer + dryer (LG)',states:['both off','washer running','move to dryer','both running','dryer done','leak']},
+  plug:{label:'Plug + vibration',states:['both off','washer running','both running','washer done','dryer done']}
+};
+var LEFT={washing:52,rinsing:38,spinning:31,drying:24,cooling:6,paused:24};
+function machine(o){return Object.assign({name:'Washer',kind:'washer',state:'off',left:null,ends:null,pct:null,ago:null,starts:null,src:'own',
+  prog:'Cotton',temp:'Cold',spin:'Extra High',soil:'Normal',kwh:'0.9 kWh',water:'14 gal',door:'Locked',leakS:'Dry',power:null,forMin:null,est:null,last:'Yesterday'},o);}
+function endsAt(min){var d=new Date(2026,10,10,17,37);d.setMinutes(d.getMinutes()+min);var h=d.getHours(),m=d.getMinutes();return ((h%12)||12)+':'+(m<10?'0':'')+m+' '+(h<12?'AM':'PM');}
+function house(setup,st){
+  if(setup==='combo'){
+    var m=machine({kind:'combo',state:st});
+    if(LEFT[st]!=null){m.left=LEFT[st];m.ends=endsAt(m.left);m.pct={washing:22,rinsing:41,spinning:52,drying:74,cooling:95,paused:74}[st];}
+    if(st==='paused'){m.ends=null;}
+    if(st==='done')m.ago=12;
+    if(st==='wrinkle')m.ago=8;
+    if(st==='delayed')m.starts='8:30 PM';
+    if(st==='leak'){m.state='leak';m.leakS='Wet';m.under='washing';}
+    if(st==='error')m.err='Door not closed';
+    m.name='Washer';return [m];
+  }
+  if(setup==='pair'){
+    var w=machine({name:'Washer',kind:'washer',temp:'Warm',spin:'High',prog:'Normal',door:null}), d=machine({name:'Dryer',kind:'dryer',prog:'Normal',temp:'Medium Heat',spin:null,soil:null,water:null,kwh:'2.1 kWh',door:null});
+    if(st==='washer running'){w.state='washing';w.left=38;w.ends=endsAt(38);w.pct=34;}
+    if(st==='move to dryer'){w.state='done';w.ago=12;w.move=true;}
+    if(st==='both running'){w.state='spinning';w.left=6;w.ends=endsAt(6);w.pct=91;d.state='drying';d.left=52;d.ends=endsAt(52);d.pct=18;}
+    if(st==='dryer done'){d.state='wrinkle';d.ago=25;}
+    if(st==='leak'){w.state='leak';w.leakS='Wet';}
+    return [w,d];
+  }
+  var pw=machine({name:'Washer',kind:'washer',src:'power',prog:null,temp:null,spin:null,soil:null,water:null,door:null,kwh:'0.4 kWh'}),
+      pd=machine({name:'Dryer',kind:'dryer',src:'vibration',prog:null,temp:null,spin:null,soil:null,water:null,door:'Closed',kwh:null});
+  if(st==='washer running'){pw.state='running';pw.forMin=32;pw.est=18;pw.power='412 W';}
+  if(st==='both running'){pw.state='running';pw.forMin=48;pw.est=4;pw.power='38 W';pd.state='running';pd.forMin=21;pd.est=34;}
+  if(st==='washer done'){pw.state='done';pw.ago=6;pw.move=true;}
+  if(st==='dryer done'){pd.state='done';pd.ago=40;}
+  return [pw,pd];
+}
+var RUN=/^(washing|rinsing|spinning|drying|cooling|running|paused|delayed)$/;
+function rank(m){return /^(leak|error)$/.test(m.state)?0:/^(done|wrinkle)$/.test(m.state)?1:RUN.test(m.state)?2:3;}
+function words(m){
+  var s=m.state;
+  if(s==='off') return {t:'Off',sub:m.last?'Last ran '+m.last.toLowerCase():'',sh:'Off'};
+  if(s==='offline') return {t:'Unavailable',sub:'Not answering',sh:'Unavailable'};
+  if(s==='delayed') return {t:'Delayed Start',sub:'Starts at '+m.starts,sh:'Starts '+m.starts.replace(' PM','')};
+  if(s==='paused') return {t:'Paused',sub:m.left+' min to go',sh:'Paused'};
+  if(s==='leak') return {t:'Water Leak',sub:'Water under the '+m.name.toLowerCase(),sh:'Leak',red:1};
+  if(s==='error') return {t:'Needs Help',sub:m.err||'Check the machine',sh:'Needs Help',red:1};
+  if(s==='done') return {t:'Done',sub:m.move?'Ready for the dryer':'Finished '+m.ago+' min ago',sh:m.move?'Move to Dryer':'Done',mint:1};
+  if(s==='wrinkle') return {t:'Done',sub:'Tumbling now and then',sh:'Done',mint:1};
+  if(s==='running') return {t:'Running',sub:(m.est!=null?'About '+m.est+' min left':'For '+m.forMin+' min'),sh:(m.est!=null?'About '+m.est+' min':'Running')};
+  return {t:NAMES[s],sub:m.left+' min left',sh:m.left+' min left'};
+}
+function disp(m){
+  if(m.state==='delayed') return '8:30';
+  if(RUN.test(m.state)&&m.left!=null) return '0:'+(m.left<10?'0':'')+m.left;
+  if(m.state==='done'||m.state==='wrinkle') return 'End';
+  if(m.state==='error') return 'dE';
+  return '';
+}
+function steps(m){
+  if(m.src!=='own') return null;
+  var list=m.kind==='dryer'?['Dry','Cool']:m.kind==='combo'?['Wash','Rinse','Spin','Dry']:['Wash','Rinse','Spin'];
+  var at={washing:'Wash',rinsing:'Rinse',spinning:'Spin',drying:'Dry',cooling:m.kind==='dryer'?'Cool':'Dry',paused:'Dry'}[m.state];
+  if(m.kind!=='combo'&&m.state==='paused') at=null;
+  var done=/^(done|wrinkle)$/.test(m.state), i=list.indexOf(at);
+  if(!done&&i<0) return null;
+  return list.map(function(n,k){
+    var f=done||k<i?1:k===i?({washing:.45,rinsing:.6,spinning:.5,drying:.6,cooling:.8,paused:.6}[m.state]||.5):0;
+    return '<div class="st'+(done||k<i?' done':k===i?' now':'')+'"><div class="bar"><i style="transform:scaleX('+f+')"></i></div><div class="lb">'+n+'</div></div>';
+  }).join('');
+}
+function track(m){var s=steps(m);return s?'<div class="track">'+s+'</div>':'';}
+function settingsLine(m){return [m.prog,m.temp,m.spin&&(m.spin+' Spin'),m.soil&&(m.soil+' Soil')].filter(Boolean).join(' · ');}
+var I={
+  pause:'<svg viewBox="0 0 18 18"><rect x="4" y="3" width="3.6" height="12" rx="1.4" fill="currentColor"/><rect x="10.4" y="3" width="3.6" height="12" rx="1.4" fill="currentColor"/></svg>',
+  stop:'<svg viewBox="0 0 18 18"><rect x="3.5" y="3.5" width="11" height="11" rx="2.6" fill="currentColor"/></svg>',
+  play:'<svg viewBox="0 0 18 18"><path d="M5 3.4v11.2c0 .8.9 1.3 1.6.9l9-5.6c.6-.4.6-1.3 0-1.7l-9-5.6C5.9 2.2 5 2.6 5 3.4Z" fill="currentColor"/></svg>',
+  check:'<svg viewBox="0 0 18 18"><path d="M3.5 9.4l3.5 3.6 7.5-8" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  x:'<svg viewBox="0 0 14 14" width="13" height="13"><path d="M3 3l8 8M11 3l-8 8" stroke="rgba(255,255,255,.8)" stroke-width="2" stroke-linecap="round"/></svg>'
+};
+function keys(m,remote,max){
+  var k=[];
+  if(m.state==='done'||m.state==='wrinkle') k.push('<button class="pill">'+I.check+'Clear</button>');
+  else if(remote&&m.src==='own'&&RUN.test(m.state)&&m.state!=='delayed'){
+    k.push(m.state==='paused'?'<button class="pill">'+I.play+'Resume</button>':'<button class="pill">'+I.pause+'Pause</button>');
+    k.push('<button class="pill red">'+I.stop+'Stop</button>');
+  }
+  if(max) k=k.slice(0,max);
+  return k.length?'<div class="pills">'+k.join('')+'</div>':'';
+}
+function subColor(w){return w.red?' red':w.mint?' mint':'';}
+
+// ---------------------------------------------------------------- the block at each size
+var SIZE={S:[196,196],W:[405,196],T:[196,405],L:[405,405],XL:[614,405]};
+var SNAME={S:'Small',W:'Wide',T:'Tall',L:'Large',XL:'Extra Large'};
+function ctile(m,dw,cls){var w=words(m);return '<div class="ctile'+(cls?' '+cls:'')+'">'+drawing(m.kind,m.state,dw,disp(m))+'<div class="nm">'+esc(m.name)+'</div><div class="st'+subColor(w)+'">'+esc(w.sh)+'</div></div>';}
+function block(size,ms,remote){
+  var one=ms.length===1, by=ms.slice().sort(function(a,b){return rank(a)-rank(b);}), m=by[0], w=words(m), h='';
+  if(size==='S'){
+    h='<div class="blk" style="padding:14px 18px 18px">'+ctile(m,92)+'</div>';
+    if(!one) h+='<div style="position:absolute;right:16px;top:14px" class="t-lbl">+1</div>';
+  }
+  else if(size==='W'){
+    if(one) h='<div class="blk" style="gap:16px;align-items:center;padding:13px 18px 13px 13px">'+drawing(m.kind,m.state,150,disp(m))+
+      '<div style="flex:1;min-width:0;align-self:stretch;display:flex;flex-direction:column;gap:6px;padding-top:5px"><div class="t-title">'+esc(w.t)+'</div><div class="t-sub'+subColor(w)+'">'+esc(w.sub)+'</div>'+
+      (m.ends?'<div class="t-cap">Done at '+m.ends+'</div>':'')+'<div style="margin-top:auto;display:flex;flex-direction:column;gap:12px">'+track(m)+keys(m,remote,1)+'</div></div></div>';
+    else h='<div class="blk" style="gap:0;padding:14px 10px 16px">'+ctile(ms[0],86,'sm')+'<div class="hairv"></div>'+ctile(ms[1],86,'sm')+'</div>';
+  }
+  else if(size==='T'){
+    if(one) h='<div class="blk" style="flex-direction:column;align-items:center;text-align:center;gap:6px;padding:18px">'+drawing(m.kind,m.state,150,disp(m))+
+      '<div class="t-title" style="margin-top:6px">'+esc(w.t)+'</div><div class="t-sub'+subColor(w)+'">'+esc(w.sub)+'</div>'+(m.ends?'<div class="t-cap">Done at '+m.ends+'</div>':'')+
+      '<div style="margin-top:auto;width:100%;display:flex;flex-direction:column;gap:14px;align-items:center">'+track(m)+keys(m,remote,1)+'</div></div>';
+    else h='<div class="blk" style="flex-direction:column;gap:0;padding:16px 18px">'+ctile(ms[0],96,'sm')+'<div class="hairh" style="margin:6px 0 12px"></div>'+ctile(ms[1],96,'sm')+'</div>';
+  }
+  else if(size==='L'){
+    if(one) h='<div class="blk" style="flex-direction:column;gap:12px">'+
+      '<div style="display:flex;gap:14px;align-items:flex-start"><div style="margin:-4px 0 0 -5px">'+drawing(m.kind,m.state,150,disp(m))+'</div><div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:5px"><div class="t-name" style="color:var(--t-ink2)">'+esc(m.name)+'</div><div class="t-hero">'+esc(w.t)+'</div><div class="t-sub'+subColor(w)+'">'+esc(w.sub)+'</div>'+(m.ends?'<div class="t-cap">Done at '+m.ends+'</div>':'')+'</div></div>'+
+      track(m)+'<div class="rows">'+(settingsLine(m)?'<div class="r">Cycle<b>'+esc([m.temp,m.spin&&(m.spin+' Spin')].filter(Boolean).join(' · '))+'</b></div>':'')+(m.src!=='own'?'<div class="r">Reads<b>'+srcLine(m)+'</b></div>':'')+
+      (m.kwh||m.water?'<div class="r">This cycle<b>'+[m.kwh,m.water].filter(Boolean).join(' · ')+'</b></div>':'')+'<div class="r">Leak sensor<b'+(m.leakS==='Wet'?' class="red"':'')+'>'+m.leakS+'</b></div></div>'+
+      (keys(m,remote,2)?'<div style="margin-top:auto">'+keys(m,remote,2)+'</div>':'')+'</div>';
+    else h='<div class="blk" style="gap:0;padding:18px 8px 18px">'+ms.map(function(x,i){var ww=words(x);return (i?'<div class="hairv"></div>':'')+
+      '<div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:4px;padding:0 10px">'+drawing(x.kind,x.state,124,disp(x))+
+      '<div class="t-name" style="margin-top:4px">'+esc(x.name)+'</div><div class="t-title" style="font-size:20px;line-height:24px">'+esc(ww.t)+'</div><div class="t-cap'+subColor(ww)+'">'+esc(ww.sub)+'</div>'+
+      '<div style="margin-top:14px;width:100%;display:flex;flex-direction:column;gap:14px;align-items:center">'+track(x)+keys(x,remote,1)+'</div></div>';}).join('')+'</div>';
+  }
+  else {
+    if(one) h='<div class="blk" style="gap:22px;align-items:stretch">'+
+      '<div style="width:240px;flex:none;display:flex;align-items:center;justify-content:center">'+drawing(m.kind,m.state,236,disp(m))+'</div>'+
+      '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px"><div class="t-name" style="color:var(--t-ink2)">'+esc(m.name)+'</div><div class="t-hero">'+esc(w.t)+'</div><div class="t-sub'+subColor(w)+'">'+esc(w.sub)+(m.ends?' · Done at '+m.ends:'')+'</div>'+
+      '<div style="margin-top:10px">'+track(m)+'</div>'+
+      '<div class="rows" style="margin-top:8px">'+(settingsLine(m)?'<div class="r">Cycle<b>'+esc(settingsLine(m))+'</b></div>':'')+(m.src!=='own'?'<div class="r">Reads<b>'+srcLine(m)+'</b></div>':'')+
+      (m.kwh||m.water?'<div class="r">This cycle<b>'+[m.kwh,m.water].filter(Boolean).join(' · ')+'</b></div>':'')+'<div class="r">Leak sensor<b'+(m.leakS==='Wet'?' class="red"':'')+'>'+m.leakS+'</b></div></div>'+
+      '<div style="margin-top:auto">'+keys(m,remote,2)+'</div></div></div>';
+    else h='<div class="blk" style="gap:0;padding:18px 8px">'+ms.map(function(x,i){var ww=words(x);
+      var rr=[]; if(settingsLine(x)) rr.push(['Cycle',[x.temp,x.spin&&(x.spin+' Spin')].filter(Boolean).join(' · ')||x.prog]); if(x.src!=='own') rr.push(['Reads',srcLine(x).replace(/ · .*/,'')]);
+      if(x.kwh||x.water) rr.push(['This cycle',[x.kwh,x.water].filter(Boolean).join(' · ')]); rr.push([x.door?'Door':'Leak sensor',x.door||x.leakS]);
+      return (i?'<div class="hairv"></div>':'')+
+      '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:12px;padding:0 14px"><div style="display:flex;gap:12px;align-items:flex-start"><div style="width:104px;flex:none;margin:-4px 0 0 -4px">'+drawing(x.kind,x.state,104,disp(x))+'</div>'+
+      '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px"><div class="t-name" style="color:var(--t-ink2)">'+esc(x.name)+'</div><div class="t-title">'+esc(ww.t)+'</div><div class="t-cap'+subColor(ww)+'">'+esc(ww.sub)+'</div>'+(x.ends?'<div class="t-cap">Done at '+x.ends+'</div>':'')+'</div></div>'+
+      track(x)+'<div class="rows">'+rr.map(function(r){return '<div class="r">'+r[0]+'<b'+(r[1]==='Wet'?' class="red"':'')+'>'+esc(r[1])+'</b></div>';}).join('')+'</div>'+
+      (keys(x,remote,2)?'<div style="margin-top:auto">'+keys(x,remote,2)+'</div>':'')+'</div>';}).join('')+'</div>';
+  }
+  return '<div><div class="cap">'+SNAME[size]+'</div><div class="plate" style="width:'+SIZE[size][0]+'px;height:'+SIZE[size][1]+'px">'+h+'</div></div>';
+}
+function srcLine(m){
+  if(m.src==='power') return 'Washer Plug'+(m.power?' · '+m.power:'')+(m.forMin?' · on '+m.forMin+' min':'');
+  if(m.src==='vibration') return 'Dryer Vibration'+(m.forMin?' · shaking '+m.forMin+' min':'');
+  return '';
+}
+
+// ---------------------------------------------------------------- room page
+function room(ms){
+  var lit=ms.filter(function(m){return RUN.test(m.state)||/^(done|wrinkle|leak|error)$/.test(m.state);});
+  var chip='';
+  if(lit.length){var top=lit.slice().sort(function(a,b){return rank(a)-rank(b);})[0],w=words(top);
+    chip='<div class="chip'+(w.mint?' lit':'')+'"><span class="cg">'+glyph(top.kind,w.red?'#ff453a':w.mint?'#63e6e2':'rgba(255,255,255,.92)')+'</span><span>Laundry<small'+(w.red?' style="color:#ff453a"':'')+'>'+esc(lit.length>1?lit.length+' machines':w.sh)+'</small></span></div>';}
+  var tiles=ms.map(function(m){var w=words(m),on=RUN.test(m.state)||/^(done|wrinkle)$/.test(m.state);
+    return '<div class="tile tall'+(on?' lit':'')+'"><div style="margin:-6px 0 0 -6px">'+drawing(m.kind,m.state,58,'')+'</div><div><div class="tn">'+esc(m.name)+'</div><div class="ts'+(w.mint?' mint':'')+'"'+(w.red?' style="color:#ff453a"':'')+'>'+esc(w.sh)+'</div></div></div>';}).join('');
+  var light='<div class="tile"><div class="wl"><svg viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.6 10.8c.6.5 1 1.2 1 2V16h5.2v-.2c0-.8.4-1.5 1-2A6 6 0 0 0 12 3Z" fill="none" stroke="rgba(255,255,255,.92)" stroke-width="1.8" stroke-linejoin="round"/></svg></div><div><div class="tn">Laundry Light</div><div class="ts">Off</div></div></div>';
+  var wet=ms.some(function(m){return m.leakS==='Wet';});
+  var leak='<div class="tile"><div class="wl"><svg viewBox="0 0 24 24"><path d="M12 3.5C9.5 7 6.6 10.3 6.6 13.7a5.4 5.4 0 0 0 10.8 0C17.4 10.3 14.5 7 12 3.5Z" fill="'+(wet?'#ff453a':'none')+'" stroke="'+(wet?'#ff453a':'rgba(255,255,255,.92)')+'" stroke-width="1.8"/></svg></div><div><div class="tn">Leak Sensor</div><div class="ts"'+(wet?' style="color:#ff453a"':'')+'>'+(wet?'Wet':'Dry')+'</div></div></div>';
+  var motion='<div class="tile"><div class="wl"><svg viewBox="0 0 24 24"><circle cx="13" cy="4.6" r="1.9" fill="rgba(255,255,255,.92)"/><path d="M9 21l2.4-6 2.6 2.4V21M8 11l3-3.2 3.4 1 2 3M11.4 7.8 10 14" fill="none" stroke="rgba(255,255,255,.92)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div><div class="tn">Motion</div><div class="ts">Clear</div></div></div>';
+  return '<div class="chips">'+chip+'<div class="chip"><span class="cg" style="display:grid;place-items:center"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M12 4a6 6 0 0 0-3.6 10.8c.6.5 1 1.2 1 2V17h5.2v-.2c0-.8.4-1.5 1-2A6 6 0 0 0 12 4Z" fill="#ffd60a"/></svg></span><span>Lights<small>2 On</small></span></div><div class="chip"><span class="cg" style="display:grid;place-items:center"><svg viewBox="0 0 24 24" width="22" height="22"><path d="M12 3 5 6v5.5c0 4.2 2.9 8 7 9.5 4.1-1.5 7-5.3 7-9.5V6l-7-3Z" fill="#63e6e2"/></svg></span><span>Security<small>Locked</small></span></div></div>'+
+    '<div class="rtitle">Laundry Room</div><div class="tiles">'+tiles+light+leak+motion+'</div>';
+}
+
+// ---------------------------------------------------------------- detail sheet
+var sheetPick=0;
+function sheet(ms,remote){
+  var m=ms[Math.min(sheetPick,ms.length-1)], w=words(m), run=RUN.test(m.state)&&m.state!=='delayed';
+  var seg=ms.length>1?'<div class="sh-seg" role="tablist">'+ms.map(function(x,i){return '<span role="tab" data-pick="'+i+'" class="'+(x===m?'on':'')+'">'+esc(x.name)+'</span>';}).join('')+'</div>':'<div class="r">Laundry Room</div>';
+  var left='<div class="sh-l">'+drawing(m.kind,m.state,250,disp(m))+'<div class="sh-hero" style="margin-top:10px">'+esc(w.t)+'</div><div class="t-sub'+subColor(w)+'" style="font-size:17px">'+esc(w.sub)+(m.ends?' · Done at '+m.ends:'')+'</div>'+
+    (m.pct!=null&&run?'<div class="prog"><i style="width:'+m.pct+'%"></i></div><div class="note">'+m.pct+'% through the cycle</div>':'')+
+    ((m.state==='done'||m.state==='wrinkle')?'<div style="margin-top:12px"><button class="pill">'+I.check+'Clear</button></div><div class="note">Clears itself when the next cycle starts'+(m.door?' or the door opens':'')+'.</div>':'')+'</div>';
+  var cards=[];
+  var tk=track(m);
+  if(tk) cards.push('<div class="sh-card"><div class="t-lbl">Cycle</div>'+tk+'</div>');
+  var rows=[];
+  if(m.prog) rows.push(['Program',m.prog]); if(m.temp) rows.push([m.kind==='dryer'?'Heat':'Water',m.temp]); if(m.spin) rows.push(['Spin',m.spin]); if(m.soil) rows.push(['Soil',m.soil]);
+  if(m.src==='power') rows.push(['Power',(m.power||'2 W')+' · Washer Plug']);
+  if(m.src==='vibration') rows.push(['Vibration',(m.state==='running'?'Shaking':'Still')+' · Dryer Sensor']);
+  if(m.est!=null) rows.push(['Usual cycle','About 50 min (last 10 runs)']);
+  if(rows.length) cards.push('<div class="sh-card"><div class="t-lbl">This Cycle</div><div class="rows">'+rows.map(function(r){return '<div class="r">'+r[0]+'<b>'+esc(r[1])+'</b></div>';}).join('')+'</div></div>');
+  var used=[]; if(m.kwh) used.push(['Energy',m.kwh]); if(m.water) used.push(['Water',m.water]);
+  var around=[['Leak sensor',m.leakS]]; if(m.door) around.push(['Door',m.door]); if(m.src==='own') around.push(['Child lock','Off']);
+  cards.push('<div class="sh-card"><div class="t-lbl">Around It</div><div class="rows">'+used.concat(around).map(function(r){return '<div class="r">'+r[0]+'<b'+(r[1]==='Wet'?' class="red"':'')+'>'+esc(r[1])+'</b></div>';}).join('')+'</div></div>');
+  if(m.src==='own'&&run){
+    var dis=remote?'':' disabled';
+    cards.push('<div class="sh-card"><div class="pills">'+(m.state==='paused'?'<button class="pill"'+dis+'>'+I.play+'Resume</button>':'<button class="pill"'+dis+'>'+I.pause+'Pause</button>')+'<button class="pill red"'+dis+'>'+I.stop+'Stop</button></div>'+
+      (remote?'':'<div class="note">Turn on Remote Control on the '+m.name.toLowerCase()+' to pause or stop it from here. Starting a cycle stays at the machine.</div>')+'</div>');
+  }
+  return '<div class="sheet" role="dialog" aria-label="'+esc(m.name)+'"><div class="sh-head"><div class="sh-x">'+I.x+'</div><div class="t">'+esc(m.name)+'</div>'+seg+'</div><div class="sh-cols">'+left+'<div class="sh-r">'+cards.join('')+'</div></div></div>';
+}
+
+// ---------------------------------------------------------------- HK Settings mock
+function chev(){return '<span class="ch"><svg width="8" height="13" viewBox="0 0 8 13"><path d="M1.5 1.5 6.5 6.5l-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>';}
+function row(l,v,arrow){return '<div class="ios-r"><span>'+l+'</span>'+(v!=null?'<span class="v">'+v+'</span>':'')+(arrow?chev():'')+'</div>';}
+function phones(setup){
+  var a='<div class="ios"><div class="ios-nav">‹ Settings</div><div class="ios-t">Accessories</div>'+
+    '<div class="ios-h">By Kind</div><div class="ios-g">'+
+    '<div class="ios-r"><span class="ico" style="background:#5ac8fa">'+glyph('washer','#fff')+'</span><span>Laundry</span><span class="v">'+(setup==='combo'?'1 Machine':'2 Machines')+'</span>'+chev()+'</div>'+
+    '<div class="ios-r"><span class="ico" style="background:#30b0c7"><svg viewBox="0 0 24 24"><path d="M12 3.5C9.5 7 6.6 10.3 6.6 13.7a5.4 5.4 0 0 0 10.8 0C17.4 10.3 14.5 7 12 3.5Z" fill="#fff"/></svg></span><span>Leak Sensors</span><span class="v">4</span>'+chev()+'</div>'+
+    '<div class="ios-r"><span class="ico" style="background:#8e8e93"><svg viewBox="0 0 24 24"><rect x="4" y="7" width="16" height="10" rx="5" fill="#fff"/></svg></span><span>Vacuums</span><span class="v">2</span>'+chev()+'</div></div>'+
+    '<div class="ios-f">Laundry: washers and dryers. The Laundry chip shows while one runs or waits to be unloaded.</div>'+
+    '<div class="ios-h" style="margin-top:22px">Laundry</div><div class="ios-g">'+
+    (setup==='combo'?row('Washer','Washer &amp; Dryer',1):setup==='pair'?row('Washer','Found',1)+row('Dryer','Found',1):row('Washer','Power',1)+row('Dryer','Vibration',1))+
+    '<div class="ios-r" style="color:var(--accent)">Add a Machine…</div></div>'+
+    '<div class="ios-f">Found: machines with their own integration. Add a machine for a smart plug, a power monitor or a vibration sensor.</div></div>';
+  var b;
+  if(setup!=='plug'){
+    var pair=setup==='pair';
+    b='<div class="ios"><div class="ios-nav">‹ Laundry</div><div class="ios-t">Washer</div>'+
+      '<div class="ios-g">'+row('Kind',pair?'Washer':'Washer &amp; Dryer',1)+row('Reads From','Automatic',1)+
+      '<div class="found">'+(pair?'Found on its device (LG ThinQ): <code>Current status</code>, <code>Remaining time</code>, <code>Remote start</code>, <code>Notification</code> events':'Found on its device (SmartThings): <code>Job state</code>, <code>Machine state</code>, <code>Completion time</code>, <code>Progress</code>')+'</div></div>'+
+      '<div class="ios-h">Also Watch</div><div class="ios-g">'+row('Leak Sensor','Laundry Leak Sensor',1)+row('Door','Automatic',1)+row('Room','Laundry Room',1)+'</div>'+
+      '<div class="ios-f">Door: the machine\'s own door sensor where it has one, or a contact you pick. Opening the door after Done clears it.</div>'+
+      '<div class="ios-h">When It\'s Done</div><div class="ios-g"><div class="ios-r"><span>Keep Done Until Cleared</span><span class="sw"></span></div>'+row('Clear After','4 Hours',1)+row('Announce','Off',1)+'</div>'+
+      '<div class="ios-f">Done stays on the block, the tile and the chip until someone presses Clear, the door opens or the next cycle starts.</div></div>';
+  } else {
+    b='<div class="ios"><div class="ios-nav">‹ Laundry</div><div class="ios-t">Dryer</div>'+
+      '<div class="ios-g">'+row('Kind','Dryer',1)+row('Reads From','Vibration',1)+'</div>'+
+      '<div class="ios-h">Vibration</div><div class="ios-g">'+row('Sensor','Dryer Vibration',1)+row('Running After','2 Min of Shaking',1)+row('Done After','5 Min Still',1)+'</div>'+
+      '<div class="ios-f">A vibration sensor flickers on and off, so the dryer counts as running once it has been shaking for a while, and as done once it has been still for a while.</div>'+
+      '<div class="ios-h">Power (Optional)</div><div class="ios-g">'+row('Sensor','None',1)+row('Running Above','10 W',1)+row('Done Below','3 W for 3 Min',1)+'</div>'+
+      '<div class="ios-f">With both, power decides and vibration confirms. A 240 V dryer needs a clamp meter on its circuit; a plug can\'t carry it.</div>'+
+      '<div class="ios-h">Also Watch</div><div class="ios-g">'+row('Door','Dryer Door Contact',1)+row('Room','Laundry Room',1)+'</div></div>';
+  }
+  return a+b;
+}
+
+// ---------------------------------------------------------------- brands
+var BRANDS=window.LAUNDRY_BRANDS||[];
+function brands(){
+  var t=document.getElementById('brands');
+  t.innerHTML='<thead><tr><th>Source</th><th>Status</th><th>Cycle step</th><th>Time</th><th>Door, remote, alerts</th><th>Two machines</th></tr></thead><tbody>'+
+    BRANDS.map(function(b){return '<tr><td class="b">'+b[0]+'</td><td>'+b[1]+'</td><td>'+b[2]+'</td><td>'+b[3]+'</td><td>'+b[4]+'</td><td>'+b[5]+'</td></tr>';}).join('')+'</tbody>';
+  document.getElementById('map').innerHTML=(window.LAUNDRY_MAP||[]).map(function(r){return '<div><b>'+r[0]+'</b> ← '+r[1]+'</div>';}).join('');
+}
+
+// ---------------------------------------------------------------- wiring
+var cur={setup:'combo',state:'drying',remote:false};
+function segs(){
+  var se=document.getElementById('setup'); se.innerHTML=Object.keys(SETUPS).map(function(k){return '<button data-setup="'+k+'" aria-pressed="'+(cur.setup===k)+'">'+SETUPS[k].label+'</button>';}).join('');
+  var st=document.getElementById('state'); st.innerHTML=SETUPS[cur.setup].states.map(function(k){var n=NAMES[k]||k.replace(/^./,function(c){return c.toUpperCase();});return '<button data-state="'+k+'" aria-pressed="'+(cur.state===k)+'">'+n+'</button>';}).join('');
+}
+function gallery(){
+  var kinds=cur.setup==='combo'?['combo']:cur.setup==='pair'?['washer','dryer']:['washer','dryer'];
+  var list=[];
+  COMBO_STATES.concat(['running']).forEach(function(s){
+    kinds.forEach(function(k){
+      if(k==='dryer'&&/^(washing|rinsing|spinning)$/.test(s)) return;
+      if(k==='washer'&&kinds.length>1&&/^(drying|cooling|wrinkle)$/.test(s)) return;
+      if(k==='combo'&&s==='running') return;
+      var m=machine({kind:k,state:s,name:k==='dryer'?'Dryer':'Washer'}); if(LEFT[s]!=null)m.left=LEFT[s]; if(s==='done')m.ago=12; if(s==='wrinkle')m.ago=8; if(s==='delayed')m.starts='8:30 PM'; if(s==='running'){m.src='power';m.forMin=32;m.est=18;}
+      var w=words(m);
+      list.push('<div class="gcell">'+drawing(k,s,118,disp(m))+'<div class="n">'+(kinds.length>1?m.name+' · ':'')+NAMES[s]+'</div><div class="w">'+esc(s==='running'?'Power or vibration only: no steps, an estimate from past runs':w.sub)+'</div></div>');
+    });
+  });
+  document.getElementById('gallery').innerHTML=list.join('');
+}
+function render(){
+  uid=0; segs(); gallery();
+  var ms=house(cur.setup,cur.state);
+  document.getElementById('sizes').innerHTML=['S','W','T','L','XL'].map(function(s){return block(s,ms,cur.remote);}).join('');
+  document.getElementById('room').innerHTML=room(ms);
+  document.getElementById('sheet').innerHTML=sheet(ms,cur.remote);
+  document.getElementById('phones').innerHTML=phones(cur.setup);
+  brands();
+}
+document.addEventListener('click',function(e){
+  var b=e.target.closest('[data-setup]'); if(b){cur.setup=b.dataset.setup;cur.state=cur.setup==='combo'?'drying':'both running';sheetPick=0;render();return;}
+  b=e.target.closest('[data-state]'); if(b){cur.state=b.dataset.state;render();return;}
+  b=e.target.closest('[data-pick]'); if(b){sheetPick=+b.dataset.pick;render();return;}
+  if(e.target.closest('#remote')){cur.remote=!cur.remote;e.target.closest('#remote').setAttribute('aria-pressed',cur.remote);render();return;}
+  if(e.target.closest('#motion')){var on=!root.classList.contains('motion');root.classList.toggle('motion',on);e.target.closest('#motion').setAttribute('aria-pressed',on);}
+});
+window.LAUNDRY_RENDER=render;
+render();
+})();
+</script>
