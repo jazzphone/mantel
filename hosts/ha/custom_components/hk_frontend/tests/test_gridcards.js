@@ -352,7 +352,8 @@ function () {
   card._render();
   eq('it says the scene', [card._e.nm.textContent, card._e.lb.textContent], ['Good Morning', 'Morning']);
   ok('the art follows it: a morning sky', /gradient/.test(card._e.art.style.background));
-  ok('its own color in its well', !!card._e.well.style.background);
+  // (2026-11-10: the glyph sits bare at the upper left, white on the sky -- no colored well, at any size)
+  ok('no colored well: the glyph sits bare', !card._e.well.style.background);
   house.calls.length = 0;
   card._run();
   return H.tick().then(function () {
