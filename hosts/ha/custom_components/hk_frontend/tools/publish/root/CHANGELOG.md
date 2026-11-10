@@ -5,6 +5,8 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+## 1.58.0 - 2026-11-10
+
 **Added**
 - **Settings → Accessories → Helpers**: every Home Assistant helper in one place -- toggles, buttons, numbers, lists, counters, dates and times, text and schedules -- shown or not, by kind, with a search. A helper's page turns its tile on, chooses its room (Home Assistant's area, changed there too) and says where the tile will be: in its room on Home, its room's page and Room blocks, or, with no room, only at the end of the automatic Home and on no Home Grid. Helpers no longer sit among Switches & Outlets, and Added Accessories now says plainly where a roomless tile goes.
 - **A Solar Window in Home Grid's Show When**: a rule that holds from one point of the day until the next, each a time (the home's time zone) or sunrise or sunset with an offset in minutes -- the outdoor lights' controls from 15 minutes before sunset until 10 PM, or from an hour before sunrise until half an hour after it. Sunrise and sunset are Home Assistant's own (`sun.sun`), the block changes at each edge without a reload, and a window can run past midnight and across a daylight saving change. Without the sun, the rule doesn't hold and the block shows its next rule or its own card.
