@@ -275,3 +275,13 @@ def test_the_server_finds_the_machines_the_page_finds(page):
     devices = {"d1": {"model": "WD53DBA900H"}, "d2": {}, "d3": {}, "d4": {}}
     keys = ("id", "status", "phase", "time", "door", "power")
     assert [{k: m[k] for k in keys} for m in LA.found(entries, devices, states)] == [{k: m[k] for k in keys} for m in page["found"]]
+
+
+def test_a_house_imported_before_laundry_still_lists_its_chip():
+    """Status Chips lists the kinds the house's catalog has; one imported before Laundry gets it after Vacuums, as page kinds do."""
+    from hk_core.settings import model as S, pages as SP
+    old = [k for k in S.CHIP_KINDS if k != "laundry"]
+    got = SP.chip_kinds_with(old, S.CHIP_KINDS)
+    assert got.index("laundry") == got.index("vacuums") + 1 and len(got) == len(S.CHIP_KINDS)
+    assert SP.chip_kinds_with(None, S.CHIP_KINDS) == list(S.CHIP_KINDS)
+    assert SP.chip_kinds_with(["lights", "energy"], ("lights", "laundry", "energy")) == ["lights", "laundry", "energy"]
