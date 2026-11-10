@@ -96,6 +96,19 @@
                    scope: 'Home Assistant’s helpers: the toggles, buttons, numbers and lists your automations use. None shows on the tablets until you choose it here.',
                    body: function (c) { self.a_helpers(c); } };
         }
+        // LAUNDRY (phase 22, docs/phase22/LAUNDRY.md): the machines, found or the person's own; one machine's parts; adding one
+        if (sub[0] === 'laundry') {
+          var lb = ['Laundry', '#/accessories/laundry'];
+          if (sub[1] === 'add') return { title: 'Add a Machine', back: lb, scope: 'A machine with no integration of its own: what tells Mantel it is running.',
+                                         body: function (c) { self.a_laundryAdd(c); } };
+          if (sub[1] === 'one' && sub[2]) {
+            var lm = this.laundryList().filter(function (x) { return x.id === sub[2]; })[0];
+            return { title: lm ? lm.name : 'Machine', back: lb, body: function (c) { self.a_laundryOne(c, sub[2]); } };
+          }
+          return { title: 'Laundry', back: back,
+                   scope: 'Washers, dryers and washer-dryers: the Laundry block, their tiles in their rooms, the chip and their sheet.',
+                   body: function (c) { self.a_laundry(c); } };
+        }
         // A TYPE (2026-10-13): what it lists, what its page and chip count, its
         // order -- What Counts' kind pages, folded in
         if (sub[0] === 'type' && M.accType(sub[1])) {
@@ -231,6 +244,9 @@
           var hShown = self.helpersShown().length;
           box.appendChild(K.group({ footer: 'Home Assistant’s toggles, buttons, numbers and lists. Each one is off the tablets until you choose it.' }, [
             K.nav({ label: 'Helpers', tile: ['mdi:tune-variant', '#8e8e93'], value: hShown ? hShown + ' Shown' : 'None Shown', href: '#/accessories/helpers', fk: 'acc:helpers' })]));
+          var nL = self.laundryList().length;
+          box.appendChild(K.group({ footer: 'Washers and dryers: found by themselves, or picked part by part for any brand, a plug or a vibration sensor.' }, [
+            K.nav({ label: 'Laundry', tile: ['mdi:washing-machine', '#32ade6'], value: nL ? nL + (nL === 1 ? ' Machine' : ' Machines') : 'None', href: '#/accessories/laundry', fk: 'acc:laundry' })]));
           var count = {};
           ids.forEach(function (id) { var a = self.areaOf(id) || (id.indexOf('timer.') === 0 ? '~timers' : '-'); count[a] = (count[a] || 0) + 1; });
           var rows = self.areasAZ().filter(function (a) { return count[a]; }).map(function (a) {
@@ -879,6 +895,116 @@
         return this.save({ type: 'config/entity_registry/update', entity_id: id, area_id: area }, ['helper:room:' + id], function () {
           ents[id] = Object.assign({}, e, { area_id: area });
         }, function () {});
+      }
+      // ---------------------------------------------------------- laundry (phase 22)
+      // THE MACHINES: the person's own list (features.laundry), else what hkLaundry finds on the house's devices. `saved`: whether
+      // the list is the person's (the first change saves the whole list, the found ones with it)
+      laundryList() {
+        var L = window.hkLaundry, own = this.hs('features.laundry');
+        if (Array.isArray(own) && own.length) return own;
+        return L ? L.found(this.client) : [];
+      }
+      laundrySaved() { var own = this.hs('features.laundry'); return Array.isArray(own) && own.length > 0; }
+      laundrySave(list, keys) {
+        // (a found machine's room is its device's: kept as none, so it follows the device)
+        var clean = list.map(function (m) {
+          var o = {};
+          ['id', 'name', 'kind', 'area', 'watts', 'status', 'phase', 'time', 'progress', 'door', 'remote', 'leak', 'power', 'running'].forEach(function (k) {
+            if (m[k] !== undefined && m[k] !== '') o[k] = m[k];
+          });
+          if (o.watts == null) o.watts = 10;
+          return o;
+        });
+        return this.setH({ 'features.laundry': clean });
+      }
+      laundryEdit(id, patch) {
+        var list = this.laundryList().map(function (m) { return m.id === id ? Object.assign({}, m, patch) : m; });
+        return this.laundrySave(list);
+      }
+      laundryKind(k) { return ({ washer: 'Washer', dryer: 'Dryer', combo: 'Washer & Dryer' })[k] || 'Washer'; }
+      a_laundry(c) {
+        var self = this, L = window.hkLaundry, list = this.laundryList(), saved = this.laundrySaved();
+        var rows = list.map(function (m) {
+          var o = L ? L.look(self.client, m) : null;
+          return K.nav({ label: m.name, sub: self.laundryKind(m.kind) + (self.areaName(L ? L.areaOf(self.client, m) || '' : '') ? ' · ' + self.areaName(L.areaOf(self.client, m)) : ''),
+                         icon: m.kind === 'dryer' ? 'mdi:tumble-dryer' : 'mdi:washing-machine', value: o ? o.title : '',
+                         href: '#/accessories/laundry/one/' + encodeURIComponent(m.id), fk: 'laundry:' + m.id });
+        });
+        c.appendChild(this.withError(K.group({ header: saved ? 'Machines' : 'Found Machines',
+          footer: !list.length ? 'Mantel found no washer or dryer. Add one below: a machine with an integration of its own, a power sensor, or a sensor that is on while it runs.'
+            : saved ? 'Your machines, as you set them.' : 'Found on their devices. Changing one keeps these as your own; Find Machines Again goes back.' }, rows), 'features.laundry'));
+        c.appendChild(K.group({}, [K.nav({ label: 'Add a Machine', icon: 'mdi:plus-circle-outline', href: '#/accessories/laundry/add', fk: 'laundry:add' })]));
+        if (saved) {
+          c.appendChild(K.group({ footer: 'Forget your changes and use the machines Mantel finds.' }, [K.button({ label: 'Find Machines Again', center: true, fk: 'laundry:refind', onClick: function () {
+            K.confirm(self.shadowRoot, { title: 'Find Machines Again?', ok: 'Find Again', message: 'Your names, kinds and picked sensors go.' }).then(function (yes) {
+              if (yes) self.setH({ 'features.laundry': [] }).then(function () { self.soon(); });
+            });
+          } })]));
+        }
+        var ca = this.hs('features.laundry_clear');
+        c.appendChild(K.group({ header: 'Done', footer: 'Done stays on the block, the tile and the chip until someone presses Clear, the door opens, the machine runs again or this much time passes. ' +
+            'It needs the house’s own server; with Home Assistant alone, a machine is Done only while it says so.' }, [
+          K.select({ label: 'Clear After', options: [[2, '2 hours'], [4, '4 hours'], [8, '8 hours'], [12, '12 hours'], [24, '24 hours'], [0, 'Until Cleared']],
+                     value: ca == null ? 4 : ca, sk: 'features.laundry_clear', fk: 'laundry:clear',
+                     onChange: function (v) { self.setH({ 'features.laundry_clear': Number(v) }); } })]));
+      }
+      a_laundryAdd(c) {
+        var self = this, list = this.laundryList(), n = 1;
+        while (list.some(function (m) { return m.id === 'machine_' + n; })) n++;
+        var add = function (role, v) {
+          if (!v) return;
+          var kind = /dry/.test(v) ? 'dryer' : 'washer';
+          var m = { id: 'machine_' + n, name: self.laundryKind(kind), kind: kind, watts: 10 };
+          m[role] = v;
+          self.laundrySave(list.concat([m])).then(function () { self.go('#/accessories/laundry/one/' + encodeURIComponent(m.id)); });
+        };
+        c.appendChild(K.group({ header: 'What Says It Is Running', footer: 'Status: a machine’s own sensor (run, pause, finished...). Power: a smart plug or a clamp meter, running above 10 W (changeable). ' +
+            'Running Sensor: anything that is on while it runs, such as a helper made from a vibration sensor.' }, [
+          this.entityRow({ label: 'Status Sensor', sk: 'laundry:add:status', value: null, none: 'Choose…', filter: { domains: ['sensor', 'select'], shown: false }, onPick: function (v) { add('status', v); } }),
+          this.entityRow({ label: 'Power Sensor', sk: 'laundry:add:power', value: null, none: 'Choose…', filter: { domains: ['sensor'], dc: 'power' }, onPick: function (v) { add('power', v); } }),
+          this.entityRow({ label: 'Running Sensor', sk: 'laundry:add:running', value: null, none: 'Choose…', filter: { domains: ['binary_sensor', 'input_boolean', 'switch'] }, onPick: function (v) { add('running', v); } })]));
+      }
+      a_laundryOne(c, id) {
+        var self = this, L = window.hkLaundry, list = this.laundryList(), m = list.filter(function (x) { return x.id === id; })[0];
+        if (!m) { c.appendChild(K.group({ footer: 'This machine isn’t in the list any more.' }, [])); return; }
+        var o = L ? L.look(this.client, m) : null;
+        var set = function (k) { return function (v) { var p = {}; p[k] = v || null; self.laundryEdit(id, p).then(function () { self.soon(); }); }; };
+        var area = L ? L.areaOf(this.client, m) : m.area;
+        c.appendChild(K.group({ footer: o ? 'Now: ' + o.title + (o.sub ? ' · ' + o.sub : '') + '.' : null }, [
+          K.text({ label: 'Name', sk: 'laundry:name', fk: 'laundry:name', value: m.name, maxlength: 40, onCommit: function (v) { if (v.trim()) set('name')(v.trim()); } }),
+          K.select({ label: 'Kind', sk: 'laundry:kind', fk: 'laundry:kind', value: m.kind, options: [['washer', 'Washer'], ['dryer', 'Dryer'], ['combo', 'Washer & Dryer']], onChange: set('kind') }),
+          K.nav({ label: 'Room', value: area ? this.areaName(area) : 'None', sk: 'laundry:room', fk: 'laundry:room',
+                  href: this.picker('laundry-room', { title: 'Room', value: m.area || null, none: 'Its Device’s Room',
+                    items: function () { return self.areasAZ().map(function (a) { var x = self.client.areas[a]; return { value: a, label: x.name, icon: x.icon || 'mdi:texture-box' }; }); },
+                    onPick: set('area') }) })]));
+        var pick = function (role, label, filter, none) {
+          return self.entityRow({ label: label, sk: 'laundry:' + role, value: m[role] || null, none: none || 'None', filter: filter, onPick: set(role) });
+        };
+        c.appendChild(this.withError(K.group({ header: 'Its Own Integration', footer: 'Status says what it is doing; Cycle Step which part (wash, rinse, spin, dry) where the status doesn’t. ' +
+            'Time is a finish time or the time left. Found machines have these picked from their device already.' }, [
+          pick('status', 'Status', { domains: ['sensor', 'select', 'binary_sensor'] }),
+          pick('phase', 'Cycle Step', { domains: ['sensor'] }),
+          pick('time', 'Time Left or Finish Time', { domains: ['sensor'] }),
+          pick('progress', 'Progress', { domains: ['sensor'] })]), 'features.laundry'));
+        c.appendChild(K.group({ header: 'Without an Integration', footer: 'Used when there’s no Status. Power: running above Running Above. ' +
+            'A plug that flickers, or a vibration sensor, is steadier through a Home Assistant helper (a threshold, or a template sensor with a delay) picked as the Running Sensor.' }, [
+          pick('power', 'Power', { domains: ['sensor'], dc: 'power' }),
+          K.select({ label: 'Running Above', sk: 'laundry:watts', fk: 'laundry:watts', value: m.watts || 10,
+                     options: [[3, '3 W'], [5, '5 W'], [10, '10 W'], [20, '20 W'], [50, '50 W'], [100, '100 W'], [300, '300 W']], onChange: function (v) { set('watts')(Number(v)); } }),
+          pick('running', 'Running Sensor', { domains: ['binary_sensor', 'input_boolean', 'switch'] })]));
+        c.appendChild(K.group({ header: 'Around It', footer: 'Door: opening it after Done clears Done. Remote Control: Pause and Stop show only while the machine allows them. Leak Sensor: a leak is shown first, in red.' }, [
+          pick('door', 'Door', { domains: ['binary_sensor', 'sensor'] }),
+          pick('remote', 'Remote Control', { domains: ['binary_sensor', 'sensor', 'switch'] }),
+          pick('leak', 'Leak Sensor', { domains: ['binary_sensor'], dc: 'moisture' })]));
+        c.appendChild(K.group({}, [K.button({ label: 'Remove Machine', destructive: true, center: true, fk: 'laundry:remove', onClick: function () {
+          K.confirm(self.shadowRoot, { title: 'Remove “' + m.name + '”?', ok: 'Remove', destructive: true, message: 'Its block, tile and chip go. Find Machines Again brings found ones back.' })
+            .then(function (yes) {
+              if (!yes) return;
+              var left = list.filter(function (x) { return x.id !== id; });
+              // (none left: an empty list would mean "find them again", so the found ones would come back -- say so instead)
+              (left.length ? self.laundrySave(left) : self.setH({ 'features.laundry': [] })).then(function () { self.go('#/accessories/laundry'); });
+            });
+        } })]));
       }
       a_one(c, id) {
         var self = this;

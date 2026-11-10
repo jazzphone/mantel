@@ -139,6 +139,10 @@ async def grid_cards(caller, args: dict) -> dict:
                                           "before}. From Home Assistant's sun.sun; without it the rule doesn't hold. "
                                           "E.g. {from: {sun: sunset, offset: -15}, to: {at: '22:00'}}"},
                       "refused_as": "grid_condition"},
+            # LAUNDRY: the house's washers and dryers (Accessories -> Laundry); one drawn large, two side by side
+            "laundry": {"card": "laundry", "sizes": list(HG.CATALOG["laundry"]["sizes"]), "opts": "{tap?} -- what it shows is the house's "
+                        "machines (HK Settings -> Accessories -> Laundry), found by themselves or picked part by part",
+                        "example": {"card": "laundry", "size": "W"}},
             # ALERT: made to be a rule's card, in the block's own place while the rule holds (docs/phase11/ALERT.md)
             "alert": {"card": "alert", "sizes": list(HG.CATALOG["alert"]["sizes"]),
                       "opts": "{title (<= 60), text? (<= 80), since? (an entity: 'Open for 23 min' from its last_changed), "

@@ -1172,6 +1172,8 @@ DEFAULTS: dict[str, dict[str, Any]] = {
     "counts": kinds.blank(),
     # Entities single cards fall back to when their config does not name one.
     "features": {"vacuum_script": None, "alarm_bad_code": None,
+                 # Accessories -> Laundry (hk_core/laundry.py): the machines, [] = found by themselves; Done held this many hours
+                 "laundry": [], "laundry_clear": 4,
                  # thermostats: the older list Status & Chips replaced
                  # (kinds.LEGACY) -- read only while "thermostats" is unsaved.
                  # temperature: the indoor temperature the Climate chip shows

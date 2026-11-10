@@ -446,6 +446,14 @@
         "a_hideKind",
         "a_hideDevice",
         "a_also",
+        "laundryList",
+        "laundrySaved",
+        "laundrySave",
+        "laundryEdit",
+        "laundryKind",
+        "a_laundry",
+        "a_laundryAdd",
+        "a_laundryOne",
         "a_one"
       ]
     },

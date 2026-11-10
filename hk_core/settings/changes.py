@@ -29,6 +29,7 @@ import copy
 import re
 from typing import Any
 
+from .. import laundry as LA
 from .. import vacuum_water as VW
 from ..sleep import rules as SR
 from . import home_grid as HG
@@ -729,6 +730,16 @@ def calendar_event_colors(v: Any) -> dict[str, str]:
     return out
 
 
+def _laundry(check: Callable[[Any], Any]) -> Callable[[Any], Any]:
+    """Accessories -> Laundry (hk_core/laundry.py): its own checks, their codes as this page's."""
+    def run(v: Any) -> Any:
+        try:
+            return check(v)
+        except LA.Invalid as err:
+            raise Invalid(err.code) from None
+    return run
+
+
 HOUSE: dict[str, Callable[[Any], Any]] = {
     "security.alarm": _entity("alarm_control_panel"),
     "features.temperature": SENSOR,
@@ -745,6 +756,8 @@ HOUSE: dict[str, Callable[[Any], Any]] = {
     "features.timer_include": _entities("timer"),
     "features.timer_ignore": _entities("timer"),
     "features.vacuum_script": _entity("script"),
+    "features.laundry": _laundry(LA.machines),
+    "features.laundry_clear": _laundry(LA.clear_after),
     "features.alarm_bad_code": _entity("input_boolean", "binary_sensor"),
     "clock.time": SENSOR,
     "clock.date": SENSOR,

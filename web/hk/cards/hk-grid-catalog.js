@@ -151,6 +151,10 @@
       var id = o.entity || ctx.vacuum;
       if (!id) return stand('Vacuum', 'hk:robot-vacuum', 'No vacuum yet.');
       return { type: s === 'L' || s === 'XL' ? 'custom:hk-grid-vacuum-card' : 'custom:hk-vacuum-card', entity: id }; } },
+    // LAUNDRY (phase 22, docs/phase22/LAUNDRY.md): the house's washers and dryers (Accessories -> Laundry, else found by
+    // themselves) -- one drawn large, two side by side; what it shows is the house's, so it has no options but When Tapped
+    laundry: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { tap: 'tap_target' }, card: function (s) {
+      return { type: 'custom:hk-grid-laundry-card', size: s }; } },
     // every size, HK's clock or a screensaver face, with or without its box (2026-10-24)
     clock: { sizes: ['S', 'W', 'T', 'L', 'XL', 'XXL'], sources: [], opts: { clock_style: 'clock_style', bare: 'boolean', tap: 'tap_target' }, card: function (s, o) {
       return Object.assign({ type: 'custom:hk-grid-clock-card' }, o.clock_style ? { clock_style: o.clock_style } : {}, o.bare ? { bare: true } : {}); } },
@@ -720,7 +724,7 @@
   // A CARD'S NAME, for a sheet's title when it has none of its own (and the editor's palette)
   var NAMES = { accessory: 'Accessory', accessories: 'Accessory Group', scene: 'Scene', scenes: 'Scenes', now_playing: 'Now Playing',
     thermostat: 'Thermostat', camera: 'Camera', security: 'Security', timers: 'Timers', weather: 'Weather',
-    calendar: 'Calendar', battery: 'House Battery', people: 'People', vacuum: 'Vacuum', clock: 'Clock',
+    calendar: 'Calendar', battery: 'House Battery', people: 'People', vacuum: 'Vacuum', laundry: 'Laundry', clock: 'Clock',
     room: 'Room', scene_suggested: 'Suggested Scene', action: 'Action', everything: 'Everything', cameras: 'Cameras',
     power: 'Power', music: 'Music', doors: 'Doors & Locks', live_tv: 'Live TV', water: 'Water',
     on_now: 'On Now', todo: 'To-do', energy_rings: 'Energy Rings', timeline: 'Recent', intercom: 'Intercom', house_status: 'House Status', alert: 'Alert' };
