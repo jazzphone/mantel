@@ -256,30 +256,22 @@
         // and at a fixed 188 the four buttons would be pushed out of the card
         // and cut off. Every ordinary card is exactly 188; one
         // with more to say grows.
-        'hk-plate.vac{box-sizing:border-box;display:block;min-height:188px;  border-radius:' + window.hkCards.M.radius + ';padding:16px 18px;overflow:hidden;cursor:pointer;  ' + window.hkCards.M.glass + ';',
+        'hk-plate.vac{box-sizing:border-box;display:flex;flex-direction:column;gap:14px;min-height:188px;  border-radius:' + window.hkCards.M.radius + ';padding:16px 18px;overflow:hidden;cursor:pointer;  ' + window.hkCards.M.glass + ';',
         '  border:' + window.hkCards.M.border + ';  box-shadow:var(--hk-look-shadow, ' + window.hkCards.v('glass-shadow-tall') + ');  --ha-ripple-hover-opacity:0;--ha-ripple-pressed-opacity:0}',
-        '.vac .grid{display:grid;min-height:156px;  grid-template-areas:"ico label label label" "meta meta meta meta" "start pause locate home";  grid-template-columns:52px 1fr 1fr 1fr;  grid-template-rows:52px min-content 1fr;',
-        '  column-gap:14px;row-gap:10px;align-items:center}',
-        '.vac .ico{grid-area:ico;justify-self:start;width:52px;height:52px;  border-radius:26px;display:flex;align-items:center;justify-content:center;  background:' + window.hkCards.v('key-strong') + ';transition:background-color .25s ease}',
-        // LIVE is green with dark ink -- the same "it is doing something right
-        // now" signal the progress chip uses.
-        '.vac .ico[data-live="1"]{background:rgba(48,209,88,0.95)}',
-        '.vac .ico hk-icon{--mdc-icon-size:28px;width:28px;height:28px;  color:var(--hk-glyph,rgba(255,255,255,0.80))}',
-        '.vac .ico[data-live="1"] hk-icon{color:rgba(0,0,0,0.82)}',
-        '.vac .label{grid-area:label;justify-self:start;align-self:center;  min-width:0;overflow:hidden;font-size:18px;font-weight:600;  letter-spacing:-0.45px;color:' + window.hkCards.v('ink') + ';line-height:1.25;',
-        '  text-align:left;white-space:nowrap;text-overflow:ellipsis;width:100%}',
-        '.vac .meta{grid-area:meta;justify-self:start;align-self:center;  min-width:0;display:flex;flex-wrap:wrap;gap:7px}',
-        '.vac .chip{display:inline-flex;align-items:center;gap:5px;  padding:4px 10px;border-radius:11px;font-size:12px;font-weight:600;  letter-spacing:0.1px;line-height:1.25;white-space:nowrap;',
-        '  background:' + window.hkCards.v('key') + ';color:' + window.hkCards.v('ink') + '}',
-        '.vac .chip.warn{background:rgba(255,159,10,0.92);color:rgba(0,0,0,0.85)}',
-        '.vac .chip.bad{background:rgba(255,69,58,0.92);color:rgba(0,0,0,0.85)}',
-        '.vac .chip.err{background:rgba(255,69,58,0.95);color:rgba(255,255,255,0.97)}',
-        '.vac .chip.good{background:rgba(48,209,88,0.92);color:rgba(0,0,0,0.85)}',
-        '.vac .cmd{justify-self:stretch;height:52px;border-radius:18px;padding:0;  border:none;box-shadow:none;background:' + window.hkCards.v('key') + ';  display:flex;align-items:center;justify-content:center;cursor:pointer;',
-        '  transition:background-color .25s ease,transform .12s ease}',
-        '.vac .cmd:active{transform:scale(0.97);filter:brightness(0.93)}',
-        '.vac .cmd hk-icon{width:23px;height:23px;--mdc-icon-size:23px;  color:' + window.hkCards.v('glyph') + '}',
-        '@media (prefers-reduced-motion:reduce){  .vac .cmd,.vac .cmd:active,.vac .ico{transition:none;transform:none}}',
+        // THE VACUUM DRAWN (2026-11-09, the owner: "should we use these new card setup on the Vacuums page as well? ... room selection on the
+        // card itself isn't needed", the mockup approved): the drawing at the left (hk-vacuum-art.js, 112 wide: 78 + 14 + 56 + 32 of padding
+        // keeps the 188), the name, what it is doing (red when it needs someone) and one line -- where, how far, the battery; under them one row
+        // of 56 px keys: Clean (Pause while it runs, Resume when paused) white and wide, Locate and Dock round. The rooms stay in Clean Areas
+        (window.hkVacuumArt ? window.hkVacuumArt.CSS : '') + '.vac .vt{display:flex;align-items:center;gap:16px;min-width:0}',
+        '.vac .art{width:112px;flex:none}.vac .vtx{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}',
+        '.vac .label{min-width:0;overflow:hidden;font-size:19px;font-weight:600;line-height:24px;color:' + window.hkCards.v('ink') + ';white-space:nowrap;text-overflow:ellipsis}',
+        '.vac .vst{font-size:15px;font-weight:600;line-height:20px;color:' + window.hkCards.ACCENTS.mint + '}.vac .vst.idle{color:' + window.hkCards.v('ink-2') + '}.vac .vst.err{color:' + window.hkCards.ACCENTS.red + '}',
+        '.vac .meta{font-size:13px;line-height:17px;color:' + window.hkCards.v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}',
+        '.vac .vk{display:flex;gap:10px}.vac .cmd{all:unset;box-sizing:border-box;height:56px;min-width:56px;border-radius:28px;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;',
+        '  background:' + window.hkCards.v('key') + ';color:' + window.hkCards.v('ink') + ';font-family:inherit;font-size:17px;font-weight:600;transition:transform .12s ease}',
+        '.vac .cmd.go{flex:1 1 auto;min-width:0;padding:0 14px;background:' + SELECTED_BG + ';color:' + SELECTED_TEXT + '}.vac .cmd:active{transform:scale(0.97)}',
+        '.vac .cmd:focus-visible{outline:2px solid ' + window.hkCards.v('ink-2') + ';outline-offset:2px}.vac .cmd hk-icon{width:22px;height:22px;--mdc-icon-size:22px;flex:none}',
+        '@media (prefers-reduced-motion:reduce){  .vac .cmd,.vac .cmd:active{transition:none;transform:none}}',
         // ON A HOME GRID (the `vacuum` block; redrawn as a widget, 2026-10-31,
         // the owner: "big Clean / Dock keys", the mock-up's Vacuum): built
         // round what a vacuum is for -- what it is doing and its battery, one
@@ -323,10 +315,10 @@
         '.vb .key:active,.vb .vr:active{transform:scale(0.97)}.vb .key:focus-visible,.vb .vr:focus-visible{outline:2px solid ' + C.v('ink-2') + ';outline-offset:2px}',
         // WIDE: the vacuum and its battery large on the left, the two keys stacked on the right
         '.vb[data-s=W]{flex-direction:row;gap:16px}',
-        '.vb[data-s=W] .col{display:flex;flex-direction:column;min-width:0;flex:1 1 auto}',
-        // (its name at the top, the battery and what it is doing at the foot, level with the Dock key)
-        '.vb[data-s=W] .col .big{margin-top:auto}',
-        '.vb[data-s=W] .side{flex:0 0 132px;display:flex;flex-direction:column;justify-content:flex-end;gap:8px}',
+        // (2026-11-09, the owner: "the clean, rooms, and home button area should be wider ... its too squished": the vacuum drawn in two fifths
+        // at the left -- its name, the drawing in what is left, what it is doing -- and the keys the rest)
+        '.vb[data-s=W] .col{display:flex;flex-direction:column;min-width:0;flex:0 0 40%}.vb[data-s=W] .art{flex:1 1 0;min-height:0;width:100%;margin:2px 0;display:flex}',
+        '.vb[data-s=W] .art .hkva{height:100%;width:auto;max-width:100%}.vb[data-s=W] .side{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;justify-content:flex-end;gap:8px}',
         '.vb[data-s=W] .side .key{flex:none;width:100%;--vb-key:48px}',
         // THE ROOMS, two across, each a row of its own size (48 px; nothing stretches, 2026-11-08, the owner: "do the rooms scroll in the card if there
         // are more than what the card allows? If not, it should"): as many as the block holds, the rest scrolling (a cut row says so); few
@@ -348,26 +340,20 @@
         '.vb[data-s=XL]{flex-direction:row;gap:22px}',
         // (the ring in the middle of what its column has left, the last run at the foot, level with the keys)
         '.vb[data-s=XL] .lcol{flex:0 0 200px;display:flex;flex-direction:column;min-width:0}',
-        '.vb[data-s=XL] .lcol :is(.ring,.none){margin-top:auto;margin-bottom:auto}',
+        '.vb[data-s=XL] .lcol :is(.art,.none){margin-top:auto;margin-bottom:auto}',
         '.vb[data-s=XL] .lcol .rt{min-height:var(--vb-key);justify-content:flex-end}',
         '.vb[data-s=XL] .rcol{flex:1 1 auto;display:flex;flex-direction:column;min-width:0}',
         '.vb[data-s=XL] .rcol .lab{margin-top:0}',
         '.vb[data-s=XL] .key.dk{padding:0 18px}',
-        '.vb .ring{position:relative;flex:none;width:104px;height:104px;margin:10px auto;display:grid;place-items:center;text-align:center}',
-        // TALL (2026-11-07, the review): Small's parts stacked -- the name, the battery as a ring in the middle
-        // (--vb-r, to what the block leaves), what it is doing, then Clean with Dock beside it
-        '.vb[data-s=T] .ring{width:var(--vb-r,96px);height:var(--vb-r,96px);margin:0 auto}',
-        '.vb .ring svg{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg);overflow:visible}',
-        '.vb .ring circle{fill:none;stroke-width:8px;stroke:' + C.v('line-strong') + '}.vb .ring .fill{stroke:' + C.ACCENTS.green + ';stroke-linecap:round}',
-        '.vb .ring .fill.warn{stroke:' + C.ACCENTS.orange + '}.vb .ring .fill.bad{stroke:' + C.ACCENTS.red + '}',
-        '.vb .ring b{display:block;font-size:22px;font-weight:500;line-height:1.1;font-variant-numeric:tabular-nums}',
-        '.vb .ring small{display:block;' + C.typeCss('caption') + ';color:' + C.v('ink-2') + '}',
+        // THE VACUUM DRAWN IN PLACE OF THE BATTERY RING (2026-11-09, hk-vacuum-art.js; the battery is in the line under what it is doing):
+        // Extra Large's in the middle of its column, Tall's as big as --vb-r (what the block leaves) lets it, centered
+        (window.hkVacuumArt ? window.hkVacuumArt.CSS : '') + '.vb .art{flex:none;width:100%;margin:6px auto}.vb .state{font-size:22px;font-weight:600;line-height:1.2}',
+        '.vb[data-s=T] .art{width:min(100%,calc(var(--vb-r,96px) * 1.43))}.vb[data-s=W] .state{font-size:19px}',
         // (a Large or Extra Large block with no rooms to offer: the battery large in the middle)
         '.vb .mid{flex:1 1 auto;display:flex;flex-direction:column;justify-content:center;min-height:0}',
         // ON A SQUARE CELL (196 x 196): the mock-up's sizes
         '@container hk-cell (min-height:180px) or style(--hk-cell-shape: square){  hk-plate.vb{--vb-key:48px}  .vb .big{font-size:36px}  .vb .keys{padding-top:12px}',
-        '  .vb .lab{margin-top:12px}  .vb[data-s=W] .side{flex-basis:140px;gap:10px}  .vb[data-s=W] .side .key{--vb-key:56px;font-size:17px}  .vb .ring{width:120px;height:120px;margin:14px auto}',
-        '  .vb .ring b{font-size:30px}',
+        '  .vb .lab{margin-top:12px}  .vb[data-s=W] .side{gap:10px}  .vb[data-s=W] .side .key{--vb-key:56px;font-size:17px}',
         '}'
       ].join('');
     }
@@ -390,7 +376,8 @@
     _sigOf() {
       var h = this.client, c = this._config;
       if (!h || !c) return null;
-      var ids = [c.entity, this._sib('battery'), c.error, c.dock_error, c.room, this._sib('progress')]
+      var art = window.hkVacuumArt ? window.hkVacuumArt.ids(h, c.entity, c) : {};   // (the drawing's error and charge state)
+      var ids = [c.entity, this._sib('battery'), c.error, c.dock_error, c.room, this._sib('progress'), art.error, art.charge]
                   .filter(Boolean);
       var out = '';
       for (var i = 0; i < ids.length; i++) {
@@ -480,53 +467,35 @@
       var sized = this._cellSize();
       if (sized) { this._renderBlock(sized); return; }
       if (!this._built) {
-        var cmds = HkVacuumCard.COMMANDS;
-        var html = '<hk-plate class="vac" data-hk-role="card"><div class="grid">' +
-          '<div class="ico" data-hk-role="ico"><hk-icon icon="mdi:robot-vacuum"></hk-icon></div>' +
-          '<div class="label" data-hk-role="label"></div>' +
-          '<div class="meta" data-hk-role="meta"></div>';
-        for (var i = 0; i < cmds.length; i++) {
-          html += '<div class="cmd" style="grid-area:' + cmds[i][0] + '"' +
-                  ' role="button" aria-label="' + cmds[i][3] + '"' +
-                  ' data-hk-role="' + cmds[i][0] + '">' +
-                  '<hk-icon icon="' + cmds[i][1] + '"></hk-icon></div>';
-        }
-        this._root.innerHTML = html + '</div></hk-plate>';
+        var cmds = HkVacuumCard.COMMANDS, self = this;
+        this._root.innerHTML = '<hk-plate class="vac" data-hk-role="card"><div class="vt"><div class="art"></div><div class="vtx"><b class="label" data-hk-role="label"></b>' +
+          '<span class="vst"></span><span class="meta" data-hk-role="meta"></span></div></div><div class="vk">' + cmds.map(function (c) {
+            return '<button type="button" class="cmd' + (c[0] === 'go' ? ' go' : '') + '" data-hk-role="' + c[0] + '" data-svc="' + c[2] + '" aria-label="' + c[3] + '">' +
+              '<hk-icon icon="' + c[1] + '"></hk-icon>' + (c[0] === 'go' ? '<span></span>' : '') + '</button>';
+          }).join('') + '</div></hk-plate>';
         var q = this._root.querySelector.bind(this._root);
-        this._e = { card: q('.vac'), ico: q('.ico'), label: q('.label'), meta: q('.meta') };
-        var self = this;
-        cmds.forEach(function (c) {
-          q('[data-hk-role="' + c[0] + '"]').addEventListener('click', function (ev) {
-            // The whole card opens more-info; a command must not also do that.
-            ev.stopPropagation();
-            if (self.client) {
-              self._call('vacuum', c[2], { entity_id: cfg.entity });
-            }
+        this._e = { card: q('.vac'), art: q('.art'), label: q('.label'), vst: q('.vst'), meta: q('.meta'), go: q('.cmd.go') };
+        this._root.querySelectorAll('.cmd').forEach(function (b) {
+          b.addEventListener('click', function (ev) {
+            ev.stopPropagation();                      // (the card's tap opens the vacuum; a key only does its own)
+            if (self.client) self._call('vacuum', b.getAttribute('data-svc'), { entity_id: self._config.entity });
           });
         });
         this._bind(this._e.card, 'tap_action', null);
         this._built = true;
       }
-      var e = this._e, st = this._st(cfg.entity);
-      var state = (st && st.state) || 'unknown';
-      var live = (state === 'cleaning' || state === 'returning');
-      e.ico.setAttribute('data-live', live ? '1' : '0');
-
+      var e = this._e, st = this._st(cfg.entity), state = (st && st.state) || 'unknown';
       var nm = cfg.name || (st && st.attributes && st.attributes.friendly_name) || cfg.entity;
       if (e.label.textContent !== nm) e.label.textContent = nm;
-
-      var chips = this._chips(st);
-      var key = chips.map(function (c) { return (c.c || '') + ':' + c.t; }).join('|');
-      if (e.meta.__key !== key) {
-        e.meta.__key = key;
-        e.meta.innerHTML = '';
-        chips.forEach(function (c) {
-          var s = document.createElement('span');
-          s.className = 'chip' + (c.c ? ' ' + c.c : '');
-          s.textContent = c.t;
-          e.meta.appendChild(s);
-        });
-      }
+      var lk = window.hkVacuumArt ? window.hkVacuumArt.look(this.client, cfg.entity, cfg) : { state: 'idle', words: C.sentenceCase(state.replace(/_/g, ' ')) };
+      if (e.art.__s !== lk.state + lk.words) { e.art.__s = lk.state + lk.words; e.art.innerHTML = window.hkVacuumArt ? window.hkVacuumArt.html(lk.state, nm + ', ' + lk.words) : ''; }
+      e.vst.textContent = lk.words; e.vst.className = 'vst' + (/^(water|error)$/.test(lk.state) ? ' err' : /^(docked|idle)$/.test(lk.state) ? ' idle' : '');
+      // (the line: where it is and how far, the battery -- the state is said above it, an error in its color there)
+      var chips = this._chips(st).slice(1).filter(function (c) { return c.c !== 'err'; });
+      e.meta.textContent = chips.map(function (c) { return c.t; }).join(' \u00B7 ');
+      var go = state === 'cleaning' ? ['pause', 'mdi:pause', 'Pause'] : state === 'paused' ? ['start', 'mdi:play', 'Resume'] : ['start', 'mdi:play', 'Clean'];
+      e.go.setAttribute('data-svc', go[0]); e.go.setAttribute('aria-label', go[2] + ' ' + nm);
+      e.go.querySelector('hk-icon').setAttribute('icon', go[1]); e.go.querySelector('span').textContent = go[2];
     }
 
     // ---- THE BLOCK (see the CSS): drawn whole each time and morphed in, so
@@ -586,34 +555,24 @@
       var rkey = pickable ? (sz === 'T' ? '<button type="button" class="rrow' + (said ? ' on' : '') + '" data-rooms aria-label="' + (said ? 'Rooms to clean: ' + esc(chosen.join(', ')) + '. Change' : 'Rooms to clean: the whole house. Choose') +
           '"><span>' + (said ? esc(said) : 'All rooms') + '</span><hk-icon icon="mdi:chevron-right"></hk-icon></button>'
         : '<button type="button" class="key rm' + (said ? ' on' : '') + '" data-rooms aria-label="Choose rooms to clean' + (said ? ': ' + esc(chosen.join(', ')) : '') + '"><hk-icon icon="mdi:floor-plan"></hk-icon><span>' + (chosen.length ? chosen.length + (chosen.length === 1 ? ' room' : ' rooms') : 'Rooms') + '</span></button>') : '';
-      // THE RING (Tall and Extra Large), 2026-11-09, the owner: "not sure if the big circle showing clean percentage is relevant here?"
-      // While cleaning, the progress (the card's `progress` sensor); otherwise the battery, the state under it. Neither: no ring, the
-      // state in words -- never a "\u2013" placeholder.
-      var prog = Number(this._v(this._sib('progress'))), cleaning = state === 'cleaning' && isFinite(prog) && prog > 0;
-      var rv = cleaning ? { n: prog, t: Math.round(prog) + '%', c: '' } : bat ? { n: bat.n, t: bat.t, c: bat.c } : null;
-      var stWords = C.sentenceCase(state.replace(/_/g, ' '));
-      var pct = rv ? Math.max(0, Math.min(100, rv.n)) : 0;
-      var under = cleaning ? 'Cleaning' : words(rest.slice(0, 1)) || esc(stWords);
-      var ring = rv ? '<div class="ring" role="img" aria-label="' + esc((cleaning ? 'Cleaning, ' + rv.t + ' done' : rv.t + ' battery, ' + stWords)) + '">' +
-        '<svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="54"></circle>' +
-        '<circle class="fill ' + rv.c + '" cx="60" cy="60" r="54" pathLength="100" stroke-dasharray="' + pct.toFixed(1) + ' 100"></circle>' +
-        '</svg><span><b>' + esc(rv.t) + '</b><small>' + under + '</small></span></div>'
-        : '<div class="none"><b>' + (words(rest.slice(0, 1)) || esc(stWords)) + '</b></div>';
+      // THE VACUUM DRAWN (Extra Large, Tall, Wide; hk-vacuum-art.js) and what it is doing in words under it, the battery in the line after
+      var lk = window.hkVacuumArt ? window.hkVacuumArt.look(this.client, cfg.entity, cfg) : { state: 'idle', words: C.sentenceCase(state.replace(/_/g, ' ')) };
+      var art = window.hkVacuumArt ? '<div class="art">' + window.hkVacuumArt.html(lk.state, nm + ', ' + lk.words) + '</div>' : '';
+      var subw = (bat ? [bat] : []).concat(rest.slice(1)), what = '<b class="state">' + esc(lk.words) + '</b>';
       var html;
       if (sz === 'S') {
         html = '<div class="hd"><b class="nm">' + esc(nm) + '</b></div>' +
           '<span class="sub">' + (bat ? '<span class="' + bat.c + '">' + esc(bat.t) + '</span> \u00B7 ' : '') + words(rest) + '</span>' +
           '<div class="keys">' + key(go, 'go', true) + '</div>';
       } else if (sz === 'W') {
-        html = '<div class="col"><div class="hd"><b class="nm">' + esc(nm) + '</b></div>' +
-          (bat ? '<div class="big ' + bat.c + '">' + esc(bat.t) + '</div>' : '') +
-          '<span class="sub">' + words(rest) + (said ? '</span><span class="rm-note">' + esc(chosen.join(', ')) : ran) + '</span></div>' +
+        html = '<div class="col"><div class="hd"><b class="nm">' + esc(nm) + '</b></div>' + art + what +
+          '<span class="sub">' + words(subw) + (said ? '</span><span class="rm-note">' + esc(chosen.join(', ')) : ran) + '</span></div>' +
           '<div class="side">' + key(go, 'go', true) + (pickable ? '<div class="pair">' + rkey + key(dock, 'dk', false) + '</div>' : key(dock, 'dk', true)) + '</div>';
       } else if (sz === 'T') {
         var bk = this._block(), more = rest.slice(1);
         html = '<div class="hd"><b class="nm">' + esc(nm) + '</b></div>' +
-          '<div class="mid" style="--vb-r:' + (bk ? Math.max(72, Math.min(120, bk.h - (pickable ? 286 : 234))) : 96) + 'px">' + ring + '</div>' +
-          '<div class="rt">' + stNode + '<span class="sub two">' + (more.length ? words(more) + ran : ran.slice(3)) + '</span></div>' + rkey +
+          '<div class="mid" style="--vb-r:' + (bk ? Math.max(72, Math.min(120, bk.h - (pickable ? 286 : 234))) : 96) + 'px">' + art + '</div>' +
+          '<div class="rt">' + stNode + what + '<span class="sub two">' + words((bat ? [bat] : []).concat(more)) + ran + '</span></div>' + rkey +
           '<div class="keys">' + key(go, 'go', true) + key(dock, 'dk', false) + '</div>';
       } else if (sz === 'XL') {
         var run = [since ? 'Last run ' + since + ' ago' : ''];
@@ -621,9 +580,8 @@
         if (isFinite(Number(a.cleaned_area)) && isFinite(Number(a.cleaning_time)) && a.cleaned_area != null && a.cleaning_time != null) {
           run.push(Math.round(Number(a.cleaned_area)) + ' m\u00B2 in ' + Math.round(Number(a.cleaning_time)) + ' min');
         }
-        var left = '<div class="hd"><b class="nm">' + esc(nm) + '</b></div>' +
-          ring +
-          '<div class="rt">' + stNode + '<span class="sub two">' + (rest.length > 1 ? words(rest.slice(1)) + '<br>' : '') +
+        var left = '<div class="hd"><b class="nm">' + esc(nm) + '</b></div>' + art +
+          '<div class="rt">' + stNode + what + '<span class="sub two">' + (subw.length ? words(subw) + '<br>' : '') +
           esc(run.filter(Boolean).join('\n')).replace(/\n/g, '<br>') + '</span></div>';
         html = '<div class="lcol">' + left + (roomsOn ? '' : '<div class="keys">' + key(go, 'go', true) + key(dock, 'dk', true) + '</div>') + '</div>' +
           (roomsOn ? '<div class="rcol">' + rooms + '<div class="keys">' + key(go, 'go', true) + key(dock, 'dk', true) + '</div></div>' : '');
@@ -669,11 +627,11 @@
       { cards: { cards: [{ type: 'custom:hk-area-select-card', layout: 'panel', pick: this._config.entity }] } });
   };
   // grid-area, glyph, vacuum service, aria-label.
+  // (the page card's keys: Clean / Pause / Resume, its service set as it draws; Locate; Dock)
   HkVacuumCard.COMMANDS = [
-    ['start', 'mdi:play', 'start', 'Start'],
-    ['pause', 'mdi:pause', 'pause', 'Pause'],
+    ['go', 'mdi:play', 'start', 'Clean'],
     ['locate', 'mdi:map-marker', 'locate', 'Locate'],
-    ['home', 'mdi:home-import-outline', 'return_to_base', 'Return to base']
+    ['home', 'mdi:home', 'return_to_base', 'Return to base']
   ];
 
   // ============================================================ area select
