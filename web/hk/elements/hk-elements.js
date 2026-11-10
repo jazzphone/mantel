@@ -3,8 +3,8 @@
 //
 //   hk-icon    an SVG glyph by name: `hk:` names from HK's own iconset (hk-icons.js:
 //              window.customIconsets.hk, Apple's glyphs from "Your files"), `mdi:` names from
-//              the host's Material icon database (hkIcons.mdiPath: HA's /static/mdi in HA, HK's
-//              committed subset in Mantel), any other set from window.customIconsets[set].
+//              the host's Material icon database (hkIcons.mdiPath: HA's /static/mdi in HA, every
+//              Material icon, web/mdi, in Mantel), any other set from window.customIconsets[set].
 //   hk-plate   a card's plate: the same box, colours and variables as Home Assistant's
 //              ha-card (frontend 2026.9), so a card that moves from ha-card to hk-plate looks
 //              the same in HA and draws the same in Mantel. `header` and `raised` as ha-card's.

@@ -191,7 +191,7 @@
       '.wg hk-icon{display:block;flex:none;--mdc-icon-size:100%}' +
       '.wsplit{display:flex;gap:18px;flex:1;min-height:0}.wsplit>:last-child{flex:1}' +
       '.waxis{display:flex;justify-content:space-between;margin-top:6px;flex:none;' + type('micro') + ';color:' + v('ink-3') + '}';
-    // a glyph from the MDI subset (web/mdi), in a color
+    // a glyph (any Material Design Icon, web/mdi), in a color
     function gly(icon, px, col) {
       return '<hk-icon icon="' + icon + '" style="width:' + px + 'px;height:' + px + 'px' + (col ? ';color:' + col : '') + '"></hk-icon>';
     }

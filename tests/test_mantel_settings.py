@@ -6,7 +6,7 @@
   connected (the first run opens Connections); /admin's old addresses forward to their pages.
 * Home Assistant's side: the HA build ships none of it. No Mantel file, and the settings panel it ships says
   nothing of Mantel (the panel's own host tests: hosts/ha/.../tests/test_settingshost.js).
-* Every glyph Mantel's pages draw is in the MDI subset HK serves (web/mdi/icons.json).
+* Every glyph Mantel's pages draw is a Material Design Icon Mantel serves (web/mdi/icons-*.json).
 """
 from __future__ import annotations
 
@@ -164,16 +164,16 @@ def test_the_page_hands_mantels_pages_to_the_shell_and_the_panel_draws_with_the_
 
 
 def test_every_glyph_mantels_pages_draw_is_served():
-    names = set(json.loads((WEB / "mdi/icons.json").read_text()))
+    names = {n for p in (WEB / "mdi").glob("icons-*.json") for n in json.loads(p.read_text())}
     used = set(re.findall(r"mdi:([a-z0-9-]+)", MODULE + PHOTOS))
     assert used and used <= names, sorted(used - names)
 
 
 def test_every_glyph_hks_own_frontend_names_is_served():
-    # Mantel serves a subset of Material Design Icons (web/mdi/icons.json); a name HK's frontend uses that is not in
-    # it draws blank in Mantel only -- HA ships them all (the owner's Side Pane icon and three of its sections,
-    # 2026-10-30). A name built by joining ('mdi:weather-' + its condition) is not a name.
-    names = set(json.loads((WEB / "mdi/icons.json").read_text()))
+    # Mantel serves every Material Design Icon (web/mdi/icons-*.json; until 2026-11-10 a subset, which blanked the
+    # owner's Side Pane icon and three of its sections, 2026-10-30): a name that is not one (a typo, an icon Material
+    # retired) draws blank. A name built by joining ('mdi:weather-' + its condition) is not a name.
+    names = {n for p in (WEB / "mdi").glob("icons-*.json") for n in json.loads(p.read_text())}
     used = {}
     for p in (WEB / "hk").rglob("*.js"):
         for m in re.finditer(r"mdi:([a-z0-9]+(?:-[a-z0-9]+)*)(-?['\"]\s*\+)?", p.read_text(encoding="utf-8", errors="ignore")):

@@ -50,8 +50,7 @@
       ['pagesscreen', 'Pages Screen', 'mdi:view-grid', C.purple],
       // THE SIDE PANE (2026-10-30): one pane per screen beside the page and in
       // the screensaver, of the sections each picks. Its own icon, not the
-      // Menu's dock-left (page-layout-sidebar-right would be closer, but it
-      // isn't in the served MDI subset, web/mdi/icons.json)
+      // Menu's dock-left
       ['sidepane', 'Side Pane', 'mdi:format-list-bulleted-type', C.teal],
       // NOW PLAYING (2026-10-15): where the music playing shows -- a side pane
       // or the bar -- on every screen that doesn't choose its own

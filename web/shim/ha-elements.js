@@ -48,8 +48,16 @@ async function resolveIcon(name) {
     return path ? { path } : null;
   }
   if (set === 'mdi') {
-    if (!resolveIcon.meta) resolveIcon.meta = fetch('/static/mdi/icons.json').then((r) => r.json()).catch(() => ({}));
-    const all = await resolveIcon.meta;
+    // (before hk-icons.js has loaded) the chunk that holds the name, as hkIcons.mdiPath reads it: iconMetadata.json's
+    // parts are in name order, each from its `start`
+    if (!resolveIcon.meta) resolveIcon.meta = fetch('/static/mdi/iconMetadata.json').then((r) => r.json()).catch(() => null);
+    const meta = await resolveIcon.meta;
+    if (!meta || !Array.isArray(meta.parts) || !meta.parts.length) return null;
+    let file = meta.parts[0].file;
+    for (const p of meta.parts) { if (p.start && id < p.start) break; file = p.file; }
+    resolveIcon.chunks = resolveIcon.chunks || {};
+    if (!resolveIcon.chunks[file]) resolveIcon.chunks[file] = fetch('/static/mdi/' + file + '.json').then((r) => r.json()).catch(() => ({}));
+    const all = await resolveIcon.chunks[file];
     return all[id] ? { path: all[id] } : null;
   }
   return null;

@@ -524,7 +524,7 @@ def test_the_page_stores_nothing_in_the_browser_and_draws_no_html_of_its_own():
 
 def test_the_page_and_me_are_american_english_and_draw_only_served_glyphs():
     assert not re.search(r"colour|centre|\bgrey\b|favourite", PAGE + ME, re.I)
-    names = set(json.loads((ROOT / "web/mdi/icons.json").read_text()))
+    names = {n for p in (ROOT / "web/mdi").glob("icons-*.json") for n in json.loads(p.read_text())}
     used = set(re.findall(r"mdi:([a-z0-9-]+)", PAGE))
     assert used and used <= names, sorted(used - names)
 

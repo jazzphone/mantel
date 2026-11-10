@@ -283,6 +283,12 @@
     // (2026-11-09, mockup 6) a scene with no icon of its own wears its window's: dinner silverware, night a moon, morning a sun
     var ART_ICON = { morning: 'mdi:weather-sunset-up', day: 'mdi:white-balance-sunny', evening: 'mdi:silverware-fork-knife', night: 'mdi:weather-night' };
     var R = C.R;
+    // an mdi: icon with an SF Symbol of the same name in the house's hk: glyphs is drawn as Apple's (as the menu's and
+    // the detail sheet's are), Material's everywhere else
+    function apple(icon) {
+      var m = /^mdi:(.+)$/.exec(String(icon || '')), g = window.hkGlyphs && window.hkGlyphs.icons;
+      return (m && g && g[m[1]]) ? 'hk:' + m[1] : icon;
+    }
     var SCENE_CSS = [
       ':host{display:block;height:100%}',
       'hk-plate.sg{box-sizing:border-box;height:100%;position:relative;display:flex;align-items:center;gap:16px;',
@@ -292,9 +298,12 @@
       'hk-plate.sg:active{transform:scale(0.98);filter:brightness(0.93)}',
       'hk-plate.sg:focus-visible{outline:2px solid ' + v('ink-2') + ';outline-offset:2px}',
       '.art{position:absolute;inset:0;pointer-events:none;transition:background ' + C.DUR.build + ' ease}',
-      '.well{position:relative;width:56px;height:56px;border-radius:50%;flex:none;display:flex;align-items:center;',
-      '  justify-content:center;background:' + v('well-bg') + ';transition:background-color ' + C.DUR.fade + ' ease}',
-      '.icon{width:' + TILE.sceneGlyph + 'px;height:' + TILE.sceneGlyph + 'px;--mdc-icon-size:100%;display:flex;color:#fff}',
+      // THE GLYPH, BARE AT THE UPPER LEFT (2026-11-10, the owner: "the glyph is just kind of hanging out there ... It should
+      // probably be in the upper left corner ... not even sure it needs a well or a circle"): white on the scene's sky at
+      // every size, no circle -- as Small has drawn it since 2026-11-07. (.well stays the glyph's box: Centered Small's
+      // HomeView tile places it.)
+      '.well{position:relative;flex:none;display:flex;align-items:flex-start;justify-content:flex-start}',
+      '.icon{width:32px;height:32px;--mdc-icon-size:100%;display:flex;color:#fff}',
       '.tx{position:relative;display:flex;flex-direction:column;gap:4px;min-width:0}',
       // (2026-11-08, the owner: every block's heading alike) the time of day is the block heading, Music's
       C.headCss('.lb'),
@@ -316,11 +325,16 @@
       '.run .sh{display:none}',
       '.later{display:none}',
       '.in.none .run{display:none !important}',
-      // W (2026-11-09, mockup 6): the play key at the right, a 56 px disc; the whole block still runs the scene
-      ':host([size="W"]) .run{display:flex;width:56px;padding:0;margin-left:auto}',
+      // W (2026-11-09, mockup 6; 2026-11-10 the glyph to the upper left): the glyph in the upper-left corner, the words at
+      // the foot under it, the play key -- a 56 px disc -- at the lower right; the whole block still runs the scene
+      ':host([size="W"]) hk-plate.sg{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto minmax(0,1fr);column-gap:16px;row-gap:0;align-items:end}',
+      ':host([size="W"]) .well{grid-area:1 / 1;align-self:start}',
+      ':host([size="W"]) .icon{width:' + TILE.sceneGlyph + 'px;height:' + TILE.sceneGlyph + 'px}',
+      ':host([size="W"]) .tx{grid-area:2 / 1;align-self:end;gap:2px}',
+      ':host([size="W"]) .lb{margin-bottom:2px}',
+      ':host([size="W"]) .run{grid-area:1 / 2 / 3 / 3;align-self:end;display:flex;width:56px;padding:0}',
       ':host([size="W"]) .run span{display:none}',
-      ':host([size="W"]) .tx{flex:1}',
-      // L, T, XL (2026-11-09, mockup 6, approved: "the scene for now as the hero"): the glyph in a circle at the top left, "Up Next
+      // L, T, XL (2026-11-09, mockup 6, approved: "the scene for now as the hero"): the glyph at the top left (bare since 2026-11-10), "Up Next
       // · Evening" over the scene's name (22 / 600) over "From 5:00 PM", a white Run Now key (Run on T), and "Later": rows of 56,
       // each scene's glyph, name and time -- under the hero (XL: beside it). Rows come as the height allows (container queries on
       // the plate): the block draws what fits, never a row cut off; with none, the hero has the block.
@@ -331,8 +345,6 @@
       ':host([size="L"]) .hero,:host([size="T"]) .hero,:host([size="XL"]) .hero{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:12px;min-width:0;min-height:0}',
       ':host([size="L"]) .lb,:host([size="T"]) .lb,:host([size="XL"]) .lb{margin-bottom:0}',
       ':host([size="L"]) .nm,:host([size="T"]) .nm,:host([size="XL"]) .nm{font-weight:600}',
-      ':host([size="XL"]) .well{width:64px;height:64px}',
-      ':host([size="L"]) .well,:host([size="T"]) .well{width:56px;height:56px}',
       ':host([size="L"]) .run,:host([size="T"]) .run,:host([size="XL"]) .run{display:flex}',
       ':host([size="T"]) .run{padding:0 20px}',
       ':host([size="T"]) .run .fu{display:none}',
@@ -363,6 +375,8 @@
       // and stacked, as the mockup draws it, once it is tall (a square cell) or when nothing comes later
       '@container sg (max-height:357px){',
       '  :host([size="L"]) .in:not(.solo) .hero{flex-direction:row;align-items:center;gap:16px}',
+      '  :host([size="L"]) .in:not(.solo) .well{align-self:flex-start}',  // the glyph at the upper left, level with the heading
+      '  :host([size="L"]) .in:not(.solo) .icon{width:' + TILE.sceneGlyph + 'px;height:' + TILE.sceneGlyph + 'px}',
       '  :host([size="L"]) .in:not(.solo) .tx{flex:1}',
       '  :host([size="L"]) .in:not(.solo) .run{margin-left:auto;padding:0 20px}',
       '  :host([size="L"]) .in:not(.solo) .run .fu{display:none}',
@@ -378,16 +392,15 @@
       ':host([size="S"]) .lb{' + type('caption') + ';text-transform:none;letter-spacing:0;font-weight:400;line-height:17px}',
       ':host([size="S"]:not([tile=centred])) hk-plate.sg{flex-direction:column;align-items:flex-start;justify-content:space-between;gap:0;',
       '  padding:calc(12.8px + var(--hk-in-t,0px)) calc(12.8px + var(--hk-in-r,0px)) calc(12.8px + var(--hk-in-b,0px)) calc(' + TILE.padL + 'px + var(--hk-in-l,0px))}',
-      ':host([size="S"]:not([tile=centred])) .well{width:34px;height:34px;background:none !important}',
+      ':host([size="S"]:not([tile=centred])) .well{width:34px;height:34px}',
       ':host([size="S"]:not([tile=centred])) .icon{width:34px;height:34px}',
       ':host([size="S"]:not([tile=centred])) .tx{gap:0;width:100%}',
       ':host([size="S"]:not([tile=centred])) .nm{' + type('headline') + ';line-height:21px;order:1}',
       ':host([size="S"]:not([tile=centred])) .lb{order:2}',
       ':host([size="S"][tile=centred]) .tx{display:contents}',
       C.centredTile({ host: ':host([size="S"][tile=centred])', plate: 'hk-plate.sg', lit: 'hk-plate.sg.never', well: '.well', icon: '.icon', name: '.nm', sub: ['.lb'] }),
-      'hk-plate.sg.hk-tapped .well{background:rgba(255, 255, 255, 0.92)}',
-      'hk-plate.sg.hk-tapped .icon{color:#000}',
-      '@media (prefers-reduced-motion:reduce){hk-plate.sg,hk-plate.sg:active,.art,.well{transition:none;transform:none}}'
+      // RUN (a tap): the play key's glyph a check for a moment (_run); Small, which has no key, its own glyph
+      '@media (prefers-reduced-motion:reduce){hk-plate.sg,hk-plate.sg:active,.art{transition:none;transform:none}}'
     ].join('');
 
     class HkSuggestedSceneCard extends HkBase {
@@ -458,11 +471,9 @@
         e.art.style.background = ART[s.art] || ART.day;
         e.card.classList.add('lit');
         // (2026-11-09, mockup 6: "its own glyph ... dinner is silverware, night a moon, morning a sun") its own icon, else its window's art
-        var icon = acc.icon || ent.icon || attr(st, 'icon') || ART_ICON[s.art] || 'mdi:palette';
+        var icon = this._done && sizeOf(this) === 'S' ? 'mdi:check' : apple(acc.icon || ent.icon || attr(st, 'icon') || ART_ICON[s.art] || 'mdi:palette');
         if (e.icon.icon !== icon) e.icon.icon = icon;
         e.inn.classList.remove('none'); e.later.style.display = '';
-        var tint = acc.color && C.PALETTE.icon[acc.color];
-        e.well.style.background = tint || '';
         var label = s.next ? 'Up Next' + (s.label ? ' · ' + s.label : '') : (s.label || ({ morning: 'Morning', day: 'Day', evening: 'Evening', night: 'Night' })[s.art]);
         var cap = s.next ? 'From ' + clockText(s.start) : 'Until ' + clockText(s.end);
         if (e.lb.textContent !== label) e.lb.textContent = label;
@@ -479,7 +490,7 @@
           var b = document.createElement('button'), gi = document.createElement('hk-icon'), nm = document.createElement('span'), tm = document.createElement('span');
           var a2 = ((setting('accessories', {}) || {}).entities || {})[l.scene] || {}, e2 = ((self.client && self.client.entities) || {})[l.scene] || {};
           b.type = 'button'; b.className = 'row r' + (i + 1);
-          gi.icon = a2.icon || e2.icon || attr(self.client && self.client.states[l.scene], 'icon') || ART_ICON[l.art] || 'mdi:palette';
+          gi.icon = apple(a2.icon || e2.icon || attr(self.client && self.client.states[l.scene], 'icon') || ART_ICON[l.art] || 'mdi:palette');
           nm.className = 'rn'; nm.textContent = l.name; tm.className = 'rt'; tm.textContent = clockText(l.start);
           b.setAttribute('aria-label', 'Run ' + l.name + ', ' + tm.textContent);
           b.appendChild(gi); b.appendChild(nm); b.appendChild(tm);
@@ -487,15 +498,24 @@
           rows.appendChild(b);
         });
       }
-      // the scene, run as a scene pill runs it (hkCards.sceneTap), and the
-      // pill's tapped look for a moment
+      // the scene, run as a scene pill runs it (hkCards.sceneTap), and a check
+      // for a moment: on the play key, or Small's glyph
       _run() {
         var s = this._s, self = this;
         if (!s) return;
         this._act(C.sceneTap(s.scene), false);
         this._e.card.classList.add('hk-tapped');
+        this._done = true;
+        this._e.run.querySelector('hk-icon').icon = 'mdi:check';
+        if (sizeOf(this) === 'S') this.redraw();
         if (this._tapT) clearTimeout(this._tapT);
-        this._tapT = setTimeout(function () { self._tapT = null; if (self._e) self._e.card.classList.remove('hk-tapped'); }, 1100);
+        this._tapT = setTimeout(function () {
+          self._tapT = null; self._done = false;
+          if (!self._e) return;
+          self._e.card.classList.remove('hk-tapped');
+          self._e.run.querySelector('hk-icon').icon = 'mdi:play';
+          self.redraw();
+        }, 1100);
       }
     }
 

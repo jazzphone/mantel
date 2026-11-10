@@ -613,7 +613,7 @@ def test_a_refused_change_shows_the_servers_words_and_the_page_keeps_what_is_sav
 def test_the_page_keeps_its_state_out_of_the_browser_and_draws_only_served_glyphs():
     for banned in ("localStorage", "sessionStorage", "innerHTML", "console.log"):
         assert banned not in PAGE, banned
-    names = set(json.loads((ROOT / "web/mdi/icons.json").read_text()))
+    names = {n for p in (ROOT / "web/mdi").glob("icons-*.json") for n in json.loads(p.read_text())}
     used = set(re.findall(r"mdi:([a-z0-9-]+)", (ROOT / "web/shim/mantel-settings.js").read_text() + PAGE))
     assert "microphone" in used and used <= names, sorted(used - names)
 

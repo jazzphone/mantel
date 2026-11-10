@@ -24,7 +24,7 @@ def test_the_plan_holds_the_app_and_its_code(pairs):
                  "logo.png", "translations/en.yaml", "app/entrypoint.py", "app/hosts/server/mantel_server/ingress.py",
                  "app/hosts/server/mantel_server/__main__.py", "app/hosts/server/mantel_server/migrations/0008_ha_door.sql",
                  "app/hosts/server/mantel_server/hk_writes.json",
-                 "app/web/home.html", "app/web/shim/base.js", "app/web/hk/shell/hk-view-host.js", "app/web/mdi/icons.json"):
+                 "app/web/home.html", "app/web/shim/base.js", "app/web/hk/shell/hk-view-host.js", "app/web/mdi/iconMetadata.json", "app/web/mdi/iconList.json"):
         assert name in dests, name
     assert any(d.startswith("app/hk_core/") and d.endswith(".py") for d in dests)
     assert not [d for d in dests if d.startswith("app/hk_core/link/")]       # Home Assistant's side, vendored by the integrations

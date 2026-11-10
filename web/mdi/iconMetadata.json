@@ -1,1 +1,1 @@
-{"version": "7.4.47", "parts": [{"file": "icons"}]}
+{"version":"7.4.47","parts":[{"file":"icons-00"},{"start":"battery-charging-40","file":"icons-01"},{"start":"cash-clock","file":"icons-02"},{"start":"credit-card-scan","file":"icons-03"},{"start":"file-document-outline","file":"icons-04"},{"start":"hand-back-left","file":"icons-05"},{"start":"lightbulb-on-50","file":"icons-06"},{"start":"page-previous-outline","file":"icons-07"},{"start":"rotate-3d","file":"icons-08"},{"start":"sun-snowflake-variant","file":"icons-09"},{"start":"water-off-outline","file":"icons-10"}]}

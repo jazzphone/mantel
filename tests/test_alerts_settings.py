@@ -327,6 +327,6 @@ def test_the_alerts_page_keeps_secrets_out_of_the_page_state():
 
 def test_the_alerts_page_is_american_english_and_draws_only_served_glyphs():
     assert not re.search(r"colour|centre|\bgrey\b|favourite", PAGE, re.I)
-    names = set(json.loads((ROOT / "web/mdi/icons.json").read_text()))
+    names = {n for p in (ROOT / "web/mdi").glob("icons-*.json") for n in json.loads(p.read_text())}
     used = set(re.findall(r"mdi:([a-z0-9-]+)", PAGE))
     assert used and used <= names, sorted(used - names)
