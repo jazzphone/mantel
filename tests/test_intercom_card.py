@@ -266,7 +266,9 @@ def test_the_sheet_is_as_tall_as_its_cards_the_rooms_one_grid_and_the_layout_fol
     width: a container query), under it where it isn't; every room one row on one grid."""
     card = (ROOT / "web/hk/cards/hk-intercom.js").read_text()
     assert "width: 'wide', height: 'auto'" in card
-    assert ".rooms{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr))" in card
+    # (2026-11-10, the owner: the rooms are Music's speaker rows, one to a line, two where the panel is wide)
+    assert ".rooms{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr))" in card
+    assert ".rm{display:flex;align-items:center;gap:12px;min-height:52px" in card
     assert "container-type:inline-size" in card and "@container (min-width:680px)" in card
     assert "width:264px;height:264px" in card and "width:192px;height:192px" in card, "the Lock sheet's ring and core"
     assert ".mb{width:228px;height:228px}" in card and ".mb .core{width:166px;height:166px}" in card, "and its phone sizes"
