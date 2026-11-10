@@ -123,7 +123,22 @@ async def grid_cards(caller, args: dict) -> dict:
             "cards": {k: {"sizes": list(c["sizes"]), "pages_from": list(c["sources"]), "options": dict(c["opts"])}
                       for k, c in HG.CATALOG.items()},
             "layout": {"v": HG.VERSION, "cols": "one of cols", "rows": "rows", "band": "the top band (true)",
-                       "items": "[{id, card, size, at: [col, row], opts?, pages?, view?, interaction?}]"},
+                       "items": "[{id, card, size, at: [col, row], opts?, pages?, view?, interaction?, rules?}]"},
+            # SHOW WHEN: a block's own card by default; the first rule whose conditions all hold shows its card instead
+            "rules": {"rule": "{when: {all: [condition, ...]}, card, opts?, pages?} (the card in the block's size)",
+                      "rules_max": HG.RULES_MAX, "conditions_per_rule_max": HG.ALL_MAX,
+                      "first_match_wins": True, "conditions": {
+                          "music_playing": "{kind, entity?}", "timer_running": "{kind, entity?}",
+                          "alarm_armed": "{kind, entity?}", "alarm_disarmed": "{kind, entity?}",
+                          "doorbell": "{kind, entity?}", "after_sunset": "{kind, entity?} (sun below the horizon)",
+                          "entity_state": "{kind, entity, state}",
+                          "time": "{kind, from: 'HH:MM', to: 'HH:MM'} (house time zone; may cross midnight)",
+                          "solar_window": "{kind, from: endpoint, to: endpoint}: open from `from` until the next `to`; "
+                                          "an endpoint is {at: 'HH:MM'} (house time zone) or {sun: sunrise|sunset, "
+                                          f"offset: minutes, -{HG.SUN_OFFSET_MAX}..{HG.SUN_OFFSET_MAX}, minus is "
+                                          "before}. From Home Assistant's sun.sun; without it the rule doesn't hold. "
+                                          "E.g. {from: {sun: sunset, offset: -15}, to: {at: '22:00'}}"},
+                      "refused_as": "grid_condition"},
             "starters": list(HG.STARTERS)}
 
 

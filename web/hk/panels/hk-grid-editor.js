@@ -78,7 +78,7 @@
   // a rule's conditions in words (hk-grid-catalog.js CONDITIONS)
   var CONDITION_NAMES = { music_playing: 'Music Is Playing', timer_running: 'A Timer Is Running', alarm_armed: 'The Alarm Is Armed',
     alarm_disarmed: 'The Alarm Is Disarmed', doorbell: 'Someone Is at the Door', after_sunset: 'After Sunset',
-    entity_state: 'An Accessory’s State', time: 'A Time of Day' };
+    entity_state: 'An Accessory’s State', time: 'A Time of Day', solar_window: 'A Solar Window' };
   // THE STARTER LAYOUTS (hk_core home_grid.STARTERS: the same keys), each
   // shown as a small map of the blocks it would put on this screen
   var STARTERS = [['A', 'Tap Weight', 'What you touch most is biggest'], ['C', 'Glance Up, Touch Down', 'Readings above, controls below'],
@@ -1716,7 +1716,7 @@
     }
     newCondition(kind) {
       var c = { kind: kind };
-      if (kind === 'time') { c.from = '06:00'; c.to = '09:00'; }
+      if (kind === 'time') { c.from = '06:00'; c.to = '09:00'; } else if (kind === 'solar_window') Object.assign(c, G.solar.fresh());
       if (kind === 'entity_state') { var ch = this.choices('entity')[0]; if (ch) { c.entity = ch[0]; c.state = 'on'; } }
       return c;
     }
@@ -1730,7 +1730,7 @@
         rows.push(K.text({ label: 'From', type: 'time', value: c.from, onCommit: (v) => { if (/^\d{2}:\d{2}$/.test(v)) set('from', v); } }));
         rows.push(K.text({ label: 'Until', type: 'time', value: c.to, onCommit: (v) => { if (/^\d{2}:\d{2}$/.test(v)) set('to', v); } }));
         return;
-      }
+      } else if (c.kind === 'solar_window') return void G.solar.rows(K, c, rows, put, (this.panel.client || {}).states, () => this.side());
       if (c.kind !== 'after_sunset') rows.push(K.select({ label: 'Watch', value: c.entity || '',
         // (Music Is Playing's Automatic is any of the house's speakers -- not a TV -- 2026-11-01: say so)
         options: (c.kind === 'entity_state' ? [] : [['', c.kind === 'music_playing' ? 'Any Speaker' : 'Automatic']]).concat(this.choices({ music_playing: 'speaker', timer_running: 'timer', alarm_armed: 'alarm',

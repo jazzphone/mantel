@@ -5,8 +5,12 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+**Added**
+- **A Solar Window in Home Grid's Show When**: a rule that holds from one point of the day until the next, each a time (the home's time zone) or sunrise or sunset with an offset in minutes -- the outdoor lights' controls from 15 minutes before sunset until 10 PM, or from an hour before sunrise until half an hour after it. Sunrise and sunset are Home Assistant's own (`sun.sun`), the block changes at each edge without a reload, and a window can run past midnight and across a daylight saving change. Without the sun, the rule doesn't hold and the block shows its next rule or its own card.
+
 **Changed**
 - **Flat shows the song's cover, very dim, wherever the other looks blur it**: behind the Now Playing blocks, the Now Playing page and bar, the Side Pane's Now Playing, the screensaver's music and the Speakers / Volume / Queue / Browse panel -- sharp (Flat blurs nothing), on near black under the same wash, where it showed a fixed gradient, a flat color or nothing.
+- **A Time of Day rule changes at its edge**, not up to half a minute after it.
 - **Every Volume tab has the whole group's slider first** (the music's rooms together, then each room's own) wherever two rooms or more play -- the Music page's Speakers, the screensaver's, the Side Pane's and a Now Playing block's; only a Small Now Playing block had it.
 - **The Intercom's rooms are the Music page's speaker rows**: each speaker's well, its name over what is true of it (Plays with Office, Quiet hours, Unavailable, After you finish, You're here), the tick at the end, one to a line (two where there is room) -- the whole name fits, where two narrow columns cut most of them short on a phone.; **its groups** (Whole House, the floors, your presets) **are one row that scrolls sideways**, as the Music page's presets, not rows of their own over the rooms.
 - **A screensaver widget opens its page when tapped**: the weather the Weather page, the date the Calendar, music the Music page, a timer the Timers page, and so on; one about a single thing (a sensor, a person, a camera) opens its details. Each widget's When Tapped can say Nothing instead (the Screensaver editor).
@@ -17,7 +21,9 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 **Fixed**
 - **On the Flat look a tile's glyph no longer jumps when pressed** (the glyph circle of a centered tile, Room, Lamps and Intercom block, a wide tile's glyph and temperature, the TV Guide's channel icon, a person's map pin, a chart's callout), and **a Reduce Motion screen keeps those glyphs centered**: they were placed by a transform that a press on Flat, and Reduce Motion, took away.
-- **The Side Pane's volume holds through the pane redrawing** under the finger (the level went nowhere when the song's progress redrew it mid-drag).
+- **The Calendar's floating bar no longer bounces on a phone**: it folded and unfolded every frame near the top as iOS scrolled the page (it judged by where the sticky bar was drawn, a frame late); it now judges by how far the page has scrolled past its place, 4 px either way before it changes.
+- **The iPhone Duo's front screen keeps its tiles two across**: the status column down its right left about 330 px for the page, under the two tiles a phone's grids need, so every grid below Scenes went one tile to a row across the whole width; a phone's tiles may now be as narrow as 150 px.
+- **An iPhone turned upright puts its tab bar back at the bottom**: turned from sideways in the Mantel app, it kept the sideways Side Strip down the right (the clock and battery at its top, the Favorites one to a row beside it) -- a rotation's safe areas come after its resize, and the old ones were kept until the next.
 - **A Big Number thermostat's number stays put when tapped** on the Flat look (it dropped half its height while the finger was down, and the arrows' row with it).
 - **A volume slider moves only once your finger goes sideways**: scrolling a Volume tab's list, the Music page, a speaker's sheet or the Side Pane no longer catches a slider on the way and changes a speaker's volume (the rule the room controls' sliders already kept).
 - **A long room name ends in "…" inside its pill** (the Vacuums page, a vacuum's sheet and every pill grid): it ran out of both ends of the pill, into the next one.

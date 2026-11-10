@@ -1468,21 +1468,24 @@
       // A FINGER MOVES IT ONLY ONCE IT GOES SIDEWAYS, as every speaker volume (hkDrag.slider, 2026-11-10, the owner: "it's
       // real easy to catch a volume slider" scrolling): the input itself takes no pointer (a touch on its track jumped it
       // there), the keys still work; the thumb's center runs the track less half a thumb at each end, as the browser's
-      var root = this._root, volAt = function (t, x) {
+      // (the slider the pane has now: a push of the music redraws the pane under a finger, and the one pressed is gone)
+      var root = this._root, live = function (t) { return t && t.isConnected ? t : root.querySelector('input[data-act="vol"]'); }, level = null;
+      var volAt = function (t, x) {
+        t = live(t);
+        if (!t) return;
         var r = t.getBoundingClientRect(), v = Math.round(Math.max(0, Math.min(1, (x - r.left - 11) / Math.max(1, r.width - 22))) * 100);
-        if (String(v) !== t.value) { t.value = String(v); t.dispatchEvent(new Event('input', { bubbles: true })); }
+        level = String(v);
+        if (level !== t.value) { t.value = level; t.dispatchEvent(new Event('input', { bubbles: true })); }
       };
       var wire = function (D) {
         D.slider(root, {
           target: function (e) { var m = e.target.closest && e.target.closest('.mvs'); return m && m.querySelector('input[data-act="vol"]'); },
-          // (the pane holds its redraws while a finger is on it -- one replaced the input under the drag, and its level went
-          // nowhere; the lift sends it from the input in the pane now)
-          start: function (t, x) { self._volHeld = true; volAt(t, x); }, move: volAt,
+          start: function (t, x) { level = null; volAt(t, x); }, move: volAt,
           end: function (t) {
-            var live = t.isConnected ? t : root.querySelector('input[data-act="vol"]');
-            if (live) { live.value = t.value; live.dispatchEvent(new Event('change', { bubbles: true })); }
-            self._volHeld = false;
-            if (self._volLater) { self._volLater = false; self.redraw(); }
+            t = live(t);
+            if (!t || level === null) return;
+            t.value = level;
+            t.dispatchEvent(new Event('change', { bubbles: true }));
           }
         });
       };
@@ -1536,7 +1539,6 @@
     redraw() { if (this._o && this.hasAttribute('on')) this._draw(true); }
     // ------------------------------------------------ drawing and the fit
     _draw(again) {
-      if (this._volHeld) { this._volLater = true; return; }
       var o = this._o, c = clientNow();
       if (!this._built) {
         this._cssFull = cssReady();

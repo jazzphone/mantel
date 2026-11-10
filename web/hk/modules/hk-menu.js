@@ -2046,7 +2046,9 @@
       if (e.key === 'Escape' && S.open) { e.stopPropagation(); close(false, true); }
     });
     document.addEventListener('visibilitychange', function () { if (document.hidden && S.open) close(true); });
-    window.addEventListener('resize', function () { sync(); });
+    // (and again once a rotation's safe areas have come: WebKit says resize first, and an iPhone turned upright kept the
+    // Side Strip of its sideways inset until the next resize -- hkCards.safeArea measures afresh at 250 and 800 ms, 2026-11-10)
+    window.addEventListener('resize', function () { sync(); setTimeout(sync, 300); setTimeout(sync, 900); });
     window.addEventListener('hk-module-ready', function () { S.built = ''; sync(); });
     // the host's Home Assistant rows changed (hkShell.haNav: it learned where the page is)
     window.addEventListener('hk-ha-nav-changed', function () { S.built = ''; sync(); });

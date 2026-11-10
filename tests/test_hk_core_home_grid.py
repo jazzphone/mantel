@@ -334,6 +334,8 @@ def test_conditional_block_roundtrip_with_same_sized_fallback(kind):
         when.update(entity='media_player.den', state='playing')
     if kind == 'time':
         when.update({'from': '06:00', 'to': '09:00'})
+    if kind == 'solar_window':
+        when.update({'from': {'sun': 'sunset', 'offset': -15}, 'to': {'at': '22:00'}})
     g = grid(block('music', 'now_playing', 'L', [0, 0], when=when,
                    fallback={'card': 'weather', 'opts': {'entity': 'weather.home'}}))
     assert HG.check(g) == g
@@ -366,7 +368,7 @@ function check(value, message) { if (!value) throw new Error(message); }
 var states = { 'media_player.den': {state:'playing'}, 'timer.tea': {state:'paused'},
   'alarm_control_panel.home': {state:'armed_home'}, 'sun.sun': {state:'below_horizon'} };
 for (var kind of G.CONDITIONS) {
- if (kind === 'entity_state' || kind === 'doorbell' || kind === 'time' || kind === 'alarm_disarmed') continue;
+ if (kind === 'entity_state' || kind === 'doorbell' || kind === 'time' || kind === 'alarm_disarmed' || kind === 'solar_window') continue;
  check(G.matches({kind:kind}, states, false), kind + ' active');
  check(!G.matches({kind:kind}, {}, false), kind + ' missing is false');
 }
@@ -397,6 +399,49 @@ print(JSON.stringify(G.CONDITIONS));
 ''')
     run = subprocess.run([str(JSC), str(script)], capture_output=True, text=True, check=True)
     assert json.loads(run.stdout) == list(HG.CONDITIONS)
+
+
+EVENING = {"kind": "solar_window", "from": {"sun": "sunset", "offset": -15}, "to": {"at": "22:00"}}
+MORNING = {"kind": "solar_window", "from": {"sun": "sunrise", "offset": -60}, "to": {"sun": "sunrise", "offset": 30}}
+
+
+def test_solar_window_checks_and_reads_back():
+    """Show When's Solar Window (2026-11-10): the two use cases, and an offset left out reads as 0."""
+    rules = [{"when": {"all": [EVENING]}, "card": "security"}, {"when": MORNING, "card": "weather", "opts": {"entity": "weather.home"}},
+             {"when": {"kind": "after_sunset"}, "card": "clock"}]
+    out = HG.check(grid(block("cal", "calendar", "L", [0, 0], rules=rules)))
+    got = out["items"][0]["rules"]
+    assert got[0]["when"] == {"all": [EVENING]} and got[1]["when"] == {"all": [MORNING]}
+    assert got[2]["when"] == {"all": [{"kind": "after_sunset"}]}                       # After Sunset as it was
+    assert M.board_stored({"home_grid": out})["home_grid"] == out
+    assert HG.condition({"kind": "solar_window", "from": {"sun": "sunset"}, "to": {"at": "01:00"}})["from"] == \
+        {"sun": "sunset", "offset": 0}
+    assert HG.condition({"kind": "solar_window", "from": {"at": "23:30"}, "to": {"at": "00:30"}})["to"] == {"at": "00:30"}
+    assert HG.condition({"kind": "solar_window", "from": {"sun": "sunrise", "offset": -360},
+                         "to": {"sun": "sunset", "offset": 360}})["to"]["offset"] == 360
+
+
+@pytest.mark.parametrize("bad", [
+    {"kind": "solar_window"},
+    {"kind": "solar_window", "from": {"sun": "sunset"}},
+    {"kind": "solar_window", "from": "18:00", "to": "22:00"},                         # a Time of Day's shape
+    {"kind": "solar_window", "from": {"sun": "noon"}, "to": {"at": "22:00"}},
+    {"kind": "solar_window", "from": {"sun": "sunset", "offset": 361}, "to": {"at": "22:00"}},
+    {"kind": "solar_window", "from": {"sun": "sunset", "offset": -15.5}, "to": {"at": "22:00"}},
+    {"kind": "solar_window", "from": {"sun": "sunset", "offset": "-15"}, "to": {"at": "22:00"}},
+    {"kind": "solar_window", "from": {"sun": "sunset", "offset": True}, "to": {"at": "22:00"}},
+    {"kind": "solar_window", "from": {"at": "24:00"}, "to": {"at": "22:00"}},
+    {"kind": "solar_window", "from": {"at": "22:00", "sun": "sunset"}, "to": {"at": "06:00"}},
+    {"kind": "solar_window", "from": {"sun": "sunset", "offset": -15, "x": 1}, "to": {"at": "22:00"}},
+    {"kind": "solar_window", "from": {"at": "22:00"}, "to": {"at": "22:00"}},          # never opens
+    {"kind": "solar_window", "from": {"sun": "sunset"}, "to": {"sun": "sunset", "offset": 0}},
+    {"kind": "solar_window", "entity": "sun.sun", "from": {"sun": "sunset"}, "to": {"at": "22:00"}},
+    {"kind": "time", "from": {"sun": "sunset"}, "to": "22:00"},                        # a Solar Window's shape on a Time of Day
+])
+def test_solar_window_refused(bad):
+    with pytest.raises(HG.GridInvalid) as e:
+        HG.check(grid(block("cal", "calendar", "L", [0, 0], rules=[{"when": {"all": [bad]}, "card": "security"}])))
+    assert e.value.code == "grid_condition"
 
 
 def test_rules_check_and_refuse():

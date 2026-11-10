@@ -1639,7 +1639,9 @@
       if (e.key === 'Escape' && S.sheet) { e.stopPropagation(); closeSheet(); }
     });
     document.addEventListener('visibilitychange', function () { if (document.hidden) closeSheet(true); });
-    window.addEventListener('resize', function () { sync(); });
+    // (and again once a rotation's safe areas have come: WebKit says resize first, and an iPhone turned upright kept the
+    // Side Strip of its sideways inset until the next resize -- hkCards.safeArea measures afresh at 250 and 800 ms, 2026-11-10)
+    window.addEventListener('resize', function () { sync(); setTimeout(sync, 300); setTimeout(sync, 900); });
     // the docked bar came, went or changed height: the rail's room did
     window.addEventListener('hk-dock', function () { sync(); });
     window.addEventListener('hk-pane', syncSoon);
