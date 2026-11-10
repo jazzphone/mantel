@@ -366,7 +366,7 @@
     var text = 'position:absolute' + I + ';left:' + C0.inset + 'px' + I + ';right:' + C0.inset + 'px' + I + ';margin:0' + I + ';width:auto' + I +
       ';display:block' + I + ';text-align:center' + I + ';white-space:nowrap' + I + ';overflow:hidden;text-overflow:ellipsis;letter-spacing:' + C0.track + 'px' + I;
     return at('', [s.plate]) + '{position:relative}' +
-      at('', [s.well]) + '{position:absolute' + I + ';left:50%' + I + ';margin:0' + I + ';transform:translate(-50%,-50%);border-radius:50%;' +
+      at('', [s.well]) + '{position:absolute' + I + ';left:50%' + I + ';margin:0' + I + ';translate:-50% -50%;border-radius:50%;' +   // (translate: Flat takes a pressed box's transform -- 2026-11-10
         'display:flex;align-items:center;justify-content:center}' +
       // the glyph bare, off and lit (lit in its own colour on the white plate: the card's)
       at('', [s.well]) + '{background:none' + I + '}' +

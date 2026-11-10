@@ -954,7 +954,7 @@
         '.pic img{display:block;width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 10px 18px rgba(0,0,0,.3))}',
         '.wire{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none}',
         // a label: the Power page's chip material, small
-        '.co{position:absolute;transform:translate(-50%,-50%);padding:6px 10px;border-radius:' + R.inner + 'px;white-space:nowrap;cursor:pointer;z-index:1;',
+        '.co{position:absolute;translate:-50% -50%;padding:6px 10px;border-radius:' + R.inner + 'px;white-space:nowrap;cursor:pointer;z-index:1;',
         '  background:' + v('float-plate') + ';-webkit-backdrop-filter:var(--hk-float-backdrop,' + B.medium + ');backdrop-filter:var(--hk-float-backdrop,' + B.medium + ');',
         '  border:1px solid ' + v('line') + ';box-shadow:0 6px 16px rgba(0,0,0,0.25);-webkit-tap-highlight-color:transparent}',
         '.co b{display:block;font-size:11px;font-weight:600}',

@@ -758,10 +758,10 @@
           ':host([size]) .np .art .none{font-size:max(28px, calc(var(--np-art) * .4))}',
           // NO SONG: no progress (the slide's [idle] .mprog)
           ':host([size]) .np.idle .mprog{display:none!important}',   // (!important: the card sets the slot's display inline)
-          // A FLAT LOOK DRAWS NO BLUR (hk-base.js flatCss takes every filter): the cover behind the player would show sharp
-          // through the controls, so the plate is the flat gradient, as the screensaver's flat look
-          ':host([hk-flat]) .np .bg img{display:none}',
-          ':host([hk-flat]) .np .bg{background:linear-gradient(125deg,#2a2524,#14161c)}',
+          // A FLAT LOOK DRAWS NO BLUR (hk-base.js flatCss takes every filter): the cover itself, sharp and very dim, on near black
+          // under the same wash (2026-11-10, the owner: "make that a very dim album art... since we don't blur anything in flat")
+          ':host([hk-flat]) .np .bg{background:#0b0c0f}',
+          ':host([hk-flat]) .np .bg img,:host([hk-flat][size]) .np .bg img,:host([hk-flat]) .np.bar .bg img{inset:0;width:100%;height:100%;transform:none;opacity:var(--hk-flat-art,.3)}',
           // the cover's blur shows through: a lighter wash than the page's
           // player (whose text runs across a whole column), the blur stronger
           ':host([size]) .np .bg img{opacity:.92}',

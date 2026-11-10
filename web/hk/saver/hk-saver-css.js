@@ -322,6 +322,8 @@
       '.mbgf{position:absolute;inset:0;opacity:0;will-change:opacity;transition:opacity ' + MU_ART_MS + 'ms ease}',
       '.mbgf.on{opacity:1}',
       '.mbg{position:absolute;left:-8%;top:-8%;width:116%;height:116%;object-fit:cover;display:block}',
+      // FLAT: the cover itself, sharp and very dim on near black (no blur in Flat; the Now Playing blocks' and the Side Pane's same)
+      '.mbgf.fa{background:#0b0c0f center / cover no-repeat}.mbgf.fa::after{content:"";position:absolute;inset:0;background:rgba(11,12,15,calc(1 - var(--hk-flat-art,.3)))}',
       '.mshade{position:absolute;inset:0;background:linear-gradient(to right,rgba(0,0,0,.36),rgba(0,0,0,.06) 62%,rgba(0,0,0,.10))}',
       '.pm .mshade{background:rgba(0,0,0,.28)}',
       '.mbody{position:absolute;inset:0;color:var(--hk-ink,rgba(255,255,255,0.94));text-align:left;text-shadow:0 1px 14px rgba(0,0,0,.22)}',

@@ -311,12 +311,12 @@
       // (the glyph off the grid, centered on the height a block's inset in -- in the grid it stretched one-line rows apart)
       at([s.grid]) + '{display:grid' + I + ';height:100%' + I + ';grid-template-columns:' + box + ' minmax(0,1fr)' + I + ';grid-template-rows:auto auto' + I +
         ';grid-template-areas:". n" ". l"' + I + ';column-gap:14px' + I + ';row-gap:0' + I + ';align-content:center' + I + '}' +
-      at([s.well]) + '{position:absolute' + I + ';left:calc(var(--hk-pad-l,14px) + var(--hk-tg) / 2 + 3px)' + I + ';top:50%' + I + ';transform:translate(-50%,-50%)' + I +
+      at([s.well]) + '{position:absolute' + I + ';left:calc(var(--hk-pad-l,14px) + var(--hk-tg) / 2 + 3px)' + I + ';top:50%' + I + ';translate:-50% -50%' + I +
         ';width:' + box + I + ';height:' + box + I + '}' +
       at([s.icon]) + '{width:var(--hk-tg)' + I + ';height:var(--hk-tg)' + I + '}' +
       at([s.name]) + '{' + text + ';grid-area:n' + I + ';font-size:' + g.name + 'px' + I + '}' +
       at(s.sub) + '{' + text + ';grid-area:l' + I + ';font-size:' + g.sub + 'px' + I + '}' +
-      (s.temp ? at([s.temp]) + '{position:absolute' + I + ';left:calc(var(--hk-pad-l,14px) + var(--hk-tg) / 2 + 3px)' + I + ';top:50%' + I + ';transform:translate(-50%,-50%)' + I + ';font-size:22px' + I + '}' : '') +
+      (s.temp ? at([s.temp]) + '{position:absolute' + I + ';left:calc(var(--hk-pad-l,14px) + var(--hk-tg) / 2 + 3px)' + I + ';top:50%' + I + ';translate:-50% -50%' + I + ';font-size:22px' + I + '}' : '') +
       '@container hk-cell (min-height:84px){' + at([s.name], s.host.replace(/\)$/, ':not([data-grid-pager]):not([data-group-pill]))')) + '{white-space:normal' + I +
         ';display:-webkit-box' + I + ';-webkit-line-clamp:2;-webkit-box-orient:vertical}}';
   }
@@ -696,7 +696,7 @@
     ':host([tile=centred][icons=color]){--hk-look-glyph-off:initial}',
     ':host([tile=centred]) .card.roomed .label{display:none !important}',
     // a thermostat's reading stands where the glyph would
-    ':host([tile=centred]) .card .temp{position:absolute;left:50%;top:32%;transform:translate(-50%,-50%);font-size:44px;letter-spacing:-0.5px}',
+    ':host([tile=centred]) .card .temp{position:absolute;left:50%;top:32%;translate:-50% -50%;font-size:44px;letter-spacing:-0.5px}',
     ':host([tile=centred]) .card.reading .well{visibility:hidden}:host([tile=centred]) .card.reading .temp{font-weight:600;line-height:1;color:' + window.hkCards.v('ink') + '}',
     window.hkCards.centredTile({ host: ':host([tile=centred])', plate: 'hk-plate.card', lit: 'hk-plate.card[data-on="1"]',
                                  well: '.well', icon: '.icon', name: '.name', sub: ['.label', '.room'] }),
