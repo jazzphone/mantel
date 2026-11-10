@@ -67,8 +67,9 @@
     '.trk{display:flex;gap:6px;width:100%}',
     '.trk .s{flex:1 1 0;display:flex;flex-direction:column;gap:6px;min-width:0}',
     '.trk .b{height:6px;border-radius:3px;background:' + v('line-strong') + ';overflow:hidden}.trk .b i{display:block;height:100%;background:' + MINT + '}',
-    '.trk .n{' + type('label-small') + ';text-transform:uppercase;color:' + v('ink-3') + ';line-height:11px;white-space:nowrap;overflow:hidden}',
+    '.trk .n{' + type('label-small') + ';text-transform:uppercase;color:' + v('ink-3') + ';line-height:13px;white-space:nowrap}',
     '.trk .s.now .n{color:' + v('ink') + '}.trk .s.done .n{color:' + v('ink-2') + '}',
+    '.trk.nar .s:not(.now) .n{visibility:hidden}',
     // readings on Large and Extra Large: hairlines between, the value at the right
     '.rows{display:flex;flex-direction:column}',
     '.rows .r{display:flex;justify-content:space-between;gap:10px;height:38px;align-items:center;border-top:1px solid ' + v('line') + ';' + type('body') + ';color:' + v('ink-2') + '}',
@@ -140,9 +141,11 @@
       return '<div class="art" style="width:' + Math.round(w) + 'px">' + L.art(o.state, o.kind, { display: w >= 90 ? L.display(o) : '', label: o.name + ', ' + o.title }) + '</div>';
     }
     _tone(o) { return o.state === 'leak' || o.state === 'error' ? ' red' : (o.state === 'done' || o.state === 'wrinkle') ? ' mint' : ''; }
-    _track(o) {
+    // (narrow: too little room for every step's name -- a narrow Tall -- only the step it's on is named)
+    _track(o, w) {
       if (!o.steps) return '';
-      return '<div class="trk">' + o.steps.map(function (s) {
+      var narrow = w != null && (w - 6 * (o.steps.length - 1)) / o.steps.length < 42;
+      return '<div class="trk' + (narrow ? ' nar' : '') + '">' + o.steps.map(function (s) {
         return '<div class="s' + (s.done ? ' done' : s.now ? ' now' : '') + '"><div class="b"><i style="width:' + (s.done ? 100 : s.now ? 50 : 0) + '%"></i></div><div class="n">' + esc(s.name) + '</div></div>';
       }).join('') + '</div>';
     }
@@ -182,13 +185,13 @@
       if (size === 'S') return this._ctile(o, this._fit(iw, ih - (box.tile ? 50 : 62)) * (box.tile ? 1 : 0.92), box.tile, '');
       if (size === 'W') {
         var aw = this._fit(Math.min(170, iw * 0.4), ih);
-        var wp = this._pills(o, 1), foot = (box.tile && (wp || ih < 100) ? '' : this._track(o)) + wp;
+        var wp = this._pills(o, 1), foot = (box.tile && (wp || ih < 100) ? '' : this._track(o, iw - aw - 16)) + wp;
         return '<div style="display:flex;gap:16px;align-items:center;flex:1;min-width:0">' + this._art(o, aw) +
           '<div class="col" style="align-self:stretch"><div class="ti' + '">' + esc(o.title) + '</div><div class="sb' + tone + '">' + esc(o.sub) + '</div>' + (box.tile ? '' : fin) +
           (foot ? '<div class="foot">' + foot + '</div>' : '') + '</div></div>';
       }
       if (size === 'T') {
-        var tfoot = this._track(o) + this._pills(o, 1);
+        var tfoot = this._track(o, iw) + this._pills(o, 1);
         var th = ih - 26 - 20 - (o.endsWords && !box.tile ? 18 : 0) - (o.steps ? 35 : 0) - (tfoot.indexOf('pill') >= 0 ? 52 : 0) - 24;
         return '<div class="col" style="align-items:center;text-align:center;gap:6px">' + this._art(o, this._fit(iw * 0.94, th)) +
           '<div class="ti" style="margin-top:4px">' + esc(o.title) + '</div><div class="sb' + tone + '">' + esc(o.sub) + '</div>' + (box.tile ? '' : fin) +
@@ -201,14 +204,14 @@
         var lart = this._fit(Math.min(180, iw * 0.46), Math.min(ih - used, 200));
         return '<div class="col" style="gap:12px"><div style="display:flex;gap:14px;align-items:flex-start;min-width:0">' + this._art(o, lart) +
           '<div class="col"><div class="lbl">' + esc(o.name) + '</div><div class="hero' + tone + '">' + esc(o.title) + '</div><div class="sb' + (o.state === 'leak' ? ' red' : '') + '">' + esc(o.sub) + '</div>' + fin + '</div></div>' +
-          this._track(o) + lrows + (lp ? '<div class="foot">' + lp + '</div>' : '') + '</div>';
+          this._track(o, iw) + lrows + (lp ? '<div class="foot">' + lp + '</div>' : '') + '</div>';
       }
       var xrows = this._rows(o, box.tile ? 2 : 4), xp = this._pills(o, 2);
       return '<div style="display:flex;gap:22px;flex:1;min-width:0"><div style="width:' + Math.round(Math.min(240, iw * 0.42)) + 'px;flex:none;display:flex;align-items:center;justify-content:center">' +
         this._art(o, this._fit(Math.min(240, iw * 0.42), ih)) + '</div>' +
         '<div class="col" style="gap:6px"><div class="lbl">' + esc(o.name) + '</div><div class="hero' + tone + '">' + esc(o.title) + '</div>' +
         '<div class="sb' + (o.state === 'leak' ? ' red' : '') + '">' + esc([o.sub, o.endsWords].filter(Boolean).join(' · ')) + '</div>' +
-        (o.steps ? '<div style="margin-top:10px">' + this._track(o) + '</div>' : '') + (xrows ? '<div style="margin-top:6px">' + xrows + '</div>' : '') +
+        (o.steps ? '<div style="margin-top:10px">' + this._track(o, iw - Math.min(240, iw * 0.42) - 22) + '</div>' : '') + (xrows ? '<div style="margin-top:6px">' + xrows + '</div>' : '') +
         (xp ? '<div class="foot">' + xp + '</div>' : '') + '</div></div>';
     }
     _two(size, box, list) {
@@ -220,7 +223,7 @@
       }
       if (size === 'L') {
         return list.map(function (o, i) {
-          var p = self._pills(o, 1), t = box.tile ? '' : self._track(o);
+          var p = self._pills(o, 1), t = box.tile ? '' : self._track(o, iw / 2 - 24);
           var aw = self._fit(Math.min(130, iw / 2 - 24), ih - 100 - (t ? 34 : 0) - (p ? 52 : 0));
           return (i ? '<div class="hv"></div>' : '') + half(o, '<div class="ct">' + self._art(o, aw) + '<div class="nm" style="font-size:17px;line-height:22px">' + esc(o.name) + '</div>' +
             '<div class="ti" style="font-size:20px;line-height:24px' + (self._tone(o) ? ';color:' + (o.state === 'leak' || o.state === 'error' ? RED : MINT) : '') + '">' + esc(o.title) + '</div><div class="fn" style="color:' + v('ink-2') + '">' + esc(o.sub) + '</div>' +
@@ -233,7 +236,7 @@
         return (i ? '<div class="hv"></div>' : '') + half(o, '<div class="col" style="gap:12px;padding:0 6px"><div style="display:flex;gap:12px;align-items:flex-start">' +
           self._art(o, box.tile ? 80 : 104) + '<div class="col" style="gap:4px"><div class="lbl">' + esc(o.name) + '</div><div class="ti' + self._tone(o) + '">' + esc(o.title) + '</div>' +
           '<div class="fn" style="color:' + v('ink-2') + '">' + esc(o.sub) + '</div>' + (o.endsWords && !box.tile ? '<div class="fn">' + esc(o.endsWords) + '</div>' : '') + '</div></div>' +
-          self._track(o) + rows + (p ? '<div class="foot">' + p + '</div>' : '') + '</div>');
+          self._track(o, iw / 2 - 30) + rows + (p ? '<div class="foot">' + p + '</div>' : '') + '</div>');
       }).join('');
     }
     _render() {

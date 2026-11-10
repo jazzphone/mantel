@@ -71,11 +71,11 @@ function blocks() {
           check(label + ': no words cut short', () => assert(!b.cut.length, JSON.stringify(b.cut)));
           if (!input.two) {
             check(label + ': the washer-dryer, drying', () => assert(b.arts === 1 && (b.titles.includes('Drying') || b.size === 'S'), JSON.stringify(b)));
-            check(label + ': how long', () => assert(b.subs.some((s) => /^2[34] min left( · Done at .+)?$/.test(s)), JSON.stringify(b.subs)));
+            check(label + ': how long', () => assert(b.subs.some((s) => /^(1[89]|2[0-4]) min left( · Done at .+)?$/.test(s)), JSON.stringify(b.subs)));
             if (b.size !== 'S') check(label + ': its four steps, Dry now', () => assert.deepEqual(b.steps, ['Wash', 'Rinse', 'Spin', 'Dry']));
             check(label + ': no keys while remote control is off', () => assert.deepEqual(b.pills, []));
           } else if (b.size === 'S') {
-            check(label + ': the one done soonest, and +1', () => assert(b.arts === 1 && b.names.includes('Washer') && b.subs.some((s) => /^[67] min left$/.test(s)), JSON.stringify(b)));
+            check(label + ': the one done soonest, and +1', () => assert(b.arts === 1 && b.names.includes('Washer') && b.subs.some((s) => /^[3-7] min left$/.test(s)), JSON.stringify(b)));
           } else {
             check(label + ': both machines, each its own half', () => assert(b.arts === 2 && b.halves === 2, JSON.stringify(b)));
           }

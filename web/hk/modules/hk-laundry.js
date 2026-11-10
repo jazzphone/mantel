@@ -329,6 +329,27 @@
 
   // ------------------------------------------------------------ THE DRAWING
   var uid = 0;
+  // THE PANEL'S CLOCK, drawn as an appliance's seven segments ("0:24", "End") -- ink of the drawing, not words: the words are
+  // the block's own, on the type scale
+  var SEGS = { '0': 'abcdef', '1': 'bc', '2': 'abged', '3': 'abgcd', '4': 'fgbc', '5': 'afgcd', '6': 'afgedc', '7': 'abc', '8': 'abcdefg',
+               '9': 'abcdfg', E: 'adefg', n: 'ceg', d: 'bcdeg' };
+  function segs(str, cx) {
+    var W = 3.8, H = 8, GAP = 1.6, top = 32, mid = top + H / 2, bot = top + H, chars = String(str).split('');
+    var width = chars.reduce(function (n, c) { return n + (c === ':' ? 2 : W + GAP); }, 0) - GAP, x = cx - width / 2, d = '', dots = '';
+    chars.forEach(function (c) {
+      if (c === ':') { dots += '<circle cx="' + (x + 0.2).toFixed(1) + '" cy="' + (mid - 1.6) + '" r="0.75"/><circle cx="' + (x + 0.2).toFixed(1) + '" cy="' + (mid + 1.6) + '" r="0.75"/>'; x += 2; return; }
+      var s = SEGS[c] || '', L = x, R = x + W, line = function (a, b, e, f) { d += 'M' + a.toFixed(1) + ' ' + b + 'L' + e.toFixed(1) + ' ' + f; };
+      if (s.indexOf('a') >= 0) line(L, top, R, top);
+      if (s.indexOf('b') >= 0) line(R, top, R, mid);
+      if (s.indexOf('c') >= 0) line(R, mid, R, bot);
+      if (s.indexOf('d') >= 0) line(L, bot, R, bot);
+      if (s.indexOf('e') >= 0) line(L, mid, L, bot);
+      if (s.indexOf('f') >= 0) line(L, top, L, mid);
+      if (s.indexOf('g') >= 0) line(L, mid, R, mid);
+      x += W + GAP;
+    });
+    return '<g class="dt"><path d="' + d + '"/>' + dots + '</g>';
+  }
   function art(state, kind, o) {
     o = o || {};
     var s = STATES.indexOf(state) >= 0 ? state : 'off', dry = kind === 'dryer', id = 'hkla' + (++uid);
@@ -342,7 +363,7 @@
     v += '<g class="mach"><rect class="bd" x="24" y="24" width="92" height="114" rx="17"/><rect class="cut" x="24" y="48" width="92" height="3.2"/>';
     if (dry) v += '<rect class="cut" x="34" y="30" width="34" height="12" rx="6"/><circle class="cut" cx="98" cy="36" r="7"/><line class="kn" x1="98" y1="36" x2="98" y2="31.5"/>';
     else v += '<circle class="cut" cx="36" cy="36" r="4.2"/><circle class="cut" cx="48" cy="36" r="4.2"/><rect class="cut" x="72" y="30" width="34" height="12" rx="6"/>';
-    if (o.display) v += '<text class="dt" x="' + (dry ? 51 : 89) + '" y="39">' + String(o.display).replace(/[&<>"]/g, '') + '</text>';
+    if (o.display) v += segs(o.display, dry ? 51 : 89);
     v += '<circle class="cut" cx="70" cy="90" r="32"/><circle class="bd" cx="70" cy="90" r="28.6"/><circle class="gl' + (/^(off|offline)$/.test(s) ? ' dim' : '') + '" cx="70" cy="90" r="25.5"/>';
     v += '<g clip-path="url(#' + id + ')">';
     if (s === 'drying') v += '<circle class="warm" cx="70" cy="90" r="26"/>';
@@ -373,7 +394,7 @@
       '.hkla{display:block;width:100%;height:auto;aspect-ratio:140/150;overflow:visible;flex:none}',
       '.hkla .sh{fill:rgba(0,0,0,.28)}.hkla .bd{fill:#f2f2f7}.hkla .cut{fill:#1a1c22}.hkla .gl{fill:#14161c}.hkla .gl.dim{fill:#20232b}',
       '.hkla .kn{stroke:#f2f2f7;stroke-width:2;stroke-linecap:round}',
-      '.hkla .dt{font:700 8.5px/1 ui-monospace,"SF Mono",Menlo,monospace;fill:' + MINT + ';text-anchor:middle}',
+      '.hkla .dt path{fill:none;stroke:' + MINT + ';stroke-width:1.1;stroke-linecap:round}.hkla .dt circle{fill:' + MINT + '}',
       '.hkla .wt{fill:' + WATER + ';opacity:.55}.hkla .wt.lt{opacity:.38}',
       '.hkla .c1{fill:#9aa3b5}.hkla .c2{fill:#c9cdd6}.hkla .c3{fill:#6c7486}',
       '.hkla .gli{fill:none;stroke:rgba(255,255,255,.22);stroke-width:2.4;stroke-linecap:round}',
