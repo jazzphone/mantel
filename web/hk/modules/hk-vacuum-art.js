@@ -109,4 +109,4 @@
   }
 
   global.hkVacuumArt = { STATES: STATES, get CSS() { return css(); }, html: html, look: look, ids: ids, WATER: WATER };
-})(window);
+})(globalThis);

@@ -264,7 +264,7 @@
         // of 56 px keys: Clean (Pause while it runs, Resume when paused) white and wide, Locate and Dock round. The rooms stay in Clean Areas
         (window.hkVacuumArt ? window.hkVacuumArt.CSS : '') + '.vac .vt{display:flex;align-items:center;gap:16px;min-width:0}',
         '.vac .art{width:112px;flex:none}.vac .vtx{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}',
-        '.vac .label{min-width:0;overflow:hidden;font-size:19px;font-weight:600;line-height:24px;color:' + window.hkCards.v('ink') + ';white-space:nowrap;text-overflow:ellipsis}',
+        '.vac .label{min-width:0;overflow:hidden;font-size:18px;font-weight:600;line-height:24px;color:' + window.hkCards.v('ink') + ';white-space:nowrap;text-overflow:ellipsis}',
         '.vac .vst{font-size:15px;font-weight:600;line-height:20px;color:' + window.hkCards.ACCENTS.mint + '}.vac .vst.idle{color:' + window.hkCards.v('ink-2') + '}.vac .vst.err{color:' + window.hkCards.ACCENTS.red + '}',
         '.vac .meta{font-size:13px;line-height:17px;color:' + window.hkCards.v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}',
         '.vac .vk{display:flex;gap:10px}.vac .cmd{all:unset;box-sizing:border-box;height:56px;min-width:56px;border-radius:28px;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;',
@@ -348,7 +348,7 @@
         // THE VACUUM DRAWN IN PLACE OF THE BATTERY RING (2026-11-09, hk-vacuum-art.js; the battery is in the line under what it is doing):
         // Extra Large's in the middle of its column, Tall's as big as --vb-r (what the block leaves) lets it, centered
         (window.hkVacuumArt ? window.hkVacuumArt.CSS : '') + '.vb .art{flex:none;width:100%;margin:6px auto}.vb .state{font-size:22px;font-weight:600;line-height:1.2}',
-        '.vb[data-s=T] .art{width:min(100%,calc(var(--vb-r,96px) * 1.43))}.vb[data-s=W] .state{font-size:19px}',
+        '.vb[data-s=T] .art{width:min(100%,calc(var(--vb-r,96px) * 1.43))}.vb[data-s=W] .state{font-size:17px}',
         // (a Large or Extra Large block with no rooms to offer: the battery large in the middle)
         '.vb .mid{flex:1 1 auto;display:flex;flex-direction:column;justify-content:center;min-height:0}',
         // ON A SQUARE CELL (196 x 196): the mock-up's sizes

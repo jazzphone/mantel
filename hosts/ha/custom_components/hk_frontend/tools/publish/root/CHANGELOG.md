@@ -6,6 +6,7 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 ## Unreleased
 
 **Changed**
+- **The vacuum, drawn**: Apple's robot vacuum in place of the battery percentage on the Extra Large, Tall and Wide Vacuum blocks and on each vacuum's card on the Vacuums page, animated by what it is doing: on its dock, charging, cleaning (the side brush spins, its path draws itself), returning, paused, the water tank empty, stuck. The battery moves to the line under the state. Wide's keys take more of the width; the Vacuums page's cards have one row of 56 px keys (Clean or Pause, Locate, Dock).
 - **Live TV Wide, Tall and Large fill the block**: the channels are a grid of the block's whole room, each picture cropped to its tile, with no bands at the sides or foot.
 - **Security, armed**: the keypad's display alone lights white (the keys no longer sit on a white edge); Wide's alarm tile is a cell wide, as Compact's.
 - **The Small Timers block's ring is bigger**: it runs from the block's left inset to the + button.
