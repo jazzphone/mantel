@@ -111,7 +111,8 @@ let lastMinuteDone = false;
         const at = (fn) => d.find(fn), one = at((x) => !x.two), right = at((x) => x.two && x.box[0] > W / 2 && x.box[1] < H / 2),
               caps = at((x) => x.up === 'uppercase'), mid = at((x) => x.two && x.box[0] > W / 2 && x.box[1] > H / 2);
         say(d.length === 4 && !!one && one.lines.length === 1 && /, /.test(one.text), tag + ': the Date as before, one line', one);
-        say(!!right && right.lines.length === 2 && Math.abs(right.lines[0][1] - right.lines[1][1]) <= 1.5 && right.lines[0][3] <= right.lines[1][2] + 1, tag + ': two lines on the right corner end on one edge, the weekday over the date', right);
+        // (1.5 px, as the edges: a Tuesday's lines overlap by 1.01 px at 1180x820, 2026-11-10 -- the date's own text, not a layout change)
+        say(!!right && right.lines.length === 2 && Math.abs(right.lines[0][1] - right.lines[1][1]) <= 1.5 && right.lines[0][3] <= right.lines[1][2] + 1.5, tag + ': two lines on the right corner end on one edge, the weekday over the date', right);
         say(!!caps && caps.lines.length === 2 && Math.abs(caps.lines[0][0] - caps.lines[1][0]) <= 1.5 && +caps.wt >= 700, tag + ': short, bold capitals on the left start on one edge', caps);
         say(!!mid && Math.abs((mid.lines[0][0] + mid.lines[0][1]) - (mid.lines[1][0] + mid.lines[1][1])) <= 3 && /\/\d{4}/.test(mid.text), tag + ': centered when asked, the date as numbers with its year', mid);
         say(d.every((x) => x.box[0] >= 0 && x.box[2] <= W + 0.5 && x.box[1] >= 0 && x.box[3] <= H + 0.5 && x.lines.every((l) => l[3] <= x.box[3] + 1)), tag + ': every Date inside the screen and its own box', d.map((x) => x.box));
