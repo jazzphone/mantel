@@ -120,6 +120,9 @@ async def grid_cards(caller, args: dict) -> dict:
                              "colors": list(HG.ACCENT_NAMES) + ["#rrggbb"], "secondary": list(HG.ENTRY_SECONDARY)},
             "items_max": HG.ITEMS_MAX, "views_max": HG.VIEWS_MAX, "page_sources": list(HG.SOURCES),
             "tablet_room": HG.TABLET_ROOM,
+            "speaker_notes": "now_playing's speaker: a music room's player or a music group (preset:...) -- the song, "
+                             "time, volume and buttons all follow the music there; none (or tablet_room) is the screen's "
+                             "own music, the tablet's room's first",
             "cards": {k: {"sizes": list(c["sizes"]), "pages_from": list(c["sources"]), "options": dict(c["opts"])}
                       for k, c in HG.CATALOG.items()},
             "layout": {"v": HG.VERSION, "cols": "one of cols", "rows": "rows", "band": "the top band (true)",
@@ -128,7 +131,9 @@ async def grid_cards(caller, args: dict) -> dict:
             "rules": {"rule": "{when: {all: [condition, ...]}, card, opts?, pages?} (the card in the block's size)",
                       "rules_max": HG.RULES_MAX, "conditions_per_rule_max": HG.ALL_MAX,
                       "first_match_wins": True, "conditions": {
-                          "music_playing": "{kind, entity?}", "timer_running": "{kind, entity?}",
+                          "music_playing": "{kind, entity?}: entity a music room's player, a music group "
+                                           "(preset:...) or tablet_room (the room of the tablet showing the screen); "
+                                           "none is any music speaker", "timer_running": "{kind, entity?}",
                           "alarm_armed": "{kind, entity?}", "alarm_disarmed": "{kind, entity?}",
                           "doorbell": "{kind, entity?}", "after_sunset": "{kind, entity?} (sun below the horizon)",
                           "entity_state": "{kind, entity, state}",

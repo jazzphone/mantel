@@ -1734,7 +1734,7 @@
       if (c.kind !== 'after_sunset') rows.push(K.select({ label: 'Watch', value: c.entity || '',
         // (Music Is Playing's Automatic is any of the house's speakers -- not a TV -- 2026-11-01: say so)
         options: (c.kind === 'entity_state' ? [] : [['', c.kind === 'music_playing' ? 'Any Speaker' : 'Automatic']]).concat(this.choices({ music_playing: 'speaker', timer_running: 'timer', alarm_armed: 'alarm',
-          alarm_disarmed: 'alarm', doorbell: 'doorbell' }[c.kind] || 'entity').filter((op) => op[0] !== 'tablet_room')),
+          alarm_disarmed: 'alarm', doorbell: 'doorbell' }[c.kind] || 'entity').filter((op) => op[0] !== 'tablet_room' || c.kind === 'music_playing')).concat(c.entity && c.kind === 'music_playing' && !this.choices('speaker').some((op) => op[0] === c.entity) ? [[c.entity, c.entity + ' (Not a Music Speaker)']] : []),
         onChange: (v) => set('entity', v) }));
       if (c.kind === 'entity_state') rows.push(K.text({ label: 'Is', value: c.state, maxlength: 80, onCommit: (v) => set('state', v) }));
     }
@@ -2258,7 +2258,7 @@
             onChange: (v) => set(key, +v === 2 ? null : +v) }));
           return;
         }
-        var choices = self.choices(kind);
+        var choices = self.choices(kind).filter((op) => kind !== 'speaker' || op[0] !== 'tablet_room');
         if (card === 'scene' && kind === 'scene') { var sids = self.sceneIds(); choices = choices.filter((op) => sids.indexOf(op[0]) >= 0); }
         if (kind === 'cameras' && !(opts[key] || []).length) rows.push(K.info({ label: 'All Cameras, in the Cameras page’s order. Tick some to choose.' }));
         if (kind === 'scenes' || kind === 'calendars' || kind === 'cameras') {
@@ -2270,8 +2270,8 @@
         }
         var auto = o.page ? 'Same as the Block' : card === 'camera' ? 'First Camera' : card === 'room' ? 'Tablet’s Room' : 'Automatic';
         var all = card === 'room' && key === 'area' && !o.page ? choices : [['', auto]].concat(choices);
-        if (opts[key] && !all.some((op) => op[0] === opts[key])) all.push([opts[key], opts[key] + ' (Unavailable)']);
-        rows.push(K.select({ label: label, value: opts[key] || (card === 'room' && key === 'area' && !o.page ? 'tablet_room' : ''), options: all, onChange: (v) => set(key, v) }));
+        if (opts[key] && opts[key] !== 'tablet_room' && !all.some((op) => op[0] === opts[key])) all.push([opts[key], opts[key] + (kind === 'speaker' ? ' (Not a Music Speaker)' : ' (Unavailable)')]);
+        rows.push(K.select({ label: label, value: (kind === 'speaker' && opts[key] === 'tablet_room' ? '' : opts[key]) || (card === 'room' && key === 'area' && !o.page ? 'tablet_room' : ''), options: all, onChange: (v) => set(key, v) }));
       });
       // HOUSE STATUS has no options of its own: it is the screen's status chips (hk-house-status.js)
       if (card === 'house_status' && !o.page) {
@@ -2352,12 +2352,13 @@
         return kind === 'action' ? [['lock_up', 'Lock Up'], ['lights_off', 'All Lights Off'], ['garage', 'Garage']].concat(sl) : sl;
       }
       if (kind === 'area') return [['tablet_room', 'Tablet’s Room']].concat(Object.keys(client.areas || {}).map((id) => [id, client.areas[id].name || id]));
+      if (kind === 'speaker') return G.speakerChoices(this.musicSpeakers());   // (2026-11-10: music rooms and groups, never a TV)
       var domains = { speaker: ['media_player'], climate: ['climate'], camera: ['camera'],
         timer: ['timer'], alarm: ['alarm_control_panel'], select: ['input_select', 'select'], doorbell: ['binary_sensor', 'camera'], weather: ['weather'], vacuum: ['vacuum'], calendars: ['calendar'],
         cameras: ['camera'], todo: ['todo'] }[kind];
       var list = Object.keys(states).filter((id) => !domains || domains.indexOf(id.split('.')[0]) >= 0).map((id) => [id, (states[id].attributes || {}).friendly_name || id]);
       list.sort((a, b) => a[1].localeCompare(b[1]));
-      if (kind === 'speaker' || kind === 'climate') list.unshift(['tablet_room', 'Tablet’s Room']);
+      if (kind === 'climate') list.unshift(['tablet_room', 'Tablet’s Room']);
       return list;
     }
     windows(opts, set, rows) {

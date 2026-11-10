@@ -1051,7 +1051,11 @@
       // single home-wide value would let another tablet change what this one
       // shows, and the transport would act on whatever it said at the moment
       // of the tap.
+      // (`music_at`: a Home Grid block's speaker -- the music in that room or group, hkGridCatalog.musicAt -- so the song,
+      // its time, the volume and the buttons all follow that one player)
       _res() {
+        var G = window.hkGridCatalog, at = this._config && this._config.music_at;
+        if (at && G && G.musicAt && this.client) return G.musicAt(this.client, at);
         return (window.hkMusic && this.client)
           ? window.hkMusic.resolve(this.client)
           : { player: null, context: null, reason: 'none', name: '' };
@@ -1400,8 +1404,7 @@
 
       // what plays on this screen's music, as hkMusic resolves it
       _musicCtx() {
-        var Mu = window.hkMusic, h = this.client;
-        var r = Mu && h ? Mu.resolve(h) : null;
+        var r = window.hkMusic && this.client ? this._res() : null;
         return r && r.context ? r.context : null;
       }
 

@@ -391,6 +391,12 @@ def _music_speaker(v: Any) -> str:
     return _domain("media_player")(v)
 
 
+# WHERE MUSIC IS WATCHED (2026-11-10, the owner: one way to pick a speaker): Now Playing's speaker and Music Is Playing's
+# are one of the house's music rooms or groups (Mantel Settings -> Music), or the wall tablet's own room
+def _speaker(v: Any) -> str:
+    return TABLET_ROOM if v == TABLET_ROOM else _music_speaker(v)
+
+
 SECURITY_PRESENTATIONS = ("homeview",)
 # what a Security block may list as its entries: locks and garage doors (covers)
 SECURITY_DOMAINS = ("lock", "cover")
@@ -517,7 +523,7 @@ OPTION_KINDS = {
     "entity": _domain(),
     "scene": _domain(*SCENE_DOMAINS),
     "scenes": _list(_domain(*SCENE_DOMAINS)),
-    "speaker": _domain("media_player", room=True),
+    "speaker": _speaker,
     "climate": _domain("climate", room=True),
     "alarm": _domain("alarm_control_panel"),
     "camera": _domain("camera"),
@@ -618,7 +624,8 @@ def condition(v: Any) -> dict[str, Any]:
     if "entity" in v:
         if kind in ("time", "solar_window"):
             raise GridInvalid("grid_condition")
-        out["entity"] = _domain()(v["entity"])
+        out["entity"] = _speaker(v["entity"]) if kind == "music_playing" and (v["entity"] == TABLET_ROOM or (
+            isinstance(v["entity"], str) and MUSIC_PRESET.match(v["entity"]))) else _domain()(v["entity"])
     if kind == "entity_state":
         if "entity" not in out or not isinstance(v.get("state"), str) or not 0 < len(v["state"]) <= 80:
             raise GridInvalid("grid_condition")
@@ -1103,6 +1110,11 @@ def _variant_parts(v: Mapping[str, Any]) -> list[tuple[str, Any]]:
     return [(card, v.get("opts"))] + [(card, p.get("opts")) for p in pages.get("list") or [] if isinstance(p, dict)]
 
 
+def _is_entity(v: Any) -> bool:
+    """A condition's entity, as a viewer may lack it: an entity id -- not Tablet's Room or a music group (`preset:`)."""
+    return isinstance(v, str) and bool(ENTITY_ID.match(v))
+
+
 def _conditions_of(when: Any) -> list[dict[str, Any]]:
     if isinstance(when, dict) and isinstance(when.get("all"), list):
         return [c for c in when["all"] if isinstance(c, dict)]
@@ -1121,7 +1133,7 @@ def entity_ids(grid: Any) -> set[str]:
             for card, opts in _variant_parts(v):
                 out |= _opt_ids(card, opts)
         for when in [it.get("when")] + [r.get("when") for r in it.get("rules") or [] if isinstance(r, dict)]:
-            out |= {c["entity"] for c in _conditions_of(when) if isinstance(c.get("entity"), str)}
+            out |= {c["entity"] for c in _conditions_of(when) if _is_entity(c.get("entity"))}
         out |= {e["entity"] for e in _sheet_entries(it) if isinstance(e.get("entity"), str)}
     return out
 
@@ -1174,8 +1186,7 @@ def only_viewable(grid: Any, ok: Any) -> Any:
         if not isinstance(it, dict):
             items.append(it)
             continue
-        hidden_when = any(isinstance(c.get("entity"), str) and c["entity"] not in ok
-                          for c in _conditions_of(it.get("when")))
+        hidden_when = any(_is_entity(c.get("entity")) and c["entity"] not in ok for c in _conditions_of(it.get("when")))
         if hidden_when and isinstance(it.get("fallback"), dict):
             new = {k: copy.deepcopy(v) for k, v in it.items() if k not in ("card", "opts", "pages", "when", "fallback")}
             new.update(_cut_variant(it["fallback"], ok))
@@ -1185,7 +1196,7 @@ def only_viewable(grid: Any, ok: Any) -> Any:
                 new["fallback"] = _cut_variant(it["fallback"], ok)
             if isinstance(it.get("rules"), list):
                 kept = [_cut_variant(r, ok) for r in it["rules"] if isinstance(r, dict) and not any(
-                    isinstance(c.get("entity"), str) and c["entity"] not in ok for c in _conditions_of(r.get("when")))]
+                    _is_entity(c.get("entity")) and c["entity"] not in ok for c in _conditions_of(r.get("when")))]
                 if kept:
                     new["rules"] = kept
                 else:
