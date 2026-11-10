@@ -341,15 +341,20 @@
       // (Extra Large: the alarm's keypad, its keys sized to the block)
       '.kpad{flex:0 0 var(--kpw,264px);min-width:0;min-height:0}.kpad.side{flex-basis:var(--kpw,330px)}.kpad > *{display:block;height:100%}',
       // HOMEVIEW'S EXTRA LARGE (`.hv`, the catalog's flag): every glyph on the glass white, as the HomeView blocks have them; armed (`.on`) the
-      // keypad's area white and triggered (`.trg`) red, as hk-grid-security-hv-card lights its alarm area (Light Up When Armed): the
-      // inks the keypad reads are the custom properties set there; the block and its entries stay the glass, as disarmed
+      // keypad's display white and triggered (`.trg`) red (below), as hk-grid-security-hv-card lights its alarm area (Light Up When Armed);
+      // the block and its entries stay the glass, as disarmed
       'hk-plate.sec.hv .wl hk-icon{color:var(--c,' + v('glyph') + ')}hk-plate.sec.hv .ent hk-icon,hk-plate.sec.hv .row hk-icon,hk-plate.sec.hv .ent.lk hk-icon,hk-plate.sec.hv .row.lk hk-icon{color:' + v('glyph') + '}',
       'hk-plate.sec.hv .ent.open hk-icon,hk-plate.sec.hv .row.open hk-icon{color:' + C.ACCENTS.teal + '}',
-      'hk-plate.sec.on .kpad,hk-plate.sec.trg .kpad,hk-plate.sec.hv.on:not(.kp) .hd,hk-plate.sec.hv.trg:not(.kp) .hd{padding:10px;border-radius:var(--hk-inner-radius,' + (C.R.inner + 'px') + ')}',
-      'hk-plate.sec.on .kpad,hk-plate.sec.hv.on:not(.kp) .hd{background:#fff;--hk-ink:rgba(0,0,0,0.88);--hk-ink-2:' + v('ink-on-state') + ';--hk-ink-3:rgba(60,60,67,0.45);',
+      // (THE KEYPAD: armed, its display alone lights white with dark words -- the keys stay as they are, clear of a white edge (the owner,
+      // 2026-11-09: "the keypads home/away/disarm buttons are right on the edge of the white area... just make the Display/LCD area above
+      // the keypad turn white"); triggered, the display red with white words. The keypad reads these through its shadow root)
+      'hk-plate.sec.on .kpad{--hk-kp-read-bg:#fff;--hk-kp-read-line:transparent;--hk-kp-read-ink:rgba(0,0,0,0.88);--hk-kp-read-ink-3:rgba(60,60,67,0.6)}',
+      'hk-plate.sec.trg .kpad{--hk-kp-read-bg:var(--trg,' + C.ACCENTS.red + ');--hk-kp-read-line:transparent;--hk-kp-read-ink:#fff;--hk-kp-read-ink-3:rgba(255,255,255,0.75);--hk-kp-st:#fff}',
+      'hk-plate.sec.hv.on:not(.kp) .hd,hk-plate.sec.hv.trg:not(.kp) .hd{padding:10px;border-radius:var(--hk-inner-radius,' + (C.R.inner + 'px') + ')}',
+      'hk-plate.sec.hv.on:not(.kp) .hd{background:#fff;--hk-ink:rgba(0,0,0,0.88);--hk-ink-2:' + v('ink-on-state') + ';--hk-ink-3:rgba(60,60,67,0.45);',
       '  --hk-glyph:rgba(0,0,0,0.78);--hk-key:rgba(0,0,0,0.06);--hk-key-strong:rgba(0,0,0,0.12);--hk-glow:none}',
       'hk-plate.sec.on .arm button.on{background:' + C.ACCENTS.teal + ';color:#fff}',
-      'hk-plate.sec.trg .kpad,hk-plate.sec.hv.trg:not(.kp) .hd{background:var(--trg,' + C.ACCENTS.red + ');',
+      'hk-plate.sec.hv.trg:not(.kp) .hd{background:var(--trg,' + C.ACCENTS.red + ');',
       '  --hk-ink:#fff;--hk-ink-2:rgba(255,255,255,0.86);--hk-ink-3:rgba(255,255,255,0.6);--hk-glyph:#fff;--hk-glow:none;--hk-kp-st:#fff}'
     ].join('');
     var SEC_WORDS = { disarmed: ['Disarmed', ''], armed_home: ['Armed', 'Home'], armed_away: ['Armed', 'Away'], armed_night: ['Armed', 'Night'],
@@ -925,6 +930,9 @@
       // not gap below it"); at the right the list, and the doors and windows' toast under it
       'hk-plate.hv[size=W] .lc,hk-plate.hv[size=C] .lc{flex:0 0 38%;display:flex;flex-direction:column;min-width:0;min-height:0}',
       'hk-plate.hv[size=C] .lc{flex-basis:calc((100% - 24px) / 3)}',
+      // (Wide's alarm a cell wide too, as Compact's: the owner, 2026-11-09, "make that tile the same size as it is in the compact version...
+      // more true to form with HomeView" -- half of Wide's two cells, a tile, the list in the other half)
+      'hk-plate.hv[size=W] .lc{flex-basis:calc((100% - 12px) / 2)}',
       'hk-plate.hv[size=W] .lc .al,hk-plate.hv[size=C] .lc .al{flex:1 1 auto;justify-content:flex-start;gap:6px}',
       'hk-plate.hv[size=W].on .lc .al,hk-plate.hv[size=W].trg .lc .al,hk-plate.hv[size=C].on .lc .al,hk-plate.hv[size=C].trg .lc .al{margin:0}',
       'hk-plate.hv .rc{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;gap:8px}',

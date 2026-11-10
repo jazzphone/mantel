@@ -87,9 +87,11 @@
         '.badge hk-icon{--mdc-icon-size:15px;width:15px;height:15px;display:flex}',
         // the field: recessed, "Enter code" until typed, dots while typing
         '.read{height:var(--hk-kp-key,48px);border-radius:' + R.inner + 'px;margin:0 0 10px;box-sizing:border-box;',
-        '  background:' + v('well-bg') + ';border:1px solid ' + v('line') + ';display:flex;align-items:center;justify-content:center}',
-        '.read .code{font-size:22px;font-weight:700;letter-spacing:8px;color:' + v('ink') + '}',
-        '.read .code.ph{font-size:15px;font-weight:500;letter-spacing:0;color:' + v('ink-3') + '}',
+        // (its colors are hooks a block lights it with -- armed, the display alone white, the owner 2026-11-09: "instead of doing the whole
+        // keyboard, just make the Display/LCD area above the keypad turn white": --hk-kp-read-bg, -line, -ink, -ink-3)
+        '  background:var(--hk-kp-read-bg,' + v('well-bg') + ');border:1px solid var(--hk-kp-read-line,' + v('line') + ');display:flex;align-items:center;justify-content:center}',
+        '.read .code{font-size:22px;font-weight:700;letter-spacing:8px;color:var(--hk-kp-read-ink,' + v('ink') + ')}',
+        '.read .code.ph{font-size:15px;font-weight:500;letter-spacing:0;color:var(--hk-kp-read-ink-3,' + v('ink-3') + ')}',
         '.read[data-bad="1"]{border-color:rgba(255,69,58,0.55)}',
         '.read[data-bad="1"] .code{font-size:15px;letter-spacing:0;font-weight:600;color:' + v('fail') + '}',
         // the status in the field, unboxed and at rest (a keypad on its own:
@@ -98,7 +100,7 @@
         '.read[data-mode="status"] .st{display:flex}',
         '.read[data-mode="status"] .code{display:none}',
         '.read .st hk-icon{--mdc-icon-size:22px;width:22px;height:22px;flex:none;display:flex}',
-        '.read .st span{font-size:17px;font-weight:600;color:' + v('ink') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+        '.read .st span{font-size:17px;font-weight:600;color:var(--hk-kp-read-ink,' + v('ink') + ');white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
         '.pad{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}',
         '.k{height:var(--hk-kp-key,48px);border-radius:' + R.inner + 'px;font-size:19.7px;font-weight:700;letter-spacing:-0.45px;' + key + '}',
         '.k.sm{font-size:15px;font-weight:500;letter-spacing:0;color:' + v('ink-2') + '}',
