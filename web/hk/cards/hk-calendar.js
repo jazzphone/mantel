@@ -920,7 +920,7 @@
       var h0 = bar.offsetHeight;
       bar.style.marginBottom = '';
       bar.classList.toggle('stuck', stuck);
-      if (stuck) bar.style.marginBottom = (parseFloat(getComputedStyle(bar).marginBottom) + h0 - bar.offsetHeight) + 'px';
+      if (stuck && !bar.closest('.narrow')) bar.style.marginBottom = (parseFloat(getComputedStyle(bar).marginBottom) + h0 - bar.offsetHeight) + 'px'; // (not on a phone, as Energy's: the spacer set as it folded threw iOS's scroll back to the top, every fold -- 2026-11-10)
     }
     // THE PAGE'S HEIGHT, on a wide screen: the panels reach the bottom of
     // the window, whatever is above them
