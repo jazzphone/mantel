@@ -30,12 +30,11 @@
       ':host([list]) .bar{flex:none;margin-bottom:12px;padding-bottom:12px}',
       ':host([list]) .rl{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y pinch-zoom;scrollbar-width:none}',
       ':host([list]) .rl::-webkit-scrollbar{display:none}',
-      ':host([list]) .rl .grid{grid-template-columns:minmax(0,1fr);grid-auto-rows:48px;gap:8px}',
+      // the Vacuums page's own pills (40 px, the name centered, the look's fill and edge), in one or two columns (2026-11-10)
+      ':host([list]) .rl .grid{grid-template-columns:minmax(0,1fr);grid-auto-rows:40px;gap:' + C.TILE.gridGap + 'px}',
       ':host([list="2"]) .rl .grid{grid-template-columns:repeat(2,minmax(0,1fr))}',
-      ':host([list]) .rl .pill{height:100%;border-radius:calc(48px / 2);padding:0 18px}:host([list]) .rl .pill > span{justify-self:start;text-align:left}',
-      // (its pills the sheet's own keys, not glass: hk-glass.js frosted them on a layer of their own, a box behind them in a sheet)
-      ':host([list]) .pill{--hk-glass-surface:0;-webkit-backdrop-filter:none;backdrop-filter:none;box-shadow:none}',
-      ':host([list]) .pill:not([aria-pressed="true"]){background:' + C.v('key') + '}'
+      // (not a glass layer of their own: hk-glass.js frosts every --hk-glass-surface on a layer, a box behind them in a sheet)
+      ':host([list]) .pill{--hk-glass-surface:0}'
     ].join('');
     function deviceSensor(h, id, test) {
       var ents = h && h.entities, me = ents && ents[id];

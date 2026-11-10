@@ -12,6 +12,7 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 - **The speaker line says "Master Bedroom + 10"** when three or more rooms play together (two still read as two names), and is a little bigger on the media blocks, an easier target.
 
 **Fixed**
+- **The vacuum's sheet uses the Vacuums page's room pills**: the same height, look and centered names (they were taller, darker and their names sat at the left).
 - **The Music page's Your Playlists shows on a wall tablet without a reload**: it was drawn last in the page's redraw, so anything that stopped the redraw before it left the section missing; it now draws on its own as the list arrives.
 
 ## 0.1.161 - 2026-11-10
