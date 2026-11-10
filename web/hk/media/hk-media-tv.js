@@ -63,6 +63,13 @@
       // stretch"): _fit sizes the tiles for six places; fewer channels start top-left and keep that size
       '.g6 .gr{flex:1 1 0;align-self:center;width:calc(var(--tw,160px) * 2 + 10px);justify-content:flex-start;align-content:flex-start}',
       '.gr .ch{flex:none;width:var(--tw,160px);aspect-ratio:var(--ar,16/10)}',
+      // THE CHANNELS FILL THE BLOCK (2026-11-09, the owner: "what determines the spacing of tiles inside the cards? Seems like it doesn't
+      // fill out the space very well for Large, Wide, and Tall"): a fixed picture shape in a block of another shape left bands at its sides
+      // or foot. Wide, Tall and Large are a grid of the block's whole room -- Wide two across, Tall up to three down, Large two across and up
+      // to three down -- the 10 px gaps between, each picture cropped to its tile (a channel's art is a picture, made to be big)
+      '.fill .gr{display:grid;grid-template-columns:repeat(var(--fc,2),minmax(0,1fr));grid-template-rows:repeat(var(--fr,1),minmax(0,1fr));gap:10px;',
+      '  width:auto;align-self:stretch;align-content:stretch;justify-content:stretch}',
+      '.fill .gr .ch{width:auto;height:auto;aspect-ratio:auto;min-width:0;min-height:0}',
       // ITS MARK: the guide's logo on white where it has one, else its number
       '.lg{display:grid;place-items:center;flex:none;align-self:flex-start;min-width:38px;height:38px;padding:0 7px;box-sizing:border-box;',
       '  border-radius:' + C.R.small + 'px;background:rgba(255,255,255,.25);' + C.typeCss('body') + ';font-weight:800;font-variant-numeric:tabular-nums;text-shadow:none}',
@@ -202,7 +209,8 @@
         }
         if (s === 'XL') { this._renderXL(list); return; }
         var plate = document.createElement('hk-plate');
-        plate.className = 'tv' + (s === 'S' || this._chosen() ? ' one' : '') + (this._chosen() && /^(T|L)$/.test(s) ? ' big' : '') + (s === 'L' ? ' g6' : '');
+        plate.className = 'tv' + (s === 'S' || this._chosen() ? ' one' : '') + (this._chosen() && /^(T|L)$/.test(s) ? ' big' : '') + (s === 'L' ? ' g6' : '') +
+          (/^(W|T|L)$/.test(s) && !(s === 'S' || this._chosen()) ? ' fill' : '');
         plate.setAttribute('data-hk-role', 'card');
         plate.style.setProperty('--n', g[0]); plate.style.setProperty('--r', g[1]);
         var gr = plate;
@@ -300,6 +308,14 @@
         if (!gr || typeof getComputedStyle !== 'function' || !gr.clientWidth) return;
         var gap = 10, W = gr.clientWidth, H = gr.clientHeight, cols = g[0], kids = Array.prototype.slice.call(gr.children), n = kids.length;
         var tw = (W - (cols - 1) * gap) / cols, need = Math.ceil(n / cols), pick = null;
+        if (plate.classList.contains('fill')) {
+          // (the grid: Large up to 2 x 3, Tall one column of as many as stand 64 px tall (three at most), Wide two across)
+          var wide = !plate.classList.contains('g6') && cols > 1, fc = plate.classList.contains('g6') ? 2 : wide ? Math.min(2, n) : 1;
+          var fr = plate.classList.contains('g6') ? Math.max(1, Math.ceil(Math.min(n, 6) / 2)) : wide ? 1 : Math.max(1, Math.min(n, 3, Math.floor((H + gap) / (64 + gap))));
+          gr.style.setProperty('--fc', String(fc)); gr.style.setProperty('--fr', String(fr));
+          kids.forEach(function (k, i) { k.style.display = i >= fc * fr ? 'none' : ''; });
+          return;
+        }
         if (plate.classList.contains('g6')) {
           // Large: one designed size for six places, 16 : 10 two across, as wide as the columns make it and no taller than a third of the
           // room between the gaps (mockup 9: 184 x 119); fewer channels keep it and start top-left
