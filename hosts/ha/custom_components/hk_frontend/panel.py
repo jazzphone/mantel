@@ -300,10 +300,10 @@ async def ws_panel_get(hass: HomeAssistant, connection: websocket_api.ActiveConn
 # hk-chip.js KIND_ORDER / KIND_PAGES: the chips card's kinds, and the pages
 # each opens (the first the dashboard has)
 _KIND_ORDER = ("weather_alert", "security", "doors_windows", "climate", "lights", "blinds",
-               "timers", "vacuums", "speakers", "water", "energy")
+               "timers", "vacuums", "laundry", "speakers", "water", "energy")
 _KIND_PAGES = {"weather_alert": ("weather",), "security": ("security", "alarm"),
                "doors_windows": ("doors-windows", "doors", "security"), "climate": ("climate",), "lights": ("lights",),
-               "blinds": ("blinds", "shades", "climate"), "timers": ("timers",), "vacuums": ("vacuums",),
+               "blinds": ("blinds", "shades", "climate"), "timers": ("timers",), "vacuums": ("vacuums",), "laundry": (),
                "speakers": ("playmusic", "speakers"), "water": ("water", "leaks"), "energy": ("energy",)}
 
 

@@ -1396,7 +1396,7 @@
   // in the list. `source_first` is media-only and lives in that card's schema.
   var LABEL_MODE_VALUES = ['on_off', 'state', 'sentence', 'title',
                            'on_off_sentence', 'open_closed', 'leak', 'alarm',
-                           'brightness', 'humidity', 'vacuum', 'position',
+                           'brightness', 'humidity', 'vacuum', 'laundry', 'position',
                            'duration', 'group_brightness', 'group_count',
                            'setpoint', 'setpoint_verb'];
 
@@ -1597,6 +1597,13 @@
         sig += ';reading:' + !!(window.hkRoom && window.hkRoom.climateReading) + ':' +
           window.hkLocale.units().temp;
       }
+      // (a machine's tile reads every part of it, and its minutes left move on)
+      var L = window.hkLaundry, mid = (this._config || {}).machine;
+      if (mode === 'laundry' && L && mid && this.client) {
+        var m = L.byId(this.client, mid), sts = this.client.states || {};
+        if (m) L.ids(this.client, m).forEach(function (id) { var x = sts[id]; sig += ';' + id + '=' + (x ? x.state : '-'); });
+        sig += ';t' + Math.floor(Date.now() / 60000);
+      }
       return sig;
     }
     // NOT REPORTING (the generated Water page's Sensor Coverage):
@@ -1608,14 +1615,31 @@
       var h = this.client, grp = Array.isArray(this._config.group) ? this._config.group : [];
       return grp.filter(function (id) { var x = h && h.states[id]; return !x || (x.state !== 'on' && x.state !== 'off'); }).length;
     }
+    // A WASHER OR DRYER (phase 22): what hkLaundry reads off all its parts -- lit while it runs, waits to be unloaded or needs a look
+    _laundry() {
+      var L = window.hkLaundry, id = this._config && this._config.machine;
+      if (!L || !id || !this.client) return null;
+      var m = L.byId(this.client, id);
+      return m ? L.look(this.client, m) : null;
+    }
     _isOn(st) {
       if (this._config && this._config.label_mode === 'unreported') return this._unreported() > 0;
+      if (this._config && this._config.label_mode === 'laundry') {
+        var lo = this._laundry();
+        return !!lo && (lo.runs || lo.state === 'done' || lo.state === 'wrinkle' || lo.state === 'leak' || lo.state === 'error');
+      }
       return super._isOn(st);
     }
     _label(st) {
       var cfg = this._config;
       if (cfg.label != null) return cfg.label;
       if (cfg.label_mode === 'unreported') return String(this._unreported());
+      // "Drying · 24 min", "Done", "Off": what it is doing and how long, in a tile's one line
+      if (cfg.label_mode === 'laundry') {
+        var lo = this._laundry();
+        if (!lo) return 'Unavailable';
+        return lo.runs && lo.left != null && lo.state !== 'paused' ? lo.title + ' · ' + Math.max(1, Math.round(lo.left / 60)) + ' min' : lo.title;
+      }
       var s = (st && st.state) || 'unknown';
       if (cfg.label_mode === 'climate_temperature' || cfg.label_mode === 'climate_humidity') {
         var kind = cfg.label_mode.slice(8), R = window.hkRoom;

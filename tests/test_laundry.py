@@ -250,3 +250,28 @@ def test_pause_and_stop_never_a_start(page):
 def test_the_drawing_and_the_first_to_look_at(page):
     assert [a.split('class="')[1].split('"')[0] for a in page["art"]] == ["hkla s-drying", "hkla s-done", "hkla s-leak", "hkla s-off"]
     assert page["first"] == "done"
+
+
+@needs_node
+def test_the_server_finds_the_machines_the_page_finds(page):
+    """Done is held for the same machines the screens draw (mantel_server/laundry.py watches hk_core.laundry.found's)."""
+    put = {}
+    def p(eid, s, dev, **a):
+        put[eid] = ({"s": s, "a": a}, dev)
+    p("select.washer", "run", "d1", options=["stop", "run", "pause"])
+    p("sensor.washer_machine_state", "run", "d1", device_class="enum", options=["pause", "run", "stop"])
+    p("sensor.washer_job_state", "drying", "d1", device_class="enum", options=["air_wash", "ai_rinse", "drying", "finish", "none", "rinse", "spin", "wash", "wrinkle_prevent"])
+    p("sensor.washer_completion_time", "2026-11-10T18:24:00+00:00", "d1", device_class="timestamp")
+    p("sensor.washer_progress", "74", "d1", unit_of_measurement="%")
+    p("binary_sensor.washer_remote_control", "off", "d1")
+    p("sensor.washer_power", "0", "d1", device_class="power", unit_of_measurement="W")
+    p("sensor.washer_energy", "22.2", "d1", device_class="energy")
+    p("binary_sensor.laundry_leak", "off", "d2", device_class="moisture")
+    p("sensor.tower_washer_current_status", "rinsing", "d3", device_class="enum", options=["power_off", "running", "rinsing", "spinning", "end", "error"])
+    p("sensor.tower_dryer_current_status", "drying", "d3", device_class="enum", options=["power_off", "drying", "cooling", "end", "error"])
+    p("sensor.dryer_plug_power", "640", "d4", device_class="power")
+    states = {k: v[0] for k, v in put.items()}
+    entries = {k: {"entity_id": k, "device_id": v[1]} for k, v in put.items()}
+    devices = {"d1": {"model": "WD53DBA900H"}, "d2": {}, "d3": {}, "d4": {}}
+    keys = ("id", "status", "phase", "time", "door", "power")
+    assert [{k: m[k] for k in keys} for m in LA.found(entries, devices, states)] == [{k: m[k] for k in keys} for m in page["found"]]

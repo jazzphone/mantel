@@ -2215,8 +2215,8 @@ BOARD_HOME_ROOMS = ("as_is", "order", "only")
 BOARD_PAGE_ROOMS = ("floor", "order")
 # THE CHIPS (hk-chip.js KIND_ORDER): which a dashboard shows, in its order.
 CHIP_KINDS = ("weather_alert", "security", "doors_windows", "climate", "lights", "blinds",
-              "timers", "vacuums", "speakers", "water", "energy")
-CHIPS_QUIET = ["weather_alert", "doors_windows", "blinds", "water"]
+              "timers", "vacuums", "laundry", "speakers", "water", "energy")
+CHIPS_QUIET = ["weather_alert", "doors_windows", "blinds", "laundry", "water"]
 # THE PAGES a generated dashboard can have (hk-strategy.js), in menu order.
 # Energy: the Energy feature's page (features/energy), while it is added.
 PAGE_KINDS = ("weather", "calendar", "cameras", "live_tv", "security", "doors_windows", "climate", "lights",

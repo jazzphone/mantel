@@ -173,10 +173,16 @@
     return out;
   }
   // (saved: the settings page passes its own copy; a screen reads the settings feed)
+  // (found once per registry: the generated pages ask for every tile, and finding walks every entity)
+  var memo = { ents: null, devs: null, n: -1, list: null };
   function machines(client, saved) {
     if (saved === undefined) saved = setting('features.laundry', null);
     if (Array.isArray(saved) && saved.length) return saved.filter(function (m) { return m && m.id; });
-    return found(client);
+    var ents = client && client.entities, devs = client && client.devices, n = client && client.states ? Object.keys(client.states).length : 0;
+    if (memo.list && memo.ents === ents && memo.devs === devs && memo.n === n && ents) return memo.list;
+    var list = found(client);
+    memo = { ents: ents, devs: devs, n: n, list: list };
+    return list;
   }
   // A MACHINE'S ROOM: its own (Accessories -> Laundry), else its status sensor's, else its device's
   function areaOf(client, m) {

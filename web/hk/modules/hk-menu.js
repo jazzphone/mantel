@@ -270,10 +270,10 @@
   // bootstrap, before the card files, so it cannot wait for them. The chip
   // kind suite (test_chipkinds) holds the two copies equal.
   var KIND_ORDER = ['weather_alert', 'security', 'doors_windows', 'climate', 'lights', 'blinds',
-                    'timers', 'vacuums', 'speakers', 'water', 'energy'];
+                    'timers', 'vacuums', 'laundry', 'speakers', 'water', 'energy'];
   var KIND_PAGES = { weather_alert: ['weather'], security: ['security', 'alarm'],
                      doors_windows: ['doors-windows', 'doors', 'security'], climate: ['climate'], lights: ['lights'],
-                     blinds: ['blinds', 'shades', 'climate'], timers: ['timers'], vacuums: ['vacuums'],
+                     blinds: ['blinds', 'shades', 'climate'], timers: ['timers'], vacuums: ['vacuums'], laundry: [],
                      speakers: ['playmusic', 'speakers'], water: ['water', 'leaks'], energy: ['energy'] };
   function chipPaths(v0, dash, o) {
     o = o || {};

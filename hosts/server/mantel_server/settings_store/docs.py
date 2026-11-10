@@ -37,7 +37,7 @@ ENTITY = re.compile(r"^([a-z0-9_]+)\.[a-z0-9_]+$")
 HA_ONLY_TOP = frozenset({"sidebar", "hk_panel", "files_folder"})
 PILL_COLORS = ("white", "yellow", "orange", "red", "pink", "purple", "blue", "teal", "mint", "green")
 CHIP_KINDS = ("weather_alert", "security", "doors_windows", "climate", "lights", "blinds",
-              "timers", "vacuums", "speakers", "water", "energy")
+              "timers", "vacuums", "laundry", "speakers", "water", "energy")
 CHIP_TOKEN = "chip:"
 CHIP_CARD_MAX = 20_000
 MAX_DOC = 2_000_000        # bytes of JSON per document

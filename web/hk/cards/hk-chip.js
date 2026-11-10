@@ -222,7 +222,7 @@
       // Climate is built entirely from parts (temperature, plus a fan count
       // only when a fan is on) and has no top-level source at all.
       var ok = config && (config.kind || config.entity || config.source ||
-                          (config.count && (config.count.entities || config.count.music)) ||
+                          (config.count && (config.count.entities || config.count.music || config.count.laundry)) ||
                           Array.isArray(config.parts) ||
                           Array.isArray(config.label_rules));
       if (!ok) {
@@ -302,6 +302,12 @@
     // `count: {music: true}` -- the house's rooms from the integration
     // (hkMusic), each PHYSICAL speaker once: a sync group's members already
     // report `playing` with it, so counting the group too would read one extra.
+    // `count: {laundry: true}` -- the house's washers and dryers (hk-laundry.js) that run, wait to be unloaded or need a look
+    if (cfg.count && cfg.count.laundry) {
+      var LA = window.hkLaundry, cl = card.client || (window.hkCards && window.hkCards.client ? window.hkCards.client() : null);
+      if (!LA || !cl) return 0;
+      return LA.lookAll(cl).filter(function (o) { return o.runs || o.state === 'done' || o.state === 'wrinkle' || o.state === 'leak' || o.state === 'error'; }).length;
+    }
     if (cfg.count && cfg.count.music) {
       var mw = cfg.count.match == null ? ['playing'] : [].concat(cfg.count.match);
       var rooms = window.hkMusic ? window.hkMusic.rooms() : [];
@@ -477,6 +483,13 @@
 
   function labelFor(card, cfg, st) {
     if (cfg.label != null) return cfg.label;                    // explicit wins
+    // ONE MACHINE SAYS ITS OWN WORDS ("24 min left", "Done", "Leak"); several, how many
+    if (cfg.count && cfg.count.laundry && window.hkLaundry) {
+      var cl0 = card.client || (window.hkCards && window.hkCards.client ? window.hkCards.client() : null);
+      var lit = cl0 ? window.hkLaundry.lookAll(cl0).filter(function (o) { return o.runs || o.state === 'done' || o.state === 'wrinkle' || o.state === 'leak' || o.state === 'error'; }) : [];
+      if (!lit.length) return String(cfg.zero || 'Off');
+      return lit.length === 1 ? lit[0].short : lit.length + ' Machines';
+    }
 
     // FIRST MATCHING RULE WINS -- a priority branch, which is what Security is:
     //   triggered            -> the alarm state, title-cased
@@ -580,17 +593,17 @@
   // dashboard's (its item's Home page; hk-chips-card below) -- all but
   // Smoke & CO, which no screen chooses: it leads every row (rowPlan), quiet.
   var KIND_ORDER = ['weather_alert', 'security', 'doors_windows', 'climate', 'lights', 'blinds',
-                    'timers', 'vacuums', 'speakers', 'water', 'energy'];
+                    'timers', 'vacuums', 'laundry', 'speakers', 'water', 'energy'];
   var KIND_NAMES = { smoke: 'Smoke & CO', weather_alert: 'Weather Alerts', security: 'Security', doors_windows: 'Doors & Windows',
                      climate: 'Climate', lights: 'Lights', blinds: 'Blinds', timers: 'Timers',
-                     vacuums: 'Vacuums', speakers: 'Speakers', water: 'Water', energy: 'Energy' };
+                     vacuums: 'Vacuums', laundry: 'Laundry', speakers: 'Speakers', water: 'Water', energy: 'Energy' };
   // Quiet unless a dashboard says otherwise: news, not a permanent slot.
-  var QUIET_DEFAULT = ['weather_alert', 'doors_windows', 'blinds', 'water'];
+  var QUIET_DEFAULT = ['weather_alert', 'doors_windows', 'blinds', 'laundry', 'water'];
   // The page each opens: the first of these the dashboard has. None of them:
   // the chip reports and opens nothing.
   var KIND_PAGES = { weather_alert: ['weather'], security: ['security', 'alarm'],
                      doors_windows: ['doors-windows', 'doors', 'security'], climate: ['climate'], lights: ['lights'],
-                     blinds: ['blinds', 'shades', 'climate'], timers: ['timers'], vacuums: ['vacuums'],
+                     blinds: ['blinds', 'shades', 'climate'], timers: ['timers'], vacuums: ['vacuums'], laundry: [],
                      speakers: ['playmusic', 'speakers'], water: ['water', 'leaks'], energy: ['energy'] };
   var ARMED = ['armed_away', 'armed_home', 'armed_night', 'armed_vacation', 'armed_custom_bypass'];
   var OPEN = ['on', 'open', 'opening', 'closing'];
@@ -849,6 +862,14 @@
           format: '{v} Running', zero: 'Idle', icon_color_states: { zero: 'gray', nonzero: 'blue' },
           active: [{ count: { entities: vc, match: vm }, above: 0 }], tap_action: tap };
       }
+      // LAUNDRY (phase 22, hk-laundry.js): while a machine runs, waits to be unloaded or needs a look -- "24 min left", "Done",
+      // "2 Running"; a tap opens the laundry sheet. Quiet by default: there only while it says something
+      case 'laundry': {
+        var LL = window.hkLaundry;
+        if (!LL || !LL.machines(client).length) return null;
+        return { name: 'Laundry', icon: 'hk:washing-machine', count: { laundry: true }, zero: 'Off', icon_color_states: { zero: 'gray', nonzero: 'blue' },
+          active: [{ count: { laundry: true }, above: 0 }], tap_action: { action: 'laundry' } };
+      }
       case 'speakers': {
         // HK Music's rooms when it is set up (each physical speaker once:
         // a sync group's members report `playing` with it).
@@ -957,6 +978,12 @@
       // the integration's, read now, so a speaker added in the UI is counted.
       if (c.count && c.count.music && window.hkMusic) {
         ids = ids.concat(window.hkMusic.rooms().map(function (r) { return r.entity; }));
+      }
+      // (a laundry chip reads every part of every machine, and its minutes move on)
+      if (c.count && c.count.laundry && window.hkLaundry) {
+        var LM = window.hkLaundry;
+        LM.machines(h).forEach(function (m) { ids = ids.concat(LM.ids(h, m)); });
+        ids = ids.concat(['~' + Math.floor(Date.now() / 60000)]);
       }
       // No rooms YET (hk_music has not answered) is a stable state, not
       // "unknown": returning null here would redraw the Speakers chip on
@@ -1234,7 +1261,7 @@
   // numeric_state (and/or of them), is read; any other card has no reading House Status can trust, and is named in
   // `unsupported` (the sheet says so) rather than dropped unseen.
   var HS_NAMES = { energy: 'Power' };              // the Energy chip's reading is power now: Power, its page Energy
-  var HS_SAFE = ['navigate', 'more-info', 'none', 'url', 'intercom'];
+  var HS_SAFE = ['navigate', 'more-info', 'none', 'url', 'intercom', 'laundry'];
   var LOCK_KNOWN = ['locked', 'unlocked'];
   function hsName(client, id) {
     var st = client && client.states && client.states[id];
@@ -1359,6 +1386,7 @@
       keep(entityIds(cfg));
       if (conds) keep(entityIds(conds));
       if (cfg.count && cfg.count.music && window.hkMusic) keep(window.hkMusic.rooms().map(function (r) { return r.entity; }));
+      if (cfg.count && cfg.count.laundry && window.hkLaundry) window.hkLaundry.machines(client).forEach(function (m) { keep(window.hkLaundry.ids(client, m)); });
       items.push({ key: x.key || ('custom' + items.length), kind: chip.kind || null, cfg: cfg, conds: conds, tap: tap, readonly: readonly,
                    name: (chip.kind && !chip.name && HS_NAMES[chip.kind]) || cfg.name || null });
     });
@@ -1445,6 +1473,11 @@
         var wet = on(n('leaks'), 'on');
         out.detail = wet.length ? hsList(hsRooms(client, wet).length ? hsRooms(client, wet) : names(wet), 2) : 'All dry';
         if (wet.length) out.extra = hsList(names(wet), 2);
+        return;
+      }
+      case 'laundry': {
+        var lo = window.hkLaundry ? window.hkLaundry.lookAll(client).filter(function (o) { return o.runs || o.state === 'done' || o.state === 'wrinkle' || o.state === 'leak' || o.state === 'error'; }) : [];
+        out.detail = lo.length ? hsList(lo.map(function (o) { return o.name + ' ' + o.short.toLowerCase(); }), 2) : 'Nothing running';
         return;
       }
       case 'vacuums': {

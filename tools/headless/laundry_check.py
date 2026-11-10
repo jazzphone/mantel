@@ -74,7 +74,7 @@ def every_size(cell: str) -> dict:
 
 def board(grid: dict | None) -> dict:
     b = {"title": "Laundry", "pages": [], "headers": {"home": True}, "menu_custom": True, "menu": "tabbar",
-         "chips": ["lights", "security"]}
+         "chips": ["laundry", "lights", "security"], "chips_quiet": []}
     if grid:
         b.update({"home_style": "grid", "home_grid": grid})
     return b

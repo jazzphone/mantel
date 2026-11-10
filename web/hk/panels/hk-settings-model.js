@@ -24,7 +24,7 @@
   // ------------------------------------------------------------------ words
   var CHIP_LABELS = {
     weather_alert: 'Weather Alerts', security: 'Security', doors_windows: 'Doors & Windows', climate: 'Climate',
-    lights: 'Lights', blinds: 'Blinds', timers: 'Timers', vacuums: 'Vacuums', speakers: 'Speakers',
+    lights: 'Lights', blinds: 'Blinds', timers: 'Timers', vacuums: 'Vacuums', laundry: 'Laundry', speakers: 'Speakers',
     water: 'Water', energy: 'Energy', intercom: 'Intercom'
   };
   // What each chip counts, and where that is set: Status & Chips kinds, or a
@@ -35,7 +35,7 @@
     doors_windows: { kinds: ['doors', 'windows'] },
     climate: { kinds: ['thermostats', 'fans'], setting: ['here', 'Indoor Temperature'] },
     lights: { kinds: ['lights'] }, blinds: { kinds: ['blinds'] }, timers: { kinds: ['timers'] },
-    vacuums: { kinds: ['vacuums'] }, speakers: { kinds: ['speakers'] }, water: { kinds: ['leaks'] },
+    vacuums: { kinds: ['vacuums'] }, laundry: { setting: ['accessories/laundry', 'Laundry'] }, speakers: { kinds: ['speakers'] }, water: { kinds: ['leaks'] },
     energy: { setting: ['here', 'Power Use'] }
   };
   var PAGE_LABELS = {

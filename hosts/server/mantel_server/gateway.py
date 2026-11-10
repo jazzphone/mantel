@@ -67,6 +67,7 @@ from aiohttp import web
 
 from hk_core.timers import SCRIPTS as TIMER_SCRIPTS
 from hk_core.vacuum_water import CLEAR as WATER_CLEAR
+from hk_core.laundry import CLEAR as LAUNDRY_CLEAR
 
 from . import alarm_pin, readproxy
 from .authz import ENTITY_ID, Authz, Principal
@@ -165,6 +166,7 @@ class Command:
     # A TIMER SOMEONE SET (timers.py): {"op", "data"}. Mantel makes it; with no way to, `frame` goes to the helpers' script.
     timer: dict | None = None
     water: str | None = None                # a vacuum's latched water tank to clear (vacuum_water.py): the vacuum
+    laundry: str | None = None              # a machine's held Done to clear (laundry.py): the machine's id
 
 
 def _entity_list(value: Any) -> list[str]:
@@ -402,6 +404,10 @@ def classify(msg: dict, writes: frozenset[str]) -> Command:
     if kind == "service" and msg.get("domain") == "script" and msg.get("service") == WATER_CLEAR:
         cmd = service_command(msg.get("domain"), msg.get("service"), msg.get("data"), msg.get("target"), msg.get("return_response", False))
         cmd.water = (msg.get("data") or {}).get("vacuum") or ""
+        return cmd
+    if kind == "service" and msg.get("domain") == "script" and msg.get("service") == LAUNDRY_CLEAR:
+        cmd = service_command(msg.get("domain"), msg.get("service"), msg.get("data"), msg.get("target"), msg.get("return_response", False))
+        cmd.laundry = str((msg.get("data") or {}).get("machine") or "")
         return cmd
     if kind == "service":
         got = music.classify_service(msg.get("domain"), msg.get("service"), msg.get("data"), msg.get("target"),
@@ -980,6 +986,8 @@ class Gateway:
                 return {"context": {"id": f"timer-{aid}"}, "response": got}      # as Home Assistant answers a blocking script
         if cmd.water is not None and self.app.get("vacuum_water") is not None:
             return {"context": {"id": f"water-{aid}"}, "response": self.app["vacuum_water"].clear(cmd.water)}
+        if cmd.laundry is not None and self.app.get("laundry") is not None:
+            return {"context": {"id": f"laundry-{aid}"}, "response": self.app["laundry"].clear(cmd.laundry)}
         if cmd.kind in ("service", "ws"):
             res = await self.commander.call(dict(cmd.frame or {}), CommandTicket(aid, "ws"))  # type: ignore[union-attr]
             if cmd.kind == "ws" and (cmd.frame or {}).get("type") in alarm_pin.PAGE_SAVES:

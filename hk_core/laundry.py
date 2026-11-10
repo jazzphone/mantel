@@ -241,3 +241,76 @@ def settled(was_running: bool, state: str) -> bool:
 
 def expired(since: float, hours: int, now: float) -> bool:
     return hours > 0 and now - since >= hours * 3600.0
+
+
+# ------------------------------------------------------------ finding them (hk-laundry.js `found`, the same: tests/test_laundry.py)
+STATUS_RE = re.compile(r"(machine_state|operation_state|operating_state|current_state|current_status|appliance_?state|mach_?mode|washer_state|"
+                       r"dryer_state|laundry_machine_state|(^|_)status$|(^|_)state$)")
+PHASE_RE = re.compile(r"(job_state|sub_?cycle|program_phase|cycle_?phase|pr_?phase|_phase$)")
+TIME_RE = re.compile(r"(completion_time|finish|end_time|remain|time_?to_?end|time_remaining)")
+LAUNDRY_RE = re.compile(r"wash|dryer|laundry|(^|_)dry(_|$)|tumble")
+NOT_LAUNDRY = re.compile(r"dish|vacuum|robot|oven|fridge|freezer|microwave|cooktop")
+NOT_DOMAINS = ("vacuum.", "climate.", "water_heater.", "lawn_mower.", "fan.", "humidifier.")
+STEP_WORDS = ("washing", "rinsing", "spinning", "drying", "wrinkle")
+
+
+def _name(e: Mapping[str, Any], st: Mapping[str, Any] | None) -> str:
+    return str(e.get("name") or ((st or {}).get("a") or {}).get("friendly_name") or "")
+
+
+def found(entries: Mapping[str, Mapping[str, Any]], devices: Mapping[str, Mapping[str, Any]],
+          states: Mapping[str, Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """The machines a house has with nothing saved: a device whose status sensor reads like a washer's or a dryer's, and on it
+    the step, the time, the progress, the remote control and the power -- the ids the page finds, so Done is held for them."""
+    def text(eid: str) -> str:
+        return tidy(eid.split(".", 1)[1] + " " + _name(entries.get(eid) or {}, states.get(eid)))
+
+    def opts(eid: str) -> list[Any]:
+        o = ((states.get(eid) or {}).get("a") or {}).get("options")
+        return o if isinstance(o, list) else []
+
+    by: dict[str, list[str]] = {}
+    for eid in states:
+        e = entries.get(eid)
+        if not e or e.get("hidden") or e.get("hidden_by") or e.get("disabled_by"):
+            continue
+        key = e.get("device_id") or (f"~{e['area_id']}:{eid.split('.', 1)[1].split('_')[0]}" if e.get("area_id") else "")
+        if key:
+            by.setdefault(key, []).append(eid)
+    out: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for dev in sorted(by):
+        mine, d = sorted(by[dev]), devices.get(dev) or {}
+        said = tidy(" ".join(str(d.get(k) or "") for k in ("name_by_user", "name", "model", "model_id"))) + " " + " ".join(text(x) for x in mine)
+        if any(x.startswith(NOT_DOMAINS) for x in mine) or NOT_LAUNDRY.search(said):
+            continue
+        if not any(WORDS.get(tidy(o)) in STEP_WORDS for x in mine for o in opts(x)) and not LAUNDRY_RE.search(said):
+            continue
+        for sid in mine:
+            oid = sid.split(".", 1)[1]
+            if not sid.startswith("sensor.") or not STATUS_RE.search(oid) or PHASE_RE.search(oid):
+                continue
+            hits = sum(1 for o in opts(sid) if WORDS.get(tidy(o)) not in (None, "off"))
+            if not (hits >= 2 or (LAUNDRY_RE.search(text(sid)) and word((states.get(sid) or {}).get("s")))):
+                continue
+            side = re.search(r"upper|lower|sub_|_sub|top|bottom", sid)
+
+            def pick(rx: re.Pattern[str], ok: Any) -> str | None:
+                return next((x for x in mine if rx.search(x.split(".", 1)[1]) and ok(x) and (not side or side.group(0) in x)), None)
+
+            def attrs(x: str) -> Mapping[str, Any]:
+                return (states.get(x) or {}).get("a") or {}
+            mid = tidy(re.sub(r"_(machine_state|operation_state|operating_state|current_state|current_status|state|status)$", "", oid))[:24] or "machine"
+            while mid in seen:
+                mid = mid[:22] + "_2"
+            seen.add(mid)
+            out.append({
+                "id": mid, "status": sid,
+                "phase": pick(PHASE_RE, lambda x: x.startswith("sensor.")),
+                "time": pick(TIME_RE, lambda x: x.startswith("sensor.") and (attrs(x).get("device_class") in ("timestamp", "duration")
+                                                                             or str(attrs(x).get("unit_of_measurement") or "") in ("min", "s", "h"))),
+                "door": pick(re.compile(r"door"), lambda x: x.startswith("binary_sensor.") and "lock" not in x),
+                "power": pick(re.compile(r"(^|_)power$"), lambda x: x.startswith("sensor.") and attrs(x).get("device_class") == "power"),
+                "running": None, "watts": DEFAULT_WATTS,
+            })
+    return out

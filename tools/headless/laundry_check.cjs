@@ -154,6 +154,8 @@ function blocks() {
                  icon: (sr.querySelector('hk-state-icon, hk-icon') || {}).getAttribute ? (sr.querySelector('hk-icon') || sr.querySelector('hk-state-icon')).getAttribute('icon') : null };
       }));
       const chip = await page.evaluate(() => deep(document, '[data-kind="laundry"], .chip').map((e) => (e.textContent || '').replace(/\s+/g, ' ').trim()).filter((t) => /Laundry|min|Done/.test(t)));
+      await page.evaluate(() => { const t = deep(document, 'hk-tall-card').find((c) => (c._config || {}).label_mode === 'laundry'); if (t) t.scrollIntoView({ block: 'center' }); });
+      await page.waitForTimeout(600);
       await shot(page, `${engine}-${HOUSE}-room`);
       console.log(engine, HOUSE, 'room', JSON.stringify(got), JSON.stringify(chip.slice(0, 3)));
       check(`${engine} ${HOUSE} room: a tile for each machine`, () => assert.equal(got.length, input.two ? 2 : 1, JSON.stringify(got)));

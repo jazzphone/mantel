@@ -268,6 +268,13 @@
         icon_color: 'rgba(242, 144, 105, 0.98)', bare_icon: true, well_background: 'transparent',
         label_mode: 'vacuum', view_layout: TALL });
     },
+    // A WASHER OR DRYER (phase 22, hk-laundry.js): its status sensor stands for the machine; the house glyph, still (the owner:
+    // "no animation necessary though.. as none of the other animate"); "Drying · 24 min"; a tap opens its laundry sheet
+    laundry: function (id, name, m) {
+      var L = window.hkLaundry;
+      return sized({ type: 'custom:hk-tall-card', entity: id, name: (m && m.name) || name, machine: m && m.id,
+        icon: L ? L.glyph(m && m.kind) : 'hk:washing-machine', icon_color: 'blue', label_mode: 'laundry', tap_action: { action: 'laundry', machine: m && m.id }, view_layout: TALL });
+    },
     valve: function (id, name) {
       return { type: 'custom:hk-tall-card', entity: id, name: name, icon: 'hk:spigot',
         icon_color: 'rgba(58, 134, 247, 0.98)', label_mode: 'title', view_layout: TALL };
@@ -402,12 +409,26 @@
     var A = setting('accessories'), list = A && A.rooms && A.rooms[area];
     return Array.isArray(list) ? list : null;
   }
+  // THE HOUSE'S WASHERS AND DRYERS (hk-laundry.js): each machine's own entity -- its status, else its power or running sensor --
+  // stands for it in its room. {by: {entity: machine}, area: {entity: area}}
+  function laundryOf(client) {
+    var L = window.hkLaundry, out = { by: {}, area: {} };
+    if (!L || !client || !client.states) return out;
+    try {
+      L.machines(client).forEach(function (m) {
+        var id = m.status || m.power || m.running;
+        if (id && client.states[id]) { out.by[id] = m; out.area[id] = L.areaOf(client, m); }
+      });
+    } catch (e) { /* no machines, no tiles */ }
+    return out;
+  }
   function tileFor(client, id, name) { return stateNames(tileOf(client, id, name), id); }
   function tileOf(client, id, name) {
     var d = id.split('.')[0];
     var e = (client.entities || {})[id], dv = e && e.device_id && (client.devices || {})[e.device_id];
     var a = accOf(id), show = a && a.show_as;
-    var t;
+    var t, lm = laundryOf(client).by[id];
+    if (lm) return TILE.laundry(id, name, lm);
     if (show && (d === 'switch' || d === 'light' || d === 'input_boolean')) {
       // drawn as what it is shown as: a switch's tile, with that glyph and,
       // for a fan, the fans' blue
@@ -521,8 +542,9 @@
   // per BUILD, not per client: a second build always looks again.
   function byArea(client, opts) {
     var hide = hideOf(opts), into = INTO(), build = opts && opts.__build;
+    var laundry = laundryOf(client);
     var key = JSON.stringify([opts.exclude_entities || [], opts.exclude_devices || [], opts.exclude_areas || [],
-                              opts.include_entities || [], into]);
+                              opts.include_entities || [], into, Object.keys(laundry.by)]);
     var memo = build && build.byArea;
     if (memo && memo.key === key && memo.client === client) return memo;
     var ents = client.entities || {}, devs = client.devices || {}, areas = client.areas || {};
@@ -531,11 +553,11 @@
       if (seen[id]) return;
       seen[id] = true;
       var e = ents[id] || {}, dom = id.split('.')[0];
-      var added = !!hide.include[id];
+      var added = !!hide.include[id] || !!laundry.by[id];
       if (!client.states[id] || hidden(client, opts, id) || PR().folded(client, id, hidden.bind(null, client, opts))) return;   // (a stereo pair's half, hk-pairs.js)
       if (!added && (!TILE[dom] || e.hidden || e.entity_category)) return;
       if (!added && dom === 'button' && !isTileButton(e)) return;
-      var area = e.area_id || (e.device_id && devs[e.device_id] && devs[e.device_id].area_id) || PR().area(client, id);
+      var area = (laundry.by[id] && laundry.area[id]) || e.area_id || (e.device_id && devs[e.device_id] && devs[e.device_id].area_id) || PR().area(client, id);
       // A ROOM SHOWN AS PART OF ANOTHER (the accessories' `into`): the Deck's
       // things are the Backyard's, its section and page the Backyard's
       if (area && into[area] && areas[into[area]]) area = into[area];

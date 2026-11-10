@@ -2458,6 +2458,8 @@
         return;
       }
       // the Intercom Button: `#intercom` loads the sheet's code and opens it (hk-loader.js); already there, open it again
+      // a washer or dryer (phase 22): its laundry sheet, not its status sensor's
+      if (action === 'laundry') { var LA = window.hkLaundry; if (LA && LA.open(spec.machine, this.client)) return; }
       if (action === 'intercom') { var I = window.hkIntercom; if (location.hash === '#intercom' && I && I.open) I.open({ hashed: true }); else location.hash = '#intercom'; return; }
       if (action === 'navigate' && spec.navigation_path) {
         navigate(navPath(spec), this);

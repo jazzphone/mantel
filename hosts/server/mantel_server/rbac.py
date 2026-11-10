@@ -499,6 +499,9 @@ DEFAULT_ROLES: dict[str, Role] = {r.name: r for r in (
         # a vacuum's water tank that ran dry is held for every screen, and any of them may clear it (vacuum_water.py)
         *(_g("allow", ("view", "control"), "entity", e, note="a vacuum's latched water tank: every tablet shows it and can clear it")
           for e in ("sensor.vacuum_water_tanks", "script.vacuum_water_clear")),
+        # the laundry's held Done, the same way (laundry.py): every screen shows it, any of them may clear it
+        *(_g("allow", ("view", "control"), "entity", e, note="the laundry's held Done: every tablet shows it and can clear it")
+          for e in ("sensor.laundry_done", "script.laundry_done_clear")),
     ), label="Wall Tablet"),
     Role("service", (), label="Service"),
 )}

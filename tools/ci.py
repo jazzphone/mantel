@@ -309,6 +309,11 @@ def steps(build: Build | None = None, parts: dict[str, int] | None = None) -> li
     out += [Step(f"alert-check-{e}", [py, "tools/headless/alert_check.py", "--engine", e], tier="full",
                  timeout=900, skip=playwright_missing, **check_inputs("tools/headless/alert_check.py", e))
             for e in ("webkit", "chromium")]
+    # Laundry (2026-11-10, docs/phase22/LAUNDRY.md), house commands off: one machine and two, every size on square and tile
+    # cells, the tap to the sheet at a tablet's and a phone's size, the room's tiles and the chip (each engine a step of its own)
+    out += [Step(f"laundry-check-{e}", [py, "tools/headless/laundry_check.py", "--engine", e], tier="full",
+                 timeout=900, skip=playwright_missing, **check_inputs("tools/headless/laundry_check.py", e))
+            for e in ("webkit", "chromium")]
     # A block's Custom Detail Sheet and Security's HomeView sizes (2026-11-07, docs/phase11/HOME-GRID.md), house commands
     # off: the five sizes on square and tile cells, the overview and Back, the sheet at phone to tablet sizes
     out += [Step(f"custom-sheet-check-{e}", [py, "tools/headless/custom_sheet_check.py", "--engine", e], tier="full",

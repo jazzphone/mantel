@@ -425,7 +425,7 @@ def test_a_stored_item_is_read_defensively():
     # a page list holds kinds, Browse Music and custom page addresses (casino
     # could be one); junk, a reserved address, a room page and a repeat go
     assert b["chips"] == ["lights"] and b["pages"] == ["weather", "casino", "browse"] and b["glass"] == "house"
-    assert b["chips_quiet"] == ["weather_alert", "doors_windows", "blinds", "water"], "unreadable: the default"
+    assert b["chips_quiet"] == ["weather_alert", "doors_windows", "blinds", "laundry", "water"], "unreadable: the default"
     assert board({"chips_quiet": []})["chips_quiet"] == [], "none quiet is a choice"
     assert "idle_room" not in b and b["sky"] is False, "a tablet's room is the tablet's own (1.14)"
     assert b["page_rooms"] == "floor" and board({"page_rooms": "shuffled"})["page_rooms"] == "floor"
