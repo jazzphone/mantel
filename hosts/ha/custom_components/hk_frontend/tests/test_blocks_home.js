@@ -263,7 +263,10 @@ function () {
       var latched = {};
       ['XL', 'T', 'W'].forEach(function (z) {
         var h = sized('hk-vacuum-card', z, { entity: 'vacuum.downstairs', error: 'sensor.vac_err' })._root.__html;
-        ok(z + ': the water badge, the report in words and the Clear pill under them', /class="hkva s-water"/.test(h) && /<b class="state">Water tank missing<\/b><button type="button" class="hkclr" data-clear[^>]*>Clear<\/button>/.test(h));
+        // (Wide's Clear is a key beside Dock, where the rooms key was: under the words it squeezed the drawing, 2026-11-09)
+        ok(z + ': the water badge, the report in words and Clear', /class="hkva s-water"/.test(h) && (z === 'W'
+          ? /<b class="state">Water tank missing<\/b><span class="sub">/.test(h) && /<div class="pair"><button type="button" class="key rm" data-clear[^>]*><span>Clear<\/span><\/button>/.test(h)
+          : /<b class="state">Water tank missing<\/b><button type="button" class="hkclr" data-clear[^>]*>Clear<\/button>/.test(h)));
       });
       ['S', 'L'].forEach(function (z) {
         var h = sized('hk-vacuum-card', z, { entity: 'vacuum.downstairs', error: 'sensor.vac_err' })._root.__html;

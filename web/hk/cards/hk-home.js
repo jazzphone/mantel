@@ -573,9 +573,11 @@
           (bat ? '<span class="' + bat.c + '">' + esc(bat.t) + '</span> \u00B7 ' : '') + words(rest) + '</span>' +
           '<div class="keys">' + key(go, 'go', true) + '</div>';
       } else if (sz === 'W') {
-        html = '<div class="col"><div class="hd"><b class="nm">' + esc(nm) + '</b></div>' + art + what +
+        // (Wide's Clear beside Dock, where the rooms key was -- under the words it squeezed the drawing to a speck, 2026-11-09)
+        var wclr = clr ? '<button type="button" class="key rm" data-clear aria-label="Clear the water tank report for ' + esc(nm) + '"><span>Clear</span></button>' : '';
+        html = '<div class="col"><div class="hd"><b class="nm">' + esc(nm) + '</b></div>' + art + what.replace(clr, '') +
           '<span class="sub">' + words(subw) + (said ? '</span><span class="rm-note">' + esc(chosen.join(', ')) : ran) + '</span></div>' +
-          '<div class="side">' + key(go, 'go', true) + (pickable ? '<div class="pair">' + rkey + key(dock, 'dk', false) + '</div>' : key(dock, 'dk', true)) + '</div>';
+          '<div class="side">' + key(go, 'go', true) + (pickable || wclr ? '<div class="pair">' + (wclr || rkey) + key(dock, 'dk', false) + '</div>' : key(dock, 'dk', true)) + '</div>';
       } else if (sz === 'T') {
         var bk = this._block(), more = rest.slice(1);
         html = '<div class="hd"><b class="nm">' + esc(nm) + '</b></div>' +

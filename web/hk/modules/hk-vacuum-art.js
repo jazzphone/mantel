@@ -83,10 +83,13 @@
     }
     if (s === 'returning') front += '<g class="stk"><line x1="170" y1="78" x2="188" y2="78"/><line x1="174" y1="92" x2="194" y2="92"/><line x1="170" y1="106" x2="186" y2="106"/></g>';
     if (s === 'paused') front += '<g class="bg"><circle cx="158" cy="34" r="17"/><rect x="151" y="26" width="4.5" height="16" rx="2" class="mk"/><rect x="160.5" y="26" width="4.5" height="16" rx="2" class="mk"/></g>';
-    if (s === 'water') front += '<g class="bg warn"><circle cx="158" cy="34" r="19"/></g>';
+    // (the drop drawn on the badge's own center, (158, 34), not a glyph in a box whose ink sits off its middle -- the owner, 2026-11-09:
+    // "The water drop isn't centered in the circle/well"; its ink 149-167 across, 22.5-46 down, the slash through the same center)
+    if (s === 'water') front += '<g class="bg warn"><circle cx="158" cy="34" r="19"/><path class="mk" d="M158 22.5C153.5 28.6 149.4 33.6 149.4 37.8a8.6 8.6 0 0 0 17.2 0C166.6 33.6 162.5 28.6 158 22.5Z"/>' +
+      '<line class="slg" x1="146.5" y1="45.5" x2="169.5" y2="22.5"/><line class="sl" x1="146.5" y1="45.5" x2="169.5" y2="22.5"/></g>';
     if (s === 'error') front += '<g class="bg warn"><circle cx="158" cy="34" r="17"/><rect x="155.6" y="23" width="4.8" height="15" rx="2.4" class="mk"/><circle cx="158" cy="43.5" r="2.8" class="mk"/></g>';
     var over = s === 'charging' ? '<hk-icon class="bolt" icon="hk:battery-charging"></hk-icon>'
-      : s === 'water' ? '<hk-icon class="drop" icon="hk:water"></hk-icon>' + V + '<line class="sl" x1="146" y1="47" x2="171" y2="22"/></svg>' : '';
+      : '';
     return '<div class="hkva s-' + s + '" role="img" aria-label="' + String(label || words(s)).replace(/[&<>"]/g, '') + '">' +
       V + back + '</svg><div class="rb"><hk-icon class="gl" icon="hk:robot-vacuum"></hk-icon>' + brush + '</div>' +
       (front ? V + front + '</svg>' : '') + over + '</div>';
@@ -117,8 +120,7 @@
     '.hkva .stk line{stroke:' + v('ink-2') + ';stroke-width:3;stroke-linecap:round}',
     '.hkva .bg circle:first-child{fill:#fff}.hkva .bg .mk{fill:#1c1c1e}.hkva .bg.warn circle:first-child{fill:' + RED + '}.hkva .bg.warn .mk{fill:#fff}',
     '.hkva .bolt{position:absolute;left:42%;top:-4.3%;width:16.2%;height:23.1%;--mdc-icon-size:100%;display:block;color:' + MINT + '}',
-    '.hkva .drop{position:absolute;left:73%;top:15%;width:12.6%;height:18%;--mdc-icon-size:100%;display:block;color:#fff}',
-    '.hkva .sl{stroke:#fff;stroke-width:3;stroke-linecap:round}',
+    '.hkva .slg{stroke:' + RED + ';stroke-width:6.6;stroke-linecap:round}.hkva .sl{stroke:#fff;stroke-width:2.6;stroke-linecap:round}',
     '@media (prefers-reduced-motion:no-preference){',
     '  .hkva .sp{animation:hkva-spin .55s linear infinite}@keyframes hkva-spin{to{transform:rotate(360deg)}}',
     '  .hkva.s-cleaning .rb{animation:hkva-drift 6s ease-in-out infinite}@keyframes hkva-drift{0%,100%{transform:translateX(-3%)}50%{transform:translateX(4%)}}',
