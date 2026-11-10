@@ -791,7 +791,7 @@
       '.narrow .rgt{display:contents}',
       '.narrow .seg{order:5;flex:1}',
       '.narrow .seg button{flex:1;width:auto}',
-      '.narrow .new{order:6}',
+      '.narrow .new{order:6;width:44px;padding:0;justify-content:center}', // (no words on a phone: a circle, not New Event's padding round a lone + -- 2026-11-10)
       // (floating on a phone: the view switch and the arrows, one row)
       '@media (max-width:' + window.hkCards.BP.phone + 'px){.narrow .bar.stuck .ttl,.narrow .bar.stuck .pb,.narrow .bar.stuck .new{display:none}' +
       '.narrow .bar.stuck{padding:6px;flex-wrap:nowrap}.narrow .bar.stuck .arrows{order:6;margin-left:0}}',
@@ -917,10 +917,10 @@
       var sy = window.scrollY || 0; if (!was && r.top > top + 0.5) this._homeY = r.top + sy; // (a phone: by the scroll past the bar's place, not where iOS draws the sticky bar -- read a frame late, the bar folded and unfolded every frame, 2026-11-10; 4 px either way)
       var stuck = sy > 0 && this._homeY != null ? sy + top - this._homeY > (was ? -4 : -0.5) : r.top <= top + 0.5 && (sy > 0 || (this._homeTop != null && r.top < this._homeTop - 1));
       if (!was && (this._homeTop == null || r.top > top + 0.5)) this._homeTop = r.top; if (stuck === was) return;
-      var h0 = bar.offsetHeight;
-      bar.style.marginBottom = '';
-      bar.classList.toggle('stuck', stuck);
-      if (stuck && !bar.closest('.narrow')) bar.style.marginBottom = (parseFloat(getComputedStyle(bar).marginBottom) + h0 - bar.offsetHeight) + 'px'; // (not on a phone, as Energy's: the spacer set as it folded threw iOS's scroll back to the top, every fold -- 2026-11-10)
+      // (THE PAGE NEVER SHORTER, not for a moment: its spacer set before it folds, taken off after it opens -- a short week ended above where it was scrolled as it folded, iOS put the scroll back, it opened and folded again: the bounce, 2026-11-10)
+      if (!stuck) { bar.classList.remove('stuck'); bar.style.marginBottom = ''; return; }
+      var h0 = bar.offsetHeight, mb0 = parseFloat(getComputedStyle(bar).marginBottom) || 0;
+      bar.style.marginBottom = (mb0 + h0) + 'px'; bar.classList.add('stuck'); bar.style.marginBottom = (mb0 + h0 - bar.offsetHeight) + 'px';
     }
     // THE PAGE'S HEIGHT, on a wide screen: the panels reach the bottom of
     // the window, whatever is above them
