@@ -822,7 +822,11 @@
       e.ponS.textContent = c ? 'Playing on' : 'Ready on';
       // (where the music IS -- never the rooms picked for the next pick)
       e.ponB.setAttribute('data-fit', (c ? c.members : this._targetRooms()).join(','));
-      window.hkNpStrip.line(e.line, (c ? c.members : this._targetRooms()).map(this._nameOf, this));
+      var at = c ? c.members : this._targetRooms(), first = c ? c.key : at[0];
+      window.hkNpStrip.line(e.line, at.map(this._nameOf, this), first);
+      // (Playing On's glyph and the mini bar's Speakers key: that room's speaker, as the line's)
+      var sg = (window.hkIcons && window.hkIcons.speaker ? window.hkIcons.speaker(first) : 'hk:homepod');
+      [e.pon && e.pon.querySelector('hk-icon'), this._root.querySelector('.mini .rb hk-icon')].forEach(function (x) { if (x && x.getAttribute('icon') !== sg) x.setAttribute('icon', sg); });
       // THE HOUSE: a card for each thing playing, when there is more than
       // this page's -- or when what plays is not this page's
       this._drawHouse(c);
@@ -1317,7 +1321,8 @@
         el.classList.toggle('set', set);
         el.setAttribute('aria-label', (set ? 'Next plays on ' : 'Plays on ') + nl + '. Change');
       }
-      return '<hk-icon icon="hk:homepod"></hk-icon><span class="full"><span>' + (set ? 'Next plays on' : 'Plays on') + '</span><b>' + esc(nl) + '</b></span>' +
+      var rs = this._rooms(), rg = (window.hkIcons && window.hkIcons.speaker ? window.hkIcons.speaker(rs[0]) : 'hk:homepod');
+      return '<hk-icon icon="' + esc(rg) + '"></hk-icon><span class="full"><span>' + (set ? 'Next plays on' : 'Plays on') + '</span><b>' + esc(nl) + '</b></span>' +
              '<span class="num">' + n + '</span>' +
              (set ? '<i class="rx" role="button" aria-label="Back to what is playing"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></i>'
                   : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>');

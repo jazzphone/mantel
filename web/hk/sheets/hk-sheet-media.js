@@ -285,7 +285,7 @@
         // the new one. The old image's request is stopped as it goes.
         if (pic !== this._pic) {
           this._pic = pic;
-          var icon = glyph(this._tv ? 'hk:television' : 'hk:homepod', this._tv ? 56 : 72);
+          var icon = glyph(this._tv ? 'hk:television' : (window.hkIcons && window.hkIcons.speaker ? window.hkIcons.speaker(this._id) : 'hk:homepod'), this._tv ? 56 : 72);
           var box = document.createElement('div');
           box.className = 'ab';
           if (this._artImg) { try { this._artImg.src = ''; } catch (x) { /* going anyway */ } }

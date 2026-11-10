@@ -1532,8 +1532,7 @@
         var line = p.cap || LIVE_LINE[p.glyph] || '';
         var cls = 'rm' + (!p.pickable ? ' off' : p.quiet ? ' quiet' : '');
         // the room's speaker as its tile draws it (its gear's Icon), a HomePod when none is chosen
-        var HS = window.hkSettings, A = HS && HS.get ? HS.get('accessories', null) : null, a = A && A.entities && A.entities[p.id];
-        var v = a && a.icon ? String(a.icon) : '', glyph = v ? (/^mdi:/.test(v) ? 'hk:' + v.slice(4) : v) : 'hk:homepod';
+        var glyph = (window.hkIcons && window.hkIcons.speaker ? window.hkIcons.speaker(p.id) : 'hk:homepod');
         return '<div class="' + cls + '" role="button" tabindex="0" aria-pressed="' + (p.on ? 'true' : 'false') + '" data-room="' + esc(p.id) + '" aria-label="' + esc(p.aria) + '">' +
           '<div class="ri"><hk-icon icon="' + esc(glyph) + '"></hk-icon></div><div class="l"><b>' + esc(p.name) + '</b>' + (line ? '<small>' + esc(line) + '</small>' : '') + '</div>' +
           '<div class="tk">' + svg('tick') + '</div></div>';

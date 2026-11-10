@@ -67,6 +67,7 @@ const HK_GLYPHS = (window.hkGlyphs
 const MDI_ALIAS = {
   "air-humidifier-active": "air-humidifier", "apple-tv": "apple", "christmas-tree": "pine-tree",
   "cross-latin": "cross", "homepod": "speaker", "homepod-mini": "speaker", "sparkles": "creation",
+  "homepod-pair": "speaker-multiple", "homepod-mini-pair": "speaker-multiple", "homepod-and-homepod-mini": "speaker-multiple",
   "spigot": "valve", "star-fill": "star",
   "fan-desk": "fan", "fan-floor": "fan", "dehumidifier": "air-humidifier-off",
   "roman-shade": "roller-shade-closed", "roman-shade-open": "roller-shade", "skylight": "window-closed-variant",
@@ -106,7 +107,15 @@ window.customIconsets["hk"] = async (name) => {
   const mdi = await mdiPath(name);
   return mdi ? { path: mdi, viewBox: '0 0 24 24' } : undefined;
 };
-window.hkIcons = { version: "1.1.0", mdiPath, MDI_ALIAS };
+// A SPEAKER'S GLYPH (2026-11-10, the owner: the players and the speaker picker drew every room as a HomePod, the tiles
+// HomePod minis): the one its gear's Icon chose (Settings, Accessories; an mdi: choice through this set, as a tile draws it),
+// else `fb`, else a HomePod -- for everything that names where music plays: the speaker line, Plays On, the picker, Intercom
+const speaker = (id, fb) => {
+  const HS = window.hkSettings, A = HS && HS.get ? HS.get("accessories", null) : null, a = A && A.entities && id ? A.entities[id] : null;
+  const v = a && a.icon ? String(a.icon) : "";
+  return v ? (/^mdi:/.test(v) ? "hk:" + v.slice(4) : v) : (fb || "hk:homepod");
+};
+window.hkIcons = { version: "1.2.0", mdiPath, MDI_ALIAS, speaker };
 // HK's own hk-icon (elements/hk-elements.js) draws an icon asked for before this set existed
 // again now; it never caches a miss, so no repair shim is needed for it (the one below is for
 // Home Assistant's ha-icon, which other cards on the page may still use with hk: names).

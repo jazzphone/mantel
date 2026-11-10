@@ -995,12 +995,13 @@
         read: function (X) {
           var m = musicOn(X);
           var w = m ? roomsOf(m) : null;
-          return m ? { title: String(m.title), artist: String(m.artist || ''), room: w.one, more: w.more, pic: String(m.pic || '') } : { off: true };
+          return m ? { title: String(m.title), artist: String(m.artist || ''), room: w.one, more: w.more, pic: String(m.pic || ''),
+                       glyph: (window.hkIcons && window.hkIcons.speaker ? window.hkIcons.speaker(m.key) : 'hk:homepod') } : { off: true };
         },
         draw: function (s) {
           return '<div class="cd mc">' + (s.pic ? '<img class="art" alt="" src="' + esc(s.pic) + '">' : '<span class="art">' + NOTE + '</span>') +
             '<div class="mt"><div class="m1">' + esc(s.title) + '</div>' + (s.artist ? '<div class="m2">' + esc(s.artist) + '</div>' : '') +
-            (s.room ? '<div class="m3"><hk-icon icon="hk:homepod"></hk-icon><b>' + esc(s.room) + '</b>' + (s.more ? '<i>' + esc(s.more) + '</i>' : '') + '</div>' : '') + '</div></div>';
+            (s.room ? '<div class="m3"><hk-icon icon="' + esc(s.glyph || 'hk:homepod') + '"></hk-icon><b>' + esc(s.room) + '</b>' + (s.more ? '<i>' + esc(s.more) + '</i>' : '') + '</div>' : '') + '</div></div>';
         },
         h: function () { return 16; },
         sample: { title: 'Night Harbor', artist: 'The Fictional Trio', room: 'Kitchen', more: ' + 2', pic: '' }

@@ -237,7 +237,7 @@
       setAttr(v.el, 'idle', idle);
       setAttr(v.el, 'none', !d);
       // THE SPEAKER LINE where the room's name was (mockup 12h, 2026-11-09): where it plays, a tap the speakers
-      window.hkNpStrip.line(v.line, !d ? [] : d.rooms || [d.room]);
+      window.hkNpStrip.line(v.line, !d ? [] : d.rooms || [d.room], d && d.key);
       v.line.classList.toggle('dis', !window.hkSaverPanel);
       setAttr(v.el, 'novol', idle || d.vol === null);
       window.hkNpStrip.volume(v.strip, idle ? null : d.vol);

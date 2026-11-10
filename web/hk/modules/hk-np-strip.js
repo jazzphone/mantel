@@ -90,8 +90,9 @@
       (o.roles ? ' data-hk-role="spk"' : '') + ' aria-label="Speakers"><hk-icon icon="hk:homepod"></hk-icon><span class="hksl-t"><b></b><i></i></span>' +
       '<svg class="hksl-c" viewBox="0 0 24 24" aria-hidden="true"><path d="' + ICON.chevron + '"/></svg></' + tag + '>';
   }
-  // ...where it plays: the room first, then the rooms joined to it
-  function line(root, names) {
+  // ...where it plays: the room first, then the rooms joined to it; `key` the first room's player, whose glyph it wears
+  // (its gear's Icon: hkIcons.speaker, 2026-11-10)
+  function line(root, names, key) {
     var el = !root ? null : root.classList && root.classList.contains('hksl') ? root : root.querySelector('.hksl');
     if (!el) return;
     names = (names || []).filter(Boolean);
@@ -101,6 +102,8 @@
     var rest = names.length > 2 ? ' + ' + (names.length - 1) : all;
     if (b && b.textContent !== one) b.textContent = one;
     if (i && i.textContent !== rest) i.textContent = rest;
+    var ic = el.querySelector('hk-icon'), g = (window.hkIcons && window.hkIcons.speaker ? window.hkIcons.speaker(key) : 'hk:homepod');
+    if (ic && ic.getAttribute('icon') !== g) ic.setAttribute('icon', g);
     var label = 'Speakers: ' + (one + all || 'none');
     if (el.getAttribute('aria-label') !== label) el.setAttribute('aria-label', label);
   }

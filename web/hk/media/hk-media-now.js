@@ -1659,7 +1659,7 @@
                   '<button class="npi-play" type="button" data-ia="play" aria-label="Play ' + esc(last.name) + '">' + S.svg(S.ICON.play) + 'Play</button>'
                 : '<b class="npi-t">Nothing Playing</b>') + '</div></div>';
         var btns = '<div class="npi-btns"><button class="npi-b" type="button" data-ia="browse">' + S.svg(S.ICON.search) + '<b>Browse</b></button>' +
-          '<button class="npi-b" type="button" data-ia="spk" aria-label="Speaker: ' + esc(room) + '">' + '<hk-icon icon="hk:homepod"></hk-icon><b>' + esc(room) + '</b></button></div>';
+          '<button class="npi-b" type="button" data-ia="spk" aria-label="Speaker: ' + esc(room) + '">' + '<hk-icon icon="' + esc((window.hkIcons && window.hkIcons.speaker ? window.hkIcons.speaker(p ? p.entity_id : this._res().player) : 'hk:homepod')) + '"></hk-icon><b>' + esc(room) + '</b></button></div>';
         var list = size === 'XL'
           ? '<div class="npq-h"><span>Playlists</span></div><div class="npql">' + (pls.length ? pls.map(function (it, i) {
               return '<button class="npqr" type="button" data-pi="' + i + '" aria-label="' + (it.options ? 'Choose from ' : 'Play ') + esc(it.name) + '">' +
@@ -1965,7 +1965,7 @@
         // this block runs on every position tick.
         this._paintPlayButton(p);
         if (e.spk) e.spk.classList.toggle('dis', !this._musicCtx());
-        window.hkNpStrip.line(e.line, this._rooms(p));
+        window.hkNpStrip.line(e.line, this._rooms(p), p ? p.entity_id : this._res().player);
 
         var t = this._title(p);
         if (e.title.__t !== t) {
