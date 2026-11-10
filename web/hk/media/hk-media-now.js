@@ -835,6 +835,10 @@
           // the volume first, then the progress, 2026-11-09)
           ':host([size=W]) .np .hks .mprog{display:none!important}',
           ':host([size=W]) .np .hks{margin-top:0;--hks-pp:60px}:host([size=W]) .np .hks .mctl{margin-left:-8px;margin-right:-8px}',
+          // (THE VOLUME UP, 2026-11-10, the owner: "the volume control needs to come up some": the page player's 12 px over the song
+          // and 16 px in the volume's row put the slider 6 px off a 196 px block's foot. The song 3 px under its line, 8 over the keys,
+          // 12 under them, the slider on its target's middle: the keys on the cover's middle, the slider over its foot)
+          ':host([size=W]) .np .title{margin-top:3px}:host([size=W]) .np .hks{--hks-g1:8px;--hks-g2:12px}:host([size=W]) .np .hks .mvol{padding-top:0}',
           // (the speaker line's 56 px area from the plate's top edge down, 12 clear of the keys: the words 2 px into the
           // inset, the area 3 px below their middle -- every target in the block's 196 px, the volume's reaching its foot)
           ':host([size=W]) .np .hksl{margin-top:-2px;--hksl-dy:3px}',
