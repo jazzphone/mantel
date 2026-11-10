@@ -82,7 +82,7 @@ Until you add them, screens use Home Assistant’s font (Roboto) and Material De
 |---|---|---|
 | `fonts/SF-Pro.woff2` | The font, as a web font | `SF-Pro.ttf` from Apple’s [SF Pro](https://developer.apple.com/fonts/) download, with `tools/font/make_woff2.py` |
 | `fonts/SF-Pro.ttf` | Or the font as Apple ships it, instead of the woff2 | The same file, copied as is |
-| `iconset/hk-glyphs.js` | Every `hk:` icon and the weather symbols | 155 symbols from Apple’s [SF Symbols](https://developer.apple.com/sf-symbols/) app, with `tools/sf_symbols/build_glyphs.py` |
+| `iconset/hk-glyphs.js` | Every `hk:` icon and the weather symbols | 353 symbols from Apple’s [SF Symbols](https://developer.apple.com/sf-symbols/) app, with `tools/sf_symbols/build_glyphs.py` |
 
 Of the 46 files Apple’s SF Pro installs, use only `SF-Pro.ttf` — not `SF-Pro-Italic.ttf` and none of the `.otf` files. The glyphs need a Mac once, to run the SF Symbols app; the font doesn’t.
 

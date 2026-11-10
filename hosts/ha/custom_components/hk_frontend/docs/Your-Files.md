@@ -46,7 +46,7 @@ The files folder is `hk_local` by default — `/config/hk_local`. It doesn’t e
 |---|---|---|
 | `fonts/SF-Pro.woff2` | SF Pro as a web font, about 8 MB instead of 21 | Made from Apple’s `SF-Pro.ttf` with `tools/font/make_woff2.py` |
 | `fonts/SF-Pro.ttf` | Apple’s variable SF Pro, as Apple ships it | Works as-is instead of the woff2. Screens use the woff2 when both are there. |
-| `iconset/hk-glyphs.js` | The glyph data for every `hk:` icon, and the multicolor weather symbols | Built from 155 SF Symbols with `tools/sf_symbols/build_glyphs.py` |
+| `iconset/hk-glyphs.js` | The glyph data for every `hk:` icon, and the multicolor weather symbols | Built from 353 SF Symbols with `tools/sf_symbols/build_glyphs.py` |
 
 The names must be exactly these, capitals included.
 
@@ -72,7 +72,7 @@ Both show whether the font and glyphs were found. `hk_local`, `/hk_local` and `/
 
 On a Mac the installer puts them all in `/Library/Fonts`. In Apple’s installer package they sit at `Library/Fonts/`.
 
-**The glyphs.** Every `hk:` icon is drawn from one SF Symbol, 155 in all. [Glyph names](Glyph-Names.md) lists each icon with its symbol’s name, and `tools/sf_symbols/symbols.txt` lists the symbols one per line. You don’t need either to build the file, but they tell you what to look for in the SF Symbols app.
+**The glyphs.** Every `hk:` icon is drawn from one SF Symbol, 353 in all. [Glyph names](Glyph-Names.md) lists each icon with its symbol’s name, and `tools/sf_symbols/symbols.txt` lists the symbols one per line. You don’t need either to build the file, but they tell you what to look for in the SF Symbols app.
 
 The folder lives outside the integration’s own folder on purpose: an HK Frontend update from HACS replaces the integration’s folder, and your files survive it.
 

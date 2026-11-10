@@ -882,6 +882,17 @@ print('\n=== accessory settings: the gear ===');
   ok('...a name match comes before a keyword that only begins with the word',
      _.glyphSearch('fan', M2).mdi.map(function (x) { return x.v; }).join() === 'mdi:fan-alert,mdi:unicorn');
   ok('every word must match', _.glyphSearch('ceiling light fan', MDI).hk.map(function (x) { return x.v; }).join() === 'hk:ceiling-fan-light');
+  // every icon in the home's glyph file is searchable, before its Material twin
+  // (the manifest's Home-category names: hk:lock-alert, hk:power-socket-de...)
+  var savedG = window.hkGlyphs;
+  window.hkGlyphs = { icons: { 'lock-alert': 'M0 0Z', 'power-socket-de': 'M0 0Z', 'power-socket-de-square': 'M0 0Z' } };
+  var LM = [{ name: 'lock-alert', keywords: [] }, { name: 'lock-alert-outline', keywords: [] }];
+  var la = _.glyphSearch('lock alert', LM);
+  ok('a glyph from the home\'s file is listed first', la.hk.map(function (x) { return x.v; }).join() === 'hk:lock-alert' &&
+     la.mdi.map(function (x) { return x.v; }).join() === 'mdi:lock-alert-outline', la);
+  ok('...every one of its names', _.glyphSearch('power socket de', []).hk.map(function (x) { return x.v; }).join() ===
+     'hk:power-socket-de,hk:power-socket-de-square');
+  window.hkGlyphs = savedG;
   ok('each kind is offered Apple\'s Home glyphs', _.glyphsFor('fan.x', null).indexOf('ceiling-fan') >= 0 &&
      _.glyphsFor('cover.x', null).indexOf('curtains') >= 0 && _.glyphsFor('climate.x', null)[0] === 'thermostat');
 })();

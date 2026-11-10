@@ -81,7 +81,7 @@ The SF Symbols app has to run on a Mac, but nothing else does. If the Mac you ca
    sh tools/sf_symbols/export_all.sh ~/Desktop/sf-exports
    ```
 
-   It exports every symbol in `tools/sf_symbols/symbols.txt` as an SVG file into `sf-exports` on the Desktop — 155 files, about three minutes — and ends with `155 symbols in …, 0 not found`. If it stops, run it again: symbols already exported are skipped.
+   It exports every symbol in `tools/sf_symbols/symbols.txt` as an SVG file into `sf-exports` on the Desktop — 353 files, about seven minutes — and ends with `353 symbols in …, 0 not found`. If it stops, run it again: symbols already exported are skipped.
 2. Copy the `sf-exports` folder to the computer with Python, and build from it there. On a Mac or Linux:
 
    ```sh

@@ -725,6 +725,369 @@
   },
   "trash-can": {
    "symbol": "trash.fill"
+  },
+  "homekit": {
+   "symbol": "apple.homekit"
+  },
+  "balloon-multiple": {
+   "symbol": "balloon.2.fill"
+  },
+  "bed-check": {
+   "symbol": "bed.double.badge.checkmark.fill"
+  },
+  "bed-circle": {
+   "symbol": "bed.double.circle.fill"
+  },
+  "button-programmable-square": {
+   "symbol": "button.programmable.square.fill"
+  },
+  "dishwasher-circle": {
+   "symbol": "dishwasher.circle.fill"
+  },
+  "door-french-open": {
+   "symbol": "door.french.open"
+  },
+  "garage-alert": {
+   "symbol": "door.garage.closed.trianglebadge.exclamationmark"
+  },
+  "garage-open-alert": {
+   "symbol": "door.garage.open.trianglebadge.exclamationmark"
+  },
+  "garage-double-open": {
+   "symbol": "door.garage.double.bay.open"
+  },
+  "garage-double-alert": {
+   "symbol": "door.garage.double.bay.closed.trianglebadge.exclamationmark"
+  },
+  "garage-double-open-alert": {
+   "symbol": "door.garage.double.bay.open.trianglebadge.exclamationmark"
+  },
+  "door-right-hand-closed": {
+   "symbol": "door.right.hand.closed"
+  },
+  "door-right-hand-open": {
+   "symbol": "door.right.hand.open"
+  },
+  "door-sliding-right-hand": {
+   "symbol": "door.sliding.right.hand.closed"
+  },
+  "door-sliding-right-hand-open": {
+   "symbol": "door.sliding.right.hand.open"
+  },
+  "drop-keypad": {
+   "symbol": "drop.keypad.rectangle.fill"
+  },
+  "tumble-dryer-circle": {
+   "symbol": "dryer.circle.fill"
+  },
+  "lock-smart-alert": {
+   "symbol": "entry.lever.keypad.trianglebadge.exclamationmark.fill"
+  },
+  "fan-circle": {
+   "symbol": "fan.circle.fill"
+  },
+  "fan-oscillation": {
+   "symbol": "fan.oscillation.fill"
+  },
+  "fan-slash": {
+   "symbol": "fan.slash.fill"
+  },
+  "walk-arrival": {
+   "symbol": "figure.walk.arrival"
+  },
+  "walk-departure": {
+   "symbol": "figure.walk.departure"
+  },
+  "home-wifi": {
+   "symbol": "house.badge.wifi.fill"
+  },
+  "home-circle": {
+   "symbol": "house.circle.fill"
+  },
+  "home-off": {
+   "symbol": "house.slash.fill"
+  },
+  "air-humidifier-ellipsis": {
+   "symbol": "humidifier.and.ellipsis.fill"
+  },
+  "light-recessed-3-inverse": {
+   "symbol": "light.recessed.3.inverse"
+  },
+  "lightbulb-circle": {
+   "symbol": "lightbulb.circle.fill"
+  },
+  "lightbulb-alert": {
+   "symbol": "lightbulb.min.badge.exclamationmark.fill"
+  },
+  "lightbulb-off": {
+   "symbol": "lightbulb.slash.fill"
+  },
+  "light-switch-off": {
+   "symbol": "lightswitch.off.fill"
+  },
+  "light-switch-square": {
+   "symbol": "lightswitch.on.square.fill"
+  },
+  "light-switch-off-square": {
+   "symbol": "lightswitch.off.square.fill"
+  },
+  "lock-alert": {
+   "symbol": "lock.trianglebadge.exclamationmark.fill"
+  },
+  "lock-open-alert": {
+   "symbol": "lock.open.trianglebadge.exclamationmark.fill"
+  },
+  "gate-alert": {
+   "symbol": "pedestrian.gate.closed.trianglebadge.exclamationmark"
+  },
+  "gate-open-alert": {
+   "symbol": "pedestrian.gate.open.trianglebadge.exclamationmark"
+  },
+  "popcorn-circle": {
+   "symbol": "popcorn.circle.fill"
+  },
+  "robot-vacuum-arrow-up": {
+   "symbol": "robotic.vacuum.and.arrowtriangle.up.fill"
+  },
+  "robot-vacuum-ellipsis": {
+   "symbol": "robotic.vacuum.and.ellipsis.fill"
+  },
+  "roller-shade-open": {
+   "symbol": "roller.shade.open"
+  },
+  "shower-handheld": {
+   "symbol": "shower.handheld.fill"
+  },
+  "shower-sidejet": {
+   "symbol": "shower.sidejet.fill"
+  },
+  "square-split-bottom-right-quarter": {
+   "symbol": "square.split.bottomrightquarter.fill"
+  },
+  "switch-programmable-square": {
+   "symbol": "switch.programmable.square.fill"
+  },
+  "thermometer-ellipsis": {
+   "symbol": "thermometer.and.ellipsis"
+  },
+  "thermostat-clock": {
+   "symbol": "thermometer.variable.badge.clock"
+  },
+  "thermostat-play": {
+   "symbol": "thermometer.variable.badge.play"
+  },
+  "toilet-circle": {
+   "symbol": "toilet.circle.fill"
+  },
+  "washing-machine-circle": {
+   "symbol": "washer.circle.fill"
+  },
+  "awning-open": {
+   "symbol": "window.awning"
+  },
+  "window-casement": {
+   "symbol": "window.casement.closed"
+  },
+  "window-casement-open": {
+   "symbol": "window.casement"
+  },
+  "skylight-open": {
+   "symbol": "window.ceiling"
+  },
+  "television-4k": {
+   "symbol": "4k.tv.fill"
+  },
+  "television-box": {
+   "symbol": "tv.and.mediabox.fill"
+  },
+  "television-off": {
+   "symbol": "tv.slash.fill"
+  },
+  "television-play": {
+   "symbol": "play.tv.fill"
+  },
+  "television-music": {
+   "symbol": "music.note.tv.fill"
+  },
+  "television-shimmer": {
+   "symbol": "sparkles.tv.fill"
+  },
+  "apple-tv-remote": {
+   "symbol": "appletvremote.gen4.fill"
+  },
+  "airport-express": {
+   "symbol": "airport.express"
+  },
+  "airport-extreme": {
+   "symbol": "airport.extreme"
+  },
+  "airport-extreme-tower": {
+   "symbol": "airport.extreme.tower"
+  },
+  "speaker-and-homepod": {
+   "symbol": "hifispeaker.and.homepod.fill"
+  },
+  "speaker-and-homepod-mini": {
+   "symbol": "hifispeaker.and.homepod.mini.fill"
+  },
+  "speaker-and-apple-tv": {
+   "symbol": "hifispeaker.and.appletv.fill"
+  },
+  "homepod-pair": {
+   "symbol": "homepod.2.fill"
+  },
+  "homepod-mini-pair": {
+   "symbol": "homepod.mini.2.fill"
+  },
+  "homepod-and-homepod-mini": {
+   "symbol": "homepod.and.homepod.mini.fill"
+  },
+  "homepod-and-apple-tv": {
+   "symbol": "homepod.and.appletv.fill"
+  },
+  "homepod-mini-and-apple-tv": {
+   "symbol": "homepod.mini.and.appletv.fill"
+  },
+  "mac-mini": {
+   "symbol": "macmini.fill"
+  },
+  "mac-studio": {
+   "symbol": "macstudio.fill"
+  },
+  "mac-pro": {
+   "symbol": "macpro.gen3.fill"
+  },
+  "pc": {
+   "symbol": "pc"
+  },
+  "monitor-multiple": {
+   "symbol": "display.2"
+  },
+  "media-stick": {
+   "symbol": "mediastick"
+  },
+  "arcade-stick": {
+   "symbol": "arcade.stick.console.fill"
+  },
+  "headphones": {
+   "symbol": "headphones"
+  },
+  "fax": {
+   "symbol": "faxmachine.fill"
+  },
+  "scanner": {
+   "symbol": "scanner.fill"
+  },
+  "ring-light": {
+   "symbol": "ring.light"
+  },
+  "sensor-radiowaves": {
+   "symbol": "sensor.radiowaves.left.and.right.fill"
+  },
+  "antenna": {
+   "symbol": "antenna.radiowaves.left.and.right"
+  },
+  "access-point": {
+   "symbol": "dot.radiowaves.left.and.right"
+  },
+  "network": {
+   "symbol": "network"
+  },
+  "wifi-off": {
+   "symbol": "wifi.slash"
+  },
+  "wifi-alert": {
+   "symbol": "wifi.exclamationmark"
+  },
+  "wifi-lock": {
+   "symbol": "wifi.badge.lock"
+  },
+  "power-socket-jp": {
+   "symbol": "poweroutlet.type.a.fill"
+  },
+  "power-socket-jp-square": {
+   "symbol": "poweroutlet.type.a.square.fill"
+  },
+  "power-socket-us-square": {
+   "symbol": "poweroutlet.type.b.square.fill"
+  },
+  "power-socket-eu": {
+   "symbol": "poweroutlet.type.c.fill"
+  },
+  "power-socket-eu-square": {
+   "symbol": "poweroutlet.type.c.square.fill"
+  },
+  "power-socket-type-d": {
+   "symbol": "poweroutlet.type.d.fill"
+  },
+  "power-socket-type-d-square": {
+   "symbol": "poweroutlet.type.d.square.fill"
+  },
+  "power-socket-fr": {
+   "symbol": "poweroutlet.type.e.fill"
+  },
+  "power-socket-fr-square": {
+   "symbol": "poweroutlet.type.e.square.fill"
+  },
+  "power-socket-de": {
+   "symbol": "poweroutlet.type.f.fill"
+  },
+  "power-socket-de-square": {
+   "symbol": "poweroutlet.type.f.square.fill"
+  },
+  "power-socket-uk": {
+   "symbol": "poweroutlet.type.g.fill"
+  },
+  "power-socket-uk-square": {
+   "symbol": "poweroutlet.type.g.square.fill"
+  },
+  "power-socket-type-h": {
+   "symbol": "poweroutlet.type.h.fill"
+  },
+  "power-socket-type-h-square": {
+   "symbol": "poweroutlet.type.h.square.fill"
+  },
+  "power-socket-au": {
+   "symbol": "poweroutlet.type.i.fill"
+  },
+  "power-socket-au-square": {
+   "symbol": "poweroutlet.type.i.square.fill"
+  },
+  "power-socket-ch": {
+   "symbol": "poweroutlet.type.j.fill"
+  },
+  "power-socket-ch-square": {
+   "symbol": "poweroutlet.type.j.square.fill"
+  },
+  "power-socket-type-k": {
+   "symbol": "poweroutlet.type.k.fill"
+  },
+  "power-socket-type-k-square": {
+   "symbol": "poweroutlet.type.k.square.fill"
+  },
+  "power-socket-it": {
+   "symbol": "poweroutlet.type.l.fill"
+  },
+  "power-socket-it-square": {
+   "symbol": "poweroutlet.type.l.square.fill"
+  },
+  "power-socket-type-m": {
+   "symbol": "poweroutlet.type.m.fill"
+  },
+  "power-socket-type-m-square": {
+   "symbol": "poweroutlet.type.m.square.fill"
+  },
+  "power-socket-type-n": {
+   "symbol": "poweroutlet.type.n.fill"
+  },
+  "power-socket-type-n-square": {
+   "symbol": "poweroutlet.type.n.square.fill"
+  },
+  "power-socket-type-o": {
+   "symbol": "poweroutlet.type.o.fill"
+  },
+  "power-socket-type-o-square": {
+   "symbol": "poweroutlet.type.o.square.fill"
   }
  },
  "twotone": {

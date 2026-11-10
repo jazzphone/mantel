@@ -8,7 +8,7 @@
 #     python3 build_glyphs.py --cache <folder> --out hk-glyphs.js
 #
 # The symbols are the ones in symbols.txt. One already in the folder is
-# skipped, so a stopped run can be resumed. About three minutes for all.
+# skipped, so a stopped run can be resumed. About seven minutes for all.
 HERE="$(cd "$(dirname "$0")" && pwd)"
 OUT="${1:-$HERE/.sfcache}"
 CLI="${SFSYMBOLS_CLI:-}"
