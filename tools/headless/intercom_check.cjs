@@ -191,7 +191,7 @@ const MEASURE = () => {
         out(`ok ${name} the rooms are ${m.side} the talk button` + (m.ellipsed.length ? ` (with "…": ${m.ellipsed.join(', ')})` : ''));
         if (m.slack > 80) fail(name, 'the sheet is as tall as its content: no big empty area', m.slack);
         if (m.dashed.some((d) => d !== 'dashed')) fail(name, 'presets have a dashed border', m.dashed);
-        if (m.pills.join('|') !== 'Living Room*|Kitchen*|Dining Room[Plays with Office]|Office[Plays with Dining Room]|Bedroom+[Quiet hours]|Guest Room|Nursery|Craft Room|Primary Suite HomePods|Laundry Room') fail(name, 'the room pills, picked ones marked; a group leader says who it plays with; no bare slash', m.pills);
+        if (m.pills.join('|') !== 'Living Room*|Kitchen*|Dining Room+|Office+|Bedroom+|Guest Room|Nursery|Craft Room|Primary Suite HomePods|Laundry Room') fail(name, 'the room pills, picked ones marked; a group leader its link glyph (who it plays with on a tap), quiet hours the moon; no second line; no bare slash', m.pills);
         if (m.touchAction !== 'none') fail(name, 'touch-action:none on the microphone', m.touchAction);
         if (m.line !== 'Living Room, Kitchen') fail(name, 'the status line names the rooms', m.line);
         await shot('picker');

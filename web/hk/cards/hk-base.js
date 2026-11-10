@@ -1973,8 +1973,7 @@
     '  cursor:pointer;user-select:none;',
     '  transition:background-color .22s ease, transform .12s ease}',
     '.pill:active{transform:scale(0.96)}',
-    // (max-width: a centered name sizes to itself, so a long one ran out of both ends of its pill and never reached its "…" -- 2026-11-10)
-    '.pill > span{justify-self:center;max-width:100%;box-sizing:border-box;' + PILL_LABEL + ';',
+    '.pill > span{justify-self:center;max-width:100%;box-sizing:border-box;' + PILL_LABEL + ';', // (max-width: a long name ran out of both ends of its pill, no "…", 2026-11-10)
     '  white-space:nowrap;overflow:hidden;',
     '  text-overflow:ellipsis;color:' + v('ink') + ';transition:color .22s ease}',
     '.pill[aria-pressed="true"]{background:var(--hk-seg-on,' + SELECTED_BG + ');box-shadow:var(--hk-seg-on-shadow,var(--hk-look-shadow, 0 6px 18px rgba(0,0,0,0.10)))}',

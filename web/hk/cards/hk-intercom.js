@@ -1077,6 +1077,8 @@
     waveform: 'M3 10H5V14H3ZM7 6H9V18H7ZM11 3H13V21H11ZM15 7H17V17H15ZM19 10H21V14H19Z',
     clock: 'M12 2A10 10 0 0 0 2 12A10 10 0 0 0 12 22A10 10 0 0 0 22 12A10 10 0 0 0 12 2M16.2 16.2L11 13V7H12.5V12.2L17 14.9L16.2 16.2Z',
     moon: 'M2 12A10 10 0 0 0 15 21.54A10 10 0 0 1 15 2.46A10 10 0 0 0 2 12Z',
+    // (mdi link-variant: a room that plays only together with others -- its "Plays with Office" said on a tap, 2026-11-10)
+    link: 'M10.59 13.41C11 13.8 11 14.44 10.59 14.83C10.2 15.22 9.56 15.22 9.17 14.83C7.22 12.88 7.22 9.71 9.17 7.76L12.71 4.22C14.66 2.27 17.83 2.27 19.78 4.22C21.73 6.17 21.73 9.34 19.78 11.29L18.29 12.78C18.3 11.96 18.17 11.14 17.89 10.36L18.36 9.88C19.54 8.71 19.54 6.81 18.36 5.64C17.19 4.46 15.29 4.46 14.12 5.64L10.59 9.17C9.41 10.34 9.41 12.24 10.59 13.41M13.41 9.17C13.8 8.78 14.44 8.78 14.83 9.17C16.78 11.12 16.78 14.29 14.83 16.24L11.29 19.78C9.34 21.73 6.17 21.73 4.22 19.78C2.27 17.83 2.27 14.66 4.22 12.71L5.71 11.22C5.7 12.04 5.83 12.86 6.11 13.65L5.64 14.12C4.46 15.29 4.46 17.19 5.64 18.36C6.81 19.54 8.71 19.54 9.88 18.36L13.41 14.83C14.59 13.66 14.59 11.76 13.41 10.59C13 10.2 13 9.56 13.41 9.17Z',
     slash: 'M12 2A10 10 0 0 0 2 12A10 10 0 0 0 12 22A10 10 0 0 0 22 12A10 10 0 0 0 12 2M12 4A8 8 0 0 1 18.3 17L7 5.7A8 8 0 0 1 12 4M5.7 7L17 18.3A8 8 0 0 1 5.7 7Z',
     person: 'M12 4A4 4 0 0 1 16 8A4 4 0 0 1 12 12A4 4 0 0 1 8 8A4 4 0 0 1 12 4M12 14C16.42 14 20 15.79 20 18V20H4V18C4 15.79 7.58 14 12 14Z'
   };
@@ -1364,16 +1366,15 @@
       '.pill.preset{border:var(--hk-look-dash, ' + C.M.border + ');border-style:dashed}',
       '.pill.preset[aria-pressed="true"]{border-style:solid}',
       // a room: a row with its tick, its name and what's true of it (Plays with ..., Quiet hours), its glyph at the end
-      '.rooms .pill{min-height:54px;border-radius:' + C.SP.cardR + 'px;display:flex;align-items:center;gap:10px;padding:8px 14px 8px 10px;text-align:left}',
-      '.tk{width:26px;height:26px;border-radius:50%;flex:none;box-shadow:inset 0 0 0 2px ' + v('line-strong') + ';display:grid;place-items:center}',
-      '.tk svg{width:15px;height:15px;fill:#fff;display:none}',
-      '.pill[aria-pressed="true"] .tk{background:#0a84ff;box-shadow:none}',
-      '.pill[aria-pressed="true"] .tk svg{display:block}',
-      '.rooms .pill > span.l{flex:1;min-width:0;display:flex;flex-direction:column;line-height:18px}',
+      // a room: the Vacuums page's pill at the Intercom's 44 (every target here is), its name centered, a glyph at the end
+      '.rooms{grid-auto-rows:44px}',
+      '.rooms .pill{height:44px;border-radius:22px;position:relative}',
+      '.rooms .pill > span.l{justify-self:center;max-width:100%;min-width:0;box-sizing:border-box;text-align:center}',
+      // (a glyph's room both sides, so the name stays centered on the pill)
+      '.rooms .pill.hg > span.l{padding:0 24px}',
       // a name too long for its pill ends in "…", whole names in the aria-label (2026-11-07, the owner: "Names are getting clipped off")
       '.rooms .l b{display:block;min-width:0;font-weight:600;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-      '.rooms .l i{font-style:normal;font-size:13px;font-weight:500;line-height:16px;color:' + v('ink-3') + ';overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
-      '.pill[aria-pressed="true"] .l i{color:rgba(0,0,0,0.55)}',
+      '.rooms .pill .pi{position:absolute;right:14px;top:0;bottom:0}',
       '.pill .pi{flex:none;display:flex;align-items:center;pointer-events:none;color:' + v('glyph') + '}',
       '.pill .pi svg{width:18px;height:18px;display:block;fill:currentColor}',
       '.pill[aria-pressed="true"] .pi{color:rgba(0,0,0,0.68)}',
@@ -1384,7 +1385,7 @@
 
       // NARROW (a phone): the Lock sheet's phone button, the rooms two across, a long name on two lines
       '@container (max-width:479px){.mb{width:228px;height:228px}.mb .core{width:166px;height:166px}.mb .core svg{width:64px;height:64px}',
-      '  .wd{font-size:32px;line-height:38px}.rooms .pill{min-height:48px;padding:7px 10px 7px 8px;gap:8px}.tk{width:22px;height:22px}',
+      '  .wd{font-size:32px;line-height:38px}.rooms .pill{padding:0 10px}.rooms .pill .pi{right:10px}.rooms .pill.hg > span.l{padding:0 20px}',
       '  .pick{padding:14px}}',
       // A SHORT SCREEN (a phone on its side, 2026-11-05, the owner: "that doesn't look good at all"): a narrow talk side
       // with a smaller button; the groups one row that scrolls sideways; the rooms scroll in their own panel, so the
@@ -1398,7 +1399,7 @@
       '  .pick{padding:12px 14px;gap:10px;max-height:calc(100dvh - 128px);overflow-y:auto;overscroll-behavior:contain}',
       '  .chips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:0 -14px;padding:0 14px;overscroll-behavior-x:contain}',
       '  .chips::-webkit-scrollbar{display:none}.chips .pill{flex:none}',
-      '  .rooms{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.rooms .pill{min-height:48px;padding:6px 10px 6px 8px;gap:8px}.tk{width:22px;height:22px}}',
+      '  .rooms{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.rooms .pill{padding:0 10px}.rooms .pill .pi{right:10px}.rooms .pill.hg > span.l{padding:0 20px}}',
       '@media (max-height:520px){@container (min-width:600px){.cols{display:grid;grid-template-columns:200px minmax(0,1fr);align-items:start;gap:16px}}}',
       '@media (prefers-reduced-motion:reduce){.mb,.mb .core,.mb .prg,.rv button,.line{transition:none}.mb:active .core,.rv button:active{transform:none}',
       '  .mic[data-kind="busy"] .core{animation:none}}'
@@ -1509,12 +1510,13 @@
       }
       _pill(p, chip) {
         var on = p.on;
-        var cls = 'pill' + (chip && p.kind === 'preset' ? ' preset' : '') + (!chip && (!p.pickable || p.quiet) ? ' skip' : '') + (!chip && p.glyph ? ' hg' : '');
+        // a room is a pill like the Vacuums page's (2026-11-10, the owner): its name centered, no tick (picked is the fill), no second
+        // line -- what that line said (Plays with Office, Quiet hours, Unavailable) is the glyph, the dimming, and a tap's one line
+        var g = chip ? null : (p.glyph || (p.note ? 'link' : null));
+        var cls = 'pill' + (chip && p.kind === 'preset' ? ' preset' : '') + (!chip && (!p.pickable || p.quiet) ? ' skip' : '') + (g ? ' hg' : '');
         var attrs = chip ? 'data-chip="' + esc(p.id) + '" data-kind="' + p.kind + '"' : 'data-room="' + esc(p.id) + '"';
         return '<div class="' + cls + '" role="button" tabindex="0" aria-pressed="' + (on ? 'true' : 'false') + '" ' + attrs + ' aria-label="' + esc(chip ? p.name : p.aria) + '">' +
-          (chip ? '' : '<span class="tk">' + svg('tick') + '</span>') +
-          '<span class="l"><b>' + esc(p.name) + '</b>' + (!chip && p.cap ? '<i>' + esc(p.cap) + '</i>' : '') + '</span>' +
-          (!chip && p.glyph ? '<span class="pi">' + svg(p.glyph) + '</span>' : '') + '</div>';
+          '<span class="l"><b>' + esc(p.name) + '</b></span>' + (g ? '<span class="pi">' + svg(g) + '</span>' : '') + '</div>';
       }
       _paint() {
         if (!this._built || !this._ctl) return;
