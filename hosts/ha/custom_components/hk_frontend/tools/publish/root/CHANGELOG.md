@@ -12,6 +12,9 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 - **A Large Now Playing block's cover sits as far from the block's top as from its side**, the controls at its foot; a long song title stays on one line and drifts slowly when it does not fit, instead of wrapping and pushing the cover against the top.
 - **The speaker line says "Master Bedroom + 10"** when three or more rooms play together (two still read as two names), and is a little bigger on the media blocks, an easier target.
 
+**Fixed**
+- **The Music page's Your Playlists shows on a wall tablet without a reload**: it was drawn last in the page's redraw, so anything that stopped the redraw before it left the section missing; it now draws on its own as the list arrives.
+
 ## 1.57.0 - 2026-11-10
 
 **Changed**

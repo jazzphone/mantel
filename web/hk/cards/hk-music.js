@@ -436,7 +436,7 @@
       if (super.connectedCallback) super.connectedCallback();
       var self = this;
       if (!this._musicOff && window.hkMusic) {
-        this._musicOff = window.hkMusic.onChange(function () { self._hkSig = null; if (self.client) self.redraw(); });
+        this._musicOff = window.hkMusic.onChange(function () { self._hkSig = null; self._playlistsSafe(); if (self.client) self.redraw(); });
       }
       if (!this._ro && window.ResizeObserver) {
         this._ro = new ResizeObserver(function () { self._layout(); });
@@ -856,6 +856,7 @@
       var lv = typeof a.volume_level === 'number' ? a.volume_level : null;
       if (this._vol && Date.now() < this._vol.until) lv = this._vol.val;
       if (lv === null) e.mu.setAttribute('novol', ''); else { e.mu.removeAttribute('novol'); e.tk.style.setProperty('--v', Math.max(0, Math.min(1, lv)).toFixed(3)); }
+      this._playlistsSafe();
       this._upNext(c);
       // the desk's rooms column: Speakers there, so not here
       e.spk.classList.toggle('gone', this._cols === 3);
@@ -1273,8 +1274,10 @@
       }
       var sig = JSON.stringify([pls, this._label(), this._nextLabel(), set, keep, c && c.title, this._openOpts, this._busyPl]);
       if (!force && sig === el.__sig) return;
-      el.__sig = sig;
-      if (!pls.length) { el.innerHTML = ''; el.style.display = 'none'; return; }
+      // (counted as drawn only once it is -- a draw that failed half way was never tried again: the Loft's Music page went
+      // without Your Playlists until a reload, 2026-11-10)
+      el.__sig = null;
+      if (!pls.length) { el.innerHTML = ''; el.style.display = 'none'; el.__sig = sig; return; }
       el.style.display = '';
       var html = '<div class="yph"><h3>Your Playlists</h3></div><div class="grid cats">';
       pls.forEach(function (p, i) {
@@ -1292,6 +1295,12 @@
         well.addEventListener('error', function () { well.classList.remove('pic'); }, true);
         self._artImage(p.image, well, '<hk-icon icon="' + esc(p.icon || 'mdi:playlist-music') + '"></hk-icon>', 150);
       });
+      el.__sig = sig;
+    }
+    // YOUR PLAYLISTS ON THEIR OWN (2026-11-10): as the list changes and early in each redraw, guarded -- it was the redraw's
+    // last step, so anything failing before it left the section unmade (the Loft tablet, until a reload)
+    _playlistsSafe() {
+      try { this._refreshPlaylists(); } catch (e) { console.warn('[hk-music] Your Playlists', e && e.message); }
     }
     // "PLAYS ON <rooms>" (or, picked, "Next plays on" white with its X): one
     // button, in Your Playlists' heading and in the trail's row
