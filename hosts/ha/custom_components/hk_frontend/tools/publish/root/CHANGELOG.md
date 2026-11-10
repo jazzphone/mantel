@@ -5,6 +5,11 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+**Changed**
+- **Live TV Wide, Tall and Large fill the block**: the channels are a grid of the block's whole room, each picture cropped to its tile, with no bands at the sides or foot.
+- **Security, armed**: the keypad's display alone lights white (the keys no longer sit on a white edge); Wide's alarm tile is a cell wide, as Compact's.
+- **The Small Timers block's ring is bigger**: it runs from the block's left inset to the + button.
+
 ## 1.55.0 - 2026-11-09
 
 **Changed**
