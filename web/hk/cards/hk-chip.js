@@ -711,13 +711,13 @@
     if (want && !card._icOff) card._icOff = icUse(card.client, function () { card._plan(); });
     else if (!want && card._icOff) { card._icOff(); card._icOff = null; }
   }
-  // the first room picked, and "+N" for the rest ("Living Room +2"): the chip stays its neighbors' width; none: "Tap to Talk"
+  // one room picked, its name; several, how many ("9 Speakers": the owner, 2026-11-10, "Guest Bedroom +8" was too long); none: "Tap to Talk"
   function icLine() {
     var f = IC.feed, want = (IC.mem && Array.isArray(IC.mem.rooms)) ? IC.mem.rooms : [], ids = {};
     ((f && f.rooms) || []).forEach(function (r) { if (r && typeof r.room === 'string') ids[r.room] = String(r.name || r.room); });
     var names = want.filter(function (id, i, a) { return ids[id] && a.indexOf(id) === i; }).map(function (id) { return ids[id]; });
     if (!names.length) return 'Tap to Talk';
-    return names.length > 1 ? names[0] + ' +' + (names.length - 1) : names[0];
+    return names.length > 1 ? names.length + ' Speakers' : names[0];
   }
   // null: draw nothing
   function icEntry(client) {
