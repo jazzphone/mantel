@@ -14,6 +14,7 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 - **The speaker line says "Master Bedroom + 10"** when three or more rooms play together (two still read as two names), and is a little bigger on the media blocks, an easier target.
 
 **Fixed**
+- **An iPhone turned upright puts its tab bar back at the bottom**: turned from sideways in the Mantel app, it kept the sideways Side Strip down the right (the clock and battery at its top, the Favorites one to a row beside it) -- a rotation's safe areas come after its resize, and the old ones were kept until the next.
 - **A volume slider moves only once your finger goes sideways**: scrolling a Volume tab's list, the Music page, a speaker's sheet or the Side Pane no longer catches a slider on the way and changes a speaker's volume (the rule the room controls' sliders already kept).
 - **A long room name ends in "…" inside its pill** (the Vacuums page, a vacuum's sheet and every pill grid): it ran out of both ends of the pill, into the next one.
 - **The vacuum's sheet uses the Vacuums page's room pills**: the same height, look and centered names (they were taller, darker and their names sat at the left).
