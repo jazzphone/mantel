@@ -4,6 +4,8 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+## 0.1.161 - 2026-11-10
+
 **Changed**
 - **A vacuum's sheet lists only the rooms that vacuum can clean** (its room map in Home Assistant, through Mantel's Clean Areas), two to a row in the wide sheet.
 - **The vacuum's sheet lists its rooms one to a row, scrolling**, sized to the sheet: on a tablet the sheet is wide -- the vacuum, what it is doing and its commands on the left, the rooms down the right with Start Cleaning over them; on a phone Rooms to Clean opens the same list, filling the sheet.
