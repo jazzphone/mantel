@@ -6,6 +6,7 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 ## Unreleased
 
 **Changed**
+- **Flat shows the song's cover, very dim, wherever the other looks blur it**: behind the Now Playing blocks, the Now Playing page and bar, the Side Pane's Now Playing, the screensaver's music and the Speakers / Volume / Queue / Browse panel -- sharp (Flat blurs nothing), on near black under the same wash, where it showed a fixed gradient, a flat color or nothing.
 - **Every Volume tab has the whole group's slider first** (the music's rooms together, then each room's own) wherever two rooms or more play -- the Music page's Speakers, the screensaver's, the Side Pane's and a Now Playing block's; only a Small Now Playing block had it.
 - **The Intercom's rooms are the Music page's speaker rows**: each speaker's well, its name over what is true of it (Plays with Office, Quiet hours, Unavailable, After you finish, You're here), the tick at the end, one to a line (two where there is room) -- the whole name fits, where two narrow columns cut most of them short on a phone.; **its groups** (Whole House, the floors, your presets) **are one row that scrolls sideways**, as the Music page's presets, not rows of their own over the rooms.
 - **A screensaver widget opens its page when tapped**: the weather the Weather page, the date the Calendar, music the Music page, a timer the Timers page, and so on; one about a single thing (a sensor, a person, a camera) opens its details. Each widget's When Tapped can say Nothing instead (the Screensaver editor).
@@ -15,6 +16,8 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 - **The speaker line says "Master Bedroom + 10"** when three or more rooms play together (two still read as two names), and is a little bigger on the media blocks, an easier target.
 
 **Fixed**
+- **On the Flat look a tile's glyph no longer jumps when pressed** (the glyph circle of a centered tile, Room, Lamps and Intercom block, a wide tile's glyph and temperature, the TV Guide's channel icon, a person's map pin, a chart's callout), and **a Reduce Motion screen keeps those glyphs centered**: they were placed by a transform that a press on Flat, and Reduce Motion, took away.
+- **The Side Pane's volume holds through the pane redrawing** under the finger (the level went nowhere when the song's progress redrew it mid-drag).
 - **A Big Number thermostat's number stays put when tapped** on the Flat look (it dropped half its height while the finger was down, and the arrows' row with it).
 - **A volume slider moves only once your finger goes sideways**: scrolling a Volume tab's list, the Music page, a speaker's sheet or the Side Pane no longer catches a slider on the way and changes a speaker's volume (the rule the room controls' sliders already kept).
 - **A long room name ends in "…" inside its pill** (the Vacuums page, a vacuum's sheet and every pill grid): it ran out of both ends of the pill, into the next one.

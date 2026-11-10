@@ -49,6 +49,7 @@
   var VOL_EVERY = 200;          // a volume drag sends at most this often (ms)
   // hkDrag's helpers, once hk-drag.js is in (it may load after this file)
   function withDrag(fn) { if (window.hkDrag && window.hkDrag.slider) fn(window.hkDrag); else window.addEventListener('hk-drag', function () { fn(window.hkDrag); }, { once: true }); }
+  var FLAT_ART = 480;            // Flat's cover behind the panel: sharp, so drawn big enough not to show its pixels
   var GROUP = '*';              // the Volume tab's group row, in place of a room's entity id
   var VOL_HOLD = 4000;          // ...and its own value stands this long after
   var DONE_MS = 1200;           // a request done: the answer read, then closed
@@ -430,12 +431,16 @@
       if (!a || a === S.art) return;
       var cx = E.bg.getContext && E.bg.getContext('2d');
       if (!cx) return;
+      // FLAT: no blur -- the cover itself, sharp and very dim on near black, as the players behind it (2026-11-10, the owner)
+      var flat = document.documentElement.hasAttribute('data-hk-flat'), n = flat ? FLAT_ART : BLUR;
+      if (E.bg.width !== n) { E.bg.width = n; E.bg.height = n; }
       try {
         var w = a.naturalWidth || a.width, h = a.naturalHeight || a.height, side = Math.min(w, h);
-        cx.clearRect(0, 0, BLUR, BLUR);
-        cx.drawImage(a, (w - side) / 2, (h - side) / 2, side, side, 0, 0, BLUR, BLUR);
+        cx.clearRect(0, 0, n, n);
+        cx.drawImage(a, (w - side) / 2, (h - side) / 2, side, side, 0, 0, n, n);
         S.art = a;
       } catch (e) { return; /* not ready */ }
+      if (flat) { cx.fillStyle = 'rgba(11,12,15,.7)'; cx.fillRect(0, 0, n, n); E.bg.classList.remove('soft'); return; }
       // BLURRED, NOT ONLY SMALL (2026-11-05, the owner: "the blur in the background isn't correct"): a 32 px copy stretched
       // over the panel kept the cover's shapes -- its title in letters a panel high. Blurred here, once a song, where the
       // cover can be read back (the house's own proxy, Music Assistant's under /ma); one that can't, from somewhere else,

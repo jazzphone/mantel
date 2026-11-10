@@ -109,7 +109,7 @@
       el.className = sl ? 'mu' : 'pm';
       el.setAttribute('idle', '');
       el.innerHTML =
-        (isFlat() ? '<div class="mbgf"></div><div class="mbgf"></div>' : '<div class="mbgf"><canvas class="mbg"></canvas></div><div class="mbgf"><canvas class="mbg"></canvas></div>') + '<div class="mshade"></div>' +
+        (isFlat() ? '<div class="mbgf fa"></div><div class="mbgf fa"></div>' : '<div class="mbgf"><canvas class="mbg"></canvas></div><div class="mbgf"><canvas class="mbg"></canvas></div>') + '<div class="mshade"></div>' +
         '<div class="mbody">' + (sl ? '<div class="mstage">' : '') + '<div class="mart"><div class="msq"><div class="mph">' + svg(ICON.note) + '</div>' +
         '<div class="mfr"><img alt=""></div><div class="mfr"><img alt=""></div></div></div>' +
         '<div class="mcol">' + (sl ? '<div class="mmeta">' : '') + '<div class="mroom">' + window.hkNpStrip.lineHtml() + '</div><div class="mtitle"></div><div class="martist"></div><div class="malbum"></div>' + (sl ? '<div class="mq"></div></div>' : '') +
@@ -205,7 +205,8 @@
         var n = 1 - v.flip, fr = v.fr[n], img = fr.querySelector('img');
         var done = function () {
           if (v.pic !== url) return;
-          if (!isFlat()) drawBlur(v.bg[n], im, v.kind);
+          // (Flat: no blur -- the cover itself, very dim: hk-saver-css.js .mbgf.fa; 2026-11-10, the owner)
+          if (!isFlat()) drawBlur(v.bg[n], im, v.kind); else v.bgf[n].style.backgroundImage = im ? 'url("' + String(url).replace(/"/g, '%22') + '")' : 'none';
           setAttr(v.el, 'noart', !im);
           // THE DASHBOARD PANE'S FIRST ART is there as it comes in, not faded
           // in over the placeholder: the pane slides in once it is ready

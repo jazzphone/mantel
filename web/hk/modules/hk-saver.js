@@ -2970,7 +2970,7 @@
     me.p = P.create({
       client: clientNow,             // its reads, and its buttons through client.actions
       ctx: function () { return musicNow(clientNow()); },
-      art: function () { return v.bg[v.flip] || null; },
+      art: function () { return (v.bg && v.bg[v.flip]) || (v.flat && v.fr[v.flip] && v.fr[v.flip].querySelector('img')) || null; },   // (Flat: the cover)
       // the music moved (Update, a new leader): the screensaver follows it
       follow: function (key) { if (key) { mus.key = key; mus.lostAt = 0; renderMusic(); } },
       done: function (ms) {

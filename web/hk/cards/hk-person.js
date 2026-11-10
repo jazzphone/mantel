@@ -183,7 +183,7 @@
       '  filter:invert(.92) hue-rotate(180deg) saturate(.35) brightness(1.05) contrast(.95)}',
       '.map .zone{position:absolute;border-radius:50%;transform:translate(-50%,-50%);background:rgba(10,132,255,0.18);',
       '  border:1.5px solid rgba(10,132,255,0.7)}',
-      '.map .pin{position:absolute;transform:translate(-50%,-50%);width:46px;height:46px;font-size:16px;',
+      '.map .pin{position:absolute;translate:-50% -50%;width:46px;height:46px;font-size:16px;',
       '  box-shadow:0 0 0 3px var(--ring),0 6px 16px rgba(0,0,0,.5)}',
       '.map .where{position:absolute;left:10px;right:10px;bottom:10px;border-radius:12px;padding:10px 12px;',
       '  background:rgba(30,30,34,0.62);-webkit-backdrop-filter:blur(20px) saturate(1.5);backdrop-filter:blur(20px) saturate(1.5)}',
