@@ -599,3 +599,52 @@ The phrase is in two Python files (and once in `docs/phase4/MANTEL-FEATURES.md`,
 - Mantel Link `page_headers.py`: already shared in `hk_core/link/page_headers.py`; no drift left.
 - `docs/phase4/MANTEL-FEATURES.md` says `MantelMusic` is "HA's MusicManager ported line for line". The music logic now
   lives in `hk_core/music`; this run did not compare the two hosts' wrappers.
+## JavaScript: exact copies, reported, not moved
+
+The duplicate finder (every function declaration in `web/`, printed by TypeScript without comments, grouped by its
+text across files) finds **29 groups, 269 lines** that are the same text in
+two or more files (the generated `kit()` functions of the split shells left out). None was moved overnight:
+
+- **Each copy is closed over its own file.** The same text reads names each file binds for itself (`M`, `C`,
+  `NO_MUSIC`, the edit modules' state); the same text is the same function only where those bindings are too.
+- **The files load on their own.** Card files are lazy and come in any order; the edit modules register once
+  `hkEdit` is there; the screensaver's pieces load one by one. One shared definition means publishing it on a global
+  and changing every copy into a reference to it, with an order of loading the files don't have today: a code change
+  with a new way to fail, not a move.
+
+**Recommendation:** share the edit modules' helpers (`motionOn`, `anyCard`, `rect`, `unraf`, `setting`, `fillSlots`)
+through `hkEdit`, which the other edit modules already wait for, and the music cards' `NO_MUSIC`, `musicMissing` and
+`drawNoMusic` through `window.hkCards` (hk-base.js), which every card file already waits for; leave the rest, each
+a few lines, where it is.
+
+| Function | Lines | Where |
+|---|---|---|
+| `motionOn` | 12 | `web/hk/modules/hk-edit-grid.js:74`, `web/hk/modules/hk-edit-pages.js:78`, `web/hk/modules/hk-edit.js:261` |
+| `drawNoMusic` | 11 | `web/hk/cards/hk-library.js:77`, `web/hk/cards/hk-media.js:116`, `web/hk/cards/hk-music.js:59` |
+| `whenDetail` | 6 | `web/hk/calendar/hk-calendar-event.js:63`, `web/hk/cards/hk-headers.js:184`, `web/hk/cards/hk-headers.js:416`, `web/hk/cards/hk-person.js:24`, `web/hk/cards/hk-weather.js:620` |
+| `anyCard` | 13 | `web/hk/modules/hk-edit-pages.js:89`, `web/hk/modules/hk-edit.js:152` |
+| `withPage` | 13 | `web/shim/settings/alerts.js:36`, `web/shim/settings/timeline.js:110` |
+| `whenBase` | 8 | `web/hk/cards/hk-grid-cards.js:39`, `web/hk/cards/hk-intercom.js:1069`, `web/hk/cards/hk-room.js:35` |
+| `inner` | 12 | `web/hk/cards/hk-house-status.js:147`, `web/hk/cards/hk-timeline-block.js:291` |
+| `setting` | 10 | `web/hk/modules/hk-saverpieces-home.js:68`, `web/hk/modules/hk-saverpieces-picked.js:91` |
+| `hm` | 6 | `web/hk/cards/hk-headers.js:192`, `web/hk/cards/hk-headers.js:426`, `web/hk/cards/hk-weather.js:635` |
+| `musicMissing` | 6 | `web/hk/cards/hk-library.js:72`, `web/hk/cards/hk-media.js:109`, `web/hk/cards/hk-music.js:54` |
+| `setting` | 9 | `web/hk/modules/hk-edit-grid.js:83`, `web/hk/modules/hk-edit-pages.js:64` |
+| `el` | 8 | `web/hk/modules/hk-edit.js:1033`, `web/hk/shell/hk-overlays.js:49` |
+| `esc` | 5 | `web/hk/elements/hk-elements.js:147`, `web/hk/modules/hk-menu.js:395`, `web/hk/modules/hk-tabbar.js:776` |
+| `cfgId` | 7 | `web/hk/menu/hk-menu-drawer.js:539`, `web/hk/modules/hk-tabbar.js:873` |
+| `wakeAll` | 7 | `web/hk/modules/hk-saverpieces-home.js:494`, `web/hk/modules/hk-saverpieces-time.js:61` |
+| `type` | 4 | `web/hk/cards/hk-alert.js:144`, `web/hk/cards/hk-grid-cards.js:112`, `web/hk/cards/hk-laundry-card.js:30` |
+| `areaOf` | 4 | `web/hk/cards/hk-room.js:138`, `web/hk/modules/hk-pairs.js:37`, `web/hk/strategy/hk-strategy-house.js:263` |
+| `ringed` | 6 | `web/hk/modules/hk-saverpieces-home.js:104`, `web/hk/modules/hk-saverpieces-picked.js:123` |
+| `fahr` | 6 | `web/hk/modules/hk-saverpieces-weather.js:66`, `web/hk/modules/hk-saverwidgets.js:542` |
+| `mmss` | 5 | `web/hk/cards/hk-music.js:81`, `web/hk/saver/hk-saver-helpers.js:378` |
+| `fillSlots` | 5 | `web/hk/modules/hk-edit-menu.js:82`, `web/hk/modules/hk-edit.js:709` |
+| `sizeOf` | 4 | `web/hk/cards/hk-house-status.js:153`, `web/hk/cards/hk-timeline-block.js:273` |
+| `playTarget` | 4 | `web/hk/cards/hk-music.js:114`, `web/hk/modules/hk-saver-panel.js:116` |
+| `setting` | 4 | `web/hk/cards/hk-room.js:54`, `web/hk/grid-cards/hk-grid-math.js:15` |
+| `tint` | 4 | `web/hk/cards/hk-timeline-block.js:277`, `web/hk/cards/hk-timeline.js:389` |
+| `unraf` | 4 | `web/hk/modules/hk-edit-pages.js:55`, `web/hk/modules/hk-edit.js:117` |
+| `rect` | 4 | `web/hk/modules/hk-edit-pages.js:74`, `web/hk/modules/hk-edit.js:257` |
+| `currentClient` | 4 | `web/hk/modules/hk-idle.js:157`, `web/hk/modules/hk-notify.js:129` |
+| `reduced` | 4 | `web/hk/modules/hk-saver-energy.js:163`, `web/hk/modules/hk-saver-weather.js:198` |
