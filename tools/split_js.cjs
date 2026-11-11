@@ -418,13 +418,243 @@ function codes(req) {
   });
 }
 
+// ---------------------------------------------------------------------------------------------------- the state rewrite
+// {"cmd": "state", "file": "...", "vars": ["a", ...], "run_in": null, "run_in_decl": false, "iife": 0, "avoid": ["...text"]}
+//   Each listed top-level `var` of the scope becomes a property of one object (its name chosen here: never an identifier
+//   or property name of the file or of `avoid`), every reference resolved by the checker's symbol. A declaration with a
+//   value stays where it was, as an assignment; a `var` of several names becomes one statement per name, in order; a bare
+//   `var x;` of a listed name becomes nothing (the object starts with every property undefined, as hoisting left the var).
+//   Refuses: a listed name shadowed anywhere (a parameter, a local, a function's own name), or used under typeof or
+//   delete, in a `with`, or in a loop header. Answers {text, obj, markers, refusals}.
+// {"cmd": "state_back", "original": "...", "rewritten": "...", "obj": "ST", "vars": [...], "markers": {...}, ...}
+//   THE PROOF, the rewrite run backwards: each `OBJ.x` becomes `x`, each assignment a declaration became is a `var`
+//   again, the bare `var x;` are put back and the object's declaration taken out. Both texts are then normalized the same
+//   way (a `var` of several names as one statement per name, `{ x }` as `{ x: x }`) and printed without comments; they
+//   must be equal. Answers {equal, a, b} (a, b: the two printed texts when they differ, cut short).
+function scopeOf(sf, req) {
+  const iife = iifeOf(sf, req.iife);
+  if (!iife) throw new Error('no IIFE');
+  if (!req.run_in) return iife.body;
+  const run = req.run_in_decl ? declFn(iife, req.run_in) : runFn(iife, req.run_in);
+  if (!run) throw new Error('no ' + req.run_in);
+  return run.fn.body;
+}
+
+function allNames(sf) {
+  const out = new Set();
+  const walk = (n) => { if (ts.isIdentifier(n) || ts.isPrivateIdentifier(n)) out.add(n.text); ts.forEachChild(n, walk); };
+  walk(sf);
+  return out;
+}
+
+function applyEdits(text, from, to, edits) {
+  const mine = edits.filter((e) => e.start >= from && e.end <= to).sort((a, b) => b.start - a.start);
+  let s = text.slice(from, to);
+  for (const e of mine) s = s.slice(0, e.start - from) + e.text + s.slice(e.end - from);
+  return s;
+}
+
+function stateRewrite(req) {
+  const P = '\u0000HKSTATE\u0000';       // (the object's place in the text until its name is chosen)
+  const file = path.resolve(req.file);
+  const prog = program([file], req.globals, false);
+  const sf = prog.getSourceFile(file);
+  const checker = prog.getTypeChecker();
+  const text = sf.text;
+  const body = scopeOf(sf, req);
+  const want = new Set(req.vars);
+  const refusals = [];
+  const symOf = new Map();               // name -> its symbol (the scope's own var)
+  for (const s of body.statements) {
+    if (!ts.isVariableStatement(s)) continue;
+    if (s.declarationList.flags & (ts.NodeFlags.Let | ts.NodeFlags.Const)) {
+      for (const d of s.declarationList.declarations) if (ts.isIdentifier(d.name) && want.has(d.name.text)) refusals.push('`' + d.name.text + '` is a let or const, not a var');
+      continue;
+    }
+    for (const d of s.declarationList.declarations) {
+      if (!ts.isIdentifier(d.name)) { bindingNames(d.name, []).forEach((n) => { if (want.has(n)) refusals.push('`' + n + '` is declared by a destructuring pattern'); }); continue; }
+      if (want.has(d.name.text)) {
+        if (symOf.has(d.name.text)) refusals.push('`' + d.name.text + '` is declared twice');
+        symOf.set(d.name.text, checker.getSymbolAtLocation(d.name));
+      }
+    }
+  }
+  for (const n of want) if (!symOf.has(n)) refusals.push('`' + n + '` is not a top-level var of the scope');
+  const lineOfPos = (pos) => sf.getLineAndCharacterOfPosition(pos).line + 1;
+  const edits = [];
+  const declNames = new Set();
+  const walk = (n) => {
+    if (ts.isIdentifier(n) && want.has(n.text)) {
+      const p = n.parent;
+      const isPropName = (ts.isPropertyAccessExpression(p) && p.name === n) || (ts.isPropertyAssignment(p) && p.name === n) ||
+        ((ts.isMethodDeclaration(p) || ts.isPropertyDeclaration(p) || ts.isGetAccessor(p) || ts.isSetAccessor(p) ||
+          ts.isPropertySignature(p) || ts.isMethodSignature(p)) && p.name === n) || ts.isLabeledStatement(p) ||
+        ((ts.isBreakStatement(p) || ts.isContinueStatement(p)) && p.label === n) || ts.isJSDoc(p) || ts.isJSDocMemberName(p);
+      if (!isPropName) {
+        let sym = ts.isShorthandPropertyAssignment(p) && p.name === n ? checker.getShorthandAssignmentValueSymbol(p) : checker.getSymbolAtLocation(n);
+        const mine = symOf.get(n.text);
+        if (!sym || sym !== mine) {
+          refusals.push('`' + n.text + '` at line ' + lineOfPos(n.getStart(sf)) + ' is another name (a parameter, a local or a global of the same name): it shadows the listed var');
+        } else if (ts.isVariableDeclaration(p) && p.name === n) {
+          declNames.add(n);
+        } else {
+          let up = p;
+          while (up && ts.isParenthesizedExpression(up)) up = up.parent;
+          if (ts.isTypeOfExpression(up) || ts.isDeleteExpression(up)) refusals.push('`' + n.text + '` is used under ' + (ts.isTypeOfExpression(up) ? 'typeof' : 'delete') + ' at line ' + lineOfPos(n.getStart(sf)));
+          for (let q = n; q && q !== sf; q = q.parent) {
+            if (ts.isWithStatement(q)) refusals.push('`' + n.text + '` is used in a `with` at line ' + lineOfPos(n.getStart(sf)));
+            const hdr = q.parent && ((ts.isForStatement(q.parent) && (q.parent.initializer === q || q.parent.incrementor === q || q.parent.condition === q)) ||
+                        ((ts.isForInStatement(q.parent) || ts.isForOfStatement(q.parent)) && q.parent.initializer === q));
+            if (hdr) { refusals.push('`' + n.text + '` is in a loop header at line ' + lineOfPos(n.getStart(sf))); break; }
+            if (ts.isFunctionLike(q)) break;
+          }
+          if (ts.isShorthandPropertyAssignment(p)) edits.push({ start: p.getStart(sf), end: p.end, text: n.text + ': ' + P + '.' + n.text });
+          else edits.push({ start: n.getStart(sf), end: n.end, text: P + '.' + n.text });
+        }
+      }
+    }
+    ts.forEachChild(n, walk);
+  };
+  walk(sf);
+  // the object's name: one the file (and the files in `avoid`) never use, as an identifier or a property name
+  const used = allNames(sf);
+  for (const extra of req.avoid || []) for (const m of extra.match(/[A-Za-z_$][\w$]*/g) || []) used.add(m);
+  for (const m of text.match(/[A-Za-z_$][\w$]*/g) || []) used.add(m);     // (comments and strings too: never confusing)
+  const obj = ['ST', 'SV', 'SS', 'VS', 'SST', 'STATE', 'shared'].find((c) => !used.has(c)) || ('ST' + Math.floor(Math.random() * 1e6));
+  // the declarations
+  const markers = {};
+  const idx = new Map(body.statements.map((s, i) => [s, i]));
+  for (const s of body.statements) {
+    if (!ts.isVariableStatement(s) || !s.declarationList.declarations.some((d) => ts.isIdentifier(d.name) && want.has(d.name.text))) continue;
+    const parts = [], mark = [];
+    for (const d of s.declarationList.declarations) {
+      const name = d.name.getText(sf);
+      const init = d.initializer ? applyEdits(text, d.initializer.getStart(sf), d.initializer.end, edits) : null;
+      if (ts.isIdentifier(d.name) && want.has(name)) {
+        if (init !== null) { parts.push(P + '.' + name + ' = ' + init + ';'); mark.push(['assign', name]); }
+        else mark.push(['bare', name]);
+      } else {
+        parts.push('var ' + (init !== null ? name + ' = ' + init : name) + ';');
+        mark.push(['keep', name]);
+      }
+    }
+    const start = s.getStart(sf);
+    const multi = lineOfPos(start) !== lineOfPos(s.end);
+    const indent = ' '.repeat(sf.getLineAndCharacterOfPosition(start).character);
+    // the declaration's own trailing text on its line (a comment) stays after it
+    let rep = parts.join(multi ? '\n' + indent : ' ');
+    if (!parts.length) rep = '// (' + mark.map((m) => m[1]).join(', ') + ': on ' + P + ', tools/split_js.py state)';
+    markers[idx.get(s)] = mark;
+    for (let i = edits.length - 1; i >= 0; i--) if (edits[i].start >= start && edits[i].end <= s.end) edits.splice(i, 1);
+    edits.push({ start, end: s.end, text: rep });
+  }
+  // the object, first in the scope (after a 'use strict')
+  const first = body.statements.find((s) => !(ts.isExpressionStatement(s) && ts.isStringLiteral(s.expression)));
+  const at = first ? first.getFullStart() : body.getStart(sf) + 1;
+  const ind = first ? ' '.repeat(sf.getLineAndCharacterOfPosition(first.getStart(sf)).character) : '  ';
+  const declText = '\n' + ind + '// THE SHARED STATE (tools/split_js.py state): the variables these functions set again and again, as properties of one\n' +
+                   ind + '// object, so the code that sets one can live in another file. ' + P + '.x is what was the variable x.\n' +
+                   ind + 'var ' + P + ' = /** @type {Record<string, any>} */ ({});';
+  edits.push({ start: at, end: at, text: declText });
+  let out = text;
+  for (const e of edits.sort((a, b) => b.start - a.start || b.end - a.end)) out = out.slice(0, e.start) + e.text + out.slice(e.end);
+  return { text: out.split(P).join(obj), obj, markers, count: body.statements.length, refusals: [...new Set(refusals)] };
+}
+
+// both texts the same way: one statement per declarator, shorthand properties written out, printed without comments
+function normalized(text, name) {
+  const sf = ts.createSourceFile(name, text, ts.ScriptTarget.ES2022, true, ts.ScriptKind.JS);
+  const tf = (ctx) => (root) => {
+    const visit = (n) => {
+      if (ts.isShorthandPropertyAssignment(n) && !n.objectAssignmentInitializer) {
+        return ts.factory.createPropertyAssignment(ts.factory.createIdentifier(n.name.text), ts.factory.createIdentifier(n.name.text));
+      }
+      if ((ts.isBlock(n) || ts.isSourceFile(n) || ts.isModuleBlock(n) || ts.isCaseClause(n) || ts.isDefaultClause(n))) {
+        const v = ts.visitEachChild(n, visit, ctx);
+        const stmts = [];
+        for (const s of v.statements) {
+          if (ts.isVariableStatement(s) && s.declarationList.declarations.length > 1 && !(s.declarationList.flags & (ts.NodeFlags.Let | ts.NodeFlags.Const))) {
+            for (const d of s.declarationList.declarations) stmts.push(ts.factory.createVariableStatement(s.modifiers, ts.factory.createVariableDeclarationList([d], s.declarationList.flags)));
+          } else stmts.push(s);
+        }
+        if (ts.isSourceFile(v)) return ts.factory.updateSourceFile(v, stmts);
+        if (ts.isBlock(v)) return ts.factory.updateBlock(v, stmts);
+        if (ts.isModuleBlock(v)) return ts.factory.updateModuleBlock(v, stmts);
+        if (ts.isCaseClause(v)) return ts.factory.updateCaseClause(v, v.expression, stmts);
+        return ts.factory.updateDefaultClause(v, stmts);
+      }
+      return ts.visitEachChild(n, visit, ctx);
+    };
+    return ts.visitNode(root, visit);
+  };
+  const res = ts.transform(sf, [tf]);
+  try { return ts.createPrinter({ removeComments: true }).printFile(res.transformed[0]); } finally { res.dispose(); }
+}
+
+function stateBack(req) {
+  // the rewritten text, backwards, by its own syntax tree
+  const sf = ts.createSourceFile('rewritten.js', req.rewritten, ts.ScriptTarget.ES2022, true, ts.ScriptKind.JS);
+  const want = new Set(req.vars), obj = req.obj, text = sf.text;
+  const body = scopeOf(sf, req);
+  const edits = [];
+  const walk = (n) => {
+    if (ts.isPropertyAccessExpression(n) && ts.isIdentifier(n.expression) && n.expression.text === obj && want.has(n.name.text)) {
+      edits.push({ start: n.getStart(sf), end: n.end, text: n.name.text });
+      return;
+    }
+    ts.forEachChild(n, walk);
+  };
+  walk(sf);
+  // the scope's statements: the object's declaration first, then each original statement (a marked declaration as the
+  // statements it became)
+  const stmts = body.statements.filter((s) => !(ts.isExpressionStatement(s) && ts.isStringLiteral(s.expression)));
+  const objDecl = stmts[0];
+  if (!objDecl || !ts.isVariableStatement(objDecl) || objDecl.declarationList.declarations[0].name.getText(sf) !== obj) {
+    return { equal: false, a: '', b: 'the object\'s declaration is not the first statement of the scope' };
+  }
+  edits.push({ start: objDecl.getFullStart(), end: objDecl.end, text: '' });
+  const directives = body.statements.length - stmts.length;
+  let k = 1;
+  const nOrig = req.count;
+  for (let i = 0; i < nOrig - directives; i++) {
+    const mark = req.markers[String(i + directives)];
+    if (!mark) { k++; continue; }
+    const emitted = mark.filter((m) => m[0] !== 'bare').length;
+    const bare = mark.filter((m) => m[0] === 'bare').map((m) => 'var ' + m[1] + ';').join(' ');
+    if (!emitted) {
+      // the bare ones became a comment-only line: put them back before the next statement
+      const next = stmts[k];
+      const at = next ? next.getFullStart() : body.end - 1;
+      edits.push({ start: at, end: at, text: '\n' + bare + '\n' });
+      continue;
+    }
+    for (let j = 0; j < emitted; j++) {
+      const s = stmts[k++];
+      const m = mark.filter((x) => x[0] !== 'bare')[j];
+      if (m[0] === 'assign') {
+        // `OBJ.x = e;` -> `var x = e;`: the property access is already turned back by the edit above; add the `var`
+        edits.push({ start: s.getStart(sf), end: s.getStart(sf), text: 'var ' });
+      }
+    }
+    if (bare) edits.push({ start: stmts[k - 1].end, end: stmts[k - 1].end, text: ' ' + bare });
+  }
+  let back = text;
+  for (const e of edits.sort((a, b) => b.start - a.start || b.end - a.end)) back = back.slice(0, e.start) + e.text + back.slice(e.end);
+  const a = normalized(req.original, 'a.js'), b = normalized(back, 'b.js');
+  if (a === b) return { equal: true };
+  let i = 0;
+  while (i < a.length && a[i] === b[i]) i++;
+  return { equal: false, a: a.slice(Math.max(0, i - 200), i + 300), b: b.slice(Math.max(0, i - 200), i + 300) };
+}
+
 let input = '';
 process.stdin.on('data', (c) => { input += c; });
 process.stdin.on('end', () => {
   try {
     const req = JSON.parse(input);
     const out = req.cmd === 'analyze' ? analyze(req) : req.cmd === 'diagnostics' ? diagnostics(req)
-      : req.cmd === 'code' ? { codes: codes(req) } : null;
+      : req.cmd === 'code' ? { codes: codes(req) } : req.cmd === 'state' ? stateRewrite(req)
+      : req.cmd === 'state_back' ? stateBack(req) : null;
     if (!out) throw new Error('unknown command ' + req.cmd);
     process.stdout.write(JSON.stringify(out));
   } catch (err) {

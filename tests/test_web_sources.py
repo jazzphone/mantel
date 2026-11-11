@@ -502,3 +502,45 @@ def test_every_importer_that_uses_a_module_at_once_waits_for_split_shells(path):
     """The four places that import a file and use it at once wait for every started shell's parts (window.__hkSplitReady)."""
     for f in ("web/home.js", "web/hk/modules/hk-loader.js", "web/hk/panels/hk-settings.js", "hosts/ha/frontend/hk-ha-panel.js"):
         assert "__hkSplitReady" in (ROOT / f).read_text(), f
+
+
+STATE_SOURCE = """(function () {
+  'use strict';
+  var VIEW = 0, LABEL = 'a';
+  var count;
+  function bump(n) { VIEW = n; count = (count || 0) + 1; return { VIEW, count }; }
+  function show() { return VIEW + LABEL + count; }
+  window.x = { bump: bump, show: show };
+})();
+"""
+
+
+def test_the_state_rewrite_puts_vars_on_one_object_and_proves_it_backwards(path, tmp_path):
+    """`split_js.py --state`: each listed var becomes a property of one object, every reference by the checker's symbol; the
+    proof is the rewrite run backwards. It refuses a shadowed name, typeof and a loop header, and catches a planted change."""
+    if not _node_ready() or path.stem != "grid-cards":
+        pytest.skip("node or TypeScript (tools/typecheck) not installed, or run once")
+    tool = _tool()
+    f = tmp_path / "s.js"
+    f.write_text(STATE_SOURCE)
+    text, obj = tool.state_rewrite(f, {}, ["VIEW", "count"])
+    assert obj == "ST" and "ST.VIEW = 0; var LABEL = 'a';" in text and "{ VIEW: ST.VIEW, count: ST.count }" in text
+    assert "var ST = /** @type {Record<string, any>} */ ({});" in text and "var count" not in text
+    run = subprocess.run(["node", "-e", "global.window=global; eval(require('fs').readFileSync(process.argv[1],'utf8'));"
+                          "console.log(JSON.stringify(window.x.bump(3)), window.x.show())", str(tmp_path / "out.js")],
+                         capture_output=True, text=True, input="") if (tmp_path / "out.js").write_text(text) else None
+    assert run.stdout.strip() == '{"VIEW":3,"count":1} 3a1', run.stderr
+    for src, why in ((STATE_SOURCE.replace("function show() {", "function show(VIEW) {"), "shadows"),
+                     (STATE_SOURCE.replace("return VIEW + LABEL", "return typeof VIEW + LABEL"), "typeof"),
+                     (STATE_SOURCE.replace("function show() {", "function show() { for (count = 0; count < 1; count++) {} "), "loop header")):
+        f.write_text(src)
+        with pytest.raises(tool.Refusal, match=why):
+            tool.state_rewrite(f, {}, ["VIEW", "count"])
+    # the backwards proof catches a rewrite that read the wrong property
+    f.write_text(STATE_SOURCE)
+    got = tool.ask({"cmd": "state", "file": str(f), "vars": ["VIEW", "count"], "run_in": None, "run_in_decl": False, "iife": 0,
+                    "avoid": [], "globals": tool.TYPES_D_TS})
+    planted = got["text"].replace("return ST.VIEW + LABEL", "return ST.count + LABEL")
+    back = tool.ask({"cmd": "state_back", "file": str(f), "vars": ["VIEW", "count"], "run_in": None, "run_in_decl": False, "iife": 0,
+                     "original": STATE_SOURCE, "rewritten": planted, "obj": "ST", "markers": got["markers"], "count": got["count"]})
+    assert back["equal"] is False

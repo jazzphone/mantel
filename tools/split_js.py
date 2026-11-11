@@ -1190,6 +1190,55 @@ def print_report(rep: dict) -> None:
               f"{' ...' if len(g['reassigned']) > 20 else ''}\n    members: {mem}")
 
 
+# ------------------------------------------------------------------------------------------------ the state rewrite
+def state_rewrite(path: Path, man: dict, names: list[str], avoid: list[str] = ()) -> tuple[str, str]:
+    """(rewritten text, the object's name): the listed top-level vars of the shell's scope as properties of one object,
+    proved by running the rewrite backwards (split_js.cjs state / state_back). Raises Refusal."""
+    text = path.read_text()
+    req = {"file": str(path), "vars": names, "run_in": man.get("run_in") or man.get("run_in_decl"),
+           "run_in_decl": bool(man.get("run_in_decl")), "iife": man.get("iife", 0), "avoid": list(avoid), "globals": TYPES_D_TS}
+    got = ask({"cmd": "state", **req})
+    if got["refusals"]:
+        raise Refusal("\n".join("  - " + r for r in got["refusals"]))
+    back = ask({"cmd": "state_back", **req, "original": text, "rewritten": got["text"], "obj": got["obj"],
+                "markers": got["markers"], "count": got["count"]})
+    if not back["equal"]:
+        raise Refusal(f"the rewrite run backwards is not the original:\n--- original ...\n{back['a']}\n--- backwards ...\n{back['b']}")
+    with tempfile.TemporaryDirectory(prefix="split_js-state-") as td:
+        a, b = Path(td) / "a.js", Path(td) / "b.js"
+        a.write_text(text)
+        b.write_text(got["text"])
+        d = diagnostics([a, b])
+        before = {u["name"] for u in d[str(a.resolve())]["unresolved"]}
+        after = {u["name"] for u in d[str(b.resolve())]["unresolved"]}
+        if d[str(b.resolve())]["syntax"]:
+            raise Refusal(f"the rewritten file does not parse: {d[str(b.resolve())]['syntax'][0]}")
+        if after - before:
+            raise Refusal(f"after the rewrite tsc cannot find {sorted(after - before)}")
+    return got["text"], got["obj"]
+
+
+def do_state(arg: str, names: list[str], write: bool) -> int:
+    path = Path(arg).resolve()
+    man: dict = {}
+    for p in MANIFESTS.glob("*.json"):
+        m = json.loads(p.read_text())
+        if (ROOT / m["shell"]).resolve() == path:
+            man = m
+    try:
+        text, obj = state_rewrite(path, man, names)
+    except Refusal as err:
+        print(f"{path.name}: the state rewrite is refused:\n{err}")
+        return 1
+    print(f"{path.name}: {len(names)} variables on `{obj}`; proven (the rewrite run backwards prints the original's syntax tree, "
+          f"tsc finds no new missing name)")
+    if write:
+        path.write_text(text)
+    else:
+        print("  (nothing written: --write writes it)")
+    return 0
+
+
 def write_loaders() -> int:
     """Every split shell's loader block rewritten from the template (the template changed: phase 24's readiness promise).
     Only the text between the loader's two banner lines changes; the proof is test_web_sources.py's byte-for-byte pin and
@@ -1252,7 +1301,13 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--iife", type=int, default=0, help="--report: which IIFE of the file (0-based)")
     ap.add_argument("--json", type=Path, help="--report: also write the groups and the members, one row each, as JSON here")
     ap.add_argument("--write-loaders", action="store_true", help="rewrite every split shell's loader from the template")
+    ap.add_argument("--state", metavar="FILE", help="the state rewrite: --vars' top-level vars of FILE as one object's properties")
+    ap.add_argument("--vars", help="--state: the variables, comma-separated (or @file with one per line)")
+    ap.add_argument("--write", action="store_true", help="--state: write the rewritten file (else only the proof)")
     args = ap.parse_args(argv)
+    if args.state:
+        vs = Path(args.vars[1:]).read_text().split() if args.vars and args.vars.startswith("@") else (args.vars or "").split(",")
+        return do_state(args.state, [v.strip() for v in vs if v.strip()], args.write)
     if args.write_loaders:
         return write_loaders()
     if args.find:

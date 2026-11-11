@@ -140,6 +140,7 @@
  "tools/headless/timeline_check.cjs": 11,
  "tools/headless/timer_roller_check.py": 1,
  "tools/headless/timer_slide_check.cjs": 10,
+ "tools/split_js.cjs": 1,
  "tools/split_js.py": 1,
  "tools/testha/edit_check.cjs": 2,
  "tools/testha/grid_editor_check.py": 1,
