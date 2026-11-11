@@ -63,6 +63,19 @@ tests/test_settings_prototype.py proves it. The things this needs of the manifes
     its own `var` and a binder; the shell calls `bindLate()` after assigning (the manifest's shell_edits put the call in);
   * the shell waits: `partsReady` is a promise the shell's own code (boot) awaits, put in by a shell_edit.
 Moved methods may not use `super`, and may not assign a shell variable (as for any member).
+ADOPT (hk-detail.js, whose hand-written SHEETS loader predates the tool; commit 5573f9db). A manifest with `"adopt": "SHEETS"`
+names a shell that has `var SHEETS = ['a.js', ...]`, a `kit()`, a `runSheets()` and a `loadSheets()` of its own, and the
+files (the manifest's folder) each register one function the shell runs with that kit. The tool first makes the one file
+that is (adopt_text): the shell without that loader, and where its call was, the files' members in the list's order (their
+takes from the kit and hand-backs left out), then the call runSheets() ended with (`wire()`). It PROVES that merge (every
+statement of the shell but the loader's, in order, text for text; every member of every file, text for text; nothing else
+but the kit's functions; no name declared twice; no name that now means another member than it did) and refuses what it
+cannot (two files that declare one name, or a file that reads the kit's object itself, are renamed or rewritten by hand
+first, in a commit of their own). Then the ordinary split cuts that file: every statement that came from a file goes back
+to that file's part, named or not (so `def('x', XPanel);` and `XPanel.prototype.y = ...` are not listed in the manifest);
+the manifest's other parts take shell members by name. A part's member `"@GLYPHS.script ="` is a statement that declares
+nothing, named by how it begins. `--adopt-out FILE` writes the one file for reading. The recorded `source` is the one
+file's blob and the commit it can be made from again (`adopt_from`), which `--check` uses to say what was edited since.
 
 Node: $NODE, else node on the PATH.
 """
@@ -279,6 +292,7 @@ class Member:
     index: int
     d: dict
     part: int = -1                 # the part it moves to; -1: stays in the shell
+    adopted: bool = False          # it came from one of the hand-split files (`adopt`): any statement moves with its file
     late: bool = False             # stays, but waits for the parts (runs in the function handed to loadParts)
 
     @property
@@ -334,6 +348,19 @@ def make_plan(man: dict, text: str, work: Path) -> Plan:
             bym.setdefault(m.d["method"], []).append(m)
     for pi, part in enumerate(man["parts"]):
         for name in part["members"]:
+            if name.startswith("@"):        # a statement that declares nothing, named by how it begins (`@GLYPHS.script =`)
+                hits = [m for m in plan.members.values() if not m.d["names"] and m.d["head"].startswith(name[1:])]
+                if not hits:
+                    plan.refusals.append(f"{part['name']}: no statement of the shell begins `{name[1:]}`")
+                    continue
+                if len(hits) > 1:
+                    plan.refusals.append(f"{part['name']}: {len(hits)} statements of the shell begin `{name[1:]}`")
+                    continue
+                m = hits[0]
+                if m.part not in (-1, pi):
+                    plan.refusals.append(f"`{name[1:]}` is named by {man['parts'][m.part]['name']} and {part['name']}")
+                m.part, m.adopted = pi, True
+                continue
             hits = by.get(name, [])
             if not hits:
                 plan.refusals.append(f"{part['name']}: `{name}` is not a top-level function, class or variable of the shell")
@@ -359,6 +386,24 @@ def make_plan(man: dict, text: str, work: Path) -> Plan:
                 if m.part not in (-1, pi):
                     plan.refusals.append(f"method `{name}` is named by {man['parts'][m.part]['name']} and {part['name']}")
                 m.part = pi
+    # ADOPT: every statement that came from one of the hand-split files moves back to the part of that file, named or not
+    # (`def('x', XPanel);` and `XPanel.prototype.y = ...` have no name to list)
+    ranges = man.get("_adopted") or []
+    if ranges:
+        run_scope = next(i for i, sc in enumerate(an["scopes"]) if sc["name"] == "run")
+        index_of = {p["name"]: i for i, p in enumerate(man["parts"])}
+        for m in plan.members.values():
+            if m.scope != run_scope:
+                continue
+            for fname, a, b in ranges:
+                if a <= m.d["first"] and m.d["last"] <= b:
+                    pi = index_of.get(fname)
+                    if pi is None:
+                        plan.refusals.append(f"`{m.label}` (line {m.d['first']}) came from {fname}, which the manifest has no part for")
+                    elif m.part not in (-1, pi):
+                        plan.refusals.append(f"`{m.label}` came from {fname} but the manifest gives it to {man['parts'][m.part]['name']}")
+                    else:
+                        m.part, m.adopted = pi, True
     for m in plan.members.values():
         if m.part >= 0 and m.d["shared"]:
             plan.refusals.append(f"`{m.label}` (line {m.d['first']}) has {m.d['shared']}: cannot be cut by lines")
@@ -369,7 +414,7 @@ def make_plan(man: dict, text: str, work: Path) -> Plan:
                               ("is not a method or accessor", m.d["msub"] == "other")):
                 if bad:
                     plan.refusals.append(f"method `{m.label}` (line {m.d['first']}) {what}: it cannot be moved")
-        elif m.part >= 0 and m.d["kind"] not in ("function", "class", "var"):
+        elif m.part >= 0 and m.d["kind"] not in ("function", "class", "var") and not m.adopted:
             plan.refusals.append(f"`{m.label}` is a {m.d['kind']}, not a member")
     if man.get("class"):
         clash = {n for m in plan.members.values() for n in m.d["names"]} & GENERATED_CLASS_MODE
@@ -974,6 +1019,159 @@ def git(*args: str, input: str | None = None) -> str:
     return subprocess.run(["git", *args], capture_output=True, text=True, cwd=ROOT, input=input).stdout.strip()
 
 
+# ------------------------------------------------------------------------------------------------ adopt (phase 24, B5)
+# The names of a hand-written loader like hk-detail.js's (commit 5573f9db) that `adopt` replaces: the list (the manifest's
+# "adopt"), and the functions around it. The list also names the files: the folder the manifest names, `<name>.js` each.
+ADOPT_LOADER = ("kit", "sheetKey", "runSheets", "SHEET_TRIES", "loadSheets")
+
+
+def adopt_text(man: dict, read=None) -> tuple[str, list[str], list[tuple[str, int, int]]]:
+    """ADOPT: the one file that a shell with a hand-written loader and its hand-split files is, in the order it runs.
+
+    `"adopt": "SHEETS"` in a manifest says the shell has `var SHEETS = ['a.js', ...]`, a `kit()`, a `runSheets()` and a
+    `loadSheets()` of its own, and that the files (the manifest's folder) each register one function the shell runs with
+    that kit. The text this returns is the shell without that loader, and where its call was: the files' members, in the
+    list's order, with their takes from the kit and their hand-backs left out, and then the one call `runSheets()` ended
+    with (`wire()`). A kit entry that is a function (`sheetState: function () { return D; }`) becomes a declared function
+    before the members. It is the text the ordinary split then cuts, so the proof of the split (and of the move, member by
+    member) is the tool's own. THIS function proves the merge: every statement of the shell but the loader's, in order, text
+    for text; every member of every file, text for text; nothing else but the kit's functions and the final call; no name
+    declared twice; and no name that meant something else before (a global, a take) now meaning another member. Returns
+    (text, problems); `read(path)` answers a file's text (default: the working tree)."""
+    read = read or (lambda rel: (ROOT / rel).read_text())
+    work = Path(tempfile.mkdtemp(prefix="split_js-adopt-"))
+    problems: list[str] = []
+    try:
+        listname = man["adopt"]
+        kitn = kit_of(man)
+        shell_src = read(man["shell"])
+        L = shell_src.split("\n")
+        sf = work / "shell.js"
+        sf.write_text(shell_src)
+        an = analyze(sf, "shell", man.get("run_in"), man=man)
+        run = [sc for sc in an["scopes"] if sc["name"] == "run"]
+        if not run:
+            return "", [f"adopt: the shell has no function `{man.get('run_in')}` handed on (run_in)"], []
+        run = run[0]
+        listing = re.search(r"var " + re.escape(listname) + r" = \[([^\]]*)\]", shell_src)
+        if not listing:
+            return "", [f"adopt: the shell has no `var {listname} = [...]`"], []
+        files = re.findall(r"'([^']+)\.js'", listing.group(1))
+        folder = Path(man["folder"])
+        run_sheets = next((st for st in run["stmts"] if "runSheets" in st["names"]), None)
+        kit_st = next((st for st in run["stmts"] if "kit" in st["names"]), None)
+        call = next((st for st in run["stmts"] if st["head"].startswith("loadSheets(")), None)
+        if not (run_sheets and kit_st and call):
+            return "", ["adopt: the shell's hand-written loader (kit, runSheets, loadSheets and its call) is not as expected"], []
+        # what runSheets takes back (`a = K.a;`) and the call it ends with (`wire();`)
+        back = set(re.findall(r"([\w$]+) = " + re.escape(kitn) + r"\.\1;", run_sheets["text"]))
+        final = re.findall(r"\n\s*([\w$]+)\(\);\n\s*\}\s*$", run_sheets["text"])
+        if len(final) != 1:
+            return "", ["adopt: runSheets does not end with one call (`wire();`)"], []
+        # the kit's functions: `name: function () { body }`; the rest of it must be `name: name`
+        entries = re.findall(r"([\w$]+): function \(\) \{ ([^{}]*) \}", kit_st["text"])
+        plain = set(re.findall(r"([\w$]+): \1\b", kit_st["text"]))
+        left = re.sub(r"([\w$]+): function \(\) \{ [^{}]*\}", "", kit_st["text"])
+        left = re.sub(r"([\w$]+): \1\b", "", left)
+        if re.search(r"[\w$]+:", left):
+            problems.append("adopt: the kit has an entry that is neither `name: name` nor `name: function () { ... }`")
+        loader = [st for st in run["stmts"] if set(st["names"]) & ({listname} | set(ADOPT_LOADER))
+                  or (st["kind"] == "var" and st["names"] and not st["init"] and set(st["names"]) <= back) or st is call]
+        gone = set()
+        for st in loader:
+            gone.update(range(st["first"], st["last"] + 1))
+        # each file's members: its function's statements but the takes and the hand-backs
+        bodies: dict[str, list[str]] = {}
+        member_stmts: list[tuple[str, dict]] = []
+        for name in files:
+            f = work / (name + ".js")
+            f.write_text(read(str(folder / (name + ".js"))))
+            pan = analyze(f, "part", None, man=man)
+            ft = f.read_text().split("\n")
+            body: list[str] = []
+            bodies[name] = body
+            for st in pan["scopes"][0]["stmts"]:
+                if st.get("takes") or re.match(re.escape(kitn) + r"\.[\w$]+ = [\w$]+;", st["head"]):
+                    continue
+                body.append("")
+                body += reindent(ft[st["first"] - 1:st["last"]], set(st["protected"]), st["first"], st["indent"], 4)
+                member_stmts.append((name, st))
+        before: list[str] = []
+        after: list[str] = []
+        for no, line in enumerate(L, 1):
+            if no in gone:
+                continue
+            (before if no < call["first"] else after).append(line)
+        block = [f"    function {fname}() {{ {fbody} }}" for fname, fbody in entries]
+        ranges: list[tuple[str, int, int]] = []        # (file, first line, last line) of each file's members in the one file
+        for name in files:
+            mine = bodies[name]
+            first = len(block) + 1
+            block += mine
+            ranges.append((name, first, len(block)))
+        block += ["", f"    {final[0]}();"]
+        # (the blank lines the loader's statements left are closed up; the block has none doubled)
+        head = re.sub(r"\n{3,}", "\n\n", "\n".join(before)).rstrip("\n").split("\n")
+        tail = re.sub(r"\n{3,}", "\n\n", "\n".join(after)).lstrip("\n").split("\n")
+        text = "\n".join(head + [""] + block + tail)
+        base = len(head) + 1
+        ranges = [(n, a + base, b + base) for n, a, b in ranges]
+        # THE PROOF
+        one = work / "one.js"
+        one.write_text(text)
+        oan = analyze(one, "shell", man.get("run_in"), man=man)
+        orun = [sc for sc in oan["scopes"] if sc["name"] == "run"][0]
+        one_texts = [st["text"] for st in orun["stmts"]]
+        want_shell = [st["text"] for st in run["stmts"] if st not in loader]
+        pos = 0
+        for t in want_shell:
+            try:
+                pos = one_texts.index(t, pos) + 1
+            except ValueError:
+                problems.append("adopt: a statement of the shell is not in the one file, in its place: " + t.split("\n")[0][:90])
+        pool = list(one_texts)
+        for t in want_shell:
+            if t in pool:
+                pool.remove(t)
+        for fname, st in member_stmts:
+            if st["text"] in pool:
+                pool.remove(st["text"])
+            else:
+                problems.append(f"adopt: {fname}: member `{st['head'][:60]}` is not in the one file, text for text")
+        extra = [t for t in pool]
+        if len(extra) != len(entries) + 1:
+            problems.append(f"adopt: the one file holds {len(extra)} statements that are neither the shell's nor the files', "
+                            f"expected {len(entries) + 1} (the kit's functions and {final[0]}())")
+        # no name declared twice in the one scope (two files that both declare it would share it)
+        seen: dict[str, str] = {}
+        owner = {id(st): fn for fn, st in member_stmts}
+        for st in orun["stmts"]:
+            for n in st["names"]:
+                if n in seen and st["kind"] in ("function", "var", "class"):
+                    problems.append(f"adopt: `{n}` is declared twice in the one file (line {st['first']}); rename one: "
+                                    f"two files' scopes cannot be merged otherwise")
+                seen.setdefault(n, st["head"])
+        for dup in oan["duplicates"]:
+            problems.append(f"adopt: `{dup['name']}` is declared in two scopes of the one file")
+        # no name now means another member than it did: a file's member keeps the names it used (a global stays a global,
+        # a take stays the shell's name), compared member by member
+        by_text = {}
+        for st in orun["stmts"]:
+            by_text.setdefault(st["text"], st)
+        for fname, st in member_stmts:
+            now = by_text.get(st["text"])
+            if now is None:
+                continue
+            before = {r.get("name") or r.get("param") for r in st["refs"] if "index" in r or "param" in r}
+            after = {r.get("name") or r.get("param") for r in now["refs"] if "index" in r or "param" in r}
+            if before != after:
+                problems.append(f"adopt: {fname}: `{st['head'][:50]}` refers to different top-level names in the one file: "
+                                f"{sorted(before ^ after)}")
+        return text, problems, ranges
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
 def build(man: dict, text: str, work: Path) -> tuple[Plan, dict[str, str], str]:
     """Plan the split of `text` and make every file's text (nothing is written): (plan, {part file: text}, shell)."""
     plan = make_plan(man, text, work)
@@ -1051,7 +1249,7 @@ def verify(plan: Plan, parts: dict[str, str], shell: str, work: Path) -> list[st
                 for n in st["names"] or [st["head"]]:
                     have.setdefault(n, []).append(st["text"])
         for m in (m for m in plan.members.values() if m.part == pi):
-            for n in (["#" + str(m.d.get("method"))] if m.scope == plan.cs else m.d["names"]):
+            for n in (["#" + str(m.d.get("method"))] if m.scope == plan.cs else (m.d["names"] or [m.d["head"]])):
                 got = have.get(n, [])
                 if got.count(m.d["text"]) != 1:
                     bad.append(f"{part['name']}: `{n.lstrip('#')}` is not the same text after the move")
@@ -1110,8 +1308,10 @@ def verify(plan: Plan, parts: dict[str, str], shell: str, work: Path) -> list[st
         d = diag[str((out / (p["name"] + ".js")).resolve())]
         if d["syntax"]:
             bad.append(f"{p['name']}: syntax: {d['syntax'][0]}")
-        if d["unresolved"]:
-            bad.append(f"{p['name']}: tsc cannot find {sorted({u['name'] for u in d['unresolved']})}")
+        # (a name the original shell could not find either stays a global lookup in the part: the same, not a missing take)
+        lost = {u["name"] for u in d["unresolved"]} - plan.unresolved_before
+        if lost:
+            bad.append(f"{p['name']}: tsc cannot find {sorted(lost)}")
     d = diag[str(f.resolve())]
     if d["syntax"]:
         bad.append(f"the shell: syntax: {d['syntax'][0]}")
@@ -1193,6 +1393,16 @@ def do_split(man: dict, p: Path, check_only: bool) -> int:
     text = shell_path.read_text()
     if is_split(text):
         return check_split(man, check_only=True)
+    was = text
+    if man.get("adopt"):         # the hand-split shell and its files, as the one file the split then cuts (adopt_text)
+        text, bad, ranges = adopt_text(man)
+        man["_adopted"] = ranges
+        if bad:
+            print(f"{man['name']}: the adopted file does not prove:")
+            print("\n".join("  - " + b for b in bad))
+            return 1
+        print(f"{man['name']}: adopted {len(re.findall(r'hk-[a-z-]+[.]js', re.search(r'var ' + man['adopt'] + r' = [[][^]]*[]]', was).group(0)))} "
+              f"hand-split files into the shell: {text.count(chr(10)) + 1} lines in one scope, every statement and member proven in place")
     work = Path(tempfile.mkdtemp(prefix="split_js-"))
     try:
         plan, parts, shell = build(man, text, work)
@@ -1213,7 +1423,7 @@ def do_split(man: dict, p: Path, check_only: bool) -> int:
               f"proven (each moved member's text is the same, nothing else is new, tsc finds no missing name)")
         for n, c in sizes.items():
             print(f"  {man['folder']}/{n:32s} {c:5d} lines   tsc errors {counts[n]}{'  (// @ts-check)' if n in opted else ''}")
-        print(f"  {man['shell']:46s} {shell.count(chr(10)) + 1:5d} lines   (was {text.count(chr(10))})   tsc errors {counts['__shell__']}")
+        print(f"  {man['shell']:46s} {shell.count(chr(10)) + 1:5d} lines   (was {was.count(chr(10))})   tsc errors {counts['__shell__']}")
         if check_only:
             print("  --check: nothing written")
             return 0
@@ -1224,7 +1434,9 @@ def do_split(man: dict, p: Path, check_only: bool) -> int:
         shell_path.write_text(shell)
         blob = git("hash-object", "-w", "--stdin", input=text)
         man["source"] = {"blob": blob, "lines": text.count("\n")}
-        saved = {k: v for k, v in man.items() if k != "name"}
+        if man.get("adopt"):        # (the one file was never a file of the repository: this is the commit it can be made from)
+            man["source"]["adopt_from"] = git("rev-parse", "HEAD")
+        saved = {k: v for k, v in man.items() if k not in ("name", "_adopted")}
         p.write_text(json.dumps(saved, indent=2, ensure_ascii=False) + "\n")
         update_fixtures(man, counts, opted)
         return 0
@@ -1299,7 +1511,8 @@ def check_split(man: dict, check_only: bool = True) -> int:
                 continue
             pan = analyze(f, "part", None, man=man)["scopes"]
             have_names = {n for st in pan[0]["stmts"] for n in st["names"]}
-            lost = [m for m in part["members"] if m not in have_names]
+            have_heads = [st["head"] for st in pan[0]["stmts"] if not st["names"]]
+            lost = [m for m in part["members"] if m not in have_names and not (m.startswith("@") and any(h.startswith(m[1:]) for h in have_heads))]
             if lost:
                 bad.append(f"{part['name']}: the manifest lists {lost}, which the file does not declare at its top level")
             have_methods = {st["method"] for sc in pan[1:] if sc["name"] == "class" for st in sc["stmts"]}
@@ -1336,13 +1549,22 @@ def edited_since(man: dict) -> list[str] | None:
     """The moved members whose code is no longer the original's (None: the original blob recorded in the manifest is gone).
     Comments, and the parentheses of a JSDoc cast, are not code: a part may be annotated for the type checker (phase 18, C1)
     and stay "the text it was"."""
-    blob = (man.get("source") or {}).get("blob")
-    if not blob or git("cat-file", "-t", blob) != "blob":
+    src = man.get("source") or {}
+    blob = src.get("blob")
+    had = bool(blob) and git("cat-file", "-t", blob) == "blob"
+    from_commit = src.get("adopt_from")
+    if not had and not (from_commit and git("cat-file", "-t", from_commit) == "commit"):
         return None
     work = Path(tempfile.mkdtemp(prefix="split_js-"))
     try:
         orig = work / "original.js"
-        orig.write_text(subprocess.run(["git", "cat-file", "blob", blob], capture_output=True, text=True, cwd=ROOT).stdout)
+        if had:
+            orig.write_text(subprocess.run(["git", "cat-file", "blob", blob], capture_output=True, text=True, cwd=ROOT).stdout)
+        else:        # an adopted file: made again from the commit it was made from (adopt_text, reading that commit's files)
+            text, bad, _ = adopt_text(man, read=lambda rel: git("show", f"{from_commit}:{rel}"))
+            if bad:
+                return None
+            orig.write_text(text)
         def named(an):
             out = {}
             for sc in an["scopes"]:
@@ -1555,6 +1777,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--run-in-decl", help="--report: the scope is the body of the function NAME declared in the IIFE")
     ap.add_argument("--iife", type=int, default=0, help="--report: which IIFE of the file (0-based)")
     ap.add_argument("--json", type=Path, help="--report: also write the groups and the members, one row each, as JSON here")
+    ap.add_argument("--adopt-out", metavar="FILE", help="a manifest with \"adopt\": write the one file its hand-split shell and files are "
+                                                       "(proven), for reading; needs the hand-split tree (or run it in an older commit)")
     ap.add_argument("--write-loaders", action="store_true", help="rewrite every split shell's loader from the template")
     ap.add_argument("--state", metavar="FILE", help="the state rewrite: --vars' top-level vars of FILE as one object's properties")
     ap.add_argument("--vars", help="--state: the variables, comma-separated (or @file with one per line)")
@@ -1578,6 +1802,12 @@ def main(argv: list[str] | None = None) -> int:
         if args.json:
             args.json.write_text(json.dumps(rep, indent=1) + "\n")
         return 0
+    if args.adopt_out:
+        man, _ = load_manifest(args.manifest[0])
+        text, bad, _ = adopt_text(man)
+        print("\n".join("  - " + b for b in bad) or "proven")
+        Path(args.adopt_out).write_text(text)
+        return 1 if bad else 0
     names = [p.stem for p in sorted(MANIFESTS.glob("*.json"))] if args.all else args.manifest
     if not names:
         ap.error("name a manifest, or --all")
