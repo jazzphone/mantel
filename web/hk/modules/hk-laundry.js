@@ -91,7 +91,7 @@
   var STATUS_RE = /(machine_state|operation_state|operating_state|current_state|current_status|appliance_?state|mach_?mode|washer_state|dryer_state|laundry_machine_state|(^|_)status$|(^|_)state$)/;
   var PHASE_RE = /(job_state|sub_?cycle|program_phase|cycle_?phase|pr_?phase|_phase$)/;
   var TIME_RE = /(completion_time|finish|end_time|remain|time_?to_?end|time_remaining)/;
-  var LAUNDRY_RE = /wash|dryer|laundry|(^|_)dry(_|$)|tumble/;
+  var LAUNDRY_RE = /wash|dryer|laundry|(^|_)dry(_|$)|tumble/, NOT_RE = /dish|vacuum|robot|oven|fridge|freezer|microwave|cooktop/;
   function textOf(client, id) { return tidy(id.split('.')[1] + ' ' + nameOf(client, id)); }
   function optsOf(st) { var o = st && st.attributes && st.attributes.options; return Array.isArray(o) ? o : []; }
   // a status sensor: an enum whose options read like a laundry machine's (two or more of WORDS' running or done words), or a status or
@@ -128,7 +128,7 @@
       // A LAUNDRY MACHINE, not anything with a run/pause status: a robot vacuum (Matter's operational state reads the same), a
       // dishwasher, an oven are not -- the device or its entities are named for laundry, or its steps are laundry's own
       var said = tidy([d0.name_by_user, d0.name, d0.model, d0.model_id].join(' ')) + ' ' + mine.map(function (id) { return textOf(client, id); }).join(' ');
-      if (mine.some(function (id) { return /^(vacuum|climate|water_heater|lawn_mower|fan|humidifier)\./.test(id); }) || /dish|vacuum|robot|oven|fridge|freezer|microwave|cooktop/.test(said)) return;
+      if (mine.some(function (id) { return /^(vacuum|climate|water_heater|lawn_mower|fan|humidifier)\./.test(id); }) || NOT_RE.test(said)) return;
       var steps = mine.some(function (id) {
         return optsOf(stOf(client, id)).some(function (o) { var w = word(o); return w === 'washing' || w === 'rinsing' || w === 'spinning' || w === 'drying' || w === 'wrinkle'; });
       });
@@ -169,6 +169,24 @@
         }
         out.push(m);
       });
+    });
+    // A CIRCUIT'S WATTS (2026-11-10, the owner's Laundry Circuit): many machines report no power of their own, or 0 W while they run (a
+    // Samsung's) -- an energy monitor's channel named for the laundry is the truer reading: a power sensor named so, or the power sensor
+    // a laundry-named energy sensor is summed from (its `source`), never one on a machine; a dryer's named for drying, a washer's for
+    // washing, either's for the laundry; the machine's own room first (hk_core/laundry.py circuit, the same)
+    var mineDev = {}, circ = [];
+    out.forEach(function (m) { var e = ents[m.status]; mineDev[devKey(e, m.status)] = 1; });
+    Object.keys(states).sort().forEach(function (id) {
+      var a = (states[id] && states[id].attributes) || {}, t = textOf(client, id), e = ents[id];
+      if (id.indexOf('sensor.') !== 0 || !/wash|dryer|laundry/.test(t) || NOT_RE.test(t) || (e && mineDev[devKey(e, id)])) return;
+      var src = typeof a.source === 'string' ? a.source : '', p = a.device_class === 'power' ? id
+        : a.device_class === 'energy' && src.indexOf('sensor.') === 0 && ((states[src] || {}).attributes || {}).device_class === 'power' ? src : null;
+      if (p && !circ.some(function (c) { return c.id === p; })) circ.push({ id: p, t: t, area: e ? e.area_id || (devs[e.device_id] || {}).area_id || null : null });
+    });
+    out.forEach(function (m) {
+      var want = m.kind === 'dryer' ? /dry|laundry/ : /wash|laundry/, ok = circ.filter(function (c) { return want.test(c.t); });
+      var c = ok.filter(function (x) { return m.area && x.area === m.area; })[0] || ok[0];
+      if (c) m.power = c.id;
     });
     // two machines both named Washer: the second says which
     var had = {};
@@ -486,7 +504,80 @@
     if (!D || typeof D.open !== 'function' || !m) return false;
     return !!D.open(null, { name: list.length > 1 ? 'Laundry' : m.name, icon: glyph(m.kind) }, { panel: { tag: 'hk-detail-laundry', config: { machine: m.id } } });
   }
+  // THE CYCLE'S SETTINGS (the owner, 2026-11-10, Extra Large's mockup: "Cold · Extra High Spin · Normal Soil"): what the machine's own
+  // selects (else sensors) on its device say -- the water's temperature, the spin, the soil, the dryness -- in that order; '' with none
+  var SET = [{ re: /water_?temp|wash_?temp|(^|_)temp(erature)?(_|$)/, tail: '' }, { re: /spin/, tail: 'Spin' }, { re: /soil/, tail: 'Soil' },
+             { re: /dry_?level|drying_?level|dryness/, tail: 'Dry' }];
+  function settingsOf(client, m) {
+    var ents = (client && client.entities) || {}, states = (client && client.states) || {}, e = ents[m.status], key = e && devKey(e, m.status);
+    if (!key) return '';
+    var sibs = Object.keys(states).filter(function (id) { return /^(select|sensor)\./.test(id) && ents[id] && devKey(ents[id], id) === key; }).sort();
+    return SET.map(function (r) {
+      var id = sibs.filter(function (x) { return r.re.test(x.split('.')[1]) && !/time|remain|progress|energy|power|device_temp/.test(x); })[0];
+      var raw = id ? tidy(states[id].state) : '';
+      if (!raw || /^(none|unknown|unavailable|off|not_applicable)$/.test(raw)) return '';
+      var said = /^\d+$/.test(raw) ? raw + (r.tail === 'Spin' ? ' rpm' : '°')
+        : raw.split('_').map(function (w) { return w.charAt(0).toUpperCase() + w.slice(1); }).join(' ');
+      return r.tail && said.toLowerCase().indexOf(r.tail.toLowerCase()) < 0 && !/rpm$/.test(said) ? said + ' ' + r.tail : said;
+    }).filter(Boolean).join(' · ');
+  }
+  // THIS LOAD'S POWER (the owner, 2026-11-10, the Extra Large and Large mockups): the machine's watts since this load started, each
+  // stretch the color of the step it was in, and what the load has used. The start: the last time the machine went from not running to
+  // running, read from its status's and step's history (twelve hours, as words, hk-stats.js); then its watts for the hours since.
+  // null with nothing to draw (no power sensor, not running); {wait: true} while the history comes
+  var HRS = [1, 2, 3, 4, 6, 8, 12];
+  function trace(client, m, o, card, now) {
+    var S = global.hkStats, pw = stOf(client, m.power), sid = m.status || m.running;
+    if (!S || !S.history || !pw || !o || !o.runs || o.machine === 'delayed' || !sid) return null;
+    now = now || Date.now();
+    var kw = /^kw$/i.test(String((pw.attributes || {}).unit_of_measurement || '')) ? 1000 : 1;
+    var sh = S.history(client, sid, 12, card, true), ph = m.phase ? S.history(client, m.phase, 12, card, true) : [];
+    if (sh === null || ph === null) return { wait: true };
+    // the machine's state at each change of either, oldest first, as stateOf reads it
+    var ev = sh.map(function (r) { return { t: +r.t, k: sid, s: r.s }; }).concat(ph.map(function (r) { return { t: +r.t, k: m.phase, s: r.s }; }))
+      .sort(function (a, b) { return a.t - b.t; });
+    var cur = {}, seq = [];
+    ev.forEach(function (x) {
+      cur[x.k] = { state: x.s };
+      var st = stateOf({ states: cur }, m);
+      if (!seq.length || seq[seq.length - 1].st !== st) seq.push({ t: x.t, st: st });
+    });
+    var going = function (st) { return runs(st) && st !== 'delayed'; }, start = null;
+    seq.forEach(function (x, i) { if (going(x.st) && (i === 0 || !going(seq[i - 1].st))) start = x.t; });
+    if (start === null) start = now - 3600000;
+    start = Math.max(start, now - 12 * 3600000);
+    var hrs = HRS.filter(function (h) { return h * 3600000 >= now - start + 600000; })[0] || 12;
+    var P = S.history(client, m.power, hrs, card);
+    if (P === null) return { wait: true };
+    // its watts as held between changes: the one before the start held from it, the live reading at the end
+    var live = (num(pw.state) || 0) * kw, pts = [], before = null;
+    P.forEach(function (r) { var t = +r.t; if (t <= start) before = r.v * kw; else if (t < now) pts.push({ t: t, v: r.v * kw }); });
+    pts.unshift({ t: start, v: before !== null ? before : pts.length ? pts[0].v : live });
+    pts.push({ t: now, v: live });
+    var kwh = 0, peak = 0;
+    for (var i = 0; i + 1 < pts.length; i++) kwh += pts[i].v * (pts[i + 1].t - pts[i].t) / 3.6e9;
+    // two-minute stretches (more for a long load, 120 at most), each its time-weighted watts and the step it was in
+    var span = Math.max(1, now - start), step = Math.max(120000, span / 120), bins = [], j = 0, kind = o.kind;
+    var stepAt = function (t) {
+      var st = null; seq.forEach(function (x) { if (x.t <= t) st = x.st; });
+      var k = STEP_OF[st] || null; if (st === 'cooling' && kind === 'combo') k = 'dry';
+      return k;
+    };
+    for (var b0 = start, last = null; b0 < now; b0 += step) {
+      var b1 = Math.min(now, b0 + step), sum = 0;
+      while (j + 1 < pts.length && pts[j + 1].t <= b0) j++;
+      for (var q = j; q < pts.length && pts[q].t < b1; q++) {
+        var a = Math.max(b0, pts[q].t), z = Math.min(b1, q + 1 < pts.length ? pts[q + 1].t : b1);
+        if (z > a) sum += pts[q].v * (z - a);
+      }
+      var w = sum / Math.max(1, b1 - b0), k = stepAt((b0 + b1) / 2) || last || (STEPS[kind] || STEPS.washer)[0];
+      last = k; peak = Math.max(peak, w);
+      bins.push({ t0: b0, t1: b1, w: w, k: k });
+    }
+    return { start: start, end: Math.max(o.ends || now, now), now: now, bins: bins, kwh: kwh, peak: peak, watts: live };
+  }
   global.hkLaundry = {
+    settingsOf: settingsOf, trace: trace,
     STATES: STATES, RUNNING: RUNNING, ROLES: ROLES, WORDS: WORDS, STEPS: STEPS, STEP_OF: STEP_OF, STEP_COLORS: STEP_COLORS, NAMES: NAMES, KIND_NAMES: KIND_NAMES,
     HELD: HELD, CLEAR: 'laundry_done_clear', tidy: tidy, word: word, found: found, machines: machines, byId: byId, areaOf: areaOf, stateOf: stateOf,
     look: look, lookAll: lookAll, open: open, dur: dur, placed: placed, tile: tile, first: first, rank: rank, ids: ids, controls: controls, art: art, display: display, glyph: glyph,

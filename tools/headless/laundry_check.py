@@ -49,6 +49,12 @@ def extra(now: float, two: bool) -> dict:
         "sensor.dryer_current_status": ("laundry", ("drying", {"friendly_name": "Dryer Current Status", "device_class": "enum",
                                                                "options": ["power_off", "drying", "cooling", "wrinkle_care", "end", "error"]})),
         "sensor.dryer_remain": ("laundry", (iso(now + 52 * 60 + 20), {"friendly_name": "Dryer Remaining Time", "device_class": "timestamp"})),
+        # the cycle's settings, the washer's own selects (Extra Large's line under the finish)
+        "select.washer_water_temperature": ("laundry", ("cold", {"friendly_name": "Washer Water Temperature", "options": ["tap_cold", "cold", "warm", "hot"]})),
+        "select.washer_spin_level": ("laundry", ("extra_high", {"friendly_name": "Washer Spin Level", "options": ["no_spin", "low", "medium", "high", "extra_high"]})),
+        "select.washer_soil_level": ("laundry", ("normal", {"friendly_name": "Washer Soil Level", "options": ["light", "normal", "heavy"]})),
+        # an energy monitor's channel for the laundry circuit (this load's power on Large and Extra Large)
+        "sensor.laundry_circuit_power": ("laundry", ("451" if two else "1840", {"friendly_name": "Laundry Circuit Power", "device_class": "power", "unit_of_measurement": "W"})),
         # (the Vacuum block, flipped the same way: its words and its drawing measured apart too)
         "vacuum.downstairs": ("laundry", ("docked", {"friendly_name": "Downstairs Vacuum", "battery_level": 92, "supported_features": 16383})),
     }
@@ -57,9 +63,26 @@ def extra(now: float, two: bool) -> dict:
 
 WASHER = {"id": "washer", "name": "Washer", "kind": "combo", "area": "laundry", "watts": 10, "status": "sensor.washer_machine_state",
           "phase": "sensor.washer_job_state", "time": "sensor.washer_completion_time", "progress": "sensor.washer_progress",
-          "remote": "binary_sensor.washer_remote_control", "leak": "binary_sensor.laundry_leak"}
+          "remote": "binary_sensor.washer_remote_control", "leak": "binary_sensor.laundry_leak", "power": "sensor.laundry_circuit_power"}
 DRYER = {"id": "dryer", "name": "Dryer", "kind": "dryer", "area": "laundry", "watts": 10, "status": "sensor.dryer_current_status",
          "time": "sensor.dryer_remain", "leak": "binary_sensor.laundry_leak"}
+
+
+def history(now: float, two: bool) -> dict:
+    """This load as the recorder kept it: the washer stopped, then run; its steps; its watts a minute apart (heat while it dries)."""
+    began = now - (40 if two else 130) * 60
+    marks = [(0, "wash"), (20, "rinse"), (32, "spin")] if two else [(0, "wash"), (35, "rinse"), (50, "spin"), (64, "drying")]
+    out = {"sensor.washer_machine_state": [{"s": "stop", "lu": began - 3 * 3600}, {"s": "run", "lu": began}],
+           "sensor.washer_job_state": [{"s": "none", "lu": began - 3 * 3600}] + [{"s": s, "lu": began + m * 60} for m, s in marks]}
+    watts, t = [{"s": "0", "lu": began - 3 * 3600}], began
+    while t < now:
+        m = (t - began) / 60
+        step = [s for at, s in marks if at <= m][-1]
+        w = {"wash": 260 if int(m) % 3 == 0 else 120, "rinse": 180 if int(m) % 3 == 0 else 90, "spin": 520, "drying": 1700 if int(m) % 9 else 900}[step]
+        watts.append({"s": str(w), "lu": t})
+        t += 60
+    out["sensor.laundry_circuit_power"] = watts
+    return out
 
 
 def every_size(cell: str) -> dict:
@@ -89,6 +112,20 @@ async def run(shots: Path | None, engines: list[str], only: list[str], two: bool
     if not any(a == "laundry" for a, _, _ in gallery.ROOMS):
         gallery.ROOMS.append(("laundry", "Laundry", "main"))
     gallery.HOUSE.update(extra(gallery.NOW, two))
+    rows, base = history(gallery.NOW, two), gallery.OfflineReads.__dict__.get('_la_base', gallery.OfflineReads.request)
+
+    async def request(self, msg):
+        if msg.get("type") == "history/history_during_period" and any(i in rows for i in msg.get("entity_ids") or []):
+            start = dt.datetime.fromisoformat(msg["start_time"].replace("Z", "+00:00")).timestamp()
+            out = {}
+            for i in msg.get("entity_ids") or []:
+                r = rows.get(i) or []
+                held = [x for x in r if x["lu"] <= start][-1:]
+                out[i] = [{"s": x["s"], "lu": max(start, x["lu"])} for x in held] + [x for x in r if x["lu"] > start]
+            return out
+        return await base(self, msg)
+    gallery.OfflineReads._la_base = base
+    gallery.OfflineReads.request = request     # (the reads a non-showcase gallery answers with; GalleryReads inherits it)
     gallery.SETTINGS["settings"]["features"]["laundry"] = [WASHER | ({"kind": "washer"} if two else {}), DRYER] if two else [WASHER]
     gallery.SETTINGS["boards"]["la-square"] = board(every_size("square"))
     gallery.SETTINGS["boards"]["la-tiles"] = board(every_size("tile"))
