@@ -711,6 +711,8 @@ Build, release and check tools.
   - `products_table.py` — Copy the products table (tools/products_table.md) into every page that shows it, or check that they match.
   - `publish_ha_apps.py` — Write Mantel's Home Assistant add-on repository (the `ha-apps` branch).
   - `release_house.py` — Put a release on the house and publish it
+  - `rewrap.cjs`
+  - `rewrap.py` — Break lines over 200 characters in JavaScript and Python WITHOUT changing what the code does, and prove it (phase 24, A4; docs/phase24/CLEAN-CODE.m...
   - `route_probe.py` — The route probe (phase 18, docs/phase18/CODE-HEALTH.md, "Zero behavior change
   - `route_table.py` — Mantel Server's route table (phase 18, Part A; hosts/server/mantel_server/route_table.py).
   - `split_js.cjs`
