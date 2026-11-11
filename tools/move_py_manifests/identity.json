@@ -1,5 +1,23 @@
 {
   "package": "identity",
   "why": "Who is signed in and what they may do: accounts, sessions, sign-in pages, roles and permissions, service accounts, the door key, Cloudflare Access, pins",
-  "modules": ["accounts", "auth", "authz", "rbac", "rbac_store", "sessions", "login_page", "door_key", "cf_access", "guards", "service_accounts", "pins"]
+  "modules": [
+    "accounts",
+    "auth",
+    "authz",
+    "rbac",
+    "rbac_store",
+    "sessions",
+    "login_page",
+    "door_key",
+    "cf_access",
+    "guards",
+    "service_accounts",
+    "pins"
+  ],
+  "checked": {
+    "rbac_store": "its migration is found through the package (files(\"mantel_server\")) since 82ec3492",
+    "service_accounts": "its migration is found through the package (files(\"mantel_server\")) since 82ec3492",
+    "login_page": "reads files(\"mantel_server\"): the package's own folder, wherever this module sits"
+  }
 }
