@@ -430,9 +430,9 @@ Mantel Server.
 
 - **hosts/server/mantel_server/**
   - `__main__.py`
+  - `_moved.py` — The old paths of modules that moved into packages, importable for one release (tools/move_py.py, phase 25).
   - `about.py` — Mantel Settings -> About
   - `accessories.py` — ACCESSORY SETTINGS, MANTEL'S SIDE
-  - `accounts.py` — Accounts
   - `admin_page.py` — Mantel Server's admin page
   - `alarm_pin.py` — HK's Alarm PIN in Mantel (docs/phase3/PINS-AUDIT.md "The alarm keypad", docs/phase3/GATEWAY.md "The alarm", docs/phase4/MANTEL-FEATURES.md).
   - `announce.py` — Mantel on the network, by zeroconf (docs/phase9/MANTEL-LINK.md "Discovery and pairing", slice 9.5).
@@ -444,12 +444,9 @@ Mantel Server.
   - `app_shell.py` — Phase 10
   - `atrest.py` — Secrets at rest
   - `audit.py` — The one way a settings or account change is written to the audit log (Rules.md rule 3 and rule 7).
-  - `auth.py` — Sign in with Home Assistant, and the middleware that puts /dev, /api and /ws behind a sign-in.
-  - `authz.py` — P3.7 wiring
   - `backup.py` — Encrypted backups of Mantel's database (and uploaded files), and a restore that checks before it swaps.
   - `camera_setup.py` — RTSP CAMERAS
   - `cameras_direct.py` — DIRECT CAMERA SOURCES (docs/phase13/CAMERAS-DIRECT.md "The design -> Camera sources", phase 3).
-  - `cf_access.py` — Cloudflare Access in front of the tunnel
   - `config.py`
   - `connect_pairing.py` — Mantel Connect, Mantel Server's side
   - `connect_proof.py` — Separate TLS identity-only receiver.
@@ -461,14 +458,12 @@ Mantel Server.
   - `direct.py` — HA App direct access (decision 26; docs/phase3/HA-APP.md "Direct access")
   - `direct_tls.py` — Built-in HTTPS for the HA App's direct access (decision 26; docs/phase3/HA-APP.md "Built-in HTTPS").
   - `docs_pages.py` — /docs
-  - `door_key.py` — The per-install door key for "bring your own reverse proxy".
   - `dry_run.py` — A dry run
   - `faces.py` — WHERE THE FACES ARE
   - `feature_pages.py` — HK Settings -> Features on Mantel
   - `feature_watch.py` — Two of HK's clock-driven features on Mantel, through MantelHouse and FeatureCaller (docs/phase4/MANTEL-FEATURES.md "Phase 4 ports").
   - `frame_origins.py` — Which pages may show Mantel in a frame (CSP ``frame-ancestors``)
   - `gateway.py` — The command gateway (PLAN §4 "Command gateway", §5, §7)
-  - `guards.py` — Every route declares its guard (Rules.md rule 7).
   - `ha_client.py` — Read-only connection to Home Assistant's WebSocket API.
   - `ha_dashboards.py` — Mantel's screens in Home Assistant's sidebar
   - `ha_oauth.py` — 'Sign in with Home Assistant'
@@ -490,7 +485,6 @@ Mantel Server.
   - `linked_settings.py` — HK's settings for a linked HK Frontend (decision 29, docs/phase9/TWO-PRODUCTS.md "one copy of the settings").
   - `live.py` — One lifecycle for long-lived connections
   - `live_tv.py` — LIVE TV SERVED BY MANTEL (docs/phase4/FEATURE-PARITY.md "Live TV served by Mantel"; PLAN §8, §10, Proof 4).
-  - `login_page.py` — Mantel Server's sign-in page
   - `ma_page.py` — The token for the Music Assistant page
   - `mcp_parity.py` — MCP parity (phase 18, A6)
   - `media_proxy.py` — Music Assistant's web app and go2rtc, served under Mantel's own address (``/ma/…``, ``/go2rtc/…``).
@@ -513,15 +507,12 @@ Mantel Server.
   - `performance.py` — PERFORMANCE (2026-10-26)
   - `phones.py` — Mantel's notifications on people's phones, through Home Assistant's Companion app (docs/phase9/MANTEL-LINK.md 9.7).
   - `photos.py` — MANTEL PHOTOS
-  - `pins.py` — A person's PIN, and the alarm keypad's lockout counters.
   - `protect_api.py` — UNIFI PROTECT'S PUBLIC API, AS MANTEL'S OWN CLIENT (docs/phase13/CAMERAS-DIRECT.md, phase 4
   - `protect_connector.py` — THE UNIFI PROTECT CONNECTOR (docs/phase13/CAMERAS-DIRECT.md, phase 4, and phase 5's wiring of direct talk).
   - `proxy_check.py` — "Test my proxy"
   - `proxy_trust.py` — Who may tell Mantel about the browser
   - `push.py` — Notifications off the screens
   - `qr.py` — A small QR code encoder (byte mode, error correction M, versions 1 to 20) for the apps' pairing code.
-  - `rbac.py` — Roles and grants (PLAN §5, §7)
-  - `rbac_store.py` — Storage for roles and grants (P3.2), over a plain `sqlite3.Connection`, and the Owner-only REST.
   - `readproxy.py` — ReadProxy
   - `registry.py` — Area/device/entity registry index
   - `registry_feed.py` — Registry changes reach open pages (Phase 6).
@@ -530,8 +521,6 @@ Mantel Server.
   - `security_headers.py` — Mantel's own security headers, on every response, whatever proxy is (or is not) in front of it.
   - `server.py` — Client-facing side
   - `server_settings.py` — Mantel's own settings that used to be start-up options, now in Mantel Settings (the same on the HA App, Docker and LXC; docs/phase3/HA-APP.md 0.1.52).
-  - `service_accounts.py` — Service accounts (PLAN §5 "Service"
-  - `sessions.py` — Sessions and the identity of a request (PLAN §7 "Identity and sessions").
   - `setup_check.py` — HK Settings' Setup Check on Mantel
   - `setup_guide.py` — Set Up Mantel
   - `socket_reads.py` — The socket's doors in the route table (phase 18, A8)
@@ -581,6 +570,19 @@ Mantel Server.
   - `settings.py` — The feature settings of Mantel's features
   - `sleep.py` — The Sleep Screen on Mantel
   - `tv_fetch.py` — Live TV's fetching
+- **hosts/server/mantel_server/identity/**
+  - `accounts.py` — Accounts
+  - `auth.py` — Sign in with Home Assistant, and the middleware that puts /dev, /api and /ws behind a sign-in.
+  - `authz.py` — P3.7 wiring
+  - `cf_access.py` — Cloudflare Access in front of the tunnel
+  - `door_key.py` — The per-install door key for "bring your own reverse proxy".
+  - `guards.py` — Every route declares its guard (Rules.md rule 7).
+  - `login_page.py` — Mantel Server's sign-in page
+  - `pins.py` — A person's PIN, and the alarm keypad's lockout counters.
+  - `rbac.py` — Roles and grants (PLAN §5, §7)
+  - `rbac_store.py` — Storage for roles and grants (P3.2), over a plain `sqlite3.Connection`, and the Owner-only REST.
+  - `service_accounts.py` — Service accounts (PLAN §5 "Service"
+  - `sessions.py` — Sessions and the identity of a request (PLAN §7 "Identity and sessions").
 - **hosts/server/mantel_server/intercom/**
   - `driver.py` — THE BROADCAST DRIVER (docs/phase17/INTERCOM.md "Concurrency", "Automatic fallback")
   - `host.py` — THE INTERCOM ON MANTEL (docs/phase17/INTERCOM.md), ``app["intercom"]``

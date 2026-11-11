@@ -38,7 +38,7 @@ from aiohttp import web
 
 from hk_core.notifications.const import SNAP_MAX, SNAP_TIMEOUT_S, SNAP_TTL_S
 
-from .guards import guard
+from .identity.guards import guard
 
 log = logging.getLogger("mantel.notify_snaps")
 

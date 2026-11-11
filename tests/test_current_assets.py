@@ -4,7 +4,7 @@ import json
 import pytest
 from aiohttp.test_utils import TestClient, TestServer
 
-from mantel_server.auth import SESSION_COOKIE
+from mantel_server.identity.auth import SESSION_COOKIE
 from mantel_server.config import Config, REPO
 from mantel_server.server import build_app
 from mantel_server.store import Store

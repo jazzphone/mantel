@@ -67,8 +67,8 @@ from typing import Any, Callable
 import aiohttp
 from aiohttp import WSMsgType, web
 
-from .authz import Principal
-from .guards import guard
+from .identity.authz import Principal
+from .identity.guards import guard
 from .ha_client import TALK_LIVE_TYPE, TALK_RATES, CommandBlocked, CommandTicket, HaCommandError, talk_frame_max
 
 log = logging.getLogger("mantel.talk")

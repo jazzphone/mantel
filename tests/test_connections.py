@@ -346,7 +346,7 @@ async def test_the_tunnel_door_needs_a_fresh_factor(envs):
 def test_the_ha_door_counts_has_sign_in_only_when_the_sidebar_is_trusted():
     from types import SimpleNamespace
 
-    from mantel_server.sessions import Identity, User
+    from mantel_server.identity.sessions import Identity, User
     owner_ = User(id="u1", name="Avery", role="owner", kind="ha_linked", username=None, ha_user_id="h1")
 
     def rule(door, trusted, fresh=None):

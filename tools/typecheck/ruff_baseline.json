@@ -6,7 +6,7 @@
   "hosts/server/mantel_connect/pki.py": 1,
   "hosts/server/mantel_server/app_auth.py": 1,
   "hosts/server/mantel_server/app_crypto.py": 1,
-  "hosts/server/mantel_server/auth.py": 1,
+  "hosts/server/mantel_server/identity/auth.py": 1,
   "hosts/server/mantel_server/connect_pairing.py": 1,
   "hosts/server/mantel_server/feature_pages.py": 1,
   "hosts/server/mantel_server/features/__init__.py": 55,

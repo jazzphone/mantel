@@ -19,7 +19,10 @@ def stage_receiver(output: Path):
     code = source.parents[1] / "hosts/server"
     output.mkdir(parents=True, exist_ok=False)
     (output / "mantel_server").mkdir()
-    for name in ("__init__.py", "config.py", "store.py", "db.py", "guards.py", "sessions.py", "connect_proof.py"):
+    # (guards and sessions are in identity/ since phase 25; _moved.py keeps the old paths for a release)
+    (output / "mantel_server/identity").mkdir()
+    for name in ("__init__.py", "_moved.py", "config.py", "store.py", "db.py", "identity/__init__.py", "identity/guards.py",
+                 "identity/sessions.py", "connect_proof.py"):
         shutil.copyfile(code / "mantel_server" / name, output / "mantel_server" / name)
     shutil.copytree(code / "mantel_server/migrations", output / "mantel_server/migrations",
                     ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))

@@ -8,8 +8,9 @@ from aiohttp.test_utils import TestClient, TestServer
 from argon2 import PasswordHasher
 
 from conftest import Mantel
-from mantel_server import db, service_accounts
-from mantel_server.service_accounts import ServiceAccountError, ServiceAccounts
+from mantel_server import db
+from mantel_server.identity import service_accounts
+from mantel_server.identity.service_accounts import ServiceAccountError, ServiceAccounts
 
 
 @pytest.fixture

@@ -102,7 +102,7 @@ async def test_nobody_else_can_claim_the_lan_door(byo):
 
 
 async def test_forwarded_client_address_only_from_the_proxy(byo):
-    from mantel_server import sessions
+    from mantel_server.identity import sessions
     status, _ = await password(byo, PROXY, {"X-Mantel-Door": "lan", "X-Forwarded-For": "203.0.113.1, 192.168.1.40"})
     assert status == 200
     ips = {r["source_ip"] for r in byo.store.db.execute("SELECT source_ip FROM sessions")}
@@ -137,7 +137,7 @@ def test_every_forwarded_for_line_counts_not_the_first_only():
     only the first, the browser chose its own address (a fresh one per try past the sign-in limit)."""
     from multidict import CIMultiDict
 
-    from mantel_server import sessions
+    from mantel_server.identity import sessions
     headers = CIMultiDict([("X-Forwarded-For", "10.9.9.9"), ("X-Forwarded-For", "203.0.113.50")])
     assert sessions.client_ip(mocked(PROXY, headers, trusted_proxies=(PROXY,))) == "203.0.113.50"
 

@@ -58,7 +58,7 @@ async def link_socket(env, header=READS):
 # -- the registry itself --------------------------------------------------------------------------------------
 async def test_a_revocation_ends_only_what_it_names_within_one_turn_of_the_loop():
     from mantel_server.live import Live
-    from mantel_server.sessions import Device, Identity, User
+    from mantel_server.identity.sessions import Device, Identity, User
     live = Live()
     ended = []
     a = Identity(user=User(id="u-avery", name="Avery", role="owner", kind="local"), device=None, door="lan", session_id="s-1")

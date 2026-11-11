@@ -8,7 +8,7 @@ import pytest
 from mantel_server import accessories as ACC
 from mantel_server import settings_store as S
 from mantel_server.connectors import Ctx
-from mantel_server.sessions import Device, Identity, User
+from mantel_server.identity.sessions import Device, Identity, User
 from test_mantel_reads import ADMIN, ADULT, OWNER, env, read  # noqa: F401 -- the fixture
 
 

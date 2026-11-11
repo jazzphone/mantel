@@ -51,7 +51,7 @@ def path_for(row) -> str | None:
 def hidden_from(m, ident) -> tuple[str, ...]:
     """The secrets this identity may not view, by the app's own policy (an id and its name go together); the area's
     name and id are hidden when nothing in it may be viewed."""
-    from mantel_server.authz import Principal
+    from mantel_server.identity.authz import Principal
     authz = m.app["authz"]
     p = Principal(ident, authz.subject_of(ident))
     out: list[str] = []
@@ -99,7 +99,7 @@ async def test_a_wall_tablet_reads_nothing_it_may_not_view_from_any_view_read(ma
     mantel.set_cookies(mantel_device=cookie)
     me = await (await mantel.get("/api/session")).json()
     assert me.get("device") is not None and me.get("user") is None, me
-    from mantel_server.sessions import Device, Identity
+    from mantel_server.identity.sessions import Device, Identity
     d = got["device"]
     hidden = hidden_from(mantel, Identity(None, Device(d["id"], d["name"], d["role"], d["room"]), "lan"))
     assert "lock.vault_door" in hidden and "media_player.vault_speaker" in hidden, hidden

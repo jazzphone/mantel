@@ -206,7 +206,7 @@ def service(domain: str, svc: str, eid: str) -> dict:
 
 # -- the run -------------------------------------------------------------------------------------------
 async def run(token: str) -> dict:
-    from mantel_server.accounts import totp
+    from mantel_server.identity.accounts import totp
     from mantel_server.config import Config
     from mantel_server.server import build_app
     from mantel_server.store import Store

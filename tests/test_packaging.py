@@ -642,7 +642,7 @@ def test_entrypoint_gives_passkeys_the_public_urls_name(tmp_path):
 
     from aiohttp import web as aioweb
 
-    from mantel_server.accounts import passkey_origin
+    from mantel_server.identity.accounts import passkey_origin
     from mantel_server.config import parse_args
     none = tmp_path / "none"
     args, _ = entrypoint.plan([], {"MANTEL_PUBLIC_URL": "https://Mantel.Example.com:8443/"}, options_path=none)
@@ -691,7 +691,7 @@ def test_behind_caddy_the_lan_door_is_recognised_only_from_caddys_address():
     header from any other peer (or no flag) is the tunnel door."""
     from types import SimpleNamespace
 
-    from mantel_server.authz import resolve_door
+    from mantel_server.identity.authz import resolve_door
     from mantel_server.config import parse_args
     args, _ = entrypoint.plan([], {"MANTEL_HA_URL": "http://ha.local:8123", "MANTEL_PUBLIC_URL": "https://m.example/",
                                    "MANTEL_TRUSTED_PROXY": "172.31.251.2"}, options_path=Path("/nonexistent"))
@@ -831,7 +831,8 @@ async def test_version_endpoint_and_build_id(health_client, monkeypatch, tmp_pat
 
 
 async def test_health_paths_are_exempt_from_sign_in():
-    from mantel_server import auth, health
+    from mantel_server.identity import auth
+    from mantel_server import health
     health.register(web.Application(), FakeHub())
     assert set(health.PUBLIC_PATHS) <= auth.PUBLIC_PATHS
 

@@ -18,7 +18,7 @@ from live_tv_fakes import ANSWER, CANDIDATE, FRAME, FakeGo2rtc
 from mantel_server import cameras_direct as D
 from mantel_server import features as F
 from mantel_server import live_tv as L
-from mantel_server.rbac import Grant
+from mantel_server.identity.rbac import Grant
 from mantel_server.settings_store import Actor
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools/e2e"))
@@ -479,7 +479,7 @@ async def test_children_guests_and_the_tunnel_are_refused_as_for_ha_cameras(rig)
         await ws.close()
     assert r.go2rtc.calls == [], "nothing reached go2rtc"
     # Cameras from Outside off for Adults: the tunnel refuses a direct camera as it does HA's
-    from mantel_server.accounts import totp
+    from mantel_server.identity.accounts import totp
     m = r.env.m
     await r.env.login("adult1", "adult")
     seed = await r.env.enroll_totp()

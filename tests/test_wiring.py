@@ -9,7 +9,7 @@ from aiohttp.test_utils import make_mocked_request
 
 from gateway_fakes import gw, off, recv  # noqa: F401 -- fixtures
 from mantel_server import server
-from mantel_server.authz import resolve_door
+from mantel_server.identity.authz import resolve_door
 from mantel_server.config import Config
 
 
@@ -258,7 +258,7 @@ async def test_the_context_always_has_the_exact_time(off):
     off.now[0] = 1_000_000.7
     ctx = authz.context()
     assert ctx.now == 1_000_000.7 and ctx.tz == authz.tz
-    from mantel_server.rbac import Subject
+    from mantel_server.identity.rbac import Subject
     adult = Subject(user_role="adult", user_id="u1", fresh_factor_at=1_000_000.6)
     assert authz.decide(adult, "lock.unlock", "lock.front_door").allowed
 
@@ -363,7 +363,7 @@ async def test_the_house_time_zone_is_asked_for_until_home_assistant_answers(off
 async def test_a_room_given_to_a_child_reaches_their_open_screen_at_once(off):
     """A room scope is part of the subject; notify_sessions re-filtered with the principal's old scope, so a room
     given (or taken away) showed only at the next minute's tick."""
-    from mantel_server.rbac_store import notify_sessions
+    from mantel_server.identity.rbac_store import notify_sessions
     await off.login("cody", "child")
     ws = await off.socket(expect_caps=False)
     snap = await subscribe_all(ws)

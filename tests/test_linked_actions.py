@@ -61,7 +61,7 @@ async def test_clean_areas_with_commands_on_as_mantel_linked(make_env):
 
 async def test_an_owner_s_deny_on_mantel_linked_wins(make_env):
     env = await make_env(commands=True, settings=ON)
-    from mantel_server.rbac import Grant
+    from mantel_server.identity.rbac import Grant
     env.app["rbac"].add_grant(Grant(effect="deny", actions=("control",), resource_kind="entity", resource=VACUUM,
                           users={"mantel:linked"}))
     c = await link(env)

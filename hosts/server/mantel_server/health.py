@@ -26,7 +26,7 @@ import urllib.request
 from aiohttp import web
 
 from .config import REPO
-from .guards import WHY_PUBLIC, open_route
+from .identity.guards import WHY_PUBLIC, open_route
 
 PUBLIC_PATHS = ("/healthz", "/api/version")
 _STARTED = time.monotonic()
@@ -70,7 +70,7 @@ def register(app: web.Application, hub) -> None:
     app.router.add_get("/api/version", version)
     # The sign-in middleware (auth.require_session) lets these through; if the accounts slice moves
     # that list, it must keep PUBLIC_PATHS above exempt.
-    from . import auth
+    from .identity import auth
     exempt = getattr(auth, "PUBLIC_PATHS", None)
     if isinstance(exempt, set):
         exempt.update(PUBLIC_PATHS)

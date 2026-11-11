@@ -25,7 +25,7 @@ def bootstrap(store: Store, port: int) -> int:
     server logged at start; the server logs no other until this one expires."""
     import time
 
-    from .accounts import BOOTSTRAP_TTL, Accounts, PolicyError
+    from .identity.accounts import BOOTSTRAP_TTL, Accounts, PolicyError
     from .atrest import SecretBox
     try:
         token = Accounts(store.db, SecretBox(), time.time).issue_bootstrap_token()
@@ -128,13 +128,13 @@ def main(argv: list[str] | None = None) -> int:
         from .user_files import cli_files
         return cli_files(argv[1:])
     if argv and argv[0] == "service-account":
-        from .service_accounts import cli as service_cli
+        from .identity.service_accounts import cli as service_cli
         return service_cli(argv[1:])
     if argv and argv[0] == "connect":
         from .connect_pairing import cli as connect_cli
         return connect_cli(argv[1:])
     if argv and argv[0] == "door-key":
-        from .door_key import cli as door_key_cli
+        from .identity.door_key import cli as door_key_cli
         return door_key_cli(argv[1:])
     if argv and argv[0] == "connect-proof":
         from .connect_proof import main as connect_main

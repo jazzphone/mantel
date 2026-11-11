@@ -47,7 +47,7 @@ from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 
-from .app_crypto import unb64u
+from ..app_crypto import unb64u
 
 log = logging.getLogger("mantel.cf_access")
 
@@ -334,7 +334,8 @@ def register(app: web.Application, fetch: Fetch | None = None) -> None:
 
 def applies(request: web.Request) -> bool:
     """Does this request need an assertion? The tunnel door only; HA's Ingress never (the 'ha' door)."""
-    from . import ingress, sessions
+    from .. import ingress
+    from . import sessions
     if ingress.is_ingress(request):
         return False
     return sessions.door_of(request) == "tunnel"

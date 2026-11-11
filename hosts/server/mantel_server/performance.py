@@ -36,7 +36,7 @@ from typing import Any
 from aiohttp import web
 
 from . import page_health
-from .guards import guard
+from .identity.guards import guard
 
 log = logging.getLogger("mantel.performance")
 
@@ -190,7 +190,7 @@ def tablets(app: web.Application) -> list[dict]:
     screens it shows (the one its frame rate was drawn on, then the one it opens on) and the style it was drawn with.
     A revoked or forgotten tablet is left out."""
     from . import default_screens
-    from .sessions import Device
+    from .identity.sessions import Device
     mgr = app.get("devices")
     out = []
     secure = {r["id"]: r["secure"] for r in page_health.RING.secure_reports()}

@@ -6,7 +6,7 @@ one breaks.
 """
 from __future__ import annotations
 
-from mantel_server.guards import Guard, OpenRoute
+from mantel_server.identity.guards import Guard, OpenRoute
 
 
 def test_a_guard_spec_refuses_a_contradiction():

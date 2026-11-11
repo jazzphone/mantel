@@ -11,7 +11,7 @@ from aiohttp import web
 from aiohttp.test_utils import TestServer
 
 from gateway_fakes import HOUSE_AREAS, HOUSE_ENTITIES, gw, off, recv  # noqa: F401 -- fixtures
-from mantel_server.accounts import totp
+from mantel_server.identity.accounts import totp
 from mantel_server.gateway import Refused, classify, load_writes
 from mantel_server.ha_client import (UPLOAD_MAX_BYTES, CommandBlocked, CommandTicket, HaCommander, check_upload)
 from mantel_server.server import COMMANDS_DISABLED
@@ -163,7 +163,7 @@ async def test_on_the_tunnel_the_roles_switches_apply(gw):
 
 async def test_a_guest_with_a_speaker_grant_never_talks_over_the_tunnel(gw):
     add_speaker(gw)
-    from mantel_server.rbac import Grant
+    from mantel_server.identity.rbac import Grant
     await gw.login("gwen", "guest")
     uid = gw.app["store"].db.execute("SELECT id FROM users WHERE username = 'gwen'").fetchone()[0]
     gw.app["rbac"].add_grant(Grant(effect="allow", actions=("control",), resource_kind="entity",

@@ -8,7 +8,7 @@ import pytest
 
 from gateway_fakes import HOUSE_AREAS, HOUSE_ENTITIES, gw, off, recv, service  # noqa: F401 -- fixtures
 from mantel_server import gateway
-from mantel_server.accounts import totp
+from mantel_server.identity.accounts import totp
 from mantel_server.gateway import Refused, classify, load_writes
 from mantel_server.ha_client import CommandBlocked, CommandTicket, check_command, check_http
 from mantel_server.server import COMMANDS_DISABLED
@@ -136,7 +136,7 @@ async def test_a_child_is_still_refused_the_lock_and_the_garage_by_role(gw):
 
 
 async def test_an_owners_deny_grant_still_wins(gw):
-    from mantel_server.rbac import Grant
+    from mantel_server.identity.rbac import Grant
     await gw.login("jordan", "adult")
     gw.app["rbac"].add_grant(Grant(effect="deny", actions=("control.sensitive",), resource_kind="entity",
                                    resource="lock.front_door", users={gw.app["store"].db.execute(
@@ -448,7 +448,7 @@ async def test_a_guest_on_the_tunnel_never_gets_a_prompt_for_a_lock(gw):
     db = gw.app["store"].db
     await gw.login("gwen", "guest")
     uid = db.execute("SELECT id FROM users WHERE username = 'gwen'").fetchone()[0]
-    from mantel_server.rbac import Grant
+    from mantel_server.identity.rbac import Grant
     gw.app["rbac"].add_grant(Grant(effect="allow", actions=("control", "control.sensitive"), resource_kind="entity",
                                    resource="lock.front_door", users={uid}))
     seed = await gw.enroll_totp()
@@ -547,7 +547,7 @@ async def test_a_garage_that_appears_after_a_reconnect_is_still_a_garage(gw):
     """The state store replaces its dict on every reconnect (state.replace_all); device_class must come from
     the current one, or a Guest could open a garage door Home Assistant first reports after a restart."""
     from gateway_fakes import STATES
-    from mantel_server.rbac import Subject
+    from mantel_server.identity.rbac import Subject
     authz, hub = gw.app["authz"], gw.app["hub"]
     authz.context()
     hub.registry.load(HOUSE_AREAS, [], HOUSE_ENTITIES + [{"entity_id": "cover.garage_2", "area_id": "kitchen"}])

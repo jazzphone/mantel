@@ -26,7 +26,7 @@ from aiohttp import web
 
 from hk_core import tv as T
 
-from .guards import guard
+from .identity.guards import guard
 
 log = logging.getLogger("mantel.tv")
 

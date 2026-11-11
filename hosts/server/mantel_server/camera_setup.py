@@ -82,13 +82,13 @@ from aiohttp import web
 from hk_core.notifications import accessories as NA
 from . import audit
 from . import cameras_direct as D
-from .accounts import read_json
+from .identity.accounts import read_json
 from .connections import edit_rule, live_ha
-from .guards import guard
-from .guards import ident as guarded
+from .identity.guards import guard
+from .identity.guards import ident as guarded
 from .house import MantelHouse
 from .live_tv import Go2rtcError
-from .sessions import error, ok
+from .identity.sessions import error, ok
 
 log = logging.getLogger("mantel.camera_setup")
 

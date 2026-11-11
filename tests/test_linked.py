@@ -11,7 +11,8 @@ from aiohttp import WSMsgType
 from aiohttp.test_utils import TestClient, TestServer
 from argon2 import PasswordHasher
 
-from mantel_server import linked, service_accounts
+from mantel_server import linked
+from mantel_server.identity import service_accounts
 from mantel_server.linked import LinkedError, LinkedHooks, LinkedRegistry, MemoryHandler, check_entity
 
 ENTRY = "01JFICTIONALHOUSE000000000"

@@ -23,7 +23,7 @@ from typing import Any
 
 from aiohttp import web
 
-from .. import sessions
+from ..identity import sessions
 from .config import READS_PER_MINUTE
 from .grants import MANAGERS, PREFIX, Grant
 

@@ -1,4 +1,4 @@
-"""The sign-in page (`mantel_server/login_page.py`, `static/login/`): what is served and to whom, the CSP
+"""The sign-in page (`mantel_server/identity/login_page.py`, `static/login/`): what is served and to whom, the CSP
 (no inline script), the `next` sanitiser (Python and the page's JS on one table), signed-out redirects,
 and the password -> TOTP and passkey flows driven through the endpoints the page uses. Fictional users,
 temp databases, no HA."""
@@ -15,9 +15,9 @@ from pathlib import Path
 import pytest
 
 from conftest import PASSWORD
-from mantel_server import login_page
-from mantel_server.accounts import totp
-from mantel_server.login_page import DEFAULT_NEXT, login_url, safe_next
+from mantel_server.identity import login_page
+from mantel_server.identity.accounts import totp
+from mantel_server.identity.login_page import DEFAULT_NEXT, login_url, safe_next
 from test_accounts import seed_of
 from test_passkeys import SoftAuthenticator, localhost, register
 

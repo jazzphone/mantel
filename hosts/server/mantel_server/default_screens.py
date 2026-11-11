@@ -27,10 +27,10 @@ from typing import Any
 from aiohttp import web
 
 from . import audit
-from .accounts import read_json
-from .guards import guard
-from .guards import ident as guarded
-from .sessions import Device, Identity, error, ok
+from .identity.accounts import read_json
+from .identity.guards import guard
+from .identity.guards import ident as guarded
+from .identity.sessions import Device, Identity, error, ok
 
 SCREEN = re.compile(r"^[A-Za-z0-9_]+-[A-Za-z0-9_-]{0,100}$")      # a board key, as server.py's screen routes take
 

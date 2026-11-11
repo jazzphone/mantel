@@ -450,7 +450,7 @@ async def test_the_linked_backlight_with_commands_on_goes_through_the_gateway(ma
     with pytest.raises(HouseCommandRefused):
         await env.host.house.call_service("homeassistant", "restart", {}, context="test")
     # an Owner's deny grant naming the Service actor wins
-    from mantel_server.rbac import Grant
+    from mantel_server.identity.rbac import Grant
     env.app["authz"].rbac.add_grant(Grant(effect="deny", actions=("*",), resource_kind="all", users={F.FEATURE_ACTOR}))
     with pytest.raises(HouseCommandRefused) as e:
         await env.host.house.call_service("light", "turn_on", {"entity_id": "light.kitchen"}, context="test")

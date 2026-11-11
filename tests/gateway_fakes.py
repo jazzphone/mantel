@@ -9,7 +9,7 @@ from aiohttp.test_utils import TestClient, TestServer
 from argon2 import PasswordHasher
 
 from conftest import Mantel
-from mantel_server.accounts import totp
+from mantel_server.identity.accounts import totp
 from mantel_server.ha_client import SERVER_WRITES, check_command, check_http, check_upload
 
 HOUSE_AREAS = [{"area_id": "kitchen", "name": "Kitchen"}, {"area_id": "cody_room", "name": "Cody's Room"},

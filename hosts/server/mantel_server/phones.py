@@ -27,8 +27,8 @@ from typing import Any
 from aiohttp import web
 
 from . import audit
-from .guards import guard
-from .guards import ident as guarded
+from .identity.guards import guard
+from .identity.guards import ident as guarded
 
 log = logging.getLogger("mantel.phones")
 
@@ -191,8 +191,8 @@ async def api_get(request: web.Request) -> web.Response:
 
 @guard("manager", audit="phones.set")
 async def api_put(request: web.Request) -> web.Response:
-    from .accounts import read_json
-    from .sessions import error
+    from .identity.accounts import read_json
+    from .identity.sessions import error
     ident = guarded(request)
     uid = request.match_info["id"]
     row = request.app["accounts"].get_user(uid)

@@ -36,8 +36,8 @@ from aiohttp import web
 from . import user_data as UD
 from .app_auth import app_route
 from .connectors import allowed_ids, may_feature
-from .guards import WHY_APP, open_route
-from .sessions import error, ok
+from .identity.guards import WHY_APP, open_route
+from .identity.sessions import error, ok
 
 MEDIA_PLAYER = re.compile(r"^media_player\.[a-z0-9_]+$")
 PROXY_ID = re.compile(r"^[0-9a-f]{64}$")

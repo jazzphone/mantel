@@ -19,7 +19,7 @@ from conftest import PASSWORD  # noqa: F401
 from gateway_fakes import off  # noqa: F401 -- fixture
 from test_features import make_env  # noqa: F401 -- fixture
 from test_accounts import seed_of
-from mantel_server.accounts import totp
+from mantel_server.identity.accounts import totp
 
 
 def rows(mantel, prefix: str) -> list[dict]:
@@ -254,7 +254,7 @@ async def test_linking_and_unlinking_a_wall_tablet_is_audited_before_it_changes(
 
 async def test_the_ingress_people_page_refuses_an_owner_at_a_wall_tablet(tmp_path, monkeypatch):
     """An Owner's session with a wall tablet's device beside it (a person at a tablet): Me only, as everywhere."""
-    from mantel_server import sessions
+    from mantel_server.identity import sessions
     from test_ingress_tablets import PAGE, TABLET_HA, make, owner_page, owner_user
     from mantel_server import ingress
     m = await make(tmp_path, monkeypatch)
@@ -424,7 +424,7 @@ async def test_connect_is_managed_where_service_credentials_are_a_trusted_sideba
     """connect_pairing's Owner rule is service_accounts' (authz.home_door): the LAN door, or HA's sidebar with the
     home rules (the HA App has no LAN door). The tunnel and an untrusted sidebar stay refused."""
     from aiohttp.test_utils import TestClient, TestServer
-    from mantel_server import sessions
+    from mantel_server.identity import sessions
     from mantel_server.config import Config
     from mantel_server.server import build_app
     from mantel_server.store import Store

@@ -13,11 +13,11 @@ import pytest
 
 from gateway_fakes import HOUSE_AREAS, HOUSE_ENTITIES, gw, off, service  # noqa: F401 -- fixtures
 from mantel_server import alarm_pin as A
-from mantel_server.accounts import totp
+from mantel_server.identity.accounts import totp
 from mantel_server.gateway import Refused, classify, load_writes
 from mantel_server.linked import LinkedError
-from mantel_server.pins import LOCK_AFTER, LOCK_SECONDS
-from mantel_server.sessions import Identity, User
+from mantel_server.identity.pins import LOCK_AFTER, LOCK_SECONDS
+from mantel_server.identity.sessions import Identity, User
 
 WRITES = load_writes()
 ALARM = "alarm_control_panel.house"              # the alarm itself (takes no code: Alarm PIN's case)
@@ -234,7 +234,7 @@ async def test_a_wall_tablet_uses_the_house_code_and_the_audit_names_the_tablet(
 async def test_an_owners_deny_grant_wins_over_the_keypad_grant(gw):
     await keypad(gw)
     device_id = await tablet(gw)
-    from mantel_server.rbac import Grant
+    from mantel_server.identity.rbac import Grant
     gw.app["rbac"].add_grant(Grant(effect="deny", actions=("control.sensitive",), resource_kind="entity",
                                    resource=ALARM, devices={device_id}))
     ws = await gw.socket()
@@ -389,7 +389,7 @@ async def _ha_door(gw, mode, monkeypatch):
     if gw.app["store"].db.execute("SELECT 1 FROM users WHERE username = 'kim'").fetchone() is None:
         await gw.m.user("kim", "adult")
     ident = Identity(User(uid(gw, "kim"), "Kim", "adult", "ha_linked"), None, "ha")
-    from mantel_server.authz import Principal
+    from mantel_server.identity.authz import Principal
     p = Principal(ident, authz.subject_of(ident), "172.30.32.2")
     got = []
 

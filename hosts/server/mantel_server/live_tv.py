@@ -77,7 +77,7 @@ from aiohttp import web
 
 from .connectors import (Ctx, Forbidden, Hooks, Route, allowed_ids, may_feature, read_routes, resolve, split_quality,
                          ws_handlers)
-from .guards import guard
+from .identity.guards import guard
 
 log = logging.getLogger("mantel.live_tv")
 

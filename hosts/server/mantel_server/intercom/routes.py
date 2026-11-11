@@ -26,11 +26,11 @@ from aiohttp import web
 from hk_core.intercom import config as C, rooms as R
 
 from .. import audit
-from ..accounts import read_json
+from ..identity.accounts import read_json
 from ..connectors import Ctx, may_feature, ws_handlers
-from ..guards import guard
-from ..guards import ident as guarded
-from ..sessions import error, ok
+from ..identity.guards import guard
+from ..identity.guards import ident as guarded
+from ..identity.sessions import error, ok
 from ..settings_store.hooks import actor_of
 from . import driver as D
 from .spool import Spool, tone_wav

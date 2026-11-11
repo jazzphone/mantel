@@ -19,7 +19,8 @@ from argon2 import PasswordHasher
 
 import gateway_fakes as GF
 from mantel_server import features as F
-from mantel_server import ingress, sessions
+from mantel_server import ingress
+from mantel_server.identity import sessions
 from test_ingress import ADULT_HA, OWNER_HA, PAGE, PREFIX, ROOT, STRANGER_HA, App, FakeDirectory
 
 TABLET_HA = "7ab1e7ab1e7ab1e7ab1e7ab1e7ab1e7a"
@@ -432,7 +433,7 @@ async def test_screen_frames_and_feed_follow_the_linked_device(mk):
     row = ingress.tablet_link(m.store.db, TABLET_HA)
     ident = sessions.Identity(None, sessions.Device(row["id"], row["name"], "wall_tablet", "cody_room",
                                                     ha_user_id=TABLET_HA, ha_name=TABLET_NAME), "ha")
-    from mantel_server.authz import Principal
+    from mantel_server.identity.authz import Principal
     principal = Principal(ident, m.app["authz"].subject_of(ident))
     # its own tablet by the Tablet User's name (even in another room than the device's); not another tablet
     assert F.may_speak_for(host, principal, "kitchen") is True
@@ -586,7 +587,7 @@ async def test_revoking_the_device_ends_the_tablet_at_once(mk):
     assert (await tablet_get(m, "/api/me")).status == 200
     ident = sessions.Identity(None, sessions.Device(row["id"], row["name"], "wall_tablet", "kitchen",
                                                     ha_user_id=TABLET_HA, ha_name=TABLET_NAME), "ha")
-    from mantel_server.authz import Principal
+    from mantel_server.identity.authz import Principal
     principal = Principal(ident, m.app["authz"].subject_of(ident))
     m.app["devices"].revoke(row["id"], "fictional_test")
     r = await tablet_get(m, "/api/me")

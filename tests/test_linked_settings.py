@@ -484,7 +484,7 @@ def test_a_scope_turned_off_is_off(make_env):
     """service_accounts.set_scope: `a | {s} if on else a - {s}` read as `a | ({s} if on else a - {s})`, so turning
     Changes from Home Assistant off changed nothing."""
     import sqlite3
-    from mantel_server.service_accounts import ServiceAccounts, ensure_schema
+    from mantel_server.identity.service_accounts import ServiceAccounts, ensure_schema
     db = sqlite3.connect(":memory:")
     db.row_factory = sqlite3.Row
     ensure_schema(db)
@@ -497,7 +497,7 @@ def test_a_scope_turned_off_is_off(make_env):
 async def test_a_relayed_read_is_made_with_the_person_s_permissions(make_env):
     """The relay answers as the page socket does: with a principal, so feature checks (Live TV, music) see the
     person. With a bare identity they saw nobody: an empty channel list, "may not use music" (the house, 2026-10-21)."""
-    from mantel_server.authz import Principal
+    from mantel_server.identity.authz import Principal
     from mantel_server.connectors import may_feature
     env = await make_env()
     env.app["store"].link(HA_OWNER, "owner", "Fictional Owner")

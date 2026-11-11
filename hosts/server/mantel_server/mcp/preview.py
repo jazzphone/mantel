@@ -18,8 +18,8 @@ from urllib.parse import quote
 
 from aiohttp import web
 
-from .. import sessions
-from ..guards import open_route
+from ..identity import sessions
+from ..identity.guards import open_route
 
 PATH = "/mcp/preview/{code}"
 CODE_TTL = 300.0
@@ -51,7 +51,7 @@ def make_link(caller, screen: str, width: int, height: int) -> dict:
 
 
 def _page(title: str, text: str, status: int) -> web.Response:
-    from ..auth import page
+    from ..identity.auth import page
     return page(title, f"<p>{text}</p>", status)
 
 

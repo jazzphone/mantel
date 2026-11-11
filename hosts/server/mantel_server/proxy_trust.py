@@ -60,7 +60,8 @@ def is_trusted(request: web.Request) -> bool:
     other Apps as one address (172.30.32.1), so the address alone proves nothing there."""
     if not listed(request):
         return False
-    from . import direct, door_key
+    from . import direct
+    from .identity import door_key
     cfg = _cfg(request)
     if direct.enabled(cfg) and door_key.required(cfg):
         return door_key.status(request) == "ok"

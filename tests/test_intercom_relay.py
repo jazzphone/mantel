@@ -774,7 +774,7 @@ async def test_a_role_change_ends_the_socket(ic):
 
 
 async def test_a_deny_grant_ends_the_socket_at_the_policy_tick(ic):
-    from mantel_server.rbac import Grant
+    from mantel_server.identity.rbac import Grant
     jordan = await ic.actor("jordan", "adult")
     ws = await jordan.talk()
     ic.app["rbac"].add_grant(Grant(effect="deny", actions=("control",), resource_kind="feature", resource="intercom",

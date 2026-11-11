@@ -278,7 +278,7 @@ async def run(token: str) -> dict:
             check(reply.get("error", {}).get("reason") == "explicit_deny", "an Owner's deny grant on the speaker wins")
 
             # -- an Adult on the tunnel with a stale factor ---------------------------------------
-            from mantel_server.accounts import totp
+            from mantel_server.identity.accounts import totp
             adult = new("adult")
             st, _ = await adult.post("/api/auth/password", {"username": "e2e-adult", "password": pw["adult"]})
             assert st == 200

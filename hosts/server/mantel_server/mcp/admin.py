@@ -15,10 +15,10 @@ from __future__ import annotations
 from aiohttp import web
 
 from .. import audit
-from ..accounts import read_json
-from ..guards import guard
-from ..guards import ident as guarded
-from ..sessions import error, ok
+from ..identity.accounts import read_json
+from ..identity.guards import guard
+from ..identity.guards import ident as guarded
+from ..identity.sessions import error, ok
 from .config import DEFAULTS, Invalid
 from .grants import DEFAULT_SCOPES, KEY_SCOPES, SCOPES, GrantError
 
@@ -67,7 +67,7 @@ async def api_make_key(request: web.Request) -> web.Response:
     ident = guarded(request)
     body = await read_json(request)
     app = request.app
-    from ..sessions import client_ip
+    from ..identity.sessions import client_ip
     try:
         grant, token = app["mcp_grants"].create_key(
             ident.user, body.get("name"), body.get("scopes") if body.get("scopes") is not None else list(DEFAULT_SCOPES),

@@ -29,10 +29,10 @@ from typing import Any
 from aiohttp import web
 
 from . import audit, live
-from .accounts import read_json, require_fresh_to_grant
-from .guards import guard
-from .guards import ident as guarded
-from .sessions import error, ok
+from .identity.accounts import read_json, require_fresh_to_grant
+from .identity.guards import guard
+from .identity.guards import ident as guarded
+from .identity.sessions import error, ok
 
 log = logging.getLogger("mantel.people_ha")
 

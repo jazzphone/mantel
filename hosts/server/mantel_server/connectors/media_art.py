@@ -48,7 +48,7 @@ from hk_core.art import fetch as art_fetch
 from hk_core.art import resize as art_resize
 
 from . import camera_still, person_picture
-from ..guards import guard
+from ..identity.guards import guard
 
 log = logging.getLogger("mantel.media_art")
 

@@ -26,8 +26,8 @@ from hk_core.sleep import engine as SE
 from .. import audit, feature_pages, notify_snaps
 from ..connectors import Ctx, deny_read, Forbidden, may_feature, read_routes, Route, ws_handlers
 from ..feature_watch import CalendarLook, TabletWatch
-from ..guards import guard
-from ..guards import ident as guarded
+from ..identity.guards import guard
+from ..identity.guards import ident as guarded
 from ..house import HouseCommandRefused, HouseCommandsDisabled, MantelHouse
 from .auto import COALESCE_S, AutoFeatures, decided_marker
 from .actor import FeatureCaller, Feed, OverlayHouse, ScreenState, _slug

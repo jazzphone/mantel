@@ -65,7 +65,7 @@ class LinkedActions:
     def grants(self) -> tuple:
         """The Service actor ``mantel:linked``'s computed grants (see the module's docstring)."""
         from .alarm_pin import LINKED_ACTOR
-        from .rbac import Grant
+        from .identity.rbac import Grant
         # turning an automation off or on is sensitive in Mantel's RBAC (rbac.SAFE_SERVICES): the snooze needs both
         out = [Grant(effect="allow", actions=("control", "control.sensitive"), resource_kind="domain",
                      resource="automation", users={LINKED_ACTOR}, note="Mantel Link: hk_frontend.pause/resume_automation"),

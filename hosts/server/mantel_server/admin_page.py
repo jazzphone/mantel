@@ -29,14 +29,15 @@ from importlib.resources import files
 
 from aiohttp import web
 
-from . import frame_origins, ingress, rbac, security_headers, setup_guide
-from .accounts import MANAGERS
+from . import frame_origins, ingress, security_headers, setup_guide
+from .identity import rbac
+from .identity.accounts import MANAGERS
 from .devices import DEVICE_ROLES
-from .guards import WHY_STATIC, guard, open_route
-from .guards import ident as guarded
-from .login_page import login_url
-from .service_accounts import SCOPES as SERVICE_SCOPES
-from .sessions import Identity, identity
+from .identity.guards import WHY_STATIC, guard, open_route
+from .identity.guards import ident as guarded
+from .identity.login_page import login_url
+from .identity.service_accounts import SCOPES as SERVICE_SCOPES
+from .identity.sessions import Identity, identity
 from .store import ROLES
 
 PAGE = "/admin"

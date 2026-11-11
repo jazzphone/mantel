@@ -60,10 +60,11 @@ from urllib.parse import parse_qs
 import aiohttp
 from aiohttp import web
 
-from . import audit, live, sessions
-from .guards import guard, open_route
-from .guards import ident as guarded
-from .sessions import INGRESS_METHOD, Identity, User
+from . import audit, live
+from .identity import sessions
+from .identity.guards import guard, open_route
+from .identity.guards import ident as guarded
+from .identity.sessions import INGRESS_METHOD, Identity, User
 
 log = logging.getLogger("mantel.ingress")
 
@@ -666,7 +667,7 @@ async def api_tablets_get(request: web.Request) -> web.Response:
 
 @guard("owner", door="home", audit="ingress.link_tablet")
 async def api_tablets_post(request: web.Request) -> web.Response:
-    from .accounts import read_json
+    from .identity.accounts import read_json
     ident = guarded(request)
     body = await read_json(request)
     if set(body) - {"ha_user_id", "device_id", "name", "room"}:
@@ -810,7 +811,7 @@ def _needs_fresh(request: web.Request, ident, role: str, back: str, *, new_way_i
     ``POST /api/users`` ask: a fresh sign-in (``accounts.require_fresh_to_grant``; HA's own sidebar counts as fresh
     where it vouches for the person). A page saying so, not the REST route's JSON. Third audit pass, SRV-3: the
     form asked for nothing, so a stale Owner cookie from away made a new Owner here."""
-    from .accounts import require_fresh_to_grant
+    from .identity.accounts import require_fresh_to_grant
     try:
         require_fresh_to_grant(request, ident, role, new_way_in=new_way_in)
     except web.HTTPForbidden:

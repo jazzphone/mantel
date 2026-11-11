@@ -217,7 +217,7 @@ class Probe:
         r = await self.post("/api/auth/password", {"username": username, "password": PASSWORD}, csrf=False, door=door)
         body = await r.json()
         if r.status == 200 and body.get("next") == "totp":
-            from mantel_server.accounts import totp
+            from mantel_server.identity.accounts import totp
             self.now[0] += 31
             r = await self.post("/api/auth/totp/verify", {"pending": body["pending"],
                                                           "code": totp(self.seeds[username], self.now[0])},
@@ -269,7 +269,7 @@ class Probe:
         if self.door != "tunnel" or self.principal == "nobody" or acc.has_totp(self.uid):
             return
         import base64
-        from mantel_server.accounts import totp
+        from mantel_server.identity.accounts import totp
         secret, _ = acc.totp_begin(self.uid, self.username)
         seed = base64.b32decode(secret + "=" * (-len(secret) % 8))
         self.seeds[self.username] = seed

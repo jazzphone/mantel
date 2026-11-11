@@ -70,8 +70,8 @@ from hk_core.vacuum_water import CLEAR as WATER_CLEAR
 from hk_core.laundry import CLEAR as LAUNDRY_CLEAR
 
 from . import alarm_pin, readproxy
-from .authz import ENTITY_ID, Authz, Principal
-from .guards import guard
+from .identity.authz import ENTITY_ID, Authz, Principal
+from .identity.guards import guard
 from .ha_client import (REGISTRY_KEYS, TALK_ENTITY, TALK_LIVE_TYPE, CommandBlocked, CommandTicket, HaCommandError, HaCommander,
                         HTTP_METHODS, UPLOAD_MAX_BYTES, UPLOAD_METHOD, UPLOAD_MIN_BYTES, UPLOAD_TYPES, _API_PATH,
                         talk_target, upload_type)

@@ -25,10 +25,10 @@ from typing import Any
 from aiohttp import web
 
 from .. import audit
-from ..accounts import read_json
-from ..guards import guard
-from ..guards import ident as guarded
-from ..sessions import error, ok
+from ..identity.accounts import read_json
+from ..identity.guards import guard
+from ..identity.guards import ident as guarded
+from ..identity.sessions import error, ok
 from . import catalog
 from .center import ChannelError, Message
 from .channels import NAME_MAX, Invalid, senders, text

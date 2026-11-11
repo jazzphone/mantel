@@ -278,7 +278,8 @@ async def _start(tmp_path, monkeypatch, *, mode="proxy", ingress_peers=("172.30.
         app["direct_tls"].pending = cert_pending
 
     async def probe(request):
-        from mantel_server import proxy_trust, sessions
+        from mantel_server import proxy_trust
+        from mantel_server.identity import sessions
         return aiohttp.web.json_response({"door": sessions.door_of(request), "ingress": ingress.is_ingress(request),
                                           "direct": direct.is_direct(request), "trusted": proxy_trust.is_trusted(request),
                                           "client": sessions.client_ip(request), "https": proxy_trust.is_https(request)})
@@ -422,7 +423,7 @@ def test_the_entrypoint_warns_when_the_proxy_is_a_relay_address(tmp_path, capsys
 
 async def test_the_proxy_check_flags_a_relay_address_and_names_the_app_option(started, monkeypatch):
     from mantel_server import proxy_check
-    from mantel_server import guards
+    from mantel_server.identity import guards
     monkeypatch.setattr(guards, "check", lambda request, spec: None)      # the report, without an Owner's session
     r = await started(mode="proxy", trusted=("127.0.0.1", "172.30.32.1"), public=("/api/admin/proxy-check",))
     rep = await (await r.get("direct", "/api/admin/proxy-check", **{"X-Mantel-Door": "lan",
@@ -575,7 +576,7 @@ async def test_in_home_assistants_frame_sign_in_goes_to_the_address_the_dashboar
 
 async def test_a_sign_in_state_counts_once_and_callbacks_are_rate_limited(started, monkeypatch):
     from urllib.parse import parse_qs, urlsplit
-    from mantel_server import auth
+    from mantel_server.identity import auth
     from mantel_server.ha_oauth import HaOAuth, OAuthError
 
     async def no_exchange(self, http, code):

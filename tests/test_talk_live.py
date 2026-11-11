@@ -495,7 +495,7 @@ async def test_wall_tablets_talk_on_the_doorbell_speaker_from_hks_popups(gw, ha)
 
 
 def test_talk_speakers_come_only_from_camera_popups():
-    from mantel_server.authz import talk_grants, talk_speakers
+    from mantel_server.identity.authz import talk_grants, talk_speakers
     assert talk_speakers([DOORBELL, {"kind": "camera", "speaker": "light.x"}, {"kind": "cards", "speaker": SPEAKER},
                           {"speaker": "media_player.default_kind"}, "junk", None]) == {SPEAKER, "media_player.default_kind"}
     assert talk_speakers(None) == frozenset()

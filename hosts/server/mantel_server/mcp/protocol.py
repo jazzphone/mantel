@@ -24,7 +24,7 @@ from urllib.parse import urlparse
 from aiohttp import web
 
 from .. import mcp_parity
-from ..guards import WHY_MCP, open_route
+from ..identity.guards import WHY_MCP, open_route
 from .auth import Caller, Limits, Refused, authenticate
 from .dispatch import ToolError
 

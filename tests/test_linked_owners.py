@@ -383,7 +383,7 @@ async def test_the_typed_code_is_never_the_alarm_s_own_code(make_env):
 
 
 async def test_wrong_codes_lock_the_linked_keypad(make_env):
-    from mantel_server.pins import LOCK_AFTER
+    from mantel_server.identity.pins import LOCK_AFTER
     env = await house_env(make_env, commands=True)
     await _pins(env)
     lk, _ = await linked_ws(env)

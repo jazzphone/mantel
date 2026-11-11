@@ -26,7 +26,7 @@ async def _stale_tunnel_owner(m, name="avery"):
 
 async def _sign_in_with_ha(m, monkeypatch, ha_user):
     """auth.callback with HA's answers faked (no Home Assistant is contacted): the session it makes, or None."""
-    from mantel_server import auth
+    from mantel_server.identity import auth
     from mantel_server.ha_oauth import HaOAuth
 
     async def exchange(self, http, code):
@@ -148,7 +148,7 @@ async def test_moving_a_tablet_to_another_ha_user_does_not_revoke_it(mantel):
     a device made for that earlier link (own_device) is revoked by the unlink, so the link then fails and the
     tablet is gone."""
     from mantel_server import ingress
-    from mantel_server.sessions import User
+    from mantel_server.identity.sessions import User
     m = mantel
     uid = await m.user("avery", "owner")
     await m.sign_in("avery")                                          # at home: the LAN door

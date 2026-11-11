@@ -13,30 +13,6 @@ Columns: **Rule** who may call it (`signed_in` any session, `person`, `manager` 
 | `GET /api/about` | signed_in | none | none |  |  |  |
 | `GET /api/about/secure` | manager | admin | none |  |  |  |
 
-## mantel_server.accounts
-
-| Route | Rule | Reads | Stream | Preview | Audit | Assistants |
-|---|---|---|---|---|---|---|
-| `POST /api/account/password` | person, tablet ok |  | none |  | account.password.change |  |
-| `POST /api/auth/passkey/options` | own: sign_in | none | none |  | signing in or setting up the first Owner: no session yet (rate limited, origin-checked) |  |
-| `POST /api/auth/passkey/register/options` | person, tablet ok, fresh add_factor |  | none |  | none: a challenge only: the passkey is added by register/verify (account.passkey.add) |  |
-| `POST /api/auth/passkey/register/verify` | person, tablet ok |  | none |  | account.passkey.add |  |
-| `POST /api/auth/passkey/verify` | own: sign_in | none | none |  | signing in or setting up the first Owner: no session yet (rate limited, origin-checked) |  |
-| `GET /api/auth/passkeys` | person, tablet ok | self | none |  |  |  |
-| `DELETE /api/auth/passkeys/{id}` | person, tablet ok, fresh always |  | none |  | account.passkey.remove |  |
-| `POST /api/auth/password` | own: sign_in | none | none |  | signing in or setting up the first Owner: no session yet (rate limited, origin-checked) |  |
-| `DELETE /api/auth/totp` | person, tablet ok, fresh always |  | none |  | account.totp.remove |  |
-| `POST /api/auth/totp/enroll` | person, tablet ok, fresh add_factor |  | none |  | none: starts an enrolment only: the app counts once its first code confirms it (account.totp.add) |  |
-| `POST /api/auth/totp/enroll/confirm` | person, tablet ok |  | none |  | account.totp.add |  |
-| `POST /api/auth/totp/step-up` | person, tablet ok |  | none |  | none: confirms it is you (the session's freshness): a sign-in, not audited |  |
-| `POST /api/auth/totp/verify` | own: sign_in | none | none |  | signing in or setting up the first Owner: no session yet (rate limited, origin-checked) |  |
-| `GET /api/bootstrap` | own: sign_in | none | none |  | tells the sign-in page whether first-Owner setup is still open: one yes or no, no house data |  |
-| `POST /api/bootstrap` | own: one_time_code |  | none |  | setting up the first Owner: the one-time setup code, only while no Owner exists (rate limited, origin-checked) |  |
-| `GET /api/users` | manager | admin | none |  |  |  |
-| `POST /api/users` | manager |  | none |  | account.add |  |
-| `PATCH /api/users/{id}` | manager |  | none |  | account.role, account.disable, account.enable, account.rename |  |
-| `POST /api/users/{id}/password` | manager, fresh always |  | none |  | account.password.reset |  |
-
 ## mantel_server.admin_page
 
 | Route | Rule | Reads | Stream | Preview | Audit | Assistants |
@@ -127,15 +103,6 @@ Columns: **Rule** who may call it (`signed_in` any session, `person`, `manager` 
 | `GET /apple-touch-icon.png` | own: static | none | bounded:one icon file under web/app/art | yes | a static file or page shell any session (or the sign-in page) loads; the data behind it is guarded |  |
 | `GET /manifest.webmanifest` | own: static | none | none | yes | a static file or page shell any session (or the sign-in page) loads; the data behind it is guarded |  |
 | `GET /sw.js` | own: static | none | none | yes | a static file or page shell any session (or the sign-in page) loads; the data behind it is guarded |  |
-
-## mantel_server.auth
-
-| Route | Rule | Reads | Stream | Preview | Audit | Assistants |
-|---|---|---|---|---|---|---|
-| `GET /api/me` | signed_in | self | none | yes |  |  |
-| `GET /auth/callback` | own: sign_in | none | none |  | signing in or setting up the first Owner: no session yet (rate limited, origin-checked) |  |
-| `GET /login/ha` | own: sign_in | none | none |  | signing in or setting up the first Owner: no session yet (rate limited, origin-checked) |  |
-| `* /logout` | own: sign_in | none | none |  | signing in or setting up the first Owner: no session yet (rate limited, origin-checked) |  |
 
 ## mantel_server.backup
 
@@ -283,6 +250,89 @@ Columns: **Rule** who may call it (`signed_in` any session, `person`, `manager` 
 | `GET /api/version` | own: public | none | none |  | public on purpose: health and build checks, which the container and the HA App probe signed out |  |
 | `GET /healthz` | own: public | none | none |  | public on purpose: health and build checks, which the container and the HA App probe signed out |  |
 
+## mantel_server.identity.accounts
+
+| Route | Rule | Reads | Stream | Preview | Audit | Assistants |
+|---|---|---|---|---|---|---|
+| `POST /api/account/password` | person, tablet ok |  | none |  | account.password.change |  |
+| `POST /api/auth/passkey/options` | own: sign_in | none | none |  | signing in or setting up the first Owner: no session yet (rate limited, origin-checked) |  |
+| `POST /api/auth/passkey/register/options` | person, tablet ok, fresh add_factor |  | none |  | none: a challenge only: the passkey is added by register/verify (account.passkey.add) |  |
+| `POST /api/auth/passkey/register/verify` | person, tablet ok |  | none |  | account.passkey.add |  |
+| `POST /api/auth/passkey/verify` | own: sign_in | none | none |  | signing in or setting up the first Owner: no session yet (rate limited, origin-checked) |  |
+| `GET /api/auth/passkeys` | person, tablet ok | self | none |  |  |  |
+| `DELETE /api/auth/passkeys/{id}` | person, tablet ok, fresh always |  | none |  | account.passkey.remove |  |
+| `POST /api/auth/password` | own: sign_in | none | none |  | signing in or setting up the first Owner: no session yet (rate limited, origin-checked) |  |
+| `DELETE /api/auth/totp` | person, tablet ok, fresh always |  | none |  | account.totp.remove |  |
+| `POST /api/auth/totp/enroll` | person, tablet ok, fresh add_factor |  | none |  | none: starts an enrolment only: the app counts once its first code confirms it (account.totp.add) |  |
+| `POST /api/auth/totp/enroll/confirm` | person, tablet ok |  | none |  | account.totp.add |  |
+| `POST /api/auth/totp/step-up` | person, tablet ok |  | none |  | none: confirms it is you (the session's freshness): a sign-in, not audited |  |
+| `POST /api/auth/totp/verify` | own: sign_in | none | none |  | signing in or setting up the first Owner: no session yet (rate limited, origin-checked) |  |
+| `GET /api/bootstrap` | own: sign_in | none | none |  | tells the sign-in page whether first-Owner setup is still open: one yes or no, no house data |  |
+| `POST /api/bootstrap` | own: one_time_code |  | none |  | setting up the first Owner: the one-time setup code, only while no Owner exists (rate limited, origin-checked) |  |
+| `GET /api/users` | manager | admin | none |  |  |  |
+| `POST /api/users` | manager |  | none |  | account.add |  |
+| `PATCH /api/users/{id}` | manager |  | none |  | account.role, account.disable, account.enable, account.rename |  |
+| `POST /api/users/{id}/password` | manager, fresh always |  | none |  | account.password.reset |  |
+
+## mantel_server.identity.auth
+
+| Route | Rule | Reads | Stream | Preview | Audit | Assistants |
+|---|---|---|---|---|---|---|
+| `GET /api/me` | signed_in | self | none | yes |  |  |
+| `GET /auth/callback` | own: sign_in | none | none |  | signing in or setting up the first Owner: no session yet (rate limited, origin-checked) |  |
+| `GET /login/ha` | own: sign_in | none | none |  | signing in or setting up the first Owner: no session yet (rate limited, origin-checked) |  |
+| `* /logout` | own: sign_in | none | none |  | signing in or setting up the first Owner: no session yet (rate limited, origin-checked) |  |
+
+## mantel_server.identity.login_page
+
+| Route | Rule | Reads | Stream | Preview | Audit | Assistants |
+|---|---|---|---|---|---|---|
+| `GET /login` | own: sign_in | none | none |  | the sign-in page: signed out, a person signs in here |  |
+| `GET /login/{name}` | own: static | none | none |  | a static file or page shell any session (or the sign-in page) loads; the data behind it is guarded |  |
+| `GET /webauthn.js` | own: static | none | none |  | a static file or page shell any session (or the sign-in page) loads; the data behind it is guarded |  |
+
+## mantel_server.identity.pins
+
+| Route | Rule | Reads | Stream | Preview | Audit | Assistants |
+|---|---|---|---|---|---|---|
+| `DELETE /api/account/pin` | person, tablet ok, fresh always |  | none |  | account.pin.remove |  |
+| `GET /api/account/pin` | person, tablet ok | self | none |  |  |  |
+| `PUT /api/account/pin` | person, tablet ok, fresh always |  | none |  | account.pin.set |  |
+| `DELETE /api/users/{id}/pin` | manager |  | none |  | account.pin.clear |  |
+
+## mantel_server.identity.rbac_store
+
+| Route | Rule | Reads | Stream | Preview | Audit | Assistants |
+|---|---|---|---|---|---|---|
+| `GET /api/rbac/grants` | owner | admin | none |  |  |  |
+| `POST /api/rbac/grants` | owner |  | none |  | rbac.grant.add |  |
+| `DELETE /api/rbac/grants/{id}` | owner |  | none |  | rbac.grant.remove |  |
+| `GET /api/rbac/roles` | owner | admin | none |  |  |  |
+| `DELETE /api/rbac/roles/{role}` | owner |  | none |  | rbac.role.clear |  |
+| `PUT /api/rbac/roles/{role}` | owner |  | none |  | rbac.role.set |  |
+| `GET /api/rbac/scopes/{kind}/{id}` | owner | admin | none |  |  |  |
+| `PUT /api/rbac/scopes/{kind}/{id}` | owner |  | none |  | rbac.scopes.set |  |
+
+## mantel_server.identity.service_accounts
+
+| Route | Rule | Reads | Stream | Preview | Audit | Assistants |
+|---|---|---|---|---|---|---|
+| `GET /api/service-accounts` | owner, door home | admin | none |  |  |  |
+| `POST /api/service-accounts` | owner, door home |  | none |  | service_account.create |  |
+| `DELETE /api/service-accounts/revoked` | owner, door home |  | none |  | service_account.forget_revoked |  |
+| `DELETE /api/service-accounts/{id}` | owner, door home |  | none |  | service_account.revoke |  |
+
+## mantel_server.identity.sessions
+
+| Route | Rule | Reads | Stream | Preview | Audit | Assistants |
+|---|---|---|---|---|---|---|
+| `GET /api/session` | signed_in | self | none | yes |  |  |
+| `POST /api/session/logout` | signed_in |  | none |  | none: ends the caller's own session (a sign-out), as sign-ins are not audited |  |
+| `POST /api/session/refresh` | signed_in |  | none |  | none: renews the caller's own session: a sign-in, not audited (audit.py) |  |
+| `GET /api/sessions` | person, tablet ok | self | none |  |  |  |
+| `POST /api/sessions/revoke-others` | person, tablet ok |  | none |  | session.revoke_others |  |
+| `DELETE /api/sessions/{id}` | person, tablet ok |  | none |  | session.revoke |  |
+
 ## mantel_server.ingress
 
 | Route | Rule | Reads | Stream | Preview | Audit | Assistants |
@@ -348,14 +398,6 @@ Columns: **Rule** who may call it (`signed_in` any session, `person`, `manager` 
 | Route | Rule | Reads | Stream | Preview | Audit | Assistants |
 |---|---|---|---|---|---|---|
 | `GET /api/live_tv/status` | manager | admin | none |  |  |  |
-
-## mantel_server.login_page
-
-| Route | Rule | Reads | Stream | Preview | Audit | Assistants |
-|---|---|---|---|---|---|---|
-| `GET /login` | own: sign_in | none | none |  | the sign-in page: signed out, a person signs in here |  |
-| `GET /login/{name}` | own: static | none | none |  | a static file or page shell any session (or the sign-in page) loads; the data behind it is guarded |  |
-| `GET /webauthn.js` | own: static | none | none |  | a static file or page shell any session (or the sign-in page) loads; the data behind it is guarded |  |
 
 ## mantel_server.ma_page
 
@@ -470,15 +512,6 @@ Columns: **Rule** who may call it (`signed_in` any session, `person`, `manager` 
 | `PUT /api/photos/{photo}/focus` | manager |  | none |  | photos.focus |  |
 | `GET /api/photos/{photo}/{size}` | signed_in | feature:media | bounded:one photo file | yes |  |  |
 
-## mantel_server.pins
-
-| Route | Rule | Reads | Stream | Preview | Audit | Assistants |
-|---|---|---|---|---|---|---|
-| `DELETE /api/account/pin` | person, tablet ok, fresh always |  | none |  | account.pin.remove |  |
-| `GET /api/account/pin` | person, tablet ok | self | none |  |  |  |
-| `PUT /api/account/pin` | person, tablet ok, fresh always |  | none |  | account.pin.set |  |
-| `DELETE /api/users/{id}/pin` | manager |  | none |  | account.pin.clear |  |
-
 ## mantel_server.protect_connector
 
 | Route | Rule | Reads | Stream | Preview | Audit | Assistants |
@@ -515,19 +548,6 @@ Columns: **Rule** who may call it (`signed_in` any session, `person`, `manager` 
 | `GET /api/push/web/key` | person, tablet ok | none | none |  |  |  |
 | `POST /api/push/web/subscribe` | person, tablet ok |  | none |  | push.subscribe |  |
 | `POST /api/push/web/unsubscribe` | person, tablet ok |  | none |  | push.unsubscribe |  |
-
-## mantel_server.rbac_store
-
-| Route | Rule | Reads | Stream | Preview | Audit | Assistants |
-|---|---|---|---|---|---|---|
-| `GET /api/rbac/grants` | owner | admin | none |  |  |  |
-| `POST /api/rbac/grants` | owner |  | none |  | rbac.grant.add |  |
-| `DELETE /api/rbac/grants/{id}` | owner |  | none |  | rbac.grant.remove |  |
-| `GET /api/rbac/roles` | owner | admin | none |  |  |  |
-| `DELETE /api/rbac/roles/{role}` | owner |  | none |  | rbac.role.clear |  |
-| `PUT /api/rbac/roles/{role}` | owner |  | none |  | rbac.role.set |  |
-| `GET /api/rbac/scopes/{kind}/{id}` | owner | admin | none |  |  |  |
-| `PUT /api/rbac/scopes/{kind}/{id}` | owner |  | none |  | rbac.scopes.set |  |
 
 ## mantel_server.screens
 
@@ -567,26 +587,6 @@ Columns: **Rule** who may call it (`signed_in` any session, `person`, `manager` 
 |---|---|---|---|---|---|---|
 | `GET /api/admin/server-settings` | manager | admin | none |  |  |  |
 | `PUT /api/admin/server-settings` | owner, fresh away |  | none |  | server_setting.<key> |  |
-
-## mantel_server.service_accounts
-
-| Route | Rule | Reads | Stream | Preview | Audit | Assistants |
-|---|---|---|---|---|---|---|
-| `GET /api/service-accounts` | owner, door home | admin | none |  |  |  |
-| `POST /api/service-accounts` | owner, door home |  | none |  | service_account.create |  |
-| `DELETE /api/service-accounts/revoked` | owner, door home |  | none |  | service_account.forget_revoked |  |
-| `DELETE /api/service-accounts/{id}` | owner, door home |  | none |  | service_account.revoke |  |
-
-## mantel_server.sessions
-
-| Route | Rule | Reads | Stream | Preview | Audit | Assistants |
-|---|---|---|---|---|---|---|
-| `GET /api/session` | signed_in | self | none | yes |  |  |
-| `POST /api/session/logout` | signed_in |  | none |  | none: ends the caller's own session (a sign-out), as sign-ins are not audited |  |
-| `POST /api/session/refresh` | signed_in |  | none |  | none: renews the caller's own session: a sign-in, not audited (audit.py) |  |
-| `GET /api/sessions` | person, tablet ok | self | none |  |  |  |
-| `POST /api/sessions/revoke-others` | person, tablet ok |  | none |  | session.revoke_others |  |
-| `DELETE /api/sessions/{id}` | person, tablet ok |  | none |  | session.revoke |  |
 
 ## mantel_server.settings_store.routes
 

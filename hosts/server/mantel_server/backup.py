@@ -89,7 +89,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
 from . import atrest, db as dbmod
-from .guards import guard, open_route
+from .identity.guards import guard, open_route
 
 log = logging.getLogger("mantel.backup")
 
@@ -640,7 +640,7 @@ SEALED_COLUMNS = (   # (table, its key column, the sealed column, the associated
 SEALED_SETTINGS = (("alert_settings", "heartbeat", "alert-heartbeat"),)   # (table, key, aad): JSON, "sealed" in base64
 SEALED_FILES = "connection:{}"     # connections/<kind>.connection (connections.SealedFiles): Home Assistant, Music
                                    # Assistant, Protect, the door key, cameras, wall tablets' direct links
-SEALING_MODULES = ("accounts.py", "alarm_pin.py", "connections.py", "alerts/store.py", "alerts/__init__.py")
+SEALING_MODULES = ("identity/accounts.py", "alarm_pin.py", "connections.py", "alerts/store.py", "alerts/__init__.py")
 
 
 def reseal(db_path: Path, connections: Path | None, old: bytes, new: "atrest.SecretBox") -> int:
@@ -1016,7 +1016,7 @@ class Backups:
 # -- REST + wiring ----------------------------------------------------------------------------------
 @guard("manager", reads="admin")
 async def api_status(request: web.Request) -> web.Response:
-    from .sessions import ok
+    from .identity.sessions import ok
     b: Backups = request.app["backups"]
     return ok({"enabled": b.enabled, "nightly": b.enabled, "local": not b.enabled,
                "ha_app": bool(os.environ.get("SUPERVISOR_TOKEN")),
@@ -1030,7 +1030,7 @@ async def api_status(request: web.Request) -> web.Response:
 @guard("owner", no_audit="makes a backup file, changing no setting; the run writes its result row "
                         "(backup.ok or backup.failed), as the nightly one does")
 async def api_run(request: web.Request) -> web.Response:
-    from .sessions import error, ok
+    from .identity.sessions import error, ok
     b: Backups = request.app["backups"]
     result = await b.run_once()
     return ok(result) if result["ok"] else error(500, "backup_failed", message=result["error"])
@@ -1047,7 +1047,7 @@ def _named(b: "Backups", name: str) -> Path | None:
 @guard("owner", reads="admin", stream="bounded:one backup file")
 async def api_download(request: web.Request) -> web.StreamResponse:
     """A backup file, to keep somewhere else. It is sealed with backup.key, which it never holds."""
-    from .sessions import error
+    from .identity.sessions import error
     p = _named(request.app["backups"], request.match_info["name"])
     if p is None:
         return error(404, "not_found")
@@ -1058,8 +1058,8 @@ async def api_download(request: web.Request) -> web.StreamResponse:
 @guard("owner", audit="backup.delete")
 async def api_delete(request: web.Request) -> web.Response:
     from . import audit
-    from .guards import ident as guarded
-    from .sessions import error, ok
+    from .identity.guards import ident as guarded
+    from .identity.sessions import error, ok
     p = _named(request.app["backups"], request.match_info["name"])
     if p is None:
         return error(404, "not_found")
@@ -1073,8 +1073,8 @@ async def api_keys(request: web.Request) -> web.Response:
     """Both keys, as one small file to keep apart from the backups (a password manager): backup.key opens a
     backup, at_rest.key the values sealed inside it. Confirm It Is You first; the audit log says who asked."""
     from . import audit
-    from .guards import ident as guarded
-    from .sessions import ok
+    from .identity.guards import ident as guarded
+    from .identity.sessions import ok
     b: Backups = request.app["backups"]
     key, _ = load_key(b.key_file, create=True)
     at_rest = atrest.load_or_create_key(Path(b.cfg.secrets_dir).expanduser() / atrest.KEY_FILE)
@@ -1180,7 +1180,7 @@ async def stage_upload(b: "Backups", reader, first=None) -> dict:
 
 
 def upload_error(exc: BackupError):
-    from .sessions import error
+    from .identity.sessions import error
     msg = ("This backup was made by another Mantel, or with another key: add that Mantel's keys file."
            if exc.code in ("wrong_key", "key_missing") else str(exc))
     return error(400, exc.code, message=msg)
@@ -1191,8 +1191,8 @@ async def api_upload(request: web.Request) -> web.Response:
     """Restore, step one: the .mbk (and, from another Mantel, its keys file) uploaded and checked, changing
     nothing. Its report is kept with it until Restore and Restart, or Cancel."""
     from . import audit
-    from .guards import ident as guarded
-    from .sessions import ok
+    from .identity.guards import ident as guarded
+    from .identity.sessions import ok
     b: Backups = request.app["backups"]
     try:
         check = await stage_upload(b, await request.multipart())
@@ -1209,8 +1209,8 @@ async def api_first_start_restore(request: web.Request) -> web.Response:
     """First start, Restore From a Backup: while Mantel has no Owner, the setup code (first in the form, checked
     before anything is read past it) and a backup (and its keys file, from another Mantel) restore it in one step:
     checked, put in place at the restart that follows, the code spent. The backup's people sign in afterwards."""
-    from .accounts import PolicyError, accounts_of, limited, require_origin
-    from .sessions import client_ip, error, ok
+    from .identity.accounts import PolicyError, accounts_of, limited, require_origin
+    from .identity.sessions import client_ip, error, ok
     require_origin(request)
     acc = accounts_of(request)
     ip = client_ip(request)
@@ -1257,8 +1257,8 @@ async def api_restore(request: web.Request) -> web.Response:
     """Restore, step two: put the checked upload in place at the next start, and restart now. What is here now
     is moved aside (*.before-restore-<time>), never deleted."""
     from . import audit
-    from .guards import ident as guarded
-    from .sessions import error, ok
+    from .identity.guards import ident as guarded
+    from .identity.sessions import error, ok
     b: Backups = request.app["backups"]
     pend = Path(b.cfg.data_dir).expanduser() / PENDING_DIR
     if pending_report(Path(b.cfg.data_dir)) is None:
@@ -1272,8 +1272,8 @@ async def api_restore(request: web.Request) -> web.Response:
 @guard("owner", audit="backup.restore_cancel")
 async def api_cancel(request: web.Request) -> web.Response:
     from . import audit
-    from .guards import ident as guarded
-    from .sessions import ok
+    from .identity.guards import ident as guarded
+    from .identity.sessions import ok
     b: Backups = request.app["backups"]
     audit.config(request, guarded(request), "backup.restore_cancel", {})
     shutil.rmtree(Path(b.cfg.data_dir).expanduser() / PENDING_DIR, ignore_errors=True)

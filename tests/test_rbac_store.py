@@ -10,9 +10,9 @@ import pytest
 from aiohttp import web
 from aiohttp.test_utils import TestClient, TestServer
 
-from mantel_server import rbac_store
-from mantel_server.rbac import Context, Gate, Grant, Schedule
-from mantel_server.rbac_store import MIGRATION, RbacStore, ensure_schema, register
+from mantel_server.identity import rbac_store
+from mantel_server.identity.rbac import Context, Gate, Grant, Schedule
+from mantel_server.identity.rbac_store import MIGRATION, RbacStore, ensure_schema, register
 from mantel_server.view import ClientView, Coalescing
 from rbac_fixtures import NOW, TZ, child, ctx, registry, st, states
 

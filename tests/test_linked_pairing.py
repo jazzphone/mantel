@@ -317,7 +317,7 @@ async def test_v3_elsewhere_names_the_link_address_and_spends_nothing(make_env):
 def test_mantel_link_straight_to_the_listener_is_the_lan_door_from_home_only():
     from aiohttp.test_utils import make_mocked_request
 
-    from mantel_server import authz
+    from mantel_server.identity import authz
 
     def door(peer):
         req = make_mocked_request("GET", "/linked/ws", transport=type("T", (), {

@@ -95,7 +95,7 @@ connection saved on Mantel Settings -> Connections when there is one, as the ser
     MANTEL_CF_ACCESS_TEAM, MANTEL_CF_ACCESS_AUD   optional   Cloudflare Access in front of the tunnel: the Zero
                                       Trust team name (myteam) and the Access application's AUD tag(s), comma
                                       list. Set both and every tunnel-door request must carry a valid Access
-                                      assertion (mantel_server/cf_access.py); the HA App's options
+                                      assertion (mantel_server/identity/cf_access.py); the HA App's options
                                       cf_access_team / cf_access_aud do the same there. Neither is a secret.
 """
 from __future__ import annotations
@@ -248,7 +248,7 @@ def media_and_header_args(env: dict[str, str]) -> list[str]:
 
 
 def cf_access_args(team: str, aud: str, team_name: str, aud_name: str) -> list[str]:
-    """Cloudflare Access verification (mantel_server/cf_access.py): --cf-access-team and one --cf-access-aud per
+    """Cloudflare Access verification (mantel_server/identity/cf_access.py): --cf-access-team and one --cf-access-aud per
     tag, or nothing when both are empty. One without the other is refused here, with the setting's own name (the
     server checks the values themselves)."""
     team, tags = str(team or "").strip(), _list(str(aud or ""))

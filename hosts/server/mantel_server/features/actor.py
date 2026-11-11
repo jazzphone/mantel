@@ -105,7 +105,7 @@ class FeatureAuthz:
         return getattr(self.base, name)
 
     def policy_for(self, subject: Any) -> Any:
-        from ..rbac import Grant
+        from ..identity.rbac import Grant
         policy = self.base.policy_for(subject)
         if subject.user_id != FEATURE_ACTOR:
             return policy
@@ -158,8 +158,8 @@ class FeatureCaller:
         return self._gw
 
     def actor(self) -> Any:
-        from ..authz import Principal
-        from ..sessions import Identity, User
+        from ..identity.authz import Principal
+        from ..identity.sessions import Identity, User
         if self._actor is None:
             ident = Identity(user=User(id=FEATURE_ACTOR, name=FEATURE_ACTOR_NAME, role="service", kind="service"),
                              device=None, door="lan")
@@ -169,7 +169,7 @@ class FeatureCaller:
 
     async def __call__(self, domain: str, service: str, data: Mapping[str, Any], context: Any = None,
                        response: bool = False) -> Any:
-        from ..authz import Principal
+        from ..identity.authz import Principal
         gw = self.gateway()
         person = isinstance(context, Principal)
         entry = {"at": time.time(), "action": f"{domain}.{service}", "data": copy.deepcopy(dict(data)),

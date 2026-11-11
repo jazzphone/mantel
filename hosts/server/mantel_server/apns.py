@@ -37,8 +37,8 @@ from pathlib import Path
 from typing import Any, Awaitable, Callable
 
 from . import app_crypto, audit
-from .guards import guard
-from .guards import ident as guarded
+from .identity.guards import guard
+from .identity.guards import ident as guarded
 
 log = logging.getLogger("mantel.apns")
 
@@ -325,14 +325,14 @@ def _setting_json(request) -> dict:
 
 @guard("manager", reads="admin")
 async def api_get_relay(request):
-    from .sessions import ok
+    from .identity.sessions import ok
     return ok(_setting_json(request))
 
 
 @guard("owner", fresh="away", audit="push_relay.set")
 async def api_put_relay(request):
-    from .accounts import read_json
-    from .sessions import error, ok
+    from .identity.accounts import read_json
+    from .identity.sessions import error, ok
     ident = guarded(request)
     app = request.app
     body = await read_json(request)

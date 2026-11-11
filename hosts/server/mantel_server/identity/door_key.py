@@ -74,7 +74,7 @@ class DoorKey:
         return self._since
 
     def rotate(self) -> str:
-        from .connections import Record
+        from ..connections import Record
         key = secrets.token_urlsafe(32)
         now = self.clock()
         self.files.save(Record(kind=KIND, url="", token=key, method="generated", since=now))
@@ -123,9 +123,9 @@ def cli(argv: list[str]) -> int:
     import argparse
     from pathlib import Path
 
-    from . import atrest
-    from .config import Config
-    from .connections import SealedFiles
+    from .. import atrest
+    from ..config import Config
+    from ..connections import SealedFiles
     p = argparse.ArgumentParser(prog="mantel door-key", description="the door key your own reverse proxy sends")
     p.add_argument("--data-dir", default=str(Config.data_dir))
     p.add_argument("--secrets-dir", default=str(Config.secrets_dir))

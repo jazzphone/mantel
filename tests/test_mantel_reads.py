@@ -15,7 +15,7 @@ from mantel_server.db import Database
 from mantel_server.hidden import Hiding
 from mantel_server.readproxy import MANTEL_READS, READ_ALLOWED, ROUTE_RULES, SERVER_ONLY_READS
 from mantel_server.registry import Registry
-from mantel_server.sessions import Identity, User
+from mantel_server.identity.sessions import Identity, User
 from mantel_server.state import StateStore
 
 

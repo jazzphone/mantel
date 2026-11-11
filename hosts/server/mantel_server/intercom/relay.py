@@ -34,8 +34,8 @@ from typing import Any, Callable
 
 from aiohttp import WSMsgType, web
 
-from ..authz import Principal
-from ..guards import guard
+from ..identity.authz import Principal
+from ..identity.guards import guard
 from ..ha_client import talk_frame_max
 from ..talk_relay import Bucket, _keys, _name, _who
 

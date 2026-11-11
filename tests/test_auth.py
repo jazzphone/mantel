@@ -6,8 +6,8 @@ import pytest
 from aiohttp import web
 from aiohttp.test_utils import TestClient, TestServer
 
-from mantel_server import auth
-from mantel_server.auth import make_state_cookie, read_state_cookie
+from mantel_server.identity import auth
+from mantel_server.identity.auth import make_state_cookie, read_state_cookie
 from mantel_server.config import Config
 from mantel_server.ha_oauth import HaOAuth, check_redirect
 from mantel_server.server import build_app

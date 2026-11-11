@@ -30,10 +30,10 @@ from aiohttp import web
 
 from . import audit
 from . import ha_dashboards as HD
-from .accounts import read_json
-from .guards import guard
-from .guards import ident as guarded
-from .sessions import error, ok
+from .identity.accounts import read_json
+from .identity.guards import guard
+from .identity.guards import ident as guarded
+from .identity.sessions import error, ok
 from .settings_store import Actor, actor_of
 
 log = logging.getLogger("mantel.screens")

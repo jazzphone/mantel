@@ -140,7 +140,7 @@ class Live:
     async def check(self, entries: Iterable[Entry] | None = None, why: str = NOT_ALLOWED, *, strict: bool = False) -> int:
         """Each entry's principal read again, then its own recheck: one that may not go on is closed. The number
         closed. ``strict`` (a revocation): an entry that can neither be read again nor rechecked is closed."""
-        from .authz import Principal
+        from .identity.authz import Principal
         authz = self._authz()
         read: dict[int, bool] = {}
         ended = 0

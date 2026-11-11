@@ -8,9 +8,10 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from mantel_server import rbac
-from mantel_server.rbac import (DEFAULT_ROLES, Context, Decision, Grant, Policy, Schedule, Subject, classify,
-                                decide, guest_until)
+from mantel_server.identity import rbac
+from mantel_server.identity.rbac import (
+    DEFAULT_ROLES, Context, Decision, Grant, Policy, Schedule, Subject, classify, decide, guest_until,
+)
 from rbac_fixtures import (GPS, NOW, TZ, adult, admin, child, ctx, guest, owner, registry, service, st, states,
                            tablet)
 

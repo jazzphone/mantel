@@ -33,7 +33,7 @@ from aiohttp import web
 
 from . import Ctx, Forbidden, Route, may_feature, read_routes
 from . import camera_still
-from ..guards import guard
+from ..identity.guards import guard
 
 log = logging.getLogger("mantel.media_photos")
 

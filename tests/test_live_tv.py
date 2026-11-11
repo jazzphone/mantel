@@ -288,7 +288,7 @@ async def test_the_channel_list_and_streams_follow_rbac(rig):
     assert r.go2rtc.calls == [] and r.go2rtc.offers == []
     await ws.close()
     # a child has no Live TV feature either; the wall tablets' grant is a house grant
-    from mantel_server.authz import HOUSE_GRANTS
+    from mantel_server.identity.authz import HOUSE_GRANTS
     assert any(g.resource == "live_tv" and set(g.roles) == {"wall_tablet"} and set(g.actions) == {"view"}
                for g in HOUSE_GRANTS)
     ws = await r.socket("kid1", "child")
@@ -837,7 +837,7 @@ async def test_the_same_id_twice_never_leaks_a_session(rig):
 
 async def test_a_channel_no_longer_allowed_ends_at_the_next_tick(rig):
     from mantel_server import server
-    from mantel_server.rbac import Grant
+    from mantel_server.identity.rbac import Grant
     r = await rig()
     ws = await r.env.login("adult1", "adult") and await r.env.socket(expect_caps=False)
     await ws.send_json(_offer(1))

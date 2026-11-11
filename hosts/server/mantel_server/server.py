@@ -32,15 +32,22 @@ import aiohttp
 from aiohttp import WSCloseCode, WSMsgType, web
 
 from . import about, frame_origins, music
-from . import accounts, alarm_pin, auth, cameras_direct, protect_connector, connect_pairing, devices, gateway, health, ingress, live_tv, pins, rbac_store, readproxy, sessions, settings_store
-from . import (admin_page, atrest, backup, connections, features, linked, linked_house, linked_owners, linked_pairing,
-               linked_files, linked_reads, linked_settings, people_ha, screens,
-               linked_actions, login_page, phones, supervisor_discovery,
-               photos, service_accounts, talk_relay, user_files)
+from .identity import accounts, auth, pins, rbac_store, sessions
+from . import (
+    alarm_pin, cameras_direct, protect_connector, connect_pairing, devices, gateway, health, ingress, live_tv,
+    readproxy, settings_store,
+)
+from . import (
+    admin_page, atrest, backup, connections, features, linked, linked_house, linked_owners, linked_pairing,
+    linked_files, linked_reads, linked_settings, people_ha, screens, linked_actions, phones, supervisor_discovery,
+    photos, talk_relay, user_files,
+)
+from .identity import login_page, service_accounts
 from . import (camera_setup, default_screens, direct, direct_tls, docs_pages, ha_dashboards, ma_page, media_proxy, proxy_check,
     proxy_trust, route_table, security_headers, socket_reads, tablet_links, user_data)
-from . import alerts, app_shell, timeline, cf_access, guards, hk_cards, live, mcp, page_health, performance, server_settings, setup_guide
-from .authz import Authz, Principal, resolve_door
+from . import alerts, app_shell, timeline, hk_cards, live, mcp, page_health, performance, server_settings, setup_guide
+from .identity import cf_access, guards
+from .identity.authz import Authz, Principal, resolve_door
 from .config import Config
 from .connectors import REFUSE_ALL, Ctx, Hooks
 from .connectors import camera as camera_connector
@@ -412,7 +419,7 @@ async def api_entities(request: web.Request) -> web.Response:
 async def api_areas(request: web.Request) -> web.Response:
     """The areas with what this person may view in each (the route table, 2026-11-03: it listed every area and its
     count to any session, a Child's too). An Owner or Admin sees every area, as before."""
-    from .accounts import MANAGERS
+    from .identity.accounts import MANAGERS
     reg = request.app["hub"].registry
     ident = guards.ident(request)
     manager = ident.device is None and ident.user is not None and ident.user.role in MANAGERS

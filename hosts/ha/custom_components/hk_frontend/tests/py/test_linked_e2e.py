@@ -29,7 +29,7 @@ for _p in (os.path.join(_ROOT, "hosts", "server"), _ROOT):
         sys.path.append(_p)
 
 from mantel_server import linked as mantel_linked  # noqa: E402
-from mantel_server import service_accounts  # noqa: E402
+from mantel_server.identity import service_accounts  # noqa: E402
 
 DOMAIN = "hk_frontend"
 BLACK_UID = f"{ENTRY}_hall_black_screen"

@@ -185,7 +185,7 @@ has today's rule.
 
 Commands go through the gateway; everything else a page changes (people, tablets, connections, settings, files)
 goes through a REST route. Each of those routes declares who may call it with one decorator,
-`@guard(...)` in `hosts/server/mantel_server/guards.py`:
+`@guard(...)` in `hosts/server/mantel_server/identity/guards.py`:
 
 ```python
 @guard("owner", door="home", audit="service_account.create")

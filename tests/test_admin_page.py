@@ -13,7 +13,7 @@ from argon2 import PasswordHasher
 
 from conftest import PASSWORD, Mantel
 from mantel_server import admin_page
-from mantel_server.rbac import Grant
+from mantel_server.identity.rbac import Grant
 
 ROOT = Path(__file__).resolve().parents[1]
 STATIC = ROOT / "hosts/server/mantel_server/static/admin"

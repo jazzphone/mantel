@@ -214,7 +214,7 @@ def check(request: web.Request, spec: Guard) -> Any:
     if spec.first is not None:
         spec.first(request)         # the request's own check (its origin, its kind), before asking for a fresh factor
     if spec.fresh == "away":
-        from .connections import edit_rule
+        from ..connections import edit_rule
         if edit_rule(request, ident, admins=spec.who == "manager") != "ok":
             raise _refuse("step_up_required")
     elif spec.fresh == "always":

@@ -84,7 +84,7 @@ def rbac_may_configure(policy: Any = None, *, rbac_store: Any = None,
     Owner and Admin may save everything; Adult and Child only their own user scope; Guest, Wall
     Tablet and Service nothing. ``policy`` is a Policy or a callable returning one (default: the
     RbacStore's stored policy, else the default roles)."""
-    from .. import rbac
+    from ..identity import rbac
 
     def current_policy() -> Any:
         if callable(policy):

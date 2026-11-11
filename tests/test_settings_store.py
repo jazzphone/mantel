@@ -25,7 +25,7 @@ from mantel_server.connectors import Ctx, Forbidden, Hooks
 from mantel_server.db import Database
 from mantel_server.readproxy import READ_ALLOWED, RULES, SERVER_ONLY_READS, FilteredReads, ReadBlocked, ReadProxy
 from mantel_server.server import classify
-from mantel_server.sessions import Device, Identity, User
+from mantel_server.identity.sessions import Device, Identity, User
 
 ROOT = Path(__file__).resolve().parent.parent
 

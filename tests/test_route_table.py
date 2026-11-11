@@ -91,7 +91,8 @@ def test_mantel_does_not_start_with_an_undeclared_route(tmp_path, monkeypatch):
 
 
 def test_mantel_does_not_start_with_a_read_that_says_nothing_of_what_it_shows(tmp_path, monkeypatch):
-    from mantel_server import guards, server
+    from mantel_server.identity import guards
+    from mantel_server import server
 
     @guards.guard("signed_in")
     async def says_nothing(request):
@@ -102,7 +103,8 @@ def test_mantel_does_not_start_with_a_read_that_says_nothing_of_what_it_shows(tm
 
 def test_mantel_does_not_start_with_a_stream_that_says_it_is_none(tmp_path, monkeypatch):
     from aiohttp import web
-    from mantel_server import guards, server
+    from mantel_server.identity import guards
+    from mantel_server import server
 
     @guards.guard("signed_in", reads="none", why="a test's route")
     async def streams(request):

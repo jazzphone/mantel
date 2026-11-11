@@ -326,13 +326,13 @@ class Env:
             await asyncio.gather(*self.center.tasks, return_exceptions=True)
 
     async def user(self, name, role):
-        from mantel_server.sessions import User
+        from mantel_server.identity.sessions import User
         uid = await self.app["accounts"].create_user(name, name.title(), role, PASSWORD)
         r = self.store.db.execute("SELECT id, username, name, role, kind FROM users WHERE id = ?", (uid,)).fetchone()
         return User(id=r["id"], name=r["name"], role=r["role"], kind=r["kind"], username=r["username"])
 
     def viewer(self, user, door="lan"):
-        from mantel_server.sessions import Identity
+        from mantel_server.identity.sessions import Identity
         return Viewer(self.app, self.app["authz"].principal_of(Identity(user=user, device=None, door=door)))
 
     def switch(self, user, key=TD.SUMMARY_KEY, on=True):

@@ -37,8 +37,8 @@ from typing import Any, Callable
 from aiohttp import web
 
 from . import audit
-from .guards import guard
-from .guards import ident as guarded
+from .identity.guards import guard
+from .identity.guards import ident as guarded
 
 log = logging.getLogger("mantel.server_settings")
 
@@ -290,8 +290,8 @@ WORDS = {"commands_enabled": "Allow Control of the House", "default_screen": "Ho
 
 @guard("owner", fresh="away", audit="server_setting.<key>")
 async def api_put(request: web.Request) -> web.Response:
-    from .accounts import STEP_UP_WINDOW, read_json
-    from .sessions import error
+    from .identity.accounts import STEP_UP_WINDOW, read_json
+    from .identity.sessions import error
     ident = guarded(request)                           # an Owner; a fresh factor away from home (and below)
     body = await read_json(request)
     key, value = body.get("key"), body.get("value")

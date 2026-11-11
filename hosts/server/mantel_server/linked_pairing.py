@@ -57,8 +57,8 @@ from mantel_connect import protocol as CP
 
 from . import audit
 from .connect_pairing import ALL_FAILS, ALL_WINDOW, IP_FAILS, IP_WINDOW, MAX_WRONG, Window
-from .guards import guard, open_route
-from .guards import ident as guarded
+from .identity.guards import guard, open_route
+from .identity.guards import ident as guarded
 # The protocol numbers, the path and the address are shared with Mantel Link (hk_core/pairing.py).
 from hk_core.pairing import (  # noqa: F401 -- shared
     _HOSTNAME, _SCHEMES, _mac, PATH, PINNED, VERSION, normalize_address)
@@ -313,7 +313,7 @@ class LinkPairing:
 # -- the routes -------------------------------------------------------------------------------------------
 @open_route("one_time_code", why="linked pairing: the one-time code an Owner started (linked_pairing.py)")
 async def pair_route(request: web.Request) -> web.Response:
-    from .sessions import client_ip, door_of
+    from .identity.sessions import client_ip, door_of
     pairing: LinkPairing = request.app["linked_pairing"]
     if request.headers.get("Origin") is not None:
         raise web.HTTPForbidden(text="not for browsers")

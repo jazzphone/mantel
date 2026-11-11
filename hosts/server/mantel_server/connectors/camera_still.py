@@ -43,7 +43,7 @@ from typing import Any, Callable
 import aiohttp
 from aiohttp import web
 
-from ..guards import guard
+from ..identity.guards import guard
 
 log = logging.getLogger("mantel.camera_still")
 

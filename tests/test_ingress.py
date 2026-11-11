@@ -20,7 +20,8 @@ import pytest
 from aiohttp.test_utils import TestClient, TestServer
 from multidict import CIMultiDict
 
-from mantel_server import ingress, sessions
+from mantel_server import ingress
+from mantel_server.identity import sessions
 
 ROOT = Path(__file__).resolve().parents[1]
 PREFIX = "/api/hassio_ingress/Fict1onal-Ingress_Token"
@@ -511,7 +512,7 @@ async def test_audit_rows_record_the_ha_door(mk):
     m.store.link(OWNER_HA, "owner")
     await m.page()
     req_ident = sessions.Identity(sessions.User("u", "U", "owner", "ha_linked"), None, "ha")
-    from mantel_server.authz import Principal
+    from mantel_server.identity.authz import Principal
     p = Principal(req_ident, m.app["authz"].subject_of(req_ident), "192.0.2.10")
     aid = m.app["audit"].record(principal=p, kind="service", action="light.turn_on", targets=["light.x"],
                                 decision="denied", reason="commands_disabled", result="not_sent")
@@ -921,7 +922,7 @@ async def test_an_owner_on_a_trusted_sidebar_may_rotate_the_door_key(mk, monkeyp
     """Rotate door key asked HA's sidebar for a fresh Mantel sign-in, which the sidebar cannot give: "Confirm it
     is you" again and again (the house, 2026-10-19). With the trusted rules the sidebar is home, as for
     Connections; with the tunnel rules it still asks."""
-    from mantel_server import authz as authz_mod
+    from mantel_server.identity import authz as authz_mod
     # the house's Ingress peer is HA's Supervisor (172.30.32.2), never loopback: the request's door is the tunnel
     monkeypatch.setattr(authz_mod, "_is_loopback", lambda peer: False)
     m = await mk(rules="trusted", proxy_kind="own")

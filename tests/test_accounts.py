@@ -11,8 +11,10 @@ import pytest
 from conftest import PASSWORD
 from gateway_fakes import off  # noqa: F401 -- fixture
 from mantel_server import __main__ as entry
-from mantel_server.accounts import (ACCOUNT_FAILURES, IP_FAILURES, AttemptLimiter, PolicyError, check_password_policy,
-                                    hotp, otpauth_uri, totp, totp_match)
+from mantel_server.identity.accounts import (
+    ACCOUNT_FAILURES, IP_FAILURES, AttemptLimiter, PolicyError, check_password_policy, hotp, otpauth_uri, totp,
+    totp_match,
+)
 from mantel_server.atrest import SecretBox, SecretKeyError, load_or_create_key
 from mantel_server.store import Store
 
@@ -38,7 +40,7 @@ async def test_passwords_are_argon2id_and_never_stored_raw(mantel):
     row = mantel.store.db.execute("SELECT password_hash FROM users WHERE id = ?", (uid,)).fetchone()
     assert row[0].startswith("$argon2id$") and PASSWORD not in row[0]
     # the production default is Argon2id with RFC 9106's second recommended parameters
-    from mantel_server.accounts import Accounts
+    from mantel_server.identity.accounts import Accounts
     default = Accounts(mantel.store.db, SecretBox(key=b"k" * 32), lambda: 0).hasher
     assert default.type.name == "ID" and default.memory_cost >= 65536 and default.time_cost >= 3
 
@@ -175,7 +177,7 @@ async def test_totp_enrol_then_password_needs_the_code(mantel):
 async def test_a_seed_the_at_rest_key_cannot_open_is_refused_clearly_never_a_500(mantel, caplog):
     """DEP-11 (audit, third pass): data restored beside another at_rest.key left every authenticator-app user with
     an uncaught InvalidTag at the second factor, a 500 from the sign-in step (and the step-up and the enrolment)."""
-    from mantel_server.accounts import TotpUnreadable
+    from mantel_server.identity.accounts import TotpUnreadable
     await mantel.user("jordan", "adult")
     await mantel.sign_in("jordan")
     secret = (await (await mantel.post("/api/auth/totp/enroll")).json())["secret"]
@@ -539,7 +541,7 @@ async def test_sign_ins_are_not_audited(mantel):
 
 # -- the second factor's own doors (the 2026-10 audit) -------------------------------------------------
 def _wrong_codes(seed, now, n):
-    from mantel_server.accounts import TOTP_STEP, hotp
+    from mantel_server.identity.accounts import TOTP_STEP, hotp
     valid = {hotp(seed, int(now // TOTP_STEP) + d) for d in (-1, 0, 1)}
     return [c for c in (f"{i:06d}" for i in range(n + 3)) if c not in valid][:n]
 
@@ -548,7 +550,7 @@ async def test_confirming_an_enrolment_is_no_way_round_the_step_up(off):
     """enroll/confirm accepted the CONFIRMED seed too, with no limit, and made the session fresh: an unlimited
     step-up for whoever held a session cookie."""
     from gateway_fakes import seed_of  # noqa: F401
-    from mantel_server.accounts import totp
+    from mantel_server.identity.accounts import totp
     m = off.m
     await off.login("avery", "owner")
     seed = await off.enroll_totp()
@@ -577,7 +579,7 @@ async def test_a_stale_session_cannot_add_a_first_factor_and_then_confirm_it_is_
 async def test_a_right_password_does_not_reset_the_count_of_wrong_codes(off):
     """Each right password cleared the per-name limit and the stored lockout before the code was asked: the
     code could be guessed forever, four at a time."""
-    from mantel_server.accounts import totp
+    from mantel_server.identity.accounts import totp
     m = off.m
     await off.login("avery", "owner")
     seed = await off.enroll_totp()
@@ -603,7 +605,7 @@ async def test_a_right_password_does_not_reset_the_count_of_wrong_codes(off):
 
 async def test_replacing_the_authenticator_keeps_the_old_one_until_the_new_one_is_confirmed(off):
     from gateway_fakes import seed_of
-    from mantel_server.accounts import totp
+    from mantel_server.identity.accounts import totp
     m = off.m
     await off.login("avery", "owner")
     old = await off.enroll_totp()
@@ -629,5 +631,5 @@ async def test_replacing_the_authenticator_keeps_the_old_one_until_the_new_one_i
 
 
 def test_a_code_in_other_scripts_digits_is_just_wrong():
-    from mantel_server.accounts import totp_match
+    from mantel_server.identity.accounts import totp_match
     assert totp_match(b"0" * 20, "١٢٣٤٥٦", 1_000_000.0) is None    # Arabic-Indic digits: no TypeError

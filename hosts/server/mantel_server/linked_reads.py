@@ -54,7 +54,7 @@ class LinkedReads:
     def _person(self, ha_user: str) -> Any:
         from .ingress import linked_user
         from .linked import LinkedError
-        from .sessions import Identity, User
+        from .identity.sessions import Identity, User
         row = linked_user(self.app["store"].db, ha_user)
         if row is None or row["disabled"]:
             from .linked_settings import UNLINKED

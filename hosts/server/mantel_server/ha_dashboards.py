@@ -52,11 +52,11 @@ import aiohttp
 from aiohttp import web
 
 from . import audit, frame_origins
-from .accounts import read_json
-from .guards import guard
-from .guards import ident as guarded
+from .identity.accounts import read_json
+from .identity.guards import guard
+from .identity.guards import ident as guarded
 from .default_screens import SCREEN, screens
-from .sessions import error, ok
+from .identity.sessions import error, ok
 
 log = logging.getLogger("mantel.ha_dashboards")
 

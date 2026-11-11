@@ -273,7 +273,7 @@ async def test_signed_out_is_refused(env):
 
 
 async def test_tunnel_needs_the_roles_camera_switch_but_no_step_up(env):
-    from mantel_server.accounts import totp
+    from mantel_server.identity.accounts import totp
     from gateway_fakes import seed_of
     await login(env, "jordan", "adult")
     r = await env.post("/api/auth/totp/enroll")
@@ -322,9 +322,9 @@ async def test_ha_unreachable_is_a_502(env):
 
 
 def test_may_still_is_the_live_view_policy():
-    from mantel_server import sessions
-    from mantel_server.authz import Authz, Principal
-    from mantel_server.rbac import Policy, Subject
+    from mantel_server.identity import sessions
+    from mantel_server.identity.authz import Authz, Principal
+    from mantel_server.identity.rbac import Policy, Subject
 
     class Store:
         def policy(self):

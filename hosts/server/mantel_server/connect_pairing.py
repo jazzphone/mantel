@@ -51,8 +51,8 @@ from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
 from mantel_connect import pki, protocol
 
 from . import audit
-from .guards import guard
-from .guards import ident as guarded
+from .identity.guards import guard
+from .identity.guards import ident as guarded
 
 log = logging.getLogger("mantel.connect")
 

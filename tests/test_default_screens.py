@@ -141,7 +141,7 @@ async def test_a_tablet_opens_its_own_screen_whoever_is_signed_in(mantel):
     assert await home(m) == "/dashboard-loft/home"
     # a person signed in at the tablet still gets the tablet's, not their own (dashboard-hall)
     from mantel_server import default_screens
-    from mantel_server.sessions import Device, Identity, User
+    from mantel_server.identity.sessions import Device, Identity, User
     ann = m.app["accounts"].db.execute("SELECT id FROM users WHERE username = 'ann'").fetchone()[0]
     person = User(ann, "Ann", "adult", "mantel")
     at_tablet = Identity(person, Device(device_id, "Loft tablet", "wall_tablet", "loft"), "lan")

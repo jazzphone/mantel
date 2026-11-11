@@ -16,7 +16,7 @@ from aiohttp import web
 import gateway_fakes as GF
 from mantel_server import features as F
 from mantel_server import protect_connector as P
-from mantel_server.rbac import Grant
+from mantel_server.identity.rbac import Grant
 from mantel_server.settings_store import Actor
 from test_cameras_direct import OFFER_SDP, rig  # noqa: F401 -- the fixture
 from test_protect_api import KEY, Console, closed_port
@@ -376,7 +376,7 @@ async def test_rbac_of_a_matched_camera_is_identical_with_video_direct_or_not(ri
                                  and e.principal.user.role == role), ws)
 
     # and an Adult from outside (the tunnel), whose cameras an Owner may switch off
-    from mantel_server.accounts import totp
+    from mantel_server.identity.accounts import totp
     m = r.env.m
     await r.env.login("adult2", "adult")
     seed = await r.env.enroll_totp()
@@ -547,7 +547,7 @@ async def test_a_motion_only_camera_offers_motion(rig, console):
 
 # ------------------------------------------------------------------------------------- direct talk
 async def test_the_doorbells_speaker_is_talked_to_directly(rig, console):
-    from mantel_server.authz import talk_grants
+    from mantel_server.identity.authz import talk_grants
     r = await rig()
     conn = await connected(r, console)
     await pick(r, FRONT)
@@ -563,7 +563,7 @@ async def test_the_doorbells_speaker_is_talked_to_directly(rig, console):
         actor=Actor(label="test"))
     authz = r.app["authz"]
     assert authz.talk_speakers() == {mine}
-    from mantel_server.rbac import Subject
+    from mantel_server.identity.rbac import Subject
     sub = Subject(device_role="wall_tablet", device_id="t1")
     pol = authz.talk_policy(sub)
     assert set(talk_grants([mine])) <= set(pol.grants)

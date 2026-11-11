@@ -37,11 +37,12 @@ from aiohttp import web
 
 from . import default_screens
 from . import audit
-from .accounts import read_json, require_manager
-from .guards import guard
-from .guards import ident as guarded
-from .sessions import (CSRF_COOKIE, Device, client_ip, cookie_secure, device_json, end_session, error, ok,
-                       queue_cookie, token_hash)
+from .identity.accounts import read_json, require_manager
+from .identity.guards import guard
+from .identity.guards import ident as guarded
+from .identity.sessions import (
+    CSRF_COOKIE, Device, client_ip, cookie_secure, device_json, end_session, error, ok, queue_cookie, token_hash,
+)
 from .store import ROLES
 
 log = logging.getLogger("mantel.devices")

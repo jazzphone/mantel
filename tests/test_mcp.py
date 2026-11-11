@@ -944,7 +944,7 @@ async def test_commands_scope_refused_while_the_house_is_read_only(mantel):
     gid = None
     grants = mantel.app["mcp_grants"]
     user = mantel.app["store"].db.execute("SELECT * FROM users WHERE username='olive'").fetchone()
-    from mantel_server.sessions import User
+    from mantel_server.identity.sessions import User
     g, issued = grants.create_oauth(User(user["id"], user["name"], "owner", "person"), None, "Tester",
                                     ["read", "commands"], False, "lan")
     gid = g.id

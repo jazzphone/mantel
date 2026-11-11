@@ -217,7 +217,7 @@ async def test_the_same_subscription_id_twice_never_leaks_a_session_at_ha(off):
 
 async def test_a_camera_hidden_by_a_deny_on_view_cannot_be_watched_either(off):
     from gateway_fakes import recv
-    from mantel_server.rbac import Grant
+    from mantel_server.identity.rbac import Grant
     rec = RecordingProxy()
     off.app["camera_signaling_holder"]["proxy"] = rec
     await off.login("alex", "adult")
@@ -234,7 +234,7 @@ async def test_a_camera_hidden_by_a_deny_on_view_cannot_be_watched_either(off):
 
 async def test_losing_a_camera_ends_its_live_stream_at_the_next_tick(off):
     from mantel_server import server
-    from mantel_server.rbac import Grant
+    from mantel_server.identity.rbac import Grant
     rec = RecordingProxy()
     off.app["camera_signaling_holder"]["proxy"] = rec
     await off.login("alex", "adult")

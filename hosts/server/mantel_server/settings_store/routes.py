@@ -151,8 +151,8 @@ def register(app: web.Application, hub: Any, hooks: Any = None, *, store: Settin
                 raise SettingsError("no_hk_frontend", NO_HK_FRONTEND) from None
             raise
 
-    from ..guards import guard
-    from ..guards import ident as guarded
+    from ..identity.guards import guard
+    from ..identity.guards import ident as guarded
 
     @guard("manager", reads="admin")                                   # an Owner or Admin, never at a wall tablet
     async def import_status(request: web.Request) -> web.Response:

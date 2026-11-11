@@ -43,10 +43,11 @@ from urllib.parse import urlencode, urlparse
 
 from aiohttp import web
 
-from .. import audit, sessions
-from ..accounts import STEP_UP_WINDOW, is_fresh_to_add_factor
-from ..guards import WHY_MCP_OAUTH, open_route
-from ..login_page import login_url
+from .. import audit
+from ..identity import sessions
+from ..identity.accounts import STEP_UP_WINDOW, is_fresh_to_add_factor
+from ..identity.guards import WHY_MCP_OAUTH, open_route
+from ..identity.login_page import login_url
 from .grants import DEFAULT_SCOPES, MANAGERS, SCOPES, GrantError, clean_scopes
 
 log = logging.getLogger("mantel.mcp")
@@ -81,7 +82,7 @@ def _oauth_error(code: str, text: str, status: int = 400) -> web.Response:
 
 
 def _page(title: str, body: str, status: int = 200) -> web.Response:
-    from ..auth import page
+    from ..identity.auth import page
     return page(title, body, status)
 
 

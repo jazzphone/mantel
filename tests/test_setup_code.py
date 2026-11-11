@@ -10,7 +10,7 @@ from argon2 import PasswordHasher
 
 from conftest import PASSWORD
 from mantel_server import __main__ as entry
-from mantel_server.accounts import BOOTSTRAP_TTL, SETUP_LOGGER, announce_setup_code
+from mantel_server.identity.accounts import BOOTSTRAP_TTL, SETUP_LOGGER, announce_setup_code
 from mantel_server.server import tick_once
 
 CODE = re.compile(r"^\s{4}(\S{20,})$", re.M)

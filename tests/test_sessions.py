@@ -6,8 +6,9 @@ from aiohttp import web
 from aiohttp.test_utils import make_mocked_request
 
 from conftest import PASSWORD
-from mantel_server.sessions import (REFRESH_REUSE_GRACE, SessionManager, cookie_secure, door_of, identity,
-                                    token_hash)
+from mantel_server.identity.sessions import (
+    REFRESH_REUSE_GRACE, SessionManager, cookie_secure, door_of, identity, token_hash,
+)
 
 
 def mgr(mantel) -> SessionManager:
@@ -229,7 +230,7 @@ def test_door_and_cookie_policy():
 
 async def test_cookies_over_a_real_hostname_are_secure(mantel):
     # what a browser behind Caddy gets (the Host allowlist is P3.6's; set the policy hook directly)
-    from mantel_server.sessions import set_session_cookies
+    from mantel_server.identity.sessions import set_session_cookies
     from aiohttp import web
     uid = await mantel.user("jordan", "adult")
     issued = mgr(mantel).create(uid, "lan", "password")

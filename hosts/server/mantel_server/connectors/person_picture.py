@@ -12,7 +12,7 @@ from urllib.parse import urlsplit
 from aiohttp import web
 
 from . import camera_still
-from ..guards import guard
+from ..identity.guards import guard
 
 PERSON_ID = re.compile(r"^person\.[a-z0-9_]+$")
 IMAGE = re.compile(r"^/api/image/serve/[a-zA-Z0-9_-]+/[0-9]+x[0-9]+$")

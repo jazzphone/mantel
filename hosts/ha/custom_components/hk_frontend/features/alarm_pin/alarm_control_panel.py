@@ -26,7 +26,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: Feature,
     async_add_entities([AlarmPin(entry)])
 
 
-# WRONG CODES LOCK THE PANEL, as Mantel's keypad does (mantel_server/pins.py): after LOCK_AFTER in a row it
+# WRONG CODES LOCK THE PANEL, as Mantel's keypad does (mantel_server/identity/pins.py): after LOCK_AFTER in a row it
 # refuses for LOCK_SECONDS, before any PBKDF2 check. Unlimited, a 4-digit PIN fell to guessing in minutes, each
 # guess a full hash on Home Assistant's executor. In memory: a restart starts the count again.
 LOCK_AFTER = 5

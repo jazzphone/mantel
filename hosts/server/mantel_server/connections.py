@@ -76,10 +76,10 @@ import aiohttp
 from aiohttp import web
 
 from . import atrest, audit
-from .accounts import STEP_UP_WINDOW, read_json
-from .guards import guard, open_route
-from .guards import ident as guarded
-from .sessions import Identity, error, ok
+from .identity.accounts import STEP_UP_WINDOW, read_json
+from .identity.guards import guard, open_route
+from .identity.guards import ident as guarded
+from .identity.sessions import Identity, error, ok
 
 log = logging.getLogger("mantel.connections")
 
@@ -821,7 +821,7 @@ async def api_oauth_start(request: web.Request) -> web.Response:
 
 
 def _page(title: str, body: str, status_code: int = 200) -> web.Response:
-    from .auth import page
+    from .identity.auth import page
     return page(title, body, status_code)
 
 

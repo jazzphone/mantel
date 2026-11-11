@@ -3,7 +3,7 @@ import asyncio
 import json
 
 from mantel_server.devices import RETIRED_GRACE, ROTATE_EVERY
-from mantel_server.sessions import token_hash
+from mantel_server.identity.sessions import token_hash
 
 
 async def enroll(mantel, **body):
@@ -153,7 +153,7 @@ async def test_device_requests_need_its_csrf_token_and_cannot_manage(mantel):
 
 
 async def test_person_signed_in_at_a_tablet_carries_both(mantel):
-    from mantel_server.sessions import identity
+    from mantel_server.identity.sessions import identity
     await mantel.user("avery", "owner")
     await mantel.sign_in("avery")
     await enroll(mantel)
@@ -276,8 +276,8 @@ async def test_moving_a_device_refuses_unknown_rooms_revoked_devices_and_non_man
 
 async def test_a_moved_tablet_speaks_for_its_new_hk_tablet_after_the_policy_tick(mantel):
     from mantel_server import features as F
-    from mantel_server.authz import Principal
-    from mantel_server.sessions import Device, Identity
+    from mantel_server.identity.authz import Principal
+    from mantel_server.identity.sessions import Device, Identity
     device, _ = await enrolled_tablet(mantel, room="Livingroom")       # as typed before the picker (no rooms known)
     house_tablets(mantel)
     host, authz = mantel.app["features"], mantel.app["authz"]

@@ -143,7 +143,7 @@ def client_ip(request: web.Request) -> str | None:
     if request.get("ingress_client_ip") is not None:   # set by ingress.py for Ingress requests only
         return request["ingress_client_ip"]
     remote = request.remote
-    from . import proxy_trust
+    from .. import proxy_trust
     if remote and proxy_trust.is_trusted(request):
         # every X-Forwarded-For line, not the first only: a proxy that adds a line of its own (HAProxy's
         # option forwardfor) left the browser's first, and the browser chose its address
@@ -525,7 +525,7 @@ def check_csrf(request: web.Request, ident: Identity) -> None:
 def legacy_user(ident: Identity) -> dict:
     """The request["user"] dict Phase 0 handlers read (``/api/me``). `room`: the device's room as an area id (a Home
     Grid's ``tablet_room``), None without a device."""
-    from .devices import room_id                 # devices.py imports this module
+    from ..devices import room_id                 # devices.py imports this module
     room = room_id(ident.device.room) if ident.device else None
     if ident.user is not None:
         u = ident.user
@@ -647,7 +647,7 @@ async def list_sessions(request: web.Request) -> web.Response:
 @guard("person", device_ok=True, audit="session.revoke")
 async def revoke_session(request: web.Request) -> web.Response:
     """Me → My Sessions (yours), or People → a person (an Owner's or Admin's): the audit row first."""
-    from . import audit
+    from .. import audit
     ident = guarded(request)
     mgr: SessionManager = request.app["sessions"]
     row = mgr.get(request.match_info["id"])
@@ -668,7 +668,7 @@ async def revoke_session(request: web.Request) -> web.Response:
 async def revoke_others(request: web.Request) -> web.Response:
     """Me → My Sessions → Sign Out Everywhere Else: every browser session of yours but this one (the Mantel
     apps keep theirs: Me → Mantel App)."""
-    from . import audit
+    from .. import audit
     ident = guarded(request)
     mgr: SessionManager = request.app["sessions"]
     ids = [r["id"] for r in mgr.list(ident.user.id, request.app["clock"]())

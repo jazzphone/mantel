@@ -32,8 +32,8 @@ from aiohttp import web
 from . import apns, app_crypto
 from . import user_data as UD
 from .app_auth import app_route
-from .guards import WHY_APP, open_route
-from .sessions import error, ok
+from .identity.guards import WHY_APP, open_route
+from .identity.sessions import error, ok
 
 ENTITY = re.compile(r"^[a-z_]+\.[a-z0-9_]+$")
 SERVICE = re.compile(r"^[a-z_]{1,64}$")

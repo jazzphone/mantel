@@ -14,7 +14,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from .guards import READS
+from .identity.guards import READS
 
 
 @dataclass(frozen=True)

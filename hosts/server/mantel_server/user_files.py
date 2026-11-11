@@ -57,8 +57,8 @@ from hk_core.your_files import (  # noqa: F401 -- re-exported: the tests and ing
 from . import audit, imaging
 # a photo's decode and re-encode (image_work.py) runs in imaging.py's worker process; these names stay Your Files'
 from .image_work import PHOTO_EDGE, PHOTO_PIXELS_MAX, FileError, reencode_photo, sniff_image  # noqa: F401
-from .guards import guard
-from .guards import ident as guarded
+from .identity.guards import guard
+from .identity.guards import ident as guarded
 
 log = logging.getLogger("mantel.user_files")
 

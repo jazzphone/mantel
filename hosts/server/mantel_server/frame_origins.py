@@ -26,8 +26,8 @@ from urllib.parse import urlsplit
 from aiohttp import web
 
 from . import audit
-from .guards import guard
-from .guards import ident as guarded
+from .identity.guards import guard
+from .identity.guards import ident as guarded
 
 log = logging.getLogger("mantel.frame_origins")
 
@@ -152,7 +152,7 @@ def ancestors(app: web.Application | None) -> tuple[str, ...]:
 
 async def approve(request: web.Request, ident: Any, raw: object, why: str) -> tuple[str | None, web.Response | None]:
     """Add one address to the approved ones (an Owner; audited first). (origin or None, an error response or None)."""
-    from .sessions import error
+    from .identity.sessions import error
     fo = of(request.app)
     origin = origin_of(raw)
     if fo is None or origin is None:
@@ -180,7 +180,7 @@ async def api_list(request: web.Request) -> web.Response:
 # adds one (server_settings, connections.edit_rule)
 @guard("owner", fresh="away", audit="frame_origin.add")
 async def api_add(request: web.Request) -> web.Response:
-    from .accounts import read_json
+    from .identity.accounts import read_json
     ident = guarded(request)
     body = await read_json(request)
     origin, err = await approve(request, ident, body.get("origin"), "settings")
@@ -192,7 +192,7 @@ async def api_add(request: web.Request) -> web.Response:
 # removing one narrows who may frame Mantel, so it needs no fresh factor, on purpose (the 2026-10 audit's AUTH-5)
 @guard("owner", audit="frame_origin.remove")
 async def api_remove(request: web.Request) -> web.Response:
-    from .sessions import error
+    from .identity.sessions import error
     ident = guarded(request)
     fo = of(request.app)
     origin = origin_of(request.query.get("origin"))

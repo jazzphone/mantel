@@ -55,11 +55,11 @@ from aiohttp import web
 
 from . import app_crypto, qr
 from . import audit
-from .accounts import MANAGERS, read_json
-from .guards import WHY_APP, guard, open_route
-from .guards import ident as guarded
-from .login_page import login_url, safe_next
-from .sessions import (Identity, door_of, error, ok, set_session_cookies, token_hash, user_from_row)
+from .identity.accounts import MANAGERS, read_json
+from .identity.guards import WHY_APP, guard, open_route
+from .identity.guards import ident as guarded
+from .identity.login_page import login_url, safe_next
+from .identity.sessions import Identity, door_of, error, ok, set_session_cookies, token_hash, user_from_row
 
 log = logging.getLogger("mantel.app_auth")
 
@@ -402,7 +402,7 @@ def _back_to_app(state: str | None, **query: str) -> web.StreamResponse:
 
 @open_route("sign_in", why="the app's sign-in page: the person signs in there (app_auth.py)")
 async def authorize_page(request: web.Request) -> web.StreamResponse:
-    from .sessions import identity
+    from .identity.sessions import identity
     p = _params(request.query)
     if isinstance(p, str):
         return _page("Can’t Sign In", f"<p>This sign-in link is not valid ({html.escape(p)}).</p>", 400)
@@ -423,7 +423,7 @@ async def authorize_page(request: web.Request) -> web.StreamResponse:
 
 @open_route("sign_in", why="the app's sign-in page: the person signs in there (app_auth.py)")
 async def authorize_post(request: web.Request) -> web.StreamResponse:
-    from .sessions import identity
+    from .identity.sessions import identity
     form = await request.post()
     p = _params(form)
     if isinstance(p, str):

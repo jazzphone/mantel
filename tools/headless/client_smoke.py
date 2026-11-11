@@ -28,7 +28,7 @@ from mantel_server import settings_store
 from mantel_server.config import Config
 from mantel_server.connectors import Ctx
 from mantel_server.server import build_app
-from mantel_server.sessions import Identity, User
+from mantel_server.identity.sessions import Identity, User
 from mantel_server.store import Store
 
 

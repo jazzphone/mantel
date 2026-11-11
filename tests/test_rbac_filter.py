@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from mantel_server.rbac import Context, Gate, Grant, Policy, Subject, guest_until
+from mantel_server.identity.rbac import Context, Gate, Grant, Policy, Subject, guest_until
 from mantel_server.view import ClientView, Coalescing, filter_registry
 from rbac_fixtures import GPS, NOW, TZ, adult, child, guest, owner, registry, st, states, tablet
 

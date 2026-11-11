@@ -42,10 +42,10 @@ from urllib.parse import urlsplit
 from aiohttp import ClientError, ClientTimeout, web
 
 from . import app_crypto, audit
-from .accounts import read_json
-from .guards import guard
-from .guards import ident as guarded
-from .sessions import error, ok
+from .identity.accounts import read_json
+from .identity.guards import guard
+from .identity.guards import ident as guarded
+from .identity.sessions import error, ok
 
 log = logging.getLogger("mantel.push")
 

@@ -97,11 +97,11 @@ from . import audit
 from . import cameras_direct as D
 from . import connections as C
 from . import protect_api as pa
-from .accounts import read_json
-from .guards import guard
-from .guards import ident as guarded
+from .identity.accounts import read_json
+from .identity.guards import guard
+from .identity.guards import ident as guarded
 from .live_tv import LocalEntities
-from .sessions import error, ok
+from .identity.sessions import error, ok
 from .talk_direct import DirectTalk, Speaker
 
 log = logging.getLogger("mantel.protect")

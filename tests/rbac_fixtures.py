@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from mantel_server.rbac import Context, Subject
+from mantel_server.identity.rbac import Context, Subject
 from mantel_server.registry import Registry
 from mantel_server.state import StateStore
 

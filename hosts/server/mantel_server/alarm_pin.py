@@ -63,10 +63,10 @@ from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError, VerifyMismatchError
 
 from . import audit
-from .accounts import PolicyError, read_json
-from .guards import guard
-from .guards import ident as guarded
-from .sessions import error, ok
+from .identity.accounts import PolicyError, read_json
+from .identity.guards import guard
+from .identity.guards import ident as guarded
+from .identity.sessions import error, ok
 
 log = logging.getLogger("mantel.alarm_pin")
 
@@ -296,7 +296,7 @@ class AlarmPins:
 
     # -- RBAC for keypad commands only ----------------------------------------------------------------
     def grants(self) -> tuple:
-        from .rbac import Grant
+        from .identity.rbac import Grant
         out = []
         for e in self.entries():
             for eid in e.targets():
@@ -327,8 +327,8 @@ def is_keypad(domain: Any, service: Any) -> bool:
 # -- linked mode -----------------------------------------------------------------------------------------
 def linked_principal(app: web.Application, peer: str | None = None) -> Any:
     """The Service actor a linked HA's alarm commands run as (LAN only, as linked mode is)."""
-    from .authz import Principal
-    from .sessions import Identity, User
+    from .identity.authz import Principal
+    from .identity.sessions import Identity, User
     ident = Identity(user=User(id=LINKED_ACTOR, name=LINKED_ACTOR_NAME, role="service", kind="service"),
                      device=None, door="lan")
     authz = app["authz"]
@@ -589,7 +589,7 @@ async def settings_save(app: Any, identity: Any, msg: Mapping[str, Any]) -> dict
     """One of the page's three saves. Refused by field (``PageError`` invalid_format), as HA's were.
     Like the REST routes (``require_fresh``), every one needs a sign-in within the last five minutes
     (Signing-In.md): a stale Owner session must not be able to set the PIN that disarms the house."""
-    from .accounts import STEP_UP_WINDOW
+    from .identity.accounts import STEP_UP_WINDOW
     fresh_at = getattr(identity, "fresh_factor_at", None)
     if fresh_at is None or app["clock"]() - fresh_at > STEP_UP_WINDOW:
         raise _page_error("step_up_required", message="Confirm it is you first: this needs a sign-in, an "
@@ -670,7 +670,7 @@ async def _save_through_ha(app: Any, identity: Any, msg: Mapping[str, Any]) -> d
     page's."""
     import json as _json
 
-    from .authz import Principal
+    from .identity.authz import Principal
     from .feature_pages import alarm_pin_page
     gw, authz = app.get("gateway"), app.get("authz")
     if gw is None or authz is None:

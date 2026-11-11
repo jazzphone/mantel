@@ -193,7 +193,7 @@ class House:
     def grant_child_the_page(self, name: str = "cody") -> None:
         """An Owner grants a Child the Timeline's page, and (to show that the role still wins) a view of everything
         the rows are about."""
-        from mantel_server.rbac import Grant
+        from mantel_server.identity.rbac import Grant
         rb = self.app["rbac"]
         uid = self.uid[name]
         rb.add_grant(Grant(effect="allow", actions=("view",), resource_kind="feature", resource="timeline",

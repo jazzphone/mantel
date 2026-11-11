@@ -76,8 +76,8 @@ from . import faces as face_finder
 from .image_work import (MID_EDGE, ORIGINAL_EDGE, PIXELS_MAX, SCREEN_EDGE, THUMB_EDGE, PhotoError, Processed,  # noqa: F401
                          make_variant, process, sniff, taken_of)
 from .imaging import IMAGE_JOBS, image_slot, run as run_image_job  # noqa: F401
-from .guards import guard
-from .guards import ident as guarded
+from .identity.guards import guard
+from .identity.guards import ident as guarded
 
 log = logging.getLogger("mantel.photos")
 Before = Callable[[dict], None] | None    # a change's audit row, written once it is accepted and before it is made
@@ -1151,7 +1151,7 @@ def _fail(exc: PhotoError) -> web.Response:
 
 def may_view(request: web.Request) -> bool:
     """A manager, or anyone (person or wall tablet) who may use ``feature:media`` -- as the HA folder's photos."""
-    from . import sessions
+    from .identity import sessions
     ident = sessions.identity(request)
     if ident.user is not None and ident.device is None and ident.user.role in MANAGERS:
         return True
@@ -1455,7 +1455,7 @@ async def api_show(request: web.Request) -> web.Response:
 async def serve(request: web.Request) -> web.StreamResponse:
     size, pid = request.match_info["size"], request.match_info["photo"]
     if size == "original":
-        from . import sessions
+        from .identity import sessions
         ident = sessions.identity(request)
         allowed = ident.user is not None and ident.device is None and ident.user.role in MANAGERS
     else:

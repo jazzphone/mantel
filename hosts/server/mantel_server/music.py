@@ -1544,7 +1544,7 @@ def register(app: Any, hub: Any, hooks: Any = None) -> MusicHost:
 
     ws_handlers(app).update({"music_used": music_used})
 
-    from .guards import guard
+    from .identity.guards import guard
 
     @guard("manager", reads="admin")
     async def api_status(request) -> Any:

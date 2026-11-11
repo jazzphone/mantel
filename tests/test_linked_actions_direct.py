@@ -6,7 +6,7 @@ longer goes to Home Assistant to come back over the link: the same engines run h
 through the gateway as the PERSON (their grants, their audit row), never as `mantel:linked`. While HK Frontend still
 holds the bridge, the call goes to Home Assistant's `hk_frontend` exactly as before."""
 from mantel_server import linked_actions as LA
-from mantel_server.rbac import Grant
+from mantel_server.identity.rbac import Grant
 from test_features import VACUUM, make_env  # noqa: F401
 import gateway_fakes as GF
 

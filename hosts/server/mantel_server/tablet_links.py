@@ -54,12 +54,12 @@ from aiohttp import web
 
 from . import atrest, audit
 from . import connections as C
-from .accounts import read_json
-from .guards import guard
-from .guards import ident as guarded
+from .identity.accounts import read_json
+from .identity.guards import guard
+from .identity.guards import ident as guarded
 from .connectors import fully, kiosk_satellite as KS
 from .connectors.kiosk import KioskFailed, address_text
-from .sessions import error, ok
+from .identity.sessions import error, ok
 
 log = logging.getLogger("mantel.tablet_links")
 

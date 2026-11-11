@@ -8,9 +8,9 @@ import re
 import pytest
 
 from gateway_fakes import gw, off, service  # noqa: F401 -- fixtures
-from mantel_server import pins as pins_mod
-from mantel_server.accounts import PolicyError
-from mantel_server.pins import LOCK_AFTER, LOCK_SECONDS, Pins, check_pin
+from mantel_server.identity import pins as pins_mod
+from mantel_server.identity.accounts import PolicyError
+from mantel_server.identity.pins import LOCK_AFTER, LOCK_SECONDS, Pins, check_pin
 
 ADULT_PIN, CHILD_PIN, OWNER_PIN = "2580", "7913", "4826"
 

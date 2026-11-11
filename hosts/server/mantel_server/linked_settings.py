@@ -50,8 +50,8 @@ from typing import Any
 from aiohttp import web
 
 from . import audit
-from .guards import guard
-from .guards import ident as guarded
+from .identity.guards import guard
+from .identity.guards import ident as guarded
 
 log = logging.getLogger("mantel.linked_settings")
 
@@ -99,7 +99,7 @@ class LinkedSettings:
         """One ``settings_write``: the save, as the linked person. Raises LinkedError to refuse."""
         from .ingress import linked_user
         from .linked import LinkedError
-        from .sessions import Identity, User
+        from .identity.sessions import Identity, User
         from .settings_store import SettingsError
         if not wants(client):
             raise LinkedError("not_set_up", "only a linked HK Frontend that keeps Mantel's settings saves them")

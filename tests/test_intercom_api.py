@@ -26,7 +26,7 @@ from hk_core.intercom import config as C
 from intercom_fakes import (CODY, DEN, KITCHEN, RATE, chunks, closed, recv, recv_until, send_audio, until)
 from mantel_server.intercom import routes as RT
 from mantel_server.intercom.spool import wav_header
-from mantel_server.rbac import Grant
+from mantel_server.identity.rbac import Grant
 
 ic = IF.fixture(commands=True)
 

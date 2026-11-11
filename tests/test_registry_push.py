@@ -153,7 +153,7 @@ async def test_a_grant_change_tells_the_page(off):
     """A room added to the Child's scope: its registry has a new room, so the page reads it again."""
     ws, snap = await page(off, "cody", "child", ["cody_room"])
     off.app["rbac"].set_scopes("user", uid(off, "cody"), ["cody_room", "kitchen"])
-    from mantel_server.rbac_store import notify_sessions
+    from mantel_server.identity.rbac_store import notify_sessions
     notify_sessions(off.app["hub"])
     while (frame := await recv(ws))["type"] != "registry":
         pass

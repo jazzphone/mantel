@@ -271,7 +271,7 @@ class Digests:
     # -- the personal version ----------------------------------------------------------------------------------------
     def people(self) -> list[Any]:
         """The people whose Morning Summary is on (not disabled), as ``sessions.User``."""
-        from ..sessions import User
+        from ..identity.sessions import User
         rows = self.tl.db.execute(
             "SELECT u.id, u.username, u.name, u.role, u.kind FROM users u JOIN user_data d ON d.subject = 'u:' || u.id "
             "AND d.key = ? WHERE u.disabled = 0 AND TRIM(d.value) = 'true' ORDER BY u.created, u.id", (SUMMARY_KEY,))
@@ -279,7 +279,7 @@ class Digests:
                 for r in rows]
 
     def viewer_for(self, user: Any) -> Viewer | None:
-        from ..sessions import Identity
+        from ..identity.sessions import Identity
         authz = self.app.get("authz")
         if authz is None:
             return None

@@ -1,4 +1,4 @@
-"""Cloudflare Access in front of the tunnel (mantel_server/cf_access.py): with --cf-access-team/--cf-access-aud,
+"""Cloudflare Access in front of the tunnel (mantel_server/identity/cf_access.py): with --cf-access-team/--cf-access-aud,
 every tunnel-door request must carry a valid Cf-Access-Jwt-Assertion (RS256 by the team's keys, the right iss and
 aud, in date), refused with 403 before any session handling; the LAN and 'ha' doors are untouched, and an
 installation without the settings behaves exactly as before. Also: the keys' cache (by kid, an hour, an unknown kid
@@ -26,8 +26,8 @@ from aiohttp.test_utils import TestServer, make_mocked_request
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 
-from mantel_server import cf_access
-from mantel_server.authz import resolve_door
+from mantel_server.identity import cf_access
+from mantel_server.identity.authz import resolve_door
 from mantel_server.config import Config, parse_args
 from https_fakes import make_mantel
 
@@ -467,7 +467,7 @@ def _door(peer, headers, port=None, **cfg):
 # (fixed ids: the token is signed afresh at collection, and pytest-xdist's workers must collect the same names)
 @pytest.mark.parametrize("value", ["", "198.51.100.4", token()], ids=["empty", "an-address", "a-token"])
 def test_a_cloudflare_header_can_never_give_the_lan_rules(cf, value, monkeypatch):
-    from mantel_server import door_key
+    from mantel_server.identity import door_key
     caddy = "172.31.251.2"
     # every way a request is otherwise the LAN door, each with a Cloudflare header added: always the tunnel
     lan_ways = [

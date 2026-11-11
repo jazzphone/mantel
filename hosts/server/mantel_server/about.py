@@ -30,7 +30,7 @@ from aiohttp import web
 
 from . import setup_guide
 from .config import REPO
-from .guards import guard
+from .identity.guards import guard
 
 RELEASE = "RELEASE.json"
 PATH = "/api/about"

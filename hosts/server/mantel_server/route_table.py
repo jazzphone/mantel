@@ -40,7 +40,7 @@ from typing import Any, Callable, Iterable
 
 from aiohttp import web
 
-from .guards import UNSAFE, Guard, OpenRoute, policy_of
+from .identity.guards import UNSAFE, Guard, OpenRoute, policy_of
 
 log = logging.getLogger("mantel.route_table")
 
@@ -297,7 +297,7 @@ def tool_problems(rows: list[Row], tools: Iterable[Any]) -> list[str]:
 
 
 def public_paths(app: web.Application) -> set[str]:
-    from . import auth
+    from .identity import auth
     return set(auth.PUBLIC_PATHS) | set(app.get("public_paths", ()))
 
 

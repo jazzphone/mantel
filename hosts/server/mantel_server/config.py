@@ -374,7 +374,7 @@ def parse_args(argv: list[str] | None = None) -> Config:
         if u is not None and (u.scheme not in ("http", "https") or not u.hostname or u.query or u.username
                               or u.password or (flag != "--acme-directory" and u.path not in ("", "/"))):
             p.error(f"{flag} must be an http(s):// address" + (" with no path" if flag != "--acme-directory" else ""))
-    from . import cf_access
+    from .identity import cf_access
     cf_team, cf_auds = "", ()
     try:
         cf_auds = cf_access.parse_auds(a.cf_access_aud)

@@ -124,7 +124,7 @@ async def test_an_arrival_needs_history_of_the_person_not_only_view(w):
     _, body = await w.find("tunnel_mark")
     assert w.names_of(events(body)) == ADULT - {"arrival", "stranger"}
     assert w.names_of(events((await w.find("mark"))[1])) == ADULT          # at home they see them
-    from mantel_server.rbac import Grant
+    from mantel_server.identity.rbac import Grant
     for kind, eid, actions in (("feature", "timeline", ("view",)), ("entity", "person.emma", ("view",))):
         w.app["rbac"].add_grant(Grant(effect="allow", actions=actions, resource_kind=kind, resource=eid,
                                       users={w.uid["pip"]}))
@@ -804,7 +804,7 @@ async def test_the_live_feed_closes_when_the_session_is_revoked(w):
 
 
 async def test_the_live_feed_ends_when_the_page_is_taken_away(w):
-    from mantel_server.rbac import Grant
+    from mantel_server.identity.rbac import Grant
     ws, _ = await subscribe(w, "mark")
     assert [e.kind for e in w.app["live"].entries()] == ["hub", "timeline/subscribe"]
     w.app["rbac"].add_grant(Grant(effect="deny", actions=("view",), resource_kind="feature", resource="timeline",

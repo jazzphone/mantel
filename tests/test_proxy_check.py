@@ -162,13 +162,13 @@ async def test_rotating_the_door_key(m):
     rows = m.store.db.execute("SELECT * FROM action_audit").fetchall()
     assert any("door_key.rotated" in str(dict(r)) for r in rows) and not any(new in str(dict(r)) for r in rows)
     # sealed on disk: a new key object reads it back, and the file holds no key text
-    from mantel_server.door_key import DoorKey
+    from mantel_server.identity.door_key import DoorKey
     assert DoorKey(m.app["connections"].files).value() == new
     assert new.encode() not in m.app["connections"].files.path("door_key").read_bytes()
 
 
 def test_the_key_is_required_only_with_your_own_proxy():
-    from mantel_server import door_key
+    from mantel_server.identity import door_key
     from mantel_server.config import Config
     assert door_key.required(Config(proxy_kind="own"))
     assert not door_key.required(Config(proxy_kind="caddy")) and not door_key.required(Config())

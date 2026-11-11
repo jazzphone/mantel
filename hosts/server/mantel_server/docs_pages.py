@@ -23,7 +23,7 @@ from pathlib import Path
 
 from aiohttp import web
 
-from .guards import WHY_STATIC, open_route
+from .identity.guards import WHY_STATIC, open_route
 
 MANTEL_PAGE = "Mantel"
 PAGE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9-]{0,80}$")

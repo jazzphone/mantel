@@ -21,7 +21,7 @@ from live_tv_fakes import FRAME
 from mantel_server import camera_setup as CS
 from mantel_server import cameras_direct as D
 from mantel_server import features as F
-from mantel_server.rbac import Grant
+from mantel_server.identity.rbac import Grant
 from mantel_server.settings_store import Actor
 from test_cameras_direct import PROTECT_HIGH, PROTECT_LOW, rig  # noqa: F401 -- the fixture and the Protect fixture
 

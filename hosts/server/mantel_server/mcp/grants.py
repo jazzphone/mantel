@@ -25,7 +25,7 @@ import secrets
 from dataclasses import dataclass
 from typing import Any
 
-from .. import sessions
+from ..identity import sessions
 
 log = logging.getLogger("mantel.mcp")
 
