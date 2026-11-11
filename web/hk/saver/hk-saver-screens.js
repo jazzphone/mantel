@@ -33,6 +33,10 @@
       sigOf = K.sigOf; slideView = K.slideView; stop = K.stop; upNextPiece = K.upNextPiece; volFrom = K.volFrom;
     });
 
+    // ITS OWN STATE (phase 25, A: off the shared ST, which only this file used; tools/state_owners.py)
+    /** @type {any} */ var exBefore = '';
+    /** @type {any} */ var saverSent = 0;
+
     function exArm() {
       if (ST.exT) { clearTimeout(ST.exT); ST.exT = null; }
       if (!ST.on || !ST.cfg || ST.previewOn || !extrasOf(ST.cfg).length) return;
@@ -43,10 +47,10 @@
     function exNext() {
       var run = ST.photoRun;
       var held = document.hidden || ST.pnl || black() || ST.exKind || (ST.host && ST.host.hasAttribute('cknight')) || (ST.muShowing && takeover());
-      if (ST.exLast && ST.exLast !== 'timer') ST.exBefore = ST.exLast;
+      if (ST.exLast && ST.exLast !== 'timer') exBefore = ST.exLast;
       var kind = held ? null : timedTurn(ST.cfg, EXTRA_ORDER, extrasOf(ST.cfg).filter(function (k) {
         return k === 'music' ? musicPlaying() : k === 'energy' ? energyReady() : k === 'weather' ? slideReady(WX) : k === 'holiday' ? slideReady(HL) : k === 'timer' ? slideReady(TM) : true;
-      }), ST.exLast, ST.exBefore);
+      }), ST.exLast, exBefore);
       if (kind && exShow(kind)) {
         ST.exT = setTimeout(function () { ST.exT = null; if (ST.on && run === ST.photoRun) { exHide(); exArm(); } }, ST.cfg.extra_for * 1000);
         return;
@@ -431,8 +435,8 @@
       if (!ST.cfg || !ST.cfg.entity || !/^switch\./.test(ST.cfg.entity)) return;
       if (!mine() || ST.force || /[?&]hk_saver=force\b/.test(location.search)) return;
       var now = Date.now();
-      if (now - ST.saverSent < 3000) return;
-      ST.saverSent = now;
+      if (now - saverSent < 3000) return;
+      saverSent = now;
       sendWS(whoMsg({ type: 'hk_frontend/screensaver/touch', saver: true })).catch(function () { /* older integration */ });
     }
 

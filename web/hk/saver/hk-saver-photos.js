@@ -25,20 +25,23 @@
       slideShow = K.slideShow; start = K.start; TM = K.TM; WX = K.WX;
     });
 
+    // ITS OWN STATE (phase 25, A: off the shared ST, which only this file used; tools/state_owners.py)
+    /** @type {any} */ var moRand = null;
+
     function mosaicOn() { return !!(ST.cfg && ST.cfg.mosaic && ST.mode === 'photos' && !(ckPhotos() && ST.cfg.clock_photo_soft)); }
     function moGap() {
       if (ST.cfg.mosaic_gap === 'none') return 0;
       return ST.cfg.mosaic_line > 0 ? ST.cfg.mosaic_line : ST.cfg.mosaic_gap === 'rounded' ? 12 : 3;
     }
     function moCount() {
-      if (!ST.cfg.mosaic_random) { ST.moRand = null; return ST.cfg.mosaic_count; }
+      if (!ST.cfg.mosaic_random) { moRand = null; return ST.cfg.mosaic_count; }
       var now = clock.now();
-      if (!ST.moRand || now >= ST.moRand.until || ST.moRand.max !== ST.cfg.mosaic_count) {
-        var max = ST.cfg.mosaic_count, prev = ST.moRand ? ST.moRand.n : 0, k = prev, tries = 0;
+      if (!moRand || now >= moRand.until || moRand.max !== ST.cfg.mosaic_count) {
+        var max = ST.cfg.mosaic_count, prev = moRand ? moRand.n : 0, k = prev, tries = 0;
         while (k === prev && tries++ < 8) k = 1 + Math.floor(Math.random() * max);
-        ST.moRand = { n: k, max: max, until: now + ST.cfg.mosaic_every * 60000 };
+        moRand = { n: k, max: max, until: now + ST.cfg.mosaic_every * 60000 };
       }
-      return ST.moRand.n;
+      return moRand.n;
     }
     function moDraw(cell, ph) {
       var r = cell.getBoundingClientRect ? cell.getBoundingClientRect() : { width: 0, height: 0 };

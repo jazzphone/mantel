@@ -4,6 +4,7 @@
     tools/state_owners.py            # write docs/phase25/SAVER-STATE.md
     tools/state_owners.py --check    # is it fresh, and is every name written only by its owner? (tests/test_state_owners.py)
     tools/state_owners.py --json     # the uses, one per line: file, name, kind, line, function
+    tools/state_owners.py --own hk-saver-draw bigFor bigRun   # names only that part uses: off ST, into its own vars
 
 Phase 24 cut hk-saver.js into a shell and ten parts (tools/split_js.py) and turned the variables they share into the
 properties of one object, `ST`. The cut moved the tangle into more files; it did not undo it. Part A gives each piece of
@@ -22,6 +23,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -203,11 +205,118 @@ def check(root: Path = ROOT) -> list[str]:
     return problems
 
 
+# ------------------------------------------------------------------------------------------------ --own: off ST
+# A name only its owner uses (besides the shell's starting value) leaves ST: it becomes the owner's own `var`, its starting
+# value moved from the shell's top (which runs before the parts, and holds nothing else but declarations: nothing reads
+# a name between the two), every `ST.x` in the owner becomes `x`. Refused when another file uses it, when `x` is already
+# an identifier anywhere in the saver (it would be captured or shadow something), or when the starting value reads a
+# name the owner does not have. The moved var is typed `any`, as ST's properties were (Record<string, any>).
+JS_GLOBALS = {"Date", "Math", "JSON", "Object", "Array", "Number", "String", "Infinity", "NaN", "undefined", "null",
+              "true", "false", "window", "document", "performance", "Image", "Map", "Set", "WeakMap", "new"}
+
+
+def facts(path: Path, part: bool) -> dict:
+    r = subprocess.run([node(), str(HELPER)], input=json.dumps({"cmd": "facts", "file": str(path), "part": part}),
+                       capture_output=True, text=True)
+    if r.returncode:
+        raise SystemExit(f"tools/state_owners.cjs facts failed:\n{r.stderr[-2000:]}")
+    return json.loads(r.stdout)
+
+
+def own(owner: str, names: list[str], root: Path = ROOT) -> dict[str, str]:
+    """The files' new texts with `names` off ST and in `owner`'s own vars; raises SystemExit naming what refuses."""
+    found = uses(root)
+    all_files = files(root)
+    target = owner_file(owner, root)
+    shell = SHELL
+    texts = {f: (root / f).read_text() for f in all_files}
+    ids = {f: set(facts(root / f, f != shell)["idents"]) for f in all_files}
+    shell_facts = facts(root / shell, False)
+    problems, inits = [], {}
+    for name in names:
+        mine = [u for u in found if u["name"] == name]
+        if not mine:
+            problems.append(f"ST.{name}: not used anywhere")
+            continue
+        init = [st for st in shell_facts["statements"] if st.get("st") == name]
+        others = [u for u in mine if u["file"] != target and not (u["file"] == shell and u["kind"] == "write" and u["top"])]
+        if others:
+            problems.append(f"ST.{name}: also used by {sorted({short(u['file']) + ':' + str(u['line']) for u in others})}")
+        if len(init) > 1:
+            problems.append(f"ST.{name}: the shell sets its starting value {len(init)} times")
+        if (clash := [short(f) for f in all_files if name in ids[f]]):
+            problems.append(f"ST.{name}: `{name}` is already an identifier in {clash}")
+        if init and target != shell:
+            code = re.sub(r"'(?:[^'\\]|\\.)*'|\"(?:[^\"\\]|\\.)*\"", "''", init[0]["value"])   # (not a string's words)
+            free = {w for w in re.findall(r"(?<![.\w$])([A-Za-z_$][\w$]*)", code)} - JS_GLOBALS
+            if (missing := sorted(w for w in free if w not in ids[target])):
+                problems.append(f"ST.{name}: its starting value `{init[0]['value']}` reads {missing}, which {owner} lacks")
+        inits[name] = init[0] if init else None
+    if problems:
+        raise SystemExit("--own refused:\n  " + "\n  ".join(problems))
+    out = dict(texts)
+    # 1. every ST.x in the owner (and, for the shell, its starting value's own statement) becomes x
+    spans = sorted(((u["start"], u["end"], u["name"]) for u in found if u["name"] in names and u["file"] == target),
+                   reverse=True)
+    text = out[target]
+    for a, b, name in spans:
+        # (the shell's own: its starting value's statement becomes the declaration where it stands)
+        decl = target == shell and inits[name] is not None and a == inits[name]["start"]
+        text = text[:a] + ("/** @type {any} */ var " if decl else "") + name + text[b:]
+    out[target] = text
+    if target == shell:
+        return out
+    # 2. the shell's starting values leave its top (the whole line, carrying its comment along), latest first
+    moved_lines = []
+    shell_text = out[shell]
+    for name in sorted(names, key=lambda n: -(inits[n]["start"] if inits[n] else -1)):
+        init = inits[name]
+        if not init:
+            moved_lines.append((name, f"/** @type {{any}} */ var {name};", ""))
+            continue
+        ls = shell_text.rindex("\n", 0, init["start"]) + 1
+        le = shell_text.index("\n", init["end"])
+        before, after = shell_text[ls:init["start"]], shell_text[init["end"]:le]
+        cast = before.strip()
+        if cast and not re.fullmatch(r"/\*\*.*\*/", cast):
+            raise SystemExit(f"--own refused: ST.{name}'s starting value shares its line with `{cast}`")
+        if after.strip() and not after.strip().startswith("//"):
+            raise SystemExit(f"--own refused: ST.{name}'s starting value shares its line with `{after.strip()}`")
+        moved_lines.append((name, f"/** @type {{any}} */ var {name} = {init['value']};", after.strip()))
+        shell_text = shell_text[:ls] + shell_text[le + 1:]
+    out[shell] = shell_text
+    # 3. the owner declares them after its opening statements (the takes and the binders), in the shell's order
+    owner_facts = facts(root / target, True)
+    at = owner_facts["afterTakes"]
+    if at is None:
+        raise SystemExit(f"--own refused: {owner} has no opening takes to put its state after")
+    moved_lines.sort(key=lambda m: inits[m[0]]["start"] if inits[m[0]] else 1 << 30)
+    width = max(len(decl) for _, decl, _ in moved_lines)
+    block = ["", "", "    // ITS OWN STATE (phase 25, A: off the shared ST, which only this file used; tools/state_owners.py)"]
+    block += [f"    {decl}" + (f"{' ' * (width - len(decl))}  {c}" if c else "") for _, decl, c in moved_lines]
+    text = out[target]
+    out[target] = text[:at] + "\n".join(block) + text[at:]
+    return out
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--check", action="store_true", help="the page is fresh and the moved owners stay sole writers")
     ap.add_argument("--json", action="store_true", help="print every use, one per line")
+    ap.add_argument("--own", nargs="+", metavar=("PART", "NAME"),
+                    help="move these names, used by PART alone, off ST into PART's own vars (and rewrite the page)")
     args = ap.parse_args(argv)
+    if args.own:
+        if len(args.own) < 2:
+            ap.error("--own PART NAME...")
+        part, names = args.own[0], args.own[1:]
+        for f, text in own(part, names).items():
+            if (ROOT / f).read_text() != text:
+                (ROOT / f).write_text(text)
+                print(f"rewrote {f}")
+        OUT.write_text(render())
+        print(f"{len(names)} names off ST into {part}; wrote {OUT.relative_to(ROOT)}")
+        return 0
     if args.json:
         for u in uses():
             print(json.dumps(u))

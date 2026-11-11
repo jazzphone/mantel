@@ -22,6 +22,16 @@
       showNext = K.showNext; slideView = K.slideView; takeover = K.takeover; TM = K.TM; WX = K.WX;
     });
 
+    // ITS OWN STATE (phase 25, A: off the shared ST, which only this file used; tools/state_owners.py)
+    /** @type {any} */ var fTick = null;
+    /** @type {any} */ var bigRun = 0;
+    /** @type {any} */ var bigFor = '';
+    /** @type {any} */ var cornerAsked = false;
+    /** @type {any} */ var cornerAt = 0;
+    /** @type {any} */ var ckLoad = null;
+    /** @type {any} */ var ckRun = 0;
+    /** @type {any} */ var ckArgs = null;
+
     // ------------------------------------------------------------ the forecast
     // The forecast's layer: built the first time it is needed, then kept for
     // as long as the screensaver shows (Photos & Forecast brings it back every
@@ -64,7 +74,7 @@
       startTick();
     }
     function startTick() {
-      if (!ST.fTick) ST.fTick = setInterval(function () { forecastTick(false); }, FC_TICK_MS);
+      if (!fTick) fTick = setInterval(function () { forecastTick(false); }, FC_TICK_MS);
     }
     // Whether the details show now: on the forecast (Forecast, the slide, the
     // no-photos fallback) by `band`; over the photos by `band_photos`.
@@ -87,12 +97,12 @@
       setAttr(ST.host, 'fcbig', want);
       var fc = ST.root.querySelector('.fc');
       // (its big number changed -- the temperature or the time: drawn again)
-      if (ST.bigCtl && (!want || ST.bigFor !== ST.cfg.forecast_big + '|' + ST.cfg.forecast_planted)) { try { ST.bigCtl.destroy(); } catch (e) { /* gone */ } ST.bigCtl = null; }
+      if (ST.bigCtl && (!want || bigFor !== ST.cfg.forecast_big + '|' + ST.cfg.forecast_planted)) { try { ST.bigCtl.destroy(); } catch (e) { /* gone */ } ST.bigCtl = null; }
       if (!want || !fc || ST.bigCtl) return;
-      var run = ++ST.bigRun;
+      var run = ++bigRun;
       facesModule().then(function (F) {
-        if (!F || run !== ST.bigRun || !ST.on || !fc.isConnected || ST.bigCtl) return;
-        ST.bigFor = ST.cfg.forecast_big + '|' + ST.cfg.forecast_planted;
+        if (!F || run !== bigRun || !ST.on || !fc.isConnected || ST.bigCtl) return;
+        bigFor = ST.cfg.forecast_big + '|' + ST.cfg.forecast_planted;
         ST.bigCtl = F.mount(fc, { kind: 'weather', h24: ST.cfg.clock_24, big: ST.cfg.forecast_big, weather: weatherEntity(), client: clientNow(),
                                planted: ST.cfg.forecast_planted, sky: ST.fSky,
                                onReadings: function (n) { if (ST.host) ST.host.setAttribute('fcn', String(n)); } });
@@ -143,7 +153,7 @@
       // (the pieces' files asked for once: a load that fails is not asked again from here -- asking again on its failure
       // spun the page, 2026-11-02, the harness's forecast slide; the 0.1.104 rule: nothing wakes itself)
       if (!LM || !WG) {
-        if (!ST.cornerAsked) { ST.cornerAsked = true; layoutModules().then(function (got) { if (ST.on && got && got[0] && got[1]) slideCorner(); }); }
+        if (!cornerAsked) { cornerAsked = true; layoutModules().then(function (got) { if (ST.on && got && got[0] && got[1]) slideCorner(); }); }
         return;
       }
       if (!ST.scn || !ST.scn.el.isConnected) {
@@ -232,8 +242,8 @@
     function cornerClient() {
       if (!ST.scn || !slideNow()) return;
       var t = Date.now();
-      if (t - ST.cornerAt < 2000) return;
-      ST.cornerAt = t;
+      if (t - cornerAt < 2000) return;
+      cornerAt = t;
       cornerDraw(slideNow());
     }
     function leaveCorner() {
@@ -249,13 +259,13 @@
     function ckPhotos() { return !!(ST.host && ST.host.hasAttribute('ckphotos')); }
     function clockModule() {
       if (window.hkSaverClock) return Promise.resolve(window.hkSaverClock);
-      if (!ST.ckLoad) {
+      if (!ckLoad) {
         // (/hk/ revalidates: a changed file is fetched afresh, as the
         // loader's modules are)
-        ST.ckLoad = import('/hk/modules/hk-saverclock.js').then(function () { return window.hkSaverClock; })
-          .catch(function (e) { ST.ckLoad = null; console.warn('[hk-saver] clock', e && e.message); return null; });
+        ckLoad = import('/hk/modules/hk-saverclock.js').then(function () { return window.hkSaverClock; })
+          .catch(function (e) { ckLoad = null; console.warn('[hk-saver] clock', e && e.message); return null; });
       }
-      return ST.ckLoad;
+      return ckLoad;
     }
     function enterClock() {
       var bgk = ST.cfg.clock_bg;
@@ -287,8 +297,8 @@
       if (!ST.root) return;
       // (a layout draws its own time: over the photos or the forecast there is nothing of the clock's to draw)
       if (ST.cfg && ST.cfg.layout && bg === 'none') return;
-      ST.ckArgs = [bg, dimmed];
-      var run = ++ST.ckRun, clockLayer = document.createElement('div');
+      ckArgs = [bg, dimmed];
+      var run = ++ckRun, clockLayer = document.createElement('div');
       clockLayer.className = 'ck';
       // OVER PHOTOS, the clock's text stands out by its own Shadow and Outline
       if (ckPhotos() || ST.cfg.show === 'photos' || ST.cfg.show === 'both') {
@@ -299,7 +309,7 @@
       var face = bg === 'face';
       Promise.all([clockModule(), face ? facesModule() : null]).then(function (got) {
         var C = got[0], F = got[1];
-        if (run !== ST.ckRun || !ST.on || !clockLayer.isConnected) return;
+        if (run !== ckRun || !ST.on || !clockLayer.isConnected) return;
         if (!C || (face && !F)) { clockLayer.remove(); if (ST.mode === 'clock') { ST.mode = 'photos'; ST.host.removeAttribute('ckgen'); ST.host.removeAttribute('ckface'); enterForecast(); } return; }
         ST.ckCtl = face
           ? F.mount(clockLayer, { kind: ST.cfg.show, h24: ST.cfg.clock_24, weather: weatherEntity(), look: ST.cfg.day_look, clocks: C, client: clientNow(), groundOnly: !!ST.cfg.layout &&
@@ -337,9 +347,9 @@
     function remountClock() {
       var laid = !!ST.ly;
       if (laid) { layoutDraw(); layoutSoon(); }
-      if (!ST.ckArgs || !ST.root || !ST.root.querySelector('.ck')) return laid;
-      var a = ST.ckArgs;
-      ST.ckRun++;
+      if (!ckArgs || !ST.root || !ST.root.querySelector('.ck')) return laid;
+      var a = ckArgs;
+      ckRun++;
       if (ST.ckCtl) { try { ST.ckCtl.destroy(); } catch (e) { /* gone */ } ST.ckCtl = null; }
       ST.root.querySelectorAll('.ck').forEach(function (n) { n.remove(); });
       mountClock(a[0], a[1]);
@@ -439,12 +449,12 @@
       if (scale !== sc) put('--hk-day-scale', scale, 1);
     }
     function leaveClock() {
-      ST.ckArgs = null;
+      ckArgs = null;
       if (ST.nightT) { clearInterval(ST.nightT); ST.nightT = null; }
       if (ST.host) { ST.host.removeAttribute('cknight'); ST.host.removeAttribute('ckown'); ST.host.removeAttribute('ckface'); ST.host.removeAttribute('cklight');
         if (ST.host.style.removeProperty) ['--hk-day-push', '--hk-day-push-dn', '--hk-day-scale'].concat(ST.paneUp ? [] : ['--hk-ss-status-top']).forEach(
           function (k) { ST.host.style.removeProperty(k); }); }
-      ST.ckRun++;
+      ckRun++;
       if (ST.ckCtl) { try { ST.ckCtl.destroy(); } catch (e) { /* gone */ } ST.ckCtl = null; }
       if (ST.root) ST.root.querySelectorAll('.ck').forEach(function (n) { n.remove(); });
       if (ST.host) { ST.host.removeAttribute('ckmode'); ST.host.removeAttribute('ckgen'); ST.host.removeAttribute('ckphotos'); ST.host.removeAttribute('cksoft'); }
@@ -494,10 +504,10 @@
       layoutSoon();
     }
     function leaveForecast() {
-      ST.bigRun++;
+      bigRun++;
       if (ST.bigCtl) { try { ST.bigCtl.destroy(); } catch (e) { /* gone with the element */ } ST.bigCtl = null; }
       if (ST.host) { ST.host.removeAttribute('fcbig'); ST.host.removeAttribute('fcn'); }
-      if (ST.fTick) { clearInterval(ST.fTick); ST.fTick = null; }
+      if (fTick) { clearInterval(fTick); fTick = null; }
       if (ST.fscene) { try { ST.fscene.destroy(); } catch (e) { /* gone with the element */ } ST.fscene = null; }
       ST.fSky = null;
       if (ST.fband) ST.cards = ST.cards.filter(function (c) { return c !== ST.fband; });

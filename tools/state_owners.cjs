@@ -99,7 +99,7 @@ function scan(file, object) {
       const f = fnName(node);
       const top = !f.any;
       out.push({ file, name, kind, line: sf.getLineAndCharacterOfPosition(node.getStart()).line + 1,
-                 fn: top ? '' : f.name, top });
+                 fn: top ? '' : f.name, top, start: node.getStart(), end: node.getEnd() });
     }
     ts.forEachChild(node, visit);
   }
@@ -107,7 +107,78 @@ function scan(file, object) {
   return out;
 }
 
+// {"cmd": "facts", "file", "part"}: what --own needs of one file besides its uses: every identifier's text (a name the move
+// would capture), the top-level statements of the file's own wrapper function (each `{start, end, text, st}`: `st` the
+// property when it is `ST.x = <value>;`, with `value` its text), and where a part's opening statements end (the takes
+// from K, `var later;` and the K.ahead binders: `afterTakes`)
+function facts(file, object, part) {
+  const text = fs.readFileSync(file, 'utf8');
+  const sf = ts.createSourceFile(file, text, ts.ScriptTarget.ES2022, true, ts.ScriptKind.JS);
+  const idents = new Set();
+  // (a name, not a property: `ST.x`'s x, `{ x: 1 }`'s x and a method's name are not identifiers in scope)
+  (function walk(n) {
+    const p = n.parent;
+    const prop = p && ((ts.isPropertyAccessExpression(p) && p.name === n) || (ts.isPropertyAssignment(p) && p.name === n)
+      || (ts.isMethodDeclaration(p) && p.name === n) || (ts.isPropertyDeclaration(p) && p.name === n)
+      || ((ts.isGetAccessor(p) || ts.isSetAccessor(p)) && p.name === n));
+    if (ts.isIdentifier(n) && !prop) idents.add(n.text);
+    ts.forEachChild(n, walk);
+  })(sf);
+  let body = null;
+  (function find(n) {
+    if (body) return;
+    if ((ts.isFunctionExpression(n)) && isWrapper(n) && n.body) {
+      // the part's function inside the IIFE, else the IIFE's own
+      body = n.body;
+      let inner = null;
+      (function deeper(m) {
+        if (inner) return;
+        if (m !== n && ts.isFunctionExpression(m) && isWrapper(m) && m.body) { inner = m.body; return; }
+        ts.forEachChild(m, deeper);
+      })(n.body);
+      if (inner && part) body = inner;
+      return;
+    }
+    ts.forEachChild(n, find);
+  })(sf);
+  const stmts = [];
+  let afterTakes = null;
+  if (body) {
+    let opening = true;
+    for (const st of body.statements) {
+      const item = { start: st.getStart(), end: st.getEnd(), full: st.getFullStart(), text: st.getText() };
+      if (ts.isExpressionStatement(st) && ts.isBinaryExpression(st.expression)
+          && st.expression.operatorToken.kind === ts.SyntaxKind.EqualsToken
+          && ts.isPropertyAccessExpression(skipParensDown(st.expression.left))
+          && ts.isIdentifier(skipParensDown(st.expression.left).expression)
+          && skipParensDown(st.expression.left).expression.text === object) {
+        item.st = skipParensDown(st.expression.left).name.text;
+        item.value = st.expression.right.getText();
+      }
+      const takes = ts.isVariableStatement(st) && st.declarationList.declarations.every(
+        (d) => !d.initializer || (ts.isPropertyAccessExpression(d.initializer) && d.initializer.expression.getText() === 'K'));
+      const binders = ts.isExpressionStatement(st) && /^K\.ahead\.push\(/.test(st.getText());
+      if (opening && (takes || binders || (ts.isExpressionStatement(st) && ts.isStringLiteral(st.expression)))) {
+        afterTakes = st.getEnd();
+      } else {
+        opening = false;
+      }
+      stmts.push(item);
+    }
+  }
+  return { idents: [...idents], statements: stmts, afterTakes };
+}
+
+function skipParensDown(n) {
+  while (ts.isParenthesizedExpression(n)) n = n.expression;
+  return n;
+}
+
 const req = JSON.parse(fs.readFileSync(0, 'utf8'));
-const uses = [];
-for (const f of req.files) uses.push(...scan(f, req.object || 'ST'));
-process.stdout.write(JSON.stringify(uses));
+if (req.cmd === 'facts') {
+  process.stdout.write(JSON.stringify(facts(req.file, req.object || 'ST', !!req.part)));
+} else {
+  const uses = [];
+  for (const f of req.files) uses.push(...scan(f, req.object || 'ST'));
+  process.stdout.write(JSON.stringify(uses));
+}

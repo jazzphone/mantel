@@ -72,7 +72,7 @@
   // face keep their own words (their hand-made date and month): the layout made for them leaves its big element to the
   // face. Until hk-saverlayout.js has come (it is asked for here, then the screen read again) the screen draws as it
   // always did
-  ST.autoAsked = false;
+  /** @type {any} */ var autoAsked = false;
   function autoLayout(raw, c) {
     if (!c || c.layout) return c;
     // (BIG WEATHER keeps its own face -- its glassy temperature, its readings with their glyphs, its small time over
@@ -83,8 +83,8 @@
     if (c.show === 'month') return c;
     var LM = window.hkSaverLayout;
     if (!LM || !LM.layoutFrom) {
-      if (!ST.autoAsked && typeof window.fetch === 'function') {
-        ST.autoAsked = true;
+      if (!autoAsked && typeof window.fetch === 'function') {
+        autoAsked = true;
         // (the screen read again once it has come: the same options, a layout now -- so not the same read)
         try { import('/hk/modules/hk-saverlayout.js').then(function () { if (window.hkSaverLayout) { ST.lastRaw = null; refresh(); } }, function () { /* the old way */ }); } catch (
           e) { /* the old way */ }
@@ -152,13 +152,11 @@
   ST.lastInput = Date.now();
   ST.idleT = null;
   ST.slideT = null;
-  ST.pendingSwitch = null;
+  /** @type {any} */ var pendingSwitch = null;
   // the touch that stopped it: still down (up: null), or when it lifted
   ST.press = null;
   ST.pressStop = false;
   ST.deck = null;
-  ST.listAt = 0;
-  ST.listing = null;
   ST.listKey = '';
   ST.layer = 0;               // which of the two photo layers is on top
   ST.displayLayer = null;
@@ -169,14 +167,11 @@
   var ENTRANCE_MAX = 1500;
   ST.coverT = null;
   ST.coveredPage = null;
-  ST.pageVisibility = null;
-  ST.coveredView = [];
   // THE FORECAST (1.3): the live sky over the season's land (hkSky.scene),
   // with the forecast band -- when a screen asks for it, or has no photos
   ST.mode = 'photos';
   ST.fscene = null;
   ST.fband = null;
-  ST.fTick = null;
   ST.fSig = '';
   // the forecast sky's last reading (hk-sky.js read()), for Big Weather's planted time: null without a landscape
   ST.fSky = null;
@@ -186,12 +181,9 @@
   ST.paneSc = null;
   ST.paneCard = null;
   ST.paneW = 0;
-  ST.paneResetT = null;
+  /** @type {any} */ var paneResetT = null;
   // ...the side it was laid out for, and the Side Pane drawing other
   // sections in it (cfg.pane_list; hk-sidepane.js), with its tick
-  ST.paneSide = 'right';
-  ST.sidePane = null;
-  ST.sideT = null;
   // Photos & Forecast: the forecast as one slide every `forecast_every`
   // photos, over the photos, its sky still whenever it is not on screen
   ST.fcShowing = false;
@@ -216,7 +208,7 @@
   // settings are next read (refreshSoon: every 2 s) -- and kept until the preview ends, so the save, when it comes
   // back, is the same block and changes nothing
   ST.previewOver = null;
-  ST.unsubCards = null;
+  /** @type {any} */ var unsubCards = null;
   ST.cards = [];
   ST.shown = 0;
   ST.failed = 0;
@@ -257,7 +249,7 @@
     if (!mine() || /[?&]hk_saver=force\b/.test(location.search) || ST.force) return;
     var act = actionsNow();
     if (!act || switchState(c) === want) return;
-    ST.pendingSwitch = { want: want, until: Date.now() + ECHO_MS };
+    pendingSwitch = { want: want, until: Date.now() + ECHO_MS };
     try {
       act.callService(c.entity.split('.')[0], want === 'on' ? 'turn_on' : 'turn_off', { entity_id: c.entity });
     } catch (e) { /* offline: the next state change sorts it out */ }
@@ -281,8 +273,8 @@
     hkSync(h);
     if (ST.previewOn || !ST.cfg || !ST.cfg.entity || !allowed()) return;
     var st = switchState();
-    if (ST.pendingSwitch) {
-      if (st === ST.pendingSwitch.want || Date.now() > ST.pendingSwitch.until) ST.pendingSwitch = null;
+    if (pendingSwitch) {
+      if (st === pendingSwitch.want || Date.now() > pendingSwitch.until) pendingSwitch = null;
       else return;
     }
     // ...but not over somebody watching Live TV or using a sheet (hk-idle's
@@ -315,9 +307,9 @@
   // screensaver a finger does not take it away
   function inPane(e) { return inPaneAt(e, ST.paneEl, ST.paneUp); }
   function paneTouched() {
-    if (ST.paneResetT) clearTimeout(ST.paneResetT);
-    ST.paneResetT = setTimeout(function () {
-      ST.paneResetT = null;
+    if (paneResetT) clearTimeout(paneResetT);
+    paneResetT = setTimeout(function () {
+      paneResetT = null;
       if (ST.paneSc) { try { ST.paneSc.scrollTo({ top: 0, behavior: isFlat() ? 'instant' : 'smooth' }); } catch (e) { ST.paneSc.scrollTop = 0; } }
     }, PANE_RESET_MS);
   }
@@ -510,7 +502,7 @@
     leaveClock();
     leaveLayout();
     leaveCorner();
-    if (ST.unsubCards) { (0, ST.unsubCards)(); ST.unsubCards = null; }
+    if (unsubCards) { unsubCards(); unsubCards = null; }
     ST.cards = [];
     if (ST.host) {
       // let the browser drop the decoded photos now, not at the next GC
@@ -521,9 +513,8 @@
     }
     ST.paneEl = null; ST.paneSc = null; ST.paneCard = null; ST.paneUp = false;
     if (ST.paneT) { clearInterval(ST.paneT); ST.paneT = null; }
-    if (ST.paneResetT) { clearTimeout(ST.paneResetT); ST.paneResetT = null; }
+    if (paneResetT) { clearTimeout(paneResetT); paneResetT = null; }
   }
-  ST.builtFor = null;
   function cfgKey() { try { return JSON.stringify(ST.cfg); } catch (e) { return String(Math.random()); } }
   function buildCards(info) {
     var h = clientNow();
@@ -556,7 +547,7 @@
       if (customElements.get(tag)) make();
       else if (customElements.whenDefined) customElements.whenDefined(tag).then(make);
     });
-    if (window.hkCards && window.hkCards.onClient) ST.unsubCards = window.hkCards.onClient(onClientCards);
+    if (window.hkCards && window.hkCards.onClient) unsubCards = window.hkCards.onClient(onClientCards);
   }
   function cardConf(c, tag) {
     var conf = Object.assign({}, c, { type: c.type });
@@ -675,14 +666,11 @@
       tbShares, TM, tmWatch, turnOf, user, viewFont, volEnd, volFrom, weatherPage, widgetPage, withPane, WX, zoneOf;
 
   // A wake held until the kiosk's black (or its panel off) has ended.
-  ST.litWait = null;
   // WHAT THE TABLET LAST SHOWED: after each change, seen in a frame's
   // callback -- one runs only when a frame is drawn, so never under the
   // kiosk's black -- and counted once two more frames have begun. One is not
   // enough: the frame the black went up on was begun and never shown (the
   // wake blinked from the old dashboard to black, screen-recorded).
-  ST.drawnAs = 'dashboard';
-  ST.noteRun = 0;
 
   ST.busy = false;
   ST.queued = null;
@@ -709,11 +697,9 @@
   // its shape's Focus and Zoom. The two layers cross-fade as photos do.
   // Changes: One at a Time swaps one cell at a time in place (moState).
   ST.moState = null;
-  ST.moTap = false;
   // UP TO (2026-10-13): how many photos the mosaic shows now -- its own
   // number, or with Up To one picked from 1 to it, kept for mosaic_every
   // minutes (another each time); 1 is one photo, full screen
-  ST.moRand = null;
   // the time on the photos, as the screen's clock tells it (its 24-Hour Time), put right on the minute
   ST.tbT = null;
 
@@ -721,8 +707,6 @@
   // wherever the forecast shows on its own -- Show: Forecast, the slide among the photos, no photos -- never under a
   // clock (Behind the Clock: Forecast keeps the forecast's own details)
   ST.bigCtl = null;
-  ST.bigRun = 0;
-  ST.bigFor = '';
   // ------------------------------------------------------------ the slide corner
   // THE SLIDE CORNER (2026-11-02, phase 13: docs/phase13/SCREENSAVER-UNIFIED.md, "Slides: the slide corner"; the owner:
   // "A slide needs only the Time, Date, Weather and House Status, and only where they apply: the Weather slide needs no
@@ -732,8 +716,6 @@
   // WHAT IT COSTS A WALL TABLET: four pieces made once, their words on the minute and when the house changes (at most
   // every 2 s), hidden by opacity with the slide; nothing moves.
   ST.scn = null;
-  ST.cornerAsked = false;
-  ST.cornerAt = 0;
   // ------------------------------------------------------------ the layout
   // THE LAYOUT (2026-11-01, the owner: "Lets do the editor!"; docs/phase12/SCREENSAVER-EDITOR.md): the Screensaver
   // editor's -- one big element and widgets in zones -- over the background the Show's own path drew. The big element
@@ -746,9 +728,6 @@
   // the plan is arithmetic, made again on a resize, the minute, the sky's reading or the pane -- coalesced -- and the
   // widgets redraw only when their words change.
   ST.ly = null;
-  ST.lyRun = 0;
-  ST.lyLoad = null;
-  ST.lyClientAt = 0;
   // THE SCREEN'S INK (2026-11-02, the owner: "change the colors based on luminance for whatever is in the
   // background... I don't want some widgets being white and some being black on the screen at the same time"): one ink
   // for every piece -- the layout's White or Black, or Auto: dark on a light ground (a light face's, [cklight]; a
@@ -765,9 +744,6 @@
   // never a blur on the full photo). The corner cards stay: weather, what's
   // playing, the timers and Home Status, each as Over the Clock says.
   ST.ckCtl = null;
-  ST.ckLoad = null;
-  ST.ckRun = 0;
-  ST.ckArgs = null;
   // NIGHT MODE (2026-10-13): StandBy's -- in the dark, the clock and its
   // corners a dim red on black. Always, or At Night (from .. to, across
   // midnight). Nothing behind the clock is drawn meanwhile (the photos, the
@@ -784,13 +760,9 @@
   // background) a gradient of its own. The rings draw once it has arrived.
   ST.enCtl = null;
   ST.enShowing = false;
-  ST.enT = null;
-  ST.enRun = 0;
 
   // ------------------------------------------------------------ a timer's last minute
   // THE LAST MINUTE (phase 21): hk-saver-helpers.js timerHold decides; these are what it does here
-  ST.slideBefore = '';
-  ST.exBefore = '';
   ST.TW = null;
 
   // ------------------------------------------------------------ additional screens
@@ -814,22 +786,19 @@
   // saver_use) -- the kiosk's own report of the same tap would otherwise
   // wake the dashboard out from under the finger. At most every 3 s, only
   // from the tablet's own user (as reportTouch).
-  ST.saverSent = 0;
 
   // the dashboard's pane drawn again from the house, at most once a second
   // (the screensaver's own watch draws every view while it is up)
   ST.dashAt = 0;
-  ST.dashT = null;
   // ITS PANEL closes with a tap anywhere else on the dashboard, and a touch
   // on it keeps it open (the screensaver routes both itself)
-  ST.dashOut = null;
   // ONE VIEW FOR EVERY PAGE'S PANE (2026-10-15): each page of a dashboard
   // holds its own #media pop-up, so a page change builds a new card -- and a
   // new view started with no art, the placeholder showing until the cover had
   // loaded and faded in again (seen in Safari, every page change). The view
   // is made once and handed to whichever card is showing: its art, blur and
   // song move with it, drawn already.
-  ST.dashV = null;
+  /** @type {any} */ var dashV = null;
 
   ST.paneT = null;
   // the pane is up now: the calendar's, or the music's while it plays
@@ -844,7 +813,6 @@
   ST.ksSaver = false;
   ST.ksOff = false;
   ST.hkOn = false;
-  ST.wasBlack = false;
   ST.downOpts = null;
   // OUR OWN CURTAIN UNDER THE KIOSK'S BLACK (2026-10-09). As the black
   // comes down the tablet draws the whole page again, and its largest layers
@@ -877,11 +845,6 @@
   // it at once, here, and turns the switch off. Only on the screen's own
   // tablet, as for the photos: a desk showing the same screen never goes
   // black. docs/TABLET-INVARIANTS.md 16p.
-  ST.hkRun = 0;
-  ST.hkAcked = false;
-  ST.hkDown = false;
-  ST.hkAckTry = 0;
-  ST.hkWokeAt = 0;
   ST.hkFirst = true;
   // UNDER THE KIOSK'S BLACK, BLACK (2026-10-09). The tablet stops drawing
   // the page under it and, as it comes down, shows the last frame the page
@@ -909,14 +872,12 @@
   // black, then the fade (screen-recorded on the Loft). The photos come back
   // after the black ends if they are still wanted (start(): LIT_GRACE).
   ST.DARK_UNDER_BLACK = false;
-  ST.lightRun = 0;
   ST.litAt = 0;
 
   // compared as written: a block made from the settings is a new object
   // every time
   ST.lastRaw = '';
   ST.resumedAt = 0;
-  ST.hubOff = null;
 
   // (the class: the shell registers it, hk-saver.js runParts -- a part registers no element)
   ST.PageCard = null;
@@ -1093,7 +1054,7 @@
         }
         // the shared view, into this card's pane
         _adopt() {
-          var v = this._v = ST.dashV, box = this._root.querySelector('.pane');
+          var v = this._v = dashV, box = this._root.querySelector('.pane');
           if (v.host === this && v.el.parentNode === box) return;
           if (ST.pnl && ST.pnl.view === v && v.host !== this) closePanel(false);
           v.host = this; v.root = this._root; v.box = box; v.z = null;
@@ -1159,10 +1120,10 @@
           // the screensaver's pane, as its host's attributes draw it
           ['panecfg', 'pane', 'pm'].forEach(function (a) { self.setAttribute(a, ''); });
           this._swipe();
-          if (ST.dashV) return;
+          if (dashV) return;
           // THE VIEW, made once (dashV): its taps are wired on it, so they
           // work in whichever card holds it
-          var v = ST.dashV = musicView('dash');
+          var v = dashV = musicView('dash');
           v.live = false;
           if (!window.hkSaverPanel) v.el.setAttribute('nomx', '');
           // ITS BUTTONS, the art (Play Music) and the volume (dragged), as a

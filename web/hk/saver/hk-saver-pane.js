@@ -24,6 +24,14 @@
       lightSoon = K.lightSoon; lit = K.lit; litNow = K.litNow; panelDone = K.panelDone;
     });
 
+    // ITS OWN STATE (phase 25, A: off the shared ST, which only this file used; tools/state_owners.py)
+    /** @type {any} */ var paneSide = 'right';
+    /** @type {any} */ var sidePane = null;
+    /** @type {any} */ var sideT = null;
+    /** @type {any} */ var dashT = null;
+    /** @type {any} */ var dashOut = null;
+    /** @type {any} */ var wasBlack = false;
+
     // ------------------------------------------------------- THE DASHBOARD'S PANE
     // NOW PLAYING AS A PANE ON THE DASHBOARD (2026-10-15; the screen's Now
     // Playing -> Side Pane, hk-popup.js placeFor). The screensaver's own music
@@ -41,7 +49,7 @@
       if (ST.on || !dashLive()) return;
       var now = Date.now();
       if (now - ST.dashAt < 1000) {
-        if (!ST.dashT) ST.dashT = setTimeout(function () { ST.dashT = null; dashWatch(); }, 1000 - (now - ST.dashAt));
+        if (!dashT) dashT = setTimeout(function () { dashT = null; dashWatch(); }, 1000 - (now - ST.dashAt));
         return;
       }
       ST.dashAt = now;
@@ -49,11 +57,11 @@
     }
     function dashOutside(want) {
       if (!want) {
-        if (ST.dashOut) { document.removeEventListener('pointerdown', ST.dashOut, true); ST.dashOut = null; }
+        if (dashOut) { document.removeEventListener('pointerdown', dashOut, true); dashOut = null; }
         return;
       }
-      if (ST.dashOut) return;
-      ST.dashOut = function (e) {
+      if (dashOut) return;
+      dashOut = function (e) {
         if (!ST.pnl || ST.pnl.view.kind !== 'dash') return;
         var path = e.composedPath ? e.composedPath() : [];
         if (path.indexOf(ST.pnl.p.el) >= 0) { panelTouched(); return; }
@@ -62,7 +70,7 @@
         for (var i = 0; i < mixers.length; i++) if (path.indexOf(mixers[i]) >= 0) return;
         closePanel(true);
       };
-      document.addEventListener('pointerdown', ST.dashOut, true);
+      document.addEventListener('pointerdown', dashOut, true);
     }
     function setPane(up) {
       if (!ST.host) return;
@@ -167,16 +175,16 @@
       if (!ST.host || !ST.cfg || !ST.cfg.pane_list || !SP) return;
       var box = ST.paneEl || (ST.root && ST.root.querySelector('.pane'));
       if (!box) return;
-      if (!ST.sidePane) { ST.sidePane = SP.create('saver'); box.appendChild(ST.sidePane); }
+      if (!sidePane) { sidePane = SP.create('saver'); box.appendChild(sidePane); }
       var list = SP.saverList({ saver: { show: 'own', sections: ST.cfg.pane_list } }, clientNow());
       setPane(list.length > 0);
       var w = ST.paneW || Math.round(PANE_W * scaleOf());
-      ST.sidePane.show({ list: list, place: { kind: 'side', w: w }, side: ST.cfg.pane_side });
-      if (!ST.sideT) ST.sideT = setInterval(function () { if (ST.on && ST.cfg && ST.cfg.pane_list) sideSections(); }, 1500);
+      sidePane.show({ list: list, place: { kind: 'side', w: w }, side: ST.cfg.pane_side });
+      if (!sideT) sideT = setInterval(function () { if (ST.on && ST.cfg && ST.cfg.pane_list) sideSections(); }, 1500);
     }
     function dropSide() {
-      if (ST.sideT) { clearInterval(ST.sideT); ST.sideT = null; }
-      if (ST.sidePane) { ST.sidePane.show(null); if (ST.sidePane.parentNode) ST.sidePane.parentNode.removeChild(ST.sidePane); ST.sidePane = null; }
+      if (sideT) { clearInterval(sideT); sideT = null; }
+      if (sidePane) { sidePane.show(null); if (sidePane.parentNode) sidePane.parentNode.removeChild(sidePane); sidePane = null; }
     }
     // its width and Home Status's place in it, for this screen (and again
     // every few seconds: a tablet turned, a window resized)
@@ -188,8 +196,8 @@
       // the list scaled with the screen (its card may arrive after the width)
       if (ST.paneCard && (ST.paneCard.style.zoom || '1') !== String(z)) ST.paneCard.style.zoom = z === 1 ? '' : String(z);
       var sideNow = (ST.cfg && ST.cfg.pane_side) || 'right';
-      if (w === ST.paneW && sideNow === ST.paneSide && ST.host.style.getPropertyValue && ST.host.style.getPropertyValue('--hk-pane-w')) return;
-      ST.paneW = w; ST.paneSide = sideNow;
+      if (w === ST.paneW && sideNow === paneSide && ST.host.style.getPropertyValue && ST.host.style.getPropertyValue('--hk-pane-w')) return;
+      ST.paneW = w; paneSide = sideNow;
       // a new width for the pane is a new room for the band beside it
       if (ST.fband && ST.fband.isConnected) setTimeout(function () { if (ST.fband && ST.fband.isConnected) centerBand(ST.fband); }, 0);
       var px = function (n) { return Math.round(n * z) + 'px'; };
@@ -242,7 +250,7 @@
         bare = !ST.cards.some(function (c) { return c.localName === 'hk-screensaver-status-card'; });
       if (st && pr && pr.width > 1 && (mid < pr.left || mid > pr.right)) { st = null; bare = true; }
       setAttr(ST.host, 'pbare', bare);   // (pbare: no rule over the list)
-      set('--hk-pane-top', (bare ? (ST.sidePane ? 0 : Math.round(26 * z)) : Math.max(Math.round(PANE_TOP * z), st ? Math.round(st.bottom + 16 * z) : 0)) + 'px');
+      set('--hk-pane-top', (bare ? (sidePane ? 0 : Math.round(26 * z)) : Math.max(Math.round(PANE_TOP * z), st ? Math.round(st.bottom + 16 * z) : 0)) + 'px');
       set('--hk-ss-timers-bottom', pad + 'px'); set('--hk-ss-now-bottom', (pad + (tH ? tH + gap : 0)) + 'px');
       var stack = nH + tH + (nH && tH ? gap : 0); set('--hk-pane-bottom', (stack ? stack + pad + Math.round(18 * z) : 0) + 'px');
       // THE MUSIC IN THE PANE: over the timers (the now-playing row steps
@@ -352,8 +360,8 @@
     function black() { return ST.ksSaver || ST.ksOff || ST.hkOn; }
     function blackChanged() {
       var now = black();
-      if (now === ST.wasBlack) return;
-      ST.wasBlack = now;
+      if (now === wasBlack) return;
+      wasBlack = now;
       if (now) { ST.downOpts = null; curtainUp(); goDark(); }
       else { var d = ST.downOpts; ST.downOpts = null; lit(); lightSoon(); litNow(); curtainDown(d); }
       tellBlack(now);

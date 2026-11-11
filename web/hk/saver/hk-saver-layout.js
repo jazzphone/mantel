@@ -26,17 +26,24 @@
       showNext = K.showNext;
     });
 
+    // ITS OWN STATE (phase 25, A: off the shared ST, which only this file used; tools/state_owners.py)
+    /** @type {any} */ var lyRun = 0;
+    /** @type {any} */ var lyLoad = null;
+    /** @type {any} */ var lyClientAt = 0;
+    /** @type {any} */ var enT = null;
+    /** @type {any} */ var enRun = 0;
+
     function layoutModules() {
-      if (!ST.lyLoad) {
+      if (!lyLoad) {
         // (each on its own: without the widgets' file the big element and the cards still draw)
         var get = function (name, file) {
           return window[name] ? Promise.resolve(window[name]) : import('/hk/modules/' + file).then(function () { return window[name]; })
             .catch(function (e) { console.warn('[hk-saver] layout', file, e && e.message); return null; });
         };
-        ST.lyLoad = Promise.all([get('hkSaverLayout', 'hk-saverlayout.js'), get('hkSaverWidgets', 'hk-saverwidgets.js')])
-          .then(function (got) { if (!got[0]) ST.lyLoad = null; return got; });
+        lyLoad = Promise.all([get('hkSaverLayout', 'hk-saverlayout.js'), get('hkSaverWidgets', 'hk-saverwidgets.js')])
+          .then(function (got) { if (!got[0]) lyLoad = null; return got; });
       }
-      return ST.lyLoad;
+      return lyLoad;
     }
     function enterLayout() {
       leaveLayout();
@@ -45,7 +52,7 @@
       layoutLayer.className = 'lay';
       ST.root.insertBefore(layoutLayer, ST.root.querySelector('.info'));
       ST.host.setAttribute('lay', '');
-      var run = ++ST.lyRun;
+      var run = ++lyRun;
       ST.ly = { run: run, layer: layoutLayer, big: null, widgets: {}, soonT: null, minuteT: null, ro: null, last: '' };
       layoutModules().then(function (got) {
         if (!ST.ly || ST.ly.run !== run || !ST.on || !got[0]) return;
@@ -69,7 +76,7 @@
       });
     }
     function leaveLayout() {
-      ST.lyRun++;
+      lyRun++;
       if (!ST.ly) { if (ST.host) ST.host.removeAttribute('lay'); return; }
       clearTimeout(ST.ly.soonT); clearTimeout(ST.ly.minuteT); clearInterval(ST.ly.secT);
       if (ST.ly.ro) ST.ly.ro.disconnect();
@@ -116,8 +123,8 @@
     function layoutClient() {
       if (!ST.ly) return;
       var now = Date.now();
-      if (now - ST.lyClientAt < 2000) return;         // the house's states change many times a second: the words, at most every 2 s
-      ST.lyClientAt = now;
+      if (now - lyClientAt < 2000) return;         // the house's states change many times a second: the words, at most every 2 s
+      lyClientAt = now;
       layoutSoon();
     }
     function layoutBigOff() {
@@ -567,10 +574,10 @@
     // for -- so its first turn has them. `hold` (HK Settings' preview of Home
     // Energy): shown as soon as they are here, and kept up
     function energyPrep() {
-      var run = ++ST.enRun, hold = ST.previewOn && (ST.previewEnergy || ST.previewSelected === 'energy');
+      var run = ++enRun, hold = ST.previewOn && (ST.previewEnergy || ST.previewSelected === 'energy');
       if (!ST.cfg || (!ST.cfg.energy_slide && !hold)) return;
       slideModule(EN_MOD).then(function (X) { return X ? X.ready().then(function () { return X; }) : null; }).then(function (X) {
-        if (!X || run !== ST.enRun || !ST.on || !ST.root || !ST.cfg || (!ST.cfg.energy_slide && !hold)) return;
+        if (!X || run !== enRun || !ST.on || !ST.root || !ST.cfg || (!ST.cfg.energy_slide && !hold)) return;
         // in its place at the start, as the weather's: put in at its first
         // turn, its layer was made as it came in (2026-10-19)
         if (!ST.enCtl) {
@@ -581,7 +588,7 @@
         landImg();                         // (the landscape's image asked for now: its blurred copy ready at the first turn)
         if (!hold) return;
         var tries = 0, show = function () {
-          if (run !== ST.enRun || !ST.on || ST.enShowing || !ST.previewOn || (!ST.previewEnergy && ST.previewSelected !== 'energy')) return;
+          if (run !== enRun || !ST.on || ST.enShowing || !ST.previewOn || (!ST.previewEnergy && ST.previewSelected !== 'energy')) return;
           // (at once: the preview is shown again after every change)
           if (showEnergySlide(true)) { ST.exKind = 'energy'; return; }
           if (++tries < 60) setTimeout(show, 500);
@@ -660,15 +667,15 @@
       el.style.setProperty('--hk-en-fade', (first ? 0 : CROSSFADE_MS) + 'ms');
       void el.offsetWidth;
       el.classList.add('on');
-      if (ST.enT) clearTimeout(ST.enT);
-      ST.enT = setTimeout(function () { ST.enT = null; if (ST.on && run === ST.photoRun && ST.enShowing && ST.enCtl) ST.enCtl.arrived(); }, first ? 50 : CROSSFADE_MS);
+      if (enT) clearTimeout(enT);
+      enT = setTimeout(function () { enT = null; if (ST.on && run === ST.photoRun && ST.enShowing && ST.enCtl) ST.enCtl.arrived(); }, first ? 50 : CROSSFADE_MS);
       if (first && ST.entrance) ST.entrance();
       return true;
     }
     function hideEnergySlide() {
       if (!ST.enShowing) return;
       ST.enShowing = false;
-      if (ST.enT) { clearTimeout(ST.enT); ST.enT = null; }
+      if (enT) { clearTimeout(enT); enT = null; }
       if (ST.host) ST.host.removeAttribute('enslide');
       if (ST.enCtl) {
         ST.enCtl.leave();
@@ -679,8 +686,8 @@
       if (fcVisible()) forecastTick(true);
     }
     function leaveEnergy() {
-      ST.enRun++;
-      if (ST.enT) { clearTimeout(ST.enT); ST.enT = null; }
+      enRun++;
+      if (enT) { clearTimeout(enT); enT = null; }
       ST.enShowing = false;
       if (ST.enCtl) { try { ST.enCtl.destroy(); } catch (e) { /* gone */ } ST.enCtl = null; }
       if (ST.host) ST.host.removeAttribute('enslide');

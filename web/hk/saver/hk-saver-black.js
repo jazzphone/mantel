@@ -28,6 +28,15 @@
       noteDrawn = K.noteDrawn; schedule = K.schedule; start = K.start; stop = K.stop; tellOthers = K.tellOthers;
     });
 
+    // ITS OWN STATE (phase 25, A: off the shared ST, which only this file used; tools/state_owners.py)
+    /** @type {any} */ var hkRun = 0;
+    /** @type {any} */ var hkAcked = false;
+    /** @type {any} */ var hkDown = false;
+    /** @type {any} */ var hkAckTry = 0;
+    /** @type {any} */ var hkWokeAt = 0;
+    /** @type {any} */ var lightRun = 0;
+    /** @type {any} */ var hubOff = null;
+
     var HK_WOKE_HOLD = 6000;
     // BLACK OR NOT -- OR NOT KNOWN YET (null): a page loading has its settings,
     // its screensaver's config, its user and the switch arrive one by one, and
@@ -50,7 +59,7 @@
       if (!ST.cfg) return null;
       if (!mine()) return false;
       // woken by a tap a moment ago: the switch is on its way off
-      if (clock.now() - ST.hkWokeAt < HK_WOKE_HOLD) return false;
+      if (clock.now() - hkWokeAt < HK_WOKE_HOLD) return false;
       var st = h && h.states && h.states[b.black_switch];
       return st ? st.state === 'on' : null;
     }
@@ -58,15 +67,15 @@
       var t = hkBoard();
       sendWS(t && !t.legacy ? { type: 'hk_frontend/screensaver/black', tablet: t.id, black: ackOn }
                             : { type: 'hk_frontend/screensaver/black', dashboard: dashSeg(), black: ackOn })
-        .then(function () { if (ackOn) ST.hkAcked = true; }, function () { /* older integration: the sleep falls back */ });
+        .then(function () { if (ackOn) hkAcked = true; }, function () { /* older integration: the sleep falls back */ });
     }
     // black: once the curtain is drawn, the backlight down, then say so
     function hkDarken() {
-      var run = ++ST.hkRun, done = false;
+      var run = ++hkRun, done = false;
       var go = function () {
-        if (done || run !== ST.hkRun || !ST.hkOn) return;
+        if (done || run !== hkRun || !ST.hkOn) return;
         done = true;
-        var k = kiosk(), down = function () { if (run === ST.hkRun && ST.hkOn) { setBacklight(0); ST.hkDown = true; ST.hkAckTry = clock.now(); hkAck(true); } };
+        var k = kiosk(), down = function () { if (run === hkRun && ST.hkOn) { setBacklight(0); hkDown = true; hkAckTry = clock.now(); hkAck(true); } };
         if (k && typeof k.getBrightness === 'function') {
           try {
             Promise.resolve(k.getBrightness()).then(function (b) {
@@ -82,7 +91,7 @@
       requestAnimationFrame(function () { if (f1) return; f1 = true; requestAnimationFrame(go); });
     }
     function hkLeave(h) {
-      ST.hkRun++; ST.hkAcked = false; ST.hkDown = false;
+      hkRun++; hkAcked = false; hkDown = false;
       store(BLACK_KEY, null);
       var v = wakeBrightness(h);
       // kept until the black really ends: under the kiosk's black as well (the
@@ -100,10 +109,10 @@
       if (want === ST.hkOn) {
         // black, but not yet heard by the house (the connection was not up):
         // say so again, every few seconds
-        if (want && ST.hkDown && !ST.hkAcked && clock.now() - ST.hkAckTry > 3000) { ST.hkAckTry = clock.now(); hkAck(true); }
+        if (want && hkDown && !hkAcked && clock.now() - hkAckTry > 3000) { hkAckTry = clock.now(); hkAck(true); }
         // ...or the house no longer has it (its server restarted, and the black came again while this page
         // was already black, 2026-10-21): the switch says unconfirmed, so say it again, every few seconds
-        else if (want && ST.hkDown && hkUnheard(h) && clock.now() - ST.hkAckTry > 3000) { ST.hkAckTry = clock.now(); hkAck(true); }
+        else if (want && hkDown && hkUnheard(h) && clock.now() - hkAckTry > 3000) { hkAckTry = clock.now(); hkAck(true); }
         // a page loaded under a black that is no longer wanted: the cover
         // fades, and the backlight the last page lowered comes back with it
         if (first && !want) bootCover(true, h);
@@ -117,7 +126,7 @@
     // switch going off and from the touch
     function hkTapWake() {
       if (!ST.hkOn) return;
-      ST.hkWokeAt = clock.now();
+      hkWokeAt = clock.now();
       ST.hkOn = false;
       hkAck(false);
       ST.touchSent = 0; reportTouch();
@@ -140,7 +149,7 @@
     }
     var SHOWN_MIN = 500;
     function unstart() {
-      ST.on = false; ST.entrance = null; ST.photoRun++; ST.busy = false; ST.queued = null; ST.lightRun++;
+      ST.on = false; ST.entrance = null; ST.photoRun++; ST.busy = false; ST.queued = null; lightRun++;
       if (ST.coverT) { clearTimeout(ST.coverT); ST.coverT = null; }
       if (ST.slideT) { clearTimeout(ST.slideT); ST.slideT = null; }
       teardown();
@@ -149,7 +158,7 @@
     function goDark() {
       if (!ST.on || !ST.host) return;
       if (!ST.DARK_UNDER_BLACK || ST.host.hasAttribute('prep') || !ST.shownAt || clock.now() - ST.shownAt < SHOWN_MIN) { unstart(); return; }
-      ST.entrance = null; ST.lightRun++;
+      ST.entrance = null; lightRun++;
       ST.host.style.setProperty('--fade', '0ms');
       ST.host.style.setProperty('--blk', '0ms');
       ST.host.removeAttribute('prep');
@@ -182,8 +191,8 @@
     }
     function lightSoon() {
       if (black() || !ST.on || !ST.host || !ST.host.hasAttribute('dark')) return;
-      var h = ST.host, run = ++ST.lightRun;
-      var still = function () { return !black() && ST.on && ST.host === h && ST.lightRun === run && h.hasAttribute('dark'); };
+      var h = ST.host, run = ++lightRun;
+      var still = function () { return !black() && ST.on && ST.host === h && lightRun === run && h.hasAttribute('dark'); };
       setTimeout(function () {
         if (!still()) return;
         h.setAttribute('undark', '');
@@ -326,8 +335,8 @@
       return n - ST.resumedAt < RESUME_MS || n - ST.lastBeat > RESUME_MS;
     }
     function hookClient() {
-      if (ST.hubOff || !(window.hkCards && window.hkCards.onClient)) return false;
-      ST.hubOff = window.hkCards.onClient(function (h) { refreshSoon(); onUpdate(h); if (ST.on) { musicWatch(); tmWatch(); } });
+      if (hubOff || !(window.hkCards && window.hkCards.onClient)) return false;
+      hubOff = window.hkCards.onClient(function (h) { refreshSoon(); onUpdate(h); if (ST.on) { musicWatch(); tmWatch(); } });
       if (window.hkMusic && window.hkMusic.onChange) window.hkMusic.onChange(function () {
         if (ST.on) { mus.watchAt = 0; musicWatch(); }
       });
