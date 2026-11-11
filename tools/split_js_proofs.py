@@ -10,7 +10,7 @@ import tempfile
 from pathlib import Path
 from split_js_names import (CALL, GENERATED_CLASS_MODE, LOADER_BEGIN, LOADER_END, Refusal, ROOT, TS_BASELINE,
     TS_FIXTURE, TYPES_D_TS,)
-from split_js_analysis import analyze, ask, diagnostics, kit_of, loader_block, lstrip_lines, Plan
+from split_js_analysis import analyze, ask, diagnostics, kit_of, loader_block, lstrip_lines, node, Plan
 from split_js_plan import make_plan
 from split_js_writers import apply_edits, git, is_split, part_text, shell_text
 from split_js_adopt import adopt_text
@@ -358,6 +358,13 @@ def check_split(man: dict, check_only: bool = True) -> int:
                            f"(and the shell's kit)")
         if taken_back - gives_all:
             bad.append(f"the shell takes back {sorted(taken_back - gives_all)} that no part hands back")
+        # (phase 25) a part's exports object (`Run: {}` in the kit) is read only when called, never as the parts run:
+        # then it is still empty (tools/split_js_exports.cjs)
+        exports = sorted(set(re.findall(r"\b([A-Z][\w$]*): \{\}", text[text.find("function kit()"):text.find("function runParts")])))
+        if exports:
+            got = subprocess.run([node(), str(ROOT / "tools/split_js_exports.cjs")], capture_output=True, text=True,
+                                 input=json.dumps({"files": [str(folder / f"{n}.js") for n in names], "exports": exports}))
+            bad += json.loads(got.stdout)["bad"] if got.returncode == 0 else [f"split_js_exports.cjs failed: {got.stderr[-300:]}"]
         # (bind_ahead) a later part's names a part binds once every part has run: a later part hands each back
         given_by = {n: set(re.findall(r"^\s*" + re.escape(kitn) + r"\.([\w$]+) = \1;", (folder / f"{n}.js").read_text(), re.M)) |
                        set(re.findall(r" " + re.escape(kitn) + r"\.([\w$]+) = \1;", (folder / f"{n}.js").read_text()))
