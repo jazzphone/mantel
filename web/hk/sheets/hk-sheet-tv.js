@@ -47,8 +47,14 @@
           '.lab button{all:unset;cursor:pointer;font-size:13px;font-weight:600;letter-spacing:0;text-transform:none;color:' + v('ink-2') + '}',
           // WATCHING: the picture, what's on, play/pause and power
           '.now{display:flex;gap:16px;align-items:center;min-width:0}',
-          '.art{flex:0 0 auto;width:176px;aspect-ratio:16/9;border-radius:12px;background:' + v('key') + ' center/cover no-repeat;display:grid;place-items:center;color:' + v('ink-3') + '}',
-          '.art.app{background-size:52%}',
+          // THE PICTURE: the player's artwork; else the open app's icon on a wash of its own colors; else a dark screen with the glyph.
+          // Every background part said on its own, so a picture never repeats (a shorthand with a theme's value in it could fall back)
+          '.art{position:relative;overflow:hidden;flex:0 0 auto;width:176px;aspect-ratio:16/9;border-radius:12px;display:grid;place-items:center;',
+          '  background-color:#101018;background-position:center;background-size:cover;background-repeat:no-repeat}',
+          '.art.scr{background-image:linear-gradient(155deg,#2a2a36 0%,#14141c 55%,#0a0a10 100%);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}',
+          '.art.scr hk-icon{--mdc-icon-size:40px;width:40px;height:40px;color:rgba(255,255,255,.42)}',
+          '.art .wash{position:absolute;inset:-25%;background-position:center;background-size:cover;background-repeat:no-repeat;filter:blur(20px) saturate(1.5);opacity:.6}',
+          '.art .aic{position:relative;height:62%;aspect-ratio:1;border-radius:12px;box-shadow:0 4px 14px rgba(0,0,0,.35);object-fit:cover}',
           '.words{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:2px}',
           '.ttl{font-size:17px;font-weight:600;letter-spacing:-.3px;color:' + v('ink') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
           '.sub{font-size:13px;font-weight:500;color:' + v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
@@ -79,7 +85,9 @@
           '.app img{width:100%;height:100%;object-fit:cover;display:block}',
           '.app.gl{background:#111;color:#fff}.app.gl hk-icon{--mdc-icon-size:30px;width:30px;height:30px}',
           '.app.nm span{font-size:11px;font-weight:600;line-height:1.15;text-align:center;padding:4px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}',
-          '.app.now{overflow:visible}.app.now::after{content:"";position:absolute;inset:-4px;border-radius:inherit;box-shadow:0 0 0 2px rgba(255,255,255,.9)}',
+          // (the app that's open: a ring that is the tile's own outline, so it follows its corners exactly -- a dark hairline, then white,
+          // so it shows on a white icon too; the owner, 2026-11-11: a separate ring with its own corners looked like a UI error)
+          '.app.now{box-shadow:0 0 0 2px rgba(0,0,0,.55),0 0 0 5px #fff,0 0 16px 4px rgba(255,255,255,.3)}',
           '.app:active{transform:scale(.95)}',
           '.all{max-height:300px;overflow-y:auto;overscroll-behavior:contain}',
           // THE REMOTE
@@ -88,10 +96,10 @@
           '.seg button{all:unset;cursor:pointer;font-size:13px;font-weight:600;padding:9px 16px;border-radius:8px;color:' + v('ink-2') + '}',
           '.seg button.on{background:rgba(255,255,255,.94);color:#1c1c1e}',
           '.dpad{position:relative;width:236px;height:236px;border-radius:50%;background:' + v('key') + ';box-shadow:inset 0 0 0 1px ' + v('line') + ';flex:none;touch-action:manipulation}',
-          '.k{all:unset;position:absolute;width:64px;height:64px;border-radius:50%;display:grid;place-items:center;cursor:pointer;color:' + v('ink') + '}',
+          '.k{all:unset;position:absolute;width:27%;height:27%;border-radius:50%;display:grid;place-items:center;cursor:pointer;color:' + v('ink') + '}',
           '.k:active,.k.hit{background:' + v('key-strong') + '}',
-          '.k.u{left:86px;top:4px}.k.d{left:86px;bottom:4px;transform:rotate(180deg)}.k.l{left:4px;top:86px;transform:rotate(-90deg)}.k.r{right:4px;top:86px;transform:rotate(90deg)}',
-          '.ok{all:unset;position:absolute;left:74px;top:74px;width:88px;height:88px;border-radius:50%;display:grid;place-items:center;cursor:pointer;font-size:15px;font-weight:600;',
+          '.k.u{left:36.5%;top:2%}.k.d{left:36.5%;bottom:2%;transform:rotate(180deg)}.k.l{left:2%;top:36.5%;transform:rotate(-90deg)}.k.r{right:2%;top:36.5%;transform:rotate(90deg)}',
+          '.ok{all:unset;position:absolute;left:31%;top:31%;width:38%;height:38%;border-radius:50%;display:grid;place-items:center;cursor:pointer;font-size:15px;font-weight:600;',
           '  color:' + v('ink') + ';background:' + v('key-strong') + ';box-shadow:inset 0 0 0 1px ' + v('line') + '}',
           '.ok:active,.ok.hit{background:rgba(255,255,255,.3)}',
           '.keys{display:flex;gap:16px;justify-content:center}.keys .rb{width:52px;height:52px}',
@@ -103,7 +111,10 @@
           ':host([wide]) .col.l{flex:1 1 auto;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none}',
           ':host([wide]) .col.l::-webkit-scrollbar{display:none}',
           ':host([wide]) .col.r{flex:0 0 300px}',
-          ':host([wide]) .col.r .crd{flex:1 1 auto;justify-content:center}',
+          // (the remote spread down its card: the switch at the top, the pad as big as the column takes, the keys toward the foot)
+          ':host([wide]) .col.r .crd{flex:1 1 auto;justify-content:space-evenly}',
+          ':host([wide]) .dpad{width:264px;height:264px}',
+          ':host([wide]) .keys{gap:22px}:host([wide]) .kl{gap:22px}:host([wide]) .keys .rb{width:58px;height:58px}:host([wide]) .kl span{width:58px}',
           // (the left column's last card takes what's left, so both columns end on the sheet's bottom inset: 2026-11-11, the owner)
           ':host([wide]) .col.l > .crd.fill{flex:1 0 auto}',
           // ONE COLUMN ON A PHONE: one scroll, the remote after Watching
@@ -151,7 +162,7 @@
         var lk = T.look(this.client, set), can = T.canArrows(this.client, set), wide = this.hasAttribute('wide');
         var to = this._to && can[this._to] ? this._to : lk.arrows;
         if (!this._built || this._builtFor !== set.id) {
-          this._built = true; this._builtFor = set.id; this._appsKey = ''; this._inKey = '';
+          this._built = true; this._builtFor = set.id; this._appsKey = ''; this._inKey = ''; this._artKey = '';
           var seg = can.player && can.tv ? '<div class="seg" role="tablist" aria-label="The remote controls"><button type="button" data-to="player">' + (set.remotes.playerKind === 'apple_tv' ? 'Apple TV' : 'Player') + '</button><button type="button" data-to="tv">TV</button></div>' : '';
           var remote = can.player || can.tv ? '<div class="crd rem">' + seg +
             '<div class="dpad"><button type="button" class="k u" data-key="up" aria-label="Up">' + svg('up', 28) + '</button><button type="button" class="k d" data-key="down" aria-label="Down">' + svg('up', 28) + '</button>' +
@@ -199,10 +210,15 @@
         var q = function (/** @type {string} */ s) { return self._root.querySelector(s); };
         // WATCHING
         var art = q('.art'), apps = T.apps(this.client, set, undefined, this._all ? undefined : (wide && this._fitN) || 8), nowApp = apps.filter(function (a) { return a.now; })[0];
-        art.className = 'art';
-        art.style.backgroundImage = lk.art ? 'url("' + lk.art.replace(/"/g, '%22') + '")' : nowApp && nowApp.icon ? 'url("' + nowApp.icon + '")' : '';
-        if (!lk.art && nowApp && nowApp.icon) art.className = 'art app';
-        art.innerHTML = lk.art || (nowApp && nowApp.icon) ? '' : '<hk-icon icon="hk:television"></hk-icon>';
+        var artKey = lk.art ? 'a' + lk.art : nowApp && nowApp.icon ? 'i' + nowApp.icon : 's';
+        if (artKey !== this._artKey) {
+          this._artKey = artKey;
+          var url = function (/** @type {string} */ u) { return 'url("' + u.replace(/"/g, '%22') + '")'; };
+          art.className = 'art' + (artKey === 's' ? ' scr' : '');
+          art.style.backgroundImage = lk.art ? url(lk.art) : '';
+          art.innerHTML = lk.art ? '' : nowApp && nowApp.icon ? '<i class="wash" style="background-image:' + esc(url(nowApp.icon)) + '"></i><img class="aic" alt="" src="' + esc(nowApp.icon) + '">'
+            : '<hk-icon icon="hk:television"></hk-icon>';
+        }
         q('.ttl').textContent = lk.title;
         q('.sub').textContent = lk.sub || (lk.onPlayer ? '' : lk.tvOn ? 'On the TV' : lk.unavailable ? 'Unavailable' : '');
         var pp = q('.pp');

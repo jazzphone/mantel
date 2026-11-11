@@ -69,6 +69,9 @@
     // an Apple TV by its integration; another streamer by reporting the app it has open, if it isn't a speaker (Music Assistant's
     // HomePods report an app_id too)
     var a = (s && s.attributes) || {};
+    // (a TV is never a player: an LG that's on reports the app it shows, `com.webos.app.hdmi2`, as an app_id of its own -- the house,
+    // 2026-11-11, where the Master Bedroom's TV became a second player the moment it came on)
+    if (a.device_class === 'tv') return false;
     if (e && PLAYERS.indexOf(e.platform) >= 0) return true;
     return 'app_id' in a && !a.mass_player_type && a.device_class !== 'speaker' && Array.isArray(a.source_list) && a.source_list.length > 0;
   }

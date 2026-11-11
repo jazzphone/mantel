@@ -55,12 +55,19 @@
     '.grow{flex:1 1 auto;min-width:0}',
     '.foot{margin-top:auto}',
     // THE PICTURE: what's on, its title on it
-    '.art{position:relative;flex:none;border-radius:16px;overflow:hidden;background:' + v('key') + ' center/cover no-repeat;display:grid;place-items:center;color:' + v('ink-3') + '}',
-    '.art.icon{background-size:auto 70%}',
+    // (as the sheet's: the artwork; else the open app's icon on a wash of its own colors; else a dark screen and the glyph -- every
+    // background part said on its own, so a picture never repeats)
+    '.art{position:relative;flex:none;border-radius:16px;overflow:hidden;display:flex;flex-direction:column;',
+    '  background-color:#101018;background-position:center;background-size:cover;background-repeat:no-repeat}',
+    '.art.scr{background-image:linear-gradient(155deg,#2a2a36 0%,#14141c 55%,#0a0a10 100%);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}',
+    '.art.scr hk-icon{color:rgba(255,255,255,.42)}',
+    '.art .wash{position:absolute;inset:-25%;background-position:center;background-size:cover;background-repeat:no-repeat;filter:blur(20px) saturate(1.5);opacity:.6}',
+    '.art .aic{position:relative;height:58%;max-height:84px;aspect-ratio:1;border-radius:22%;box-shadow:0 4px 14px rgba(0,0,0,.35);object-fit:cover}',
+    // (the glyph or the app's icon centered in the whole box, the title over it at the foot: the owner, 2026-11-11)
+    '.art .mid{position:absolute;inset:0;z-index:1;display:grid;place-items:center}',
     '.art .ov{position:absolute;left:12px;right:12px;bottom:10px;text-shadow:0 1px 8px rgba(0,0,0,.4)}',
     '.art.has::after{content:"";position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.5),transparent 60%);pointer-events:none}',
-    '.art .ov{z-index:1;color:rgba(255,255,255,.97)}.art .ov .sb{color:rgba(255,255,255,.85)}',
-    '.art hk-icon{margin-bottom:18%}',
+    '.art .ov{z-index:2;color:rgba(255,255,255,.97)}.art .ov .sb{color:rgba(255,255,255,.85)}',
     // A ROUND KEY: 44 px, the main one solid
     '.rb{all:unset;box-sizing:border-box;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;cursor:pointer;flex:none;background:' + v('key') + ';color:' + v('ink') + '}',
     '.rb.solid{background:rgba(255,255,255,.94);color:#1c1c1e}',
@@ -81,7 +88,9 @@
     '.app img{width:100%;height:100%;object-fit:cover;display:block}',
     '.app.gl{background:#111;color:#fff}',
     '.app.nm span{font-size:11px;font-weight:600;line-height:1.15;text-align:center;padding:4px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}',
-    '.app.now{overflow:visible}.app.now::after{content:"";position:absolute;inset:-4px;border-radius:26%;box-shadow:0 0 0 2px rgba(255,255,255,.9)}',
+    // (the app that's open: a ring that is the tile's own outline, so it follows its corners exactly -- a dark hairline, then white,
+    // so it shows on a white icon too; the owner, 2026-11-11: a separate ring with its own corners looked like a UI error)
+    '.app.now{box-shadow:0 0 0 2px rgba(0,0,0,.55),0 0 0 5px #fff,0 0 16px 4px rgba(255,255,255,.3)}',
     '.app:active{transform:scale(.95)}',
     // THE REMOTE (Extra Large)
     '.seg{display:flex;gap:2px;padding:3px;border-radius:12px;background:' + v('key') + '}',
@@ -142,9 +151,12 @@
     // the picture: the player's artwork, else the open app's icon, else the TV's glyph; its title on it where asked
     /** @param {any} lk @param {any} now @param {number} w @param {number} h @param {boolean} words */
     _art(lk, now, w, h, words) {
-      var bg = lk.art ? 'background-image:url(&quot;' + esc(lk.art) + '&quot;)' : now && now.icon ? 'background-image:url(&quot;' + esc(now.icon) + '&quot;)' : '';
-      var cls = 'art' + (lk.art ? ' has' : now && now.icon ? ' icon has' : words ? ' has' : '');
-      return '<div class="' + cls + '" style="width:' + w + 'px;height:' + h + 'px;' + bg + '">' + (bg || (words && h < 130) ? '' : '<hk-icon icon="hk:television" style="--mdc-icon-size:' + Math.min(44, h * 0.4) + 'px"></hk-icon>') +
+      var url = function (/** @type {string} */ u) { return 'url(&quot;' + esc(u) + '&quot;)'; }, icon = !lk.art && now && now.icon;
+      var g = Math.round(Math.min(44, h * 0.34));
+      var inner = lk.art ? '' : icon ? '<i class="wash" style="background-image:' + url(now.icon) + '"></i><img class="aic" alt="" src="' + esc(now.icon) + '">'
+        : (words && h < 70 ? '' : '<hk-icon icon="hk:television" style="--mdc-icon-size:' + g + 'px;width:' + g + 'px;height:' + g + 'px"></hk-icon>');
+      return '<div class="art' + (lk.art ? ' has' : icon ? ' has' : ' scr') + (words ? ' words' : '') + '" style="width:' + w + 'px;height:' + h + 'px' +
+        (lk.art ? ';background-image:' + url(lk.art) : '') + '">' + (icon ? inner.slice(0, inner.indexOf('<img')) + '<div class="mid">' + inner.slice(inner.indexOf('<img')) + '</div>' : '<div class="mid">' + inner + '</div>') +
         (words ? '<div class="ov"><div class="hd">' + esc(lk.title) + '</div>' + (lk.sub ? '<div class="sb">' + esc(lk.sub) + '</div>' : '') + '</div>' : '') + '</div>';
     }
     /** @param {any} lk */
@@ -186,7 +198,7 @@
         label = set.name + ', ' + title + (sub && sub !== set.name ? ', ' + sub : '');
         var gap = 12;
         if (size === 'S') {
-          var head = now ? tile(now, 64) : '<div class="art" style="width:64px;height:64px;border-radius:50%"><hk-icon icon="hk:television"></hk-icon></div>';
+          var head = now ? tile(now, 64) : '<div class="art scr" style="width:64px;height:64px;border-radius:50%"><div class="mid"><hk-icon icon="hk:television"></hk-icon></div></div>';
           body = '<div class="row" style="justify-content:space-between;align-items:flex-start">' + head + this._main(lk) + '</div>' +
             '<div class="foot"><div class="hd">' + esc(title) + '</div><div class="sb">' + esc(lk.on ? (lk.onPlayer && lk.sub ? lk.sub : set.name) : 'Tap an app to watch') + '</div></div>';
         } else if (size === 'W') {
