@@ -19,7 +19,8 @@ def tool():
     return mod
 
 
-pytestmark = pytest.mark.skipif(not shutil.which("node"), reason="needs Node.js")
+pytestmark = pytest.mark.skipif(not shutil.which("node") or not (ROOT / "tools/typecheck/node_modules/typescript/package.json").is_file(),
+                                reason="needs Node.js and the pinned TypeScript (tools/typecheck: npm ci)")
 
 
 def test_the_saver_state_map_is_fresh_and_every_owner_moved_stays_alone():
