@@ -15,7 +15,8 @@
         sendWS = K.sendWS, showEnergySlide = K.showEnergySlide, slideHide = K.slideHide, slideReady = K.slideReady,
         slideShow = K.slideShow, ST = K.ST, timedTurn = K.timedTurn, TM = K.TM, updateBand = K.updateBand,
         whoMsg = K.whoMsg, WX = K.WX;
-    var forecastUp = K.forecastUp, slideGone = K.slideGone, slideShown = K.slideShown;   // (phase 25: the owners' writers)
+    // (phase 25: the owners' writers, docs/phase25/SAVER-STATE.md)
+    var forecastUp = K.forecastUp, slideGone = K.slideGone, slideShown = K.slideShown;
 
     var black, clock, dashLive, dashOutside, drawMusic, elapsed, forecastTick, hostOf, layoutMusicView, muGrace, mus,
         musicIn, musicNow, musicOf, musicPage, musicPaneView, musicParts, musicPlaying, musicUsed, musicView, nextArt,

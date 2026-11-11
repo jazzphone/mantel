@@ -17,7 +17,8 @@
         nightCheck = K.nightCheck, photoOpts = K.photoOpts, pieceFile = K.pieceFile, piecesStarted = K.piecesStarted,
         reducedMotion = K.reducedMotion, ST = K.ST, TB_COVER = K.TB_COVER, tbShare = K.tbShare, timeNow = K.timeNow,
         timerHold = K.timerHold, updateBand = K.updateBand, weatherEntity = K.weatherEntity;
-    var nightWatch = K.nightWatch, slideShown = K.slideShown;   // (phase 25: the owners' writers)
+    // (phase 25: the owners' writers, docs/phase25/SAVER-STATE.md)
+    var nightWatch = K.nightWatch, slideShown = K.slideShown;
 
     var black, clock, exArm, exHide, forecastTick, hideMusicSlide, musicNow, musicOf, setAttr, showNext;
     // (of later parts, used when called: bound once every part has run, runParts)

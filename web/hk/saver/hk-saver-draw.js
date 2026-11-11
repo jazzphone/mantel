@@ -10,7 +10,8 @@
   (window.hkSaverParts = window.hkSaverParts || {})['hk-saver-draw'] = function (K) {
     var clientNow = K.clientNow, CROSSFADE_MS = K.CROSSFADE_MS, dashConf = K.dashConf, FACE_SHOWS = K.FACE_SHOWS,
         FC_TICK_MS = K.FC_TICK_MS, isFlat = K.isFlat, slideMarks = K.slideMarks, ST = K.ST, sunDown = K.sunDown;
-    var showsLayer = K.showsLayer, sinceSlide = K.sinceSlide, slideGone = K.slideGone, slideShown = K.slideShown;   // (phase 25: the owners' writers)
+    // (phase 25: the owners' writers, docs/phase25/SAVER-STATE.md)
+    var showsLayer = K.showsLayer, sinceSlide = K.sinceSlide, slideGone = K.slideGone, slideShown = K.slideShown;
 
     var addBand, dropView, exHide, forecastTick, HL, layoutBigKind, layoutDraw, layoutModules, layoutMusic,
         layoutSlides, layoutSoon, mus, musicParts, musicWatch, reveal, setAttr, showNext, slideView, takeover, TM, WX;

@@ -30,7 +30,9 @@
         slideReady = K.slideReady, slideShow = K.slideShow, ST = K.ST, syncPreviewSlide = K.syncPreviewSlide,
         takeover = K.takeover, teardown = K.teardown, TM = K.TM, tmWatch = K.tmWatch, updateBand = K.updateBand,
         within = K.within, writeSwitch = K.writeSwitch, WX = K.WX;
-    var countPhoto = K.countPhoto, deckFor = K.deckFor, flipLayer = K.flipLayer, keepPh = K.keepPh, lastPhotoIs = K.lastPhotoIs, mosaicGone = K.mosaicGone, showsLayer = K.showsLayer;   // (phase 25: the owners' writers)
+    // (phase 25: the owners' writers, docs/phase25/SAVER-STATE.md)
+    var countPhoto = K.countPhoto, deckFor = K.deckFor, flipLayer = K.flipLayer, keepPh = K.keepPh,
+        lastPhotoIs = K.lastPhotoIs, mosaicGone = K.mosaicGone, showsLayer = K.showsLayer;
 
     // WHAT IT OWNS ON ST (phase 25, A: others read these; only this file writes them; tools/state_owners.py)
     ST.startedBy = '';

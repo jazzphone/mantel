@@ -167,7 +167,6 @@
   // card in it, its width now, and the timer that scrolls it back to today
   ST.paneEl = null;
   ST.paneSc = null;
-  ST.paneCard = null;
   /** @type {any} */ var paneResetT = null;
   // ...the side it was laid out for, and the Side Pane drawing other
   // sections in it (cfg.pane_list; hk-sidepane.js), with its tick
@@ -439,7 +438,7 @@
     // (its ends fade as it scrolls, as every list's do: hk-base.js SCROLL EDGES)
     sc.classList.add('hk-fades');
     if (HC && HC.edges) HC.edges(sc);
-    ST.paneEl = pane; ST.paneSc = sc; ST.paneCard = null;
+    ST.paneEl = pane; ST.paneSc = sc; paneCardGone();
     var info = document.createElement('div'); info.className = 'info'; ST.root.appendChild(info);
     var nw = document.createElement('div'); nw.className = 'nightwash'; ST.root.appendChild(nw);
     var blk = document.createElement('div'); blk.className = 'blk'; ST.root.appendChild(blk);
@@ -493,8 +492,7 @@
       Array.from(ST.root.children).forEach(function (el) { if (el.tagName !== 'STYLE') el.remove(); });
       ST.host.setAttribute('released', '');
     }
-    ST.paneEl = null; ST.paneSc = null; ST.paneCard = null; ST.paneUp = false;
-    if (ST.paneT) { clearInterval(ST.paneT); ST.paneT = null; }
+    ST.paneEl = null; ST.paneSc = null; paneRelease();
     if (paneResetT) { clearTimeout(paneResetT); paneResetT = null; }
   }
   function cfgKey() { try { return JSON.stringify(ST.cfg); } catch (e) { return String(Math.random()); } }
@@ -647,7 +645,7 @@
       slideReady, slideShow, slideView, SLOP, start, stop, syncPreviewSlide, tabletId, tagOf, takeover, tbKey,
       tbShares, TM, tmWatch, turnOf, user, viewFont, volEnd, volFrom, weatherPage, widgetPage, withPane, WX, zoneOf;
   // (phase 25: what the shell asks of the parts that own the state it changes, docs/phase25/SAVER-STATE.md)
-  var keepPh, showsLayer, sinceSlide, tbCancel;
+  var dashAgain, keepPh, paneCardGone, paneRelease, showsLayer, sinceSlide, tbCancel;
 
   // A wake held until the kiosk's black (or its panel off) has ended.
   // WHAT THE TABLET LAST SHOWED: after each change, seen in a frame's
@@ -757,7 +755,6 @@
 
   // the dashboard's pane drawn again from the house, at most once a second
   // (the screensaver's own watch draws every view while it is up)
-  ST.dashAt = 0;
   // ITS PANEL closes with a tap anywhere else on the dashboard, and a touch
   // on it keeps it open (the screensaver routes both itself)
   // ONE VIEW FOR EVERY PAGE'S PANE (2026-10-15): each page of a dashboard
@@ -768,9 +765,7 @@
   // song move with it, drawn already.
   /** @type {any} */ var dashV = null;
 
-  ST.paneT = null;
   // the pane is up now: the calendar's, or the music's while it plays
-  ST.paneUp = false;
 
   // KIOSK SATELLITE'S DARK. Its API is promise-based, so it cannot be asked
   // inline the way Fully is below; it announces its screensaver and the panel
@@ -780,7 +775,6 @@
   // (Listened for on any page: nothing else fires them.)
   ST.ksSaver = false;
   ST.ksOff = false;
-  ST.downOpts = null;
   // OUR OWN CURTAIN UNDER THE KIOSK'S BLACK (2026-10-09). As the black
   // comes down the tablet draws the whole page again, and its largest layers
   // -- the sky's scenery -- arrive two or three frames after the rest: the
@@ -796,7 +790,6 @@
   // under it is not pressed), and as it fades the backlight comes up with it
   // (onFade). Out of HK's own black it comes down sooner, CURTAIN_HOLD_HK: the
   // page was drawn under it all along.
-  ST.curtainRun = 0;
 
   // ------------------------------------------------------------ HK's own black
   // BLACK SCREEN: HK FRONTEND (2026-10-09; a screen's When Idle -> Black
@@ -929,7 +922,9 @@
     tbKey = K.tbKey; tbShares = K.tbShares; TM = K.TM; tmWatch = K.tmWatch; turnOf = K.turnOf; user = K.user;
     viewFont = K.viewFont; volEnd = K.volEnd; volFrom = K.volFrom; weatherPage = K.weatherPage;
     widgetPage = K.widgetPage; withPane = K.withPane; WX = K.WX; zoneOf = K.zoneOf;
-    keepPh = K.keepPh; showsLayer = K.showsLayer; sinceSlide = K.sinceSlide; tbCancel = K.tbCancel;
+    // (phase 25: the owners' writers the shell asks, docs/phase25/SAVER-STATE.md)
+    dashAgain = K.dashAgain; keepPh = K.keepPh; paneCardGone = K.paneCardGone; paneRelease = K.paneRelease;
+    showsLayer = K.showsLayer; sinceSlide = K.sinceSlide; tbCancel = K.tbCancel;
   }
 
   loadParts(function () {
@@ -1033,7 +1028,7 @@
           else if (v.host !== this) return;
           var was = v.live;
           v.live = this._want && this.isConnected;
-          if (v.live) { this._size(); if (!was) { ST.dashAt = 0; renderMusic(); } }
+          if (v.live) { this._size(); if (!was) { dashAgain(); renderMusic(); } }
           else if (ST.pnl && ST.pnl.view === v) closePanel(false);
           musicTick();
         }

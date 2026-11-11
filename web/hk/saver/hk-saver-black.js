@@ -21,7 +21,9 @@
         slidesAgain = K.slidesAgain, ST = K.ST, syncPreviewSlide = K.syncPreviewSlide, tabletNow = K.tabletNow,
         teardown = K.teardown, TM = K.TM, tmWatch = K.tmWatch, user = K.user, withPane = K.withPane,
         writeSwitch = K.writeSwitch, WX = K.WX;
-    var dropDeck = K.dropDeck, forecastSig = K.forecastSig, forecastSky = K.forecastSky;   // (phase 25: the owners' writers)
+    // (phase 25: the owners' writers, docs/phase25/SAVER-STATE.md)
+    var curtainOpts = K.curtainOpts, curtainStale = K.curtainStale, dropDeck = K.dropDeck,
+        forecastSig = K.forecastSig, forecastSky = K.forecastSky;
 
     var noteDrawn, schedule, start, stop, tellOthers;
     // (of later parts, used when called: bound once every part has run, runParts)
@@ -102,7 +104,7 @@
       var v = wakeBrightness(h);
       // kept until the black really ends: under the kiosk's black as well (the
       // house's fallback), the backlight comes up as THAT one comes down
-      ST.downOpts = { hold: CURTAIN_HOLD_HK, onFade: function () { if (v != null) rampBacklight(v, CURTAIN_FADE); } };
+      curtainOpts({ hold: CURTAIN_HOLD_HK, onFade: function () { if (v != null) rampBacklight(v, CURTAIN_FADE); } });
       blackChanged();
     }
     // every new client and every settings change
@@ -148,7 +150,7 @@
       var el = document.getElementById && document.getElementById('hk-black-boot');
       if (!el) return;
       if (!fade || (ST.curtain && ST.curtain.parentNode)) { el.remove(); return; }
-      ST.curtainRun++;
+      curtainStale();
       var drawn = drawCurtain(), v = wakeBrightness(h);
       el.remove();
       if (drawn) curtainDown({ hold: 0, onFade: function () { if (v != null) rampBacklight(v, CURTAIN_FADE); } });

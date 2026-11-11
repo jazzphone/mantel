@@ -16,7 +16,8 @@
         musicTick = K.musicTick, musicView = K.musicView, PANE_TOP = K.PANE_TOP, PANE_W = K.PANE_W,
         panelTouched = K.panelTouched, paneOf = K.paneOf, renderMusic = K.renderMusic, setAttr = K.setAttr, ST = K.ST,
         volEnd = K.volEnd, volFrom = K.volFrom, weatherEntity = K.weatherEntity;
-    var bandIs = K.bandIs;   // (phase 25: the owners' writers)
+    // (phase 25: the owners' writers, docs/phase25/SAVER-STATE.md)
+    var bandIs = K.bandIs;
 
     var bootCover, clock, clock24, goDark, hkTapWake, lightSoon, lit, litNow, panelDone;
     // (of later parts, used when called: bound once every part has run, runParts)
@@ -26,6 +27,12 @@
     });
 
     // WHAT IT OWNS ON ST (phase 25, A: others read these; only this file writes them; tools/state_owners.py)
+    ST.paneCard = null;
+    ST.dashAt = 0;
+    ST.paneT = null;
+    ST.paneUp = false;
+    ST.downOpts = null;
+    ST.curtainRun = 0;
     ST.paneW = 0;
     ST.curtain = null;
     ST.PageCard = null;
@@ -472,6 +479,17 @@
 
     var DASH_SWIPE = 10;
 
+    // WHAT THE OTHERS ASK OF IT (phase 25, A): the only way another file changes the pane's or the curtain's state,
+    // each the assignment it was, by name
+    function curtainOpts(opts) { ST.downOpts = opts; }     // how the next curtain comes down (the house's black)
+    function curtainStale() { ST.curtainRun++; }            // a curtain under way is not this one any more
+    function dashAgain() { ST.dashAt = 0; }                 // the dashboard's music view is live again: draw it now
+    function paneCardGone() { ST.paneCard = null; }         // a new page: no calendar card on it yet
+    function paneRelease() {                                // the page let go (releaseVisuals)
+      ST.paneCard = null; ST.paneUp = false;
+      if (ST.paneT) { clearInterval(ST.paneT); ST.paneT = null; }
+    }
+
     // ------------------------------------------------------------ the pane
     // the band's and the pane's scale: a 1280 x 800 tablet's layout, scaled up
     // whole on a bigger screen
@@ -673,6 +691,7 @@
     }
 
     // what the shell and the later parts use of this one
+    K.curtainOpts = curtainOpts; K.curtainStale = curtainStale; K.dashAgain = dashAgain; K.paneCardGone = paneCardGone; K.paneRelease = paneRelease;
     K.addBand = addBand; K.black = black; K.blackChanged = blackChanged; K.centerBand = centerBand;
     K.CURTAIN_FADE = CURTAIN_FADE; K.CURTAIN_HOLD_HK = CURTAIN_HOLD_HK; K.curtainDown = curtainDown;
     K.DASH_CSS = DASH_CSS; K.DASH_SWIPE = DASH_SWIPE; K.dashLive = dashLive; K.dashOutside = dashOutside;
