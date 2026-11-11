@@ -70,7 +70,7 @@ def test_mantel_link_s_public_repository_builds_clean(tmp_path):
     core = sorted(d for d in dests if "/hk_core/" in d)
     assert core == sorted(f"custom_components/mantel/hk_core/{n}" for n in (
         "__init__.py", "link/__init__.py", "link/mantel_link.py", "link/page_headers.py", "link/talk.py",
-        "link/talk_live.py", "pairing.py", "talk/__init__.py", "talk/core.py"))
+        "link/talk_live.py", "link/tv_stream.py", "pairing.py", "talk/__init__.py", "talk/core.py"))
     import re
     absolute = re.compile(r"^\s*(?:from|import)\s+(?:hk_core|custom_components)\b", re.M)
     assert not [d for s, d in pairs if d.startswith("custom_components/") and d.endswith(".py")

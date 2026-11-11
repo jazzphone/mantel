@@ -10,7 +10,7 @@ The HACS build vendors this folder as `custom_components/hk_frontend/hk_core/` (
 
 `link/` is the one part that is not host-neutral: what HK Frontend and Mantel Link, the two Home
 Assistant integrations, had as copies of each other, written once. `mantel_link.py` is the client of
-Mantel Server's linked endpoint (aiohttp only); `talk.py`, `talk_live.py` and `page_headers.py`
+Mantel Server's linked endpoint (aiohttp only); `tv_stream.py` is Live TV's ffmpeg command (pure); `talk.py`, `talk_live.py` and `page_headers.py`
 import Home Assistant (`tests/test_boundaries.py` names these three) and Mantel Server never
 imports `link`. Each integration keeps thin modules of the same names that give them their own
 address, domain and delivery: `talk.URL` (`/api/hk_frontend/talk`, `/api/mantel/talk`), the

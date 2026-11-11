@@ -346,6 +346,7 @@ The decisions both hosts make the same way (Rule 2), in Python.
   - `page_headers.py` — PAGE HEADERS, the part both integrations share
   - `talk.py` — TALK
   - `talk_live.py` — LIVE TALK
+  - `tv_stream.py` — Live TV's transcode command
 - **hk_core/music/**
   - `announcements.py` — Announcements, for display only
   - `checks.py` — The checks Music's forms share
