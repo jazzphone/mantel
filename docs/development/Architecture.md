@@ -235,6 +235,27 @@ another pattern shadows, and the rest of R1-R12 raise `RouteTableError`, and Man
 `tools/route_probe.py --diff <rev>` sends every route a request as nine principals on two doors and prints what
 answers differently from `<rev>`: a change that should change no answer prints nothing.
 
+## How a big web file is cut
+
+A web file too big to work in is a **shell** and its **parts**: real files in a folder beside it (never under
+`web/hk/cards/`, which both hosts load as cards). The shell keeps what must run at once (its `register(...)` calls, the
+globals other code reads at load, the statements that run when it is evaluated) and one generated loader, the same in
+every shell. The loader fetches the parts in parallel, runs them in order with a kit (what they use of the shell), takes
+back what the shell uses of them, and then runs the statements that waited for them. A part that does not come is asked
+for again, later each time, at an address of its own.
+
+Parts arrive a round trip after the shell, so each shell keeps a promise of them, `window.__hkSplitReady[label]`, and
+everything that imports a module and uses it at once waits for every started shell (`web/home.js` `imp()`,
+`hk-loader`, the Settings panel's `boot()`, Home Assistant's panel). `hk-base.js` makes `window.hkCards` only once its
+parts have run, filled in one turn, before `hk-cards-ready`. On Mantel the core shells' parts download with the page
+(`/api/hk-cards` names them; `web/shim/early-cards.js` preloads them).
+
+The cut is made by `tools/split_js.py` from a manifest, and proved: every moved member is the same text in its new place,
+nothing new is in the shell but the loader, `tsc` finds every name, and nothing that runs before the parts reaches what
+moved. The test views (`tests/web_sources.py`, the suites' `split_files.js`) read a shell and its parts as one file.
+`docs/development/Code-map.md` lists every file and each shell's parts. Python modules are cut the same way by
+`tools/split_py.py` (a package, or sibling modules).
+
 ## Page health and the Performance page
 
 Each page (the dashboard, `web/home.js`; Mantel Settings, `web/shim/settings-page.js`) tells its socket how it is doing

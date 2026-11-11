@@ -25,6 +25,9 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 - **Everything that says where music plays draws the speaker with the glyph its tile wears** (its gear's Icon), not a HomePod for every room: the speaker line over a player's title, the Music page's Playing On, Plays On and Speakers key, Now Playing's speaker button, the screensaver's music card, a speaker's own sheet, the speaker picker and Intercom's rooms. A home whose speakers are HomePod minis saw minis on the tiles and full-size HomePods everywhere else. Without the house's glyph file the HomePod pairs stand in as Material's speaker-multiple.
 - **An Icons Only tab bar keeps the highlight behind the page you're on when its tabs are narrow**: a car's 804 px window gave ten tabs 63 px each, a pixel short of the 64 a tab with a name needs, so the bar showed the current page only as a darker icon (on a gray accent, hardly different). Without names the capsule now shows as long as it comes out at least as wide as it is tall.
 
+**Internal**
+- Code health (phase 24): the big web files cut into shells and parts by `tools/split_js.py` (proved moves; a page waits for a file's parts before it uses it), `music.py` into sibling modules, every long line broken by `tools/rewrap.py`, and the size and width rules (rule 8) checked on every push. Nothing a person sees changes.
+
 ## 0.1.162 - 2026-11-10
 
 **Added**

@@ -85,3 +85,25 @@ door's rule in the diff.
 
 Write a new route's declaration first, as strict as the route allows; a check only the handler can make (an Admin
 never manages an Owner, say) stays in the handler as well. See [Architecture](Architecture.md#route-guards-and-the-audit-of-changes).
+
+## 8. Files stay small and lines stay short
+
+No JavaScript file over 2,500 lines and no Python file over 2,200, and no line over 200 characters, in any hand-written
+`.js`, `.cjs` or `.py` (`tests/hand_written.py` says which files count: not installed packages, build output,
+`web/hk/vendor/` or a generated file named there). A file over 2,300 lines (JavaScript) or 2,000 (Python) is named under
+`tools/ci.py`'s table, "Near the size limit", so a split is planned before a feature is blocked by the wall. A file is
+never made shorter by joining lines: that is what the width rule is for.
+
+When a file gets near the limit, cut it by feature with the tools, never by hand: `tools/split_js.py --report FILE`
+shows which members must move together, a manifest in `tools/split_manifests/` names the parts, and `tools/split_js.py
+NAME` moves the members and proves nothing but their place changed (`tools/split_py.py` for Python). A long line is
+broken with `tools/rewrap.py`, which proves the program's syntax tree is unchanged. See
+[Building and testing](Building-and-Testing.md#big-files-and-long-lines) and
+[Architecture](Architecture.md#how-a-big-web-file-is-cut).
+
+**Checked by** `tests/test_file_sizes.py` and `tests/test_line_widths.py` (part of `tools/ci.py quick`, the pre-push run).
+Each keeps a list that only shrinks: the files whose split was left for later (`tests/fixtures/file_sizes.json`,
+`tests/fixtures/line_widths.json`), and the lines that can't be broken without changing a value, inside a template, a
+regular expression or a multi-line string (`tests/fixtures/line_width_exceptions.json`, each with its reason). A new
+file or line over the limit fails the run.
+

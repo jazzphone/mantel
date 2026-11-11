@@ -17,6 +17,9 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 - **One way to pick a speaker in Home Grid**: Now Playing's **Speaker** and Show When's **Music Is Playing** list the house's music rooms and groups (Mantel Settings → Music), as the Music block's Plays On does, never every media player in Home Assistant. Music Is Playing can watch **Tablet's Room**, the room the wall tablet's music calls home (a stereo pair counts either HomePod), so one rule -- Music Is Playing in Tablet's Room → Now Playing, Automatic -- works on every tablet's screen; on a page that is no tablet's it never holds. A Now Playing set to a room or group follows the music playing there, its song, time, volume and buttons all from one player: one set to an Apple TV showed the room's song with the TV's empty time and volume. A saved speaker that is no music speaker reads "(Not a Music Speaker)" in the editor and Now Playing shows the screen's music. The assistant can write both (grid_cards).
 - **Show When takes up to ten rules** in a Home Grid block, not four. Each rule still has up to three conditions that must all hold, rules are checked in order with the first that holds winning, and the block shows its own card when none does; layouts saved with four or fewer rules, and older blocks saved with Otherwise Show, work as they did. In the editor each rule's header says where it stands (Rule 3 of 10), **Move Rule Down** sits beside Move Rule Up, past four rules **Preview** is a menu naming each rule's card, and Add Rule says when the block is full.
 
+**Internal**
+- Code health: HK's big web files cut into shells and parts (each part fetched with its shell, and waited for before the file is used), and every long line broken; nothing a person sees changes.
+
 ## 1.58.0 - 2026-11-10
 
 **Added**

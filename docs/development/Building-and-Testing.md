@@ -333,6 +333,40 @@ and a generated photo with Titles and Time Behind through hk-saver.js's own laye
 `cutout.py`; no model, no real photo). `--shots DIR` keeps the screenshots; `--mock PATH` adds the mock-up's faces
 section beside them. `tools/ci.py full` runs it as `saver-faces-check`, skipped without `PLAYWRIGHT_PATH` or `NODE`.
 
+## Big files and long lines
+
+The size and width rules (Rules, rule 8) are checked by the main suite. When a file comes near the limit
+(`tools/ci.py quick` names it under "Near the size limit"), cut it, by feature, with the tools:
+
+```bash
+~/.venvs/mantel/bin/python tools/split_js.py --report web/hk/cards/hk-x.js --run-in whenBase
+```
+
+`--report` groups the file's top-level members by the variables they set again and again: a group moves whole. If one
+big group holds the file together, `tools/split_js.py --state FILE --vars a,b,c --write` first puts those variables on
+one object (proved by running it backwards). Then write `tools/split_manifests/x.json` (the shell, a folder beside it
+that is not under `cards/`, and the parts, each a feature: its members by name) and run:
+
+```bash
+~/.venvs/mantel/bin/python tools/split_js.py x --check
+```
+
+```bash
+~/.venvs/mantel/bin/python tools/split_js.py x
+```
+
+The tool refuses what a move would change (it names the member and why) and proves the rest: every moved member's text,
+`tsc`, and that nothing that runs before the parts arrive reaches what moved. After it: `split_js.py --all --check`,
+`tests/test_file_sizes.py --update`, `tests/test_line_widths.py --update`, `tools/code_map.py`, the jsc suites (their
+output must be the same as before), the main suite, and the browser checks of what the file draws. A file that other
+code reads the moment it loads waits for its parts through `window.__hkSplitReady`; `tools/headless/split_race_check.py`
+holds the parts back and looks. `tools/split_py.py` does the same for Python (`--find NAME` on either says which file
+holds a name).
+
+A long line: `~/.venvs/mantel/bin/python tools/rewrap.py PATH` (`--check` to see first). It breaks between tokens and
+splits strings, never inside a template or a regular expression, and writes nothing whose syntax tree changed. A line it
+can't break goes in `tests/fixtures/line_width_exceptions.json` with its reason.
+
 ## A scratch Home Assistant
 
 `tools/testha/` starts a throwaway Home Assistant on `127.0.0.1:8124` with only the `demo` integration's invented

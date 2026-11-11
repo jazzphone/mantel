@@ -32,6 +32,13 @@ The pre-commit hook checks only what you stage (`--staged`), so a local, never-c
 
 Use made-up names and the documentation address ranges (`192.0.2.x`, `example.com`) in tests, docs and screenshots.
 
+## Big files and long lines
+
+Keep files under the size limit and lines under 200 characters (rule 8 in
+[docs/development/Rules.md](docs/development/Rules.md)). Cut a big file with `tools/split_js.py` (or `tools/split_py.py`)
+and break long lines with `tools/rewrap.py`: both prove that only the layout changed. Where something lives:
+[docs/development/Code-map.md](docs/development/Code-map.md).
+
 ## Pull requests
 
 - One change per pull request, with tests for behavior changes.
