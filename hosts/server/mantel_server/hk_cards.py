@@ -68,6 +68,9 @@ PARTS_LIST = re.compile(r"var PARTS = \[([^\]]*)\]")
 PARTS_FOLDER = re.compile(r"'/hk/([\w-]+)/' \+ file")
 
 
+NO_WAIT = "NOTHING WAITS FOR THESE PARTS"
+
+
 def parts_of(path: Path) -> list[str]:
     """A shell's parts as paths under /hk/ (`base/hk-base-design.js`), in their order ([] for a file not cut into parts)."""
     try:
@@ -76,6 +79,10 @@ def parts_of(path: Path) -> list[str]:
         return []
     listed, folder = PARTS_LIST.search(text), PARTS_FOLDER.search(text)
     if not (listed and folder):
+        return []
+    # (a shell nothing waits for -- its manifest's "wait": false, hk-detail.js -- is not needed for the first draw: its
+    # parts are fetched by its own loader, not preloaded at the start beside the ones the draw needs, 2026-11-11)
+    if NO_WAIT in text:
         return []
     return [f"{folder.group(1)}/{name}" for name in re.findall(r"'([^']+\.js)'", listed.group(1))]
 

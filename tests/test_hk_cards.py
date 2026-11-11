@@ -197,3 +197,7 @@ def test_the_parts_of_the_files_loaded_at_the_start_are_named_so_they_download_w
     assert not set(got["parts"]) & set(got["lazy"])
     text = (CARDS.parents[1] / "shim/early-cards.js").read_text()
     assert "cards.parts" in text and "link.href = hkV('/hk/' + rel);" in text
+    # (2026-11-11) ...but not a shell nothing waits for (its manifest's "wait": false): hk-detail.js's 21 sheet files
+    # preloaded beside the first draw's own held it back 9-13 ms (first_load.py, both engines); its loader fetches them
+    assert "hk-detail.js" in got["core"] and hk_cards.NO_WAIT in (CARDS / "hk-detail.js").read_text()
+    assert "hk-detail.js" not in got["parts"]
