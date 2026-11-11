@@ -164,3 +164,98 @@ async def test_lookups_off_in_settings_asks_nothing(gw, monkeypatch):
     monkeypatch.setattr(h.host, "fetch_icon", fetch)
     h.put(ATV, "playing", app_id=YTV, app_name="YouTube TV")
     assert asked == [] and h.host.lookup is False
+
+
+# -- the page's half (web/hk/modules/hk-tv.js), in node --------------------------------------------------------------------------
+import json as _json
+import shutil as _shutil
+import subprocess as _sub
+from pathlib import Path as _Path
+
+_ROOT = _Path(__file__).resolve().parents[1]
+_NODE = _shutil.which("node") or "/opt/homebrew/bin/node"
+_JS = r"""
+globalThis.window = globalThis;
+require(process.argv[2]); require(process.argv[3]);
+const T = window.hkTv, G = window.hkGridCatalog;
+const states = {
+  'media_player.bed_tv': { state: 'on', attributes: { friendly_name: 'Bedroom TV', device_class: 'tv', source: 'LG S95TR', source_list: ['Apple TV', 'HDMI 1', 'LG S95TR', 'Live TV'], volume_level: 0.1, supported_features: 24509 } },
+  'media_player.bed_apple_tv': { state: 'playing', attributes: { friendly_name: 'Bedroom Apple TV', app_id: 'com.netflix.Netflix', app_name: 'Netflix', media_title: 'A Show', source_list: ['App Store', 'Netflix', 'YouTube TV', 'Coax', 'Disney+'], supported_features: 450487 } },
+  'remote.bed_apple_tv': { state: 'on', attributes: {} },
+  'media_player.den_tv': { state: 'off', attributes: { friendly_name: 'Den TV', device_class: 'tv', supported_features: 151481 } },
+  'media_player.den_apple_tv': { state: 'off', attributes: { friendly_name: 'Den Apple TV', source_list: ['Netflix'] } },
+  'remote.den_tv': { state: 'on', attributes: {} },
+  'media_player.kitchen_homepod': { state: 'playing', attributes: { friendly_name: 'Kitchen HomePod', app_id: 'music_assistant', mass_player_type: 'player', source_list: ['Music Assistant Queue'] } },
+  'media_player.guest_apple_tv': { state: 'off', attributes: { friendly_name: 'Guest Apple TV', source_list: [] } },
+  'sensor.hk_tv': { state: '2', attributes: { apps: [{ id: 'com.google.ios.youtubeunplugged', name: 'YouTube TV', count: 9, src: '/api/tv/icon/com.google.ios.youtubeunplugged', icon: true }],
+                                               inputs: {} } }
+};
+const entities = {
+  'media_player.bed_tv': { area_id: 'bed', platform: 'webostv', device_id: 't1' }, 'media_player.bed_apple_tv': { area_id: 'bed', platform: 'apple_tv', device_id: 'a1' },
+  'remote.bed_apple_tv': { device_id: 'a1', platform: 'apple_tv' }, 'media_player.den_tv': { area_id: 'den', platform: 'roku', device_id: 'r1' },
+  'remote.den_tv': { device_id: 'r1', platform: 'roku' }, 'media_player.den_apple_tv': { area_id: 'den', platform: 'apple_tv' },
+  'media_player.kitchen_homepod': { area_id: 'kitchen', platform: 'music_assistant' }, 'media_player.guest_apple_tv': { area_id: 'guest', platform: 'apple_tv' }
+};
+const client = { states, entities, devices: {}, areas: { bed: { name: 'Bedroom' }, den: { name: 'Den' }, guest: { name: 'Guest' } } };
+window.hkHostClient = { current: () => client };
+const out = {};
+out.sets = T.sets(client).map((s) => [s.tv, s.player, s.remotes.player, s.remotes.tv, s.remotes.tvKind]);
+const bed = T.setFor(client, 'media_player.bed_apple_tv'), den = T.setFor(client, 'den');
+const lk = T.look(client, bed);
+out.bed = { title: lk.title, sub: lk.sub, onPlayer: lk.onPlayer, arrows: lk.arrows, vol: lk.volume.mode, inputs: lk.inputs.map((x) => x.on ? '*' + x.name : x.name) };
+out.keys = { tvUp: T.press(client, bed, 'tv', 'up'), back: T.press(client, bed, 'player', 'back'), rokuSelect: T.press(client, den, 'tv', 'select'),
+             lgPlay: T.press(client, bed, 'tv', 'play_pause') };
+out.denVol = T.look(client, den).volume.mode;
+out.openDen = T.open(client, den, 'Netflix');
+out.apps = T.apps(client, bed, 'recent', 4).map((a) => [a.name, !!a.icon, a.now]);
+out.on = { bed: T.isOn(client, 'media_player.bed_tv'), den: T.isOn(client, 'den'), any: G.matches({ kind: 'tv_on' }, states),
+           tablet: G.matches({ kind: 'tv_on', entity: 'tablet_room' }, states), denRule: G.matches({ kind: 'tv_on', entity: 'media_player.den_tv' }, states) };
+console.log(JSON.stringify(out));
+"""
+
+
+@pytest.fixture(scope="module")
+def js(tmp_path_factory):
+    if not _Path(_NODE).exists():
+        pytest.skip("no node")
+    f = tmp_path_factory.mktemp("tv") / "run.cjs"
+    f.write_text(_JS)
+    r = _sub.run([_NODE, str(f), str(_ROOT / "web/hk/modules/hk-tv.js"), str(_ROOT / "web/hk/cards/hk-grid-catalog.js")],
+                 capture_output=True, text=True, timeout=60)
+    assert r.returncode == 0, r.stderr
+    return _json.loads(r.stdout)
+
+
+def test_each_room_pairs_its_tv_with_its_player_and_a_homepod_is_neither(js):
+    assert js["sets"] == [["media_player.bed_tv", "media_player.bed_apple_tv", "remote.bed_apple_tv", None, "webostv"],
+                          ["media_player.den_tv", "media_player.den_apple_tv", None, "remote.den_tv", "roku"],
+                          [None, "media_player.guest_apple_tv", None, None, ""]]
+
+
+def test_what_is_on_and_where_the_arrows_go(js):
+    # (the TV on its soundbar's input, which hasn't been learned yet; the Apple TV awake: it is what's on, and the arrows are its)
+    assert js["bed"] == {"title": "A Show", "sub": "Netflix", "onPlayer": True, "arrows": "player", "vol": "set",
+                         "inputs": ["Apple TV", "HDMI 1", "*LG S95TR", "Live TV"]}
+    assert js["denVol"] is None                                             # (off: no volume until it's on)
+
+
+def test_each_brands_keys(js):
+    k = js["keys"]
+    assert k["tvUp"] == [["webostv", "button", {"entity_id": "media_player.bed_tv", "button": "UP"}]]
+    assert k["back"] == [["remote", "send_command", {"entity_id": "remote.bed_apple_tv", "command": "menu"}]]
+    assert k["rokuSelect"] == [["remote", "send_command", {"entity_id": "remote.den_tv", "command": "select"}]]
+    assert k["lgPlay"] == [["media_player", "media_play_pause", {"entity_id": "media_player.bed_tv"}]]
+
+
+def test_an_app_from_a_dark_room_wakes_the_player_and_the_tv_first(js):
+    assert js["openDen"] == [["media_player", "turn_on", {"entity_id": "media_player.den_apple_tv"}],
+                             ["media_player", "turn_on", {"entity_id": "media_player.den_tv"}],
+                             ["media_player", "select_source", {"entity_id": "media_player.den_apple_tv", "source": "Netflix"}]]
+
+
+def test_recent_apps_put_the_most_used_first_with_its_icon_and_leave_out_apples_utilities(js):
+    assert js["apps"] == [["YouTube TV", True, False], ["Netflix", False, True], ["Disney+", False, False], ["Coax", False, False]]
+
+
+def test_a_tv_is_on_by_a_tv_its_room_or_any(js):
+    assert js["on"] == {"bed": True, "den": False, "any": True, "tablet": False, "denRule": False}

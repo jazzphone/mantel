@@ -109,6 +109,17 @@
                    scope: 'Washers, dryers and washer-dryers: the Laundry block, their tiles in their rooms, the chip and their sheet.',
                    body: function (c) { self.a_laundry(c); } };
         }
+        // TVS (phase 23, docs/phase23/TV.md): each room's TV and the player beside it; one TV's wiring; the apps
+        if (sub[0] === 'tvs') {
+          var tvBack = ['TVs', '#/accessories/tvs'];
+          if (sub[1] === 'apps') return { title: 'TV Apps', back: tvBack, scope: 'The apps a TV block and a TV’s sheet offer first.', body: function (c) { self.a_tvApps(c); } };
+          if (sub[1] === 'one' && sub[2]) {
+            var tset = window.hkTv ? window.hkTv.setFor(this.client, sub[2]) : null;
+            return { title: tset ? tset.name : 'TV', back: tvBack, body: function (c) { self.a_tvOne(c, sub[2]); } };
+          }
+          return { title: 'TVs', back: back, scope: 'Each room’s TV and its Apple TV, as one: the TV block, the TV’s sheet and its remote.',
+                   body: function (c) { self.a_tvs(c); } };
+        }
         // A TYPE (2026-10-13): what it lists, what its page and chip count, its
         // order -- What Counts' kind pages, folded in
         if (sub[0] === 'type' && M.accType(sub[1])) {
@@ -247,6 +258,9 @@
           var nL = self.laundryList().length;
           box.appendChild(K.group({ footer: 'Washers and dryers: found by themselves, or picked part by part for any brand, a plug or a vibration sensor.' }, [
             K.nav({ label: 'Laundry', tile: ['mdi:washing-machine', '#32ade6'], value: nL ? nL + (nL === 1 ? ' Machine' : ' Machines') : 'None', href: '#/accessories/laundry', fk: 'acc:laundry' })]));
+          var nT = window.hkTv ? window.hkTv.sets(self.client).length : 0;
+          box.appendChild(K.group({ footer: 'Each room’s TV and its Apple TV, paired by room: their inputs, volume, apps and remote.' }, [
+            K.nav({ label: 'TVs', tile: ['mdi:television', '#5e5ce6'], value: nT ? nT + (nT === 1 ? ' TV' : ' TVs') : 'None', href: '#/accessories/tvs', fk: 'acc:tvs' })]));
           var count = {};
           ids.forEach(function (id) { var a = self.areaOf(id) || (id.indexOf('timer.') === 0 ? '~timers' : '-'); count[a] = (count[a] || 0) + 1; });
           var rows = self.areasAZ().filter(function (a) { return count[a]; }).map(function (a) {
@@ -895,6 +909,83 @@
         return this.save({ type: 'config/entity_registry/update', entity_id: id, area_id: area }, ['helper:room:' + id], function () {
           ents[id] = Object.assign({}, e, { area_id: area });
         }, function () {});
+      }
+      // ---------------------------------------------------------- TVs (phase 23)
+      // EACH TV'S WIRING (features.tv_sets, hk_core/tv.py): [{tv, player?, input?, volume?, hidden?}], only what isn't Automatic
+      friendlyOf(id) { var st = (this.client && this.client.states || {})[id]; return (st && st.attributes && st.attributes.friendly_name) || id; }
+      tvSaved() { var own = this.hs('features.tv_sets'); return Array.isArray(own) ? own : []; }
+      tvEdit(tv, patch) {
+        var list = this.tvSaved().filter(function (x) { return x && x.tv !== tv; }), was = this.tvSaved().filter(function (x) { return x && x.tv === tv; })[0] || { tv: tv };
+        var next = Object.assign({}, was, patch);
+        Object.keys(next).forEach(function (k) { if (next[k] == null || next[k] === '' || (Array.isArray(next[k]) && !next[k].length)) delete next[k]; });
+        if (Object.keys(next).length > 1) list.push(next);
+        return this.setH({ 'features.tv_sets': list });
+      }
+      a_tvs(c) {
+        var self = this, T = window.hkTv, sets = T ? T.sets(this.client) : [];
+        var rows = sets.map(function (x) {
+          var p = x.player ? self.friendlyOf(x.player) : '', where = x.tv && x.input ? 'on ' + x.input : '';
+          return K.nav({ label: x.name, sub: [p ? 'with ' + p : (x.tv ? 'No player' : ''), where].filter(Boolean).join(' · '), tile: ['mdi:television', '#5e5ce6'],
+                         href: x.tv ? '#/accessories/tvs/one/' + encodeURIComponent(x.tv) : null, fk: 'tv:' + x.id });
+        });
+        c.appendChild(this.withError(K.group({ header: 'Rooms', footer: sets.length ? 'A TV and the Apple TV in the same room work as one. Open a TV to change what Automatic chose.' :
+          'No TV or Apple TV yet. A media player Home Assistant calls a TV, or an Apple TV, shows up here.' }, rows), 'features.tv_sets'));
+        var favs = this.hs('features.tv_apps') || [];
+        c.appendChild(K.group({}, [K.nav({ label: 'TV Apps', value: (this.hs('features.tv_show') === 'favorites' ? 'Favorites' : 'Recent') + (favs.length ? ' · ' + favs.length : ''), href: '#/accessories/tvs/apps', fk: 'tv:apps' })]));
+        c.appendChild(K.group({ footer: 'The house’s server asks Apple’s App Store for each app’s icon once, sending only the app’s ID, and keeps it. It reaches itunes.apple.com and *.mzstatic.com; the tablets never do.' }, [
+          K.toggle({ label: 'Look Up App Icons', sk: 'features.tv_icons', fk: 'tv:icons', on: this.hs('features.tv_icons') !== false, onChange: function (on) { self.setH({ 'features.tv_icons': on }); } })]));
+      }
+      a_tvOne(c, tv) {
+        var self = this, T = window.hkTv, set = T ? T.setFor(this.client, tv) : null, own = this.tvSaved().filter(function (x) { return x.tv === tv; })[0] || {};
+        var st = (this.client.states || {})[tv], a = (st && st.attributes) || {}, srcs = a.source_list || [];
+        if (!set) { c.appendChild(K.group({ footer: 'This TV isn’t in Home Assistant any more.' }, [])); return; }
+        var players = T.sets(this.client).map(function (x) { return x.player; }).filter(Boolean).concat(Object.keys(this.client.states || {}).filter(function (id) {
+          return id.indexOf('media_player.') === 0 && T.isPlayer(self.client.states[id], (self.client.entities || {})[id]);
+        })).filter(function (x, i, all) { return all.indexOf(x) === i; }).sort();
+        var learned = ((((this.client.states || {})['sensor.hk_tv'] || {}).attributes || {}).inputs || {})[tv];
+        var auto = function (what) { return 'Automatic' + (what ? ' (' + what + ')' : ''); };
+        var put = function (k) { return function (v) { var p = {}; p[k] = v || null; self.tvEdit(tv, p).then(function () { self.soon(); }); }; };
+        var autoPlayer = own.player ? null : set.player;
+        c.appendChild(this.withError(K.group({ header: 'Connected To', footer: 'Change these only when a room is wired differently: sound through a receiver, or a second player on another input. ' +
+            'The input is learned when the Apple TV and the TV come on together' + (learned ? '; here it learned ' + learned + '.' : ', and hasn’t been yet.') }, [
+          K.select({ label: 'Player', sk: 'tv:player', fk: 'tv:player', value: own.player || '', options: [['', auto(autoPlayer ? this.friendlyOf(autoPlayer) : 'none in this room')]].concat(
+            players.map(function (p) { return [p, self.friendlyOf(p)]; }), [['none', 'None']]), onChange: put('player') }),
+          K.select({ label: 'On the TV’s Input', sk: 'tv:input', fk: 'tv:input', value: own.input || '', options: [['', auto(learned || 'not learned yet')]].concat(srcs.map(function (x) { return [x, x]; })),
+                     onChange: put('input') }),
+          K.select({ label: 'Volume', sk: 'tv:volume', fk: 'tv:volume', value: own.volume || '', options: [['', auto()], ['tv', 'This TV'], ['player', 'The Player'], ['none', 'None']].concat(
+            Object.keys(this.client.states || {}).filter(function (id) { return id.indexOf('media_player.') === 0 && id !== tv && id !== set.player && /receiver|soundbar|theater|avr/i.test(id); })
+              .map(function (id) { return [id, self.friendlyOf(id)]; })), onChange: put('volume') })]), 'features.tv_sets'));
+        if (srcs.length) {
+          var hidden = own.hidden || [];
+          c.appendChild(K.group({ header: 'Inputs', footer: 'Turn off the inputs nobody uses; the sheet leaves them out.' + (st && st.state === 'off' ? ' The list is the one the TV gave when it was last on.' : '') },
+            srcs.map(function (x) {
+              return K.toggle({ label: x, on: hidden.indexOf(x) < 0, fk: 'tv:in:' + x, onChange: function (on) {
+                var h = (own.hidden || []).filter(function (y) { return y !== x; }); if (!on) h.push(x); put('hidden')(h);
+              } });
+            })));
+        }
+      }
+      a_tvApps(c) {
+        var self = this, T = window.hkTv, favs = (this.hs('features.tv_apps') || []).slice(), show = this.hs('features.tv_show') || 'recent';
+        var names = [];
+        if (T) T.sets(this.client).forEach(function (x) { if (x.player) T.allApps(self.client, x).forEach(function (a) { if (names.indexOf(a.name) < 0) names.push(a.name); }); });
+        names.sort(function (a, b) { return a.localeCompare(b); });
+        var save = function (list) { self.setH({ 'features.tv_apps': list }).then(function () { self.soon(); }); };
+        c.appendChild(K.group({ footer: 'Recent: the apps opened most in this house first. Favorites: your list below, in its order. A block can still choose either, or one app.' }, [
+          K.seg({ label: 'Shows', sk: 'features.tv_show', fk: 'tv:show', value: show, options: [['recent', 'Recent'], ['favorites', 'Favorites']], onChange: function (v) { self.setH({ 'features.tv_show': v }); } })]));
+        var rows = favs.map(function (name, i) {
+          return K.button({ label: (i + 1) + '.  ' + name + (i ? '   \u2191' : ''), fk: 'tv:fav:' + name, onClick: function () {
+            if (!i) return; var l = favs.slice(); l.splice(i - 1, 0, l.splice(i, 1)[0]); save(l);
+          } });
+        });
+        c.appendChild(this.withError(K.group({ header: 'Favorites', footer: favs.length ? 'Tap one to move it up a place. Remove one below.' : 'None yet: add the apps you watch most.' }, rows), 'features.tv_apps'));
+        var left = names.filter(function (n) { return favs.indexOf(n) < 0; });
+        var groupRows = [];
+        if (left.length && favs.length < 24) groupRows.push(K.select({ label: 'Add App', fk: 'tv:add', value: '', options: [['', 'Choose…']].concat(left.map(function (n) { return [n, n]; })),
+          onChange: function (v) { if (v) save(favs.concat([v])); } }));
+        if (favs.length) groupRows.push(K.select({ label: 'Remove App', fk: 'tv:remove', value: '', options: [['', 'Choose…']].concat(favs.map(function (n) { return [n, n]; })),
+          onChange: function (v) { if (v) save(favs.filter(function (n) { return n !== v; })); } }));
+        if (groupRows.length) c.appendChild(K.group({}, groupRows));
       }
       // ---------------------------------------------------------- laundry (phase 22)
       // THE MACHINES: the person's own list (features.laundry), else what hkLaundry finds on the house's devices. `saved`: whether

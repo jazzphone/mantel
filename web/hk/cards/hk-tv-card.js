@@ -59,7 +59,8 @@
     '.art.icon{background-size:auto 70%}',
     '.art .ov{position:absolute;left:12px;right:12px;bottom:10px;text-shadow:0 1px 8px rgba(0,0,0,.4)}',
     '.art.has::after{content:"";position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.5),transparent 60%);pointer-events:none}',
-    '.art .ov{z-index:1}.art .ov .sb{color:rgba(255,255,255,.85)}',
+    '.art .ov{z-index:1;color:rgba(255,255,255,.97)}.art .ov .sb{color:rgba(255,255,255,.85)}',
+    '.art hk-icon{margin-bottom:18%}',
     // A ROUND KEY: 44 px, the main one solid
     '.rb{all:unset;box-sizing:border-box;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;cursor:pointer;flex:none;background:' + v('key') + ';color:' + v('ink') + '}',
     '.rb.solid{background:rgba(255,255,255,.94);color:#1c1c1e}',
@@ -143,7 +144,7 @@
     _art(lk, now, w, h, words) {
       var bg = lk.art ? 'background-image:url(&quot;' + esc(lk.art) + '&quot;)' : now && now.icon ? 'background-image:url(&quot;' + esc(now.icon) + '&quot;)' : '';
       var cls = 'art' + (lk.art ? ' has' : now && now.icon ? ' icon has' : words ? ' has' : '');
-      return '<div class="' + cls + '" style="width:' + w + 'px;height:' + h + 'px;' + bg + '">' + (bg ? '' : '<hk-icon icon="hk:television" style="--mdc-icon-size:' + Math.min(44, h * 0.4) + 'px"></hk-icon>') +
+      return '<div class="' + cls + '" style="width:' + w + 'px;height:' + h + 'px;' + bg + '">' + (bg || (words && h < 130) ? '' : '<hk-icon icon="hk:television" style="--mdc-icon-size:' + Math.min(44, h * 0.4) + 'px"></hk-icon>') +
         (words ? '<div class="ov"><div class="hd">' + esc(lk.title) + '</div>' + (lk.sub ? '<div class="sb">' + esc(lk.sub) + '</div>' : '') + '</div>' : '') + '</div>';
     }
     /** @param {any} lk */
@@ -191,10 +192,10 @@
         } else if (size === 'W') {
           var n = 5, aw = Math.min(64, Math.floor((iw - 4 * 8) / n)), wTop = ih - aw;
           body = '<div class="row"><div class="grow"><div class="lbl">' + esc(set.name) + '</div><div class="hd" style="margin-top:4px">' + esc(title + (lk.onPlayer && lk.sub ? ' · ' + lk.sub : '')) + '</div>' +
-            (wTop > 70 && !lk.onPlayer ? '<div class="sb">' + esc(lk.on ? 'On' : 'Off') + '</div>' : '') + '</div>' + this._main(lk) + '</div>' +
+            (wTop > 70 && !lk.onPlayer ? '<div class="sb">' + esc(lk.on ? (lk.source ? 'On the TV' : 'On') : 'Tap an app to watch') + '</div>' : '') + '</div>' + this._main(lk) + '</div>' +
             '<div class="foot">' + this._apps(apps, n, aw) + '</div>';
         } else if (size === 'T') {
-          var as = ih >= 340 ? 70 : 56, arth = Math.max(56, Math.min(Math.round(iw * 9 / 16), ih - 16 - 44 - (as * 2 + 13) - 3 * gap));
+          var as = ih >= 340 ? 70 : 56, arth = Math.max(56, Math.min(iw, ih - 16 - 44 - (as * 2 + 13) - 3 * gap - 4));
           body = '<div class="lbl">' + esc(set.name) + '</div><div style="height:' + gap + 'px"></div>' + this._art(lk, now, iw, arth, true) +
             '<div class="row" style="justify-content:space-between;margin-top:' + gap + 'px">' + (lk.volume.mode ? this._vol(lk, true) : '<span style="width:44px"></span>') + this._main(lk) +
             (lk.volume.mode ? '<button type="button" class="rb" data-notap data-vol="up" aria-label="Volume up">' + svg('plus') + '</button>' : '<span style="width:44px"></span>') + '</div>' +
