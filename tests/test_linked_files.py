@@ -10,7 +10,7 @@ import json
 from aiohttp import WSMsgType
 
 import test_features
-from mantel_server import linked_files as LF
+from mantel_server.linked import linked_files as LF
 from test_user_files import GLYPHS, dummy_woff2
 
 build, make_env = test_features.build, test_features.make_env       # the fixtures

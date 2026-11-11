@@ -46,7 +46,7 @@ TICK = 30.0
 
 
 def _err(code: str, message: str):
-    from .linked import LinkedError
+    from . import LinkedError
     return LinkedError(code, message)
 
 
@@ -59,13 +59,13 @@ class LinkedActions:
 
     # -- who it acts as, through which gateway ------------------------------------------------------------
     def principal(self, peer: str | None = None) -> Any:
-        from .alarm_pin import linked_principal
+        from ..alarm_pin import linked_principal
         return linked_principal(self.app, peer)
 
     def grants(self) -> tuple:
         """The Service actor ``mantel:linked``'s computed grants (see the module's docstring)."""
-        from .alarm_pin import LINKED_ACTOR
-        from .identity.rbac import Grant
+        from ..alarm_pin import LINKED_ACTOR
+        from ..identity.rbac import Grant
         # turning an automation off or on is sensitive in Mantel's RBAC (rbac.SAFE_SERVICES): the snooze needs both
         out = [Grant(effect="allow", actions=("control", "control.sensitive"), resource_kind="domain",
                      resource="automation", users={LINKED_ACTOR}, note="Mantel Link: hk_frontend.pause/resume_automation"),
@@ -81,8 +81,8 @@ class LinkedActions:
         return tuple(out)
 
     def gateway(self) -> Any:
-        from .ha import gateway as G
-        from .features import FeatureAuthz
+        from ..ha import gateway as G
+        from ..features import FeatureAuthz
         authz, audit = self.app.get("authz"), self.app.get("audit")
         if authz is None or audit is None:
             raise _err("commands_disabled", "Mantel's command gateway isn't wired; nothing was sent")
@@ -91,7 +91,7 @@ class LinkedActions:
         class LinkedAuthz(FeatureAuthz):
             def policy_for(self, subject: Any) -> Any:
                 from dataclasses import replace
-                from .alarm_pin import LINKED_ACTOR
+                from ..alarm_pin import LINKED_ACTOR
                 policy = self.base.policy_for(subject)
                 if subject.user_id != LINKED_ACTOR:
                     return policy
@@ -114,7 +114,7 @@ class LinkedActions:
     async def command(self, domain: str, service: str, data: Mapping[str, Any], peer: str | None,
                       return_response: bool = False) -> Any:
         """One service call through the gateway as ``mantel:linked``; the gateway's refusal as a LinkedError."""
-        from .alarm_pin import linked_error
+        from ..alarm_pin import linked_error
         got: dict = {}
 
         async def send(reply: dict) -> None:
@@ -180,7 +180,7 @@ class LinkedActions:
         """Run one of ``DIRECT`` for ``principal``: each vacuum and automation call goes through ``gateway`` as that
         person (their grants, their audit row, the same refusals as pressing the button). A refusal reaches the
         caller as a LinkedError carrying the gateway's own reply (``.reply``)."""
-        from .alarm_pin import linked_error
+        from ..alarm_pin import linked_error
 
         async def call(domain: str, svc: str, payload: Mapping[str, Any]) -> Any:
             got: dict = {}
@@ -353,10 +353,10 @@ def register(app: web.Application) -> LinkedActions:
     if "linked_actions" in app:
         return app["linked_actions"]
     la = app["linked_actions"] = LinkedActions(app)
-    from .connectors import Ctx, Forbidden, Route, allowed_ids, read_routes
+    from ..connectors import Ctx, Forbidden, Route, allowed_ids, read_routes
 
     async def snooze_feed(ctx: Ctx, msg: dict, on_event: Callable[[dict], None]):
-        from .ha.readproxy import ReadBlocked
+        from ..ha.readproxy import ReadBlocked
         if set(msg) - {"type", "id"}:
             raise ReadBlocked(f"{SNOOZE_FEED} carries nothing")
         ident = ctx.identity

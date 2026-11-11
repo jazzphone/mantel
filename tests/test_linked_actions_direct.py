@@ -5,7 +5,7 @@ Once Mantel Link holds the bridge, the page's `hk_frontend.clean_areas` / `pause
 longer goes to Home Assistant to come back over the link: the same engines run here, each vacuum and automation call
 through the gateway as the PERSON (their grants, their audit row), never as `mantel:linked`. While HK Frontend still
 holds the bridge, the call goes to Home Assistant's `hk_frontend` exactly as before."""
-from mantel_server import linked_actions as LA
+from mantel_server.linked import linked_actions as LA
 from mantel_server.identity.rbac import Grant
 from test_features import VACUUM, make_env  # noqa: F401
 import gateway_fakes as GF

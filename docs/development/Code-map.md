@@ -446,14 +446,6 @@ Mantel Server.
   - `hk_cards.py` — GET /api/hk-cards
   - `house.py` — THE HOUSE PORT, MANTEL SERVER'S SIDE (hk_core/house.py; PLAN §0 plan review, item 1 (c)).
   - `laundry.py` — Laundry
-  - `linked.py` — Phase 5
-  - `linked_actions.py` — HK Frontend's other actions, run by Mantel (docs/phase9/MANTEL-LINK.md 9.8).
-  - `linked_files.py` — The home's own SF Pro and SF Symbols glyph file, for a linked HK Frontend (2026-11-07).
-  - `linked_house.py` — Linked mode, the rest of the entry on Mantel (docs/phase5/LINKED-MODE.md "What Mantel publishes"; CUTOVER.md Step 7), and the forwarded actions fea...
-  - `linked_owners.py` — Linked mode's per-tablet ownership during the cutover (docs/phase6/CUTOVER.md §1, Option A, the recorded recommendation; docs/phase5/LINKED-MODE.md...
-  - `linked_pairing.py` — Pairing codes for Mantel Link (docs/phase9/MANTEL-LINK.md "Discovery and pairing", slice 9.4).
-  - `linked_reads.py` — The features on a linked HK Frontend's dashboards, answered by Mantel (decision 29, docs/phase9/TWO-PRODUCTS.md "features on HK Frontend's dashboar...
-  - `linked_settings.py` — HK's settings for a linked HK Frontend (decision 29, docs/phase9/TWO-PRODUCTS.md "one copy of the settings").
   - `live.py` — One lifecycle for long-lived connections
   - `live_tv.py` — LIVE TV SERVED BY MANTEL (docs/phase4/FEATURE-PARITY.md "Live TV served by Mantel"; PLAN §8, §10, Proof 4).
   - `ma_page.py` — The token for the Music Assistant page
@@ -570,6 +562,14 @@ Mantel Server.
   - `routes.py` — THE INTERCOM'S ROUTES AND FEED (docs/phase17/INTERCOM.md "Permissions, audit, API and storage").
   - `spool.py` — The spool
   - `wiring.py` — Wiring the Intercom into Mantel Server (server.wire)
+- **hosts/server/mantel_server/linked/**
+  - `linked_actions.py` — HK Frontend's other actions, run by Mantel (docs/phase9/MANTEL-LINK.md 9.8).
+  - `linked_files.py` — The home's own SF Pro and SF Symbols glyph file, for a linked HK Frontend (2026-11-07).
+  - `linked_house.py` — Linked mode, the rest of the entry on Mantel (docs/phase5/LINKED-MODE.md "What Mantel publishes"; CUTOVER.md Step 7), and the forwarded actions fea...
+  - `linked_owners.py` — Linked mode's per-tablet ownership during the cutover (docs/phase6/CUTOVER.md §1, Option A, the recorded recommendation; docs/phase5/LINKED-MODE.md...
+  - `linked_pairing.py` — Pairing codes for Mantel Link (docs/phase9/MANTEL-LINK.md "Discovery and pairing", slice 9.4).
+  - `linked_reads.py` — The features on a linked HK Frontend's dashboards, answered by Mantel (decision 29, docs/phase9/TWO-PRODUCTS.md "features on HK Frontend's dashboar...
+  - `linked_settings.py` — HK's settings for a linked HK Frontend (decision 29, docs/phase9/TWO-PRODUCTS.md "one copy of the settings").
 - **hosts/server/mantel_server/mcp/**
   - `admin.py` — Mantel Settings → Advanced → Assistants (MCP)
   - `auth.py` — Who is calling ``/mcp``

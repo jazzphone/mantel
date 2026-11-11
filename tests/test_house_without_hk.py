@@ -5,8 +5,8 @@ until" feed is Mantel's, and nothing moves back to Home Assistant once HK Fronte
 house; fakes only."""
 import types
 
-from mantel_server import linked_actions as LA
-from mantel_server.linked_owners import OwnershipError, back_to_ha_check
+from mantel_server.linked import linked_actions as LA
+from mantel_server.linked.linked_owners import OwnershipError, back_to_ha_check
 from test_features import ENTRY, make_env  # noqa: F401 -- the fixture
 from test_linked_owners import ALARM_ITEM, ALARM_PANEL, house_env, put
 

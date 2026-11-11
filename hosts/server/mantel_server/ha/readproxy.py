@@ -670,7 +670,7 @@ class FilteredReads:
     async def request(self, identity: Any, msg: dict) -> Any:
         check_read(msg)
         t = msg["type"]
-        from ..linked_reads import FROM_LINK
+        from ..linked.linked_reads import FROM_LINK
         if FROM_LINK.get():
             raise ReadBlocked(f"{t!r} is Home Assistant's: a read relayed from Home Assistant is never sent back")
         if t in SUBSCRIBE_TYPES:
@@ -759,7 +759,7 @@ class FilteredReads:
         """-> an async unsubscribe function."""
         check_read(msg)
         t = msg["type"]
-        from ..linked_reads import FROM_LINK
+        from ..linked.linked_reads import FROM_LINK
         if FROM_LINK.get():
             raise ReadBlocked(f"{t!r} is Home Assistant's: a read relayed from Home Assistant is never sent back")
         if t not in SUBSCRIBE_TYPES:

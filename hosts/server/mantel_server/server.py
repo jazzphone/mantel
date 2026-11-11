@@ -40,9 +40,9 @@ from .network import connect_pairing, ingress
 from .cameras import cameras_direct, protect_connector
 from .ha import gateway, readproxy
 from .pages import admin_page, screens
-from . import (
-    connections, features, linked, linked_house, linked_owners, linked_pairing, linked_files, linked_reads,
-    linked_settings, linked_actions, phones, talk_relay,
+from . import connections, features, linked, phones, talk_relay
+from .linked import (
+    linked_house, linked_owners, linked_pairing, linked_files, linked_reads, linked_settings, linked_actions,
 )
 from .storage import atrest, backup, user_files
 from .cameras import photos
@@ -958,7 +958,7 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
         async def write_announcement(_app):
             from . import announce
             try:
-                from .linked_pairing import link_address
+                from .linked.linked_pairing import link_address
                 body = announce.write(cfg.announce_file, _app["linked_owners"].instance_id(), cfg.public_url,
                                       link=link_address(_app) or "")
                 log.info("announce: wrote %s for the zeroconf announcer (%s%s)", cfg.announce_file, body["url"],

@@ -6,7 +6,7 @@ with commands off, and an Owner's deny on that actor wins."""
 import json
 from datetime import datetime, timedelta, timezone
 
-from mantel_server import linked_actions as LA
+from mantel_server.linked import linked_actions as LA
 from test_features import VACUUM, change, make_env  # noqa: F401
 from test_mantel_link_server import Client
 

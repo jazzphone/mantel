@@ -1,5 +1,5 @@
 """Phase 5 linked mode, end to end across both hosts: Home Assistant's test harness running the
-hk_frontend integration linked to the real ``mantel_server/linked.py`` endpoint, in one process.
+hk_frontend integration linked to the real ``mantel_server/linked/__init__.py`` endpoint, in one process.
 
 The HA harness lives in its own venv (``~/.venvs/hk-ha-test``, which has Home Assistant but not
 Mantel's dependencies), so this stages the integration's Python, tests and translations the way

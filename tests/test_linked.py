@@ -1,4 +1,4 @@
-"""Phase 5 linked mode, Mantel's side (mantel_server/linked.py), with a fake linked client (an aiohttp
+"""Phase 5 linked mode, Mantel's side (mantel_server/linked/__init__.py), with a fake linked client (an aiohttp
 WebSocket playing Home Assistant's hk_frontend in linked mode) against the real app: who may connect
 (a Service credential with the `linked` scope, LAN door, no browser), the forwarded calls and their
 checks, the in-memory handler and the confirmed handshake, entity pushes, and that Mantel never sends

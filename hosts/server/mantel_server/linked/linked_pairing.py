@@ -55,10 +55,10 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from mantel_connect import protocol as CP
 
-from .storage import audit
-from .network.connect_pairing import ALL_FAILS, ALL_WINDOW, IP_FAILS, IP_WINDOW, MAX_WRONG, Window
-from .identity.guards import guard, open_route
-from .identity.guards import ident as guarded
+from ..storage import audit
+from ..network.connect_pairing import ALL_FAILS, ALL_WINDOW, IP_FAILS, IP_WINDOW, MAX_WRONG, Window
+from ..identity.guards import guard, open_route
+from ..identity.guards import ident as guarded
 # The protocol numbers, the path and the address are shared with Mantel Link (hk_core/pairing.py).
 from hk_core.pairing import (  # noqa: F401 -- shared
     _HOSTNAME, _SCHEMES, _mac, PATH, PINNED, VERSION, normalize_address)
@@ -313,7 +313,7 @@ class LinkPairing:
 # -- the routes -------------------------------------------------------------------------------------------
 @open_route("one_time_code", why="linked pairing: the one-time code an Owner started (linked_pairing.py)")
 async def pair_route(request: web.Request) -> web.Response:
-    from .identity.sessions import client_ip, door_of
+    from ..identity.sessions import client_ip, door_of
     pairing: LinkPairing = request.app["linked_pairing"]
     if request.headers.get("Origin") is not None:
         raise web.HTTPForbidden(text="not for browsers")
@@ -339,17 +339,17 @@ def request_addresses(request: web.Request) -> set[str]:
     announcement from its file (both Mantel's own), and the Host header the request arrived on."""
     app = request.app
     cfg = app.get("cfg")
-    from .ha.supervisor_discovery import APP_URL
+    from ..ha.supervisor_discovery import APP_URL
     app_url, announce_url = app.get(APP_URL), None     # known even when Mantel Link brought its own credential
     owners = app.get("linked_owners")
     if owners is not None and app_url is None:
-        from .ha.supervisor_discovery import KEY
+        from ..ha.supervisor_discovery import KEY
         try:
             app_url = (owners.remembered(KEY) or {}).get("url")
         except Exception:  # noqa: BLE001 -- nothing remembered: one address fewer
             app_url = None
     if getattr(cfg, "announce_file", None) is not None:
-        from . import announce
+        from .. import announce
         announce_url = (announce.read(cfg.announce_file) or {}).get("url")
     return own_addresses(cfg, request.host, app_url=app_url, announce_url=announce_url)
 
@@ -399,7 +399,7 @@ def register(app: web.Application) -> LinkPairing:
         return getattr(lk, "instance", None)
 
     def previous() -> str | None:
-        from .linked import LINK_ACCOUNT_KEY
+        from . import LINK_ACCOUNT_KEY
         owners = app.get("linked_owners")
         return ((owners.remembered(LINK_ACCOUNT_KEY) or {}).get("account") if owners is not None else None)
 

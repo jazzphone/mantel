@@ -88,7 +88,7 @@ class LinkedFiles:
         return out
 
     def _piece(self, rel: str, offset: int) -> dict[str, Any]:
-        from .linked import LinkedError
+        from . import LinkedError
         p = self._path(rel)
         if p is None:
             raise LinkedError("not_found", f"Mantel has no {rel}")
@@ -104,7 +104,7 @@ class LinkedFiles:
     # -- the link --------------------------------------------------------------------------------------
     async def chunk(self, client: Any, msg: dict[str, Any]) -> dict[str, Any]:
         """One ``file_chunk``. Raises LinkedError to refuse."""
-        from .linked import LinkedError
+        from . import LinkedError
         if not wants(client):
             raise LinkedError("not_set_up", "only a linked HK Frontend that asked for the files gets them")
         rel, offset = msg.get("path"), msg.get("offset")

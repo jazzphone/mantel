@@ -4,7 +4,7 @@ know it; wrong tries counted and the code burned; the LAN door only, never a bro
 import json
 import secrets
 
-from mantel_server import linked_pairing as LP
+from mantel_server.linked import linked_pairing as LP
 from mantel_connect import protocol as CP
 from test_features import Linked, make_env  # noqa: F401
 

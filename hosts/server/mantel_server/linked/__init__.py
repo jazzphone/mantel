@@ -51,7 +51,7 @@ from typing import Any, Mapping
 
 from aiohttp import WSCloseCode, WSMsgType, web
 
-from .identity.guards import WHY_LINKED, open_route
+from ..identity.guards import WHY_LINKED, open_route
 
 log = logging.getLogger("mantel.linked")
 
@@ -716,7 +716,7 @@ def _parse(text: str, protocol: int = 1, features: frozenset[str] = frozenset())
 # grant would: the entities Mantel publishes into Home Assistant, not a person's view of the house
 @open_route("link_credential", why=WHY_LINKED, reads="feature:linked", stream="live:linked")
 async def ws_endpoint(request: web.Request) -> web.StreamResponse:
-    from .identity.sessions import client_ip, door_of
+    from ..identity.sessions import client_ip, door_of
     linked: Linked = request.app["linked"]
     peer = client_ip(request)
     if request.headers.get("Origin") is not None:
@@ -767,7 +767,7 @@ async def ws_endpoint(request: web.Request) -> web.StreamResponse:
 
     # live.py: a revoked credential (service_accounts.revoke) ends the link at once, and the policy tick looks at it
     # again every minute. The socket's own timer is only for an app without a registry (a bare one in a test).
-    from . import live as live_mod
+    from .. import live as live_mod
     registry_live = live_mod.of(request.app)
     watcher = asyncio.create_task(recheck()) if registry_live is None else None
 
@@ -852,7 +852,7 @@ def register(app: web.Application, hub: Any = None, hooks: Any = None) -> Linked
     registry = h.registry or LinkedRegistry()
     accounts = h.accounts or app.get("service_accounts")
     if accounts is None:
-        from .identity.service_accounts import ServiceAccounts
+        from ..identity.service_accounts import ServiceAccounts
         if "store" not in app:
             raise RuntimeError("linked.register needs hooks.accounts or the app's store")
         accounts = app["service_accounts"] = ServiceAccounts(app["store"].db, lambda: app["clock"]())

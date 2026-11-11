@@ -52,9 +52,9 @@ class LinkedReads:
         self.entries: dict[tuple[int, str], Any] = {}    # ... -> its live.py entry
 
     def _person(self, ha_user: str) -> Any:
-        from .network.ingress import linked_user
-        from .linked import LinkedError
-        from .identity.sessions import Identity, User
+        from ..network.ingress import linked_user
+        from . import LinkedError
+        from ..identity.sessions import Identity, User
         row = linked_user(self.app["store"].db, ha_user)
         if row is None or row["disabled"]:
             from .linked_settings import UNLINKED
@@ -68,7 +68,7 @@ class LinkedReads:
         return authz.principal_of(ident) if authz is not None else ident
 
     async def _ctx(self, client: Any, ha_user: str, identity: Any) -> Any:
-        from .connectors import Ctx
+        from ..connectors import Ctx
         key = (id(client), ha_user)
         ctx = self.ctxs.get(key)
         if ctx is not None and not ctx.closed:
@@ -79,13 +79,13 @@ class LinkedReads:
                 return ctx
             await self._end(key)                         # linked to someone else now: the old person's reads end
         if sum(1 for k, c in self.ctxs.items() if k[0] == key[0] and not c.closed) >= MAX_CONTEXTS:
-            from .linked import LinkedError
+            from . import LinkedError
             raise LinkedError("too_many", f"one link relays the reads of at most {MAX_CONTEXTS} Home Assistant users "
                                           "at once")
 
         async def send(frame: dict) -> None:
             await client.send({"type": "page_frame", "ha_user": ha_user, "frame": frame})
-        from . import live
+        from .. import live
         registry = live.of(self.app)
         ctx = self.ctxs[key] = Ctx(send=send, identity=identity, live=registry)
         if registry is not None:      # live.py: a revocation or the tick ends the context and its subscriptions
@@ -109,8 +109,8 @@ class LinkedReads:
     async def page(self, client: Any, msg: dict[str, Any]) -> Any:
         """One ``page`` frame: the read, unsubscribe or subscription, handed to Mantel's own handlers. Their
         answers go back as ``page_frame``s; this only says it was taken."""
-        from .connectors import ws_handlers
-        from .linked import LinkedError
+        from ..connectors import ws_handlers
+        from . import LinkedError
         from .linked_settings import _HA_USER
         if client.domain != "hk_frontend" or FEATURE not in client.features:
             raise LinkedError("not_set_up", "only a linked HK Frontend that forwards its dashboards' reads sends these")

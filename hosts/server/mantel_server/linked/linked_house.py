@@ -54,7 +54,7 @@ from hk_core.notifications import banner as NB
 from hk_core.notifications import dnd as ND
 from hk_core.settings import model as SM
 
-from .linked import ALARM_COMMANDS, LinkedError
+from . import ALARM_COMMANDS, LinkedError
 
 # the integrations whose entity-registry entries are the linked house's: HK Frontend, and Mantel Link
 # (protocol 2: the same unique ids, moved by the bridge hand-over)
@@ -377,7 +377,7 @@ class LinkedHouse:
     async def _set_decorations(self, on: bool, ctx: Any) -> None:
         """Mantel's house setting sky.decorations, as HA's switch writes its options: the stored differences
         (SET-2; the feed merges them, so the screens keep the whole sky)."""
-        from .settings_store import Actor, looks_merged, stored_house
+        from ..settings_store import Actor, looks_merged, stored_house
         store = self.host.store
         body = copy.deepcopy(store.body("house", "settings"))
         if looks_merged(body):                  # not normalised yet (normalise_house runs at start-up)
@@ -397,7 +397,7 @@ class LinkedHouse:
         PIN, the keypad's lockout, RBAC on the panel and the alarm, the audit row first,
         the alarm's own HA code from Mantel's store (never the typed code), commands off: nothing sent.
         Its refusals are already HA's wire codes (``alarm_pin.linked_error``)."""
-        from . import alarm_pin
+        from .. import alarm_pin
         if self.app.get("alarm_pin") is None:
             raise LinkedError("not_supported", "this Mantel Server has no Alarm PIN engine")
         panel = alarm["entity_id"]
@@ -417,7 +417,7 @@ class LinkedHouse:
         made from what HA's registry says the panel protects, as ``POST /api/alarm/pins/import`` would:
         wall tablets NOT given it (``tablets`` off) and no house code (so it refuses whatever needs a
         code) until an Owner sets them. Audited as a config row naming the panel and the alarm."""
-        from . import alarm_pin
+        from .. import alarm_pin
         keypad, panel, protects = self.app.get("alarm_pin"), alarm.get("entity_id"), alarm.get("protects")
         if keypad is None or not isinstance(panel, str):
             return None
@@ -471,7 +471,7 @@ class LinkedHouse:
 
 
 def _norm(desc: dict[str, Any]) -> dict[str, Any]:
-    from .linked import check_entity
+    from . import check_entity
     return check_entity(desc)
 
 
@@ -489,7 +489,7 @@ class LinkedHandler:
         if service in linked_actions.SERVICES:
             actions = self.house.app.get("linked_actions")
             if actions is None:
-                from .linked import LinkedError
+                from . import LinkedError
                 raise LinkedError("not_set_up", f"{service} isn't run by this Mantel")
             return await actions.call(service, data, ctx)
         return await self.features.call_service(service, data, targets, ctx)

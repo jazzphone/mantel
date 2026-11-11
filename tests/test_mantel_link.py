@@ -3,7 +3,7 @@ pytest suite on Home Assistant's test harness, run from Mantel's own suite so th
 covers it, IN the published layout (tools/publish/publish.py builds it: custom_components/mantel/ with the few
 hk_core modules it imports vendored inside, tests/py beside), with both neighbours present:
 
-* ``MANTEL_ROOT`` (this checkout): the end-to-end tests against the real ``mantel_server/linked.py``;
+* ``MANTEL_ROOT`` (this checkout): the end-to-end tests against the real ``mantel_server/linked/__init__.py``;
 * ``HK_FRONTEND_COMPONENT``: HK Frontend's Python staged the way ``tools/build_ha.py`` builds it
   (without its 3,000 frontend files, which these tests don't read), for the hand-over tests against the
   real HK Frontend.

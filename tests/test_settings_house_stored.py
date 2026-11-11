@@ -11,7 +11,7 @@ import json
 import pytest
 
 from hk_core.settings import model as M
-from mantel_server import linked_settings as LS
+from mantel_server.linked import linked_settings as LS
 from mantel_server import settings_store as S
 from mantel_server.storage.db import Database
 

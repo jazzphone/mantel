@@ -421,14 +421,14 @@ Columns: **Rule** who may call it (`signed_in` any session, `person`, `manager` 
 |---|---|---|---|---|---|---|
 | `GET /linked/ws` | own: link_credential | feature:linked | live:linked |  | linked mode's endpoint: the linked HK Frontend's Service credential (linked.py), not a session |  |
 
-## mantel_server.linked_owners
+## mantel_server.linked.linked_owners
 
 | Route | Rule | Reads | Stream | Preview | Audit | Assistants |
 |---|---|---|---|---|---|---|
 | `GET /api/linked/owners` | manager | admin | none |  |  |  |
 | `PUT /api/linked/owners` | owner, door home |  | none |  | linked.owner, linked.bridge |  |
 
-## mantel_server.linked_pairing
+## mantel_server.linked.linked_pairing
 
 | Route | Rule | Reads | Stream | Preview | Audit | Assistants |
 |---|---|---|---|---|---|---|
@@ -437,7 +437,7 @@ Columns: **Rule** who may call it (`signed_in` any session, `person`, `manager` 
 | `POST /api/linked/pair` | owner, door home |  | none |  | linked.pair_start |  |
 | `POST /linked/pair` | own: one_time_code |  | none |  | linked pairing: the one-time code an Owner started (linked_pairing.py) |  |
 
-## mantel_server.linked_settings
+## mantel_server.linked.linked_settings
 
 | Route | Rule | Reads | Stream | Preview | Audit | Assistants |
 |---|---|---|---|---|---|---|

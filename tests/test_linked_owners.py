@@ -10,8 +10,8 @@ import re
 import pytest
 
 import gateway_fakes as GF
-from mantel_server import linked_owners as LO
-from mantel_server.linked_owners import LinkedOwners, OwnershipError
+from mantel_server.linked import linked_owners as LO
+from mantel_server.linked.linked_owners import LinkedOwners, OwnershipError
 from test_features import ENTRY, TABLET, UID, build, events, linked_ws, make_env, next_event  # noqa: F401
 
 LINKED_ON = {"linked": {"enabled": True, "entry_id": ENTRY}}

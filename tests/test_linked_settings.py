@@ -6,7 +6,7 @@ import json
 
 from aiohttp import WSMsgType
 
-from mantel_server import linked_settings as LS
+from mantel_server.linked import linked_settings as LS
 from mantel_server.settings_store import Actor
 from test_features import build, make_env  # noqa: F401
 
@@ -403,7 +403,7 @@ def test_mantel_takes_exactly_the_reads_hk_frontend_forwards():
     """linked_reads.FORWARDED is HK Frontend's READS_REQUEST + READS_SUBSCRIBE, and each is one of Mantel's reads."""
     import ast
     from pathlib import Path
-    from mantel_server.linked_reads import FORWARDED
+    from mantel_server.linked.linked_reads import FORWARDED
     src = Path(__file__).resolve().parents[1] / "hosts/ha/custom_components/hk_frontend/linked_mode.py"
     tree = ast.parse(src.read_text())
     lists = {n.targets[0].id: ast.literal_eval(n.value) for n in ast.walk(tree) if isinstance(n, ast.Assign)

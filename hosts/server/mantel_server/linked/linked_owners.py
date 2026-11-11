@@ -39,8 +39,8 @@ from typing import Any, Callable
 
 from aiohttp import web
 
-from .identity.guards import guard
-from .identity.guards import ident as guarded
+from ..identity.guards import guard
+from ..identity.guards import ident as guarded
 
 log = logging.getLogger("mantel.linked_owners")
 

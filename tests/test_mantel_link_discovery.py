@@ -98,7 +98,7 @@ async def test_the_app_announces_mantel_with_a_rotated_credential(make_env, tmp_
         assert [(a["name"], a["made_by"]) for a in accounts.list()] == [("Home Assistant - Mantel Link", "pairing")]
         # ... and the App's own address is still Mantel's, so Mantel Link can pair again by a code at it (v2)
         assert env.app[SD.APP_URL] == "http://local-mantel:8099"
-        from mantel_server.linked_pairing import request_addresses
+        from mantel_server.linked.linked_pairing import request_addresses
         from aiohttp.test_utils import make_mocked_request
         req = make_mocked_request("POST", "/linked/pair", headers={"Host": "local-mantel:8099"}, app=env.app)
         assert "http://local-mantel:8099" in request_addresses(req)
