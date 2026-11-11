@@ -1,6 +1,8 @@
 # Phase 25: from smaller to simpler (plan, 2026-11-11)
 
-**Status: plan, for the owner's decisions below. Nothing in Parts A to E is built yet.** Written the day phase 24
+**Status: plan, ready to build. Every decision answered by the owner on 2026-11-11: all six recommendations accepted
+("Accept all six"). The building session takes each recommendation as the answer and does not ask again. Nothing in
+Parts A, B, C and E is built yet.** Written the day phase 24
 finished, from what it left: the files are small, but the tangles inside them are the same tangles in more files.
 
 ## The ask (the owner, 2026-11-11)
@@ -145,9 +147,9 @@ loader as the page starts).
 | C2 | The server packages, one a commit | L | C1, decision 3, a quiet moment |
 | E4 | `split_js.py` split by feature | M | after A and B (they change it) |
 
-## Decisions for the owner
+## Decisions for the owner (answered 2026-11-11: all recommendations accepted)
 
-| # | Decision | Recommendation |
+| # | Decision | Recommendation (accepted) |
 |---|---|---|
 | 1 | Untangle the saver's state (Part A) with behavior checks as the proof, not text proofs? | **Yes.** It is the one place the tangle hurts every change to the saver, and its browser checks are among the best the project has |
 | 2 | The detail sheets' context (Part B) now, or leave the sheets as they are? | **Later**: the sheets are independent enough already; do it when a sheet change needs it |
