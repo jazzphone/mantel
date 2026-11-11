@@ -1509,7 +1509,9 @@
     return f.accent.value + '/' + f.off_tint.value + (f.accent.value === 'auto' && f.off_tint.value === 'accent' ? '/' + f.keys.join(',') : '');
   }
   function lookKey() { return glass() + '|' + rendering().theme + '|' + amount('blur') + '|' + amount('frost') + '|' + amount('tint') + '|' + tintWell() + '|' + frostTint() + '|' + flatSig(); }
-  var lookNow = lookKey();
+  // (the look this page wears, for onNav: '' until the parts have run; split_js.py lets this wait for them)
+  var lookNow = '';
+  lookNow = lookKey();
   // BRIGHT GLASS AND ITS OWN BLUR, the one look that changes from page to page (Home Only): the same look but for the
   // glass, which is all variables and the root's data-hk-glass, so no card draws anything different. Said to every
   // card it redrew every card on the page and on the two pages waiting beside it, at the moment a swipe landed
