@@ -2,7 +2,7 @@
   "shell": "web/hk/cards/hk-detail.js",
   "folder": "web/hk/sheets",
   "global": "hkSheets",
-  "label": "hk-detail",
+  "label": "cards/hk-detail",
   "wait": false,
   "what": "THE DETAIL SHEETS",
   "run_in": "whenBase",

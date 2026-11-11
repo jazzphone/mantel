@@ -2,7 +2,7 @@
   "shell": "web/hk/panels/hk-settings-features.js",
   "folder": "web/hk/settings-features",
   "global": "hkSettingsFeaturesParts",
-  "label": "hk-settings-features",
+  "label": "panels/hk-settings-features",
   "what": "THE FEATURE PAGES OF HK SETTINGS",
   "kit_name": "KIT",
   "live": [

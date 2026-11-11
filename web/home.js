@@ -147,7 +147,8 @@ mark('states');
 // for the one it imported -- only that one: another file's parts (the sky's, the screensaver's) never hold this page up.
 // A part that never came is said here and by its loader; the page goes on, as with a file that didn't come.
 const partsOf = (u) => {
-  const name = u.split('?')[0].split('/').pop().replace(/\.js$/, '');
+  // (keyed by its folder and name, `modules/hk-settings`: two shells share a file name -- phase 25)
+  const name = u.split('?')[0].split('/').slice(-2).join('/').replace(/\.js$/, '');
   const ready = (window.__hkSplitReady || {})[name];
   return ready ? ready.catch((e) => console.error('[mantel] the parts of', u, 'did not load', e)) : null;
 };

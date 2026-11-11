@@ -2,7 +2,7 @@
   "shell": "web/hk/cards/hk-base.js",
   "folder": "web/hk/base",
   "global": "hkBaseParts",
-  "label": "hk-base",
+  "label": "cards/hk-base",
   "what": "THE CARDS' FOUNDATION",
   "run_in_decl": "initialize",
   "wait_all": true,

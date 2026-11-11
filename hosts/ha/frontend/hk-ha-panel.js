@@ -56,7 +56,8 @@
   // (a file cut into parts -- tools/split_js.py -- is there once its parts have run: its shell keeps a promise of that in
   // window.__hkSplitReady under the file's name; a part that never came is its loader's to report)
   function partsOf(url) {
-    var name = String(url).split('?')[0].split('/').pop().replace(/\.js$/, '');
+    // (keyed by its folder and name, `modules/hk-settings`: two shells share a file name -- phase 25)
+    var name = String(url).split('?')[0].split('/').slice(-2).join('/').replace(/\.js$/, '');
     var ready = (global.__hkSplitReady || {})[name];
     return ready ? ready.catch(function () { /* the loader says so */ }) : Promise.resolve();
   }

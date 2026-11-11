@@ -93,7 +93,7 @@ def test_the_register_calls_stay_in_the_shell(path, tmp_path):
     split, and no part defines an element."""
     man = _manifest(path)
     shell = ROOT / man["shell"]
-    if man.get("class"):
+    if man.get("class") and "/panels/" in man["shell"]:
         # a panel (HK Settings), not a card file: its element is defined by the shell, at once (the host makes one the moment
         # the module is in), with the class and its entry; the parts only add methods to the prototype
         text = shell.read_text()
@@ -781,9 +781,10 @@ def test_adopt_makes_a_hand_split_shell_and_its_files_one_proven_file_and_refuse
 
 
 def test_a_shells_label_is_its_files_name(path):
-    """Importers wait for the file they imported by its name (window.__hkSplitReady[name]): the label is the file's name."""
+    """Importers wait for the file they imported by its folder and name (window.__hkSplitReady['modules/hk-settings']): two
+    shells share a file name (modules/ and panels/ hk-settings.js), so the label is the shell's folder and name (phase 25)."""
     man = _manifest(path)
-    assert man["label"] == Path(man["shell"]).stem
+    assert man["label"] == f"{Path(man['shell']).parent.name}/{Path(man['shell']).stem}"
 
 
 REVIEW_CASES = {   # (the phase 24 review's counter-examples: each is refused, or waits for the parts)

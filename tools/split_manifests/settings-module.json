@@ -2,7 +2,7 @@
   "shell": "web/hk/modules/hk-settings.js",
   "folder": "web/hk/settings-module",
   "global": "hkSettingsModuleParts",
-  "label": "hk-settings-module",
+  "label": "modules/hk-settings",
   "what": "THE HK SETTINGS MODULE (window.hkSettings)",
   "parts": [
     {
@@ -133,5 +133,12 @@
         "lovelacePanel"
       ]
     }
-  ]
+  ],
+  "source": {
+    "blob": "6dff381728c3e0f44753bf36283fee4f8b76457b",
+    "lines": 1851,
+    "unresolved": [
+      "currentClient"
+    ]
+  }
 }

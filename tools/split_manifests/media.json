@@ -2,7 +2,7 @@
   "shell": "web/hk/cards/hk-media.js",
   "folder": "web/hk/media",
   "global": "hkMediaParts",
-  "label": "hk-media",
+  "label": "cards/hk-media",
   "what": "THE MUSIC AND MEDIA CARDS",
   "run_in": "whenBase",
   "parts": [

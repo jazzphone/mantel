@@ -2,7 +2,7 @@
   "shell": "web/hk/panels/hk-settings.js",
   "folder": "web/hk/settings",
   "global": "hkSettingsParts",
-  "label": "hk-settings",
+  "label": "panels/hk-settings",
   "what": "THE HK SETTINGS PAGE",
   "class": "HkSettingsPanel",
   "kit_name": "KIT",

@@ -2,7 +2,7 @@
   "shell": "web/hk/cards/hk-grid-cards.js",
   "folder": "web/hk/grid-cards",
   "global": "hkGridCardsParts",
-  "label": "hk-grid-cards",
+  "label": "cards/hk-grid-cards",
   "what": "THE HOME GRID'S CARDS",
   "run_in": "whenBase",
   "shell_edits": [

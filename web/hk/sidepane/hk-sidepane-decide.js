@@ -332,7 +332,7 @@
         // (hk-calendar.js is cut into parts: window.hkCalendar is there once they have run -- its promise in
         // window.__hkSplitReady -- not when the file itself has)
         import(window.hkV ? window.hkV('/hk/cards/hk-calendar.js') : '/hk/cards/hk-calendar.js')
-          .then(function () { return (window.__hkSplitReady || {})['hk-calendar']; })
+          .then(function () { return (window.__hkSplitReady || {})['cards/hk-calendar']; })
           .then(done, function () { CAL.evs = []; done(); });
       }
       var now = Date.now();

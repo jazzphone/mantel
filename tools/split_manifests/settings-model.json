@@ -2,7 +2,7 @@
   "shell": "web/hk/panels/hk-settings-model.js",
   "folder": "web/hk/settings-model",
   "global": "hkSettingsModelParts",
-  "label": "hk-settings-model",
+  "label": "panels/hk-settings-model",
   "what": "THE SETTINGS MODEL",
   "parts": [
     {

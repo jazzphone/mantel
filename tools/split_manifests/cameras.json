@@ -2,7 +2,7 @@
   "shell": "web/hk/cards/hk-cameras.js",
   "folder": "web/hk/cameras",
   "global": "hkCamerasParts",
-  "label": "hk-cameras",
+  "label": "cards/hk-cameras",
   "what": "THE CAMERA CARDS",
   "run_in": "whenBase",
   "parts": [

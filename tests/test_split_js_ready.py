@@ -25,8 +25,8 @@ def _tool():
     return mod
 
 
-def test_there_are_ready_manifests():
-    assert READY, "tools/split_manifests/ready/ holds the manifests of the files near the limit"
+# (none is ready today: phase 25 split the two it made, hk-library.js and modules/hk-settings.js; the next file near the
+# limit gets one here, and these tests check it)
 
 
 @pytest.mark.parametrize("path", READY, ids=[p.stem for p in READY])

@@ -2,7 +2,7 @@
   "shell": "web/hk/cards/hk-weather.js",
   "folder": "web/hk/weather",
   "global": "hkWeatherParts",
-  "label": "hk-weather",
+  "label": "cards/hk-weather",
   "what": "THE WEATHER CARDS",
   "iife": 2,
   "run_in_decl": "boot",

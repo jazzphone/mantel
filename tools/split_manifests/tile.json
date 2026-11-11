@@ -2,7 +2,7 @@
   "shell": "web/hk/cards/hk-tile.js",
   "folder": "web/hk/tile",
   "global": "hkTileParts",
-  "label": "hk-tile",
+  "label": "cards/hk-tile",
   "what": "THE TILE CARDS",
   "run_in": "whenBase",
   "parts": [

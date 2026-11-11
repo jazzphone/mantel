@@ -120,7 +120,8 @@
   // each shell keeps a promise of that in window.__hkSplitReady under its file's name. Wait for the file's own (a part
   // that never came is the shell's loader's to report, so a failure is not this caller's), never another file's.
   function partsOf(url) {
-    var name = String(url).split('?')[0].split('/').pop().replace(/\.js$/, '');
+    // (keyed by its folder and name, `modules/hk-settings`: two shells share a file name -- phase 25)
+    var name = String(url).split('?')[0].split('/').slice(-2).join('/').replace(/\.js$/, '');
     var ready = (window.__hkSplitReady || {})[name];
     return ready ? ready.catch(function () { /* the loader says so */ }) : Promise.resolve();
   }
@@ -173,7 +174,7 @@
     if (!LAZY || !FILES[name]) return Promise.resolve();
     if (!importing[name]) {
       importing[name] = import(V('/hk/cards/' + name))
-        .then(function () { return partsOf(name); })
+        .then(function () { return partsOf('/hk/cards/' + name); })
         .catch(function (err) {
           delete importing[name];      // the next ask tries again
           console.error('[hk-loader] could not load /hk/cards/' + name, err);

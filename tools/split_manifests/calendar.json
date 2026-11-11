@@ -2,7 +2,7 @@
   "shell": "web/hk/cards/hk-calendar.js",
   "folder": "web/hk/calendar",
   "global": "hkCalendarParts",
-  "label": "hk-calendar",
+  "label": "cards/hk-calendar",
   "what": "THE CALENDAR CARDS",
   "run_in": "whenBase",
   "parts": [

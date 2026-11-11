@@ -2,7 +2,7 @@
   "shell": "web/hk/cards/hk-headers.js",
   "folder": "web/hk/headers",
   "global": "hkHeadersParts",
-  "label": "hk-headers",
+  "label": "cards/hk-headers",
   "what": "THE PAGE HEADERS",
   "run_in": "whenBase",
   "parts": [

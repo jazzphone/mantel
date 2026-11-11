@@ -2,7 +2,7 @@
   "shell": "web/hk/panels/hk-grid-editor.js",
   "folder": "web/hk/grid-editor",
   "global": "hkGridEditorParts",
-  "label": "hk-grid-editor",
+  "label": "panels/hk-grid-editor",
   "what": "THE HOME GRID EDITOR",
   "class": "GridEditor",
   "kit_name": "KIT",

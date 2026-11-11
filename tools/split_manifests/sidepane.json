@@ -2,7 +2,7 @@
   "shell": "web/hk/modules/hk-sidepane.js",
   "folder": "web/hk/sidepane",
   "global": "hkSidePaneParts",
-  "label": "hk-sidepane",
+  "label": "modules/hk-sidepane",
   "what": "THE SIDE PANE",
   "parts": [
     {

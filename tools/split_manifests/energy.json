@@ -2,7 +2,7 @@
   "shell": "web/hk/cards/hk-energy.js",
   "folder": "web/hk/energy",
   "global": "hkEnergyParts",
-  "label": "hk-energy",
+  "label": "cards/hk-energy",
   "what": "THE ENERGY CARDS",
   "run_in": "whenBase",
   "parts": [

@@ -502,7 +502,7 @@ async def smoke(shot=None, shots=None):
                         await import('/web/hk/panels/' + f + '.js');
                       // (the panel's methods arrive in its parts a beat after the shell: tools/split_js.py, class-method mode)
                       await new Promise((done) => { const t = setInterval(() => {
-                        if ((window.__hkSplitDone || {})['hk-settings']) { clearInterval(t); done(); } }, 20); });
+                        if ((window.__hkSplitDone || {})['panels/hk-settings']) { clearInterval(t); done(); } }, 20); });
                       const P = customElements.get('hk-settings-panel').prototype;
                       const pg = Object.create(P);
                       Object.defineProperty(pg, 'client', { value: window.__mantel.client });

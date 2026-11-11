@@ -2,7 +2,7 @@
   "shell": "web/hk/modules/hk-menu.js",
   "folder": "web/hk/menu",
   "global": "hkMenuParts",
-  "label": "hk-menu",
+  "label": "modules/hk-menu",
   "what": "THE MENU",
   "run_in": "whenBase",
   "parts": [

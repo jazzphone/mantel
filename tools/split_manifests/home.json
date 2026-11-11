@@ -2,7 +2,7 @@
   "shell": "web/hk/cards/hk-home.js",
   "folder": "web/hk/home-cards",
   "global": "hkHomeParts",
-  "label": "hk-home",
+  "label": "cards/hk-home",
   "what": "THE HOME CARDS",
   "run_in": "whenBase",
   "parts": [

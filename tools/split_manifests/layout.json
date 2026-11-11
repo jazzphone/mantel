@@ -2,7 +2,7 @@
   "shell": "web/hk/cards/hk-layout.js",
   "folder": "web/hk/layout",
   "global": "hkLayoutParts",
-  "label": "hk-layout",
+  "label": "cards/hk-layout",
   "what": "THE LAYOUT CARDS",
   "run_in": "whenBase",
   "parts": [

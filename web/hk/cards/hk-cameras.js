@@ -29,14 +29,14 @@
   // an earlier one), each given the kit K: what the parts use of the shell, in one object. What the shell uses of them,
   // they hand back on K, and it is taken from there. The files are fetched in parallel; a host that has already loaded
   // them (the suites) starts at once, in the same turn.
-  // READY: window.__hkSplitReady['hk-cameras'] is a promise that resolves once the parts have run (and rejects if they
+  // READY: window.__hkSplitReady['cards/hk-cameras'] is a promise that resolves once the parts have run (and rejects if they
   // never come), so a page that imports this file and uses it at once awaits it first (web/home.js imp, hk-loader).
   var PARTS = ['hk-cameras-helpers.js', 'hk-cameras-mosaic.js', 'hk-cameras-editor.js', 'hk-cameras-doorbell.js',
                'hk-cameras-tv.js'];
   var PARTS_TRIES = 6;
   function partKey(file) { return file.replace(/\.js$/, ''); }
   function partsSettle(err) {
-    var settle = (window.__hkSplitSettle || {})['hk-cameras'];
+    var settle = (window.__hkSplitSettle || {})['cards/hk-cameras'];
     if (settle) settle(err);
   }
   // ONE FILE THAT DIDN'T COME (a tablet's Wi-Fi waking, the server restarting) used to leave the cards dead until a reload
@@ -47,22 +47,22 @@
     // must not run them twice: the flag is set at once, not when the parts have run
     var started = window.__hkSplitStarted = window.__hkSplitStarted || {};
     if (n === undefined) {
-      if (started['hk-cameras']) return;
-      started['hk-cameras'] = true;
+      if (started['cards/hk-cameras']) return;
+      started['cards/hk-cameras'] = true;
       var ready = new Promise(function (resolve, reject) {
-        (window.__hkSplitSettle = window.__hkSplitSettle || {})['hk-cameras'] = function (err) { if (err) reject(err); else resolve(); };
+        (window.__hkSplitSettle = window.__hkSplitSettle || {})['cards/hk-cameras'] = function (err) { if (err) reject(err); else resolve(); };
       });
       ready.catch(function () { /* the console says so; an importer that awaits it reports it */ });
-      (window.__hkSplitReady = window.__hkSplitReady || {})['hk-cameras'] = ready;
+      (window.__hkSplitReady = window.__hkSplitReady || {})['cards/hk-cameras'] = ready;
     }
     n = n || 0;
     var have = window.hkCamerasParts || {};
     var missing = PARTS.filter(function (file) { return !have[partKey(file)]; });
     if (!missing.length) {
       var failed = null;
-      try { then(); } catch (err) { failed = err; console.error('[hk-cameras] the parts did not start', err); }
+      try { then(); } catch (err) { failed = err; console.error('[cards/hk-cameras] the parts did not start', err); }
       // (the checks that drive a page wait for every shell that started to say it is done)
-      (window.__hkSplitDone = window.__hkSplitDone || {})['hk-cameras'] = true;
+      (window.__hkSplitDone = window.__hkSplitDone || {})['cards/hk-cameras'] = true;
       partsSettle(failed);
       return;
     }
@@ -77,13 +77,13 @@
       if (!left.length) { loadParts(then, n); return; }
       err = err || new Error(left[0] + ' ran without registering');
       if (n + 1 >= PARTS_TRIES) {
-        console.error('[hk-cameras] the parts did not start', err);
+        console.error('[cards/hk-cameras] the parts did not start', err);
         partsSettle(err);
         // (given up: a later import of this file -- a page asking again at an address of its own -- starts over)
-        delete started['hk-cameras'];
+        delete started['cards/hk-cameras'];
         return;
       }
-      console.warn('[hk-cameras] a part did not load (' + err.message + '); again shortly');
+      console.warn('[cards/hk-cameras] a part did not load (' + err.message + '); again shortly');
       setTimeout(function () { loadParts(then, n + 1); }, Math.min(1000 * Math.pow(2, n), 15000));
     });
   }

@@ -2,7 +2,7 @@
   "shell": "web/hk/modules/hk-sky.js",
   "folder": "web/hk/sky-parts",
   "global": "hkSkyParts",
-  "label": "hk-sky",
+  "label": "modules/hk-sky",
   "what": "THE LIVE SKY",
   "parts": [
     {

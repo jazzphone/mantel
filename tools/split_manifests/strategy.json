@@ -2,7 +2,7 @@
   "shell": "web/hk/cards/hk-strategy.js",
   "folder": "web/hk/strategy",
   "global": "hkStrategyParts",
-  "label": "hk-strategy",
+  "label": "cards/hk-strategy",
   "what": "THE DASHBOARD STRATEGY",
   "parts": [
     {

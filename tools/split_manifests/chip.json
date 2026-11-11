@@ -2,7 +2,7 @@
   "shell": "web/hk/cards/hk-chip.js",
   "folder": "web/hk/chip",
   "global": "hkChipParts",
-  "label": "hk-chip",
+  "label": "cards/hk-chip",
   "what": "THE CHIP CARDS",
   "run_in": "whenBase",
   "parts": [

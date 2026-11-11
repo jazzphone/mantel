@@ -63,7 +63,7 @@
   var PARTS_TRIES = 6;
   function partKey(file) { return file.replace(/\.js$/, ''); }
   function partsSettle(err) {
-    var settle = (window.__hkSplitSettle || {})['hk-detail'];
+    var settle = (window.__hkSplitSettle || {})['cards/hk-detail'];
     if (settle) settle(err);
   }
   // ONE FILE THAT DIDN'T COME (a tablet's Wi-Fi waking, the server restarting) used to leave the cards dead until a reload
@@ -74,17 +74,17 @@
     // must not run them twice: the flag is set at once, not when the parts have run
     var started = window.__hkSplitStarted = window.__hkSplitStarted || {};
     if (n === undefined) {
-      if (started['hk-detail']) return;
-      started['hk-detail'] = true;
+      if (started['cards/hk-detail']) return;
+      started['cards/hk-detail'] = true;
     }
     n = n || 0;
     var have = window.hkSheets || {};
     var missing = PARTS.filter(function (file) { return !have[partKey(file)]; });
     if (!missing.length) {
       var failed = null;
-      try { then(); } catch (err) { failed = err; console.error('[hk-detail] the parts did not start', err); }
+      try { then(); } catch (err) { failed = err; console.error('[cards/hk-detail] the parts did not start', err); }
       // (the checks that drive a page wait for every shell that started to say it is done)
-      (window.__hkSplitDone = window.__hkSplitDone || {})['hk-detail'] = true;
+      (window.__hkSplitDone = window.__hkSplitDone || {})['cards/hk-detail'] = true;
       partsSettle(failed);
       return;
     }
@@ -99,13 +99,13 @@
       if (!left.length) { loadParts(then, n); return; }
       err = err || new Error(left[0] + ' ran without registering');
       if (n + 1 >= PARTS_TRIES) {
-        console.error('[hk-detail] the parts did not start', err);
+        console.error('[cards/hk-detail] the parts did not start', err);
         partsSettle(err);
         // (given up: a later import of this file -- a page asking again at an address of its own -- starts over)
-        delete started['hk-detail'];
+        delete started['cards/hk-detail'];
         return;
       }
-      console.warn('[hk-detail] a part did not load (' + err.message + '); again shortly');
+      console.warn('[cards/hk-detail] a part did not load (' + err.message + '); again shortly');
       setTimeout(function () { loadParts(then, n + 1); }, Math.min(1000 * Math.pow(2, n), 15000));
     });
   }

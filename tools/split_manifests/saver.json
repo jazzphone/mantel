@@ -2,7 +2,7 @@
   "shell": "web/hk/modules/hk-saver.js",
   "folder": "web/hk/saver",
   "global": "hkSaverParts",
-  "label": "hk-saver",
+  "label": "modules/hk-saver",
   "what": "HK FRONTEND'S PHOTO SCREENSAVER",
   "parts": [
     {

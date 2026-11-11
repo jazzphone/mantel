@@ -400,16 +400,21 @@ settle().then(function () {
   location.pathname = '/dashboard-c/0';
   ok('...else its user\'s first', HS.tablet(hass('wall')).id === 'one');
   ok('a user no tablet has: none', HS.tablet(hass('Mark')) === null && HS.tablet(null) === null);
+  // (a fresh page: the module's globals gone, its split's started flag too -- phase 25 cut it into parts)
+  function freshSettings() {
+    if (window.__hkSplitStarted) delete window.__hkSplitStarted['modules/hk-settings'];
+    load(HK_ROOT + '/frontend/modules/hk-settings.js');
+  }
   location.search = '?hk_tablet=hall';
   load(HK_ROOT + '/frontend/modules/hk-settings.js');           // a fresh page load (it returns at once: already set up)
-  delete window.hkSettings; load(HK_ROOT + '/frontend/modules/hk-settings.js');
+  delete window.hkSettings; freshSettings();
   var HS2 = window.hkSettings;
   HS2._apply({ configured: true, boards: {}, tablet_items: items });
   location.search = '';
   ok('?hk_tablet= is remembered: the hall tablet, whoever is signed in', HS2.tablet(hass('wall')).id === 'hall' &&
      localStorage.getItem('hk-tablet') === 'hall');
   location.search = '?hk_tablet=none';
-  delete window.hkSettings; load(HK_ROOT + '/frontend/modules/hk-settings.js');
+  delete window.hkSettings; freshSettings();
   window.hkSettings._apply({ configured: true, boards: {}, tablet_items: items });
   location.search = '';
   ok('?hk_tablet=none forgets it', !localStorage.getItem('hk-tablet') && window.hkSettings.tablet(hass('Mark')) === null);
