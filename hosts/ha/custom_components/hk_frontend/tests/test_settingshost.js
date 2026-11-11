@@ -274,5 +274,39 @@ print('\n=== a tablet\'s Reload, Clear Cache ... (press): HA\'s buttons, or the 
   K.confirm = hold;
 })();
 
+// COPY SETTINGS FROM: the names set for one screen only (kept with each accessory) and one save path (2026-11-10)
+(function () {
+  function drainAll() { for (var i = 0; i < 12; i++) drainMicrotasks(); }
+  var acc = { entities: { 'light.a': { name: 'Lamp', names: { kit: 'Table', liv: 'Reading' } },
+                          'light.b': { names: { liv: 'Corner' } }, 'light.c': { names: { kit: 'Same', liv: 'Same' } },
+                          'light.d': { name: 'Plain' } } };
+  var me = { data: { accessories: acc, boards: { kit: { home_style: 'grid', home_grid: { items: [] }, favorites: ['light.a'] }, liv: {} } } };
+  ok('copyNames: the screen gets exactly the other\'s per-screen names, set, changed or taken away', P.copyNames.call(me, 'kit', 'liv'),
+     [{ entity_id: 'light.a', name: 'Table', screen: 'liv' }, { entity_id: 'light.b', name: null, screen: 'liv' }]);
+  ok('...nothing when they match', P.copyNames.call(me, 'kit', 'kit'), []);
+  ok('screenNames: how many it names on that screen', [P.screenNames.call(me, 'kit'), P.screenNames.call(me, 'liv'),
+     P.screenNames.call({ data: {} }, 'kit')], [2, 3, 0]);
+  function run(groups, setOk, wsFail) {
+    var log = [], out = { log: log };
+    var self = Object.assign({}, me, {
+      copyNames: P.copyNames, status: function (x) { log.push('status:' + x); }, announce: function (x) { log.push('say:' + x); },
+      render: function () {}, reload: function () { log.push('reload'); return Promise.resolve(); },
+      setB: function (path, ch) { log.push('setB:' + path + ':' + Object.keys(ch).sort().join(',')); return Promise.resolve(setOk); },
+      actions: function () { return { callWS: function (m) { log.push('ws:' + m.type + ':' + m.entity_id + '=' + m.name);
+        return wsFail ? Promise.reject({ message: 'no' }) : Promise.resolve({}); } }; } });
+    P.copyOnto.call(self, 'liv', { from: 'kit', groups: groups }).then(function (v) { out.ok = v; });
+    drainAll();
+    return out;
+  }
+  var r = run(['grid', 'names'], true);
+  ok('copyOnto: the screen\'s settings in one save, then each name', [r.ok, r.log.filter(function (x) { return !/^status|^reload/.test(x); })],
+     [true, ['setB:liv:home_grid,home_style', 'ws:hk_frontend/accessory/set:light.a=Table', 'ws:hk_frontend/accessory/set:light.b=null']]);
+  r = run(['grid', 'names'], false);
+  ok('...a refused save stops there and says false (never "Copied")', [r.ok, r.log], [false, ['setB:liv:home_grid,home_style']]);
+  r = run(['names'], true);
+  ok('...names alone: no empty settings save', [r.ok, r.log.filter(function (x) { return /^setB/.test(x); }).length], [true, 0]);
+  r = run(['names'], true, true);
+  ok('...a refused name says so and is false', [r.ok, r.log.some(function (x) { return /^say:Couldn.t copy the accessory names/.test(x); })], [false, true]);
+})();
 print(fail ? 'FAIL ' + fail + ' SETTINGS HOST TESTS' : 'ALL ' + pass + ' SETTINGS HOST TESTS PASS');
 if (fail) throw new Error('settings host tests failed');

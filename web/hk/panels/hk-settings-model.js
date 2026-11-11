@@ -2188,9 +2188,7 @@
   var NP_OWN_KEYS = ['np_style', 'np_side', 'np_bar', 'np_bar_phone'];
   function npOwn(b) { return NP_OWN_KEYS.some(function (k) { return !!(b || {})[k]; }); }
   var COPY_GROUPS = [
-    // the groups as the screen's page has them (2026-10-09; named as its
-    // groups are since 2026-10-30): Menu, Home Page, Header, Pages,
-    // Appearance, Now Playing & Pop-ups, Screensaver, This Device
+    // in the screen page's order (2026-10-09), named as its groups are (2026-10-30)
     // a screen's menu: All Screens', or its own one setting at a time (menu_own)
     ['menu', 'Menu', ['menu', 'menu_own', 'page_header', 'dock_min', 'time_weather', 'ha_row', 'ha_place', 'tab_position', 'tab_size',
                       'tab_size_phone', 'accent', 'glyph', 'clock', 'swipe',
@@ -2198,6 +2196,7 @@
                       'tab_bar_tabs_rail', 'tab_bar_tabs_phone', 'tab_bar_size', 'tab_bar_labels', 'tab_bar_strip', 'menu_phone', 'button_phone', 'tab_bar_rooms_phone',
                       'swipe_pages', 'swipe_left'], true],
     ['home', 'Home Page', ['chips_row', 'chips', 'chips_quiet', 'chips_extra', 'chips_custom', 'chips_custom_show'], true],
+    ['grid', 'Home Grid Layout', ['home_style', 'home_grid'], false],   // as Copy Layout To… copies it (2026-11-10, the owner)
     // a screen's rooms: All Screens' or its own (rooms_custom)
     ['rooms', 'Rooms', ['rooms_custom', 'room_order', 'home_rooms', 'menu_rooms', 'page_rooms'], true],
     // a screen's cameras: All Screens' or its own (cameras_custom)
@@ -2218,15 +2217,13 @@
     ['behavior', 'Now Playing, Side Pane, Pop-ups & Notifications', ['popups', 'notify', 'notify_saver', 'notify_dnd', 'now_playing', 'timer_bar', 'bar_all_pages',
                               'np_style', 'np_side', 'np_bar', 'np_bar_phone', 'side_pane'], true],
     ['idle', 'Screensaver', ['screensaver', 'screensaver_options', 'screensaver_engine', 'wallpanel_options'], true],
-    ['device', 'This Device', ['car', 'car_layout', 'car_width'], false]
+    ['device', 'This Device', ['car', 'car_layout', 'car_width'], false],
+    ['names', 'Accessory Names on This Screen', [], false]   // kept with each accessory: hk-settings-screen.js copyNames()
   ];
   // never copied (1.14: a tablet's own -- its user, room, idle, Sleep Screen
   // and Black Screen -- are the tablet's, not the screen's)
-  // a screen's own where and title (settings.py BOARD_OWN) are never copied onto another
-  // ...nor its Home Grid (its Home Style and layout): Copy Layout To… copies
-  // a layout, keeping each block's tablet_room as it is (docs/phase11/HOME-GRID.md, G6)
-  // (a Look's Undo is its own screen's: 2026-10-30)
-  var COPY_NEVER = ['where', 'title', 'home_style', 'home_grid', 'look_undo'];
+  // a screen's own where and title (settings.py BOARD_OWN) are never copied onto another (a Look's Undo is its own: 2026-10-30)
+  var COPY_NEVER = ['where', 'title', 'look_undo'];
   function copyDefaults() { return COPY_GROUPS.filter(function (g) { return g[3]; }).map(function (g) { return g[0]; }); }
   // the changes that copy `groups` of the screen `src` (its settings as read)
   function copyChanges(src, groups) {
@@ -2236,6 +2233,7 @@
       g[2].forEach(function (k) {
         // a screen following All Screens' screensaver: the copy follows too
         if (k === 'screensaver_options') { out[k] = saverFollows(src) ? null : JSON.parse(JSON.stringify(src[k])); return; }
+        if (k === 'home_grid' && src[k] == null) return;   // no layout: the Home Style alone, never the other's deleted
         if (src[k] !== undefined) out[k] = src[k] === null ? null : JSON.parse(JSON.stringify(src[k]));
       });
     });

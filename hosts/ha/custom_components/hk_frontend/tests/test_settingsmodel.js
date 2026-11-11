@@ -827,5 +827,19 @@ ok('...every mode says what it costs', M.BLUR_MODES.every(function (m) { return 
   ok('...Now Playing\'s Show As: the bar, or in the Side Pane', M.npShowAs(hp) === 'Bar' &&
      M.npShowAs({ dashboard: { show: 'all', sections: [{ kind: 'now_playing', when: 'active' }] } }) === 'In the Side Pane');
 })();
+// ------------------------------------------------------------ Copy Settings From: the Home Grid (2026-11-10)
+(function () {
+  var grid = { v: 1, cols: 8, rows: 6, items: [{ id: 'b1', card: 'clock', at: [0, 0], size: 'small' }] };
+  var src = { home_style: 'grid', home_grid: grid, favorites: ['light.a'] };
+  var ch = M.copyChanges(src, ['grid']);
+  ok('Copy: Home Grid Layout copies the Home Style and the whole layout, a copy not the same object',
+     ch.home_style === 'grid' && eq(ch.home_grid, grid) && ch.home_grid !== grid && !('favorites' in ch));
+  ok('...unticked by default; not in COPY_NEVER any more', M.copyDefaults().indexOf('grid') < 0 &&
+     M.COPY_NEVER.indexOf('home_grid') < 0 && M.COPY_NEVER.indexOf('home_style') < 0);
+  ch = M.copyChanges({ home_style: 'generated', home_grid: null }, ['grid']);
+  ok('...a screen with no layout: its Home Style only, the other screen\'s stored layout left alone',
+     eq(ch, { home_style: 'generated' }));
+  ok('...nor copied by any other group', !('home_grid' in M.copyChanges(src, M.COPY_GROUPS.map(function (g) { return g[0]; }).filter(function (g) { return g !== 'grid'; }))));
+})();
 print(fail ? '  ' + fail + ' SETTINGS MODEL TESTS FAILED' : '  ALL ' + pass + ' SETTINGS MODEL TESTS PASS');
 if (fail) throw new Error(fail + ' failed');
