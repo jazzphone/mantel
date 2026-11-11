@@ -909,6 +909,11 @@ recovery. All are fixed, with the review's counter-examples as tests:
   139 → 118; Settings 111 → 90 / 155 → 125; screensaver 99 → 93 / 107 → 99. More requests (the parts, in parallel:
   Home Grid 150 → 207), no slower draw anywhere.
 - `tsc` baseline 814 → 788; mypy and ruff at the parent's.
+- **The by-hand motion checks** on the final tree: `pre-glass-motion-check`, `swipe-motion-check` at WebKit
+  1180x820 and Chromium 1280x800 pass. Both 390x844 sizes fail at one step ("a finger 30 ms into a settle: it lands one
+  or two pages on /ps-bar/home"), **and so does the parent `bb278308`**, the same step, the same words (WebKit 3 of 3
+  runs, Chromium 1 of 1; the final tree WebKit 3 of 3, Chromium 2 of 2). It's older than this run, not one of its
+  splits; left for the owner.
 
 ## Morning report (2026-11-11)
 
@@ -944,3 +949,5 @@ recovery. All are fixed, with the review's counter-examples as tests:
 3. On Home Assistant, the strategy element and the core cards are defined once their parts have run, a round trip
    later than before (HA has no preloads); worth a look on a slow tablet.
 4. The four held files above, if you want them cut: each needs a code change (renames, late imports) first.
+5. `swipe-motion-check` at the phone size (390x844) fails in both engines, on the parent too: an interrupted settle
+   lands one or two pages off on the Pinned Bar's Home. It predates phase 24; worth its own look.
