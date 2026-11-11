@@ -24,7 +24,7 @@ def test_a_bad_hidden_device_or_room_id_and_a_bad_accessory_entry_are_left_out()
 
 
 def test_both_hosts_use_the_shared_snapshot_and_keep_no_copy_of_their_own():
-    server = (ROOT / "hosts/server/mantel_server/hidden.py").read_text()
+    server = (ROOT / "hosts/server/mantel_server/accessories/hidden.py").read_text()
     ha = (ROOT / "hosts/ha/custom_components/hk_frontend/hiding.py").read_text()
     kinds = (ROOT / "hosts/ha/custom_components/hk_frontend/kinds.py").read_text()
     assert "return snapshot_of(self.candidates(), self.room_entities(), settings, only)" in server

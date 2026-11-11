@@ -1,0 +1,8 @@
+{
+  "package": "accessories",
+  "init": "accessories",
+  "why": "How each accessory shows up on the screens: its settings, and the hidden ones",
+  "modules": [
+    "hidden"
+  ]
+}

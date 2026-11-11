@@ -952,7 +952,7 @@ class SettingsService:
 
     async def _hidden_set(self, identity, actor, msg):
         """Hide these accessories everywhere, or from exactly the places given (HK's hidden/set)."""
-        from ..hidden import ORDER
+        from ..accessories.hidden import ORDER
         await self.need(identity, Scope("house", "settings"))
         ids, places = self._hide_ids(msg), msg.get("places", {})
         if not isinstance(msg["everywhere"], bool):

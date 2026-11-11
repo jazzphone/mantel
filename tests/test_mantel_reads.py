@@ -13,7 +13,7 @@ from mantel_server.ha import readproxy
 from mantel_server import settings_store as S
 from mantel_server.connectors import Ctx, Hooks
 from mantel_server.storage.db import Database
-from mantel_server.hidden import Hiding
+from mantel_server.accessories.hidden import Hiding
 from mantel_server.ha.readproxy import MANTEL_READS, READ_ALLOWED, ROUTE_RULES, SERVER_ONLY_READS
 from mantel_server.ha.registry import Registry
 from mantel_server.identity.sessions import Identity, User
@@ -324,7 +324,7 @@ async def test_setup_check_needs_configure_on_settings(env, who):
 # ------------------------------------------------------------------- Status & Chips: what each kind counts
 def test_resolve_is_has_automatic_adjusted_by_leave_out_also_count_and_the_accessories():
     """hosts/ha .../kinds.py resolve, through Mantel's copies."""
-    from mantel_server.hidden import resolve
+    from mantel_server.accessories.hidden import resolve
     hub = FakeHub()
     h = Hiding(hub.store, hub.registry)
     got = resolve(h.candidates(), {**SETTINGS, "accessories": ACCESSORIES})
@@ -342,7 +342,7 @@ def test_resolve_is_has_automatic_adjusted_by_leave_out_also_count_and_the_acces
 def test_a_scene_counts_by_itself_and_a_routine_button_once_added_as_one():
     """Accessories -> Scenes (kinds.py "scenes", 2026-11-09): every HA scene, though it lists the entities it
     sets in entity_id as a group helper does; an input_button that runs a routine only through Also count."""
-    from mantel_server.hidden import resolve
+    from mantel_server.accessories.hidden import resolve
     hub = FakeHub()
     hub.store.states["scene.movie_night"] = {"s": "2026-11-09T20:00:00+00:00",
                                              "a": {"entity_id": ["light.lamp", "switch.coffee"]}, "lc": 1, "lu": 1}

@@ -1,4 +1,4 @@
-"""Live TV served by Mantel (mantel_server/live_tv.py; docs/phase4/FEATURE-PARITY.md "Live TV served by
+"""Live TV served by Mantel (mantel_server/cameras/live_tv.py; docs/phase4/FEATURE-PARITY.md "Live TV served by
 Mantel"): where Mantel has its own go2rtc it answers HK's channel list, owns the channel cameras and
 "now playing" sensors (an overlay with HA's entity ids), sets each channel up in go2rtc on demand,
 relays the WebRTC signaling, stops streams nobody watches, and counts the viewers (sensor.tv_viewers,

@@ -431,7 +431,6 @@ Mantel Server.
 - **hosts/server/mantel_server/**
   - `__main__.py`
   - `_moved.py` — The old paths of modules that moved into packages, importable for one release (tools/move_py.py, phase 25).
-  - `accessories.py` — ACCESSORY SETTINGS, MANTEL'S SIDE
   - `alarm_pin.py` — HK's Alarm PIN in Mantel (docs/phase3/PINS-AUDIT.md "The alarm keypad", docs/phase3/GATEWAY.md "The alarm", docs/phase4/MANTEL-FEATURES.md).
   - `announce.py` — Mantel on the network, by zeroconf (docs/phase9/MANTEL-LINK.md "Discovery and pairing", slice 9.5).
   - `apns.py` — Notifications to the iPhone, iPad and Mac apps through Apple's push service (docs/phase10/APPLE-APPS.md §5, slice 10.5; decision M10-2
@@ -442,7 +441,6 @@ Mantel Server.
   - `dry_run.py` — A dry run
   - `feature_watch.py` — Two of HK's clock-driven features on Mantel, through MantelHouse and FeatureCaller (docs/phase4/MANTEL-FEATURES.md "Phase 4 ports").
   - `health.py` — /healthz and /api/version
-  - `hidden.py` — HIDDEN ACCESSORIES, MANTEL SERVER'S SIDE
   - `hk_cards.py` — GET /api/hk-cards
   - `house.py` — THE HOUSE PORT, MANTEL SERVER'S SIDE (hk_core/house.py; PLAN §0 plan review, item 1 (c)).
   - `live.py` — One lifecycle for long-lived connections
@@ -460,6 +458,8 @@ Mantel Server.
   - `talk_direct.py` — TALKING AT A UNIFI PROTECT DOORBELL DIRECTLY (docs/phase13/CAMERAS-DIRECT.md, phase 5, 2026-11-02).
   - `talk_relay.py` — LIVE TALK through Mantel (docs/phase3/GATEWAY.md "Doorbell talk-back")
   - `view.py` — One client's filtered, coalesced view of the state store.
+- **hosts/server/mantel_server/accessories/**
+  - `hidden.py` — HIDDEN ACCESSORIES, MANTEL SERVER'S SIDE
 - **hosts/server/mantel_server/alerts/**
   - `api.py` — Mantel Settings → Alerts' REST (docs/phase14/SYSTEM-ALERTS.md "The API, roles and audit").
   - `catalog.py` — The system alerts' event catalog (docs/phase14/SYSTEM-ALERTS.md "The event catalog").

@@ -873,7 +873,7 @@ def register(app, hub, hooks) -> FilteredReads:
     A read whose HA type a connector registered in app["read_routes"] (camera signaling) goes there.
     MANTEL_READS are registered there too, answered here from Mantel's own copies (ROUTE_RULES).
     """
-    from ..hidden import MAX_IDS, Hiding
+    from ..accessories.hidden import MAX_IDS, Hiding
 
     reads = FilteredReads(lambda: getattr(hub, "readproxy", None), hooks)
     app["filtered_reads"] = reads

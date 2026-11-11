@@ -48,6 +48,7 @@ MOVED: dict[str, tuple[str, str]] = {
     "ha_client": ("ha.ha_client", "0.1.166"),
     "ha_dashboards": ("ha.ha_dashboards", "0.1.166"),
     "ha_oauth": ("ha.ha_oauth", "0.1.166"),
+    "hidden": ("accessories.hidden", "0.1.166"),
     "image_work": ("cameras.image_work", "0.1.166"),
     "imaging": ("cameras.imaging", "0.1.166"),
     "ingress": ("network.ingress", "0.1.166"),
