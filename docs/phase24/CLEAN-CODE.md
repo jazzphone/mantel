@@ -817,3 +817,54 @@ house twin screens and 323 of 324 sheet shots. A countdown, the energy figures a
 gallery draws the real sky for the time of day. `shots_compare.py --noise` (what differs between two parent runs is
 noise) still leaves the leaves, which land somewhere new each run. So the picture gate is by eye: side-by-side contact
 sheets of every flagged shot. The DOM gates are the browser checks, the Settings sweep and `split_race_check.py`.
+
+### B5 and B9 — dropped
+
+- **B5, `hk-detail.js` (2,896 lines).** `adopt` rebuilds the shell and its hand-split sheets as one file, proven
+  faithful (every shell statement in order, all 157 sheet members, nothing else but `sheetState` and `wire()`;
+  `/private/tmp/adopt_detail.py`). But each sheet file has its own scope and some declare the same names (`LIST_CSS` in
+  two sheets, `v` in the laundry and TV sheets). In one scope the second declaration would replace the first for the
+  other sheet's code, so a split of that file would not be a move; making it one needs renaming, a code change.
+- **B9, `hk-saver.js` (4,478 lines).** Two things stop it. The state rewrite as specified refuses 120 names, some
+  shadowed by locals and parameters (`on`, `layer`, `mx`, `force`) and one in a loop header. And the re-split needs the
+  phase 18 split undone, but other sessions have since edited its generated `kit()` and `runParts()` by hand (an
+  `inPane` wrapper over the part's `inPane`, the design controller, the Now Playing page's registration, two kit entries
+  that are code). Undoing those is a translation with renames, not a move.
+
+### D: what can be shared — landed in the branch
+
+- **Python, into `hk_core`** (an agent; each move proved by `ast.dump` against both originals, every name the same
+  object through the host module): `kinds.py`/`hidden.py` (94 lines) -> `hk_core/settings/kind_match.py`; the two
+  `accessories.py` (72) -> `hk_core/settings/accessory_fields.py`; Mantel Link's `pairing.py` and the server's
+  `linked_pairing.py` (31) -> `hk_core/pairing.py` (Mantel Server may not import `hk_core/link`; Mantel Link's build
+  copies it: `CORE_PARTS`); HK Frontend's `stream.py` and Mantel Link's `tv.py` (24) -> `hk_core/link/tv_stream.py`;
+  `linked_mode.py`/`entity.py`: only `_RESERVED` (3), because the four entity classes with the same text each extend
+  their own file's `LinkedEntity`, and the two differ. Main suite 7,144; Mantel Link's 88; HK Frontend's Python suite 792
+  passed and 5 failed both before and after the move, in the agent's scratch build (no esbuild, no theme sources), and
+  the release run builds it properly.
+- **JavaScript: reported, not moved.** 29 groups, 269 lines of the same text in two or more files. Each copy is
+  closed over its own file's names, and the files load on their own, so sharing one means publishing it on a global
+  and changing every copy into a reference: a code change with a new load order. `docs/phase24/SHARED-REPORT.md`
+  lists them with a recommendation, and the drifted Python copies with their diffs.
+
+### C: the width — landed in the branch
+
+`tools/rewrap.py` folder by folder, each commit proved (every changed file's syntax tree the same): `web/` 1,209 lines,
+`tools/` and `tests/` 362, `docs/` 17, `hosts/` and `hk_core/` 269. The tool learned two safe split points on the way: a
+string in a branch of `c ? 'a' : 'b'`, and a comma inside a string as a last choice. By hand, proved the same way:
+`hk-weather.js`'s mid-array `/* */` comment moved to `//` lines; three Python strings split into adjacent literals;
+`server.py`'s long `from . import`. **80 lines** are listed in `tests/fixtures/line_width_exceptions.json`, each with its
+reason: inside a template literal, a regular expression or a multi-line string (code embedded in a test). The held
+files keep their long lines, since a rewrap would add lines past their limits: `hk-saver.js` 29, `hk-media-now.js` 10
+(a phase 18 part of exactly 2,000 lines), `hk-detail.js` 6, `modules/hk-settings.js` 5, `model.py` 3. The jsc suites'
+output and the main suite were unchanged after each folder.
+
+### E: the hard rules — landed in the branch
+
+- Rule 8 in `Rules.md`; "Big files and long lines" in `Building-and-Testing.md`; "How a big web file is cut" in
+  `Architecture.md`; CONTRIBUTING; the Internal line in Mantel's and HK Frontend's changelogs (Mantel Link's has none:
+  its change is a shared file it builds in, nothing it does).
+- **The lists can't be empty**, because three slices were dropped. So each test names its held files with why (`HELD`):
+  a file not named may never cross a limit, and `--update` can't add one. The size list holds `hk-saver.js`,
+  `hk-detail.js` and `model.py`; the width list those, `modules/hk-settings.js` and `hk-media-now.js`.
+  `test_web_sources.py`'s `SHELL_LINES` keeps the saver's 4,600.
