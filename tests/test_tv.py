@@ -238,7 +238,7 @@ async def test_an_app_nobody_opened_gets_a_guessed_icon_and_a_wrong_guess_goes_w
 
 
 async def test_an_icon_is_read_whole_across_its_chunks_and_refused_past_the_limit():
-    from mantel_server import tv as S
+    from mantel_server.features import tv as S
 
     class Body:
         def __init__(self, parts):

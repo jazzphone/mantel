@@ -1,0 +1,10 @@
+{
+  "package": "features",
+  "why": "hk_core's features running inside Mantel Server, and Mantel's own: laundry, TVs, timers, the vacuum's water",
+  "modules": [
+    "laundry",
+    "tv",
+    "timers",
+    "vacuum_water"
+  ]
+}

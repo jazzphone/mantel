@@ -33,9 +33,9 @@ from hk_core import timers as R
 from hk_core.intercom.rooms import Call
 from hk_core.notifications import banner as NB
 
-from .ha.ha_client import CommandTicket, HaCommandError
-from .intercom import driver as D
-from .intercom.spool import Spool
+from ..ha.ha_client import CommandTicket, HaCommandError
+from ..intercom import driver as D
+from ..intercom.spool import Spool
 
 log = logging.getLogger("mantel.timers")
 

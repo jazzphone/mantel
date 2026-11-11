@@ -51,6 +51,7 @@ MOVED: dict[str, tuple[str, str]] = {
     "image_work": ("cameras.image_work", "0.1.166"),
     "imaging": ("cameras.imaging", "0.1.166"),
     "ingress": ("network.ingress", "0.1.166"),
+    "laundry": ("features.laundry", "0.1.166"),
     "linked_actions": ("linked.linked_actions", "0.1.166"),
     "linked_files": ("linked.linked_files", "0.1.166"),
     "linked_house": ("linked.linked_house", "0.1.166"),
@@ -92,8 +93,11 @@ MOVED: dict[str, tuple[str, str]] = {
     "state": ("ha.state", "0.1.166"),
     "store": ("storage.store", "0.1.166"),
     "supervisor_discovery": ("ha.supervisor_discovery", "0.1.166"),
+    "timers": ("features.timers", "0.1.166"),
+    "tv": ("features.tv", "0.1.166"),
     "user_data": ("storage.user_data", "0.1.166"),
     "user_files": ("storage.user_files", "0.1.166"),
+    "vacuum_water": ("features.vacuum_water", "0.1.166"),
     # --- end of the table ---
 }
 

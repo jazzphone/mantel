@@ -5,7 +5,7 @@ import pytest
 
 import gateway_fakes as GF
 from hk_core import laundry as R
-from mantel_server.laundry import LaundryDone
+from mantel_server.features.laundry import LaundryDone
 from mantel_server.settings_store import Actor as SettingsActor
 
 gw = GF.gw          # (the fixture, by name)

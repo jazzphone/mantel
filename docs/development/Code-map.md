@@ -445,7 +445,6 @@ Mantel Server.
   - `hidden.py` — HIDDEN ACCESSORIES, MANTEL SERVER'S SIDE
   - `hk_cards.py` — GET /api/hk-cards
   - `house.py` — THE HOUSE PORT, MANTEL SERVER'S SIDE (hk_core/house.py; PLAN §0 plan review, item 1 (c)).
-  - `laundry.py` — Laundry
   - `live.py` — One lifecycle for long-lived connections
   - `live_tv.py` — LIVE TV SERVED BY MANTEL (docs/phase4/FEATURE-PARITY.md "Live TV served by Mantel"; PLAN §8, §10, Proof 4).
   - `ma_page.py` — The token for the Music Assistant page
@@ -461,9 +460,6 @@ Mantel Server.
   - `tablet_links.py` — A wall tablet's Direct Connection
   - `talk_direct.py` — TALKING AT A UNIFI PROTECT DOORBELL DIRECTLY (docs/phase13/CAMERAS-DIRECT.md, phase 5, 2026-11-02).
   - `talk_relay.py` — LIVE TALK through Mantel (docs/phase3/GATEWAY.md "Doorbell talk-back")
-  - `timers.py` — Timers on Mantel (phase 21, docs/phase21/TIMER-SLIDE.md)
-  - `tv.py` — TVs
-  - `vacuum_water.py` — A vacuum's water tank that ran dry, held for the card (2026-11-09, the owner; hk_core/vacuum_water.py has the story).
   - `view.py` — One client's filtered, coalesced view of the state store.
 - **hosts/server/mantel_server/alerts/**
   - `api.py` — Mantel Settings → Alerts' REST (docs/phase14/SYSTEM-ALERTS.md "The API, roles and audit").
@@ -511,11 +507,15 @@ Mantel Server.
   - `auto.py` — FEATURES ON BY DEFAULT (docs/phase16/FEATURES-ON-BY-DEFAULT.md "The runner").
   - `energy_plan.py` — The Energy page's inputs on Mantel
   - `host.py` — The feature host
+  - `laundry.py` — Laundry
   - `linked_handler.py` — The linked handler
   - `notify.py` — Notifications on Mantel
   - `settings.py` — The feature settings of Mantel's features
   - `sleep.py` — The Sleep Screen on Mantel
+  - `timers.py` — Timers on Mantel (phase 21, docs/phase21/TIMER-SLIDE.md)
+  - `tv.py` — TVs
   - `tv_fetch.py` — Live TV's fetching
+  - `vacuum_water.py` — A vacuum's water tank that ran dry, held for the card (2026-11-09, the owner; hk_core/vacuum_water.py has the story).
 - **hosts/server/mantel_server/ha/**
   - `gateway.py` — The command gateway (PLAN §4 "Command gateway", §5, §7)
   - `ha_client.py` — Read-only connection to Home Assistant's WebSocket API.

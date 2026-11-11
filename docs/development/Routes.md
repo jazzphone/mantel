@@ -220,6 +220,12 @@ Columns: **Rule** who may call it (`signed_in` any session, `person`, `manager` 
 | `PUT /api/features/settings` | owner |  | none |  | none: a new version of house/mantel_features in the settings store, whose history names who saved it |  |
 | `GET /api/features/status` | manager | admin | none |  |  |  |
 
+## mantel_server.features.tv
+
+| Route | Rule | Reads | Stream | Preview | Audit | Assistants |
+|---|---|---|---|---|---|---|
+| `GET /api/tv/icon/{app}` | signed_in | none | none |  |  |  |
+
 ## mantel_server.ha.gateway
 
 | Route | Rule | Reads | Stream | Preview | Audit | Assistants |
@@ -712,10 +718,4 @@ Columns: **Rule** who may call it (`signed_in` any session, `person`, `manager` 
 | `GET /api/timeline/settings` | manager | admin | none |  |  |  |
 | `PUT /api/timeline/settings` | owner, fresh away |  | none |  | timeline.settings.saved |  |
 | `GET /api/timeline/summary` | signed_in | view | none |  |  |  |
-
-## mantel_server.tv
-
-| Route | Rule | Reads | Stream | Preview | Audit | Assistants |
-|---|---|---|---|---|---|---|
-| `GET /api/tv/icon/{app}` | signed_in | none | none |  |  |  |
 

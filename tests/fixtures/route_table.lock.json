@@ -2561,7 +2561,7 @@
   "fresh": "never",
   "handler": "api_icon",
   "mcp": [],
-  "module": "mantel_server.tv",
+  "module": "mantel_server.features.tv",
   "no_audit": null,
   "preview": false,
   "reads": "none",

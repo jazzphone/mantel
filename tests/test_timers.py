@@ -233,7 +233,7 @@ async def test_across_restarts(gw):
     a, b, c = "timer.hk_timer_1", "timer.hk_timer_2", "timer.hk_timer_3"
     clock = gw.m.app["clock"]()
     # a Mantel that starts now reads the same rows from the table
-    from mantel_server.timers import TimerStore
+    from mantel_server.features.timers import TimerStore
     assert set(TimerStore(gw.m.app["store"].db).load()) == {a, b, c}
     # while it is starting, Home Assistant can't say: nothing is decided, and nothing is lost
     h.host.rows[a].finishes_at = clock - 60
@@ -444,7 +444,7 @@ async def test_a_ring_carries_on_after_mantel_restarts(gw):
     ws = await gw.socket()
     eid = await ring(gw, ws, h)
     until = h.host.rows[eid].ring_until
-    from mantel_server.timers import TimerStore
+    from mantel_server.features.timers import TimerStore
     assert TimerStore(gw.m.app["store"].db).load()[eid].ring_until == until
     await ws.close()
 

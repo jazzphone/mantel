@@ -5,7 +5,7 @@ import pytest
 import gateway_fakes as GF
 from hk_core import vacuum_water as R
 from mantel_server.settings_store import Actor as SettingsActor
-from mantel_server.vacuum_water import VacuumWater
+from mantel_server.features.vacuum_water import VacuumWater
 
 gw = GF.gw          # (the fixture, by name)
 V, ERR, DOCK = "vacuum.roborock", "sensor.roborock_operational_error", "sensor.roborock_dock_operational_error"

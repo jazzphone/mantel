@@ -8,7 +8,7 @@ import intercom_fakes as IF
 from hk_core import timers as R
 from intercom_fakes import ANNOUNCE, KITCHEN
 from mantel_server.settings_store import Actor as SettingsActor
-from mantel_server.timers import Row
+from mantel_server.features.timers import Row
 
 ic = IF.fixture(commands=True)
 
@@ -100,7 +100,7 @@ async def test_a_speaker_that_fails_is_only_a_note(ic, monkeypatch):
 
 
 async def test_it_plays_again_while_it_rings_and_stops_when_it_is_stopped(ic, monkeypatch):
-    from mantel_server import timers as T
+    from mantel_server.features import timers as T
     monkeypatch.setattr(T, "SPEAK_EVERY", 0.05)
     host, row = ringing(ic)
     host._ensure_ringer(row.entity_id)

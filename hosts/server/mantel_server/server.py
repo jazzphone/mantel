@@ -979,16 +979,16 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     from .intercom import wiring as intercom_wiring
     intercom_wiring.register(app, hub, hooks)
     # Phase 21: timers people set, made as Home Assistant helpers (timers.py), reached only through the gateway
-    from . import timers as timers_host
+    from .features import timers as timers_host
     timers_host.register(app, hub)
     # 2026-11-09: a vacuum's water tank that ran dry, held until cleared (vacuum_water.py)
-    from . import vacuum_water as vacuum_water_host
+    from .features import vacuum_water as vacuum_water_host
     vacuum_water_host.register(app, hub)
     # 2026-11-10 (phase 22): a washer's or dryer's Done, held until someone unloads (laundry.py)
-    from . import laundry as laundry_host
+    from .features import laundry as laundry_host
     laundry_host.register(app, hub)
     # 2026-11-10 (phase 23): the apps each Apple TV opens, their App Store icons, each room's learned input (tv.py)
-    from . import tv as tv_host
+    from .features import tv as tv_host
     tv_host.register(app, hub)
     # linked mode's notify and the rest of the entry (Seasonal decorations, Alarm PIN through the
     # gateway as the person whose PIN it is, Live TV), published only while Mantel owns `house`
