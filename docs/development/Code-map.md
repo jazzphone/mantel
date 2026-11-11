@@ -370,6 +370,7 @@ The decisions both hosts make the same way (Rule 2), in Python.
   - `black.py` — WHAT A TABLET'S BLACK SCREEN SWITCH MEANS (Black Screen
   - `rules.py` — A WALL TABLET'S SCREENSAVER
 - **hk_core/settings/**
+  - `accessory_fields.py` — What an accessory's saved settings may hold, once
   - `changes.py` — THE SETTINGS PAGE'S WRITES
   - `home_grid.py` — HOME GRID (docs/phase11/HOME-GRID.md)
   - `kind_match.py` — What a kind finds in the house, once (Status & Chips)
