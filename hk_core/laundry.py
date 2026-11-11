@@ -14,7 +14,7 @@ integration is read from a power sensor (running above `watts`) or a sensor that
 THE MACHINES (settings.features.laundry): a list the Accessories page writes, each {id, name, kind, area, and the entities picked}.
 Empty, the frontend finds them (web/hk/modules/hk-laundry.js `found`): a device whose status sensor reads like a washer's or a dryer's.
 
-DONE, HELD (Mantel Server, mantel_server/laundry.py): most machines say they finished for a moment and then go back to off, and a
+DONE, HELD (Mantel Server, mantel_server/features/laundry.py): most machines say they finished for a moment and then go back to off, and a
 power plug never says it at all. The server watches each machine: running, then not, is Done, kept until someone presses Clear, the
 door opens, the machine runs again, or Clear After hours pass (features.laundry_clear; 0 is until cleared). Shared as Mantel's own
 sensor.laundry_done ({machine: {since, words}}), the way the vacuum's water tank is (vacuum_water.py). HK Frontend inside Home

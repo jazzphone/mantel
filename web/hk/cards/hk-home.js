@@ -122,7 +122,7 @@
         if (!rm._hkEnd) { rm._hkEnd = true; rm.addEventListener('scroll', end, { passive: true }); }
         end();
       };
-      // CLEAR (2026-11-09): Mantel Server holds a water tank report until someone clears it -- from any screen, for everyone (mantel_server/vacuum_water.py)
+      // CLEAR (2026-11-09): Mantel Server holds a water tank report until someone clears it -- from any screen, for everyone (mantel_server/features/vacuum_water.py)
       HkVacuumCard.prototype._clearWater = function () {
         this._call('script', 'vacuum_water_clear', { vacuum: this._config.entity });
       };

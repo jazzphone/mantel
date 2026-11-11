@@ -1,5 +1,5 @@
 """A Mantel page's own Clean Areas and automation snooze, run by Mantel's engines as the person who asked
-(mantel_server/linked_actions.py `direct_of` / `run_direct`, the gateway's `_direct`; docs/phase9/MANTEL-LINK.md 9.8).
+(mantel_server/linked/linked_actions.py `direct_of` / `run_direct`, the gateway's `_direct`; docs/phase9/MANTEL-LINK.md 9.8).
 
 Once Mantel Link holds the bridge, the page's `hk_frontend.clean_areas` / `pause_automation` / `resume_automation` no
 longer goes to Home Assistant to come back over the link: the same engines run here, each vacuum and automation call

@@ -1,6 +1,6 @@
 // @ts-check
 // hk-timer-ring.js -- A TIMER THAT ENDED, on this screen (phase 21, docs/phase21/TIMER-SLIDE.md). Mantel says what is ringing, on
-// sensor.running_quick_timers (`ringing`: hosts/server/mantel_server/timers.py); this plays the sound if the ring is for this
+// sensor.running_quick_timers (`ringing`: hosts/server/mantel_server/features/timers.py); this plays the sound if the ring is for this
 // tablet's room, and shows Time's Up over a page someone is using. Over the screensaver the Timer slide shows it instead
 // (hk-saver-timers.js). Stop on any screen ends it on all of them. Inside Home Assistant nothing ever rings, and this does nothing.
 //

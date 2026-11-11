@@ -131,7 +131,7 @@ DIRECT_PORT = "8100"                # direct access (config.yaml `ports`: 8100/t
 STREAM_PORT = "8101"                # the Intercom's listener for Music Assistant (config.yaml `ports`: 8101/tcp, same way)
 HA_OAUTH_URL = "http://homeassistant:8123"   # HA Core on the hassio network: "Sign in with HA"'s code exchange
 ACCESS_MODES = ("ingress", "proxy", "https")
-# HA's hassio network and Docker's default bridge (mantel_server/direct.py NEVER_LAN): relays, not a home's proxy
+# HA's hassio network and Docker's default bridge (mantel_server/network/direct.py NEVER_LAN): relays, not a home's proxy
 RELAY_NETWORKS = ("172.30.32.0/23", "fd0c:ac1e:2100::/48", "172.17.0.0/16")
 LETSENCRYPT_STAGING = "https://acme-staging-v02.api.letsencrypt.org/directory"
 HA_CORE_PEER = "172.30.32.1"        # HA Core on the hassio network (the bridge's gateway; Core runs on the host)
@@ -375,7 +375,7 @@ def _is_ip(name: str) -> bool:
 
 
 def direct_args(access: str, public: str, options: dict, env: dict[str, str]) -> list[str]:
-    """Direct access (decision 26; mantel_server/direct.py): the second listener and its rules."""
+    """Direct access (decision 26; mantel_server/network/direct.py): the second listener and its rules."""
     from urllib.parse import urlsplit
     args = ["--direct-port", env.get("MANTEL_DIRECT_PORT", DIRECT_PORT), "--rp-id", urlsplit(public).hostname]
     sign_in = str(options.get("ha_sign_in_url") or "").strip().rstrip("/")

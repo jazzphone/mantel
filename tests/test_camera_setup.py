@@ -1,4 +1,4 @@
-"""RTSP cameras: Add Camera, Test, change, remove, linked sensors (mantel_server/camera_setup.py;
+"""RTSP cameras: Add Camera, Test, change, remove, linked sensors (mantel_server/cameras/camera_setup.py;
 docs/phase13/CAMERAS-DIRECT.md phase 6). Against the fake go2rtc of the other camera tests (tests/live_tv_fakes.py,
 which answers as the real go2rtc 1.9.9 was seen to: a probe that says why a stream failed, a frame of nothing when it
 did), a fictional house and fictional secrets; house commands stay off throughout.

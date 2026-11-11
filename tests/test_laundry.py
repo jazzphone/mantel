@@ -259,7 +259,7 @@ def test_the_drawing_and_the_first_to_look_at(page):
 
 @needs_node
 def test_the_server_finds_the_machines_the_page_finds(page):
-    """Done is held for the same machines the screens draw (mantel_server/laundry.py watches hk_core.laundry.found's)."""
+    """Done is held for the same machines the screens draw (mantel_server/features/laundry.py watches hk_core.laundry.found's)."""
     put = {}
     def p(eid, s, dev, **a):
         put[eid] = ({"s": s, "a": a}, dev)

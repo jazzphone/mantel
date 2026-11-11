@@ -1,4 +1,4 @@
-"""Laundry: Done held until someone unloads (phase 22; hk_core/laundry.py, mantel_server/laundry.py): a machine that was running and
+"""Laundry: Done held until someone unloads (phase 22; hk_core/laundry.py, mantel_server/features/laundry.py): a machine that was running and
 isn't is Done, shared as Mantel's own sensor, gone when cleared from any screen, when the door opens, when it runs again or after
 Clear After hours; kept across a restart; found machines watched with nothing saved; a power plug's machine too."""
 import pytest

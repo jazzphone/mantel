@@ -3,7 +3,7 @@ Copyright (c) 2020 Xuebin Qin and the U^2-Net authors (https://github.com/xuebin
 ONNX export as published by the rembg project (https://github.com/danielgatis/rembg)
 
 Licensed under the Apache License, Version 2.0, whose text follows. Mantel runs the model
-unmodified (mantel_server/cutout.py) to make Mantel Photos' Time Behind cut-outs.
+unmodified (mantel_server/cameras/cutout.py) to make Mantel Photos' Time Behind cut-outs.
 
 
                                  Apache License

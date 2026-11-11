@@ -16,7 +16,7 @@
 //   hkVacuumArt.clearPill(name)          a block's Clear: the standard pill (DESIGN.md), data-clear for the card's tap handler
 //
 // THE WATER TANK, HELD (2026-11-09, the owner): a Roborock reports `water_tank_empty` for under a second and carries on, so a screen
-// never sees it. Mantel Server catches it and keeps it in its own sensor (hk_core/vacuum_water.py; mantel_server/vacuum_water.py), until
+// never sees it. Mantel Server catches it and keeps it in its own sensor (hk_core/vacuum_water.py; mantel_server/features/vacuum_water.py), until
 // someone presses Clear or Clear After hours pass. look() draws a latched vacuum as 'water' with the report's words, after an error.
 // @ts-check
 (function (global) {

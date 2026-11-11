@@ -15,7 +15,7 @@ Written before building, from reading `spikes/hk-snapshot/` (HK at 38d841bf). Th
 | HA piece | Mantel stand-in | Where |
 |---|---|---|
 | `hass` object | **hass shim**: `states` from the hub's snapshot + diffs, `entities/devices/areas/floors` from the hub's registry mirror, `user` from the Mantel session, `config/themes/locale`; a **new object per update** | `web/hass-shim.js` |
-| `hass.connection.subscribeMessage`, `callWS` | Replay of captured HK replies (fixtures) and a **ReadProxy** with an explicit read-only allowlist for live reads (weather forecast, notifications, history …) | `web/hass-shim.js`, `hosts/server/mantel_server/readproxy.py` |
+| `hass.connection.subscribeMessage`, `callWS` | Replay of captured HK replies (fixtures) and a **ReadProxy** with an explicit read-only allowlist for live reads (weather forecast, notifications, history …) | `web/hass-shim.js`, `hosts/server/mantel_server/ha/readproxy.py` |
 | `hass.callService`, any write | Refuses, shows a "commands disabled" toast; nothing is sent | `web/hass-shim.js` |
 | `hui-view` / `hui-card` | A ~60-line view container: run `hkStrategy.generate`, create each card element, `setConfig`, set `hass`, give the view its `.cards` | `web/home.js` |
 | `home-assistant`, `hui-root`, `ha-panel-lovelace` lookups (`querySelector`) | A stub object returned by a patched `document.querySelector` for those selectors; **no such element exists in the DOM** | `web/hass-shim.js` |

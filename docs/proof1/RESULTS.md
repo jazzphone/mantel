@@ -36,7 +36,7 @@ How narrowing works: the strategy needs the whole house to decide what to draw, 
 - The ReadProxy forwards live HA reads only for an explicit allowlist (config, themes, forecast, notifications, history, logbook, statistics, energy); it has no per-entity access check yet (RBAC is Phase 3). The Home page needed only `get_config` and `frontend/get_themes`.
 
 ## Where things are
-`web/home.html`, `web/home.js` (the view container), `web/shim/` (hass shim, hub client, HA element stand-ins, card bridge), `web/mdi/` (653 Material Design Icons from `@mdi/js`, Apache-2.0), `hosts/server/mantel_server/readproxy.py`, `hosts/server/tools/capture_fixtures.py`, `tools/headless/` (CDP driver, `home_probe.py`, `home_numbers.py`). Run: `mantel-server session --ha-user-id ID --file ~/.local/share/mantel/measure.cookie` once, then `python tools/headless/home_numbers.py --shot docs/proof1/kitchen-home-1280x800.png`.
+`web/home.html`, `web/home.js` (the view container), `web/shim/` (hass shim, hub client, HA element stand-ins, card bridge), `web/mdi/` (653 Material Design Icons from `@mdi/js`, Apache-2.0), `hosts/server/mantel_server/ha/readproxy.py`, `hosts/server/tools/capture_fixtures.py`, `tools/headless/` (CDP driver, `home_probe.py`, `home_numbers.py`). Run: `mantel-server session --ha-user-id ID --file ~/.local/share/mantel/measure.cookie` once, then `python tools/headless/home_numbers.py --shot docs/proof1/kitchen-home-1280x800.png`.
 
 ## Fidelity fixes after the side-by-side with HA's Kitchen Home (both in `web/shim/cards-bridge.js`)
 Both had the same cause: `hui-card` has a contract that HK's cards rely on and the first stand-in only half kept.

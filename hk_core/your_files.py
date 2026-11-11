@@ -1,6 +1,6 @@
 """YOUR FILES' CHECKS, written once: the home's own copies of Apple's SF Pro and the SF Symbols glyph data.
 
-Mantel Server takes them as uploads (hosts/server/mantel_server/user_files.py) and a linked HK Frontend takes
+Mantel Server takes them as uploads (hosts/server/mantel_server/storage/user_files.py) and a linked HK Frontend takes
 them from Mantel over the link (hk_frontend/files_sync.py). Both check the bytes the same way, here:
 
 * a font by its magic bytes and a sane table directory (``sniff_font``), and its name's extension must agree;

@@ -34,7 +34,7 @@
 
 (security_headers) {
 	# Mantel Server sets its own Content-Security-Policy, HSTS (on https), nosniff, Referrer-Policy,
-	# Permissions-Policy and frame-ancestors on every answer (hosts/server/mantel_server/security_headers.py),
+	# Permissions-Policy and frame-ancestors on every answer (hosts/server/mantel_server/network/security_headers.py),
 	# so they hold behind any proxy (docs/phase3/PACKAGING.md "Security headers"). Caddy must NOT add a
 	# second Content-Security-Policy: browsers enforce both, and Music Assistant's frame under /ma/ has its
 	# own policy. Caddy only drops its own Server header.

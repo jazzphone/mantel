@@ -1,4 +1,4 @@
-"""Pairing codes for Mantel Link (mantel_server/linked_pairing.py; docs/phase9/MANTEL-LINK.md 9.4): an Owner's one-time
+"""Pairing codes for Mantel Link (mantel_server/linked/linked_pairing.py; docs/phase9/MANTEL-LINK.md 9.4): an Owner's one-time
 code, held in memory only, traded once at /linked/pair for a `linked` Service credential, both sides proving they
 know it; wrong tries counted and the code burned; the LAN door only, never a browser; audited, never a secret."""
 import json

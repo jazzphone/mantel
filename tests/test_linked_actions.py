@@ -1,4 +1,4 @@
-"""HK Frontend's other actions forwarded by Mantel Link and run by Mantel (mantel_server/linked_actions.py;
+"""HK Frontend's other actions forwarded by Mantel Link and run by Mantel (mantel_server/linked/linked_actions.py;
 docs/phase9/MANTEL-LINK.md 9.8): Clean Areas (its plan; one vacuum call per robot), automation snooze (off until a
 time, on again then, resumed early, forgotten when someone turns it on) and music (Mantel's engine only, never back to
 Home Assistant): every one through the command gateway as the Service actor `mantel:linked`, audited, refused in words

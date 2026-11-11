@@ -6,7 +6,7 @@ every later change can be judged against numbers instead of a feeling.
 ## What is measured
 
 Every screen's page (the dashboard, and Mantel Settings) reports a few numbers to Mantel over its own socket, with the
-page-health frames that were already sent (`web/shim/page-health.js`, `hosts/server/mantel_server/page_health.py`).
+page-health frames that were already sent (`web/shim/page-health.js`, `hosts/server/mantel_server/pages/page_health.py`).
 Nothing is asked of the person using it.
 
 | Column | What it is | When it is taken |

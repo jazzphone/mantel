@@ -1,4 +1,4 @@
-"""The HA App's direct access (decision 26; mantel_server/direct.py, direct_tls.py; docs/phase3/HA-APP.md "Direct
+"""The HA App's direct access (decision 26; mantel_server/network/direct.py, direct_tls.py; docs/phase3/HA-APP.md "Direct
 access"): the App options for the three access modes, the Ingress-only gate per mode, who is believed on the direct
 port (never Ingress headers; the home's proxy only with the door key; the built-in HTTPS port by the peer's
 address), Mantel's own sign-in and wall tablets there, and the built-in HTTPS certificate (a fictional ACME server

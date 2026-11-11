@@ -1,4 +1,4 @@
-"""Direct camera sources (mantel_server/cameras_direct.py; docs/phase13/CAMERAS-DIRECT.md phase 3): where Mantel has
+"""Direct camera sources (mantel_server/cameras/cameras_direct.py; docs/phase13/CAMERAS-DIRECT.md phase 3): where Mantel has
 its own go2rtc, a Protect or RTSP camera becomes ``camera.mantel_<slug>``, an entity in Mantel's overlay with its
 area in the registry, decided by exactly the camera rules Home Assistant's cameras are; its video is set up in
 go2rtc on demand and relayed like Live TV's, its still drawn from go2rtc, its URLs sealed and never shown. Under

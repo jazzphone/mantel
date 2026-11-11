@@ -581,10 +581,10 @@ Mantel Server.
 - **hosts/server/mantel_server/music/**
   - `music_announcements.py` — Display-only announcement markers from HA's read-only service event feed, and the Intercom's.
   - `music_browse.py` — BROWSE'S TREE AND SEARCH FROM MUSIC ASSISTANT (2026-10-31; music_states.py's companion).
-  - `music_calls.py` — music.py's which music call a service or a socket message is (moved here by tools/split_py.py from hosts/server/mantel_server/music.py
+  - `music_calls.py` — music.py's which music call a service or a socket message is (moved here by tools/split_py.py from hosts/server/mantel_server/music/__init__.py
   - `music_docs.py` — music.py's the music settings document
   - `music_library.py` — music.py's Music Assistant's players and library, search and the queue as the page reads them (moved here by tools/split_py.py from hosts/server/ma...
-  - `music_names.py` — music.py's the names and limits the music engine works with (moved here by tools/split_py.py from hosts/server/mantel_server/music.py
+  - `music_names.py` — music.py's the names and limits the music engine works with (moved here by tools/split_py.py from hosts/server/mantel_server/music/__init__.py
   - `music_states.py` — THE SPEAKERS' STATES FROM MUSIC ASSISTANT (2026-10-31)
 - **hosts/server/mantel_server/network/**
   - `announce.py` — Mantel on the network, by zeroconf (docs/phase9/MANTEL-LINK.md "Discovery and pairing", slice 9.5).
@@ -806,6 +806,7 @@ Build, release and check tools.
     - `split_js_state.py` — --report, the state rewrite, --write-loaders and --find
   - `split_js_adopt.py` — split_js.py's adopt
   - `split_js_analysis.py` — split_js.py's the TypeScript helper's analysis, the text helpers, and the Member and Plan records (moved here by tools/split_py.py from tools/split...
+  - `split_js_exports.cjs`
   - `split_js_names.py` — split_js.py's the paths, the loader and part templates, and the names the other parts share (moved here by tools/split_py.py from tools/split_js.py
   - `split_js_plan.py` — split_js.py's the plan
   - `split_js_proofs.py` — split_js.py's the proofs and the commands that run them

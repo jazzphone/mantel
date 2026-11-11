@@ -1,4 +1,4 @@
-"""The UniFi Protect connector (mantel_server/protect_connector.py; docs/phase13/CAMERAS-DIRECT.md phase 4 and phase 5's
+"""The UniFi Protect connector (mantel_server/cameras/protect_connector.py; docs/phase13/CAMERAS-DIRECT.md phase 4 and phase 5's
 talk wiring): Connect's checks and the pin, picking cameras into cameras_direct, the match with Home Assistant's
 camera and Video From with its RBAC unchanged, the events into the notifications (once, never twice), Notify For and
 Turn On in Protect, the doorbell's direct talk, and the API key never shown.

@@ -1,4 +1,4 @@
-"""A vacuum's water tank that ran dry, held until cleared (2026-11-09; hk_core/vacuum_water.py, mantel_server/vacuum_water.py): caught
+"""A vacuum's water tank that ran dry, held until cleared (2026-11-09; hk_core/vacuum_water.py, mantel_server/features/vacuum_water.py): caught
 from a one-second report, shared as Mantel's own sensor, cleared by the key or by Clear After hours, kept across a restart."""
 import pytest
 

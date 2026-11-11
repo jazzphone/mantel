@@ -1,5 +1,5 @@
-"""Linked mode's per-tablet ownership (mantel_server/linked_owners.py; CUTOVER.md §1 Option A) and the
-rest of linked mode's handlers on Mantel (mantel_server/linked_house.py): every tablet Home
+"""Linked mode's per-tablet ownership (mantel_server/linked/linked_owners.py; CUTOVER.md §1 Option A) and the
+rest of linked mode's handlers on Mantel (mantel_server/linked/linked_house.py): every tablet Home
 Assistant's by default, an Owner's move (audited first, told to linked HA at once, entities published
 or withdrawn in line), the rules, a restart, the forwarding decision both ways, notify, Seasonal
 decorations, the Alarm PIN through the gateway (the house Alarm PIN only, decision 25; commands off:

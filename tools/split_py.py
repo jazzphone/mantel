@@ -11,7 +11,7 @@ TWO SHAPES (the manifest's "mode"):
     old module back, explicitly (no `*`; all of them in __all__, so ruff's F401 stays where it was), and one submodule per
     part. Every top-level statement goes to a part (a part with "rest": true takes what no part names). The parts run in
     the manifest's order and each imports from earlier ones only, by name.
-  * "siblings": hosts/server/mantel_server/music.py stays a module; the parts become sibling modules (music_<name>.py)
+  * "siblings": hosts/server/mantel_server/music.py stayed a module (now music/__init__.py); the parts became siblings (music_<name>.py)
     it imports back. A name a test monkeypatches stays where its readers are (below), so a part may use only its own
     imports and earlier parts, never the module it came from.
 

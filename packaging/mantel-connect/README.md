@@ -13,7 +13,7 @@ There is nothing to copy by hand, look up or keep open in a terminal.
 | `packaging/connect-app/` | The Mantel Connect **HA App** (config, Dockerfile, DOCS, translations). Its code is `hosts/server/mantel_connect/`. |
 | `tools/stage_connect_app.py` | Assembles that App as a local HA App folder, with the same private-content scan as the Mantel App's stager. |
 | `packaging/compose/compose.connect.yaml` | Turns Connect on in the Docker/LXC stack: one published TLS port, 8766. The "receiver" is Mantel Server itself, a persistent service under compose (`restart: unless-stopped`, healthcheck), so no separate process runs in a terminal. |
-| `hosts/server/mantel_server/connect_pairing.py` | Mantel's side: pairing codes, the private Connect CA, the mutual-TLS listener, revocation, renewal, `mantel connect ...`, Mantel Settings → Connections → Home Assistant → Sidebar (Mantel Connect). |
+| `hosts/server/mantel_server/network/connect_pairing.py` | Mantel's side: pairing codes, the private Connect CA, the mutual-TLS listener, revocation, renewal, `mantel connect ...`, Mantel Settings → Connections → Home Assistant → Sidebar (Mantel Connect). |
 
 ## Install, in four steps
 

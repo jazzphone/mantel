@@ -1,4 +1,4 @@
-"""music.py's Music Assistant's players and library, search and the queue as the page reads them (moved here by tools/split_py.py from hosts/server/mantel_server/music.py:
+"""music.py's Music Assistant's players and library, search and the queue as the page reads them (moved here by tools/split_py.py from hosts/server/mantel_server/music/__init__.py:
 tools/split_py_manifests/music.json; `tools/split_py.py --find NAME` says which file holds a name)."""
 from __future__ import annotations
 

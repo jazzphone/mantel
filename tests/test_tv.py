@@ -1,4 +1,4 @@
-"""TVs (phase 23; hk_core/tv.py, mantel_server/tv.py): what Accessories -> TVs may save, the apps an Apple TV opens counted and shared
+"""TVs (phase 23; hk_core/tv.py, mantel_server/features/tv.py): what Accessories -> TVs may save, the apps an Apple TV opens counted and shared
 as Mantel's own sensor, the input a room's player is on learned as it wakes its TV, an icon looked up once on Apple's host only and
 never for Apple's own apps or with lookups off, and the icon served to signed-in screens; an app nobody has opened gets an icon
 guessed by its name, dropped when it opens as another app."""

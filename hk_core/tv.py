@@ -8,7 +8,7 @@ A ROOM'S SET: the TV (a media_player with device_class tv) and the player beside
 app_id), found by their Home Assistant area. Accessories -> TVs (settings.features.tv_sets) says what Automatic can't: another
 player, the TV input the player is on, where volume goes, the inputs nobody uses. {tv entity: {player?, input?, volume?, hidden?}}.
 
-THE APPS (Mantel Server, mantel_server/tv.py): which app each Apple TV opens, counted, and each app's icon from the App Store,
+THE APPS (Mantel Server, mantel_server/features/tv.py): which app each Apple TV opens, counted, and each app's icon from the App Store,
 looked up once by its bundle id (features.tv_icons; itunes.apple.com, the picture from *.mzstatic.com) and kept. The input a
 player is on is learned: a player waking and its TV coming on or changing input within LEARN_WINDOW seconds of each other. A
 label is no guide (the Master Bedroom's Apple TV shows through its soundbar's input, LG S95TR, not the one named Apple TV). Shared as Mantel's
@@ -19,7 +19,7 @@ GUESSED ICONS (2026-11-10, the owner: "Can it do the fuzzy match and then rechec
 lists but nobody has opened yet has no bundle id, so the server asks the App Store's search by its name and keeps the best close
 match (`best_match`: the same name, or the name before a ':' or ' - ', or the name as the first word(s), never from a category no
 TV app is in, TV-like categories first). The first time the app opens its real bundle id is known: a guess that named another
-app is dropped and the real icon looked up (`opened` -> mantel_server/tv.py). Apple's own apps are never searched: APPLE_NAMES
+app is dropped and the real icon looked up (`opened` -> mantel_server/features/tv.py). Apple's own apps are never searched: APPLE_NAMES
 draws them with the same glyphs as BUILTINS.
 
 FAVORITES (features.tv_apps, by the app's name as the player lists it) and what a block shows by default (features.tv_show).
@@ -30,7 +30,7 @@ import re
 from collections.abc import Mapping
 from typing import Any
 
-ICON_PATH = "/api/tv/icon/"           # Mantel serves a kept icon here (mantel_server/tv.py); the screens add their base
+ICON_PATH = "/api/tv/icon/"           # Mantel serves a kept icon here (mantel_server/features/tv.py); the screens add their base
 SENSOR = "sensor.hk_tv"             # Mantel's own: attributes `apps` [{id, name, count, last, icon}] and `inputs` {tv: input}
 SHOWS = ("recent", "favorites")
 VOLUMES = ("auto", "tv", "player", "none")    # where volume goes (or a media_player: a receiver)
