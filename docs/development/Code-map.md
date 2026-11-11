@@ -795,6 +795,8 @@ Build, release and check tools.
   - `split_py.py` — Cut a big Python module into parts, by name, and prove nothing but the place changed (phase 24, A3
   - `stage_connect_app.py` — Assemble the Mantel Connect Home Assistant App folder (a LOCAL App) from this repository.
   - `stage_ha_app.py` — Assemble Mantel's Home Assistant App folder (a LOCAL App) from this repository.
+  - `state_owners.cjs`
+  - `state_owners.py` — Who reads and who writes each name of the screensaver's shared state object `ST` (phase 25, Part A
   - `write_release.py` — Write RELEASE.json for a Docker image
 - **tools/e2e/**
   - `compose_e2e.py` — THE DOCKER MODE, END TO END

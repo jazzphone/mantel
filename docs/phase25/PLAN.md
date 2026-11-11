@@ -166,4 +166,28 @@ loader as the page starts).
 
 ## Build log
 
-(nothing built yet)
+- **E1, log hygiene** (`b42a3170`). Every reset in the house's log came from one place, the hub's
+  `ClientSession.send` (a `pong` or a snapshot to a page that had gone). It now sends through its own shielded task
+  whose end is always read: a reset marks the page gone, logs one debug line with no traceback, and drops its later
+  sends; aiohttp's compressed-frame task, left behind when `run()` cancels the pump mid-send, is awaited by ours, so
+  nothing is "never retrieved". `tests/test_hub_send_gone.py` fails on the old send.
+- **E2, the motion checks** (`4c35b7ed`, decision 5). `swipe-motion-check-*` (4) and `pre-glass-motion-check` are full
+  steps again that read only the pager, the swipe and the glass (`ci.py MOTION_INPUTS`): a full run on main runs them
+  after a change there. They run after every other step, one at a time, and a failure gets one more try (the result
+  says so). `tools/ci.py full --release` runs them whatever passed before, and `release_house.py` takes only a full run
+  in which they ran.
+- **E3, the hotfix script** (`70c36c12`). The on-LXC script lived only in `/root` with its version written in;
+  `packaging/lxc/mantel-hotfix.sh` reads the commit's version and every way out runs `docker builder prune -f`.
+  `Releasing.md` says how to run it. (The LXC had 486 MB of build cache on 2026-11-11, after the release's cleanup.)
+- **A1, the map.** `tools/state_owners.py` (its parser half `state_owners.cjs`) finds every `ST.x` with TypeScript's
+  parser and writes `SAVER-STATE.md`; `tests/test_state_owners.py` holds it fresh, every name owned, and each moved
+  owner's names written by it alone. On `094f673b`: **136 names, 113 written by more than one file** (32 by three or
+  more). Counting the shell's starting values as writes, 44 names are used by one part only, 42 have one writer that
+  others read, and 50 are written by two files or more besides the shell's starting value.
+  **The owners, decided from the map** (in `state_owners.py`, `FEATURES`): the plan's guesses held where the writes
+  are, and moved where they are not: the photos own the count since the last slide (`sinceFc`, `lastSlide`: every
+  slide and every photo writes it, and the photos part runs before all of them), the shell owns touch and idle
+  (`pressStop`, `press`, `lastInput`, `idleT`: its `onInput` and `armIdle` write them), `nightT` is the clock's
+  (`hk-saver-draw`), `photoRun` and `queued` the run's (`hk-saver-start`, where `advance` lives). **Reads stay on
+  `ST` where several files read a name with one writer** (`cfg`, `host`, `root`, `on`, `mode`, `ly`, `pnl`, ...): a
+  getter would have been one more name each reading part binds from a later part, the opposite of what Part A is for.
