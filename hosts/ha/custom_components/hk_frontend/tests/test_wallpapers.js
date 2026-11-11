@@ -36,7 +36,7 @@ globalThis.document = { createElement: node, readyState: 'complete', head: node(
 
 load(HK_ROOT + '/frontend/modules/hk-wallpapers.js');
 var W = window.hkWallpapers;
-var py = read(HK_ROOT + '/hk_core/settings/model.py');
+var py = readPyPackage(HK_ROOT + '/hk_core/settings/model');
 // (2026-11-01, item 45: one combined picker -- four arts and six themes, each in a colour; the twelve as an art in a preset)
 var ma = /\nWALLPAPER_ARTS = \(([\s\S]*?)\)\n/.exec(py), mt = /\nWALLPAPER_THEMES = \(([\s\S]*?)\)\n/.exec(py);
 var tuple = function (x) { return x ? (x[1].match(/"([a-z_]+)"/g) || []).map(function (s) { return s.slice(1, -1); }) : []; };

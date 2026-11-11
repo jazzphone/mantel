@@ -79,7 +79,6 @@ def test_no_big_file_grows_and_no_file_crosses_the_line():
 HELD = {
     "web/hk/modules/hk-saver.js": "its shared state: the phase 18 split's kit and runParts were edited by hand since, so it can't be cut again by the tool",
     "web/hk/cards/hk-detail.js": "its hand-split sheets share names (LIST_CSS, v) that one scope would merge: adopting them is a rename, not a move",
-    "hk_core/settings/model.py": "its checks call one another across every section: any order of submodules is an import cycle",
 }
 
 

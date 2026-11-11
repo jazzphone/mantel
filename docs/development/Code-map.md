@@ -379,7 +379,20 @@ The decisions both hosts make the same way (Rule 2), in Python.
   - `kind_match.py` — What a kind finds in the house, once (Status & Chips)
   - `kinds.py` — STATUS & CHIPS' KINDS
   - `looks.py` — LOOKS (2026-10-30, docs/phase11/HOMEVIEW-LOOK.md "Looks")
-  - `model.py` — THE DASHBOARD SETTINGS
+  - `model/` (a package: `tools/split_py_manifests/model.json`) — THE DASHBOARD SETTINGS
+    - `schema.py` — schema: the sky, wallpaper, flat color, lively and weather settings, and the radar's
+    - `defaults.py` — defaults: DEFAULTS and the Pages screen, screensaver and side pane tables it is built from
+    - `pages_screen_rules.py` — Pages screen checks, and merged() (the stored settings laid over DEFAULTS)
+    - `saver_rules.py` — screensaver options and what a screen is handed (as_client)
+    - `side_pane_rules.py` — side pane checks and the older shapes lifted to it
+    - `dashboard_rules.py` — dashboards (a screen's settings and their checks)
+    - `popup_rules.py` — pop-ups
+    - `custom_page_rules.py` — custom pages
+    - `chip_rules.py` — custom chips
+    - `menu_rules.py` — menus, accents and the older shapes lifted to the current ones (settings_tidied)
+    - `tablet_rules.py` — wall tablets
+    - `stored_rules.py` — what is stored
+    - `text_field_rules.py` — text fields
   - `pages.py` — The page kinds a host's HK Settings offers (hk_core; every host).
   - `pane_status.py` — A SIDE PANE STATUS (2026-11-06; the owner
   - `saver_designs.py` — Bounded saved screensavers; snapshots contain ordinary saver options only.

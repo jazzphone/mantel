@@ -36,7 +36,7 @@ Both integrations' tests run against the shared copy through those modules.
 Notifications keep their watching host-side on purpose: HA follows states with its trackers and
 Mantel will follow its state hub, so `banner.goes_off` takes one change and answers what it sets
 off, and `calendars.look_ahead` takes the host's `events` and `deliver`. Do Not Disturb's shape
-(`dnd.hhmm`, `notify_dnd`) is shared with the settings model (`settings/model.py`), which re-exports it.
+(`dnd.hhmm`, `notify_dnd`) is shared with the settings model (`settings/model/`, a package of 13 files), which re-exports it.
 
 Music moves its DECISIONS and keeps its steps host-side on purpose: in Mantel the engine talks
 to Music Assistant directly (PLAN.md §3, §10), not through HA's `media_player` services, so the
@@ -74,7 +74,7 @@ HA on purpose: `find_extras` (HACS's `www/community` files and `/hacsfiles/` URL
 takes as a host's own check beside `TOP`. The photo addresses the model accepts (`SKY_PHOTO`:
 HA's `image_upload`, `/local/`, `/hk/`) are still HA's spellings; they did not change here. Two
 JavaScript parity tests that read the Python table (`test_liveliness.js`,
-`test_strategy_rebuild.js`) now read `hk_core/settings/model.py`.
+`test_strategy_rebuild.js`) now read the files of `hk_core/settings/model/` as one text (`readPyPackage` in `tests/split_files.js`).
 
 The Sleep Screen moves its DECISIONS and keeps its steps host-side, as music did: the facts are
 read through the House (a state's `last_changed` is the port's one addition), the clock is

@@ -1,0 +1,73 @@
+{
+  "module": "hk_core/settings/model.py",
+  "mode": "package",
+  "lazy": true,
+  "parts": [
+    {
+      "name": "schema",
+      "title": "schema: the sky, wallpaper, flat color, lively and weather settings, and the radar's",
+      "lines": [[40, 1019], [1323, 1398]]
+    },
+    {
+      "name": "defaults",
+      "title": "defaults: DEFAULTS and the Pages screen, screensaver and side pane tables it is built from",
+      "lines": [[1021, 1322], [1399, 1425], [1582, 1770], [1841, 1920]]
+    },
+    {
+      "name": "pages_screen_rules",
+      "title": "Pages screen checks, and merged() (the stored settings laid over DEFAULTS)",
+      "lines": [[1426, 1581]]
+    },
+    {
+      "name": "saver_rules",
+      "title": "screensaver options and what a screen is handed (as_client)",
+      "lines": [[1771, 1840]]
+    },
+    {
+      "name": "side_pane_rules",
+      "title": "side pane checks and the older shapes lifted to it",
+      "lines": [[1921, 2188]]
+    },
+    {
+      "name": "dashboard_rules",
+      "title": "dashboards (a screen's settings and their checks)",
+      "lines": [[2189, 2785]]
+    },
+    {
+      "name": "popup_rules",
+      "title": "pop-ups",
+      "lines": [[2786, 2858]]
+    },
+    {
+      "name": "custom_page_rules",
+      "title": "custom pages",
+      "lines": [[2859, 2918]]
+    },
+    {
+      "name": "chip_rules",
+      "title": "custom chips",
+      "lines": [[2919, 2982]]
+    },
+    {
+      "name": "menu_rules",
+      "title": "menus, accents and the older shapes lifted to the current ones (settings_tidied)",
+      "lines": [[2983, 3475]]
+    },
+    {
+      "name": "tablet_rules",
+      "title": "wall tablets",
+      "lines": [[3476, 3609]]
+    },
+    {
+      "name": "stored_rules",
+      "title": "what is stored",
+      "lines": [[3610, 3667]]
+    },
+    {
+      "name": "text_field_rules",
+      "title": "text fields",
+      "rest": true,
+      "lines": [[3668, 99999]]
+    }
+  ]
+}
