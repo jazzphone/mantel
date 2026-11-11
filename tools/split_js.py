@@ -500,7 +500,7 @@ def make_plan(man: dict, text: str, work: Path) -> Plan:
         if man.get("class") and m.d["kind"] == "other":
             continue
         start = [r for r in m.d["refs"] if "index" in r and r.get("now")]
-        seen, stack, path = set(), [(r, [r.get("name")]) for r in start], {}
+        seen, stack = set(), [(r, [r.get("name")]) for r in start]
         while stack:
             r, via = stack.pop()
             tgt = by_key.get((r["scope"], r["index"]))

@@ -142,8 +142,8 @@ def analyze(text: str, filename: str) -> list[Stmt]:
     for i, node in enumerate(tree.body):
         first = getattr(node, "decorator_list", None) and min(d.lineno for d in node.decorator_list) or node.lineno
         # the comment lines right above it go with it (not past a blank line or the previous statement)
-        k = first - 1
-        while k - 1 > prev_end and lines[k - 1].lstrip().startswith("#"):
+        k = first                                  # (1-based: lines[k - 1] is the statement's first line)
+        while k - 1 > prev_end and lines[k - 2].lstrip().startswith("#"):
             k -= 1
         names, binds, kind = defined(node)
         stmts.append(Stmt(i, node, k, node.end_lineno, names, binds, kind=kind))
@@ -213,8 +213,38 @@ def patched_names(module_dotted: str, stmts: list[Stmt]) -> set[str]:
                 if re.fullmatch(r"[\"'](\w+)[\"']", arg):
                     out.add(arg[1:-1])
                 else:
-                    out |= upper
+                    # a patch through a loop variable whose loop names its values literally (test_music.py: `for name,
+                    # value in (("START_TIMEOUT", 1.0), ...)`): exactly those names; any other variable: every upper-case name
+                    lit = loop_literals(t, arg, m.start())
+                    out |= lit if lit is not None else upper
     return out
+
+
+def loop_literals(text: str, var: str, at: int) -> set[str] | None:
+    """The string names a `for <var>[, ...] in <literal tuple or list>:` just before position `at` gives `var`, else None."""
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        return None
+    line = text.count("\n", 0, at) + 1
+    best = None
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.For, ast.AsyncFor)) and node.lineno <= line <= (node.end_lineno or node.lineno):
+            tgt = node.target
+            names = [tgt] if isinstance(tgt, ast.Name) else list(tgt.elts) if isinstance(tgt, ast.Tuple) else []
+            pos = [i for i, n in enumerate(names) if isinstance(n, ast.Name) and n.id == var]
+            if not pos or not isinstance(node.iter, (ast.Tuple, ast.List)):
+                continue
+            got = set()
+            for el in node.iter.elts:
+                v = el.elts[pos[0]] if isinstance(el, (ast.Tuple, ast.List)) and isinstance(tgt, ast.Tuple) else el
+                if not (isinstance(v, ast.Constant) and isinstance(v.value, str)):
+                    got = None
+                    break
+                got.add(v.value)
+            if got is not None:
+                best = got
+    return best
 
 
 def make_plan(man: dict, text: str) -> Plan:
@@ -230,6 +260,9 @@ def make_plan(man: dict, text: str) -> Plan:
         refusals.append("a package needs exactly one part with \"rest\": true (it takes what no part names)")
     if mode == "siblings" and rest:
         refusals.append("siblings: what no part names stays in the module; no part is \"rest\"")
+    for part in man["parts"]:                      # a submodule's name would replace the package's attribute of that name
+        if part["name"] in by_name and mode == "package":
+            refusals.append(f"the part `{part['name']}` has the name of a top-level name of {man['module']}: importing it would hide that name")
     # who goes where: the named ones
     for pi, part in enumerate(man["parts"]):
         for name in part.get("members", []):
@@ -429,8 +462,19 @@ def build(plan: Plan) -> dict[str, str]:
         for pi in range(len(man["parts"])):
             mine = sorted({n for st in moved if st.part == pi for n in st.names}, key=str.lower)
             if mine:
-                back += wrap(f"from .{Path(files[pi]).stem} import {', '.join(mine)}  # noqa: F401 -- tools/split_py.py")
+                got = wrap(f"from .{Path(files[pi]).stem} import {', '.join(mine)}")
+                got = [g + "  # noqa: F401 -- tools/split_py.py" for g in got]
+                back += got
         first = min(st.first for st in moved)
+        # an import of the module only its moved code used stays (the module keeps every name it had), marked for ruff
+        stays = [st for st in plan.stmts if st.part < 0 and st.kind not in ("import", "docstring")]
+        used_here = set().union(*[(st.now | st.later | names_in_annotations(st.node)) for st in stays]) if stays else set()
+        for st in plan.stmts:
+            if st.kind == "import" and (set(st.names) - used_here) and not (isinstance(st.node, ast.ImportFrom)
+                                                                               and st.node.module == "__future__"):
+                for no in range(st.node.lineno, st.node.end_lineno + 1):
+                    if "noqa" not in keep_lines[no - 1]:
+                        keep_lines[no - 1] += "  # noqa: F401 -- its parts use it (tools/split_py.py)"
         new = []
         for no, line in enumerate(keep_lines, 1):
             if no == first:

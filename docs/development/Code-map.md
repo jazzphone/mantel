@@ -456,9 +456,17 @@ Mantel Server.
   - `ma_page.py` — The token for the Music Assistant page
   - `mcp_parity.py` — MCP parity (phase 18, A6)
   - `media_proxy.py` — Music Assistant's web app and go2rtc, served under Mantel's own address (``/ma/…``, ``/go2rtc/…``).
-  - `music.py` — WHOLE-HOME MUSIC IN MANTEL (Phase 4)
+  - `music.py` — WHOLE-HOME MUSIC IN MANTEL (Phase 4) *(its parts beside it: `tools/split_py_manifests/music.json`)*
+    - `music_names.py` — the names and limits the music engine works with
+    - `music_docs.py` — the music settings document: its check and its import
+    - `music_library.py` — Music Assistant's players and library, search and the queue as the page reads them
+    - `music_calls.py` — which music call a service or a socket message is
   - `music_announcements.py` — Display-only announcement markers from HA's read-only service event feed, and the Intercom's.
   - `music_browse.py` — BROWSE'S TREE AND SEARCH FROM MUSIC ASSISTANT (2026-10-31; music_states.py's companion).
+  - `music_calls.py` — music.py's which music call a service or a socket message is (moved here by tools/split_py.py from hosts/server/mantel_server/music.py
+  - `music_docs.py` — music.py's the music settings document
+  - `music_library.py` — music.py's Music Assistant's players and library, search and the queue as the page reads them (moved here by tools/split_py.py from hosts/server/ma...
+  - `music_names.py` — music.py's the names and limits the music engine works with (moved here by tools/split_py.py from hosts/server/mantel_server/music.py
   - `music_states.py` — THE SPEAKERS' STATES FROM MUSIC ASSISTANT (2026-10-31)
   - `notify_snaps.py` — Notification snapshots on Mantel (docs/phase4/MANTEL-FEATURES.md "Phase 4 ports").
   - `page_headers.py` — THE LIGHTS PAGE'S "TONIGHT" LIST on Mantel's screens (hk-headers.js subscribes ``hk_frontend/page_headers/subscribe``).

@@ -33,7 +33,9 @@ import json
 from . import helper as H
 
 LIMIT = 3
-NAMES = ("a", "b")
+# the names, two of them
+NAMES = ("a",
+         "b")
 NAMES += ("c",)
 
 
@@ -74,6 +76,7 @@ def tree(tmp_path, monkeypatch):
 def test_a_module_becomes_a_package_and_the_proof_holds(tree):
     tool, root = tree
     assert tool.do_split(json.loads(json.dumps(MAN)), check_only=False) == 0
+    assert "# the names, two of them\nNAMES = (" in (root / "pkg/mod/base.py").read_text()   # its comment with it, nothing more
     pkg = root / "pkg/mod"
     assert sorted(p.name for p in pkg.glob("*.py")) == ["__init__.py", "base.py", "maths.py", "rest.py"]
     rest = (pkg / "rest.py").read_text()

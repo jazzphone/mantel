@@ -60,7 +60,7 @@ import copy
 import itertools
 import json
 import logging
-import re
+import re  # noqa: F401 -- its parts use it (tools/split_py.py)
 import time
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Mapping
@@ -73,14 +73,14 @@ from hk_core.music import engine as E
 from hk_core.music import queue as Q
 from hk_core.music import settings as S
 from hk_core.music.config import Item, MusicConfig
-from hk_core.music.const import (
-    COMMANDS, CONF_CHOOSER, CONF_HOMES, CONF_ICON, CONF_IGNORE_ANNOUNCEMENTS, CONF_ITEMS,
-    CONF_KEEP_READY, CONF_MEMBERS, CONF_NAME, CONF_ORDER, CONF_PAIRS, CONF_PLAYERS, CONF_SPEAKERS, CONF_VOLUME,
-    DEFAULT_VOLUME, NOTE_GROUP,
-    NOTE_PARTIAL, NOTE_PLAY, NOTE_PRESET, NOTE_STOP, NOTE_TRANSFER, SERVICE_PLAY, SERVICE_PLAY_MEDIA, SERVICE_STOP,
-    SERVICE_TRANSFER, SERVICE_TRANSPORT, SUB_PLAYLIST, SUB_PRESET, WARM_FIRST, WARM_RETRY, WARM_SOON,
-    GROUPS_EVERY, COVERS_EVERY, COVERS_FIRST, COVERS_READ_TIMEOUT, COVERS_SOON,
-)
+from hk_core.music.const import (  # noqa: F401 -- its parts use it (tools/split_py.py)
+    COMMANDS, CONF_CHOOSER, CONF_HOMES, CONF_ICON, CONF_IGNORE_ANNOUNCEMENTS, CONF_ITEMS,  # noqa: F401 -- its parts use it (tools/split_py.py)
+    CONF_KEEP_READY, CONF_MEMBERS, CONF_NAME, CONF_ORDER, CONF_PAIRS, CONF_PLAYERS, CONF_SPEAKERS, CONF_VOLUME,  # noqa: F401 -- its parts use it (tools/split_py.py)
+    DEFAULT_VOLUME, NOTE_GROUP,  # noqa: F401 -- its parts use it (tools/split_py.py)
+    NOTE_PARTIAL, NOTE_PLAY, NOTE_PRESET, NOTE_STOP, NOTE_TRANSFER, SERVICE_PLAY, SERVICE_PLAY_MEDIA, SERVICE_STOP,  # noqa: F401 -- its parts use it (tools/split_py.py)
+    SERVICE_TRANSFER, SERVICE_TRANSPORT, SUB_PLAYLIST, SUB_PRESET, WARM_FIRST, WARM_RETRY, WARM_SOON,  # noqa: F401 -- its parts use it (tools/split_py.py)
+    GROUPS_EVERY, COVERS_EVERY, COVERS_FIRST, COVERS_READ_TIMEOUT, COVERS_SOON,  # noqa: F401 -- its parts use it (tools/split_py.py)
+)  # noqa: F401 -- its parts use it (tools/split_py.py)
 from hk_core.music.engine import ACTIVE, STOPPED, SUPERSEDED
 from hk_core.music.covers import Covers
 from hk_core.music.groups import Groups, signature
@@ -93,52 +93,15 @@ from .ha_client import HaCommandError
 from .house import MantelHouse
 from .music_announcements import Announcements
 
-log = logging.getLogger("mantel.music")
+from .music_names import (DOMAIN, ENTITY, IMPORT_READ, ITEMS_MAX, KEY, log, MA_LOGIN_FAILED, MA_PLATFORM, MEDIA_URI,  # noqa: F401 -- tools/split_py.py
+    MUSIC_DOC, MUSIC_SERVICES, MUSIC_WS, PLAY_WRITES, PLAYER, ROUTE_RULES, SETTINGS_WRITES, SIGN_IN_AGAIN, TEXT_MAX,)  # noqa: F401 -- tools/split_py.py
+from .music_docs import _text, check_doc, empty_doc, import_doc, import_page  # noqa: F401 -- tools/split_py.py
+from .music_library import (_ids, _item_image, _library_image, _PLAYER_ARGS, _PLAYER_LISTS, ALBUM_TYPES,  # noqa: F401 -- tools/split_py.py
+    check_get_library, check_search, IMAGE_SIZE, LIBRARY_COMMAND, library_entry, LIBRARY_FIELDS, library_item,  # noqa: F401 -- tools/split_py.py
+    LIBRARY_LIMIT, LIBRARY_ORDER, ma_players, MA_SERVICES, OP_SERVICE, PLAYER_COMMANDS, PROXY_ID, queue_details,  # noqa: F401 -- tools/split_py.py
+    queue_item_dict, RUN_COMMANDS, SEARCH_FIELDS, SEARCH_TYPES, to_ma, VOLUME_SERVICES,)  # noqa: F401 -- tools/split_py.py
+from .music_calls import _room_list, _WS_KEYS, classify_service, classify_ws  # noqa: F401 -- tools/split_py.py
 
-MUSIC_DOC = "music"                       # house/<this>: speakers, volume, homes, presets, playlists, switches
-MA_PLATFORM = "music_assistant"
-DOMAIN = "hk_frontend"
-MUSIC_SERVICES = frozenset({SERVICE_PLAY, SERVICE_TRANSFER, SERVICE_STOP, SERVICE_TRANSPORT, SERVICE_PLAY_MEDIA})
-SETTINGS_WRITES = frozenset({"hk_music/settings/set", "hk_music/preset/save", "hk_music/playlist/save",
-                             "hk_music/playlists/order", "hk_music/item/remove"})
-PLAY_WRITES = frozenset({"hk_music/queue_play", "hk_music/used"})
-MUSIC_WS = SETTINGS_WRITES | PLAY_WRITES
-IMPORT_READ = "hk_music/settings/get"      # HA's music settings page: the import's one read (server-only)
-ENTITY = re.compile(r"^[a-z0-9_]+\.[a-z0-9_]+$")
-PLAYER = re.compile(r"^media_player\.[a-z0-9_]+$")
-KEY = re.compile(r"^[A-Za-z0-9_\-]{1,64}$")
-TEXT_MAX = 200
-ITEMS_MAX = 100
-
-# Every read this module answers in app["read_routes"] has exactly one rule here (tests/test_music.py).
-ROUTE_RULES: dict[str, str] = {
-    "hk_music/subscribe": "feature:music; per person/device: only the players the subject may view (a preset when "
-                          "all its rooms are viewable); `home` the person's home room, else the wall "
-                          "tablet's room; display-only announcement markers. Bridge to HA while Mantel's engine is off",
-    "hk_music/queue": "view the media player (media_player.* only), else not_found; limit 1..100; from Music "
-                      "Assistant's queue; items {id, title, artist, duration, image}, token-carrying images dropped. "
-                      "Bridge to HA while Mantel's engine is off",
-    "hk_music/settings/library": "feature:music; Music Assistant's library playlists as {uri, name}. Bridge to HA "
-                                 "while Mantel's engine is off",
-    "music_assistant/get_library": "feature:music (view; no player); HA's music_assistant.get_library fields only; "
-                                   "Music Assistant's library items as {items: [...]}. Needs Music Assistant in Mantel "
-                                   "(else ma_not_configured), not the music settings",
-    "music_assistant/get_queue": "feature:music and view every media player named, else not_found; Music Assistant "
-                                 "speakers only (else ma_not_configured, as without Music Assistant here); HA's "
-                                 "get_queue answer {entity: queue details} from Music Assistant's active queue",
-    "music_assistant/search": "feature:music (view; no player); HA's music_assistant.search fields only; Music "
-                              "Assistant's search as HA's {artists, albums, tracks, ...}. Needs Music Assistant in "
-                              "Mantel (else ma_not_configured)",
-    "media_player/browse_media": "view the media player, else not_found. A Music Assistant speaker while Music "
-                                 "Assistant is connected here: answered by Mantel from Music Assistant's reads in "
-                                 "HA's BrowseMedia shape (music_browse.py; a media-source:// id stays HA's). "
-                                 "Otherwise readproxy's (HA answers it); when HA fails to open a playlist uri, Music "
-                                 "Assistant is asked once for its songs (a read); a refused sign-in (LoginFailed) is "
-                                 "answered login_failed with what to do, else HA's error",
-    "media_player/search_media": "view the media player, else not_found. A Music Assistant speaker while Music "
-                                 "Assistant is connected here: Music Assistant's search in HA's SearchMedia shape "
-                                 "(music_browse.py). Otherwise readproxy's (HA answers it)",
-}
 
 # measured timings (hk_core/music/const.py), read at call time so tests can shorten them
 from hk_core.music.const import (  # noqa: E402
@@ -160,252 +123,11 @@ class SignInRefused(RuntimeError):
     read_code = "login_failed"
 
 
-# music_assistant_models.errors.LoginFailed.error_code: MA could not sign in to a streaming service (Apple Music's
-# user token expired), so it cannot read that account's own library -- its saved playlists. A catalog playlist (a
-# search result's apple_music://playlist/pl.…) needs no account and still opens.
-MA_LOGIN_FAILED = 6
-SIGN_IN_AGAIN = ("Music Assistant's sign-in to your music service was refused, so your saved playlists cannot "
-                 "be read. Sign in to it again in Music Assistant (Settings, then Providers).")
-MEDIA_URI = re.compile(r"^([a-z0-9_]+(?:--[A-Za-z0-9]+)?)://(playlist)/([^/?#]{1,200})$")
-
-
 class MusicRefusal(HaCommandError):
     """An answer the page reads as HA's error (`code`, `message`: HA's `invalid_format` is a JSON field map)."""
 
     def __str__(self) -> str:
         return self.message or self.code
-
-
-# ------------------------------------------------------------------------------------- the settings doc
-def empty_doc() -> dict[str, Any]:
-    return {"options": {CONF_SPEAKERS: [], CONF_VOLUME: DEFAULT_VOLUME, CONF_HOMES: {}, CONF_KEEP_READY: False,
-                        CONF_IGNORE_ANNOUNCEMENTS: True}, "items": [], "source": None}
-
-
-def _text(v: Any, limit: int = TEXT_MAX) -> str:
-    if not isinstance(v, str) or len(v) > limit:
-        raise ValueError("text")
-    return v
-
-
-def check_doc(body: Any) -> dict[str, Any]:
-    """``house/music`` as Mantel keeps it, checked: {options: {speakers, volume, homes, keep_ready,
-    ignore_announcements, pairs?, leaders?, announce_rooms?}, items: [{kind, key, title, data}], source}. Raises ValueError."""
-    if not isinstance(body, Mapping):
-        raise ValueError("house/music is an object")
-    out = empty_doc()
-    opts = body.get("options") if isinstance(body.get("options"), Mapping) else {}
-    sp = opts.get(CONF_SPEAKERS, [])
-    if not isinstance(sp, list) or not all(isinstance(x, str) and PLAYER.match(x) for x in sp):
-        raise ValueError("options.speakers: media_player entity ids")
-    out["options"][CONF_SPEAKERS] = list(dict.fromkeys(sp))
-    vol = opts.get(CONF_VOLUME, DEFAULT_VOLUME)
-    if isinstance(vol, bool) or not isinstance(vol, (int, float)) or not 0 <= vol <= 1:
-        raise ValueError("options.volume: 0..1")
-    out["options"][CONF_VOLUME] = round(float(vol), 2)
-    homes = opts.get(CONF_HOMES, {})
-    if not isinstance(homes, Mapping) or not all(isinstance(k, str) and 0 < len(k) <= 100 and isinstance(v, str)
-                                                  and PLAYER.match(v) for k, v in homes.items()):
-        raise ValueError("options.homes: {person: media_player}")
-    out["options"][CONF_HOMES] = dict(homes)
-    for k in (CONF_KEEP_READY, CONF_IGNORE_ANNOUNCEMENTS):
-        if k in opts:
-            if not isinstance(opts[k], bool):
-                raise ValueError(f"options.{k}: true or false")
-            out["options"][k] = opts[k]
-    for k in S.ROOM_LISTS:       # GROUP LEADERS and ANNOUNCEMENT ROOMS: speakers, in order (MusicConfig.leader_of)
-        if k in opts:
-            v = opts[k]
-            if not isinstance(v, list) or len(v) > ITEMS_MAX or not all(isinstance(x, str) and PLAYER.match(x) for x in v):
-                raise ValueError(f"options.{k}: media_player entity ids")
-            out["options"][k] = list(dict.fromkeys(v))
-    if CONF_PAIRS in opts:       # VIRTUAL PAIRS (docs/phase4/VIRTUAL-PAIRS.md): [{players: [first, second], name}]
-        pairs = opts[CONF_PAIRS]
-        if not isinstance(pairs, list) or len(pairs) > ITEMS_MAX or not all(
-                isinstance(p, Mapping) and isinstance(p.get(CONF_PLAYERS), list) and len(p[CONF_PLAYERS]) == 2
-                and all(isinstance(x, str) and PLAYER.match(x) for x in p[CONF_PLAYERS]) for p in pairs):
-            raise ValueError("options.pairs: [{players: [two media_players], name}]")
-        out["options"][CONF_PAIRS] = [{CONF_PLAYERS: list(p[CONF_PLAYERS]), CONF_NAME: _text(p.get(CONF_NAME) or "")}
-                                      for p in pairs]
-    items = body.get("items", [])
-    if not isinstance(items, list) or len(items) > ITEMS_MAX:
-        raise ValueError(f"items: at most {ITEMS_MAX}")
-    seen = set()
-    for it in items:
-        if not isinstance(it, Mapping) or it.get("kind") not in (SUB_PRESET, SUB_PLAYLIST) \
-                or not isinstance(it.get("key"), str) or not KEY.match(it["key"]) or it["key"] in seen:
-            raise ValueError("items: {kind: preset|playlist, key, title, data}")
-        seen.add(it["key"])
-        d = it.get("data") if isinstance(it.get("data"), Mapping) else {}
-        if it["kind"] == SUB_PRESET:
-            # (a group saved with a preset before presets were Mantel's own is dropped: none plays it)
-            members = d.get(CONF_MEMBERS)
-            if not isinstance(members, list) or not all(isinstance(m, str) and PLAYER.match(m) for m in members):
-                raise ValueError("a preset: {name, members}")
-            data = {CONF_NAME: _text(d.get(CONF_NAME, "")), CONF_MEMBERS: list(members)}
-        else:
-            uris = d.get(CONF_ITEMS)
-            order = d.get(CONF_ORDER, 0)
-            if not isinstance(uris, list) or not all(isinstance(u, str) and 0 < len(u) <= 500 for u in uris) \
-                    or isinstance(order, bool) or not isinstance(order, (int, float)):
-                raise ValueError("a playlist: {name, icon, items, order, chooser?}")
-            data = {CONF_NAME: _text(d.get(CONF_NAME, "")), CONF_ICON: _text(d.get(CONF_ICON) or S.DEFAULT_ICON),
-                    CONF_ITEMS: list(uris), CONF_ORDER: float(order)}
-            if d.get(CONF_CHOOSER):
-                data[CONF_CHOOSER] = _text(d[CONF_CHOOSER])
-        out["items"].append({"kind": it["kind"], "key": it["key"], "title": _text(it.get("title") or data[CONF_NAME]),
-                             "data": data})
-    src = body.get("source")
-    out["source"] = src if isinstance(src, str) and len(src) <= 80 else None
-    return out
-
-
-def import_page(page: Any, source: str | None = None) -> dict[str, Any] | None:
-    """HA's music settings page (``hk_music/settings/get``: settings_ws.page) -> ``house/music``, or None when
-    HA's music is not set up. Home rooms are HA users' (``ha:<HA user id>``): a Mantel person linked to that HA
-    user has that home room until one is chosen for them in Mantel. Values that would not pass check_doc are
-    left out rather than failing the import."""
-    if not isinstance(page, Mapping) or not page.get("configured"):
-        return None
-    sp = [s.get("entity") for s in page.get("speakers") or [] if isinstance(s, Mapping)]
-    sp = [s for s in sp if isinstance(s, str) and PLAYER.match(s)]
-    homes = {f"ha:{u}": r for u, r in (page.get("homes") or {}).items()
-             if isinstance(u, str) and 0 < len(u) <= 64 and isinstance(r, str) and r in sp}
-    vol = page.get("volume", DEFAULT_VOLUME)
-    opts = {CONF_SPEAKERS: sp, CONF_VOLUME: vol if isinstance(vol, (int, float)) and not isinstance(vol, bool)
-            and 0 <= vol <= 1 else DEFAULT_VOLUME, CONF_HOMES: homes,
-            CONF_KEEP_READY: page.get("keep_ready") is True,
-            CONF_IGNORE_ANNOUNCEMENTS: page.get("ignore_announcements", True) is not False}
-    items = []
-    for p in page.get("presets") or []:
-        one = {"kind": SUB_PRESET, "key": p.get("id"), "title": p.get("name"),
-               "data": {CONF_NAME: p.get("name"), CONF_MEMBERS: p.get("members")}} \
-            if isinstance(p, Mapping) else None
-        items.append(one)
-    for p in page.get("playlists") or []:
-        if not isinstance(p, Mapping):
-            continue
-        data = {CONF_NAME: p.get("name"), CONF_ICON: p.get("icon") or S.DEFAULT_ICON, CONF_ITEMS: p.get("items"),
-                CONF_ORDER: p.get("order") or 0}
-        if p.get("chooser"):
-            data[CONF_CHOOSER] = p["chooser"]
-        items.append({"kind": SUB_PLAYLIST, "key": p.get("id"),
-                      "title": S.playlist_title(str(p.get("name") or ""), p.get("chooser")), "data": data})
-    good = []
-    for it in items:
-        try:
-            check_doc({"options": {}, "items": [it]})
-            good.append(it)
-        except (ValueError, TypeError):
-            log.warning("music import: left out a preset or playlist HA has that Mantel cannot keep")
-    return check_doc({"options": opts, "items": good, "source": source})
-
-
-async def import_doc(panel: Any, read: Callable[[dict], Any], source: str | None = None) -> dict[str, Any] | None:
-    """The feature import's music part: only when HA has Music added (panel/get's ``features.hk_music``), one
-    server-only read of HA's music settings page. Reads only; never writes to HA."""
-    feats = panel.get("features") if isinstance(panel, Mapping) else None
-    hk = feats.get("hk_music") if isinstance(feats, Mapping) else None
-    if not isinstance(hk, Mapping) or not hk.get("entries"):
-        return None
-    return import_page(await read({"type": IMPORT_READ}), source)
-
-
-# ---------------------------------------------------------------------------- Music Assistant's players
-def ma_players(registry: Any) -> dict[str, str]:
-    """{media_player entity: its Music Assistant player id} (HA's music_assistant entities' unique ids)."""
-    out = {}
-    for e in getattr(registry, "entity_entries", None) or []:
-        eid, uid = e.get("entity_id"), e.get("unique_id")
-        if e.get("platform") == MA_PLATFORM and isinstance(eid, str) and eid.startswith("media_player.") \
-                and isinstance(uid, str) and uid:
-            out[eid] = uid
-    return out
-
-
-def library_entry(registry: Any) -> str | None:
-    """Music Assistant's config entry in HA (Browse's ``get_library`` asks it): from its entities' entries."""
-    for e in getattr(registry, "entity_entries", None) or []:
-        if e.get("platform") == MA_PLATFORM and isinstance(e.get("config_entry_id"), str):
-            return e["config_entry_id"]
-    return None
-
-
-def _ids(value: Any) -> list[str]:
-    if isinstance(value, str):
-        return [v.strip() for v in value.split(",") if v.strip()]
-    return [v for v in value if isinstance(v, str)] if isinstance(value, (list, tuple)) else []
-
-
-PLAYER_COMMANDS = {"media_play": "players/cmd/play", "media_pause": "players/cmd/pause",
-                   "media_play_pause": "players/cmd/play_pause", "media_stop": "players/cmd/stop",
-                   "media_next_track": "players/cmd/next", "media_previous_track": "players/cmd/previous"}
-
-
-def to_ma(domain: str, service: str, data: Mapping[str, Any], pid: Callable[[str], str]) -> list[tuple[str, dict]]:
-    """One of HA's engine's service calls -> the Music Assistant commands HA's ``music_assistant`` integration
-    sends for it (its media_player entity calls the official client: ``players/cmd/*``, ``player_queues/*``).
-    ``pid``: entity -> MA player id (KeyError for one that is not a Music Assistant player). HA's volume is
-    0..1, Music Assistant's 0..100."""
-    ents = _ids(data.get("entity_id"))
-    if domain == "media_player" and service in PLAYER_COMMANDS:
-        return [(PLAYER_COMMANDS[service], {"player_id": pid(e)}) for e in ents]
-    if domain == "media_player" and service == "unjoin":
-        return [("players/cmd/ungroup", {"player_id": pid(e)}) for e in ents]
-    if domain == "media_player" and service == "join":
-        return [("players/cmd/group_many", {"target_player": pid(ents[0]),
-                                            "child_player_ids": [pid(m) for m in _ids(data.get("group_members"))]})]
-    if domain == "media_player" and service == "volume_set":
-        level = int(round(float(data["volume_level"]) * 100))
-        return [("players/cmd/volume_set", {"player_id": pid(e), "volume_level": level}) for e in ents]
-    if domain == "media_player" and service == "shuffle_set":
-        return [("player_queues/shuffle", {"queue_id": pid(e), "shuffle_enabled": bool(data["shuffle"])}) for e in ents]
-    if domain == "media_player" and service in ("volume_up", "volume_down"):
-        return [(f"players/cmd/{service}", {"player_id": pid(e)}) for e in ents]
-    if domain == "media_player" and service == "volume_mute":
-        return [("players/cmd/volume_mute", {"player_id": pid(e), "muted": bool(data["is_volume_muted"])}) for e in ents]
-    if domain == "media_player" and service == "media_seek":
-        return [("players/cmd/seek", {"player_id": pid(e), "position": int(float(data["seek_position"]))}) for e in ents]
-    if domain == "media_player" and service == "repeat_set":
-        if data.get("repeat") not in ("off", "one", "all"):
-            raise KeyError("repeat is off, one or all")
-        return [("player_queues/repeat", {"queue_id": pid(e), "repeat_mode": data["repeat"]}) for e in ents]
-    if domain == "media_player" and service == "play_media":
-        return [("player_queues/play_media", {"queue_id": pid(e), "media": [str(data["media_content_id"])],
-                                              "option": data.get("enqueue") or "play"}) for e in ents]
-    if domain == "music_assistant" and service == "play_media":
-        media = data["media_id"]
-        return [("player_queues/play_media", {"queue_id": pid(e), "media": list(media) if isinstance(media, list)
-                                              else [media], "option": data.get("enqueue") or "play"}) for e in ents]
-    if domain == "music_assistant" and service == "transfer_queue":
-        return [("player_queues/transfer", {"source_queue_id": pid(data["source_player"]),
-                                            "target_queue_id": pid(ents[0]),
-                                            "auto_play": bool(data.get("auto_play", True))})]
-    raise KeyError(f"{domain}.{service} has no Music Assistant command here")
-
-
-# Every Music Assistant command a request's steps may send (to_ma's, and the queue's play_index).
-RUN_COMMANDS = frozenset({*PLAYER_COMMANDS.values(), "players/cmd/ungroup", "players/cmd/group_many",
-                          "players/cmd/volume_set", "player_queues/shuffle", "player_queues/play_media",
-                          "player_queues/transfer", "player_queues/play_index",
-                          # a page's own media_player.* call on a Music Assistant speaker (MA_SERVICES)
-                          "players/cmd/volume_up", "players/cmd/volume_down", "players/cmd/volume_mute",
-                          "players/cmd/seek", "player_queues/repeat"})
-
-# HA's media_player services a page calls on a speaker (the Side Pane's volume and play/pause, the media sheet, the
-# screensaver, the Speakers sheet, the app's volume) that go to Music Assistant, not HA, while it is connected to
-# Mantel (MusicHost.route). The data each may carry besides entity_id; anything else (a TV's select_source) is HA's.
-MA_SERVICES: dict[str, frozenset[str]] = {
-    **{s: frozenset() for s in PLAYER_COMMANDS}, "unjoin": frozenset(), "join": frozenset({"group_members"}),
-    "volume_set": frozenset({"volume_level"}), "volume_up": frozenset(), "volume_down": frozenset(),
-    "volume_mute": frozenset({"is_volume_muted"}), "media_seek": frozenset({"seek_position"}),
-    "shuffle_set": frozenset({"shuffle"}), "repeat_set": frozenset({"repeat"}),
-    "play_media": frozenset({"media_content_id", "media_content_type", "enqueue"}),
-}
-OP_SERVICE = "media_player"        # MusicHost.run's op for one of them
-VOLUME_SERVICES = frozenset({"volume_set", "volume_up", "volume_down", "volume_mute"})
-_PLAYER_ARGS = ("player_id", "queue_id", "target_player", "source_queue_id", "target_queue_id")
-_PLAYER_LISTS = ("child_player_ids", "player_ids")
 
 
 class MusicRun:
@@ -434,296 +156,13 @@ class MusicRun:
         return True
 
 
-# ---------------------------------------------------------------------------- Browse's library read
-# music_assistant.get_library as HA 2026.10 accepts it (the action's fields), and Music Assistant's command per type.
-LIBRARY_COMMAND = {"artist": "artists", "album": "albums", "track": "tracks", "playlist": "playlists",
-                   "radio": "radios", "podcast": "podcasts", "audiobook": "audiobooks"}
-LIBRARY_ORDER = frozenset({"name", "name_desc", "sort_name", "sort_name_desc", "timestamp_added",
-                           "timestamp_added_desc", "last_played", "last_played_desc", "play_count",
-                           "play_count_desc", "random", "random_play_count"})
-ALBUM_TYPES = frozenset({"album", "single", "compilation", "ep", "unknown"})
-LIBRARY_FIELDS = frozenset({"config_entry_id", "media_type", "favorite", "search", "limit", "offset", "order_by",
-                            "album_type", "album_artists_only"})
-LIBRARY_LIMIT = 500
-IMAGE_SIZE = 256
-
-
-def check_get_library(data: Any) -> dict[str, Any]:
-    """``music_assistant.get_library``'s service data -> Music Assistant's ``library_items`` call:
-    ``{"media_type": "albums", "args": {...}}``. Anything HA's action would not take raises ValueError."""
-    if not isinstance(data, Mapping):
-        raise ValueError("get_library takes its fields in service_data")
-    extra = set(data) - LIBRARY_FIELDS
-    if extra:
-        raise ValueError(f"get_library may not carry {sorted(extra)}")
-    entry = data.get("config_entry_id")
-    if entry is not None and (not isinstance(entry, str) or len(entry) > 128):
-        raise ValueError("config_entry_id is a string")
-    kind = data.get("media_type")
-    if kind not in LIBRARY_COMMAND:
-        raise ValueError(f"media_type is one of {sorted(LIBRARY_COMMAND)}")
-    args: dict[str, Any] = {}
-    for key in ("favorite", "album_artists_only"):
-        if key in data:
-            if not isinstance(data[key], bool):
-                raise ValueError(f"{key} is true or false")
-            if key == "album_artists_only" and kind != "artist":
-                raise ValueError("album_artists_only is for artists")
-            args[key] = data[key]
-    if "search" in data:
-        if not isinstance(data["search"], str) or len(data["search"]) > TEXT_MAX:
-            raise ValueError(f"search is text of at most {TEXT_MAX} characters")
-        if data["search"]:
-            args["search"] = data["search"]
-    for key, low, high in (("limit", 1, LIBRARY_LIMIT), ("offset", 0, 10_000_000)):
-        if key in data:
-            v = data[key]
-            if isinstance(v, bool) or not isinstance(v, int) or not low <= v <= high:
-                raise ValueError(f"{key} is {low}..{high}")
-            args[key] = v
-    args.setdefault("limit", 25)                      # HA's default
-    if "order_by" in data:
-        if data["order_by"] not in LIBRARY_ORDER:
-            raise ValueError(f"order_by is one of {sorted(LIBRARY_ORDER)}")
-        args["order_by"] = data["order_by"]
-    if "album_type" in data:
-        kinds = data["album_type"]
-        if kind != "album":
-            raise ValueError("album_type is for albums")
-        if isinstance(kinds, str):
-            kinds = [kinds]
-        if not isinstance(kinds, list) or not kinds or not all(k in ALBUM_TYPES for k in kinds):
-            raise ValueError(f"album_type is some of {sorted(ALBUM_TYPES)}")
-        args["album_types"] = list(dict.fromkeys(kinds))
-    return {"media_type": LIBRARY_COMMAND[kind], "args": args}
-
-
-PROXY_ID = re.compile(r"^[0-9a-f]{64}$")
-
-
-def _library_image(v: Any) -> str | None:
-    """A library item's picture as a page can load it: the artwork's own address when it is a web one without a
-    token, else Music Assistant's image proxy under Mantel's ``/ma`` (media_proxy.py: the page's prefix goes in
-    front in the shim). None when there is none.
-
-    MUSIC ASSISTANT 2.10 SERVES ``/imageproxy/<proxy_id>`` ONLY: the ``proxy_id`` it puts on every image it
-    sends. Its old ``/imageproxy?path=…&provider=…`` answers 400, which is every playlist's and album's artwork
-    that is not a web address (a collage, a playlist's own picture, Apple Music's). The old form is kept only
-    for a Music Assistant that sends no ``proxy_id``."""
-    from urllib.parse import quote
-    from .readproxy import _safe_image
-    if isinstance(v, str):
-        return _safe_image(v)
-    if not isinstance(v, Mapping) or not isinstance(v.get("path"), str) or not v["path"]:
-        return None
-    path, provider = v["path"], v.get("provider")
-    if v.get("remotely_accessible") is True or path.startswith(("http://", "https://")):
-        return _safe_image(path)
-    pid = v.get("proxy_id")
-    if isinstance(pid, str) and PROXY_ID.match(pid.lower()):
-        return f"/ma/imageproxy/{pid.lower()}?size={IMAGE_SIZE}"
-    if not isinstance(provider, str):
-        return None
-    return f"/ma/imageproxy?path={quote(path, safe='')}&provider={quote(provider, safe='')}&size={IMAGE_SIZE}"
-
-
-def _item_image(item: Mapping[str, Any]) -> str | None:
-    img = item.get("image")
-    if img is None:
-        meta = item.get("metadata")
-        imgs = meta.get("images") if isinstance(meta, Mapping) else None
-        if isinstance(imgs, list):
-            ranked = [i for i in imgs if isinstance(i, Mapping)]
-            ranked.sort(key=lambda i: 0 if i.get("type") == "thumb" else 1)
-            img = ranked[0] if ranked else None
-    return _library_image(img)
-
-
-def library_item(item: Mapping[str, Any], nested: bool = False) -> dict[str, Any]:
-    """HA's ``media_item_dict_from_mass_item``: {media_type, uri, name, version, image[, artists, album]}."""
-    def text(v: Any) -> str:
-        return v if isinstance(v, str) else ""
-    kind = item.get("media_type")
-    out: dict[str, Any] = {"media_type": text(getattr(kind, "value", kind)), "uri": text(item.get("uri")),
-                           "name": text(item.get("name")), "version": text(item.get("version")),
-                           "image": _item_image(item)}
-    if not nested:
-        artists = item.get("artists")
-        if isinstance(artists, list) and artists:
-            out["artists"] = [library_item(a, True) for a in artists if isinstance(a, Mapping)]
-        album = item.get("album")
-        if isinstance(album, Mapping):
-            out["album"] = library_item(album, True)
-    return out
-
-
-# ------------------------------------------------------------------- Up Next and the next song's cover (reads)
-# music_assistant.get_queue and music_assistant.search as HA 2026.10 accepts them, answered from Music Assistant
-# (2026-10-31): the Music page's and the screensaver's Up Next, and the screensaver's search for the next song's cover.
-SEARCH_FIELDS = frozenset({"config_entry_id", "name", "media_type", "artist", "album", "limit", "library_only"})
-SEARCH_TYPES = ("artist", "album", "track", "playlist", "radio", "audiobook", "podcast")
 SEARCH_KEYS = {"artist": "artists", "album": "albums", "track": "tracks", "playlist": "playlists", "radio": "radio",
                "audiobook": "audiobooks", "podcast": "podcasts"}
-
-
-def check_search(data: Any) -> dict[str, Any]:
-    """``music_assistant.search``'s service data -> Music Assistant's ``music/search`` args (HA's handler: the
-    artist and album go in front of the name). Anything HA's action would not take raises ValueError."""
-    if not isinstance(data, Mapping) or set(data) - SEARCH_FIELDS:
-        raise ValueError(f"search takes {sorted(SEARCH_FIELDS)} in service_data")
-    name = data.get("name")
-    if not isinstance(name, str) or not 0 < len(name) <= TEXT_MAX:
-        raise ValueError("name is text")
-    parts = []
-    for k in ("artist", "album"):
-        v = data.get(k)
-        if v is not None and (not isinstance(v, str) or len(v) > TEXT_MAX):
-            raise ValueError(f"{k} is text")
-        if v:
-            parts.append(v)
-    kinds = data.get("media_type", list(SEARCH_TYPES))
-    kinds = [kinds] if isinstance(kinds, str) else kinds
-    if not isinstance(kinds, list) or not kinds or not all(k in SEARCH_TYPES for k in kinds):
-        raise ValueError(f"media_type is some of {list(SEARCH_TYPES)}")
-    limit = data.get("limit", 5)
-    if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 100:
-        raise ValueError("limit is 1..100")
-    if not isinstance(data.get("library_only", False), bool):
-        raise ValueError("library_only is true or false")
-    return {"search_query": " - ".join(parts + [name]), "media_types": list(dict.fromkeys(kinds)), "limit": limit,
-            "library_only": data.get("library_only", False)}
 
 
 def search_answer(got: Any) -> dict[str, list]:
     got = got if isinstance(got, Mapping) else {}
     return {key: [library_item(i) for i in got.get(key) or [] if isinstance(i, Mapping)] for key in SEARCH_KEYS.values()}
-
-
-def queue_item_dict(item: Any) -> dict[str, Any] | None:
-    """HA's queue_item_dict_from_mass_item (no stream details: nothing on a page reads them)."""
-    if not isinstance(item, Mapping):
-        return None
-    mi = item.get("media_item")
-    stream = item.get("streamdetails") if isinstance(item.get("streamdetails"), Mapping) else {}
-    return {"queue_item_id": str(item.get("queue_item_id") or ""), "name": str(item.get("name") or ""),
-            "duration": item.get("duration") if isinstance(item.get("duration"), int) else None,
-            "media_item": library_item(mi) if isinstance(mi, Mapping) else None,
-            "stream_title": stream.get("stream_title") if isinstance(stream.get("stream_title"), str) else None}
-
-
-def queue_details(q: Mapping[str, Any]) -> dict[str, Any]:
-    """HA's music_assistant.get_queue answer for one player (QUEUE_DETAILS_SCHEMA)."""
-    return {"queue_id": q.get("queue_id"), "active": q.get("active"), "name": q.get("display_name"),
-            "items": q.get("items"), "shuffle_enabled": q.get("shuffle_enabled"), "repeat_mode": q.get("repeat_mode"),
-            "current_index": q.get("current_index"), "elapsed_time": q.get("elapsed_time"),
-            "current_item": queue_item_dict(q.get("current_item")), "next_item": queue_item_dict(q.get("next_item"))}
-
-
-# ----------------------------------------------------------------------------------- the gateway's side
-def _room_list(v: Any) -> list[str]:
-    if v is None:
-        return []
-    if isinstance(v, str):
-        v = [x.strip() for x in v.split(",") if x.strip()]
-    if not isinstance(v, list) or not all(isinstance(x, str) and ENTITY.match(x) for x in v):
-        from .gateway import Refused
-        raise Refused("invalid_command", "rooms are media_player entity ids")
-    return list(v)
-
-
-def classify_service(domain: Any, service: Any, data: Any, target: Any, return_response: Any) -> Any:
-    """``hk_frontend.music_*`` -> the gateway's Command, or None for any other service. Checks: ``control`` on
-    feature ``music`` and on every room/player the call names (Stop All: every room, MusicHost.expand). The
-    frame is HA's own call, sent to HA's engine when Mantel's is off."""
-    if domain != DOMAIN or service not in MUSIC_SERVICES:
-        return None
-    from .gateway import Check, Command, Refused
-    data = {} if data is None else data
-    if not isinstance(data, dict) or target not in (None, {}) or not isinstance(return_response, bool):
-        raise Refused("invalid_command", f"{DOMAIN}.{service} takes its fields in data")
-    allowed = {SERVICE_PLAY: {"rooms", "playlist"}, SERVICE_TRANSFER: {"rooms", "source"}, SERVICE_STOP: {"rooms"},
-               SERVICE_TRANSPORT: {"player", "command", "level"},
-               SERVICE_PLAY_MEDIA: {"player", "media_content_id", "media_content_type"}}[service]
-    if set(data) - allowed:
-        raise Refused("invalid_command", f"{DOMAIN}.{service} carries {sorted(allowed)} only")
-    args: dict[str, Any] = {}
-    names: list[str] = []
-    if "rooms" in allowed:
-        args["rooms"] = _room_list(data.get("rooms")) if "rooms" in data or service != SERVICE_STOP else None
-        if service != SERVICE_STOP and not args["rooms"]:
-            raise Refused("invalid_command", "pick at least one speaker")
-        names += args["rooms"] or []
-    for k in ("source", "player"):
-        if k in allowed:
-            v = data.get(k)
-            if not isinstance(v, str) or not ENTITY.match(v):
-                raise Refused("invalid_command", f"{k} is a media_player entity id")
-            args[k] = v
-            names.append(v)
-    if service == SERVICE_PLAY:
-        if not isinstance(data.get("playlist"), str) or not 0 < len(data["playlist"]) <= TEXT_MAX:
-            raise Refused("invalid_command", "playlist is a playlist's key")
-        args["playlist"] = data["playlist"]
-    if service == SERVICE_TRANSPORT:
-        if data.get("command") not in COMMANDS:
-            raise Refused("invalid_command", f"command is one of {list(COMMANDS)}")
-        lv = data.get("level")
-        if lv is not None and (isinstance(lv, bool) or not isinstance(lv, (int, float)) or not 0 <= lv <= 1):
-            raise Refused("invalid_command", "level is 0..1")
-        args.update(command=data["command"], level=lv)
-    if service == SERVICE_PLAY_MEDIA:
-        for k in ("media_content_id", "media_content_type"):
-            if not isinstance(data.get(k), str) or not 0 < len(data[k]) <= 1000:
-                raise Refused("invalid_command", f"{k} is a string")
-            args[k] = data[k]
-    action = f"{DOMAIN}.{service}"
-    names = list(dict.fromkeys(names))
-    checks = [Check("control", feature="music")] + [Check(action, n) for n in names]
-    frame: dict = {"type": "call_service", "domain": DOMAIN, "service": service}
-    if data:
-        frame["service_data"] = data
-    if return_response:
-        frame["return_response"] = True
-    return Command("service", action, checks, frame=frame, targets=names or ["feature:music"],
-                   music={"op": service, "args": args, "return_response": return_response})
-
-
-_WS_KEYS = {
-    "hk_music/queue_play": ({"entity_id", "item_id"}, set()),
-    "hk_music/used": (set(), set()),
-    "hk_music/settings/set": ({"changes"}, set()),
-    "hk_music/preset/save": ({"name", "members"}, {"item"}),
-    "hk_music/playlist/save": ({"name", "items"}, {"item", "icon", "chooser", "order"}),
-    "hk_music/playlists/order": ({"ids"}, set()),
-    "hk_music/item/remove": ({"item"}, set()),
-}
-
-
-def classify_ws(inner: dict) -> Any:
-    """An ``hk_music/*`` write -> the gateway's Command, or None. ``queue_play``: ``control`` on its player;
-    ``used``: ``control`` on feature music; the settings writes: ``configure`` on settings (HA: require_admin)."""
-    t = inner.get("type")
-    if t not in MUSIC_WS:
-        return None
-    from .gateway import Check, Command, Refused
-    need, may = _WS_KEYS[t]
-    body = {k: v for k, v in inner.items() if k not in ("type", "id")}
-    if need - set(body) or set(body) - need - may:
-        raise Refused("invalid_command", f"{t} carries {sorted(need | may)}")
-    names: list[str] = []
-    if t == "hk_music/queue_play":
-        if not isinstance(body["entity_id"], str) or not PLAYER.match(body["entity_id"]) \
-                or not isinstance(body["item_id"], str) or not 0 < len(body["item_id"]) <= 200:
-            raise Refused("invalid_command", "queue_play: a media_player entity_id and a queue item_id")
-        names = [body["entity_id"]]
-        checks = [Check("control", feature="music"), Check("media_player.play_media", body["entity_id"])]
-    elif t == "hk_music/used":
-        checks = [Check("control", feature="music")]
-    else:
-        checks = [Check("configure", feature="settings")]
-    frame = {"type": t, **body}
-    return Command("ws", t, checks, frame=frame, targets=names or [c.target for c in checks],
-                   music={"op": t, "args": body, "return_response": True})
 
 
 # ------------------------------------------------------------------------------------------ the engine

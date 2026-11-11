@@ -1,0 +1,84 @@
+{
+  "module": "hosts/server/mantel_server/music.py",
+  "mode": "siblings",
+  "parts": [
+    {
+      "name": "names",
+      "title": "the names and limits the music engine works with",
+      "members": [
+        "MUSIC_DOC",
+        "MA_PLATFORM",
+        "DOMAIN",
+        "MUSIC_SERVICES",
+        "SETTINGS_WRITES",
+        "PLAY_WRITES",
+        "MUSIC_WS",
+        "IMPORT_READ",
+        "ENTITY",
+        "PLAYER",
+        "KEY",
+        "TEXT_MAX",
+        "ITEMS_MAX",
+        "ROUTE_RULES",
+        "MA_LOGIN_FAILED",
+        "SIGN_IN_AGAIN",
+        "MEDIA_URI",
+        "log"
+      ]
+    },
+    {
+      "name": "docs",
+      "title": "the music settings document: its check and its import",
+      "members": [
+        "empty_doc",
+        "_text",
+        "check_doc",
+        "import_page",
+        "import_doc"
+      ]
+    },
+    {
+      "name": "library",
+      "title": "Music Assistant's players and library, search and the queue as the page reads them",
+      "members": [
+        "ma_players",
+        "library_entry",
+        "_ids",
+        "PLAYER_COMMANDS",
+        "to_ma",
+        "RUN_COMMANDS",
+        "MA_SERVICES",
+        "OP_SERVICE",
+        "VOLUME_SERVICES",
+        "_PLAYER_ARGS",
+        "_PLAYER_LISTS",
+        "LIBRARY_COMMAND",
+        "LIBRARY_ORDER",
+        "ALBUM_TYPES",
+        "LIBRARY_FIELDS",
+        "LIBRARY_LIMIT",
+        "IMAGE_SIZE",
+        "check_get_library",
+        "PROXY_ID",
+        "_library_image",
+        "_item_image",
+        "library_item",
+        "SEARCH_FIELDS",
+        "SEARCH_TYPES",
+        "check_search",
+        "queue_item_dict",
+        "queue_details"
+      ]
+    },
+    {
+      "name": "calls",
+      "title": "which music call a service or a socket message is",
+      "members": [
+        "_room_list",
+        "classify_service",
+        "_WS_KEYS",
+        "classify_ws"
+      ]
+    }
+  ]
+}
