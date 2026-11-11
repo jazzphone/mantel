@@ -370,7 +370,7 @@ a 3-column grid, with no page scroll.
   catalog; without it, Home is generated.
 - `hk-sky.js` (`ANNOUNCING`) and Mantel's shell (`viewTags`) know the new view; `test_glass_hostview.js`'s
   `MANTEL_VIEW_TAGS` follows.
-- Copy Settings From never copies `home_style` and `home_grid` (`COPY_NEVER`): Copy Layout To… (G6) does that.
+- Copy Settings From copies `home_style` and `home_grid` only when its Home Grid Layout group is ticked (unticked by default; 2026-11-10, the owner). A source with no layout copies its Home Style alone. Copy Layout To… (G6) still copies the editor's draft.
 - Tests: `tests/test_hk_core_home_grid.py` (the model, every refusal, 6/3/2 columns, both starters, the catalog's
   parity with the JS — through `jsc`); `hosts/ha/custom_components/hk_frontend/tests/test_homegrid.js` (the
   catalog, the view's placement, the strategy); `test_editors.js` (`HK_PAGE`).

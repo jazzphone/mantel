@@ -612,7 +612,8 @@ def test_copy_settings_covers_every_screen_setting_and_round_trips():
     keys = set(re.findall(r"'([a-z_]+)'", groups.split("];")[0])) | set(
         re.findall(r"'([a-z_]+)'", groups[groups.index("COPY_NEVER"):]))
     labels = {"menu", "home", "rooms", "Rooms", "cameras", "scenes", "favorites", "pages", "look", "behavior", "header", "idle",
-              "device", "Menu", "Appearance", "Behavior", "Header", "Cameras", "Scenes", "Favorites", "Pages"}
+              "device", "grid", "names", "Menu", "Appearance", "Behavior", "Header", "Cameras", "Scenes", "Favorites",
+              "Pages"}
     assert set(S.BOARD_DEFAULTS) <= keys, set(S.BOARD_DEFAULTS) - keys
     assert keys - labels - set(S.BOARD_DEFAULTS) == set(), keys - labels - set(S.BOARD_DEFAULTS)
     # a busy screen's settings, copied onto a fresh one, are all accepted

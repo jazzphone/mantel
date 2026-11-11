@@ -104,6 +104,8 @@
           ':host([wide]) .col.l::-webkit-scrollbar{display:none}',
           ':host([wide]) .col.r{flex:0 0 300px}',
           ':host([wide]) .col.r .crd{flex:1 1 auto;justify-content:center}',
+          // (the left column's last card takes what's left, so both columns end on the sheet's bottom inset: 2026-11-11, the owner)
+          ':host([wide]) .col.l > .crd.fill{flex:1 0 auto}',
           // ONE COLUMN ON A PHONE: one scroll, the remote after Watching
           ':host(:not([wide])) .pn{overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none}',
           ':host(:not([wide])) .pn::-webkit-scrollbar{display:none}',
@@ -196,7 +198,7 @@
         }
         var q = function (/** @type {string} */ s) { return self._root.querySelector(s); };
         // WATCHING
-        var art = q('.art'), apps = T.apps(this.client, set, undefined, this._all ? undefined : 8), nowApp = apps.filter(function (a) { return a.now; })[0];
+        var art = q('.art'), apps = T.apps(this.client, set, undefined, this._all ? undefined : (wide && this._fitN) || 8), nowApp = apps.filter(function (a) { return a.now; })[0];
         art.className = 'art';
         art.style.backgroundImage = lk.art ? 'url("' + lk.art.replace(/"/g, '%22') + '")' : nowApp && nowApp.icon ? 'url("' + nowApp.icon + '")' : '';
         if (!lk.art && nowApp && nowApp.icon) art.className = 'art app';
@@ -238,6 +240,16 @@
           box.innerHTML = list.map(function (/** @type {any} */ a) { return tile(a); }).join('');
           q('.at').textContent = this._all ? 'All Apps' : (window.hkSettings && window.hkSettings.get('features.tv_show', 'recent') === 'favorites' ? 'Favorite Apps' : 'Apps');
           q('.tog').textContent = this._all ? 'Done' : 'All Apps…';
+        }
+        // THE LAST CARD SHOWN ON THE LEFT reaches the foot (.fill)
+        var shown = Array.prototype.filter.call(this._root.querySelectorAll('.col.l > .crd'), function (el) { return !el.hidden; });
+        shown.forEach(function (el, i) { el.classList.toggle('fill', i === shown.length - 1); });
+        // AS MANY APPS AS FIT: the Apps card filling to the foot holds more rows, not bare plate (a TV that's off has no Input card).
+        // Measured against the column's own foot, which the sheet sets, never the card's, which its apps set.
+        if (wide && !this._all && !aps.hidden) {
+          var col = this._root.querySelector('.col.l'), grid = q('.apps'), cb = col.getBoundingClientRect(), gb = grid.getBoundingClientRect();
+          var cols = Math.max(1, Math.floor((gb.width + 12) / 76)), rows = Math.max(2, Math.floor((cb.bottom - gb.top - 14 + 12) / 76));
+          if (gb.width > 0 && cols * rows !== (this._fitN || 8)) { this._fitN = cols * rows; this._appsKey = ''; this._render(); }
         }
       }
     }
