@@ -5,6 +5,8 @@ Mantel Link's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+## 0.1.14 - 2026-11-11
+
 **Internal**
 - Code health: the pairing address rules, the TV stream's ffmpeg arguments and the reserved entity keys now come from hk_core, the same code Mantel Server and HK Frontend use (they were exact copies); nothing it does changes.
 
