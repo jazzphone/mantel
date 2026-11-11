@@ -89,15 +89,18 @@ function sheetState() {
         const strip = await page.evaluate(() => {
           const deep = (r, s) => [...r.querySelectorAll('*')].flatMap(e => [...(e.matches(s) ? [e] : []), ...(e.shadowRoot ? deep(e.shadowRoot, s) : [])]);
           const el = deep(document, 'hk-timeline-strip-card')[0], sr = el && el.shadowRoot;
-          const sc = sr && sr.querySelector('.sc'), c0 = sr && sr.querySelector('.c');
-          // the first card starts at the strip's own inset (a snap that ignores the padding scrolls it under the edge)
-          const inset = sc && c0 ? Math.round(c0.getBoundingClientRect().left - sc.getBoundingClientRect().left) : null;
-          return sr ? { hidden: el.hidden, cards: [...sr.querySelectorAll('.c .t')].map(t => t.textContent), none: !!sr.querySelector('.none'), inset } : null;
+          const st = sr && sr.querySelector('.st'), sc = sr && sr.querySelector('.sc'), c0 = sr && sr.querySelector('.c');
+          // the first card starts at the strip's own inset, and the cards clip at the same gutter on the right
+          // (2026-11-10: they ran to the sheet's edge)
+          const inset = st && c0 ? Math.round(c0.getBoundingClientRect().left - st.getBoundingClientRect().left) : null;
+          const clip = st && sc ? Math.round(st.getBoundingClientRect().right - sc.getBoundingClientRect().right) : null;
+          return sr ? { hidden: el.hidden, cards: [...sr.querySelectorAll('.c .t')].map(t => t.textContent), none: !!sr.querySelector('.none'), inset, clip } : null;
         });
         check(key + ' camera sheet: Recent lists the camera\'s rows', () => {
           assert(strip && !strip.hidden && !strip.none, JSON.stringify(strip));
           assert.deepEqual(strip.cards.slice(0, 2), ['Package', 'Doorbell']);
           assert.equal(strip.inset, 18, 'the first card starts ' + strip.inset + ' px in');
+          assert.equal(strip.clip, 18, 'the cards clip ' + strip.clip + ' px from the right edge');
         });
         check(key + ' no page errors', () => { if (errors.length) throw new Error(errors.join(' | ')); });
         await ctx.close();
