@@ -15,11 +15,14 @@ export function pProxy() {
     const s = got.data, owner = me.user.role === 'owner';
     const rows = [info('Mode', s.mode_detail, s.mode_label), info('HTTPS on This Request', s.public_url ? 'Configured address ' + s.public_url : null, s.https_seen ? 'Yes' : 'No'),
       info('Trusted Proxies', null, s.trusted_proxies.length ? s.trusted_proxies.join(', ') : 'None')];
-    if (s.door_key.required) rows.push(info('Door Key', s.door_key.header + (s.door_key.since ? ' · since ' + fmt(s.door_key.since) : ''), s.door_key.set ? 'Set' : 'Not Set', s.door_key.set ? '' : 'warn'));
-    c.appendChild(group({ footer: s.door_key.required ? 'Your proxy must send this installation’s door key with the door header. The key is shown once after a change, and in Test My Proxy.' : 'No door key is needed in this mode.' }, rows));
+    if (s.door_key.required) rows.push(info('Door Key', s.door_key.header + (s.door_key.since ? ' · since ' + fmt(s.door_key.since) : ''), s.door_key.set ? 'Set' : 'Not Set', s.door_key.set ? '' :
+      'warn'));
+    c.appendChild(group({ footer: s.door_key.required ? 'Your proxy must send this installation’s door key with the door header. The key is shown once after a change, and in Test My Proxy.' :
+      'No door key is needed in this mode.' }, rows));
     drawFrames(c, s);
     const nk = shown.doorKey;
-    if (nk) c.appendChild(group({ header: 'New Door Key', footer: 'Shown once: paste it into your proxy.' }, [secretCell(nk, 'proxy-newkey-value'), copyButton(nk), button('Done', () => { delete shown.doorKey; redraw(); })]));
+    if (nk) c.appendChild(group({ header: 'New Door Key', footer: 'Shown once: paste it into your proxy.' },
+      [secretCell(nk, 'proxy-newkey-value'), copyButton(nk), button('Done', () => { delete shown.doorKey; redraw(); })]));
     const acts = [];
     if (owner) acts.push(button('Test My Proxy', async () => {
       shown.proxy = { running: true }; redraw();
@@ -28,12 +31,14 @@ export function pProxy() {
       redraw();
     }, { fk: 'mx:proxy-check' }));
     if (s.door_key.required && s.can_rotate) acts.push(button('Rotate Door Key…', async () => {
-      if (!(await ask({ title: 'Rotate the door key?', message: 'Your proxy must then send the new key; until you paste it in, its requests are treated as coming from the internet.', ok: 'Rotate', destructive: true }))) return;
+      if (!(await ask({ title: 'Rotate the door key?', message: 'Your proxy must then send the new key; until you paste it in, its requests are treated as coming from the internet.', ok: 'Rotate',
+        destructive: true }))) return;
       const r = await act('proxy', () => api('POST', '/api/admin/proxy-check/door-key'), 'Door key rotated.', 'proxy');
       if (r) { shown.doorKey = r.door_key.value; redraw(); }
     }, { destructive: true, fk: 'mx:door-key-rotate' }));
     acts.push(K().nav({ label: 'Open the Full Check', href: mantelUrl('/proxy-check'), fk: 'mx:proxy-page' }));
-    c.appendChild(group({ footer: owner ? 'The test checks HTTPS, the trusted proxy, the door header, HSTS, the security policy and WebSockets from this browser, and says what to change.' : 'Only an Owner can run the test.' }, acts));
+    c.appendChild(group({ footer: owner ? 'The test checks HTTPS, the trusted proxy, the door header, HSTS, the security policy and WebSockets from this browser, and says what to change.' :
+      'Only an Owner can run the test.' }, acts));
     const res = shown.proxy;
     if (res && res.running) pending(c, 'Checking…');
     else if (res && res.error) failed(c, 'The check failed: ' + res.error);
@@ -59,7 +64,8 @@ function drawFrames(c, s) {
   const listed = s.frame_origins || (s.frame_ancestors || []).map((o) => ({ origin: o, source: 'option' }));
   const allowed = listed.map((x) => origin(x.origin)).filter(Boolean);
   const okAt = (o) => allowed.includes(o);
-  const SOURCE = { option: 'From the start-up options', sign_in: 'The Sign-In Address (Connections → Home Assistant)', home_assistant: 'Home Assistant’s own address (Settings → System → Network)', approved: 'Allowed here' };
+  const SOURCE = { option: 'From the start-up options', sign_in: 'The Sign-In Address (Connections → Home Assistant)', home_assistant: 'Home Assistant’s own address (Settings → System → Network)',
+    approved: 'Allowed here' };
   const rows = listed.length ? listed.map((x) => info(plain(x.origin), SOURCE[x.source] || x.source, x.source === 'approved' ? 'Allowed' : 'Automatic'))
     : [info('Allowed to Show Mantel', null, 'None', 'warn')];
   const seen = new Set(allowed);

@@ -302,7 +302,8 @@
           this.appendChild(this._box);
         }
         var box = this._box;
-        box.style.cssText = C0().plate('card') + ';box-sizing:border-box;padding:var(--hk-spad-t,12px) var(--hk-spad-r,12px) calc(var(--hk-spad-b,12px) + var(--hk-pager-safe,0px)) var(--hk-spad-l,12px);' +
+        box.style.cssText = C0().plate('card') +
+          ';box-sizing:border-box;padding:var(--hk-spad-t,12px) var(--hk-spad-r,12px) calc(var(--hk-spad-b,12px) + var(--hk-pager-safe,0px)) var(--hk-spad-l,12px);' +
           'display:flex;flex-direction:column;gap:8px;width:100%;height:100%;overflow:hidden;--hk-pill:100%';
         delete box._hkGroupBase; C0().groupSurface(box, plan.surface);
         this._gplan = plan; this._gkey = null;
@@ -338,7 +339,8 @@
         // EXTRA LARGE AND FULL WIDTH (2026-11-09, mockup 8b, the owner: "I actually prefer your 8b"): Large's tile size, three across (six
         // at Full Width), from the top-left of the block, two rows -- never a short group centered in it
         var big = n && (size === 'XL' || size === 'XXL');
-        tiles.style.cssText = 'display:flex;flex-wrap:wrap;justify-content:' + (n ? 'flex-start' : 'center') + ';align-content:' + (big ? 'flex-start' : 'center') + ';flex:1;min-height:0;gap:' + gm.gap + 'px;width:100%;margin:' + (big ? '0' : '0 auto') + ';max-width:' + (n && !big ? (across * gm.tw + (across - 1) * gm.gap) + 'px' : '100%');
+        tiles.style.cssText = 'display:flex;flex-wrap:wrap;justify-content:' + (n ? 'flex-start' : 'center') + ';align-content:' + (big ? 'flex-start' : 'center') + ';flex:1;min-height:0;gap:' +
+          gm.gap + 'px;width:100%;margin:' + (big ? '0' : '0 auto') + ';max-width:' + (n && !big ? (across * gm.tw + (across - 1) * gm.gap) + 'px' : '100%');
         box.appendChild(tiles);
         if (!n) {
           // NO SCENES (2026-11-08): the glyph and a line, centered in the block, in the secondary ink -- the block is there, saying what it holds

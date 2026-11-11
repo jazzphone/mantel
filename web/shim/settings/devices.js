@@ -32,9 +32,13 @@ function roomChoice(form, rooms, self, onTablet, makes = false) {
                        value: others.length ? 'In Use' : undefined, on: d.tablet === tid, fk: 'mx:' + form + ':tablet:' + tid,
                        onClick: () => { d.tablet = tid; d.other = false; if (onTablet) onTablet(t); redraw(); } });
   });
-  rows.push(K().check({ label: makes ? 'A New Tablet' : 'Not One of These', sub: makes ? 'In a room with no HK wall tablet yet: Mantel adds one' : 'A room with no HK wall tablet', on: !!d.other, fk: 'mx:' + form + ':other',
+  rows.push(K().check({ label: makes ? 'A New Tablet' : 'Not One of These', sub: makes ? 'In a room with no HK wall tablet yet: Mantel adds one' : 'A room with no HK wall tablet', on: !!d.other,
+    fk: 'mx:' + form + ':other',
                         onClick: () => { d.tablet = ''; d.other = true; redraw(); } }));
-  const out = [group({ header: 'Which HK Tablet', footer: tablets.length ? 'Its touches and black screen reach Mantel as this HK tablet’s (All Screens, Wall Tablets). “In Use”: an enrolled device is already in its room.'
+  const out = [
+    group(
+    { header: 'Which HK Tablet', footer: tablets.length ?
+    'Its touches and black screen reach Mantel as this HK tablet’s (All Screens, Wall Tablets). “In Use”: an enrolled device is already in its room.'
     : makes ? 'HK has no wall tablets in Mantel’s settings yet: choose A New Tablet and its room.' : 'HK has no wall tablets in Mantel’s settings yet (All Screens, Wall Tablets).' }, rows)];
   if (d.other) {
     const areas = (rooms && rooms.areas) || [];
@@ -90,7 +94,8 @@ export function drawTabletMantel(c, ctx) {
       rows.push(K().select({ label, options: opts, value: cur ? cur.id : '', fk: 'mx:dev-ha:' + dv.id,
         onChange: async (v) => {
           const was = users.find((u) => u.id === v);
-          if (was && standIn(was) && !(await ask({ title: 'Make ' + was.name + ' this tablet’s?', message: 'It is linked to the Wall Tablet account “' + (was.person.name || was.name) + '” now. That account is removed; this tablet keeps signing in to Mantel as it does.', ok: 'Make It This Tablet’s' }))) { redraw(); return; }
+          if (was && standIn(was) && !(await ask({ title: 'Make ' + was.name + ' this tablet’s?', message: 'It is linked to the Wall Tablet account “' + (was.person.name || was.name) +
+            '” now. That account is removed; this tablet keeps signing in to Mantel as it does.', ok: 'Make It This Tablet’s' }))) { redraw(); return; }
           act(key, () => api('PUT', '/api/devices/' + encodeURIComponent(dv.id) + '/ha-user', { ha_user: v || null }),
               v ? 'Linked.' : 'It has no Home Assistant user now.', 'hapeople', 'devices', 'users');
         } }));
@@ -121,12 +126,17 @@ export function drawTabletsMantel(c) {
   const lost = all.filter((d) => lostTablet(d, tablets));
   const gone = all.filter((d) => d.revoked);
   result(c, 'devices');
-  if (lost.length) c.appendChild(group({ header: 'Signed In to Mantel, Not on a Tablet', footer: hh('span', { class: 'mxerr', text: 'In a room no wall tablet above has, so their touches and black screen don’t reach Mantel. Open each to choose its tablet.' }) },
-    lost.map((d) => nav(d.name, 'devices/' + encodeURIComponent(d.id), { sub: [d.room ? titleCase(d.room) : 'No room', 'last seen ' + ago(d.last_seen), d.source_ip].filter(Boolean).join(' · '), value: 'Choose Tablet', icon: 'mdi:tablet' }))));
+  if (lost.length) c.appendChild(group({ header: 'Signed In to Mantel, Not on a Tablet',
+    footer: hh('span', { class: 'mxerr', text: 'In a room no wall tablet above has, so their touches and black screen don’t reach Mantel. Open each to choose its tablet.' }) },
+    lost.map((d) => nav(d.name, 'devices/' + encodeURIComponent(d.id), { sub: [d.room ? titleCase(d.room) : 'No room', 'last seen ' + ago(d.last_seen), d.source_ip].filter(Boolean).join(' · '),
+      value: 'Choose Tablet', icon: 'mdi:tablet' }))));
   if (gone.length) c.appendChild(group({ header: 'Signed Out', footer: 'Browsers signed out of Mantel as a tablet. They leave this list after 30 days; the Audit Log keeps them.' },
-    gone.map((d) => info(d.name, [d.room ? titleCase(d.room) : null, 'signed out ' + fmt(d.revoked), d.revoked_reason && d.revoked_reason !== 'revoked' ? d.revoked_reason.replace(/_/g, ' ') : null].filter(Boolean).join(' · ')))
+    gone.map((d) => info(d.name, [d.room ? titleCase(d.room) : null, 'signed out ' + fmt(d.revoked), d.revoked_reason && d.revoked_reason !== 'revoked' ? d.revoked_reason.replace(/_/g, ' ') :
+      null].filter(Boolean).join(' · ')))
       .concat([button('Clear List', () => act('devices', () => api('DELETE', '/api/devices/revoked'), 'Cleared.', 'devices'), { fk: 'mx:devices-clear' })])));
-  c.appendChild(group({ footer: me.door === 'lan' ? 'On the tablet itself, signed in as an Owner or Admin: this browser becomes a wall tablet, for one of the tablets above or a new one, and you are signed out here.'
+  c.appendChild(
+    group(
+    { footer: me.door === 'lan' ? 'On the tablet itself, signed in as an Owner or Admin: this browser becomes a wall tablet, for one of the tablets above or a new one, and you are signed out here.'
       : 'A browser is signed in as a wall tablet on the home network only.' },
     [me.door === 'lan' ? nav('Sign In This Browser as a Wall Tablet…', 'devices/enroll', { icon: 'mdi:tablet' }) : info('Sign In This Browser as a Wall Tablet', null, 'Home Network Only')]));
 }
@@ -191,7 +201,10 @@ export function pEnroll(back = ['Wall Tablets', '#/house/tablets'], forTablet = 
       }
     }
     const nothing = !tablets.length && !(rooms.areas || []).length;
-    if (nothing) c.appendChild(group({ header: 'Which HK Tablet', footer: 'Mantel knows no rooms yet: no HK wall tablets in its settings, no Home Assistant areas. Enrol it now, and choose its tablet in All Screens, Wall Tablets once they are here.' }, []));
+    if (nothing) c.appendChild(
+      group(
+      { header: 'Which HK Tablet',
+      footer: 'Mantel knows no rooms yet: no HK wall tablets in its settings, no Home Assistant areas. Enrol it now, and choose its tablet in All Screens, Wall Tablets once they are here.' }, []));
     else {
       for (const g of roomChoice('device', rooms, null, (t) => {   // the name follows the tablet picked, until it is typed
         if (!d.name || d.name === d.auto) { d.name = t.name; d.auto = t.name; }
@@ -204,9 +217,11 @@ export function pEnroll(back = ['Wall Tablets', '#/house/tablets'], forTablet = 
       const name = (d.name || '').trim();
       const where = roomBody('device');
       const makes = ['owner', 'admin'].includes(u.role);
-      if (!where && !nothing) { ui.flash = { key: 'enroll', text: d.other ? 'Choose its room.' : 'Choose its HK tablet, or ' + (makes ? 'A New Tablet' : 'Not One of These') + ' and its room.', err: true }; redraw(); return; }
+      if (!where && !nothing) { ui.flash = { key: 'enroll', text: d.other ? 'Choose its room.' : 'Choose its HK tablet, or ' + (makes ? 'A New Tablet' : 'Not One of These') + ' and its room.',
+        err: true }; redraw(); return; }
       if (!name) { ui.flash = { key: 'enroll', text: 'Give the tablet a name.', err: true }; redraw(); return; }
-      if (!(await ask({ title: 'Make this browser a wall tablet?', message: 'You will be signed out here. From now on this browser acts as the tablet “' + name + '”.', ok: 'Make It a Tablet' }))) return;
+      if (!(await ask({ title: 'Make this browser a wall tablet?', message: 'You will be signed out here. From now on this browser acts as the tablet “' + name + '”.',
+        ok: 'Make It a Tablet' }))) return;
       // a room with no HK tablet: an Owner or Admin gets that HK tablet made too, so nothing waits on All Screens
       const make = d.other && where && makes ? { new_tablet: true } : {};
       const r = await act('enroll', () => api('POST', '/api/devices/enroll', { name, role: d.role, ...(where || {}), ...make }));
@@ -216,6 +231,8 @@ export function pEnroll(back = ['Wall Tablets', '#/house/tablets'], forTablet = 
 }
 function drawEnrolled(c) {
   const d = ui.enrolled;
-  c.appendChild(group({ header: 'This Browser Is Now a Wall Tablet', footer: `“${d.name}”${d.room ? ' in ' + titleCase(d.room) : ''} is enrolled as a ${roleLabel(d.role)}. You have been signed out of this browser.` },
+  c.appendChild(
+    group(
+    { header: 'This Browser Is Now a Wall Tablet', footer: `“${d.name}”${d.room ? ' in ' + titleCase(d.room) : ''} is enrolled as a ${roleLabel(d.role)}. You have been signed out of this browser.` },
     [K().nav({ label: 'Open the Dashboard', href: mantelUrl('/home'), fk: 'mx:open-home' })]));
 }

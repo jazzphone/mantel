@@ -647,8 +647,14 @@
       ':host{display:block;color:' + v('ink') + '}',
       '.wp{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:' + SP.region + 'px;align-items:start}',
       '.col{display:flex;flex-direction:column;gap:' + SP.block + 'px;min-width:0}',
-      '.wp.one{grid-template-columns:minmax(0,1fr)}' + /* TWO COLUMNS FILL THE SHEET (2026-11-07, the review; HomeView's Weather: the place's temperature centered, large, the condition and the day's range under it): the summary takes what the hours and conditions leave, its reading centered in it; the days share the right column's height */ '.wp:not(.one){flex:1;min-height:0;align-items:stretch}.wp:not(.one) .wx-summary,.wp:not(.one) .wx-days,.wp:not(.one) .dys{flex:1;display:flex;flex-direction:column;min-height:0}.wp:not(.one) .reading{flex:1;flex-direction:column;justify-content:center;text-align:center;gap:2px;margin-top:0}.wp:not(.one) .reading .t{font-size:56px;line-height:60px}.wp:not(.one) .dy{flex:1 1 0;min-height:44px}',
-      '.wx-section{' + C.plate('card') + ';border-radius:' + SP.cardR + 'px;padding:' + SP.cardPad + ';background:' + v('key') + ';box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none;min-width:0}',
+      // TWO COLUMNS FILL THE SHEET (2026-11-07, the review; HomeView's Weather: the place's temperature centered, large, the condition and the day's range under it): the summary takes what
+      // the hours and conditions leave, its reading centered in it; the days share the right column's height
+      '.wp.one{grid-template-columns:minmax(0,1fr)}' +
+        '.wp:not(.one){flex:1;min-height:0;align-items:stretch}.wp:not(.one) .wx-summary,.wp:not(.one) .wx-days,.wp:not(.one) .dys{flex:1;display:flex;flex-direction:column;min-height:0}' +
+          '.wp:not(.one) .reading{flex:1;flex-direction:column;justify-content:center;text-align:center;gap:2px;margin-top:0}.wp:not(.one) .reading .t{font-size:56px;line-height:60px}' +
+          '.wp:not(.one) .dy{flex:1 1 0;min-height:44px}',
+      '.wx-section{' + C.plate('card') + ';border-radius:' + SP.cardR + 'px;padding:' + SP.cardPad + ';background:' + v('key') +
+        ';box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none;min-width:0}',
       '.lab{display:flex;justify-content:space-between;align-items:baseline;gap:' + SP.block + 'px;' + C.labelCss('label') + ';line-height:16px;margin:0}',
       '.lab .n{text-transform:none;letter-spacing:0;font-size:13px;font-weight:500;text-align:right}',
       '.reading{display:flex;align-items:center;gap:' + SP.block + 'px;margin-top:' + SP.block + 'px}',
@@ -662,7 +668,8 @@
       '.gr .x small{font-size:13px;font-weight:500;color:' + v('ink-2') + ';margin-left:4px}',
       '.dys{margin-top:' + SP.block + 'px}',
       '.dy{display:grid;grid-template-columns:48px 26px 30px 30px minmax(0,1fr) 30px;align-items:center;gap:8px;width:100%;min-height:48px;',
-      '  box-sizing:border-box;padding:8px ' + SP.block + 'px;border:0;border-top:1px solid ' + v('line') + ';background:transparent;color:' + v('ink') + ';font:inherit;cursor:pointer;text-align:left;border-radius:0}',
+      '  box-sizing:border-box;padding:8px ' + SP.block + 'px;border:0;border-top:1px solid ' + v('line') + ';background:transparent;color:' + v('ink') +
+        ';font:inherit;cursor:pointer;text-align:left;border-radius:0}',
       '.dy:first-child{border-top-color:transparent}.dy>svg{display:block}',
       '.dy[aria-pressed="true"]{background:' + v('key-strong') + ';border-radius:' + C.R.inner + 'px;border-top-color:transparent}',
       '.dy[aria-pressed="true"]+ .dy{border-top-color:transparent}',
@@ -813,7 +820,8 @@
             var dh=num(d.temperature),dl=num(d.templow),pop=num(d.precipitation_probability),key=new Date(d.datetime).toDateString();
             var name=key===todayKey ? 'Today' : new Date(d.datetime).toLocaleDateString(window.hkLocale.tag(), window.hkLocale.zoned({weekday:'short'}));
             var dot=key===todayKey&&t!=null&&dl!=null&&dh!=null ? '<b style="left:'+pct(Math.max(mn,Math.min(mx,t)))+'%"></b>' : '';
-            return '<button class="dy" type="button" data-day="'+i+'" aria-pressed="'+(key===self._dayKey)+'" aria-label="'+esc(new Date(d.datetime).toLocaleDateString(window.hkLocale.tag(), window.hkLocale.zoned({weekday:'long',month:'short',day:'numeric'})))+'">'+
+            return '<button class="dy" type="button" data-day="'+i+'" aria-pressed="'+(key===self._dayKey)+'" aria-label="'+
+              esc(new Date(d.datetime).toLocaleDateString(window.hkLocale.tag(), window.hkLocale.zoned({weekday:'long',month:'short',day:'numeric'})))+'">'+
               '<span class="d">'+name+'</span>'+glyph(d.condition==='clear-night'?'sunny':d.condition,24,false)+'<span class="p">'+(pop>=20?Math.round(pop)+'%':'')+'</span>'+
               '<span class="lo">'+(dl!=null?Math.round(dl)+'°':'—')+'</span><span class="rg">'+(dl!=null&&dh!=null?'<i style="left:'+pct(dl)+'%;right:'+(100-pct(dh))+'%"></i>'+dot:'')+'</span>'+
               '<span class="hi">'+(dh!=null?Math.round(dh)+'°':'—')+'</span></button>';
@@ -843,7 +851,8 @@
         return '<div class="ch"><svg viewBox="0 0 600 110" preserveAspectRatio="none" aria-hidden="true">' +
           '<path d="M0 14H600M0 57H600M0 100H600" style="stroke:' + v('line') + '" fill="none" vector-effect="non-scaling-stroke"/>' +
           '<path d="' + path + '" fill="none" style="stroke:var(--hk-wx-c,#64D2FF)" stroke-width="2.5" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>' +
-          pts.map(function (p, i) { return '<line data-i="' + i + '" x1="' + X(i) + '" x2="' + X(i) + '" y1="0" y2="110" style="stroke:' + v('ink-2') + '" vector-effect="non-scaling-stroke"/>'; }).join('') +
+          pts.map(function (p, i) { return '<line data-i="' + i + '" x1="' + X(i) + '" x2="' + X(i) + '" y1="0" y2="110" style="stroke:' + v('ink-2') + '" vector-effect="non-scaling-stroke"/>';
+            }).join('') +
           '</svg><div class="ax"><span>' + (pts[0] ? hr(Date.parse(pts[0].t)) : '') + '</span><span>' + hr(Date.parse(pts[Math.floor(pts.length / 2)].t)) +
           '</span><span>' + hr(Date.parse(pts[pts.length - 1].t)) + '</span></div><div class="rd"></div></div>';
       }

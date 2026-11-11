@@ -119,7 +119,8 @@
     var st = X.st || {}, s = id && st[id] && typeof st[id] === 'object' ? st[id] : null, a = (s && s.attributes && typeof s.attributes === 'object' ? s.attributes : {});
     var dom = String(id || '').split('.')[0], dc = String(a.device_class || ''), raw = s && s.state != null ? String(s.state) : '';
     var name = String(nameOpt || '').replace(/\s+/g, ' ').trim() || String(a.friendly_name || '').replace(/\s+/g, ' ').trim() || idName(id);
-    var i = { id: id, dom: dom, dc: dc, name: name, ok: !!s && raw !== '' && raw !== 'unknown' && raw !== 'unavailable', raw: raw, n: null, v: DASH, unit: '', tight: false, celsius: false, open: false, icon: String(a.icon || '') };
+    var i = { id: id, dom: dom, dc: dc, name: name, ok: !!s && raw !== '' && raw !== 'unknown' && raw !== 'unavailable', raw: raw, n: null, v: DASH, unit: '', tight: false, celsius: false,
+      open: false, icon: String(a.icon || '') };
     var us = ((X.client && X.client.config) || {}).unit_system || {};
     var unit = String(a.unit_of_measurement || '');
     if (dom === 'climate') unit = String(us.temperature || '°F');
@@ -169,11 +170,15 @@
   var GLYPH = {
     thermo: '<path d="M9.8 4.4a2.2 2.2 0 0 1 4.4 0v7.1a4.6 4.6 0 1 1-4.4 0z"/>',
     drop: '<path d="M12 3c3.4 4.2 5.8 7.2 5.8 10.2a5.8 5.8 0 0 1-11.6 0C6.2 10.2 8.6 7.2 12 3z"/>',
-    battery: '<path fill-rule="evenodd" d="M5.4 6.8h10.6a2.2 2.2 0 0 1 2.2 2.2v6a2.2 2.2 0 0 1-2.2 2.2H5.4A2.2 2.2 0 0 1 3.2 15V9a2.2 2.2 0 0 1 2.2-2.2zm.2 1.8a.6.6 0 0 0-.6.6v5.6c0 .3.3.6.6.6h10.2c.3 0 .6-.3.6-.6V9.2a.6.6 0 0 0-.6-.6z"/>' +
+    battery:
+      '<path fill-rule="evenodd" d="M5.4 6.8h10.6a2.2 2.2 0 0 1 2.2 2.2v6a2.2 2.2 0 0 1-2.2 2.2H5.4A2.2 2.2 0 0 1 3.2 15V9a2.2 2.2 0 0 1 2.2-2.2zm.2 1.8a.6.6 0 0 0-.6.6v5.6c0 .3.3.6.6.6h10.2c.3 0 ' +
+      '.6-.3.6-.6V9.2a.6.6 0 0 0-.6-.6z"/>' +
       '<path d="M6.4 10h5.6v4.4H6.4zM19.2 10.6h.6a.9.9 0 0 1 .9.9v1a.9.9 0 0 1-.9.9h-.6z"/>',
     bolt: '<path d="M13.4 2.6L5.4 13.4h5.3l-1 8 8-10.8h-5.3z"/>',
     door: '<path fill-rule="evenodd" d="M6.4 19.8V4.4a1.6 1.6 0 0 1 1.6-1.6h8a1.6 1.6 0 0 1 1.6 1.6v15.4h1.6a.8.8 0 0 1 0 1.6H4.8a.8.8 0 0 1 0-1.6zM14.2 10.8a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"/>',
-    window: '<path fill-rule="evenodd" d="M5 3.5h14a1.5 1.5 0 0 1 1.5 1.5v14a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 19V5A1.5 1.5 0 0 1 5 3.5zM5.3 5.3h5.9v5.9H5.3zM12.8 5.3h5.9v5.9h-5.9zM5.3 12.8h5.9v5.9H5.3zM12.8 12.8h5.9v5.9h-5.9z"/>',
+    window:
+      '<path fill-rule="evenodd" d="M5 3.5h14a1.5 1.5 0 0 1 1.5 1.5v14a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 19V5A1.5 1.5 0 0 1 5 3.5zM5.3 5.3h5.9v5.9H5.3zM12.8 5.3h5.9v5.9h-5.9zM5.3 ' +
+      '12.8h5.9v5.9H5.3zM12.8 12.8h5.9v5.9h-5.9z"/>',
     garage: '<path fill-rule="evenodd" d="M12 3.2L2.6 9.4v11.4h18.8V9.4zM6 12.2h12v8.6H6zM7.2 13.6h9.6v1.4H7.2zM7.2 16.2h9.6v1.4H7.2zM7.2 18.8h9.6v1.4H7.2z"/>',
     motion: '<circle cx="7.4" cy="12" r="2.4"/><path d="M12.4 8a5.6 5.6 0 0 1 0 8M16.2 5a10 10 0 0 1 0 14"' + LINE + ' stroke-width="2"/>',
     mail: '<rect x="3.2" y="5.4" width="17.6" height="13.2" rx="2.4"' + LINE + ' stroke-width="1.8"/><path d="M4 7.6l8 6 8-6"' + LINE + ' stroke-width="1.8"/>'

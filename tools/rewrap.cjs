@@ -155,6 +155,8 @@ function stringParentOk(n) {
   if (p.kind === SK.ArrayLiteralExpression) return p.elements.indexOf(n) >= 0;
   if (p.kind === SK.VariableDeclaration || p.kind === SK.PropertyAssignment || p.kind === SK.PropertyDeclaration) return p.initializer === n;
   if (p.kind === SK.ReturnStatement) return p.expression === n;
+  // a branch of a conditional (`c ? 'a' : 'b'`): `+` binds tighter than `?:`, so 'a' + 'b' is the same branch
+  if (p.kind === SK.ConditionalExpression) return p.whenTrue === n || p.whenFalse === n;
   if (p.kind === SK.BinaryExpression) {
     const k = p.operatorToken.kind;
     return k === SK.PlusToken || ((k === SK.EqualsToken || k === SK.PlusEqualsToken) && p.right === n);

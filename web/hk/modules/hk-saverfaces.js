@@ -81,8 +81,10 @@
     '.hkf.month{color:#1c1c1e}',
     '.hkf.month .ckbg{background:#f7f5f2}',
     '.hkf.month .hd{position:absolute;left:9.8cqmin;right:9.8cqmin;top:5.6cqmin;display:flex;justify-content:space-between;font-size:5.4cqmin;font-weight:600;color:#e0302a;line-height:1}',
-    '.hkf.month .big{position:absolute;left:50%;top:54%;transform:translate(-50%,-50%);font-size:75cqmin;font-weight:800;line-height:1;letter-spacing:-.05em;color:rgba(224,48,42,.85);white-space:nowrap}',
-    '.hkf.month .g{position:absolute;left:9.8cqmin;right:9.8cqmin;top:15.8cqmin;bottom:5cqmin;display:grid;grid-template-columns:repeat(7,1fr);align-content:center;row-gap:1.2cqmin;text-align:center;font-size:4.9cqmin;font-weight:600;line-height:8.8cqmin;color:#1f4fd1}',
+    '.hkf.month .big{position:absolute;left:50%;top:54%;transform:translate(-50%,-50%);font-size:75cqmin;font-weight:800;line-height:1;letter-spacing:-.05em;color:rgba(224,48,42,.85);' +
+      'white-space:nowrap}',
+    '.hkf.month .g{position:absolute;left:9.8cqmin;right:9.8cqmin;top:15.8cqmin;bottom:5cqmin;display:grid;grid-template-columns:repeat(7,1fr);align-content:center;row-gap:1.2cqmin;' +
+      'text-align:center;font-size:4.9cqmin;font-weight:600;line-height:8.8cqmin;color:#1f4fd1}',
     '.hkf.month .g .wd{color:#1c1c1e}',
     '.hkf.month .g .o{opacity:.35}',
     '.hkf.month .g .td span{display:inline-block;width:8.3cqmin;height:8.3cqmin;line-height:8.3cqmin;border-radius:50%;background:#1c2b5a;color:#fff}',
@@ -147,7 +149,8 @@
     // line box's foot is 0.145 of the type below the figures' baseline (line-height 1). Under the figures (.tpn, the
     // gradient clipped to them) a soft contact shadow on the land (::before, painted first; no filter: a gradient)
     '.hkf.weather .tp{position:absolute;left:4.9cqmin;bottom:calc(.32 * max(100cqh, 66.7cqw) - .145em);font-size:48.8cqmin;font-weight:600;line-height:1;letter-spacing:-.05em}',
-    '.hkf.weather .tpn{position:relative;display:inline-block;background:linear-gradient(#fff,rgba(255,255,255,.35));-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:none}',
+    '.hkf.weather .tpn{position:relative;display:inline-block;background:linear-gradient(#fff,rgba(255,255,255,.35));-webkit-background-clip:text;background-clip:text;color:transparent;' +
+      'text-shadow:none}',
     '.hkf.weather .tp::before{content:"";position:absolute;left:0;right:3%;bottom:.06em;height:.17em;pointer-events:none;',
     '  background:radial-gradient(closest-side,rgba(20,14,4,.42),rgba(20,14,4,.18) 55%,rgba(20,14,4,0));transform:skewX(-24deg)}',
     '.hkf.weather .tp:has(.tpn:empty)::before{display:none}',
@@ -158,7 +161,8 @@
     // are down from the top -- each reading a box 14 units tall, centred in it. What the screensaver plays beside it
     // is laid out to the same numbers (hk-saver.js, Big Weather's corners): its picture 14 units, its title and
     // artist the readings' two sizes
-    '.hkf.weather .rd{position:absolute;left:7.3cqmin;right:7.3cqmin;bottom:6.1cqmin;display:grid;grid-template-columns:repeat(var(--n,4),1fr);text-align:center;font-size:3.7cqmin;font-weight:600;line-height:1.3}',
+    '.hkf.weather .rd{position:absolute;left:7.3cqmin;right:7.3cqmin;bottom:6.1cqmin;display:grid;grid-template-columns:repeat(var(--n,4),1fr);text-align:center;font-size:3.7cqmin;font-weight:600;' +
+      'line-height:1.3}',
     '.hkf.weather .rd > div{height:14cqmin;display:flex;flex-direction:column;align-items:center;justify-content:center}',
     '.hkf.weather .rd svg{display:block;width:4.4cqmin;height:4.4cqmin;fill:currentColor;opacity:.9}',
     '.hkf.weather .rd small{display:block;font-size:2.9cqmin;opacity:.85}',
@@ -260,7 +264,8 @@
     var season = [12, 1, 2].indexOf(m) >= 0 ? 'winter' : [3, 4, 5].indexOf(m) >= 0 ? 'spring' : [6, 7, 8].indexOf(m) >= 0 ? 'summer' : 'autumn';
     if (south) season = { winter: 'summer', summer: 'winter', spring: 'autumn', autumn: 'spring' }[season];
     if (season === 'winter') return { id: 'winter', frame: 'sp-winter.webp', sprites: [['sp-crystal.webp', 14, 64, 8, 10, 0.8], ['sp-crystal.webp', 88, 28, 6, -8, 0.7]] };
-    if (season === 'spring') return { id: 'spring', frame: 'sp-spring.webp', sprites: [['sp-petal.webp', 16, 72, 6, 40, 0.9], ['sp-petal.webp', 84, 30, 5, -20, 0.8], ['sp-butterfly.webp', 80, 70, 10, 12, 1]] };
+    if (season === 'spring') return { id: 'spring', frame: 'sp-spring.webp', sprites: [['sp-petal.webp', 16, 72, 6, 40, 0.9], ['sp-petal.webp', 84, 30, 5, -20, 0.8],
+      ['sp-butterfly.webp', 80, 70, 10, 12, 1]] };
     if (season === 'summer') return { id: 'summer', frame: null, sprites: [['sp-butterfly.webp', 16, 30, 12, -14, 1], ['sp-butterfly.webp', 84, 66, 9, 18, 0.95]] };
     return { id: 'autumn', frame: null, sprites: [['leaf-maple-f.webp', 82, 20, 12, -20, 1], ['leaf-oak-f.webp', 88, 44, 10, 30, 1], ['leaf-birch-f.webp', 74, 58, 8, 10, 1],
       ['leaf-maple-f.webp', 13, 30, 10, -35, 1], ['leaf-oak-f.webp', 20, 72, 9, 22, 1]] };
@@ -296,7 +301,9 @@
   var G = {
     note: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 17.5V6.2l10-2.2v11.3a2.7 2.7 0 1 1-1.6-2.5V7.6L10.6 9v8.6A2.7 2.7 0 1 1 9 15z"/></svg>',
     cloud: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M7 18.5h10.2a4 4 0 0 0 .4-8 5.6 5.6 0 0 0-10.8 1.2A3.4 3.4 0 0 0 7 18.5z"/></svg>',
-    sun: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><circle cx="12" cy="12" r="4.4"/><path d="M11 2.6h2v2.6h-2zM11 18.8h2v2.6h-2zM2.6 11h2.6v2H2.6zM18.8 11h2.6v2h-2.6zM4.9 6.3l1.4-1.4 1.8 1.8-1.4 1.4zM15.9 17.3l1.4-1.4 1.8 1.8-1.4 1.4zM4.9 17.7l1.8-1.8 1.4 1.4-1.8 1.8zM15.9 6.7l1.8-1.8 1.4 1.4-1.8 1.8z"/></svg>',
+    sun:
+      '<svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><circle cx="12" cy="12" r="4.4"/><path d="M11 2.6h2v2.6h-2zM11 18.8h2v2.6h-2zM2.6 11h2.6v2H2.6zM18.8 11h2.6v2h-2.6zM4.9 ' +
+      '6.3l1.4-1.4 1.8 1.8-1.4 1.4zM15.9 17.3l1.4-1.4 1.8 1.8-1.4 1.4zM4.9 17.7l1.8-1.8 1.4 1.4-1.8 1.8zM15.9 6.7l1.8-1.8 1.4 1.4-1.8 1.8z"/></svg>',
     sunset: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 17a7 7 0 0 1 14 0zM2 18.5h20v1.8H2zM11 2.5h2v4h-2zM3.6 8.1l1.4-1.4 2.6 2.6-1.4 1.4zM16.4 9.3l2.6-2.6 1.4 1.4-2.6 2.6z"/></svg>',
     wind: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8h11a3 3 0 1 0-3-3h2a1 1 0 1 1 1 1H3zm0 4h15a3 3 0 1 1-3 3h2a1 1 0 1 0 1-1H3zm0 4h7v2H3z"/></svg>',
     drop: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5C8 8 5.5 11.4 5.5 15a6.5 6.5 0 0 0 13 0c0-3.6-2.5-7-6.5-12.5z"/></svg>',
@@ -560,7 +567,8 @@
     var C = x.clocks, face = null;
     if (C && C.mount) {
       var has = (C.STYLES || []).some(function (s) { return s[0] === 'numbers'; });
-      try { face = C.mount(clk, { style: has ? 'numbers' : 'analog', bg: 'none', scrim: false, drift: false, h24: x.h24, still: x.still, minutely: true, client: x.client() }); } catch (e) { face = null; }
+      try { face = C.mount(clk, { style: has ? 'numbers' : 'analog', bg: 'none', scrim: false, drift: false, h24: x.h24, still: x.still, minutely: true, client: x.client() }); } catch (e) {
+        face = null; }
     }
     x.parts.push(face);
     var muKey = null, wxKey = null;

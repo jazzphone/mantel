@@ -174,7 +174,9 @@
         if (!this._built) {
           this._built = true;
           if (this._view === 'modes') {
-            this._root.innerHTML = '<div class="pn"><div class="sub"><div class="bk"><button aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="' + BACK + '"/></svg></button><div class="t">Mode</div></div></div></div>';
+            this._root.innerHTML =
+              '<div class="pn"><div class="sub"><div class="bk"><button aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="' + BACK +
+              '"/></svg></button><div class="t">Mode</div></div></div></div>';
             this._root.querySelector('.bk button').addEventListener('click', function () { self._go('main'); });
             this._paintModes = pickList(this._root.querySelector('.sub'), modes, function (m) {
               self._svc('humidifier', 'set_mode', { mode: m });

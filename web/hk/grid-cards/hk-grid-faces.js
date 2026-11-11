@@ -26,7 +26,8 @@
       return /** @type {any} */ (clockModule).p;
     }
     // (the block clips the face, not the face itself: scaled down, its own box is smaller than its drawing)
-    var CLOCK_CSS = '.body{height:100%}.ck .ckroot{overflow:visible}.ck{position:relative;height:100%;box-sizing:border-box;overflow:hidden;border-radius:var(--hk-block-radius, ' + C.R.plate + 'px)}' +
+    var CLOCK_CSS = '.body{height:100%}.ck .ckroot{overflow:visible}.ck{position:relative;height:100%;box-sizing:border-box;overflow:hidden;border-radius:var(--hk-block-radius, ' + C.R.plate +
+      'px)}' +
       '.ck.plate{' + C.plate('card') + '}';
     // THE DIALS USE THEIR BLOCK (2026-11-07, the review: an Analog face in Wide or Tall sat small in the middle with 124 px of bare
     // plate on both sides, 458 at XXL): a round face -- Analog, Classic, Analog Numbers -- in a block that is not square is the

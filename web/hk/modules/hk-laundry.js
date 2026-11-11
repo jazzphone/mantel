@@ -303,7 +303,8 @@
     else if (s === 'paused') { o.sub = left ? left.replace('left', 'to go') : 'Waiting'; o.short = 'Paused'; }
     else if (s === 'off') { o.sub = ''; o.short = 'Off'; }
     else if (src !== 'status') { o.sub = src === 'power' && o.watts != null ? Math.round(o.watts) + ' W' : 'Running'; o.short = 'Running'; }
-    else { o.sub = left || (o.pct != null ? Math.round(o.pct) + '% done' : ''); o.short = o.left != null && o.left >= 3570 ? dur(o.left) : left || o.title; }   // (past an hour, a short line drops "left")
+    // (past an hour, a short line drops "left")
+    else { o.sub = left || (o.pct != null ? Math.round(o.pct) + '% done' : ''); o.short = o.left != null && o.left >= 3570 ? dur(o.left) : left || o.title; }
     o.endsWords = o.ends ? 'Done at ' + clock(o.ends) : '';
     // THE CYCLE'S STEPS (a status that says which): done before, now, after
     if (src === 'status') {
@@ -360,7 +361,8 @@
     var W = 3.8, H = 8, GAP = 1.6, top = 32, mid = top + H / 2, bot = top + H, chars = String(str).split('');
     var width = chars.reduce(function (n, c) { return n + (c === ':' ? 2 : W + GAP); }, 0) - GAP, x = cx - width / 2, d = '', dots = '';
     chars.forEach(function (c) {
-      if (c === ':') { dots += '<circle cx="' + (x + 0.2).toFixed(1) + '" cy="' + (mid - 1.6) + '" r="0.75"/><circle cx="' + (x + 0.2).toFixed(1) + '" cy="' + (mid + 1.6) + '" r="0.75"/>'; x += 2; return; }
+      if (c === ':') { dots += '<circle cx="' + (x + 0.2).toFixed(1) + '" cy="' + (mid - 1.6) + '" r="0.75"/><circle cx="' + (x + 0.2).toFixed(1) + '" cy="' + (mid + 1.6) + '" r="0.75"/>'; x += 2;
+        return; }
       var s = SEGS[c] || '', L = x, R = x + W, line = function (a, b, e, f) { d += 'M' + a.toFixed(1) + ' ' + b + 'L' + e.toFixed(1) + ' ' + f; };
       if (s.indexOf('a') >= 0) line(L, top, R, top);
       if (s.indexOf('b') >= 0) line(R, top, R, mid);
@@ -378,7 +380,8 @@
     var s = STATES.indexOf(state) >= 0 ? state : 'off', dry = kind === 'dryer', id = 'hkla' + (++uid);
     var wet = !dry && /^(washing|rinsing|running|paused|leak)$/.test(s);
     var lvl = s === 'rinsing' ? 84 : 92, lie = /^(off|done|offline|delayed|leak|error)$/.test(s);
-    var v = '<svg class="hkla s-' + s + '" viewBox="' + (o.crop ? '23 9 94 132" style="aspect-ratio:94/132' : '0 0 140 150') + '" role="img" aria-label="' + String(o.label || NAMES[s] || '').replace(/[&<>"]/g, '') + '">';
+    var v = '<svg class="hkla s-' + s + '" viewBox="' + (o.crop ? '23 9 94 132" style="aspect-ratio:94/132' : '0 0 140 150') + '" role="img" aria-label="' +
+      String(o.label || NAMES[s] || '').replace(/[&<>"]/g, '') + '">';
     v += '<defs><clipPath id="' + id + '"><circle cx="70" cy="90" r="25.5"/></clipPath></defs>';
     if (s === 'leak') v += '<ellipse class="pud" cx="64" cy="142" rx="58" ry="6.5"/>';
     v += '<ellipse class="sh" cx="70" cy="141" rx="50" ry="4.5"/>';
@@ -394,18 +397,28 @@
     if (wet) v += '<g class="wave"><path class="wt' + (s === 'rinsing' ? ' lt' : '') + '" d="M30 ' + lvl + ' q6 -3.2 12 0 t12 0 t12 0 t12 0 t12 0 t12 0 t12 0 t12 0 V124 H30Z"/></g>';
     if (s === 'spinning') v += '<circle class="wt" cx="70" cy="90" r="25" style="opacity:.18"/>';
     if (lie) v += '<g><ellipse class="c1" cx="61" cy="106" rx="13" ry="6"/><ellipse class="c3" cx="80" cy="108" rx="11" ry="5"/><ellipse class="c2" cx="72" cy="102" rx="9" ry="4.5"/></g>';
-    else v += '<g class="drum"><ellipse class="c1" cx="58" cy="102" rx="11" ry="6" transform="rotate(-20 58 102)"/><ellipse class="c2" cx="80" cy="100" rx="9" ry="5" transform="rotate(25 80 100)"/><ellipse class="c3" cx="70" cy="74" rx="8" ry="4.5"/></g>';
+    else v +=
+      '<g class="drum"><ellipse class="c1" cx="58" cy="102" rx="11" ry="6" transform="rotate(-20 58 102)"/><ellipse class="c2" cx="80" cy="100" rx="9" ry="5" transform="rotate(25 80 ' +
+      '100)"/><ellipse class="c3" cx="70" cy="74" rx="8" ry="4.5"/></g>';
     if (s === 'rinsing') v += '<circle class="bub" cx="60" cy="104" r="1.8"/><circle class="bub" cx="74" cy="108" r="1.4"/><circle class="bub" cx="83" cy="102" r="1.6"/>';
     v += '</g><path class="gli" d="M53 78a21 21 0 0 1 11-8.5"/>';
     if (s === 'spinning') v += '<path class="arc" d="M33 74a40 40 0 0 1 9-13"/><path class="arc" d="M107 106a40 40 0 0 1-9 13"/>';
     if (s === 'cooling') v += '<g class="air"><path d="M104 80h10"/><path d="M104 96h8"/></g>';
     v += '</g>';
     var bx = 114, by = 26;
-    if (s === 'paused') v += '<g class="bdg"><circle class="w" cx="114" cy="26" r="15"/><rect class="k" x="107.5" y="19" width="4.2" height="14" rx="2"/><rect class="k" x="116.3" y="19" width="4.2" height="14" rx="2"/></g>';
-    if (s === 'delayed') v += '<g class="bdg"><circle class="w" cx="114" cy="26" r="15"/><circle class="ks" cx="114" cy="26" r="8"/><line class="ks" x1="114" y1="26" x2="114" y2="21"/><line class="ks" x1="114" y1="26" x2="117.5" y2="27.5"/></g>';
+    if (s ===
+      'paused') v +=
+      '<g class="bdg"><circle class="w" cx="114" cy="26" r="15"/><rect class="k" x="107.5" y="19" width="4.2" height="14" rx="2"/><rect class="k" x="116.3" y="19" width="4.2" height="14" ' +
+      'rx="2"/></g>';
+    if (s ===
+      'delayed') v +=
+      '<g class="bdg"><circle class="w" cx="114" cy="26" r="15"/><circle class="ks" cx="114" cy="26" r="8"/><line class="ks" x1="114" y1="26" x2="114" y2="21"/><line class="ks" x1="114" y1="26" ' +
+      'x2="117.5" y2="27.5"/></g>';
     if (s === 'done' || s === 'wrinkle') v += '<g class="bdg"><circle class="m" cx="114" cy="26" r="15"/><path class="ks" d="M107.5 26l4.5 4.6 8.5-9.2"/></g>';
-    if (s === 'leak') v += '<g class="bdg"><circle class="r" cx="114" cy="26" r="16"/><path class="wk" d="M' + bx + ' ' + (by - 9.5) + 'C110.2 21.7 106.8 25.8 106.8 29.4a7.2 7.2 0 0 0 14.4 0C121.2 25.8 117.8 21.7 ' + bx + ' ' + (by - 9.5) + 'Z"/></g>';
-    if (s === 'error') v += '<g class="bdg"><circle class="r" cx="114" cy="26" r="15"/><rect class="wk" x="111.7" y="17" width="4.6" height="12" rx="2.3"/><circle class="wk" cx="114" cy="33" r="2.6"/></g>';
+    if (s === 'leak') v += '<g class="bdg"><circle class="r" cx="114" cy="26" r="16"/><path class="wk" d="M' + bx + ' ' + (by - 9.5) +
+      'C110.2 21.7 106.8 25.8 106.8 29.4a7.2 7.2 0 0 0 14.4 0C121.2 25.8 117.8 21.7 ' + bx + ' ' + (by - 9.5) + 'Z"/></g>';
+    if (s ===
+      'error') v += '<g class="bdg"><circle class="r" cx="114" cy="26" r="15"/><rect class="wk" x="111.7" y="17" width="4.6" height="12" rx="2.3"/><circle class="wk" cx="114" cy="33" r="2.6"/></g>';
     return v + '</svg>';
   }
   var built = '';

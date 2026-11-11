@@ -16,7 +16,10 @@ export function pFiles(sub) {
   return { title: 'Your Files', top: true, scope: 'Your home’s own files, kept in Mantel’s data and its encrypted backups: the screensavers’ photos, and Apple’s font and glyphs.', body(c) {
     result(c, 'files');
     if (can('photos')) {
-      c.appendChild(group({ header: 'Photos', footer: 'Albums of photos for the screensavers: upload them here, then pick an album on a screen’s Screensaver Options, or for every screen on All Screens → Screensaver.' },
+      c.appendChild(
+        group(
+        { header: 'Photos', footer: 'Albums of photos for the screensavers: upload them here, then pick an album on a screen’s Screensaver Options, or for every screen on All Screens → Screensaver.' }
+        ,
         [photos.filesRow(photoTools)]));
     }
     const got = load('files', () => api('GET', '/api/user-files'));

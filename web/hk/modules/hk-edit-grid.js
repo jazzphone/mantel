@@ -738,7 +738,8 @@
     if (p.card === 'accessories') added.pages = { source: 'accessories' };
     if (p.card === 'room') added.opts = { accessory_display: 'scroll' };
     var gone = plan.removed, nm = (Xe.NAMES && Xe.NAMES[p.card]) || p.card;
-    this.commit(plan.grid, gone.length ? Xe.listOf(gone) + (gone.length > 1 ? ' were' : ' was') + ' replaced by ' + nm + '. Cancel puts ' + (gone.length > 1 ? 'them' : 'it') + ' back.' : nm + ' added.');
+    this.commit(plan.grid, gone.length ? Xe.listOf(gone) + (gone.length > 1 ? ' were' : ' was') + ' replaced by ' + nm + '. Cancel puts ' + (gone.length > 1 ? 'them' : 'it') + ' back.' : nm +
+      ' added.');
     this.focus(added.id);
   };
 
@@ -851,7 +852,8 @@
               var room = !!added(Xe, self.grid, key, s, view);
               // (no free space for it: its chip still works -- the card is placed by hand over the blocks it replaces)
               var b = K.h('button', { class: 'chip', type: 'button', 'data-card': key, 'data-size': s, text: Xe.SIZE_SHORT[s],
-                                      'aria-label': room ? 'Add ' + Xe.NAMES[key] + ', ' + Xe.SIZE_NAMES[s] : 'Add ' + Xe.NAMES[key] + ', ' + Xe.SIZE_NAMES[s] + ': no free space, place it over blocks to replace them',
+                                      'aria-label': room ? 'Add ' + Xe.NAMES[key] + ', ' + Xe.SIZE_NAMES[s] : 'Add ' + Xe.NAMES[key] + ', ' + Xe.SIZE_NAMES[s] +
+                                        ': no free space, place it over blocks to replace them',
                                       title: room ? '' : 'No free space for a ' + Xe.SIZE_NAMES[s] + ' block: place it over the blocks it replaces' });
               if (!room) b.setAttribute('data-replace', '');
               b.addEventListener('click', function () {

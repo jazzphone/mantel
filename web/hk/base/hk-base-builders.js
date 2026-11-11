@@ -54,7 +54,8 @@
       var text = 'position:absolute' + I + ';left:' + C0.inset + 'px' + I + ';right:' + C0.inset + 'px' + I + ';margin:0' + I + ';width:auto' + I +
         ';display:block' + I + ';text-align:center' + I + ';white-space:nowrap' + I + ';overflow:hidden;text-overflow:ellipsis;letter-spacing:' + C0.track + 'px' + I;
       return at('', [s.plate]) + '{position:relative}' +
-        at('', [s.well]) + '{position:absolute' + I + ';left:50%' + I + ';margin:0' + I + ';translate:-50% -50%;border-radius:50%;' +   // (translate: Flat takes a pressed box's transform -- 2026-11-10
+        // (translate: Flat takes a pressed box's transform -- 2026-11-10
+        at('', [s.well]) + '{position:absolute' + I + ';left:50%' + I + ';margin:0' + I + ';translate:-50% -50%;border-radius:50%;' +
           'display:flex;align-items:center;justify-content:center}' +
         // the glyph bare, off and lit (lit in its own colour on the white plate: the card's)
         at('', [s.well]) + '{background:none' + I + '}' +
@@ -63,7 +64,8 @@
         at(s.lit, s.sub) + '{color:' + v('ink-on-state') + I + '}' +
         // (square where 170 px tall or about square -- a Large Accessories block's ~179 px tiles, an XL group's 2 x 2 ~178, 2026-11-07; fit: grows past 196, <= 45cqmin)
         one(C0.tall) + '@container hk-cell (min-height:170px) or (max-aspect-ratio: 6 / 5) or style(--hk-cell-shape: square){' + one(C0.square) +
-          at('', [s.well]) + '{width:' + fit(C0.square.box) + I + ';height:' + fit(C0.square.box) + I + '}' + at('', [s.icon]) + '{width:' + fit(C0.square.glyph) + I + ';height:' + fit(C0.square.glyph) + I + '}}' + '@container hk-cell (max-height:140px) and (min-aspect-ratio: 6 / 5){' + one(C0.short) + '}';
+          at('', [s.well]) + '{width:' + fit(C0.square.box) + I + ';height:' + fit(C0.square.box) + I + '}' + at('', [s.icon]) + '{width:' + fit(C0.square.glyph) + I + ';height:' +
+            fit(C0.square.glyph) + I + '}}' + '@container hk-cell (max-height:140px) and (min-aspect-ratio: 6 / 5){' + one(C0.short) + '}';
     }
     // ONE TITLE ROW (the Energy page's): the name left, the detail right, one baseline, 20 px tall. `sel` is the row (default .ttl); its <b> is the name, its <span> the detail.
     function titleRow(sel) {
@@ -83,12 +85,16 @@
       return 'font-size:' + t.size + 'px;font-weight:' + t.weight + (t.track ? ';letter-spacing:' + t.track : '') +
         (t.upper ? ';text-transform:uppercase' : '') + ';color:' + v('ink-2');
     }
-    // A BLOCK'S HEADING (2026-11-08, the owner: titles "all need to match ... the same gray color, format/layout and spacing"; a block's own name printed on it goes; "The title of the music card, is how
+    // A BLOCK'S HEADING (2026-11-08, the owner: titles "all need to match ... the same gray color, format/layout and spacing"; a block's own name printed on it goes; "The title of the music card, is
+    // how
     // I would like the titles to look"; then "headings similar to the weather page, but without the glyph ... we aren't really using caps like this anywhere"): the Weather page's
-    // section title (.wxp .tt: 13 / 600, the secondary gray, as written -- "Recently Played", not capitals) everywhere, a 16 px line on the block's text inset (18 square, 14 tile), on a 19 px row (HEAD.row), the content HEAD.gap under it; a word at the row's right ("+3 more") the same style. headCss(sel): the heading's text; headRowCss(sel): its row.
+    // section title (.wxp .tt: 13 / 600, the secondary gray, as written -- "Recently Played", not capitals) everywhere, a 16 px line on the block's text inset (18 square, 14 tile), on a 19 px row
+    // (HEAD.row), the content HEAD.gap under it; a word at the row's right ("+3 more") the same style. headCss(sel): the heading's text; headRowCss(sel): its row.
     var HEAD = { row: 19, gap: 8 };
-    function headCss(sel) { return sel + '{font-size:13px;font-weight:600;letter-spacing:0;text-transform:none;color:' + v('ink-2') + ';line-height:16px;margin:0;padding:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}'; }
-    function headRowCss(sel) { return sel + '{display:flex;align-items:center;justify-content:space-between;gap:10px;height:' + HEAD.row + 'px;flex:none;min-width:0;margin:0 0 ' + HEAD.gap + 'px 0}'; }
+    function headCss(sel) { return sel + '{font-size:13px;font-weight:600;letter-spacing:0;text-transform:none;color:' + v('ink-2') +
+      ';line-height:16px;margin:0;padding:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}'; }
+    function headRowCss(sel) { return sel + '{display:flex;align-items:center;justify-content:space-between;gap:10px;height:' + HEAD.row + 'px;flex:none;min-width:0;margin:0 0 ' + HEAD.gap + 'px 0}';
+      }
     // THE PAGE CARD (the Energy page's, and the page headers'): the plate and padding at a fixed height (--hk-ep-h), the one title row (.ttl), and the shared pieces -- .wait, .num,
     // the figure (.big, its unit in <u>), the caption (.cap) and the label (.k, its dot <i>). `cls` is the hk-plate's class. Defined below figureCss (it uses it), hoisted.
     function pageCardCss(cls) {
@@ -249,7 +255,8 @@
         var bright = APPLE_LIGHT[c.join(',')];
         if (bright || role === 'on') return flatColors[key] = bright || color;
       }
-      function lum(v) { return v.map(function (x) { x /= 255; return x <= .04045 ? x / 12.92 : Math.pow((x + .055) / 1.055,2.4); }).reduce(function (n,x,i) { return n + x * [.2126,.7152,.0722][i]; },0); }
+      function lum(v) { return v.map(function (x) { x /= 255; return x <= .04045 ? x / 12.92 : Math.pow((x + .055) / 1.055,2.4); }).reduce(function (n,x,i) { return n + x * [.2126,.7152,.0722][i]; },
+        0); }
       var ground = FLAT.light['--hk-key'];
       var bg = role === 'well' ? 1 : lum([1,3,5].map(function (i) { return parseInt(ground.substr(i,2),16); })), target = role === 'text' ? 4.5 : 3;
       while ((Math.max(bg,lum(c))+.05)/(Math.min(bg,lum(c))+.05) < target && Math.max.apply(null,c) > 0) c = c.map(function (x) { return Math.floor(x*.96); });

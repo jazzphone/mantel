@@ -111,7 +111,8 @@
       // Match the page inset, then lift the block 6px for the 44px clock's
       // extra space above its visible digits compared with the status labels.
       // (and clear of a side safe area at the left: a phone turned, its Dynamic Island there -- hk-base.js SAFE)
-      '  padding:calc((100vw - var(--hk-page-left,0px) - var(--hk-page-right,0px)) * var(--hk-side,0.02) - 2px + var(--hk-safe-top,env(safe-area-inset-top,0px))) ' + NOW_PAD + 'px 20px calc(' + NOW_PAD + 'px + var(--hk-safe-left,env(safe-area-inset-left,0px)))}',
+      '  padding:calc((100vw - var(--hk-page-left,0px) - var(--hk-page-right,0px)) * var(--hk-side,0.02) - 2px + var(--hk-safe-top,env(safe-area-inset-top,0px))) ' + NOW_PAD + 'px 20px calc(' +
+        NOW_PAD + 'px + var(--hk-safe-left,env(safe-area-inset-left,0px)))}',
       '.now[hidden],.rule[hidden]{display:none}',
       '.now .tm{display:flex;align-items:baseline;gap:4px;min-width:0;white-space:nowrap}',
       '.now .t{font-size:44px;font-weight:600;line-height:1;letter-spacing:0}',

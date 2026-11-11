@@ -552,7 +552,8 @@
         day_look: o.day_look, forecast_big: o.forecast_big, forecast_planted: o.forecast_planted !== false, layout: o.layout || null, tb_size: o.tb_size, tb_top: o.tb_top, tb_dim: o.tb_dim,
         // the clocks (hk-saverclock.js; hk-saver.js readCfg checks them)
         clock: o.clock !== false, clock_over: o.clock_over, clock_style: o.clock_style, clock_bg: o.clock_bg,
-        clock_motion: o.clock_motion, clock_24: o.clock_24 === true, clock_today_music: o.clock_today_music !== false, clock_today_weather: o.clock_today_weather !== false, clock_colors: o.clock_colors, clock_options: o.clock_options, clock_speed: o.clock_speed, clock_depth: o.clock_depth,
+        clock_motion: o.clock_motion, clock_24: o.clock_24 === true, clock_today_music: o.clock_today_music !== false, clock_today_weather: o.clock_today_weather !== false,
+          clock_colors: o.clock_colors, clock_options: o.clock_options, clock_speed: o.clock_speed, clock_depth: o.clock_depth,
         clock_night: o.clock_night, clock_night_from: o.clock_night_from, clock_night_to: o.clock_night_to,
         // a Wallpaper behind the clock (2026-10-31; hk-saverclock.js draws it, hkWallpapers checks both)
         clock_wallpaper: o.clock_wallpaper, clock_wallpaper_color: o.clock_wallpaper_color,
@@ -563,9 +564,11 @@
         // Home Energy and the additional screens (hk-saver.js readCfg checks them)
         energy_slide: o.energy_slide === true, extra_music: o.extra_music === true, extra_forecast: o.extra_forecast === true,
         extra_every: o.extra_every, extra_for: o.extra_for, energy_hide: Array.isArray(o.energy_hide) ? o.energy_hide.slice() : [],
-        weather_slide: o.weather_slide === true, weather_hide: Array.isArray(o.weather_hide) ? o.weather_hide.slice() : [], timer_slide: o.timer_slide !== false, timer_often: o.timer_often, holiday_slide: o.holiday_slide === true, holiday_pick: o.holiday_pick, holiday_one: o.holiday_one, holiday_days: o.holiday_days, holiday_fx: o.holiday_fx,
+        weather_slide: o.weather_slide === true, weather_hide: Array.isArray(o.weather_hide) ? o.weather_hide.slice() : [], timer_slide: o.timer_slide !== false, timer_often: o.timer_often,
+          holiday_slide: o.holiday_slide === true, holiday_pick: o.holiday_pick, holiday_one: o.holiday_one, holiday_days: o.holiday_days, holiday_fx: o.holiday_fx,
         corner_time_size: o.corner_time_size || 100, corner_hide: Array.isArray(o.corner_hide) ? o.corner_hide.slice() : [],
-        music_hide: Array.isArray(o.music_hide) ? o.music_hide.slice() : [], holiday_off: (o.holiday_off || []).slice(), holiday_own: JSON.parse(JSON.stringify(o.holiday_own || [])), holiday_outdoors: (o.holiday_outdoors || []).slice(), holiday_hide: (o.holiday_hide || []).slice(),
+        music_hide: Array.isArray(o.music_hide) ? o.music_hide.slice() : [], holiday_off: (o.holiday_off || []).slice(), holiday_own: JSON.parse(JSON.stringify(o.holiday_own || [])),
+          holiday_outdoors: (o.holiday_outdoors || []).slice(), holiday_hide: (o.holiday_hide || []).slice(),
         forecast_every: o.forecast_every || 5,
         band: o.band !== false, band_photos: o.band_photos === true,
         calendar: o.calendar === true, calendar_days: o.calendar_days || 2,

@@ -262,7 +262,8 @@
         '.evd:first-child{padding-top:0}',
         '.ev:has(+ .evd){border-bottom:0}',
         '.np .art{width:56px;height:56px;border-radius:10px;object-fit:cover;flex:none;background:' + v('key') + ';display:grid;place-items:center}',
-        '.np .tx{overflow:visible}.np .tx > b{display:block;overflow:hidden;text-overflow:ellipsis}.np .tx > i{display:block;font:500 15px/1.3 var(--hk-font-body,inherit);font-style:normal;color:' + v('ink-2') + ';overflow:hidden;text-overflow:ellipsis}',
+        '.np .tx{overflow:visible}.np .tx > b{display:block;overflow:hidden;text-overflow:ellipsis}.np .tx > i{display:block;font:500 15px/1.3 var(--hk-font-body,inherit);font-style:normal;color:' +
+          v('ink-2') + ';overflow:hidden;text-overflow:ellipsis}',
         // BARE BUTTONS (2026-11-07, the owner: "do we need the wells (circles) behind the icons?"): the glyphs bigger,
         // each its whole button to tap; a press dims it
         '.pp{all:unset;cursor:pointer;flex:none;display:grid;place-items:center;width:40px;height:40px;border-radius:50%}',

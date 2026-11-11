@@ -307,7 +307,8 @@
       switch (kind) {
         case 'climate': {
           var cl = n('thermostats'), act = [];
-          cl.forEach(function (id) { var a = (st(id) || {}).attributes || {}; if ((a.hvac_action === 'heating' || a.hvac_action === 'cooling') && act.indexOf(a.hvac_action) < 0) act.push(a.hvac_action); });
+          cl.forEach(function (id) { var a = (st(id) || {}).attributes || {}; if ((a.hvac_action === 'heating' || a.hvac_action === 'cooling') && act.indexOf(a.hvac_action) < 0) act.push(
+            a.hvac_action); });
           var doing = act.map(function (a) { return a === 'heating' ? 'Heating' : 'Cooling'; }).join(' · ');
           out.detail = [doing, rest].filter(Boolean).join(' · ') || (out.reading.num ? 'Inside' : null);
           var temps = cl.map(function (id) {
@@ -362,7 +363,8 @@
         }
         case 'security': {
           var locks = n('locks'), alarm = S('security.alarm', null), al = alarm && st(alarm);
-          var open2 = on(locks, ['unlocked', 'open', 'opening', 'unlocking']), odd = locks.filter(function (id) { var x = st(id); return !x || LOCK_KNOWN.indexOf(x.state) < 0 && open2.indexOf(id) < 0; });
+          var open2 = on(locks, ['unlocked', 'open', 'opening', 'unlocking']), odd = locks.filter(
+            function (id) { var x = st(id); return !x || LOCK_KNOWN.indexOf(x.state) < 0 && open2.indexOf(id) < 0; });
           // UNKNOWN IS NOT LOCKED: a lock that has not said (unavailable, jammed) is never counted as secure
           if (!open2.length && odd.length && out.reading.text === 'All Locked') out.reading = { num: String(odd.length), unit: 'Not Reporting' };
           var lockLine = !locks.length ? null : open2.length ? plural(open2.length, 'lock', 'locks') + ' open'
@@ -380,7 +382,8 @@
           return;
         }
         case 'laundry': {
-          var lo = window.hkLaundry ? window.hkLaundry.lookAll(client).filter(function (o) { return o.runs || o.state === 'done' || o.state === 'wrinkle' || o.state === 'leak' || o.state === 'error'; }) : [];
+          var lo = window.hkLaundry ? window.hkLaundry.lookAll(client).filter(function (o) { return o.runs || o.state === 'done' || o.state === 'wrinkle' || o.state === 'leak' || o.state === 'error';
+            }) : [];
           out.detail = lo.length ? hsList(lo.map(function (o) { return o.name + ' ' + o.short.toLowerCase(); }), 2) : 'Nothing running';
           return;
         }
@@ -392,7 +395,8 @@
         }
         case 'speakers': {
           var rooms2 = window.hkMusic && window.hkMusic.rooms().length ? window.hkMusic.rooms() : null;
-          var playing = rooms2 ? rooms2.filter(function (r) { var x = st(r.entity); return x && x.state === 'playing' && !window.hkMusic.ignored(x); }).map(function (r) { return r.name || hsName(client, r.entity); })
+          var playing = rooms2 ? rooms2.filter(function (r) { var x = st(r.entity); return x && x.state === 'playing' && !window.hkMusic.ignored(x); }).map(
+            function (r) { return r.name || hsName(client, r.entity); })
                                : names(on(n('speakers'), 'playing'));
           out.detail = playing.length ? hsList(playing, 2) : 'Nothing playing';
           return;

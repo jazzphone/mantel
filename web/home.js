@@ -127,7 +127,8 @@ window.addEventListener('hk-house-event', (e) => {
   if (n && n.type === 'notification') [n.sheet, n.entity, n.camera].forEach(keep);
 });
 const nextSnapshot = () => new Promise((res) => snapshotWaiters.push(res));
-hub.onSnapshot = (m) => { if (!narrowed) for (const id of Object.keys(m.entities || {})) houseIds.add(id); host.applySnapshot(m.entities); const w = snapshotWaiters; snapshotWaiters = []; w.forEach((f) => f()); };
+hub.onSnapshot = (m) => { if (!narrowed) for (const id of Object.keys(m.entities || {})) houseIds.add(id); host.applySnapshot(m.entities); const w = snapshotWaiters; snapshotWaiters = [];
+  w.forEach((f) => f()); };
 const first = nextSnapshot();
 // ...and every entity that joins the house while the whole house is subscribed (a diff's `added`): it is the
 // house's as much as a snapshot's, and a card that reads it after the page narrowed must be able to ask again

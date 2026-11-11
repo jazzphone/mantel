@@ -80,6 +80,9 @@ H.run('CLIENT STATE', [function () {
   delete window.hkCards;
   delete window.hkCardState;
   delete window.hkHostClient;
+  // (a fresh page: hk-base.js's own guard and its loader's mark are flags of their own since it was cut into parts)
+  delete window.__hkBaseStarted;
+  if (window.__hkSplitStarted) delete window.__hkSplitStarted['hk-base'];
   load(HK_ROOT + '/frontend/cards/hk-base.js');
   H.ok('base waits for its lifecycle and host port', !window.hkCards);
   window.hkCardState = lifecycle;

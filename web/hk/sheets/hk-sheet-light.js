@@ -193,7 +193,8 @@
         sub.className = 'sub';
         this._pn.appendChild(sub);
         var title = this._view === 'effects' ? 'Effects' : 'Color';
-        sub.innerHTML = '<div class="bk"><button aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="' + BACK + '"/></svg></button><div class="t">' + title + '</div></div>';
+        sub.innerHTML = '<div class="bk"><button aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="' + BACK +
+          '"/></svg></button><div class="t">' + title + '</div></div>';
         sub.querySelector('.bk button').addEventListener('click', function () { self._go('main'); });
         if (this._view === 'effects') {
           var list = (at(s, 'effect_list') || []).slice();

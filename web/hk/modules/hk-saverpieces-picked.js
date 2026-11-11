@@ -418,7 +418,8 @@
     if (/dishwasher/i.test(t)) return 'Dishwasher';
     if (/dryer/i.test(t)) return 'Dryer';
     if (/washer|washing machine/i.test(t)) return 'Washer';
-    n = n.replace(/\b(remaining|program|time|finish|finishes|finished|completion|complete|end|ends|cycle|operation|state|status|duration|left|estimated|eta|run|running|machine)\b/gi, ' ').replace(/\s+/g, ' ').trim();
+    n = n.replace(/\b(remaining|program|time|finish|finishes|finished|completion|complete|end|ends|cycle|operation|state|status|duration|left|estimated|eta|run|running|machine)\b/gi, ' ').replace(
+      /\s+/g, ' ').trim();
     return cut(n || nameOf(st, id), 14);
   }
   // one appliance -> null (not at work, not long done, or not readable), else { id, name, k: 'run' | 'done', left: seconds | null, at: ms | null }
@@ -508,7 +509,8 @@
         read: function (X) {
           var list = appliancesOf(X).slice(0, 2).map(function (a) { return applSpec(a, X); });
           if (!list.length) return { off: true, rows: [], k: '' };
-          return { rows: list.map(function (s) { return { name: s.name, k: s.k, v: s.k === 'done' ? 'Done' : s.m != null ? spanWords(s.m) + ' left' : 'Running', fin: s.fin ? tm(new Date(s.fin), X.h24, true) : '' }; }), k: list[0].k };
+          return { rows: list.map(function (s) { return { name: s.name, k: s.k, v: s.k === 'done' ? 'Done' : s.m != null ? spanWords(s.m) + ' left' : 'Running', fin: s.fin ?
+            tm(new Date(s.fin), X.h24, true) : '' }; }), k: list[0].k };
         },
         draw: function (s) {
           if (s.rows.length === 1) {
@@ -595,7 +597,8 @@
         // what, where, and how long ago (the title row has the glyph at its right; more than one: how many more, after the time)
         read: function (X) {
           var l = leakSpec(X);
-          return l ? { t: LEAK_TITLE[l.type], where: l.name, ago: l.ago + (l.more ? (l.ago ? ' · ' : '') + '+' + l.more + ' more' : ''), type: l.type } : { off: true, t: '', where: '', ago: '', type: '' };
+          return l ? { t: LEAK_TITLE[l.type], where: l.name, ago: l.ago + (l.more ? (l.ago ? ' · ' : '') + '+' + l.more + ' more' : ''), type: l.type } :
+            { off: true, t: '', where: '', ago: '', type: '' };
         },
         draw: function (s) {
           return '<div class="cd ti"><div class="pk-h"><div class="ct">' + esc(s.t) + '</div>' + gl(s.type === 'water' ? DROP : ALERT) + '</div>' +
@@ -691,13 +694,15 @@
 
   // ------------------------------------------------------------ PRICE: "Peak until 7 PM", else "$0.31/kWh"
   var TIER_KEYS = ['tier', 'period', 'price_level', 'level', 'current_period', 'current_tier', 'tou_period', 'rate_period', 'price_tier'];
-  var NEXT_KEYS = ['next_change', 'next_change_at', 'next_tier_change', 'next_period_start', 'next_period', 'next_update', 'until', 'valid_until', 'period_end', 'tier_ends', 'ends_at', 'end_time', 'next_rate_change'];
+  var NEXT_KEYS = ['next_change', 'next_change_at', 'next_tier_change', 'next_period_start', 'next_period', 'next_update', 'until', 'valid_until', 'period_end', 'tier_ends', 'ends_at', 'end_time',
+    'next_rate_change'];
   var CUR = { USD: '$', CAD: '$', AUD: '$', NZD: '$', MXN: '$', EUR: '€', GBP: '£', JPY: '¥', CNY: '¥', INR: '₹', CHF: 'CHF ', SEK: 'kr ', NOK: 'kr ', DKK: 'kr ' };
   // a tier word: how it stands ('low' | 'mid' | 'high' | '') and how it reads
   function tierOf(w) {
     var t = String(w == null ? '' : w).toLowerCase().replace(/[_-]+/g, ' ').trim();
     if (!t || /^-?\d+(\.\d+)?$/.test(t) || /^(unknown|unavailable|none|null)$/.test(t)) return null;
-    var k = /\b(off ?peak|super|low|cheap|night|valley|economy)\b/.test(t) ? 'low' : /\b(mid|middle|shoulder|standard|normal|partial|medium)\b|mid ?peak/.test(t) ? 'mid' : /\b(peak|on ?peak|high|critical|expensive)\b/.test(t) ? 'high' : '';
+    var k = /\b(off ?peak|super|low|cheap|night|valley|economy)\b/.test(t) ? 'low' : /\b(mid|middle|shoulder|standard|normal|partial|medium)\b|mid ?peak/.test(t) ? 'mid' :
+      /\b(peak|on ?peak|high|critical|expensive)\b/.test(t) ? 'high' : '';
     var word = /^super off ?peak$/.test(t) ? 'Super off-peak' : /^off ?peak$/.test(t) ? 'Off-peak' : /^mid ?peak$/.test(t) ? 'Mid-peak' : /^on ?peak$/.test(t) ? 'Peak' : cut(titleCase(t), 16);
     return { k: k, word: word };
   }

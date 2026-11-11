@@ -44,14 +44,17 @@
       // rows fill the block (Large beside the date), a later day under its own heading, "N more" at the foot when
       // they don't all fit. Extra Large: the month, a dot under each day with something on it, and the chosen
       // day's events beside it. Each size on a tile cell first, then on a square one (below).
-      ':host([size]) .blk{' + window.hkCards.plate('card') + ';box-sizing:border-box;height:100%;padding:' + window.hkCards.blockPad(window.hkCards.CARD.pad) + ';  overflow:hidden;display:flex;flex-direction:column}',
-      window.hkCards.headCss('.wg .wd') + '.wg .wd{height:16px;padding:1.5px 0;margin-bottom:8px;flex:none}.wg .wd+.ls{margin-top:0}', // 2026-11-08, the owner: titles "all need to match" -- the one heading, Music's
+      ':host([size]) .blk{' + window.hkCards.plate('card') + ';box-sizing:border-box;height:100%;padding:' + window.hkCards.blockPad(window.hkCards.CARD.pad) +
+        ';  overflow:hidden;display:flex;flex-direction:column}',
+      // 2026-11-08, the owner: titles "all need to match" -- the one heading, Music's
+      window.hkCards.headCss('.wg .wd') + '.wg .wd{height:16px;padding:1.5px 0;margin-bottom:8px;flex:none}.wg .wd+.ls{margin-top:0}',
       '.wg .dn{font-weight:300;line-height:1.02;letter-spacing:-0.02em;font-variant-numeric:tabular-nums;flex:none}',
       '.wg.S .dn{font-size:36px}.wg.T .dn{font-size:44px}.wg.L .dn,.wg.W .dn{font-size:54px}.wg .rt{display:flex;flex-direction:column;min-width:0;flex:1}',
       '.wg .rt b,.wg .rt small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.wg .rt b{' + window.hkCards.typeCss('headline') + ';line-height:21px}',
       '.wg .rt small{' + window.hkCards.typeCss('caption') + ';line-height:17px;color:' + window.hkCards.v('ink-2') + '}.wg .bar{flex:none;width:4px;align-self:stretch;border-radius:calc(4px / 2)}',
       '.wg .ft{flex:none;margin-top:auto;padding-top:6px;font-size:15px;line-height:18px;color:' + window.hkCards.v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-      '.wg .nil{flex:none;font-size:15px;line-height:18px;padding:10px 0;color:' + window.hkCards.v('ink-2') + '}.wg .end{flex:1 1 auto;display:flex;align-items:center;justify-content:center;font-size:15px;line-height:18px;color:' + window.hkCards.v('ink-2') + '}',
+      '.wg .nil{flex:none;font-size:15px;line-height:18px;padding:10px 0;color:' + window.hkCards.v('ink-2') +
+        '}.wg .end{flex:1 1 auto;display:flex;align-items:center;justify-content:center;font-size:15px;line-height:18px;color:' + window.hkCards.v('ink-2') + '}',
       // THE ROWS: a tap opens the event's sheet; 54 px, a finger's and more
       '.wg .ls{flex:1 1 0;min-height:0;display:flex;flex-direction:column;overflow:hidden;margin-top:6px}',
       '.wg .ev2{box-sizing:border-box;display:flex;align-items:center;gap:10px;min-height:54px;padding:8px 0;flex:none;min-width:0;  cursor:pointer;-webkit-tap-highlight-color:transparent}',
@@ -69,9 +72,13 @@
       '.wg .c2{flex:1 1 0;min-width:0;display:flex;flex-direction:column}',
       '.wg.L .ls,.wg.W .ls{margin-top:0}',
       // THE EMPTY DAY (2026-11-08): the date, a title line and the next event (or a calm line) in the busy day's places (below)
-      '.wg .et{' + window.hkCards.typeCss('title') + ';line-height:26px;text-wrap:balance;text-align:center;flex:none}.wg .ls>.et:only-child{margin:auto}.wg .es{font-size:15px;line-height:19px;color:' + window.hkCards.v('ink-2') + ';text-align:center;text-wrap:balance;margin-top:4px}',
-      // (2026-11-09, the owner, agreed: the weekday "should stay put" on an empty day -- the busy day's places: the weekday and the date at the top-left, the line beside the date (Large, Wide) or under it (Tall, Small), from the left)
-      ':host([size]) .wg.em{align-items:stretch;justify-content:flex-start}:host([size]) .wg.em.W,:host([size]) .wg.em.L{flex-direction:row;gap:22px}:host([size]) .wg.em.T{flex-direction:column}.wg.em .c2{flex:1 1 0;justify-content:flex-start;padding-top:22px}.wg.em.T .c2{padding-top:6px}',
+      '.wg .et{' + window.hkCards.typeCss('title') +
+        ';line-height:26px;text-wrap:balance;text-align:center;flex:none}.wg .ls>.et:only-child{margin:auto}.wg .es{font-size:15px;line-height:19px;color:' + window.hkCards.v('ink-2') +
+        ';text-align:center;text-wrap:balance;margin-top:4px}',
+      // (2026-11-09, the owner, agreed: the weekday "should stay put" on an empty day -- the busy day's places: the weekday and the date at the top-left, the line beside the date (Large, Wide) or
+      // under it (Tall, Small), from the left)
+      ':host([size]) .wg.em{align-items:stretch;justify-content:flex-start}:host([size]) .wg.em.W,:host([size]) .wg.em.L{flex-direction:row;gap:22px}:host([size]) .wg.em.T{flex-direction:column}' +
+        '.wg.em .c2{flex:1 1 0;justify-content:flex-start;padding-top:22px}.wg.em.T .c2{padding-top:6px}',
       '.wg.em :is(.et,.es,.wd){text-align:left}.wg.em .ev2{max-width:100%;margin-top:8px;padding:6px 0}',
       // Extra Large: the month (seven columns of a finger's width), the chosen day beside it. The month's name and
       // arrows sit over the month on a square cell; on a tile (150 px) over the day, the weeks taking the height.
@@ -84,7 +91,8 @@
       '.wg .mon .mh{display:none}.wg .c2 .mh{display:flex}',
       '.wg .mg2{flex:1 1 0;min-height:0;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));grid-template-rows:16px repeat(var(--w),minmax(0,1fr))}',
       '.wg .mg2 .w{' + window.hkCards.labelCss('label-small') + ';line-height:16px;text-align:center}',
-      '.wg .md{all:unset;box-sizing:border-box;min-width:0;min-height:0;display:flex;align-items:center;justify-content:center;cursor:pointer;-webkit-tap-highlight-color:transparent}.wg .md b{position:relative;display:flex;align-items:center;justify-content:center;height:min(38px,100%);aspect-ratio:1;border-radius:50%;',
+      '.wg .md{all:unset;box-sizing:border-box;min-width:0;min-height:0;display:flex;align-items:center;justify-content:center;cursor:pointer;-webkit-tap-highlight-color:transparent}' +
+        '.wg .md b{position:relative;display:flex;align-items:center;justify-content:center;height:min(38px,100%);aspect-ratio:1;border-radius:50%;',
       '  font-size:17px;font-weight:500;font-variant-numeric:tabular-nums}',
       '.wg .md em{position:absolute;left:0;right:0;bottom:3px;display:flex;justify-content:center;gap:2px}.wg .md u{width:5px;height:5px;border-radius:50%}',
       '.wg .md.today b{box-shadow:inset 0 0 0 2px ' + CAL_RED + '}',
@@ -98,9 +106,11 @@
       // number sized to its cell (container units: the block is a container)
       '.blk.mo{gap:6px}',
       window.hkCards.headCss('.mo .mh') + '.mo .mh{flex:none;height:16px;padding:1.5px 0;margin-bottom:2px}',
-      '.mo .mg{flex:1;min-height:0;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));grid-template-rows:auto repeat(var(--w),minmax(0,1fr));align-items:center;justify-items:center;gap:2px 0}',
+      '.mo .mg{flex:1;min-height:0;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));grid-template-rows:auto repeat(var(--w),minmax(0,1fr));align-items:center;justify-items:center;' +
+        'gap:2px 0}',
       '.mo .mw{' + window.hkCards.labelCss('label-small') + ';line-height:14px}',
-      '.mo .md{all:unset;box-sizing:border-box;cursor:pointer;-webkit-tap-highlight-color:transparent;position:relative;display:flex;align-items:center;justify-content:center;height:100%;max-height:calc(100cqw / 7.6);aspect-ratio:1;border-radius:50%;',
+      '.mo .md{all:unset;box-sizing:border-box;cursor:pointer;-webkit-tap-highlight-color:transparent;position:relative;display:flex;align-items:center;justify-content:center;height:100%;' +
+        'max-height:calc(100cqw / 7.6);aspect-ratio:1;border-radius:50%;',
       '  font-size:clamp(11px,min(5.4cqw,7.5cqh),24px);font-weight:500;font-variant-numeric:tabular-nums}',
       // (at night the wash makes white the red: today's number goes black, --hk-night-on-red, to read on its circle)
       '.mo .md.now{background:' + CAL_RED + ';color:var(--hk-night-on-red,#fff)}',
@@ -227,7 +237,8 @@
         this._shown = shown;
         var head = '<div class="wd">' + esc(DOW_LONG[d0.getDay()]) + '</div><div class="dn">' + d0.getDate() + '</div>';
         var empty = '<div class="nil">' + (this._calIds(h).length ? (shown.length ? 'Nothing more today' : 'Nothing scheduled') : 'No calendars') + '</div>';
-        // THE EMPTY DAY (2026-11-08, the review): nothing left today and none ahead (or, Wide, only later days) -- the date, a title line and the next event or a calm line, where the busy day has them; Tall and Large with later events keep their list
+        // THE EMPTY DAY (2026-11-08, the review): nothing left today and none ahead (or, Wide, only later days) -- the date, a title line and the next event or a calm line, where the busy day has
+        // them; Tall and Large with later events keep their list
         if (sized !== 'S' && !todayN && this._calIds(h).length && (sized === 'W' || !shown.length)) {
           var dd = this._days(), nxt = shown.length ? evRow(h, shown[0], fd, 0, fi, 'day') : '<div class="es">' + (dd > 1 ? 'The next ' + dd + ' days are clear' : 'A clear day') + '</div>';
           this._root.innerHTML = '<div class="blk wg em ' + sized + '">' + (sized === 'W' || sized === 'L' ? '<div class="c1">' + head + '</div>' : head) +
@@ -259,7 +270,8 @@
         var ls = this._root.querySelector('.ls'), ft = this._root.querySelector('.ft');
         var cut = fitRows(ls, ft), last = ls.lastElementChild;
         // (everything fits and a good deal of the height is left: a quiet line in the middle of it, not bare glass)
-        if (!cut) { if (last && ls.getBoundingClientRect().bottom - last.getBoundingClientRect().bottom >= 36 && this._shown.length) ls.insertAdjacentHTML('beforeend', '<div class="end">' + (this._days() > 6 ? 'Nothing else this week' : 'Nothing more coming up') + '</div>'); return; }
+        if (!cut) { if (last && ls.getBoundingClientRect().bottom - last.getBoundingClientRect().bottom >= 36 && this._shown.length) ls.insertAdjacentHTML('beforeend', '<div class="end">' +
+          (this._days() > 6 ? 'Nothing else this week' : 'Nothing more coming up') + '</div>'); return; }
         var evs = cut.filter(function (r) { return r.hasAttribute('data-ev'); });
         var days = evs.map(function (r) { return r.getAttribute('data-i'); }).filter(function (v, i, a) { return a.indexOf(v) === i; });
         ft.textContent = evs.length + ' more' + (days.length === 1 && days[0] === '0' ? ' today' : days.length === 1 && days[0] === '1' ? ' tomorrow' : '');
@@ -354,7 +366,8 @@
     // THE ROWS THAT FIT (2026-10-31, the owner: a list fills the room it is given and says "N more" when cut,
     // never a fixed gap): every row drawn, then -- when the last one runs past the list's foot -- the foot's line
     // (`ft`, if any) shown and the rows past the list's new foot hidden. The hidden rows, or 0 when all fit. Before the view
-    // has measured the block (nothing laid out) nothing is cut: the block is drawn again when it has. (2026-11-07: the foot's line holds a word while it is measured -- with none it is 18 px short and the last row kept is cut by it.)
+    // has measured the block (nothing laid out) nothing is cut: the block is drawn again when it has. (2026-11-07: the foot's line holds a word while it is measured -- with none it is 18 px short and
+    // the last row kept is cut by it.)
     function fitRows(ls, ft) {
       if (!ls || typeof ls.getBoundingClientRect !== 'function') return 0;
       var box = ls.getBoundingClientRect(), rows = Array.prototype.slice.call(ls.children || []);

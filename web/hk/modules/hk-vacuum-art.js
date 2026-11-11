@@ -82,12 +82,16 @@
         '<line x1="0" y1="0" x2="-9.5" y2="5.5"/></g></g></svg>';
     }
     if (s === 'returning') front += '<g class="stk"><line x1="170" y1="78" x2="188" y2="78"/><line x1="174" y1="92" x2="194" y2="92"/><line x1="170" y1="106" x2="186" y2="106"/></g>';
-    if (s === 'paused') front += '<g class="bg"><circle cx="158" cy="34" r="17"/><rect x="151" y="26" width="4.5" height="16" rx="2" class="mk"/><rect x="160.5" y="26" width="4.5" height="16" rx="2" class="mk"/></g>';
+    if (s ===
+      'paused') front +=
+      '<g class="bg"><circle cx="158" cy="34" r="17"/><rect x="151" y="26" width="4.5" height="16" rx="2" class="mk"/><rect x="160.5" y="26" width="4.5" height="16" rx="2" class="mk"/></g>';
     // (the drop drawn on the badge's own center, (158, 34), not a glyph in a box whose ink sits off its middle -- the owner, 2026-11-09:
     // "The water drop isn't centered in the circle/well"; its ink 149-167 across, 22.5-46 down, the slash through the same center)
-    if (s === 'water') front += '<g class="bg warn"><circle cx="158" cy="34" r="19"/><path class="mk" d="M158 22.5C153.5 28.6 149.4 33.6 149.4 37.8a8.6 8.6 0 0 0 17.2 0C166.6 33.6 162.5 28.6 158 22.5Z"/>' +
+    if (s ===
+      'water') front += '<g class="bg warn"><circle cx="158" cy="34" r="19"/><path class="mk" d="M158 22.5C153.5 28.6 149.4 33.6 149.4 37.8a8.6 8.6 0 0 0 17.2 0C166.6 33.6 162.5 28.6 158 22.5Z"/>' +
       '<line class="slg" x1="148.8" y1="43.2" x2="167.2" y2="24.8"/><line class="sl" x1="148.8" y1="43.2" x2="167.2" y2="24.8"/></g>';
-    if (s === 'error') front += '<g class="bg warn"><circle cx="158" cy="34" r="17"/><rect x="155.6" y="23" width="4.8" height="15" rx="2.4" class="mk"/><circle cx="158" cy="43.5" r="2.8" class="mk"/></g>';
+    if (s ===
+      'error') front += '<g class="bg warn"><circle cx="158" cy="34" r="17"/><rect x="155.6" y="23" width="4.8" height="15" rx="2.4" class="mk"/><circle cx="158" cy="43.5" r="2.8" class="mk"/></g>';
     var over = s === 'charging' ? '<hk-icon class="bolt" icon="hk:battery-charging"></hk-icon>'
       : '';
     return '<div class="hkva s-' + s + '" role="img" aria-label="' + String(label || words(s)).replace(/[&<>"]/g, '') + '">' +

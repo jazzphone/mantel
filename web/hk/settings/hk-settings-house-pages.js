@@ -168,7 +168,10 @@
         }
         if (key === 'timers') {
           var ht = this.hs('features.house_timers') || [];
-          c.appendChild(K.group({ header: 'House Timers', footer: 'One-tap timers on the Timers page — a nap, bedtime. Their names and icons are Home Assistant’s. They never show on the screensaver or ring: add a timer here to keep it off.' }, [
+          c.appendChild(
+            K.group(
+            { header: 'House Timers',
+            footer: 'One-tap timers on the Timers page — a nap, bedtime. Their names and icons are Home Assistant’s. They never show on the screensaver or ring: add a timer here to keep it off.' }, [
             K.nav({ label: 'House Timers', value: ht.length ? String(ht.length) : 'None', href: base + '/house', sk: 'features.house_timers' })]));
           var wh = this.whichTimers();
           c.appendChild(K.group({ header: 'Which Timers', footer: 'What shows on the screensaver and rings, and what is ignored.' }, [
@@ -185,7 +188,10 @@
         // THE THERMOSTATS' STYLE (2026-11-07, the owner: "an option for climate page settings to use either the
         // HomeView Style or this style of thermostat cards for the climate page and detail sheets")
         if (key === 'climate') {
-          c.appendChild(K.group({ header: 'Thermostats', footer: 'Big Number is HomeView’s: the target large, with arrows to change it; press and hold it for the modes. A thermostat’s sheet follows this too. Water heaters keep their dial.' }, [
+          c.appendChild(
+            K.group(
+            { header: 'Thermostats',
+            footer: 'Big Number is HomeView’s: the target large, with arrows to change it; press and hold it for the modes. A thermostat’s sheet follows this too. Water heaters keep their dial.' }, [
             K.seg({ label: 'Style', sk: 'look.thermostat_style', value: this.hs('look.thermostat_style') === 'big' ? 'big' : 'dial', options: M.THERMOSTAT_STYLES,
                     onChange: set('look.thermostat_style') })]));
         }
@@ -221,7 +227,9 @@
                           tile: ['', pa.a.hex], sk: 'look.page_accents:' + key }));
         // 8. FLAT COLORS (2026-10-17): Flat's own palette for this page, over
         // the screens' general colors -- where any screen uses Flat
-        var lookFoot = 'Its background on every screen that doesn’t choose its own, the pill in a screen’s Scenes row that opens it, and its Accent Color: the page’s identity in every look — its color in the menu while a screen’s Highlight Color is Automatic, and in Flat the shade of its Automatic background.';
+        var lookFoot =
+          'Its background on every screen that doesn’t choose its own, the pill in a screen’s Scenes row that opens it, and its Accent Color: the page’s identity in every look — its color in the ' +
+          'menu while a screen’s Highlight Color is Automatic, and in Flat the shade of its Automatic background.';
         if (row && this.flatAnywhere()) {
           look.push(this.flatColorsNav(this.flatScope('house-page', null, null, key), { tile: false, inherited: 'Same as All Screens' }));
           lookFoot += ' Flat Colors: Flat’s own Accent Color and Off Pill Tint for this page; Automatic uses the Accent Color above.';
@@ -250,7 +258,8 @@
           rel.push(K.nav({ label: (M.CHIP_LABELS[chip] || chip) + ' Chip', sub: this.chipSays(this.chipScreens(chip)), icon: 'mdi:label-multiple',
                            href: '#/house/chips/' + chip, fk: 'page:rel:chip' }));
         }
-        if (key === 'weather') rel.push(K.nav({ label: 'Screensaver', sub: 'Its forecast and weather screen read these too', icon: 'mdi:image-multiple', href: '#/house/screensaver', fk: 'page:rel:saver' }));
+        if (key === 'weather') rel.push(K.nav({ label: 'Screensaver', sub: 'Its forecast and weather screen read these too', icon: 'mdi:image-multiple', href: '#/house/screensaver',
+          fk: 'page:rel:saver' }));
         if (rel.length) c.appendChild(K.group({ header: key === 'cameras' ? 'Also' : 'Related' }, rel));
       }
       p_house(page, sub) {
@@ -421,11 +430,14 @@
         }; };
         var row = function (id, on) {
           var kind = /^timer\.quick_\d+$/.test(id) ? 'Quick timer' : house.indexOf(id) >= 0 ? 'House Timer' : 'From Home Assistant', s = wh.st[id] && wh.st[id].state;
-          return K.toggle({ label: self.name(id), sub: kind + (s === 'active' ? ' \u00B7 Running now' : s === 'paused' ? ' \u00B7 Paused' : ''), fk: 'which:' + id, sk: 'features.timer_include', on: on, onChange: flip(id) });
+          return K.toggle({ label: self.name(id), sub: kind + (s === 'active' ? ' \u00B7 Running now' : s === 'paused' ? ' \u00B7 Paused' : ''), fk: 'which:' + id, sk: 'features.timer_include',
+            on: on, onChange: flip(id) });
         };
-        c.appendChild(K.group({ header: 'On', footer: 'These show on the screensaver, hold its last minute and ring. Timers you start from the Timers page or a preset always do, and aren\u2019t listed.' },
+        c.appendChild(
+          K.group({ header: 'On', footer: 'These show on the screensaver, hold its last minute and ring. Timers you start from the Timers page or a preset always do, and aren\u2019t listed.' },
           wh.on.length ? wh.on.map(function (id) { return row(id, true); }) : [K.note ? K.note({ text: 'None' }) : K.nav({ label: 'None' })]));
-        c.appendChild(K.group({ header: 'Ignored', footer: 'Automations use most of these. Turn one on only if you want to know when it ends: it rings every time, even when an automation started it.' },
+        c.appendChild(K.group({ header: 'Ignored', footer: 'Automations use most of these. Turn one on only if you want to know when it ends: it rings every time, even when an automation started it.'
+          },
           wh.off.length ? wh.off.map(function (id) { return row(id, false); }) : [K.note ? K.note({ text: 'None' }) : K.nav({ label: 'None' })]));
       }
       // WHEN A TIMER ENDS (phase 21, docs/phase21/TIMER-SLIDE.md): the host that rings them says so on the sensor it keeps (`made`,
@@ -440,22 +452,32 @@
         var put = function (k) { return function (v) { var o = {}; o['features.' + k] = v; self.setH(o); }; };
         this.timerModules();             // (Hear It)
         var rooms = at.rooms || [], tone = F('timer_sound', 'bell'), ring = F('timer_ring_for', 60), also = F('timer_also', []);
-        c.appendChild(K.group({ header: 'When a Timer Ends', footer: 'Every tablet shows a timer\u2019s last minute and Time\u2019s Up. Stop on any screen stops it everywhere. A tablet can\u2019t play sound until it has been touched once, unless its kiosk app allows it.' }, [
+        c.appendChild(
+          K.group(
+          { header: 'When a Timer Ends',
+          footer:
+          'Every tablet shows a timer\u2019s last minute and Time\u2019s Up. Stop on any screen stops it everywhere. A tablet can\u2019t play sound until it has been touched once, unless its kiosk ' +
+          'app allows it.' }, [
           K.seg({ label: 'Sound', sk: 'features.timer_sound', value: tone, options: [['bell', 'Soft Bell'], ['chime', 'Chime'], ['kitchen', 'Kitchen Timer']],
                   onChange: function (v) { put('timer_sound')(v); if (window.hkTimerRing) window.hkTimerRing.hear(v); } }),
           K.button({ label: 'Hear It on This Screen', fk: 'timers:hear', onClick: function () { if (window.hkTimerRing) window.hkTimerRing.hear(F('timer_sound', 'bell')); } }),
           K.seg({ label: 'Rings For', sk: 'features.timer_ring_for', value: String(ring), options: [['30', '30 Seconds'], ['60', '1 Minute'], ['stop', 'Until Stopped']],
                   onChange: function (v) { put('timer_ring_for')(v === 'stop' ? v : Number(v)); } }),
-          K.toggle({ label: 'Wake a Dark Screen', sub: 'The tablet in the timer\u2019s room, for its last minute', sk: 'features.timer_wake', on: F('timer_wake', true), onChange: put('timer_wake') })]));
+          K.toggle({ label: 'Wake a Dark Screen', sub: 'The tablet in the timer\u2019s room, for its last minute', sk: 'features.timer_wake', on: F('timer_wake', true),
+            onChange: put('timer_wake') })]));
         var where = [
           K.toggle({ label: 'The Tablet in Its Room', sub: 'Through the tablet\u2019s own speaker', sk: 'features.timer_tablet', on: F('timer_tablet', true), onChange: put('timer_tablet') }),
-          K.toggle({ label: 'The Speaker in Its Room', sub: 'A HomePod or other speaker, through Music Assistant', sk: 'features.timer_speaker', on: F('timer_speaker', true), onChange: put('timer_speaker') })];
+          K.toggle({ label: 'The Speaker in Its Room', sub: 'A HomePod or other speaker, through Music Assistant', sk: 'features.timer_speaker', on: F('timer_speaker', true),
+            onChange: put('timer_speaker') })];
         if (rooms.length) {
           where.push(K.select({ label: 'Set From a Phone', sub: 'A phone has no room, so it rings here', sk: 'features.timer_phone', value: F('timer_phone', ''),
                                 options: [['', 'Every Tablet']].concat(rooms.map(function (r) { return [r.id, r.name]; })), onChange: put('timer_phone') }));
-          where.push(K.slider({ label: 'Speaker Volume', sub: 'Never above the house\u2019s Highest Volume', sk: 'features.timer_volume', min: 10, max: 100, step: 5, value: F('timer_volume', 40), unit: '%', onChange: put('timer_volume') }));
+          where.push(K.slider({ label: 'Speaker Volume', sub: 'Never above the house\u2019s Highest Volume', sk: 'features.timer_volume', min: 10, max: 100, step: 5, value: F('timer_volume', 40),
+            unit: '%', onChange: put('timer_volume') }));
         }
-        c.appendChild(K.group({ header: 'Where It Plays', footer: rooms.length ? 'The speakers use the Address for Music Assistant in Settings \u2192 Intercom. The Intercom itself can stay off. The New Timer sheet has a Rings In choice for one timer.' : 'Speakers show here once Music Assistant is connected.' }, where));
+        c.appendChild(K.group({ header: 'Where It Plays', footer: rooms.length ?
+          'The speakers use the Address for Music Assistant in Settings \u2192 Intercom. The Intercom itself can stay off. The New Timer sheet has a Rings In choice for one timer.' :
+          'Speakers show here once Music Assistant is connected.' }, where));
         if (rooms.length) {
           var flip = function (id) { return function (on) { put('timer_also')(on ? also.concat(id) : also.filter(function (x) { return x !== id; })); }; };
           c.appendChild(K.group({ header: 'Also Play In', footer: 'These play every timer, wherever it was set.' },
@@ -575,10 +597,13 @@
             return /adaptive_lighting/.test(id) && a.color_temp_kelvin != null;
           });
           c.appendChild(K.group({ header: 'Background', footer: al.length
-              ? 'The page’s amber takes the color of the light outside, warm at dusk and cooler at midday — from Adaptive Lighting. Automatic reads ' + (self.name(al.slice().sort(function (a, b) { return /** @type {any} */ (/default/.test(b)) - /** @type {any} */ (/default/.test(a)) || (a < b ? -1 : 1); })[0]) || 'the first one') + '.'
+              ? 'The page’s amber takes the color of the light outside, warm at dusk and cooler at midday — from Adaptive Lighting. Automatic reads ' +
+                (self.name(al.slice().sort(function (a, b) { return /** @type {any} */ (/default/.test(b)) - /** @type {any} */ (/default/.test(a)) || (a < b ? -1 : 1); })[0]) || 'the first one') +
+                '.'
               : 'The page’s amber takes the color of the light outside, warm at dusk and cooler at midday — worked out from the sun. With Adaptive Lighting installed it follows that instead.' },
             [K.toggle({ label: 'Follow the Sun', on: cur.sky_follow !== false, sk: 'headers.lights', fk: 'hd:sky_follow', onChange: function (on) { save('sky_follow', on); } })]
-              .concat(al.length && cur.sky_follow !== false ? listRow('sky_source', 'Adaptive Lighting', null, ents(['switch'], function (id) { return al.indexOf(id) >= 0; }), 'Adaptive Lighting', 'Automatic') : [])));
+              .concat(al.length && cur.sky_follow !== false ? listRow('sky_source', 'Adaptive Lighting', null, ents(['switch'], function (id) { return al.indexOf(id) >= 0; }), 'Adaptive Lighting',
+                'Automatic') : [])));
         }
         // THE WATER TANK (2026-11-09, the owner): the server catches the one-second "water tank empty" and keeps it on the card; its own group,
         // before the header's early return -- it has nothing to do with the header
@@ -645,7 +670,8 @@
           var pr = (cur.presets || []).slice();
           c.appendChild(K.listEditor({ fk: 'hd:presets', shownHeader: 'Quick Durations', moreHeader: pr.length < 6 ? 'More' : null, minRows: 1,
             announce: this.announce.bind(this),
-            shownFooter: 'The buttons that start a timer in one tap, in this order. Up to six; inside Home Assistant, the Timers page’s Quick Start needs the quick_timers.yaml package in Home Assistant.',
+            shownFooter:
+              'The buttons that start a timer in one tap, in this order. Up to six; inside Home Assistant, the Timers page’s Quick Start needs the quick_timers.yaml package in Home Assistant.',
             rows: pr.map(function (m) { return { value: m, label: mins(m) }; }),
             more: pr.length < 6 ? STEPS.filter(function (m) { return pr.indexOf(m) < 0; }).map(function (m) { return { value: m, label: mins(m) }; }) : [],
             onChange: function (v) { if (v.length) save('presets', v.map(Number).slice(0, 6)); } }));
@@ -702,7 +728,8 @@
       h_weather(c) {
         var self = this, set = function (k) { return function (v) { var o = {}; o[k] = v; self.setH(o); }; };
         var place = (this.client.config && this.client.config.location_name) || 'Home';
-        c.appendChild(K.group({ header: 'Weather Source', footer: 'The header, Climate and the screensaver use these too. Place: the name over the temperature; empty, this home’s name, ' + String(place).toUpperCase() + '.' }, [
+        c.appendChild(K.group({ header: 'Weather Source', footer: 'The header, Climate and the screensaver use these too. Place: the name over the temperature; empty, this home’s name, ' +
+          String(place).toUpperCase() + '.' }, [
           this.entityRow({ label: 'Weather Service', sk: 'weather.entity', value: this.hs('weather.entity'), none: 'First Weather Entity',
                            filter: { domains: ['weather'] }, onPick: set('weather.entity') }),
           K.text({ label: 'Place', sk: 'weather.place', value: this.hs('weather.place'), placeholder: place, maxlength: 60,
@@ -818,7 +845,8 @@
           var o = {}; return K.toggle({ label: label, sub: sub, on: r[k], sk: 'weather.radar_native.' + k,
                                         onChange: function (on) { o[k] = on; self.radarSet(o); } });
         };
-        c.appendChild(K.group({ header: 'Map', footer: 'Higher is closer. RainViewer’s radar stops at its own closest level; closer than that the map still zooms and the radar is drawn larger, not sharper.' }, [
+        c.appendChild(
+          K.group({ header: 'Map', footer: 'Higher is closer. RainViewer’s radar stops at its own closest level; closer than that the map still zooms and the radar is drawn larger, not sharper.' }, [
           K.select({ label: 'Initial Zoom', sk: 'weather.radar_native.zoom', value: String(r.zoom),
                      options: [4, 5, 6, 7, 8, 9, 10].map(function (n) { return [String(n), String(n)]; }),
                      onChange: function (v) { self.radarSet({ zoom: Number(v) }); } }),
@@ -826,7 +854,10 @@
           tog('interactive', 'Move and Zoom Expanded Map', 'The page stays centered on your location. Pan and zoom are available only in the expanded map.'),
           K.slider({ label: 'Radar Opacity', sk: 'weather.radar_native.opacity', value: r.opacity, min: 20, max: 100, step: 5, unit: '%',
                      onChange: function (v) { self.radarSet({ opacity: v }); } })]));
-        c.appendChild(K.group({ header: 'Playback', footer: 'Only the frames the provider has. Plays automatically on page entry, including in Flat. Reduce Motion waits for a tap, and waking never restarts playback by itself.' }, [
+        c.appendChild(
+          K.group(
+          { header: 'Playback',
+          footer: 'Only the frames the provider has. Plays automatically on page entry, including in Flat. Reduce Motion waits for a tap, and waking never restarts playback by itself.' }, [
           K.select({ label: 'History', sk: 'weather.radar_native.history_minutes', value: String(r.history_minutes),
                      options: M.RADAR_HISTORY.map(function (x) { return [String(x[0]), x[1]]; }),
                      onChange: function (v) { self.radarSet({ history_minutes: Number(v) }); } }),
@@ -843,7 +874,12 @@
           return K.info({ label: k, sub: M.RADAR_LEGACY_MAPPED.indexOf(k) >= 0 ? 'Carried over' : 'No equivalent: unused', value: t.length > 40 ? t.slice(0, 39) + '…' : t });
         });
         if (!rows.length) rows.push(K.info({ label: 'Options', value: 'None' }));
-        c.appendChild(K.group({ footer: 'The Weather Radar Card’s options from before HK drew its own radar, kept as they were. They no longer change the Weather page; the card itself still works on dashboards of your own.' }, rows));
+        c.appendChild(
+          K.group(
+          {
+          footer:
+          'The Weather Radar Card’s options from before HK drew its own radar, kept as they were. They no longer change the Weather page; the card itself still works on dashboards of your own.' },
+          rows));
       }
       // CHECK RADAR CONNECTION: on a tap only -- the provider's frames and one
       // small current image of the map's area -- never in the background.
@@ -1053,7 +1089,8 @@
         // a group's Sections page: #/.../sidepane/dashboard or /saver
         var secs = function (g, grp) { return K.nav({ label: 'Sections', value: self.paneSecNames(grp), href: base + '/' + g, sk: 'pane:' + g + ':sections' }); };
         // WHERE
-        c.appendChild(K.group({ header: 'Where', footer: 'A Home Grid beside it fits itself in what the pane leaves. A tablet held upright shows it as a band under the page; phones never show it.' }, [
+        c.appendChild(K.group({ header: 'Where', footer: 'A Home Grid beside it fits itself in what the pane leaves. A tablet held upright shows it as a band under the page; phones never show it.' },
+          [
           K.seg({ label: 'Pane Side', sk: 'pane:side', sub: whose('side'), value: p.side, options: M.PANE_SIDES, onChange: function (v) { put('side', v); } }),
           K.seg({ label: 'Width', sk: 'pane:width', sub: whose('width'), value: p.width, options: M.PANE_WIDTHS, stack: !this.hasAttribute('wide'),
                   onChange: function (v) { put('width', v); } })]));
@@ -1113,7 +1150,10 @@
         var ent = function (s) { var st = s.entity && (self.client.states || {})[s.entity]; return st ? ((st.attributes || {}).friendly_name || s.entity) : ''; };
         c.appendChild(K.listEditor({ fk: 'pane:' + g, minRows: 0, announce: this.announce.bind(this),
           shownHeader: 'Sections', moreHeader: grp.sections.length < M.PANE_MAX ? 'Add a Section' : null,
-          shownFooter: 'Size: Tiny is one line; Less, the gist; More, the whole section; Full takes the room the pane has left. When There’s Something: only while it has something, such as music playing. The pane never scrolls: when the sections don’t fit, the last ones get smaller, then are left out.',
+          shownFooter:
+            'Size: Tiny is one line; Less, the gist; More, the whole section;' +
+            ' Full takes the room the pane has left. When There’s Something: only while it has something, such as music playing. The pane never scrolls: when the sections don’t fit, the last ones ' +
+            'get smaller, then are left out.',
           emptyText: 'No sections',
           rows: grp.sections.map(function (s, i) {
             var k = M.paneKind(s.kind) || [s.kind, s.kind, 'mdi:card'];
@@ -1133,11 +1173,13 @@
         if (s.kind === 'status') { this.paneStatus(c, s, set, path + ':' + g + ':' + i); return this.paneRemove(c, path, g, grp, i); }
         // SIZE, SHOW, PLACE and WHEN TAPPED (2026-10-30): one group, their
         // footers joined (four one-row groups before)
-        c.appendChild(K.group({ header: 'Section', footer: 'Size — Tiny: one line. Less: the gist. More: the whole section. Full: more again, taking the room the pane has left (one section at a time). ' +
+        c.appendChild(
+          K.group({ header: 'Section', footer: 'Size — Tiny: one line. Less: the gist. More: the whole section. Full: more again, taking the room the pane has left (one section at a time). ' +
             'When There’s Something: music playing (or paused, for Hide After a Pause), a timer running, the alarm armed or a door open, a notification. ' +
             'Bottom: at the pane’s foot, under a space — what’s playing, say — in the order they are listed. ' +
             'When Tapped — Automatic: its page where this screen has one, else its detail sheet. A tap on one thing in it — an event, a person, a thermostat — opens that thing’s sheet.' +
-            (s.kind === 'now_playing' ? ' Now Playing’s Automatic is Open the Panel — Speakers, Volume, Queue and Browse, right in the pane; or Flip to the Controls — the section turns over to them.' : '') }, [
+            (s.kind === 'now_playing' ?
+              ' Now Playing’s Automatic is Open the Panel — Speakers, Volume, Queue and Browse, right in the pane; or Flip to the Controls — the section turns over to them.' : '') }, [
           K.seg({ label: 'Size', sk: 'pane:sec:size', value: s.size || 'more', options: M.PANE_SIZES, onChange: function (v) { set('size', v === 'more' ? null : v); } }),
           K.seg({ label: 'Show', sk: 'pane:sec:when', value: s.when || 'always', options: M.PANE_WHEN, stack: true,
                   onChange: function (v) { set('when', v === 'always' ? null : v); } }),
@@ -1161,11 +1203,14 @@
           var pick = function (label, sk, key, opts, dflt) {
             return K.select({ label: label, sk: sk, value: s[key] || dflt, options: opts, onChange: function (v) { set(key, v === dflt ? null : v); } });
           };
-          c.appendChild(K.group({ header: 'Look', footer: 'Face — Stacked: the hours over the minutes, as StandBy has them. Analog: the Analog Numbers face, small, with the time and date beside it. ' +
+          c.appendChild(
+            K.group({ header: 'Look', footer: 'Face — Stacked: the hours over the minutes, as StandBy has them. Analog: the Analog Numbers face, small, with the time and date beside it. ' +
               'AM/PM shows only on a 12-hour clock. The colon flashes only where animations are on (not under Reduce Motion, Animations Off or Flat). ' +
               'Second Line — Automatic: the date, with the sunset beside it at More. ' +
-              'Beside the Time — the temperature and the sky beside the time (at Less and More; under the time when it is centered): Large, two thirds of the time’s size; Quiet, half its size and lighter; a Chip, a small pill; or on the Date Line, at the date’s size. ' +
-              'Under the Time, at More — Sunset: the sunset beside the date. Next Hours: the coming hours’ weather. Sun: the day’s arc from sunrise to sunset, with the sun on it. Moon: tonight’s moon and when it is next full or new. Conditions: the sunset or sunrise, wind, humidity and UV.' }, [
+              'Beside the Time — the temperature and the sky beside the time (at Less and More; under the time when it is centered): Large, two thirds of the time’s size;' +
+                ' Quiet, half its size and lighter; a Chip, a small pill; or on the Date Line, at the date’s size. ' +
+              'Under the Time, at More — Sunset: the sunset beside the date. Next Hours: the coming hours’ weather. Sun: the day’s arc from sunrise to sunset, with the sun on it. Moon: tonight’s ' +
+                'moon and when it is next full or new. Conditions: the sunset or sunrise, wind, humidity and UV.' }, [
             K.seg({ label: 'Face', sk: 'pane:clock:face', value: s.face || 'digital', options: M.CLOCK_FACES, onChange: function (v) { set('face', v === 'digital' ? null : v); } }),
             K.seg({ label: 'Alignment', sk: 'pane:clock:align', value: s.align || 'left', options: M.CLOCK_ALIGNS, onChange: function (v) { set('align', v === 'left' ? null : v); } }),
             K.seg({ label: 'Text Size', sk: 'pane:clock:scale', value: s.scale || 'medium', options: M.CLOCK_SCALES, onChange: function (v) { set('scale', v === 'medium' ? null : v); } }),
@@ -1186,7 +1231,8 @@
           // THE CAMERA'S NAME, as the Home Grid's camera block has it (Hide here unless chosen)
           if (s.kind === 'camera') rows.push(K.select({ label: 'Name', sk: 'pane:sec:name', value: s.name || 'hide', options: M.PANE_CAMERA_NAMES,
             onChange: function (v) { set('name', v === 'hide' ? null : v); } }));
-          c.appendChild(K.group({ footer: s.kind === 'todo' ? 'A tap on an item’s circle checks it off.' : s.kind === 'camera' ? 'Name — Automatic: shown on a short still, hidden on a tall one.' : null }, rows));
+          c.appendChild(K.group({ footer: s.kind === 'todo' ? 'A tap on an item’s circle checks it off.' : s.kind === 'camera' ? 'Name — Automatic: shown on a short still, hidden on a tall one.' :
+            null }, rows));
         }
         this.paneRemove(c, path, g, grp, i);
       }
@@ -1237,7 +1283,9 @@
             ' Hidden whenever the rule doesn’t hold, or the entity can’t be read.';
         }
         c.appendChild(K.group({ header: 'Show When', footer: foot }, rows));
-        c.appendChild(K.group({ header: 'Section', footer: 'Size — Tiny: one line, the glyph, the name and the label. Less: the glyph large beside the name and the label. More: the name as the heading over the label. ' +
+        c.appendChild(
+          K.group(
+          { header: 'Section', footer: 'Size — Tiny: one line, the glyph, the name and the label. Less: the glyph large beside the name and the label. More: the name as the heading over the label. ' +
             'Bottom: at the pane’s foot, under a space. When Tapped — Automatic: the entity’s detail sheet.' }, [
           K.seg({ label: 'Size', sk: 'pane:sec:size', value: s.size || 'more', options: M.PANE_SIZES.slice(0, 3), onChange: function (v) { set('size', v === 'more' ? null : v); } }),
           K.seg({ label: 'Place', sk: 'pane:sec:place', value: s.place || 'top', options: M.PANE_PLACES, onChange: function (v) { set('place', v === 'top' ? null : v); } }),

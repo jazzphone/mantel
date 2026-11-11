@@ -421,8 +421,10 @@
     '  box-shadow:var(--hk-field-shadow,none);border:' + M.border + ';color:' + v('ink') + ';font:inherit;font-size:17px;outline:none;-webkit-appearance:none;appearance:none}',
     '.sf input::placeholder{color:' + v('ink-3') + '}',
     '.sf input::-webkit-search-cancel-button{display:none}',
-    '.sf .cl{position:absolute;right:2px;top:2px;width:44px;height:44px;border:0;border-radius:22px;background:none;color:' + v('ink-2') + ';display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer}',
-    '.btn{height:48px;box-sizing:border-box;border:' + M.border + ';border-radius:24px;padding:0 18px;background:var(--hk-field-bg,' + v('key-strong') + ');color:' + v('ink') + ';font-size:15px;font-weight:600;',
+    '.sf .cl{position:absolute;right:2px;top:2px;width:44px;height:44px;border:0;border-radius:22px;background:none;color:' + v('ink-2') +
+      ';display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer}',
+    '.btn{height:48px;box-sizing:border-box;border:' + M.border + ';border-radius:24px;padding:0 18px;background:var(--hk-field-bg,' + v('key-strong') + ');color:' + v('ink') +
+      ';font-size:15px;font-weight:600;',
     '  display:inline-flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;white-space:nowrap;position:relative;flex:none;-webkit-tap-highlight-color:transparent}',
     '.btn:active{background:' + v('key-strong') + '}',
     '.btn.on{background:var(--hk-seg-on,' + C.SELECTED_BG + ');color:' + C.SELECTED_TEXT + '}',
@@ -441,7 +443,8 @@
     '.dp .mh button:disabled{opacity:.3;cursor:default}',
     '.dp .mgr{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));margin-top:6px;row-gap:2px}',
     '.dp .w{text-align:center;font-size:11px;font-weight:600;color:' + v('ink-2') + ';height:22px;line-height:22px}',
-    '.dp .md{height:38px;border:0;background:transparent;color:' + v('ink') + ';padding:0;display:flex;align-items:center;justify-content:center;cursor:pointer;-webkit-tap-highlight-color:transparent}',
+    '.dp .md{height:38px;border:0;background:transparent;color:' + v('ink') +
+      ';padding:0;display:flex;align-items:center;justify-content:center;cursor:pointer;-webkit-tap-highlight-color:transparent}',
     '.dp .md b{height:30px;min-width:30px;line-height:30px;font-size:15px;font-weight:600;border-radius:15px;text-align:center;font-variant-numeric:tabular-nums}',
     '.dp .md.out b{opacity:.4}',
     '.dp .md:disabled{cursor:default}.dp .md:disabled b{opacity:.25}',
@@ -487,10 +490,12 @@
     '.more{display:flex;justify-content:center;padding:4px 0}',
     '.more .btn{min-width:160px}',
     '.end{text-align:center;font-size:13px;color:' + v('ink-3') + ';padding:8px 0 4px}',
-    '.msg{border-radius:' + M.radius + ';' + M.glass + ';border:' + M.border + ';box-shadow:var(--hk-look-shadow,' + v('glass-shadow-sm') + ');padding:28px 24px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:14px}',
+    '.msg{border-radius:' + M.radius + ';' + M.glass + ';border:' + M.border + ';box-shadow:var(--hk-look-shadow,' + v('glass-shadow-sm') +
+      ');padding:28px 24px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:14px}',
     '.msg .big{font-size:17px;font-weight:600;line-height:22px;max-width:420px}',
     '.msg .small{font-size:14px;line-height:20px;color:' + v('ink-2') + ';max-width:420px}',
-    '.fresh{position:sticky;top:12px;z-index:3;align-self:center;height:44px;padding:0 20px;border:0;border-radius:22px;background:var(--hk-seg-on,' + C.SELECTED_BG + ');color:' + C.SELECTED_TEXT + ';font-size:15px;font-weight:600;cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.25)}',
+    '.fresh{position:sticky;top:12px;z-index:3;align-self:center;height:44px;padding:0 20px;border:0;border-radius:22px;background:var(--hk-seg-on,' + C.SELECTED_BG + ');color:' + C.SELECTED_TEXT +
+      ';font-size:15px;font-weight:600;cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.25)}',
 
     // ---- loading
     '.sk{display:flex;gap:12px;padding:10px 16px;min-height:60px;box-sizing:border-box}',
@@ -749,7 +754,8 @@
       if (!s || this._state === 'error' || this._meta.limited) { el.hidden = true; return; }
       var m = summaryView(s), shown = this._sumOpen ? m.lines : m.lines.slice(0, SUM_LINES), html = '<div class="k">' + esc(m.title) + '</div>' +
         shown.map(function (l) { return '<div class="ln">' + esc(l) + '</div>'; }).join('') +
-        (m.lines.length > SUM_LINES ? '<button class="sm" data-act="sum" aria-expanded="' + (this._sumOpen ? 'true' : 'false') + '">' + (this._sumOpen ? 'Show Less' : 'Show All ' + m.lines.length) + '</button>' : '') +
+        (m.lines.length > SUM_LINES ? '<button class="sm" data-act="sum" aria-expanded="' + (this._sumOpen ? 'true' : 'false') + '">' + (this._sumOpen ? 'Show Less' : 'Show All ' + m.lines.length) +
+          '</button>' : '') +
         (m.chips.length ? '<div class="cn">' + m.chips.map(function (c) { return '<span>' + esc(c.label) + ' <b>' + c.n + '</b></span>'; }).join('') + '</div>' : '');
       el.hidden = false;
       C.morph(el, html);
@@ -764,16 +770,21 @@
       var groups = visibleGroups(m.families, m.limited);
       // (morph keeps the search field's node, so a keyboard stays up while the list changes under it)
       var html = '<div class="sr">' +
-        (m.search ? '<div class="sf">' + icon('mdi:magnify', 20) + '<input type="search" enterkeyhint="search" placeholder="Search" aria-label="Search the Timeline" autocomplete="off" autocapitalize="off" spellcheck="false" value="' + esc(f.q) + '">' +
-                    '<button class="cl" data-act="clear-q" aria-label="Clear search"' + (f.q ? '' : ' hidden') + '>' + icon('mdi:close', 20) + '</button></div>' : '<div class="sf" style="visibility:hidden"></div>') +
-        '<span class="dpw"><button class="btn day' + (f.day ? ' on wide' : '') + '" data-act="pick-day" aria-label="Jump to a day" aria-haspopup="dialog" aria-expanded="' + (this._dp ? 'true' : 'false') + '">' +
+        (m.search ? '<div class="sf">' + icon('mdi:magnify', 20) +
+          '<input type="search" enterkeyhint="search" placeholder="Search" aria-label="Search the Timeline" autocomplete="off" autocapitalize="off" spellcheck="false" value="' + esc(f.q) + '">' +
+                    '<button class="cl" data-act="clear-q" aria-label="Clear search"' + (f.q ? '' : ' hidden') + '>' + icon('mdi:close', 20) + '</button></div>' :
+                      '<div class="sf" style="visibility:hidden"></div>') +
+        '<span class="dpw"><button class="btn day' + (f.day ? ' on wide' : '') + '" data-act="pick-day" aria-label="Jump to a day" aria-haspopup="dialog" aria-expanded="' +
+          (this._dp ? 'true' : 'false') + '">' +
           icon('mdi:calendar-month', 20) + '<span class="tx2">' + (f.day ? esc(shortDay(f.day, ctx)) : 'Day') + '</span></button>' + this._dayPicker(ctx) + '</span>' +
         (f.day ? '<button class="btn wide" data-act="clear-day" aria-label="Show the latest again">' + icon('mdi:close', 18) + '<span class="tx2">Latest</span></button>' : '') +
-        (m.names ? '<button class="btn' + (f.mine ? ' on' : '') + ' wide" data-act="mine" aria-pressed="' + (f.mine ? 'true' : 'false') + '">' + icon('mdi:account', 20) + '<span class="tx2">Only Mine</span></button>' : '') +
+        (m.names ? '<button class="btn' + (f.mine ? ' on' : '') + ' wide" data-act="mine" aria-pressed="' + (f.mine ? 'true' : 'false') + '">' + icon('mdi:account', 20) +
+          '<span class="tx2">Only Mine</span></button>' : '') +
         '</div>' +
         '<div class="chips" role="group" aria-label="Kinds">' +
           '<button class="chip' + (f.groups.length ? '' : ' on') + '" data-act="all">All</button>' +
-          groups.map(function (g) { return '<button class="chip' + (f.groups.indexOf(g.id) >= 0 ? ' on' : '') + '" data-act="group" data-id="' + esc(g.id) + '" aria-pressed="' + (f.groups.indexOf(g.id) >= 0 ? 'true' : 'false') + '">' + esc(g.label) + '</button>'; }).join('') +
+          groups.map(function (g) { return '<button class="chip' + (f.groups.indexOf(g.id) >= 0 ? ' on' : '') + '" data-act="group" data-id="' + esc(g.id) + '" aria-pressed="' +
+            (f.groups.indexOf(g.id) >= 0 ? 'true' : 'false') + '">' + esc(g.label) + '</button>'; }).join('') +
           (f.entity ? '<button class="chip pin" data-act="clear-entity" aria-label="Show all again">' + esc(f.name || 'One') + icon('mdi:close', 18) + '</button>' : '') +
         '</div>';
       C.morph(bar, html);
@@ -837,7 +848,8 @@
       var list = this._root.querySelector('.list'), foot = this._root.querySelector('.foot'), wrap = this._root.querySelector('.fresh-wrap');
       var ctx = ctxNow(), self = this, f = this._f;
       wrap.innerHTML = this._pending.length && this._state === 'ready'
-        ? '<div style="display:flex;justify-content:center"><button class="fresh" data-act="fresh">' + this._pending.length + (this._pending.length === 1 ? ' New Event' : ' New Events') + '</button></div>' : '';
+        ? '<div style="display:flex;justify-content:center"><button class="fresh" data-act="fresh">' + this._pending.length + (this._pending.length === 1 ? ' New Event' : ' New Events') +
+          '</button></div>' : '';
       if (this._state === 'loading') {
         var sk = '';
         for (var i = 0; i < 7; i++) sk += '<div class="sk"><i class="a"></i><div class="b"><i></i><i></i></div></div>';
@@ -854,14 +866,19 @@
       }
       if (!this._events.length) {
         C.morph(list, filtersOn(f)
-          ? '<div class="msg"><div class="big">Nothing matches.</div><div class="small">Try other words, another kind, or another day.</div><button class="btn wide" data-act="reset">Clear Filters</button></div>'
-          : '<div class="msg"><div class="big">Nothing yet. The timeline starts recording today.</div><div class="small">Doors, locks, the garage, the alarm, arrivals, the doorbell and what the cameras see will show up here.</div></div>');
+          ?
+            '<div class="msg"><div class="big">Nothing matches.</div><div class="small">Try other words, another kind, or another day.</div><button class="btn wide" data-act="reset">Clear ' +
+            'Filters</button></div>'
+          :
+            '<div class="msg"><div class="big">Nothing yet. The timeline starts recording today.</div><div class="small">Doors, locks, the garage, the alarm, arrivals, the doorbell and what the ' +
+            'cameras see will show up here.</div></div>');
         C.morph(foot, '');
         return;
       }
       var now = Date.now(), days = groupEvents(this._events, now, ctx), html = '';
       days.forEach(function (d) {
-        html += '<div class="day-g" data-day="' + esc(d.key) + '"><div class="dh"><b>' + esc(d.label) + '</b><span>' + d.count + (d.count === 1 ? ' event' : ' events') + '</span></div><div class="plate">';
+        html += '<div class="day-g" data-day="' + esc(d.key) + '"><div class="dh"><b>' + esc(d.label) + '</b><span>' + d.count + (d.count === 1 ? ' event' : ' events') +
+          '</span></div><div class="plate">';
         d.items.forEach(function (it) { html += it.type === 'hour' ? '<div class="hh">' + esc(it.label) + '</div>' : self._row(it.ev, ctx); });
         html += '</div></div>';
       });
@@ -880,7 +897,8 @@
       if (ev.area_name) meta.push(esc(ev.area_name));
       if (cnt) meta.push(esc(cnt));
       var html = '<div class="row' + (warn ? ' warn' : '') + '" role="button" tabindex="0" data-act="open" data-id="' + esc(ev.id) + '">' +
-        '<div class="ic" style="background:' + tint(warn && look.color === 'gray' ? 'orange' : look.color, 0.22) + ';color:' + inkOf(warn && look.color === 'gray' ? 'orange' : look.color) + '">' + icon(look.icon, 22) + '</div>' +
+        '<div class="ic" style="background:' + tint(warn && look.color === 'gray' ? 'orange' : look.color, 0.22) + ';color:' + inkOf(warn && look.color === 'gray' ? 'orange' : look.color) + '">' +
+          icon(look.icon, 22) + '</div>' +
         '<div class="tx"><div class="t1"><div class="ti">' + esc(ev.title) + '</div><div class="tm">' + esc(timeText(ms, ctx)) + '</div></div>';
       if (meta.length) html += '<div class="sb">' + meta.join(' · ') + '</div>';
       if (who) html += '<div class="sb">' + esc(who) + '</div>';
@@ -980,7 +998,8 @@
         '<div class="body">' +
         (pics.length ? '<div class="pw"><div class="pics">' + pics.map(function (p, i) {
           return '<div class="pic"><img src="' + esc(p.url) + '" alt="' + esc('Picture ' + (i + 1) + ' of ' + pics.length) + '" draggable="false"></div>';
-        }).join('') + '</div>' + (pics.length > 1 ? '<button class="nv pv" data-nav="-1" aria-label="Previous picture" hidden>' + icon('mdi:chevron-left', 24) + '</button><button class="nv nx" data-nav="1" aria-label="Next picture">' + icon('mdi:chevron-right', 24) + '</button><div class="dots">' +
+        }).join('') + '</div>' + (pics.length > 1 ? '<button class="nv pv" data-nav="-1" aria-label="Previous picture" hidden>' + icon('mdi:chevron-left', 24) +
+          '</button><button class="nv nx" data-nav="1" aria-label="Next picture">' + icon('mdi:chevron-right', 24) + '</button><div class="dots">' +
           pics.map(function (p, i) { return '<i' + (i ? '' : ' class="on"') + '></i>'; }).join('') + '</div>' : '') +
           '<div class="pt"></div></div>'
           : ev.pic_missing ? '<div class="nopic">' + icon('mdi:eye-off-outline', 22) + '<span>Picture not kept</span></div>' : '') +
@@ -1034,12 +1053,15 @@
   // THE SHEET: the detail sheets' material (hk-detail.js SHEET_CSS), made here -- it holds no entity
   var SHEET_CSS = [
     '#hk-timeline-sheet{position:fixed;inset:0;z-index:9998;display:flex;align-items:center;justify-content:center;pointer-events:none;color:' + v('ink') + ';',
-    '  ' + C.FONT_ROOT + ';box-sizing:border-box;padding-left:max(var(--hk-content-left,0px),var(--hk-safe-left,env(safe-area-inset-left,0px)));padding-right:var(--hk-safe-right,env(safe-area-inset-right,0px));-webkit-tap-highlight-color:transparent}',
+    '  ' + C.FONT_ROOT +
+      ';box-sizing:border-box;padding-left:max(var(--hk-content-left,0px),var(--hk-safe-left,env(safe-area-inset-left,0px)));padding-right:var(--hk-safe-right,env(safe-area-inset-right,0px));' +
+      '-webkit-tap-highlight-color:transparent}',
     '#hk-timeline-sheet .bd{position:absolute;inset:0;background:rgba(17,17,17,0.34);opacity:0;transition:opacity .3s ease;pointer-events:auto}',
     '#hk-timeline-sheet.open .bd{opacity:1}',
     '#hk-timeline-sheet .sheet{position:relative;box-sizing:border-box;pointer-events:auto;width:min(560px,calc(var(--hk-vw,100vw) - 32px));max-height:calc(var(--hk-vh,100dvh) - 32px);',
     '  display:flex;flex-direction:column;gap:16px;padding:20px;border-radius:30px;outline:none;',
-    '  background:var(--hk-sheet-plate,rgba(28,28,32,0.52));-webkit-backdrop-filter:var(--hk-sheet-backdrop,blur(34px) saturate(1.9));backdrop-filter:var(--hk-sheet-backdrop,blur(34px) saturate(1.9));',
+    '  background:var(--hk-sheet-plate,rgba(28,28,32,0.52));-webkit-backdrop-filter:var(--hk-sheet-backdrop,blur(34px) saturate(1.9));' +
+      'backdrop-filter:var(--hk-sheet-backdrop,blur(34px) saturate(1.9));',
     '  border:var(--hk-sheet-edge,1px solid rgba(255,255,255,0.12));box-shadow:var(--hk-sheet-shadow,0 26px 64px rgba(0,0,0,0.55));overflow:hidden;',
     '  opacity:0;transform:translateY(24px) scale(.98);transition:opacity .25s ease,transform .3s cubic-bezier(.32,.72,0,1)}',
     '#hk-timeline-sheet.open .sheet{opacity:1;transform:none}',
@@ -1052,28 +1074,33 @@
     '#hk-timeline-sheet .tx{flex:1;min-width:0}',
     '#hk-timeline-sheet .tt{font-size:20px;font-weight:700;letter-spacing:-.35px;line-height:24px;overflow-wrap:anywhere}',
     '#hk-timeline-sheet .st{font-size:14px;line-height:18px;color:' + v('ink-2') + ';margin-top:1px}',
-    '#hk-timeline-sheet .x{width:44px;height:44px;border-radius:22px;border:0;padding:0;flex:none;display:flex;align-items:center;justify-content:center;cursor:pointer;background:rgba(255,255,255,0.14);color:rgba(255,255,255,0.92)}',
+    '#hk-timeline-sheet .x{width:44px;height:44px;border-radius:22px;border:0;padding:0;flex:none;display:flex;align-items:center;justify-content:center;cursor:pointer;' +
+      'background:rgba(255,255,255,0.14);color:rgba(255,255,255,0.92)}',
     '#hk-timeline-sheet .x:active{background:rgba(255,255,255,0.26)}',
     '#hk-timeline-sheet .body{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;scrollbar-width:none;display:flex;flex-direction:column;gap:16px}',
     '#hk-timeline-sheet .body::-webkit-scrollbar{display:none}',
     '#hk-timeline-sheet .pw{position:relative;flex:none}',
-    '#hk-timeline-sheet .pics{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;border-radius:20px;background:#0b0d12;overscroll-behavior-x:contain}',
+    '#hk-timeline-sheet .pics{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;border-radius:20px;background:#0b0d12;' +
+      'overscroll-behavior-x:contain}',
     '#hk-timeline-sheet .pics::-webkit-scrollbar{display:none}',
     '#hk-timeline-sheet .pic{flex:0 0 100%;scroll-snap-align:center;aspect-ratio:16/9;display:flex;align-items:center;justify-content:center}',
     '#hk-timeline-sheet .pic img{width:100%;height:100%;object-fit:contain;display:block;-webkit-user-select:none;user-select:none}',
-    '#hk-timeline-sheet .nv{position:absolute;top:calc(50% - 22px - 14px);width:44px;height:44px;border-radius:22px;border:0;padding:0;display:flex;align-items:center;justify-content:center;background:rgba(28,28,30,0.62);color:#fff;cursor:pointer}',
+    '#hk-timeline-sheet .nv{position:absolute;top:calc(50% - 22px - 14px);width:44px;height:44px;border-radius:22px;border:0;padding:0;display:flex;align-items:center;justify-content:center;' +
+      'background:rgba(28,28,30,0.62);color:#fff;cursor:pointer}',
     '#hk-timeline-sheet .nv.pv{left:10px}#hk-timeline-sheet .nv.nx{right:10px}',
     '#hk-timeline-sheet .dots{position:absolute;left:0;right:0;bottom:36px;display:flex;justify-content:center;gap:6px;pointer-events:none}',
     '#hk-timeline-sheet .dots i{width:7px;height:7px;border-radius:4px;background:rgba(255,255,255,0.45)}',
     '#hk-timeline-sheet .dots i.on{background:#fff}',
     '#hk-timeline-sheet .pt{font-size:13px;line-height:18px;color:' + v('ink-2') + ';text-align:center;margin-top:8px;font-variant-numeric:tabular-nums}',
-    '#hk-timeline-sheet .nopic{display:flex;align-items:center;gap:10px;justify-content:center;height:56px;border-radius:16px;background:' + v('key') + ';color:' + v('ink-2') + ';font-size:15px;font-weight:600;flex:none}',
+    '#hk-timeline-sheet .nopic{display:flex;align-items:center;gap:10px;justify-content:center;height:56px;border-radius:16px;background:' + v('key') + ';color:' + v('ink-2') +
+      ';font-size:15px;font-weight:600;flex:none}',
     '#hk-timeline-sheet .rows{border-radius:20px;background:' + v('key') + ';flex:none}',
     '#hk-timeline-sheet .r{display:flex;gap:16px;align-items:baseline;justify-content:space-between;padding:12px 16px;min-height:44px;box-sizing:border-box}',
     '#hk-timeline-sheet .r + .r{border-top:1px solid ' + v('line') + '}',
     '#hk-timeline-sheet .r span{font-size:14px;line-height:20px;color:' + v('ink-2') + ';flex:none}',
     '#hk-timeline-sheet .r b{font-size:15px;font-weight:600;line-height:20px;text-align:right;min-width:0;overflow-wrap:anywhere}',
-    '#hk-timeline-sheet .go{flex:none;height:52px;border:0;border-radius:26px;padding:0 20px;background:var(--hk-seg-on,' + C.SELECTED_BG + ');color:' + C.SELECTED_TEXT + ';font-size:16px;font-weight:600;cursor:pointer}',
+    '#hk-timeline-sheet .go{flex:none;height:52px;border:0;border-radius:26px;padding:0 20px;background:var(--hk-seg-on,' + C.SELECTED_BG + ');color:' + C.SELECTED_TEXT +
+      ';font-size:16px;font-weight:600;cursor:pointer}',
     '#hk-timeline-sheet .go:active{opacity:.8}',
     '@media (max-width:640px){#hk-timeline-sheet .sheet{padding:18px;gap:14px;border-radius:30px}}',
     '@media (prefers-reduced-motion:reduce){#hk-timeline-sheet .bd,#hk-timeline-sheet .sheet{transition:none}}'

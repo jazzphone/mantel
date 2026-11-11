@@ -626,7 +626,8 @@
         E.vol.__sig = sig;
         E.vol.innerHTML = rows.length ? rows.map(function (r) {
           return '<div class="mpvrow' + (r.group ? ' grp' : '') + '" data-vk="' + esc(r.k) + '"><div class="mpvhd"><b>' + esc(r.name || nameOf(r.k)) + '</b><span></span></div>' +
-                 '<div class="mpvs" data-vol="' + esc(r.k) + '" data-hk-control role="slider" aria-label="' + esc((r.name || nameOf(r.k)) + ' volume') + '"><div class="tr"><i></i><b></b></div></div></div>';
+                 '<div class="mpvs" data-vol="' + esc(r.k) + '" data-hk-control role="slider" aria-label="' + esc((r.name || nameOf(r.k)) + ' volume') +
+                   '"><div class="tr"><i></i><b></b></div></div></div>';
         }).join('') : '<div class="mpnone">Nothing is playing.</div>';
       }
       rows.forEach(function (r) {

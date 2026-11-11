@@ -167,7 +167,8 @@
     // rail's foot -- its More tab, or its small button (the bar is 100% wide,
     // so it fits what is left by itself)
     // (and a side safe area's: hk-base.js SAFE)
-    '.hkp.bottom.plain{padding-left:max(var(--hk-tabbar-l,0px), var(--hk-safe-left,env(safe-area-inset-left,0px)));padding-right:max(var(--hk-tabbar-r,0px), var(--hk-safe-right,env(safe-area-inset-right,0px)))}',
+    '.hkp.bottom.plain{padding-left:max(var(--hk-tabbar-l,0px), var(--hk-safe-left,env(safe-area-inset-left,0px)));' +
+      'padding-right:max(var(--hk-tabbar-r,0px), var(--hk-safe-right,env(safe-area-inset-right,0px)))}',
     // Bubble's backdrop, measured: rgba(17,17,17,0.8), 0.3s opacity fade.
     '.hkp .bd{position:absolute;inset:0;background:rgba(17,17,17,0.8);opacity:0;',
     '  transition:opacity .3s ease;pointer-events:auto;-webkit-tap-highlight-color:transparent}',

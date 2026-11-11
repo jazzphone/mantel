@@ -26,8 +26,10 @@
       '.back{position:absolute;inset:0;background:rgba(4,10,24,0.5)}',
       '.box{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(560px,calc(100vw - 24px));',
       '  max-height:calc(var(--hk-vh,100vh) - 24px);overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;',
-      '  border-radius:28px;border:1px solid rgba(255,255,255,0.14);background:rgba(24,24,28,0.93);color:' + window.hkCards.v('ink') + ';  box-shadow:0 30px 80px rgba(0,0,0,0.45);padding:0 20px 22px}',
-      '.hd{display:flex;align-items:center;height:64px;position:sticky;top:0;background:linear-gradient(rgba(24,24,28,0.93),rgba(24,24,28,0.93)),rgba(24,24,28,0.93);z-index:1;margin:0 -20px;padding:0 20px}',
+      '  border-radius:28px;border:1px solid rgba(255,255,255,0.14);background:rgba(24,24,28,0.93);color:' + window.hkCards.v('ink') +
+        ';  box-shadow:0 30px 80px rgba(0,0,0,0.45);padding:0 20px 22px}',
+      '.hd{display:flex;align-items:center;height:64px;position:sticky;top:0;background:linear-gradient(rgba(24,24,28,0.93),rgba(24,24,28,0.93)),rgba(24,24,28,0.93);z-index:1;margin:0 -20px;' +
+        'padding:0 20px}',
       // the title riding on the form once it has scrolled (hk-base.js shade)
       C.shadeCss('.hd'),
       '.hd .t{flex:1;text-align:center;font-size:17px;font-weight:700}',

@@ -50,7 +50,12 @@ function drawHaUsers(c, others) {
     return;
   }
   const owns = mine.some((u) => u.person && u.person.kind === 'ha_linked');
-  c.appendChild(group({ header: 'Home Assistant Users', footer: 'Each Home Assistant user who is a person here, linked to their Mantel account: they sign in with Home Assistant, and a change they make on HK Frontend’s dashboards is saved as them. A Home Assistant admin not linked can’t save, and Home Assistant shows a repair until they are.' +
+  c.appendChild(
+    group(
+    { header: 'Home Assistant Users',
+    footer:
+    'Each Home Assistant user who is a person here, linked to their Mantel account: they sign in with Home Assistant, and a change they make on HK Frontend’s dashboards is saved as them. A Home ' +
+    'Assistant admin not linked can’t save, and Home Assistant shows a repair until they are.' +
       (owns ? ' “Own account”: one Mantel made for that Home Assistant user. Choose a person here to merge it into them.' : '') },
     (mine.length ? mine.map(pick) : [info('No Home Assistant users are linked yet')]).concat(
       [nav('Other Home Assistant Users', 'people/ha-others', { value: String(rest.length) })])));
@@ -70,13 +75,21 @@ function drawStandIns(c, tablets, devices) {
       for (const { u, dv } of ready) await api('PUT', '/api/devices/' + encodeURIComponent(dv.id) + '/ha-user', { ha_user: u.id });
     }, 'Moved to their tablets.', 'hapeople', 'users', 'devices');
   }, { fk: 'mx:standins-move' }));
-  c.appendChild(group({ header: 'Wall Tablets Signed In as People', footer: 'These Home Assistant users are wall tablets, linked to Wall Tablet accounts from before the tablets were enrolled with Mantel. Each belongs on its tablet’s own page instead (All Screens, Wall Tablets, the tablet, Home Assistant User).' +
+  c.appendChild(
+    group(
+    { header: 'Wall Tablets Signed In as People',
+    footer:
+    'These Home Assistant users are wall tablets, linked to Wall Tablet accounts from before the tablets were enrolled with Mantel. Each belongs on its tablet’s own page instead (All Screens, Wall ' +
+    'Tablets, the tablet, Home Assistant User).' +
       (plan.length > ready.length ? ' One with no tablet of the same name is chosen on its tablet’s page.' : '') + (owner ? '' : ' Only an Owner can move them.') }, rows));
 }
 const assignable = () => me.roles.filter((r) => me.user.role === 'owner' || r !== 'owner');
 export function pPeople(sub) {
   if (sub[0] === 'add') return pAddPerson();
-  if (sub[0] === 'ha-others') return { title: 'Other Home Assistant Users', back: ['People', '#/' + ROUTE + '/people'], scope: 'Home Assistant users that are neither a person here nor a wall tablet: service users (such as an MQTT broker’s), and users made for tablets that now sign in to Mantel themselves. Link one to a person if it is someone’s; a wall tablet’s is set on its own page (All Screens, Wall Tablets).', body(c) { result(c, 'people'); drawHaUsers(c, true); } };
+  if (sub[0] === 'ha-others') return { title: 'Other Home Assistant Users', back: ['People', '#/' + ROUTE + '/people'],
+    scope:
+    'Home Assistant users that are neither a person here nor a wall tablet: service users (such as an MQTT broker’s), and users made for tablets that now sign in to Mantel themselves. Link one to ' +
+    'a person if it is someone’s; a wall tablet’s is set on its own page (All Screens, Wall Tablets).', body(c) { result(c, 'people'); drawHaUsers(c, true); } };
   if (sub[0] && sub[1] === 'password') return pPersonPassword(sub[0]);
   if (sub[0]) return pPerson(sub[0]);
   return { title: 'People', top: true, scope: 'Everyone who can sign in to Mantel, and their roles.', body(c) {
@@ -129,12 +142,19 @@ function drawMerge(c, u, users) {
   const into = users.filter((x) => x.id !== u.id && x.kind !== 'ha_linked' && !x.ha_user_id);
   if (!into.length) return;
   const d = draft('merge:' + u.id);
-  c.appendChild(group({ header: 'Merge', footer: 'This account was made for a Home Assistant user. Merged into a person, their Home Assistant sign-in, Default Screen, own settings, phones and rooms go to that person (where they have none of their own), and this account is removed.' }, [
-    K().select({ label: 'Into', options: [['', 'Choose a Person'], ...into.map((x) => [x.id, (x.name || x.username) + ' · ' + roleLabel(x.role)])], value: d.into || '', fk: 'mx:merge:' + u.id, onChange: (v) => { d.into = v || null; redraw(); } }),
+  c.appendChild(
+    group(
+    { header: 'Merge',
+    footer:
+    'This account was made for a Home Assistant user. Merged into a person, their Home Assistant sign-in, Default Screen, own settings, phones and rooms go to that person (where they have none of ' +
+    'their own), and this account is removed.' }, [
+    K().select({ label: 'Into', options: [['', 'Choose a Person'], ...into.map((x) => [x.id, (x.name || x.username) + ' · ' + roleLabel(x.role)])], value: d.into || '', fk: 'mx:merge:' + u.id,
+      onChange: (v) => { d.into = v || null; redraw(); } }),
     button('Merge…', async () => {
       if (!d.into) return;
       const to = into.find((x) => x.id === d.into);
-      if (!(await ask({ title: 'Merge into ' + (to.name || to.username) + '?', message: (u.name || 'This account') + ' is removed; its Home Assistant sign-in and what it had go to ' + (to.name || to.username) + '.', ok: 'Merge', destructive: true }))) return;
+      if (!(await ask({ title: 'Merge into ' + (to.name || to.username) + '?', message: (u.name || 'This account') + ' is removed; its Home Assistant sign-in and what it had go to ' +
+        (to.name || to.username) + '.', ok: 'Merge', destructive: true }))) return;
       const r = await act('person', () => api('POST', '/api/users/' + encodeURIComponent(u.id) + '/merge', { into: d.into }), null, 'users', 'hapeople');
       if (r) { ui.flash = { key: 'people', text: 'Merged into ' + (to.name || to.username) + '.' }; panel.go('#/' + ROUTE + '/people/' + encodeURIComponent(d.into)); }
     }, { destructive: true, disabled: !d.into, fk: 'mx:merge:go:' + u.id })]));
@@ -163,7 +183,8 @@ function pPerson(id) {
     if (ds && ds.data) {
       const d = ds.data, cur = d.users[u.id] || '';
       const none = 'House Default (' + houseTitle(d) + ')';
-      c.appendChild(group({ header: 'Default Screen', footer: 'Where Mantel opens for them, except at a wall tablet (the tablet’s own). Which screens they may open, and what they see, is their role’s.' },
+      c.appendChild(
+        group({ header: 'Default Screen', footer: 'Where Mantel opens for them, except at a wall tablet (the tablet’s own). Which screens they may open, and what they see, is their role’s.' },
         [locked ? info('Opens On', null, cur ? (d.screens.find((x) => x.path === cur) || { title: cur }).title : none)
           : screenPicker('person', 'Opens On', null, cur, d.screens, none,
                          (v) => api('PUT', '/api/users/' + encodeURIComponent(u.id) + '/default-screen', { screen: v }))]));

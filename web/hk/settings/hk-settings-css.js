@@ -80,7 +80,8 @@
       '.wallgrid button.on img{box-shadow:0 0 0 3px var(--hk-tint)}',
       '.wallgrid button.on span{color:var(--hk-tint);font-weight:600}',
       '.landgrid button.on{box-shadow:0 0 0 3px var(--hk-tint)}',
-      '.landgrid button.on::after{content:"\\2713";position:absolute;right:6px;top:6px;width:22px;height:22px;border-radius:50%;background:var(--hk-tint);color:#fff;font-size:14px;font-weight:700;line-height:22px;text-align:center}',
+      '.landgrid button.on::after{content:"\\2713";position:absolute;right:6px;top:6px;width:22px;height:22px;border-radius:50%;background:var(--hk-tint);color:#fff;font-size:14px;font-weight:700;' +
+        'line-height:22px;text-align:center}',
       '.pickbar .pcount{flex:1;color:var(--hk-label2);font-size:15px;padding-left:4px;white-space:nowrap}',
       '.pickbar button{border:0;background:none;color:var(--hk-tint);font:inherit;font-size:15px;padding:7px 9px;border-radius:9px;cursor:pointer;white-space:nowrap}',
       '.pickbar button.add{background:var(--hk-tint);color:#fff;font-weight:600;padding:7px 14px}',

@@ -20,7 +20,9 @@
       fields(card, opts, save, o) {
         var K = this.K, self = this, kinds = G.table()[card].opts || {}, rows = [], hide = o.hide || {};
         var set = (key, value) => { var out = copy(opts); if (value === '' || value == null) delete out[key]; else out[key] = value; save(out); };
-        if (['alert', 'tv', 'swipe'].indexOf(card) >= 0) return rows.concat(G[card].rows(K, opts, set, (k) => self.choices(k), self.panel.client, { size: o.size, fields: (c, v, sv) => self.fields(c, v, sv, { size: o.size, hide: { tap: 1 } }) }));   // (an Alert's, a TV's, a Swipe's rows: hk-grid-catalog.js)
+        // (an Alert's, a TV's, a Swipe's rows: hk-grid-catalog.js)
+        if (['alert', 'tv', 'swipe'].indexOf(card) >= 0) return rows.concat(G[card].rows(K, opts, set, (k) => self.choices(k), self.panel.client,
+          { size: o.size, fields: (c, v, sv) => self.fields(c, v, sv, { size: o.size, hide: { tap: 1 } }) }));
         Object.keys(kinds).forEach(function (key) {
           if (hide[key]) return;
           var kind = kinds[key], label = KIND_LABELS[kind] || NAME_LABELS[key] || key.charAt(0).toUpperCase() + key.slice(1);
@@ -29,13 +31,16 @@
           if (card === 'room' && key === 'area' && o.list && !o.page) label = 'Default Room';
           if (kind === 'room_display') {
             if (o.page) return;
-            rows.push(K.seg({ label: 'Accessories', value: opts[key] || 'summary', options: [['summary', 'Summary'], ['scroll', 'Scroll All']], onChange: (v) => set(key, v === 'summary' ? null : v) }));
+            rows.push(K.seg({ label: 'Accessories', value: opts[key] || 'summary', options: [['summary', 'Summary'], ['scroll', 'Scroll All']],
+              onChange: (v) => set(key, v === 'summary' ? null : v) }));
             return;
           }
-          if (kind === 'title') { rows.push(K.text({ label: o.page ? 'Page Name' : 'Group Name', value: opts[key] || '', maxlength: 60, placeholder: o.page ? '' : 'Accessories', onCommit: (v) => set(key, v.trim() || null) })); return; }
+          if (kind === 'title') { rows.push(K.text({ label: o.page ? 'Page Name' : 'Group Name', value: opts[key] || '', maxlength: 60, placeholder: o.page ? '' : 'Accessories',
+            onCommit: (v) => set(key, v.trim() || null) })); return; }
           if (kind === 'secondary') { self.secondaryFields(opts[key], opts.entity || (o.base || {}).entity, (v) => set(key, v), rows); return; }
           if (kind === 'accessories') { if (!(o.list && !o.page)) self.accessoryFields(opts[key] || [], (v) => set(key, v), rows, o.page ? G.PER_PAGE[o.size] : 24); return; }
-          if (kind === 'boolean') { rows.push(K.toggle({ label: label, sub: card === 'people' && key === 'map' ? MAP_SUB : undefined, on: opts[key] === true, onChange: (on) => set(key, on || null) })); return; }
+          if (kind === 'boolean') { rows.push(K.toggle({ label: label, sub: card === 'people' && key === 'map' ? MAP_SUB : undefined, on: opts[key] === true,
+            onChange: (on) => set(key, on || null) })); return; }
           if (kind === 'windows') { self.windows(opts, set, rows); return; }
           if (kind === 'clock_style') {
             rows.push(K.select({ label: 'Style', value: opts[key] || '', options: G.CLOCK_FACES, onChange: (v) => set(key, v || null) }));
@@ -84,13 +89,15 @@
           // ON NOW'S CATEGORIES (2026-11-08, the owner: "either show a pop up or go to those pages... users decisions")
           if (kind === 'on_now_open') {
             if (o.size === 'S') return;
-            rows.push(K.seg({ label: 'Categories', value: opts[key] || 'sheet', options: [['sheet', 'Show a Sheet'], ['page', 'Go to Its Page']], onChange: (v) => set(key, v === 'sheet' ? null : v) }));
+            rows.push(K.seg({ label: 'Categories', value: opts[key] || 'sheet', options: [['sheet', 'Show a Sheet'], ['page', 'Go to Its Page']],
+              onChange: (v) => set(key, v === 'sheet' ? null : v) }));
             return;
           }
           // EVERYTHING'S REST (2026-11-08, the owner: "scroll within the card or go to the page with the + button")
           if (kind === 'everything_more') {
             if (o.size === 'S') return;
-            rows.push(K.seg({ label: 'More Places', value: opts[key] || 'page', options: [['page', '+ Opens the Page'], ['scroll', 'Scroll in the Block']], onChange: (v) => set(key, v === 'page' ? null : v) }));
+            rows.push(K.seg({ label: 'More Places', value: opts[key] || 'page', options: [['page', '+ Opens the Page'], ['scroll', 'Scroll in the Block']],
+              onChange: (v) => set(key, v === 'page' ? null : v) }));
             return;
           }
           // NOW PLAYING'S BACKGROUND (2026-11-05, the owner): the blurred album, or the plate every other block has
@@ -176,11 +183,13 @@
               rows.push(K.button({ label: 'Remove ' + nm, destructive: true, onClick: () => { var n2 = mem.filter((x, j) => j !== i); set(key, n2.length ? n2 : null); } }));
             });
             var left = doors.filter((op) => mem.indexOf(op[0]) < 0);
-            if (mem.length < G.SHEET.max && left.length) rows.push(K.select({ label: 'Add Entry', value: '', options: [['', 'Choose…']].concat(left), onChange: (v) => { if (v) set(key, mem.concat([v])); } }));
+            if (mem.length < G.SHEET.max && left.length) rows.push(K.select({ label: 'Add Entry', value: '', options: [['', 'Choose…']].concat(left),
+              onChange: (v) => { if (v) set(key, mem.concat([v])); } }));
             return;
           }
           if (kind === 'days') {
-            rows.push(K.select({ label: 'Days', value: String(opts[key] || 2), options: [1, 2, 3, 4, 5, 6, 7].map((n) => [String(n), n === 1 ? 'Today Only' : n === 2 ? 'Today and Tomorrow' : n + ' Days']),
+            rows.push(K.select({ label: 'Days', value: String(opts[key] || 2), options: [1, 2, 3, 4, 5, 6, 7].map(
+              (n) => [String(n), n === 1 ? 'Today Only' : n === 2 ? 'Today and Tomorrow' : n + ' Days']),
               onChange: (v) => set(key, +v === 2 ? null : +v) }));
             return;
           }
@@ -197,7 +206,8 @@
           var auto = o.page ? 'Same as the Block' : card === 'camera' ? 'First Camera' : card === 'room' ? 'Tablet’s Room' : 'Automatic';
           var all = card === 'room' && key === 'area' && !o.page ? choices : [['', auto]].concat(choices);
           if (opts[key] && opts[key] !== 'tablet_room' && !all.some((op) => op[0] === opts[key])) all.push([opts[key], opts[key] + (kind === 'speaker' ? ' (Not a Music Speaker)' : ' (Unavailable)')]);
-          rows.push(K.select({ label: label, value: (kind === 'speaker' && opts[key] === 'tablet_room' ? '' : opts[key]) || (card === 'room' && key === 'area' && !o.page ? 'tablet_room' : ''), options: all, onChange: (v) => set(key, v) }));
+          rows.push(K.select({ label: label, value: (kind === 'speaker' && opts[key] === 'tablet_room' ? '' : opts[key]) || (card === 'room' && key === 'area' && !o.page ? 'tablet_room' : ''),
+            options: all, onChange: (v) => set(key, v) }));
         });
         // HOUSE STATUS has no options of its own: it is the screen's status chips (hk-house-status.js)
         if (card === 'house_status' && !o.page) {
@@ -210,7 +220,8 @@
         var a = (this.panel.client.states[entity] || {}).attributes || {};
         var keys = Object.keys(a).filter((k) => a[k] == null || ['string', 'number', 'boolean'].includes(typeof a[k])).sort();
         var options = keys.map((k) => [k, k.replace(/_/g, ' ')]);
-        rows.push(K.select({ label: 'Line Under Name', value: mode, options: [['auto', 'Automatic'], ['state', 'State'], ['brightness', 'Brightness'], ['attribute', 'An Attribute'], ['none', 'Hidden']],
+        rows.push(K.select({ label: 'Line Under Name', value: mode, options: [['auto', 'Automatic'], ['state', 'State'], ['brightness', 'Brightness'], ['attribute', 'An Attribute'],
+          ['none', 'Hidden']],
           onChange: (m) => save(m === 'auto' ? null : m === 'attribute' ? { mode: m, attribute: keys.includes('battery_level') ? 'battery_level' : keys[0] || 'friendly_name' } : { mode: m }) }));
         if (mode !== 'attribute') return;
         var key = value.attribute;
@@ -240,7 +251,8 @@
         var put = (key, value) => save(Object.assign({}, surface, { [key]: value }));
         rows.push(K.text({ label: 'Background Color', type: 'color', value: surface.color, onCommit: (v) => put('color', v) }));
         rows.push(K.slider({ label: 'Background Opacity', value: surface.opacity, min: 0, max: 100, unit: '%', onChange: (v) => put('opacity', Number(v)) }));
-        rows.push(K.select({ label: 'Background Blur', value: surface.blur, options: [['screen', 'Follow Screen'], ['none', 'None'], ['light', 'Light'], ['medium', 'Medium'], ['heavy', 'Heavy']], onChange: (v) => put('blur', v) }));
+        rows.push(K.select({ label: 'Background Blur', value: surface.blur, options: [['screen', 'Follow Screen'], ['none', 'None'], ['light', 'Light'], ['medium', 'Medium'], ['heavy', 'Heavy']],
+          onChange: (v) => put('blur', v) }));
       }
       // the house's playlists, as the Music page reads them (hkMusic.playlists(), the screen's copy in the preview): the
       // list fills in once the house has answered
@@ -269,7 +281,8 @@
         return this._tv;
       }
       // THE HOUSE'S SCENES (Accessories -> Scenes): HA's and the buttons and scripts added as one; before the counts load, HA's
-      sceneIds() { var st = this.panel.client.states || {}, ck = ((this.panel.data || {}).counts || {}).scenes; return ck && Array.isArray(ck.found) ? ck.found.filter((id) => !!st[id]) : Object.keys(st).filter((id) => id.indexOf('scene.') === 0); }
+      sceneIds() { var st = this.panel.client.states || {}, ck = ((this.panel.data || {}).counts || {}).scenes; return ck && Array.isArray(ck.found) ? ck.found.filter((id) => !!st[id]) :
+        Object.keys(st).filter((id) => id.indexOf('scene.') === 0); }
       choices(kind) {
         var client = this.panel.client, states = client.states || {};
         if (kind === 'scene' || kind === 'scenes' || kind === 'action') {   // a scene block, a Scenes block: the house's scenes; a window, an Action: and every script
@@ -277,10 +290,12 @@
             .map((id) => [id, (states[id].attributes || {}).friendly_name || id]).sort((a, b) => a[1].localeCompare(b[1]));
           return kind === 'action' ? [['lock_up', 'Lock Up'], ['lights_off', 'All Lights Off'], ['garage', 'Garage']].concat(sl) : sl;
         }
-        if (kind === 'tv_target') return G.tv.choices(client); if (kind === 'area') return [['tablet_room', 'Tablet’s Room']].concat(Object.keys(client.areas || {}).map((id) => [id, client.areas[id].name || id]));
+        if (kind === 'tv_target') return G.tv.choices(client); if (kind === 'area') return [['tablet_room', 'Tablet’s Room']].concat(
+          Object.keys(client.areas || {}).map((id) => [id, client.areas[id].name || id]));
         if (kind === 'speaker') return G.speakerChoices(this.musicSpeakers());   // (2026-11-10: music rooms and groups, never a TV)
         var domains = { speaker: ['media_player'], climate: ['climate'], camera: ['camera'],
-          timer: ['timer'], alarm: ['alarm_control_panel'], select: ['input_select', 'select'], doorbell: ['binary_sensor', 'camera'], weather: ['weather'], vacuum: ['vacuum'], calendars: ['calendar'],
+          timer: ['timer'], alarm: ['alarm_control_panel'], select: ['input_select', 'select'], doorbell: ['binary_sensor', 'camera'], weather: ['weather'], vacuum: ['vacuum'],
+            calendars: ['calendar'],
           cameras: ['camera'], todo: ['todo'] }[kind];
         var list = Object.keys(states).filter((id) => !domains || domains.indexOf(id.split('.')[0]) >= 0).map((id) => [id, (states[id].attributes || {}).friendly_name || id]);
         list.sort((a, b) => a[1].localeCompare(b[1]));
@@ -411,7 +426,9 @@
         // THIS SCREEN CHANGED since the editor opened it (another window,
         // another device): nothing was saved. Reload shows it as it is now;
         // Save Anyway replaces it with this draft
-        var choice = await this.changed('This screen changed since you opened it, in another window or on another device. Reload to see it as it is now (your changes here are discarded), or Save Anyway to replace it with your layout.');
+        var choice = await this.changed(
+          'This screen changed since you opened it, in another window or on another device. Reload to see it as it is now (your changes here are discarded), or Save Anyway to replace it with your ' +
+          'layout.');
         if (choice === 'anyway') return this.save(true);
         if (choice === 'reload') return this.reloadBoard();
         this.say('Not saved: this screen changed since you opened it.');

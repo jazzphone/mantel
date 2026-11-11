@@ -358,7 +358,8 @@
           if (!s.rows.length) return lines('Climate', DASH, '');
           if (s.rows.length === 1) return lines(s.rows[0].name, s.rows[0].v, s.one.act, !!s.kind);
           return '<div class="hm-rows">' + s.rows.map(function (r) {
-            return '<div class="hm-row"' + H.accStyle(r.kind === 'heat' ? ACC.orange : r.kind === 'cool' ? BLUE : null) + '><i class="dot a"></i><div class="hm-n">' + esc(r.name) + '</div><div class="hm-v">' + esc(r.v) + '</div></div>';
+            return '<div class="hm-row"' + H.accStyle(r.kind === 'heat' ? ACC.orange : r.kind === 'cool' ? BLUE : null) + '><i class="dot a"></i><div class="hm-n">' + esc(r.name) +
+              '</div><div class="hm-v">' + esc(r.v) + '</div></div>';
           }).join('') + '</div>';
         },
         sample: { rows: [{ name: 'Upstairs', v: '68° → 70°', kind: 'heat' }, { name: 'Downstairs', v: '71° → 72°', kind: '' }], kind: 'heat', one: null }

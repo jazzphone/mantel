@@ -94,7 +94,8 @@
   // a piece in its box, at its own shape, standing on the box's foot
   function fitR(im, b) { var k = Math.min(b[2] / im.naturalWidth, b[3] / im.naturalHeight), w = im.naturalWidth * k, h = im.naturalHeight * k; return [b[0] + (b[2] - w) / 2, b[1] + b[3] - h, w, h]; }
   function drawFit(c, n, b) { if (!b) return null; var r = fitR(REAL[n], b); c.drawImage(REAL[n], r[0], r[1], r[2], r[3]); return r; }
-  function cover(c, n, b) { var im = REAL[n] || n, k = Math.max(b[2] / im.naturalWidth, b[3] / im.naturalHeight), w = im.naturalWidth * k, h = im.naturalHeight * k; c.save(); c.beginPath(); c.rect(b[0], b[1], b[2], b[3]); c.clip(); c.drawImage(im, b[0] + (b[2] - w) / 2, b[1] + b[3] - h, w, h); c.restore(); }
+  function cover(c, n, b) { var im = REAL[n] || n, k = Math.max(b[2] / im.naturalWidth, b[3] / im.naturalHeight), w = im.naturalWidth * k, h = im.naturalHeight * k; c.save(); c.beginPath();
+    c.rect(b[0], b[1], b[2], b[3]); c.clip(); c.drawImage(im, b[0] + (b[2] - w) / 2, b[1] + b[3] - h, w, h); c.restore(); }
   // a tile at `scale` px per painted px (the files are half size: 1024 painted px are 512 here)
   function tileAt(c, n, x, y, w, h, scale) {
     var im = REAL[n], tw = im.naturalWidth * scale, th = im.naturalHeight * scale;
@@ -121,7 +122,8 @@
       if (hi > lo) out = [lo / w, (hi + 1) / w, (foot + 1) / h];
       // ...and the bottom edge, column by column (a pile's gifts each meet the floor at their own depth)
       var prof = [];
-      for (var i2 = 0; i2 < w; i2 += 2) { var bot = -1; for (var y2 = h - 1; y2 > h * 0.45; y2--) if (a[(y2 * w + i2) * 4 + 3] > 200) { bot = y2; break; } prof.push(bot < 0 ? null : [(i2 + 1) / w, (bot + 1) / h]); }
+      for (var i2 = 0; i2 < w; i2 += 2) { var bot = -1; for (var y2 = h - 1; y2 > h * 0.45; y2--) if (a[(y2 * w + i2) * 4 + 3] > 200) { bot = y2; break; } prof.push(bot < 0 ? null :
+        [(i2 + 1) / w, (bot + 1) / h]); }
       out[3] = prof;
       cv0.width = cv0.height = 0;
     } catch (e) { /* a picture that can't be read: its box */ }
@@ -187,7 +189,8 @@
     var treeH, treeCx, treeW, treeBase, win, couchB = null, back = null, fBase, fH, fW, fCx;
     if (tall) {
       // on the floor, behind the TV, and rising well above the entertainment center
-      treeBase = floorY + 14 * Z; treeH = Math.max(tvY + tvH * 0.4 - Math.max(M + 70 * Z, H * 0.1), treeBase - Math.max(M + 70 * Z, uy - 240 * Z)); treeW = treeH * 0.62; treeCx = Math.min(W - treeW * 0.28, W * 0.78);
+      treeBase = floorY + 14 * Z; treeH = Math.max(tvY + tvH * 0.4 - Math.max(M + 70 * Z, H * 0.1), treeBase - Math.max(M + 70 * Z, uy - 240 * Z)); treeW = treeH * 0.62;
+        treeCx = Math.min(W - treeW * 0.28, W * 0.78);
       var ww = Math.min(W * 0.5, 330 * Z), wh = ww * 1.12; win = { x: W * 0.06, y: Math.max(H * 0.16, tvY - wh - 40 * Z), w: ww, h: wh };
     } else {
       // the tree in the corner, in front of the couch's far end (beside a side pane it stands partly out of the picture)
@@ -219,7 +222,8 @@
     if (!tall) { data.place.tree = [fCx - fW / 2, fBase - fH - 12 * Z, fW, fH + 12 * Z]; data.place.presents = [fCx - fW * 0.66, fBase - 72 * Z, fW * 1.16, 86 * Z]; }
     if (back) { data.place.treeBack = back.tree; data.place.presentsBack = back.presents; }
     data.place.unit = [ux, uy, uw, uh];
-    data.place.pile = data.place.presents ? [data.place.presents[0] - data.place.presents[2] * 0.05, data.place.presents[1] - data.place.presents[3] * 1.1, data.place.presents[2] * 1.1, data.place.presents[3] * 2.1] : null;
+    data.place.pile = data.place.presents ? [data.place.presents[0] - data.place.presents[2] * 0.05, data.place.presents[1] - data.place.presents[3] * 1.1, data.place.presents[2] * 1.1,
+      data.place.presents[3] * 2.1] : null;
     // the board's place in the other rooms (the chalkboard, the flip board): the TV's old box
     data.board = [tvX, tvY, tvW, tvH];
     return data;
@@ -342,8 +346,10 @@
     d.frame = { img: framed(REAL[frame], wr, q), r: wr }; d.win = { x: panes[0], y: panes[1], w: panes[2], h: panes[3] };
   }
   function mood(c, W, H, at, col, a, dim) {
-    var g = c.createRadialGradient(at[0], at[1], 0, at[0], at[1], Math.max(W, H) * 0.55); g.addColorStop(0, 'rgba(' + col + ',' + a + ')'); g.addColorStop(1, 'rgba(' + col + ',0)'); c.fillStyle = g; c.fillRect(0, 0, W, H);
-    var vg = c.createRadialGradient(W * 0.58, H * 0.55, Math.min(W, H) * 0.25, W * 0.58, H * 0.55, Math.max(W, H) * 0.8); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.6)'); c.fillStyle = vg; c.fillRect(0, 0, W, H);
+    var g = c.createRadialGradient(at[0], at[1], 0, at[0], at[1], Math.max(W, H) * 0.55); g.addColorStop(0, 'rgba(' + col + ',' + a + ')'); g.addColorStop(1, 'rgba(' + col + ',0)'); c.fillStyle = g;
+      c.fillRect(0, 0, W, H);
+    var vg = c.createRadialGradient(W * 0.58, H * 0.55, Math.min(W, H) * 0.25, W * 0.58, H * 0.55, Math.max(W, H) * 0.8); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.6)');
+      c.fillStyle = vg; c.fillRect(0, 0, W, H);
     c.fillStyle = 'rgba(10,14,40,' + dim + ')'; c.fillRect(0, 0, W, H);
   }
   // ---------------------------------------------------------------- THANKSGIVING: a 90s dining room at dusk
@@ -386,7 +392,8 @@
     c.strokeStyle = '#141418'; c.lineWidth = 4 * mz; c.lineCap = 'round';
     c.beginPath(); c.moveTo(poleX, roofY + 6 * z); c.lineTo(poleX, poleTop); c.stroke();
     c.fillStyle = '#1c1c22'; c.beginPath(); c.arc(poleX, poleTop, 5 * mz, 0, 7); c.fill();
-    /** @type {Array<[number[], number[], number]>} */ var runs = [[[-30 * z, poleTop + 10 * z], [bv[0] + 14 * z, bv[1] + 10 * z], 60 * z], [[bv[0] + bv[2] - 14 * z, bv[1] + 10 * z], [poleX, poleTop + 4 * z], 90 * z]];
+    /** @type {Array<[number[], number[], number]>} */ var runs = [[[-30 * z, poleTop + 10 * z], [bv[0] + 14 * z, bv[1] + 10 * z], 60 * z],
+      [[bv[0] + bv[2] - 14 * z, bv[1] + 10 * z], [poleX, poleTop + 4 * z], 90 * z]];
     d.bulbs = [];
     runs.forEach(function (r) {
       var a = r[0], b = r[1], cx = (a[0] + b[0]) / 2, cy = Math.max(a[1], b[1]) + r[2] * 2;

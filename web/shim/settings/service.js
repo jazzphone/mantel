@@ -11,7 +11,10 @@ const MADE_BY = { app: 'Made by the Home Assistant App for Mantel Link', pairing
 const USED_BY = { mantel: 'In use by Mantel Link', hk_frontend: 'In use by HK Frontend' };
 export function pService(sub) {
   if (sub[0] === 'add') return pAddService();
-  return { title: 'Service Accounts', top: true, scope: 'Machine credentials, for scripts and other machines that reach Mantel. Mantel Link and HK Frontend make or get theirs on Home Assistant’s page (Connections), and they are listed here too. No password, no session and no role: only the endpoints ticked. Managed on the home network only.', body(c) {
+  return { title: 'Service Accounts', top: true,
+    scope:
+    'Machine credentials, for scripts and other machines that reach Mantel. Mantel Link and HK Frontend make or get theirs on Home Assistant’s page (Connections), and they are listed here too. No ' +
+    'password, no session and no role: only the endpoints ticked. Managed on the home network only.', body(c) {
     result(c, 'service');
     const t = shown.service;
     if (t) {

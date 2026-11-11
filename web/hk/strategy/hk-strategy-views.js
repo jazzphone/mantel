@@ -393,7 +393,8 @@
           background: '#150e1f', cards: [titleBar('Music'), column([{ type: 'custom:hk-music-card', focus_search: true }])] }));
         // NOW PLAYING (2026-11-07): the screensaver's music slide as a page, its corner its title (hk-saver-pane.js); out of
         // the menu, a screen's Swipe Right on Home goes there. The cover is its sky, as Music's.
-        out.push(view({ title: 'Now Playing', path: 'now-playing', subview: true, sky_variant: 'playmusic', menu_follows: 'playmusic', icon: 'mdi:play-circle', menu: false, background: '#150e1f', cards: [column([{ type: 'custom:hk-now-playing-page-card' }])] }));
+        out.push(view({ title: 'Now Playing', path: 'now-playing', subview: true, sky_variant: 'playmusic', menu_follows: 'playmusic', icon: 'mdi:play-circle', menu: false, background: '#150e1f',
+          cards: [column([{ type: 'custom:hk-now-playing-page-card' }])] }));
       }
       // THE PAGES IN THIS DASHBOARD'S ORDER (Order -> Pages): the
       // kinds, Browse Music where it is placed (else right after Play Music --

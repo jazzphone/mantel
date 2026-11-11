@@ -220,7 +220,8 @@
           var shown = isRt ? hm(v) : kwh(v) + '<u>kWh</u>';
           var tz2 = S.tz(), fmtV = function (z) { return isRt ? hm(z) : kwh(z) + ' kWh'; };
           var tips = before.map(function (q) {
-            return new Date(R.ax.d[q.i].t).toLocaleDateString(window.hkLocale.tag(), window.hkLocale.zoned({ weekday: 'short', month: 'short', day: 'numeric', timeZone: tz2 })) + ' \u00b7 ' + fmtV(q.z) + ' \u00b7 last week';
+            return new Date(R.ax.d[q.i].t).toLocaleDateString(window.hkLocale.tag(), window.hkLocale.zoned({ weekday: 'short', month: 'short', day: 'numeric', timeZone: tz2 })) + ' \u00b7 ' +
+              fmtV(q.z) + ' \u00b7 last week';
           });
           var bars = before.map(function (q) {
             return { segs: [{ v: q.z, c: rgba(color, 0.28) }], label: slotLabel('week', R, q.i, 0, 7, +R.ax.d[q.i].t) };

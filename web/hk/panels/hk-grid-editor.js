@@ -33,7 +33,8 @@
   function y2(it) { return it.at[1] * 2 + (it.size === 'XS' && it.at[2] ? 1 : 0); }
   function h2(size) { return size === 'XS' ? 1 : SIZES[size][1] * 2; }
   function atY2(size, col, y) { return size === 'XS' && y % 2 ? [col, (y - 1) / 2, 1] : [col, y >> 1]; }
-  // C, Compact (2026-11-07): 3 x 1, Security's HomeView presentation's alone (home_grid.py _security_size); a new one carries that presentation from the start, which valid() asks for (2026-11-09, the owner: Add did nothing for a free 3 x 1)
+  // C, Compact (2026-11-07): 3 x 1, Security's HomeView presentation's alone (home_grid.py _security_size); a new one carries that presentation from the start, which valid() asks for (2026-11-09, the
+  // owner: Add did nothing for a free 3 x 1)
   function born(item) { if (item.card === 'security' && item.size === 'C') item.opts = { presentation: 'homeview' }; return item; }
   function offersSize(card, size, opts) { return size !== 'C' || (card === 'security' && (opts || {}).presentation === 'homeview'); }
   // EVERY CATALOG KEY IS IN ONE OF THESE (2026-10-31, the owner: On Now, To-do and Energy Rings were missing from the
@@ -50,8 +51,11 @@
     action: 'One tap for a household job', scene: 'Set a favorite scene', scenes: 'Your scenes together',
     scene_suggested: 'The right scene for the time of day', thermostat: 'Temperature and climate; Extra Large has every control',
     weather: 'Current conditions and the forecast', now_playing: 'Music and playback controls', security: 'The alarm, locks and doors; Large is the keypad',
-    camera: 'One camera, or swipe between cameras', cameras: 'Up to nine cameras at once; Full View fills the page', clock: 'Digital or analog, with or without its box', timers: 'Timers and quick starts',
-    calendar: 'Your upcoming events', battery: 'Your home’s stored energy', people: 'Who is home', vacuum: 'Cleaning status; Large adds controls and Clean Areas', laundry: 'Your washer and dryer: what each is doing and when it’s done', tv: 'A room’s TV and Apple TV: what’s on, your apps, the volume and a remote', swipe: 'Cards to swipe between, each with its own settings',
+    camera: 'One camera, or swipe between cameras', cameras: 'Up to nine cameras at once; Full View fills the page', clock: 'Digital or analog, with or without its box',
+      timers: 'Timers and quick starts',
+    calendar: 'Your upcoming events', battery: 'Your home’s stored energy', people: 'Who is home', vacuum: 'Cleaning status; Large adds controls and Clean Areas',
+      laundry: 'Your washer and dryer: what each is doing and when it’s done', tv: 'A room’s TV and Apple TV: what’s on, your apps, the volume and a remote',
+      swipe: 'Cards to swipe between, each with its own settings',
     everything: 'Open the screen’s full menu', power: 'Solar, the house, the battery and the grid right now',
     music: 'Choose speakers, then a playlist', doors: 'Locks, doors, windows and the garage', live_tv: 'Your channels; tap one to watch',
     water: 'Today’s water; Extra Large adds the main supply',
@@ -62,9 +66,11 @@
   var GLYPHS = { room: 'mdi:sofa', accessory: 'mdi:lightbulb', accessories: 'mdi:view-grid', action: 'mdi:gesture-tap', scene: 'mdi:palette',
     scenes: 'mdi:palette', scene_suggested: 'mdi:weather-sunset', thermostat: 'mdi:thermostat', weather: 'mdi:weather-partly-cloudy',
     now_playing: 'mdi:music', security: 'mdi:shield-home', camera: 'mdi:camera', cameras: 'mdi:cctv', clock: 'mdi:clock', timers: 'mdi:timer-outline',
-    calendar: 'mdi:calendar', battery: 'mdi:home-battery', people: 'mdi:account', vacuum: 'mdi:robot-vacuum', laundry: 'mdi:washing-machine', tv: 'mdi:television', swipe: 'mdi:gesture-swipe-horizontal', everything: 'mdi:dots-horizontal',
+    calendar: 'mdi:calendar', battery: 'mdi:home-battery', people: 'mdi:account', vacuum: 'mdi:robot-vacuum', laundry: 'mdi:washing-machine', tv: 'mdi:television',
+      swipe: 'mdi:gesture-swipe-horizontal', everything: 'mdi:dots-horizontal',
     power: 'mdi:lightning-bolt', music: 'mdi:speaker-multiple', doors: 'mdi:door-closed-lock', live_tv: 'mdi:television-classic', water: 'mdi:water',
-    on_now: 'mdi:lightbulb-on', todo: 'mdi:clipboard-check', energy_rings: 'mdi:lightning-bolt', timeline: 'mdi:history', intercom: 'mdi:microphone', house_status: 'mdi:home', alert: 'mdi:alert-circle' };
+    on_now: 'mdi:lightbulb-on', todo: 'mdi:clipboard-check', energy_rings: 'mdi:lightning-bolt', timeline: 'mdi:history', intercom: 'mdi:microphone', house_status: 'mdi:home',
+      alert: 'mdi:alert-circle' };
   // AN OPTION'S NAME in the panel: by its kind (hk-grid-catalog.js opts), else by its own name
   var KIND_LABELS = { entity: 'Accessory', climate: 'Thermostat', camera: 'Camera', weather: 'Weather', vacuum: 'Vacuum',
     speaker: 'Speaker', scene: 'Scene', scenes: 'Scenes', calendars: 'Calendars', area: 'Room', action: 'Does', windows: 'Time Windows', alarm: 'Alarm',
@@ -126,7 +132,8 @@
       grid.items.length <= 24 && grid.items.every(function (it, i) {
         var cat = G.table()[it.card];
         if ((it.view || 0) >= (grid.views || 1)) return false;
-        return cat && cat.sizes.indexOf(it.size) >= 0 && offersSize(it.card, it.size, it.opts) && (!it.when || it.fallback && G.table()[it.fallback.card] && G.table()[it.fallback.card].sizes.includes(it.size)) &&
+        return cat && cat.sizes.indexOf(it.size) >= 0 && offersSize(it.card, it.size, it.opts) &&
+          (!it.when || it.fallback && G.table()[it.fallback.card] && G.table()[it.fallback.card].sizes.includes(it.size)) &&
           G.rulesFit(it) && fits(grid, it) &&
           !grid.items.slice(i + 1).some(function (other) { return it.id === other.id || overlap(it, other); });
       });
@@ -324,8 +331,10 @@
   ];
   // a grid's cells: their size, gap and (a Square screen's) edge -- hk-grid-catalog.js CELLS
   // A SAMPLE'S ENTITIES: of these domains in this order, each with a name a person gave (no radio address "0x00158d008...", 2026-11-09)
-  var rawName = function (op) { var t = String(op[1] || op[0]).replace(/^[a-z_]+\./, ''); return /^0x[0-9a-f]/i.test(t) || (/^[0-9a-f]{8,}\b/i.test(t) && /\d/.test(t.split(/\s/)[0])) || !/[a-z]{3}/i.test(t); };
-  function sampleEntities(choices, domains) { return domains.reduce(function (out, d) { return out.concat(choices.filter(function (op) { return op[0].indexOf(d + '.') === 0 && !rawName(op); })); }, []); }
+  var rawName = function (op) { var t = String(op[1] || op[0]).replace(/^[a-z_]+\./, ''); return /^0x[0-9a-f]/i.test(t) || (/^[0-9a-f]{8,}\b/i.test(t) && /\d/.test(t.split(/\s/)[0])) ||
+    !/[a-z]{3}/i.test(t); };
+  function sampleEntities(choices, domains) { return domains.reduce(function (out, d) { return out.concat(choices.filter(function (op) { return op[0].indexOf(d + '.') === 0 && !rawName(op); })); },
+    []); }
   function cellOf(grid) { return G.CELLS[grid && grid.cell === 'square' ? 'square' : 'tile']; }
   // A NIGHTSTAND (Phone, Landscape: a phone on its side by the bed, as
   // StandBy has it): starters of its own, a big clock on the wallpaper first
@@ -562,35 +571,44 @@
     '.framebox{position:relative;overflow:hidden;margin:auto;border-radius:10px;background:var(--hk-cell);outline:1px solid var(--hk-sep)}',
     '.frame{position:absolute;left:0;top:0;transform-origin:top left;background:var(--hk-cell);overflow:hidden}',
     // while the screen loads in its frame (a slow connection: a minute or more)
-    '.framebox[data-loading]::after{content:"Loading the preview…";position:absolute;inset:0;z-index:5;display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--hk-label2);background:var(--hk-cell)}',
-    '.framebox[data-loading=slow]::after{content:"The live preview isn’t ready. " attr(data-why) ". You can still arrange blocks.";inset:auto 0 0 0;padding:10px 14px;font-size:13px;justify-content:flex-start;background:color-mix(in srgb,var(--hk-cell) 92%,transparent)}',
-    '.catalog-preview:empty::before,.catalog-preview[data-loading]::before{content:"Loading preview…";position:absolute;inset:0;z-index:1;display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--hk-label2);background:var(--hk-fill)}',
+    '.framebox[data-loading]::after{content:"Loading the preview…";position:absolute;inset:0;z-index:5;display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--hk-label2);' +
+      'background:var(--hk-cell)}',
+    '.framebox[data-loading=slow]::after{content:"The live preview isn’t ready. " attr(data-why) ". You can still arrange blocks.";inset:auto 0 0 0;padding:10px 14px;font-size:13px;' +
+      'justify-content:flex-start;background:color-mix(in srgb,var(--hk-cell) 92%,transparent)}',
+    '.catalog-preview:empty::before,.catalog-preview[data-loading]::before{content:"Loading preview…";position:absolute;inset:0;z-index:1;display:flex;align-items:center;justify-content:center;' +
+      'font-size:13px;color:var(--hk-label2);background:var(--hk-fill)}',
     'iframe{position:absolute;inset:0;border:0;width:100%;height:100%;pointer-events:none}',
     '.grid{position:absolute;display:grid;gap:10px;z-index:2}',
     '.slot{border:1px dashed var(--hk-label3);border-radius:var(--grid-radius,var(--hk-glass-radius,23.5px));pointer-events:none}',
-    '.block{position:absolute;z-index:3;cursor:grab;border:2px solid transparent;background:transparent;border-radius:var(--grid-radius,var(--hk-glass-radius,23.5px));color:var(--hk-label);touch-action:none}',
+    '.block{position:absolute;z-index:3;cursor:grab;border:2px solid transparent;background:transparent;border-radius:var(--grid-radius,var(--hk-glass-radius,23.5px));color:var(--hk-label);' +
+      'touch-action:none}',
     '.block:hover{border-color:color-mix(in srgb,var(--hk-tint) 45%,transparent)}',
     '.block.carried{z-index:5;cursor:grabbing}',
     '.block[aria-pressed=true]{border-color:var(--hk-tint)}.block:focus-visible{outline:3px solid var(--hk-tint)}',
     // the block's name: just above the one pointed at or chosen, never over a card's own title
-    '.block .tag{position:absolute;bottom:calc(100% + 4px);left:0;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:4px 8px;border-radius:7px;background:var(--hk-cell);font-size:13px;opacity:0;transition:opacity .12s}',
+    '.block .tag{position:absolute;bottom:calc(100% + 4px);left:0;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:4px 8px;border-radius:7px;' +
+      'background:var(--hk-cell);font-size:13px;opacity:0;transition:opacity .12s}',
     '.block:hover .tag,.block[aria-pressed=true] .tag,.block:focus-visible .tag{opacity:1}',
-    '.ghost{position:absolute;pointer-events:none;border:3px solid var(--hk-tint);background:color-mix(in srgb,var(--hk-tint) 18%,transparent);border-radius:var(--grid-radius,var(--hk-glass-radius,23.5px));z-index:4}.ghost.bad{border-color:var(--hk-red);background:color-mix(in srgb,var(--hk-red) 14%,transparent)}',
+    '.ghost{position:absolute;pointer-events:none;border:3px solid var(--hk-tint);background:color-mix(in srgb,var(--hk-tint) 18%,transparent);' +
+      'border-radius:var(--grid-radius,var(--hk-glass-radius,23.5px));z-index:4}.ghost.bad{border-color:var(--hk-red);background:color-mix(in srgb,var(--hk-red) 14%,transparent)}',
     // A CARD HELD OVER BLOCKS IT WOULD REPLACE (paletteDrag): its outline dashed red, the blocks that go washed red
     '.ghost.replace{border-style:dashed;border-color:var(--hk-red);background:transparent}',
     '.block.going{border-color:var(--hk-red);background:color-mix(in srgb,var(--hk-red) 42%,transparent)}',
     '.note.warn{color:var(--hk-red)}',
-    '.float{position:fixed;left:0;top:0;z-index:20;pointer-events:none;display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:10px;background:var(--hk-cell);color:var(--hk-label);box-shadow:var(--hk-shadow);font-size:13px;font-weight:600;white-space:nowrap}',
+    '.float{position:fixed;left:0;top:0;z-index:20;pointer-events:none;display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:10px;background:var(--hk-cell);color:var(--hk-label);' +
+      'box-shadow:var(--hk-shadow);font-size:13px;font-weight:600;white-space:nowrap}',
     '.float hk-icon{width:20px;height:20px;color:var(--hk-tint)}',
     '.note{font-size:13px;color:var(--hk-label2);line-height:1.5;margin:0 0 10px}.message{flex:none;color:var(--hk-red);min-height:24px;padding:6px 20px 0}',
     // THE PALETTE
     '.pal-head{position:sticky;top:0;z-index:2;background:var(--hk-bg);padding:0 0 12px}',
     '.pal-head p{font-size:13px;color:var(--hk-label2);margin:8px 4px 0;line-height:1.4}',
-    '.catalog-search{box-sizing:border-box;width:100%;min-height:40px;border:1px solid var(--hk-sep);border-radius:10px;padding:8px 12px;background:var(--hk-cell);color:var(--hk-label);font:inherit;font-size:15px}',
+    '.catalog-search{box-sizing:border-box;width:100%;min-height:40px;border:1px solid var(--hk-sep);border-radius:10px;padding:8px 12px;background:var(--hk-cell);color:var(--hk-label);' +
+      'font:inherit;font-size:15px}',
     '.pick-banner{display:flex;align-items:center;gap:8px;margin:0 0 10px;padding:10px 12px;border-radius:10px;background:color-mix(in srgb,var(--hk-tint) 16%,var(--hk-cell));font-size:14px}',
     '.pick-banner span{flex:1}.pick-banner button{border:0;background:none;color:var(--hk-tint);font:inherit;cursor:pointer;min-height:32px}',
     // (pan-y: a finger moving up or down scrolls the list; paletteRow picks a card up on a sideways drag or a hold)
-    '.pal-row{display:flex;align-items:center;gap:10px;padding:8px 10px 8px 12px;cursor:grab;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:pan-y;transition:transform .15s ease,box-shadow .15s ease}',
+    '.pal-row{display:flex;align-items:center;gap:10px;padding:8px 10px 8px 12px;cursor:grab;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:pan-y;' +
+      'transition:transform .15s ease,box-shadow .15s ease}',
     '.pal-row.lifted{transform:scale(1.02);box-shadow:0 8px 24px rgba(0,0,0,.28);position:relative;z-index:2}',
     '.pal-row:active{cursor:grabbing}.pal-row[aria-expanded=true]{background:var(--hk-hover)}',
     '.pal-row > hk-icon{width:24px;height:24px;flex:none;color:var(--hk-tint)}',
@@ -604,10 +622,12 @@
     '.catalog-add{width:100%;min-height:40px;border:0;border-radius:10px;background:var(--hk-tint);color:white;font:inherit;cursor:pointer}.catalog-add:disabled{opacity:.4;cursor:default}',
     // THE INSPECTOR
     '.insp-head{display:flex;align-items:center;gap:12px;padding:4px 4px 16px}',
-    '.insp-head hk-icon{display:flex;align-items:center;justify-content:center;box-sizing:border-box;width:48px;height:48px;flex:none;border-radius:12px;background:var(--hk-cell);color:var(--hk-tint);--mdc-icon-size:26px}',
+    '.insp-head hk-icon{display:flex;align-items:center;justify-content:center;box-sizing:border-box;width:48px;height:48px;flex:none;border-radius:12px;background:var(--hk-cell);' +
+      'color:var(--hk-tint);--mdc-icon-size:26px}',
     '.insp-head h2{margin:0;font-size:20px;font-weight:700}.insp-head p{margin:2px 0 0;font-size:13px;color:var(--hk-label2)}',
     '.insp-head .done{margin-left:auto;border:0;background:none;color:var(--hk-tint);font:inherit;font-size:15px;cursor:pointer;min-height:44px}',
-    '.screen-settings{margin:4px 0 16px}.screen-settings summary{cursor:pointer;min-height:44px;display:flex;align-items:center;gap:8px;font-weight:600;padding:0 4px}.screen-settings summary::before{content:"›";display:inline-block;transition:transform .15s}.screen-settings[open] summary::before{transform:rotate(90deg)}',
+    '.screen-settings{margin:4px 0 16px}.screen-settings summary{cursor:pointer;min-height:44px;display:flex;align-items:center;gap:8px;font-weight:600;padding:0 4px}' +
+      '.screen-settings summary::before{content:"›";display:inline-block;transition:transform .15s}.screen-settings[open] summary::before{transform:rotate(90deg)}',
     // THE STARTERS: a map of each layout's blocks beside its name
     '.starter{display:flex;align-items:center;gap:12px;padding:10px 12px;text-align:left;cursor:pointer}',
     // a Look's picture: its colours (or its wallpaper), its accent a dot
@@ -625,7 +645,8 @@
     // the old touch rule hid the editor from without a word of why).
     '.desktop-note{display:none;padding:32px;max-width:520px}.desktop-note p{margin:0 0 16px;line-height:1.5}',
     '.desktop-note button{border:0;border-radius:10px;min-height:44px;padding:0 18px;background:var(--hk-tint);color:white;font:inherit;cursor:pointer}',
-    '@media(max-width:899px){:host(:not([wide-anyway])) .work,:host(:not([wide-anyway])) .tools .save,:host(:not([wide-anyway])) .tools .undo{display:none}:host(:not([wide-anyway])) .desktop-note{display:block}}',
+    '@media(max-width:899px){:host(:not([wide-anyway])) .work,:host(:not([wide-anyway])) .tools .save,:host(:not([wide-anyway])) .tools .undo{display:none}' +
+      ':host(:not([wide-anyway])) .desktop-note{display:block}}',
     ':host([wide-anyway]) .work{overflow-x:auto;grid-template-columns:240px minmax(560px,1fr) 300px}'
   ].join('\n');
 
@@ -689,13 +710,17 @@
         h('h1', { text: this.o.title + ' · Home Grid' }), this.undoButton, this.saveButton]));
       this.message = h('div', { class: 'message', role: 'status', 'aria-live': 'polite' }); this.ui.appendChild(this.message);
       this.ui.appendChild(h('div', { class: 'desktop-note' }, [
-        h('p', { text: 'This window is narrow for the editor: it shows the cards, the screen and the settings side by side. Turn the device sideways or widen the window, or open it anyway and scroll sideways.' }),
+        h('p',
+          {
+          text:
+          'This window is narrow for the editor: it shows the cards, the screen and the settings side by side. Turn the device sideways or widen the window, or open it anyway and scroll sideways.' }),
         h('button', { type: 'button', text: 'Open Anyway', onclick: () => { this.setAttribute('wide-anyway', ''); this.fit(); } })]));
       this.palette = h('aside', { class: 'palette', 'aria-label': 'Cards' });
       this.stage = h('section', { class: 'stage', 'aria-label': 'Screen layout' });
       this.sidebar = h('aside', { class: 'sidebar', 'aria-label': 'Block and screen settings', tabindex: '0' });
       this.ui.appendChild(h('div', { class: 'work' }, [this.palette, this.stage, this.sidebar]));
-      this.stage.appendChild(h('p', { class: 'note', text: 'Drag a card from the left onto the grid. Drag blocks to move them; others make room. Cards are a preview: their controls don’t act on the house.' }));
+      this.stage.appendChild(
+        h('p', { class: 'note', text: 'Drag a card from the left onto the grid. Drag blocks to move them; others make room. Cards are a preview: their controls don’t act on the house.' }));
       this.box = h('div', { class: 'framebox', 'data-loading': this.grid ? 'yes' : null }); this.stage.appendChild(this.box);
       this.frame = h('div', { class: 'frame' }); this.box.appendChild(this.frame);
       this.iframe = h('iframe', { title: 'Home Grid preview', tabindex: '-1', 'aria-hidden': 'true' });
@@ -1015,17 +1040,20 @@
       if (!this.grid) { this.say('Choose a starter layout, or Start Empty, first.'); return; }
       // (dropped at `at`: the others make room, or the blocks it covers go -- addOver(); the Add button's own place is the first free one)
       var free = at ? null : add(this.grid, card, size), r = at ? addOver(this.grid, card, size, at) : free && { grid: free, moved: [], removed: [] };
-      if (!r) { this.say(at ? 'No room there for a ' + SIZE_NAMES[size] + ' ' + NAMES[card] + '.' : 'No space for that size. Remove or move a block first, or drag the card onto the blocks it should replace.'); return; }
+      if (!r) { this.say(at ? 'No room there for a ' + SIZE_NAMES[size] + ' ' + NAMES[card] + '.' :
+        'No space for that size. Remove or move a block first, or drag the card onto the blocks it should replace.'); return; }
       var added = r.grid.items[r.grid.items.length - 1];
       Object.assign(added, this.variantFor(card));
       // (Security at Compact is its HomeView presentation: choosing the size chooses it)
       if (card === 'security' && size === 'C') added.opts = Object.assign({}, added.opts, { presentation: 'homeview' });
       this.selected = added.id; this.pickerCard = null; this.change(r.grid);
-      if (r.removed.length) this.say(listOf(r.removed) + (r.removed.length > 1 ? ' were' : ' was') + ' replaced by ' + NAMES[card] + '. Undo (⌘Z) puts ' + (r.removed.length > 1 ? 'them' : 'it') + ' back.');
+      if (r.removed.length) this.say(listOf(r.removed) + (r.removed.length > 1 ? ' were' : ' was') + ' replaced by ' + NAMES[card] + '. Undo (⌘Z) puts ' + (r.removed.length > 1 ? 'them' : 'it') +
+        ' back.');
     }
 
   }
-  window.hkGridEditor = { paneForStarter: paneForStarter, fullColumns: fullColumns, COLS: COLS, place: place, makeRoom: makeRoom, valid: valid, firstSpace: firstSpace, add: add, addOver: addOver, listOf: listOf, snap: snap, landing: landing,
+  window.hkGridEditor = { paneForStarter: paneForStarter, fullColumns: fullColumns, COLS: COLS, place: place, makeRoom: makeRoom, valid: valid, firstSpace: firstSpace, add: add, addOver: addOver,
+    listOf: listOf, snap: snap, landing: landing,
                           SCREEN_TYPES: SCREEN_TYPES, SQUARE_STARTERS: SQUARE_STARTERS, screenTypeOf: screenTypeOf, scaleAt: scaleAt, squareStarter: squareStarter,
                           // (the dashboard's Edit mode names and sizes blocks as this editor does: hk-edit-grid.js)
                           cannotResize: cannotResize, NAMES: NAMES, SIZE_NAMES: SIZE_NAMES, SIZE_SHORT: SIZE_SHORT, GLYPHS: GLYPHS,

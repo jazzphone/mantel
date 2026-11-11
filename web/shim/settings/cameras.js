@@ -44,7 +44,9 @@ export function pCameras(sub) {
   if (sub[0] === 'add') return pCamera(null);
   if (sub[0]) return pCamera(sub[0]);
   return { title: 'Cameras', top: true,
-    scope: 'Cameras Mantel plays itself, without Home Assistant in the middle. An RTSP camera is added here, tried before it is saved, and linked to the Home Assistant sensors that tell Mantel when it sees someone.',
+    scope:
+      'Cameras Mantel plays itself, without Home Assistant in the middle. An RTSP camera is added here, tried before it is saved, and linked to the Home Assistant sensors that tell Mantel when it ' +
+      'sees someone.',
     body(c) {
       result(c, 'cameras');
       const got = readPage();
@@ -53,7 +55,12 @@ export function pCameras(sub) {
       const d = got.data;
       if (d.mode === 'ha_app') { drawFromHa(c, d); return; }
       if (d.mode !== 'direct') {
-        c.appendChild(group({ footer: 'Mantel was started without its video relay (go2rtc), which direct cameras need. Docker and the Proxmox LXC start it for you; set --go2rtc-url if you run Mantel another way. Cameras still come from Home Assistant.' }, []));
+        c.appendChild(
+          group(
+          {
+          footer:
+          'Mantel was started without its video relay (go2rtc), which direct cameras need. Docker and the Proxmox LXC start it for you;' +
+          ' set --go2rtc-url if you run Mantel another way. Cameras still come from Home Assistant.' }, []));
         return;
       }
       const rows = d.cameras.map((x) => {
@@ -78,7 +85,9 @@ function drawFromHa(c, d) {
   const link = hh('a', { href: d.ha_docs, target: '_blank', rel: 'noopener', text: 'Generic Camera integration' });
   c.appendChild(group({ header: 'Cameras', footer: hh('span', {}, [
     'Mantel runs as a Home Assistant App here, so its cameras come from Home Assistant. To use an RTSP camera, add it in Home Assistant with its ',
-    link, ' (Settings, Devices & Services, Add Integration, Generic Camera); it then appears in Mantel by itself. Mantel plays cameras itself, with Add Camera here, when it runs in Docker or on its own Proxmox LXC.']) }, []));
+    link,
+      ' (Settings, Devices & Services, Add Integration, Generic Camera); it then appears in Mantel by itself. Mantel plays cameras itself, with Add Camera here, when it runs in Docker or on its ' +
+      'own Proxmox LXC.']) }, []));
 }
 
 // ONE CAMERA'S PAGE, or Add Camera (slug null): the boxes, Test, Notify For, Save and Delete
@@ -117,11 +126,21 @@ function pCamera(slug) {
       K().select({ label: 'Area', options: [['', 'None']].concat(page.areas.map((a) => [a.id, a.name])), value: d.area_id, fk: 'mx:' + form + ':area',
                    onChange: (v) => { d.area_id = v; } }),
     ]));
-    c.appendChild(group({ header: 'Address', footer: 'The camera’s RTSP addresses, such as rtsp://192.0.2.50:554/stream1 (its manual gives the paths). The high-quality stream plays in pop-ups and full screen; the low-quality one (a camera’s sub-stream) on tiles, the camera strip and the Cameras page, and without one they play the high-quality stream. The snapshot address is the camera’s own picture URL (http:// or https://); without one the pictures come from the low-quality stream, else the high-quality one. Type the user name and password in their own boxes, not in the addresses: the camera’s login goes with all three (to the snapshot address as HTTP Basic). ' +
+    c.appendChild(
+      group(
+      { header: 'Address',
+      footer:
+      'The camera’s RTSP addresses, such as rtsp://192.0.2.50:554/stream1 (its manual gives the paths). The high-quality stream plays in pop-ups and full screen;' +
+      ' the low-quality one (a camera’s sub-stream) on tiles, the camera strip and the Cameras page, and without one they play the high-quality stream. The snapshot address is the camera’s own ' +
+      'picture URL (http:// or https://); without one the pictures come from the low-quality stream, else the high-quality one. Type the user name and password in their own boxes, not in the ' +
+      'addresses: the camera’s login goes with all three (to the snapshot address as HTTP Basic). ' +
         (cam ? 'Leave a box blank to keep what is saved; it is never shown again.' : 'They stay sealed in Mantel’s data and are never shown again.') }, [
-      field(form, 'address', 'High-Quality Stream', { type: 'url', maxlength: 2048, inputmode: 'url', placeholder: cam ? 'Saved: ' + (cam.address || '') : 'rtsp://192.0.2.50:554/stream1', autocomplete: 'off' }),
-      field(form, 'low_address', 'Low-Quality Stream (Optional)', { type: 'url', maxlength: 2048, inputmode: 'url', placeholder: cam && cam.low_address ? 'Saved: leave blank to keep' : 'rtsp://192.0.2.50:554/stream2', autocomplete: 'off' }),
-      field(form, 'snapshot_address', 'Snapshot Address (Optional)', { type: 'url', maxlength: 2048, inputmode: 'url', placeholder: cam && cam.snapshot_address ? 'Saved: leave blank to keep' : 'http://192.0.2.50/snapshot.jpg', autocomplete: 'off' }),
+      field(form, 'address', 'High-Quality Stream', { type: 'url', maxlength: 2048, inputmode: 'url', placeholder: cam ? 'Saved: ' + (cam.address || '') : 'rtsp://192.0.2.50:554/stream1',
+        autocomplete: 'off' }),
+      field(form, 'low_address', 'Low-Quality Stream (Optional)', { type: 'url', maxlength: 2048, inputmode: 'url', placeholder: cam && cam.low_address ? 'Saved: leave blank to keep' :
+        'rtsp://192.0.2.50:554/stream2', autocomplete: 'off' }),
+      field(form, 'snapshot_address', 'Snapshot Address (Optional)', { type: 'url', maxlength: 2048, inputmode: 'url', placeholder: cam && cam.snapshot_address ? 'Saved: leave blank to keep' :
+        'http://192.0.2.50/snapshot.jpg', autocomplete: 'off' }),
       field(form, 'username', 'User Name', { maxlength: 200, placeholder: cam && cam.has_login ? 'Saved' : 'None', autocomplete: 'off' }),
       field(form, 'password', 'Password', { type: 'password', maxlength: 400, placeholder: cam && cam.has_login ? 'Saved' : 'None', autocomplete: 'off' }),
     ].concat(cam && cam.has_login ? [K().check({ label: 'Remove the Saved Sign-In', sub: 'The camera needs no user name or password', on: !!d.clear_login,
@@ -149,7 +168,9 @@ function pCamera(slug) {
     c.appendChild(group({}, [button(cam ? 'Save' : 'Add Camera', save, { fk: 'mx:' + form + ':save' })]));
     if (cam) c.appendChild(group({ footer: 'The camera and its saved address and sign-in are removed from Mantel. Nothing changes on the camera itself.' }, [
       button('Delete Camera…', async () => {
-        if (!(await ask({ title: 'Delete ' + cam.name + '?', message: 'Mantel stops playing this camera and forgets its address and sign-in. Notifications that used its picture go back to having none.', ok: 'Delete', destructive: true }))) return;
+        if (
+          !(await ask({ title: 'Delete ' + cam.name + '?', message: 'Mantel stops playing this camera and forgets its address and sign-in. Notifications that used its picture go back to having none.',
+          ok: 'Delete', destructive: true }))) return;
         if (await act(key, () => del('/' + encodeURIComponent(cam.slug)), null, 'cameras')) {
           forgetSensors();
           ui.flash = { key: 'cameras', text: cam.name + ' deleted.' };
@@ -196,7 +217,8 @@ function drawTest(c, form, cam, d) {
     } catch (e) { shown['test:' + form] = { text: e.message, err: true }; }
     redraw();
   };
-  c.appendChild(group({ header: 'Test', footer: 'Mantel connects to the camera and shows a picture, or says what it could not do. Nothing is saved.' }, [button('Test', run, { fk: 'mx:' + form + ':test' })]));
+  c.appendChild(group({ header: 'Test', footer: 'Mantel connects to the camera and shows a picture, or says what it could not do. Nothing is saved.' },
+    [button('Test', run, { fk: 'mx:' + form + ':test' })]));
   if (!out) return;
   c.appendChild(hh('p', { class: 'mxflash' + (out.err ? ' err' : ''), role: out.err ? 'alert' : 'status', text: out.text }));
   if (out.still) c.appendChild(hh('div', { class: 'cell mxshot' }, [hh('img', { src: out.still, alt: 'A picture from the camera', width: 640 })]));
@@ -227,7 +249,13 @@ function drawNotifyFor(c, form, cam, d, page, kept) {
     : K().select({ label: text, options: options(role), value: d.sensors[role] || '', fk: 'mx:' + form + ':sensor:' + role,
                                                         onChange: (v) => { d.sensors[role] = v; } }));
   const any = Object.values(sug).some(Boolean);
-  if (any) rows.push(button('Use Suggested Sensors', () => { for (const r of Object.keys(sug)) if (sug[r] && !d.sensors[r] && !(kept[r] && !kept[r].entity_id)) d.sensors[r] = sug[r]; redraw(); }, { fk: 'mx:' + form + ':suggest' }));
-  c.appendChild(group({ header, footer: 'Pick any binary sensor or event from Home Assistant, such as Frigate’s. Its events count as this camera’s: a notification on it carries this camera’s picture, and a Doorbell sensor shows the doorbell pop-up. ' +
+  if (any) rows.push(button('Use Suggested Sensors', () => { for (const r of Object.keys(sug)) if (sug[r] && !d.sensors[r] && !(kept[r] && !kept[r].entity_id)) d.sensors[r] = sug[r]; redraw(); },
+    { fk: 'mx:' + form + ':suggest' }));
+  c.appendChild(
+    group(
+    { header,
+    footer:
+    'Pick any binary sensor or event from Home Assistant, such as Frigate’s. Its events count as this camera’s: a notification on it carries this camera’s picture, and a Doorbell sensor shows the ' +
+    'doorbell pop-up. ' +
     (any ? 'Sensors whose names begin with the camera’s are suggested. ' : '') + 'Turn the notifications themselves on in Notifications. A sensor you cannot see is not on the list.' }, rows));
 }

@@ -21,7 +21,8 @@
     // its own); the roller's outer half-gaps given back by its margin and the band's inset, so nothing moves
     '.hkr{position:relative;display:flex;justify-content:center;gap:0;margin:0 calc(var(--hkr-gap,18px) / -2);height:calc(var(--hkr-row,44px) * 5);flex:none;',
     '  -webkit-user-select:none;user-select:none}',
-    '.hkr-band{position:absolute;left:calc(var(--hkr-band-x,0px) + var(--hkr-gap,18px) / 2);right:calc(var(--hkr-band-x,0px) + var(--hkr-gap,18px) / 2);top:calc(var(--hkr-row,44px) * 2);height:var(--hkr-row,44px);',
+    '.hkr-band{position:absolute;left:calc(var(--hkr-band-x,0px) + var(--hkr-gap,18px) / 2);right:calc(var(--hkr-band-x,0px) + var(--hkr-gap,18px) / 2);top:calc(var(--hkr-row,44px) * 2);' +
+      'height:var(--hkr-row,44px);',
     '  border-radius:var(--hkr-band-r,12px);background:var(--hkr-band,rgba(255,255,255,.12));pointer-events:none}',
     '.hkr-col{position:relative;display:flex;align-items:center;height:100%}',
     '.hkr-w{box-sizing:border-box;width:calc(var(--hkr-w,44px) + 8px + var(--hkr-uw,36px) + var(--hkr-gap,18px));height:100%;',
@@ -36,7 +37,8 @@
     '  opacity:.22;transform:scale(.8);transform-origin:100% 50%}',
     '.hkr-i[data-d="1"]{opacity:.5;transform:scale(.9)}',
     '.hkr-i[data-d="0"]{opacity:1;transform:none;font-weight:600}',
-    '.hkr-u{position:absolute;right:calc(var(--hkr-gap,18px) / 2);top:50%;transform:translateY(-50%);pointer-events:none;width:var(--hkr-uw,36px);font-size:calc(var(--hkr-fs,26px) - 6px);font-weight:600;color:var(--hkr-ink2,rgba(255,255,255,.68));white-space:nowrap}'
+    '.hkr-u{position:absolute;right:calc(var(--hkr-gap,18px) / 2);top:50%;transform:translateY(-50%);pointer-events:none;width:var(--hkr-uw,36px);font-size:calc(var(--hkr-fs,26px) - 6px);' +
+      'font-weight:600;color:var(--hkr-ink2,rgba(255,255,255,.68));white-space:nowrap}'
   ].join('');
 
   function create(cols, o) {

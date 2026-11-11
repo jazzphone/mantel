@@ -210,7 +210,8 @@
           '.page>*{display:block;box-sizing:border-box;width:100%;height:100%;margin:0!important}' +
           '.dots{position:absolute;bottom:0;left:0;right:0;z-index:1;height:' + PAGER_DOTS + 'px;min-height:0;' +
           'display:flex;justify-content:center;align-items:flex-end;min-width:0;pointer-events:none}' +
-          '.pc{position:relative;display:flex;flex:none;box-sizing:border-box;max-width:calc(100% - 12px);align-items:flex-end;justify-content:center;height:44px;padding:0 10px;pointer-events:auto;cursor:pointer;' +
+          '.pc{position:relative;display:flex;flex:none;box-sizing:border-box;max-width:calc(100% - 12px);align-items:flex-end;justify-content:center;height:44px;padding:0 10px;pointer-events:auto;' +
+            'cursor:pointer;' +
           'touch-action:pan-y;-webkit-tap-highlight-color:transparent}' +
           '.pc::before{content:"";position:absolute;bottom:3px;left:0;right:0;height:16px;border-radius:' + C0.R.capsule('16px') + ';background:rgba(30,30,36,.22);pointer-events:none}' +
           '.pager.one .dots,.pager.own .dots{display:none}' +

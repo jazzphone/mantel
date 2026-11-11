@@ -91,7 +91,8 @@
         return (i / n * 100).toFixed(2) + '%{transform:translate(' + q[0].toFixed(1) + 'px,' + (q[1] - crop).toFixed(1) + 'px);opacity:' + op + '}';
       }).join('');
       return {
-        svg: '<path d="' + curvePath(segs) + '" fill="none" stroke="' + col + '" stroke-opacity=".5" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>',
+        svg: '<path d="' + curvePath(segs) + '" fill="none" stroke="' + col +
+          '" stroke-opacity=".5" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>',
         css: '@keyframes ' + key + '{' + kf + '}',
         dot: '<i class="flowdot" style="animation:' + key + ' ' + dur.toFixed(2) + 's linear infinite' + (back ? ' reverse' : '') +
              ';background:radial-gradient(circle,rgba(255,255,255,.95) 0,' + rgba(col, 0.85) + ' 18%,' + rgba(col, 0.35) + ' 42%,' + rgba(col, 0) + ' 70%)"></i>'
@@ -111,10 +112,12 @@
           '.pic:not([data-fs]) .stage{visibility:hidden}',
           '.flowdot,.portdot{position:absolute;left:0;top:0;border-radius:50%;will-change:transform,opacity}',
           '.flowdot{width:56px;height:56px;margin:-28px 0 0 -28px;opacity:0}',
-          '.portdot{width:30px;height:30px;margin:-15px 0 0 -15px;background:radial-gradient(circle,#30d158 0,#30d158 45%,rgba(48,209,88,.45) 60%,rgba(48,209,88,0) 72%);animation:port 1.4s ease-in-out infinite}',
+          '.portdot{width:30px;height:30px;margin:-15px 0 0 -15px;background:radial-gradient(circle,#30d158 0,#30d158 45%,rgba(48,209,88,.45) 60%,rgba(48,209,88,0) 72%);' +
+            'animation:port 1.4s ease-in-out infinite}',
           '.chips{position:absolute;inset:0;pointer-events:none}',
           // a chip: the floating strip's material (Tinted: its near-solid plate)
-          '.chip{position:absolute;transform:translate(-50%,calc(-100% - 18px));padding:8px 13px 9px;border-radius:' + window.hkCards.R.inner + 'px;white-space:nowrap;pointer-events:auto;cursor:pointer;',
+          '.chip{position:absolute;transform:translate(-50%,calc(-100% - 18px));padding:8px 13px 9px;border-radius:' + window.hkCards.R.inner +
+            'px;white-space:nowrap;pointer-events:auto;cursor:pointer;',
           '  background:' + v('float-plate') + ';-webkit-backdrop-filter:var(--hk-float-backdrop,' + B.medium + ');backdrop-filter:var(--hk-float-backdrop,' + B.medium + ');',
           '  border:1px solid rgba(255,255,255,0.12);box-shadow:0 8px 24px rgba(0,0,0,0.28);-webkit-tap-highlight-color:transparent}',
           '.chip:after{content:"";position:absolute;left:50%;top:100%;width:1.5px;height:18px;background:rgba(255,255,255,0.5);transform:translateX(-50%)}',
@@ -129,7 +132,8 @@
           '.crow span u{text-decoration:none;font-size:11px;font-weight:600;margin-left:1px;opacity:.75}',
           '.crow span.away{font-size:15px;font-weight:600;color:' + v('ink-2') + '}',
           '.crow .blt{display:inline-block;width:9px;height:12px;margin-right:5px;vertical-align:-1px;background:currentColor;',
-          '  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 10 14%27%3E%3Cpath d=%27M6 0L0 8h4l-1 6 6-8H5z%27/%3E%3C/svg%3E") center/contain no-repeat;',
+          '  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 10 14%27%3E%3Cpath d=%27M6 0L0 8h4l-1 6 6-8H5z%27/%3E%3C/svg%3E") center/contain ' +
+            'no-repeat;',
           '  mask:url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 10 14%27%3E%3Cpath d=%27M6 0L0 8h4l-1 6 6-8H5z%27/%3E%3C/svg%3E") center/contain no-repeat}',
           '@keyframes glint{from{transform:translateX(-420px)}to{transform:translateX(620px)}}',
           '.glint{animation:glint 3.2s ' + window.hkCards.EASE.standard + ' infinite}',
@@ -226,12 +230,14 @@
           '<linearGradient id="hfy" x1="0" x2="0" y1="0" y2="1"><stop offset="' + fade.bottom[0] + '" stop-color="#fff"/><stop offset="' + fade.bottom[1] + '" stop-color="#000"/></linearGradient>' +
           '<mask id="hfm" maskContentUnits="userSpaceOnUse"><rect width="' + W + '" height="' + H + '" fill="url(#hfx)"/></mask>' +
           '<mask id="hfm2" maskContentUnits="userSpaceOnUse"><rect width="' + W + '" height="' + H + '" fill="url(#hfy)"/></mask>' +
-          '<linearGradient id="gl" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff8d0" stop-opacity=".6"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>' +
+          '<linearGradient id="gl" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff8d0" stop-opacity=".6"/><stop offset="1" ' +
+            'stop-color="#fff" stop-opacity="0"/></linearGradient>' +
           (hasSolar && L.solar ? '<mask id="pvm" style="mask-type:alpha">' + img('solar') + '</mask>' : '') + '</defs>' +
           '<g mask="url(#hfm)"><g mask="url(#hfm2)">' + img('house') + '</g></g>';
         if (hasSolar) {
           svg += img('solar');
-          if (solar > 20 && L.solar) svg += '<g mask="url(#pvm)" opacity="' + (0.35 + 0.65 * Math.min(1, solar / 5000)).toFixed(2) + '"><rect class="glint" x="' + (L.solar[1] - 100) + '" y="' + L.solar[2] + '" width="260" height="' + L.solar[4] + '" fill="url(#gl)" transform="skewX(-20)"/></g>';
+          if (solar > 20 && L.solar) svg += '<g mask="url(#pvm)" opacity="' + (0.35 + 0.65 * Math.min(1, solar / 5000)).toFixed(2) + '"><rect class="glint" x="' + (L.solar[1] - 100) + '" y="' +
+            L.solar[2] + '" width="260" height="' + L.solar[4] + '" fill="url(#gl)" transform="skewX(-20)"/></g>';
         }
         if (bat) svg += img('battery') + (lvl == null ? '' : this._level(A, level, bw, lvl != null && c.reserve && numOf(h, c.reserve) != null && level <= numOf(h, c.reserve)));
         svg += img('pole');
@@ -286,7 +292,8 @@
           chips.push({ key: 'cars', a: AN.cars, cls: 'cars', h: '<div class="k"><i style="background:' + FLOW.car + '"></i>' + (cars.length > 1 ? 'Cars' : 'Car') + '</div>' +
             '<div class="crows">' + crows.join('') + '</div>' });
         }
-        svg += chips.map(function (f) { return '<circle class="dot" cx="' + f.a[0] + '" cy="' + f.a[1] + '" r="8" fill="#fff" fill-opacity=".9" style="filter:drop-shadow(0 0 4px rgba(0,0,0,.5))"/>'; }).join('');
+        svg += chips.map(function (f) { return '<circle class="dot" cx="' + f.a[0] + '" cy="' + f.a[1] + '" r="8" fill="#fff" fill-opacity=".9" style="filter:drop-shadow(0 0 4px rgba(0,0,0,.5))"/>';
+          }).join('');
         svg += '</svg>';
         var mw = Math.round(maxh * W / vh);
         // the moving light over the picture, in the picture's own units: the
@@ -297,11 +304,13 @@
         // (the scale last measured goes in the markup: a redraw's morph keeps
         // only what the markup says)
         var fs = this._fs ? ' style="--fs:' + this._fs + '" data-fs' : '';
-        this._paint('<div class="hart" style="aspect-ratio:' + W + '/' + vh + ';max-width:' + mw + 'px"><div class="pic"' + fs + '>' + svg + stage + '</div><div class="chips">' + chips.map(function (f) {
+        this._paint('<div class="hart" style="aspect-ratio:' + W + '/' + vh + ';max-width:' + mw + 'px"><div class="pic"' + fs + '>' + svg + stage + '</div><div class="chips">' +
+          chips.map(function (f) {
           // NEAR AN EDGE A CHIP OPENS INWARD (it ran off an iPad's page): in the
           // picture's outer fifths it sits on the inner side of its line
           var fx0 = f.a[0] / W, sd = fx0 > 0.8 ? 'l' : fx0 < 0.2 ? 'r' : side[f.key];
-          return '<div class="chip' + (f.cls ? ' ' + f.cls : '') + (sd ? ' ' + sd : '') + '"' + moreAttr(f.more) + ' style="left:' + (f.a[0] / W * 100).toFixed(2) + '%;top:' + ((f.a[1] - crop) / vh * 100).toFixed(2) + '%">' + f.h + '</div>';
+          return '<div class="chip' + (f.cls ? ' ' + f.cls : '') + (sd ? ' ' + sd : '') + '"' + moreAttr(f.more) + ' style="left:' + (f.a[0] / W * 100).toFixed(2) + '%;top:' +
+            ((f.a[1] - crop) / vh * 100).toFixed(2) + '%">' + f.h + '</div>';
         }).join('') + '</div></div>');
         this._fit();
       }
@@ -313,14 +322,20 @@
         var cx = A.bar_cx != null ? A.bar_cx - q[0][0] : fw / 2;
         var bwid = Math.max(10, fw * 0.34), bx = cx - bwid / 2, by = fh * 0.17, bh = fh * 0.72, fill = bh * level / 100;
         return '<g transform="matrix(1 ' + sk.toFixed(4) + ' 0 1 ' + q[0][0] + ' ' + q[0][1] + ')">' +
-          '<defs><linearGradient id="lvg" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="' + (low ? '#c42a22' : '#1f9e43') + '"/><stop offset="1" stop-color="' + (low ? '#ff6b61' : '#6cf08f') + '"/></linearGradient>' +
-          '<linearGradient id="lvs" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".3" stop-color="#fff" stop-opacity=".35"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/></linearGradient>' +
-          '<linearGradient id="lvl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#eafff0" stop-opacity=".8"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>' +
-          '<clipPath id="lvc"><rect x="' + bx.toFixed(2) + '" y="' + (by + bh - fill).toFixed(1) + '" width="' + bwid.toFixed(2) + '" height="' + fill.toFixed(1) + '" rx="' + (bwid / 2).toFixed(2) + '"/></clipPath></defs>' +
-          '<rect class="lvtrack" x="' + (bx - 2).toFixed(2) + '" y="' + (by - 2).toFixed(1) + '" width="' + (bwid + 4).toFixed(2) + '" height="' + (bh + 4).toFixed(1) + '" rx="' + (bwid / 2 + 2).toFixed(2) + '" fill="rgba(0,0,0,.55)" stroke="rgba(255,255,255,.22)" stroke-width="1"/>' +
+          '<defs><linearGradient id="lvg" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="' + (low ? '#c42a22' : '#1f9e43') + '"/><stop offset="1" stop-color="' +
+            (low ? '#ff6b61' : '#6cf08f') + '"/></linearGradient>' +
+          '<linearGradient id="lvs" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".3" stop-color="#fff" stop-opacity=".35"/><stop offset=".55" ' +
+            'stop-color="#fff" stop-opacity="0"/></linearGradient>' +
+          '<linearGradient id="lvl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#eafff0" stop-opacity=".8"/><stop offset="1" ' +
+            'stop-color="#fff" stop-opacity="0"/></linearGradient>' +
+          '<clipPath id="lvc"><rect x="' + bx.toFixed(2) + '" y="' + (by + bh - fill).toFixed(1) + '" width="' + bwid.toFixed(2) + '" height="' + fill.toFixed(1) + '" rx="' + (bwid / 2).toFixed(2) +
+            '"/></clipPath></defs>' +
+          '<rect class="lvtrack" x="' + (bx - 2).toFixed(2) + '" y="' + (by - 2).toFixed(1) + '" width="' + (bwid + 4).toFixed(2) + '" height="' + (bh + 4).toFixed(1) + '" rx="' +
+            (bwid / 2 + 2).toFixed(2) + '" fill="rgba(0,0,0,.55)" stroke="rgba(255,255,255,.22)" stroke-width="1"/>' +
           '<g clip-path="url(#lvc)"><rect x="' + bx.toFixed(2) + '" y="' + by.toFixed(1) + '" width="' + bwid.toFixed(2) + '" height="' + bh.toFixed(1) + '" fill="url(#lvg)"/>' +
           '<rect x="' + bx.toFixed(2) + '" y="' + by.toFixed(1) + '" width="' + bwid.toFixed(2) + '" height="' + bh.toFixed(1) + '" fill="url(#lvs)"/>' +
-          (bw ? '<rect class="lvrun' + (bw < 0 ? ' down' : '') + '" x="' + bx.toFixed(2) + '" y="' + by.toFixed(1) + '" width="' + bwid.toFixed(2) + '" height="' + (bh * 0.4).toFixed(1) + '" fill="url(#lvl)"/>' : '') + '</g>' +
+          (bw ? '<rect class="lvrun' + (bw < 0 ? ' down' : '') + '" x="' + bx.toFixed(2) + '" y="' + by.toFixed(1) + '" width="' + bwid.toFixed(2) + '" height="' + (bh * 0.4).toFixed(1) +
+            '" fill="url(#lvl)"/>' : '') + '</g>' +
           (bw > 0 ? '<rect class="lvtop" x="' + bx.toFixed(2) + '" y="' + (by + bh - fill - 1.5).toFixed(1) + '" width="' + bwid.toFixed(2) + '" height="3" rx="1.5" fill="#d8ffe3"/>' : '') + '</g>';
       }
     }
@@ -449,7 +464,8 @@
           var tot = parts.reduce(function (x, p) { return x + p[1]; }, 0);
           if (tot <= 0.001) return '<div class="sbar"></div><div class="lg2"><span>None</span></div>';
           return '<div class="sbar">' + parts.map(function (p) { return '<i style="width:' + (p[1] / tot * 100).toFixed(2) + '%;background:' + p[2] + '"></i>'; }).join('') + '</div>' +
-            '<div class="lg2">' + parts.map(function (p) { return '<span><i style="background:' + p[2] + '"></i>' + p[0] + ' <b>' + (kwh ? fx(p[1], 1) + ' kWh' : wtxt(p[1])) + '</b></span>'; }).join('') + '</div>';
+            '<div class="lg2">' + parts.map(function (p) { return '<span><i style="background:' + p[2] + '"></i>' + p[0] + ' <b>' + (kwh ? fx(p[1], 1) + ' kWh' : wtxt(p[1])) + '</b></span>'; }).join(
+              '') + '</div>';
         };
         this._paint('<div class="ttl"><b>' + esc(c.title || 'Where the Sun Goes') + '</b><span>' + (T ? fx(T.sun, 1) + ' kWh today' : '') + '</span></div>' +
           '<div class="sg"><div' + moreAttr(c.solar) + '><div class="k">Right Now</div>' + bar([r.s2h, r.s2b, r.s2g]) + '</div>' +

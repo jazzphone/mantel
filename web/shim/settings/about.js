@@ -20,7 +20,8 @@ function updateRows(u) {
   }
   if (u.check && u.error) rows.push(info('Last Check', null, 'Couldn’t check (' + fmt(u.error.at) + ')', 'warn'));
   else if (u.check && u.checked_at) rows.push(info('Last Check', null, fmt(u.checked_at)));
-  rows.push(K().toggle({ label: 'Check for Updates', sub: u.check ? 'Mantel asks GitHub once a day for the newest releases; it sends nothing about this house' : 'Mantel never contacts GitHub', on: u.check, disabled: !u.can_edit, fk: 'mx:updates-check',
+  rows.push(K().toggle({ label: 'Check for Updates', sub: u.check ? 'Mantel asks GitHub once a day for the newest releases; it sends nothing about this house' : 'Mantel never contacts GitHub',
+    on: u.check, disabled: !u.can_edit, fk: 'mx:updates-check',
     onChange: (want) => act('updates', () => api('PUT', '/api/updates', { check: want }), want ? 'Mantel will look for updates.' : 'Mantel won’t look for updates.', 'updates') }));
   if (u.can_edit && u.check) rows.push(button('Check Now', () => act('updates', () => api('POST', '/api/updates/check'), 'Checked.', 'updates'), { fk: 'mx:updates-now' }));
   return rows;
@@ -40,12 +41,14 @@ export function pAbout(sub = []) {
       info('Version', null, ver),
       info('Installed As', null, a.install),
       info('Running Since', null, fmt(a.started)),
-      info('House Commands', a.commands ? 'Signed-in people control the house within their roles; every command is in the Audit Log.' : 'Read-only: nothing is sent to the house.', a.commands ? 'On' : 'Off'),
+      info('House Commands', a.commands ? 'Signed-in people control the house within their roles; every command is in the Audit Log.' : 'Read-only: nothing is sent to the house.', a.commands ? 'On' :
+        'Off'),
     ]));
     const up = can('performance') ? updates() : null;                     // Owners and Admins; others don't see the section
     if (up && up.data) {
       result(c, 'updates');
-      c.appendChild(group({ header: 'Updates', footer: up.data.can_edit ? 'Mantel can’t install updates itself; it tells you when there is one and how to apply it.' : 'Only an Owner changes this.' }, updateRows(up.data)));
+      c.appendChild(group({ header: 'Updates', footer: up.data.can_edit ? 'Mantel can’t install updates itself; it tells you when there is one and how to apply it.' : 'Only an Owner changes this.' },
+        updateRows(up.data)));
     }
     const links = (a.linked || []).map((l) => info(l.name, 'Protocol ' + l.protocol + (l.since ? ' · since ' + fmt(l.since) : ''), 'Linked'));
     c.appendChild(group({ header: 'Connected To' }, [
@@ -58,7 +61,13 @@ export function pAbout(sub = []) {
       nav('Secure Connection', 'about/secure', { icon: here === false || loose.length ? 'mdi:lock-open-variant' : 'mdi:lock', sub: rowSummary(loose), value: modeWords((a.access || {}).mode)[0] })]));
     if (can('performance')) c.appendChild(group({ footer: 'How the wall tablets’ pages and the server are doing: start times, memory, reconnects and fan-out.' }, [
       nav('Performance', 'about/performance', { icon: 'mdi:speedometer', sub: 'Each screen, and the server’s fan-out' })]));
-    c.appendChild(group({ header: 'About the Project', footer: 'Mantel serves HK’s home screens from a server of its own beside Home Assistant. Wall tablets, phones and browsers sign in to Mantel, and every change to the house passes its roles and its audit log. Mantel Link is its side inside Home Assistant: the tablets’ and the house’s entities, and the actions automations call. It grew out of HK Frontend, which drew the same screens inside Home Assistant. Apple’s SF Pro and SF Symbols are supplied by each home (Your Files); Mantel ships none.' }, [
+    c.appendChild(
+      group(
+      { header: 'About the Project',
+      footer:
+      'Mantel serves HK’s home screens from a server of its own beside Home Assistant. Wall tablets, phones and browsers sign in to Mantel, and every change to the house passes its roles and its ' +
+      'audit log. Mantel Link is its side inside Home Assistant: the tablets’ and the house’s entities, and the actions automations call. It grew out of HK Frontend, which drew the same screens ' +
+      'inside Home Assistant. Apple’s SF Pro and SF Symbols are supplied by each home (Your Files); Mantel ships none.' }, [
       button('Documentation', () => { window.open(mantelUrl(a.docs || '/docs'), '_blank', 'noopener'); }, { fk: 'mx:about-docs' }),
     ]));
   } };

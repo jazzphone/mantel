@@ -64,7 +64,9 @@
           // THE BLOCK'S INSET (hkCards.blockPad): 14 px on tiles, 18 on square cells (a 34 px corner's curve comes 10 px
           // in), and a Square screen's outer corner on top (cellInset's --hk-in-*)
           '--hk-block-pad:14px;--hk-pad-t:calc(var(--hk-block-pad) + var(--hk-in-t,0px));--hk-pad-r:calc(var(--hk-block-pad) + var(--hk-in-r,0px));' +
-          '--hk-pad-b:calc(var(--hk-block-pad) + var(--hk-in-b,0px));--hk-pad-l:calc(var(--hk-block-pad) + var(--hk-in-l,0px));--hk-shape-pad:var(--hk-block-pad);--hk-text-in:calc(var(--hk-block-pad) - var(--hk-shape-pad));--hk-spad-t:calc(var(--hk-shape-pad) + var(--hk-in-t,0px));--hk-spad-r:calc(var(--hk-shape-pad) + var(--hk-in-r,0px));--hk-spad-b:calc(var(--hk-shape-pad) + var(--hk-in-b,0px));--hk-spad-l:calc(var(--hk-shape-pad) + var(--hk-in-l,0px))}' +
+          '--hk-pad-b:calc(var(--hk-block-pad) + var(--hk-in-b,0px));--hk-pad-l:calc(var(--hk-block-pad) + var(--hk-in-l,0px));--hk-shape-pad:var(--hk-block-pad);' +
+            '--hk-text-in:calc(var(--hk-block-pad) - var(--hk-shape-pad));--hk-spad-t:calc(var(--hk-shape-pad) + var(--hk-in-t,0px));--hk-spad-r:calc(var(--hk-shape-pad) + var(--hk-in-r,0px));' +
+            '--hk-spad-b:calc(var(--hk-shape-pad) + var(--hk-in-b,0px));--hk-spad-l:calc(var(--hk-shape-pad) + var(--hk-in-l,0px))}' +
           // ...and its cells say they are square (2026-10-31, the owner: the glyphs small on a 1280 x 800 tablet): a block
           // asked "a square cell?" by its height (180 px or more), and beside the Side Pane a square cell is ~154 px. The
           // blocks ask `(min-height:180px) or style(--hk-cell-shape: square)`: where style() is unknown, as it was
@@ -238,7 +240,9 @@
             var vw = g.views > 1 ? Math.max(0, Math.min(g.views - 1, cell.view | 0)) : -1;
             if (vw >= 0) { slot.setAttribute('data-view', String(vw)); slot.style.setProperty('--v', String(vw)); } else slot.removeAttribute('data-view');
             slot.style.gridColumn = (c + 1) + ' / span ' + sz[0];
-            slot.style.gridRow = (r + 1 + top) + ' / span ' + sz[1]; if (cell.size === 'XS') { slot.style.alignSelf = cell.at && cell.at[2] ? 'end' : 'start'; slot.style.height = 'calc((100% - ' + cellShape(g).gap + 'px) / 2)'; }   // (Tiny: its cell's top or bottom half, a gap between two)
+            // (Tiny: its cell's top or bottom half, a gap between two)
+            slot.style.gridRow = (r + 1 + top) + ' / span ' + sz[1]; if (cell.size === 'XS') { slot.style.alignSelf = cell.at && cell.at[2] ? 'end' : 'start'; slot.style.height = 'calc((100% - ' +
+              cellShape(g).gap + 'px) / 2)'; }
             // (a Full block's card reads its span here: hkCards HkBase._block)
             if (full) { slot.style.setProperty('--hk-span-c', String(sz[0])); slot.style.setProperty('--hk-span-r', String(sz[1])); }
             // (square cells: the block's corners, read by its plate -- hkCards.plate)

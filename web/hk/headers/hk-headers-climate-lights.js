@@ -202,7 +202,8 @@
           return '<div data-more="' + esc(s.id) + '"><div class="big num">' + (t < MIN ? 'Idle' : durHtml(t)) + '</div><div class="cap">' +
             (hasIn ? '<i style="background:' + s.color + '"></i>' : '') + esc(s.name) + (s.now != null ? ' · <b>' + Math.round(s.now) + '°</b>' : '') + '</div></div>';
         }).join('');
-        var lg = '<div class="lg"><span><i style="background:' + (anyHeat && !anyCool ? HEAT : COOL) + '"></i>' + (anyHeat && anyCool ? 'Heating · Cooling' : anyHeat ? 'Heating' : 'Cooling') + '</span>' +
+        var lg = '<div class="lg"><span><i style="background:' + (anyHeat && !anyCool ? HEAT : COOL) + '"></i>' + (anyHeat && anyCool ? 'Heating · Cooling' : anyHeat ? 'Heating' : 'Cooling') +
+          '</span>' +
           (hasOut ? '<span><i class="ln"></i>Outside</span>' : '') + '</div>';
         this._paint('<div class="ttl"><b>' + title + '</b></div><div class="tot">' + tot + lg + '</div><div class="grow"></div>' +
           '<div class="bc">' + B2.html + '</div><div class="rd">' + this._rdRest + '</div>');
@@ -520,7 +521,8 @@
         var shown = left.slice(0, evs.length ? 2 : 3);
         var nEv = shown.length >= 2 ? 1 : shown.length === 1 ? 2 : 3;
         var head = '<div class="ttl"><b>' + (sensed || left.length ? 'Left On' : 'Tonight') + '</b>' +
-          (sensed ? '<span' + (left.length ? ' class="warn">' + left.length + (left.length === 1 ? ' light' : ' lights') + ' in empty rooms' : '>by room presence') + '</span>' : '<span>lighting</span>') + '</div>';
+          (sensed ? '<span' + (left.length ? ' class="warn">' + left.length + (left.length === 1 ? ' light' : ' lights') + ' in empty rooms' : '>by room presence') + '</span>' :
+            '<span>lighting</span>') + '</div>';
         var lo = !sensed ? '' : left.length ? shown.map(function (z) {
           var nm = nameOf(h, z.x.id);
           var icon = z.x.icon || 'hk:lightbulb';
@@ -532,7 +534,8 @@
         if (cfg.tonight !== false) {
           var first = evs[0];
           var tag = sensed ? '<div class="h">Tonight<span>' : '<div class="h"><span></span><span>';
-          tn = '<div class="tn"' + (sensed ? '' : ' style="border-top:0;margin-top:6px"') + '>' + tag + (first ? 'next in ' + shortDur(first.t - now) : S ? 'nothing scheduled' : '') + '</span></div>' +
+          tn = '<div class="tn"' + (sensed ? '' : ' style="border-top:0;margin-top:6px"') + '>' + tag + (first ? 'next in ' + shortDur(first.t - now) : S ? 'nothing scheduled' : '') +
+            '</span></div>' +
             (evs.length ? evs.slice(0, sensed ? nEv : 4).map(function (x) {
               return '<div class="ev' + (x.e.ready === false ? ' wait' : '') + '" data-more="' + esc(x.e.automation) + '"><time>' + hm(x.t) + '</time><span><i style="background:' +
                 (x.e.effect === 'on' ? P.yellow : v('mark')) + '"></i>' + esc(x.text) + (x.e.ready === false ? ' · not now' : '') + '</span></div>';

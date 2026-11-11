@@ -150,7 +150,8 @@ function drawNotifications(c) {
   if (ts.err) { failed(c, ts.err); return; }
   const rows = [];
   if (here.err) rows.push(info('This Browser', null, 'Unavailable'));
-  else if (!here.data.supported) rows.push(info('This Browser', here.data.homeScreen ? 'Add Mantel to your Home Screen (Share → Add to Home Screen), then open it from there.' : 'This browser cannot receive notifications.', 'Off'));
+  else if (!here.data.supported) rows.push(info('This Browser', here.data.homeScreen ? 'Add Mantel to your Home Screen (Share → Add to Home Screen), then open it from there.' :
+    'This browser cannot receive notifications.', 'Off'));
   else {
     const d = here.data;
     rows.push(K().toggle({ label: 'Notifications Here', on: d.on, fk: 'mx:push-here',
@@ -180,7 +181,8 @@ function drawSystemAlerts(c) {
   const got = load('myalerts', () => api('GET', '/api/alerts/me'));
   if (!got) { pending(c); return; }
   if (got.err) { failed(c, got.err); return; }
-  c.appendChild(group({ header: 'System Alerts', footer: 'Mantel’s own alerts (Home Assistant disconnected, a backup failed, an update) on your Mantel apps and browsers. Where else they go is in Alerts.' }, [
+  c.appendChild(
+    group({ header: 'System Alerts', footer: 'Mantel’s own alerts (Home Assistant disconnected, a backup failed, an update) on your Mantel apps and browsers. Where else they go is in Alerts.' }, [
     K().toggle({ label: 'System Alerts', on: got.data.system_alerts, fk: 'mx:system-alerts',
       onChange: (on) => act('me', () => api('PUT', '/api/alerts/me', { system_alerts: on }), on ? 'System alerts turned on.' : 'System alerts turned off.', 'myalerts', 'alerts') }),
     nav('Alerts', 'alerts', { icon: 'mdi:bell-ring' })]));
@@ -199,7 +201,8 @@ function drawTimeline(c) {
   const rows = [];
   if (t.may_private) {
     rows.push(K().toggle({ label: 'Keep My Arrivals Private', on: t.private, fk: 'mx:timeline-private', onChange: async (on) => {
-      if (on && n > 0 && !(await ask({ title: 'Keep Your Arrivals Private?', message: 'Turn on and delete your ' + arrivalsWord(n) + '?', ok: 'Turn On and Delete', destructive: true }))) { redraw(); return; }
+      if (on && n > 0 && !(await ask({ title: 'Keep Your Arrivals Private?', message: 'Turn on and delete your ' + arrivalsWord(n) + '?', ok: 'Turn On and Delete', destructive: true }))) { redraw();
+        return; }
       putTimeline({ private: on }, on ? 'Your arrivals and departures aren’t recorded now.' : 'Your arrivals and departures are recorded again.');
     } }));
   }
@@ -208,9 +211,11 @@ function drawTimeline(c) {
   rows.push(info('Recorded Arrivals and Departures', null, t.private ? 'None Kept' : String(n)));
   rows.push(button('Clear My Arrivals…', async () => {
     if (!(await ask({ title: 'Clear Your Arrivals?', message: 'Delete your ' + arrivalsWord(n) + '? Nothing else in the Timeline changes.', ok: 'Clear', destructive: true }))) return;
-    await act('me', async () => { const r = await api('DELETE', '/api/timeline/mine/presence'); ui.flash = { key: 'me', text: r && r.deleted ? 'Cleared ' + arrivalsWord(r.deleted) + '.' : 'Nothing to clear.' }; }, null, 'mytimeline');
+    await act('me', async () => { const r = await api('DELETE', '/api/timeline/mine/presence');
+      ui.flash = { key: 'me', text: r && r.deleted ? 'Cleared ' + arrivalsWord(r.deleted) + '.' : 'Nothing to clear.' }; }, null, 'mytimeline');
   }, { destructive: true, disabled: n === 0, fk: 'mx:timeline-clear-mine' }));
-  c.appendChild(group({ header: 'Timeline', footer: (t.may_private ? (t.private ? 'Your arrivals and departures aren’t recorded. ' : 'Turn on Keep My Arrivals Private and your arrivals and departures aren’t recorded. ')
+  c.appendChild(group({ header: 'Timeline', footer: (t.may_private ? (t.private ? 'Your arrivals and departures aren’t recorded. ' :
+    'Turn on Keep My Arrivals Private and your arrivals and departures aren’t recorded. ')
     + 'Doors, locks and cameras are about the house and are still recorded.' : 'Your Owner decides whether your arrivals and departures are recorded.') }, rows));
 }
 // APPS (app_auth.py; docs/phase10/APPLE-APPS.md §2): Mantel for iPhone, iPad and Mac signed in as this person, and
@@ -297,7 +302,12 @@ function pMyPin() {
     if (!got) { pending(c); return; }
     if (got.err) { failed(c, got.err); return; }
     const s = got.data;
-    c.appendChild(group({ footer: 'Optional, and not used for now: Mantel asks for no personal PIN. The only PIN is the house Alarm PIN (Features, Alarm PIN), for the alarm. A PIN is 4 to 8 digits; nobody else can have the same one.' },
+    c.appendChild(
+      group(
+      {
+      footer:
+      'Optional, and not used for now: Mantel asks for no personal PIN. The only PIN is the house Alarm PIN (Features, Alarm PIN), for the alarm. A PIN is 4 to 8 digits;' +
+      ' nobody else can have the same one.' },
       [info('PIN', s.pin ? `Last changed ${fmt(s.updated || s.created)}` + (s.last_used ? ' · last used ' + ago(s.last_used) : '') : null, s.pin ? 'Set' : 'None'),
        field('pin', 'pin', s.pin ? 'New PIN' : 'PIN', { type: 'password', inputmode: 'numeric', maxlength: 8, autocomplete: 'new-password' }),
        field('pin', 'again', 'Repeat', { type: 'password', inputmode: 'numeric', maxlength: 8, autocomplete: 'new-password' }),

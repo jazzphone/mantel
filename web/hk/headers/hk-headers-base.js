@@ -223,12 +223,14 @@
             (b.fut ? v('line') : v('line-strong')) + '"/>';
         } else {
           var hTot = Math.max(3, H * tot / mx), y = H, cid = 'hb' + i;
-          svg += '<clipPath id="' + cid + '"><rect x="' + x0.toFixed(1) + '" y="' + (H - hTot).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + hTot.toFixed(1) + '" rx="' + rx.toFixed(1) + '"/></clipPath>';
+          svg += '<clipPath id="' + cid + '"><rect x="' + x0.toFixed(1) + '" y="' + (H - hTot).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + hTot.toFixed(1) + '" rx="' + rx.toFixed(1) +
+            '"/></clipPath>';
           b.segs.forEach(function (g) {
             if (g.v <= 0) return;
             var hh = hTot * g.v / tot;
             y -= hh;
-            svg += '<rect class="b" data-i="' + i + '" clip-path="url(#' + cid + ')" x="' + x0.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + (hh + 0.5).toFixed(1) + '" fill="' + g.c + '"/>';
+            svg += '<rect class="b" data-i="' + i + '" clip-path="url(#' + cid + ')" x="' + x0.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' +
+              (hh + 0.5).toFixed(1) + '" fill="' + g.c + '"/>';
           });
         }
         if (b.label) labs += '<span class="' + (b.now ? 'now' : '') + '" style="left:' + (x0 + bw / 2).toFixed(1) + 'px">' + b.label + '</span>';

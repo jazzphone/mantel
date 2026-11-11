@@ -76,12 +76,22 @@
             var b = o.b, v = !b.chips_row ? 'Off' : (b.chips || []).length ? b.chips.length + ' Chips' : 'Automatic';
             return K.nav({ label: o.x.title, value: v, href: '#/screens/' + encodeURIComponent(o.p) + '/chips', sk: 'chips:screen:' + o.p });
           })));
-        c.appendChild(K.group({ header: 'Chips', footer: 'Each chip on every screen: Always, or only When Active — while something is on, open, running or wet. Smoke & CO needs nothing here: it leads every screen’s row, in red, when an alarm goes off.' },
+        c.appendChild(
+          K.group(
+          { header: 'Chips',
+          footer:
+          'Each chip on every screen: Always, or only When Active — while something is on, open, running or wet. Smoke & CO needs nothing here: it leads every screen’s row, in red, when an alarm ' +
+          'goes off.' },
           kinds.map(function (k) {
             return K.nav({ label: M.CHIP_LABELS[k] || k, value: self.chipSays(self.chipScreens(k)), href: '#/house/chips/' + k, sk: 'chips:kind:' + k });
           })));
         var lib = d.custom_chips || [];
-        if (lib.length) c.appendChild(K.group({ header: 'Custom Chips', footer: 'Your own chips, set the same way. Always takes a conditional chip out of its condition; When Active shows one only while its entity is on, open or running — or as its own active: rules say.' },
+        if (lib.length) c.appendChild(
+          K.group(
+          { header: 'Custom Chips',
+          footer:
+          'Your own chips, set the same way. Always takes a conditional chip out of its condition;' +
+          ' When Active shows one only while its entity is on, open or running — or as its own active: rules say.' },
           lib.map(function (x) {
             return K.nav({ label: x.name, value: self.chipSays(self.chipScreens('chip:' + x.key)), href: '#/house/chips/' + encodeURIComponent('chip:' + x.key),
                            sk: 'chips:kind:chip:' + x.key });
@@ -92,7 +102,11 @@
       // hiding from it is Accessories', type by type -- said and linked on
       // every Status Chips page
       chipCountsGroup() {
-        return K.group({ header: 'What the Chips Count', footer: 'To count something more in a chip — an outlet with a lamp, a group helper — or hide something from it, open its type in Accessories: Add… and Hidden are there. The same on every screen. Your own chips are in Custom Chips.' }, [
+        return K.group(
+          { header: 'What the Chips Count',
+          footer:
+          'To count something more in a chip — an outlet with a lamp, a group helper — or hide something from it, open its type in Accessories: Add… and Hidden are there. The same on every screen. ' +
+          'Your own chips are in Custom Chips.' }, [
           K.nav({ label: 'Accessories', sub: 'Add to a chip, or hide from it, type by type', icon: 'mdi:lightbulb-group', href: '#/accessories', sk: 'chips:accessories' }),
           K.nav({ label: 'Custom Chips', sub: 'Chips you write yourself', icon: 'mdi:label-variant', href: '#/chips', sk: 'chips:custom' })]);
       }
@@ -130,8 +144,11 @@
         var src = M.CHIP_SOURCES[kind] || {};
         var counts = (src.kinds || []).concat(kind === 'doors_windows' ? ['garage'] : []).filter(function (k, i, a) { return a.indexOf(k) === i; });
         // a chip that reads one setting (Weather Alerts, Energy): no types to open
-        if (!counts.length && !ckey) c.appendChild(K.group({ header: 'What It Counts', footer: 'This chip reads one setting rather than a type of accessory: set it on any screen’s page for this chip.' }, []));
-        if (counts.length) c.appendChild(K.group({ header: 'What It Counts', footer: 'Tap a type to change what this chip counts: Add… counts something more (an outlet with a lamp, a group helper); open an accessory to hide it from the chip. The same on every screen.' }, counts.map(function (k) {
+        if (!counts.length && !ckey) c.appendChild(K.group({ header: 'What It Counts',
+          footer: 'This chip reads one setting rather than a type of accessory: set it on any screen’s page for this chip.' }, []));
+        if (counts.length) c.appendChild(K.group({ header: 'What It Counts', footer:
+          'Tap a type to change what this chip counts: Add… counts something more (an outlet with a lamp, a group helper); open an accessory to hide it from the chip. The same on every screen.' },
+          counts.map(function (k) {
           var T = M.accType(k);
           return K.nav({ label: T ? T[1] : k, tile: T ? [T[2], T[3]] : null, value: String((((self.data.counts || {})[k] || {}).found || []).length),
                          href: '#/accessories/type/' + k });
@@ -153,7 +170,8 @@
           autoFooter: 'Automatic shows a chip for everything the house has, in the usual order. A kind the house has nothing of never shows.',
           rows: mdl.rows.map(function (r) {
             return { value: r.value, label: lab(r), removable: r.own || r.custom,
-                     sub: r.custom ? 'Custom chip' + (self.customShow(b, r.key) === 'active' ? ' · Only When Active' : '') : r.value === 'intercom' ? 'Opens the Intercom' : r.own ? 'Accessory chip' : r.quiet || r.value === 'laundry' ? 'Only When Active' : null,
+                     sub: r.custom ? 'Custom chip' + (self.customShow(b, r.key) === 'active' ? ' · Only When Active' : '') : r.value === 'intercom' ? 'Opens the Intercom' : r.own ? 'Accessory chip' :
+                       r.quiet || r.value === 'laundry' ? 'Only When Active' : null,
                      href: r.custom ? '#/chips/' + encodeURIComponent(r.key) : r.value === 'intercom' ? null
                                     : r.own ? '#/accessories/' + encodeURIComponent(r.value) : base + '/chips/' + r.value };
           }),
@@ -191,7 +209,8 @@
         // LAUNDRY (phase 22): always When Active -- "Off" says nothing -- and what it counts is Accessories -> Laundry's machines
         if (kind === 'laundry') {
           var nL = this.laundryList().length;
-          c.appendChild(K.group({ footer: 'The Laundry chip appears only while a washer or dryer runs, is done or needs a look: “24 min left”, “Done”, “2 Machines”. A tap opens the laundry sheet.' }, [
+          c.appendChild(K.group({ footer: 'The Laundry chip appears only while a washer or dryer runs, is done or needs a look: “24 min left”, “Done”, “2 Machines”. A tap opens the laundry sheet.' },
+            [
             K.info({ label: 'Show', value: 'When Active' })]));
           c.appendChild(K.group({ header: 'What It Counts', footer: 'The same on every screen.' }, [
             K.nav({ label: 'Laundry', icon: 'mdi:washing-machine', value: nL ? nL + (nL === 1 ? ' Machine' : ' Machines') : 'None', href: '#/accessories/laundry', sk: 'chip:laundry' })]));
@@ -220,7 +239,9 @@
           var v = this.hs(map[src.setting[1]]);
           rows.push(K.nav({ label: src.setting[1], value: v ? this.name(v) : 'None', href: '#/' + src.setting[0] }));
         }
-        c.appendChild(K.group({ header: 'What It Counts', footer: (src.kinds || []).length ? 'Tap a type to change what this chip counts: Add… counts something more (an outlet with a lamp, a group helper); open an accessory to hide it from the chip. The same on every screen.' : 'The same on every screen.' }, rows));
+        c.appendChild(K.group({ header: 'What It Counts', footer: (src.kinds || []).length ?
+          'Tap a type to change what this chip counts: Add… counts something more (an outlet with a lamp, a group helper); open an accessory to hide it from the chip. The same on every screen.' :
+          'The same on every screen.' }, rows));
       }
       // NOT THE HOUSE'S CAMERAS (hk-strategy.js notHouseCamera: its rule, when it is loaded):
       // a wall tablet's own -- Fully Kiosk's, or Kiosk Satellite's, which comes
@@ -338,7 +359,8 @@
         }
         c.appendChild(K.group({ header: '1. The Dropdown’s Options', footer: sel
             ? (missing ? 'The dropdown has no option for ' + (missing === 1 ? 'one camera' : missing + ' cameras') + ' in this ' +
-                'screen’s strip. Add ' + (missing === 1 ? 'it' : 'them') + ', spelled as shown, in ' + haPlace('Settings → Devices & Services → Helpers') + '; until then the automation leaves ' + (missing === 1 ? 'it' : 'them') + ' out.'
+                'screen’s strip. Add ' + (missing === 1 ? 'it' : 'them') + ', spelled as shown, in ' + haPlace('Settings → Devices & Services → Helpers') + '; until then the automation leaves ' +
+                  (missing === 1 ? 'it' : 'them') + ' out.'
               : 'The dropdown has an option for every camera in this screen’s strip.')
             : 'Create the Dropdown makes a dropdown helper called Live Camera with these options, and chooses it above. ' +
               'Or make your own in ' + haPlace('Settings → Devices & Services → Helpers → Create Helper → Dropdown') + '.' }, rows));
@@ -412,7 +434,8 @@
               },
               onPick: function (id) { if (id) set(M.scenesSave(mdl.rows.map(function (r) { return r.value; }).concat(id))); } }));
           } }));
-        c.appendChild(K.group({ footer: 'A scene’s name, icon and color on the pill are in its settings. A page pill’s are the same on every screen (All Screens → Appearance → Page Pills): tap it.' }, []));
+        c.appendChild(K.group({ footer: 'A scene’s name, icon and color on the pill are in its settings. A page pill’s are the same on every screen (All Screens → Appearance → Page Pills): tap it.' },
+          []));
       }
       // A PAGE PILL'S LOOK: its name, icon and color, the same on
       // every screen (look.page_pills) -- "Play Music" can be "Apple Music"
@@ -499,7 +522,8 @@
         var choices = (this.data.choices || {}).sleep || {};
         var mins = function (m) { return m < 60 ? m + ' min' : (m / 60) + (m === 60 ? ' hour' : ' hours'); };
         var secs = function (v) { return v === 0 ? 'None' : v < 60 ? v + ' s' : mins(v / 60); };
-        c.appendChild(K.group({ header: 'Going Dark', footer: 'Drawn By: Kiosk Satellite puts its own Black screensaver up; ' + PN() + ' draws the black on this page and turns the backlight down itself, then fades back in with it (Kiosk Satellite’s is its fallback). ' +
+        c.appendChild(K.group({ header: 'Going Dark', footer: 'Drawn By: Kiosk Satellite puts its own Black screensaver up; ' + PN() +
+          ' draws the black on this page and turns the backlight down itself, then fades back in with it (Kiosk Satellite’s is its fallback). ' +
             'While Dark: a display that is off has no glow at all, but a tap cannot wake it — the power button, the doorbell or somebody walking in can.' }, [
           K.seg({ label: 'Drawn By', sk: 'b:black_screen', stack: !wide, value: b.black_screen || 'kiosk',
                   options: [['kiosk', 'Kiosk Satellite'], ['hk', PN()]], onChange: function (v) { ctx.set({ black_screen: v }); } }),
@@ -510,12 +534,14 @@
         c.appendChild(K.group({ header: 'Decided By', footer: sl.decided_by === 'shadow'
             ? 'Trying it out: ' + PN() + ' decides by the rules below but does not act yet' + (sens ? ' — ' + sens + ' shows what it would do, and why.' : '.') + ' Choose ' + PN() + ' to let it.'
             : hk ? PN() + ' sleeps and wakes this tablet itself, by the rules below' + (sens ? ' — ' + sens + ' says what it decides, and why.' : '.')
-            : 'An automation of yours decides: it turns ' + (sw || 'the tablet’s black screen switch') + ' on to sleep and off to wake — the Set black screen action also takes the brightness to wake to. Nothing here makes the tablet sleep by itself.' }, [
+            : 'An automation of yours decides: it turns ' + (sw || 'the tablet’s black screen switch') +
+              ' on to sleep and off to wake — the Set black screen action also takes the brightness to wake to. Nothing here makes the tablet sleep by itself.' }, [
           K.seg({ label: 'Decided By', sk: 'b:sleep.decided_by', stack: !wide, value: hk ? 'hk' : 'automation',
                   options: [['automation', 'An Automation'], ['hk', PN()]], onChange: function (v) { put({ decided_by: v }); } })]));
         if (hk) {
           var ks = (this.data.choices || {}).kiosks || [];
-          var kfoot = 'The tablet’s Kiosk Satellite: how ' + PN() + ' powers its display, sets its brightness, brings the dashboard back in front, and knows another app is in front (it then leaves the tablet alone).';
+          var kfoot = 'The tablet’s Kiosk Satellite: how ' + PN() +
+            ' powers its display, sets its brightness, brings the dashboard back in front, and knows another app is in front (it then leaves the tablet alone).';
           if (x.tablet) {
             // the tablet's own Kiosk App and Device (its page's Setup)
             var kd = ks.filter(function (k) { return k.id === sl.kiosk; })[0];
@@ -540,16 +566,26 @@
                                 onCommit: function (v) { put({ quiet_to: v.trim() }); } }));
           }
           sched.push(K.nav({ label: 'Quiet While', href: base + '/quiet', sk: 'b:sleep.quiet_while', value: self.sleepCount(sl.quiet_while) }));
-          c.appendChild(K.group({ header: 'When It Goes Dark', footer: 'After the Screensaver: dark once the photos have shown that long with nobody touching it (with Presence, nobody new coming in). Quiet hours, by the clock and while anything in Quiet While is on: dark even with somebody in the room — a tap still wakes it.' }, sched));
+          c.appendChild(
+            K.group(
+            { header: 'When It Goes Dark',
+            footer:
+            'After the Screensaver: dark once the photos have shown that long with nobody touching it (with Presence, nobody new coming in). Quiet hours, by the clock and while anything in Quiet ' +
+            'While is on: dark even with somebody in the room — a tap still wakes it.' }, sched));
           var linger = (choices.linger || [0, 30, 60, 120, 300]).map(function (v) { return [v, secs(v)]; });
-          c.appendChild(K.group({ header: 'Who Is There', footer: 'Somebody in the room: the photos (a dark tablet wakes to the dashboard, and the photos follow on their own); somebody touching it: the dashboard; nobody: dark.' }, [
+          c.appendChild(
+            K.group(
+            { header: 'Who Is There',
+            footer: 'Somebody in the room: the photos (a dark tablet wakes to the dashboard, and the photos follow on their own); somebody touching it: the dashboard; nobody: dark.' }, [
             K.nav({ label: 'Presence', href: base + '/presence', sk: 'b:sleep.presence', value: (sl.presence || []).length ? self.sleepCount(sl.presence) : 'Always Occupied' }),
             K.select({ label: 'Linger', sk: 'b:sleep.linger', value: sl.linger == null ? 60 : sl.linger, options: linger,
                        onChange: function (v) { put({ linger: Number(v) }); } }),
             K.nav({ label: 'Only While Lit', href: base + '/lit', sk: 'b:sleep.lit', value: self.sleepCount(sl.lit) }),
             K.nav({ label: 'Sleep Until Re-entered', href: base + '/reset', sk: 'b:sleep.reset', value: self.sleepCount(sl.reset) })]));
           this.sleepNear(c, sl, base, put);
-          c.appendChild(K.group({ header: 'Overrides', footer: 'In this order: Wake For, Hold While, Keep Awake While, Stay Dark While — all before who is in the room. Another app in front is always left alone.' }, [
+          c.appendChild(
+            K.group({ header: 'Overrides', footer: 'In this order: Wake For, Hold While, Keep Awake While, Stay Dark While — all before who is in the room. Another app in front is always left alone.'
+            }, [
             K.nav({ label: 'Wake For', href: base + '/wake', sk: 'b:sleep.wake_for', value: self.sleepCount(sl.wake_for) }),
             K.nav({ label: 'Hold While', href: base + '/hold', sk: 'b:sleep.hold_while', value: self.sleepCount(sl.hold_while) }),
             K.nav({ label: 'Keep Awake While', href: base + '/awake', sk: 'b:sleep.awake_while', value: self.sleepCount(sl.awake_while) }),
@@ -564,7 +600,8 @@
           var raw = function (p) { return Math.max(1, Math.min(255, Math.round(p * 2.55))); };
           c.appendChild(K.group({ header: 'Brightness', footer: bm === 'leave'
               ? PN() + ' never changes the screen’s brightness. (The tablet’s own adaptive brightness, if it is on, still does.)'
-              : 'The screen’s brightness while awake, and what it wakes to — set on the screen itself, as Fully Kiosk did, and checked again at every sleep and wake. Under ' + PN() + '’s black the backlight stays at its lowest until the wake. Turn the tablet’s own adaptive brightness off, or the two will fight.' }, [
+              : 'The screen’s brightness while awake, and what it wakes to — set on the screen itself, as Fully Kiosk did, and checked again at every sleep and wake. Under ' + PN() +
+                '’s black the backlight stays at its lowest until the wake. Turn the tablet’s own adaptive brightness off, or the two will fight.' }, [
             K.seg({ label: 'Brightness', sk: 'b:sleep.brightness', stack: !wide, value: bm, options: bOpts,
                     onChange: function (v) { put({ brightness: v }); } })].concat(bm === 'fixed' ? [
             K.toggle({ label: 'Day and Night by the Clock', sk: 'b:sleep.bright_clock', on: !!sl.bright_clock,
@@ -573,13 +610,15 @@
                              filter: { domains: ['sensor', 'input_number', 'number'] }, onPick: function (id) { put({ bright_sensor: id || '' }); } })] : [])));
           if (bm === 'fixed') {
             var clock = !!sl.bright_clock;
-            c.appendChild(K.group({ header: 'Day', footer: (clock ? 'From ' + (sl.day_from || '07:00') + ', and always' : 'Whenever it is not night (below) — and always') + ' while anything in Day While is on.' }, [
+            c.appendChild(K.group({ header: 'Day', footer: (clock ? 'From ' + (sl.day_from || '07:00') + ', and always' : 'Whenever it is not night (below) — and always') +
+              ' while anything in Day While is on.' }, [
               K.slider({ label: 'Brightness', sk: 'b:sleep.bright_day', min: 1, max: 100, unit: '%', value: pct(sl.bright_day || 174),
                          onChange: function (v) { put({ bright_day: raw(v) }); } })].concat(clock ? [
               K.text({ label: 'Starts At', sk: 'b:sleep.day_from', value: sl.day_from || '07:00', placeholder: '07:00', error: this.err(ctx.err),
                        onCommit: function (v) { put({ day_from: v.trim() }); } })] : []).concat([
               K.nav({ label: 'Day While', href: base + '/day', sk: 'b:sleep.day_while', value: self.sleepCount(sl.day_while) })])));
-            c.appendChild(K.group({ header: 'Night', footer: (clock ? 'From ' + (sl.night_from || '22:00') + ', ' : 'Not by the clock: ') + 'whenever anything in Night While is on (Day While still wins).' }, [
+            c.appendChild(K.group({ header: 'Night', footer: (clock ? 'From ' + (sl.night_from || '22:00') + ', ' : 'Not by the clock: ') +
+              'whenever anything in Night While is on (Day While still wins).' }, [
               K.slider({ label: 'Brightness', sk: 'b:sleep.bright_night', min: 1, max: 100, unit: '%', value: pct(sl.bright_night || 75),
                          onChange: function (v) { put({ bright_night: raw(v) }); } })].concat(clock ? [
               K.text({ label: 'Starts At', sk: 'b:sleep.night_from', value: sl.night_from || '22:00', placeholder: '22:00',
@@ -617,8 +656,11 @@
                                onChange: function (v) { put({ near_linger: Number(v) }); } }));
         }
         c.appendChild(K.group({ header: 'Near the Screen', footer: near.length
-            ? 'Somebody near the screen: the dashboard, before a touch (while lit, never in quiet hours). With nobody near and no touch for Back to the Screensaver, the photos come back — sooner than Starts After.'
-            : 'A sensor that sees the space in front of the tablet — an mmWave zone, or a distance sensor — brings the dashboard up as somebody walks up to it. The tablet’s own camera is never used.' }, rows));
+            ?
+              'Somebody near the screen: the dashboard, before a touch (while lit, never in quiet hours). With nobody near and no touch for Back to the Screensaver, the photos come back — sooner ' +
+              'than Starts After.'
+            : 'A sensor that sees the space in front of the tablet — an mmWave zone, or a distance sensor — brings the dashboard up as somebody walks up to it. The tablet’s own camera is never used.'
+              }, rows));
       }
       // ONE OF SLEEP SCREEN'S LISTS: as many entities as the house has; Hold
       // While and Wake For say which of theirs also work in quiet hours
@@ -978,12 +1020,15 @@
         // the two that are pictures of their own: the photos, the forecast
         if (what === 'photos') {
           inner.style.background = 'linear-gradient(#8fb3d6,#e9c09a)';
-          inner.innerHTML = '<svg viewBox="0 0 1180 820" width="1180" height="820"><circle cx="880" cy="230" r="80" fill="#fff4d6"/><path d="M0 640L260 360 470 560 700 300 1180 700V820H0z" fill="#58745f"/><path d="M0 820V700L340 560 620 700 900 600 1180 760V820z" fill="#3c5747"/></svg>';
+          inner.innerHTML =
+            '<svg viewBox="0 0 1180 820" width="1180" height="820"><circle cx="880" cy="230" r="80" fill="#fff4d6"/><path d="M0 640L260 360 470 560 700 300 1180 700V820H0z" fill="#58745f"/><path ' +
+            'd="M0 820V700L340 560 620 700 900 600 1180 760V820z" fill="#3c5747"/></svg>';
           return box;
         }
         if (what === 'forecast') {
           inner.style.background = 'linear-gradient(#2f74ba,#a7d2ef)';
-          inner.innerHTML = '<svg viewBox="0 0 1180 820" width="1180" height="820"><path d="M300 330h300a110 110 0 0 0 10-219 160 160 0 0 0-308 34A100 100 0 0 0 300 330z" fill="#fff" opacity=".92"/>' +
+          inner.innerHTML =
+            '<svg viewBox="0 0 1180 820" width="1180" height="820"><path d="M300 330h300a110 110 0 0 0 10-219 160 160 0 0 0-308 34A100 100 0 0 0 300 330z" fill="#fff" opacity=".92"/>' +
             '<path d="M0 640C260 560 420 600 620 560S980 520 1180 580V820H0z" fill="#4f7a55"/><rect y="700" width="1180" height="120" fill="rgba(6,10,18,.55)"/>' +
             '<g fill="#fff" font-family="-apple-system,system-ui,sans-serif" font-weight="600" font-size="64">' +
             [0, 1, 2, 3, 4].map(function (i) { return '<text x="' + (110 + i * 230) + '" y="785">' + (54 + i) + '°</text>'; }).join('') + '</g></svg>';
@@ -1001,7 +1046,8 @@
             '<path d="M0 640C260 560 420 600 620 560S980 520 1180 580V820H0z" fill="#4f7a55"/>' +
             '<text x="60" y="80" font-size="34" font-weight="600">Sunny</text><text x="1120" y="94" font-size="44" font-weight="600" text-anchor="end">9:41</text>' +
             '<text x="40" y="520" font-size="400" font-weight="600" letter-spacing="-20" opacity=".92">64°</text>' +
-            '<g font-size="40" font-weight="600" text-anchor="middle">' + [210, 470, 730, 990].map(function (x, i) { return '<text x="' + x + '" y="740">' + ['6:37', '10', '60%', '21'][i] + '</text>'; }).join('') + '</g></svg>';
+            '<g font-size="40" font-weight="600" text-anchor="middle">' + [210, 470, 730, 990].map(
+              function (x, i) { return '<text x="' + x + '" y="740">' + ['6:37', '10', '60%', '21'][i] + '</text>'; }).join('') + '</g></svg>';
           return box;
         }
         var tries = 0, draw = function () {
@@ -1056,9 +1102,11 @@
         // (the page below is what can't be laid out: the photos, the slides, Night Mode and the timing)
         c.appendChild(K.group({ footer: (note ? note + ' ' : '') + 'What shows and how it looks \u2014 the background, the time, the widgets and the corners \u2014 is set in the editor' +
             (lay ? '.' : ', starting from how it looks today.') + ' Below: the photos, the slides, Night Mode and the timing.' },
-          [K.nav({ label: 'Designs & Editor', value: active ? active.name : 'Current Screensaver', sub: (cur.designs || []).length + ' saved designs · Faces, backgrounds and all widgets', icon: 'mdi:pencil', href: href, sk: 'saver:editor' })]
+          [K.nav({ label: 'Designs & Editor', value: active ? active.name : 'Current Screensaver', sub: (cur.designs || []).length + ' saved designs · Faces, backgrounds and all widgets',
+            icon: 'mdi:pencil', href: href, sk: 'saver:editor' })]
             .concat(lay && put ? [K.button({ label: 'Remove the Layout\u2026', destructive: true, fk: 'saver:layout-off', onClick: function () {
-              K.confirm(self.shadowRoot, { title: 'Remove the Layout?', message: 'The screensaver is drawn as its Show was before the editor. Its other settings stay.', ok: 'Remove', destructive: true })
+              K.confirm(self.shadowRoot, { title: 'Remove the Layout?', message: 'The screensaver is drawn as its Show was before the editor. Its other settings stay.', ok: 'Remove',
+                destructive: true })
                 .then(function (yes) { if (yes) put('layout', null); });
             } })] : [])));
       }
@@ -1091,7 +1139,8 @@
         };
         if (house) photoSrc(c);
         // (the Side Pane is the screen's own even while its screensaver is All Screens': what this screen shows beside it)
-        if (house) c.appendChild(K.group({ header: 'Side Pane', footer: 'This screen’s Side Pane in the screensaver, set on its Side Pane page: it is the screen’s own even while the rest follows All Screens.' },
+        if (house) c.appendChild(
+          K.group({ header: 'Side Pane', footer: 'This screen’s Side Pane in the screensaver, set on its Side Pane page: it is the screen’s own even while the rest follows All Screens.' },
           [this.paneLink(path, 'saver', 'saver:side_pane')]));
         if (!house) {
           this.saverGroups(c, cur, function (k, v) {
@@ -1100,7 +1149,8 @@
           }, '#/screens/' + encodeURIComponent(path) + '/screensaver/clock-style', b.idle_room ? this.areaName(b.idle_room) : x.title, photoSrc);
           if (M.saverCustom(cur)) {
             c.appendChild(K.group({}, [K.button({ label: 'Reset to Defaults…', destructive: true, fk: 'saver:reset', onClick: function () {
-              K.confirm(self.shadowRoot, { title: 'Use the default screensaver options?', message: 'This removes saved designs and resets the screensaver, widgets and other options to their defaults.',
+              K.confirm(self.shadowRoot, { title: 'Use the default screensaver options?',
+                message: 'This removes saved designs and resets the screensaver, widgets and other options to their defaults.',
                                            ok: 'Use Defaults', destructive: true }).then(function (yes) {
                 if (yes) self.setB(path, { screensaver_options: self.saverOut(M.saverOptions(null)) });
               });
@@ -1167,7 +1217,8 @@
                 (muSlide ? ' The music only while something plays; its buttons skip or pause without closing the screensaver, and a tap on its album art opens Music.' : '') +
                 (en ? ' Home Energy skips its turn until it has the day’s numbers; a tap on it opens Energy.' : '') +
                 (hl ? ' The holidays only once one is near.' : '')
-              : 'Slides among the photos: the forecast' + (mf ? '' : ', what’s playing') + (wxKnown ? ', the weather' : '') + (enKnown ? ', Home Energy' : '') + (hlKnown ? ', and the holidays.' : '.') }, [
+              : 'Slides among the photos: the forecast' + (mf ? '' : ', what’s playing') + (wxKnown ? ', the weather' : '') + (enKnown ? ', Home Energy' : '') +
+                (hlKnown ? ', and the holidays.' : '.') }, [
             K.toggle({ label: 'Forecast', sub: 'The forecast over the live sky, as one of the photos. Its sky only moves while it is on screen.',
                        on: both, sk: 'saver:slide_forecast', onChange: function (on) { put('show', on ? 'both' : 'photos'); } })
           // (one key for Music Full Screen, phase 13: the editor's and this page's are the same choice -- music_first)
@@ -1254,10 +1305,15 @@
               put('weather_hide', M.WEATHER_PARTS.filter(function (x) { return next.indexOf(x) >= 0; }));
             } });
         };
-        c.appendChild(K.group({ header: 'Readings', footer: 'Temperature always shows: now, with today’s high and low. Each reading has its leader line and a line in words underneath. Rain reads Snow when it snows.' }, [
+        c.appendChild(
+          K.group(
+          { header: 'Readings', footer: 'Temperature always shows: now, with today’s high and low. Each reading has its leader line and a line in words underneath. Rain reads Snow when it snows.' }, [
           part('rain', 'Rain', 'The chance today, and when.'),
           part('wind', 'Wind', 'Its speed, direction and gusts.')]));
-        c.appendChild(K.group({ header: 'Along the Bottom', footer: 'From the weather in Weather, as the forecast’s details have them. Behind it all, the live sky as it is outside (Sky Only). A tap on the screen opens the Weather page.' }, [
+        c.appendChild(
+          K.group(
+          { header: 'Along the Bottom',
+          footer: 'From the weather in Weather, as the forecast’s details have them. Behind it all, the live sky as it is outside (Sky Only). A tap on the screen opens the Weather page.' }, [
           part('hours', 'Next Hours'), part('days', 'Coming Days')]));
       }
       // THE HOLIDAY SLIDE'S ROWS (phase 20): its switch, and its options once on
@@ -1276,7 +1332,8 @@
       // along the bottom. The preview holds the slide.
       saverHoliday(c, cur, put) {
         var self = this, HH = window.hkHolidays, HOLIDAY_PARTS = ['count', 'next'], HOLIDAY_PICKS = [['next', 'Next Up'], ['turns', 'Take Turns'], ['one', 'One Holiday']];
-        var HOLIDAY_SCENES = [['christmas', '90s Living Room', 'Christmas'], ['halloween', 'Haunted House', 'Halloween'], ['thanksgiving', 'Dining Room', 'Thanksgiving'], ['newyear', 'Rooftop Party', 'New Year’s']];
+        var HOLIDAY_SCENES = [['christmas', '90s Living Room', 'Christmas'], ['halloween', 'Haunted House', 'Halloween'], ['thanksgiving', 'Dining Room', 'Thanksgiving'],
+          ['newyear', 'Rooftop Party', 'New Year’s']];
         if (!HH) {
           var u = '/hk/modules/hk-holidays.js';
           import(window.hkV ? window.hkV(u) : u).then(function () { if (window.hkHolidays) self.render(); }, function () { /* the page without its calendar */ });
@@ -1291,30 +1348,38 @@
         var fmt = function (p) { return new Date(Date.UTC(p.y, p.m - 1, p.d)).toLocaleDateString('en-US', { month: 'long', day: 'numeric', timeZone: 'UTC' }); };
         var when = function (n) { return n === 0 ? 'today' : n === 1 ? 'tomorrow' : n + ' days away'; };
         var shows = HH.pick(today, Object.assign({}, opts, { pick: opts.pick === 'turns' ? 'next' : opts.pick }));
-        c.appendChild(K.group({ footer: shows ? (opts.pick === 'turns' && near.length > 1 ? 'Each time the slide comes, the next of ' + near.length + ' near holidays.' : near.length > 1 ? (near.length - 1) + ' more within ' + opts.days + ' days.' : '')
+        c.appendChild(K.group({ footer: shows ? (opts.pick === 'turns' && near.length > 1 ? 'Each time the slide comes, the next of ' + near.length + ' near holidays.' : near.length > 1 ?
+          (near.length - 1) + ' more within ' + opts.days + ' days.' : '')
             : 'With none near, the slide stays away and the others carry on.' },
           [K.info({ label: shows ? 'Today it would show ' + shows.name : 'No holiday within ' + opts.days + ' days', value: shows ? when(shows.days) : '' })]));
         var pickRows = [K.seg({ label: 'Which Holiday', sk: 'saver:holiday_pick', value: opts.pick, options: HOLIDAY_PICKS, onChange: function (v) { put('holiday_pick', v); } })];
         if (opts.pick === 'one') pickRows.push(K.select({ label: 'Holiday', sk: 'saver:holiday_one', value: opts.one,
           options: all.map(function (h) { return [h.id, h.name]; }).concat(all.some(function (h) { return h.id === opts.one; }) ? [] : [[opts.one, 'A Date No Longer Listed']]),
           onChange: function (v) { put('holiday_one', v); } }));
-        pickRows.push(K.seg({ label: 'Starts', sk: 'saver:holiday_days', value: opts.days, options: [[30, '30 Days'], [60, '60 Days'], [90, '90 Days']], onChange: function (v) { put('holiday_days', Number(v)); } }));
-        pickRows.push(K.seg({ label: 'Effects', sk: 'saver:holiday_fx', value: cur.holiday_fx || 'full', options: [['full', 'Full'], ['gentle', 'Gentle'], ['off', 'Off']], onChange: function (v) { put('holiday_fx', v); } }));
-        c.appendChild(K.group({ header: 'The Slide', footer: 'Next Up shows the soonest holiday once it is within the days you choose; Take Turns shows each near one in turn; One Holiday shows only the one you pick. ' +
+        pickRows.push(K.seg({ label: 'Starts', sk: 'saver:holiday_days', value: opts.days, options: [[30, '30 Days'], [60, '60 Days'], [90, '90 Days']],
+          onChange: function (v) { put('holiday_days', Number(v)); } }));
+        pickRows.push(K.seg({ label: 'Effects', sk: 'saver:holiday_fx', value: cur.holiday_fx || 'full', options: [['full', 'Full'], ['gentle', 'Gentle'], ['off', 'Off']],
+          onChange: function (v) { put('holiday_fx', v); } }));
+        c.appendChild(
+          K.group(
+          { header: 'The Slide', footer: 'Next Up shows the soonest holiday once it is within the days you choose; Take Turns shows each near one in turn; One Holiday shows only the one you pick. ' +
             'Effects run only while the slide is up. Gentle has fewer and slower; Off, Reduce Motion or Flat draw one still picture.' }, pickRows));
         // THE HOLIDAYS it counts down to: each built-in one, the sky's birthdays, your own dates
-        var turn = function (id, on) { var next = off.filter(function (x) { return x !== id; }); if (!on) next.push(id); put('holiday_off', HH.IDS.concat(['birthdays']).filter(function (x) { return next.indexOf(x) >= 0; })); };
+        var turn = function (id, on) { var next = off.filter(function (x) { return x !== id; }); if (!on) next.push(id);
+          put('holiday_off', HH.IDS.concat(['birthdays']).filter(function (x) { return next.indexOf(x) >= 0; })); };
         var rows = HH.IDS.map(function (id) {
           var h = all.filter(function (x) { return x.id === id; })[0];
           return K.toggle({ label: h ? h.name : id, sub: h ? fmt(h.date) : null, on: off.indexOf(id) < 0, sk: 'saver:holiday_off:' + id, onChange: function (on) { turn(id, on); } });
         });
         var nb = Array.isArray(bd) ? bd.length : 0;
-        rows.push(K.toggle({ label: 'Birthdays', sub: nb ? 'From the sky’s Birthdays: ' + nb : 'Add them in Seasonal Sky’s Birthdays', on: off.indexOf('birthdays') < 0, sk: 'saver:holiday_off:birthdays', onChange: function (on) { turn('birthdays', on); } }));
+        rows.push(K.toggle({ label: 'Birthdays', sub: nb ? 'From the sky’s Birthdays: ' + nb : 'Add them in Seasonal Sky’s Birthdays', on: off.indexOf('birthdays') < 0,
+          sk: 'saver:holiday_off:birthdays', onChange: function (on) { turn('birthdays', on); } }));
         c.appendChild(K.group({ header: 'Holidays', footer: 'Hanukkah, Diwali, Lunar New Year and other dates that move each year: add them below, for this year.' }, rows));
         var SC = window.hkHolidays.OWN_SCENES;
         if (own.length) c.appendChild(K.listEditor({ fk: 'holown', reorder: false, shownHeader: 'Your Own Dates', announce: this.announce ? this.announce.bind(this) : null,
           rows: own.map(function (o, i) {
-            return { value: String(i), label: o.name, sub: new Date(Date.UTC(o.year || 2024, o.month - 1, o.day)).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: o.year ? 'numeric' : undefined, timeZone: 'UTC' }) +
+            return { value: String(i), label: o.name, sub: new Date(Date.UTC(o.year || 2024, o.month - 1, o.day)).toLocaleDateString('en-US',
+              { month: 'long', day: 'numeric', year: o.year ? 'numeric' : undefined, timeZone: 'UTC' }) +
               (o.year ? '' : ' · Every Year') + ' · ' + ((SC[o.scene] || SC.spring).label) };
           }),
           onChange: function (values) { put('holiday_own', values.map(function (v) { return own[Number(v)]; }).filter(Boolean)); } }));
@@ -1324,11 +1389,15 @@
         var dmax = new Date(Date.UTC(Number(d.year) || 2024, d.month, 0)).getUTCDate();
         if (d.day > dmax) d.day = dmax;
         var full = own.length >= HH.OWN_MAX;
-        c.appendChild(K.group({ header: 'Add a Date', footer: full ? 'Up to ' + HH.OWN_MAX + ' dates of your own. Remove one to add another.' : 'Dates of your own stand outdoors, in the scene you choose. A date for one year leaves the list once it has passed.' }, [
+        c.appendChild(K.group({ header: 'Add a Date', footer: full ? 'Up to ' + HH.OWN_MAX + ' dates of your own. Remove one to add another.' :
+          'Dates of your own stand outdoors, in the scene you choose. A date for one year leaves the list once it has passed.' }, [
           K.text({ label: 'Name', sk: 'saver:holiday_new:name', value: d.name, placeholder: 'Beach Trip', maxlength: HH.NAME_MAX, onCommit: function (v) { d.name = v; self.render(); } }),
-          K.select({ label: 'Month', sk: 'saver:holiday_new:month', value: String(d.month), options: MONTHS.map(function (m, i) { return [String(i + 1), m]; }), onChange: function (v) { d.month = Number(v); self.render(); } }),
-          K.select({ label: 'Day', sk: 'saver:holiday_new:day', value: String(d.day), options: Array.apply(null, Array(dmax)).map(function (_, i) { return [String(i + 1), String(i + 1)]; }), onChange: function (v) { d.day = Number(v); self.render(); } }),
-          K.select({ label: 'Repeats', sk: 'saver:holiday_new:year', value: String(d.year), options: [['', 'Every Year'], [String(today.y), 'Only in ' + today.y], [String(today.y + 1), 'Only in ' + (today.y + 1)], [String(today.y + 2), 'Only in ' + (today.y + 2)]],
+          K.select({ label: 'Month', sk: 'saver:holiday_new:month', value: String(d.month), options: MONTHS.map(function (m, i) { return [String(i + 1), m]; }),
+            onChange: function (v) { d.month = Number(v); self.render(); } }),
+          K.select({ label: 'Day', sk: 'saver:holiday_new:day', value: String(d.day), options: Array.apply(null, Array(dmax)).map(function (_, i) { return [String(i + 1), String(i + 1)]; }),
+            onChange: function (v) { d.day = Number(v); self.render(); } }),
+          K.select({ label: 'Repeats', sk: 'saver:holiday_new:year', value: String(d.year),
+            options: [['', 'Every Year'], [String(today.y), 'Only in ' + today.y], [String(today.y + 1), 'Only in ' + (today.y + 1)], [String(today.y + 2), 'Only in ' + (today.y + 2)]],
             onChange: function (v) { d.year = v; self.render(); } }),
           K.select({ label: 'Scene', sk: 'saver:holiday_new:scene', value: d.scene, options: Object.keys(SC).map(function (k) { return [k, SC[k].label]; }), onChange: function (v) { d.scene = v; } }),
           K.button({ label: 'Add the Date', sk: 'saver:holiday_new:add', disabled: full || !d.name.trim(), onClick: function () {
@@ -1351,7 +1420,8 @@
             put('holiday_hide', HOLIDAY_PARTS.filter(function (x) { return next.indexOf(x) >= 0; }));
           } });
         };
-        c.appendChild(K.group({ header: 'Along the Bottom', footer: 'The Countdown hides in the last week. The time, the date, the weather and House Status are the slide corner’s, as over every slide.' }, [
+        c.appendChild(
+          K.group({ header: 'Along the Bottom', footer: 'The Countdown hides in the last week. The time, the date, the weather and House Status are the slide corner’s, as over every slide.' }, [
           part('count', 'The Countdown', 'Weeks and Weekends Left'), part('next', 'Coming Up', 'The next three after this one')]));
       }
       // ADDITIONAL SCREENS (2026-10-14): over the forecast or the clock, now
@@ -1403,7 +1473,12 @@
         var rings = [part('cost', 'Cost', null), part('water', 'Water', null)];
         if (src && src.solar) rings.push(part('solar', 'Solar', null));
         if (src && src.gas) rings.push(part('gas', 'Gas', null));
-        c.appendChild(K.group({ header: 'Rings', footer: 'Energy always shows. Each ring is today so far against a usual whole day; the white dot is where a usual day is by this time. A ring shows only where Home Assistant’s Energy settings have it.' }, rings));
+        c.appendChild(
+          K.group(
+          { header: 'Rings',
+          footer:
+          'Energy always shows. Each ring is today so far against a usual whole day;' +
+          ' the white dot is where a usual day is by this time. A ring shows only where Home Assistant’s Energy settings have it.' }, rings));
         c.appendChild(K.group({ header: 'Right Now', footer: 'Along the bottom, left. Each shows only where there is one: House Battery needs a house battery on the Energy page.' }, [
           part('power', 'Power Now', 'What the house draws right now.'),
           part('battery', 'House Battery', 'Its charge.'),
@@ -1413,7 +1488,8 @@
         c.appendChild(K.group({ header: 'This Month', footer: (!mo ? 'Off: today only.'
             : 'Along the bottom, right: the month since the 1st, for each ring that shows.' + (cost && hide.indexOf('pace') < 0
               ? ' Heading for is the Energy page’s own estimate: what the month has cost so far, plus a usual day for each day left. It firms up as the month goes on.' : '')) + also },
-          [part('month', 'Month So Far', 'Energy, cost and water since the 1st.')].concat(mo && cost ? [part('pace', 'Where the Cost Is Heading', 'The month’s cost so far, plus a usual day’s for each day left.')] : [])));
+          [part('month', 'Month So Far', 'Energy, cost and water since the 1st.')].concat(mo && cost ?
+            [part('pace', 'Where the Cost Is Heading', 'The month’s cost so far, plus a usual day’s for each day left.')] : [])));
       }
       // WHICH SOURCES THE HOUSE HAS (Home Assistant's Energy settings), for
       // Home Energy's rings: asked once, the page drawn again when they land
@@ -1516,7 +1592,8 @@
               'A new layout each time, picked at random — portraits in the tall cells, landscapes in the wide ones. One Photo at a Time changes one cell every ' +
               MIN(cur.each_photo).toLowerCase() + ', and after a while the whole mosaic. '
             : '') + (clockMode ? 'The same settings as the Photos show’s, for the photos behind the clock.'
-            : 'Tap the left or right edge of the screensaver for the previous or next ' + (mo ? 'mosaic' : 'photo') + ', or the forecast details for the Weather page; anywhere else closes it.') }, prow));
+            : 'Tap the left or right edge of the screensaver for the previous or next ' + (mo ? 'mosaic' : 'photo') + ', or the forecast details for the Weather page; anywhere else closes it.') },
+              prow));
         this.saverShape(c, cur, put, 'portrait', mo);
         this.saverShape(c, cur, put, 'landscape', mo);
       }
@@ -1570,7 +1647,8 @@
         var savers = Object.keys(boards).filter(function (p) { return boards[p].screensaver; });
         var follow = savers.filter(function (p) { return M.saverFollows(boards[p]); });
         // THE EDITOR (2026-11-01), for every screen that uses these
-        if (savers.length) this.saverEditRow(c, '#/house/screensaver/editor', cur, this.saverPutH(), 'Saved designs here are shared by screens using Same as All Screens. Each screen keeps its own Side Pane.');
+        if (savers.length) this.saverEditRow(c, '#/house/screensaver/editor', cur, this.saverPutH(),
+          'Saved designs here are shared by screens using Same as All Screens. Each screen keeps its own Side Pane.');
         // THE PHOTOS (2026-10-09: on Wall Tablets before): where they come from,
         // in the Photos group's place (2026-10-30: first on the page before) --
         // drawn on every show, as screens with their own may show photos
@@ -1612,7 +1690,8 @@
       saverEntities(b, path) {
         var self = this, mine = (b.tablets || []).filter(function (tid) { return self.tabs()[tid]; });
         if (!mine.length) {
-          return K.group({ header: 'For Automations', footer: 'Add the wall tablet that shows this screen (Wall Tablets) and ' + haName('HK Frontend') + ' adds its screensaver switch and In Use sensor.' }, []);
+          return K.group({ header: 'For Automations', footer: 'Add the wall tablet that shows this screen (Wall Tablets) and ' + haName('HK Frontend') +
+            ' adds its screensaver switch and In Use sensor.' }, []);
         }
         var row = function (label, id, sub) {
           if (!id) return K.info({ label: label, sub: sub, value: 'Being added…' });

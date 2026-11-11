@@ -109,12 +109,16 @@ function setupRows(form, kind, ch) {
       info('Chat', null, d.chat_name || (d.chat_id !== '' ? String(d.chat_id) : 'Not Chosen')),
       button('Find My Chat', () => findChats(form, ch), { fk: 'mx:' + form + ':chats' })];
     drawChats(rows, form);
-    return { rows, footer: 'Make a bot with BotFather in Telegram and paste its token. Then open your bot in Telegram, send it /start, and press Find My Chat. For a group, add the bot to the group and send /start there.' + keep };
+    return { rows,
+      footer:
+      'Make a bot with BotFather in Telegram and paste its token. Then open your bot in Telegram, send it /start, and press Find My Chat. For a group, add the bot to the group and send /start ' +
+      'there.' + keep };
   }
   if (kind === 'notifiarr') {
     return { rows: [field(form, 'api_key', 'API Key', { type: 'password', maxlength: 200, placeholder: sealed(ch, 'Global API key') }),
       field(form, 'channel', 'Discord Channel ID', { value: cfg.channel === undefined ? '' : String(cfg.channel), inputmode: 'numeric', maxlength: 30, placeholder: '123456789012345678' })],
-      footer: 'Use your Notifiarr account’s global API key, not an integration key. The channel ID is the number Discord shows when Developer Mode is on: right-click the channel, Copy Channel ID.' + keep };
+      footer: 'Use your Notifiarr account’s global API key, not an integration key. The channel ID is the number Discord shows when Developer Mode is on: right-click the channel, Copy Channel ID.' +
+        keep };
   }
   if (kind === 'email') {
     if (d.security === undefined) d.security = cfg.security || 'starttls';
@@ -130,7 +134,8 @@ function setupRows(form, kind, ch) {
   }
   if (kind === 'apprise') {
     return { rows: [field(form, 'urls', 'Apprise URLs', { type: 'password', maxlength: 4000, placeholder: sealed(ch, 'ntfy://my-topic') })],
-      footer: 'One or more Apprise URLs for ntfy, Pushover, Gotify, Slack, Matrix and about a hundred more, separated by spaces. A URL can send anywhere, which is why this is for Owners only.' + keep };
+      footer: 'One or more Apprise URLs for ntfy, Pushover, Gotify, Slack, Matrix and about a hundred more, separated by spaces. A URL can send anywhere, which is why this is for Owners only.' +
+        keep };
   }
   return { rows: [], footer: null };
 }
@@ -278,10 +283,14 @@ function pApps() {
   return { title: 'Mantel Apps', back: ['Alerts', HOME], body(c) {
     withPage(c, 'alerts', (page) => {
       const people = page.app.people, n = page.app.devices;
-      c.appendChild(group({ header: 'Who Gets System Alerts', footer: 'Owners and Admins who turn on System Alerts in Me get Mantel’s own alerts on their Mantel apps and browsers. They’re sealed end to end: only the app can read them.' },
+      c.appendChild(
+        group(
+        { header: 'Who Gets System Alerts',
+        footer: 'Owners and Admins who turn on System Alerts in Me get Mantel’s own alerts on their Mantel apps and browsers. They’re sealed end to end: only the app can read them.' },
         (people.length ? people.map((p) => info(p.name, null, p.role === 'owner' ? 'Owner' : 'Admin')) : [info('Nobody has System Alerts on')])
           .concat([info('Devices', null, String(n))])));
-      c.appendChild(group({ footer: 'Each person turns System Alerts on or off for themselves. The Companion app’s alerts go through Home Assistant, so they can’t carry “Home Assistant disconnected”.' },
+      c.appendChild(group({ footer: 'Each person turns System Alerts on or off for themselves. The Companion app’s alerts go through Home Assistant, so they can’t carry “Home Assistant disconnected”.'
+        },
         [nav('Me', 'me', { icon: 'mdi:account-circle' })]));
     });
   } };
@@ -324,7 +333,8 @@ function pAdvanced() {
         return K().select({ label: g.name, sub: 'Usually ' + minutes(page.default_holds[g.id]), options: opts, value: String(cur), fk: 'mx:alert-hold:' + g.id,
           onChange: (v) => act('alerts-advanced', async () => { const r = await api('PUT', '/api/alerts/settings', { holds: { ...now, [g.id]: Number(v) } }); Object.assign(page, r); return r; }) });
       });
-      c.appendChild(group({ header: 'Holds', footer: 'How long something must stay wrong before Mantel tells anyone. A blip that clears inside the hold is never sent. ' + (readOnly(page) || '') }, rows));
+      c.appendChild(group({ header: 'Holds', footer: 'How long something must stay wrong before Mantel tells anyone. A blip that clears inside the hold is never sent. ' + (readOnly(page) || '') },
+        rows));
       drawHeartbeat(c, page);
       drawApprise(c, page);
     });
@@ -346,17 +356,24 @@ function drawHeartbeat(c, page) {
     rows.push(button(hb.on ? 'Save' : 'Turn On', async () => {
       const url = (d.url || '').trim();
       if (!hb.on && !url) { ui.flash = { key: 'alerts-advanced', text: 'Paste the address first.', err: true }; redraw(); return; }
-      const out = await act('alerts-advanced', async () => { const r = await api('PUT', '/api/alerts/settings', { heartbeat: { ...(url ? { url } : {}), every: Number(d.every) } }); Object.assign(page, r); return r; },
+      const out = await act('alerts-advanced', async () => { const r = await api('PUT', '/api/alerts/settings', { heartbeat: { ...(url ? { url } : {}), every: Number(d.every) } });
+        Object.assign(page, r); return r; },
         'Heartbeat saved.');
       if (out) { clearDraft('alert-heartbeat'); redraw(); }
     }, { fk: 'mx:alert-heartbeat:save' }));
     if (hb.on || hb.needs_url) rows.push(button('Turn Off', async () => {
-      if (!(await ask({ title: 'Turn off the heartbeat?', message: 'Mantel stops calling the address, and forgets it. Nothing will tell you if Mantel itself goes down.', ok: 'Turn Off', destructive: true }))) return;
+      if (!(await ask({ title: 'Turn off the heartbeat?', message: 'Mantel stops calling the address, and forgets it. Nothing will tell you if Mantel itself goes down.', ok: 'Turn Off',
+        destructive: true }))) return;
       const out = await act('alerts-advanced', async () => { const r = await api('PUT', '/api/alerts/settings', { heartbeat: {} }); Object.assign(page, r); return r; }, 'Heartbeat off.');
       if (out) { clearDraft('alert-heartbeat'); redraw(); }
     }, { destructive: true, fk: 'mx:alert-heartbeat:off' }));
   }
-  c.appendChild(group({ header: 'Heartbeat', footer: 'Mantel calls this address every few minutes. A service such as healthchecks.io, or an Uptime Kuma push monitor, alerts you when the calls stop: the only way to hear that Mantel itself is down. The address is kept sealed and never shown again.' + (can ? ' Leave it blank to keep the saved one.' : '') }, rows));
+  c.appendChild(
+    group(
+    { header: 'Heartbeat',
+    footer:
+    'Mantel calls this address every few minutes. A service such as healthchecks.io, or an Uptime Kuma push monitor, alerts you when the calls stop: the only way to hear that Mantel itself is ' +
+    'down. The address is kept sealed and never shown again.' + (can ? ' Leave it blank to keep the saved one.' : '') }, rows));
 }
 // APPRISE: only an Owner sets it up, and only where it is installed
 function drawApprise(c, page) {

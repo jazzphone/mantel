@@ -26,7 +26,8 @@
         add(h('div', { class: 'insp-head' }, [h('hk-icon', { icon: 'mdi:tablet' }), h('div', {}, [h('h2', { text: 'Screen' }),
           h('p', { text: this.grid ? this.grid.items.length + (this.grid.items.length === 1 ? ' block' : ' blocks') + ' · select one to change it' : 'No layout yet' })])]));
         if (!this.grid) { add(starters()); return; }
-        var config = (key, value) => { var next = copy(this.grid); next[key] = value; if (valid(next)) this.change(next); else { this.say('Move or remove the blocks that would be outside the new grid first.'); this.side(); } };
+        var config = (key, value) => { var next = copy(this.grid); next[key] = value; if (valid(next)) this.change(next);
+          else { this.say('Move or remove the blocks that would be outside the new grid first.'); this.side(); } };
         var kind = screenTypeOf(this.grid), live = this.previewView && this.previewView.isConnected && this.previewView._gridScale;
         var pct = Math.round(100 * (live || scaleAt(this.grid, this.grid.frame)));
         var tip = kind === 'phone_landscape' ? ' On a phone on its side, set the screen’s Tab Bar Position to Left or Right, so the clock gets the height.'
@@ -60,7 +61,8 @@
           K.select({ label: 'Rows', value: this.grid.rows, options: [2, 3, 4, 5, 6].map((n) => [n, String(n)]), onChange: (n) => config('rows', Number(n)) }),
           K.toggle({ label: 'Show Boxes', sub: 'Off: every block straight on the background, as on a nightstand.', on: this.grid.boxes !== false, onChange: (on) => config('boxes', on) }),
           K.toggle({ label: 'Fill the Screen', sub: 'Lets the grid grow past its own size on a screen bigger than it.', on: this.grid.grow === true, onChange: (on) => config('grow', on) }),
-          K.select({ label: 'Grid Scale', value: this.grid.scale || 100, options: [100, 90, 80, 70, 60, 50].map((n) => [n, n === 100 ? 'Automatic Fit' : n + '% of Fit']), onChange: (n) => config('scale', Number(n)) })]));
+          K.select({ label: 'Grid Scale', value: this.grid.scale || 100, options: [100, 90, 80, 70, 60, 50].map((n) => [n, n === 100 ? 'Automatic Fit' : n + '% of Fit']),
+            onChange: (n) => config('scale', Number(n)) })]));
         // NIGHT MODE (2026-10-24): the screen one dim red at night, as StandBy and the screensaver's clock have it
         var night = this.grid.night || { mode: 'off', from: '22:00', to: '07:00' }, putNight = (patch) => config('night', Object.assign({ from: '22:00', to: '07:00' }, night, patch));
         var nightRows = [K.seg({ label: 'Night Mode', value: night.mode, options: [['off', 'Off'], ['night', 'At Night'], ['always', 'Always']], onChange: (m) => putNight({ mode: m }) })];
@@ -110,11 +112,13 @@
         if (this.panel.host() && this.panel.host().gridHistory) {
           add(K.group({ header: 'Layout History' }, [K.button({ label: this.histories ? 'Refresh History' : 'Show Earlier Layouts', onClick: () => this.history() })]));
           if (this.histories) {
-            var historyRows = this.histories.map((row) => K.button({ label: 'Version ' + row.version + ' · ' + new Date(row.created * 1000).toLocaleString() + ' · ' + (row.actor_name || row.actor || row.source || 'Unknown'), onClick: () => this.restore(row) }));
+            var historyRows = this.histories.map((row) => K.button({ label: 'Version ' + row.version + ' · ' + new Date(row.created * 1000).toLocaleString() + ' · ' +
+              (row.actor_name || row.actor || row.source || 'Unknown'), onClick: () => this.restore(row) }));
             add(K.group({ header: 'Earlier Layouts', footer: historyRows.length ? 'A version becomes your draft. Save to restore its layout only.' : 'No earlier layouts.' }, historyRows));
           }
           var targets = this.panel.data.dashboards.filter((d) => d.item && d.generated && d.path !== this.o.path && this.panel.data.boards[d.path]);
-          if (targets.length) add(K.group({ header: 'Copy Layout To…' }, [K.select({ label: 'Screen', value: '', options: [['', 'Choose Screen']].concat(targets.map((d) => [d.path, d.title])), onChange: (path) => this.copyTo(path) })]));
+          if (targets.length) add(K.group({ header: 'Copy Layout To…' }, [K.select(
+            { label: 'Screen', value: '', options: [['', 'Choose Screen']].concat(targets.map((d) => [d.path, d.title])), onChange: (path) => this.copyTo(path) })]));
         }
       }
 
@@ -212,7 +216,8 @@
         var look = [K.toggle({ label: 'Hide Box', on: noBoxes || !!item.bare || !!ownBare, disabled: noBoxes,
           sub: noBoxes ? 'The screen hides every block’s box (Screen → Show Boxes).' : 'The card straight on the background, without its box.',
           onChange: (on) => { var patch = { bare: on || null }; if (ownBare) { var o = copy(item.opts); delete o.bare; patch.opts = o; } this.update(item.id, patch); } })];
-        if (cat.opts && cat.opts.surface) this.surfaceFields((card.opts || {}).surface, (value) => { var o = copy(card.opts || {}); if (value) o.surface = value; else delete o.surface; this.update(card.id, { opts: o }); }, look);
+        if (cat.opts && cat.opts.surface) this.surfaceFields((card.opts || {}).surface,
+          (value) => { var o = copy(card.opts || {}); if (value) o.surface = value; else delete o.surface; this.update(card.id, { opts: o }); }, look);
         // TILE STYLE (2026-10-30): a tile block's own, else the screen's (HK Settings → the screen → Appearance)
         if (TILE_CARDS.indexOf(card.card) >= 0) look.push(K.seg({ label: 'Tile Style', value: item.tile || '', options: [['', 'Same as Screen'], ['home', 'Home'], ['centred', 'Centered']],
           onChange: (v) => this.update(item.id, { tile: v || null }) }));
@@ -244,8 +249,10 @@
       // WHAT A FOLLOWING CAMERA BLOCK FOLLOWS: motion in each camera's room, or a
       // selector (its own, else the screen's Live Camera Follows)
       followRows(item, rows) {
-        var K = this.K, o = item.opts || {}, put = (patch) => { var n = Object.assign(copy(o), patch); Object.keys(patch).forEach((k) => { if (patch[k] == null) delete n[k]; }); this.update(item.id, { opts: n }); };
-        rows.push(K.seg({ label: 'Follow', value: o.follow, options: [['motion', 'Motion'], ['selector', 'A Selector']], onChange: (v) => put({ follow: v, follow_select: v === 'motion' ? null : o.follow_select }) }));
+        var K = this.K, o = item.opts || {}, put = (patch) => { var n = Object.assign(copy(o), patch); Object.keys(patch).forEach((k) => { if (patch[k] == null) delete n[k]; });
+          this.update(item.id, { opts: n }); };
+        rows.push(K.seg({ label: 'Follow', value: o.follow, options: [['motion', 'Motion'], ['selector', 'A Selector']],
+          onChange: (v) => put({ follow: v, follow_select: v === 'motion' ? null : o.follow_select }) }));
         if (o.follow === 'selector') {
           var board = this.o.board || {}, here = board.camera_live;
           rows.push(K.select({ label: 'Selector', value: o.follow_select || '', onChange: (v) => put({ follow_select: v || null }),
@@ -290,7 +297,8 @@
         item.pages.list.forEach((pg, i) => {
           var rows = this.fields(item.card, pg.opts || {}, (opts) => { var p = copy(item.pages); p.list[i].opts = opts; this.update(item.id, { pages: p }); },
             { page: true, size: item.size, base: item.opts || {}, hide: { surface: 1 } });
-          rows.push(K.button({ label: 'Move Up', disabled: i === 0, onClick: () => { var p = copy(item.pages); p.list.splice(i - 1, 0, p.list.splice(i, 1)[0]); this.update(item.id, { pages: p }); } }));
+          rows.push(K.button({ label: 'Move Up', disabled: i === 0, onClick: () => { var p = copy(item.pages); p.list.splice(i - 1, 0, p.list.splice(i, 1)[0]); this.update(item.id, { pages: p });
+            } }));
           rows.push(K.button({ label: 'Remove Page', destructive: true, disabled: n === 1, onClick: () => { var p = copy(item.pages); p.list.splice(i, 1); this.update(item.id, { pages: p }); } }));
           add(K.group({ header: 'Page ' + (i + 1) + ' of ' + n }, rows));
         });

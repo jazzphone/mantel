@@ -452,7 +452,8 @@ function drawAlbumTimeBehind(c, d, aid, album, list) {
   for (const p of list) if (p.cutout && !p.cutout.ok && p.cutout.why) why[p.cutout.why] = (why[p.cutout.why] || 0) + 1;
   c.appendChild(T.group({ header: 'Time Behind', footer: (album.depth_only
       ? 'The screensavers showing this album show only its ' + plural(n, 'photo') + ' that qualify for Time Behind.' + (n ? '' : ' None qualify yet, so they show none.')
-      : plural(n, 'photo') + ' in this album qualify for Time Behind: the screensaver can draw the time behind the person or thing in them. Off: every photo shows, the others with the time in front.') +
+      : plural(n, 'photo') + ' in this album qualify for Time Behind: the screensaver can draw the time behind the person or thing in them. Off: every photo shows, the others with the time in front.'
+        ) +
       tbReasons(why) + ' Tap a photo to see why it does or doesn’t.' }, [
     K().toggle({ label: 'Only Photos That Qualify', on: !!album.depth_only, fk: 'mx:album-depth-only',
       onChange: (on) => T.act('album', () => T.api('PUT', '/api/photos/albums/' + aid + '/options', { depth_only: on }), 'Saved.', 'photos') })]));
@@ -635,7 +636,8 @@ function drawUploads(c, aid) {
   const n = (s) => mine.filter((u) => u.state === s).length;
   const sum = [n('done') ? n('done') + ' added' : null, n('dup') ? n('dup') + ' already in this album' : null,
                n('error') ? n('error') + ' couldn’t be added' : null].filter(Boolean).join(', ');
-  if (!busy) rows.push(T.button('Clear This List', () => { for (let i = uploads.length - 1; i >= 0; i--) if (uploads[i].album === aid) uploads.splice(i, 1); T.redraw(); }, { fk: 'mx:photos-clear-uploads' }));
+  if (!busy) rows.push(T.button('Clear This List', () => { for (let i = uploads.length - 1; i >= 0; i--) if (uploads[i].album === aid) uploads.splice(i, 1); T.redraw(); },
+    { fk: 'mx:photos-clear-uploads' }));
   c.appendChild(T.group({ header: busy ? 'Uploading ' + plural(mine.length, 'Photo') : 'Uploaded',
     footer: (busy ? 'Keep this page open until they are done. ' : '') + (sum ? sum.charAt(0).toUpperCase() + sum.slice(1) + '.' : '') }, rows));
 }
@@ -892,7 +894,8 @@ export function extend(where, c, ctx, tools) {
   const add = adder(cur);
   const pickHouse = async (v) => { await ctx.set(v ? 'mantel-photos://' + v : 'media-source://media_source/local/photos'); changed(); return true; };
   T.result(c, key);
-  const g = T.group({ footer: 'An album from Mantel Photos (Your Files → Photos) for every screen, in place of a Home Assistant folder. A screen can still pick its own on its Screensaver Options.' }, [
+  const g = T.group({ footer: 'An album from Mantel Photos (Your Files → Photos) for every screen, in place of a Home Assistant folder. A screen can still pick its own on its Screensaver Options.' },
+    [
     K().select({ label: 'Mantel Photos Album', fk: 'mx:house-album', options: opts, value: cur,
       onChange: (v) => (v === NEW ? pickNew(pickHouse) : pickHouse(v)) }),
     add && add.button].filter(Boolean));

@@ -41,8 +41,10 @@
     var IMP = function (css) { return css.split(';').filter(Boolean).map(function (d) { return d + ' !important'; }).join(';'); };
     var CT = TILE.centred, SQ = '@container hk-cell (min-height:180px) or (max-aspect-ratio: 6 / 5) or style(--hk-cell-shape: square)';
     var ACTION_W_CSS = [
-      AW + '{display:flex !important;flex-direction:row;align-items:center;justify-content:flex-start;padding:' + C.blockPad('14px') + ' !important;--wbox:' + CT.tall.box + 'px;--wglyph:' + CT.tall.glyph + 'px;--wname:' + CT.tall.name + 'px;--wsub:' + CT.tall.sub + 'px;--wline:' + CT.tall.line + 'px}',
-      AW + ' .tx .name,' + AW + ' .tx .state{' + IMP('position:static;display:block;width:auto;margin:0;text-align:left;letter-spacing:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis') + '}',
+      AW + '{display:flex !important;flex-direction:row;align-items:center;justify-content:flex-start;padding:' + C.blockPad('14px') + ' !important;--wbox:' + CT.tall.box + 'px;--wglyph:' +
+        CT.tall.glyph + 'px;--wname:' + CT.tall.name + 'px;--wsub:' + CT.tall.sub + 'px;--wline:' + CT.tall.line + 'px}',
+      AW + ' .tx .name,' + AW + ' .tx .state{' + IMP('position:static;display:block;width:auto;margin:0;text-align:left;letter-spacing:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis') +
+        '}',
       AW + ' .tx{min-width:0;display:flex;flex-direction:column;justify-content:center;gap:0}',
       // HOME STYLE
       AH + '{gap:9.6px}',
@@ -151,7 +153,8 @@
       // (2026-11-08, the owner: "if the card's name is printed on the card...it can go": no "Everything" row, no "9 on now" -- the apps take its room)
       '.apps{flex:1;min-height:0;display:grid;grid-template-columns:repeat(var(--c),minmax(0,1fr));column-gap:8px;row-gap:var(--rg);',
       '  justify-items:center;align-content:center}',
-      '.app{all:unset;box-sizing:border-box;position:relative;display:flex;flex-direction:column;align-items:center;gap:5px;min-width:0;max-width:100%;cursor:pointer;-webkit-tap-highlight-color:transparent}',
+      '.app{all:unset;box-sizing:border-box;position:relative;display:flex;flex-direction:column;align-items:center;gap:5px;min-width:0;max-width:100%;cursor:pointer;' +
+        '-webkit-tap-highlight-color:transparent}',
       '.app i{display:flex;align-items:center;justify-content:center;flex:none;width:var(--px);height:var(--px);border-radius:' + APP_CORNER + ';color:#fff;font-style:normal;',
       '  box-shadow:0 4px 10px rgba(0,0,0,0.22);transition:transform ' + C.DUR.press + ' ease}',
       '.app i hk-icon{width:calc(var(--px) * 0.53);height:calc(var(--px) * 0.53);--mdc-icon-size:100%;display:flex;color:#fff}',
@@ -542,9 +545,11 @@
     // it hides; a group light is its lights, never counted twice.
     var ON_KINDS = [
       { key: 'lights', one: 'light', many: 'lights', icon: 'mdi:lightbulb', color: ACC.yellow, call: ['light', 'turn_off'], off: 'Off', title: 'Lights On', pages: ['lights'], rest: 'Off' },
-      { key: 'speakers', one: 'speaker', many: 'speakers', icon: 'mdi:speaker', color: ACC.pink, call: ['media_player', 'media_pause'], off: 'Pause', title: 'Speakers Playing', pages: ['playmusic', 'speakers', 'music'], rest: 'Idle' },
+      { key: 'speakers', one: 'speaker', many: 'speakers', icon: 'mdi:speaker', color: ACC.pink, call: ['media_player', 'media_pause'], off: 'Pause', title: 'Speakers Playing',
+        pages: ['playmusic', 'speakers', 'music'], rest: 'Idle' },
       { key: 'fans', one: 'fan', many: 'fans', icon: 'mdi:fan', color: ACC.cyan, call: ['fan', 'turn_off'], off: 'Off', title: 'Fans On', pages: ['fans', 'climate'], rest: 'Off' },
-      { key: 'switches', one: 'switch', many: 'switches', icon: 'mdi:power-plug', color: ACC.green, call: ['switch', 'turn_off'], off: 'Off', title: 'Switches On', pages: ['switches', 'plugs'], rest: 'Off' }
+      { key: 'switches', one: 'switch', many: 'switches', icon: 'mdi:power-plug', color: ACC.green, call: ['switch', 'turn_off'], off: 'Off', title: 'Switches On', pages: ['switches', 'plugs'],
+        rest: 'Off' }
     ];
     function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
     // -> {kinds: [{kind, ids}] of the kinds with something on, every: [{kind, ids, all}] of every kind the house has,

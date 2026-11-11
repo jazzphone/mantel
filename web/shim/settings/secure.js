@@ -13,7 +13,8 @@ import { failed, group, info, nav, pending } from './kit.js';
 export const FIX = 'Open Mantel by its https:// name, not its IP address, in Fully Kiosk’s Start URL.';
 // Docker and the LXC start at the machine's address with Mantel's own certificate, so there is no name to open yet: that is Set Up
 // Mantel's "Address and HTTPS" step (setup_guide.py), which says why and how, so this page points to it and says nothing more
-export const FIX_AT_ADDRESS = 'Mantel has no name yet. Run mantel-setup on the machine Mantel runs on to give it one, then open Mantel by that name in Fully Kiosk’s Start URL (Set Up Mantel → Address and HTTPS).';
+export const FIX_AT_ADDRESS =
+  'Mantel has no name yet. Run mantel-setup on the machine Mantel runs on to give it one, then open Mantel by that name in Fully Kiosk’s Start URL (Set Up Mantel → Address and HTTPS).';
 
 // the words for each of about.py's MODES
 const MODES = {

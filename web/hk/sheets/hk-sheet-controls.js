@@ -42,7 +42,8 @@
         if (!this._built) {
           this._built = true;
           this._root.innerHTML = '<div class="pn"><div class="big"></div><button class="tg" role="switch"><div class="kn">' +
-            '<svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 3v8"/><path d="M6.4 7.4a8 8 0 1 0 11.2 0"/></svg>' +
+            '<svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 3v8"/><path d="M6.4 7.4a8 8 ' +
+              '0 1 0 11.2 0"/></svg>' +
             '</div></button><div class="since"></div></div>';
           this._tg = this._root.querySelector('.tg');
           this._big = this._root.querySelector('.big');

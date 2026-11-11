@@ -61,7 +61,8 @@
         // (2026-10-31, Music's widget: what played last and covers to play
         // again, at the block's size -- hk-media.js hk-recent-music-card)
         var M = window.hkMusic, sp = M && M.speakers ? M.speakers() : [];
-        return sp && sp.length ? [{ cfg: Object.assign({ type: 'custom:hk-recent-music-card' }, cfg.show ? { show: cfg.show } : {}, cfg.playlist ? { playlist: cfg.playlist } : {}, cfg.speaker ? { speaker: cfg.speaker } : {}), size: size }] : null;
+        return sp && sp.length ? [{ cfg: Object.assign({ type: 'custom:hk-recent-music-card' }, cfg.show ? { show: cfg.show } : {}, cfg.playlist ? { playlist: cfg.playlist } : {}, cfg.speaker ?
+          { speaker: cfg.speaker } : {}), size: size }] : null;
       }
       if (kind === 'doors') {
         var S = window.hkStrategy, inv = null;
@@ -218,7 +219,8 @@
       list.forEach(function (x) { if (typeof x.v === 'number' && x.v > mx) mx = x.v; });
       return '<svg class="wc" width="' + Math.round(w) + '" height="' + Math.round(h) + '" viewBox="0 0 ' + w.toFixed(1) + ' ' + h + '" aria-hidden="true">' + list.map(function (x, i) {
         var bh = Math.max(3, (mx > 0 && typeof x.v === 'number' ? Math.max(0.06, x.v / mx) : 0.06) * h);
-        return '<rect x="' + (i * (bw + gap)).toFixed(1) + '" y="' + (h - bh).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + bh.toFixed(1) + '" rx="' + rx.toFixed(1) + '" fill="' + x.c + '"' +
+        return '<rect x="' + (i * (bw + gap)).toFixed(1) + '" y="' + (h - bh).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + bh.toFixed(1) + '" rx="' + rx.toFixed(1) + '" fill="' + x.c +
+          '"' +
           // (`ghost`: a slot still to come, drawn from the day before -- half the ink)
           (x.ghost ? ' fill-opacity=".5"' : '') + '/>';
       }).join('') + '</svg>';
@@ -380,7 +382,8 @@
       // today's top users beside it.
       _ownPower(p, size, box, h) {
         var w = wattsOf(h, p.home), S = window.hkStats;
-        var kw = function (x) { return x == null ? ['—', ''] : Math.abs(x) >= 1000 ? [(x / 1000).toLocaleString(numTag(), { minimumFractionDigits: 1, maximumFractionDigits: 1 }), 'kW'] : [Math.round(x).toLocaleString(numTag()), 'W']; };
+        var kw = function (x) { return x == null ? ['—', ''] : Math.abs(x) >= 1000 ? [(x / 1000).toLocaleString(numTag(), { minimumFractionDigits: 1, maximumFractionDigits: 1 }), 'kW'] :
+          [Math.round(x).toLocaleString(numTag()), 'W']; };
         var fig = kw(w), more = p.home ? ' data-more="' + esc(p.home) + '"' : '';
         var lab = '<div class="hh"><span class="hd">Using Now</span></div>';
         if (size === 'S') {
@@ -481,7 +484,8 @@
         };
         // the glyph in its circle: the same disc as House Status's (.dk) -- lit teal when open, the glyph teal in an off well when closed
         var disc = function (g, on, px) {
-          return '<span class="dd' + (on ? ' on' : '') + '" style="width:' + px + 'px;height:' + px + 'px;' + (on ? 'background:' + C.flatColor(ACC.teal, 'well') : 'color:' + C.flatColor(ACC.teal, 'glyph')) + '">' +
+          return '<span class="dd' + (on ? ' on' : '') + '" style="width:' + px + 'px;height:' + px + 'px;' +
+            (on ? 'background:' + C.flatColor(ACC.teal, 'well') : 'color:' + C.flatColor(ACC.teal, 'glyph')) + '">' +
             gly(g, Math.round(px * 0.56), null) + '</span>';
         };
         var lead = open.length ? WAY_GLYPH[open[0].kind][0] : 'mdi:check';
@@ -508,7 +512,8 @@
         // the headline column (Extra Large, Wide): the glyph over the count over the line, top left; the gap to the list is the block's inset.
         // The list beside it scrolls (2026-11-09: every door reachable, no "+N more" in the column -- the count line says how many are open)
         var col = function (w) {
-          return '<div class="wcol" style="flex:0 0 ' + w + 'px">' + head(36) + '<div class="dt" style="margin-top:10px">' + esc(title) + '</div><div class="ws" style="white-space:normal">' + esc(line) + '</div></div>';
+          return '<div class="wcol" style="flex:0 0 ' + w + 'px">' + head(36) + '<div class="dt" style="margin-top:10px">' + esc(title) + '</div><div class="ws" style="white-space:normal">' +
+            esc(line) + '</div></div>';
         };
         var gap = 'gap:var(--hk-pad-l,18px)';
         if (size === 'XL' || size === 'W') {

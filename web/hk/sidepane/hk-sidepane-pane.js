@@ -175,7 +175,8 @@
           '<line x1="0" y1="52" x2="300" y2="52" stroke="rgba(255,255,255,.22)" stroke-width="1"/>' +
           '<polyline points="' + path(0, 1) + '" fill="none" stroke="rgba(255,255,255,.28)" stroke-width="2" stroke-dasharray="3 5" stroke-linecap="round"/>' +
           (day && p > 0 ? '<polyline points="' + path(0, p) + '" fill="none" stroke="url(#ckSunG)" stroke-width="3" stroke-linecap="round"/>' : '') +
-          (day ? '<circle cx="' + at[0].toFixed(1) + '" cy="' + at[1].toFixed(1) + '" r="9" fill="rgba(255,214,10,.25)"/><circle cx="' + at[0].toFixed(1) + '" cy="' + at[1].toFixed(1) + '" r="5.5" fill="#ffd60a"/>' : '') +
+          (day ? '<circle cx="' + at[0].toFixed(1) + '" cy="' + at[1].toFixed(1) + '" r="9" fill="rgba(255,214,10,.25)"/><circle cx="' + at[0].toFixed(1) + '" cy="' + at[1].toFixed(1) +
+            '" r="5.5" fill="#ffd60a"/>' : '') +
           '</svg><div class="sub2 cksl"><span>' + icon('mdi:weather-sunset-up') + esc(hm(new Date(rise))) + '</span><span class="ckdl">' +
           esc(Math.floor(len / 60) + 'h ' + (len % 60) + 'm of daylight') + '</span><span>' + icon('mdi:weather-sunset') + esc(hm(new Date(set))) + '</span></div></div>';
       }
@@ -332,11 +333,13 @@
         // the progress, the keys and the volume are the one strip every player draws with -- its own progress line (the
         // compositor's, to the song's end) and its own slider in the strip's slots, the strip's keys
         if (s === 'less' || s === 'more') {
-          var prog = s === 'more' ? '<div class="npp" role="progressbar" aria-label="Song" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + Math.round(m.at * 100) + '"><i style="transform:scaleX(' + m.at.toFixed(4) + ')' +
+          var prog = s === 'more' ? '<div class="npp" role="progressbar" aria-label="Song" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + Math.round(m.at * 100) +
+            '"><i style="transform:scaleX(' + m.at.toFixed(4) + ')' +
             (m.playing && m.left > 0 ? ';animation:npp ' + Math.round(m.left) + 's linear forwards' : '') + '"></i></div>' : '';
           var vol = m.vol === null ? '' : '<input type="range" min="0" max="100" step="1" data-act="vol" aria-label="Volume" value="' +
               Math.round(m.vol * 100) + '" style="--f:' + Math.round(m.vol * 100) + '%">';
-          return box('now_playing', s, (s === 'more' ? head('now_playing') : '') + '<div class="r2 np' + (s === 'more' ? ' np2' : '') + '">' + (m.pic ? pic(m.pic, { cls: 'art', ph: 'note' }) : '<span class="art">' + icon('mdi:music') + '</span>') +
+          return box('now_playing', s, (s === 'more' ? head('now_playing') : '') + '<div class="r2 np' + (s === 'more' ? ' np2' : '') + '">' +
+            (m.pic ? pic(m.pic, { cls: 'art', ph: 'note' }) : '<span class="art">' + icon('mdi:music') + '</span>') +
             // (THE SPEAKER LINE over the song, its first room -- the owner's mockup 12h, 2026-11-09: a tap the Speakers
             // key's, which it replaced; Browse and Up Next at the keys' ends)
             '<span class="tx">' + window.hkNpStrip.lineHtml({ tag: 'button' }).replace('<b></b>', '<b>' + esc((m.rooms || [])[0] || '') + '</b>') +
@@ -347,7 +350,8 @@
         // hk-saver.js): the art, the song, its buttons and volume, Up Next and
         // the Speakers / Browse panel -- the one view the dashboard shares --
         // taking the room left
-        return '<div class="sec mp' + (s === 'full' ? ' grow' : ' compact') + '" data-k="now_playing" data-size="' + s + '">' + head('now_playing') + ctx.slot('np', 'hk-music-pane-card', function (el) {
+        return '<div class="sec mp' + (s === 'full' ? ' grow' : ' compact') + '" data-k="now_playing" data-size="' + s + '">' + head('now_playing') +
+          ctx.slot('np', 'hk-music-pane-card', function (el) {
           if (el.active) el.active(true);
         }) + '</div>';
       },
@@ -370,11 +374,15 @@
           return box('security', s, head('security') + '<div class="r2 big">' + icon(shieldOf(a), ' class="shield"') + '<span class="tx">' + esc(state) + '</span>' +
             (gist ? '<span class="v2 sub2">' + esc(gist) + '</span>' : '') + '</div>');
         }
-        var list = locks.slice(0, s === 'full' ? 8 : 4).map(function (id) { var x = states(c)[id] || {}; return [nameOf(x, id), x.state === 'unlocked' ? 'Unlocked' : x.state === 'locked' ? 'Locked' : String(x.state || ''), x.state === 'unlocked' ? 'mdi:lock-open-variant' : 'mdi:lock', x.state === 'unlocked' ? 'warn' : '', id]; });
+        var list = locks.slice(0, s === 'full' ? 8 : 4).map(function (id) { var x = states(c)[id] || {};
+          return [nameOf(x, id), x.state === 'unlocked' ? 'Unlocked' : x.state === 'locked' ? 'Locked' : String(x.state || ''), x.state === 'unlocked' ? 'mdi:lock-open-variant' : 'mdi:lock',
+          x.state === 'unlocked' ? 'warn' : '', id]; });
         // (More: the windows only when one is open; Full, the whole picture, says so either way)
-        if (wins.length && (open.length || s === 'full')) list.push(['Windows', open.length ? open.length + ' open' : 'All closed', open.length ? 'mdi:window-open-variant' : 'mdi:window-closed-variant', open.length ? 'warn' : '']);
+        if (wins.length && (open.length || s === 'full')) list.push(['Windows', open.length ? open.length + ' open' : 'All closed', open.length ? 'mdi:window-open-variant' :
+          'mdi:window-closed-variant', open.length ? 'warn' : '']);
         if (s === 'full') {
-          kinds('garage').slice(0, 2).forEach(function (id) { var x = states(c)[id] || {}; list.push([nameOf(x, id), x.state === 'open' || x.state === 'on' ? 'Open' : 'Closed', 'mdi:garage', '', id]); });
+          kinds('garage').slice(0, 2).forEach(function (id) { var x = states(c)[id] || {}; list.push([nameOf(x, id), x.state === 'open' || x.state === 'on' ? 'Open' : 'Closed', 'mdi:garage', '', id]);
+            });
           if (al && al.st) {
             var who = attr(al.st, 'changed_by'), at = al.st.last_changed ? hm(new Date(al.st.last_changed)) : '';
             list.push([ALARM[a] ? ALARM[a].split(' · ')[0] : 'Changed', [at, who].filter(Boolean).join(', '), 'mdi:history']);
@@ -458,10 +466,12 @@
         var row = function (id) {
           var x = st[id] || {}, cur = attr(x, 'current_temperature'), set = attr(x, 'temperature'), act = attr(x, 'hvac_action');
           // (Less: its temperature; More and Full: where it is set to as well)
-          return [nameOf(x, id), deg(cur) + (set != null && s !== 'less' ? ' → ' + deg(set) : ''), act === 'heating' ? 'mdi:fire' : act === 'cooling' ? 'mdi:snowflake' : 'mdi:thermostat', act === 'heating' ? 'heat' : act === 'cooling' ? 'cool' : '', id];
+          return [nameOf(x, id), deg(cur) + (set != null && s !== 'less' ? ' → ' + deg(set) : ''), act === 'heating' ? 'mdi:fire' : act === 'cooling' ? 'mdi:snowflake' : 'mdi:thermostat', act ===
+            'heating' ? 'heat' : act === 'cooling' ? 'cool' : '', id];
         };
         if (!ids.length) return none('climate', s, 'No thermostats');
-        if (s === 'tiny') { var r0 = row(ids[0]), a0 = attr(st[ids[0]], 'hvac_action'); return tiny('climate', esc(r0[0] + ' ' + deg(attr(st[ids[0]], 'current_temperature'))), esc(a0 ? String(a0).replace(/^\w/, function (x) { return x.toUpperCase(); }) : '')); }
+        if (s === 'tiny') { var r0 = row(ids[0]), a0 = attr(st[ids[0]], 'hvac_action');
+          return tiny('climate', esc(r0[0] + ' ' + deg(attr(st[ids[0]], 'current_temperature'))), esc(a0 ? String(a0).replace(/^\w/, function (x) { return x.toUpperCase(); }) : '')); }
         var list = ids.slice(0, { less: 2, more: 4, full: 8 }[s]).map(row);
         if (s === 'full') {
           var w = setting('weather.entity', null) || domainIds(c, 'weather')[0], t = nowTemp(c, st[w]);
@@ -477,13 +487,16 @@
         var where = function (id) { var x = st[id] || {}; return x.state === 'home' ? 'Home' : x.state === 'not_home' ? 'Away' : String(x.state || '').replace(/_/g, ' '); };
         // FULL: each one, where and since when
         var since = function (id) { var t = Date.parse((st[id] || {}).last_changed); return t ? ' · ' + ago(t) : ''; };
-        if (s === 'full') return box('people', s, head('people') + lst(rows(ids.slice(0, 8).map(function (id) { return [nameOf(st[id], id), where(id) + since(id), 'mdi:account', '', id]; }))), 'shrink');
+        if (s === 'full') return box('people', s, head('people') + lst(rows(ids.slice(0, 8).map(function (id) { return [nameOf(st[id], id), where(id) + since(id), 'mdi:account', '', id]; }))),
+          'shrink');
         var av = '<div class="ppl" style="--n:' + Math.min(5, ids.length) + '">' + ids.slice(0, 5).map(function (id, i) {
           var x = st[id] || {}, pic_ = attr(x, 'entity_picture'), nm = nameOf(x, id);
           var face = pic_ ? pic(pic_, { ph: 'av', ini: nm.charAt(0).toUpperCase(), color: FACE_COLORS[i % 5] }) : esc(nm.charAt(0).toUpperCase());
-          return '<div data-ent="' + esc(id) + '" class="' + (x.state === 'home' ? '' : 'away') + '"><i style="background:' + FACE_COLORS[i % 5] + '">' + face + '</i>' + esc(nm.split(' ')[0]) + '</div>';
+          return '<div data-ent="' + esc(id) + '" class="' + (x.state === 'home' ? '' : 'away') + '"><i style="background:' + FACE_COLORS[i % 5] + '">' + face + '</i>' + esc(nm.split(' ')[0]) +
+            '</div>';
         }).join('') + '</div>';
-        var line = s === 'more' && away.length ? away.slice(0, 2).map(function (id) { return nameOf(st[id], id).split(' ')[0] + ' is ' + (where(id) === 'Away' ? 'away' : 'at ' + where(id)); }).join(' · ') : '';
+        var line = s === 'more' && away.length ? away.slice(0, 2).map(function (id) { return nameOf(st[id], id).split(' ')[0] + ' is ' + (where(id) === 'Away' ? 'away' : 'at ' + where(id)); }).join(
+          ' · ') : '';
         return box('people', s, head('people') + av + (line ? '<div class="sub2">' + esc(line) + '</div>' : ''));
       },
       todo: function (s, sec, c, ctx) {
@@ -494,14 +507,16 @@
         var t = todoOf(c, eid, sec.completed, ctx.redraw), got = t.got;
         var h = '<div class="h2"><span>' + esc(name) + '</span></div>';
         if (!got) return box('todo', s, h + '<div class="sub2">Reading the list…</div>');
-        if (got.refused) return box('todo', s, h + '<div class="sub2">' + esc(got.refused === 'commands_disabled' ? 'Can’t read the list while control of the house is off.' : 'Can’t read the list.') + '</div>');
+        if (got.refused) return box('todo', s, h + '<div class="sub2">' + esc(got.refused === 'commands_disabled' ? 'Can’t read the list while control of the house is off.' : 'Can’t read the list.') +
+          '</div>');
         var items = (got.items || []).slice(0, { less: 2, more: 4, full: 6 }[s]);
         var list = items.map(function (it) {
           var done = it.done || t.off[it.uid];
           return '<button type="button" class="it' + (done ? ' done' : '') + '" data-act="todo" data-list="' + esc(eid) + '" data-uid="' + esc(it.uid) + '"' +
             (it.done ? ' disabled' : '') + ' aria-label="Check off ' + esc(it.summary) + '"><i></i><span>' + esc(it.summary) + '</span></button>';
         }).join('');
-        var add = s === 'full' ? '<form class="add" data-list="' + esc(eid) + '"><input name="item" placeholder="Add an item" aria-label="Add an item to ' + esc(name) + '" autocomplete="off"><button type="submit" aria-label="Add">' + icon('mdi:plus') + '</button></form>' : '';
+        var add = s === 'full' ? '<form class="add" data-list="' + esc(eid) + '"><input name="item" placeholder="Add an item" aria-label="Add an item to ' + esc(name) +
+          '" autocomplete="off"><button type="submit" aria-label="Add">' + icon('mdi:plus') + '</button></form>' : '';
         return box('todo', s, h + '<div class="todo lst">' + (list || '<div class="sub2">Nothing left</div>') + '</div>' + add, 'shrink');
       },
       notifications: function (s) {

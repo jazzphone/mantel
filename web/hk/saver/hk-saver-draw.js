@@ -148,7 +148,8 @@
     }
     function sansClock(c) {
       var o = {};
-      Object.keys(c || {}).forEach(function (k) { if (['clock_style', 'clock_options', 'clock_24', 'clock_today_music', 'clock_today_weather', 'clock_color', 'clock_speed', 'clock_depth', 'clock_night', 'clock_night_from', 'clock_night_to', 'clock_text_shadow', 'clock_text_outline'].indexOf(k) < 0) o[k] = c[k]; });
+      Object.keys(c || {}).forEach(function (k) { if (['clock_style', 'clock_options', 'clock_24', 'clock_today_music', 'clock_today_weather', 'clock_color', 'clock_speed', 'clock_depth',
+        'clock_night', 'clock_night_from', 'clock_night_to', 'clock_text_shadow', 'clock_text_outline'].indexOf(k) < 0) o[k] = c[k]; });
       return JSON.stringify(o);
     }
     function minsOf(hhmm) { var p = String(hhmm || '').split(':'); return (+p[0] || 0) * 60 + (+p[1] || 0); }

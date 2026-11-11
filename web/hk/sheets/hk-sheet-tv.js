@@ -164,17 +164,24 @@
         var to = this._to && can[this._to] ? this._to : lk.arrows;
         if (!this._built || this._builtFor !== set.id) {
           this._built = true; this._builtFor = set.id; this._appsKey = ''; this._inKey = ''; this._artKey = '';
-          var seg = can.player && can.tv ? '<div class="seg" role="tablist" aria-label="The remote controls"><button type="button" data-to="player">' + (set.remotes.playerKind === 'apple_tv' ? 'Apple TV' : 'Player') + '</button><button type="button" data-to="tv">TV</button></div>' : '';
+          var seg = can.player && can.tv ? '<div class="seg" role="tablist" aria-label="The remote controls"><button type="button" data-to="player">' +
+            (set.remotes.playerKind === 'apple_tv' ? 'Apple TV' : 'Player') + '</button><button type="button" data-to="tv">TV</button></div>' : '';
           var remote = can.player || can.tv ? '<div class="crd rem">' + seg +
-            '<div class="dpad"><button type="button" class="k u" data-key="up" aria-label="Up">' + svg('up', 28) + '</button><button type="button" class="k d" data-key="down" aria-label="Down">' + svg('up', 28) + '</button>' +
-            '<button type="button" class="k l" data-key="left" aria-label="Left">' + svg('up', 28) + '</button><button type="button" class="k r" data-key="right" aria-label="Right">' + svg('up', 28) + '</button>' +
+            '<div class="dpad"><button type="button" class="k u" data-key="up" aria-label="Up">' + svg('up', 28) + '</button><button type="button" class="k d" data-key="down" aria-label="Down">' +
+              svg('up', 28) + '</button>' +
+            '<button type="button" class="k l" data-key="left" aria-label="Left">' + svg('up', 28) + '</button><button type="button" class="k r" data-key="right" aria-label="Right">' + svg('up', 28) +
+              '</button>' +
             '<button type="button" class="ok" data-key="select">OK</button></div>' +
-            '<div><div class="keys"><button type="button" class="rb" data-key="back" aria-label="Back">' + svg('back', 24) + '</button><button type="button" class="rb" data-key="home" aria-label="Home">' + svg('home', 24) + '</button>' +
-            '<button type="button" class="rb" data-key="play_pause" aria-label="Play or pause">' + svg('pp', 24) + '</button></div><div class="kl"><span>Back</span><span>Home</span><span>Play</span></div></div>' +
-            '<div class="steps vs" hidden><button type="button" class="rb" data-vol="down" aria-label="Volume down">' + svg('minus') + '</button><span>Volume</span><button type="button" class="rb" data-vol="up" aria-label="Volume up">' + svg('plus') + '</button></div>' +
+            '<div><div class="keys"><button type="button" class="rb" data-key="back" aria-label="Back">' + svg('back', 24) +
+              '</button><button type="button" class="rb" data-key="home" aria-label="Home">' + svg('home', 24) + '</button>' +
+            '<button type="button" class="rb" data-key="play_pause" aria-label="Play or pause">' + svg('pp', 24) +
+              '</button></div><div class="kl"><span>Back</span><span>Home</span><span>Play</span></div></div>' +
+            '<div class="steps vs" hidden><button type="button" class="rb" data-vol="down" aria-label="Volume down">' + svg('minus') +
+              '</button><span>Volume</span><button type="button" class="rb" data-vol="up" aria-label="Volume up">' + svg('plus') + '</button></div>' +
             '</div>' : '';
           var left = '<div class="crd"><div class="lab">Watching</div><div class="now"><div class="art"></div><div class="words"><div class="ttl"></div><div class="sub"></div>' +
-            '<div class="ctl"><button type="button" class="rb solid pp" aria-label="Play or pause">' + svg('pause') + '</button><button type="button" class="rb pw" aria-label="Power">' + svg('power') + '</button></div></div></div>' +
+            '<div class="ctl"><button type="button" class="rb solid pp" aria-label="Play or pause">' + svg('pause') + '</button><button type="button" class="rb pw" aria-label="Power">' +
+              svg('power') + '</button></div></div></div>' +
             '<div class="vol" hidden>' + svg('spk', 16) + '<input type="range" min="0" max="100" step="1" aria-label="Volume">' + svg('spk2', 18) + '</div></div>' +
             '<div class="crd ins" hidden><div class="lab">Input</div><div class="chips"></div></div>' +
             '<div class="crd aps" hidden><div class="lab"><span class="at">Recent Apps</span><button type="button" class="tog">All Apps…</button></div><div class="apps"></div></div>';
@@ -242,7 +249,8 @@
         if (inKey !== this._inKey) {
           this._inKey = inKey;
           q('.chips').innerHTML = lk.inputs.map(function (/** @type {any} */ x) {
-            return '<button type="button" class="chip' + (x.on ? ' on' : '') + '" data-input="' + esc(x.name) + '">' + esc(x.player ? (set.remotes.playerKind === 'apple_tv' ? 'Apple TV' : 'Player') : x.name) +
+            return '<button type="button" class="chip' + (x.on ? ' on' : '') + '" data-input="' + esc(x.name) + '">' +
+              esc(x.player ? (set.remotes.playerKind === 'apple_tv' ? 'Apple TV' : 'Player') : x.name) +
               (x.player ? '<small>' + esc(x.name) + '</small>' : '') + '</button>';
           }).join('');
         }

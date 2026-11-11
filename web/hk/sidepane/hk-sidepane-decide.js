@@ -220,7 +220,8 @@
       var members = Array.isArray(ctx.members) && ctx.members.length > 1 ? ctx.members.slice() : [ctx.key];
       var vols = members.map(function (k) { return num(attr(all[k], 'volume_level')); }).filter(function (x) { return x !== null; });
       var vol = members.length > 1 ? (vols.length ? vols.reduce(function (n, x) { return n + x; }, 0) / vols.length : null) : num(a.volume_level);
-      return { key: ctx.key, members: members, rooms: window.hkNpStrip.rooms({ states: all }, ctx.key, members), playing: playing, title: ctx.title || a.media_title || '', artist: ctx.artist || a.media_artist || '',
+      return { key: ctx.key, members: members, rooms: window.hkNpStrip.rooms({ states: all }, ctx.key, members), playing: playing, title: ctx.title || a.media_title || '', artist: ctx.artist ||
+        a.media_artist || '',
                pic: pic, at: dur ? Math.max(0, Math.min(1, t / dur)) : 0, left: dur ? Math.max(0, dur - t) : 0, vol: vol };
     }
     // ...held a grace after it stops (All Screens -> Now Playing -> Hide After a Pause)

@@ -131,7 +131,8 @@
     '  <div class=row><label>Show</label><div class=seg data-k=show><button data-v=sky>Sky only</button><button data-v=dash>Dashboard</button></div>' +
     (STANDALONE ? '' : '<small>Your real dashboard, preview only: taps open things, but nothing in the house switches. Exit to use it again.</small>') + '</div>' +
     (STANDALONE ? '' : '  <div class=row><label>Dashboard</label><select id=dashSel></select></div>') +
-    '  <div class=row><label>Clouds</label><div class=seg data-k=style><button data-v=realistic>Realistic</button><button data-v=blend>Blend</button><button data-v=classic>Classic</button></div></div>' +
+    '  <div class=row><label>Clouds</label><div class=seg data-k=style><button data-v=realistic>Realistic</button><button data-v=blend>Blend</button><button ' +
+      'data-v=classic>Classic</button></div></div>' +
     '  <div class=row><label>Time of day <b id=timeV></b></label><input type=range id=time min=0 max=24 step=0.25 value=14></div>' +
     '  <div class=row><label>Daytime brightness <b id=briV></b></label><input type=range id=bri min=0 max=100 step=5 value=100></div>' +
     '  <div class=row><label>Cloud cover <b id=coverV></b></label><input type=range id=cover min=0 max=100 step=1 value=40></div>' +

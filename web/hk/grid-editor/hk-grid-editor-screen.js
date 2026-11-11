@@ -23,7 +23,8 @@
       // A VIEW GOES, its blocks with it (asked first when it has any); the views after it close up
       async removeView(v) {
         var n = this.grid.items.filter((it) => (it.view || 0) === v).length;
-        if (n && !await this.K.confirm(this.shadowRoot, { title: 'Remove View ' + (v + 1) + '?', message: (n === 1 ? 'Its block goes' : 'Its ' + n + ' blocks go') + ' with it. Nothing is saved yet.', ok: 'Remove View', destructive: true })) return;
+        if (n && !await this.K.confirm(this.shadowRoot, { title: 'Remove View ' + (v + 1) + '?', message: (n === 1 ? 'Its block goes' : 'Its ' + n + ' blocks go') + ' with it. Nothing is saved yet.',
+          ok: 'Remove View', destructive: true })) return;
         var next = copy(this.grid);
         next.items = next.items.filter((it) => (it.view || 0) !== v).map((it) => {
           if ((it.view || 0) > v) { it.view -= 1; if (!it.view) delete it.view; }
@@ -256,7 +257,8 @@
             onclick: () => this.starter(c[0]) }, [this.miniMap(grid, waiting && c[0] !== 'empty' && !own), h('span', { class: 'st' }, [h('b', { text: c[1] }), h('small', { text: c[2] })])]);
         });
         return K.group({ header: this.grid ? 'Start Over With' : 'Start With',
-          footer: this.grid ? 'Replaces this draft. Nothing is saved until you Save.' : 'Each fills the grid from your home’s scenes, rooms, cameras and thermostats. Nothing is saved until you Save.' }, rows);
+          footer: this.grid ? 'Replaces this draft. Nothing is saved until you Save.' :
+            'Each fills the grid from your home’s scenes, rooms, cameras and thermostats. Nothing is saved until you Save.' }, rows);
       }
       // BOTH SIDES, drawn again: the palette and the settings (each keeps its scroll)
       side() {

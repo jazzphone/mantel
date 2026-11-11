@@ -399,7 +399,8 @@
   }
 
   window.hkTabBar = { version: '1.0.0', _: { between: between, offsetsOf: offsetsOf, fit: fit, parts: parts, scrollStep: scrollStep, material: material,
-                                             plateFits: plateFits, roomsMode: roomsMode, roomsOf: roomsOf, moreOf: moreOf, phoneSet: phoneSet, railFit: railFit, position: position, room: room, scrollOf: scrollOf,
+                                             plateFits: plateFits, roomsMode: roomsMode, roomsOf: roomsOf, moreOf: moreOf, phoneSet: phoneSet, railFit: railFit, position: position, room: room,
+                                               scrollOf: scrollOf,
                                              stripSide: stripSide, stripFit: stripFit,
                                              SIZES: { TAB_MIN_W: TAB_MIN_W, TAB_MAX_W: TAB_MAX_W, MAX_TABS: MAX_TABS,
                                                       GUTTER: GUTTER, GAP: GAP, ROUND: ROUND, PAD: PAD, RAIL_PAD: RAIL_PAD,
@@ -461,7 +462,8 @@
       '  bottom:' + LIFT_CSS + ';display:none;justify-content:center;',
       // (left and right too: the Side Pane coming or going moves the page's edge, and the bar glides to its new middle
       // rather than jumping there -- 2026-11-01, the owner, swiping between pages: "jarring is always the issue")
-      '  align-items:center;gap:' + GAP + 'px;pointer-events:none;transition:translate var(--hk-pane-glide,0s) var(--hk-pane-ease,' + EASE + '),transform .34s ' + EASE + ',bottom .3s ' + EASE + ',left var(--hk-pane-glide,.34s) var(--hk-pane-ease,' + EASE + '),right var(--hk-pane-glide,.34s) var(--hk-pane-ease,' + EASE + ');',
+      '  align-items:center;gap:' + GAP + 'px;pointer-events:none;transition:translate var(--hk-pane-glide,0s) var(--hk-pane-ease,' + EASE + '),transform .34s ' + EASE + ',bottom .3s ' + EASE +
+        ',left var(--hk-pane-glide,.34s) var(--hk-pane-ease,' + EASE + '),right var(--hk-pane-glide,.34s) var(--hk-pane-ease,' + EASE + ');',
       // (...and with the finger, during a swipe between pages: hk-sidepane.js FOLLOW)
       '  translate:var(--hk-pane-shift,0px) 0}',
       '.root.on .row{display:flex}',
@@ -481,7 +483,8 @@
       // (a little darker under the wash, 2026-10-30: over a light page -- the
       // Climate page's teal -- its names were hard to read)
       // (the look's Dim over it, 2026-11-01: --hk-bright-shade, hk-settings.js brightLook)
-      '.bright .g{background:var(--hk-bright-shade,linear-gradient(transparent,transparent)),linear-gradient(150deg,rgba(255,255,255,0.24),rgba(255,255,255,0.10)),rgba(14,18,30,0.30);border-color:transparent;',
+      '.bright .g{background:var(--hk-bright-shade,linear-gradient(transparent,transparent)),linear-gradient(150deg,rgba(255,255,255,0.24),rgba(255,255,255,0.10)),rgba(14,18,30,0.30);' +
+        'border-color:transparent;',
       '  -webkit-backdrop-filter:blur(4px) saturate(1.3) brightness(1.08);backdrop-filter:blur(4px) saturate(1.3) brightness(1.08);',
       '  box-shadow:inset 0 0 0 1.5px rgba(255,255,255,0.22),inset 0 1.5px 0 rgba(255,255,255,0.30),0 10px 30px rgba(0,0,0,0.18)}',
       '.bright .tab.here::before,.bright .it.here{background:rgba(255,255,255,0.92)}',
@@ -721,7 +724,8 @@
       '  bottom:calc(100% - var(--bh) + 6px);width:auto;height:auto;',
       '  padding:calc(var(--g) - 1px);border-radius:50%}',
       ':host([data-pos="left"]) .root.small.fold-end .pill,:host([data-pos="right"]) .root.small.fold-end .pill{top:calc(100% - var(--bh) + 6px);bottom:0}',
-      ':host([data-pos="left"]) .pill,:host([data-pos="right"]) .pill{transition:top .42s ' + EASE + ',bottom .42s ' + EASE + ',left .34s ' + EASE + ',right .34s ' + EASE + ',border-radius .3s ' + EASE + '}',
+      ':host([data-pos="left"]) .pill,:host([data-pos="right"]) .pill{transition:top .42s ' + EASE + ',bottom .42s ' + EASE + ',left .34s ' + EASE + ',right .34s ' + EASE + ',border-radius .3s ' +
+        EASE + '}',
       ':host([data-pos="left"]) .root.gone .row{transform:translateX(calc(-100% - ' + (GUTTER + 8) + 'px - ' + EDGE_L + '))}',
       ':host([data-pos="right"]) .root.gone .row{transform:translateX(calc(100% + ' + (GUTTER + 8) + 'px + ' + EDGE_R + '))}',
       ':host([data-pos="left"]) .row,:host([data-pos="right"]) .row{transition:transform .34s ' + EASE + '}',
@@ -832,7 +836,8 @@
     // (--hk-blur-filter), the bar's -- under the bar's Bright wash and Dim
     // (.bright .g above). Its sheets keep their live 34 px blur: open, they
     // lie over the page's cards, which a picture of the sky cannot show.
-    var BRIGHT_TINT = 'var(--hk-bright-shade,linear-gradient(transparent,transparent)),linear-gradient(150deg,rgba(255,255,255,0.24),rgba(255,255,255,0.10)),linear-gradient(rgba(14,18,30,0.30),rgba(14,18,30,0.30))';
+    var BRIGHT_TINT =
+      'var(--hk-bright-shade,linear-gradient(transparent,transparent)),linear-gradient(150deg,rgba(255,255,255,0.24),rgba(255,255,255,0.10)),linear-gradient(rgba(14,18,30,0.30),rgba(14,18,30,0.30))';
     // `mode`: 'blur' (Blur's Pre-rendered), 'bright' (Bright Glass's), or none
     function pinGlass(mode) {
       var G = window.hkGlass;
@@ -904,9 +909,11 @@
     }
     function listKey(width) {
       var h = C.client(), side = H.sidebarSource(), b = M.board();
-      return [M.dash(), cfgId(M.config()), width, railH(), JSON.stringify(stripNow(b)), b.ha_place, b.tab_bar_pos, b.tab_bar_rooms, b.tab_bar_rooms_phone, phoneAt(), phoneSet(), b.tab_bar_more, b.tab_bar_more_phone, b.tab_bar_size, b.tab_bar_labels, b.tab_bar_tabs, b.tab_bar_tabs_rail, b.tab_bar_tabs_phone, b.ha_row, JSON.stringify(S.haPrefs || null),
+      return [M.dash(), cfgId(M.config()), width, railH(), JSON.stringify(stripNow(b)), b.ha_place, b.tab_bar_pos, b.tab_bar_rooms, b.tab_bar_rooms_phone, phoneAt(), phoneSet(), b.tab_bar_more,
+        b.tab_bar_more_phone, b.tab_bar_size, b.tab_bar_labels, b.tab_bar_tabs, b.tab_bar_tabs_rail, b.tab_bar_tabs_phone, b.ha_row, JSON.stringify(S.haPrefs || null),
               h && h.user && h.user.is_admin, H.hostItems().map(function (x) { return x.title + x.href; }).join(','),
-              H.editKey ? H.editKey(h) : '', arranging() ? 'ed' : '', !!(window.hkEdit && window.hkEdit.editAny && window.hkEdit.editAny(h)), side && side.panels ? Object.keys(side.panels).join(',') : '', H.haKey ? H.haKey() : '', b.menu_rooms, JSON.stringify(b.room_order),
+              H.editKey ? H.editKey(h) : '', arranging() ? 'ed' : '', !!(window.hkEdit && window.hkEdit.editAny && window.hkEdit.editAny(h)), side && side.panels ? Object.keys(side.panels).join(',') :
+                '', H.haKey ? H.haKey() : '', b.menu_rooms, JSON.stringify(b.room_order),
               JSON.stringify(b.categories), JSON.stringify(b.menu_top || []), JSON.stringify(b.pages || []),
               JSON.stringify(b.chips || []), b.chips_row, h && h.user && h.user.id,
               JSON.stringify(h && h.areas ? Object.keys(h.areas).map(function (k) {
@@ -1750,7 +1757,8 @@
       if (motion) { S.host.style.setProperty('--hk-swipe-ms', motion.ms + 'ms'); S.host.style.setProperty('--hk-swipe-ease', motion.ease); }
       S.host.setAttribute('data-landing', '');
       clearTimeout(landT);
-      landT = setTimeout(function () { if (S.host) { S.host.removeAttribute('data-landing'); S.host.style.removeProperty('--hk-swipe-ms'); S.host.style.removeProperty('--hk-swipe-ease'); } }, motion ? motion.ms + 250 : 600);
+      landT = setTimeout(function () { if (S.host) { S.host.removeAttribute('data-landing'); S.host.style.removeProperty('--hk-swipe-ms'); S.host.style.removeProperty('--hk-swipe-ease'); } }, motion ?
+        motion.ms + 250 : 600);
       markHere(true);
     }
     window.hkTabBar.pages = swipePages;

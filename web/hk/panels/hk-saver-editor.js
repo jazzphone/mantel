@@ -197,7 +197,9 @@
     lines: 'Lines', weekday: 'Weekday', month: 'Month', year: 'Year', weight: 'Weight', case: 'Letters', tap: 'When Tapped'
   };
   var OPT_SUBS = {
-    tap: 'A tap on it wakes the screen on its page (the Weather page for the weather, the Calendar for the date), or opens the details of what it shows (a sensor, a person, a camera). Nothing: a tap only wakes the screen.',
+    tap:
+      'A tap on it wakes the screen on its page (the Weather page for the weather, the Calendar for the date), or opens the details of what it shows (a sensor, a person, a camera). Nothing: a tap ' +
+      'only wakes the screen.',
     match: 'The next event with these words in its title; empty, the next all-day event.', name: 'Empty: the entity’s own name.',
     min: 'The number where the ring is empty.', max: 'The number where the ring is full.'
   };
@@ -236,30 +238,36 @@
     '.under{flex:none;margin:12px auto 0;min-height:40px;text-align:center}',
     '.under b{color:var(--hk-label);font-weight:600}',
     '.framebox{position:relative;overflow:hidden;margin:0 auto;border-radius:14px;background:#000;outline:1px solid var(--hk-sep);flex:none}',
-    '.framebox[data-loading]::after{content:"Loading the screensaver…";position:absolute;inset:0;z-index:5;display:flex;align-items:center;justify-content:center;font-size:15px;color:#ccc;background:#111}',
+    '.framebox[data-loading]::after{content:"Loading the screensaver…";position:absolute;inset:0;z-index:5;display:flex;align-items:center;justify-content:center;font-size:15px;color:#ccc;' +
+      'background:#111}',
     '.frame{position:absolute;left:0;top:0;transform-origin:top left;overflow:hidden}',
     'iframe{position:absolute;inset:0;border:0;width:100%;height:100%;pointer-events:none}',
     // THE PLACES over the screen: the zones as the screen drew them, what is in them, and where a picked piece can go
     '.ov{position:absolute;inset:0;z-index:2}',
     '.ov .z,.ov .w,.ov .big{position:absolute;box-sizing:border-box;border-radius:14px;background:transparent;border:0;padding:0;cursor:pointer;font:inherit;color:#fff}',
     ':host(:not([previewing])) .ov .z{outline:2px dashed rgba(255,255,255,.7);outline-offset:3px;background:rgba(0,0,0,.12)}',
-    ':host(:not([previewing])) .ov .z span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:var(--zf,22px);font-weight:600;text-align:center;line-height:1.1;text-shadow:0 1px 4px rgba(0,0,0,.7);pointer-events:none}',
+    ':host(:not([previewing])) .ov .z span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:var(--zf,22px);font-weight:600;text-align:center;' +
+      'line-height:1.1;text-shadow:0 1px 4px rgba(0,0,0,.7);pointer-events:none}',
     ':host(:not([previewing])) .ov .w:hover,:host(:not([previewing])) .ov .big:hover{outline:2px solid rgba(255,255,255,.55);outline-offset:4px}',
     '.ov [aria-pressed=true]{outline:4px solid var(--hk-tint)!important;outline-offset:5px!important}',
     '.ov .z.want{outline:3px dashed #30d158!important;background:rgba(48,209,88,.18)!important}',
     // (dragged: what it is, at the pointer; the green place under it, brighter)
     '.ov .z.want.hover{background:rgba(48,209,88,.45)!important;outline-style:solid!important}',
-    '.dragchip{position:fixed;z-index:20;pointer-events:none;transform:translate(-50%,-50%);padding:8px 14px;border-radius:12px;background:var(--hk-accent,#0a84ff);color:#fff;font-weight:600;font-size:14px;white-space:nowrap;box-shadow:0 6px 18px rgba(0,0,0,.3)}',
+    '.dragchip{position:fixed;z-index:20;pointer-events:none;transform:translate(-50%,-50%);padding:8px 14px;border-radius:12px;background:var(--hk-accent,#0a84ff);color:#fff;font-weight:600;' +
+      'font-size:14px;white-space:nowrap;box-shadow:0 6px 18px rgba(0,0,0,.3)}',
     '.pitem,.ov .w{-webkit-user-select:none;user-select:none}',
     // (the + after what a zone has: round, its sign drawn -- a glyph sits on the font's own math axis, off the middle of its line)
     ':host(:not([previewing])) .ov .z.plus{border-radius:50%}',
     ':host(:not([previewing])) .ov .z.plus span{font-size:0}',
-    ':host(:not([previewing])) .ov .z.plus span::before,:host(:not([previewing])) .ov .z.plus span::after{content:"";position:absolute;left:50%;top:50%;width:min(44%,calc(var(--zf,22px) * 1.5));height:max(2px,calc(var(--zf,22px) * .09));border-radius:9px;background:currentColor;box-shadow:0 1px 4px rgba(0,0,0,.45);transform:translate(-50%,-50%)}',
+    ':host(:not([previewing])) .ov .z.plus span::before,:host(:not([previewing])) .ov .z.plus span::after{content:"";position:absolute;left:50%;top:50%;width:min(44%,calc(var(--zf,22px) * 1.5));' +
+      'height:max(2px,calc(var(--zf,22px) * .09));border-radius:9px;background:currentColor;box-shadow:0 1px 4px rgba(0,0,0,.45);transform:translate(-50%,-50%)}',
     ':host(:not([previewing])) .ov .z.plus span::after{transform:translate(-50%,-50%) rotate(90deg)}',
     ':host([previewing]) .ov .z{display:none}',
     // (a piece with nothing to show now -- no music, no timer -- still has its place: drawn dotted, with its name and when it shows)
     ':host(:not([previewing])) .ov .w.empty{outline:2px dotted rgba(255,255,255,.8);outline-offset:3px;background:rgba(0,0,0,.18)}',
-    ':host(:not([previewing])) .ov .w.empty span,:host(:not([previewing])) .ov .w.claimed span{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:calc(var(--zf,22px) * .8);font-weight:600;text-align:center;line-height:1.15;text-shadow:0 1px 4px rgba(0,0,0,.7);pointer-events:none;padding:0 6px;overflow:hidden}',
+    ':host(:not([previewing])) .ov .w.empty span,:host(:not([previewing])) .ov .w.claimed span{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;' +
+      'justify-content:center;font-size:calc(var(--zf,22px) * .8);font-weight:600;text-align:center;line-height:1.15;text-shadow:0 1px 4px rgba(0,0,0,.7);pointer-events:none;padding:0 6px;' +
+      'overflow:hidden}',
     // (a piece another shows the fact of -- the face, the big time -- drawn faded, with who shows it)
     ':host(:not([previewing])) .ov .w.claimed{outline:2px dashed rgba(255,214,10,.85);outline-offset:3px;background:rgba(0,0,0,.34);opacity:.62}',
     ':host(:not([previewing])) .ov .w small{font-size:.78em;font-weight:500;opacity:.9;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
@@ -267,10 +275,12 @@
     '.ov .moved{position:absolute;pointer-events:none;font-size:calc(var(--zf,22px) * .8);font-weight:600;color:#000;background:#ffd60a;border-radius:8px;padding:4px 10px;white-space:nowrap}',
     ':host([previewing]) .ov{pointer-events:none}:host([previewing]) .ov .moved{display:none}',
     // THE LEFT PANE: Looks, then the pieces
-    '.pick-banner{position:sticky;top:0;z-index:3;display:flex;align-items:center;gap:8px;margin:0 0 16px;padding:10px 12px;border-radius:10px;background:color-mix(in srgb,var(--hk-tint) 18%,var(--hk-cell));font-size:14px;box-shadow:var(--hk-shadow)}',
+    '.pick-banner{position:sticky;top:0;z-index:3;display:flex;align-items:center;gap:8px;margin:0 0 16px;padding:10px 12px;border-radius:10px;' +
+      'background:color-mix(in srgb,var(--hk-tint) 18%,var(--hk-cell));font-size:14px;box-shadow:var(--hk-shadow)}',
     '.pick-banner[hidden]{display:none}.pick-banner span{flex:1}.pick-banner button{border:0;background:none;color:var(--hk-tint);font:inherit;cursor:pointer;min-height:32px}',
     '.looks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:12px}',
-    '.lk{display:flex;flex-direction:column;gap:6px;min-width:0;padding:5px 5px 6px;border:2px solid transparent;border-radius:12px;background:none;cursor:pointer;text-align:left;color:var(--hk-label);font:inherit}',
+    '.lk{display:flex;flex-direction:column;gap:6px;min-width:0;padding:5px 5px 6px;border:2px solid transparent;border-radius:12px;background:none;cursor:pointer;text-align:left;' +
+      'color:var(--hk-label);font:inherit}',
     '.lk[aria-pressed=true]{border-color:var(--hk-tint);background:color-mix(in srgb,var(--hk-tint) 9%,transparent)}',
     '.lk .th{position:relative;width:100%;aspect-ratio:16/10;border-radius:7px;overflow:hidden;background:#1c1c1e}',
     '.lk .th .sthumb{position:absolute!important;inset:0;margin:0!important}',
@@ -279,16 +289,19 @@
     '.srch{display:block;width:100%;margin:0 0 16px;border:0;border-radius:10px;padding:0 12px;min-height:36px;background:var(--hk-fill);color:var(--hk-label);font:inherit;font-size:15px}',
     '.srch::placeholder{color:var(--hk-label2)}',
     '.pcs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:12px}',
-    '.pitem{display:flex;flex-direction:column;align-items:stretch;gap:4px;min-width:0;padding:8px;border:2px solid transparent;border-radius:12px;background:var(--hk-fill);text-align:left;color:var(--hk-label);font:inherit;cursor:pointer}',
+    '.pitem{display:flex;flex-direction:column;align-items:stretch;gap:4px;min-width:0;padding:8px;border:2px solid transparent;border-radius:12px;background:var(--hk-fill);text-align:left;' +
+      'color:var(--hk-label);font:inherit;cursor:pointer}',
     '.pitem[aria-pressed=true]{border-color:var(--hk-tint);background:color-mix(in srgb,var(--hk-tint) 14%,var(--hk-fill))}',
-    '.pitem .pv{display:flex;align-items:center;min-height:50px;max-width:100%;overflow:hidden;border-radius:8px;padding:4px 8px;background:linear-gradient(135deg,#46688f,#6d8aad);color:#fff;--tint:#fff}',
+    '.pitem .pv{display:flex;align-items:center;min-height:50px;max-width:100%;overflow:hidden;border-radius:8px;padding:4px 8px;background:linear-gradient(135deg,#46688f,#6d8aad);color:#fff;' +
+      '--tint:#fff}',
     '.pitem b{font-size:13px;font-weight:600;margin-top:2px}',
     '.pitem .shp{display:flex;gap:4px;flex-wrap:wrap}',
     '.pitem .shp i{font-style:normal;font-size:10px;line-height:15px;color:var(--hk-label2);border:1px solid var(--hk-sep);border-radius:5px;padding:0 5px}',
     '.pitem small{font-size:11px;color:var(--hk-label2);line-height:1.3}',
     // THE INSPECTOR
     '.insp-head{display:flex;align-items:center;gap:12px;padding:4px 4px 20px}',
-    '.insp-head hk-icon{display:flex;align-items:center;justify-content:center;box-sizing:border-box;width:48px;height:48px;flex:none;border-radius:12px;background:var(--hk-cell);color:var(--hk-tint);--mdc-icon-size:26px}',
+    '.insp-head hk-icon{display:flex;align-items:center;justify-content:center;box-sizing:border-box;width:48px;height:48px;flex:none;border-radius:12px;background:var(--hk-cell);' +
+      'color:var(--hk-tint);--mdc-icon-size:26px}',
     '.insp-head h2{margin:0;font-size:20px;font-weight:700}.insp-head p{margin:2px 0 0;font-size:13px;color:var(--hk-label2)}',
     '.insp-head .done{margin-left:auto;border:0;background:none;color:var(--hk-tint);font:inherit;font-size:15px;cursor:pointer;min-height:44px}',
     '.sec{display:flex;align-items:baseline;gap:8px;margin:8px 4px 12px}',
@@ -306,16 +319,22 @@
     '.seeit[aria-pressed=true]{background:var(--hk-tint);color:#fff}',
     // A piece's shapes, each drawn
     '.shtiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:12px}',
-    '.shtile{display:flex;flex-direction:column;align-items:stretch;gap:6px;min-width:0;padding:5px 5px 7px;border:2px solid transparent;border-radius:12px;background:none;color:var(--hk-label);font:inherit;text-align:left;cursor:pointer}',
+    '.shtile{display:flex;flex-direction:column;align-items:stretch;gap:6px;min-width:0;padding:5px 5px 7px;border:2px solid transparent;border-radius:12px;background:none;color:var(--hk-label);' +
+      'font:inherit;text-align:left;cursor:pointer}',
     '.shtile.wide{grid-column:span 2}',
     '.shtile[aria-checked=true]{border-color:var(--hk-tint);background:color-mix(in srgb,var(--hk-tint) 9%,transparent)}',
-    '.shtile .swatch{display:flex;align-items:center;justify-content:center;min-height:64px;padding:10px;border-radius:8px;overflow:hidden;background:linear-gradient(135deg,#46688f,#6d8aad);color:#fff;--tint:#fff}',
+    '.shtile .swatch{display:flex;align-items:center;justify-content:center;min-height:64px;padding:10px;border-radius:8px;overflow:hidden;background:linear-gradient(135deg,#46688f,#6d8aad);' +
+      'color:#fff;--tint:#fff}',
     '.shtile b{font-size:13px;font-weight:600;padding:0 2px}',
     // THE ENTITY PICKER (a page of the sidebar)
     '.pk-list .cell{min-height:52px}',
     '@media(max-width:600px){.tools h1{display:none}}',
     '.mobile-tabs{display:none}.seeslide button{min-height:36px;border:0;border-radius:8px;padding:6px 10px;background:var(--hk-fill);color:var(--hk-label);font:inherit}',
-    '@media(max-width:1100px){.tools{gap:6px;padding:8px}.tools h1{font-size:15px}.tools button{padding:0 9px}.mobile-tabs{display:flex;gap:8px;justify-content:center}.mobile-tabs button{min-height:36px;border:0;border-radius:10px;background:var(--hk-fill);color:var(--hk-label);padding:6px 20px;font:inherit}.work{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(240px,48%) minmax(0,1fr);gap:8px;padding:8px}.stage{grid-area:1/1}.palette,.sidebar{grid-area:2/1}.palette{display:none}:host([mobile-library]) .palette{display:block}:host([mobile-library]) .sidebar{display:none}.bar{margin-bottom:4px}.under{font-size:12px;margin:5px 0}.tools .undo{font-size:12px}.message{font-size:12px;padding:3px 10px;min-height:16px}.bar .xtras{gap:6px}.bar .pills{font-size:12px}.bar{gap:4px}.seeslide{font-size:12px!important}}'
+    '@media(max-width:1100px){.tools{gap:6px;padding:8px}.tools h1{font-size:15px}.tools button{padding:0 9px}.mobile-tabs{display:flex;gap:8px;justify-content:center}' +
+      '.mobile-tabs button{min-height:36px;border:0;border-radius:10px;background:var(--hk-fill);color:var(--hk-label);padding:6px 20px;font:inherit}.work{grid-template-columns:minmax(0,1fr);' +
+      'grid-template-rows:minmax(240px,48%) minmax(0,1fr);gap:8px;padding:8px}.stage{grid-area:1/1}.palette,.sidebar{grid-area:2/1}.palette{display:none}' +
+      ':host([mobile-library]) .palette{display:block}:host([mobile-library]) .sidebar{display:none}.bar{margin-bottom:4px}.under{font-size:12px;margin:5px 0}.tools .undo{font-size:12px}' +
+      '.message{font-size:12px;padding:3px 10px;min-height:16px}.bar .xtras{gap:6px}.bar .pills{font-size:12px}.bar{gap:4px}.seeslide{font-size:12px!important}}'
   ].join('\n');
 
   class SaverEditor extends HTMLElement {
@@ -408,7 +427,9 @@
       this.modeButton = h('button', { class: 'mode', text: 'Preview', onclick: () => this.togglePreview() });
       this.ui.appendChild(h('header', { class: 'tools' }, [h('button', { text: 'Cancel', onclick: () => this.cancel() }),
         h('h1', { text: this.o.title + ' · Screensaver' }), h('button', { text: 'Designs', onclick: () => window.hkSaverDesigns.gallery(this) }), this.undoButton, this.modeButton, this.saveButton]));
-      this.ui.appendChild(h('nav', { class: 'mobile-tabs', 'aria-label': 'Editor panels' }, [h('button', { text: 'Pieces & Looks', onclick: () => { this.setAttribute('mobile-library', ''); this.fit(); } }), h('button', { text: 'Settings', onclick: () => { this.removeAttribute('mobile-library'); this.fit(); } })]));
+      this.ui.appendChild(h('nav', { class: 'mobile-tabs', 'aria-label': 'Editor panels' },
+        [h('button', { text: 'Pieces & Looks', onclick: () => { this.setAttribute('mobile-library', ''); this.fit(); } }),
+        h('button', { text: 'Settings', onclick: () => { this.removeAttribute('mobile-library'); this.fit(); } })]));
       this.message = h('div', { class: 'message', role: 'status', 'aria-live': 'polite' }); this.ui.appendChild(this.message);
       this.palette = h('aside', { class: 'palette', 'aria-label': 'Looks and pieces' });
       this.stage = h('section', { class: 'stage', 'aria-label': 'The screensaver' });
@@ -440,8 +461,10 @@
     // SEE A SLIDE and DAY / NIGHT: the preview's alone, never saved
     bars() {
       var h = this.h, K = this.K;
-      this.slideHost.replaceChildren(h('span', { text: 'Preview' }), K.popup({ label: 'Preview Slide', options: SLIDE_KINDS.map((x) => [x[0], x[0] ? x[1] : 'Screensaver']), value: this.slide, onChange: (v) => this.setSlide(v) }),
-        K.popup({ label: 'Side Pane Preview', value: this.panePreview === null ? 'saved' : this.panePreview ? 'show' : 'hide', options: [['saved', 'As Saved'], ['show', 'Show'], ['hide', 'Hide']], onChange: (v) => { this.panePreview = v === 'saved' ? null : v === 'show'; this.applyExtras(); this.overlaySoon(); } }));
+      this.slideHost.replaceChildren(h('span', { text: 'Preview' }), K.popup({ label: 'Preview Slide', options: SLIDE_KINDS.map((x) => [x[0], x[0] ? x[1] : 'Screensaver']), value: this.slide,
+        onChange: (v) => this.setSlide(v) }),
+        K.popup({ label: 'Side Pane Preview', value: this.panePreview === null ? 'saved' : this.panePreview ? 'show' : 'hide', options: [['saved', 'As Saved'], ['show', 'Show'], ['hide', 'Hide']],
+          onChange: (v) => { this.panePreview = v === 'saved' ? null : v === 'show'; this.applyExtras(); this.overlaySoon(); } }));
       this.todBar.replaceChildren.apply(this.todBar, [['day', 'Day'], ['night', 'Night']].map((d) => h('button', { type: 'button', text: d[1],
         'aria-pressed': (d[0] === 'night') === this.night ? 'true' : 'false', onclick: () => this.setNight(d[0] === 'night') })));
     }
@@ -472,11 +495,15 @@
       if (this.slide) {
         var status = this.saver() && this.saver().previewStatus && this.saver().previewStatus();
         var key = this.slideKey(this.slide), S = LM.SLIDES[key];
-        this.under.replaceChildren(h('b', { text: 'The ' + (S ? S.name : this.slide) + ' slide. ' }), document.createTextNode((status && status.message ? status.message + ' ' : '') + (status && status.paneMessage ? status.paneMessage + ' ' : '') + this.cornerWords(this.slide) + ' Choose Screensaver to edit the screen.'));
+        this.under.replaceChildren(h('b', { text: 'The ' + (S ? S.name : this.slide) + ' slide. ' }),
+          document.createTextNode((status && status.message ? status.message + ' ' : '') + (status && status.paneMessage ? status.paneMessage + ' ' : '') + this.cornerWords(this.slide) +
+          ' Choose Screensaver to edit the screen.'));
         return;
       }
       var ps = this.saver() && this.saver().previewStatus && this.saver().previewStatus();
-      this.under.replaceChildren(document.createTextNode((ps && ps.paneMessage ? ps.paneMessage + ' ' : '') + 'Side Pane: As Saved follows this screen’s settings; Show and Hide affect only this preview. Tap something on it to change it; tap a piece on the left, then a green place, to add one. Nothing here acts on the house.'));
+      this.under.replaceChildren(document.createTextNode((ps && ps.paneMessage ? ps.paneMessage + ' ' : '') +
+        'Side Pane: As Saved follows this screen’s settings; Show and Hide affect only this preview. Tap something on it to change it;' +
+        ' tap a piece on the left, then a green place, to add one. Nothing here acts on the house.'));
     }
     fit() {
       if (!this.box) return;
@@ -520,7 +547,8 @@
         this.overlay(); this.underText();
         if (++tries < 6 || (this.slide && this.isConnected)) this.ovT = setTimeout(step, tries < 3 ? 350 : 1000);
         else if (this.slide && !this.slideOk && this.saver() && typeof this.saver().previewSlide === 'function') {
-          this.say('The ' + (LM.SLIDES[this.slideKey(this.slide)] || { name: this.slide }).name + ' slide has nothing to show right now: Music needs something playing, Home Energy the day’s numbers.');
+          this.say('The ' + (LM.SLIDES[this.slideKey(this.slide)] || { name: this.slide }).name +
+            ' slide has nothing to show right now: Music needs something playing, Home Energy the day’s numbers.');
         }
       };
       this.ovT = setTimeout(step, 250);
@@ -556,7 +584,8 @@
         var key = z + ':' + i, none = !!(info.emptyAt && info.emptyAt[key]);
         var kids = none ? [h('span', {}, [document.createTextNode(self.pname(w)), h('small', { text: self.whenWords(w) })])] : [];
         self.ov.appendChild(place(h('button', { type: 'button', class: 'w' + (none ? ' empty' : ''), 'aria-pressed': self.sel === key ? 'true' : 'false',
-          'aria-label': self.pname(w) + ', ' + self.zoneName(z) + (none ? ', nothing to show now' : ''), title: none ? self.pname(w) + ': ' + self.whenWords(w) : null, onclick: (ev) => { ev.stopPropagation(); self.select(key); },
+          'aria-label': self.pname(w) + ', ' + self.zoneName(z) + (none ? ', nothing to show now' : ''), title: none ? self.pname(w) + ': ' + self.whenWords(w) : null,
+            onclick: (ev) => { ev.stopPropagation(); self.select(key); },
           onpointerdown: (ev) => self.dragStart(ev, { piece: w.piece, from: { z: z, i: i } }) }, kids), b));
       };
       // the big element, and every place a piece can go: a place with nothing in it is drawn as an outline
@@ -705,7 +734,9 @@
       if (z && this.shapeFor(piece, z, this.T().zones)) { this.pick = piece; this.tapZone(z); return; }
       if (this.pick === piece) { this.pick = null; this.redraw(); return; }
       var zs = this.T().zones;
-      if (!Object.keys(LM.ZONES).some((zz) => !!this.shapeFor(piece, zz, zs))) { this.say('No room for ' + this.pname({ piece: piece }) + ': remove something from a place that takes ' + LM.PIECES[piece][0].map(function (s) { return LM.SHAPE_NAMES[s].toLowerCase(); }).join(' or ') + ' pieces first.'); return; }
+      if (!Object.keys(LM.ZONES).some((zz) => !!this.shapeFor(piece, zz, zs))) {
+        this.say('No room for ' + this.pname({ piece: piece }) + ': remove something from a place that takes ' +
+        LM.PIECES[piece][0].map(function (s) { return LM.SHAPE_NAMES[s].toLowerCase(); }).join(' or ') + ' pieces first.'); return; }
       this.pick = piece; this.sel = null; this.picker = null; this.say('Tap a green place on the screen to put ' + this.pname({ piece: piece }) + ' there.', true);
       if (this.slide) this.setSlide('');
       if (this.hasAttribute('previewing')) this.togglePreview();
@@ -910,7 +941,8 @@
       var lack = lacks(this.opts, this.T()), wait = this.placed().filter(function (p) { return lack.indexOf(p.z) >= 0; });
       var msg = 'Now ' + look.n + '.';
       if (before.length) msg += ' Your ' + before.length + (before.length === 1 ? ' piece stayed' : ' pieces stayed') +
-        (wait.length ? '; ' + listAnd(wait.map((p) => this.pname(p.w))) + (wait.length === 1 ? ' waits' : ' wait') + ' in Info: ' + look.n + ' has no ' + lack.slice().reverse().join(' and no ') + '.' : '.');
+        (wait.length ? '; ' + listAnd(wait.map((p) => this.pname(p.w))) + (wait.length === 1 ? ' waits' : ' wait') + ' in Info: ' + look.n + ' has no ' + lack.slice().reverse().join(' and no ') +
+          '.' : '.');
       this.say(msg + ' Undo (⌘Z) puts back what you had.', true);
     }
     // THE PIECES, grouped as the glance catalog is, one entry per piece
@@ -1014,7 +1046,8 @@
         K.button({ label: 'Reset…', destructive: true, fk: 'saver:reset', onClick: function () { self.reset(); } })]));
     }
     async reset() {
-      if (!await this.K.confirm(this.shadowRoot, { title: 'Reset the Screensaver?', message: 'It goes back to how it looked before you opened the editor. Undo brings your changes back.', ok: 'Reset', destructive: true })) return;
+      if (!await this.K.confirm(this.shadowRoot, { title: 'Reset the Screensaver?', message: 'It goes back to how it looked before you opened the editor. Undo brings your changes back.', ok: 'Reset',
+        destructive: true })) return;
       var back = this.M.saverOptions(this.o.options || {});
       this.change((o) => {
         Object.keys(o).forEach(function (k) { delete o[k]; });
@@ -1029,13 +1062,16 @@
     // ---- LOOK
     lookPage() {
       var K = this.K, self = this, add = (n) => this.sidebar.appendChild(n), st = this.state(), look = lookById(lookOf(this.opts));
-      add(this.head('mdi:image-multiple', look ? look.n : ((this.M.CLOCK_STYLES.find((f) => f[0] === this.opts.clock_style) || [])[1] || 'Your Own Look'), look ? look.about : 'Customize the face, background and widgets', true));
+      add(this.head('mdi:image-multiple', look ? look.n : ((this.M.CLOCK_STYLES.find((f) => f[0] === this.opts.clock_style) || [])[1] || 'Your Own Look'), look ? look.about :
+        'Customize the face, background and widgets', true));
       this.lookGroups(st).forEach(add);
-      if (look) add(K.group({ header: 'Start Over', footer: 'Puts back ' + look.n + '’s own pieces in their places, and its background and time. The albums, the timing and the slides stay. Undo (⌘Z) takes it back.' }, [
+      if (look) add(K.group({ header: 'Start Over', footer: 'Puts back ' + look.n +
+        '’s own pieces in their places, and its background and time. The albums, the timing and the slides stay. Undo (⌘Z) takes it back.' }, [
         K.button({ label: 'Start Over from ' + look.n + '…', destructive: true, fk: 'saver:startover', onClick: function () { self.startOver(look); } })]));
     }
     async startOver(look) {
-      if (!await this.K.confirm(this.shadowRoot, { title: 'Start Over from ' + look.n + '?', message: 'Everything you placed is replaced by ' + look.n + '’s own pieces. Undo brings it back.', ok: 'Start Over', destructive: true })) return;
+      if (!await this.K.confirm(this.shadowRoot, { title: 'Start Over from ' + look.n + '?', message: 'Everything you placed is replaced by ' + look.n + '’s own pieces. Undo brings it back.',
+        ok: 'Start Over', destructive: true })) return;
       this.change((o) => {
         var upr = this.upright() && this.T(o) !== o.layout;
         applyLook(o, look, upr);
@@ -1072,19 +1108,26 @@
         var zones = Intl.supportedValuesOf ? Intl.supportedValuesOf('timeZone') : ['America/New_York', 'Europe/London', 'Asia/Tokyo', 'Europe/Paris', 'Australia/Sydney'];
         zones = Array.from(new Set(['UTC'].concat(zones, cities.map(function (c) { return c.zone; })))).sort();
         cities.slice(0, max).forEach(function (city, i) {
-          rows.push(K.text({ label: 'City ' + (i + 1), value: city.name, maxlength: 40, onCommit: function (v) { if (v.trim()) { var next = copy(cities); next[i].name = v.trim().slice(0, 40); set('cities', next); } } }));
-          rows.push(K.select({ label: 'Time Zone ' + (i + 1), value: city.zone, options: zones.map(function (z) { return [z, z.replace(/_/g, ' ')]; }), onChange: function (v) { var next = copy(cities); next[i].zone = v; set('cities', next); } }));
+          rows.push(K.text({ label: 'City ' + (i + 1), value: city.name, maxlength: 40,
+            onCommit: function (v) { if (v.trim()) { var next = copy(cities); next[i].name = v.trim().slice(0, 40); set('cities', next); } } }));
+          rows.push(K.select({ label: 'Time Zone ' + (i + 1), value: city.zone, options: zones.map(function (z) { return [z, z.replace(/_/g, ' ')]; }),
+            onChange: function (v) { var next = copy(cities); next[i].zone = v; set('cities', next); } }));
         });
         if (cities.length < max) rows.push(K.button({ label: 'Add City', onClick: function () { set('cities', copy(cities).concat([{ name: 'London', zone: 'Europe/London' }])); } }));
         if (cities.length > 1) rows.push(K.button({ label: 'Remove Last City', onClick: function () { set('cities', cities.slice(0, -1)); } }));
       }
       if (style === 'markets') {
         var entities = o.market_entities || [];
-        entities.forEach(function (id, i) { rows.push(self.entityRow({ label: 'Market ' + (i + 1), value: id, domains: ['sensor', 'input_number', 'number'], none: 'Remove', onPick: function (v) { var next = entities.slice(); if (v) next[i] = v; else next.splice(i, 1); set('market_entities', next); } })); });
-        if (entities.length < 6) rows.push(this.entityRow({ label: 'Add Market Sensor', value: '', domains: ['sensor', 'input_number', 'number'], none: 'Choose…', onPick: function (v) { if (v) set('market_entities', entities.concat([v])); } }));
+        entities.forEach(function (id, i) { rows.push(self.entityRow({ label: 'Market ' + (i + 1), value: id, domains: ['sensor', 'input_number', 'number'], none: 'Remove',
+          onPick: function (v) { var next = entities.slice(); if (v) next[i] = v; else next.splice(i, 1); set('market_entities', next); } })); });
+        if (entities.length < 6) rows.push(this.entityRow({ label: 'Add Market Sensor', value: '', domains: ['sensor', 'input_number', 'number'], none: 'Choose…',
+          onPick: function (v) { if (v) set('market_entities', entities.concat([v])); } }));
       }
-      if (style === 'brief') rows.push(this.entityRow({ label: 'News Sensor', value: o.news_entity || '', domains: ['sensor'], none: 'Choose…', onPick: function (v) { self.change(function (x) { x.clock_options = Object.assign({}, x.clock_options); if (v) x.clock_options.news_entity = v; else delete x.clock_options.news_entity; }); } }));
-      return rows.length ? K.group({ header: 'Face Options', footer: style === 'markets' ? 'Live values from your sensors. An optional change_percent attribute shows the daily change.' : style === 'brief' ? 'The sensor supplies headlines in an entries, items or news list. Headlines never open links or act on the house.' : 'These choices belong to this saved design.' }, rows) : null;
+      if (style === 'brief') rows.push(this.entityRow({ label: 'News Sensor', value: o.news_entity || '', domains: ['sensor'], none: 'Choose…',
+        onPick: function (v) { self.change(function (x) { x.clock_options = Object.assign({}, x.clock_options); if (v) x.clock_options.news_entity = v; else delete x.clock_options.news_entity; });
+        } }));
+      return rows.length ? K.group({ header: 'Face Options', footer: style === 'markets' ? 'Live values from your sensors. An optional change_percent attribute shows the daily change.' : style ===
+        'brief' ? 'The sensor supplies headlines in an entries, items or news list. Headlines never open links or act on the house.' : 'These choices belong to this saved design.' }, rows) : null;
     }
 
     lookGroups(st) {
@@ -1173,7 +1216,8 @@
         } }
       ];
       if (st.kind === 'time') { var faceOptions = this.faceOptions(st); if (faceOptions) out.push(faceOptions); }
-      out.push(K.group({ header: 'Big', footer: st.kind === 'none' ? 'Nothing is very large on the screen.' : 'Everything else moves out of the way: nothing is ever drawn over it.' }, this.rowsOf(st, big)));
+      out.push(K.group({ header: 'Big', footer: st.kind === 'none' ? 'Nothing is very large on the screen.' : 'Everything else moves out of the way: nothing is ever drawn over it.' },
+        this.rowsOf(st, big)));
       var leg = [
         { applies: function (s) { return s.busy && s.kind !== 'none'; }, make: function () {
           return K.slider({ label: 'Shadow', value: o.clock_text_shadow, min: 0, max: 100, step: 5, unit: '%', onChange: put('clock_text_shadow') });
@@ -1217,7 +1261,8 @@
       out.push(K.group({ footer: st.placed.length > 1 ? 'Tap one to change it. ↑ moves it up within its place.' : null }, rows));
       var more = [
         { make: function () {
-          return K.seg({ label: 'Ink', sub: 'One ink for every piece. Auto picks from the background.', value: L.ink || 'auto', options: [['auto', 'Auto'], ['white', 'White'], ['black', 'Black']], stack: true,
+          return K.seg({ label: 'Ink', sub: 'One ink for every piece. Auto picks from the background.', value: L.ink || 'auto', options: [['auto', 'Auto'], ['white', 'White'], ['black', 'Black']],
+            stack: true,
             onChange: function (v) { self.change(function (x) { if (v === 'auto') delete x.layout.ink; else x.layout.ink = v; }); } });
         } },
         { make: function () {
@@ -1234,7 +1279,8 @@
         { applies: function (s) { return s.rows > 0; }, make: function () { return self.rowAtRow(); } }
       ];
       var rr = this.rowsOf(st, row);
-      if (rr.length) out.push(K.group({ header: 'The Row', footer: 'Along the Bottom keeps the middle of a photo clear; the bottom corners stand beside the row, or above it where they would meet.' }, rr));
+      if (rr.length) out.push(K.group({ header: 'The Row', footer: 'Along the Bottom keeps the middle of a photo clear; the bottom corners stand beside the row, or above it where they would meet.' },
+        rr));
       var own = !!(L.upright && L.upright.big && L.upright.zones);
       out.push(K.group({ header: 'Upright Screens', footer: own ? 'An iPad held upright and a phone have a place for everything of their own: show iPad Upright or Phone above to change it.'
           : 'An iPad held upright and a phone show the same screen as sideways, fitted to their shape.' }, [
@@ -1263,7 +1309,8 @@
       // See It: this slide, in the frame (the corner it adds drawn by the screensaver's own)
       var see = function (row, kind) {
         var on = self.slide === kind, b = self.h('button', { type: 'button', class: 'seeit', 'aria-pressed': String(on), text: on ? 'Back to Screen' : 'See It',
-          'aria-label': (on ? 'Back to the screen from ' : 'See ') + (SLIDE_KINDS.filter(function (s) { return s[0] === kind; })[0] || ['', kind])[1], onclick: function (ev) { ev.stopPropagation(); self.setSlide(on ? '' : kind); } });
+          'aria-label': (on ? 'Back to the screen from ' : 'See ') + (SLIDE_KINDS.filter(function (s) { return s[0] === kind; })[0] || ['', kind])[1],
+            onclick: function (ev) { ev.stopPropagation(); self.setSlide(on ? '' : kind); } });
         row.insertBefore(b, row.lastChild);
         return row;
       };
@@ -1315,16 +1362,23 @@
       var oft = [
         { applies: function (s) { return any && s.slidesOver === 'photos'; }, make: function () {
           var cur = Number(o.forecast_every) || 5;
-          return K.select({ label: 'How Often', value: String(cur), options: [3, 5, 10, 20].concat([3, 5, 10, 20].indexOf(cur) < 0 ? [cur] : []).map(function (n) { return [String(n), 'Every ' + n + ' Photos']; }),
+          return K.select({ label: 'How Often', value: String(cur), options: [3, 5, 10, 20].concat([3, 5, 10, 20].indexOf(cur) < 0 ? [cur] : []).map(
+            function (n) { return [String(n), 'Every ' + n + ' Photos']; }),
             onChange: function (v) { self.change(function (x) { x.forecast_every = Number(v); }); } });
         } },
         { applies: function (s) { return any && s.slidesOver !== 'photos'; }, make: function () {
           var cur = Number(o.extra_every) || 5, EV = [1, 2, 5, 10, 15, 30];
-          return K.select({ label: 'How Often', value: String(cur), options: EV.concat(EV.indexOf(cur) < 0 ? [cur] : []).map(function (n) { return [String(n), n === 1 ? 'Every Minute' : 'Every ' + n + ' Minutes']; }),
+          return K.select({ label: 'How Often', value: String(cur), options: EV.concat(EV.indexOf(cur) < 0 ? [cur] : []).map(
+            function (n) { return [String(n), n === 1 ? 'Every Minute' : 'Every ' + n + ' Minutes']; }),
             onChange: function (v) { self.change(function (x) { x.extra_every = Number(v); }); } });
         } }
       ];
-      out.push(K.group({ footer: 'A slide fades in over the screen now and then; Music Full Screen while something plays. The screen here leaves them out so what you placed stays in view: See It shows one, with its corner.' },
+      out.push(
+        K.group(
+        {
+        footer:
+        'A slide fades in over the screen now and then; Music Full Screen while something plays. The screen here leaves them out so what you placed stays in view: See It shows one, with its corner.' }
+        ,
         this.rowsOf(st, fc).concat(this.rowsOf(st, oft))));
       // THE SLIDES' OWN SETTINGS (2026-11-02, the owner: "some configuration to the slide pages... I wouldn't mind the
       // clock being bigger"): the corner over every slide, and what Music Full Screen shows
@@ -1337,7 +1391,8 @@
       if (any) {
         var ch = hideOf('corner_hide');
         out.push(K.group({ header: 'The Slide Corner', footer: 'Over every slide, the corner adds what the slide doesn’t show itself. Its time is in the Look’s face and color.' }, [
-          K.slider({ label: 'Time Size', value: Number(o.corner_time_size) || 100, min: 100, max: 250, step: 10, unit: '%', onChange: function (v) { self.change(function (x) { x.corner_time_size = v; }); } }),
+          K.slider({ label: 'Time Size', value: Number(o.corner_time_size) || 100, min: 100, max: 250, step: 10, unit: '%',
+            onChange: function (v) { self.change(function (x) { x.corner_time_size = v; }); } }),
           part('corner_hide', 'time', 'Time'), part('corner_hide', 'date', 'Date'), part('corner_hide', 'weather', 'Weather'), part('corner_hide', 'status', 'House Status')
         ].filter(function (r, i) { return i !== 0 || ch.indexOf('time') < 0; })));
       }
@@ -1369,7 +1424,8 @@
       if (lacks(this.opts, this.T()).indexOf(z) >= 0) add(K.group({ footer: 'Waits: this Look has no ' + (z === 'row' ? 'row' : 'line') + '. The piece stays here until a Look that has one.' }, []));
       // SHAPE: each drawn; a shape this piece's place can't take moves it to the nearest place that can
       var tiles = h('div', { class: 'shtiles', role: 'radiogroup', 'aria-label': 'Shape' }, P[0].map(function (sh) {
-        var sw = h('span', { class: 'swatch' }), el = self.sampleEl(w.piece, sh, { u: { inline: 3.6, circular: 3.4, rectangular: 2.4, card: 2.1, band: 1.1 }[sh], back: sh === 'card' && w.back === 'none' ? 'glass' : w.back, color: w.color, opts: w.opts });
+        var sw = h('span', { class: 'swatch' }), el = self.sampleEl(w.piece, sh,
+          { u: { inline: 3.6, circular: 3.4, rectangular: 2.4, card: 2.1, band: 1.1 }[sh], back: sh === 'card' && w.back === 'none' ? 'glass' : w.back, color: w.color, opts: w.opts });
         if (el) { if (sh === 'band') el.style.width = '100%'; sw.appendChild(el); }
         sw.setAttribute('data-acc', '');
         return h('button', { type: 'button', class: 'shtile' + (sh === 'band' ? ' wide' : ''), role: 'radio', 'aria-checked': String(sh === w.shape),
@@ -1390,7 +1446,8 @@
           return K.seg({ label: 'Backdrop', value: w.back, options: [['none', 'None'], ['glass', 'Glass'], ['tint', 'Tinted']], onChange: function (v) { edit(function (it) { it.back = v; }); } });
         } },
         { make: function () {
-          return K.seg({ label: 'Color', sub: 'Auto takes the screen’s ink', value: w.color, options: [['auto', 'Auto'], ['accent', 'Accent']], onChange: function (v) { edit(function (it) { it.color = v; }); } });
+          return K.seg({ label: 'Color', sub: 'Auto takes the screen’s ink', value: w.color, options: [['auto', 'Auto'], ['accent', 'Accent']],
+            onChange: function (v) { edit(function (it) { it.color = v; }); } });
         } },
         // ITS WORDS ALIGNED (2026-11-03, the owner: on the right, "aligned to the right to match the edge of the screen"):
         // a card's or a rectangle's lines; Auto follows its side
@@ -1402,7 +1459,8 @@
         } },
         // (a card with a heading -- Home Status' HOME -- without it)
         { applies: function () { return w.shape === 'card' && w.piece === 'status'; }, make: function () {
-          return K.toggle({ label: 'Title', sub: 'The card’s heading over its words', on: w.title !== false, onChange: function (on) { edit(function (it) { if (on) delete it.title; else it.title = false; }); } });
+          return K.toggle({ label: 'Title', sub: 'The card’s heading over its words', on: w.title !== false,
+            onChange: function (on) { edit(function (it) { if (on) delete it.title; else it.title = false; }); } });
         } }
       ];
       add(K.group({ header: 'Size and Style' }, this.rowsOf({}, sizeRows)));
@@ -1457,7 +1515,8 @@
         if (to !== z) { Z[z].splice(i, 1); Z[to].push(it); this.sel = to + ':' + (Z[to].length - 1); }
         if (to !== 'row' && it.size === 100) delete it.size;
       });
-      if (to !== z) this.say(this.pname(w) + ' moved ' + this.zoneName(to).toLowerCase() + ': ' + this.zoneName(z).toLowerCase() + ' doesn’t take ' + LM.SHAPE_NAMES[sh].toLowerCase() + ' pieces.', true);
+      if (to !== z) this.say(this.pname(w) + ' moved ' + this.zoneName(to).toLowerCase() + ': ' + this.zoneName(z).toLowerCase() + ' doesn’t take ' + LM.SHAPE_NAMES[sh].toLowerCase() + ' pieces.',
+        true);
     }
     // ONE OPTION OF A PIECE: its choices (a segmented control for a few, a menu for many), words, or an entity
     optionRow(w, k, spec, edit) {
@@ -1498,7 +1557,9 @@
     // THE ENTITY PICKER, a page of the sidebar: a search, the suggestion, and the entities of those domains by name
     pickerPage() {
       var K = this.K, self = this, h = this.h, pk = this.picker, add = (n) => this.sidebar.appendChild(n);
-      add(h('div', { class: 'insp-head' }, [h('div', {}, [h('h2', { text: pk.title }), h('p', { text: !pk.domains ? 'Any entity this screen may read' : pk.domains.length > 3 ? 'Any of these kinds of entity' : 'Choose a ' + listAnd(pk.domains.map(function (d) { return d.replace(/_/g, ' '); })).replace(/^a ([aeiou])/, 'an $1') })]),
+      add(h('div', { class: 'insp-head' }, [h('div', {}, [h('h2', { text: pk.title }),
+        h('p', { text: !pk.domains ? 'Any entity this screen may read' : pk.domains.length > 3 ? 'Any of these kinds of entity' : 'Choose a ' +
+        listAnd(pk.domains.map(function (d) { return d.replace(/_/g, ' '); })).replace(/^a ([aeiou])/, 'an $1') })]),
         h('button', { class: 'done', type: 'button', text: 'Back', onclick: function () { self.picker = null; self.side(); } })]));
       var inp = h('input', { type: 'search', class: 'srch', placeholder: 'Search', 'aria-label': 'Search ' + pk.title });
       inp.value = pk.q;
@@ -1558,7 +1619,8 @@
     zonePage(z) {
       var K = this.K, self = this, h = this.h, add = (n) => this.sidebar.appendChild(n), zs = this.T().zones;
       add(this.head('mdi:plus', this.zoneName(z), 'Takes ' + this.takes(z)));
-      if (z === 'row') add(K.group({ header: 'The Row', footer: 'Two lines of four: a circular piece is one, a rectangular two, as on the iPhone. A fifth starts the second line.' }, [this.rowAtRow()]));
+      if (z === 'row') add(K.group({ header: 'The Row', footer: 'Two lines of four: a circular piece is one, a rectangular two, as on the iPhone. A fifth starts the second line.' },
+        [this.rowAtRow()]));
       var by = {}, order = GROUPS.slice();
       Object.keys(LM.PIECES).forEach(function (p) {
         if (!self.shapeFor(p, z, zs)) return;

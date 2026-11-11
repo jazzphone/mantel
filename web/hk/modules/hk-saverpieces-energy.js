@@ -169,7 +169,10 @@
     var v = numOf(st, car.level);
     return { name: String(car.name || '').replace(/\s+/g, ' ').trim(), level: v == null ? null : clamp(Math.round(v), 0, 100), charging: live.length > 0 && live[0].car === car };
   }
-  var CAR = '<svg class="a" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path fill-rule="evenodd" d="M5.4 9.6l1.1-2.7A2.2 2.2 0 0 1 8.5 5.5h7a2.2 2.2 0 0 1 2 1.4l1.1 2.7A2.1 2.1 0 0 1 20.4 11.6v5.2a1 1 0 0 1-1 1h-1.5a1 1 0 0 1-1-1v-1H7.1v1a1 1 0 0 1-1 1H4.6a1 1 0 0 1-1-1v-5.2A2.1 2.1 0 0 1 5.4 9.6zM8.1 7.5l-.8 2.1h9.4l-.8-2.1zM7.6 12.05a1.15 1.15 0 1 0 0 2.3 1.15 1.15 0 1 0 0-2.3zM16.4 12.05a1.15 1.15 0 1 0 0 2.3 1.15 1.15 0 1 0 0-2.3z"/></svg>';
+  var CAR =
+    '<svg class="a" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path fill-rule="evenodd" d="M5.4 9.6l1.1-2.7A2.2 2.2 0 0 1 8.5 5.5h7a2.2 2.2 0 0 1 2 1.4l1.1 2.7A2.1 2.1 0 0 1 20.4 ' +
+    '11.6v5.2a1 1 0 0 1-1 1h-1.5a1 1 0 0 1-1-1v-1H7.1v1a1 1 0 0 1-1 1H4.6a1 1 0 0 1-1-1v-5.2A2.1 2.1 0 0 1 5.4 9.6zM8.1 7.5l-.8 2.1h9.4l-.8-2.1zM7.6 12.05a1.15 1.15 0 1 0 0 2.3 1.15 1.15 0 1 0 ' +
+    '0-2.3zM16.4 12.05a1.15 1.15 0 1 0 0 2.3 1.15 1.15 0 1 0 0-2.3z"/></svg>';
 
   W.define('ev', {
     name: 'EV', group: 'Energy', wave: 'B', facts: ['ev'], source: 'hkSettings energy.power cars', when: null,

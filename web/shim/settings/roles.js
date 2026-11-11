@@ -130,7 +130,8 @@ function pRooms() {
     if (!list.some(([v]) => v === d.subject)) d.subject = list.length ? list[0][0] : '';
     c.appendChild(group({ header: 'Who' }, [
       choose('rooms', 'kind', 'Kind', [['user', 'A Person'], ['device', 'A Wall Tablet']], 'user', () => { delete d.areas; redraw(); }),
-      list.length ? K().select({ label: 'Which', options: list, value: d.subject, fk: 'mx:rooms:subject', onChange: (v) => { d.subject = v; delete d.areas; redraw(); } }) : info('Which', null, 'Nobody')]));
+      list.length ? K().select({ label: 'Which', options: list, value: d.subject, fk: 'mx:rooms:subject', onChange: (v) => { d.subject = v; delete d.areas; redraw(); } }) :
+        info('Which', null, 'Nobody')]));
     if (!d.subject) return;
     const key = 'scope:' + d.kind + ':' + d.subject;
     const cur = load(key, () => api('GET', `/api/rbac/scopes/${d.kind}/${encodeURIComponent(d.subject)}`));

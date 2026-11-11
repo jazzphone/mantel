@@ -34,11 +34,14 @@
         P.replaceChildren();
         var target = this.pickerTarget && this.grid && this.grid.items.find((it) => it.id === this.selected);
         var head = h('div', { class: 'pal-head' });
-        if (target) head.appendChild(h('div', { class: 'pick-banner' }, [h('span', { text: /^rule:/.test(this.pickerTarget) ? 'Choose the card rule ' + (+this.pickerTarget.slice(5) + 1) + ' shows in this ' + SIZE_NAMES[target.size] + ' block.' : 'Choose a new card for this ' + SIZE_NAMES[target.size] + ' block.' }),
+        if (target) head.appendChild(h('div', { class: 'pick-banner' }, [h('span',
+          { text: /^rule:/.test(this.pickerTarget) ? 'Choose the card rule ' + (+this.pickerTarget.slice(5) + 1) + ' shows in this ' + SIZE_NAMES[target.size] + ' block.' :
+          'Choose a new card for this ' + SIZE_NAMES[target.size] + ' block.' }),
           h('button', { type: 'button', text: 'Cancel', onclick: () => this.pickFor(null) })]));
         var search = h('input', { class: 'catalog-search', type: 'search', placeholder: 'Search cards', 'aria-label': 'Search cards', value: this.pickerSearch || '' });
         head.appendChild(search);
-        if (!target) head.appendChild(h('p', { text: this.grid ? 'Drag a card onto the grid, or click it to preview and add.' : 'Choose a starter layout or Start Empty on the right, then drag cards onto the grid.' }));
+        if (!target) head.appendChild(h('p', { text: this.grid ? 'Drag a card onto the grid, or click it to preview and add.' :
+          'Choose a starter layout or Start Empty on the right, then drag cards onto the grid.' }));
         P.appendChild(head);
         var list = h('div', { class: 'catalog-list' }); P.appendChild(list);
         var rows = function () {
@@ -111,7 +114,8 @@
         var preview = h('div', { class: 'catalog-preview', 'data-preview-card': k, 'data-preview-size': sz, role: 'img',
           'aria-label': NAMES[k] + ' preview, ' + SIZE_NAMES[sz] });
         return h('div', { class: 'cell pal-detail' }, [preview,
-          h('p', { class: 'note', text: 'Sample readings. On your screen it shows your home.' + (space ? '' : ' There’s no free space for this size: drag the card onto the grid to replace the blocks it covers.') }),
+          h('p', { class: 'note', text: 'Sample readings. On your screen it shows your home.' +
+            (space ? '' : ' There’s no free space for this size: drag the card onto the grid to replace the blocks it covers.') }),
           h('button', { class: 'catalog-add', type: 'button', disabled: !space,
             text: this.pickerTarget ? 'Use ' + NAMES[k] : space ? 'Add ' + SIZE_NAMES[sz] + ' ' + NAMES[k] : 'No room for this size',
             onclick: () => this.usePicked(k, sz) })]);

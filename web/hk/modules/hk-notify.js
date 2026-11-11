@@ -188,18 +188,21 @@
     // turned: hk-base.js SAFE, 2026-10-30; over the saver too)
     // (the whole screen's centre, over a Side Pane's edge too, as an iPad's own banners -- the owner, 2026-10-31,
     // picked it over centring on the page beside the pane: --hk-page-right is no longer taken off)
-    '.layer{position:fixed;left:max(var(--hk-content-left,0px), var(--hk-safe-left,env(safe-area-inset-left,0px)));right:var(--hk-safe-right,env(safe-area-inset-right,0px));top:0;height:0;z-index:' + Z + ';pointer-events:none;',
+    '.layer{position:fixed;left:max(var(--hk-content-left,0px), var(--hk-safe-left,env(safe-area-inset-left,0px)));right:var(--hk-safe-right,env(safe-area-inset-right,0px));top:0;height:0;z-index:' +
+      Z + ';pointer-events:none;',
     // the dashboard's font, as every HK surface outside the view has it
     // (hk-base.js puts --hk-font-body on the root; this sheet is built before
     // hk-base may have loaded). It named -apple-system first, which an
     // Android tablet doesn't have: Roboto there.
     '  --ha-font-family-body:var(--hk-font-body);font-family:var(--hk-font-body);color:var(--hk-ink,rgba(255,255,255,0.94));',
-    '  --top:max(18px, calc(env(safe-area-inset-top, 0px) + 8px));--w:min(600px, calc(100vw - 32px));--r:30px;--pad:16px 18px 16px 16px;--gap:16px;--ic:50px;--f1:20px;--f2:18px;--th:70px;--cw:min(680px, calc(100vw - 32px))}',
+    '  --top:max(18px, calc(env(safe-area-inset-top, 0px) + 8px));--w:min(600px, calc(100vw - 32px));--r:30px;--pad:16px 18px 16px 16px;--gap:16px;--ic:50px;--f1:20px;--f2:18px;--th:70px;' +
+      '--cw:min(680px, calc(100vw - 32px))}',
     // UNDER THE DYNAMIC ISLAND / A CAMERA CUTOUT: Home Assistant's page is
     // viewport-fit=cover, so the Companion app (iPhone) and Android report
     // them as the safe area's top -- the banner sits 8 px under it, as the
     // tab bar does (hk-tabbar.js TOP_CSS)
-    '.layer.phone{--top:max(8px, calc(env(safe-area-inset-top, 0px) + 8px));--w:min(420px, calc(100vw - 16px));--r:26px;--pad:12px 14px 12px 12px;--gap:11px;--ic:38px;--f1:15.5px;--f2:15px;--th:50px;--cw:min(420px, calc(100vw - 16px))}',
+    '.layer.phone{--top:max(8px, calc(env(safe-area-inset-top, 0px) + 8px));--w:min(420px, calc(100vw - 16px));--r:26px;--pad:12px 14px 12px 12px;--gap:11px;--ic:38px;--f1:15.5px;--f2:15px;' +
+      '--th:50px;--cw:min(420px, calc(100vw - 16px))}',
     '.nb{position:absolute;left:50%;top:var(--top);width:var(--w);transform:translateX(-50%);box-sizing:border-box;display:flex;align-items:center;gap:var(--gap);',
     '  padding:var(--pad);border-radius:var(--r);pointer-events:auto;cursor:pointer;user-select:none;-webkit-user-select:none;touch-action:none;',
     '  border:1px solid rgba(255,255,255,0.16);box-shadow:0 12px 40px rgba(0,0,0,0.32),inset 0 1px 0 rgba(255,255,255,0.18);',
@@ -230,7 +233,8 @@
     '.th{width:var(--th);height:var(--th);border-radius:calc(var(--th) * .16);object-fit:cover;display:block;background:rgba(255,255,255,0.08);box-shadow:0 0 0 .5px rgba(255,255,255,.2)}',
     '.ctl{position:absolute;left:50%;transform:translate(-50%,6px);display:flex;gap:8px;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s,top .35s cubic-bezier(.34,1.24,.42,1)}',
     '.ctl.on{opacity:1;pointer-events:auto;transform:translate(-50%,0)}',
-    '.ctl button{border:1px solid rgba(255,255,255,0.16);font:inherit;font-size:calc(var(--f2) * .9);font-weight:600;color:var(--hk-ink,rgba(255,255,255,0.94));padding:8px 16px;border-radius:999px;cursor:pointer;',
+    '.ctl button{border:1px solid rgba(255,255,255,0.16);font:inherit;font-size:calc(var(--f2) * .9);font-weight:600;color:var(--hk-ink,rgba(255,255,255,0.94));padding:8px 16px;border-radius:999px;' +
+      'cursor:pointer;',
     '  background:rgba(50,52,60,0.6);-webkit-backdrop-filter:blur(18px) saturate(1.6);backdrop-filter:blur(18px) saturate(1.6);box-shadow:0 6px 20px rgba(0,0,0,.25)}',
     '.frosted .ctl button{background:rgba(62,64,74,0.95)}.clear .ctl button{background:rgba(24,24,28,0.93)}',
     '@media (prefers-reduced-motion: reduce){.nb,.ctl{transition:opacity .2s!important}.nb.enter{transform:translateX(-50%)}}'
@@ -250,7 +254,8 @@
     if (C && C.artGuard) C.artGuard(root);
     if (C && C.flatSurface) C.flatSurface(host, 'notification');
     root.innerHTML = '<style>' + CSS + (C && C.flatCss ? C.flatCss() : '') +
-      ':host([hk-flat]) .nb,:host([hk-flat]) .ctl button{background:var(--hk-flat-elevated)!important;color:var(--hk-ink);box-shadow:var(--hk-flat-elevated-shadow)}' + '</style><div class="layer"><div class="ctl"></div></div>';
+      ':host([hk-flat]) .nb,:host([hk-flat]) .ctl button{background:var(--hk-flat-elevated)!important;color:var(--hk-ink);box-shadow:var(--hk-flat-elevated-shadow)}' +
+        '</style><div class="layer"><div class="ctl"></div></div>';
     layer = root.querySelector('.layer');
     ctl = root.querySelector('.ctl');
     ctl.addEventListener('click', function (e) {

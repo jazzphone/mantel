@@ -152,7 +152,8 @@
       'Choose one or more speakers, then tap a playlist to play it on them. The speakers, presets and playlists are set up in HK Settings → Pages → Music.',
       C && [
         { name: 'browse_url', label: 'Browse page',
-          helper: 'Where the Browse Music pill goes, e.g. ./music-browse on ' + window.hkShell.productName() + '\'s own screens. Empty: no pill. Speakers, presets and playlists are set up in HK Settings → Pages → Music.',
+          helper: 'Where the Browse Music pill goes, e.g. ./music-browse on ' + window.hkShell.productName() +
+            '\'s own screens. Empty: no pill. Speakers, presets and playlists are set up in HK Settings → Pages → Music.',
           selector: { text: {} } }
       ],
       // NO browse_url IN THE STUB: ./music-browse is a page only HK Frontend's
@@ -276,7 +277,8 @@
     if (C.unlisted) C.unlisted('hk-tv-channels-card');
 
     // (for tests: the Home Grid widgets' pure pieces)
-    window.hkMedia = { version: '1.0.0', _: { recentCovers: recentCovers, playlistTiles: playlistTiles, heroFirst: heroFirst, LASTPL: LASTPL, tvGrid: tvGrid, tintOf: tintOf, RECENT: RECENT, TV_SLOTS: TV_SLOTS } };
+    window.hkMedia = { version: '1.0.0', _: { recentCovers: recentCovers, playlistTiles: playlistTiles, heroFirst: heroFirst, LASTPL: LASTPL, tvGrid: tvGrid, tintOf: tintOf, RECENT: RECENT,
+      TV_SLOTS: TV_SLOTS } };
   });
   });
 })();

@@ -18,10 +18,15 @@
     var v = function (n) { return window.hkCards.v(n); };
     var MINT = (C.ACCENTS && C.ACCENTS.mint) || '#63e6e2', RED = (C.ACCENTS && C.ACCENTS.red) || '#ff453a';
     var ICON = {
-      pause: '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect x="6" y="4.5" width="4.4" height="15" rx="1.6" fill="currentColor"/><rect x="13.6" y="4.5" width="4.4" height="15" rx="1.6" fill="currentColor"/></svg>',
-      play: '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M7 4.6v14.8c0 1 1.1 1.6 2 1.1l11.6-7.4c.8-.5.8-1.7 0-2.2L9 3.5c-.9-.5-2 .1-2 1.1Z" fill="currentColor"/></svg>',
+      pause:
+        '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect x="6" y="4.5" width="4.4" height="15" rx="1.6" fill="currentColor"/><rect x="13.6" y="4.5" width="4.4" height="15" ' +
+        'rx="1.6" fill="currentColor"/></svg>',
+      play:
+        '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M7 4.6v14.8c0 1 1.1 1.6 2 1.1l11.6-7.4c.8-.5.8-1.7 0-2.2L9 3.5c-.9-.5-2 .1-2 1.1Z" fill="currentColor"/></svg>',
       stop: '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="3.2" fill="currentColor"/></svg>',
-      check: '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M5 12.5l4.5 4.6L19 7" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+      check:
+        '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M5 12.5l4.5 4.6L19 7" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" ' +
+        'stroke-linejoin="round"/></svg>'
     };
 
     class LaundryPanel extends Panel {
@@ -154,7 +159,8 @@
         if (o.steps) {
           q('.trk').innerHTML = o.steps.map(function (s) {
             var f = s.done ? 100 : s.now ? 50 : 0;
-            return '<div class="st' + (s.done ? ' done' : s.now ? ' now' : '') + '"><div class="bar"><i style="width:' + f + '%' + (s.color ? ';background:' + s.color : '') + '"></i></div><div class="lb">' + esc(s.name) + '</div></div>';
+            return '<div class="st' + (s.done ? ' done' : s.now ? ' now' : '') + '"><div class="bar"><i style="width:' + f + '%' + (s.color ? ';background:' + s.color : '') +
+              '"></i></div><div class="lb">' + esc(s.name) + '</div></div>';
           }).join('');
         }
         // THE READINGS: only what this machine has

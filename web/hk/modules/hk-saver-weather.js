@@ -195,7 +195,8 @@
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   // (a missing value stays missing: Number(null) is 0, a bearing of north)
   function num(v) { if (v == null || v === '') return null; var n = Number(v); return isFinite(n) ? n : null; }
-  function reduced() { return !!(((window.hkSettings && window.hkSettings.rendering && !window.hkSettings.rendering().motion) || (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches))); }
+  function reduced() { return !!(((window.hkSettings && window.hkSettings.rendering && !window.hkSettings.rendering().motion) ||
+    (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches))); }
   function tz() { return window.hkStats && window.hkStats.tz ? window.hkStats.tz() : undefined; }
   function HD() { return window.hkHeader || null; }
   function glyph(cond, size, night, sym) { var H = HD(); return H && H.wxSvg ? H.wxSvg(cond, size, { night: !!night, sym: !!sym }) : ''; }
@@ -248,7 +249,8 @@
     // Put the next useful change in the headline. The condition already
     // lives under the temperature; retain it only when no change is known.
     var future = hrs.filter(function (h) { return +new Date(h.datetime) > now; });
-    var wsNow = num(a.wind_speed), factor = /km|kph/.test(unitWind || a.wind_speed_unit || '') ? 1.609 : /m\/s/.test(unitWind || a.wind_speed_unit || '') ? 0.447 : /kn/.test(unitWind || a.wind_speed_unit || '') ? 0.869 : 1;
+    var wsNow = num(a.wind_speed), factor = /km|kph/.test(unitWind || a.wind_speed_unit || '') ? 1.609 : /m\/s/.test(unitWind || a.wind_speed_unit || '') ? 0.447 :
+      /kn/.test(unitWind || a.wind_speed_unit || '') ? 0.869 : 1;
     var windy = wsNow == null ? null : future.filter(function (h) { return num(h.wind_speed) != null && num(h.wind_speed) >= Math.max(15 * factor, wsNow + 8 * factor); })[0];
     var support = [];
     if (WET.test(cond) && dry) {
@@ -271,7 +273,8 @@
     if (!off.rain) {
       var pToday = hrs.length ? Math.max.apply(null, hrs.slice(0, 12).map(prob)) : num(today.precipitation_probability);
       var nextWet = (daily || []).slice(1).filter(function (d) { return (num(d.precipitation_probability) || 0) >= 40 || WET.test(d.condition || ''); })[0];
-      var of = WET.test(cond) ? (num(today.precipitation) ? today.precipitation + ' ' + esc(a.precipitation_unit || 'in') + ' today' : (dry ? 'Easing around ' + esc(hourOf(dry.datetime)) : 'Through the day'))
+      var of = WET.test(cond) ? (num(today.precipitation) ? today.precipitation + ' ' + esc(a.precipitation_unit || 'in') + ' today' :
+        (dry ? 'Easing around ' + esc(hourOf(dry.datetime)) : 'Through the day'))
         : pToday >= 30 ? 'Most likely ' + (wet ? 'around ' + esc(hourOf(wet.datetime)) : 'later today')
         : nextWet ? 'Dry until ' + longDayOf(nextWet.datetime) : 'Dry for the days ahead';
       if (pToday != null) stats.push(['rain', snow ? 'Snow' : 'Rain', Math.round(pToday) + '<u>%</u>', of]);
@@ -318,7 +321,8 @@
   function alertTime(end, now, h24) {
     if (end == null) return 'Active alert';
     var d = new Date(end), z = tz(), opts = { hour: 'numeric', minute: '2-digit', hour12: !h24, timeZone: z };
-    if (d.toLocaleDateString(window.hkLocale.tag(), window.hkLocale.zoned({ timeZone: z })) !== new Date(now).toLocaleDateString(window.hkLocale.tag(), window.hkLocale.zoned({ timeZone: z }))) opts.weekday = 'short';
+    if (d.toLocaleDateString(window.hkLocale.tag(), window.hkLocale.zoned({ timeZone: z })) !==
+      new Date(now).toLocaleDateString(window.hkLocale.tag(), window.hkLocale.zoned({ timeZone: z }))) opts.weekday = 'short';
     return 'Until ' + d.toLocaleTimeString(window.hkLocale.tag(), opts);
   }
   var hd = { states: null };
@@ -448,7 +452,8 @@
       if (existing) existing.close();
       var d = document.createElement('dialog'); dialog = d;
       d.setAttribute('aria-labelledby', 'hk-nws-title');
-      d.innerHTML = '<style>.hk-nws{color:#f5f7fc;background:#142238;border:1px solid #ffffff30;border-radius:20px;padding:26px;width:min(760px,90vw);max-height:85vh;overflow:auto;font-family:' + FONT + ';box-sizing:border-box}' +
+      d.innerHTML = '<style>.hk-nws{color:#f5f7fc;background:#142238;border:1px solid #ffffff30;border-radius:20px;padding:26px;width:min(760px,90vw);max-height:85vh;overflow:auto;font-family:' +
+        FONT + ';box-sizing:border-box}' +
         '.hk-nws::backdrop{background:rgba(0,0,0,.65)}.hk-nws header{display:flex;align-items:center;gap:20px}.hk-nws h2{font-size:24px;margin:0;flex:1}' +
         '.hk-nws button{font:inherit;color:inherit;background:rgba(255,255,255,.1);border:1px solid #ffffff30;border-radius:20px;padding:9px 18px;cursor:pointer}' +
         '.hk-nws article{border-top:1px solid #ffffff30;margin-top:22px;padding-top:18px}.hk-nws h3{font-size:22px;margin:0 0 8px}.hk-nws h4{font-size:16px;margin-bottom:8px}' +
@@ -516,7 +521,8 @@
         var n = /night/.test(h.condition || '') || h.is_daytime === false;
         return '<div><div class="k">' + esc(hourOf(h.datetime)) + '</div><div class="v"><span class="gl">' + glyph(h.condition, '1em', n) + '</span>' +
           (num(h.temperature) != null ? Math.round(h.temperature) + '°' : '—') + '</div>' +
-          (v.showPop ? '<div class="pop">' + (num(h.precipitation_probability) == null ? '—' : Math.round(Math.max(0, Math.min(100, num(h.precipitation_probability)))) + '%') + '</div>' : '') + '</div>';
+          (v.showPop ? '<div class="pop">' + (num(h.precipitation_probability) == null ? '—' : Math.round(Math.max(0, Math.min(100, num(h.precipitation_probability)))) + '%') + '</div>' : '') +
+            '</div>';
       }).join('');
       var days = v.days.map(function (d) {
         return '<div><div class="k">' + esc(dayOf(d.datetime)) + '</div><div class="v"><span class="gl">' + glyph(d.condition === 'clear-night' ? 'sunny' : d.condition, '1em', false) + '</span>' +

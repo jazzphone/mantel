@@ -84,7 +84,8 @@
     // THE APPS: tiles the plate's width, the one open ringed
     '.apps{display:flex;justify-content:space-between;gap:8px}',
     '.apps.g2{display:grid;grid-template-columns:repeat(2,auto);justify-content:space-between;row-gap:13px}',
-    '.app{all:unset;box-sizing:border-box;position:relative;flex:none;border-radius:22%;cursor:pointer;display:grid;place-items:center;overflow:hidden;background:' + v('key') + ';color:' + v('ink') + ';box-shadow:0 2px 6px rgba(0,0,0,.18)}',
+    '.app{all:unset;box-sizing:border-box;position:relative;flex:none;border-radius:22%;cursor:pointer;display:grid;place-items:center;overflow:hidden;background:' + v('key') + ';color:' + v('ink') +
+      ';box-shadow:0 2px 6px rgba(0,0,0,.18)}',
     '.app img{width:100%;height:100%;object-fit:cover;display:block}',
     '.app.gl{background:#111;color:#fff}',
     '.app.nm span{font-size:11px;font-weight:600;line-height:1.15;text-align:center;padding:4px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}',
@@ -100,7 +101,8 @@
     '.k{all:unset;position:absolute;width:30%;height:30%;border-radius:50%;display:grid;place-items:center;cursor:pointer;color:' + v('ink') + '}',
     '.k:active{background:' + v('key-strong') + '}',
     '.k.u{left:35%;top:2%}.k.d{left:35%;bottom:2%;transform:rotate(180deg)}.k.l{left:2%;top:35%;transform:rotate(-90deg)}.k.r{right:2%;top:35%;transform:rotate(90deg)}',
-    '.ok{all:unset;position:absolute;left:31%;top:31%;width:38%;height:38%;border-radius:50%;display:grid;place-items:center;cursor:pointer;font-size:15px;font-weight:600;background:' + v('key-strong') + '}',
+    '.ok{all:unset;position:absolute;left:31%;top:31%;width:38%;height:38%;border-radius:50%;display:grid;place-items:center;cursor:pointer;font-size:15px;font-weight:600;background:' +
+      v('key-strong') + '}',
     '.ok:active{background:rgba(255,255,255,.3)}',
     '.none{margin:auto;text-align:center;display:flex;flex-direction:column;gap:4px}'
   ].join('');
@@ -169,7 +171,8 @@
       var vol = lk.volume;
       if (!vol.mode) return '';
       if (vol.mode === 'step' || steps) return '<button type="button" class="rb" data-notap data-vol="down" aria-label="Volume down">' + svg('minus') + '</button>';
-      return '<div class="vol" data-notap>' + svg('spk', 16) + '<input type="range" min="0" max="100" step="1" value="' + Math.round((vol.level || 0) * 100) + '" aria-label="Volume">' + svg('spk2', 18) + '</div>';
+      return '<div class="vol" data-notap>' + svg('spk', 16) + '<input type="range" min="0" max="100" step="1" value="' + Math.round((vol.level || 0) * 100) + '" aria-label="Volume">' +
+        svg('spk2', 18) + '</div>';
     }
     /** @param {any[]} apps @param {number} n @param {number} size @param {string} [cls] */
     _apps(apps, n, size, cls) {
@@ -181,16 +184,19 @@
         (set.remotes.playerKind === 'apple_tv' ? 'Apple TV' : 'Player') + '</button><button type="button" data-to="tv" class="' + (to === 'tv' ? 'on' : '') + '">TV</button></div>' : '';
       var a = Math.round(d * 0.13);
       return seg + '<div class="dpad" data-notap style="width:' + d + 'px;height:' + d + 'px">' +
-        ['u', 'd', 'l', 'r'].map(function (k, i) { return '<button type="button" class="k ' + k + '" data-key="' + ['up', 'down', 'left', 'right'][i] + '" aria-label="' + ['Up', 'Down', 'Left', 'Right'][i] + '">' + svg('up', a) + '</button>'; }).join('') +
+        ['u', 'd', 'l', 'r'].map(function (k, i) { return '<button type="button" class="k ' + k + '" data-key="' + ['up', 'down', 'left', 'right'][i] + '" aria-label="' +
+          ['Up', 'Down', 'Left', 'Right'][i] + '">' + svg('up', a) + '</button>'; }).join('') +
         '<button type="button" class="ok" data-key="select">OK</button></div>' +
-        '<div class="row" style="gap:20px" data-notap><button type="button" class="rb" data-key="back" aria-label="Back">' + svg('back') + '</button><button type="button" class="rb" data-key="home" aria-label="Home">' + svg('home') +
+        '<div class="row" style="gap:20px" data-notap><button type="button" class="rb" data-key="back" aria-label="Back">' + svg('back') +
+          '</button><button type="button" class="rb" data-key="home" aria-label="Home">' + svg('home') +
         '</button><button type="button" class="rb" data-key="play_pause" aria-label="Play or pause">' + svg('pp') + '</button></div>';
     }
     _render() {
       var self = this, T = window.hkTv, size = this._size(), box = this._box(size), set = this._set(), cfg = this._config || {}, body = '', label = '';
       if (!T || !set) {
         var where = window.hkShell && window.hkShell.settingsPlace ? window.hkShell.settingsPlace('Accessories → TVs') : 'Accessories → TVs';
-        body = '<div class="none"><div class="hd">TV</div><div class="sb">' + (cfg.tv && cfg.tv !== 'tablet_room' ? 'This TV isn’t available.' : 'No TV in this room. Choose one in the block’s settings, or set TVs up in ' + esc(where) + '.') + '</div></div>';
+        body = '<div class="none"><div class="hd">TV</div><div class="sb">' + (cfg.tv && cfg.tv !== 'tablet_room' ? 'This TV isn’t available.' :
+          'No TV in this room. Choose one in the block’s settings, or set TVs up in ' + esc(where) + '.') + '</div></div>';
       } else {
         var lk = T.look(this.client, set), can = T.canArrows(this.client, set), to = this._to && can[this._to] ? this._to : lk.arrows;
         var apps = T.apps(this.client, set, cfg.show || undefined, 6), now = apps.filter(function (a) { return a.now; })[0] || null;
@@ -203,7 +209,8 @@
             '<div class="foot"><div class="hd">' + esc(title) + '</div><div class="sb">' + esc(lk.on ? (lk.onPlayer && lk.sub ? lk.sub : set.name) : 'Tap an app to watch') + '</div></div>';
         } else if (size === 'W') {
           var n = 5, aw = Math.min(64, Math.floor((iw - 4 * 8) / n)), wTop = ih - aw;
-          body = '<div class="row"><div class="grow"><div class="lbl">' + esc(set.name) + '</div><div class="hd" style="margin-top:4px">' + esc(title + (lk.onPlayer && lk.sub ? ' · ' + lk.sub : '')) + '</div>' +
+          body = '<div class="row"><div class="grow"><div class="lbl">' + esc(set.name) + '</div><div class="hd" style="margin-top:4px">' + esc(title + (lk.onPlayer && lk.sub ? ' · ' + lk.sub : '')) +
+            '</div>' +
             (wTop > 70 && !lk.onPlayer ? '<div class="sb">' + esc(lk.on ? (lk.source ? 'On the TV' : 'On') : 'Tap an app to watch') + '</div>' : '') + '</div>' + this._main(lk) + '</div>' +
             '<div class="foot">' + this._apps(apps, n, aw) + '</div>';
         } else if (size === 'T') {
@@ -219,14 +226,16 @@
             '<span class="grow"></span>' + this._vol(lk, true) + '<button type="button" class="rb" data-notap data-vol="up" aria-label="Volume up">' + svg('plus') + '</button>' : '') + '</div>';
           var left = '<div style="display:flex;flex-direction:column;gap:' + gap + 'px;min-width:0;width:' + lw + 'px;height:100%">' +
             '<div class="row" style="height:20px;justify-content:space-between"><div class="lbl">' + esc(set.name) + '</div>' +
-            (lk.onPlayer && set.input && set.tv ? '<div class="sb">' + esc((set.remotes.playerKind === 'apple_tv' ? 'Apple TV' : 'Player') + ' · ' + set.input) + '</div>' : !lk.onPlayer && lk.tvOn ? '<div class="sb">' + esc(lk.source || '') + '</div>' : '') + '</div>' +
+            (lk.onPlayer && set.input && set.tv ? '<div class="sb">' + esc((set.remotes.playerKind === 'apple_tv' ? 'Apple TV' : 'Player') + ' · ' + set.input) + '</div>' : !lk.onPlayer && lk.tvOn ?
+              '<div class="sb">' + esc(lk.source || '') + '</div>' : '') + '</div>' +
             this._art(lk, now, lw, arth2, true) + ctl + this._apps(apps, 5, aw2) +
             (xl ? '' : '<div class="row foot" style="justify-content:space-between"><button type="button" class="pill" data-notap data-act="sheet">' + svg('remote', 18) + 'Remote</button>' +
               (lk.onPlayer ? '<button type="button" class="rb" data-notap data-act="power" aria-label="Power">' + svg('power') + '</button>' : '') + '</div>') + '</div>';
           if (!xl) body = left;
           else {
             var d = Math.max(120, Math.min(206, ih - (can.player && can.tv ? 38 : 0) - 44 - 2 * gap));
-            body = '<div class="row" style="align-items:stretch;gap:22px;height:100%">' + left + '<div style="flex:none;width:206px;display:flex;flex-direction:column;align-items:center;justify-content:space-between">' +
+            body = '<div class="row" style="align-items:stretch;gap:22px;height:100%">' + left +
+              '<div style="flex:none;width:206px;display:flex;flex-direction:column;align-items:center;justify-content:space-between">' +
               (can.player || can.tv ? this._remote(d, set, to, can) : '') + '</div></div>';
           }
         }
@@ -254,7 +263,8 @@
       this._root.querySelectorAll('.vol').forEach(function (el) { el.addEventListener('click', function (e) { e.stopPropagation(); }); });
       var range = /** @type {HTMLInputElement|null} */ (this._root.querySelector('.vol input'));
       if (range) {
-        var send = C.throttle ? C.throttle(function (/** @type {number} */ x) { self._run(T.volume(self.client, cur(), 'set', x)); }, 250) : function (/** @type {number} */ x) { self._run(T.volume(self.client, cur(), 'set', x)); };
+        var send = C.throttle ? C.throttle(function (/** @type {number} */ x) { self._run(T.volume(self.client, cur(), 'set', x)); }, 250) :
+          function (/** @type {number} */ x) { self._run(T.volume(self.client, cur(), 'set', x)); };
         range.addEventListener('input', function () { send(Number(range.value) / 100); });
       }
       this._root.querySelectorAll('[data-to]').forEach(function (b) {

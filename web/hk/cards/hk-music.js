@@ -353,7 +353,8 @@
     '.mu:not([cols]){visibility:hidden}',
     '.mu[cols="1"] .left{position:fixed;left:0;right:0;top:0;bottom:0;z-index:19;box-sizing:border-box;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y pinch-zoom;',
     // (its sides clear of a side safe area, its glass under it: hk-base.js SAFE)
-    '  padding:max(10px,env(safe-area-inset-top,0px)) calc(20px + var(--hk-safe-right,env(safe-area-inset-right,0px))) max(24px,env(safe-area-inset-bottom,0px)) calc(20px + var(--hk-safe-left,env(safe-area-inset-left,0px)));transform:translateY(100%);visibility:hidden;',
+    '  padding:max(10px,env(safe-area-inset-top,0px)) calc(20px + var(--hk-safe-right,env(safe-area-inset-right,0px))) max(24px,env(safe-area-inset-bottom,0px)) calc(20px + ' +
+      'var(--hk-safe-left,env(safe-area-inset-left,0px)));transform:translateY(100%);visibility:hidden;',
     '  transition:transform .42s cubic-bezier(.32,.72,0,1),visibility 0s linear .42s;',
     '  background:rgba(20,13,30,.80);-webkit-backdrop-filter:blur(40px) saturate(1.5);backdrop-filter:blur(40px) saturate(1.5)}',
     '.mu[cols="1"] .left.sheetup{transform:none;visibility:visible;transition:transform .42s cubic-bezier(.32,.72,0,1)}',
@@ -397,7 +398,8 @@
     // <playlist>…" was never seen (house, 2026-10-20). Fixed, on the bar's
     // top edge (hk-tabbar.js --hk-tabbar-top, its gap included), else 20 px
     // over the window's foot.
-    '.toast{position:fixed;left:50%;bottom:var(--hk-tabbar-top,calc(20px + env(safe-area-inset-bottom, 0px)));transform:translate(-50%,10px);background:rgba(255,255,255,.96);color:#111;font-weight:600;',
+    '.toast{position:fixed;left:50%;bottom:var(--hk-tabbar-top,calc(20px + env(safe-area-inset-bottom, 0px)));transform:translate(-50%,10px);background:rgba(255,255,255,.96);color:#111;' +
+      'font-weight:600;',
     '  font-size:14px;padding:10px 18px;border-radius:99px;opacity:0;transition:opacity .25s,transform .25s;pointer-events:none;z-index:30;',
     '  white-space:nowrap;max-width:90%;overflow:hidden;text-overflow:ellipsis;box-shadow:0 8px 24px rgba(0,0,0,.35)}',
     '.toast.on{opacity:1;transform:translate(-50%,0)}',
@@ -888,7 +890,8 @@
       // page's song in rooms its buttons do not reach -- or when what plays
       // is not this page's
       var show = ss.length > 1 || (ss.length === 1 && (!c || ss[0].ctxs.length > 1));
-      var sig = show ? ss.map(function (x) { return x.ctxs.map(function (y) { return y.key; }).join('+') + '|' + x.state + '|' + x.title + '|' + x.image + '|' + x.members.join(','); }).join(';') + '#' + mine + '#' + this._targetRooms().join(',') : '';
+      var sig = show ? ss.map(function (x) { return x.ctxs.map(function (y) { return y.key; }).join('+') + '|' + x.state + '|' + x.title + '|' + x.image + '|' + x.members.join(','); }).join(';') +
+        '#' + mine + '#' + this._targetRooms().join(',') : '';
       if (sig === this._houseSig) return;
       var el = this._e.house, top = el.scrollTop, was = (this._houseSig || '').split('#')[1];
       this._houseSig = sig;
@@ -1290,9 +1293,11 @@
       var html = '<div class="yph"><h3>Your Playlists</h3></div><div class="grid cats">';
       pls.forEach(function (p, i) {
         var open = self._openOpts === p.name, busy = self._busyPl === p.name;
-        html += '<div class="it cat tile' + (open ? ' on' : '') + (busy ? ' busy' : '') + '" data-pl="' + i + '"><div class="well"><hk-icon icon="' + esc(p.icon || 'mdi:playlist-music') + '"></hk-icon></div>' +
+        html += '<div class="it cat tile' + (open ? ' on' : '') + (busy ? ' busy' : '') + '" data-pl="' + i + '"><div class="well"><hk-icon icon="' + esc(p.icon || 'mdi:playlist-music') +
+          '"></hk-icon></div>' +
                 '<div class="txt">' + esc(p.name) + '</div></div>';
-        if (open && p.options) html += '<div class="opts">' + p.options.map(function (o, j) { return '<div class="opt" data-opt="' + i + ':' + j + '">' + esc(o.name) + '</div>'; }).join('') + '</div>';
+        if (open && p.options) html += '<div class="opts">' + p.options.map(function (o, j) { return '<div class="opt" data-opt="' + i + ':' + j + '">' + esc(o.name) + '</div>'; }).join('') +
+          '</div>';
       });
       el.innerHTML = html + '</div>';
       // A PLAYLIST'S COVER (2026-11-01): the picture of what it is built with, in the tile's well; none, the glyph
@@ -1463,7 +1468,8 @@
     // the recording, 2026-10-11.)
     _turn(opening, me, done) {
       var e = this._e, el = me.p.el, left = e.left, parts = [e.pon, e.house, e.front], self = this;
-      var reduce = ((window.hkSettings && window.hkSettings.rendering && !window.hkSettings.rendering().motion) || (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches));
+      var reduce = ((window.hkSettings && window.hkSettings.rendering && !window.hkSettings.rendering().motion) ||
+        (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches));
       var show = function (front) { parts.forEach(function (x) { x.style.visibility = front ? '' : 'hidden'; }); el.style.visibility = front ? 'hidden' : ''; };
       if (reduce || typeof left.animate !== 'function') { show(!opening); if (done) done(); return; }
       if (this._turnAnim) { try { this._turnAnim.cancel(); } catch (x) { /* done */ } }

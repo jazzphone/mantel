@@ -107,7 +107,8 @@
           K.nav({ label: 'Copy Settings From', sk: 'new:from', href: '#/add-screen/from',
                   value: nw.copy && nw.copy.from ? ((self.dash(nw.copy.from) || {}).title || nw.copy.from) : 'Nothing' }),
           K.toggle({ label: 'Only Admins Can Open It', on: nw.admin, sk: 'new:admin', onChange: function (on) { nw.admin = on; } })]));
-        c.appendChild(K.group({ footer: self.showsNote(nw) }, [K.button({ label: nw.shows && nw.shows !== 'all' ? 'Create Page Screen' : 'Create Screen', center: true, fk: 'new:go', onClick: function () {
+        c.appendChild(K.group({ footer: self.showsNote(nw) }, [K.button({ label: nw.shows && nw.shows !== 'all' ? 'Create Page Screen' : 'Create Screen', center: true, fk: 'new:go',
+          onClick: function () {
           var inp = self.shadowRoot.querySelector('[data-fk="new:name"]');
           var title = String((inp && inp.value) || nw.name || '').trim();
           if (!title) { self.errors['new:name'] = 'Give it a name.'; self.render(); return; }
@@ -216,7 +217,8 @@
         };
         if (!sub[0]) {
           return { title: 'Custom Chips', top: true, scope: 'Status chips you write yourself, for any screen.', body: function (c) {
-            c.appendChild(K.group({ footer: 'A chip in YAML — an hk-status-chip-card, or one inside a conditional that shows it only sometimes. A screen shows it once it’s added to that screen’s Status Chips.' },
+            c.appendChild(
+              K.group({ footer: 'A chip in YAML — an hk-status-chip-card, or one inside a conditional that shows it only sometimes. A screen shows it once it’s added to that screen’s Status Chips.' },
               lib.map(function (x) {
                 var on = usedOn(x.key);
                 return K.nav({ label: x.name, sub: where(x.after) + ' · ' + (on.length ? on.join(', ') : 'On no screen yet'),
@@ -245,7 +247,9 @@
           self.yamlPage(c, { value: f.card !== undefined ? f.card : (chip ? chip.card : {}), sk: 'card', clear: false,
             saveLabel: chip ? 'Save Chip' : 'Add Chip', onDraft: function (v) { f.card = v; },
             help: 'The chip, as a card. Where it sits applies unless a screen orders its chips itself.',
-            example: 'type: custom:hk-status-chip-card\nentity: sensor.home_battery_level\nname: House Battery\nicon: hk:home-battery\nicon_color: green\ntap_action:\n  action: navigate\n  navigation_path: ./power',
+            example:
+              'type: custom:hk-status-chip-card\nentity: sensor.home_battery_level\nname: House Battery\nicon: hk:home-battery\nicon_color: green\ntap_action:\n  action: navigate\n  ' +
+              'navigation_path: ./power',
             onSave: function (card) {
               if (!f.name) { self.errors.name = M.errorText('name_needed'); self.render(); return; }
               save(card).then(function (ok) {

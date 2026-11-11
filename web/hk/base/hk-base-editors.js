@@ -181,7 +181,8 @@
       order: 'Optional, for automatic rooms: the order to show them in on each floor. Empty: this screen\'s Room order when it is used on pages, else A to Z.',
       create_script: 'Optional. Receives the duration and name. Empty: script.quick_timer_create (the shipped quick-timer helpers).', name_chips: 'Names offered as one-tap choices.',
       timers: 'YAML list: entity, label, glyph, label_entity.',
-      bad_code_entity: 'Optional. Only for a panel that fails silently on a wrong code: an on/off entity turned on briefly when a code is rejected. A panel that refuses the code shows "Wrong code" without it.',
+      bad_code_entity:
+        'Optional. Only for a panel that fails silently on a wrong code: an on/off entity turned on briefly when a code is rejected. A panel that refuses the code shows "Wrong code" without it.',
       progress: 'Percent complete while cleaning.',
       scale: '1 is normal size.', fixed: 'For the screensaver.',
       seam: 'Space between the camera images.', refresh: 'How often the snapshots update. 0 turns it off.',

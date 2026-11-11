@@ -75,7 +75,8 @@
     '.hksw .cam-img:not([src]){display:none}',
     // the name: 1.2 u in from the bottom-left corner, on a soft dark gradient that fades toward the top right
     '.hksw .cam-g{position:absolute;left:0;bottom:0;width:80%;height:calc(var(--u) * 8);pointer-events:none;background:linear-gradient(to top right,rgba(0,0,0,.6),rgba(0,0,0,0) 75%)}',
-    '.hksw .cam-n{position:absolute;left:calc(var(--u) * 1.2);bottom:calc(var(--u) * 1.2);max-width:calc(100% - var(--u) * 2.4);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:calc(var(--u) * 2);line-height:1.2;font-weight:600;letter-spacing:.01em;text-shadow:0 1px 4px rgba(0,0,0,.5)}',
+    '.hksw .cam-n{position:absolute;left:calc(var(--u) * 1.2);bottom:calc(var(--u) * 1.2);max-width:calc(100% - var(--u) * 2.4);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;' +
+      'font-size:calc(var(--u) * 2);line-height:1.2;font-weight:600;letter-spacing:.01em;text-shadow:0 1px 4px rgba(0,0,0,.5)}',
     // rectangular: the still to the edge (the renderer's 29 x 13 u, its 2.2 u radius and its clip)
     '.hksw.k-rectangular.p-camera{padding:0}',
     // card: 30 u wide and 16.8 u of picture (the still is 16:9); the ring's card is as wide as its words, 30 u at least, with its
@@ -89,8 +90,12 @@
   if (W.addCss) W.addCss(CSS);
 
   // ------------------------------------------------------------ glyphs (ours: a video camera, a bell)
-  var CAM_GLYPH = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M4.5 7h9A2.5 2.5 0 0 1 16 9.5v5a2.5 2.5 0 0 1-2.5 2.5h-9A2.5 2.5 0 0 1 2 14.5v-5A2.5 2.5 0 0 1 4.5 7z"/><path d="M17.5 10.4 22 8v8l-4.5-2.4z"/></svg>';
-  var BELL = '<svg class="a" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M12 3a1.4 1.4 0 0 1 1.4 1.4v.5a5.6 5.6 0 0 1 4.2 5.5v3.3l1.7 2.4a.9.9 0 0 1-.7 1.4H5.4a.9.9 0 0 1-.7-1.4l1.7-2.4v-3.3a5.6 5.6 0 0 1 4.2-5.5v-.5A1.4 1.4 0 0 1 12 3z"/><path d="M9.6 19h4.8a2.4 2.4 0 0 1-4.8 0z"/></svg>';
+  var CAM_GLYPH =
+    '<svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M4.5 7h9A2.5 2.5 0 0 1 16 9.5v5a2.5 2.5 0 0 1-2.5 2.5h-9A2.5 2.5 0 0 1 2 14.5v-5A2.5 2.5 0 0 1 4.5 7z"/><path d="M17.5 ' +
+    '10.4 22 8v8l-4.5-2.4z"/></svg>';
+  var BELL =
+    '<svg class="a" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M12 3a1.4 1.4 0 0 1 1.4 1.4v.5a5.6 5.6 0 0 1 4.2 5.5v3.3l1.7 2.4a.9.9 0 0 1-.7 1.4H5.4a.9.9 0 0 ' +
+    '1-.7-1.4l1.7-2.4v-3.3a5.6 5.6 0 0 1 4.2-5.5v-.5A1.4 1.4 0 0 1 12 3z"/><path d="M9.6 19h4.8a2.4 2.4 0 0 1-4.8 0z"/></svg>';
 
   // ------------------------------------------------------------ small helpers
   function defer(f) { return setTimeout(f, 0); }

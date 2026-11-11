@@ -63,7 +63,8 @@
       '.er-x{display:flex;align-items:center;gap:30px;flex:1;min-height:0}.er-x>.wcol{flex:1;justify-content:center}',
       '.er-x .wgrid span{font-size:30px;letter-spacing:-0.6px}.er-l .wgrid span{font-size:22px}',
       '.so{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-top:16px;padding-top:12px;border-top:1px solid ' + window.hkCards.v('line') + '}',
-      '.so b{' + window.hkCards.typeCss('headline') + ';white-space:nowrap}.so small{' + window.hkCards.typeCss('caption') + ';color:' + window.hkCards.v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+      '.so b{' + window.hkCards.typeCss('headline') + ';white-space:nowrap}.so small{' + window.hkCards.typeCss('caption') + ';color:' + window.hkCards.v('ink-2') +
+        ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
       '.wait{margin:auto;' + window.hkCards.typeCss('caption') + ';color:' + window.hkCards.v('ink-2') + ';text-align:center}'
     ].join('');
     // the rings' width and step in px at a size (the mock-up's: 14 px rings
@@ -128,7 +129,8 @@
           return val + (r.unit ? (unitEm ? '<em>' + esc(r.unit) + '</em>' : ' ' + esc(r.unit)) : '');
         };
         var usual = function (r) { return r.typ > 0 ? Math.round(100 * r.v / r.typ) + '% of usual' : 'Learning your usual'; };
-        var rings = function (px) { return '<div style="width:' + px + 'px;height:' + px + 'px;flex:none">' + ringSvg(list, null, 0, ringFit(px)).replace('class="rings"', 'class="rings" width="' + px + '" height="' + px + '"') + '</div>'; };
+        var rings = function (px) { return '<div style="width:' + px + 'px;height:' + px + 'px;flex:none">' +
+          ringSvg(list, null, 0, ringFit(px)).replace('class="rings"', 'class="rings" width="' + px + '" height="' + px + '"') + '</div>'; };
         var sw = function (cls) {
           return '<div class="per ' + cls + '" role="group" aria-label="Period">' + RING_PERIODS.map(function (x) {
             return '<button type="button" data-p="' + x[0] + '" aria-pressed="' + (x[0] === p) + '">' + x[1] + '</button>';

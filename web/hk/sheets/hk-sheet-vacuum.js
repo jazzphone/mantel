@@ -26,7 +26,8 @@
       ':host([list]){display:flex;flex-direction:column;min-height:0}',
       ':host([list]) > div{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}',
       // (not a glass plate: hk-glass.js frosts every --hk-glass-surface, and laid one over the sheet's own glass -- a box behind the rooms)
-      ':host([list]) .plate{--hk-glass-surface:0;flex:1 1 auto;min-height:0;display:flex;flex-direction:column;padding:0;background:none;box-shadow:none;border:0;-webkit-backdrop-filter:none;backdrop-filter:none}',
+      ':host([list]) .plate{--hk-glass-surface:0;flex:1 1 auto;min-height:0;display:flex;flex-direction:column;padding:0;background:none;box-shadow:none;border:0;-webkit-backdrop-filter:none;' +
+        'backdrop-filter:none}',
       ':host([list]) .bar{flex:none;margin-bottom:12px;padding-bottom:12px}',
       ':host([list]) .rl{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y pinch-zoom;scrollbar-width:none}',
       ':host([list]) .rl::-webkit-scrollbar{display:none}',
@@ -275,7 +276,8 @@
       var self = this, kind = this._roomsKind();
       if (!this._built) {
         this._built = true;
-        this._root.innerHTML = '<div class="pn sub"><div class="bk"><button aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="' + BACK + '"/></svg></button><span class="t">Rooms to Clean</span></div><div class="rooms"></div></div>';
+        this._root.innerHTML = '<div class="pn sub"><div class="bk"><button aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="' + BACK +
+          '"/></svg></button><span class="t">Rooms to Clean</span></div><div class="rooms"></div></div>';
         this._root.querySelector('.bk button').addEventListener('click', function () { self._view = 'main'; self._built = false; self._render(); });
         this._fillRooms(this._root.querySelector('.rooms'), kind);
       }
@@ -302,7 +304,8 @@
             box.appendChild(pc);
             // (its shadow root once it is upgraded: the helper can hand it over before -- then no style would land)
             var css = function (n) {
-              if (pc.shadowRoot) { if (!pc.shadowRoot.querySelector('style.hkvl')) pc.shadowRoot.appendChild(Object.assign(document.createElement('style'), { className: 'hkvl', textContent: LIST_CSS })); }
+              if (pc.shadowRoot) { if (!pc.shadowRoot.querySelector('style.hkvl')) pc.shadowRoot.appendChild(
+                Object.assign(document.createElement('style'), { className: 'hkvl', textContent: LIST_CSS })); }
               else if (n < 40) setTimeout(function () { css(n + 1); }, 25);
             };
             css(0);

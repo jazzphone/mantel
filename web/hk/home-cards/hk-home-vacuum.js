@@ -37,7 +37,8 @@
           // and at a fixed 188 the four buttons would be pushed out of the card
           // and cut off. Every ordinary card is exactly 188; one
           // with more to say grows.
-          'hk-plate.vac{box-sizing:border-box;display:flex;flex-direction:column;gap:14px;min-height:188px;  border-radius:' + window.hkCards.M.radius + ';padding:16px 18px;overflow:hidden;cursor:pointer;  ' + window.hkCards.M.glass + ';',
+          'hk-plate.vac{box-sizing:border-box;display:flex;flex-direction:column;gap:14px;min-height:188px;  border-radius:' + window.hkCards.M.radius +
+            ';padding:16px 18px;overflow:hidden;cursor:pointer;  ' + window.hkCards.M.glass + ';',
           '  border:' + window.hkCards.M.border + ';  box-shadow:var(--hk-look-shadow, ' + window.hkCards.v('glass-shadow-tall') + ');  --ha-ripple-hover-opacity:0;--ha-ripple-pressed-opacity:0}',
           // THE VACUUM DRAWN (2026-11-09, the owner: "should we use these new card setup on the Vacuums page as well? ... room selection on the
           // card itself isn't needed", the mockup approved): the drawing at the left (hk-vacuum-art.js, 112 wide: 78 + 14 + 56 + 32 of padding
@@ -46,12 +47,15 @@
           (window.hkVacuumArt ? window.hkVacuumArt.CSS : '') + '.vac .vt{display:flex;align-items:center;gap:16px;min-width:0}',
           '.vac .art{width:112px;flex:none}.vac .vtx{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}',
           '.vac .label{min-width:0;overflow:hidden;font-size:18px;font-weight:600;line-height:24px;color:' + window.hkCards.v('ink') + ';white-space:nowrap;text-overflow:ellipsis}',
-          '.vac .vst{font-size:15px;font-weight:600;line-height:20px;color:' + window.hkCards.ACCENTS.mint + '}.vac .vst.idle{color:' + window.hkCards.v('ink-2') + '}.vac .vst.err{color:' + window.hkCards.ACCENTS.red + '}',
+          '.vac .vst{font-size:15px;font-weight:600;line-height:20px;color:' + window.hkCards.ACCENTS.mint + '}.vac .vst.idle{color:' + window.hkCards.v('ink-2') + '}.vac .vst.err{color:' +
+            window.hkCards.ACCENTS.red + '}',
           '.vac .meta{font-size:13px;line-height:17px;color:' + window.hkCards.v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}',
-          '.vac .vk{display:flex;gap:10px}.vac .cmd{all:unset;box-sizing:border-box;height:56px;min-width:56px;border-radius:28px;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;',
+          '.vac .vk{display:flex;gap:10px}.vac .cmd{all:unset;box-sizing:border-box;height:56px;min-width:56px;border-radius:28px;display:flex;align-items:center;justify-content:center;gap:8px;' +
+            'cursor:pointer;',
           '  background:' + window.hkCards.v('key') + ';color:' + window.hkCards.v('ink') + ';font-family:inherit;font-size:17px;font-weight:600;transition:transform .12s ease}',
           '.vac .cmd.go{flex:1 1 auto;min-width:0;padding:0 14px;background:' + SELECTED_BG + ';color:' + SELECTED_TEXT + '}.vac .cmd:active{transform:scale(0.97)}',
-          '.vac .cmd.clr{flex:none;padding:0 20px;font-size:17px}.vac .cmd[hidden]{display:none}.vac .cmd:focus-visible{outline:2px solid ' + window.hkCards.v('ink-2') + ';outline-offset:2px}.vac .cmd hk-icon{width:22px;height:22px;--mdc-icon-size:22px;flex:none;display:flex;align-items:center;justify-content:center}',
+          '.vac .cmd.clr{flex:none;padding:0 20px;font-size:17px}.vac .cmd[hidden]{display:none}.vac .cmd:focus-visible{outline:2px solid ' + window.hkCards.v('ink-2') +
+            ';outline-offset:2px}.vac .cmd hk-icon{width:22px;height:22px;--mdc-icon-size:22px;flex:none;display:flex;align-items:center;justify-content:center}',
           // (a flex box, as a tile's well glyph is -- hk-base.js: under Home Assistant the glyph is an inline child on a line box,
           // its half-leading pushing it low in the key; the owner, 2026-11-10: Clean, Locate and Dock off center in HK Frontend)
           '@media (prefers-reduced-motion:reduce){  .vac .cmd,.vac .cmd:active{transition:none;transform:none}}',
@@ -67,7 +71,8 @@
           ':host([size]){display:block;height:100%}',
           'hk-plate.vb{box-sizing:border-box;height:100%;display:flex;flex-direction:column;padding:' + C.blockPad(C.CARD.pad) + ';' + C.plate('card') + ';',
           '  overflow:hidden;cursor:pointer;color:' + C.v('ink') + ';-webkit-tap-highlight-color:transparent;--vb-key:44px}',
-          // THE HEADING (2026-11-08, the owner: titles "all need to match"; "if the card's name is printed on the card..." it stays here, as it names the vacuum): the vacuum's name on the one heading row, no glyph; the battery at its right on Small
+          // THE HEADING (2026-11-08, the owner: titles "all need to match"; "if the card's name is printed on the card..." it stays here, as it names the vacuum): the vacuum's name on the one heading
+          // row, no glyph; the battery at its right on Small
           C.headRowCss('.vb .hd') + C.headCss('.vb .nm'),
                   '.vb .rt{display:flex;flex-direction:column;min-width:0}',
           '.vb .sub{display:block;min-width:0;font-size:15px;font-weight:400;line-height:1.3;color:' + C.v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
@@ -84,7 +89,8 @@
           // THE KEYS at the foot: Clean (white, as a selected key is) taking the room, Dock round beside it
           '.vb .keys{display:flex;gap:10px;margin-top:auto;padding-top:10px;flex:none}',
           '.vb .key{all:unset;box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:8px;flex:none;height:var(--vb-key);min-width:var(--vb-key);',
-          '  --vb-r:calc(var(--vb-key) / 2);border-radius:var(--vb-r);background:' + C.v('key-strong') + ';color:' + C.v('ink') + ';font-family:inherit;' + C.typeCss('headline') + ';white-space:nowrap;cursor:pointer}',
+          '  --vb-r:calc(var(--vb-key) / 2);border-radius:var(--vb-r);background:' + C.v('key-strong') + ';color:' + C.v('ink') + ';font-family:inherit;' + C.typeCss('headline') +
+            ';white-space:nowrap;cursor:pointer}',
           '.vb .key>span{min-width:0;overflow:hidden;text-overflow:ellipsis}',
           '.vb .key.go{flex:1 1 auto;min-width:0;padding:0 10px;background:' + SELECTED_BG + ';color:' + SELECTED_TEXT + '}',
           // (TALL'S KEYS, 2026-11-08, the owner: nothing stretches -- Clean is as wide as its word, Dock round beside it, the pair centered)
@@ -106,21 +112,30 @@
           // THE ROOMS, two across, each a row of its own size (48 px; nothing stretches, 2026-11-08, the owner: "do the rooms scroll in the card if there
           // are more than what the card allows? If not, it should"): as many as the block holds, the rest scrolling (a cut row says so); few
           // rooms stay under their label (data-fit: _fitRooms)
-          '.vb .rooms{display:grid;grid-template-columns:repeat(2,var(--vb-cw));justify-content:center;grid-auto-rows:40px;gap:' + window.hkCards.TILE.gridGap + 'px;align-content:start;flex:1 1 auto;min-height:0;margin-top:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;touch-action:pan-x pan-y;scrollbar-width:none}',
+          '.vb .rooms{display:grid;grid-template-columns:repeat(2,var(--vb-cw));justify-content:center;grid-auto-rows:40px;gap:' + window.hkCards.TILE.gridGap +
+            'px;align-content:start;flex:1 1 auto;min-height:0;margin-top:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;touch-action:pan-x pan-y;scrollbar-width:none}',
           '.vb .rooms::-webkit-scrollbar{display:none}.vb .rooms[data-fit]{align-content:start}',
           // (more rooms than it shows, 2026-11-10: the last row fades until the list is scrolled to its end)
-          '.vb .rooms:not([data-fit]):not([data-end]){-webkit-mask-image:linear-gradient(to bottom,#000 calc(100% - 28px),transparent);mask-image:linear-gradient(to bottom,#000 calc(100% - 28px),transparent)}',
+          '.vb .rooms:not([data-fit]):not([data-end]){-webkit-mask-image:linear-gradient(to bottom,#000 calc(100% - 28px),transparent);' +
+            'mask-image:linear-gradient(to bottom,#000 calc(100% - 28px),transparent)}',
           // ...and no stretching across the width (2026-11-08): a room is --vb-cw wide (176 on Large, 170 on Extra Large -- two across and the gap
           // nearly fill the column), the label, grid and keys one column of that width, centered in what the block's column leaves
-          '.vb[data-s=L]{--vb-cw:176px}.vb[data-s=XL]{--vb-cw:170px}.vb[data-r] :is(.lab,.rooms,.keys){width:calc(var(--vb-cw) * 2 + ' + window.hkCards.TILE.gridGap + 'px);align-self:center;box-sizing:border-box}',
+          '.vb[data-s=L]{--vb-cw:176px}.vb[data-s=XL]{--vb-cw:170px}.vb[data-r] :is(.lab,.rooms,.keys){width:calc(var(--vb-cw) * 2 + ' + window.hkCards.TILE.gridGap +
+            'px);align-self:center;box-sizing:border-box}',
           // TALL AND WIDE with rooms on offer: the Rooms key opens the sheet that picks them, and says what is picked ("Kitchen, Office", "3 rooms")
           // (as tall as the block's keys: 48 px since 2026-11-10)
-          '.vb .rrow{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:8px;flex:none;height:48px;padding:0 8px 0 14px;margin-top:10px;border-radius:24px;background:' + C.v('key') + ';color:' + C.v('ink-2') + ';font-family:inherit;' + C.typeCss('caption') + ';cursor:pointer}',
-          '.vb .rrow>span{flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.vb .rrow.on{color:' + C.v('ink') + ';font-weight:600}.vb .rrow hk-icon{flex:none;width:20px;height:20px;--mdc-icon-size:20px}.vb .rrow:active{transform:scale(0.98)}.vb .rrow:focus-visible{outline:2px solid ' + C.v('ink-2') + ';outline-offset:2px}',
-          '.vb .pair{display:flex;gap:8px}.vb .pair .key.rm{flex:1 1 0;min-width:0;padding:0 8px;font-size:15px}.vb .pair .key.rm.on{font-weight:700}.vb .side .pair .key.dk{width:auto}.vb .pair .key.rm hk-icon{display:none}.vb .rm-note{display:block;' + C.typeCss('caption') + ';font-weight:600;color:' + C.v('ink') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+          '.vb .rrow{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:8px;flex:none;height:48px;padding:0 8px 0 14px;margin-top:10px;border-radius:24px;background:' + C.v('key') +
+            ';color:' + C.v('ink-2') + ';font-family:inherit;' + C.typeCss('caption') + ';cursor:pointer}',
+          '.vb .rrow>span{flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.vb .rrow.on{color:' + C.v('ink') +
+            ';font-weight:600}.vb .rrow hk-icon{flex:none;width:20px;height:20px;--mdc-icon-size:20px}.vb .rrow:active{transform:scale(0.98)}.vb .rrow:focus-visible{outline:2px solid ' +
+            C.v('ink-2') + ';outline-offset:2px}',
+          '.vb .pair{display:flex;gap:8px}.vb .pair .key.rm{flex:1 1 0;min-width:0;padding:0 8px;font-size:15px}.vb .pair .key.rm.on{font-weight:700}.vb .side .pair .key.dk{width:auto}' +
+            '.vb .pair .key.rm hk-icon{display:none}.vb .rm-note{display:block;' + C.typeCss('caption') + ';font-weight:600;color:' + C.v('ink') +
+            ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
           // THE ROOMS ARE THE SHEET'S PILLS (the owner, 2026-11-10: "not using the pills they should be using for the vacuum areas"): hk-base.js's
           // 40 px selectable pill, the name centered, white when picked -- the Vacuum sheet's and the Vacuums page's rooms, no glass layer of their own
-          '.vb .vr{font:inherit;-webkit-appearance:none;appearance:none;min-width:0;box-sizing:border-box;--hk-glass-surface:0;position:relative}.vb .vr::after{content:"";position:absolute;inset:-2px 0}',
+          '.vb .vr{font:inherit;-webkit-appearance:none;appearance:none;min-width:0;box-sizing:border-box;--hk-glass-surface:0;position:relative}.vb .vr::after{content:"";position:absolute;' +
+            'inset:-2px 0}',
           // EXTRA LARGE: the vacuum, its battery as a ring and its last run on the left; the rooms on the right
           '.vb[data-s=XL]{flex-direction:row;gap:22px}',
           // (the ring in the middle of what its column has left, the last run at the foot, level with the keys)
@@ -350,7 +365,8 @@
         var dock = ['return_to_base', 'mdi:home', 'Dock'];
         var status = this._hkStatus, stNode = '<div class="hk-status" role="status" aria-live="polite"' +
           (status ? ' data-kind="' + esc(status.kind) + '">' + esc(status.text) : '>') + '</div>';
-        var rooms = '', list = floors ? floors.reduce(function (o, f) { return o.concat(f.areas || []); }, []) : null, chosen = list ? list.filter(function (r) { return self._sel.has(r.id); }).map(function (r) { return r.name; }) : [];
+        var rooms = '', list = floors ? floors.reduce(function (o, f) { return o.concat(f.areas || []); }, []) : null, chosen = list ?
+          list.filter(function (r) { return self._sel.has(r.id); }).map(function (r) { return r.name; }) : [];
         if (roomsOn && big) {
           rooms = '<b class="lab">Rooms</b>' + (list === null ? '<div class="note">Reading the rooms…</div>'
             : !list.length ? '<div class="note">No room can be cleaned by area yet.</div>'
@@ -359,11 +375,15 @@
                 return '<button type="button" class="pill vr" data-area="' + esc(r.id) + '" aria-pressed="' + on + '"><span>' + esc(r.name) + '</span></button>';
               }).join('') + '</div>');
         }
-        // (Tall and Wide: the rooms picked in a sheet, named where they are picked -- one or two by name, more by count -- only while it can start a clean, and not beside a Clear pill: three targets at most)
-        var pickable = (sz === 'T' || sz === 'W') && roomsOn && list && list.length && !/^(cleaning|returning|paused)$/.test(state) && !clr, said = chosen.length > 2 ? chosen.length + ' rooms' : chosen.join(', ');
-        var rkey = pickable ? (sz === 'T' ? '<button type="button" class="rrow' + (said ? ' on' : '') + '" data-rooms aria-label="' + (said ? 'Rooms to clean: ' + esc(chosen.join(', ')) + '. Change' : 'Rooms to clean: the whole house. Choose') +
+        // (Tall and Wide: the rooms picked in a sheet, named where they are picked -- one or two by name, more by count -- only while it can start a clean, and not beside a Clear pill: three targets
+        // at most)
+        var pickable = (sz === 'T' || sz === 'W') && roomsOn && list && list.length && !/^(cleaning|returning|paused)$/.test(state) && !clr, said = chosen.length > 2 ? chosen.length + ' rooms' :
+          chosen.join(', ');
+        var rkey = pickable ? (sz === 'T' ? '<button type="button" class="rrow' + (said ? ' on' : '') + '" data-rooms aria-label="' +
+          (said ? 'Rooms to clean: ' + esc(chosen.join(', ')) + '. Change' : 'Rooms to clean: the whole house. Choose') +
             '"><span>' + (said ? esc(said) : 'All rooms') + '</span><hk-icon icon="mdi:chevron-right"></hk-icon></button>'
-          : '<button type="button" class="key rm' + (said ? ' on' : '') + '" data-rooms aria-label="Choose rooms to clean' + (said ? ': ' + esc(chosen.join(', ')) : '') + '"><hk-icon icon="mdi:floor-plan"></hk-icon><span>' + (chosen.length ? chosen.length + (chosen.length === 1 ? ' room' : ' rooms') : 'Rooms') + '</span></button>') : '';
+          : '<button type="button" class="key rm' + (said ? ' on' : '') + '" data-rooms aria-label="Choose rooms to clean' + (said ? ': ' + esc(chosen.join(', ')) : '') +
+            '"><hk-icon icon="mdi:floor-plan"></hk-icon><span>' + (chosen.length ? chosen.length + (chosen.length === 1 ? ' room' : ' rooms') : 'Rooms') + '</span></button>') : '';
         // THE VACUUM DRAWN (Extra Large, Tall, Wide; hk-vacuum-art.js) and what it is doing in words under it, the battery in the line after
         var art = window.hkVacuumArt ? '<div class="art">' + window.hkVacuumArt.html(lk.state, nm + ', ' + lk.words) + '</div>' : '';
         var subw = (bat ? [bat] : []).concat(rest.slice(1)), what = '<b class="state">' + esc(lk.words) + '</b>' + clr;
@@ -446,7 +466,8 @@
           // --hk-track is what css/hk-responsive.css redefines below 640px to
           // reflow a grid to two columns, and a literal width cannot hear it.
           // On a phone this would be the one pill grid that does not reflow.
-          '.grid{display:grid;grid-template-columns:repeat(auto-fill,var(--hk-track,' + window.hkCards.TILE.w + 'px));  grid-auto-rows:40px;gap:' + window.hkCards.TILE.gridGap + 'px;margin:0 0 14px 0}',
+          '.grid{display:grid;grid-template-columns:repeat(auto-fill,var(--hk-track,' + window.hkCards.TILE.w + 'px));  grid-auto-rows:40px;gap:' + window.hkCards.TILE.gridGap +
+            'px;margin:0 0 14px 0}',
           // 40px PILLS, not 70px tiles: the action row matches the area pills
           // above it. Icon-well tiles here would stack two materials on one
           // grid. Play Music's equivalent row -- Clear, Transfer, Browse Music
@@ -455,7 +476,8 @@
           //
           // The rule below separates them, which is what carries the
           // "these act on the house" meaning that the shape does not.
-          '.actions{display:grid;grid-template-columns:repeat(auto-fill,var(--hk-track,' + window.hkCards.TILE.w + 'px));  grid-auto-rows:40px;gap:' + window.hkCards.TILE.gridGap + 'px;margin:0 0 14px 0}',
+          '.actions{display:grid;grid-template-columns:repeat(auto-fill,var(--hk-track,' + window.hkCards.TILE.w + 'px));  grid-auto-rows:40px;gap:' + window.hkCards.TILE.gridGap +
+            'px;margin:0 0 14px 0}',
           '.floor{font-size:15px;font-weight:600;letter-spacing:-0.2px;  color:' + window.hkCards.v('ink-2') + ';padding:6px 4px 8px 4px}',
           // THE RULE separates two DIFFERENT kinds of thing: the pills above
           // only change a selection, the pills below act on the house. Without
@@ -468,7 +490,8 @@
           // chosen, Clear, Start Cleaning -- so the buttons never scroll away
           // from the count. Start waits for a room.
           '.plate{' + window.hkCards.plate('card') + ';padding:' + window.hkCards.CARD.pad + ';box-sizing:border-box;container-type:inline-size}',
-          '.bar{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:10px;padding-bottom:16px;margin-bottom:16px;border-bottom:1px solid ' + window.hkCards.v('line') + '}',
+          '.bar{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:10px;padding-bottom:16px;margin-bottom:16px;border-bottom:1px solid ' + window.hkCards.v('line') +
+            '}',
           '.bar .n{min-width:0;font-size:13px;font-weight:600;color:' + window.hkCards.v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
           '.bar .pill{min-width:96px}',
           '.bar .go[aria-pressed="true"] > span{color:' + SELECTED_TEXT + '}',
@@ -480,7 +503,8 @@
           '.plate .hk-status:empty{display:none}',
           // narrow (an upright iPad's rail, a phone): the count on a line of
           // its own over the two buttons, and the rooms two across, sharing the width
-          '@container (max-width:' + window.hkCards.BP.cardSide + 'px){.bar{grid-template-columns:repeat(2,minmax(0,1fr))}.bar .n{grid-column:1 / -1}  .plate .grid{grid-template-columns:repeat(2,minmax(0,1fr))}}',
+          '@container (max-width:' + window.hkCards.BP.cardSide +
+            'px){.bar{grid-template-columns:repeat(2,minmax(0,1fr))}.bar .n{grid-column:1 / -1}  .plate .grid{grid-template-columns:repeat(2,minmax(0,1fr))}}',
           // a phone: stacked under the vacuum cards, which sit one grid deeper,
           // the plate steps in 4 px a side to share their edges
           '@media (max-width:' + window.hkCards.BP.phone + 'px){.plate{padding:16px;margin:0 4px}}',

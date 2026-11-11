@@ -30,11 +30,15 @@
   // hk-saverwidgets.js. [piece] -> [its shapes, its options {key: choices}, its name, the facts it shows]
   // (hk_core/settings/saver_layout.py PIECES: the shapes and options)
   // World Clock's cities (IANA)
-  var CITIES = ['Europe/London', 'Europe/Paris', 'Europe/Berlin', 'Europe/Rome', 'Europe/Madrid', 'Europe/Athens', 'Europe/Istanbul', 'Europe/Moscow', 'Africa/Cairo', 'Africa/Johannesburg', 'Asia/Dubai', 'Asia/Kolkata', 'Asia/Bangkok', 'Asia/Singapore', 'Asia/Hong_Kong', 'Asia/Shanghai', 'Asia/Tokyo', 'Asia/Seoul', 'Australia/Sydney', 'Pacific/Auckland', 'Pacific/Honolulu', 'America/Anchorage', 'America/Los_Angeles', 'America/Denver', 'America/Chicago', 'America/New_York', 'America/Toronto', 'America/Mexico_City', 'America/Sao_Paulo', 'America/Argentina/Buenos_Aires', 'Atlantic/Reykjavik'];
+  var CITIES = ['Europe/London', 'Europe/Paris', 'Europe/Berlin', 'Europe/Rome', 'Europe/Madrid', 'Europe/Athens', 'Europe/Istanbul', 'Europe/Moscow', 'Africa/Cairo', 'Africa/Johannesburg',
+    'Asia/Dubai', 'Asia/Kolkata', 'Asia/Bangkok', 'Asia/Singapore', 'Asia/Hong_Kong', 'Asia/Shanghai', 'Asia/Tokyo', 'Asia/Seoul', 'Australia/Sydney', 'Pacific/Auckland', 'Pacific/Honolulu',
+    'America/Anchorage', 'America/Los_Angeles', 'America/Denver', 'America/Chicago', 'America/New_York', 'America/Toronto', 'America/Mexico_City', 'America/Sao_Paulo',
+    'America/Argentina/Buenos_Aires', 'Atlantic/Reykjavik'];
   var PIECES = {
     weather: [['inline', 'circular', 'rectangular', 'card', 'band'], {}, 'Weather', ['weather']],
     readings: [['circular', 'rectangular', 'band'], { reading: ['humidity', 'aqi', 'inside', 'sunset', 'wind'] }, 'Readings', ['readings']],
-    date: [['inline'], { lines: ['one', 'two'], weekday: ['long', 'short', 'none'], month: ['long', 'short', 'number'], year: ['off', 'on'], weight: ['standard', 'light', 'bold'], case: ['normal', 'upper'] }, 'Date', ['date']],
+    date: [['inline'], { lines: ['one', 'two'], weekday: ['long', 'short', 'none'], month: ['long', 'short', 'number'], year: ['off', 'on'], weight: ['standard', 'light', 'bold'],
+      case: ['normal', 'upper'] }, 'Date', ['date']],
     time: [['inline', 'card'], {}, 'Time', ['time']],
     status: [['inline', 'circular', 'rectangular', 'card'], {}, 'House Status', ['status']],
     music: [['inline', 'card'], {}, 'Music', ['music']],
@@ -79,7 +83,8 @@
     leak: [['inline', 'card'], {}, 'Leak and Smoke', ['leak'], 'picked'],
     travel: [['inline', 'circular', 'rectangular'], {entity: 'entity:sensor', entity2: 'entity:sensor'}, 'Travel Time', ['travel'], 'picked'],
     price: [['inline'], {entity: 'entity:sensor,input_number,number'}, 'Price', ['price'], 'picked'],
-    sensor: [['inline', 'circular', 'rectangular'], {entity: 'entity:sensor,binary_sensor,input_number,number,input_boolean,switch,climate,lock,cover,device_tracker', entity2: 'entity:sensor,binary_sensor,input_number,number,input_boolean,switch,climate,lock,cover,device_tracker', name: 'text', min: 'text', max: 'text'}, 'Any Sensor', ['sensor'], 'sensor']
+    sensor: [['inline', 'circular', 'rectangular'], {entity: 'entity:sensor,binary_sensor,input_number,number,input_boolean,switch,climate,lock,cover,device_tracker',
+      entity2: 'entity:sensor,binary_sensor,input_number,number,input_boolean,switch,climate,lock,cover,device_tracker', name: 'text', min: 'text', max: 'text'}, 'Any Sensor', ['sensor'], 'sensor']
   };
   // A TAP OPENS ITS PAGE (2026-11-10, the owner: "you tap weather, it goes to the weather page. Date goes to the Calendar page ... an option
   // to enable/disable per widget"): the page a piece's tap opens (the screen's view path, when the screen has it), and its option
@@ -369,7 +374,8 @@
     var out = {}, seen = {}, zs = O.zones, b = O.big || {};
     var faceHas = b.kind === 'time' ? FACE_FACTS[(cfg || {}).clock_style] || [] : [];
     // (only what the face is set to show: Today's Weather and What's Playing can be turned off)
-    if ((cfg || {}).clock_style === 'today') faceHas = faceHas.filter(function (f) { return !(f === 'weather' && cfg.clock_today_weather === false) && !(f === 'music' && cfg.clock_today_music === false); });
+    if ((cfg || {}).clock_style === 'today') faceHas = faceHas.filter(function (f) { return !(f === 'weather' && cfg.clock_today_weather === false) &&
+      !(f === 'music' && cfg.clock_today_music === false); });
     var faceName = { today: 'the Today face', modular: 'the Modular face' }[(cfg || {}).clock_style];
     // (Glance, Month and the Day face drawing their own words -- no big element of the layout's: what they show)
     var SHOW_FACTS = { glance: ['time', 'weather', 'music', 'date'], month: ['time', 'date'], day: ['date'] };

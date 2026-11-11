@@ -35,7 +35,8 @@
       'hk-plate.k{box-sizing:border-box;height:100%;display:flex;flex-direction:column;justify-content:space-between;',
       // (a tile's padding -- and a Square screen's corner inset, as hk-tile.js has it: the shield's well was cut by
       // the 72 px corner, 2026-10-30)
-      '  padding:calc(12.8px + var(--hk-in-t,0px)) calc(12.8px + var(--hk-in-r,0px)) calc(12.8px + var(--hk-in-b,0px)) calc(' + TILE.padL + 'px + var(--hk-in-l,0px));cursor:pointer;overflow:hidden;' + C.plate('tile') + ';',
+      '  padding:calc(12.8px + var(--hk-in-t,0px)) calc(12.8px + var(--hk-in-r,0px)) calc(12.8px + var(--hk-in-b,0px)) calc(' + TILE.padL + 'px + var(--hk-in-l,0px));cursor:pointer;overflow:hidden;' +
+        C.plate('tile') + ';',
       '  -webkit-tap-highlight-color:transparent;--ha-ripple-hover-opacity:0;--ha-ripple-pressed-opacity:0;',
       '  transition:transform ' + C.DUR.press + ' ease,filter ' + C.DUR.press + ' ease}',
       'hk-plate.k:active{transform:scale(0.97);filter:brightness(0.93)}',
@@ -174,7 +175,8 @@
       '.lm::after{content:"";position:absolute;left:-10px;right:-10px;top:-14px;bottom:-14px}.lm[hidden]{display:none}';
     var NOTICE_CSS = [
       // (flat, the earlier strip's look -- the owner, 2026-11-08: "I prefer the flatter toast style", not a button like the rows): a pill of
-      // the key's fill as wide as the rows, the glyph teal and the words in the first ink, one line (DESIGN.md's colors, the owner 2026-11-09: "Not sure why things are orange"); its tap a finger's 44 px on screen round it
+      // the key's fill as wide as the rows, the glyph teal and the words in the first ink, one line (DESIGN.md's colors, the owner 2026-11-09: "Not sure why things are orange"); its tap a finger's 44
+      // px on screen round it
       '.ops .op.toast{position:relative;width:100%;height:44px;justify-content:flex-start;gap:10px;padding:0 16px;border-radius:22px;background:' + v('key') + ';color:' + v('ink') + '}',
       '.ops .op.toast::after{content:"";position:absolute;left:0;right:0;top:-6px;bottom:-6px}',
       '.ops .op.toast hk-icon{width:20px;height:20px;color:' + C.ACCENTS.teal + '}',
@@ -253,7 +255,8 @@
       '.col{display:flex;flex-direction:column;gap:10px;flex:1;min-width:0;min-height:0}',
       // (2026-11-08, the owner's rule -- a control is 44 px with 8 px clear round it: Wide's rows are keys, the room between them)
       '.rows{display:flex;flex-direction:column;justify-content:center;gap:8px;flex:1;min-height:0;min-width:0;overflow:hidden}',
-      '.row{display:flex;align-items:center;gap:10px;height:' + SEC_ROW + 'px;flex:none;box-sizing:border-box;padding:0 14px;border-radius:' + (C.R.inner + 'px') + ';background:' + v('key') + ';min-width:0}',
+      '.row{display:flex;align-items:center;gap:10px;height:' + SEC_ROW + 'px;flex:none;box-sizing:border-box;padding:0 14px;border-radius:' + (C.R.inner + 'px') + ';background:' + v('key') +
+        ';min-width:0}',
       '.row hk-icon{width:20px;height:20px;--mdc-icon-size:100%;display:flex;flex:none;color:' + v('ink-2') + '}',
       '.row span{' + type('body') + ';flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
       '.row em{font-style:normal;' + type('caption') + ';color:' + v('ink-2') + ';white-space:nowrap;flex:none}',
@@ -268,7 +271,8 @@
       // THE KEYS' DESIGNED WIDTHS (2026-11-08, `--stretch`: they grew with the block): each key a width of its own, the row centered --
       // Large's three 112 wide, Tall's Home and Away 72 with Disarm as wide as the two and the gap between them
       '.arm{display:flex;justify-content:center;gap:8px;flex:none}',
-      '.arm button{all:unset;box-sizing:border-box;flex:none;width:112px;height:44px;border-radius:22px;text-align:center;background:' + v('key') + ';' + type('body') + ';font-weight:600;color:' + v('ink') + ';cursor:pointer}',
+      '.arm button{all:unset;box-sizing:border-box;flex:none;width:112px;height:44px;border-radius:22px;text-align:center;background:' + v('key') + ';' + type('body') + ';font-weight:600;color:' +
+        v('ink') + ';cursor:pointer}',
       '.arm button.on{background:#fff;color:#1c1c1e}',
       '.arm button:active{background:' + v('key-strong') + '}',
       // TALL (2026-11-07, the review): the shield and state on top, the rows through the middle, and at the foot Home and Away
@@ -279,7 +283,8 @@
       // (2026-11-08, the owner's rule -- "anything that does not fit cleanly moves to the detail sheet": Tall is the alarm and its three
       // ways to arm, the shield and the state centered in the room between them; the locks and doors are the Security page's and
       // the block's Custom Detail Sheet's; the heading says what is open and opens the alarm's sheet)
-      'hk-plate.sec[size=T] .hd{flex:1 1 auto;flex-direction:column;justify-content:center;text-align:center;gap:8px}hk-plate.sec[size=T] .hd .wl{width:56px;height:56px}hk-plate.sec[size=T] .hd .tx{align-items:center;max-width:100%}',
+      'hk-plate.sec[size=T] .hd{flex:1 1 auto;flex-direction:column;justify-content:center;text-align:center;gap:8px}hk-plate.sec[size=T] .hd .wl{width:56px;height:56px}' +
+        'hk-plate.sec[size=T] .hd .tx{align-items:center;max-width:100%}',
       // LARGE AND EXTRA LARGE (2026-11-08, the owner: "the touch points for the locks/garage door ... a tad bigger ... the keypad first,
       // the locks and garage door represented cleanly and easy to interact with, then ... open windows and doors in a compact way"; and
       // "entities in a card should maintain dimensions": NOTHING STRETCHES, DESIGN.md "Using the space"): the locks and the garage as
@@ -297,12 +302,16 @@
       '.ent hk-icon{width:26px;height:26px;--mdc-icon-size:100%;display:flex;flex:none;color:' + v('ink-2') + '}.ent.lk hk-icon{color:var(--lk)}',
       '.ent .tt{display:flex;flex-direction:column;min-width:0}',
       // (a name is read whole: two lines where it needs them -- "Black Beauty Lock", "Crawl Space Lock" -- never cut, 2026-11-08)
-      '.ent .n{' + type('body') + ';font-weight:600;font-size:15px;line-height:18px;white-space:normal;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow-wrap:anywhere}',
+      '.ent .n{' + type('body') +
+        ';font-weight:600;font-size:15px;line-height:18px;white-space:normal;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow-wrap:anywhere}',
       '.ent .s{' + type('caption') + ';line-height:17px;color:' + v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-      '.ents.st .ent .in{flex-direction:column;justify-content:center;text-align:center;gap:3px;padding:6px}.ents.st .ent hk-icon{width:34px;height:34px;margin-bottom:3px}.ents.st .ent .tt{align-items:center;max-width:100%}.ents.st .ent .n{font-size:15px;line-height:18px}.ents.st .ent .s{font-size:15px;line-height:20px}',
-      '.ent.open{background:#fff;--hk-glass-backdrop:none;-webkit-backdrop-filter:none;backdrop-filter:none}.ent.open .n{color:#000}.ent.open .s{color:' + v('ink-on-state') + '}.ent.open hk-icon{color:' + C.ACCENTS.teal + '}',
+      '.ents.st .ent .in{flex-direction:column;justify-content:center;text-align:center;gap:3px;padding:6px}.ents.st .ent hk-icon{width:34px;height:34px;margin-bottom:3px}' +
+        '.ents.st .ent .tt{align-items:center;max-width:100%}.ents.st .ent .n{font-size:15px;line-height:18px}.ents.st .ent .s{font-size:15px;line-height:20px}',
+      '.ent.open{background:#fff;--hk-glass-backdrop:none;-webkit-backdrop-filter:none;backdrop-filter:none}.ent.open .n{color:#000}.ent.open .s{color:' + v('ink-on-state') +
+        '}.ent.open hk-icon{color:' + C.ACCENTS.teal + '}',
       '.ops{display:flex;justify-content:center;gap:8px;flex:none;min-width:0}',
-      '.op{box-sizing:border-box;flex:0 1 auto;min-width:0;max-width:100%;height:44px;display:flex;align-items:center;justify-content:center;gap:8px;padding:0 18px;border-radius:22px;background:' + v('key') + ';cursor:pointer;color:' + v('ink-2') + ';-webkit-tap-highlight-color:transparent}',
+      '.op{box-sizing:border-box;flex:0 1 auto;min-width:0;max-width:100%;height:44px;display:flex;align-items:center;justify-content:center;gap:8px;padding:0 18px;border-radius:22px;background:' +
+        v('key') + ';cursor:pointer;color:' + v('ink-2') + ';-webkit-tap-highlight-color:transparent}',
       '.op:active{background:' + v('key-strong') + '}.op hk-icon{width:20px;height:20px;--mdc-icon-size:100%;display:flex;flex:none}',
       '.op span{' + type('body') + ';font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}',
       '.op.open{color:' + v('ink') + '}.op.open hk-icon{color:' + C.ACCENTS.teal + '}',
@@ -320,10 +329,12 @@
       // THE LOCKS AS ONE LIST, NO PLATE PER ROW (2026-11-09, mockup 4b, the owner: "the busy look came from a plate behind every row"): the
       // rows On Now and House Status have -- a 36 px disc (a dim well, the glyph teal while secured; lit teal with a white glyph when not
       // secured), the name, the state at the right, a hairline between rows; the whole row is the tap, 56 px, never grown
-      '.ents.lst{display:flex;flex-direction:column;flex-wrap:nowrap;justify-content:flex-start;align-content:stretch;gap:0;margin:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;touch-action:pan-y}',
+      '.ents.lst{display:flex;flex-direction:column;flex-wrap:nowrap;justify-content:flex-start;align-content:stretch;gap:0;margin:0;overflow-y:auto;overscroll-behavior:contain;' +
+        'scrollbar-width:none;touch-action:pan-y}',
       '.ents.lst::-webkit-scrollbar{display:none}',
       // (--hk-glass-surface:0: a row is no glass -- the shared blur (hk-glass.js, the Blur look) cut a frosted band behind the rows, 2026-11-09)
-      '.ents.lst .ent{width:100%;height:' + SEC_LIST_ROW + 'px;border-radius:0;background:none;border:0;border-top:1px solid ' + v('line') + ';box-shadow:none;--hk-glass-surface:0;--hk-glass-backdrop:none;-webkit-backdrop-filter:none;backdrop-filter:none;transition:opacity ' + C.DUR.press + ' ease}',
+      '.ents.lst .ent{width:100%;height:' + SEC_LIST_ROW + 'px;border-radius:0;background:none;border:0;border-top:1px solid ' + v('line') +
+        ';box-shadow:none;--hk-glass-surface:0;--hk-glass-backdrop:none;-webkit-backdrop-filter:none;backdrop-filter:none;transition:opacity ' + C.DUR.press + ' ease}',
       '.ents.lst .ent.r0{border-top:0}.ents.lst .ent:active{transform:none;opacity:.6}',
       '.ent .dk{display:contents}',
       '.ents.lst .ent .dk{display:grid;place-items:center;width:36px;height:36px;border-radius:50%;flex:none;background:' + v('key') + '}',
@@ -350,7 +361,8 @@
       // HOMEVIEW'S EXTRA LARGE (`.hv`, the catalog's flag): every glyph on the glass white, as the HomeView blocks have them; armed (`.on`) the
       // keypad's display white and triggered (`.trg`) red (below), as hk-grid-security-hv-card lights its alarm area (Light Up When Armed);
       // the block and its entries stay the glass, as disarmed
-      'hk-plate.sec.hv .wl hk-icon{color:var(--c,' + v('glyph') + ')}hk-plate.sec.hv .ent hk-icon,hk-plate.sec.hv .row hk-icon,hk-plate.sec.hv .ent.lk hk-icon,hk-plate.sec.hv .row.lk hk-icon{color:' + v('glyph') + '}',
+      'hk-plate.sec.hv .wl hk-icon{color:var(--c,' + v('glyph') + ')}hk-plate.sec.hv .ent hk-icon,hk-plate.sec.hv .row hk-icon,hk-plate.sec.hv .ent.lk hk-icon,hk-plate.sec.hv .row.lk hk-icon{color:' +
+        v('glyph') + '}',
       'hk-plate.sec.hv .ent.open hk-icon,hk-plate.sec.hv .row.open hk-icon{color:' + C.ACCENTS.teal + '}',
       // (THE KEYPAD: armed, its display alone lights white with dark words -- the keys stay as they are, clear of a white edge (the owner,
       // 2026-11-09: "the keypads home/away/disarm buttons are right on the edge of the white area... just make the Display/LCD area above
@@ -394,7 +406,8 @@
       var locks = own_ ? [] : (kind('locks') || own(client, 'lock')).filter(function (id) { return dom(id) === 'lock' && st[id]; });
       var lockRow = function (id) {
         var s = st[id].state, open = s === 'unlocked' || s === 'open';
-        out.push({ id: id, name: friendly(client, id), icon: open ? 'mdi:lock-open-variant' : 'mdi:lock', value: open ? 'Unlocked' : OFF[s] ? 'Unknown' : 'Locked', open: open, lock: !open, tile: true });
+        out.push({ id: id, name: friendly(client, id), icon: open ? 'mdi:lock-open-variant' : 'mdi:lock', value: open ? 'Unlocked' : OFF[s] ? 'Unknown' : 'Locked', open: open, lock: !open,
+          tile: true });
       };
       var garage = own_ ? [] : (kind('garage') || own(client, 'cover').filter(function (id) { return DOORS[attr(st[id], 'device_class')]; })).filter(function (id) { return st[id]; });
       var garageRow = function (id) {
@@ -473,15 +486,23 @@
           var head = '<div class="hd"><div class="wl"><hk-icon></hk-icon></div><div class="tx"><b></b><small></small></div></div>';
           var html = size === 'S' ? '<div class="wl"><hk-icon></hk-icon></div><div class="one"><div class="big"></div><div class="sub"></div></div>'
             : size === 'W' ? '<div class="side"><div class="wl"><hk-icon></hk-icon></div><div class="one"><div class="big"></div><div class="sub"></div></div></div><div class="rows"></div>'
-            : keys ? '<div class="kpad" data-notap></div><div class="col">' + head + '<div class="lh"><span class="lt">Locks &amp; Doors</span><button type="button" class="lm" hidden></button></div><div class="ents lst"></div><div class="ops"></div></div>'
-            : size === 'L' ? head.replace('</div></div>', '</div><button type="button" class="lm" hidden></button></div>') + '<div class="ents lst"></div><div class="ops"></div><div class="arm"><button type="button" data-m="home">Home</button><button type="button" data-m="away">Away</button><button type="button" data-m="off">Disarm</button></div>'
-            : size === 'T' ? head + '<div class="arm"><button type="button" data-m="home">Home</button><button type="button" data-m="away">Away</button><button type="button" data-m="off">Disarm</button></div>'
-            : head + '<div class="rows"></div><div class="arm"><button type="button" data-m="home">Home</button><button type="button" data-m="away">Away</button><button type="button" data-m="off">Disarm</button></div>';
+            : keys ? '<div class="kpad" data-notap></div><div class="col">' + head +
+              '<div class="lh"><span class="lt">Locks &amp; Doors</span><button type="button" class="lm" hidden></button></div><div class="ents lst"></div><div class="ops"></div></div>'
+            : size === 'L' ? head.replace('</div></div>', '</div><button type="button" class="lm" hidden></button></div>') +
+              '<div class="ents lst"></div><div class="ops"></div><div class="arm"><button type="button" data-m="home">Home</button><button type="button" data-m="away">Away</button><button ' +
+              'type="button" data-m="off">Disarm</button></div>'
+            : size === 'T' ? head +
+              '<div class="arm"><button type="button" data-m="home">Home</button><button type="button" data-m="away">Away</button><button type="button" data-m="off">Disarm</button></div>'
+            : head +
+              '<div class="rows"></div><div class="arm"><button type="button" data-m="home">Home</button><button type="button" data-m="away">Away</button><button type="button" ' +
+              'data-m="off">Disarm</button></div>';
           this._root.innerHTML = '<hk-plate class="sec' + (keys ? ' kp' : '') + '" data-hk-role="card" size="' + size + '">' + html + '</hk-plate>';
           var q = this._root.querySelector.bind(this._root), all = this._root.querySelectorAll.bind(this._root);
-          this._e = { card: q('.sec'), wl: q('.wl'), icon: q('.wl hk-icon'), big: q('.big') || q('.hd b'), sub: q('.sub') || q('.hd small'), rows: q('.rows'), ents: q('.ents'), ops: q('.ops'), lm: q('.lm') };
+          this._e = { card: q('.sec'), wl: q('.wl'), icon: q('.wl hk-icon'), big: q('.big') || q('.hd b'), sub: q('.sub') || q('.hd small'), rows: q('.rows'), ents: q('.ents'), ops: q('.ops'),
+            lm: q('.lm') };
           // ("+N more": the Security page where the screen has one, else the alarm's sheet)
-          if (this._e.lm) this._e.lm.addEventListener('click', function (ev) { ev.stopPropagation(); var a = self._alarm(); if (!window.hkCards.openTarget(self, [{ page: 'security' }, a && { sheet: a }])) self._tap(); });
+          if (this._e.lm) this._e.lm.addEventListener('click', function (ev) { ev.stopPropagation(); var a = self._alarm();
+            if (!window.hkCards.openTarget(self, [{ page: 'security' }, a && { sheet: a }])) self._tap(); });
           // the tap: Small the whole block, Wide its state, Large its heading -- the alarm's sheet, with its PIN
           var hit = size === 'S' ? this._e.card : size === 'W' ? q('.side') : q('.hd');
           this._button(hit, function () { if (self._config.tap !== 'none') self._tap(); });
@@ -527,7 +548,8 @@
         if (glyphC) e.card.style.setProperty('--c', glyphC); else e.card.style.removeProperty('--c');
         if (look.text && !lit) e.card.style.setProperty('--t', look.text); else e.card.style.removeProperty('--t');
         var big = size === 'S' || size === 'W' || size === 'T' ? look.word : look.word + (look.mode ? ' · ' + look.mode : '');
-        var sub = size === 'S' ? [look.mode, says && (/^All /.test(says) ? 'all ' + says.slice(4) : says)].filter(Boolean).join(' · ') : size === 'W' ? (look.mode || says) : size === 'T' ? [look.mode, says].filter(Boolean).join(' · ') : says;
+        var sub = size === 'S' ? [look.mode, says && (/^All /.test(says) ? 'all ' + says.slice(4) : says)].filter(Boolean).join(' · ') : size === 'W' ? (look.mode || says) : size === 'T' ?
+          [look.mode, says].filter(Boolean).join(' · ') : says;
         if (size === 'S' && !look.mode) sub = says;
         e.big.textContent = big;
         e.sub.textContent = sub;
@@ -576,7 +598,9 @@
               var d = document.createElement('div'); d.className = cls; d.innerHTML = html; self._button(d, fn); d.setAttribute('aria-label', label); return d;
             };
             tiles.forEach(function (r) {
-              var d = mk('ent' + (r.open ? ' open' : '') + (r.lock ? ' lk' : ''), '<div class="in"><span class="dk"><hk-icon></hk-icon></span><div class="tt"><span class="n"></span><span class="s"></span></div></div>', r.name + ', ' + r.value, function () { window.hkShell.moreInfo(r.id, self); });
+              var d = mk('ent' + (r.open ? ' open' : '') + (r.lock ? ' lk' : ''),
+                '<div class="in"><span class="dk"><hk-icon></hk-icon></span><div class="tt"><span class="n"></span><span class="s"></span></div></div>', r.name + ', ' + r.value,
+                function () { window.hkShell.moreInfo(r.id, self); });
               d.querySelector('hk-icon').icon = r.icon; d.querySelector('.n').textContent = r.name; d.querySelector('.s').textContent = r.value;
               e.ents.appendChild(d);
             });
@@ -586,9 +610,11 @@
             // (the strip: what is open, by name; else "All closed", a tap to the doors and windows page)
             var open = ops.filter(function (r) { return r.open; }), go = function () { if (!window.hkCards.openTarget(self, [{ page: 'doors-windows' }, alarm && { sheet: alarm }])) self._tap(); };
             if (keys || size === 'L') doorsNotice(self, e.ops, ops, go);
-            if (!keys && size !== 'L' && ops.length && !open.length) { var shut = mk('op', '<hk-icon></hk-icon><span>All closed</span>', 'Doors and windows: all closed', go); shut.querySelector('hk-icon').icon = 'mdi:door-closed'; e.ops.appendChild(shut); }
+            if (!keys && size !== 'L' && ops.length && !open.length) { var shut = mk('op', '<hk-icon></hk-icon><span>All closed</span>', 'Doors and windows: all closed', go);
+              shut.querySelector('hk-icon').icon = 'mdi:door-closed'; e.ops.appendChild(shut); }
             if (!keys && size !== 'L' && open.length) {
-              var d = mk('op open', '<hk-icon></hk-icon><span></span>', open.length + ' open: ' + open.map(function (r) { return r.name; }).join(', '), open.length === 1 ? function () { window.hkShell.moreInfo(open[0].id, self); } : go);
+              var d = mk('op open', '<hk-icon></hk-icon><span></span>', open.length + ' open: ' + open.map(function (r) { return r.name; }).join(', '), open.length === 1 ?
+                function () { window.hkShell.moreInfo(open[0].id, self); } : go);
               d.querySelector('hk-icon').icon = open[0].icon;
               d.querySelector('span').textContent = open.length === 1 ? open[0].name + ' ' + open[0].value.toLowerCase() : open.map(function (r) { return r.name; }).join(', ');
               e.ops.appendChild(d);
@@ -638,7 +664,8 @@
         // name, which takes two lines where it needs them
         // (beside the keypad Half is the default -- the owner, 2026-11-08: "that looks the best"; Full, the HomeView tiles, when chosen)
         var hc = (this._config || {}).height, half = hc === 'half' || (!hc && !!this._pad);
-        var sizes = half ? [{ w: 150, h: 64, st: false }, { w: 140, h: 64, st: false }, { w: 130, h: 64, st: false }] : this._size() === 'XL' ? [{ w: 136, h: 112 }, { w: 124, h: 104 }, { w: 112, h: 100 }] : [{ w: 116, h: 96 }, { w: 108, h: 96 }, { w: 100, h: 92 }];
+        var sizes = half ? [{ w: 150, h: 64, st: false }, { w: 140, h: 64, st: false }, { w: 130, h: 64, st: false }] : this._size() === 'XL' ?
+          [{ w: 136, h: 112 }, { w: 124, h: 104 }, { w: 112, h: 100 }] : [{ w: 116, h: 96 }, { w: 108, h: 96 }, { w: 100, h: 92 }];
         sizes.some(function (o) {
           var across = Math.min(3, Math.floor((W + G) / (o.w + G))), rows = Math.floor((H + G) / (o.h + G));
           if (across < 2 || rows < 1) return false;
@@ -673,7 +700,8 @@
         if (this._moreTile) this._moreTile.style.display = 'none';
         var kids = Array.prototype.filter.call(box.children, function (k) { return k !== this._moreTile; }, this), keep = shownFirst(list, show);
         var first = true;
-        kids.forEach(function (k, i) { k.style.display = keep[i] ? '' : 'none'; k.style.width = ''; k.style.height = rh + 'px'; k.classList.toggle('r0', !!keep[i] && first); if (keep[i]) first = false; });
+        kids.forEach(function (k, i) { k.style.display = keep[i] ? '' : 'none'; k.style.width = ''; k.style.height = rh + 'px'; k.classList.toggle('r0', !!keep[i] && first);
+          if (keep[i]) first = false; });
         box.style.flex = 'none'; box.style.height = (show * rh) + 'px'; box.style.maxWidth = ''; box.style.margin = '0';
         if (lm) {
           lm.hidden = show >= n;
@@ -816,7 +844,8 @@
       }
       _render() {
         super._render();
-        if (this._e) { var m0 = hvModel(this.client, this._config || {}); this._e.card.setAttribute('aria-label', hvSpoken(m0) + (m0.alarm && !(this._config || {}).custom_sheet ? '. Opens the alarm.' : '. Opens Security.')); }
+        if (this._e) { var m0 = hvModel(this.client, this._config || {}); this._e.card.setAttribute('aria-label', hvSpoken(m0) +
+          (m0.alarm && !(this._config || {}).custom_sheet ? '. Opens the alarm.' : '. Opens Security.')); }
       }
       // (the block's own custom sheet when it has one; else the alarm's sheet -- its keypad, or Home, Away and Off where it takes no
       // code -- 2026-11-08, the owner: "Shouldn't tapping arm/disarm text ... open the alarm keypad"; with no alarm, the overview)
@@ -835,7 +864,9 @@
       '  -webkit-tap-highlight-color:transparent;--ha-ripple-hover-opacity:0;--ha-ripple-pressed-opacity:0}',
       'hk-plate.hv[size=L]{flex-direction:column}',
       // (its entries on the shape inset, the alarm's words on the text's -- 2026-11-08)
-      'hk-plate.hv{padding:' + C.blockPad('14px', true) + '}hk-plate.hv .al{margin:var(--hk-text-in,0px) 0 var(--hk-text-in,0px) var(--hk-text-in,0px)}hk-plate.hv[size=L] .al{margin:var(--hk-text-in,0px) var(--hk-text-in,0px) 0 var(--hk-text-in,0px)}',
+      'hk-plate.hv{padding:' + C.blockPad('14px', true) +
+        '}hk-plate.hv .al{margin:var(--hk-text-in,0px) 0 var(--hk-text-in,0px) var(--hk-text-in,0px)}' +
+        'hk-plate.hv[size=L] .al{margin:var(--hk-text-in,0px) var(--hk-text-in,0px) 0 var(--hk-text-in,0px)}',
       '[role=button]{cursor:pointer;-webkit-tap-highlight-color:transparent}',
       '[role=button]:focus-visible{outline:2px solid ' + v('ink-2') + ';outline-offset:2px}',
       // THE ALARM'S AREA: the shield bare in its state's color (as the legacy block, and the Small keys), the state and
@@ -861,7 +892,8 @@
       'hk-plate.hv[size=L] .ents.stk .en .n{font-size:17px;line-height:22px}hk-plate.hv[size=L] .ents.stk .en .s{font-size:15px;line-height:20px;font-weight:400}',
       ':host([size=T]) hk-plate.hv .al small{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}',
       // an entry: a tile of the accessory tiles' plate, resting or (not secured) the white of one that is on
-      '.en{box-sizing:border-box;min-width:0;min-height:0;border-radius:' + (C.R.inner + 'px') + ';' + C.plate('tile') + ';display:flex;flex-direction:column;align-items:center;justify-content:center;',
+      '.en{box-sizing:border-box;min-width:0;min-height:0;border-radius:' + (C.R.inner + 'px') + ';' + C.plate('tile') +
+        ';display:flex;flex-direction:column;align-items:center;justify-content:center;',
       '  gap:2px;padding:8px 6px;text-align:center;transition:transform ' + C.DUR.press + ' ease,background-color .25s ease}',
       '.en:active{transform:scale(0.97)}',
       '.en hk-icon{width:30px;height:30px;--mdc-icon-size:100%;display:flex;flex:none;color:' + v('glyph') + '}',
@@ -870,11 +902,14 @@
       '.en .s{' + type('caption') + ';line-height:17px;color:' + v('ink-2') + ';max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
       // a row (Large, Wide): the glyph, the name, the state at the right
       // A ROW (Large, Wide) is a Home pill's parts: the glyph at the left, the name over its state (15 / 600 on 16.5 px lines)
-      'hk-plate.hv[size=C] .en,hk-plate.hv[size=L] .en,hk-plate.hv[size=W] .en{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-rows:auto auto;align-content:center;column-gap:' + TILE.wellGap + 'px;row-gap:' + TILE.rowGap + 'px;padding:0 12.8px 0 ' + TILE.padL + 'px;text-align:left}',
+      'hk-plate.hv[size=C] .en,hk-plate.hv[size=L] .en,hk-plate.hv[size=W] .en{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-rows:auto auto;align-content:center;column-gap:' +
+        TILE.wellGap + 'px;row-gap:' + TILE.rowGap + 'px;padding:0 12.8px 0 ' + TILE.padL + 'px;text-align:left}',
       'hk-plate.hv[size=C] .en .gw,hk-plate.hv[size=L] .en .gw,hk-plate.hv[size=W] .en .gw{grid-row:1 / span 2;align-self:center}',
-      'hk-plate.hv[size=C] .en .n,hk-plate.hv[size=C] .en .s,hk-plate.hv[size=L] .en .n,hk-plate.hv[size=W] .en .n,hk-plate.hv[size=L] .en .s,hk-plate.hv[size=W] .en .s{line-height:' + TILE.lineH + 'px}',
+      'hk-plate.hv[size=C] .en .n,hk-plate.hv[size=C] .en .s,hk-plate.hv[size=L] .en .n,hk-plate.hv[size=W] .en .n,hk-plate.hv[size=L] .en .s,hk-plate.hv[size=W] .en .s{line-height:' + TILE.lineH +
+        'px}',
       'hk-plate.hv[size=C] .en .s,hk-plate.hv[size=L] .en .s,hk-plate.hv[size=W] .en .s{font-size:15px;font-weight:500}',
-      'hk-plate.hv[size=C] .en hk-icon,hk-plate.hv[size=L] .en hk-icon,hk-plate.hv[size=W] .en hk-icon{width:24px;height:24px}hk-plate.hv[size=C] .en .gw,hk-plate.hv[size=L] .en .gw,hk-plate.hv[size=W] .en .gw{margin:0}',
+      'hk-plate.hv[size=C] .en hk-icon,hk-plate.hv[size=L] .en hk-icon,hk-plate.hv[size=W] .en hk-icon{width:24px;height:24px}' +
+        'hk-plate.hv[size=C] .en .gw,hk-plate.hv[size=L] .en .gw,hk-plate.hv[size=W] .en .gw{margin:0}',
 
       // NOT SECURED: the white plate, dark name, the state's ink on white, the glyph lit in its own color
       '.en.lit{background:#fff;--hk-glass-backdrop:none;-webkit-backdrop-filter:none;backdrop-filter:none}',
@@ -887,7 +922,8 @@
       '.en.ct{display:block;padding:0;container-type:size;container-name:hk-cell}',
       // (a slot under 150 px -- three rows of them on square cells -- is too short for those numbers: the same parts,
       // the glyph bare above the name and its one line, at the size it holds; the text never shrunk past a tile's)
-      'hk-plate.hv[size=XL] .en:not(.ct) hk-icon{width:40px;height:40px}hk-plate.hv[size=XL] .en:not(.ct) .n{font-size:17px;line-height:22px}hk-plate.hv[size=XL] .en:not(.ct) .s{font-size:15px;line-height:20px}',
+      'hk-plate.hv[size=XL] .en:not(.ct) hk-icon{width:40px;height:40px}hk-plate.hv[size=XL] .en:not(.ct) .n{font-size:17px;line-height:22px}hk-plate.hv[size=XL] .en:not(.ct) .s{font-size:15px;' +
+        'line-height:20px}',
       '.en .gw{display:flex;align-items:center;justify-content:center}',
       C.centredTile({ host: ':host', plate: '.en.ct', lit: '.en.ct.lit', well: '.en.ct .gw', icon: '.en.ct .gw hk-icon', name: '.en.ct .n', sub: ['.en.ct .s'] }),
       '@media (prefers-reduced-motion:reduce){.en,.al{transition:none}.en:active,.al:active{transform:none}}',
@@ -896,7 +932,8 @@
       // lit tile, its glyph teal, its state in the first ink. Large: each a row of the block's width -- the name whole, the state at its right -- from
       // the top, under the alarm; Large and Tall end in the doors and windows' line (NOTICE_CSS); the rows a designed height, never grown
       'hk-plate.hv .ops{display:flex;justify-content:flex-start;gap:8px;flex:none;min-width:0;margin-top:auto}',
-      'hk-plate.hv .op{box-sizing:border-box;flex:0 1 auto;min-width:0;max-width:100%;height:44px;display:flex;align-items:center;justify-content:center;gap:8px;padding:0 18px;border-radius:22px;cursor:pointer;-webkit-tap-highlight-color:transparent}',
+      'hk-plate.hv .op{box-sizing:border-box;flex:0 1 auto;min-width:0;max-width:100%;height:44px;display:flex;align-items:center;justify-content:center;gap:8px;padding:0 18px;border-radius:22px;' +
+        'cursor:pointer;-webkit-tap-highlight-color:transparent}',
       'hk-plate.hv .op hk-icon{width:20px;height:20px;--mdc-icon-size:100%;display:flex;flex:none}',
       'hk-plate.hv .op span{' + type('body') + ';font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}',
       NOTICE_CSS, LM_CSS, 'hk-plate.hv .al .lm{top:0}',
@@ -925,7 +962,8 @@
       // DESIGN.md's colors: secured, the glyph teal in an off well; needs a look, LIT -- the disc teal, the glyph white, the state in the first ink
       'hk-plate.hv .ents.ls{display:grid;gap:0 14px;grid-auto-rows:var(--lr,' + SEC_LIST_ROW + 'px);align-content:start;clip-path:inset(1px 0 0 0)}',
       'hk-plate.hv .ents.ls .en{height:var(--lr,' + SEC_LIST_ROW + 'px);display:grid;grid-template-columns:36px minmax(0,1fr) auto;grid-template-rows:auto auto;column-gap:12px;row-gap:0;',
-      '  align-content:center;align-items:center;padding:0 4px 0 0;text-align:left;background:none;border:0;border-top:1px solid ' + v('line') + ';border-radius:0;box-shadow:none;--hk-glass-surface:0;',
+      '  align-content:center;align-items:center;padding:0 4px 0 0;text-align:left;background:none;border:0;border-top:1px solid ' + v('line') +
+        ';border-radius:0;box-shadow:none;--hk-glass-surface:0;',
       '  --hk-glass-backdrop:none;-webkit-backdrop-filter:none;backdrop-filter:none;transition:opacity ' + C.DUR.press + ' ease}',
       'hk-plate.hv .ents.ls .en:active{transform:none;opacity:.6}',
       'hk-plate.hv .ents.ls .en .gw{grid-row:1 / span 2;grid-column:1;width:36px;height:36px;margin:0;border-radius:50%;background:' + v('key') + '}',
@@ -933,7 +971,8 @@
       'hk-plate.hv .ents.ls .en .n{grid-column:2;font-size:17px;line-height:22px;font-weight:600;color:' + v('ink') + '}',
       'hk-plate.hv .ents.ls .en .s{grid-column:2;font-size:13px;line-height:17px;font-weight:400;color:' + v('ink-2') + '}',
       // (Large: the state at the right of the name, one line)
-      'hk-plate.hv[size=L]:not(.tl) .ents.ls .en .n{grid-row:1 / span 2}hk-plate.hv[size=L]:not(.tl) .ents.ls .en .s{grid-column:3;grid-row:1 / span 2;font-size:15px;line-height:20px;text-align:right}',
+      'hk-plate.hv[size=L]:not(.tl) .ents.ls .en .n{grid-row:1 / span 2}hk-plate.hv[size=L]:not(.tl) .ents.ls .en .s{grid-column:3;grid-row:1 / span 2;font-size:15px;line-height:20px;' +
+        'text-align:right}',
       'hk-plate.hv .ents.ls .en.lit{background:none}hk-plate.hv .ents.ls .en.lit .n{color:' + v('ink') + '}',
       'hk-plate.hv .ents.ls .en.lit .gw{background:' + C.ACCENTS.teal + '}hk-plate.hv .ents.ls .en.lit .gw hk-icon{color:#fff}hk-plate.hv .ents.ls .en.lit .s{color:' + v('ink') + ';font-weight:600}',
       'hk-plate.hv .ents.ls .en.unk .gw hk-icon,hk-plate.hv .ents.ls .en.more .gw hk-icon{color:' + v('glyph') + '}',
@@ -1073,7 +1112,8 @@
       }
       _slot(it) {
         var self = this, d = document.createElement('div');
-        d.className = 'en' + (it.more ? ' more' : it.kind === 'open' || it.kind === 'jammed' ? ' lit' : it.kind === 'unknown' ? ' unk' : '') + (!it.more && dom(it.id || 'lock.x') === 'lock' ? ' lk' : '');
+        d.className = 'en' + (it.more ? ' more' : it.kind === 'open' || it.kind === 'jammed' ? ' lit' : it.kind === 'unknown' ? ' unk' : '') +
+          (!it.more && dom(it.id || 'lock.x') === 'lock' ? ' lk' : '');
         d.innerHTML = '<span class="gw"><hk-icon></hk-icon></span><span class="n"></span><span class="s"></span>';
         d.querySelector('hk-icon').icon = it.more ? 'mdi:dots-horizontal' : it.icon;
         d.querySelector('.n').textContent = it.more ? '' : it.name;

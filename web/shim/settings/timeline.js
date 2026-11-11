@@ -132,7 +132,8 @@ export function pTimeline(sub = []) {
       withPage(c, 'timeline', (page) => {
         const can = page.can_edit;
         c.appendChild(group({ header: 'What’s Recorded',
-          footer: [readOnly(page), 'Windows are off for a new house. System and Refused Commands are shown to Owners and Admins only. Turning one off stops new rows; the rows already kept stay until they age out.']
+          footer: [readOnly(page),
+            'Windows are off for a new house. System and Refused Commands are shown to Owners and Admins only. Turning one off stops new rows; the rows already kept stay until they age out.']
             .filter(Boolean).join(' ') },
         FAMILIES.map(([id, name, sub2]) => K().toggle({ label: name, sub: sub2, on: !!page.families[id], disabled: !can, fk: 'mx:timeline-family:' + id,
           onChange: (on) => putSettings(page, { families: { [id]: on } }) }))));
@@ -170,7 +171,9 @@ function drawPictures(c, page) {
     K().select({ label: 'Pictures per Detection', options: page.frames.map((n) => [String(n), framesLabel(n)]), value: String(p.frames), disabled: !can, fk: 'mx:timeline-frames',
       onChange: (v) => putSettings(page, { pictures: { frames: Number(v) } }) })];
   if (use) rows.push(info('Used', use.sub, use.value));
-  c.appendChild(group({ header: 'Pictures', footer: 'Snapshots from the cameras, kept with the row they belong to. Past the budget the oldest pictures go first and their rows stay. They are never sent anywhere.' }, rows));
+  c.appendChild(
+    group({ header: 'Pictures', footer: 'Snapshots from the cameras, kept with the row they belong to. Past the budget the oldest pictures go first and their rows stay. They are never sent anywhere.'
+    }, rows));
 }
 function drawWall(c, page) {
   const can = page.can_edit, wall = page.wall || { families: [], pictures: [] };
@@ -194,7 +197,9 @@ function drawDigest(c, page) {
     ui.flash = { key: 'timeline', text: r && r.sent ? 'Test sent.' : 'Nothing was sent: no alert channel has House turned on, and nobody has Morning Summary on.', err: !(r && r.sent) };
   }), { fk: 'mx:timeline-digest-test' }));
   c.appendChild(group({ header: 'Morning Summary',
-    footer: 'The night in a few lines, from the time under Covers From to the time it is sent. Alert channels with House turned on get the house version, without names or arrivals; Mantel apps get a personal one for each person who turns on Morning Summary in Me.' }, rows));
+    footer:
+      'The night in a few lines, from the time under Covers From to the time it is sent. Alert channels with House turned on get the house version, without names or arrivals;' +
+      ' Mantel apps get a personal one for each person who turns on Morning Summary in Me.' }, rows));
 }
 function drawClear(c, page) {
   c.appendChild(group({ footer: 'Deletes every row and every picture, for good. Mantel asks you to confirm it is you, then to type CLEAR.' }, [

@@ -634,7 +634,8 @@
       var line = lineOf(dir, w, h);
       var stops = resolveStops(args.map(stopOf).filter(Boolean), line.L, VP);
       cg = x.createLinearGradient(line.x0, line.y0, line.x1, line.y1);
-      colorStops(stops, line.L, g.rep).forEach(function (s) { try { cg.addColorStop(Math.max(0, Math.min(1, s.t)), s.color); } catch (e) { check.unsupported['color'] = (check.unsupported['color'] || 0) + 1; } });
+      colorStops(stops, line.L, g.rep).forEach(function (s) { try { cg.addColorStop(Math.max(0, Math.min(1, s.t)), s.color); } catch (e) {
+        check.unsupported['color'] = (check.unsupported['color'] || 0) + 1; } });
       x.fillStyle = cg; x.fillRect(0, 0, w, h);
       return;
     }
@@ -645,7 +646,8 @@
     x.save();
     x.translate(R.cx, R.cy); x.scale(1, R.ry / R.rx);
     cg = x.createRadialGradient(0, 0, 0, 0, 0, R.rx);
-    colorStops(rs, R.rx, g.rep).forEach(function (s) { try { cg.addColorStop(Math.max(0, Math.min(1, s.t)), s.color); } catch (e) { check.unsupported['color'] = (check.unsupported['color'] || 0) + 1; } });
+    colorStops(rs, R.rx, g.rep).forEach(function (s) { try { cg.addColorStop(Math.max(0, Math.min(1, s.t)), s.color); } catch (e) { check.unsupported['color'] = (check.unsupported['color'] || 0) + 1;
+      } });
     x.fillStyle = cg;
     x.fillRect(-R.cx, -R.cy * R.rx / R.ry, w, h * R.rx / R.ry);
     x.restore();
@@ -796,7 +798,8 @@
   }
   function shadowReach(n) {
     var r = 0;
-    (n.shadow || []).forEach(function (s) { var nums = (s.match(/-?[\d.]+px/g) || []).map(function (v) { return Math.abs(parseFloat(v)); }); r = Math.max(r, (nums[0] || 0) + (nums[1] || 0) + 2 * (nums[2] || 0) + (nums[3] || 0)); });
+    (n.shadow || []).forEach(function (s) { var nums = (s.match(/-?[\d.]+px/g) || []).map(function (v) { return Math.abs(parseFloat(v)); });
+      r = Math.max(r, (nums[0] || 0) + (nums[1] || 0) + 2 * (nums[2] || 0) + (nums[3] || 0)); });
     return r;
   }
   // a group's own effects -- filter (by the browser), then mask; opacity and

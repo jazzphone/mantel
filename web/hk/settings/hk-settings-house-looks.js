@@ -183,7 +183,8 @@
           row('outside', 'Outside Temperature', 'Not Shown', 'temperature', 'The Weather page’s daily averages')]));
         c.appendChild(K.group({ header: 'Forecast', footer: 'A sensor with a forecast attribute. Empty: the forecast is read from the weather service.' }, [
           row('forecast_daily', 'Daily Forecast', 'From Weather Service'), row('forecast_hourly', 'Hourly Forecast', 'From Weather Service')]));
-        c.appendChild(K.group({ header: 'Alerts', footer: 'The NWS Alerts integration’s sensor (US only; without it there are no alerts). Its alert chip and card show only while an alert is active.' }, [
+        c.appendChild(K.group({ header: 'Alerts', footer: 'The NWS Alerts integration’s sensor (US only; without it there are no alerts). Its alert chip and card show only while an alert is active.' }
+          , [
           row('alerts', 'Weather Alerts', 'None')]));
       }
       // ALL SCREENS -> APPEARANCE (2026-10-29): how screens look, one page --
@@ -716,7 +717,8 @@
           });
         }
         var gate = sky.seasonal ? ' They also need ' + this.name(sky.seasonal) + ' to be on (Advanced).' : '';
-        c.appendChild(K.group({ header: 'Seasonal Decorations', footer: 'What the live sky dresses up for. This is the same switch as Seasonal Decorations on the ' + haName('HK Frontend device') + '.' + gate }, rows));
+        c.appendChild(K.group({ header: 'Seasonal Decorations', footer: 'What the live sky dresses up for. This is the same switch as Seasonal Decorations on the ' + haName('HK Frontend device') +
+          '.' + gate }, rows));
         // LIVELINESS (2026-10-09): one preset for every holiday, occasion,
         // season and the Night Sky, or Custom -- each its own (Each Occasion)
         if (this.livelyMoves()) {
@@ -743,7 +745,8 @@
       skyResetGroup(c, x, b) {
         var self = this;
         c.appendChild(K.group({ footer: b ? 'Every setting on this page goes back to Same as All Screens. The Pages keep their own backgrounds.'
-                                          : 'Every setting on this page goes back to its default. The Pages keep their own backgrounds, and a photo or custom colors you made are kept for next time.' }, [
+                                          : 'Every setting on this page goes back to its default. The Pages keep their own backgrounds, and a photo or custom colors you made are kept for next time.' }
+                                            , [
           K.button({ label: 'Reset to Defaults…', destructive: true, fk: b ? 'sky:screen-reset' : 'sky:house-reset', onClick: function () {
             K.confirm(self.shadowRoot, { title: b ? 'Use the Background for All Screens?' : 'Use the default Background?',
               message: b ? 'Every setting on this page goes back to Same as All Screens. Each page’s own background stays.'
@@ -754,7 +757,8 @@
               var ch = { sky: true, sky_liveliness_occ: {}, sky_liveliness_custom: {}, sky_calm_empty: false };
               ['sky_background', 'sky_color', 'sky_landscape', 'sky_photo_look', 'sky_landscape_look', 'sky_animations', 'sky_focus_pause',
                'sky_moving', 'sky_weather', 'sky_precipitation', 'sky_cloud_style', 'sky_daytime', 'sky_gradient', 'sky_decorations',
-               'sky_decoration_style', 'sky_liveliness', 'sky_flat_background', 'sky_flat_color', 'sky_flat_fade', 'sky_flat_tint', 'sky_flat_tint_amount', 'sky_flat_tint_light', 'sky_flat_image_look', 'sky_image_look',
+               'sky_decoration_style', 'sky_liveliness', 'sky_flat_background', 'sky_flat_color', 'sky_flat_fade', 'sky_flat_tint', 'sky_flat_tint_amount', 'sky_flat_tint_light',
+                 'sky_flat_image_look', 'sky_image_look',
                'sky_wallpaper', 'sky_wallpaper_night', 'sky_wallpaper_motion', 'sky_wallpaper_color'].forEach(function (k) { ch[k] = null; });
               self.setB(x.path, ch);
             });
@@ -783,10 +787,17 @@
         var el = document.createElement('span');
         el.style.cssText = 'display:block;width:' + w + 'px;height:' + ht + 'px;background-position:center;background-size:cover';
         var W = window.hkWallpapers, wurl = kind === 'wallpaper' && W && W.url ? W.url(wall || 'ribbons', false, col) : null;
-        if (kind === 'live') el.innerHTML = '<svg viewBox="0 0 88 61" width="100%" height="100%" preserveAspectRatio="none"><defs><linearGradient id="bk-l" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3f86d0"/><stop offset="1" stop-color="#bfe0f5"/></linearGradient></defs><rect width="88" height="61" fill="url(#bk-l)"/><circle cx="64" cy="18" r="7" fill="#fff6cf"/><path d="M0 48C20 38 36 42 52 40S76 36 88 42V61H0z" fill="#5d8a5f"/></svg>';
+        if (kind ===
+          'live') el.innerHTML =
+          '<svg viewBox="0 0 88 61" width="100%" height="100%" preserveAspectRatio="none"><defs><linearGradient id="bk-l" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3f86d0"/><stop ' +
+          'offset="1" stop-color="#bfe0f5"/></linearGradient></defs><rect width="88" height="61" fill="url(#bk-l)"/><circle cx="64" cy="18" r="7" fill="#fff6cf"/><path d="M0 48C20 38 36 42 52 ' +
+          '40S76 36 88 42V61H0z" fill="#5d8a5f"/></svg>';
         else if (kind === 'color') el.style.background = 'linear-gradient(#1b2350,#5a3a78 55%,#d9826b)';
         else if (kind === 'solid') el.style.background = solid || '#24252A';
-        else if (kind === 'photo') el.innerHTML = '<svg viewBox="0 0 88 61" width="100%" height="100%" preserveAspectRatio="none"><rect width="88" height="61" fill="#d9c4a5"/><circle cx="30" cy="22" r="9" fill="#8a5a3c"/><path d="M14 61c2-16 10-24 16-24s14 8 16 24z" fill="#365f8a"/><circle cx="60" cy="25" r="8" fill="#c99a76"/><path d="M45 61c2-14 9-21 15-21s13 7 15 21z" fill="#b04a4a"/></svg>';
+        else if (kind ===
+          'photo') el.innerHTML =
+          '<svg viewBox="0 0 88 61" width="100%" height="100%" preserveAspectRatio="none"><rect width="88" height="61" fill="#d9c4a5"/><circle cx="30" cy="22" r="9" fill="#8a5a3c"/><path d="M14 ' +
+          '61c2-16 10-24 16-24s14 8 16 24z" fill="#365f8a"/><circle cx="60" cy="25" r="8" fill="#c99a76"/><path d="M45 61c2-14 9-21 15-21s13 7 15 21z" fill="#b04a4a"/></svg>';
         else if (kind === 'landscapes') el.style.backgroundImage = 'url("/hk/landscapes/thumbs/01.webp")';
         else if (wurl) el.style.backgroundImage = 'url("' + wurl + '")';
         else el.style.background = 'linear-gradient(160deg,#c45a7c,#6a3d8f)';
@@ -947,7 +958,8 @@
         if (o.follow) rows.push(K.check({ label: o.follow[0], sub: 'Now ' + this.backdropLabel(o.follow[1]), on: !o.id, fk: o.fk + 'follow',
                                           onClick: function () { o.onPick(null); } }));
         var all = this.backdropRows(o.id, o.custom, o.onPick, o.fk).filter(function (r) { return r.getAttribute('data-fk') !== o.fk + 'live'; });
-        c.appendChild(K.group({ header: o.header || 'Color', footer: o.footer || 'The top of the screen to the bottom. Each has its day colors and, after sunset, its night ones.' }, rows.concat(all)));
+        c.appendChild(K.group({ header: o.header || 'Color', footer: o.footer || 'The top of the screen to the bottom. Each has its day colors and, after sunset, its night ones.' },
+          rows.concat(all)));
         var eff = o.id || (o.follow && o.follow[1]);
         if (o.id === 'custom') this.customBackdrop(c, o.custom, o.scope, o.onCustom);
         else if (!o.id && eff === 'custom') c.appendChild(K.group({ footer: 'Custom’s colors are chosen where it is followed.' }, []));
@@ -1090,7 +1102,8 @@
           });
           return h('div', { class: 'cell', 'data-sk': scope + ':' + key }, [K.label(label), h('div', { class: 'skycolors' }, colors)]);
         });
-        c.appendChild(this.withError(K.group({ header: 'Custom Stops', footer: 'Four colors from the top of the sky to the horizon. Day when the sun is above the horizon; Night otherwise.' }, rows), scope.indexOf('b:') === 0 ? 'b:sky_custom' : scope));
+        c.appendChild(this.withError(K.group({ header: 'Custom Stops', footer: 'Four colors from the top of the sky to the horizon. Day when the sun is above the horizon; Night otherwise.' }, rows),
+          scope.indexOf('b:') === 0 ? 'b:sky_custom' : scope));
       }
       // WOODLAND BETWEEN OCCASIONS: New Decorations' seasonal woodland on the
       // days with no holiday or birthday, season by season -- its own choice
@@ -1238,7 +1251,10 @@
           }
           self.setH(changes);
         };
-        c.appendChild(K.group({ header: 'The Sky', footer: 'The live sky’s colors on Home, the room pages, Weather and Calendar. Its weather, decorations and animations still show over it. Each screen can choose its own.' },
+        c.appendChild(
+          K.group(
+          { header: 'The Sky',
+          footer: 'The live sky’s colors on Home, the room pages, Weather and Calendar. Its weather, decorations and animations still show over it. Each screen can choose its own.' },
           this.backdropRows(sky.gradient || 'live', sky.gradient_custom, pick, 'hbackdrop:')));
         if (sky.gradient === 'custom') this.customBackdrop(c, sky.gradient_custom, 'sky.gradient_custom', function (v) {
           self.setH({ 'sky.gradient_custom': v });

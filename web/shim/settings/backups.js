@@ -59,7 +59,9 @@ export function pBackups() {
     }
     const keep = 'Mantel keeps the newest backup of each of the last ' + b.keep_daily + ' days and ' + b.keep_weekly + ' weeks.';
     c.appendChild(group({ header: 'Latest', footer: !b.local ? keep : b.ha_app
-      ? 'Home Assistant’s own backups already include Mantel (Settings → System → Backups). These are Mantel’s own copies, to download or to move to another Mantel, and aren’t added to Home Assistant’s backups. ' + keep
+      ?
+        'Home Assistant’s own backups already include Mantel (Settings → System → Backups). These are Mantel’s own copies, to download or to move to another Mantel, and aren’t added to Home ' +
+        'Assistant’s backups. ' + keep
       : 'No backup folder is set, so nothing is backed up at night: give Mantel one to back up nightly (see Backups in the guide). ' + keep }, rows));
     // ---- the list
     if (b.backups.length) {
@@ -71,7 +73,8 @@ export function pBackups() {
                          onclick: () => save(mantelUrl('/api/backup/files/' + encodeURIComponent(x.name)), x.name) }),
           hh('button', { type: 'button', class: 'mxlink red', text: 'Delete', 'data-fk': 'mx:backup-rm:' + x.name,
                          onclick: async () => {
-                           if (!(await ask({ title: 'Delete this backup?', message: 'The backup of ' + when(x.created) + ' is deleted from Mantel. A copy you downloaded is not affected.', ok: 'Delete', destructive: true }))) return;
+                           if (!(await ask({ title: 'Delete this backup?', message: 'The backup of ' + when(x.created) + ' is deleted from Mantel. A copy you downloaded is not affected.',
+                             ok: 'Delete', destructive: true }))) return;
                            act('backups', () => api('DELETE', '/api/backup/files/' + encodeURIComponent(x.name)), 'Backup deleted.', 'backups');
                          } })]);
         cell.appendChild(acts);
@@ -91,7 +94,12 @@ export function pBackups() {
       return;
     }
     // ---- the keys
-    c.appendChild(group({ header: 'Keys', footer: 'A backup is locked with Mantel’s backup key, and some values inside it (authenticator codes, saved connections) with its at-rest key. Neither is in the backup. Save both as one small file, and keep it apart from the backups, for example in your password manager: without it a backup can only be restored on this Mantel.' },
+    c.appendChild(
+      group(
+      { header: 'Keys',
+      footer:
+      'A backup is locked with Mantel’s backup key, and some values inside it (authenticator codes, saved connections) with its at-rest key. Neither is in the backup. Save both as one small file, ' +
+      'and keep it apart from the backups, for example in your password manager: without it a backup can only be restored on this Mantel.' },
       [info('Backup Key', null, b.key_present ? 'Made' : 'Made With the First Backup'),
        button('Save Keys…', async () => {
          const k = await act('backups', () => api('GET', '/api/backup/keys'), null);
@@ -128,10 +136,16 @@ function drawRestore(c, b) {
       (p.migrated && p.migrated.length ? ' · brought up to this version of Mantel' : '') + (p.other_keys ? ' · with another Mantel’s keys' : '');
     // (a restore never turns control of the house on by itself: backup.py _control_off)
     const control = p.control_was_on ? ' Allow Control of the House was on in this backup: it stays off after the restore, until you turn it on in General.' : '';
-    c.appendChild(group({ header: 'Restore', footer: 'Mantel restarts to put it in place; screens and wall tablets reconnect by themselves within a minute. What is here now is moved aside in the data folder, not deleted. You may need to sign in again.' }, [
+    c.appendChild(
+      group(
+      { header: 'Restore',
+      footer:
+      'Mantel restarts to put it in place; screens and wall tablets reconnect by themselves within a minute. What is here now is moved aside in the data folder, not deleted. You may need to sign ' +
+      'in again.' }, [
       info('Checked and Ready', what, null),
       button('Restore and Restart…', async () => {
-        if (!(await ask({ title: 'Restore this backup?', message: 'Everything Mantel keeps goes back to how it was on ' + when(p.created) + '. Mantel restarts now.' + control, ok: 'Restore', destructive: true }))) return;
+        if (!(await ask({ title: 'Restore this backup?', message: 'Everything Mantel keeps goes back to how it was on ' + when(p.created) + '. Mantel restarts now.' + control, ok: 'Restore',
+          destructive: true }))) return;
         if (await act('backups', () => api('POST', '/api/backup/restore'), 'Restoring. Mantel is restarting…')) waitForRestart();
       }, { destructive: true, fk: 'mx:backup-restore' }),
       button('Cancel', () => act('backups', () => api('DELETE', '/api/backup/restore'), 'Restore cancelled.', 'backups'), { fk: 'mx:backup-cancel' })]));

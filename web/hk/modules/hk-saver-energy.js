@@ -160,7 +160,8 @@
 
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function E() { return window.hkEnergy; }
-  function reduced() { return !!(((window.hkSettings && window.hkSettings.rendering && !window.hkSettings.rendering().motion) || (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches))); }
+  function reduced() { return !!(((window.hkSettings && window.hkSettings.rendering && !window.hkSettings.rendering().motion) ||
+    (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches))); }
 
   // THE PAGE'S CODE (hk-energy.js, a Lovelace resource) loads with the
   // cards: wait for it, never poll

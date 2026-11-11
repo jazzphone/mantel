@@ -46,11 +46,13 @@
           // tablet page's 1229 and only two fit (measured). The number is about
           // the page width, not about nesting.
           // 10 apart, as every card on the page (hk-base TILE.gridGap)
-          '.grid{display:grid;grid-template-columns:repeat(auto-fill,388px);  grid-auto-rows:196px;column-gap:' + window.hkCards.TILE.gridGap + 'px;row-gap:' + window.hkCards.TILE.gridGap + 'px;margin:0 0 14px 0}',
+          '.grid{display:grid;grid-template-columns:repeat(auto-fill,388px);  grid-auto-rows:196px;column-gap:' + window.hkCards.TILE.gridGap + 'px;row-gap:' + window.hkCards.TILE.gridGap +
+            'px;margin:0 0 14px 0}',
           // 196 exactly: 52 (head) + 48 (countdown and its bar, which
           // hkTimers.html emits as ONE wrapper and so occupies one row) + 52
           // (buttons) + two 12px gaps + 32 of padding.
-          '.tc{height:196px;padding:16px 18px;border-radius:' + M.radius + ';  ' + M.glass + ';border:' + M.border + ';  box-shadow:var(--hk-look-shadow, ' + window.hkCards.v('glass-shadow-lg') + ');',
+          '.tc{height:196px;padding:16px 18px;border-radius:' + M.radius + ';  ' + M.glass + ';border:' + M.border + ';  box-shadow:var(--hk-look-shadow, ' + window.hkCards.v('glass-shadow-lg') +
+            ');',
           '  display:grid;column-gap:12px;row-gap:12px;align-items:center;  grid-template-columns:repeat(4,minmax(0,1fr));  grid-template-rows:52px minmax(0,1fr) 52px;',
           '  grid-template-areas:"head head head head" "count count count count"                     "pause restart plus finish"}',
           '.tc > .head{grid-area:head;justify-self:stretch;min-width:0;overflow:hidden}',
@@ -59,7 +61,8 @@
           // explicit 21px icon row -- an <hk-icon> has no intrinsic height, so a
           // min-content row collapses it to nothing and the buttons render as
           // bare captions. The caption row CAN be min-content; text sizes itself.
-          '.tb{height:52px;border-radius:18px;background:' + window.hkCards.v('key') + ';  border:none;box-shadow:none;padding:0;justify-self:stretch;  display:grid;grid-template-columns:minmax(0,1fr);',
+          '.tb{height:52px;border-radius:18px;background:' + window.hkCards.v('key') +
+            ';  border:none;box-shadow:none;padding:0;justify-self:stretch;  display:grid;grid-template-columns:minmax(0,1fr);',
           '  grid-template-rows:21px min-content;align-content:center;  justify-items:center;row-gap:3px;cursor:pointer;user-select:none}',
           '.tb hk-icon{--mdc-icon-size:19px;width:19px;height:19px;  color:' + window.hkCards.v('glyph') + '}',
           '.tb > span{font-size:11px;font-weight:600;letter-spacing:0.1px;  line-height:1;color:' + window.hkCards.v('ink-2') + '}',

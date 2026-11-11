@@ -373,10 +373,12 @@
     return '' +
       '<div data-hk-clock="clock" style="min-width:max-content; text-align:left;">\n' +
       '        <div style="display:flex; align-items:baseline; gap:' + gap + '; min-width:0; padding-left:3px;">\n' +
-      '          <span data-hk-clock="time" style="font-size:' + timeSize + '; font-weight:600; line-height:' + timeLh + '; color:' + fg + '; letter-spacing:' + timeLs + '; font-variant-numeric:tabular-nums;' + shiftCss + '">' + timeText + '</span>\n' +
+      '          <span data-hk-clock="time" style="font-size:' + timeSize + '; font-weight:600; line-height:' + timeLh + '; color:' + fg + '; letter-spacing:' + timeLs +
+        '; font-variant-numeric:tabular-nums;' + shiftCss + '">' + timeText + '</span>\n' +
       '          <span style="font-size:' + ampmSize + '; letter-spacing:' + ampmLs + '; font-weight:500; line-height:1; color:' + fgDim + ';">' + ampm + '</span>\n' +
       '        </div>\n' +
-      '        <div data-hk-clock="date" style="font-size:' + dateSize + '; letter-spacing:' + dateLs + '; font-weight:600; line-height:1.1; margin-top:' + dateGap + '; color:' + dateFg + ';' + clipCss + ' padding-left:3px;">\n' +
+      '        <div data-hk-clock="date" style="font-size:' + dateSize + '; letter-spacing:' + dateLs + '; font-weight:600; line-height:1.1; margin-top:' + dateGap + '; color:' + dateFg + ';' +
+        clipCss + ' padding-left:3px;">\n' +
       '          ' + dateText + '\n' +
       '        </div>\n' +
       '      </div>';
@@ -471,10 +473,12 @@
       '<div style="display:flex; align-items:center; justify-content:flex-start; gap:' + gap + '; min-width:0; text-align:left;' + width + boxSizing + selfShadow + '">\n' +
       '        ' + wxSvg(w.state, glyph, { night: night }) + '\n' +
       '        <div data-hk-wx="text" style="min-width:0; text-align:left;">\n' +
-      '          <div data-hk-wx="main" style="font-size:' + mainSize + '; letter-spacing:' + mainLs + '; font-weight:600; line-height:1.02; color:' + fg + '; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">\n' +
+      '          <div data-hk-wx="main" style="font-size:' + mainSize + '; letter-spacing:' + mainLs + '; font-weight:600; line-height:1.02; color:' + fg +
+        '; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">\n' +
       '            ' + outsideTemp + ' • ' + condition + '\n' +
       '          </div>\n' +
-      '          <div data-hk-wx="detail" style="font-size:' + detailSize + '; letter-spacing:' + detailLs + '; font-weight:600; line-height:1.1; margin-top:' + detailGap + '; color:' + fgDim + '; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">\n' +
+      '          <div data-hk-wx="detail" style="font-size:' + detailSize + '; letter-spacing:' + detailLs + '; font-weight:600; line-height:1.1; margin-top:' + detailGap + '; color:' + fgDim +
+        '; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">\n' +
       '            ' + detail + '\n' +
       '          </div>\n' +
       '        </div>\n' +

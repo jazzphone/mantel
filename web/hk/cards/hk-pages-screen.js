@@ -526,7 +526,8 @@
           var av = g.phone ? 40 : 56;
           out += '<div class="who" title="' + esc(d.who.name) + '" style="right:' + Math.round(g.gutter) + 'px;top:calc(env(safe-area-inset-top, 0px) + ' +
                  (top - 6) + 'px);width:' + av + 'px;height:' + av + 'px;font-size:' + Math.round(av * 0.43) + 'px;background:' +
-                 tintHex('orange') + '">' + (d.who.pic ? window.hkCards.artImg(d.who.pic, { ph: 'av', ini: d.who.name.trim().charAt(0).toUpperCase(), color: tintHex('orange') }) : esc(d.who.name.trim().charAt(0).toUpperCase())) + '</div>';
+                 tintHex('orange') + '">' + (d.who.pic ? window.hkCards.artImg(d.who.pic, { ph: 'av', ini: d.who.name.trim().charAt(0).toUpperCase(), color: tintHex('orange') }) :
+                   esc(d.who.name.trim().charAt(0).toUpperCase())) + '</div>';
         }
         // the screens of icons
         var self = this;

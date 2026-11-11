@@ -404,7 +404,8 @@
       // The controls keep a useful width even when a short screen needs smaller art.
       ':host([muup]) .mu .mbody{--a:min(84cqw,36cqh);--mg:4cqh}',
       ':host([muup]) .mu .mart{right:auto;left:calc(50cqw - var(--a) / 2);top:var(--hk-mu-top,12cqh)}',
-      ':host([muup]) .mu .mcol{--cw:min(84cqw,max(var(--a),calc(380px * var(--z))));left:calc(50cqw - var(--cw) / 2);right:auto;width:var(--cw);bottom:auto;top:calc(var(--hk-mu-top,12cqh) + var(--a) + var(--mg))}',
+      ':host([muup]) .mu .mcol{--cw:min(84cqw,max(var(--a),calc(380px * var(--z))));left:calc(50cqw - var(--cw) / 2);right:auto;width:var(--cw);bottom:auto;' +
+        'top:calc(var(--hk-mu-top,12cqh) + var(--a) + var(--mg))}',
       // Beside a pane: a lower stage, the cover and the complete text block
       // sharing one row. The text's center follows the cover even when lines wrap
       // or optional fields disappear; progress and transport span both columns.

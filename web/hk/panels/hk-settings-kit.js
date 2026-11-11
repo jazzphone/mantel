@@ -297,11 +297,18 @@
     '@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}'
   ].join('\n');
 
-  var CHEV = '<svg class="chev" viewBox="0 0 8 13" aria-hidden="true"><path d="M1.5 1.5 6.5 6.5 1.5 11.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-  var UPDOWN = '<svg viewBox="0 0 9 14" aria-hidden="true"><path d="M1.5 5 4.5 2 7.5 5M1.5 9 4.5 12 7.5 9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-  var CHECK = '<svg class="check" viewBox="0 0 17 17" aria-hidden="true"><path d="M2.5 9 6.5 13 14.5 3.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  var CHEV =
+    '<svg class="chev" viewBox="0 0 8 13" aria-hidden="true"><path d="M1.5 1.5 6.5 6.5 1.5 11.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" ' +
+    'stroke-linejoin="round"/></svg>';
+  var UPDOWN =
+    '<svg viewBox="0 0 9 14" aria-hidden="true"><path d="M1.5 5 4.5 2 7.5 5M1.5 9 4.5 12 7.5 9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" ' +
+    'stroke-linejoin="round"/></svg>';
+  var CHECK =
+    '<svg class="check" viewBox="0 0 17 17" aria-hidden="true"><path d="M2.5 9 6.5 13 14.5 3.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" ' +
+    'stroke-linejoin="round"/></svg>';
   var MINUS = '<svg viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="10" fill="var(--hk-red)"/><path d="M6.5 11h9" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>';
-  var PLUS = '<svg viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="10" fill="var(--hk-green)"/><path d="M6.5 11h9M11 6.5v9" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>';
+  var PLUS =
+    '<svg viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="10" fill="var(--hk-green)"/><path d="M6.5 11h9M11 6.5v9" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>';
   var GRIP = '<svg viewBox="0 0 20 14" aria-hidden="true"><path d="M2 2h16M2 7h16M2 12h16" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
   function svg(markup) { var s = document.createElement('span'); s.innerHTML = markup; return s.firstChild; }
 
@@ -513,7 +520,9 @@
                             disabled: !!o.disabled }, [
       lead(o), label(o.label, o.sub, lid),
       h('span', { class: 'pvnow' }, [cur ? shot(cur[0], rs[0], rs[1]) : null, h('span', { class: 'pvname', text: cur ? cur[1] : '' })]),
-      svg('<svg class="pvdis" viewBox="0 0 13 8" aria-hidden="true"><path d="M1.5 1.5 6.5 6.5 11.5 1.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>')]);
+      svg(
+        '<svg class="pvdis" viewBox="0 0 13 8" aria-hidden="true"><path d="M1.5 1.5 6.5 6.5 11.5 1.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" ' +
+        'stroke-linejoin="round"/></svg>')]);
     var grid = h('div', { class: 'pvgrid', id: gid, role: 'radiogroup', 'aria-labelledby': lid, hidden: true, style: '--pvw:' + size[0] + 'px' });
     var built = false, build = function () {
       if (built) return;

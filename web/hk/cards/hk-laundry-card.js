@@ -35,7 +35,9 @@
   var SQ_BLOCK = { S: [196, 196], W: [405, 196], T: [196, 405], L: [405, 405], XL: [614, 405] };
   var MINT = (C.ACCENTS && C.ACCENTS.mint) || '#63e6e2', RED = (C.ACCENTS && C.ACCENTS.red) || '#ff453a';
   var ICON = {
-    pause: '<svg viewBox="0 0 18 18" aria-hidden="true"><rect x="4" y="3" width="3.6" height="12" rx="1.4" fill="currentColor"/><rect x="10.4" y="3" width="3.6" height="12" rx="1.4" fill="currentColor"/></svg>',
+    pause:
+      '<svg viewBox="0 0 18 18" aria-hidden="true"><rect x="4" y="3" width="3.6" height="12" rx="1.4" fill="currentColor"/><rect x="10.4" y="3" width="3.6" height="12" rx="1.4" ' +
+      'fill="currentColor"/></svg>',
     play: '<svg viewBox="0 0 18 18" aria-hidden="true"><path d="M5 3.4v11.2c0 .8.9 1.3 1.6.9l9-5.6c.6-.4.6-1.3 0-1.7l-9-5.6C5.9 2.2 5 2.6 5 3.4Z" fill="currentColor"/></svg>',
     stop: '<svg viewBox="0 0 18 18" aria-hidden="true"><rect x="3.5" y="3.5" width="11" height="11" rx="2.6" fill="currentColor"/></svg>',
     check: '<svg viewBox="0 0 18 18" aria-hidden="true"><path d="M3.5 9.4l3.5 3.6 7.5-8" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
@@ -129,7 +131,8 @@
       if (!L || !this.client) return out + 'none';
       var list = L.machines(this.client);
       out += list.map(function (m) { return m.id + ':' + m.kind + ':' + m.name; }).join(',') + '|';
-      list.forEach(function (m) { L.ids(s && { states: s }, m).forEach(function (id) { if (id === m.power && m.status) return; var st = s[id]; out += id + '=' + (st ? st.state + '@' + (st.last_changed || '') : 'x') + ';'; }); });
+      list.forEach(function (m) { L.ids(s && { states: s }, m).forEach(function (id) { if (id === m.power && m.status) return; var st = s[id]; out += id + '=' +
+        (st ? st.state + '@' + (st.last_changed || '') : 'x') + ';'; }); });
       return out;
     }
     connectedCallback() {
@@ -154,7 +157,8 @@
     // its line's top (30 / 34), a title's 5 (22 / 26)
     _artC(o, w, cap) {
       var L = window.hkLaundry;
-      return '<div class="art" style="width:' + Math.round(w) + 'px;margin-top:' + (cap || 0) + 'px">' + L.art(o.state, o.kind, { crop: true, display: w >= 70 ? L.display(o) : '', label: o.name + ', ' + o.title }) + '</div>';
+      return '<div class="art" style="width:' + Math.round(w) + 'px;margin-top:' + (cap || 0) + 'px">' +
+        L.art(o.state, o.kind, { crop: true, display: w >= 70 ? L.display(o) : '', label: o.name + ', ' + o.title }) + '</div>';
     }
     _fitC(w, h) { return Math.max(40, Math.min(w, h * 94 / 132)); }
     _tone(o) { return o.state === 'leak' || o.state === 'error' ? ' red' : (o.state === 'done' || o.state === 'wrinkle') ? ' mint' : ''; }
@@ -163,7 +167,8 @@
       if (!o.steps) return '';
       var narrow = w != null && (w - 6 * (o.steps.length - 1)) / o.steps.length < 42;
       return '<div class="trk' + (narrow ? ' nar' : '') + '">' + o.steps.map(function (s) {
-        return '<div class="s' + (s.done ? ' done' : s.now ? ' now' : '') + '"><div class="b"><i style="width:' + (s.done ? 100 : s.now ? 50 : 0) + '%' + (s.color ? ';background:' + s.color : '') + '"></i></div><div class="n">' + esc(s.name) + '</div></div>';
+        return '<div class="s' + (s.done ? ' done' : s.now ? ' now' : '') + '"><div class="b"><i style="width:' + (s.done ? 100 : s.now ? 50 : 0) + '%' + (s.color ? ';background:' + s.color : '') +
+          '"></i></div><div class="n">' + esc(s.name) + '</div></div>';
       }).join('') + '</div>';
     }
     // the keys a block may hold: Clear on a held Done; Pause (or Resume) and Stop where the machine takes them now
@@ -191,7 +196,8 @@
       var m = window.hkLaundry.byId(this.client, o.id);
       if (m && m.leak) rows.push(['Leak Sensor', o.leak ? 'Wet' : 'Dry', o.leak]);
       rows = rows.slice(0, max);
-      return rows.length ? '<div class="rows">' + rows.map(function (r) { return '<div class="r">' + esc(r[0]) + '<b' + (r[2] ? ' class="red"' : '') + '>' + esc(r[1]) + '</b></div>'; }).join('') + '</div>' : '';
+      return rows.length ? '<div class="rows">' + rows.map(function (r) { return '<div class="r">' + esc(r[0]) + '<b' + (r[2] ? ' class="red"' : '') + '>' + esc(r[1]) + '</b></div>'; }).join('') +
+        '</div>' : '';
     }
     // THIS LOAD'S POWER (the owner, 2026-11-10: the mockups, "you may be able to add the power to the Large card as well"): "Power 451 W",
     // the kWh it has used at the right, and under them its watts since it started, each stretch in its step's color, a dotted line on
@@ -207,7 +213,8 @@
       var L = window.hkLaundry, t = tr.t, unit = String((((this.client.states || {})[tr.m.power] || {}).attributes || {}).unit_of_measurement || '');
       var watts = t.wait ? (o.watts || 0) * (/^kw$/i.test(unit) ? 1000 : 1) : t.watts, still = t.wait || t.bare;
       var fmt = function (n) { return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ','); };
-      var h = '<div class="ph"><span class="pl">Power</span><b>' + fmt(watts) + ' W</b>' + (still ? '' : '<span class="pk">' + (t.kwh < 10 ? t.kwh.toFixed(1) : fmt(t.kwh)) + ' kWh' + (w >= 300 ? ' this load' : '') + '</span>') + '</div>';
+      var h = '<div class="ph"><span class="pl">Power</span><b>' + fmt(watts) + ' W</b>' +
+        (still ? '' : '<span class="pk">' + (t.kwh < 10 ? t.kwh.toFixed(1) : fmt(t.kwh)) + ' kWh' + (w >= 300 ? ' this load' : '') + '</span>') + '</div>';
       if (!still && gh >= 28 && t.bins.length) {
         var W = Math.max(40, Math.round(w)), H = Math.round(Math.min(gh, 90)), max = Math.max(500, t.peak * 1.1), span = Math.max(1, t.end - t.start);
         var X = function (x) { return ((x - t.start) / span * W).toFixed(1); }, Y = function (x) { return (H - 2 - Math.min(1, x / max) * (H - 8)).toFixed(1); };
@@ -219,12 +226,14 @@
         groups[groups.length - 1].p.push({ x: t.now, w: t.watts });
         groups.forEach(function (g, i) {
           var c = L.STEP_COLORS[g.k] || '#63e6e2', line = g.p.map(function (p, k) { return (k ? 'L' : 'M') + X(p.x) + ' ' + Y(p.w); }).join('');
-          svg += '<defs><linearGradient id="lpg' + i + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + c + '" stop-opacity=".36"/><stop offset="1" stop-color="' + c + '" stop-opacity="0"/></linearGradient></defs>' +
+          svg += '<defs><linearGradient id="lpg' + i + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + c + '" stop-opacity=".36"/><stop offset="1" stop-color="' + c +
+            '" stop-opacity="0"/></linearGradient></defs>' +
             '<path d="' + line + 'L' + X(g.p[g.p.length - 1].x) + ' ' + H + 'L' + X(g.p[0].x) + ' ' + H + 'Z" fill="url(#lpg' + i + ')"/>' +
             '<path d="' + line + '" fill="none" stroke="' + c + '" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>';
         });
         var nx = X(t.now), ny = Y(t.watts);
-        svg += (t.end > t.now + 60000 ? '<line x1="' + nx + '" y1="' + H + '" x2="' + W + '" y2="' + H + '" stroke="' + v('ink-3') + '" stroke-width="1.5" stroke-dasharray="2 5" stroke-linecap="round"/>' : '') +
+        svg += (t.end > t.now + 60000 ? '<line x1="' + nx + '" y1="' + H + '" x2="' + W + '" y2="' + H + '" stroke="' + v('ink-3') +
+          '" stroke-width="1.5" stroke-dasharray="2 5" stroke-linecap="round"/>' : '') +
           '<circle cx="' + nx + '" cy="' + ny + '" r="8" fill="' + v('ink') + '" opacity=".16"/><circle cx="' + nx + '" cy="' + ny + '" r="4.5" fill="' + v('ink') + '"/>';
         h += '<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Power this load, ' + fmt(t.peak) + ' W at most">' + svg + '</svg>';
       }
@@ -232,7 +241,8 @@
       return '<div class="pw" data-pw="' + esc(o.id) + '"></div>';
     }
     _ctile(o, dw, small, pills) {
-      return '<div class="ct' + (small ? ' sm' : '') + '">' + this._art(o, dw) + '<div class="nm">' + esc(o.name) + '</div><div class="st' + this._tone(o) + '">' + esc(o.short) + '</div>' + (pills || '') + '</div>';
+      return '<div class="ct' + (small ? ' sm' : '') + '">' + this._art(o, dw) + '<div class="nm">' + esc(o.name) + '</div><div class="st' + this._tone(o) + '">' + esc(o.short) + '</div>' +
+        (pills || '') + '</div>';
     }
     // a drawing's width that fits a height (the drawing is 140 : 150)
     _fit(w, h) { return Math.max(40, Math.min(w, h * 140 / 150)); }
@@ -247,7 +257,8 @@
         var aw = this._fitC(Math.min(110, iw * 0.32), ih - 5);
         var wp = this._pills(o, 1), foot = (box.tile && (wp || ih < 100) ? '' : this._track(o, iw - aw - GAP)) + wp;
         return '<div style="display:flex;gap:' + GAP + 'px;align-items:flex-start;flex:1;min-width:0">' +
-          '<div class="col" style="align-self:stretch"><div class="ti' + tone + '">' + esc(o.title) + '</div><div class="sb' + (o.state === 'leak' ? ' red' : '') + '">' + esc(o.sub) + '</div>' + (box.tile ? '' : fin) +
+          '<div class="col" style="align-self:stretch"><div class="ti' + tone + '">' + esc(o.title) + '</div><div class="sb' + (o.state === 'leak' ? ' red' : '') + '">' + esc(o.sub) + '</div>' +
+            (box.tile ? '' : fin) +
           (foot ? '<div class="foot">' + foot + '</div>' : '') + '</div>' + this._artC(o, aw, 5) + '</div>';
       }
       if (size === 'T') {
@@ -257,7 +268,8 @@
           '<div class="ti" style="margin-top:12px">' + esc(o.title) + '</div><div class="sb' + tone + '">' + esc(o.sub) + '</div>' + (box.tile ? '' : fin) +
           (tfoot ? '<div class="foot" style="width:100%;align-items:center">' + tfoot + '</div>' : '') + '</div>';
       }
-      var words = '<div class="col" style="gap:4px;flex:none"><div class="hero' + tone + '">' + esc(o.title) + '</div><div class="sb' + (o.state === 'leak' ? ' red' : '') + '">' + esc(o.sub) + '</div>' + fin + '</div>';
+      var words = '<div class="col" style="gap:4px;flex:none"><div class="hero' + tone + '">' + esc(o.title) + '</div><div class="sb' + (o.state === 'leak' ? ' red' : '') + '">' + esc(o.sub) +
+        '</div>' + fin + '</div>';
       if (size === 'L') {
         // (the readings first -- the owner: "what happened to the other data on the Large ... card": up to three rows, then the drawing
         // takes the height that leaves, never shorter than the words beside it)
@@ -266,13 +278,15 @@
           // (with its power: the words and the machine, the steps, then the power to the foot -- the graph takes what is left, 44 at least)
           var lfoot = 14 + (o.steps ? 40 : 0) + 30 + (lp ? 66 : 0), ltop = Math.max(91, Math.min(166, ih - lfoot - 56)), lw = this._fitC(Math.min(116, iw * 0.36), ltop - 7);
           var lgh = ih - Math.max(lw * 132 / 94 + 7, 84) - lfoot;
-          return '<div class="col" style="gap:14px"><div style="display:flex;gap:' + GAP + 'px;align-items:flex-start;justify-content:space-between;min-width:0">' + words + this._artC(o, lw, 7) + '</div>' +
+          return '<div class="col" style="gap:14px"><div style="display:flex;gap:' + GAP + 'px;align-items:flex-start;justify-content:space-between;min-width:0">' + words + this._artC(o, lw, 7) +
+            '</div>' +
             this._track(o, iw) + this._pwPart(o, ltr, iw, lgh) + (lp ? '<div class="foot" style="margin-top:0">' + lp + '</div>' : '') + '</div>';
         }
         var all = box.tile ? 0 : (this._rows(o, 3).match(/class="r"/g) || []).length;
         var free = ih - 14 - (o.steps ? 43 : 0) - (lp ? 52 : 0), n = Math.max(0, Math.min(all, Math.floor((free - 84) / 38)));
         var lrows = n ? this._rows(o, n) : '', la = this._fitC(Math.min(116, iw * 0.36), Math.max(84, Math.min(166, free - n * 38 - (n ? 12 : 0))) - 7);
-        return '<div class="col" style="gap:14px"><div style="display:flex;gap:' + GAP + 'px;align-items:flex-start;justify-content:space-between;min-width:0">' + words + this._artC(o, la, 7) + '</div>' +
+        return '<div class="col" style="gap:14px"><div style="display:flex;gap:' + GAP + 'px;align-items:flex-start;justify-content:space-between;min-width:0">' + words + this._artC(o, la, 7) +
+          '</div>' +
           this._track(o, iw) + lrows + (lp ? '<div class="foot">' + lp + '</div>' : '') + '</div>';
       }
       // (Extra Large: the cycle's settings under the finish, and this load's power in place of the readings when it has a power sensor)
@@ -282,22 +296,26 @@
       var used = 34 + 22 + (fin ? 24 : 0) + (xs ? 24 : 0) + 14 + (o.steps ? 40 : 0) + 30 + (xp ? 66 : 0);
       var xbody = xtr ? this._pwPart(o, xtr, cw, ih - used) : this._rows(o, box.tile ? 2 : 4);
       return '<div style="display:flex;gap:' + GAP + 'px;flex:1;min-width:0;align-items:flex-start">' +
-        '<div class="col" style="gap:14px;align-self:stretch">' + xwords + this._track(o, cw) + xbody + (xp ? '<div class="foot"' + (xtr ? ' style="margin-top:0"' : '') + '>' + xp + '</div>' : '') + '</div>' +
+        '<div class="col" style="gap:14px;align-self:stretch">' + xwords + this._track(o, cw) + xbody + (xp ? '<div class="foot"' + (xtr ? ' style="margin-top:0"' : '') + '>' + xp + '</div>' : '') +
+          '</div>' +
         this._artC(o, xa, 7) + '</div>';
     }
     _two(size, box, list) {
       var self = this, iw = box.iw, ih = box.ih;
-      var half = function (o, inner) { return '<div class="half" data-open data-m="' + esc(o.id) + '" role="button" tabindex="0" aria-label="' + esc(o.name + ', ' + o.title) + '">' + inner + '</div>'; };
+      var half = function (o, inner) { return '<div class="half" data-open data-m="' + esc(o.id) + '" role="button" tabindex="0" aria-label="' + esc(o.name + ', ' + o.title) + '">' + inner + '</div>';
+        };
       if (size === 'W') return list.map(function (o, i) { return (i ? '<div class="hv"></div>' : '') + half(o, self._ctile(o, self._fit(iw / 2 - 30, ih - 54), true, '')); }).join('');
       if (size === 'T') {
-        return '<div class="col" style="gap:0">' + list.map(function (o, i) { return (i ? '<div class="hh"></div>' : '') + half(o, self._ctile(o, self._fit(iw * 0.6, ih / 2 - 64), true, '')); }).join('') + '</div>';
+        return '<div class="col" style="gap:0">' + list.map(function (o, i) { return (i ? '<div class="hh"></div>' : '') + half(o, self._ctile(o, self._fit(iw * 0.6, ih / 2 - 64), true, '')); }).join(
+          '') + '</div>';
       }
       if (size === 'L') {
         return list.map(function (o, i) {
           var p = self._pills(o, 1), t = box.tile ? '' : self._track(o, iw / 2 - 24);
           var aw = self._fit(Math.min(130, iw / 2 - 24), ih - 100 - (t ? 34 : 0) - (p ? 52 : 0));
           return (i ? '<div class="hv"></div>' : '') + half(o, '<div class="ct">' + self._art(o, aw) + '<div class="nm" style="font-size:17px;line-height:22px">' + esc(o.name) + '</div>' +
-            '<div class="ti" style="font-size:20px;line-height:24px' + (self._tone(o) ? ';color:' + (o.state === 'leak' || o.state === 'error' ? RED : MINT) : '') + '">' + esc(o.title) + '</div><div class="fn" style="color:' + v('ink-2') + '">' + esc(o.sub) + '</div>' +
+            '<div class="ti" style="font-size:20px;line-height:24px' + (self._tone(o) ? ';color:' + (o.state === 'leak' || o.state === 'error' ? RED : MINT) : '') + '">' + esc(o.title) +
+              '</div><div class="fn" style="color:' + v('ink-2') + '">' + esc(o.sub) + '</div>' +
             (t || p ? '<div style="margin-top:12px;width:100%;display:flex;flex-direction:column;gap:12px;align-items:center">' + t + p + '</div>' : '') + '</div>');
         }).join('');
       }

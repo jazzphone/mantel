@@ -131,7 +131,8 @@
                   value: hb.page_rooms, stack: !wide, options: [['floor', 'By Floor'], ['order', 'Room Order']],
                   onChange: function (v) { setR({ page_rooms: v }); } })]));
         var st = rooms.status || [];
-        c.appendChild(K.group({ header: 'Room Pages', footer: 'A room page shows its readings and what’s open or on at the top. Temperature and humidity are the area’s own sensors (Settings → Areas).' }, [
+        c.appendChild(K.group({ header: 'Room Pages', footer: 'A room page shows its readings and what’s open or on at the top. Temperature and humidity are the area’s own sensors (Settings → Areas).'
+          }, [
           K.toggle({ label: 'Room Headings Open Room Pages', sk: 'rooms.headings', on: rooms.headings !== false,
                      onChange: function (on) { self.setH({ 'rooms.headings': on }); } }),
           K.nav({ label: 'Status Row', value: M.statusSummary(st), href: '#/house/rooms/status', sk: 'rooms.status' })]));
@@ -206,7 +207,8 @@
         var rk = this.roomKey(aid);
         if (shown && rk) {
           var rflat = this.flatHere(null), rm = rflat ? this.flatPageNow({ key: rk, room: true }, null) : this.skyPageNow({ key: rk, room: true }, null);
-          c.appendChild(K.group({ footer: 'Behind this room’s page on every screen: Same as Room Pages, ' + (rflat ? 'Automatic' : 'the Live Sky') + ', a Color or a Photo. A screen can choose its own.' }, [
+          c.appendChild(K.group({ footer: 'Behind this room’s page on every screen: Same as Room Pages, ' + (rflat ? 'Automatic' : 'the Live Sky') +
+            ', a Color or a Photo. A screen can choose its own.' }, [
             K.nav({ label: 'Background', icon: 'mdi:image-outline', sk: (rflat ? 'sky.flat_pages:' : 'sky.pages:') + rk, href: '#/house/appearance/sky/page/' + encodeURIComponent(rk),
                     value: rm.own ? (rflat ? this.flatModeLabel(rm.mode, this.flatTheme(null)) : M.skyModeLabel(rm.mode, (this.data.choices || {}).sky_backdrops || [])) : 'Same as Room Pages' })]
             .concat(this.flatAnywhere() ? [this.flatColorsNav(this.flatScope('house-page', null, null, rk), { icon: 'mdi:palette-outline', inherited: 'Same as Room Pages' })] : [])));
@@ -234,7 +236,8 @@
         c.appendChild(K.group({ header: 'Browse', footer: 'The Browse side of every screen’s Music page. A page whose YAML lists its own keeps them.' }, [
           K.nav({ label: 'Categories', value: (cats.length - (browse.hide || []).length) + ' of ' + cats.length + ' Shown', href: '#/features/music/categories', sk: 'browse.hide' }),
           K.nav({ label: 'Discover Rows', value: (browse.discover || []).length ? String(browse.discover.length) : 'None', href: '#/features/music/discover', sk: 'browse.discover' })]));
-        c.appendChild(K.group({ header: 'Advanced', footer: 'The page a speaker’s sheet opens with Browse, on screens written in YAML (generated screens always use their own). Empty: no Browse button.' }, [
+        c.appendChild(
+          K.group({ header: 'Advanced', footer: 'The page a speaker’s sheet opens with Browse, on screens written in YAML (generated screens always use their own). Empty: no Browse button.' }, [
           K.text({ label: 'Browse Page', sk: 'look.browse_view', value: look.browse_view, placeholder: 'None', error: this.err('look.browse_view'),
                    onCommit: function (v) { self.setH({ 'look.browse_view': v }); } })]));
         if (F.stateOf(this.data.features, 'hk_music') === 'added') {
@@ -405,7 +408,11 @@
                              self.setH({ 'tablets.restart_times': v.split(/[,\s]+/).filter(Boolean) });
                            } }));
         }
-        c.appendChild(K.group({ header: 'Upkeep', footer: 'Every tablet whose kiosk app can restart (Restart Tablet needs Kiosk Satellite as the device owner, else its app restarts). If your own automation already does this, leave it off.' }, rs));
+        c.appendChild(
+          K.group(
+          { header: 'Upkeep',
+          footer: 'Every tablet whose kiosk app can restart (Restart Tablet needs Kiosk Satellite as the device owner, else its app restarts). If your own automation already does this, leave it off.'
+          }, rs));
         var withReload = ids.filter(function (tid) { return (tabs[tid].parts || {}).reload; });
         c.appendChild(K.group({ header: 'All at Once', footer: 'After updating ' + PN() + ', Clear Cache & Reload: a plain reload keeps the old HK files.' }, [
           K.button({ label: 'Reload All', fk: 'tablets:reload', disabled: !withReload.length, onClick: function () {
@@ -466,7 +473,9 @@
           at += x.flex;
         });
         var tlEl = h('div', { class: 'cell tl', 'data-sk': 't:timeline' }, [track, ticks,
-          tl.warn ? h('div', { class: 'tlwarn', text: 'Home comes after the screensaver starts, so the screensaver can come up over another page and it goes Home behind it. An Idle Time shorter than ' + M.idleLabel(so.starts_after).toLowerCase() + ' puts Home first.' }) : null]);
+          tl.warn ?
+            h('div', { class: 'tlwarn', text: 'Home comes after the screensaver starts, so the screensaver can come up over another page and it goes Home behind it. An Idle Time shorter than ' +
+            M.idleLabel(so.starts_after).toLowerCase() + ' puts Home first.' }) : null]);
         c.appendChild(K.group({ header: 'When It’s Left Alone', footer: 'Home: Idle Time, below. The screensaver: its screen’s Screensaver Options → Starts After. Dark: Sleep Screen.' }, [tlEl,
           K.nav({ label: 'Sleep Screen', sub: 'When it goes dark, who counts as there, its brightness.', href: base + '/sleep', sk: 't:sleep',
                   value: acting ? PN() + ' Decides' : sl.decided_by === 'shadow' ? 'Trying It Out' : 'An Automation Decides' })]));
@@ -560,9 +569,12 @@
           act.push(K.button({ label: 'Wake Now', fk: 't:wake', onClick: function () { ask('wake'); } }));
           act.push(K.button({ label: 'Sleep Now', fk: 't:sleepnow', onClick: function () { ask('sleep'); } }));
         }
-        if (p.reload) act.push(K.button({ label: 'Reload', fk: 't:reload', onClick: function () { self.press([p.reload], 'Reload').then(function (ok) { if (ok) self.announce('Reloading ' + t.name); }); } }));
-        if (p.reload && p.clear_cache) act.push(K.button({ label: 'Clear Cache & Reload', fk: 't:clear', onClick: function () { self.announce('Clearing the cache, then reloading'); self.clearAndReload([tid]); } }));
-        if (p.restart_app) act.push(K.button({ label: 'Restart App', fk: 't:restartapp', onClick: function () { self.press([p.restart_app], 'Restart the App').then(function (ok) { if (ok) self.announce('Restarting the app'); }); } }));
+        if (p.reload) act.push(K.button({ label: 'Reload', fk: 't:reload', onClick: function () {
+          self.press([p.reload], 'Reload').then(function (ok) { if (ok) self.announce('Reloading ' + t.name); }); } }));
+        if (p.reload && p.clear_cache) act.push(K.button({ label: 'Clear Cache & Reload', fk: 't:clear',
+          onClick: function () { self.announce('Clearing the cache, then reloading'); self.clearAndReload([tid]); } }));
+        if (p.restart_app) act.push(K.button({ label: 'Restart App', fk: 't:restartapp',
+          onClick: function () { self.press([p.restart_app], 'Restart the App').then(function (ok) { if (ok) self.announce('Restarting the app'); }); } }));
         if (p.restart_device) {
           act.push(K.button({ label: 'Restart Tablet…', destructive: true, fk: 't:restart', onClick: function () {
             K.confirm(self.shadowRoot, { title: 'Restart ' + t.name + '?', message: 'The tablet restarts and comes back to its screen in about a minute.',
@@ -622,9 +634,13 @@
                               options: [['', 'Choose…']].concat(devs.map(function (d) { return [d.id, d.name + (used[d.id] ? ' (on a tablet)' : '')]; })),
                               onChange: function (v) { n.device = v; } }));
         }
-        c.appendChild(K.group({ header: 'Kiosk App', footer: M.tabletApp(n.app)[2] + (n.app === 'browser' ? ' Choose this for a screen HK can’t see a kiosk app on: an old iPad, or a car.' : '') }, app));
+        c.appendChild(K.group({ header: 'Kiosk App', footer: M.tabletApp(n.app)[2] + (n.app === 'browser' ? ' Choose this for a screen HK can’t see a kiosk app on: an old iPad, or a car.' : '') },
+          app));
         var users = (this.data.users || []).slice();
-        c.appendChild(K.group({ header: 'Signs In As', footer: 'Best: a person of its own in Home Assistant (Settings → People → Add Person, with a login), so it gets its own music room and screensaver, and nobody’s phone counts as it.' }, [
+        c.appendChild(
+          K.group(
+          { header: 'Signs In As',
+          footer: 'Best: a person of its own in Home Assistant (Settings → People → Add Person, with a login), so it gets its own music room and screensaver, and nobody’s phone counts as it.' }, [
           K.select({ label: 'Tablet User', sk: 'new:user', value: n.user, options: [['', 'None']].concat(users.map(function (u) { return [u, u]; })),
                      onChange: function (v) { n.user = v; } }),
           K.nav({ label: 'Add a Person in Home Assistant', icon: 'mdi:open-in-new', href: '/config/person', sk: 'new:person' })]));

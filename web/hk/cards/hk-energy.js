@@ -251,7 +251,8 @@
         ] },
         { name: 'cars', selector: { object: {} }, helper: 'Each car: {name, level, power, home, plugged, charge}.' },
         { name: 'chargers', selector: { object: {} }, helper: 'Optional: the wall chargers\' power sensors -- live, where a car\'s own reading lags.' },
-        { name: 'art', label: 'Picture folder', selector: { text: {} }, helper: 'A folder of your files with art.json and its layers, e.g. /hk/art/my-house/. Empty: the house that comes with ' + window.hkShell.productName() + '.' }
+        { name: 'art', label: 'Picture folder', selector: { text: {} }, helper: 'A folder of your files with art.json and its layers, e.g. /hk/art/my-house/. Empty: the house that comes with ' +
+          window.hkShell.productName() + '.' }
       ],
       function (client) { return { home: sensorWhere(client, function (a) { return a.device_class === 'power'; }) }; });
     register('hk-power-flow-card', HkPowerFlowCard, 'HK Power Flow',

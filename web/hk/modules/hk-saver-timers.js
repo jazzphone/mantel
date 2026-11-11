@@ -78,7 +78,8 @@
     '.tm .tmsubs{display:flex;gap:calc(26px * var(--z));margin-top:calc(26px * var(--z));padding-top:calc(22px * var(--z));border-top:1px solid rgba(255,255,255,.14)}',
     '.tm .tmsb{width:calc(150px * var(--z));text-align:center;flex:none;min-width:0}',
     '.tm .tmsbr{position:relative;width:calc(116px * var(--z));height:calc(116px * var(--z));margin:0 auto}',
-    '.tm .tmsd{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:calc(25px * var(--z));font-weight:700;letter-spacing:-.6px;font-variant-numeric:tabular-nums}',
+    '.tm .tmsd{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:calc(25px * var(--z));font-weight:700;letter-spacing:-.6px;' +
+      'font-variant-numeric:tabular-nums}',
     '.tm .tmsb.long .tmsd{font-size:calc(18px * var(--z))}',
     '.tm .tmsn{font-size:calc(17px * var(--z));font-weight:600;margin-top:calc(9px * var(--z));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '.tm .tmse{font-size:calc(13.5px * var(--z));opacity:.62;margin-top:calc(1px * var(--z));white-space:nowrap}',
@@ -87,7 +88,8 @@
     '.tm[done] circle.arc{animation:tmglow 1.6s ease-in-out infinite}',
     '@keyframes tmglow{50%{opacity:.55}}',
     '.tm .tmacts{display:flex;gap:calc(12px * var(--z));margin-top:calc(26px * var(--z))}',
-    '.tm .tmacts button{white-space:nowrap;font:inherit;font-weight:700;font-size:calc(22px * var(--z));height:calc(66px * var(--z));min-height:44px;border:0;border-radius:calc(33px * var(--z));padding:0 calc(30px * var(--z));background:rgba(255,255,255,.18);color:#fff}',
+    '.tm .tmacts button{white-space:nowrap;font:inherit;font-weight:700;font-size:calc(22px * var(--z));height:calc(66px * var(--z));min-height:44px;border:0;border-radius:calc(33px * var(--z));' +
+      'padding:0 calc(30px * var(--z));background:rgba(255,255,255,.18);color:#fff}',
     '.tm .tmacts button.stop{background:#ff9f0a;color:#1a0f00;min-width:calc(190px * var(--z))}',
     '@media (prefers-reduced-motion:reduce){.tm[done] circle.arc,.tm .tmlede b{animation:none}}',
     '.tm .tmsb.more .tmsbr{display:flex;align-items:center;justify-content:center;font-size:calc(30px * var(--z));font-weight:700;opacity:.7}',
@@ -224,7 +226,8 @@
       var list = T && T.userTimers && h ? T.userTimers(h.states, T.rulesOf(S), Date.now()) : [];
       if (!list.some(function (/** @type {any} */ r) { return !r.paused; }) && o.sample && o.sample()) {
         var now = Date.now();
-        return SAMPLE.map(function (r) { return r.paused ? { id: r.id, name: r.name, total: r.total, left: r.left, paused: true } : { id: r.id, name: r.name, total: r.total, end: now + r.left * 1000, left: r.left }; });
+        return SAMPLE.map(function (r) { return r.paused ? { id: r.id, name: r.name, total: r.total, left: r.left, paused: true } :
+          { id: r.id, name: r.name, total: r.total, end: now + r.left * 1000, left: r.left }; });
       }
       return list;
     }
@@ -241,7 +244,8 @@
     /** @param {any} r */
     function sub(r) {
       var left = leftOf(r), txt = smallOf(left), color = r.paused ? PAUSED : colorOf(r.id);
-      return '<div class="tmsb' + (left >= 3600 ? ' long' : '') + '"><div class="tmsbr"><svg viewBox="0 0 220 220" aria-hidden="true">' + circle(r.id, 92, 24, color, fraction(r, left, false)) + '</svg>' +
+      return '<div class="tmsb' + (left >= 3600 ? ' long' : '') + '"><div class="tmsbr"><svg viewBox="0 0 220 220" aria-hidden="true">' + circle(r.id, 92, 24, color, fraction(r, left, false)) +
+        '</svg>' +
         '<div class="tmsd" data-v="' + esc(r.id) + '">' + txt + '</div></div>' +
         '<div class="tmsn">' + esc(r.name) + '</div><div class="tmse">' + (r.paused ? 'Paused' : 'Ends ' + esc(endsAt(r.end))) + '</div></div>';
     }
@@ -249,19 +253,22 @@
     function buildDone() {
       el.setAttribute('done', ''); el.removeAttribute('last');
       var T = window.hkTimers, others = rows.filter(function (r) { return !rings.some(function (g) { return g.entity_id === r.id; }); });
-      var key = JSON.stringify(['done', rings.map(function (g) { return [g.entity_id, g.name, g.tablet, g.speakers]; }), others.map(function (r) { return [r.id, !!r.paused, r.end || 0]; }), W, H, room]);
+      var key = JSON.stringify(['done', rings.map(function (g) { return [g.entity_id, g.name, g.tablet, g.speakers]; }), others.map(function (r) { return [r.id, !!r.paused, r.end || 0]; }), W, H,
+        room]);
       if (key === built) return;
       built = key;
       var hero = rings[0], one = rings.length === 1, where = T.whereWords(hero, room, onTablet), shape = shapeOf(W, H).shape;
       var max = W < 500 || (others.length > 3 && (shape === 'tall' || shape === 'short')) ? 2 : 3, shown = others.slice(0, max), more = others.length - shown.length;
-      body.innerHTML = '<div class="tmrw"><svg viewBox="0 0 220 220" role="img" aria-label="' + esc(hero.name) + ' timer has ended">' + circle(hero.entity_id, 96, 22, colorOf(hero.entity_id), 1) + '</svg>' +
+      body.innerHTML = '<div class="tmrw"><svg viewBox="0 0 220 220" role="img" aria-label="' + esc(hero.name) + ' timer has ended">' + circle(hero.entity_id, 96, 22, colorOf(hero.entity_id), 1) +
+        '</svg>' +
         '<div class="tmctr"><div class="tmdg">Done</div></div></div>' +
         '<div class="tmread"><div class="tmeye">' + (one ? 'Time\u2019s Up' : 'Time\u2019s Up, ' + rings.length + ' Timers') + '</div>' +
         '<div class="tmnm">' + esc(rings.map(function (g) { return g.name; }).join(' and ')) + '</div>' +
         '<div class="tmlede">' + (where ? '<b></b>Ringing on ' + esc(where) + '.' : 'Silent, as set.') + '</div>' +
         '<div class="tmacts"><button class="stop" data-a="stop">' + (one ? 'Stop' : 'Stop All') + '</button>' +
         (one ? '<button data-a="more" data-id="' + esc(hero.entity_id) + '">+1 Min</button><button data-a="again" data-id="' + esc(hero.entity_id) + '">Restart</button>' : '') + '</div>' +
-        (others.length ? '<div class="tmsubs">' + shown.map(sub).join('') + (more ? '<div class="tmsb more"><div class="tmsbr">+' + more + '</div><div class="tmsn">More</div></div>' : '') + '</div>' : '') + '</div>';
+        (others.length ? '<div class="tmsubs">' + shown.map(sub).join('') + (more ? '<div class="tmsb more"><div class="tmsbr">+' + more + '</div><div class="tmsn">More</div></div>' : '') + '</div>' :
+          '') + '</div>';
     }
     function build() {
       if (rings.length) { buildDone(); return; }
@@ -282,11 +289,14 @@
         read1 += '<div class="tmsubs">' + shown.map(sub).join('') +
           (more ? '<div class="tmsb more"><div class="tmsbr">+' + more + '</div><div class="tmsn">More</div></div>' : '') + '</div>';
       } else {
-        read1 += '<div class="tmstats"><div class="tmst"><i style="background:' + colorOf(hero.id) + '"></i><span class="k">Ends At</span><span class="ln"></span><span class="v">' + esc(endsAt(hero.end)) + '</span></div>' +
+        read1 += '<div class="tmstats"><div class="tmst"><i style="background:' + colorOf(hero.id) + '"></i><span class="k">Ends At</span><span class="ln"></span><span class="v">' +
+          esc(endsAt(hero.end)) + '</span></div>' +
           '<div class="tmst"><i style="background:' + PAUSED + '"></i><span class="k">Set For</span><span class="ln"></span><span class="v">' + esc(clockOf(hero.total)) + '</span></div></div>';
       }
-      body.innerHTML = '<div class="tmrw"><svg viewBox="0 0 220 220" role="img" aria-label="' + esc(hero.name) + ' timer">' + circle(hero.id, 96, 22, colorOf(hero.id), fraction(hero, left, true)) + ticks() + '</svg>' +
-        '<div class="tmctr"><div class="tmdg' + (long ? ' long' : '') + '" data-v="' + esc(hero.id) + '">' + clockOf(left) + '</div><div class="tmcs">' + (last ? 'Last Minute' : 'Ends ' + esc(endsAt(hero.end))) + '</div></div></div>' +
+      body.innerHTML = '<div class="tmrw"><svg viewBox="0 0 220 220" role="img" aria-label="' + esc(hero.name) + ' timer">' + circle(hero.id, 96, 22, colorOf(hero.id), fraction(hero, left, true)) +
+        ticks() + '</svg>' +
+        '<div class="tmctr"><div class="tmdg' + (long ? ' long' : '') + '" data-v="' + esc(hero.id) + '">' + clockOf(left) + '</div><div class="tmcs">' +
+          (last ? 'Last Minute' : 'Ends ' + esc(endsAt(hero.end))) + '</div></div></div>' +
         '<div class="tmread">' + read1 + '</div>';
     }
     // Rings on... under its name: on Mantel, which says where. Nothing in Home Assistant, where it doesn't ring.
@@ -353,7 +363,9 @@
       setH24: function (/** @type {boolean} */ v) { if (o.h24 !== v) { o.h24 = v; built = ''; } },
       setNight: function (/** @type {boolean} */ on) { if (on) el.setAttribute('night', ''); else el.removeAttribute('night'); },
       leave: function () { showing = false; stopTick(); el.removeAttribute('night'); },
-      info: function () { return { rings: rings.map(function (g) { return g.name; }), done: el.hasAttribute('done'), rows: rows.map(function (r) { return { id: r.id, name: r.name, paused: !!r.paused, left: Math.round(leftOf(r)) }; }), last: el.hasAttribute('last'), shape: el.getAttribute('shape'), W: W, H: H, showing: showing }; },
+      info: function () { return { rings: rings.map(function (g) { return g.name; }), done: el.hasAttribute('done'),
+        rows: rows.map(function (r) { return { id: r.id, name: r.name, paused: !!r.paused, left: Math.round(leftOf(r)) }; }), last: el.hasAttribute('last'), shape: el.getAttribute('shape'), W: W,
+        H: H, showing: showing }; },
       destroy: function () {
         alive = false; showing = false; stopTick();
         var c = /** @type {HTMLCanvasElement|null} */ (el.querySelector('.tmbg'));

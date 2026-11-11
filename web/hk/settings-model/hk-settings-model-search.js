@@ -89,8 +89,11 @@
       ['Alarm Panel', 'page/security', 'security.alarm', 'security keypad'],
       ['Indoor Temperature', 'screen/chips/climate', 'features.temperature', 'climate chip reading', true],
       ['Power Use', 'screen/chips/energy', 'features.power', 'energy chip watts reading', true],
-      ['House Timers', 'page/timers/house', 'features.house_timers', 'nap bedtime timers page'], ['Which Timers', 'page/timers/which', 'features.timer_include', 'ignored ignore timers screensaver slide ring show automation'],
-      ['Accessory Types', 'accessories', 'counts', 'what counts status & chips status and chips types kinds smoke carbon monoxide co alarm lights fans doors windows locks blinds leaks thermostats timers vacuums speakers scenes routines input buttons count chips'],
+      ['House Timers', 'page/timers/house', 'features.house_timers', 'nap bedtime timers page'],
+        ['Which Timers', 'page/timers/which', 'features.timer_include', 'ignored ignore timers screensaver slide ring show automation'],
+      ['Accessory Types', 'accessories', 'counts',
+        'what counts status & chips status and chips types kinds smoke carbon monoxide co alarm lights fans doors windows locks blinds leaks thermostats timers vacuums speakers scenes routines ' +
+        'input buttons count chips'],
       ['Weather Service', 'page/weather', 'weather.entity', 'forecast'],
       ['Place', 'page/weather', 'weather.place', 'location label'],
       ['Weather Sensors', 'page/weather/sensors', 'weather.sensors', 'feels like humidity wind gust uv forecast alerts outside temperature'],
@@ -122,7 +125,8 @@
       ['Pause When Not in Focus', 'house/appearance/sky', 'sky.focus_pause', 'pause idle focus background window computer animations performance cpu'],
       ['Live First Camera', 'page/cameras', 'cameras.live', 'camera strip live video snapshot first tile performance'],
       ['Page Backgrounds', 'house/appearance/sky', 'sky.pages', 'page color background backdrop energy climate lights still live sky'],
-      ['Background', 'house/appearance/sky', 'sky.background', 'background live sky color solid gradient photo picture wallpaper image upload still no stars plain black motion moving animated theme aurora blobs waves dots beams meteors'],
+      ['Background', 'house/appearance/sky', 'sky.background',
+        'background live sky color solid gradient photo picture wallpaper image upload still no stars plain black motion moving animated theme aurora blobs waves dots beams meteors'],
       ['Landscapes', 'house/appearance/sky', 'sky.background', 'landscapes landscape photos mountains lakes coasts forests nature scenery background scenic wake interval change'],
       ['Background Photo', 'house/appearance/sky', 'sky.photo', 'photo picture wallpaper image upload background blur dim darken saturation tint color cast'],
       ['Sky Colors', 'house/appearance/sky/backdrop', 'sky.gradient', 'backdrop palette gradient live sky colors tint dusk midnight fjord dune graphite plum ember mist black custom'],
@@ -132,7 +136,8 @@
       ['Clouds', 'house/appearance/sky', 'sky.cloud_style', 'clouds classic realistic photographic weather sky'],
       ['Daytime Sky', 'house/appearance/sky', 'sky.daytime', 'brightness bright dark deep natural balanced blue midday day sky'],
       ['Night Sky', 'house/appearance/sky', 'sky.liveliness:night', 'stars shooting stars meteors twinkling screensaver night liveliness'],
-      ['Liveliness', 'house/appearance/sky', 'sky.liveliness_all', 'liveliness lively busy calm bats geese leaves petals fireflies snow sleigh witch owl how many how often subtle classic festive party custom each occasion'],
+      ['Liveliness', 'house/appearance/sky', 'sky.liveliness_all',
+        'liveliness lively busy calm bats geese leaves petals fireflies snow sleigh witch owl how many how often subtle classic festive party custom each occasion'],
       ['Woodland Between Occasions', 'house/appearance/sky/woodland', 'sky.woodland', 'spring summer autumn fall winter woodland seasons scenery new decorations'],
       ['Birthdays', 'house/appearance/sky/birthday', 'sky.birthdays', 'balloons'],
       ['Hemisphere', 'house/appearance/sky/advanced', 'sky.hemisphere', 'southern northern'],
@@ -203,7 +208,8 @@
       ['Reload All Tablets', 'house/tablets', 'tablets:reload', 'wall tablet reload clear cache all at once update'],
       ['Screensaver Photos', 'house/screensaver', 'look.photos', 'media folder wallpanel photos'],
       ['Hidden Accessories', 'accessories/hidden', 'generated.exclude', 'hidden from screens leave out left out hide rooms devices remove show on home include in status'],
-      ['Added Accessories', 'accessories/added', 'generated.include_entities', 'also shown add entities more extra tiles script scene sensor'], ['Helpers', 'accessories/helpers', 'acc:helpers', 'helpers input_boolean toggle input_number number input_select list dropdown counter input_datetime input_text input_button guest mode'],
+      ['Added Accessories', 'accessories/added', 'generated.include_entities', 'also shown add entities more extra tiles script scene sensor'],
+        ['Helpers', 'accessories/helpers', 'acc:helpers', 'helpers input_boolean toggle input_number number input_select list dropdown counter input_datetime input_text input_button guest mode'],
       ['Also Count As', 'accessories', 'counts', 'what counts chips status rows count include sensor smoke temperature accessory'],
       ['Existing Dashboards', 'add-screen', 'add-screen', 'overview dashboard you already have own hk settings add screen use lovelace default'],
       ['Vacuums Tile Order', 'accessories/type/vacuums/order', 'accessories.pages.vacuums', 'vacuum page order'],
@@ -263,7 +269,9 @@
                            portrait_fill: false, portrait_blur: 50, portrait_dim: 20, portrait_zoom: 100, portrait_x: 'center', portrait_y: 'center',
                            landscape_blur: 50, landscape_dim: 20, landscape_zoom: 100, landscape_x: 'center', landscape_y: 'center',
                            // the clocks (settings.py)
-                           clock_over: 'corner', clock_style: 'classic', clock_bg: 'gradient', clock_motion: 'slow', clock_wallpaper: 'aurora', clock_wallpaper_color: 'blue', clock_24: false, clock_today_music: true, clock_today_weather: true, clock_colors: {}, clock_speed: 35, clock_depth: 50, clock_night: 'off', clock_night_from: '22:00', clock_night_to: '07:00',
+                           clock_over: 'corner', clock_style: 'classic', clock_bg: 'gradient', clock_motion: 'slow', clock_wallpaper: 'aurora', clock_wallpaper_color: 'blue', clock_24: false,
+                             clock_today_music: true, clock_today_weather: true, clock_colors: {}, clock_speed: 35, clock_depth: 50, clock_night: 'off', clock_night_from: '22:00',
+                             clock_night_to: '07:00',
                        photo_layout: 'single', mosaic_count: 3, mosaic_gap: 'thin', mosaic_change: 'one', mosaic_line: 0, mosaic_color: 'black', mosaic_random: false, mosaic_every: 10,
                        clock_photo_soft: false, clock_photo_dim: 35, clock_text_shadow: 40, clock_text_outline: 0,
                        // Home Energy and the additional screens (settings.py, 2026-10-14)
@@ -324,7 +332,8 @@
       // a screen's menu: All Screens', or its own one setting at a time (menu_own)
       ['menu', 'Menu', ['menu', 'menu_own', 'page_header', 'dock_min', 'time_weather', 'ha_row', 'ha_place', 'tab_position', 'tab_size',
                         'tab_size_phone', 'accent', 'glyph', 'clock', 'swipe',
-                        'tab_bar_scroll', 'tab_bar_rooms', 'tab_bar_glass', 'tab_bar_more', 'tab_bar_more_phone', 'tab_bar_pos', 'tab_bar_fold', 'tab_bar_start', 'tab_bar_adjust', 'tab_bar_scroll_phone', 'tab_bar_tabs',
+                        'tab_bar_scroll', 'tab_bar_rooms', 'tab_bar_glass', 'tab_bar_more', 'tab_bar_more_phone', 'tab_bar_pos', 'tab_bar_fold', 'tab_bar_start', 'tab_bar_adjust',
+                          'tab_bar_scroll_phone', 'tab_bar_tabs',
                         'tab_bar_tabs_rail', 'tab_bar_tabs_phone', 'tab_bar_size', 'tab_bar_labels', 'tab_bar_strip', 'menu_phone', 'button_phone', 'tab_bar_rooms_phone',
                         'swipe_pages', 'swipe_left'], true],
       ['home', 'Home Page', ['chips_row', 'chips', 'chips_quiet', 'chips_extra', 'chips_custom', 'chips_custom_show'], true],
@@ -338,11 +347,13 @@
       ['header', 'Header', ['phone_header', 'kiosk', 'kiosk_header', 'kiosk_sidebar', 'kiosk_admins', 'kiosk_engine', 'kiosk_options'], true],
       // the pages, Home among them, and where each sits in the menu (set on Pages)
       ['pages', 'Pages', ['pages', 'custom_pages', 'only_pages', 'home_page', 'home_view', 'menu_top', 'categories', 'headers', 'pages_screen'], true],
-      ['look', 'Appearance', ['flat', 'flat_theme', 'glass', 'frost', 'frost_tint', 'blur', 'tint', 'well', 'tile_style', 'tile_icons', 'bright_pages', 'sky', 'sky_animations', 'sky_weather', 'sky_precipitation', 'sky_focus_pause',
+      ['look', 'Appearance', ['flat', 'flat_theme', 'glass', 'frost', 'frost_tint', 'blur', 'tint', 'well', 'tile_style', 'tile_icons', 'bright_pages', 'sky', 'sky_animations', 'sky_weather',
+        'sky_precipitation', 'sky_focus_pause',
                               'sky_decorations', 'sky_decoration_style', 'sky_moving', 'sky_cloud_style', 'sky_daytime', 'sky_gradient', 'sky_custom', 'sky_pages',
                               'sky_liveliness', 'sky_liveliness_occ', 'sky_liveliness_custom', 'sky_calm_empty',
                               'sky_background', 'sky_color', 'sky_photo', 'sky_page_photos', 'sky_photo_look', 'sky_page_looks',
-                              'sky_landscape', 'sky_landscape_look', 'sky_flat_background', 'sky_flat_color', 'sky_flat_fade', 'sky_flat_tint', 'sky_flat_tint_amount', 'sky_flat_tint_light', 'sky_flat_pages', 'sky_flat_image_look', 'sky_flat_page_image_looks', 'sky_image_look',
+                              'sky_landscape', 'sky_landscape_look', 'sky_flat_background', 'sky_flat_color', 'sky_flat_fade', 'sky_flat_tint', 'sky_flat_tint_amount', 'sky_flat_tint_light',
+                                'sky_flat_pages', 'sky_flat_image_look', 'sky_flat_page_image_looks', 'sky_image_look',
                               'flat_colors', 'flat_page_colors',
                               // Bright Glass's Strength and the Wallpaper (2026-10-30)
                               'bright', 'bright_dim', 'sky_wallpaper', 'sky_wallpaper_night', 'sky_wallpaper_motion', 'sky_wallpaper_color'], true],
@@ -489,7 +500,8 @@
     // Null is a continuing relationship to All Screens, including custom
     // stops. A true flag is still an override, even when it matches the house.
     function skySummary(b) {
-      var keys = ['sky_animations', 'sky_weather', 'sky_precipitation', 'sky_focus_pause', 'sky_decorations', 'sky_decoration_style', 'sky_moving', 'sky_cloud_style', 'sky_daytime', 'sky_gradient', 'sky_custom',
+      var keys = ['sky_animations', 'sky_weather', 'sky_precipitation', 'sky_focus_pause', 'sky_decorations', 'sky_decoration_style', 'sky_moving', 'sky_cloud_style', 'sky_daytime', 'sky_gradient',
+        'sky_custom',
                   'sky_background', 'sky_color', 'sky_photo', 'sky_photo_look', 'sky_landscape', 'sky_landscape_look',
                   'sky_wallpaper', 'sky_wallpaper_night', 'sky_wallpaper_motion', 'sky_wallpaper_color'];
       var pages = Object.keys(b.sky_pages || {}).length;
@@ -497,7 +509,8 @@
       var parts = [];
       // the Background first: a still Color or Photo is the whole look
       if (b.sky_background) parts.push(BG_LABELS[b.sky_background] || b.sky_background);
-      if (b.sky_background === 'color' || b.sky_background === 'photo' || b.sky_background === 'landscapes' || b.sky_background === 'wallpaper') return parts.concat(pages ? [pages === 1 ? '1 Page Background' : pages + ' Page Backgrounds'] : []).join(', ');
+      if (b.sky_background === 'color' || b.sky_background === 'photo' || b.sky_background === 'landscapes' || b.sky_background === 'wallpaper') return parts.concat(pages ?
+        [pages === 1 ? '1 Page Background' : pages + ' Page Backgrounds'] : []).join(', ');
       if (b.sky_animations === false) parts.push('No Animation');
       if (b.sky_weather === false) parts.push('No Weather');
       if (b.sky_precipitation === false) parts.push('No Rain & Snow');

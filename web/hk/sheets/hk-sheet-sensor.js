@@ -24,8 +24,12 @@
     // back with ‹ › as the Energy page's are: half a year of weeks, a year
     // of months. Hour and Day stay the last hour and the last 24 hours.
     var MAX_BACK = { week: 26, month: 12 };
-    var CHEV_L = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>';
-    var CHEV_R = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>';
+    var CHEV_L =
+      '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 ' +
+      '7"/></svg>';
+    var CHEV_R =
+      '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 ' +
+      '7"/></svg>';
     function calTz() { return window.hkStats && window.hkStats.tz ? window.hkStats.tz() : undefined; }
     function monthName(t) {
       var o = { month: 'long', timeZone: calTz() };

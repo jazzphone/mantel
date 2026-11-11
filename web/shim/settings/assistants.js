@@ -22,7 +22,10 @@ const scopeText = (list) => list.map((s) => (SCOPE_WORDS[s] || [s])[0]).join(', 
 
 export function pAssistants(sub) {
   if (sub[0] === 'add') return pAddKey();
-  return { title: 'Assistants (MCP)', top: true, scope: 'An assistant (Claude Code, Claude Desktop or another MCP client) can read the house, change settings and build screens and Home Grid layouts for you. It acts as you: your role decides what it may do, every change is planned and shown first, and the Audit Log shows each one as yours, through the assistant. It is never given the Alarm PIN.', body(c) {
+  return { title: 'Assistants (MCP)', top: true,
+    scope:
+    'An assistant (Claude Code, Claude Desktop or another MCP client) can read the house, change settings and build screens and Home Grid layouts for you. It acts as you: your role decides what it ' +
+    'may do, every change is planned and shown first, and the Audit Log shows each one as yours, through the assistant. It is never given the Alarm PIN.', body(c) {
     result(c, 'assistants');
     const got = state();
     if (!got) { pending(c); return; }
@@ -31,33 +34,50 @@ export function pAssistants(sub) {
     const t = shown.assistant;
     if (t) {
       const cmd = 'claude mcp add --transport http mantel ' + t.endpoint + ' --header "Authorization: Bearer ' + t.token + '"';
-      c.appendChild(group({ header: 'Key for ' + t.assistant.name, footer: 'This is the only time it is shown. Mantel keeps only a hash. In Claude Code, run the command below; for another client, give it the address and the key as a Bearer token.' },
+      c.appendChild(
+        group(
+        { header: 'Key for ' + t.assistant.name,
+        footer: 'This is the only time it is shown. Mantel keeps only a hash. In Claude Code, run the command below; for another client, give it the address and the key as a Bearer token.' },
         [secretCell(t.token, 'mcp-token'), copyButton(t.token, 'Copy Key'), secretCell(cmd, 'mcp-command'), copyButton(cmd, 'Copy Claude Code Command'),
          button('I Have Saved It', () => { delete shown.assistant; redraw(); }, { fk: 'mx:mcp-dismiss' })]));
     }
     // the house's switches
     const rows = [K().toggle({ label: 'Allow Assistants', on: s.mcp_enabled, disabled: !can, fk: 'mx:mcp-on', onChange: async (want) => {
-      const sure = want ? await ask({ title: 'Allow assistants?', message: 'Owners and Admins can then connect an assistant, with a key made here or by signing in from the assistant. Each acts as its person and is in the Audit Log.', ok: 'Allow' })
-        : await ask({ title: 'Turn assistants off?', message: 'Every assistant is refused at once. Their keys and sign-ins are kept, and work again when you turn this back on.', ok: 'Turn Off', destructive: true });
+      const sure = want ?
+        await ask(
+        { title: 'Allow assistants?',
+        message: 'Owners and Admins can then connect an assistant, with a key made here or by signing in from the assistant. Each acts as its person and is in the Audit Log.', ok: 'Allow' })
+        : await ask({ title: 'Turn assistants off?', message: 'Every assistant is refused at once. Their keys and sign-ins are kept, and work again when you turn this back on.', ok: 'Turn Off',
+          destructive: true });
       if (!sure) { redraw(); return; }
       putSetting('mcp_enabled', want, want ? 'Assistants are allowed now.' : 'Assistants are off now.');
     } })];
     rows.push(K().toggle({ label: 'Signed-In Assistants from Away', sub: 'Personal keys always work on the home network only', on: s.mcp_away, disabled: !can, fk: 'mx:mcp-away',
       onChange: (want) => putSetting('mcp_away', want) }));
-    rows.push(K().toggle({ label: 'Assistants May Control the House', sub: d.commands_on ? 'Only signed-in assistants you allowed it, never with a key' : 'Needs Allow Control of the House (General)', on: s.mcp_commands, disabled: !can, fk: 'mx:mcp-commands',
+    rows.push(K().toggle({ label: 'Assistants May Control the House', sub: d.commands_on ? 'Only signed-in assistants you allowed it, never with a key' : 'Needs Allow Control of the House (General)',
+      on: s.mcp_commands, disabled: !can, fk: 'mx:mcp-commands',
       onChange: async (want) => {
-        if (want && !(await ask({ title: 'Let assistants control the house?', message: 'An assistant you sign in can then be allowed to turn things on and off as you may. Every command is checked against your role and is in the Audit Log. The alarm is never reachable.', ok: 'Allow' }))) { redraw(); return; }
+        if (want && !(await ask({ title: 'Let assistants control the house?', message:
+          'An assistant you sign in can then be allowed to turn things on and off as you may. Every command is checked against your role and is in the Audit Log. The alarm is never reachable.',
+          ok: 'Allow' }))) { redraw(); return; }
         putSetting('mcp_commands', want);
       } }));
     rows.push(K().select({ label: 'Changes per Minute', options: withValue(RATES, s.mcp_write_rate, String).map(([v, l]) => [String(v), l]), value: String(s.mcp_write_rate), disabled: !can,
                            fk: 'mx:mcp-rate', onChange: (v) => putSetting('mcp_write_rate', Number(v)) }));
     rows.push(K().select({ label: 'New Keys Last', options: withValue(DAYS, s.mcp_key_days, (x) => x + ' Days').map(([v, l]) => [String(v), l]), value: String(s.mcp_key_days), disabled: !can,
                            fk: 'mx:mcp-days', onChange: (v) => putSetting('mcp_key_days', Number(v)) }));
-    c.appendChild(group({ header: 'Assistants', footer: can ? 'Off: /mcp refuses everyone. Changes per minute keeps a looping assistant from flooding the settings history; plans don’t count.' : 'Only an Owner can change these.' }, rows));
+    c.appendChild(group({ header: 'Assistants', footer: can ? 'Off: /mcp refuses everyone. Changes per minute keeps a looping assistant from flooding the settings history; plans don’t count.' :
+      'Only an Owner can change these.' }, rows));
     // how to connect
-    c.appendChild(group({ header: 'Connect', footer: 'Claude Code: add the address with the key below, or add just the address and sign in from Claude Code (/mcp) when it asks. Claude Desktop: add it to claude_desktop_config.json through mcp-remote with the key. Connect on the home network.' },
+    c.appendChild(
+      group(
+      { header: 'Connect',
+      footer:
+      'Claude Code: add the address with the key below, or add just the address and sign in from Claude Code (/mcp) when it asks. Claude Desktop: add it to claude_desktop_config.json through ' +
+      'mcp-remote with the key. Connect on the home network.' },
       [info('Address', null, d.endpoint), copyButton(d.endpoint, 'Copy Address'),
-       s.mcp_enabled && me.door === 'lan' ? nav('New Personal Key…', 'assistants/add', { icon: 'mdi:plus' }) : info('New Personal Key', s.mcp_enabled ? 'On the home network only' : 'Allow assistants first')]));
+       s.mcp_enabled && me.door === 'lan' ? nav('New Personal Key…', 'assistants/add', { icon: 'mdi:plus' }) :
+         info('New Personal Key', s.mcp_enabled ? 'On the home network only' : 'Allow assistants first')]));
     // the assistants
     const all = d.assistants || [];
     const live = all.filter((a) => a.state === 'live'), gone = all.filter((a) => a.state !== 'live');
@@ -67,7 +87,8 @@ export function pAssistants(sub) {
                             a.state === 'live' ? undefined : a.state === 'revoked' ? 'Revoked' : 'Ended', a.state === 'live' ? '' : 'warn');
     c.appendChild(group({ header: can ? 'Everyone’s Assistants' : 'Your Assistants' }, live.length ? live.map(row) : [info('No assistants connected')]));
     if (live.length) c.appendChild(group({}, live.map((a) => button('Revoke ' + a.name + '…', async () => {
-      if (!(await ask({ title: 'Revoke ' + a.name + '?', message: 'It is cut off at once. To connect it again, make a new key or sign in from the assistant again.', ok: 'Revoke', destructive: true }))) return;
+      if (!(await ask({ title: 'Revoke ' + a.name + '?', message: 'It is cut off at once. To connect it again, make a new key or sign in from the assistant again.', ok: 'Revoke',
+        destructive: true }))) return;
       act('assistants', () => api('DELETE', '/api/mcp/grants/' + encodeURIComponent(a.id)), 'Revoked.', 'assistants');
     }, { destructive: true, fk: 'mx:mcp-revoke:' + a.id }))));
     if (gone.length) c.appendChild(group({ header: 'Ended or Revoked', footer: 'They leave this list after 30 days; the Audit Log keeps them.' }, gone.map(row)));

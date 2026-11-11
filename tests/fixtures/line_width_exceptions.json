@@ -1,1 +1,87 @@
-[]
+[
+ {
+  "file": "web/hk/cards/hk-control.js",
+  "hash": "e0c5d33af207f05f",
+  "why": "inside a template literal: a newline there would be part of the string"
+ },
+ {
+  "file": "web/hk/cards/hk-control.js",
+  "hash": "8142528be5241e6c",
+  "why": "inside a template literal: a newline there would be part of the string"
+ },
+ {
+  "file": "web/hk/cards/hk-control.js",
+  "hash": "1e18a7340ab5d48b",
+  "why": "inside a template literal: a newline there would be part of the string"
+ },
+ {
+  "file": "web/hk/cards/hk-control.js",
+  "hash": "da1666fb5f7b97ff",
+  "why": "inside a template literal: a newline there would be part of the string"
+ },
+ {
+  "file": "web/hk/cards/hk-control.js",
+  "hash": "2ff4979051417805",
+  "why": "inside a template literal: a newline there would be part of the string"
+ },
+ {
+  "file": "web/hk/cards/hk-control.js",
+  "hash": "c7b40e49446cd1ff",
+  "why": "inside a template literal: a newline there would be part of the string"
+ },
+ {
+  "file": "web/hk/cards/hk-control.js",
+  "hash": "ade506e56772216c",
+  "why": "inside a template literal: a newline there would be part of the string"
+ },
+ {
+  "file": "web/hk/cards/hk-control.js",
+  "hash": "ff9ece5b1b50831a",
+  "why": "inside a template literal: a newline there would be part of the string"
+ },
+ {
+  "file": "web/hk/cards/hk-control.js",
+  "hash": "6b21a220b3793159",
+  "why": "inside a template literal: a newline there would be part of the string"
+ },
+ {
+  "file": "web/hk/cards/hk-control.js",
+  "hash": "176b892f9598679c",
+  "why": "inside a template literal: a newline there would be part of the string"
+ },
+ {
+  "file": "web/hk/cards/hk-control.js",
+  "hash": "378223875f7d8267",
+  "why": "inside a template literal: a newline there would be part of the string"
+ },
+ {
+  "file": "web/hk/cards/hk-control.js",
+  "hash": "639b99b5fed0586b",
+  "why": "inside a template literal: a newline there would be part of the string"
+ },
+ {
+  "file": "web/hk/cards/hk-control.js",
+  "hash": "79797a87c125ba75",
+  "why": "inside a template literal: a newline there would be part of the string"
+ },
+ {
+  "file": "web/hk/cards/hk-control.js",
+  "hash": "fd8a469dd3c2caf7",
+  "why": "inside a template literal: a newline there would be part of the string"
+ },
+ {
+  "file": "web/hk/cards/hk-control.js",
+  "hash": "0a28640682cd2854",
+  "why": "inside a template literal: a newline there would be part of the string"
+ },
+ {
+  "file": "web/hk/cards/hk-control.js",
+  "hash": "fd49b79e41b1b5ac",
+  "why": "inside a template literal: a newline there would be part of the string"
+ },
+ {
+  "file": "web/hk/settings/hk-settings-tables.js",
+  "hash": "d6722db6dcb8c54c",
+  "why": "inside a regular expression: it cannot be broken"
+ }
+]

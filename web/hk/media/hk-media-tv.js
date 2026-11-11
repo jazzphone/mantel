@@ -104,7 +104,8 @@
       // margin to the edge are the block's inset
       'hk-plate.tv.xl{display:flex;flex-direction:row;gap:' + C.blockPad('14px').replace(/^.*?(var\(--hk-pad-l,[^)]*\)).*$/, '$1') + ';padding:' + C.blockPad('14px') + '}',
       '.xl .lf{all:unset;box-sizing:border-box;position:relative;flex:none;width:268px;align-self:stretch;overflow:hidden;cursor:pointer;color:#fff;',
-      '  border-radius:var(--hk-inner-radius,' + C.R.inner + 'px);background:linear-gradient(150deg,var(--c1),var(--c2));text-shadow:0 1px 2px rgba(0,0,0,.22);-webkit-tap-highlight-color:transparent}',
+      '  border-radius:var(--hk-inner-radius,' + C.R.inner +
+        'px);background:linear-gradient(150deg,var(--c1),var(--c2));text-shadow:0 1px 2px rgba(0,0,0,.22);-webkit-tap-highlight-color:transparent}',
       '.xl .lf:active{opacity:.85}.xl .lf:focus-visible{outline:2px solid #fff;outline-offset:-4px}',
       '.xl .lf .bg::before{opacity:.18}.xl .lf .bg::after{background:none}',
       '.xl .ft{position:absolute;left:0;right:0;bottom:0;display:flex;flex-direction:column;padding:40px 14px 14px;background:linear-gradient(rgba(0,0,0,0),rgba(0,0,0,.76))}',
@@ -121,7 +122,8 @@
       '.xl .rw:last-child{border-bottom:0}.xl .rw:active{opacity:.55}.xl .rw:focus-visible{outline:2px solid ' + C.v('ink') + ';outline-offset:-2px}',
       '.xl .pc{position:relative;flex:none;width:56px;height:40px;overflow:hidden;border-radius:' + C.R.small + 'px;background:linear-gradient(150deg,var(--c1),var(--c2))}',
       '.xl .pc .bg{border-radius:0}.xl .pc .bg::before{opacity:.18}.xl .pc .bg::after{background:none}',
-      '.xl .pc i{position:absolute;left:3px;top:3px;padding:1px 5px;border-radius:' + C.R.capsule('15px') + ';background:rgba(0,0,0,.55);color:#fff;font-style:normal;font-size:11px;font-weight:700;line-height:13px;font-variant-numeric:tabular-nums}',
+      '.xl .pc i{position:absolute;left:3px;top:3px;padding:1px 5px;border-radius:' + C.R.capsule('15px') +
+        ';background:rgba(0,0,0,.55);color:#fff;font-style:normal;font-size:11px;font-weight:700;line-height:13px;font-variant-numeric:tabular-nums}',
       '.xl .wd{flex:1;min-width:0;display:flex;flex-direction:column}',
       '.xl .wd b{' + C.typeCss('body') + ';color:' + C.v('ink') + ';font-weight:600;line-height:19px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
       '.xl .wd small{' + C.typeCss('caption') + ';line-height:16px;color:' + C.v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',

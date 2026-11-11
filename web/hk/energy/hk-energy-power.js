@@ -124,7 +124,9 @@
       '.wc{display:block}',
       '.waxis{display:flex;justify-content:space-between;margin-top:6px;' + window.hkCards.typeCss('micro') + ';color:' + window.hkCards.v('ink-3') + '}',
       '.wgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 18px}.wgrid>div{display:flex;flex-direction:column;min-width:0}',
-      '.wgrid b{font-size:13px;font-weight:600;letter-spacing:0;text-transform:none;color:' + window.hkCards.v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:' + window.hkCards.v('glow') + '}.wgrid b i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:0.5px}',  // 2026-11-09, the owner, on the colored capitals: "Fix it" -- Title Case, gray, the color a small dot before the word
+      // 2026-11-09, the owner, on the colored capitals: "Fix it" -- Title Case, gray, the color a small dot before the word
+      '.wgrid b{font-size:13px;font-weight:600;letter-spacing:0;text-transform:none;color:' + window.hkCards.v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:' +
+        window.hkCards.v('glow') + '}.wgrid b i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:0.5px}',
       '.wgrid span{font-size:22px;font-weight:600;letter-spacing:-0.3px;line-height:1.2;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'
     ].join('');
     // A BLOCK'S BOX in px, and inside its inset: the view's measure, else a
@@ -249,14 +251,16 @@
         var glow = (0.18 + 0.42 * Math.min(1, (home || 0) / 4000)).toFixed(2);
         var level = lvl == null ? 0 : Math.max(0, Math.min(100, lvl)), wl = level / 100;
         var fig = function (cls, label, value, sub, more) {
-          return '<div class="hf ' + cls + '"' + moreAttr(more) + '><div class="k">' + label + '</div><div class="big num">' + value + '</div>' + (sub ? '<div class="cap">' + esc(sub) + '</div>' : '') + '</div>';
+          return '<div class="hf ' + cls + '"' + moreAttr(more) + '><div class="k">' + label + '</div><div class="big num">' + value + '</div>' +
+            (sub ? '<div class="cap">' + esc(sub) + '</div>' : '') + '</div>';
         };
         var art = '';
         if (c.art) {
           var over = '<svg class="hov" viewBox="0 0 1600 700" aria-hidden="true"><defs><linearGradient id="shimg" x1="0" y1="0" x2="0" y2="1">' +
             '<stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>' +
             '<clipPath id="wbw"><rect x="1155" y="528" width="26" height="96" rx="6"/></clipPath></defs>' +
-            (lvl != null ? '<rect clip-path="url(#wbw)" class="wfill" x="1155" y="' + (528 + 96 * (1 - wl)).toFixed(1) + '" width="26" height="' + (96 * wl).toFixed(1) + '" fill="#30d158" fill-opacity=".85"/>' : '') +
+            (lvl != null ? '<rect clip-path="url(#wbw)" class="wfill" x="1155" y="' + (528 + 96 * (1 - wl)).toFixed(1) + '" width="26" height="' + (96 * wl).toFixed(1) +
+              '" fill="#30d158" fill-opacity=".85"/>' : '') +
             // the clip on a still group: on the moving light itself it would move
             // with it, and the light would run from the ground to the sky
             (bw !== 0 ? '<g clip-path="url(#wbw)"><rect class="shim' + (bw < 0 ? ' down' : '') + '" x="1155" y="528" width="26" height="96" fill="url(#shimg)"/></g>' : '') +
@@ -338,7 +342,8 @@
         if (!h) return;
         var rows = [], lvl = numOf(h, c.level), home = pw(h, c.home), bh = hoursOf(h, c.backup), bw = batFlow(h, c);
         var gridUp = !gridDown(h, c);
-        if (!gridUp) rows.push({ more: c.grid_status, ic: STAT_GLY.tower, c: '#ff453a', alert: true, t: '<b>The grid is down.</b> The house is running on the battery' + (lvl != null ? ', at ' + Math.round(lvl) + '%' : '') + '.' });
+        if (!gridUp) rows.push({ more: c.grid_status, ic: STAT_GLY.tower, c: '#ff453a', alert: true, t: '<b>The grid is down.</b> The house is running on the battery' +
+          (lvl != null ? ', at ' + Math.round(lvl) + '%' : '') + '.' });
         if (c.problem && isOn(h, c.problem)) rows.push({ more: c.problem, ic: STAT_GLY.alert, c: '#ff453a', alert: true, t: '<b>The panel reports a fault.</b> Check it in its own app.' });
         // THE SUN, WHAT THE HOUSE RUNS ON, A CAR CHARGING (from the whole
         // house's readings when the page gives them; the panel's otherwise)
@@ -361,11 +366,15 @@
         if (!chg.length && !gridUp) (c.cars || []).forEach(function (k) {
           if (k.plugged && isOn(h, k.plugged)) rows.push({ more: k.level, ic: GLY.car, c: FLOW.car, t: '<b>' + esc(k.name || 'A car') + '</b> is plugged in; charging waits for the grid.' });
         });
-        if (bh != null) rows.push({ more: c.backup, ic: STAT_GLY.batt, c: '#30d158', t: '<b>' + (gridUp ? 'A full backup would last ' : 'The battery will last ') + hm(bh) + '</b> at this load' + (home != null ? ' (' + wtxt(home) + ')' : '') + '.' });
-        if (c.eps) rows.push({ more: c.eps, ic: STAT_GLY.bolt, c: '#5ac8fa', t: '<b>EPS is ' + (isOn(h, c.eps) ? 'on' : 'off') + '</b>' + (isOn(h, c.eps) ? ': the backed-up circuits switch over in under 20 ms.' : ': backed-up circuits may blink in an outage.') });
-        if (c.storm) rows.push({ more: c.storm, ic: STAT_GLY.storm, c: '#bf5af2', t: '<b>Storm Mode is ' + (isOn(h, c.storm) ? 'on' : 'off') + '</b>' + (isOn(h, c.storm) ? ': charging to full ahead of the weather.' : '.') });
+        if (bh != null) rows.push({ more: c.backup, ic: STAT_GLY.batt, c: '#30d158', t: '<b>' + (gridUp ? 'A full backup would last ' : 'The battery will last ') + hm(bh) + '</b> at this load' +
+          (home != null ? ' (' + wtxt(home) + ')' : '') + '.' });
+        if (c.eps) rows.push({ more: c.eps, ic: STAT_GLY.bolt, c: '#5ac8fa', t: '<b>EPS is ' + (isOn(h, c.eps) ? 'on' : 'off') + '</b>' +
+          (isOn(h, c.eps) ? ': the backed-up circuits switch over in under 20 ms.' : ': backed-up circuits may blink in an outage.') });
+        if (c.storm) rows.push({ more: c.storm, ic: STAT_GLY.storm, c: '#bf5af2', t: '<b>Storm Mode is ' + (isOn(h, c.storm) ? 'on' : 'off') + '</b>' +
+          (isOn(h, c.storm) ? ': charging to full ahead of the weather.' : '.') });
         this._paint(rows.slice(0, 4).map(function (r) {
-          return '<div class="hli' + (r.alert ? ' alert' : '') + '"' + moreAttr(r.more) + '><div class="ic" style="background:' + rgba(r.c, 0.14) + ';color:' + r.c + '"><svg viewBox="0 0 24 24">' + r.ic + '</svg></div><div class="tx">' + r.t + '</div></div>';
+          return '<div class="hli' + (r.alert ? ' alert' : '') + '"' + moreAttr(r.more) + '><div class="ic" style="background:' + rgba(r.c, 0.14) + ';color:' + r.c + '"><svg viewBox="0 0 24 24">' +
+            r.ic + '</svg></div><div class="tx">' + r.t + '</div></div>';
         }).join(''));
       }
     }
@@ -385,7 +394,8 @@
           '@container (max-width:720px){.bt2{grid-template-columns:1fr;gap:20px;margin-top:30px}}',
           '.cell{position:relative;height:118px;border-radius:24px;border:6px solid var(--hk-battery-shell,rgba(255,255,255,.42));padding:6px;margin-right:16px;box-sizing:border-box}',
           '.cell:after{content:"";position:absolute;right:-16px;top:32px;width:10px;height:42px;border-radius:0 7px 7px 0;background:var(--hk-battery-shell,rgba(255,255,255,.42))}',
-          '.cell .fill{position:relative;overflow:hidden;height:100%;border-radius:13px;background:' + window.hkCards.v('battery-fill') + ';box-shadow:inset 0 1px 0 rgba(255,255,255,0.35);  animation:growX 1.2s cubic-bezier(.22,.8,.25,1) backwards;transform-origin:0 50%;transition:width .6s ease}',
+          '.cell .fill{position:relative;overflow:hidden;height:100%;border-radius:13px;background:' + window.hkCards.v('battery-fill') +
+            ';box-shadow:inset 0 1px 0 rgba(255,255,255,0.35);  animation:growX 1.2s cubic-bezier(.22,.8,.25,1) backwards;transform-origin:0 50%;transition:width .6s ease}',
           '.cell .fill.low{background:' + window.hkCards.v('battery-fill-low') + '}',
           '@keyframes growX{from{transform:scaleX(0)}}',
           '.hshim{position:absolute;top:0;bottom:0;width:35%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.45),transparent);animation:hRun 1.8s linear infinite}',
@@ -396,12 +406,15 @@
           '.cell .txt b u{text-decoration:none;font-size:18px;margin-left:2px;opacity:.8}',
           // ONE line under the level: the stored kWh and the backup time. Two
           // lines left the figures a few px off the fill's edges.
-          '.cell .txt span{font-size:14px;line-height:18px;font-weight:600;color:rgba(255,255,255,.9);margin-top:8px;text-shadow:0 1px 2px rgba(0,0,0,.25);padding-right:12px;  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+          '.cell .txt span{font-size:14px;line-height:18px;font-weight:600;color:rgba(255,255,255,.9);margin-top:8px;text-shadow:0 1px 2px rgba(0,0,0,.25);padding-right:12px;  white-space:nowrap;' +
+            'overflow:hidden;text-overflow:ellipsis}',
           // a mark is a tick through the battery's outline, top and bottom --
           // never a line through the figures inside it
-          '.mk{position:absolute;top:-10px;bottom:-10px;width:0;border-left:2px dashed;  -webkit-mask-image:linear-gradient(to bottom,#000 22px,transparent 22px,transparent calc(100% - 22px),#000 calc(100% - 22px));',
+          '.mk{position:absolute;top:-10px;bottom:-10px;width:0;border-left:2px dashed;' +
+            '  -webkit-mask-image:linear-gradient(to bottom,#000 22px,transparent 22px,transparent calc(100% - 22px),#000 calc(100% - 22px));',
           '  mask-image:linear-gradient(to bottom,#000 22px,transparent 22px,transparent calc(100% - 22px),#000 calc(100% - 22px))}',
-          '.mkl{position:absolute;bottom:calc(100% + 14px);transform:translateX(-50%);font-style:normal;font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;white-space:nowrap}',
+          '.mkl{position:absolute;bottom:calc(100% + 14px);transform:translateX(-50%);font-style:normal;font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;' +
+            'white-space:nowrap}',
           '.side2{display:flex;flex-direction:column;gap:14px;min-width:0}',
           '.pk2{display:grid;grid-template-columns:56px minmax(0,1fr) auto;gap:14px;align-items:center;padding-right:6px}',
           '.mini{position:relative;height:26px;border-radius:8px;border:3px solid var(--hk-battery-shell,rgba(255,255,255,.42));padding:2px;box-sizing:border-box}',
@@ -462,7 +475,8 @@
         var pct = lvl == null ? '—' : Math.round(level) + '%', low = res != null && level <= res;
         var col = low ? NAMED.red : NAMED.green, b = blockBox(this, sized);
         var glyph = bw > 0 ? 'mdi:lightning-bolt' : 'mdi:home-battery';
-        var ring = function (px, inner) { return '<div class="bring"' + moreAttr(c.level) + ' style="width:' + px + 'px;height:' + px + 'px">' + ringOne(level / 100, col, px, px > 100 ? 10 : 8) + inner + '</div>'; };
+        var ring = function (px, inner) { return '<div class="bring"' + moreAttr(c.level) + ' style="width:' + px + 'px;height:' + px + 'px">' + ringOne(level / 100, col, px, px > 100 ? 10 : 8) +
+          inner + '</div>'; };
         var icon = function (px) { return '<hk-icon icon="' + glyph + '" style="width:' + px + 'px;height:' + px + 'px;color:' + col + '"></hk-icon>'; };
         var face = function (px, fs) { return '<div class="in"><b style="font-size:' + fs + 'px">' + pct + '</b><small>' + esc(doing === 'Powering the house' ? 'In use' : doing) + '</small></div>'; };
         var backup = bh != null ? hm(bh) + ' of backup' : '';
@@ -543,7 +557,8 @@
         }
         while (out.length < 24) out.push({ v: null, fut: true });
         var gap = 3, bw = Math.max(1, (w - 23 * gap) / 24), rx = Math.min(3, bw / 2);
-        return '<svg class="wc" width="' + Math.round(w) + '" height="' + Math.round(h0) + '" viewBox="0 0 ' + w.toFixed(1) + ' ' + h0 + '" role="img" aria-label="The battery’s charge through the day">' +
+        return '<svg class="wc" width="' + Math.round(w) + '" height="' + Math.round(h0) + '" viewBox="0 0 ' + w.toFixed(1) + ' ' + h0 +
+          '" role="img" aria-label="The battery’s charge through the day">' +
           out.map(function (x, i) {
             var bh = Math.max(3, Math.min(100, x.v || 0) / 100 * h0);
             return '<rect x="' + (i * (bw + gap)).toFixed(1) + '" y="' + (h0 - bh).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + bh.toFixed(1) +
@@ -568,7 +583,8 @@
         var sub = [stored != null ? fx(stored, 1) + ' kWh' : null, bh != null ? hm(bh) + ' of backup' : null].filter(Boolean).join(' · ');
         var packs = (c.packs || []).map(function (p, i) {
           var pl = numOf(h, p.level), pt = numOf(h, p.temperature), tu = p.temperature && h.states[p.temperature] ? ((h.states[p.temperature].attributes || {}).unit_of_measurement || '') : '';
-          return '<div class="pk2"' + moreAttr(p.level) + '><div class="mini"><i style="width:' + (pl == null ? 0 : Math.max(0, Math.min(100, pl))) + '%"></i></div><div><b>' + esc(p.name || 'Pack ' + (i + 1)) + '</b><br><span>' +
+          return '<div class="pk2"' + moreAttr(p.level) + '><div class="mini"><i style="width:' + (pl == null ? 0 : Math.max(0, Math.min(100, pl))) + '%"></i></div><div><b>' +
+            esc(p.name || 'Pack ' + (i + 1)) + '</b><br><span>' +
             (pt != null ? fx(pt, 0) + esc(tu) : '') + '</span></div><div class="pv">' + (pl == null ? '—' : Math.round(pl) + '<span style="font-size:13px">%</span>') + '</div></div>';
         }).join('');
         var speed = pw(h, c.speed), facts = [];
@@ -597,7 +613,8 @@
           '.mdesc{font-size:14px;line-height:18px;color:' + window.hkCards.v('ink-2') + ';margin:12px 4px 0;min-height:18px}',
           // a phone: names wrap to two lines rather than lose their ends
           // a phone: names wrap to two lines rather than lose their ends
-          '@media (max-width:' + window.hkCards.BP.phone + 'px){.seg{height:auto;min-height:44px}.seg button{font-size:13px;padding:4px;height:auto;min-height:36px;white-space:normal;line-height:1.15}}'
+          '@media (max-width:' + window.hkCards.BP.phone +
+            'px){.seg{height:auto;min-height:44px}.seg button{font-size:13px;padding:4px;height:auto;min-height:36px;white-space:normal;line-height:1.15}}'
         ].join('');
       }
       _opts() {

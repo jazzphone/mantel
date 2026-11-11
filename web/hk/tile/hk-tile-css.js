@@ -434,7 +434,8 @@
       '.lvl.side b{left:12px;right:auto;bottom:auto;top:50%;transform:translateY(-50%);text-align:left}',
       // (Home, the pill: its glyph and words stay left of the capsule)
       ':host(:not([tile=centred])[level][size=W]) .card .grid{box-sizing:border-box;width:calc(var(--hk-wcol) - var(--hk-pad-l,14px) - 10px);min-width:0;flex:none}',
-      ':host(:not([tile=centred])[level][size=W]) .card .grid .name,:host(:not([tile=centred])[level][size=W]) .card .grid .label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+      ':host(:not([tile=centred])[level][size=W]) .card .grid .name,:host(:not([tile=centred])[level][size=W]) .card .grid .label{min-width:0;overflow:hidden;text-overflow:ellipsis;' +
+        'white-space:nowrap}',
       wideLevelTile(window.hkCards.TILE.centred.tall, 14, ''),
       wideLevelTile(window.hkCards.TILE.centred.square, 18, '@container hk-cell (min-height:180px) or style(--hk-cell-shape: square)'),
       // ...no level: the tile with its glyph larger, the group a little above the middle

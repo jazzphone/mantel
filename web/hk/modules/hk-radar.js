@@ -200,7 +200,8 @@
       '.scrim{position:absolute;inset:0;z-index:2;pointer-events:none;background:linear-gradient(180deg,',
       '  rgba(var(--rm-scrim),.38) 0,rgba(var(--rm-scrim),.12) 14%,rgba(var(--rm-scrim),0) 26%,',
       '  rgba(var(--rm-scrim),0) 84%,rgba(var(--rm-scrim),.10) 92%,rgba(var(--rm-scrim),.30) 100%)}',
-      '.hd{position:absolute;top:' + C.CARD.y + 'px;left:' + C.CARD.x + 'px;right:' + C.CARD.x + 'px;z-index:5;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;pointer-events:none}',
+      '.hd{position:absolute;top:' + C.CARD.y + 'px;left:' + C.CARD.x + 'px;right:' + C.CARD.x +
+        'px;z-index:5;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;pointer-events:none}',
       '.hd>*{pointer-events:auto}',
       '.caption{' + C.plate('tile') + ';background:' + v('overlay-solid') + ';border-radius:' + C.R.inner + 'px;padding:10px 12px;min-width:0;max-width:calc(100% - 56px)}',
       '.tt{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:var(--rm-ink);text-shadow:0 1px 6px rgba(var(--rm-scrim),.6)}',
@@ -226,8 +227,10 @@
       // The same track and thumb as hk-control's sliders. Clear the native
       // widget so Chrome and Android WebView do not draw a second track.
       '.tl input{appearance:none;-webkit-appearance:none;display:block;width:100%;margin:0;padding:0;height:28px;border:0;background:transparent;cursor:pointer;touch-action:pan-y}',
-      '.tl input::-webkit-slider-runnable-track{height:8px;border-radius:5px;border:0;background:linear-gradient(90deg,' + C.v('ink') + ' var(--played,0%),' + C.v('line-strong') + ' var(--played,0%))}',
-      '.tl input::-webkit-slider-thumb{appearance:none;-webkit-appearance:none;width:26px;height:26px;margin-top:-9px;border-radius:50%;border:0;background:#fff;box-shadow:0 3px 10px rgba(0,0,0,.25)}',
+      '.tl input::-webkit-slider-runnable-track{height:8px;border-radius:5px;border:0;background:linear-gradient(90deg,' + C.v('ink') + ' var(--played,0%),' + C.v('line-strong') +
+        ' var(--played,0%))}',
+      '.tl input::-webkit-slider-thumb{appearance:none;-webkit-appearance:none;width:26px;height:26px;margin-top:-9px;border-radius:50%;border:0;background:#fff;' +
+        'box-shadow:0 3px 10px rgba(0,0,0,.25)}',
       '.tl input::-moz-range-track{height:8px;border-radius:5px;border:0;background:' + C.v('line-strong') + '}',
       '.tl input::-moz-range-progress{height:8px;border-radius:5px;background:' + C.v('ink') + '}',
       '.tl input::-moz-range-thumb{width:26px;height:26px;border-radius:50%;border:0;background:#fff;box-shadow:0 3px 10px rgba(0,0,0,.25)}',
@@ -249,7 +252,8 @@
       '.history{display:none;position:absolute;left:' + C.CARD.x + 'px;right:' + C.CARD.x + 'px;bottom:' + C.CARD.y + 'px;z-index:5;',
       '  ' + C.plate('tile') + ';background:' + v('overlay-solid') + ';border-radius:' + C.R.inner + 'px;padding:10px 12px;pointer-events:none;color:' + v('ink') + '}',
       '.rc.preview .history:not([hidden]){display:block}',
-      '.history .times{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:11px;font-weight:500;color:' + v('ink-2') + ';font-variant-numeric:tabular-nums;white-space:nowrap}',
+      '.history .times{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:11px;font-weight:500;color:' + v('ink-2') +
+        ';font-variant-numeric:tabular-nums;white-space:nowrap}',
       '.history output{font-weight:600;color:' + v('ink') + '}',
       '.history .track{position:relative;height:4px;margin-top:9px;border-radius:2px;background:' + v('line-strong') + '}',
       '.history .track i{display:block;height:100%;width:var(--history-position,0%);border-radius:inherit;background:' + v('ink') + '}',

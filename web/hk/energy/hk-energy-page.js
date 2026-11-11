@@ -511,7 +511,8 @@
           // a week's or a month's usual cost in whole dollars: "$344.89" does not fit a third of the card
           var typ = r.key === 'cost' ? self._money(r.typ, p === 'day' ? 2 : 0) : fx(r.typ, 0);
           var mid = r.key === 'energy' ? (M.total.stat || M.src.imp[0]) : r.key === 'cost' ? (M.src.cost[0] || M.total.cost) : r.key === 'solar' ? M.src.solar[0] : M.src[r.key].ids[0];
-          return '<div class="stat"' + moreAttr(mid) + '><div class="k"><i style="background:' + r.c + '"></i>' + ({ energy: 'Energy', cost: 'Cost', solar: 'Solar', water: 'Water', gas: 'Gas' })[r.key] +
+          return '<div class="stat"' + moreAttr(mid) + '><div class="k"><i style="background:' + r.c + '"></i>' +
+            ({ energy: 'Energy', cost: 'Cost', solar: 'Solar', water: 'Water', gas: 'Gas' })[r.key] +
             '</div><div class="big num">' + val + (unit ? '<u>' + unit + '</u>' : '') + '</div><div class="of">of a typical ' + typ + '</div></div>';
         }).join('');
         // THE PERIOD BEFORE: yesterday by this time, last week, the 30 days before
@@ -618,7 +619,8 @@
         if (x.wait) return this._paint('<div class="wait">Loading…</div>');
         var self = this, list = x.M.highlights ? highlights(x.M, x.R, this.client, function (a, d) { return self._money(a, d); }) : [];
         this._paint(list.map(function (it) {
-          return '<div class="hli"' + moreAttr(it.more) + (it.sec ? ' data-sec="' + esc(it.sec) + '"' : '') + '><div class="ic" style="background:' + rgba(it.c, 0.14) + ';color:' + it.c + '"><svg viewBox="0 0 24 24">' +
+          return '<div class="hli"' + moreAttr(it.more) + (it.sec ? ' data-sec="' + esc(it.sec) + '"' : '') + '><div class="ic" style="background:' + rgba(it.c, 0.14) + ';color:' + it.c +
+            '"><svg viewBox="0 0 24 24">' +
             it.ic + '</svg></div><div class="tx">' + it.t + '</div></div>';
         }).join(''));
         var self = this;

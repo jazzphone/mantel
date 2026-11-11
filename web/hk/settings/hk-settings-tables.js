@@ -14,7 +14,9 @@
       K = s.K;
     });
 
-    var PENCIL = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="m13.5 6.5 4 4" stroke="currentColor" stroke-width="2"/></svg>';
+    var PENCIL =
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="m13.5 6.5 4 ' +
+      '4" stroke="currentColor" stroke-width="2"/></svg>';
     var BACK = '<svg viewBox="0 0 12 20" aria-hidden="true"><path d="M10 2 2 10l8 8" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
     var TICK = '<svg viewBox="0 0 13 13" aria-hidden="true"><path d="M2 7l3 3 6-7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
@@ -106,11 +108,15 @@
     // as the house has. `quiet`: its own may also work in quiet hours.
     var SLEEP_LISTS = {
       presence: { title: 'Presence', key: 'presence',
-        help: 'Somebody is in the room while any of these is on — motion, occupancy, a radar, a watch’s room — and for the Linger time after the last one clears. With none, the room always counts as occupied.' },
+        help:
+          'Somebody is in the room while any of these is on — motion, occupancy, a radar, a watch’s room — and for the Linger time after the last one clears. With none, the room always counts as ' +
+          'occupied.' },
       lit: { title: 'Only While Lit', key: 'lit', domains: ['light', 'switch'],
         help: 'Somebody walking in wakes the tablet only while one of these is on, so a dark room stays dark at night. A tap always works.' },
       quiet: { title: 'Quiet While', key: 'quiet_while',
-        help: 'Quiet hours while any of these is on (a Good Night or nap timer), as well as by the schedule: the tablet stays dark, and only a tap, or what is allowed in quiet hours under Hold While and Wake For, changes that.' },
+        help:
+          'Quiet hours while any of these is on (a Good Night or nap timer), as well as by the schedule: the tablet stays dark, and only a tap, or what is allowed in quiet hours under Hold While ' +
+          'and Wake For, changes that.' },
       reset: { title: 'Sleep Until Re-entered', key: 'reset',
         help: 'Turning one of these on darkens the tablet even with somebody still in the room; it wakes again when somebody comes back in. A tap still lights it. (Good Night.)' },
       dark: { title: 'Stay Dark While', key: 'dark_while',
@@ -127,7 +133,9 @@
         help: 'The day brightness while any of these is on, even at night — the bathroom’s lights turned up bright, say.' },
       // MORE WHEN NEAR (2026-10-30, rule 9a): never the tablet's own camera
       near: { title: 'Near the Screen', key: 'near', domains: ['binary_sensor', 'sensor'],
-        help: 'Somebody is near the screen while one of these sees them: an mmWave sensor’s zone in front of the tablet, or a distance sensor reading under Closer Than. Then the dashboard comes up before a touch; with nobody near and no touch for Back to the Screensaver, the photos return. The tablet’s own camera is never used.' }
+        help:
+          'Somebody is near the screen while one of these sees them: an mmWave sensor’s zone in front of the tablet, or a distance sensor reading under Closer Than. Then the dashboard comes up ' +
+          'before a touch; with nobody near and no touch for Back to the Screensaver, the photos return. The tablet’s own camera is never used.' }
     };
     // THE THIRD-PARTY CARDS' OPTIONS: the handful people change, as controls
     // (an empty YAML box does not say what it wants), each showing the tuned value until changed (hk-strategy.js
@@ -140,7 +148,9 @@
         title: 'Screensaver Options', docs: 'https://github.com/j-a-n/lovelace-wallpanel',
         footer: 'The photos come from Screensaver Photos (All Screens → Screensaver). The clock, the weather, what’s playing and running timers show over them.',
         example: 'idle_time: 300\ndisplay_time: 20\nimage_animation_ken_burns_zoom: 1.2',
-        yamlHelp: 'Everything set on the Screensaver Options page, and any other WallPanel option, as YAML. Empty is the tuned screensaver. Set a key to null to remove it from the tuned setup. Changing enabled, profiles or screensaver_entity unhooks it from the tablet’s user and the sky.',
+        yamlHelp:
+          'Everything set on the Screensaver Options page, and any other WallPanel option, as YAML. Empty is the tuned screensaver. Set a key to null to remove it from the tuned setup. Changing ' +
+          'enabled, profiles or screensaver_entity unhooks it from the tablet’s user and the sky.',
         groups: [
           { header: 'Timing', rows: [
             { key: 'idle_time', label: 'Starts After', type: 'select', num: true, def: 180,
@@ -157,7 +167,8 @@
         title: 'Kiosk Mode Options', docs: 'https://github.com/NemesisRE/kiosk-mode',
         footer: 'Whatever is hidden, the menu’s Home Assistant section still reaches Home Assistant (Show Menu opens its sidebar).',
         example: 'admin_settings:\n  hide_header: false',
-        yamlHelp: 'Everything set on the Kiosk Mode Options page, and any other Kiosk Mode option, as YAML. Empty is the tuned setup: the header and the sidebar hidden. Set a key to null to remove it.',
+        yamlHelp:
+          'Everything set on the Kiosk Mode Options page, and any other Kiosk Mode option, as YAML. Empty is the tuned setup: the header and the sidebar hidden. Set a key to null to remove it.',
         groups: [{ rows: [
           { key: 'hide_header', label: 'Hide Header', type: 'switch', def: true },
           { key: 'hide_sidebar', label: 'Hide Sidebar', type: 'switch', def: true },

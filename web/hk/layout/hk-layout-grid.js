@@ -263,8 +263,10 @@
                          // gutter is 18.9 px); where the gutter is wider the
                          // clamp is the bleed and nothing moves.
                          '#root.hk-bleed{' +
-                         '--hk-bleed-lc:min(var(--hk-bleed-l,0px),var(--hk-gutter,calc((100vw - var(--hk-page-left,0px) - var(--hk-page-right,0px) - ' + SAFE_PADS + ') * var(--hk-side,0.02) + 4px)));' +
-                         '--hk-bleed-rc:min(var(--hk-bleed-r,0px),var(--hk-gutter,calc((100vw - var(--hk-page-left,0px) - var(--hk-page-right,0px) - ' + SAFE_PADS + ') * var(--hk-side,0.02) + 4px)));' +
+                         '--hk-bleed-lc:min(var(--hk-bleed-l,0px),var(--hk-gutter,calc((100vw - var(--hk-page-left,0px) - var(--hk-page-right,0px) - ' + SAFE_PADS +
+                           ') * var(--hk-side,0.02) + 4px)));' +
+                         '--hk-bleed-rc:min(var(--hk-bleed-r,0px),var(--hk-gutter,calc((100vw - var(--hk-page-left,0px) - var(--hk-page-right,0px) - ' + SAFE_PADS +
+                           ') * var(--hk-side,0.02) + 4px)));' +
                          'margin-left:calc(-1 * var(--hk-bleed-lc)) !important;' +
                          'margin-right:calc(-1 * var(--hk-bleed-rc)) !important}';
         this._root.appendChild(st);

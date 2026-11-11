@@ -78,7 +78,10 @@
       c.appendChild(K.group({ header: 'Picture', footer: '720p is plenty on a wall tablet or a phone. 1080p uses about 40% more processor for each channel being watched.' }, [
         K.seg({ label: 'Quality', sk: 'f:hk_tv:quality', value: d.quality, options: [['720', '720p'], ['1080', '1080p']],
                 onChange: function (v) { set({ quality: v }); } })]));
-      c.appendChild(K.group({ header: 'Tuner & Guide', footer: 'The guide is an XMLTV file (from a service such as Schedules Direct, or a program that builds one). With a guide, each channel shows what’s on now and uses the network’s name.' }, [
+      c.appendChild(
+        K.group(
+        { header: 'Tuner & Guide',
+        footer: 'The guide is an XMLTV file (from a service such as Schedules Direct, or a program that builds one). With a guide, each channel shows what’s on now and uses the network’s name.' }, [
         K.text({ label: 'Tuner Address', sk: 'f:hk_tv:host', value: d.host, placeholder: 'IP address or host name',
                  error: P.err('f:hk_tv:host'), onCommit: function (v) { set({ host: v }); } }),
         K.text({ label: 'Guide Address', sk: 'f:hk_tv:guide_url', value: d.guide_url, placeholder: 'None',

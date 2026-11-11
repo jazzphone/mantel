@@ -272,7 +272,8 @@
         '.mm .lab{margin-bottom:8px}',
         '.mmg{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));row-gap:2px;flex:1;min-height:0}',
         '.mmg .w{text-align:center;font-size:11px;font-weight:600;color:' + window.hkCards.v('ink-2') + ';padding-bottom:4px}',
-        '.mmg button{position:relative;min-height:32px;border:0;background:none;padding:0;color:#fff;font:inherit;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;',
+        '.mmg button{position:relative;min-height:32px;border:0;background:none;padding:0;color:#fff;font:inherit;display:flex;flex-direction:column;align-items:center;justify-content:center;' +
+          'gap:2px;',
         '  cursor:pointer;-webkit-tap-highlight-color:transparent}',
         '.mmg button b{width:26px;height:26px;line-height:26px;border-radius:13px;text-align:center;font-size:13px;font-weight:600}.mmg button::after{content:"";position:absolute;inset:-6px 0}',
         '.mmg button i{width:4px;height:4px;border-radius:2px}',
@@ -420,7 +421,8 @@
               '" data-d="' + ymd(x) + '" aria-label="' + MON[x.getMonth()] + ' ' + x.getDate() + '"><b>' + x.getDate() + '</b><i style="background:' +
               (mine.length ? rgba(evRgb(mine[0], h), 1) : 'transparent') + '"></i></button>';
           }
-          return '<div class="card mm"><div class="lab"><span>' + MON[a.getMonth()] + ' ' + a.getFullYear() + '</span></div><div class="mmg" style="grid-template-rows:auto repeat(' + (n / 7) + ',32px)">' + cells + '</div></div>';
+          return '<div class="card mm"><div class="lab"><span>' + MON[a.getMonth()] + ' ' + a.getFullYear() + '</span></div><div class="mmg" style="grid-template-rows:auto repeat(' + (n / 7) +
+            ',32px)">' + cells + '</div></div>';
         }
         _paint() {
           var h = this.client, ev = this._ev;

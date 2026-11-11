@@ -154,7 +154,9 @@
         var self = this;
         this._tv = isTv(s);
         if (this._view === 'inputs') {
-          this._root.innerHTML = '<div class="pn"><div class="sub"><div class="bk"><button aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="' + BACK + '"/></svg></button><div class="t">Input</div></div><div class="hk-edge lf"><div class="list"></div></div></div></div>';
+          this._root.innerHTML =
+            '<div class="pn"><div class="sub"><div class="bk"><button aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="' + BACK +
+            '"/></svg></button><div class="t">Input</div></div><div class="hk-edge lf"><div class="list"></div></div></div></div>';
           this._root.querySelector('.bk button').addEventListener('click', function () { self._go('main'); });
           this._list = this._root.querySelector('.list');
           C.edges(this._root);
@@ -169,7 +171,8 @@
           '<div class="tp"><button class="pv" aria-label="Previous">' + glyph('mdi:skip-previous', 36) + '</button>' +
           '<button class="pp" aria-label="Play or pause"></button>' +
           '<button class="nx" aria-label="Next">' + glyph('mdi:skip-next', 36) + '</button></div>' +
-          '<div class="vw">' + glyph('mdi:volume-high', 15) + '<div class="vol" role="slider" aria-label="Volume" tabindex="0"><div class="t"></div><div class="f"></div><div class="k"></div></div>' + glyph('mdi:volume-high', 22) + '</div>' +
+          '<div class="vw">' + glyph('mdi:volume-high', 15) + '<div class="vol" role="slider" aria-label="Volume" tabindex="0"><div class="t"></div><div class="f"></div><div class="k"></div></div>' +
+            glyph('mdi:volume-high', 22) + '</div>' +
           '<div class="vst" hidden><button class="vd" aria-label="Volume down">' + glyph('mdi:volume-minus', 22) + '</button>' +
           '<span>Volume</span><button class="vu" aria-label="Volume up">' + glyph('mdi:volume-plus', 22) + '</button></div>' +
           '<div class="acts"></div></div></div>';

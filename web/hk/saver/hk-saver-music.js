@@ -58,7 +58,12 @@
     }
     function musicPlaying() { var c = musicNow(clientNow()); return !!(c && c.playing); }
     // A self-contained preview, with no entity, queue lookup or playback action.
-    var SAMPLE_ART = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800" viewBox="0 0 800 800"><defs><linearGradient id="g" x2="1" y2="1"><stop stop-color="#243d7e"/><stop offset=".55" stop-color="#82658e"/><stop offset="1" stop-color="#edac79"/></linearGradient></defs><path fill="url(#g)" d="M0 0h800v800H0z"/><circle cx="400" cy="400" r="245" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="2"/><circle cx="400" cy="400" r="190" fill="none" stroke="#fff" stroke-opacity=".2"/><path d="M300 480V285l220-45v195M300 330l220-45" fill="none" stroke="#fff" stroke-width="18" stroke-linejoin="round"/><ellipse cx="268" cy="480" rx="42" ry="30" fill="#fff"/><ellipse cx="488" cy="435" rx="42" ry="30" fill="#fff"/></svg>');
+    var SAMPLE_ART = 'data:image/svg+xml,' +
+      encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800" viewBox="0 0 800 800"><defs><linearGradient id="g" x2="1" y2="1"><stop stop-color="#243d7e"/><stop offset=".55" ' +
+      'stop-color="#82658e"/><stop offset="1" stop-color="#edac79"/></linearGradient></defs><path fill="url(#g)" d="M0 0h800v800H0z"/><circle cx="400" cy="400" r="245" fill="none" stroke="#fff" ' +
+      'stroke-opacity=".35" stroke-width="2"/><circle cx="400" cy="400" r="190" fill="none" stroke="#fff" stroke-opacity=".2"/><path d="M300 480V285l220-45v195M300 330l220-45" fill="none" ' +
+      'stroke="#fff" stroke-width="18" stroke-linejoin="round"/><ellipse cx="268" cy="480" rx="42" ry="30" fill="#fff"/><ellipse cx="488" cy="435" rx="42" ry="30" fill="#fff"/></svg>');
     function previewMusicData() {
       return { sample: true, idle: false, key: '', members: [], room: 'Sample Room', playing: false,
         title: 'Late Light', artist: 'The Harbor Quartet', album: 'Evening Session', pic: SAMPLE_ART,
@@ -109,14 +114,17 @@
       el.className = sl ? 'mu' : 'pm';
       el.setAttribute('idle', '');
       el.innerHTML =
-        (isFlat() ? '<div class="mbgf fa"></div><div class="mbgf fa"></div>' : '<div class="mbgf"><canvas class="mbg"></canvas></div><div class="mbgf"><canvas class="mbg"></canvas></div>') + '<div class="mshade"></div>' +
+        (isFlat() ? '<div class="mbgf fa"></div><div class="mbgf fa"></div>' : '<div class="mbgf"><canvas class="mbg"></canvas></div><div class="mbgf"><canvas class="mbg"></canvas></div>') +
+          '<div class="mshade"></div>' +
         '<div class="mbody">' + (sl ? '<div class="mstage">' : '') + '<div class="mart"><div class="msq"><div class="mph">' + svg(ICON.note) + '</div>' +
         '<div class="mfr"><img alt=""></div><div class="mfr"><img alt=""></div></div></div>' +
-        '<div class="mcol">' + (sl ? '<div class="mmeta">' : '') + '<div class="mroom">' + window.hkNpStrip.lineHtml() + '</div><div class="mtitle"></div><div class="martist"></div><div class="malbum"></div>' + (sl ? '<div class="mq"></div></div>' : '') +
+        '<div class="mcol">' + (sl ? '<div class="mmeta">' : '') + '<div class="mroom">' + window.hkNpStrip.lineHtml() +
+          '</div><div class="mtitle"></div><div class="martist"></div><div class="malbum"></div>' + (sl ? '<div class="mq"></div></div>' : '') +
         // THE CONTROLS STRIP (2026-11-09, the owner: "more space in general above and below the play button"): the
         // progress, the transport and the volume are the one strip every player draws with (modules/hk-np-strip.js)
         window.hkNpStrip.html({ prog: 'bar', vol: 'bar' }) +
-        '<div class="mnext"><div class="mnth">' + svg(ICON.note) + '<img alt=""></div><div class="mnx"><div class="mnl">Up Next</div><div class="mnt"></div></div></div></div>' + (sl ? '</div>' : '<div class="mq"></div>') + '</div>';
+        '<div class="mnext"><div class="mnth">' + svg(ICON.note) + '<img alt=""></div><div class="mnx"><div class="mnl">Up Next</div><div class="mnt"></div></div></div></div>' +
+          (sl ? '</div>' : '<div class="mq"></div>') + '</div>';
       if (!window.hkSaverPanel) el.setAttribute('nomx', '');
       var q = function (s) { return el.querySelector(s); };
       var v = { kind: kind, el: el, flat: isFlat(), flip: 0, pic: null, d: null, ready: Promise.resolve(),

@@ -169,7 +169,8 @@
     // (a card with no backdrop has no padding: its words and its art on the margin, as every other piece's -- 2026-11-02, the
     // owner: the music "pushed to the right" of the weather under it. With a backdrop, the backdrop's edge is on the margin)
     '.hksw.k-card.b-none{padding:0;min-width:0}',
-    '.hksw.k-card{width:max-content;min-width:calc(var(--u) * 24);max-width:calc(var(--u) * 44);padding:calc(var(--u) * 2);border-radius:calc(var(--u) * 2.2);flex-direction:column;align-items:stretch;justify-content:flex-start;overflow:hidden}',
+    '.hksw.k-card{width:max-content;min-width:calc(var(--u) * 24);max-width:calc(var(--u) * 44);padding:calc(var(--u) * 2);border-radius:calc(var(--u) * 2.2);flex-direction:column;' +
+      'align-items:stretch;justify-content:flex-start;overflow:hidden}',
     '.hksw .cd{box-sizing:border-box;min-width:0;width:100%}',
     // (a card with a title has 2.4 u around it, not 2)
     '.hksw .cd.ti{padding:calc(var(--u) * .4)}',
@@ -205,7 +206,8 @@
     '.hksw .cd.mc .m1{font-size:calc(var(--u) * 2.8);line-height:1.35;font-weight:700}',
     '.hksw .cd.mc .m2{font-size:calc(var(--u) * 2.2);line-height:1.35}',
     '.hksw .cd.mc .m3{display:flex;align-items:center;gap:.35em;font-size:calc(var(--u) * 2.2);line-height:1.35;font-weight:600;opacity:.8;white-space:nowrap}',
-    '.hksw .cd.mc .m3 hk-icon{--mdc-icon-size:1em;width:1em;height:1em;flex:none;display:flex}.hksw .cd.mc .m3 b{font-weight:inherit;overflow:hidden;text-overflow:ellipsis}.hksw .cd.mc .m3 i{flex:none;font-style:normal;font-weight:400;opacity:.72}',
+    '.hksw .cd.mc .m3 hk-icon{--mdc-icon-size:1em;width:1em;height:1em;flex:none;display:flex}.hksw .cd.mc .m3 b{font-weight:inherit;overflow:hidden;text-overflow:ellipsis}' +
+      '.hksw .cd.mc .m3 i{flex:none;font-style:normal;font-weight:400;opacity:.72}',
     '.hksw .tr{display:flex;align-items:center;gap:calc(var(--u) * 1.2);height:calc(var(--u) * 5.4)}',
     '.hksw .tr + .tr{margin-top:calc(var(--u) * .4)}',
     '.hksw .tr .mr{width:calc(var(--u) * 5);height:calc(var(--u) * 5)}',
@@ -318,14 +320,17 @@
 
   // ------------------------------------------------------------ glyphs (our own; hk-saverfaces.js keeps its two private)
   var CLOUD = 'M7 14.5h10.2a3.6 3.6 0 0 0 .4-7.2 5.2 5.2 0 0 0-10 1A3.1 3.1 0 0 0 7 14.5z';
-  var SUN = '<circle cx="12" cy="12" r="4.4"/><path d="M11 2.6h2v2.6h-2zM11 18.8h2v2.6h-2zM2.6 11h2.6v2H2.6zM18.8 11h2.6v2h-2.6zM4.9 6.3l1.4-1.4 1.8 1.8-1.4 1.4zM15.9 17.3l1.4-1.4 1.8 1.8-1.4 1.4zM4.9 17.7l1.8-1.8 1.4 1.4-1.8 1.8zM15.9 6.7l1.8-1.8 1.4 1.4-1.8 1.8z"/>';
+  var SUN =
+    '<circle cx="12" cy="12" r="4.4"/><path d="M11 2.6h2v2.6h-2zM11 18.8h2v2.6h-2zM2.6 11h2.6v2H2.6zM18.8 11h2.6v2h-2.6zM4.9 6.3l1.4-1.4 1.8 1.8-1.4 1.4zM15.9 17.3l1.4-1.4 1.8 1.8-1.4 1.4zM4.9 ' +
+    '17.7l1.8-1.8 1.4 1.4-1.8 1.8zM15.9 6.7l1.8-1.8 1.4 1.4-1.8 1.8z"/>';
   var MOON = '<path d="M20 14.6A8.6 8.6 0 0 1 9.4 4 8.6 8.6 0 1 0 20 14.6z"/>';
   var LINE = ' fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"';
   var GLYPH = {
     sun: SUN, moon: MOON,
     cloud: '<path d="M7 19h10.2a4 4 0 0 0 .4-8 5.6 5.6 0 0 0-10.8 1.2A3.4 3.4 0 0 0 7 19z"/>',
     partly: '<circle cx="8.2" cy="8" r="3"/><path d="M9.6 20h7.6a3.4 3.4 0 0 0 .3-6.8 4.8 4.8 0 0 0-9.2 1A2.9 2.9 0 0 0 9.6 20z"/>',
-    partlynight: '<path d="M11.6 4.2A5 5 0 1 0 14 12 5.5 5.5 0 0 1 11.6 4.2z" transform="translate(-4 -1) scale(.8)"/><path d="M9.6 20h7.6a3.4 3.4 0 0 0 .3-6.8 4.8 4.8 0 0 0-9.2 1A2.9 2.9 0 0 0 9.6 20z"/>',
+    partlynight:
+      '<path d="M11.6 4.2A5 5 0 1 0 14 12 5.5 5.5 0 0 1 11.6 4.2z" transform="translate(-4 -1) scale(.8)"/><path d="M9.6 20h7.6a3.4 3.4 0 0 0 .3-6.8 4.8 4.8 0 0 0-9.2 1A2.9 2.9 0 0 0 9.6 20z"/>',
     rain: '<path d="' + CLOUD + '"/><path d="M8 17l-1 3M12 17l-1 3M16 17l-1 3"' + LINE + '/>',
     snow: '<path d="' + CLOUD + '"/><path d="M8 18.5v.1M12 20v.1M16 18.5v.1"' + LINE.replace('1.8', '2.6') + '/>',
     bolt: '<path d="' + CLOUD + '"/><path d="M12.8 14.6l-3 4.4h2.6l-1 3.4 3.8-5h-2.6z"/>',
@@ -350,7 +355,9 @@
       '<path d="' + (open ? 'M8 10V7a4 4 0 0 1 7.6-1.7' : 'M8 10V7a4 4 0 0 1 8 0v3') + '"' + LINE.replace('1.8', '2.2') + '/>';
   }
   // a music note (the music pieces' glyph and the card's art when there is no picture)
-  var NOTE = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M9 18V6.5l10-2V16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6.5" cy="18" r="2.7"/><circle cx="16.5" cy="16" r="2.7"/></svg>';
+  var NOTE =
+    '<svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M9 18V6.5l10-2V16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" ' +
+    'stroke-linejoin="round"/><circle cx="6.5" cy="18" r="2.7"/><circle cx="16.5" cy="16" r="2.7"/></svg>';
 
   // ------------------------------------------------------------ the ring (the mock-up's ring(), in a 100 x 100 box)
   //   frac  how full (null: the track alone); gauge: a three-quarter arc open at the bottom, else a whole ring
@@ -714,7 +721,8 @@
             .filter(function (e) { return e.at != null && e.at > t; }).sort(function (p, q) { return p.at - q.at; }).slice(0, 2);
           for (var i = 0; i < 2; i++) {
             var e = next[i], at = e ? new Date(e.at) : new Date(new Date(t).setMinutes(0, 0, 0) + 3600000 * (i + 1));
-            cols.push({ t: hourName(at, X.h24), c: e ? e.f.condition : null, n: e ? (e.f.is_daytime === false || (e.f.is_daytime == null && night(e.at))) : false, v: e ? deg(num(e.f.temperature)) : DASH });
+            cols.push({ t: hourName(at, X.h24), c: e ? e.f.condition : null, n: e ? (e.f.is_daytime === false || (e.f.is_daytime == null && night(e.at))) : false, v: e ? deg(num(e.f.temperature)) :
+              DASH });
           }
           return { cols: cols, tf: fahr(X, w && w.temp, w && w.unit) };
         },
@@ -762,12 +770,14 @@
           return { main: w ? deg(w.temp) : DASH, says: w ? w.says || '' : '', cond: w ? w.cond : '', night: night(t), tf: fahr(X, w && w.temp, w && w.unit), hrs: hrs, days: days };
         },
         draw: function (s) {
-          var col = function (c, v) { return '<div class="wfc"><div class="t">' + esc(c.t) + '</div>' + (c.c ? wxGlyph(c.c, c.n) : '<svg viewBox="0 0 24 24" aria-hidden="true"></svg>') + '<div class="v">' + v + '</div></div>'; };
+          var col = function (c, v) { return '<div class="wfc"><div class="t">' + esc(c.t) + '</div>' + (c.c ? wxGlyph(c.c, c.n) : '<svg viewBox="0 0 24 24" aria-hidden="true"></svg>') +
+            '<div class="v">' + v + '</div></div>'; };
           // (each column `wfc`, never `fc`: the screensaver's own forecast slide is .fc in the same shadow root, and its rules
           // -- hidden, display:none under a generated clock -- hid every column, 2026-11-07)
           // (the hours and the days in one row that wraps out of sight: where the screen is too narrow for them all -- a
           // phone -- the last go first, the days, and never squeezed into each other, 2026-11-02)
-          return '<div class="tod"><div class="tw"><div class="big">' + esc(s.main) + '</div>' + (s.cond ? wxGlyph(s.cond, s.night) : '') + '</div><div class="s1">' + esc(s.says || ' ') + '</div></div>' +
+          return '<div class="tod"><div class="tw"><div class="big">' + esc(s.main) + '</div>' + (s.cond ? wxGlyph(s.cond, s.night) : '') + '</div><div class="s1">' + esc(s.says || ' ') +
+            '</div></div>' +
             '<div class="fcs">' +
             (s.hrs.length ? '<div class="sep"></div>' + s.hrs.map(function (c) { return col(c, esc(c.v)); }).join('') : '') +
             (s.days.length ? '<div class="sep"></div>' + s.days.map(function (c) { return col(c, esc(c.hi) + ' <i>' + esc(c.lo) + '</i>').replace('class="wfc"', 'class="wfc dy"'); }).join('') : '') +
@@ -779,7 +789,8 @@
           main: '64°', says: 'Cloudy', cond: 'cloudy', night: false, tf: 64,
           hrs: [{ t: '3 PM', c: 'partlycloudy', n: false, v: '67°' }, { t: '4 PM', c: 'partlycloudy', n: false, v: '66°' }, { t: '5 PM', c: 'cloudy', n: false, v: '62°' },
                 { t: '6 PM', c: 'cloudy', n: true, v: '59°' }, { t: '7 PM', c: 'rainy', n: true, v: '57°' }, { t: '8 PM', c: 'rainy', n: true, v: '56°' }],
-          days: [{ t: 'Tue', c: 'rainy', hi: '61°', lo: '52°' }, { t: 'Wed', c: 'partlycloudy', hi: '66°', lo: '50°' }, { t: 'Thu', c: 'sunny', hi: '70°', lo: '51°' }, { t: 'Fri', c: 'sunny', hi: '72°', lo: '54°' }]
+          days: [{ t: 'Tue', c: 'rainy', hi: '61°', lo: '52°' }, { t: 'Wed', c: 'partlycloudy', hi: '66°', lo: '50°' }, { t: 'Thu', c: 'sunny', hi: '70°', lo: '51°' },
+            { t: 'Fri', c: 'sunny', hi: '72°', lo: '54°' }]
         }
       }
     }
@@ -816,7 +827,8 @@
         },
         sample: function (po) {
           var S = { humidity: ['58%', 0.58, null], aqi: ['42', 0.14, 42], inside: ['71°', 0.53, 71], sunset: ['5:12', 0.8, null], wind: ['8', 0.27, null] };
-          return { cols: (po.readings || ['humidity', 'aqi']).map(function (k) { var s = S[k] || S.humidity; return { k: S[k] ? k : 'humidity', main: s[0], label: RD[S[k] ? k : 'humidity'].label, frac: s[1], v: s[2] }; }) };
+          return { cols: (po.readings || ['humidity', 'aqi']).map(function (k) { var s = S[k] || S.humidity;
+            return { k: S[k] ? k : 'humidity', main: s[0], label: RD[S[k] ? k : 'humidity'].label, frac: s[1], v: s[2] }; }) };
         }
       },
       band: {
@@ -837,7 +849,8 @@
         },
         w: function (s) { return Math.max(1, s ? s.cols.length : 0) * 14; },
         h: function () { return 10; },
-        sample: { cols: [{ k: 'sunset', main: '5:12 PM', label: 'Sunset' }, { k: 'wind', main: '8 mph', label: 'Wind' }, { k: 'humidity', main: '58%', label: 'Humidity' }, { k: 'aqi', main: '42', label: 'AQI', v: 42 }] }
+        sample: { cols: [{ k: 'sunset', main: '5:12 PM', label: 'Sunset' }, { k: 'wind', main: '8 mph', label: 'Wind' }, { k: 'humidity', main: '58%', label: 'Humidity' },
+          { k: 'aqi', main: '42', label: 'AQI', v: 42 }] }
       }
     }
   });
@@ -862,7 +875,8 @@
   function dateOf(d, po) { return { lines: dateLines(d, po), weight: po && po.weight, upper: !!(po && po.case === 'upper') }; }
   define('date', {
     name: 'Date', group: 'Time and Calendar', wave: 'now', facts: ['date'], source: 'clock', when: null, wakes: ['minute'], pick: null, off: false,
-    opts: { lines: ['one', 'two'], weekday: ['long', 'short', 'none'], month: ['long', 'short', 'number'], year: ['off', 'on'], weight: ['standard', 'light', 'bold'], case: ['normal', 'upper'] }, accent: null,
+    opts: { lines: ['one', 'two'], weekday: ['long', 'short', 'none'], month: ['long', 'short', 'number'], year: ['off', 'on'], weight: ['standard', 'light', 'bold'], case: ['normal', 'upper'] },
+      accent: null,
     shapes: {
       inline: {
         read: function (X) { return dateOf(X.now, X.opts); },
@@ -1001,7 +1015,8 @@
         draw: function (s) {
           return '<div class="cd mc">' + (s.pic ? '<img class="art" alt="" src="' + esc(s.pic) + '">' : '<span class="art">' + NOTE + '</span>') +
             '<div class="mt"><div class="m1">' + esc(s.title) + '</div>' + (s.artist ? '<div class="m2">' + esc(s.artist) + '</div>' : '') +
-            (s.room ? '<div class="m3"><hk-icon icon="' + esc(s.glyph || 'hk:homepod') + '"></hk-icon><b>' + esc(s.room) + '</b>' + (s.more ? '<i>' + esc(s.more) + '</i>' : '') + '</div>' : '') + '</div></div>';
+            (s.room ? '<div class="m3"><hk-icon icon="' + esc(s.glyph || 'hk:homepod') + '"></hk-icon><b>' + esc(s.room) + '</b>' + (s.more ? '<i>' + esc(s.more) + '</i>' : '') + '</div>' : '') +
+              '</div></div>';
         },
         h: function () { return 16; },
         sample: { title: 'Night Harbor', artist: 'The Fictional Trio', room: 'Kitchen', more: ' + 2', pic: '' }
@@ -1071,7 +1086,8 @@
           if (!s.evs.length) return lines('Up Next', DASH, '');
           if (s.evs.length === 1) return '<div class="ev1"' + accStyle(s.evs[0].c) + '>' + lines(s.evs[0].l1, s.evs[0].l2, s.evs[0].l3, true) + '</div>';
           return '<div class="evs">' + s.evs.map(function (e) {
-            return '<div class="ev"' + accStyle(e.c) + '><i class="dot a"></i><div><div class="e1">' + esc(e.l2) + '</div><div class="e2">' + esc(e.w + (e.l3 ? DOT + e.l3 : '')) + '</div></div></div>';
+            return '<div class="ev"' + accStyle(e.c) + '><i class="dot a"></i><div><div class="e1">' + esc(e.l2) + '</div><div class="e2">' + esc(e.w + (e.l3 ? DOT + e.l3 : '')) +
+              '</div></div></div>';
           }).join('') + '</div>';
         },
         sample: { evs: [{ l1: 'Up Next' + DOT + '3:30 PM', l2: 'Piano Lesson', l3: 'Music Room', w: '3:30 PM', c: ['#ff9f0a', '#9a5f06'] },
@@ -1090,7 +1106,8 @@
         read: function (X) {
           if (X.opts.reading === 'solar') {
             var k = solarOf(X), top = k == null ? 5 : k > 10 ? 20 : k > 5 ? 10 : 5;
-            return { k: 'solar', main: k == null ? DASH : k >= 10 ? String(Math.round(k)) : (Math.round(k * 10) / 10).toFixed(1), frac: k == null ? null : Math.round(clamp(k / top, 0, 1) * 200) / 200 };
+            return { k: 'solar', main: k == null ? DASH : k >= 10 ? String(Math.round(k)) : (Math.round(k * 10) / 10).toFixed(1), frac: k == null ? null : Math.round(clamp(k / top, 0, 1) * 200) /
+              200 };
           }
           var b = batteryOf(X);
           return { k: 'battery', main: b == null ? DASH : Math.round(b) + '%', frac: b == null ? null : clamp(b / 100, 0, 1) };

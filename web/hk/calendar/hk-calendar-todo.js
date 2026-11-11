@@ -59,7 +59,8 @@
       '.blk{' + window.hkCards.plate('card') + ';box-sizing:border-box;height:100%;padding:' + window.hkCards.blockPad(window.hkCards.CARD.pad) + ';',
       '  overflow:hidden;display:flex;flex-direction:column;min-height:240px}',
       ':host([size]) .blk{min-height:0}',
-      window.hkCards.headCss('.tw .ln') + '.tw .ln{height:16px;padding:1.5px 0;margin-bottom:8px;flex:none}.tw .ln+.ls{margin-top:0}', // 2026-11-08, the owner: titles "all need to match" -- the list's name is the one heading, no color of its own
+      // 2026-11-08, the owner: titles "all need to match" -- the list's name is the one heading, no color of its own
+      window.hkCards.headCss('.tw .ln') + '.tw .ln{height:16px;padding:1.5px 0;margin-bottom:8px;flex:none}.tw .ln+.ls{margin-top:0}',
       '.tw .cn{flex:none;font-weight:300;line-height:1.02;letter-spacing:-0.02em;font-variant-numeric:tabular-nums}',
       '.tw.S .cn{font-size:36px}.tw.T .cn{font-size:36px}.tw.W .cn,.tw.L .cn,.tw.XL .cn{font-size:44px}',
       '.tw .hd{flex:none;display:flex;flex-direction:column;min-width:0;cursor:pointer;-webkit-tap-highlight-color:transparent}',
@@ -99,8 +100,10 @@
         '.nb{position:fixed;box-sizing:border-box;display:flex;flex-direction:column;gap:12px;padding:18px;color:#fff;overflow:hidden;',
         '  border-radius:' + HC.M.radius + ';background:rgb(24,25,29);box-shadow:0 26px 70px rgba(0,0,0,.55),inset 0 0 0 1px rgba(255,255,255,.12)}',
         '.hd{flex:none;display:flex;align-items:center;gap:10px}',
-        '.tabs{flex:1 1 auto;min-width:0;height:44px;padding:3px;border-radius:22px;display:flex;gap:2px;box-sizing:border-box;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.16)}',
-        '.tabs div{flex:1 1 auto;min-width:0;height:36px;padding:0 12px;border-radius:18px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;cursor:pointer;box-sizing:border-box}',
+        '.tabs{flex:1 1 auto;min-width:0;height:44px;padding:3px;border-radius:22px;display:flex;gap:2px;box-sizing:border-box;background:rgba(255,255,255,.12);' +
+          'border:1px solid rgba(255,255,255,.16)}',
+        '.tabs div{flex:1 1 auto;min-width:0;height:36px;padding:0 12px;border-radius:18px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;cursor:pointer;' +
+          'box-sizing:border-box}',
         '.tabs div span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
         '.tabs div.on{background:#fff;color:#1c1c1e}',
         '.x{flex:none;width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;box-sizing:border-box;',
@@ -272,7 +275,8 @@
         me.el.style.setProperty('--hue', hue);
         me.el.setAttribute('aria-label', name);
         q('.tabs').innerHTML = ids.map(function (id) {
-          return '<div role="tab" tabindex="0" aria-selected="' + (id === me.eid) + '" data-tab="' + esc(id) + '"' + (id === me.eid ? ' class="on"' : '') + '><span>' + esc(listName(h, id)) + '</span></div>';
+          return '<div role="tab" tabindex="0" aria-selected="' + (id === me.eid) + '" data-tab="' + esc(id) + '"' + (id === me.eid ? ' class="on"' : '') + '><span>' + esc(listName(h, id)) +
+            '</span></div>';
         }).join('');
         q('.cnt').innerHTML = '<b style="color:' + hue + '">' + esc(name) + '</b><span>' + left + (left === 1 ? ' item' : ' items') + '</span>';
         var ls = q('.ls'), top = ls.scrollTop;

@@ -167,8 +167,10 @@
       '.mu.L .last,.mu.XL .last{--big:min(120px, 100cqh - 160px)}',
       // EXTRA LARGE (2026-11-08, the owner: "the last played playlist showing up at the top, and then below it, all of the
       // playlists with a horizontal scroll"): five across, the last played above as big as the height left lets it
-      '.mu.XL .top .col{align-self:stretch}.pp{all:unset;box-sizing:border-box;margin-top:auto;align-self:flex-start;height:44px;padding:0 20px 0 14px;border-radius:22px;display:inline-flex;align-items:center;gap:6px;cursor:pointer;' +
-      '  background:rgba(255,255,255,.94);color:#1c1c1e;' + C.typeCss('headline') + ';-webkit-tap-highlight-color:transparent}.pp:active{transform:scale(.96)}.pp hk-icon{width:22px;height:22px;--mdc-icon-size:22px}',
+      '.mu.XL .top .col{align-self:stretch}.pp{all:unset;box-sizing:border-box;margin-top:auto;align-self:flex-start;height:44px;padding:0 20px 0 14px;border-radius:22px;display:inline-flex;' +
+        'align-items:center;gap:6px;cursor:pointer;' +
+      '  background:rgba(255,255,255,.94);color:#1c1c1e;' + C.typeCss('headline') +
+        ';-webkit-tap-highlight-color:transparent}.pp:active{transform:scale(.96)}.pp hk-icon{width:22px;height:22px;--mdc-icon-size:22px}',
       '.mu.XL .cv{--across:5}.mu.XL .cvw{flex:none}.mu.XL .top{flex:1;min-height:0}.mu.XL .last{height:100%;width:auto;aspect-ratio:1}',
       '.top .col{display:flex;flex-direction:column;min-width:0;flex:1}',
       // EXTRA LARGE IN TWO COLUMNS (2026-11-09, mockup 13: "the last thing played large on the left, with Play and Browse (56 px);
@@ -194,7 +196,8 @@
       '.xl2 .al{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;scrollbar-width:none}',
       '.xl2 .al::-webkit-scrollbar{display:none}',
       '.xl2 .al.more{-webkit-mask-image:linear-gradient(180deg,#000 calc(100% - 56px),transparent);mask-image:linear-gradient(180deg,#000 calc(100% - 56px),transparent)}',
-      '.xl2 .rw{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:12px;width:100%;height:56px;cursor:pointer;border-bottom:1px solid ' + C.v('line') + ';-webkit-tap-highlight-color:transparent}',
+      '.xl2 .rw{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:12px;width:100%;height:56px;cursor:pointer;border-bottom:1px solid ' + C.v('line') +
+        ';-webkit-tap-highlight-color:transparent}',
       '.xl2 .rw:last-child{border-bottom:0}',
       '.xl2 .rw:active{opacity:.55}.xl2 .rw.busy{opacity:.55}',
       '.xl2 .rw:focus-visible{outline:2px solid ' + C.v('ink') + ';outline-offset:-2px}',
@@ -272,7 +275,8 @@
       }
       _cover(it, cls) {
         var t = it ? tintOf(it.key) : ['rgba(255,255,255,.14)', 'rgba(255,255,255,.08)'];
-        return '<span class="cvr' + (cls ? ' ' + cls : '') + '" style="--c1:' + t[0] + ';--c2:' + t[1] + '">' + (it ? '<hk-icon icon="' + esc(it.icon || 'mdi:music') + '"></hk-icon>' : '') + '</span>';
+        return '<span class="cvr' + (cls ? ' ' + cls : '') + '" style="--c1:' + t[0] + ';--c2:' + t[1] + '">' + (it ? '<hk-icon icon="' + esc(it.icon || 'mdi:music') + '"></hk-icon>' : '') +
+          '</span>';
       }
       _render() {
         if (musicMissing()) { drawNoMusic(this); return; }
@@ -297,7 +301,8 @@
         var sub2 = last && !(lab === 'Playlists' && last.artist === 'Playlist') ? last.artist : '';
         var words = last ? '<b class="t1">' + esc(last.name) + '</b>' + (sub2 ? '<small class="t2">' + esc(sub2) + '</small>' : '') : '';
         var body;
-        if (items && !items.length) body = '<span class="lab">' + lab + '</span><div class="none">' + (tiles ? 'No playlists yet. Add some in ' + window.hkShell.settingsPlace('Pages → Music') + '.' : 'Music played here shows up here.') + '</div>';
+        if (items && !items.length) body = '<span class="lab">' + lab + '</span><div class="none">' +
+          (tiles ? 'No playlists yet. Add some in ' + window.hkShell.settingsPlace('Pages → Music') + '.' : 'Music played here shows up here.') + '</div>';
         else if (s === 'S') body = '<span class="bg">' + this._cover(last) + '</span><span class="sh"></span>' +
           (last ? '<button type="button" class="go" data-i="0" aria-label="Play ' + esc(last.name) + '"><hk-icon icon="mdi:play"></hk-icon></button>' : '') +
           '<div class="ft">' + words + '</div>';
@@ -306,7 +311,8 @@
           // (Extra Large, 2026-11-09 mockup 13: no list of the rest, the right column says so; the left column keeps its places while asking)
           var rows = more.map(function (it, j) {
             return '<button type="button" class="rw" data-i="' + (j + 1) + '"' + (it ? ' aria-label="Play ' + esc(it.name) + '"' : ' disabled') + '>' + self._cover(it) +
-              '<span class="tx"><span class="rt">' + (it ? esc(it.name) : '&nbsp;') + '</span><span class="ra">' + (it ? esc(it.artist === 'Playlist' ? '' : it.artist) : '&nbsp;') + '</span></span></button>';
+              '<span class="tx"><span class="rt">' + (it ? esc(it.name) : '&nbsp;') + '</span><span class="ra">' + (it ? esc(it.artist === 'Playlist' ? '' : it.artist) : '&nbsp;') +
+                '</span></span></button>';
           }).join('');
           body = '<div class="lc"><div class="hd2"><span>' + lab + '</span></div>' + lastBtn + words +
             '<div class="acts"><button type="button" class="pp" data-i="0"' + (last ? '' : ' disabled') + '><hk-icon icon="mdi:play"></hk-icon>Play</button>' +
@@ -318,7 +324,8 @@
           // (Extra Large: Play at the cover's foot, the column beside it not left empty)
           (s === 'XL' && last ? '<button type="button" class="pp" data-i="0"><hk-icon icon="mdi:play"></hk-icon>Play</button>' : '') +
           '</div></div><div class="hr"></div>' + grid;
-        this._root.innerHTML = '<hk-plate class="mu ' + s + (s === 'XL' && mode !== 'playlist' && !(items && !items.length) ? ' xl2' : '') + (items && !items.length ? ' em' : '') + '" data-hk-role="card">' + body + '</hk-plate>';
+        this._root.innerHTML = '<hk-plate class="mu ' + s + (s === 'XL' && mode !== 'playlist' && !(items && !items.length) ? ' xl2' : '') + (items && !items.length ? ' em' : '') +
+          '" data-hk-role="card">' + body + '</hk-plate>';
         var plate = this._root.querySelector('hk-plate');
         this._across();
         this._fade();

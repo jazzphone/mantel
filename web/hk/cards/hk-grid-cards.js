@@ -178,10 +178,12 @@
         'Your chosen accessories together in fixed rows.', [{ name: 'title', selector: { text: {} } },
         { name: 'accessories', selector: { object: {} } }], function () { return {}; });
       watchSize(HkGridSecurityCard);
-      C.register('hk-grid-security-card', HkGridSecurityCard, 'HK Grid Security', 'The alarm’s state, its locks, doors and windows, and the alarm’s own controls with its PIN.', [{ name: 'entity', label: 'Alarm', selector: { entity: { filter: { domain: 'alarm_control_panel' } } } }], function () { return {}; });
+      C.register('hk-grid-security-card', HkGridSecurityCard, 'HK Grid Security', 'The alarm’s state, its locks, doors and windows, and the alarm’s own controls with its PIN.',
+        [{ name: 'entity', label: 'Alarm', selector: { entity: { filter: { domain: 'alarm_control_panel' } } } }], function () { return {}; });
       // SECURITY'S HOMEVIEW PRESENTATION (2026-11-07, hk-grid-security.js): Small a key, the rest the alarm and its entries
       watchSize(HkGridSecurityHV);
-      C.register('hk-grid-security-hv-card', HkGridSecurityHV, 'HK Grid Security (HomeView)', 'The alarm and the locks and garage doors, as HomeView draws accessories: a tap opens Security or the one tapped.',
+      C.register('hk-grid-security-hv-card', HkGridSecurityHV, 'HK Grid Security (HomeView)',
+        'The alarm and the locks and garage doors, as HomeView draws accessories: a tap opens Security or the one tapped.',
         [{ name: 'entity', label: 'Alarm', selector: { entity: { filter: { domain: 'alarm_control_panel' } } } }], function () { return {}; });
       watchSize(HkGridSecurityKey);
       C.register('hk-grid-security-key-card', HkGridSecurityKey, 'HK Grid Security Key', 'Security in one key: the shield, and the one thing to know.',
@@ -202,7 +204,8 @@
         [{ name: 'clock_style', label: 'Style', selector: { select: { options: [{ value: '', label: 'Digital' }, { value: 'analog', label: 'Analog' }] } } },
          { name: 'bare', label: 'Hide Box', selector: { boolean: {} } }], function () { return {}; });
       watchSize(HkGridCamerasCard);
-      C.register('hk-grid-cameras-card', HkGridCamerasCard, 'HK Grid Cameras', 'Up to nine cameras at once, sized to a Home Grid block: a tap opens one live, and the doorbell goes live in its place when it rings.',
+      C.register('hk-grid-cameras-card', HkGridCamerasCard, 'HK Grid Cameras',
+        'Up to nine cameras at once, sized to a Home Grid block: a tap opens one live, and the doorbell goes live in its place when it rings.',
         [{ name: 'cameras', label: 'Cameras', selector: { entity: { multiple: true, filter: { domain: 'camera' } } } },
          { name: 'refresh', label: 'Refresh (seconds)', selector: { number: { min: 5, max: 60, step: 1 } } }], function () { return {}; });
       C.register('hk-action-card', HkActionCard, 'HK Action',

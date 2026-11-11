@@ -222,16 +222,20 @@
           // (a block's name clear of the pager's dots at the foot's middle; 2026-11-07, the review: in from the corner by the block's inset like the age, and Tall's has its width)
           '.plate.blk .cn{max-width:calc(50% - 30px);left:var(--hk-block-pad,10px);bottom:var(--hk-block-pad,10px)}.plate.blk[data-sz=T] .cn{max-width:calc(100% - 2 * var(--hk-block-pad,10px))}',
           // (the block's Name: Hide, or Automatic on HomeView's square cells -- the owner, 2026-10-31: the name
-          // in the corner, "Front Door Camera Low resolution cha...", wasn't wanted there; 2026-11-07: Small and Wide are one row of cells, the rest two -- a tile's tall block is 314, not a square cell's)
+          // in the corner, "Front Door Camera Low resolution cha...", wasn't wanted there; 2026-11-07: Small and Wide are one row of cells, the rest two -- a tile's tall block is 314, not a square
+          // cell's)
           '.plate.blk[data-name=hide] .cn{display:none}',
-          '@container hk-cell (min-height:180px) or style(--hk-cell-shape: square){.plate.blk[data-sz=S]:not([data-name=show]) .cn,.plate.blk[data-sz=W]:not([data-name=show]) .cn{display:none}}@container hk-cell (min-height:360px){.plate.blk:not([data-name=show]) .cn{display:none}}',
+          '@container hk-cell (min-height:180px) or style(--hk-cell-shape: square){.plate.blk[data-sz=S]:not([data-name=show]) .cn,.plate.blk[data-sz=W]:not([data-name=show]) .cn{display:none}}' +
+            '@container hk-cell (min-height:360px){.plate.blk:not([data-name=show]) .cn{display:none}}',
           // (in from the corner by the block's own inset -- 18 on square cells, 14 on tiles -- so the capsule sits about
           // concentric with the block's curve: at 10 it was "really close to the edge", 2026-10-31, the owner)
-          '.plate.grid .age,.plate.blk .age{left:auto;bottom:auto;right:var(--hk-block-pad,10px);top:var(--hk-block-pad,10px);box-sizing:border-box;height:21px;padding:5px 8px;border-radius:' + C.R.capsule('21px') + ';',
+          '.plate.grid .age,.plate.blk .age{left:auto;bottom:auto;right:var(--hk-block-pad,10px);top:var(--hk-block-pad,10px);box-sizing:border-box;height:21px;padding:5px 8px;border-radius:' +
+            C.R.capsule('21px') + ';',
           '  background:' + C.v('float-plate') + ';font-size:11px;font-weight:600;line-height:11px;color:' + C.v('ink-2') + ';text-shadow:none}',
           '.plate.grid .age:empty,.plate.blk .age:empty{display:none}',
           '.plate.grid>.on .age{display:none}',
-          '.plate.grid .lv{position:absolute;right:var(--hk-block-pad,10px);top:var(--hk-block-pad,10px);z-index:3;box-sizing:border-box;height:21px;padding:5px 8px;border-radius:' + C.R.capsule('21px') + ';',
+          '.plate.grid .lv{position:absolute;right:var(--hk-block-pad,10px);top:var(--hk-block-pad,10px);z-index:3;box-sizing:border-box;height:21px;padding:5px 8px;border-radius:' +
+            C.R.capsule('21px') + ';',
           '  background:#ff3b30;color:#fff;font-size:11px;font-weight:700;line-height:11px;letter-spacing:.06em;pointer-events:none}',
           '.plate.grid>.on::after{content:"";position:absolute;inset:0;z-index:2;border-radius:inherit;box-shadow:inset 0 0 0 3px #ff3b30;pointer-events:none}',
         ].join('');

@@ -109,7 +109,8 @@
       var o = d.options || {}, items = (d.items || []).filter(function (it) { return !it.category; });
       var cats = d.categories || [];
       if (cats.length) {
-        c.appendChild(K.group({ header: 'Categories', footer: 'Found from your accessories, and any you add later. Turn one on to be notified for all of them alike — then leave out any you don’t want.' },
+        c.appendChild(
+          K.group({ header: 'Categories', footer: 'Found from your accessories, and any you add later. Turn one on to be notified for all of them alike — then leave out any you don’t want.' },
           cats.map(function (ct) {
             var it = ct.item ? notifyItemOf(d, ct.item) : null;
             var n = ct.accessories.length, left = it ? n - ct.accessories.filter(function (a) { return (it.exclude || []).indexOf(a.entity) >= 0; }).length : 0;
@@ -129,13 +130,21 @@
       var boards = (P.data && P.data.boards) || {};
       var dash = ((P.data && P.data.dashboards) || []).filter(function (x) { return boards[x.path]; });
       var allow = dash.filter(function (x) { return (boards[x.path] || {}).notify !== false; }).length;
-      c.appendChild(K.group({ header: 'Where They Show', footer: 'A notification set to Wakes the Screen wakes a screen from its screensaver or its Sleep Screen whatever these say. Each screen can choose its own in its Behavior.' }, [
+      c.appendChild(
+        K.group(
+        { header: 'Where They Show',
+        footer: 'A notification set to Wakes the Screen wakes a screen from its screensaver or its Sleep Screen whatever these say. Each screen can choose its own in its Behavior.' }, [
         K.nav({ label: 'Screens', value: allow + ' of ' + dash.length, href: '#/features/notify/screens', fk: 'notify:screens' }),
-        K.seg({ label: 'On the Screensaver', sub: o.saver === 'important' ? 'Only the Important ones show over the photos' : o.saver === 'off' ? 'None show over the photos' : 'Every one shows over the photos',
+        K.seg({ label: 'On the Screensaver', sub: o.saver === 'important' ? 'Only the Important ones show over the photos' : o.saver === 'off' ? 'None show over the photos' :
+          'Every one shows over the photos',
                 value: o.saver, sk: 'f:' + NT + ':saver', options: [['all', 'All'], ['important', 'Important'], ['off', 'Off']],
                 onChange: function (v) { notifySet(P, { saver: v }); } }),
         K.nav({ label: 'Do Not Disturb', value: dndSummary(o.dnd), href: '#/features/notify/dnd', fk: 'notify:dnd' })]));
-      c.appendChild(K.group({ header: 'Banner', footer: 'Each banner slides away by itself after Stays On Screen; each notification can stay longer, shorter or until dismissed. Swipe one away any time, or Clear All when there are several.' }, [
+      c.appendChild(
+        K.group(
+        { header: 'Banner',
+        footer: 'Each banner slides away by itself after Stays On Screen; each notification can stay longer, shorter or until dismissed. Swipe one away any time, or Clear All when there are several.'
+        }, [
         K.select({ label: 'Stays On Screen', value: String(o.stay), sk: 'f:' + NT + ':stay',
                    options: (d.limits && d.limits.stays || [10, 30, 60, 120, 300]).map(function (v) { return [String(v), stayLabel(v)]; }),
                    onChange: function (v) { notifySet(P, { stay: Number(v) }); } }),
@@ -221,7 +230,9 @@
         onChange: function (v) { save({ wake: v === '' ? null : v === 'on' }); } }));
       // A CALENDAR'S: an event, not an accessory -- no pop-up, no snapshot, nothing to open
       var cal = it.kind === 'calendar';
-      c.appendChild(K.group({ header: 'Banner', footer: cal ? 'Empty Title and Message: the event’s name, then when and where it is (“In 15 minutes · 10:30 – 11:00 AM · the place”). An all-day one: “Today · All Day”.'
+      c.appendChild(
+        K.group(
+        { header: 'Banner', footer: cal ? 'Empty Title and Message: the event’s name, then when and where it is (“In 15 minutes · 10:30 – 11:00 AM · the place”). An all-day one: “Today · All Day”.'
         : 'Empty Title and Message: the accessory’s name and what it just did, as shown in gray.' }, banner));
       var pops = ((P.data && P.data.popups) || []).map(function (p) { return p.hash; }).filter(Boolean);
       if (it.pop && pops.indexOf(it.pop) < 0) pops.push(it.pop);
@@ -330,9 +341,13 @@
       rows.push(K.nav({ label: key === 'cameras' ? 'Cameras' : key === 'calendars' ? 'Calendars' : 'Accessories', value: left + ' of ' + n,
                         href: '#/features/notify/c/' + encodeURIComponent(key) + '/accessories',
                         fk: 'notify:cat:acc:' + key }));
-      c.appendChild(K.group({ footer: key === 'cameras' ? (it ? 'Each camera notifies when its trigger goes off — its own person, doorbell, motion or presence detection unless you choose another — with its own snapshot and live view.'
+      c.appendChild(
+        K.group(
+        { footer: key === 'cameras' ?
+        (it ? 'Each camera notifies when its trigger goes off — its own person, doorbell, motion or presence detection unless you choose another — with its own snapshot and live view.'
         : 'Each camera, with the sensor that sets it off and the camera its snapshot and live view come from.')
-        : key === 'calendars' && it ? 'Each event of the ticked calendars notifies the chosen time before it starts — its name, when and where. A calendar added later is included, unless you leave it out.'
+        : key === 'calendars' && it ?
+          'Each event of the ticked calendars notifies the chosen time before it starts — its name, when and where. A calendar added later is included, unless you leave it out.'
         : it ? 'Each banner names its own accessory. An accessory of this kind added later is included, unless you leave it out.'
         : ct.accessories.slice(0, 6).map(function (a) { return a.name; }).join(', ') + (n > 6 ? ' and ' + (n - 6) + ' more' : '') + '.' }, rows));
       if (it) notifyItem(P, c, d, it.id);
@@ -425,7 +440,12 @@
     function notifyDnd(P, c, d) {
       var o = d.options || {};
       var r = dndRows(P, o.dnd, function (dnd) { notifySet(P, { dnd: dnd }); }, 'f:' + NT + ':dnd');
-      c.appendChild(K.group({ footer: 'While Do Not Disturb is on, no banner shows — except an Important one, which still gets through (and still wakes a screen set to). It is All Screens’; a screen can have its own in its Behavior.' }, r.rows));
+      c.appendChild(
+        K.group(
+        {
+        footer:
+        'While Do Not Disturb is on, no banner shows — except an Important one, which still gets through (and still wakes a screen set to). It is All Screens’;' +
+        ' a screen can have its own in its Behavior.' }, r.rows));
       c.appendChild(K.group({ header: 'While This Is On', footer: 'Do Not Disturb is also on while any of these is on: an input_boolean, a switch, a timer while it runs.' }, r.whileRows));
     }
 

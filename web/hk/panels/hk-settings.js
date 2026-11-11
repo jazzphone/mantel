@@ -993,7 +993,8 @@
       if (!go()) self._saverWait = setInterval(function () { if (go() || ++n > 80) clearInterval(self._saverWait); }, 250);
       if (on && (this._saverEnergy || this._saverWx || this._saverHl)) {
         box.parentNode.insertBefore(h('div', { class: 'pvsaver' }, [h('p', { class: 'gf',
-          text: (this._saverWx ? 'The weather' : this._saverHl ? 'The Holiday slide' : 'Home Energy') + ' as this screen shows it, held while you change these. Only this preview changes.' })]), box.nextSibling);
+          text: (this._saverWx ? 'The weather' : this._saverHl ? 'The Holiday slide' : 'Home Energy') + ' as this screen shows it, held while you change these. Only this preview changes.' })]),
+            box.nextSibling);
       } else if (on) {
         var seg = h('div', { class: 'seg pvmoment', role: 'radiogroup', 'aria-label': 'Preview a photo' });
         [['', 'Any Photo'], ['portrait', 'Portrait'], ['landscape', 'Landscape']].forEach(function (o) {
@@ -1010,12 +1011,17 @@
       if (on) {
         var wrap = col.querySelector('.pvsaver'), info = h('p', { class: 'gf', role: 'status', 'aria-live': 'polite' });
         if (wrap) {
-          if (!this._saverEnergy && !this._saverWx && !this._saverHl) wrap.appendChild(K.select({ label: 'Preview Slide', value: this._saverSlide || '', options: [['', 'Screensaver'], ['forecast', 'Forecast'], ['weather', 'Weather'], ['music', 'Music'], ['energy', 'Home Energy'], ['holiday', 'Holidays']], onChange: function (v) { self._saverSlide = v; self.saverPreview(true); } }));
-          wrap.appendChild(K.select({ label: 'Side Pane Preview', value: this._saverPanePreview == null ? 'saved' : this._saverPanePreview ? 'show' : 'hide', options: [['saved', 'As Saved'], ['show', 'Show'], ['hide', 'Hide']], onChange: function (v) { self._saverPanePreview = v === 'saved' ? null : v === 'show'; self.saverPreview(true); } }));
+          if (!this._saverEnergy && !this._saverWx && !this._saverHl) wrap.appendChild(
+            K.select({ label: 'Preview Slide', value: this._saverSlide || '', options: [['', 'Screensaver'], ['forecast', 'Forecast'], ['weather', 'Weather'], ['music', 'Music'],
+            ['energy', 'Home Energy'], ['holiday', 'Holidays']], onChange: function (v) { self._saverSlide = v; self.saverPreview(true); } }));
+          wrap.appendChild(K.select({ label: 'Side Pane Preview', value: this._saverPanePreview == null ? 'saved' : this._saverPanePreview ? 'show' : 'hide',
+            options: [['saved', 'As Saved'], ['show', 'Show'], ['hide', 'Hide']], onChange: function (v) { self._saverPanePreview = v === 'saved' ? null : v === 'show'; self.saverPreview(true); } }));
           wrap.appendChild(info);
           var status = function () {
             try { var S = fr.contentWindow && fr.contentWindow.hkSaver, state = S && S.previewStatus && S.previewStatus();
-              info.textContent = state ? state.message || state.paneMessage || (self._saverPanePreview !== false && !state.pane ? 'This screen’s Side Pane is off or has no visible sections. Configure it on the Side Pane page.' : 'The selected view stays here while you edit. These controls affect only the preview.') : 'Loading preview…';
+              info.textContent = state ? state.message || state.paneMessage || (self._saverPanePreview !== false && !state.pane ?
+                'This screen’s Side Pane is off or has no visible sections. Configure it on the Side Pane page.' :
+                'The selected view stays here while you edit. These controls affect only the preview.') : 'Loading preview…';
             } catch (e) { /* frame changing */ }
           };
           status(); this._saverStatusWait = setInterval(status, 500);

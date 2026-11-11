@@ -31,7 +31,8 @@
       // (the symbol's own em is 1.4286 of the digits': .38 / .5023 of it
       // are the saver's .5429 / .7176 of theirs)
       '.hero .bd{position:absolute;z-index:-1;pointer-events:none;line-height:0;font-size:1.4286em;letter-spacing:0;left:calc(18px - .38em);top:-.5023em;clip-path:inset(-60px)}',
-      '.hero .bd::before{content:"";position:absolute;z-index:-1;left:6%;top:14%;width:88%;height:88%;border-radius:50%;background:radial-gradient(closest-side,rgba(0,10,30,.2),rgba(0,10,30,.12) 55%,rgba(0,10,30,0))}',
+      '.hero .bd::before{content:"";position:absolute;z-index:-1;left:6%;top:14%;width:88%;height:88%;border-radius:50%;' +
+        'background:radial-gradient(closest-side,rgba(0,10,30,.2),rgba(0,10,30,.12) 55%,rgba(0,10,30,0))}',
       '.hero .bd svg{display:block}',
       '.hero .pale .bd{opacity:.7}',
       '.hero .glow{position:absolute;z-index:-2;pointer-events:none;width:2.476em;height:2.476em;border-radius:50%;',
@@ -428,7 +429,8 @@
         var was = e.hrs.getAttribute('data-state');
         e.hrs.style.gridTemplateColumns = hrs.length ? 'repeat(' + hrs.length + ',minmax(64px,1fr))' : '1fr';
         e.hrs.style.minWidth = hrs.length ? (hrs.length * 64 + (hrs.length - 1) * 5) + 'px' : '';
-        C.morph(e.hrs, hrs.length ? cells : '<div class="wait">' + (state === 'wait' ? 'Loading the forecast…' : 'No hourly forecast from ' + esc(this._service() || 'the weather service') + '.') + '</div>');
+        C.morph(e.hrs, hrs.length ? cells : '<div class="wait">' + (state === 'wait' ? 'Loading the forecast…' : 'No hourly forecast from ' + esc(this._service() || 'the weather service') + '.') +
+          '</div>');
         e.hrs.setAttribute('data-state', state);
         if (hrs.length && buildDue(this)) build(this, this._root.querySelector('hk-plate.wxp'));
         else if (was === 'wait' && state === 'ok') arrive(e.hrs);
@@ -476,7 +478,8 @@
             '<span class="hi">' + (hi !== null ? Math.round(hi) + '°' : '') + '</span></button>';
         }).join('');
         var was = e.dys.getAttribute('data-state');
-        C.morph(e.dys, days.length ? rows : '<div class="wait">' + (state === 'wait' ? 'Loading the forecast…' : 'No daily forecast from ' + esc(this._service() || 'the weather service') + '.') + '</div>');
+        C.morph(e.dys, days.length ? rows : '<div class="wait">' + (state === 'wait' ? 'Loading the forecast…' : 'No daily forecast from ' + esc(this._service() || 'the weather service') + '.') +
+          '</div>');
         e.dys.setAttribute('data-state', state);
         if (days.length && buildDue(this)) build(this, this._root.querySelector('hk-plate.wxp'));
         else if (was === 'wait' && state === 'ok') arrive(e.dys);
@@ -579,7 +582,8 @@
           '  display:flex;flex-direction:column;justify-content:flex-start;gap:12px;overflow:hidden;color:' + C.v('ink') + '}',
           '.wb .top{display:flex;justify-content:space-between;align-items:center;gap:12px;min-width:0;flex:none}',
           // THE HEADING (2026-11-08, the owner: titles "all need to match"): the place and the 7-day label are the one gray heading, on the text inset, content 8 px under
-          '.wb .place-now{min-width:0}' + C.headCss('.wb .place-name,.wb .rc .lab') + '.wb .place-name,.wb .rc .lab{display:block;flex:none;height:16px;padding:1.5px 0;margin:0 0 -4px}.wb .place-now .place-name{margin-bottom:8px}',
+          '.wb .place-now{min-width:0}' + C.headCss('.wb .place-name,.wb .rc .lab') +
+            '.wb .place-name,.wb .rc .lab{display:block;flex:none;height:16px;padding:1.5px 0;margin:0 0 -4px}.wb .place-now .place-name{margin-bottom:8px}',
           '.wb .sym{line-height:0}.wb svg{display:block;flex:none}',
           '.wb .tpn{' + C.typeCss('hero') + ';line-height:1.08;font-weight:400;font-variant-numeric:tabular-nums}',
           '.wb .tx{display:flex;flex-direction:column;align-items:flex-end;min-width:0;gap:2px;text-align:right}',
@@ -604,7 +608,8 @@
           // condition on the left, five hours on the right (2026-10-31: the
           // tile's Wide had left half of itself bare).
           '.wb.W .hrs{display:none}',
-          '@container hk-cell (min-height:180px) or style(--hk-cell-shape: square){hk-plate.wb.W.hh{justify-content:space-between}.wb.W .hrs{display:grid;border-top:0;padding-top:0}.wb.W .hr{gap:2px}}',
+          '@container hk-cell (min-height:180px) or style(--hk-cell-shape: square){hk-plate.wb.W.hh{justify-content:space-between}.wb.W .hrs{display:grid;border-top:0;padding-top:0}' +
+            '.wb.W .hr{gap:2px}}',
           // (a square cell never: its Wide is the widget's, whatever height it measures -- 2026-11-01, the owner: the grid's
           // Wide showed less than the picker's. And today's high and low kept: 150 tall has room for them.)
           '@container hk-cell (max-height:179px) and (not style(--hk-cell-shape: square)){hk-plate.wb.W.hh{flex-direction:row;align-items:center;gap:14px}' +
@@ -618,7 +623,8 @@
           '.wb.S{justify-content:flex-start;gap:0}',
           '.wb.S .sc{margin-top:auto;display:flex;align-items:center;gap:8px;min-width:0}',
           '.wb.S .sct{display:flex;flex-direction:column;min-width:0}',
-          '.wb.S .sct b{' + C.typeCss('body') + ';font-weight:600;line-height:18px}.wb.S .sct span{' + C.typeCss('caption') + ';line-height:17px;color:' + C.v('ink-2') + ';font-variant-numeric:tabular-nums}',
+          '.wb.S .sct b{' + C.typeCss('body') + ';font-weight:600;line-height:18px}.wb.S .sct span{' + C.typeCss('caption') + ';line-height:17px;color:' + C.v('ink-2') +
+            ';font-variant-numeric:tabular-nums}',
           '.wb.S .sct b,.wb.S .sct span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
           '@container hk-cell (min-height:180px) or style(--hk-cell-shape: square){.wb.S .sc{flex-direction:column;align-items:flex-start;gap:4px}}',
           // TALL: the symbol and the condition under the temperature, the
@@ -642,7 +648,8 @@
           '.wb.XL{display:grid;grid-template-columns:276px minmax(0,1fr);column-gap:24px;align-items:stretch}.wb.XL .lc:only-child{grid-column:1/-1}',
           '.wb.XL .lc{display:flex;flex-direction:column;justify-content:space-between;gap:12px;min-width:0;min-height:0}',
           '.wb.XL .hrs{padding-top:10px}.wb.XL .hr{gap:2px}',
-          '.wb.XL .rds{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:0 14px;border-top:1px solid ' + RULE + ';flex:1 1 auto;min-height:0;grid-auto-rows:46px;align-content:center;align-items:center}',
+          '.wb.XL .rds{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:0 14px;border-top:1px solid ' + RULE +
+            ';flex:1 1 auto;min-height:0;grid-auto-rows:46px;align-content:center;align-items:center}',
           '.wb.XL .rds span{display:grid;grid-template-columns:18px minmax(0,1fr);column-gap:6px;align-items:center;min-width:0}',
           '.wb.XL .rds hk-icon{width:16px;height:16px;--mdc-icon-size:16px;color:' + C.v('ink-2') + ';display:block;line-height:0}',
           '.wb.XL .rds small{' + C.typeCss('caption') + ';line-height:16px;color:' + C.v('ink-2') + '}',
@@ -667,15 +674,18 @@
           '.wb.L .day,.wb.XL .day{height:auto;min-height:20px;font-size:clamp(13px,3.8cqh,18px)}',
           '.wb.L .day svg,.wb.XL .day svg{width:clamp(18px,5cqh,26px);height:auto}',
           '.wb.L .day,.wb.XL .day{grid-template-columns:minmax(52px,auto) clamp(20px,5cqh,26px) 36px minmax(0,1fr) 36px}',
-          '.wb.XL .rc{justify-content:center;gap:8px}.wb.XL .rc .lab{margin-bottom:0}.wb.XL .days{grid-auto-rows:32px;gap:4px;align-content:start}@container hk-cell (max-height:380px){.wb.XL .days{grid-auto-rows:26px}}',
+          '.wb.XL .rc{justify-content:center;gap:8px}.wb.XL .rc .lab{margin-bottom:0}.wb.XL .days{grid-auto-rows:32px;gap:4px;align-content:start}' +
+            '@container hk-cell (max-height:380px){.wb.XL .days{grid-auto-rows:26px}}',
           // BIG TEMPERATURE: the number sized to the block (its height first, its width for a wide one)
           '.wb.big{gap:2px;justify-content:center;align-items:flex-start}',
           '.wb.big .place-name{max-width:100%;margin-bottom:6px}',
           '.wb.big .bn{font-size:clamp(44px,min(44cqh,30cqw),200px);line-height:1;font-weight:500;letter-spacing:-.02em;font-variant-numeric:tabular-nums;margin:2px 0 6px -.04em}',
           '.wb.big .bc{display:flex;align-items:center;gap:6px;min-width:0;max-width:100%}.wb.big .bc b{' + C.typeCss('headline') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
           '.wb.big .bh{' + C.typeCss('body') + ';color:' + C.v('ink-2') + ';font-variant-numeric:tabular-nums}',
-          '.wb.sky{position:relative;isolation:isolate;background:rgba(0,0,0,.22);--hk-glass-surface:0;backdrop-filter:none;-webkit-backdrop-filter:none;--hk-ink:#fff;--hk-ink-2:rgba(255,255,255,.85);color:white;text-shadow:0 1px 4px rgba(0,0,0,.6)}',
-          '.wb.sky>hk-grid-weather-sky{position:absolute;inset:0;z-index:-1;pointer-events:none;border-radius:inherit;overflow:hidden}.wb.sky>hk-grid-weather-sky::after{content:"";position:absolute;inset:0;background:rgba(0,0,0,.24)}'
+          '.wb.sky{position:relative;isolation:isolate;background:rgba(0,0,0,.22);--hk-glass-surface:0;backdrop-filter:none;-webkit-backdrop-filter:none;--hk-ink:#fff;' +
+            '--hk-ink-2:rgba(255,255,255,.85);color:white;text-shadow:0 1px 4px rgba(0,0,0,.6)}',
+          '.wb.sky>hk-grid-weather-sky{position:absolute;inset:0;z-index:-1;pointer-events:none;border-radius:inherit;overflow:hidden}.wb.sky>hk-grid-weather-sky::after{content:"";' +
+            'position:absolute;inset:0;background:rgba(0,0,0,.24)}'
 
         ].join('') + PAGE_CSS;
       }

@@ -31,7 +31,10 @@ export function pConnections(sub) {
   if (sub[0] === 'proxy') return pProxy();
   if (sub[0] === 'protect') return pProtect(sub.slice(1));
   if (sub[0] === 'push') return pPushRelay();
-  return { title: 'Connections', top: true, scope: 'How Mantel reaches Home Assistant and Music Assistant, and how browsers and the app reach Mantel. Each connection is tested before it is saved. Tokens are kept sealed in Mantel’s data, never shown again and never leave the server; a change applies at once.', body(c) {
+  return { title: 'Connections', top: true,
+    scope:
+    'How Mantel reaches Home Assistant and Music Assistant, and how browsers and the app reach Mantel. Each connection is tested before it is saved. Tokens are kept sealed in Mantel’s data, never ' +
+    'shown again and never leave the server; a change applies at once.', body(c) {
     result(c, 'connections');
     const pid = new URLSearchParams(location.search).get('connection');
     if (pid) drawPending(c, pid);
@@ -45,7 +48,8 @@ export function pConnections(sub) {
       return nav(x.label, 'connections/' + kind, { value, sub: kind === 'ha' ? 'Its connection, and Mantel Link and HK Frontend in it' : 'Its connection, and the Browse Music page’s sign-in',
                                                    icon: kind === 'ha' ? 'mdi:home-assistant' : 'mdi:music' });
     };
-    c.appendChild(group({ footer: !can ? 'Only an Owner can change connections.' : got.data.needs_fresh ? 'From outside the home network you will be asked to confirm it is you first.' : null }, [row('ha'), row('ma'), protectRow()]));
+    c.appendChild(group({ footer: !can ? 'Only an Owner can change connections.' : got.data.needs_fresh ? 'From outside the home network you will be asked to confirm it is you first.' : null },
+      [row('ha'), row('ma'), protectRow()]));
     if (['owner', 'admin'].includes(me.user.role)) c.appendChild(group({ footer: 'How browsers reach Mantel, and how Mantel’s notifications reach the Mantel app on iPhone and iPad.' }, [
       nav('HTTPS and Your Proxy', 'connections/proxy', { icon: 'mdi:lock', sub: 'Mantel’s Caddy, your own proxy, the Home Assistant App or a Cloudflare tunnel' }),
       nav('Notifications to the App', 'connections/push', { icon: 'mdi:bell', sub: 'The push relay, your own, or none' })]));
@@ -97,7 +101,8 @@ function pPushRelay() {
     const where = s.mode === 'default' ? s.default.replace(/^https:\/\//, '') : s.mode === 'custom' ? (s.url || '').replace(/^https?:\/\//, '') : null;
     const rows = [info('Relay', where, RELAY_SAYS[s.mode] || s.mode, s.mode === 'invalid' ? 'warn' : ''),
       info('Phones Registered', null, String(s.phones))];
-    if (s.direct) rows.push(info('Sends Directly', s.direct_missing ? 'Needs ' + s.direct_missing + ' (mantel[apns-direct]) to reach Apple' : 'This Mantel has its own APNs key', s.direct_missing ? 'Not Working' : 'On', s.direct_missing ? 'warn' : ''));
+    if (s.direct) rows.push(info('Sends Directly', s.direct_missing ? 'Needs ' + s.direct_missing + ' (mantel[apns-direct]) to reach Apple' : 'This Mantel has its own APNs key', s.direct_missing ?
+      'Not Working' : 'On', s.direct_missing ? 'warn' : ''));
     c.appendChild(group({ footer: s.direct ? 'With its own APNs key, Mantel sends to Apple itself and the relay is not used.'
       : 'The relay holds the app publisher’s APNs key and passes on notifications sealed to each phone; it can’t read them.' }, rows));
     if (!s.can_edit) { c.appendChild(group({ footer: 'Only an Owner can change the relay.' }, [])); return; }
@@ -107,7 +112,8 @@ function pPushRelay() {
     edit.push(button('Save', async () => {
       const changed = d.mode !== s.mode || (d.mode === 'custom' && d.url !== (s.url || ''));
       if (changed && s.phones && !(await ask({ title: 'Change the relay?', message: 'The phones registered now are dropped, and their relay forgets them. ' +
-        (d.mode === 'off' ? 'The apps get no notifications until you turn the relay on again.' : 'Each app registers again with the new relay when it next opens.'), ok: 'Change', destructive: true }))) return;
+        (d.mode === 'off' ? 'The apps get no notifications until you turn the relay on again.' : 'Each app registers again with the new relay when it next opens.'), ok: 'Change',
+          destructive: true }))) return;
       const body = d.mode === 'custom' ? { mode: 'custom', url: d.url } : { mode: d.mode };
       if (await act('pushrelay', () => api('PUT', '/api/app/push-relay', body), 'Saved.', 'pushrelay')) clearDraft('pushrelay');
     }, { fk: 'mx:pushrelay:save' }));
@@ -154,13 +160,19 @@ function drawPending(c, pid) {
   if (!got) { pending(c, 'Reading what Home Assistant said…'); return; }
   if (got.err) { failed(c, got.err); return; }
   const p = got.data.pending;
-  if (p.state !== 'ready') { c.appendChild(group({ header: 'Connect to Home Assistant', footer: hh('span', { class: 'mxerr', text: p.error ? p.error.message : 'The sign-in did not finish.' }) }, [])); return; }
+  if (p.state !== 'ready') { c.appendChild(group({ header: 'Connect to Home Assistant', footer: hh('span', { class: 'mxerr', text: p.error ? p.error.message : 'The sign-in did not finish.' }) }, []));
+    return; }
   const r = p.result;
-  c.appendChild(group({ header: 'Connect to Home Assistant', footer: `Home Assistant at ${p.url} says Mantel would act as ${(r.user && r.user.name) || 'that user'}${r.user && r.user.is_admin ? ' (an administrator)' : ''}. ` + testedSays('ha', r, p.warnings) }, [
+  c.appendChild(
+    group(
+    { header: 'Connect to Home Assistant',
+    footer: `Home Assistant at ${p.url} says Mantel would act as ${(r.user && r.user.name) || 'that user'}${r.user && r.user.is_admin ? ' (an administrator)' : ''}. ` +
+    testedSays('ha', r, p.warnings) }, [
     button('Save This Connection', async () => {
       if (await act('connections', () => api('POST', '/api/connections/ha', { pending: p.id }), 'Home Assistant connected.', 'connections')) { clear(); afterHa(); }
     }, { fk: 'mx:ha-oauth-save' }),
-    button('Cancel', async () => { await act('connections', () => api('DELETE', '/api/connections/pending/' + encodeURIComponent(p.id))); clear(); redraw(); }, { destructive: true, fk: 'mx:ha-oauth-cancel' })]));
+    button('Cancel', async () => { await act('connections', () => api('DELETE', '/api/connections/pending/' + encodeURIComponent(p.id))); clear(); redraw(); },
+      { destructive: true, fk: 'mx:ha-oauth-cancel' })]));
 }
 // Home Assistant connected for the first time: HK's own settings can be read now
 function afterHa() { if (me && me.ha_set_up === false) setTimeout(() => location.reload(), 600); }
@@ -185,7 +197,8 @@ function pConnection(kind) {
     }
     const notes = [];
     if (set && !now.connected && now.error) notes.push('Not connected: ' + now.error);
-    if (x.source === 'install') notes.push('This comes from the installation’s secret file' + (x.install.file ? ' (' + x.install.file + ')' : '') + '. Replace saves Mantel’s own copy, which then wins; disconnecting that copy goes back to the file.');
+    if (x.source === 'install') notes.push('This comes from the installation’s secret file' + (x.install.file ? ' (' + x.install.file + ')' : '') +
+      '. Replace saves Mantel’s own copy, which then wins; disconnecting that copy goes back to the file.');
     if (x.install && x.install.overridden) notes.push('The installation also has a file for this; Mantel’s saved copy wins over it.');
     if (x.unreadable) notes.push('Mantel’s saved copy could not be opened (was the at-rest key changed?). Set it up again.');
     if (!x.editable) notes.push('Mantel runs as a Home Assistant App and uses the App’s own access to Home Assistant. Nothing to set up here.');
@@ -232,17 +245,24 @@ function pConnection(kind) {
       [field('conn-' + kind, 'url', 'Address', { type: 'url', maxlength: 300, value: x.url || x.suggested_url || '',
         placeholder: kind === 'ha' ? 'http://homeassistant.local:8123' : 'http://music-assistant.local:8095' })]));
     if (kind === 'ha') {
-      c.appendChild(group({ header: 'Sign In to Home Assistant', footer: 'Home Assistant opens its sign-in page. Sign in there as the Home Assistant user Mantel should act as: a dedicated administrator (for example one named mantel-server), not your own account. Mantel then makes a long-lived token for that user and keeps it sealed.' },
+      c.appendChild(
+        group(
+        { header: 'Sign In to Home Assistant',
+        footer:
+        'Home Assistant opens its sign-in page. Sign in there as the Home Assistant user Mantel should act as: a dedicated administrator (for example one named mantel-server), not your own ' +
+        'account. Mantel then makes a long-lived token for that user and keeps it sealed.' },
         [button('Connect to Home Assistant…', async () => {
           try { const r = await api('POST', '/api/connections/ha/oauth/start', { url: (d.url || '').trim() }); location.assign(r.authorize_url); }
           catch (e) { shown['test:ha'] = { text: e.message, err: true }; redraw(); }
         }, { fk: 'mx:ha-oauth' })]));
     } else {
-      c.appendChild(group({ header: 'Sign In with a Music Assistant User', footer: 'Music Assistant 2.7 and later. The password is used once to make a long-lived token for that user, and is not kept.' }, [
+      c.appendChild(group({ header: 'Sign In with a Music Assistant User', footer:
+        'Music Assistant 2.7 and later. The password is used once to make a long-lived token for that user, and is not kept.' }, [
         field('conn-ma', 'username', 'User Name', { maxlength: 200 }), field('conn-ma', 'password', 'Password', { type: 'password', maxlength: 1024 }),
         button('Test', test('login'), { fk: 'mx:ma-login-test' }), button('Save', save('login'), { fk: 'mx:ma-login-save' })]));
     }
-    c.appendChild(group({ header: 'Or Paste a Long-Lived Token', footer: kind === 'ha' ? 'In Home Assistant, signed in as Mantel’s user: your profile, Security, Long-lived access tokens, Create token.'
+    c.appendChild(group({ header: 'Or Paste a Long-Lived Token', footer: kind === 'ha' ?
+      'In Home Assistant, signed in as Mantel’s user: your profile, Security, Long-lived access tokens, Create token.'
       : 'In Music Assistant: Settings, your profile, create a long-lived token.' }, [
       field('conn-' + kind, 'token', 'Token', { type: 'password', maxlength: 4096 }),
       button('Test', test('token'), { fk: 'mx:' + kind + '-token-test' }), button('Save', save('token'), { fk: 'mx:' + kind + '-token-save' })]));
@@ -266,8 +286,14 @@ function drawMaPage(c, can) {
   if (got.err) { failed(c, got.err); return; }
   result(c, 'ma-page');
   const page = got.data.page;
-  c.appendChild(group({ header: 'Browse Music Page', footer: 'HK’s Browse Music page shows Music Assistant’s own web app. With a token here, Mantel signs that page in to Music Assistant as an ordinary MA user (never an administrator), so nobody has to sign in to MA on each screen. The token stays sealed in Mantel; the page never sees it.' },
-    [page.set && page.saved ? info('Signs In As', 'Since ' + fmt(page.saved.since) + (page.saved.expires ? '; expires ' + fmt(page.saved.expires) : ''), (page.saved.user && page.saved.user.name) || 'An MA User')
+  c.appendChild(
+    group(
+    { header: 'Browse Music Page',
+    footer:
+    'HK’s Browse Music page shows Music Assistant’s own web app. With a token here, Mantel signs that page in to Music Assistant as an ordinary MA user (never an administrator), so nobody has to ' +
+    'sign in to MA on each screen. The token stays sealed in Mantel; the page never sees it.' },
+    [page.set && page.saved ? info('Signs In As', 'Since ' + fmt(page.saved.since) + (page.saved.expires ? '; expires ' + fmt(page.saved.expires) : ''), (page.saved.user && page.saved.user.name) ||
+      'An MA User')
       : info('Signs In As', page.unreadable ? 'The saved token could not be opened (was the at-rest key changed?).' : 'Not set: the page shows Music Assistant’s own sign-in.', 'Nobody')]));
   if (!can) return;
   const d = draft('ma-page');

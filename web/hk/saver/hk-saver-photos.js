@@ -116,7 +116,8 @@
     }
     function load(item) {
       // (a landscape is a plain address; a photo of yours is resolved first)
-      return (item.url ? Promise.resolve({ url: photoUrl(item, screenEdge(), window.devicePixelRatio) }) : callWS({ type: 'media_source/resolve_media', media_content_id: item.id })).then(function (r) {
+      return (item.url ? Promise.resolve({ url: photoUrl(item, screenEdge(), window.devicePixelRatio) }) : callWS({ type: 'media_source/resolve_media', media_content_id: item.id })).then(
+        function (r) {
         var url = r && r.url;
         if (!url) throw new Error('no url');
         return new Promise(function (ok, fail) {

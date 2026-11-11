@@ -508,7 +508,8 @@
         var x1 = 31 + 22 * Math.sin(r), y1 = 31 - 22 * Math.cos(r), x2 = 31 - 22 * Math.sin(r), y2 = 31 + 22 * Math.cos(r);
         var svg = '<svg viewBox="0 0 62 62" aria-hidden="true"><circle cx="31" cy="31" r="29" fill="none" style="stroke:' + C.v('mark') + '" stroke-dasharray="2 3"/>' +
           '<text x="31" y="10" text-anchor="middle" font-size="7" style="fill:' + C.v('ink-3') + '">N</text>' +
-          (brg === null ? '' : '<g class="nd" style="--from:' + (brg <= 180 ? -brg : 360 - brg).toFixed(0) + 'deg"><line x1="' + x1.toFixed(1) + '" y1="' + y1.toFixed(1) + '" x2="' + x2.toFixed(1) + '" y2="' + y2.toFixed(1) +
+          (brg === null ? '' : '<g class="nd" style="--from:' + (brg <= 180 ? -brg : 360 - brg).toFixed(0) + 'deg"><line x1="' + x1.toFixed(1) + '" y1="' + y1.toFixed(1) + '" x2="' + x2.toFixed(1) +
+            '" y2="' + y2.toFixed(1) +
             '" style="stroke:' + C.v('glyph') + '" stroke-width="2" stroke-linecap="round"/><circle cx="' + x2.toFixed(1) + '" cy="' + y2.toFixed(1) +
             '" r="3" style="fill:' + C.v('glyph') + '"/></g>') + '</svg>';
         return { body: '<div class="wb">' + svg + '<div><div class="nb">' + Math.round(spd) + '<small>' + esc(unit) + '</small></div>' +
@@ -525,8 +526,10 @@
         var x = up ? (a.rising === true ? 10 + 70 * f : 150 - 70 * f) : (a.rising === true ? 6 : 154);
         var y = up ? 36 - 30 * f : 37;
         return { body: '<div class="nb">' + (parts ? esc(parts[1]) + '<small>' + parts[2] + '</small>' : esc(main || '--')) + '</div>' +
-                       '<svg class="arc" viewBox="0 0 160 42" preserveAspectRatio="none" aria-hidden="true"><path class="a" pathLength="1" stroke-dasharray="1" d="M2 39Q80-22 158 39" fill="none" style="stroke:' + C.v('mark') + '" stroke-width="1.5"/>' +
-                       '<path d="M0 37H160" style="stroke:' + C.v('line-strong') + '"/><circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="4.5" fill="#ffd60a"' + (up ? '' : ' opacity=".55"') + '/></svg>',
+                       '<svg class="arc" viewBox="0 0 160 42" preserveAspectRatio="none" aria-hidden="true"><path class="a" pathLength="1" stroke-dasharray="1" d="M2 39Q80-22 158 39" fill="none" ' +
+                         'style="stroke:' + C.v('mark') + '" stroke-width="1.5"/>' +
+                       '<path d="M0 37H160" style="stroke:' + C.v('line-strong') + '"/><circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="4.5" fill="#ffd60a"' +
+                         (up ? '' : ' opacity=".55"') + '/></svg>',
                  note: other ? (up ? 'Sunrise ' : 'Sunset ') + other + '.' : '' };
       },
       _pgUvNow() {

@@ -185,7 +185,8 @@
     lines.forEach(function (l) { if (/^Right now: /.test(l)) right = cap(l.replace(/^Right now: /, '').replace(/\.$/, '')); });
     var quiet = !!sum.quiet || (!n && !lead.length), status;
     if (lead.length) status = { icon: 'hk:alert-circle', color: 'orange', line: lead[0].replace(/\.$/, ''), sub: lead.length > 1 ? lead.slice(1).join(' ').replace(/\.$/, '') : right };
-    else if (quiet) status = { icon: 'mdi:moon-waning-crescent', color: 'purple', line: overnight ? 'A quiet night' : 'A quiet day', sub: (lines[0] || '').replace(/^A quiet [a-z]+\.\s*/, '').replace(/\.$/, '') || (overnight ? 'Nothing happened overnight' : 'Nothing has happened yet') };
+    else if (quiet) status = { icon: 'mdi:moon-waning-crescent', color: 'purple', line: overnight ? 'A quiet night' : 'A quiet day',
+      sub: (lines[0] || '').replace(/^A quiet [a-z]+\.\s*/, '').replace(/\.$/, '') || (overnight ? 'Nothing happened overnight' : 'Nothing has happened yet') };
     else status = { icon: 'mdi:check-circle', color: 'green', line: right || (n + (n === 1 ? ' event ' : ' events ') + (overnight ? 'overnight' : 'today')),
                      sub: right ? n + (n === 1 ? ' event ' : ' events ') + (overnight ? 'overnight' : 'today') : '' };
     return { label: label, span: span ? span[1] : '', status: status, counts: counts, quiet: quiet, n: n,
@@ -445,7 +446,8 @@
     // THE PICTURE, LARGE (Tall, Large, Extra Large): the newest row that kept one, to the inner radius, its words on it
     // with the camera tiles' soft halo (hk-cameras.js .age); a tap opens its camera
     // (the picture out to the shape inset, concentric with the block; the words keep the text's -- 2026-11-08)
-    '.hero{position:relative;flex:none;border-radius:var(--hk-inner-radius,12px);overflow:hidden;background:' + v('key') + ';cursor:pointer;outline:none;margin-left:calc(-1 * var(--hk-text-in,0px));margin-right:calc(-1 * var(--hk-text-in,0px))}',
+    '.hero{position:relative;flex:none;border-radius:var(--hk-inner-radius,12px);overflow:hidden;background:' + v('key') +
+      ';cursor:pointer;outline:none;margin-left:calc(-1 * var(--hk-text-in,0px));margin-right:calc(-1 * var(--hk-text-in,0px))}',
     '.hero img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}',
     '.hero .cap{position:absolute;left:0;right:0;bottom:0;display:flex;align-items:center;gap:8px;padding:28px 12px 10px;',
     '  background:linear-gradient(rgba(0,0,0,0),rgba(0,0,0,.45));color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.55)}',
@@ -463,13 +465,15 @@
     '.body.grp{justify-content:center;padding-bottom:6%}',
     '.st.up{flex-direction:column;align-items:flex-start;gap:8px}',
     '.kt{display:flex;flex-wrap:wrap;justify-content:center;align-content:center;gap:10px;flex:1;min-height:0;min-width:0;margin-top:12px}',
-    '.k{box-sizing:border-box;flex:none;width:' + KIND_TILE.big[0] + 'px;height:' + KIND_TILE.big[1] + 'px;border-radius:var(--hk-inner-radius,12px);background:' + v('key') + ';padding:10px 12px;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden}',
+    '.k{box-sizing:border-box;flex:none;width:' + KIND_TILE.big[0] + 'px;height:' + KIND_TILE.big[1] + 'px;border-radius:var(--hk-inner-radius,12px);background:' + v('key') +
+      ';padding:10px 12px;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden}',
     '.k hk-icon{width:24px;height:24px;--mdc-icon-size:100%;display:block;flex:none}',
     '.k .n{display:flex;align-items:baseline;gap:6px;min-width:0}',
     '.k .n b{' + type('figure') + ';line-height:1;font-variant-numeric:tabular-nums}',
     '.k .n span{' + type('caption') + ';color:' + v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     // (a short tile, Wide's and a tile cell's: the glyph, the count and its name on one line)
-    '.k.s{width:' + KIND_TILE.small[0] + 'px;height:' + KIND_TILE.small[1] + 'px;flex-direction:row;align-items:center;justify-content:center;gap:8px;padding:0 10px}.k.s .n b{' + type('title') + '}.k.s .n span{display:none}',
+    '.k.s{width:' + KIND_TILE.small[0] + 'px;height:' + KIND_TILE.small[1] + 'px;flex-direction:row;align-items:center;justify-content:center;gap:8px;padding:0 10px}.k.s .n b{' + type('title') +
+      '}.k.s .n span{display:none}',
     // (Tall's kinds: rows, the count at the right)
     '.kr{display:flex;flex-direction:column;flex:1;min-height:0;margin-top:12px}',
     '.kr>div{display:flex;align-items:center;gap:10px;flex:none;height:44px;position:relative}',
@@ -653,7 +657,8 @@
         hero = '<div class="lead' + (up ? ' up' : '') + '" role="button" tabindex="0" data-ev="' + esc(ld.id) + '" aria-label="' + esc(ld.title + ', ' + ld.agoLong) + '" style="height:' + lh + 'px' +
           (size === 'XL' && !few ? ';width:' + Math.round((box.iw - 18) / 2) + 'px' : '') + '">' + well(ld, up ? 72 : 56) + '<div><b>' + esc(size === 'T' ? ld.a : ld.title) + '</b>' +
           (size === 'T' ? '<span>' + esc(ld.b || ld.room) + '</span><span>' + esc(ld.agoLong) + '</span>'
-                        : '<span>' + esc([ld.sub, size === 'XL' ? '' : ld.agoLong].filter(Boolean).join(' · ')) + '</span>' + (size === 'XL' ? '<span>' + esc(ld.agoLong) + '</span>' : '')) + '</div></div>';
+                        : '<span>' + esc([ld.sub, size === 'XL' ? '' : ld.agoLong].filter(Boolean).join(' · ')) + '</span>' + (size === 'XL' ? '<span>' + esc(ld.agoLong) + '</span>' : '')) +
+                          '</div></div>';
         if (size !== 'XL' || few) room -= lh + gap;
       }
       var fit = rowsFit(rows.length, room, h), shown = rows.slice(0, fit.n), more = rows.length - shown.length;
@@ -661,7 +666,8 @@
       // (cut: the rows centered in their place, the few px left split above and below; all shown: the rows and a quiet
       // line as one group, centered a touch above the middle with the hero over them)
       var single = size !== 'XL' || few;
-      var list = '<div class="list' + (more || fits ? ' mid' : '') + (fits && single ? ' fit' : '') + '"' + (few ? ' style="width:' + Math.min(box.iw, 420) + 'px;align-self:center"' : '') + '>' + shown.map(function (r) { return self._row(r, h, narrow); }).join('') +
+      var list = '<div class="list' + (more || fits ? ' mid' : '') + (fits && single ? ' fit' : '') + '"' + (few ? ' style="width:' + Math.min(box.iw, 420) + 'px;align-self:center"' : '') + '>' +
+        shown.map(function (r) { return self._row(r, h, narrow); }).join('') +
         (fits ? '<div class="quiet">' + (shown.length ? 'Nothing earlier' : 'Nothing else') + '</div>' : '') + '</div>';
       var moreWord = more || this._capped ? (more || 0) + (this._capped ? '+' : '') + ' more' : '';
       var hd = head('Recent', moreWord);
@@ -686,11 +692,14 @@
       var d = digestParts(this._summary), st = d.status, tinted = function (name, px, col) { return icon(name, px).replace('<hk-icon ', '<hk-icon style="color:' + inkOf(col) + '" '); };
       if (size === 'S') {
         return '<div class="well"><hk-icon class="icon" ink="' + C.TILE.centred.ink + '" icon="' + esc(st.icon) + '" style="color:' + inkOf(st.color) + '"></hk-icon></div>' +
-          '<div class="nm">' + esc(d.quiet ? st.line : d.label) + '</div><div class="tm1">' + esc(d.quiet ? d.span || d.label : st.color === 'orange' ? st.line : d.n + (d.n === 1 ? ' event' : ' events')) + '</div>';
+          '<div class="nm">' + esc(d.quiet ? st.line : d.label) + '</div><div class="tm1">' +
+            esc(d.quiet ? d.span || d.label : st.color === 'orange' ? st.line : d.n + (d.n === 1 ? ' event' : ' events')) + '</div>';
       }
       var hd = head(d.label, size === 'T' ? '' : d.span);
-      if (d.quiet || !d.counts.length) return hd + '<div class="calm' + (size === 'W' ? ' side' : '') + '">' + icon2(st.icon, st.color) + '<div><b>' + esc(st.line) + '</b>' + (st.sub ? '<span>' + esc(st.sub) + '</span>' : '') + '</div></div>';
-      var status = '<div class="st' + (size === 'T' ? ' up' : '') + '"><div class="g">' + tinted(st.icon, 34, st.color) + '</div><div style="min-width:0"><b>' + esc(st.line) + '</b>' + (st.sub ? '<span>' + esc(st.sub) + '</span>' : '') + '</div></div>';
+      if (d.quiet || !d.counts.length) return hd + '<div class="calm' + (size === 'W' ? ' side' : '') + '">' + icon2(st.icon, st.color) + '<div><b>' + esc(st.line) + '</b>' +
+        (st.sub ? '<span>' + esc(st.sub) + '</span>' : '') + '</div></div>';
+      var status = '<div class="st' + (size === 'T' ? ' up' : '') + '"><div class="g">' + tinted(st.icon, 34, st.color) + '</div><div style="min-width:0"><b>' + esc(st.line) + '</b>' +
+        (st.sub ? '<span>' + esc(st.sub) + '</span>' : '') + '</div></div>';
       var room = box.ih - HEAD, gap = 12;
       // TALL: the status over the kinds as 44 px rows, the count at the right
       if (size === 'T') {
@@ -701,15 +710,18 @@
       }
       var tiles = function (list, W, H, small, flush) {
         var t = small ? KIND_TILE.small : KIND_TILE.big, g = fitGrid(list.length, W, H, t[0], t[1], 10);
-        return '<div class="kt" style="width:' + Math.round(g.cols * (t[0] + 10) - 10) + 'px;max-width:100%;align-self:center' + (flush ? ';margin-top:0;flex:none' : '') + '">' + list.slice(0, g.n).map(function (k) {
-          return '<div class="k' + (small ? ' s' : '') + '" title="' + esc(k.label) + '">' + tinted(k.icon, 24, k.color) + '<div class="n"><b>' + k.n + '</b><span>' + esc(k.label) + '</span></div></div>';
+        return '<div class="kt" style="width:' + Math.round(g.cols * (t[0] + 10) - 10) + 'px;max-width:100%;align-self:center' + (flush ? ';margin-top:0;flex:none' : '') + '">' +
+          list.slice(0, g.n).map(function (k) {
+          return '<div class="k' + (small ? ' s' : '') + '" title="' + esc(k.label) + '">' + tinted(k.icon, 24, k.color) + '<div class="n"><b>' + k.n + '</b><span>' + esc(k.label) +
+            '</span></div></div>';
         }).join('') + '</div>';
       };
       // WIDE: the status left, the kinds as small tiles right
       if (size === 'W') return hd + '<div class="cols" style="align-items:center">' + status + tiles(d.counts, Math.floor((box.iw - 18) / 2), room, true, true) + '</div>';
       var picEv = heroOf(d.events), hr = picEv ? rowView(picEv, now, ctx) : null;
       var pic = function (w, h) {
-        return '<div class="hero" role="button" tabindex="0" data-ev="' + esc(hr.id) + '" aria-label="' + esc(hr.title + ', ' + hr.agoLong) + '" style="height:' + h + 'px' + (w ? ';width:' + w + 'px' : '') + '">' +
+        return '<div class="hero" role="button" tabindex="0" data-ev="' + esc(hr.id) + '" aria-label="' + esc(hr.title + ', ' + hr.agoLong) + '" style="height:' + h + 'px' +
+          (w ? ';width:' + w + 'px' : '') + '">' +
           '<img src="' + esc(hr.thumb) + '" alt="" decoding="async" draggable="false"><div class="cap">' + tinted(hr.icon, 22, hr.color) +
           '<div class="tx"><b>' + esc(hr.title) + '</b><span>' + esc([hr.room, hr.agoLong].filter(Boolean).join(' · ')) + '</span></div></div></div>';
       };
@@ -723,7 +735,8 @@
       if (size === 'XL' && hr) {
         var half = Math.round((box.iw - 18) / 2);
         // (the status and its kinds one group, centered a touch above the column's middle)
-        return hd + '<div class="cols"><div class="body grp">' + status + tiles(d.counts, half, room - 54 - gap, false, true).replace('margin-top:0', 'margin-top:' + gap + 'px') + '</div>' + pic(half, room) + '</div>';
+        return hd + '<div class="cols"><div class="body grp">' + status + tiles(d.counts, half, room - 54 - gap, false, true).replace('margin-top:0', 'margin-top:' + gap + 'px') + '</div>' +
+          pic(half, room) + '</div>';
       }
       return hd + '<div class="body grp">' + status + tiles(d.counts, box.iw, room - 54 - gap, false, true).replace('margin-top:0', 'margin-top:' + gap + 'px') + '</div>';
     }
@@ -752,12 +765,14 @@
   var STRIP_CSS = [
     ':host{display:block;color:' + v('ink') + '}',
     ':host([hidden]){display:none}',
-    '.st{box-sizing:border-box;height:' + STRIP_H + 'px;padding:12px 0 14px;background:rgba(255,255,255,0.05);border-top:1px solid rgba(255,255,255,0.08);display:flex;flex-direction:column;gap:8px;overflow:hidden}',
+    '.st{box-sizing:border-box;height:' + STRIP_H +
+      'px;padding:12px 0 14px;background:rgba(255,255,255,0.05);border-top:1px solid rgba(255,255,255,0.08);display:flex;flex-direction:column;gap:8px;overflow:hidden}',
     '.st.empty{height:' + STRIP_EMPTY_H + 'px;justify-content:center}',
     '.st .k{flex:none;padding:0 18px;font-size:12px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;line-height:16px;color:' + v('ink-2') + '}',
     '.st .none{padding:0 18px;font-size:14px;line-height:18px;color:' + v('ink-2') + '}',
     // the scroller sits inside the 18 px gutters, so a card clips there and never runs to the sheet's edge (2026-11-10)
-    '.sc{flex:1;min-height:0;display:flex;gap:10px;overflow-x:auto;overflow-y:hidden;margin:0 18px;scrollbar-width:none;-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity;overscroll-behavior-x:contain}',
+    '.sc{flex:1;min-height:0;display:flex;gap:10px;overflow-x:auto;overflow-y:hidden;margin:0 18px;scrollbar-width:none;-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity;' +
+      'overscroll-behavior-x:contain}',
     '.sc::-webkit-scrollbar{display:none}',
     '.c{all:unset;box-sizing:border-box;flex:none;width:114px;display:flex;flex-direction:column;gap:5px;cursor:pointer;scroll-snap-align:start;-webkit-tap-highlight-color:transparent}',
     '.c:active{opacity:.7}',

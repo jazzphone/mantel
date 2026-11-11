@@ -132,7 +132,8 @@
                ':host([size]){overflow:hidden}' +
                ':host([size]) hk-plate.clock{' + window.hkCards.plate('card') + ';box-sizing:border-box;height:100%;' +
                'padding:' + window.hkCards.blockPad(window.hkCards.CARD.pad) + ';display:flex;flex-direction:column;justify-content:center;overflow:hidden}' +
-               ':host([size]) [data-hk-clock=clock]{min-width:0!important;width:100%}:host([size]) [data-hk-clock=clock],:host([size]) [data-hk-clock=clock] *{justify-content:center!important;align-items:center!important;text-align:center!important}' + /* centered on its block, StandBy's clock: equal margins all round (2026-11-07, the review) */
+               ':host([size]) [data-hk-clock=clock]{min-width:0!important;width:100%}:host([size]) [data-hk-clock=clock],:host([size]) [data-hk-clock=clock] *{justify-content:center!important;' +
+                 'align-items:center!important;text-align:center!important}' + /* centered on its block, StandBy's clock: equal margins all round (2026-11-07, the review) */
                ':host([size]) [data-hk-clock=date]{font-weight:500!important;letter-spacing:0!important}' +
                // BARE (the Clock block's Hide Box): the time on the wallpaper,
                // with the header's glow (`shadow`) to read on it

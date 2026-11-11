@@ -284,7 +284,9 @@
     // word "today" steps aside rather than the line ending in "to...".
     'hk-plate.rank.bkd{container-type:inline-size}',
     '.rank.bkd .label::before{content:"";display:inline-block;width:15px;height:10px;margin-right:5px;vertical-align:-0.5px;',
-    '  background:url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 10%27%3E%3Crect x=%27.75%27 y=%27.75%27 width=%2712.5%27 height=%278.5%27 rx=%272.2%27 fill=%27none%27 stroke=%27%2330d158%27 stroke-width=%271.5%27/%3E%3Crect x=%2714%27 y=%273.3%27 width=%271.6%27 height=%273.4%27 rx=%27.6%27 fill=%27%2330d158%27/%3E%3Crect x=%272.6%27 y=%272.6%27 width=%276.4%27 height=%274.8%27 rx=%271%27 fill=%27%2330d158%27/%3E%3C/svg%3E") no-repeat center/contain}',
+    '  background:url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 10%27%3E%3Crect x=%27.75%27 y=%27.75%27 width=%2712.5%27 height=%278.5%27 rx=%272.2%27 ' +
+      'fill=%27none%27 stroke=%27%2330d158%27 stroke-width=%271.5%27/%3E%3Crect x=%2714%27 y=%273.3%27 width=%271.6%27 height=%273.4%27 rx=%27.6%27 fill=%27%2330d158%27/%3E%3Crect x=%272.6%27 ' +
+      'y=%272.6%27 width=%276.4%27 height=%274.8%27 rx=%271%27 fill=%27%2330d158%27/%3E%3C/svg%3E") no-repeat center/contain}',
     '@container (max-width:163px){.rank.bkd .label .td{display:none}}',
     '.rank .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}',
     'hk-plate.rank.pwroff .hero,hk-plate.rank.pwroff .well,hk-plate.rank.pwroff .spark{opacity:0.45}',

@@ -99,7 +99,8 @@
     hk_clean_areas: 'Clean Areas isn’t added yet. It sends each vacuum the chosen rooms on its own map.',
     hk_energy: 'Energy isn’t added yet. It builds an Energy page — whole-home power, today’s cost, daily use and a live tile per circuit — from Home Assistant’s Energy settings.',
     hk_music: 'Music isn’t added yet. It plays music in chosen rooms through Music Assistant.',
-    hk_notify: 'Notifications isn’t added yet. It shows a banner at the top of your screens when an accessory does something — a door opens, someone arrives, a camera sees a person — with a camera’s snapshot.'
+    hk_notify:
+      'Notifications isn’t added yet. It shows a banner at the top of your screens when an accessory does something — a door opens, someone arrives, a camera sees a person — with a camera’s snapshot.'
   };
 
   // ADVANCED -> FEATURES: every feature on one page, a switch each, what it
@@ -135,7 +136,8 @@
   function autoGroup(P, c) {
     var a = P.data.features_auto;
     if (!a || typeof a.enabled !== 'boolean' || typeof a.save !== 'string') return;
-    c.appendChild(K.group({ footer: 'When the house has what a feature needs — Music Assistant connected, a vacuum with room maps, Home Assistant’s Energy settings, a tuner that answers — ' + hostName() + ' turns it on once and tells you. A feature you turn off stays off.' }, [
+    c.appendChild(K.group({ footer: 'When the house has what a feature needs — Music Assistant connected, a vacuum with room maps, Home Assistant’s Energy settings, a tuner that answers — ' +
+      hostName() + ' turns it on once and tells you. A feature you turn off stays off.' }, [
       K.toggle({ label: 'Turn Features On Automatically', icon: 'mdi:auto-fix', on: a.enabled, fk: 'features:auto',
                  onChange: function (v) {
                    return P.ws({ type: a.save, enabled: v }).then(function (ok) {
@@ -206,7 +208,8 @@
       LIST: LIST, listed: listed, stateOf: stateOf, page: page, use: use, addHref: addHref, search: search, musicTop: musicTop,
       integrationHref: integrationHref, SCOPE: SCOPE, WHAT: WHAT, dndRows: dndRows, dndSummary: dndSummary,
       featureList: featureList, featuresOn: featuresOn, featureSub: featureSub, NEEDS: NEEDS, SETTINGS_AT: SETTINGS_AT,
-      _: { tvLists: tvLists, tvCount: tvCount, speakerLists: speakerLists, speakerName: speakerName, pairNote: pairNote, pairChoices: pairChoices, pairsAfter: pairsAfter, playlistSub: playlistSub, vacuumSub: vacuumSub, vacuumsAfter: vacuumsAfter,
+      _: { tvLists: tvLists, tvCount: tvCount, speakerLists: speakerLists, speakerName: speakerName, pairNote: pairNote, pairChoices: pairChoices, pairsAfter: pairsAfter, playlistSub: playlistSub,
+        vacuumSub: vacuumSub, vacuumsAfter: vacuumsAfter,
            roomLists: roomLists, roomCount: roomCount, energyFound: energyFound, sectionsAfter: sectionsAfter,
            batteriesStored: batteriesStored, stayLabel: stayLabel, notifySummary: notifySummary, whenControl: whenControl,
            cooldownLabel: cooldownLabel, wakesOf: wakesOf, trigWord: trigWord }

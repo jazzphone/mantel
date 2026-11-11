@@ -444,7 +444,8 @@
         '.yp .yph{display:flex;align-items:center;gap:12px;margin:0 0 14px 2px}',
         '.yp .yph h3{margin:0;flex:none}',
         '.route{margin-left:auto;min-width:0;display:flex;align-items:center;gap:8px;height:34px;padding:0 12px 0 10px;border-radius:17px;',
-        '  background:var(--hk-field-bg,' + window.hkCards.v('key') + ');box-shadow:var(--hk-field-shadow,none);border:' + M.border + ';cursor:pointer;box-sizing:border-box;color:' + window.hkCards.v('ink') + '}',
+        '  background:var(--hk-field-bg,' + window.hkCards.v('key') + ');box-shadow:var(--hk-field-shadow,none);border:' + M.border + ';cursor:pointer;box-sizing:border-box;color:' +
+          window.hkCards.v('ink') + '}',
         '.route:active{background:' + window.hkCards.v('key-strong') + '}',
         '.route hk-icon{--mdc-icon-size:18px;width:18px;height:18px;flex:none;display:flex}',
         '.route span{font-size:13px;font-weight:500;color:' + window.hkCards.v('ink-2') + ';flex:none}',

@@ -271,3 +271,14 @@ def test_cli_check_writes_nothing_and_report_hashes_match_the_ratchet(tmp_path, 
     assert rewrap.main([str(jsf), "--width", str(W)]) == 0                       # now write it
     assert jsf.read_text() != before[0] and rewrap.main([str(jsf), "--check", "--width", str(W)]) == 0
     assert "broke 0" in capsys.readouterr().out.split("a.js:")[-1]
+
+
+
+
+@needs_node
+def test_a_long_string_in_a_conditional_branch_is_split_and_proved():
+    """A string that is a branch of `c ? 'a' : 'b'` may be split: + binds tighter than ?:, so the branch is the same value."""
+    long = ("word " * 50).strip()
+    out = js("var x = flag\n  ? '" + long + "'\n  : 'no';\n")
+    out = out.text
+    assert widest(out) <= W and "' +" in out

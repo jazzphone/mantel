@@ -22,7 +22,8 @@
         var K = this.K, add = (n) => this.sidebar.appendChild(n), rules = item.rules || [], n = rules.length, head = [], full = n >= G.RULES_MAX;
         var put = (next) => { this.conditionPreview = null; this.update(item.id, { rules: next.length ? next : null }); };
         var swap = (i, j) => { var next = copy(rules); next.splice(j, 0, next.splice(i, 1)[0]); if (this.editing === i) this.editing = j; else if (this.editing === j) this.editing = i; put(next); };
-        var showing = (v) => { this.conditionPreview = v === 'live' ? null : Number(v); if (v !== 'live') this.editing = Number(v); this.preview(); this.side(); }, shown = this.conditionPreview == null ? 'live' : String(this.conditionPreview);
+        var showing = (v) => { this.conditionPreview = v === 'live' ? null : Number(v); if (v !== 'live') this.editing = Number(v); this.preview(); this.side(); }, shown = this.conditionPreview ==
+          null ? 'live' : String(this.conditionPreview);
         if (n) head.push(K[n <= 4 ? 'seg' : 'select']({ label: 'Preview', value: shown, onChange: showing, options: [['live', 'Live'], ['-1', n <= 4 ? 'Default' : 'Default: ' + NAMES[item.card]]]
           .concat(rules.map((r, i) => n <= 4 ? [String(i), 'Rule ' + (i + 1)] : [String(i), 'Rule ' + (i + 1) + ': ' + NAMES[r.card], 'Rule ' + (i + 1)])) }));
         add(K.group({ header: 'Show When', footer: n
@@ -43,8 +44,10 @@
           rows.push(K.button({ label: 'Then Show: ' + NAMES[r.card] + '…', onClick: () => this.pickFor('rule:' + i) }));
           rows.push(K.button({ label: 'Edit ' + NAMES[r.card] + ' Settings', disabled: this.editing === i, onClick: () => this.editCard(i) }));
           // (the card being set stays the same card when its rule moves or another goes)
-          rows.push(K.button({ label: 'Move Rule Up', disabled: i === 0, onClick: () => swap(i, i - 1) }), ...(n > 1 ? [K.button({ label: 'Move Rule Down', disabled: i === n - 1, onClick: () => swap(i, i + 1) })] : []));
-          rows.push(K.button({ label: 'Remove Rule', destructive: true, onClick: () => { var next = copy(rules); next.splice(i, 1); if (this.editing === i) this.editing = -1; else if (this.editing > i) this.editing--; put(next); } }));
+          rows.push(K.button({ label: 'Move Rule Up', disabled: i === 0, onClick: () => swap(i, i - 1) }),
+            ...(n > 1 ? [K.button({ label: 'Move Rule Down', disabled: i === n - 1, onClick: () => swap(i, i + 1) })] : []));
+          rows.push(K.button({ label: 'Remove Rule', destructive: true, onClick: () => { var next = copy(rules); next.splice(i, 1); if (this.editing === i) this.editing = -1;
+            else if (this.editing > i) this.editing--; put(next); } }));
           add(K.group({ header: 'Rule ' + (i + 1) + (n > 1 ? ' of ' + n : '') + ' · ' + NAMES[r.card] }, rows));
         });
         add(K.group({ footer: full ? 'A block holds up to ' + G.RULES_MAX + ' rules. Remove one to add another.' : '' }, [K.button({ label: 'Add Rule', disabled: full, onClick: () => {
@@ -71,8 +74,10 @@
         } else if (c.kind === 'solar_window') return void G.solar.rows(K, c, rows, put, (this.panel.client || {}).states, () => this.side());
         if (c.kind !== 'after_sunset') rows.push(K.select({ label: 'Watch', value: c.entity || '',
           // (Music Is Playing's Automatic is any of the house's speakers -- not a TV -- 2026-11-01: say so; A TV Is On's, any TV)
-          options: (c.kind === 'entity_state' ? [] : [['', c.kind === 'music_playing' ? 'Any Speaker' : c.kind === 'tv_on' ? 'Any TV' : 'Automatic']]).concat(this.choices({ music_playing: 'speaker', timer_running: 'timer', alarm_armed: 'alarm',
-            alarm_disarmed: 'alarm', doorbell: 'doorbell', tv_on: 'tv_target' }[c.kind] || 'entity').filter((op) => op[0] !== 'tablet_room' || c.kind === 'music_playing' || c.kind === 'tv_on')).concat(c.entity && c.kind === 'music_playing' && !this.choices('speaker').some((op) => op[0] === c.entity) ? [[c.entity, c.entity + ' (Not a Music Speaker)']] : []),
+          options: (c.kind === 'entity_state' ? [] : [['', c.kind === 'music_playing' ? 'Any Speaker' : c.kind === 'tv_on' ? 'Any TV' : 'Automatic']]).concat(
+            this.choices({ music_playing: 'speaker', timer_running: 'timer', alarm_armed: 'alarm',
+            alarm_disarmed: 'alarm', doorbell: 'doorbell', tv_on: 'tv_target' }[c.kind] || 'entity').filter((op) => op[0] !== 'tablet_room' || c.kind === 'music_playing' || c.kind ===
+              'tv_on')).concat(c.entity && c.kind === 'music_playing' && !this.choices('speaker').some((op) => op[0] === c.entity) ? [[c.entity, c.entity + ' (Not a Music Speaker)']] : []),
           onChange: (v) => set('entity', v) }));
         if (c.kind === 'entity_state') rows.push(K.text({ label: 'Is', value: c.state, maxlength: 80, onCommit: (v) => set('state', v) }));
       }
@@ -81,8 +86,11 @@
         if (key === 'swipe') return G.swipe.sample(); if (key === 'alert') return G.alert.sample((k) => self.choices(k), (this.panel.client || {}).states);
         Object.keys(fields).forEach(function (name) {
           var kind = fields[name];
-          if (['secondary', 'title', 'room_display', 'thermostat_style', 'tile_height', 'period', 'name_tag', 'tap_target', 'music_tap', 'tv_channel', 'music_show', 'music_playlist', 'music_speaker', 'tv_target', 'tv_show', 'swipe_pages', 'timeline_show', 'np_background', 'on_now_open', 'everything_more', 'security_presentation', 'security_members', 'security_lit'].includes(kind)) return;
-          if (kind === 'accessories') { opts[name] = sampleEntities(self.choices('entity'), ['light', 'switch', 'fan', 'sensor']).slice(0, 4).map((op) => ({ entity: op[0] })); if (!opts[name].length) delete opts[name]; return; }
+          if (['secondary', 'title', 'room_display', 'thermostat_style', 'tile_height', 'period', 'name_tag', 'tap_target', 'music_tap', 'tv_channel', 'music_show', 'music_playlist', 'music_speaker',
+            'tv_target', 'tv_show', 'swipe_pages', 'timeline_show', 'np_background', 'on_now_open', 'everything_more', 'security_presentation', 'security_members', 'security_lit'].includes(
+            kind)) return;
+          if (kind === 'accessories') { opts[name] = sampleEntities(self.choices('entity'), ['light', 'switch', 'fan', 'sensor']).slice(0, 4).map((op) => ({ entity: op[0] }));
+            if (!opts[name].length) delete opts[name]; return; }
           var choices = self.choices(kind).filter((op) => op[0] !== 'tablet_room');
           if (kind === 'scene' && key === 'scene') choices = choices.filter((op) => self.sceneIds().indexOf(op[0]) >= 0);
           if (kind === 'entity') choices = sampleEntities(choices, ['light', 'switch', 'fan']);
@@ -100,7 +108,9 @@
         Object.keys(client.states).forEach(function (id) {
           var st = client.states[id], a = Object.assign({}, st.attributes), state = st.state;
           if (id.startsWith('climate.')) { state = 'heat_cool'; Object.assign(a, { current_temperature: 71, target_temp_low: 68, target_temp_high: 74, hvac_action: 'idle' }); }
-          if (id.startsWith('media_player.')) { state = 'playing'; Object.assign(a, { media_title: 'A Favorite Song', media_artist: 'Sample Artist', media_album_name: 'Sample Album', media_duration: 240, media_position: 82, media_position_updated_at: stamp, volume_level: .4 }); }
+          if (id.startsWith('media_player.')) { state = 'playing'; Object.assign(a,
+            { media_title: 'A Favorite Song', media_artist: 'Sample Artist', media_album_name: 'Sample Album', media_duration: 240, media_position: 82, media_position_updated_at: stamp,
+            volume_level: .4 }); }
           if (id.startsWith('weather.')) { state = 'partlycloudy'; Object.assign(a, { temperature: 72, apparent_temperature: 74, humidity: 52, wind_speed: 8, wind_speed_unit: 'mph' }); }
           if (id.startsWith('light.')) { state = 'on'; a.brightness = 180; }
           if (id.startsWith('person.')) state = 'home';
@@ -124,7 +134,8 @@
         // Recent's sample rows, invented: the inert preview reads no real house
         var ago = (m) => Math.floor((now - m * 60e3) / 1000);
         var sample = { names: true, limited: false, search: true, families: ['door', 'lock', 'garage', 'doorbell', 'detection'], next_before: null, events: [
-          { id: 5, at: ago(4), family: 'lock', kind: 'locked', level: 'info', title: 'Back Door locked', area_name: 'Kitchen', who: { name: 'Sample', device: 'Kitchen tablet', how: 'tablet' }, pics: [] },
+          { id: 5, at: ago(4), family: 'lock', kind: 'locked', level: 'info', title: 'Back Door locked', area_name: 'Kitchen', who: { name: 'Sample', device: 'Kitchen tablet', how: 'tablet' },
+            pics: [] },
           { id: 4, at: ago(19), family: 'detection', kind: 'package', level: 'info', title: 'Package at Front Door', area_name: 'Porch', pics: [] },
           { id: 3, at: ago(26), family: 'doorbell', kind: 'ring', level: 'info', title: 'Someone rang Front Door', area_name: 'Porch', pics: [] },
           { id: 2, at: ago(61), family: 'garage', kind: 'closed', level: 'info', title: 'Garage closed', area_name: 'Garage', pics: [] },
@@ -154,7 +165,8 @@
         // Keep every descendant in the screen's custom-element registry. Adopting
         // a card into Settings leaves its hk-plate and glyph elements undefined.
         var frame = this.h('iframe', { title: NAMES[box.dataset.previewCard] + ' preview', tabindex: '-1', 'aria-hidden': 'true' });
-        Object.assign(frame.style, { width: width + 'px', height: height + 'px', left: '50%', marginLeft: -(width * scale / 2) + 'px', transformOrigin: 'top left', transform: 'scale(' + scale + ')' });
+        Object.assign(frame.style, { width: width + 'px', height: height + 'px', left: '50%', marginLeft: -(width * scale / 2) + 'px', transformOrigin: 'top left', transform: 'scale(' + scale +
+          ')' });
         frame.inert = true; frame.src = this.iframe.src; box.replaceChildren(frame); box.setAttribute('data-loading', '');
         var active = true, timer, retries = 0;
         this.catalogOff = () => { active = false; clearTimeout(timer); };
@@ -204,13 +216,15 @@
       }
       async restore(row) {
         if (this.busy) return;
-        if (!await this.K.confirm(this.shadowRoot, { title: 'Restore This Layout?', message: 'Version ' + row.version + ' becomes your draft. Review it, then Save to apply it. Other screen settings stay as they are.', ok: 'Restore Draft' })) return;
+        if (!await this.K.confirm(this.shadowRoot, { title: 'Restore This Layout?', message: 'Version ' + row.version +
+          ' becomes your draft. Review it, then Save to apply it. Other screen settings stay as they are.', ok: 'Restore Draft' })) return;
         this.selected = null; this.change(copy(row.body.home_grid));
         this.say('Version ' + row.version + ' restored to the draft. Save to apply it.');
       }
       async copyTo(path, anyway) {
         if (this.busy || !path || !valid(this.grid)) return;
-        if (!anyway && !await this.K.confirm(this.shadowRoot, { title: 'Copy Layout To This Screen?', message: 'This saves your draft layout to ' + path + '. Its other settings stay as they are. Tablet’s Room still means the tablet showing that screen.', ok: 'Copy Layout' })) return;
+        if (!anyway && !await this.K.confirm(this.shadowRoot, { title: 'Copy Layout To This Screen?', message: 'This saves your draft layout to ' + path +
+          '. Its other settings stay as they are. Tablet’s Room still means the tablet showing that screen.', ok: 'Copy Layout' })) return;
         this.busy = true;
         var changed = null;
         try {
@@ -229,7 +243,8 @@
         // THAT SCREEN CHANGED since this page read it: Reload reads the
         // settings again (this screen's draft stays) to copy onto what it is
         // now; Save Anyway replaces its layout with this one
-        var choice = await this.changed('That screen changed since you opened it, in another window or on another device. Reload to read it again (your draft here stays), or Save Anyway to replace its layout with this one.');
+        var choice = await this.changed(
+          'That screen changed since you opened it, in another window or on another device. Reload to read it again (your draft here stays), or Save Anyway to replace its layout with this one.');
         if (choice === 'anyway') return this.copyTo(path, true);
         if (choice === 'reload') {
           try { await this.panel.reload(); this.say('Reloaded. Copy the layout again to replace that screen’s.'); }

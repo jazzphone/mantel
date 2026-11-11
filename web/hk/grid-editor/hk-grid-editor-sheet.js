@@ -60,13 +60,16 @@
         var entries = sheet.entries || [];
         // THE SHEET: its title, its header's icon, its tiles' style
         var head = [
-          K.text({ label: 'Title', value: sheet.title || '', placeholder: NAMES[item.card], maxlength: S.titleMax, onCommit: (v) => edit((x) => { v = v.trim(); if (v) x.title = v; else delete x.title; }) }),
+          K.text({ label: 'Title', value: sheet.title || '', placeholder: NAMES[item.card], maxlength: S.titleMax,
+            onCommit: (v) => edit((x) => { v = v.trim(); if (v) x.title = v; else delete x.title; }) }),
           K.text({ label: 'Header Icon', value: sheet.icon || '', placeholder: 'Automatic', maxlength: 78,
-            onCommit: (v) => { v = v.trim(); if (v && !S.icon.test(v)) { self.say('An icon is a set and a name, such as mdi:shield-home.'); self.side(); return; } edit((x) => { if (v) x.icon = v; else delete x.icon; }); } }),
+            onCommit: (v) => { v = v.trim(); if (v && !S.icon.test(v)) { self.say('An icon is a set and a name, such as mdi:shield-home.'); self.side(); return; } edit(
+              (x) => { if (v) x.icon = v; else delete x.icon; }); } }),
           K.seg({ label: 'Tile Style', value: sheet.tile_style || '', options: [['', 'Same as Screen'], ['home', 'Home'], ['centred', 'Tall (HomeView)']],
             onChange: (v) => edit((x) => { if (v) x.tile_style = v; else delete x.tile_style; }) }),
           K.button({ label: 'Preview Sheet', disabled: !entries.length, onClick: () => this.previewSheet(item) })];
-        if (entries.some((e) => this.styled(e))) head.push(K.button({ label: 'Reset Every Entry’s Look', onClick: () => edit((x) => { x.entries = x.entries.map((e) => ({ id: e.id, entity: e.entity })); }) }));
+        if (entries.some((e) => this.styled(e))) head.push(K.button({ label: 'Reset Every Entry’s Look',
+          onClick: () => edit((x) => { x.entries = x.entries.map((e) => ({ id: e.id, entity: e.entity })); }) }));
         add(K.group({ header: 'Sheet', footer: 'Same as Screen uses this screen’s tile style. Each entry may have its own below.' }, head));
         // ITS ENTRIES, in order: each its accessory, how it looks here, and Move, Duplicate and Remove
         var choices = this.choices('entity'), nameOf = (id) => (choices.find((op) => op[0] === id) || [id, id + ' (Unavailable)'])[1];
@@ -74,7 +77,8 @@
           var rowsE = [], set = (patch) => edit((x) => { var t = x.entries[i]; Object.keys(patch).forEach((k) => { if (patch[k] == null || patch[k] === '') delete t[k]; else t[k] = patch[k]; }); });
           var opts = choices.slice();
           if (!opts.some((op) => op[0] === e.entity)) opts.push([e.entity, e.entity + ' (Unavailable)']);
-          rowsE.push(K.select({ label: 'Accessory', value: e.entity, options: opts, onChange: (v) => set({ entity: v, secondary: e.secondary && e.secondary.mode === 'attribute' ? null : e.secondary }) }));
+          rowsE.push(K.select({ label: 'Accessory', value: e.entity, options: opts,
+            onChange: (v) => set({ entity: v, secondary: e.secondary && e.secondary.mode === 'attribute' ? null : e.secondary }) }));
           var open = this.sheetEntry === e.id;
           rowsE.push(K.button({ label: open ? 'Done Editing Look' : 'Edit Look' + (this.styled(e) ? ' (Custom)' : ''), onClick: () => { this.sheetEntry = open ? null : e.id; this.side(); } }));
           if (open) this.entryLook(e, set, rowsE);
@@ -89,7 +93,8 @@
         // ADD SEVERAL AT ONCE: the ones ticked, in the list's order
         var addRows = [];
         if (entries.length >= S.max) addRows.push(K.info({ label: 'This sheet is full', sub: 'A sheet holds at most ' + S.max + ' entries. Remove one to add another.' }));
-        else if (this.sheetAdding !== item.id) addRows.push(K.button({ label: 'Add Accessories…', onClick: () => { this.sheetAdding = item.id; this.sheetPick = []; this.sheetFind = ''; this.side(); } }));
+        else if (this.sheetAdding !== item.id) addRows.push(K.button({ label: 'Add Accessories…',
+          onClick: () => { this.sheetAdding = item.id; this.sheetPick = []; this.sheetFind = ''; this.side(); } }));
         else {
           var q = (this.sheetFind || '').toLowerCase(), pick = this.sheetPick || [], room = S.max - entries.length;
           addRows.push(K.text({ label: 'Search', value: this.sheetFind || '', placeholder: 'Name or ID', onCommit: (v) => { this.sheetFind = v; this.side(); } }));
@@ -113,7 +118,8 @@
           onChange: async (v) => {
             if (v === '') return;
             var src = others[+v];
-            if (entries.length && !await this.K.confirm(this.shadowRoot, { title: 'Replace This Sheet?', message: 'Its title, style and entries become a copy of ' + src.label + '.', ok: 'Replace' })) { this.side(); return; }
+            if (entries.length && !await this.K.confirm(this.shadowRoot, { title: 'Replace This Sheet?', message: 'Its title, style and entries become a copy of ' + src.label + '.',
+              ok: 'Replace' })) { this.side(); return; }
             edit((x) => { var c = G.copySheet(src.sheet); Object.keys(x).forEach((k) => delete x[k]); Object.assign(x, c); });
           } }));
         add(K.group({ header: 'Entries', footer: entries.length + ' of ' + S.max + '. The same accessory may be here twice, each with its own look.' }, addRows));
@@ -128,19 +134,22 @@
         rows.push(K.text({ label: 'Icon', value: e.icon || '', placeholder: 'Automatic', maxlength: 78,
           onCommit: (v) => { v = v.trim(); if (v && !S.icon.test(v)) { self.say('An icon is a set and a name, such as mdi:lock.'); self.side(); return; } set({ icon: v || null }); } }));
         var custom = e.color && S.hex.test(e.color);
-        rows.push(K.select({ label: 'Color', value: custom ? 'custom' : e.color || '', options: [['', 'Automatic']].concat(S.colors.map((c) => [c, c.charAt(0).toUpperCase() + c.slice(1)]), [['custom', 'Custom…']]),
+        rows.push(K.select({ label: 'Color', value: custom ? 'custom' : e.color || '',
+          options: [['', 'Automatic']].concat(S.colors.map((c) => [c, c.charAt(0).toUpperCase() + c.slice(1)]), [['custom', 'Custom…']]),
           onChange: (v) => set({ color: v === 'custom' ? '#40c8e0' : v || null }) }));
         if (custom) rows.push(K.text({ label: 'Custom Color', type: 'color', value: e.color, onCommit: (v) => { if (S.hex.test(v)) set({ color: v.toLowerCase() }); } }));
         rows.push(K.seg({ label: 'Tile Style', value: e.tile_style || '', options: [['', 'Same as Sheet'], ['home', 'Home'], ['centred', 'Tall']], onChange: (v) => set({ tile_style: v || null }) }));
         var sec = e.secondary || null;
         if (sec && sec.mode === 'room') {
-          rows.push(K.select({ label: 'Line Under Name', value: 'room', options: [['auto', 'Automatic'], ['state', 'State'], ['room', 'Room'], ['brightness', 'Brightness'], ['attribute', 'An Attribute'], ['none', 'Hidden']],
+          rows.push(K.select({ label: 'Line Under Name', value: 'room', options: [['auto', 'Automatic'], ['state', 'State'], ['room', 'Room'], ['brightness', 'Brightness'],
+            ['attribute', 'An Attribute'], ['none', 'Hidden']],
             onChange: (m) => set({ secondary: m === 'auto' ? null : m === 'attribute' ? { mode: m, attribute: 'friendly_name' } : { mode: m } }) }));
         } else {
           var tmp = [];
           this.secondaryFields(sec, e.entity, (v) => set({ secondary: v }), tmp);
           // (the accessories' choices, and Room: an entry's own line may say where it is)
-          if (tmp[0]) tmp[0] = K.select({ label: 'Line Under Name', value: sec ? sec.mode : 'auto', options: [['auto', 'Automatic'], ['state', 'State'], ['room', 'Room'], ['brightness', 'Brightness'], ['attribute', 'An Attribute'], ['none', 'Hidden']],
+          if (tmp[0]) tmp[0] = K.select({ label: 'Line Under Name', value: sec ? sec.mode : 'auto',
+            options: [['auto', 'Automatic'], ['state', 'State'], ['room', 'Room'], ['brightness', 'Brightness'], ['attribute', 'An Attribute'], ['none', 'Hidden']],
             onChange: (m) => {
               var a = (this.panel.client.states[e.entity] || {}).attributes || {}, keys = Object.keys(a).sort();
               set({ secondary: m === 'auto' ? null : m === 'attribute' ? { mode: m, attribute: keys.includes('battery_level') ? 'battery_level' : keys[0] || 'friendly_name' } : { mode: m } });

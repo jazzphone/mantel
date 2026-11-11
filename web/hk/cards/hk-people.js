@@ -41,7 +41,8 @@
   // THE FACES' GRID on a Small or Large block: the columns and rows that draw them largest in (w x h), each cell a
   // finger's 44 at least with `tx` px of words under its face, the face to `cap`; ties go to the fuller grid, and
   // with `one` (Small) a single row wins while its faces are 40 or more -- no 2 + 1 wrap; where there are words (Large) a grid with faces
-  // down to 80 % of the largest wins if it fills the block more, rows weighing most (3 as 2 + 1, not a row in the middle of it), a full last row 1.8 times (4 as 2 x 2, 6 as 3 x 2, not 3 + 1 or 5 + 1). When they cannot all fit,
+  // down to 80 % of the largest wins if it fills the block more, rows weighing most (3 as 2 + 1, not a row in the middle of it), a full last row 1.8 times (4 as 2 x 2, 6 as 3 x 2, not 3 + 1 or 5 +
+  // 1). When they cannot all fit,
   // as many as do, the last cell saying how many more. -> {c, f, fit}
   function faceGrid(n, w, h, tx, cap, one) {
     var best = null, all = [];
@@ -62,7 +63,8 @@
   // (Tall's caption: how long they have been there -- the time today, else the weekday)
   function timeOf(s) {
     var t = s.last_changed ? new Date(s.last_changed) : null;
-    return !t || isNaN(t.getTime()) ? '' : t.toDateString() === new Date().toDateString() ? t.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : t.toLocaleDateString([], { weekday: 'short' });
+    return !t || isNaN(t.getTime()) ? '' : t.toDateString() === new Date().toDateString() ? t.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) :
+      t.toLocaleDateString([], { weekday: 'short' });
   }
   function sinceOf(s) { var x = timeOf(s); return x ? ' · ' + x : ''; }
   function firstOf1(st, id) { return String((st[id].attributes || {}).friendly_name || id).split(/\s+/)[0]; }
@@ -110,7 +112,8 @@
         '.pp .wide .pr b,.pp .wide .mo b,.pp .lg .pr b,.pp .lg .mo b{font-size:15px;font-weight:600;line-height:19px;margin-top:2px}',
         '.pp .wide .pr span:not(.face),.pp .lg .pr span:not(.face){font-size:13px;line-height:16px}',
         // TALL AND LARGE (2026-11-07, the review): Tall a list, each person a row -- face 44, first name, where and since -- at a fixed
-        // height (52; 56 on a square cell, 2026-11-08) and grouped on the middle of the block, never spread down it; Large the faces as large as the block holds them (to 88), name and where under each
+        // height (52; 56 on a square cell, 2026-11-08) and grouped on the middle of the block, never spread down it; Large the faces as large as the block holds them (to 88), name and where under
+        // each
         '.pp .lst{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;justify-content:center;margin-top:' + PP.g + 'px}',
         '.pp .lst .pr{flex:none;height:var(--rh,52px);flex-direction:row;justify-content:flex-start;gap:12px;width:100%;text-align:left}',
         '.pp .lst .tx{display:flex;flex-direction:column;min-width:0}.pp .lst .tx b{' + C.typeCss('headline') + ';text-shadow:' + C.v('glow') + '}',
@@ -172,7 +175,8 @@
     _face(id, i, cls, sty) {
       var esc = C.esc, s = this.client.states[id], a = s.attributes || {}, nm = String(a.friendly_name || id);
       var ini = nm.split(/\s+/).filter(Boolean).slice(0, 2).map(function (w) { return w[0]; }).join('').toUpperCase();
-      return (this._cellSize() === 'S' ? '<div class="pr' : '<button data-id="' + esc(id) + '" class="pr') + (cls ? ' ' + cls : '') + '"' + (sty ? ' style="' + sty + '"' : '') + ' aria-label="' + esc(nm + ', ' + whereOf(s)) + '">' +
+      return (this._cellSize() === 'S' ? '<div class="pr' : '<button data-id="' + esc(id) + '" class="pr') + (cls ? ' ' + cls : '') + '"' + (sty ? ' style="' + sty + '"' : '') + ' aria-label="' +
+        esc(nm + ', ' + whereOf(s)) + '">' +
         '<span class="face" style="--fc:' + C.ACCENTS[FACE[i % FACE.length]] + '">' +
         (a.entity_picture ? '<img alt="" data-initials="' + esc(ini) + '" src="' + esc(a.entity_picture) + '">' : esc(ini)) + '</span>';
     }
@@ -249,7 +253,8 @@
       var ox = cx - W / 2, oy = cy - H / 2, n = Math.pow(2, z), tiles = '';
       for (var tx = Math.floor(ox / T); tx <= Math.floor((ox + W) / T); tx++) for (var ty = Math.floor(oy / T); ty <= Math.floor((oy + H) / T); ty++) {
         if (ty < 0 || ty >= n) continue;
-        tiles += '<img alt="" src="https://tile.openstreetmap.org/' + z + '/' + (((tx % n) + n) % n) + '/' + ty + '.png" style="left:' + Math.round(tx * T - ox) + 'px;top:' + Math.round(ty * T - oy) + 'px">';
+        tiles += '<img alt="" src="https://tile.openstreetmap.org/' + z + '/' + (((tx % n) + n) % n) + '/' + ty + '.png" style="left:' + Math.round(tx * T - ox) + 'px;top:' + Math.round(ty * T - oy) +
+          'px">';
       }
       var face = function (id, d) {
         var a = st[id].attributes || {}, nm = String(a.friendly_name || id), ini = nm.split(/\s+/).filter(Boolean).slice(0, 2).map(function (w) { return w[0]; }).join('').toUpperCase();
@@ -315,7 +320,8 @@
               var s = h.states[id], nm = String((s.attributes || {}).friendly_name || id);
               return self._face(id, i, s.state === 'home' ? 'home' : 'away', lastRow(i, tot, gr.c)) +
                 (lg ? '<b>' + esc(nm.split(/\s+/)[0]) + '</b><span>' + esc(whereOf(s)) + '</span>' : '') + (lg ? '</button>' : '</div>');
-            }).join('') + (cutf ? '<span class="mo" style="' + lastRow(fit, tot, gr.c) + '" aria-label="' + cutf + ' more"><span class="face">+' + cutf + '</span>' + (lg ? '<b>More</b>' : '') + '</span>' : '') +
+            }).join('') + (cutf ? '<span class="mo" style="' + lastRow(fit, tot, gr.c) + '" aria-label="' + cutf + ' more"><span class="face">+' + cutf + '</span>' + (lg ? '<b>More</b>' : '') +
+              '</span>' : '') +
             '</div>' + (lg ? ids.length ? '' : '<div class="line">Nobody added</div>' : '<div class="line">' + esc(ids.length ? this._line(ids) : 'Nobody added') + '</div>');
         } else if (sz === 'T') {
           // (rows of 52, 56 on a square cell, a line for "N more" held back when some are cut)

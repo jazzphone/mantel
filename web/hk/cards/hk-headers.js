@@ -153,7 +153,8 @@
       [{ name: 'entity', selector: { entity: { filter: { domain: ['valve', 'switch'] } } } }, { name: 'title', selector: { text: {} } }].concat(HEIGHT),
       function (client) { return { entity: Object.keys(client.states).filter(function (id) { return id.indexOf('valve.') === 0; })[0] }; });
 
-    window.hkHeaders = { version: '1.0.0', vacRuns: vacRuns, supplyState: supplyState, timerRuns: timerRuns, nextTime: nextTime, goneQuiet: goneQuiet, kindOf: kindOf, rowGlyph: rowGlyph, waysIn: waysIn, wayState: wayState, bars: bars, spans: spans, merge: merge,
+    window.hkHeaders = { version: '1.0.0', vacRuns: vacRuns, supplyState: supplyState, timerRuns: timerRuns, nextTime: nextTime, goneQuiet: goneQuiet, kindOf: kindOf, rowGlyph: rowGlyph,
+      waysIn: waysIn, wayState: wayState, bars: bars, spans: spans, merge: merge,
       // tests: a picture's art.json as if fetched, and the schedule as if sent
       __art: function (base, j) { ARTS[base] = { data: j }; },
       __schedule: function (d) { SCHED.data = d; SCHED.cards.forEach(function (c) { c.redraw(); }); },
@@ -487,7 +488,8 @@
       '.cmds .cl{font-size:13px;font-weight:600;color:' + v('ink-2') + '}',
       '.why{font-size:13px;color:' + v('fail') + ';text-align:center;min-height:18px;margin-top:-' + SP.block + 'px}',
       // Past 7 Days, the automation sheet's history card
-      '.card{align-self:stretch;border-radius:' + SP.cardR + 'px;background:rgba(255,255,255,0.08);padding:' + SP.cardPad + ';min-width:0;flex:1 1 auto;min-height:120px;display:flex;flex-direction:column}',
+      '.card{align-self:stretch;border-radius:' + SP.cardR + 'px;background:rgba(255,255,255,0.08);padding:' + SP.cardPad +
+        ';min-width:0;flex:1 1 auto;min-height:120px;display:flex;flex-direction:column}',
       '.lab{display:flex;justify-content:space-between;align-items:baseline;gap:12px;' + C.labelCss('label') + ';line-height:16px}',
       '.lab .n{text-transform:none;letter-spacing:0;font-weight:500}',
       // THE LIST HAS EDGES: a rule under the label, and the sheet's shadows

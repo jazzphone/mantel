@@ -85,22 +85,27 @@
     // THE HERO OUTDOORS: the number standing on the meadow, then what it counts down to
     '.hkhol .hlhero{position:absolute;left:var(--m);right:var(--m);bottom:var(--herob,120px);display:flex;align-items:flex-end;gap:calc(34px*var(--z))}',
     '.hkhol .num{position:relative;z-index:4;flex:none;font-family:' + ROUNDED + ';font-weight:700;line-height:.8;font-size:var(--nf,300px);',
-    '  color:var(--numc,#fffaf0);text-shadow:0 calc(10px*var(--z)) calc(22px*var(--z)) rgba(0,8,24,.5),0 0 calc(50px*var(--z)) var(--numg,transparent);white-space:nowrap;padding-bottom:calc(6px*var(--z));font-variant-numeric:lining-nums}',
-    '.hkhol .num.foil{background:linear-gradient(180deg,#fff7d8 8%,#f4cb68 52%,#b98a2f 96%);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:none;filter:drop-shadow(0 calc(4px*var(--z)) calc(14px*var(--z)) rgba(0,8,24,.65))}',
+    '  color:var(--numc,#fffaf0);text-shadow:0 calc(10px*var(--z)) calc(22px*var(--z)) rgba(0,8,24,.5),0 0 calc(50px*var(--z)) var(--numg,transparent);white-space:nowrap;' +
+      'padding-bottom:calc(6px*var(--z));font-variant-numeric:lining-nums}',
+    '.hkhol .num.foil{background:linear-gradient(180deg,#fff7d8 8%,#f4cb68 52%,#b98a2f 96%);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:none;' +
+      'filter:drop-shadow(0 calc(4px*var(--z)) calc(14px*var(--z)) rgba(0,8,24,.65))}',
     '.hkhol .words{position:relative;z-index:6;min-width:0;padding-bottom:calc(14px*var(--z))}',
     '.hkhol .eye{font-size:calc(15px*var(--z));font-weight:600;letter-spacing:.5px;text-transform:uppercase;opacity:.82}',
-    '.hkhol .hdl{font-size:var(--hf,74px);font-weight:700;letter-spacing:-.018em;line-height:1.02;margin:calc(4px*var(--z)) 0 calc(6px*var(--z));text-wrap:balance;text-shadow:0 2px 16px rgba(0,8,24,.5)}',
+    '.hkhol .hdl{font-size:var(--hf,74px);font-weight:700;letter-spacing:-.018em;line-height:1.02;margin:calc(4px*var(--z)) 0 calc(6px*var(--z));text-wrap:balance;' +
+      'text-shadow:0 2px 16px rgba(0,8,24,.5)}',
     '.hkhol .dt{font-size:calc(22px*var(--z));font-weight:500;opacity:.92}',
     // the day itself: the greeting takes the whole row
     '.hkhol .hlhero.day{flex-direction:column;align-items:center;gap:calc(8px*var(--z))}',
-    '.hkhol .hello{position:relative;z-index:4;text-align:center;font-family:' + ROUNDED + ';font-weight:700;line-height:1.02;font-size:var(--gf,120px);color:var(--numc,#fff);text-shadow:0 4px 26px rgba(0,8,24,.6),0 0 50px var(--numg,transparent)}',
+    '.hkhol .hello{position:relative;z-index:4;text-align:center;font-family:' + ROUNDED +
+      ';font-weight:700;line-height:1.02;font-size:var(--gf,120px);color:var(--numc,#fff);text-shadow:0 4px 26px rgba(0,8,24,.6),0 0 50px var(--numg,transparent)}',
     '.hkhol .hello span{white-space:nowrap}',
     '.hkhol[tall] .hello span{display:block}',
     '.hkhol .hlhero.day .words{text-align:center;padding-bottom:calc(6px*var(--z))}',
     '.hkhol[tall] .hlhero{flex-direction:column;align-items:center;gap:calc(10px*var(--z))}',
     '.hkhol[tall] .words{text-align:center}',
     // ALONG THE BOTTOM, standing apart, as Home Energy's row
-    '.hkhol .enfoot{position:absolute;z-index:6;left:var(--m);right:var(--m);bottom:calc(26px*var(--z));display:flex;justify-content:space-between;gap:calc(40px*var(--z));align-items:flex-start;border-top:1px solid rgba(255,255,255,.2);padding-top:calc(14px*var(--z))}',
+    '.hkhol .enfoot{position:absolute;z-index:6;left:var(--m);right:var(--m);bottom:calc(26px*var(--z));display:flex;justify-content:space-between;gap:calc(40px*var(--z));align-items:flex-start;' +
+      'border-top:1px solid rgba(255,255,255,.2);padding-top:calc(14px*var(--z))}',
     '.hkhol .enfoot:empty{display:none}',
     '.hkhol .fg .gh{font-size:calc(13px*var(--z));font-weight:700;letter-spacing:.5px;text-transform:uppercase;opacity:.92;margin-bottom:calc(8px*var(--z))}',
     '.hkhol .fg .its{display:flex;gap:calc(36px*var(--z));align-items:flex-start}',
@@ -125,24 +130,30 @@
     // CHRISTMAS: the TV picture in the entertainment center's screen opening, as a VCR's blue on-screen display
     '.hkhol .tv{position:absolute;text-shadow:none}',
     '.hkhol .scr{position:absolute;inset:0;overflow:hidden;border-radius:9% / 11%;background:radial-gradient(ellipse at 50% 45%,#1d3ff0 0,#1230d2 52%,#071a8a 100%)}',
-    '.hkhol .osd{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:calc(var(--t)*.02) calc(var(--t)*.05);color:#fff;font-family:"HK VT323","Courier New",monospace;text-shadow:0 0 calc(var(--t)*.012) rgba(190,215,255,.75);text-transform:uppercase;text-align:center;transform-origin:50% 50%}',
-    '.hkhol .osdt{position:absolute;left:calc(var(--t)*.05);right:calc(var(--t)*.05);top:calc(var(--t)*.032);display:flex;justify-content:space-between;font-size:calc(var(--t)*.05);line-height:1;letter-spacing:.04em}',
+    '.hkhol .osd{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:calc(var(--t)*.02) calc(var(--t)*.05);color:#fff;' +
+      'font-family:"HK VT323","Courier New",monospace;text-shadow:0 0 calc(var(--t)*.012) rgba(190,215,255,.75);text-transform:uppercase;text-align:center;transform-origin:50% 50%}',
+    '.hkhol .osdt{position:absolute;left:calc(var(--t)*.05);right:calc(var(--t)*.05);top:calc(var(--t)*.032);display:flex;justify-content:space-between;font-size:calc(var(--t)*.05);line-height:1;' +
+      'letter-spacing:.04em}',
     '.hkhol .osd .big{font-size:calc(var(--t)*.47);line-height:.74;letter-spacing:-.01em;margin-top:calc(var(--t)*.052)}',
     '.hkhol .osd .gr{font-size:calc(var(--t)*.156);line-height:.86;margin-top:calc(var(--t)*.03)}',
     '.hkhol .osdl{font-size:calc(var(--t)*.083);line-height:1;margin-top:calc(var(--t)*.026);white-space:nowrap}',
     '.hkhol .osdd{font-size:calc(var(--t)*.054);line-height:1;margin-top:calc(var(--t)*.012);opacity:.92;white-space:nowrap}',
     '.hkhol .scan{position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(180deg,rgba(0,0,20,.2) 0 1px,rgba(255,255,255,.015) 1px 3px)}',
-    '.hkhol .scan::before{content:"";position:absolute;left:0;right:0;height:16%;background:linear-gradient(180deg,rgba(255,255,255,0),rgba(255,255,255,.06),rgba(255,255,255,0));animation:hlroll 9s linear infinite}',
+    '.hkhol .scan::before{content:"";position:absolute;left:0;right:0;height:16%;background:linear-gradient(180deg,rgba(255,255,255,0),rgba(255,255,255,.06),rgba(255,255,255,0));' +
+      'animation:hlroll 9s linear infinite}',
     '.hkhol .scan::after{content:"";position:absolute;inset:0;background:linear-gradient(125deg,rgba(255,255,255,.12) 0,rgba(255,255,255,.02) 26%,rgba(255,255,255,0) 40%)}',
     '@keyframes hlroll{from{transform:translateY(-120%)}to{transform:translateY(720%)}}',
     '.hkhol .tv.power .osd{animation:hlcrt 1s cubic-bezier(.22,.8,.25,1) both}',
-    '@keyframes hlcrt{0%{transform:scale(1,.006);filter:brightness(5);opacity:0}7%{opacity:1}36%{transform:scale(1,.006);filter:brightness(5)}72%{transform:scale(1,1.03);filter:brightness(1.6)}100%{transform:none;filter:none}}',
+    '@keyframes hlcrt{0%{transform:scale(1,.006);filter:brightness(5);opacity:0}7%{opacity:1}36%{transform:scale(1,.006);filter:brightness(5)}72%{transform:scale(1,1.03);filter:brightness(1.6)}' +
+      '100%{transform:none;filter:none}}',
     // ...and 12:00 flashing in the VCR's clock window
     '.hkhol .vcr{position:absolute;display:flex;align-items:center;justify-content:center;text-shadow:none}',
-    '.hkhol .vcr span{width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#020a05;font:400 calc(var(--vh)*.62)/1 "HK VT323","Courier New",monospace;color:#66ffa0;text-shadow:0 0 6px #33ff88;animation:hlblink 1.1s steps(1) infinite}',
+    '.hkhol .vcr span{width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#020a05;font:400 calc(var(--vh)*.62)/1 "HK VT323","Courier New",monospace;' +
+      'color:#66ffa0;text-shadow:0 0 6px #33ff88;animation:hlblink 1.1s steps(1) infinite}',
     '@keyframes hlblink{0%,54%{opacity:1}55%,100%{opacity:.08}}',
     // HALLOWEEN: carved into the stone
-    '.hkhol .stn{position:absolute;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:#17191d;font-family:"HK Cinzel","Times New Roman",serif;text-shadow:0 1px 0 rgba(255,255,255,.3),0 -1px 0 rgba(0,0,0,.45);padding:15% 14% 10%;box-sizing:border-box}',
+    '.hkhol .stn{position:absolute;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:#17191d;font-family:"HK Cinzel","Times New Roman",serif;' +
+      'text-shadow:0 1px 0 rgba(255,255,255,.3),0 -1px 0 rgba(0,0,0,.45);padding:15% 14% 10%;box-sizing:border-box}',
     '.hkhol .stn .e1{font-size:calc(var(--t)*.052);font-weight:600;letter-spacing:.24em;text-transform:uppercase;opacity:.86}',
     '.hkhol .stn .big{font-size:calc(var(--t)*.47);font-weight:800;line-height:.88;font-variant-numeric:lining-nums;margin:calc(var(--t)*.006) 0}',
     '.hkhol .stn .gr{font-size:calc(var(--t)*.128);font-weight:800;line-height:1.02;text-transform:uppercase;margin-bottom:calc(var(--t)*.03)}',
@@ -168,9 +179,11 @@
     // the New Year board was hidden with it, 2026-11-09)
     '.hkhol .flap{position:absolute;text-shadow:none}',
     '.hkhol .flap .fbd{position:absolute;inset:0;background-position:center;background-size:100% 100%;background-repeat:no-repeat;pointer-events:none}',
-    '.hkhol .flap .fin{position:absolute;left:5.5%;top:9.9%;width:89%;height:78.9%;background:#0b0b0d;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:calc(var(--t)*.022)}',
+    '.hkhol .flap .fin{position:absolute;left:5.5%;top:9.9%;width:89%;height:78.9%;background:#0b0b0d;display:flex;flex-direction:column;align-items:center;justify-content:center;' +
+      'gap:calc(var(--t)*.022)}',
     '.hkhol .flap .fr{display:flex;gap:calc(var(--t)*.007)}',
-    '.hkhol .flap .flc{position:relative;display:block;width:calc(var(--t)*.067);height:calc(var(--t)*.092);line-height:calc(var(--t)*.092);text-align:center;font-family:"HK Oswald","Arial Narrow",sans-serif;font-weight:500;',
+    '.hkhol .flap .flc{position:relative;display:block;width:calc(var(--t)*.067);height:calc(var(--t)*.092);line-height:calc(var(--t)*.092);text-align:center;' +
+      'font-family:"HK Oswald","Arial Narrow",sans-serif;font-weight:500;',
     '  font-size:calc(var(--t)*.07);color:#f2efe6;border-radius:calc(var(--t)*.005);background:linear-gradient(180deg,#232327 0,#1a1a1d 49.2%,#030303 49.2%,#030303 50.8%,#151518 50.8%,#0f0f11 100%);',
     '  box-shadow:inset 0 1px 0 rgba(255,255,255,.07),0 1px 2px rgba(0,0,0,.8)}',
     '.hkhol .flap .fr.big .flc{width:calc(var(--t)*.15);height:calc(var(--t)*.24);line-height:calc(var(--t)*.24);font-size:calc(var(--t)*.2)}',
@@ -206,7 +219,8 @@
   function chalkHtml(h, n) {
     var d = esc(fmt(h.date, { weekday: 'long', month: 'short', day: 'numeric' }).replace('Nov ', 'Nov. '));
     return '<div class="chalk"><div class="cw">' + (n === 0 ? '<div class="c1">Today is</div><div class="cg">Happy<br>' + esc(h.name) + '!</div><div class="c3">' + d + '</div>'
-      : '<div class="c1">Only</div><div class="cbig hlnum">' + n + '</div><div class="c2">' + (n === 1 ? 'day' : 'days') + ' &rsquo;til <i>' + esc(h.name) + '!</i></div><div class="c3">' + d + '</div>') + '</div></div>';
+      : '<div class="c1">Only</div><div class="cbig hlnum">' + n + '</div><div class="c2">' + (n === 1 ? 'day' : 'days') + ' &rsquo;til <i>' + esc(h.name) + '!</i></div><div class="c3">' + d +
+        '</div>') + '</div></div>';
   }
   // the board's rows: the number big, then two rows of words
   function flapRows(h, n) {
@@ -215,13 +229,15 @@
   }
   function flapHtml(h, n) {
     return '<div class="flap"><div class="fin">' + flapRows(h, n).map(function (r) {
-      return '<div class="fr ' + r[1] + '">' + r[0].split('').map(function (ch) { return '<span class="flc' + (r[1].indexOf('gold') >= 0 ? ' gold' : '') + '" data-c="' + esc(ch) + '">' + (ch === ' ' ? '&nbsp;' : esc(ch)) + '</span>'; }).join('') + '</div>';
+      return '<div class="fr ' + r[1] + '">' + r[0].split('').map(function (ch) { return '<span class="flc' + (r[1].indexOf('gold') >= 0 ? ' gold' : '') + '" data-c="' + esc(ch) + '">' +
+        (ch === ' ' ? '&nbsp;' : esc(ch)) + '</span>'; }).join('') + '</div>';
     }).join('') + '</div><div class="fbd"></div></div>';
   }
   function stoneHtml(h, n) {
     var d = esc(fmt(h.date, { weekday: 'long', month: 'long', day: 'numeric' }));
     return '<div class="stn">' + (n === 0 ? '<div class="gr">' + h.hello.map(esc).join('<br>') + '</div><div class="e4">' + d + '</div>'
-      : '<div class="e1">Only</div><div class="big hlnum">' + n + '</div><div class="e1">' + (n === 1 ? 'Day' : 'Days') + ' Until</div><div class="e3">' + esc(h.name) + '</div><div class="e4">' + d + '</div>') + '</div>';
+      : '<div class="e1">Only</div><div class="big hlnum">' + n + '</div><div class="e1">' + (n === 1 ? 'Day' : 'Days') + ' Until</div><div class="e3">' + esc(h.name) + '</div><div class="e4">' + d +
+        '</div>') + '</div>';
   }
 
   var posJson = null, posAsked = false;
@@ -262,7 +278,8 @@
     var cur = null, curKey = '', today = null, W = 0, H = 0, Z = 1, M = 48, sky = null, data = null, clockT = null, rollT = 0, flipT = null, again = null;
     var fx = window.hkHolidayFx.create(fxC, {
       sprite: function (n) { return url(SKY + n); },
-      num: function () { var out = [], n = heroEl.querySelector('.num'), g = heroEl.querySelector('.hello'); if (n) out.push(n); if (g) g.querySelectorAll('span').forEach(function (s) { out.push(s); }); return out; }
+      num: function () { var out = [], n = heroEl.querySelector('.num'), g = heroEl.querySelector('.hello'); if (n) out.push(n);
+        if (g) g.querySelectorAll('span').forEach(function (s) { out.push(s); }); return out; }
     });
 
     function optsOf() {
@@ -316,19 +333,22 @@
           '<div class="words"><div class="dt">' + (h.own ? 'Here at last' : dateTxt) + '</div></div>';
       } else {
         heroEl.className = 'hlhero';
-        heroEl.innerHTML = '<div class="num hlnum' + (h.foil ? ' foil' : '') + '">' + n + '</div><div class="words"><div class="eye">' + (n === 1 ? 'Day Until' : 'Days Until') + '</div><div class="hdl">' + esc(h.name) + '</div>' +
+        heroEl.innerHTML = '<div class="num hlnum' + (h.foil ? ' foil' : '') + '">' + n + '</div><div class="words"><div class="eye">' + (n === 1 ? 'Day Until' : 'Days Until') +
+          '</div><div class="hdl">' + esc(h.name) + '</div>' +
           '<div class="dt">' + (n === 1 ? 'Tomorrow, ' : '') + dateTxt + '</div></div>';
       }
       var foot = '';
       if (hide.indexOf('count') < 0 && n >= 7) {
         var wk = Math.floor(n / 7), rem = n % 7, sat = HH().weekends(today, h.date);
-        foot += '<div class="fg"><div class="gh">The Countdown</div><div class="its"><div><div class="k">Weeks</div><div class="v">' + wk + (rem ? '<span class="pace">and ' + rem + (rem === 1 ? ' day' : ' days') + '</span>' : '') + '</div></div>' +
+        foot += '<div class="fg"><div class="gh">The Countdown</div><div class="its"><div><div class="k">Weeks</div><div class="v">' + wk +
+          (rem ? '<span class="pace">and ' + rem + (rem === 1 ? ' day' : ' days') + '</span>' : '') + '</div></div>' +
           '<div><div class="k">Weekends Left</div><div class="v">' + sat + '</div></div></div></div>';
       }
       if (hide.indexOf('next') < 0) {
         var up = HH().after(today, optsOf(), h, 3);
         if (up.length) foot += '<div class="fg mo"><div class="gh">Coming Up</div><div class="its">' + up.map(function (u) {
-          return '<div><div class="k"><b style="background:' + esc(u.a || '#fff') + '"></b>' + esc(u.short || u.name) + '</div><div class="v">' + u.days + '<u>' + (u.days === 1 ? 'day' : 'days') + '</u></div></div>';
+          return '<div><div class="k"><b style="background:' + esc(u.a || '#fff') + '"></b>' + esc(u.short || u.name) + '</div><div class="v">' + u.days + '<u>' + (u.days === 1 ? 'day' : 'days') +
+            '</u></div></div>';
         }).join('') + '</div></div>';
       }
       footEl.innerHTML = foot;
@@ -352,7 +372,8 @@
         var s = Math.max(W / 2560, H / 1600), put = function (file, b) {
           var e = document.createElement('div');
           e.className = 'hlov';
-          e.style.cssText = 'left:' + ((W - 2560 * s) / 2 + b[0] * s) + 'px;top:' + (H - 1600 * s + b[1] * s) + 'px;width:' + b[2] * s + 'px;height:' + b[3] * s + 'px;background-image:url("' + url(SKY + file) + '")';
+          e.style.cssText = 'left:' + ((W - 2560 * s) / 2 + b[0] * s) + 'px;top:' + (H - 1600 * s + b[1] * s) + 'px;width:' + b[2] * s + 'px;height:' + b[3] * s + 'px;background-image:url("' +
+            url(SKY + file) + '")';
           ovs.appendChild(e);
         };
         put('birthday-left-' + l + '.webp', [1159, 704, 161, 294]); put('birthday-right-' + l + '.webp', [1459, 714, 176, 294]); put('birthday-props-' + l + '.webp', [1231, 796, 477, 246]);
@@ -394,7 +415,8 @@
       web.style.display = 'none';
       if (cur.id === 'halloween' && num) {
         var lr = el.getBoundingClientRect(), k1 = lr.width / W || 1, r0 = num.getBoundingClientRect(), s = 170 * Z;
-        web.style.cssText = 'display:block;width:' + s + 'px;height:' + s + 'px;left:' + ((r0.right - lr.left) / k1 - s * 0.62) + 'px;top:' + ((r0.top - lr.top) / k1 - s * 0.26) + 'px;background-image:url("' + url(SKY + 'web.webp') + '")';
+        web.style.cssText = 'display:block;width:' + s + 'px;height:' + s + 'px;left:' + ((r0.right - lr.left) / k1 - s * 0.62) + 'px;top:' + ((r0.top - lr.top) / k1 - s * 0.26) +
+          'px;background-image:url("' + url(SKY + 'web.webp') + '")';
       }
     }
     function place(e, x, y, w, h) { if (!e) return; e.style.left = x + 'px'; e.style.top = y + 'px'; e.style.width = w + 'px'; e.style.height = h + 'px'; }

@@ -98,7 +98,10 @@
           K.info({ label: 'Type', value: kind[1] }), K.info({ label: 'Address', value: '#' + p.hash })]));
         if (this.err('pop:' + p.hash)) c.appendChild(h('div', { class: 'errline', role: 'alert', text: this.err('pop:' + p.hash) }));
         if (p.kind === 'camera') {
-          c.appendChild(K.group({ header: 'Camera', footer: 'Live talk-back needs UniFi Protect and the camera’s own speaker; without them it plays a recorded clip. A higher-resolution stream can be shown live.' + (this.talkNote() ? ' ' + this.talkNote() : '') }, [
+          c.appendChild(
+            K.group(
+            { header: 'Camera', footer: 'Live talk-back needs UniFi Protect and the camera’s own speaker; without them it plays a recorded clip. A higher-resolution stream can be shown live.' +
+            (this.talkNote() ? ' ' + this.talkNote() : '') }, [
             this.entityRow({ label: 'Camera', sk: 'pop:entity', value: p.entity, none: null, filter: { domains: ['camera'] },
                              onPick: function (v) { if (v) save({ entity: v }); } }),
             this.entityRow({ label: 'Talk-Back Speaker', sk: 'pop:speaker', value: p.speaker, none: 'The Camera’s Own', filter: { domains: ['media_player'] },
@@ -300,7 +303,8 @@
         }
         c.appendChild(K.group({}, [K.button({ label: 'Delete Page…', destructive: true, sk: 'pg:delete', onClick: function () {
           K.confirm(self.shadowRoot, { title: 'Delete ' + p.title + '?', ok: 'Delete', destructive: true,
-            message: shown.length ? shown.length + ' screen' + (shown.length > 1 ? 's show' : ' shows') + ' it; it will be gone from ' + (shown.length > 1 ? 'them' : 'it') + '.' : 'No screen shows it.' })
+            message: shown.length ? shown.length + ' screen' + (shown.length > 1 ? 's show' : ' shows') + ' it; it will be gone from ' + (shown.length > 1 ? 'them' : 'it') + '.' :
+              'No screen shows it.' })
             .then(function (yes) {
               if (!yes) return;
               self.ws({ type: 'config_entries/subentries/delete', entry_id: self.data.entry_id, subentry_id: p.item }).then(function (ok) {
@@ -375,14 +379,20 @@
           // (the Clean-Areas Script and the Wrong-Code Indicator are the
           // Vacuums and Security pages' since 2026-10-16)
           var own = (self.host() && self.host().owns) || {};
-          if (!own.sidebar) c.appendChild(K.group({ header: 'HK Settings', footer: 'Off: HK Settings leaves the sidebar for everyone. It’s still in ' + haPlace('Settings → Devices & Services → HK Frontend → Configure') + '.' }, [
+          if (!own.sidebar) c.appendChild(K.group({ header: 'HK Settings', footer: 'Off: HK Settings leaves the sidebar for everyone. It’s still in ' +
+            haPlace('Settings → Devices & Services → HK Frontend → Configure') + '.' }, [
             K.toggle({ label: 'Show in Sidebar', sk: 'sidebar', on: I.sidebar !== false, onChange: function (on) { self.setH({ sidebar: on }); } })]));
           var fnd = function (v) { return v ? 'Found' : 'Missing'; };
           // a host that keeps the font and glyphs itself checks them on its own
           // page: HK's folder under /config is not where they are (2026-10-31)
           if (own.files) c.appendChild(K.group({ header: 'Your Files' }, [
             K.nav({ label: 'Font and Glyphs', sk: 'files_host', value: 'In Your Files', href: '#/' + own.files })]));
-          else c.appendChild(K.group({ header: 'Your Files', footer: 'Apple’s SF Pro font and the SF Symbols glyphs can’t ship with the integration. Put the font at fonts/SF-Pro.woff2 and the glyphs at iconset/hk-glyphs.js in this folder, under /config.' }, [
+          else c.appendChild(
+            K.group(
+            { header: 'Your Files',
+            footer:
+            'Apple’s SF Pro font and the SF Symbols glyphs can’t ship with the integration. Put the font at fonts/SF-Pro.woff2 and the glyphs at iconset/hk-glyphs.js in this folder, under /config.' },
+            [
             K.text({ label: 'Folder', sk: 'files_folder', value: I.files_folder, placeholder: 'hk_local', error: self.err('files_folder'),
                      onCommit: function (v) { self.setH({ files_folder: v }); } }),
             K.info({ label: 'SF Pro Font', value: fnd(f.font), valueCls: f.font ? 'ok' : 'warn' }),
@@ -523,7 +533,11 @@
           body: function (c) {
             if (step === 0) {
               c.appendChild(h('div', { class: 'big' }, [h('span', { class: 'tile', style: 'background:' + C.orange }, K.icon('mdi:home-heart', '')),
-                h('p', { text: 'A few questions about your home — its alarm, its weather, how the glass should look — then a first screen, built from your rooms and devices. Everything else is found by itself.' })]));
+                h('p',
+                  {
+                  text:
+                  'A few questions about your home — its alarm, its weather, how the glass should look — then a first screen, built from your rooms and devices. Everything else is found by itself.' })
+                  ]));
               c.appendChild(K.group({}, [K.button({ label: 'Get Started', center: true, fk: 'setup:go', onClick: next })]));
               return;
             }

@@ -309,7 +309,8 @@
         }
         return { text: '', kind: 'live' };              // the button says it: its word is the time, its hint the time left
       // (the big word already says "Sending…": the line under it says where to, never the same word again)
-      case 'sending': return this.fallback.length ? { text: this._fallbackLine(), kind: 'info' } : { text: names.length ? 'To ' + (names.length > 2 ? plural(names.length, 'room', 'rooms') : names.join(', ')) : '', kind: 'pending' };
+      case 'sending': return this.fallback.length ? { text: this._fallbackLine(), kind: 'info' } :
+        { text: names.length ? 'To ' + (names.length > 2 ? plural(names.length, 'room', 'rooms') : names.join(', ')) : '', kind: 'pending' };
       case 'sent': return this._sentLine();
       case 'review': return names.length ? { text: 'Ready to send to ' + names.join(', '), kind: 'info' } : { text: WORDS.chooseRooms, kind: 'info' };
       case 'error': return { text: WORDS.lost, kind: 'failed' };
@@ -588,7 +589,8 @@
   /** @this {Ctl} */ CP._discard = function () {
     if (this.mic) { this.mic.text({ type: 'cancel' }); this.mic.closeSocket(); this.mic.stopPlay(); this.mic.clear(); }
     this.tok++; this.sendTok++;
-    this.state = 'idle'; this.socket = 'none'; this.secs = 0; this.playing = false; this.decision = null; this.sentTo = 0; this.failed = []; this.quiet = []; this.fallback = []; this.draftSent = false;
+    this.state = 'idle'; this.socket = 'none'; this.secs = 0; this.playing = false; this.decision = null; this.sentTo = 0; this.failed = []; this.quiet = []; this.fallback = [];
+      this.draftSent = false;
   };
 
   // ---- the review
@@ -928,7 +930,8 @@
         save: function (v) {
           shared.mem = v; localSet(LAST, JSON.stringify(v));
           var act = (overrides.actions ? overrides.actions() : client && client.actions);
-          if (act && act.callWS) Promise.resolve(act.callWS({ type: 'frontend/set_user_data', key: KEY, value: v })).catch(function (e) { console.warn('[hk-intercom] could not save', e && (e.code || e.message)); });
+          if (act && act.callWS) Promise.resolve(act.callWS({ type: 'frontend/set_user_data', key: KEY, value: v })).catch(
+            function (e) { console.warn('[hk-intercom] could not save', e && (e.code || e.message)); });
         }
       },
       secure: function () { return overrides.secure ? overrides.secure() : window.isSecureContext !== false; },
@@ -1133,7 +1136,8 @@
       return true;
     }
     window.hkIntercom._.listener = function () { return listener; };
-    window.hkIntercom.listen = function () { wantListen = true; if (!startListener(null) && !listener && C.onClient) C.onClient(function (c) { if (wantListen) startListener(c); }); return !!listener; };
+    window.hkIntercom.listen = function () { wantListen = true; if (!startListener(null) && !listener && C.onClient) C.onClient(function (c) { if (wantListen) startListener(c); }); return !!listener;
+      };
     if (wantListen) window.hkIntercom.listen();
     var HkBase = C.HkBase, v = C.v, esc = C.esc, TILE = C.TILE;
 
@@ -1145,7 +1149,9 @@
     // the right: the rooms that fit, then "+N", never a name cut in two.
     // THE BLOCK'S GLYPH (2026-11-07, the review): Apple's Intercom is five rounded vertical bars, tall in the middle (a
     // waveform), not a microphone -- drawn here, a stroke each, in the box the glyph has (the bars' ink is 87 % of it)
-    var BARS = '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 9v6M7.75 6v12M12 3v18M16.25 7v10M20.5 10v4" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"></path></svg>';
+    var BARS =
+      '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 9v6M7.75 6v12M12 3v18M16.25 7v10M20.5 10v4" fill="none" stroke="currentColor" stroke-width="2.4" ' +
+      'stroke-linecap="round"></path></svg>';
     var BLOCK_CSS = [
       ':host{display:block;height:100%}',
       'hk-plate.k{box-sizing:border-box;height:100%;display:flex;flex-direction:row;align-items:stretch;gap:12px;',
@@ -1188,7 +1194,8 @@
       _size() { var s = (this.getAttribute && this.getAttribute('size')) || (this._config || {}).size; return s === 'W' ? 'W' : 'S'; }
       _sigOf() {
         var f = feedNow(), m = shared.mem || {};
-        return JSON.stringify([this._size(), this.getAttribute('tile') || '', !!(this.client && this.client.intercom), f ? [f.enabled, f.rooms.map(function (r) { return r.room + r.name; })] : null, m.rooms || null]);
+        return JSON.stringify([this._size(), this.getAttribute('tile') || '', !!(this.client && this.client.intercom), f ? [f.enabled, f.rooms.map(function (r) { return r.room + r.name; })] : null,
+          m.rooms || null]);
       }
       _receiveClient() {
         super._receiveClient();
@@ -1469,7 +1476,8 @@
           '<div class="sec gsec" hidden><div class="grid chips"></div></div>' +
           '<div class="sec rsec"><div class="grid rooms"></div></div><div class="none" hidden></div></div></div></div>';
         var self = this, q = this._root.querySelector.bind(this._root);
-        this._e = { seg: q('.seg'), pick: q('.pick'), gsec: q('.gsec'), rsec: q('.rsec'), chips: q('.chips'), rooms: q('.rooms'), none: q('.none'), line: q('.line'), mic: q('.mic'), mb: q('.mb'), mt: q('.mt'), rv: q('.rv'), foot: q('.foot'),
+        this._e = { seg: q('.seg'), pick: q('.pick'), gsec: q('.gsec'), rsec: q('.rsec'), chips: q('.chips'), rooms: q('.rooms'), none: q('.none'), line: q('.line'), mic: q('.mic'), mb: q('.mb'),
+          mt: q('.mt'), rv: q('.rv'), foot: q('.foot'),
           core: q('.core'), wd: q('.wd'), cnt: q('.cnt'), clr: q('.clr') };
         this._e.clr.addEventListener('click', function (e) { e.stopPropagation(); if (self._ctl && self._e.clr.getAttribute('aria-disabled') !== 'true') self._ctl.clearRooms(); });
         var mb = this._e.mb, down = false;
@@ -1524,7 +1532,8 @@
       }
       _pill(p) {
         var cls = 'pill' + (p.kind === 'preset' ? ' preset' : '');
-        return '<div class="' + cls + '" role="button" tabindex="0" aria-pressed="' + (p.on ? 'true' : 'false') + '" data-chip="' + esc(p.id) + '" data-kind="' + p.kind + '" aria-label="' + esc(p.name) + '">' +
+        return '<div class="' + cls + '" role="button" tabindex="0" aria-pressed="' + (p.on ? 'true' : 'false') + '" data-chip="' + esc(p.id) + '" data-kind="' + p.kind + '" aria-label="' +
+          esc(p.name) + '">' +
           '<span class="l"><b>' + esc(p.name) + '</b></span></div>';
       }
       // A ROOM is a speaker row like the Music page's: the HomePod in its well, the name, its line, the tick (2026-11-10)
@@ -1545,7 +1554,8 @@
         if (segKey !== this._segKey) {
           this._segKey = segKey;
           e.seg.hidden = !view.modes.length;
-          e.seg.innerHTML = view.modes.map(function (m) { return '<button type="button" role="tab" data-mode="' + m.id + '" aria-selected="' + m.on + '"' + (m.disabled ? ' aria-disabled="true"' : '') + (m.on ? ' class="sel"' : '') + '>' + m.label + '</button>'; }).join('');
+          e.seg.innerHTML = view.modes.map(function (m) { return '<button type="button" role="tab" data-mode="' + m.id + '" aria-selected="' + m.on + '"' +
+            (m.disabled ? ' aria-disabled="true"' : '') + (m.on ? ' class="sel"' : '') + '>' + m.label + '</button>'; }).join('');
           if (this._slide && C.slideSeg) { var now = e.seg.querySelector('.sel'); if (now) C.slideSeg(now, this._slide); this._slide = null; }
         }
         // the chips and pills, drawn again only when they differ

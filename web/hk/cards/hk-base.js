@@ -216,7 +216,8 @@
   ST.safeProbe = null;
   ST.safeKept = null;
   ST.safeKey = '';
-  ST.safeGen = 0; window.addEventListener('resize', function () { [250, 800].forEach(function (ms) { setTimeout(function () { ST.safeGen++; }, ms); }); }); // (a rotation's insets come after its resize: an upright iPhone kept its sideways inset, 2026-11-10)
+  // (a rotation's insets come after its resize: an upright iPhone kept its sideways inset, 2026-11-10)
+  ST.safeGen = 0; window.addEventListener('resize', function () { [250, 800].forEach(function (ms) { setTimeout(function () { ST.safeGen++; }, ms); }); });
   function safeArea() {
     var st = document.documentElement && document.documentElement.style, k = window.innerWidth + 'x' + window.innerHeight + '|' + (document.styleSheets || []).length + '|' + ST.safeGen;
     if (st) k += ['top', 'right', 'bottom', 'left'].map(function (v) { return st.getPropertyValue('--hk-safe-' + v); }).join('|');
@@ -300,7 +301,8 @@
     // (the glyphs 15 % larger, 2026-10-31, the owner with HomeView beside them: Apple's ink is ~30 % of the tile's
     // height -- the lock 34 of 120, the lights 39 -- and ours was 25 %)
     tall: { box: 64, glyph: 58, at: 31, text: 55, name: 17, sub: 16, line: 22 },
-    square: { box: 82, glyph: 76, at: 33, text: 57.7, name: 21, sub: 20, line: 27 }, short: { box: 50, glyph: 44, at: 29, text: 49, name: 17, sub: 16, line: 21 },  // (short: a wide tile under 140 px, its words clear of the foot -- 2026-11-08)
+    // (short: a wide tile under 140 px, its words clear of the foot -- 2026-11-08)
+    square: { box: 82, glyph: 76, at: 33, text: 57.7, name: 21, sub: 20, line: 27 }, short: { box: 50, glyph: 44, at: 29, text: 49, name: 17, sub: 16, line: 21 },
     track: -0.3, inset: 10,
     // what of the glyph's box its drawing fills, whatever the glyph (hk-icon
     // `ink`): about 63 px of a 76 px box, HomeView's (2026-10-31, the alarm
@@ -785,7 +787,9 @@
         sel + '{box-sizing:border-box;height:' + h + ';padding:calc(4px - var(--hk-seg-bw, 1px));border-radius:calc(' + h + ' / 2);' +
           // (Flat's own track, --hk-seg-track: on its ivory plate the plate's
           // color made the white choice vanish; the look's plate elsewhere)
-          (o.plate || 'border:' + M.border + ';border-width:var(--hk-seg-bw, 1px);' + M.glass + ';background:' + (o.raised ? 'var(--hk-seg-raised-track,var(--hk-seg-track,' + M.bg + '));box-shadow:var(--hk-field-shadow,none)' : 'var(--hk-seg-track,' + M.bg + ')')) + ';display:flex;gap:2px;position:relative}',
+          (o.plate || 'border:' + M.border + ';border-width:var(--hk-seg-bw, 1px);' + M.glass + ';background:' +
+            (o.raised ? 'var(--hk-seg-raised-track,var(--hk-seg-track,' + M.bg + '));box-shadow:var(--hk-field-shadow,none)' : 'var(--hk-seg-track,' + M.bg + ')')) +
+            ';display:flex;gap:2px;position:relative}',
         it + '{appearance:none;font:inherit;box-sizing:border-box;min-width:' + (o.fill ? '0' : '74px') + ';height:' + ih + ';' +
           // sharing the width, a long name wraps to two lines rather than lose its end
           // (NOT overflow:hidden: the chosen one's ::before starts the slide at the old choice's
@@ -1060,7 +1064,8 @@
     // THE BLOCK'S INSET (2026-10-30, the owner: "proper understanding of edge padding"): one padding for every Home
     // Grid block's plate -- the grid's cell sets --hk-pad-t / -r / -b / -l (hk-layout.js: 14 px on tiles, 18 on
     // square cells, a Square screen's corner inset added), and where no grid does (a card on a page) the plate keeps
-    // `pad`, its own (CSS, one to four values). Tiles keep TILE.pad (DESIGN.md Rule 5): this is for the blocks. (shape: the inset of the shapes in a block -- 13 on square cells, the grid's gap; text keeps 18)
+    // `pad`, its own (CSS, one to four values). Tiles keep TILE.pad (DESIGN.md Rule 5): this is for the blocks. (shape: the inset of the shapes in a block -- 13 on square cells, the grid's gap; text
+    // keeps 18)
     window.hkCards.blockPad = function (pad, shape) {
       var p = String(pad || '14px').trim().split(/\s+/);
       if (p.length === 1) p = [p[0], p[0], p[0], p[0]];

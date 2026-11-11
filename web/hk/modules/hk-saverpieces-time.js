@@ -197,7 +197,9 @@
     }
     return svg + '<text x="50" y="72" text-anchor="middle" font-weight="600" font-size="14" opacity=".85">' + esc(code) + '</text></svg>';
   }
-  var CLOCK = '<svg class="a" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
+  var CLOCK =
+    '<svg class="a" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path ' +
+    'd="M12 7v5l3 2"/></svg>';
 
   W.define('world', {
     name: 'World Clock', group: GROUP, wave: 'A', facts: ['world'], source: 'Intl', when: null,

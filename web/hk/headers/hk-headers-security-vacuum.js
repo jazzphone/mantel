@@ -218,9 +218,11 @@
             (t < m0 ? 'Yesterday ' : '') + hm(t) + '</time></div>');
         });
         this._paint('<div class="in"><div class="hi"><div class="lab">Your Home</div>' + pic + '</div>' +
-          '<div class="ap"><div class="ttl"><b>Recent Activity</b><span class="cnt">' + (!rows.length ? 'today' : today ? rows.length + ' today' : rows.length + (rows.length === 1 ? ' event' : ' events')) + '</span>' +
+          '<div class="ap"><div class="ttl"><b>Recent Activity</b><span class="cnt">' +
+            (!rows.length ? 'today' : today ? rows.length + ' today' : rows.length + (rows.length === 1 ? ' event' : ' events')) + '</span>' +
             (rows.length ? '<button class="xp" data-expand aria-pressed="' + expanded + '">' + (expanded ? 'Collapse' : 'Expand') + '</button>' : '') + '</div>' +
-          (rows.length ? '<div class="hk-edge"><div class="lst">' + rows.join('') + '</div></div>' : '<div class="none">' + (this._log ? 'Nothing opened, unlocked or wet today.' : 'Reading today’s activity…') + '</div>') + '</div></div>');
+          (rows.length ? '<div class="hk-edge"><div class="lst">' + rows.join('') + '</div></div>' : '<div class="none">' +
+            (this._log ? 'Nothing opened, unlocked or wet today.' : 'Reading today’s activity…') + '</div>') + '</div></div>');
         // ---- device care
         var quiet = careIds.filter(function (id) { return goneQuiet(h, id, now); });
         var low = [], lim = cfg.low_battery || 20, devs = {};
@@ -259,7 +261,8 @@
         this._care.style.display = item ? '' : 'none';
         if (item) {
           if (low.length && quiet.length) item.p = item.p.replace(/\.$/, '') + ' · ' + quiet.length + (quiet.length === 1 ? ' sensor isn’t reporting.' : ' sensors aren’t reporting.');
-          C.morph(this._care, '<div class="well" style="--a:' + P.yellow + '"><hk-icon icon="' + item.icon + '"></hk-icon></div><div class="tx"><div class="lab">Device Care</div><b>' + esc(item.b) + '</b><p>' + esc(item.p) + '</p></div>' +
+          C.morph(this._care, '<div class="well" style="--a:' + P.yellow + '"><hk-icon icon="' + item.icon + '"></hk-icon></div><div class="tx"><div class="lab">Device Care</div><b>' + esc(item.b) +
+            '</b><p>' + esc(item.p) + '</p></div>' +
             '<button class="pill"' + (this._careIds.length > 1 ? ' data-care' : '') + ' data-more="' + esc(item.id) + '">' + (this._careIds.length > 1 ? 'Show All' : 'Details') + '</button>');
         }
       }

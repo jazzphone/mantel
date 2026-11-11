@@ -507,7 +507,8 @@
               nwhile = dr.whileRows;
             }
           }
-          c.appendChild(K.group({ header: 'Notifications', footer: 'Which notifications there are, and All Screens’ choices, are in Notifications. An Important one gets through Do Not Disturb.' }, nrows));
+          c.appendChild(K.group({ header: 'Notifications', footer: 'Which notifications there are, and All Screens’ choices, are in Notifications. An Important one gets through Do Not Disturb.' },
+            nrows));
           if (nwhile) c.appendChild(K.group({ header: 'Do Not Disturb While This Is On', footer: 'An input_boolean, a switch, a timer while it runs.' }, nwhile));
         }
 
@@ -689,7 +690,10 @@
           if (g === 'names') { var n = self.screenNames(st.from); return n ? n + (n === 1 ? ' accessory' : ' accessories') : 'None on that screen'; }
           return null;
         };
-        c.appendChild(K.group({ header: 'What to Copy', footer: 'The Home Grid, scenes, favorites and accessory names are usually a screen’s own, so they start unticked. In a copied layout, Tablet’s Room means this screen’s tablet.' },
+        c.appendChild(
+          K.group(
+          { header: 'What to Copy',
+          footer: 'The Home Grid, scenes, favorites and accessory names are usually a screen’s own, so they start unticked. In a copied layout, Tablet’s Room means this screen’s tablet.' },
           M.COPY_GROUPS.map(function (g) {
             var on = st.groups.indexOf(g[0]) >= 0;
             return K.check({ label: g[1], sub: subOf(g[0]), multi: true, on: on, fk: 'copy:g:' + g[0], onClick: function () {
@@ -1033,7 +1037,10 @@
                               sk: ctx.sk('tab_bar_start'), on: v.tab_bar_start === 'small', onChange: function (on) { set({ tab_bar_start: on ? 'small' : 'full' }); } });
           }, function (x) { return x === 'small' ? 'On' : 'Off'; }));
         }
-        c.appendChild(K.group({ header: 'While Scrolling', footer: 'Shrink folds the bar into one small button as you scroll down; Hide slides it away. Scrolling up, either end of the page or a tap brings it back.' }, scroll));
+        c.appendChild(
+          K.group(
+          { header: 'While Scrolling', footer: 'Shrink folds the bar into one small button as you scroll down; Hide slides it away. Scrolling up, either end of the page or a tap brings it back.' },
+          scroll));
         var tabs = [], nums = function (list) { return list.map(function (t) { return [String(t[0]), t[1]]; }); };
         if (tb) tabs = tabs.concat(this.mRow(ctx, 'tab_bar_tabs', function (set, whose) {
           return K.select({ label: 'Tabs in Bar', sub: whose || 'On tablets and computers, at the bottom or the top.', sk: ctx.sk('tab_bar_tabs'),
@@ -1059,7 +1066,10 @@
                            options: M.TAB_BAR_ROOMS, onChange: function (x) { var ch = {}; ch['tab_bar_rooms' + d[1]] = x; set(ch); } });
           }, function (x) { return M.choiceLabel(M.TAB_BAR_ROOMS, M.roomsPlace(x)); }));
         });
-        c.appendChild(K.group({ header: 'More', footer: 'Icons: a grid, as wide as the screen allows. List: rows like the side menu. Rooms In More sit under the pages; Own Button is a round button beside the bar.' }, more));
+        c.appendChild(
+          K.group(
+          { header: 'More', footer: 'Icons: a grid, as wide as the screen allows. List: rows like the side menu. Rooms In More sit under the pages; Own Button is a round button beside the bar.' },
+          more));
         this.inMenuRows(c, ctx, false);
       }
       // BACK BUTTON & TITLE (page_header, Page Header before 2026-10-29): the
@@ -1128,7 +1138,12 @@
           if (v) next[key] = v; else delete next[key];
           self.setH({ 'look.page_accents': next });
         };
-        c.appendChild(K.group({ footer: 'The page’s own color: in the menu when you’re on it, while a screen’s Accent Color is Automatic, and in Flat a very light or very dark shade of it is the page’s Automatic background. Choosing another Background overrides that.' }, [
+        c.appendChild(
+          K.group(
+          {
+          footer:
+          'The page’s own color: in the menu when you’re on it, while a screen’s Accent Color is Automatic, and in Flat a very light or very dark shade of it is the page’s Automatic background. ' +
+          'Choosing another Background overrides that.' }, [
           K.check({ label: 'Default', sub: pa.d.name, tile: ['', pa.d.hex], on: !pa.own, fk: 'paccent:default', onClick: function () { put(null); } })]));
         c.appendChild(K.group({ header: 'Colors' }, M.ACCENTS.map(function (x) {
           return K.check({ label: x[1], tile: ['', x[2]], on: pa.own && !pa.a.custom && pa.a.hex === x[2], fk: 'paccent:' + x[0], onClick: function () { put(x[0]); } });
@@ -1175,7 +1190,8 @@
         M.ACCENTS.forEach(function (n) {
           rows.push(K.check({ label: n[1], tile: ['', n[2]], on: named(n), fk: 'accent:' + n[0], onClick: function () { pick(n[0]); } }));
         });
-        c.appendChild(K.group({ footer: 'Colors the menu’s icons, the tab bar and the page you’re on. In Flat it also shades an Automatic background and, while Off Pill Tint matches it, the pills.' }, rows));
+        c.appendChild(K.group({ footer: 'Colors the menu’s icons, the tab bar and the page you’re on. In Flat it also shades an Automatic background and, while Off Pill Tint matches it, the pills.' },
+          rows));
         var custom = mine && cur !== 'auto' && !M.ACCENTS.some(function (n) { return named(n); });
         var row = K.text({ label: 'Your Own Color', sub: custom ? ac.name + ' · ' + (ac.hex || '').toUpperCase() : 'Pick any color.', type: 'color', fk: 'accent:custom',
                            value: ac.hex || '#ff9f0a', error: this.err('menu.accent') || this.err('b:accent'),

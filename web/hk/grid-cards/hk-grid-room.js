@@ -58,7 +58,8 @@
       '.slot{container-type:size;container-name:hk-cell;--hk-cell-shape:none;min-width:0;min-height:0}.slot > *{display:block;width:100%;height:100%}',
       // "N MORE" AS A TILE (2026-11-08, the lead's review: its text was a speck in a full-size tile): the ellipsis in the tile's glyph place
       // and "N More" in its name role, like Security's "... 3 more" row
-      '.more{border:0;border-radius:var(--hk-inner-radius,' + v('glass-radius') + ');' + C.plate('tile') + ';color:' + v('ink') + ';' + type('headline') + ';text-shadow:' + v('glow') + ';min-height:44px;cursor:pointer;',
+      '.more{border:0;border-radius:var(--hk-inner-radius,' + v('glass-radius') + ');' + C.plate('tile') + ';color:' + v('ink') + ';' + type('headline') + ';text-shadow:' + v('glow') +
+        ';min-height:44px;cursor:pointer;',
       '  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px}',
       // (the Centred tile's own numbers: the glyph over the name, the name role, the glyph larger on a square cell)
       '.more hk-icon{width:44px;height:44px;--mdc-icon-size:100%;display:flex;color:' + v('ink-2') + '}',
@@ -72,7 +73,8 @@
       // more below' (dots, not '1 of 4 rooms')"): one short line, centred --
       // the rooms' dots when the block pages through them, a tap beside the
       // current one a room back or on, and what is scrolled out of sight
-      '.ft{flex:none;display:flex;align-items:center;justify-content:center;gap:8px;height:16px;min-width:0;margin-bottom:var(--hk-text-in,0px);' + type('micro') + ';line-height:16px;color:' + v('ink-2') + ';text-shadow:' + v('glow') + '}',
+      '.ft{flex:none;display:flex;align-items:center;justify-content:center;gap:8px;height:16px;min-width:0;margin-bottom:var(--hk-text-in,0px);' + type('micro') + ';line-height:16px;color:' +
+        v('ink-2') + ';text-shadow:' + v('glow') + '}',
       '.ft[hidden],.ft [hidden]{display:none}',
       '.fd{all:unset;position:relative;display:flex;gap:6px;align-items:center;height:16px;cursor:pointer;-webkit-tap-highlight-color:transparent}',
       // (the dots' 44 px target, reaching up over the tiles' gap and down into the inset)
@@ -321,7 +323,8 @@
             if (tall) slot.setAttribute('size', 'S');
             slot.setAttribute('role', 'listitem');
             // (Wide: a row of the room's regular pills -- a thermostat's too, whose tall tile was cut above the foot line)
-            var cfg = Object.assign({}, t, hvHalf ? { size: 'tall' } : p.half ? { size: 'regular', tile: 'home' } : tall ? { size: 'tall' } : { size: 'regular' }, p.color ? { block_color: true } : {});
+            var cfg = Object.assign({}, t, hvHalf ? { size: 'tall' } : p.half ? { size: 'regular', tile: 'home' } : tall ? { size: 'tall' } : { size: 'regular' }, p.color ? { block_color: true } :
+              {});
             // (Centred: every glyph the tile's own size, bare, as an Accessories block's Full -- a room's pills kept the
             // room page's icon size and well, so a Room block's glyphs were a third the size: the owner, 2026-11-01)
             if (centred || hvHalf) { delete cfg.icon_size; delete cfg.bare_icon; delete cfg.well_background; }

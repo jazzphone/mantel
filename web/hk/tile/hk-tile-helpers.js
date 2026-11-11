@@ -195,7 +195,8 @@
     // THE WIDE TILE, CENTERED (2026-11-07, the owner: every block uses its space and keeps equal margins all the way
     // round; a Scene, an Accessory and the Intercom at Wide are one layout): HomeView's tile laid sideways -- the glyph
     // bare at the size the Small tile draws it on that cell (TILE.centred: 64 on tiles, 82 on square cells), its box
-    // centered on a third of the block's width (a quarter left the pair 70 px from the left and 140 from the right; a third balances a name of usual length -- 2026-11-07); the name over the room or state (17 / 16 on tiles, 21 / 20 on
+    // centered on a third of the block's width (a quarter left the pair 70 px from the left and 140 from the right; a third balances a name of usual length -- 2026-11-07); the name over the room or
+    // state (17 / 16 on tiles, 21 / 20 on
     // squares: the Small tile's) left-aligned a gutter (16 px) right of the glyph's box, the pair centered on the glyph's
     // middle, ending in an ellipsis at the block's right inset (--hk-pad-r). `s`: { host, well, icon, name, sub (a list),
     // temp (a thermostat's reading, in the glyph's place) } -- as hkCards.centredTile's, over its rules.
@@ -243,7 +244,8 @@
         at([s.icon]) + '{width:var(--hk-tg)' + I + ';height:var(--hk-tg)' + I + '}' +
         at([s.name]) + '{' + text + ';grid-area:n' + I + ';font-size:' + g.name + 'px' + I + '}' +
         at(s.sub) + '{' + text + ';grid-area:l' + I + ';font-size:' + g.sub + 'px' + I + '}' +
-        (s.temp ? at([s.temp]) + '{position:absolute' + I + ';left:calc(var(--hk-pad-l,14px) + var(--hk-tg) / 2 + 3px)' + I + ';top:50%' + I + ';translate:-50% -50%' + I + ';font-size:22px' + I + '}' : '') +
+        (s.temp ? at([s.temp]) + '{position:absolute' + I + ';left:calc(var(--hk-pad-l,14px) + var(--hk-tg) / 2 + 3px)' + I + ';top:50%' + I + ';translate:-50% -50%' + I + ';font-size:22px' + I +
+          '}' : '') +
         '@container hk-cell (min-height:84px){' + at([s.name], s.host.replace(/\)$/, ':not([data-grid-pager]):not([data-group-pill]))')) + '{white-space:normal' + I +
           ';display:-webkit-box' + I + ';-webkit-line-clamp:2;-webkit-box-orient:vertical}}';
     }
@@ -253,7 +255,8 @@
     // numbers (TILE.centred.tall / .square), `pad`: that cell's inset, `q`: the container query it holds for ('' for tiles)
     function levelTile(g, pad, q) {
       var H = ':host([tile=centred][level][size=T])', T = 'calc(var(--hk-pad-t,' + pad + 'px) + ', I = ' !important', name = g.box + 6;
-      var css = H + ' .lvl{position:absolute;margin:0;left:var(--hk-pad-l,' + pad + 'px);right:var(--hk-pad-r,' + pad + 'px);bottom:var(--hk-pad-b,' + pad + 'px);top:' + T + (name + 2 * g.line + 10) + 'px)}' +
+      var css = H + ' .lvl{position:absolute;margin:0;left:var(--hk-pad-l,' + pad + 'px);right:var(--hk-pad-r,' + pad + 'px);bottom:var(--hk-pad-b,' + pad + 'px);top:' + T + (name + 2 * g.line + 10) +
+        'px)}' +
         H + ' .well{top:' + T + g.box / 2 + 'px)' + I + '}' +
         H + ' .name{top:' + T + name + 'px)' + I + '}' +
         H + ' .label,' + H + ' .room{top:' + T + (name + g.line) + 'px)' + I + '}';

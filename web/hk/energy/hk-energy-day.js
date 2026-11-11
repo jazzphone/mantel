@@ -116,12 +116,14 @@
           var dayIdx = R.hToday, vals = dayIdx.map(function (i) { return slotOf(M, R, D.h, i, sec); });
           var mx = Math.max.apply(null, vals.concat([0.1])), cx = 150, cy = 150, r0 = 58, r1 = 128, svg = '';
           var pt = function (a, r) { return (cx + r * Math.cos(a)).toFixed(1) + ' ' + (cy + r * Math.sin(a)).toFixed(1); };
-          var wedge = function (a0, a1, rr) { return 'M' + pt(a0, r0) + ' L' + pt(a0, rr) + ' A' + rr + ' ' + rr + ' 0 0 1 ' + pt(a1, rr) + ' L' + pt(a1, r0) + ' A' + r0 + ' ' + r0 + ' 0 0 0 ' + pt(a0, r0) + 'Z'; };
+          var wedge = function (a0, a1, rr) { return 'M' + pt(a0, r0) + ' L' + pt(a0, rr) + ' A' + rr + ' ' + rr + ' 0 0 1 ' + pt(a1, rr) + ' L' + pt(a1, r0) + ' A' + r0 + ' ' + r0 + ' 0 0 0 ' +
+            pt(a0, r0) + 'Z'; };
           for (var hh = 0; hh < 24; hh++) {
             var a0 = (hh / 24) * 2 * Math.PI - Math.PI / 2 + 0.02, a1 = ((hh + 1) / 24) * 2 * Math.PI - Math.PI / 2 - 0.02;
             svg += '<path d="' + wedge(a0, a1, r1) + '" fill="' + window.hkCards.v('key') + '"/>';
             if (hh < vals.length) {
-              svg += '<path class="gw" data-i="' + hh + '" style="--i:' + hh + '" d="' + wedge(a0, a1, r0 + (r1 - r0) * Math.max(0.04, vals[hh] / mx)) + '" fill="' + pc + '" fill-opacity="' + (hh === vals.length - 1 ? 1 : 0.82) + '"/>';
+              svg += '<path class="gw" data-i="' + hh + '" style="--i:' + hh + '" d="' + wedge(a0, a1, r0 + (r1 - r0) * Math.max(0.04, vals[hh] / mx)) + '" fill="' + pc + '" fill-opacity="' +
+                (hh === vals.length - 1 ? 1 : 0.82) + '"/>';
             }
           }
           [['12 AM', 0], ['6 AM', 6], ['12 PM', 12], ['6 PM', 18]].forEach(function (l) {
@@ -216,8 +218,10 @@
             var z = slotOf(M, R, D.d, i, sec), today = k === R.todayK, exp = us * (today ? R.share : 1);
             var st2 = stepOf(exp > 0 ? z / exp : 1);
             if (!today) { gone.push(i); if (st2[2].indexOf('above') >= 0) hi++; else if (st2[2].indexOf('elow') >= 0) lo++; }
-            var dlab = new Date(R.dates[k]).toLocaleDateString(window.hkLocale.tag(), window.hkLocale.zoned({ weekday: 'short', month: 'short', day: 'numeric', timeZone: tz })) + ' \u00b7 ' + fx(z, 0) + ' kWh' + (today ? ' so far' : '') + ' \u00b7 ' + st2[2].toLowerCase() + ' usual';
-            cells += '<button class="c gp' + (today ? ' today' : '') + (EP.dayPick === i ? ' sel' : '') + '" data-day="' + i + '" aria-label="' + esc(dlab) + '" title="' + fx(z, 0) + ' kWh · ' + st2[2] + (today ? ' so far' : '') +
+            var dlab = new Date(R.dates[k]).toLocaleDateString(window.hkLocale.tag(), window.hkLocale.zoned({ weekday: 'short', month: 'short', day: 'numeric', timeZone: tz })) + ' \u00b7 ' +
+              fx(z, 0) + ' kWh' + (today ? ' so far' : '') + ' \u00b7 ' + st2[2].toLowerCase() + ' usual';
+            cells += '<button class="c gp' + (today ? ' today' : '') + (EP.dayPick === i ? ' sel' : '') + '" data-day="' + i + '" aria-label="' + esc(dlab) + '" title="' + fx(z, 0) + ' kWh · ' +
+              st2[2] + (today ? ' so far' : '') +
               '" style="--i:' + k + ';background:' + st2[1] + '">' + dn + '</button>';
           });
           // A DAY TAPPED: its own line in place of the legend, its figures, its devices
@@ -235,7 +239,8 @@
           }
           ttlR = pick != null ? 'tap it again for the month' : 'against a usual day';
           var mv = gone.map(function (i) { return slotOf(M, R, D.d, i, sec); }), mb = mv.indexOf(Math.max.apply(null, mv));
-          if (mb >= 0) side.push(['Biggest Day', new Date(R.ax.d[gone[mb]].t).toLocaleDateString(window.hkLocale.tag(), window.hkLocale.zoned({ weekday: 'short', month: 'short', day: 'numeric', timeZone: tz })),
+          if (mb >= 0) side.push(['Biggest Day', new Date(R.ax.d[gone[mb]].t).toLocaleDateString(window.hkLocale.tag(),
+            window.hkLocale.zoned({ weekday: 'short', month: 'short', day: 'numeric', timeZone: tz })),
             fx(mv[mb], 0) + ' kWh', 'Biggest']);
           else side.push(['Biggest Day', '\u2014', 'Not a whole day yet', 'Biggest']);
           // the whole days gone: "of 11" on the 12th, a month's own length once past
@@ -290,7 +295,8 @@
             sp.textContent = b.getAttribute('aria-label') || b.getAttribute('title') || '';
           };
           cardEl.addEventListener('pointerover', function (e) { if (e.pointerType === 'mouse') say(e.target.closest && e.target.closest('.cal .c[data-day]')); });
-          cardEl.addEventListener('pointerout', function (e) { if (e.pointerType === 'mouse' && !(e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('.cal .c[data-day]'))) say(null); });
+          cardEl.addEventListener('pointerout', function (e) { if (e.pointerType === 'mouse' && !(e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('.cal .c[data-day]'))) say(
+            null); });
           cardEl.addEventListener('focusin', function (e) { say(e.target.closest && e.target.closest('.cal .c[data-day]')); });
           cardEl.addEventListener('focusout', function () { say(null); });
         }
@@ -337,7 +343,8 @@
         var x0 = i * (bw + gap), y = H;
         if (b.ghost) {
           var gh = H * b.ghost / mx;
-          svg += '<rect data-i="' + i + '" x="' + x0.toFixed(1) + '" y="' + (H - gh).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + gh.toFixed(1) + '" rx="' + rx.toFixed(1) + '" fill="' + rgba(b.ghostColor || '#ffffff', 0.16) + '"/>';
+          svg += '<rect data-i="' + i + '" x="' + x0.toFixed(1) + '" y="' + (H - gh).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + gh.toFixed(1) + '" rx="' + rx.toFixed(1) + '" fill="' +
+            rgba(b.ghostColor || '#ffffff', 0.16) + '"/>';
         }
         var tot = sum(b.segs.map(function (g) { return g.v; }));
         if (tot <= 0) {
@@ -346,7 +353,8 @@
           // the stack, drawn as one rounded bar: each part clipped from it
           var g0 = '<g class="gr2" data-i="' + i + '" style="--i:' + i + '">', hTot = Math.max(3, H * tot / mx), top = H - hTot;
           var cid = 'c' + (o.id || 'b') + i;
-          g0 += '<clipPath id="' + cid + '"><rect x="' + x0.toFixed(1) + '" y="' + top.toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + hTot.toFixed(1) + '" rx="' + rx.toFixed(1) + '"/></clipPath>';
+          g0 += '<clipPath id="' + cid + '"><rect x="' + x0.toFixed(1) + '" y="' + top.toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + hTot.toFixed(1) + '" rx="' + rx.toFixed(1) +
+            '"/></clipPath>';
           b.segs.forEach(function (g) {
             if (g.v <= 0) return;
             var hh = hTot * g.v / tot;
@@ -395,7 +403,8 @@
     function glyphDrop(color, gas) {
       return '<svg class="gl" width="56" height="72" viewBox="0 0 56 72" aria-hidden="true">' + (gas
         ? '<path d="M28 6c2.5 9 14 16 14 31a14 14 0 0 1-28 0c0-7 5-12 7-17 0 5 2.5 7 5 7 0-7 0-14 2-21z" fill="' + color + '"/>'
-        : '<path d="M28 6s20 22 20 37a20 20 0 0 1-40 0C8 28 28 6 28 6z" fill="' + color + '"/><path d="M18 45a10 10 0 0 0 10 10" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width="3" stroke-linecap="round"/>') +
+        : '<path d="M28 6s20 22 20 37a20 20 0 0 1-40 0C8 28 28 6 28 6z" fill="' + color +
+          '"/><path d="M18 45a10 10 0 0 0 10 10" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width="3" stroke-linecap="round"/>') +
         '</svg>';
     }
     var MINI_CSS = [

@@ -654,7 +654,9 @@
     var artBad = {};                   // url -> when it failed
     var artUse = {};
     var artLast = {};                  // key -> the url last kept
-    var ART_NOTE = 'M21,3V15.5A3.5,3.5 0 0,1 17.5,19A3.5,3.5 0 0,1 14,15.5A3.5,3.5 0 0,1 17.5,12C18.04,12 18.55,12.12 19,12.34V6.47L9,8.6V17.5A3.5,3.5 0 0,1 5.5,21A3.5,3.5 0 0,1 2,17.5A3.5,3.5 0 0,1 5.5,14C6.04,14 6.55,14.12 7,14.34V6L21,3Z';
+    var ART_NOTE =
+      'M21,3V15.5A3.5,3.5 0 0,1 17.5,19A3.5,3.5 0 0,1 14,15.5A3.5,3.5 0 0,1 17.5,12C18.04,12 18.55,12.12 19,12.34V6.47L9,8.6V17.5A3.5,3.5 0 0,1 5.5,21A3.5,3.5 0 0,1 2,17.5A3.5,3.5 0 0,1 ' +
+      '5.5,14C6.04,14 6.55,14.12 7,14.34V6L21,3Z';
     var ART_COLORS = ['#ff9500', '#5856d6', '#34c759', '#ff2d55', '#32ade6'];
 
     // THE KEY SAYS WHICH PICTURE IT IS (the lead, 2026-10-31: a failed cover must never be the PREVIOUS TRACK's). A cover's
@@ -1171,7 +1173,8 @@
           return;
         }
         // a washer's or dryer's sheet (hk-laundry.js); the Intercom Button: `#intercom` loads the sheet's code and opens it (hk-loader.js), or again
-        if (action === 'laundry' && window.hkLaundry && window.hkLaundry.open(spec.machine, this.client)) return; if (action === 'intercom') { var I = window.hkIntercom; if (location.hash === '#intercom' && I && I.open) I.open({ hashed: true }); else location.hash = '#intercom'; return; }
+        if (action === 'laundry' && window.hkLaundry && window.hkLaundry.open(spec.machine, this.client)) return;
+          if (action === 'intercom') { var I = window.hkIntercom; if (location.hash === '#intercom' && I && I.open) I.open({ hashed: true }); else location.hash = '#intercom'; return; }
         if (action === 'navigate' && spec.navigation_path) {
           navigate(navPath(spec), this);
           return;

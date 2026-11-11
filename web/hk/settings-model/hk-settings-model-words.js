@@ -39,9 +39,13 @@
     // Each kind: key, name, the detail page’s description, and the list page’s
     // sub-line -- what the kind feeds, in the chips’ and pages’ own words.
     var COUNT_KINDS = [
-      ['smoke', 'Smoke & CO', 'Smoke and carbon monoxide alarms. When one goes off, the Smoke & CO chip appears in red at the start of every screen’s chip row — whatever chips the screen shows. Anything else that should set it off — a gas detector, say — can be added explicitly.', 'The Smoke & CO chip appears first, in red, when one goes off.'],
-      ['temperature', 'Temperature', 'Room-related temperature sensors, or a thermostat’s current reading where a room has no related sensor. Other sensors can be added explicitly.', 'The Climate page’s temperature range.'],
-      ['humidity', 'Humidity', 'Room-related humidity sensors, or a thermostat’s current humidity where a room has no related sensor. Other sensors can be added explicitly.', 'The Climate page’s humidity range.'],
+      ['smoke', 'Smoke & CO',
+        'Smoke and carbon monoxide alarms. When one goes off, the Smoke & CO chip appears in red at the start of every screen’s chip row — whatever chips the screen shows. Anything else that ' +
+        'should set it off — a gas detector, say — can be added explicitly.', 'The Smoke & CO chip appears first, in red, when one goes off.'],
+      ['temperature', 'Temperature', 'Room-related temperature sensors, or a thermostat’s current reading where a room has no related sensor. Other sensors can be added explicitly.',
+        'The Climate page’s temperature range.'],
+      ['humidity', 'Humidity', 'Room-related humidity sensors, or a thermostat’s current humidity where a room has no related sensor. Other sensors can be added explicitly.',
+        'The Climate page’s humidity range.'],
       ['lights', 'Lights', 'Every light. The Lights chip counts the ones that are on.', 'The Lights chip counts the ones that are on.'],
       ['fans', 'Fans', 'Every fan. The Climate chip counts the ones that are on.', 'The Climate chip counts the ones that are on.'],
       ['doors', 'Doors', 'Door contacts. The Doors & Windows chip counts the open ones.', 'The Doors & Windows chip counts the open ones.'],
@@ -53,10 +57,15 @@
       ['thermostats', 'Thermostats', 'The house’s thermostats. The Climate chip’s glyph follows them.', 'The Climate chip’s glyph follows them.'],
       ['timers', 'Timers', 'Timer helpers. The Timers chip counts the running ones.', 'The Timers chip counts the running ones.'],
       ['vacuums', 'Vacuums', 'Robot vacuums. The Vacuums chip counts the ones cleaning.', 'The Vacuums chip counts the ones cleaning.'],
-      ['speakers', 'Speakers', 'Media players that aren’t TVs or receivers (or Music’s rooms, when it’s added). The Speakers chip counts the ones playing.', 'The Speakers chip counts the ones playing.'],
+      ['speakers', 'Speakers', 'Media players that aren’t TVs or receivers (or Music’s rooms, when it’s added). The Speakers chip counts the ones playing.',
+        'The Speakers chip counts the ones playing.'],
       ['motion', 'Motion', 'Motion sensors. The status rows of Doors & Windows and Security say which rooms have motion.', 'Doors & Windows’ and Security’s status rows.'],
       ['occupancy', 'Occupancy', 'Occupancy and presence sensors. The status rows say which rooms are occupied.', 'Doors & Windows’ and Security’s status rows.'],
-      ['valves', 'Valves', 'Water valves: a sprinkler, the house’s main water. Not gas valves. The Water page lists them and its status row says which are running.', 'The Water page and its status row.'], ['scenes', 'Scenes', 'Every Home Assistant scene. Add a button or script that works as one — an input_button that runs a routine — and it joins the scene blocks, the rooms’ scene rows and Suggested Scene.', 'Scene blocks, rooms’ scene rows and Suggested Scene.']
+      ['valves', 'Valves', 'Water valves: a sprinkler, the house’s main water. Not gas valves. The Water page lists them and its status row says which are running.',
+        'The Water page and its status row.'],
+        ['scenes', 'Scenes',
+        'Every Home Assistant scene. Add a button or script that works as one — an input_button that runs a routine — and it joins the scene blocks, the rooms’ scene rows and Suggested Scene.',
+        'Scene blocks, rooms’ scene rows and Suggested Scene.']
     ];
     // THE SCREENSAVER'S CLOCKS (2026-10-13; hk-saverclock.js STYLES / BGS,
     // settings.py SAVER_CLOCK_STYLES / SAVER_CLOCK_BGS): [id, name, what it is]
@@ -134,9 +143,12 @@
       color: 'A still color, a little different by day and by night. No sun, moon, stars, weather or decorations.',
       photo: 'A photo of your own, still and sharp. No sun, moon, stars, weather or decorations. A bright photo is dimmed a little so the cards stay readable.',
       // (2026-10-14) HK Frontend's own photos, the screensaver clock's
-      landscapes: 'Fifty landscape photos that come with ' + PN() + ' — mountains, lakes, coasts, forests, the northern lights — a new one each time the screen wakes, on a schedule, or the same one. No sun, moon, stars, weather or decorations.',
+      landscapes: 'Fifty landscape photos that come with ' + PN() +
+        ' — mountains, lakes, coasts, forests, the northern lights — a new one each time the screen wakes, on a schedule, or the same one. No sun, moon, stars, weather or decorations.',
       // (2026-10-30) our own art, hk-wallpapers.js; (2026-10-31) its motion themes
-      wallpaper: 'Soft ribbons, petals, glass shards and pinwheels, and six moving themes, each in any color you choose and each with a darker version for the night. The cards take their color. Best with Bright Glass. No sun, moon, stars, weather or decorations.'
+      wallpaper:
+        'Soft ribbons, petals, glass shards and pinwheels, and six moving themes, each in any color you choose and each with a darker version for the night. The cards take their color. Best with ' +
+        'Bright Glass. No sun, moon, stars, weather or decorations.'
     };
     // A WALLPAPER'S NIGHT VERSION (settings.py WALLPAPER_NIGHT)
     var WALLPAPER_NIGHT = [['auto', 'After Sunset'], ['day', 'Never'], ['night', 'Always']];
@@ -196,7 +208,8 @@
       ['blinds', 'Blinds & Shades', 'mdi:blinds', '#5856d6', { kind: 'blinds' }],
       ['garage', 'Garage Doors', 'mdi:garage', '#34c759', { kind: 'garage', order: 'security' }],
       ['locks', 'Locks', 'mdi:lock', '#34c759', { kind: 'locks', order: 'security' }],
-      ['alarm', 'Security Systems', 'mdi:shield-home', '#ff3b30', { domains: ['alarm_control_panel'], link: ['Alarm Panel', 'page/security', 'Which one the Security page and chip follow is chosen on the Security page, under Pages.'] },
+      ['alarm', 'Security Systems', 'mdi:shield-home', '#ff3b30', { domains: ['alarm_control_panel'],
+        link: ['Alarm Panel', 'page/security', 'Which one the Security page and chip follow is chosen on the Security page, under Pages.'] },
        'The alarm keypad on its room’s page and the Security page.'],
       ['speakers', 'Speakers', 'mdi:speaker', '#af52de', { kind: 'speakers' }],
       ['tvs', 'TVs & Receivers', 'mdi:television', '#8e8e93', { domains: ['media_player'], dc: ['tv', 'receiver'] },
@@ -272,8 +285,12 @@
     ];
     var BLUR_MODES = [
       ['blur', 'Shared Layer', 'Live: the sky blurs as it moves, one blur for the whole page. Fine on wall tablets — but while the sky moves, the device blurs it again on every frame.'],
-      ['blur_pre', 'Pre-rendered (Experimental)', 'Experimental: it can still trail or miss a change now and then. A picture of the sky, blurred once and painted again as the sky changes. The lightest blur, and the smoothest scrolling on a wall tablet: the cards, the tab bar, a docked menu and the Side Pane all wear it. While clouds or a moving wallpaper drift, a new picture fades in every 2 seconds, never while you touch or scroll; the light catches up within a minute. Sheets and menus open over the page still blur live. Rain, snow, meteors and a passing flock don’t show through the glass.'],
-      ['blur_each', 'Each Card', 'Live: every card blurs what’s behind it, so a sheet or a scrolling row never leaves its frost behind. The heaviest — for phones, iPads and computers, not wall tablets.']
+      ['blur_pre', 'Pre-rendered (Experimental)',
+        'Experimental: it can still trail or miss a change now and then. A picture of the sky, blurred once and painted again as the sky changes. The lightest blur, and the smoothest scrolling on ' +
+        'a wall tablet: the cards, the tab bar, a docked menu and the Side Pane all wear it. While clouds or a moving wallpaper drift, a new picture fades in every 2 seconds, never while you touch ' +
+        'or scroll; the light catches up within a minute. Sheets and menus open over the page still blur live. Rain, snow, meteors and a passing flock don’t show through the glass.'],
+      ['blur_each', 'Each Card',
+        'Live: every card blurs what’s behind it, so a sheet or a scrolling row never leaves its frost behind. The heaviest — for phones, iPads and computers, not wall tablets.']
     ];
     // ...and Bright Glass's, the same three by their own stored values
     // (settings.py BRIGHT_GLASS)
@@ -327,7 +344,9 @@
     // hold -- a wider layout is smaller content. '' is the default width;
     // 'custom' a width of the person's own (600 to 2,400 px).
     var CAR_LAYOUTS = [['home', 'Full Home', 'The Home every screen has: the clock, cameras and every room.'],
-                       ['car', 'Car Home', 'The weather and the house’s status along the top — the car shows the time — then the chips, Scenes, Security (the garage, alarm and locks as tall tiles) and Favorites — and the camera strip, if it’s on. No rooms.']];
+                       ['car', 'Car Home',
+                         'The weather and the house’s status along the top — the car shows the time — then the chips, Scenes, Security (the garage, alarm and locks as tall tiles) and Favorites — ' +
+                         'and the camera strip, if it’s on. No rooms.']];
     var CAR_WIDTHS = [['1000', 'Larger'], ['', 'Standard'], ['1400', 'Smaller'], ['custom', 'Custom']];
     var CAR_WIDTH = 1200;
     function carWidthChoice(w, custom) {
@@ -662,7 +681,8 @@
       grid_card: 'That card can’t go on a Home Grid.', grid_size: 'That card doesn’t come in that size.',
       grid_fit: 'That size is bigger than the grid.', grid_place: 'A block is past the edge of the grid.',
       grid_overlap: 'Two blocks are in the same place.', grid_pages: 'A block’s pages couldn’t be read.', grid_sheet: 'A block’s detail sheet has a setting it can’t use.',
-      grid_condition: 'Choose a condition and a fallback card.', grid_fallback: 'Choose a fallback card that supports this block’s size.', grid_sheet_full: 'A detail sheet holds at most 24 accessories.',
+      grid_condition: 'Choose a condition and a fallback card.', grid_fallback: 'Choose a fallback card that supports this block’s size.',
+        grid_sheet_full: 'A detail sheet holds at most 24 accessories.',
       grid_source: 'That card can’t swipe through those pages.', grid_option: 'A block’s option isn’t one it can use.',
       grid_sheet_empty: 'A block opens a detail sheet with nothing in it. Add an accessory, or set When Tapped back to the block’s own.' };
     // A PAGE PILL'S OWN LOOK (hk-chip.js PAGE_PILLS): name, icon, color

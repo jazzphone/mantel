@@ -25,7 +25,12 @@ function drawWallTablets(c) {
   if (got.err) { failed(c, got.err); return; }
   const ts = got.data.tablets.filter((t) => t.supported || t.state === 'set');
   if (!ts.length) return;
-  c.appendChild(group({ header: 'Wall Tablets', footer: 'Mantel reads each tablet’s kiosk app itself, without Home Assistant. Pair a tablet on its own page. Reload and Clear Cache are house commands: they need house commands on, and each is in the Audit Log.' },
+  c.appendChild(
+    group(
+    { header: 'Wall Tablets',
+    footer:
+    'Mantel reads each tablet’s kiosk app itself, without Home Assistant. Pair a tablet on its own page. Reload and Clear Cache are house commands: they need house commands on, and each is in the ' +
+    'Audit Log.' },
     ts.map((t) => {
       const live = t.live, value = t.state !== 'set' ? 'Not Set Up' : t.unreadable ? 'Pair Again' : !live ? '' : live.ok ? 'Connected' : 'Not Connected';
       return K().nav({ label: t.name, sub: [t.app_label, t.url ? t.url.replace(/^http:\/\//, '') : null, t.state === 'set' ? liveSays(live) : null].filter(Boolean).join(' · '),
@@ -101,8 +106,10 @@ export function drawDirect(c, ctx) {
     c.appendChild(group({}, [
       button('Pair Again…', () => { d.open = true; redraw(); }, { fk: 'mx:direct-replace' }),
       button('Disconnect…', async () => {
-        const why = t.app === 'kiosk_satellite' ? ' Kiosk Satellite’s tokens can’t be revoked from Mantel: the token Mantel had keeps working until it expires, unless the tablet’s remote administration is reset.' : '';
-        if (!(await ask({ title: 'Disconnect ' + t.name + '?', message: 'Mantel forgets how to reach this tablet directly. Home Assistant’s own connection to it is not affected.' + why, ok: 'Disconnect', destructive: true }))) return;
+        const why = t.app === 'kiosk_satellite' ?
+          ' Kiosk Satellite’s tokens can’t be revoked from Mantel: the token Mantel had keeps working until it expires, unless the tablet’s remote administration is reset.' : '';
+        if (!(await ask({ title: 'Disconnect ' + t.name + '?', message: 'Mantel forgets how to reach this tablet directly. Home Assistant’s own connection to it is not affected.' + why,
+          ok: 'Disconnect', destructive: true }))) return;
         if (await act(key, () => api('DELETE', '/api/connections/tablets/' + encodeURIComponent(tid)), t.name + ' disconnected.', 'tablets', 'tablets-live', 'tablet-live:' + tid)) reloadPanel();
       }, { destructive: true, fk: 'mx:direct-disconnect' })]));
     return;
@@ -131,7 +138,8 @@ export function drawDirect(c, ctx) {
       ? 'The password is the tablet’s Remote Administration password (' + KIOSK_WHERE.kiosk_satellite + '). Mantel uses it once, to have the tablet make a token, and does not keep it.'
       : 'The password is Fully’s Remote Admin password (' + KIOSK_WHERE.fully + '). Fully has no tokens, so Mantel keeps it sealed.') +
     ' Nothing is saved until it works.' }, [
-    field(form, 'address', 'Address', { value: addr.replace(/^http:\/\//, ''), placeholder: t.app === 'fully' ? 'tablet address, port 2323' : 'tablet address, port 2324', maxlength: 300, inputmode: 'url' }),
+    field(form, 'address', 'Address', { value: addr.replace(/^http:\/\//, ''), placeholder: t.app === 'fully' ? 'tablet address, port 2323' : 'tablet address, port 2324', maxlength: 300,
+      inputmode: 'url' }),
     field(form, 'password', 'Password', { type: 'password', maxlength: 256 }),
     button('Test', run(false), { fk: 'mx:direct-test' }), button(set ? 'Pair Again' : 'Pair', run(true), { fk: 'mx:direct-save' })]));
   if (out) c.appendChild(hh('p', { class: 'mxflash' + (out.err ? ' err' : ''), role: out.err ? 'alert' : 'status', text: out.text }));

@@ -116,7 +116,8 @@
       c.appendChild(K.group({ footer: 'Right now and the controls, beside this page: the house, the battery, the cars, and what the battery backs up.' }, [
         K.nav({ label: 'Power Page', value: pwo && pwo.on !== false ? 'On' : 'Off', href: '#/features/energy/power', fk: 'energy:power' })]));
       var tot = o.total || {};
-      c.appendChild(K.group({ header: 'Whole Home', footer: 'Automatic: the grid meter in Home Assistant’s Energy settings, its cost, and the power sensor behind it (or the Energy chip’s Power Use).' }, [
+      c.appendChild(K.group({ header: 'Whole Home', footer: 'Automatic: the grid meter in Home Assistant’s Energy settings, its cost, and the power sensor behind it (or the Energy chip’s Power Use).'
+        }, [
         P.entityRow({ label: 'Power', sk: 'f:' + EN + ':total:power', value: tot.power || null,
                       none: 'Automatic' + (T.power && !tot.power ? ' (' + enName(P, T.power) + ')' : ''),
                       filter: { domains: ['sensor'], dc: 'power' },
@@ -583,7 +584,8 @@
                              ['some', 'Some Circuits'], ['all', 'The Whole House'], ['none', 'Nothing']],
                    onChange: function (v) { powerSet(P, d, { backs_up: v || null }); } })]));
       var mode = o.mode || null;
-      c.appendChild(K.group({ header: 'Battery Controls', footer: 'Its mode as the page’s choice, with what each one does; its levels as sliders. Each device’s own page says whether the battery backs it up.' }, [
+      c.appendChild(
+        K.group({ header: 'Battery Controls', footer: 'Its mode as the page’s choice, with what each one does; its levels as sliders. Each device’s own page says whether the battery backs it up.' }, [
         P.entityRow({ label: 'Mode', sk: 'f:' + EN + ':power:mode', value: mode ? mode.entity : null, none: 'None', filter: { domains: ['select', 'input_select'] },
                       onPick: function (v) { powerSet(P, d, { mode: v ? Object.assign({}, mode && mode.entity === v ? mode : {}, { entity: v }) : null }); } }),
         K.info({ label: 'Its Choices', value: mode && mode.options ? String(mode.options.length) : 'The select’s own' })]));
@@ -635,7 +637,8 @@
           K.text({ label: 'Name', sk: sk + ':name', value: co.name || '', placeholder: found, maxlength: 40,
                    onCommit: function (v) { carSet(k.level, 'name', v.trim() || null); } }),
           P.withError(K.nav({ label: 'Charging Power', value: val, href: href, sk: sk + ':charger' }), sk + ':charger'),
-          K.info({ label: 'Found', sub: [k.home ? 'location' : null, k.plugged ? 'cable' : null, k.charge ? 'charge switch' : null, k.power ? 'its own charging power' : null].filter(Boolean).join(', ') || 'its level',
+          K.info({ label: 'Found', sub: [k.home ? 'location' : null, k.plugged ? 'cable' : null, k.charge ? 'charge switch' : null, k.power ? 'its own charging power' : null].filter(Boolean).join(
+            ', ') || 'its level',
                    value: where })]));
       });
     }
@@ -647,7 +650,12 @@
       (pl.sections || []).forEach(function (s) { (s.items || []).forEach(function (i) { if (i.key === key) it = i; }); });
       var own = (o.backed || {})[key];
       var autoText = it && it.why !== 'chosen' ? (it.backed ? 'Yes: ' + it.why : 'No') : 'Automatic';
-      c.appendChild(K.group({ header: 'On the Power Page', footer: 'Automatic is Yes when its power sensor or switch is on the battery’s device, its switch is a group of the battery’s circuits, or it sits inside a backed-up circuit. Choose Yes or No where Home Assistant can’t tell (a plug on a backed-up circuit).' }, [
+      c.appendChild(
+        K.group(
+        { header: 'On the Power Page',
+        footer:
+        'Automatic is Yes when its power sensor or switch is on the battery’s device, its switch is a group of the battery’s circuits, or it sits inside a backed-up circuit. Choose Yes or No where ' +
+        'Home Assistant can’t tell (a plug on a backed-up circuit).' }, [
         K.select({ label: 'Backed Up', sk: 'f:' + EN + ':power:backed', value: own === true ? 'yes' : own === false ? 'no' : '',
                    options: [['', own === undefined ? autoText : 'Automatic'], ['yes', 'Yes'], ['no', 'No']],
                    onChange: function (v) {

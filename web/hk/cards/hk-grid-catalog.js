@@ -94,15 +94,18 @@
   // that names nothing of its own.
   var CARDS = {
     accessory: { sizes: ['XS', 'S', 'W', 'T'], sources: [], opts: { entity: 'entity', secondary: 'secondary', color: 'boolean' }, card: function (s, o) {
-      return o.entity ? Object.assign({ type: 'custom:hk-grid-entity-card', entity: o.entity, secondary: o.secondary, kind: 'accessory', size: s }, o.color ? { color: true } : {}) : stand('Accessory', 'mdi:lightbulb', 'Choose an accessory in the editor.'); } },
+      return o.entity ? Object.assign({ type: 'custom:hk-grid-entity-card', entity: o.entity, secondary: o.secondary, kind: 'accessory', size: s }, o.color ? { color: true } : {}) :
+        stand('Accessory', 'mdi:lightbulb', 'Choose an accessory in the editor.'); } },
     // (height, color 2026-10-31: Full, HomeView's square tile, or Half, the shorter button; each on its own
     // color's gradient or glass)
-    accessories: { sizes: ['S', 'W', 'T', 'L', 'XL', 'XXL'], sources: ['accessories'], opts: { accessories: 'accessories', title: 'title', surface: 'surface', height: 'tile_height', color: 'boolean' }, card: function (s, o) {
+    accessories: { sizes: ['S', 'W', 'T', 'L', 'XL', 'XXL'], sources: ['accessories'],
+      opts: { accessories: 'accessories', title: 'title', surface: 'surface', height: 'tile_height', color: 'boolean' }, card: function (s, o) {
       return Object.assign({ type: 'custom:hk-grid-accessories-card', accessories: o.accessories || [], title: o.title || 'Accessories', surface: o.surface },
                            o.title ? { label: true } : {},
                            o.height ? { height: o.height } : {}, o.color ? { color: true } : {}); } },
     scene: { sizes: ['S', 'W'], sources: [], opts: { scene: 'scene', color: 'boolean' }, card: function (s, o) {
-      return o.scene ? Object.assign({ type: 'custom:hk-grid-entity-card', entity: o.scene, kind: 'scene', size: s }, o.color ? { color: true } : {}) : stand('Scene', 'mdi:palette', 'Choose a scene in the editor.'); } },
+      return o.scene ? Object.assign({ type: 'custom:hk-grid-entity-card', entity: o.scene, kind: 'scene', size: s }, o.color ? { color: true } : {}) :
+        stand('Scene', 'mdi:palette', 'Choose a scene in the editor.'); } },
     scenes: { sizes: ['W', 'T', 'L', 'XL', 'XXL'], sources: ['scenes'], opts: { scenes: 'scenes', surface: 'surface', height: 'tile_height', color: 'boolean' }, card: function (s, o) {
       return Object.assign({ type: 'custom:hk-scenes-card', surface: o.surface }, o.scenes ? { scenes: o.scenes } : {},
                            o.height ? { height: o.height } : {}, o.color ? { color: true } : {}); } },
@@ -149,14 +152,16 @@
     // Large and Extra Large: the alarm's keypad (2026-10-24). HomeView (2026-11-07, `presentation: homeview`): the five
     // HomeView compositions, Compact (3 x 1) among them -- hk-grid-security.js hk-grid-security-hv-card; absent, the
     // block as it always was. members: the locks and garage doors it shows, in order (none: the house's)
-    security: { sizes: ['S', 'W', 'C', 'T', 'L', 'XL'], sources: [], opts: { entity: 'alarm', tap: 'tap_target', presentation: 'security_presentation', members: 'security_members', lit: 'security_lit', height: 'tile_height' }, card: function (s, o) {
+    security: { sizes: ['S', 'W', 'C', 'T', 'L', 'XL'], sources: [], opts: { entity: 'alarm', tap: 'tap_target', presentation: 'security_presentation', members: 'security_members',
+      lit: 'security_lit', height: 'tile_height' }, card: function (s, o) {
       // (HomeView's Extra Large keeps the keypad -- 2026-11-08, the owner: "when you set it to HomeView mode, the Keypad goes away": the
       // keypad beside its entries as HomeView tiles or pills (Height), the entries its own when chosen)
       if (o.presentation === 'homeview' && s === 'XL') return Object.assign({ type: 'custom:hk-grid-keypad-card' }, o.entity ? { entity: o.entity } : {},
         o.height === 'half' || o.height === 'full' ? { height: o.height } : {}, o.members && o.members.length ? { members: o.members.slice() } : {},
         { hv: true }, o.lit === false ? { lit: false } : {});
       // (lit, 2026-11-09: Light Up When Armed, on unless false)
-      if (o.presentation === 'homeview') return Object.assign({ type: s === 'S' ? 'custom:hk-grid-security-key-card' : 'custom:hk-grid-security-hv-card', size: s }, o.entity ? { entity: o.entity } : {},
+      if (o.presentation === 'homeview') return Object.assign({ type: s === 'S' ? 'custom:hk-grid-security-key-card' : 'custom:hk-grid-security-hv-card', size: s }, o.entity ? { entity: o.entity } :
+        {},
                                                              o.members && o.members.length ? { members: o.members.slice() } : {}, o.lit === false ? { lit: false } : {});
       // (Height, 2026-11-08, the owner: "are you offering half height pills too?": Large and Extra Large's locks as HomeView tiles, or half-height pills)
       var hh = o.height === 'half' || o.height === 'full' ? { height: o.height } : {};
@@ -178,7 +183,8 @@
       return B && B.level ? { type: 'custom:hk-house-battery-card', level: B.level, stored: B.stored, backup: B.backup,
                               reserve: B.reserve, charge: B.charge, discharge: B.discharge }
                           : stand('Battery', 'mdi:home-battery', 'Add Energy with a house battery in Settings to show it here.'); } },
-    people: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { tap: 'tap_target', map: 'boolean' }, card: function (s, o) { return Object.assign({ type: 'custom:hk-people-card' }, o.map ? { map: true } : {}); } },
+    people: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { tap: 'tap_target', map: 'boolean' },
+      card: function (s, o) { return Object.assign({ type: 'custom:hk-people-card' }, o.map ? { map: true } : {}); } },
     // Large and Extra Large: its controls with Clean Areas (2026-10-24)
     vacuum: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { entity: 'vacuum', tap: 'tap_target' }, card: function (s, o, ctx) {
       var id = o.entity || ctx.vacuum;
@@ -218,7 +224,8 @@
     // `fallback` is the room it shows on a page that is no wall tablet.
     room: { sizes: ['S', 'W', 'T', 'L', 'XL', 'XXL'], sources: ['rooms'], opts: { area: 'area', surface: 'surface', accessory_display: 'room_display', tap: 'tap_target' }, card: function (s, o, ctx) {
       // no room of its own: the tablet's, else the screen's first
-      return { type: 'custom:hk-grid-room-card', area: o.area || TABLET_ROOM, fallback: (ctx.rooms || [])[0] || null, size: s, surface: o.surface, accessory_display: o.accessory_display || 'summary' }; } },
+      return { type: 'custom:hk-grid-room-card', area: o.area || TABLET_ROOM, fallback: (ctx.rooms || [])[0] || null, size: s, surface: o.surface, accessory_display: o.accessory_display ||
+        'summary' }; } },
     scene_suggested: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { windows: 'windows' }, card: function (s, o) {
       return Object.assign({ type: 'custom:hk-suggested-scene-card', size: s }, o.windows ? { windows: o.windows } : {}); } },
     action: { sizes: ['S', 'W'], sources: [], opts: { action: 'action', area: 'area', color: 'boolean' }, card: function (s, o) {
@@ -258,7 +265,8 @@
     // ALERT (2026-11-10, docs/phase11/ALERT.md, hk-alert.js): one thing that needs a look -- a headline, a line of its own and how
     // long (`since`: the accessory whose state it counts from), a camera's still, and one action (`control`: that accessory's
     // own tile tap, so a door or a lock opens its controls and asks first). Made to be a Show When rule's card; no When Tapped
-    alert: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { title: 'title', text: 'alert_text', since: 'entity', camera: 'camera', control: 'entity', icon: 'alert_icon', color: 'alert_color' }, card: function (s, o) {
+    alert: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { title: 'title', text: 'alert_text', since: 'entity', camera: 'camera', control: 'entity', icon: 'alert_icon',
+      color: 'alert_color' }, card: function (s, o) {
       var out = { type: 'custom:hk-grid-alert-card', size: s };
       ALERT_KEYS.forEach(function (k) { if (o[k] != null && o[k] !== '') out[k] = o[k]; });
       return out; } }
@@ -612,7 +620,8 @@
     }
     // (can't be judged -- no sun -- is false: the next rule, or the default)
     if (c.kind === 'solar_window') return solarSpans(c, st, now instanceof Date ? now.getTime() : null).on === true;
-    if (c.kind === 'alarm_disarmed') return (c.entity ? ids : alarm ? [alarm] : ids).some(function (id) { return id.split('.')[0] === 'alarm_control_panel' && st[id] && st[id].state === 'disarmed'; });
+    if (c.kind === 'alarm_disarmed') return (c.entity ? ids : alarm ? [alarm] : ids).some(
+      function (id) { return id.split('.')[0] === 'alarm_control_panel' && st[id] && st[id].state === 'disarmed'; });
     var any = function (domain, test) { return ids.some(function (id) { return id.split('.')[0] === domain && st[id] && test(st[id].state); }); };
     if (c.kind === 'entity_state') return !!st[c.entity] && st[c.entity].state === c.state;
     if (c.kind === 'music_playing') {
@@ -628,7 +637,8 @@
     }
     if (c.kind === 'timer_running') return any('timer', function (s) { return s === 'active' || s === 'paused'; }) ||
       !c.entity && !!st['sensor.running_quick_timers'] && Number(st['sensor.running_quick_timers'].state) > 0;
-    if (c.kind === 'alarm_armed') return (c.entity ? ids : alarm ? [alarm] : ids).some(function (id) { return id.split('.')[0] === 'alarm_control_panel' && st[id] && /^(armed_|arming|pending|triggered)/.test(st[id].state); });
+    if (c.kind === 'alarm_armed') return (c.entity ? ids : alarm ? [alarm] : ids).some(
+      function (id) { return id.split('.')[0] === 'alarm_control_panel' && st[id] && /^(armed_|arming|pending|triggered)/.test(st[id].state); });
     if (c.kind === 'after_sunset') return any('sun', function (s) { return s === 'below_horizon'; });
     if (c.kind === 'doorbell') {
       // a ring (hk-house-event) counts when it was at this camera, or the condition names none
@@ -876,14 +886,16 @@
       var put = function (next) { set('pages', next.length ? next : null); };
       if (!n) rows.push(K.info({ label: 'Add the cards to swipe between.', sub: 'Each page is a card with its own settings. Made for Show When too: the TV with Now Playing a swipe away.' }));
       pages.forEach(function (pg, i) {
-        rows.push(K.select({ label: 'Page ' + (i + 1) + ' of ' + n, value: pg.card, options: cards.some(function (c) { return c[0] === pg.card; }) ? cards : cards.concat([[pg.card, (NAMES[pg.card] || pg.card) + ' (Not in This Size)']]),
+        rows.push(K.select({ label: 'Page ' + (i + 1) + ' of ' + n, value: pg.card, options: cards.some(function (c) { return c[0] === pg.card; }) ? cards :
+          cards.concat([[pg.card, (NAMES[pg.card] || pg.card) + ' (Not in This Size)']]),
           onChange: function (v) { var next = pages.slice(); next[i] = { card: v }; put(next); } }));
         if (ed && ed.fields && CARDS[pg.card]) rows = rows.concat(ed.fields(pg.card, pg.opts || {}, function (opts) {
           var next = pages.slice(); next[i] = Object.keys(opts).length ? { card: pg.card, opts: opts } : { card: pg.card }; put(next); }));
         rows.push(K.button({ label: 'Move Page ' + (i + 1) + ' Up', disabled: i === 0, onClick: function () { var next = pages.slice(); next.splice(i - 1, 0, next.splice(i, 1)[0]); put(next); } }));
         rows.push(K.button({ label: 'Remove Page ' + (i + 1), destructive: true, onClick: function () { put(pages.filter(function (x, j) { return j !== i; })); } }));
       });
-      if (n < swipeBlock.MAX) rows.push(K.select({ label: 'Add Page', value: '', options: [['', 'Choose a Card…']].concat(cards), onChange: function (v) { if (v) put(pages.concat([{ card: v }])); } }));
+      if (n < swipeBlock.MAX) rows.push(K.select({ label: 'Add Page', value: '', options: [['', 'Choose a Card…']].concat(cards),
+        onChange: function (v) { if (v) put(pages.concat([{ card: v }])); } }));
       return rows;
     }
   };
@@ -892,8 +904,10 @@
                            PAGES_MAX: PAGES_MAX, PER_PAGE: PER_PAGE, perPage: perPage, CLOCK_FACES: CLOCK_FACES, THERMOSTAT_STYLES: THERMOSTAT_STYLES, TAP_TARGETS: TAP_TARGETS, MUSIC_TAPS: MUSIC_TAPS,
                            SHEET: SHEET, sheetOf: sheetOf, entryId: entryId, copySheet: copySheet, sheetRoute: sheetRoute, NAMES: NAMES,
                            sheetSlot: sheetSlot, sheetCss: sheetCss, placed: placed,
-                           CONDITIONS: CONDITIONS, RULES_MAX: RULES_MAX, CONDITIONS_MAX: CONDITIONS_MAX, rulesFit: rulesFit, hostHas: hostHas, matches: matches, musicAt: musicAt, musicPlayers: musicPlayers, speakerChoices: speakerChoices, tv: tvBlock, swipe: swipeBlock, rulesOf: rulesOf, choose: choose, houseNow: houseNow,
-                           nextChange: nextChange, armClock: armClock, alert: { rows: alertRows, sample: alertSample, KEYS: ALERT_KEYS, LIMITS: ALERT }, solar: { spans: solarSpans, rows: solarRows, fresh: solarFresh, atWall: atWall, dayOf: dayOf, OFFSET_MAX: SUN_OFFSET_MAX,
+                           CONDITIONS: CONDITIONS, RULES_MAX: RULES_MAX, CONDITIONS_MAX: CONDITIONS_MAX, rulesFit: rulesFit, hostHas: hostHas, matches: matches, musicAt: musicAt,
+                             musicPlayers: musicPlayers, speakerChoices: speakerChoices, tv: tvBlock, swipe: swipeBlock, rulesOf: rulesOf, choose: choose, houseNow: houseNow,
+                           nextChange: nextChange, armClock: armClock, alert: { rows: alertRows, sample: alertSample, KEYS: ALERT_KEYS, LIMITS: ALERT },
+                             solar: { spans: solarSpans, rows: solarRows, fresh: solarFresh, atWall: atWall, dayOf: dayOf, OFFSET_MAX: SUN_OFFSET_MAX,
                              forget: function () { SUN_SEEN.sunrise = []; SUN_SEEN.sunset = []; } }, config: config, pages: pages, tabletRoom: tabletRoom, table: table };
   try { window.dispatchEvent(new CustomEvent('hk-grid-catalog-ready')); } catch (e) { /* a test page without events */ }
 })();

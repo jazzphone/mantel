@@ -7,7 +7,10 @@ import { HA_PAGE } from './link.js';
 // ============================================================================================ Mantel Connect
 let pairTimer = null;
 export function pConnect() {
-  return { title: 'Sidebar (Mantel Connect)', back: HA_PAGE, scope: 'Puts Mantel in Home Assistant’s sidebar and the Companion app when Mantel runs outside Home Assistant, through the Mantel Connect App. Home Assistant signs people in; their Mantel roles still decide what they see. Managed on the home network only.', body(c) {
+  return { title: 'Sidebar (Mantel Connect)', back: HA_PAGE,
+    scope:
+    'Puts Mantel in Home Assistant’s sidebar and the Companion app when Mantel runs outside Home Assistant, through the Mantel Connect App. Home Assistant signs people in;' +
+    ' their Mantel roles still decide what they see. Managed on the home network only.', body(c) {
     result(c, 'connect');
     const code = shown.pair;
     if (code) {
@@ -31,10 +34,14 @@ export function pConnect() {
     if (!got) { pending(c); return; }
     if (got.err) { failed(c, got.err); return; }
     const live = got.data.pairings.filter((p) => !p.revoked), gone = got.data.pairings.filter((p) => p.revoked);
-    const row = (p) => info(p.name, `Paired ${fmt(p.created)} · last seen ${ago(p.last_seen)}${p.last_ip ? ' from ' + p.last_ip : ''} · certificate until ${fmt(p.cert_expires)}`, p.revoked ? 'Revoked' : undefined, p.revoked ? 'warn' : '');
+    const row = (p) => info(p.name, `Paired ${fmt(p.created)} · last seen ${ago(p.last_seen)}${p.last_ip ? ' from ' + p.last_ip : ''} · certificate until ${fmt(p.cert_expires)}`, p.revoked ?
+      'Revoked' : undefined, p.revoked ? 'warn' : '');
     c.appendChild(group({ header: 'Paired Apps' }, live.length ? live.map(row) : [info('Nothing is paired yet')]));
     if (live.length) c.appendChild(group({}, live.map((p) => button('Revoke ' + p.name + '…', async () => {
-      if (!(await ask({ title: 'Revoke ' + p.name + '?', message: 'The Mantel Connect App is cut off at once and its open connections are closed. To use Mantel in Home Assistant again you pair it anew.', ok: 'Revoke', destructive: true }))) return;
+      if (
+        !(
+        await ask({ title: 'Revoke ' + p.name + '?', message: 'The Mantel Connect App is cut off at once and its open connections are closed. To use Mantel in Home Assistant again you pair it anew.',
+        ok: 'Revoke', destructive: true }))) return;
       act('connect', () => api('DELETE', '/api/connect/pairings/' + encodeURIComponent(p.id)), 'Connection revoked.', 'connect');
     }, { destructive: true, fk: 'mx:revoke-connect:' + p.id }))));
     if (gone.length) c.appendChild(group({ header: 'Revoked', footer: 'They leave this list after 30 days; the Audit Log keeps them.' }, gone.map(row).concat([

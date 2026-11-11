@@ -129,7 +129,8 @@
         a = want.attributes[i];
         if (cur.getAttribute(a.name) !== a.value) cur.setAttribute(a.name, a.value);
       }
-      if (!(cur.hasAttribute('data-keep') && want.hasAttribute('data-keep'))) syncChildren(cur, want);   // (DATA-KEEP: its children are its own -- a card mounted in it, the Timers block's maker, 2026-11-09)
+      // (DATA-KEEP: its children are its own -- a card mounted in it, the Timers block's maker, 2026-11-09)
+      if (!(cur.hasAttribute('data-keep') && want.hasAttribute('data-keep'))) syncChildren(cur, want);
       return true;
     }
 

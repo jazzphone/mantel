@@ -31,7 +31,8 @@
     '.acts{display:flex;gap:10px;margin-top:20px;justify-content:center;flex-wrap:wrap}',
     'button{font:inherit;font-size:18px;font-weight:700;min-height:54px;border:0;border-radius:27px;padding:0 22px;background:rgba(255,255,255,.16);color:#fff;cursor:pointer;white-space:nowrap}',
     'button.stop{background:#ff9f0a;color:#1a0f00;min-width:130px}',
-    '.pill{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:2147483001;background:#2a2b30;color:#fff;border-radius:22px;padding:11px 20px;font-size:16px;font-weight:600;box-shadow:0 6px 24px rgba(0,0,0,.4);',
+    '.pill{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:2147483001;background:#2a2b30;color:#fff;border-radius:22px;padding:11px 20px;font-size:16px;font-weight:600;' +
+      'box-shadow:0 6px 24px rgba(0,0,0,.4);',
     '  font-family:"SF Pro",-apple-system,system-ui,"Roboto",sans-serif;pointer-events:none}',
     '@media (prefers-reduced-motion:reduce){.ring circle{animation:none}}'
   ].join('');

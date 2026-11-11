@@ -62,7 +62,8 @@
         // choices a fixed 74 px here
         C.segCss('.seg', { raised: true }),
         '.seg button{width:74px;padding:0}',
-        '.new{height:44px;padding:0 18px 0 14px;border-radius:22px;border:0;background:#fff;color:#1c1c1e;font-size:15px;font-weight:600;display:flex;align-items:center;gap:6px;white-space:nowrap;flex:none}',
+        '.new{height:44px;padding:0 18px 0 14px;border-radius:22px;border:0;background:#fff;color:#1c1c1e;font-size:15px;font-weight:600;display:flex;align-items:center;gap:6px;white-space:nowrap;' +
+          'flex:none}',
         '.panel{' + GLASS() + ';position:relative;overflow:hidden}',
         '.body{display:flex;gap:20px;align-items:stretch}',
         '.wide .body{height:var(--cal-h,620px)}',
@@ -97,7 +98,8 @@
         // (its 10 px under the day's name as padding: the list scrolls right up
         // under the name, in a frame with the sheet's shadows -- BASE_CSS .hk-edge)
         '.list{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y pinch-zoom;-webkit-overflow-scrolling:touch;padding-top:10px}',
-        '.ad{width:100%;height:30px;margin-top:6px;border-radius:8px;border:0;display:flex;align-items:center;padding:0 12px;gap:8px;font-size:14px;font-weight:600;text-align:left;color:' + window.hkCards.v('ink') + '}',
+        '.ad{width:100%;height:30px;margin-top:6px;border-radius:8px;border:0;display:flex;align-items:center;padding:0 12px;gap:8px;font-size:14px;font-weight:600;text-align:left;color:' +
+          window.hkCards.v('ink') + '}',
         '.ad i{flex:none;width:8px;height:8px;border-radius:4px}',
         '.ad em{margin-left:auto;font-style:normal;font-weight:500;color:' + window.hkCards.v('ink-2') + ';white-space:nowrap}',
         '.ev{width:100%;display:flex;align-items:flex-start;padding:12px 0;border:0;border-bottom:1px solid ' + window.hkCards.v('line') + ';background:transparent;text-align:left;gap:0}',
@@ -109,7 +111,8 @@
         '.ev .t1{font-size:17px;font-weight:600}',
         '.ev .t2{font-size:14px;color:' + window.hkCards.v('ink-2') + ';margin-top:2px}',
         '.soon{flex:none;height:24px;padding:0 10px;border-radius:12px;background:#fff;color:#1c1c1e;font-size:12px;font-weight:700;display:flex;align-items:center;margin-left:8px}',
-        '.addday{height:44px;border-radius:22px;border:1px dashed ' + window.hkCards.v('mark') + ';background:transparent;font-size:15px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:6px;margin-top:12px;flex:none}',
+        '.addday{height:44px;border-radius:22px;border:1px dashed ' + window.hkCards.v('mark') +
+          ';background:transparent;font-size:15px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:6px;margin-top:12px;flex:none}',
         // ---- week and day: the time grid
         '.tg{flex:1;min-width:0;padding:8px 12px 12px;display:flex;flex-direction:column}',
         '.cols{display:grid;flex:none}',
@@ -119,7 +122,8 @@
         '.dh.today b{width:28px;height:28px;line-height:28px;border-radius:14px;background:#fff;color:#1c1c1e;font-weight:700;text-align:center;font-size:15px}',
         '.alld{position:relative;border-top:1px solid ' + window.hkCards.v('line') + ';flex:none}',
         '.alld .lab{position:absolute;left:0;top:50%;transform:translateY(-50%);width:50px;text-align:right;font-size:11px;font-weight:600;color:' + window.hkCards.v('ink-2') + '}',
-        '.tl{position:relative;flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y pinch-zoom;-webkit-overflow-scrolling:touch;border-top:1px solid ' + window.hkCards.v('line') + '}',
+        '.tl{position:relative;flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y pinch-zoom;-webkit-overflow-scrolling:touch;border-top:1px solid ' +
+          window.hkCards.v('line') + '}',
         '.hrs{position:relative}',
         '.hr{position:absolute;left:56px;right:0;height:0;border-top:1px solid ' + window.hkCards.v('line') + '}',
         '.hr span{position:absolute;left:-56px;top:-8px;width:50px;text-align:right;font-size:11px;font-weight:600;color:' + window.hkCards.v('ink-2') + '}',
@@ -298,10 +302,12 @@
         var bar = this._root && this._root.querySelector && this._root.querySelector('.bar'), cs = bar && this.isConnected && getComputedStyle(bar);
         if (!cs || cs.position !== 'sticky') return;
         var top = parseFloat(cs.top) || 0, r = bar.getBoundingClientRect(), was = bar.classList.contains('stuck');
-        var sy = window.scrollY || 0; if (!was && r.top > top + 0.5) this._homeY = r.top + sy; // (a phone: by the scroll past the bar's place, not where iOS draws the sticky bar -- read a frame late, the bar folded and unfolded every frame, 2026-11-10; 4 px either way)
+        // (a phone: by the scroll past the bar's place, not where iOS draws the sticky bar -- read a frame late, the bar folded and unfolded every frame, 2026-11-10; 4 px either way)
+        var sy = window.scrollY || 0; if (!was && r.top > top + 0.5) this._homeY = r.top + sy;
         var stuck = sy > 0 && this._homeY != null ? sy + top - this._homeY > (was ? -4 : -0.5) : r.top <= top + 0.5 && (sy > 0 || (this._homeTop != null && r.top < this._homeTop - 1));
         if (!was && (this._homeTop == null || r.top > top + 0.5)) this._homeTop = r.top; if (stuck === was) return;
-        // (THE PAGE NEVER SHORTER, not for a moment: its spacer set before it folds, taken off after it opens -- a short week ended above where it was scrolled as it folded, iOS put the scroll back, it opened and folded again: the bounce, 2026-11-10)
+        // (THE PAGE NEVER SHORTER, not for a moment: its spacer set before it folds, taken off after it opens -- a short week ended above where it was scrolled as it folded, iOS put the scroll back,
+        // it opened and folded again: the bounce, 2026-11-10)
         if (!stuck) { bar.classList.remove('stuck'); bar.style.marginBottom = ''; return; }
         var h0 = bar.offsetHeight, mb0 = parseFloat(getComputedStyle(bar).marginBottom) || 0;
         bar.style.marginBottom = (mb0 + h0) + 'px'; bar.classList.add('stuck'); bar.style.marginBottom = (mb0 + h0 - bar.offsetHeight) + 'px';
@@ -466,7 +472,11 @@
         var keep = tl && tl.getAttribute && tl.getAttribute('data-k') === this._view + (+this._day) ? tl.scrollTop : null;
         var list = this._root.querySelector && this._root.querySelector('.list'), keepL = list ? list.scrollTop : 0;
         var bar = this._bar(h, wide), html = '';
-        if (!calIds(h).length) html += '<div class="panel" style="padding:22px"><div class="empty">No calendars. Add one to Home Assistant (Settings → Devices &amp; Services → Add Integration → Local Calendar) and it shows here.</div></div>';
+        if (
+          !calIds(
+          h).length) html +=
+          '<div class="panel" style="padding:22px"><div class="empty">No calendars. Add one to Home Assistant (Settings → Devices &amp;' +
+          ' Services → Add Integration → Local Calendar) and it shows here.</div></div>';
         else {
           if (this._failed.length) html += '<div class="warn">' + esc(failedLine(h, this._failed)) + '</div>';
           html += this._view === 'week' ? this._week(h, wide) : this._view === 'day' ? this._dayView(h, wide) : this._month(h, wide);
@@ -641,7 +651,8 @@
           var rgb = evRgb(b.ev, h);
           return '<button class="bar1" data-a="ev" data-v="' + esc(b.ev.key) + '" style="top:' + (4 + b.lane * 26) + 'px;height:22px;line-height:22px;font-size:12px;left:calc(' +
             gutter + 'px + ' + b.a + ' * (100% - ' + gutter + 'px) / ' + n + ' + 3px);width:calc(' + (b.b - b.a + 1) + ' * (100% - ' + gutter + 'px) / ' + n +
-            ' - 6px);' + eventStyle(rgb, 0.55) + '">' + esc(b.ev.title) + (isDay && b.ev.allDay ? '<span style="font-weight:500;margin-left:8px;opacity:0.85">' + esc(span(b.ev).replace('All day · ', '').replace('All day', '')) + '</span>' : '') + '</button>';
+            ' - 6px);' + eventStyle(rgb, 0.55) + '">' + esc(b.ev.title) + (isDay && b.ev.allDay ? '<span style="font-weight:500;margin-left:8px;opacity:0.85">' +
+              esc(span(b.ev).replace('All day · ', '').replace('All day', '')) + '</span>' : '') + '</button>';
         }).join('') + '</div>';
         // (the hour's label gives way to the time now, where they would meet)
         var nowAt = days.some(function (d) { return sameDay(d, now); }) ? (now - day0(now)) / 3600000 * PX : -99;
@@ -655,14 +666,16 @@
           var items = evs.filter(function (e) { return !e.allDay && (e.end - e.start) < DAY_MS && e.start < b && e.end > a; })
             .map(function (e) { return { ev: e, s: e.start < a ? a : e.start, e: e.end > b ? b : e.end }; });
           var slots = '';
-          for (var h2 = 0; h2 < 24; h2++) slots += '<button class="slot" tabindex="-1" aria-hidden="true" data-a="slot" data-v="' + ymd(d) + 'T' + h2 + '" style="top:' + (h2 * PX) + 'px;height:' + PX + 'px"></button>';
+          for (var h2 = 0; h2 < 24; h2++) slots += '<button class="slot" tabindex="-1" aria-hidden="true" data-a="slot" data-v="' + ymd(d) + 'T' + h2 + '" style="top:' + (h2 * PX) + 'px;height:' +
+            PX + 'px"></button>';
           var blocks = lanes(items).map(function (it) {
             var top = (it.s - a) / 3600000 * PX, ht = Math.max(18, (it.e - it.s) / 3600000 * PX - 3);
             first = Math.min(first, (it.s - a) / 3600000);
             var rgb = evRgb(it.ev, h), past = it.ev.end <= now, w = 100 / it.cols;
             return '<button class="blk' + (past ? ' past' : '') + (self._sel === it.ev.key ? ' sel' : '') + '" data-a="ev" data-v="' + esc(it.ev.key) + '" style="top:' + (top + 1) +
               'px;height:' + ht + 'px;left:calc(' + (it.col * w) + '% + 3px);width:calc(' + w + '% - 6px);' + eventStyle(rgb, past ? 0.28 : 0.5) + edge(rgb) + '">' +
-              '<div class="t1 ell">' + esc(it.ev.title) + '</div>' + (ht > 30 ? '<div class="t2 ell">' + esc(span(it.ev) + (isDay && it.ev.loc ? ' · ' + it.ev.loc : '')) + '</div>' : '') + '</button>';
+              '<div class="t1 ell">' + esc(it.ev.title) + '</div>' + (ht > 30 ? '<div class="t2 ell">' + esc(span(it.ev) + (isDay && it.ev.loc ? ' · ' + it.ev.loc : '')) + '</div>' : '') +
+                '</button>';
           }).join('');
           return '<div class="dcol' + (today && !isDay ? ' today' : '') + '">' + slots + blocks + '</div>';
         }).join('');

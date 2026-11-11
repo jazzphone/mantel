@@ -223,7 +223,8 @@
     // BACK BUTTON & TITLE (Page Header before 2026-10-29): beside a screen's
     // other header settings
     var PAGE_HEADERS = [['current', 'Back & Title'], ['smart', 'Context When Needed'], ['none', 'No Header']];
-    var PAGE_HEADER_SAYS = 'With the side menu open or a tab bar, Context When Needed drops a repeated title and keeps a short label; No Header removes both. The full header returns when the menu folds into a button.';
+    var PAGE_HEADER_SAYS =
+      'With the side menu open or a tab bar, Context When Needed drops a repeated title and keeps a short label; No Header removes both. The full header returns when the menu folds into a button.';
     var MENU_KEYS = { page_header: 'page_header', menu: 'style', tab_position: 'tab_at', tab_size: 'tab_size',
                       tab_size_phone: 'tab_size_phone', dock_min: 'open_min', time_weather: 'time_weather_at',
                       ha_row: 'ha_row', ha_place: 'ha_at', accent: 'accent', glyph: 'glyph', clock: 'clock', swipe: 'swipe',
@@ -375,10 +376,16 @@
     // and a screen's page say the same)
     function glassFooter(style) {
       var t = 'How the pills, tiles and chips look.';
-      if (style === 'flat') return 'Opaque surfaces with no blur, animations or live sky effects. Color, landscape and photo backgrounds remain available in Background. Your other appearance preferences are kept.';
+      if (style ===
+        'flat'
+        ) return 'Opaque surfaces with no blur, animations or live sky effects. Color, landscape and photo backgrounds remain available in Background. Your other appearance preferences are kept.';
       if (style === 'frosted') t += ' Frost: how milky, 50% is the middle. Tint from Background: each card takes the color of the page behind it instead of one gray.';
       if (isBlur(style)) t += ' Blur: how strong, 50% is 20 px.';
-      if (isBright(style)) t += ' Strength: how bright the glass is, 50% as designed. It holds back by itself where white text would get hard to read. Dim: a shade over the cards, the chips and the tab bar, as the Side Pane’s Dim — the Side Pane follows it unless it has its own.';
+      if (
+        isBright(
+        style)) t +=
+        ' Strength: how bright the glass is, 50% as designed. It holds back by itself where white text would get hard to read. Dim: a shade over the cards, the chips and the tab bar, as the Side ' +
+        'Pane’s Dim — the Side Pane follows it unless it has its own.';
       if (style === 'tinted') t += ' Darkness: how much of the background shows through, 50% is 75% dark. Icon Circles: Dark as the Home app’s, or Light to keep their shape over dark scenery.';
       return t;
     }

@@ -144,7 +144,9 @@
         if (!this._built) {
           this._built = true;
           if (this._view === 'modes') {
-            this._root.innerHTML = '<div class="pn"><div class="sub"><div class="bk"><button aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="' + BACK + '"/></svg></button><div class="t">Mode</div></div></div></div>';
+            this._root.innerHTML =
+              '<div class="pn"><div class="sub"><div class="bk"><button aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="' + BACK +
+              '"/></svg></button><div class="t">Mode</div></div></div></div>';
             this._root.querySelector('.bk button').addEventListener('click', function () { self._go('main'); });
             this._paintModes = pickList(this._root.querySelector('.sub'), modes, function (m) {
               self._svc('water_heater', 'set_operation_mode', { operation_mode: m });
@@ -346,7 +348,8 @@
         }
         // (no history yet: the wide sheet keeps its card and says so, as the thermostat's does -- 2026-11-07, the review)
         if (pts.length < 2) {
-          if (this.hasAttribute('wide')) { this._tankKey = null; this._trend.hidden = false; this._trend.innerHTML = '<div class="tt2">Tank, last 24 hours</div><div class="nohist">No readings in the last 24 hours</div>'; }
+          if (this.hasAttribute('wide')) { this._tankKey = null; this._trend.hidden = false;
+            this._trend.innerHTML = '<div class="tt2">Tank, last 24 hours</div><div class="nohist">No readings in the last 24 hours</div>'; }
           return;
         }
         // redrawn when the rows or the reading move, or the width changes

@@ -874,7 +874,8 @@
         clear: function () { generation++; clearSaverHold(); if (saverChooser) saverChooser.close(); },
         input: function (e) {
           var t = e.type;
-          if (o.running() && !o.preview() && e.composedPath && e.composedPath().some(function (n) { return n && n.hasAttribute && n.hasAttribute('data-hk-saver-control'); })) { o.touched(); return true; }
+          if (o.running() && !o.preview() && e.composedPath && e.composedPath().some(function (n) { return n && n.hasAttribute && n.hasAttribute('data-hk-saver-control'); })) { o.touched();
+            return true; }
           if (saverChooser) { o.touched(); return true; }
           if (!saverHold) return false;
           if (e.pointerId !== saverHold.id && t === 'pointerdown') { clearSaverHold(); return true; }

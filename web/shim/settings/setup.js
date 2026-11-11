@@ -59,7 +59,9 @@ function pSetupStep(id) {
     if (got.err) { failed(c, got.err); return; }
     if (!s) { failed(c, 'That step isn’t part of this Mantel’s setup.'); return; }
     c.appendChild(group({ footer: s.detail }, [info('Status', s.optional ? 'Optional' : null, STEP_SAYS[s.state], s.state === 'todo' ? 'warn' : '')]));
-    if (s.how && s.state !== 'done') c.appendChild(group({ header: 'How', footer: s.how_note || 'An Owner turns them on in General (Allow Control of the House), after confirming it is them. The server’s kill switch can keep them off whatever that says.' }, [secretCell(s.how, 'mx-setup-how')]));
+    if (s.how && s.state !== 'done') c.appendChild(group({ header: 'How', footer: s.how_note ||
+      'An Owner turns them on in General (Allow Control of the House), after confirming it is them. The server’s kill switch can keep them off whatever that says.' },
+      [secretCell(s.how, 'mx-setup-how')]));
     const rows = [];
     if (s.route) rows.push(K().nav({ label: s.state === 'done' ? 'Open' : 'Do It Now', href: s.route, fk: 'mx:setup:go:' + id }));
     const edit = got.data.can_edit;

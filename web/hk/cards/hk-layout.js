@@ -140,7 +140,8 @@
     // No options of its own: when it draws, and with which glyph, are the menu's
     // settings. The one editor field is the standard `glass` opt-out.
     register('hk-menu-button-card', HkMenuButtonCard, 'HK Menu Button',
-      'Opens the menu of pages and rooms. Draws only on a dashboard with the menu turned on (' + window.hkShell.haPlace('HK Frontend → Configure → Menu and room pages') + '); put it in a chip row as its lead.',
+      'Opens the menu of pages and rooms. Draws only on a dashboard with the menu turned on (' + window.hkShell.haPlace('HK Frontend → Configure → Menu and room pages') +
+        '); put it in a chip row as its lead.',
       C && [{ name: 'glass', selector: { boolean: {} },
               helper: 'Off: leave this button out of the shared blur (Glass look: Blur).' }],
       function () { return {}; });

@@ -49,28 +49,38 @@ export function timelineRows(tl) {
 
 export function pPerformance() {
   return { title: 'Performance', back: ['About', '#/' + ROUTE + '/about'],
-           scope: 'How each screen’s page is doing over the last 24 hours, and how fast Mantel passes the house’s changes on. Numbers only; a screen’s are kept for a day, and each tablet’s latest summary until its next.', body(c) {
+           scope:
+             'How each screen’s page is doing over the last 24 hours, and how fast Mantel passes the house’s changes on. Numbers only;' +
+             ' a screen’s are kept for a day, and each tablet’s latest summary until its next.', body(c) {
     const got = load('performance', () => api('GET', '/api/performance'));
     if (!got) { pending(c); return; }
     if (got.err) { failed(c, got.err); return; }
     const d = got.data, s = d.server || {}, f = s.fan_out || {};
     const t = s.tick || {}, h = s.settings_history || {};
-    c.appendChild(group({ header: 'Mantel', footer: 'Fan-out is the time to build and send one screen’s changes, over the last hour. The tick is Mantel’s once-a-minute check of schedules, sessions and devices.' }, [
+    c.appendChild(
+      group({ header: 'Mantel', footer: 'Fan-out is the time to build and send one screen’s changes, over the last hour. The tick is Mantel’s once-a-minute check of schedules, sessions and devices.' }
+      , [
       info('Fan-Out Time', f.samples ? f.samples + ' sends in the last hour' : 'Nothing sent in the last hour', f.samples ? 'p50 ' + secs(f.p50_ms) + ' · p95 ' + secs(f.p95_ms) : '—'),
       info('Home Assistant Events', 'State changes, over the last five minutes', (s.ha_events_per_min == null ? '—' : s.ha_events_per_min + ' a minute')),
       info('Minute Tick', t.samples ? 'Time taken, over the last 24 hours' : 'Not run yet', t.samples ? 'Last ' + secs(t.last_ms) + ' · Longest ' + secs(t.max_ms) : '—'),
-      info('Settings History', h.rows == null ? null : 'Every saved version of the settings', h.rows == null ? '—' : h.rows.toLocaleString('en-US') + (h.rows === 1 ? ' version · ' : ' versions · ') + size(h.bytes)),
+      info('Settings History', h.rows == null ? null : 'Every saved version of the settings', h.rows == null ? '—' : h.rows.toLocaleString('en-US') + (h.rows === 1 ? ' version · ' : ' versions · ') +
+        size(h.bytes)),
       info('Connected Screens', null, String(s.connected_screens == null ? '—' : s.connected_screens)),
     ]));
     const tl = d.timeline || {};
-    if (tl.on) c.appendChild(group({ header: 'Timeline', footer: 'The tap is the Timeline’s look at each batch of the house’s changes; writing is one save of what it queued (every 2 seconds). Over the last hour.' }, timelineRows(tl)));
+    if (tl.on) c.appendChild(
+      group({ header: 'Timeline', footer: 'The tap is the Timeline’s look at each batch of the house’s changes; writing is one save of what it queued (every 2 seconds). Over the last hour.' },
+      timelineRows(tl)));
     const row = (r) => info(r.name, screenSub(r, d.now), r.up_since ? 'Up ' + span(d.now, r.up_since) : '—');
     const tablets = (d.screens || []).filter((r) => r.kind === 'tablet'), people = (d.screens || []).filter((r) => r.kind !== 'tablet');
-    c.appendChild(group({ header: 'Wall Tablets', footer: tablets.length ? 'Up is how long the page has been open; a tablet that reloads often shows a short time here.' : 'No wall tablet has reported in the last 24 hours.' }, tablets.map(row)));
+    c.appendChild(group({ header: 'Wall Tablets', footer: tablets.length ? 'Up is how long the page has been open; a tablet that reloads often shows a short time here.' :
+      'No wall tablet has reported in the last 24 hours.' }, tablets.map(row)));
     if (people.length) c.appendChild(group({ header: 'Browsers' }, people.map(row)));
     // what each screen downloaded to start, how fast it drew and what it runs on (page-health.js, the baseline)
     const start = (d.screens || []).filter((r) => startSub(r));
-    if (start.length) c.appendChild(group({ header: 'Startup & Device', footer: 'Download counts the page and every file it fetched by its first screen. The frame rate is taken over 5 quiet seconds, never under the screensaver.' },
+    if (start.length) c.appendChild(
+      group({ header: 'Startup & Device', footer: 'Download counts the page and every file it fetched by its first screen. The frame rate is taken over 5 quiet seconds, never under the screensaver.' }
+      ,
       start.map((r) => info(r.name, startSub(r), (r.device && r.device.platform) || '—'))));
     c.appendChild(group({}, [button('Refresh', () => { forget('performance'); redraw(); }, { center: true, fk: 'mx:performance-refresh' })]));
   } };

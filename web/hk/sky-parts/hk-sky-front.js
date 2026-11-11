@@ -492,9 +492,12 @@
       // 3-9 s loops re-styled the page ~24 times a second; on 36-64 s loops
       // holding three or four twinkles, about twice. The same goes for every
       // flame, bulb and firefly below.
-      '@keyframes hk-twk1{0%,100%{opacity:.3}6.5%{opacity:.3}8%{opacity:var(--pk)}10.5%{opacity:.3}34.5%{opacity:.3}36%{opacity:var(--pk)}38.5%{opacity:.3}61.5%{opacity:.3}63%{opacity:var(--pk)}65.5%{opacity:.3}86.5%{opacity:.3}88%{opacity:var(--pk)}90.5%{opacity:.3}}',
-      '@keyframes hk-twk2{0%,100%{opacity:.3}13.5%{opacity:.3}15%{opacity:var(--pk)}17.5%{opacity:.3}45.5%{opacity:.3}47%{opacity:var(--pk)}49.5%{opacity:.3}69.5%{opacity:.3}71%{opacity:var(--pk)}73.5%{opacity:.3}}',
-      '@keyframes hk-twk3{0%,100%{opacity:.3}21.5%{opacity:.3}23%{opacity:var(--pk)}25.5%{opacity:.3}53.5%{opacity:.3}55%{opacity:var(--pk)}57.5%{opacity:.3}80.5%{opacity:.3}82%{opacity:var(--pk)}84.5%{opacity:.3}}',
+      '@keyframes hk-twk1{0%,100%{opacity:.3}6.5%{opacity:.3}8%{opacity:var(--pk)}10.5%{opacity:.3}34.5%{opacity:.3}36%{opacity:var(--pk)}38.5%{opacity:.3}61.5%{opacity:.3}63%{opacity:var(--pk)}' +
+        '65.5%{opacity:.3}86.5%{opacity:.3}88%{opacity:var(--pk)}90.5%{opacity:.3}}',
+      '@keyframes hk-twk2{0%,100%{opacity:.3}13.5%{opacity:.3}15%{opacity:var(--pk)}17.5%{opacity:.3}45.5%{opacity:.3}47%{opacity:var(--pk)}49.5%{opacity:.3}69.5%{opacity:.3}71%{opacity:var(--pk)}' +
+        '73.5%{opacity:.3}}',
+      '@keyframes hk-twk3{0%,100%{opacity:.3}21.5%{opacity:.3}23%{opacity:var(--pk)}25.5%{opacity:.3}53.5%{opacity:.3}55%{opacity:var(--pk)}57.5%{opacity:.3}80.5%{opacity:.3}82%{opacity:var(--pk)}' +
+        '84.5%{opacity:.3}}',
       // ---- shooting stars: parked at opacity 0 for all but ~1.5% of a long
       // cycle, then a streak along the element's own rotated x-axis. Only on a
       // clear night (.meteors); each crossing re-aims the next (meteorAim)
@@ -567,8 +570,12 @@
       '  50%{transform:translate3d(var(--dx3),var(--dy3),0)}',
       '  67%{transform:translate3d(var(--dx4),var(--dy4),0)}',
       '  83%{transform:translate3d(var(--dx5),var(--dy5),0)}}',
-      '@keyframes hk-ffblink1{0%,100%{opacity:0}4.5%{opacity:0}6%{opacity:1}8%{opacity:.85}10.5%{opacity:0}17.5%{opacity:0}19%{opacity:1}21%{opacity:.85}23.5%{opacity:0}29.5%{opacity:0}31%{opacity:1}33%{opacity:.85}35.5%{opacity:0}45.5%{opacity:0}47%{opacity:1}49%{opacity:.85}51.5%{opacity:0}56.5%{opacity:0}58%{opacity:1}60%{opacity:.85}62.5%{opacity:0}71.5%{opacity:0}73%{opacity:1}75%{opacity:.85}77.5%{opacity:0}84.5%{opacity:0}86%{opacity:1}88%{opacity:.85}90.5%{opacity:0}}',
-      '@keyframes hk-ffblink2{0%,100%{opacity:0}1.5%{opacity:0}3%{opacity:1}5%{opacity:.85}7.5%{opacity:0}13.5%{opacity:0}15%{opacity:1}17%{opacity:.85}19.5%{opacity:0}26.5%{opacity:0}28%{opacity:1}30%{opacity:.85}32.5%{opacity:0}38.5%{opacity:0}40%{opacity:1}42%{opacity:.85}44.5%{opacity:0}53.5%{opacity:0}55%{opacity:1}57%{opacity:.85}59.5%{opacity:0}65.5%{opacity:0}67%{opacity:1}69%{opacity:.85}71.5%{opacity:0}78.5%{opacity:0}80%{opacity:1}82%{opacity:.85}84.5%{opacity:0}91.5%{opacity:0}93%{opacity:1}95%{opacity:.85}97.5%{opacity:0}}',
+      '@keyframes hk-ffblink1{0%,100%{opacity:0}4.5%{opacity:0}6%{opacity:1}8%{opacity:.85}10.5%{opacity:0}17.5%{opacity:0}19%{opacity:1}21%{opacity:.85}23.5%{opacity:0}29.5%{opacity:0}' +
+        '31%{opacity:1}33%{opacity:.85}35.5%{opacity:0}45.5%{opacity:0}47%{opacity:1}49%{opacity:.85}51.5%{opacity:0}56.5%{opacity:0}58%{opacity:1}60%{opacity:.85}62.5%{opacity:0}71.5%{opacity:0}' +
+        '73%{opacity:1}75%{opacity:.85}77.5%{opacity:0}84.5%{opacity:0}86%{opacity:1}88%{opacity:.85}90.5%{opacity:0}}',
+      '@keyframes hk-ffblink2{0%,100%{opacity:0}1.5%{opacity:0}3%{opacity:1}5%{opacity:.85}7.5%{opacity:0}13.5%{opacity:0}15%{opacity:1}17%{opacity:.85}19.5%{opacity:0}26.5%{opacity:0}' +
+        '28%{opacity:1}30%{opacity:.85}32.5%{opacity:0}38.5%{opacity:0}40%{opacity:1}42%{opacity:.85}44.5%{opacity:0}53.5%{opacity:0}55%{opacity:1}57%{opacity:.85}59.5%{opacity:0}65.5%{opacity:0}' +
+        '67%{opacity:1}69%{opacity:.85}71.5%{opacity:0}78.5%{opacity:0}80%{opacity:1}82%{opacity:.85}84.5%{opacity:0}91.5%{opacity:0}93%{opacity:1}95%{opacity:.85}97.5%{opacity:0}}',
       // Fourth of July fireworks over the hills: one burst per element per
       // cycle, each cycle re-placed (fireworkAim)
       '#hk-sky .life .fw{position:absolute;aspect-ratio:1;opacity:0;',
