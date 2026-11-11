@@ -581,12 +581,14 @@ def sky_photo(v: Any) -> str | None:
 # photo and custom colors you made (photo, gradient_custom: kept for next
 # time), or Advanced's dates, hemisphere and sources. A screen's reset is
 # SKY_RESET_BOARD to None: Same as All Screens.
-SKY_RESET = ("background", "color", "landscape", "wallpaper", "wallpaper_night", "wallpaper_motion", "wallpaper_color","photo_look", "landscape_look", "image_look", "flat_background", "flat_color", "flat_image_look", "flat_fade", "flat_tint", "flat_tint_amount", "flat_tint_light",
+SKY_RESET = ("background", "color", "landscape", "wallpaper", "wallpaper_night", "wallpaper_motion", "wallpaper_color","photo_look", "landscape_look", "image_look", "flat_background", "flat_color",
+    "flat_image_look", "flat_fade", "flat_tint", "flat_tint_amount", "flat_tint_light",
              "animations", "focus_pause", "moving", "weather", "precipitation",
              "cloud_style", "daytime", "gradient", "decorations", "decoration_style",
              "woodland", "themes", "liveliness_all", "liveliness", "liveliness_custom")
 
-SKY_RESET_BOARD = ("sky_background", "sky_color", "sky_landscape", "sky_wallpaper", "sky_wallpaper_night", "sky_wallpaper_motion", "sky_wallpaper_color", "sky_photo_look", "sky_landscape_look", "sky_image_look",
+SKY_RESET_BOARD = ("sky_background", "sky_color", "sky_landscape", "sky_wallpaper", "sky_wallpaper_night", "sky_wallpaper_motion", "sky_wallpaper_color", "sky_photo_look", "sky_landscape_look",
+    "sky_image_look",
                    "sky_flat_background", "sky_flat_color", "sky_flat_image_look", "sky_flat_fade", "sky_flat_tint", "sky_flat_tint_amount", "sky_flat_tint_light",
                    "sky_animations", "sky_focus_pause", "sky_moving", "sky_weather", "sky_precipitation",
                    "sky_cloud_style", "sky_daytime", "sky_gradient", "sky_decorations", "sky_decoration_style",
