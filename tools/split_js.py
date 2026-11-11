@@ -400,6 +400,16 @@ def make_plan(man: dict, text: str, work: Path) -> Plan:
                 for r in m.d["refs"] if "index" in r):
             continue            # a variable whose initializer touches nothing that moved or waits stays where it is, early
         m.late = True
+    # statements that share a line wait together: a line is cut whole, so it cannot be half early and half waiting
+    changed = True
+    while changed:
+        changed = False
+        for m in plan.members.values():
+            if m.late or m.part >= 0 or m.d["kind"] in ("function", "directive") or m.scope == plan.cs:
+                continue
+            if any(o.late and o.scope == m.scope and o.d["first"] <= m.d["last"] and m.d["first"] <= o.d["last"]
+                   for o in plan.members.values() if o is not m):
+                m.late = changed = True
 
     # references
     writers: dict[tuple, list[Member]] = {}

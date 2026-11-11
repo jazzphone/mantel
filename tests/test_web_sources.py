@@ -524,7 +524,7 @@ def test_the_state_rewrite_puts_vars_on_one_object_and_proves_it_backwards(path,
     f = tmp_path / "s.js"
     f.write_text(STATE_SOURCE)
     text, obj = tool.state_rewrite(f, {}, ["VIEW", "count"])
-    assert obj == "ST" and "ST.VIEW = 0; var LABEL = 'a';" in text and "{ VIEW: ST.VIEW, count: ST.count }" in text
+    assert obj == "ST" and "ST.VIEW = 0;\n  var LABEL = 'a';" in text and "{ VIEW: ST.VIEW, count: ST.count }" in text
     assert "var ST = /** @type {Record<string, any>} */ ({});" in text and "var count" not in text
     run = subprocess.run(["node", "-e", "global.window=global; eval(require('fs').readFileSync(process.argv[1],'utf8'));"
                           "console.log(JSON.stringify(window.x.bump(3)), window.x.show())", str(tmp_path / "out.js")],

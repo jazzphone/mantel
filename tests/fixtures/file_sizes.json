@@ -2,10 +2,7 @@
  "js": {
   "web/hk/cards/hk-base.js": 4798,
   "web/hk/cards/hk-detail.js": 2895,
-  "web/hk/cards/hk-strategy.js": 3320,
-  "web/hk/modules/hk-saver.js": 4477,
-  "web/hk/modules/hk-sky.js": 7019,
-  "web/hk/panels/hk-settings-model.js": 2869
+  "web/hk/modules/hk-saver.js": 4477
  },
  "py": {
   "hk_core/settings/model.py": 3737

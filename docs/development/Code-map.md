@@ -94,7 +94,12 @@ Mantel's pages and the code both hosts share: HK's cards, modules, panels and th
   - `hk-row.js` — a horizontally scrolling row, as a native Lovelace card.
   - `hk-security.js` — the alarm keypad
   - `hk-stat.js` — headings and metric readouts as native Lovelace cards.
-  - `hk-strategy.js` — A WHOLE HOME APP-STYLE DASHBOARD FROM THE HOUSE ITSELF.
+  - `hk-strategy.js` — A WHOLE HOME APP-STYLE DASHBOARD FROM THE HOUSE ITSELF. *(a shell: its parts are in `web/hk/strategy/`, `tools/split_manifests/strategy.json`)*
+    - `hk-strategy-house.js` — the house: its kinds, tiles and names
+    - `hk-strategy-rooms.js` — the room pages
+    - `hk-strategy-pages.js` — what exists, the category pages and Favorites
+    - `hk-strategy-energy.js` — the custom, sky, Energy, Power and screensaver pages and the media bar
+    - `hk-strategy-views.js` — the views and the dashboard strategy
   - `hk-tile.js` — the tile family as native Lovelace cards. *(a shell: its parts are in `web/hk/tile/`, `tools/split_manifests/tile.json`)*
     - `hk-tile-helpers.js` — the tiles' helpers, the editor's schema and the labels
     - `hk-tile-css.js` — the tiles' CSS
@@ -181,7 +186,16 @@ Mantel's pages and the code both hosts share: HK's cards, modules, panels and th
     - `hk-sidepane-css.js` — the pane's CSS
     - `hk-sidepane-music.js` — the music panel and the drawer's motion
     - `hk-sidepane-pane.js` — the pane: its sections, drawing and the element
-  - `hk-sky.js` — a live sky behind the weather view.
+  - `hk-sky.js` — a live sky behind the weather view. *(a shell: its parts are in `web/hk/sky-parts/`, `tools/split_manifests/sky.json`)*
+    - `hk-sky-season.js` — the seasons, the palette, color, conditions, the moon and the pictures the sky draws with
+    - `hk-sky-front.js` — registering, mounting, the styles, the aurora, the front and liveliness
+    - `hk-sky-builders.js` — the season builders (leaves, bats, canopy, fog, the witch, the window) and the schedule
+    - `hk-sky-surprises.js` — the surprises and the planner: which shows when, and the previews
+    - `hk-sky-surprises-more.js` — the near scenery, and painting and landing a season
+    - `hk-sky-saver.js` — the screensaver's own life: holidays, meteors, fireflies, fireworks and the realistic clouds
+    - `hk-sky-static.js` — static skies, the album backdrop and a photo of your own
+    - `hk-sky-api.js` — watching, the focus pause and what moves
+    - `hk-sky-mount.js` — the flat sky, the covers and the self-mount
   - `hk-skylab.js`
   - `hk-skyshot.js` — THE SKY, AS A PICTURE
   - `hk-stats.js` — long-term statistics and history for the hk card set.
@@ -197,9 +211,18 @@ Mantel's pages and the code both hosts share: HK's cards, modules, panels and th
   - `hk-grid-editor.js` — Home Grid's desktop editor (docs/phase11/HOME-GRID.md, G5; rebuilt 2026-10-23 around a palette)
   - `hk-saver-designs.js` — Saved designs use the ordinary screensaver options.
   - `hk-saver-editor.js` — THE SCREENSAVER EDITOR (2026-11-01, the owner
-  - `hk-settings-features.js` — THE FEATURES' OWN SETTINGS on the HK Settings page.
+  - `hk-settings-features.js` — THE FEATURES' OWN SETTINGS on the HK Settings page. *(a shell: its parts are in `web/hk/settings-features/`, `tools/split_manifests/settings-features.json`)*
+    - `hk-settings-features-pure.js` — what the pages decide, pure
+    - `hk-settings-features-devices.js` — the TV, Clean Areas, alarm and music pages
+    - `hk-settings-features-energy.js` — the Energy pages
+    - `hk-settings-features-notify.js` — the notification pages
   - `hk-settings-kit.js` — THE HK SETTINGS PAGE'S CONTROLS.
-  - `hk-settings-model.js` — WHAT THE HK SETTINGS PAGE SAYS AND DECIDES, with no page in it.
+  - `hk-settings-model.js` — WHAT THE HK SETTINGS PAGE SAYS AND DECIDES, with no page in it. *(a shell: its parts are in `web/hk/settings-model/`, `tools/split_manifests/settings-model.json`)*
+    - `hk-settings-model-words.js` — the words
+    - `hk-settings-model-menu.js` — the menu and the glass
+    - `hk-settings-model-lists.js` — the lists, the sky, your own dashboards and the Pages screen
+    - `hk-settings-model-search.js` — search
+    - `hk-settings-model-screens.js` — wall tablets, the Weather page, the side pane and the looks
   - `hk-settings.js` — HK SETTINGS, the admin page (panel.py), built as an Apple settings screen *(a shell: its parts are in `web/hk/settings/`, `tools/split_manifests/settings.json`)*
     - `hk-settings-css.js` — the panel's stylesheet
     - `hk-settings-tables.js` — the tables and small helpers the pages draw from: colors, the sidebar's lists, option pages, entity pools

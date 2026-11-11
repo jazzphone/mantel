@@ -539,10 +539,10 @@ function stateRewrite(req) {
       }
     }
     const start = s.getStart(sf);
-    const multi = lineOfPos(start) !== lineOfPos(s.end);
     const indent = ' '.repeat(sf.getLineAndCharacterOfPosition(start).character);
     // the declaration's own trailing text on its line (a comment) stays after it
-    let rep = parts.join(multi ? '\n' + indent : ' ');
+    // (one statement to a line, always: a line the split tool cuts must hold one statement)
+    let rep = parts.join('\n' + indent);
     if (!parts.length) rep = '// (' + mark.map((m) => m[1]).join(', ') + ': on ' + P + ', tools/split_js.py state)';
     markers[idx.get(s)] = mark;
     for (let i = edits.length - 1; i >= 0; i--) if (edits[i].start >= start && edits[i].end <= s.end) edits.splice(i, 1);
