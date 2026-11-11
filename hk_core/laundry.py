@@ -340,7 +340,8 @@ def _circuits(out: list[dict[str, Any]], entries: Mapping[str, Mapping[str, Any]
         key = e.get("device_id") or (f"~{e['area_id']}:{eid.split('.', 1)[1].split('_')[0]}" if e.get("area_id") else "")
         if not eid.startswith("sensor.") or not re.search(r"wash|dryer|laundry", t) or NOT_LAUNDRY.search(t) or (e and key in mine):
             continue
-        src = a.get("source") if isinstance(a.get("source"), str) else ""
+        src = a.get("source")
+        src = src if isinstance(src, str) else ""
         p = eid if a.get("device_class") == "power" else (src if a.get("device_class") == "energy" and src.startswith("sensor.")
                                                           and ((states.get(src) or {}).get("a") or {}).get("device_class") == "power" else None)
         if p and all(c[0] != p for c in circ):
