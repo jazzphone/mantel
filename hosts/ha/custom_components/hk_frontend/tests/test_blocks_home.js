@@ -212,10 +212,10 @@ function () {
     ok('...reading them until they come', /Reading the rooms…/.test(l._root.__html));
     SUBS[SUBS.length - 1].on({ configured: true, areas: ['kitchen', 'living_room', 'hallway'] });
     var lh = l._root.__html;
-    eq('...then each a tile to tick, A to Z', (lh.match(/class="vr" data-area="[a-z_]+"/g) || []).map(function (m) { return m.split('"')[3]; }), ['hallway', 'kitchen', 'living_room']);
+    eq('...then each a tile to tick, A to Z', (lh.match(/class="pill vr" data-area="[a-z_]+"/g) || []).map(function (m) { return m.split('"')[3]; }), ['hallway', 'kitchen', 'living_room']);
     tap(l, { 'data-area': 'kitchen' }); tap(l, { 'data-area': 'living_room' });
     lh = l._root.__html;
-    ok('...ticked: white with its check, and the key says how many', /data-area="kitchen" aria-pressed="true"><hk-icon icon="mdi:check">/.test(lh) &&
+    ok('...ticked: the sheet pill, picked, and the key says how many', /class="pill vr" data-area="kitchen" aria-pressed="true"><span>Kitchen</.test(lh) &&
        /data-svc="rooms" aria-label="Clean 2 rooms Downstairs"[\s\S]*<span>Clean 2 rooms<\/span>/.test(lh));
     house.calls.length = 0;
     tap(l, { 'data-svc': 'rooms' });
