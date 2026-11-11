@@ -85,7 +85,7 @@
           '.app img{width:100%;height:100%;object-fit:cover;display:block}',
           '.app.gl{background:#111;color:#fff}.app.gl hk-icon{--mdc-icon-size:30px;width:30px;height:30px}',
           '.app.nm span{font-size:11px;font-weight:600;line-height:1.15;text-align:center;padding:4px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}',
-          '.app.now{overflow:visible}.app.now::after{content:"";position:absolute;inset:-4px;border-radius:inherit;box-shadow:0 0 0 2px rgba(255,255,255,.9)}',
+          '.app.now{overflow:visible}.app.now::after{content:"";position:absolute;inset:-6px;border-radius:20px;box-shadow:0 0 0 3px #fff,0 0 14px rgba(255,255,255,.35)}',
           '.app:active{transform:scale(.95)}',
           '.all{max-height:300px;overflow-y:auto;overscroll-behavior:contain}',
           // THE REMOTE
