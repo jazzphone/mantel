@@ -233,3 +233,50 @@ def test_a_name_the_tests_patch_on_a_package_is_refused(tree):
     man["parts"][0]["members"] += ["LATER"]                                # in the part with its reader: still the package's attribute
     man["parts"][0]["members"].append("helper")
     assert any("monkeypatched" in r and "`LATER`" in r and "__init__" in r for r in tool.make_plan(man, LAZY_SOURCE).refusals)
+
+
+# ------------------------------------------------------------------------------------------------ flat siblings (tools/)
+FLAT_SOURCE = '''"""A script of tools/."""
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+LIMIT = 3
+
+
+def twice(n: int) -> int:
+    return n * LIMIT
+
+
+def main() -> int:
+    print(twice(2), Path("x").name)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+'''
+
+FLAT_LOAD = ("import importlib.util as u; s = u.spec_from_file_location('flat', 'tools/flat.py'); "
+             "m = u.module_from_spec(s); s.loader.exec_module(m); raise SystemExit(m.main())")
+
+
+def test_flat_siblings_import_by_plain_name_however_the_module_is_loaded(tmp_path, monkeypatch):
+    """A module of tools/ (no package; run as a script, loaded by file path): its parts are imported by their plain names and
+    the module puts its own folder on sys.path, so both ways work; the proof imports it by its plain name."""
+    (tmp_path / "tools").mkdir()
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tools/flat.py").write_text(FLAT_SOURCE)
+    tool = _tool()
+    monkeypatch.setattr(tool, "ROOT", tmp_path)
+    man = {"module": "tools/flat.py", "mode": "siblings", "flat": True, "name": "flat",
+           "parts": [{"name": "limits", "title": "the limit", "members": ["LIMIT"]},
+                     {"name": "maths", "title": "the maths", "members": ["twice"]}]}
+    assert tool.do_split(man, check_only=False) == 0
+    maths = (tmp_path / "tools/flat_maths.py").read_text()
+    assert "from flat_limits import LIMIT" in maths and "from ." not in maths
+    for how in (["tools/flat.py"], ["-c", FLAT_LOAD]):
+        out = subprocess.run([sys.executable, *how], cwd=tmp_path, capture_output=True, text=True)
+        assert out.returncode == 0, out.stderr
+        assert out.stdout.split() == ["6", "x"]

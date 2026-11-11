@@ -226,3 +226,14 @@ loader as the page starts).
     module's name); `connect_proof` stays flat (the Dockerfile runs it with `-m`, the receiver copies it by name); the
     house's features (`laundry`, `tv`, `timers`, ...) stay flat, decision 3's list naming no package for them. The
     next step for `linked` and `music`: make each module its package's `__init__` (the tool would need to learn it).
+- **E4, `split_js.py` by feature.** The 1,932-line tool is now `tools/split_js.py` (171 lines: its docstring, the imports back
+  and `main`) and seven siblings, cut by `tools/split_py.py` from `tools/split_py_manifests/split_js.json`:
+  `split_js_names.py` (138: paths, loader and part templates, shared names), `_analysis.py` (155: the TypeScript helper's
+  analysis, text helpers, `Member`, `Plan`), `_plan.py` (512: `make_plan` and what it reads), `_writers.py` (253: the
+  parts' and the shell's text), `_adopt.py` (155), `_proofs.py` (456: `build`, `verify`, the split, `--check` on a split
+  tree) and `_state.py` (188: `--report`, the state rewrite, `--write-loaders`, `--find`). `python tools/split_js.py ...`
+  and every test that loads it by file path work unchanged. **`split_py.py` gained a "flat" siblings shape** (a module of
+  `tools/`, which is no package): the parts are imported by plain name and the module that stays puts its own folder on
+  `sys.path` first, so a script run and an `importlib` load by path both work; `tests/test_split_py.py` runs both.
+  **Proof:** `split_py.py split_js.json --check` (every moved statement's syntax tree the same, the same 83 names, each
+  the same object through its part); `split_js.py --all --check` prints the same text before and after.
