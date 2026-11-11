@@ -15,6 +15,10 @@ TWO SHAPES (the manifest's "mode"):
     it imports back. A name a test monkeypatches stays where its readers are (below), so a part may use only its own
     imports and earlier parts, never the module it came from.
 
+  * "siblings" with "flat": true (tools/split_js.py; tools/ is no package, its scripts run as `python tools/x.py` and tests load them
+    by file path): the parts are imported by their plain names (`from split_js_names import ...`), and the module that stays puts
+    its own folder on sys.path first, so the import works however the module was loaded. The proof imports it by its plain name.
+
 LAZY PACKAGES (the manifest's "lazy": true, package mode only; hk_core/settings/model.py): parts that call each other in
 every direction. The parts are ordered by what must be there WHILE THE MODULE LOADS (the tables, what mutates them, a
 constant built from another), and a call a function makes to a later part is resolved when it is called: the tool writes
@@ -61,6 +65,7 @@ import copy
 import json
 import os
 import re
+import shutil
 import subprocess
 import symtable
 import sys
@@ -563,6 +568,7 @@ def build(plan: Plan) -> dict[str, str]:
     mod = Path(man["module"])
     imports = [st for st in plan.stmts if st.kind == "import"]
     level_up = 1 if mode == "package" else 0
+    dot = "" if man.get("flat") else "."       # flat siblings (tools/split_js.py): plain `from split_js_x import`, tools/ is no package
     folder = mod.with_suffix("") if mode == "package" else mod.parent
     dotted_pkg = ".".join(mod.with_suffix("").parts)
     out: dict[str, str] = {}
@@ -589,7 +595,7 @@ def build(plan: Plan) -> dict[str, str]:
             if o is not None and o != pi and o >= 0 and not (plan.man.get("lazy") and o > pi):    # (a later part: a late import)
                 takes.setdefault(o, []).append(n)
         for o in sorted(takes):
-            head += wrap(f"from .{Path(files[o]).stem} import {', '.join(sorted(takes[o], key=str.lower))}")
+            head += wrap(f"from {dot}{Path(files[o]).stem} import {', '.join(sorted(takes[o], key=str.lower))}")
         body = []
         for k, st in enumerate(mine):
             text = stmt_text(plan, st)
@@ -637,9 +643,12 @@ def build(plan: Plan) -> dict[str, str]:
         for pi in range(len(man["parts"])):
             mine = sorted({n for st in moved if st.part == pi for n in st.names}, key=str.lower)
             if mine:
-                got = wrap(f"from .{Path(files[pi]).stem} import {', '.join(mine)}")
+                got = wrap(f"from {dot}{Path(files[pi]).stem} import {', '.join(mine)}")
                 got = [g + "  # noqa: F401 -- tools/split_py.py" for g in got]
                 back += got
+        if man.get("flat"):       # the parts sit beside this file and are imported by their plain names, however it was loaded
+            back = ["if str(Path(__file__).resolve().parent) not in sys.path:   # (tools/split_py.py, flat siblings)",
+                    "    sys.path.insert(0, str(Path(__file__).resolve().parent))"] + back
         first = min(st.first for st in moved)
         # an import of the module only its moved code used stays (the module keeps every name it had), marked for ruff
         stays = [st for st in plan.stmts if st.part < 0 and st.kind not in ("import", "docstring")]
@@ -766,8 +775,10 @@ def prove(plan: Plan, files: dict[str, str]) -> list[str]:
     order = [p["name"] for p in plan.man["parts"]]
     for path, text in files.items():
         me = Path(path).stem
-        for m in re.finditer(r"^from \.(\w+) import", text, re.M):
+        for m in re.finditer(r"^from \.?(\w+) import", text, re.M):
             other = m.group(1)
+            if plan.man.get("flat") and not other.startswith(Path(plan.man["module"]).stem + "_"):
+                continue
             other_part = other.removeprefix(Path(plan.man["module"]).stem + "_") if mode == "siblings" else other
             if other_part in order and me in order + [Path(plan.man["module"]).stem + "_" + o for o in order]:
                 me_part = me.removeprefix(Path(plan.man["module"]).stem + "_") if mode == "siblings" else me
@@ -793,8 +804,8 @@ print(json.dumps({'names': names, 'notsame': same}))
 """
 
 
-def import_names(root: Path, dotted: str, subs: list[str]) -> dict:
-    env = dict(os.environ, PYTHONPATH=f"{root}:{root}/hosts/server")
+def import_names(root: Path, dotted: str, subs: list[str], extra: str = "") -> dict:
+    env = dict(os.environ, PYTHONPATH=f"{extra}{root}:{root}/hosts/server")
     run = subprocess.run([PY, "-c", IMPORT_PROOF, dotted, json.dumps(subs)], capture_output=True, text=True, env=env, cwd=root)
     if run.returncode:
         raise Refusal(f"importing {dotted} failed:\n{run.stderr[-2000:]}")
@@ -813,10 +824,10 @@ print(json.dumps(out))
 """
 
 
-def import_values(root: Path, dotted: str) -> dict[str, str]:
+def import_values(root: Path, dotted: str, extra: str = "") -> dict[str, str]:
     """{name: repr} of every value the module builds as it loads (not its functions, classes or modules). Run with a fixed hash
     seed, so a set or a dict made the same way is written the same way: the split must build every table as it was built."""
-    env = dict(os.environ, PYTHONPATH=f"{root}:{root}/hosts/server", PYTHONHASHSEED="0")
+    env = dict(os.environ, PYTHONPATH=f"{extra}{root}:{root}/hosts/server", PYTHONHASHSEED="0")
     run = subprocess.run([PY, "-c", VALUES_PROOF, dotted], capture_output=True, text=True, env=env, cwd=root)
     if run.returncode:
         raise Refusal(f"importing {dotted} failed:\n{run.stderr[-2000:]}")
@@ -825,6 +836,8 @@ def import_values(root: Path, dotted: str) -> dict[str, str]:
 
 def dotted_of(man: dict) -> str:
     mod = Path(man["module"]).with_suffix("")
+    if man.get("flat"):
+        return mod.name
     parts = mod.parts[2:] if mod.parts[:2] == ("hosts", "server") else mod.parts
     return ".".join(parts)
 
@@ -853,24 +866,33 @@ def do_split(man: dict, check_only: bool) -> int:
         print(f"{man['name']}: the proof failed:\n" + "\n".join("  - " + b for b in bad))
         return 1
     dotted = dotted_of(man)
-    before = import_names(ROOT, dotted, [])
-    values_before = import_values(ROOT, dotted) if man.get("lazy") else {}
+    flat = bool(man.get("flat"))             # a module of tools/, which is no package: imported by its plain name from its folder
+    here = f"{(ROOT / man['module']).parent}:" if flat else ""
+    before = import_names(ROOT, dotted, [], here)
+    values_before = import_values(ROOT, dotted, here) if man.get("lazy") else {}
     mode = man.get("mode", "package")
     with tempfile.TemporaryDirectory(prefix="split_py-") as td:
         # the split tree: a copy of what the import reaches, with the new files in place of the module
         tmp = Path(td)
         top = Path(man["module"]).parts[0] if mode == "package" or not man["module"].startswith("hosts/server/") else "hosts"
-        subprocess.run(["cp", "-R", str(ROOT / top), str(tmp / top)], check=True)
-        if top != "hk_core" and (ROOT / "hk_core").is_dir():
+        if flat:
+            (tmp / Path(man["module"]).parent).mkdir(parents=True)
+            for f in (ROOT / man["module"]).parent.glob("*.py"):
+                shutil.copy(f, tmp / Path(man["module"]).parent / f.name)
+        else:
+            subprocess.run(["cp", "-R", str(ROOT / top), str(tmp / top)], check=True)
+        if not flat and top != "hk_core" and (ROOT / "hk_core").is_dir():
             subprocess.run(["cp", "-R", str(ROOT / "hk_core"), str(tmp / "hk_core")], check=True)
         (tmp / man["module"]).unlink()
         for path, t in files.items():
             (tmp / path).parent.mkdir(parents=True, exist_ok=True)
             (tmp / path).write_text(t)
-        subs = [dotted + "." + Path(p).stem if mode == "package" else dotted.rsplit(".", 1)[0] + "." + Path(p).stem
+        subs = [dotted + "." + Path(p).stem if mode == "package" else Path(p).stem if flat else
+                dotted.rsplit(".", 1)[0] + "." + Path(p).stem
                 for p in files if Path(p).name != "__init__.py" and Path(p).as_posix() != man["module"]]
-        after = import_names(tmp, dotted, subs)
-        values_after = import_values(tmp, dotted) if man.get("lazy") else {}
+        there = f"{tmp / Path(man['module']).parent}:" if flat else ""
+        after = import_names(tmp, dotted, subs, there)
+        values_after = import_values(tmp, dotted, there) if man.get("lazy") else {}
     if after["notsame"]:
         bad += after["notsame"]
     if man.get("lazy"):

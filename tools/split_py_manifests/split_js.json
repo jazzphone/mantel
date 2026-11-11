@@ -1,0 +1,43 @@
+{
+  "module": "tools/split_js.py",
+  "mode": "siblings",
+  "flat": true,
+  "parts": [
+    {
+      "name": "names",
+      "title": "the paths, the loader and part templates, and the names the other parts share",
+      "lines": [[101, 209]],
+      "members": ["MUTATORS", "GENERATED_CLASS_MODE", "ADOPT_LOADER", "GENERATED_NAMES"]
+    },
+    {
+      "name": "analysis",
+      "title": "the TypeScript helper's analysis, the text helpers, and the Member and Plan records",
+      "lines": [[210, 352]]
+    },
+    {
+      "name": "plan",
+      "title": "the plan: which member goes to which part, what the kit takes and hands back, and what is refused",
+      "lines": [[353, 756], [758, 829], [831, 850], [1042, 1054]]
+    },
+    {
+      "name": "writers",
+      "title": "the writers: the parts' text, the shell's text, and the manifest and git helpers",
+      "lines": [[851, 1041], [1055, 1106]]
+    },
+    {
+      "name": "adopt",
+      "title": "adopt: a shell with a hand-written loader and its files, merged into one file for the ordinary split",
+      "lines": [[1111, 1257]]
+    },
+    {
+      "name": "proofs",
+      "title": "the proofs and the commands that run them: build, verify, the split, and --check on a split tree",
+      "lines": [[1258, 1697]]
+    },
+    {
+      "name": "state",
+      "title": "--report, the state rewrite, --write-loaders and --find",
+      "lines": [[1700, 1878]]
+    }
+  ]
+}

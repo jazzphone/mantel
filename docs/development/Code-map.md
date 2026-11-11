@@ -791,7 +791,21 @@ Build, release and check tools.
   - `route_probe.py` — The route probe (phase 18, docs/phase18/CODE-HEALTH.md, "Zero behavior change
   - `route_table.py` — Mantel Server's route table (phase 18, Part A; hosts/server/mantel_server/route_table.py).
   - `split_js.cjs`
-  - `split_js.py` — Cut a big web JavaScript file into parts, by name, and prove nothing but the place changed (phase 18, Part B; docs/phase18/CODE-HEALTH.md "Part B
+  - `split_js.py` — Cut a big web JavaScript file into parts, by name, and prove nothing but the place changed (phase 18, Part B; docs/phase18/CODE-HEALTH.md "Part B *(its parts beside it: `tools/split_py_manifests/split_js.json`)*
+    - `split_js_names.py` — the paths, the loader and part templates, and the names the other parts share
+    - `split_js_analysis.py` — the TypeScript helper's analysis, the text helpers, and the Member and Plan records
+    - `split_js_plan.py` — the plan: which member goes to which part, what the kit takes and hands back, and what is refused
+    - `split_js_writers.py` — the writers: the parts' text, the shell's text, and the manifest and git helpers
+    - `split_js_adopt.py` — adopt: a shell with a hand-written loader and its files, merged into one file for the ordinary split
+    - `split_js_proofs.py` — the proofs and the commands that run them: build, verify, the split, and --check on a split tree
+    - `split_js_state.py` — --report, the state rewrite, --write-loaders and --find
+  - `split_js_adopt.py` — split_js.py's adopt
+  - `split_js_analysis.py` — split_js.py's the TypeScript helper's analysis, the text helpers, and the Member and Plan records (moved here by tools/split_py.py from tools/split...
+  - `split_js_names.py` — split_js.py's the paths, the loader and part templates, and the names the other parts share (moved here by tools/split_py.py from tools/split_js.py
+  - `split_js_plan.py` — split_js.py's the plan
+  - `split_js_proofs.py` — split_js.py's the proofs and the commands that run them
+  - `split_js_state.py` — split_js.py's --report, the state rewrite, --write-loaders and --find (moved here by tools/split_py.py from tools/split_js.py
+  - `split_js_writers.py` — split_js.py's the writers
   - `split_py.py` — Cut a big Python module into parts, by name, and prove nothing but the place changed (phase 24, A3
   - `stage_connect_app.py` — Assemble the Mantel Connect Home Assistant App folder (a LOCAL App) from this repository.
   - `stage_ha_app.py` — Assemble Mantel's Home Assistant App folder (a LOCAL App) from this repository.

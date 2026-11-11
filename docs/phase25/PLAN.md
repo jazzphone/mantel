@@ -191,3 +191,14 @@ loader as the page starts).
   (`hk-saver-draw`), `photoRun` and `queued` the run's (`hk-saver-start`, where `advance` lives). **Reads stay on
   `ST` where several files read a name with one writer** (`cfg`, `host`, `root`, `on`, `mode`, `ly`, `pnl`, ...): a
   getter would have been one more name each reading part binds from a later part, the opposite of what Part A is for.
+- **E4, `split_js.py` by feature.** The 1,932-line tool is now `tools/split_js.py` (171 lines: its docstring, the imports back
+  and `main`) and seven siblings, cut by `tools/split_py.py` from `tools/split_py_manifests/split_js.json`:
+  `split_js_names.py` (138: paths, loader and part templates, shared names), `_analysis.py` (155: the TypeScript helper's
+  analysis, text helpers, `Member`, `Plan`), `_plan.py` (512: `make_plan` and what it reads), `_writers.py` (253: the
+  parts' and the shell's text), `_adopt.py` (155), `_proofs.py` (456: `build`, `verify`, the split, `--check` on a split
+  tree) and `_state.py` (188: `--report`, the state rewrite, `--write-loaders`, `--find`). `python tools/split_js.py ...`
+  and every test that loads it by file path work unchanged. **`split_py.py` gained a "flat" siblings shape** (a module of
+  `tools/`, which is no package): the parts are imported by plain name and the module that stays puts its own folder on
+  `sys.path` first, so a script run and an `importlib` load by path both work; `tests/test_split_py.py` runs both.
+  **Proof:** `split_py.py split_js.json --check` (every moved statement's syntax tree the same, the same 83 names, each
+  the same object through its part); `split_js.py --all --check` prints the same text before and after.
