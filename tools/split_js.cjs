@@ -454,6 +454,16 @@ function applyEdits(text, from, to, edits) {
   return s;
 }
 
+// (an identifier that is assigned, or counted up or down, where it stands)
+function written(n) {
+  let c = n, p = n.parent;
+  while (p && ts.isParenthesizedExpression(p)) { c = p; p = p.parent; }
+  if (!p) return false;
+  if (ts.isBinaryExpression(p) && p.left === c && p.operatorToken.kind >= ts.SyntaxKind.FirstAssignment &&
+      p.operatorToken.kind <= ts.SyntaxKind.LastAssignment) return true;
+  return (ts.isPrefixUnaryExpression(p) || ts.isPostfixUnaryExpression(p)) &&
+    (p.operator === ts.SyntaxKind.PlusPlusToken || p.operator === ts.SyntaxKind.MinusMinusToken);
+}
 function stateRewrite(req) {
   const P = '\u0000HKSTATE\u0000';       // (the object's place in the text until its name is chosen)
   const file = path.resolve(req.file);
@@ -508,7 +518,11 @@ function stateRewrite(req) {
             lineOfPos(n.getStart(sf)));
           for (let q = n; q && q !== sf; q = q.parent) {
             if (ts.isWithStatement(q)) refusals.push('`' + n.text + '` is used in a `with` at line ' + lineOfPos(n.getStart(sf)));
-            const hdr = q.parent && ((ts.isForStatement(q.parent) && (q.parent.initializer === q || q.parent.incrementor === q || q.parent.condition === q)) ||
+            // (2026-11-11, the saver's `i < cards.length`: a name only read in a `for`'s condition is any read -- ST.cards
+            // is the same value at every test. Written there, or anywhere in the initializer or the incrementor, or a
+            // for-in/of's binding, it is refused, as the plan says)
+            const readInCond = ts.isForStatement(q.parent || n) && q.parent.condition === q && !written(n);
+            const hdr = q.parent && !readInCond && ((ts.isForStatement(q.parent) && (q.parent.initializer === q || q.parent.incrementor === q || q.parent.condition === q)) ||
                         ((ts.isForInStatement(q.parent) || ts.isForOfStatement(q.parent)) && q.parent.initializer === q));
             if (hdr) { refusals.push('`' + n.text + '` is in a loop header at line ' + lineOfPos(n.getStart(sf))); break; }
             if (ts.isFunctionLike(q)) break;

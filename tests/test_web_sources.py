@@ -426,6 +426,44 @@ def test_a_declared_function_is_a_scope_and_a_member_named_valueof_moves(path, t
     assert "  function initialize() {" in shell and "      runParts();" in shell
 
 
+AHEAD_SOURCE = """(function () {
+  'use strict';
+  function early() { return late() + 1; }
+  function late() { return 41; }
+  window.ahead = { early: early };
+})();
+"""
+
+
+def test_bind_ahead_lets_a_part_call_a_later_ones_but_nothing_run_while_the_parts_run(path, tmp_path):
+    """(2026-11-11, the saver) bind_ahead: a part's function may use a later part's member when it is called; the part has
+    a var of its own, bound once every part has run (runParts runs K.ahead). Without it, refused; a statement of a part that
+    runs while the parts run and reaches it, refused."""
+    if not _node_ready() or path.stem != "grid-cards":
+        pytest.skip("node or TypeScript (tools/typecheck) not installed, or run once")
+    tool = _tool()
+    man = {"shell": "x.js", "folder": "web/hk/x", "global": "hkXParts", "label": "hk-x", "what": "X", "name": "x",
+           "parts": [{"name": "hk-x-a", "title": "a", "members": ["early"]}, {"name": "hk-x-b", "title": "b", "members": ["late"]}]}
+    with pytest.raises(tool.Refusal, match="later part"):
+        tool.build(man, AHEAD_SOURCE, tmp_path / "no")
+    man["bind_ahead"] = True
+    plan, parts, shell = tool.build(man, AHEAD_SOURCE, tmp_path / "ok")
+    assert tool.verify(plan, parts, shell, tmp_path / "ok") == []
+    a = parts["hk-x-a.js"]
+    assert "    var late;" in a and "K.ahead.push(function () {" in a and "late = K.late;" in a
+    assert "ahead: []" in shell and "K.ahead.forEach(function (bind) { bind(); });" in shell
+    js = tmp_path / "run.js"
+    js.write_text(parts["hk-x-a.js"] + parts["hk-x-b.js"] + shell)
+    run = subprocess.run(["node", "-e", "global.window=global; eval(require('fs').readFileSync(process.argv[1],'utf8'));"
+                          "console.log(window.ahead.early())", str(js)], capture_output=True, text=True)
+    assert run.stdout.strip() == "42", run.stderr
+    # run while the parts run: `var first = early();` in part a would call late() before part b has run
+    src = AHEAD_SOURCE.replace("  window.ahead", "  var first = early();\n  window.ahead")
+    man["parts"][0]["members"].append("first")
+    with pytest.raises(tool.Refusal, match="runs while the parts run"):
+        tool.build(man, src, tmp_path / "now")
+
+
 def test_the_iife_a_manifest_names_is_the_one_cut(path, tmp_path):
     if not _node_ready() or path.stem != "grid-cards":
         pytest.skip("node or TypeScript (tools/typecheck) not installed, or run once")
@@ -532,10 +570,15 @@ def test_the_state_rewrite_puts_vars_on_one_object_and_proves_it_backwards(path,
     assert run.stdout.strip() == '{"VIEW":3,"count":1} 3a1', run.stderr
     for src, why in ((STATE_SOURCE.replace("function show() {", "function show(VIEW) {"), "shadows"),
                      (STATE_SOURCE.replace("return VIEW + LABEL", "return typeof VIEW + LABEL"), "typeof"),
-                     (STATE_SOURCE.replace("function show() {", "function show() { for (count = 0; count < 1; count++) {} "), "loop header")):
+                     (STATE_SOURCE.replace("function show() {", "function show() { for (count = 0; count < 1; count++) {} "), "loop header"),
+                     (STATE_SOURCE.replace("function show() {", "function show() { for (var i = 0; (count = i) < 1; i++) {} "), "loop header")):
         f.write_text(src)
         with pytest.raises(tool.Refusal, match=why):
             tool.state_rewrite(f, {}, ["VIEW", "count"])
+    # (2026-11-11) a name only read in a loop's condition is any read: rewritten, and it runs the same
+    f.write_text(STATE_SOURCE.replace("function show() {", "function show() { for (var i = 0; i < count; i++) {} "))
+    text, _ = tool.state_rewrite(f, {}, ["VIEW", "count"])
+    assert "for (var i = 0; i < ST.count; i++) {}" in text
     # the backwards proof catches a rewrite that read the wrong property
     f.write_text(STATE_SOURCE)
     got = tool.ask({"cmd": "state", "file": str(f), "vars": ["VIEW", "count"], "run_in": None, "run_in_decl": False, "iife": 0,

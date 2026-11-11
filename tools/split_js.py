@@ -305,6 +305,8 @@ class Plan:
     unresolved_before: set[str] = field(default_factory=set)
     cs: int | None = None                                            # the scope of the class's members (class-method mode)
     live: dict[int, set] = field(default_factory=dict)               # part -> shell variables it binds late
+    ahead: dict[int, set] = field(default_factory=dict)              # part -> later parts' names it binds once all have run
+    ahead_users: set = field(default_factory=set)                    # members that use a later part's name (bind_ahead)
 
 
 def make_plan(man: dict, text: str, work: Path) -> Plan:
@@ -436,7 +438,7 @@ def make_plan(man: dict, text: str, work: Path) -> Plan:
         for w in m.d["writes"]:
             writers.setdefault(target_key(w), []).append(m)
     for pi in range(len(man["parts"])):
-        plan.takes[pi], plan.gives[pi], plan.live[pi] = set(), set(), set()
+        plan.takes[pi], plan.gives[pi], plan.live[pi], plan.ahead[pi] = set(), set(), set(), set()
     for sc in range(len(an["scopes"])):
         plan.shell_takes[sc] = set()
     early_methods = set(man.get("early_methods", []))
@@ -481,6 +483,14 @@ def make_plan(man: dict, text: str, work: Path) -> Plan:
                 plan.takes[m.part].add(name)
                 plan.shell_kit.add(name)
             elif m.part >= 0 and tpart >= 0:
+                if tpart > m.part and man.get("bind_ahead") and not mutable:
+                    # (2026-11-11, bind_ahead) a later part's name, used when a function is called: the part has a var of
+                    # its own, bound once every part has run (runParts: K.ahead). Nothing that runs while the parts run may
+                    # reach it: refused below
+                    plan.ahead[m.part].add(name)
+                    plan.ahead_users.add(m.key)
+                    plan.gives[tpart].add(name)
+                    continue
                 if tpart > m.part:
                     plan.refusals.append(f"{man['parts'][m.part]['name']} (`{m.label}`) uses `{name}` of the later part "
                                          f"{man['parts'][tpart]['name']}: reorder the parts, or move one of them")
@@ -536,6 +546,34 @@ def make_plan(man: dict, text: str, work: Path) -> Plan:
                 continue
             if tgt.d["kind"] == "function":
                 stack += [(r2, via + [r2.get("name")]) for r2 in tgt.d["refs"] if "index" in r2]
+    # (2026-11-11, bind_ahead) WHILE THE PARTS RUN, a part's statement that runs at once (not a declaration) must not reach,
+    # through what it calls (its callbacks' and IIFEs' too), a member that uses a later part's name (bound only once every
+    # part has run), a member of the shell that uses a moved one (taken back then too), or a statement that waits
+    if man.get("bind_ahead"):
+        for m in sorted(plan.members.values(), key=lambda x: (x.scope, x.index)):
+            if m.part < 0 or m.scope == plan.cs or m.d["kind"] in ("function", "directive", "class"):
+                continue
+            seen, stack = set(), [(m.key, [m.label])]
+            while stack:
+                key, via = stack.pop()
+                tgt = by_key.get(key)
+                if tgt is None or tgt.key in seen:
+                    continue
+                seen.add(tgt.key)
+                why = None
+                if tgt.key in plan.ahead_users:
+                    why = "uses a later part's name, bound only once every part has run"
+                elif tgt.late and tgt.d["kind"] != "function":
+                    why = "waits for the parts"
+                elif tgt.part < 0 and tgt is not m and any(
+                        (t := by_key.get((r["scope"], r["index"]))) is not None and t.part >= 0 for r in tgt.d["refs"] if "index" in r):
+                    why = "is the shell's and uses a moved member, taken back only once every part has run"
+                if why:
+                    plan.refusals.append(f"{man['parts'][m.part]['name']}: `{m.label}` (line {m.d['first']}) runs while the parts run "
+                                         f"and reaches `{tgt.label}`, which {why} (through {' -> '.join(via)})")
+                    continue
+                if tgt is m or tgt.d["kind"] == "function":
+                    stack += [((r["scope"], r["index"]), via + [r.get("name")]) for r in tgt.d["refs"] if "index" in r]
     # (phase 24) A STATEMENT THAT WAITS AND CHANGES AN OBJECT a part reads as it runs (`M.glass = ...`, `X.push(...)`,
     # `Object.assign(X, ...)`): the part would read the object before the change. The object must stay in the shell (where
     # the change, reaching nothing that moved, runs at once) or the change must not wait.
@@ -748,10 +786,16 @@ def part_text(plan: Plan, pi: int, takes: set[str] | None = None, check: bool = 
     kit = kit_of(man)
     out += ["(function () {", "  'use strict';",
             f"  (window.{man['global']} = window.{man['global']} || {{}})['{part['name']}'] = function ({kit}) {{"]
+    draft = takes is not None              # (build's draft, without its takes: tsc names what the kit must hold)
     takes = plan.takes[pi] if takes is None else takes
     if takes:
         out += take_lines(by_name(takes), kit)
         out.append("")
+    ahead = by_name(plan.ahead.get(pi, ()))
+    if ahead and not draft:
+        out += pack(commas(ahead), "    var ", "        ")
+        out += ["    // (of later parts, used when called: bound once every part has run, runParts)",
+                f"    {kit}.ahead.push(function () {{"] + pack([f"{n} = {kit}.{n};" for n in ahead], "      ", "      ") + ["    });", ""]
     late = by_name(plan.live.get(pi, ()))
     if late:
         out += pack(commas(late), "    var ", "        ")
@@ -828,11 +872,15 @@ def shell_text(plan: Plan, extra_takes: dict[int, set[str]] | None = None) -> st
         entries += ["install: install"]
     if live_mode:
         entries += ["late: lates"]
+    if any(plan.ahead.values()):
+        entries += ["ahead: []"]
     kit += pack(commas(entries, last=""), ind2 + "  ", ind2 + "  ")
     kit += [f"{ind2}}};", f"{ind}}}"]
     back_all = by_name(set().union(*takes.values()) if takes else set())
     run = [f"{ind}function runParts() {{", f"{ind2}var {kitn} = kit();",
            f"{ind2}PARTS.forEach(function (file) {{ window.{man['global']}[partKey(file)]({kitn}); }});"]
+    if any(plan.ahead.values()):
+        run.append(f"{ind2}{kitn}.ahead.forEach(function (bind) {{ bind(); }});   // (the later parts' names each part uses)")
     run += pack([f"{n} = {kitn}.{n};" for n in back_all], ind2, ind2) if back_all else []
     if live_mode:
         run.append(f"{ind2}bindLate();")
@@ -992,7 +1040,8 @@ def build(man: dict, text: str, work: Path) -> tuple[Plan, dict[str, str], str]:
                                                                              for r in m.d["refs"] if "param" in r}
     params = {p for sc in plan.an["scopes"] for p in sc["params"]}
     # a taken name that is also a browser global (CSS, Image, ...): tsc finds the global, so it never reports it missing
-    lib = set(ask({"cmd": "lib_globals", "names": sorted(set().union(*plan.takes.values())), "globals": TYPES_D_TS})["names"])
+    lib = set(ask({"cmd": "lib_globals", "names": sorted(set().union(*plan.takes.values(), *plan.ahead.values())),
+                   "globals": TYPES_D_TS})["names"])
     problems = []
     for pi, draft in drafts.items():
         d = got[str(draft.resolve())]
@@ -1000,13 +1049,14 @@ def build(man: dict, text: str, work: Path) -> tuple[Plan, dict[str, str], str]:
             problems.append(f"{man['parts'][pi]['name']}: does not parse: {d['syntax'][0]}")
         missing = {u["name"] for u in d["unresolved"]}
         kit_by_tsc = (missing & (declared | params)) - {n for n in missing if n in plan.unresolved_before and n not in declared}
-        kit_by_tsc |= plan.takes[pi] & lib
+        kit_by_tsc |= (plan.takes[pi] | plan.ahead[pi]) & lib
         stray = missing - declared - params - plan.unresolved_before
         if stray:
             problems.append(f"{man['parts'][pi]['name']}: tsc cannot find {sorted(stray)}, and the original shell cannot either")
-        if kit_by_tsc != plan.takes[pi]:
-            problems.append(f"{man['parts'][pi]['name']}: the references say the kit is {sorted(plan.takes[pi])}, "
-                            f"tsc says {sorted(kit_by_tsc)}: differs by {sorted(kit_by_tsc ^ plan.takes[pi])}")
+        want = plan.takes[pi] | plan.ahead[pi]
+        if kit_by_tsc != want:
+            problems.append(f"{man['parts'][pi]['name']}: the references say the kit is {sorted(want)}, "
+                            f"tsc says {sorted(kit_by_tsc)}: differs by {sorted(kit_by_tsc ^ want)}")
     if problems:
         raise Refusal("\n".join("  - " + p for p in problems))
     extra: dict[int, set[str]] = {}
@@ -1125,6 +1175,11 @@ def verify(plan: Plan, parts: dict[str, str], shell: str, work: Path) -> list[st
         if lost:
             bad.append(f"{part['name']}: takes {sorted(lost)} that nothing provides yet")
         have |= plan.gives[pi]
+    for pi, part in enumerate(man["parts"]):
+        later = set().union(*(plan.gives[j] for j in range(pi + 1, len(man["parts"])))) if pi + 1 < len(man["parts"]) else set()
+        lost = plan.ahead[pi] - later
+        if lost:
+            bad.append(f"{part['name']}: binds {sorted(lost)} ahead, which no later part hands back")
     for sc, names in plan.shell_takes.items():
         lost = names - have
         if lost:
@@ -1290,6 +1345,23 @@ def check_split(man: dict, check_only: bool = True) -> int:
                            f"(and the shell's kit)")
         if taken_back - gives_all:
             bad.append(f"the shell takes back {sorted(taken_back - gives_all)} that no part hands back")
+        # (bind_ahead) a later part's names a part binds once every part has run: a later part hands each back
+        given_by = {n: set(re.findall(r"^\s*" + re.escape(kitn) + r"\.([\w$]+) = \1;", (folder / f"{n}.js").read_text(), re.M)) |
+                       set(re.findall(r" " + re.escape(kitn) + r"\.([\w$]+) = \1;", (folder / f"{n}.js").read_text()))
+                    for n in names if (folder / f"{n}.js").is_file()}
+        for i, n in enumerate(names):
+            f = folder / f"{n}.js"
+            if not f.is_file():
+                continue
+            m_ah = re.search(re.escape(kitn) + r"\.ahead\.push\(function \(\) \{(.*?)\}\);", f.read_text(), re.S)
+            if not m_ah:
+                continue
+            want = set(re.findall(r"([\w$]+) = " + re.escape(kitn) + r"\.\1;", m_ah.group(1)))
+            later = set().union(*(given_by.get(x, set()) for x in names[i + 1:]))
+            if want - later:
+                bad.append(f"{n}: binds {sorted(want - later)} ahead, which no later part hands back")
+            if (kitn + ".ahead.forEach(") not in text:
+                bad.append(f"{n} binds names ahead, and the shell's runParts never runs K.ahead")
         if (text.count("\n") and diag[str(shell_path.resolve())]["syntax"]):
             bad.append(f"the shell: syntax: {diag[str(shell_path.resolve())]['syntax'][0]}")
         # members are where the manifest says
