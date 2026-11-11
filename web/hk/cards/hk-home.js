@@ -326,19 +326,19 @@
         // THE ROOMS, two across, each a row of its own size (48 px; nothing stretches, 2026-11-08, the owner: "do the rooms scroll in the card if there
         // are more than what the card allows? If not, it should"): as many as the block holds, the rest scrolling (a cut row says so); few
         // rooms stay under their label (data-fit: _fitRooms)
-        '.vb .rooms{display:grid;grid-template-columns:repeat(2,var(--vb-cw));justify-content:center;grid-auto-rows:48px;gap:8px;align-content:start;flex:1 1 auto;min-height:0;margin-top:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;touch-action:pan-x pan-y;scrollbar-width:none}',
+        '.vb .rooms{display:grid;grid-template-columns:repeat(2,var(--vb-cw));justify-content:center;grid-auto-rows:40px;gap:' + window.hkCards.TILE.gridGap + 'px;align-content:start;flex:1 1 auto;min-height:0;margin-top:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;touch-action:pan-x pan-y;scrollbar-width:none}',
         '.vb .rooms::-webkit-scrollbar{display:none}.vb .rooms[data-fit]{align-content:start}',
         // ...and no stretching across the width (2026-11-08): a room is --vb-cw wide (176 on Large, 170 on Extra Large -- two across and the gap
         // nearly fill the column), the label, grid and keys one column of that width, centered in what the block's column leaves
-        '.vb[data-s=L]{--vb-cw:176px}.vb[data-s=XL]{--vb-cw:170px}.vb[data-r] :is(.lab,.rooms,.keys){width:calc(var(--vb-cw) * 2 + 8px);align-self:center;box-sizing:border-box}',
+        '.vb[data-s=L]{--vb-cw:176px}.vb[data-s=XL]{--vb-cw:170px}.vb[data-r] :is(.lab,.rooms,.keys){width:calc(var(--vb-cw) * 2 + ' + window.hkCards.TILE.gridGap + 'px);align-self:center;box-sizing:border-box}',
         // TALL AND WIDE with rooms on offer: the Rooms key opens the sheet that picks them, and says what is picked ("Kitchen, Office", "3 rooms")
         // (56 px, 2026-11-09: the "All rooms" row was 44 while the block's other keys are 56 -- a 56 px touch target)
         '.vb .rrow{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:8px;flex:none;height:56px;padding:0 8px 0 14px;margin-top:10px;border-radius:28px;background:' + C.v('key') + ';color:' + C.v('ink-2') + ';font-family:inherit;' + C.typeCss('caption') + ';cursor:pointer}',
         '.vb .rrow>span{flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.vb .rrow.on{color:' + C.v('ink') + ';font-weight:600}.vb .rrow hk-icon{flex:none;width:20px;height:20px;--mdc-icon-size:20px}.vb .rrow:active{transform:scale(0.98)}.vb .rrow:focus-visible{outline:2px solid ' + C.v('ink-2') + ';outline-offset:2px}',
         '.vb .pair{display:flex;gap:8px}.vb .pair .key.rm{flex:1 1 0;min-width:0;padding:0 8px;font-size:15px}.vb .pair .key.rm.on{font-weight:700}.vb .side .pair .key.dk{width:auto}.vb .pair .key.rm hk-icon{display:none}.vb .rm-note{display:block;' + C.typeCss('caption') + ';font-weight:600;color:' + C.v('ink') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-        '.vb .vr{all:unset;box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:6px;min-width:0;padding:0 10px;cursor:pointer;  border-radius:var(--hk-inner-radius, 12px);background:' + C.v('key') + ';color:' + C.v('ink') + ';font-family:inherit;font-size:13px;font-weight:600}',
-        '.vb .vr>span{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.vb .vr hk-icon{flex:none;width:16px;height:16px;--mdc-icon-size:16px}',
-        '.vb .vr[aria-pressed=true]{background:' + SELECTED_BG + ';color:' + SELECTED_TEXT + '}',
+        // THE ROOMS ARE THE SHEET'S PILLS (the owner, 2026-11-10: "not using the pills they should be using for the vacuum areas"): hk-base.js's
+        // 40 px selectable pill, the name centered, white when picked -- the Vacuum sheet's and the Vacuums page's rooms, no glass layer of their own
+        '.vb .vr{font:inherit;-webkit-appearance:none;appearance:none;min-width:0;box-sizing:border-box;--hk-glass-surface:0;position:relative}.vb .vr::after{content:"";position:absolute;inset:-2px 0}',
         // EXTRA LARGE: the vacuum, its battery as a ring and its last run on the left; the rooms on the right
         '.vb[data-s=XL]{flex-direction:row;gap:22px}',
         // (the ring in the middle of what its column has left, the last run at the foot, level with the keys)
@@ -359,7 +359,7 @@
         '.vb[data-s=L][data-r] .rcol{flex:1 1 auto;display:flex;flex-direction:column;min-width:0}',
         '.vb[data-s=L][data-r] .rcol .lab{margin-top:0}',
         '.vb[data-s=L][data-r] :is(.lab,.rooms,.keys){width:100%}',
-        '.vb[data-s=L] .rooms{grid-template-columns:minmax(0,1fr);grid-auto-rows:44px}.vb[data-s=L] .vr{justify-content:flex-start;padding:0 14px;font-size:15px}',
+        '.vb[data-s=L] .rooms{grid-template-columns:minmax(0,1fr)}',
         // (no rooms: the drawing as large as the block leaves it, centered)
         // (2026-11-10: the robot was 0 px wide here, so it never showed; now its box takes what the column leaves, the drawing upper left)
         '.vb[data-s=L]:not([data-r]) .mid .art{flex:1 1 0;min-height:0;width:100%;margin:0;display:flex;justify-content:flex-start;align-items:flex-start;container-type:size}',
@@ -578,8 +578,7 @@
           : !list.length ? '<div class="note">No room can be cleaned by area yet.</div>'
           : '<div class="rooms" role="group" aria-label="Rooms to clean">' + list.map(function (r) {
               var on = self._sel.has(r.id);
-              return '<button type="button" class="vr" data-area="' + esc(r.id) + '" aria-pressed="' + on + '">' +
-                (on ? '<hk-icon icon="mdi:check"></hk-icon>' : '') + '<span>' + esc(r.name) + '</span></button>';
+              return '<button type="button" class="pill vr" data-area="' + esc(r.id) + '" aria-pressed="' + on + '"><span>' + esc(r.name) + '</span></button>';
             }).join('') + '</div>');
       }
       // (Tall and Wide: the rooms picked in a sheet, named where they are picked -- one or two by name, more by count -- only while it can start a clean, and not beside a Clear pill: three targets at most)
