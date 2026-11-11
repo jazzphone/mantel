@@ -59,8 +59,9 @@
     '.lbl{' + type('label') + ';text-transform:uppercase;color:' + v('ink-2') + ';line-height:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '.ti{' + type('title') + ';line-height:26px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '.hero{' + type('figure') + ';line-height:34px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-    '.sb{' + type('body') + ';line-height:20px;color:' + v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-    '.fn{' + type('caption') + ';line-height:18px;color:' + v('ink-3') + ';white-space:nowrap;font-variant-numeric:tabular-nums}',
+    // (read from across the room, DESIGN.md: what it is doing 17, when it's done 15 -- the owner, 2026-11-10: "the text could actually be bigger")
+    '.sb{font-size:17px;font-weight:500;line-height:22px;color:' + v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '.fn{' + type('body') + ';line-height:20px;color:' + v('ink-3') + ';white-space:nowrap;font-variant-numeric:tabular-nums}',
     '.mint{color:' + MINT + '}.red{color:' + RED + '}',
     '.foot{margin-top:auto;display:flex;flex-direction:column;gap:12px;min-width:0}',
     // the cycle's steps: a short bar each, its name under it
@@ -203,13 +204,13 @@
         var used = (o.steps ? 41 : 0) + (lrows ? (lrows.match(/class="r"/g) || []).length * 38 + 12 : 0) + (lp ? 52 : 0) + 12;
         var lart = this._fit(Math.min(180, iw * 0.46), Math.min(ih - used, 200));
         return '<div class="col" style="gap:12px"><div style="display:flex;gap:14px;align-items:flex-start;min-width:0">' + this._art(o, lart) +
-          '<div class="col"><div class="lbl">' + esc(o.name) + '</div><div class="hero' + tone + '">' + esc(o.title) + '</div><div class="sb' + (o.state === 'leak' ? ' red' : '') + '">' + esc(o.sub) + '</div>' + fin + '</div></div>' +
+          '<div class="col"><div class="hero' + tone + '">' + esc(o.title) + '</div><div class="sb' + (o.state === 'leak' ? ' red' : '') + '">' + esc(o.sub) + '</div>' + fin + '</div></div>' +
           this._track(o, iw) + lrows + (lp ? '<div class="foot">' + lp + '</div>' : '') + '</div>';
       }
       var xrows = this._rows(o, box.tile ? 2 : 4), xp = this._pills(o, 2);
       return '<div style="display:flex;gap:22px;flex:1;min-width:0"><div style="width:' + Math.round(Math.min(240, iw * 0.42)) + 'px;flex:none;display:flex;align-items:center;justify-content:center">' +
         this._art(o, this._fit(Math.min(240, iw * 0.42), ih)) + '</div>' +
-        '<div class="col" style="gap:6px"><div class="lbl">' + esc(o.name) + '</div><div class="hero' + tone + '">' + esc(o.title) + '</div>' +
+        '<div class="col" style="gap:6px"><div class="hero' + tone + '">' + esc(o.title) + '</div>' +
         '<div class="sb' + (o.state === 'leak' ? ' red' : '') + '">' + esc([o.sub, o.endsWords].filter(Boolean).join(' · ')) + '</div>' +
         (o.steps ? '<div style="margin-top:10px">' + this._track(o, iw - Math.min(240, iw * 0.42) - 22) + '</div>' : '') + (xrows ? '<div style="margin-top:6px">' + xrows + '</div>' : '') +
         (xp ? '<div class="foot">' + xp + '</div>' : '') + '</div></div>';

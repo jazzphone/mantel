@@ -454,7 +454,7 @@ class SettingsService:
             "custom_chips": self._items("custom_chips"),
             "accessories": self.store.body("house", "accessories") or {"entities": {}},
             "kinds": {}, "hidden": {},
-            "presets": catalog.get("presets", []), "chip_kinds": catalog.get("chip_kinds", list(CHIP_KINDS)),
+            "presets": catalog.get("presets", []), "chip_kinds": SP.chip_kinds_with(catalog.get("chip_kinds"), CHIP_KINDS),
             # the imported catalog's kinds, with those Mantel's model knows and it lacks (the Timeline, a page kind
             # newer than the import): a screen whose Pages or Scenes are its own can add them
             "page_kinds": SP.page_kinds_with(catalog.get("page_kinds", [])),

@@ -1638,7 +1638,7 @@
       if (cfg.label_mode === 'laundry') {
         var lo = this._laundry();
         if (!lo) return 'Unavailable';
-        return lo.runs && lo.left != null && lo.state !== 'paused' ? lo.title + ' · ' + Math.max(1, Math.round(lo.left / 60)) + ' min' : lo.title;
+        return lo.runs && lo.left != null && lo.state !== 'paused' ? lo.title + ' · ' + window.hkLaundry.dur(lo.left) : lo.title;
       }
       var s = (st && st.state) || 'unknown';
       if (cfg.label_mode === 'climate_temperature' || cfg.label_mode === 'climate_humidity') {
