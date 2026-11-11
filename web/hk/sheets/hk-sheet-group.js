@@ -13,7 +13,7 @@
         CoverPanel = K.CoverPanel, domainOf = K.domainOf, FanPanel = K.FanPanel, GaragePanel = K.GaragePanel,
         GenericPanel = K.GenericPanel, HkBase = K.HkBase, HumidifierPanel = K.HumidifierPanel,
         LightPanel = K.LightPanel, LockPanel = K.LockPanel, MediaPanel = K.MediaPanel, NumberPanel = K.NumberPanel,
-        open = K.open, SelectPanel = K.SelectPanel, SensorPanel = K.SensorPanel, sheetState = K.sheetState,
+        open = K.open, SelectPanel = K.SelectPanel, SensorPanel = K.SensorPanel, sheetBody = K.sheetBody, sheetPanel = K.sheetPanel, sheetTitle = K.sheetTitle,
         StatePanel = K.StatePanel, stOf = K.stOf, TogglePanel = K.TogglePanel, TvPanel = K.TvPanel,
         VacuumPanel = K.VacuumPanel, ValvePanel = K.ValvePanel, WaterHeaterPanel = K.WaterHeaterPanel;
 
@@ -254,7 +254,7 @@
         }
         if (resolved && this._summary) {
           this._summary.textContent = resolved.value;
-          if (sheetState().panel === this) sheetState().tt.textContent = resolved.title;
+          if (sheetPanel() === this) sheetTitle(resolved.title);
         }
         this._ids = ids.slice();
         this._lsig = this._listSig(c);
@@ -454,9 +454,9 @@
         { group: Object.assign({}, g, { ids: current ? current.ids : g.ids }) });
       // A CUSTOM SHEET COMES BACK AS IT WAS LEFT: where it was scrolled to, and the tile that was opened focused
       if (ok && g.custom) {
-        var d = sheetState(), body = d.sheet && d.sheet.querySelector('.body');
+        var body = sheetBody(), panel = sheetPanel();
         if (body && g.scroll) body.scrollTop = g.scroll;
-        if (g.last != null && d.panel && d.panel.focusEntry) d.panel.focusEntry(g.last);
+        if (g.last != null && panel && panel.focusEntry) panel.focusEntry(g.last);
       }
       return ok;
     }

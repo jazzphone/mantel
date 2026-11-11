@@ -6,7 +6,6 @@
   "wait": false,
   "what": "THE DETAIL SHEETS",
   "run_in": "whenBase",
-  "adopt": "SHEETS",
   "parts": [
     {
       "name": "hk-detail-helpers",

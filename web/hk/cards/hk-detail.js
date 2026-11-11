@@ -122,10 +122,13 @@
         PANEL_CSS, PANELS, PHONE_H, placeNote, popupFor, reportsAction, restoreGroup, roomOf, route, runTimes, scrub,
         scrubPick, scrubValue, SENSE_CSS, SHEET_CSS, SHEET_H, sheetEdges, SHORT_MQ, sinceText, sourceOf, SP, spansOf,
         spanTo, STD, stOf, throttle, tickText, timeRow, timeTicks, trendOf, unavailable, WIDE, WIDTH, yamlClaims;
+    // THE SHEETS' CONTEXT (phase 25, Part B): all a sheet may read or call of the shell, which keeps the open sheet
+    // (D), its history token and the held pop-up to itself. Open a sheet, a pop-up, a page or the host's own detail;
+    // write a note; and of the sheet that is up, its panel, its body, its title. Nothing else of D reaches a sheet.
     function kit() {
       return {
         HkBase: HkBase, navigateFrom: navigateFrom, noteEl: noteEl, open: open, openPopup: openPopup,
-        sheetState: sheetState, toHost: toHost
+        sheetBody: sheetBody, sheetPanel: sheetPanel, sheetTitle: sheetTitle, toHost: toHost
       };
     }
     function runParts() {
@@ -708,7 +711,9 @@
       try { window.dispatchEvent(new Event('hk-detail-ready')); } catch (e) { /* no window events (a test) */ }
     }
 
-    function sheetState() { return D; }
+    function sheetPanel() { return D.panel; }                 // the panel of the sheet that is up (none: undefined)
+    function sheetBody() { return D.sheet && D.sheet.querySelector('.body'); }
+    function sheetTitle(text) { D.tt.textContent = text; }    // the title of the sheet that is up
 
     loadParts(function () {
       runParts();
