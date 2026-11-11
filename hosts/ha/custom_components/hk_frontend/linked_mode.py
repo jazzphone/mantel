@@ -101,6 +101,7 @@ from homeassistant.helpers.event import async_call_later
 
 from .const import CONF_MANTEL_LINK, CONF_MANTEL_OWNERS, DOMAIN, SIGNAL_CONFIG
 from .mantel_link import LinkError, MantelLink, Refused, plain_target, ws_url
+from .hk_core.link.linked_reserved import _RESERVED  # shared with Mantel Link
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -146,10 +147,6 @@ SERVICES = ("set_black_screen", "show_popup", "close_popup", "notify")
 _VALIDATION = {"invalid", "unknown_service", "unknown_target", "unknown_entity", "unknown_command",
                "not_a_black_screen", "invalid_code", "code_required", "code_locked", "unknown_popup",
                "not_owned"}
-# attributes Home Assistant itself sets: never taken from Mantel's
-_RESERVED = {"friendly_name", "icon", "entity_picture", "supported_features", "device_class",
-             "unit_of_measurement", "assumed_state", "attribution", "restored", "state_class", "options",
-             "access_token", "code_format", "code_arm_required", "frontend_stream_type", "entity_id"}
 
 
 # ------------------------------------------------------------ the setting

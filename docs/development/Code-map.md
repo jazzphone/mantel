@@ -342,6 +342,7 @@ The decisions both hosts make the same way (Rule 2), in Python.
   - `config.py` — THE INTERCOM'S SETTINGS
   - `rooms.py` — WHICH ROOMS A BROADCAST PLAYS IN, and why the others are left out (docs/phase17/INTERCOM.md "Rooms").
 - **hk_core/link/**
+  - `linked_reserved.py` — What a linked entity never takes from Mantel
   - `mantel_link.py` — THE LINK TO MANTEL SERVER (linked mode; linked_mode.py is the Home Assistant side, docs/phase5/LINKED-MODE.md in the Mantel repository the whole st...
   - `page_headers.py` — PAGE HEADERS, the part both integrations share
   - `talk.py` — TALK

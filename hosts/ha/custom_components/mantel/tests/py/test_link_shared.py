@@ -10,7 +10,7 @@ import pytest
 
 from conftest import COMPONENT, HK
 
-SHARED = ("mantel_link", "talk", "talk_live", "page_headers", "tv_stream")
+SHARED = ("mantel_link", "talk", "talk_live", "page_headers", "tv_stream", "linked_reserved")
 
 
 def test_mantel_link_s_modules_are_hk_cores():
