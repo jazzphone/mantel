@@ -1,0 +1,5 @@
+{
+  "package": "identity",
+  "why": "Who is signed in and what they may do: accounts, sessions, sign-in pages, roles and permissions, service accounts, the door key, Cloudflare Access, pins",
+  "modules": ["accounts", "auth", "authz", "rbac", "rbac_store", "sessions", "login_page", "door_key", "cf_access", "guards", "service_accounts", "pins"]
+}
