@@ -1,4 +1,4 @@
-// hk-saver-css.js - the saver's CSS.
+// hk-saver-css.js - the element's style.
 //
 // PART OF HK FRONTEND'S PHOTO SCREENSAVER (hk-saver.js). Not a card and not run on its own: it registers one
 // function, which hk-saver.js calls with the shared kit K once every part has loaded (the
@@ -603,6 +603,7 @@
       ':host([tb]:not([ckphotos])) .ph .tb img.tbcut{filter:brightness(calc(1 - var(--tb-dim,0)))}',
       '@media (prefers-reduced-motion:reduce){.ph.zoom .tb{animation:none}}'
     ].join('\n');
+
     // A CARD'S CONFIG for where it is now: Home Status at the top of the
     // pane sized for it, and the timers in its foot -- set again whenever the
     // pane comes or goes (setPane)

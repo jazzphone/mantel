@@ -1,4 +1,4 @@
-// hk-saver-helpers.js - the pure helpers: layout, mosaic and face windows, the page, the state's small tables.
+// hk-saver-helpers.js - helpers, the photo deck, the page and the device-local design chooser.
 //
 // PART OF HK FRONTEND'S PHOTO SCREENSAVER (hk-saver.js). Not a card and not run on its own: it registers one
 // function, which hk-saver.js calls with the shared kit K once every part has loaded (the
@@ -14,21 +14,27 @@
     // (exported on hkSaver._ for tests/test_saver.js)
     // the mosaic's lines (settings.py MOSAIC_COLORS)
     var MOSAIC_COLORS = { black: '#000000', white: '#f5f5f2', gray: '#8e8e93', charcoal: '#2c2c2e', cream: '#efe6d2', navy: '#1c2a44' };
+
     var CLOCK_BGS = ['black', 'grain', 'gradient', 'aurora', 'ink', 'sky', 'lowpoly', 'topo', 'constellation', 'forecast', 'skyonly', 'photos', 'landscapes', 'wallpaper'];
+
     // THE HOMEVIEW-STYLE SHOWS (2026-10-30; docs/phase11/HOMEVIEW-LOOK.md, Phase I): Glance, Month and Day, each a
     // whole screen of hk-saverfaces.js's, mounted as the clock is (Show: Clock's layer, a background of its own)
     var FACE_SHOWS = { glance: 1, month: 1, day: 1 };
+
     // LANDSCAPES (1.8.1): HK Frontend's own photos behind the clock, from
     // /hk/landscapes/ (index.json lists them; a home's own files folder can
     // answer with its own list), shown the way Photos shows yours
     var LANDSCAPES = '/hk/landscapes/';
+
     var FOCUS_X = { left: '0%', center: '50%', right: '100%' }, FOCUS_Y = { top: '0%', center: '50%', bottom: '100%' };
+
     function shapeCfg(raw, side, fill) {
       var n = function (v, lo, hi, d) { v = Number(v); return isFinite(v) && v >= lo && v <= hi ? v : d; };
       return { fill: fill, blur: n(raw[side + '_blur'], 0, 100, 50), dim: n(raw[side + '_dim'], 0, 80, 20),
                zoom: n(raw[side + '_zoom'], 100, 200, 100),
                x: FOCUS_X[raw[side + '_x']] ? raw[side + '_x'] : 'center', y: FOCUS_Y[raw[side + '_y']] ? raw[side + '_y'] : 'center' };
     }
+
     function readCfg(raw) {
       if (!raw || typeof raw !== 'object') return null;
       var n = function (v, lo, hi, d) { v = Number(v); return isFinite(v) && v >= lo && v <= hi ? v : d; };
@@ -180,6 +186,7 @@
         }) : []
       }));
     }
+
     // THE LAYOUT'S OPTIONS (2026-11-01, the Screensaver editor; docs/phase12/SCREENSAVER-EDITOR.md): with a layout, the
     // options it takes the place of are read from it -- the corner cards are the ones it places, Time Behind is its big
     // element behind the photo's subject, there is no Large clock and no Big Weather face (the layout draws its own),
@@ -189,6 +196,7 @@
       clock_card: 'custom:hk-clock-card', weather_card: 'custom:hk-weather-strip-card', music_card: 'custom:hk-screensaver-now-card',
       timers_card: 'custom:hk-timer-strip-card', status_card: 'custom:hk-screensaver-status-card'
     };
+
     // (a card the layout places that the screen's own list doesn't have: as the strategy would make it, hk-strategy.js SAVER_CARDS)
     var LAYOUT_CARD_CONF = {
       'custom:hk-timer-strip-card': { entity: 'sensor.running_quick_timers', scale: 1.6, fixed: true },
@@ -200,6 +208,7 @@
       'custom:hk-weather-strip-card': { variant: 'inline', main_size: '36px', glyph_size: '60px', temp_gap: '36px', icon_gap: '12px',
                                         color: 'rgba(255,255,255,0.95)', margin: '-4px 0px 0px 20px', layer: true }
     };
+
     function layoutCfg(c) {
       var L = c.layout;
       if (!L) return c;
@@ -223,22 +232,25 @@
       c.photo_titles = false;                  // (a piece of the layout's: Photo Title)
       return c;
     }
+
     // Whether THIS browser gets the screensaver: the dashboard asks for one,
     // and it is signed in as the tablet's user. ?hk_saver=off (and WallPanel's
     // old ?wp_enabled=false, which the house's tools use) turns it off for one
     // page; ?hk_saver=force ignores the user (testing).
-    function gate(cfg, user, search, tablet) {
-      if (!cfg) return false;
+    function gate(gateCfg, user, search, tablet) {
+      if (!gateCfg) return false;
       var q = String(search || '');
       if (/[?&]hk_saver=off\b/.test(q) || /[?&]wp_enabled=false\b/.test(q)) return false;
       if (/[?&]hk_saver=force\b/.test(q)) return true;
       // 1.14: the block names its tablet; this page must be that tablet
       // (hkSettings.tablet(): its ?hk_tablet=, else its user)
-      if (cfg.tablet) return !!(tablet && tablet === cfg.tablet);
-      return !!(cfg.user && user && user === cfg.user);
+      if (gateCfg.tablet) return !!(tablet && tablet === gateCfg.tablet);
+      return !!(gateCfg.user && user && user === gateCfg.user);
     }
+
     // THE PANE down the right: the calendar, the music, or both
     function paneOf(c) { return !!c && (c.calendar === true || c.music_pane === true || !!c.pane_list); }
+
     // THE SIDE PANE'S SCREENSAVER GROUP (2026-10-30, hk-sidepane.js; the
     // screen's side_pane_read, All Screens' for HK Settings' All Screens
     // preview): its sections in the screensaver's pane, on its Pane Side.
@@ -252,12 +264,14 @@
       if (g.show === 'same') return ((sp.dashboard || {}).sections) || [];
       return g.show === 'own' && Array.isArray(g.sections) ? g.sections : [];
     }
+
     function olderPane(secs) {
       var cal = null, mu = false, i = 0;
       if (secs[i] && secs[i].kind === 'calendar' && !secs[i].size && !secs[i].when) cal = secs[i++];
       if (secs[i] && secs[i].kind === 'now_playing' && !secs[i].size && secs[i].when === 'active') { mu = true; i++; }
       return i === secs.length && (cal || mu) ? { calendar: !!cal, days: cal && cal.days, music: mu } : null;
     }
+
     function withPane(raw, sp) {
       if (!raw || !sp) return raw;
       var secs = paneSecs(sp), old = olderPane(secs);
@@ -269,15 +283,16 @@
       } else if (secs.length) out.pane_list = secs;
       return out;
     }
+
     // Preview visibility never edits the screen's saved Side Pane. Explicit Show
     // also displays inactive sections, so an empty/disabled pane can be designed.
-    function previewPaneOf(sp, mode) {
+    function previewPaneOf(sp, paneMode) {
       var out = { settings: sp, message: '' }, g = (sp && sp.saver) || {};
-      if (mode === null) {
+      if (paneMode === null) {
         if (g.show === 'off') out.message = 'The screensaver Side Pane is off in saved settings. Choose Show to preview it.';
         return out;
       }
-      if (mode === false) { out.settings = Object.assign({}, sp, { saver: { show: 'off' } }); return out; }
+      if (paneMode === false) { out.settings = Object.assign({}, sp, { saver: { show: 'off' } }); return out; }
       var secs = paneSecs(sp), fallback = !secs.length;
       if (fallback) secs = ((sp && sp.dashboard) || {}).sections || [];
       if (!secs.length) { secs = [{ kind: 'clock' }, { kind: 'weather' }, { kind: 'calendar', days: 7 }]; out.message = 'Sample Side Pane · preview only.'; }
@@ -286,35 +301,40 @@
       out.settings = Object.assign({}, sp, { saver: { show: 'own', sections: secs.map(function (s) { return Object.assign({}, s, { when: 'always' }); }) } });
       return out;
     }
+
     // Which slide comes next among the photos: the music (only while it
     // plays), the forecast (Photos & Forecast), the weather, Home Energy and
     // the Holiday slide (each once it has something to show: a holiday near)
     // take turns, in that order.
     var SLIDE_ORDER = ['music', 'forecast', 'weather', 'energy', 'holiday', 'timer'];
+
     function slideOf(c, playing, last, energy, weather, holiday, timer, before) {
-      var on = [];
-      if (c && c.music_slide === true && playing) on.push('music');
-      if (c && c.show === 'both') on.push('forecast');
-      if (c && c.weather_slide === true && weather) on.push('weather');
-      if (c && c.energy_slide === true && energy) on.push('energy');
-      if (c && c.holiday_slide === true && holiday) on.push('holiday');
-      if (c && c.timer_slide === true && timer) on.push('timer');
-      return timedTurn(c, SLIDE_ORDER, on, last, before);
+      var slidesOn = [];
+      if (c && c.music_slide === true && playing) slidesOn.push('music');
+      if (c && c.show === 'both') slidesOn.push('forecast');
+      if (c && c.weather_slide === true && weather) slidesOn.push('weather');
+      if (c && c.energy_slide === true && energy) slidesOn.push('energy');
+      if (c && c.holiday_slide === true && holiday) slidesOn.push('holiday');
+      if (c && c.timer_slide === true && timer) slidesOn.push('timer');
+      return timedTurn(c, SLIDE_ORDER, slidesOn, last, before);
     }
+
     // THE TIMERS' TURN (phase 21): every other one while a timer runs, unless As Often as the Others. `before` is the
     // slide before the timers' last turn: the others carry on from it, or the first of them would come every time.
-    function timedTurn(c, order, on, last, before) {
-      if (on.indexOf('timer') < 0 || (c && c.timer_often === 'same')) return turnOf(order, on, last);
+    function timedTurn(c, order, turnsOn, last, before) {
+      if (turnsOn.indexOf('timer') < 0 || (c && c.timer_often === 'same')) return turnOf(order, turnsOn, last);
       if (last !== 'timer') return 'timer';
-      var rest = on.filter(function (k) { return k !== 'timer'; });
+      var rest = turnsOn.filter(function (k) { return k !== 'timer'; });
       return rest.length ? turnOf(order, rest, before || '') : 'timer';
     }
+
     // the next of `on` after `last`, round `order`
-    function turnOf(order, on, last) {
+    function turnOf(order, turnsOnOf, last) {
       var i = order.indexOf(last), n = order.length;
-      for (var k = 1; k <= n; k++) { var x = order[(i + k + n) % n]; if (on.indexOf(x) >= 0) return x; }
+      for (var k = 1; k <= n; k++) { var x = order[(i + k + n) % n]; if (turnsOnOf.indexOf(x) >= 0) return x; }
       return null;
     }
+
     // ADDITIONAL SCREENS (2026-10-14): over the forecast or the clock, which
     // are on -- the forecast (Show: Clock, over a background that isn't the
     // forecast's own), the music (not when it takes the screen anyway: Music
@@ -324,7 +344,7 @@
     // loads only once a timer runs. No ticking until then: a state change, or one timeout for the minute's start. `d` is
     // what it does in the shell (hk-saver.js tmWatch), so all the deciding is here and testable.
     function timerHold(d) {
-      var held = false, t = null, at = 0, later = null, asked = false;
+      var held = false, t = null, at = 0, later = null, wasAsked = false;
       function rows() {
         var T = window.hkTimers, S = window.hkSettings, h = d.client();
         return T && T.userTimers && h ? T.userTimers(h.states, T.rulesOf(S), Date.now()).filter(function (r) { return !r.paused; }) : [];
@@ -349,7 +369,7 @@
         var S = d.slot, list = d.wanted() ? rows() : [], soon = list.length ? list[0].left : null;
         var h = d.client(), T = window.hkTimers, ringing = !!(d.wanted() && T && T.rings && h && T.rings(h.states).length);     // (Time's Up holds it too)
         var close = ringing || (soon !== null && soon <= 60);
-        if ((list.length || ringing) && !S.ctl && !asked) { asked = true; d.prep(); }     // (once: a second ask would drop the first)
+        if ((list.length || ringing) && !S.ctl && !wasAsked) { wasAsked = true; d.prep(); }     // (once: a second ask would drop the first)
         if (S.ctl) S.ctl.setClient(d.client());
         if (soon !== null || close) t = setTimeout(watch, close ? 1000 : (soon - 60) * 1000 + 50);
         if (close) hold();
@@ -357,9 +377,11 @@
         else if (!list.length && S.showing) d.leave(true);     // nothing left to count, its ordinary turn still up
       }
       return { watch: watch, held: function () { return held; }, again: function () { at = 0; },
-               leave: function () { held = false; asked = false; at = 0; if (t) { clearTimeout(t); t = null; } if (later) { clearTimeout(later); later = null; } } };
+               leave: function () { held = false; wasAsked = false; at = 0; if (t) { clearTimeout(t); t = null; } if (later) { clearTimeout(later); later = null; } } };
     }
+
     var EXTRA_ORDER = ['forecast', 'music', 'weather', 'energy', 'holiday', 'timer'];
+
     // SLIDES ARE OVERLAYS (2026-11-02, phase 13): every slide over every background but the photos (whose slides come
     // between them) -- the Weather slide over the Landscape, the Weather and Home Energy over Calm Color, Paper and the Day
     // face too (they were offered there and never came)
@@ -374,18 +396,21 @@
       if (c.timer_slide) a.push('timer');
       return a;
     }
+
     // m:ss (h:mm:ss past an hour)
     function mmss(s) {
       s = Math.max(0, Math.floor(Number(s) || 0));
       var h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60, x = s % 60;
       return (h ? h + ':' + (m < 10 ? '0' : '') : '') + m + ':' + (x < 10 ? '0' : '') + x;
     }
+
     function zoneOf(x, width) {
       if (!(width > 0)) return null;
       if (x < width * EDGE) return 'previous';
       if (x > width * (1 - EDGE)) return 'next';
       return null;
     }
+
     // How one photo sits on a screen: a portrait photo whole, over a blurred
     // copy of itself; a landscape one filling the screen, or whole (over the
     // copy) when Fill the Screen is off.
@@ -396,6 +421,7 @@
       var fit = (portrait ? pfill : fill) ? 'cover' : 'contain';
       return { portrait: portrait, fit: fit, backdrop: fit === 'contain' };
     }
+
     // HOW ONE SHAPE IS LAID OUT (its settings, cfg.portrait / cfg.landscape):
     // the photo's object-position -- what stays when it is cropped, where it
     // sits when whole -- doubles as the zoom's origin, so a zoom closes in on
@@ -407,6 +433,7 @@
       return { pos: pos, zoom: String((sc.zoom || 100) / 100), dim: String(1 - (sc.dim == null ? 20 : sc.dim) / 100),
                small: backdropSmall(sc.blur == null ? 50 : sc.blur) };
     }
+
     // THE MOSAIC'S LAYOUTS (2026-10-13): for each count, a few tidy ones --
     // cells as [x, y, w, h] fractions of the screen -- one picked at random
     // each time (never the same twice running). No cell is very wide or very
@@ -423,6 +450,7 @@
           [[0, 0, 0.5, 1], [0.5, 0, 0.25, 0.5], [0.75, 0, 0.25, 0.5], [0.5, 0.5, 0.25, 0.5], [0.75, 0.5, 0.25, 0.5]],
           [[0, 0, 1 / 3, 0.55], [1 / 3, 0, 1 / 3, 0.55], [2 / 3, 0, 1 / 3, 0.55], [0, 0.55, 0.5, 0.45], [0.5, 0.55, 0.5, 0.45]]]
     };
+
     // a layout for `n` photos on a W x H screen: its cells, each tall or not.
     // LAYOUTS THAT FIT THE PHOTOS (2026-10-22): given how many of the photos
     // are portraits, one of the layouts whose tall cells come closest to that
@@ -445,6 +473,7 @@
       }
       return { idx: i, cells: cellsOf(i) };
     }
+
     // which photo goes in which cell: the portraits in the tall cells first
     // (the tallest first), the landscapes in the wide ones -> photo index per cell
     function mosaicAssign(cells, portrait, W, H) {
@@ -457,18 +486,22 @@
       // (the cells sorted tallest first: what is left over takes what is left)
       return out;
     }
+
     // the part of an iw x ih photo that covers a cw x ch cell: its focus (fx,
     // fy 0..1) kept, `zoom` closer in -> the source rectangle
     function coverRect(iw, ih, cw, ch, fx, fy, zoom) {
       var k = Math.max(cw / iw, ch / ih) * (zoom || 1), sw = cw / k, sh = ch / k;
       return { sx: Math.max(0, Math.min(iw - sw, (iw - sw) * fx)), sy: Math.max(0, Math.min(ih - sh, (ih - sh) * fy)), sw: Math.min(iw, sw), sh: Math.min(ih, sh) };
     }
+
     var FOCUS_F = { left: 0, top: 0, center: 0.5, right: 1, bottom: 1 };
+
     // KEEP IN VIEW (2026-10-22): a host's photo may come with where its faces
     // are (`faces`: [x, y, w, h] fractions of the photo) and a point set by
     // hand (`focus`: [x, y]) -- Mantel Photos does. Without either, nothing
     // here changes anything. cleanFocus: what of a list item's focus is sound
     var FACES_MAX = 12;
+
     function cleanFocus(p) {
       var out = {}, f01 = function (v) { return typeof v === 'number' && isFinite(v) && v >= 0 && v <= 1; };
       if (!p || typeof p !== 'object') return out;
@@ -482,6 +515,7 @@
       }
       return out;
     }
+
     // PHOTOS SIZED TO THE SCREEN (2026-10-29): a host may list a photo in more
     // than one size (`variants`: [[long edge in px, address], ...] -- Mantel
     // Photos has a 1280 and a 2560 px copy). cleanVariants: what of a list
@@ -493,6 +527,7 @@
     // that. Keep in View is not touched: faces and the focus are fractions of
     // the photo, and a smaller copy has the same shape.
     var VARIANTS_MAX = 4, VARIANT_SLACK = 0.9;
+
     function cleanVariants(p) {
       var out = [];
       if (p && Array.isArray(p.variants)) {
@@ -503,6 +538,7 @@
       }
       return out;
     }
+
     function photoUrl(item, edge, dpr) {
       var vs = item && item.variants;
       if (!vs || !vs.length) return item && item.url;
@@ -510,7 +546,9 @@
       for (var i = 0; i < vs.length; i++) if (vs[i][0] >= want) return vs[i][1];
       return vs[vs.length - 1][1];
     }
+
     function screenEdge() { return Math.max(window.innerWidth || 0, window.innerHeight || 0) || 1280; }
+
     // PHOTO, TIME BEHIND (2026-10-30; docs/phase11/HOMEVIEW-LOOK.md, Phase I, decision 14): a host may hand a photo
     // with its subject cut out (`depth`: {mask: an address}) -- Mantel Photos does, for the photos with a clear
     // subject. cleanDepth: what of it is sound (a `box` from before 0.1.93 is ignored: the time no longer moves).
@@ -519,11 +557,13 @@
       if (!d || typeof d.mask !== 'string' || !d.mask || /["\\()\s]/.test(d.mask)) return null;
       return { mask: d.mask };
     }
+
     // where an iw x ih photo is drawn in a W x H box, as its fit and focus (0..1) lay it out: [left, top, w, h]
     function drawnRect(iw, ih, W, H, fit, ax, ay) {
       var k = fit === 'contain' ? Math.min(W / iw, H / ih) : Math.max(W / iw, H / ih), w = iw * k, h = ih * k;
       return [(W - w) * ax, (H - h) * ay, w, h];
     }
+
     // THE TIME'S ONE PLACE (2026-10-30, the owner: the same spot and size on every photo): upper centre, as the CSS
     // lays it out in the photo's box (W x H, beside any pane) -- a line 28 % of its shorter side tall, 6 % down, the
     // figures 24 % of it. glyphBox: the figures' own box in it, [left, top, w, h] (a figure 0.58 of the type wide, a
@@ -531,34 +571,42 @@
     // ...the size and the height as the screen sets them (2026-10-31, the owner: tb_size, tb_top -- 24 and 6 the
     // defaults, the line always 7/6 of the figures), passed in `c` (else the defaults)
     var TB = { top: 0.06, line: 0.28, type: 0.24 }, TB_WAIT = 1500;
+
     function tbGeom(c) {
       var t = c && c.tb_size ? c.tb_size / 100 : TB.type;
       return { top: c && c.tb_top != null ? c.tb_top / 100 : TB.top, type: t, line: t * TB.line / TB.type };
     }
+
     function glyphBox(W, H, text, c) {
       var g = tbGeom(c), m = Math.min(W, H), f = m * g.type, s = String(text || '10:42');
       var w = f * (s.replace(/[^0-9]/g, '').length * 0.58 + s.replace(/[0-9]/g, '').length * 0.3), h = f * 0.72;
       return [(W - w) / 2, H * g.top + (m * g.line - h) / 2, w, h];
     }
+
     // HOW MUCH OF THE FIGURES THE SUBJECT COVERS: the share of a mask's alpha (RGBA bytes) at half or more. Behind,
     // the subject over the time, only where it covers some of it -- enough to read as in front, not so much the time
     // can't be read -- else the time in front with no cut-out
     var TB_COVER = [0.05, 0.35];
+
     function coverShare(px) {
       var n = 0, k = 0;
       for (var i = 3; i < px.length; i += 4) { n++; if (px[i] >= 128) k++; }
       return n ? k / n : 0;
     }
+
     function behindAt(share) { return typeof share === 'number' && share >= TB_COVER[0] && share <= TB_COVER[1]; }
+
     // ...weighed once per photo, screen and layout (the share, by key), from the stored mask drawn as the photo is:
     // the figures' box, 96 px wide, the mask laid over it where the photo is. A mask that can't be read (another
     // site's, no canvas): in front
     var tbShares = {};
+
     // (the time's size and height as well, where the screen changed them: tbGeom)
     function tbKey(mask, W, H, fit, pos, text, c) {
       var g = tbGeom(c), k = [mask, Math.round(W), Math.round(H), fit, pos.join(' '), String(text).length].join('|');
       return g.type === TB.type && g.top === TB.top ? k : k + '|' + g.type + '|' + g.top;
     }
+
     function tbShare(mask, rect, g, key, done) {
       if (key in tbShares) { done(tbShares[key]); return; }
       if (typeof Image === 'undefined') { done(null); return; }
@@ -579,18 +627,22 @@
       img.onerror = function () { tbShares[key] = null; done(null); };
       img.src = mask;
     }
+
     // a face's box with room for the head around it: hair above, chin below
     function headOf(f) {
       return { x1: f[0] - f[2] * 0.2, y1: f[1] - f[3] * 0.35, x2: f[0] + f[2] * 1.2, y2: f[1] + f[3] * 1.15 };
     }
+
     function unionOf(boxes) {
       return boxes.reduce(function (u, b) {
         return { x1: Math.min(u.x1, b.x1), y1: Math.min(u.y1, b.y1), x2: Math.max(u.x2, b.x2), y2: Math.max(u.y2, b.y2) };
       });
     }
+
     // the alignment (as coverRect's fx and object-position's percentage) that
     // puts the point c in the middle of a window f wide (fractions)
     function alignOf(c, f) { return f >= 1 ? 0.5 : Math.max(0, Math.min(1, (c - f / 2) / (1 - f))); }
+
     // WHAT TO KEEP IN VIEW of an iw x ih photo filling a cw x ch frame, `zoom`
     // closer in: {fx, fy} (the crop's alignment), {cx, cy} (the point kept in
     // the middle), or null for a photo with no focus. A point set by hand is
@@ -615,6 +667,7 @@
       cx = Math.max(0, Math.min(1, cx)); cy = Math.max(0, Math.min(1, cy));
       return { fx: alignOf(cx, fw), fy: alignOf(cy, fh), cx: cx, cy: cy };
     }
+
     // where the photo's point (cx, cy) lands in a cw x ch frame, the photo
     // drawn at `fit` (cover or contain) with alignment fx, fy: the zoom's
     // origin, so a zoom closes in on the faces -> {ox, oy}, fractions
@@ -633,11 +686,13 @@
       };
       return { ox: axis(cx, fx, dw, cw), oy: axis(cy, fy, dh, ch) };
     }
+
     // the blurred copy's blur is its size: drawn this many pixels wide and
     // scaled up -- 50 % is the 24 px it always was; 0 % the 96 px copy itself
     function backdropSmall(blur) {
       return Math.max(4, Math.round(96 * Math.pow(2, -Math.max(0, Math.min(100, blur)) / 25)));
     }
+
     function shuffle(list, rnd) {
       var a = list.slice();
       rnd = rnd || Math.random;
@@ -647,7 +702,9 @@
       }
       return a;
     }
+
     function tagOf(type) { return String(type || '').replace(/^custom:/, ''); }
+
     function isImage(item) {
       if (!item) return false;
       if (item.media_class === 'image') return true;
@@ -662,23 +719,28 @@
       var C = window.hkCards, HC = window.hkHostClient;
       return (C && C.client && C.client()) || (HC && HC.current && HC.current()) || null;
     }
+
     // the sun below the horizon (sun.sun), as the sky reads it; unknown: by day
     function sunDown() {
       var c = clientNow(), s = c && c.states && c.states['sun.sun'];
       return !!(s && s.attributes && Number(s.attributes.elevation) <= 0);
     }
+
     // ...and its action port, for everything the screensaver changes (the switch,
     // the music's buttons and volume, its touch and black acknowledgements): the
     // real call in Home Assistant, refused (`commands_disabled`) in Mantel.
     function actionsNow() { var c = clientNow(); return (c && c.actions) || null; }
+
     // A CARD ON THE SCREENSAVER gets the host input that goes with the client
     // (the host adapter's bridge): card families still act through it
     function feedCard(el, c) { var HC = window.hkHostClient; if (el && c && HC && HC.bridge) HC.bridge(el, c); }
+
     // THE DASHBOARD'S CONFIG, read where the strategy guard reads it -- the
     // panel's own lovelace object is the authority, never a DOM marker.
     function panel() {
       return window.hkShell.panel();
     }
+
     // the font the dashboard's view draws in (its theme is on the view)
     function viewFont() {
       try {
@@ -689,6 +751,7 @@
 
     // ------------------------------------------------------------ state
     function isFlat() { var S = window.hkSettings; return !!(S && S.rendering && S.rendering().flat); }
+
     function houseBlock(over) {
       var HS = window.hkSettings, S = window.hkStrategy;
       var all = HS && HS.get ? HS.get('boards', null) : null;
@@ -697,9 +760,11 @@
       if (!b || !o || !S || !S.saverBlock) return null;
       return S.saverBlock(clientNow(), Object.assign({}, b, { screensaver: true, screensaver_options: o }));
     }
+
     var FC_TICK_MS = 5000;
 
     function user() { var h = clientNow(); return h && h.user && h.user.name; }
+
     // this page's wall tablet (1.14, hkSettings.tablet()), its id or ''
     function tabletNow() {
       var HS = window.hkSettings;
@@ -712,12 +777,15 @@
       Object.keys(b).forEach(function (k) { out[k] = b[k]; });
       return out;
     }
+
     function tabletId() { var t = tabletNow(); return t && !t.legacy ? t.id : ''; }
+
     // IN A FRAME (HK Settings' preview) it never runs on its own -- no idle
     // start, no switch, no touches -- only as the preview: the frame's query
     // (?wp_enabled=false) does not survive the dashboard's own navigation, and
     // an admin can be a screen's Tablet User.
     var framed = (function () { try { return window.self !== window.top; } catch (e) { return true; } })();
+
     function held() {
       // hk-idle is held while a detail sheet is open or Live TV plays: the
       // screensaver never covers someone watching or using a sheet
@@ -729,12 +797,14 @@
     // finger's slop around them. Laid out with pointer-events off, so found
     // by place.
     var SLOP = 12;
+
     // this dashboard's Weather page, when it has one
     function weatherPage() {
       var conf = dashConf();
       var has = conf && Array.isArray(conf.views) && conf.views.some(function (v) { return v && v.path === 'weather'; });
       return has ? '/' + (String(location.pathname).split('/')[1] || '') + '/weather' : null;
     }
+
     // A PIECE'S PAGE (2026-11-10, the owner: "all the widgets for the screensavers, when tapped, took you to their page ... an option to
     // enable/disable per widget"): the screen's page for a view path, when it has one -- the Weather page's way for any page
     function pageFor(path) {
@@ -742,13 +812,14 @@
       var has = conf && Array.isArray(conf.views) && conf.views.some(function (v) { return v && v.path === path; });
       return has ? '/' + (String(location.pathname).split('/')[1] || '') + '/' + path : null;
     }
+
     // ...and the page of the laid-out piece under a tap (a finger's slop round it): its kind's page (hkSaverLayout.TAP_PAGES), unless
     // its When Tapped says Nothing (data-tap, set as it is made); none, null -- the tap only wakes the screen
-    function widgetPage(x, y, ly) {
+    function widgetPage(x, y, lyt) {
       var LM = window.hkSaverLayout, T = (LM && LM.TAP_PAGES) || {}, TS = (LM && LM.TAP_SHEETS) || {}, hit = null;
-      if (!ly || !ly.widgets || x == null || y == null) return null;
-      Object.keys(ly.widgets).forEach(function (k) {
-        var el = ly.widgets[k] && ly.widgets[k].el, p = el && (/(?:^|\s)p-([a-z0-9_]+)/.exec(el.className || '') || [])[1];
+      if (!lyt || !lyt.widgets || x == null || y == null) return null;
+      Object.keys(lyt.widgets).forEach(function (k) {
+        var el = lyt.widgets[k] && lyt.widgets[k].el, p = el && (/(?:^|\s)p-([a-z0-9_]+)/.exec(el.className || '') || [])[1];
         if (hit || !p || !(T[p] || TS[p]) || el.isConnected === false || el.getAttribute('data-tap') === 'none') return;
         var r = el.getBoundingClientRect();
         if (!(r.width > 0 && r.height > 0 && x >= r.left - SLOP && x <= r.right + SLOP && y >= r.top - SLOP && y <= r.bottom + SLOP)) return;
@@ -758,6 +829,7 @@
       });
       return hit || null;
     }
+
     // as a navigate tap_action does (hk-base.js): HA follows location-changed;
     // the dashboard is still under the screensaver, drawing (stop's WAKE)
     function go(path) {
@@ -767,49 +839,18 @@
       try { window.hkShell.navigate(path); } catch (e) { /* stay */ }
     }
 
-  function Deck(order, rnd) {
-    this.order = order; this.rnd = rnd || Math.random;
-    this.items = []; this.round = []; this.pos = 0; this.history = []; this.back = 0;
-  }
-    Deck.prototype.set = function (items) {
-      var had = this.items.map(function (x) { return x.id; }).join('\n');
-      this.items = items.slice();
-      if (this.items.map(function (x) { return x.id; }).join('\n') !== had) { this.round = []; this.pos = 0; }
-    };
-    Deck.prototype.next = function () {
-      if (this.back > 0) {                  // stepping forward again after previous()
-        this.back--;
-        return this.history[this.history.length - 1 - this.back] || null;
-      }
-      if (!this.items.length) return null;
-      if (this.pos >= this.round.length) {
-        var last = this.history[this.history.length - 1];
-        this.round = this.order === 'sorted'
-          ? this.items.slice().sort(function (a, b) { return a.id < b.id ? -1 : a.id > b.id ? 1 : 0; })
-          : shuffle(this.items, this.rnd);
-        if (this.order !== 'sorted' && last && this.round.length > 1 && this.round[0].id === last.id) {
-          this.round.push(this.round.shift());
-        }
-        this.pos = 0;
-      }
-      var it = this.round[this.pos++];
-      this.history.push(it);
-      if (this.history.length > 50) this.history.shift();
-      return it;
-    };
-    Deck.prototype.previous = function () {
-      if (this.history.length - 1 - this.back <= 0) return null;
-      this.back++;
-      return this.history[this.history.length - 1 - this.back] || null;
-    };
+    function Deck(order, rnd) {
+      this.order = order; this.rnd = rnd || Math.random;
+      this.items = []; this.round = []; this.pos = 0; this.history = []; this.back = 0;
+    }
 
-    K.inPane = function (e, pane, up) {
+    var inPaneAt = function (e, pane, up) {
       if (!pane || !up) return false;
       if (e.composedPath && e.composedPath().indexOf(pane) >= 0) return true;
       var pt = e.touches && e.touches[0] || e, r = pane.getBoundingClientRect();
       return pt.clientX >= r.left && pt.clientX <= r.right && pt.clientY >= r.top && pt.clientY <= r.bottom;
     };
-    K.Deck = Deck;
+
     // A device may choose locally. Editing stays on the host's settings page.
     function createDesignController(o) {
       var designPick = null, designSource = '', designRef = null, saverHold = null, saverChooser = null, generation = 0, preferenceKey = null;
@@ -887,21 +928,22 @@
         }
       };
     }
-    K.createDesignController = createDesignController;
 
     // what the shell and the later parts use of this one
     K.actionsNow = actionsNow; K.alignOf = alignOf; K.backdropSmall = backdropSmall; K.behindAt = behindAt;
     K.cleanDepth = cleanDepth; K.cleanFocus = cleanFocus; K.cleanVariants = cleanVariants; K.clientNow = clientNow;
-    K.coverRect = coverRect; K.coverShare = coverShare; K.drawnRect = drawnRect; K.EXTRA_ORDER = EXTRA_ORDER;
-    K.extrasOf = extrasOf; K.FACE_SHOWS = FACE_SHOWS; K.faceOrigin = faceOrigin; K.faceWindow = faceWindow;
-    K.FC_TICK_MS = FC_TICK_MS; K.feedCard = feedCard; K.fitOf = fitOf; K.FOCUS_F = FOCUS_F; K.framed = framed;
-    K.gate = gate; K.glyphBox = glyphBox; K.go = go; K.held = held; K.houseBlock = houseBlock; K.isFlat = isFlat;
-    K.isImage = isImage; K.LANDSCAPES = LANDSCAPES; K.layoutOf = layoutOf; K.mmss = mmss;
+    K.coverRect = coverRect; K.coverShare = coverShare; K.createDesignController = createDesignController;
+    K.Deck = Deck; K.drawnRect = drawnRect; K.EXTRA_ORDER = EXTRA_ORDER; K.extrasOf = extrasOf;
+    K.FACE_SHOWS = FACE_SHOWS; K.faceOrigin = faceOrigin; K.faceWindow = faceWindow; K.FC_TICK_MS = FC_TICK_MS;
+    K.feedCard = feedCard; K.fitOf = fitOf; K.FOCUS_F = FOCUS_F; K.framed = framed; K.gate = gate;
+    K.glyphBox = glyphBox; K.go = go; K.held = held; K.houseBlock = houseBlock; K.inPaneAt = inPaneAt;
+    K.isFlat = isFlat; K.isImage = isImage; K.LANDSCAPES = LANDSCAPES; K.layoutOf = layoutOf; K.mmss = mmss;
     K.MOSAIC_COLORS = MOSAIC_COLORS; K.mosaicAssign = mosaicAssign; K.mosaicPlan = mosaicPlan; K.MOSAICS = MOSAICS;
-    K.panel = panel; K.paneOf = paneOf; K.photoUrl = photoUrl; K.readCfg = readCfg; K.screenEdge = screenEdge;
-    K.shuffle = shuffle; K.slideOf = slideOf; K.timedTurn = timedTurn; K.timerHold = timerHold; K.SLOP = SLOP; K.sunDown = sunDown; K.tabletId = tabletId;
-    K.tabletNow = tabletNow; K.tagOf = tagOf; K.TB_COVER = TB_COVER; K.TB_WAIT = TB_WAIT; K.tbKey = tbKey;
-    K.tbShare = tbShare; K.tbShares = tbShares; K.turnOf = turnOf; K.user = user; K.viewFont = viewFont;
-    K.weatherPage = weatherPage; K.widgetPage = widgetPage; K.pageFor = pageFor; K.withPane = withPane; K.previewPaneOf = previewPaneOf; K.zoneOf = zoneOf;
+    K.panel = panel; K.paneOf = paneOf; K.photoUrl = photoUrl; K.previewPaneOf = previewPaneOf; K.readCfg = readCfg;
+    K.screenEdge = screenEdge; K.shuffle = shuffle; K.slideOf = slideOf; K.SLOP = SLOP; K.sunDown = sunDown;
+    K.tabletId = tabletId; K.tabletNow = tabletNow; K.tagOf = tagOf; K.TB_COVER = TB_COVER; K.TB_WAIT = TB_WAIT;
+    K.tbKey = tbKey; K.tbShare = tbShare; K.tbShares = tbShares; K.timedTurn = timedTurn; K.timerHold = timerHold;
+    K.turnOf = turnOf; K.user = user; K.viewFont = viewFont; K.weatherPage = weatherPage; K.widgetPage = widgetPage;
+    K.withPane = withPane; K.zoneOf = zoneOf;
   };
 })();

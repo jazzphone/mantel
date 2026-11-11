@@ -159,19 +159,20 @@ var src = read(HK_ROOT + '/frontend/modules/hk-saver.js');
 ok('the corner clock keeps a layer for good, as the weather line and what plays do',
    /'\.info > hk-clock-card\{transition:opacity ' \+ CROSSFADE_MS \+ 'ms ease;will-change:opacity\}'/.test(src));
 ok('Home Energy\'s layer is put in at the start, as the weather\'s (not at its first turn)',
-   /enCtl = X\.create\([^)]*\);\s*root\.insertBefore\(enCtl\.el, root\.querySelector\('\.info'\)\);/.test(src));
+   /ST\.enCtl = X\.create\([^)]*\);\s*ST\.root\.insertBefore\(ST\.enCtl\.el, ST\.root\.querySelector\('\.info'\)\);/.test(src));
 // (the weather's and the Holiday slide's share one set of steps, a slot each: hk-saver.js slideShow, phase 20)
 ok('...and neither is moved for the other between it and the corner cards',
-   /if \(!underCards\(enCtl\.el, info\)\) root\.insertBefore\(enCtl\.el, info\);/.test(src) &&
-   /if \(!underCards\(S\.ctl\.el, info\)\) root\.insertBefore\(S\.ctl\.el, info\);/.test(src));
+   /if \(!underCards\(ST\.enCtl\.el, info\)\) ST\.root\.insertBefore\(ST\.enCtl\.el, info\);/.test(src) &&
+   /if \(!underCards\(S\.ctl\.el, info\)\) ST\.root\.insertBefore\(S\.ctl\.el, info\);/.test(src));
 ok('...the weather\'s and the Holiday slide\'s layers put in at the start, as Home Energy\'s',
-   /if \(!S\.ctl\) \{ S\.ctl = S\.make\(X\); root\.insertBefore\(S\.ctl\.el, root\.querySelector\('\.info'\)\); \}/.test(src));
+   /if \(!S\.ctl\) \{ S\.ctl = S\.make\(X\); ST\.root\.insertBefore\(S\.ctl\.el, ST\.root\.querySelector\('\.info'\)\); \}/.test(src));
 // underCards itself, run: the function's own text, on a stand-in root
-var m = /function underCards\(el, info\) \{[\s\S]*?\n  \}\n/.exec(src);
+// (in a part of the file since phase 24, hk-saver-layout.js: one more indent; its root is the saver's state, ST.root)
+var m = /\n( *)function underCards\(el, info\) \{[\s\S]*?\n\1\}\n/.exec(src);
 ok('underCards is there', !!m);
 if (m) {
   var root = new El('div');
-  var underCards = new Function('root', m[0] + '; return underCards;')(root);
+  var underCards = new Function('ST', m[0] + '; return underCards;')({ root: root });
   function node(cls) { var e = new El('div'); e.className = cls; return e; }
   function chain(list) {
     root.children = list;
@@ -199,11 +200,12 @@ print('\n=== hk-saver.js: the dashboard hidden under the screensaver, wherever i
 // the photos (~7 screens of layers, headless), and Return to Home made a new
 // page's ~120 under it mid-turn. coverDashboard itself, run: its own text.
 // (`within` is in a part of the file now (hk-saver-helpers.js: one more indent), coverDashboard in the shell: read apart)
-var wm = /\n( *)function within\(root, el\) \{[\s\S]*?\n\1\}\n/.exec(src);
+var wm = /\n( *)function within\(inRoot, el\) \{[\s\S]*?\n\1\}\n/.exec(src);
 var cm = /\n( *)function coverDashboard\(covered\) \{[\s\S]*?\n\1\}\n/.exec(src);
 ok('coverDashboard is there', !!cm && !!wm);
 if (cm && wm) {
-  var cover = new Function('window', 'var coverT = null, coveredPage = null, pageVisibility = null, coveredView = [];' +
+  // (the saver's state is one object since phase 24, ST: coverDashboard's own four on it)
+  var cover = new Function('window', 'var ST = { coverT: null, coveredPage: null, pageVisibility: null, coveredView: [] };' +
                            wm[0] + cm[0] + '; return coverDashboard;');
   function styled(tag) {
     var e = new El(tag);
@@ -244,8 +246,8 @@ print('\n=== hk-saver.js: a tap counts only on music that is on screen ===');
 // playing, the pane stays laid out at opacity 0 and its music hidden -- its
 // art's box over the clock's right side took a tap meant to wake the screen
 // and closed it onto Play Music.
-var sm = /  function seen\(el\) \{[\s\S]*?\n  \}\n/.exec(src);
-ok('seen() is there, and musicHit skips a view not seen', !!sm && /\(v\.kind === 'slide' && !muShowing\) \|\| !seen\(v\.el\)\) continue;/.test(src));
+var sm = /\n( *)function seen\(el\) \{[\s\S]*?\n\1\}\n/.exec(src);
+ok('seen() is there, and musicHit skips a view not seen', !!sm && /\(v\.kind === 'slide' && !ST\.muShowing\) \|\| !seen\(v\.el\)\) continue;/.test(src));
 if (sm) {
   var styles = new Map();
   var gcs = function (el) { return Object.assign({ display: 'block', visibility: 'visible', opacity: '1' }, styles.get(el) || {}); };
@@ -253,7 +255,7 @@ if (sm) {
   hostEl.nodeType = pane.nodeType = pm.nodeType = 1;          // (dom.js's El has none; a real element is 1)
   var shadow = { nodeType: 11, host: hostEl };
   pane.parentNode = shadow; pm.parentNode = pane;
-  var seenFn = new Function('getComputedStyle', 'host', sm[0] + '; return seen;')(gcs, hostEl);
+  var seenFn = new Function('getComputedStyle', 'ST', sm[0] + '; return seen;')(gcs, { host: hostEl });
   ok('...the pane up, its music shown: seen', seenFn(pm) === true);
   styles.set(pane, { opacity: '0' });
   ok('...the pane down (opacity 0): not seen, its art takes no tap', seenFn(pm) === false);

@@ -21,10 +21,13 @@ setTimeout = function () { return 1; }; clearTimeout = function () {};
 load(STRIP);   // (the music players' controls strip: a bootstrap file every page has before the screensaver)
 load(FILE);
 var K = { actionsNow: function () { return { callService: function (d, s, data) { CALLS.push([d, s, data]); } }; },
-          clearCanvas: function () {}, clientNow: function () { return null; }, clock: { now: function () { return T; } },
+          clearCanvas: function () {}, clientNow: function () { return null; },
           dashConf: function () { return null; }, isFlat: function () { return false; }, mmss: function () { return ''; },
-          sendWS: function () { return Promise.resolve(); } };
+          layoutMusic: function () {}, sendWS: function () { return Promise.resolve(); }, ahead: [] };
 window.hkSaverParts['hk-saver-music'](K);
+// (a later part's, hk-saver-start.js: bound once every part has run, as hk-saver.js's runParts does)
+K.clock = { now: function () { return T; } };
+K.ahead.forEach(function (bind) { bind(); });
 window.hkMusic = { label: function (c) { return c.key; } };
 function st(v) { return { state: 'playing', attributes: { volume_level: v, media_title: 'A Song' } }; }
 var h = { states: { 'media_player.living': st(0.3), 'media_player.kitchen': st(0.6), 'media_player.den': st(0.5) } };

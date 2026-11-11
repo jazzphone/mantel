@@ -1,4 +1,4 @@
-// hk-saver-music.js - the music slide and its panel.
+// hk-saver-music.js - the music and its panel.
 //
 // PART OF HK FRONTEND'S PHOTO SCREENSAVER (hk-saver.js). Not a card and not run on its own: it registers one
 // function, which hk-saver.js calls with the shared kit K once every part has loaded (the
@@ -8,8 +8,14 @@
 (function () {
   'use strict';
   (window.hkSaverParts = window.hkSaverParts || {})['hk-saver-music'] = function (K) {
-    var actionsNow = K.actionsNow, clearCanvas = K.clearCanvas, clientNow = K.clientNow, clock = K.clock,
-        dashConf = K.dashConf, isFlat = K.isFlat, mmss = K.mmss, sendWS = K.sendWS;
+    var actionsNow = K.actionsNow, clearCanvas = K.clearCanvas, clientNow = K.clientNow, dashConf = K.dashConf,
+        isFlat = K.isFlat, layoutMusic = K.layoutMusic, mmss = K.mmss, sendWS = K.sendWS;
+
+    var clock;
+    // (of later parts, used when called: bound once every part has run, runParts)
+    K.ahead.push(function () {
+      clock = K.clock;
+    });
 
     // ------------------------------------------------------------ the music
     // WHAT PLAYS, BIG (options music_slide, music_pane): the album art over a
@@ -21,6 +27,7 @@
     // view that is up: what this screen follows (hkMusic -- its focus, else
     // what started playing, its own room first), held while it is on screen.
     var MU_GRACE = 30000;        // (the default of) how long the music stays once paused or stopped
+
     // HIDE AFTER A PAUSE (All Screens -> Now Playing, 2026-10-15): the music
     // paused or stopped stays this long -- the pane's and the slide's alike,
     // as the dashboard's bar and pane -- and a whole one again after its
@@ -29,14 +36,20 @@
       var Mn = window.hkCards && window.hkCards.menu;
       return (Mn && Mn.npGrace ? Mn.npGrace() : MU_GRACE / 1000) * 1000;
     }
+
     // somebody using the screensaver's music (a touch on it, its panel open)
     function musicUsed() { mus.lastActive = clock.now(); mus.lostAt = 0; }
+
     var MU_BG = 32;              // the blurred copy, drawn this small (the CSS scales it up)
+
     var MU_SLOP = 14;            // a finger's slop around a button
+
     var mus = { key: null, views: [], tick: null, next: null, nextFor: '', year: '', lostAt: 0, watchAt: 0, watchT: null, drag: null, vol: null,
                 paneIn: false, paneNext: null, lastActive: 0 };
+
     // (the transport's glyphs are the strip's, hk-np-strip.js; the note is the empty cover's and Up Next's)
     var ICON = { note: 'M12 3v10.55A4 4 0 1 0 14 17V7h4V3z' };
+
     function svg(d) { return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="' + d + '"/></svg>'; }
 
     // the music this screen follows: the one on screen while it is still
@@ -56,7 +69,9 @@
       if (r && r.context && r.reason === 'focus') return r.context;
       return null;
     }
+
     function musicPlaying() { var c = musicNow(clientNow()); return !!(c && c.playing); }
+
     // A self-contained preview, with no entity, queue lookup or playback action.
     var SAMPLE_ART = 'data:image/svg+xml,' +
       encodeURIComponent(
@@ -64,15 +79,18 @@
       'stop-color="#82658e"/><stop offset="1" stop-color="#edac79"/></linearGradient></defs><path fill="url(#g)" d="M0 0h800v800H0z"/><circle cx="400" cy="400" r="245" fill="none" stroke="#fff" ' +
       'stroke-opacity=".35" stroke-width="2"/><circle cx="400" cy="400" r="190" fill="none" stroke="#fff" stroke-opacity=".2"/><path d="M300 480V285l220-45v195M300 330l220-45" fill="none" ' +
       'stroke="#fff" stroke-width="18" stroke-linejoin="round"/><ellipse cx="268" cy="480" rx="42" ry="30" fill="#fff"/><ellipse cx="488" cy="435" rx="42" ry="30" fill="#fff"/></svg>');
+
     function previewMusicData() {
       return { sample: true, idle: false, key: '', members: [], room: 'Sample Room', playing: false,
         title: 'Late Light', artist: 'The Harbor Quartet', album: 'Evening Session', pic: SAMPLE_ART,
         dur: 242, pos: 83, posAt: 0, vol: .38, next: { title: 'Morning Tide', artist: 'The Harbor Quartet', image: '' } };
     }
+
     function musicParts(v, hide) {
       if (!v || !v.el) return;
       ['room', 'album', 'progress', 'buttons', 'volume', 'next'].forEach(function (k) { v.el.classList.toggle('h-' + k, (hide || []).indexOf(k) >= 0); });
     }
+
     // what a view draws: the song, or (nothing playing) the room a play would start
     function musicOf(ctx, h) {
       var M = window.hkMusic;
@@ -99,6 +117,7 @@
                pic: pic, dur: Number(a.media_duration) || 0, pos: Number(a.media_position) || 0,
                posAt: Date.parse(a.media_position_updated_at) || 0, vol: vol };
     }
+
     function elapsed(d) {
       var t = d.pos + (d.playing && d.posAt ? (Date.now() - d.posAt) / 1000 : 0);
       return d.dur ? Math.min(d.dur, Math.max(0, t)) : Math.max(0, t);
@@ -146,13 +165,18 @@
       mus.views.push(v);
       return v;
     }
+
     function slideView() { return mus.views.filter(function (v) { return v.kind === 'slide'; })[0] || null; }
+
     function musicPaneView() { return mus.views.filter(function (v) { return v.kind === 'pane'; })[0] || null; }
+
     function setText(el, t) { if (el && el.textContent !== t) el.textContent = t; }
-    function setAttr(el, k, on) { if (on) { if (!el.hasAttribute(k)) el.setAttribute(k, ''); } else if (el.hasAttribute(k)) el.removeAttribute(k); }
+
+    function setAttr(el, k, present) { if (present) { if (!el.hasAttribute(k)) el.setAttribute(k, ''); } else if (el.hasAttribute(k)) el.removeAttribute(k); }
 
     // album art, loaded and decoded once for every view (the last few kept)
     var artCache = {}, artOrder = [];
+
     function loadArt(url) {
       if (!url) return Promise.resolve(null);
       if (artCache[url]) return artCache[url];
@@ -167,6 +191,7 @@
       });
       return artCache[url];
     }
+
     // THE BLURRED COPY: the art drawn tiny, then into MU_BG square (a soft
     // blur where the canvas has a filter; the two steps soften it where it
     // has none, as WebKit), darkened for the text; CSS covers the view with it.
@@ -175,6 +200,7 @@
     // 1024 of them -- as WebKit's canvas has no filter) and darkened less. The
     // pane's stays as it was: its list needs the darker ground.
     var BLUR_LOOK = { slide: { sat: 1.35, dark: 0.24 }, pane: { sat: 1, dark: 0.38 } };
+
     function drawBlur(c, img, kind) {
       if (isFlat()) { clearCanvas(c); return; }
       var look = BLUR_LOOK[kind] || BLUR_LOOK.pane;
@@ -206,6 +232,7 @@
       ctx.fillStyle = 'rgba(0,0,0,' + look.dark + ')';
       ctx.fillRect(0, 0, MU_BG, MU_BG);
     }
+
     // a new song's art faded in over the last one's, once decoded
     function showArt(v, url) {
       v.ready = loadArt(url).then(function (im) {
@@ -233,6 +260,7 @@
         return (img.decode ? img.decode().catch(function () { /* drawn anyway */ }) : Promise.resolve()).then(done);
       });
     }
+
     function drawMusic(v, d) {
       var idle = !d || d.idle;
       v.d = d;
@@ -278,8 +306,11 @@
       }
       progress(v);
     }
+
     var DUR_GRACE = 4000;
+
     var NEXT_ART = 160;          // Up Next's cover, the pixels HA scales it to (art.py)
+
     function progress(v) {
       var d = v.d, has = !!(d && !d.idle && d.dur);
       // A SONG'S DURATION CAN BE A MOMENT BEHIND IT: the bar keeps its place,
@@ -298,6 +329,7 @@
       var t = elapsed(d);
       window.hkNpStrip.progress(v.strip, t / d.dur, mmss(t), mmss(d.dur));
     }
+
     // UP NEXT BESIDE THE COVER (2026-11-07, the owner: the queue "just where it makes sense when there is enough
     // vertical room...like in the side pane"): the slide beside a pane (murow) lists the next songs under the song,
     // in the room the cover leaves; a tap opens the panel's Queue. One ask per song (hk_music/queue), shared by the
@@ -308,11 +340,13 @@
     // that show up next"): every song the queue has (MQ_MAX), in a box that keeps the room it had -- the heading fixed,
     // the rows (.mql) moving under a finger, a soft fade at the foot while more are below (queueFade)
     var MQ_MAX = 40;
+
     // A FINGER ON THE SCREENSAVER'S UP NEXT: its views take no pointer events (a tap is found by place, musicHit), so the
     // finger is followed from the shell's input (hk-saver.js onInput, which hands over what it has). A row's tap waits
     // for the finger to lift and is not one if it moved QDRAG_PX or more; moving, the list follows it. A mouse is the
     // same, dragged with the button down. The Now Playing page and the Side Pane's card scroll it natively.
     var QDRAG_PX = 8, qd = null;
+
     // the row at a point, as far as the scrolling list shows it (a row scrolled out is not there; no slop, which
     // would lap over the next row)
     function queueRowAt(el, x, y) {
@@ -324,6 +358,7 @@
       }
       return null;
     }
+
     function queueDrag(e, c) {
       var t = e.type;
       if (!c.on || !window.PointerEvent) { qd = null; return false; }   // (no pointer events: a tap acts on touchstart, no scrolling)
@@ -352,9 +387,11 @@
       c.touched();
       return true;
     }
+
     function queueFade(ql) {
       if (ql) setAttr(ql, 'more', ql.scrollHeight - ql.scrollTop - ql.clientHeight > 2);
     }
+
     function drawQueueRows(v, d) {
       var sig = d && !d.idle && !d.sample ? sigOf(d) : '';
       if (sig && mus.qFor !== sig) {
@@ -365,7 +402,7 @@
             if (mus.qFor !== sig) return;
             mus.q = r && r.ok && Array.isArray(r.items) ? r.items.slice(1, MQ_MAX + 1) : [];
             mus.views.forEach(function (w) { if (w.mq) drawQueueRows(w, w.d); });
-            if (K.layoutMusic) K.layoutMusic();
+            if (layoutMusic) layoutMusic();
             mus.views.forEach(function (w) { if (w.mq && w.kind === 'dash' && w.host && w.host._fit) w.host._fit(); });   // (the Now Playing page)
           }, function () { if (mus.qFor === sig) mus.q = []; });
         }
@@ -390,17 +427,21 @@
       }).join('') + '</div>';
       queueFade(v.mq.querySelector('.mql'));
     }
+
     function sigOf(d) { return d && !d.idle ? d.key + '|' + d.title + '|' + d.artist : ''; }
+
     // (the layout's Up Next piece hears the slide's read: one ask per song, phase 13)
     function upNextPiece(d, next) {
       var M = window.hkSaverWidgets && window.hkSaverWidgets._ && window.hkSaverWidgets._.media;
       if (M && M.setNext) { try { M.setNext(d.key, next ? { title: next.title, artist: next.artist } : null, { title: d.title, artist: d.artist }); } catch (e) { /* its own read */ } }
     }
+
     // THE NEXT SONG'S COVER: Music Assistant looks a song up only as it starts,
     // so the queue's next song has none (seen on every queue). Its search
     // finds it: the same track (its id), else the same album, else the first.
     // Once a song, and remembered.
     var nextArtSeen = {};
+
     function nextArt(d, sig, mi) {
       var h = clientNow(), str = function (x) { return typeof x === 'string' ? x : ''; };
       var tail = function (u) { u = str(u); var i = u.indexOf('://'); return i >= 0 ? u.slice(i + 3) : u; };
@@ -434,15 +475,18 @@
           put(url);
         }).catch(function () { /* no search: the note stays */ });
     }
+
     // this dashboard's Play Music page, when it has one (as weatherPage)
     function musicPage() {
       var conf = dashConf();
       var has = conf && Array.isArray(conf.views) && conf.views.some(function (v) { return v && v.path === 'playmusic'; });
       return has ? '/' + (String(location.pathname).split('/')[1] || '') + '/playmusic' : null;
     }
+
     // THE VOLUME: a finger down on its track sets it there and drags it
     // (sent at most every VOL_EVERY, and once more as the finger lifts)
     var VOL_EVERY = 200;
+
     function volFrom(x) {
       var dr = mus.drag, r = dr && dr.view.vt.getBoundingClientRect();
       if (!r || !r.width || x == null) return;
@@ -455,6 +499,7 @@
       var now = clock.now();
       if (now - dr.sent >= VOL_EVERY) volSend(); else if (!dr.t) dr.t = setTimeout(volSend, VOL_EVERY - (now - dr.sent));
     }
+
     function volSend() {
       var dr = mus.drag, act = actionsNow();
       if (dr && dr.t) { clearTimeout(dr.t); dr.t = null; }
@@ -465,6 +510,7 @@
       var to = mus.vol.members && mus.vol.members.length > 1 ? mus.vol.members.slice() : mus.vol.key;   // a group: every room, one call
       try { act.callService('media_player', 'volume_set', { entity_id: to, volume_level: mus.vol.val }); } catch (e) { /* offline */ }
     }
+
     function volEnd() {
       var dr = mus.drag;
       if (!dr) return;
@@ -488,10 +534,10 @@
 
     // The text column below the clock, the weather and the date: what does
     // not fit goes, Up Next first, then the album
-    function layoutMusicView(v, host, root, scn, scale) {
-      if (!v || !host || !root) return;
-      host.style.setProperty('--hk-mu-z', String(scale));
-      var col = v.el.querySelector('.mcol'), info = root.querySelector('.info');
+    function layoutMusicView(v, hostEl, rootEl, scnEl, scale) {
+      if (!v || !hostEl || !rootEl) return;
+      hostEl.style.setProperty('--hk-mu-z', String(scale));
+      var col = v.el.querySelector('.mcol'), info = rootEl.querySelector('.info');
       if (!col || !info || !v.el.getBoundingClientRect().width) return;
       var body = v.el.querySelector('.mbody'), area = body.getBoundingClientRect();
       col.style.removeProperty('bottom');
@@ -499,28 +545,28 @@
       // Use the slide's available area, including the space a left or right pane
       // takes. A tablet beside a pane often needs the same stack as an upright
       // screen, with a scale suited to its shorter column.
-      var beside = host.hasAttribute('pane') && !host.hasAttribute('band');
+      var beside = hostEl.hasAttribute('pane') && !hostEl.hasAttribute('band');
       var narrow = H > W * (beside ? 0.74 : 1.05);
       var row = beside && (narrow || v.kind === 'dash') && W >= 620 && H >= 620, up = narrow && !row;
       var zs = Math.max(0.45, row ? Math.min(1.25, W / 780, H / 820) : up ? Math.min(W / 820, H / 1180) : Math.min(W / 1280, H / 800));
-      host.style.setProperty('--hk-mu-zs', String(Math.round(zs * 100) / 100));
-      setAttr(host, 'muup', up);
-      setAttr(host, 'murow', row);
+      hostEl.style.setProperty('--hk-mu-zs', String(Math.round(zs * 100) / 100));
+      setAttr(hostEl, 'muup', up);
+      setAttr(hostEl, 'murow', row);
       // (under the slide corner, its words: the old corner cards are hidden under every slide now, phase 13)
-      var over = scn && host.hasAttribute('scorner') ? [].slice.call(scn.tl.children).concat([].slice.call(scn.tr.children)) : info.children;
+      var over = scnEl && hostEl.hasAttribute('scorner') ? [].slice.call(scnEl.tl.children).concat([].slice.call(scnEl.tr.children)) : info.children;
       Array.prototype.forEach.call(over, function (c) {
         if (c.tagName === 'STYLE' || c.style.display === 'none') return;
         var r = c.getBoundingClientRect();
         if (r.height > 0 && r.top < area.top + H / 2 && r.right > area.left && r.left < area.right) top = Math.max(top, r.bottom);
       });
       var room = top + Math.round((row ? 56 : 24) * zs), m = Math.round(row ? 60 * zs : Math.min(W, H) * 0.06);
-      host.style.setProperty('--hk-mu-top', (room - area.top) + 'px');
+      hostEl.style.setProperty('--hk-mu-top', (room - area.top) + 'px');
       if (row) {
         var stage = v.el.querySelector('.mstage'), pad = 56 * zs, width = W - 2 * pad;
         var height = Math.max(0, area.bottom - m - room), a = Math.min(W * 0.38, H * 0.36, width * 0.48);
-        host.style.setProperty('--hk-mu-stage-x', pad + 'px');
-        host.style.setProperty('--hk-mu-stage-w', width + 'px');
-        host.style.setProperty('--hk-mu-stage-h', height + 'px');
+        hostEl.style.setProperty('--hk-mu-stage-x', pad + 'px');
+        hostEl.style.setProperty('--hk-mu-stage-w', width + 'px');
+        hostEl.style.setProperty('--hk-mu-stage-h', height + 'px');
         body.style.setProperty('--a', a + 'px');
         var rowOverflow = function () {
           var bottom = stage.getBoundingClientRect().bottom, excess = 0;
@@ -535,18 +581,18 @@
         // (Up Next's rows beside the cover: as many as fit its height, none when none do -- drawQueueRows)
         // (all of them are there now and the box takes the room that is left -- the song's text measured without it --
         // scrolling inside it; where the heading and one row do not fit, none)
-        var qrows = v.el.querySelectorAll('.mqr'), meta = v.el.querySelector('.mmeta'), shown = qrows.length, mql = v.mq.querySelector('.mql');
+        var qrows = v.el.querySelectorAll('.mqr'), meta = v.el.querySelector('.mmeta'), rowsShown = qrows.length, mql = v.mq.querySelector('.mql');
         v.mq.style.maxHeight = ''; v.mq.style.display = 'none';
         var bare = meta.getBoundingClientRect().height;
         v.mq.style.display = '';
-        if (shown) {
+        if (rowsShown) {
           var need = v.mq.querySelector('.mqh').offsetHeight + qrows[0].offsetHeight,
               qroom = a - bare - (parseFloat(getComputedStyle(v.mq).marginTop) || 0);
-          if (qroom < need) shown = 0; else v.mq.style.maxHeight = Math.floor(qroom) + 'px';
+          if (qroom < need) rowsShown = 0; else v.mq.style.maxHeight = Math.floor(qroom) + 'px';
         }
-        if (!shown) v.mq.style.display = 'none';
+        if (!rowsShown) v.mq.style.display = 'none';
         else queueFade(mql);
-        setAttr(v.el, 'mqon', shown > 0);
+        setAttr(v.el, 'mqon', rowsShown > 0);
         for (var r2 = 0; r2 <= 2; r2++) {
           v.el.setAttribute('tight', String(r2));
           if (rowOverflow() <= 1) break;
@@ -590,12 +636,12 @@
     }
 
     // what the shell and the later parts use of this one
-    K.drawMusic = drawMusic; K.queueDrag = queueDrag; K.queueRowAt = queueRowAt; K.elapsed = elapsed; K.MU_BG = MU_BG; K.MU_GRACE = MU_GRACE; K.MU_SLOP = MU_SLOP;
-    K.muGrace = muGrace; K.mus = mus; K.musicNow = musicNow; K.musicOf = musicOf; K.musicPage = musicPage;
-    K.musicPaneView = musicPaneView; K.musicPlaying = musicPlaying; K.musicUsed = musicUsed; K.musicView = musicView;
-    K.nextArt = nextArt; K.PANEL_IDLE = PANEL_IDLE; K.PANEL_TURN = PANEL_TURN; K.progress = progress;
-    K.setAttr = setAttr; K.sigOf = sigOf; K.slideView = slideView; K.upNextPiece = upNextPiece; K.volEnd = volEnd;
-    K.layoutMusicView = layoutMusicView;
-    K.volFrom = volFrom; K.previewMusicData = previewMusicData; K.musicParts = musicParts;
+    K.drawMusic = drawMusic; K.elapsed = elapsed; K.layoutMusicView = layoutMusicView; K.MU_BG = MU_BG;
+    K.MU_GRACE = MU_GRACE; K.muGrace = muGrace; K.mus = mus; K.musicNow = musicNow; K.musicOf = musicOf;
+    K.musicPage = musicPage; K.musicPaneView = musicPaneView; K.musicParts = musicParts;
+    K.musicPlaying = musicPlaying; K.musicUsed = musicUsed; K.musicView = musicView; K.nextArt = nextArt;
+    K.PANEL_IDLE = PANEL_IDLE; K.PANEL_TURN = PANEL_TURN; K.previewMusicData = previewMusicData;
+    K.progress = progress; K.queueDrag = queueDrag; K.queueRowAt = queueRowAt; K.setAttr = setAttr; K.sigOf = sigOf;
+    K.slideView = slideView; K.upNextPiece = upNextPiece; K.volEnd = volEnd; K.volFrom = volFrom;
   };
 })();

@@ -170,13 +170,16 @@ Mantel's pages and the code both hosts share: HK's cards, modules, panels and th
   - `hk-saver-timers.js` — THE SCREENSAVER'S TIMER SLIDE (phase 21, docs/phase21/TIMER-SLIDE.md)
   - `hk-saver-weather.js` — THE SCREENSAVER'S WEATHER (2026-10-14)
   - `hk-saver.js` — HK Frontend's photo screensaver, for a wall tablet's own user. *(a shell: its parts are in `web/hk/saver/`, `tools/split_manifests/saver.json`)*
-    - `hk-saver-helpers.js` — helpers, the photo deck and device-local design chooser
-    - `hk-saver-css.js` — the saver's CSS
-    - `hk-saver-photos.js` — start, photos, the mosaic, the forecast slide and its corner
-    - `hk-saver-draw.js` — the layout, the clocks, Home Energy and the weather
-    - `hk-saver-music.js` — the music slide and its panel
-    - `hk-saver-pane.js` — the dashboard's pane and the side pane
-    - `hk-saver-black.js` — HK's own black and the loop
+    - `hk-saver-helpers.js` — helpers, the photo deck, the page and the device-local design chooser
+    - `hk-saver-css.js` — the element's style
+    - `hk-saver-photos.js` — photos and the mosaic
+    - `hk-saver-draw.js` — drawing: the backdrop, the clocks, the slide corner and the forecast
+    - `hk-saver-layout.js` — the layout, home energy, the weather and the holidays, a timer's last minute
+    - `hk-saver-screens.js` — the additional screens
+    - `hk-saver-music.js` — the music and its panel
+    - `hk-saver-pane.js` — the dashboard's pane and the Now Playing page
+    - `hk-saver-black.js` — HK's own black
+    - `hk-saver-start.js` — starting and stopping the screensaver
   - `hk-saverclock.js` — THE SCREENSAVER'S CLOCKS (2026-10-13)
   - `hk-saverfaces.js` — THE SCREENSAVER'S HOMEVIEW-STYLE SHOWS (2026-10-30; docs/phase11/HOMEVIEW-LOOK.md, Phase I)
   - `hk-saverlayout.js` — THE SCREENSAVER'S LAYOUT (2026-11-01, the owner
