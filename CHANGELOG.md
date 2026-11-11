@@ -4,6 +4,13 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Changed**
+- **The announcer's command**: Mantel on the network by zeroconf (compose.announce.yaml) now starts as `python -m mantel_server.network.announce`; a host that runs avahi from Mantel's service file uses that name (`docker compose exec mantel-server python -m mantel_server.network.announce --avahi --file /data/announce.json`). The Docker files in this release say so already.
+- **Mantel's server in packages** (phase 25, docs/phase25/PLAN.md): the server's 116 flat modules are 27, the rest in `identity/`, `ha/`, `cameras/`, `apps/`, `network/`, `storage/`, `pages/`, `linked/`, `music/`, `features/`, `accessories/` and `intercom/`. Nothing it does changes. Code that imports a moved module by its old path (`mantel_server.accounts`) still works until 0.1.166.
+
+**Fixed**
+- **A quiet log when a tablet goes away**: a page that closed or slept in the middle of a message left full tracebacks in Mantel's log at every release (160 after 0.1.163). It is one line at debug level now.
+
 ## 0.1.164 - 2026-11-11
 
 **Fixed**

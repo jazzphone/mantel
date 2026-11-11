@@ -5,6 +5,9 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+**Changed**
+- **The screensaver and the detail sheets, untangled** (phase 25): each piece of the screensaver's state has one owner that the rest asks, and its parts call each other through named exports rather than generated bindings; the detail sheets reach the open sheet only through a few named functions. Nothing they do changes.
+
 ## 1.59.1 - 2026-11-11
 
 **Fixed**
