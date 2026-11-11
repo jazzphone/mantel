@@ -394,10 +394,6 @@
   "source": {
     "blob": "6734a5e6eeaf2d5e4e2817fc61f3302612b7d01d",
     "lines": 7981,
-    "unresolved": [
-      "hm",
-      "st"
-    ],
     "adopt_from": "b75efaae5403aaf2aa32d56dfa4a97c3c1eb70f4"
   }
 }

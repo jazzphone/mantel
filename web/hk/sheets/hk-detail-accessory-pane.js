@@ -592,7 +592,7 @@
                     on_text: null, off_text: null, ha_name: false };
         save(all).then(function () { return save({ name: null, screen: dash }); }).then(function () {
           cur = {};
-          nm.value = ''; hereBox.checked = false; st.checked = true; hm.checked = true;
+          nm.value = ''; hereBox.checked = false;
           if (haBox) haBox.checked = false;
           if (seg) seg.querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', !x.dataset.v); });
           paintSize();
