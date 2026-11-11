@@ -148,6 +148,11 @@ async def grid_cards(caller, args: dict) -> dict:
                    "player's media_player, show?: recent (default) | favorites | an app's name} -- what's on, the volume, the apps, "
                    "and on XL the remote; the house's TVs are paired with their Apple TVs by room (Accessories -> TVs)",
                    "example": {"card": "tv", "size": "L", "opts": {"show": "favorites"}}},
+            "swipe": {"card": "swipe", "sizes": list(HG.CATALOG["swipe"]["sizes"]), "opts": "{pages: [{card, opts?}] (1 to "
+                      f"{HG.SWIPE_PAGES_MAX})}} -- pages to swipe between, each any card but swipe with its own options, each coming in "
+                      "the block's size; as a rule's card: TV with Now Playing a swipe away while both are on",
+                      "example": {"when": {"all": [{"kind": "tv_on", "entity": "tablet_room"}, {"kind": "music_playing", "entity": "tablet_room"}]},
+                                  "card": "swipe", "opts": {"pages": [{"card": "tv"}, {"card": "now_playing"}]}}},
             # ALERT: made to be a rule's card, in the block's own place while the rule holds (docs/phase11/ALERT.md)
             "alert": {"card": "alert", "sizes": list(HG.CATALOG["alert"]["sizes"]),
                       "opts": "{title (<= 60), text? (<= 80), since? (an entity: 'Open for 23 min' from its last_changed), "

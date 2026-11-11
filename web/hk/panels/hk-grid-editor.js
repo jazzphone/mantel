@@ -18,7 +18,7 @@
   }
   var NAMES = { accessory: 'Accessory', accessories: 'Accessory Group', scene: 'Scene', scenes: 'Scenes', now_playing: 'Now Playing',
     thermostat: 'Thermostat', camera: 'Camera', security: 'Security', timers: 'Timers', weather: 'Weather',
-    calendar: 'Calendar', battery: 'House Battery', people: 'People', vacuum: 'Vacuum', laundry: 'Laundry', tv: 'TV', clock: 'Clock',
+    calendar: 'Calendar', battery: 'House Battery', people: 'People', vacuum: 'Vacuum', laundry: 'Laundry', tv: 'TV', swipe: 'Swipe', clock: 'Clock',
     room: 'Room', scene_suggested: 'Suggested Scene', action: 'Action', everything: 'Everything', cameras: 'Cameras',
     power: 'Power', music: 'Music', doors: 'Doors & Locks', live_tv: 'Live TV', water: 'Water',
     on_now: 'On Now', todo: 'To-do', energy_rings: 'Energy Rings', timeline: 'Recent', intercom: 'Intercom', house_status: 'House Status', alert: 'Alert' };
@@ -41,14 +41,14 @@
     ['Rooms & Lights', ['room', 'accessory', 'accessories', 'action', 'on_now']], ['Scenes', ['scene', 'scenes', 'scene_suggested']],
     ['Climate', ['thermostat', 'weather']], ['Music', ['now_playing', 'music', 'tv', 'live_tv', 'intercom']],
     ['Security & Cameras', ['security', 'doors', 'camera', 'cameras']],
-    ['Info', ['house_status', 'alert', 'clock', 'timers', 'calendar', 'todo', 'battery', 'power', 'energy_rings', 'water', 'people', 'vacuum', 'laundry', 'timeline', 'everything']]
+    ['Info', ['house_status', 'alert', 'swipe', 'clock', 'timers', 'calendar', 'todo', 'battery', 'power', 'energy_rings', 'water', 'people', 'vacuum', 'laundry', 'timeline', 'everything']]
   ];
   var DESCRIPTIONS = { room: 'Your room’s lights, fans and speaker', accessory: 'One light, switch or other accessory', accessories: 'Accessories you choose, in swipe pages',
     action: 'One tap for a household job', scene: 'Set a favorite scene', scenes: 'Your scenes together',
     scene_suggested: 'The right scene for the time of day', thermostat: 'Temperature and climate; Extra Large has every control',
     weather: 'Current conditions and the forecast', now_playing: 'Music and playback controls', security: 'The alarm, locks and doors; Large is the keypad',
     camera: 'One camera, or swipe between cameras', cameras: 'Up to nine cameras at once; Full View fills the page', clock: 'Digital or analog, with or without its box', timers: 'Timers and quick starts',
-    calendar: 'Your upcoming events', battery: 'Your home’s stored energy', people: 'Who is home', vacuum: 'Cleaning status; Large adds controls and Clean Areas', laundry: 'Your washer and dryer: what each is doing and when it’s done', tv: 'A room’s TV and Apple TV: what’s on, your apps, the volume and a remote',
+    calendar: 'Your upcoming events', battery: 'Your home’s stored energy', people: 'Who is home', vacuum: 'Cleaning status; Large adds controls and Clean Areas', laundry: 'Your washer and dryer: what each is doing and when it’s done', tv: 'A room’s TV and Apple TV: what’s on, your apps, the volume and a remote', swipe: 'Cards to swipe between, each with its own settings',
     everything: 'Open the screen’s full menu', power: 'Solar, the house, the battery and the grid right now',
     music: 'Choose speakers, then a playlist', doors: 'Locks, doors, windows and the garage', live_tv: 'Your channels; tap one to watch',
     water: 'Today’s water; Extra Large adds the main supply',
@@ -59,7 +59,7 @@
   var GLYPHS = { room: 'mdi:sofa', accessory: 'mdi:lightbulb', accessories: 'mdi:view-grid', action: 'mdi:gesture-tap', scene: 'mdi:palette',
     scenes: 'mdi:palette', scene_suggested: 'mdi:weather-sunset', thermostat: 'mdi:thermostat', weather: 'mdi:weather-partly-cloudy',
     now_playing: 'mdi:music', security: 'mdi:shield-home', camera: 'mdi:camera', cameras: 'mdi:cctv', clock: 'mdi:clock', timers: 'mdi:timer-outline',
-    calendar: 'mdi:calendar', battery: 'mdi:home-battery', people: 'mdi:account', vacuum: 'mdi:robot-vacuum', laundry: 'mdi:washing-machine', tv: 'mdi:television', everything: 'mdi:dots-horizontal',
+    calendar: 'mdi:calendar', battery: 'mdi:home-battery', people: 'mdi:account', vacuum: 'mdi:robot-vacuum', laundry: 'mdi:washing-machine', tv: 'mdi:television', swipe: 'mdi:gesture-swipe-horizontal', everything: 'mdi:dots-horizontal',
     power: 'mdi:lightning-bolt', music: 'mdi:speaker-multiple', doors: 'mdi:door-closed-lock', live_tv: 'mdi:television-classic', water: 'mdi:water',
     on_now: 'mdi:lightbulb-on', todo: 'mdi:clipboard-check', energy_rings: 'mdi:lightning-bolt', timeline: 'mdi:history', intercom: 'mdi:microphone', house_status: 'mdi:home', alert: 'mdi:alert-circle' };
   // AN OPTION'S NAME in the panel: by its kind (hk-grid-catalog.js opts), else by its own name
@@ -1563,7 +1563,7 @@
       // a camera block may follow: swipe all cameras, turning to the one motion or a selector picks
       var follows = item.card === 'camera' && src === 'cameras' && !!(item.opts || {}).follow;
       if (item.card === 'camera') show.splice(2, 0, ['follow', 'Follow Motion or a Selector']);
-      rows.push(K.select({ label: 'Show', value: follows ? 'follow' : src, options: show, onChange: (s) => this.setShow(item, s) }));
+      if (item.card !== 'swipe') rows.push(K.select({ label: 'Show', value: follows ? 'follow' : src, options: show, onChange: (s) => this.setShow(item, s) }));   // (a Swipe's pages are its own)
       var hide = { follow: 1, follow_select: 1 };
       if (follows) this.followRows(item, rows);
       if (SOURCE_HIDES[src]) hide[SOURCE_HIDES[src]] = 1;
@@ -1740,10 +1740,10 @@
     }
     previewOptions(key) {
       var fields = G.table()[key].opts || {}, opts = {}, self = this;
-      if (key === 'alert') return G.alert.sample((k) => self.choices(k), (this.panel.client || {}).states);
+      if (key === 'swipe') return G.swipe.sample(); if (key === 'alert') return G.alert.sample((k) => self.choices(k), (this.panel.client || {}).states);
       Object.keys(fields).forEach(function (name) {
         var kind = fields[name];
-        if (['secondary', 'title', 'room_display', 'thermostat_style', 'tile_height', 'period', 'name_tag', 'tap_target', 'music_tap', 'tv_channel', 'music_show', 'music_playlist', 'music_speaker', 'tv_target', 'tv_show', 'timeline_show', 'np_background', 'on_now_open', 'everything_more', 'security_presentation', 'security_members', 'security_lit'].includes(kind)) return;
+        if (['secondary', 'title', 'room_display', 'thermostat_style', 'tile_height', 'period', 'name_tag', 'tap_target', 'music_tap', 'tv_channel', 'music_show', 'music_playlist', 'music_speaker', 'tv_target', 'tv_show', 'swipe_pages', 'timeline_show', 'np_background', 'on_now_open', 'everything_more', 'security_presentation', 'security_members', 'security_lit'].includes(kind)) return;
         if (kind === 'accessories') { opts[name] = sampleEntities(self.choices('entity'), ['light', 'switch', 'fan', 'sensor']).slice(0, 4).map((op) => ({ entity: op[0] })); if (!opts[name].length) delete opts[name]; return; }
         var choices = self.choices(kind).filter((op) => op[0] !== 'tablet_room');
         if (kind === 'scene' && key === 'scene') choices = choices.filter((op) => self.sceneIds().indexOf(op[0]) >= 0);
@@ -2094,7 +2094,7 @@
     fields(card, opts, save, o) {
       var K = this.K, self = this, kinds = G.table()[card].opts || {}, rows = [], hide = o.hide || {};
       var set = (key, value) => { var out = copy(opts); if (value === '' || value == null) delete out[key]; else out[key] = value; save(out); };
-      if (card === 'alert' || card === 'tv') return rows.concat(G[card].rows(K, opts, set, (k) => self.choices(k), self.panel.client));   // (an Alert's, a TV's rows: hk-grid-catalog.js)
+      if (['alert', 'tv', 'swipe'].indexOf(card) >= 0) return rows.concat(G[card].rows(K, opts, set, (k) => self.choices(k), self.panel.client, { size: o.size, fields: (c, v, sv) => self.fields(c, v, sv, { size: o.size, hide: { tap: 1 } }) }));   // (an Alert's, a TV's, a Swipe's rows: hk-grid-catalog.js)
       Object.keys(kinds).forEach(function (key) {
         if (hide[key]) return;
         var kind = kinds[key], label = KIND_LABELS[kind] || NAME_LABELS[key] || key.charAt(0).toUpperCase() + key.slice(1);

@@ -105,6 +105,9 @@ CATALOG: dict[str, dict[str, Any]] = {
     "laundry": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"tap": "tap_target"}},
     # TV (phase 23, docs/phase23/TV.md): a room's TV and its player; tv Automatic is the tablet's room
     "tv": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"tv": "tv_target", "show": "tv_show", "tap": "tap_target"}},
+    # SWIPE (2026-11-11, the owner: "a Swipe card in general ... any card we could swipe between with all its settings"): its pages are
+    # other cards, each with its own options, in the block's size; never a Swipe inside a Swipe. Made for Show When too (TV and music).
+    "swipe": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"pages": "swipe_pages"}},
     "clock": {"sizes": ("S", "W", "T", "L", "XL", "XXL"), "sources": (), "opts": {"clock_style": "clock_style", "bare": "boolean", "tap": "tap_target"}},
     "power": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"tap": "tap_target"}},
     # show (2026-10-31, the owner): what it shows -- Recently Played (none stored), the Music page's playlists (presets), or
@@ -524,6 +527,7 @@ OPTION_KINDS = {
     # where a music block's tap plays (2026-10-31, the owner): a speaker or a speaker group, else this screen's music
     "music_speaker": _music_speaker,
     "tv_target": _tv_target,
+    "swipe_pages": lambda v: _swipe_pages(v),
     "tv_show": _tv_show,
     "todo": _domain("todo"),
     "camera_follow": _camera_follow,
@@ -810,7 +814,30 @@ def _security_size(v: Mapping[str, Any], size: Any) -> None:
         raise GridInvalid("grid_size")
 
 
+SWIPE_PAGES_MAX = 6
+
+
+def _swipe_pages(v: Any) -> list[dict[str, Any]]:
+    """A Swipe card's pages: 1 to SWIPE_PAGES_MAX, each {card, opts?} -- any card but Swipe, its options as its own block's."""
+    if not isinstance(v, list) or not 0 < len(v) <= SWIPE_PAGES_MAX:
+        raise GridInvalid("grid_option")
+    out = []
+    for p in v:
+        if not isinstance(p, dict) or set(p) - {"card", "opts"} or p.get("card") not in CATALOG or p["card"] == "swipe":
+            raise GridInvalid("grid_option")
+        opts = _opts(p["card"], p.get("opts"))
+        out.append({"card": p["card"], **({"opts": opts} if opts else {})})
+    return out
+
+
 def _capacity(v: Mapping[str, Any], size: str) -> None:
+    if v.get("card") == "swipe":
+        # (each page comes in the block's size, and holds what its own block of that size may)
+        for p in v.get("opts", {}).get("pages", []):
+            if size not in CATALOG[p["card"]]["sizes"]:
+                raise GridInvalid("grid_size")
+            _capacity(p, size)
+        return
     if v.get("card") != "accessories":
         return
     per = {"S": 1, "W": 2, "T": 2, "L": 4, "XL": 6, "XXL": 12}[size]
@@ -1081,6 +1108,11 @@ _LIST_KINDS = frozenset({"scenes", "calendars", "cameras", "security_members"})
 
 def _opt_ids(card: str, opts: Any) -> set[str]:
     out: set[str] = set()
+    if card == "swipe":
+        for p in (opts if isinstance(opts, dict) else {}).get("pages") or []:
+            if isinstance(p, dict) and p.get("card") != "swipe":
+                out |= _opt_ids(p.get("card"), p.get("opts"))
+        return out
     kinds = (CATALOG.get(card) or {}).get("opts") or {}
     for name, value in (opts if isinstance(opts, dict) else {}).items():
         kind = kinds.get(name)
@@ -1094,6 +1126,10 @@ def _opt_ids(card: str, opts: Any) -> set[str]:
 
 
 def _cut_opts(card: str, opts: Any, ok: Any) -> dict[str, Any]:
+    if card == "swipe":
+        pages = [{**p, "opts": _cut_opts(p.get("card"), p.get("opts"), ok)} for p in (opts if isinstance(opts, dict) else {}).get("pages") or []
+                 if isinstance(p, dict) and p.get("card") != "swipe"]
+        return {"pages": [{k: x for k, x in p.items() if k != "opts" or x} for p in pages]} if pages else {}
     kinds = (CATALOG.get(card) or {}).get("opts") or {}
     out: dict[str, Any] = {}
     for name, value in (opts if isinstance(opts, dict) else {}).items():
