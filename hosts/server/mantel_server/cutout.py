@@ -37,6 +37,7 @@ import hashlib
 import io
 import logging
 import time
+from importlib.resources import files
 from pathlib import Path
 
 from . import faces as face_finder
@@ -45,7 +46,8 @@ log = logging.getLogger("mantel.cutout")
 
 # THE MODEL: U²-Net small, as the rembg project publishes it (Apache-2.0; models/u2netp_LICENSE), fetched from
 # MODEL_URL and vendored at MODEL on 2026-10-30 (4,574,861 bytes).
-MODEL = Path(__file__).with_name("models") / "u2netp.onnx"
+# (found through the package, not beside this file: phase 25 moves the server's modules into packages)
+MODEL = Path(str(files("mantel_server").joinpath("models", "u2netp.onnx")))
 MODEL_URL = "https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2netp.onnx"
 MODEL_SHA256 = "309c8469258dda742793dce0ebea8e6dd393174f89934733ecc8b14c76f4ddd8"
 NAME = "u2netp"

@@ -24,12 +24,14 @@ from __future__ import annotations
 import hashlib
 import logging
 import time
+from importlib.resources import files
 from pathlib import Path
 from typing import Any
 
 log = logging.getLogger("mantel.faces")
 
-MODEL = Path(__file__).with_name("models") / "face_detection_yunet_2023mar.onnx"
+# (found through the package, not beside this file: phase 25 moves the server's modules into packages)
+MODEL = Path(str(files("mantel_server").joinpath("models", "face_detection_yunet_2023mar.onnx")))
 MODEL_SHA256 = "8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4"
 NAME = "yunet-2023mar"
 SIZE = 640                  # the model's input, square

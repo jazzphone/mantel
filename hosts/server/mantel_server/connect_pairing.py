@@ -40,6 +40,7 @@ import ssl
 import sys
 import time
 from datetime import timedelta
+from importlib.resources import files
 from pathlib import Path
 from typing import Callable
 
@@ -68,7 +69,8 @@ IP_FAILS, IP_WINDOW = 10, 600.0       # failed exchanges per peer address
 ALL_FAILS, ALL_WINDOW = 30, 600.0     # failed exchanges from anywhere
 SEEN_EVERY = 60.0
 FORGET_REVOKED_AFTER = 30 * 86400      # a revoked pairing leaves the list after this; the audit log keeps it
-MIGRATION = Path(__file__).with_name("migrations") / "0009_connect_pairing.sql"
+# (found through the package, not beside this file: phase 25 moves the server's modules into packages)
+MIGRATION = Path(str(files("mantel_server").joinpath("migrations", "0009_connect_pairing.sql")))
 _ID = re.compile(r"^[0-9a-f]{16}$")
 
 

@@ -22,11 +22,13 @@ import re
 import sqlite3
 import time
 from dataclasses import dataclass
+from importlib.resources import files
 from pathlib import Path
 
 log = logging.getLogger("mantel.db")
 
-MIGRATIONS = Path(__file__).with_name("migrations")
+# (found through the package, not beside this file: phase 25 moves the server's modules into packages)
+MIGRATIONS = Path(str(files("mantel_server").joinpath("migrations")))
 _NAME = re.compile(r"^(\d{4})_([a-z0-9_]+)\.sql$")
 
 SCHEMA_VERSION = """

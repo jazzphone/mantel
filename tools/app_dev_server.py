@@ -140,7 +140,7 @@ async def fictional_ma() -> tuple[object, str]:
 
 async def serve(data: Path, port: int, lan: bool = False, relay: str | None = None, music: bool = False,
                 slow: int = 0, busy: bool = False) -> None:
-    from mantel_server import app_auth
+    from mantel_server import app_auth, app_crypto
     from mantel_server.config import Config
     from mantel_server.server import build_app
     from mantel_server.store import Store
@@ -277,7 +277,7 @@ async def serve(data: Path, port: int, lan: bool = False, relay: str | None = No
     if lan_ip:
         write_qr(link, data / "pair.png")
         print("Pairing QR code:", data / "pair.png")
-    print(f"Fictional Mantel at {origin} (six digits: {st.fingerprint() and __import__('mantel_server.app_crypto', fromlist=['x']).short_code(st.fingerprint())})")
+    print(f"Fictional Mantel at {origin} (six digits: {st.fingerprint() and app_crypto.short_code(st.fingerprint())})")
     print("Pairing link (one hour, once):", link)
     await asyncio.Event().wait()
 
