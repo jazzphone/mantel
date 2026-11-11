@@ -915,6 +915,71 @@ recovery. All are fixed, with the review's counter-examples as tests:
   runs, Chromium 1 of 1; the final tree WebKit 3 of 3, Chromium 2 of 2). It's older than this run, not one of its
   splits; left for the owner.
 
+### The held files, cut (2026-11-11, afternoon; the owner: "we should do all 4")
+
+The four files the run held (B5, B9, B10 and `modules/hk-settings.js`) are cut, each by a tool that proves it. Three
+Sonnet agents in local worktrees (`hk-detail.js`, `model.py`, `hk-settings.js`); the saver by the building session; one
+Opus review of all four; the gates one at a time on the merged tree, against baselines taken twice on `016198eb` that
+morning. **No file is over its size limit now: `tests/test_file_sizes.py` HELD is empty**; the width list holds only
+`hk-media-now.js` (a phase 18 part of exactly 2,000 lines).
+
+- **`hk-saver.js` (B9): 4,477 lines -> a 1,454-line shell and 10 parts in `web/hk/saver/` (the largest 950).** Four proved
+  steps, the scripts in `docs/phase24/held/`:
+  1. *Rejoined* (`rejoin_saver.py`): the phase 18 shell and its 7 parts as one file. The hand edits since phase 18 are
+     carried back, each checked by its exact text (kit()'s `panelDone` and `clock24`, `K.inPane` and the shell's `inPane`,
+     runParts' design controller and Now Playing registration, the parts' live `K.x`, `K.PageCard`). Proof: every statement
+     in order, 428 cross references each resolving where it did, tsc missing nothing, no name declared twice.
+  2. *25 locals renamed* (`shadows.cjs`): the parameters and locals that shadowed a state name (`on` 9 times, `layer` 3,
+     ...). Proof: every identifier resolves to the same declaration, spelled the same unless renamed.
+  3. *136 names on `ST`* (`split_js.py --state`), proved backwards.
+  4. *Cut* with the new `bind_ahead`: the saver's features call each other both ways, so a part may use a later part's
+     member when it is called (bound once every part has run); what runs while the parts run may not reach one.
+- **`hk-detail.js` (B5): 2,895 -> a 735-line shell; its 15 hand-split sheets and 6 new parts are generated parts of
+  `web/hk/sheets/` (the largest 767).** First two renames (vacuum's `LIST_CSS` -> `VACUUM_LIST_CSS`, laundry's `v` ->
+  `laundryVar`, proved token for token) and one hand edit (`hk-sheet-group.js` took `K.TvPanel` off the kit object).
+  Then the new `"adopt": "SHEETS"`: the shell and its sheets as one file, proved (statements in order, members text for
+  text, no name meaning another), cut by the ordinary split. `"wait": false` (the review): its users wait for
+  `hk-detail-ready` as before, so no page holds its first draw for the sheets.
+- **`hk_core/settings/model.py` (B10): 3,737 lines -> a package of 13 modules (the largest 1,152).** The new `split_py`
+  `"lazy": true`: the import cycle was only in call-time references, so the 8 functions that call a later module import
+  it inside the function (16 imports), proved by the function's syntax tree less those imports; every value built at
+  import has the same `repr`. 396 names, each the same object through the package and its file.
+- **`modules/hk-settings.js`: 2,026 -> 1,849 lines.** Its 181-line first-paint `DEFAULTS` table is a plain script,
+  `modules/hk-settings-defaults.js`, that every loader runs first (`web/home.js`, `web/home.html`'s preload, Mantel's
+  Settings page, HK Frontend's `boot.py` core, the jsc prelude, and -- found at the merge -- the Settings panel's two
+  imports of it, which on Home Assistant may run before boot.py's core has).
+
+**The tools gained** (each with tests in `tests/test_web_sources.py` / `tests/test_split_py.py`): `bind_ahead`, `adopt`,
+`"wait": false`, the state rewrite's loop-condition reads and its called names (`(0, ST.x)()` where the value may read
+`this`), split_py's lazy mode, and the loader starting over after it gave up.
+
+**The review (Opus, read-only)** found two defects and three proof holes, all fixed in `cb0e8d33`: the loader stayed
+given up after six failed tries (HK Settings' retry of the sheets did nothing until a reload); hk-detail's readiness
+could hold a page's first draw for the 21 sheet files; a test pin read the security sheet twice (`--hkd-strip`); and the
+holes -- `this` in a called state name, a destructuring shorthand in the rename, a part's class defined over a later
+part's name. It checked and found sound: every loader of `hk-settings.js`, the saver's and the sheets' order at load,
+the model package's import-time values, the proofs (each re-run from `016198eb`).
+
+**The gates on the merged tree:**
+- jsc suites' output identical to `016198eb`'s (169 lines); the main suite passes (its 51 more skips are the new
+  tests' and the detail manifest's "run once" cases, reason for reason); tsc 0 errors, mypy and ruff at the parent's
+  (the two `hk_core/laundry.py` errors are `016198eb`'s); HK Frontend's Python suite and `split_py`'s proofs pass.
+- `sheet_review.py`: all 317 measurement lines identical to the parent's.
+- Pictures by eye, the parent and the tree rendered minutes apart (gallery 40, house twin 40): the same but for the
+  clock and the live energy figures; the Side Pane calendars show their events.
+- Settings sweep (`--compare`, 386 pages, 2 engines x 3 sizes): DOM identical on every page; two screenshots differ,
+  the front door lock page (phase 24's known flap) and the backyard camera's picture.
+- **First load found a cost the other gates missed:** hk-detail.js's 21 sheet files, now named as its parts, were
+  preloaded with the page and held the first draw back 9-13 ms (Home Grid 106 vs 94 ms, Chromium; a quiet machine,
+  016198eb measured between). A shell nothing waits for is no longer preloaded (`7ff56228`); after it, the same as the
+  parent: Home Grid 94/94, Home 82/83, the screensaver 94-96/93, Settings 89-91/90-91, WebKit within 4 ms.
+  (The morning's two baselines were taken while three agents ran their suites, so their load times read 10-25 ms slow:
+  load is compared on a quiet machine, alternating trees.)
+- `ci.py full --all`: 80 passed, 1 failed (`types-py`: the parent's two `hk_core/laundry.py` mypy errors).
+- `split_race_check.py`: 8 of 8 pages pass; its control (readiness off) fails, as it must.
+- The by-hand motion checks: `pre-glass-motion-check` and `swipe-motion-check` at all four sizes pass (the phone sizes
+  since `016198eb`'s fix).
+
 ## Morning report (2026-11-11)
 
 **What landed** (pushed to `main`; nothing released, the house untouched):
@@ -932,7 +997,7 @@ recovery. All are fixed, with the review's counter-examples as tests:
   `rewrap.py`, `code_map.py` (`docs/development/Code-map.md`), `shots_compare.py`, `first_load.py`,
   `split_race_check.py`. Rule 8 and the docs say how to use them.
 
-**What was dropped, and why** (each held at its size by a named list):
+**What was dropped, and why** (each held at its size by a named list; **all four cut the same afternoon**, "The held files, cut" above):
 - `hk-saver.js` (4,477): its phase 18 split's generated `kit()`/`runParts()` were edited by hand since; undoing them is
   a translation with renames, not a move. The state rewrite as specified also refuses its shadowed names.
 - `hk-detail.js` (2,895): adopting its hand-split sheets merges their scopes, and two names are declared in two sheets.
@@ -948,6 +1013,5 @@ recovery. All are fixed, with the review's counter-examples as tests:
 2. The release, when you're ready: Mantel, HK Frontend, and Mantel Link (its shared code changed).
 3. On Home Assistant, the strategy element and the core cards are defined once their parts have run, a round trip
    later than before (HA has no preloads); worth a look on a slow tablet.
-4. The four held files above, if you want them cut: each needs a code change (renames, late imports) first.
-5. `swipe-motion-check` at the phone size (390x844) fails in both engines, on the parent too: an interrupted settle
-   lands one or two pages off on the Pinned Bar's Home. It predates phase 24; worth its own look.
+4. ~~The four held files above~~: cut the same afternoon ("The held files, cut"); no file is over its size limit.
+5. ~~`swipe-motion-check` at the phone size~~: fixed the same afternoon (`016198eb`), a catch's slow push went back against the finger.
