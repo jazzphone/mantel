@@ -179,7 +179,7 @@ globalThis.window = globalThis;
 require(process.argv[2]); require(process.argv[3]);
 const T = window.hkTv, G = window.hkGridCatalog;
 const states = {
-  'media_player.bed_tv': { state: 'on', attributes: { friendly_name: 'Bedroom TV', device_class: 'tv', source: 'LG S95TR', source_list: ['Apple TV', 'HDMI 1', 'LG S95TR', 'Live TV'], volume_level: 0.1, supported_features: 24509 } },
+  'media_player.bed_tv': { state: 'on', attributes: { friendly_name: 'Bedroom TV', device_class: 'tv', source: 'LG S95TR', app_id: 'com.webos.app.hdmi2', source_list: ['Apple TV', 'HDMI 1', 'LG S95TR', 'Live TV'], volume_level: 0.1, supported_features: 24509 } },
   'media_player.bed_apple_tv': { state: 'playing', attributes: { friendly_name: 'Bedroom Apple TV', app_id: 'com.netflix.Netflix', app_name: 'Netflix', media_title: 'A Show', source_list: ['App Store', 'Netflix', 'YouTube TV', 'Coax', 'Disney+'], supported_features: 450487 } },
   'remote.bed_apple_tv': { state: 'on', attributes: {} },
   'media_player.den_tv': { state: 'off', attributes: { friendly_name: 'Den TV', device_class: 'tv', supported_features: 151481 } },
