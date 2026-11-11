@@ -3,6 +3,7 @@
   "folder": "web/hk/sheets",
   "global": "hkSheets",
   "label": "hk-detail",
+  "wait": false,
   "what": "THE DETAIL SHEETS",
   "run_in": "whenBase",
   "adopt": "SHEETS",

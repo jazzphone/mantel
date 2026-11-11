@@ -27,7 +27,7 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 - **An Icons Only tab bar keeps the highlight behind the page you're on when its tabs are narrow**: a car's 804 px window gave ten tabs 63 px each, a pixel short of the 64 a tab with a name needs, so the bar showed the current page only as a darker icon (on a gray accent, hardly different). Without names the capsule now shows as long as it comes out at least as wide as it is tall.
 
 **Internal**
-- Code health (phase 24): the big web files cut into shells and parts by `tools/split_js.py` (proved moves; a page waits for a file's parts before it uses it), `music.py` into sibling modules, every long line broken by `tools/rewrap.py`, and the size and width rules (rule 8) checked on every push. Nothing a person sees changes.
+- Code health (phase 24): the big web files cut into shells and parts by `tools/split_js.py` (proved moves; a page waits for a file's parts before it uses it), `music.py` into sibling modules and the settings model (`hk_core/settings/model.py`) into a package, the settings' first-paint defaults into a file of their own that every page loads first, every long line broken by `tools/rewrap.py`, and the size and width rules (rule 8) checked on every push: no file is over its size limit now. Nothing a person sees changes.
 
 ## 0.1.162 - 2026-11-10
 

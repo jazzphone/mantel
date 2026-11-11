@@ -467,6 +467,21 @@ def test_bind_ahead_lets_a_part_call_a_later_ones_but_nothing_run_while_the_part
     man["parts"][0]["members"].append("first")
     with pytest.raises(tool.Refusal, match="runs while the parts run"):
         tool.build(man, src, tmp_path / "now")
+    # (the review) a class of a part defined over a later part's (`extends`): refused; a method that calls one: fine
+    cls = """(function () {
+  'use strict';
+  class Early extends Late { a() { return late(); } }
+  class Late {}
+  function late() { return 1; }
+  window.c = Early;
+})();
+"""
+    man["parts"] = [{"name": "hk-x-a", "title": "a", "members": ["Early"]}, {"name": "hk-x-b", "title": "b", "members": ["Late", "late"]}]
+    with pytest.raises(tool.Refusal, match="as it is defined"):
+        tool.build(man, cls, tmp_path / "cls")
+    ok = cls.replace("class Early extends Late {", "class Early {")
+    plan, parts, shell = tool.build(man, ok, tmp_path / "cls-ok")
+    assert tool.verify(plan, parts, shell, tmp_path / "cls-ok") == []
 
 
 def test_the_iife_a_manifest_names_is_the_one_cut(path, tmp_path):
@@ -510,7 +525,8 @@ def test_the_loader_keeps_a_promise_of_its_parts_that_resolves_when_they_ran_and
     man = _manifest(path)
     text = (ROOT / man["shell"]).read_text()
     block = text[text.index("  " + tool.LOADER_BEGIN):text.index(tool.LOADER_END)]
-    assert "window.__hkSplitReady = window.__hkSplitReady || {}" in block and "partsSettle(" in block
+    waits = man.get("wait", True)          # ("wait": false, hk-detail.js: its users wait for hk-detail-ready; no promise)
+    assert ("window.__hkSplitReady = window.__hkSplitReady || {}" in block) == waits and "partsSettle(" in block
     harness = tmp_path / "ready.js"
     harness.write_text("""
 globalThis.window = globalThis;
@@ -525,20 +541,30 @@ globalThis.setTimeout = function (fn) { setImmediate(fn); };
 console.warn = console.error = function () {};
 %s
 loadParts(function () { ran++; });
-var p = window.__hkSplitReady['%s'];
-var before = 'pending';
-p.then(function () { before = 'resolved'; }, function () { before = 'rejected'; });
+var p = (window.__hkSplitReady || {})['%s'];
+var before = p ? 'pending' : 'none', gaveUp = false;
+if (p) p.then(function () { before = 'resolved'; }, function () { before = 'rejected'; });
+var oldErr = console.error;
+console.error = function () { gaveUp = true; };
 setImmediate(function () { var early = ran;
-  new Promise(function (r) { var k = 0; (function w() { if (before !== 'pending' || k++ > 2000) r(); else setImmediate(w); })(); })
-    .then(function () { console.log(JSON.stringify({ state: before, ran: ran, ranBeforeParts: early })); });
+  new Promise(function (r) { var k = 0; (function w() { if ((p ? before !== 'pending' : (ran || gaveUp)) || k++ > 2000) r(); else setImmediate(w); })(); })
+    .then(function () {
+      // (the review, 2026-11-11) given up, a later import starts over: the parts come this time
+      var again = null;
+      if (mode === 'never') { mode = 'ok'; loadParts(function () { again = 'ran'; }); }
+      var k = 0;
+      (function w() { if (mode !== 'ok' || again || k++ > 2000) console.log(JSON.stringify({ state: before, ran: ran, ranBeforeParts: early, again: again })); else setImmediate(w); })();
+    });
 });
 """ % (man["global"], man["global"], man["global"], re.sub(r"\bimport\(", "__import(", block), man["label"]))
     for mode, want in (("ok", "resolved"), ("never", "rejected")):
         out = subprocess.run(["node", str(harness), mode], capture_output=True, text=True, timeout=60)
         assert out.returncode == 0, out.stderr
         got = json.loads(out.stdout.strip().splitlines()[-1])
-        assert got["state"] == want, (mode, got)
+        assert got["state"] == (want if waits else "none"), (mode, got)
         assert got["ran"] == (1 if mode == "ok" else 0)
+        if mode == "never":
+            assert got["again"] == "ran", got                  # given up, asked again: it starts over
 
 
 def test_every_importer_that_uses_a_module_at_once_waits_for_split_shells(path):
@@ -556,6 +582,35 @@ STATE_SOURCE = """(function () {
   window.x = { bump: bump, show: show };
 })();
 """
+
+
+CALLED_SOURCE = """(function () {
+  'use strict';
+  var plain = null, own = null, given = null;
+  plain = function () { return 'p'; };
+  own = function () { return this === undefined ? 'none' : 'some'; };
+  given = window.make();
+  window.y = { run: function () { return [plain(), own(), given()].join(','); } };
+})();
+"""
+
+
+def test_the_state_rewrite_keeps_this_undefined_for_a_called_name(path, tmp_path):
+    """(2026-11-11, the review) `x()` as `ST.x()` would call it with `this` set to the object. A name given only functions
+    that never read their own `this` stays `ST.x()`; one given a function that does, or a value the file can't see, is
+    called as `(0, ST.x)()` -- `this` undefined, as before -- and the backwards proof takes that exact form back."""
+    if not _node_ready() or path.stem != "grid-cards":
+        pytest.skip("node or TypeScript (tools/typecheck) not installed, or run once")
+    tool = _tool()
+    f = tmp_path / "c.js"
+    f.write_text(CALLED_SOURCE)
+    text, obj = tool.state_rewrite(f, {}, ["plain", "own", "given"])
+    assert "(0, ST.own)()" in text and "(0, ST.given)()" in text and "ST.plain()" in text and "(0, ST.plain)" not in text
+    js = tmp_path / "out.js"
+    js.write_text("global.window = global; window.make = function () { return function () { 'use strict'; return this === undefined ? 'u' : 'set'; }; };\n" + text)
+    run = subprocess.run(["node", "-e", "eval(require('fs').readFileSync(process.argv[1],'utf8')); console.log(window.y.run())", str(js)],
+                         capture_output=True, text=True)
+    assert run.stdout.strip() == "p,none,u", run.stderr
 
 
 def test_the_state_rewrite_puts_vars_on_one_object_and_proves_it_backwards(path, tmp_path):

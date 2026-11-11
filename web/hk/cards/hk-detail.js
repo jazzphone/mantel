@@ -52,8 +52,8 @@
   // an earlier one), each given the kit K: what the parts use of the shell, in one object. What the shell uses of them,
   // they hand back on K, and it is taken from there. The files are fetched in parallel; a host that has already loaded
   // them (the suites) starts at once, in the same turn.
-  // READY: window.__hkSplitReady['hk-detail'] is a promise that resolves once the parts have run (and rejects if they
-  // never come), so a page that imports this file and uses it at once awaits it first (web/home.js imp, hk-loader).
+  // NOTHING WAITS FOR THESE PARTS (the manifest's "wait": false): what uses this file waits for its own sign that it is
+  // up, so a page that imports it goes on at once, and no window.__hkSplitReady promise is made for it.
   var PARTS = ['hk-detail-helpers.js', 'hk-detail-readout.js', 'hk-detail-accessory.js', 'hk-detail-frame.js',
                'hk-detail-routing.js', 'hk-sheet-base.js', 'hk-sheet-light.js', 'hk-sheet-lock.js',
                'hk-sheet-climate.js', 'hk-sheet-media.js', 'hk-sheet-sensor.js', 'hk-detail-accessory-pane.js',
@@ -72,15 +72,10 @@
   function loadParts(then, n) {
     // (the first call has no n; the retries and the finish pass it) a shell evaluated twice before its parts arrive
     // must not run them twice: the flag is set at once, not when the parts have run
+    var started = window.__hkSplitStarted = window.__hkSplitStarted || {};
     if (n === undefined) {
-      var started = window.__hkSplitStarted = window.__hkSplitStarted || {};
       if (started['hk-detail']) return;
       started['hk-detail'] = true;
-      var ready = new Promise(function (resolve, reject) {
-        (window.__hkSplitSettle = window.__hkSplitSettle || {})['hk-detail'] = function (err) { if (err) reject(err); else resolve(); };
-      });
-      ready.catch(function () { /* the console says so; an importer that awaits it reports it */ });
-      (window.__hkSplitReady = window.__hkSplitReady || {})['hk-detail'] = ready;
     }
     n = n || 0;
     var have = window.hkSheets || {};
@@ -103,7 +98,13 @@
       var left = PARTS.filter(function (file) { return !(window.hkSheets || {})[partKey(file)]; });
       if (!left.length) { loadParts(then, n); return; }
       err = err || new Error(left[0] + ' ran without registering');
-      if (n + 1 >= PARTS_TRIES) { console.error('[hk-detail] the parts did not start', err); partsSettle(err); return; }
+      if (n + 1 >= PARTS_TRIES) {
+        console.error('[hk-detail] the parts did not start', err);
+        partsSettle(err);
+        // (given up: a later import of this file -- a page asking again at an address of its own -- starts over)
+        delete started['hk-detail'];
+        return;
+      }
       console.warn('[hk-detail] a part did not load (' + err.message + '); again shortly');
       setTimeout(function () { loadParts(then, n + 1); }, Math.min(1000 * Math.pow(2, n), 15000));
     });

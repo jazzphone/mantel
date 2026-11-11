@@ -21,6 +21,12 @@ function iifeBody(sf) {
     }
   }
 }
+// a name that is also its property's: `{ on }` in an object literal or a destructuring pattern (renamed, it is `on: newName`)
+function short(n) {
+  const p = n.parent;
+  return (ts.isShorthandPropertyAssignment(p) && p.name === n) || (ts.isBindingElement(p) && !p.propertyName && p.name === n &&
+    ts.isObjectBindingPattern(p.parent));
+}
 function scan(text) {
   const { sf, ck } = prog(file, text);
   const body = iifeBody(sf);
@@ -36,7 +42,7 @@ function scan(text) {
       if (!prop) {
         const sym = ts.isShorthandPropertyAssignment(p) && p.name === n ? ck.getShorthandAssignmentValueSymbol(p) : ck.getSymbolAtLocation(n);
         const d = sym && sym.declarations && sym.declarations[0];
-        ids.push([n.getStart(sf), n.text, d ? d.getStart(sf) : -1, ts.isShorthandPropertyAssignment(p) && p.name === n]);
+        ids.push([n.getStart(sf), n.text, d ? d.getStart(sf) : -1, short(n)]);
         if (names.has(n.text) && sym && sym !== top.get(n.text) && d && d.getSourceFile() === sf) {
           if (!decls.has(sym)) {
             let fn = d; while (fn && !ts.isFunctionLike(fn)) fn = fn.parent;

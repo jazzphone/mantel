@@ -527,8 +527,8 @@
   function loadParts(then, n) {
     // (the first call has no n; the retries and the finish pass it) a shell evaluated twice before its parts arrive
     // must not run them twice: the flag is set at once, not when the parts have run
+    var started = window.__hkSplitStarted = window.__hkSplitStarted || {};
     if (n === undefined) {
-      var started = window.__hkSplitStarted = window.__hkSplitStarted || {};
       if (started['hk-menu']) return;
       started['hk-menu'] = true;
       var ready = new Promise(function (resolve, reject) {
@@ -558,7 +558,13 @@
       var left = PARTS.filter(function (file) { return !(window.hkMenuParts || {})[partKey(file)]; });
       if (!left.length) { loadParts(then, n); return; }
       err = err || new Error(left[0] + ' ran without registering');
-      if (n + 1 >= PARTS_TRIES) { console.error('[hk-menu] the parts did not start', err); partsSettle(err); return; }
+      if (n + 1 >= PARTS_TRIES) {
+        console.error('[hk-menu] the parts did not start', err);
+        partsSettle(err);
+        // (given up: a later import of this file -- a page asking again at an address of its own -- starts over)
+        delete started['hk-menu'];
+        return;
+      }
       console.warn('[hk-menu] a part did not load (' + err.message + '); again shortly');
       setTimeout(function () { loadParts(then, n + 1); }, Math.min(1000 * Math.pow(2, n), 15000));
     });

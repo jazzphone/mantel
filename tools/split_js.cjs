@@ -495,6 +495,51 @@ function stateRewrite(req) {
   }
   for (const n of want) if (!symOf.has(n)) refusals.push('`' + n + '` is not a top-level var of the scope');
   const lineOfPos = (pos) => sf.getLineAndCharacterOfPosition(pos).line + 1;
+  // (2026-11-11, the review) A LISTED NAME THAT IS CALLED: `x()` as `ST.x()` would call the function with `this` set to the
+  // object, not undefined, and the backwards proof cannot see that. Where every value the file gives the name is null,
+  // undefined or a function that never reads its own `this` (an arrow's is the outer one: read through), `ST.x()` is the
+  // same; where not (unsubCards = hkCards.onClient(...)), the call is written `(0, ST.x)(...)`, which calls it with `this`
+  // undefined, as before, and the backwards proof turns that exact form back into `x`
+  const calledNames = new Set(), given = new Map();
+  const noThis = (fn) => {
+    let uses = false;
+    const look = (x) => {
+      if (uses) return;
+      if (x.kind === ts.SyntaxKind.ThisKeyword) { uses = true; return; }
+      if (x !== fn && (ts.isFunctionExpression(x) || ts.isFunctionDeclaration(x) || ts.isMethodDeclaration(x) || ts.isClassLike(x) ||
+                       ts.isGetAccessor(x) || ts.isSetAccessor(x) || ts.isConstructorDeclaration(x))) return;
+      ts.forEachChild(x, look);
+    };
+    look(fn);
+    return !uses;
+  };
+  const harmless = (v) => {
+    while (v && ts.isParenthesizedExpression(v)) v = v.expression;
+    if (!v) return true;
+    if (v.kind === ts.SyntaxKind.NullKeyword || (ts.isIdentifier(v) && v.text === 'undefined') || ts.isVoidExpression(v)) return true;
+    return (ts.isFunctionExpression(v) || ts.isArrowFunction(v)) && noThis(v);
+  };
+  const look2 = (n) => {
+    if (ts.isIdentifier(n) && want.has(n.text) && symOf.get(n.text) && checker.getSymbolAtLocation(n) === symOf.get(n.text)) {
+      let c = n;
+      while (c.parent && ts.isParenthesizedExpression(c.parent)) c = c.parent;
+      const p = c.parent;
+      if (p && ((ts.isCallExpression(p) && p.expression === c) || (ts.isTaggedTemplateExpression(p) && p.tag === c))) calledNames.add(n.text);
+      if (ts.isVariableDeclaration(n.parent) && n.parent.name === n) (given.get(n.text) || given.set(n.text, []).get(n.text)).push(n.parent.initializer);
+      if (p && ts.isBinaryExpression(p) && p.left === c && p.operatorToken.kind >= ts.SyntaxKind.FirstAssignment &&
+          p.operatorToken.kind <= ts.SyntaxKind.LastAssignment) {
+        (given.get(n.text) || given.set(n.text, []).get(n.text)).push(p.operatorToken.kind === ts.SyntaxKind.EqualsToken ? p.right : p);
+      }
+    }
+    ts.forEachChild(n, look2);
+  };
+  look2(sf);
+  const wrap = new Set([...calledNames].filter((name) => (given.get(name) || []).some((v) => !harmless(v))));
+  const callee = (n) => {
+    let c = n;
+    while (c.parent && ts.isParenthesizedExpression(c.parent)) c = c.parent;
+    return !!c.parent && ((ts.isCallExpression(c.parent) && c.parent.expression === c) || (ts.isTaggedTemplateExpression(c.parent) && c.parent.tag === c));
+  };
   const edits = [];
   const declNames = new Set();
   const walk = (n) => {
@@ -528,6 +573,7 @@ function stateRewrite(req) {
             if (ts.isFunctionLike(q)) break;
           }
           if (ts.isShorthandPropertyAssignment(p)) edits.push({ start: p.getStart(sf), end: p.end, text: n.text + ': ' + P + '.' + n.text });
+          else if (wrap.has(n.text) && callee(n)) edits.push({ start: n.getStart(sf), end: n.end, text: '(0, ' + P + '.' + n.text + ')' });
           else edits.push({ start: n.getStart(sf), end: n.end, text: P + '.' + n.text });
         }
       }
@@ -617,6 +663,14 @@ function stateBack(req) {
   const body = scopeOf(sf, req);
   const edits = [];
   const walk = (n) => {
+    // (the form a called name's call takes when its value may read `this`: `(0, OBJ.x)(...)` -> `x(...)`)
+    if (ts.isParenthesizedExpression(n) && ts.isBinaryExpression(n.expression) && n.expression.operatorToken.kind === ts.SyntaxKind.CommaToken &&
+        ts.isNumericLiteral(n.expression.left) && n.expression.left.text === '0' && ts.isPropertyAccessExpression(n.expression.right) &&
+        ts.isIdentifier(n.expression.right.expression) && n.expression.right.expression.text === obj && want.has(n.expression.right.name.text) &&
+        n.parent && ((ts.isCallExpression(n.parent) && n.parent.expression === n) || (ts.isTaggedTemplateExpression(n.parent) && n.parent.tag === n))) {
+      edits.push({ start: n.getStart(sf), end: n.end, text: n.expression.right.name.text });
+      return;
+    }
     if (ts.isPropertyAccessExpression(n) && ts.isIdentifier(n.expression) && n.expression.text === obj && want.has(n.name.text)) {
       edits.push({ start: n.getStart(sf), end: n.end, text: n.name.text });
       return;

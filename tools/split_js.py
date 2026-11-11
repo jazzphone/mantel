@@ -63,6 +63,12 @@ tests/test_settings_prototype.py proves it. The things this needs of the manifes
     its own `var` and a binder; the shell calls `bindLate()` after assigning (the manifest's shell_edits put the call in);
   * the shell waits: `partsReady` is a promise the shell's own code (boot) awaits, put in by a shell_edit.
 Moved methods may not use `super`, and may not assign a shell variable (as for any member).
+BIND AHEAD (`"bind_ahead": true`, any shell; the screensaver, 2026-11-11): a part's member may use a LATER part's member
+when it is called (parts whose features call each other both ways). The part declares the name (`var late;`) and pushes
+a binder on K.ahead (`late = K.late;`); runParts runs every binder once all the parts have run, before the shell takes
+its names back. Refused: a part's statement that runs while the parts run (not a declaration) and reaches, through what it
+calls, a member that uses such a name, a statement that waits, or a shell member that uses a moved one. The proof checks
+that tsc's missing names in each draft part are its takes and its ahead names, and that a later part hands each back.
 ADOPT (hk-detail.js, whose hand-written SHEETS loader predates the tool; commit 5573f9db). A manifest with `"adopt": "SHEETS"`
 names a shell that has `var SHEETS = ['a.js', ...]`, a `kit()`, a `runSheets()` and a `loadSheets()` of its own, and the
 files (the manifest's folder) each register one function the shell runs with that kit. The tool first makes the one file
@@ -116,9 +122,7 @@ LOADER = """\
 {i}// an earlier one), each given the kit K: what the parts use of the shell, in one object. What the shell uses of them,
 {i}// they hand back on K, and it is taken from there. The files are fetched in parallel; a host that has already loaded
 {i}// them (the suites) starts at once, in the same turn.
-{i}// READY: window.__hkSplitReady['{label}'] is a promise that resolves once the parts have run (and rejects if they
-{i}// never come), so a page that imports this file and uses it at once awaits it first (web/home.js imp, hk-loader).
-{i}var PARTS = {parts};
+{readme}{i}var PARTS = {parts};
 {i}var PARTS_TRIES = 6;
 {i}function partKey(file) {{ return file.replace(/\\.js$/, ''); }}
 {i}function partsSettle(err) {{
@@ -131,16 +135,11 @@ LOADER = """\
 {i}function loadParts(then, n) {{
 {i}  // (the first call has no n; the retries and the finish pass it) a shell evaluated twice before its parts arrive
 {i}  // must not run them twice: the flag is set at once, not when the parts have run
+{i}  var started = window.__hkSplitStarted = window.__hkSplitStarted || {{}};
 {i}  if (n === undefined) {{
-{i}    var started = window.__hkSplitStarted = window.__hkSplitStarted || {{}};
 {i}    if (started['{label}']) return;
 {i}    started['{label}'] = true;
-{i}    var ready = new Promise(function (resolve, reject) {{
-{i}      (window.__hkSplitSettle = window.__hkSplitSettle || {{}})['{label}'] = function (err) {{ if (err) reject(err); else resolve(); }};
-{i}    }});
-{i}    ready.catch(function () {{ /* the console says so; an importer that awaits it reports it */ }});
-{i}    (window.__hkSplitReady = window.__hkSplitReady || {{}})['{label}'] = ready;
-{i}  }}
+{ready}{i}  }}
 {i}  n = n || 0;
 {i}  var have = window.{glob} || {{}};
 {i}  var missing = PARTS.filter(function (file) {{ return !have[partKey(file)]; }});
@@ -162,12 +161,36 @@ LOADER = """\
 {i}    var left = PARTS.filter(function (file) {{ return !(window.{glob} || {{}})[partKey(file)]; }});
 {i}    if (!left.length) {{ loadParts(then, n); return; }}
 {i}    err = err || new Error(left[0] + ' ran without registering');
-{i}    if (n + 1 >= PARTS_TRIES) {{ console.error('[{label}] the parts did not start', err); partsSettle(err); return; }}
+{i}    if (n + 1 >= PARTS_TRIES) {{
+{i}      console.error('[{label}] the parts did not start', err);
+{i}      partsSettle(err);
+{i}      // (given up: a later import of this file -- a page asking again at an address of its own -- starts over)
+{i}      delete started['{label}'];
+{i}      return;
+{i}    }}
 {i}    console.warn('[{label}] a part did not load (' + err.message + '); again shortly');
 {i}    setTimeout(function () {{ loadParts(then, n + 1); }}, Math.min(1000 * Math.pow(2, n), 15000));
 {i}  }});
 {i}}}
 {i}{end}
+"""
+
+READY_LINES = """\
+{i}    var ready = new Promise(function (resolve, reject) {{
+{i}      (window.__hkSplitSettle = window.__hkSplitSettle || {{}})['{label}'] = function (err) {{ if (err) reject(err); else resolve(); }};
+{i}    }});
+{i}    ready.catch(function () {{ /* the console says so; an importer that awaits it reports it */ }});
+{i}    (window.__hkSplitReady = window.__hkSplitReady || {{}})['{label}'] = ready;
+"""
+READY_README = """\
+{i}// READY: window.__hkSplitReady['{label}'] is a promise that resolves once the parts have run (and rejects if they
+{i}// never come), so a page that imports this file and uses it at once awaits it first (web/home.js imp, hk-loader).
+"""
+# (a manifest's "wait": false -- hk-detail.js: what uses it waits for its own event, hk-detail-ready, as before the tool cut
+# it, so no page holds its first draw for these parts)
+NO_WAIT_README = """\
+{i}// NOTHING WAITS FOR THESE PARTS (the manifest's "wait": false): what uses this file waits for its own sign that it is
+{i}// up, so a page that imports it goes on at once, and no window.__hkSplitReady promise is made for it.
 """
 
 PART_HEADER = """\
@@ -257,8 +280,12 @@ def parts_list(parts: list[str], indent: str) -> str:
 def loader_block(man: dict, indent: str = "  ") -> str:
     """The generated loader of a shell: the template, filled in from the manifest."""
     folder = Path(man["folder"]).name
+    wait = man.get("wait", True)
+    ready = (READY_LINES if wait else "").format(i=indent, label=man["label"])
+    readme = (READY_README if wait else NO_WAIT_README).format(i=indent, label=man["label"])
     return LOADER.format(i=indent, begin=LOADER_BEGIN, end=LOADER_END, folder=folder, name=man["name"], glob=man["global"],
-                         label=man["label"], parts=parts_list([p["name"] for p in man["parts"]], indent))
+                         label=man["label"], parts=parts_list([p["name"] for p in man["parts"]], indent), ready=ready,
+                         readme=readme)
 
 
 def lstrip_lines(text: str) -> str:
@@ -596,9 +623,19 @@ def make_plan(man: dict, text: str, work: Path) -> Plan:
     # part has run), a member of the shell that uses a moved one (taken back then too), or a statement that waits
     if man.get("bind_ahead"):
         for m in sorted(plan.members.values(), key=lambda x: (x.scope, x.index)):
-            if m.part < 0 or m.scope == plan.cs or m.d["kind"] in ("function", "directive", "class"):
+            if m.part < 0 or m.scope == plan.cs or m.d["kind"] in ("function", "directive"):
                 continue
             seen, stack = set(), [(m.key, [m.label])]
+            if m.d["kind"] == "class":
+                # (the review) a class runs what it is defined with -- `extends X`, a static field or block, a computed key:
+                # its references that run now, not its methods'
+                seen.add(m.key)
+                stack = [((r["scope"], r["index"]), [m.label, r.get("name")]) for r in m.d["refs"] if "index" in r and r.get("now")]
+                for r in m.d["refs"]:
+                    t = by_key.get((r["scope"], r["index"])) if "index" in r else None
+                    if r.get("now") and t is not None and t.part > m.part:
+                        plan.refusals.append(f"{man['parts'][m.part]['name']}: `{m.label}` (line {m.d['first']}) uses `{r.get('name')}` "
+                                             f"of the later part {man['parts'][t.part]['name']} as it is defined, while the parts run")
             while stack:
                 key, via = stack.pop()
                 tgt = by_key.get(key)

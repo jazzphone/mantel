@@ -18,7 +18,7 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 - **Show When takes up to ten rules** in a Home Grid block, not four. Each rule still has up to three conditions that must all hold, rules are checked in order with the first that holds winning, and the block shows its own card when none does; layouts saved with four or fewer rules, and older blocks saved with Otherwise Show, work as they did. In the editor each rule's header says where it stands (Rule 3 of 10), **Move Rule Down** sits beside Move Rule Up, past four rules **Preview** is a menu naming each rule's card, and Add Rule says when the block is full.
 
 **Internal**
-- Code health: HK's big web files cut into shells and parts (each part fetched with its shell, and waited for before the file is used), and every long line broken; nothing a person sees changes.
+- Code health: HK's big web files cut into shells and parts (each part fetched with its shell, and waited for before the file is used), the settings' first-paint defaults in a file of their own that loads first (`modules/hk-settings-defaults.js`), the settings model a package, and every long line broken; nothing a person sees changes.
 
 ## 1.58.0 - 2026-11-10
 
