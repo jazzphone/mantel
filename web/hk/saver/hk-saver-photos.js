@@ -15,17 +15,8 @@
         mosaicAssign = K.mosaicAssign, mosaicPlan = K.mosaicPlan, photoUrl = K.photoUrl, screenEdge = K.screenEdge,
         ST = K.ST, TB_WAIT = K.TB_WAIT, tbKey = K.tbKey, tbShare = K.tbShare, teardown = K.teardown, WAKE = K.WAKE;
     // (phase 25: the owners' writers, docs/phase25/SAVER-STATE.md)
-    var clock = K.clock, setAttr = K.setAttr;
-
-    var ckPhotos, extraIs, HL, layoutSoon, mus, paint, photoLum, releasePh, reveal, runOff, setPane, showEnergySlide,
-        showForecastExtra, showMusicSlide, slideCancel, slideShow, start, TM, WX;
-    // (of later parts, used when called: bound once every part has run, runParts)
-    K.ahead.push(function () {
-      ckPhotos = K.ckPhotos; extraIs = K.extraIs; HL = K.HL; layoutSoon = K.layoutSoon; mus = K.mus; paint = K.paint;
-      photoLum = K.photoLum; releasePh = K.releasePh; reveal = K.reveal; runOff = K.runOff; setPane = K.setPane;
-      showEnergySlide = K.showEnergySlide; showForecastExtra = K.showForecastExtra; showMusicSlide = K.showMusicSlide;
-      slideCancel = K.slideCancel; slideShow = K.slideShow; start = K.start; TM = K.TM; WX = K.WX;
-    });
+    var clock = K.clock, Draw = K.Draw, Layout = K.Layout, Music = K.Music, Pane = K.Pane, Run = K.Run,
+        Screens = K.Screens, setAttr = K.setAttr;
     var Deck = K.Deck;
 
 
@@ -61,7 +52,7 @@
     // ITS OWN STATE (phase 25, A: off the shared ST, which only this file used; tools/state_owners.py)
     /** @type {any} */ var moRand = null;
 
-    function mosaicOn() { return !!(ST.cfg && ST.cfg.mosaic && ST.mode === 'photos' && !(ckPhotos() && ST.cfg.clock_photo_soft)); }
+    function mosaicOn() { return !!(ST.cfg && ST.cfg.mosaic && ST.mode === 'photos' && !(Draw.ckPhotos() && ST.cfg.clock_photo_soft)); }
     function moGap() {
       if (ST.cfg.mosaic_gap === 'none') return 0;
       return ST.cfg.mosaic_line > 0 ? ST.cfg.mosaic_line : ST.cfg.mosaic_gap === 'rounded' ? 12 : 3;
@@ -102,7 +93,7 @@
         for (var i = 0; i < cells.length; i++) if (i !== ST.moState.lastCell) choices.push(i);
         var ci = choices[Math.floor(Math.random() * choices.length)], cell = cells[ci];
         var old = cell.querySelector('canvas'), cv = moDraw(cell, m.mosaicOne);
-        releasePh(m.mosaicOne);
+        Run.releasePh(m.mosaicOne);
         cv.style.opacity = '0';
         cell.appendChild(cv);
         void cv.offsetWidth;
@@ -114,7 +105,7 @@
       }
       // a one-cell change whose mosaic is no longer on screen (the music slide
       // took the screen while its photo loaded): that photo on its own
-      if (m.mosaicOne) { paint(m.mosaicOne, first); return; }
+      if (m.mosaicOne) { Run.paint(m.mosaicOne, first); return; }
       var layers = ST.root.querySelectorAll('.ph'), next = layers[1 - ST.layer];
       next.querySelectorAll('.mowrap').forEach(function (w) { w.querySelectorAll('canvas').forEach(clearCanvas); w.remove(); });
       // (a mosaic has no titles, and no time behind: the clock as set)
@@ -125,7 +116,7 @@
       var fg = next.querySelector('img.fg'), bgc = next.querySelector('canvas.bg');
       if (fg) fg.removeAttribute('src');
       if (bgc) { bgc.hidden = true; clearCanvas(bgc); }
-      if (mus.paneNext !== null) { var pn = mus.paneNext; mus.paneNext = null; setPane(pn); }
+      if (Music.mus.paneNext !== null) { var pn = Music.mus.paneNext; Music.mus.paneNext = null; Pane.setPane(pn); }
       setAttr(next, 'pw', ST.paneUp);
       var W = Math.max(1, (window.innerWidth || 1280) - (ST.paneUp ? ST.paneW || 0 : 0)), H = Math.max(1, window.innerHeight || 800);
       var ports = m.mosaic.filter(function (ph) { return shapeOfPh(ph) === 'portrait'; }).length;
@@ -147,14 +138,14 @@
         var ph = m.mosaic[pick[i]];
         if (ph) cell.appendChild(moDraw(cell, ph));
       });
-      m.mosaic.forEach(releasePh);            // (drawn into the cells: the full photos are let go)
+      m.mosaic.forEach(Run.releasePh);            // (drawn into the cells: the full photos are let go)
       if (ST.cfg.zoom && !reducedMotion()) {
         next.style.setProperty('--zd', (ST.cfg.each_photo * 1000 + CROSSFADE_MS) + 'ms');
         void next.offsetWidth;
         next.classList.add('zoom');
       }
       ST.lastPh = null;
-      reveal(next, first);
+      Run.reveal(next, first);
       ST.layer = 1 - ST.layer;
       // a whole new mosaic now and then: after each cell has changed about twice
       ST.moState = { n: m.mosaic.length, idx: plan.idx, layer: next, left: m.mosaic.length * 2, lastCell: -1 };
@@ -211,9 +202,9 @@
         // (and its luminance, for the screen's ink: read once the photo has loaded)
         ST.lyPhotoLum = null;
         var im0 = ph.img;
-        if (im0 && im0.complete) ST.lyPhotoLum = photoLum(im0);
-        else if (im0 && im0.addEventListener) im0.addEventListener('load', function () { if (ST.ly) { ST.lyPhotoLum = photoLum(im0); layoutSoon(); } }, { once: true });
-        layoutSoon();
+        if (im0 && im0.complete) ST.lyPhotoLum = Draw.photoLum(im0);
+        else if (im0 && im0.addEventListener) im0.addEventListener('load', function () { if (ST.ly) { ST.lyPhotoLum = Draw.photoLum(im0); Layout.layoutSoon(); } }, { once: true });
+        Layout.layoutSoon();
       }
       if (po.titles && (it.album || it.year)) {
         var ttl = document.createElement('div'), tt = document.createElement('div');
@@ -277,7 +268,7 @@
       if (!top || !ST.lastPh || ST.mode !== 'photos') return false;
       var L = layOut(top, ST.lastPh), bg = top.querySelector('canvas.bg');
       photoFaces(top, ST.lastPh, L);
-      if (L.fit.backdrop || ST.paneUp || ckPhotos()) { drawBackdrop(bg, ST.lastPh.img, L.lay.small); bg.hidden = false; } else { bg.hidden = true; clearCanvas(bg); }
+      if (L.fit.backdrop || ST.paneUp || Draw.ckPhotos()) { drawBackdrop(bg, ST.lastPh.img, L.lay.small); bg.hidden = false; } else { bg.hidden = true; clearCanvas(bg); }
       return true;
     }
     // A preview selection survives asynchronous module loads and option rebuilds.
@@ -286,18 +277,19 @@
       if (!ST.previewOn || !ST.on) return false;
       var kind = ST.previewSelected;
       if (!kind) return true;
-      var ok = kind === 'music' ? (ST.muShowing || showMusicSlide()) : kind === 'weather' ? (WX.showing || slideShow(WX)) : kind === 'holiday' ? (HL.showing || slideShow(HL)) : kind === 'timer' ?
-        (TM.showing || slideShow(TM)) :
-        kind === 'energy' ? (ST.enShowing || showEnergySlide()) : ST.fcShowing || showForecastExtra();
-      if (ok) extraIs(kind);
+      var ok = kind === 'music' ? (ST.muShowing || Screens.showMusicSlide()) : kind === 'weather' ? (Layout.WX.showing || Layout.slideShow(Layout.WX)) : kind === 'holiday' ?
+        (Layout.HL.showing || Layout.slideShow(Layout.HL)) : kind === 'timer' ?
+        (Layout.TM.showing || Layout.slideShow(Layout.TM)) :
+        kind === 'energy' ? (ST.enShowing || Layout.showEnergySlide()) : ST.fcShowing || Screens.showForecastExtra();
+      if (ok) Screens.extraIs(kind);
       return !!ok;
     }
     function restartPreview() {
       if (!ST.previewOn || !ST.on) return;
-      runOff();
-      slideCancel();
+      Run.runOff();
+      Run.slideCancel();
       teardown();
-      start('preview');
+      Run.start('preview');
       setTimeout(syncPreviewSlide, 0);
     }
 

@@ -589,5 +589,11 @@
     K.coverDashboard = coverDashboard; K.lit = lit; K.nextPhoto = nextPhoto; K.noteDrawn = noteDrawn; K.paint = paint;
     K.previousPhoto = previousPhoto; K.releasePh = releasePh; K.reveal = reveal; K.schedule = schedule;
     K.showNext = showNext; K.start = start; K.stop = stop; K.tellOthers = tellOthers;
+    // (phase 25: what the earlier parts call of this one, through its exports object Run, made by the shell)
+    var Run = K.Run;
+    Run.coverCancel = coverCancel; Run.lit = lit; Run.noEntrance = noEntrance; Run.noteDrawn = noteDrawn;
+    Run.paint = paint; Run.releasePh = releasePh; Run.reveal = reveal; Run.runEnds = runEnds; Run.runOff = runOff;
+    Run.schedule = schedule; Run.showNext = showNext; Run.slideCancel = slideCancel; Run.slideFree = slideFree;
+    Run.start = start; Run.stop = stop; Run.tellOthers = tellOthers;
   };
 })();

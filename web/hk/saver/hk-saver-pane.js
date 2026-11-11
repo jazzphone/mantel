@@ -17,14 +17,7 @@
         panelTouched = K.panelTouched, paneOf = K.paneOf, renderMusic = K.renderMusic, setAttr = K.setAttr, ST = K.ST,
         volEnd = K.volEnd, volFrom = K.volFrom, weatherEntity = K.weatherEntity;
     // (phase 25: the owners' writers, docs/phase25/SAVER-STATE.md)
-    var bandIs = K.bandIs, clock = K.clock, clock24 = K.clock24, dropCard = K.dropCard;
-
-    var bootCover, goDark, hkTapWake, lightSoon, lit, litNow, panelDone;
-    // (of later parts, used when called: bound once every part has run, runParts)
-    K.ahead.push(function () {
-      bootCover = K.bootCover; goDark = K.goDark; hkTapWake = K.hkTapWake; lightSoon = K.lightSoon; lit = K.lit;
-      litNow = K.litNow; panelDone = K.panelDone;
-    });
+    var bandIs = K.bandIs, Black = K.Black, clock = K.clock, clock24 = K.clock24, dropCard = K.dropCard, Run = K.Run;
 
 
     // WHAT IT OWNS ON ST (phase 25, A: others read these; only this file writes them; tools/state_owners.py)
@@ -376,8 +369,8 @@
       var now = black();
       if (now === wasBlack) return;
       wasBlack = now;
-      if (now) { ST.downOpts = null; curtainUp(); goDark(); }
-      else { var d = ST.downOpts; ST.downOpts = null; lit(); lightSoon(); litNow(); curtainDown(d); }
+      if (now) { ST.downOpts = null; curtainUp(); Black.goDark(); }
+      else { var d = ST.downOpts; ST.downOpts = null; Run.lit(); Black.lightSoon(); Black.litNow(); curtainDown(d); }
       tellBlack(now);
     }
     var CURTAIN_HOLD = 300;
@@ -386,7 +379,7 @@
     var CURTAIN_MAX = 2000;
     function curtainUp() {
       ST.curtainRun++;
-      if (drawCurtain()) bootCover(false);
+      if (drawCurtain()) Black.bootCover(false);
     }
     // the curtain on the page, opaque, now
     function drawCurtain() {
@@ -430,7 +423,7 @@
     function curtainTapped(e) {
       if (!ST.hkOn) return;
       if (e) { if (e.preventDefault) e.preventDefault(); if (e.stopPropagation) e.stopPropagation(); }
-      hkTapWake();
+      Black.hkTapWake();
     }
 
     function dashViews() { return mus.views.filter(function (v) { return v.kind === 'dash'; }); }
@@ -599,7 +592,7 @@
           clearTimeout(this._fitT); this._fitT = null;
           if (this._ro) { this._ro.disconnect(); this._ro = null; }
           if (!v || v.host !== this) return;
-          panelDone(v);
+          Black.panelDone(v);
           v.live = false;
           musicTick();
         }
@@ -699,5 +692,10 @@
     K.dashViews = dashViews; K.dashWatch = dashWatch; K.drawCurtain = drawCurtain; K.dropSide = dropSide;
     K.hostOf = hostOf; K.layoutPane = layoutPane; K.musicHas = musicHas; K.musicIn = musicIn; K.pageCard = pageCard;
     K.paneStack = paneStack; K.rootOf = rootOf; K.scaleOf = scaleOf; K.setPane = setPane; K.setupPane = setupPane;
+    // (phase 25: what the earlier parts call of this one, through its exports object Pane, made by the shell)
+    var Pane = K.Pane;
+    Pane.addBand = addBand; Pane.black = black; Pane.dashLive = dashLive; Pane.dashOutside = dashOutside;
+    Pane.hostOf = hostOf; Pane.musicIn = musicIn; Pane.paneStack = paneStack; Pane.rootOf = rootOf;
+    Pane.scaleOf = scaleOf; Pane.setPane = setPane;
   };
 })();

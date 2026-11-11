@@ -564,8 +564,8 @@
   // them (the suites) starts at once, in the same turn.
   // READY: window.__hkSplitReady['hk-saver'] is a promise that resolves once the parts have run (and rejects if they
   // never come), so a page that imports this file and uses it at once awaits it first (web/home.js imp, hk-loader).
-  var PARTS = ['hk-saver-helpers.js', 'hk-saver-css.js', 'hk-saver-photos.js', 'hk-saver-draw.js',
-               'hk-saver-layout.js', 'hk-saver-screens.js', 'hk-saver-music.js', 'hk-saver-pane.js',
+  var PARTS = ['hk-saver-helpers.js', 'hk-saver-css.js', 'hk-saver-photos.js', 'hk-saver-music.js',
+               'hk-saver-draw.js', 'hk-saver-layout.js', 'hk-saver-screens.js', 'hk-saver-pane.js',
                'hk-saver-black.js', 'hk-saver-start.js'];
   var PARTS_TRIES = 6;
   function partKey(file) { return file.replace(/\.js$/, ''); }
@@ -875,13 +875,16 @@
       releaseVisuals: releaseVisuals, reportTouch: reportTouch, ST: ST, teardown: teardown, WAKE: WAKE,
       whoMsg: whoMsg, writeSwitch: writeSwitch, ZOOM: ZOOM,
       askedEnds: askedEnds, dropCard: dropCard, idleCancel: idleCancel, inputFresh: inputFresh, noteInput: noteInput,
-      paneNote: paneNote, pressIs: pressIs, pressStopped: pressStopped, touchAgain: touchAgain, ahead: []
+      paneNote: paneNote, pressIs: pressIs, pressStopped: pressStopped, touchAgain: touchAgain,
+      // EACH PART'S EXPORTS (phase 25): what an earlier part calls of a later one, made empty here and filled by the
+      // part as it runs -- the run's (start), the black's, the Side Pane's, the extras' (screens), the layouts', the
+      // clock and forecast's (draw), music's. A part reads a later one's only when called, never as it runs.
+      Run: {}, Black: {}, Pane: {}, Screens: {}, Layout: {}, Draw: {}, Music: {}
     };
   }
   function runParts() {
     var K = kit();
     PARTS.forEach(function (file) { window.hkSaverParts[partKey(file)](K); });
-    K.ahead.forEach(function (bind) { bind(); });   // (the later parts' names each part uses)
     actionsNow = K.actionsNow; alignOf = K.alignOf; BACKDROP_SMALL = K.BACKDROP_SMALL;
     backdropSmall = K.backdropSmall; beat = K.beat; behindAt = K.behindAt; bigWanted = K.bigWanted; black = K.black;
     blackChanged = K.blackChanged; blackPage = K.blackPage; ckFx = K.ckFx; ckPhotos = K.ckPhotos;

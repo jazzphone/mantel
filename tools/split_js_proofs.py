@@ -328,6 +328,8 @@ def check_split(man: dict, check_only: bool = True) -> int:
         an = analyze(shell_path, "shell", man.get("run_in"), cont=True, man=man)
         kitn = kit_of(man)
         kit_keys = set(re.findall(r"^\s+(?:[\w$]+: [\w$]+,? ?)+$", text, re.M) and re.findall(r"([\w$]+): \1\b", text[text.find("function kit()"):text.find("function runParts")]))
+        # (phase 25: a part's exports object, made empty in the kit and filled by that part as it runs -- `Run: {}`)
+        kit_keys |= set(re.findall(r"\b([A-Z][\w$]*): \{\}", text[text.find("function kit()"):text.find("function runParts")]))
         have = set(kit_keys)
         taken_back = set(re.findall(r"([\w$]+) = " + re.escape(kitn) + r"\.\1;", text[text.find("function runParts"):text.find(CALL + "(function")]))
         gives_all: set[str] = set()

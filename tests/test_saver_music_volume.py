@@ -23,11 +23,10 @@ load(FILE);
 var K = { actionsNow: function () { return { callService: function (d, s, data) { CALLS.push([d, s, data]); } }; },
           clearCanvas: function () {}, clientNow: function () { return null; },
           dashConf: function () { return null; }, isFlat: function () { return false; }, mmss: function () { return ''; },
-          layoutMusic: function () {}, sendWS: function () { return Promise.resolve(); }, ahead: [] };
+          sendWS: function () { return Promise.resolve(); }, clock: { now: function () { return T; } },
+          // (phase 25: the exports objects hk-saver.js's kit makes: music fills its own, and calls the extras' when called)
+          Music: {}, Screens: { layoutMusic: function () {} } };
 window.hkSaverParts['hk-saver-music'](K);
-// (a later part's, hk-saver-start.js: bound once every part has run, as hk-saver.js's runParts does)
-K.clock = { now: function () { return T; } };
-K.ahead.forEach(function (bind) { bind(); });
 window.hkMusic = { label: function (c) { return c.key; } };
 function st(v) { return { state: 'playing', attributes: { volume_level: v, media_title: 'A Song' } }; }
 var h = { states: { 'media_player.living': st(0.3), 'media_player.kitchen': st(0.6), 'media_player.den': st(0.5) } };

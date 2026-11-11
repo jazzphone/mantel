@@ -18,15 +18,9 @@
         reducedMotion = K.reducedMotion, ST = K.ST, TB_COVER = K.TB_COVER, tbShare = K.tbShare, timeNow = K.timeNow,
         timerHold = K.timerHold, updateBand = K.updateBand, weatherEntity = K.weatherEntity;
     // (phase 25: the owners' writers, docs/phase25/SAVER-STATE.md)
-    var clock = K.clock, nightWatch = K.nightWatch, setAttr = K.setAttr, slideShown = K.slideShown;
+    var Black = K.Black, clock = K.clock, musicNow = K.musicNow, musicOf = K.musicOf, nightWatch = K.nightWatch,
+        Pane = K.Pane, Run = K.Run, Screens = K.Screens, setAttr = K.setAttr, slideShown = K.slideShown;
 
-    var black, exArm, exCancel, exHide, extraIs, forecastTick, hideMusicSlide, musicNow, musicOf, showNext;
-    // (of later parts, used when called: bound once every part has run, runParts)
-    K.ahead.push(function () {
-      black = K.black; exArm = K.exArm; exCancel = K.exCancel; exHide = K.exHide; extraIs = K.extraIs;
-      forecastTick = K.forecastTick; hideMusicSlide = K.hideMusicSlide; musicNow = K.musicNow; musicOf = K.musicOf;
-      showNext = K.showNext;
-    });
 
 
     // WHAT IT OWNS ON ST (phase 25, A: others read these; only this file writes them; tools/state_owners.py)
@@ -605,7 +599,7 @@
         var tries = 0, show = function () {
           if (run !== enRun || !ST.on || ST.enShowing || !ST.previewOn || (!ST.previewEnergy && ST.previewSelected !== 'energy')) return;
           // (at once: the preview is shown again after every change)
-          if (showEnergySlide(true)) { extraIs('energy'); return; }
+          if (showEnergySlide(true)) { Screens.extraIs('energy'); return; }
           if (++tries < 60) setTimeout(show, 500);
         };
         show();
@@ -676,7 +670,7 @@
       ST.enShowing = true; slideShown('energy');
       ST.host.setAttribute('enslide', '');
       updateBand();
-      forecastTick(false);                 // the forecast's sky holds still under it
+      Black.forecastTick(false);                 // the forecast's sky holds still under it
       energyLayout();
       var el = ST.enCtl.el, run = ST.photoRun;
       el.style.setProperty('--hk-en-fade', (first ? 0 : CROSSFADE_MS) + 'ms');
@@ -698,7 +692,7 @@
         ST.enCtl.el.classList.remove('on');
       }
       updateBand();
-      if (fcVisible()) forecastTick(true);
+      if (fcVisible()) Black.forecastTick(true);
     }
     function leaveEnergy() {
       enRun++;
@@ -745,7 +739,7 @@
         if (!hold) return;
         var tries = 0, show = function () {
           if (run !== S.run || !ST.on || S.showing || !slidePreviewed(S)) return;
-          if (slideShow(S, true)) { extraIs(S.key); return; }
+          if (slideShow(S, true)) { Screens.extraIs(S.key); return; }
           if (++tries < 60) setTimeout(show, 500);
         };
         show();
@@ -766,7 +760,7 @@
       S.showing = true; slideShown(S.key);
       ST.host.setAttribute(S.attr, '');
       updateBand();
-      forecastTick(false);                 // the forecast's own sky holds still under it
+      Black.forecastTick(false);                 // the forecast's own sky holds still under it
       slideLayout(S);
       var el = S.ctl.el, run = ST.photoRun;
       el.style.setProperty(S.fade, (first ? 0 : CROSSFADE_MS) + 'ms');
@@ -790,7 +784,7 @@
         setTimeout(function () { if (c === S.ctl && !S.showing) c.leave(); }, CROSSFADE_MS + 100);
       }
       updateBand();
-      if (fcVisible()) forecastTick(true);
+      if (fcVisible()) Black.forecastTick(true);
     }
     function slideLeave(S) {
       S.run++;
@@ -803,17 +797,18 @@
       (ST.TW = ST.TW || timerHold({
         up: function () { return ST.on && !!ST.cfg && !ST.previewOn; }, wanted: function () { return !!ST.cfg.timer_slide; }, now: function () { return clock.now(); },
         client: clientNow, slot: TM, prep: function () { slidePrep(TM); }, night: function () { return !!(ST.host && ST.host.hasAttribute('cknight')); },
-        blocked: function () { return black() || document.hidden || !!ST.pnl; }, show: function () { return slideShow(TM); },
+        blocked: function () { return Pane.black() || document.hidden || !!ST.pnl; }, show: function () { return slideShow(TM); },
         clear: function () {     // everything else makes way: the additional screens, the music's takeover (musicWatch waits), the photos' slides
-          exCancel();
-          if (ST.exKind && ST.exKind !== 'timer') exHide();
-          if (ST.muShowing) hideMusicSlide();
+          Screens.exCancel();
+          if (ST.exKind && ST.exKind !== 'timer') Screens.exHide();
+          if (ST.muShowing) Screens.hideMusicSlide();
           if (ST.enShowing) hideEnergySlide();
           slideHide(WX); slideHide(HL);
           if (ST.fcShowing && ST.mode !== 'forecast') hideForecastSlide();
         },
-        hold: function () { extraIs('timer'); }, again: exArm,
-        leave: function (ended) { if (ST.exKind === 'timer') { exHide(); exArm(); } else { slideHide(TM); if (ended && ST.mode === 'photos') showNext(false); else exArm(); } }
+        hold: function () { Screens.extraIs('timer'); }, again: Screens.exArm,
+        leave: function (ended) { if (ST.exKind === 'timer') { Screens.exHide(); Screens.exArm(); } else { slideHide(TM); if (ended && ST.mode === 'photos') Run.showNext(false); else Screens.exArm();
+          } }
       })).watch();
     }
 
@@ -826,5 +821,10 @@
     K.leaveLayout = leaveLayout; K.showEnergySlide = showEnergySlide; K.skyStops = skyStops; K.slideHide = slideHide;
     K.slideLayout = slideLayout; K.slideLeave = slideLeave; K.slidePrep = slidePrep; K.slideReady = slideReady;
     K.slideShow = slideShow; K.TM = TM; K.tmWatch = tmWatch; K.WX = WX;
+    // (phase 25: what the earlier parts call of this one, through its exports object Layout, made by the shell)
+    var Layout = K.Layout;
+    Layout.HL = HL; Layout.layoutBigKind = layoutBigKind; Layout.layoutDraw = layoutDraw;
+    Layout.layoutModules = layoutModules; Layout.layoutSlides = layoutSlides; Layout.layoutSoon = layoutSoon;
+    Layout.showEnergySlide = showEnergySlide; Layout.slideShow = slideShow; Layout.TM = TM; Layout.WX = WX;
   };
 })();

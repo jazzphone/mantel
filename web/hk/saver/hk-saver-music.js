@@ -9,9 +9,9 @@
   'use strict';
   (window.hkSaverParts = window.hkSaverParts || {})['hk-saver-music'] = function (K) {
     var actionsNow = K.actionsNow, clearCanvas = K.clearCanvas, clientNow = K.clientNow, dashConf = K.dashConf,
-        isFlat = K.isFlat, layoutMusic = K.layoutMusic, mmss = K.mmss, sendWS = K.sendWS;
+        isFlat = K.isFlat, mmss = K.mmss, sendWS = K.sendWS;
     // (phase 25: the owners' writers, docs/phase25/SAVER-STATE.md)
-    var clock = K.clock, setAttr = K.setAttr;
+    var clock = K.clock, Screens = K.Screens, setAttr = K.setAttr;
 
     // ------------------------------------------------------------ the music
     // WHAT PLAYS, BIG (options music_slide, music_pane): the album art over a
@@ -396,7 +396,7 @@
             if (mus.qFor !== sig) return;
             mus.q = r && r.ok && Array.isArray(r.items) ? r.items.slice(1, MQ_MAX + 1) : [];
             mus.views.forEach(function (w) { if (w.mq) drawQueueRows(w, w.d); });
-            if (layoutMusic) layoutMusic();
+            if (Screens.layoutMusic) Screens.layoutMusic();
             mus.views.forEach(function (w) { if (w.mq && w.kind === 'dash' && w.host && w.host._fit) w.host._fit(); });   // (the Now Playing page)
           }, function () { if (mus.qFor === sig) mus.q = []; });
         }
@@ -637,5 +637,8 @@
     K.PANEL_IDLE = PANEL_IDLE; K.PANEL_TURN = PANEL_TURN; K.previewMusicData = previewMusicData;
     K.progress = progress; K.queueDrag = queueDrag; K.queueRowAt = queueRowAt; K.sigOf = sigOf;
     K.slideView = slideView; K.upNextPiece = upNextPiece; K.volEnd = volEnd; K.volFrom = volFrom;
+    // (phase 25: what the earlier parts call of this one, through its exports object Music, made by the shell)
+    var Music = K.Music;
+    Music.mus = mus;
   };
 })();

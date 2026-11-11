@@ -16,25 +16,15 @@
         slideShow = K.slideShow, ST = K.ST, timedTurn = K.timedTurn, TM = K.TM, updateBand = K.updateBand,
         whoMsg = K.whoMsg, WX = K.WX;
     // (phase 25: the owners' writers, docs/phase25/SAVER-STATE.md)
-    var clock = K.clock, forecastUp = K.forecastUp, pressStopped = K.pressStopped, setAttr = K.setAttr,
-        slideGone = K.slideGone, slideShown = K.slideShown;
+    var Black = K.Black, clock = K.clock, drawMusic = K.drawMusic, elapsed = K.elapsed, forecastUp = K.forecastUp,
+        layoutMusicView = K.layoutMusicView, muGrace = K.muGrace, mus = K.mus, musicNow = K.musicNow,
+        musicOf = K.musicOf, musicPage = K.musicPage, musicPaneView = K.musicPaneView, musicParts = K.musicParts,
+        musicPlaying = K.musicPlaying, musicUsed = K.musicUsed, musicView = K.musicView, nextArt = K.nextArt,
+        Pane = K.Pane, PANEL_IDLE = K.PANEL_IDLE, PANEL_TURN = K.PANEL_TURN, pressStopped = K.pressStopped,
+        previewMusicData = K.previewMusicData, progress = K.progress, queueRowAt = K.queueRowAt, Run = K.Run,
+        setAttr = K.setAttr, sigOf = K.sigOf, slideGone = K.slideGone, slideShown = K.slideShown,
+        slideView = K.slideView, upNextPiece = K.upNextPiece, volFrom = K.volFrom;
 
-    var black, dashLive, dashOutside, drawMusic, elapsed, forecastTick, hostOf, layoutMusicView, muGrace, mus,
-        musicIn, musicNow, musicOf, musicPage, musicPaneView, musicParts, musicPlaying, musicUsed, musicView, nextArt,
-        PANEL_IDLE, PANEL_TURN, paneStack, previewMusicData, progress, queueRowAt, reveal, rootOf, scaleOf, schedule,
-        showNext, sigOf, slideView, stop, upNextPiece, volFrom;
-    // (of later parts, used when called: bound once every part has run, runParts)
-    K.ahead.push(function () {
-      black = K.black; dashLive = K.dashLive; dashOutside = K.dashOutside; drawMusic = K.drawMusic;
-      elapsed = K.elapsed; forecastTick = K.forecastTick; hostOf = K.hostOf; layoutMusicView = K.layoutMusicView;
-      muGrace = K.muGrace; mus = K.mus; musicIn = K.musicIn; musicNow = K.musicNow; musicOf = K.musicOf;
-      musicPage = K.musicPage; musicPaneView = K.musicPaneView; musicParts = K.musicParts;
-      musicPlaying = K.musicPlaying; musicUsed = K.musicUsed; musicView = K.musicView; nextArt = K.nextArt;
-      PANEL_IDLE = K.PANEL_IDLE; PANEL_TURN = K.PANEL_TURN; paneStack = K.paneStack;
-      previewMusicData = K.previewMusicData; progress = K.progress; queueRowAt = K.queueRowAt; reveal = K.reveal;
-      rootOf = K.rootOf; scaleOf = K.scaleOf; schedule = K.schedule; showNext = K.showNext; sigOf = K.sigOf;
-      slideView = K.slideView; stop = K.stop; upNextPiece = K.upNextPiece; volFrom = K.volFrom;
-    });
 
 
     // WHAT IT OWNS ON ST (phase 25, A: others read these; only this file writes them; tools/state_owners.py)
@@ -67,7 +57,7 @@
     }
     function exNext() {
       var run = ST.photoRun;
-      var held = document.hidden || ST.pnl || black() || ST.exKind || (ST.host && ST.host.hasAttribute('cknight')) || (ST.muShowing && takeover());
+      var held = document.hidden || ST.pnl || Pane.black() || ST.exKind || (ST.host && ST.host.hasAttribute('cknight')) || (ST.muShowing && takeover());
       if (ST.exLast && ST.exLast !== 'timer') exBefore = ST.exLast;
       var kind = held ? null : timedTurn(ST.cfg, EXTRA_ORDER, extrasOf(ST.cfg).filter(function (k) {
         return k === 'music' ? musicPlaying() : k === 'energy' ? energyReady() : k === 'weather' ? slideReady(WX) : k === 'holiday' ? slideReady(HL) : k === 'timer' ? slideReady(TM) : true;
@@ -94,7 +84,7 @@
       else return;
       // the photos behind the clock: their layer was emptied as the screen
       // came over it, so the next photo comes in
-      if (kind !== 'energy' && kind !== 'weather' && kind !== 'holiday' && kind !== 'timer' && ST.mode === 'photos') showNext(false);
+      if (kind !== 'energy' && kind !== 'weather' && kind !== 'holiday' && kind !== 'timer' && ST.mode === 'photos') Run.showNext(false);
     }
     // THE FORECAST AS AN ADDITIONAL SCREEN (Show: Clock): under a clock's own
     // background it is put there at once and the clock fades off it; over
@@ -109,8 +99,8 @@
       forecastUp();
       ST.host.setAttribute('fcslide', '');
       updateBand();
-      forecastTick(true);
-      reveal(ST.root.querySelector('.fc'), gen);
+      Black.forecastTick(true);
+      Run.reveal(ST.root.querySelector('.fc'), gen);
       return true;
     }
     function hideForecastExtra() {
@@ -146,7 +136,7 @@
     // Everything again from the house: what plays, into each view
     function renderMusic() {
       var h = clientNow();
-      if ((!ST.on && !dashLive()) || !h) return null;
+      if ((!ST.on && !Pane.dashLive()) || !h) return null;
       var ctx = musicNow(h), now = clock.now();
       if (ST.previewOn && ST.previewSelected === 'music' && !(ctx && ctx.playing)) {
         mus.views.forEach(function (v) { drawMusic(v, v.kind === 'slide' ? previewMusicData() : musicOf(ctx, h)); }); musicTick(); return ctx;
@@ -194,7 +184,7 @@
         upNextPiece(d, mus.next);
         mus.views.forEach(function (v) { drawMusic(v, v.d); });
         if (ST.muShowing) layoutMusic();
-        paneStack();
+        Pane.paneStack();
         if (mus.next && !mus.next.image && mi) nextArt(d, sig, mi);
       }).catch(function () {
         // not Music Assistant: no Up Next (its place let go)
@@ -246,7 +236,7 @@
       // (the dashboard's pane: there is no screensaver to close)
       if (hit.view.kind === 'dash') { if (page) go(page); return; }
       pressStopped(true);
-      stop('touch');
+      Run.stop('touch');
       if (page) go(page);
     }
     function volStart(hit, x) {
@@ -254,7 +244,7 @@
       mus.key = hit.view.d && hit.view.d.key; mus.lostAt = 0;
       setAttr(hit.view.el, 'dragging', true);
       volFrom(x);
-      if (ST.muShowing && ST.mode === 'photos') schedule();
+      if (ST.muShowing && ST.mode === 'photos') Run.schedule();
     }
     function musicAct(hit, x) {
       if (hit && hit.view.d && hit.view.d.sample) return;
@@ -278,10 +268,10 @@
         musicTick();
       }
       // a slide among the photos stays its full turn after a touch
-      if (ST.muShowing && ST.mode === 'photos') schedule();
+      if (ST.muShowing && ST.mode === 'photos') Run.schedule();
     }
     function panelFor(v, tab) {
-      var P = window.hkSaverPanel, proot = rootOf(v);
+      var P = window.hkSaverPanel, proot = Pane.rootOf(v);
       if (!P || !proot || !v || !v.el.isConnected) return;
       if (ST.pnl && ST.pnl.view === v) {
         if (ST.pnl.p.tab() === tab) closePanel(true); else { ST.pnl.p.show(tab); panelButtons(); panelTouched(); }
@@ -318,7 +308,7 @@
       ST.pnl = me;
       if (v.kind !== 'slide') me.p.el.classList.remove('card'); else me.p.el.classList.add('card');
       proot.appendChild(me.p.el);
-      if (v.kind === 'dash') dashOutside(true);
+      if (v.kind === 'dash') Pane.dashOutside(true);
       placePanel();
       me.p.show(tab);
       panelButtons();
@@ -329,8 +319,8 @@
     // (a little bigger than it) between the song's column and the screen's
     // edge -- again whenever the screen changes size (a tablet's keyboard)
     function placePanel() {
-      if (!ST.pnl || !hostOf(ST.pnl.view)) return;
-      var v = ST.pnl.view, el = ST.pnl.p.el, z = v.kind === 'dash' ? v.z || 1 : scaleOf(), b, off = { x: 0, y: 0 };
+      if (!ST.pnl || !Pane.hostOf(ST.pnl.view)) return;
+      var v = ST.pnl.view, el = ST.pnl.p.el, z = v.kind === 'dash' ? v.z || 1 : Pane.scaleOf(), b, off = { x: 0, y: 0 };
       if (v.kind === 'pane' || v.kind === 'dash') {
         var r = (v.kind === 'dash' ? v.box : ST.paneEl).getBoundingClientRect();
         b = { x: r.left, y: r.top, w: r.width, h: r.height };
@@ -355,7 +345,7 @@
       // alone over the art -- the song's column and the clock would only be
       // squeezed under it -- and the field kept in sight
       var kb = (window.innerHeight || 800) < 560 * z;
-      setAttr(hostOf(v), 'mpkb', kb);
+      setAttr(Pane.hostOf(v), 'mpkb', kb);
       if (kb || ST.pnl.kb) ST.pnl.p.reveal();
       ST.pnl.kb = kb;
       el.style.left = Math.round(b.x - off.x) + 'px'; el.style.top = Math.round(b.y - off.y) + 'px';
@@ -371,14 +361,14 @@
       var r = src.getBoundingClientRect(), R = { x: r.left, y: r.top, w: r.width, h: r.height };
       if (!opening && me.hidRect) R = me.hidRect;
       var Mid = { x: (R.x + B.x) / 2, y: (R.y + B.y) / 2, w: (R.w + B.w) / 2, h: (R.h + B.h) / 2 };
-      var per = Math.round(1500 * (me.view.kind === 'dash' ? me.view.z || 1 : scaleOf()));
+      var per = Math.round(1500 * (me.view.kind === 'dash' ? me.view.z || 1 : Pane.scaleOf()));
       var xf = function (from, to, deg) {
         return 'perspective(' + per + 'px) translate(' + ((from.x + from.w / 2) - (to.x + to.w / 2)) + 'px,' +
                ((from.y + from.h / 2) - (to.y + to.h / 2)) + 'px) rotateY(' + deg + 'deg) scale(' + (from.w / to.w) + ',' + (from.h / to.h) + ')';
       };
       var hide = function (hiding) {
         src.style.visibility = hiding ? 'hidden' : '';
-        if (me.view.kind !== 'slide') setAttr(hostOf(me.view), 'mpp', hiding);
+        if (me.view.kind !== 'slide') setAttr(Pane.hostOf(me.view), 'mpp', hiding);
       };
       // (both halves on one schedule, the panel painted before it moves: hk-saver-panel.js turn)
       var P = window.hkSaverPanel;
@@ -388,7 +378,7 @@
       if (opening) {
         me.hidRect = R;
         el.classList.add('up');
-        if (me.view.kind !== 'slide') setAttr(hostOf(me.view), 'mpp', true);
+        if (me.view.kind !== 'slide') setAttr(Pane.hostOf(me.view), 'mpp', true);
         if (!can) { hide(true); if (done) done(); return; }
         o.out = [PANEL_TURN[0], 'cubic-bezier(.45,0,.9,.5)']; o.in = [PANEL_TURN[1], 'cubic-bezier(.1,.5,.25,1)'];
         var tr = me.anim = P.turn(Object.assign(o, { done: function () { if (me.anim === tr) me.anim = null; if (done) done(); } }), true);
@@ -407,8 +397,8 @@
       // (its closing is its last use: the music stays a whole grace after it,
       // however it closed -- a tap, a request landed, idle)
       if (me.view.kind === 'dash') { if (me.view.host) me.view.host._usedAt = Date.now(); } else musicUsed();
-      if (hostOf(me.view)) setAttr(hostOf(me.view), 'mpkb', false);
-      if (me.view.kind === 'dash') dashOutside(false);
+      if (Pane.hostOf(me.view)) setAttr(Pane.hostOf(me.view), 'mpkb', false);
+      if (me.view.kind === 'dash') Pane.dashOutside(false);
       if (me.idleT) clearTimeout(me.idleT);
       if (me.doneT) clearTimeout(me.doneT);
       // (a field focused on a tablet: its keyboard goes with it)
@@ -418,12 +408,12 @@
       var finish = function () {
         me.p.destroy();
         if (me.src) { me.src.style.visibility = ''; me.src.style.transition = ''; }
-        if (me.view.kind !== 'slide' && hostOf(me.view)) setAttr(hostOf(me.view), 'mpp', false);
+        if (me.view.kind !== 'slide' && Pane.hostOf(me.view)) setAttr(Pane.hostOf(me.view), 'mpp', false);
       };
       if (animated && (ST.on || me.view.kind === 'dash') && me.src && me.src.isConnected && me.view.el.isConnected) turnPanel(false, finish, me);
       else { if (me.anim) { try { me.anim.cancel(); } catch (e) { /* done */ } } finish(); }
       // the slide's turn among the photos starts again now
-      if (ST.on && ST.muShowing && ST.mode === 'photos') schedule();
+      if (ST.on && ST.muShowing && ST.mode === 'photos') Run.schedule();
     }
     // a touch on it: not closed for PANEL_IDLE more, and the house told
     function panelTouched() {
@@ -485,14 +475,14 @@
       renderMusic();
       ST.host.setAttribute('muslide', '');
       updateBand();
-      forecastTick(false);                 // the forecast's sky holds still under it
+      Black.forecastTick(false);                 // the forecast's sky holds still under it
       layoutMusic();
       // IN ONCE ITS ART IS DECODED (never more than a moment): faded in on
       // the placeholder, the cover popped in halfway through
       var go = false, reveal1 = function () {
         if (go) return; go = true;
         if (!(ST.on && ST.muShowing && run === ST.photoRun && v.el.isConnected)) return;
-        reveal(v.el, !!first);
+        Run.reveal(v.el, !!first);
         if (first && ST.entrance) ST.entrance();
       };
       v.ready.then(function () { requestAnimationFrame(reveal1); });
@@ -509,12 +499,12 @@
       updateBand();
       musicTick();
       // over the forecast: back to it
-      if (ST.mode === 'forecast' && ST.root && ST.root.querySelector('.fc')) { reveal(ST.root.querySelector('.fc'), false); forecastTick(true); }
+      if (ST.mode === 'forecast' && ST.root && ST.root.querySelector('.fc')) { Run.reveal(ST.root.querySelector('.fc'), false); Black.forecastTick(true); }
     }
     // The music module lays out the current view with the shell's live frame.
     function layoutMusic() {
       if (!ST.host || !ST.root) return;
-      layoutMusicView(slideView(), ST.host, ST.root, ST.scn, scaleOf());
+      layoutMusicView(slideView(), ST.host, ST.root, ST.scn, Pane.scaleOf());
     }
     // OVER THE FORECAST, the house decides: the slide while music plays, the
     // forecast again MU_GRACE after it stops. Every view follows the house.
@@ -535,7 +525,7 @@
       // grace after (paused music goes too, once the grace is up)
       var g = muGrace(), inUse = !!ST.pnl && ST.pnl.view.kind !== 'dash';
       if ((ctx && ctx.playing) || inUse) mus.lastActive = now;
-      if (ST.cfg.music_pane) musicIn(now - mus.lastActive < g);
+      if (ST.cfg.music_pane) Pane.musicIn(now - mus.lastActive < g);
       // (looked at again as the grace runs out: a paused house sends nothing)
       if (mus.lastActive && now - mus.lastActive < g) {
         clearTimeout(mus.graceT);
@@ -548,7 +538,7 @@
       else if (now - Math.max(mus.lostAt, mus.lastActive) > g) {
         // back to the forecast, or to the photos (the next one takes the music away)
         mus.lostAt = 0;
-        if (ST.mode !== 'photos') hideMusicSlide(); else showNext(false);
+        if (ST.mode !== 'photos') hideMusicSlide(); else Run.showNext(false);
       }
     }
     // the pane's music, there or not
@@ -558,7 +548,7 @@
       if (v && v.el.parentNode === ST.paneEl) return;
       if (v) dropView(v);
       if (!ST.paneEl || !ST.host) return;
-      ST.host.style.setProperty('--hk-mu-z', String(scaleOf()));
+      ST.host.style.setProperty('--hk-mu-z', String(Pane.scaleOf()));
       v = musicView('pane');
       ST.paneEl.appendChild(v.el);
       renderMusic();
@@ -584,5 +574,12 @@
     K.panelFor = panelFor; K.panelTouched = panelTouched; K.placePanel = placePanel; K.renderMusic = renderMusic;
     K.saverTouched = saverTouched; K.showForecastExtra = showForecastExtra; K.showMusicSlide = showMusicSlide;
     K.takeover = takeover;
+    // (phase 25: what the earlier parts call of this one, through its exports object Screens, made by the shell)
+    var Screens = K.Screens;
+    Screens.dropView = dropView; Screens.exArm = exArm; Screens.exCancel = exCancel; Screens.exHide = exHide;
+    Screens.extraIs = extraIs; Screens.fcOutAfter = fcOutAfter; Screens.hideMusicSlide = hideMusicSlide;
+    Screens.layoutMusic = layoutMusic; Screens.muHidden = muHidden; Screens.musicWatch = musicWatch;
+    Screens.showForecastExtra = showForecastExtra; Screens.showMusicSlide = showMusicSlide;
+    Screens.takeover = takeover;
   };
 })();

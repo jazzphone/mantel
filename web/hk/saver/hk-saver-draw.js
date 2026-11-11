@@ -11,21 +11,10 @@
     var clientNow = K.clientNow, CROSSFADE_MS = K.CROSSFADE_MS, dashConf = K.dashConf, FACE_SHOWS = K.FACE_SHOWS,
         FC_TICK_MS = K.FC_TICK_MS, isFlat = K.isFlat, slideMarks = K.slideMarks, ST = K.ST, sunDown = K.sunDown;
     // (phase 25: the owners' writers, docs/phase25/SAVER-STATE.md)
-    var dropCard = K.dropCard, setAttr = K.setAttr, showsLayer = K.showsLayer, sinceSlide = K.sinceSlide,
-        slideGone = K.slideGone, slideShown = K.slideShown;
+    var Black = K.Black, dropCard = K.dropCard, Layout = K.Layout, mus = K.mus, musicParts = K.musicParts,
+        Pane = K.Pane, Run = K.Run, Screens = K.Screens, setAttr = K.setAttr, showsLayer = K.showsLayer,
+        sinceSlide = K.sinceSlide, slideGone = K.slideGone, slideShown = K.slideShown, slideView = K.slideView;
 
-    var addBand, dropView, exHide, fcOutAfter, forecastTick, HL, layoutBigKind, layoutDraw, layoutModules,
-        layoutMusic, layoutSlides, layoutSoon, muHidden, mus, musicParts, musicWatch, reveal, showNext, slideCancel,
-        slideView, takeover, TM, WX;
-    // (of later parts, used when called: bound once every part has run, runParts)
-    K.ahead.push(function () {
-      addBand = K.addBand; dropView = K.dropView; exHide = K.exHide; fcOutAfter = K.fcOutAfter;
-      forecastTick = K.forecastTick; HL = K.HL; layoutBigKind = K.layoutBigKind; layoutDraw = K.layoutDraw;
-      layoutModules = K.layoutModules; layoutMusic = K.layoutMusic; layoutSlides = K.layoutSlides;
-      layoutSoon = K.layoutSoon; muHidden = K.muHidden; mus = K.mus; musicParts = K.musicParts;
-      musicWatch = K.musicWatch; reveal = K.reveal; showNext = K.showNext; slideCancel = K.slideCancel;
-      slideView = K.slideView; takeover = K.takeover; TM = K.TM; WX = K.WX;
-    });
 
 
     // WHAT IT OWNS ON ST (phase 25, A: others read these; only this file writes them; tools/state_owners.py)
@@ -96,16 +85,16 @@
       var band = document.createElement('div');
       band.className = 'fcband';
       fcb.appendChild(band);
-      addBand(band);
+      Pane.addBand(band);
       startTick();
     }
     function startTick() {
-      if (!fTick) fTick = setInterval(function () { forecastTick(false); }, FC_TICK_MS);
+      if (!fTick) fTick = setInterval(function () { Black.forecastTick(false); }, FC_TICK_MS);
     }
     // Whether the details show now: on the forecast (Forecast, the slide, the
     // no-photos fallback) by `band`; over the photos by `band_photos`.
     function bandWanted() {
-      if (!ST.on || !ST.cfg || ST.muShowing || ST.enShowing || WX.showing || HL.showing) return false;
+      if (!ST.on || !ST.cfg || ST.muShowing || ST.enShowing || Layout.WX.showing || Layout.HL.showing) return false;
       // (a layout's forecast as the background -- Show: Forecast, or Photos with none to show -- has its details as a piece
       // of its own, the Weather band, if it has them at all: the old band's today, its rules and its scrim were drawn over
       // the layout's pieces, 2026-11-02. As a slide the forecast is the slide's, band and all)
@@ -140,16 +129,16 @@
       if (want) buildBand();
       if (want) ST.host.setAttribute('band', ''); else ST.host.removeAttribute('band');
       if (ST.on && ST.cfg && ST.cfg.band_photos === true) ST.host.setAttribute('bandph', ''); else ST.host.removeAttribute('bandph');
-      layoutSlides();
+      Layout.layoutSlides();
       slideCorner();
     }
     function slideNow() {
       if (!ST.on) return null;
       if (ST.muShowing) return 'music';
       if (ST.enShowing) return 'energy';
-      if (WX.showing) return 'weather';
-      if (TM.showing) return 'timer';
-      if (HL.showing) return 'holiday';
+      if (Layout.WX.showing) return 'weather';
+      if (Layout.TM.showing) return 'timer';
+      if (Layout.HL.showing) return 'holiday';
       if (ST.fcShowing) return bigWanted() ? 'forecast_big' : 'forecast';
       return null;
     }
@@ -179,7 +168,7 @@
       // (the pieces' files asked for once: a load that fails is not asked again from here -- asking again on its failure
       // spun the page, 2026-11-02, the harness's forecast slide; the 0.1.104 rule: nothing wakes itself)
       if (!LM || !WG) {
-        if (!cornerAsked) { cornerAsked = true; layoutModules().then(function (got) { if (ST.on && got && got[0] && got[1]) slideCorner(); }); }
+        if (!cornerAsked) { cornerAsked = true; Layout.layoutModules().then(function (got) { if (ST.on && got && got[0] && got[1]) slideCorner(); }); }
         return;
       }
       if (!ST.scn || !ST.scn.el.isConnected) {
@@ -241,7 +230,8 @@
       // Slides"): each side's stack drops below whatever of the slide it would meet -- Big Weather's two lines at the top,
       // the Weather slide's and Home Energy's own -- by the words and small pictures the slide shows (the music's words
       // move under the corner instead: layoutMusic)
-      var sl = key === 'energy' ? ST.enCtl && ST.enCtl.el : key === 'weather' ? WX.ctl && WX.ctl.el : key === 'holiday' ? HL.ctl && HL.ctl.el : key === 'timer' ? TM.ctl && TM.ctl.el : key ===
+      var sl = key === 'energy' ? ST.enCtl && ST.enCtl.el : key === 'weather' ? Layout.WX.ctl && Layout.WX.ctl.el : key === 'holiday' ? Layout.HL.ctl && Layout.HL.ctl.el : key === 'timer' ?
+        Layout.TM.ctl && Layout.TM.ctl.el : key ===
         'forecast' || key === 'forecast_big' ? ST.root.querySelector('.fc') : null;
       if (sl && k1 > 0) {
         var marks = slideMarks(sl), gap1 = 1.6 * u * k1;
@@ -257,7 +247,7 @@
         });
       }
       // (the music's words below the corner, wherever its words now end)
-      if (key === 'music') layoutMusic();
+      if (key === 'music') Screens.layoutMusic();
     }
     // the room the corner has: the screen less the Side Pane (as a layout's)
     function layoutRoomOf() {
@@ -281,7 +271,7 @@
       if (ST.host) ST.host.removeAttribute('scorner');
     }
     // (the music slide over it hides it)
-    function fcVisible() { return (ST.mode === 'forecast' || ST.fcShowing) && !ST.muShowing && !ST.enShowing && !WX.showing && !HL.showing; }
+    function fcVisible() { return (ST.mode === 'forecast' || ST.fcShowing) && !ST.muShowing && !ST.enShowing && !Layout.WX.showing && !Layout.HL.showing; }
     function ckPhotos() { return !!(ST.host && ST.host.hasAttribute('ckphotos')); }
     function clockModule() {
       if (window.hkSaverClock) return Promise.resolve(window.hkSaverClock);
@@ -310,7 +300,7 @@
         ST.host.setAttribute('ckphotos', '');
         setAttr(ST.host, 'cksoft', !!ST.cfg.clock_photo_soft);
         ST.host.style.setProperty('--hk-ckdim', String((ST.cfg.clock_photo_dim || 0) / 100));
-        updateBand(); showNext(true); mountClock('none', true); return;
+        updateBand(); Run.showNext(true); mountClock('none', true); return;
       }
       ST.mode = 'clock';
       ST.host.setAttribute('ckgen', '');
@@ -339,7 +329,7 @@
         if (!C || (face && !F)) { clockLayer.remove(); if (ST.mode === 'clock') { ST.mode = 'photos'; ST.host.removeAttribute('ckgen'); ST.host.removeAttribute('ckface'); enterForecast(); } return; }
         ST.ckCtl = face
           ? F.mount(clockLayer, { kind: ST.cfg.show, h24: ST.cfg.clock_24, weather: weatherEntity(), look: ST.cfg.day_look, clocks: C, client: clientNow(), groundOnly: !!ST.cfg.layout &&
-            layoutBigKind() !== 'none' })
+            Layout.layoutBigKind() !== 'none' })
           : C.mount(clockLayer, { style: ST.cfg.clock_style, options: ST.cfg.clock_options, h24: ST.cfg.clock_24, music: ST.cfg.clock_today_music, todayWeather: ST.cfg.clock_today_weather,
             color: ST.cfg.clock_color, bg: bg, motion: ST.cfg.clock_motion, face: !ST.cfg.layout,
                              speed: ST.cfg.clock_speed, depth: ST.cfg.clock_depth, weather: weatherEntity(),
@@ -366,13 +356,13 @@
       return !!(ST.cfg && FACE_SHOWS[ST.cfg.show] && X && X.inkFor && X.inkFor(ST.cfg.show, ST.cfg.day_look, new Date()) === 'dark');
     }
     function slidesAgain() {
-      if (ST.muShowing) { musicParts(slideView(), ST.cfg.music_hide); layoutMusic(); }
+      if (ST.muShowing) { musicParts(slideView(), ST.cfg.music_hide); Screens.layoutMusic(); }
       if (ST.scn && slideNow()) cornerDraw(slideNow());
       return true;
     }
     function remountClock() {
       var laid = !!ST.ly;
-      if (laid) { layoutDraw(); layoutSoon(); }
+      if (laid) { Layout.layoutDraw(); Layout.layoutSoon(); }
       if (!ckArgs || !ST.root || !ST.root.querySelector('.ck')) return laid;
       var a = ckArgs;
       ckRun++;
@@ -400,7 +390,7 @@
       if (ST.cfg && window.hkSaverFaces && ST.host.hasAttribute('ckface')) setAttr(ST.host, 'cklight', faceLight(window.hkSaverFaces));
       dayFit();
       // (...but in the editor's preview Night leaves a slide shown with See a Slide where it is)
-      if (dark && ST.exKind && !ST.previewOn) exHide();
+      if (dark && ST.exKind && !ST.previewOn) Screens.exHide();
       if (ST.ckCtl && ST.ckCtl.night) ST.ckCtl.night(dark);
     }
     // THE DAY FACE AND THE CORNER (2026-10-31): where the corner's words (the time, the date, the weather) would meet
@@ -491,17 +481,17 @@
       if (ST.mode === 'forecast' || !ST.root) return;
       ST.mode = 'forecast';
       ST.fcShowing = false;
-      slideCancel();
+      Run.slideCancel();
       ST.host.removeAttribute('fcslide');
       ST.host.setAttribute('forecast', '');
       buildForecast();
       bigWeather();
       updateBand();
-      forecastTick(true);
-      reveal(ST.root.querySelector('.fc'), true);
+      Black.forecastTick(true);
+      Run.reveal(ST.root.querySelector('.fc'), true);
       if (ST.entrance) ST.entrance();
       // music already playing: its slide, over the forecast
-      if (takeover()) setTimeout(function () { mus.watchAt = 0; musicWatch(); }, 0);
+      if (Screens.takeover()) setTimeout(function () { mus.watchAt = 0; Screens.musicWatch(); }, 0);
     }
     // one slide among the photos (Photos & Forecast)
     function showForecastSlide() {
@@ -511,9 +501,9 @@
       ST.fcShowing = true; slideShown('forecast');
       ST.host.setAttribute('fcslide', '');
       updateBand();
-      forecastTick(true);
-      reveal(ST.root.querySelector('.fc'), false);
-      layoutSoon();
+      Black.forecastTick(true);
+      Run.reveal(ST.root.querySelector('.fc'), false);
+      Layout.layoutSoon();
     }
     function hideForecastSlide() {
       if (!ST.fcShowing) return;
@@ -522,12 +512,12 @@
       if (ST.host) {
         ST.host.setAttribute('fcout', '');
         clearTimeout(ST.exOutT);
-        fcOutAfter(CROSSFADE_MS + 100);
+        Screens.fcOutAfter(CROSSFADE_MS + 100);
         ST.host.removeAttribute('fcslide');
       }
       updateBand();
-      forecastTick(false);
-      layoutSoon();
+      Black.forecastTick(false);
+      Layout.layoutSoon();
     }
     function leaveForecast() {
       bigRun++;
@@ -550,8 +540,8 @@
       leaveForecast();
       if (ST.root) ST.root.querySelectorAll('.fc,.fcb').forEach(function (n) { n.remove(); });
       // the slide goes with the forecast's layers; the pane's music stays with the pane
-      dropView(slideView());
-      muHidden(); slideGone();
+      Screens.dropView(slideView());
+      Screens.muHidden(); slideGone();
       if (ST.host) ST.host.removeAttribute('muslide');
       if (ST.host) {
         ST.host.removeAttribute('forecast'); ST.host.removeAttribute('fcslide'); ST.host.removeAttribute('band'); ST.host.removeAttribute('bandph');
@@ -649,7 +639,7 @@
 
     function pieceFile(f) {
       if (pieceFiles[f]) return;
-      pieceFiles[f] = import('/hk/modules/hk-saverpieces-' + f + '.js').then(function () { if (f === 'home') piecesStarted(); layoutSoon(); })
+      pieceFiles[f] = import('/hk/modules/hk-saverpieces-' + f + '.js').then(function () { if (f === 'home') piecesStarted(); Layout.layoutSoon(); })
         .catch(function (e) { console.warn('[hk-saver] pieces', f, e && e.message); });
     }
 
@@ -756,5 +746,8 @@
     K.resetForecast = resetForecast; K.sansClock = sansClock; K.sansSlides = sansSlides;
     K.showForecastSlide = showForecastSlide; K.slidesAgain = slidesAgain; K.updateBand = updateBand;
     K.weatherEntity = weatherEntity;
+    // (phase 25: what the earlier parts call of this one, through its exports object Draw, made by the shell)
+    var Draw = K.Draw;
+    Draw.ckPhotos = ckPhotos; Draw.photoLum = photoLum;
   };
 })();

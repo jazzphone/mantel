@@ -194,10 +194,10 @@ Mantel's pages and the code both hosts share: HK's cards, modules, panels and th
     - `hk-saver-helpers.js` — helpers, the photo deck, the page and the device-local design chooser
     - `hk-saver-css.js` — the element's style
     - `hk-saver-photos.js` — photos and the mosaic
+    - `hk-saver-music.js` — the music and its panel
     - `hk-saver-draw.js` — drawing: the backdrop, the clocks, the slide corner and the forecast
     - `hk-saver-layout.js` — the layout, home energy, the weather and the holidays, a timer's last minute
     - `hk-saver-screens.js` — the additional screens
-    - `hk-saver-music.js` — the music and its panel
     - `hk-saver-pane.js` — the dashboard's pane and the Now Playing page
     - `hk-saver-black.js` — HK's own black
     - `hk-saver-start.js` — starting and stopping the screensaver

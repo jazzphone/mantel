@@ -63,6 +63,9 @@ tests/test_settings_prototype.py proves it. The things this needs of the manifes
     its own `var` and a binder; the shell calls `bindLate()` after assigning (the manifest's shell_edits put the call in);
   * the shell waits: `partsReady` is a promise the shell's own code (boot) awaits, put in by a shell_edit.
 Moved methods may not use `super`, and may not assign a shell variable (as for any member).
+EXPORTS OBJECTS (phase 25, the screensaver, which no longer binds ahead): the shell's kit makes an empty object per
+part that an earlier part calls (`Run: {}`), the part fills it as it runs (`Run.start = start`), and an earlier part
+calls `Run.start()` when it is called, never as it runs. The check takes `Name: {}` as a kit entry.
 BIND AHEAD (`"bind_ahead": true`, any shell; the screensaver, 2026-11-11): a part's member may use a LATER part's member
 when it is called (parts whose features call each other both ways). The part declares the name (`var late;`) and pushes
 a binder on K.ahead (`late = K.late;`); runParts runs every binder once all the parts have run, before the shell takes

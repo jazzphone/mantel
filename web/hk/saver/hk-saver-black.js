@@ -24,15 +24,7 @@
     // (phase 25: the owners' writers, docs/phase25/SAVER-STATE.md)
     var clock = K.clock, curtainOpts = K.curtainOpts, curtainStale = K.curtainStale, dropDeck = K.dropDeck,
         forecastSig = K.forecastSig, forecastSky = K.forecastSky, idleCancel = K.idleCancel, noteInput = K.noteInput,
-        paneNote = K.paneNote, touchAgain = K.touchAgain;
-
-    var coverCancel, noEntrance, noteDrawn, runEnds, schedule, slideCancel, slideFree, start, stop, tellOthers;
-    // (of later parts, used when called: bound once every part has run, runParts)
-    K.ahead.push(function () {
-      coverCancel = K.coverCancel; noEntrance = K.noEntrance; noteDrawn = K.noteDrawn; runEnds = K.runEnds;
-      schedule = K.schedule; slideCancel = K.slideCancel; slideFree = K.slideFree; start = K.start; stop = K.stop;
-      tellOthers = K.tellOthers;
-    });
+        paneNote = K.paneNote, Run = K.Run, touchAgain = K.touchAgain;
 
     // WHAT IT OWNS ON ST (phase 25, A: others read these; only this file writes them; tools/state_owners.py)
     ST.hkFirst = true;
@@ -170,24 +162,24 @@
     }
     var SHOWN_MIN = 500;
     function unstart() {
-      runEnds(); lightRun++;
-      coverCancel();
-      slideCancel();
+      Run.runEnds(); lightRun++;
+      Run.coverCancel();
+      Run.slideCancel();
       teardown();
-      tellOthers();
+      Run.tellOthers();
     }
     function goDark() {
       if (!ST.on || !ST.host) return;
       if (!ST.DARK_UNDER_BLACK || ST.host.hasAttribute('prep') || !ST.shownAt || clock.now() - ST.shownAt < SHOWN_MIN) { unstart(); return; }
-      noEntrance(); lightRun++;
+      Run.noEntrance(); lightRun++;
       ST.host.style.setProperty('--fade', '0ms');
       ST.host.style.setProperty('--blk', '0ms');
       ST.host.removeAttribute('prep');
       ST.host.removeAttribute('undark');
       ST.host.setAttribute('dark', '');
       ST.host.setAttribute('on', '');
-      coverCancel();
-      noteDrawn();
+      Run.coverCancel();
+      Run.noteDrawn();
     }
     // ...and as it ends. The house's wake turns the photos off under the
     // black, and stop() fades from black to the dashboard. Still on after
@@ -207,7 +199,7 @@
       noteInput();
       armIdle();
       // the photos' timer, held under the black (schedule()), runs again
-      if (ST.slideHeld) { slideFree(); if (ST.on && ST.cfg && ST.mode === 'photos' && !ST.busy) schedule(); }
+      if (ST.slideHeld) { Run.slideFree(); if (ST.on && ST.cfg && ST.mode === 'photos' && !ST.busy) Run.schedule(); }
       setTimeout(function () { var h = clientNow(); if (h && !ST.on) onUpdate(h); }, LIT_GRACE + 50);
     }
     function lightSoon() {
@@ -224,7 +216,7 @@
           h.style.setProperty('--blk', LIGHT_FADE + 'ms');
           h.removeAttribute('dark');
           h.removeAttribute('undark');
-          noteDrawn();
+          Run.noteDrawn();
         }); });
       }, LIGHT_WAIT);
     }
@@ -309,7 +301,7 @@
         ST.lastRaw = key;
         var was = ST.cfg;
         ST.cfg = readCfg(raw);
-        if (was && ST.on && !ST.previewOn && ST.cfg) { var reason = ST.startedBy; stop('appearance'); teardown(); start(reason); }
+        if (was && ST.on && !ST.previewOn && ST.cfg) { var reason = ST.startedBy; Run.stop('appearance'); teardown(); Run.start(reason); }
         // the preview follows the settings page: rebuilt with the new options
         // -- or, when only the photos' layout changed, laid out again in place
         if (ST.previewOn && ST.on && ST.cfg) {
@@ -322,16 +314,16 @@
         }
         // ...and a preview asked for before there was a config (the frame's
         // dashboard, or its settings, still arriving) starts once there is one
-        if (ST.previewOn && !ST.on && ST.cfg) setTimeout(function () { if (ST.previewOn && !ST.on && ST.cfg) start('preview'); }, 0);
+        if (ST.previewOn && !ST.on && ST.cfg) setTimeout(function () { if (ST.previewOn && !ST.on && ST.cfg) Run.start('preview'); }, 0);
         // turned off while it shows: its switch goes off too (stop('config') alone left it on, and turning the
         // screensaver back on started it at once, "by the switch", instead of after Starts After)
-        if (!ST.cfg && ST.on) { writeSwitch('off', was); stop('config'); }
+        if (!ST.cfg && ST.on) { writeSwitch('off', was); Run.stop('config'); }
         if (ST.deck && ST.cfg && ST.deck.order !== ST.cfg.order) dropDeck();
         // a new Starts After counts from the last touch now, not when the old (longer) timer runs out
         if (was && ST.cfg && !ST.on && ST.idleT) armIdle();
       }
       if (!ST.cfg) { idleCancel(); return; }
-      if (!allowed()) { if (ST.on) { writeSwitch('off'); stop('config'); } idleCancel(); return; }
+      if (!allowed()) { if (ST.on) { writeSwitch('off'); Run.stop('config'); } idleCancel(); return; }
       if (!ST.idleT && !ST.on) armIdle();
     }
     // A FROZEN PAGE. Kiosk Satellite's Black screensaver stops the tablet
@@ -427,5 +419,9 @@
     K.goDark = goDark; K.hkSync = hkSync; K.hkTapWake = hkTapWake; K.hookClient = hookClient;
     K.justResumed = justResumed; K.lightSoon = lightSoon; K.LIT_GRACE = LIT_GRACE; K.litNow = litNow;
     K.panelDone = panelDone; K.refresh = refresh;
+    // (phase 25: what the earlier parts call of this one, through its exports object Black, made by the shell)
+    var Black = K.Black;
+    Black.bootCover = bootCover; Black.forecastTick = forecastTick; Black.goDark = goDark;
+    Black.hkTapWake = hkTapWake; Black.lightSoon = lightSoon; Black.litNow = litNow; Black.panelDone = panelDone;
   };
 })();
