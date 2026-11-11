@@ -189,7 +189,8 @@ def check_haunt(arts):
     sky = arts.get("haunt-sky.png")
     if sky is not None:
         lum = sky[..., :3] @ LUMA
-        say(lum[:520, :900].mean() <= 70 and lum[:520, :900].std() <= 24, "haunt-sky.png: top left dark and calm, for the corner's words", f"mean {lum[:520, :900].mean():.0f}, spread {lum[:520, :900].std():.0f}")
+        say(lum[:520, :900].mean() <= 70 and lum[:520, :900].std() <= 24, "haunt-sky.png: top left dark and calm, for the corner's words",
+            f"mean {lum[:520, :900].mean():.0f}, spread {lum[:520, :900].std():.0f}")
         say(lum[:160, 1700:].mean() <= 80, "haunt-sky.png: top right dark enough for House Status", f"{lum[:160, 1700:].mean():.0f}")
     house, lit = arts.get("haunt-house.png"), arts.get("haunt-house-lit.png")
     if house is not None and lit is not None:

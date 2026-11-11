@@ -35,7 +35,8 @@ for scene, sizes in out.items():
                 d.text((b[0] + 3, b[1] + 2), name, fill="#000")
         # what the screen keeps for itself
         m = .06 * min(v["w"], v["h"])
-        d.rectangle((m, m, m + .36 * v["w"] if v["w"] < v["h"] else m + 200 * v["z"], m + 86 * v["z"]), outline="#cccccc", width=1); d.text((m + 3, m + 3), "time, date, weather: keep calm", fill="#ccc")
+        d.rectangle((m, m, m + .36 * v["w"] if v["w"] < v["h"] else m + 200 * v["z"], m + 86 * v["z"]), outline="#cccccc", width=1); d.text((m + 3, m + 3), "time, date, weather: keep calm",
+            fill="#ccc")
         d.text((m, v["floorY"] + (v["h"] - v["floorY"]) * .6), "the row along the bottom (live words)", fill="#ccc")
         im.save(ann / f"{scene}-{key}.png")
 print("wrote references/placements.json and annotated/")

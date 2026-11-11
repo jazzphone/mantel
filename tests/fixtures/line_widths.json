@@ -1,9 +1,4 @@
 {
- "docs/artwork-handoff/holiday-scenes-2/check_assets.py": 1,
- "docs/artwork-handoff/holiday-scenes-2/make_references.py": 1,
- "docs/artwork-handoff/holiday-scenes/check_assets.py": 1,
- "docs/artwork-handoff/holiday-scenes/make_references.cjs": 5,
- "docs/phase20/mockup/check_mockup.cjs": 9,
  "hk_core/settings/model.py": 3,
  "hosts/ha/custom_components/hk_frontend/tests/py/test_settings.py": 1,
  "hosts/ha/custom_components/hk_frontend/tests/test_art.js": 1,

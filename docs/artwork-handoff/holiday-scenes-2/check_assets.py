@@ -81,7 +81,8 @@ def check_newyear(a):
     s = a.get("ny-sky.png")
     if s is not None:
         lum = s[..., :3] @ LUMA
-        say(lum[:520, :900].mean() <= 70 and lum[:520, :900].std() <= 24, "ny-sky.png: top left dark and calm, for the corner's words", f"mean {lum[:520, :900].mean():.0f}, spread {lum[:520, :900].std():.0f}")
+        say(lum[:520, :900].mean() <= 70 and lum[:520, :900].std() <= 24, "ny-sky.png: top left dark and calm, for the corner's words",
+            f"mean {lum[:520, :900].mean():.0f}, spread {lum[:520, :900].std():.0f}")
         say(lum[:160, 1700:].mean() <= 80, "ny-sky.png: top right dark enough for House Status", f"{lum[:160, 1700:].mean():.0f}")
     sk = a.get("ny-skyline.png")
     if sk is not None:
