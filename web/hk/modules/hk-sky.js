@@ -63,6 +63,9 @@
 //    difference between an idle tablet and one warm to the touch all night.
 (function () {
   'use strict';
+  // THE SHARED STATE (tools/split_js.py state): the variables these functions set again and again, as properties of one
+  // object, so the code that sets one can live in another file. ST.x is what was the variable x.
+  var ST = /** @type {Record<string, any>} */ ({});
 
   // Loaded from hk-loader.js on every page; hkReload() and a dev probe can
   // evaluate it again, so running twice has to be harmless: a second copy would own a SECOND
@@ -479,12 +482,12 @@
     // reads as "the decoration is expensive" when it is nothing of the kind.
     // THE WEATHER PAGE (2026-10-16): its sky and the conditions, no
     // decorations -- the weather is plenty there (the user's ask)
-    if (skyPage === 'weather') {
+    if (ST.skyPage === 'weather') {
       out.decorations = false;
       out.season = '';
       out.seasonalOn = false;
     }
-    if (PIN) for (var k in PIN) if (PIN.hasOwnProperty(k)) out[k] = PIN[k];
+    if (ST.PIN) for (var k in ST.PIN) if (ST.PIN.hasOwnProperty(k)) out[k] = ST.PIN[k];
     // An explicitly selected weather card describes its own weather,
     // independently of the page's decorative background choice.
     if (weatherEntity) out.backdrop = null;
@@ -496,9 +499,9 @@
   // its scene is thinned (.lv-quiet). A room with none is never quiet; HK
   // Settings offers the switch only where there are some, by the same rule
   // (hk-settings-model.js roomSensors).
-  var QUIET_MS = 5 * 60000, QUIET_CLASSES = { occupancy: 1, motion: 1, presence: 1 }, quietIds = { ents: null, room: '', ids: [] };
+  var QUIET_MS = 5 * 60000; var QUIET_CLASSES = { occupancy: 1, motion: 1, presence: 1 }; ST.quietIds = { ents: null, room: '', ids: [] };
   function roomSensorIds(client, room) {
-    if (quietIds.ents === client.entities && quietIds.room === room) return quietIds.ids;
+    if (ST.quietIds.ents === client.entities && ST.quietIds.room === room) return ST.quietIds.ids;
     var ents = client.entities || {}, devs = client.devices || {}, ids = [];
     Object.keys(client.states || {}).forEach(function (id) {
       if (id.indexOf('binary_sensor.') !== 0) return;
@@ -507,7 +510,7 @@
       var area = e.area_id || (e.device_id && devs[e.device_id] && devs[e.device_id].area_id);
       if (area === room) ids.push(id);
     });
-    quietIds = { ents: client.entities, room: room, ids: ids };
+    ST.quietIds = { ents: client.entities, room: room, ids: ids };
     return ids;
   }
   function roomQuiet(client, room) {
@@ -550,7 +553,7 @@
   // CSS object inside this IIFE and silently break CSS.registerProperty below,
   // which would cost the cross-fade with no error anywhere.
   var FRONT_Z = 1;
-  var SHEET = [
+  ST.SHEET = [
     // ITS OWN COLOR IS THE PALETTE'S MIDDLE (2026-10-09). The gradient
     // covers it everywhere, but a wall tablet repainting the gradient after a
     // page change shows the parts it has not drawn yet in this color for a
@@ -1482,7 +1485,7 @@
   // reaches the front layer too, where the moving things are drawn over the
   // cards -- only the rules about the sky ELEMENT itself (#hk-sky{...}: its
   // place under the page, its color) stay the sky's.
-  SHEET = SHEET.replace(/#hk-sky(?=[ .>:])/g, ':is(#hk-sky,#hk-sky-front)') +
+  ST.SHEET = ST.SHEET.replace(/#hk-sky(?=[ .>:])/g, ':is(#hk-sky,#hk-sky-front)') +
     // over the page's cards, under everything HK puts over the page (the
     // menu, the tab bar, the docked bar, pop-ups); not one touch lands here
     '#hk-sky-front{position:fixed;inset:0;z-index:' + FRONT_Z + ';contain:strict;overflow:hidden}' +
@@ -1494,10 +1497,10 @@
   // visible slabs. hk-tap.js already relies on registerProperty for --hk-ring,
   // so support is proven on the same browsers.
   var REG = ['--sk0', '--sk1', '--sk2', '--sk3', '--clTop', '--clBot', '--glowC'];
-  var registered = false;
+  ST.registered = false;
   function register() {
-    if (registered || !window.CSS || !window.CSS.registerProperty) return;
-    registered = true;
+    if (ST.registered || !window.CSS || !window.CSS.registerProperty) return;
+    ST.registered = true;
     REG.forEach(function (name) {
       try {
         window.CSS.registerProperty({
@@ -1537,32 +1540,32 @@
   // tree to lay out, and it is the mechanism lit itself uses for every HA
   // component, so support is not in doubt. The <style> path is kept only as a
   // fallback, and appended to the shadow root rather than beside the sky.
-  var sheet = null;
+  ST.sheet = null;
 
   function attachStyles(el) {
     var root = el.getRootNode();
     if (!root) return;
     try {
       if ('adoptedStyleSheets' in root && typeof CSSStyleSheet === 'function') {
-        sheet = new CSSStyleSheet();
-        sheet.replaceSync(SHEET);
-        root.adoptedStyleSheets = root.adoptedStyleSheets.concat(sheet);
+        ST.sheet = new CSSStyleSheet();
+        ST.sheet.replaceSync(ST.SHEET);
+        root.adoptedStyleSheets = root.adoptedStyleSheets.concat(ST.sheet);
         return;
       }
-    } catch (e) { sheet = null; }
+    } catch (e) { ST.sheet = null; }
     var tag = document.createElement('style');
     tag.id = 'hk-sky-style';
-    tag.textContent = SHEET;
+    tag.textContent = ST.SHEET;
     (root.appendChild ? root : document.head).appendChild(tag);
   }
 
   function detachStyles(el) {
     var root = el && el.getRootNode();
-    if (root && sheet && root.adoptedStyleSheets) {
+    if (root && ST.sheet && root.adoptedStyleSheets) {
       root.adoptedStyleSheets =
-        root.adoptedStyleSheets.filter(function (s) { return s !== sheet; });
+        root.adoptedStyleSheets.filter(function (s) { return s !== ST.sheet; });
     }
-    sheet = null;
+    ST.sheet = null;
     var tag = (root && root.querySelector && root.querySelector('#hk-sky-style'))
            || document.getElementById('hk-sky-style');
     if (tag) tag.remove();
@@ -1842,7 +1845,7 @@
   // and scale (a constructed sheet of its own, beside the sky's).
   var KF_ROOTS = typeof WeakMap === 'function' ? new WeakMap() : null;
   function kfText(base) {
-    var css = SHEET + (typeof OWN_CSS === 'string' ? OWN_CSS : '');
+    var css = ST.SHEET + (typeof OWN_CSS === 'string' ? OWN_CSS : '');
     var at = css.indexOf('@keyframes ' + base + '{');
     if (at < 0) return null;
     var i = css.indexOf('{', at) + 1, depth = 1, j = i;
@@ -2605,18 +2608,18 @@
   // preview a season outside its window -- otherwise verifying Halloween in
   // September means editing SCHEDULE and remembering to put it back, which is
   // exactly the kind of temporary edit that gets left in.
-  var FORCE = null;
-  function plannedFor(name, d) { return FORCE || schedule(name, d); }
+  ST.FORCE = null;
+  function plannedFor(name, d) { return ST.FORCE || schedule(name, d); }
 
   // See read(). Set through hkSky._pin().
-  var PIN = null;
+  ST.PIN = null;
 
   // DEV OVERRIDE for the surprises. Null in normal operation, like FORCE and
   // PIN. It exists because six of the seven themes fire on a handful of days a
   // year -- Space Night can go a whole year without one -- so there is no way
   // to look at them otherwise. It is not a preview control that bypasses the
   // schedule in normal use: nothing sets this but a console call.
-  var SURPRISE_FORCE = null;
+  ST.SURPRISE_FORCE = null;
 
   // THE SETTINGS PAGE'S PREVIEW (HK Settings -> Sky, and each theme's page):
   // one theme whatever the date, in THIS window only -- the page's preview
@@ -2626,10 +2629,10 @@
   // The weather is held clear and still, so the theme is what shows -- not
   // tonight's rain over it. The three SEASONS go through FORCE and PIN; the
   // rest are surprises, through SURPRISE_FORCE.
-  var PREVIEW = null;
+  ST.PREVIEW = null;
   var PREVIEW_SEASONS = { halloween: 1, thanksgiving: 1, christmas: 1 };
   function preview(id, when) {
-    FORCE = null; PIN = null; SURPRISE_FORCE = null; PREVIEW = null;
+    ST.FORCE = null; ST.PIN = null; ST.SURPRISE_FORCE = null; ST.PREVIEW = null;
     if (id) {
       var night = when === 'night' || when === 'spooky';
       var sky = { elev: night ? -25 : 35, azim: night ? 200 : 180, cover: 0.1, wind: 6,
@@ -2640,17 +2643,17 @@
                   // switch off -- choosing what to switch on is its point.
                   decorations: true };
       if (PREVIEW_SEASONS[id]) {
-        FORCE = { season: id, show: true, spooky: when === 'spooky', days: 0, p: 1 };
+        ST.FORCE = { season: id, show: true, spooky: when === 'spooky', days: 0, p: 1 };
         sky.season = id;
       } else {
-        SURPRISE_FORCE = id;
+        ST.SURPRISE_FORCE = id;
         sky.season = '';
       }
-      PIN = sky;
-      PREVIEW = { id: id, when: when || 'day' };
+      ST.PIN = sky;
+      ST.PREVIEW = { id: id, when: when || 'day' };
     }
     try { stateTick(); } catch (e) { /* not mounted yet: the next tick paints it */ }
-    return PREVIEW;
+    return ST.PREVIEW;
   }
 
   // Exported as hkSky._schedule for the test suite and the console.
@@ -3590,9 +3593,9 @@
       existingActive: name || null
     });
     var surprise = (chosen && chosen.reason !== 'existing-season') ? chosen.id : '';
-    if (SURPRISE_FORCE) surprise = SURPRISE_FORCE;
+    if (ST.SURPRISE_FORCE) surprise = ST.SURPRISE_FORCE;
     // previewing a season: today's own surprise (a birthday) must not replace it
-    if (PREVIEW && PREVIEW_SEASONS[PREVIEW.id]) surprise = '';
+    if (ST.PREVIEW && PREVIEW_SEASONS[ST.PREVIEW.id]) surprise = '';
     // A surprise REPLACES the seasonal scene for the day rather than stacking
     // on it. Birthday over Christmas is the deliberate case.
     if (surprise) name = '';
@@ -4052,14 +4055,14 @@
   // holiday's lights are and where the balloons are tied. Asked for once;
   // until it is here (or when it is not there at all) the lights still
   // glow, only without each flame and bulb of their own.
-  var HOL = null, holAsked = false, holWait = [];
+  ST.HOL = null; ST.holAsked = false; var holWait = [];
   function holData(cb) {
-    if (HOL) return HOL;
+    if (ST.HOL) return ST.HOL;
     if (cb) holWait.push(cb);
-    if (holAsked) return null;
-    holAsked = true;
+    if (ST.holAsked) return null;
+    ST.holAsked = true;
     var done = function (j) {
-      HOL = j || {};
+      ST.HOL = j || {};
       holWait.splice(0).forEach(function (f) { try { f(); } catch (e) { /* its scene is gone */ } });
     };
     try {
@@ -4237,7 +4240,7 @@
   // layer: every candle flickers on its own; sixty of the bulbs, picked
   // fresh each day, twinkle one at a time over the layer's steady glow.
   function holidayGlints(host, lit, rnd) {
-    var list = HOL && HOL.lights && HOL.lights[lit.file];
+    var list = ST.HOL && ST.HOL.lights && ST.HOL.lights[lit.file];
     if (!list || !list.length) return;
     if (lit.mode === 'flick') {
       list.forEach(function (L) {
@@ -4276,7 +4279,7 @@
   // from the overlay with its knot, drawn at its `scale` with the knot staked
   // at `at` (in the grass beside its tree), swaying a degree or two about it.
   function balloons(host, light, rnd) {
-    var list = HOL && HOL.balloons;
+    var list = ST.HOL && ST.HOL.balloons;
     if (!list || !list.length) return;
     list.forEach(function (c) {
       var b = document.createElement('div');
@@ -4306,7 +4309,7 @@
   // over whichever season's land is showing, as the balloons are; their
   // glow over them at dusk and night.
   function birthdayProps(host, light) {
-    var p = HOL && HOL.props;
+    var p = ST.HOL && ST.HOL.props;
     if (!p) return;
     var b = p.box;
     ['', light !== 'day' && (p.lights || []).indexOf(light) >= 0 ? '-lights' : null].forEach(function (suffix) {
@@ -4370,13 +4373,13 @@
     try {
       if ('adoptedStyleSheets' in root && typeof CSSStyleSheet === 'function') {
         own = new CSSStyleSheet();
-        own.replaceSync(SHEET + OWN_CSS);
+        own.replaceSync(ST.SHEET + OWN_CSS);
         root.adoptedStyleSheets = root.adoptedStyleSheets.concat(own);
       }
     } catch (e) { own = null; }
     if (!own) {
       tag = document.createElement('style');
-      tag.textContent = SHEET + OWN_CSS;
+      tag.textContent = ST.SHEET + OWN_CSS;
       (root.appendChild ? root : document.head).appendChild(tag);
     }
     // A landscape arrives decoded, then cross-fades in over the other layer.
@@ -4456,13 +4459,13 @@
       hlEl.classList.toggle('breathe', !!(lit && lit.mode === 'breathe'));
       // Lights Off (the holiday's own): its candles and bulbs hold a steady glow
       el.classList.toggle('lv-still', !!(lit && !L.on(h.surprise || h.name, 'lights')));
-      part('hx', day + '|' + (lightsUp ? lit.file : '') + '|' + (HOL ? 1 : 0), function () {
+      part('hx', day + '|' + (lightsUp ? lit.file : '') + '|' + (ST.HOL ? 1 : 0), function () {
         hx.textContent = '';
         if (lightsUp) holidayGlints(hx, lit, rng(day * 13 + 5));
       });
 
       var bday = h.surprise === 'birthday';
-      part('bx', day + '|' + (bday ? 'b' : '-') + '|' + (HOL ? 1 : 0) + '|' + light, function () {
+      part('bx', day + '|' + (bday ? 'b' : '-') + '|' + (ST.HOL ? 1 : 0) + '|' + light, function () {
         bx.textContent = '';
         if (bday) { birthdayProps(bx, light); balloons(bx, light, rng(day * 11 + 1)); }
       });
@@ -4609,19 +4612,19 @@
   // that loaded while Home Assistant restarted kept Classic clouds until its
   // next reload, 2026-10-07 audit). The classic decks stay up during a retry,
   // so a sky never goes empty waiting for it.
-  var RC_MAN = null, RC_LOADING = false, RC_FAILED = false, RC_RETRY = 0, RC_TRIES = 0;
+  ST.RC_MAN = null; ST.RC_LOADING = false; ST.RC_FAILED = false; ST.RC_RETRY = 0; ST.RC_TRIES = 0;
   function rcManifest() {
-    if (RC_MAN || RC_LOADING) return RC_MAN;
-    if (RC_FAILED && Date.now() < RC_RETRY) return null;
-    if (typeof fetch !== 'function') { RC_FAILED = true; RC_RETRY = Infinity; return null; }
-    RC_LOADING = true;
+    if (ST.RC_MAN || ST.RC_LOADING) return ST.RC_MAN;
+    if (ST.RC_FAILED && Date.now() < ST.RC_RETRY) return null;
+    if (typeof fetch !== 'function') { ST.RC_FAILED = true; ST.RC_RETRY = Infinity; return null; }
+    ST.RC_LOADING = true;
     fetch(RC_BASE + 'manifest.json' + VER).then(function (r) {
       if (!r.ok) throw Error(r.status);
       return r.json();
-    }).then(function (m) { RC_MAN = m; RC_FAILED = false; RC_LOADING = false; selfRender(); },
+    }).then(function (m) { ST.RC_MAN = m; ST.RC_FAILED = false; ST.RC_LOADING = false; selfRender(); },
             function () {
-              RC_FAILED = true; RC_LOADING = false; RC_TRIES++;
-              RC_RETRY = Date.now() + (RC_TRIES === 1 ? 60000 : 300000);
+              ST.RC_FAILED = true; ST.RC_LOADING = false; ST.RC_TRIES++;
+              ST.RC_RETRY = Date.now() + (ST.RC_TRIES === 1 ? 60000 : 300000);
               selfRender();
             });
     return null;
@@ -4745,7 +4748,7 @@
   function rcSpawn(st, k, set, phase) {
     var dep = set === 'cu' ? rcDepth(st) : null;
     var art = dep ? dep.set : set === 'scud' ? 'cumulus-fractus' : set;
-    var list = RC_MAN.clouds.filter(function (c) { return c.set === art; });
+    var list = ST.RC_MAN.clouds.filter(function (c) { return c.set === art; });
     var used = st.clouds.map(function (x) { return x.c && x.c.id; });
     var pick = list.filter(function (c) { return used.indexOf(c.id) < 0; });
     if (!pick.length) pick = list;
@@ -4981,7 +4984,7 @@
     st.plan = plan;
     // the overcast deck: the whole sky, drifting slowly to and fro
     if ((plan.deck || plan.veil) && !st.ceil) {
-      var decks = RC_MAN.clouds.filter(function (c) { return c.set === 'overcast-deck'; });
+      var decks = ST.RC_MAN.clouds.filter(function (c) { return c.set === 'overcast-deck'; });
       var dc = decks[seed % decks.length];
       if (plan.deck) {
       // the flat deck: the whole screen, beneath -- what shows below the
@@ -5309,7 +5312,7 @@
     // decks at half their cover -- the clouds sitting in a veil of haze and
     // thin cloud, not on a clean gradient
     var realOn = (s.cloudStyle === 'realistic' || s.cloudStyle === 'blend') && s.weather !== false &&
-                 (rcManifest(), !RC_FAILED);
+                 (rcManifest(), !ST.RC_FAILED);
     var cov = realOn ? (s.cloudStyle === 'blend' ? s.cover * .55 : 0) : s.cover;
     var oA = clamp(cov * 1.5, 0, 0.85);
     var oB = clamp((cov - 0.18) * 1.5, 0, 0.92);
@@ -5728,7 +5731,7 @@
   // authored deep (see CAP) -- so a floor near it would leave the cover
   // contributing nothing at all.
   var ART_FLOOR = 40;
-  var artUrl = (typeof window !== 'undefined' && window.hkNowArt) || null;
+  ST.artUrl = (typeof window !== 'undefined' && window.hkNowArt) || null;
   var artLuma = {};              // url -> mean luma 0-255, measured once
 
   // The card publishes; this listens. Reading window.hkNowArt above covers
@@ -5736,12 +5739,12 @@
   if (typeof window !== 'undefined') {
     window.addEventListener('hk-now-art', function (ev) {
       var url = (ev && ev.detail && ev.detail.url) || null;
-      if (url === artUrl) return;
-      artUrl = url;
+      if (url === ST.artUrl) return;
+      ST.artUrl = url;
       // Only the page that asked for it, and only while it is up.
-      if (mounted && mounted.classList.contains('static') &&
-          mountedVariant === 'playmusic') {
-        paintAlbum(mounted, artUrl, mounted._hkGradL || mounted._hkRaw);
+      if (ST.mounted && ST.mounted.classList.contains('static') &&
+          ST.mountedVariant === 'playmusic') {
+        paintAlbum(ST.mounted, ST.artUrl, ST.mounted._hkGradL || ST.mounted._hkRaw);
       }
     });
   }
@@ -5836,7 +5839,7 @@
       // one we could not measure is assumed bright, as a cover is
       el._hkPhotoL = L === null ? null : Math.round(L);
       photoScrim(el, el._hkPhotoL, look, gradL);
-      if (el === mounted) announce();
+      if (el === ST.mounted) announce();
     });
   }
 
@@ -5905,7 +5908,7 @@
       el.style.setProperty('--artO', '0');
       el.style.removeProperty('--art');
       applyScrim(el, gradL);
-      if (el === mounted) announce();
+      if (el === ST.mounted) announce();
       return;
     }
     measureArt(url, function (L) {
@@ -5931,36 +5934,36 @@
       applyScrim(el, o * lum + (1 - o) * gradL);
       el._hkArtL = L === null ? null : Math.round(L);
       el._hkArtO = o;
-      if (el === mounted) announce();
+      if (el === ST.mounted) announce();
     });
   }
 
   // ------------------------------------------------------------------- API
-  var mounted = null;
-  var mountedPath = null;
+  ST.mounted = null;
+  ST.mountedPath = null;
   // Which palette is on the mounted element. The album repaint needs it, and
   // it must not be re-derived from the URL -- a track change arrives with no
   // navigation, so there is nothing to re-resolve from.
-  var mountedVariant = null;
+  ST.mountedVariant = null;
   // the page the sky is behind now (resolve: the view's sky_page), for
   // read()'s per-page rules
-  var skyPage = null;
+  ST.skyPage = null;
   // Set when the next paint must be instant rather than eased -- see the
   // .hk-snap rule in SHEET.
-  var snapNext = false, paintSig = '';
+  ST.snapNext = false; ST.paintSig = '';
 
   function teardown() {
-    if (!mounted) return;
+    if (!ST.mounted) return;
     // the front layer (Moving Things: In Front) is the sky's sibling and is
     // styled by the sky's sheet: it goes first, or it is left in the page
     // unstyled, and a sky mounted again builds a second one beside it
-    frontSync(mounted, false);
-    if (mounted._hkNear) mounted._hkNear.dispose();
-    detachStyles(mounted);
-    mounted.remove();
-    mounted = null;
-    mountedPath = null;
-    mountedVariant = null;
+    frontSync(ST.mounted, false);
+    if (ST.mounted._hkNear) ST.mounted._hkNear.dispose();
+    detachStyles(ST.mounted);
+    ST.mounted.remove();
+    ST.mounted = null;
+    ST.mountedPath = null;
+    ST.mountedVariant = null;
   }
 
   // THE SKY OUTLIVES A VIEW CHANGE, AND NOTHING HERE DECIDES WHEN IT ENDS.
@@ -5980,10 +5983,10 @@
   // nothing -- the background loading late on page changes (reproduced with
   // a synthetic 1.7s stall: element replaced at ~2000ms). The config is the
   // authority, so nothing here has to wait.
-  var watching = false;
+  ST.watching = false;
   function watch() {
-    if (watching) return;
-    watching = true;
+    if (ST.watching) return;
+    ST.watching = true;
     document.addEventListener('visibilitychange', applyHidden);
   }
 
@@ -6004,8 +6007,8 @@
   // The entity is REMEMBERED rather than read from opts each time: the sky
   // survives navigation, so a plain `opts.sleep || false` would reset asleep
   // to false the moment you opened a page that does not name it.
-  var asleep = false;
-  var sleepEntity = null;
+  ST.asleep = false;
+  ST.sleepEntity = null;
   // ASLEEP = the tablet's screensaver switch is on, OR HK Frontend's own
   // screensaver is showing (hk-saver.js) -- a screen with no switch (no
   // Tablet Room) still pauses behind its photos.
@@ -6022,8 +6025,8 @@
   function sleeping() {
     var S = window.hkSaver, running = !!(S && S.running && S.running());
     var c = S && S.config && S.config();
-    if (c && c.entity && c.entity === sleepEntity) return running;
-    return asleep || running;
+    if (c && c.entity && c.entity === ST.sleepEntity) return running;
+    return ST.asleep || running;
   }
   // UNDER THE KIOSK'S BLACK, HELD (2026-10-09). With Kiosk Satellite's
   // "Pause dashboard during screensaver" off, the tablet draws the page
@@ -6033,17 +6036,17 @@
   // layers kept -- letting them go (.hidden) is for when the photos cover
   // the page; let go under the black, they all came back at the wake and
   // the scenery blinked.
-  var ksDark = false;
+  ST.ksDark = false;
   ['kiosksatellite:screensaverstart', 'kiosksatellite:screenoff'].forEach(function (t) {
-    try { window.addEventListener(t, function () { ksDark = true; applyHidden(); }); } catch (e) { /* no window events */ }
+    try { window.addEventListener(t, function () { ST.ksDark = true; applyHidden(); }); } catch (e) { /* no window events */ }
   });
   ['kiosksatellite:screensaverstop', 'kiosksatellite:screenon'].forEach(function (t) {
-    try { window.addEventListener(t, function () { ksDark = false; applyHidden(); }); } catch (e) { /* no window events */ }
+    try { window.addEventListener(t, function () { ST.ksDark = false; applyHidden(); }); } catch (e) { /* no window events */ }
   });
   // ...and HK's own black screen (hk-saver.js: any black, said after the
   // kiosk's own events, so it has the last word)
   try {
-    window.addEventListener('hk-black', function (e) { ksDark = !!(e && e.detail && e.detail.on); applyHidden(); });
+    window.addEventListener('hk-black', function (e) { ST.ksDark = !!(e && e.detail && e.detail.on); applyHidden(); });
   } catch (e) { /* no window events */ }
   // NOT IN FOCUS (Sky / Background -> Pause When Not in Focus, 2026-10-10).
   // A computer leaves the dashboard open beside other work, and while
@@ -6059,7 +6062,7 @@
   // report no focus until its first touch -- held there, a screen would sit
   // still from boot -- and nothing on one is ever beside other work.
   // Starts focused: only a real blur holds it.
-  var unfocused = false;
+  ST.unfocused = false;
   var FOCUS_DEVICE = (function () {
     try { return !!(window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches); } catch (e) { return false; }
   })();
@@ -6070,8 +6073,8 @@
   }
   function focusCheck() {
     var u = FOCUS_DEVICE && focusPause() && typeof document.hasFocus === 'function' && !document.hasFocus();
-    if (u === unfocused) return;
-    unfocused = u;
+    if (u === ST.unfocused) return;
+    ST.unfocused = u;
     applyHidden();
   }
   if (FOCUS_DEVICE) {
@@ -6142,41 +6145,41 @@
   // colors as they are now (Tint from Background) keeps waiting for hk-sky-paint. What is fading is asked once the
   // frame is drawn: asked as the sky painted, it worked out the sky's styles there and then, 15-20 ms of a slowed
   // tablet's page swipe as it began and as it landed (2026-11-07)
-  var SETTLE_MS = 6000, settleGen = 0, saidSig = null, saidFor = null, changeSig = null, changedSig = null, changedFor = null, asked = false;
+  var SETTLE_MS = 6000; ST.settleGen = 0; ST.saidSig = null; ST.saidFor = null; ST.changeSig = null; ST.changedSig = null; ST.changedFor = null; ST.asked = false;
   function announce() {
-    if (!mounted) return;
-    var sg = skySig(mounted), psig = sg.big + '||' + sg.small + '|' + location.pathname;
-    if (psig === paintSig) return;
-    if (psig !== changeSig) {
-      changeSig = psig; changedSig = sg; changedFor = mounted;
+    if (!ST.mounted) return;
+    var sg = skySig(ST.mounted), psig = sg.big + '||' + sg.small + '|' + location.pathname;
+    if (psig === ST.paintSig) return;
+    if (psig !== ST.changeSig) {
+      ST.changeSig = psig; ST.changedSig = sg; ST.changedFor = ST.mounted;
       try { window.dispatchEvent(new Event('hk-sky-change')); } catch (e) { /* no window events */ }
     }
-    if (asked) return;
-    var go = function () { if (asked !== true) return; asked = 1; setTimeout(function () { asked = false; settle(); }, 0); };
-    asked = true; requestAnimationFrame(go); setTimeout(go, 100);          // (a hidden window draws no frames)
+    if (ST.asked) return;
+    var go = function () { if (ST.asked !== true) return; ST.asked = 1; setTimeout(function () { ST.asked = false; settle(); }, 0); };
+    ST.asked = true; requestAnimationFrame(go); setTimeout(go, 100);          // (a hidden window draws no frames)
   }
   function settle() {
-    var sg = mounted && skySig(mounted), psig = sg && sg.big + '||' + sg.small + '|' + location.pathname;
-    if (!sg || psig === paintSig) return;
+    var sg = ST.mounted && skySig(ST.mounted), psig = sg && sg.big + '||' + sg.small + '|' + location.pathname;
+    if (!sg || psig === ST.paintSig) return;
     var fading = [];
     try {
-      if (mounted.getAnimations && typeof CSSTransition !== 'undefined') {
-        fading = mounted.getAnimations({ subtree: true }).filter(function (an) {
+      if (ST.mounted.getAnimations && typeof CSSTransition !== 'undefined') {
+        fading = ST.mounted.getAnimations({ subtree: true }).filter(function (an) {
           return an instanceof CSSTransition && an.playState === 'running';
         });
       }
     } catch (e) { fading = []; }
     if (fading.length) {
-      var gen = ++settleGen;
+      var gen = ++ST.settleGen;
       Promise.race([
         Promise.all(fading.map(function (an) { return an.finished.catch(function () { /* cancelled: settled */ }); })),
         new Promise(function (ok) { setTimeout(ok, SETTLE_MS); })
-      ]).then(function () { if (gen === settleGen) announce(); });
+      ]).then(function () { if (gen === ST.settleGen) announce(); });
       return;
     }
-    settleGen++;
-    paintSig = psig;
-    saidSig = sg; saidFor = mounted;
+    ST.settleGen++;
+    ST.paintSig = psig;
+    ST.saidSig = sg; ST.saidFor = ST.mounted;
     try { window.dispatchEvent(new Event('hk-sky-paint')); } catch (e) { /* no window events */ }
   }
   // WHAT MOVES ACROSS THE SCENE, by the animation that carries it: what
@@ -6201,7 +6204,7 @@
   // candle's flicker, a twinkle, the rain and snow decks): a picture at a random moment of it would make glass pulse.
   var DRIFTS = ['hk-rc', 'hk-drift', 'hk-fwisp', 'near-wisp', 'near-aurora'], WALLS = ['hk-wall-', 'hk-wt-sway', 'hk-wt-loop', 'hk-wt-tile'];
   function drifting() {
-    var el = mounted && mounted.isConnected ? mounted : null;
+    var el = ST.mounted && ST.mounted.isConnected ? ST.mounted : null;
     // (paused -- not on screen, the window not in focus, the kiosk's black -- is not drifting: nothing to follow)
     if (!el || !el.getAnimations || /(^|\s)(noanim|hidden|held)(\s|$)/.test(el.className)) return false;
     var still = /(^|\s)static(\s|$)/.test(el.className), list, j, d;
@@ -6227,17 +6230,17 @@
   // the ceiling's art not in yet
   function cloudsPending(el) {
     var l = el && el.querySelector ? el.querySelector('.rcl') : null;
-    if (!l || !l._rcOn || RC_FAILED) return false;
-    if (!RC_MAN) return true;
+    if (!l || !l._rcOn || ST.RC_FAILED) return false;
+    if (!ST.RC_MAN) return true;
     var cvs = l.querySelectorAll('canvas');
     for (var i = 0; i < cvs.length; i++) if (cvs[i].__src && !cvs[i].__drawn) return true;
     return false;
   }
   function applyHidden() {
-    var hid = document.hidden || sleeping(), still = ksDark || unfocused, z = sleeping() || still;
-    if (mounted) {
-      mounted.classList.toggle('hidden', hid);
-      mounted.classList.toggle('held', !hid && still);
+    var hid = document.hidden || sleeping(), still = ST.ksDark || ST.unfocused, z = sleeping() || still;
+    if (ST.mounted) {
+      ST.mounted.classList.toggle('hidden', hid);
+      ST.mounted.classList.toggle('held', !hid && still);
     }
     // ...and tell the cards, which pause their own animations behind the
     // screensaver and the kiosk's black too (hk-base.js, hk-asleep). Only on
@@ -6253,17 +6256,17 @@
     // photos are up). WallPanel is an overlay in this same document, so
     // document.hidden stays false behind it; a module with idle work of its
     // own (hk-glass's backstop) asks this too.
-    asleep: function () { return sleeping() || ksDark || unfocused; },
+    asleep: function () { return sleeping() || ST.ksDark || ST.unfocused; },
     // a black screen is up (the kiosk's or HK's own): the page runs but is
     // not drawn -- a card built meanwhile must not start what nobody sees
     // (hk-cameras.js _resting)
-    dark: function () { return ksDark; },
+    dark: function () { return ST.ksDark; },
     // the mounted sky element, or null (hk-glass.js paints its pre-rendered
     // frost from it)
-    element: function () { return mounted; },
+    element: function () { return ST.mounted; },
     // the page whose sky this is now -- set as that page's view takes the sky over (render), a frame or two after the
     // view itself is on the page (hk-glass.js wears a page's picture from then, 2026-10-13)
-    path: function () { return mounted && mounted.isConnected ? mountedPath : null; },
+    path: function () { return ST.mounted && ST.mounted.isConnected ? ST.mountedPath : null; },
     swipingTo: function () { return swiping() || null; },     // a swipe's next page, its sky painted under (swipeCover)
     // for a pre-rendered blur (hk-glass.js): what the sky shows (skySig),
     // and whether more of it is on its way (the realistic clouds)
@@ -6275,18 +6278,18 @@
     // kept it: the Play Music pills, a page loaded straight onto it.)
     sig: function () {
       if (window.hkSettings && window.hkSettings.rendering && window.hkSettings.rendering().flat) return;
-      var el = mounted && mounted.isConnected ? mounted : null;
+      var el = ST.mounted && ST.mounted.isConnected ? ST.mounted : null;
       if (!el) return skySig(null);
-      if (changedSig && changedFor === el) return changedSig;
-      return saidSig && saidFor === el ? saidSig : skySig(el);
+      if (ST.changedSig && ST.changedFor === el) return ST.changedSig;
+      return ST.saidSig && ST.saidFor === el ? ST.saidSig : skySig(el);
     },
-    cloudsPending: function () { return cloudsPending(mounted); },
+    cloudsPending: function () { return cloudsPending(ST.mounted); },
     // is anything drifting across the sky now (DRIFTS)?
     drifting: drifting,
     // does this piece move across the scene (MOVERS)? -- given its computed style
     moves: moves,
     // tests: the sleep entity and its state, as render() would read them
-    _sleepAs: function (entity, state) { sleepEntity = entity; asleep = state === 'on'; },
+    _sleepAs: function (entity, state) { ST.sleepEntity = entity; ST.asleep = state === 'on'; },
     // hk-saver.js calls this when its screensaver starts or stops
     saverChanged: function () { applyHidden(); },
     // the forecast screensaver's own sky + landscape (scene() above)
@@ -6311,7 +6314,7 @@
         if (!client || !card) return '';
         opts = opts || {};
         var P = window.hkSettings, policy = P && P.rendering ? P.rendering() : { flat: false };
-        if (mounted && !!mounted._hkFlat !== policy.flat) teardown();
+        if (ST.mounted && !!ST.mounted._hkFlat !== policy.flat) teardown();
         if (policy.flat) { renderFlat(client, card, opts, policy); return ''; }
 
         // Kill switch first: an explicit `off` tears down a mounted sky rather
@@ -6319,37 +6322,37 @@
         var en = opts.enable && client.states[opts.enable];
         if (en && en.state === 'off') { teardown(); return ''; }
 
-        if (opts.sleep) sleepEntity = opts.sleep;
-        skyPage = opts.page || null;
-        var sl = sleepEntity && client.states[sleepEntity];
-        if (sl) asleep = sl.state === 'on';
+        if (opts.sleep) ST.sleepEntity = opts.sleep;
+        ST.skyPage = opts.page || null;
+        var sl = ST.sleepEntity && client.states[ST.sleepEntity];
+        if (sl) ST.asleep = sl.state === 'on';
 
         // Adopt a sky mounted by the PREVIOUS view rather than rebuilding.
         // hui-view-container survives the swap, so the element is still there
         // and still correct; only the path label and the palette change. This
         // is the other half of the note above watch().
-        if (mounted && mounted.isConnected && location.pathname !== mountedPath) {
-          mountedPath = location.pathname;
+        if (ST.mounted && ST.mounted.isConnected && location.pathname !== ST.mountedPath) {
+          ST.mountedPath = location.pathname;
           // A different page: cut to the new palette instead of melting into
           // it over four seconds.
-          snapNext = true;
+          ST.snapNext = true;
         }
 
-        if (!mounted || !mounted.isConnected) {
+        if (!ST.mounted || !ST.mounted.isConnected) {
           var host = container(card);
           if (!host) return '';
           register();
-          mounted = build(host);
-          mountedPath = location.pathname;
+          ST.mounted = build(host);
+          ST.mountedPath = location.pathname;
           watch();
           // A brand new element has no previous state worth easing from
           // either, so the first paint is a cut as well.
-          snapNext = true;
+          ST.snapNext = true;
         }
         // A static page paints a fixed palette and draws no weather at all.
-        var snapping = snapNext;
-        snapNext = false;
-        if (snapping) mounted.classList.add('hk-snap');
+        var snapping = ST.snapNext;
+        ST.snapNext = false;
+        if (snapping) ST.mounted.classList.add('hk-snap');
 
         // a page's still backdrop: its day stops while the sun is up, its
         // night ones after
@@ -6370,47 +6373,47 @@
           }
         }
         if (stops) {
-          mounted.classList.add('static');
-          mounted.classList.toggle('photo', !!opts.photo);
-          paintStatic(mounted, stops);
-          paintWall(mounted, opts.photo ? null : opts.wall || null, wn);
-          mountedVariant = opts.variant || (opts.photo ? 'photo' : 'still');
+          ST.mounted.classList.add('static');
+          ST.mounted.classList.toggle('photo', !!opts.photo);
+          paintStatic(ST.mounted, stops);
+          paintWall(ST.mounted, opts.photo ? null : opts.wall || null, wn);
+          ST.mountedVariant = opts.variant || (opts.photo ? 'photo' : 'still');
           // _hkRaw is the PALETTE's own luma, before any scrim. Keep it: the
           // album composite is measured against the gradient underneath it,
           // and paintStatic will not run again on a track change.
-          mounted._hkGradL = mounted._hkRaw;
+          ST.mounted._hkGradL = ST.mounted._hkRaw;
           // playmusic is the one static page whose backdrop is not fixed.
           if (opts.photo) {
             var im = opts.look && opts.look.image;
             if (im && window.hkFlatImage) {
               // its Image Look: the treated picture, once it is painted
-              var C0 = window.hkCards, want = opts.photo + '|' + JSON.stringify(im), el = mounted;
+              var C0 = window.hkCards, want = opts.photo + '|' + JSON.stringify(im), el = ST.mounted;
               var tc = im.color === 'accent' ? (C0 && C0.flatAccentHex ? C0.flatAccentHex() : '#64798e') : im.color;
               el._hkWantPhoto = want;
               var ready = treatedPhoto(opts.photo, im, tc, function (url) {
                 if (el.isConnected && el._hkWantPhoto === want) paintPhoto(el, url, opts.look, el._hkGradL);
               });
-              if (ready) paintPhoto(mounted, ready, opts.look, mounted._hkGradL);
+              if (ready) paintPhoto(ST.mounted, ready, opts.look, ST.mounted._hkGradL);
             } else {
-              mounted._hkWantPhoto = null;
-              paintPhoto(mounted, opts.photo, opts.look, mounted._hkGradL);
+              ST.mounted._hkWantPhoto = null;
+              paintPhoto(ST.mounted, opts.photo, opts.look, ST.mounted._hkGradL);
             }
           } else if (opts.variant === 'playmusic') {
-            paintAlbum(mounted, artUrl, mounted._hkGradL);
+            paintAlbum(ST.mounted, ST.artUrl, ST.mounted._hkGradL);
           } else {
-            mounted.style.setProperty('--artO', '0');
+            ST.mounted.style.setProperty('--artO', '0');
           }
         } else {
-          mounted.classList.remove('static');
-          mounted.classList.remove('photo');
-          paintWall(mounted, null, false);
-          mountedVariant = null;
-          mounted.style.setProperty('--artO', '0');
+          ST.mounted.classList.remove('static');
+          ST.mounted.classList.remove('photo');
+          paintWall(ST.mounted, null, false);
+          ST.mountedVariant = null;
+          ST.mounted.style.setProperty('--artO', '0');
           var rs = read(client);
           // a page's own fixed backdrop, over this screen's (resolve)
           if (opts.backdrop) rs.backdrop = opts.backdrop;
           else if (opts.backdrop === false) rs.backdrop = null;
-          paint(mounted, rs);
+          paint(ST.mounted, rs);
         }
         applyHidden();
         // THE SKY CHANGED (skySig, or the page): said once per change, not on
@@ -6422,7 +6425,7 @@
           // Transitions stay off until a frame has worked out the new values, so they are the computed style rather than
           // the start of an animation; then off it comes. (A forced flush here, offsetWidth, did that at once: 15-17 ms
           // of a slowed tablet's frame as a page swipe brought in a page with its own background, 2026-11-07)
-          var el = mounted;
+          var el = ST.mounted;
           requestAnimationFrame(function () { requestAnimationFrame(function () { if (el && el.isConnected) el.classList.remove('hk-snap'); }); });
         }
       } catch (e) {
@@ -6442,18 +6445,18 @@
     get _birthdays() { return birthdays(); },
     // hkSky._force({show:true, spooky:true}) then hkSkyAt(-20,{season:'halloween'})
     // previews a spooky night on any date. hkSky._force(null) restores.
-    _force: function (v) { FORCE = v || null; return FORCE; },
+    _force: function (v) { ST.FORCE = v || null; return ST.FORCE; },
     // Sky Lab's Show Me Now: the next crossing of everything that crosses, now
-    showNow: function () { return showNow(mounted); },
+    showNow: function () { return showNow(ST.mounted); },
     // Liveliness internals, for tests/test_liveliness.js
     _lv: { lvOf: lvOf, lvRange: lvRange, lvCount: lvCount, kfScale: kfScale, KNOBS: LV_KNOBS },
     // hkSky._pin({season:'halloween', elev:-20, cond:'clear'}) holds a scene
     // across the 3s tick without a competing timer. _pin(null) restores.
     // It repaints at once (Sky Lab drives a real dashboard's sky with it).
     _pin: function (v) {
-      PIN = v || null;
+      ST.PIN = v || null;
       try { stateTick(); } catch (e) { /* not mounted yet: the next tick paints it */ }
-      return PIN;
+      return ST.PIN;
     },
     // the realistic clouds' choices, for the tests
     _rcPlan: function (s, seed) { return rcPlan(s, rng(seed || 1)); },
@@ -6461,26 +6464,26 @@
     // ...and the overcast ceiling on its canvas (tests/test_cloudceiling.js):
     // its pieces, and one paint of the realistic clouds with a given manifest
     _ceil: { canvases: ceilCanvases, draw: ceilDraw, relight: ceilRelight, tidy: rcTidy, FADE: CEIL_FADE },
-    _rcPaint: function (el, s, man) { RC_MAN = man; return paintRealClouds(el, s, true, .45, false, 1); },
+    _rcPaint: function (el, s, man) { ST.RC_MAN = man; return paintRealClouds(el, s, true, .45, false, 1); },
     // HK Settings' preview of a theme (see PREVIEW above)
     preview: preview,
-    get previewing() { return PREVIEW; },
+    get previewing() { return ST.PREVIEW; },
     // a swipe between pages heading for `path` (hk-pageswipe.js): its background under a still copy of this one (above)
     swipeCover: function (path) { try { return swipeCover(path); } catch (e) { console.error('[hk-sky]', e); return null; } },
-    swipeBack: function () { SWIPE = null; snapNext = true; try { selfRender(); } catch (e) { console.error('[hk-sky]', e); } },
+    swipeBack: function () { ST.SWIPE = null; ST.snapNext = true; try { selfRender(); } catch (e) { console.error('[hk-sky]', e); } },
     _read: read,                // tests: what the sky reads, pins included
     _planned: function (n, d) { return plannedFor(n, d); },
     // hkSky._surpriseForce('birthday') then hkSkyAt(14) shows a theme on any
     // date. _surpriseForce(null) restores.
-    _surpriseForce: function (v) { SURPRISE_FORCE = v || null; return SURPRISE_FORCE; },
+    _surpriseForce: function (v) { ST.SURPRISE_FORCE = v || null; return ST.SURPRISE_FORCE; },
     _surprises: SURPRISE,
     _paintStatic: paintStatic,
     _paintWall: paintWall,
     _static: STATIC,
     _build: build,
-    _mounted: function () { return mounted; },
+    _mounted: function () { return ST.mounted; },
     // For pages/dev/nav-probe.js: which page the sky is currently painted for.
-    _mountedPath: function () { return mountedPath; }
+    _mountedPath: function () { return ST.mountedPath; }
   };
 
   // ======================================================== SELF-MOUNT
@@ -6698,7 +6701,7 @@
   function renderFlat(client, card, opts, policy) {
     var en = opts.enable && client.states[opts.enable];
     var bg = (en && en.state === 'off') ? { color: 'auto' } : (opts.flat || { color: 'auto' });
-    if (!mounted || !mounted.isConnected) {
+    if (!ST.mounted || !ST.mounted.isConnected) {
       var host = container(card); if (!host) return;
       // position:fixed, like the SHEET: the element covers the VIEWPORT.
       // (An absolute element in the scrollable view container sized to the
@@ -6706,8 +6709,8 @@
       // under it scaled up with it: the "large blown up version" with no
       // fade. z-index -1 is the wallpaper's place, under the views; contain
       // clips its children to the viewport; overflow:hidden for the same.)
-      mounted = document.createElement('div'); mounted.id = 'hk-sky'; mounted._hkFlat = true;
-      mounted.style.cssText = 'position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden;contain:strict;isolation:isolate';
+      ST.mounted = document.createElement('div'); ST.mounted.id = 'hk-sky'; ST.mounted._hkFlat = true;
+      ST.mounted.style.cssText = 'position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden;contain:strict;isolation:isolate';
       var img = document.createElement('img'); img.alt = '';
       img.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none';
       // a photo that can't be had: the theme's ground at once, not a blank
@@ -6727,12 +6730,12 @@
       var tintL = document.createElement('div'), lightL = document.createElement('div');
       tintL.style.cssText = 'position:absolute;inset:0;pointer-events:none;mix-blend-mode:color;display:none';
       lightL.style.cssText = 'position:absolute;inset:0;pointer-events:none;display:none';
-      mounted.appendChild(img); mounted.appendChild(tintL); mounted.appendChild(lightL); mounted.appendChild(scrim);
+      ST.mounted.appendChild(img); ST.mounted.appendChild(tintL); ST.mounted.appendChild(lightL); ST.mounted.appendChild(scrim);
       var vb = SH.viewBackground(host);
-      if (vb && vb.nextSibling) host.insertBefore(mounted, vb.nextSibling); else host.insertBefore(mounted, host.firstChild);
+      if (vb && vb.nextSibling) host.insertBefore(ST.mounted, vb.nextSibling); else host.insertBefore(ST.mounted, host.firstChild);
       watch();
     }
-    mountedPath = location.pathname;
+    ST.mountedPath = location.pathname;
     var C = window.hkCards, page = opts.page || 'home';
     var ground = C && C.flatColorHex ? C.flatColorHex(bg.color || 'auto', policy.theme, page)
                : policy.theme === 'light' ? '#EEECE6' : '#17181A';
@@ -6740,22 +6743,22 @@
     // gone, falls back to it too, its choice kept)
     if ((bg.color || 'auto') === 'auto' && opts.seed) ground = opts.seed;
     if (bg.photo) ground = opts.seed || (C && C.flatGround ? C.flatGround('home', policy.theme) : ground);
-    mounted.style.background = ground;
-    var pic = mounted.firstChild, src = bg.photo || '';
-    if (mounted._hkPhoto !== src) {
-      mounted._hkPhoto = src;
+    ST.mounted.style.background = ground;
+    var pic = ST.mounted.firstChild, src = bg.photo || '';
+    if (ST.mounted._hkPhoto !== src) {
+      ST.mounted._hkPhoto = src;
       if (src) { pic.style.display = 'block'; pic.src = src; }
       else { pic.removeAttribute('src'); pic.style.display = 'none'; }
     }
     // THE FADE: the theme's own ground washed over the photo (Sky /
     // Background -> Fade, 0-100): Light's limestone, Dark's near-black. A
     // fixed flat layer -- no sampled color, no brightness filter.
-    mounted.lastChild.style.background = src && pic.getAttribute('src') ? (C && C.flatFade ? C.flatFade(bg.fade, policy.theme) : 'transparent') : 'transparent';
+    ST.mounted.lastChild.style.background = src && pic.getAttribute('src') ? (C && C.flatFade ? C.flatFade(bg.fade, policy.theme) : 'transparent') : 'transparent';
     // THE TINT over the photo (the page's accent, or the user's own: Sky /
     // Background -> Tint), its strength and brightness
     var tint = bg.tint === 'accent' ? (C && C.flatAccentHex ? C.flatAccentHex() : null) : /^#[0-9a-f]{6}$/i.test(bg.tint || '') ? bg.tint : null;
-    var tl = mounted.children[1], ll = mounted.children[2];
-    if (tl && ll && tl !== mounted.lastChild) {
+    var tl = ST.mounted.children[1], ll = ST.mounted.children[2];
+    if (tl && ll && tl !== ST.mounted.lastChild) {
       var on = !!(tint && src && pic.getAttribute('src'));
       var k = Math.max(0, Math.min(100, bg.tintAmount == null ? 60 : +bg.tintAmount || 0)) / 100;
       var lb = Math.max(-1, Math.min(1, ((bg.tintLight == null ? 50 : +bg.tintLight) - 50) / 50));
@@ -6767,15 +6770,15 @@
     var imageLook = bg.imageLook;
     if (imageLook && imageLook.mode !== 'legacy' && src && pic.getAttribute('src')) {
       tl.style.display = 'none'; ll.style.display = 'none';
-      mounted.lastChild.style.background = window.hkFlatImage ? window.hkFlatImage.fade(imageLook.fade, policy.theme) : 'transparent';
-      if (window.hkFlatImage) renderFlatImage(mounted, pic, imageLook, imageLook.color === 'accent' ? (C && C.flatAccentHex ? C.flatAccentHex() : '#64798e') : imageLook.color);
+      ST.mounted.lastChild.style.background = window.hkFlatImage ? window.hkFlatImage.fade(imageLook.fade, policy.theme) : 'transparent';
+      if (window.hkFlatImage) renderFlatImage(ST.mounted, pic, imageLook, imageLook.color === 'accent' ? (C && C.flatAccentHex ? C.flatAccentHex() : '#64798e') : imageLook.color);
     } else {
-      mounted._hkImageRequest = null; pic.onload = null;
-      if (mounted._hkImageCanvas) mounted._hkImageCanvas.style.display = 'none';
+      ST.mounted._hkImageRequest = null; pic.onload = null;
+      if (ST.mounted._hkImageCanvas) ST.mounted._hkImageCanvas.style.display = 'none';
       if (src && pic.getAttribute('src')) pic.style.display = 'block';
     }
-    if (opts.sleep) sleepEntity = opts.sleep;
-    var sl = sleepEntity && client.states[sleepEntity]; if (sl) asleep = sl.state === 'on';
+    if (opts.sleep) ST.sleepEntity = opts.sleep;
+    var sl = ST.sleepEntity && client.states[ST.sleepEntity]; if (sl) ST.asleep = sl.state === 'on';
     // never hidden while the tab is: a still picture costs nothing there, and
     // an inline hide stayed until the next tick -- the view's navy, then the
     // photo, each time the tab came back (2026-10-16)
@@ -6795,12 +6798,12 @@
   // fades as the page comes in -- one fade whatever the background is (a palette, a photo, a wallpaper), where
   // the sky's own layers would each melt at their own pace. Until the page is up, every repaint is the page the
   // swipe goes to (swiping), and its own repaint, when it is, paints the same. A tap still cuts.
-  var SWIPE = null;
+  ST.SWIPE = null;
   function swiping() {
-    if (!SWIPE) return undefined;
+    if (!ST.SWIPE) return undefined;
     var here = String(location.pathname).split('/')[2] || '';
-    if (Date.now() > SWIPE.until || here === SWIPE.seg) { SWIPE = null; return undefined; }
-    return SWIPE.path;
+    if (Date.now() > ST.SWIPE.until || here === ST.SWIPE.seg) { ST.SWIPE = null; return undefined; }
+    return ST.SWIPE.path;
   }
   // a still copy of the sky over it: its canvases' pictures drawn in, its motion stopped where it was
   function skyCover(el) {
@@ -6824,31 +6827,31 @@
   // (the copy, or null; false for the same background: nothing to fade -- hk-pageswipe.js skyFade fades it, as the
   // finger moves and on its way in, and swipeBack paints this page's own again under it when it goes back)
   function swipeCover(path) {
-    if (!mounted || !mounted.isConnected || !mounted.parentNode || offPanel()) return null;
+    if (!ST.mounted || !ST.mounted.isConnected || !ST.mounted.parentNode || offPanel()) return null;
     if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return null;
     var want = resolve(path), client = clientNow(), host = viewContainerEl();
     if (!want || !client || !host) return null;
     try { if (JSON.stringify(want) === JSON.stringify(resolve(swiping()))) return false; } catch (e) { /* fade */ }
-    var cover = skyCover(mounted);
-    SWIPE = { path: path, seg: String(path).split(/[?#]/)[0].split('/')[2] || '', until: Date.now() + 6000 };
-    snapNext = true;
+    var cover = skyCover(ST.mounted);
+    ST.SWIPE = { path: path, seg: String(path).split(/[?#]/)[0].split('/')[2] || '', until: Date.now() + 6000 };
+    ST.snapNext = true;
     window.hkSky.render(client, host, want);
     return cover;
   }
 
   function selfRender() {
     if (offPanel()) {
-      if (mounted && !mounted.isConnected) teardown();
+      if (ST.mounted && !ST.mounted.isConnected) teardown();
       return;
     }
     var want = resolve(swiping());
     if (want === null) {                          // not opted in: stay out --
       // -- but a sky left behind by a page that HAD one (Settings after a
       // dashboard) is torn down, not kept alive detached.
-      if (mounted && !mounted.isConnected) teardown();
+      if (ST.mounted && !ST.mounted.isConnected) teardown();
       return;
     }
-    if (want === false) { if (mounted) teardown(); return; }
+    if (want === false) { if (ST.mounted) teardown(); return; }
     var client = clientNow();
     if (!client) return;
     // hui-view-container satisfies container()'s very first test, so it is its
@@ -6897,24 +6900,24 @@
 
   // (and a Home Grid screen's Home, hk-home-grid-view, the same way)
   var ANNOUNCING = { 'custom:hk-grid-view': 1, 'custom:hk-home-grid-view': 1 };
-  var navWait = null;
+  ST.navWait = null;
   function onNav() {
-    if (navWait) { clearInterval(navWait); navWait = null; }
+    if (ST.navWait) { clearInterval(ST.navWait); ST.navWait = null; }
     if (offPanel()) { selfRender(); return; }      // tears a stale sky down; no poll
     var v = currentView(lovelaceCfg());
     if (v && ANNOUNCING[v.type]) {           // hk-view-ready will come
       // A hash change (a pop-up) is not a page change and announces nothing.
-      if (location.pathname !== mountedPath) navPending = Date.now();
+      if (location.pathname !== ST.mountedPath) ST.navPending = Date.now();
       return;
     }
     var before = viewEl();
     var tries = 0;
-    navWait = setInterval(function () {
+    ST.navWait = setInterval(function () {
       var now = viewEl();
       // a different element, with content in it, is the new page being up
       var swapped = now && now !== before && now.children.length > 0;
       if (swapped || ++tries > 33) {           // ~2s ceiling, then repaint anyway
-        clearInterval(navWait); navWait = null;
+        clearInterval(ST.navWait); ST.navWait = null;
         selfRender();
       }
     }, 60);
@@ -6927,13 +6930,13 @@
   // (headless), most of the sky's share. At the frame's start the build is
   // done, the paint's measuring IS the frame's layout, and the new palette
   // is still in the same frame as the page.
-  var readyFrame = 0;
+  ST.readyFrame = 0;
   function onViewReady() {
-    if (navWait) { clearInterval(navWait); navWait = null; }
-    if (readyFrame) return;
-    readyFrame = requestAnimationFrame(function () {
-      readyFrame = 0;
-      navPending = 0;
+    if (ST.navWait) { clearInterval(ST.navWait); ST.navWait = null; }
+    if (ST.readyFrame) return;
+    ST.readyFrame = requestAnimationFrame(function () {
+      ST.readyFrame = 0;
+      ST.navPending = 0;
       selfRender();
     });
   }
@@ -6944,10 +6947,10 @@
   // the old content -- the very artifact the event exists to prevent. So the
   // tick stands aside while a page change is pending. The 10s cap only matters
   // if an announcement is ever lost, and then it recovers instead of freezing.
-  var navPending = 0;
+  ST.navPending = 0;
   function stateTick() {
-    if (navPending && Date.now() - navPending < 10000) return;
-    navPending = 0;
+    if (ST.navPending && Date.now() - ST.navPending < 10000) return;
+    ST.navPending = 0;
     selfRender();
   }
 
@@ -6967,27 +6970,27 @@
   // So: poll every 60ms until the sky actually mounts, with a ceiling. The
   // 3000ms interval stays -- it is the backstop for a URL
   // that changes with no event, and for the state tick.
-  var firstWait = null;
+  ST.firstWait = null;
   function firstMount() {
-    if (firstWait) return;
+    if (ST.firstWait) return;
     var tries = 0;
-    firstWait = setInterval(function () {
+    ST.firstWait = setInterval(function () {
       selfRender();
       // `mounted` is the honest test. A view that does not want a sky never
       // sets it, so the ceiling is what stops the ramp there -- 60ms x 100 is
       // 6s of two cheap DOM lookups, against a cold start that reaches the
       // view in under 200ms.
-      if (mounted || ++tries > 100) {
-        clearInterval(firstWait);
-        firstWait = null;
+      if (ST.mounted || ++tries > 100) {
+        clearInterval(ST.firstWait);
+        ST.firstWait = null;
       }
     }, 60);
   }
 
-  var selfPoll = null;
+  ST.selfPoll = null;
   function selfDrive() {
-    if (selfPoll) return;
-    selfPoll = setInterval(stateTick, 3000);
+    if (ST.selfPoll) return;
+    ST.selfPoll = setInterval(stateTick, 3000);
     SH.onNavigate(onNav);
     window.addEventListener('popstate', onNav);
     window.addEventListener('hk-view-ready', onViewReady);
@@ -6996,7 +6999,7 @@
       window.hkSettings.onChange(function () { selfRender(); });
     }
     selfRender();
-    if (!mounted) firstMount();
+    if (!ST.mounted) firstMount();
   }
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', selfDrive);
@@ -7007,13 +7010,13 @@
   // Console helper: hkSkyAt(-3) previews dusk without waiting for it, and
   // returns the composited luminance so CAP can be checked at any hour.
   window.hkSkyAt = function (elev, opts) {
-    if (!mounted) return 'not mounted';
+    if (!ST.mounted) return 'not mounted';
     var s = Object.assign({ elev: elev, azim: 250, cover: 0.3, wind: 6,
                             cond: 'partlycloudy', fog: false,
                             wet: { kind: 'none', rate: 0 }, moon: 0.5,
                             animations: true, decorations: true, backdrop: null },
                           opts || {});
-    paint(mounted, s);
-    return 'raw ' + mounted._hkRaw + ' -> capped ' + mounted._hkL;
+    paint(ST.mounted, s);
+    return 'raw ' + ST.mounted._hkRaw + ' -> capped ' + ST.mounted._hkL;
   };
 })();
