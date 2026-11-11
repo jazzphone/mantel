@@ -533,6 +533,8 @@
     var kw = /^kw$/i.test(String((pw.attributes || {}).unit_of_measurement || '')) ? 1000 : 1;
     var sh = S.history(client, sid, 12, card, true), ph = m.phase ? S.history(client, m.phase, 12, card, true) : [];
     if (sh === null || ph === null) return { wait: true };
+    var live = (num(pw.state) || 0) * kw;
+    if (!sh.length) return { bare: true, watts: live };          // (no history this screen may read: the watts alone)
     // the machine's state at each change of either, oldest first, as stateOf reads it
     var ev = sh.map(function (r) { return { t: +r.t, k: sid, s: r.s }; }).concat(ph.map(function (r) { return { t: +r.t, k: m.phase, s: r.s }; }))
       .sort(function (a, b) { return a.t - b.t; });
@@ -549,8 +551,9 @@
     var hrs = HRS.filter(function (h) { return h * 3600000 >= now - start + 600000; })[0] || 12;
     var P = S.history(client, m.power, hrs, card);
     if (P === null) return { wait: true };
+    if (!P.length) return { bare: true, watts: live };
     // its watts as held between changes: the one before the start held from it, the live reading at the end
-    var live = (num(pw.state) || 0) * kw, pts = [], before = null;
+    var pts = [], before = null;
     P.forEach(function (r) { var t = +r.t; if (t <= start) before = r.v * kw; else if (t < now) pts.push({ t: t, v: r.v * kw }); });
     pts.unshift({ t: start, v: before !== null ? before : pts.length ? pts[0].v : live });
     pts.push({ t: now, v: live });

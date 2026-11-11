@@ -205,10 +205,10 @@
     _pwPart(o, tr, w, gh) {
       this._pwHtml = this._pwHtml || {};
       var L = window.hkLaundry, t = tr.t, unit = String((((this.client.states || {})[tr.m.power] || {}).attributes || {}).unit_of_measurement || '');
-      var watts = t.wait ? (o.watts || 0) * (/^kw$/i.test(unit) ? 1000 : 1) : t.watts;
+      var watts = t.wait ? (o.watts || 0) * (/^kw$/i.test(unit) ? 1000 : 1) : t.watts, still = t.wait || t.bare;
       var fmt = function (n) { return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ','); };
-      var h = '<div class="ph"><span class="pl">Power</span><b>' + fmt(watts) + ' W</b>' + (t.wait ? '' : '<span class="pk">' + (t.kwh < 10 ? t.kwh.toFixed(1) : fmt(t.kwh)) + ' kWh' + (w >= 300 ? ' this load' : '') + '</span>') + '</div>';
-      if (!t.wait && gh >= 28 && t.bins.length) {
+      var h = '<div class="ph"><span class="pl">Power</span><b>' + fmt(watts) + ' W</b>' + (still ? '' : '<span class="pk">' + (t.kwh < 10 ? t.kwh.toFixed(1) : fmt(t.kwh)) + ' kWh' + (w >= 300 ? ' this load' : '') + '</span>') + '</div>';
+      if (!still && gh >= 28 && t.bins.length) {
         var W = Math.max(40, Math.round(w)), H = Math.round(Math.min(gh, 90)), max = Math.max(500, t.peak * 1.1), span = Math.max(1, t.end - t.start);
         var X = function (x) { return ((x - t.start) / span * W).toFixed(1); }, Y = function (x) { return (H - 2 - Math.min(1, x / max) * (H - 8)).toFixed(1); };
         var groups = [], svg = '';
