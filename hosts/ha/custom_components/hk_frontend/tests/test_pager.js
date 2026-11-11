@@ -58,8 +58,8 @@ ok('thermostats: one per climate entity, in room order (no room last)',
    th[0].card.entity === 'climate.kitchen' && th[0].area === 'kitchen', ids(th));
 var sp = G.pages({ card: 'now_playing', size: 'L', opts: { speaker: 'tablet_room' }, pages: { source: 'speakers' } }, ctx);
 ok('speakers: one per speaker or group', ids(sp).join() === 'media_player.kitchen,media_player.den,media_player.downstairs' &&
-   sp[1].card.entity === 'media_player.den', ids(sp));
-ok('...the page\'s option over the block\'s own (tablet_room here)', sp[0].card.entity === 'media_player.kitchen');
+   sp[1].card.music_at === 'media_player.den' && sp[1].card.meta_card.entity_from.music_at === 'media_player.den', ids(sp));
+ok('...the page\'s option over the block\'s own (tablet_room here)', sp[0].card.music_at === 'media_player.kitchen');
 ['W', 'T', 'L', 'XL'].forEach(function (size) {
   var per = { W: 2, T: 2, L: 4, XL: 6 }[size], sc = G.pages({ card: 'scenes', size: size, pages: { source: 'scenes' } }, ctx);
   ok('scenes at ' + size + ': ' + per + ' to a page, as many pages as that takes',
