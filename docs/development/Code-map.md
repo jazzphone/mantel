@@ -372,6 +372,7 @@ The decisions both hosts make the same way (Rule 2), in Python.
 - **hk_core/settings/**
   - `changes.py` — THE SETTINGS PAGE'S WRITES
   - `home_grid.py` — HOME GRID (docs/phase11/HOME-GRID.md)
+  - `kind_match.py` — What a kind finds in the house, once (Status & Chips)
   - `kinds.py` — STATUS & CHIPS' KINDS
   - `looks.py` — LOOKS (2026-10-30, docs/phase11/HOMEVIEW-LOOK.md "Looks")
   - `model.py` — THE DASHBOARD SETTINGS
