@@ -26,6 +26,12 @@
       showNext = K.showNext;
     });
 
+    // WHAT IT OWNS ON ST (phase 25, A: others read these; only this file writes them; tools/state_owners.py)
+    ST.ly = null;
+    ST.enCtl = null;
+    ST.enShowing = false;
+    ST.TW = null;
+
     // ITS OWN STATE (phase 25, A: off the shared ST, which only this file used; tools/state_owners.py)
     /** @type {any} */ var lyRun = 0;
     /** @type {any} */ var lyLoad = null;

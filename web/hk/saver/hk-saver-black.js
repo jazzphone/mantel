@@ -28,6 +28,11 @@
       noteDrawn = K.noteDrawn; schedule = K.schedule; start = K.start; stop = K.stop; tellOthers = K.tellOthers;
     });
 
+    // WHAT IT OWNS ON ST (phase 25, A: others read these; only this file writes them; tools/state_owners.py)
+    ST.cfg = null;    // the config in force (null: none here)
+    ST.hkOn = false;
+    ST.litAt = 0;
+
     // ITS OWN STATE (phase 25, A: off the shared ST, which only this file used; tools/state_owners.py)
     /** @type {any} */ var hkRun = 0;
     /** @type {any} */ var hkAcked = false;

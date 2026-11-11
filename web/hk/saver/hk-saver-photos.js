@@ -25,6 +25,10 @@
       slideShow = K.slideShow; start = K.start; TM = K.TM; WX = K.WX;
     });
 
+    // WHAT IT OWNS ON ST (phase 25, A: others read these; only this file writes them; tools/state_owners.py)
+    ST.lyPhotoLum = null;
+    ST.lyPhoto = null;
+
     // ITS OWN STATE (phase 25, A: off the shared ST, which only this file used; tools/state_owners.py)
     /** @type {any} */ var moRand = null;
 

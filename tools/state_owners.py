@@ -5,6 +5,7 @@
     tools/state_owners.py --check    # is it fresh, and is every name written only by its owner? (tests/test_state_owners.py)
     tools/state_owners.py --json     # the uses, one per line: file, name, kind, line, function
     tools/state_owners.py --own hk-saver-draw bigFor bigRun   # names only that part uses: off ST, into its own vars
+    tools/state_owners.py --init hk-saver-draw mode scn       # names only it writes: their starting values move to it
 
 Phase 24 cut hk-saver.js into a shell and ten parts (tools/split_js.py) and turned the variables they share into the
 properties of one object, `ST`. The cut moved the tangle into more files; it did not undo it. Part A gives each piece of
@@ -223,8 +224,10 @@ def facts(path: Path, part: bool) -> dict:
     return json.loads(r.stdout)
 
 
-def own(owner: str, names: list[str], root: Path = ROOT) -> dict[str, str]:
-    """The files' new texts with `names` off ST and in `owner`'s own vars; raises SystemExit naming what refuses."""
+def own(owner: str, names: list[str], root: Path = ROOT, keep: bool = False) -> dict[str, str]:
+    """The files' new texts with `names` off ST and in `owner`'s own vars; raises SystemExit naming what refuses.
+    With `keep` (--init): the names stay on ST, read by whoever reads them; only their starting values move from the
+    shell's top to the owner's opening, so the owner is their one writer."""
     found = uses(root)
     all_files = files(root)
     target = owner_file(owner, root)
@@ -239,12 +242,13 @@ def own(owner: str, names: list[str], root: Path = ROOT) -> dict[str, str]:
             problems.append(f"ST.{name}: not used anywhere")
             continue
         init = [st for st in shell_facts["statements"] if st.get("st") == name]
-        others = [u for u in mine if u["file"] != target and not (u["file"] == shell and u["kind"] == "write" and u["top"])]
+        others = [u for u in mine if u["file"] != target and not (u["file"] == shell and u["kind"] == "write" and u["top"])
+                  and (not keep or u["kind"] == "write")]
         if others:
             problems.append(f"ST.{name}: also used by {sorted({short(u['file']) + ':' + str(u['line']) for u in others})}")
         if len(init) > 1:
             problems.append(f"ST.{name}: the shell sets its starting value {len(init)} times")
-        if (clash := [short(f) for f in all_files if name in ids[f]]):
+        if not keep and (clash := [short(f) for f in all_files if name in ids[f]]):
             problems.append(f"ST.{name}: `{name}` is already an identifier in {clash}")
         if init and target != shell:
             code = re.sub(r"'(?:[^'\\]|\\.)*'|\"(?:[^\"\\]|\\.)*\"", "''", init[0]["value"])   # (not a string's words)
@@ -256,8 +260,8 @@ def own(owner: str, names: list[str], root: Path = ROOT) -> dict[str, str]:
         raise SystemExit("--own refused:\n  " + "\n  ".join(problems))
     out = dict(texts)
     # 1. every ST.x in the owner (and, for the shell, its starting value's own statement) becomes x
-    spans = sorted(((u["start"], u["end"], u["name"]) for u in found if u["name"] in names and u["file"] == target),
-                   reverse=True)
+    spans = sorted(((u["start"], u["end"], u["name"]) for u in found if u["name"] in names and u["file"] == target
+                    and not keep), reverse=True)
     text = out[target]
     for a, b, name in spans:
         # (the shell's own: its starting value's statement becomes the declaration where it stands)
@@ -272,7 +276,8 @@ def own(owner: str, names: list[str], root: Path = ROOT) -> dict[str, str]:
     for name in sorted(names, key=lambda n: -(inits[n]["start"] if inits[n] else -1)):
         init = inits[name]
         if not init:
-            moved_lines.append((name, f"/** @type {{any}} */ var {name};", ""))
+            if not keep:
+                moved_lines.append((name, f"/** @type {{any}} */ var {name};", ""))
             continue
         ls = shell_text.rindex("\n", 0, init["start"]) + 1
         le = shell_text.index("\n", init["end"])
@@ -282,7 +287,8 @@ def own(owner: str, names: list[str], root: Path = ROOT) -> dict[str, str]:
             raise SystemExit(f"--own refused: ST.{name}'s starting value shares its line with `{cast}`")
         if after.strip() and not after.strip().startswith("//"):
             raise SystemExit(f"--own refused: ST.{name}'s starting value shares its line with `{after.strip()}`")
-        moved_lines.append((name, f"/** @type {{any}} */ var {name} = {init['value']};", after.strip()))
+        moved_lines.append((name, f"ST.{name} = {init['value']};" if keep else f"/** @type {{any}} */ var {name} = {init['value']};",
+                            after.strip()))
         shell_text = shell_text[:ls] + shell_text[le + 1:]
     out[shell] = shell_text
     # 3. the owner declares them after its opening statements (the takes and the binders), in the shell's order
@@ -292,7 +298,9 @@ def own(owner: str, names: list[str], root: Path = ROOT) -> dict[str, str]:
         raise SystemExit(f"--own refused: {owner} has no opening takes to put its state after")
     moved_lines.sort(key=lambda m: inits[m[0]]["start"] if inits[m[0]] else 1 << 30)
     width = max(len(decl) for _, decl, _ in moved_lines)
-    block = ["", "", "    // ITS OWN STATE (phase 25, A: off the shared ST, which only this file used; tools/state_owners.py)"]
+    block = ["", "", "    // ITS OWN STATE (phase 25, A: off the shared ST, which only this file used; tools/state_owners.py)"
+             if not keep else
+             "    // WHAT IT OWNS ON ST (phase 25, A: others read these; only this file writes them; tools/state_owners.py)"]
     block += [f"    {decl}" + (f"{' ' * (width - len(decl))}  {c}" if c else "") for _, decl, c in moved_lines]
     text = out[target]
     out[target] = text[:at] + "\n".join(block) + text[at:]
@@ -305,17 +313,20 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--json", action="store_true", help="print every use, one per line")
     ap.add_argument("--own", nargs="+", metavar=("PART", "NAME"),
                     help="move these names, used by PART alone, off ST into PART's own vars (and rewrite the page)")
+    ap.add_argument("--init", nargs="+", metavar=("PART", "NAME"),
+                    help="these names, written by PART alone, stay on ST: their starting values move to PART")
     args = ap.parse_args(argv)
-    if args.own:
-        if len(args.own) < 2:
-            ap.error("--own PART NAME...")
-        part, names = args.own[0], args.own[1:]
-        for f, text in own(part, names).items():
+    if args.own or args.init:
+        got = args.own or args.init
+        if len(got) < 2:
+            ap.error("--own/--init PART NAME...")
+        part, names = got[0], got[1:]
+        for f, text in own(part, names, keep=bool(args.init)).items():
             if (ROOT / f).read_text() != text:
                 (ROOT / f).write_text(text)
                 print(f"rewrote {f}")
         OUT.write_text(render())
-        print(f"{len(names)} names off ST into {part}; wrote {OUT.relative_to(ROOT)}")
+        print(f"{len(names)} names {'started by' if args.init else 'off ST into'} {part}; wrote {OUT.relative_to(ROOT)}")
         return 0
     if args.json:
         for u in uses():

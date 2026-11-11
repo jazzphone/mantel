@@ -144,9 +144,7 @@
     return conf || null;
   }
 
-  ST.cfg = null;              // the config in force (null: none here)
   ST.on = false;              // showing (or fading in)
-  ST.startedBy = '';
   ST.host = null;
   ST.root = null;
   ST.lastInput = Date.now();
@@ -160,17 +158,13 @@
   ST.listKey = '';
   ST.layer = 0;               // which of the two photo layers is on top
   ST.displayLayer = null;
-  ST.fadeDone = null;
   ST.photoRun = 0;
   // the screensaver's fade in, waiting for its first photo (start)
   ST.entrance = null;
   var ENTRANCE_MAX = 1500;
   ST.coverT = null;
-  ST.coveredPage = null;
   // THE FORECAST (1.3): the live sky over the season's land (hkSky.scene),
   // with the forecast band -- when a screen asks for it, or has no photos
-  ST.mode = 'photos';
-  ST.fscene = null;
   ST.fband = null;
   ST.fSig = '';
   // the forecast sky's last reading (hk-sky.js read()), for Big Weather's planted time: null without a landscape
@@ -180,7 +174,6 @@
   ST.paneEl = null;
   ST.paneSc = null;
   ST.paneCard = null;
-  ST.paneW = 0;
   /** @type {any} */ var paneResetT = null;
   // ...the side it was laid out for, and the Side Pane drawing other
   // sections in it (cfg.pane_list; hk-sidepane.js), with its tick
@@ -211,7 +204,6 @@
   /** @type {any} */ var unsubCards = null;
   ST.cards = [];
   ST.shown = 0;
-  ST.failed = 0;
   ST.lastPhoto = null;
   ST.force = false;           // hkSaver.force(true): ignore the user (tests)
   ST.asked = false;           // showMusic(): somebody asked for the music full screen -- shown whoever the screensaver is for
@@ -706,7 +698,6 @@
   // BIG WEATHER (2026-10-30; the Forecast's Layout: Big): hk-saverfaces.js's, in the forecast's layer over its sky,
   // wherever the forecast shows on its own -- Show: Forecast, the slide among the photos, no photos -- never under a
   // clock (Behind the Clock: Forecast keeps the forecast's own details)
-  ST.bigCtl = null;
   // ------------------------------------------------------------ the slide corner
   // THE SLIDE CORNER (2026-11-02, phase 13: docs/phase13/SCREENSAVER-UNIFIED.md, "Slides: the slide corner"; the owner:
   // "A slide needs only the Time, Date, Weather and House Status, and only where they apply: the Weather slide needs no
@@ -715,7 +706,6 @@
   // Status at the top right. Its time takes the Look's face's font and color where the face has words (decision 4).
   // WHAT IT COSTS A WALL TABLET: four pieces made once, their words on the minute and when the house changes (at most
   // every 2 s), hidden by opacity with the slide; nothing moves.
-  ST.scn = null;
   // ------------------------------------------------------------ the layout
   // THE LAYOUT (2026-11-01, the owner: "Lets do the editor!"; docs/phase12/SCREENSAVER-EDITOR.md): the Screensaver
   // editor's -- one big element and widgets in zones -- over the background the Show's own path drew. The big element
@@ -727,14 +717,11 @@
   // WHAT IT COSTS A WALL TABLET: nothing moves but what moved before (a face's second hand, the clock's own tick);
   // the plan is arithmetic, made again on a resize, the minute, the sky's reading or the pane -- coalesced -- and the
   // widgets redraw only when their words change.
-  ST.ly = null;
   // THE SCREEN'S INK (2026-11-02, the owner: "change the colors based on luminance for whatever is in the
   // background... I don't want some widgets being white and some being black on the screen at the same time"): one ink
   // for every piece -- the layout's White or Black, or Auto: dark on a light ground (a light face's, [cklight]; a
   // light photo's, by its luminance), else white
-  ST.lyPhotoLum = null;
   // the photo's title, for the Photo Title widget: the album and the year, as Titles drew them
-  ST.lyPhoto = null;
 
   // ------------------------------------------------------------ the clocks
   // SHOW: CLOCK (2026-10-13): a full-screen clock (hk-saverclock.js, loaded
@@ -743,7 +730,6 @@
   // turned into their blurred, dimmed copies ([ckphotos]: the cheap copy,
   // never a blur on the full photo). The corner cards stay: weather, what's
   // playing, the timers and Home Status, each as Over the Clock says.
-  ST.ckCtl = null;
   // NIGHT MODE (2026-10-13): StandBy's -- in the dark, the clock and its
   // corners a dim red on black. Always, or At Night (from .. to, across
   // midnight). Nothing behind the clock is drawn meanwhile (the photos, the
@@ -758,12 +744,9 @@
   // so no hand-off ever passes through black. Behind its text: the photo's
   // blurred copy, the sky held still and darkened, or (over a clock's own
   // background) a gradient of its own. The rings draw once it has arrived.
-  ST.enCtl = null;
-  ST.enShowing = false;
 
   // ------------------------------------------------------------ a timer's last minute
   // THE LAST MINUTE (phase 21): hk-saver-helpers.js timerHold decides; these are what it does here
-  ST.TW = null;
 
   // ------------------------------------------------------------ additional screens
   // ADDITIONAL SCREENS (2026-10-14): over the forecast or the clock, one
@@ -773,13 +756,11 @@
   // the black, or on a hidden page; the timer just goes round again.
   ST.exT = null;
   ST.exKind = '';
-  ST.exLast = '';
   ST.exOutT = null;
 
   ST.muShowing = false;
   ST.lastSlide = '';
 
-  ST.pnl = null;               // { p: the panel, view, idleT, doneT, src, anim }
   // A TOUCH ON THE SCREENSAVER'S OWN CONTROLS (the music, its panel, a photo
   // stepped), told to the integration as such: Sleep Screen reads it as the
   // photos in use, not somebody at the dashboard (sleep_engine.py
@@ -812,7 +793,6 @@
   // (Listened for on any page: nothing else fires them.)
   ST.ksSaver = false;
   ST.ksOff = false;
-  ST.hkOn = false;
   ST.downOpts = null;
   // OUR OWN CURTAIN UNDER THE KIOSK'S BLACK (2026-10-09). As the black
   // comes down the tablet draws the whole page again, and its largest layers
@@ -829,7 +809,6 @@
   // under it is not pressed), and as it fades the backlight comes up with it
   // (onFade). Out of HK's own black it comes down sooner, CURTAIN_HOLD_HK: the
   // page was drawn under it all along.
-  ST.curtain = null;
   ST.curtainRun = 0;
 
   // ------------------------------------------------------------ HK's own black
@@ -861,7 +840,6 @@
   // wake went through black: dashboard, black, dashboard (screen-recorded on
   // the Loft, a real sleep). Such a start is taken back instead, as if it
   // had never begun, and asks again once the black has ended (start()).
-  ST.shownAt = 0;
   // UNDER THE KIOSK'S BLACK, THE DASHBOARD COMES BACK -- whatever had been
   // shown (2026-10-09, with Kiosk Satellite's "Pause dashboard during
   // screensaver" OFF on every tablet). Off, the tablet keeps the page it
@@ -872,7 +850,6 @@
   // black, then the fade (screen-recorded on the Loft). The photos come back
   // after the black ends if they are still wanted (start(): LIT_GRACE).
   ST.DARK_UNDER_BLACK = false;
-  ST.litAt = 0;
 
   // compared as written: a block made from the settings is a new object
   // every time
@@ -880,7 +857,6 @@
   ST.resumedAt = 0;
 
   // (the class: the shell registers it, hk-saver.js runParts -- a part registers no element)
-  ST.PageCard = null;
 
   // ------------------------------------------------------------ the loop
   // The config follows the page: on each view change, and on each new client

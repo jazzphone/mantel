@@ -31,6 +31,13 @@
         takeover = K.takeover, teardown = K.teardown, TM = K.TM, tmWatch = K.tmWatch, updateBand = K.updateBand,
         within = K.within, writeSwitch = K.writeSwitch, WX = K.WX;
 
+    // WHAT IT OWNS ON ST (phase 25, A: others read these; only this file writes them; tools/state_owners.py)
+    ST.startedBy = '';
+    ST.fadeDone = null;
+    ST.coveredPage = null;
+    ST.failed = 0;
+    ST.shownAt = 0;
+
     // ITS OWN STATE (phase 25, A: off the shared ST, which only this file used; tools/state_owners.py)
     /** @type {any} */ var listAt = 0;
     /** @type {any} */ var listing = null;

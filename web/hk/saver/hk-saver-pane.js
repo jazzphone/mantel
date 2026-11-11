@@ -24,6 +24,11 @@
       lightSoon = K.lightSoon; lit = K.lit; litNow = K.litNow; panelDone = K.panelDone;
     });
 
+    // WHAT IT OWNS ON ST (phase 25, A: others read these; only this file writes them; tools/state_owners.py)
+    ST.paneW = 0;
+    ST.curtain = null;
+    ST.PageCard = null;
+
     // ITS OWN STATE (phase 25, A: off the shared ST, which only this file used; tools/state_owners.py)
     /** @type {any} */ var paneSide = 'right';
     /** @type {any} */ var sidePane = null;

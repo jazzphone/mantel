@@ -22,6 +22,13 @@
       showNext = K.showNext; slideView = K.slideView; takeover = K.takeover; TM = K.TM; WX = K.WX;
     });
 
+    // WHAT IT OWNS ON ST (phase 25, A: others read these; only this file writes them; tools/state_owners.py)
+    ST.mode = 'photos';
+    ST.fscene = null;
+    ST.bigCtl = null;
+    ST.scn = null;
+    ST.ckCtl = null;
+
     // ITS OWN STATE (phase 25, A: off the shared ST, which only this file used; tools/state_owners.py)
     /** @type {any} */ var fTick = null;
     /** @type {any} */ var bigRun = 0;

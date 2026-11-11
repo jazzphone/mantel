@@ -33,6 +33,10 @@
       sigOf = K.sigOf; slideView = K.slideView; stop = K.stop; upNextPiece = K.upNextPiece; volFrom = K.volFrom;
     });
 
+    // WHAT IT OWNS ON ST (phase 25, A: others read these; only this file writes them; tools/state_owners.py)
+    ST.exLast = '';
+    ST.pnl = null;   // { p: the panel, view, idleT, doneT, src, anim }
+
     // ITS OWN STATE (phase 25, A: off the shared ST, which only this file used; tools/state_owners.py)
     /** @type {any} */ var exBefore = '';
     /** @type {any} */ var saverSent = 0;
