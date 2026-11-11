@@ -5,6 +5,12 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+**Changed**
+- **HK's three biggest settings files in parts** (phase 25): the HK Settings module (`window.hkSettings`), the settings page's screen pages and the Music Library card, each shipped with its parts in one file as the others are. Nothing they do changes.
+
+**Fixed**
+- **A file in parts is waited for by its folder and name**: two of them share a file name (the HK Settings module and the settings page are both `hk-settings.js`), and a page that imports one waits until its own parts have run, never the other's.
+
 ## 1.59.2 - 2026-11-11
 
 **Changed**
