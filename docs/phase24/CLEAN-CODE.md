@@ -868,3 +868,79 @@ output and the main suite were unchanged after each folder.
   a file not named may never cross a limit, and `--update` can't add one. The size list holds `hk-saver.js`,
   `hk-detail.js` and `model.py`; the width list those, `modules/hk-settings.js` and `hk-media-now.js`.
   `test_web_sources.py`'s `SHELL_LINES` keeps the saver's 4,600.
+
+### The review (Opus, read-only) and what it changed
+
+No defect was found in what shipped: no committed manifest or state rewrite hits any hole it found. It showed the
+tool could accept three kinds of wrong split and the state rewrite one, and two readiness behaviors cost time or
+recovery. All are fixed, with the review's counter-examples as tests:
+- **Readiness waited for every started shell.** `hk-loader` starts the sky's, the screensaver's, the menu's and the Side
+  Pane's files during the bootstrap, so Home's first draw also waited for their parts; with a part that keeps failing,
+  for the loader's ~30 s of retries. Now each importer waits for the file it imported, by name (every label is its
+  file's name: a test).
+- **Settings lost its "couldn't load" message** when a part never came (the rejection was swallowed and `F.use(K)`
+  threw outside the `try`). `boot()` now waits for its own split modules, unswallowed.
+- **The tool:** a direct use inside a callback or an IIFE of a statement that runs at load is refused; a moved or
+  waiting member and an at-once statement after it may not both touch an object one of them changes (the state object
+  per property); only real mutators count as changes; the state rewrite refuses a name declared twice in its scope.
+  Every manifest re-checked: none trips.
+- On Home Assistant the strategy element is defined once its parts have run (it was at once). HA waits up to 5 s for a
+  strategy; on a slow first fetch `recoverLate()` rebuilds the page. Not changed: noted for the owner.
+
+### F: the last proof (2026-11-11, `239f194f`)
+
+- **The house twin found one regression the other gates missed:** the Side Pane, on a page where no card had loaded the
+  calendar, imported `hk-calendar.js` and drew before its parts had run, then showed "Reading the calendars..." for
+  minutes (Kitchen, Living Room, Loft, both Bathrooms and the Master Bedroom HomeViews). Fixed (it waits for the file's
+  parts), and a test now fails any `import()` of a split file that doesn't wait. Re-rendered: all ten screens with a
+  Side Pane show the day's events.
+- **Pictures by eye**, the parent rendered minutes before the final tree (`b3`), contact sheets of all 40 gallery shots
+  and 40 house twin screens: the same but for the clock, the energy figures and the sky's moving leaves and clouds. The
+  sky picks its scenery by the date (a canopy on November 10, none on the 11th: the parent does the same).
+- `sheet_review.py`: all 315 sheet-and-size measurements identical to the parent's.
+- jsc suites' output identical (169 lines); main suite 7,169 passed; HK Frontend's Python suite 797 passed; Mantel
+  Link's package builds and its tests pass (81).
+- `ci.py full --all`: 80 passed, 1 failed (`types-py`: the parent's two `hk_core/laundry.py` mypy errors, not this run's).
+  Two load flakes in earlier full runs passed alone on the parent and the final tree (`music-pane-check-webkit`,
+  `saver-shows-check-3of12`: WebKit's "access control checks" page error).
+- `split_race_check.py` (parts held back 300 ms, no waiting for `__hkSplitDone`): 8 of 8 pages pass in both engines,
+  and **its control (readiness off) fails**, as it must now that core cards are shells.
+- First load (median of five, Chromium / WebKit, ms to first draw): Home Grid 97 → 94 / 163 → 141; Home 82 → 83 /
+  139 → 118; Settings 111 → 90 / 155 → 125; screensaver 99 → 93 / 107 → 99. More requests (the parts, in parallel:
+  Home Grid 150 → 207), no slower draw anywhere.
+- `tsc` baseline 814 → 788; mypy and ruff at the parent's.
+
+## Morning report (2026-11-11)
+
+**What landed** (pushed to `main`; nothing released, the house untouched):
+- **18 big files cut by the tool into shells and parts**, every move proved text for text: hk-energy, hk-cameras,
+  hk-calendar, hk-home, hk-headers, hk-tile, hk-chip, hk-layout, hk-weather, hk-menu, hk-sidepane, hk-strategy,
+  hk-settings-model, hk-settings-features, hk-grid-editor, hk-sky, hk-base (web), and `music.py` (Python siblings).
+  **Files over 2,000 lines: 22 → 4.** The largest new file is 1,789 lines (`hk-base-card-core.js`).
+- **Readiness:** a page waits for a split file's parts before it uses it; the core files' parts download with the page.
+- **Three state rewrites** (hk-sky 40 names, hk-base 26, the grid editor's `VIEW`), proved by running them backwards.
+- **Width:** 1,914 lines over 200 characters → 53, all in the four held files and `hk-media-now.js`; 80 more are
+  listed exceptions that can't break without changing a value (templates, regular expressions, code inside test strings).
+- **Shared:** 224 lines of exact copies between the hosts moved into `hk_core` (`kind_match`, `accessory_fields`,
+  `pairing`, `link/tv_stream`, `link/linked_reserved`).
+- **New tools:** `split_js.py --report/--state/--write-loaders` and its new modes and refusals, `split_py.py`,
+  `rewrap.py`, `code_map.py` (`docs/development/Code-map.md`), `shots_compare.py`, `first_load.py`,
+  `split_race_check.py`. Rule 8 and the docs say how to use them.
+
+**What was dropped, and why** (each held at its size by a named list):
+- `hk-saver.js` (4,477): its phase 18 split's generated `kit()`/`runParts()` were edited by hand since; undoing them is
+  a translation with renames, not a move. The state rewrite as specified also refuses its shadowed names.
+- `hk-detail.js` (2,895): adopting its hand-split sheets merges their scopes, and two names are declared in two sheets.
+- `hk_core/settings/model.py` (3,737): its sections call one another; any order of submodules is an import cycle.
+- `modules/hk-settings.js` (2,026): 83 files read `window.hkSettings` the moment they load, and everything in it is
+  reachable from there; any part would arrive too late. (Under the 2,300 warning; 26 lines over the 2,000 target.)
+- The JavaScript exact copies (29 groups, 269 lines): reported in `SHARED-REPORT.md`, not moved (each is closed over its
+  own file's names, and sharing needs a load order the files don't have).
+
+**For the owner:**
+1. `docs/phase24/SHARED-REPORT.md`: the drifted copies (the real one is `Hiding.snapshot`, where the server filters bad
+   ids and HK Frontend doesn't) and the JavaScript copies, each with a recommendation.
+2. The release, when you're ready: Mantel, HK Frontend, and Mantel Link (its shared code changed).
+3. On Home Assistant, the strategy element and the core cards are defined once their parts have run, a round trip
+   later than before (HA has no preloads); worth a look on a slow tablet.
+4. The four held files above, if you want them cut: each needs a code change (renames, late imports) first.
