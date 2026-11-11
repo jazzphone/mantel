@@ -1,17 +1,16 @@
 // hk-sheet-sensor.js - The sensor sheet (its history chart, the energy device sheet) and the binary-sensor, state and text-sensor sheets.
 //
 // PART OF THE DETAIL SHEETS (hk-detail.js). Not a card and not run on its own: it registers one
-// function, which hk-detail.js calls with the shared kit K once every sheet file has loaded (the
-// order is its SHEETS list). What this file uses from the shell or from an earlier file it takes
+// function, which hk-detail.js calls with the shared kit K once every part has loaded (the
+// order is its PARTS list). What this file uses from the shell or from an earlier file it takes
 // from K at the top; what the shell or a later file uses of it, it hands back at the bottom.
 (function () {
   'use strict';
   (window.hkSheets = window.hkSheets || {})['hk-sheet-sensor'] = function (K) {
     var at = K.at, axesChart = K.axesChart, C = K.C, CHEV = K.CHEV, colourName = K.colourName,
         downsample = K.downsample, dur = K.dur, esc = K.esc, gone = K.gone, lookFor = K.lookFor, num = K.num,
-        Panel = K.Panel, PANEL_CSS = K.PANEL_CSS, scrub = K.scrub, segPick = K.segPick,
-        SHORT_MQ = K.SHORT_MQ, SP = K.SP, spanTo = K.spanTo, stOf = K.stOf, timeRow = K.timeRow,
-        unavailable = K.unavailable;
+        Panel = K.Panel, PANEL_CSS = K.PANEL_CSS, scrub = K.scrub, segPick = K.segPick, SHORT_MQ = K.SHORT_MQ,
+        SP = K.SP, spanTo = K.spanTo, stOf = K.stOf, timeRow = K.timeRow, unavailable = K.unavailable;
 
     // ------------------------------------------------------------ sensor
     // The one sheet (with the thermostat) that carries information: the
@@ -19,24 +18,32 @@
     // high. An energy meter draws its use as bars (per hour, per day) with a
     // total instead.
     var RANGES = [['hour', 'Hour'], ['day', 'Day'], ['week', 'Week'], ['month', 'Month']];
+
     var RANGE_H = { hour: 1, day: 24, week: 168, month: 720 };
+
     // WEEK AND MONTH ARE CALENDAR PERIODS (the user, 2026-10-12), stepped
     // back with ‹ › as the Energy page's are: half a year of weeks, a year
     // of months. Hour and Day stay the last hour and the last 24 hours.
     var MAX_BACK = { week: 26, month: 12 };
+
     var CHEV_L =
       '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 ' +
       '7"/></svg>';
+
     var CHEV_R =
       '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 ' +
       '7"/></svg>';
+
     function calTz() { return window.hkStats && window.hkStats.tz ? window.hkStats.tz() : undefined; }
+
     function monthName(t) {
       var o = { month: 'long', timeZone: calTz() };
       if (new Date(t).getFullYear() !== new Date().getFullYear()) o.year = 'numeric';
       return new Date(t).toLocaleDateString([], o);
     }
+
     function shortDate(t) { return new Date(t).toLocaleDateString([], { month: 'short', day: 'numeric', timeZone: calTz() }); }
+
     // "This Week", "Last Week", "Week of Sep 27"; "This Month", "Last Month", "August"
     function periodName(r, back, start) {
       var wk = r === 'week';
@@ -44,11 +51,13 @@
       if (back === 1) return wk ? 'Last Week' : 'Last Month';
       return wk ? 'Week of ' + shortDate(start) : monthName(start);
     }
+
     // "Oct 11 – 17", "Sep 27 – Oct 3", "Oct 1 – 31"
     function periodRange(a, b) {
       var F = window.hkStats.fields, fa = F(a), fb = F(b);
       return shortDate(a) + ' \u2013 ' + (fa.month === fb.month ? fb.day : shortDate(b));
     }
+
     // the figures under a meter's week or month (the row over the ranges
     // already names the period, so these stay short enough for a phone)
     function calNames(cal) {
@@ -56,10 +65,12 @@
       return [cal.cur ? 'So Far' : 'Total', 'Daily Average',
               cal.cur ? (wk ? 'Last Week by Now' : 'Last Month by Now') : (wk ? 'Week Before' : monthName(cal.P1.start))];
     }
+
     function isEnergy(s) {
       var a = s.attributes || {};
       return a.state_class === 'total_increasing' || a.state_class === 'total' || a.device_class === 'energy';
     }
+
     function fmtNum(v, s) {
       var a = s.attributes || {};
       var unit = a.unit_of_measurement || '';
@@ -67,6 +78,7 @@
       if (/°|%/.test(unit)) d = Math.abs(v) >= 100 ? 0 : 1;
       return Number(v).toLocaleString(undefined, { maximumFractionDigits: d, minimumFractionDigits: 0 });
     }
+
     // AN ENERGY DEVICE'S SHEET (the Energy feature's plan, the settings
     // feed's `energy`): the power sensor or the meter of a device on the
     // Energy page. Its sheet adds today's use, its cost and the usual day,
@@ -76,10 +88,12 @@
       var HS = window.hkSettings, p = HS && HS.get('energy', null);
       return p && typeof p === 'object' ? p : null;
     }
+
     function energyRec(id) {
       var p = energyPlan();
       return p && p.devices && id ? p.devices[id] || null : null;
     }
+
     function priceOf(h, P, today) {
       var T = (P && P.total) || {};
       if (typeof T.price === 'number') return T.price;
@@ -91,9 +105,11 @@
       }
       return null;
     }
+
     // AN AMOUNT IN THE HOUSE'S CURRENCY (Settings -> System -> General):
     // "$1.24", "€1,24"; a currency the browser cannot name is its code
     function money(h, v, digits) { return window.hkCards.money(h, v, digits); }
+
     var EN_CSS = [
       '.en{display:flex;flex-direction:column;gap:12px}',
       '.en[hidden]{display:none}',
@@ -117,6 +133,7 @@
       '  font-weight:600;cursor:pointer;background:rgba(255,255,255,0.14);color:' + window.hkCards.v('ink') + '}',
       '.en .sw.on{background:#30d158;color:#fff}'
     ].join('');
+
     function wattsText(h, id) {
       var st = stOf(h, id);
       if (!st || !window.hkChart) return '';
@@ -566,6 +583,7 @@
       lock: ['Locked', 'Unlocked'], smoke: ['Clear', 'Detected'], gas: ['Clear', 'Detected'], problem: ['OK', 'Problem'],
       connectivity: ['Disconnected', 'Connected'], plug: ['Unplugged', 'Plugged in'], power: ['Off', 'On'], battery: ['Normal', 'Low']
     };
+
     function sinceText(iso) {
       var t = Date.parse(iso);
       if (!isFinite(t)) return '';
@@ -574,6 +592,7 @@
       if (d.toDateString() === today.toDateString()) return 'Since ' + time;
       return 'Since ' + d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ', ' + time;
     }
+
     // THE SENSOR'S OWN GLYPH, large, in the pill's colour while it is on /
     // open (the state icon follows the state: a door open or shut), then the
     // word, "Since", and a card for the last 24 hours with its times along
@@ -604,14 +623,18 @@
       '  .gw .gc{width:100px;height:100px;border-radius:50px}.gw hk-state-icon{--mdc-icon-size:48px}',
       '  .big.w{font-size:44px}.tl .bar{height:52px}}'
     ].join('');
+
     var DAY = 24 * 3600000;
+
     var QUARTERS = '<b class="q" style="left:25%"></b><b class="q" style="left:50%"></b><b class="q" style="left:75%"></b>';
+
     function senseShell(title) {
       return '<div class="pn"><div class="gw"><div class="gc"><hk-state-icon></hk-state-icon></div></div>' +
         '<div class="big w"></div><div class="since"></div>' +
         '<div class="tl" hidden><div class="th"><span class="t">' + title + '</span><span class="n"></span></div>' +
         '<div class="bar"></div>' + timeRow(DAY, 5) + '<div class="lg" hidden></div></div></div>';
     }
+
     // the day's rows, straight from the recorder (hkStats.history keeps numbers only)
     function dayRows(h, id) {
       if (!h || !h.callApi) return Promise.reject(new Error('no api'));
@@ -622,6 +645,7 @@
         return { t0: start.getTime(), rows: (Array.isArray(res) && Array.isArray(res[0])) ? res[0] : [] };
       });
     }
+
     // rows -> [{state, a, b}] clipped to [t0, now]
     function spansOf(rows, t0, now) {
       return (rows || []).map(function (r, i) {
@@ -630,6 +654,7 @@
         return { state: r.state, a: a, b: Math.min(now, b) };
       }).filter(function (g) { return g.b > g.a; });
     }
+
     class SensePanel extends Panel {
       static get CSS() { return PANEL_CSS + SENSE_CSS; }
       _shell(title) {
@@ -653,6 +678,7 @@
         }).catch(function () { /* no timeline */ });
       }
     }
+
     class BinaryPanel extends SensePanel {
       hkWidthKind() { return 'binary'; }
       _render() {
@@ -684,9 +710,11 @@
         this._tl.querySelector('.n').textContent = opens ? w[1] + ' ' + opens + (opens === 1 ? ' time' : ' times') : 'No change in 24 hours';
       }
     }
+
     // A TEXT SENSOR: its value, and the day as a strip of its states with the
     // time spent in each (the most-held state in the pill's colour).
     var STRIP = ['var(--hkd-accent,#56bde4)', 'rgba(255,255,255,0.24)', '#ff9f0a', '#bf5af2', '#30d158', '#ff6961'];
+
     class StatePanel extends SensePanel {
       hkWidthKind() { return 'state'; }
       _render() {
@@ -731,9 +759,9 @@
       }
     }
 
-    // what the shell and the later sheet files use of this one
-    K.BinaryPanel = BinaryPanel; K.DAY = DAY; K.dayRows = dayRows; K.energyPlan = energyPlan;
-    K.energyRec = energyRec; K.money = money; K.SENSE_CSS = SENSE_CSS; K.SensePanel = SensePanel;
-    K.SensorPanel = SensorPanel; K.sinceText = sinceText; K.spansOf = spansOf; K.StatePanel = StatePanel;
+    // what the shell and the later parts use of this one
+    K.BinaryPanel = BinaryPanel; K.DAY = DAY; K.dayRows = dayRows; K.energyPlan = energyPlan; K.energyRec = energyRec;
+    K.money = money; K.SENSE_CSS = SENSE_CSS; K.SensePanel = SensePanel; K.SensorPanel = SensorPanel;
+    K.sinceText = sinceText; K.spansOf = spansOf; K.StatePanel = StatePanel;
   };
 })();

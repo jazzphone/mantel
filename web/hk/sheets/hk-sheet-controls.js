@@ -1,17 +1,17 @@
 // hk-sheet-controls.js - The toggle, fan and cover sheets.
 //
 // PART OF THE DETAIL SHEETS (hk-detail.js). Not a card and not run on its own: it registers one
-// function, which hk-detail.js calls with the shared kit K once every sheet file has loaded (the
-// order is its SHEETS list). What this file uses from the shell or from an earlier file it takes
+// function, which hk-detail.js calls with the shared kit K once every part has loaded (the
+// order is its PARTS list). What this file uses from the shell or from an earlier file it takes
 // from K at the top; what the shell or a later file uses of it, it hands back at the bottom.
 // @ts-check
 (function () {
   'use strict';
   (window.hkSheets = window.hkSheets || {})['hk-sheet-controls'] = function (K) {
-    var at = K.at, C = K.C, clamp = K.clamp, fanGuard = K.fanGuard, fanLabel = K.fanLabel,
-        fanSteps = K.fanSteps, glyph = K.glyph, gone = K.gone, num = K.num, Panel = K.Panel,
-        PANEL_CSS = K.PANEL_CSS, sinceText = K.sinceText, SLIDER_H = K.SLIDER_H, SPEED_NAMES = K.SPEED_NAMES,
-        throttle = K.throttle, unavailable = K.unavailable;
+    var at = K.at, C = K.C, clamp = K.clamp, fanGuard = K.fanGuard, fanLabel = K.fanLabel, fanSteps = K.fanSteps,
+        glyph = K.glyph, gone = K.gone, num = K.num, Panel = K.Panel, PANEL_CSS = K.PANEL_CSS,
+        sinceText = K.sinceText, SLIDER_H = K.SLIDER_H, SPEED_NAMES = K.SPEED_NAMES, throttle = K.throttle,
+        unavailable = K.unavailable;
 
     // ------------------------------------------------------------ toggle
     class TogglePanel extends Panel {
@@ -176,9 +176,11 @@
       down: 'M7.4 8.6 12 13.2l4.6-4.6L18 10l-6 6-6-6z',
       stop: 'M8 8h8v8H8z'
     };
+
     function svgIcon(path, size) {
       return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="' + path + '"/></svg>';
     }
+
     class CoverPanel extends Panel {
       static get CSS() {
         return PANEL_CSS + [
@@ -260,7 +262,7 @@
       _posText(p) { return p <= 0 ? 'Closed' : p >= 100 ? 'Open' : p + '% open'; }
     }
 
-    // what the shell and the later sheet files use of this one
+    // what the shell and the later parts use of this one
     K.CoverPanel = CoverPanel; K.FanPanel = FanPanel; K.TogglePanel = TogglePanel;
   };
 })();

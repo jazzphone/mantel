@@ -1434,6 +1434,8 @@ def do_split(man: dict, p: Path, check_only: bool) -> int:
         shell_path.write_text(shell)
         blob = git("hash-object", "-w", "--stdin", input=text)
         man["source"] = {"blob": blob, "lines": text.count("\n")}
+        if plan.unresolved_before:     # (names the original could not find either, a global lookup there and in the part)
+            man["source"]["unresolved"] = sorted(plan.unresolved_before)
         if man.get("adopt"):        # (the one file was never a file of the repository: this is the commit it can be made from)
             man["source"]["adopt_from"] = git("rev-parse", "HEAD")
         saved = {k: v for k, v in man.items() if k not in ("name", "_adopted")}
@@ -1497,8 +1499,9 @@ def check_split(man: dict, check_only: bool = True) -> int:
             d = diag[str(f.resolve())]
             if d["syntax"]:
                 bad.append(f"{n}: syntax: {d['syntax'][0]}")
-            if d["unresolved"]:
-                bad.append(f"{n}: tsc cannot find {sorted({u['name'] for u in d['unresolved']})}: add them to the part's takes "
+            lost_names = {u["name"] for u in d["unresolved"]} - set((man.get("source") or {}).get("unresolved", []))
+            if lost_names:
+                bad.append(f"{n}: tsc cannot find {sorted(lost_names)}: add them to the part's takes "
                            f"(and the shell's kit)")
         if taken_back - gives_all:
             bad.append(f"the shell takes back {sorted(taken_back - gives_all)} that no part hands back")

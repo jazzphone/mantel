@@ -1,18 +1,18 @@
 // hk-sheet-waterheater.js - The water heater sheet.
 //
 // PART OF THE DETAIL SHEETS (hk-detail.js). Not a card and not run on its own: it registers one
-// function, which hk-detail.js calls with the shared kit K once every sheet file has loaded (the
-// order is its SHEETS list). What this file uses from the shell or from an earlier file it takes
+// function, which hk-detail.js calls with the shared kit K once every part has loaded (the
+// order is its PARTS list). What this file uses from the shell or from an earlier file it takes
 // from K at the top; what the shell or a later file uses of it, it hands back at the bottom.
 // @ts-check
 (function () {
   'use strict';
   (window.hkSheets = window.hkSheets || {})['hk-sheet-waterheater'] = function (K) {
     var at = K.at, axesChart = K.axesChart, BACK = K.BACK, C = K.C, CHEV = K.CHEV, clamp = K.clamp,
-        downsample = K.downsample, esc = K.esc, glyph = K.glyph, LIST_CSS = K.LIST_CSS, num = K.num,
-        Panel = K.Panel, PANEL_CSS = K.PANEL_CSS, pickList = K.pickList, pretty = K.pretty, scrub = K.scrub,
-        segPick = K.segPick, SHORT_MQ = K.SHORT_MQ, SP = K.SP, throttle = K.throttle, trendOf = K.trendOf,
-        TSTAT_WIDE = K.TSTAT_WIDE, unavailable = K.unavailable;
+        downsample = K.downsample, esc = K.esc, glyph = K.glyph, LIST_CSS = K.LIST_CSS, num = K.num, Panel = K.Panel,
+        PANEL_CSS = K.PANEL_CSS, pickList = K.pickList, pretty = K.pretty, scrub = K.scrub, segPick = K.segPick,
+        SHORT_MQ = K.SHORT_MQ, SP = K.SP, throttle = K.throttle, trendOf = K.trendOf, TSTAT_WIDE = K.TSTAT_WIDE,
+        unavailable = K.unavailable;
 
     // ------------------------------------------------------------ water heater
     // THE THERMOSTAT'S SHEET, ONE SETPOINT: the two are the same, and the
@@ -24,23 +24,29 @@
     // modes and the power. Right: the tank now and its 24-hour low and high,
     // away mode, and the tank's last day. Drag the ring or use the arrows.
     var WF = { TARGET: 1, MODE: 2, AWAY: 4, ONOFF: 8 };
+
     // the heater's own words for its modes: one word where HA's is
     // two and the row is a quarter wide ("High demand" -> "Demand"), and
     // "Heat Pump" capitalised as the name it is; the rest are pretty(m)
     var WH_WORDS = { high_demand: 'Demand', heat_pump: 'Heat Pump' };
+
     function whWord(m) { return WH_WORDS[m] || pretty(m); }
+
     // hk-control _climate: viewBox 0 0 200 172, centre (100,100), r 78,
     // 135 degrees round through 270 (the gap at the bottom)
     var WD = { W: 200, H: 172, CX: 100, CY: 100, R: 78, A0: 135, SWEEP: 270 };
+
     function arcPoint(deg) {
       var r = deg * Math.PI / 180;
       return [WD.CX + WD.R * Math.cos(r), WD.CY + WD.R * Math.sin(r)];
     }
+
     function arcPath(f) {
       var a = arcPoint(WD.A0), b = arcPoint(WD.A0 + WD.SWEEP * f);
       var large = WD.SWEEP * f > 180 ? 1 : 0;
       return 'M' + a[0].toFixed(2) + ' ' + a[1].toFixed(2) + ' A' + WD.R + ' ' + WD.R + ' 0 ' + large + ' 1 ' + b[0].toFixed(2) + ' ' + b[1].toFixed(2);
     }
+
     class WaterHeaterPanel extends Panel {
       static get CSS() {
         return PANEL_CSS + LIST_CSS + [
@@ -365,7 +371,7 @@
       }
     }
 
-    // what the shell and the later sheet files use of this one
+    // what the shell and the later parts use of this one
     K.arcPath = arcPath; K.WaterHeaterPanel = WaterHeaterPanel;
   };
 })();

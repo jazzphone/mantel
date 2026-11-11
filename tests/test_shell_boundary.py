@@ -275,7 +275,7 @@ DIALOG_REF = re.compile(r"(?<![\w-])(?:" + "|".join(re.escape(n) for n in sorted
 # LOOKUPS, not uses: the detail listener recognises HA's own dialogs in a tap's path, to leave a
 # card inside one (the card editor's preview, HA's more-info) to HA.
 HA_DIALOG_LOOKUPS = {
-    "web/hk/cards/hk-detail.js": ["'HA-MORE-INFO-DIALOG': 1"],
+    "web/hk/sheets/hk-detail-routing.js": ["'HA-MORE-INFO-DIALOG': 1"],
 }
 
 

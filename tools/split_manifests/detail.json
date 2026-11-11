@@ -1,0 +1,402 @@
+{
+  "shell": "web/hk/cards/hk-detail.js",
+  "folder": "web/hk/sheets",
+  "global": "hkSheets",
+  "label": "hk-detail",
+  "what": "THE DETAIL SHEETS",
+  "run_in": "whenBase",
+  "adopt": "SHEETS",
+  "parts": [
+    {
+      "name": "hk-detail-helpers",
+      "title": "what a sheet reads off a state: kinds, fan steps, colors and the charts' axes",
+      "members": [
+        "C",
+        "esc",
+        "segPick",
+        "PAL",
+        "DOORS",
+        "ON_STATES",
+        "DOMAIN_COL",
+        "stOf",
+        "asClient",
+        "at",
+        "num",
+        "clamp",
+        "domainOf",
+        "isOn",
+        "unavailable",
+        "gone",
+        "colourName",
+        "COLOUR_MODES",
+        "lightCaps",
+        "kindOf",
+        "SPEED_NAMES",
+        "fanSteps",
+        "fanLabel",
+        "fanGuard",
+        "downsample",
+        "spanTo",
+        "AX_PAD",
+        "niceTicks",
+        "tickText",
+        "timeTicks",
+        "timeRow",
+        "calRow",
+        "axesChart"
+      ]
+    },
+    {
+      "name": "hk-detail-readout",
+      "title": "the scrubbable readout, light colors and the favorites",
+      "members": [
+        "scrubValue",
+        "dayWord",
+        "scrubTimeLine",
+        "scrubTimeBar",
+        "scrubPick",
+        "scrubShow",
+        "scrubHide",
+        "scrub",
+        "kelvinRgb",
+        "css",
+        "hsCss",
+        "lightFill",
+        "FAV_CACHE",
+        "defaultFavourites",
+        "favourites",
+        "favCss",
+        "favMatches",
+        "throttle",
+        "glyph",
+        "BACK"
+      ]
+    },
+    {
+      "name": "hk-detail-accessory",
+      "title": "the accessory pane's glyphs, arrangement and the HA name moves",
+      "members": [
+        "ACC_CSS",
+        "GLYPHS",
+        "@GLYPHS.water_heater =",
+        "@GLYPHS.binary_sensor =",
+        "@GLYPHS.script =",
+        "@GLYPHS.input_button =",
+        "glyphsFor",
+        "MDI_LIST",
+        "mdiList",
+        "hkNames",
+        "glyphSearch",
+        "SEARCH_MAX",
+        "GROUP_WORDS",
+        "arrangeOf",
+        "arrangeMove",
+        "accessoriesNow",
+        "accOf",
+        "dashNow",
+        "accName",
+        "accIcon",
+        "canEdit",
+        "generatedHere",
+        "wherePane",
+        "HA_RENAME_NOTE",
+        "homeRenamer",
+        "bridge",
+        "deepActive",
+        "FOCUSABLE",
+        "focusables",
+        "covering"
+      ]
+    },
+    {
+      "name": "hk-detail-frame",
+      "title": "the sheet's sizes, CSS and looks, and the notification strip",
+      "members": [
+        "STD",
+        "SHORT_MQ",
+        "SP",
+        "SLIDER_H",
+        "PHONE_H",
+        "WIDTH",
+        "AUTO_CLOSE_MS",
+        "SHEET_CSS",
+        "sheetEdges",
+        "NOTE_CSS",
+        "haRoot",
+        "roomOf",
+        "nearWhite",
+        "LOOKS",
+        "lookOf",
+        "lookFor",
+        "headIcon",
+        "hasView",
+        "viewOf",
+        "areaOf",
+        "GO_PAGES",
+        "GO_DOMAINS",
+        "ymdOf",
+        "goFor",
+        "noteClock",
+        "noteWhen",
+        "muteLabel",
+        "placeNote",
+        "ours"
+      ]
+    },
+    {
+      "name": "hk-detail-routing",
+      "title": "whose taps and pop-ups these sheets answer: the dashboard test, sources and the route",
+      "members": [
+        "HA_OWN",
+        "fromDashboard",
+        "sourceOf",
+        "disabled",
+        "POPUP_GRACE_MS",
+        "popupsNow",
+        "popupFor",
+        "answers",
+        "yamlClaims",
+        "onDashboard",
+        "routeT",
+        "route"
+      ]
+    },
+    {
+      "name": "hk-sheet-base",
+      "title": "The sheets' shared base: the panel CSS (and Flat's recessed controls), the Panel class every sheet extends,",
+      "members": [
+        "FLAT_PANEL_CSS",
+        "TWO",
+        "PANEL_CSS",
+        "CHEV",
+        "TICK",
+        "SEARCH",
+        "Panel"
+      ]
+    },
+    {
+      "name": "hk-sheet-light",
+      "title": "The light sheet: brightness, colour and temperature, favourites",
+      "members": [
+        "LightPanel"
+      ]
+    },
+    {
+      "name": "hk-sheet-lock",
+      "title": "The lock sheet and its hold ring, the garage and gate sheet, and the button sheet",
+      "members": [
+        "HOLD_MS",
+        "RingPanel",
+        "PEND_MS",
+        "WANT_MS",
+        "FAIL_MS",
+        "buzz",
+        "ART",
+        "LockPanel",
+        "GaragePanel",
+        "SENT_MS",
+        "ButtonPanel",
+        "lastText"
+      ]
+    },
+    {
+      "name": "hk-sheet-climate",
+      "title": "The thermostat sheet",
+      "members": [
+        "RUNNING",
+        "runTimes",
+        "reportsAction",
+        "TSTAT_WIDE",
+        "trendOf",
+        "dur",
+        "ClimatePanel"
+      ]
+    },
+    {
+      "name": "hk-sheet-media",
+      "title": "The media player sheet",
+      "members": [
+        "MF",
+        "isTv",
+        "clock",
+        "browseView",
+        "MediaPanel"
+      ]
+    },
+    {
+      "name": "hk-sheet-sensor",
+      "title": "The sensor sheet (its history chart, the energy device sheet) and the binary-sensor, state and text-sensor sheets",
+      "members": [
+        "RANGES",
+        "RANGE_H",
+        "MAX_BACK",
+        "CHEV_L",
+        "CHEV_R",
+        "calTz",
+        "monthName",
+        "shortDate",
+        "periodName",
+        "periodRange",
+        "calNames",
+        "isEnergy",
+        "fmtNum",
+        "energyPlan",
+        "energyRec",
+        "priceOf",
+        "money",
+        "EN_CSS",
+        "wattsText",
+        "SensorPanel",
+        "BIN_WORDS",
+        "sinceText",
+        "SENSE_CSS",
+        "DAY",
+        "QUARTERS",
+        "senseShell",
+        "dayRows",
+        "spansOf",
+        "SensePanel",
+        "BinaryPanel",
+        "STRIP",
+        "StatePanel"
+      ]
+    },
+    {
+      "name": "hk-detail-accessory-pane",
+      "title": "the accessory pane: a room's or a device's accessories, their names, glyphs and order",
+      "members": [
+        "accessoryPane"
+      ]
+    },
+    {
+      "name": "hk-sheet-controls",
+      "title": "The toggle, fan and cover sheets",
+      "members": [
+        "TogglePanel",
+        "FanPanel",
+        "ICON_PATH",
+        "svgIcon",
+        "CoverPanel"
+      ]
+    },
+    {
+      "name": "hk-sheet-generic",
+      "title": "The generic sheet (an entity HK draws no sheet of its own for) and the list sheets",
+      "members": [
+        "GENERIC_SKIP",
+        "GENERIC_ROWS",
+        "genericRows",
+        "GENERIC_TOGGLE",
+        "genericControl",
+        "GENERIC_CSS",
+        "GenericPanel",
+        "LIST_CSS",
+        "pretty",
+        "pickList"
+      ]
+    },
+    {
+      "name": "hk-sheet-vacuum",
+      "title": "The vacuum sheet and its rooms",
+      "members": [
+        "VF",
+        "VAC_WORDS",
+        "VAC_OK",
+        "VACUUM_LIST_CSS",
+        "deviceSensor",
+        "VacuumPanel"
+      ]
+    },
+    {
+      "name": "hk-sheet-appliances",
+      "title": "The valve, number, select and humidifier sheets",
+      "members": [
+        "ValvePanel",
+        "NumberPanel",
+        "ROW_MAX",
+        "SelectPanel",
+        "HumidifierPanel"
+      ]
+    },
+    {
+      "name": "hk-sheet-waterheater",
+      "title": "The water heater sheet",
+      "members": [
+        "WF",
+        "WH_WORDS",
+        "whWord",
+        "WD",
+        "arcPoint",
+        "arcPath",
+        "WaterHeaterPanel"
+      ]
+    },
+    {
+      "name": "hk-sheet-security",
+      "title": "The alarm keypad sheet and the camera sheet",
+      "members": [
+        "ALARM_WORDS",
+        "AlarmPanel",
+        "cameraStream",
+        "cameraSpeaker",
+        "cameraName",
+        "CameraPanel"
+      ]
+    },
+    {
+      "name": "hk-sheet-laundry",
+      "title": "The laundry sheet: one machine, or several with a switch between them (phase 22, docs/phase22/LAUNDRY.md)",
+      "members": [
+        "laundryVar",
+        "MINT",
+        "RED",
+        "ICON",
+        "LaundryPanel"
+      ]
+    },
+    {
+      "name": "hk-sheet-tv",
+      "title": "The TV sheet: a room's TV and its player as one (phase 23, docs/phase23/TV.md; web/hk/modules/hk-tv.js reads them)",
+      "members": [
+        "v",
+        "I",
+        "svg",
+        "tile",
+        "TvPanel"
+      ]
+    },
+    {
+      "name": "hk-sheet-group",
+      "title": "The entity registry sheet, a group's sheet, a custom pop-up's cards, and the registry of every sheet (PANELS)",
+      "members": [
+        "PANELS",
+        "def",
+        "CLIENT_FED",
+        "SENSOR_TILE",
+        "groupTile",
+        "GroupPanel",
+        "entryTile",
+        "styleOf",
+        "sheetWide",
+        "feedPill",
+        "CardsPanel",
+        "openGroup",
+        "restoreGroup",
+        "openSheet"
+      ]
+    }
+  ],
+  "wait_all": true,
+  "early": [
+    "if (window.hkDetail) return;"
+  ],
+  "source": {
+    "blob": "6734a5e6eeaf2d5e4e2817fc61f3302612b7d01d",
+    "lines": 7981,
+    "unresolved": [
+      "hm",
+      "st"
+    ],
+    "adopt_from": "b75efaae5403aaf2aa32d56dfa4a97c3c1eb70f4"
+  }
+}

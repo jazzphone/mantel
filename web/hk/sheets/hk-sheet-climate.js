@@ -1,21 +1,22 @@
 // hk-sheet-climate.js - The thermostat sheet.
 //
 // PART OF THE DETAIL SHEETS (hk-detail.js). Not a card and not run on its own: it registers one
-// function, which hk-detail.js calls with the shared kit K once every sheet file has loaded (the
-// order is its SHEETS list). What this file uses from the shell or from an earlier file it takes
+// function, which hk-detail.js calls with the shared kit K once every part has loaded (the
+// order is its PARTS list). What this file uses from the shell or from an earlier file it takes
 // from K at the top; what the shell or a later file uses of it, it hands back at the bottom.
 (function () {
   'use strict';
   (window.hkSheets = window.hkSheets || {})['hk-sheet-climate'] = function (K) {
-    var at = K.at, axesChart = K.axesChart, bridge = K.bridge, C = K.C, downsample = K.downsample,
-        num = K.num, Panel = K.Panel, PANEL_CSS = K.PANEL_CSS, scrub = K.scrub, SHORT_MQ = K.SHORT_MQ,
-        SP = K.SP, spanTo = K.spanTo, stOf = K.stOf;
+    var at = K.at, axesChart = K.axesChart, bridge = K.bridge, C = K.C, downsample = K.downsample, num = K.num,
+        Panel = K.Panel, PANEL_CSS = K.PANEL_CSS, scrub = K.scrub, SHORT_MQ = K.SHORT_MQ, SP = K.SP,
+        spanTo = K.spanTo, stOf = K.stOf;
 
     // ------------------------------------------------------------ climate
     // The home's own thermostat card (hk-thermostat-card) in `bare` mode --
     // the dial, modes and fan exactly as on the Climate page -- plus the
     // reading around it and the day's trend.
     var RUNNING = { heating: 1, cooling: 1 };
+
     // rows: HA's compressed history ({s, a, lu}); live: the current state,
     // which covers the time since the last recorded row -- from its own
     // last_updated when that is newer, so a start or stop after the fetch
@@ -41,6 +42,7 @@
       }
       return { today: today / 1000, yesterday: yesterday / 1000 };
     }
+
     // Does this thermostat say what it is doing at all? A water heater or a
     // car's climate entity never reports hvac_action, and its run time would
     // read "0 min" every day.
@@ -48,6 +50,7 @@
       return at(live, 'hvac_action') != null ||
         !!(rows && rows.some(function (r) { return r.a && r.a.hvac_action != null; }));
     }
+
     // THE TREND IS THE THERMOSTAT'S OWN READING: current_temperature in the
     // rows the run time already fetched -- no second request, and not the
     // home's temperature sensor (features.temperature, which may be a mean
@@ -57,18 +60,21 @@
     var TSTAT_WIDE = 'width:400px;flex-shrink:0;display:flex;flex-direction:column;justify-content:center;' +
       '--hk-tstat-ring:100%;--hk-tstat-val:58px;--hk-tstat-gap:22px;--hk-tstat-seg:44px;--hk-tstat-seg-font:14px;' +
       '--hk-tstat-fan-gap:10px;--hk-tstat-fan:38px;--hk-tstat-fan-font:13px';
+
     function trendOf(rows, now, live) {
       var pts = rows.map(function (r) {
         return { t: (r.lu || r.lc || 0) * 1000, v: num(r.a && r.a.current_temperature) };
       });
       return spanTo(pts, now - 24 * 3600000, now, num(at(live, 'current_temperature')));
     }
+
     function dur(sec) {
       var m = Math.round(sec / 60);
       if (m < 60) return m + ' min';
       var hh = Math.floor(m / 60), mm = m % 60;
       return hh + ' hr' + (mm ? ' ' + mm + ' min' : '');
     }
+
     class ClimatePanel extends Panel {
       static get CSS() {
         return PANEL_CSS + [
@@ -315,7 +321,7 @@
       }
     }
 
-    // what the shell and the later sheet files use of this one
+    // what the shell and the later parts use of this one
     K.ClimatePanel = ClimatePanel; K.dur = dur; K.reportsAction = reportsAction; K.runTimes = runTimes;
     K.trendOf = trendOf; K.TSTAT_WIDE = TSTAT_WIDE;
   };

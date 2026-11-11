@@ -1,9 +1,8 @@
-// hk-sheet-base.js - The sheets' shared base: the panel CSS (and Flat's recessed controls), the Panel class every sheet extends,
-// the slider and the common pieces. Loaded first; every other sheet file builds on it.
+// hk-sheet-base.js - The sheets' shared base: the panel CSS (and Flat's recessed controls), the Panel class every sheet extends,.
 //
 // PART OF THE DETAIL SHEETS (hk-detail.js). Not a card and not run on its own: it registers one
-// function, which hk-detail.js calls with the shared kit K once every sheet file has loaded (the
-// order is its SHEETS list). What this file uses from the shell or from an earlier file it takes
+// function, which hk-detail.js calls with the shared kit K once every part has loaded (the
+// order is its PARTS list). What this file uses from the shell or from an earlier file it takes
 // from K at the top; what the shell or a later file uses of it, it hands back at the bottom.
 (function () {
   'use strict';
@@ -69,8 +68,10 @@
       ':host([hk-flat]) .vp button.on{background:var(--hk-seg-on,' + C.SELECTED_BG + ');color:' + C.SELECTED_TEXT + '}',
       ':host([hk-flat]) .vp button:not(:first-child)::before{background:' + C.v('line') + '}'
     ].join('');
+
     // a panel whose control goes on the left on a short screen (PANEL_CSS SHORT)
     var TWO = ':host .pn:has(> :is(.vs,.tg,.wrap,.ctl,.lk,.bot,.gw,.dial,.pl,.sl))';
+
     var PANEL_CSS = FLAT_PANEL_CSS + [
       ':host{display:block;color:' + window.hkCards.v('ink') + ';font-family:inherit}',
       // a display rule beats the hidden attribute; this puts it back
@@ -246,9 +247,11 @@
     var CHEV = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
                'stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
                '<path d="m9 6 6 6-6 6"/></svg>';
+
     // the current row's tick (effects, inputs, every pick list) and the search glyph
     var TICK = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF9F0A" stroke-width="2.6" ' +
                'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
+
     var SEARCH = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(235,235,245,.6)" stroke-width="2.2" ' +
                  'stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg>';
 
@@ -387,7 +390,7 @@
       }
     }
 
-    // what the shell and the later sheet files use of this one
+    // what the shell and the later parts use of this one
     K.CHEV = CHEV; K.Panel = Panel; K.PANEL_CSS = PANEL_CSS; K.SEARCH = SEARCH; K.TICK = TICK;
   };
 })();

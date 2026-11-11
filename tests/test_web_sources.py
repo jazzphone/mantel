@@ -52,8 +52,7 @@ pytestmark = pytest.mark.parametrize("path", MANIFESTS, ids=[p.stem for p in MAN
 
 def test_a_manifest_exists_for_every_shell_that_has_a_parts_list(path):
     shells = {s.relative_to(ROOT).as_posix() for s in web_sources.shells()}
-    detail = "web/hk/cards/hk-detail.js"           # split by hand (5573f9db): its list is SHEETS, no manifest
-    assert {_manifest(p)["shell"] for p in MANIFESTS} == shells - {detail}
+    assert {_manifest(p)["shell"] for p in MANIFESTS} == shells
 
 
 def test_the_parts_list_is_the_manifest_and_the_folder(path):
@@ -102,6 +101,14 @@ def test_the_register_calls_stay_in_the_shell(path, tmp_path):
         # (the base may carry a JSDoc cast for the type checker: `extends /** @type {...} */ (HTMLElement)`)
         assert re.search(r"^  class %s extends (?:/\*\* @type \{\w+\} \*/ \()?HTMLElement\)? \{$" % man["class"], text, re.M)
         assert text.index("customElements.define(") < text.index("var partsReady = ")
+    elif path.stem in ELEMENTS_IN_PARTS:
+        # hk-detail.js is a core card file, which nobody reads the tags of (only a lazy file's are, hk_cards.tags_of), and its
+        # panels' elements were always defined by the sheet files (the hand split of 5573f9db): the parts define every
+        # element the file had before, and the shell none
+        defined = {t for f in (ROOT / man["folder"]).glob("*.js") for t in hk_cards.tags_of(f)}
+        assert set(_tags_before(man, tmp_path)) <= defined and hk_cards.tags_of(shell) == ()
+        assert "hk-detail-light" in defined and "hk-detail-tv" in defined
+        return
     else:
         # (phase 24, A2) every tag the file had before the split is still the shell's (it may have gained some since): a
         # shell that registered nothing (hk-base, hk-sky, the Settings files) is held to nothing, and one whose tags
@@ -113,6 +120,9 @@ def test_the_register_calls_stay_in_the_shell(path, tmp_path):
         # but it is called from the shell
         assert not TOP_LEVEL_DEFINE.search(f.read_text()), f.name
 
+
+# the shells whose parts define the elements (hk-detail.js: the sheets' panels; a core file, so no one reads its tags)
+ELEMENTS_IN_PARTS = {"detail"}
 
 # a call that defines an element, at the top level of a part's function (four spaces in)
 TOP_LEVEL_DEFINE = re.compile(r"^    (?:customElements\.define\(|[\w$.]*\.register\()", re.M)
@@ -267,11 +277,6 @@ def test_a_known_shell_with_no_parts_list_is_an_error_not_a_plain_file(path, tmp
     other.parent.mkdir(parents=True, exist_ok=True)
     other.write_text("(function () {})();\n")
     assert web_sources.parts("web/hk/modules/plain.js") == []
-    detail = tmp_path / web_sources.DETAIL
-    detail.parent.mkdir(parents=True, exist_ok=True)
-    detail.write_text("(function () {})();\n")
-    with pytest.raises(ValueError):
-        web_sources.parts(web_sources.DETAIL)
 
 
 SYNTHETIC = """(function () {

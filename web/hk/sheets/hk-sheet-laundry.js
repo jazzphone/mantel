@@ -1,22 +1,19 @@
 // hk-sheet-laundry.js - The laundry sheet: one machine, or several with a switch between them (phase 22, docs/phase22/LAUNDRY.md).
 //
 // PART OF THE DETAIL SHEETS (hk-detail.js). Not a card and not run on its own: it registers one
-// function, which hk-detail.js calls with the shared kit K once every sheet file has loaded (the
-// order is its SHEETS list). What this file uses from the shell or from an earlier file it takes
+// function, which hk-detail.js calls with the shared kit K once every part has loaded (the
+// order is its PARTS list). What this file uses from the shell or from an earlier file it takes
 // from K at the top; what the shell or a later file uses of it, it hands back at the bottom.
-//
-// THE SHEETS' OWN SIZES (the owner, 2026-11-10: "use DESIGN.md for guidance ... There are a few sizes for detail sheets"): the Wide
-// sheet (820) at the one sheet height on a tablet, two columns whose tops and feet line up -- the drawing, what it is doing and how
-// long on the left, centered; the cycle's steps, the machine's readings and its keys down the right, the keys at the foot. On a
-// phone, one column at the phone's height, scrolling. The header (the X, the glyph, the name) is the sheet's own.
-// Opened with hkLaundry.open(id): hkDetail.open(null, {name, icon}, {panel: {tag: 'hk-detail-laundry', config: {machine}}}).
 // @ts-check
 (function () {
   'use strict';
   (window.hkSheets = window.hkSheets || {})['hk-sheet-laundry'] = function (K) {
     var C = K.C, esc = K.esc, Panel = K.Panel, PANEL_CSS = K.PANEL_CSS, SP = K.SP;
+
     var laundryVar = function (n) { return window.hkCards.v(n); };
+
     var MINT = (C.ACCENTS && C.ACCENTS.mint) || '#63e6e2', RED = (C.ACCENTS && C.ACCENTS.red) || '#ff453a';
+
     var ICON = {
       pause:
         '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect x="6" y="4.5" width="4.4" height="15" rx="1.6" fill="currentColor"/><rect x="13.6" y="4.5" width="4.4" height="15" ' +
@@ -195,9 +192,7 @@
         }
       }
     }
-    if (!customElements.get('hk-detail-laundry')) customElements.define('hk-detail-laundry', /** @type {any} */ (LaundryPanel));
 
-    // what the shell and the later sheet files use of this one
-    K.LaundryPanel = LaundryPanel;
+    if (!customElements.get('hk-detail-laundry')) customElements.define('hk-detail-laundry', /** @type {any} */ (LaundryPanel));
   };
 })();

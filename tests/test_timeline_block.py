@@ -397,7 +397,7 @@ def test_the_block_is_wired_in_the_way_the_other_blocks_are():
     assert "Xe.offered(key)" in edit                                    # ...and Edit mode's Add the same
     security = (ROOT / "web/hk/sheets/hk-sheet-security.js").read_text()
     assert "custom:hk-timeline-strip-card" in security and "hostPage('timeline')" in security
-    assert "--hkd-strip" in security and "--hkd-strip" in (ROOT / "web/hk/cards/hk-detail.js").read_text()
+    assert "--hkd-strip" in security and "--hkd-strip" in web_sources.read("web/hk/cards/hk-detail.js")
     page = (ROOT / "web/hk/cards/hk-timeline.js").read_text()
     assert "window.hkTimeline.openSheet" in page and "o && o.noAll" in page
 

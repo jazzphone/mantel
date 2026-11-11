@@ -1,8 +1,8 @@
 // hk-sheet-generic.js - The generic sheet (an entity HK draws no sheet of its own for) and the list sheets.
 //
 // PART OF THE DETAIL SHEETS (hk-detail.js). Not a card and not run on its own: it registers one
-// function, which hk-detail.js calls with the shared kit K once every sheet file has loaded (the
-// order is its SHEETS list). What this file uses from the shell or from an earlier file it takes
+// function, which hk-detail.js calls with the shared kit K once every part has loaded (the
+// order is its PARTS list). What this file uses from the shell or from an earlier file it takes
 // from K at the top; what the shell or a later file uses of it, it hands back at the bottom.
 (function () {
   'use strict';
@@ -29,7 +29,9 @@
       assumed_state: 1, attribution: 1, device_class: 1, unit_of_measurement: 1, state_class: 1,
       editable: 1, id: 1, restored: 1, entity_id: 1, hidden: 1, icon_color: 1, options: 1
     };
+
     var GENERIC_ROWS = 8;
+
     // [{ key, name, value }]: at most GENERIC_ROWS, in the entity's own order
     function genericRows(c, s) {
       var a = (s && s.attributes) || {}, out = [];
@@ -47,11 +49,13 @@
       });
       return out;
     }
+
     // THE ONE OBVIOUS CONTROL, through the client's action port: a toggle
     // (homeassistant.toggle) for an on/off state in a domain that takes one,
     // Activate for a scene, Run for a script; none for anything else, and
     // never for what HK never toggles in one tap (hk-base's neverToggles).
     var GENERIC_TOGGLE = { remote: 1, group: 1, input_boolean: 1, switch: 1, light: 1, fan: 1, humidifier: 1 };
+
     function genericControl(c, id, s) {
       if (!s || !id) return null;
       var d = domainOf(id);
@@ -63,6 +67,7 @@
       }
       return null;
     }
+
     var GENERIC_CSS = [
       // a long state (a date and time, a sentence) steps down and wraps rather than leave the sheet
       '.big{max-width:100%;overflow-wrap:anywhere}',
@@ -81,6 +86,7 @@
       ':host([hk-flat]) .attrs .r + .r{border-top-color:' + C.v('line') + '}',
       ':host([hk-flat]) .gbtn:not(.on){background:' + C.v('key') + ';color:' + C.v('glyph') + '}'
     ].join('');
+
     class GenericPanel extends SensePanel {
       static get CSS() { return PANEL_CSS + SENSE_CSS + GENERIC_CSS; }
       hkWidthKind() { return 'generic'; }
@@ -179,10 +185,12 @@
       '.bk .t{font-size:20px;font-weight:700;letter-spacing:-.3px}',
       '@media (max-width:' + C.BP.phone + 'px){.list{max-height:340px}}'
     ].join('');
+
     function pretty(v) {
       var t = String(v == null ? '' : v).replace(/_/g, ' ');
       return t.charAt(0).toUpperCase() + t.slice(1);
     }
+
     // pickList(host, options, onPick, label): paints the list (and, past 12
     // options, its search) into host; returns repaint(cur) for state changes.
     // `label` names the search field for a screen reader.
@@ -218,7 +226,7 @@
       return paint;
     }
 
-    // what the shell and the later sheet files use of this one
+    // what the shell and the later parts use of this one
     K.GENERIC_SKIP = GENERIC_SKIP; K.genericControl = genericControl; K.GenericPanel = GenericPanel;
     K.genericRows = genericRows; K.LIST_CSS = LIST_CSS; K.pickList = pickList; K.pretty = pretty;
   };
