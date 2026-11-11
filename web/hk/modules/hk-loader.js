@@ -117,11 +117,12 @@
   // (web/shim/base.js hkV). Without hkV (HK Frontend, a checkout) as it is.
   function V(u) { return window.hkV ? window.hkV(u) : u; }
   // A FILE CUT INTO PARTS (tools/split_js.py) is only there once its parts have run, a round trip after the file itself:
-  // every shell that has started keeps a promise of that in window.__hkSplitReady. Wait for them all (a part that never
-  // came is the shell's loader's to report, so a failure is not this caller's).
-  function partsIn() {
-    var r = window.__hkSplitReady || {};
-    return Promise.all(Object.keys(r).map(function (k) { return r[k].catch(function () { /* the loader says so */ }); }));
+  // each shell keeps a promise of that in window.__hkSplitReady under its file's name. Wait for the file's own (a part
+  // that never came is the shell's loader's to report, so a failure is not this caller's), never another file's.
+  function partsOf(url) {
+    var name = String(url).split('?')[0].split('/').pop().replace(/\.js$/, '');
+    var ready = (window.__hkSplitReady || {})[name];
+    return ready ? ready.catch(function () { /* the loader says so */ }) : Promise.resolve();
   }
 
   function load(stamp) {
@@ -141,10 +142,10 @@
       // a module that THREW while running, which a second run would repeat
       // with whatever it had already registered (hk-sky adds a listener before
       // it sets window.hkSky) registered twice.
-      return import(url).catch(function (err) {
+      return import(url).then(function () { return partsOf(url); }).catch(function (err) {
         console.error('[hk-loader] could not load ' + url, err);
       });
-    })).then(partsIn);
+    }));
   }
 
   // ------------------------------------------------- cards on first use
@@ -172,7 +173,7 @@
     if (!LAZY || !FILES[name]) return Promise.resolve();
     if (!importing[name]) {
       importing[name] = import(V('/hk/cards/' + name))
-        .then(partsIn)
+        .then(function () { return partsOf(name); })
         .catch(function (err) {
           delete importing[name];      // the next ask tries again
           console.error('[hk-loader] could not load /hk/cards/' + name, err);

@@ -475,7 +475,11 @@ function stateRewrite(req) {
       if (!ts.isIdentifier(d.name)) { bindingNames(d.name, []).forEach((n) => { if (want.has(n)) refusals.push('`' + n + '` is declared by a destructuring pattern'); }); continue; }
       if (want.has(d.name.text)) {
         if (symOf.has(d.name.text)) refusals.push('`' + d.name.text + '` is declared twice');
-        symOf.set(d.name.text, checker.getSymbolAtLocation(d.name));
+        const sym = checker.getSymbolAtLocation(d.name);
+        // (the review) a second `var x` in a block or a loop header of the same scope is the same name: it would stay a
+        // declaration while its uses became ST.x, and the backwards proof cannot see that
+        if (sym && sym.declarations && sym.declarations.length > 1) refusals.push('`' + d.name.text + '` is declared more than once in its scope');
+        symOf.set(d.name.text, sym);
       }
     }
   }

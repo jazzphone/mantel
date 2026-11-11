@@ -518,7 +518,8 @@ def make_plan(man: dict, text: str, work: Path) -> Plan:
             continue
         if man.get("class") and m.d["kind"] == "other":
             continue
-        start = [r for r in m.d["refs"] if "index" in r and r.get("now")]
+        # (every ref of the statement, its callbacks' and IIFEs' too: `items.forEach(function () {...})` runs them at once)
+        start = [r for r in m.d["refs"] if "index" in r]
         seen, stack = set(), [(r, [r.get("name")]) for r in start]
         while stack:
             r, via = stack.pop()
@@ -527,7 +528,8 @@ def make_plan(man: dict, text: str, work: Path) -> Plan:
                 continue
             seen.add(tgt.key)
             if tgt.part >= 0 or (tgt.late and tgt.d["kind"] != "function"):
-                if len(via) > 1:
+                # (a direct use inside a callback or an IIFE of the statement too: it may run at once)
+                if len(via) > 1 or not any(r2.get("now") for r2 in m.d["refs"] if r2.get("name") == via[0]):
                     plan.refusals.append(f"the shell's `{m.label}` (line {m.d['first']}) runs at load and reaches `{via[-1]}`, which "
                                          f"{'moves to ' + man['parts'][tgt.part]['name'] if tgt.part >= 0 else 'waits for the parts'}, "
                                          f"through {' -> '.join(via[:-1])}: it would meet it undefined")
@@ -551,6 +553,51 @@ def make_plan(man: dict, text: str, work: Path) -> Plan:
                 plan.refusals.append(f"{man['parts'][m.part]['name']}: `{m.label}` reads `{r['name']}` as it runs, and the shell's "
                                      f"`{s.label}` (line {s.d['first']}) changes it after the parts have run: keep `{r['name']}` in "
                                      f"the shell")
+    # (phase 24, the review) ORDER THROUGH A SHARED OBJECT: a moved member is evaluated after every statement of the shell that
+    # runs at once, and a statement that waits after all of them. If one of them, earlier or later in the file, changes an
+    # object the other reads (or both change it), moving changes what is read: `var snap = cfg.a` moved, an early
+    # `cfg.a = 2` after it; `var r = (list.push('a'), 1)` moved, an early `var n = list.length` after it; a waiting
+    # `list.push(x)` before an early `var n = list.length`.
+    def runs_now(x: Member) -> bool:
+        return x.part < 0 and not x.late and x.d["kind"] not in ("function", "class", "directive") and x.scope != plan.cs
+
+    st_name = state_object(plan)
+
+    def split_state(names: set, text: str, mut: bool) -> set:
+        """The state object counted per property (ST.SHEET and ST.registered are not one thing)."""
+        if not st_name or st_name not in names:
+            return names
+        pat = (r"\b" + re.escape(st_name) + r"\.([\w$]+)(?:\s*(?:[-+*/|&]?=)(?!=)|(?:\.[\w$]+)*\." + MUTATORS + r"\()") if mut \
+            else (r"\b" + re.escape(st_name) + r"\.([\w$]+)")
+        return (names - {st_name}) | {st_name + "." + p for p in re.findall(pat, text)}
+
+    def reads(x: Member) -> set:
+        text = now_text(x) if x.d["kind"] not in ("function", "class") else ""
+        names = {r.get("name") for r in x.d["refs"] if r.get("name") and r.get("now")}
+        return split_state(names, text, False)
+
+    def changes(x: Member) -> set:
+        text = now_text(x)
+        names = mutated_anywhere(Member(x.scope, x.index, dict(x.d, text=text)))
+        return split_state(names, text, True)
+    timeline = sorted(plan.members.values(), key=lambda x: (x.scope, x.index))
+    for a in timeline:
+        moved_or_late = (a.part >= 0 and a.d["kind"] not in ("function", "class")) or (a.part < 0 and a.late)
+        if not moved_or_late:
+            continue
+        a_mut, a_read = changes(a), reads(a)
+        for b in timeline:
+            if b.scope != a.scope or not runs_now(b):
+                continue
+            if b.index < a.index:                        # (an at-once statement before it runs before it either way)
+                continue
+            b_mut = changes(b)
+            clash = sorted((a_mut & (reads(b) | b_mut)) | (b_mut & a_read))
+            clash = [c for c in clash if c not in ("window", "document", "globalThis")]
+            if clash:
+                plan.refusals.append(f"`{a.label}` ({'moves to ' + man['parts'][a.part]['name'] if a.part >= 0 else 'waits'}) and the "
+                                     f"shell's `{b.label}` (line {b.d['first']}, at once) both touch `{clash[0]}`, one changing it: "
+                                     f"their order would change")
     # (the state rewrite) a part that reads ST.x as it runs (outside a function) while ST.x is set by a statement that waits for
     # the parts would read it unset; and a statement that runs at once reading an ST.x that is set later, likewise
     st_obj = state_object(plan)
@@ -579,7 +626,8 @@ def mutated(m: Member) -> str | None:
     """The variable a statement changes the inside of (`X.y = ...`, `X[k] = ...`, `X.push(...)`, `Object.assign(X, ...)`),
     by its text; None for anything else."""
     head = m.d["head"]
-    hit = re.match(r"(?:Object\.assign\(\s*)?([A-Za-z_$][\w$]*)\s*(?:\.[\w$]+|\[[^\]]*\])+\s*(?:=[^=]|\()", head) \
+    hit = re.match(r"([A-Za-z_$][\w$]*)\s*(?:\.[\w$]+|\[[^\]]*\])+\s*=[^=]", head) \
+        or re.match(r"([A-Za-z_$][\w$]*)(?:\.[\w$]+)*\." + MUTATORS + r"\(", head) \
         or re.match(r"Object\.assign\(\s*([A-Za-z_$][\w$]*)\s*,", head)
     if not hit or hit.group(1) in ("window", "document", "globalThis", "customElements", "console", "self"):
         return None
@@ -644,7 +692,7 @@ def now_text(m: Member) -> str:
 def reaches(plan: Plan, m: Member) -> bool:
     """Does running `m` now reach a member that moved, or a statement that waits for the parts (through the functions of
     the shell it calls or reads)?"""
-    seen, stack = set(), [r for r in m.d["refs"] if "index" in r and r.get("now")]
+    seen, stack = set(), [r for r in m.d["refs"] if "index" in r]     # (callbacks and IIFEs inside it may run at once)
     while stack:
         r = stack.pop()
         tgt = plan.members.get((r["scope"], r["index"]))

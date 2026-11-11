@@ -346,10 +346,11 @@
                            import('/hk/modules/hk-wallpapers.js?v=' + v),
                            // (the grid editor's palette presses go through hk-drag.js)
                            import('/hk/cards/hk-grid-catalog.js?v=' + v).then(function () { return import('/hk/panels/hk-grid-editor.js?v=' + v); })]);
-        // (a module above that is cut into parts -- tools/split_js.py -- is there once its parts have run: each shell's
-        // promise in window.__hkSplitReady; a part that never came is its loader's to report)
+        // (the modules above that are cut into parts -- tools/split_js.py -- are there once their parts have run: each shell's
+        // promise in window.__hkSplitReady, under its file's name. A part that never came rejects it, and this page says it
+        // couldn't load and tries again, as for a file that didn't come)
         var splitReady = window.__hkSplitReady || {};
-        await Promise.all(Object.keys(splitReady).map(function (k) { return splitReady[k].catch(function () { /* said */ }); }));
+        await Promise.all(['hk-settings-model', 'hk-settings-features', 'hk-grid-editor'].map(function (k) { return splitReady[k]; }));
       } catch (e) {
         var again = this._bootTry < 5;
         s.innerHTML = '<div class="loading"></div>';

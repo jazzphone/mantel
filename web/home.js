@@ -143,9 +143,14 @@ mark('states');
 // (a file that didn't come is asked for again, twice, at an address of its own: a browser keeps a failed module's
 // answer for its address; the third audit pass, 2026-11-01)
 // A FILE CUT INTO PARTS (tools/split_js.py: hk-strategy.js, the core cards, ...) is there once its parts have run, a round
-// trip after the file: each shell keeps a promise of that in window.__hkSplitReady, and imp() waits for every one that has
-// started before it answers (a part that never came is its loader's to report)
-const partsIn = () => Promise.all(Object.values(window.__hkSplitReady || {}).map((r) => r.catch(() => {})));
+// trip after the file: each shell keeps a promise of that in window.__hkSplitReady under its file's name, and imp() waits
+// for the one it imported -- only that one: another file's parts (the sky's, the screensaver's) never hold this page up.
+// A part that never came is said here and by its loader; the page goes on, as with a file that didn't come.
+const partsOf = (u) => {
+  const name = u.split('?')[0].split('/').pop().replace(/\.js$/, '');
+  const ready = (window.__hkSplitReady || {})[name];
+  return ready ? ready.catch((e) => console.error('[mantel] the parts of', u, 'did not load', e)) : null;
+};
 const imp = async (u) => {
   for (let n = 0; ; n++) {
     let m;
@@ -154,7 +159,7 @@ const imp = async (u) => {
       await new Promise((r) => setTimeout(r, 1000 * 2 ** n));
       continue;
     }
-    await partsIn();
+    await partsOf(u);
     return m;
   }
 };

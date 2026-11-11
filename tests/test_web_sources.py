@@ -575,3 +575,68 @@ def test_a_declared_scope_keeps_its_last_return_last_after_the_loaders_call(path
     body = shell[shell.index("function boot() {"):shell.index("if (!boot())")]
     assert body.index("loadParts(function () {") < body.index("    return true;\n  }")
     assert "window.thing = twice(2);" in body[body.index("loadParts(function () {"):]
+
+
+
+def test_a_shells_label_is_its_files_name(path):
+    """Importers wait for the file they imported by its name (window.__hkSplitReady[name]): the label is the file's name."""
+    man = _manifest(path)
+    assert man["label"] == Path(man["shell"]).stem
+
+
+REVIEW_CASES = {   # (the phase 24 review's counter-examples: each is refused, or waits for the parts)
+    "iife": ("""(function () {
+  'use strict';
+  function helper(x) { return x + 1; }
+  var early = (function () { return helper(1); })();
+  window.hkX = { early: early };
+})();
+""", "runs at load and reaches `helper`"),
+    "reorder": ("""(function () {
+  'use strict';
+  var cfg = { a: 1 };
+  var snap = cfg.a;
+  cfg.a = 2;
+  window.hkX = { snap: snap };
+})();
+""", "their order would change"),
+    "reorder2": ("""(function () {
+  'use strict';
+  var list = [];
+  var reg = (list.push('a'), 1);
+  var n = list.length;
+  window.hkX = { n: n, reg: reg };
+})();
+""", "their order would change"),
+}
+
+
+def test_the_reviews_counter_examples_are_refused(path, tmp_path):
+    if not _node_ready() or path.stem != "grid-cards":
+        pytest.skip("node or TypeScript (tools/typecheck) not installed, or run once")
+    tool = _tool()
+    members = {"iife": ["helper"], "reorder": ["snap"], "reorder2": ["reg"]}
+    for name, (src, why) in REVIEW_CASES.items():
+        man = {"shell": "x.js", "folder": "web/hk/x", "global": "hkXParts", "label": "x", "what": "X", "name": "x",
+               "parts": [{"name": "x-a", "title": "a", "members": members[name]}]}
+        plan = tool.make_plan(man, src, tmp_path / name)
+        assert any(why in r for r in plan.refusals), (name, plan.refusals)
+    # a callback that reaches a moved function waits for the parts instead of running at once
+    src = """(function () {
+  'use strict';
+  var items = [1, 2];
+  function helper(x) { return x + 1; }
+  var out = [];
+  items.forEach(function (x) { out.push(helper(x)); });
+  window.hkX = { out: out };
+})();
+"""
+    man = {"shell": "x.js", "folder": "web/hk/x", "global": "hkXParts", "label": "x", "what": "X", "name": "x",
+           "parts": [{"name": "x-a", "title": "a", "members": ["helper"]}]}
+    plan = tool.make_plan(man, src, tmp_path / "foreach")
+    assert not plan.refusals and next(m for m in plan.members.values() if m.d["head"].startswith("items.forEach")).late
+    # the state rewrite refuses a name declared twice in its scope (a second `var` in a block)
+    f = tmp_path / "twice.js"
+    f.write_text("(function () {\n  var x = 1;\n  function f() { return x; }\n  if (true) { var x = 2; }\n  window.f = f;\n})();\n")
+    with pytest.raises(tool.Refusal, match="declared more than once"):
+        tool.state_rewrite(f, {}, ["x"])
