@@ -117,8 +117,8 @@
           var src = copy ? self.data.boards[copy.from] : null;
           var shows = { shows: nw.shows || 'all', kind: nw.kind };
           self.createScreen(title, nw.kind, nw.admin).then(function (path) {
-            // the preset first, then what was chosen from the other screen
-            return copy && src ? self.setB(path, M.copyChanges(src, copy.groups)).then(function () { return path; }) : path;
+            // the preset first, then what was chosen from the other screen (its accessory names too: copyOnto)
+            return copy && src ? self.copyOnto(path, copy).then(function () { return path; }) : path;
           }).then(function (path) {
             // then what it shows: everything, or only some pages
             return self.applyShows(path, shows).then(function () { return path; });

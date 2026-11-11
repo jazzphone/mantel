@@ -630,7 +630,9 @@
             K.confirm(self.shadowRoot, { title: 'Copy from ' + fromTitle + '?', ok: 'Copy',
                                          message: names.join(', ') + ' on ' + x.title + ' are replaced with ' + fromTitle + '’s.' }).then(function (yes) {
               if (!yes) return;
-              self.setB(path, M.copyChanges(src, st.groups)).then(function () {
+              self.copyOnto(path, st).then(function (ok) {
+                // a refused save says so (save()'s own announcement) and stays on this page: never "Copied"
+                if (!ok) return;
                 self._copy = null;
                 self.announce('Copied from ' + fromTitle + '.');
                 self.back('#/screens/' + encodeURIComponent(path));
@@ -638,12 +640,59 @@
             });
           } })]));
       }
+      // COPY st.groups OF st.from ONTO `path`: the screen's settings in one save, then the names set for that screen
+      // only (accessory/set, one accessory at a time, as the accessory's own sheet saves them). -> true when all of
+      // it was saved. (Add Screen's Copy Settings From uses it too: hk-settings-add.js)
+      async copyOnto(path, st) {
+        var src = this.data.boards[st.from], ch = M.copyChanges(src, st.groups);
+        if (Object.keys(ch).length && !await this.setB(path, ch)) return false;
+        if (st.groups.indexOf('names') < 0) return true;
+        var writes = this.copyNames(st.from, path);
+        if (!writes.length) return true;
+        this.status('saving');
+        try {
+          for (var i = 0; i < writes.length; i++) await this.actions().callWS(Object.assign({ type: DOMAIN + '/accessory/set' }, writes[i]));
+          this.status('saved');
+          return true;
+        } catch (e) {
+          this.status('error');
+          this.announce('Couldn’t copy the accessory names. ' + ((e && e.message) || e));
+          return false;
+        } finally {
+          // the accessories as they are now, saved or not
+          try { await this.reload(); } catch (x) { /* keep what we have */ }
+          this.render();
+        }
+      }
+      // THE NAMES SET FOR ONE SCREEN ONLY (an accessory's Name, This Screen Only), copied: kept with each accessory,
+      // not with the screen, so no setting of the screen's carries them (2026-11-10). The accessory/set writes that
+      // give the screen `to` exactly the names `from` has: each of `from`'s set, each `to` has that `from` hasn't
+      // taken away (name null: its home-wide name shows there again).
+      copyNames(from, to) {
+        var ents = (this.data.accessories || {}).entities || {};
+        return Object.keys(ents).sort().filter(function (id) {
+          var n = ents[id].names || {};
+          return (n[from] || null) !== (n[to] || null);
+        }).map(function (id) { return { entity_id: id, name: ents[id].names[from] || null, screen: to }; });
+      }
+      // how many accessories have a name on the screen `path` only (the line under Accessory Names)
+      screenNames(path) {
+        var ents = (this.data.accessories || {}).entities || {};
+        return Object.keys(ents).filter(function (id) { return !!(ents[id].names || {})[path]; }).length;
+      }
       copyGroups(c, st) {
-        var self = this;
-        c.appendChild(K.group({ header: 'What to Copy', footer: 'Favorites and scenes are usually a screen’s own, so they start unticked.' },
+        var self = this, src = st.from && this.data.boards[st.from];
+        // what the two that aren't plain settings would bring, once there is a screen to copy from
+        var subOf = function (g) {
+          if (!src) return null;
+          if (g === 'grid') return src.home_style === 'grid' ? 'Its Home Grid, ' + ((src.home_grid || {}).items || []).length + ' blocks' : 'A generated Home';
+          if (g === 'names') { var n = self.screenNames(st.from); return n ? n + (n === 1 ? ' accessory' : ' accessories') : 'None on that screen'; }
+          return null;
+        };
+        c.appendChild(K.group({ header: 'What to Copy', footer: 'The Home Grid, scenes, favorites and accessory names are usually a screen’s own, so they start unticked. In a copied layout, Tablet’s Room means this screen’s tablet.' },
           M.COPY_GROUPS.map(function (g) {
             var on = st.groups.indexOf(g[0]) >= 0;
-            return K.check({ label: g[1], multi: true, on: on, fk: 'copy:g:' + g[0], onClick: function () {
+            return K.check({ label: g[1], sub: subOf(g[0]), multi: true, on: on, fk: 'copy:g:' + g[0], onClick: function () {
               st.groups = on ? st.groups.filter(function (k) { return k !== g[0]; }) : st.groups.concat([g[0]]);
               self.render();
             } });
