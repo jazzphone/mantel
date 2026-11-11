@@ -104,6 +104,8 @@
           ':host([wide]) .col.l::-webkit-scrollbar{display:none}',
           ':host([wide]) .col.r{flex:0 0 300px}',
           ':host([wide]) .col.r .crd{flex:1 1 auto;justify-content:center}',
+          // (the left column's last card takes what's left, so both columns end on the sheet's bottom inset: 2026-11-11, the owner)
+          ':host([wide]) .col.l > .crd.fill{flex:1 0 auto}',
           // ONE COLUMN ON A PHONE: one scroll, the remote after Watching
           ':host(:not([wide])) .pn{overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none}',
           ':host(:not([wide])) .pn::-webkit-scrollbar{display:none}',
@@ -239,6 +241,9 @@
           q('.at').textContent = this._all ? 'All Apps' : (window.hkSettings && window.hkSettings.get('features.tv_show', 'recent') === 'favorites' ? 'Favorite Apps' : 'Apps');
           q('.tog').textContent = this._all ? 'Done' : 'All Apps…';
         }
+        // THE LAST CARD SHOWN ON THE LEFT reaches the foot (.fill)
+        var shown = Array.prototype.filter.call(this._root.querySelectorAll('.col.l > .crd'), function (el) { return !el.hidden; });
+        shown.forEach(function (el, i) { el.classList.toggle('fill', i === shown.length - 1); });
       }
     }
     if (!customElements.get('hk-detail-tv')) customElements.define('hk-detail-tv', /** @type {any} */ (TvPanel));
