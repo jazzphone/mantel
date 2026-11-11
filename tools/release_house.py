@@ -14,7 +14,8 @@
 
 Every product starts the same way: on main (or --from-origin: a worktree whose HEAD is origin/main), nothing
 uncommitted but LOCAL_ONLY, not behind origin/main, and a passed whole `tools/ci.py full` run that speaks for HEAD
-(tools/ci.py's passed runs, kept by tree): one of HEAD itself, or of a commit HEAD differs from only in version lines
+and in which the motion checks ran (`tools/ci.py full --release`; phase 25, decision 5) (tools/ci.py's passed runs,
+kept by tree): one of HEAD itself, or of a commit HEAD differs from only in version lines
 and changelogs (ci.py VERSION_FILES, CHANGELOGS: what a release commits) -- then `tools/ci.py versions`, what reads
 those files, must pass on HEAD first, instead of a second full run. Each release commit the tool makes passes
 `versions` before it is pushed. The notes are each changelog's "## Unreleased" (empty: refused), which the release
@@ -134,7 +135,7 @@ def ci_green(head: str, store: Path | None = None, root: Path = ROOT) -> tuple[d
     """The passed whole full run that speaks for HEAD, and how: "same" (it ran on HEAD) or "versions" (HEAD differs
     from its commit only in versions and changelogs: `tools/ci.py versions` must pass on HEAD first). tools/ci.py
     keeps only whole runs on a clean, unchanging tree, and a failed run of a tree takes its passes away."""
-    found, how = CI.full_run_for(head, store or CI.store_path(), root)
+    found, how = CI.full_run_for(head, store or CI.store_path(), root, motion=True)   # phase 25, E2: decision 5
     if found is None:
         raise Refused(how)
     return found, how

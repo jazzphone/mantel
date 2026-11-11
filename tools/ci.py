@@ -9,7 +9,8 @@ checks"). One runner, one table, one record:
     tools/ci.py full --all       # every step, whatever passed before
     tools/ci.py versions         # what reads the version files and changelogs (seconds): a release's re-check
     tools/ci.py full --only js   # only the steps whose name contains "js"
-    tools/ci.py full --only swipe-motion  # a by-hand check (swipe-motion, pre-glass-motion): never in a whole run
+    tools/ci.py full --release   # a release's run: also the motion checks, whatever passed before (phase 25, E2)
+    tools/ci.py full --only swipe-motion  # only the motion checks (swipe-motion, pre-glass-motion)
     tools/ci.py quick --skip-passed  # (the pre-push hook) a tree that already passed: only the commit messages
     tools/ci.py --list           # the steps of each tier
     tools/ci.py --install-hooks  # pre-commit: private words; pre-push: quick --skip-passed
@@ -77,6 +78,15 @@ HISTORY = 10                                   # each step's last passed times k
 # engine's four were ~140 s together)
 # how a swipe moves (swipe_motion_check.py): a tablet and a phone per engine, each a step (one engine was 264 s)
 SWIPE_MOTION = {"chromium": ("1280x800", "390x844"), "webkit": ("1180x820", "390x844")}
+# THE MOTION CHECKS (phase 25, E2; decision 5: "every release's full run, and once on main after a change to the pager or
+# the swipe"). They read the pager, the swipe and the glass under it, not the whole page: a full run runs them again only
+# when one of these changed since they passed, and `full --release` runs them whatever passed before (release_house.py
+# takes only a full run in which they ran). They run after the rest, one at a time: 20 of the 33 failed full runs from
+# 2026-11-05 to 11-08 were these four on timing noise, side by side with a dozen browsers. A failure is tried once more.
+MOTION = ("swipe-motion-check-", "pre-glass-motion-check")
+MOTION_INPUTS = ("web/hk/modules/hk-pageswipe.js", "web/hk/modules/hk-drag.js", "web/hk/layout/hk-layout-pager.js",
+                 "web/hk/shell/", "web/hk/modules/hk-glass.js", "web/hk/modules/hk-frosttint.js", "web/hk/modules/hk-sky.js",
+                 "tools/split_manifests/", "tools/build_static.py")
 # THE RELEASE RUN'S SIZES (the owner, 2026-11-08: "a lot of these tests aren't needed"): the wall tablet, the iPad and a
 # phone; the check's other sizes (page_swipe_check.py ENGINE_SIZES) run when it is run by hand
 PAGE_SWIPE = {"chromium": ("1280x800",), "webkit": ("1180x820", "390x844")}
@@ -121,7 +131,7 @@ class Step:
     name: str
     cmd: list[str] | Callable[[], list[str]]
     tier: str = "quick"                      # quick steps run in both tiers; full steps only in full; by-hand ones
-                                             # only when named (full --only NAME)
+                                             # only when named (full --only NAME; none since phase 25)
     skip: Callable[[], str | None] = lambda: None   # a reason to skip, checked just before the step runs
     env: dict[str, str] = field(default_factory=dict)
     cwd: Path | Callable[[], Path] = ROOT
@@ -132,6 +142,10 @@ class Step:
     # (the CDP checks share one fixed DevTools port)
     first: bool = False
     lane: str = ""
+    # `alone` steps run after all the others, one at a time (the motion checks: frame timing on a quiet Mac), and a
+    # failed one runs again up to `attempts` times in all, the result saying it needed another go
+    alone: bool = False
+    attempts: int = 1
     # in `versions` too: it reads the version files or the changelogs (a release's re-check)
     versions: bool = False
     # what it reads (PAGE_INPUTS): with them, a step that passed is "unchanged" while they are; without, it always runs
@@ -230,6 +244,16 @@ def check_inputs(script: str, engine: str = "webkit") -> dict:
             "needs": ("py", "chrome", "mac") if engine == "cdp" else PLAYWRIGHT + (("chrome",) * (engine == "chromium"))}
 
 
+def motion_inputs(script: str, engine: str = "webkit") -> dict:
+    """A motion check's: the pager, the swipe and the glass (MOTION_INPUTS) and its script's files; it runs alone."""
+    return {**check_inputs(script, engine), "inputs": lambda: (*MOTION_INPUTS, *imported([script])), "alone": True,
+            "attempts": 2}
+
+
+def is_motion(name: str) -> bool:
+    return name.startswith(MOTION)
+
+
 def steps(build: Build | None = None, parts: dict[str, int] | None = None) -> list[Step]:
     """Every step; a check in parts in `parts`' count of them (timing.json's), else its default."""
     build = build or Build()
@@ -321,9 +345,9 @@ def steps(build: Build | None = None, parts: dict[str, int] | None = None) -> li
                  timeout=900, skip=playwright_missing, **check_inputs("tools/headless/custom_sheet_check.py", e))
             for e in ("webkit", "chromium")]
     # Pre-rendered glass (Blur and Bright Glass) over a moving wallpaper, the real detector and painter (2026-11-07)
-    # (by hand since 2026-11-08, like swipe-motion below: a frame-timing check that fails on a busy Mac, not on a regression)
-    out.append(Step("pre-glass-motion-check", [py, "tools/headless/pre_glass_motion_check.py"], tier="by-hand", timeout=600,
-                    skip=playwright_missing, **check_inputs("tools/headless/pre_glass_motion_check.py")))
+    # (by hand 2026-11-08 to 11-11, like swipe-motion below; a motion check since phase 25: MOTION above)
+    out.append(Step("pre-glass-motion-check", [py, "tools/headless/pre_glass_motion_check.py"], tier="full", timeout=600,
+                    skip=playwright_missing, **motion_inputs("tools/headless/pre_glass_motion_check.py")))
     # the page beside the iPhone Duo's side strip, in WebKit (its insets stood in; 2026-10-30)
     out.append(Step("side-strip-check", [py, "tools/headless/side_strip_check.py"], tier="full", timeout=600,
                     skip=playwright_missing, **check_inputs("tools/headless/side_strip_check.py")))
@@ -333,10 +357,10 @@ def steps(build: Build | None = None, parts: dict[str, int] | None = None) -> li
                  tier="full", timeout=900, skip=playwright_missing, **check_inputs("tools/headless/page_swipe_check.py", e))
             for e, sizes in PAGE_SWIPE.items() for z in sizes]
     # ...and how it moves, frame by frame: the finger, the release, what comes in, a new finger mid-settle (2026-11-04)
-    # BY HAND (the owner, 2026-11-08): 20 of the 33 failed full runs since 2026-11-05 were these four on timing noise, and
-    # they passed while swiping still felt bad on the tablets. Run them when working on swipes: full --only swipe-motion
-    out += [Step(f"swipe-motion-check-{e}-{z}", [py, "tools/headless/swipe_motion_check.py", "--engine", e, "--size", z], tier="by-hand",
-                 timeout=900, skip=playwright_missing, **check_inputs("tools/headless/swipe_motion_check.py", e))
+    # BY HAND from 2026-11-08 (20 of the 33 failed full runs since 2026-11-05 were these four on timing noise) until
+    # phase 25: the phone-size failure then went unseen for three days. Motion checks now (MOTION above)
+    out += [Step(f"swipe-motion-check-{e}-{z}", [py, "tools/headless/swipe_motion_check.py", "--engine", e, "--size", z], tier="full",
+                 timeout=900, skip=playwright_missing, **motion_inputs("tools/headless/swipe_motion_check.py", e))
             for e, sizes in SWIPE_MOTION.items() for z in sizes]
     # a Home Grid block that swipes moves as a whole block, cut off in its gutter, in WebKit in four looks (2026-11-06)
     out.append(Step("pager-edges-check", [py, "tools/headless/pager_edges_check.py"], tier="full", timeout=600,
@@ -419,6 +443,18 @@ def select(all_steps: list[Step], tier: str, only: list[str] | None = None) -> l
 
 
 def run_step(step: Step, log_dir: Path) -> Result:
+    res = run_once(step, log_dir)
+    tries = 1
+    while res.status == "failed" and tries < step.attempts:
+        tries += 1
+        first = res
+        res = run_once(step, log_dir)
+        if res.status == "passed":
+            res.reason = f"passed on try {tries} (try 1: {first.reason})"
+    return res
+
+
+def run_once(step: Step, log_dir: Path) -> Result:
     reason = step.skip()
     if reason:
         return Result(step.name, "skipped", reason=reason)
@@ -462,15 +498,18 @@ def say(text: str):
 def run(chosen: list[Step], tier: str, record_dir: Path = RECORD_DIR, echo: Callable[[str], None] = say,
         after: Callable[[Step, Result], None] | None = None, only: list[str] | None = None,
         store: Path | None = None, step_store: Path | None = None, reuse: bool = True, build: Build | None = None,
-        root: Path = ROOT, shared_times: Path | None = None, timing: Path | None = None) -> dict:
+        root: Path = ROOT, shared_times: Path | None = None, timing: Path | None = None, release: bool = False) -> dict:
     """Run the steps and write the record; with `store`, a whole run (no `only`) is also remembered there. With
     `step_store`, each step with a key (step_keys, at the start) that passed is remembered there by it, and one that
-    failed forgets it; and with `reuse`, a step whose key passed before is not run: it is unchanged."""
+    failed forgets it; and with `reuse`, a step whose key passed before is not run: it is unchanged. With `release`,
+    the motion checks (MOTION) run whatever passed before."""
     record_dir.mkdir(exist_ok=True)
     started = datetime.datetime.now(datetime.timezone.utc)
     before = git_state(root)
     keys = step_keys(chosen, build, root) if step_store else {}
     carried = carried_passes(keys, step_store) if step_store and reuse else {}
+    if release:
+        carried = {k: v for k, v in carried.items() if not is_motion(k)}
     if carried:
         echo(f"  ({len(carried)} of {len(chosen)} steps unchanged since they passed: not run again; --all runs them)")
     got: dict[str, Result] = {}
@@ -499,7 +538,7 @@ def run(chosen: list[Step], tier: str, record_dir: Path = RECORD_DIR, echo: Call
     # the rest side by side: each step a job, or a lane's steps one job in their order
     jobs: list[list[Step]] = []
     lanes: dict[str, list[Step]] = {}
-    for step in [s for s in chosen if not s.first]:
+    for step in [s for s in chosen if not s.first and not s.alone]:
         if step.lane:
             if step.lane not in lanes:
                 lanes[step.lane] = []
@@ -523,11 +562,14 @@ def run(chosen: list[Step], tier: str, record_dir: Path = RECORD_DIR, echo: Call
     with concurrent.futures.ThreadPoolExecutor(max_workers=width) as pool:
         for f in [pool.submit(lambda job=job: [one(s) for s in job]) for job in jobs]:
             f.result()
+    for step in [s for s in chosen if s.alone and not s.first]:     # then the motion checks, one at a time
+        one(step)
     results = [got[s.name] for s in chosen]
     head, tree, dirty = git_state(root)
     record = {
         "tier": tier,
         "only": only or None,                # a part of the tier: never a whole run
+        "release": release,                  # --release: the motion checks ran whatever passed before
         "commit": head,
         "tree": tree,
         "dirty": dirty,
@@ -589,6 +631,7 @@ def remember(record: dict, store: Path, keep: int = 200) -> bool:
         return False
     runs = [r for r in stored_runs(store) if r["tree"] != record["tree"] or (record["ok"] and r.get("ok") is True)]
     runs.append({"tree": record["tree"], "commit": record["commit"], "tier": record["tier"], "ok": bool(record["ok"]),
+                 "release": bool(record.get("release")),
                  "finished": record["finished"], "steps": {s["name"]: s["status"] for s in record["steps"]}})
     store.parent.mkdir(parents=True, exist_ok=True)
     tmp = store.with_suffix(f".{os.getpid()}.tmp")
@@ -625,10 +668,18 @@ def beyond_versions(base: str, head: str = "HEAD", root: Path = ROOT) -> str | N
     return None
 
 
-def full_run_for(head: str, store: Path, root: Path = ROOT, look: int = 20) -> tuple[dict | None, str]:
+def motion_ran(run: dict) -> bool:
+    """A stored run in which the motion checks ran and passed (not carried as unchanged)."""
+    named = {n: st for n, st in (run.get("steps") or {}).items() if is_motion(n)}
+    return bool(named) and all(st == "passed" for st in named.values())
+
+
+def full_run_for(head: str, store: Path, root: Path = ROOT, look: int = 20,
+                 motion: bool = False) -> tuple[dict | None, str]:
     """The passed full run that speaks for the commit `head`: (run, "same") when it ran on `head` itself; (run,
     "versions") when it ran on a commit with `head`'s tree, or one that differs from it only in versions and
-    changelogs (`versions` must then pass on head); (None, why not) when none does."""
+    changelogs (`versions` must then pass on head); (None, why not) when none does. With `motion` (a release), only a
+    run in which the motion checks ran (`full --release`, or one after a change to what they read) counts."""
     tree = subprocess.run(["git", "rev-parse", f"{head}^{{tree}}"], cwd=root, capture_output=True, text=True).stdout.strip()
     if failed := failed_tree(tree, store):
         return None, (f"the last whole {failed['tier']} run of HEAD's tree, on {failed['commit'][:9]}, failed: "
@@ -636,6 +687,10 @@ def full_run_for(head: str, store: Path, root: Path = ROOT, look: int = 20) -> t
     fulls = [r for r in reversed(passed_runs(store)) if r.get("tier") == "full"][:look]
     if not fulls:
         return None, "no passed full run: run `tools/ci.py full` first"
+    if motion:
+        fulls = [r for r in fulls if motion_ran(r)]
+        if not fulls:
+            return None, "no passed full run in which the motion checks ran: run `tools/ci.py full --release`"
     for r in fulls:
         if r.get("commit") == head:
             return r, "same"
@@ -1087,14 +1142,16 @@ def install_hooks(hooks: Path | None = None) -> list[Path]:
     return written
 
 
-def plan(chosen: list[Step], build: Build, store: Path) -> str:
+def plan(chosen: list[Step], build: Build, store: Path, release: bool = False) -> str:
     """What a run would do with each step (--plan): run it, and why, or carry its pass."""
     keys = step_keys(chosen, build)
-    carried = carried_passes(keys, store)
+    carried = {k: v for k, v in carried_passes(keys, store).items() if not (release and is_motion(k))}
     rows = []
     for s in chosen:
         if s.name in carried:
             why = f"unchanged: passed on {carried[s.name]['commit'][:9]} ({carried[s.name]['finished']})"
+        elif release and is_motion(s.name):
+            why = "runs: a motion check in a release's run"
         elif s.name in keys:
             why = "runs: its inputs are not as in any run it passed"
         elif s.inputs:
@@ -1112,6 +1169,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--only", action="append", help="run only the steps whose name contains this (repeatable); "
                                                      "they run even when unchanged")
     ap.add_argument("--all", action="store_true", help="run every step, even those whose inputs are unchanged")
+    ap.add_argument("--release", action="store_true",
+                    help="full: a release's run, the motion checks run whatever passed before (release_house.py's)")
     ap.add_argument("--list", action="store_true", help="list the steps of each tier")
     ap.add_argument("--plan", action="store_true", help="say which steps would run and which are unchanged, run none")
     ap.add_argument("--skip-passed", action="store_true",
@@ -1134,6 +1193,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"no step matches {args.only}", file=sys.stderr)
         return 2
     store, only = store_path(), args.only
+    if args.release and args.tier != "full":
+        print("--release is for a full run", file=sys.stderr)
+        return 2
     if args.skip_passed:
         if args.tier != "quick" or args.only:
             print("--skip-passed is for a whole quick run", file=sys.stderr)
@@ -1152,7 +1214,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.plan:
         try:
-            print(plan(chosen, build, step_store_path()))
+            print(plan(chosen, build, step_store_path(), args.release))
         finally:
             build.clean()
         return 0
@@ -1160,7 +1222,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         record = run(chosen, args.tier, after=after, only=only, store=store, step_store=step_store_path(),
                      reuse=not (args.all or args.only), build=build, shared_times=store.with_name("step-times.json"),
-                     timing=timing)
+                     timing=timing, release=args.release)
     finally:
         build.clean()
     print(table(record))

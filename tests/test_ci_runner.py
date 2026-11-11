@@ -36,8 +36,11 @@ def test_quick_is_part_of_full_and_full_adds_the_rest():
     assert {"edit-mode-check-chromium-1280x800", "edit-mode-check-webkit-1180x820"} <= set(full)
     assert "side-strip-check" in full and "side-strip-check" not in quick
     assert {"page-swipe-check-chromium-1280x800", "page-swipe-check-webkit-1180x820"} <= set(full)
-    # the frame-timing checks are by hand (2026-11-08): never in a whole run, run when named
-    assert not any(n.startswith(("swipe-motion", "pre-glass-motion")) for n in full)
+    # the frame-timing checks: by hand from 2026-11-08, in full since phase 25 (decision 5), alone at the end, read only
+    # the pager, the swipe and the glass, and a failure gets one more try
+    motion = [s for s in steps if ci.is_motion(s.name)]
+    assert len(motion) == 5 and all(s.name in full and s.alone and s.attempts == 2 for s in motion)
+    assert all("web/hk/modules/hk-pageswipe.js" in s.inputs() and "web/" not in s.inputs() for s in motion)
     assert [s.name for s in ci.select(steps, "full", ["swipe-motion-check-webkit-1180"])] == ["swipe-motion-check-webkit-1180x820"]
     assert ci.select(steps, "quick", ["swipe-motion"]) == []
     assert not any(n.startswith(("edit-mode", "page-swipe")) for n in quick)
@@ -514,3 +517,49 @@ def test_a_check_whose_parts_multiplied_or_a_whole_run_that_grew_is_named(tmp_pa
     assert {"p", ci.WHOLE} <= set(hist)
     ci.run([fake("a")], "full", record_dir=tmp_path / "rec", echo=lambda s: None, timing=timing, only=["a"])
     assert len(ci.read_timing(timing)["history"][ci.WHOLE]) == 1, "an --only run is not the whole"
+
+
+def test_alone_steps_run_after_the_rest_one_at_a_time_and_a_failure_gets_another_try(tmp_path, monkeypatch):
+    # phase 25, E2: the motion checks run on a quiet Mac, after everything else, and once more when they fail
+    log, tries = tmp_path / "order", tmp_path / "tries"
+    def stamp(name, alone=False, fail_first=False):
+        fail = (f"n=len(open({str(tries)!r}).read()) if __import__('os').path.exists({str(tries)!r}) else 0\n"
+                f"open({str(tries)!r},'a').write('x')\nraise SystemExit(1 if n == 0 else 0)\n") if fail_first else ""
+        step = ci.Step(name, [sys.executable, "-c", f"import time\nopen({str(log)!r},'a').write('{name}+\\n')\n"
+                                                    f"time.sleep(0.1)\nopen({str(log)!r},'a').write('{name}-\\n')\n{fail}"],
+                       timeout=30, alone=alone, attempts=2 if alone else 1)
+        return step
+    monkeypatch.setenv("CI_JOBS", "6")
+    rec = ci.run([stamp("m1", True, fail_first=True), stamp("a"), stamp("m2", True), stamp("b")], "full",
+                 record_dir=tmp_path / "rec", echo=lambda _: None)
+    seq = log.read_text().split()
+    assert rec["ok"], rec
+    assert set(seq[:4]) == {"a+", "a-", "b+", "b-"}, seq                    # the rest first
+    assert seq[4:] == ["m1+", "m1-", "m1+", "m1-", "m2+", "m2-"], seq        # then one at a time, m1 tried twice
+    assert "passed on try 2" in next(r for r in rec["steps"] if r["name"] == "m1")["reason"]
+
+
+def test_a_release_takes_only_a_full_run_in_which_the_motion_checks_ran(tmp_path):
+    root, store = repo(tmp_path), tmp_path / "passed.json"
+    base = git(root, "rev-parse", "HEAD")
+    tree = git(root, "rev-parse", "HEAD^{tree}")
+    steps = lambda status: [{"name": "main-suite", "status": "passed"},              # noqa: E731
+                            {"name": "swipe-motion-check-webkit-390x844", "status": status}]
+    ci.remember(record(tree, commit=base, steps=steps("unchanged")), store)
+    assert ci.full_run_for(base, store, root)[1] == "same"
+    found, why = ci.full_run_for(base, store, root, motion=True)
+    assert found is None and "full --release" in why
+    ci.remember(record(tree, commit=base, steps=steps("passed"), release=True), store)
+    found, how = ci.full_run_for(base, store, root, motion=True)
+    assert how == "same" and found["release"] is True
+
+
+def test_release_runs_the_motion_checks_even_when_unchanged(tmp_path, monkeypatch):
+    m, other = ci.Step("swipe-motion-check-x", [sys.executable, "-c", "pass"], tier="full", alone=True), \
+        ci.Step("other", [sys.executable, "-c", "pass"], tier="full")
+    monkeypatch.setattr(ci, "step_keys", lambda chosen, build, root=ci.ROOT: {s.name: "k" for s in chosen})
+    monkeypatch.setattr(ci, "carried_passes", lambda keys, store: {n: {"commit": "c" * 40, "finished": "f"} for n in keys})
+    ran = lambda **kw: {r["name"]: r["status"] for r in ci.run([m, other], "full", record_dir=tmp_path,  # noqa: E731
+                                                               echo=lambda _: None, step_store=tmp_path / "s.json", **kw)["steps"]}
+    assert ran() == {"swipe-motion-check-x": "unchanged", "other": "unchanged"}
+    assert ran(release=True) == {"swipe-motion-check-x": "passed", "other": "unchanged"}
