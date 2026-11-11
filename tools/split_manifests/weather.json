@@ -1,0 +1,115 @@
+{
+  "shell": "web/hk/cards/hk-weather.js",
+  "folder": "web/hk/weather",
+  "global": "hkWeatherParts",
+  "label": "hk-weather",
+  "what": "THE WEATHER CARDS",
+  "iife": 2,
+  "run_in_decl": "boot",
+  "parts": [
+    {
+      "name": "hk-weather-helpers",
+      "title": "the cards' helpers and the sky behind a grid",
+      "members": [
+        "M",
+        "Base",
+        "RULE",
+        "num",
+        "esc",
+        "glyph",
+        "houseWeather",
+        "ownKeys",
+        "TILE_KEYS",
+        "BAND_KEYS",
+        "ALERT_KEYS",
+        "SECTIONS",
+        "WX_METRIC_ORDER",
+        "wxPage",
+        "hourLabel",
+        "titled",
+        "nightOf",
+        "upcomingDays",
+        "ENTRY",
+        "markEntry",
+        "motionOk",
+        "wxEnter",
+        "wxLeave",
+        "arrive",
+        "BUILD",
+        "BUILD_CSS",
+        "build",
+        "buildDue",
+        "SHADOW"
+      ]
+    },
+    {
+      "name": "hk-weather-tile",
+      "title": "the weather tile and its page",
+      "members": [
+        "HkWeatherTileCard",
+        "fitCss",
+        "fitOnResize",
+        "GONE_H",
+        "menuHasTime",
+        "HK_STACK_W",
+        "TILE_ICONS",
+        "TILE_NAMES",
+        "TILE_PAGE_CSS",
+        "DIRS16",
+        "dir16",
+        "fmtTime",
+        "nextHours",
+        "TILE_PAGE"
+      ]
+    },
+    {
+      "name": "hk-weather-header",
+      "title": "the header card",
+      "members": [
+        "HkHeaderCard"
+      ]
+    },
+    {
+      "name": "hk-weather-status",
+      "title": "the screensaver status and alert cards",
+      "members": [
+        "HkScreensaverStatusCard",
+        "HkAlertCard"
+      ]
+    },
+    {
+      "name": "hk-weather-page",
+      "title": "the weather page's band: its CSS, its methods and the band card",
+      "members": [
+        "PAGE_CSS",
+        "PAGE_METHODS",
+        "HkWeatherBandCard"
+      ]
+    },
+    {
+      "name": "hk-weather-details",
+      "title": "the details and radar cards",
+      "members": [
+        "HkWeatherDetailsCard",
+        "RADAR_URL",
+        "radarLoad",
+        "radarModule",
+        "HkRadarCard",
+        "opts"
+      ]
+    },
+    {
+      "name": "hk-weather-strip",
+      "title": "the strip and clock cards",
+      "members": [
+        "MISSING",
+        "HkWeatherStripCard",
+        "HkClockCard"
+      ]
+    }
+  ],
+  "source": {
+    "blob": "cd91a897178e91fc6ba345a039bd6df78a7acd12",
+    "lines": 3694
+  }
+}

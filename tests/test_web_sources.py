@@ -544,3 +544,34 @@ def test_the_state_rewrite_puts_vars_on_one_object_and_proves_it_backwards(path,
     back = tool.ask({"cmd": "state_back", "file": str(f), "vars": ["VIEW", "count"], "run_in": None, "run_in_decl": False, "iife": 0,
                      "original": STATE_SOURCE, "rewritten": planted, "obj": "ST", "markers": got["markers"], "count": got["count"]})
     assert back["equal"] is False
+
+
+BOOT_SOURCE = """(function () {
+  window.first = 1;
+})();
+(function () {
+  'use strict';
+  function boot() {
+    if (!window.ready) return false;
+    function twice(n) { return n * 2; }
+    window.thing = twice(2);
+    return true;
+  }
+  if (!boot()) window.addEventListener('ready', boot, { once: true });
+})();
+"""
+
+
+def test_a_declared_scope_keeps_its_last_return_last_after_the_loaders_call(path, tmp_path):
+    """hk-weather.js's boot() ends `return true;` (its caller tries again on an event when it returns false): the call that
+    runs the parts goes before it, and the return stays the scope's last statement."""
+    if not _node_ready() or path.stem != "grid-cards":
+        pytest.skip("node or TypeScript (tools/typecheck) not installed, or run once")
+    tool = _tool()
+    man = {"shell": "x.js", "folder": "web/hk/x", "global": "hkXParts", "label": "hk-x", "what": "X", "name": "x",
+           "iife": 1, "run_in_decl": "boot", "parts": [{"name": "hk-x-a", "title": "a", "members": ["twice"]}]}
+    plan, parts, shell = tool.build(man, BOOT_SOURCE, tmp_path / "boot")
+    assert tool.verify(plan, parts, shell, tmp_path / "boot") == []
+    body = shell[shell.index("function boot() {"):shell.index("if (!boot())")]
+    assert body.index("loadParts(function () {") < body.index("    return true;\n  }")
+    assert "window.thing = twice(2);" in body[body.index("loadParts(function () {"):]

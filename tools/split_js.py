@@ -391,6 +391,8 @@ def make_plan(man: dict, text: str, work: Path) -> Plan:
             continue
         if m.d["kind"] in ("function", "directive"):
             continue
+        if is_tail_return(plan, m):                        # a declared scope's last `return x;` stays last (tail_return)
+            continue
         if (m.d["first"], m.d["last"]) in host_lines:      # the call that holds the next scope stays where it is
             continue
         if m.d["kind"] == "var" and not any(not w.get("hoisted") for w in m.d["writes"]) and not any(
@@ -672,8 +674,25 @@ def shell_text(plan: Plan, extra_takes: dict[int, set[str]] | None = None) -> st
             body = reindent(L[m.d["first"] - 1:m.d["last"]], set(m.d["protected"]), m.d["first"], m.d["indent"], len(cont))
             call += ([""] if m is late[0] or L[m.d["first"] - 2].strip() == "" else []) + body
         call.append(f"{ind}}});")
-    insert.setdefault(home["close"], []).extend([""] + call)
+    tail = next((m for m in plan.members.values() if is_tail_return(plan, m)), None)
+    if tail is not None:          # before a declared scope's last `return x;`: the call must be reached
+        insert.setdefault(tail.d["first"], []).extend(call + [""])
+    else:
+        insert.setdefault(home["close"], []).extend([""] + call)
     return splice(L, remove, insert)
+
+
+def is_tail_return(plan: Plan, m: Member) -> bool:
+    """The last statement of a declared function's body that is a `return` (hk-weather.js's boot() ends `return true;`, and
+    its caller tries again on an event when it returns false): it stays the last statement, after the loader's call."""
+    if not plan.man.get("run_in_decl"):
+        return False
+    scopes = code_scopes(plan.an)
+    hs = len(scopes) - 1
+    if m.scope != hs or not scopes[hs]["stmts"]:
+        return False
+    last = scopes[hs]["stmts"][-1]
+    return m.index == last["index"] and m.d["head"].startswith("return")
 
 
 def splice(L: list[str], remove: list[tuple[int, int]], insert: dict[int, list[str]]) -> str:

@@ -80,7 +80,14 @@ Mantel's pages and the code both hosts share: HK's cards, modules, panels and th
   - `hk-timeline-block.js` — the House Timeline in two small places (docs/phase19/HOUSE-TIMELINE.md, "The views").
   - `hk-timeline.js` — the Timeline page
   - `hk-tv-card.js` — the TV block (`tv` in hk-grid-catalog.js; docs/phase23/TV.md), 2026-11-10.
-  - `hk-weather.js` — the Weather page's summary band, as a native Lovelace card.
+  - `hk-weather.js` — the Weather page's summary band, as a native Lovelace card. *(a shell: its parts are in `web/hk/weather/`, `tools/split_manifests/weather.json`)*
+    - `hk-weather-helpers.js` — the cards' helpers and the sky behind a grid
+    - `hk-weather-tile.js` — the weather tile and its page
+    - `hk-weather-header.js` — the header card
+    - `hk-weather-status.js` — the screensaver status and alert cards
+    - `hk-weather-page.js` — the weather page's band: its CSS, its methods and the band card
+    - `hk-weather-details.js` — the details and radar cards
+    - `hk-weather-strip.js` — the strip and clock cards
 - **web/hk/elements/**
   - `hk-elements.js` — HK'S OWN ELEMENTS (Phase 2, P2.1)
 - **web/hk/iconset/**
@@ -104,7 +111,9 @@ Mantel's pages and the code both hosts share: HK's cards, modules, panels and th
   - `hk-kiosk.js` — HIDE HOME ASSISTANT'S HEADER AND SIDEBAR on a screen that asks (HK Frontend 1.3).
   - `hk-laundry.js` — LAUNDRY, READ AND DRAWN (phase 22, 2026-11-10; docs/phase22/LAUNDRY.md).
   - `hk-loader.js` — imports the order-independent dashboard modules (MODULES below
-  - `hk-menu.js` — THE MENU OF PAGES AND ROOMS, modeled on the Home app's sidebar.
+  - `hk-menu.js` — THE MENU OF PAGES AND ROOMS, modeled on the Home app's sidebar. *(a shell: its parts are in `web/hk/menu/`, `tools/split_manifests/menu.json`)*
+    - `hk-menu-css.js` — the menu's CSS
+    - `hk-menu-drawer.js` — the drawer: mounting, placing, building its list, Home Assistant's sidebar, the edge swipe
   - `hk-mic-tap.js` — the Intercom's microphone tap
   - `hk-mic.js` — the microphone for the Intercom (docs/phase17/INTERCOM.md, "The microphone code").
   - `hk-notify.js` — NOTIFICATIONS
@@ -144,7 +153,11 @@ Mantel's pages and the code both hosts share: HK's cards, modules, panels and th
   - `hk-saverpieces-weather.js` — THE SCREENSAVER'S WEATHER AND SKY PIECES (2026-11-02, phase 13, phase 1b, wave A
   - `hk-saverwidgets.js` — THE SCREENSAVER'S PIECES, drawn in every shape (2026-11-01, the owner
   - `hk-settings.js` — THE DASHBOARD SETTINGS, on every screen, before any card.
-  - `hk-sidepane.js` — THE SIDE PANE (2026-10-30, docs/phase11/HOMEVIEW-LOOK.md "Phase A2")
+  - `hk-sidepane.js` — THE SIDE PANE (2026-10-30, docs/phase11/HOMEVIEW-LOOK.md "Phase A2") *(a shell: its parts are in `web/hk/sidepane/`, `tools/split_manifests/sidepane.json`)*
+    - `hk-sidepane-decide.js` — what the pane shows: its decisions and the house it reads
+    - `hk-sidepane-css.js` — the pane's CSS
+    - `hk-sidepane-music.js` — the music panel and the drawer's motion
+    - `hk-sidepane-pane.js` — the pane: its sections, drawing and the element
   - `hk-sky.js` — a live sky behind the weather view.
   - `hk-skylab.js`
   - `hk-skyshot.js` — THE SKY, AS A PICTURE
