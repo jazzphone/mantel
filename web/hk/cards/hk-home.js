@@ -308,9 +308,9 @@
         '.vb .key>span{min-width:0;overflow:hidden;text-overflow:ellipsis}',
         '.vb .key.go{flex:1 1 auto;min-width:0;padding:0 10px;background:' + SELECTED_BG + ';color:' + SELECTED_TEXT + '}',
         // (TALL'S KEYS, 2026-11-08, the owner: nothing stretches -- Clean is as wide as its word, Dock round beside it, the pair centered)
-        // (TALL'S KEYS, 2026-11-09, the owner: "The clean and home button need to fill out to match the width of the All Rooms button above it":
-        // Clean takes the row's width less the round 56 px Dock and 8 px clear, both 56 tall, at either cell shape)
-        '.vb[data-s=T]{--vb-key:56px}.vb[data-s=T] .keys{gap:8px}.vb[data-s=T] .key.go{padding:0 8px}.vb[data-s=T] .key.go hk-icon{display:none}',
+        // (TALL'S KEYS, 2026-11-09: Clean takes the row's width less the round Dock and 8 px; 48 tall since 2026-11-10, as the other blocks' keys --
+        // the owner: at 56 "the pills/controls seem a lot bigger than the other cards, causing almost no room for the animated glyph")
+        '.vb[data-s=T]{--vb-key:48px}.vb[data-s=T] .keys{gap:8px}.vb[data-s=T] .key.go{padding:0 8px}.vb[data-s=T] .key.go hk-icon{display:none}',
         // (the state in words where there is no ring to hold it: no battery and not cleaning, 2026-11-09)
         '.vb .none{text-align:center}.vb .none b{display:block;font-size:22px;font-weight:500;line-height:1.2}',
         '.vb .key hk-icon{flex:none;width:22px;height:22px;--mdc-icon-size:22px;display:flex;align-items:center;justify-content:center}',
@@ -320,7 +320,7 @@
         '.vb[data-s=W]{flex-direction:row;gap:16px}',
         // (2026-11-09, the owner: "the clean, rooms, and home button area should be wider ... its too squished": the vacuum drawn in two fifths
         // at the left -- its name, the drawing in what is left, what it is doing -- and the keys the rest)
-        '.vb[data-s=W] .col{display:flex;flex-direction:column;min-width:0;flex:0 0 40%}.vb[data-s=W] .art{flex:1 1 0;min-height:0;width:100%;margin:16px 0 0;display:flex}',
+        '.vb[data-s=W] .col{display:flex;flex-direction:column;min-width:0;flex:0 0 40%}.vb[data-s=W] .art{flex:1 1 0;min-height:0;width:100%;margin:16px 0 0;display:flex;justify-content:center}',
         '.vb[data-s=W] .art .hkva{height:100%;width:auto;max-width:100%}.vb[data-s=W] .side{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;justify-content:flex-end;gap:8px}',
         '.vb[data-s=W] .side .key{flex:none;width:100%;--vb-key:48px}',
         // THE ROOMS, two across, each a row of its own size (48 px; nothing stretches, 2026-11-08, the owner: "do the rooms scroll in the card if there
@@ -328,12 +328,14 @@
         // rooms stay under their label (data-fit: _fitRooms)
         '.vb .rooms{display:grid;grid-template-columns:repeat(2,var(--vb-cw));justify-content:center;grid-auto-rows:40px;gap:' + window.hkCards.TILE.gridGap + 'px;align-content:start;flex:1 1 auto;min-height:0;margin-top:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;touch-action:pan-x pan-y;scrollbar-width:none}',
         '.vb .rooms::-webkit-scrollbar{display:none}.vb .rooms[data-fit]{align-content:start}',
+        // (more rooms than it shows, 2026-11-10: the last row fades until the list is scrolled to its end)
+        '.vb .rooms:not([data-fit]):not([data-end]){-webkit-mask-image:linear-gradient(to bottom,#000 calc(100% - 28px),transparent);mask-image:linear-gradient(to bottom,#000 calc(100% - 28px),transparent)}',
         // ...and no stretching across the width (2026-11-08): a room is --vb-cw wide (176 on Large, 170 on Extra Large -- two across and the gap
         // nearly fill the column), the label, grid and keys one column of that width, centered in what the block's column leaves
         '.vb[data-s=L]{--vb-cw:176px}.vb[data-s=XL]{--vb-cw:170px}.vb[data-r] :is(.lab,.rooms,.keys){width:calc(var(--vb-cw) * 2 + ' + window.hkCards.TILE.gridGap + 'px);align-self:center;box-sizing:border-box}',
         // TALL AND WIDE with rooms on offer: the Rooms key opens the sheet that picks them, and says what is picked ("Kitchen, Office", "3 rooms")
-        // (56 px, 2026-11-09: the "All rooms" row was 44 while the block's other keys are 56 -- a 56 px touch target)
-        '.vb .rrow{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:8px;flex:none;height:56px;padding:0 8px 0 14px;margin-top:10px;border-radius:28px;background:' + C.v('key') + ';color:' + C.v('ink-2') + ';font-family:inherit;' + C.typeCss('caption') + ';cursor:pointer}',
+        // (as tall as the block's keys: 48 px since 2026-11-10)
+        '.vb .rrow{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:8px;flex:none;height:48px;padding:0 8px 0 14px;margin-top:10px;border-radius:24px;background:' + C.v('key') + ';color:' + C.v('ink-2') + ';font-family:inherit;' + C.typeCss('caption') + ';cursor:pointer}',
         '.vb .rrow>span{flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.vb .rrow.on{color:' + C.v('ink') + ';font-weight:600}.vb .rrow hk-icon{flex:none;width:20px;height:20px;--mdc-icon-size:20px}.vb .rrow:active{transform:scale(0.98)}.vb .rrow:focus-visible{outline:2px solid ' + C.v('ink-2') + ';outline-offset:2px}',
         '.vb .pair{display:flex;gap:8px}.vb .pair .key.rm{flex:1 1 0;min-width:0;padding:0 8px;font-size:15px}.vb .pair .key.rm.on{font-weight:700}.vb .side .pair .key.dk{width:auto}.vb .pair .key.rm hk-icon{display:none}.vb .rm-note{display:block;' + C.typeCss('caption') + ';font-weight:600;color:' + C.v('ink') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
         // THE ROOMS ARE THE SHEET'S PILLS (the owner, 2026-11-10: "not using the pills they should be using for the vacuum areas"): hk-base.js's
@@ -344,26 +346,22 @@
         // (the ring in the middle of what its column has left, the last run at the foot, level with the keys)
         '.vb[data-s=XL] .lcol{flex:0 0 200px;display:flex;flex-direction:column;min-width:0}',
         '.vb[data-s=XL] .lcol :is(.art,.none){margin:18px 0 0}',
+        // THE ROBOT CENTERED both ways in what its column leaves under the words, Large and Extra Large (the owner, 2026-11-10: "isn't centered")
+        '.vb:is([data-s=L],[data-s=XL]) :is(.lcol,.mid) .art{flex:1 1 0;min-height:0;width:100%;display:flex;align-items:center;justify-content:center;container-type:size}' +
+        '.vb:is([data-s=L],[data-s=XL]) :is(.lcol,.mid) .art .hkva{width:min(100%,calc(100cqh * 200 / 140));height:auto;max-height:none}',
         // (no rooms to offer: the left column is the block, the drawing at its own size under the words -- it was squeezed into 200 px, "Cl...")
-        '.vb[data-s=XL]:not([data-r]) .lcol{flex:1 1 auto}.vb[data-s=XL]:not([data-r]) .lcol .art{width:min(220px,100%)}',
-        '.vb[data-s=XL] .rcol{flex:1 1 auto;display:flex;flex-direction:column;min-width:0}',
-        '.vb[data-s=XL] .rcol .lab{margin-top:0}',
+        '.vb[data-s=XL]:not([data-r]) .lcol{flex:1 1 auto}.vb[data-s=XL]:not([data-r]) .lcol .art .hkva{max-width:240px}',
+        '.vb[data-s=XL] .rcol{flex:1 1 auto;display:flex;flex-direction:column;min-width:0}' + '.vb[data-s=XL] .rcol .lab{margin-top:0}',
         '.vb[data-s=XL] .key.dk{padding:0 18px}',
         // LARGE WITH ROOMS (2026-11-10): Extra Large's two columns -- the vacuum in two fifths at the left, its words at the foot level
         // with the keys; the rooms one to a row down the right, as wide as the column, scrolling past what the block holds
         '.vb[data-s=L][data-r]{flex-direction:row;gap:16px}',
         '.vb[data-s=L][data-r] .lcol{flex:0 0 40%;display:flex;flex-direction:column;min-width:0}',
-        '.vb[data-s=L][data-r] .lcol .art{flex:1 1 0;min-height:0;margin:18px 0 0;display:flex;align-items:flex-start;justify-content:center}',
-        '.vb[data-s=L][data-r] .lcol .art .hkva{max-height:100%;width:100%}',
+        '.vb[data-s=L][data-r] .lcol .art{margin:18px 0 0}',
         '.vb[data-s=T] .mid{margin-top:16px}.vb[data-s=L]:not([data-r]) .mid{margin:18px 0 8px}',
         '.vb[data-s=L][data-r] .rcol{flex:1 1 auto;display:flex;flex-direction:column;min-width:0}',
-        '.vb[data-s=L][data-r] .rcol .lab{margin-top:0}',
-        '.vb[data-s=L][data-r] :is(.lab,.rooms,.keys){width:100%}',
-        '.vb[data-s=L] .rooms{grid-template-columns:minmax(0,1fr)}',
-        // (no rooms: the drawing as large as the block leaves it, centered)
-        // (2026-11-10: the robot was 0 px wide here, so it never showed; now its box takes what the column leaves, the drawing upper left)
-        '.vb[data-s=L]:not([data-r]) .mid .art{flex:1 1 0;min-height:0;width:100%;margin:0;display:flex;justify-content:flex-start;align-items:flex-start;container-type:size}',
-        '.vb[data-s=L]:not([data-r]) .mid .hkva{width:min(100%,calc(100cqh * 200 / 140));height:auto}',
+        '.vb[data-s=L][data-r] .rcol .lab{margin-top:0}.vb[data-s=L][data-r] :is(.lab,.rooms,.keys){width:100%}.vb[data-s=L] .rooms{grid-template-columns:minmax(0,1fr)}',
+        '.vb[data-s=L]:not([data-r]) .mid .art{margin:0}',  // (no rooms: the robot was 0 px wide here until 2026-11-10)
         // THE VACUUM DRAWN IN PLACE OF THE BATTERY RING (2026-11-09, hk-vacuum-art.js; the battery is in the line under what it is doing):
         // Extra Large's in the middle of its column, Tall's as big as --vb-r (what the block leaves) lets it, centered
         (window.hkVacuumArt ? window.hkVacuumArt.CSS : '') + '.vb .art{flex:none;width:100%;margin:6px auto}.vb .state{font-size:22px;font-weight:600;line-height:1.2}',
@@ -604,7 +602,7 @@
       } else if (sz === 'T') {
         var bk = this._block(), more = rest.slice(1);
         html = '<div class="rt">' + stNode + what + '<span class="sub two">' + named(after(words((bat ? [bat] : []).concat(more)))) + '</span></div>' +
-          '<div class="mid" style="--vb-r:' + (bk ? Math.max(72, Math.min(120, bk.h - (pickable ? 286 : 234))) : 96) + 'px">' + art + '</div>' + rkey +
+          '<div class="mid" style="--vb-r:' + (bk ? Math.max(72, Math.min(120, bk.h - (pickable ? 270 : 226))) : 96) + 'px">' + art + '</div>' + rkey +
           '<div class="keys">' + key(go, 'go', true) + key(dock, 'dk', false) + '</div>';
       } else if (sz === 'XL') {
         var run = [since ? 'Last run ' + since + ' ago' : ''];
@@ -652,7 +650,10 @@
   // Measured after the draw, the keys and the heading taking what they take
   HkVacuumCard.prototype._fitRooms = function () {
     var rm = this._root.querySelector('.rooms');
-    if (rm && rm.clientHeight > 0) rm.toggleAttribute('data-fit', rm.scrollHeight <= rm.clientHeight + 1);
+    if (!rm || !(rm.clientHeight > 0)) return;
+    var end = function () { rm.toggleAttribute('data-end', rm.scrollTop + rm.clientHeight >= rm.scrollHeight - 2); }; rm.toggleAttribute('data-fit', rm.scrollHeight <= rm.clientHeight + 1);
+    if (!rm._hkEnd) { rm._hkEnd = true; rm.addEventListener('scroll', end, { passive: true }); }
+    end();
   };
   // CLEAR (2026-11-09): Mantel Server holds a water tank report until someone clears it -- from any screen, for everyone (mantel_server/vacuum_water.py)
   HkVacuumCard.prototype._clearWater = function () {
