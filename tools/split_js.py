@@ -663,7 +663,12 @@ def shell_text(plan: Plan, extra_takes: dict[int, set[str]] | None = None) -> st
                 f"{ind}partsReady.catch(function () {{ /* boot() reports it */ }});"]
     else:
         call = [f"{ind}{CALL}(function () {{", f"{cont}runParts();"]
+        spans = set()
         for m in late:
+            # (statements that share a line wait together: the line is written once)
+            if (m.d["first"], m.d["last"]) in spans:
+                continue
+            spans.add((m.d["first"], m.d["last"]))
             body = reindent(L[m.d["first"] - 1:m.d["last"]], set(m.d["protected"]), m.d["first"], m.d["indent"], len(cont))
             call += ([""] if m is late[0] or L[m.d["first"] - 2].strip() == "" else []) + body
         call.append(f"{ind}}});")
@@ -740,6 +745,8 @@ def build(man: dict, text: str, work: Path) -> tuple[Plan, dict[str, str], str]:
     declared = {n for m in plan.members.values() for n in m.d["names"]} | {r["param"] for m in plan.members.values()
                                                                              for r in m.d["refs"] if "param" in r}
     params = {p for sc in plan.an["scopes"] for p in sc["params"]}
+    # a taken name that is also a browser global (CSS, Image, ...): tsc finds the global, so it never reports it missing
+    lib = set(ask({"cmd": "lib_globals", "names": sorted(set().union(*plan.takes.values())), "globals": TYPES_D_TS})["names"])
     problems = []
     for pi, draft in drafts.items():
         d = got[str(draft.resolve())]
@@ -747,6 +754,7 @@ def build(man: dict, text: str, work: Path) -> tuple[Plan, dict[str, str], str]:
             problems.append(f"{man['parts'][pi]['name']}: does not parse: {d['syntax'][0]}")
         missing = {u["name"] for u in d["unresolved"]}
         kit_by_tsc = (missing & (declared | params)) - {n for n in missing if n in plan.unresolved_before and n not in declared}
+        kit_by_tsc |= plan.takes[pi] & lib
         stray = missing - declared - params - plan.unresolved_before
         if stray:
             problems.append(f"{man['parts'][pi]['name']}: tsc cannot find {sorted(stray)}, and the original shell cannot either")

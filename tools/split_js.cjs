@@ -647,6 +647,24 @@ function stateBack(req) {
   return { equal: false, a: a.slice(Math.max(0, i - 200), i + 300), b: b.slice(Math.max(0, i - 200), i + 300) };
 }
 
+// {"cmd": "lib_globals", "names": [...], "globals": [...]}: which names a file that declares nothing still finds (the
+// browser's own globals and the declaration files'): a part that takes one of them from the kit shadows it, as the shell's
+// own declaration did, so tsc does not report it missing (`CSS`, `Image`, `name`, ...)
+function libGlobals(req) {
+  const file = path.join(require('os').tmpdir(), 'split_js-empty-' + process.pid + '.js');
+  fs.writeFileSync(file, '');
+  try {
+    const prog = program([file], req.globals, false);
+    const sf = prog.getSourceFile(file);
+    const checker = prog.getTypeChecker();
+    const found = new Set(checker.getSymbolsInScope(sf, ts.SymbolFlags.Value).map((s) => s.name));
+    // (and what the global object inherits from Object.prototype: valueOf, toString, ...)
+    for (const n of Object.getOwnPropertyNames(Object.prototype)) found.add(n);
+    const resolves = (n) => found.has(n);
+    return { names: req.names.filter(resolves) };
+  } finally { fs.unlinkSync(file); }
+}
+
 let input = '';
 process.stdin.on('data', (c) => { input += c; });
 process.stdin.on('end', () => {
@@ -654,7 +672,7 @@ process.stdin.on('end', () => {
     const req = JSON.parse(input);
     const out = req.cmd === 'analyze' ? analyze(req) : req.cmd === 'diagnostics' ? diagnostics(req)
       : req.cmd === 'code' ? { codes: codes(req) } : req.cmd === 'state' ? stateRewrite(req)
-      : req.cmd === 'state_back' ? stateBack(req) : null;
+      : req.cmd === 'state_back' ? stateBack(req) : req.cmd === 'lib_globals' ? libGlobals(req) : null;
     if (!out) throw new Error('unknown command ' + req.cmd);
     process.stdout.write(JSON.stringify(out));
   } catch (err) {

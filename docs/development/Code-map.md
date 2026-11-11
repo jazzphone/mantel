@@ -25,7 +25,11 @@ Mantel's pages and the code both hosts share: HK's cards, modules, panels and th
   - `hk-base.js` — the foundation every hk card file builds on.
   - `hk-calendar.js` — the house's calendars
   - `hk-cameras.js` — the camera strip mosaic and its editor
-  - `hk-chip.js` — the chip and icon families as native Lovelace cards.
+  - `hk-chip.js` — the chip and icon families as native Lovelace cards. *(a shell: its parts are in `web/hk/chip/`, `tools/split_manifests/chip.json`)*
+    - `hk-chip-base.js` — the chips' CSS, base class, values, rules and labels
+    - `hk-chip-status.js` — the status chip and the toggle chip
+    - `hk-chip-row.js` — the chips row and Home Status
+    - `hk-chip-scenes.js` — the scenes row
   - `hk-control.js` — hk-control-card
   - `hk-detail.js` — detail sheets in the style of the Home app, in place of Home Assistant's more-info dialog.
   - `hk-energy.js` — the energy charts
@@ -46,7 +50,11 @@ Mantel's pages and the code both hosts share: HK's cards, modules, panels and th
   - `hk-house-status.js` — House Status (docs/phase11/HOUSE-STATUS.md)
   - `hk-intercom.js` — the Intercom
   - `hk-laundry-card.js` — the Laundry block (`laundry` in hk-grid-catalog.js; docs/phase22/LAUNDRY.md), 2026-11-10.
-  - `hk-layout.js` — building blocks
+  - `hk-layout.js` — building blocks *(a shell: its parts are in `web/hk/layout/`, `tools/split_manifests/layout.json`)*
+    - `hk-layout-small.js` — the frame, spacer, back, menu-button, key and info cards
+    - `hk-layout-grid.js` — the grid card, the grid view and the conditional card
+    - `hk-layout-home-grid.js` — the Home Grid view
+    - `hk-layout-pager.js` — the pager
   - `hk-library.js` — browse and search Music Assistant, in our own chrome.
   - `hk-media.js` — the music cards *(a shell: its parts are in `web/hk/media/`, `tools/split_manifests/media.json`)*
     - `hk-media-now.js` — the player (Now Playing) and its stacked geometry, speaker panel CSS and music-page address
@@ -64,7 +72,11 @@ Mantel's pages and the code both hosts share: HK's cards, modules, panels and th
   - `hk-security.js` — the alarm keypad
   - `hk-stat.js` — headings and metric readouts as native Lovelace cards.
   - `hk-strategy.js` — A WHOLE HOME APP-STYLE DASHBOARD FROM THE HOUSE ITSELF.
-  - `hk-tile.js` — the tile family as native Lovelace cards.
+  - `hk-tile.js` — the tile family as native Lovelace cards. *(a shell: its parts are in `web/hk/tile/`, `tools/split_manifests/tile.json`)*
+    - `hk-tile-helpers.js` — the tiles' helpers, the editor's schema and the labels
+    - `hk-tile-css.js` — the tiles' CSS
+    - `hk-tile-base.js` — the tile base class and the media card
+    - `hk-tile-cards.js` — the tile, light, fan, cover, scene, favorite, climate and tall cards
   - `hk-timeline-block.js` — the House Timeline in two small places (docs/phase19/HOUSE-TIMELINE.md, "The views").
   - `hk-timeline.js` — the Timeline page
   - `hk-tv-card.js` — the TV block (`tv` in hk-grid-catalog.js; docs/phase23/TV.md), 2026-11-10.

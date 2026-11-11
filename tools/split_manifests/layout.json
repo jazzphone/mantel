@@ -1,0 +1,95 @@
+{
+  "shell": "web/hk/cards/hk-layout.js",
+  "folder": "web/hk/layout",
+  "global": "hkLayoutParts",
+  "label": "hk-layout",
+  "what": "THE LAYOUT CARDS",
+  "run_in": "whenBase",
+  "parts": [
+    {
+      "name": "hk-layout-small",
+      "title": "the frame, spacer, back, menu-button, key and info cards",
+      "members": [
+        "HkBase",
+        "SAFE",
+        "SAFE_PAD_L",
+        "SAFE_PADS",
+        "MODULES",
+        "loadModule",
+        "HkFrameCard",
+        "HkSpacerCard",
+        "ROUND_CSS",
+        "NO_MENU",
+        "menu",
+        "roundMenu",
+        "chipBack",
+        "HkBackCard",
+        "HkMenuButtonCard",
+        "HkKeyCard",
+        "HkInfoCard"
+      ]
+    },
+    {
+      "name": "hk-layout-grid",
+      "title": "the grid card, the grid view and the conditional card",
+      "members": [
+        "pageHeaderMode",
+        "HEADER_EVENTS",
+        "HkGridCard",
+        "HkGridView",
+        "REACH",
+        "plateLike",
+        "footOf",
+        "cfgIds",
+        "passTile",
+        "cfgId",
+        "HkGridConditionalCard",
+        "GRID",
+        "cellShape",
+        "cellRadius",
+        "cellInset",
+        "gridNightNow",
+        "gridNight"
+      ]
+    },
+    {
+      "name": "hk-layout-home-grid",
+      "title": "the Home Grid view",
+      "members": [
+        "HkHomeGridView"
+      ]
+    },
+    {
+      "name": "hk-layout-pager",
+      "title": "the pager",
+      "members": [
+        "PAGER_EDGE",
+        "PAGER_DOTS",
+        "PAGER_DOT",
+        "PAGER_PITCH",
+        "PAGER_ROOM",
+        "PAGER_GUTTER",
+        "PAGER_SLOP",
+        "PAGER_TURN",
+        "PAGER_FLICK",
+        "PAGER_STILL",
+        "PAGER_HANDS_OFF",
+        "pagerSeq",
+        "pagerAreaOf",
+        "pagerStart",
+        "PAGER_MOTION_MS",
+        "PAGER_MOTION",
+        "pagerFollow",
+        "pagerDoorbell",
+        "pagerCalm",
+        "pagerControl",
+        "pagerClaims",
+        "HkPagerCard"
+      ]
+    }
+  ],
+  "source": {
+    "blob": "c5c0c141104c6f1e2732dec050c6bbd0229ba78e",
+    "lines": 2792
+  }
+}

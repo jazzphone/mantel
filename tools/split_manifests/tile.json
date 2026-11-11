@@ -1,0 +1,89 @@
+{
+  "shell": "web/hk/cards/hk-tile.js",
+  "folder": "web/hk/tile",
+  "global": "hkTileParts",
+  "label": "hk-tile",
+  "what": "THE TILE CARDS",
+  "run_in": "whenBase",
+  "parts": [
+    {
+      "name": "hk-tile-helpers",
+      "title": "the tiles' helpers, the editor's schema and the labels",
+      "members": [
+        "NAME_MAP",
+        "DOMAIN_MAP",
+        "ON_STATES",
+        "LAYOUTS",
+        "TALL_OF",
+        "SHORT_OF",
+        "sizedLayout",
+        "colourFor",
+        "hexOf",
+        "ownTint",
+        "DOOR_CLASSES",
+        "levelOf",
+        "lightRgb",
+        "OFF_WELL",
+        "wellColour",
+        "iconColour",
+        "nearWhite",
+        "TILE",
+        "readingOf",
+        "wideTile",
+        "tinyTile",
+        "levelTile",
+        "wideLevelTile",
+        "C",
+        "LABEL_MODE_VALUES",
+        "tileSchema",
+        "LOCK_MAP",
+        "LABEL_MODES",
+        "HEAT_STATES",
+        "tempColour",
+        "sentence",
+        "titled",
+        "brightnessLabel"
+      ]
+    },
+    {
+      "name": "hk-tile-css",
+      "title": "the tiles' CSS",
+      "members": [
+        "CSS"
+      ]
+    },
+    {
+      "name": "hk-tile-base",
+      "title": "the tile base class and the media card",
+      "members": [
+        "normaliseIconStates",
+        "PRESS_MS",
+        "HkTileBase",
+        "HkMediaCard"
+      ]
+    },
+    {
+      "name": "hk-tile-cards",
+      "title": "the tile, light, fan, cover, scene, favorite, climate and tall cards",
+      "members": [
+        "HkTileCard",
+        "HkLightCard",
+        "HkFanCard",
+        "HkCoverCard",
+        "HkSceneCard",
+        "HkFavoriteCard",
+        "HkClimateCard",
+        "HkClimateTallCard",
+        "HkTallCard",
+        "WELL",
+        "BARE_COLOUR",
+        "ROOM",
+        "CLIMATE"
+      ]
+    }
+  ],
+  "source": {
+    "blob": "6e2937c9052ff3a24fe1d6f31332822ff682ccf3",
+    "lines": 2048
+  }
+}
