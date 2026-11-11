@@ -173,7 +173,7 @@ def test_connect_flags_imply_ingress_without_trusting_any_peer():
 
 
 def test_the_mantel_app_image_carries_the_protocol_the_server_imports():
-    """mantel_server.connect_pairing imports mantel_connect at start-up, so the Mantel App's folder needs it."""
+    """mantel_server.network.connect_pairing imports mantel_connect at start-up, so the Mantel App's folder needs it."""
     spec = importlib.util.spec_from_file_location("stage_ha_app_c", ROOT / "tools/stage_ha_app.py")
     ha = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(ha)

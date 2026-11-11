@@ -701,7 +701,7 @@ def test_a_picture_at_the_pixel_cap_costs_well_under_a_gigabyte_and_a_bigger_one
         code = (
             "import sys, resource\n"
             f"sys.path.insert(0, {str(Path(photos.__file__).parents[1])!r})\n"
-            "from mantel_server import photos, faces\n"
+            "from mantel_server.cameras import photos, faces\n"
             "faces._runtime = False\n"
             "mb = (lambda: resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / (1e6 if sys.platform == 'darwin' else 1e3))\n"
             "before = mb()\n"

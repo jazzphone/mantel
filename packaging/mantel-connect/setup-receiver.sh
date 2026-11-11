@@ -35,7 +35,7 @@ cd "$DEST"
 "$DEST/venv/bin/python" - "$OWNER_ID" "$OWNER_NAME" <<'PY'
 from pathlib import Path
 import sys
-from mantel_server.store import Store
+from mantel_server.storage.store import Store
 store = Store(Path('/opt/mantel-connect-proof/data/mantel.db'))
 store.link(sys.argv[1], 'owner', sys.argv[2])
 store.db.close()

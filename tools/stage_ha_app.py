@@ -109,7 +109,7 @@ def plan() -> list[tuple[Path, str]]:
     # server.root and dev_page answer without it)
     pairs += _tree(ROOT / "hosts/server/mantel_server", "app/hosts/server/mantel_server",
                    keep=lambda p: p.name != "dev.html")
-    # mantel_server.connect_pairing imports the pairing protocol (Mantel Connect, for a Mantel outside HA);
+    # mantel_server.network.connect_pairing imports the pairing protocol (Mantel Connect, for a Mantel outside HA);
     # the code is imported by every server, so it ships in every image, switched off
     pairs += _tree(ROOT / "hosts/server/mantel_connect", "app/hosts/server/mantel_connect")
     # hk_core/link is Home Assistant's side (Mantel Link and HK Frontend vendor it); a server never imports it

@@ -196,7 +196,7 @@ def test_processes_opening_a_new_database_at_once_all_succeed(tmp_path):
     import sys
     from pathlib import Path
     target = tmp_path / "mantel.db"
-    code = f"from mantel_server import db; db.Database({str(target)!r}).close(); print('ok')"
+    code = f"from mantel_server.storage import db; db.Database({str(target)!r}).close(); print('ok')"
     root = Path(__file__).resolve().parents[1]
     env = {**os.environ, "PYTHONPATH": os.pathsep.join([str(root / "hosts/server"), str(root)])}
     procs = [subprocess.Popen([sys.executable, "-c", code], stdout=subprocess.PIPE, stderr=subprocess.PIPE,

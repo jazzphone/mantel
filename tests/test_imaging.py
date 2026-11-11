@@ -58,7 +58,7 @@ def test_the_server_process_never_loads_onnxruntime(tmp_path):
         "import asyncio, io, json, sys\n"
         f"sys.path.insert(0, {SERVER!r})\n"
         "from PIL import Image\n"
-        "from mantel_server import db as dbm, imaging, photos\n"
+        "from mantel_server.storage import db as dbm\nfrom mantel_server.cameras import imaging, photos\n"
         "async def main():\n"
         f"    conn = dbm.connect({str(tmp_path / 'm.db')!r}); dbm.migrate(conn)\n"
         f"    lib = photos.PhotoLibrary({str(tmp_path / 'photos')!r}, conn)\n"
