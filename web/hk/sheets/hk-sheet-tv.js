@@ -54,7 +54,7 @@
           '.art.scr{background-image:linear-gradient(155deg,#2a2a36 0%,#14141c 55%,#0a0a10 100%);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}',
           '.art.scr hk-icon{--mdc-icon-size:40px;width:40px;height:40px;color:rgba(255,255,255,.42)}',
           // (the open app's icon in the middle of a black picture: the owner, 2026-11-11 -- not a bright wash of its colors)
-          '.art.app{background-color:#050507;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}',
+          '.art.ico{background-color:#050507;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}',
           '.art .aic{position:relative;height:62%;aspect-ratio:1;border-radius:12px;box-shadow:0 4px 14px rgba(0,0,0,.35);object-fit:cover}',
           '.words{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:2px}',
           '.ttl{font-size:17px;font-weight:600;letter-spacing:-.3px;color:' + v('ink') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
@@ -215,7 +215,7 @@
         if (artKey !== this._artKey) {
           this._artKey = artKey;
           var url = function (/** @type {string} */ u) { return 'url("' + u.replace(/"/g, '%22') + '")'; };
-          art.className = 'art' + (artKey === 's' ? ' scr' : artKey.charAt(0) === 'i' ? ' app' : '');
+          art.className = 'art' + (artKey === 's' ? ' scr' : artKey.charAt(0) === 'i' ? ' ico' : '');
           art.style.backgroundImage = lk.art ? url(lk.art) : '';
           art.innerHTML = lk.art ? '' : nowApp && nowApp.icon ? '<img class="aic" alt="" src="' + esc(nowApp.icon) + '">'
             : '<hk-icon icon="hk:television"></hk-icon>';
