@@ -87,7 +87,7 @@ from ..connections import edit_rule, live_ha
 from ..identity.guards import guard
 from ..identity.guards import ident as guarded
 from ..house import MantelHouse
-from ..live_tv import Go2rtcError
+from .live_tv import Go2rtcError
 from ..identity.sessions import error, ok
 
 log = logging.getLogger("mantel.camera_setup")

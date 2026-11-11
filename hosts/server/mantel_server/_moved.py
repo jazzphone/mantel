@@ -59,6 +59,7 @@ MOVED: dict[str, tuple[str, str]] = {
     "linked_pairing": ("linked.linked_pairing", "0.1.166"),
     "linked_reads": ("linked.linked_reads", "0.1.166"),
     "linked_settings": ("linked.linked_settings", "0.1.166"),
+    "live_tv": ("cameras.live_tv", "0.1.166"),
     "login_page": ("identity.login_page", "0.1.166"),
     "media_proxy": ("cameras.media_proxy", "0.1.166"),
     "music_announcements": ("music.music_announcements", "0.1.166"),

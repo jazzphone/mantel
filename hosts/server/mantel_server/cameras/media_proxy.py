@@ -782,7 +782,7 @@ def ma_web_url(cfg, conns: Any = None) -> str:
 def upstreams_for(app: web.Application) -> list[Upstream]:
     """Both upstreams, always (each answers ``not_configured`` while it has no address). go2rtc's address
     is Live TV's (live_tv.go2rtc_api_url: the one place it is read)."""
-    from ..live_tv import go2rtc_api_url
+    from .live_tv import go2rtc_api_url
     cfg = app["cfg"]
     return [MusicAssistant(lambda: ma_web_url(cfg, app.get("connections"))),
             Go2rtc(lambda: go2rtc_api_url(cfg))]

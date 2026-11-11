@@ -17,7 +17,7 @@ from conftest import Mantel
 from live_tv_fakes import ANSWER, CANDIDATE, FRAME, FakeGo2rtc
 from mantel_server.cameras import cameras_direct as D
 from mantel_server import features as F
-from mantel_server import live_tv as L
+from mantel_server.cameras import live_tv as L
 from mantel_server.identity.rbac import Grant
 from mantel_server.settings_store import Actor
 

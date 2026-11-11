@@ -75,9 +75,10 @@ from urllib.parse import urlsplit
 import aiohttp
 from aiohttp import web
 
-from .connectors import (Ctx, Forbidden, Hooks, Route, allowed_ids, may_feature, read_routes, resolve, split_quality,
-                         ws_handlers)
-from .identity.guards import guard
+from ..connectors import (
+    Ctx, Forbidden, Hooks, Route, allowed_ids, may_feature, read_routes, resolve, split_quality, ws_handlers,
+)
+from ..identity.guards import guard
 
 log = logging.getLogger("mantel.live_tv")
 
@@ -272,7 +273,7 @@ class Go2rtc:
 
 # ------------------------------------------------------------------------------------- viewers
 def features_may_speak_for(host: Any, identity: Any, tablet: str) -> bool:
-    from .features import may_speak_for         # (features imports this module)
+    from ..features import may_speak_for         # (features imports this module)
     return isinstance(tablet, str) and may_speak_for(host, identity, tablet)
 
 
@@ -712,11 +713,11 @@ class MantelLiveTv:
 
     # -- the channel list -------------------------------------------------------------------------------
     async def channel_list(self, ctx: Ctx, msg: dict) -> dict[str, Any]:
-        from .ha.readproxy import ReadBlocked
+        from ..ha.readproxy import ReadBlocked
         if set(msg) - {"type", "id"}:
             raise ReadBlocked("hk_tv/channels carries nothing")
         if not self.serves():
-            from .linked.linked_reads import FROM_LINK
+            from ..linked.linked_reads import FROM_LINK
             if FROM_LINK.get():
                 return {"configured": False, "channels": []}     # HK Frontend's dashboard: Live TV is off in Mantel
             reads = self.app.get("filtered_reads")
@@ -747,14 +748,14 @@ class MantelLiveTv:
         return isinstance(eid, str) and self.runs() and eid in self.by_camera()
 
     async def client_config(self, ctx: Ctx, msg: dict) -> dict[str, Any]:
-        from .ha.readproxy import ReadBlocked
+        from ..ha.readproxy import ReadBlocked
         if set(msg) - {"type", "id", "entity_id"}:
             raise ReadBlocked("get_client_config carries entity_id only")
         await self._gate(ctx, msg["entity_id"])
         return {"configuration": {"iceServers": json.loads(json.dumps(ICE_SERVERS))}, "getCandidatesUpfront": False}
 
     async def offer(self, ctx: Ctx, msg: dict, on_event: Callable[[dict], None]):
-        from .ha.readproxy import ReadBlocked
+        from ..ha.readproxy import ReadBlocked
         if set(msg) - {"type", "id", "entity_id", "offer"}:
             raise ReadBlocked("an offer carries entity_id and offer only")
         sdp = msg.get("offer")
@@ -851,7 +852,7 @@ class MantelLiveTv:
         await relay_go2rtc(sess, on_event)
 
     async def candidate(self, ctx: Ctx, msg: dict) -> None:
-        from .ha.readproxy import ReadBlocked
+        from ..ha.readproxy import ReadBlocked
         if set(msg) - {"type", "id", "entity_id", "session_id", "candidate"}:
             raise ReadBlocked("a candidate carries entity_id, session_id and candidate only")
         await self._gate(ctx, msg["entity_id"])

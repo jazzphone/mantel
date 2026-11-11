@@ -106,6 +106,12 @@ Columns: **Rule** who may call it (`signed_in` any session, `person`, `manager` 
 |---|---|---|---|---|---|---|
 | `GET /api/cameras/direct` | manager | admin | none |  |  |  |
 
+## mantel_server.cameras.live_tv
+
+| Route | Rule | Reads | Stream | Preview | Audit | Assistants |
+|---|---|---|---|---|---|---|
+| `GET /api/live_tv/status` | manager | admin | none |  |  |  |
+
 ## mantel_server.cameras.media_proxy
 
 | Route | Rule | Reads | Stream | Preview | Audit | Assistants |
@@ -449,12 +455,6 @@ Columns: **Rule** who may call it (`signed_in` any session, `person`, `manager` 
 |---|---|---|---|---|---|---|
 | `GET /api/linked/ha-saves` | manager | admin | none |  |  |  |
 | `PUT /api/linked/ha-saves` | owner, door home |  | none |  | linked.saves |  |
-
-## mantel_server.live_tv
-
-| Route | Rule | Reads | Stream | Preview | Audit | Assistants |
-|---|---|---|---|---|---|---|
-| `GET /api/live_tv/status` | manager | admin | none |  |  |  |
 
 ## mantel_server.ma_page
 

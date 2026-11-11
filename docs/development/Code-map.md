@@ -446,7 +446,6 @@ Mantel Server.
   - `hk_cards.py` — GET /api/hk-cards
   - `house.py` — THE HOUSE PORT, MANTEL SERVER'S SIDE (hk_core/house.py; PLAN §0 plan review, item 1 (c)).
   - `live.py` — One lifecycle for long-lived connections
-  - `live_tv.py` — LIVE TV SERVED BY MANTEL (docs/phase4/FEATURE-PARITY.md "Live TV served by Mantel"; PLAN §8, §10, Proof 4).
   - `ma_page.py` — The token for the Music Assistant page
   - `mcp_parity.py` — MCP parity (phase 18, A6)
   - `performance.py` — PERFORMANCE (2026-10-26)
@@ -487,6 +486,7 @@ Mantel Server.
   - `faces.py` — WHERE THE FACES ARE
   - `image_work.py` — THE PICTURE WORK ITSELF
   - `imaging.py` — IMAGE WORK IN ITS OWN PROCESS (docs/phase4/PHOTOS.md, "Where the work runs").
+  - `live_tv.py` — LIVE TV SERVED BY MANTEL (docs/phase4/FEATURE-PARITY.md "Live TV served by Mantel"; PLAN §8, §10, Proof 4).
   - `media_proxy.py` — Music Assistant's web app and go2rtc, served under Mantel's own address (``/ma/…``, ``/go2rtc/…``).
   - `notify_snaps.py` — Notification snapshots on Mantel (docs/phase4/MANTEL-FEATURES.md "Phase 4 ports").
   - `photos.py` — MANTEL PHOTOS

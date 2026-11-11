@@ -101,7 +101,7 @@ from ..storage import atrest
 from .. import connections as C
 from ..connectors import Ctx, Forbidden, Hooks, Route, read_routes, resolve, split_quality
 from ..identity.guards import guard
-from ..live_tv import (
+from .live_tv import (
     CANDIDATE, CONFIG, ICE_SERVERS, MAX_SDP, OFFER, Go2rtc, Go2rtcError, LocalEntities, go2rtc_api_url, relay_go2rtc,
 )
 

@@ -35,7 +35,8 @@ from .pages import about
 from . import music
 from .network import frame_origins
 from .identity import accounts, auth, pins, rbac_store, sessions
-from . import alarm_pin, devices, health, live_tv, settings_store
+from . import alarm_pin, devices, health, settings_store
+from .cameras import live_tv
 from .network import connect_pairing, ingress
 from .cameras import cameras_direct, protect_connector
 from .ha import gateway, readproxy

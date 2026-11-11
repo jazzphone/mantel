@@ -1,0 +1,7 @@
+{
+  "package": "cameras",
+  "why": "Live TV: the tuner's channels as video through go2rtc, as the direct cameras are",
+  "modules": [
+    "live_tv"
+  ]
+}

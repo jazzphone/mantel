@@ -1836,7 +1836,7 @@
   "fresh": "never",
   "handler": "register.<locals>.api_status",
   "mcp": [],
-  "module": "mantel_server.live_tv",
+  "module": "mantel_server.cameras.live_tv",
   "no_audit": null,
   "preview": false,
   "reads": "admin",

@@ -18,7 +18,7 @@ import gateway_fakes as GF
 from conftest import Mantel
 from live_tv_fakes import ANSWER, CANDIDATE, FakeGo2rtc
 from mantel_server import features as F
-from mantel_server import live_tv as L
+from mantel_server.cameras import live_tv as L
 from mantel_server.settings_store import Actor
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools/e2e"))

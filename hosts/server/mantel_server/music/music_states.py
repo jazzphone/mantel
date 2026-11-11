@@ -173,7 +173,7 @@ class MusicStates:
 
     def __init__(self, app: Any, hub: Any, entities: Callable[[], dict[str, str]],
                  notify: Callable[[set[str]], None], clock: Callable[[], float] = time.monotonic) -> None:
-        from ..live_tv import LocalEntities
+        from ..cameras.live_tv import LocalEntities
         self.app, self.hub = app, hub
         self.entities = entities                # {media_player entity: MA player id} (music.ma_players)
         self.notify = notify                    # the hub's change chain, for the ids this changed
