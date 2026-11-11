@@ -61,9 +61,30 @@ def tags_of(path: Path) -> tuple[str, ...]:
     return tags
 
 
+# A FILE CUT INTO PARTS (tools/split_js.py): its shell lists them (`var PARTS = [...]`) and fetches them from its folder
+# ('/hk/<folder>/' + file) a round trip after the shell itself; the parts of the files loaded at the start are preloaded
+# with them (web/shim/early-cards.js), so the first draw does not wait for that round trip (phase 24, B8)
+PARTS_LIST = re.compile(r"var PARTS = \[([^\]]*)\]")
+PARTS_FOLDER = re.compile(r"'/hk/([\w-]+)/' \+ file")
+
+
+def parts_of(path: Path) -> list[str]:
+    """A shell's parts as paths under /hk/ (`base/hk-base-design.js`), in their order ([] for a file not cut into parts)."""
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return []
+    listed, folder = PARTS_LIST.search(text), PARTS_FOLDER.search(text)
+    if not (listed and folder):
+        return []
+    return [f"{folder.group(1)}/{name}" for name in re.findall(r"'([^']+\.js)'", listed.group(1))]
+
+
 def card_list(folder: Path, resolve=None) -> dict:
-    """{"core": [file, ...], "lazy": {file: [tag, ...]}} for the card files in `folder`. `resolve(rel)` gives the
-    file /hk/<rel> is answered with (server.hk_path: a developer's files folder first); the folder's own otherwise."""
+    """{"core": [file, ...], "lazy": {file: [tag, ...]}, "parts": {file: [path under /hk/, ...]}} for the card files in `folder`.
+    `parts` names the parts of each core file cut into parts, and of hk-strategy.js (imported at the start too).
+    `resolve(rel)` gives the file /hk/<rel> is answered with (server.hk_path: a developer's files folder first); the
+    folder's own otherwise."""
     names = sorted(p.name for p in folder.glob("*.js") if p.name not in NOT_CARDS) if folder.is_dir() else []
     core, lazy = [], {}
     for name in names:
@@ -74,4 +95,9 @@ def card_list(folder: Path, resolve=None) -> dict:
                 lazy[name] = list(tags)
                 continue
         core.append(name)
-    return {"core": core, "lazy": lazy}
+    parts = {}
+    for name in core + sorted(NOT_CARDS):
+        got = parts_of((resolve("cards/" + name) if resolve else None) or folder / name)
+        if got:
+            parts[name] = got
+    return {"core": core, "lazy": lazy, "parts": parts}

@@ -21,7 +21,7 @@ WEB = ROOT / "web"
 
 
 def text(rel: str) -> str:
-    return (ROOT / rel).read_text()
+    return web_sources.read(rel)                       # (a file cut into parts is read whole: tools/split_js.py)
 
 
 def detail_text() -> str:
@@ -284,7 +284,9 @@ def test_a_second_confirm_over_an_open_one_leaves_no_escape_listener_behind():
     the first call's capture-phase Escape listener was never taken off -- every Escape on the page was swallowed from
     then on (measured in headless Chrome: a window keydown listener stopped hearing Escape)."""
     base = text("web/hk/cards/hk-base.js")
-    fn = base[base.index("var close = function () {\n      _sheet.removeAttribute('data-open');") - 400:]
-    fn = fn[:fn.index("return _sheet;")]
-    assert "if (_sheet._esc) document.removeEventListener('keydown', _sheet._esc, true);" in fn
-    assert "_sheet._esc = esc;" in fn
+    # (hk-base.js's _sheet is ST._sheet since its state rewrite, tools/split_js.py --state; the sheet is in a part)
+    at = re.search(r"var close = function \(\) \{\n\s*(?:ST\.)?_sheet\.removeAttribute\('data-open'\);", base).start()
+    fn = base[at - 400:]
+    fn = fn[:re.search(r"return (?:ST\.)?_sheet;", fn).start()]
+    assert re.search(r"if \((ST\.)?_sheet\._esc\) document\.removeEventListener\('keydown', (ST\.)?_sheet\._esc, true\);", fn)
+    assert re.search(r"(ST\.)?_sheet\._esc = esc;", fn)

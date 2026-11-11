@@ -9,6 +9,8 @@ from pathlib import Path
 
 import pytest
 
+import web_sources
+
 ROOT = Path(__file__).resolve().parent.parent
 
 
@@ -121,9 +123,9 @@ def test_everything_else_stays_refused_and_sends_nothing(observed):
 
 def test_the_shared_frontend_is_untouched_by_this():
     # the routing lives in the adapter only; HK's cards keep calling callWS / subscribeMessage / callApi
-    cams = (ROOT / "web/hk/cards/hk-cameras.js").read_text()
+    cams = web_sources.read("web/hk/cards/hk-cameras.js")
     assert "/api/camera/" not in cams and "read_api" not in cams and "readSubscribe" not in cams
-    assert "read_api" not in (ROOT / "web/hk/cards/hk-calendar.js").read_text()
+    assert "read_api" not in web_sources.read("web/hk/cards/hk-calendar.js")
 
 
 def test_a_read_the_narrowed_states_lack_is_reported(observed):

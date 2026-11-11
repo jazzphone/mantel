@@ -7,6 +7,8 @@ import subprocess
 
 import pytest
 
+import web_sources
+
 from hk_core.settings import changes as C
 from hk_core.settings import home_grid as HG
 from hk_core.settings import model as M
@@ -321,7 +323,7 @@ def test_the_catalog_and_its_python_mirror_agree(tmp_path):
     assert out["sizes"] == {k: list(v) for k, v in HG.SIZES.items()}
     assert out["sources"] == list(HG.SOURCES) and out["room"] == HG.TABLET_ROOM
     # ...and hk-base.js's size-class table is the same one
-    base = (ROOT / "web/hk/cards/hk-base.js").read_text()
+    base = web_sources.read("web/hk/cards/hk-base.js")
     assert "var HOME_GRID = { sizes: { S: [1, 1], W: [2, 1], T: [1, 2], L: [2, 2], XL: [3, 2], XXL: [6, 2], F: [0, 0], C: [3, 1], XS: [1, 1] }" in base
     # every page source a card names is a source
     assert all(set(v["sources"]) <= set(HG.SOURCES) for v in HG.CATALOG.values())
@@ -694,7 +696,7 @@ def test_the_cells_faces_and_styles_are_the_mirrors(tmp_path):
     assert [f[0] for f in out["faces"] if f[0]] == list(HG.CLOCK_FACES)          # "" is HK's own, stored as no option
     assert [s[0] for s in out["styles"]] == list(HG.THERMOSTAT_STYLES)
     # ...and hk-base.js's square cell is the same
-    base = (ROOT / "web/hk/cards/hk-base.js").read_text()
+    base = web_sources.read("web/hk/cards/hk-base.js")
     assert "HOME_GRID.square = { w: TILE.w, h: 196, gap: 13, edge: 14 };" in base
 
 

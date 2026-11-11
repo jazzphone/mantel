@@ -12,6 +12,8 @@ from pathlib import Path
 
 import pytest
 
+import web_sources
+
 from mantel_server.gateway import classify, load_writes
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -90,7 +92,7 @@ def test_with_commands_off_talk_back_is_refused_and_nothing_sent(observed):
 
 
 def test_the_shared_card_is_unchanged():
-    cams = (ROOT / "web/hk/cards/hk-cameras.js").read_text()
+    cams = web_sources.read("web/hk/cards/hk-cameras.js")
     assert "var url = '/api/hk_frontend/talk?entity_id=' + encodeURIComponent(c.speaker);" in cams
     assert "body_b64" not in cams and "content_type" not in cams
     assert "act.liveSocket(c.speaker)" in cams                      # the one change: the speaker is named
@@ -101,5 +103,5 @@ def test_the_card_waits_longer_for_the_doorbell_through_mantel(observed):
     """A press through Mantel also passes its gateway and /ws/talk, and the card's 1.5 s gave up on live there
     (the house, 2026-10-22): Mantel's actions say how long to wait, through HKClient's action port."""
     assert observed["liveWaitMs"] == 4000
-    card = (ROOT / "web/hk/cards/hk-cameras.js").read_text(encoding="utf-8")
+    card = web_sources.read("web/hk/cards/hk-cameras.js")
     assert "act0.liveWaitMs" in card and "LIVE_WAIT_MS = 1500" in card, "HK in Home Assistant keeps its own wait"

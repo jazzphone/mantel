@@ -11,6 +11,8 @@ import subprocess
 from pathlib import Path
 
 import pytest
+
+import web_sources
 from test_ingress import OWNER_HA, PAGE, PREFIX, mk  # noqa: F401  (mk is a fixture)
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -169,6 +171,6 @@ def test_mantel_settings_menu_entry_is_for_every_person_and_no_tablet():
 
 
 def test_the_menu_draws_and_opens_the_host_entry():
-    menu = (ROOT / "web/hk/modules/hk-menu.js").read_text(encoding="utf-8")
+    menu = web_sources.read("web/hk/modules/hk-menu.js")         # (the shell and its parts: tools/split_js.py)
     assert "hostMenu" in menu and "kind === 'hostlink'" in menu and "location.assign(it.href)" in menu
     assert "hostMenu" in (ROOT / "web/client/hk-host-shell.js").read_text(encoding="utf-8")

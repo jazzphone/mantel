@@ -14,6 +14,8 @@ from pathlib import Path
 
 import pytest
 
+import web_sources
+
 from hk_core.settings import home_grid as HG
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -196,7 +198,7 @@ def test_the_block_is_in_both_catalogs_and_opens_no_other_way():
     assert HG.CATALOG["intercom"] == {"sizes": ("S", "W"), "sources": (), "opts": {}}
     cat = (ROOT / "web/hk/cards/hk-grid-catalog.js").read_text()
     assert "type: 'custom:hk-intercom-card', size: s" in cat
-    ed = (ROOT / "web/hk/panels/hk-grid-editor.js").read_text()
+    ed = web_sources.read("web/hk/panels/hk-grid-editor.js")
     assert "intercom: 'Intercom'" in ed and "'intercom']" in ed and "intercom: 'mdi:microphone'" in ed
 
 
@@ -231,7 +233,7 @@ def test_a_card_given_no_microphone_module_asks_for_it_by_the_builds_address_and
 def test_the_new_files_name_no_host_object_and_leave_the_doorbell_alone():
     for rel in ("web/hk/cards/hk-intercom.js", "web/hk/modules/hk-mic.js"):
         assert not re.search(r"\bhass\b", (ROOT / rel).read_text()), rel
-    cams = (ROOT / "web/hk/cards/hk-cameras.js").read_text()
+    cams = web_sources.read("web/hk/cards/hk-cameras.js")
     assert "hk-mic" not in cams and "hk-intercom" not in cams
 
 

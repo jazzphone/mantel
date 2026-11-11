@@ -23,6 +23,7 @@ from mantel_server.settings_store import Actor
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools/e2e"))
 import fake_tuner  # noqa: E402
+import web_sources  # (a file cut into parts is read whole: tools/split_js.py)
 
 OFFER_SDP = "v=0\r\no=- 2 2 IN IP4 127.0.0.1\r\ns=-\r\nt=0 0\r\nm=video 9 UDP/TLS/RTP/SAVPF 102\r\na=recvonly\r\n"
 # fictional addresses and secrets: what must never reach a page, a status or the settings document
@@ -616,4 +617,5 @@ console.log(JSON.stringify({{ mantel: mantel.cameraOffer(offer, 'low'), ha: type
     shim = (root / "web/shim/mantel-client.js").read_text()
     assert "port.cameraOffer = function (msg, quality)" in shim and "mantel_quality" in shim
     for f in ("web/hk/shell/hk-view-host.js", "web/hk/cards/hk-cameras.js"):
-        assert "cameraOffer" in (root / f).read_text() and "mantel_quality" not in (root / f).read_text(), f
+        src = web_sources.read(f)                                              # (a shell with its parts)
+        assert "cameraOffer" in src and "mantel_quality" not in src, f

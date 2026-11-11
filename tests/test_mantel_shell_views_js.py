@@ -13,6 +13,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
+import web_sources  # (a file cut into parts is read whole: tools/split_js.py)
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -43,7 +44,7 @@ def test_the_shell_names_the_views_the_view_host_makes():
     # the strategies' view (every generated page) and the view host's own fallback for any other view type
     host = (ROOT / "web/hk/shell/hk-view-host.js").read_text()
     fallback = set(re.findall(r"createElement\('(hk-view-fallback)'\)", host))
-    strategies = "".join(p.read_text() for p in (ROOT / "web/hk/cards").glob("*.js"))
+    strategies = "".join(web_sources.read(p) for p in (ROOT / "web/hk/cards").glob("*.js"))   # (shells with their parts)
     views = set(re.findall(r"type: 'custom:(hk-[a-z-]*-view)'", strategies))
     assert fallback == {"hk-view-fallback"} and "hk-grid-view" in views
     assert set(tags) >= fallback | views, tags

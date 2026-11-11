@@ -204,7 +204,7 @@ HA_ELEMENT_LOOKUPS = {
     # a row's lead: the first showing plate, an HK card's or HA's own card's (a conditional chip)
     "web/hk/cards/hk-row.js": ["el.shadowRoot.querySelector('hk-plate, ha-card')"],
     # the page edge: the outermost plate under a node, an HK card's or a native HA card's
-    "web/hk/cards/hk-layout.js": ["el.localName === 'hk-plate' || el.localName === 'ha-card'"],
+    "web/hk/layout/hk-layout-grid.js": ["el.localName === 'hk-plate' || el.localName === 'ha-card'"],   # (hk-layout.js's part)
     # the hk: iconset repairs HA's ha-icon (other cards may draw hk: names with it) after a lost race
     "web/hk/iconset/hk-icons.js": ['el.localName === "ha-icon"'],
 }

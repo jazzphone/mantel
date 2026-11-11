@@ -384,8 +384,14 @@ def make_plan(man: dict, text: str, work: Path) -> Plan:
     early = man.get("early", [])
     live = set(man.get("live", []))
     is_early = lambda m: bool(set(m.d["names"]) & set(early)) or m.d["head"].startswith(tuple(early))  # noqa: E731
+    wait_all = bool(man.get("wait_all"))
     for m in sorted(plan.members.values(), key=lambda x: (x.scope, x.index)):
-        if m.part >= 0 or m.scope not in cut or m.index < cut[m.scope] or m.scope == plan.cs:
+        # ("wait_all", hk-base.js: every statement of the scope that is not a declaration waits for the parts, in its order,
+        # those before the first moved member too, except the ones the manifest names "early" -- so nothing it makes, as
+        # window.hkCards, can be seen before the parts have filled it)
+        if m.part >= 0 or m.scope == plan.cs or (not wait_all and (m.scope not in cut or m.index < cut[m.scope])):
+            continue
+        if wait_all and m.scope != len(code_scopes(an)) - 1:
             continue
         if early and is_early(m):                          # named in the manifest: stays where it is and runs at once
             continue
@@ -395,7 +401,20 @@ def make_plan(man: dict, text: str, work: Path) -> Plan:
             continue
         if (m.d["first"], m.d["last"]) in host_lines:      # the call that holds the next scope stays where it is
             continue
-        if m.d["kind"] == "var" and not any(not w.get("hoisted") for w in m.d["writes"]) and not any(
+        # (the state rewrite's object: `ST.x = value` was `var x = value`; it stays where it was, at once, when its value
+        # reaches nothing that moved or waits -- the parts may read ST.x as they run, so it must be set before they do)
+        st_obj = state_object(plan)
+        if st_obj and m.d["kind"] == "expr" and re.match(re.escape(st_obj) + r"\.[\w$]+ = ", m.d["head"]) and not reaches(plan, m):
+            continue
+        # (phase 24) a statement that sets a property of one of the scope's own variables that stays (`M.glass = ...`), and
+        # reaches nothing that moved or waits, stays where it was too: a part reading that object as it runs sees it set
+        mut = mutated(m)
+        if mut and mut != st_obj and m.d["kind"] == "expr" and any(
+                mut in o.d["names"] and o.part < 0 and o.scope == m.scope for o in plan.members.values()) and not reaches(plan, m):
+            continue
+        if wait_all and m.d["kind"] == "var" and not any(not w.get("hoisted") for w in m.d["writes"]) and not reaches(plan, m):
+            continue            # ("wait_all") a variable whose value reaches nothing that moved or waits still runs at once
+        if not wait_all and m.d["kind"] == "var" and not any(not w.get("hoisted") for w in m.d["writes"]) and not any(
                 (t := plan.members.get((r["scope"], r["index"]))) is not None and r.get("now") and (t.part >= 0 or t.late)
                 for r in m.d["refs"] if "index" in r):
             continue            # a variable whose initializer touches nothing that moved or waits stays where it is, early
@@ -515,8 +534,128 @@ def make_plan(man: dict, text: str, work: Path) -> Plan:
                 continue
             if tgt.d["kind"] == "function":
                 stack += [(r2, via + [r2.get("name")]) for r2 in tgt.d["refs"] if "index" in r2]
+    # (phase 24) A STATEMENT THAT WAITS AND CHANGES AN OBJECT a part reads as it runs (`M.glass = ...`, `X.push(...)`,
+    # `Object.assign(X, ...)`): the part would read the object before the change. The object must stay in the shell (where
+    # the change, reaching nothing that moved, runs at once) or the change must not wait.
+    changed_late = {}
+    for m in plan.members.values():
+        if m.part < 0 and m.late and m.d["kind"] in ("expr", "other", "var"):
+            for w in mutated_anywhere(m):
+                changed_late.setdefault(w, m)
+    for m in plan.members.values():
+        if m.part < 0 or m.d["kind"] in ("function", "class"):
+            continue
+        for r in m.d["refs"]:
+            if r.get("now") and r.get("name") in changed_late:
+                s = changed_late[r["name"]]
+                plan.refusals.append(f"{man['parts'][m.part]['name']}: `{m.label}` reads `{r['name']}` as it runs, and the shell's "
+                                     f"`{s.label}` (line {s.d['first']}) changes it after the parts have run: keep `{r['name']}` in "
+                                     f"the shell")
+    # (the state rewrite) a part that reads ST.x as it runs (outside a function) while ST.x is set by a statement that waits for
+    # the parts would read it unset; and a statement that runs at once reading an ST.x that is set later, likewise
+    st_obj = state_object(plan)
+    if st_obj:
+        late_props, early_props = set(), set()
+        for m in plan.members.values():
+            hit = re.match(re.escape(st_obj) + r"\.([\w$]+) = ", m.d["head"])
+            if hit and m.part < 0:
+                (late_props if m.late else early_props).add(hit.group(1))
+        for m in plan.members.values():
+            if m.part < 0 and m.late:
+                continue
+            if not any(r.get("name") == st_obj and r.get("now") for r in m.d["refs"]):
+                continue
+            read = set(re.findall(re.escape(st_obj) + r"\.([\w$]+)", now_text(m)))
+            bad = sorted(read & late_props)
+            if bad:
+                where = man["parts"][m.part]["name"] if m.part >= 0 else "the shell, at once"
+                plan.refusals.append(f"`{m.label}` ({where}) reads {', '.join(st_obj + '.' + b for b in bad)} as it runs, "
+                                     f"before the statement that sets it (it waits for the parts)")
     plan.refusals = list(dict.fromkeys(plan.refusals))
     return plan
+
+
+def mutated(m: Member) -> str | None:
+    """The variable a statement changes the inside of (`X.y = ...`, `X[k] = ...`, `X.push(...)`, `Object.assign(X, ...)`),
+    by its text; None for anything else."""
+    head = m.d["head"]
+    hit = re.match(r"(?:Object\.assign\(\s*)?([A-Za-z_$][\w$]*)\s*(?:\.[\w$]+|\[[^\]]*\])+\s*(?:=[^=]|\()", head) \
+        or re.match(r"Object\.assign\(\s*([A-Za-z_$][\w$]*)\s*,", head)
+    if not hit or hit.group(1) in ("window", "document", "globalThis", "customElements", "console", "self"):
+        return None
+    return hit.group(1)
+
+
+MUTATORS = r"(?:push|unshift|splice|pop|shift|sort|reverse|set|add|delete|clear|fill|copyWithin)"
+
+
+def mutated_anywhere(m: Member) -> set[str]:
+    """Every name whose inside a statement may change, anywhere in its text, callbacks included (`X.y = `, `X[k] = `,
+    `X.push(`, `Object.assign(X, `): an over-reach on purpose -- a refusal it makes is a manifest to change, never a bug."""
+    text = re.sub(r"//[^\n]*", "", m.d["text"])
+    out = set(re.findall(r"\b([A-Za-z_$][\w$]*)(?:\.[\w$]+|\[[^\]\n]*\])+\s*(?:[-+*/|&]?=)(?!=)", text))
+    out |= set(re.findall(r"\b([A-Za-z_$][\w$]*)(?:\.[\w$]+)*\." + MUTATORS + r"\(", text))
+    out |= set(re.findall(r"Object\.assign\(\s*([A-Za-z_$][\w$]*)", text))
+    return out - {"window", "document", "globalThis", "customElements", "console", "self", "this", "e", "el", "s", "o"}
+
+
+def state_object(plan: Plan) -> str | None:
+    """The state rewrite's object in this shell (`var ST = /** @type {Record<string, any>} */ ({});`), if it has one."""
+    for m in plan.members.values():
+        if m.d["kind"] == "var" and len(m.d["names"]) == 1 and "/** @type {Record<string, any>} */ ({})" in m.d["text"] \
+                and "THE SHARED STATE (tools/split_js.py state)" in m.d["text"]:
+            return m.d["names"][0]
+    return None
+
+
+def now_text(m: Member) -> str:
+    """A member's text without its function bodies: what runs as it is evaluated (a function's body runs when it is called)."""
+    text = m.d["text"]
+    if m.d["kind"] in ("function", "class"):
+        return ""
+    out, depth, i = [], 0, 0
+    for hit in re.finditer(r"\bfunction\b[^{]*\{|=>\s*\{", text):
+        pass
+    # (a cheap cut: drop every `function ... { ... }` and `=> { ... }` body by brace matching outside strings)
+    i, n = 0, len(text)
+    while i < n:
+        mf = re.compile(r"\bfunction\b[^{(]*\([^)]*\)\s*\{|=>\s*\{").search(text, i)
+        if not mf:
+            out.append(text[i:])
+            break
+        out.append(text[i:mf.start()])
+        j, depth = mf.end(), 1
+        while j < n and depth:
+            c = text[j]
+            if c in "'\"`":
+                q = c
+                j += 1
+                while j < n and text[j] != q:
+                    j += 2 if text[j] == "\\" else 1
+            elif c == "{":
+                depth += 1
+            elif c == "}":
+                depth -= 1
+            j += 1
+        i = j
+    return "".join(out)
+
+
+def reaches(plan: Plan, m: Member) -> bool:
+    """Does running `m` now reach a member that moved, or a statement that waits for the parts (through the functions of
+    the shell it calls or reads)?"""
+    seen, stack = set(), [r for r in m.d["refs"] if "index" in r and r.get("now")]
+    while stack:
+        r = stack.pop()
+        tgt = plan.members.get((r["scope"], r["index"]))
+        if tgt is None or tgt.key in seen:
+            continue
+        seen.add(tgt.key)
+        if tgt.part >= 0 or (tgt.late and tgt.d["kind"] != "function"):
+            return True
+        if tgt.d["kind"] == "function":
+            stack += [r2 for r2 in tgt.d["refs"] if "index" in r2]
+    return False
 
 
 # names the class-method shell generates (the loader's own are PARTS, PARTS_TRIES, partKey, partsSettle, loadParts, kit, runParts)

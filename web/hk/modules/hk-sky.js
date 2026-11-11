@@ -141,6 +141,208 @@
       STATIC, sunKelvin, SURPRISE, surpriseFor, swipeCover, swiping, teardown, tintStops, treatedPhoto, VER, watch,
       WEB_IMG, WITCH_CYCLE, WITCH_FADE, WITCH_FLIGHT, WITCH_IMG, witchPath, XDECOR, XGLOW;
 
+  ST.quietIds = { ents: null, room: '', ids: [] };
+
+  ST.registered = false;
+
+  // Styles go in as a CONSTRUCTED STYLESHEET, not as a <style> element.
+  //
+  // A <style> appended here renders as visible text -- the whole stylesheet
+  // printed down the left of the page, squeezing the real content into what
+  // is left, while its rules apply as well. hui-view-container's own
+  // `display: relative` is not a valid display value, so the declaration is
+  // dropped and the custom element falls back to display:inline, and a
+  // <style> slotted into an inline formatting context in that shadow tree
+  // gets laid out as text.
+  //
+  // adoptedStyleSheets sidesteps the whole question: there is no node in the
+  // tree to lay out, and it is the mechanism lit itself uses for every HA
+  // component, so support is not in doubt. The <style> path is kept only as a
+  // fallback, and appended to the shadow root rather than beside the sky.
+  ST.sheet = null;
+
+  // DEV OVERRIDE. Null in normal operation. Set through hkSky._force() to
+  // preview a season outside its window -- otherwise verifying Halloween in
+  // September means editing SCHEDULE and remembering to put it back, which is
+  // exactly the kind of temporary edit that gets left in.
+  ST.FORCE = null;
+
+  // See read(). Set through hkSky._pin().
+  ST.PIN = null;
+
+  // DEV OVERRIDE for the surprises. Null in normal operation, like FORCE and
+  // PIN. It exists because six of the seven themes fire on a handful of days a
+  // year -- Space Night can go a whole year without one -- so there is no way
+  // to look at them otherwise. It is not a preview control that bypasses the
+  // schedule in normal use: nothing sets this but a console call.
+  ST.SURPRISE_FORCE = null;
+
+  // THE SETTINGS PAGE'S PREVIEW (HK Settings -> Sky, and each theme's page):
+  // one theme whatever the date, in THIS window only -- the page's preview
+  // frame, never a real screen. preview(id, when): id is a theme
+  // (hk-settings-model.js SKY_THEMES) or null for today's own sky; when is
+  // 'day', 'night' or 'spooky' (Halloween's big moon, fog, bats and witch).
+  // The weather is held clear and still, so the theme is what shows -- not
+  // tonight's rain over it. The three SEASONS go through FORCE and PIN; the
+  // rest are surprises, through SURPRISE_FORCE.
+  ST.PREVIEW = null;
+
+  // frontend/sky/holiday.json (tools/sky/holiday_webp.py): where each
+  // holiday's lights are and where the balloons are tied. Asked for once;
+  // until it is here (or when it is not there at all) the lights still
+  // glow, only without each flame and bulb of their own.
+  ST.HOL = null;
+  ST.holAsked = false;
+
+  // The manifest is fetched on the first paint that wants it, and the sky is
+  // painted again the moment it arrives -- not at the next 3 s tick. Until
+  // then the sky simply has no clouds: the classic decks are NOT shown in the
+  // meantime (they would show for a few seconds and then swap). Only if it
+  // cannot be had (RC_FAILED) do the classic decks stand in -- and only for a
+  // while: it is asked for again a minute later, then every five (a tablet
+  // that loaded while Home Assistant restarted kept Classic clouds until its
+  // next reload, 2026-10-07 audit). The classic decks stay up during a retry,
+  // so a sky never goes empty waiting for it.
+  ST.RC_MAN = null;
+  ST.RC_LOADING = false;
+  ST.RC_FAILED = false;
+  ST.RC_RETRY = 0;
+  ST.RC_TRIES = 0;
+
+  ST.artUrl = (typeof window !== 'undefined' && window.hkNowArt) || null;
+
+  // ------------------------------------------------------------------- API
+  ST.mounted = null;
+  ST.mountedPath = null;
+  // Which palette is on the mounted element. The album repaint needs it, and
+  // it must not be re-derived from the URL -- a track change arrives with no
+  // navigation, so there is nothing to re-resolve from.
+  ST.mountedVariant = null;
+  // the page the sky is behind now (resolve: the view's sky_page), for
+  // read()'s per-page rules
+  ST.skyPage = null;
+  // Set when the next paint must be instant rather than eased -- see the
+  // .hk-snap rule in SHEET.
+  ST.snapNext = false;
+  ST.paintSig = '';
+
+  // THE SKY OUTLIVES A VIEW CHANGE, AND NOTHING HERE DECIDES WHEN IT ENDS.
+  //
+  // hui-root swaps views WITHOUT unmounting hui-view-container, so the sky
+  // element survives a navigation untouched and the next view simply repaints
+  // it -- a palette change, never an unmount. Tearing it down on every path
+  // change would let the wallpaper flash through between two views.
+  //
+  // The only teardowns are selfRender()'s: a view whose config wants no sky,
+  // and the kill switch. Both read the Lovelace config, so neither guesses.
+  //
+  // NO GRACE TIMER. Waiting a fixed time after a path change to see whether
+  // the new view claims the sky races the view build: a tablet's first visit
+  // to a page can block the main thread past 1500ms, so such a timer fires
+  // before the new view is seen and the sky is torn down and rebuilt from
+  // nothing -- the background loading late on page changes (reproduced with
+  // a synthetic 1.7s stall: element replaced at ~2000ms). The config is the
+  // authority, so nothing here has to wait.
+  ST.watching = false;
+
+  // Pausing is driven by TWO things, and the second one is what makes the
+  // sky safe to leave on a room dashboard.
+  //
+  // document.hidden alone is not enough. On the room view -- the page a wall
+  // tablet shows for its entire life -- the WallPanel screensaver is a DOM
+  // overlay in the SAME document, so document.hidden stays false and the
+  // compositor would keep running rain and cloud decks all night behind a
+  // photo slideshow: precisely the "warm to the touch all night" failure the
+  // performance notes at the top of this file warn about.
+  //
+  // So each dashboard can name its tablet's screensaver boolean (`sleep:` in
+  // its `sky:` block -- the one the wake and sleep automations drive) and the
+  // sky pauses with the screen.
+  //
+  // The entity is REMEMBERED rather than read from opts each time: the sky
+  // survives navigation, so a plain `opts.sleep || false` would reset asleep
+  // to false the moment you opened a page that does not name it.
+  ST.asleep = false;
+  ST.sleepEntity = null;
+  // UNDER THE KIOSK'S BLACK, HELD (2026-10-09). With Kiosk Satellite's
+  // "Pause dashboard during screensaver" off, the tablet draws the page
+  // behind its black for as long as anything moves on it: the sky and the
+  // cards kept animating there and the Loft spent 1.3 cores on nothing
+  // (measured). Held: the sky's and the cards' animations paused, the sky's
+  // layers kept -- letting them go (.hidden) is for when the photos cover
+  // the page; let go under the black, they all came back at the wake and
+  // the scenery blinked.
+  ST.ksDark = false;
+  // NOT IN FOCUS (Sky / Background -> Pause When Not in Focus, 2026-10-10).
+  // A computer leaves the dashboard open beside other work, and while
+  // anything moves the browser draws the whole window every frame -- the
+  // sky changing under the frosted plates re-blurs them each time. Measured
+  // on a Mac (Chrome, Home, 1512x945 at 2x): 31% of a core with nobody
+  // looking at it -- GPU process 21, renderer 10, main thread only 3. So
+  // while another window has the focus the sky and the cards are HELD, as
+  // under the kiosk's black: their layers kept, so the focus coming back
+  // starts them on the next frame from where they stood (measured 15 ms,
+  // the cloud deck at -9.96 px resuming at -9.99): 3%.
+  // ONLY WHERE THERE IS A MOUSE. A wall tablet's or a phone's WebView can
+  // report no focus until its first touch -- held there, a screen would sit
+  // still from boot -- and nothing on one is ever beside other work.
+  // Starts focused: only a real blur holds it.
+  ST.unfocused = false;
+  ST.settleGen = 0;
+  ST.saidSig = null;
+  ST.saidFor = null;
+  ST.changeSig = null;
+  ST.changedSig = null;
+  ST.changedFor = null;
+  ST.asked = false;
+
+  // A SWIPE BETWEEN PAGES (2026-11-01, the owner: "make the backgrounds fade between page swipes but ONLY for
+  // swipes ... If the page is tapped, the background should appear instantly"): as the finger heads for a page
+  // (hk-pageswipe.js skyHold), that page's background is painted at once under a still copy of this one, and the copy
+  // fades as the page comes in -- one fade whatever the background is (a palette, a photo, a wallpaper), where
+  // the sky's own layers would each melt at their own pace. Until the page is up, every repaint is the page the
+  // swipe goes to (swiping), and its own repaint, when it is, paints the same. A tap still cuts.
+  ST.SWIPE = null;
+
+  ST.navWait = null;
+
+  // IN THE FRAME THE PAGE IS FIRST DRAWN IN, AT ITS START. hk-view-ready is
+  // said from inside Home Assistant's page build, with the page's cards
+  // still drawing: painting then measured (laid out) the half-built page,
+  // and the frame laid it out again -- ~60 ms of each page change at 6x
+  // (headless), most of the sky's share. At the frame's start the build is
+  // done, the paint's measuring IS the frame's layout, and the new palette
+  // is still in the same frame as the page.
+  ST.readyFrame = 0;
+
+  // THE 3s STATE TICK MUST NOT JUMP A NAVIGATION. Between location-changed and
+  // hk-view-ready the URL already names the new page while the old one is
+  // still on screen; a tick landing there would paint the new palette behind
+  // the old content -- the very artifact the event exists to prevent. So the
+  // tick stands aside while a page change is pending. The 10s cap only matters
+  // if an announcement is ever lost, and then it recovers instead of freezing.
+  ST.navPending = 0;
+
+  // THE FIRST MOUNT NEEDS ITS OWN RAMP, or a cold load shows THREE SECONDS of
+  // bare background. MEASURED on a wall tablet's dashboard: the module is
+  // live at 5ms, hui-root at 162ms and the view has its cards at 180ms -- but
+  // without a ramp the sky appears at 3012ms.
+  //
+  // The reason is that selfDrive()'s single immediate selfRender() runs at
+  // ~5ms, when there is no client and no HUI-VIEW-CONTAINER yet, so it bails --
+  // and the next attempt would be the 3000ms backstop tick. Nothing is slow;
+  // the retry is just too far away.
+  //
+  // `location-changed` does not cover this: no navigation has happened on a
+  // cold load, so onNav never fires.
+  //
+  // So: poll every 60ms until the sky actually mounts, with a ceiling. The
+  // 3000ms interval stays -- it is the backstop for a URL
+  // that changes with no event, and for the state tick.
+  ST.firstWait = null;
+
+  ST.selfPoll = null;
+
   function kit() {
     return {
       ST: ST
@@ -173,7 +375,6 @@
   loadParts(function () {
     runParts();
 
-    ST.quietIds = { ents: null, room: '', ids: [] };
     ST.SHEET = [
       // ITS OWN COLOR IS THE PALETTE'S MIDDLE (2026-10-09). The gradient
       // covers it everywhere, but a wall tablet repainting the gradient after a
@@ -1111,71 +1312,6 @@
       // menu, the tab bar, the docked bar, pop-ups); not one touch lands here
       '#hk-sky-front{position:fixed;inset:0;z-index:' + FRONT_Z + ';contain:strict;overflow:hidden}' +
       '#hk-sky-front,#hk-sky-front *{pointer-events:none!important}';
-    ST.registered = false;
-
-    // Styles go in as a CONSTRUCTED STYLESHEET, not as a <style> element.
-    //
-    // A <style> appended here renders as visible text -- the whole stylesheet
-    // printed down the left of the page, squeezing the real content into what
-    // is left, while its rules apply as well. hui-view-container's own
-    // `display: relative` is not a valid display value, so the declaration is
-    // dropped and the custom element falls back to display:inline, and a
-    // <style> slotted into an inline formatting context in that shadow tree
-    // gets laid out as text.
-    //
-    // adoptedStyleSheets sidesteps the whole question: there is no node in the
-    // tree to lay out, and it is the mechanism lit itself uses for every HA
-    // component, so support is not in doubt. The <style> path is kept only as a
-    // fallback, and appended to the shadow root rather than beside the sky.
-    ST.sheet = null;
-
-    // DEV OVERRIDE. Null in normal operation. Set through hkSky._force() to
-    // preview a season outside its window -- otherwise verifying Halloween in
-    // September means editing SCHEDULE and remembering to put it back, which is
-    // exactly the kind of temporary edit that gets left in.
-    ST.FORCE = null;
-
-    // See read(). Set through hkSky._pin().
-    ST.PIN = null;
-
-    // DEV OVERRIDE for the surprises. Null in normal operation, like FORCE and
-    // PIN. It exists because six of the seven themes fire on a handful of days a
-    // year -- Space Night can go a whole year without one -- so there is no way
-    // to look at them otherwise. It is not a preview control that bypasses the
-    // schedule in normal use: nothing sets this but a console call.
-    ST.SURPRISE_FORCE = null;
-
-    // THE SETTINGS PAGE'S PREVIEW (HK Settings -> Sky, and each theme's page):
-    // one theme whatever the date, in THIS window only -- the page's preview
-    // frame, never a real screen. preview(id, when): id is a theme
-    // (hk-settings-model.js SKY_THEMES) or null for today's own sky; when is
-    // 'day', 'night' or 'spooky' (Halloween's big moon, fog, bats and witch).
-    // The weather is held clear and still, so the theme is what shows -- not
-    // tonight's rain over it. The three SEASONS go through FORCE and PIN; the
-    // rest are surprises, through SURPRISE_FORCE.
-    ST.PREVIEW = null;
-
-    // frontend/sky/holiday.json (tools/sky/holiday_webp.py): where each
-    // holiday's lights are and where the balloons are tied. Asked for once;
-    // until it is here (or when it is not there at all) the lights still
-    // glow, only without each flame and bulb of their own.
-    ST.HOL = null;
-    ST.holAsked = false;
-    // The manifest is fetched on the first paint that wants it, and the sky is
-    // painted again the moment it arrives -- not at the next 3 s tick. Until
-    // then the sky simply has no clouds: the classic decks are NOT shown in the
-    // meantime (they would show for a few seconds and then swap). Only if it
-    // cannot be had (RC_FAILED) do the classic decks stand in -- and only for a
-    // while: it is asked for again a minute later, then every five (a tablet
-    // that loaded while Home Assistant restarted kept Classic clouds until its
-    // next reload, 2026-10-07 audit). The classic decks stay up during a retry,
-    // so a sky never goes empty waiting for it.
-    ST.RC_MAN = null;
-    ST.RC_LOADING = false;
-    ST.RC_FAILED = false;
-    ST.RC_RETRY = 0;
-    ST.RC_TRIES = 0;
-    ST.artUrl = (typeof window !== 'undefined' && window.hkNowArt) || null;
 
     // The card publishes; this listens. Reading window.hkNowArt above covers
     // the other order -- a sky that mounts after the card has already drawn.
@@ -1191,69 +1327,6 @@
         }
       });
     }
-
-    // ------------------------------------------------------------------- API
-    ST.mounted = null;
-    ST.mountedPath = null;
-    // Which palette is on the mounted element. The album repaint needs it, and
-    // it must not be re-derived from the URL -- a track change arrives with no
-    // navigation, so there is nothing to re-resolve from.
-    ST.mountedVariant = null;
-    // the page the sky is behind now (resolve: the view's sky_page), for
-    // read()'s per-page rules
-    ST.skyPage = null;
-    // Set when the next paint must be instant rather than eased -- see the
-    // .hk-snap rule in SHEET.
-    ST.snapNext = false;
-    ST.paintSig = '';
-
-    // THE SKY OUTLIVES A VIEW CHANGE, AND NOTHING HERE DECIDES WHEN IT ENDS.
-    //
-    // hui-root swaps views WITHOUT unmounting hui-view-container, so the sky
-    // element survives a navigation untouched and the next view simply repaints
-    // it -- a palette change, never an unmount. Tearing it down on every path
-    // change would let the wallpaper flash through between two views.
-    //
-    // The only teardowns are selfRender()'s: a view whose config wants no sky,
-    // and the kill switch. Both read the Lovelace config, so neither guesses.
-    //
-    // NO GRACE TIMER. Waiting a fixed time after a path change to see whether
-    // the new view claims the sky races the view build: a tablet's first visit
-    // to a page can block the main thread past 1500ms, so such a timer fires
-    // before the new view is seen and the sky is torn down and rebuilt from
-    // nothing -- the background loading late on page changes (reproduced with
-    // a synthetic 1.7s stall: element replaced at ~2000ms). The config is the
-    // authority, so nothing here has to wait.
-    ST.watching = false;
-
-    // Pausing is driven by TWO things, and the second one is what makes the
-    // sky safe to leave on a room dashboard.
-    //
-    // document.hidden alone is not enough. On the room view -- the page a wall
-    // tablet shows for its entire life -- the WallPanel screensaver is a DOM
-    // overlay in the SAME document, so document.hidden stays false and the
-    // compositor would keep running rain and cloud decks all night behind a
-    // photo slideshow: precisely the "warm to the touch all night" failure the
-    // performance notes at the top of this file warn about.
-    //
-    // So each dashboard can name its tablet's screensaver boolean (`sleep:` in
-    // its `sky:` block -- the one the wake and sleep automations drive) and the
-    // sky pauses with the screen.
-    //
-    // The entity is REMEMBERED rather than read from opts each time: the sky
-    // survives navigation, so a plain `opts.sleep || false` would reset asleep
-    // to false the moment you opened a page that does not name it.
-    ST.asleep = false;
-    ST.sleepEntity = null;
-    // UNDER THE KIOSK'S BLACK, HELD (2026-10-09). With Kiosk Satellite's
-    // "Pause dashboard during screensaver" off, the tablet draws the page
-    // behind its black for as long as anything moves on it: the sky and the
-    // cards kept animating there and the Loft spent 1.3 cores on nothing
-    // (measured). Held: the sky's and the cards' animations paused, the sky's
-    // layers kept -- letting them go (.hidden) is for when the photos cover
-    // the page; let go under the black, they all came back at the wake and
-    // the scenery blinked.
-    ST.ksDark = false;
     ['kiosksatellite:screensaverstart', 'kiosksatellite:screenoff'].forEach(function (t) {
       try { window.addEventListener(t, function () { ST.ksDark = true; applyHidden(); }); } catch (e) { /* no window events */ }
     });
@@ -1265,21 +1338,6 @@
     try {
       window.addEventListener('hk-black', function (e) { ST.ksDark = !!(e && e.detail && e.detail.on); applyHidden(); });
     } catch (e) { /* no window events */ }
-    // NOT IN FOCUS (Sky / Background -> Pause When Not in Focus, 2026-10-10).
-    // A computer leaves the dashboard open beside other work, and while
-    // anything moves the browser draws the whole window every frame -- the
-    // sky changing under the frosted plates re-blurs them each time. Measured
-    // on a Mac (Chrome, Home, 1512x945 at 2x): 31% of a core with nobody
-    // looking at it -- GPU process 21, renderer 10, main thread only 3. So
-    // while another window has the focus the sky and the cards are HELD, as
-    // under the kiosk's black: their layers kept, so the focus coming back
-    // starts them on the next frame from where they stood (measured 15 ms,
-    // the cloud deck at -9.96 px resuming at -9.99): 3%.
-    // ONLY WHERE THERE IS A MOUSE. A wall tablet's or a phone's WebView can
-    // report no focus until its first touch -- held there, a screen would sit
-    // still from boot -- and nothing on one is ever beside other work.
-    // Starts focused: only a real blur holds it.
-    ST.unfocused = false;
     if (FOCUS_DEVICE) {
       try {
         // after the blur settles: the focus moving into a frame on the page
@@ -1294,13 +1352,6 @@
         SH.onNavigate(focusCheck);
       } catch (e) { /* no window events */ }
     }
-    ST.settleGen = 0;
-    ST.saidSig = null;
-    ST.saidFor = null;
-    ST.changeSig = null;
-    ST.changedSig = null;
-    ST.changedFor = null;
-    ST.asked = false;
 
     window.hkSky = {
       // THE SCREEN IS ASLEEP: this tablet's screensaver boolean is on (the
@@ -1536,52 +1587,6 @@
       // For pages/dev/nav-probe.js: which page the sky is currently painted for.
       _mountedPath: function () { return ST.mountedPath; }
     };
-
-    // A SWIPE BETWEEN PAGES (2026-11-01, the owner: "make the backgrounds fade between page swipes but ONLY for
-    // swipes ... If the page is tapped, the background should appear instantly"): as the finger heads for a page
-    // (hk-pageswipe.js skyHold), that page's background is painted at once under a still copy of this one, and the copy
-    // fades as the page comes in -- one fade whatever the background is (a palette, a photo, a wallpaper), where
-    // the sky's own layers would each melt at their own pace. Until the page is up, every repaint is the page the
-    // swipe goes to (swiping), and its own repaint, when it is, paints the same. A tap still cuts.
-    ST.SWIPE = null;
-    ST.navWait = null;
-
-    // IN THE FRAME THE PAGE IS FIRST DRAWN IN, AT ITS START. hk-view-ready is
-    // said from inside Home Assistant's page build, with the page's cards
-    // still drawing: painting then measured (laid out) the half-built page,
-    // and the frame laid it out again -- ~60 ms of each page change at 6x
-    // (headless), most of the sky's share. At the frame's start the build is
-    // done, the paint's measuring IS the frame's layout, and the new palette
-    // is still in the same frame as the page.
-    ST.readyFrame = 0;
-
-    // THE 3s STATE TICK MUST NOT JUMP A NAVIGATION. Between location-changed and
-    // hk-view-ready the URL already names the new page while the old one is
-    // still on screen; a tick landing there would paint the new palette behind
-    // the old content -- the very artifact the event exists to prevent. So the
-    // tick stands aside while a page change is pending. The 10s cap only matters
-    // if an announcement is ever lost, and then it recovers instead of freezing.
-    ST.navPending = 0;
-
-    // THE FIRST MOUNT NEEDS ITS OWN RAMP, or a cold load shows THREE SECONDS of
-    // bare background. MEASURED on a wall tablet's dashboard: the module is
-    // live at 5ms, hui-root at 162ms and the view has its cards at 180ms -- but
-    // without a ramp the sky appears at 3012ms.
-    //
-    // The reason is that selfDrive()'s single immediate selfRender() runs at
-    // ~5ms, when there is no client and no HUI-VIEW-CONTAINER yet, so it bails --
-    // and the next attempt would be the 3000ms backstop tick. Nothing is slow;
-    // the retry is just too far away.
-    //
-    // `location-changed` does not cover this: no navigation has happened on a
-    // cold load, so onNav never fires.
-    //
-    // So: poll every 60ms until the sky actually mounts, with a ceiling. The
-    // 3000ms interval stays -- it is the backstop for a URL
-    // that changes with no event, and for the state tick.
-    ST.firstWait = null;
-
-    ST.selfPoll = null;
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', selfDrive);
     } else {

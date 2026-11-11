@@ -55,7 +55,7 @@ def test_a_file_the_list_does_not_know_is_loaded_at_the_start(tmp_path):
     (tmp_path / "hk-stat.js").write_text("// a lazy file that defines nothing the list can find")
     (tmp_path / "hk-strategy.js").write_text("")
     got = hk_cards.card_list(tmp_path)
-    assert got == {"core": ["hk-base.js", "hk-brand-new.js", "hk-stat.js"], "lazy": {}}
+    assert got == {"core": ["hk-base.js", "hk-brand-new.js", "hk-stat.js"], "lazy": {}, "parts": {}}
 
 
 def test_a_changed_file_is_read_again(tmp_path):
@@ -183,3 +183,17 @@ def test_the_intercoms_address_loads_its_file_on_any_page_and_nothing_else_does(
     assert need["intercomQuiet"] == 0 and need["intercomOther"] == 0
     assert need["intercomHash"] == 1, "the hash asked for it, once (hashchange and popstate both fired)"
     assert need["intercomListens"] == ["hashchange", "popstate"]
+
+
+def test_the_parts_of_the_files_loaded_at_the_start_are_named_so_they_download_with_them():
+    """Phase 24, B8: a file cut into parts fetches them a round trip after itself; /api/hk-cards names the parts of each
+    core shell, and of hk-strategy.js, so web/shim/early-cards.js preloads them with the page."""
+    got = hk_cards.card_list(CARDS)
+    import web_sources
+    for name in ("hk-base.js", "hk-strategy.js"):
+        want = [p.relative_to(CARDS.parent).as_posix() for p in web_sources.parts("web/hk/cards/" + name)]
+        assert got["parts"][name] == want and want
+    assert all(name in got["core"] or name == "hk-strategy.js" for name in got["parts"])
+    assert not set(got["parts"]) & set(got["lazy"])
+    text = (CARDS.parents[1] / "shim/early-cards.js").read_text()
+    assert "cards.parts" in text and "link.href = hkV('/hk/' + rel);" in text

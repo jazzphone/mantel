@@ -25,6 +25,8 @@ from pathlib import Path
 
 import pytest
 
+import web_sources
+
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "tools/split_manifests/settings.json"
 
@@ -185,7 +187,7 @@ def test_the_class_is_still_the_class(both, now):
 
 def test_a_method_added_twice_is_an_error_not_a_silent_replacement(tmp_path):
     """install() refuses a name the prototype already has (a part and the shell, or two parts, naming one method)."""
-    text = (ROOT / "web/hk/panels/hk-settings.js").read_text()
+    text = web_sources.read("web/hk/panels/hk-settings.js")
     start = text.index("  function install(from) {")
     block = text[start:text.index("  // THE SHELL'S VARIABLES SET ONCE")]
     harness = tmp_path / "twice.cjs"

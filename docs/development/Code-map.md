@@ -22,7 +22,17 @@ Mantel's pages and the code both hosts share: HK's cards, modules, panels and th
   - `hk-host-shell.js` — HK's host shell
 - **web/hk/cards/**
   - `hk-alert.js` — the Alert block (`alert` in hk-grid-catalog.js; docs/phase11/ALERT.md), 2026-11-10.
-  - `hk-base.js` — the foundation every hk card file builds on.
+  - `hk-base.js` — the foundation every hk card file builds on. *(a shell: its parts are in `web/hk/base/`, `tools/split_manifests/base.json`)*
+    - `hk-base-card-core.js` — the page's accents and glass, HkBase itself, the snapshot cache, the broken-image guard and module wake
+    - `hk-base-builders.js` — the builders: plates, tiles, title rows, heads, flat grounds and material
+    - `hk-base-art.js` — a picture's art.json, the chart scrubber and the palette
+    - `hk-base-sheets.js` — the edges' shade and the choose sheet
+    - `hk-base-images.js` — a picture's image and when it is bad
+    - `hk-base-card.js` — redrawing every card, and still now
+    - `hk-base-editors.js` — the config editors and nested cards
+    - `hk-base-sections.js` — the grid in sections, defining a card (register) and morph()
+    - `hk-base-music.js` — hkMusic: the music model
+    - `hk-base-menu.js` — Lovelace's panel, the menu's widths and state, Now Playing's grace
   - `hk-calendar.js` — the house's calendars *(a shell: its parts are in `web/hk/calendar/`, `tools/split_manifests/calendar.json`)*
     - `hk-calendar-data.js` — dates, the calendars and their colors, events and their reads and writes, and the icons
     - `hk-calendar-sheet.js` — the add and edit sheet: its CSS, opening and closing, the delete question

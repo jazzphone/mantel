@@ -14,6 +14,8 @@ from pathlib import Path
 
 import pytest
 
+import web_sources
+
 from hk_core.settings import changes as C
 from hk_core.settings import home_grid as HG
 
@@ -267,7 +269,7 @@ def test_the_block_is_wired_in_the_way_the_other_blocks_are():
     from mantel_server import hk_cards
     assert "hk-alert.js" in hk_cards.LAZY
     assert hk_cards.tags_of(ROOT / "web/hk/cards/hk-alert.js") == ("hk-grid-alert-card",)
-    editor = (ROOT / "web/hk/panels/hk-grid-editor.js").read_text()
+    editor = web_sources.read("web/hk/panels/hk-grid-editor.js")
     assert "alert: 'Alert'" in editor and "'house_status', 'alert'," in editor and "['alert', 'tv', 'swipe'].indexOf(card)" in editor
     assert "alert: 'mdi:alert-circle'" in editor and "key === 'alert'" in editor
     assert set(HG.ALERT_COLORS) == set(HG.ACCENT_NAMES)

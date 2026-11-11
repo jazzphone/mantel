@@ -18,6 +18,7 @@ from pathlib import Path
 import pytest
 
 from web_sources import owner
+import web_sources  # (a file cut into parts is read whole: tools/split_js.py)
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -33,7 +34,7 @@ const none = { product: hkShell.productName(), settings: hkShell.settingsName(),
                place: hkShell.haPlace('Devices & Services → HK Frontend'),
                name: hkShell.haName('HK Frontend device'), docs: hkShell.docsUrl('Sleep-Screen') };
 load('/web/shim/mantel-shell.js');
-load('/web/hk/panels/hk-settings-model.js');
+/*PARTS*/load('/web/hk/panels/hk-settings-model.js');
 const M = hkSettingsModel;
 const yaml = (id) => M.YAML_REF.filter((g) => g.items.some((it) => it.id === id))[0];
 process.stdout.write(JSON.stringify({
@@ -51,7 +52,10 @@ process.stdout.write(JSON.stringify({
 def got():
     if shutil.which("node") is None:
         pytest.skip("node not installed")
-    out = subprocess.run(["node", "-e", SCRIPT, str(ROOT)], capture_output=True, text=True, check=True, timeout=30)
+    # (the settings model is cut into parts: they load first, as the page's loader leaves them)
+    parts = "".join(f"load('/{p.relative_to(ROOT).as_posix()}');\n" for p in web_sources.parts("web/hk/panels/hk-settings-model.js"))
+    out = subprocess.run(["node", "-e", SCRIPT.replace("/*PARTS*/", parts), str(ROOT)], capture_output=True, text=True, check=True,
+                         timeout=30)
     return json.loads(out.stdout)
 
 

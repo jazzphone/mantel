@@ -26,4 +26,15 @@ list.then((cards) => {
     link.href = hkV('/hk/cards/' + c);       // the address home.js imports it at (the build's ?v=, base.js)
     document.head.appendChild(link);
   }
+  // A FILE CUT INTO PARTS (tools/split_js.py) fetches them a round trip after itself: they download with it instead --
+  // hk-base.js's, hk-strategy.js's, the core cards' (phase 24, B8). Each is a path under /hk/, joined here to the literal
+  // '/hk/', which the server moves under Ingress's prefix as it does every other address in this file.
+  for (const list of Object.values(cards.parts || {})) {
+    for (const rel of list) {
+      const link = document.createElement('link');
+      link.rel = 'modulepreload';
+      link.href = hkV('/hk/' + rel);
+      document.head.appendChild(link);
+    }
+  }
 }).catch(() => { /* home.js asks for the list again, and says what went wrong */ });

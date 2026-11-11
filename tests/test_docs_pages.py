@@ -3,6 +3,8 @@ Frontend's wiki source in this repository and Mantel's own page is the HA App's 
 escapes the source, so a page can carry no markup of its own beyond the wiki's images."""
 from __future__ import annotations
 
+import web_sources
+
 import re
 from pathlib import Path
 
@@ -57,7 +59,7 @@ def test_lists_tables_code_and_quotes():
 
 def test_every_anchor_hk_settings_links_to_is_on_its_page():
     """HK Settings' Your Own Dashboards links each snippet to its heading (hk-settings-model.js anchors)."""
-    model = (ROOT / "web/hk/panels/hk-settings-model.js").read_text(encoding="utf-8")
+    model = web_sources.read("web/hk/panels/hk-settings-model.js")
     anchors = set(re.findall(r"anchor: '([a-z0-9-]+)'", model))
     assert anchors
     docs = D.Docs(HK_DOCS, ROOT / "packaging/ha-app/DOCS.md")

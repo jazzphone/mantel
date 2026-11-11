@@ -18,6 +18,7 @@ from mantel_server.auth import SESSION_COOKIE
 from mantel_server.config import Config
 from mantel_server.server import IMMUTABLE, NO_CACHE, build_app
 from mantel_server.store import Store
+import web_sources  # (a file cut into parts is read whole: tools/split_js.py)
 
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("mantel_build_static", ROOT / "tools/build_static.py")
@@ -65,7 +66,7 @@ def test_base_js_gives_a_put_together_address_its_own_version():
                         ("web/hk/cards/hk-detail.js", "import(window.hkV ? window.hkV(u) : u)"),
                         ("web/hk/cards/hk-weather.js", "window.hkV ? window.hkV(RADAR_URL) : RADAR_URL"),
                         ("web/hk/modules/hk-edit-menu.js", "global.hkV ? global.hkV(KIT_URL) : KIT_URL")):
-        assert needle in (ROOT / rel).read_text(), (rel, needle)
+        assert needle in web_sources.read(rel), (rel, needle)                  # (a shell with its parts)
 
 
 @pytest.fixture(scope="module")

@@ -14,6 +14,8 @@ from pathlib import Path
 
 import pytest
 
+import web_sources
+
 from hk_core.settings import changes as C
 from hk_core.settings import home_grid as HG
 
@@ -149,12 +151,12 @@ def test_the_block_is_wired_in_the_way_the_other_blocks_are():
     from mantel_server import hk_cards
     assert "hk-house-status.js" in hk_cards.LAZY                        # loaded when its card is asked for
     assert hk_cards.tags_of(ROOT / "web/hk/cards/hk-house-status.js") == ("hk-house-status-card", "hk-house-status-sheet")
-    editor = (ROOT / "web/hk/panels/hk-grid-editor.js").read_text()
+    editor = web_sources.read("web/hk/panels/hk-grid-editor.js")
     assert "house_status: 'House Status'" in editor and "['Info', ['house_status', " in editor
     assert "house_status: 'mdi:home'" in editor and "card === 'house_status' && !o.page" in editor
     detail = (ROOT / "web/hk/cards/hk-detail.js").read_text()
     assert "opts.panel ? 'panel'" in detail and "var tag = opts.panel ? opts.panel.tag : PANELS[kind];" in detail
-    chip = (ROOT / "web/hk/cards/hk-chip.js").read_text()
+    chip = web_sources.read("web/hk/cards/hk-chip.js")
     # the chip row's switch is the row's: House Status reads the chips with it forced on
     assert "Object.assign({}, b || {}, { chips_row: true })" in chip
 

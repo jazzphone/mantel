@@ -622,6 +622,16 @@ async def test_a_refusal_other_than_unknown_is_final(gw, ha):
 
 
 # -- HK's own Worker against /ws/talk (the warm session's protocol since 2026-11-02) --------------------------------------------------------
+def cameras_text() -> str:
+    """hk-cameras.js and its parts as one file (tools/split_js.py cut it): the harness reads TALK_WORKER out of it."""
+    import tempfile
+    import web_sources
+    f = tempfile.NamedTemporaryFile("w", suffix=".js", delete=False)
+    f.write(web_sources.read("web/hk/cards/hk-cameras.js"))
+    f.close()
+    return f.name
+
+
 async def run_worker(env, token, frames=5, rate=48000, speaker=SPEAKER):
     import shutil
     from pathlib import Path
@@ -632,7 +642,7 @@ async def run_worker(env, token, frames=5, rate=48000, speaker=SPEAKER):
     cookie = "; ".join(f"{k}={v.value}" for k, v in jar.items())
     url = str(env.m.client.make_url("/ws/talk")).replace("http", "ws", 1)
     proc = await asyncio.create_subprocess_exec(
-        "node", str(root / "tests/talk_worker_harness.mjs"), str(root / "web/hk/cards/hk-cameras.js"), url, token,
+        "node", str(root / "tests/talk_worker_harness.mjs"), cameras_text(), url, token,
         cookie, env.m.origin, speaker, str(rate), str(frames), stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE)
     out, err = await asyncio.wait_for(proc.communicate(), 30)

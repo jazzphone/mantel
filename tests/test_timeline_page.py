@@ -14,6 +14,8 @@ from pathlib import Path
 
 import pytest
 
+import web_sources
+
 ROOT = Path(__file__).resolve().parents[1]
 NODE = shutil.which("node") or "/opt/homebrew/bin/node"
 pytestmark = pytest.mark.skipif(not Path(NODE).exists(), reason="no node")
@@ -294,7 +296,7 @@ def test_the_page_is_wired_in_the_way_the_other_pages_are():
     assert "hk-timeline.js" in hk_cards.LAZY                            # loaded when its card is asked for
     assert hk_cards.tags_of(ROOT / "web/hk/cards/hk-timeline.js") == ("hk-timeline-card",)
     assert "'timeline/subscribe'" in (ROOT / "web/client/hk-client.js").read_text()      # the live feed is on the read allowlist
-    strategy = (ROOT / "web/hk/cards/hk-strategy.js").read_text()
+    strategy = web_sources.read("web/hk/cards/hk-strategy.js")
     assert "custom:hk-timeline-card" in strategy and "hostPage('timeline')" in strategy
     shell = (ROOT / "web/client/hk-host-shell.js").read_text()
     assert "hostPage: function () { return false; }" in shell            # no Timeline in a host that has none
