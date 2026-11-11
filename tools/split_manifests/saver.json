@@ -92,7 +92,10 @@
         "go",
         "Deck",
         "inPaneAt",
-        "createDesignController"
+        "createDesignController",
+        "setAttr",
+        "clock",
+        "clock24"
       ]
     },
     {
@@ -315,7 +318,6 @@
         "slideView",
         "musicPaneView",
         "setText",
-        "setAttr",
         "artCache",
         "artOrder",
         "loadArt",
@@ -415,12 +417,10 @@
         "forecastTick",
         "refresh",
         "RESUME_MS",
-        "clock",
         "beat",
         "justResumed",
         "hookClient",
         "panelDone",
-        "clock24",
         "BLACK_KEY",
         "BRIGHT_KEY",
         "dashSeg",

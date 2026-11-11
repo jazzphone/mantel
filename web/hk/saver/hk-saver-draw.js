@@ -11,21 +11,22 @@
     var clientNow = K.clientNow, CROSSFADE_MS = K.CROSSFADE_MS, dashConf = K.dashConf, FACE_SHOWS = K.FACE_SHOWS,
         FC_TICK_MS = K.FC_TICK_MS, isFlat = K.isFlat, slideMarks = K.slideMarks, ST = K.ST, sunDown = K.sunDown;
     // (phase 25: the owners' writers, docs/phase25/SAVER-STATE.md)
-    var dropCard = K.dropCard, showsLayer = K.showsLayer, sinceSlide = K.sinceSlide, slideGone = K.slideGone,
-        slideShown = K.slideShown;
+    var dropCard = K.dropCard, setAttr = K.setAttr, showsLayer = K.showsLayer, sinceSlide = K.sinceSlide,
+        slideGone = K.slideGone, slideShown = K.slideShown;
 
     var addBand, dropView, exHide, fcOutAfter, forecastTick, HL, layoutBigKind, layoutDraw, layoutModules,
-        layoutMusic, layoutSlides, layoutSoon, muHidden, mus, musicParts, musicWatch, reveal, setAttr, showNext,
-        slideCancel, slideView, takeover, TM, WX;
+        layoutMusic, layoutSlides, layoutSoon, muHidden, mus, musicParts, musicWatch, reveal, showNext, slideCancel,
+        slideView, takeover, TM, WX;
     // (of later parts, used when called: bound once every part has run, runParts)
     K.ahead.push(function () {
       addBand = K.addBand; dropView = K.dropView; exHide = K.exHide; fcOutAfter = K.fcOutAfter;
       forecastTick = K.forecastTick; HL = K.HL; layoutBigKind = K.layoutBigKind; layoutDraw = K.layoutDraw;
       layoutModules = K.layoutModules; layoutMusic = K.layoutMusic; layoutSlides = K.layoutSlides;
       layoutSoon = K.layoutSoon; muHidden = K.muHidden; mus = K.mus; musicParts = K.musicParts;
-      musicWatch = K.musicWatch; reveal = K.reveal; setAttr = K.setAttr; showNext = K.showNext;
-      slideCancel = K.slideCancel; slideView = K.slideView; takeover = K.takeover; TM = K.TM; WX = K.WX;
+      musicWatch = K.musicWatch; reveal = K.reveal; showNext = K.showNext; slideCancel = K.slideCancel;
+      slideView = K.slideView; takeover = K.takeover; TM = K.TM; WX = K.WX;
     });
+
 
     // WHAT IT OWNS ON ST (phase 25, A: others read these; only this file writes them; tools/state_owners.py)
     ST.fband = null;

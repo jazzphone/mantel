@@ -14,18 +14,20 @@
         glyphBox = K.glyphBox, isFlat = K.isFlat, layoutOf = K.layoutOf, MOSAIC_COLORS = K.MOSAIC_COLORS,
         mosaicAssign = K.mosaicAssign, mosaicPlan = K.mosaicPlan, photoUrl = K.photoUrl, screenEdge = K.screenEdge,
         ST = K.ST, TB_WAIT = K.TB_WAIT, tbKey = K.tbKey, tbShare = K.tbShare, teardown = K.teardown, WAKE = K.WAKE;
-    var Deck = K.Deck;
+    // (phase 25: the owners' writers, docs/phase25/SAVER-STATE.md)
+    var clock = K.clock, setAttr = K.setAttr;
 
-    var ckPhotos, clock, extraIs, HL, layoutSoon, mus, paint, photoLum, releasePh, reveal, runOff, setAttr, setPane,
-        showEnergySlide, showForecastExtra, showMusicSlide, slideCancel, slideShow, start, TM, WX;
+    var ckPhotos, extraIs, HL, layoutSoon, mus, paint, photoLum, releasePh, reveal, runOff, setPane, showEnergySlide,
+        showForecastExtra, showMusicSlide, slideCancel, slideShow, start, TM, WX;
     // (of later parts, used when called: bound once every part has run, runParts)
     K.ahead.push(function () {
-      ckPhotos = K.ckPhotos; clock = K.clock; extraIs = K.extraIs; HL = K.HL; layoutSoon = K.layoutSoon; mus = K.mus;
-      paint = K.paint; photoLum = K.photoLum; releasePh = K.releasePh; reveal = K.reveal; runOff = K.runOff;
-      setAttr = K.setAttr; setPane = K.setPane; showEnergySlide = K.showEnergySlide;
-      showForecastExtra = K.showForecastExtra; showMusicSlide = K.showMusicSlide; slideCancel = K.slideCancel;
-      slideShow = K.slideShow; start = K.start; TM = K.TM; WX = K.WX;
+      ckPhotos = K.ckPhotos; extraIs = K.extraIs; HL = K.HL; layoutSoon = K.layoutSoon; mus = K.mus; paint = K.paint;
+      photoLum = K.photoLum; releasePh = K.releasePh; reveal = K.reveal; runOff = K.runOff; setPane = K.setPane;
+      showEnergySlide = K.showEnergySlide; showForecastExtra = K.showForecastExtra; showMusicSlide = K.showMusicSlide;
+      slideCancel = K.slideCancel; slideShow = K.slideShow; start = K.start; TM = K.TM; WX = K.WX;
     });
+    var Deck = K.Deck;
+
 
     // WHAT IT OWNS ON ST (phase 25, A: others read these; only this file writes them; tools/state_owners.py)
     ST.deck = null;

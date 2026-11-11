@@ -10,12 +10,8 @@
   (window.hkSaverParts = window.hkSaverParts || {})['hk-saver-music'] = function (K) {
     var actionsNow = K.actionsNow, clearCanvas = K.clearCanvas, clientNow = K.clientNow, dashConf = K.dashConf,
         isFlat = K.isFlat, layoutMusic = K.layoutMusic, mmss = K.mmss, sendWS = K.sendWS;
-
-    var clock;
-    // (of later parts, used when called: bound once every part has run, runParts)
-    K.ahead.push(function () {
-      clock = K.clock;
-    });
+    // (phase 25: the owners' writers, docs/phase25/SAVER-STATE.md)
+    var clock = K.clock, setAttr = K.setAttr;
 
     // ------------------------------------------------------------ the music
     // WHAT PLAYS, BIG (options music_slide, music_pane): the album art over a
@@ -171,8 +167,6 @@
     function musicPaneView() { return mus.views.filter(function (v) { return v.kind === 'pane'; })[0] || null; }
 
     function setText(el, t) { if (el && el.textContent !== t) el.textContent = t; }
-
-    function setAttr(el, k, present) { if (present) { if (!el.hasAttribute(k)) el.setAttribute(k, ''); } else if (el.hasAttribute(k)) el.removeAttribute(k); }
 
     // album art, loaded and decoded once for every view (the last few kept)
     var artCache = {}, artOrder = [];
@@ -641,7 +635,7 @@
     K.musicPage = musicPage; K.musicPaneView = musicPaneView; K.musicParts = musicParts;
     K.musicPlaying = musicPlaying; K.musicUsed = musicUsed; K.musicView = musicView; K.nextArt = nextArt;
     K.PANEL_IDLE = PANEL_IDLE; K.PANEL_TURN = PANEL_TURN; K.previewMusicData = previewMusicData;
-    K.progress = progress; K.queueDrag = queueDrag; K.queueRowAt = queueRowAt; K.setAttr = setAttr; K.sigOf = sigOf;
+    K.progress = progress; K.queueDrag = queueDrag; K.queueRowAt = queueRowAt; K.sigOf = sigOf;
     K.slideView = slideView; K.upNextPiece = upNextPiece; K.volEnd = volEnd; K.volFrom = volFrom;
   };
 })();

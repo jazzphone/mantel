@@ -8,6 +8,7 @@
 (function () {
   'use strict';
   (window.hkSaverParts = window.hkSaverParts || {})['hk-saver-helpers'] = function (K) {
+    var ST = K.ST;   // (clock24 reads the config)
     var autoLayout = K.autoLayout, dashConf = K.dashConf, EDGE = K.EDGE, FADE_BACK_MS = K.FADE_BACK_MS;
 
     // ------------------------------------------------------------ pure helpers
@@ -929,6 +930,12 @@
       };
     }
 
+    // (phase 25: helpers every part uses, here so that none binds them from a later part)
+    function setAttr(el, k, present) { if (present) { if (!el.hasAttribute(k)) el.setAttribute(k, ''); } else if (el.hasAttribute(k)) el.removeAttribute(k); }
+    // (`clock`: the tests drive it; the page reads the wall clock)
+    var clock = { now: function () { return Date.now(); } };
+    function clock24() { return !!(ST.cfg && ST.cfg.clock_24); }
+
     // what the shell and the later parts use of this one
     K.actionsNow = actionsNow; K.alignOf = alignOf; K.backdropSmall = backdropSmall; K.behindAt = behindAt;
     K.cleanDepth = cleanDepth; K.cleanFocus = cleanFocus; K.cleanVariants = cleanVariants; K.clientNow = clientNow;
@@ -945,5 +952,6 @@
     K.tbKey = tbKey; K.tbShare = tbShare; K.tbShares = tbShares; K.timedTurn = timedTurn; K.timerHold = timerHold;
     K.turnOf = turnOf; K.user = user; K.viewFont = viewFont; K.weatherPage = weatherPage; K.widgetPage = widgetPage;
     K.withPane = withPane; K.zoneOf = zoneOf;
+    K.clock = clock; K.clock24 = clock24; K.setAttr = setAttr;
   };
 })();

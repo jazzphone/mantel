@@ -22,7 +22,7 @@
         teardown = K.teardown, TM = K.TM, tmWatch = K.tmWatch, user = K.user, withPane = K.withPane,
         writeSwitch = K.writeSwitch, WX = K.WX;
     // (phase 25: the owners' writers, docs/phase25/SAVER-STATE.md)
-    var curtainOpts = K.curtainOpts, curtainStale = K.curtainStale, dropDeck = K.dropDeck,
+    var clock = K.clock, curtainOpts = K.curtainOpts, curtainStale = K.curtainStale, dropDeck = K.dropDeck,
         forecastSig = K.forecastSig, forecastSky = K.forecastSky, idleCancel = K.idleCancel, noteInput = K.noteInput,
         paneNote = K.paneNote, touchAgain = K.touchAgain;
 
@@ -343,8 +343,7 @@
     // back: a heartbeat that went quiet, or a visibility change, in the last
     // RESUME_MS. (The heartbeat gap catches a message handled before the
     // timer that would have noticed.)
-    // (`clock`: the tests drive it; the page reads the wall clock)
-    var RESUME_MS = 2500, clock = { now: function () { return Date.now(); } };
+    var RESUME_MS = 2500;
     function beat() {
       if (ST.previewOn && ST.previewSelected) syncPreviewSlide();
       var n = clock.now();
@@ -366,7 +365,6 @@
 
     // (the Now Playing page's, hk-saver-pane.js: once the kit's own entries)
     function panelDone(v) { if (ST.pnl && ST.pnl.view === v) closePanel(false); }
-    function clock24() { return !!(ST.cfg && ST.cfg.clock_24); }
 
     var BLACK_KEY = 'hk-black', BRIGHT_KEY = 'hk-black-bright';
 
@@ -425,7 +423,7 @@
 
     // what the shell and the later parts use of this one
     K.beatFrom = beatFrom; K.forgetRaw = forgetRaw; K.hkAgain = hkAgain; K.resumedNow = resumedNow;
-    K.beat = beat; K.bootCover = bootCover; K.clock = clock; K.clock24 = clock24; K.forecastTick = forecastTick;
+    K.beat = beat; K.bootCover = bootCover; K.forecastTick = forecastTick;
     K.goDark = goDark; K.hkSync = hkSync; K.hkTapWake = hkTapWake; K.hookClient = hookClient;
     K.justResumed = justResumed; K.lightSoon = lightSoon; K.LIT_GRACE = LIT_GRACE; K.litNow = litNow;
     K.panelDone = panelDone; K.refresh = refresh;

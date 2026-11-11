@@ -17,14 +17,15 @@
         panelTouched = K.panelTouched, paneOf = K.paneOf, renderMusic = K.renderMusic, setAttr = K.setAttr, ST = K.ST,
         volEnd = K.volEnd, volFrom = K.volFrom, weatherEntity = K.weatherEntity;
     // (phase 25: the owners' writers, docs/phase25/SAVER-STATE.md)
-    var bandIs = K.bandIs, dropCard = K.dropCard;
+    var bandIs = K.bandIs, clock = K.clock, clock24 = K.clock24, dropCard = K.dropCard;
 
-    var bootCover, clock, clock24, goDark, hkTapWake, lightSoon, lit, litNow, panelDone;
+    var bootCover, goDark, hkTapWake, lightSoon, lit, litNow, panelDone;
     // (of later parts, used when called: bound once every part has run, runParts)
     K.ahead.push(function () {
-      bootCover = K.bootCover; clock = K.clock; clock24 = K.clock24; goDark = K.goDark; hkTapWake = K.hkTapWake;
-      lightSoon = K.lightSoon; lit = K.lit; litNow = K.litNow; panelDone = K.panelDone;
+      bootCover = K.bootCover; goDark = K.goDark; hkTapWake = K.hkTapWake; lightSoon = K.lightSoon; lit = K.lit;
+      litNow = K.litNow; panelDone = K.panelDone;
     });
+
 
     // WHAT IT OWNS ON ST (phase 25, A: others read these; only this file writes them; tools/state_owners.py)
     ST.paneCard = null;

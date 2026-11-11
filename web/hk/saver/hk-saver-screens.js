@@ -16,24 +16,26 @@
         slideShow = K.slideShow, ST = K.ST, timedTurn = K.timedTurn, TM = K.TM, updateBand = K.updateBand,
         whoMsg = K.whoMsg, WX = K.WX;
     // (phase 25: the owners' writers, docs/phase25/SAVER-STATE.md)
-    var forecastUp = K.forecastUp, pressStopped = K.pressStopped, slideGone = K.slideGone, slideShown = K.slideShown;
+    var clock = K.clock, forecastUp = K.forecastUp, pressStopped = K.pressStopped, setAttr = K.setAttr,
+        slideGone = K.slideGone, slideShown = K.slideShown;
 
-    var black, clock, dashLive, dashOutside, drawMusic, elapsed, forecastTick, hostOf, layoutMusicView, muGrace, mus,
+    var black, dashLive, dashOutside, drawMusic, elapsed, forecastTick, hostOf, layoutMusicView, muGrace, mus,
         musicIn, musicNow, musicOf, musicPage, musicPaneView, musicParts, musicPlaying, musicUsed, musicView, nextArt,
         PANEL_IDLE, PANEL_TURN, paneStack, previewMusicData, progress, queueRowAt, reveal, rootOf, scaleOf, schedule,
-        setAttr, showNext, sigOf, slideView, stop, upNextPiece, volFrom;
+        showNext, sigOf, slideView, stop, upNextPiece, volFrom;
     // (of later parts, used when called: bound once every part has run, runParts)
     K.ahead.push(function () {
-      black = K.black; clock = K.clock; dashLive = K.dashLive; dashOutside = K.dashOutside; drawMusic = K.drawMusic;
+      black = K.black; dashLive = K.dashLive; dashOutside = K.dashOutside; drawMusic = K.drawMusic;
       elapsed = K.elapsed; forecastTick = K.forecastTick; hostOf = K.hostOf; layoutMusicView = K.layoutMusicView;
       muGrace = K.muGrace; mus = K.mus; musicIn = K.musicIn; musicNow = K.musicNow; musicOf = K.musicOf;
       musicPage = K.musicPage; musicPaneView = K.musicPaneView; musicParts = K.musicParts;
       musicPlaying = K.musicPlaying; musicUsed = K.musicUsed; musicView = K.musicView; nextArt = K.nextArt;
       PANEL_IDLE = K.PANEL_IDLE; PANEL_TURN = K.PANEL_TURN; paneStack = K.paneStack;
       previewMusicData = K.previewMusicData; progress = K.progress; queueRowAt = K.queueRowAt; reveal = K.reveal;
-      rootOf = K.rootOf; scaleOf = K.scaleOf; schedule = K.schedule; setAttr = K.setAttr; showNext = K.showNext;
-      sigOf = K.sigOf; slideView = K.slideView; stop = K.stop; upNextPiece = K.upNextPiece; volFrom = K.volFrom;
+      rootOf = K.rootOf; scaleOf = K.scaleOf; schedule = K.schedule; showNext = K.showNext; sigOf = K.sigOf;
+      slideView = K.slideView; stop = K.stop; upNextPiece = K.upNextPiece; volFrom = K.volFrom;
     });
+
 
     // WHAT IT OWNS ON ST (phase 25, A: others read these; only this file writes them; tools/state_owners.py)
     ST.exT = null;

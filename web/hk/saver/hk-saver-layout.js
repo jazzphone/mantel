@@ -18,16 +18,16 @@
         reducedMotion = K.reducedMotion, ST = K.ST, TB_COVER = K.TB_COVER, tbShare = K.tbShare, timeNow = K.timeNow,
         timerHold = K.timerHold, updateBand = K.updateBand, weatherEntity = K.weatherEntity;
     // (phase 25: the owners' writers, docs/phase25/SAVER-STATE.md)
-    var nightWatch = K.nightWatch, slideShown = K.slideShown;
+    var clock = K.clock, nightWatch = K.nightWatch, setAttr = K.setAttr, slideShown = K.slideShown;
 
-    var black, clock, exArm, exCancel, exHide, extraIs, forecastTick, hideMusicSlide, musicNow, musicOf, setAttr,
-        showNext;
+    var black, exArm, exCancel, exHide, extraIs, forecastTick, hideMusicSlide, musicNow, musicOf, showNext;
     // (of later parts, used when called: bound once every part has run, runParts)
     K.ahead.push(function () {
-      black = K.black; clock = K.clock; exArm = K.exArm; exCancel = K.exCancel; exHide = K.exHide;
-      extraIs = K.extraIs; forecastTick = K.forecastTick; hideMusicSlide = K.hideMusicSlide; musicNow = K.musicNow;
-      musicOf = K.musicOf; setAttr = K.setAttr; showNext = K.showNext;
+      black = K.black; exArm = K.exArm; exCancel = K.exCancel; exHide = K.exHide; extraIs = K.extraIs;
+      forecastTick = K.forecastTick; hideMusicSlide = K.hideMusicSlide; musicNow = K.musicNow; musicOf = K.musicOf;
+      showNext = K.showNext;
     });
+
 
     // WHAT IT OWNS ON ST (phase 25, A: others read these; only this file writes them; tools/state_owners.py)
     ST.ly = null;
