@@ -782,6 +782,7 @@ Build, release and check tools.
   - `intercom_proof.py` — THE INTERCOM'S LIVE PROOF (docs/phase17/INTERCOM.md "Slice 0")
   - `make_app_icons.py` — Draw Mantel's app icon (a mantelpiece with a warm hearth) at every size the web app and the Apple apps use.
   - `make_brand_logos.py` — Draw the store logos
+  - `move_py.py` — Move flat modules of Mantel Server into a package, and prove nothing but the place changed (phase 25, Part C
   - `package_check.py` — Static checks on the packaging (PLAN §7, §8).
   - `products_table.py` — Copy the products table (tools/products_table.md) into every page that shows it, or check that they match.
   - `publish_ha_apps.py` — Write Mantel's Home Assistant add-on repository (the `ha-apps` branch).

@@ -1,0 +1,5 @@
+{
+  "package": "ha",
+  "why": "Mantel's link to Home Assistant: the gateway, the client, its dashboards and OAuth, the read proxy, the registry and its feed, socket reads, the state cache, people, supervisor discovery",
+  "modules": ["gateway", "ha_client", "ha_dashboards", "ha_oauth", "readproxy", "registry", "registry_feed", "socket_reads", "state", "people_ha", "supervisor_discovery"]
+}
