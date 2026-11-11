@@ -958,7 +958,7 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     supervisor_discovery.register(app)
     if getattr(cfg, "announce_file", None) is not None:
         async def write_announcement(_app):
-            from . import announce
+            from .network import announce
             try:
                 from .linked.linked_pairing import link_address
                 body = announce.write(cfg.announce_file, _app["linked_owners"].instance_id(), cfg.public_url,

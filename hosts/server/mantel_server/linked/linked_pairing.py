@@ -349,7 +349,7 @@ def request_addresses(request: web.Request) -> set[str]:
         except Exception:  # noqa: BLE001 -- nothing remembered: one address fewer
             app_url = None
     if getattr(cfg, "announce_file", None) is not None:
-        from .. import announce
+        from ..network import announce
         announce_url = (announce.read(cfg.announce_file) or {}).get("url")
     return own_addresses(cfg, request.host, app_url=app_url, announce_url=announce_url)
 

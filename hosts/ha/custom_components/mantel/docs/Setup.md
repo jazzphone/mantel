@@ -27,7 +27,7 @@ with a pairing code.
 
 Mantel in Docker announces itself only with the `announce` service (`compose.announce.yaml`, on the host's network,
 since multicast doesn't leave Docker's networks), or through the host's own avahi
-(`python -m mantel_server.announce --avahi` prints the service file). Without either, add it by hand.
+(`python -m mantel_server.network.announce --avahi` prints the service file). Without either, add it by hand.
 
 ## By hand
 

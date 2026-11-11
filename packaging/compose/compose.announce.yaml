@@ -9,7 +9,7 @@
 # like this): multicast never leaves Docker's bridges. It runs as 10001 with no capabilities, a read-only root
 # and nothing but the data volume, read-only. Without it, add Mantel Link by hand (Mantel's address and a
 # pairing code), or let the host's own avahi announce Mantel: `docker compose exec mantel-server python -m
-# mantel_server.announce --avahi --file /data/announce.json` prints a service file for /etc/avahi/services/.
+# mantel_server.network.announce --avahi --file /data/announce.json` prints a service file for /etc/avahi/services/.
 services:
   announce:
     image: ${MANTEL_SERVER_IMAGE:-mantel-server:local}
@@ -17,7 +17,7 @@ services:
     restart: unless-stopped
     depends_on:
       - mantel-server
-    entrypoint: ["python", "-m", "mantel_server.announce", "--file", "/data/announce.json"]
+    entrypoint: ["python", "-m", "mantel_server.network.announce", "--file", "/data/announce.json"]
     user: "10001:10001"
     network_mode: host
     read_only: true
@@ -31,7 +31,7 @@ services:
     volumes:
       - mantel-data:/data:ro
     healthcheck:
-      test: ["CMD", "python", "-m", "mantel_server.announce", "--check", "--file", "/data/announce.json"]
+      test: ["CMD", "python", "-m", "mantel_server.network.announce", "--check", "--file", "/data/announce.json"]
       interval: 60s
       timeout: 10s
       retries: 3

@@ -67,7 +67,7 @@ off, a Clean Areas dry run answers its plan and the rest are refused in words (a
 music engine is refused and never sent back to HA; with commands on (fictional demo devices only), Clean Areas
 starts the demo robot in the Kitchen through Mantel's gateway as ``mantel:linked``.
 
-Phase ``zeroconf`` (slice 9.5): Mantel's real announcer (mantel_server/announce.py, run with the scratch HA's
+Phase ``zeroconf`` (slice 9.5): Mantel's real announcer (mantel_server/network/announce.py, run with the scratch HA's
 own python-zeroconf) announces a fictional Mantel as ``_mantel._tcp`` on LOOPBACK ONLY, and the scratch HA
 (``testha.py up --zeroconf-probe``: a scratch-only component browsing that one type on loopback, since HA's own
 zeroconf would browse the home network) hands it to Mantel Link: "Discovered: Mantel" waits for a pairing code,
@@ -913,13 +913,13 @@ async def run_zeroconf(token: str) -> dict:
     out: dict = {}
     instance = secrets.token_hex(16)
     with tempfile.TemporaryDirectory(prefix="mantel-link-zc-") as folder:
-        from mantel_server import announce
+        from mantel_server.network import announce
         f = Path(folder) / "announce.json"
         announce.write(f, instance, "https://mantel.example.test:8443/")
         py = Path(testha.VENV) / "bin/python"
         env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
         env["PYTHONPATH"] = str(ROOT / "hosts/server")
-        proc = subprocess.Popen([str(py), "-m", "mantel_server.announce", "--file", str(f), "--every", "1",
+        proc = subprocess.Popen([str(py), "-m", "mantel_server.network.announce", "--file", str(f), "--every", "1",
                                  "--interface", "127.0.0.1"], env=env, stdout=subprocess.PIPE,
                                 stderr=subprocess.STDOUT, text=True)
         try:

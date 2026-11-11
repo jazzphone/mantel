@@ -10,7 +10,7 @@ home network:
 * **Mantel** writes what to announce, non-secret, to a small file in its data folder (``announce.json``:
   ``{"instance", "url", "version"}``) whenever it starts (``--announce-file``; the container's entrypoint sets it
   when Mantel has an https address).
-* **The announcer** (``python -m mantel_server.announce --file /data/announce.json``; compose's ``announce``
+* **The announcer** (``python -m mantel_server.network.announce --file /data/announce.json``; compose's ``announce``
   service, the same image, on the host's network) reads that file and answers mDNS for
   ``<name>._mantel._tcp.local.``: the port of Mantel's address, TXT ``instance``, ``url`` (Mantel's https
   address, the one Mantel Link uses: its certificate's name), ``path`` and ``version``, and ``link`` when Mantel

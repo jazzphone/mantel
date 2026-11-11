@@ -273,7 +273,7 @@ def parse_args(argv: list[str] | None = None) -> Config:
                         "with a rotated `linked` Service credential (Mantel Link's 'Discovered: Mantel')")
     p.add_argument("--announce-file", default="", metavar="PATH",
                    help="Docker/LXC: write what to announce by zeroconf (_mantel._tcp, no secret) here, for the "
-                        "host-network announcer (python -m mantel_server.announce)")
+                        "host-network announcer (python -m mantel_server.network.announce)")
     p.add_argument("--connect", action="store_true",
                    help="Mantel Connect: also listen (TLS, client certificates) for the Connect App in Home Assistant's "
                         "sidebar, and offer pairing (mantel connect pair; /admin). Off by default")

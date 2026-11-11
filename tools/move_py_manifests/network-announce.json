@@ -1,0 +1,7 @@
+{
+  "package": "network",
+  "why": "Mantel on the network, by zeroconf",
+  "modules": [
+    "announce"
+  ]
+}

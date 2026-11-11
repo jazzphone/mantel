@@ -2,7 +2,7 @@
 down to one service type on loopback. It browses `_mantel._tcp.local.` on 127.0.0.1 only and hands each
 announcement to Mantel Link's zeroconf step, exactly as HA's zeroconf integration would. The scratch HA does not
 load HA's zeroconf integration (it would browse the home network and find the house's devices); this lets the
-real announcer (mantel_server/announce.py, kept on loopback too) reach a real Home Assistant without leaving the
+real announcer (mantel_server/network/announce.py, kept on loopback too) reach a real Home Assistant without leaving the
 machine."""
 from __future__ import annotations
 

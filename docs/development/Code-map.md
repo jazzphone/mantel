@@ -432,7 +432,6 @@ Mantel Server.
   - `__main__.py`
   - `_moved.py` — The old paths of modules that moved into packages, importable for one release (tools/move_py.py, phase 25).
   - `alarm_pin.py` — HK's Alarm PIN in Mantel (docs/phase3/PINS-AUDIT.md "The alarm keypad", docs/phase3/GATEWAY.md "The alarm", docs/phase4/MANTEL-FEATURES.md).
-  - `announce.py` — Mantel on the network, by zeroconf (docs/phase9/MANTEL-LINK.md "Discovery and pairing", slice 9.5).
   - `apns.py` — Notifications to the iPhone, iPad and Mac apps through Apple's push service (docs/phase10/APPLE-APPS.md §5, slice 10.5; decision M10-2
   - `config.py`
   - `connect_proof.py` — Separate TLS identity-only receiver.
@@ -588,6 +587,7 @@ Mantel Server.
   - `music_names.py` — music.py's the names and limits the music engine works with (moved here by tools/split_py.py from hosts/server/mantel_server/music.py
   - `music_states.py` — THE SPEAKERS' STATES FROM MUSIC ASSISTANT (2026-10-31)
 - **hosts/server/mantel_server/network/**
+  - `announce.py` — Mantel on the network, by zeroconf (docs/phase9/MANTEL-LINK.md "Discovery and pairing", slice 9.5).
   - `connect_pairing.py` — Mantel Connect, Mantel Server's side
   - `direct.py` — HA App direct access (decision 26; docs/phase3/HA-APP.md "Direct access")
   - `direct_tls.py` — Built-in HTTPS for the HA App's direct access (decision 26; docs/phase3/HA-APP.md "Built-in HTTPS").

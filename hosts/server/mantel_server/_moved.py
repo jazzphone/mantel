@@ -19,6 +19,7 @@ MOVED: dict[str, tuple[str, str]] = {
     "about": ("pages.about", "0.1.166"),
     "accounts": ("identity.accounts", "0.1.166"),
     "admin_page": ("pages.admin_page", "0.1.166"),
+    "announce": ("network.announce", "0.1.166"),
     "app_api": ("apps.app_api", "0.1.166"),
     "app_auth": ("apps.app_auth", "0.1.166"),
     "app_crypto": ("apps.app_crypto", "0.1.166"),
