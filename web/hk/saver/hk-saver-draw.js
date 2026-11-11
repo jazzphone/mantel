@@ -13,15 +13,17 @@
     // (phase 25: the owners' writers, docs/phase25/SAVER-STATE.md)
     var showsLayer = K.showsLayer, sinceSlide = K.sinceSlide, slideGone = K.slideGone, slideShown = K.slideShown;
 
-    var addBand, dropView, exHide, forecastTick, HL, layoutBigKind, layoutDraw, layoutModules, layoutMusic,
-        layoutSlides, layoutSoon, mus, musicParts, musicWatch, reveal, setAttr, showNext, slideView, takeover, TM, WX;
+    var addBand, dropView, exHide, fcOutAfter, forecastTick, HL, layoutBigKind, layoutDraw, layoutModules,
+        layoutMusic, layoutSlides, layoutSoon, muHidden, mus, musicParts, musicWatch, reveal, setAttr, showNext,
+        slideView, takeover, TM, WX;
     // (of later parts, used when called: bound once every part has run, runParts)
     K.ahead.push(function () {
-      addBand = K.addBand; dropView = K.dropView; exHide = K.exHide; forecastTick = K.forecastTick; HL = K.HL;
-      layoutBigKind = K.layoutBigKind; layoutDraw = K.layoutDraw; layoutModules = K.layoutModules;
-      layoutMusic = K.layoutMusic; layoutSlides = K.layoutSlides; layoutSoon = K.layoutSoon; mus = K.mus;
-      musicParts = K.musicParts; musicWatch = K.musicWatch; reveal = K.reveal; setAttr = K.setAttr;
-      showNext = K.showNext; slideView = K.slideView; takeover = K.takeover; TM = K.TM; WX = K.WX;
+      addBand = K.addBand; dropView = K.dropView; exHide = K.exHide; fcOutAfter = K.fcOutAfter;
+      forecastTick = K.forecastTick; HL = K.HL; layoutBigKind = K.layoutBigKind; layoutDraw = K.layoutDraw;
+      layoutModules = K.layoutModules; layoutMusic = K.layoutMusic; layoutSlides = K.layoutSlides;
+      layoutSoon = K.layoutSoon; muHidden = K.muHidden; mus = K.mus; musicParts = K.musicParts;
+      musicWatch = K.musicWatch; reveal = K.reveal; setAttr = K.setAttr; showNext = K.showNext;
+      slideView = K.slideView; takeover = K.takeover; TM = K.TM; WX = K.WX;
     });
 
     // WHAT IT OWNS ON ST (phase 25, A: others read these; only this file writes them; tools/state_owners.py)
@@ -518,7 +520,7 @@
       if (ST.host) {
         ST.host.setAttribute('fcout', '');
         clearTimeout(ST.exOutT);
-        ST.exOutT = setTimeout(function () { ST.exOutT = null; if (ST.host && !ST.fcShowing) ST.host.removeAttribute('fcout'); }, CROSSFADE_MS + 100);
+        fcOutAfter(CROSSFADE_MS + 100);
         ST.host.removeAttribute('fcslide');
       }
       updateBand();
@@ -547,7 +549,7 @@
       if (ST.root) ST.root.querySelectorAll('.fc,.fcb').forEach(function (n) { n.remove(); });
       // the slide goes with the forecast's layers; the pane's music stays with the pane
       dropView(slideView());
-      ST.muShowing = false; slideGone();
+      muHidden(); slideGone();
       if (ST.host) ST.host.removeAttribute('muslide');
       if (ST.host) {
         ST.host.removeAttribute('forecast'); ST.host.removeAttribute('fcslide'); ST.host.removeAttribute('band'); ST.host.removeAttribute('bandph');

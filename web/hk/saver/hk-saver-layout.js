@@ -20,12 +20,13 @@
     // (phase 25: the owners' writers, docs/phase25/SAVER-STATE.md)
     var nightWatch = K.nightWatch, slideShown = K.slideShown;
 
-    var black, clock, exArm, exHide, forecastTick, hideMusicSlide, musicNow, musicOf, setAttr, showNext;
+    var black, clock, exArm, exCancel, exHide, extraIs, forecastTick, hideMusicSlide, musicNow, musicOf, setAttr,
+        showNext;
     // (of later parts, used when called: bound once every part has run, runParts)
     K.ahead.push(function () {
-      black = K.black; clock = K.clock; exArm = K.exArm; exHide = K.exHide; forecastTick = K.forecastTick;
-      hideMusicSlide = K.hideMusicSlide; musicNow = K.musicNow; musicOf = K.musicOf; setAttr = K.setAttr;
-      showNext = K.showNext;
+      black = K.black; clock = K.clock; exArm = K.exArm; exCancel = K.exCancel; exHide = K.exHide;
+      extraIs = K.extraIs; forecastTick = K.forecastTick; hideMusicSlide = K.hideMusicSlide; musicNow = K.musicNow;
+      musicOf = K.musicOf; setAttr = K.setAttr; showNext = K.showNext;
     });
 
     // WHAT IT OWNS ON ST (phase 25, A: others read these; only this file writes them; tools/state_owners.py)
@@ -604,7 +605,7 @@
         var tries = 0, show = function () {
           if (run !== enRun || !ST.on || ST.enShowing || !ST.previewOn || (!ST.previewEnergy && ST.previewSelected !== 'energy')) return;
           // (at once: the preview is shown again after every change)
-          if (showEnergySlide(true)) { ST.exKind = 'energy'; return; }
+          if (showEnergySlide(true)) { extraIs('energy'); return; }
           if (++tries < 60) setTimeout(show, 500);
         };
         show();
@@ -744,7 +745,7 @@
         if (!hold) return;
         var tries = 0, show = function () {
           if (run !== S.run || !ST.on || S.showing || !slidePreviewed(S)) return;
-          if (slideShow(S, true)) { ST.exKind = S.key; return; }
+          if (slideShow(S, true)) { extraIs(S.key); return; }
           if (++tries < 60) setTimeout(show, 500);
         };
         show();
@@ -804,14 +805,14 @@
         client: clientNow, slot: TM, prep: function () { slidePrep(TM); }, night: function () { return !!(ST.host && ST.host.hasAttribute('cknight')); },
         blocked: function () { return black() || document.hidden || !!ST.pnl; }, show: function () { return slideShow(TM); },
         clear: function () {     // everything else makes way: the additional screens, the music's takeover (musicWatch waits), the photos' slides
-          if (ST.exT) { clearTimeout(ST.exT); ST.exT = null; }
+          exCancel();
           if (ST.exKind && ST.exKind !== 'timer') exHide();
           if (ST.muShowing) hideMusicSlide();
           if (ST.enShowing) hideEnergySlide();
           slideHide(WX); slideHide(HL);
           if (ST.fcShowing && ST.mode !== 'forecast') hideForecastSlide();
         },
-        hold: function () { ST.exKind = 'timer'; }, again: exArm,
+        hold: function () { extraIs('timer'); }, again: exArm,
         leave: function (ended) { if (ST.exKind === 'timer') { exHide(); exArm(); } else { slideHide(TM); if (ended && ST.mode === 'photos') showNext(false); else exArm(); } }
       })).watch();
     }

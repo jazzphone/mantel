@@ -31,8 +31,8 @@
         takeover = K.takeover, teardown = K.teardown, TM = K.TM, tmWatch = K.tmWatch, updateBand = K.updateBand,
         within = K.within, writeSwitch = K.writeSwitch, WX = K.WX;
     // (phase 25: the owners' writers, docs/phase25/SAVER-STATE.md)
-    var countPhoto = K.countPhoto, deckFor = K.deckFor, flipLayer = K.flipLayer, keepPh = K.keepPh,
-        lastPhotoIs = K.lastPhotoIs, mosaicGone = K.mosaicGone, showsLayer = K.showsLayer;
+    var countPhoto = K.countPhoto, deckFor = K.deckFor, exCancel = K.exCancel, flipLayer = K.flipLayer,
+        keepPh = K.keepPh, lastPhotoIs = K.lastPhotoIs, mosaicGone = K.mosaicGone, showsLayer = K.showsLayer;
 
     // WHAT IT OWNS ON ST (phase 25, A: others read these; only this file writes them; tools/state_owners.py)
     ST.startedBy = '';
@@ -163,7 +163,7 @@
       var keep = !!(ST.host && ST.host.hasAttribute('dark') && black());
       if (!keep) coverDashboard(false);
       if (ST.slideT) { clearTimeout(ST.slideT); ST.slideT = null; }
-      if (ST.exT) { clearTimeout(ST.exT); ST.exT = null; }
+      exCancel();
       var ms = isFlat() ? 0 : ST.cfg ? ST.cfg.fade_back : FADE_BACK_MS;
       if (reason === 'touch') { writeSwitch('off'); ST.press = { up: ST.pressStop ? null : clock.now(), at: clock.now() }; }
       ST.pressStop = false;

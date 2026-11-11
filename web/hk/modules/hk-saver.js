@@ -645,8 +645,8 @@
       slideReady, slideShow, slideView, SLOP, start, stop, syncPreviewSlide, tabletId, tagOf, takeover, tbKey,
       tbShares, TM, tmWatch, turnOf, user, viewFont, volEnd, volFrom, weatherPage, widgetPage, withPane, WX, zoneOf;
   // (phase 25: what the shell asks of the parts that own the state it changes, docs/phase25/SAVER-STATE.md)
-  var beatFrom, dashAgain, forgetRaw, hkAgain, keepPh, paneCardGone, paneRelease, resumedNow, showsLayer, sinceSlide,
-      tbCancel;
+  var beatFrom, dashAgain, exCancel, extraIs, forgetRaw, hkAgain, keepPh, paneCardGone, paneRelease, resumedNow,
+      showsLayer, sinceSlide, tbCancel;
 
   // A wake held until the kiosk's black (or its panel off) has ended.
   // WHAT THE TABLET LAST SHOWED: after each change, seen in a frame's
@@ -741,11 +741,7 @@
   // Clock), the music (only while it plays) and Home Energy, taking turns.
   // None while the music holds the screen, in the clock's Night Mode, under
   // the black, or on a hidden page; the timer just goes round again.
-  ST.exT = null;
-  ST.exKind = '';
-  ST.exOutT = null;
 
-  ST.muShowing = false;
 
   // A TOUCH ON THE SCREENSAVER'S OWN CONTROLS (the music, its panel, a photo
   // stepped), told to the integration as such: Sleep Screen reads it as the
@@ -921,9 +917,10 @@
     viewFont = K.viewFont; volEnd = K.volEnd; volFrom = K.volFrom; weatherPage = K.weatherPage;
     widgetPage = K.widgetPage; withPane = K.withPane; WX = K.WX; zoneOf = K.zoneOf;
     // (phase 25: the owners' writers the shell asks, docs/phase25/SAVER-STATE.md)
-    beatFrom = K.beatFrom; dashAgain = K.dashAgain; forgetRaw = K.forgetRaw; hkAgain = K.hkAgain; keepPh = K.keepPh;
-    paneCardGone = K.paneCardGone; paneRelease = K.paneRelease; resumedNow = K.resumedNow; showsLayer = K.showsLayer;
-    sinceSlide = K.sinceSlide; tbCancel = K.tbCancel;
+    beatFrom = K.beatFrom; dashAgain = K.dashAgain; exCancel = K.exCancel; extraIs = K.extraIs;
+    forgetRaw = K.forgetRaw; hkAgain = K.hkAgain; keepPh = K.keepPh; paneCardGone = K.paneCardGone;
+    paneRelease = K.paneRelease; resumedNow = K.resumedNow; showsLayer = K.showsLayer; sinceSlide = K.sinceSlide;
+    tbCancel = K.tbCancel;
   }
 
   loadParts(function () {
@@ -1213,8 +1210,8 @@
           slideHide(WX); slideHide(HL); slideHide(TM);
           if (ST.enShowing) hideEnergySlide();
           if (ST.fcShowing && ST.mode !== 'forecast') hideForecastExtra();
-          ST.exKind = '';
-          if (ST.exT) { clearTimeout(ST.exT); ST.exT = null; }
+          extraIs('');
+          exCancel();
           if (kind === 'energy') energyPrep();
           if (kind === 'weather' || kind === 'holiday' || kind === 'timer') slidePrep(kind === 'weather' ? WX : kind === 'timer' ? TM : HL);
         }

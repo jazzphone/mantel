@@ -36,12 +36,25 @@
     });
 
     // WHAT IT OWNS ON ST (phase 25, A: others read these; only this file writes them; tools/state_owners.py)
+    ST.exT = null;
+    ST.exKind = '';
+    ST.exOutT = null;
+    ST.muShowing = false;
     ST.exLast = '';
     ST.pnl = null;   // { p: the panel, view, idleT, doneT, src, anim }
 
     // ITS OWN STATE (phase 25, A: off the shared ST, which only this file used; tools/state_owners.py)
     /** @type {any} */ var exBefore = '';
     /** @type {any} */ var saverSent = 0;
+
+    // WHAT THE OTHERS ASK OF IT (phase 25, A): the only way another file changes the extras' or the music slide's
+    // state, each the assignment it was, by name
+    function extraIs(kind) { ST.exKind = kind; }            // the extra on screen ('' none)
+    function exCancel() { if (ST.exT) { clearTimeout(ST.exT); ST.exT = null; } }   // the next extra waits no more
+    function fcOutAfter(ms) {                               // the forecast's fade-out ends in ms
+      ST.exOutT = setTimeout(function () { ST.exOutT = null; if (ST.host && !ST.fcShowing) ST.host.removeAttribute('fcout'); }, ms);
+    }
+    function muHidden() { ST.muShowing = false; }           // the music slide is not up
 
     function exArm() {
       if (ST.exT) { clearTimeout(ST.exT); ST.exT = null; }
@@ -561,6 +574,7 @@
     }
 
     // what the shell and the later parts use of this one
+    K.exCancel = exCancel; K.extraIs = extraIs; K.fcOutAfter = fcOutAfter; K.muHidden = muHidden;
     K.closePanel = closePanel; K.dropView = dropView; K.exArm = exArm; K.exHide = exHide; K.exNext = exNext;
     K.hideForecastExtra = hideForecastExtra; K.hideMusicSlide = hideMusicSlide; K.inPanel = inPanel;
     K.layoutMusic = layoutMusic; K.leaveExtras = leaveExtras; K.leaveMusic = leaveMusic; K.musicAct = musicAct;

@@ -16,14 +16,14 @@
         ST = K.ST, TB_WAIT = K.TB_WAIT, tbKey = K.tbKey, tbShare = K.tbShare, teardown = K.teardown, WAKE = K.WAKE;
     var Deck = K.Deck;
 
-    var ckPhotos, clock, HL, layoutSoon, mus, paint, photoLum, releasePh, reveal, setAttr, setPane, showEnergySlide,
-        showForecastExtra, showMusicSlide, slideShow, start, TM, WX;
+    var ckPhotos, clock, extraIs, HL, layoutSoon, mus, paint, photoLum, releasePh, reveal, setAttr, setPane,
+        showEnergySlide, showForecastExtra, showMusicSlide, slideShow, start, TM, WX;
     // (of later parts, used when called: bound once every part has run, runParts)
     K.ahead.push(function () {
-      ckPhotos = K.ckPhotos; clock = K.clock; HL = K.HL; layoutSoon = K.layoutSoon; mus = K.mus; paint = K.paint;
-      photoLum = K.photoLum; releasePh = K.releasePh; reveal = K.reveal; setAttr = K.setAttr; setPane = K.setPane;
-      showEnergySlide = K.showEnergySlide; showForecastExtra = K.showForecastExtra; showMusicSlide = K.showMusicSlide;
-      slideShow = K.slideShow; start = K.start; TM = K.TM; WX = K.WX;
+      ckPhotos = K.ckPhotos; clock = K.clock; extraIs = K.extraIs; HL = K.HL; layoutSoon = K.layoutSoon; mus = K.mus;
+      paint = K.paint; photoLum = K.photoLum; releasePh = K.releasePh; reveal = K.reveal; setAttr = K.setAttr;
+      setPane = K.setPane; showEnergySlide = K.showEnergySlide; showForecastExtra = K.showForecastExtra;
+      showMusicSlide = K.showMusicSlide; slideShow = K.slideShow; start = K.start; TM = K.TM; WX = K.WX;
     });
 
     // WHAT IT OWNS ON ST (phase 25, A: others read these; only this file writes them; tools/state_owners.py)
@@ -286,7 +286,7 @@
       var ok = kind === 'music' ? (ST.muShowing || showMusicSlide()) : kind === 'weather' ? (WX.showing || slideShow(WX)) : kind === 'holiday' ? (HL.showing || slideShow(HL)) : kind === 'timer' ?
         (TM.showing || slideShow(TM)) :
         kind === 'energy' ? (ST.enShowing || showEnergySlide()) : ST.fcShowing || showForecastExtra();
-      if (ok) ST.exKind = kind;
+      if (ok) extraIs(kind);
       return !!ok;
     }
     function restartPreview() {
