@@ -6,6 +6,8 @@ from pathlib import Path
 
 import pytest
 
+import web_sources
+
 from hk_core.settings import changes as C
 from hk_core.settings import looks as L
 from hk_core.settings import model as M
@@ -48,7 +50,9 @@ def test_the_settings_page_has_the_same_looks(tmp_path):
     prelude = tmp_path / "prelude.js"
     prelude.write_text("var window = this; window.hkCards = null;\n"
                        f"load({json.dumps(str(ROOT / 'web/client/hk-host-shell.js'))});\n"
-                       f"load({json.dumps(str(ROOT / 'web/hk/panels/hk-settings-model.js'))});\n"
+                       # (a file cut into parts: its parts first, as the page's loader leaves them: tests/web_sources.py)
+                       + "".join(f"load({json.dumps(str(x))});\n" for x in web_sources.parts("web/hk/panels/hk-settings-model.js"))
+                       + f"load({json.dumps(str(ROOT / 'web/hk/panels/hk-settings-model.js'))});\n"
                        "print(JSON.stringify({looks: window.hkSettingsModel.LOOKS, set: window.hkSettingsModel.LOOK_KEYS,"
                        " undo: window.hkSettingsModel.LOOK_UNDO_KEYS}));\n")
     out = json.loads(subprocess.run([str(JSC), str(prelude)], capture_output=True, text=True, check=True, timeout=30).stdout)

@@ -10,6 +10,8 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
+import web_sources
+
 from hk_core.house import State
 from hk_core.screensaver import rules as R
 from hk_core.screensaver.black import Black
@@ -281,7 +283,9 @@ def test_the_settings_pages_model_offers_the_same(tmp_path):
         "var window = this, self = this; var document = { createElement: function () { return {}; }, addEventListener: function () {} };\n"
         f"load({json.dumps(str(root / 'web/client/hk-host-shell.js'))});\n"
         f"load({json.dumps(str(root / 'hosts/ha/frontend/hk-ha-shell.js'))});\n"
-        f"load({json.dumps(str(root / 'web/hk/panels/hk-settings-model.js'))});\n"
+        # (a file cut into parts: its parts first, as the page's loader leaves them: tests/web_sources.py)
+        + "".join(f"load({json.dumps(str(x))});\n" for x in web_sources.parts("web/hk/panels/hk-settings-model.js"))
+        + f"load({json.dumps(str(root / 'web/hk/panels/hk-settings-model.js'))});\n"
         f"load({json.dumps(str(root / 'web/hk/modules/hk-saverclock.js'))});\n"
         "var m = window.hkSettingsModel, c = window.hkSaverClock;\n"
         "print(JSON.stringify({defaults: m.SAVER_DEFAULTS, shows: m.SAVER_SHOWS.map(function (s) { return s[0]; }),"

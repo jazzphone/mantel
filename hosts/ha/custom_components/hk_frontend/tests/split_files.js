@@ -58,4 +58,13 @@
   };
   globalThis.readFile = text(realRead);
   globalThis.read = text(realReadShort);
+  // cut(src, a, b): src from `a` up to `b`, as a suite cut a class out of one file (`class X` to `register('x'`). In a shell
+  // and its parts read as one text the end may be in the shell, which comes first: then the cut ends where the file that
+  // holds `a` ends (a part's last line `})();`), so the class is read whole from the part it moved to (phase 24).
+  globalThis.cut = function (src, a, b) {
+    var i = src.indexOf(a), j = src.indexOf(b, i);
+    if (i < 0) return '';
+    if (j < 0 || src.lastIndexOf(b, i) >= 0 && src.indexOf('\n})();\n', i) < j) j = src.indexOf('\n})();\n', i);
+    return src.slice(i, j < 0 ? src.length : j);
+  };
 })();

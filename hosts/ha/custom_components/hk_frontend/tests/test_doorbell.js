@@ -9,7 +9,7 @@ var pass = 0, fail = 0;
 function ok(n, c, d) { if (c) { pass++; print('  PASS  ' + n); } else { fail++; print('  FAIL  ' + n + (d !== undefined ? '   got ' + JSON.stringify(d) : '')); } }
 var src = readFile(HK_ROOT + '/frontend/cards/hk-cameras.js');
 var psrc = readFile(HK_ROOT + '/frontend/cards/hk-popup.js');
-var body = src.slice(src.indexOf('class HkDoorbellCard'), src.indexOf("register('hk-doorbell-card'"));
+var body = cut(src, 'class HkDoorbellCard', "register('hk-doorbell-card'");
 
 print('=== registered ===');
 ok('the element is defined', !!customElements.get('hk-doorbell-card'));

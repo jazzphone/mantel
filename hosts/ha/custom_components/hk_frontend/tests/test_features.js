@@ -2,6 +2,8 @@
 // which show, what each list shows, what search finds. Nothing here may
 // depend on one house: every list is built from what the integration answers.
 if (typeof HK_ROOT === 'undefined') throw new Error('run through tests/run');
+// (the files cut into parts -- tools/split_js.py -- register their parts on window: as a page has one)
+if (typeof window === 'undefined') globalThis.window = globalThis;
 load(HK_ROOT + '/frontend/panels/hk-settings-features.js');
 var F = (typeof window !== 'undefined' ? window : globalThis).hkSettingsFeatures;
 

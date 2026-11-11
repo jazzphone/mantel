@@ -210,7 +210,7 @@ check('...a meteor is a mover a Pre-rendered blur leaves out; Reduce Motion stop
 check('the layers fade as the stops do (4 s), and stay off the sky\'s animations (a still: the static sky)',
       /#hk-sky \.wall\{position:absolute;inset:0;background-size:cover;background-position:center;',\s*'  opacity:0;transition:opacity 4s linear\}/.test(src) &&
       /else if \(bg && bg\.mode === 'wallpaper'\) \{ wall = bg\.wallpaper; still = bg\.stops \|\| black; \}/.test(src) &&
-      /paintWall\(mounted, opts\.photo \? null : opts\.wall \|\| null, wn\)/.test(src));
+      /paintWall\(ST\.mounted, opts\.photo \? null : opts\.wall \|\| null, wn\)/.test(src));   // (ST.mounted: hk-sky.js's shared state, tools/split_js.py --state)
 check('...its night version after sunset, or always, or never (its Night Version)',
       /var wn = opts\.wall \? \(opts\.wall\.night === 'auto' \? !up : opts\.wall\.night === 'night'\) : !up;/.test(src));
 check('the loader brings it in, before the sky, on both products\' pages', /'hk-wallpapers\.js',\s*'hk-sky\.js'/.test(read(HK_ROOT + '/frontend/modules/hk-loader.js')));

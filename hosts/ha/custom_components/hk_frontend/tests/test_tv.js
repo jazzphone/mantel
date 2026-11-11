@@ -8,9 +8,9 @@ load(HK_ROOT + '/frontend/cards/hk-cameras.js');
 var pass = 0, fail = 0;
 function ok(n, c, d) { if (c) { pass++; print('  PASS  ' + n); } else { fail++; print('  FAIL  ' + n + (d !== undefined ? '   got ' + JSON.stringify(d) : '')); } }
 var src = readFile(HK_ROOT + '/frontend/cards/hk-cameras.js');
-var card = src.slice(src.indexOf('class HkTvGuideCard'), src.indexOf('function tvPlayer'));
-var player = src.slice(src.indexOf('function tvPlayer'), src.indexOf("register('hk-tv-guide-card'"));
-var cam = src.slice(src.indexOf('class HkDoorbellCard'), src.indexOf("register('hk-doorbell-card'"));
+var card = cut(src, 'class HkTvGuideCard', 'function tvPlayer');
+var player = cut(src, 'function tvPlayer', "register('hk-tv-guide-card'");
+var cam = cut(src, 'class HkDoorbellCard', "register('hk-doorbell-card'");
 
 print('=== the channels come from the integration ===');
 ok('registered and in the picker', !!customElements.get('hk-tv-guide-card') &&
@@ -192,7 +192,10 @@ ok('a state tile still requires one', /entity/.test(threw2 || ''), threw2);
 print('\n=== cameras rest: behind the screensaver always, another window in front as the setting says ===');
 // (2026-10-21) CAM_FOCUS and restWatch themselves, run on a stand-in window
 (function () {
-  var a = src.indexOf('  var CAM_FOCUS = (function () {'), b = src.indexOf('  class HkCameraLiveCard');
+  // (hk-cameras.js is cut into parts: CAM_FOCUS and restWatch are in hk-cameras-helpers.js, at a part's indent, and end
+  // where the part hands its members back; in the one file they ended at the live tile's class)
+  var a = src.search(/\n {2,4}var CAM_FOCUS = \(function \(\) \{/) + 1, b = src.indexOf('  class HkCameraLiveCard', a);
+  if (b < 0) b = src.indexOf('    // what the shell and the later parts use of this one', a);
   ok('CAM_FOCUS and restWatch are there', a > 0 && b > a);
   if (!(a > 0 && b > a)) return;
   var L = {}, fire = function (t, d) { (L[t] || []).slice().forEach(function (f) { f({ type: t, detail: d }); }); };

@@ -3,6 +3,8 @@
 // follows All Screens, the menu's three modes, the sky's dates, search. The
 // page draws; this is what it draws from.
 if (typeof HK_ROOT === 'undefined') throw new Error('run through tests/run');
+// (the files cut into parts -- tools/split_js.py -- register their parts on window: as a page has one)
+if (typeof window === 'undefined') globalThis.window = globalThis;
 load(HK_ROOT + '/frontend/panels/hk-settings-model.js');
 var M = (typeof window !== 'undefined' ? window : globalThis).hkSettingsModel;
 

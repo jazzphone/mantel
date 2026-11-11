@@ -217,7 +217,7 @@ window.hkStrategy.generate({ music: false }, hass).then(function (cfg) {
   // to a guess). Two cells from BP.cardSide, the bars to the cell's width,
   // drawn again when the card's width changes.
   var src = read(HK_ROOT + '/frontend/cards/hk-energy.js');
-  var tk = src.slice(src.indexOf('class HkEnergyTrackingCard'), src.indexOf("register('hk-energy-tracking-card'"));
+  var tk = cut(src, 'class HkEnergyTrackingCard', "register('hk-energy-tracking-card'");
   ok('Tracking: two cells to a line from a card of BP.cardSide, decided by the card, not a container query',
      /twoCol = full >= window\.hkCards\.BP\.cardSide/.test(tk) && /'<div class="tl' \+ \(twoCol \? ' two' : ''\)/.test(tk) && !/@container/.test(tk));
   ok('...each cell its name and figure over bars the cell\'s whole width', /grid-template-areas:"n v" "c c"/.test(tk) &&

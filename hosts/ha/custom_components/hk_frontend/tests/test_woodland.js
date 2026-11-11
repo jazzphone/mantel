@@ -2,6 +2,8 @@
 // Decorations' seasonal woodland, season by season, apart from the holidays'
 // own Show (panels/hk-settings-model.js; the sky's side: test_nearscenery.js).
 if (typeof HK_ROOT === 'undefined') throw new Error('run through tests/run');
+// (the files cut into parts -- tools/split_js.py -- register their parts on window: as a page has one)
+if (typeof window === 'undefined') globalThis.window = globalThis;
 load(HK_ROOT + '/frontend/panels/hk-settings-model.js');
 var M = (typeof window !== 'undefined' ? window : globalThis).hkSettingsModel;
 var pass = 0, fail = 0;
