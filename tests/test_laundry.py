@@ -285,3 +285,13 @@ def test_a_house_imported_before_laundry_still_lists_its_chip():
     assert got.index("laundry") == got.index("vacuums") + 1 and len(got) == len(S.CHIP_KINDS)
     assert SP.chip_kinds_with(None, S.CHIP_KINDS) == list(S.CHIP_KINDS)
     assert SP.chip_kinds_with(["lights", "energy"], ("lights", "laundry", "energy")) == ["lights", "laundry", "energy"]
+
+
+@needs_node
+def test_time_left_in_hours_and_minutes(tmp_path):
+    """The owner, 2026-11-10: hours and minutes, not "84 min"."""
+    js = tmp_path / "dur.js"
+    js.write_text("globalThis.window = globalThis; (0, eval)(require('fs').readFileSync(process.argv[2], 'utf8'));"
+                  "process.stdout.write(JSON.stringify([20, 1440, 3599, 3600, 5040, 7200, 7230].map(hkLaundry.dur)));")
+    got = subprocess.run([NODE, str(js), str(JS)], capture_output=True, text=True, timeout=30)
+    assert json.loads(got.stdout) == ["1 min", "24 min", "1 hr", "1 hr", "1 hr 24 min", "2 hr", "2 hr 1 min"]
