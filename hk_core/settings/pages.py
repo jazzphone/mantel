@@ -31,3 +31,16 @@ def page_kinds_with(have: Iterable[str] | None, host_pages: Iterable[str] = HOST
 def ha_kinds() -> tuple[list[str], list[str]]:
     """(page kinds, scene pages) for Home Assistant's HK Settings: never a host's own page."""
     return [k for k in PAGE_ORDER if k not in HOST_PAGES], [k for k in SCENE_PAGES if k not in HOST_PAGES]
+
+
+def chip_kinds_with(have: Iterable[str] | None, known: Iterable[str]) -> list[str]:
+    """An imported list of chip kinds, with the kinds the model knows and it lacks (Laundry, newer than the import) added in the
+    model's own order; nothing imported is the model's own list."""
+    model = list(known)
+    out = [k for k in (have or ()) if isinstance(k, str)]
+    if not out:
+        return model
+    for i, k in enumerate(model):
+        if k not in out:
+            out.insert(next((out.index(n) for n in model[i + 1:] if n in out), len(out)), k)
+    return out

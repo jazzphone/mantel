@@ -365,8 +365,8 @@ ok('never part of Automatic', K.rowPlan({}, {}, withIc).cards.filter(function (c
    K.ORDER.indexOf('intercom') < 0);
 ok('a scenes pill alone is not a chip', icChips({ scenes_pages: ['intercom'] }).length === 0);
 var icp = K.rowPlan({}, { chips: ['lights'], chips_extra: ['intercom'] }, withIc), icc = icp.cards.filter(function (c) { return c.kind === 'intercom'; });
-ok('added: one chip, last in the row, its second line the first room and +N',
-   icc.length === 1 && icp.cards[icp.cards.length - 1] === icc[0] && icc[0].label === 'Living Room +1', JSON.stringify(icc));
+ok('added: one chip, last in the row, its second line how many speakers',
+   icc.length === 1 && icp.cards[icp.cards.length - 1] === icc[0] && icc[0].label === '2 Speakers', JSON.stringify(icc));
 var auto = K.rowPlan({}, { chips_extra: ['intercom'] }, { states: {}, intercom: withIc.intercom }), autoIc = auto.cards.filter(function (c) { return c.kind === 'intercom'; });
 ok('Automatic plus the Intercom: the kinds the house has, then the Intercom', autoIc.length === 1 && auto.cards[auto.cards.length - 1] === autoIc[0]);
 var placed = K.rowPlan({}, { chips: ['intercom', 'lights'], chips_extra: ['intercom'] }, withIc);
@@ -375,7 +375,7 @@ ok('a chip order naming it without chips_extra: not drawn', icChips({ chips: ['i
 var ik = K.config('intercom', withIc);
 ok('the chip: microphone, "Intercom", opens the Intercom (no page)', ik && ik.name === 'Intercom' && ik.icon === 'hk:microphone' && ik.tap_action.action === 'intercom');
 ICS.mem = { rooms: ['media_player.living', 'media_player.kitchen', 'media_player.office'] };
-ok('three rooms: the first and "+2"', icChips(ON)[0].label === 'Living Room +2');
+ok('three rooms: "3 Speakers"', icChips(ON)[0].label === '3 Speakers');
 ICS.mem = { rooms: ['media_player.living', 'media_player.gone'] };
 ok('a room the person may no longer reach is left out', icChips(ON)[0].label === 'Living Room');
 ICS.mem = null;

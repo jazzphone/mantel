@@ -234,6 +234,8 @@
     return ((h % 12) || 12) + ':' + (mi < 10 ? '0' : '') + mi + ' ' + (h < 12 ? 'AM' : 'PM');
   }
   function mins(s) { return Math.max(1, Math.round(s / 60)); }
+  // HOW LONG, in hours and minutes past the hour (the owner, 2026-11-10): "24 min", "1 hr 24 min", "2 hr"
+  function dur(s) { var m = mins(s), h = Math.floor(m / 60); return h ? h + ' hr' + (m % 60 ? ' ' + (m % 60) + ' min' : '') : m + ' min'; }
   // THE TIME: a finish time (timestamp) or the time left (a duration in s, min or h); a finish time past is no time
   function timeOf(client, m, now) {
     var st = stOf(client, m.time);
@@ -269,7 +271,7 @@
       title: '', sub: '', short: '', steps: null, step: null
     };
     // THE WORDS: the title says what it is doing; the line under it how long, or since when
-    var s = o.state, left = o.left != null ? mins(o.left) + ' min left' : '';
+    var s = o.state, left = o.left != null ? dur(o.left) + ' left' : '';
     o.title = NAMES[s] || 'Off';
     if (s === 'leak') { o.sub = 'Water under the ' + o.name.toLowerCase(); o.short = 'Leak'; }
     else if (s === 'error') { o.sub = 'Check the ' + o.name.toLowerCase(); o.short = 'Needs Help'; }
@@ -280,7 +282,7 @@
     else if (s === 'paused') { o.sub = left ? left.replace('left', 'to go') : 'Waiting'; o.short = 'Paused'; }
     else if (s === 'off') { o.sub = ''; o.short = 'Off'; }
     else if (src !== 'status') { o.sub = src === 'power' && o.watts != null ? Math.round(o.watts) + ' W' : 'Running'; o.short = 'Running'; }
-    else { o.sub = left || (o.pct != null ? Math.round(o.pct) + '% done' : ''); o.short = left || o.title; }
+    else { o.sub = left || (o.pct != null ? Math.round(o.pct) + '% done' : ''); o.short = o.left != null && o.left >= 3570 ? dur(o.left) : left || o.title; }   // (past an hour, a short line drops "left")
     o.endsWords = o.ends ? 'Done at ' + clock(o.ends) : '';
     // THE CYCLE'S STEPS (a status that says which): done before, now, after
     if (src === 'status') {
@@ -484,7 +486,7 @@
   global.hkLaundry = {
     STATES: STATES, RUNNING: RUNNING, ROLES: ROLES, WORDS: WORDS, STEPS: STEPS, STEP_OF: STEP_OF, NAMES: NAMES, KIND_NAMES: KIND_NAMES,
     HELD: HELD, CLEAR: 'laundry_done_clear', tidy: tidy, word: word, found: found, machines: machines, byId: byId, areaOf: areaOf, stateOf: stateOf,
-    look: look, lookAll: lookAll, open: open, placed: placed, tile: tile, first: first, rank: rank, ids: ids, controls: controls, art: art, display: display, glyph: glyph,
+    look: look, lookAll: lookAll, open: open, dur: dur, placed: placed, tile: tile, first: first, rank: rank, ids: ids, controls: controls, art: art, display: display, glyph: glyph,
     get CSS() { return css(); }
   };
 })(globalThis);

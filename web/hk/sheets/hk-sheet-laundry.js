@@ -159,7 +159,7 @@
         }
         // THE READINGS: only what this machine has
         var rows = [];
-        if (o.left != null) rows.push(['Time Left', Math.max(1, Math.round(o.left / 60)) + ' min']);
+        if (o.left != null) rows.push(['Time Left', L.dur(o.left)]);
         if (o.pct != null) rows.push(['Progress', Math.round(o.pct) + '%']);
         if (o.door) rows.push(['Door', o.door]);
         if (o.remote !== null) rows.push(['Remote Control', o.remote ? 'On' : 'Off']);

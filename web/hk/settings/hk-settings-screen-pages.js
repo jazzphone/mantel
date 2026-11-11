@@ -153,7 +153,7 @@
           autoFooter: 'Automatic shows a chip for everything the house has, in the usual order. A kind the house has nothing of never shows.',
           rows: mdl.rows.map(function (r) {
             return { value: r.value, label: lab(r), removable: r.own || r.custom,
-                     sub: r.custom ? 'Custom chip' + (self.customShow(b, r.key) === 'active' ? ' · Only When Active' : '') : r.value === 'intercom' ? 'Opens the Intercom' : r.own ? 'Accessory chip' : r.quiet ? 'Only When Active' : null,
+                     sub: r.custom ? 'Custom chip' + (self.customShow(b, r.key) === 'active' ? ' · Only When Active' : '') : r.value === 'intercom' ? 'Opens the Intercom' : r.own ? 'Accessory chip' : r.quiet || r.value === 'laundry' ? 'Only When Active' : null,
                      href: r.custom ? '#/chips/' + encodeURIComponent(r.key) : r.value === 'intercom' ? null
                                     : r.own ? '#/accessories/' + encodeURIComponent(r.value) : base + '/chips/' + r.value };
           }),
@@ -188,6 +188,15 @@
       }
       s_chip(c, x, b, kind) {
         var self = this, quiet = (b.chips_quiet || []).indexOf(kind) >= 0;
+        // LAUNDRY (phase 22): always When Active -- "Off" says nothing -- and what it counts is Accessories -> Laundry's machines
+        if (kind === 'laundry') {
+          var nL = this.laundryList().length;
+          c.appendChild(K.group({ footer: 'The Laundry chip appears only while a washer or dryer runs, is done or needs a look: “24 min left”, “Done”, “2 Machines”. A tap opens the laundry sheet.' }, [
+            K.info({ label: 'Show', value: 'When Active' })]));
+          c.appendChild(K.group({ header: 'What It Counts', footer: 'The same on every screen.' }, [
+            K.nav({ label: 'Laundry', icon: 'mdi:washing-machine', value: nL ? nL + (nL === 1 ? ' Machine' : ' Machines') : 'None', href: '#/accessories/laundry', sk: 'chip:laundry' })]));
+          return;
+        }
         c.appendChild(K.group({ footer: 'When Active: the chip appears only while something is on, open, running or wet — Doors & Windows only while one is open.' }, [
           K.seg({ label: 'Show', sk: 'b:chips_quiet:' + kind, value: quiet ? 'quiet' : 'always', stack: !this.hasAttribute('wide'),
                   options: [['always', 'Always'], ['quiet', 'When Active']],
