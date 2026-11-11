@@ -398,6 +398,12 @@ def _music_speaker(v: Any) -> str:
     return _domain("media_player")(v)
 
 
+# WHERE MUSIC IS WATCHED (2026-11-10, the owner: one way to pick a speaker): Now Playing's speaker and Music Is Playing's
+# are one of the house's music rooms or groups (Mantel Settings -> Music), or the wall tablet's own room
+def _speaker(v: Any) -> str:
+    return TABLET_ROOM if v == TABLET_ROOM else _music_speaker(v)
+
+
 SECURITY_PRESENTATIONS = ("homeview",)
 # what a Security block may list as its entries: locks and garage doors (covers)
 SECURITY_DOMAINS = ("lock", "cover")
@@ -539,7 +545,7 @@ OPTION_KINDS = {
     "entity": _domain(),
     "scene": _domain(*SCENE_DOMAINS),
     "scenes": _list(_domain(*SCENE_DOMAINS)),
-    "speaker": _domain("media_player", room=True),
+    "speaker": _speaker,
     "climate": _domain("climate", room=True),
     "alarm": _domain("alarm_control_panel"),
     "camera": _domain("camera"),
@@ -640,7 +646,8 @@ def condition(v: Any) -> dict[str, Any]:
     if "entity" in v:
         if kind in ("time", "solar_window"):
             raise GridInvalid("grid_condition")
-        out["entity"] = _tv_target(v["entity"]) if kind == "tv_on" else _domain()(v["entity"])
+        out["entity"] = _tv_target(v["entity"]) if kind == "tv_on" else _speaker(v["entity"]) if kind == "music_playing" and (
+            v["entity"] == TABLET_ROOM or (isinstance(v["entity"], str) and MUSIC_PRESET.match(v["entity"]))) else _domain()(v["entity"])
     if kind == "entity_state":
         if "entity" not in out or not isinstance(v.get("state"), str) or not 0 < len(v["state"]) <= 80:
             raise GridInvalid("grid_condition")

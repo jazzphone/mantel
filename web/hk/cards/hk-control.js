@@ -88,6 +88,9 @@ class HkControlCard extends HTMLElement {
       // the YAML entity -- typically a whole-home sync group -- would let a
       // drag on a screen showing NOTHING PLAYING level every speaker in the
       // home, so the card renders inert instead (`.off` in _media).
+      // (`music_at`: a Home Grid block's speaker -- the music in that room or group, as its Now Playing shows it)
+      const G = window.hkGridCatalog;
+      if (ef.music_at && G && G.musicAt) return G.musicAt(this.client, ef.music_at).player || null;
       return window.hkMusic.player(this.client) || null;
     }
     if (ef && ef.selector) {

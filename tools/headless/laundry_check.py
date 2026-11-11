@@ -49,6 +49,8 @@ def extra(now: float, two: bool) -> dict:
         "sensor.dryer_current_status": ("laundry", ("drying", {"friendly_name": "Dryer Current Status", "device_class": "enum",
                                                                "options": ["power_off", "drying", "cooling", "wrinkle_care", "end", "error"]})),
         "sensor.dryer_remain": ("laundry", (iso(now + 52 * 60 + 20), {"friendly_name": "Dryer Remaining Time", "device_class": "timestamp"})),
+        # (the Vacuum block, flipped the same way: its words and its drawing measured apart too)
+        "vacuum.downstairs": ("laundry", ("docked", {"friendly_name": "Downstairs Vacuum", "battery_level": 92, "supported_features": 16383})),
     }
     return out
 
@@ -91,6 +93,10 @@ async def run(shots: Path | None, engines: list[str], only: list[str], two: bool
     gallery.SETTINGS["boards"]["la-square"] = board(every_size("square"))
     gallery.SETTINGS["boards"]["la-tiles"] = board(every_size("tile"))
     gallery.SETTINGS["boards"]["la-room"] = board(None)
+    vac = every_size("square")
+    for it in vac["items"]:
+        it.update(card="vacuum", opts={"entity": "vacuum.downstairs"})
+    gallery.SETTINGS["boards"]["la-vac"] = board(vac)
     with tempfile.TemporaryDirectory() as td:
         app, cookie = await gallery.build(Path(td))
         app["cfg"].commands_enabled = False
@@ -113,7 +119,7 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--shots", type=Path, help="keep the screenshots here")
     ap.add_argument("--engine", choices=["webkit", "chromium", "both"], default="both")
-    ap.add_argument("--only", nargs="*", default=[], help="parts to run: sizes, taps, sheet, room")
+    ap.add_argument("--only", nargs="*", default=[], help="parts to run: sizes, taps, sheet, room, gaps")
     a = ap.parse_args()
     if not os.environ.get("PLAYWRIGHT_PATH") or not os.environ.get("NODE"):
         print("laundry_check: skipped (set PLAYWRIGHT_PATH to playwright-core and NODE to node)")
