@@ -171,7 +171,11 @@ def ask(req: dict) -> dict:
 def analyze(path: Path, mode: str, run_in: str | None, cont: bool = False, man: dict | None = None) -> dict:
     """`man` (the manifest) turns on class-method mode when it names a class, and gives the kit's name."""
     cls = (man or {}).get("class")
+    decl = (man or {}).get("run_in_decl")
+    if decl and mode == "shell":               # a declared function's body is the scope (hk-base.js's initialize)
+        run_in = decl
     return ask({"cmd": "analyze", "file": str(path), "mode": mode, "run_in": run_in, "globals": TYPES_D_TS,
+                "run_in_decl": bool(decl), "iife": (man or {}).get("iife", 0),
                 "cont_call": CALL if cont else None, "class_name": cls if mode == "shell" else None,
                 "class_expr": bool(cls) and mode == "part", "kit_name": kit_of(man)})
 
@@ -290,7 +294,7 @@ def make_plan(man: dict, text: str, work: Path) -> Plan:
     work.mkdir(parents=True, exist_ok=True)
     src = work / "original.js"
     src.write_text(text)
-    run_in = man.get("run_in")
+    run_in = man.get("run_in") or man.get("run_in_decl")
     an = analyze(src, "shell", run_in, man=man)
     plan = Plan(man=man, lines=text.split("\n"), an=an, run_in=run_in)
     plan.unresolved_before = {u["name"] for u in diagnostics([src])[str(src.resolve())]["unresolved"]}
@@ -1085,6 +1089,88 @@ def edited_since(man: dict) -> list[str] | None:
         shutil.rmtree(work, ignore_errors=True)
 
 
+# ------------------------------------------------------------------------------------------------ --report
+GENERATED_NAMES = {"PARTS", "PARTS_TRIES", "partKey", "loadParts", "kit", "runParts"} | GENERATED_CLASS_MODE
+
+
+def report(path: Path, man: dict) -> dict:
+    """What a manifest for `path` must respect, from the checker's view (phase 24, A2): the top-level members grouped by
+    the variables they reassign. A member that assigns a variable, and every member that reads a variable someone
+    assigns, are in that variable's group: a group moves whole or not at all (a copy through K would go stale). Not
+    counted as reassignment: a split shell's take-backs from the kit (runParts, the bare `var a, b;` it fills) and a
+    `var` local to a function (the analyzer's `hoisted` targets)."""
+    an = analyze(path, "shell", man.get("run_in") or man.get("run_in_decl"), cont=is_split(path.read_text()), man=man)
+    members = {}
+    for sc in an["scopes"]:
+        if sc["name"] == "cont":
+            continue
+        for st in sc["stmts"]:
+            members[(st["scope"], st["index"])] = st
+    gen = {k for k, st in members.items() if set(st["names"]) & GENERATED_NAMES or st.get("bare")
+           or st["head"].startswith(CALL + "(")}
+    parent = {k: k for k in members}
+
+    def root(k):
+        while parent[k] != k:
+            parent[k] = parent[parent[k]]
+            k = parent[k]
+        return k
+
+    def join(a, b):
+        ra, rb = root(a), root(b)
+        if ra != rb:
+            parent[rb] = ra
+    reassigned: dict[tuple, set[str]] = {}
+    for k, st in members.items():
+        if k in gen:
+            continue
+        for w in st["writes"]:
+            if w.get("hoisted") or "index" not in w:
+                continue
+            tk = (w["scope"], w["index"])
+            if tk == k or tk in gen or tk not in members:
+                continue
+            reassigned.setdefault(tk, set()).add(w["name"])
+            join(tk, k)
+    for k, st in members.items():
+        if k in gen:
+            continue
+        for r in st["refs"]:
+            tk = (r.get("scope"), r.get("index"))
+            if tk in reassigned and r.get("name") in reassigned[tk] and not r.get("hoisted"):
+                join(tk, k)
+    groups: dict[tuple, list] = {}
+    for k, st in members.items():
+        if k not in gen:
+            groups.setdefault(root(k), []).append(st)
+    out = []
+    for g, sts in groups.items():
+        names = sorted({n for k2, ns in reassigned.items() if root(k2) == g for n in ns})
+        sts.sort(key=lambda s: s["first"])
+        out.append({"lines": sum(s["last"] - s["first"] + 1 for s in sts), "reassigned": names,
+                    "members": [s["names"][0] if s["names"] else s["head"][:40] for s in sts],
+                    "first": sts[0]["first"], "last": sts[-1]["last"]})
+    out.sort(key=lambda g: -g["lines"])
+    rows = [{"name": (s["names"][0] if s["names"] else s["head"][:60]), "kind": s["kind"], "first": s["first"],
+             "lines": s["last"] - s["first"] + 1, "group": next(i for i, g in enumerate(out) if (s["names"][0] if s["names"] else s["head"][:40]) in g["members"]),
+             "scope": an["scopes"][s["scope"]]["name"]}
+            for k, s in sorted(members.items(), key=lambda kv: kv[1]["first"]) if k not in gen]
+    return {"file": str(path.relative_to(ROOT)) if path.is_relative_to(ROOT) else str(path), "groups": out, "members": rows}
+
+
+def print_report(rep: dict) -> None:
+    gs = rep["groups"]
+    single = [g for g in gs if not g["reassigned"]]
+    print(f"{rep['file']}: {len(rep['members'])} top-level members in {len(gs)} groups "
+          f"({len(single)} members touch no reassigned name: each moves on its own)")
+    for i, g in enumerate(gs):
+        if not g["reassigned"]:
+            continue
+        mem = ", ".join(g["members"][:12]) + (f", ... ({len(g['members'])} in all)" if len(g["members"]) > 12 else "")
+        print(f"  group {i}: {g['lines']} lines, lines {g['first']}-{g['last']}, reassigns {', '.join(g['reassigned'][:20])}"
+              f"{' ...' if len(g['reassigned']) > 20 else ''}\n    members: {mem}")
+
+
 def find(name: str) -> int:
     hits = 0
     for p in sorted(MANIFESTS.glob("*.json")):
@@ -1116,9 +1202,25 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--all", action="store_true", help="every manifest")
     ap.add_argument("--check", action="store_true", help="prove without writing; on a split tree, check the files still agree")
     ap.add_argument("--find", metavar="NAME", help="which part (or the shell) holds a top-level member")
+    ap.add_argument("--report", metavar="FILE", help="the groups a manifest for FILE must keep whole (reassigned names)")
+    ap.add_argument("--run-in", help="--report: the scope is the body of the function this file hands to NAME(...)")
+    ap.add_argument("--run-in-decl", help="--report: the scope is the body of the function NAME declared in the IIFE")
+    ap.add_argument("--iife", type=int, default=0, help="--report: which IIFE of the file (0-based)")
+    ap.add_argument("--json", type=Path, help="--report: also write the groups and the members, one row each, as JSON here")
     args = ap.parse_args(argv)
     if args.find:
         return find(args.find)
+    if args.report:
+        man = {"run_in": args.run_in, "run_in_decl": args.run_in_decl, "iife": args.iife}
+        for p in MANIFESTS.glob("*.json"):             # a split shell is read with its own manifest
+            m = json.loads(p.read_text())
+            if (ROOT / m["shell"]).resolve() == Path(args.report).resolve():
+                man = m
+        rep = report(Path(args.report).resolve(), man)
+        print_report(rep)
+        if args.json:
+            args.json.write_text(json.dumps(rep, indent=1) + "\n")
+        return 0
     names = [p.stem for p in sorted(MANIFESTS.glob("*.json"))] if args.all else args.manifest
     if not names:
         ap.error("name a manifest, or --all")

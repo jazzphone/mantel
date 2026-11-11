@@ -89,13 +89,11 @@ def test_every_shell_has_the_loader_template_byte_for_byte(path):
     assert text.count(tool.LOADER_BEGIN) == 1
 
 
-def test_the_register_calls_stay_in_the_shell(path):
+def test_the_register_calls_stay_in_the_shell(path, tmp_path):
     """hk_cards.tags_of reads a lazy card file's `register('hk-...'` calls: the shell's tags are what they were before the
     split, and no part defines an element."""
     man = _manifest(path)
     shell = ROOT / man["shell"]
-    if man["shell"] in TAGS:
-        assert hk_cards.tags_of(shell) == TAGS[man["shell"]]
     if man.get("class"):
         # a panel (HK Settings), not a card file: its element is defined by the shell, at once (the host makes one the moment
         # the module is in), with the class and its entry; the parts only add methods to the prototype
@@ -105,10 +103,32 @@ def test_the_register_calls_stay_in_the_shell(path):
         assert re.search(r"^  class %s extends (?:/\*\* @type \{\w+\} \*/ \()?HTMLElement\)? \{$" % man["class"], text, re.M)
         assert text.index("customElements.define(") < text.index("var partsReady = ")
     else:
-        assert hk_cards.tags_of(shell)
+        # (phase 24, A2) every tag the file had before the split is still the shell's (it may have gained some since): a
+        # shell that registered nothing (hk-base, hk-sky, the Settings files) is held to nothing, and one whose tags
+        # DEFINES doesn't list (hk-strategy's ll-strategy-*) to its own
+        assert set(_tags_before(man, tmp_path)) <= set(hk_cards.tags_of(shell))
     for f in sorted((ROOT / man["folder"]).glob("*.js")):
         assert hk_cards.tags_of(f) == (), f.name
-        assert "customElements.define" not in f.read_text() and ".register(" not in f.read_text(), f.name
+        # no element is defined at a part's top level: a helper that registers (hk-base's register()) may live in a part,
+        # but it is called from the shell
+        assert not TOP_LEVEL_DEFINE.search(f.read_text()), f.name
+
+
+# a call that defines an element, at the top level of a part's function (four spaces in)
+TOP_LEVEL_DEFINE = re.compile(r"^    (?:customElements\.define\(|[\w$.]*\.register\()", re.M)
+
+
+def _tags_before(man: dict, tmp_path: Path) -> tuple:
+    """The tags of the shell's file as the split found it (the blob the manifest records), else as listed in TAGS."""
+    if man["shell"] in TAGS:
+        return TAGS[man["shell"]]
+    blob = (man.get("source") or {}).get("blob")
+    got = subprocess.run(["git", "cat-file", "blob", blob], capture_output=True, text=True, cwd=ROOT) if blob else None
+    if not got or got.returncode:
+        pytest.skip("the shell's original is not in this repository")
+    f = tmp_path / Path(man["shell"]).name
+    f.write_text(got.stdout)
+    return hk_cards.tags_of(f)
 
 
 def test_every_part_has_the_header_and_registers_under_its_own_name(path):
@@ -363,3 +383,75 @@ def test_class_method_mode_refuses_what_a_move_would_change(path, tmp_path):
     man["shell_edits"] = []
     plan, parts, shell = tool.build(man, CLASS_SOURCE, tmp_path / "late")
     assert any("bindLate()" in b for b in tool.verify(plan, parts, shell, tmp_path / "late"))
+
+
+# ------------------------------------------------------------------------------------------------ phase 24, A2
+DECL_SOURCE = """(function () {
+  'use strict';
+  var NAME = 'x';
+  function initialize() {
+    var LIMIT = 3;
+    function twice(n) { return n * LIMIT; }
+    function valueOf() { return twice(2); }
+    window.thing = { v: valueOf, name: NAME };
+  }
+  initialize();
+})();
+"""
+
+THREE_IIFES = """(function () {
+  window.first = 1;
+})();
+(function () {
+  'use strict';
+  function a() { return 1; }
+  function b() { return a() + 1; }
+  window.second = b;
+})();
+"""
+
+
+def test_a_declared_function_is_a_scope_and_a_member_named_valueof_moves(path, tmp_path):
+    """run_in_decl: the body of a function declared in the IIFE (hk-base.js's initialize) is the scope the parts are cut
+    from; a member named `valueOf` (hk-chip.js) no longer meets Object.prototype's in the analyzer's name table."""
+    if not _node_ready() or path.stem != "grid-cards":
+        pytest.skip("node or TypeScript (tools/typecheck) not installed, or run once")
+    tool = _tool()
+    man = {"shell": "x.js", "folder": "web/hk/x", "global": "hkXParts", "label": "hk-x", "what": "X", "name": "x",
+           "run_in_decl": "initialize", "parts": [{"name": "hk-x-a", "title": "a", "members": ["twice", "valueOf"]}]}
+    plan, parts, shell = tool.build(man, DECL_SOURCE, tmp_path / "decl")
+    assert tool.verify(plan, parts, shell, tmp_path / "decl") == []
+    a = parts["hk-x-a.js"]
+    assert "function valueOf() { return twice(2); }" in a and "var LIMIT = K.LIMIT;" in a
+    assert "  function initialize() {" in shell and "      runParts();" in shell
+
+
+def test_the_iife_a_manifest_names_is_the_one_cut(path, tmp_path):
+    if not _node_ready() or path.stem != "grid-cards":
+        pytest.skip("node or TypeScript (tools/typecheck) not installed, or run once")
+    tool = _tool()
+    man = {"shell": "x.js", "folder": "web/hk/x", "global": "hkXParts", "label": "hk-x", "what": "X", "name": "x",
+           "iife": 1, "parts": [{"name": "hk-x-a", "title": "a", "members": ["a"]}]}
+    plan, parts, shell = tool.build(man, THREE_IIFES, tmp_path / "iife")
+    assert tool.verify(plan, parts, shell, tmp_path / "iife") == []
+    assert shell.startswith("(function () {\n  window.first = 1;\n})();")
+    assert "function a() { return 1; }" in parts["hk-x-a.js"]
+
+
+def test_the_report_groups_members_by_what_they_reassign(path, tmp_path):
+    if not _node_ready() or path.stem != "grid-cards":
+        pytest.skip("node or TypeScript (tools/typecheck) not installed, or run once")
+    tool = _tool()
+    f = tmp_path / "r.js"
+    f.write_text("""(function () {
+  var count = 0, LABEL = 'a';
+  function bump() { count++; }
+  function show() { return count + LABEL; }
+  function other() { var local = 1; local = 2; return local; }
+})();
+""")
+    rep = tool.report(f, {})
+    big = [g for g in rep["groups"] if g["reassigned"]]
+    assert len(big) == 1 and big[0]["reassigned"] == ["count"]
+    assert set(big[0]["members"]) == {"count", "bump", "show"}          # LABEL is declared with count: one statement
+    assert not any("other" in g["members"] for g in big)                 # a function's own var is not shared state

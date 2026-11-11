@@ -1,22 +1,30 @@
-"""A size ratchet (phase 18, Part B0; docs/phase18/CODE-HEALTH.md): the biggest files only get smaller.
+"""A size ratchet (phase 18, Part B0; phase 24, A1: docs/phase24/CLEAN-CODE.md): the biggest files only get smaller.
 
-tests/fixtures/file_sizes.json records every web/**/*.js over 2,500 lines and every Python file over 2,200 lines with its
-line count today. None may grow, and none that is not listed may cross the line. A file that shrinks is fine, and the test says
-to lower its number in the fixture so it cannot grow back; a file that drops under the line is taken off the list. Run
-``python tests/test_file_sizes.py --update`` to write the fixture from the tree (only to lower or remove an entry, or, in the
-commit that splits a file, to follow it).
+THE RULE: no JavaScript file over 2,500 lines, no Python file over 2,200. tests/fixtures/file_sizes.json records the files
+over the line today, each with its line count. None may grow, and none that is not listed may cross the line. A file that
+shrinks is fine, and the test says to lower its number in the fixture so it cannot grow back; a file that drops under the
+line is taken off the list. Run ``python tests/test_file_sizes.py --update`` to write the fixture from the tree (only to
+lower or remove an entry, or, in the commit that splits a file, to follow it).
+
+A WARNING BEFORE THE WALL: a file over 2,300 lines (JavaScript) or 2,000 (Python) is named by ``tools/ci.py quick`` under
+its table ("Near the size limit", from ``near()``; ``python tests/test_file_sizes.py --warn`` prints the same), so a split
+is planned before a feature is blocked by the wall. It never fails a run.
+
+Which files: every hand-written .js, .cjs and .py in the repository (tests/hand_written.py), not only web/.
 """
 from __future__ import annotations
 
 import json
-import os
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import hand_written  # noqa: E402
+
+ROOT = hand_written.ROOT
 FIXTURE = ROOT / "tests/fixtures/file_sizes.json"
 LIMITS = {"js": 2500, "py": 2200}
-SKIP = {"node_modules", ".git", ".venv", "venv", ".ci", ".claude", "__pycache__", ".pytest_cache", "build", "dist", ".mypy_cache"}
+WARN = {"js": 2300, "py": 2000}
 
 
 def lines(path: Path) -> int:
@@ -24,20 +32,23 @@ def lines(path: Path) -> int:
         return sum(1 for _ in f)
 
 
-def measure() -> dict[str, dict[str, int]]:
+def measure(limits: dict[str, int] = LIMITS) -> dict[str, dict[str, int]]:
     """{"js": {path: lines}, "py": {path: lines}} for the files over their line, from the tree."""
     out: dict[str, dict[str, int]] = {"js": {}, "py": {}}
-    for kind, base in (("js", ROOT / "web"), ("py", ROOT)):
-        for d, dirs, files in os.walk(base):
-            dirs[:] = sorted(x for x in dirs if x not in SKIP)
-            for name in sorted(files):
-                if not name.endswith("." + kind):
-                    continue
-                path = Path(d) / name
-                n = lines(path)
-                if n > LIMITS[kind]:
-                    out[kind][path.relative_to(ROOT).as_posix()] = n
+    for kind in out:
+        for path in hand_written.files(kind):
+            n = lines(path)
+            if n > limits[kind]:
+                out[kind][hand_written.rel(path)] = n
     return out
+
+
+def near() -> list[str]:
+    """The files in the warning band (over WARN, at or under LIMITS): one line each, for ci.py's table."""
+    over = measure(WARN)
+    how = {"js": "tools/split_js.py --report", "py": "tools/split_py.py"}
+    return [f"{path}: {n} lines (the limit is {LIMITS[kind]}; plan a split: {how[kind]})"
+            for kind in ("js", "py") for path, n in sorted(over[kind].items()) if n <= LIMITS[kind]]
 
 
 def test_no_big_file_grows_and_no_file_crosses_the_line():
@@ -63,9 +74,17 @@ def test_no_big_file_grows_and_no_file_crosses_the_line():
                         "--update) so they cannot grow back:\n" + "\n".join(shrunk))
 
 
+def test_the_warning_band_sits_below_the_wall():
+    for kind in LIMITS:
+        assert WARN[kind] < LIMITS[kind]
+    assert all(": " in line for line in near())
+
+
 if __name__ == "__main__":
     if "--update" in sys.argv:
         FIXTURE.write_text(json.dumps(measure(), indent=1) + "\n")
         print(f"wrote {FIXTURE.relative_to(ROOT)}")
+    elif "--warn" in sys.argv:
+        print("\n".join(near()) or "no file is near the size limit")
     else:
         print(json.dumps(measure(), indent=1))

@@ -618,4 +618,69 @@ house twin renders deterministically (preflight finds out); first-load cost of `
 
 ## Build log
 
-(empty)
+The building session (Opus 5.5, started 2026-11-10 at 22:00 after the Security card and HomeView session ended).
+State is here: after a restart, continue from the first slice not marked **landed** or **dropped**.
+
+### Backup (2026-11-10)
+
+Before anything changed: `~/Backups/mantel-pre-phase24-2026-11-10/` holds `mantel-all-refs.bundle` (`git bundle --all`:
+every branch, tag and the stash; cloned back to prove it restores) and `mantel-checkout.tgz` (the whole checkout without
+`.claude/worktrees` and `node_modules`, ignored files included). The bundle is copied to `/Volumes/data/Back Up/`. A local
+tag `pre-phase24-2026-11-10` marks `bb278308` (not pushed).
+
+### P: preflight (2026-11-10) — landed
+
+- Worktree `/private/tmp/mantel-p24` (branch `phase24`) from `origin/main` `bb278308`; TypeScript installed
+  (`check.py --install`), `tools/node_modules` linked, Mantel's venv, `PLAYWRIGHT_PATH` and `NODE` set. 229 GB free.
+- **Ports:** 9337 is held by Google Chrome (another app's DevTools); the checks this run needs take free ports
+  (`cdp.free_port`) except the six fixed ones, and none of those is in use. No other session is running.
+- **The house runs main:** `ghcr.io/jazzphone/mantel-server:0.1.162-main.bb278308f`, this run's own parent. Nothing
+  the house runs is missing from main. The two hotfix branches with commits not on main (`hotfix-laundry-2`,
+  `hotfix-tv-speaker`) were the builds of earlier house hotfixes; main has since been deployed over them.
+- **Open branches** touching a file in the table: none.
+- **A6, `tools/headless/shots_compare.py`:** two folders of PNGs compared pixel for pixel, volatile shots judged by a DOM
+  file beside them (or reported as not compared, never as passing), a diff picture of each shot that differs.
+- **`tools/headless/first_load.py`** (new; not in the plan): `home_numbers.py` measures a running server signed in with a
+  measuring cookie, which this run can't hold steady overnight. This one starts the gallery's test server (fictional house,
+  commands off) and loads Home Grid, Home, Settings and a screensaver preview cold, five times each in Chromium and
+  WebKit: navigation start to the first draw (`rendered`, or the Settings panel ready, or `window.hkSaver`), to every
+  started shell's parts having run (`__hkSplitDone`), and the requests until then. Gate 7 compares its medians.
+- **Baselines** are taken from a second worktree at the parent (`/private/tmp/mantel-p24-basetree`), twice, into
+  `/private/tmp/mantel-p24-base/b1` and `b2`, by one script (`/private/tmp/mantel-p24-base/gates.py take|compare`): the
+  jsc suites' output, the main suite, `tsc`/`mypy`, the gallery, the house twin (all 14 screens in WebKit and Chromium,
+  the six Home Grid screens `--busy` in both and `--sheets` in WebKit), `sheet_review.py`, the first-load numbers, and the
+  Settings sweep (`--save --repeat`). The house twin's data was pulled once (`house_twin.py pull`, 14 screens, 4,565
+  states) and copied to `/private/tmp/mantel-p24-base/twin-cache`; every render uses that copy, so the parent and each
+  change draw the same states.
+
+### A1: the rules as ratchets — landed
+
+- `tests/hand_written.py` (new): which files the rules cover. Every `.js`, `.cjs` and `.py` in the repository except
+  installed packages, build output, `web/hk/vendor/` and the generated files named in it (so far
+  `hk_frontend/tools/sf_symbols/names.py`).
+- `tests/test_file_sizes.py` now counts JavaScript outside `web/` (none is over) and has the warning band (2,300 / 2,000):
+  `near()`, `--warn`, and `tools/ci.py`'s table names those files under "Near the size limit". It never fails a run.
+  Today's band: `hk-headers.js` 2,496, `hk-home.js` 2,500, `hk-sidepane.js` 2,484, `hk-grid-editor.js` 2,500, `music.py`
+  2,125.
+- `tests/test_line_widths.py` (new) and `tests/fixtures/line_widths.json`: **1,914 lines over 200 characters in 276
+  files** today. A count only falls; an unlisted file may have none. `tests/fixtures/line_width_exceptions.json` (empty
+  for now) will hold the lines A4 proves can't be broken, each by its file, a hash of its text and why; it only shrinks.
+
+### A2, first stage — landed
+
+**The order changed (the session's call):** A2 is built in three stages, so the batches that need nothing new land first.
+Stage 1 (this one) is what B1, B3 and B7 need. Stage 2 is readiness and `split_race_check.py` (B2, B4, B8). Stage 3 is
+re-split, `adopt` and the state rewrite (B5, B9). The other order was the plan's: all of A2 before any split.
+
+- `"iife": k` picks the file's k-th IIFE (0-based); `"run_in_decl": "initialize"` makes a function declared in the IIFE
+  the scope (its body is not walked as part of the declaration); the analyzer's name table has no prototype, so a member
+  named `valueOf` (`hk-chip.js`) no longer crashes it.
+- `--report FILE [--run-in NAME | --run-in-decl NAME] [--iife K] [--json OUT]`: the top-level members grouped by the
+  variables they reassign (a writer, and every reader of a reassigned name, join its group). A split shell's take-backs
+  and a function's own `var` are not counted. Measured: `hk-energy.js` one group (`animQ`), `hk-chip.js` none, the saver
+  one group of 3,795 lines around 250 members (plus 37 small ones), `hk-base.js`'s `initialize` 402 groups, the largest
+  `MUSIC`/`hkMusic` (409 lines).
+- The shell rules in `tests/test_web_sources.py`: every tag the file had before its split is still the shell's (it may
+  gain some: the saver has since added `hk-now-playing-page-card`), so a shell that registered nothing is held to nothing;
+  a part may not define an element at its top level (a helper that registers may live in one). Tests for `run_in_decl`
+  with a `valueOf` member, `iife`, and `--report`.

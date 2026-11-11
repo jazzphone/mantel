@@ -49,12 +49,16 @@ function isFn(e) {
   return !!e && (ts.isFunctionExpression(e) || ts.isArrowFunction(e));
 }
 
-// The function the file's one IIFE wraps: (function () { ... })();
-function iifeOf(sf) {
+// The function an IIFE of the file wraps: (function () { ... })(); the first one, or the k-th (0-based: a manifest's "iife")
+function iifeOf(sf, k) {
+  let seen = 0;
   for (const s of sf.statements) {
     if (!ts.isExpressionStatement(s)) continue;
     const call = stripParens(s.expression);
-    if (ts.isCallExpression(call) && isFn(stripParens(call.expression))) return stripParens(call.expression);
+    if (ts.isCallExpression(call) && isFn(stripParens(call.expression))) {
+      if (seen === (k || 0)) return stripParens(call.expression);
+      seen++;
+    }
   }
   return null;
 }
@@ -67,6 +71,14 @@ function partFn(iife) {
     if (ts.isBinaryExpression(e) && e.operatorToken.kind === ts.SyntaxKind.EqualsToken && isFn(stripParens(e.right))) {
       return stripParens(e.right);
     }
+  }
+  return null;
+}
+
+// a function DECLARED in the IIFE (hk-base.js's `function initialize() { ... }`): its body is the scope; the declaration is its host
+function declFn(iife, name) {
+  for (const s of iife.body.statements) {
+    if (ts.isFunctionDeclaration(s) && s.name && s.name.text === name && s.body) return { stmt: s, fn: s };
   }
   return null;
 }
@@ -213,8 +225,8 @@ function analyze(req) {
   const checker = prog.getTypeChecker();
   const text = sf.text;
   const lines = text.split('\n');
-  const iife = iifeOf(sf);
-  if (!iife) throw new Error('no IIFE at the top of ' + req.file);
+  const iife = iifeOf(sf, req.mode === 'part' ? 0 : req.iife);
+  if (!iife) throw new Error('no IIFE' + (req.iife ? ' number ' + (req.iife + 1) : '') + ' at the top of ' + req.file);
 
   const scopes = [];   // {name, fn, body, list, host}: `list` the nodes that are the scope's members
   const classMembers = new Set();
@@ -236,8 +248,8 @@ function analyze(req) {
   } else {
     scopes.push({ name: 'iife', fn: iife, body: iife.body, list: iife.body.statements });
     if (req.run_in) {
-      const run = runFn(iife, req.run_in);
-      if (!run) throw new Error('no ' + req.run_in + '(function ...) call in the IIFE of ' + req.file);
+      const run = req.run_in_decl ? declFn(iife, req.run_in) : runFn(iife, req.run_in);
+      if (!run) throw new Error('no ' + (req.run_in_decl ? 'function ' + req.run_in + '() {...} declared' : req.run_in + '(function ...) call') + ' in the IIFE of ' + req.file);
       scopes.push({ name: 'run', fn: run.fn, body: run.fn.body, list: run.fn.body.statements, host: run.stmt });
     }
     // the function the shell hands to its loader: loadParts(function () { ... }); the statements that wait for the parts
@@ -366,12 +378,12 @@ function analyze(req) {
     // the function a host statement hands on is another scope: its statements are visited as members of their own
     ts.forEachChild(node, (c) => { if (!innerFns.has(c) && !classMembers.has(c)) visit(c, from); });
   };
-  const innerFns = new Set(scopes.filter((x) => x.host).map((x) => x.fn));
+  const innerFns = new Set(scopes.filter((x) => x.host).map((x) => x.fn === x.host ? x.fn.body : x.fn));
   for (let si = 0; si < scopes.length; si++) {
     scopes[si].list.forEach((s, idx) => visit(s, out.scopes[si].stmts[idx]));
   }
   // a name declared in two scopes (the inner one hides the outer for the code inside it)
-  const byName = {};
+  const byName = Object.create(null);
   out.scopes.forEach((sc) => sc.stmts.forEach((st) => st.names.forEach((n) => { (byName[n] = byName[n] || []).push([st.scope, st.index]); })));
   out.duplicates = Object.entries(byName).filter(([, v]) => v.length > 1).map(([n, v]) => ({ name: n, at: v }));
   out.lineCount = lines.length;

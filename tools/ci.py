@@ -34,6 +34,7 @@ import datetime
 import fcntl
 import fnmatch
 import hashlib
+import importlib.util
 import json
 import os
 import platform
@@ -1023,7 +1024,21 @@ def table(record: dict) -> str:
                 + (f" ({len(record['dirty'])} uncommitted)" if record["dirty"] else ""))
     if record.get("warnings"):
         rows += ["Slower than it should be:", *(f"  {w}" for w in record["warnings"])]
+    near = near_size_limit()
+    if near:
+        rows += ["Near the size limit (a warning, not a failure: tests/test_file_sizes.py):", *(f"  {w}" for w in near)]
     return "\n".join(rows)
+
+
+def near_size_limit() -> list[str]:
+    """The files in the size rule's warning band (phase 24, A1), so a split is planned before the wall blocks a feature."""
+    try:
+        spec = importlib.util.spec_from_file_location("test_file_sizes", ROOT / "tests/test_file_sizes.py")
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod.near()
+    except Exception as err:            # (a warning must never fail the run)
+        return [f"(could not measure: {err})"]
 
 
 PRE_COMMIT = """#!/bin/sh
