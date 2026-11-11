@@ -800,10 +800,11 @@
     });
   }
 
-  function history(client, entityId, hours, card) {
+  // (text: the raw states as words, {t, s} -- a washer's cycle step, which no number says; hk-laundry.js trace)
+  function history(client, entityId, hours, card, text) {
     if (!client || !client.callApi || !entityId) return null;
     hours = hours || 3;
-    var key = entityId + '|' + hours;
+    var key = entityId + '|' + hours + (text ? '|t' : '');
     var hit = histCache.get(key);
     if (hit) hit.used = Date.now();
     var stale = !hit || (Date.now() - hit.at) > HIST_TTL;
@@ -824,6 +825,7 @@
         rows.forEach(function (r) {
           var v = Number(r.state);
           var t = new Date(r.last_changed || r.last_updated || 0);
+          if (text) { if (isFinite(t.getTime()) && r.state != null) vals.push({ t: t, s: String(r.state) }); return; }
           if (typeof v === 'number' && isFinite(v) && isFinite(t.getTime())) {
             vals.push({ t: t, v: v });
           }

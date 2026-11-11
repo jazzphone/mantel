@@ -170,7 +170,10 @@ put('binary_sensor.laundry_leak', 'off', { device_class: 'moisture' }, 'd2');
 put('sensor.tower_washer_current_status', 'rinsing', { device_class: 'enum', options: ['power_off', 'running', 'rinsing', 'spinning', 'end', 'error'] }, 'd3');
 put('sensor.tower_dryer_current_status', 'drying', { device_class: 'enum', options: ['power_off', 'drying', 'cooling', 'end', 'error'] }, 'd3');
 put('sensor.dryer_plug_power', '640', { device_class: 'power' }, 'd4');
-const house = { states, entities: ents, devices: { d1: { area_id: 'laundry_room', model: 'WD53DBA900H' }, d2: { area_id: 'laundry_room' }, d3: { area_id: 'utility' }, d4: { area_id: 'utility' } } };
+// AN ENERGY MONITOR in the panel: a channel's watts, and the energy summed from it named for the laundry
+put('sensor.em_channel_16_power', '451', { device_class: 'power', unit_of_measurement: 'W' }, 'd5');
+put('sensor.laundry_circuit', '307.4', { device_class: 'energy', unit_of_measurement: 'kWh', source: 'sensor.em_channel_16_power' }, 'd5');
+const house = { states, entities: ents, devices: { d1: { area_id: 'laundry_room', model: 'WD53DBA900H' }, d2: { area_id: 'laundry_room' }, d3: { area_id: 'utility' }, d4: { area_id: 'utility' }, d5: { area_id: 'garage' } } };
 out.found = L.found(house);
 const w = out.found[0];
 out.look = L.look(house, w, NOW);
@@ -213,7 +216,9 @@ def test_machines_are_found_on_their_devices(page):
     assert w["kind"] == "combo" and w["name"] == "Washer" and w["area"] == "laundry_room"
     assert (w["phase"], w["time"], w["progress"], w["remote"], w["power"], w["leak"]) == (
         "sensor.washer_job_state", "sensor.washer_completion_time", "sensor.washer_progress", "binary_sensor.washer_remote_control",
-        "sensor.washer_power", "binary_sensor.laundry_leak")
+        "sensor.em_channel_16_power", "binary_sensor.laundry_leak")
+    # (the circuit's watts, not the machine's own 0 W; a dryer takes the plug named for it in its own room)
+    assert f["sensor.tower_dryer_current_status"]["power"] == "sensor.dryer_plug_power"
     # (the job state is the step, not a second machine; the energy is no time)
     assert "sensor.washer_job_state" not in f
     lg_w, lg_d = f["sensor.tower_washer_current_status"], f["sensor.tower_dryer_current_status"]
@@ -270,9 +275,11 @@ def test_the_server_finds_the_machines_the_page_finds(page):
     p("sensor.tower_washer_current_status", "rinsing", "d3", device_class="enum", options=["power_off", "running", "rinsing", "spinning", "end", "error"])
     p("sensor.tower_dryer_current_status", "drying", "d3", device_class="enum", options=["power_off", "drying", "cooling", "end", "error"])
     p("sensor.dryer_plug_power", "640", "d4", device_class="power")
+    p("sensor.em_channel_16_power", "451", "d5", device_class="power", unit_of_measurement="W")
+    p("sensor.laundry_circuit", "307.4", "d5", device_class="energy", unit_of_measurement="kWh", source="sensor.em_channel_16_power")
     states = {k: v[0] for k, v in put.items()}
     entries = {k: {"entity_id": k, "device_id": v[1]} for k, v in put.items()}
-    devices = {"d1": {"model": "WD53DBA900H"}, "d2": {}, "d3": {}, "d4": {}}
+    devices = {"d1": {"model": "WD53DBA900H", "area_id": "laundry_room"}, "d2": {}, "d3": {"area_id": "utility"}, "d4": {"area_id": "utility"}, "d5": {"area_id": "garage"}}
     keys = ("id", "status", "phase", "time", "door", "power")
     assert [{k: m[k] for k in keys} for m in LA.found(entries, devices, states)] == [{k: m[k] for k in keys} for m in page["found"]]
 

@@ -16,7 +16,7 @@ function blocks() {
   return deep(document, 'hk-grid-laundry-card').map((c) => {
     const sr = c.shadowRoot, plate = sr.querySelector('hk-plate'), pb = box(plate), k = plate.offsetWidth ? pb.w / plate.offsetWidth : 1;
     const cs = getComputedStyle(plate), pad = ['Left', 'Top', 'Right', 'Bottom'].map((s) => parseFloat(cs['padding' + s]) || 0);
-    const parts = [...sr.querySelectorAll('.art, .ti, .hero, .sb, .fn, .lbl, .trk, .rows, .pill, .nm, .st')].filter((e) => e.getClientRects().length);
+    const parts = [...sr.querySelectorAll('.art, .ti, .hero, .sb, .fn, .lbl, .trk, .rows, .pill, .nm, .st, .pw, .set')].filter((e) => e.getClientRects().length);
     // (the drawing's heat lines and badge may reach past its own box, never past the plate's edge)
     const past = parts.filter((e) => {
       const b = box(e), slack = e.classList.contains('art') ? 4 : 1;
@@ -26,6 +26,7 @@ function blocks() {
     const text = (s) => [...sr.querySelectorAll(s)].filter((e) => e.getClientRects().length).map((e) => e.textContent);
     return { size: c.getAttribute('size'), past, cut, titles: text('.ti, .hero'), subs: text('.sb, .st'), names: text('.nm, .lbl'),
              steps: text('.trk .n'), pills: text('.pill'), arts: sr.querySelectorAll('.art svg.hkla').length, halves: sr.querySelectorAll('.half').length,
+             power: text('.pw .ph b'), graph: sr.querySelectorAll('.pw svg path').length, setLine: text('.set'),
              foot: Math.round(pb.b - Math.max(...parts.map((e) => box(e).b))) };
   });
 }
@@ -95,6 +96,9 @@ function gaps(tag) {
             check(label + ': how long', () => assert(b.subs.some((s) => /^(1[89]|2[0-4]) min left( · Done at .+)?$/.test(s)), JSON.stringify(b.subs)));
             if (b.size !== 'S') check(label + ': its four steps, Dry now', () => assert.deepEqual(b.steps, ['Wash', 'Rinse', 'Spin', 'Dry']));
             check(label + ': no keys while remote control is off', () => assert.deepEqual(b.pills, []));
+            // (THIS LOAD'S POWER, 2026-11-10: Large and Extra Large -- the circuit's watts, and the load's graph in its steps' colors)
+            if (b.size === 'L' || b.size === 'XL') check(label + ': this load\'s power, its watts and its graph', () => assert(b.power[0] === '1,840 W' && b.graph >= 4, JSON.stringify([b.power, b.graph])));
+            if (b.size === 'XL') check(label + ': the cycle\'s settings under the finish', () => assert.deepEqual(b.setLine, ['Cold \u00B7 Extra High Spin \u00B7 Normal Soil']));
           } else if (b.size === 'S') {
             check(label + ': the one done soonest, and +1', () => assert(b.arts === 1 && b.names.includes('Washer') && b.subs.some((s) => /^[3-7] min left$/.test(s)), JSON.stringify(b)));
           } else {

@@ -312,5 +312,41 @@ def found(entries: Mapping[str, Mapping[str, Any]], devices: Mapping[str, Mappin
                 "door": pick(re.compile(r"door"), lambda x: x.startswith("binary_sensor.") and "lock" not in x),
                 "power": pick(re.compile(r"(^|_)power$"), lambda x: x.startswith("sensor.") and attrs(x).get("device_class") == "power"),
                 "running": None, "watts": DEFAULT_WATTS,
+                "_dev": dev, "_area": d.get("area_id") or (entries.get(sid) or {}).get("area_id"),
+                "_dryer": _dryer(text(sid) + " " + tidy(" ".join(str(d.get(k) or "") for k in ("name_by_user", "name", "model", "model_id")))),
             })
+    _circuits(out, entries, devices, states, text)
+    for m in out:
+        for k in ("_dev", "_area", "_dryer"):
+            m.pop(k)
     return out
+
+
+def _dryer(t: str) -> bool:
+    """hk-laundry.js kindOf: a dryer, not a washer or a washer-dryer."""
+    if re.search(r"combo|washer_?dryer|wash_?dry|washcombo|(^|[_ ])wd[0-9]", t):
+        return False
+    return bool(re.search(r"dryer|(^|_)dry(_|$)|tumble", t)) and "wash" not in t
+
+
+def _circuits(out: list[dict[str, Any]], entries: Mapping[str, Mapping[str, Any]], devices: Mapping[str, Mapping[str, Any]],
+              states: Mapping[str, Mapping[str, Any]], text: Any) -> None:
+    """A circuit's watts in place of the machine's own (hk-laundry.js found, the same): a power sensor named for the laundry, or the
+    power sensor a laundry-named energy sensor is summed from, never one on a machine; the machine's own room first."""
+    mine = {m["_dev"] for m in out}
+    circ: list[tuple[str, str, Any]] = []
+    for eid in sorted(states):
+        e, a, t = entries.get(eid) or {}, (states.get(eid) or {}).get("a") or {}, text(eid)
+        key = e.get("device_id") or (f"~{e['area_id']}:{eid.split('.', 1)[1].split('_')[0]}" if e.get("area_id") else "")
+        if not eid.startswith("sensor.") or not re.search(r"wash|dryer|laundry", t) or NOT_LAUNDRY.search(t) or (e and key in mine):
+            continue
+        src = a.get("source") if isinstance(a.get("source"), str) else ""
+        p = eid if a.get("device_class") == "power" else (src if a.get("device_class") == "energy" and src.startswith("sensor.")
+                                                          and ((states.get(src) or {}).get("a") or {}).get("device_class") == "power" else None)
+        if p and all(c[0] != p for c in circ):
+            circ.append((p, t, e.get("area_id") or (devices.get(e.get("device_id") or "") or {}).get("area_id")))
+    for m in out:
+        ok = [c for c in circ if re.search(r"dry|laundry" if m["_dryer"] else r"wash|laundry", c[1])]
+        c = next((x for x in ok if m["_area"] and x[2] == m["_area"]), ok[0] if ok else None)
+        if c:
+            m["power"] = c[0]
