@@ -1,0 +1,148 @@
+{
+  "shell": "web/hk/cards/hk-calendar.js",
+  "folder": "web/hk/calendar",
+  "global": "hkCalendarParts",
+  "label": "hk-calendar",
+  "what": "THE CALENDAR CARDS",
+  "run_in": "whenBase",
+  "parts": [
+    {
+      "name": "hk-calendar-data",
+      "title": "dates, the calendars and their colors, events and their reads and writes, and the icons",
+      "members": [
+        "DAY_MS",
+        "DOW",
+        "DOW_LONG",
+        "MON",
+        "MON3",
+        "CAL_RED",
+        "day0",
+        "addDays",
+        "addMonths",
+        "sameDay",
+        "WS",
+        "setWeekStart",
+        "weekStart",
+        "dows",
+        "pad",
+        "ymd",
+        "hm",
+        "parseYmd",
+        "isoLocal",
+        "time",
+        "tshort",
+        "hourLabel",
+        "span",
+        "soon",
+        "WHITE",
+        "calIds",
+        "rgbOf",
+        "evRgb",
+        "colorSig",
+        "fill",
+        "eventStyle",
+        "FLAT_EVENT_CSS",
+        "edge",
+        "rgba",
+        "features",
+        "can",
+        "calName",
+        "writable",
+        "norm",
+        "byStart",
+        "ownDay",
+        "onDay",
+        "store",
+        "TTL",
+        "fetchOne",
+        "failedLine",
+        "load",
+        "changed",
+        "payload",
+        "wsErr",
+        "writer",
+        "create",
+        "update",
+        "remove",
+        "lanes",
+        "bars",
+        "IC"
+      ]
+    },
+    {
+      "name": "hk-calendar-sheet",
+      "title": "the add and edit sheet: its CSS, opening and closing, the delete question",
+      "members": [
+        "REPEATS",
+        "SHEET_CSS",
+        "sheet",
+        "sheetEl",
+        "openSheet",
+        "closeSheet",
+        "show",
+        "repeatLabel",
+        "askDelete",
+        "edit_",
+        "newAt"
+      ]
+    },
+    {
+      "name": "hk-calendar-event",
+      "title": "the event panel's helpers",
+      "members": [
+        "fromAny",
+        "longDay",
+        "howLong",
+        "bigTime",
+        "whenDetail"
+      ]
+    },
+    {
+      "name": "hk-calendar-page",
+      "title": "the Calendar page card and its CSS",
+      "members": [
+        "RCOL",
+        "SPRING",
+        "segBox",
+        "slideSeg",
+        "GLASS",
+        "PAGE_CSS",
+        "HkCalendarCard"
+      ]
+    },
+    {
+      "name": "hk-calendar-pane",
+      "title": "the screensaver's calendar pane card and its CSS",
+      "members": [
+        "PANE_CSS",
+        "HkCalendarPaneCard",
+        "evRow",
+        "whenShort",
+        "fitRows"
+      ]
+    },
+    {
+      "name": "hk-calendar-todo",
+      "title": "the To-do block card and its CSS",
+      "members": [
+        "LIST_HUES",
+        "todoIds",
+        "listHue",
+        "listName",
+        "listLeft",
+        "TD",
+        "itemsOf",
+        "itemRow",
+        "TODO_CSS",
+        "panelCss",
+        "HkTodoCard",
+        "tick",
+        "todoPanel"
+      ]
+    }
+  ],
+  "source": {
+    "blob": "8fbd1131e2dc5282921b5d21dad6194f0653d1cd",
+    "lines": 2561
+  }
+}

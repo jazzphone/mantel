@@ -1,0 +1,79 @@
+{
+  "shell": "web/hk/cards/hk-cameras.js",
+  "folder": "web/hk/cameras",
+  "global": "hkCamerasParts",
+  "label": "hk-cameras",
+  "what": "THE CAMERA CARDS",
+  "run_in": "whenBase",
+  "parts": [
+    {
+      "name": "hk-cameras-helpers",
+      "title": "what the camera cards share: the black-frame check, the video finders, releasing a video, the focus and rest watchers",
+      "members": [
+        "LIVE_AFTER_WAKE",
+        "LIVE_WAKE_MAX",
+        "AFTER_BLACK",
+        "VIDEO_OUTSIDE",
+        "scratch",
+        "blackFrame",
+        "loadedImg",
+        "stillLoaded",
+        "liveVideo",
+        "playingVideo",
+        "playing",
+        "releaseMedia",
+        "CAM_FOCUS",
+        "restWatch"
+      ]
+    },
+    {
+      "name": "hk-cameras-mosaic",
+      "title": "the camera mosaic",
+      "members": [
+        "HkCameraMosaicCard"
+      ]
+    },
+    {
+      "name": "hk-cameras-editor",
+      "title": "the camera mosaic's editor",
+      "members": [
+        "HkCameraMosaicEditor"
+      ]
+    },
+    {
+      "name": "hk-cameras-doorbell",
+      "title": "the doorbell card (live camera with talk-back)",
+      "members": [
+        "LIVE_WAIT_MS",
+        "PCM_TAP",
+        "TALK_WORKER",
+        "TALK_MIN_MS",
+        "TALK_DUCK",
+        "WARM_RETRY_MS",
+        "VOL_KEY",
+        "FULLY_MUSIC",
+        "TALK_MAX_MS",
+        "RETRY_MS",
+        "HkDoorbellCard"
+      ]
+    },
+    {
+      "name": "hk-cameras-tv",
+      "title": "the Live TV guide and its player",
+      "members": [
+        "TV_HEARTBEAT_MS",
+        "TV_CONTROLS_MS",
+        "TV_RETRY_MS",
+        "tvTime",
+        "tvLeft",
+        "tvProgress",
+        "HkTvGuideCard",
+        "tvPlayer"
+      ]
+    }
+  ],
+  "source": {
+    "blob": "576ab53d7ffff995be8d4cf509ab962f33fa6dd4",
+    "lines": 3706
+  }
+}

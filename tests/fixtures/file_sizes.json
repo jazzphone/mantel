@@ -1,10 +1,7 @@
 {
  "js": {
   "web/hk/cards/hk-base.js": 4798,
-  "web/hk/cards/hk-calendar.js": 2561,
-  "web/hk/cards/hk-cameras.js": 3706,
   "web/hk/cards/hk-detail.js": 2895,
-  "web/hk/cards/hk-energy.js": 4299,
   "web/hk/cards/hk-strategy.js": 3320,
   "web/hk/modules/hk-saver.js": 4477,
   "web/hk/modules/hk-sky.js": 7019,

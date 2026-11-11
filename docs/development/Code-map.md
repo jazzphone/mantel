@@ -23,8 +23,19 @@ Mantel's pages and the code both hosts share: HK's cards, modules, panels and th
 - **web/hk/cards/**
   - `hk-alert.js` — the Alert block (`alert` in hk-grid-catalog.js; docs/phase11/ALERT.md), 2026-11-10.
   - `hk-base.js` — the foundation every hk card file builds on.
-  - `hk-calendar.js` — the house's calendars
-  - `hk-cameras.js` — the camera strip mosaic and its editor
+  - `hk-calendar.js` — the house's calendars *(a shell: its parts are in `web/hk/calendar/`, `tools/split_manifests/calendar.json`)*
+    - `hk-calendar-data.js` — dates, the calendars and their colors, events and their reads and writes, and the icons
+    - `hk-calendar-sheet.js` — the add and edit sheet: its CSS, opening and closing, the delete question
+    - `hk-calendar-event.js` — the event panel's helpers
+    - `hk-calendar-page.js` — the Calendar page card and its CSS
+    - `hk-calendar-pane.js` — the screensaver's calendar pane card and its CSS
+    - `hk-calendar-todo.js` — the To-do block card and its CSS
+  - `hk-cameras.js` — the camera strip mosaic and its editor *(a shell: its parts are in `web/hk/cameras/`, `tools/split_manifests/cameras.json`)*
+    - `hk-cameras-helpers.js` — what the camera cards share: the black-frame check, the video finders, releasing a video, the focus and rest watchers
+    - `hk-cameras-mosaic.js` — the camera mosaic
+    - `hk-cameras-editor.js` — the camera mosaic's editor
+    - `hk-cameras-doorbell.js` — the doorbell card (live camera with talk-back)
+    - `hk-cameras-tv.js` — the Live TV guide and its player
   - `hk-chip.js` — the chip and icon families as native Lovelace cards. *(a shell: its parts are in `web/hk/chip/`, `tools/split_manifests/chip.json`)*
     - `hk-chip-base.js` — the chips' CSS, base class, values, rules and labels
     - `hk-chip-status.js` — the status chip and the toggle chip
@@ -32,7 +43,15 @@ Mantel's pages and the code both hosts share: HK's cards, modules, panels and th
     - `hk-chip-scenes.js` — the scenes row
   - `hk-control.js` — hk-control-card
   - `hk-detail.js` — detail sheets in the style of the Home app, in place of Home Assistant's more-info dialog.
-  - `hk-energy.js` — the energy charts
+  - `hk-energy.js` — the energy charts *(a shell: its parts are in `web/hk/energy/`, `tools/split_manifests/energy.json`)*
+    - `hk-energy-sums.js` — the Energy page's one state, its model and sums, and the words for a period
+    - `hk-energy-page.js` — the Energy page's plate and tabs, the summary and hero (rings and lines), highlights and where it went
+    - `hk-energy-day.js` — the Your Day card, the bar chart and the small glyphs and CSS the cards share
+    - `hk-energy-water.js` — the page's battery, water and tracking cards
+    - `hk-energy-usage.js` — the usage tile, the live trace and the battery strip
+    - `hk-energy-power.js` — the Home Power cards: shared helpers, flow, status, house battery and segmented choice
+    - `hk-energy-house.js` — the Home Power house, load and sun cards and the flow picture
+    - `hk-energy-rings.js` — the Energy Rings block
   - `hk-grid-cards.js` — the Home Grid's own cards (docs/phase11/HOME-GRID.md, slice G3). *(a shell: its parts are in `web/hk/grid-cards/`, `tools/split_manifests/grid-cards.json`)*
     - `hk-grid-math.js` — the helpers and the room math
     - `hk-grid-room.js` — the room card, the entity card and the accessories card
@@ -41,7 +60,11 @@ Mantel's pages and the code both hosts share: HK's cards, modules, panels and th
     - `hk-grid-faces.js` — the clock block and the Cameras face
     - `hk-grid-widgets.js` — the action, everything, suggested scene and On Now blocks
   - `hk-grid-catalog.js` — the Home Grid catalog (docs/phase11/HOME-GRID.md)
-  - `hk-headers.js` — THE PAGE HEADERS (2026-10-15)
+  - `hk-headers.js` — THE PAGE HEADERS (2026-10-15) *(a shell: its parts are in `web/hk/headers/`, `tools/split_manifests/headers.json`)*
+    - `hk-headers-base.js` — the header base, its CSS and the bars
+    - `hk-headers-climate-lights.js` — the climate and lighting headers
+    - `hk-headers-security-vacuum.js` — the security and cleaning headers
+    - `hk-headers-timers-water.js` — the timers and water headers
   - `hk-home.js` — household controls *(a shell: its parts are in `web/hk/home-cards/`, `tools/split_manifests/home.json`)*
     - `hk-home-shared.js` — what the vacuum and timer cards share: the nested-card feed, the no-helpers line, the rooms picked and the room-picking base
     - `hk-home-vacuum.js` — the vacuum card and the area select card
