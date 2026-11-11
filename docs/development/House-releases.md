@@ -906,6 +906,8 @@ Records of releases made with `release_house.py mantel` (phase 15) are written b
 
 ## Mantel 0.1.165 (2026-11-11)
 
+- Phase 25 (docs/phase25/PLAN.md). The owner's OK, in the building session: "Ok sounds good, so i'm good with 1-9 (or 2-9 once the full run finishes)" (item 8 was this release), then "Yes I am good with a new release to the house".
+- The first attempt (release commit `deb2b88`) put 0.1.165 on the LXC healthy, then stopped before its tag: the Linux suite failed twice (two tests read the pinned TypeScript the runner does not install; move_py's proof left `__pycache__`). Fixed in `b33bd85`, a whole `tools/ci.py full --release` passed on it, and `--retry` finished the release from it. (The release's full runs before that: one `media-card-check` timing failure that passed alone twice, one Docker Hub timeout in `caddy-image`.)
 - Mantel 0.1.165, release commit `b33bd85`, tagged `v0.1.165`; the LXC 0.1.165 -> 0.1.165 (build `76bbe114f6555b20`).
 - Images run 43120056520 (stage=images), promote run 43120884939, GitHub Release `v0.1.165`.
 - Strict health 200, all services healthy, mantel-server built from `b33bd85`, Home Assistant connected for 63 s; no "Traceback" or "ERROR" in Mantel's log.
