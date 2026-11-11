@@ -89,7 +89,8 @@
            pages: {}, page_photos: {}, page_looks: {},
            // FLAT'S OWN (settings.py FLAT_BACKGROUNDS): its background, color,
            // how far a photo fades (0-100) and each page's
-           flat_background: 'color', flat_color: 'auto', flat_fade: 50, flat_pages: {}, flat_tint: 'none', flat_tint_amount: 60, flat_tint_light: 50, flat_image_look: {}, flat_page_image_looks: {}, image_look: {},
+           flat_background: 'color', flat_color: 'auto', flat_fade: 50, flat_pages: {}, flat_tint: 'none', flat_tint_amount: 60, flat_tint_light: 50, flat_image_look: {}, flat_page_image_looks: {},
+             image_look: {},
            themes: ['halloween', 'thanksgiving', 'christmas', 'birthday', 'fourth-of-july',
                     'valentines-day', 'spring-garden', 'winter-wonderland', 'storybook-magic',
                     'space-night'],
@@ -114,7 +115,8 @@
     car: { dashboards: [], widths: {} },
     generated: { exclude_areas: [], exclude_devices: [], exclude_entities: [], include_entities: [] },
     features: { vacuum_script: null, alarm_bad_code: null, laundry: [], laundry_clear: 4, tv_sets: [], tv_apps: [], tv_show: 'recent', tv_icons: true, thermostats: [], temperature: null, power: null,
-                house_timers: [], timer_sound: 'bell', timer_ring_for: 60, timer_tablet: true, timer_speaker: true, timer_also: [], timer_phone: '', timer_volume: 40, timer_wake: true, timer_include: [], timer_ignore: [] },
+                house_timers: [], timer_sound: 'bell', timer_ring_for: 60, timer_tablet: true, timer_speaker: true, timer_also: [], timer_phone: '', timer_volume: 40, timer_wake: true,
+                  timer_include: [], timer_ignore: [] },
     menu: { glyph: 'sidebar', clock: true,
             // All Screens' menu, for the screens that don't set their own
             // (settings.py MENU_KEYS); a screen reads it already filled in
@@ -144,7 +146,8 @@
     // live cameras rest while another window has the focus (hk-cameras.js
     // CAM_FOCUS) -- behind the screensaver they always rest
     cameras: { order: [], live: true, focus_pause: true },
-    look: { flat: false, flat_theme: 'dark', glass: 'clear', frost: 50, blur: 50, tint: 50, bright: 50, bright_dim: 0, well: 'dark', frost_tint: false, tile_style: 'auto', tile_icons: 'auto', thermostat_style: 'dial', bright_pages: 'home', details: true, browse_view: 'music-browse', sky_switch: null,
+    look: { flat: false, flat_theme: 'dark', glass: 'clear', frost: 50, blur: 50, tint: 50, bright: 50, bright_dim: 0, well: 'dark', frost_tint: false, tile_style: 'auto', tile_icons: 'auto',
+      thermostat_style: 'dial', bright_pages: 'home', details: true, browse_view: 'music-browse', sky_switch: null,
             photos: 'media-source://media_source/local/photos', page_pills: {}, page_accents: {},
             // FLAT COLORS (settings.py flat_colors; resolveFlatColors)
             flat_colors: { accent: 'auto', off_tint: 'auto', pages: 'accent' }, flat_page_colors: {},
@@ -155,7 +158,8 @@
                      music_slide: false, music_pane: false, music_first: false, fade_back: 500,
                      portrait_fill: false, portrait_blur: 50, portrait_dim: 20, portrait_zoom: 100, portrait_x: 'center', portrait_y: 'center',
                      landscape_blur: 50, landscape_dim: 20, landscape_zoom: 100, landscape_x: 'center', landscape_y: 'center',
-                     clock_over: 'corner', clock_style: 'classic', clock_bg: 'gradient', clock_motion: 'slow', clock_wallpaper: 'aurora', clock_wallpaper_color: 'blue', clock_24: false, clock_today_music: true, clock_today_weather: true, clock_colors: {}, clock_speed: 35, clock_depth: 50, clock_night: 'off', clock_night_from: '22:00', clock_night_to: '07:00',
+                     clock_over: 'corner', clock_style: 'classic', clock_bg: 'gradient', clock_motion: 'slow', clock_wallpaper: 'aurora', clock_wallpaper_color: 'blue', clock_24: false,
+                       clock_today_music: true, clock_today_weather: true, clock_colors: {}, clock_speed: 35, clock_depth: 50, clock_night: 'off', clock_night_from: '22:00', clock_night_to: '07:00',
                      photo_layout: 'single', mosaic_count: 3, mosaic_gap: 'thin', mosaic_change: 'one', mosaic_line: 0, mosaic_color: 'black', mosaic_random: false, mosaic_every: 10,
                      clock_photo_soft: false, clock_photo_dim: 35, clock_text_shadow: 40, clock_text_outline: 0,
                      energy_slide: false, extra_music: false, extra_forecast: false, extra_every: 5, extra_for: 30, energy_hide: [],
@@ -169,7 +173,8 @@
                      // the Screensaver editor's layout (settings.py, 2026-11-01)
                      layout: null, designs: [], active_design: '', clock_options: {},
                      // the Holiday slide (settings.py, phase 20)
-                     timer_slide: true, timer_often: 'more', holiday_slide: false, holiday_pick: 'next', holiday_one: 'christmas', holiday_days: 60, holiday_off: [], holiday_own: [], holiday_fx: 'full', holiday_outdoors: [], holiday_hide: [] } },
+                     timer_slide: true, timer_often: 'more', holiday_slide: false, holiday_pick: 'next', holiday_one: 'christmas', holiday_days: 60, holiday_off: [], holiday_own: [],
+                       holiday_fx: 'full', holiday_outdoors: [], holiday_hide: [] } },
     // The Calendar page and the screensaver's calendar pane (All Screens ->
     // Calendar): the calendars shown, in order (empty: every calendar), and
     // each one's colour (a page pill colour)
