@@ -607,7 +607,8 @@ def test_copy_settings_covers_every_screen_setting_and_round_trips():
     from custom_components.hk_frontend import settings as S
     from custom_components.hk_frontend.settings_api import apply_board
     from conftest import COMPONENT          # the component, in either layout (repo or /config)
-    src = open(os.path.join(COMPONENT, "frontend", "panels", "hk-settings-model.js")).read()
+    from test_flat import _gen_theme       # (hk-settings-model.js is cut into parts: read whole, tools/split_js.py)
+    src = _gen_theme().shell_text(os.path.join(COMPONENT, "frontend", "panels", "hk-settings-model.js"))
     groups = src[src.index("var COPY_GROUPS = ["):src.index("function copyDefaults")]
     keys = set(re.findall(r"'([a-z_]+)'", groups.split("];")[0])) | set(
         re.findall(r"'([a-z_]+)'", groups[groups.index("COPY_NEVER"):]))

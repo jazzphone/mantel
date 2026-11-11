@@ -34,16 +34,32 @@ THEME_KEYS = ["glass-bg", "glass-border", "glass-shadow-sm", "glass-shadow-lg", 
               "warn", "fail", "well-bg"]
 
 
-def _block(src, start, end):
-    a = src.index(start)
-    return src[a:src.index(end, a)]
+def shell_text(path):
+    """A web file's text, and, when it is a shell cut into parts (tools/split_js.py: `var PARTS = [...]`, fetched from
+    '/hk/<folder>/' + file), every part's after it: what the file was as one."""
+    src = open(path, encoding="utf-8").read()
+    listed = re.search(r"var PARTS = \[([^\]]*)\]", src)
+    folder = re.search(r"'/hk/([\w-]+)/' \+ file", src)
+    if not (listed and folder):
+        return src
+    front = os.path.dirname(os.path.dirname(os.path.abspath(path)))          # frontend/ (the shell is in cards/ or panels/)
+    parts = re.findall(r"'([^']+\.js)'", listed.group(1))
+    return src + "\n" + "\n".join(open(os.path.join(front, folder.group(1), f), encoding="utf-8").read() for f in parts)
+
+
+def _block(src, name):
+    """`var NAME = {` to its closing `};` at the same indent (a shell's or a part's)."""
+    m = re.search(r"^( *)var %s = \{" % re.escape(name), src, re.M)
+    if not m:
+        raise ValueError("no `var %s = {` in hk-base.js or its parts" % name)
+    return src[m.start():src.index("\n" + m.group(1) + "};", m.start())]
 
 
 def read_table(path=BASE):
-    """(T, LIGHT) as dicts, parsed from hk-base.js."""
-    src = open(path, encoding="utf-8").read()
-    t = dict(re.findall(r"^\s*'([a-z0-9-]+)': '([^']*)'", _block(src, "  var T = {", "\n  };"), re.M))
-    light = dict(re.findall(r"^\s*'--hk-([a-z0-9-]+)': '([^']*)'", _block(src, "  var LIGHT = {", "\n  };"), re.M))
+    """(T, LIGHT) as dicts, parsed from hk-base.js (and its parts: tools/split_js.py cut it)."""
+    src = shell_text(path)
+    t = dict(re.findall(r"^\s*'([a-z0-9-]+)': '([^']*)'", _block(src, "T"), re.M))
+    light = dict(re.findall(r"^\s*'--hk-([a-z0-9-]+)': '([^']*)'", _block(src, "LIGHT"), re.M))
     return t, light
 
 

@@ -62,8 +62,8 @@ def test_flat_backgrounds_default_to_color_and_validate():
 def test_flat_palette_matches_the_dashboard():
     import json, re, subprocess
     from pathlib import Path
-    src = (Path(S.__file__).parent / 'frontend/cards/hk-base.js').read_text()
-    body = re.search(r"var FLAT_COLORS = (\[.*?\n  \]);", src, re.S)
+    src = _gen_theme().shell_text(str(Path(S.__file__).parent / 'frontend/cards/hk-base.js'))    # (and its parts)
+    body = re.search(r"var FLAT_COLORS = (\[.*?\n *\]);", src, re.S)
     assert body
     for cmd in (["node", "-e", "console.log(JSON.stringify(" + body[1] + "))"],
                 ["/System/Library/Frameworks/JavaScriptCore.framework/Versions/A/Helpers/jsc", "-e", "print(JSON.stringify(" + body[1] + "))"]):
@@ -228,3 +228,20 @@ def test_flat_colors_pages_follow_or_keep_their_own():
     assert not err and b['flat_colors'] == {}
     same, err = A.apply_board({}, {'flat_page_colors.climate': {'pages': 'own'}})
     assert err
+
+
+def _gen_theme():
+    """tools/gen_theme.py (its shell_text reads a file cut into parts as one), in either layout."""
+    import importlib.util
+    import os
+    from conftest import COMPONENT
+    path = os.path.join(COMPONENT, "tools", "gen_theme.py")
+    if not os.path.isfile(path):
+        path = os.path.join(os.path.dirname(COMPONENT), "tools", "gen_theme.py")
+    if not os.path.isfile(path):
+        path = os.path.join(os.path.dirname(os.path.dirname(COMPONENT)), "tools", "gen_theme.py")
+    spec = importlib.util.spec_from_file_location("gen_theme_for_flat", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
