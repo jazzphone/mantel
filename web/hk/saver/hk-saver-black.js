@@ -21,7 +21,7 @@
         slidesAgain = K.slidesAgain, ST = K.ST, syncPreviewSlide = K.syncPreviewSlide, tabletNow = K.tabletNow,
         teardown = K.teardown, TM = K.TM, tmWatch = K.tmWatch, user = K.user, withPane = K.withPane,
         writeSwitch = K.writeSwitch, WX = K.WX;
-    var dropDeck = K.dropDeck;   // (phase 25: the owners' writers)
+    var dropDeck = K.dropDeck, forecastSig = K.forecastSig, forecastSky = K.forecastSky;   // (phase 25: the owners' writers)
 
     var noteDrawn, schedule, start, stop, tellOthers;
     // (of later parts, used when called: bound once every part has run, runParts)
@@ -224,8 +224,8 @@
         var wid = HS && HS.weatherId ? HS.weatherId(h.states) : null, w = wid && h.states[wid];
         var sig = (sun ? sun.last_updated : '') + '|' + (w ? w.last_updated : '') + '|' + Math.floor(Date.now() / 600000);
         if (forceNow || sig !== ST.fSig) {
-          ST.fSig = sig;
-          try { ST.fSky = ST.fscene.update(h) || null; } catch (e) { console.warn('[hk-saver] forecast sky', e); }
+          forecastSig(sig);
+          try { forecastSky(ST.fscene.update(h) || null); } catch (e) { console.warn('[hk-saver] forecast sky', e); }
           // Big Weather's planted time is lit by the same reading (and a layout's)
           if (ST.bigCtl && ST.bigCtl.light) ST.bigCtl.light(ST.fSky);
           if (ST.ly) layoutSoon();

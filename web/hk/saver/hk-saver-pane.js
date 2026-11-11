@@ -16,6 +16,7 @@
         musicTick = K.musicTick, musicView = K.musicView, PANE_TOP = K.PANE_TOP, PANE_W = K.PANE_W,
         panelTouched = K.panelTouched, paneOf = K.paneOf, renderMusic = K.renderMusic, setAttr = K.setAttr, ST = K.ST,
         volEnd = K.volEnd, volFrom = K.volFrom, weatherEntity = K.weatherEntity;
+    var bandIs = K.bandIs;   // (phase 25: the owners' writers)
 
     var bootCover, clock, clock24, goDark, hkTapWake, lightSoon, lit, litNow, panelDone;
     // (of later parts, used when called: bound once every part has run, runParts)
@@ -292,7 +293,7 @@
           el.style.opacity = '0';
           box.appendChild(el);
           ST.cards.push(el);
-          ST.fband = el;
+          bandIs(el);
           var placed = function () {
             if (ST.fband !== el || !el.isConnected) return;
             centerBand(el);

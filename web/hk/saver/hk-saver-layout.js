@@ -17,7 +17,7 @@
         nightCheck = K.nightCheck, photoOpts = K.photoOpts, pieceFile = K.pieceFile, piecesStarted = K.piecesStarted,
         reducedMotion = K.reducedMotion, ST = K.ST, TB_COVER = K.TB_COVER, tbShare = K.tbShare, timeNow = K.timeNow,
         timerHold = K.timerHold, updateBand = K.updateBand, weatherEntity = K.weatherEntity;
-    var slideShown = K.slideShown;   // (phase 25: the owners' writers)
+    var nightWatch = K.nightWatch, slideShown = K.slideShown;   // (phase 25: the owners' writers)
 
     var black, clock, exArm, exHide, forecastTick, hideMusicSlide, musicNow, musicOf, setAttr, showNext;
     // (of later parts, used when called: bound once every part has run, runParts)
@@ -78,7 +78,7 @@
         setTimeout(layoutSoon, 1200);
         // NIGHT MODE with a layout, whatever is behind it
         nightCheck();
-        if (!ST.nightT) ST.nightT = setInterval(nightCheck, 30000);
+        nightWatch();
         if (typeof ResizeObserver === 'function') { ST.ly.ro = new ResizeObserver(layoutSoon); ST.ly.ro.observe(ST.host); }
       });
     }

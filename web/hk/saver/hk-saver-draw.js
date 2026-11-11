@@ -24,6 +24,11 @@
     });
 
     // WHAT IT OWNS ON ST (phase 25, A: others read these; only this file writes them; tools/state_owners.py)
+    ST.fband = null;
+    ST.fSig = '';
+    ST.fSky = null;
+    ST.fcShowing = false;
+    ST.nightT = null;
     ST.mode = 'photos';
     ST.fscene = null;
     ST.bigCtl = null;
@@ -39,6 +44,14 @@
     /** @type {any} */ var ckLoad = null;
     /** @type {any} */ var ckRun = 0;
     /** @type {any} */ var ckArgs = null;
+
+    // WHAT THE OTHERS ASK OF IT (phase 25, A): the only way another file changes the forecast's or night's state,
+    // each the assignment it was, by name
+    function forecastSig(sig) { ST.fSig = sig; }            // the reading the forecast's sky last drew
+    function forecastSky(sky) { ST.fSky = sky; }            // that sky's reading (Big Weather's planted time)
+    function bandIs(el) { ST.fband = el; }                  // the forecast's band, made by the pane's cards
+    function forecastUp() { ST.fcShowing = true; }          // the forecast in the corner of the extras
+    function nightWatch() { if (!ST.nightT) ST.nightT = setInterval(nightCheck, 30000); }
 
     // ------------------------------------------------------------ the forecast
     // The forecast's layer: built the first time it is needed, then kept for
@@ -337,7 +350,7 @@
         // TODAY carries its own weather and music: the corners' step aside
         if (ST.host) setAttr(ST.host, 'ckown', ST.cfg.clock_style === 'today');
         nightCheck();
-        if (!ST.nightT) ST.nightT = setInterval(nightCheck, 30000);
+        nightWatch();
         // Show: Clock on a background of its own: there is something to show
         if (ST.mode === 'clock' && ST.entrance) ST.entrance();
       });
@@ -725,6 +738,8 @@
     var EX_PREVIEW_MS = 8000;              // HK Settings' preview: the first one soon
 
     // what the shell and the later parts use of this one
+    K.bandIs = bandIs; K.forecastSig = forecastSig; K.forecastSky = forecastSky; K.forecastUp = forecastUp;
+    K.nightWatch = nightWatch;
     K.ANALOG = ANALOG; K.bigWanted = bigWanted; K.bigWeather = bigWeather; K.buildForecast = buildForecast;
     K.ckFx = ckFx; K.ckPhotos = ckPhotos; K.clockModule = clockModule; K.cornerClient = cornerClient;
     K.dayFit = dayFit; K.deg = deg; K.energyPage = energyPage; K.enterClock = enterClock;

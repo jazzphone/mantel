@@ -162,10 +162,7 @@
   ST.coverT = null;
   // THE FORECAST (1.3): the live sky over the season's land (hkSky.scene),
   // with the forecast band -- when a screen asks for it, or has no photos
-  ST.fband = null;
-  ST.fSig = '';
   // the forecast sky's last reading (hk-sky.js read()), for Big Weather's planted time: null without a landscape
-  ST.fSky = null;
   // THE CALENDAR PANE (option `calendar`): its element, its scroller, the
   // card in it, its width now, and the timer that scrolls it back to today
   ST.paneEl = null;
@@ -176,7 +173,6 @@
   // sections in it (cfg.pane_list; hk-sidepane.js), with its tick
   // Photos & Forecast: the forecast as one slide every `forecast_every`
   // photos, over the photos, its sky still whenever it is not on screen
-  ST.fcShowing = false;
   // HK Settings' preview (hkSaver.preview): shown in the settings page's frame
   // whoever is signed in, deaf to the real tablet's switch, never writing it,
   // and rebuilt whenever the options change
@@ -727,7 +723,6 @@
   // corners a dim red on black. Always, or At Night (from .. to, across
   // midnight). Nothing behind the clock is drawn meanwhile (the photos, the
   // forecast and its background hidden; ckCtl.night holds the painter).
-  ST.nightT = null;
   ST.nightPreview = null;           // the editor's Day / Night (previewNight): null follows the clock
   // ------------------------------------------------------------ home energy
   // HOME ENERGY (2026-10-14, hk-saver-energy.js, loaded only now): today so

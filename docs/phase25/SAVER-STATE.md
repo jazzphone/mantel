@@ -7,9 +7,9 @@ a **mutate** writes into what it holds (`ST.x.y = v`), which does not make a sec
 
 ## Now
 
-- **92 names**; **40 written by more than one file**, 23 by three or more.
-- **40 written by a file that is not their owner** (the work left); owners moved: `hk-saver-photos`.
-- Names each file touches: `hk-saver` 82, `hk-saver-helpers` 0, `hk-saver-css` 0, `hk-saver-photos` 29, `hk-saver-draw` 29, `hk-saver-layout` 32, `hk-saver-screens` 23, `hk-saver-music` 0, `hk-saver-pane` 26, `hk-saver-black` 45, `hk-saver-start` 46.
+- **92 names**; **35 written by more than one file**, 18 by three or more.
+- **35 written by a file that is not their owner** (the work left); owners moved: `hk-saver-draw`, `hk-saver-photos`.
+- Names each file touches: `hk-saver` 78, `hk-saver-helpers` 0, `hk-saver-css` 0, `hk-saver-photos` 29, `hk-saver-draw` 29, `hk-saver-layout` 31, `hk-saver-screens` 23, `hk-saver-music` 0, `hk-saver-pane` 26, `hk-saver-black` 45, `hk-saver-start` 46.
 
 ## The owners
 
@@ -55,12 +55,12 @@ Files by their part name (`hk-saver` is the shell). Writers not the owner are in
 | `exT` | hk-saver-screens | **hk-saver**, **hk-saver-layout**, hk-saver-screens, **hk-saver-start** | hk-saver, hk-saver-layout, hk-saver-screens, hk-saver-start | - |
 | `fadeDone` | hk-saver-start | hk-saver-start | hk-saver, hk-saver-photos, hk-saver-draw, hk-saver-start | - |
 | `failed` | hk-saver-start | hk-saver-start | hk-saver | - |
-| `fband` | hk-saver-draw | **hk-saver**, hk-saver-draw, **hk-saver-pane** | hk-saver-draw, hk-saver-pane, hk-saver-black, hk-saver-start | - |
-| `fcShowing` | hk-saver-draw | **hk-saver**, hk-saver-draw, **hk-saver-screens** | hk-saver, hk-saver-photos, hk-saver-draw, hk-saver-layout, hk-saver-screens, hk-saver-pane, hk-saver-start | - |
+| `fband` | hk-saver-draw | hk-saver-draw | hk-saver-draw, hk-saver-pane, hk-saver-black, hk-saver-start | - |
+| `fcShowing` | hk-saver-draw | hk-saver-draw | hk-saver, hk-saver-photos, hk-saver-draw, hk-saver-layout, hk-saver-screens, hk-saver-pane, hk-saver-start | - |
 | `force` | hk-saver | hk-saver, **hk-saver-start** | hk-saver, hk-saver-screens, hk-saver-black | - |
 | `fscene` | hk-saver-draw | hk-saver-draw | hk-saver, hk-saver-draw, hk-saver-layout, hk-saver-black | - |
-| `fSig` | hk-saver-draw | **hk-saver**, hk-saver-draw, **hk-saver-black** | hk-saver-black | - |
-| `fSky` | hk-saver-draw | **hk-saver**, hk-saver-draw, **hk-saver-black** | hk-saver-draw, hk-saver-layout, hk-saver-black | - |
+| `fSig` | hk-saver-draw | hk-saver-draw | hk-saver-black | - |
+| `fSky` | hk-saver-draw | hk-saver-draw | hk-saver-draw, hk-saver-layout, hk-saver-black | - |
 | `hkFirst` | hk-saver-black | **hk-saver**, hk-saver-black | hk-saver-black | - |
 | `hkOn` | hk-saver-black | hk-saver-black | hk-saver-pane, hk-saver-black | - |
 | `host` | hk-saver | hk-saver | hk-saver, hk-saver-photos, hk-saver-draw, hk-saver-layout, hk-saver-screens, hk-saver-pane, hk-saver-black, hk-saver-start | - |
@@ -86,7 +86,7 @@ Files by their part name (`hk-saver` is the shell). Writers not the owner are in
 | `mx` | hk-saver | hk-saver, **hk-saver-start** | hk-saver | - |
 | `my` | hk-saver | hk-saver, **hk-saver-start** | hk-saver | - |
 | `nightPreview` | hk-saver | hk-saver | hk-saver, hk-saver-draw | - |
-| `nightT` | hk-saver-draw | **hk-saver**, hk-saver-draw, **hk-saver-layout** | hk-saver-draw, hk-saver-layout | - |
+| `nightT` | hk-saver-draw | hk-saver-draw | hk-saver-draw | - |
 | `on` | hk-saver-start | **hk-saver**, **hk-saver-photos**, **hk-saver-black**, hk-saver-start | hk-saver, hk-saver-photos, hk-saver-draw, hk-saver-layout, hk-saver-screens, hk-saver-pane, hk-saver-black, hk-saver-start | - |
 | `PageCard` | hk-saver-pane | hk-saver-pane | hk-saver | - |
 | `paneCard` | hk-saver-pane | **hk-saver**, hk-saver-pane | hk-saver, hk-saver-pane | hk-saver-pane |
@@ -127,95 +127,95 @@ Files by their part name (`hk-saver` is the shell). Writers not the owner are in
 
 Each write as `file:line (function)`; `(top)` runs as the file runs.
 
-- `asked`: hk-saver:203 (top); hk-saver:1301 (showMusic); hk-saver:1302 (showMusic); hk-saver-start:145 (stop)
-- `bigCtl`: hk-saver-draw:29 (top); hk-saver-draw:108 (bigWeather); hk-saver-draw:114 (bigWeather); hk-saver-draw:516 (leaveForecast)
-- `busy`: hk-saver:663 (top); hk-saver-black:158 (unstart); hk-saver-start:69 (start); hk-saver-start:155 (stop); hk-saver-start:379 (advance); hk-saver-start:446 (advance)
-- `cards`: hk-saver:201 (top); hk-saver:492 (releaseVisuals); hk-saver:507 (buildCards); hk-saver-draw:521 (leaveForecast); hk-saver-pane:120 (dropCal)
+- `asked`: hk-saver:199 (top); hk-saver:1296 (showMusic); hk-saver:1297 (showMusic); hk-saver-start:145 (stop)
+- `bigCtl`: hk-saver-draw:34 (top); hk-saver-draw:121 (bigWeather); hk-saver-draw:127 (bigWeather); hk-saver-draw:529 (leaveForecast)
+- `busy`: hk-saver:659 (top); hk-saver-black:158 (unstart); hk-saver-start:69 (start); hk-saver-start:155 (stop); hk-saver-start:379 (advance); hk-saver-start:446 (advance)
+- `cards`: hk-saver:197 (top); hk-saver:488 (releaseVisuals); hk-saver:503 (buildCards); hk-saver-draw:534 (leaveForecast); hk-saver-pane:121 (dropCal)
 - `cfg`: hk-saver-black:33 (top); hk-saver-black:296 (refresh)
-- `ckCtl`: hk-saver-draw:31 (top); hk-saver-draw:322 (mountClock); hk-saver-draw:361 (remountClock); hk-saver-draw:466 (leaveClock)
+- `ckCtl`: hk-saver-draw:36 (top); hk-saver-draw:335 (mountClock); hk-saver-draw:374 (remountClock); hk-saver-draw:479 (leaveClock)
 - `coveredPage`: hk-saver-start:38 (top); hk-saver-start:262 (coverDashboard); hk-saver-start:268 (coverDashboard)
 - `coverT`: hk-saver:162 (top); hk-saver-black:159 (unstart); hk-saver-black:174 (goDark); hk-saver-start:89 (start); hk-saver-start:116 (ST.entrance); hk-saver-start:116 (ST.entrance); hk-saver-start:253 (coverDashboard)
-- `curtain`: hk-saver-pane:29 (top); hk-saver-pane:386 (drawCurtain)
-- `curtainRun`: hk-saver:804 (top); hk-saver-pane:379 (curtainUp); hk-saver-pane:403 (curtainDown); hk-saver-black:151 (bootCover)
-- `DARK_UNDER_BLACK`: hk-saver:844 (top); hk-saver:1345 (darkUnderBlack)
-- `dashAt`: hk-saver:765 (top); hk-saver:1041 (active); hk-saver-pane:60 (dashWatch)
+- `curtain`: hk-saver-pane:30 (top); hk-saver-pane:387 (drawCurtain)
+- `curtainRun`: hk-saver:799 (top); hk-saver-pane:380 (curtainUp); hk-saver-pane:404 (curtainDown); hk-saver-black:151 (bootCover)
+- `DARK_UNDER_BLACK`: hk-saver:839 (top); hk-saver:1340 (darkUnderBlack)
+- `dashAt`: hk-saver:760 (top); hk-saver:1036 (active); hk-saver-pane:61 (dashWatch)
 - `deck`: hk-saver-photos:30 (top); hk-saver-photos:53 (deckFor); hk-saver-photos:54 (dropDeck)
-- `designController`: hk-saver:987 (top)
+- `designController`: hk-saver:982 (top)
 - `displayLayer`: hk-saver-photos:32 (top); hk-saver-photos:55 (showsLayer)
-- `downOpts`: hk-saver:788 (top); hk-saver-pane:370 (blackChanged); hk-saver-pane:371 (blackChanged); hk-saver-black:105 (hkLeave)
+- `downOpts`: hk-saver:783 (top); hk-saver-pane:371 (blackChanged); hk-saver-pane:372 (blackChanged); hk-saver-black:105 (hkLeave)
 - `enCtl`: hk-saver-layout:32 (top); hk-saver-layout:591 (energyPrep); hk-saver-layout:699 (leaveEnergy)
 - `enShowing`: hk-saver-layout:33 (top); hk-saver-layout:668 (showEnergySlide); hk-saver-layout:684 (hideEnergySlide); hk-saver-layout:698 (leaveEnergy)
 - `entrance`: hk-saver:160 (top); hk-saver-black:158 (unstart); hk-saver-black:167 (goDark); hk-saver-start:96 (start); hk-saver-start:106 (ST.entrance); hk-saver-start:148 (stop)
-- `exKind`: hk-saver:751 (top); hk-saver:1233 (previewSlide); hk-saver-photos:289 (syncPreviewSlide); hk-saver-layout:600 (show); hk-saver-layout:740 (show); hk-saver-layout:807 (hold); hk-saver-screens:68 (exShow); hk-saver-screens:73 (exHide); hk-saver-screens:109 (leaveExtras); hk-saver-screens:465 (showMusicSlide); hk-saver-screens:466 (showMusicSlide)
+- `exKind`: hk-saver:746 (top); hk-saver:1228 (previewSlide); hk-saver-photos:289 (syncPreviewSlide); hk-saver-layout:600 (show); hk-saver-layout:740 (show); hk-saver-layout:807 (hold); hk-saver-screens:68 (exShow); hk-saver-screens:73 (exHide); hk-saver-screens:109 (leaveExtras); hk-saver-screens:465 (showMusicSlide); hk-saver-screens:466 (showMusicSlide)
 - `exLast`: hk-saver-screens:38 (top); hk-saver-screens:68 (exShow); hk-saver-screens:109 (leaveExtras)
-- `exOutT`: hk-saver:752 (top); hk-saver-draw:507 (hideForecastSlide); hk-saver-draw:507 (hideForecastSlide); hk-saver-screens:91 (showForecastExtra); hk-saver-screens:108 (leaveExtras)
-- `exT`: hk-saver:750 (top); hk-saver:1234 (previewSlide); hk-saver-layout:800 (clear); hk-saver-screens:46 (exArm); hk-saver-screens:50 (exArm); hk-saver-screens:50 (exArm); hk-saver-screens:60 (exNext); hk-saver-screens:60 (exNext); hk-saver-screens:107 (leaveExtras); hk-saver-start:164 (stop)
+- `exOutT`: hk-saver:747 (top); hk-saver-draw:520 (hideForecastSlide); hk-saver-draw:520 (hideForecastSlide); hk-saver-screens:91 (showForecastExtra); hk-saver-screens:108 (leaveExtras)
+- `exT`: hk-saver:745 (top); hk-saver:1229 (previewSlide); hk-saver-layout:800 (clear); hk-saver-screens:46 (exArm); hk-saver-screens:50 (exArm); hk-saver-screens:50 (exArm); hk-saver-screens:60 (exNext); hk-saver-screens:60 (exNext); hk-saver-screens:107 (leaveExtras); hk-saver-start:164 (stop)
 - `fadeDone`: hk-saver-start:37 (top); hk-saver-start:502 (reveal); hk-saver-start:520 (ST.fadeDone)
 - `failed`: hk-saver-start:39 (top); hk-saver-start:405 (attempt); hk-saver-start:431 (step)
-- `fband`: hk-saver:165 (top); hk-saver-draw:522 (leaveForecast); hk-saver-pane:295 (make)
-- `fcShowing`: hk-saver:179 (top); hk-saver-draw:475 (enterForecast); hk-saver-draw:493 (showForecastSlide); hk-saver-draw:502 (hideForecastSlide); hk-saver-draw:522 (leaveForecast); hk-saver-screens:93 (showForecastExtra)
-- `force`: hk-saver:202 (top); hk-saver:1284 (preview); hk-saver:1301 (showMusic); hk-saver:1302 (showMusic); hk-saver:1318 (force); hk-saver-start:145 (stop)
-- `fscene`: hk-saver-draw:28 (top); hk-saver-draw:56 (buildForecast); hk-saver-draw:66 (buildForecast); hk-saver-draw:66 (buildForecast); hk-saver-draw:519 (leaveForecast)
-- `fSig`: hk-saver:166 (top); hk-saver-draw:522 (leaveForecast); hk-saver-black:227 (forecastTick)
-- `fSky`: hk-saver:168 (top); hk-saver-draw:57 (buildForecast); hk-saver-draw:520 (leaveForecast); hk-saver-black:228 (forecastTick)
-- `hkFirst`: hk-saver:819 (top); hk-saver:1347 (hkFresh); hk-saver-black:114 (hkSync)
+- `fband`: hk-saver-draw:27 (top); hk-saver-draw:52 (bandIs); hk-saver-draw:535 (leaveForecast)
+- `fcShowing`: hk-saver-draw:30 (top); hk-saver-draw:53 (forecastUp); hk-saver-draw:488 (enterForecast); hk-saver-draw:506 (showForecastSlide); hk-saver-draw:515 (hideForecastSlide); hk-saver-draw:535 (leaveForecast)
+- `force`: hk-saver:198 (top); hk-saver:1279 (preview); hk-saver:1296 (showMusic); hk-saver:1297 (showMusic); hk-saver:1313 (force); hk-saver-start:145 (stop)
+- `fscene`: hk-saver-draw:33 (top); hk-saver-draw:69 (buildForecast); hk-saver-draw:79 (buildForecast); hk-saver-draw:79 (buildForecast); hk-saver-draw:532 (leaveForecast)
+- `fSig`: hk-saver-draw:28 (top); hk-saver-draw:50 (forecastSig); hk-saver-draw:535 (leaveForecast)
+- `fSky`: hk-saver-draw:29 (top); hk-saver-draw:51 (forecastSky); hk-saver-draw:70 (buildForecast); hk-saver-draw:533 (leaveForecast)
+- `hkFirst`: hk-saver:814 (top); hk-saver:1342 (hkFresh); hk-saver-black:114 (hkSync)
 - `hkOn`: hk-saver-black:34 (top); hk-saver-black:127 (hkSync); hk-saver-black:136 (hkTapWake)
-- `host`: hk-saver:148 (top); hk-saver:421 (build); hk-saver:471 (teardown)
-- `idleT`: hk-saver:151 (top); hk-saver:275 (armIdle); hk-saver:278 (armIdle); hk-saver:279 (armIdle); hk-saver-black:318 (refresh); hk-saver-black:319 (refresh); hk-saver-start:67 (start)
-- `ksOff`: hk-saver:787 (top); hk-saver:1186 (top); hk-saver:1187 (top)
-- `ksSaver`: hk-saver:786 (top); hk-saver:1184 (top); hk-saver:1185 (top)
-- `landIm`: hk-saver:948 (top); hk-saver-layout:625 (landImg)
-- `lastBeat`: hk-saver:949 (top); hk-saver-black:337 (beat)
-- `lastInput`: hk-saver:150 (top); hk-saver:284 (armIdle); hk-saver:405 (onInput); hk-saver:1206 (top); hk-saver-black:139 (hkTapWake); hk-saver-black:192 (litNow); hk-saver-start:225 (stop)
+- `host`: hk-saver:148 (top); hk-saver:417 (build); hk-saver:467 (teardown)
+- `idleT`: hk-saver:151 (top); hk-saver:271 (armIdle); hk-saver:274 (armIdle); hk-saver:275 (armIdle); hk-saver-black:318 (refresh); hk-saver-black:319 (refresh); hk-saver-start:67 (start)
+- `ksOff`: hk-saver:782 (top); hk-saver:1181 (top); hk-saver:1182 (top)
+- `ksSaver`: hk-saver:781 (top); hk-saver:1179 (top); hk-saver:1180 (top)
+- `landIm`: hk-saver:943 (top); hk-saver-layout:625 (landImg)
+- `lastBeat`: hk-saver:944 (top); hk-saver-black:337 (beat)
+- `lastInput`: hk-saver:150 (top); hk-saver:280 (armIdle); hk-saver:401 (onInput); hk-saver:1201 (top); hk-saver-black:139 (hkTapWake); hk-saver-black:192 (litNow); hk-saver-start:225 (stop)
 - `lastPh`: hk-saver-photos:36 (top); hk-saver-photos:52 (keepPh); hk-saver-photos:153 (paintMosaic)
 - `lastPhoto`: hk-saver-photos:35 (top); hk-saver-photos:46 (lastPhotoIs); hk-saver-photos:159 (paintMosaic)
-- `lastRaw`: hk-saver:89 (autoLayout); hk-saver:848 (top); hk-saver-black:294 (refresh)
+- `lastRaw`: hk-saver:89 (autoLayout); hk-saver:843 (top); hk-saver-black:294 (refresh)
 - `lastSlide`: hk-saver-photos:39 (top); hk-saver-photos:47 (slideShown); hk-saver-photos:48 (slideGone)
 - `layer`: hk-saver-photos:31 (top); hk-saver-photos:50 (flipLayer); hk-saver-photos:155 (paintMosaic)
-- `listKey`: hk-saver:157 (top); hk-saver:1321 (photosChanged); hk-saver-start:348 (listPhotos)
+- `listKey`: hk-saver:157 (top); hk-saver:1316 (photosChanged); hk-saver-start:348 (listPhotos)
 - `litAt`: hk-saver-black:35 (top); hk-saver-black:191 (litNow)
 - `ly`: hk-saver-layout:31 (top); hk-saver-layout:63 (enterLayout); hk-saver-layout:94 (leaveLayout)
 - `lyPhoto`: hk-saver-photos:41 (top); hk-saver-photos:207 (photoFaces)
 - `lyPhotoLum`: hk-saver-photos:40 (top); hk-saver-photos:209 (photoFaces); hk-saver-photos:211 (photoFaces); hk-saver-photos:212 (photoFaces)
-- `mode`: hk-saver-draw:27 (top); hk-saver-draw:283 (enterClock); hk-saver-draw:297 (enterClock); hk-saver-draw:321 (mountClock); hk-saver-draw:469 (leaveClock); hk-saver-draw:474 (enterForecast); hk-saver-draw:522 (leaveForecast)
+- `mode`: hk-saver-draw:32 (top); hk-saver-draw:296 (enterClock); hk-saver-draw:310 (enterClock); hk-saver-draw:334 (mountClock); hk-saver-draw:482 (leaveClock); hk-saver-draw:487 (enterForecast); hk-saver-draw:535 (leaveForecast)
 - `moState`: hk-saver-photos:37 (top); hk-saver-photos:51 (mosaicGone); hk-saver-photos:157 (paintMosaic)
-- `muShowing`: hk-saver:754 (top); hk-saver-draw:536 (resetForecast); hk-saver-screens:467 (showMusicSlide); hk-saver-screens:489 (hideMusicSlide); hk-saver-screens:558 (leaveMusic)
-- `mx`: hk-saver:290 (top); hk-saver:328 (onInput); hk-saver:357 (onInput); hk-saver-start:68 (start)
-- `my`: hk-saver:291 (top); hk-saver:328 (onInput); hk-saver:357 (onInput); hk-saver-start:68 (start)
-- `nightPreview`: hk-saver:731 (top); hk-saver:1251 (previewNight); hk-saver:1283 (preview)
-- `nightT`: hk-saver:730 (top); hk-saver-draw:340 (mountClock); hk-saver-draw:461 (leaveClock); hk-saver-layout:81 (enterLayout)
+- `muShowing`: hk-saver:749 (top); hk-saver-draw:549 (resetForecast); hk-saver-screens:467 (showMusicSlide); hk-saver-screens:489 (hideMusicSlide); hk-saver-screens:558 (leaveMusic)
+- `mx`: hk-saver:286 (top); hk-saver:324 (onInput); hk-saver:353 (onInput); hk-saver-start:68 (start)
+- `my`: hk-saver:287 (top); hk-saver:324 (onInput); hk-saver:353 (onInput); hk-saver-start:68 (start)
+- `nightPreview`: hk-saver:726 (top); hk-saver:1246 (previewNight); hk-saver:1278 (preview)
+- `nightT`: hk-saver-draw:31 (top); hk-saver-draw:54 (nightWatch); hk-saver-draw:474 (leaveClock)
 - `on`: hk-saver:147 (top); hk-saver-photos:294 (restartPreview); hk-saver-black:158 (unstart); hk-saver-start:68 (start); hk-saver-start:147 (stop)
-- `PageCard`: hk-saver-pane:30 (top); hk-saver-pane:671 (pageCard)
-- `paneCard`: hk-saver:173 (top); hk-saver:446 (build); hk-saver:500 (releaseVisuals); hk-saver-pane:120 (dropCal); hk-saver-pane:168 (make)
-- `paneEl`: hk-saver:171 (top); hk-saver:446 (build); hk-saver:500 (releaseVisuals)
-- `paneSc`: hk-saver:172 (top); hk-saver:446 (build); hk-saver:500 (releaseVisuals)
-- `paneT`: hk-saver:501 (releaseVisuals); hk-saver:776 (top); hk-saver-pane:88 (setPane); hk-saver-pane:92 (setPane)
-- `paneUp`: hk-saver:500 (releaseVisuals); hk-saver:778 (top); hk-saver-pane:82 (setPane)
-- `paneW`: hk-saver-pane:28 (top); hk-saver-pane:91 (setPane); hk-saver-pane:205 (layoutPane)
+- `PageCard`: hk-saver-pane:31 (top); hk-saver-pane:672 (pageCard)
+- `paneCard`: hk-saver:170 (top); hk-saver:442 (build); hk-saver:496 (releaseVisuals); hk-saver-pane:121 (dropCal); hk-saver-pane:169 (make)
+- `paneEl`: hk-saver:168 (top); hk-saver:442 (build); hk-saver:496 (releaseVisuals)
+- `paneSc`: hk-saver:169 (top); hk-saver:442 (build); hk-saver:496 (releaseVisuals)
+- `paneT`: hk-saver:497 (releaseVisuals); hk-saver:771 (top); hk-saver-pane:89 (setPane); hk-saver-pane:93 (setPane)
+- `paneUp`: hk-saver:496 (releaseVisuals); hk-saver:773 (top); hk-saver-pane:83 (setPane)
+- `paneW`: hk-saver-pane:29 (top); hk-saver-pane:92 (setPane); hk-saver-pane:206 (layoutPane)
 - `photoRun`: hk-saver:158 (top); hk-saver-black:158 (unstart); hk-saver-start:69 (start); hk-saver-start:155 (stop)
 - `pnl`: hk-saver-screens:39 (top); hk-saver-screens:302 (panelFor); hk-saver-screens:390 (closePanel)
-- `press`: hk-saver:155 (top); hk-saver:471 (teardown); hk-saver-start:68 (start); hk-saver-start:166 (stop)
-- `pressStop`: hk-saver:156 (top); hk-saver:369 (onInput); hk-saver:372 (onInput); hk-saver:376 (onInput); hk-saver:383 (onInput); hk-saver:395 (onInput); hk-saver-screens:232 (openMusic); hk-saver-start:167 (stop)
-- `previewEnergy`: hk-saver:190 (top); hk-saver:1278 (preview)
-- `previewHouse`: hk-saver:188 (top); hk-saver:1275 (preview)
-- `previewOn`: hk-saver:183 (top); hk-saver:1282 (preview)
-- `previewOver`: hk-saver:199 (top); hk-saver:1276 (preview)
-- `previewPane`: hk-saver:193 (top); hk-saver:1241 (previewPane); hk-saver:1283 (preview)
-- `previewPaneNote`: hk-saver:194 (top); hk-saver:1283 (preview); hk-saver-black:274 (refresh)
-- `previewSelected`: hk-saver:192 (top); hk-saver:1226 (previewSlide); hk-saver:1283 (preview)
-- `previewShape`: hk-saver:671 (top); hk-saver:1278 (preview)
-- `previewWeather`: hk-saver:191 (top); hk-saver:1278 (preview)
-- `queued`: hk-saver:664 (top); hk-saver-black:158 (unstart); hk-saver-start:69 (start); hk-saver-start:155 (stop); hk-saver-start:378 (advance); hk-saver-start:448 (advance); hk-saver-start:449 (advance)
-- `resumedAt`: hk-saver:849 (top); hk-saver:1206 (top); hk-saver-black:336 (beat)
-- `root`: hk-saver:149 (top); hk-saver:422 (build); hk-saver:471 (teardown)
-- `scn`: hk-saver-draw:30 (top); hk-saver-draw:178 (slideCorner); hk-saver-draw:262 (leaveCorner)
+- `press`: hk-saver:155 (top); hk-saver:467 (teardown); hk-saver-start:68 (start); hk-saver-start:166 (stop)
+- `pressStop`: hk-saver:156 (top); hk-saver:365 (onInput); hk-saver:368 (onInput); hk-saver:372 (onInput); hk-saver:379 (onInput); hk-saver:391 (onInput); hk-saver-screens:232 (openMusic); hk-saver-start:167 (stop)
+- `previewEnergy`: hk-saver:186 (top); hk-saver:1273 (preview)
+- `previewHouse`: hk-saver:184 (top); hk-saver:1270 (preview)
+- `previewOn`: hk-saver:179 (top); hk-saver:1277 (preview)
+- `previewOver`: hk-saver:195 (top); hk-saver:1271 (preview)
+- `previewPane`: hk-saver:189 (top); hk-saver:1236 (previewPane); hk-saver:1278 (preview)
+- `previewPaneNote`: hk-saver:190 (top); hk-saver:1278 (preview); hk-saver-black:274 (refresh)
+- `previewSelected`: hk-saver:188 (top); hk-saver:1221 (previewSlide); hk-saver:1278 (preview)
+- `previewShape`: hk-saver:667 (top); hk-saver:1273 (preview)
+- `previewWeather`: hk-saver:187 (top); hk-saver:1273 (preview)
+- `queued`: hk-saver:660 (top); hk-saver-black:158 (unstart); hk-saver-start:69 (start); hk-saver-start:155 (stop); hk-saver-start:378 (advance); hk-saver-start:448 (advance); hk-saver-start:449 (advance)
+- `resumedAt`: hk-saver:844 (top); hk-saver:1201 (top); hk-saver-black:336 (beat)
+- `root`: hk-saver:149 (top); hk-saver:418 (build); hk-saver:467 (teardown)
+- `scn`: hk-saver-draw:35 (top); hk-saver-draw:191 (slideCorner); hk-saver-draw:275 (leaveCorner)
 - `shellConf`: hk-saver:136 (top); hk-saver:139 (dashConf); hk-saver:143 (dashConf)
 - `shown`: hk-saver-photos:34 (top); hk-saver-photos:45 (countPhoto); hk-saver-photos:109 (paintMosaic); hk-saver-photos:159 (paintMosaic)
 - `shownAt`: hk-saver-start:40 (top); hk-saver-start:68 (start); hk-saver-start:113 (ST.entrance)
 - `sinceFc`: hk-saver-photos:33 (top); hk-saver-photos:45 (countPhoto); hk-saver-photos:47 (slideShown); hk-saver-photos:49 (sinceSlide); hk-saver-photos:109 (paintMosaic); hk-saver-photos:159 (paintMosaic)
-- `slideHeld`: hk-saver:678 (top); hk-saver-black:195 (litNow); hk-saver-start:457 (schedule); hk-saver-start:458 (schedule); hk-saver-start:462 (schedule)
-- `slideT`: hk-saver:152 (top); hk-saver-photos:295 (restartPreview); hk-saver-draw:476 (enterForecast); hk-saver-black:160 (unstart); hk-saver-start:163 (stop); hk-saver-start:382 (advance); hk-saver-start:455 (schedule); hk-saver-start:459 (schedule); hk-saver-start:460 (schedule)
+- `slideHeld`: hk-saver:674 (top); hk-saver-black:195 (litNow); hk-saver-start:457 (schedule); hk-saver-start:458 (schedule); hk-saver-start:462 (schedule)
+- `slideT`: hk-saver:152 (top); hk-saver-photos:295 (restartPreview); hk-saver-draw:489 (enterForecast); hk-saver-black:160 (unstart); hk-saver-start:163 (stop); hk-saver-start:382 (advance); hk-saver-start:455 (schedule); hk-saver-start:459 (schedule); hk-saver-start:460 (schedule)
 - `startedBy`: hk-saver-start:36 (top); hk-saver-start:68 (start)
 - `tbT`: hk-saver-photos:38 (top); hk-saver-photos:56 (tbCancel); hk-saver-photos:264 (tbArm); hk-saver-photos:265 (tbArm)
-- `touchSent`: hk-saver:246 (top); hk-saver:252 (reportTouch); hk-saver:1349 (touchFresh); hk-saver-black:138 (hkTapWake)
+- `touchSent`: hk-saver:242 (top); hk-saver:248 (reportTouch); hk-saver:1344 (touchFresh); hk-saver-black:138 (hkTapWake)
 - `TW`: hk-saver-layout:34 (top); hk-saver-layout:795 (tmWatch)
