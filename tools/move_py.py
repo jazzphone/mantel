@@ -748,7 +748,8 @@ print(json.dumps(out))
 
 
 def run_imports(tree: Path, mode: str, spec: dict) -> dict:
-    env = dict(os.environ, PYTHONPATH=f"{tree}:{tree}/hosts/server", PYTHONHASHSEED="0")
+    # (no bytecode: the proof's imports leave nothing in the tree, which --check promises -- Linux wrote __pycache__)
+    env = dict(os.environ, PYTHONPATH=f"{tree}:{tree}/hosts/server", PYTHONHASHSEED="0", PYTHONDONTWRITEBYTECODE="1")
     run = subprocess.run([PY, "-c", PROVE_SCRIPT, mode, json.dumps(spec)], capture_output=True, text=True, env=env, cwd=tree, timeout=600)
     if run.returncode or not run.stdout.strip():
         raise Refusal(f"importing in {tree} failed:\n{run.stderr[-1500:]}")
@@ -819,7 +820,11 @@ def prove_compile(plan: Plan, tree: Path) -> list[str]:
             bad.append(f"{rel}: {err}")
     here = [str(tree / r) for r in files if (tree / r).is_file()]
     if here:
-        run = subprocess.run([PY, "-m", "compileall", "-q", *here], capture_output=True, text=True)
+        # (compiled as compileall would, into a throwaway file: nothing is left beside the sources)
+        run = subprocess.run([PY, "-B", "-c", "import os, py_compile, sys, tempfile\nfor f in sys.argv[1:]:\n"
+                              "    fd, c = tempfile.mkstemp(suffix='.pyc'); os.close(fd)\n"
+                              "    try: py_compile.compile(f, cfile=c, doraise=True)\n    finally: os.unlink(c)\n", *here],
+                             capture_output=True, text=True)
         if run.returncode:
             bad.append("compileall: " + (run.stdout + run.stderr)[-800:])
     return bad
