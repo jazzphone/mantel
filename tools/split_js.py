@@ -6,6 +6,7 @@ docs/phase18/CODE-HEALTH.md "Part B: split the four files").
     tools/split_js.py grid-cards --check      # unsplit: the whole proof, nothing written; split: the files still agree with it
     tools/split_js.py --find roomParts        # which part (or shell) holds a member, for a session porting an edit
     tools/split_js.py --all --check           # every manifest, and every ready one (below)
+    tools/split_js.py settings --regroup --write  # a class-method part cut into the parts its manifest now lists
 
 THE METHOD IS THE ONE hk-detail.js'S SPLIT USED (commit 5573f9db): real files in a folder beside the shell, each registering
 one function; the shell fetches them in parallel, runs them in order with a kit K of what they use of it, takes back what it
@@ -140,7 +141,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--write-loaders", action="store_true", help="rewrite every split shell's loader from the template")
     ap.add_argument("--state", metavar="FILE", help="the state rewrite: --vars' top-level vars of FILE as one object's properties")
     ap.add_argument("--vars", help="--state: the variables, comma-separated (or @file with one per line)")
-    ap.add_argument("--write", action="store_true", help="--state: write the rewritten file (else only the proof)")
+    ap.add_argument("--write", action="store_true", help="--state, --regroup: write (else only the proof)")
+    ap.add_argument("--regroup", action="store_true",
+                    help="a class-method split: move methods to the parts the manifest now lists them in (split_js_regroup.py)")
     args = ap.parse_args(argv)
     if args.state:
         vs = Path(args.vars[1:]).read_text().split() if args.vars and args.vars.startswith("@") else (args.vars or "").split(",")
@@ -159,6 +162,25 @@ def main(argv: list[str] | None = None) -> int:
         print_report(rep)
         if args.json:
             args.json.write_text(json.dumps(rep, indent=1) + "\n")
+        return 0
+    if args.regroup:
+        from split_js_regroup import regroup
+        man, p = load_manifest(args.manifest[0])
+        folder = ROOT / man["folder"]
+        kept = {f: f.read_text() for f in folder.glob("*.js")} | {ROOT / man["shell"]: (ROOT / man["shell"]).read_text()}
+        bad = regroup(man, args.write)
+        for b in bad:
+            print("  - " + b)
+        if bad or not args.write:
+            return 1 if bad else 0
+        write_loaders()
+        if do_split(man, p, True):          # the structural check fails: every file back as it was
+            for f in set(folder.glob("*.js")) - set(kept):
+                f.unlink()
+            for f, t in kept.items():
+                f.write_text(t)
+            print(f"{man['name']}: the regrouped split did not check; every file is as it was")
+            return 1
         return 0
     if args.adopt_out:
         man, _ = load_manifest(args.manifest[0])

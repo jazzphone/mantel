@@ -124,7 +124,10 @@ def both(tmp_path_factory):
     # (the shell and its parts as the split left them)
     shell = _at(SPLIT_COMMIT, man["shell"], tmp_path / "shell.js")
     (tmp_path / "parts").mkdir()
-    parts = [_at(SPLIT_COMMIT, f"{man['folder']}/{p['name']}.js", tmp_path / "parts" / (p["name"] + ".js")) for p in man["parts"]]
+    # (the parts the manifest listed then: phase 25 cut hk-settings-screen-pages into more, which that commit never had)
+    then = json.loads(subprocess.run(["git", "show", f"{SPLIT_COMMIT}:{MANIFEST.relative_to(ROOT)}"], capture_output=True,
+                                     text=True, cwd=ROOT, check=True).stdout)
+    parts = [_at(SPLIT_COMMIT, f"{then['folder']}/{p['name']}.js", tmp_path / "parts" / (p["name"] + ".js")) for p in then["parts"]]
     return man, _load(tmp_path, "before", before, []), _load(tmp_path, "after", shell, parts)
 
 

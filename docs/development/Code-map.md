@@ -268,7 +268,13 @@ Mantel's pages and the code both hosts share: HK's cards, modules, panels and th
     - `hk-settings-css.js` — the panel's stylesheet
     - `hk-settings-tables.js` — the tables and small helpers the pages draw from: colors, the sidebar's lists, option pages, entity pools
     - `hk-settings-screen.js` — a screen's own pages: Overview, the screen, its menu and tab bar, accent
-    - `hk-settings-screen-pages.js` — a screen's pages: chips, cameras, scenes, sleep, rooms, pages, glass, the screensaver, kiosk
+    - `hk-settings-screen-pages.js` — a screen's chips: the chip row, a custom chip's show, the chips page
+    - `hk-settings-screen-cameras.js` — a screen's cameras, scenes, page headers and favorites
+    - `hk-settings-screen-sleep.js` — a screen's sleep screen and its rooms
+    - `hk-settings-screen-glass.js` — a screen's pages, its Home page, and its glass
+    - `hk-settings-screen-saver.js` — a screen's screensaver: its styles, faces, thumbnails, editor page and groups
+    - `hk-settings-screen-saver-extras.js` — the screensaver's weather, holiday, extras, energy, clock and photos
+    - `hk-settings-screen-kiosk.js` — a screen's kiosk, engine, options and YAML pages
     - `hk-settings-add.js` — Add a Screen and Custom Chips
     - `hk-settings-house-pages.js` — All Screens: Pages, House, header, Weather and radar, Side Pane, Looks, Pages screen
     - `hk-settings-house-looks.js` — All Screens: Now Playing, Calendar, Appearance, recommendations, Sky
@@ -810,6 +816,7 @@ Build, release and check tools.
   - `split_js_names.py` — split_js.py's the paths, the loader and part templates, and the names the other parts share (moved here by tools/split_py.py from tools/split_js.py
   - `split_js_plan.py` — split_js.py's the plan
   - `split_js_proofs.py` — split_js.py's the proofs and the commands that run them
+  - `split_js_regroup.py` — split_js.py's regroup (phase 25, Part E)
   - `split_js_state.py` — split_js.py's --report, the state rewrite, --write-loaders and --find (moved here by tools/split_py.py from tools/split_js.py
   - `split_js_writers.py` — split_js.py's the writers
   - `split_py.py` — Cut a big Python module into parts, by name, and prove nothing but the place changed (phase 24, A3

@@ -186,6 +186,8 @@
   // READY: window.__hkSplitReady['hk-settings'] is a promise that resolves once the parts have run (and rejects if they
   // never come), so a page that imports this file and uses it at once awaits it first (web/home.js imp, hk-loader).
   var PARTS = ['hk-settings-css.js', 'hk-settings-tables.js', 'hk-settings-screen.js', 'hk-settings-screen-pages.js',
+               'hk-settings-screen-cameras.js', 'hk-settings-screen-sleep.js', 'hk-settings-screen-glass.js',
+               'hk-settings-screen-saver.js', 'hk-settings-screen-saver-extras.js', 'hk-settings-screen-kiosk.js',
                'hk-settings-add.js', 'hk-settings-house-pages.js', 'hk-settings-house-looks.js',
                'hk-settings-house-sky.js', 'hk-settings-rooms.js', 'hk-settings-accessories.js',
                'hk-settings-library.js'];

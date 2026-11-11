@@ -122,7 +122,7 @@
     },
     {
       "name": "hk-settings-screen-pages",
-      "title": "a screen's pages: chips, cameras, scenes, sleep, rooms, pages, glass, the screensaver, kiosk",
+      "title": "a screen's chips: the chip row, a custom chip's show, the chips page",
       "members": [],
       "methods": [
         "chipScreens",
@@ -135,14 +135,28 @@
         "chipCountsGroup",
         "h_chipOne",
         "s_chips",
-        "s_chip",
+        "s_chip"
+      ]
+    },
+    {
+      "name": "hk-settings-screen-cameras",
+      "title": "a screen's cameras, scenes, page headers and favorites",
+      "members": [],
+      "methods": [
         "notHouseCamera",
         "s_cameras",
         "s_cameraLive",
         "s_scenes",
         "s_pageHeaders",
         "s_pill",
-        "s_favorites",
+        "s_favorites"
+      ]
+    },
+    {
+      "name": "hk-settings-screen-sleep",
+      "title": "a screen's sleep screen and its rooms",
+      "members": [],
+      "methods": [
         "sleepCtx",
         "s_sleep",
         "sleepCount",
@@ -150,7 +164,14 @@
         "s_sleep_list_t",
         "s_sleepList",
         "sleepElsewhere",
-        "s_rooms",
+        "s_rooms"
+      ]
+    },
+    {
+      "name": "hk-settings-screen-glass",
+      "title": "a screen's pages, its Home page, and its glass",
+      "members": [],
+      "methods": [
         "energyOn",
         "powerOn",
         "onlyOf",
@@ -158,7 +179,14 @@
         "dwInSecurity",
         "s_pages",
         "glassChoices",
-        "s_glass",
+        "s_glass"
+      ]
+    },
+    {
+      "name": "hk-settings-screen-saver",
+      "title": "a screen's screensaver: its styles, faces, thumbnails, editor page and groups",
+      "members": [],
+      "methods": [
         "saverKnown",
         "saverOut",
         "saverPutB",
@@ -169,7 +197,14 @@
         "saverEditorPage",
         "saverEditRow",
         "saverPage",
-        "saverGroups",
+        "saverGroups"
+      ]
+    },
+    {
+      "name": "hk-settings-screen-saver-extras",
+      "title": "the screensaver's weather, holiday, extras, energy, clock and photos",
+      "members": [],
+      "methods": [
         "energyRows",
         "weatherRows",
         "saverWeather",
@@ -184,7 +219,14 @@
         "saverPhotoGroups",
         "saverShape",
         "h_saver",
-        "saverEntities",
+        "saverEntities"
+      ]
+    },
+    {
+      "name": "hk-settings-screen-kiosk",
+      "title": "a screen's kiosk, engine, options and YAML pages",
+      "members": [],
+      "methods": [
         "stateLabel",
         "kioskPage",
         "engineGroup",
