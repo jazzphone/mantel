@@ -132,7 +132,7 @@ class TvApps:
             self.woke[eid] = now
             tv = T.tv_of(eid, self.hub.registry.entity_area, sorted(self.tvs))
             moved = self.moved.get(tv) if tv else None
-            if moved and now - moved[0] <= T.LEARN_WINDOW:          # (the TV came on or changed input first)
+            if tv and moved and now - moved[0] <= T.LEARN_WINDOW:   # (the TV came on or changed input first)
                 hit = self._learn(tv, moved[1], eid, now) or hit
         got = T.opened(before, after) if before is not None else None
         if got:

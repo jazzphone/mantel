@@ -117,7 +117,7 @@ def show(v: Any) -> str:
 
 # -- what the server keeps ----------------------------------------------------------------------------------------------------------
 def is_on(st: Mapping[str, Any] | None) -> bool:
-    return bool(st) and str(st.get("s", st.get("state", ""))) not in OFF
+    return st is not None and bool(st) and str(st.get("s", st.get("state", ""))) not in OFF
 
 
 def opened(before: Mapping[str, Any] | None, after: Mapping[str, Any] | None) -> tuple[str, str] | None:
@@ -151,7 +151,7 @@ def ranked(apps: Mapping[str, Mapping[str, Any]]) -> list[dict[str, Any]]:
     rows = [{"id": k, "name": v.get("name") or k, "count": int(v.get("count") or 0), "last": v.get("last") or 0,
              "icon": bool(v.get("icon")), **({"src": ICON_PATH + k} if v.get("icon") else {}),
              **({"glyph": BUILTINS[k]} if k in BUILTINS else {})} for k, v in apps.items()]
-    rows.sort(key=lambda r: (-r["count"], -r["last"], r["name"].lower()))
+    rows.sort(key=lambda r: (-int(r["count"]), -float(r["last"]), str(r["name"]).lower()))
     return rows
 
 
