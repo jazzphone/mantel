@@ -48,38 +48,11 @@ from homeassistant.helpers import device_registry as dr, entity_registry as er
 from . import accessories, kinds, settings_api
 from . import settings as S
 
-# What a room's section and page draw a tile for (hk-strategy.js TILE; a
-# button only when it is a Wake on LAN one, so not offered here).
-ROOM_DOMAINS = ("light", "switch", "fan", "cover", "lock", "media_player", "climate", "water_heater",
-                "humidifier", "vacuum", "valve", "alarm_control_panel")
-
-# Each place: what it is called, and what it covers. The kinds' are the
-# pages and chips that read that kind (hk-strategy.js, hk-chip.js).
-PLACES: dict[str, tuple[str, str]] = {
-    "home": ("Home", "The Home screen’s room sections"),
-    "room": ("Room Page", "Its tile on its room’s own page"),
-    "smoke": ("Smoke & CO", "The Smoke & CO chip"),
-    "temperature": ("Temperature", "The Climate page’s temperature ranges"),
-    "humidity": ("Humidity", "The Climate page’s humidity ranges"),
-    "lights": ("Lights", "The Lights page and chip"),
-    "fans": ("Fans", "The Climate page and chip"),
-    "doors": ("Doors", "The Doors & Windows page and chip"),
-    "windows": ("Windows", "The Doors & Windows page and chip"),
-    "garage": ("Garage", "The Security page and the Doors & Windows chip"),
-    "locks": ("Security", "Locks on the Security page and chip"),
-    "blinds": ("Blinds", "The Blinds chip and the Climate page"),
-    "leaks": ("Water", "Leak sensors on the Water page and chip"),
-    "motion": ("Motion", "Rooms with motion, on status rows"),
-    "occupancy": ("Occupancy", "Rooms with someone in them, on status rows"),
-    "valves": ("Valves", "The Water page"),
-    "thermostats": ("Climate", "Thermostats on the Climate page and chip"),
-    "timers": ("Timers", "The Timers page and chip"),
-    "vacuums": ("Vacuums", "The Vacuums page and chip"),
-    "speakers": ("Speakers", "The Speakers chip"),
-    "scenes": ("Scenes", "Scene blocks, rooms’ scene rows and Suggested Scene"),
-}
-assert set(PLACES) == {"home", "room", *kinds.KINDS}, "a kind with no place"
-ORDER = list(PLACES)
+# The places, ROOM_DOMAINS, what an accessory could also be counted in and the snapshot itself: hk_core's, shared
+# with Mantel Server (they had drifted: this copy let a bad id in a hidden device or room, or an accessory entry that is
+# not a dict, through; 2026-11-11). Importable from here as before.
+from .hk_core.settings.hiding import (  # noqa: F401 -- shared
+    ORDER, PLACES, ROOM_DOMAINS, also_for as _also, snapshot_of)
 MAX_IDS = 500
 
 
@@ -110,78 +83,8 @@ def _room_entities(hass: HomeAssistant) -> set[str]:
 def snapshot(hass: HomeAssistant, settings: Mapping[str, Any],
              only: Iterable[str] | None = None) -> dict[str, Any]:
     """What can hide what, and what is hidden. `only`: just these accessories
-    (each given an answer, hideable or not)."""
-    cands = kinds.candidates(hass)
-    # what each kind would find WITHOUT Hidden from Screens: an accessory
-    # hidden everywhere still belongs to its kinds when it is shown again
-    auto = kinds.automatic(cands, None)
-    offer = kinds.suggest(cands, settings)
-    acc = (settings.get("accessories") or {}).get("entities") or {}
-    gen = settings.get("generated") or {}
-    rooms = _room_entities(hass)
-    can: dict[str, list[str]] = {}
-    for eid in rooms:
-        can[eid] = ["home", "room"]
-    added: dict[str, list[str]] = {}
-    for k in kinds.KINDS:
-        # found there by itself (or left out of it): a place it can be hidden from
-        for eid in {*auto[k], *offer[k]["exclude"]}:
-            can.setdefault(eid, []).append(k)
-        # counted there only because it was added: Also Counted
-        for eid in offer[k]["include"]:
-            if eid not in auto[k]:
-                added.setdefault(eid, []).append(k)
-    off: dict[str, list[str]] = {}
-    for eid, keys in can.items():
-        a = acc.get(eid) or {}
-        hid = [k for k in keys if
-               (k == "home" and a.get("home") is False) or (k == "room" and a.get("room") is False)
-               or (k in kinds.KINDS and (eid in offer[k]["exclude"] or a.get("status") is False))]
-        if hid:
-            off[eid] = hid
-    for eid in can:
-        can[eid].sort(key=ORDER.index)
-    everywhere = [e for e in gen.get("exclude_entities") or [] if isinstance(e, str)]
-    also: dict[str, list[str]] = {}
-    if only is not None:
-        want = set(only)
-        can = {e: v for e, v in can.items() if e in want}
-        off = {e: v for e, v in off.items() if e in want}
-        added = {e: v for e, v in added.items() if e in want}
-        for e in want:
-            can.setdefault(e, [])
-        everywhere = [e for e in everywhere if e in want]
-        also = _also(cands, auto, want)
-    return {
-        "places": {k: list(v) for k, v in PLACES.items()},
-        "order": ORDER,
-        "can": can,
-        "off": off,
-        "everywhere": everywhere,
-        "added": added,
-        "also": also,
-        "devices": list(gen.get("exclude_devices") or []),
-        "areas": list(gen.get("exclude_areas") or []),
-    }
-
-
-def _also(cands: list[kinds.Candidate], auto: Mapping[str, list[str]], want: set[str]) -> dict[str, list[str]]:
-    """The kinds each of `want` could ALSO be counted in: its domain is one
-    the kind's Also count offers, it isn't found there by itself -- and for
-    a reading (temperature, humidity), it reports that reading. Hidden or
-    disabled in Home Assistant are offered nothing; a group is offered what
-    its domain could be (never found by itself, so only ever added by hand)."""
-    out: dict[str, list[str]] = {}
-    for c in cands:
-        if c.entity_id not in want or not (c.shown or (c.group and c.listed)):
-            continue
-        domain = c.entity_id.split(".", 1)[0]
-        ks = [k for k, kind in kinds.KINDS.items()
-              if domain in kind.also and c.entity_id not in auto[k]
-              and (not kind.reading or kind.reading in c.readings)]
-        if ks:
-            out[c.entity_id] = sorted(ks, key=ORDER.index)
-    return out
+    (each given an answer, hideable or not). hk_core's snapshot_of, over Home Assistant's own house."""
+    return snapshot_of(kinds.candidates(hass), _room_entities(hass), settings, only)
 
 
 def also_plan(hass: HomeAssistant, settings: Mapping[str, Any], ids: list[str],

@@ -384,6 +384,7 @@ The decisions both hosts make the same way (Rule 2), in Python.
 - **hk_core/settings/**
   - `accessory_fields.py` — What an accessory's saved settings may hold, once
   - `changes.py` — THE SETTINGS PAGE'S WRITES
+  - `hiding.py` — HIDDEN ACCESSORIES, worked out once for both hosts (phase 24's SHARED-REPORT, 2026-11-11
   - `home_grid.py` — HOME GRID (docs/phase11/HOME-GRID.md)
   - `kind_match.py` — What a kind finds in the house, once (Status & Chips)
   - `kinds.py` — STATUS & CHIPS' KINDS

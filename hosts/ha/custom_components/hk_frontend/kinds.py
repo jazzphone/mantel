@@ -51,6 +51,8 @@ from .hk_core.settings.kinds import KINDS, LEGACY, Kind, blank, clean  # noqa: F
 # The finding itself is shared with Mantel Server (hk_core/settings/kind_match.py).
 from .hk_core.settings.kind_match import (  # noqa: F401 -- shared
     SHOW_AS_KIND, Candidate, accessories_over, automatic, legacy, matches, resolve)
+# What a kind shows on Status & Chips: hk_core's, shared with Mantel Server (hk_core/settings/hiding.py).
+from .hk_core.settings.hiding import suggest  # noqa: F401 -- shared
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -103,29 +105,6 @@ def candidates(hass: HomeAssistant) -> list[Candidate]:
                          and not getattr(area, k + "_entity_id", None)))
         out.append(Candidate(st.entity_id, st.attributes.get("device_class"), listed and not group,
                              device_id, area_id, readings, auto, group, listed))
-    return out
-
-
-def suggest(cands: list[Candidate], settings: Mapping[str, Any]) -> dict[str, dict[str, list[str]]]:
-    """What the Status & Chips page shows for each kind: what was saved, else an
-    old list turned into Leave out / Also count against what is found now (so
-    saving it counts exactly what was counted), else nothing (automatic)."""
-    auto = automatic(cands, settings.get("generated"))
-    counts = settings.get("counts") or {}
-    out: dict[str, dict[str, list[str]]] = {}
-    for name in KINDS:
-        saved = clean(counts.get(name))
-        if saved is not None:
-            out[name] = saved
-            continue
-        old = legacy(settings, name)
-        if not old:
-            out[name] = {"exclude": [], "include": []}
-            continue
-        keep = set(old)
-        found = set(auto[name])
-        out[name] = {"exclude": [e for e in auto[name] if e not in keep],
-                     "include": [e for e in old if e not in found]}
     return out
 
 
