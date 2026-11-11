@@ -24,6 +24,7 @@ import logging
 import sqlite3
 import time
 from dataclasses import replace
+from importlib.resources import files
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
@@ -33,7 +34,8 @@ from .rbac import DEFAULT_ROLES, OWNER, Grant, Policy, Role, Schedule, Subject
 
 log = logging.getLogger("mantel.rbac")
 
-MIGRATION = Path(__file__).resolve().parent / "migrations" / "0002_rbac.sql"
+# (found through the package, not beside this file: phase 25 moves the server's modules into packages)
+MIGRATION = Path(str(files("mantel_server").joinpath("migrations", "0002_rbac.sql")))
 SUBJECT_KINDS = ("user", "device")
 PREFIX = "/api/rbac"
 

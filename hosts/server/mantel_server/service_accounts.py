@@ -32,6 +32,7 @@ import sqlite3
 import sys
 import time
 from dataclasses import dataclass
+from importlib.resources import files
 from pathlib import Path
 
 from . import audit
@@ -46,7 +47,8 @@ SCOPES = frozenset({"linked", "linked_saves"})
 PREFIX = "msvc_"
 _TOKEN = re.compile(r"^msvc_([0-9a-f]{16})_([A-Za-z0-9_-]{43})$")
 _NAME = re.compile(r"^[\w .:@-]{1,64}$")
-MIGRATION = Path(__file__).with_name("migrations") / "0005_service_accounts.sql"
+# (found through the package, not beside this file: phase 25 moves the server's modules into packages)
+MIGRATION = Path(str(files("mantel_server").joinpath("migrations", "0005_service_accounts.sql")))
 FORGET_REVOKED_AFTER = 30 * 86400
 
 
