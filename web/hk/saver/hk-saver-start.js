@@ -31,8 +31,10 @@
         takeover = K.takeover, teardown = K.teardown, TM = K.TM, tmWatch = K.tmWatch, updateBand = K.updateBand,
         within = K.within, writeSwitch = K.writeSwitch, WX = K.WX;
     // (phase 25: the owners' writers, docs/phase25/SAVER-STATE.md)
-    var countPhoto = K.countPhoto, deckFor = K.deckFor, exCancel = K.exCancel, flipLayer = K.flipLayer,
-        keepPh = K.keepPh, lastPhotoIs = K.lastPhotoIs, mosaicGone = K.mosaicGone, showsLayer = K.showsLayer;
+    var askedEnds = K.askedEnds, countPhoto = K.countPhoto, deckFor = K.deckFor, exCancel = K.exCancel,
+        flipLayer = K.flipLayer, idleCancel = K.idleCancel, inputFresh = K.inputFresh, keepPh = K.keepPh,
+        lastPhotoIs = K.lastPhotoIs, mosaicGone = K.mosaicGone, noteInput = K.noteInput, pressIs = K.pressIs,
+        pressStopped = K.pressStopped, showsLayer = K.showsLayer;
 
     // WHAT IT OWNS ON ST (phase 25, A: others read these; only this file writes them; tools/state_owners.py)
     ST.on = false;         // showing (or fading in)
@@ -87,8 +89,8 @@
       // house's answer to a tap (photos off within 2 s, TABLET-INVARIANTS 16c).
       if (black()) return false;
       if (reason === 'switch' && clock.now() - ST.litAt < LIT_GRACE) return false;
-      if (ST.idleT) { clearTimeout(ST.idleT); ST.idleT = null; }
-      ST.on = true; ST.startedBy = reason || 'idle'; ST.mx = null; ST.my = null; ST.press = null; ST.shownAt = 0;
+      idleCancel();
+      ST.on = true; ST.startedBy = reason || 'idle'; inputFresh(); ST.shownAt = 0;
       ST.photoRun++; ST.busy = false; ST.queued = null; litWait = null;
       // BUILT FOR OTHER SETTINGS: its cards were set up for them (Home Status
       // sized for the calendar pane, or for the corner), and a host kept from
@@ -165,7 +167,7 @@
     function stop(reason) {
       if (!ST.on) return false;
       if (ST.designController) ST.designController.clear();
-      if (ST.asked) { ST.asked = false; ST.force = ST.previewOn; }
+      askedEnds();
       closePanel(false);
       ST.on = false;
       ST.entrance = null;
@@ -186,8 +188,8 @@
       if (ST.slideT) { clearTimeout(ST.slideT); ST.slideT = null; }
       exCancel();
       var ms = isFlat() ? 0 : ST.cfg ? ST.cfg.fade_back : FADE_BACK_MS;
-      if (reason === 'touch') { writeSwitch('off'); ST.press = { up: ST.pressStop ? null : clock.now(), at: clock.now() }; }
-      ST.pressStop = false;
+      if (reason === 'touch') { writeSwitch('off'); pressIs({ up: ST.pressStop ? null : clock.now(), at: clock.now() }); }
+      pressStopped(false);
       // the dashboard, its sky and its cameras wake now, under the screensaver
       tellOthers();
       var h = ST.host, stoppedRun = ST.photoRun;
@@ -245,7 +247,7 @@
           litWait = function () { fromLast(); afterDraw(fade, whenShown, null, drawnAs === 'dark'); };
         } else afterDraw(fade, whenShown, fromLast);
       }
-      ST.lastInput = Date.now();
+      noteInput();
       armIdle();
       return true;
     }

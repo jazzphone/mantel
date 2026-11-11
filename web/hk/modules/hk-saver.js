@@ -850,6 +850,18 @@
     refresh();
   }
 
+  // WHAT THE PARTS ASK OF THE SHELL (phase 25, A): the only way a part changes the shell's state -- touch and idle,
+  // the cards on the page, what the preview asked -- each the assignment it was, by name (docs/phase25/SAVER-STATE.md)
+  function dropCard(card) { ST.cards = ST.cards.filter(function (c) { return c !== card; }); }
+  function idleCancel() { if (ST.idleT) { clearTimeout(ST.idleT); ST.idleT = null; } }
+  function inputFresh() { ST.mx = null; ST.my = null; ST.press = null; }   // a run starts: no pointer, no press yet
+  function askedEnds() { if (ST.asked) { ST.asked = false; ST.force = ST.previewOn; } }
+  function pressIs(press) { ST.press = press; }           // the touch that stopped it (onInput swallows its end)
+  function pressStopped(v) { ST.pressStop = v; }          // a press that stops it does nothing else
+  function noteInput() { ST.lastInput = Date.now(); }     // as good as a touch: idle counts from now
+  function touchAgain() { ST.touchSent = 0; }             // the next touch is reported at once
+  function paneNote(message) { ST.previewPaneNote = message; }
+
   function kit() {
     return {
       allowed: allowed, armIdle: armIdle, autoLayout: autoLayout, BAND_BESIDE_GUTTER: BAND_BESIDE_GUTTER,
@@ -861,7 +873,9 @@
       LIST_DEPTH: LIST_DEPTH, LIST_MAX: LIST_MAX, LIST_TTL_MS: LIST_TTL_MS, mine: mine, MU_ART_MS: MU_ART_MS,
       onUpdate: onUpdate, PANE_TOP: PANE_TOP, PANE_W: PANE_W, PRESS_MAX: PRESS_MAX, refreshSoon: refreshSoon,
       releaseVisuals: releaseVisuals, reportTouch: reportTouch, ST: ST, teardown: teardown, WAKE: WAKE,
-      whoMsg: whoMsg, writeSwitch: writeSwitch, ZOOM: ZOOM, ahead: []
+      whoMsg: whoMsg, writeSwitch: writeSwitch, ZOOM: ZOOM,
+      askedEnds: askedEnds, dropCard: dropCard, idleCancel: idleCancel, inputFresh: inputFresh, noteInput: noteInput,
+      paneNote: paneNote, pressIs: pressIs, pressStopped: pressStopped, touchAgain: touchAgain, ahead: []
     };
   }
   function runParts() {

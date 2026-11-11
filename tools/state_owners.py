@@ -75,7 +75,7 @@ for _part, _why, _names in FEATURES:
     for _n in _names:
         OWNERS[_n] = (_part, _why)
 # the owners already moved (PLAN.md's Build log): each of their names must stay written by its owner alone
-DONE: set[str] = {"hk-saver-photos", "hk-saver-draw", "hk-saver-pane", "hk-saver-black", "hk-saver-layout", "hk-saver-screens", "hk-saver-start"}
+DONE: set[str] = {"hk-saver-photos", "hk-saver-draw", "hk-saver-pane", "hk-saver-black", "hk-saver-layout", "hk-saver-screens", "hk-saver-start", "hk-saver"}
 
 
 def files(root: Path = ROOT) -> list[str]:

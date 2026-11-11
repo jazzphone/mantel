@@ -16,7 +16,7 @@
         slideShow = K.slideShow, ST = K.ST, timedTurn = K.timedTurn, TM = K.TM, updateBand = K.updateBand,
         whoMsg = K.whoMsg, WX = K.WX;
     // (phase 25: the owners' writers, docs/phase25/SAVER-STATE.md)
-    var forecastUp = K.forecastUp, slideGone = K.slideGone, slideShown = K.slideShown;
+    var forecastUp = K.forecastUp, pressStopped = K.pressStopped, slideGone = K.slideGone, slideShown = K.slideShown;
 
     var black, clock, dashLive, dashOutside, drawMusic, elapsed, forecastTick, hostOf, layoutMusicView, muGrace, mus,
         musicIn, musicNow, musicOf, musicPage, musicPaneView, musicParts, musicPlaying, musicUsed, musicView, nextArt,
@@ -243,7 +243,7 @@
       if (d && d.key && M && M.setFocus) { try { M.setFocus(d.key); } catch (e) { /* the page follows what plays */ } }
       // (the dashboard's pane: there is no screensaver to close)
       if (hit.view.kind === 'dash') { if (page) go(page); return; }
-      ST.pressStop = true;
+      pressStopped(true);
       stop('touch');
       if (page) go(page);
     }

@@ -17,7 +17,7 @@
         panelTouched = K.panelTouched, paneOf = K.paneOf, renderMusic = K.renderMusic, setAttr = K.setAttr, ST = K.ST,
         volEnd = K.volEnd, volFrom = K.volFrom, weatherEntity = K.weatherEntity;
     // (phase 25: the owners' writers, docs/phase25/SAVER-STATE.md)
-    var bandIs = K.bandIs;
+    var bandIs = K.bandIs, dropCard = K.dropCard;
 
     var bootCover, clock, clock24, goDark, hkTapWake, lightSoon, lit, litNow, panelDone;
     // (of later parts, used when called: bound once every part has run, runParts)
@@ -125,7 +125,7 @@
     function setupPane() {
       if (!ST.host) return;
       var dropCal = function () {
-        if (ST.paneCard) { ST.cards = ST.cards.filter(function (c) { return c !== ST.paneCard; }); ST.paneCard.remove(); ST.paneCard = null; }
+        if (ST.paneCard) { dropCard(ST.paneCard); ST.paneCard.remove(); ST.paneCard = null; }
       };
       mus.paneNext = null;
       if (!paneOf(ST.cfg)) {

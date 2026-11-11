@@ -23,7 +23,8 @@
         writeSwitch = K.writeSwitch, WX = K.WX;
     // (phase 25: the owners' writers, docs/phase25/SAVER-STATE.md)
     var curtainOpts = K.curtainOpts, curtainStale = K.curtainStale, dropDeck = K.dropDeck,
-        forecastSig = K.forecastSig, forecastSky = K.forecastSky;
+        forecastSig = K.forecastSig, forecastSky = K.forecastSky, idleCancel = K.idleCancel, noteInput = K.noteInput,
+        paneNote = K.paneNote, touchAgain = K.touchAgain;
 
     var coverCancel, noEntrance, noteDrawn, runEnds, schedule, slideCancel, slideFree, start, stop, tellOthers;
     // (of later parts, used when called: bound once every part has run, runParts)
@@ -149,8 +150,8 @@
       hkWokeAt = clock.now();
       ST.hkOn = false;
       hkAck(false);
-      ST.touchSent = 0; reportTouch();
-      ST.lastInput = Date.now();
+      touchAgain(); reportTouch();
+      noteInput();
       hkLeave(clientNow());
     }
     // THE BLACK THROUGH A RELOAD: hk-settings.js puts a cover up at once on a
@@ -203,7 +204,7 @@
     function litNow() {
       if (black()) return;
       ST.litAt = clock.now();
-      ST.lastInput = Date.now();
+      noteInput();
       armIdle();
       // the photos' timer, held under the black (schedule()), runs again
       if (ST.slideHeld) { slideFree(); if (ST.on && ST.cfg && ST.mode === 'photos' && !ST.busy) schedule(); }
@@ -285,7 +286,7 @@
       if (raw && HS && HS.get) {
         var bAll = HS.get('boards', null), bNow = bAll && bAll[String(location.pathname).split('/')[1] || ''];
         var pvPane = previewPaneOf((bNow && bNow.side_pane_read) || HS.get('side_pane', null), ST.previewOn ? ST.previewPane : null);
-        raw = withPane(raw, pvPane.settings); ST.previewPaneNote = ST.previewOn ? pvPane.message : '';
+        raw = withPane(raw, pvPane.settings); paneNote(ST.previewOn ? pvPane.message : '');
       }
       var SP = window.hkSidePane;
       if (raw && SP && SP.placement(window.innerWidth, window.innerHeight, { width: raw.pane_width }).kind === 'none') raw = Object.assign({}, raw,
@@ -329,8 +330,8 @@
         // a new Starts After counts from the last touch now, not when the old (longer) timer runs out
         if (was && ST.cfg && !ST.on && ST.idleT) armIdle();
       }
-      if (!ST.cfg) { if (ST.idleT) { clearTimeout(ST.idleT); ST.idleT = null; } return; }
-      if (!allowed()) { if (ST.on) { writeSwitch('off'); stop('config'); } if (ST.idleT) { clearTimeout(ST.idleT); ST.idleT = null; } return; }
+      if (!ST.cfg) { idleCancel(); return; }
+      if (!allowed()) { if (ST.on) { writeSwitch('off'); stop('config'); } idleCancel(); return; }
       if (!ST.idleT && !ST.on) armIdle();
     }
     // A FROZEN PAGE. Kiosk Satellite's Black screensaver stops the tablet

@@ -11,7 +11,8 @@
     var clientNow = K.clientNow, CROSSFADE_MS = K.CROSSFADE_MS, dashConf = K.dashConf, FACE_SHOWS = K.FACE_SHOWS,
         FC_TICK_MS = K.FC_TICK_MS, isFlat = K.isFlat, slideMarks = K.slideMarks, ST = K.ST, sunDown = K.sunDown;
     // (phase 25: the owners' writers, docs/phase25/SAVER-STATE.md)
-    var showsLayer = K.showsLayer, sinceSlide = K.sinceSlide, slideGone = K.slideGone, slideShown = K.slideShown;
+    var dropCard = K.dropCard, showsLayer = K.showsLayer, sinceSlide = K.sinceSlide, slideGone = K.slideGone,
+        slideShown = K.slideShown;
 
     var addBand, dropView, exHide, fcOutAfter, forecastTick, HL, layoutBigKind, layoutDraw, layoutModules,
         layoutMusic, layoutSlides, layoutSoon, muHidden, mus, musicParts, musicWatch, reveal, setAttr, showNext,
@@ -534,7 +535,7 @@
       if (fTick) { clearInterval(fTick); fTick = null; }
       if (ST.fscene) { try { ST.fscene.destroy(); } catch (e) { /* gone with the element */ } ST.fscene = null; }
       ST.fSky = null;
-      if (ST.fband) ST.cards = ST.cards.filter(function (c) { return c !== ST.fband; });
+      if (ST.fband) dropCard(ST.fband);
       ST.fband = null; ST.fSig = ''; ST.mode = 'photos'; ST.fcShowing = false; sinceSlide(0);
     }
     function resetForecast() {
