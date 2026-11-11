@@ -146,6 +146,9 @@ class ClientSession:
         self.ctx = Ctx(send=self.send, identity=principal, live=app.get("live") if app is not None else None)
         self.read_only = bool(getattr(getattr(principal, "identity", None), "read_only", False))
         self.tasks: set[asyncio.Task] = set()
+        self.gone = False  # the socket closed under a send (_went_away)
+        who = getattr(principal, "device", None) or getattr(principal, "user", None)
+        self.who = getattr(who, "name", None) or "a page"
 
     def spawn(self, coro) -> None:
         t = asyncio.get_running_loop().create_task(coro)
@@ -156,10 +159,31 @@ class ClientSession:
         await self.send(msg, count=False)
 
     async def send(self, msg: dict, count: bool = True) -> None:
+        if self.gone:
+            return
         data = json.dumps(msg, separators=(",", ":"))
         if count:
             self.tx.add(len(data))
-        await self.ws.send_str(data)
+        # Phase 25 E1: a page that went away mid-send is expected (a tablet sleeping, a reload). aiohttp sends a big
+        # compressed frame in a task of its own behind a shield; when this send is cancelled (run() ending) that task
+        # fails later with nobody to read it ("Task exception was never retrieved"). Our own shielded task keeps it
+        # awaited, and _read_send_error reads its end whatever happens to the caller.
+        sent = asyncio.ensure_future(self.ws.send_str(data))
+        sent.add_done_callback(self._read_send_error)
+        try:
+            await asyncio.shield(sent)
+        except ConnectionResetError:  # aiohttp's ClientConnectionResetError is one
+            self._went_away()
+
+    def _read_send_error(self, sent: asyncio.Future) -> None:
+        if not sent.cancelled() and isinstance(sent.exception(), ConnectionResetError):
+            self._went_away()
+
+    def _went_away(self) -> None:
+        """Said once per page, at debug level, with no traceback: the rest of its sends are dropped."""
+        if not self.gone:
+            self.gone = True
+            log.debug("a page went away mid-send (%s); its later sends are dropped", self.who)
 
     async def pump(self) -> None:
         loop = asyncio.get_running_loop()
