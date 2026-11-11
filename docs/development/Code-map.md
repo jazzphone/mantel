@@ -445,13 +445,10 @@ Mantel Server.
   - `atrest.py` — Secrets at rest
   - `audit.py` — The one way a settings or account change is written to the audit log (Rules.md rule 3 and rule 7).
   - `backup.py` — Encrypted backups of Mantel's database (and uploaded files), and a restore that checks before it swaps.
-  - `camera_setup.py` — RTSP CAMERAS
-  - `cameras_direct.py` — DIRECT CAMERA SOURCES (docs/phase13/CAMERAS-DIRECT.md "The design -> Camera sources", phase 3).
   - `config.py`
   - `connect_pairing.py` — Mantel Connect, Mantel Server's side
   - `connect_proof.py` — Separate TLS identity-only receiver.
   - `connections.py` — Connections
-  - `cutout.py` — TIME BEHIND
   - `db.py` — Mantel's SQLite database
   - `default_screens.py` — The screen a person or a wall tablet opens on (migration 0014; decision 27's addendum, docs/phase8/SETTINGS.md).
   - `devices.py` — Device credentials
@@ -459,7 +456,6 @@ Mantel Server.
   - `direct_tls.py` — Built-in HTTPS for the HA App's direct access (decision 26; docs/phase3/HA-APP.md "Built-in HTTPS").
   - `docs_pages.py` — /docs
   - `dry_run.py` — A dry run
-  - `faces.py` — WHERE THE FACES ARE
   - `feature_pages.py` — HK Settings -> Features on Mantel
   - `feature_watch.py` — Two of HK's clock-driven features on Mantel, through MantelHouse and FeatureCaller (docs/phase4/MANTEL-FEATURES.md "Phase 4 ports").
   - `frame_origins.py` — Which pages may show Mantel in a frame (CSP ``frame-ancestors``)
@@ -467,8 +463,6 @@ Mantel Server.
   - `hidden.py` — HIDDEN ACCESSORIES, MANTEL SERVER'S SIDE
   - `hk_cards.py` — GET /api/hk-cards
   - `house.py` — THE HOUSE PORT, MANTEL SERVER'S SIDE (hk_core/house.py; PLAN §0 plan review, item 1 (c)).
-  - `image_work.py` — THE PICTURE WORK ITSELF
-  - `imaging.py` — IMAGE WORK IN ITS OWN PROCESS (docs/phase4/PHOTOS.md, "Where the work runs").
   - `ingress.py` — HA App mode
   - `laundry.py` — Laundry
   - `linked.py` — Phase 5
@@ -483,7 +477,6 @@ Mantel Server.
   - `live_tv.py` — LIVE TV SERVED BY MANTEL (docs/phase4/FEATURE-PARITY.md "Live TV served by Mantel"; PLAN §8, §10, Proof 4).
   - `ma_page.py` — The token for the Music Assistant page
   - `mcp_parity.py` — MCP parity (phase 18, A6)
-  - `media_proxy.py` — Music Assistant's web app and go2rtc, served under Mantel's own address (``/ma/…``, ``/go2rtc/…``).
   - `music.py` — WHOLE-HOME MUSIC IN MANTEL (Phase 4) *(its parts beside it: `tools/split_py_manifests/music.json`)*
     - `music_names.py` — the names and limits the music engine works with
     - `music_docs.py` — the music settings document: its check and its import
@@ -496,14 +489,10 @@ Mantel Server.
   - `music_library.py` — music.py's Music Assistant's players and library, search and the queue as the page reads them (moved here by tools/split_py.py from hosts/server/ma...
   - `music_names.py` — music.py's the names and limits the music engine works with (moved here by tools/split_py.py from hosts/server/mantel_server/music.py
   - `music_states.py` — THE SPEAKERS' STATES FROM MUSIC ASSISTANT (2026-10-31)
-  - `notify_snaps.py` — Notification snapshots on Mantel (docs/phase4/MANTEL-FEATURES.md "Phase 4 ports").
   - `page_headers.py` — THE LIGHTS PAGE'S "TONIGHT" LIST on Mantel's screens (hk-headers.js subscribes ``hk_frontend/page_headers/subscribe``).
   - `page_health.py` — PAGE HEALTH (2026-10-22)
   - `performance.py` — PERFORMANCE (2026-10-26)
   - `phones.py` — Mantel's notifications on people's phones, through Home Assistant's Companion app (docs/phase9/MANTEL-LINK.md 9.7).
-  - `photos.py` — MANTEL PHOTOS
-  - `protect_api.py` — UNIFI PROTECT'S PUBLIC API, AS MANTEL'S OWN CLIENT (docs/phase13/CAMERAS-DIRECT.md, phase 4
-  - `protect_connector.py` — THE UNIFI PROTECT CONNECTOR (docs/phase13/CAMERAS-DIRECT.md, phase 4, and phase 5's wiring of direct talk).
   - `proxy_check.py` — "Test my proxy"
   - `proxy_trust.py` — Who may tell Mantel about the browser
   - `push.py` — Notifications off the screens
@@ -539,6 +528,18 @@ Mantel Server.
   - `email.py` — Email
   - `notifiarr.py` — Notifiarr
   - `telegram.py` — Telegram
+- **hosts/server/mantel_server/cameras/**
+  - `camera_setup.py` — RTSP CAMERAS
+  - `cameras_direct.py` — DIRECT CAMERA SOURCES (docs/phase13/CAMERAS-DIRECT.md "The design -> Camera sources", phase 3).
+  - `cutout.py` — TIME BEHIND
+  - `faces.py` — WHERE THE FACES ARE
+  - `image_work.py` — THE PICTURE WORK ITSELF
+  - `imaging.py` — IMAGE WORK IN ITS OWN PROCESS (docs/phase4/PHOTOS.md, "Where the work runs").
+  - `media_proxy.py` — Music Assistant's web app and go2rtc, served under Mantel's own address (``/ma/…``, ``/go2rtc/…``).
+  - `notify_snaps.py` — Notification snapshots on Mantel (docs/phase4/MANTEL-FEATURES.md "Phase 4 ports").
+  - `photos.py` — MANTEL PHOTOS
+  - `protect_api.py` — UNIFI PROTECT'S PUBLIC API, AS MANTEL'S OWN CLIENT (docs/phase13/CAMERAS-DIRECT.md, phase 4
+  - `protect_connector.py` — THE UNIFI PROTECT CONNECTOR (docs/phase13/CAMERAS-DIRECT.md, phase 4, and phase 5's wiring of direct talk).
 - **hosts/server/mantel_server/connectors/**
   - `camera.py` — Camera WebRTC signaling, proxied to Home Assistant (PLAN §7 "Remote cameras
   - `camera_still.py` — Camera stills through Mantel (PLAN §4 "proxies, not copies", §5 cameras, §7 doors).

@@ -12,7 +12,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from mantel_server import image_work, imaging
+from mantel_server.cameras import image_work, imaging
 from mantel_server.ha.registry import Registry
 from mantel_server.ha.state import StateStore
 from mantel_server.store import Store

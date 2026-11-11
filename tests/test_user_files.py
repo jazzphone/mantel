@@ -743,7 +743,7 @@ async def test_a_large_your_files_photo_upload_does_not_freeze_the_event_loop(tm
     a 40 MP picture: ``save(..., optimize=True, progressive=True)`` holds the GIL for the whole JPEG encode (see
     test_photos.py). It runs in the image worker process now (imaging.py), progressive again, and the loop never
     waits on it."""
-    from mantel_server import imaging
+    from mantel_server.cameras import imaging
     from test_photos import least_gap, noisy_jpeg
     store = uf.UserFiles(tmp_path / "files")
     await imaging.run(uf.reencode_photo, noisy_jpeg(0.1))          # the worker's start is not what is measured
@@ -763,7 +763,7 @@ async def test_a_large_your_files_photo_upload_does_not_freeze_the_event_loop(tm
 async def test_your_files_photo_uploads_queue_with_mantel_photos_for_the_decoder(monkeypatch, image_threads):
     """MED-2 (audit, second pass): ``_in_thread`` took any number of photo uploads at once, each a full decode. A
     photo upload now takes its turn in the same slots as Mantel Photos' (``photos.image_slot``)."""
-    from mantel_server import photos
+    from mantel_server.cameras import photos
     lock, now, peak = threading.Lock(), [0], [0]
 
     def slow():

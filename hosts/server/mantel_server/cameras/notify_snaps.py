@@ -38,7 +38,7 @@ from aiohttp import web
 
 from hk_core.notifications.const import SNAP_MAX, SNAP_TIMEOUT_S, SNAP_TTL_S
 
-from .identity.guards import guard
+from ..identity.guards import guard
 
 log = logging.getLogger("mantel.notify_snaps")
 
@@ -235,8 +235,8 @@ def _may_still(app: web.Application, principal: Any, camera: str) -> bool:
 
 def register(app: web.Application, store: SnapStore) -> None:
     """``GET /api/notify/snap/<id>`` and the ``hk_notify/snap/sign`` read (``app["read_routes"]``)."""
-    from .connectors import Ctx, Route, read_routes
-    from .ha.readproxy import ReadBlocked
+    from ..connectors import Ctx, Route, read_routes
+    from ..ha.readproxy import ReadBlocked
 
     @guard("signed_in", reads="view",
            preview=True)          # any session; the roles decide the snapshot's camera (_may_still)

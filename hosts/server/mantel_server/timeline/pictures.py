@@ -183,7 +183,7 @@ class Pictures:
     async def shrink(self, raw: bytes) -> bytes:
         if self._shrink is not None:
             return await self._shrink(raw)
-        from .. import image_work, imaging
+        from ..cameras import image_work, imaging
         return await imaging.run(image_work.shrink, raw, EDGE, QUALITY)
 
     # -- keeping ----------------------------------------------------------------------------------------------------

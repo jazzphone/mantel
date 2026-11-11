@@ -34,7 +34,7 @@ def fixtures(dest: Path) -> dict:
     rules), and a plain photo with none."""
     import numpy as np
     from PIL import Image, ImageDraw
-    from mantel_server import cutout
+    from mantel_server.cameras import cutout
     W, H = 1500, 1000
 
     def sky():

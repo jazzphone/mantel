@@ -118,7 +118,7 @@ Columns: **Rule** who may call it (`signed_in` any session, `person`, `manager` 
 | `POST /api/backup/run` | owner |  | none |  | none: makes a backup file, changing no setting; the run writes its result row (backup.ok or backup.failed), as the nightly one does |  |
 | `POST /api/bootstrap/restore` | own: one_time_code |  | none |  | First start's Restore From a Backup: the one-time setup code, checked before the upload is read, and only while no Owner exists (backup.api_first_start_restore) |  |
 
-## mantel_server.camera_setup
+## mantel_server.cameras.camera_setup
 
 | Route | Rule | Reads | Stream | Preview | Audit | Assistants |
 |---|---|---|---|---|---|---|
@@ -129,11 +129,67 @@ Columns: **Rule** who may call it (`signed_in` any session, `person`, `manager` 
 | `DELETE /api/cameras/rtsp/{slug}` | manager, fresh away |  | none |  | camera.rtsp.remove |  |
 | `PUT /api/cameras/rtsp/{slug}` | manager, fresh away |  | none |  | camera.rtsp.edit |  |
 
-## mantel_server.cameras_direct
+## mantel_server.cameras.cameras_direct
 
 | Route | Rule | Reads | Stream | Preview | Audit | Assistants |
 |---|---|---|---|---|---|---|
 | `GET /api/cameras/direct` | manager | admin | none |  |  |  |
+
+## mantel_server.cameras.media_proxy
+
+| Route | Rule | Reads | Stream | Preview | Audit | Assistants |
+|---|---|---|---|---|---|---|
+| `GET /api/services` | signed_in | self | none | yes |  |  |
+| `* /go2rtc` | own: static | none | none |  | the proxy's bare address: a redirect to its tail route (MediaProxy.handler), which authorizes; it answers no house data |  |
+| `* /go2rtc/{tail}` | own: proxy | view | live:media_proxy |  | the media proxy: its own authorize() (media_proxy.py) checks the session and the service's grant |  |
+| `* /ma` | own: static | none | none |  | the proxy's bare address: a redirect to its tail route (MediaProxy.handler), which authorizes; it answers no house data |  |
+| `* /ma/{tail}` | own: proxy | feature:music | live:media_proxy |  | the media proxy: its own authorize() (media_proxy.py) checks the session and the service's grant |  |
+
+## mantel_server.cameras.notify_snaps
+
+| Route | Rule | Reads | Stream | Preview | Audit | Assistants |
+|---|---|---|---|---|---|---|
+| `GET /api/notify/snap/{snap_id}` | signed_in | view | none | yes |  |  |
+
+## mantel_server.cameras.photos
+
+| Route | Rule | Reads | Stream | Preview | Audit | Assistants |
+|---|---|---|---|---|---|---|
+| `GET /api/photos` | manager | admin | none |  |  |  |
+| `POST /api/photos/albums` | manager |  | none |  | photos.album.create |  |
+| `DELETE /api/photos/albums/{album}` | manager |  | none |  | photos.album.delete |  |
+| `PATCH /api/photos/albums/{album}` | manager |  | none |  | photos.album.rename |  |
+| `PUT /api/photos/albums/{album}/options` | manager |  | none |  | photos.album.options |  |
+| `GET /api/photos/albums/{album}/photos` | manager | admin | none |  |  |  |
+| `GET /api/photos/albums/{album}/show` | signed_in | feature:media | none | yes |  |  |
+| `POST /api/photos/albums/{album}/upload` | manager |  | none |  | photos.upload |  |
+| `GET /api/photos/cutouts` | manager | admin | none |  |  |  |
+| `PUT /api/photos/cutouts` | manager |  | none |  | photos.cutouts.preset |  |
+| `POST /api/photos/delete` | manager |  | none |  | photos.delete |  |
+| `GET /api/photos/faces` | manager | admin | none |  |  |  |
+| `DELETE /api/photos/import` | owner |  | none |  | photos.import.cancel |  |
+| `GET /api/photos/import` | manager | admin | none |  |  |  |
+| `POST /api/photos/import` | owner |  | none |  | photos.import.start |  |
+| `PUT /api/photos/limits` | owner |  | none |  | photos.limits |  |
+| `POST /api/photos/move` | manager |  | none |  | photos.move |  |
+| `GET /api/photos/screens` | signed_in | feature:media | none | yes |  |  |
+| `PUT /api/photos/screens/{screen}` | manager |  | none |  | photos.screen |  |
+| `PUT /api/photos/{photo}/focus` | manager |  | none |  | photos.focus |  |
+| `GET /api/photos/{photo}/{size}` | signed_in | feature:media | bounded:one photo file | yes |  |  |
+
+## mantel_server.cameras.protect_connector
+
+| Route | Rule | Reads | Stream | Preview | Audit | Assistants |
+|---|---|---|---|---|---|---|
+| `DELETE /api/protect` | owner, fresh away |  | none |  | connection.protect.disconnected |  |
+| `GET /api/protect` | manager | admin | none |  |  |  |
+| `POST /api/protect` | owner, fresh away |  | none |  | connection.protect.saved |  |
+| `GET /api/protect/cameras` | manager | admin | none |  |  |  |
+| `PUT /api/protect/cameras/{pid}` | manager |  | none |  | protect.camera.set |  |
+| `GET /api/protect/cameras/{pid}/still` | manager | admin | none |  |  |  |
+| `POST /api/protect/cameras/{pid}/turn-on` | manager |  | none |  | protect.camera.smart_types_on |  |
+| `POST /api/protect/test` | owner, fresh away |  | none |  | none: tests an address and an API key; saves nothing |  |
+| `POST /api/protect/trust` | owner, fresh away |  | none |  | connection.protect.certificate_trusted |  |
 
 ## mantel_server.connect_pairing
 
@@ -516,27 +572,11 @@ Columns: **Rule** who may call it (`signed_in` any session, `person`, `manager` 
 |---|---|---|---|---|---|---|
 | `* /mcp` | own: mcp_bearer | admin | none |  | an assistant's endpoint: its own bearer credential (mcp/auth.py: a personal key or a signed-in token), not a session |  |
 
-## mantel_server.media_proxy
-
-| Route | Rule | Reads | Stream | Preview | Audit | Assistants |
-|---|---|---|---|---|---|---|
-| `GET /api/services` | signed_in | self | none | yes |  |  |
-| `* /go2rtc` | own: static | none | none |  | the proxy's bare address: a redirect to its tail route (MediaProxy.handler), which authorizes; it answers no house data |  |
-| `* /go2rtc/{tail}` | own: proxy | view | live:media_proxy |  | the media proxy: its own authorize() (media_proxy.py) checks the session and the service's grant |  |
-| `* /ma` | own: static | none | none |  | the proxy's bare address: a redirect to its tail route (MediaProxy.handler), which authorizes; it answers no house data |  |
-| `* /ma/{tail}` | own: proxy | feature:music | live:media_proxy |  | the media proxy: its own authorize() (media_proxy.py) checks the session and the service's grant |  |
-
 ## mantel_server.music
 
 | Route | Rule | Reads | Stream | Preview | Audit | Assistants |
 |---|---|---|---|---|---|---|
 | `GET /api/music/status` | manager | admin | none |  |  |  |
-
-## mantel_server.notify_snaps
-
-| Route | Rule | Reads | Stream | Preview | Audit | Assistants |
-|---|---|---|---|---|---|---|
-| `GET /api/notify/snap/{snap_id}` | signed_in | view | none | yes |  |  |
 
 ## mantel_server.performance
 
@@ -551,46 +591,6 @@ Columns: **Rule** who may call it (`signed_in` any session, `person`, `manager` 
 |---|---|---|---|---|---|---|
 | `GET /api/phones` | manager | admin | none |  |  |  |
 | `PUT /api/users/{id}/phones` | manager |  | none |  | phones.set |  |
-
-## mantel_server.photos
-
-| Route | Rule | Reads | Stream | Preview | Audit | Assistants |
-|---|---|---|---|---|---|---|
-| `GET /api/photos` | manager | admin | none |  |  |  |
-| `POST /api/photos/albums` | manager |  | none |  | photos.album.create |  |
-| `DELETE /api/photos/albums/{album}` | manager |  | none |  | photos.album.delete |  |
-| `PATCH /api/photos/albums/{album}` | manager |  | none |  | photos.album.rename |  |
-| `PUT /api/photos/albums/{album}/options` | manager |  | none |  | photos.album.options |  |
-| `GET /api/photos/albums/{album}/photos` | manager | admin | none |  |  |  |
-| `GET /api/photos/albums/{album}/show` | signed_in | feature:media | none | yes |  |  |
-| `POST /api/photos/albums/{album}/upload` | manager |  | none |  | photos.upload |  |
-| `GET /api/photos/cutouts` | manager | admin | none |  |  |  |
-| `PUT /api/photos/cutouts` | manager |  | none |  | photos.cutouts.preset |  |
-| `POST /api/photos/delete` | manager |  | none |  | photos.delete |  |
-| `GET /api/photos/faces` | manager | admin | none |  |  |  |
-| `DELETE /api/photos/import` | owner |  | none |  | photos.import.cancel |  |
-| `GET /api/photos/import` | manager | admin | none |  |  |  |
-| `POST /api/photos/import` | owner |  | none |  | photos.import.start |  |
-| `PUT /api/photos/limits` | owner |  | none |  | photos.limits |  |
-| `POST /api/photos/move` | manager |  | none |  | photos.move |  |
-| `GET /api/photos/screens` | signed_in | feature:media | none | yes |  |  |
-| `PUT /api/photos/screens/{screen}` | manager |  | none |  | photos.screen |  |
-| `PUT /api/photos/{photo}/focus` | manager |  | none |  | photos.focus |  |
-| `GET /api/photos/{photo}/{size}` | signed_in | feature:media | bounded:one photo file | yes |  |  |
-
-## mantel_server.protect_connector
-
-| Route | Rule | Reads | Stream | Preview | Audit | Assistants |
-|---|---|---|---|---|---|---|
-| `DELETE /api/protect` | owner, fresh away |  | none |  | connection.protect.disconnected |  |
-| `GET /api/protect` | manager | admin | none |  |  |  |
-| `POST /api/protect` | owner, fresh away |  | none |  | connection.protect.saved |  |
-| `GET /api/protect/cameras` | manager | admin | none |  |  |  |
-| `PUT /api/protect/cameras/{pid}` | manager |  | none |  | protect.camera.set |  |
-| `GET /api/protect/cameras/{pid}/still` | manager | admin | none |  |  |  |
-| `POST /api/protect/cameras/{pid}/turn-on` | manager |  | none |  | protect.camera.smart_types_on |  |
-| `POST /api/protect/test` | owner, fresh away |  | none |  | none: tests an address and an API key; saves nothing |  |
-| `POST /api/protect/trust` | owner, fresh away |  | none |  | connection.protect.certificate_trusted |  |
 
 ## mantel_server.proxy_check
 

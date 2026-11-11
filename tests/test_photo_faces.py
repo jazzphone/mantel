@@ -14,7 +14,8 @@ from aiohttp import FormData
 from PIL import Image
 
 from mantel_server import db as dbm
-from mantel_server import faces, photos, setup_check
+from mantel_server.cameras import faces, photos
+from mantel_server import setup_check
 
 ONE = [[0.4, 0.3, 0.2, 0.25, 0.97]]
 

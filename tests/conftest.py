@@ -84,7 +84,7 @@ async def mantel(tmp_path, monkeypatch):
 def image_threads(monkeypatch):
     """Picture work in a worker THREAD of this process, as when no worker process can run (imaging.py): for tests
     that replace ``photos.process``, ``faces.Detector`` and the like here, which a worker process would never see."""
-    from mantel_server import imaging
+    from mantel_server.cameras import imaging
     imaging.reset()
     monkeypatch.setattr(imaging, "PROCESSES", False)
     yield

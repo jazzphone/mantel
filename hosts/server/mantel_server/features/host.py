@@ -23,7 +23,8 @@ from hk_core.screensaver import rules as SS
 from hk_core.settings import model as SM
 from hk_core.sleep import engine as SE
 
-from .. import audit, feature_pages, notify_snaps
+from .. import audit, feature_pages
+from ..cameras import notify_snaps
 from ..connectors import Ctx, deny_read, Forbidden, may_feature, read_routes, Route, ws_handlers
 from ..feature_watch import CalendarLook, TabletWatch
 from ..identity.guards import guard

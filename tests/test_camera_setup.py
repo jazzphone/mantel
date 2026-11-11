@@ -18,8 +18,8 @@ from aiohttp import web
 import gateway_fakes as GF
 from hk_core.notifications import accessories as NA, banner as NB, rules as NR, settings as NS
 from live_tv_fakes import FRAME
-from mantel_server import camera_setup as CS
-from mantel_server import cameras_direct as D
+from mantel_server.cameras import camera_setup as CS
+from mantel_server.cameras import cameras_direct as D
 from mantel_server import features as F
 from mantel_server.identity.rbac import Grant
 from mantel_server.settings_store import Actor

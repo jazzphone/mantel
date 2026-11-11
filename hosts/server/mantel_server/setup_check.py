@@ -77,11 +77,11 @@ def lines(app: Any, boards: int) -> list[dict[str, Any]]:
     except Exception:  # noqa: BLE001
         has_photos = False
     if has_photos:
-        from . import imaging
+        from .cameras import imaging
         if not imaging.faces_available():
             out.append(_line(None, "Photos", "Faces aren’t found on this platform; the screens’ own focus is used."))
         if not imaging.cutouts_available():
-            from . import cutout
+            from .cameras import cutout
             why = cutout.why_not() or "the cut-out model can’t run here"
             out.append(_line(None, "Time Behind", why[:1].upper() + why[1:] + ", so photos show the time in front."))
     out.append(_line(True if boards else False, "Screens",

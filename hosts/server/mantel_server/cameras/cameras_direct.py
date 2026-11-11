@@ -97,12 +97,13 @@ from urllib.parse import urlsplit, urlunsplit
 import aiohttp
 from aiohttp import web
 
-from . import atrest
-from . import connections as C
-from .connectors import Ctx, Forbidden, Hooks, Route, read_routes, resolve, split_quality
-from .identity.guards import guard
-from .live_tv import CANDIDATE, CONFIG, ICE_SERVERS, MAX_SDP, OFFER, Go2rtc, Go2rtcError, LocalEntities, \
-    go2rtc_api_url, relay_go2rtc
+from .. import atrest
+from .. import connections as C
+from ..connectors import Ctx, Forbidden, Hooks, Route, read_routes, resolve, split_quality
+from ..identity.guards import guard
+from ..live_tv import (
+    CANDIDATE, CONFIG, ICE_SERVERS, MAX_SDP, OFFER, Go2rtc, Go2rtcError, LocalEntities, go2rtc_api_url, relay_go2rtc,
+)
 
 log = logging.getLogger("mantel.cameras_direct")
 
@@ -372,7 +373,7 @@ class DirectCameras:
         """Add or change one camera. ``streams`` (and ``still``) may be left out of a change to keep the camera's
         own. Refused (SourceError, or CameraConflict naming Home Assistant's entity) before anything is kept. The
         sealed URLs are written before the document, so the document never names a camera without them."""
-        from .settings_store import Actor
+        from ..settings_store import Actor
         src, secret = check_source(source)
         who = self.ha_has(src.entity_id)
         if who is not None:
@@ -397,7 +398,7 @@ class DirectCameras:
 
     async def remove(self, slug: str, *, actor: Any = None) -> bool:
         """Remove one camera: its sessions end, its streams go, its sealed URLs are deleted."""
-        from .settings_store import Actor
+        from ..settings_store import Actor
         current = {s.slug: s for s in self.sources()}
         if slug not in current:
             return False
@@ -594,14 +595,14 @@ class DirectCameras:
         return src
 
     async def client_config(self, ctx: Ctx, msg: dict) -> dict[str, Any]:
-        from .ha.readproxy import ReadBlocked
+        from ..ha.readproxy import ReadBlocked
         if set(msg) - {"type", "id", "entity_id"}:
             raise ReadBlocked("get_client_config carries entity_id only")
         await self._gate(ctx, msg["entity_id"])
         return {"configuration": {"iceServers": json.loads(json.dumps(ICE_SERVERS))}, "getCandidatesUpfront": False}
 
     async def offer(self, ctx: Ctx, msg: dict, on_event: Callable[[dict], None], quality: str | None = None):
-        from .ha.readproxy import ReadBlocked
+        from ..ha.readproxy import ReadBlocked
         msg, hint = split_quality(msg)
         quality = quality or hint or "high"
         if set(msg) - {"type", "id", "entity_id", "offer"}:
@@ -678,7 +679,7 @@ class DirectCameras:
         return unsubscribe
 
     async def candidate(self, ctx: Ctx, msg: dict) -> None:
-        from .ha.readproxy import ReadBlocked
+        from ..ha.readproxy import ReadBlocked
         if set(msg) - {"type", "id", "entity_id", "session_id", "candidate"}:
             raise ReadBlocked("a candidate carries entity_id, session_id and candidate only")
         await self._gate(ctx, msg["entity_id"])
@@ -729,7 +730,7 @@ class DirectCameras:
         """A direct camera's still, after the route's own policy check (camera_still.py): its source's still
         provider, else its own still URL, else go2rtc's frame of its low stream (its high one when it has none).
         camera_still.StillRefused when there is none."""
-        from .connectors.camera_still import StillRefused, read_image
+        from ..connectors.camera_still import StillRefused, read_image
         src = self.serves(entity_id)
         if src is None:
             raise StillRefused(404, "unknown_camera")

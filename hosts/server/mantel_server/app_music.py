@@ -332,7 +332,7 @@ async def library(request: web.Request) -> web.Response:
 async def image(request: web.Request) -> web.StreamResponse:
     """A library picture: Music Assistant's image proxy, for ``feature:music``."""
     from .connectors import camera_still
-    from .media_proxy import ma_web_url
+    from .cameras.media_proxy import ma_web_url
     pid = (request.query.get("id") or "").lower()
     base = ma_web_url(request.app["cfg"], request.app.get("connections"))
     if not PROXY_ID.match(pid) or not base or _host(request) is None:

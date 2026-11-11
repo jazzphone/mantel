@@ -9,7 +9,8 @@ import pytest
 from aiohttp import FormData
 from PIL import Image
 
-from mantel_server import cutout, db as dbm, faces, image_work, photos
+from mantel_server.cameras import cutout, faces, image_work, photos
+from mantel_server import db as dbm
 
 
 @pytest.fixture(autouse=True)

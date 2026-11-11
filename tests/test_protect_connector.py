@@ -15,7 +15,7 @@ from aiohttp import web
 
 import gateway_fakes as GF
 from mantel_server import features as F
-from mantel_server import protect_connector as P
+from mantel_server.cameras import protect_connector as P
 from mantel_server.identity.rbac import Grant
 from mantel_server.settings_store import Actor
 from test_cameras_direct import OFFER_SDP, rig  # noqa: F401 -- the fixture

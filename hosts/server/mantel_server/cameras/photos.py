@@ -69,15 +69,16 @@ from urllib.parse import unquote, urlsplit
 
 from aiohttp import web
 
-from . import audit, imaging
+from .. import audit
+from . import imaging
 from . import cutout as cutter
 from . import faces as face_finder
 # the picture work itself (image_work.py) runs in imaging.py's worker process; these names stay photos.py's
 from .image_work import (MID_EDGE, ORIGINAL_EDGE, PIXELS_MAX, SCREEN_EDGE, THUMB_EDGE, PhotoError, Processed,  # noqa: F401
                          make_variant, process, sniff, taken_of)
 from .imaging import IMAGE_JOBS, image_slot, run as run_image_job  # noqa: F401
-from .identity.guards import guard
-from .identity.guards import ident as guarded
+from ..identity.guards import guard
+from ..identity.guards import ident as guarded
 
 log = logging.getLogger("mantel.photos")
 Before = Callable[[dict], None] | None    # a change's audit row, written once it is accepted and before it is made
@@ -1081,7 +1082,7 @@ class Importer:
             raise PhotoError("not_a_photo", "Home Assistant didn’t give a picture for it.")
         # HA Core itself (media_photos.core_url: under the App, ha_url is the Supervisor's proxy, which only passes
         # /api/…); HA's signature in the query is the credential (no token is sent)
-        from .connectors.media_photos import core_url
+        from ..connectors.media_photos import core_url
         base = core_url(self.app["cfg"])
         http = self.app.get("http")
         if http is None:
@@ -1151,7 +1152,7 @@ def _fail(exc: PhotoError) -> web.Response:
 
 def may_view(request: web.Request) -> bool:
     """A manager, or anyone (person or wall tablet) who may use ``feature:media`` -- as the HA folder's photos."""
-    from .identity import sessions
+    from ..identity import sessions
     ident = sessions.identity(request)
     if ident.user is not None and ident.device is None and ident.user.role in MANAGERS:
         return True
@@ -1279,7 +1280,7 @@ async def api_focus(request: web.Request) -> web.Response:
 @guard("manager", audit="photos.upload")
 async def api_upload(request: web.Request) -> web.Response:
     ident = guarded(request)
-    from .user_files import FileError, read_upload
+    from ..user_files import FileError, read_upload
     lib = _lib(request)
     try:
         album = lib.album(request.match_info["album"])
@@ -1455,7 +1456,7 @@ async def api_show(request: web.Request) -> web.Response:
 async def serve(request: web.Request) -> web.StreamResponse:
     size, pid = request.match_info["size"], request.match_info["photo"]
     if size == "original":
-        from .identity import sessions
+        from ..identity import sessions
         ident = sessions.identity(request)
         allowed = ident.user is not None and ident.device is None and ident.user.role in MANAGERS
     else:

@@ -30,7 +30,7 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.x509.oid import NameOID
 
-from mantel_server import protect_api as pa
+from mantel_server.cameras import protect_api as pa
 
 FIXTURES = Path(__file__).parent / "fixtures" / "protect"
 KEY = "test-api-key-0123456789abcdef"

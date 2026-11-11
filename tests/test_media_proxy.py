@@ -9,7 +9,7 @@ import json
 import aiohttp
 import pytest
 
-from mantel_server import media_proxy
+from mantel_server.cameras import media_proxy
 from https_fakes import go2rtc_app, ma_app, make_mantel, start_upstream
 
 

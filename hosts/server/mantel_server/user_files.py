@@ -54,9 +54,10 @@ from hk_core import your_files as _yf
 from hk_core.your_files import (  # noqa: F401 -- re-exported: the tests and ingress use these names
     GLYPH_ICONS_MAX, GLYPHS_HEADER, _glyph_data, _is_path)
 
-from . import audit, imaging
+from . import audit
+from .cameras import imaging
 # a photo's decode and re-encode (image_work.py) runs in imaging.py's worker process; these names stay Your Files'
-from .image_work import PHOTO_EDGE, PHOTO_PIXELS_MAX, FileError, reencode_photo, sniff_image  # noqa: F401
+from .cameras.image_work import PHOTO_EDGE, PHOTO_PIXELS_MAX, FileError, reencode_photo, sniff_image  # noqa: F401
 from .identity.guards import guard
 from .identity.guards import ident as guarded
 

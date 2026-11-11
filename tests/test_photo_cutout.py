@@ -13,7 +13,8 @@ import pytest
 from aiohttp import FormData
 from PIL import Image, ImageDraw
 
-from mantel_server import cutout, db as dbm, faces, image_work, imaging, photos, setup_check
+from mantel_server.cameras import cutout, faces, image_work, imaging, photos
+from mantel_server import db as dbm, setup_check
 
 np = pytest.importorskip("numpy")
 
@@ -133,11 +134,11 @@ def test_without_the_model_nothing_is_trusted(tmp_path, monkeypatch):
     assert not cutout.model_ok(fake) and "isn’t the expected file" in cutout.why_not()
     monkeypatch.setattr(cutout, "MODEL_SHA256", hashlib.sha256(fake.read_bytes()).hexdigest())
     assert cutout.model_ok(fake)
-    assert (cutout.Path(cutout.__file__).with_name("models") / "u2netp_LICENSE").read_text().count("Apache License") >= 1
+    assert (cutout.Path(str(cutout.files("mantel_server").joinpath("models", "u2netp_LICENSE")))).read_text().count("Apache License") >= 1
 
 
 def test_the_vendored_model_when_there_is_one_is_the_expected_file():
-    real = cutout.Path(cutout.__file__).with_name("models") / "u2netp.onnx"
+    real = cutout.MODEL
     if not real.exists():
         assert not cutout.available(), "no model file: cut-outs are unavailable"
         pytest.skip("u2netp.onnx isn't vendored yet (the owner fetches it)")

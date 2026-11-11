@@ -52,10 +52,10 @@ from urllib.parse import quote, urlsplit
 import aiohttp
 from aiohttp import WSMsgType, web
 
-from . import proxy_trust
-from .identity import sessions
-from .identity.guards import WHY_PROXY, guard, open_route
-from .connectors.kiosk import read_body     # the whole body, every piece (one read() is only the first)
+from .. import proxy_trust
+from ..identity import sessions
+from ..identity.guards import WHY_PROXY, guard, open_route
+from ..connectors.kiosk import read_body     # the whole body, every piece (one read() is only the first)
 
 log = logging.getLogger("mantel.media_proxy")
 
@@ -253,7 +253,7 @@ class MusicAssistant(Upstream):
         self.announced: set[str] = set()   # base_url values MA announced in server_info (also replaced)
 
     def plan(self, request: web.Request, tail: str) -> Plan | None:
-        from .ma_page import ALIAS
+        from ..ma_page import ALIAS
         signed = tail.startswith(ALIAS) or tail == ALIAS.rstrip("/")
         if signed:
             tail = tail[len(ALIAS):]
@@ -293,7 +293,7 @@ class MusicAssistant(Upstream):
         all of it: house commands on, and every speaker Mantel knows (Music Assistant's players in Home
         Assistant) theirs to play, group and turn up. Anyone else (a Child kept to their rooms, a wall
         tablet) gets the page unsigned: Music Assistant's own sign-in, its own accounts."""
-        from .music import ma_players
+        from ..music import ma_players
         authz, hub = app.get("authz"), app.get("hub")
         if app.get("gateway") is None or authz is None or hub is None or principal is None or not principal.valid:
             return False
@@ -539,7 +539,7 @@ class MediaProxy:
         """The upstream's answer to the person, chunk by chunk (a camera's MJPEG or MP4 may never end). Like a
         relayed socket it is one of live.py's long-lived connections: a revocation, the policy tick or its own
         ``RECHECK`` cuts it off (the upstream's side too) when the session, the device or the grant is gone."""
-        from . import live
+        from .. import live
         stats = self.stats[up.name]
         registry = live.of(request.app)
         authz = request.app.get("authz")
@@ -588,7 +588,7 @@ class MediaProxy:
         """ma_page.py: authenticate this socket to MA with the page token, then give the page MA's
         server_info saying `homeassistant_addon: true`, so MA's app asks `auth/me` instead of signing in.
         False (and server_info passed on as it came) without a token or when MA refuses it."""
-        from .ma_page import of
+        from ..ma_page import of
         page = of(request.app)
         token = page.token() if page is not None else ""
         first = await upstream.receive(timeout=15)
@@ -672,7 +672,7 @@ class MediaProxy:
                     break
 
         async def upward() -> None:          # page -> upstream
-            from .ma_page import BLOCKED
+            from ..ma_page import BLOCKED
             async for m in ws:
                 if m.type == WSMsgType.TEXT:
                     if signed_in:
@@ -688,7 +688,7 @@ class MediaProxy:
 
         # live.py: a revocation ends it at once, the policy tick when the grant is gone; a page signed in past the
         # gateway needs house commands on (and every speaker still theirs), so turning them off ends it
-        from . import live
+        from .. import live
         registry = live.of(request.app)
 
         async def close(why: str) -> None:
@@ -782,7 +782,7 @@ def ma_web_url(cfg, conns: Any = None) -> str:
 def upstreams_for(app: web.Application) -> list[Upstream]:
     """Both upstreams, always (each answers ``not_configured`` while it has no address). go2rtc's address
     is Live TV's (live_tv.go2rtc_api_url: the one place it is read)."""
-    from .live_tv import go2rtc_api_url
+    from ..live_tv import go2rtc_api_url
     cfg = app["cfg"]
     return [MusicAssistant(lambda: ma_web_url(cfg, app.get("connections"))),
             Go2rtc(lambda: go2rtc_api_url(cfg))]

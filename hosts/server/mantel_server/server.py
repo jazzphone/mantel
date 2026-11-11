@@ -33,19 +33,20 @@ from aiohttp import WSCloseCode, WSMsgType, web
 
 from . import about, frame_origins, music
 from .identity import accounts, auth, pins, rbac_store, sessions
-from . import (
-    alarm_pin, cameras_direct, protect_connector, connect_pairing, devices, health, ingress, live_tv, settings_store,
-)
+from . import alarm_pin, connect_pairing, devices, health, ingress, live_tv, settings_store
+from .cameras import cameras_direct, protect_connector
 from .ha import gateway, readproxy
 from . import (
     admin_page, atrest, backup, connections, features, linked, linked_house, linked_owners, linked_pairing,
-    linked_files, linked_reads, linked_settings, screens, linked_actions, phones, photos, talk_relay, user_files,
+    linked_files, linked_reads, linked_settings, screens, linked_actions, phones, talk_relay, user_files,
 )
+from .cameras import photos
 from .ha import people_ha, supervisor_discovery
 from .identity import login_page, service_accounts
+from .cameras import camera_setup, media_proxy
 from . import (
-    camera_setup, default_screens, direct, direct_tls, docs_pages, ma_page, media_proxy, proxy_check, proxy_trust,
-    route_table, security_headers, tablet_links, user_data,
+    default_screens, direct, direct_tls, docs_pages, ma_page, proxy_check, proxy_trust, route_table, security_headers,
+    tablet_links, user_data,
 )
 from .ha import ha_dashboards, socket_reads
 from . import alerts, app_shell, timeline, hk_cards, live, mcp, page_health, performance, server_settings, setup_guide

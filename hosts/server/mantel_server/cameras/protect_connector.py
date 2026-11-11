@@ -93,16 +93,16 @@ from hk_core.house import State
 from hk_core.notifications import rules as NR
 from hk_core.talk.core import Target
 
-from . import audit
+from .. import audit
 from . import cameras_direct as D
-from . import connections as C
+from .. import connections as C
 from . import protect_api as pa
-from .identity.accounts import read_json
-from .identity.guards import guard
-from .identity.guards import ident as guarded
-from .live_tv import LocalEntities
-from .identity.sessions import error, ok
-from .talk_direct import DirectTalk, Speaker
+from ..identity.accounts import read_json
+from ..identity.guards import guard
+from ..identity.guards import ident as guarded
+from ..live_tv import LocalEntities
+from ..identity.sessions import error, ok
+from ..talk_direct import DirectTalk, Speaker
 
 log = logging.getLogger("mantel.protect")
 
@@ -366,7 +366,7 @@ class ProtectConnector:
         return self.video_from(pid) == "direct" and self.connected
 
     def _actor(self, ident: Any = None) -> Any:
-        from .settings_store import Actor
+        from ..settings_store import Actor
         user = getattr(ident, "user", None)
         return Actor(user_id=user.id, role=user.role, label="protect") if user is not None else Actor(label="protect")
 

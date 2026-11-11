@@ -15,7 +15,7 @@ from aiohttp.test_utils import TestServer
 import gateway_fakes as GF
 from mantel_server import features as F
 from mantel_server import feature_watch as W
-from mantel_server import notify_snaps as NS
+from mantel_server.cameras import notify_snaps as NS
 from mantel_server.settings_store import Actor
 from test_features import (KIOSK, TABLET, DOOR, AREAS, DEVICES, ENTITIES, change, events, make_env,  # noqa: F401
                            next_event, until)

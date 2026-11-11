@@ -21,7 +21,8 @@ from aiohttp import FormData, web
 from aiohttp.test_utils import TestServer
 from PIL import Image
 
-from mantel_server import backup, faces, photos
+from mantel_server import backup
+from mantel_server.cameras import faces, photos
 
 
 def picture(fmt="JPEG", size=(80, 60), mode="RGB", color=(200, 30, 30), exif=False, noise=False, **kw) -> bytes:
@@ -598,7 +599,7 @@ async def test_a_large_photo_upload_does_not_freeze_every_other_client(mantel):
     (and ``progressive=True``, which libjpeg runs through the same optimal-Huffman pass) holds the GIL for the whole
     encode. The fix then was a baseline encode; now the work runs in the image worker PROCESS (imaging.py), with its
     own GIL, so the progressive, optimized encode is back and the loop still never waits on it."""
-    from mantel_server import imaging
+    from mantel_server.cameras import imaging
     lib = mantel.app["photos"]
     lib.set_limits({"file_mb": 100})
     aid = lib.create_album("Big")["id"]

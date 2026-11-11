@@ -10,7 +10,7 @@ from pathlib import Path
 def about() -> dict:
     """Where this ran, and what that process has imported."""
     return {"pid": os.getpid(),
-            "modules": sorted(m for m in ("aiohttp", "onnxruntime", "mantel_server.server", "mantel_server.photos",
+            "modules": sorted(m for m in ("aiohttp", "onnxruntime", "mantel_server.server", "mantel_server.cameras.photos",
                                           "mantel_server.user_files", "pytest") if m in sys.modules)}
 
 

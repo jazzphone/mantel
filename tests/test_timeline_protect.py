@@ -11,8 +11,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from mantel_server import protect_api as pa
-from mantel_server import protect_connector as PC
+from mantel_server.cameras import protect_api as pa
+from mantel_server.cameras import protect_connector as PC
 from mantel_server.ha.registry import Registry
 from mantel_server.ha.state import StateStore
 from mantel_server.store import Store

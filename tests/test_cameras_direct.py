@@ -15,7 +15,7 @@ from argon2 import PasswordHasher
 import gateway_fakes as GF
 from conftest import Mantel
 from live_tv_fakes import ANSWER, CANDIDATE, FRAME, FakeGo2rtc
-from mantel_server import cameras_direct as D
+from mantel_server.cameras import cameras_direct as D
 from mantel_server import features as F
 from mantel_server import live_tv as L
 from mantel_server.identity.rbac import Grant

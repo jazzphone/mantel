@@ -226,7 +226,7 @@ async def command(request: web.Request) -> web.Response:
 async def snapshot(request: web.Request) -> web.Response:
     """A notification's snapshot for the Notification Service Extension: notify_snaps.py's rule (a camera the
     person may see as a still, on this door), one answer for unknown, run out and refused."""
-    from . import notify_snaps
+    from .cameras import notify_snaps
     nothing = web.json_response({"error": "not_found"}, status=404, headers={"Cache-Control": "no-store"})
     store = getattr(request.app.get("features"), "snaps", None)
     sid = request.query.get("id")
