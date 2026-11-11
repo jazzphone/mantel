@@ -2,7 +2,7 @@
   "shell": "web/hk/cards/hk-library.js",
   "folder": "web/hk/library",
   "global": "hkLibraryParts",
-  "label": "hk-library",
+  "label": "cards/hk-library",
   "what": "THE MUSIC LIBRARY CARD",
   "run_in": "whenBase",
   "class": "HkLibraryCard",
@@ -81,5 +81,9 @@
         "_tile"
       ]
     }
-  ]
+  ],
+  "source": {
+    "blob": "a3223867cf8dad30f895dbfea92462fd99223507",
+    "lines": 1926
+  }
 }

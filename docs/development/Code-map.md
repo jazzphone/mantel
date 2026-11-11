@@ -109,7 +109,12 @@ Mantel's pages and the code both hosts share: HK's cards, modules, panels and th
     - `hk-layout-grid.js` — the grid card, the grid view and the conditional card
     - `hk-layout-home-grid.js` — the Home Grid view
     - `hk-layout-pager.js` — the pager
-  - `hk-library.js` — browse and search Music Assistant, in our own chrome.
+  - `hk-library.js` — browse and search Music Assistant, in our own chrome. *(a shell: its parts are in `web/hk/library/`, `tools/split_manifests/library.json`)*
+    - `hk-library-player.js` — which player everything targets, and the websocket calls
+    - `hk-library-browse.js` — loading a level, a category's pages, the Discover shelves and search
+    - `hk-library-actions.js` — play, open, back, the saved search and the notices
+    - `hk-library-draw.js` — the card's render and paint, and the shelves' element
+    - `hk-library-items.js` — the items: kinds, the track list, the header, the list and grid, the crumb and the tiles
   - `hk-media.js` — the music cards *(a shell: its parts are in `web/hk/media/`, `tools/split_manifests/media.json`)*
     - `hk-media-now.js` — the player (Now Playing) and its stacked geometry, speaker panel CSS and music-page address
     - `hk-media-speakers.js` — the speaker picker and the notification ids it shows
@@ -215,7 +220,12 @@ Mantel's pages and the code both hosts share: HK's cards, modules, panels and th
   - `hk-saverpieces-weather.js` — THE SCREENSAVER'S WEATHER AND SKY PIECES (2026-11-02, phase 13, phase 1b, wave A
   - `hk-saverwidgets.js` — THE SCREENSAVER'S PIECES, drawn in every shape (2026-11-01, the owner
   - `hk-settings-defaults.js` — the first-paint copy of the settings' DEFAULTS, for hk-settings.js.
-  - `hk-settings.js` — THE DASHBOARD SETTINGS, on every screen, before any card.
+  - `hk-settings.js` — THE DASHBOARD SETTINGS, on every screen, before any card. *(a shell: its parts are in `web/hk/settings-module/`, `tools/split_manifests/settings-module.json`)*
+    - `hk-settings-module-glass.js` — the glass, the frost, the tint and Bright Glass: the look's numbers
+    - `hk-settings-module-pages.js` — what a page shows: the sky ladder, swipe pages, backdrops, wallpaper, photos and landscapes
+    - `hk-settings-module-house.js` — what the page reads of the house: the weather, the calendar, the moon, the season and the sky window
+    - `hk-settings-module-live.js` — the live feed: the integration's answer and its subscriptions
+    - `hk-settings-module-tablet.js` — which wall tablet this page is: remembered in the browser, named by the client
   - `hk-sidepane.js` — THE SIDE PANE (2026-10-30, docs/phase11/HOMEVIEW-LOOK.md "Phase A2") *(a shell: its parts are in `web/hk/sidepane/`, `tools/split_manifests/sidepane.json`)*
     - `hk-sidepane-decide.js` — what the pane shows: its decisions and the house it reads
     - `hk-sidepane-css.js` — the pane's CSS
