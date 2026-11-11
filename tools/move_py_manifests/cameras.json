@@ -1,0 +1,21 @@
+{
+  "package": "cameras",
+  "why": "The cameras and pictures: UniFi Protect, direct cameras and their setup, the media proxy, faces, photos and the image work",
+  "modules": [
+    "protect_api",
+    "protect_connector",
+    "cameras_direct",
+    "camera_setup",
+    "media_proxy",
+    "faces",
+    "photos",
+    "image_work",
+    "imaging",
+    "cutout",
+    "notify_snaps"
+  ],
+  "checked": {
+    "faces": "its model is found through the package since f61647f6",
+    "cutout": "its model is found through the package since f61647f6"
+  }
+}

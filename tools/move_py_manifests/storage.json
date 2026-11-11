@@ -1,0 +1,16 @@
+{
+  "package": "storage",
+  "why": "What the server keeps: the database, backups, the store, users' data and files, sealing at rest, the audit",
+  "modules": [
+    "db",
+    "backup",
+    "store",
+    "user_data",
+    "user_files",
+    "atrest",
+    "audit"
+  ],
+  "checked": {
+    "db": "the migrations folder is found through the package since f61647f6"
+  }
+}

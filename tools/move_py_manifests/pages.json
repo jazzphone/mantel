@@ -1,0 +1,19 @@
+{
+  "package": "pages",
+  "why": "The server's own pages: About, admin, docs, feature pages, page headers and health, setup, the default screens",
+  "modules": [
+    "about",
+    "admin_page",
+    "docs_pages",
+    "feature_pages",
+    "page_headers",
+    "page_health",
+    "setup_check",
+    "setup_guide",
+    "default_screens",
+    "screens"
+  ],
+  "checked": {
+    "admin_page": "reads files(\"mantel_server\"): the package's own folder, wherever this module sits"
+  }
+}

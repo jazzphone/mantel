@@ -1,0 +1,18 @@
+{
+  "package": "network",
+  "why": "How pages and apps reach the server: the direct listener and its TLS, Ingress, the proxies it trusts, frame origins, security headers, Connect pairing",
+  "modules": [
+    "direct",
+    "direct_tls",
+    "ingress",
+    "proxy_check",
+    "proxy_trust",
+    "frame_origins",
+    "security_headers",
+    "connect_pairing"
+  ],
+  "checked": {
+    "proxy_check": "reads files(\"mantel_server\"): the package's own folder, wherever this module sits",
+    "connect_pairing": "its migration is found through the package since f61647f6"
+  }
+}
