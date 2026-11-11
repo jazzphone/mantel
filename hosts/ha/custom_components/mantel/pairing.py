@@ -28,21 +28,18 @@ import hmac
 import re
 import secrets
 import ssl
-from ipaddress import ip_address
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
 import aiohttp
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+# The protocol numbers, the path and the address are shared with Mantel Server (hk_core/pairing.py).
+from .hk_core.pairing import (  # noqa: F401 -- shared
+    _HOSTNAME, _SCHEMES, _mac, PATH, PINNED, VERSION, normalize_address)
 
-VERSION = 2                                       # never 1: no downgrade to a proof without the address
-PINNED = 3                                        # Mantel's own CA, handed over and pinned
-PATH = "/linked/pair"
 ALPHABET = "ABCDEFGHJKMNPQRSTVWXYZ23456789"      # Mantel's codes (mantel_connect/protocol.py)
 GROUPS, GROUP_LEN = 4, 5
 _CODE = re.compile(rf"^[{ALPHABET}]{{{GROUPS * GROUP_LEN}}}$")
-_HOSTNAME = re.compile(r"^(?=.{1,253}$)[a-z0-9_][a-z0-9_-]{0,62}(\.[a-z0-9_][a-z0-9_-]{0,62})*$")
-_SCHEMES = {"http": ("http", 80), "https": ("https", 443), "ws": ("http", 80), "wss": ("https", 443)}
 NAME = "Home Assistant - Mantel Link"
 
 
@@ -66,38 +63,8 @@ def normalize(text: Any) -> str | None:
     return raw if _CODE.match(raw) else None
 
 
-def normalize_address(url: Any) -> str | None:
-    """``scheme://host:port`` (Mantel's linked_pairing.normalize_address, the same rules), or None: http/https
-    (ws/wss map to them), the host in lower case without a final dot (an IPv6 literal in brackets), the port always
-    written, no path, query or user."""
-    if not isinstance(url, str) or not url or len(url) > 300:
-        return None
-    try:
-        parts = urlsplit(url.strip())
-        port = parts.port
-    except ValueError:
-        return None
-    scheme = _SCHEMES.get(parts.scheme.lower())
-    host = (parts.hostname or "").rstrip(".")
-    if scheme is None or not host:
-        return None
-    try:
-        ip = ip_address(host)
-    except ValueError:
-        if not _HOSTNAME.match(host):
-            return None
-        shown = host
-    else:
-        shown = f"[{ip.compressed}]" if ip.version == 6 else ip.compressed
-    return f"{scheme[0]}://{shown}:{port or scheme[1]}"
-
-
 def _key(raw: str) -> bytes:
     return hashlib.sha256(b"mantel-link-pair-v1|key|" + raw.encode()).digest()
-
-
-def _mac(key: bytes, *parts: str) -> str:
-    return hmac.new(key, "|".join(parts).encode(), hashlib.sha256).hexdigest()
 
 
 def pair_url(address: str) -> str:

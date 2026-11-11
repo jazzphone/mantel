@@ -47,7 +47,6 @@ import logging
 import re
 import secrets
 import time
-from ipaddress import ip_address
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -60,47 +59,19 @@ from . import audit
 from .connect_pairing import ALL_FAILS, ALL_WINDOW, IP_FAILS, IP_WINDOW, MAX_WRONG, Window
 from .guards import guard, open_route
 from .guards import ident as guarded
+# The protocol numbers, the path and the address are shared with Mantel Link (hk_core/pairing.py).
+from hk_core.pairing import (  # noqa: F401 -- shared
+    _HOSTNAME, _SCHEMES, _mac, PATH, PINNED, VERSION, normalize_address)
 
 log = logging.getLogger("mantel.linked_pairing")
 
-VERSION = 2                     # the newest over a public certificate; VERSIONS are all this Mantel accepts
-PINNED = 3                      # Mantel's own certificate, pinned: only on Mantel Connect's listener
 VERSIONS = (1, 2, 3)
-PATH = "/linked/pair"
 TTL = CP.CODE_TTL
 _NONCE = re.compile(r"^[0-9a-f]{32}$")
 _HEX64 = re.compile(r"^[0-9a-f]{64}$")
 _NAME = re.compile(r"^[A-Za-z0-9][\w .:@-]{0,63}$")         # a Service account's name (service_accounts._NAME)
 DEFAULT_NAME = "Home Assistant - Mantel Link"
-_HOSTNAME = re.compile(r"^(?=.{1,253}$)[a-z0-9_][a-z0-9_-]{0,62}(\.[a-z0-9_][a-z0-9_-]{0,62})*$")
-_SCHEMES = {"http": ("http", 80), "https": ("https", 443), "ws": ("http", 80), "wss": ("https", 443)}
 _LOOPBACK = ("127.0.0.1", "localhost", "::1")
-
-
-# -- the address (Mantel Link's pairing.py normalises the same way) ----------------------------------------
-def normalize_address(url: Any) -> str | None:
-    """``scheme://host:port`` for an http(s) (or ws(s)) URL, or None: the scheme as http/https, the host in lower
-    case without a final dot (an IPv6 literal in brackets), the port always written, no path, query or user."""
-    if not isinstance(url, str) or not url or len(url) > 300:
-        return None
-    try:
-        parts = urlsplit(url.strip())
-        port = parts.port
-    except ValueError:
-        return None
-    scheme = _SCHEMES.get(parts.scheme.lower())
-    host = (parts.hostname or "").rstrip(".")
-    if scheme is None or not host:
-        return None
-    try:
-        ip = ip_address(host)
-    except ValueError:
-        if not _HOSTNAME.match(host):
-            return None
-        shown = host
-    else:
-        shown = f"[{ip.compressed}]" if ip.version == 6 else ip.compressed
-    return f"{scheme[0]}://{shown}:{port or scheme[1]}"
 
 
 def _host_of(text: Any) -> str | None:
@@ -147,10 +118,6 @@ def own_addresses(cfg: Any, host: str | None, *, app_url: str | None = None,
 # -- the proofs (Mantel Link's pairing.py computes the same) -------------------------------------------
 def code_key(raw: str) -> bytes:
     return hashlib.sha256(b"mantel-link-pair-v1|key|" + raw.encode()).digest()
-
-
-def _mac(key: bytes, *parts: str) -> str:
-    return hmac.new(key, "|".join(parts).encode(), hashlib.sha256).hexdigest()
 
 
 def client_proof(key: bytes, code_id: str, nonce: str, name: str, address: str | None = None, v: int = 2) -> str:

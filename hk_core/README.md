@@ -6,7 +6,7 @@ the `House` port (`house.py`). Both rules are enforced by `tests/test_boundaries
 
 The HACS build vendors this folder as `custom_components/hk_frontend/hk_core/` (see
 `publish.py`'s plan). Mantel Server imports it as `hk_core`. Mantel Link vendors only what it uses
-(`__init__.py` and `link/`, its `publish.py`'s `CORE_PARTS`) as `custom_components/mantel/hk_core/`.
+(`__init__.py`, `link/`, `talk/` and `pairing.py`, its `publish.py`'s `CORE_PARTS`) as `custom_components/mantel/hk_core/`.
 
 `link/` is the one part that is not host-neutral: what HK Frontend and Mantel Link, the two Home
 Assistant integrations, had as copies of each other, written once. `mantel_link.py` is the client of

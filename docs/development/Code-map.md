@@ -325,6 +325,7 @@ The decisions both hosts make the same way (Rule 2), in Python.
   - `laundry.py` — Laundry
   - `live_tv_guide.py` — THE LIVE TV GUIDE, as plain functions, shared by every host (hk_core; was features/live_tv/guide.py).
   - `needs.py` — WHETHER A FEATURE HAS WHAT IT NEEDS (docs/phase16/FEATURES-ON-BY-DEFAULT.md "The needs check").
+  - `pairing.py` — Pairing Mantel Link with Mantel, the words both sides use
   - `todo.py` — TO-DO LISTS (2026-10-30; the Side Pane's To-do section, docs/phase11/HOMEVIEW-LOOK.md "Phase A2").
   - `tv.py` — TVs
   - `vacuum_water.py` — A vacuum's water tank that ran dry, held until someone clears it (2026-11-09, the owner), the rules with no host in them.
