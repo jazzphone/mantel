@@ -206,7 +206,7 @@ loader as the page starts).
     declares the two variables A2 moved); full runs on A4 and A11: every saver browser check passed, the motion
     checks unchanged. `music-pane-check` and `saver-designs-check-webkit` failed in three full runs in a row under
     load (a cancelled `mdi/icons` fetch reported by WebKit, a drag that found the slide laid out again) and passed
-    every time alone, four times each, on A11 and on the C tree; they pass on `26090f0e` too.
+    every time alone, four times each, on A11 and on the C tree (and in the full run on `26090f0e`, before A2).
   - **Not done: `bind_ahead` stays in the manifest.** What it binds (115 names) is functions the parts call both ways
     (the run's `start`, `stop`, `schedule`, `reveal`; the slide objects `HL`, `TM`, `WX`; `setAttr`, `clock`), not state:
     the plan read the two-way calls as a consequence of the shared state, and they are not. Retiring it means moving
