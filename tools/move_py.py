@@ -608,8 +608,13 @@ def json_and_mentions(plan: Plan, mv: Moves) -> None:
             if mv.mention.search(text):
                 plan.regenerate.append(rel)
             continue
-        if rel.endswith(".json") and rel.split("/")[0] in DATA_JSON and path_re.search(text):
-            plan.json_paths[rel] = path_re.sub(lambda m: f"{SERVER}/{plan.package}/{m.group(1)}.py", text)
+        # (an "init" move: the module that becomes its package's __init__ is named by its new file too)
+        init_re = re.compile(rf"(?<![\w/]){re.escape(SERVER)}/{plan.init}\.py(?![\w])") if plan.init else None
+        if rel.endswith(".json") and rel.split("/")[0] in DATA_JSON and (path_re.search(text) or init_re and init_re.search(text)):
+            new_text = path_re.sub(lambda m: f"{SERVER}/{plan.package}/{m.group(1)}.py", text)
+            if init_re:
+                new_text = init_re.sub(f"{SERVER}/{plan.package}/__init__.py", new_text)
+            plan.json_paths[rel] = new_text
             plan.old[rel] = text
             plan.new[rel] = plan.json_paths[rel]
             continue

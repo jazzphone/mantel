@@ -367,6 +367,7 @@ def test_the_real_manifests_load():
 
 # ------------------------------------------------------------------------------------------------ a module as its package's __init__
 LINKED = {
+    "tools/split_py_manifests/linked.json": '{"module": "hosts/server/mantel_server/linked.py", "mode": "siblings", "parts": []}\n',
     f"{SERVER}/linked.py": '''"""The link."""
 from __future__ import annotations
 from . import store
@@ -413,6 +414,8 @@ def test_a_module_becomes_its_packages_init(tmp_path, capsys):
     table = read(root, f"{SERVER}/_moved.py")
     assert '"linked_actions": ("linked.linked_actions"' in table and '"linked":' not in table     # its own name: no alias
     assert py(root, "import mantel_server.uses_link as u; print(u.go())").stdout.strip() == before
+    # data keyed by file path names the module by its new file, the package's __init__
+    assert f"{SERVER}/linked/__init__.py" in read(root, "tools/split_py_manifests/linked.json")
     assert py(root, "import mantel_server.linked_actions as a, mantel_server.linked.linked_actions as b; print(a is b)"
               ).stdout.strip() == "True"
 
