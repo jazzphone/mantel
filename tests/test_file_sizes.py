@@ -78,7 +78,6 @@ def test_no_big_file_grows_and_no_file_crosses_the_line():
 # may never be over the limit, so `--update` cannot quietly put a new one on the list. A file comes off as it is split.
 HELD = {
     "web/hk/cards/hk-detail.js": "its hand-split sheets share names (LIST_CSS, v) that one scope would merge: adopting them is a rename, not a move",
-    "hk_core/settings/model.py": "its checks call one another across every section: any order of submodules is an import cycle",
 }
 
 

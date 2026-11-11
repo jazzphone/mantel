@@ -2,7 +2,5 @@
  "js": {
   "web/hk/cards/hk-detail.js": 2895
  },
- "py": {
-  "hk_core/settings/model.py": 3737
- }
+ "py": {}
 }

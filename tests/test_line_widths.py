@@ -75,7 +75,7 @@ def test_no_file_gets_more_long_lines():
 # THE ONLY FILES THE LIST MAY HOLD (phase 24): the ones held at their size (tests/test_file_sizes.py HELD), where a rewrap
 # would add lines, and hk-media-now.js, a phase 18 part of exactly 2,000 lines that a rewrap would take over its limit.
 # Every other long line is broken (tools/rewrap.py) or is a listed exception.
-HELD = {"web/hk/cards/hk-detail.js", "hk_core/settings/model.py", "web/hk/modules/hk-settings.js",
+HELD = {"web/hk/cards/hk-detail.js", "web/hk/modules/hk-settings.js",
         "web/hk/media/hk-media-now.js"}
 
 

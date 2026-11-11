@@ -56,6 +56,16 @@
     var files = parts(p);
     return (files ? files.map(function (f) { return realRead(f); }).join('\n') + '\n' : '') + realRead(p);
   };
+  // readPyPackage(dir): a Python package that was one module (hk_core/settings/model/, from model.py: tools/split_py.py) as one
+  // text, as the suites read the module: __init__.py, then each file it imports from, in its order
+  globalThis.readPyPackage = function (dir) {
+    var init = realRead(dir + '/__init__.py'), seen = {}, out = [init];
+    (init.match(/^from \.(\w+) import/gm) || []).forEach(function (line) {
+      var name = /\.(\w+)/.exec(line)[1];
+      if (!seen[name]) { seen[name] = true; out.push(realRead(dir + '/' + name + '.py')); }
+    });
+    return out.join('\n');
+  };
   globalThis.readFile = text(realRead);
   globalThis.read = text(realReadShort);
   // cut(src, a, b): src from `a` up to `b`, as a suite cut a class out of one file (`class X` to `register('x'`). In a shell
