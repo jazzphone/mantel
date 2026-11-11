@@ -425,8 +425,10 @@ When B, C and D are done:
 
 ## How it's built (models, agents, gates)
 
-- **The building session runs Opus 5.5 at Medium effort.** It writes the A tools, runs every gate, lands every
-  slice, and does B9 (the saver) and B8 (`hk-base`) itself.
+- **The building session runs Opus 5.5 at High effort** (the owner, 2026-11-10; earlier phases ran at Medium). It
+  writes the A tools, runs every gate, lands every slice, and does B9 (the saver) and B8 (`hk-base`) itself. High
+  because no one is there to catch a wrong call: the tools' proofs, the saver's rewrite and every unforeseen choice are
+  its own judgment. The cost is small, because most of the run is browser checks, not thinking.
 - **Agents run Sonnet 5.5 at High effort**, in worktrees branched from `origin/main` (push first; memory: worktree
   agents branch from origin), **at most three at once**:
   - they draft a manifest from `--report` and the file's banners, run the tool, the jsc suites and `ci.py quick`, and
