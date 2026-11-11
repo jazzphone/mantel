@@ -585,7 +585,7 @@
     if (ST.ly && ST.ly.big && ST.ly.big.ctl) ST.ly.big.ctl.setClient(h);
     if (ST.enCtl && ST.enShowing) ST.enCtl.setClient(h);
     [WX, HL].forEach(function (S) { if (S.ctl && S.showing) S.ctl.setClient(h); });
-    // @ts-expect-error layoutClient() takes no argument (h is passed and not used)
+    // (layoutClient() takes no argument: h is passed and not used)
     layoutClient(h);
     cornerClient();
   }

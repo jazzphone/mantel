@@ -1118,7 +1118,6 @@ def adopt_text(man: dict, read=None) -> tuple[str, list[str], list[tuple[str, in
             return "", ["adopt: runSheets does not end with one call (`wire();`)"], []
         # the kit's functions: `name: function () { body }`; the rest of it must be `name: name`
         entries = re.findall(r"([\w$]+): function \(\) \{ ([^{}]*) \}", kit_st["text"])
-        plain = set(re.findall(r"([\w$]+): \1\b", kit_st["text"]))
         left = re.sub(r"([\w$]+): function \(\) \{ [^{}]*\}", "", kit_st["text"])
         left = re.sub(r"([\w$]+): \1\b", "", left)
         if re.search(r"[\w$]+:", left):
@@ -1192,7 +1191,6 @@ def adopt_text(man: dict, read=None) -> tuple[str, list[str], list[tuple[str, in
                             f"expected {len(entries) + 1} (the kit's functions and {final[0]}())")
         # no name declared twice in the one scope (two files that both declare it would share it)
         seen: dict[str, str] = {}
-        owner = {id(st): fn for fn, st in member_stmts}
         for st in orun["stmts"]:
             for n in st["names"]:
                 if n in seen and st["kind"] in ("function", "var", "class"):
