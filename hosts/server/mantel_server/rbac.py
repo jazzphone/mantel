@@ -502,6 +502,8 @@ DEFAULT_ROLES: dict[str, Role] = {r.name: r for r in (
         # the laundry's held Done, the same way (laundry.py): every screen shows it, any of them may clear it
         *(_g("allow", ("view", "control"), "entity", e, note="the laundry's held Done: every tablet shows it and can clear it")
           for e in ("sensor.laundry_done", "script.laundry_done_clear")),
+        # the house's TV apps and learned inputs (tv.py): every screen's TV block and sheet reads them
+        _g("allow", "view", "entity", "sensor.hk_tv", note="the TV apps people open and each room's input: every tablet's TV card"),
     ), label="Wall Tablet"),
     Role("service", (), label="Service"),
 )}

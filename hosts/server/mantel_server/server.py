@@ -944,6 +944,9 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     # 2026-11-10 (phase 22): a washer's or dryer's Done, held until someone unloads (laundry.py)
     from . import laundry as laundry_host
     laundry_host.register(app, hub)
+    # 2026-11-10 (phase 23): the apps each Apple TV opens, their App Store icons, each room's learned input (tv.py)
+    from . import tv as tv_host
+    tv_host.register(app, hub)
     # linked mode's notify and the rest of the entry (Seasonal decorations, Alarm PIN through the
     # gateway as the person whose PIN it is, Live TV), published only while Mantel owns `house`
     linked_house.register(app, hub)

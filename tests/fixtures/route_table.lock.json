@@ -2552,6 +2552,23 @@
   "stream": "none",
   "who": "signed_in"
  },
+ "GET /api/tv/icon/{app}": {
+  "audit": [],
+  "csrf": "-",
+  "device_ok": true,
+  "door": "any",
+  "first": false,
+  "fresh": "never",
+  "handler": "api_icon",
+  "mcp": [],
+  "module": "mantel_server.tv",
+  "no_audit": null,
+  "preview": false,
+  "reads": "none",
+  "reads_why": "an app's App Store icon: a picture of a public app, no entity, camera or person",
+  "stream": "none",
+  "who": "signed_in"
+ },
  "GET /api/updates": {
   "audit": [],
   "csrf": "-",

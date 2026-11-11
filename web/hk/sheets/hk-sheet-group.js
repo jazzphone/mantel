@@ -30,6 +30,7 @@
       lock: 'hk-detail-lock', button: 'hk-detail-button',
       climate: 'hk-detail-climate',
       media: 'hk-detail-media',
+      tv: 'hk-detail-tv',              // (a room's TV and its player: hk-sheet-tv.js defines it)
       sensor: 'hk-detail-sensor',
       state: 'hk-detail-state',
       binary: 'hk-detail-binary',
@@ -54,7 +55,7 @@
     // and are still fed through the bridge).
     var CLIENT_FED = [LightPanel, TogglePanel, FanPanel, CoverPanel, LockPanel, GaragePanel, ButtonPanel,
                       ClimatePanel, MediaPanel, SensorPanel, StatePanel, BinaryPanel, VacuumPanel, ValvePanel,
-                      NumberPanel, SelectPanel, HumidifierPanel, WaterHeaterPanel, AlarmPanel, GenericPanel];
+                      NumberPanel, SelectPanel, HumidifierPanel, WaterHeaterPanel, AlarmPanel, GenericPanel].concat(K.TvPanel ? [K.TvPanel] : []);
     def('hk-detail-light', LightPanel);
     def('hk-detail-generic', GenericPanel);
     def('hk-detail-toggle', TogglePanel);

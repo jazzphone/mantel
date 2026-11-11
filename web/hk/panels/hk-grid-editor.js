@@ -18,7 +18,7 @@
   }
   var NAMES = { accessory: 'Accessory', accessories: 'Accessory Group', scene: 'Scene', scenes: 'Scenes', now_playing: 'Now Playing',
     thermostat: 'Thermostat', camera: 'Camera', security: 'Security', timers: 'Timers', weather: 'Weather',
-    calendar: 'Calendar', battery: 'House Battery', people: 'People', vacuum: 'Vacuum', laundry: 'Laundry', clock: 'Clock',
+    calendar: 'Calendar', battery: 'House Battery', people: 'People', vacuum: 'Vacuum', laundry: 'Laundry', tv: 'TV', clock: 'Clock',
     room: 'Room', scene_suggested: 'Suggested Scene', action: 'Action', everything: 'Everything', cameras: 'Cameras',
     power: 'Power', music: 'Music', doors: 'Doors & Locks', live_tv: 'Live TV', water: 'Water',
     on_now: 'On Now', todo: 'To-do', energy_rings: 'Energy Rings', timeline: 'Recent', intercom: 'Intercom', house_status: 'House Status', alert: 'Alert' };
@@ -39,7 +39,7 @@
   // included. On Now sits with the lights it turns off; Energy Rings beside Power and Water.
   var GROUPS = [
     ['Rooms & Lights', ['room', 'accessory', 'accessories', 'action', 'on_now']], ['Scenes', ['scene', 'scenes', 'scene_suggested']],
-    ['Climate', ['thermostat', 'weather']], ['Music', ['now_playing', 'music', 'live_tv', 'intercom']],
+    ['Climate', ['thermostat', 'weather']], ['Music', ['now_playing', 'music', 'tv', 'live_tv', 'intercom']],
     ['Security & Cameras', ['security', 'doors', 'camera', 'cameras']],
     ['Info', ['house_status', 'alert', 'clock', 'timers', 'calendar', 'todo', 'battery', 'power', 'energy_rings', 'water', 'people', 'vacuum', 'laundry', 'timeline', 'everything']]
   ];
@@ -49,7 +49,7 @@
     weather: 'Current conditions and the forecast', now_playing: 'Music and playback controls', security: 'The alarm, locks and doors; Large is the keypad',
     camera: 'One camera, or swipe between cameras', cameras: 'Up to nine cameras at once; Full View fills the page', clock: 'Digital or analog, with or without its box', timers: 'Timers and quick starts',
     calendar: 'Your upcoming events', battery: 'Your home’s stored energy', people: 'Who is home', vacuum: 'Cleaning status; Large adds controls and Clean Areas',
-    laundry: 'Your washer and dryer: what each is doing and when it’s done',
+    laundry: 'Your washer and dryer: what each is doing and when it’s done', tv: 'A room’s TV and Apple TV: what’s on, your apps, the volume and a remote',
     everything: 'Open the screen’s full menu', power: 'Solar, the house, the battery and the grid right now',
     music: 'Choose speakers, then a playlist', doors: 'Locks, doors, windows and the garage', live_tv: 'Your channels; tap one to watch',
     water: 'Today’s water; Extra Large adds the main supply',
@@ -60,7 +60,7 @@
   var GLYPHS = { room: 'mdi:sofa', accessory: 'mdi:lightbulb', accessories: 'mdi:view-grid', action: 'mdi:gesture-tap', scene: 'mdi:palette',
     scenes: 'mdi:palette', scene_suggested: 'mdi:weather-sunset', thermostat: 'mdi:thermostat', weather: 'mdi:weather-partly-cloudy',
     now_playing: 'mdi:music', security: 'mdi:shield-home', camera: 'mdi:camera', cameras: 'mdi:cctv', clock: 'mdi:clock', timers: 'mdi:timer-outline',
-    calendar: 'mdi:calendar', battery: 'mdi:home-battery', people: 'mdi:account', vacuum: 'mdi:robot-vacuum', laundry: 'mdi:washing-machine', everything: 'mdi:dots-horizontal',
+    calendar: 'mdi:calendar', battery: 'mdi:home-battery', people: 'mdi:account', vacuum: 'mdi:robot-vacuum', laundry: 'mdi:washing-machine', tv: 'mdi:television', everything: 'mdi:dots-horizontal',
     power: 'mdi:lightning-bolt', music: 'mdi:speaker-multiple', doors: 'mdi:door-closed-lock', live_tv: 'mdi:television-classic', water: 'mdi:water',
     on_now: 'mdi:lightbulb-on', todo: 'mdi:clipboard-check', energy_rings: 'mdi:lightning-bolt', timeline: 'mdi:history', intercom: 'mdi:microphone', house_status: 'mdi:home', alert: 'mdi:alert-circle' };
   // AN OPTION'S NAME in the panel: by its kind (hk-grid-catalog.js opts), else by its own name
@@ -79,7 +79,7 @@
   // a rule's conditions in words (hk-grid-catalog.js CONDITIONS)
   var CONDITION_NAMES = { music_playing: 'Music Is Playing', timer_running: 'A Timer Is Running', alarm_armed: 'The Alarm Is Armed',
     alarm_disarmed: 'The Alarm Is Disarmed', doorbell: 'Someone Is at the Door', after_sunset: 'After Sunset',
-    entity_state: 'An Accessory’s State', time: 'A Time of Day', solar_window: 'A Solar Window' };
+    entity_state: 'An Accessory’s State', time: 'A Time of Day', solar_window: 'A Solar Window', tv_on: 'A TV Is On' };
   // THE STARTER LAYOUTS (hk_core home_grid.STARTERS: the same keys), each
   // shown as a small map of the blocks it would put on this screen
   var STARTERS = [['A', 'Tap Weight', 'What you touch most is biggest'], ['C', 'Glance Up, Touch Down', 'Readings above, controls below'],
@@ -1733,9 +1733,9 @@
         return;
       } else if (c.kind === 'solar_window') return void G.solar.rows(K, c, rows, put, (this.panel.client || {}).states, () => this.side());
       if (c.kind !== 'after_sunset') rows.push(K.select({ label: 'Watch', value: c.entity || '',
-        // (Music Is Playing's Automatic is any of the house's speakers -- not a TV -- 2026-11-01: say so)
-        options: (c.kind === 'entity_state' ? [] : [['', c.kind === 'music_playing' ? 'Any Speaker' : 'Automatic']]).concat(this.choices({ music_playing: 'speaker', timer_running: 'timer', alarm_armed: 'alarm',
-          alarm_disarmed: 'alarm', doorbell: 'doorbell' }[c.kind] || 'entity').filter((op) => op[0] !== 'tablet_room')),
+        // (Music Is Playing's Automatic is any of the house's speakers -- not a TV -- 2026-11-01: say so; A TV Is On's, any TV)
+        options: (c.kind === 'entity_state' ? [] : [['', c.kind === 'music_playing' ? 'Any Speaker' : c.kind === 'tv_on' ? 'Any TV' : 'Automatic']]).concat(this.choices({ music_playing: 'speaker', timer_running: 'timer', alarm_armed: 'alarm',
+          alarm_disarmed: 'alarm', doorbell: 'doorbell', tv_on: 'tv_target' }[c.kind] || 'entity').filter((op) => op[0] !== 'tablet_room' || c.kind === 'tv_on')),
         onChange: (v) => set('entity', v) }));
       if (c.kind === 'entity_state') rows.push(K.text({ label: 'Is', value: c.state, maxlength: 80, onCommit: (v) => set('state', v) }));
     }
@@ -1744,7 +1744,7 @@
       if (key === 'alert') return G.alert.sample((k) => self.choices(k), (this.panel.client || {}).states);
       Object.keys(fields).forEach(function (name) {
         var kind = fields[name];
-        if (['secondary', 'title', 'room_display', 'thermostat_style', 'tile_height', 'period', 'name_tag', 'tap_target', 'music_tap', 'tv_channel', 'music_show', 'music_playlist', 'music_speaker', 'timeline_show', 'np_background', 'on_now_open', 'everything_more', 'security_presentation', 'security_members', 'security_lit'].includes(kind)) return;
+        if (['secondary', 'title', 'room_display', 'thermostat_style', 'tile_height', 'period', 'name_tag', 'tap_target', 'music_tap', 'tv_channel', 'music_show', 'music_playlist', 'music_speaker', 'tv_target', 'tv_show', 'timeline_show', 'np_background', 'on_now_open', 'everything_more', 'security_presentation', 'security_members', 'security_lit'].includes(kind)) return;
         if (kind === 'accessories') { opts[name] = sampleEntities(self.choices('entity'), ['light', 'switch', 'fan', 'sensor']).slice(0, 4).map((op) => ({ entity: op[0] })); if (!opts[name].length) delete opts[name]; return; }
         var choices = self.choices(kind).filter((op) => op[0] !== 'tablet_room');
         if (kind === 'scene' && key === 'scene') choices = choices.filter((op) => self.sceneIds().indexOf(op[0]) >= 0);
@@ -2095,7 +2095,7 @@
     fields(card, opts, save, o) {
       var K = this.K, self = this, kinds = G.table()[card].opts || {}, rows = [], hide = o.hide || {};
       var set = (key, value) => { var out = copy(opts); if (value === '' || value == null) delete out[key]; else out[key] = value; save(out); };
-      if (card === 'alert') return rows.concat(G.alert.rows(K, opts, set, (k) => self.choices(k)));   // (an Alert's rows: hk-grid-catalog.js)
+      if (card === 'alert' || card === 'tv') return rows.concat(G[card].rows(K, opts, set, (k) => self.choices(k), self.panel.client));   // (an Alert's, a TV's rows: hk-grid-catalog.js)
       Object.keys(kinds).forEach(function (key) {
         if (hide[key]) return;
         var kind = kinds[key], label = KIND_LABELS[kind] || NAME_LABELS[key] || key.charAt(0).toUpperCase() + key.slice(1);
@@ -2352,7 +2352,7 @@
           .map((id) => [id, (states[id].attributes || {}).friendly_name || id]).sort((a, b) => a[1].localeCompare(b[1]));
         return kind === 'action' ? [['lock_up', 'Lock Up'], ['lights_off', 'All Lights Off'], ['garage', 'Garage']].concat(sl) : sl;
       }
-      if (kind === 'area') return [['tablet_room', 'Tablet’s Room']].concat(Object.keys(client.areas || {}).map((id) => [id, client.areas[id].name || id]));
+      if (kind === 'tv_target') return G.tv.choices(client); if (kind === 'area') return [['tablet_room', 'Tablet’s Room']].concat(Object.keys(client.areas || {}).map((id) => [id, client.areas[id].name || id]));
       var domains = { speaker: ['media_player'], climate: ['climate'], camera: ['camera'],
         timer: ['timer'], alarm: ['alarm_control_panel'], select: ['input_select', 'select'], doorbell: ['binary_sensor', 'camera'], weather: ['weather'], vacuum: ['vacuum'], calendars: ['calendar'],
         cameras: ['camera'], todo: ['todo'] }[kind];
