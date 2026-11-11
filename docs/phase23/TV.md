@@ -82,6 +82,21 @@ the first TV) or one TV; **Shows** Recent, Favorites or one app. The plate and R
 
 `{kind: "tv_on", entity?}`: a TV or its player, Tablet's Room, or none for any TV. It holds while the set's TV or player is on.
 
+## The HomeViews: the TV, music, or both
+
+The Music block on each HomeView (2026-11-11, the owner: "when the TV is on, for that Room ... that TV card shows up where Music /
+Now Playing is ... I'd also like to swipe over to now playing if music is also playing"), first match wins:
+
+| Rule | When | Card |
+| --- | --- | --- |
+| 1 | A TV Is On (Tablet's Room) and Music Is Playing (Tablet's Room) | Swipe: TV, then Now Playing |
+| 2 | A TV Is On (Tablet's Room) | TV |
+| 3 | Music Is Playing (Tablet's Room) | Now Playing |
+| Default | | Music |
+
+The Swipe card (`swipe`, `opts.pages` [{card, opts}]) is any cards to swipe between, each with its own settings, drawn by the pager
+every paged block uses; `tests/test_swipe_card.py`.
+
 ## Checks
 
 - `tests/test_tv.py`: the settings, counting, icons (asked once, never for Apple's own, only from Apple's host, not when off),

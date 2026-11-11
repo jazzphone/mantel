@@ -189,6 +189,10 @@
     // TV (phase 23, docs/phase23/TV.md; hk-tv-card.js): a room's TV and its player -- Automatic is the tablet's room (else the first TV)
     tv: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { tv: 'tv_target', show: 'tv_show', tap: 'tap_target' }, card: function (s, o) {
       return Object.assign({ type: 'custom:hk-grid-tv-card', size: s, tv: o.tv || TABLET_ROOM }, o.show ? { show: o.show } : {}); } },
+    // SWIPE (2026-11-11, the owner): pages to swipe between, each another card with its own options (opts.pages [{card, opts}]);
+    // drawn by the pager every paged block uses (hk-layout.js hk-pager-card), pages() makes its pages. Never a Swipe inside a Swipe.
+    swipe: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { pages: 'swipe_pages' }, card: function () {
+      return stand('Swipe', 'mdi:gesture-swipe-horizontal', 'Add the cards to swipe between in the editor.'); } },
     laundry: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { tap: 'tap_target' }, card: function (s) {
       return { type: 'custom:hk-grid-laundry-card', size: s }; } },
     // every size, HK's clock or a screensaver face, with or without its box (2026-10-24)
@@ -288,9 +292,16 @@
   // ...a Music block's (2026-11-01, the owner): Choose a Playlist, the house's playlists in the Music page's sheet
   var MUSIC_TAPS = TAP_TARGETS.concat([['playlists', 'Choose a Playlist']]);
   function paged(it) {
+    if (it.card === 'swipe') return swipeList(it).length > 0;
     var p = it.pages, c = CARDS[it.card];
     return !!(c && p && (p.source === 'list' ? Array.isArray(p.list) && p.list.length
                                              : c.sources.indexOf(p.source) >= 0));
+  }
+
+  // a Swipe block's pages that can be drawn: a card this host has, in the block's size, never a Swipe
+  function swipeList(it) {
+    var list = (it.opts && it.opts.pages) || [];
+    return Array.isArray(list) ? list.filter(function (pg) { return pg && pg.card !== 'swipe' && CARDS[pg.card] && CARDS[pg.card].sizes.indexOf(it.size) >= 0; }) : [];
   }
 
   // PAGES THAT SWIPE (docs/phase11/HOME-GRID.md, "Blocks that swipe"): a
@@ -320,7 +331,10 @@
       return Object.assign({ card: cfg }, extra || {});
     }
     var out = [], rooms = x.rooms || [];
-    if (!paged(it)) { /* no pages: the block's card, below */ }
+    if (it.card === 'swipe') {
+      // (each page its own card in the block's size, its options its own; one this host lacks or not in this size is left out)
+      out = swipeList(it).map(function (pg) { var o = pg.opts || {}; return { card: tapped(CARDS[pg.card].card(it.size, o, x), o) }; });
+    } else if (!paged(it)) { /* no pages: the block's card, below */ }
     else if (p.source === 'list') {
       out = p.list.map(function (pg) { return page((pg && pg.opts) || {}); });
     } else if (p.source === 'accessories') {
@@ -780,7 +794,7 @@
   // A CARD'S NAME, for a sheet's title when it has none of its own (and the editor's palette)
   var NAMES = { accessory: 'Accessory', accessories: 'Accessory Group', scene: 'Scene', scenes: 'Scenes', now_playing: 'Now Playing',
     thermostat: 'Thermostat', camera: 'Camera', security: 'Security', timers: 'Timers', weather: 'Weather',
-    calendar: 'Calendar', battery: 'House Battery', people: 'People', vacuum: 'Vacuum', laundry: 'Laundry', tv: 'TV', clock: 'Clock',
+    calendar: 'Calendar', battery: 'House Battery', people: 'People', vacuum: 'Vacuum', laundry: 'Laundry', tv: 'TV', swipe: 'Swipe', clock: 'Clock',
     room: 'Room', scene_suggested: 'Suggested Scene', action: 'Action', everything: 'Everything', cameras: 'Cameras',
     power: 'Power', music: 'Music', doors: 'Doors & Locks', live_tv: 'Live TV', water: 'Water',
     on_now: 'On Now', todo: 'To-do', energy_rings: 'Energy Rings', timeline: 'Recent', intercom: 'Intercom', house_status: 'House Status', alert: 'Alert' };
@@ -848,11 +862,37 @@
     }
   };
 
+  // A SWIPE BLOCK'S ROWS (the editor's fields() hands over its own fields() for a page's options): each page -- its card, that card's
+  // own settings, Move Up, Remove -- then Add Page with the cards that come in this size
+  var swipeBlock = {
+    MAX: 6,
+    cards: function (size) {
+      return Object.keys(CARDS).filter(function (k) { return k !== 'swipe' && CARDS[k].sizes.indexOf(size) >= 0; })
+        .sort(function (a, b) { return String(NAMES[a] || a).localeCompare(String(NAMES[b] || b)); }).map(function (k) { return [k, NAMES[k] || k]; });
+    },
+    sample: function () { return { pages: [{ card: 'clock' }, { card: 'weather' }] }; },
+    rows: function (K, o, set, choices, client, ed) {
+      var pages = (o.pages || []).slice(), n = pages.length, size = (ed && ed.size) || 'L', cards = swipeBlock.cards(size), rows = [];
+      var put = function (next) { set('pages', next.length ? next : null); };
+      if (!n) rows.push(K.info({ label: 'Add the cards to swipe between.', sub: 'Each page is a card with its own settings. Made for Show When too: the TV with Now Playing a swipe away.' }));
+      pages.forEach(function (pg, i) {
+        rows.push(K.select({ label: 'Page ' + (i + 1) + ' of ' + n, value: pg.card, options: cards.some(function (c) { return c[0] === pg.card; }) ? cards : cards.concat([[pg.card, (NAMES[pg.card] || pg.card) + ' (Not in This Size)']]),
+          onChange: function (v) { var next = pages.slice(); next[i] = { card: v }; put(next); } }));
+        if (ed && ed.fields && CARDS[pg.card]) rows = rows.concat(ed.fields(pg.card, pg.opts || {}, function (opts) {
+          var next = pages.slice(); next[i] = Object.keys(opts).length ? { card: pg.card, opts: opts } : { card: pg.card }; put(next); }));
+        rows.push(K.button({ label: 'Move Page ' + (i + 1) + ' Up', disabled: i === 0, onClick: function () { var next = pages.slice(); next.splice(i - 1, 0, next.splice(i, 1)[0]); put(next); } }));
+        rows.push(K.button({ label: 'Remove Page ' + (i + 1), destructive: true, onClick: function () { put(pages.filter(function (x, j) { return j !== i; })); } }));
+      });
+      if (n < swipeBlock.MAX) rows.push(K.select({ label: 'Add Page', value: '', options: [['', 'Choose a Card…']].concat(cards), onChange: function (v) { if (v) put(pages.concat([{ card: v }])); } }));
+      return rows;
+    }
+  };
+
   window.hkGridCatalog = { version: '1.0.0', SIZES: SIZES, span: span, CELLS: CELLS, SOURCES: SOURCES, TABLET_ROOM: TABLET_ROOM,
                            PAGES_MAX: PAGES_MAX, PER_PAGE: PER_PAGE, perPage: perPage, CLOCK_FACES: CLOCK_FACES, THERMOSTAT_STYLES: THERMOSTAT_STYLES, TAP_TARGETS: TAP_TARGETS, MUSIC_TAPS: MUSIC_TAPS,
                            SHEET: SHEET, sheetOf: sheetOf, entryId: entryId, copySheet: copySheet, sheetRoute: sheetRoute, NAMES: NAMES,
                            sheetSlot: sheetSlot, sheetCss: sheetCss, placed: placed,
-                           CONDITIONS: CONDITIONS, RULES_MAX: RULES_MAX, CONDITIONS_MAX: CONDITIONS_MAX, rulesFit: rulesFit, hostHas: hostHas, matches: matches, musicAt: musicAt, musicPlayers: musicPlayers, speakerChoices: speakerChoices, tv: tvBlock, rulesOf: rulesOf, choose: choose, houseNow: houseNow,
+                           CONDITIONS: CONDITIONS, RULES_MAX: RULES_MAX, CONDITIONS_MAX: CONDITIONS_MAX, rulesFit: rulesFit, hostHas: hostHas, matches: matches, musicAt: musicAt, musicPlayers: musicPlayers, speakerChoices: speakerChoices, tv: tvBlock, swipe: swipeBlock, rulesOf: rulesOf, choose: choose, houseNow: houseNow,
                            nextChange: nextChange, armClock: armClock, alert: { rows: alertRows, sample: alertSample, KEYS: ALERT_KEYS, LIMITS: ALERT }, solar: { spans: solarSpans, rows: solarRows, fresh: solarFresh, atWall: atWall, dayOf: dayOf, OFFSET_MAX: SUN_OFFSET_MAX,
                              forget: function () { SUN_SEEN.sunrise = []; SUN_SEEN.sunset = []; } }, config: config, pages: pages, tabletRoom: tabletRoom, table: table };
   try { window.dispatchEvent(new CustomEvent('hk-grid-catalog-ready')); } catch (e) { /* a test page without events */ }

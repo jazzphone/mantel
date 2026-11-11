@@ -165,6 +165,7 @@ var OPTS = {
   accessory: { entity: 'light.kitchen_pendants' },
   scene: { scene: 'scene.good_morning' },
   tv: { tv: 'media_player.den_tv' },
+  swipe: { pages: [{ card: 'tv', opts: { tv: 'media_player.den_tv' } }, { card: 'clock' }] },
   accessories: { accessories: [{ entity: 'light.kitchen_pendants' }, { entity: 'light.den_lamp' }] },
   scenes: { scenes: ['scene.good_morning', 'scene.dinner_time'] },
   action: { action: 'lock_up' },
@@ -216,6 +217,7 @@ function block(key, size, cellName, extra) {
 // controls and has no plate of its own between them, or its plate IS a control whose tap does the block's work.
 // (The WebKit click-through, tools/headless/block_taps_check.py, holds the same list and taps the real thing.)
 var NO_TAP = {
+  swipe: 'the block is its pages: each page is its own card and answers its own tap (the pager mounts it as it shows; tests/test_swipe_card.py builds them)',
   timeline: 'Recent is the House Timeline\'s, which this host doesn\'t keep: a stand-in that opens nothing (hk-timeline-block.js on a host with the page)',
   accessory: 'the whole block is the accessory\'s control: a tap toggles it, a hold opens its sheet',
   accessories: 'the block is its tiles, each a control: a tap toggles it, a hold opens its sheet',
