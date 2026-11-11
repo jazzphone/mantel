@@ -74,8 +74,10 @@ const input = JSON.parse(fs.readFileSync(0, 'utf8'));
           // (at rest first: Chromium's wheel scrolls smoothly, still on its way down after 500 ms -- 2026-11-09, it failed on main one run in two)
           await page.waitForFunction(()=>{const q=document.querySelector('hk-side-pane[mode="dash"]').shadowRoot.querySelector('.npqueue .qs');
             return q.scrollTop>=q.scrollHeight-q.clientHeight-2;},null,{timeout:5000});
-          await page.waitForTimeout(200);
-          assert(await page.evaluate(()=>!document.querySelector('hk-side-pane[mode="dash"]').shadowRoot.querySelector('.npqueue .qs').hasAttribute('more')),'Up Next fade stays at the end');
+          // (the fade's attribute follows the scroll a frame or two later: waited for, not a fixed 200 ms -- phase 25, it
+          // failed three full runs in a row under load and never alone)
+          assert(await page.waitForFunction(()=>!document.querySelector('hk-side-pane[mode="dash"]').shadowRoot.querySelector('.npqueue .qs').hasAttribute('more'),null,{timeout:5000}).then(()=>true,
+            ()=>false),'Up Next fade stays at the end');
           await page.evaluate(()=>{document.querySelector('hk-side-pane[mode="dash"]').shadowRoot.querySelector('.npqueue .qs').scrollTop=0;});
           await page.locator('hk-side-pane[mode="dash"]').locator('.qh').click();
           await page.waitForTimeout(300);

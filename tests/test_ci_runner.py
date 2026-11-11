@@ -40,6 +40,9 @@ def test_quick_is_part_of_full_and_full_adds_the_rest():
     # the pager, the swipe and the glass, and a failure gets one more try
     motion = [s for s in steps if ci.is_motion(s.name)]
     assert len(motion) == 5 and all(s.name in full and s.alone and s.attempts == 2 for s in motion)
+    # the timing budgets: out of the main suite's parallel run, alone at the end of full (phase 25)
+    perf = next(s for s in steps if s.name == "perf-budgets")
+    assert perf.alone and perf.tier == "full" and "perf" in perf.cmd and "not perf" in next(s for s in steps if s.name == "main-suite").cmd()
     assert all("web/hk/modules/hk-pageswipe.js" in s.inputs() and "web/" not in s.inputs() for s in motion)
     assert [s.name for s in ci.select(steps, "full", ["swipe-motion-check-webkit-1180"])] == ["swipe-motion-check-webkit-1180x820"]
     assert ci.select(steps, "quick", ["swipe-motion"]) == []
@@ -275,10 +278,10 @@ def test_each_browser_check_and_hk_frontend_suite_names_what_it_reads():
     full = ci.select(ci.steps(), "full")
     keyed = {s.name for s in full if s.inputs}
     browser = {s.name for s in full if s.tier == "full"} - {"ha-build", "hk-frontend-py", "hk-frontend-js", "caddy-image",
-                                                             "types-py"}
+                                                             "types-py", "perf-budgets"}
     assert browser and browser | {"hk-frontend-py", "hk-frontend-js", "types-py"} == keyed
     # (what runs in seconds, builds what the others need, or reads everything: always)
-    assert not keyed & {"build-tools", "main-suite", "private-words", "ha-build", "caddy-image", "check-links"}
+    assert not keyed & {"build-tools", "main-suite", "private-words", "ha-build", "caddy-image", "check-links", "perf-budgets"}
     shows = next(s for s in full if s.name == f"saver-shows-check-1of{ci.SAVER_SHARDS}")
     assert "--one-size" in shows.cmd
     got = shows.inputs()

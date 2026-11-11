@@ -59,6 +59,7 @@ def house():
 
 
 @pytest.mark.skipif(os.environ.get("MANTEL_SKIP_PERF") == "1", reason="MANTEL_SKIP_PERF=1")
+@pytest.mark.perf   # (run alone: tools/ci.py perf-budgets)
 def test_the_tap_and_the_writer_stay_within_budget_on_a_5000_entity_house(tmp_path):
     areas, devices, entities, first = house()
     store = Store(tmp_path / "m.db")

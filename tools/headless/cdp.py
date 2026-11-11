@@ -14,6 +14,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+from pathlib import Path
 import time
 from urllib.parse import urlsplit
 
@@ -93,13 +94,20 @@ class Browser:
 
     async def __aenter__(self):
         self.proc = subprocess.Popen(
-            [CHROME, *ROOT_FLAGS, "--headless=new", f"--remote-debugging-port={self.port}", f"--user-data-dir={self.profile}",
+            # (port 0: Chrome takes a free port itself and writes it to DevToolsActivePort in its profile -- a port
+            # picked free here could be taken by another check before Chrome bound it, phase 25: under a full run's
+            # load "Chrome did not start" was that race)
+            [CHROME, *ROOT_FLAGS, "--headless=new", "--remote-debugging-port=0", f"--user-data-dir={self.profile}",
              f"--window-size={self.width},{self.height}", "--no-first-run", "--no-default-browser-check",
              "--disable-background-timer-throttling", "--hide-scrollbars", "about:blank"],
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         self.http = aiohttp.ClientSession()
+        active = Path(self.profile) / "DevToolsActivePort"
         for _ in range(150):                             # up to 30 s: a cold Chrome on a busy CI runner is slow
             try:
+                if not active.is_file() or not active.read_text().split("\n", 1)[0].strip().isdigit():
+                    raise aiohttp.ClientError("not yet")
+                self.port = int(active.read_text().split("\n", 1)[0])
                 async with self.http.get(f"http://127.0.0.1:{self.port}/json") as r:
                     tabs = [t for t in await r.json() if t["type"] == "page"]
                     if tabs:

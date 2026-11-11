@@ -266,7 +266,8 @@ def steps(build: Build | None = None, parts: dict[str, int] | None = None) -> li
         Step("build-tools", [py, "tools/build_tools.py"], skip=lambda: None if shutil.which("npm") else "no npm (Node.js)",
              timeout=300, first=True),
         # (on 8 workers where pytest-xdist is installed: about a minute, not four)
-        Step("main-suite", lambda: [py, "-m", "pytest", "-q", "-p", "no:cacheprovider", *xdist_args(py)], env=private_env()),
+        Step("main-suite", lambda: [py, "-m", "pytest", "-q", "-p", "no:cacheprovider", "-m", "not perf", *xdist_args(py)],
+             env=private_env()),
         # TypeScript on every web file that opts in with // @ts-check (phase 18, Part C; its own pinned folder)
         Step("types-js", [py, "tools/typecheck/check.py"], timeout=300,
              skip=lambda: None if shutil.which("npm") and (os.environ.get("NODE") or shutil.which("node"))
@@ -412,6 +413,9 @@ def steps(build: Build | None = None, parts: dict[str, int] | None = None) -> li
                                                     f"{i}/{shows}"], tier="full", timeout=900, family="saver-shows-check",
                  skip=playwright_missing, **check_inputs("tools/headless/saver_shows_check.py"))
             for i in range(1, shows + 1)]
+    # (phase 25) the timing budgets (pytest -m perf): alone, after every other step, so a busy Mac is not a failure
+    out.append(Step("perf-budgets", [py, "-m", "pytest", "-q", "-p", "no:cacheprovider", "-m", "perf"], tier="full",
+                    alone=True, env=private_env(), timeout=600))
     out.append(Step("caddy-image", ["sh", "-c",
                     f"docker build -q -f packaging/docker/caddy.Dockerfile -t {CADDY_IMAGE} packaging/docker && "
                     f'"{py}" -m pytest -q -p no:cacheprovider tests/test_packaging.py -k caddy_image'],

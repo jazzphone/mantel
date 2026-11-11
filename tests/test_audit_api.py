@@ -1,6 +1,7 @@
 """The audit read API (GET /api/audit, Owner/Admin) and the retention window (migration 0007): rows
 inside the window stay append-only; only the logged maintenance path deletes rows older than it."""
 import json
+import re
 import sqlite3
 import time
 
@@ -208,4 +209,5 @@ async def test_the_audit_never_holds_a_pin_or_service_data(gw):
     await gw.login("avery", "owner")
     st, body = await get(gw)
     text = json.dumps(body)
-    assert st == 200 and "2580" not in text and "1357" not in text
+    # (as whole numbers: an id or a time in the body may hold the digits 1357 inside a longer number by chance)
+    assert st == 200 and not re.search(r"(?<!\d)(2580|1357)(?!\d)", text), text

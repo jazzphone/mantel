@@ -47,6 +47,9 @@ mantel_server = ["static/*", "static/admin/*", "static/login/*", "static/proxy-c
 testpaths = ["tests"]
 pythonpath = ["hosts/server", "."]
 asyncio_mode = "auto"
+# (phase 25) a timing budget measured in wall-clock milliseconds: not in the main suite's parallel run, where a dozen browsers
+# share the CPU, but in tools/ci.py's perf-budgets step, which runs alone at the end of a full run
+markers = ["perf: a timing budget, run alone (tools/ci.py perf-budgets)"]
 
 # Phase 18, Part C (tools/typecheck/py_check.py): mypy on hk_core (its Home Assistant side, hk_core/link/, left out as the
 # package leaves it out), and the route table's own modules strict from the start; each module's error count may only

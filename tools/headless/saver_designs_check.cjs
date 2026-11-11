@@ -9,7 +9,8 @@ const input = JSON.parse(fs.readFileSync(0, 'utf8')), [W,H] = input.size.split('
   // WebKit reports a canceled fetch from a discarded preview frame as an
   // access-control page error. Limit that exception to this server's map asset;
   // the active World preview must still load real coastline data below.
-  const cancelledMap=message=>/due to access control checks\.?$/.test(message)&&message.includes(new URL(input.origin).host+'/hk/data/world-land.json');
+  // (and the icon set's parts, /static/mdi/icons-NN.json, dropped the same way: phase 25, under load)
+  const cancelledMap=message=>/due to access control checks\.?$/.test(message)&&['/hk/data/world-land.json','/static/mdi/icons'].some(p=>message.includes(new URL(input.origin).host+p));
   const page=await ctx.newPage(),errors=[],musicCalls=[];page.on('websocket',ws=>ws.on('framesent',
     e=>{try{const m=JSON.parse(e.payload);if(m.type==='call_service'&&['media_player','music_assistant'].includes(m.domain))musicCalls.push(m);}catch{}}));
     page.on('pageerror',e=>{if(!/ResizeObserver loop/.test(e.message)&&!cancelledMap(e.message))errors.push(e.message);});

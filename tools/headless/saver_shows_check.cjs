@@ -85,7 +85,10 @@ let lastMinuteDone = false;
       await ctx.addCookies([{ name: 'mantel_session', value: input.cookie, url: input.origin }]);
       await ctx.route('**/*', (r) => new URL(r.request().url()).origin === input.origin ? r.continue() : r.abort());
       const page = await ctx.newPage(), errors = [];
-      page.on('pageerror', (e) => { if (!/ResizeObserver loop/.test(e.message)) errors.push(e.message); });
+      // (WebKit reports a fetch the page dropped as it went -- the icon set's parts, /static/mdi/icons-NN.json -- as an
+      // access-control page error; this server's own icon files only, phase 25: it failed full runs under load)
+      const dropped = (m) => /due to access control checks\.?$/.test(m) && m.includes(new URL(input.origin).host + '/static/mdi/icons');
+      page.on('pageerror', (e) => { if (!/ResizeObserver loop/.test(e.message) && !dropped(e.message)) errors.push(e.message); });
       const settle = quiet(page);
       await page.goto(input.origin + '/' + screen + '/home');
       await page.waitForFunction(() => window.__mantelReady === true, null, { timeout: 30000 });
