@@ -237,6 +237,20 @@ async def test_an_app_nobody_opened_gets_a_guessed_icon_and_a_wrong_guess_goes_w
     assert {a["id"]: a["icon"] for a in h.sensor["apps"]} == {"com.guess.coax": True, "com.real.dusk": True}
 
 
+async def test_an_icon_is_read_whole_across_its_chunks_and_refused_past_the_limit():
+    from mantel_server import tv as S
+
+    class Body:
+        def __init__(self, parts):
+            self.parts = parts
+
+        async def iter_chunked(self, _n):
+            for p in self.parts:
+                yield p
+    assert await S.read_all(Body([b"a" * 16384, b"b" * 16384, b"c" * 10])) == b"a" * 16384 + b"b" * 16384 + b"c" * 10
+    assert await S.read_all(Body([b"x" * (S.ICON_MAX // 2 + 1)] * 2)) is None
+
+
 async def test_no_name_is_searched_with_lookups_off(gw, monkeypatch):
     h = House(gw)
     gw.m.app["settings"].store.write([("house", "settings", {"features": {"tv_icons": False}})], actor=SettingsActor(label="test"))

@@ -74,7 +74,7 @@ neither works or the device is off.
   Lifestyle, Shopping...), TV-like categories first. On this house's Living Room Apple TV it found 22 of its 29 non-Apple apps;
   the rest stay name tiles (Prime Video is "Amazon Prime Video" in the store). When the app opens, its bundle id decides: a guess
   that named another app is dropped and the real icon looked up; an opened app is never guessed again. Kept by name in
-  `tv_guesses` (migration `0039_tv_guesses.sql`), served at the same `/api/tv/icon/<the guessed bundle id>`, shared as
+  `tv_guesses` (migration `0039_tv_guesses.sql`; `0040` dropped the icons kept cut at 16 kB before `read_all`), served at the same `/api/tv/icon/<the guessed bundle id>`, shared as
   `sensor.hk_tv`'s `guesses` {name: {id, src} | {glyph}}. Apple's own apps by name get their glyphs there too.
 - Tapping an app from a dark room: the player on, the TV on (where it can be turned on), the TV to the player's input when that's
   known, then the app.

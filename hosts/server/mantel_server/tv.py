@@ -217,6 +217,9 @@ class TvApps:
         states, now = self.hub.store.states, self.clock()
         first = T.SENSOR not in states
         hit = False
+        if first:
+            for app in list(self.apps):
+                self._maybe_icon(app, now)
         for eid in (changed & self.players) if not first else self.players:
             hit = self._look_player(eid, now) or hit
         for eid in (changed & self.tvs) if not first else self.tvs:
@@ -331,8 +334,8 @@ class TvApps:
             kind = (r.headers.get("Content-Type") or "").split(";")[0].strip().lower()
             if r.status != 200 or kind not in ICON_TYPES:
                 return None
-            body = await r.content.read(ICON_MAX + 1)
-            return (body, kind) if 0 < len(body) <= ICON_MAX else None
+            body = await read_all(r.content)
+            return (body, kind) if body else None
 
     async def fetch_icon(self, app: str) -> tuple[bytes, str] | None:
         """The App Store's icon for one bundle id: the lookup, then its picture (Apple's host only), or None."""
@@ -353,6 +356,17 @@ class TvApps:
     async def close(self) -> None:
         for t in list(self.tasks):
             t.cancel()
+
+
+async def read_all(content: Any) -> bytes | None:
+    """A whole response body up to ICON_MAX, or None past it. (`content.read(n)` answers the first chunk it has, not n bytes:
+    icons were kept cut at 16 kB until 2026-11-10.)"""
+    body = bytearray()
+    async for chunk in content.iter_chunked(65536):
+        body += chunk
+        if len(body) > ICON_MAX:
+            return None
+    return bytes(body)
 
 
 _APP = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$")
