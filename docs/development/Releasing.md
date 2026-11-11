@@ -264,6 +264,17 @@ are found by maker, so a new one needs no list. A refresh that fails is said in 
   pin behind (`git config mantel.ref` pins until it is set back to `latest`). A hand change in `/opt/mantel` (a
   hotfix, say) can make `update` fail or be lost, so revert it before a release; the tool refuses until you do, or
   saves it as a patch with `--save-and-revert-hand-changes`.
+- **A hotfix on the house** (only with the owner's OK; no tag, no GitHub release): `packaging/lxc/mantel-hotfix.sh`
+  builds mantel-server inside the LXC from a commit of main, tags it `<that commit's version>-main.<sha9>` (never
+  pushed: `release.yml` tags images by version alone), pins `.env` to it and recreates; the next release's `update`
+  rewrites the pin. Every way out prunes Docker's build cache (phase 25: hotfixes had left 19.5 GB of it on the LXC).
+
+  ```bash
+  scp -i ~/.ssh/mantel_lxc packaging/lxc/mantel-hotfix.sh root@<lxc>:/root/
+  ssh -i ~/.ssh/mantel_lxc root@<lxc> /root/mantel-hotfix.sh <full sha> </dev/null
+  ```
+
+  (`</dev/null`: `docker compose` reads stdin.) Then reload the kiosks (`tools/release_house.py refresh-kiosks`).
 - **Every Mantel house release is tagged, and a tag means two things:** the house runs that commit healthy, and the
   Linux suite passed on it. An untagged release never reaches the LXC installs, because `update` follows the
   newest tag. Released by hand, tag the release commit once the house runs it healthy and the workflow's suite
