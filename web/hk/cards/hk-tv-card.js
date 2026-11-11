@@ -61,8 +61,8 @@
     '  background-color:#101018;background-position:center;background-size:cover;background-repeat:no-repeat}',
     '.art.scr{background-image:linear-gradient(155deg,#2a2a36 0%,#14141c 55%,#0a0a10 100%);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}',
     '.art.scr hk-icon{color:rgba(255,255,255,.42)}',
-    '.art .wash{position:absolute;inset:-25%;background-position:center;background-size:cover;background-repeat:no-repeat;filter:blur(20px) saturate(1.5);opacity:.6}',
-    '.art .aic{position:relative;height:58%;max-height:84px;aspect-ratio:1;border-radius:22%;box-shadow:0 4px 14px rgba(0,0,0,.35);object-fit:cover}',
+    // (the open app's icon small in the screen's top right, out of the title's way: the owner's option B, 2026-11-11)
+    '.art .cor{position:absolute;top:10px;right:10px;z-index:2;border-radius:8px;object-fit:cover;box-shadow:0 2px 8px rgba(0,0,0,.4)}',
     // (the glyph or the app's icon centered in the whole box, the title over it at the foot: the owner, 2026-11-11)
     '.art .mid{position:absolute;inset:0;z-index:1;display:grid;place-items:center}',
     '.art .ov{position:absolute;left:12px;right:12px;bottom:10px;text-shadow:0 1px 8px rgba(0,0,0,.4)}',
@@ -151,12 +151,12 @@
     // the picture: the player's artwork, else the open app's icon, else the TV's glyph; its title on it where asked
     /** @param {any} lk @param {any} now @param {number} w @param {number} h @param {boolean} words */
     _art(lk, now, w, h, words) {
-      var url = function (/** @type {string} */ u) { return 'url(&quot;' + esc(u) + '&quot;)'; }, icon = !lk.art && now && now.icon;
-      var g = Math.round(Math.min(44, h * 0.34));
-      var inner = lk.art ? '' : icon ? '<i class="wash" style="background-image:' + url(now.icon) + '"></i><img class="aic" alt="" src="' + esc(now.icon) + '">'
-        : (words && h < 70 ? '' : '<hk-icon icon="hk:television" style="--mdc-icon-size:' + g + 'px;width:' + g + 'px;height:' + g + 'px"></hk-icon>');
-      return '<div class="art' + (lk.art ? ' has' : icon ? ' has' : ' scr') + (words ? ' words' : '') + '" style="width:' + w + 'px;height:' + h + 'px' +
-        (lk.art ? ';background-image:' + url(lk.art) : '') + '">' + (icon ? inner.slice(0, inner.indexOf('<img')) + '<div class="mid">' + inner.slice(inner.indexOf('<img')) + '</div>' : '<div class="mid">' + inner + '</div>') +
+      // the artwork the player sends; else a black screen, the TV glyph in the middle, the open app's icon in the top right
+      var url = function (/** @type {string} */ u) { return 'url(&quot;' + esc(u) + '&quot;)'; }, g = Math.round(Math.min(46, h * 0.32)), c = h >= 140 ? 34 : 28;
+      var glyph = lk.art || (words && h < 70) ? '' : '<hk-icon icon="hk:television" style="--mdc-icon-size:' + g + 'px;width:' + g + 'px;height:' + g + 'px"></hk-icon>';
+      var corner = !lk.art && now && now.icon && h >= 64 ? '<img class="cor" alt="" src="' + esc(now.icon) + '" style="width:' + c + 'px;height:' + c + 'px">' : '';
+      return '<div class="art' + (lk.art ? ' has' : ' scr') + (words ? ' words' : '') + '" style="width:' + w + 'px;height:' + h + 'px' +
+        (lk.art ? ';background-image:' + url(lk.art) : '') + '"><div class="mid">' + glyph + '</div>' + corner +
         (words ? '<div class="ov"><div class="hd">' + esc(lk.title) + '</div>' + (lk.sub ? '<div class="sb">' + esc(lk.sub) + '</div>' : '') + '</div>' : '') + '</div>';
     }
     /** @param {any} lk */

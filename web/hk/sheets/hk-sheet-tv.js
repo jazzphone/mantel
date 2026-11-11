@@ -53,7 +53,8 @@
           '  background-color:#101018;background-position:center;background-size:cover;background-repeat:no-repeat}',
           '.art.scr{background-image:linear-gradient(155deg,#2a2a36 0%,#14141c 55%,#0a0a10 100%);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}',
           '.art.scr hk-icon{--mdc-icon-size:40px;width:40px;height:40px;color:rgba(255,255,255,.42)}',
-          '.art .wash{position:absolute;inset:-25%;background-position:center;background-size:cover;background-repeat:no-repeat;filter:blur(20px) saturate(1.5);opacity:.6}',
+          // (the open app's icon in the middle of a black picture: the owner, 2026-11-11 -- not a bright wash of its colors)
+          '.art.app{background-color:#050507;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}',
           '.art .aic{position:relative;height:62%;aspect-ratio:1;border-radius:12px;box-shadow:0 4px 14px rgba(0,0,0,.35);object-fit:cover}',
           '.words{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:2px}',
           '.ttl{font-size:17px;font-weight:600;letter-spacing:-.3px;color:' + v('ink') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
@@ -103,7 +104,7 @@
           '  color:' + v('ink') + ';background:' + v('key-strong') + ';box-shadow:inset 0 0 0 1px ' + v('line') + '}',
           '.ok:active,.ok.hit{background:rgba(255,255,255,.3)}',
           '.keys{display:flex;gap:16px;justify-content:center}.keys .rb{width:52px;height:52px}',
-          '.kl{display:flex;gap:16px;justify-content:center;font-size:11px;font-weight:500;color:' + v('ink-2') + '}.kl span{width:52px;text-align:center}',
+          '.kl{display:flex;gap:16px;justify-content:center;margin-top:12px;font-size:11px;font-weight:500;color:' + v('ink-2') + '}.kl span{width:52px;text-align:center}',
           '.none{font-size:15px;color:' + v('ink-2') + ';text-align:center;margin:auto}',
           '.note{font-size:13px;color:' + v('ink-3') + ';text-align:center}',
           // TWO COLUMNS ON A TABLET: the screen left, the remote right (300)
@@ -214,9 +215,9 @@
         if (artKey !== this._artKey) {
           this._artKey = artKey;
           var url = function (/** @type {string} */ u) { return 'url("' + u.replace(/"/g, '%22') + '")'; };
-          art.className = 'art' + (artKey === 's' ? ' scr' : '');
+          art.className = 'art' + (artKey === 's' ? ' scr' : artKey.charAt(0) === 'i' ? ' app' : '');
           art.style.backgroundImage = lk.art ? url(lk.art) : '';
-          art.innerHTML = lk.art ? '' : nowApp && nowApp.icon ? '<i class="wash" style="background-image:' + esc(url(nowApp.icon)) + '"></i><img class="aic" alt="" src="' + esc(nowApp.icon) + '">'
+          art.innerHTML = lk.art ? '' : nowApp && nowApp.icon ? '<img class="aic" alt="" src="' + esc(nowApp.icon) + '">'
             : '<hk-icon icon="hk:television"></hk-icon>';
         }
         q('.ttl').textContent = lk.title;
