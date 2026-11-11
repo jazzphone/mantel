@@ -640,3 +640,23 @@ def test_the_reviews_counter_examples_are_refused(path, tmp_path):
     f.write_text("(function () {\n  var x = 1;\n  function f() { return x; }\n  if (true) { var x = 2; }\n  window.f = f;\n})();\n")
     with pytest.raises(tool.Refusal, match="declared more than once"):
         tool.state_rewrite(f, {}, ["x"])
+
+
+def test_every_direct_import_of_a_split_file_waits_for_its_parts(path):
+    """A file cut into parts publishes what it has once its parts have run, a round trip after the file: code that
+    import()s one and then uses it waits for window.__hkSplitReady (the Side Pane's calendar read did not, and drew
+    "Reading the calendars..." for minutes). web/home.js, hk-loader and Home Assistant's panel wait in one place."""
+    if path.stem != "grid-cards":
+        pytest.skip("run once")
+    shells = sorted({Path(_manifest(p)["shell"]).name for p in MANIFESTS})
+    found = []
+    for f in sorted([*(ROOT / "web").rglob("*.js"), *(ROOT / "hosts/ha/frontend").glob("*.js")]):
+        if "vendor" in f.parts:
+            continue
+        text = f.read_text()
+        for m in re.finditer(r"import\(([^;]*)", text):
+            call = m.group(0)[:400]
+            if any(s in call for s in shells) and "__hkSplitReady" not in text[m.start():m.start() + 600]:
+                found.append(f"{f.relative_to(ROOT)}:{text.count(chr(10), 0, m.start()) + 1}")
+    allowed = {"web/hk/panels/hk-settings.js"}            # (its boot() awaits each split module's promise by name)
+    assert [x for x in found if x.split(":")[0] not in allowed] == []

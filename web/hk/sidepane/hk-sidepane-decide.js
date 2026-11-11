@@ -329,7 +329,11 @@
       if (!K && !CAL.asked && typeof document !== 'undefined' && document.addEventListener) {
         // (its code, where no card of the page has brought it yet)
         CAL.asked = true;
-        import(window.hkV ? window.hkV('/hk/cards/hk-calendar.js') : '/hk/cards/hk-calendar.js').then(done, function () { CAL.evs = []; done(); });
+        // (hk-calendar.js is cut into parts: window.hkCalendar is there once they have run -- its promise in
+        // window.__hkSplitReady -- not when the file itself has)
+        import(window.hkV ? window.hkV('/hk/cards/hk-calendar.js') : '/hk/cards/hk-calendar.js')
+          .then(function () { return (window.__hkSplitReady || {})['hk-calendar']; })
+          .then(done, function () { CAL.evs = []; done(); });
       }
       var now = Date.now();
       if (CAL.busy && now - CAL.busy > LOST) CAL.busy = false;
