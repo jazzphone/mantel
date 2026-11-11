@@ -69,10 +69,16 @@
   // an earlier one), each given the kit K: what the parts use of the shell, in one object. What the shell uses of them,
   // they hand back on K, and it is taken from there. The files are fetched in parallel; a host that has already loaded
   // them (the suites) starts at once, in the same turn.
+  // READY: window.__hkSplitReady['hk-saver'] is a promise that resolves once the parts have run (and rejects if they
+  // never come), so a page that imports this file and uses it at once awaits it first (web/home.js imp, hk-loader).
   var PARTS = ['hk-saver-helpers.js', 'hk-saver-css.js', 'hk-saver-photos.js', 'hk-saver-draw.js',
                'hk-saver-music.js', 'hk-saver-pane.js', 'hk-saver-black.js'];
   var PARTS_TRIES = 6;
   function partKey(file) { return file.replace(/\.js$/, ''); }
+  function partsSettle(err) {
+    var r = (window.__hkSplitReady || {})['hk-saver'];
+    if (r && r.settle) r.settle(err);
+  }
   // ONE FILE THAT DIDN'T COME (a tablet's Wi-Fi waking, the server restarting) used to leave the cards dead until a reload
   // (the third audit pass, WEB-11): the ones still missing are asked for again, a little later each time, at an address
   // of their own -- a browser keeps a failed module's answer for its address
@@ -83,14 +89,22 @@
       var started = window.__hkSplitStarted = window.__hkSplitStarted || {};
       if (started['hk-saver']) return;
       started['hk-saver'] = true;
+      var settle = null, ready = new Promise(function (resolve, reject) {
+        settle = function (err) { if (err) reject(err); else resolve(); };
+      });
+      ready.settle = settle;
+      ready.catch(function () { /* the console says so; an importer that awaits it reports it */ });
+      (window.__hkSplitReady = window.__hkSplitReady || {})['hk-saver'] = ready;
     }
     n = n || 0;
     var have = window.hkSaverParts || {};
     var missing = PARTS.filter(function (file) { return !have[partKey(file)]; });
     if (!missing.length) {
-      try { then(); } catch (err) { console.error('[hk-saver] the parts did not start', err); }
+      var failed = null;
+      try { then(); } catch (err) { failed = err; console.error('[hk-saver] the parts did not start', err); }
       // (the checks that drive a page wait for every shell that started to say it is done)
       (window.__hkSplitDone = window.__hkSplitDone || {})['hk-saver'] = true;
+      partsSettle(failed);
       return;
     }
     // (window.hkV: the build's ?v= on an address put together here, web/shim/base.js)
@@ -103,7 +117,7 @@
       var left = PARTS.filter(function (file) { return !(window.hkSaverParts || {})[partKey(file)]; });
       if (!left.length) { loadParts(then, n); return; }
       err = err || new Error(left[0] + ' ran without registering');
-      if (n + 1 >= PARTS_TRIES) { console.error('[hk-saver] the parts did not start', err); return; }
+      if (n + 1 >= PARTS_TRIES) { console.error('[hk-saver] the parts did not start', err); partsSettle(err); return; }
       console.warn('[hk-saver] a part did not load (' + err.message + '); again shortly');
       setTimeout(function () { loadParts(then, n + 1); }, Math.min(1000 * Math.pow(2, n), 15000));
     });

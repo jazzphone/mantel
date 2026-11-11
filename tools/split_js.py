@@ -43,6 +43,11 @@ manifest is still in the repository, says which moved members have been edited s
 of a JSDoc cast do not count, so a part may be annotated for the type checker).
 
 The loader every split shell has is generated from ONE template (loader_block below); tests/test_web_sources.py pins that.
+`--write-loaders` rewrites every split shell's loader from it after the template changes. READINESS (phase 24): the loader
+keeps window.__hkSplitReady[label], a promise that resolves once the parts have run and rejects when the loader gives up;
+everything that imports a module and uses it at once (web/home.js imp, hk-loader, the Settings panel's boot, Home
+Assistant's panel) waits for every started shell's promise. tools/headless/split_race_check.py holds the parts back and
+looks.
 CLASS-METHOD MODE (a panel like hk-settings.js: one class of 399 members, no `super` outside the constructor, no `static`,
 no #private). The manifest names the class (`"class": "HkSettingsPanel"`) and a part lists `"methods": [...]` beside its
 `"members"`. A part writes its methods in a class expression (`var Methods = class extends /** @type {any} */ (Object) { ...the
@@ -98,9 +103,15 @@ LOADER = """\
 {i}// an earlier one), each given the kit K: what the parts use of the shell, in one object. What the shell uses of them,
 {i}// they hand back on K, and it is taken from there. The files are fetched in parallel; a host that has already loaded
 {i}// them (the suites) starts at once, in the same turn.
+{i}// READY: window.__hkSplitReady['{label}'] is a promise that resolves once the parts have run (and rejects if they
+{i}// never come), so a page that imports this file and uses it at once awaits it first (web/home.js imp, hk-loader).
 {i}var PARTS = {parts};
 {i}var PARTS_TRIES = 6;
 {i}function partKey(file) {{ return file.replace(/\\.js$/, ''); }}
+{i}function partsSettle(err) {{
+{i}  var r = (window.__hkSplitReady || {{}})['{label}'];
+{i}  if (r && r.settle) r.settle(err);
+{i}}}
 {i}// ONE FILE THAT DIDN'T COME (a tablet's Wi-Fi waking, the server restarting) used to leave the cards dead until a reload
 {i}// (the third audit pass, WEB-11): the ones still missing are asked for again, a little later each time, at an address
 {i}// of their own -- a browser keeps a failed module's answer for its address
@@ -111,14 +122,22 @@ LOADER = """\
 {i}    var started = window.__hkSplitStarted = window.__hkSplitStarted || {{}};
 {i}    if (started['{label}']) return;
 {i}    started['{label}'] = true;
+{i}    var settle = null, ready = new Promise(function (resolve, reject) {{
+{i}      settle = function (err) {{ if (err) reject(err); else resolve(); }};
+{i}    }});
+{i}    ready.settle = settle;
+{i}    ready.catch(function () {{ /* the console says so; an importer that awaits it reports it */ }});
+{i}    (window.__hkSplitReady = window.__hkSplitReady || {{}})['{label}'] = ready;
 {i}  }}
 {i}  n = n || 0;
 {i}  var have = window.{glob} || {{}};
 {i}  var missing = PARTS.filter(function (file) {{ return !have[partKey(file)]; }});
 {i}  if (!missing.length) {{
-{i}    try {{ then(); }} catch (err) {{ console.error('[{label}] the parts did not start', err); }}
+{i}    var failed = null;
+{i}    try {{ then(); }} catch (err) {{ failed = err; console.error('[{label}] the parts did not start', err); }}
 {i}    // (the checks that drive a page wait for every shell that started to say it is done)
 {i}    (window.__hkSplitDone = window.__hkSplitDone || {{}})['{label}'] = true;
+{i}    partsSettle(failed);
 {i}    return;
 {i}  }}
 {i}  // (window.hkV: the build's ?v= on an address put together here, web/shim/base.js)
@@ -131,7 +150,7 @@ LOADER = """\
 {i}    var left = PARTS.filter(function (file) {{ return !(window.{glob} || {{}})[partKey(file)]; }});
 {i}    if (!left.length) {{ loadParts(then, n); return; }}
 {i}    err = err || new Error(left[0] + ' ran without registering');
-{i}    if (n + 1 >= PARTS_TRIES) {{ console.error('[{label}] the parts did not start', err); return; }}
+{i}    if (n + 1 >= PARTS_TRIES) {{ console.error('[{label}] the parts did not start', err); partsSettle(err); return; }}
 {i}    console.warn('[{label}] a part did not load (' + err.message + '); again shortly');
 {i}    setTimeout(function () {{ loadParts(then, n + 1); }}, Math.min(1000 * Math.pow(2, n), 15000));
 {i}  }});
@@ -464,7 +483,7 @@ def make_plan(man: dict, text: str, work: Path) -> Plan:
     return plan
 
 
-# names the class-method shell generates (the loader's own are PARTS, PARTS_TRIES, partKey, loadParts, kit, runParts)
+# names the class-method shell generates (the loader's own are PARTS, PARTS_TRIES, partKey, partsSettle, loadParts, kit, runParts)
 GENERATED_CLASS_MODE = {"install", "bindLate", "lates", "partsReady"}
 
 
@@ -815,7 +834,7 @@ def verify(plan: Plan, parts: dict[str, str], shell: str, work: Path) -> list[st
         else:
             fresh.remove(hit)
     # 3. nothing else is in the new shell but the generated statements
-    generated = {"PARTS", "PARTS_TRIES", "partKey", "loadParts", "kit", "runParts"} | (GENERATED_CLASS_MODE if man.get("class") else set())
+    generated = {"PARTS", "PARTS_TRIES", "partKey", "partsSettle", "loadParts", "kit", "runParts"} | (GENERATED_CLASS_MODE if man.get("class") else set())
     for st in fresh:
         names = set(st["names"])
         if not (names & generated or st["head"].startswith((CALL + "(", "runParts(", "partsReady.")) or
@@ -1090,7 +1109,7 @@ def edited_since(man: dict) -> list[str] | None:
 
 
 # ------------------------------------------------------------------------------------------------ --report
-GENERATED_NAMES = {"PARTS", "PARTS_TRIES", "partKey", "loadParts", "kit", "runParts"} | GENERATED_CLASS_MODE
+GENERATED_NAMES = {"PARTS", "PARTS_TRIES", "partKey", "partsSettle", "loadParts", "kit", "runParts"} | GENERATED_CLASS_MODE
 
 
 def report(path: Path, man: dict) -> dict:
@@ -1171,6 +1190,31 @@ def print_report(rep: dict) -> None:
               f"{' ...' if len(g['reassigned']) > 20 else ''}\n    members: {mem}")
 
 
+def write_loaders() -> int:
+    """Every split shell's loader block rewritten from the template (the template changed: phase 24's readiness promise).
+    Only the text between the loader's two banner lines changes; the proof is test_web_sources.py's byte-for-byte pin and
+    `--all --check`."""
+    changed = 0
+    for p in sorted(MANIFESTS.glob("*.json")):
+        man = json.loads(p.read_text())
+        man["name"] = p.stem
+        shell = ROOT / man["shell"]
+        text = shell.read_text()
+        if not is_split(text):
+            continue
+        a = text.index(LOADER_BEGIN)
+        a = text.rindex("\n", 0, a) + 1
+        b = text.index(LOADER_END) + len(LOADER_END) + 1
+        indent = re.match(r" *", text[a:]).group(0)
+        new = text[:a] + loader_block(man, indent) + text[b:]
+        if new != text:
+            shell.write_text(new)
+            changed += 1
+            print(f"{man['shell']}: the loader rewritten from the template")
+    print(f"{changed} loader(s) rewritten")
+    return 0
+
+
 def find(name: str) -> int:
     hits = 0
     for p in sorted(MANIFESTS.glob("*.json")):
@@ -1207,7 +1251,10 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--run-in-decl", help="--report: the scope is the body of the function NAME declared in the IIFE")
     ap.add_argument("--iife", type=int, default=0, help="--report: which IIFE of the file (0-based)")
     ap.add_argument("--json", type=Path, help="--report: also write the groups and the members, one row each, as JSON here")
+    ap.add_argument("--write-loaders", action="store_true", help="rewrite every split shell's loader from the template")
     args = ap.parse_args(argv)
+    if args.write_loaders:
+        return write_loaders()
     if args.find:
         return find(args.find)
     if args.report:

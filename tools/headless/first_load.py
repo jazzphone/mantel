@@ -42,7 +42,7 @@ async def run(runs: int, engines: list[str]) -> dict:
     import gallery
     from aiohttp.test_utils import TestServer
     with tempfile.TemporaryDirectory(prefix="mantel-first-load-") as td:
-        app, cookie = await gallery.build(Path(td), real_model=True)
+        app, cookie = await gallery.build(Path(td), showcase=True, real_model=True)
         async with TestServer(app) as server:
             origin = str(server.make_url("")).rstrip("/")
             pages = {k: v.format(grid=gallery.GRID_SCREEN, screen=gallery.SCREEN) for k, v in PAGES.items()}

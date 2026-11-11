@@ -141,12 +141,20 @@ mark('states');
 // (hkV: the build's ?v= on an address put together here, shim/base.js)
 // (a file that didn't come is asked for again, twice, at an address of its own: a browser keeps a failed module's
 // answer for its address; the third audit pass, 2026-11-01)
+// A FILE CUT INTO PARTS (tools/split_js.py: hk-strategy.js, the core cards, ...) is there once its parts have run, a round
+// trip after the file: each shell keeps a promise of that in window.__hkSplitReady, and imp() waits for every one that has
+// started before it answers (a part that never came is its loader's to report)
+const partsIn = () => Promise.all(Object.values(window.__hkSplitReady || {}).map((r) => r.catch(() => {})));
 const imp = async (u) => {
   for (let n = 0; ; n++) {
-    try { return await (n ? import(hkV(u) + (hkV(u).includes('?') ? '&' : '?') + 'retry=' + n) : import(hkV(u))); } catch (e) {
+    let m;
+    try { m = await (n ? import(hkV(u) + (hkV(u).includes('?') ? '&' : '?') + 'retry=' + n) : import(hkV(u))); } catch (e) {
       if (n >= 2) { console.error('[mantel] could not load', u, e); return undefined; }
       await new Promise((r) => setTimeout(r, 1000 * 2 ** n));
+      continue;
     }
+    await partsIn();
+    return m;
   }
 };
 for (const m of ['modules/hk-settings.js', 'iconset/hk-icons.js', 'modules/tesla-viewport.js', 'modules/hk-tap.js',

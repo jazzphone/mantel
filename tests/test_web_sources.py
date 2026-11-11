@@ -455,3 +455,50 @@ def test_the_report_groups_members_by_what_they_reassign(path, tmp_path):
     assert len(big) == 1 and big[0]["reassigned"] == ["count"]
     assert set(big[0]["members"]) == {"count", "bump", "show"}          # LABEL is declared with count: one statement
     assert not any("other" in g["members"] for g in big)                 # a function's own var is not shared state
+
+
+def test_the_loader_keeps_a_promise_of_its_parts_that_resolves_when_they_ran_and_rejects_when_they_never_come(path, tmp_path):
+    """Readiness (phase 24, A2): window.__hkSplitReady[label] resolves once the parts have run, so a page that imports a
+    shell and uses it at once (web/home.js imp, hk-loader, the Settings panel, Home Assistant's panel) awaits it first;
+    it rejects when the loader gives up. Run in node with the loader's own text."""
+    if shutil.which("node") is None:
+        pytest.skip("node not installed")
+    tool = _tool()
+    man = _manifest(path)
+    text = (ROOT / man["shell"]).read_text()
+    block = text[text.index("  " + tool.LOADER_BEGIN):text.index(tool.LOADER_END)]
+    assert "window.__hkSplitReady = window.__hkSplitReady || {}" in block and "partsSettle(" in block
+    harness = tmp_path / "ready.js"
+    harness.write_text("""
+globalThis.window = globalThis;
+var mode = process.argv[2], ran = 0;
+globalThis.__import = function (u) {
+  if (mode === 'never') return Promise.reject(new Error('Load failed'));
+  var key = u.split('/').pop().split('?')[0].replace(/\\.js$/, '');
+  return new Promise(function (ok) { setImmediate(function () {
+    window.%s = window.%s || {}; window.%s[key] = function () {}; ok({}); }); });
+};
+globalThis.setTimeout = function (fn) { setImmediate(fn); };
+console.warn = console.error = function () {};
+%s
+loadParts(function () { ran++; });
+var p = window.__hkSplitReady['%s'];
+var before = 'pending';
+p.then(function () { before = 'resolved'; }, function () { before = 'rejected'; });
+setImmediate(function () { var early = ran;
+  new Promise(function (r) { var k = 0; (function w() { if (before !== 'pending' || k++ > 2000) r(); else setImmediate(w); })(); })
+    .then(function () { console.log(JSON.stringify({ state: before, ran: ran, ranBeforeParts: early })); });
+});
+""" % (man["global"], man["global"], man["global"], re.sub(r"\bimport\(", "__import(", block), man["label"]))
+    for mode, want in (("ok", "resolved"), ("never", "rejected")):
+        out = subprocess.run(["node", str(harness), mode], capture_output=True, text=True, timeout=60)
+        assert out.returncode == 0, out.stderr
+        got = json.loads(out.stdout.strip().splitlines()[-1])
+        assert got["state"] == want, (mode, got)
+        assert got["ran"] == (1 if mode == "ok" else 0)
+
+
+def test_every_importer_that_uses_a_module_at_once_waits_for_split_shells(path):
+    """The four places that import a file and use it at once wait for every started shell's parts (window.__hkSplitReady)."""
+    for f in ("web/home.js", "web/hk/modules/hk-loader.js", "web/hk/panels/hk-settings.js", "hosts/ha/frontend/hk-ha-panel.js"):
+        assert "__hkSplitReady" in (ROOT / f).read_text(), f

@@ -116,6 +116,13 @@
   // the same address -- fetched once, run once, and kept by the browser
   // (web/shim/base.js hkV). Without hkV (HK Frontend, a checkout) as it is.
   function V(u) { return window.hkV ? window.hkV(u) : u; }
+  // A FILE CUT INTO PARTS (tools/split_js.py) is only there once its parts have run, a round trip after the file itself:
+  // every shell that has started keeps a promise of that in window.__hkSplitReady. Wait for them all (a part that never
+  // came is the shell's loader's to report, so a failure is not this caller's).
+  function partsIn() {
+    var r = window.__hkSplitReady || {};
+    return Promise.all(Object.keys(r).map(function (k) { return r[k].catch(function () { /* the loader says so */ }); }));
+  }
 
   function load(stamp) {
     return Promise.all(MODULES.map(function (m) {
@@ -137,7 +144,7 @@
       return import(url).catch(function (err) {
         console.error('[hk-loader] could not load ' + url, err);
       });
-    }));
+    })).then(partsIn);
   }
 
   // ------------------------------------------------- cards on first use
@@ -165,6 +172,7 @@
     if (!LAZY || !FILES[name]) return Promise.resolve();
     if (!importing[name]) {
       importing[name] = import(V('/hk/cards/' + name))
+        .then(partsIn)
         .catch(function (err) {
           delete importing[name];      // the next ask tries again
           console.error('[hk-loader] could not load /hk/cards/' + name, err);
