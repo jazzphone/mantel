@@ -48,9 +48,9 @@
     '.art{flex:none;display:block}',
     // a centered tile (Small, and each machine of two): the drawing, the name, what it is doing
     '.ct{flex:1 1 0;min-width:0;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:2px}',
-    '.ct .nm{' + type('headline') + ';font-size:21px;line-height:27px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;margin-top:6px}',
+    '.ct .nm{' + type('headline') + ';font-size:21px;line-height:27px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;margin-top:12px}',
     '.ct .st{font-size:20px;font-weight:400;line-height:27px;color:' + v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}',
-    '.ct.sm .nm{font-size:17px;line-height:22px;margin-top:4px}.ct.sm .st{font-size:16px;line-height:21px}',
+    '.ct.sm .nm{font-size:17px;line-height:22px;margin-top:10px}.ct.sm .st{font-size:16px;line-height:21px}',
     '.ct .pills{margin-top:10px}',
     '.hv{width:1px;align-self:stretch;flex:none;background:' + v('line') + ';margin:0 6px}',
     '.hh{height:1px;align-self:stretch;flex:none;background:' + v('line') + ';margin:6px 0}',
@@ -141,13 +141,23 @@
       var L = window.hkLaundry;
       return '<div class="art" style="width:' + Math.round(w) + 'px">' + L.art(o.state, o.kind, { display: w >= 90 ? L.display(o) : '', label: o.name + ', ' + o.title }) + '</div>';
     }
+    // THE DRAWING TRIMMED TO THE MACHINE (94 : 132; hk-laundry.js `crop`), for the flipped blocks (the owner, 2026-11-10: "the text is
+    // where it is in relation to the animation ... looks kind of thrown on"): its sides are the machine's own, its right edge on the block's
+    // inset; its top keeps room for the heat lines (the owner: on Extra Large "the heat animation is really close to the top edge"), so
+    // they start level with the state's capitals and the machine a line lower, level with the time. CAP: a hero's capitals sit 7 px under
+    // its line's top (30 / 34), a title's 5 (22 / 26)
+    _artC(o, w, cap) {
+      var L = window.hkLaundry;
+      return '<div class="art" style="width:' + Math.round(w) + 'px;margin-top:' + (cap || 0) + 'px">' + L.art(o.state, o.kind, { crop: true, display: w >= 70 ? L.display(o) : '', label: o.name + ', ' + o.title }) + '</div>';
+    }
+    _fitC(w, h) { return Math.max(40, Math.min(w, h * 94 / 132)); }
     _tone(o) { return o.state === 'leak' || o.state === 'error' ? ' red' : (o.state === 'done' || o.state === 'wrinkle') ? ' mint' : ''; }
     // (narrow: too little room for every step's name -- a narrow Tall -- only the step it's on is named)
     _track(o, w) {
       if (!o.steps) return '';
       var narrow = w != null && (w - 6 * (o.steps.length - 1)) / o.steps.length < 42;
       return '<div class="trk' + (narrow ? ' nar' : '') + '">' + o.steps.map(function (s) {
-        return '<div class="s' + (s.done ? ' done' : s.now ? ' now' : '') + '"><div class="b"><i style="width:' + (s.done ? 100 : s.now ? 50 : 0) + '%"></i></div><div class="n">' + esc(s.name) + '</div></div>';
+        return '<div class="s' + (s.done ? ' done' : s.now ? ' now' : '') + '"><div class="b"><i style="width:' + (s.done ? 100 : s.now ? 50 : 0) + '%' + (s.color ? ';background:' + s.color : '') + '"></i></div><div class="n">' + esc(s.name) + '</div></div>';
       }).join('') + '</div>';
     }
     // the keys a block may hold: Clear on a held Done; Pause (or Resume) and Stop where the machine takes them now
@@ -183,37 +193,39 @@
     _fit(w, h) { return Math.max(40, Math.min(w, h * 140 / 150)); }
     _one(size, box, o) {
       var iw = box.iw, ih = box.ih, tone = this._tone(o), fin = o.endsWords ? '<div class="fn">' + esc(o.endsWords) + '</div>' : '';
-      if (size === 'S') return this._ctile(o, this._fit(iw, ih - (box.tile ? 50 : 62)) * (box.tile ? 1 : 0.92), box.tile, '');
+      if (size === 'S') return this._ctile(o, this._fit(iw, ih - (box.tile ? 56 : 68)) * (box.tile ? 1 : 0.92), box.tile, '');
+      // FLIPPED (2026-11-10, the owner's go-ahead on the mockup): what it is doing upper left, where the headline rule puts it; the machine
+      // on the right, trimmed to its ink; GAP clear between them, never less ("breathing room between the texts and the animated glyphs");
+      // the steps and readings under the words on the same left edge
+      var GAP = 18;
       if (size === 'W') {
-        var aw = this._fit(Math.min(170, iw * 0.4), ih);
-        var wp = this._pills(o, 1), foot = (box.tile && (wp || ih < 100) ? '' : this._track(o, iw - aw - 16)) + wp;
-        return '<div style="display:flex;gap:16px;align-items:center;flex:1;min-width:0">' + this._art(o, aw) +
-          '<div class="col" style="align-self:stretch"><div class="ti' + '">' + esc(o.title) + '</div><div class="sb' + tone + '">' + esc(o.sub) + '</div>' + (box.tile ? '' : fin) +
-          (foot ? '<div class="foot">' + foot + '</div>' : '') + '</div></div>';
+        var aw = this._fitC(Math.min(110, iw * 0.32), ih - 5);
+        var wp = this._pills(o, 1), foot = (box.tile && (wp || ih < 100) ? '' : this._track(o, iw - aw - GAP)) + wp;
+        return '<div style="display:flex;gap:' + GAP + 'px;align-items:flex-start;flex:1;min-width:0">' +
+          '<div class="col" style="align-self:stretch"><div class="ti' + tone + '">' + esc(o.title) + '</div><div class="sb' + (o.state === 'leak' ? ' red' : '') + '">' + esc(o.sub) + '</div>' + (box.tile ? '' : fin) +
+          (foot ? '<div class="foot">' + foot + '</div>' : '') + '</div>' + this._artC(o, aw, 5) + '</div>';
       }
       if (size === 'T') {
         var tfoot = this._track(o, iw) + this._pills(o, 1);
-        var th = ih - 26 - 20 - (o.endsWords && !box.tile ? 18 : 0) - (o.steps ? 35 : 0) - (tfoot.indexOf('pill') >= 0 ? 52 : 0) - 24;
+        var th = ih - 34 - 20 - (o.endsWords && !box.tile ? 18 : 0) - (o.steps ? 35 : 0) - (tfoot.indexOf('pill') >= 0 ? 52 : 0) - 24;
         return '<div class="col" style="align-items:center;text-align:center;gap:6px">' + this._art(o, this._fit(iw * 0.94, th)) +
-          '<div class="ti" style="margin-top:4px">' + esc(o.title) + '</div><div class="sb' + tone + '">' + esc(o.sub) + '</div>' + (box.tile ? '' : fin) +
+          '<div class="ti" style="margin-top:12px">' + esc(o.title) + '</div><div class="sb' + tone + '">' + esc(o.sub) + '</div>' + (box.tile ? '' : fin) +
           (tfoot ? '<div class="foot" style="width:100%;align-items:center">' + tfoot + '</div>' : '') + '</div>';
       }
+      var words = '<div class="col" style="gap:4px;flex:none"><div class="hero' + tone + '">' + esc(o.title) + '</div><div class="sb' + (o.state === 'leak' ? ' red' : '') + '">' + esc(o.sub) + '</div>' + fin + '</div>';
       if (size === 'L') {
-        var lp = this._pills(o, 2), nRows = box.tile ? 0 : Math.max(0, Math.min(3, Math.floor((ih - 190 - (o.steps ? 40 : 0) - (lp ? 52 : 0)) / 38)));
-        var lrows = nRows ? this._rows(o, nRows) : '';
-        var used = (o.steps ? 41 : 0) + (lrows ? (lrows.match(/class="r"/g) || []).length * 38 + 12 : 0) + (lp ? 52 : 0) + 12;
-        var lart = this._fit(Math.min(180, iw * 0.46), Math.min(ih - used, 200));
-        return '<div class="col" style="gap:12px"><div style="display:flex;gap:14px;align-items:flex-start;min-width:0">' + this._art(o, lart) +
-          '<div class="col"><div class="hero' + tone + '">' + esc(o.title) + '</div><div class="sb' + (o.state === 'leak' ? ' red' : '') + '">' + esc(o.sub) + '</div>' + fin + '</div></div>' +
+        // (the readings first -- the owner: "what happened to the other data on the Large ... card": up to three rows, then the drawing
+        // takes the height that leaves, never shorter than the words beside it)
+        var lp = this._pills(o, 2), all = box.tile ? 0 : (this._rows(o, 3).match(/class="r"/g) || []).length;
+        var free = ih - 14 - (o.steps ? 43 : 0) - (lp ? 52 : 0), n = Math.max(0, Math.min(all, Math.floor((free - 84) / 38)));
+        var lrows = n ? this._rows(o, n) : '', la = this._fitC(Math.min(116, iw * 0.36), Math.max(84, Math.min(166, free - n * 38 - (n ? 12 : 0))) - 7);
+        return '<div class="col" style="gap:14px"><div style="display:flex;gap:' + GAP + 'px;align-items:flex-start;justify-content:space-between;min-width:0">' + words + this._artC(o, la, 7) + '</div>' +
           this._track(o, iw) + lrows + (lp ? '<div class="foot">' + lp + '</div>' : '') + '</div>';
       }
-      var xrows = this._rows(o, box.tile ? 2 : 4), xp = this._pills(o, 2);
-      return '<div style="display:flex;gap:22px;flex:1;min-width:0"><div style="width:' + Math.round(Math.min(240, iw * 0.42)) + 'px;flex:none;display:flex;align-items:center;justify-content:center">' +
-        this._art(o, this._fit(Math.min(240, iw * 0.42), ih)) + '</div>' +
-        '<div class="col" style="gap:6px"><div class="hero' + tone + '">' + esc(o.title) + '</div>' +
-        '<div class="sb' + (o.state === 'leak' ? ' red' : '') + '">' + esc([o.sub, o.endsWords].filter(Boolean).join(' · ')) + '</div>' +
-        (o.steps ? '<div style="margin-top:10px">' + this._track(o, iw - Math.min(240, iw * 0.42) - 22) + '</div>' : '') + (xrows ? '<div style="margin-top:6px">' + xrows + '</div>' : '') +
-        (xp ? '<div class="foot">' + xp + '</div>' : '') + '</div></div>';
+      var xa = this._fitC(Math.min(170, iw * 0.36), ih - 7), xrows = this._rows(o, box.tile ? 2 : 4), xp = this._pills(o, 2);
+      return '<div style="display:flex;gap:' + GAP + 'px;flex:1;min-width:0;align-items:flex-start">' +
+        '<div class="col" style="gap:14px;align-self:stretch">' + words + this._track(o, iw - xa - GAP) + xrows + (xp ? '<div class="foot">' + xp + '</div>' : '') + '</div>' +
+        this._artC(o, xa, 7) + '</div>';
     }
     _two(size, box, list) {
       var self = this, iw = box.iw, ih = box.ih;
@@ -231,13 +243,14 @@
             (t || p ? '<div style="margin-top:12px;width:100%;display:flex;flex-direction:column;gap:12px;align-items:center">' + t + p + '</div>' : '') + '</div>');
         }).join('');
       }
-      // Extra Large: each its own column -- the drawing and its words, the steps, its readings, its keys
+      // Extra Large: each its own column, flipped as one machine is -- its name over what it is doing (two need telling apart), the machine
+      // at the column's upper right, the steps, its readings and its keys under the words
       return list.map(function (o, i) {
-        var rows = self._rows(o, box.tile ? 1 : 3), p = self._pills(o, 2);
-        return (i ? '<div class="hv"></div>' : '') + half(o, '<div class="col" style="gap:12px;padding:0 6px"><div style="display:flex;gap:12px;align-items:flex-start">' +
-          self._art(o, box.tile ? 80 : 104) + '<div class="col" style="gap:4px"><div class="lbl">' + esc(o.name) + '</div><div class="ti' + self._tone(o) + '">' + esc(o.title) + '</div>' +
-          '<div class="fn" style="color:' + v('ink-2') + '">' + esc(o.sub) + '</div>' + (o.endsWords && !box.tile ? '<div class="fn">' + esc(o.endsWords) + '</div>' : '') + '</div></div>' +
-          self._track(o, iw / 2 - 30) + rows + (p ? '<div class="foot">' + p + '</div>' : '') + '</div>');
+        var rows = self._rows(o, box.tile ? 1 : 3), p = self._pills(o, 2), cw = iw / 2 - 26, xa = self._fitC(Math.min(88, cw * 0.36), 112);
+        return (i ? '<div class="hv"></div>' : '') + half(o, '<div class="col" style="gap:12px;padding:0 6px"><div style="display:flex;gap:16px;align-items:flex-start">' +
+          '<div class="col" style="gap:4px"><div class="lbl">' + esc(o.name) + '</div><div class="ti' + self._tone(o) + '">' + esc(o.title) + '</div>' +
+          '<div class="fn" style="color:' + v('ink-2') + '">' + esc(o.sub) + '</div>' + (o.endsWords && !box.tile ? '<div class="fn">' + esc(o.endsWords) + '</div>' : '') + '</div>' +
+          self._artC(o, xa, 21) + '</div>' + self._track(o, cw) + rows + (p ? '<div class="foot">' + p + '</div>' : '') + '</div>');
       }).join('');
     }
     _render() {

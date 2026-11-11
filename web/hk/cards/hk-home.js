@@ -320,7 +320,7 @@
         '.vb[data-s=W]{flex-direction:row;gap:16px}',
         // (2026-11-09, the owner: "the clean, rooms, and home button area should be wider ... its too squished": the vacuum drawn in two fifths
         // at the left -- its name, the drawing in what is left, what it is doing -- and the keys the rest)
-        '.vb[data-s=W] .col{display:flex;flex-direction:column;min-width:0;flex:0 0 40%}.vb[data-s=W] .art{flex:1 1 0;min-height:0;width:100%;margin:2px 0;display:flex}',
+        '.vb[data-s=W] .col{display:flex;flex-direction:column;min-width:0;flex:0 0 40%}.vb[data-s=W] .art{flex:1 1 0;min-height:0;width:100%;margin:16px 0 0;display:flex}',
         '.vb[data-s=W] .art .hkva{height:100%;width:auto;max-width:100%}.vb[data-s=W] .side{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;justify-content:flex-end;gap:8px}',
         '.vb[data-s=W] .side .key{flex:none;width:100%;--vb-key:48px}',
         // THE ROOMS, two across, each a row of its own size (48 px; nothing stretches, 2026-11-08, the owner: "do the rooms scroll in the card if there
@@ -343,8 +343,9 @@
         '.vb[data-s=XL]{flex-direction:row;gap:22px}',
         // (the ring in the middle of what its column has left, the last run at the foot, level with the keys)
         '.vb[data-s=XL] .lcol{flex:0 0 200px;display:flex;flex-direction:column;min-width:0}',
-        '.vb[data-s=XL] .lcol :is(.art,.none){margin-top:auto;margin-bottom:auto}',
-        '.vb[data-s=XL] .lcol .rt{min-height:var(--vb-key);justify-content:flex-end}',
+        '.vb[data-s=XL] .lcol :is(.art,.none){margin:18px 0 0}',
+        // (no rooms to offer: the left column is the block, the drawing at its own size under the words -- it was squeezed into 200 px, "Cl...")
+        '.vb[data-s=XL]:not([data-r]) .lcol{flex:1 1 auto}.vb[data-s=XL]:not([data-r]) .lcol .art{width:min(220px,100%)}',
         '.vb[data-s=XL] .rcol{flex:1 1 auto;display:flex;flex-direction:column;min-width:0}',
         '.vb[data-s=XL] .rcol .lab{margin-top:0}',
         '.vb[data-s=XL] .key.dk{padding:0 18px}',
@@ -352,15 +353,17 @@
         // with the keys; the rooms one to a row down the right, as wide as the column, scrolling past what the block holds
         '.vb[data-s=L][data-r]{flex-direction:row;gap:16px}',
         '.vb[data-s=L][data-r] .lcol{flex:0 0 40%;display:flex;flex-direction:column;min-width:0}',
-        '.vb[data-s=L][data-r] .lcol .art{flex:1 1 0;min-height:0;margin:4px 0;display:flex;align-items:center;justify-content:center}',
+        '.vb[data-s=L][data-r] .lcol .art{flex:1 1 0;min-height:0;margin:18px 0 0;display:flex;align-items:flex-start;justify-content:center}',
         '.vb[data-s=L][data-r] .lcol .art .hkva{max-height:100%;width:100%}',
-        '.vb[data-s=L][data-r] .lcol .rt{min-height:var(--vb-key);justify-content:flex-end}.vb[data-s=L] .state{font-size:17px}',
+        '.vb[data-s=T] .mid{margin-top:16px}.vb[data-s=L]:not([data-r]) .mid{margin:18px 0 8px}',
         '.vb[data-s=L][data-r] .rcol{flex:1 1 auto;display:flex;flex-direction:column;min-width:0}',
         '.vb[data-s=L][data-r] .rcol .lab{margin-top:0}',
         '.vb[data-s=L][data-r] :is(.lab,.rooms,.keys){width:100%}',
         '.vb[data-s=L] .rooms{grid-template-columns:minmax(0,1fr);grid-auto-rows:44px}.vb[data-s=L] .vr{justify-content:flex-start;padding:0 14px;font-size:15px}',
         // (no rooms: the drawing as large as the block leaves it, centered)
-        '.vb[data-s=L]:not([data-r]) .mid .art{width:auto;height:100%;max-width:100%;margin:0 auto;display:flex;justify-content:center}.vb[data-s=L]:not([data-r]) .mid .hkva{height:100%;width:auto;max-width:100%}',
+        // (2026-11-10: the robot was 0 px wide here, so it never showed; now its box takes what the column leaves, the drawing upper left)
+        '.vb[data-s=L]:not([data-r]) .mid .art{flex:1 1 0;min-height:0;width:100%;margin:0;display:flex;justify-content:flex-start;align-items:flex-start;container-type:size}',
+        '.vb[data-s=L]:not([data-r]) .mid .hkva{width:min(100%,calc(100cqh * 200 / 140));height:auto}',
         // THE VACUUM DRAWN IN PLACE OF THE BATTERY RING (2026-11-09, hk-vacuum-art.js; the battery is in the line under what it is doing):
         // Extra Large's in the middle of its column, Tall's as big as --vb-r (what the block leaves) lets it, centered
         (window.hkVacuumArt ? window.hkVacuumArt.CSS : '') + '.vb .art{flex:none;width:100%;margin:6px auto}.vb .state{font-size:22px;font-weight:600;line-height:1.2}',
@@ -547,6 +550,9 @@
       var ran = since ? ' \u00B7 Ran ' + esc(since) + ' ago' : '';
       // (...after what the line already says, else on its own: no " · Ran" opening an empty line -- a vacuum with no battery, 2026-11-10)
       var after = function (said) { return said ? said + ran : ran.replace(/^ \u00B7 /, ''); };
+      // (FLIPPED, 2026-11-10, the owner: no heading -- the state upper left, the vacuum's name in the line under it, "Downstairs · 92%":
+      // a house with two vacuums still tells their blocks apart)
+      var short = String(nm).replace(/\s*(robot\s*)?vacuum$/i, '').trim() || nm, named = function (said) { return esc(short) + (said ? ' \u00B7 ' + said : ''); };
       // THE ROOMS (Large up, with Clean Areas or the house's script)
       var big = sz === 'L' || sz === 'XL', roomsOn = sz !== 'S' && this._picker();
       this._auto = roomsOn;
@@ -593,14 +599,13 @@
       } else if (sz === 'W') {
         // (Wide's Clear beside Dock, where the rooms key was -- under the words it squeezed the drawing to a speck, 2026-11-09)
         var wclr = clr ? '<button type="button" class="key rm" data-clear aria-label="Clear the water tank report for ' + esc(nm) + '"><span>Clear</span></button>' : '';
-        html = '<div class="col"><div class="hd"><b class="nm">' + esc(nm) + '</b></div>' + art + what.replace(clr, '') +
-          '<span class="sub">' + (said ? words(subw) + '</span><span class="rm-note">' + esc(chosen.join(', ')) : after(words(subw))) + '</span></div>' +
+        html = '<div class="col">' + what.replace(clr, '') +
+          '<span class="sub">' + (said ? named(words(subw)) + '</span><span class="rm-note">' + esc(chosen.join(', ')) : named(after(words(subw)))) + '</span>' + art + '</div>' +
           '<div class="side">' + key(go, 'go', true) + (pickable || wclr ? '<div class="pair">' + (wclr || rkey) + key(dock, 'dk', false) + '</div>' : key(dock, 'dk', true)) + '</div>';
       } else if (sz === 'T') {
         var bk = this._block(), more = rest.slice(1);
-        html = '<div class="hd"><b class="nm">' + esc(nm) + '</b></div>' +
-          '<div class="mid" style="--vb-r:' + (bk ? Math.max(72, Math.min(120, bk.h - (pickable ? 286 : 234))) : 96) + 'px">' + art + '</div>' +
-          '<div class="rt">' + stNode + what + '<span class="sub two">' + after(words((bat ? [bat] : []).concat(more))) + '</span></div>' + rkey +
+        html = '<div class="rt">' + stNode + what + '<span class="sub two">' + named(after(words((bat ? [bat] : []).concat(more)))) + '</span></div>' +
+          '<div class="mid" style="--vb-r:' + (bk ? Math.max(72, Math.min(120, bk.h - (pickable ? 286 : 234))) : 96) + 'px">' + art + '</div>' + rkey +
           '<div class="keys">' + key(go, 'go', true) + key(dock, 'dk', false) + '</div>';
       } else if (sz === 'XL') {
         var run = [since ? 'Last run ' + since + ' ago' : ''];
@@ -608,20 +613,19 @@
         if (isFinite(Number(a.cleaned_area)) && isFinite(Number(a.cleaning_time)) && a.cleaned_area != null && a.cleaning_time != null) {
           run.push(Math.round(Number(a.cleaned_area)) + ' m\u00B2 in ' + Math.round(Number(a.cleaning_time)) + ' min');
         }
-        var left = '<div class="hd"><b class="nm">' + esc(nm) + '</b></div>' + art +
-          '<div class="rt">' + stNode + what + '<span class="sub two">' + (subw.length ? words(subw) + '<br>' : '') +
-          esc(run.filter(Boolean).join('\n')).replace(/\n/g, '<br>') + '</span></div>';
+        var left = '<div class="rt">' + stNode + what + '<span class="sub two">' + named(words(subw)) + '<br>' +
+          esc(run.filter(Boolean).join('\n')).replace(/\n/g, '<br>') + '</span></div>' + art;
         html = '<div class="lcol">' + left + (roomsOn ? '' : '<div class="keys">' + key(go, 'go', true) + key(dock, 'dk', true) + '</div>') + '</div>' +
           (roomsOn ? '<div class="rcol">' + rooms + '<div class="keys">' + key(go, 'go', true) + key(dock, 'dk', true) + '</div></div>' : '');
       } else {
         // LARGE (2026-11-10, the owner: "show the new animated vacuum, but still have some room selection ... a vertical scroll
         // list"): Extra Large's shape in less room -- the vacuum drawn, what it is doing and its battery on the left; the rooms a
         // list down the right that scrolls, Clean and Dock under it. No rooms on offer: the drawing in the middle over the keys
-        var say = '<div class="rt">' + stNode + what + '<span class="sub two">' + after(words(subw)) + '</span></div>';
+        var say = '<div class="rt">' + stNode + what + '<span class="sub two">' + named(after(words(subw))) + '</span></div>';
         html = roomsOn
-          ? '<div class="lcol"><div class="hd"><b class="nm">' + esc(nm) + '</b></div>' + art + say + '</div>' +
+          ? '<div class="lcol">' + say + art + '</div>' +
             '<div class="rcol">' + rooms + '<div class="keys">' + key(go, 'go', true) + key(dock, 'dk', false) + '</div></div>'
-          : '<div class="hd"><b class="nm">' + esc(nm) + '</b></div><div class="mid">' + art + '</div>' + say +
+          : say + '<div class="mid">' + art + '</div>' +
             '<div class="keys">' + key(go, 'go', true) + key(dock, 'dk', false) + '</div>';
       }
       C.morph(this._root, '<hk-plate class="vb" data-s="' + sz + '"' + (roomsOn && big ? ' data-r' : '') + ' data-hk-role="card">' + html + '</hk-plate>');

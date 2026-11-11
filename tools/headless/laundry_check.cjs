@@ -30,6 +30,27 @@ function blocks() {
   });
 }
 
+// BREATHING ROOM (the owner, 2026-11-10: "the text is almost running into the Vacuum glyph"): in each block, the least clear space between
+// a line of words and the drawing's ink -- the machine (its trimmed box), or the vacuum's glyph -- where the two face each other
+function gaps(tag) {
+  const box = (e) => { const r = e.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom }; };
+  return deep(document, tag).map((c) => {
+    const sr = c.shadowRoot, k = (() => { const p = sr.querySelector('hk-plate'); return p && p.offsetWidth ? p.getBoundingClientRect().width / p.offsetWidth : 1; })();
+    const ink = [...sr.querySelectorAll('.art svg.hkla .mach, .art .hkva .gl')].filter((e) => e.getClientRects().length).map(box);
+    const words = [...sr.querySelectorAll('*')].filter((e) => !e.closest('.art') && [...e.childNodes].some((n) => n.nodeType === 3 && n.data.trim()) && e.getClientRects().length).map((e) => [e, box(e)]);
+    let least = Infinity, who = '';
+    ink.forEach((a) => words.forEach(([e, w]) => {
+      const vo = Math.min(a.b, w.b) - Math.max(a.t, w.t), ho = Math.min(a.r, w.r) - Math.max(a.l, w.l);
+      let d = null;
+      if (vo > 0 && ho > 0) d = -1;                                   // (on top of each other)
+      else if (vo > 0) d = Math.max(a.l - w.r, w.l - a.r);            // side by side
+      else if (ho > 0) d = Math.max(a.t - w.b, w.t - a.b);            // one over the other
+      if (d !== null && d / k < least) { least = d / k; who = e.textContent.trim().slice(0, 24); }
+    }));
+    return { size: c.getAttribute('size') || (c._config && c._config.size), least: least === Infinity ? null : Math.round(least), who };
+  });
+}
+
 (async () => {
   let failures = 0;
   const check = (name, fn) => { try { fn(); console.log('ok   ' + name); } catch (e) { failures++; console.log('FAIL ' + name + ': ' + e.message.split('\n')[0]); } };
@@ -142,6 +163,22 @@ function blocks() {
         }
         check(`${label}: no page errors`, () => assert(!errors.length, errors.join(' | ')));
         check(`${label}: not one command`, () => assert(!commands.length, commands.join(' | ')));
+        await ctx.close();
+      }
+    }
+
+    if (want('gaps')) {
+      for (const [screen, tag] of [['la-square', 'hk-grid-laundry-card'], ['la-tiles', 'hk-grid-laundry-card'], ['la-vac', 'hk-vacuum-card, hk-grid-vacuum-card']]) {
+        const { ctx, page, errors } = await open(screen, tag.split(',')[0]);
+        await page.evaluate('window.gaps = ' + gaps.toString());
+        const got = await page.evaluate((t) => t.split(', ').flatMap((x) => gaps(x)), tag);
+        await shot(page, `${engine}-${HOUSE}-${screen}-gaps`);
+        console.log(engine, HOUSE, screen, 'gaps', JSON.stringify(got));
+        for (const g of got) {
+          if (g.least === null) continue;                            // (no drawing at this size)
+          check(`${engine} ${HOUSE} ${screen} ${g.size}: 14 px or more between the words and the drawing`, () => assert(g.least >= 14, g.least + ' px from "' + g.who + '"'));
+        }
+        check(`${engine} ${HOUSE} ${screen}: no page errors`, () => assert(!errors.length, errors.join(' | ')));
         await ctx.close();
       }
     }
