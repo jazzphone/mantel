@@ -11,7 +11,7 @@ from conftest import Mantel
 from test_app_auth import sign_in_app
 from test_music import build
 
-from mantel_server import app_music
+from mantel_server.apps import app_music
 
 
 @pytest.fixture

@@ -41,7 +41,8 @@ from urllib.parse import urlsplit
 
 from aiohttp import ClientError, ClientTimeout, web
 
-from . import app_crypto, audit
+from .apps import app_crypto
+from . import audit
 from .identity.accounts import read_json
 from .identity.guards import guard
 from .identity.guards import ident as guarded

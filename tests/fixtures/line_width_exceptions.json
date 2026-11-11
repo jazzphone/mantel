@@ -390,7 +390,7 @@
   "why": "inside a regular expression: it cannot be broken"
  },
  {
-  "file": "hosts/server/mantel_server/app_shell.py",
+  "file": "hosts/server/mantel_server/apps/app_shell.py",
   "hash": "a9a3ffe57240da01",
   "why": "inside a multi-line string: a newline there would be part of the string"
  },

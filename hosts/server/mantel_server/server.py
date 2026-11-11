@@ -49,7 +49,8 @@ from . import (
     tablet_links, user_data,
 )
 from .ha import ha_dashboards, socket_reads
-from . import alerts, app_shell, timeline, hk_cards, live, mcp, page_health, performance, server_settings, setup_guide
+from . import alerts, timeline, hk_cards, live, mcp, page_health, performance, server_settings, setup_guide
+from .apps import app_shell
 from .identity import cf_access, guards
 from .identity.authz import Authz, Principal, resolve_door
 from .config import Config

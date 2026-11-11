@@ -140,7 +140,7 @@ async def fictional_ma() -> tuple[object, str]:
 
 async def serve(data: Path, port: int, lan: bool = False, relay: str | None = None, music: bool = False,
                 slow: int = 0, busy: bool = False) -> None:
-    from mantel_server import app_auth, app_crypto
+    from mantel_server.apps import app_auth, app_crypto
     from mantel_server.config import Config
     from mantel_server.server import build_app
     from mantel_server.store import Store

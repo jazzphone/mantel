@@ -12,7 +12,8 @@ from pathlib import Path
 import pytest
 from cryptography.hazmat.primitives.asymmetric import ec
 
-from mantel_server import app_crypto, push
+from mantel_server.apps import app_crypto
+from mantel_server import push
 
 ROOT = Path(__file__).resolve().parents[1]
 WEB = ROOT / "web"
@@ -123,7 +124,7 @@ def test_manifest_is_standalone_with_its_icons():
     assert m["display"] == "standalone" and m["start_url"].startswith("/home")
     for icon in m["icons"]:
         name = icon["src"].rsplit("/", 1)[1]
-        assert name in __import__("mantel_server.app_shell", fromlist=["ICONS"]).ICONS
+        assert name in __import__("mantel_server.apps.app_shell", fromlist=["ICONS"]).ICONS
         assert (WEB / "app/art" / name).is_file()
 
 

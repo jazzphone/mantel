@@ -21,8 +21,9 @@ from __future__ import annotations
 
 from aiohttp import web
 
-from . import app_api, app_auth, app_music, push
-from .identity.guards import WHY_STATIC, open_route
+from . import app_api, app_auth, app_music
+from .. import push
+from ..identity.guards import WHY_STATIC, open_route
 
 APP_DIR = "app"                       # under cfg.web
 ICONS = ("apple-touch-icon.png", "mantel-192.png", "mantel-512.png", "mantel-maskable-512.png", "badge-96.png")

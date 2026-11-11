@@ -4,7 +4,7 @@ with it, a handed-out session ending with its parent. Fictional people and HA us
 """
 from mantel_server import frame_origins as FO
 from mantel_server import server_settings as SS
-from mantel_server.app_auth import APP_METHOD, APP_TTL, WEB_METHOD
+from mantel_server.apps.app_auth import APP_METHOD, APP_TTL, WEB_METHOD
 
 HA_X = "c" * 32            # a fictional Home Assistant user id (the attacker's own HA account, say)
 

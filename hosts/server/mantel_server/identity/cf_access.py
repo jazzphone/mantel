@@ -47,7 +47,7 @@ from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 
-from ..app_crypto import unb64u
+from ..apps.app_crypto import unb64u
 
 log = logging.getLogger("mantel.cf_access")
 

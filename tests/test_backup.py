@@ -219,7 +219,7 @@ def test_the_keys_mantel_made_travel_with_the_backup(tmp_path, key, target):
     with the same keys, so browsers' push subscriptions and the apps' pinned pairings keep working."""
     import stat
 
-    from mantel_server import app_crypto
+    from mantel_server.apps import app_crypto
     data = make_home(tmp_path)
     (data / "keys").mkdir(mode=0o700)
     app_crypto.load_or_create_ec_key(data / "keys" / "vapid.pem")

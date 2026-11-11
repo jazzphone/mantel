@@ -33,11 +33,11 @@ from typing import Any
 
 from aiohttp import web
 
-from . import user_data as UD
+from .. import user_data as UD
 from .app_auth import app_route
-from .connectors import allowed_ids, may_feature
-from .identity.guards import WHY_APP, open_route
-from .identity.sessions import error, ok
+from ..connectors import allowed_ids, may_feature
+from ..identity.guards import WHY_APP, open_route
+from ..identity.sessions import error, ok
 
 MEDIA_PLAYER = re.compile(r"^media_player\.[a-z0-9_]+$")
 PROXY_ID = re.compile(r"^[0-9a-f]{64}$")
@@ -54,7 +54,7 @@ def _principal(request: web.Request):
 
 
 def _hooks(request: web.Request):
-    from .connectors import Hooks
+    from ..connectors import Hooks
     authz = request.app.get("authz")
     return Hooks(may_read=authz.may_read) if authz is not None else Hooks()
 
@@ -257,7 +257,7 @@ async def put_focus(request: web.Request) -> web.Response:
 @open_route("app_dpop", reads="view", why=WHY_APP)
 @app_route
 async def queue(request: web.Request) -> web.Response:
-    from .music import QUEUE_MAX
+    from ..music import QUEUE_MAX
     host = _host(request)
     eid = request.query.get("entity_id") or ""
     try:
@@ -290,7 +290,7 @@ async def queue_play(request: web.Request) -> web.Response:
 @open_route("app_dpop", reads="feature:music", why=WHY_APP)
 @app_route
 async def library(request: web.Request) -> web.Response:
-    from .music import check_get_library
+    from ..music import check_get_library
     host = _host(request)
     if host is None or host.ma is None:
         return error(503, "unavailable", message="Music Assistant is not connected to Mantel.")
@@ -331,8 +331,8 @@ async def library(request: web.Request) -> web.Response:
 @app_route
 async def image(request: web.Request) -> web.StreamResponse:
     """A library picture: Music Assistant's image proxy, for ``feature:music``."""
-    from .connectors import camera_still
-    from .cameras.media_proxy import ma_web_url
+    from ..connectors import camera_still
+    from ..cameras.media_proxy import ma_web_url
     pid = (request.query.get("id") or "").lower()
     base = ma_web_url(request.app["cfg"], request.app.get("connections"))
     if not PROXY_ID.match(pid) or not base or _host(request) is None:

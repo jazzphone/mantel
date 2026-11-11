@@ -53,13 +53,14 @@ from urllib.parse import quote, urlencode, urlsplit
 
 from aiohttp import web
 
-from . import app_crypto, qr
-from . import audit
-from .identity.accounts import MANAGERS, read_json
-from .identity.guards import WHY_APP, guard, open_route
-from .identity.guards import ident as guarded
-from .identity.login_page import login_url, safe_next
-from .identity.sessions import Identity, door_of, error, ok, set_session_cookies, token_hash, user_from_row
+from . import app_crypto
+from .. import qr
+from .. import audit
+from ..identity.accounts import MANAGERS, read_json
+from ..identity.guards import WHY_APP, guard, open_route
+from ..identity.guards import ident as guarded
+from ..identity.login_page import login_url, safe_next
+from ..identity.sessions import Identity, door_of, error, ok, set_session_cookies, token_hash, user_from_row
 
 log = logging.getLogger("mantel.app_auth")
 
@@ -248,7 +249,7 @@ class AppAuth:
     def hello(self, request: web.Request, nonce: str | None = None) -> dict:
         key = self.key()
         fp = self.fingerprint()
-        from .apns import push_mode
+        from ..apns import push_mode
         out = {"service": "mantel", "name": self.house_name(), "fingerprint": fp,
                "key": app_crypto.b64u(app_crypto.raw_public(key.public_key())), "door": door_of(request),
                "addresses": self.addresses(request), "push": push_mode(self.app)}
@@ -289,7 +290,7 @@ def clean(value: Any) -> str | None:
 
 
 def origin_of(request: web.Request) -> str:
-    from . import proxy_trust
+    from .. import proxy_trust
     scheme = "https" if proxy_trust.is_https(request) else request.scheme
     return f"{scheme}://{request.host}"
 
@@ -402,7 +403,7 @@ def _back_to_app(state: str | None, **query: str) -> web.StreamResponse:
 
 @open_route("sign_in", why="the app's sign-in page: the person signs in there (app_auth.py)")
 async def authorize_page(request: web.Request) -> web.StreamResponse:
-    from .identity.sessions import identity
+    from ..identity.sessions import identity
     p = _params(request.query)
     if isinstance(p, str):
         return _page("Can’t Sign In", f"<p>This sign-in link is not valid ({html.escape(p)}).</p>", 400)
@@ -423,7 +424,7 @@ async def authorize_page(request: web.Request) -> web.StreamResponse:
 
 @open_route("sign_in", why="the app's sign-in page: the person signs in there (app_auth.py)")
 async def authorize_post(request: web.Request) -> web.StreamResponse:
-    from .identity.sessions import identity
+    from ..identity.sessions import identity
     form = await request.post()
     p = _params(form)
     if isinstance(p, str):

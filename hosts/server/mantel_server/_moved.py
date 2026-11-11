@@ -17,6 +17,11 @@ import sys
 MOVED: dict[str, tuple[str, str]] = {
     # --- the table: written by tools/move_py.py ---
     "accounts": ("identity.accounts", "0.1.166"),
+    "app_api": ("apps.app_api", "0.1.166"),
+    "app_auth": ("apps.app_auth", "0.1.166"),
+    "app_crypto": ("apps.app_crypto", "0.1.166"),
+    "app_music": ("apps.app_music", "0.1.166"),
+    "app_shell": ("apps.app_shell", "0.1.166"),
     "auth": ("identity.auth", "0.1.166"),
     "authz": ("identity.authz", "0.1.166"),
     "camera_setup": ("cameras.camera_setup", "0.1.166"),

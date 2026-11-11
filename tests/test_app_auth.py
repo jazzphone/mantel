@@ -16,7 +16,8 @@ from urllib.parse import parse_qs, urlsplit
 import pytest
 from cryptography.hazmat.primitives.asymmetric import ec
 
-from mantel_server import app_auth, app_crypto, qr
+from mantel_server.apps import app_auth, app_crypto
+from mantel_server import qr
 
 ROOT = Path(__file__).resolve().parents[1]
 

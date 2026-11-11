@@ -437,11 +437,6 @@ Mantel Server.
   - `alarm_pin.py` — HK's Alarm PIN in Mantel (docs/phase3/PINS-AUDIT.md "The alarm keypad", docs/phase3/GATEWAY.md "The alarm", docs/phase4/MANTEL-FEATURES.md).
   - `announce.py` — Mantel on the network, by zeroconf (docs/phase9/MANTEL-LINK.md "Discovery and pairing", slice 9.5).
   - `apns.py` — Notifications to the iPhone, iPad and Mac apps through Apple's push service (docs/phase10/APPLE-APPS.md §5, slice 10.5; decision M10-2
-  - `app_api.py` — What the apps' system surfaces ask the house (docs/phase10/APPLE-APPS.md §1, §6, §7; slice 10.3).
-  - `app_auth.py` — Signing in the iPhone, iPad and Mac apps (docs/phase10/APPLE-APPS.md §2-§4, slice 10.2).
-  - `app_crypto.py` — The cryptography the phone and Mac apps and Web Push share (docs/phase10/APPLE-APPS.md §3, §5).
-  - `app_music.py` — The apps' music, over REST (docs/phase10/APPLE-APPS.md §12
-  - `app_shell.py` — Phase 10
   - `atrest.py` — Secrets at rest
   - `audit.py` — The one way a settings or account change is written to the audit log (Rules.md rule 3 and rule 7).
   - `backup.py` — Encrypted backups of Mantel's database (and uploaded files), and a restore that checks before it swaps.
@@ -528,6 +523,12 @@ Mantel Server.
   - `email.py` — Email
   - `notifiarr.py` — Notifiarr
   - `telegram.py` — Telegram
+- **hosts/server/mantel_server/apps/**
+  - `app_api.py` — What the apps' system surfaces ask the house (docs/phase10/APPLE-APPS.md §1, §6, §7; slice 10.3).
+  - `app_auth.py` — Signing in the iPhone, iPad and Mac apps (docs/phase10/APPLE-APPS.md §2-§4, slice 10.2).
+  - `app_crypto.py` — The cryptography the phone and Mac apps and Web Push share (docs/phase10/APPLE-APPS.md §3, §5).
+  - `app_music.py` — The apps' music, over REST (docs/phase10/APPLE-APPS.md §12
+  - `app_shell.py` — Phase 10
 - **hosts/server/mantel_server/cameras/**
   - `camera_setup.py` — RTSP CAMERAS
   - `cameras_direct.py` — DIRECT CAMERA SOURCES (docs/phase13/CAMERAS-DIRECT.md "The design -> Camera sources", phase 3).

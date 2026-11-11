@@ -36,7 +36,8 @@ import time
 from pathlib import Path
 from typing import Any, Awaitable, Callable
 
-from . import app_crypto, audit
+from .apps import app_crypto
+from . import audit
 from .identity.guards import guard
 from .identity.guards import ident as guarded
 

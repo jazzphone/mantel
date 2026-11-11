@@ -9,7 +9,7 @@ import json
 
 from cryptography.hazmat.primitives.asymmetric import ec
 
-from mantel_server import app_crypto
+from mantel_server.apps import app_crypto
 from test_app_auth import sign_in_app
 from test_push import subscription
 

@@ -12,7 +12,8 @@ import subprocess
 import pytest
 from cryptography.hazmat.primitives.asymmetric import ec
 
-from mantel_server import apns, app_crypto, push
+from mantel_server import apns, push
+from mantel_server.apps import app_crypto
 from test_app_auth import sign_in_app
 from js_modules import copy_shim
 from test_mantel_settings import ALL, overview

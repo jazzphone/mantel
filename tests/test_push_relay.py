@@ -13,7 +13,8 @@ import aiohttp
 import pytest
 from cryptography.hazmat.primitives.asymmetric import ec
 
-from mantel_server import apns, app_crypto, push
+from mantel_server import apns, push
+from mantel_server.apps import app_crypto
 
 ROOT = Path(__file__).resolve().parents[1]
 RELAY = ROOT / "packaging/push-relay"

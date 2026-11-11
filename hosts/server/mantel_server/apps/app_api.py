@@ -29,11 +29,12 @@ import asyncio
 import re
 from aiohttp import web
 
-from . import apns, app_crypto
-from . import user_data as UD
+from .. import apns
+from . import app_crypto
+from .. import user_data as UD
 from .app_auth import app_route
-from .identity.guards import WHY_APP, open_route
-from .identity.sessions import error, ok
+from ..identity.guards import WHY_APP, open_route
+from ..identity.sessions import error, ok
 
 ENTITY = re.compile(r"^[a-z_]+\.[a-z0-9_]+$")
 SERVICE = re.compile(r"^[a-z_]{1,64}$")
@@ -91,7 +92,7 @@ def _entity_json(app, eid: str) -> dict | None:
 def _art(eid: str, attrs: dict) -> str | None:
     """Where the app gets a player's artwork: a remote picture as it is (a provider's CDN: no token in it), HA's
     signed one through Mantel (``/api/app/art``, media_art.py's rule), with a version so a new track is new art."""
-    from .connectors import camera_still, media_art
+    from ..connectors import camera_still, media_art
     pic = attrs.get("entity_picture")
     if not isinstance(pic, str) or not pic:
         return None
@@ -106,7 +107,7 @@ def _art(eid: str, attrs: dict) -> str | None:
 @app_route
 async def art(request: web.Request) -> web.StreamResponse:
     """A player's artwork for the Live Activity and widgets: ``view`` on the player decides (media_art.py)."""
-    from .connectors import camera_still, media_art
+    from ..connectors import camera_still, media_art
     eid = request.query.get("entity") or ""
     authz, hub = request.app.get("authz"), request.app["hub"]
     if not media_art.PLAYER_ID.match(eid) or authz is None or authz.may_see(authz.principal(request), eid) is not True:
@@ -226,7 +227,7 @@ async def command(request: web.Request) -> web.Response:
 async def snapshot(request: web.Request) -> web.Response:
     """A notification's snapshot for the Notification Service Extension: notify_snaps.py's rule (a camera the
     person may see as a still, on this door), one answer for unknown, run out and refused."""
-    from .cameras import notify_snaps
+    from ..cameras import notify_snaps
     nothing = web.json_response({"error": "not_found"}, status=404, headers={"Cache-Control": "no-store"})
     store = getattr(request.app.get("features"), "snaps", None)
     sid = request.query.get("id")

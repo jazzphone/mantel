@@ -61,7 +61,7 @@ Columns: **Rule** who may call it (`signed_in` any session, `person`, `manager` 
 | `GET /api/app/push-relay` | manager | admin | none |  |  |  |
 | `PUT /api/app/push-relay` | owner, fresh away |  | none |  | push_relay.set |  |
 
-## mantel_server.app_auth
+## mantel_server.apps.app_auth
 
 | Route | Rule | Reads | Stream | Preview | Audit | Assistants |
 |---|---|---|---|---|---|---|
@@ -95,7 +95,7 @@ Columns: **Rule** who may call it (`signed_in` any session, `person`, `manager` 
 | `POST /app/authorize` | own: sign_in | none | none |  | the app's sign-in page: the person signs in there (app_auth.py) |  |
 | `GET /app/web-session` | own: one_time_code | none | none |  | the app's web view: a single-use code from its DPoP-bound /api/app/web-session; it starts a session and redirects, and answers no house data |  |
 
-## mantel_server.app_shell
+## mantel_server.apps.app_shell
 
 | Route | Rule | Reads | Stream | Preview | Audit | Assistants |
 |---|---|---|---|---|---|---|
