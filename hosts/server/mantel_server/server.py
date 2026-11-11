@@ -41,7 +41,8 @@ from .network import connect_pairing, ingress
 from .cameras import cameras_direct, protect_connector
 from .ha import gateway, readproxy
 from .pages import admin_page, screens
-from . import connections, features, linked, phones, talk_relay
+from . import connections, features, linked, phones
+from .intercom import talk_relay
 from .linked import (
     linked_house, linked_owners, linked_pairing, linked_files, linked_reads, linked_settings, linked_actions,
 )
@@ -1050,7 +1051,7 @@ async def apply_commands(app: web.Application, hub: Hub, on: bool) -> None:
         _set(app, "gateway", gw)
         _set(app, "ma_gate", gw)
         if app.get("talk") is None:
-            from . import talk_relay
+            from .intercom import talk_relay
             _set(app, "talk", talk_relay.TalkRelay(app, app["audit"], app["authz"], lambda: app["clock"]()))
         log.warning("COMMANDS ARE ENABLED on this server (Mantel Settings): signed-in users may control Home Assistant "
                     "within their roles (an audit row for every command; the Alarm PIN for the alarm)")

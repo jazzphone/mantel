@@ -13,7 +13,7 @@ from aiohttp import WSMsgType, web
 from aiohttp.test_utils import TestServer
 
 from gateway_fakes import gw, off, recv  # noqa: F401 -- fixtures
-from mantel_server import talk_relay
+from mantel_server.intercom import talk_relay
 from mantel_server.config import Config
 from mantel_server.ha.gateway import Refused, classify, load_writes
 from mantel_server.ha.ha_client import (

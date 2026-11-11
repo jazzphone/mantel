@@ -102,7 +102,7 @@ from ..identity.guards import guard
 from ..identity.guards import ident as guarded
 from .live_tv import LocalEntities
 from ..identity.sessions import error, ok
-from ..talk_direct import DirectTalk, Speaker
+from ..intercom.talk_direct import DirectTalk, Speaker
 
 log = logging.getLogger("mantel.protect")
 

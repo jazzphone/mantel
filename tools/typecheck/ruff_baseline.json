@@ -14,7 +14,7 @@
   "hosts/server/mantel_server/ha/ha_client.py": 1,
   "hosts/server/mantel_server/network/ingress.py": 1,
   "hosts/server/mantel_server/tablet_links.py": 1,
-  "hosts/server/mantel_server/talk_direct.py": 1,
+  "hosts/server/mantel_server/intercom/talk_direct.py": 1,
   "hosts/server/tools/measure.py": 1,
   "tests/test_accessory_saves.py": 15,
   "tests/test_accounts.py": 4,

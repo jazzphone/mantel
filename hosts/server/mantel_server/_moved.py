@@ -95,6 +95,8 @@ MOVED: dict[str, tuple[str, str]] = {
     "state": ("ha.state", "0.1.166"),
     "store": ("storage.store", "0.1.166"),
     "supervisor_discovery": ("ha.supervisor_discovery", "0.1.166"),
+    "talk_direct": ("intercom.talk_direct", "0.1.166"),
+    "talk_relay": ("intercom.talk_relay", "0.1.166"),
     "timers": ("features.timers", "0.1.166"),
     "tv": ("features.tv", "0.1.166"),
     "user_data": ("storage.user_data", "0.1.166"),

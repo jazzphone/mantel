@@ -3068,7 +3068,7 @@
   "fresh": "never",
   "handler": "socket_handler",
   "mcp": [],
-  "module": "mantel_server.talk_relay",
+  "module": "mantel_server.intercom.talk_relay",
   "no_audit": null,
   "preview": false,
   "reads": "view",

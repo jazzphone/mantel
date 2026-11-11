@@ -455,8 +455,6 @@ Mantel Server.
   - `server_settings.py` — Mantel's own settings that used to be start-up options, now in Mantel Settings (the same on the HA App, Docker and LXC; docs/phase3/HA-APP.md 0.1.52).
   - `stats.py`
   - `tablet_links.py` — A wall tablet's Direct Connection
-  - `talk_direct.py` — TALKING AT A UNIFI PROTECT DOORBELL DIRECTLY (docs/phase13/CAMERAS-DIRECT.md, phase 5, 2026-11-02).
-  - `talk_relay.py` — LIVE TALK through Mantel (docs/phase3/GATEWAY.md "Doorbell talk-back")
   - `view.py` — One client's filtered, coalesced view of the state store.
 - **hosts/server/mantel_server/accessories/**
   - `hidden.py` — HIDDEN ACCESSORIES, MANTEL SERVER'S SIDE
@@ -549,6 +547,8 @@ Mantel Server.
   - `relay.py` — THE INTERCOM'S AUDIO SOCKET, ``/ws/intercom`` (docs/phase17/INTERCOM.md "The audio socket"), modeled on talk_relay.py; the same words where the rul...
   - `routes.py` — THE INTERCOM'S ROUTES AND FEED (docs/phase17/INTERCOM.md "Permissions, audit, API and storage").
   - `spool.py` — The spool
+  - `talk_direct.py` — TALKING AT A UNIFI PROTECT DOORBELL DIRECTLY (docs/phase13/CAMERAS-DIRECT.md, phase 5, 2026-11-02).
+  - `talk_relay.py` — LIVE TALK through Mantel (docs/phase3/GATEWAY.md "Doorbell talk-back")
   - `wiring.py` — Wiring the Intercom into Mantel Server (server.wire)
 - **hosts/server/mantel_server/linked/**
   - `linked_actions.py` — HK Frontend's other actions, run by Mantel (docs/phase9/MANTEL-LINK.md 9.8).

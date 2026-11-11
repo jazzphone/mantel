@@ -1,0 +1,8 @@
+{
+  "package": "intercom",
+  "why": "The intercom: rooms talking to each other, and talk by a direct socket or the relay",
+  "modules": [
+    "talk_direct",
+    "talk_relay"
+  ]
+}

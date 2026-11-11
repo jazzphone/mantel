@@ -427,6 +427,12 @@ Columns: **Rule** who may call it (`signed_in` any session, `person`, `manager` 
 | `PUT /api/intercom/settings` | manager, fresh away |  | none |  | intercom.settings.saved |  |
 | `POST /api/intercom/test` | owner, fresh away |  | none |  | intercom.test |  |
 
+## mantel_server.intercom.talk_relay
+
+| Route | Rule | Reads | Stream | Preview | Audit | Assistants |
+|---|---|---|---|---|---|---|
+| `GET /ws/talk` | signed_in | view | live:talk |  |  |  |
+
 ## mantel_server.linked
 
 | Route | Rule | Reads | Stream | Preview | Audit | Assistants |
@@ -696,12 +702,6 @@ Columns: **Rule** who may call it (`signed_in` any session, `person`, `manager` 
 | `POST /api/connections/tablets/{tid}/command` | person |  | none |  | none: a house command: the gateway writes its own row (kind tablet) before it is sent |  |
 | `GET /api/connections/tablets/{tid}/live` | manager | admin | none |  |  |  |
 | `POST /api/connections/tablets/{tid}/test` | owner, fresh away |  | none |  | none: tries the tablet's address and password; saves nothing |  |
-
-## mantel_server.talk_relay
-
-| Route | Rule | Reads | Stream | Preview | Audit | Assistants |
-|---|---|---|---|---|---|---|
-| `GET /ws/talk` | signed_in | view | live:talk |  |  |  |
 
 ## mantel_server.timeline.api
 

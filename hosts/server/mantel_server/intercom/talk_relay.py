@@ -67,9 +67,9 @@ from typing import Any, Callable
 import aiohttp
 from aiohttp import WSMsgType, web
 
-from .identity.authz import Principal
-from .identity.guards import guard
-from .ha.ha_client import TALK_LIVE_TYPE, TALK_RATES, CommandBlocked, CommandTicket, HaCommandError, talk_frame_max
+from ..identity.authz import Principal
+from ..identity.guards import guard
+from ..ha.ha_client import TALK_LIVE_TYPE, TALK_RATES, CommandBlocked, CommandTicket, HaCommandError, talk_frame_max
 
 log = logging.getLogger("mantel.talk")
 
@@ -275,7 +275,7 @@ class TalkRelay:
     def _register(self, stream: Stream) -> Any:
         """live.py: an open talk is ended at once by a revocation, at the tick when its person or tablet may no
         longer talk on that speaker, and when house commands are turned off."""
-        from . import live
+        from .. import live
         registry = live.of(self.app)
         if registry is None:
             return None
@@ -291,7 +291,7 @@ class TalkRelay:
             await stream.ws.close(code=CLOSE_POLICY)
 
         def recheck() -> bool:
-            from .ha.gateway import talk_checks
+            from ..ha.gateway import talk_checks
             subject, ctx = stream.principal.subject, self.authz.context()
             return all(self.authz.decide_talk(subject, c.action, c.entity_id, feature=c.feature, ctx=ctx).allowed
                        for c in talk_checks(stream.speaker))
