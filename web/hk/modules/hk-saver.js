@@ -144,22 +144,16 @@
     return conf || null;
   }
 
-  ST.on = false;              // showing (or fading in)
   ST.host = null;
   ST.root = null;
   ST.lastInput = Date.now();
   ST.idleT = null;
-  ST.slideT = null;
   /** @type {any} */ var pendingSwitch = null;
   // the touch that stopped it: still down (up: null), or when it lifted
   ST.press = null;
   ST.pressStop = false;
-  ST.listKey = '';
-  ST.photoRun = 0;
   // the screensaver's fade in, waiting for its first photo (start)
-  ST.entrance = null;
   var ENTRANCE_MAX = 1500;
-  ST.coverT = null;
   // THE FORECAST (1.3): the live sky over the season's land (hkSky.scene),
   // with the forecast band -- when a screen asks for it, or has no photos
   // the forecast sky's last reading (hk-sky.js read()), for Big Weather's planted time: null without a landscape
@@ -645,8 +639,8 @@
       slideReady, slideShow, slideView, SLOP, start, stop, syncPreviewSlide, tabletId, tagOf, takeover, tbKey,
       tbShares, TM, tmWatch, turnOf, user, viewFont, volEnd, volFrom, weatherPage, widgetPage, withPane, WX, zoneOf;
   // (phase 25: what the shell asks of the parts that own the state it changes, docs/phase25/SAVER-STATE.md)
-  var beatFrom, dashAgain, exCancel, extraIs, forgetRaw, hkAgain, keepPh, paneCardGone, paneRelease, resumedNow,
-      showsLayer, sinceSlide, tbCancel;
+  var beatFrom, dashAgain, exCancel, extraIs, forgetRaw, hkAgain, keepPh, listAgain, paneCardGone, paneRelease,
+      resumedNow, showsLayer, sinceSlide, tbCancel;
 
   // A wake held until the kiosk's black (or its panel off) has ended.
   // WHAT THE TABLET LAST SHOWED: after each change, seen in a frame's
@@ -655,8 +649,6 @@
   // enough: the frame the black went up on was begun and never shown (the
   // wake blinked from the old dashboard to black, screen-recorded).
 
-  ST.busy = false;
-  ST.queued = null;
   // HK SETTINGS' PREVIEW of Portrait or Landscape Photos (2026-10-13): a
   // photo of that shape (previewShape), and the same one again while the
   // settings change -- each change restarts the preview (restartPreview),
@@ -670,7 +662,6 @@
   // that keeps the page running) the next photo downloaded and decoded for
   // nobody. Now it is not armed at all while black() -- slideHeld notes that
   // it was wanted -- and litNow() arms it again once the black has ended.
-  ST.slideHeld = false;
 
   // ------------------------------------------------------------ the mosaic
   // A MOSAIC ON A LAYER (2026-10-13): each photo drawn into its own cell's
@@ -918,9 +909,9 @@
     widgetPage = K.widgetPage; withPane = K.withPane; WX = K.WX; zoneOf = K.zoneOf;
     // (phase 25: the owners' writers the shell asks, docs/phase25/SAVER-STATE.md)
     beatFrom = K.beatFrom; dashAgain = K.dashAgain; exCancel = K.exCancel; extraIs = K.extraIs;
-    forgetRaw = K.forgetRaw; hkAgain = K.hkAgain; keepPh = K.keepPh; paneCardGone = K.paneCardGone;
-    paneRelease = K.paneRelease; resumedNow = K.resumedNow; showsLayer = K.showsLayer; sinceSlide = K.sinceSlide;
-    tbCancel = K.tbCancel;
+    forgetRaw = K.forgetRaw; hkAgain = K.hkAgain; keepPh = K.keepPh; listAgain = K.listAgain;
+    paneCardGone = K.paneCardGone; paneRelease = K.paneRelease; resumedNow = K.resumedNow; showsLayer = K.showsLayer;
+    sinceSlide = K.sinceSlide; tbCancel = K.tbCancel;
   }
 
   loadParts(function () {
@@ -1298,7 +1289,7 @@
       force: function (v) { ST.force = !!v; refresh(); return ST.force; },
       // THE HOST'S PHOTOS CHANGED (a screen's album, an album's photos): listed
       // again at the next photo, and the source asked again now
-      photosChanged: function () { ST.listKey = ''; refresh(); },
+      photosChanged: function () { listAgain(); refresh(); },
       config: function () { return ST.cfg; },
       // what plays for the dashboard's Now Playing pane (hk-popup.js): there
       // (playing or paused), and playing

@@ -25,10 +25,12 @@
     var curtainOpts = K.curtainOpts, curtainStale = K.curtainStale, dropDeck = K.dropDeck,
         forecastSig = K.forecastSig, forecastSky = K.forecastSky;
 
-    var noteDrawn, schedule, start, stop, tellOthers;
+    var coverCancel, noEntrance, noteDrawn, runEnds, schedule, slideCancel, slideFree, start, stop, tellOthers;
     // (of later parts, used when called: bound once every part has run, runParts)
     K.ahead.push(function () {
-      noteDrawn = K.noteDrawn; schedule = K.schedule; start = K.start; stop = K.stop; tellOthers = K.tellOthers;
+      coverCancel = K.coverCancel; noEntrance = K.noEntrance; noteDrawn = K.noteDrawn; runEnds = K.runEnds;
+      schedule = K.schedule; slideCancel = K.slideCancel; slideFree = K.slideFree; start = K.start; stop = K.stop;
+      tellOthers = K.tellOthers;
     });
 
     // WHAT IT OWNS ON ST (phase 25, A: others read these; only this file writes them; tools/state_owners.py)
@@ -167,23 +169,23 @@
     }
     var SHOWN_MIN = 500;
     function unstart() {
-      ST.on = false; ST.entrance = null; ST.photoRun++; ST.busy = false; ST.queued = null; lightRun++;
-      if (ST.coverT) { clearTimeout(ST.coverT); ST.coverT = null; }
-      if (ST.slideT) { clearTimeout(ST.slideT); ST.slideT = null; }
+      runEnds(); lightRun++;
+      coverCancel();
+      slideCancel();
       teardown();
       tellOthers();
     }
     function goDark() {
       if (!ST.on || !ST.host) return;
       if (!ST.DARK_UNDER_BLACK || ST.host.hasAttribute('prep') || !ST.shownAt || clock.now() - ST.shownAt < SHOWN_MIN) { unstart(); return; }
-      ST.entrance = null; lightRun++;
+      noEntrance(); lightRun++;
       ST.host.style.setProperty('--fade', '0ms');
       ST.host.style.setProperty('--blk', '0ms');
       ST.host.removeAttribute('prep');
       ST.host.removeAttribute('undark');
       ST.host.setAttribute('dark', '');
       ST.host.setAttribute('on', '');
-      if (ST.coverT) { clearTimeout(ST.coverT); ST.coverT = null; }
+      coverCancel();
       noteDrawn();
     }
     // ...and as it ends. The house's wake turns the photos off under the
@@ -204,7 +206,7 @@
       ST.lastInput = Date.now();
       armIdle();
       // the photos' timer, held under the black (schedule()), runs again
-      if (ST.slideHeld) { ST.slideHeld = false; if (ST.on && ST.cfg && ST.mode === 'photos' && !ST.busy) schedule(); }
+      if (ST.slideHeld) { slideFree(); if (ST.on && ST.cfg && ST.mode === 'photos' && !ST.busy) schedule(); }
       setTimeout(function () { var h = clientNow(); if (h && !ST.on) onUpdate(h); }, LIT_GRACE + 50);
     }
     function lightSoon() {

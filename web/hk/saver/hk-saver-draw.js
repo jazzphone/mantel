@@ -15,7 +15,7 @@
 
     var addBand, dropView, exHide, fcOutAfter, forecastTick, HL, layoutBigKind, layoutDraw, layoutModules,
         layoutMusic, layoutSlides, layoutSoon, muHidden, mus, musicParts, musicWatch, reveal, setAttr, showNext,
-        slideView, takeover, TM, WX;
+        slideCancel, slideView, takeover, TM, WX;
     // (of later parts, used when called: bound once every part has run, runParts)
     K.ahead.push(function () {
       addBand = K.addBand; dropView = K.dropView; exHide = K.exHide; fcOutAfter = K.fcOutAfter;
@@ -23,7 +23,7 @@
       layoutModules = K.layoutModules; layoutMusic = K.layoutMusic; layoutSlides = K.layoutSlides;
       layoutSoon = K.layoutSoon; muHidden = K.muHidden; mus = K.mus; musicParts = K.musicParts;
       musicWatch = K.musicWatch; reveal = K.reveal; setAttr = K.setAttr; showNext = K.showNext;
-      slideView = K.slideView; takeover = K.takeover; TM = K.TM; WX = K.WX;
+      slideCancel = K.slideCancel; slideView = K.slideView; takeover = K.takeover; TM = K.TM; WX = K.WX;
     });
 
     // WHAT IT OWNS ON ST (phase 25, A: others read these; only this file writes them; tools/state_owners.py)
@@ -489,7 +489,7 @@
       if (ST.mode === 'forecast' || !ST.root) return;
       ST.mode = 'forecast';
       ST.fcShowing = false;
-      if (ST.slideT) { clearTimeout(ST.slideT); ST.slideT = null; }
+      slideCancel();
       ST.host.removeAttribute('fcslide');
       ST.host.setAttribute('forecast', '');
       buildForecast();

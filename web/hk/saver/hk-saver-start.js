@@ -35,6 +35,15 @@
         keepPh = K.keepPh, lastPhotoIs = K.lastPhotoIs, mosaicGone = K.mosaicGone, showsLayer = K.showsLayer;
 
     // WHAT IT OWNS ON ST (phase 25, A: others read these; only this file writes them; tools/state_owners.py)
+    ST.on = false;         // showing (or fading in)
+    ST.slideT = null;
+    ST.listKey = '';
+    ST.photoRun = 0;
+    ST.entrance = null;
+    ST.coverT = null;
+    ST.busy = false;
+    ST.queued = null;
+    ST.slideHeld = false;
     ST.startedBy = '';
     ST.fadeDone = null;
     ST.coveredPage = null;
@@ -52,6 +61,18 @@
     /** @type {any} */ var noteRun = 0;
     /** @type {any} */ var moTap = false;
     /** @type {any} */ var slideBefore = '';
+
+    // WHAT THE OTHERS ASK OF IT (phase 25, A): the only way another file changes the run's state, each the
+    // assignment it was, by name
+    function runOff() { ST.on = false; }                   // the preview restarting it
+    function runEnds() {                                    // ended under the house's black (black's unstart)
+      ST.on = false; ST.entrance = null; ST.photoRun++; ST.busy = false; ST.queued = null;
+    }
+    function noEntrance() { ST.entrance = null; }           // it will not fade in now
+    function coverCancel() { if (ST.coverT) { clearTimeout(ST.coverT); ST.coverT = null; } }
+    function slideCancel() { if (ST.slideT) { clearTimeout(ST.slideT); ST.slideT = null; } }
+    function slideFree() { ST.slideHeld = false; }          // the photos' timer is held no more
+    function listAgain() { ST.listKey = ''; }               // the next listing asks the server afresh
 
     // ------------------------------------------------------------ start / stop
     function start(reason) {
@@ -562,6 +583,7 @@
     }
 
     // what the shell and the later parts use of this one
+    K.coverCancel = coverCancel; K.listAgain = listAgain; K.noEntrance = noEntrance; K.runEnds = runEnds; K.runOff = runOff; K.slideCancel = slideCancel; K.slideFree = slideFree;
     K.coverDashboard = coverDashboard; K.lit = lit; K.nextPhoto = nextPhoto; K.noteDrawn = noteDrawn; K.paint = paint;
     K.previousPhoto = previousPhoto; K.releasePh = releasePh; K.reveal = reveal; K.schedule = schedule;
     K.showNext = showNext; K.start = start; K.stop = stop; K.tellOthers = tellOthers;
