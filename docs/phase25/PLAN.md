@@ -237,3 +237,47 @@ loader as the page starts).
   `sys.path` first, so a script run and an `importlib` load by path both work; `tests/test_split_py.py` runs both.
   **Proof:** `split_py.py split_js.json --check` (every moved statement's syntax tree the same, the same 83 names, each
   the same object through its part); `split_js.py --all --check` prints the same text before and after.
+- **Round two (the owner, after the first push: "let's do your recommendations, but all of one, and the screensaver
+  work now as well"; all but the `ST` names and `connect_proof`).**
+  - **C9-C15, the rest of the packages.** `move_py.py` learned `"init"`: the module of the package's own name becomes
+    its `__init__.py`, keeping its dotted name (no alias), its relative imports redone against the package itself.
+    Then `linked/` (`linked.py` its `__init__`, 7 modules), `music/` (`music.py` its `__init__`, its phase 24 sibling
+    parts beside it; `split_py.py --find` follows), `features/` (laundry, tv, timers, vacuum_water joined the package
+    that already runs hk_core's features inside Mantel), `cameras/` gained `live_tv` (not `features/`: it registers
+    read routes of its own, and `test_feature_parity` holds `features/` to hk_core's rules), `accessories/`
+    (`accessories.py` its `__init__`, `hidden`), `intercom/` gained `talk_direct` and `talk_relay`, `network/` gained
+    `announce` (its `python -m` commands say `mantel_server.network.announce`: the alias cannot serve `-m`). **27
+    modules are left flat** (116 at the start): the core (`server`, `config`, `live`, `view`, `route_table`, ...) and the
+    `-m` entry points `health` and `connect_proof`. `house.py` is the house port, not a feature: it stays.
+  - **B, the detail sheets' context.** The sheets reached the shell's state in one place: `hk-sheet-group.js` read
+    the open sheet's panel, title and body off `D` (`sheetState()` handed `D` over). The kit is now the sheets'
+    context, said so where it is made: `open`, `openPopup`, `navigateFrom`, `toHost`, `noteEl`, `HkBase`, and of the
+    sheet that is up `sheetPanel`, `sheetBody`, `sheetTitle`. The manifest drops `"adopt"` (`--check` reads the
+    adopted file's blob, still in the repository, with the same result); `adopt_from` stays as history.
+  - **A12-A13, `bind_ahead` gone.** The eight feature parts are ONE cycle (Tarjan on the parts' takes: every one
+    reaches every other), so no order and no file layout under the size limits can do without a late call. What
+    changed is how: `setAttr`, `clock` and `clock24` moved to the helpers part; the music part moved up to run after
+    the photos (draw, layout and the extras take its 30 names as ordinary takes); and the 115 generated binders
+    became seven **exports objects** the shell's kit makes empty (`Run`, `Black`, `Pane`, `Screens`, `Layout`, `Draw`,
+    `Music`), each filled by its part as it runs; an earlier part calls `Run.schedule()` when it is called. The rewrite
+    was TypeScript's (each reference resolved to the part's own ahead declaration; no exported function uses
+    `this`); 139 references go through the objects. `split_js.py --check` takes `Name: {}` as a kit entry; the
+    manifest drops `"bind_ahead"`. Nothing checks statically that a part never calls an exports object as it runs
+    (bind_ahead's check did): the parts' run-time statements were proven free of them before the rewrite, and a
+    call there would throw on every load, which the jsc suites and every saver browser check would see.
+  - **The proof of round two:** a full run on `97aced10` (A13): 84 of 86, every screensaver browser check and the
+    motion checks among them; the two failures the state map (stale after the rewrap; written again in `f89b3c65`)
+    and `music-pane-check`'s fade (one of the flakes below). A13's commit message says 59 references; the rewrite
+    made 139.
+- **Round three (the owner: "I'm good with 1-9").**
+  - **The exports objects' rule, checked:** `split_js.py --check` runs `tools/split_js_exports.cjs` for a shell whose
+    kit makes exports objects: no part reads one as the parts run, directly or through the functions of the same part
+    it calls (`905dcc11`, its test plants both).
+  - **`move_py.py`:** data keyed by path follows an `"init"` move (`47677d7d`).
+  - **The five load flakes, fixed at their cause** (`8dab4bf2`): Chrome takes its own DevTools port (the viewports'
+    "Chrome did not start"); the music pane's fade is waited for; WebKit's report of a dropped icon-file fetch is
+    forgiven for this server's own icon files; the audit's PIN is matched as a whole number; the timeline's
+    wall-clock budgets run in a new full step, `perf-budgets`, alone at the end.
+  - **Old paths in comments and current docs** follow the moves (`55fab4b0`; 34 mentions; migrations' SQL left as is).
+  - **The aliases' deadline, held by a test:** `tests/test_moved_aliases.py` fails once the version reaches a row's
+    release (all 87 rows: 0.1.166) while the row is there; that release deletes them.
