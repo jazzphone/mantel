@@ -49,6 +49,8 @@ The card controls inside the preview are disabled, so arranging a block can't to
 
 **Now Playing** blocks have **Speakers** and **Browse** buttons either side of play and pause; on a Tall block they're in its top corners. Either one flips the card over, and its back grows out of the block into the screensaver's music panel: **Speakers** (tick the rooms it plays in, then **Update**), **Volume** for each room, the **Queue**, and **Browse** (playlists, search and the library). What's playing stays at its foot. Tap outside it, press its X or Escape to flip it back; it also flips back on its own shortly after something you picked starts playing. With nothing playing, **Speakers** is dimmed and **Browse** still works.
 
+**TV** shows a room's TV and its Apple TV as one: what's on, play and pause, the volume, your apps, and on Extra Large a remote with arrow keys. Its TV is Automatic (the wall tablet's room) or one TV; it shows Recent Apps, Favorite Apps or one app. Tapping it opens the TV's sheet, with the inputs and the remote. Settings → Accessories → TVs pairs each TV with its Apple TV.
+
 **Background** sets what's behind a Now Playing block: **Blurred Album**, the cover blurred behind the player (the default), or **Card**, the same background as every other block in the screen's look.
 
 <p align="center">

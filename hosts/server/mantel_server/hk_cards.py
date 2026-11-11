@@ -38,6 +38,8 @@ LAZY = frozenset({
     "hk-alert.js",
     # Laundry (docs/phase22/LAUNDRY.md): its block on a Home Grid page (its sheet is hk-detail's, hk-sheet-laundry.js)
     "hk-laundry-card.js",
+    # TV (docs/phase23/TV.md): its block on a Home Grid page (its sheet is hk-detail's, hk-sheet-tv.js)
+    "hk-tv-card.js",
     # the Pages screen (Phase J): only on its own page, while a screen has it on
     "hk-pages-screen.js",
 })

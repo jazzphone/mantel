@@ -61,6 +61,7 @@ load(HK_ROOT + '/frontend/cards/hk-intercom.js');
 load(HK_ROOT + '/frontend/cards/hk-house-status.js');
 load(HK_ROOT + '/frontend/cards/hk-alert.js');
 load(HK_ROOT + '/frontend/cards/hk-laundry-card.js');
+load(HK_ROOT + '/frontend/cards/hk-tv-card.js');
 load(HK_ROOT + '/frontend/modules/hk-sidepane.js');
 load(HK_ROOT + '/frontend/cards/hk-calendar.js');
 load(HK_ROOT + '/frontend/cards/hk-layout.js');      // hk-key-card: the stand-in of a block this host doesn't have (Recent)
@@ -120,6 +121,10 @@ var house = H.house({
   'person.sam': ['home', { friendly_name: 'Sam' }],
   'person.alex': ['not_home', { friendly_name: 'Alex' }],
   'media_player.kitchen_speaker': ['playing', { friendly_name: 'Kitchen Speaker', media_title: 'Song', media_artist: 'Band', volume_level: 0.4 }],
+  // (a den TV and its Apple TV, for the TV block: hk-tv.js pairs them by room)
+  'media_player.den_tv': ['on', { friendly_name: 'Den TV', device_class: 'tv', source: 'HDMI 1', source_list: ['HDMI 1', 'HDMI 2'], volume_level: 0.2, supported_features: 24509 }],
+  'media_player.den_apple_tv': ['playing', { friendly_name: 'Den Apple TV', app_id: 'com.netflix.Netflix', app_name: 'Netflix', media_title: 'A Show', source_list: ['Netflix', 'YouTube'] }],
+  'remote.den_apple_tv': ['on', { friendly_name: 'Den Apple TV' }],
   'sensor.home_power': ['1800', { unit_of_measurement: 'W', friendly_name: 'Home Power' }],
   'sensor.solar_power': ['2400', { unit_of_measurement: 'W', friendly_name: 'Solar Power' }],
   'sensor.grid_power': ['-600', { unit_of_measurement: 'W', friendly_name: 'Grid Power' }],
@@ -136,7 +141,8 @@ function hass() {
   h.floors = {};
   var reg = function (a) { return { area_id: a }; };
   h.entities = { 'light.kitchen_pendants': reg('kitchen'), 'light.den_lamp': reg('den'), 'media_player.kitchen_speaker': reg('kitchen'),
-                 'sensor.washer_machine_state': { area_id: 'kitchen', device_id: 'w1' }, 'sensor.washer_job_state': { area_id: 'kitchen', device_id: 'w1' } };
+                 'sensor.washer_machine_state': { area_id: 'kitchen', device_id: 'w1' }, 'sensor.washer_job_state': { area_id: 'kitchen', device_id: 'w1' },
+                 'media_player.den_tv': { area_id: 'den', platform: 'webostv' }, 'media_player.den_apple_tv': { area_id: 'den', platform: 'apple_tv' } };
   h.devices = {};
   return h;
 }
@@ -158,6 +164,7 @@ function cell(name) { var c = CELLS[name]; VARS = { '--hk-cell-w': c.w, '--hk-ce
 var OPTS = {
   accessory: { entity: 'light.kitchen_pendants' },
   scene: { scene: 'scene.good_morning' },
+  tv: { tv: 'media_player.den_tv' },
   accessories: { accessories: [{ entity: 'light.kitchen_pendants' }, { entity: 'light.den_lamp' }] },
   scenes: { scenes: ['scene.good_morning', 'scene.dinner_time'] },
   action: { action: 'lock_up' },
@@ -288,6 +295,8 @@ function () {
   eq('...Small does the action: a door\'s is its sheet', where('alert', 'S'), [['moreInfo', 'cover.garage_door']]);
   // (Laundry: its plate opens the laundry sheet, hk-sheet-laundry.js, through hkDetail -- not the status sensor's own)
   eq('Laundry opens its sheet', where('laundry', 'L'), [['detail', null]]);
+  // (the TV: its plate opens the room's TV sheet -- the TV's, which hk-sheet-tv.js draws for the TV and its Apple TV together)
+  eq('the TV opens its sheet', where('tv', 'L'), [['moreInfo', 'media_player.den_tv']]);
   eq('Everything opens More', where('everything', 'L'), [['more', 'more']]);
   eq('the Security block opens the alarm\'s sheet', where('security', 'W'), [['moreInfo', 'alarm_control_panel.house']]);
   eq('the room opens its page', where('room', 'L'), [['navigate', '/hk-kitchen/room-kitchen']]);

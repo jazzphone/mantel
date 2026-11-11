@@ -153,6 +153,9 @@
       return { type: s === 'L' || s === 'XL' ? 'custom:hk-grid-vacuum-card' : 'custom:hk-vacuum-card', entity: id }; } },
     // LAUNDRY (phase 22, docs/phase22/LAUNDRY.md): the house's washers and dryers (Accessories -> Laundry, else found by
     // themselves) -- one drawn large, two side by side; what it shows is the house's, so it has no options but When Tapped
+    // TV (phase 23, docs/phase23/TV.md; hk-tv-card.js): a room's TV and its player -- Automatic is the tablet's room (else the first TV)
+    tv: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { tv: 'tv_target', show: 'tv_show', tap: 'tap_target' }, card: function (s, o) {
+      return Object.assign({ type: 'custom:hk-grid-tv-card', size: s, tv: o.tv || TABLET_ROOM }, o.show ? { show: o.show } : {}); } },
     laundry: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { tap: 'tap_target' }, card: function (s) {
       return { type: 'custom:hk-grid-laundry-card', size: s }; } },
     // every size, HK's clock or a screensaver face, with or without its box (2026-10-24)
@@ -338,7 +341,7 @@
       return !!all && all.length > 0 && all.length <= CONDITIONS_MAX && !!cat && cat.sizes.indexOf(it.size) >= 0;
     });
   }
-  var CONDITIONS = ['music_playing', 'timer_running', 'alarm_armed', 'alarm_disarmed', 'doorbell', 'after_sunset', 'entity_state', 'time', 'solar_window'];
+  var CONDITIONS = ['music_playing', 'timer_running', 'alarm_armed', 'alarm_disarmed', 'doorbell', 'after_sunset', 'entity_state', 'time', 'solar_window', 'tv_on'];
   function hhmm(t) { var m = /^(\d{2}):(\d{2})$/.exec(String(t || '')); return m ? (+m[1]) * 60 + (+m[2]) : null; }
   function houseZone() {
     try { var L = window.hkLocale; return (L && L.zone ? L.zone() : undefined) || undefined; } catch (e) { return undefined; }
@@ -569,6 +572,12 @@
       if (!c.entity && speakers && speakers.length) ids = speakers;
       return any('media_player', function (s) { return s === 'playing'; });
     }
+    // A TV IS ON (phase 23): a set's TV or its player (hk-tv.js), by a TV, Tablet's Room or any; never on a page with no host client
+    if (c.kind === 'tv_on') {
+      var TV = window.hkTv, cl = window.hkHostClient && window.hkHostClient.current ? window.hkHostClient.current() : null;
+      if (!TV || !cl) return false;
+      return c.entity ? TV.isOn(cl, c.entity) : TV.sets(cl).some(function (x) { return TV.isOn(cl, x.id); });
+    }
     if (c.kind === 'timer_running') return any('timer', function (s) { return s === 'active' || s === 'paused'; }) ||
       !c.entity && !!st['sensor.running_quick_timers'] && Number(st['sensor.running_quick_timers'].state) > 0;
     if (c.kind === 'alarm_armed') return (c.entity ? ids : alarm ? [alarm] : ids).some(function (id) { return id.split('.')[0] === 'alarm_control_panel' && st[id] && /^(armed_|arming|pending|triggered)/.test(st[id].state); });
@@ -737,7 +746,7 @@
   // A CARD'S NAME, for a sheet's title when it has none of its own (and the editor's palette)
   var NAMES = { accessory: 'Accessory', accessories: 'Accessory Group', scene: 'Scene', scenes: 'Scenes', now_playing: 'Now Playing',
     thermostat: 'Thermostat', camera: 'Camera', security: 'Security', timers: 'Timers', weather: 'Weather',
-    calendar: 'Calendar', battery: 'House Battery', people: 'People', vacuum: 'Vacuum', laundry: 'Laundry', clock: 'Clock',
+    calendar: 'Calendar', battery: 'House Battery', people: 'People', vacuum: 'Vacuum', laundry: 'Laundry', tv: 'TV', clock: 'Clock',
     room: 'Room', scene_suggested: 'Suggested Scene', action: 'Action', everything: 'Everything', cameras: 'Cameras',
     power: 'Power', music: 'Music', doors: 'Doors & Locks', live_tv: 'Live TV', water: 'Water',
     on_now: 'On Now', todo: 'To-do', energy_rings: 'Energy Rings', timeline: 'Recent', intercom: 'Intercom', house_status: 'House Status', alert: 'Alert' };
@@ -784,11 +793,32 @@
     return out;
   }
 
+  // A TV BLOCK'S ROWS (the editor's fields() hands over): which TV and what it shows
+  var tvBlock = {
+    choices: function (client) {
+      var T = window.hkTv, sets = T && client ? T.sets(client) : [];
+      return [[TABLET_ROOM, 'Tablet’s Room']].concat(sets.map(function (x) { return [x.tv || x.player, x.name]; }));
+    },
+    rows: function (K, o, set, choices, client) {
+      var T = window.hkTv, tv = o.tv || '', list = tvBlock.choices(client).filter(function (op) { return op[0] !== TABLET_ROOM; });
+      var setNow = T && client ? (T.setFor(client, tv || TABLET_ROOM) || T.setFor(client, null)) : null;
+      var apps = T && client && setNow ? T.allApps(client, setNow).map(function (a) { return [a.name, a.name]; }) : [];
+      if (o.show && o.show !== 'recent' && o.show !== 'favorites' && !apps.some(function (a) { return a[0] === o.show; })) apps.push([o.show, o.show + ' (Unavailable)']);
+      if (tv && tv !== TABLET_ROOM && !list.some(function (op) { return op[0] === tv; })) list.push([tv, tv + ' (Unavailable)']);
+      return [
+        K.select({ label: 'TV', value: tv && tv !== TABLET_ROOM ? tv : '', options: [['', 'Automatic (Tablet’s Room)']].concat(list), onChange: function (v) { set('tv', v || null); } }),
+        K.select({ label: 'Shows', value: o.show || 'recent', options: [['recent', 'Recent Apps'], ['favorites', 'Favorite Apps']].concat(apps.length ? [['', '──────']] : [], apps),
+          onChange: function (v) { if (v) set('show', v === 'recent' ? null : v); } }),
+        K.info({ label: 'Favorite Apps are chosen in Accessories → TVs.', sub: 'Automatic is the TV in the wall tablet’s room; on a phone or a computer, the first TV.' })
+      ];
+    }
+  };
+
   window.hkGridCatalog = { version: '1.0.0', SIZES: SIZES, span: span, CELLS: CELLS, SOURCES: SOURCES, TABLET_ROOM: TABLET_ROOM,
                            PAGES_MAX: PAGES_MAX, PER_PAGE: PER_PAGE, perPage: perPage, CLOCK_FACES: CLOCK_FACES, THERMOSTAT_STYLES: THERMOSTAT_STYLES, TAP_TARGETS: TAP_TARGETS, MUSIC_TAPS: MUSIC_TAPS,
                            SHEET: SHEET, sheetOf: sheetOf, entryId: entryId, copySheet: copySheet, sheetRoute: sheetRoute, NAMES: NAMES,
                            sheetSlot: sheetSlot, sheetCss: sheetCss, placed: placed,
-                           CONDITIONS: CONDITIONS, RULES_MAX: RULES_MAX, CONDITIONS_MAX: CONDITIONS_MAX, rulesFit: rulesFit, hostHas: hostHas, matches: matches, rulesOf: rulesOf, choose: choose, houseNow: houseNow,
+                           CONDITIONS: CONDITIONS, RULES_MAX: RULES_MAX, CONDITIONS_MAX: CONDITIONS_MAX, rulesFit: rulesFit, hostHas: hostHas, matches: matches, tv: tvBlock, rulesOf: rulesOf, choose: choose, houseNow: houseNow,
                            nextChange: nextChange, armClock: armClock, alert: { rows: alertRows, sample: alertSample, KEYS: ALERT_KEYS, LIMITS: ALERT }, solar: { spans: solarSpans, rows: solarRows, fresh: solarFresh, atWall: atWall, dayOf: dayOf, OFFSET_MAX: SUN_OFFSET_MAX,
                              forget: function () { SUN_SEEN.sunrise = []; SUN_SEEN.sunset = []; } }, config: config, pages: pages, tabletRoom: tabletRoom, table: table };
   try { window.dispatchEvent(new CustomEvent('hk-grid-catalog-ready')); } catch (e) { /* a test page without events */ }

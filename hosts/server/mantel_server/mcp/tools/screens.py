@@ -131,6 +131,7 @@ async def grid_cards(caller, args: dict) -> dict:
                           "music_playing": "{kind, entity?}", "timer_running": "{kind, entity?}",
                           "alarm_armed": "{kind, entity?}", "alarm_disarmed": "{kind, entity?}",
                           "doorbell": "{kind, entity?}", "after_sunset": "{kind, entity?} (sun below the horizon)",
+                          "tv_on": "{kind, entity?}: entity a TV or its player (media_player) or tablet_room; none is any TV",
                           "entity_state": "{kind, entity, state}",
                           "time": "{kind, from: 'HH:MM', to: 'HH:MM'} (house time zone; may cross midnight)",
                           "solar_window": "{kind, from: endpoint, to: endpoint}: open from `from` until the next `to`; "
@@ -143,6 +144,10 @@ async def grid_cards(caller, args: dict) -> dict:
             "laundry": {"card": "laundry", "sizes": list(HG.CATALOG["laundry"]["sizes"]), "opts": "{tap?} -- what it shows is the house's "
                         "machines (HK Settings -> Accessories -> Laundry), found by themselves or picked part by part",
                         "example": {"card": "laundry", "size": "W"}},
+            "tv": {"card": "tv", "sizes": list(HG.CATALOG["tv"]["sizes"]), "opts": "{tv?: tablet_room (Automatic) or a TV's or its "
+                   "player's media_player, show?: recent (default) | favorites | an app's name} -- what's on, the volume, the apps, "
+                   "and on XL the remote; the house's TVs are paired with their Apple TVs by room (Accessories -> TVs)",
+                   "example": {"card": "tv", "size": "L", "opts": {"show": "favorites"}}},
             # ALERT: made to be a rule's card, in the block's own place while the rule holds (docs/phase11/ALERT.md)
             "alert": {"card": "alert", "sizes": list(HG.CATALOG["alert"]["sizes"]),
                       "opts": "{title (<= 60), text? (<= 80), since? (an entity: 'Open for 23 min' from its last_changed), "

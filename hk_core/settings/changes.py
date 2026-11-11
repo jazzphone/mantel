@@ -30,6 +30,7 @@ import re
 from typing import Any
 
 from .. import laundry as LA
+from .. import tv as TV
 from .. import vacuum_water as VW
 from ..sleep import rules as SR
 from . import home_grid as HG
@@ -730,6 +731,16 @@ def calendar_event_colors(v: Any) -> dict[str, str]:
     return out
 
 
+def _tv(check: Callable[[Any], Any]) -> Callable[[Any], Any]:
+    """Accessories -> TVs (hk_core/tv.py): its own checks, their codes as this page's."""
+    def run(v: Any) -> Any:
+        try:
+            return check(v)
+        except TV.Invalid as err:
+            raise Invalid(err.code) from None
+    return run
+
+
 def _laundry(check: Callable[[Any], Any]) -> Callable[[Any], Any]:
     """Accessories -> Laundry (hk_core/laundry.py): its own checks, their codes as this page's."""
     def run(v: Any) -> Any:
@@ -758,6 +769,10 @@ HOUSE: dict[str, Callable[[Any], Any]] = {
     "features.vacuum_script": _entity("script"),
     "features.laundry": _laundry(LA.machines),
     "features.laundry_clear": _laundry(LA.clear_after),
+    "features.tv_sets": _tv(TV.tv_sets),
+    "features.tv_apps": _tv(TV.favorites),
+    "features.tv_show": _tv(TV.show),
+    "features.tv_icons": _bool,
     "features.alarm_bad_code": _entity("input_boolean", "binary_sensor"),
     "clock.time": SENSOR,
     "clock.date": SENSOR,

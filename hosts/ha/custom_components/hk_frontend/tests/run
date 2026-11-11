@@ -50,6 +50,7 @@ printf 'load(HK_ROOT + "/frontend/modules/hk-np-strip.js");\n' >> "$PRELUDE"
 printf 'load(HK_ROOT + "/frontend/modules/hk-roller.js");\n' >> "$PRELUDE"
 printf 'load(HK_ROOT + "/frontend/modules/hk-vacuum-art.js");\n' >> "$PRELUDE"
 printf 'load(HK_ROOT + "/frontend/modules/hk-laundry.js");\n' >> "$PRELUDE"
+printf 'load(HK_ROOT + "/frontend/modules/hk-tv.js");\n' >> "$PRELUDE"
 # hkGive(card, object): a card handed the host's object without drawing (tests/give.js)
 printf 'load(HK_ROOT + "/tests/give.js");\n' >> "$PRELUDE"
 # a file cut into parts (hk-detail.js and frontend/sheets/*.js, hk-grid-cards.js and frontend/grid-cards/*.js, ...) is

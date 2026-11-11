@@ -14,6 +14,7 @@ const PREFIX = /^\/api\/hassio_ingress\/[A-Za-z0-9_-]{1,128}$/;
 const meta = document.querySelector('meta[name="mantel-base"]');
 export const base = meta && PREFIX.test(meta.getAttribute('content') || '') ? meta.getAttribute('content') : '';
 window.__mantelBase = base;
+window.__hkBase = base;       // (the same, by a name HK's shared files may read: hk-tv.js's app icons)
 
 // a Mantel URL path ('/api/session') under the prefix
 export const mantelUrl = (path) => base + path;

@@ -103,6 +103,8 @@ CATALOG: dict[str, dict[str, Any]] = {
     "vacuum": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"entity": "vacuum", "tap": "tap_target"}},
     # LAUNDRY (phase 22, docs/phase22/LAUNDRY.md): the house's washers and dryers, as Accessories -> Laundry has them
     "laundry": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"tap": "tap_target"}},
+    # TV (phase 23, docs/phase23/TV.md): a room's TV and its player; tv Automatic is the tablet's room
+    "tv": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"tv": "tv_target", "show": "tv_show", "tap": "tap_target"}},
     "clock": {"sizes": ("S", "W", "T", "L", "XL", "XXL"), "sources": (), "opts": {"clock_style": "clock_style", "bare": "boolean", "tap": "tap_target"}},
     "power": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"tap": "tap_target"}},
     # show (2026-10-31, the owner): what it shows -- Recently Played (none stored), the Music page's playlists (presets), or
@@ -398,6 +400,18 @@ SECURITY_PRESENTATIONS = ("homeview",)
 SECURITY_DOMAINS = ("lock", "cover")
 
 
+def _tv_target(v: Any) -> str:
+    """A TV block's TV, or A TV Is On's: the tablet's room, or a TV or its player (a media_player)."""
+    return TABLET_ROOM if v == TABLET_ROOM else _domain("media_player")(v)
+
+
+def _tv_show(v: Any) -> str:
+    """What a TV block's apps are: Recent, Favorites, or one app by the name its player lists it under."""
+    if v in ("recent", "favorites") or (isinstance(v, str) and 0 < len(v.strip()) <= 60):
+        return v if v in ("recent", "favorites") else v.strip()
+    raise GridInvalid("grid_option")
+
+
 def _security_presentation(v: Any) -> str:
     if v not in SECURITY_PRESENTATIONS:
         raise GridInvalid("grid_option")
@@ -509,6 +523,8 @@ OPTION_KINDS = {
     "music_playlist": _music_playlist,
     # where a music block's tap plays (2026-10-31, the owner): a speaker or a speaker group, else this screen's music
     "music_speaker": _music_speaker,
+    "tv_target": _tv_target,
+    "tv_show": _tv_show,
     "todo": _domain("todo"),
     "camera_follow": _camera_follow,
     "select": _domain("input_select", "select"),
@@ -587,7 +603,7 @@ def _pages(card: str, v: Any) -> dict[str, Any]:
 # minutes ({"sun": "sunset", "offset": -15}). The frontend reads Home Assistant's sun.sun (next_rising /
 # next_setting); without it the condition does not hold, so the block falls through to its next rule or its default.
 CONDITIONS = ("music_playing", "timer_running", "alarm_armed", "alarm_disarmed", "doorbell", "after_sunset",
-              "entity_state", "time", "solar_window")
+              "entity_state", "time", "solar_window", "tv_on")
 SUN_EVENTS = ("sunrise", "sunset")
 SUN_OFFSET_MAX = 360                    # minutes either side of the event: six hours
 # A BLOCK'S RULES (2026-10-24, the owner: "a default card, and certain cards in the same slot when a condition is
@@ -620,7 +636,7 @@ def condition(v: Any) -> dict[str, Any]:
     if "entity" in v:
         if kind in ("time", "solar_window"):
             raise GridInvalid("grid_condition")
-        out["entity"] = _domain()(v["entity"])
+        out["entity"] = _tv_target(v["entity"]) if kind == "tv_on" else _domain()(v["entity"])
     if kind == "entity_state":
         if "entity" not in out or not isinstance(v.get("state"), str) or not 0 < len(v["state"]) <= 80:
             raise GridInvalid("grid_condition")
@@ -1059,7 +1075,7 @@ def layout(v: Any) -> dict[str, Any] | None:
 # `ok` holds, so the block arrives without the entity instead of breaking the grid: its option is left out and the
 # card does what it does with none (the first camera, no scenes row, its automatic place). Pure.
 _ENTITY_KINDS = frozenset({"entity", "scene", "speaker", "climate", "alarm", "camera", "weather", "vacuum", "todo",
-                           "select", "music_speaker"})
+                           "select", "music_speaker", "tv_target"})
 _LIST_KINDS = frozenset({"scenes", "calendars", "cameras", "security_members"})
 
 
@@ -1105,6 +1121,11 @@ def _variant_parts(v: Mapping[str, Any]) -> list[tuple[str, Any]]:
     return [(card, v.get("opts"))] + [(card, p.get("opts")) for p in pages.get("list") or [] if isinstance(p, dict)]
 
 
+def _is_entity(v: Any) -> bool:
+    """A condition's entity, as a viewer may lack it: an entity id -- not Tablet's Room or a music group (`preset:`)."""
+    return isinstance(v, str) and bool(ENTITY_ID.match(v))
+
+
 def _conditions_of(when: Any) -> list[dict[str, Any]]:
     if isinstance(when, dict) and isinstance(when.get("all"), list):
         return [c for c in when["all"] if isinstance(c, dict)]
@@ -1123,7 +1144,7 @@ def entity_ids(grid: Any) -> set[str]:
             for card, opts in _variant_parts(v):
                 out |= _opt_ids(card, opts)
         for when in [it.get("when")] + [r.get("when") for r in it.get("rules") or [] if isinstance(r, dict)]:
-            out |= {c["entity"] for c in _conditions_of(when) if isinstance(c.get("entity"), str)}
+            out |= {c["entity"] for c in _conditions_of(when) if _is_entity(c.get("entity"))}
         out |= {e["entity"] for e in _sheet_entries(it) if isinstance(e.get("entity"), str)}
     return out
 
@@ -1176,8 +1197,7 @@ def only_viewable(grid: Any, ok: Any) -> Any:
         if not isinstance(it, dict):
             items.append(it)
             continue
-        hidden_when = any(isinstance(c.get("entity"), str) and c["entity"] not in ok
-                          for c in _conditions_of(it.get("when")))
+        hidden_when = any(_is_entity(c.get("entity")) and c["entity"] not in ok for c in _conditions_of(it.get("when")))
         if hidden_when and isinstance(it.get("fallback"), dict):
             new = {k: copy.deepcopy(v) for k, v in it.items() if k not in ("card", "opts", "pages", "when", "fallback")}
             new.update(_cut_variant(it["fallback"], ok))
@@ -1187,7 +1207,7 @@ def only_viewable(grid: Any, ok: Any) -> Any:
                 new["fallback"] = _cut_variant(it["fallback"], ok)
             if isinstance(it.get("rules"), list):
                 kept = [_cut_variant(r, ok) for r in it["rules"] if isinstance(r, dict) and not any(
-                    isinstance(c.get("entity"), str) and c["entity"] not in ok for c in _conditions_of(r.get("when")))]
+                    _is_entity(c.get("entity")) and c["entity"] not in ok for c in _conditions_of(r.get("when")))]
                 if kept:
                     new["rules"] = kept
                 else:

@@ -368,7 +368,7 @@ function check(value, message) { if (!value) throw new Error(message); }
 var states = { 'media_player.den': {state:'playing'}, 'timer.tea': {state:'paused'},
   'alarm_control_panel.home': {state:'armed_home'}, 'sun.sun': {state:'below_horizon'} };
 for (var kind of G.CONDITIONS) {
- if (kind === 'entity_state' || kind === 'doorbell' || kind === 'time' || kind === 'alarm_disarmed' || kind === 'solar_window') continue;
+ if (kind === 'entity_state' || kind === 'doorbell' || kind === 'time' || kind === 'alarm_disarmed' || kind === 'solar_window' || kind === 'tv_on') continue;   // (A TV Is On: a client's rooms, test_tv.py)
  check(G.matches({kind:kind}, states, false), kind + ' active');
  check(!G.matches({kind:kind}, {}, false), kind + ' missing is false');
 }

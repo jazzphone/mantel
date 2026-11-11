@@ -136,7 +136,7 @@
           return (f & 4) ? 'cover' : 'cover_buttons';
         case 'lock': return 'lock';
         case 'climate': return 'climate';
-        case 'media_player': return 'media';
+        case 'media_player': return window.hkTv && window.hkTv.isMine(h, id) ? 'tv' : 'media';   // (a room's TV or its player: hk-sheet-tv.js)
         case 'sensor': return num(s.state) != null || at(s, 'unit_of_measurement') ? 'sensor' : 'state';
         case 'binary_sensor': return 'binary';
         case 'vacuum': return 'vacuum';
@@ -650,7 +650,7 @@
     var PHONE_H = 643;
     var WIDTH = {
       light: STD, light_colour: STD, toggle: STD, fan: STD, cover: STD,
-      cover_buttons: STD, lock: STD, climate: WIDE, media: STD, media_tv: STD,
+      cover_buttons: STD, lock: STD, climate: WIDE, media: STD, media_tv: STD, tv: WIDE,
       sensor: WIDE, state: STD, binary: STD, vacuum: STD, vacuum_rooms: WIDE, control: STD, laundry: WIDE,
       // the water heater is the thermostat's sheet: its ring, its size, its
       // two columns -- the two are the same, and the same size
@@ -2636,7 +2636,7 @@
     // itself (wire(), below) start after the last file has run, so a tap before then is HA's own dialog,
     // never a dead one. The files are fetched in parallel; a host that has already loaded them (the
     // suites) starts at once, in the same turn.
-    var SHEETS = ['hk-sheet-base.js', 'hk-sheet-light.js', 'hk-sheet-lock.js', 'hk-sheet-climate.js', 'hk-sheet-media.js', 'hk-sheet-sensor.js', 'hk-sheet-controls.js', 'hk-sheet-generic.js', 'hk-sheet-vacuum.js', 'hk-sheet-appliances.js', 'hk-sheet-waterheater.js', 'hk-sheet-security.js', 'hk-sheet-laundry.js', 'hk-sheet-group.js'];
+    var SHEETS = ['hk-sheet-base.js', 'hk-sheet-light.js', 'hk-sheet-lock.js', 'hk-sheet-climate.js', 'hk-sheet-media.js', 'hk-sheet-sensor.js', 'hk-sheet-controls.js', 'hk-sheet-generic.js', 'hk-sheet-vacuum.js', 'hk-sheet-appliances.js', 'hk-sheet-waterheater.js', 'hk-sheet-security.js', 'hk-sheet-laundry.js', 'hk-sheet-tv.js', 'hk-sheet-group.js'];
     var arcPath, CHEV, CLIENT_FED, DAY, dayRows, def, dur, energyPlan, energyRec, GENERIC_SKIP,
         genericControl, genericRows, money, openGroup, openSheet, Panel, PANEL_CSS, PANELS, reportsAction,
         restoreGroup, runTimes, SENSE_CSS, sinceText, spansOf, trendOf;

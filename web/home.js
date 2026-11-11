@@ -24,6 +24,7 @@ import '/hk/modules/hk-np-strip.js';    // the music players' controls strip (20
 import '/hk/modules/hk-roller.js';      // the timer wheels (2026-11-09)
 import '/hk/modules/hk-vacuum-art.js';  // the vacuum drawn (2026-11-09)
 import '/hk/modules/hk-laundry.js';  // laundry read and drawn (phase 22)
+import '/hk/modules/hk-tv.js';  // a room's TV and its player, read (phase 23)
 import { Host, toast } from './shim/mantel-host.js';
 import { Hub } from './shim/hub.js';
 import { startAgain, started } from './shim/boot-retry.js';
