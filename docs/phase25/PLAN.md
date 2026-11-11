@@ -1,6 +1,6 @@
 # Phase 25: from smaller to simpler (plan, 2026-11-11)
 
-**Status: plan, ready to build. Every decision answered by the owner on 2026-11-11: all six recommendations accepted
+**Status: E, A and C built 2026-11-11 (Build log); B later (decision 2); E4 next.** Was: plan, ready to build. Every decision answered by the owner on 2026-11-11: all six recommendations accepted
 ("Accept all six"). The building session takes each recommendation as the answer and does not ask again. Nothing in
 Parts A, B, C and E is built yet.** Written the day phase 24
 finished, from what it left: the files are small, but the tangles inside them are the same tangles in more files.
@@ -191,3 +191,38 @@ loader as the page starts).
   (`hk-saver-draw`), `photoRun` and `queued` the run's (`hk-saver-start`, where `advance` lives). **Reads stay on
   `ST` where several files read a name with one writer** (`cfg`, `host`, `root`, `on`, `mode`, `ly`, `pnl`, ...): a
   getter would have been one more name each reading part binds from a later part, the opposite of what Part A is for.
+- **A2-A11, the owners** (`8c62c697` .. `c8aa9d7c`). Done: **no `ST` name is written by two files** (`state_owners.py
+  --check` holds every owner its names' only writer); `ST` went from 136 names to 91.
+  - A2: the 44 names only one file used left `ST`, as that file's own variables (`state_owners.py --own`: the starting
+    value moves from the shell's top, which runs before the parts and holds only declarations, to the owner's opening;
+    every `ST.x` there becomes `x`, typed `any` as `ST`'s properties were). A3: 24 names with one writing part stay on
+    `ST` for their readers, their starting values moved to that part (`--init`).
+  - A4-A11, one owner a commit, each other file's write the same assignment behind a name the owner exports (32
+    functions in all): photos (`countPhoto`, `slideShown`, `keepPh`, `deckFor`, ...), draw (`forecastSky`, `nightWatch`,
+    ...), pane (`curtainOpts`, `paneRelease`, ...), black (`forgetRaw`, `beatFrom`, ...), layout (`landIm` its own),
+    screens (`extraIs`, `exCancel`, ...), start (`runEnds`, `slideCancel`, ...), the shell through the kit (`dropCard`,
+    `idleCancel`, `noteInput`, ...).
+  - The proof: tsc, `split_js.py saver --check` and the jsc suites at each commit (one harness, `test_saverlayers`,
+    declares the two variables A2 moved); full runs on A4 and A11: every saver browser check passed, the motion
+    checks unchanged. `music-pane-check` and `saver-designs-check-webkit` failed in three full runs in a row under
+    load (a cancelled `mdi/icons` fetch reported by WebKit, a drag that found the slide laid out again) and passed
+    every time alone, four times each, on A11 and on the C tree; they pass on `26090f0e` too.
+  - **Not done: `bind_ahead` stays in the manifest.** What it binds (115 names) is functions the parts call both ways
+    (the run's `start`, `stop`, `schedule`, `reveal`; the slide objects `HL`, `TM`, `WX`; `setAttr`, `clock`), not state:
+    the plan read the two-way calls as a consequence of the shared state, and they are not. Retiring it means moving
+    features between parts (the run and the slides each into one part), design work of its own. `ST` keeps 91 names,
+    not a handful: a name several files read with one writer stays there (a getter would be one more name bound ahead).
+- **C1, `tools/move_py.py`** (`2c5d1599`, by an agent; reviewed and merged). One operation per package: `git mv`,
+  every import rewritten by the syntax tree, the proof (each file's tree the same but its imports, each module the
+  same object at its new path and through its old one), and `mantel_server/_moved.py`: the old paths import, lazily,
+  until 0.1.166 (decision 4; `move_py.py --expired 0.1.166` lists the rows to delete).
+- **C2-C8, the packages** (decision 3), one a commit at a quiet moment (no other session running): `identity/` (12
+  modules), `ha/` (11), `cameras/` (11), `apps/` (5), `network/` (8), `storage/` (7), `pages/` (10). 64 modules moved; the
+  server has 53 flat modules (116 before). Before them, six modules that found files beside themselves (migrations,
+  models) find them through the package (`82ec3492`, `f61647f6`). By hand each time: the route lock, the code map, the
+  type check's lists keyed by path, the Connect receiver's stage (it copies modules by name), backup's sealing list,
+  tests and comments that name files. Main suite green after each.
+  - **Not moved:** `linked/` and `music/` as listed collide with `linked.py` and `music.py` (a package cannot have a
+    module's name); `connect_proof` stays flat (the Dockerfile runs it with `-m`, the receiver copies it by name); the
+    house's features (`laundry`, `tv`, `timers`, ...) stay flat, decision 3's list naming no package for them. The
+    next step for `linked` and `music`: make each module its package's `__init__` (the tool would need to learn it).
