@@ -118,7 +118,8 @@ pal = C.flatPalette();
 ok('Automatic Dark keeps today’s surfaces (no wash)', pal.tinted === false);
 S._apply({ look: { flat: true, flat_theme: 'dark', flat_colors: { accent: 'auto', off_tint: TINT } }, boards: {}, sky: {} });
 pal = C.flatPalette();
-ok('Dark with a custom tint: washed into graphite, 20 % / 36 %', pal.tinted && C.flatIdle(null, false, pal).pill === C.flatRole(TINT, 'dark', 'pill') && C.flatIdle(null, false, pal).well === C.flatRole(TINT, 'dark', 'well'));
+ok('Dark with a custom tint: washed into graphite, 20 % / 36 %', pal.tinted && C.flatIdle(null, false, pal).pill === C.flatRole(TINT, 'dark', 'pill') && C.flatIdle(null, false, pal).well ===
+  C.flatRole(TINT, 'dark', 'well'));
 ok('Dark off glyph reads 3:1 on its well', C.contrast(C.flatIdle(null, false, pal).glyph, C.flatIdle(null, false, pal).well) >= 3);
 // a custom tint survives accent and theme changes
 S._apply({ look: { flat: true, flat_theme: 'light', flat_colors: { accent: ROSE, off_tint: TINT } }, boards: {}, sky: {} });
@@ -160,10 +161,13 @@ location.search = '';
 S._apply({ look: { flat: true, flat_theme: 'light', flat_colors: { accent: SAGE, off_tint: 'accent' } }, boards: {}, sky: {} });
 var Tile = customElements.get('hk-tile-card'), Media = customElements.get('hk-media-card');
 function proto(Ctor, cfg, st) { var c = Object.create(Ctor.prototype); c._config = cfg; hkGive(c, { states: st ? { [st.entity_id]: st } : {} }); return c; }
-ok('a calm off color is the Automatic source (a leak sensor’s drop)', proto(Tile, { off_icon_color: 'blue', icon_color: 'red' })._idleSource({ off_icon_color: 'blue', icon_color: 'red' }, null) !== proto(Tile, {})._idleSource({ icon_color: 'red' }, null));
+ok('a calm off color is the Automatic source (a leak sensor’s drop)', proto(Tile, { off_icon_color: 'blue', icon_color: 'red' })._idleSource({ off_icon_color: 'blue', icon_color: 'red' }, null) !==
+  proto(Tile, {})._idleSource({ icon_color: 'red' }, null));
 ok('unavailable has no color of its own (neutral)', proto(Tile, {})._idleSource({ icon_color: 'red' }, { state: 'unavailable', entity_id: 'light.x' }) === null);
-ok('media: its own color through the one rule (no override)', proto(Media, {})._idleSource({ icon_color: 'cyan' }, { state: 'off', entity_id: 'media_player.tv' }) === proto(Tile, {})._idleSource({ icon_color: 'cyan' }, { state: 'off', entity_id: 'light.x' }));
-ok('bare by what the card says: Safari’s none and Chrome’s transparent alike', Tile.prototype._bareWell({}, 'none') && Tile.prototype._bareWell({}, 'transparent') && Tile.prototype._bareWell({ bare_icon: true }, '#fff') && !Tile.prototype._bareWell({}, 'var(--hk-look-well)'));
+ok('media: its own color through the one rule (no override)', proto(Media, {})._idleSource({ icon_color: 'cyan' }, { state: 'off', entity_id: 'media_player.tv' }) ===
+  proto(Tile, {})._idleSource({ icon_color: 'cyan' }, { state: 'off', entity_id: 'light.x' }));
+ok('bare by what the card says: Safari’s none and Chrome’s transparent alike', Tile.prototype._bareWell({}, 'none') && Tile.prototype._bareWell({}, 'transparent') &&
+  Tile.prototype._bareWell({ bare_icon: true }, '#fff') && !Tile.prototype._bareWell({}, 'var(--hk-look-well)'));
 var css = C.flatCss();
 ok('a lit pill is pure white in Flat Light (no wash rule)', !/14%,#fff/.test(css) && !/hk-tile-tint/.test(css));
 ok('off pills wear --hk-idle-pill', /hk-plate\.card\[data-hk-idle\]:not\(\[data-on="1"\]\):not\(\.hk-tapped\)\{background:var\(--hk-idle-pill\)!important\}/.test(css));
@@ -174,8 +178,10 @@ ok('presets: dashboard and settings agree', JSON.stringify(C.FLAT_ACCENTS) === J
 var GCK = look({ accent: SAGE, off_tint: 'accent' }, { calendar: { accent: ROSE } });
 var d = M.flatColorsOf(GCK, kc, ['calendar']);
 ok('model and dashboard resolve the same', d.accent.value === R(GCK, kc, ['calendar']).accent.value && d.off_tint.value === R(GCK, kc, ['calendar']).off_tint.value);
-ok('a source label names where it comes from', M.flatSourceLabel(R(GC, kitchen, ['calendar']).accent, { title: 'Kitchen' }) === 'Calendar on All Screens', M.flatSourceLabel(R(GC, kitchen, ['calendar']).accent, { title: 'Kitchen' }));
-ok('a preset reads by its name, your own by Custom', M.flatColorName(SAGE) === 'Sage' && M.flatColorName('#123456') === 'Custom' && M.flatColorName('auto') === 'Automatic' && M.flatColorName('accent') === 'Match Accent');
+ok('a source label names where it comes from', M.flatSourceLabel(R(GC, kitchen, ['calendar']).accent, { title: 'Kitchen' }) === 'Calendar on All Screens',
+  M.flatSourceLabel(R(GC, kitchen, ['calendar']).accent, { title: 'Kitchen' }));
+ok('a preset reads by its name, your own by Custom', M.flatColorName(SAGE) === 'Sage' && M.flatColorName('#123456') === 'Custom' && M.flatColorName('auto') === 'Automatic' &&
+  M.flatColorName('accent') === 'Match Accent');
 // choosing an accent where the tint is Automatic links it, in one change
 ok('choosing an accent over an Automatic tint links it at that scope', JSON.stringify(M.flatAccentChange(SAGE, R(look(), null, []))) === JSON.stringify({ accent: SAGE, off_tint: 'accent' }));
 ok('...over an inherited custom tint leaves the tint alone', JSON.stringify(M.flatAccentChange(SAGE, R(look({ off_tint: TINT }), {}, []))) === JSON.stringify({ accent: SAGE }));
@@ -185,9 +191,11 @@ ok('...over a matched tint leaves the binding alone', JSON.stringify(M.flatAccen
 ok('the fade is the theme’s own wash, tint or not', C.flatFade(50, 'light') === 'rgba(238,236,230,0.460)' && C.flatFade(50, 'dark') === 'rgba(10,11,12,0.450)');
 S._apply({ look: { flat: true, flat_theme: 'light', flat_colors: { accent: SAGE } }, boards: {}, sky: { flat_background: 'photo', photo: '/local/p.jpg', flat_tint: 'accent' } });
 location.pathname = '/dashboard-x/0';
-ok('the background says its tint, strength and brightness', S.flatBackground(null, false).tint === 'accent' && S.flatBackground(null, false).tintAmount === 60 && S.flatBackground(null, false).tintLight === 50);
+ok('the background says its tint, strength and brightness', S.flatBackground(null, false).tint === 'accent' && S.flatBackground(null, false).tintAmount === 60 &&
+  S.flatBackground(null, false).tintLight === 50);
 ok('Match Accent is the Flat accent', C.flatAccentHex() === SAGE);
-S._apply({ look: { flat: true, flat_theme: 'light' }, boards: { 'dashboard-x': { accent: 'auto', sky_flat_tint: '#112233' } }, sky: { flat_background: 'photo', photo: '/local/p.jpg', flat_tint: 'accent' } });
+S._apply({ look: { flat: true, flat_theme: 'light' }, boards: { 'dashboard-x': { accent: 'auto', sky_flat_tint: '#112233' } },
+  sky: { flat_background: 'photo', photo: '/local/p.jpg', flat_tint: 'accent' } });
 ok('a screen’s own tint over All Screens’', S.flatBackground(null, false).tint === '#112233');
 location.pathname = '/dashboard-x/climate';
 ok('...and with no Flat accent, the page’s own highlight', C.flatAccentHex() === '#0a84ff');
@@ -209,7 +217,8 @@ S._apply({ look: { flat: true, flat_theme: 'light', flat_colors: { accent: SAGE,
 location.pathname = '/dashboard-x/climate';
 ok('the dashboard: Climate’s palette is its own blue', C.flatPalette({ board: null, keys: ['climate'] }).seed === '#0a84ff');
 ok('...its Match Accent tint too', C.flatPalette({ board: null, keys: ['climate'] }).tint === '#0a84ff');
-S._apply({ look: { flat: true, flat_theme: 'light', flat_colors: { accent: SAGE, off_tint: 'accent', pages: 'own' }, page_accents: { lights: 'pink' } }, boards: { 'dashboard-x': { accent: 'orange' } }, sky: {} });
+S._apply({ look: { flat: true, flat_theme: 'light', flat_colors: { accent: SAGE, off_tint: 'accent', pages: 'own' }, page_accents: { lights: 'pink' } },
+  boards: { 'dashboard-x': { accent: 'orange' } }, sky: {} });
 ok('...blue under an orange Highlight Color too', C.flatPalette({ board: null, keys: ['climate'] }).seed === '#0a84ff');
 ok('...a page’s own Highlight Color is its color', C.flatPalette({ board: null, keys: ['lights'] }).seed === '#ff375f');
 ok('...Home’s is Sage', C.flatPalette({ board: null, keys: [] }).seed === SAGE);

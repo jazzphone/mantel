@@ -174,7 +174,8 @@ check('an entity that lists none gets the classic four', none.join() === 'off,he
   }
   var c = big('heat', { temperature: 68, current_temperature: 66, hvac_modes: ['off', 'heat', 'cool', 'heat_cool'] });
   var html = c.html().split('</style>')[1];
-  check('Big Number: the target alone, large, no degree sign, no status line', /<div class="bn" data-big-num[^>]*>68<\/div>/.test(html) && !/tstat-act|tstat-sub|Currently|ring/.test(html), html.slice(0, 300));
+  check('Big Number: the target alone, large, no degree sign, no status line', /<div class="bn" data-big-num[^>]*>68<\/div>/.test(html) && !/tstat-act|tstat-sub|Currently|ring/.test(html),
+    html.slice(0, 300));
   check('...on the panel plate (the dial\'s), not the dial', /<hk-plate class="surface big"/.test(html) && !/data-ring/.test(html));
   check('...the arrows either side of the name, the room and the mode (2026-10-31)', /data-big-step="-1"[\s\S]*<b>Thermostat<\/b><i>Living Room · Heat<\/i>[\s\S]*data-big-step="1"/.test(html));
   check('...the name opens the sheet', /class="nm" type="button" data-tstat-details/.test(html));
@@ -197,14 +198,16 @@ check('an entity that lists none gets the classic four', none.join() === 'off,he
   check('...a half shows its half', /data-big-num[^>]*>21\.5</.test(m.html()), m.html().slice(0, 200));
 
   var r = big('heat_cool', { target_temp_low: 67, target_temp_high: 73, hvac_modes: ['heat_cool', 'off'] });
-  check('heat and cool: both targets, the low one picked (its dot), a drawn dash between', /class="pk sel"[^>]*data-big-pick="low"[^>]*>67<\/button><span class="ds" aria-hidden="true"><\/span><button class="pk"[^>]*data-big-pick="high"[^>]*>73</.test(r.html()) &&
+  check('heat and cool: both targets, the low one picked (its dot), a drawn dash between',
+    /class="pk sel"[^>]*data-big-pick="low"[^>]*>67<\/button><span class="ds" aria-hidden="true"><\/span><button class="pk"[^>]*data-big-pick="high"[^>]*>73</.test(r.html()) &&
         /surface big range/.test(r.html()), r.html().slice(0, 400));
   r._bigNudge(1, function () {});
   check('...the arrows step the picked one', r._hold.lo === 68 && r._hold.hi === 73, r._hold);
   r._bigPick = 'high'; r._hold = null;
   for (var i = 0; i < 10; i++) r._bigNudge(-1, function () {});
   check('...the high one, never crossing the low', r._hold.hi === 68 && r._hold.lo === 67, r._hold);
-  check('...and what goes is both', (function () { var sent = null; r._bigNudge(1, function (d, sv, data) { sent = data; }); __timers.filter(Boolean).filter(function (t) { return t.ms === 600; }).forEach(function (t) { t.fn(); }); return JSON.stringify(sent); })(),
+  check('...and what goes is both', (function () { var sent = null; r._bigNudge(1, function (d, sv, data) { sent = data; });
+    __timers.filter(Boolean).filter(function (t) { return t.ms === 600; }).forEach(function (t) { t.fn(); }); return JSON.stringify(sent); })(),
         JSON.stringify({ target_temp_low: 67, target_temp_high: 69 }));
 
   var o = big('off', { temperature: 68 });

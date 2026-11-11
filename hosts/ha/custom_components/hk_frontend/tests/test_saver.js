@@ -435,7 +435,9 @@ __runTimersUnder(200);
 ok('...then fades over Fade Back (500 ms)', !blockingHost.hasAttribute('on') && !blockingHost.hasAttribute('waking') &&
    blockingHost.style['--fade'] === '500ms', { attrs: blockingHost.attrs, fade: blockingHost.style['--fade'] });
 __runTimersUnder(600);
-ok('after the fade only the tap-catching host remains', saverEl() === blockingHost && blockingHost.hasAttribute('blocking') && blockingHost.hasAttribute('released') && blockingHost.shadowRoot.children.every(function (e) { return e.tagName === 'STYLE'; }), {attrs:blockingHost.attrs,children:blockingHost.shadowRoot.children.map(function(e){return e.tagName;}),same:saverEl()===blockingHost});
+ok('after the fade only the tap-catching host remains', saverEl() === blockingHost && blockingHost.hasAttribute('blocking') && blockingHost.hasAttribute('released') &&
+  blockingHost.shadowRoot.children.every(function (e) { return e.tagName === 'STYLE'; }),
+  {attrs:blockingHost.attrs,children:blockingHost.shadowRoot.children.map(function(e){return e.tagName;}),same:saverEl()===blockingHost});
 ok('releasing graphics preserves accidental-tap protection', S.stats().blocking && S.stats().cards === 0);
 __runTimersUnder(600);
 ok('...the finger still down: still swallowed (its lift and click would press what is under it)', S.stats().blocking);

@@ -353,5 +353,50 @@
   "file": "tools/split_js.py",
   "hash": "f67bf1acca1795d2",
   "why": "inside a multi-line string (code embedded in a test): a newline there would be part of the string"
+ },
+ {
+  "file": "hosts/ha/custom_components/hk_frontend/tests/test_blocks_climate.js",
+  "hash": "43b675cc3f71fa17",
+  "why": "a regular expression of 401 characters: it cannot be broken"
+ },
+ {
+  "file": "hosts/ha/custom_components/hk_frontend/tests/test_blocks_climate.js",
+  "hash": "f5cd8cc12a8eda35",
+  "why": "a regular expression of 401 characters: it cannot be broken"
+ },
+ {
+  "file": "hosts/ha/custom_components/hk_frontend/tests/test_blocks_energy.js",
+  "hash": "6dcaeaa31b3477e8",
+  "why": "inside a regular expression: it cannot be broken"
+ },
+ {
+  "file": "hosts/ha/custom_components/hk_frontend/tests/test_doorbell.js",
+  "hash": "bbde7f136811516b",
+  "why": "inside a regular expression: it cannot be broken"
+ },
+ {
+  "file": "hosts/ha/custom_components/hk_frontend/tests/test_pillgeom.js",
+  "hash": "a6a2a56b794b4e78",
+  "why": "inside a regular expression: it cannot be broken"
+ },
+ {
+  "file": "hosts/ha/custom_components/hk_frontend/tests/test_pillgeom.js",
+  "hash": "be4ae4509070cbb0",
+  "why": "inside a regular expression: it cannot be broken"
+ },
+ {
+  "file": "hosts/ha/custom_components/hk_frontend/tests/test_sidepane.js",
+  "hash": "7412f3be2e18c73c",
+  "why": "inside a regular expression: it cannot be broken"
+ },
+ {
+  "file": "hosts/server/mantel_server/app_shell.py",
+  "hash": "a9a3ffe57240da01",
+  "why": "inside a multi-line string: a newline there would be part of the string"
+ },
+ {
+  "file": "hosts/server/mantel_server/static/proxy-check/check.js",
+  "hash": "cd625bf1a14607de",
+  "why": "inside a template literal: a newline there would be part of the string"
  }
 ]

@@ -136,7 +136,8 @@ H.run('CALENDAR AND TO-DO BLOCKS', [
     var TODO = window.hkSidePane._.TODO;
     var ITEMS = { 'todo.groceries': [{ uid: 'g1', summary: 'Milk', done: false }, { uid: 'g2', summary: 'Eggs', done: false }, { uid: 'g3', summary: 'Coffee beans', done: false }],
                   'todo.household': [{ uid: 'h1', summary: 'Bins out', done: false }, { uid: 'h2', summary: 'Fix the gate', done: false }] };
-    var answer = function () { hs.ws.forEach(function (r) { if (!r.done) { r.done = true; r.resolve({ entity_id: r.msg.entity_id, left: ITEMS[r.msg.entity_id].length, items: ITEMS[r.msg.entity_id] }); } }); };
+    var answer = function () { hs.ws.forEach(function (r) { if (!r.done) { r.done = true; r.resolve({ entity_id: r.msg.entity_id, left: ITEMS[r.msg.entity_id].length, items: ITEMS[r.msg.entity_id] });
+      } }); };
     function block(size, cfg) {
       var card = H.make('hk-todo-card');
       card.setAttribute('size', size);
@@ -152,7 +153,8 @@ H.run('CALENDAR AND TO-DO BLOCKS', [
       H.eq('none named: the house\'s first list, read as the Side Pane reads it', hs.ws.map(function (r) { return r.msg; }),
            [{ type: 'hk_frontend/todo/items', entity_id: 'todo.groceries', completed: false }]);
       H.ok('...into the Side Pane\'s own cache (one reader)', !!TODO['todo.groceries'] && !!TODO['todo.groceries'].got);
-      H.ok('Tall: the name as the one gray heading (no color of its own), the count large', s.indexOf('<div class="ln">Groceries</div><div class="cn">3</div>') > 0 && s.indexOf('--hue:' + window.hkCards.ACCENTS.orange) > 0, s.slice(0, 300));
+      H.ok('Tall: the name as the one gray heading (no color of its own), the count large', s.indexOf('<div class="ln">Groceries</div><div class="cn">3</div>') > 0 &&
+        s.indexOf('--hue:' + window.hkCards.ACCENTS.orange) > 0, s.slice(0, 300));
       H.eq('...the items, each with its circle', (s.match(/class="it" role="button"/g) || []).length, 3);
       H.ok('...the name and count a tap to the whole list', /class="hd" role="button" tabindex="0" data-open="todo.groceries"/.test(s));
       t = card;
@@ -170,7 +172,8 @@ H.run('CALENDAR AND TO-DO BLOCKS', [
       H.ok('...and Add an Item', /data-add="todo.groceries"[^>]*>Add an Item</.test(s));
       return block('L', { entity: 'todo.groceries' });
     }).then(function (card) {
-      H.ok('Large: the name and count in a column, the items beside', /<div class="c1"><div class="hd"[^>]*><div class="ln"[^>]*>Groceries<\/div><div class="cn">3<\/div><\/div><div class="ft"/.test(html(card)));
+      H.ok('Large: the name and count in a column, the items beside', /<div class="c1"><div class="hd"[^>]*><div class="ln"[^>]*>Groceries<\/div><div class="cn">3<\/div><\/div><div class="ft"/.test(
+        html(card)));
       // TICKED OFF: the Side Pane's command
       var cls = {}, el = { getAttribute: function (k) { return { 'data-list': 'todo.groceries', 'data-uid': 'g2' }[k]; },
                            hasAttribute: function (k) { return k === 'data-uid'; }, classList: { add: function (c) { cls[c] = 1; }, remove: function (c) { delete cls[c]; } } };

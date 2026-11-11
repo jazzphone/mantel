@@ -26,12 +26,14 @@ ok('one stone for recessed keys, wells, pills and segmented tracks',
  ['--hk-key','--hk-look-well','--hk-well-bg','--hk-pill-bg','--hk-seg-track','--acc-seg','--acc-glyph'].every(function(k){return C.FLAT.light[k]===C.FLAT.light['--acc-cell'];}));
 ok('secondary labels and form separators share their roles',
  C.FLAT.light['--hk-ink-3']===C.FLAT.light['--hk-ink-2']&&C.FLAT.light['--acc-sep']===C.FLAT.light['--hk-line']&&C.FLAT.light['--acc-fill']===C.FLAT.light['--hk-key-strong']);
-ok('off glyphs muted, lit wells bright (Apple light colors)',C.flatColor('rgba(255, 204, 0, 0.98)','glyph')!=='rgba(255, 204, 0, 0.98)'&&C.flatColor('rgba(255, 204, 0, 0.98)','well')==='#FFCC00'&&C.flatColor('#ff9f0a','on')==='#FF9500');
+ok('off glyphs muted, lit wells bright (Apple light colors)',C.flatColor('rgba(255, 204, 0, 0.98)','glyph')!=='rgba(255, 204, 0, 0.98)'&&C.flatColor('rgba(255, 204, 0, 0.98)','well')==='#FFCC00'&&
+    C.flatColor('#ff9f0a','on')==='#FF9500');
 S._apply({look:{flat:false,glass:'blur',blur:90},sky:{animations:true,photo_look:{blur:80,dim:60,saturation:150}}});
 ok('saved blur strength restored immediately',S.glass()==='blur'&&/36px/.test(document.documentElement.style.getPropertyValue('--hk-blur-filter')));
 ok('photo effects restored',S.photoLook().blur===32&&S.photoLook().dim===.6);
 ok('normal colors unchanged',C.flatColor('#ffcc00','glyph')==='#ffcc00');
-ok('profile CSS includes pseudo-elements and independent motion suppression',/::before/.test(C.flatCss())&&/animation:none!important/.test(C.flatCss())&&/backdrop-filter:none!important/.test(C.flatCss()));
+ok('profile CSS includes pseudo-elements and independent motion suppression',/::before/.test(C.flatCss())&&/animation:none!important/.test(C.flatCss())&&
+    /backdrop-filter:none!important/.test(C.flatCss()));
 // FLAT'S OWN BACKGROUNDS (2026-10-16): Color/Automatic by default, never the live sky
 S._apply({look:{flat:true,flat_theme:'dark'},sky:{background:'live',flat_fade:40,flat_pages:{climate:'sage','room-kitchen':'photo',rooms:'landscapes'},page_photos:{'room-kitchen':'/local/k.jpg'}}});
 ok('a page left alone with a tone of its own keeps it',S.flatBackground('security',true).color==='auto');
@@ -50,12 +52,15 @@ ok('fade 0 is clear, 100 near-opaque',/,0\.000\)$/.test(C.flatFade(0,'dark'))&&/
 ok('chart cards keep their motion',!/::after\{animation:none/.test(C.flatCss(null,true))&&/::after\{animation:none/.test(C.flatCss())&&/backdrop-filter:none/.test(C.flatCss(null,true)));
 ok('a clear active well keeps its glyph color (Chrome transparent, Safari none)',/\.well:not\(\[style\*="transparent"\]\):not\(\[style\*="background: none"\]\) \.icon\{color:white/.test(C.flatCss()));
 ok('a script-focused sheet gets no ring',/:focus-visible:not\(\[tabindex="-1"\]\)/.test(C.flatCss()));
-ok('off tiles stay distinct from raised cards; controls share the configuration tone',C.FLAT.light['--hk-tile-off']!==C.FLAT.light['--hk-glass-plate']&&C.FLAT.light['--hk-look-well']===C.FLAT.light['--acc-cell']);
-ok('Calendar and Weather keep a tone of their own; Home takes the background',C.flatOwnGround('calendar')&&C.flatOwnGround('weather')&&C.flatOwnGround('energy')&&C.flatOwnGround('climate')&&!C.flatOwnGround('home'));
+ok('off tiles stay distinct from raised cards; controls share the configuration tone',C.FLAT.light['--hk-tile-off']!==C.FLAT.light['--hk-glass-plate']&&C.FLAT.light['--hk-look-well']===
+    C.FLAT.light['--acc-cell']);
+ok('Calendar and Weather keep a tone of their own; Home takes the background',C.flatOwnGround('calendar')&&C.flatOwnGround('weather')&&C.flatOwnGround('energy')&&C.flatOwnGround('climate')&&
+    !C.flatOwnGround('home'));
 ok('Highlight Color Automatic reads as Automatic',M.accentOf('auto').auto===true&&M.accentOf('auto').name==='Automatic');
 ok('page highlight defaults: dashboard and settings agree',JSON.stringify(C.PAGE_ACCENTS)===JSON.stringify(M.PAGE_ACCENTS));
 ok('a page of its own highlight, else its default',M.pageAccentOf('climate',{climate:'green'}).value==='green'&&M.pageAccentOf('climate',{}).value==='blue'&&M.pageAccentOf('climate',{}).own===false);
 S._apply({look:{flat:true,flat_theme:'light',page_accents:{climate:'red'}},sky:{}});
-ok('a page’s Automatic ground is a shade of its accent',C.flatColorHex('auto','light','climate')!==C.flatColorHex('auto','light','home')&&C.pageTone('climate','light')===C.flatColorHex('auto','light','climate')&&C.pageTone('home','light')===null);
+ok('a page’s Automatic ground is a shade of its accent',C.flatColorHex('auto','light','climate')!==C.flatColorHex('auto','light','home')&&C.pageTone('climate','light')===
+    C.flatColorHex('auto','light','climate')&&C.pageTone('home','light')===null);
 ok('red: blush on Light, deep on Dark',/^#f[0-9a-f]e[0-9a-f]/i.test(C.pageTone('climate','light'))&&parseInt(C.pageTone('climate','dark').slice(1,3),16)<60);
 if(fail)throw Error(fail+' failed');print('ALL '+pass+' FLAT TESTS PASS');

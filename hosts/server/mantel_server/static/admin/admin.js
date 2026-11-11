@@ -373,7 +373,8 @@ function totpPanel() {
         } }, field('Code', code), h('button', { class: 'btn primary', type: 'submit', 'data-act': 'confirm-totp' }, 'Confirm')));
     };
     return [
-      on ? h('p', null, badge('on', 'cur'), ' Sign-in asks for a code after your password.') : note('Off. Turn it on to protect your password sign-in; it is required for sign-in from outside the house.'),
+      on ? h('p', null, badge('on', 'cur'), ' Sign-in asks for a code after your password.') :
+        note('Off. Turn it on to protect your password sign-in; it is required for sign-in from outside the house.'),
       on ? note('Replacing it turns the old app off until the new code is confirmed.', 'muted small') : null,
       h('div', { class: 'acts' },
         btn(on ? 'Replace' : 'Set up', begin, 'primary', 'enroll-totp'),
@@ -392,7 +393,9 @@ function pinPanel() {
     const pin = h('input', { name: 'pin', type: 'password', inputmode: 'numeric', pattern: '[0-9]*', autocomplete: 'new-password', maxlength: 8, required: true, 'aria-label': 'New PIN' });
     const again = h('input', { name: 'pin2', type: 'password', inputmode: 'numeric', pattern: '[0-9]*', autocomplete: 'new-password', maxlength: 8, required: true, 'aria-label': 'Repeat the PIN' });
     return [
-      note('Optional, and not used for now: Mantel asks for no personal PIN. The only PIN is the house Alarm PIN (HK Settings, Alarm PIN), for the alarm. A PIN is 4 to 8 digits; nobody else can have the same one.', ''),
+      note(
+        'Optional, and not used for now: Mantel asks for no personal PIN. The only PIN is the house Alarm PIN (HK Settings, Alarm PIN), for the alarm. A PIN is 4 to 8 digits;' +
+        ' nobody else can have the same one.', ''),
       s.pin ? h('p', null, badge('set', 'cur'), ` last changed ${fmt(s.updated || s.created)}`, s.last_used ? ` · last used ${ago(s.last_used)}` : '') : note('No PIN yet.'),
       h('form', { class: 'grid', onsubmit: async (ev) => {
         ev.preventDefault();
@@ -475,7 +478,9 @@ function renderPeople(root) {
         linked.length ? h('ul', { class: 'list' }, linked.map((u) => item([
           head(h('b', null, u.name || u.id), badge(roleLabel(u.role)), u.disabled && badge('disabled', 'bad')),
           meta('Home Assistant user id ' + u.ha_user_id)]))) : note('No Home Assistant users are linked yet.'),
-        note('A person who signs in with Home Assistant only gets in once they are linked to a role here. When they try and are not linked, their sign-in page shows their Home Assistant user id. To link them, run this on the Mantel Server (the Docker or LXC shell):', ''),
+        note(
+          'A person who signs in with Home Assistant only gets in once they are linked to a role here. When they try and are not linked, their sign-in page shows their Home Assistant user id. To ' +
+          'link them, run this on the Mantel Server (the Docker or LXC shell):', ''),
         h('p', null, h('code', null, 'mantel-server link --ha-user-id <HA user id> --role adult --name "Their name"')),
         note('To end a link: mantel-server unlink --ha-user-id <HA user id>. To list links: mantel-server links. To lock someone out for now, Disable them above.', 'muted small'),
       ];
@@ -514,10 +519,13 @@ function renderDevices(root) {
   const roleSel = select('device-role', roles.map((r) => [r, roleLabel(r)]), 'wall_tablet');
   const enroll = h('section', { class: 'panel', id: 'p-enroll' }, h('h3', null, 'Make this browser a wall tablet'),
     lan ? [
-      note('Open /admin on the tablet, sign in as an Owner or Admin, and do this. The person is signed out of the tablet at once and the tablet keeps its own credential, for this room only. It only works on the home network.', ''),
+      note(
+        'Open /admin on the tablet, sign in as an Owner or Admin, and do this. The person is signed out of the tablet at once and the tablet keeps its own credential, for this room only. It only ' +
+        'works on the home network.', ''),
       h('form', { class: 'grid', onsubmit: async (ev) => {
         ev.preventDefault();
-        if (!(await confirmDialog('Make this browser a wall tablet?', 'You will be signed out here. From now on this browser acts as the tablet "' + name.value.trim() + '".', 'Make it a tablet'))) return;
+        if (!(await confirmDialog('Make this browser a wall tablet?', 'You will be signed out here. From now on this browser acts as the tablet "' + name.value.trim() + '".',
+          'Make it a tablet'))) return;
         const r = await run(() => api('POST', '/api/devices/enroll',
           { name: name.value.trim(), role: roleSel.value, ...(room.value.startsWith('t:') ? { tablet: room.value.slice(2) }
             : room.value.startsWith('r:') ? { room: room.value.slice(2) } : {}) }));
@@ -740,7 +748,10 @@ function renderFiles(root) {
             note(`Used ${kb(info.usage)} of ${kb(info.quota)}.`, 'muted small')];
   });
   root.append(h('h2', null, 'Your files'),
-    note('SF Pro and the SF Symbols glyph set are Apple\u2019s, so they cannot ship with Mantel: each home adds its own copy once. They are kept in Mantel\u2019s data, included in its encrypted backups, and nothing here is ever run as code. On a Home Assistant install they are under /config/www/hk (fonts/ and iconset/), or /config/custom_components/hk_frontend/frontend. The same can be done from the command line: mantel files import-assets <folder>.', 'muted small'),
+    note(
+      'SF Pro and the SF Symbols glyph set are Apple\u2019s, so they cannot ship with Mantel: each home adds its own copy once. They are kept in Mantel\u2019s data, included in its encrypted ' +
+      'backups, and nothing here is ever run as code. On a Home Assistant install they are under /config/www/hk (fonts/ and iconset/), or /config/custom_components/hk_frontend/frontend. The same ' +
+      'can be done from the command line: mantel files import-assets <folder>.', 'muted small'),
     panel);
 }
 
@@ -775,7 +786,8 @@ function renderService(root) {
       try { await navigator.clipboard.writeText(r.token); say('Copied.', 'ok'); } catch (e) { say('Select the credential and copy it by hand.', 'err'); }
     } }, 'Copy');
     tokenBox.replaceChildren(h('section', { class: 'panel token', id: 'p-token' }, h('h3', null, 'Credential for ' + r.account.name),
-      note('This is the only time it is shown. Paste it where it is needed (Home Assistant: Settings, Devices & services, HK Frontend, Configure, Linked to Mantel Server). Mantel keeps only a hash.', ''),
+      note('This is the only time it is shown. Paste it where it is needed (Home Assistant: Settings, Devices & services, HK Frontend, Configure, Linked to Mantel Server). Mantel keeps only a hash.',
+        ''),
       h('code', { class: 'secret', id: 'service-token' }, r.token), h('div', { class: 'acts' }, copy, dismiss)));
     list.reload();
   } },
@@ -784,7 +796,9 @@ function renderService(root) {
     h('fieldset', null, h('legend', null, 'What it may reach'), checks('scopes', state.me.service_scopes, ['linked'])),
     h('button', { class: 'btn primary', type: 'submit', 'data-act': 'create-service' }, 'Create service account'));
   root.append(h('h2', null, 'Service accounts'),
-    note('A service account is a machine credential, like the one the Home Assistant integration uses to link to Mantel. It has no password, no session and no role: only the endpoints ticked here. Managed on the home network only.', 'muted small'),
+    note(
+      'A service account is a machine credential, like the one the Home Assistant integration uses to link to Mantel. It has no password, no session and no role: only the endpoints ticked here. ' +
+      'Managed on the home network only.', 'muted small'),
     tokenBox, list, h('section', { class: 'panel', id: 'p-newservice' }, h('h3', null, 'New service account'), form));
 }
 
@@ -801,7 +815,8 @@ function renderConnect(root) {
       head(h('b', null, p.name), p.revoked && badge('revoked', 'bad')),
       meta(`paired ${fmt(p.created)} · last seen ${ago(p.last_seen)}${p.last_ip ? ' from ' + p.last_ip : ''} · certificate until ${fmt(p.cert_expires)}`),
     ], p.revoked ? null : btn('Revoke', async () => {
-      if (!(await confirmDialog('Revoke ' + p.name + '?', 'The Mantel Connect App is cut off at once and its open connections are closed. To use Mantel in Home Assistant again you pair it anew.', 'Revoke', true))) return;
+      if (!(await confirmDialog('Revoke ' + p.name + '?', 'The Mantel Connect App is cut off at once and its open connections are closed. To use Mantel in Home Assistant again you pair it anew.',
+        'Revoke', true))) return;
       if (await run(() => api('DELETE', '/api/connect/pairings/' + encodeURIComponent(p.id)), 'Connection revoked.')) reload();
     }, 'danger', 'revoke-connect'), p.revoked ? 'off' : '');
     return [active.length ? h('ul', { class: 'list' }, active.map(row)) : note('Nothing is paired yet.'),
@@ -844,7 +859,9 @@ function renderConnect(root) {
     list.reload();
   } }, 'Start pairing');
   root.append(h('h2', null, 'Connect'),
-    note('Mantel Connect puts Mantel in Home Assistant\'s sidebar and the Companion app when Mantel runs outside Home Assistant. Install the Mantel Connect App in Home Assistant, then pair it here: you get a one-time code that works for ten minutes. Home Assistant signs people in; their Mantel roles still decide what they see. Managed on the home network only.', 'muted small'),
+    note(
+      'Mantel Connect puts Mantel in Home Assistant\'s sidebar and the Companion app when Mantel runs outside Home Assistant. Install the Mantel Connect App in Home Assistant, then pair it here: ' +
+      'you get a one-time code that works for ten minutes. Home Assistant signs people in; their Mantel roles still decide what they see. Managed on the home network only.', 'muted small'),
     h('section', { class: 'panel', id: 'p-pair' }, h('h3', null, 'Pair the Mantel Connect App'),
       field('The address Home Assistant should use to reach Mantel', address), h('div', { class: 'acts' }, start)),
     codeBox, list);
@@ -956,7 +973,9 @@ function connectionForm(kind, info, reload) {
   if (suggested) nodes.push(note('Found Music Assistant’s App — press Test'));   // a prefill only: never auto-tests, never auto-saves
   if (kind === 'ha') {
     nodes.push(h('fieldset', null, h('legend', null, 'Connect by signing in to Home Assistant'),
-      note('Home Assistant opens its sign-in page. Sign in there as the Home Assistant user Mantel should act as: a dedicated administrator (for example one named mantel-server), not your own account. Mantel then makes a long-lived token for that user and keeps it sealed.', 'muted small'),
+      note(
+        'Home Assistant opens its sign-in page. Sign in there as the Home Assistant user Mantel should act as: a dedicated administrator (for example one named mantel-server), not your own ' +
+        'account. Mantel then makes a long-lived token for that user and keeps it sealed.', 'muted small'),
       h('div', { class: 'acts' }, h('button', { class: 'btn primary', type: 'button', 'data-act': 'ha-oauth', onclick: async () => {
         out.replaceChildren();
         try {
@@ -1015,7 +1034,10 @@ function withPageToken(panel, info, can) {
   const out = h('div', { 'aria-live': 'polite' });
   const draw = (page) => {
     const lines = [h('h4', null, 'Token for the Music Assistant page')];
-    lines.push(note('HK’s Browse Music page shows Music Assistant’s own web app. With a token here, Mantel signs that page in to Music Assistant as an ordinary MA user (never an administrator), so nobody has to sign in to MA on each screen. The token stays sealed in Mantel; the page never sees it. Without one, the page shows Music Assistant’s own sign-in.', 'muted small'));
+    lines.push(
+      note(
+      'HK’s Browse Music page shows Music Assistant’s own web app. With a token here, Mantel signs that page in to Music Assistant as an ordinary MA user (never an administrator), so nobody has to ' +
+      'sign in to MA on each screen. The token stays sealed in Mantel; the page never sees it. Without one, the page shows Music Assistant’s own sign-in.', 'muted small'));
     if (page.set && page.saved) {
       const who = page.saved.user && page.saved.user.name ? page.saved.user.name : 'an MA user';
       lines.push(meta('Signs in as ' + who + ', since ' + fmt(page.saved.since) + (page.saved.expires ? '; expires ' + fmt(page.saved.expires) : '')));
@@ -1081,7 +1103,8 @@ function proxyPanel(isOwner) {
       lines.push(note('Your proxy must send this installation’s door key with the door header. The key is shown once after a change, and in Test my proxy.', 'muted small'));
       if (s.can_rotate) {
         lines.push(h('div', { class: 'acts' }, btn('Rotate door key', async () => {
-          if (!(await confirmDialog('Rotate the door key?', 'Your proxy must then send the new key; until you paste it in, its requests are treated as coming from the internet.', 'Rotate', true))) return;
+          if (!(await confirmDialog('Rotate the door key?', 'Your proxy must then send the new key; until you paste it in, its requests are treated as coming from the internet.', 'Rotate',
+            true))) return;
           try {
             const r = await api('POST', '/api/admin/proxy-check/door-key');
             shownKey.replaceChildren(note('New door key (shown once; paste it into your proxy):', 'small'), h('code', { id: 'proxy-newkey-value' }, r.door_key.value));
@@ -1097,9 +1120,12 @@ function proxyPanel(isOwner) {
   };
   api('GET', '/api/admin/proxy-check/summary').then(draw, (e) => info.replaceChildren(errorPanel(e)));
   return h('section', { class: 'panel', id: 'p-conn-proxy' }, h('h3', null, 'HTTPS and your proxy'),
-    note('How browsers reach Mantel: Mantel’s Caddy, your own reverse proxy (Nginx Proxy Manager, Traefik, …), the Home Assistant App or a Cloudflare tunnel. The test checks HTTPS, the trusted proxy, the door header, HSTS, the security policy and WebSockets from this browser, and says what to change.', 'muted small'),
+    note(
+      'How browsers reach Mantel: Mantel’s Caddy, your own reverse proxy (Nginx Proxy Manager, Traefik, …), the Home Assistant App or a Cloudflare tunnel. The test checks HTTPS, the trusted proxy, ' +
+      'the door header, HSTS, the security policy and WebSockets from this browser, and says what to change.', 'muted small'),
     info,
-    isOwner ? h('div', { class: 'acts' }, test, h('a', { class: 'btn small', href: url('/proxy-check'), target: '_blank', rel: 'noopener' }, 'Open the full page')) : note('Only an Owner can run the test.', 'muted small'),
+    isOwner ? h('div', { class: 'acts' }, test, h('a', { class: 'btn small', href: url('/proxy-check'), target: '_blank', rel: 'noopener' }, 'Open the full page')) :
+      note('Only an Owner can run the test.', 'muted small'),
     out);
 }
 
@@ -1121,7 +1147,9 @@ function renderConnections(root) {
   };
   reload();
   root.append(h('h2', null, 'Connections'),
-    note('How Mantel reaches Home Assistant and Music Assistant. Each connection is tested before it is saved. Tokens are kept sealed in Mantel’s data (and its encrypted backups), are never shown again and never leave the server; a change applies at once, without a restart.', 'muted small'),
+    note(
+      'How Mantel reaches Home Assistant and Music Assistant. Each connection is tested before it is saved. Tokens are kept sealed in Mantel’s data (and its encrypted backups), are never shown ' +
+      'again and never leave the server; a change applies at once, without a restart.', 'muted small'),
     frag([pid ? pendingConnection(pid, reload) : null]), panels);
 }
 
@@ -1195,7 +1223,8 @@ function renderAudit(root) {
     filterForm.append(
       h('div', { class: 'grid compact' }, field('Who', actor), field('Tablet', device),
         field('Decision', select('decision', [['', 'Any'], ['allowed', 'Allowed'], ['denied', 'Denied'], ['step_up', 'Needed confirmation']], '')),
-        field('Kind', select('kind', [['', 'Any'], ['service', 'Service calls'], ['ws', 'Home Assistant writes'], ['http', 'HTTP'], ['ma', 'Music'], ['config', 'Settings and roles'], ['system', 'System']], '')),
+        field('Kind', select('kind', [['', 'Any'], ['service', 'Service calls'], ['ws', 'Home Assistant writes'], ['http', 'HTTP'], ['ma', 'Music'], ['config', 'Settings and roles'],
+          ['system', 'System']], '')),
         field('From', h('input', { name: 'since', type: 'datetime-local' })), field('To', h('input', { name: 'until', type: 'datetime-local' })),
         field('Rows per page', select('limit', ['25', '50', '100'], '25'))),
       h('div', { class: 'acts' }, h('button', { class: 'btn primary', type: 'submit', 'data-act': 'audit-apply' }, 'Show'),
@@ -1212,7 +1241,8 @@ function renderAudit(root) {
 // ============================================================================================================
 // Shell
 // ============================================================================================================
-const RENDER = { me: renderMe, connections: renderConnections, people: renderPeople, devices: renderDevices, files: renderFiles, roles: renderRoles, service: renderService, connect: renderConnect, audit: renderAudit };
+const RENDER = { me: renderMe, connections: renderConnections, people: renderPeople, devices: renderDevices, files: renderFiles, roles: renderRoles, service: renderService, connect: renderConnect,
+  audit: renderAudit };
 
 function renderSection(name) {
   if (state.enrolled) return;

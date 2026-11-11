@@ -13,17 +13,20 @@ globalThis.getComputedStyle=function(){return {left:'300px'};};
 function node(){
  var n={children:[],className:'',values:{},classes:{},clientWidth:1280,clientHeight:800};
  n.style={setProperty:function(k,v){n.values[k]=v;},getPropertyValue:function(k){return n.values[k]||'';}};
- n.classList={contains:function(k){return !!n.classes[k]||n.className.split(' ').indexOf(k)>=0;},toggle:function(k,on){n.classes[k]=on===undefined?!n.classes[k]:!!on;},add:function(k){n.classes[k]=true;},remove:function(k){delete n.classes[k];}};
+ n.classList={contains:function(k){return !!n.classes[k]||n.className.split(' ').indexOf(k)>=0;},toggle:function(k,on){n.classes[k]=on===undefined?!n.classes[k]:!!on;},
+   add:function(k){n.classes[k]=true;},remove:function(k){delete n.classes[k];}};
  n.appendChild=function(c){c.parent=n;n.children.push(c);return c;};
  n.insertBefore=function(c,b){if(c.parent)c.remove();c.parent=n;var i=n.children.indexOf(b);n.children.splice(i<0?n.children.length:i,0,c);return c;};
- n.querySelectorAll=function(sel){var out=[];function walk(a){a.children.forEach(function(c){if(sel.split(',').some(function(t){return c.className.split(' ').indexOf(t.trim().slice(1))>=0;}))out.push(c);walk(c);});}walk(n);return out;};
+ n.querySelectorAll=function(sel){var out=[];function walk(a){a.children.forEach(
+   function(c){if(sel.split(',').some(function(t){return c.className.split(' ').indexOf(t.trim().slice(1))>=0;}))out.push(c);walk(c);});}walk(n);return out;};
  n.querySelector=function(sel){return n.querySelectorAll(sel)[0]||null;};
  n.remove=function(){if(n.parent)n.parent.children=n.parent.children.filter(function(c){return c!==n;});};
  n.getRootNode=function(){return null;};
  n.getBoundingClientRect=function(){return {left:0,top:0,width:n.clientWidth,height:n.clientHeight};};
  Object.defineProperty(n,'textContent',{set:function(){n.children=[];}});return n;
 }
-globalThis.document={createElement:node,readyState:'complete',head:node(),body:node(),addEventListener:function(){},querySelector:function(){return null;},querySelectorAll:function(){return [];},getElementById:function(){return null;}};
+globalThis.document={createElement:node,readyState:'complete',head:node(),body:node(),addEventListener:function(){},querySelector:function(){return null;},querySelectorAll:function(){return [];},
+  getElementById:function(){return null;}};
 load(HK_ROOT+'/frontend/modules/hk-sky.js');
 var LV=hkSky._lv;
 
@@ -42,7 +45,8 @@ check('one preset for every occasion: Festive is Lots everywhere',L.knob('hallow
 L=LV.lvOf({lively:{all:'subtle',occ:{halloween:'party'}}});
 check('...and each occasion\'s own choice counts only under Custom',L.knob('halloween','bats')===1);
 L=LV.lvOf({lively:{all:'custom',occ:{halloween:'festive',fall:'subtle'}}});
-check('Custom: Festive is Lots, Subtle is Few, each occasion its own, the rest Classic',L.knob('halloween','bats')===3&&L.many('halloween','leaves')===1.6&&L.many('fall','leaves')===.5&&L.many('christmas','snow')===1);
+check('Custom: Festive is Lots, Subtle is Few, each occasion its own, the rest Classic',L.knob('halloween','bats')===3&&L.many('halloween','leaves')===1.6&&L.many('fall','leaves')===.5&&
+  L.many('christmas','snow')===1);
 L=LV.lvOf({lively:{all:'custom',occ:{halloween:'custom'},custom:{halloween:{bats:0,witch:4}}}});
 check('an occasion\'s Custom reads each knob, Normal where it has none',L.many('halloween','bats')===0&&L.cycle('halloween','witch')===.4&&L.many('halloween','leaves')===1);
 check('...and Off turns a crosser off',!L.on('halloween','bats')&&L.on('halloween','witch'));

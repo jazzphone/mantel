@@ -17,7 +17,8 @@ function ok(name, got, want) {
 }
 function drain() { for (var i = 0; i < 40; i++) drainMicrotasks(); }
 var P = customElements.get('hk-settings-panel').prototype;
-var words = function (n) { var out = []; (function w(e) { if (e._text) out.push(e._text); if (e.textContent && !e.children.length) out.push(e.textContent); (e.children || []).forEach(w); })(n); return out.join(' '); };
+var words = function (n) { var out = []; (function w(e) { if (e._text) out.push(e._text); if (e.textContent && !e.children.length) out.push(e.textContent); (e.children || []).forEach(w); })(n);
+  return out.join(' '); };
 
 // what the page has loaded by now -- the settings module, the glyphs, the cards -- but not the sheets (hkDetail)
 window.hkSettings = window.hkSettings || { get: function (k, d) { return d; }, onChange: function () {} };
@@ -38,7 +39,8 @@ var drawn = [];
 window.hkDetail = { _: { ACC_CSS: '.acc{}', accessoryPane: function (client, id) { drawn.push(id); var e = document.createElement('div'); e.className = 'accpane'; return e; } } };
 dispatchEvent(new Event('hk-detail-ready'));
 drain();
-ok('...and draws the accessory the moment they are', [drawn, box.children.map(function (e) { return e.tagName.toLowerCase() === 'style' ? 'style' : e.className; })], [['binary_sensor.garage_door'], ['style', 'accpane']]);
+ok('...and draws the accessory the moment they are', [drawn, box.children.map(function (e) { return e.tagName.toLowerCase() === 'style' ? 'style' : e.className; })],
+  [['binary_sensor.garage_door'], ['style', 'accpane']]);
 ok('...never the failure', /couldn.t load/.test(words(c)), false);
 // another accessory once they are up: at once
 var c2 = document.createElement('div');

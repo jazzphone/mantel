@@ -30,7 +30,8 @@ ok('the light, toggle and fan panels are defined', !!customElements.get('hk-deta
   var settings0=window.hkSettings;
   try {
     window.hkSettings={rendering:function(){return {flat:true,theme:'light'}}};
-    ok('Flat Light brightness uses a contrasting neutral fill',_.lightFill({attributes:{}})===window.hkCards.v('track-fill')&&_.lightFill({attributes:{rgb_color:[255,255,255]}})===window.hkCards.v('track-fill'));
+    ok('Flat Light brightness uses a contrasting neutral fill',_.lightFill({attributes:{}})===window.hkCards.v('track-fill')&&_.lightFill({attributes:{rgb_color:[255,255,255]}})===
+      window.hkCards.v('track-fill'));
     ok('colored light keeps its hue in Flat',_.lightFill({attributes:{rgb_color:[255,0,0]}})==='rgb(255,0,0)');
     window.hkSettings={rendering:function(){return {flat:false,theme:'dark'}}};
     ok('glass retains its existing white fill',_.lightFill({attributes:{}})==='rgba(255,255,255,0.95)');
@@ -257,7 +258,9 @@ ok('the thermostat: two columns in a wide sheet, the trend fluid so both columns
 ok('no panel relies on a CSS container query (Safari would keep the thermostat stacked)',
    // (a block's custom sheet gives each HomeView tile a cell of its own, hk-cell, as the Home Grid's .cell does: the
    // tile's own Centred rules query it from inside the tile; no panel's layout is ever a container query)
-   !/'@container/.test(src) && !/container-type:/.test(src.replace("'.cc{position:relative;aspect-ratio:1;min-width:0;container-type:size;container-name:hk-cell;--hk-cell-shape:square}'", '')) && (src.match(/_wideAt\(\) \{ return 700; \}/g) || []).length === 5 &&   // (the thermostat, a person or event, the vacuum with rooms, the laundry, the TV, 2026-11-10)
+   // (the thermostat, a person or event, the vacuum with rooms, the laundry, the TV, 2026-11-10)
+   !/'@container/.test(src) && !/container-type:/.test(src.replace("'.cc{position:relative;aspect-ratio:1;min-width:0;container-type:size;container-name:hk-cell;--hk-cell-shape:square}'", '')) &&
+     (src.match(/_wideAt\(\) \{ return 700; \}/g) || []).length === 5 &&
   
    /_wideAt\(\) \{ return window\.matchMedia && matchMedia\(SHORT_MQ\)\.matches \? Infinity : 700; \}/.test(src) &&
    /new ResizeObserver/.test(src));
@@ -311,7 +314,8 @@ function ev(tags) { return { composedPath: function () { return tags.map(functio
 ok('taken from a dashboard', _.fromDashboard(ev(['HK-TILE-CARD', 'DIV', 'HA-PANEL-LOVELACE', 'HOME-ASSISTANT'])));
 ok('taken from an hk pop-up (beside the panel)', _.fromDashboard(ev(['HK-LIGHT-CARD', 'DIV', 'HOME-ASSISTANT'])));
 ok('NOT from HA\'s Settings screens', !_.fromDashboard(ev(['HA-DATA-TABLE', 'HA-PANEL-CONFIG', 'HOME-ASSISTANT'])));
-ok('the capture listener runs before HA\'s, and only takes the tap when a sheet opened', /window\.addEventListener\(window\.hkShell\.events\.moreInfo, function \(e\) \{[\s\S]{0,700}\}, true\);/.test(src) &&
+ok('the capture listener runs before HA\'s, and only takes the tap when a sheet opened',
+  /window\.addEventListener\(window\.hkShell\.events\.moreInfo, function \(e\) \{[\s\S]{0,700}\}, true\);/.test(src) &&
    /if \(!open\(id, src, host \? undefined : \{ generic: off \? 'only' : true \}\)\) return;\s*e\.stopImmediatePropagation\(\);/.test(src));
 ok('...a host with a detail of its own keeps what HK leaves (P2.5; test_sheets.js drives it)',
    /if \(host && !fromDashboard\(e\)\) return;/.test(src) && /if \(host && \(off \|\| !kindOf\(C\.client\(\), id\)\)\) return;/.test(src));

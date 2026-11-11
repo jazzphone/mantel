@@ -257,7 +257,8 @@ HS._apply({ sky: { background: 'photo', photo: photoA }, boards: { 'dashboard-sk
 ok('...following All Screens: its photo', HS.skyLook().background.photo === photoA);
 HS._apply({ sky: { background: 'color', color: 'plum' }, boards: { 'dashboard-sky': { sky_background: null, sky_color: 'ember' } } });
 ok('a screen\u2019s own color, under All Screens\u2019 Color', JSON.stringify(HS.skyLook().background.stops) ===
-   JSON.stringify(HS.skyPalettes().filter(function (p) { return p.id === 'ember'; })[0] && { day: HS.skyPalettes().filter(function (p) { return p.id === 'ember'; })[0].day, night: HS.skyPalettes().filter(function (p) { return p.id === 'ember'; })[0].night }));
+   JSON.stringify(HS.skyPalettes().filter(function (p) { return p.id === 'ember'; })[0] &&
+     { day: HS.skyPalettes().filter(function (p) { return p.id === 'ember'; })[0].day, night: HS.skyPalettes().filter(function (p) { return p.id === 'ember'; })[0].night }));
 HS._apply({ sky: { background: 'live', photo: photoA, page_photos: { lights: photoB } }, boards: { 'dashboard-sky': { sky_pages: { lights: 'photo' } } } });
 ok('a page\u2019s own photo', HS.pagePhoto('lights') === photoB);
 ok('...a page without one: the screen\u2019s photo', HS.pagePhoto('climate') === photoA);

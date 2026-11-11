@@ -455,10 +455,12 @@ ok('sky summary includes an independent decoration style', M.skySummary({ sky_de
 ok('...and where its moving things are', M.skySummary({ sky_moving: 'front' }) === 'Moving Things in Front' && M.skySummary({ sky_moving: 'behind' }) === 'Moving Things Behind' &&
    M.skySummary({ sky_moving: null }) === 'Same as All Screens');
 ok('sky summary: absent and null settings follow All Screens', M.skySummary({}) === 'Same as All Screens' && M.skySummary({ sky_gradient: null }) === 'Same as All Screens');
-ok('sky summary: all off and an own backdrop', M.skySummary({ sky_animations: false, sky_weather: false, sky_decorations: false, sky_gradient: 'live' }) === 'No Animation, No Weather, No Decorations, Own Backdrop');
+ok('sky summary: all off and an own backdrop', M.skySummary({ sky_animations: false, sky_weather: false, sky_decorations: false, sky_gradient: 'live' }) ===
+  'No Animation, No Weather, No Decorations, Own Backdrop');
 ok('sky summary: true is an own setting too', M.skySummary({ sky_animations: true }) === 'Own Settings');
 ok('sky summary: stored own colors count', M.skySummary({ sky_custom: {} }) === 'Own Settings');
-ok('search includes the backdrop picker (Sky Colors, 2026-10-13)', M.search('backdrop', [{path:'dashboard-test',title:'Test'}]).some(function(r) { return r.label === 'Sky Colors' && r.route === 'house/appearance/sky/backdrop'; }));
+ok('search includes the backdrop picker (Sky Colors, 2026-10-13)', M.search('backdrop', [{path:'dashboard-test',title:'Test'}]).some(
+  function(r) { return r.label === 'Sky Colors' && r.route === 'house/appearance/sky/backdrop'; }));
 ok('search finds the Background\u2019s photo', M.search('photo', [{path:'dashboard-test',title:'Test'}]).some(function(r) { return r.route === 'house/appearance/sky'; }));
 
 // No Button: offered only with the swipe on (or when it is the choice), and
@@ -718,7 +720,8 @@ ok('...every mode says what it costs', M.BLUR_MODES.every(function (m) { return 
      ['color', 'photo', 'landscapes'].every(function (m) { return M.ladderSignature(F({}, { glass: 'blur' }, { background: m })) === 'blur:a0w0r0f0c1'; }) &&
      M.ladderSignature(F({ sky_background: 'color' }, { glass: 'blur' }, {})) === 'blur:a0w0r0f0c1');
   ok('...Animations off: nothing falls and nothing moves in front', M.ladderSignature(F({ sky_animations: false }, { glass: 'blur' }, { moving: 'front' })) === 'blur:a0w1r0f0c1');
-  ok('...a screen’s own settings over All Screens’', M.ladderSignature(F({ sky_precipitation: false, sky_moving: 'front', camera_live_video: false }, { glass: 'blur' }, {}, { live: true })) === 'blur:a1w1r0f1c0');
+  ok('...a screen’s own settings over All Screens’', M.ladderSignature(F({ sky_precipitation: false, sky_moving: 'front', camera_live_video: false }, { glass: 'blur' }, {}, { live: true })) ===
+    'blur:a1w1r0f1c0');
 
   // THE LADDER, one step at a time. A house whose sky moves things in front of the cards; its first tile plays live.
   var look = { glass: 'blur' }, sky = { moving: 'front' }, cams = { strip: true, live: true };

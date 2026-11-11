@@ -81,7 +81,8 @@ H.run('page headers', [
     H.ok('unknown with nothing to judge it by: not named', !X.goneQuiet(hq, 'binary_sensor.alone', t0));
     // a row's glyph by what it is and what it did
     var hk = { states: { 'binary_sensor.w': { attributes: { device_class: 'window' } }, 'binary_sensor.l': { attributes: { device_class: 'moisture' } } } };
-    H.eq('kinds: a window, a leak sensor, a lock, the alarm', [X.kindOf(hk, 'binary_sensor.w'), X.kindOf(hk, 'binary_sensor.l'), X.kindOf(hk, 'lock.x'), X.kindOf(hk, 'alarm_control_panel.a', 'alarm_control_panel.a')],
+    H.eq('kinds: a window, a leak sensor, a lock, the alarm', [X.kindOf(hk, 'binary_sensor.w'), X.kindOf(hk, 'binary_sensor.l'), X.kindOf(hk, 'lock.x'),
+      X.kindOf(hk, 'alarm_control_panel.a', 'alarm_control_panel.a')],
          ['window', 'leak', 'lock', 'alarm']);
     H.eq('an opened window: its open glyph, red as its tile', [X.rowGlyph('window', 'on').icon, X.rowGlyph('window', 'on').color], ['hk:window-open-variant', window.hkCards.PALETTE.icon.red]);
     H.eq('...closed: its closed glyph, plain', [X.rowGlyph('window', 'off').icon, X.rowGlyph('window', 'off').color], ['hk:window-closed-variant', window.hkCards.v('ink-2')]);
@@ -281,7 +282,8 @@ H.run('page headers', [
       card.hass = hass();
       var html2 = drawn(card);
       H.ok('a close folds into its open: "Front Door closed · Open for 4 seconds"', html2.indexOf('Front Door closed') > 0 && html2.indexOf('Open for 4 seconds') > 0, html2.slice(-600));
-      H.ok('each row has its glyph', (html2.match(/class="ar"[^>]*><hk-icon class="gl"/g) || []).length === 2 && html2.indexOf('hk:door-closed') > 0 && html2.indexOf('hk:lock"') > 0, html2.slice(-900));
+      H.ok('each row has its glyph', (html2.match(/class="ar"[^>]*><hk-icon class="gl"/g) || []).length === 2 && html2.indexOf('hk:door-closed') > 0 && html2.indexOf('hk:lock"') > 0,
+        html2.slice(-900));
       // EXPAND: the open keeps its own row; the close still says how long
       H.ok('grouped: an Expand button', html2.indexOf('data-expand') > 0 && html2.indexOf('>Expand<') > 0);
       card._setExpanded(true);
@@ -297,7 +299,8 @@ H.run('page headers', [
       // RENAMED in Settings (2026-10-31, the owner: "Entry Door" was still "Garage Door" in Activity): the name given wins
       // over Home Assistant's and over the way in it belongs to
       var hsWas = window.hkSettings;
-      window.hkSettings = { get: function (k, d) { return k === 'accessories' ? { entities: { 'binary_sensor.front_door_entry': { name: 'Entry Door' } } } : (hsWas && hsWas.get ? hsWas.get(k, d) : d); } };
+      window.hkSettings = { get: function (k, d) { return k === 'accessories' ? { entities: { 'binary_sensor.front_door_entry': { name: 'Entry Door' } } } : (hsWas && hsWas.get ? hsWas.get(k, d) : d);
+        } };
       card._hkSig = null;                       // (a Settings save rebuilds the screen's cards)
       card.hass = hass();
       var renamed = drawn(card);

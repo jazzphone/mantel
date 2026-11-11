@@ -180,7 +180,8 @@ ok('the folder opened: the five rooms as their own icons', /class="open"/.test(h
 card._folder = false;
 var withW = Object.assign({}, data, { widgets: [{ kind: 'weather', size: 'more', place: 'right' }], render: function () { return '<i>wx</i>'; } });
 var hw = card._html(withW, { W: 1180, H: 820 }, new Date());
-ok('a widget\'s place: 2 x 2 at the top right, 328 wide', /class="wd" data-w="0" data-kind="weather" style="left:77[78][0-9.]*px;top:13[0-9.]*px;width:32[78][0-9.]*px/.test(hw), (hw.match(/class="wd"[^>]*/) || [])[0]);
+ok('a widget\'s place: 2 x 2 at the top right, 328 wide', /class="wd" data-w="0" data-kind="weather" style="left:77[78][0-9.]*px;top:13[0-9.]*px;width:32[78][0-9.]*px/.test(hw),
+  (hw.match(/class="wd"[^>]*/) || [])[0]);
 var hp = card._html(data, { W: 390, H: 844 }, new Date());
 ok('a phone: the iPhone\'s pill', hp.indexOf('--pw:134px') > 0);
 

@@ -158,7 +158,8 @@ H.run('CONTROL CARDS', [
     card.hass = house.hass();
     var html = card.shadowRoot.__html;
     // what _progRun animates: the fill element, as the harness has no layout
-    var anims = [], fillEl = { animate: function (kf, o) { var an = { kf: kf, o: o, currentTime: null, cancelled: false, cancel: function () { this.cancelled = true; } }; anims.push(an); return an; } };
+    var anims = [], fillEl = { animate: function (kf, o) { var an = { kf: kf, o: o, currentTime: null, cancelled: false, cancel: function () { this.cancelled = true; } }; anims.push(an); return an;
+      } };
     card.shadowRoot.querySelector = function (sel) { return sel === '.prog-fill' ? fillEl : null; };
     card._render();
     var an = anims[anims.length - 1];

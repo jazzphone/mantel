@@ -316,7 +316,8 @@ var warmAsked = [], heldNow = [], shownCb = [], showN = 0;
 var stub = {
   peek: function (seg) { return null; },
   warm: function (seg) { warmAsked.push(seg); return Promise.resolve(made[seg] ? { el: made[seg], path: seg } : null); },
-  hold: function (el, on, stay) { var at = heldNow.indexOf(el); if (on && at < 0) heldNow.push(el); if (!on && at >= 0) heldNow.splice(at, 1); if (!on && !stay && el.parentNode) el.parentNode.removeChild(el); return true; },
+  hold: function (el, on, stay) { var at = heldNow.indexOf(el); if (on && at < 0) heldNow.push(el); if (!on && at >= 0) heldNow.splice(at, 1);
+    if (!on && !stay && el.parentNode) el.parentNode.removeChild(el); return true; },
   busy: function () {},
   onView: function (fn) { shownCb.push(fn); return function () { shownCb.splice(shownCb.indexOf(fn), 1); }; }
 };
@@ -324,7 +325,8 @@ var onScreen = made.lights;
 while (slot.firstChild) slot.removeChild(slot.firstChild);
 slot.appendChild(onScreen);
 window.hkShell.view = function () { return onScreen; };
-window.hkShell.navigate = function (p) { navTo.push(p); location.pathname = p; onScreen = made[p.split('/')[2]] || onScreen; showN++; shownCb.slice().forEach(function (f) { f(onScreen, {}, {}, { path: p.split('/')[2] }); }); };
+window.hkShell.navigate = function (p) { navTo.push(p); location.pathname = p; onScreen = made[p.split('/')[2]] || onScreen; showN++;
+  shownCb.slice().forEach(function (f) { f(onScreen, {}, {}, { path: p.split('/')[2] }); }); };
 window.hkViewHost = { live: function () { return stub; } };
 location.pathname = '/dashboard-hall/lights';
 navTo = []; calls = [];
@@ -352,12 +354,14 @@ ok('...held by the host', heldNow.indexOf(made.climate) >= 0 && heldNow.indexOf(
 fire('pointerdown', ev(600, 400, path(made.lights)));
 ok('a press alone costs nothing: no layers (a tap is most presses)', !made.lights.style.getPropertyValue('will-change') && !made.climate.style.getPropertyValue('will-change'));
 fire('pointermove', ev(595, 400, path(made.lights)));
-ok('a finger starting sideways gives what may move a layer of its own, and moves nothing', made.lights.style.getPropertyValue('will-change') === 'transform' && made.climate.style.getPropertyValue('will-change') === 'transform' && !made.lights.style.transform);
+ok('a finger starting sideways gives what may move a layer of its own, and moves nothing', made.lights.style.getPropertyValue('will-change') === 'transform' &&
+  made.climate.style.getPropertyValue('will-change') === 'transform' && !made.lights.style.transform);
 fire('pointerup', ev(595, 400, path(made.lights)));
 ok('...a press that stops there gives it back', !made.lights.style.getPropertyValue('will-change') && !made.climate.style.getPropertyValue('will-change') && !P._.state().G);
 fire('pointerdown', ev(600, 400, path(made.lights)));
 fire('pointermove', ev(500, 400, path(made.lights)));
-ok('a swipe moves the real page, no stand-in', made.climate.style.transform === 'translateX(1090.0px)' && slot.children.every(function (c) { return c.className !== 'hk-swipe-ghost'; }), made.climate.style.transform);
+ok('a swipe moves the real page, no stand-in', made.climate.style.transform === 'translateX(1090.0px)' && slot.children.every(function (c) { return c.className !== 'hk-swipe-ghost'; }),
+  made.climate.style.transform);
 fire('pointermove', ev(250, 400, path(made.lights)));
 fire('pointerup', ev(250, 400, path(made.lights)));
 var aNow = P._.state().A;
@@ -394,7 +398,8 @@ drainPromises();
 P.plan();
 drainPromises();
 delete window.hkSettings.lookAt;
-ok('...the page two away is let go, the next made ready', made.home.parentNode !== slot && heldNow.indexOf(made.home) < 0 && made.security.parentNode === slot, [made.home.parentNode === slot, warmAsked.join()]);
+ok('...the page two away is let go, the next made ready', made.home.parentNode !== slot && heldNow.indexOf(made.home) < 0 && made.security.parentNode === slot,
+  [made.home.parentNode === slot, warmAsked.join()]);
 // a tab tap to the page beside it
 navTo = [];
 window.hkShell.navigate('/dashboard-hall/security');

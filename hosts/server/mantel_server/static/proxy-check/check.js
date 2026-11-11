@@ -42,7 +42,9 @@ export async function runProxyCheck(base = '') {
       title: `Signed out on the ${b.door} door`,
       detail: `Mantel sees this browser on the ${b.door} door${b.via_trusted_proxy ? ', through your trusted proxy' : ', NOT through your trusted proxy'}${b.via_trusted_proxy && b.door_header === false ? ', which sent no X-Mantel-Door' : ''}. A session works only on the door it was started on.`,
       fix: b.door === 'lan' ? 'Sign in again, then reopen this page.'
-        : 'If this browser is on your LAN, your proxy must send X-Mantel-Door: lan (paste the block below into the proxy host\'s Advanced tab in Nginx Proxy Manager) and MANTEL_TRUSTED_PROXY must be its address. If you are remote, sign in (with your second factor) and reopen this page.',
+        :
+          'If this browser is on your LAN, your proxy must send X-Mantel-Door: lan (paste the block below into the proxy host\'s Advanced tab in Nginx Proxy Manager) and MANTEL_TRUSTED_PROXY must ' +
+          'be its address. If you are remote, sign in (with your second factor) and reopen this page.',
       paste: b.door === 'lan' ? '' : b.npm_advanced });
     return { checks, report: { peer: '?', client: '?', door: b.door, https: b.https, trusted: [] } };
   }
@@ -74,7 +76,8 @@ export async function runProxyCheck(base = '') {
   if (!sock.ok) {
     checks.push({ id: 'websocket', ok: false, title: 'WebSocket upgrade failed',
       detail: `The live connection every screen uses could not be opened (${sock.error}).`,
-      fix: 'Nginx Proxy Manager: edit the proxy host, Details tab, turn on "Websockets Support" (the Advanced block below sets Upgrade/Connection too). Traefik and Caddy pass WebSockets on their own.',
+      fix:
+        'Nginx Proxy Manager: edit the proxy host, Details tab, turn on "Websockets Support" (the Advanced block below sets Upgrade/Connection too). Traefik and Caddy pass WebSockets on their own.',
       paste: report.npm_advanced });
   } else if (sock.door !== report.door) {
     checks.push({ id: 'websocket', ok: false, title: 'The socket arrives by another door',

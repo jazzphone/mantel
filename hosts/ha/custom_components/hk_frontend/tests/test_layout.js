@@ -40,7 +40,8 @@ check('the new layout is applied', card._e.style['grid-template-columns'] === '1
   var root = h._e;
   check('header hides its own grid host', h.getAttribute('data-page-header') === 'none');
   exact=false;h._updatePageHeader();
-  check('unmatched page gets a compact accessible heading', h.getAttribute('data-page-header') === 'context' && h._contextLabel.textContent === 'Climate' && h._contextLabel.getAttribute('role') === 'heading');
+  check('unmatched page gets a compact accessible heading', h.getAttribute('data-page-header') === 'context' && h._contextLabel.textContent === 'Climate' && h._contextLabel.getAttribute('role') ===
+    'heading');
   available=false;h._updatePageHeader();
   check('responsive changes restore the same header children', h.getAttribute('data-page-header') === 'current' && h._e === root);
   window.hkCards.menu=oldMenu;window.hkMenu=oldNav;

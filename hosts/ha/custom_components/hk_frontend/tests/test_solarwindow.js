@@ -35,7 +35,8 @@ var MORNING = { kind: 'solar_window', from: { sun: 'sunrise', offset: -60 }, to:
   var night = sun('below_horizon', '2026-11-11T14:39:00+00:00', '2026-11-12T00:55:00+00:00');
   ok('after sunset (next_setting rolled to tomorrow): still open at 8 PM', on(EVENING, night, '2026-11-11T04:00:00Z') === true);
   ok('...today\'s sunset is the one the page saw, not tomorrow\'s less a day',
-     iso(S.spans(EVENING, night, at('2026-11-11T04:00:00Z')).spans.filter(function (s) { return s[0] <= at('2026-11-11T04:00:00Z') && at('2026-11-11T04:00:00Z') < s[1]; })[0][0]) === '2026-11-11T00:41:00Z');
+     iso(S.spans(EVENING, night, at('2026-11-11T04:00:00Z')).spans.filter(function (s) { return s[0] <= at('2026-11-11T04:00:00Z') && at('2026-11-11T04:00:00Z') < s[1]; })[0][0]) ===
+       '2026-11-11T00:41:00Z');
   ok('...9:59 PM open, 10 PM closed', on(EVENING, night, '2026-11-11T05:59:00Z') === true && on(EVENING, night, '2026-11-11T06:00:00Z') === false);
   ok('...closed, its next edge is tomorrow\'s 4:40 PM (tomorrow\'s sunset less 15)', next(EVENING, night, '2026-11-11T06:30:00Z') === '2026-11-12T00:40:00Z',
      next(EVENING, night, '2026-11-11T06:30:00Z'));

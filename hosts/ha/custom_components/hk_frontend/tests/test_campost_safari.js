@@ -31,7 +31,8 @@ window.hkCards.snapCache = { FRESH: 120000, get: function () { return null; },
                              put: function () { return 'data:image/jpeg;base64,LEFT'; } };
 P.sweep();
 ok('a player whose video has no picture yet: left visible, so Safari will start it', video.style.visibility !== 'hidden', video.style.visibility);
-ok('...the video not restyled at all (its WebRTC never delivered a frame with this module on)', !video.style.zIndex && !video.style.position && !video.__hkQuiet, [video.style.zIndex, video.style.position]);
+ok('...the video not restyled at all (its WebRTC never delivered a frame with this module on)', !video.style.zIndex && !video.style.position && !video.__hkQuiet,
+  [video.style.zIndex, video.style.position]);
 ok('...and nothing painted on the player (HA\'s own poster only)', !player.style.background && !player.__hkCv, player.style.background);
 // a fresh cached frame is still HA's poster, as before 2026-10-09
 var video2 = el('video'), player2 = el('ha-web-rtc-player');

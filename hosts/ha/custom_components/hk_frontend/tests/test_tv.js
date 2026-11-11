@@ -144,7 +144,8 @@ print('\n=== the player ===');
 ok('plays the channel camera full screen with a tuning message',
    /type: 'custom:hk-doorbell-card', entity: ch\.camera, fill: true,\s*tuning: ch\.name/.test(player));
 ok('mounted in home-assistant\'s shadow root, over everything', /mount = window\.hkShell\.overlayRoot\(\) \|\| document\.body/.test(player) && /z-index:8/.test(player));
-ok('names this screen as a viewer now and every 60 s', /watching\(true\);\n\s*beatT = setInterval\(function \(\) \{ watching\(true\); \}, TV_HEARTBEAT_MS\)/.test(player) && /TV_HEARTBEAT_MS = 60000/.test(src));
+ok('names this screen as a viewer now and every 60 s', /watching\(true\);\n\s*beatT = setInterval\(function \(\) \{ watching\(true\); \}, TV_HEARTBEAT_MS\)/.test(player) &&
+  /TV_HEARTBEAT_MS = 60000/.test(src));
 ok('holds hk-idle while open and releases it on close',
    /hkIdle\.hold\('hk-tv', true\)/.test(player) && /hkIdle\.hold\('hk-tv', false\)/.test(player));
 ok('close: removes the sheet (drops the stream) and says it stopped watching',

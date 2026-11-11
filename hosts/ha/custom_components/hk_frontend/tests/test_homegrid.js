@@ -47,7 +47,8 @@ ok('the catalog is loaded', !!G && typeof G.config === 'function');
 ok('the size classes are hk-base.js\'s', JSON.stringify(G.SIZES) === JSON.stringify(window.hkCards.HOME_GRID.sizes));
 var ctx = { cameras: ['camera.front_door', 'camera.yard'], climate: ['climate.hallway'], rooms: ['kitchen'], weather: 'weather.home' };
 var cam = G.config({ card: 'camera', size: 'L' }, ctx);
-ok('a camera block defaults to the first camera and keeps its own list', cam.type === 'custom:hk-camera-mosaic-card' && cam.own_cameras === true && cam.cameras.length === 1 && cam.cameras[0].entity === 'camera.front_door');
+ok('a camera block defaults to the first camera and keeps its own list', cam.type === 'custom:hk-camera-mosaic-card' && cam.own_cameras === true && cam.cameras.length === 1 &&
+  cam.cameras[0].entity === 'camera.front_door');
 var th = G.config({ card: 'thermostat', size: 'T' }, ctx);
 ok('a thermostat block: the house\'s first thermostat, its dial', th.type === 'custom:hk-control-card' && th.entity === 'climate.hallway');
 var thp = G.config({ card: 'thermostat', size: 'T', pages: { source: 'thermostats', start: 'tablet_room' } }, ctx);

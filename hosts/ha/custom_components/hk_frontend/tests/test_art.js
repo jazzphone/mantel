@@ -41,7 +41,8 @@ print('\n=== a picture on the page\'s own origin: the host may ask for it at the
 
 print('\n=== one websocket call per paint, and a fallback ===');
 var calls = [];
-var hass = { callWS: function (m) { calls.push(m); var s = {}; m.urls.forEach(function (u) { s[u] = '/api/hk_frontend/art?u=' + encodeURIComponent(u) + '&s=' + m.size + '&authSig=X'; }); return Promise.resolve({ signed: s }); } };
+var hass = { callWS: function (m) { calls.push(m); var s = {}; m.urls.forEach(function (u) { s[u] = '/api/hk_frontend/art?u=' + encodeURIComponent(u) + '&s=' + m.size + '&authSig=X'; });
+  return Promise.resolve({ signed: s }); } };
 var got = {};
 ['a', 'b', 'c'].forEach(function (k) { C._artSign(hass, MZ + '?' + k, 300, function (p) { got[k] = p; }); });
 C._artSign(hass, MZ + '?a', 300, function (p) { got.a2 = p; });

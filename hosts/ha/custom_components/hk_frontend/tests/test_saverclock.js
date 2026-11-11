@@ -32,11 +32,14 @@ var C = window.hkSaverClock, U = C._, M = window.hkSettingsModel;
 
 print('=== the styles ===');
 ok('the styles: Today, the flagship, first; Analog Numbers among them, the HomeView-style three last (2026-10-30)',
-   C.STYLES.length === 29 && C.STYLES[0][0] === 'today' && C.STYLES.some(function (s) { return s[0] === 'numbers'; }) && C.STYLES.slice(0,19).map(function (s) { return s[0]; }).slice(-3).join() === 'liquid,giant,scattered', true);
+   C.STYLES.length === 29 && C.STYLES[0][0] === 'today' && C.STYLES.some(function (s) { return s[0] === 'numbers'; }) && C.STYLES.slice(0,19).map(function (s) { return s[0]; }).slice(-3).join() ===
+     'liquid,giant,scattered', true);
 // (but Planted, phase 13: a face the Landscape plants in its meadow -- hk-saverfaces.js plant(), not this file's)
-ok('...the same as HK Settings lists, in order', C.STYLES.map(function (s) { return s[0]; }).join(), M.CLOCK_STYLES.map(function (s) { return s[0]; }).filter(function (s) { return s !== 'planted'; }).join());
+ok('...the same as HK Settings lists, in order', C.STYLES.map(function (s) { return s[0]; }).join(),
+  M.CLOCK_STYLES.map(function (s) { return s[0]; }).filter(function (s) { return s !== 'planted'; }).join());
 ok('the generated backgrounds are HK Settings’ less Forecast and Photos',
-   C.BGS.map(function (b) { return b[0]; }).join(), M.CLOCK_BGS.filter(function (b) { return b[0] !== 'forecast' && b[0] !== 'skyonly' && b[0] !== 'photos' && b[0] !== 'landscapes'; }).map(function (b) { return b[0]; }).join());
+   C.BGS.map(function (b) { return b[0]; }).join(), M.CLOCK_BGS.filter(function (b) { return b[0] !== 'forecast' && b[0] !== 'skyonly' && b[0] !== 'photos' && b[0] !== 'landscapes'; }).map(
+     function (b) { return b[0]; }).join());
 
 print('=== the colors ===');
 ok('every style has its colors', C.STYLES.every(function (st) { return (C.COLORS[st[0]] || []).length >= 4; }), true);
@@ -69,7 +72,8 @@ print('=== Analog Numbers (2026-10-30, HOMEVIEW-LOOK.md Phase F) ===');
   ok('60 ticks: 12 hours (86-95.5, 2, white .9) and 48 minutes (90.5-95.5, 1.3, .62)',
      [(svg.match(/rgba\(255,255,255,\.9\)" stroke-width="2"/g) || []).length, (svg.match(/rgba\(255,255,255,\.62\)" stroke-width="1.3"/g) || []).length].join(), '12,48');
   ok('the faint disc and its rim fill the face', /<circle r="98" fill="rgba\(20,0,40,\.18\)" stroke="rgba\(255,255,255,\.28\)"/.test(svg), true);
-  ok('hands: hour 52 x 6.4, minute 89 x 5.6, on a neck', /y2="-52" style="stroke:var\(--ckm,#fff\)" stroke-width="6.4"/.test(svg) && /y2="-89" style="stroke:var\(--ckm,#fff\)" stroke-width="5.6"/.test(svg) && /y2="-13"/.test(svg), true);
+  ok('hands: hour 52 x 6.4, minute 89 x 5.6, on a neck', /y2="-52" style="stroke:var\(--ckm,#fff\)" stroke-width="6.4"/.test(svg) &&
+    /y2="-89" style="stroke:var\(--ckm,#fff\)" stroke-width="5.6"/.test(svg) && /y2="-13"/.test(svg), true);
   ok('a slim white second hand with a tail, coloured by --ckh', /y1="14" y2="-96" style="stroke:var\(--ckh,#fff\)" stroke-width="1.2"/.test(svg), true);
   ok('no date', /class="dl/.test(svg), false);
   ok('its colours colour the second hand (White its own)', C.COLORS.numbers[0][0] + ':' + C.COLORS.numbers.slice(1).every(function (c) { return !!c[2]['--ckh']; }), 'white:true');
@@ -127,7 +131,8 @@ print('=== nothing runs under the black (2026-10-29) ===');
   __fireVisibility(false);
   ok('...a shown one starts it again', __timers.filter(function (t) { return t && t.ms === 1000; }).length, 1);
   c.destroy();
-  ok('destroyed, a black or a shown page starts nothing', (function () { var n = rafs; tell(true); tell(false); return rafs === n && !__timers.filter(function (t) { return t && t.ms === 1000; }).length; })(), true);
+  ok('destroyed, a black or a shown page starts nothing', (function () { var n = rafs; tell(true); tell(false); return rafs === n &&
+    !__timers.filter(function (t) { return t && t.ms === 1000; }).length; })(), true);
 
   // MORPH: its frame once a second or so
   blackNow = false; __resetTimers();

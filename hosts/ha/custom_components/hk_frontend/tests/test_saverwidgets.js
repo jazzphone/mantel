@@ -52,7 +52,8 @@ var CTX = { events: [EVENT], title: 'Lake Weekend · 2024' };
 // the energy page's sums, as hk-energy.js summary() gives them
 var energyCalls = 0, wakers = [], battery = 84;
 window.hkEnergy = {
-  summary: function (c, waker) { if (!c || !Object.keys(c.states || {}).length) return null; energyCalls++; wakers.push(waker); return { battery: battery, today: { energy: 12.4, solar: 9.8 }, rings: [{ key: 'energy' }, { key: 'solar' }] }; },
+  summary: function (c, waker) { if (!c || !Object.keys(c.states || {}).length) return null; energyCalls++; wakers.push(waker);
+    return { battery: battery, today: { energy: 12.4, solar: 9.8 }, rings: [{ key: 'energy' }, { key: 'solar' }] }; },
   kwh: function (v) { return (Math.round(v * 10) / 10).toFixed(1); }
 };
 
@@ -77,7 +78,8 @@ ok('every piece in every shape of the layout\'s catalog is one the renderer draw
 ok('...each in the shape the catalog says', Object.keys(CATALOG).filter(function (id) { return id.split('.')[1] !== CATALOG[id][0]; }), []);
 ok('...and the first layouts\' widgets still draw (v1 ids)', SW.IDS.filter(function (id) { var c = SW.create(id, { u: 8 }); if (c) c.destroy(); return !c; }), []);
 // (phase 13: the cards and the forecast band are pieces too, in their Card and Band shapes -- the renderer's, never HK's cards)
-ok('...the cards and the forecast band are pieces now, drawn here', [SW.has('time', 'card'), SW.has('weather', 'band'), (function () { var c = SW.create('music_card', { u: 8 }); if (c) c.destroy(); return !!c && c.piece === 'music' && c.shape === 'card'; })()], [true, true, true]);
+ok('...the cards and the forecast band are pieces now, drawn here', [SW.has('time', 'card'), SW.has('weather', 'band'),
+  (function () { var c = SW.create('music_card', { u: 8 }); if (c) c.destroy(); return !!c && c.piece === 'music' && c.shape === 'card'; })()], [true, true, true]);
 
 print('=== every widget draws, in a full house and an empty one ===');
 var full = client(), empty = { states: {}, config: {} };
@@ -90,7 +92,8 @@ SW.IDS.forEach(function (id) {
 // (the date, and Home Status where the house has nothing to say, are words and not data)
 var dashed = SW.IDS.filter(function (id) { return ['date', 'status_line', 'home_status'].indexOf(id) < 0; });
 ok('an empty house: a dash for everything that needs data', dashed.filter(function (id) { return html(id, empty, NOW, { u: 8 }, {}).indexOf('—') < 0; }), []);
-ok('...Home Status, with an alarm and locks named that say nothing, says so: missing is not safe', [words(html('date', empty, NOW)), words(html('status_line', empty)), words(html('home_status', empty))],
+ok('...Home Status, with an alarm and locks named that say nothing, says so: missing is not safe',
+  [words(html('date', empty, NOW)), words(html('status_line', empty)), words(html('home_status', empty))],
    ['Sunday, November 1', '3 Sensors Unknown', 'Home 3 Sensors Unknown']);
 var HS0 = window.hkSettings; window.hkSettings = null;
 ok('...a house with none named has nothing to say: all clear', [words(html('status_line', empty)), words(html('home_status', empty))], ['All Clear', 'Home All Clear']);
@@ -127,16 +130,20 @@ ok('...and from kW', words(html('solar', client({ 'sensor.solar_power': { state:
 ok('the timer ending soonest: its time left and name', words(html('timer')), '4:12 PASTA');
 var tmr = html('timer');
 ok('...a ring of the time left of ten minutes', tmr.indexOf('stroke-dasharray="' + (2 * Math.PI * 43 * Math.round(252 / 600 * 500) / 500).toFixed(2) + ' ') >= 0, true);
-ok('...an hour and more: hours too; none running: a dash', [words(html('timer', client({ 'sensor.running_quick_timers': { state: '1', attributes: { running: [{ name: 'Roast', finishes_at: '2026-11-01T12:12:03' }] } } }))),
+ok('...an hour and more: hours too; none running: a dash', [words(html('timer', client(
+  { 'sensor.running_quick_timers': { state: '1', attributes: { running: [{ name: 'Roast', finishes_at: '2026-11-01T12:12:03' }] } } }))),
    words(html('timer', client({ 'sensor.running_quick_timers': null })))], ['1:15:03 ROAST', '— TIMER']);
 ok('locks: one unlocked', words(html('locks')), '1 Unlocked');
 ok('...all locked', words(html('locks', client({ 'lock.garage_entry': { state: 'locked', attributes: {} } }))), 'Locked');
-ok('...an unlocked lock is an open one', [html('locks').indexOf('M8 10V7a4 4 0 0 1 7.6-1.7') >= 0, html('locks', client({ 'lock.garage_entry': { state: 'locked', attributes: {} } })).indexOf('M8 10V7a4 4 0 0 1 8 0v3') >= 0], [true, true]);
-ok('...locks that don\'t answer count for nothing', words(html('locks', client({ 'lock.front_door': { state: 'unavailable', attributes: {} }, 'lock.garage_entry': { state: 'unavailable', attributes: {} } }))), '—');
+ok('...an unlocked lock is an open one', [html('locks').indexOf('M8 10V7a4 4 0 0 1 7.6-1.7') >= 0,
+  html('locks', client({ 'lock.garage_entry': { state: 'locked', attributes: {} } })).indexOf('M8 10V7a4 4 0 0 1 8 0v3') >= 0], [true, true]);
+ok('...locks that don\'t answer count for nothing', words(html('locks', client({ 'lock.front_door': { state: 'unavailable', attributes: {} },
+  'lock.garage_entry': { state: 'unavailable', attributes: {} } }))), '—');
 ok('the sunset by day: 5:52, and in 24-hour time', [words(html('sunset')), words(html('sunset', client(), NOW, { u: 8, h24: true }))], ['5:52 SUNSET', '17:52 SUNSET']);
 var dark = client({ 'sun.sun': { state: 'below_horizon', attributes: { next_setting: '2026-11-02T17:51:00', next_rising: '2026-11-02T06:48:00' } } });
 ok('...after dark the sunrise comes first', words(html('sunset', dark, NIGHT)), '6:48 SUNRISE');
-ok('...the ring: how far through the day', html('sunset').indexOf('stroke-dasharray="' + (2 * Math.PI * 43 * Math.round((NOW - new Date(2026, 10, 1, 6, 48)) / (new Date(2026, 10, 1, 17, 52) - new Date(2026, 10, 1, 6, 48)) * 200) / 200).toFixed(2) + ' ') >= 0, true);
+ok('...the ring: how far through the day', html('sunset').indexOf('stroke-dasharray="' +
+  (2 * Math.PI * 43 * Math.round((NOW - new Date(2026, 10, 1, 6, 48)) / (new Date(2026, 10, 1, 17, 52) - new Date(2026, 10, 1, 6, 48)) * 200) / 200).toFixed(2) + ' ') >= 0, true);
 
 print('=== the rectangles ===');
 ok('Up Next: when, what, where (the calendar\'s name)', words(html('next_event')), 'Up Next · 3:30 PM Piano Lesson Family');
@@ -148,7 +155,9 @@ ok('...one under way is now, until; tomorrow\'s says so; nothing is a dash', [
    words(html('next_event', client(), NOW, { u: 8 }, { events: [] }))],
    ['Now · until 4:30 PM Piano Lesson Family', 'Up Next · Tomorrow, 9:15 AM Piano Lesson Family', 'Up Next —']);
 // (the rectangle shows the next two now: an all-day event still waits for a timed one, second)
-ok('...an all-day event waits for a timed one', words(html('next_event', client(), NOW, { u: 8 }, { events: [{ title: 'Trash Day', cal: 'calendar.family', allDay: true, start: new Date(2026, 10, 1), end: new Date(2026, 10, 2) }, EVENT] })), 'Piano Lesson 3:30 PM · Family Trash Day All Day · Family');
+ok('...an all-day event waits for a timed one', words(html('next_event', client(), NOW, { u: 8 },
+  { events: [{ title: 'Trash Day', cal: 'calendar.family', allDay: true, start: new Date(2026, 10, 1), end: new Date(2026, 10, 2) }, EVENT] })),
+  'Piano Lesson 3:30 PM · Family Trash Day All Day · Family');
 ok('Home Status: the alarm, and what is wrong', words(html('home_status')), 'Home Disarmed 1 Lock Unlocked');
 SETTINGS['security.alarm'] = 'alarm_control_panel.house';
 var armed = client({ 'alarm_control_panel.house': { state: 'armed_away', attributes: {} }, 'lock.garage_entry': { state: 'locked', attributes: {} } });
@@ -164,14 +173,16 @@ subs[0].cb({ forecast: [
   { datetime: '2026-11-01T10:00:00', temperature: 63, condition: 'cloudy' }, { datetime: '2026-11-01T11:00:00', temperature: 66, condition: 'cloudy' },
   { datetime: '2026-11-01T12:00:00', temperature: 68.4, condition: 'sunny' }, { datetime: '2026-11-01T13:00:00', temperature: 70, condition: 'sunny' }] });
 ok('...the next three hours: time, glyph, temperature', words(nh.el.innerHTML), 'Now 64° 11 AM 66° 12 PM 68°');
-ok('...each with a glyph of its condition (the current one partly cloudy, then cloud, then sun)', [nh.el.innerHTML.split('<svg').length - 1, nh.el.innerHTML.indexOf('<circle cx="8.2"') >= 0, nh.el.innerHTML.indexOf('<circle cx="12" cy="12" r="4.4"') >= 0], [3, true, true]);
+ok('...each with a glyph of its condition (the current one partly cloudy, then cloud, then sun)',
+  [nh.el.innerHTML.split('<svg').length - 1, nh.el.innerHTML.indexOf('<circle cx="8.2"') >= 0, nh.el.innerHTML.indexOf('<circle cx="12" cy="12" r="4.4"') >= 0], [3, true, true]);
 nh.destroy();
 ok('...in 24-hour time', words(html('next_hours', client(), NOW, { u: 8, h24: true })), 'Now 64° 11:00 — 12:00 —');
 
 print('=== the inline widgets ===');
 ok('the date', words(html('date')), 'Sunday, November 1');
 ok('...the weather: its glyph, the temperature and the condition', [words(html('weather_line')), html('weather_line').indexOf('<svg') >= 0], ['64° Partly Cloudy', true]);
-ok('...at night the moon', html('weather_line', client({ 'weather.home': { state: 'clear-night', attributes: { temperature: 51, temperature_unit: '°F' } }, 'sun.sun': { state: 'below_horizon', attributes: { next_setting: '2026-11-02T17:51:00', next_rising: '2026-11-02T06:48:00' } } }), NIGHT).indexOf('M20 14.6A8.6') >= 0, true);
+ok('...at night the moon', html('weather_line', client({ 'weather.home': { state: 'clear-night', attributes: { temperature: 51, temperature_unit: '°F' } },
+  'sun.sun': { state: 'below_horizon', attributes: { next_setting: '2026-11-02T17:51:00', next_rising: '2026-11-02T06:48:00' } } }), NIGHT).indexOf('M20 14.6A8.6') >= 0, true);
 ok('...Home Status in a line, as the card says it', words(html('status_line')), 'Disarmed · 1 Lock Unlocked');
 ok('...and secured', words(html('status_line', armed)), 'Home Secured');
 ok('...the next event; in 24-hour time', [words(html('event_line')), words(html('event_line', client(), NOW, { u: 8, h24: true }))], ['Piano Lesson · 3:30 PM', 'Piano Lesson · 15:30']);
@@ -248,7 +259,8 @@ var CAL = SW._.cal;
 CAL.evs = null; CAL.at = 0; CAL.busy = 0; CAL.failAt = 0;
 var ne = make('next_event', { u: 8 }), el2 = make('event_line', { u: 8 });
 ne.update(cl, NOW, {}); el2.update(cl, NOW, {});
-ok('the first update reads the calendar, once for both widgets, and draws what comes', [loads, words(ne.el.innerHTML), words(el2.el.innerHTML)], [1, 'Up Next · 3:30 PM Piano Lesson Family', 'Piano Lesson · 3:30 PM']);
+ok('the first update reads the calendar, once for both widgets, and draws what comes', [loads, words(ne.el.innerHTML), words(el2.el.innerHTML)],
+  [1, 'Up Next · 3:30 PM Piano Lesson Family', 'Piano Lesson · 3:30 PM']);
 ne.update(cl, new Date(+NOW + 240000), {});
 ok('...four minutes later: not again', loads, 1);
 CAL.at -= 400000;
@@ -326,9 +338,12 @@ ok('glass and white; tint and accent', [cls({ back: 'glass', color: 'white' }), 
    ['hksw k-circular p-readings w-aqi b-glass c-auto', 'hksw k-circular p-readings w-aqi b-tint c-accent']);
 ok('...something else is the default', cls({ back: 'frosted', color: 'pink' }), 'hksw k-circular p-readings w-aqi b-none c-auto');
 var CSS = SW.CSS;
-ok('the stylesheet: no backdrop-filter on a wall tablet; glass a static fill and a hairline', [/backdrop-filter/.test(CSS), /\.b-glass\{background:rgba\(255,255,255,\.16\);box-shadow:inset 0 0 0 1px/.test(CSS)], [false, true]);
-ok('...the tint mixes the color into a dark fill, with a plain one beneath for a browser without color-mix', /\.b-tint\{background:rgba\(0,0,0,\.38\);background:color-mix\(in srgb,var\(--sw-ink\) 20%,rgba\(0,0,0,\.38\)\)\}/.test(CSS), true);
-ok('...auto is the screen\'s one ink (else the caller\'s --tint), accent --hk-accent', [/\.c-auto\{--sw-ink:var\(--lay-ink,var\(--tint,#fff\)\)\}/.test(CSS), /\.c-accent\{--sw-ink:var\(--hk-accent,#ffb38a\)\}/.test(CSS)], [true, true]);
+ok('the stylesheet: no backdrop-filter on a wall tablet; glass a static fill and a hairline',
+  [/backdrop-filter/.test(CSS), /\.b-glass\{background:rgba\(255,255,255,\.16\);box-shadow:inset 0 0 0 1px/.test(CSS)], [false, true]);
+ok('...the tint mixes the color into a dark fill, with a plain one beneath for a browser without color-mix',
+  /\.b-tint\{background:rgba\(0,0,0,\.38\);background:color-mix\(in srgb,var\(--sw-ink\) 20%,rgba\(0,0,0,\.38\)\)\}/.test(CSS), true);
+ok('...auto is the screen\'s one ink (else the caller\'s --tint), accent --hk-accent',
+  [/\.c-auto\{--sw-ink:var\(--lay-ink,var\(--tint,#fff\)\)\}/.test(CSS), /\.c-accent\{--sw-ink:var\(--hk-accent,#ffb38a\)\}/.test(CSS)], [true, true]);
 ok('...everything is sized in --u: 13 u for a circle, 29 by 13 for a rectangle, 3.6 u for a line, 10 u for the band',
    [/k-circular\{width:calc\(var\(--u\) \* 13\);height:calc\(var\(--u\) \* 13\)/, /k-rectangular\{width:calc\(var\(--u\) \* 29\);height:calc\(var\(--u\) \* 13\)/,
     /k-inline\{[^}]*height:calc\(var\(--u\) \* 3\.6\)/, /k-band\{width:100%;height:calc\(var\(--u\) \* 10\)/].map(function (re) { return re.test(CSS); }), [true, true, true, true]);

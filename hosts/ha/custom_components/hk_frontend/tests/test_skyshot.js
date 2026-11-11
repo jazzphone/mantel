@@ -31,7 +31,8 @@ ok('no direction: top to bottom, the box\'s height long', near(L.x0, 50) && near
 L = _.lineOf('to right', 100, 50);
 ok('to right: across, its width long', near(L.x0, 0) && near(L.x1, 100) && near(L.y0, 25) && near(L.L, 100), L);
 L = _.lineOf('135deg', 100, 100);
-ok('an angle: through the center, as long as the box seen along it (135deg on a square: its diagonal)', near(L.L, 100 * Math.SQRT2, 1e-9) && near((L.x0 + L.x1) / 2, 50) && L.x1 > L.x0 && L.y1 > L.y0, L);
+ok('an angle: through the center, as long as the box seen along it (135deg on a square: its diagonal)', near(L.L, 100 * Math.SQRT2, 1e-9) && near((L.x0 + L.x1) / 2, 50) && L.x1 > L.x0 && L.y1 > L.y0,
+  L);
 L = _.lineOf('to top right', 200, 100);
 // perpendicular to the diagonal from top-left to bottom-right (200, 100): along (100, -200)
 ok('a corner: perpendicular to the other diagonal, pointing into the corner', L.x1 > L.x0 && L.y1 < L.y0 && near((L.x1 - L.x0) / (L.y1 - L.y0), -0.5, 1e-9), L);

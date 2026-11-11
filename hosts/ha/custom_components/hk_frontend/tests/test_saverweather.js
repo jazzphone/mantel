@@ -10,7 +10,8 @@ var pass = 0, fail = 0;
 function ok(n, c, d) { if (c) { pass++; print('  PASS  ' + n); } else { fail++; print('  FAIL  ' + n + (d !== undefined ? '   got ' + JSON.stringify(d) : '')); } }
 var V = window.hkSaverWeather._.view, NOW = Date.UTC(2026, 9, 14, 18, 15);    // 2:15 PM EDT
 function hrs(list) { return list.map(function (x, i) { return { datetime: new Date(NOW + (i + 1) * 36e5).toISOString(), condition: x[0], temperature: x[1], precipitation_probability: x[2] }; }); }
-function days(list) { return list.map(function (x, i) { return { datetime: new Date(NOW + i * 864e5).toISOString(), condition: x[0], temperature: x[1], templow: x[2], precipitation_probability: x[3] }; }); }
+function days(list) { return list.map(function (x, i) { return { datetime: new Date(NOW + i * 864e5).toISOString(), condition: x[0], temperature: x[1], templow: x[2],
+  precipitation_probability: x[3] }; }); }
 var sunny = { state: 'sunny', attributes: { temperature: 85, wind_speed: 6, wind_gust_speed: 12, wind_bearing: 225, wind_speed_unit: 'mph' } };
 var H1 = hrs([['sunny', 86, 0], ['sunny', 88, 0], ['sunny', 86, 0], ['sunny', 82, 0], ['clear-night', 75, 0], ['clear-night', 71, 0]]);
 var D1 = days([['sunny', 88, 58, 0], ['sunny', 81, 62, 0], ['partlycloudy', 64, 50, 10], ['rainy', 58, 46, 70]]);

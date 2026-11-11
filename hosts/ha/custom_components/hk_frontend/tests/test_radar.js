@@ -29,7 +29,8 @@ H.run('RADAR PROVIDERS', [
    H.eq('a point query in geographic coordinates',[p.geometry,p.inSR,p.geometryType],['-100.000,40.000','4326','esriGeometryPoint']);
    H.eq('anonymous and abortable',[requests[0].opts.credentials,requests[0].opts.signal===signal],['omit',true]);
    var image=A.noaa.image(g.frames[2],{x0:-100.2,y0:200.1,x1:300.4,y1:600.2},512,256),q=params(image);
-   H.eq('Mercator bounds, transparent PNG, exact provider time',[q.bbox,q.bboxSR,q.imageSR,q.transparent,q.format,q.time,q.size],['-100,200,300,600','3857','3857','true','png',String(latest),'512,256']);
+   H.eq('Mercator bounds, transparent PNG, exact provider time',[q.bbox,q.bboxSR,q.imageSR,q.transparent,q.format,q.time,q.size],
+     ['-100,200,300,600','3857','3857','true','png',String(latest),'512,256']);
   });
  },
  function () {
@@ -68,7 +69,8 @@ H.run('RADAR PROVIDERS', [
    H.ok('HTML masquerading as imagery is refused',!g.ok && /wasn’t an image/.test(g.error));
    H.ok('check caps imagery zoom at seven',/\/256\/7\//.test(requests[1].url),requests[1].url);
    reply=function(){return Promise.reject({name:'AbortError'});};
-   return hkRadar.check({provider:'noaa',lat:40,lon:-100},{history_minutes:60,zoom:6},signal).then(function(){H.ok('abort rejects',false);},function(e){H.eq('abort stays abortable',e.name,'AbortError');});
+   return hkRadar.check({provider:'noaa',lat:40,lon:-100},{history_minutes:60,zoom:6},signal).then(function(){H.ok('abort rejects',false);},
+     function(e){H.eq('abort stays abortable',e.name,'AbortError');});
   });
  },
  function () {

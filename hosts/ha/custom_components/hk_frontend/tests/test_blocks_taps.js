@@ -526,7 +526,8 @@ function () {
   SHEETS.length = 0;
   (b2.el._e.al._listeners.click || []).forEach(function (f) { f({ stopPropagation: function () {} }); });
   // (the jsc DOM keeps one element per selector across a redraw, so the redrawn block's area may be heard twice here)
-  ok('a block\'s own custom sheet is its overview', SHEETS.length >= 1 && SHEETS.every(function (q) { return q.sheet.title === 'Doors'; }), JSON.stringify(SHEETS.map(function (q) { return q.sheet; })));
+  ok('a block\'s own custom sheet is its overview', SHEETS.length >= 1 && SHEETS.every(function (q) { return q.sheet.title === 'Doors'; }),
+    JSON.stringify(SHEETS.map(function (q) { return q.sheet; })));
   // an old Security layout keeps its keypad
   eq('a Large Security block without HomeView keeps the keypad', block('security', 'L', 'square').tag, 'hk-grid-keypad-card');
 }

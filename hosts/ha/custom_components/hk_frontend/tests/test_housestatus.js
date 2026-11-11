@@ -192,7 +192,8 @@ eq('On Now\'s Tall on a square cell: the count large (72) over its four kinds', 
 x = L.plan('T', 168, 282, 4, { nolabel: true, foot: L.POOL });
 eq('On Now\'s Tall keeps 56 under its lines for the All Off pill: three show at rest on a tile cell', [x.vis, x.shown], [3, 4]);
 x = L.plan('S', 168, 122, 4, { nolabel: true, lead: true });
-eq('On Now\'s Small: one line of 56 under the count, no sentence where it does not fit; one at 160, with its sentence', [x.rowH, x.shown, x.sentence, L.plan('S', 160, 160, 4, { lead: true }).sentence], [56, 1, false, true]);
+eq('On Now\'s Small: one line of 56 under the count, no sentence where it does not fit; one at 160, with its sentence',
+  [x.rowH, x.shown, x.sentence, L.plan('S', 160, 160, 4, { lead: true }).sentence], [56, 1, false, true]);
 var whole = true, tall = true;
 ['square', 'tile'].forEach(function (cell) {
   ['W', 'T', 'L', 'XL'].forEach(function (size) {
@@ -240,7 +241,8 @@ print('\n=== the lines: a list of 56 that scrolls, the headline fixed (2026-11-0
 var TK = window.hkHouseStatus.tiles;
 var ico = function () { return ''; };
 var xm = { label: '', top: true, head: { words: '1 Window Open' }, sentence: 'Office Window', words: true,
-  rows: [1, 2, 3, 4, 5, 6, 7].map(function (i) { return { live: true, attrs: 'data-i="' + i + '"', icon: ico, lit: null, name: 'N' + i, reading: '<span class="v">' + i + '</span>', detail: null }; }) };
+  rows: [1, 2, 3, 4, 5, 6, 7].map(function (i) { return { live: true, attrs: 'data-i="' + i + '"', icon: ico, lit: null, name: 'N' + i, reading: '<span class="v">' + i + '</span>', detail: null };
+    }) };
 var xp = TK.plan('XL', 574, 333, 7, { words: true, nolabel: true });
 var xh = TK.compose(xm, 'XL', { iw: 574, ih: 333 }, xp);
 ok('XL: no label row, the group from the top (.tp)', xh.indexOf('class="sx tp"') >= 0 && xh.indexOf('sm-h') < 0 && xh.indexOf('sm-l') < 0);

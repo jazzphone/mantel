@@ -88,7 +88,8 @@ function () {
   // SCENES, EXTRA LARGE AND FULL WIDTH (2026-11-09, mockup 8b): Large's tile size, three or six across, from the top-left; no Suggested column, no `windows` option
   var csrc = readFile(HK_ROOT + '/frontend/cards/hk-chip.js');
   ok('XL and XXL start at the top-left, not centered', /var big = n && \(size === 'XL' \|\| size === 'XXL'\);/.test(csrc) && /';align-content:' \+ \(big \? 'flex-start' : 'center'\)/.test(csrc));
-  ok('no two-column Scenes: the Suggested column and the windows option are gone', csrc.indexOf('_fitXL') < 0 && !/windows/.test(readFile(HK_ROOT + '/frontend/cards/hk-grid-catalog.js').split("scenes: {")[1].split('\n')[0]));
+  ok('no two-column Scenes: the Suggested column and the windows option are gone', csrc.indexOf('_fitXL') < 0 &&
+    !/windows/.test(readFile(HK_ROOT + '/frontend/cards/hk-grid-catalog.js').split("scenes: {")[1].split('\n')[0]));
   eq('square cells: W two, T two stacked, L 2 x 2, XL 3 x 2, XXL 6 x 2',
      [g(196, 'W'), g(196, 'T'), g(196, 'L'), g(196, 'XL'), g(196, 'XXL')],
      [[2, 1, 183, 168, 10], [1, 2, 168, 183, 10], [2, 2, 183, 183, 10], [3, 2, 188, 183, 10], [6, 2, 193, 183, 10]]);
@@ -126,7 +127,8 @@ function () {
   card.setAttribute('size', 'W');
   card.setConfig({ accessories: acc.slice(0, 1) });
   p = card._plan();
-  eq('one accessory in a Wide block on tile cells, no label row: two rows of two places (56 px pills), the group centered (never one tile across the block)', [p.tiles.length, p.geom.tw, p.geom.th, p.geom.n], [1, 182, 56, 4]);
+  eq('one accessory in a Wide block on tile cells, no label row: two rows of two places (56 px pills), the group centered (never one tile across the block)',
+    [p.tiles.length, p.geom.tw, p.geom.th, p.geom.n], [1, 182, 56, 4]);
   card.setConfig({ accessories: acc, height: 'half' });
   p = card._plan();
   eq('more than the places, no title: "N More" the last place (Wide on tile cells: three pills and two more)', [p.tiles.length, p.more, p.hmore], [3, 2, 0]);

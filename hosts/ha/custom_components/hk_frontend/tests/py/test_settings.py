@@ -910,7 +910,8 @@ def test_settings_tidied_gives_phones_their_own_and_drops_the_narrow_choice():
     # nothing a phone shows changes
     for p in items:
         hb = S.resolved(S.board(out[p]), None, {}, {}, m)
-        assert S.phone_menu(hb) == S.phone_menu({**S.board(items[p]), "narrow": S._narrow(items[p] if items[p].get("menu_custom") else options["dashboard"]["menu"]), "menu_phone": items[p].get("menu_phone")})
+        assert S.phone_menu(hb) == S.phone_menu({**S.board(items[p]), "narrow": S._narrow(items[p] if items[p].get("menu_custom") else options["dashboard"]["menu"]),
+            "menu_phone": items[p].get("menu_phone")})
 
 
 def test_the_tab_bars_tinted_glass_has_its_own_name():

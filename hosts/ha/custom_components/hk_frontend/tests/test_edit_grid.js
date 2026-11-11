@@ -144,7 +144,8 @@ function () {
   eq('its sizes, each with whether it fits now (and why not)', sz, 'S:ok W:ok T:ok L:on XL:No room XXL:No room');
   var two = copy(g); two.cols = 2; two.rows = 5; two.items = [{ id: 'c', card: 'clock', size: 'S', at: [0, 0] }];
   eq('...only the sizes the grid holds (a 2-column grid: no Extra Large)', R.sizesOf(X, two, 'c').map(function (o) { return o.size; }), ['S', 'W', 'T', 'L']);
-  var acc = copy(g); acc.items.push({ id: 'acc', card: 'accessories', size: 'XL', at: [3, 2], pages: { source: 'list', list: [{ opts: { accessories: [1, 2, 3, 4, 5].map(function (n) { return { entity: 'light.l' + n }; }) } }] } });
+  var acc = copy(g); acc.items.push({ id: 'acc', card: 'accessories', size: 'XL', at: [3, 2],
+    pages: { source: 'list', list: [{ opts: { accessories: [1, 2, 3, 4, 5].map(function (n) { return { entity: 'light.l' + n }; }) } }] } });
   ok('a size its pages can\'t take says why (the editor\'s words)', /holds 4 accessories/.test(R.sizesOf(X, acc, 'acc').filter(function (o) { return o.size === 'L'; })[0].why));
 },
 function () {
@@ -326,7 +327,8 @@ function () {
      cells(v).filter(function (c) { return c.className.indexOf('hk-ge-going') >= 0; }).length, /^Drag the new/.test(E._.barMessage())], [null, 'none', 0, true]);
   // Escape gives up: nothing changed, every block as it was
   part.placeAt(100, 600);
-  eq('Escape while held: Edit mode is still on, the card not placed', [part.escape(), part.placing, part.grid.items.length, cells(v).length, E.active() !== null, E._.barMessage()], [true, null, 11, 11, true, 'Cancelled.']);
+  eq('Escape while held: Edit mode is still on, the card not placed', [part.escape(), part.placing, part.grid.items.length, cells(v).length, E.active() !== null, E._.barMessage()],
+    [true, null, 11, 11, true, 'Cancelled.']);
   eq('...no block dimmed, the outline gone, the badges back', [cells(v).filter(function (c) { return c.className.indexOf('hk-ge-going') >= 0; }).length,
      v._root.childNodes.filter(function (k) { return k.className.indexOf('hk-ge-target') >= 0; }).length, v._root.className.split(' ').indexOf('hk-ge-carrying') >= 0], [0, 0, false]);
   // a finger: down on the grid, over the blocks, up there -- the card drops
@@ -335,14 +337,17 @@ function () {
   eq('a finger down on the grid aims at once', part.placing.at, [0, 2]);
   var up = ev({ clientX: 100, clientY: 600, pointerType: 'touch' });
   (globalThis.__winL.pointerup || []).forEach(function (f) { f(up); });
-  eq('...lifted there: Action, Timers and Clock are replaced by the Camera, Large, at those cells', [part.placing, at(part.grid, 'lock'), at(part.grid, 'timers'), at(part.grid, 'f2'), at(part.grid, 'b1')],
+  eq('...lifted there: Action, Timers and Clock are replaced by the Camera, Large, at those cells',
+    [part.placing, at(part.grid, 'lock'), at(part.grid, 'timers'), at(part.grid, 'f2'), at(part.grid, 'b1')],
      [null, null, null, null, '0,2 L']);
-  eq('...the rest as they were, and the layout valid', [at(part.grid, 'clock'), at(part.grid, 'thermo'), at(part.grid, 'f1'), X.valid(part.grid), part.grid.items.length], ['0,0 L', '2,2 T', '3,2 L', true, 9]);
+  eq('...the rest as they were, and the layout valid', [at(part.grid, 'clock'), at(part.grid, 'thermo'), at(part.grid, 'f1'), X.valid(part.grid), part.grid.items.length],
+    ['0,0 L', '2,2 T', '3,2 L', true, 9]);
   eq('...the page shows it: the three cells gone, the new one made', [!!cellOf(v, 'lock'), !!cellOf(v, 'timers'), !!cellOf(v, 'f2'), !!cellOf(v, 'b1')], [false, false, false, true]);
   eq('...the others\' elements are kept', cellOf(v, 'clock').firstChild, els0[0]);
   eq('...nothing dimmed, the bar says what went', [cells(v).filter(function (c) { return c.className.indexOf('hk-ge-going') >= 0; }).length,
      E._.barMessage()], [0, 'Action, Timers and Clock were replaced by Camera. Cancel puts them back.']);
-  eq('...one change: dirty, and Cancel puts the page back as it was', [E.active().dirty(), (E.cancel(), E.active()), v._config === cfgF, !!cellOf(v, 'lock'), !!cellOf(v, 'b1')], [true, null, true, true, false]);
+  eq('...one change: dirty, and Cancel puts the page back as it was', [E.active().dirty(), (E.cancel(), E.active()), v._config === cfgF, !!cellOf(v, 'lock'), !!cellOf(v, 'b1')],
+    [true, null, true, true, false]);
 
   // the arrow keys and Enter, and a finger lifted off the grid
   VIEW = v;
@@ -363,7 +368,8 @@ function () {
   part.placeStart('cameras', 'XXL', 0);
   (globalThis.__winL.keydown || []).forEach(function (f) { f(ev({ key: 'ArrowDown', path: [] })); });
   (globalThis.__winL.keydown || []).forEach(function (f) { f(ev({ key: 'Enter', path: [] })); });
-  eq('Enter drops it where the outline is: the Full Width card replaces what it covers', [part.placing, part.grid.items.slice(-1)[0].card, part.grid.items.slice(-1)[0].size, X.valid(part.grid)], [null, 'cameras', 'XXL', true]);
+  eq('Enter drops it where the outline is: the Full Width card replaces what it covers', [part.placing, part.grid.items.slice(-1)[0].card, part.grid.items.slice(-1)[0].size, X.valid(part.grid)],
+    [null, 'cameras', 'XXL', true]);
   E.cancel();
   BOARD.home_grid = copy(LAYOUT);
   key = null;
@@ -376,7 +382,8 @@ function () {
   var part = EG.active();
   part.placeStart('camera', 'L', 0);
   part.placeAt(100, 600);
-  eq('a Large card onto two small tiles, with free cells elsewhere: nothing to remove', [part.placing.plan.removed.length, part.placing.plan.moved.sort(), part.placing.target.classList.contains('replace')], [0, ['lock', 'timers'], false]);
+  eq('a Large card onto two small tiles, with free cells elsewhere: nothing to remove',
+    [part.placing.plan.removed.length, part.placing.plan.moved.sort(), part.placing.target.classList.contains('replace')], [0, ['lock', 'timers'], false]);
   eq('...the bar says the others make room', E._.barMessage(), 'The Large Camera goes here; the others make room.');
   eq('...no block dimmed', cells(VIEW).filter(function (c) { return c.className.indexOf('hk-ge-going') >= 0; }).length, 0);
   eq('...those two slid aside in the view (their cells, not the draft)', [cellOf(VIEW, 'lock').style.gridColumn !== '1 / span 1', at(part.grid, 'lock')], [true, '0,2 S']);

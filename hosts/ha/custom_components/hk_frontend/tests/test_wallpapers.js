@@ -51,7 +51,8 @@ check('the twelve as stored before: settings.py WALLPAPER_LEGACY, in its order',
 check('...each read as its art in its own preset, whatever colour is asked', W.LEGACY.every(function (l) {
   var r = W.resolve(l[0], '#123456'); return r.id === l[1] && r.hex === W.color(l[2]) && W.has(l[0]) && !W.isTheme(l[0]);
 }));
-check('the arts named as you would say them; they move only with the Motion, the themes by themselves', W.list().slice(0, 4).map(function (w) { return w.name; }).join() === 'Ribbons,Petals,Shards,Pinwheel' &&
+check('the arts named as you would say them; they move only with the Motion, the themes by themselves', W.list().slice(0, 4).map(function (w) { return w.name; }).join() ===
+  'Ribbons,Petals,Shards,Pinwheel' &&
       W.list().every(function (w) { return w.moves === w.theme; }));
 check('every family has five colours by day and by night, the night darker', Object.keys(W.FAMILIES).every(function (f) {
   var F = W.FAMILIES[f], L = function (c) { var n = parseInt(c.slice(1), 16); return 0.2126 * (n >> 16) + 0.7152 * (n >> 8 & 255) + 0.0722 * (n & 255); };

@@ -322,7 +322,8 @@ ok('a label names the camera', /cap\.textContent = c\.name/.test(body));
 ok('a live tile with a pop-up lets touches through HA\'s card (its action handler eats the click on touch)',
    /'\.live\.pop>hui-card\{pointer-events:none\}'/.test(src) && /liveBox\.classList\.add\('pop', 'tap'\)/.test(src));
 // (what hashes() returns -- the MOUNTED ones -- is driven in test_popup.js)
-ok('hkPopup.open and .hashes exist for the strip and its editor', /open: function \(h\) \{ h = norm\(h\); if \(h && location\.hash !== h\) setHash\(h\); \}/.test(psrc) && /hashes: mounted/.test(psrc));
+ok('hkPopup.open and .hashes exist for the strip and its editor', /open: function \(h\) \{ h = norm\(h\); if \(h && location\.hash !== h\) setHash\(h\); \}/.test(psrc) &&
+  /hashes: mounted/.test(psrc));
 ok('the pop-up group draws nothing and builds ordinary pop-ups',
    /class HkPopupGroupCard[\s\S]{0,120}:host\{display:none\}/.test(psrc) && /type: 'custom:hk-popup-card' \}, pc\)/.test(psrc));
 

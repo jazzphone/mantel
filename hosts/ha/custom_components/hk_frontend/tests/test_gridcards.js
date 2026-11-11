@@ -76,7 +76,8 @@ H.run('GRID CARDS', [
 function () {
   H.section('Centred tiles (2026-10-30, HOMEVIEW-LOOK.md Phase B): the block\'s Tile Style reaches its tile');
   var factory = window.hkCards.createCard;
-  window.hkCards.createCard = function (cfg, c) { var el = H.make(cfg.type.slice(7)); el._root.replaceChildren = function (child) { this.innerHTML = ''; this.appendChild(child); }; el.setConfig(cfg); el.client = c; return el; };
+  window.hkCards.createCard = function (cfg, c) { var el = H.make(cfg.type.slice(7)); el._root.replaceChildren = function (child) { this.innerHTML = ''; this.appendChild(child); }; el.setConfig(cfg);
+    el.client = c; return el; };
   var acc = window.hkCards.createCard(window.hkGridCatalog.config({ card: 'accessory', size: 'S', opts: { entity: 'lock.front_door' } }), client);
   eq('Home: no attribute, no room line (the tile as it was)', [acc._child.getAttribute('tile'), 'room' in acc._child._config], [undefined, false]);
   acc.setAttribute('tile', 'centred'); acc.attributeChangedCallback('tile', null, 'centred'); acc.client = client;
@@ -92,7 +93,8 @@ function () {
   eq('Centred with Line Under Name: State -- no room, the state line', ['room' in st._child._config, st._child._config.secondary], [false, { mode: 'state' }]);
   var c0 = acc._config, made = null;
   var tileOf = window.hkStrategy.tileFor;
-  window.hkStrategy.tileFor = function () { return { type: 'custom:hk-tall-card', entity: 'lock.front_door', icon: 'hk:alarm-light-off', icon_size: '27px', bare_icon: true, well_background: 'transparent' }; };
+  window.hkStrategy.tileFor = function () { return { type: 'custom:hk-tall-card', entity: 'lock.front_door', icon: 'hk:alarm-light-off', icon_size: '27px', bare_icon: true,
+    well_background: 'transparent' }; };
   acc.setAttribute('tile', 'centred'); made = acc._tile();
   eq('...a glyph drawn at a room page\'s 27 px takes the block\'s size', ['icon_size' in made, 'bare_icon' in made, 'well_background' in made], [false, false, false]);
   acc.removeAttribute('tile'); made = acc._tile();
@@ -114,13 +116,16 @@ function () {
   // the CSS: one variant, the tiles' own parts, from the table (hk-base.js TILE.centred)
   var tileCss = customElements.get('hk-tile-card').CSS, keyCss = customElements.get('hk-action-card').CSS, T = window.hkCards.TILE.centred;
   ok('the tile and the key each have the variant, keyed by the attribute', tileCss.indexOf(':host([tile=centred])') >= 0 && keyCss.indexOf(':host([tile=centred])') >= 0);
-  ok('...a 196 x 150 cell\'s numbers, then a square cell\'s', tileCss.indexOf('top:' + T.tall.at + '%') >= 0 && tileCss.indexOf('@container hk-cell (min-height:170px) or (max-aspect-ratio: 6 / 5) or style(--hk-cell-shape: square){') >= 0 &&
+  ok('...a 196 x 150 cell\'s numbers, then a square cell\'s', tileCss.indexOf('top:' + T.tall.at + '%') >= 0 &&
+    tileCss.indexOf('@container hk-cell (min-height:170px) or (max-aspect-ratio: 6 / 5) or style(--hk-cell-shape: square){') >= 0 &&
      tileCss.indexOf('width:' + T.square.glyph + 'px !important;height:' + T.square.glyph + 'px !important') >= 0);
   ok('...the lock\'s and Lock Up\'s, the lights\' and the scenes\' tiles: hk-tile\'s and the key\'s', keyCss.indexOf('top:' + T.square.text + '%') >= 0);
   ok('...the glyph bare, off and lit -- no circle (2026-10-31, HomeView has none)', tileCss.indexOf(':host([tile=centred]) .well{background:none !important}') >= 0 &&
      tileCss.indexOf(':host([tile=centred]) hk-plate.card[data-on="1"] .icon{width:') < 0);
-  ok('...lit, the glyph in its own colour (the tile draws it bare)', /getAttribute\('tile'\) === 'centred' \? Object\.assign\(\{\}, cfg, \{ bare_icon: true \}\)/.test(readFile(HK_ROOT + '/frontend/cards/hk-tile.js')));
-  ok('a block\'s corners on square cells: the tile and the key read --hk-block-radius', /:host\(\[size\]:not\(\[data-group-fill\]\)\) hk-plate\.card\{border-radius:var\(--hk-block-radius/.test(tileCss) &&
+  ok('...lit, the glyph in its own colour (the tile draws it bare)', /getAttribute\('tile'\) === 'centred' \? Object\.assign\(\{\}, cfg, \{ bare_icon: true \}\)/.test(
+    readFile(HK_ROOT + '/frontend/cards/hk-tile.js')));
+  ok('a block\'s corners on square cells: the tile and the key read --hk-block-radius',
+    /:host\(\[size\]:not\(\[data-group-fill\]\)\) hk-plate\.card\{border-radius:var\(--hk-block-radius/.test(tileCss) &&
      /hk-plate\.k\{border-radius:var\(--hk-block-radius/.test(keyCss));
 },
 function () {
@@ -128,7 +133,8 @@ function () {
   var C = window.hkGridCatalog, ctx = { climate: ['climate.den'] };
   eq('a thermostat block\'s Style: Big Number', C.config({ card: 'thermostat', size: 'L', opts: { style: 'big' } }, ctx), { type: 'custom:hk-control-card', entity: 'climate.den', style: 'big' });
   eq('...the dial when it is not chosen', C.config({ card: 'thermostat', size: 'T' }, ctx), { type: 'custom:hk-control-card', entity: 'climate.den' });
-  eq('...Extra Large too: the face with the modes beside it (2026-10-31)', C.config({ card: 'thermostat', size: 'XL', opts: { style: 'big' } }, ctx), { type: 'custom:hk-control-card', entity: 'climate.den', style: 'big' });
+  eq('...Extra Large too: the face with the modes beside it (2026-10-31)', C.config({ card: 'thermostat', size: 'XL', opts: { style: 'big' } }, ctx),
+    { type: 'custom:hk-control-card', entity: 'climate.den', style: 'big' });
   eq('...the dial\'s Extra Large stays the sheet', C.config({ card: 'thermostat', size: 'XL' }, ctx).type, 'custom:hk-grid-panel-card');
   eq('...every thermostat page takes it', C.pages({ card: 'thermostat', size: 'L', opts: { style: 'big' }, pages: { source: 'thermostats' } }, { climate: ['climate.den', 'climate.hall'] })
      .map(function (p) { return p.card.style; }), ['big', 'big']);
@@ -139,7 +145,8 @@ function () {
 function () {
   H.section('standalone grid accessories reuse the room tile builder');
   var factory = window.hkCards.createCard;
-  window.hkCards.createCard = function (cfg, c) { var el = H.make(cfg.type.slice(7)); el._root.replaceChildren = function (child) { this.innerHTML = ''; this.appendChild(child); }; el.setConfig(cfg); el.client = c; return el; };
+  window.hkCards.createCard = function (cfg, c) { var el = H.make(cfg.type.slice(7)); el._root.replaceChildren = function (child) { this.innerHTML = ''; this.appendChild(child); }; el.setConfig(cfg);
+    el.client = c; return el; };
   var id = 'light.kitchen_pendant', own = FEED.accessories.entities;
   own[id] = { icon: 'hk:coffee-maker-outline', color: 'orange', size: 'regular' };
   var cfg = window.hkGridCatalog.config({ card: 'accessory', size: 'S', opts: { entity: id, secondary: { mode: 'none' } } });
@@ -179,7 +186,8 @@ function () {
   var t = C.table();
   eq('the options each declares (home_grid.CATALOG\'s: a pytest holds them equal)',
      [t.room.opts, t.scene_suggested.opts, t.action.opts, t.everything.opts],
-     [{ area: 'area', surface: 'surface', accessory_display: 'room_display', tap: 'tap_target' }, { windows: 'windows' }, { action: 'action', area: 'area', color: 'boolean' }, { tap: 'tap_target', more: 'everything_more' }]);
+     [{ area: 'area', surface: 'surface', accessory_display: 'room_display', tap: 'tap_target' }, { windows: 'windows' }, { action: 'action', area: 'area', color: 'boolean' },
+       { tap: 'tap_target', more: 'everything_more' }]);
   // (2026-11-08, round two) Everything's More Places and On Now's Categories, carried into the card only when not the default
   eq('...Everything\'s More Places, On Now\'s Categories', [t.on_now.opts, C.config({ card: 'everything', size: 'L', opts: { more: 'scroll' } }, ctx).more,
      C.config({ card: 'everything', size: 'L', opts: { more: 'page' } }, ctx).more, C.config({ card: 'on_now', size: 'L', opts: { open: 'page' } }, ctx).open,
@@ -235,7 +243,8 @@ function () {
   eq('Large\'s tile size, three across (Full Width six), two rows', [xp.geom.cols, xp.geom.rows, window.hkChip.groupGeom(xl, 'XXL', { head: 27 }).cols], [3, 2, 6]);
   var rsrc = xl.constructor.CSS, gsrc = readFile(HK_ROOT + '/frontend/grid-cards/hk-grid-room.js');
   ok('the tiles start at the top-left of the block, not centered in it', /\.room\.ar\[size=XL\] \.tiles,\.room\.ar\[size=XXL\] \.tiles\{align-content:flex-start;margin:0;max-width:none\}/.test(rsrc));
-  ok('more than the places: "+N more" at the heading\'s right, in place of the status, not a tile', /if \(more && \(size === 'XL' \|\| size === 'XXL'\)\) \{\s*return \{[^}]*more: 0, hmore: total - places, lbl: true/.test(gsrc));
+  ok('more than the places: "+N more" at the heading\'s right, in place of the status, not a tile',
+    /if \(more && \(size === 'XL' \|\| size === 'XXL'\)\) \{\s*return \{[^}]*more: 0, hmore: total - places, lbl: true/.test(gsrc));
   H.detach(xl);
 },
 function () {

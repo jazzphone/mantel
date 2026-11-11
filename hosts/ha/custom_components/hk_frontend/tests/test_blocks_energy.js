@@ -141,7 +141,8 @@ function () {
   hkGive(card, hass);
   card._render();
   var html = H.morphed(card._card);
-  ok('W: the rings and the switch, This Week chosen', /class="rings"/.test(html) && /data-p="week" aria-pressed="true"/.test(html) && /data-p="day" aria-pressed="false"/.test(html), html.slice(0, 300));
+  ok('W: the rings and the switch, This Week chosen', /class="rings"/.test(html) && /data-p="week" aria-pressed="true"/.test(html) && /data-p="day" aria-pressed="false"/.test(html),
+    html.slice(0, 300));
   ok('...each figure beside them, with its name', /<b>Energy<\/b>/.test(html) && /<b>Cost<\/b>/.test(html) && /<b>Water<\/b>/.test(html), html);
   ok('...a ring a figure: three here (the sample house has no solar)', (html.match(/class="arc" /g) || []).length === 3, html.match(/class="arc" /g));
   card._pick('month');
@@ -241,7 +242,8 @@ function () {
      (html.match(/<em>\d+ gal<\/em>/g) || []).length >= 3, html);
   house.set('binary_sensor.sink_leak', 'off');
   html = H.morphed(panel('doors', 'S')._own.plate);
-  ok('Doors S: how many are open, large, and which', /class="dd hero on"/.test(html) && />1 Open</.test(html) && /class="ws">Office Window</.test(html) && /mdi:window-open/.test(html) && !/data-more/.test(html), html);
+  ok('Doors S: how many are open, large, and which', /class="dd hero on"/.test(html) && />1 Open</.test(html) && /class="ws">Office Window</.test(html) && /mdi:window-open/.test(html) &&
+    !/data-more/.test(html), html);
   html = H.morphed(panel('doors', 'W')._own.plate);
   // (2026-11-09: lit teal, not orange -- DESIGN.md; every door a row; the list scrolls, no "+N more")
   ok('Doors W: the count beside the list, the open one first and lit', />1 Open</.test(html) && /class="ws"[^>]*>Office Window</.test(html) && !/All doors closed/.test(html) &&
@@ -251,7 +253,8 @@ function () {
   var pl = panel('doors', 'L');
   ok('Doors L: its own plate, not the house picture', !!pl._own && pl._own.spec.own === 'doors');
   html = H.morphed(pl._own.plate);
-  ok('...the headline over rows at their own 56 px (nothing stretches), the open one first, no foot', /class="dt">1 Open</.test(html) && /class="wr tall dl"/.test(html) && !/wr grow|total/.test(html) &&
+  ok('...the headline over rows at their own 56 px (nothing stretches), the open one first, no foot', /class="dt">1 Open</.test(html) && /class="wr tall dl"/.test(html) &&
+    !/wr grow|total/.test(html) &&
      html.indexOf('Office Window') < html.indexOf('Front Door'), html);
   // THE LIST SCROLLS (2026-11-09, the owner): every door a row, no "+N more", the list a scroller the rows keep 56 px in
   ok('Doors L: every door is a row (no "N more"), in a vertical scroller', (html.match(/<div data-more=/g) || []).length === 4 && !/class="more"|\d+ more</.test(html), html);
@@ -309,7 +312,8 @@ function () {
   ok('W: the count in its column with the All Off pill at its foot; the kinds as lines of 56 beside it, in a list that scrolls',
      (html.match(/class="ln/g) || []).length === 4 && /class="sm-k" data-all/.test(html) && /role="list"/.test(html) && /class="ls sc/.test(html) && !/class="di"|sm-k f/.test(html), html);
   html = H.morphed(draw('T')._plate);
-  ok('T: the count over a line a kind -- its lit disc, its name and its count and where under it -- and the All Off pill under the lines', /<div class="tf"><button type="button" class="sm-k" data-all/.test(html) &&
+  ok('T: the count over a line a kind -- its lit disc, its name and its count and where under it -- and the All Off pill under the lines',
+    /<div class="tf"><button type="button" class="sm-k" data-all/.test(html) &&
      /class="ln u r0" data-open-kind="lights"[^>]*><span class="dk" style="width:32px;height:32px;background:[^"]+"[^>]*>.*?<span class="nm">Lights<\/span><span class="dt">2 on · Kitchen, Porch<\/span>/.test(html), html);
   var l = draw('L');
   html = H.morphed(l._plate);
@@ -317,7 +321,9 @@ function () {
      /<div class="hr"><div class="hl">.*?<button type="button" class="sm-k" data-all/.test(html) &&
      /<span class="dt">Coffee Maker<\/span>/.test(html) && (html.match(/class="ln/g) || []).length === 4, html);
   html = H.morphed(draw('XL')._plate);
-  ok('XL: the count top left in a column of its own (no heading), All Off at its foot, the four lines beside it', /class="sx tp"/.test(html) && /<div class="ft"><button type="button" class="sm-k" data-all/.test(html) && !/sm-l|sm-h/.test(html) && /<div class="sc"><div class="grp" style="margin-bottom:0"><div class="hl big">/.test(html) && (html.match(/class="ln/g) || []).length === 4, html);
+  ok('XL: the count top left in a column of its own (no heading), All Off at its foot, the four lines beside it', /class="sx tp"/.test(html) &&
+    /<div class="ft"><button type="button" class="sm-k" data-all/.test(html) && !/sm-l|sm-h/.test(html) && /<div class="sc"><div class="grp" style="margin-bottom:0"><div class="hl big">/.test(html) &&
+    (html.match(/class="ln/g) || []).length === 4, html);
   // TAP ZONES (2026-11-07): a kind opens a sheet of those things (one thing: its own sheet)
   var went = [], saveD = window.hkDetail, saveM = window.hkShell.moreInfo;
   window.hkDetail = { openGroup: function (title, ids, o) { went.push(['group', title, ids, o && o.icon]); return true; } };

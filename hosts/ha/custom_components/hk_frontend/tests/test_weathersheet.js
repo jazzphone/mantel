@@ -16,7 +16,8 @@ var matchMedia=function(){return {matches:false}};
 var pass=0,fail=0;
 function ok(n,c){if(c){pass++;print('PASS '+n)}else{fail++;print('FAIL '+n)}}
 var today=new Date();today.setHours(0,0,0,0);
-var day=function(n){var d=new Date(today);d.setDate(d.getDate()+n);return {datetime:d.toISOString(),temperature:70+n,templow:50+n,condition:'sunny',humidity:40+n,wind_speed:5,precipitation_probability:10}};
+var day=function(n){var d=new Date(today);d.setDate(d.getDate()+n);return {datetime:d.toISOString(),temperature:70+n,templow:50+n,condition:'sunny',humidity:40+n,wind_speed:5,
+    precipitation_probability:10}};
 var days=[day(-1),day(0),day(1),day(2)];
 var hours=[{datetime:new Date(Date.now()+3600e3).toISOString(),temperature:63},{datetime:new Date(Date.now()+7200e3).toISOString(),temperature:65}];
 var h=H.house({'weather.test':['sunny',{temperature:64,temperature_unit:'°F',humidity:45,wind_speed:4}], 'sun.sun':['above_horizon',{}]});

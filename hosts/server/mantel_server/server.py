@@ -37,7 +37,8 @@ from . import (admin_page, atrest, backup, connections, features, linked, linked
                linked_files, linked_reads, linked_settings, people_ha, screens,
                linked_actions, login_page, phones, supervisor_discovery,
                photos, service_accounts, talk_relay, user_files)
-from . import camera_setup, default_screens, direct, direct_tls, docs_pages, ha_dashboards, ma_page, media_proxy, proxy_check, proxy_trust, route_table, security_headers, socket_reads, tablet_links, user_data
+from . import (camera_setup, default_screens, direct, direct_tls, docs_pages, ha_dashboards, ma_page, media_proxy, proxy_check,
+    proxy_trust, route_table, security_headers, socket_reads, tablet_links, user_data)
 from . import alerts, app_shell, timeline, cf_access, guards, hk_cards, live, mcp, page_health, performance, server_settings, setup_guide
 from .authz import Authz, Principal, resolve_door
 from .config import Config

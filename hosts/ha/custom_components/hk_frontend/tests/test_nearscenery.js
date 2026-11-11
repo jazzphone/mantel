@@ -13,14 +13,16 @@ function node(){
  n.classList={contains:function(k){return !!n.classes[k];},toggle:function(k,on){n.classes[k]=on;},add:function(k){n.classes[k]=true;},remove:function(k){delete n.classes[k];}};
  n.appendChild=function(c){c.parent=n;n.children.push(c);return c;};
  n.insertBefore=function(c,b){if(c.parent)c.remove();c.parent=n;var i=n.children.indexOf(b);n.children.splice(i<0?n.children.length:i,0,c);return c;};
- n.querySelectorAll=function(sel){var out=[];function walk(a){a.children.forEach(function(c){if(sel.split(',').some(function(t){return c.className.split(' ').indexOf(t.slice(1))>=0;}))out.push(c);walk(c);});}walk(n);return out;};
+ n.querySelectorAll=function(sel){var out=[];function walk(a){a.children.forEach(
+   function(c){if(sel.split(',').some(function(t){return c.className.split(' ').indexOf(t.slice(1))>=0;}))out.push(c);walk(c);});}walk(n);return out;};
  n.querySelector=function(sel){return n.querySelectorAll(sel)[0]||null;};
  n.remove=function(){if(n.parent)n.parent.children=n.parent.children.filter(function(c){return c!==n;});};
  n.getRootNode=function(){return null;};
  n.getBoundingClientRect=function(){return {left:0,top:0,width:n.clientWidth,height:n.clientHeight};};
  Object.defineProperty(n,'textContent',{set:function(){n.children=[];}});return n;
 }
-globalThis.document={createElement:node,readyState:'complete',head:node(),body:node(),addEventListener:function(){},querySelector:function(){return null;},querySelectorAll:function(){return [];},getElementById:function(){return null;}};
+globalThis.document={createElement:node,readyState:'complete',head:node(),body:node(),addEventListener:function(){},querySelector:function(){return null;},querySelectorAll:function(){return [];},
+  getElementById:function(){return null;}};
 load(HK_ROOT+'/frontend/modules/hk-sky.js');
 var sky=node(),parts={};sky.querySelector=function(sel){return parts[sel]||(parts[sel]=node());};
 // DAYTIME SKY: a fair midday is the bright blue; an overcast or a wet one keeps the deep sky
@@ -69,7 +71,8 @@ check('weather updates do not move rooted decorations',root.values['--art-h']===
 s.elev=-3;hkSky._paint(sky,s);
 var sceneWrites=0,setP=root.style.setProperty;root.style.setProperty=function(k,v){if(/^--scene-[bs]$|^--scene-light$/.test(k))sceneWrites++;setP(k,v);};
 s.elev=-2.98;hkSky._paint(sky,s);s.elev=-2.96;hkSky._paint(sky,s);root.style.setProperty=setP;
-check('dusk ticks that change nothing visible leave the scene light alone',sceneWrites===0&&/^\d\.\d\d$/.test(root.values['--scene-b'])&&Math.abs(Number(root.values['--scene-b'])/.02-Math.round(Number(root.values['--scene-b'])/.02))<1e-9);
+check('dusk ticks that change nothing visible leave the scene light alone',sceneWrites===0&&/^\d\.\d\d$/.test(root.values['--scene-b'])&&
+  Math.abs(Number(root.values['--scene-b'])/.02-Math.round(Number(root.values['--scene-b'])/.02))<1e-9);
 // a moon the touches can measure
 parts['.moon'].getBoundingClientRect=function(){return {left:1100,top:40,width:76,height:76};};
 s.elev=-18;hkSky._paint(sky,s);
@@ -80,7 +83,8 @@ check('Christmas Eve: Santa across the moon',root.classes.eve===true&&sleigh.sty
 sky._hkNear.update({now:new Date(2026,11,26,21,0)});check('...and only Christmas Eve',!root.classes.eve);
 s.elev=-18;s.animations=false;hkSky._paint(sky,s);check('animation switch retains art and uses lifecycle guard',sky.classes.noanim&&sky._hkNear.root===root);
 s.season='';hkSky._force(null);hkSky._surpriseForce('winter-wonderland');hkSky._paint(sky,s);
-check('plain winter replaces Christmas and disconnects old observer',sky._hkNear.root!==root&&activeObservers===1&&!sky._hkNear.root.querySelectorAll('.scenery-bulb').length&&sky._hkNear.root.values['--scene-image']==='url(/hk/sky/near/winter-v1.webp)');
+check('plain winter replaces Christmas and disconnects old observer',sky._hkNear.root!==root&&activeObservers===1&&!sky._hkNear.root.querySelectorAll('.scenery-bulb').length&&
+  sky._hkNear.root.values['--scene-image']==='url(/hk/sky/near/winter-v1.webp)');
 s.season='halloween';hkSky._surpriseForce(null);hkSky._force({show:true,spooky:true});hkSky._paint(sky,s);
 var spookyRoot=sky._hkNear.root;
 check('a spooky Halloween night stands the leaves down (and their animations with them)',spookyRoot.classes.spooky===true&&spookyRoot.querySelectorAll('.leaves').length===1);
@@ -94,7 +98,8 @@ check('...the owl in its tree and the mist over the moon',hr.querySelectorAll('.
 var flockTops=function(){return hr.querySelectorAll('.flock').map(function(f){return f.children.map(function(b){return b.style.top;}).join(',');}).join('|');};
 var tops=flockTops();hkSky._paint(sky,s);hkSky._paint(sky,s);
 check('the flocks keep the places across() gives them, paint after paint (no fixed-row override)',flockTops()===tops&&tops.indexOf('px')>0);
-check('...inside the clear band above the camera mosaic',hr.querySelectorAll('.flock')[0].children.every(function(b){var t=parseFloat(b.style.top)+parseFloat(b.style.height)/2;return t>=40&&t<=180;}));
+check('...inside the clear band above the camera mosaic',hr.querySelectorAll('.flock')[0].children.every(
+  function(b){var t=parseFloat(b.style.top)+parseFloat(b.style.height)/2;return t>=40&&t<=180;}));
 check('an ordinary Halloween night shows the dark field (flocks, owl) but not the spooky swarm\'s night field',!hr.classes['is-night']&&!hr.classes['is-day']&&!hr.classes['out-dark']);
 var realNow=Date.now,clock=realNow.call(Date);Date.now=function(){return clock;};
 s.elev=25;hkSky._paint(sky,s);
@@ -222,7 +227,8 @@ var fair=hkSky._rcPlan({cover:.15,cond:'sunny'}),partly=hkSky._rcPlan({cover:.45
 check('realistic clouds: a fair day has a handful of cumulus, a partly cloudy sky more, a mostly cloudy one most',
   !fair.deck&&rcCount(fair,'cu')>=3&&rcCount(fair,'cu')<rcCount(partly,'cu')&&rcCount(partly,'cu')<rcCount(mostly,'cu'));
 check('...the haze on the horizon once it clouds up',rcCount(partly,'horizon-haze')===1&&rcCount(fair,'horizon-haze')===0);
-check('...never more than 28 clouds',[0,.1,.3,.5,.7,.84].every(function(c){return hkSky._rcPlan({cover:c,cond:'lightning'},7).sets.length<=28&&hkSky._rcPlan({cover:c,cond:'partlycloudy'},7).sets.length<=28;}));
+check('...never more than 28 clouds',[0,.1,.3,.5,.7,.84].every(function(c){return hkSky._rcPlan({cover:c,cond:'lightning'},7).sets.length<=28&&
+  hkSky._rcPlan({cover:c,cond:'partlycloudy'},7).sets.length<=28;}));
 var lid=hkSky._rcPlan({cover:.95,cond:'cloudy'}),wetLid=hkSky._rcPlan({cover:.65,cond:'rainy'});
 check('...overcast, or rain under a heavy sky, is the deck as a ceiling, scud under it (more in rain) and haze on the horizon',
   lid.deck&&wetLid.deck&&rcCount(lid,'scud')===3&&rcCount(wetLid,'scud')===5&&rcCount(lid,'horizon-haze')===1);
@@ -238,7 +244,8 @@ check('...the light: day (a shower from a broken sky too), grey under a lid, gol
  var ops=[],ctxs=0,dc=document.createElement,ImgWas=globalThis.Image,dpr0=globalThis.devicePixelRatio;
  function ctx(name){ctxs++;var c={setTransform:function(){},createLinearGradient:function(){var g={stops:[],addColorStop:function(o,col){g.stops.push(o+' '+col);}};return g;},
   fillRect:function(x,y,w,h){ops.push(name+' fill '+[x,y,w,h].join(',')+' '+(c.fillStyle&&c.fillStyle.stops?c.fillStyle.stops.join('|'):''));},
-  drawImage:function(im,x,y,w,h){ops.push(name+' '+((c.globalCompositeOperation||'source-over')==='source-over'?'over':c.globalCompositeOperation)+' '+(im.src||'scratch').split('/').pop().slice(0,12)+' '+[x,y,w,h].filter(function(v){return v!==undefined;}).map(function(v){return Math.round(v);}).join(','));}};return c;}
+  drawImage:function(im,x,y,w,h){ops.push(name+' '+((c.globalCompositeOperation||'source-over')==='source-over'?'over':c.globalCompositeOperation)+' '+(im.src||'scratch').split('/').pop().slice(0,12)+
+    ' '+[x,y,w,h].filter(function(v){return v!==undefined;}).map(function(v){return Math.round(v);}).join(','));}};return c;}
  document.createElement=function(t){var n=dc(t);if(t==='canvas'){var name=ctxs?'piece':'main';n.getContext=function(){return n._c||(n._c=ctx(name));};}return n;};
  globalThis.Image=function(){var im=this;Object.defineProperty(im,'src',{set:function(v){im._s=v;im.onload&&im.onload();},get:function(){return im._s;}});};
  globalThis.devicePixelRatio=1.5;
@@ -248,7 +255,8 @@ check('...the light: day (a shower from a broken sky too), grey under a lid, gol
  check('...the screen at its density',f.canvas.width===1920&&f.canvas.height===1200);
  var main=ops.filter(function(o){return o.indexOf('main')===0;}),piece=ops.filter(function(o){return o.indexOf('piece')===0;});
  check('...the wash first: transparent to 60%, the ground color by 90%',/^main fill 0,0,1280,800 0.6 rgba\(48,41,25,0\)\|0.9 rgba\(48,41,25,1\)$/.test(main[0]),main[0]);
- check('...then the valley at twice the width, centred, cut from 35% to 40% down',piece[0]==='piece over halloween-v1 -640,0,2560,800'&&/^piece fill 0,0,1280,800 0.35 rgba\(0,0,0,0\)\|0.4 rgba\(0,0,0,1\)$/.test(piece[1]),piece.slice(0,2));
+ check('...then the valley at twice the width, centred, cut from 35% to 40% down',piece[0]==='piece over halloween-v1 -640,0,2560,800'&&
+   /^piece fill 0,0,1280,800 0.35 rgba\(0,0,0,0\)\|0.4 rgba\(0,0,0,1\)$/.test(piece[1]),piece.slice(0,2));
   check('...then each tree at the art\'s size on its own edge, cut by its mask',piece[2]==='piece over halloween-v1 0,0,1279,800'&&piece[3]==='piece destination-in mask-left.sv 0,0,1279,800'&&
   piece[4]==='piece over halloween-v1 1,0,1279,800'&&piece[5]==='piece destination-in mask-right.s 1,0,1279,800',piece.slice(2));
  check('...each laid on the canvas in that order',main.slice(1).join()==='main over scratch 0,0,main over scratch 0,0,main over scratch 0,0');

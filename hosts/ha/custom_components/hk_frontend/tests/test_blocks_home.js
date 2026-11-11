@@ -82,7 +82,8 @@ function () {
   // (mockup 5, approved 2026-11-09: each running timer one piece -- name, ring with the time inside, Pause and Stop under it; Small the ring alone)
   ok('...Small: the ring alone with the time inside it, no keys (the block\'s tap opens the Timers page)', !/class="pr"/.test(html) && !/class="stop"/.test(html) &&
      /<div class="rw"><svg[\s\S]*?<hk-countdown deadline="\d+" total="720"><\/hk-countdown><\/div>/.test(html));
-  ok('...the countdown is the ring\'s own child, so the circle reads its fraction (--hk-left)', /<div class="gt"><div class="hd"><b class="nm">Pasta<\/b><\/div><div class="rg"><div class="rw"><svg/.test(html));
+  ok('...the countdown is the ring\'s own child, so the circle reads its fraction (--hk-left)',
+    /<div class="gt"><div class="hd"><b class="nm">Pasta<\/b><\/div><div class="rg"><div class="rw"><svg/.test(html));
   var lx = sized('hk-timer-strip-card', 'L', { entity: 'sensor.running_quick_timers' })._e.__html;
   ok('Large: Pause is its own key under the ring, the red Stop beside it, the ring no longer a button',
      /<button class="pr" data-timer="timer.quick_1" data-service="pause" aria-label="Pause Pasta"><hk-icon icon="mdi:pause">/.test(lx) &&
@@ -101,20 +102,23 @@ function () {
     ok(z + ': the + at the top right (a New Timer tap)', /<button class="pl" data-new aria-label="Add a timer"><hk-icon icon="mdi:plus"><\/hk-icon><\/button>/.test(h));
   });
   ok('...the + is a 52 px disc in a 56 px target, orange, a white glyph; the keys 52 in 56 with 14 between', SRC.indexOf("position:absolute;top:6px;right:6px;z-index:2;width:56px;height:56px") > 0 &&
-     SRC.indexOf(".pl::before{content:\"\";position:absolute;inset:2px;border-radius:50%;background:' + window.hkCards.ACCENTS.orange") > 0 && SRC.indexOf(".gt .kk{display:flex;gap:10px;flex:none}") > 0 &&
+     SRC.indexOf(".pl::before{content:\"\";position:absolute;inset:2px;border-radius:50%;background:' + window.hkCards.ACCENTS.orange") > 0 && SRC.indexOf(".gt .kk{display:flex;gap:10px;flex:none}") >
+       0 &&
      SRC.indexOf(".gt .pr::before,.gt .stop::before{content:\"\";position:absolute;inset:2px;") > 0);
   var opened = [];
   window.hkDetail = { open: function (a, b, c) { opened.push(c); } };
   var wc = sized('hk-timer-strip-card', 'W', { entity: 'sensor.running_quick_timers' });
   wc._newGridTimer();   // (what the +'s tap calls: _gridTap sends data-new here)
-  ok('...it opens the New Timer sheet with the wheels', opened.length === 1 && opened[0].cards.cards[0].layout === 'sheet' && SRC.indexOf("button.dataset.new !== undefined) { this._newGridTimer()") > 0);
+  ok('...it opens the New Timer sheet with the wheels', opened.length === 1 && opened[0].cards.cards[0].layout === 'sheet' && SRC.indexOf("button.dataset.new !== undefined) { this._newGridTimer()") >
+    0);
   delete window.hkDetail;
   // EXTRA LARGE keeps the maker beside one or two timers where they fit (a 288 px maker and 122 px a timer), and has no +
   var xm = sizedAt('hk-timer-strip-card', 'XL', { entity: 'sensor.running_quick_timers' }, 608, 310)._e.__html;
   ok('Extra Large, two running in a 608 px block: both, and the maker beside them -- no +', /class="xm" style="--mw:\d+px"/.test(xm) && /--cols:2/.test(xm) && /Pasta/.test(xm) && /Laundry/.test(xm) &&
      /<div class="mk" data-keep data-notap[^>]*--hk-mk-row:\d+px/.test(xm) && !/class="pl"/.test(xm));
   var xm1 = sizedAt('hk-timer-strip-card', 'XL', { entity: 'sensor.running_quick_timers' }, 455, 300)._e.__html;
-  ok('...in a 455 px block one timer fits beside it: "+1 more" and the maker', /class="xm"/.test(xm1) && /--cols:1/.test(xm1) && !/Laundry/.test(xm1) && /\+1 more/.test(xm1) && /--mw:(2[89]\d|3[0-4]\d)px/.test(xm1));
+  ok('...in a 455 px block one timer fits beside it: "+1 more" and the maker', /class="xm"/.test(xm1) && /--cols:1/.test(xm1) && !/Laundry/.test(xm1) && /\+1 more/.test(xm1) &&
+    /--mw:(2[89]\d|3[0-4]\d)px/.test(xm1));
   ok('...where the maker leaves no room for one (a 300 px block) the timers take it, with the +', !/class="xm"/.test(xt) && /class="pl"/.test(xt));
   house.set('timer.quick_1', 'paused', { friendly_name: 'Quick Timer 1', duration: '0:12:00', remaining: '0:04:00' });
   house.set('sensor.running_quick_timers', '1', { running: [{ name: 'Pasta', entity_id: 'timer.quick_1', finishes_at: iso(420) }] });
@@ -137,11 +141,15 @@ function () {
      /class="gt idle mkr"><div class="ql"><span class="dir">Start a Timer<\/span>/.test(xl) && (xl.match(/data-preset=/g) || []).length === 6 &&
      /<div class="mk" data-keep data-notap[^>]*--hk-mk-row:\d+px/.test(xl) && !/class="rk add"/.test(xl));
   var big = sized('hk-timer-strip-card', 'L', { entity: 'sensor.running_quick_timers' })._e.__html;
-  // LARGE, NOTHING RUNNING (2026-11-09, mockup 14b, the owner: "the roller to create a new timer isn't implemented here"): the headline upper left, four rings across (56 px), the maker's kept place under them
-  ok('...Large: "Start a Timer", four rings (5, 10, 15, 30), and the maker\'s place -- no +, the wheels are there', /class="gt idle lg"><span class="dir">Start a Timer<\/span>/.test(big) && (big.match(/data-preset=/g) || []).length === 4 &&
-     /class="qs g" style="--k:56px;--qc:4"/.test(big) && />30m</.test(big) && />15m</.test(big) && !/class="rk add"/.test(big) && /<div class="mk" data-keep data-notap[^>]*--hk-mk-row:\d+px;--hk-mk-fs:\d+px;--hk-mk-pad/.test(big));
+  // LARGE, NOTHING RUNNING (2026-11-09, mockup 14b, the owner: "the roller to create a new timer isn't implemented here"): the headline upper left, four rings across (56 px), the maker's kept place
+  // under them
+  ok('...Large: "Start a Timer", four rings (5, 10, 15, 30), and the maker\'s place -- no +, the wheels are there', /class="gt idle lg"><span class="dir">Start a Timer<\/span>/.test(big) &&
+    (big.match(/data-preset=/g) || []).length === 4 &&
+     /class="qs g" style="--k:56px;--qc:4"/.test(big) && />30m</.test(big) && />15m</.test(big) && !/class="rk add"/.test(big) &&
+       /<div class="mk" data-keep data-notap[^>]*--hk-mk-row:\d+px;--hk-mk-fs:\d+px;--hk-mk-pad/.test(big));
   ok('...its headline is left-aligned (DESIGN.md: the headline is the upper left)', SRC.indexOf(".gt.lg .dir{text-align:left;margin:0}") > 0);
-  ok('the ring is a drawn size (mockup 5), the keys 56 px targets', SRC.indexOf(".gt .rw{position:relative;flex:none;width:var(--ring);height:var(--ring)") > 0 && SRC.indexOf("flex:none;width:56px;height:56px;display:grid") > 0);
+  ok('the ring is a drawn size (mockup 5), the keys 56 px targets', SRC.indexOf(".gt .rw{position:relative;flex:none;width:var(--ring);height:var(--ring)") > 0 &&
+    SRC.indexOf("flex:none;width:56px;height:56px;display:grid") > 0);
   ok('the morph does not leave the countdowns blank: each paints again', /cd\._hkLast = null;[\s\S]*cd\.setAttribute\('total'/.test(SRC));
 },
 function () {
@@ -150,7 +158,8 @@ function () {
   ok('the heading', /<b class="lab">Who’s Home<\/b>/.test(html));
   eq('every face, A to Z, drawn and not a button (Small: the plate opens the sheet)', (html.match(/<div class="pr/g) || []).length, 3);
   ok('...no face is a button or carries a tap', !/<button/.test(html) && !/data-id=/.test(html));
-  ok('...the one away dimmed (class away), those home not', /class="pr away" style="[^"]*" aria-label="Robin/.test(html) || /class="pr away" aria-label="Robin/.test(html) && /class="pr home/.test(html));
+  ok('...the one away dimmed (class away), those home not', /class="pr away" style="[^"]*" aria-label="Robin/.test(html) || /class="pr away" aria-label="Robin/.test(html) &&
+    /class="pr home/.test(html));
   ok('...each in a color of its own', /--fc:#ff9f0a/.test(html) && /--fc:#0a84ff/.test(html) && /--fc:#bf5af2/.test(html));
   ok('the line: how many are home, where the one away is', /<div class="line">2 home · Robin at Work<\/div>/.test(html), html);
   var line = function (states) {
@@ -158,7 +167,8 @@ function () {
     return c._line(Object.keys(states));
   };
   eq('...everyone home', line({ 'person.a': { state: 'home', attributes: { friendly_name: 'Sam' } }, 'person.b': { state: 'home', attributes: {} } }), 'Everyone home');
-  eq('...one away, not at a zone', line({ 'person.a': { state: 'home', attributes: { friendly_name: 'Sam' } }, 'person.b': { state: 'not_home', attributes: { friendly_name: 'Alex Park' } } }), '1 home · Alex away');
+  eq('...one away, not at a zone', line({ 'person.a': { state: 'home', attributes: { friendly_name: 'Sam' } }, 'person.b': { state: 'not_home', attributes: { friendly_name: 'Alex Park' } } }),
+    '1 home · Alex away');
   eq('...nobody home', line({ 'person.a': { state: 'Work', attributes: {} }, 'person.b': { state: 'not_home', attributes: {} } }), 'Nobody home');
   var w = sized('hk-people-card', 'W', {})._root.__html;
   ok('Wide: spread evenly, a column each, name and where', /class="wide" role="list" style="--n:3;/.test(w) && /<b>Robin<\/b><span>Work<\/span>/.test(w) && /<b>Sam<\/b><span>Home<\/span>/.test(w));
@@ -168,14 +178,20 @@ function () {
      /<b class="lab">Home<\/b>/.test(xl) && /<b class="lab">Away<\/b>/.test(xl) && !/Who’s Home/.test(xl) && (xl.match(/class="xf"/g) || []).length === 2 &&
      (xl.match(/class="xw"/g) || []).length === 1 && /<b>Robin<\/b><span>Work<\/span>/.test(xl));
   // (since a minute ago, today: a fixed day reads as its weekday once that day is past -- this failed on 2026-11-10)
-  var since = new Date(Date.now() - 60000).toISOString(), xs = (function () { var c = H.make('hk-people-card'); c._clientExplicit = true; c._hkClient = { states: { 'person.a': { state: 'home', last_changed: since, attributes: { friendly_name: 'Sam' } }, 'person.b': { state: 'Work', last_changed: since, attributes: { friendly_name: 'Robin' } } } }; return c._xl(['person.a', 'person.b']); })();
+  var since = new Date(Date.now() - 60000).toISOString(), xs = (function () { var c = H.make('hk-people-card'); c._clientExplicit = true;
+    c._hkClient = { states: { 'person.a': { state: 'home', last_changed: since, attributes: { friendly_name: 'Sam' } },
+    'person.b': { state: 'Work', last_changed: since, attributes: { friendly_name: 'Robin' } } } }; return c._xl(['person.a', 'person.b']); })();
   ok('...one at home: "Home since" under the name; away: "Since" at the row\'s right', /class="xf x1"/.test(xs) && />Home since \d/.test(xs) && /class="sn">Since \d/.test(xs), xs);
   ok('...each face and row opens its person', (xl.match(/<button class="x[fw][ "][^>]*data-id="person\./g) || []).length === 3);
-  ok('...nobody home says so, and who left last', /<b>Nobody Home<\/b><span>\w+ left /.test((function () { var c = H.make('hk-people-card'); c._clientExplicit = true; c._hkClient = { states: { 'person.a': { state: 'not_home', last_changed: '2026-11-09T09:02:00', attributes: { friendly_name: 'Alex Park' } } } }; return c._xl(['person.a']); })()));
-  ok('...the two columns\' gap is the block\'s inset, the rows 56 and the lists scroll with a fade', PSRC.indexOf("gap:var(--hk-pad-l,18px)") > 0 && PSRC.indexOf("height:56px;flex:none") > 0 && PSRC.indexOf(".pp .xs.more{") > 0);
+  ok('...nobody home says so, and who left last', /<b>Nobody Home<\/b><span>\w+ left /.test(
+    (function () { var c = H.make('hk-people-card'); c._clientExplicit = true; c._hkClient = {
+    states: { 'person.a': { state: 'not_home', last_changed: '2026-11-09T09:02:00', attributes: { friendly_name: 'Alex Park' } } } }; return c._xl(['person.a']); })()));
+  ok('...the two columns\' gap is the block\'s inset, the rows 56 and the lists scroll with a fade', PSRC.indexOf("gap:var(--hk-pad-l,18px)") > 0 && PSRC.indexOf("height:56px;flex:none") > 0 &&
+    PSRC.indexOf(".pp .xs.more{") > 0);
   // SHOW MAP (mockup 13b, 2026-11-09): the person sheet's OpenStreetMap tiles, each located person's face, the house; the list
   // grouped Home, then Away with the place and how far; off by default (the block option), and none with no place to show
-  var mapOf = function (states) { var c = H.make('hk-people-card'); c._clientExplicit = true; c._config = { map: true }; c._hkClient = { states: states, config: { unit_system: { length: 'mi' } } }; return c._xlMap(Object.keys(states).filter(function (k) { return k.indexOf('person.') === 0; }), 540, 320); };
+  var mapOf = function (states) { var c = H.make('hk-people-card'); c._clientExplicit = true; c._config = { map: true }; c._hkClient = { states: states, config: { unit_system: { length: 'mi' } } };
+    return c._xlMap(Object.keys(states).filter(function (k) { return k.indexOf('person.') === 0; }), 540, 320); };
   var HOME = { latitude: 33.9806, longitude: -117.3755 };
   var mp = mapOf({ 'zone.home': { state: 'zoning', attributes: HOME }, 'person.a': { state: 'home', attributes: Object.assign({ friendly_name: 'Sam' }, HOME) },
                    'person.b': { state: 'Work', attributes: { friendly_name: 'Robin', latitude: 33.9533, longitude: -117.3962 } },
@@ -185,7 +201,8 @@ function () {
   ok('...the list: Home, then Away with the place and how far (no place: the zone only), each a row that opens its person',
      /<b class="lab">Home<\/b>[\s\S]*<b class="lab">Away<\/b>/.test(mp) && /<b>Robin<\/b><span>Work · 2(\.\d)? mi<\/span>/.test(mp) && /<b>Kit<\/b><span>School<\/span>/.test(mp) &&
      (mp.match(/<button class="xw"[^>]*data-id="person\./g) || []).length === 3, mp);
-  ok('...everyone home: Arrived', /<b class="lab">Arrived<\/b>/.test(mapOf({ 'zone.home': { state: 'zoning', attributes: HOME }, 'person.a': { state: 'home', attributes: Object.assign({ friendly_name: 'Sam' }, HOME) } })));
+  ok('...everyone home: Arrived', /<b class="lab">Arrived<\/b>/.test(mapOf({ 'zone.home': { state: 'zoning', attributes: HOME },
+    'person.a': { state: 'home', attributes: Object.assign({ friendly_name: 'Sam' }, HOME) } })));
   ok('...no house and nobody located: the two columns without a map', !/tile\.openstreetmap/.test(mapOf({ 'person.a': { state: 'home', attributes: { friendly_name: 'Sam' } } })));
   ok('...off by default: the catalog passes map only when the block asks', /o\.map \? \{ map: true \}/.test(readFile(HK_ROOT + '/frontend/cards/hk-grid-catalog.js')));
   ok('the page card keeps its row of avatars', /class="row" role="list"/.test((function () { var c = H.make('hk-people-card'); hkGive(c, hass()); c.setConfig({}); return c._root.__html; })()));
@@ -226,7 +243,8 @@ function () {
       H.attach(xl);
       SUBS[SUBS.length - 1].on({ configured: true, areas: ['kitchen'] });
       var xh = xl._root.__html;
-      ok('Extra Large: the vacuum drawn on its dock, the battery under its state', /class="hkva s-docked" role="img" aria-label="Downstairs, Docked"/.test(xh) && /<b class="state">Docked<\/b><span class="sub two">Downstairs \u00B7 92%/.test(xh));
+      ok('Extra Large: the vacuum drawn on its dock, the battery under its state', /class="hkva s-docked" role="img" aria-label="Downstairs, Docked"/.test(xh) &&
+        /<b class="state">Docked<\/b><span class="sub two">Downstairs \u00B7 92%/.test(xh));
       ok('...the rooms beside it, Dock with its word', /<div class="rcol"><b class="lab">Rooms<\/b>/.test(xh) && /class="key dk" data-svc="return_to_base"[\s\S]*<span>Dock<\/span>/.test(xh));
       // THE RING SHOWS WHAT MATTERS (2026-11-09, the owner: "not sure if the big circle showing clean percentage is relevant here?")
       house.set('vacuum.downstairs', 'docked', { friendly_name: 'Downstairs' });
@@ -239,7 +257,9 @@ function () {
       house.set('vacuum.downstairs', 'cleaning', { friendly_name: 'Downstairs' });
       ok('cleaning with no reading at all: drawn cleaning, the words', /<b class="state">Cleaning<\/b>/.test(sized('hk-vacuum-card', 'XL', { entity: 'vacuum.downstairs' })._root.__html));
       house.set('vacuum.downstairs', 'docked', { friendly_name: 'Downstairs', battery_level: 92 });
-      ok('docked with a battery: the battery, whatever the progress sensor says', /<b class="state">Docked<\/b><span class="sub two">Downstairs \u00B7 92%/.test(sized('hk-vacuum-card', 'T', { entity: 'vacuum.downstairs', progress: 'sensor.vac_cleaning_progress' })._root.__html));
+      ok('docked with a battery: the battery, whatever the progress sensor says',
+        /<b class="state">Docked<\/b><span class="sub two">Downstairs \u00B7 92%/.test(
+        sized('hk-vacuum-card', 'T', { entity: 'vacuum.downstairs', progress: 'sensor.vac_cleaning_progress' })._root.__html));
       // WHAT THE DRAWING SAYS (hk-vacuum-art.js, 2026-11-09): the water tank and being stuck first, then what it is doing; docked and charging
       var VA = window.hkVacuumArt, lk = function (o) { return VA.look(house.hass(), 'vacuum.downstairs', Object.assign({ error: 'sensor.vac_err', charge: 'sensor.vac_chg' }, o || {})); };
       house.set('sensor.vac_err', 'water_tank_empty', {}); house.set('sensor.vac_chg', 'charging', {});
@@ -254,7 +274,8 @@ function () {
       ok('nothing held: not latched, no Clear on any block', !lk().latched && !/data-clear/.test(sized('hk-vacuum-card', 'XL', { entity: 'vacuum.downstairs' })._root.__html));
       house.set('sensor.vacuum_water_tanks', '1', { tanks: { 'vacuum.downstairs': { since: 1000, words: 'Water tank empty' } } });
       var held = lk();
-      ok('held: drawn as the water tank, in the report\'s words, over docked (the report is gone from the sensor)', held.state === 'water' && held.words === 'Water tank empty' && held.latched === true);
+      ok('held: drawn as the water tank, in the report\'s words, over docked (the report is gone from the sensor)', held.state === 'water' && held.words === 'Water tank empty' && held.latched ===
+        true);
       house.set('sensor.vacuum_water_tanks', '1', { tanks: { 'vacuum.downstairs': { since: 1000, words: 'Water tank missing' } } });
       ok('...the words are the report\'s own', lk().words === 'Water tank missing');
       house.set('sensor.vac_err', 'stuck', {});
@@ -277,7 +298,8 @@ function () {
       house.calls.length = 0;
       tap(wc, { 'data-clear': '' });
       return H.tick().then(function () {
-        eq('...Clear asks Mantel to clear that vacuum for every screen', house.calls.map(function (c) { return [c.domain, c.service, c.data.vacuum]; }), [['script', 'vacuum_water_clear', 'vacuum.downstairs']]);
+        eq('...Clear asks Mantel to clear that vacuum for every screen', house.calls.map(function (c) { return [c.domain, c.service, c.data.vacuum]; }),
+          [['script', 'vacuum_water_clear', 'vacuum.downstairs']]);
         ok('...the page card: a Clear key beside Clean, shown only while held (it is 56 px like its siblings)',
            /class="cmd clr" data-clear hidden>Clear/.test(SRC) && /e\.clr\.hidden = !lk\.latched/.test(SRC) && /\.vac \.cmd\.clr\{[^}]*padding:0 20px/.test(SRC));
         house.set('sensor.vacuum_water_tanks', '0', { tanks: {} });
@@ -288,7 +310,8 @@ function () {
       ok('without Clean Areas: no rooms, the battery large instead', !/class="lab">Rooms/.test(bare) && /class="mid"/.test(bare));
       FEED.added = ['clean_areas'];
       ok('the grid\'s Large and Extra Large vacuum is the card\'s own block at that size',
-         /this\._mount\(this\._root\.querySelector\('\.body'\), \{ type: 'custom:hk-vacuum-card', entity: this\._config\.entity \}, sizeOf\(this\) \|\| 'L'\)/.test(readFile(HK_ROOT + '/frontend/cards/hk-grid-cards.js')));
+         /this\._mount\(this\._root\.querySelector\('\.body'\), \{ type: 'custom:hk-vacuum-card', entity: this\._config\.entity \}, sizeOf\(this\) \|\| 'L'\)/.test(
+           readFile(HK_ROOT + '/frontend/cards/hk-grid-cards.js')));
       ok('more rooms than fit: each a row of its own size (48 px) and the list scrolls -- no "N more" tile',
          /grid-auto-rows:48px/.test(SRC) && /\.vb \.rooms\{[^}]*overflow-y:auto/.test(SRC) && !/class="vr more"/.test(SRC));
       // TALL AND WIDE: the Rooms key and the sheet that picks (2026-11-08)
@@ -298,17 +321,21 @@ function () {
       H.attach(t);
       SUBS[SUBS.length - 1].on({ configured: true, areas: ['kitchen', 'living_room', 'hallway'] });
       var th = t._root.__html;
-      ok('Tall: a Rooms row saying All rooms, then Clean with Dock', /class="rrow" data-rooms[^>]*><span>All rooms<\/span>/.test(th) && /data-svc="start" aria-label="Clean Downstairs"/.test(th) && /data-svc="return_to_base"/.test(th));
+      ok('Tall: a Rooms row saying All rooms, then Clean with Dock', /class="rrow" data-rooms[^>]*><span>All rooms<\/span>/.test(th) && /data-svc="start" aria-label="Clean Downstairs"/.test(th) &&
+        /data-svc="return_to_base"/.test(th));
       P.add('kitchen'); P.add('living_room'); t._render();
       th = t._root.__html;
-      ok('...one or two picked are named on the row, and Clean sends them (the sheet and the block share the picks)', /class="rrow on" data-rooms[^>]*><span>Kitchen, Living Room<\/span>/.test(th) && /data-svc="rooms" aria-label="Clean Downstairs"/.test(th));
+      ok('...one or two picked are named on the row, and Clean sends them (the sheet and the block share the picks)', /class="rrow on" data-rooms[^>]*><span>Kitchen, Living Room<\/span>/.test(th) &&
+        /data-svc="rooms" aria-label="Clean Downstairs"/.test(th));
       P.add('hallway'); t._render();
       ok('...three are a count', /<span>3 rooms<\/span>/.test(t._root.__html));
       var w = sized('hk-vacuum-card', 'W', { entity: 'vacuum.downstairs' });
       H.attach(w);
       SUBS[SUBS.length - 1].on({ configured: true, areas: ['kitchen', 'living_room', 'hallway'] });
       var wh = w._root.__html;
-      ok('Wide: Clean over Rooms and Dock, the key counting them and the rooms named under the state', /class="key rm on" data-rooms[^>]*><hk-icon icon="mdi:floor-plan"><\/hk-icon><span>3 rooms<\/span>/.test(wh) && /class="rm-note">Hallway, Kitchen, Living Room<\/span>/.test(wh) && /class="pair"/.test(wh));
+      ok('Wide: Clean over Rooms and Dock, the key counting them and the rooms named under the state',
+        /class="key rm on" data-rooms[^>]*><hk-icon icon="mdi:floor-plan"><\/hk-icon><span>3 rooms<\/span>/.test(wh) && /class="rm-note">Hallway, Kitchen, Living Room<\/span>/.test(wh) &&
+        /class="pair"/.test(wh));
       ok('the Rooms key opens the vacuum\'s picker sheet: the Vacuums page\'s own picker on this vacuum\'s picks, Done in place of Start Cleaning',
          /pick: this\._config\.entity/.test(SRC) && /pk \? 'Done'/.test(SRC) && /this\._config\.pick \? picked\(this\._config\.pick\)/.test(SRC));
       P.clear();
@@ -338,7 +365,8 @@ function () {
   var tm = X.SEC.timers('more', {}, c, ctx);
   ok('Timers: the ring pauses a running one', /<button type="button" class="tpr" data-act="tp" data-timer="timer.quick_1" data-paused="0" aria-label="Pause Pasta">/.test(tm));
   ok('...resumes a paused one, play at its centre', /data-timer="timer.quick_3" data-paused="1" aria-label="Resume Tea">[\s\S]*?mdi:play/.test(tm));
-  ok('...the time a live countdown, over its name', /<hk-countdown deadline="\d+" total="600">/.test(tm) && /<hk-countdown hold="150" total="300">/.test(tm) && /<span class="tn">Pasta<\/span>/.test(tm));
+  ok('...the time a live countdown, over its name', /<hk-countdown deadline="\d+" total="600">/.test(tm) && /<hk-countdown hold="150" total="300">/.test(tm) &&
+    /<span class="tn">Pasta<\/span>/.test(tm));
   ok('...and a red Stop', /class="tst" data-act="tx" data-timer="timer.quick_1" aria-label="Stop Pasta"/.test(tm));
   var pane = { _tap: function () {} }, P = customElements.get('hk-side-pane');
   window.hkCards.client = function () { return c; };

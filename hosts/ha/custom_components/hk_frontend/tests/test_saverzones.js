@@ -18,7 +18,8 @@ Object.keys(L.V1).forEach(function (id) { var m = L.V1[id], k = m[0] + '.' + m[1
 var v1of = function (w) { return V1OF[w.piece + '.' + w.shape + '.' + JSON.stringify(w.opts || {})] || L.idOf(w); };
 var ids = function (ws) { return ws.map(v1of); };
 var zs2 = function (zs) { return L.clean({ v: 1, zones: zs }).zones; };
-var cat = function (id) { return L.idOf(L.clean({ v: 1, zones: { tl: [{ id: id }] } }).zones.tl[0] || L.clean({ v: 1, zones: { row: [{ id: id }] } }).zones.row[0] || L.clean({ v: 1, zones: { bottom: [{ id: id }] } }).zones.bottom[0]); };
+var cat = function (id) { return L.idOf(L.clean({ v: 1, zones: { tl: [{ id: id }] } }).zones.tl[0] || L.clean({ v: 1, zones: { row: [{ id: id }] } }).zones.row[0] ||
+  L.clean({ v: 1, zones: { bottom: [{ id: id }] } }).zones.bottom[0]); };
 var v2 = function (lay) { return L.clean(lay); };
 var hit = function (a, b) { return !(a.x + a.w <= b.x || b.x + b.w <= a.x || a.y + a.h <= b.y || b.y + b.h <= a.y); };
 
@@ -26,8 +27,10 @@ print('=== the checks ===');
 ok('no layout: nothing to check', L.check(null), null);
 ok('a version this build doesn\'t know, a card in the row, nine units in the row (two lines of four): refused',
    [L.check({ v: 3 }), L.check({ v: 1, zones: { row: [{ id: 'music_card' }] } }),
-    L.check({ v: 1, zones: { row: [{ id: 'temp' }, { id: 'next_event' }, { id: 'aqi' }, { id: 'locks' }, { id: 'next_hours' }, { id: 'humidity' }, { id: 'sunset' }] } })], ['saver_layout', 'saver_layout', 'saver_layout']);
-var cl = L.clean({ v: 1, big: { size: 99, kind: 'month' }, row_at: 'sideways', zones: { row: [{ id: 'temp' }, { id: 'next_event' }, { id: 'aqi' }, { id: 'locks' }, { id: 'next_hours' }, { id: 'humidity' }, { id: 'sunset' }], tl: [{ id: 'nope' }, { id: 'clock_card' }] } });
+    L.check({ v: 1, zones: { row: [{ id: 'temp' }, { id: 'next_event' }, { id: 'aqi' }, { id: 'locks' }, { id: 'next_hours' }, { id: 'humidity' }, { id: 'sunset' }] } })],
+      ['saver_layout', 'saver_layout', 'saver_layout']);
+var cl = L.clean({ v: 1, big: { size: 99, kind: 'month' }, row_at: 'sideways', zones: {
+  row: [{ id: 'temp' }, { id: 'next_event' }, { id: 'aqi' }, { id: 'locks' }, { id: 'next_hours' }, { id: 'humidity' }, { id: 'sunset' }], tl: [{ id: 'nope' }, { id: 'clock_card' }] } });
 ok('the read keeps what it can: the month, the default size, what fits in the row and the corner, the row under the big element',
    [cl.big.kind, cl.big.size, ids(cl.zones.row), ids(cl.zones.tl), cl.row_at], ['month', 24, ['temp', 'next_event', 'aqi', 'locks', 'next_hours', 'humidity'], ['clock_card'], 'under']);
 ok('fits: room in a zone for one more of a kind', [L.fits(zs2({ row: [{ id: 'temp' }, { id: 'aqi' }] }), 'row', cat('next_event')),
@@ -38,9 +41,11 @@ ok('...the row at its one size: a 200% row holds four circular pieces, two to a 
    [L.fits(zs2({ row: [{ id: 'temp' }, { id: 'aqi' }, { id: 'locks' }] }), 'row', cat('humidity'), 200),
     L.fits(zs2({ row: [{ id: 'temp' }, { id: 'aqi' }, { id: 'locks' }, { id: 'humidity' }] }), 'row', cat('sunset'), 200)], [true, false]);
 ok('a size on a widget or a card: kept, its usual 100 not stored, outside 60-200 refused',
-   [L.clean({ v: 1, zones: { br: [{ id: 'status_card', size: 80 }], row: [{ id: 'temp', size: 100 }] } }).zones.br[0].size, 'size' in L.clean({ v: 1, zones: { row: [{ id: 'temp', size: 100 }] } }).zones.row[0],
+   [L.clean({ v: 1, zones: { br: [{ id: 'status_card', size: 80 }], row: [{ id: 'temp', size: 100 }] } }).zones.br[0].size, 'size' in
+     L.clean({ v: 1, zones: { row: [{ id: 'temp', size: 100 }] } }).zones.row[0],
     L.check({ v: 1, zones: { row: [{ id: 'temp', size: 59 }] } }), L.check({ v: 2, zones: { row: [{ piece: 'weather', shape: 'circular', size: 201 }] } }),
-    L.check({ v: 2, zones: { tl: [{ piece: 'weather', shape: 'card', size: 200 }] } }), L.check({ v: 1, row_at: 'bottom', upright: { row_at: 'under' } })], [80, false, 'saver_layout', 'saver_layout', null, null]);
+    L.check({ v: 2, zones: { tl: [{ piece: 'weather', shape: 'card', size: 200 }] } }), L.check({ v: 1, row_at: 'bottom', upright: { row_at: 'under' } })],
+      [80, false, 'saver_layout', 'saver_layout', null, null]);
 
 print('=== today\'s options as a layout ===');
 var tb = L.layoutFrom({ show: 'photos', time_behind: true, tb_size: 40, tb_top: 6 });
@@ -53,7 +58,8 @@ ok('Photos: no big element, the clock over the weather top left, the title, no t
 var bw = L.layoutFrom({ show: 'forecast', forecast_layout: 'big', forecast_big: 'clock' });
 ok('Big Weather with the clock: planted on the ground at the left, the readings along the bottom',
    [bw.big.kind, bw.big.pos, bw.big.align, bw.big.depth, ids(bw.zones.bottom)], ['time', 'ground', 'left', 'planted', ['readings']]);
-ok('Big Weather with the temperature: in front', [L.layoutFrom({ show: 'forecast', forecast_layout: 'big' }).big.kind, L.layoutFrom({ show: 'forecast', forecast_layout: 'big' }).big.depth], ['temp', 'front']);
+ok('Big Weather with the temperature: in front', [L.layoutFrom({ show: 'forecast', forecast_layout: 'big' }).big.kind, L.layoutFrom({ show: 'forecast', forecast_layout: 'big' }).big.depth],
+  ['temp', 'front']);
 var fc = L.layoutFrom({ show: 'forecast' });
 ok('the classic Forecast: no big element, the details along the bottom', [fc.big.kind, ids(fc.zones.tl), ids(fc.zones.bottom)], ['none', ['clock_card'], ['forecast_band']]);
 ok('Glance, Month, Day, Clock', ['glance', 'month', 'day', 'clock'].map(function (s) { var x = L.layoutFrom({ show: s }); return x.big.kind + ' ' + x.big.pos; }),
@@ -62,7 +68,8 @@ ok('every one of them checks', ['photos', 'forecast', 'clock', 'glance', 'month'
    [null, null, null, null, null, null, null]);
 
 print('=== sideways and upright ===');
-var up = { v: 2, big: { kind: 'time', size: 40, pos: 'top', align: 'center', depth: 'front' }, zones: tb.zones, upright: { big: { kind: 'time', size: 28, pos: 'upper', align: 'center', depth: 'front' } } };
+var up = { v: 2, big: { kind: 'time', size: 40, pos: 'top', align: 'center', depth: 'front' }, zones: tb.zones,
+  upright: { big: { kind: 'time', size: 28, pos: 'upper', align: 'center', depth: 'front' } } };
 ok('upright takes its own big element, keeps the zones', [L.oriented(up, 820, 1180).big.size, L.oriented(up, 1280, 800).big.size, L.oriented(up, 820, 1180).zones === tb.zones], [28, 40, true]);
 
 print('=== the plan ===');
@@ -84,7 +91,8 @@ ok('a small time: nothing moves', small.moved, []);
 var full = Object.assign({}, tb, { zones: Object.assign({}, tb.zones, { bl: zs2({ bl: [{ id: 'music_card' }, { id: 'clock_card' }] }).bl }) });
 var F = L.plan(room, L.oriented(full, 1280, 800), { big: { w: 1200, h: 690, base: 550 } }, { w: 1280, h: 800 });
 ok('no room even at the other end: left out, and said so', F.moved.filter(function (m) { return m.to === null; }).length > 0, true);
-var row = { v: 1, big: { kind: 'time', size: 26, pos: 'upper', align: 'center', depth: 'front' }, zones: { line: [{ id: 'date' }], row: [{ id: 'temp' }, { id: 'next_event' }, { id: 'aqi' }], tl: [], tr: [], bl: [], br: [], bottom: [] } };
+var row = { v: 1, big: { kind: 'time', size: 26, pos: 'upper', align: 'center', depth: 'front' },
+  zones: { line: [{ id: 'date' }], row: [{ id: 'temp' }, { id: 'next_event' }, { id: 'aqi' }], tl: [], tr: [], bl: [], br: [], bottom: [] } };
 var R = L.plan(room, L.oriented(v2(row), 1280, 800), { big: bigOf(26) }, { w: 1280, h: 800 });
 ok('the row: a rectangular widget two units wide, centred under the time',
    [R.row.items.length, Math.round(R.row.items[1].w / R.row.items[0].w * 10) / 10, Math.round(R.row.box.x + R.row.box.w / 2), R.row.box.y > R.big.y + R.big.h],
@@ -124,7 +132,8 @@ ok('along the bottom: on the bottom margin, in the middle of the screen, the tim
 var dcs = [].concat(D.corners.bl || [], D.corners.br || []);
 ok('...the bottom corners clear of it', dcs.length === 2 && dcs.every(function (c) { return !hit(c, D.row.box); }), true);
 ok('...on a phone too, where they would meet: over it', (function () {
-  var P2 = L.plan({ x: 0, y: 0, w: 390, h: 844 }, L.oriented(dn, 390, 844), { big: bigOf(26), widget: function (w) { return { music_card: { w: 180, h: 60 }, status_card: { w: 170, h: 30 } }[v1of(w)]; } }, { w: 390, h: 844 });
+  var P2 = L.plan({ x: 0, y: 0, w: 390, h: 844 }, L.oriented(dn, 390, 844), { big: bigOf(26),
+    widget: function (w) { return { music_card: { w: 180, h: 60 }, status_card: { w: 170, h: 30 } }[v1of(w)]; } }, { w: 390, h: 844 });
   var cs = [].concat(P2.corners.bl || [], P2.corners.br || []);
   return cs.length > 0 && cs.every(function (c) { return !hit(c, P2.row.box) && c.y + c.h <= P2.row.box.y; });
 })(), true);
@@ -146,7 +155,8 @@ ok('...not the Weather with its weather off', Object.keys(L.claims(todayO, { clo
 ok('...not the Music with What\u2019s Playing off', Object.keys(L.claims(todayO, { clock_style: 'today', clock_today_music: false })), ['tl:0']);
 
 // A PIECE'S WORDS (2026-11-03): its Align kept, Auto never stored; a card's title stored only when off
-var alO = L.clean({ v: 2, big: { kind: 'time' }, zones: { br: [{ piece: 'status', shape: 'card', align: 'right', title: false }], tl: [{ piece: 'weather', shape: 'card', align: 'auto', title: true }] } });
+var alO = L.clean({ v: 2, big: { kind: 'time' }, zones: { br: [{ piece: 'status', shape: 'card', align: 'right', title: false }],
+  tl: [{ piece: 'weather', shape: 'card', align: 'auto', title: true }] } });
 ok('a piece\'s Align and a card without its title kept; Auto and a title on not stored',
    [alO.zones.br[0].align, alO.zones.br[0].title, 'align' in alO.zones.tl[0], 'title' in alO.zones.tl[0]], ['right', false, false, false]);
 

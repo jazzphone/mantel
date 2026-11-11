@@ -1185,7 +1185,8 @@ print('\n=== the person sheet ===');
   var h2 = Object.assign({}, h, { states: Object.assign({}, h.states, { 'sensor.noise': { entity_id: 'sensor.noise', state: '2', attributes: {} } }) });
   p.hass = h2;
   ok('person: an unrelated update -- the same lookup (no walk over every state), the same signature', p._depsMemo === memo && p._sigOf() === sig);
-  var h3 = Object.assign({}, h2, { states: Object.assign({}, h2.states, { 'sensor.alex_phone_battery': { entity_id: 'sensor.alex_phone_battery', state: '79', attributes: { device_class: 'battery', unit_of_measurement: '%' } } }) });
+  var h3 = Object.assign({}, h2, { states: Object.assign({}, h2.states, { 'sensor.alex_phone_battery': { entity_id: 'sensor.alex_phone_battery', state: '79',
+    attributes: { device_class: 'battery', unit_of_measurement: '%' } } }) });
   p.hass = h3;
   ok('person: the phone battery moving still redraws', p._sigOf() !== sig);
   var h4 = Object.assign({}, h3, { states: Object.assign({}, h3.states, { 'person.sam': { entity_id: 'person.sam', state: 'home', attributes: {} } }) });
@@ -1212,7 +1213,8 @@ print('\n=== the automation sheet ===');
   run._listeners.click.forEach(function (f) { f({}); });
   ok('automation: Run Now triggers it', CALLS.indexOf('automation.trigger') >= 0, CALLS);
   var seg = p._root.querySelector('.seg');
-  function pick(m) { CALLS = []; seg._listeners.click.forEach(function (f) { f({ target: { closest: function () { return { getAttribute: function () { return m; } }; } } }); }); return CALLS.slice(); }
+  function pick(m) { CALLS = []; seg._listeners.click.forEach(function (f) { f({ target: { closest: function () { return { getAttribute: function () { return m; } }; } } }); }); return CALLS.slice();
+    }
   ok('automation: Off Today pauses it until midnight', pick('today')[0] === 'hk_frontend.pause_automation');
   ok('automation: Off turns it off', pick('off')[0] === 'automation.turn_off');
   ok('automation: On turns it on', pick('on')[0] === 'automation.turn_on');
@@ -1332,7 +1334,8 @@ print('\n=== accessory settings: also rename in Home Assistant ===');
   // a write Home Assistant refuses: the switch goes back off, nothing is saved as on, and the page says why
   var h3 = Object.assign({}, h);
   var sets3 = [];
-  h3.callWS = function (m) { if (m.type === 'config/entity_registry/update') return Promise.reject(new Error('Unauthorized')); if (m.type !== 'hk_frontend/hidden/get') sets3.push(m); return Promise.resolve({}); };
+  h3.callWS = function (m) { if (m.type === 'config/entity_registry/update') return Promise.reject(new Error('Unauthorized')); if (m.type !== 'hk_frontend/hidden/get') sets3.push(m);
+    return Promise.resolve({}); };
   var p3 = _.accessoryPane(h3, 'switch.coffee', null, { generated: true });
   p3.querySelector('.haname').checked = true; p3.querySelector('.haname')._listeners.change[0](); drainMicrotasks(); drainMicrotasks(); drainMicrotasks();
   ok('refused by Home Assistant: the switch is off again, nothing saved as on, the reason shown',

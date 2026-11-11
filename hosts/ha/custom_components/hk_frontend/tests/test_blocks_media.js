@@ -79,7 +79,8 @@ function () {
   ok('Small: the cover and play / pause on top, the song under them',
      css.indexOf('"art strip" ". ." "title title" "artist artist"') >= 0 && css.indexOf(':host(:is([size=S],[size=W],[size=T])) .np .hks .mx{display:none}') >= 0 &&
      css.indexOf(':host([size=S]) .np .hks [data-act=prev],:host([size=S]) .np .hks [data-act=next]{display:none}') >= 0);
-  ok('...on a tile cell the artist goes and the cover takes the height left', /@container hk-cell \(max-height:179px\)\{:host\(\[size=S\]\)[^}]*--np-art[^}]*\}:host\(\[size=S\]\) \.np \.artist\{display:none\}/.test(css));
+  ok('...on a tile cell the artist goes and the cover takes the height left',
+    /@container hk-cell \(max-height:179px\)\{:host\(\[size=S\]\)[^}]*--np-art[^}]*\}:host\(\[size=S\]\) \.np \.artist\{display:none\}/.test(css));
   ok('every block: the strip\'s targets 56 px, play / pause 64, 12 px clear above and below the keys, the volume\'s row 56',
      css.indexOf('--hks-min:56px;--hks-b:56px;--hks-pp:64px;--hks-x:56px;--hks-vh:56px;--hks-g1:12px;--hks-g2:12px;') >= 0);
   // (the speaker line over the title at every size with one -- the owner's mockup 12h, 2026-11-09: its own row, `line`)
@@ -120,7 +121,8 @@ function () {
   ok('...on a tile cell the progress is the thin line, the volume keeps its slider', css.indexOf(':host([size=L]) .np .hks .mprog{pointer-events:none;--hk-prog-h:3px') >= 0);
   ok('Tall on a tile cell: the same', css.indexOf(':host([size=T]) .np .hks .mprog{pointer-events:none;--hk-prog-h:3px') >= 0);
   ok('Extra Large: the group between two flexible rows, centered on the cover',
-     css.indexOf('--hk-np-rows:minmax(0,1fr) min-content min-content min-content min-content minmax(0,1fr)') >= 0 && css.indexOf('"art ." "art line" "art title" "art artist" "art strip" "art ."') >= 0);
+     css.indexOf('--hk-np-rows:minmax(0,1fr) min-content min-content min-content min-content minmax(0,1fr)') >= 0 && css.indexOf('"art ." "art line" "art title" "art artist" "art strip" "art ."') >=
+       0);
   ok('in a pager: no volume row', css.indexOf(':host([size][data-grid-pager]) hk-plate.np{--hk-np-pad:20px 22px 44px;--np-vol:0px}') >= 0);
 },
 function () {
@@ -148,7 +150,8 @@ function () {
      css.indexOf(':host(:is([size=L],[size=XL])) .np.idle .grid>:not(.npi):not(.bg):not(.shade){display:none!important}') >= 0 && css.indexOf('.np .npi{display:none}') >= 0);
   ok('Extra Large: the left column as wide as the player\'s, the playlists beside it', css.indexOf(':host([size=XL]) .np.idle .npi-l{flex:none;width:var(--np-pw)') >= 0);
   // (Browse and the speaker the standard pills, 2026-11-09: drawn 40, a 56 px touch)
-  ok('Browse, the speaker and Play: 56 px targets', css.indexOf('.np.idle .npi-b{position:relative;flex:none;min-width:0;max-width:100%;display:inline-flex;align-items:center;gap:7px;height:40px') >= 0 &&
+  ok('Browse, the speaker and Play: 56 px targets', css.indexOf('.np.idle .npi-b{position:relative;flex:none;min-width:0;max-width:100%;display:inline-flex;align-items:center;gap:7px;height:40px') >=
+    0 &&
      css.indexOf('.np.idle .npi-b::after{content:"";position:absolute;inset:-8px -4px}') >= 0 && css.indexOf('.np.idle .npi-play::after{content:"";position:absolute;inset:-8px -6px}') >= 0);
   var saved = window.hkMusic.playlists, turned = [], played = [];
   window.hkMusic.playlists = function () { return [{ name: 'Focus', key: 'focus' }, { name: 'Dinner Party', key: 'dinner' }]; };
@@ -296,7 +299,8 @@ function () {
     var across = z === 'W' || z === 'XL';
     if (z === 'XL') {
       // (XL, 2026-11-09 mockup 13: two columns -- the last played with Play and Browse, the rest as 56 px rows)
-      eq('XL: two columns, the first playlist large, the rest as rows', [bh.indexOf('xl2') >= 0, bh.indexOf('class="cv ') < 0, (bh.match(/class="rw"/g) || []).length, bh.indexOf('class="br"') >= 0], [true, true, 2, true]);
+      eq('XL: two columns, the first playlist large, the rest as rows', [bh.indexOf('xl2') >= 0, bh.indexOf('class="cv ') < 0, (bh.match(/class="rw"/g) || []).length, bh.indexOf('class="br"') >= 0],
+        [true, true, 2, true]);
       return;
     }
     eq(z + ': ' + (across ? 'across' : 'down') + ', every playlist in it', [bh.indexOf('class="cv ' + (across ? 'x' : 'y') + '"') >= 0,
@@ -437,8 +441,10 @@ function () {
     xl._render();
     // EXTRA LARGE IN TWO COLUMNS (2026-11-09, mockup 13): the channel on at the left, the others as rows at the right
     var plateX = xl._root.children[0];
-    eq('Extra Large: the first channel on the left, the rest as rows', [plateX.className, plateX.children[0].className, plateX.children[1].children[1].children.length], ['tv xl', 'lf', CHANNELS.channels.length - 1]);
-    eq('...the left names the channel and its show', [plateX.children[0].querySelector('small').textContent, plateX.children[0].querySelector('b').textContent].join('|'), '4.1 \u00b7 Channel 4|Evening News');
+    eq('Extra Large: the first channel on the left, the rest as rows', [plateX.className, plateX.children[0].className, plateX.children[1].children[1].children.length],
+      ['tv xl', 'lf', CHANNELS.channels.length - 1]);
+    eq('...the left names the channel and its show', [plateX.children[0].querySelector('small').textContent, plateX.children[0].querySelector('b').textContent].join('|'),
+      '4.1 \u00b7 Channel 4|Evening News');
     eq('...the right is headed Channels', plateX.children[1].children[0].children[0].textContent, 'Channels');
     var rows = plateX.children[1].children[1].children;
     eq('...a row: the show over the channel', [rows[0].querySelector('b').textContent, rows[0].querySelector('small').textContent], ['Coastal Kitchens', 'Food']);

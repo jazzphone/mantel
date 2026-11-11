@@ -158,7 +158,8 @@ print('\n=== Sleep Screen: Near the Screen (2026-10-30) ===');
   pg.pickers = {}; pg.errors = {}; pg.announce = function () {};
   pg.data = { settings: { tablets: {} }, boards: {}, choices: {}, tablets: { hall: { name: 'Hall', screen: 'dashboard-hall', sleep: sl } } };
   var go = function (hash) { return P.resolve.call(pg, hash.replace(/^#\/?/, '').split('/')); };
-  var draw = function (pgx) { var box = document.createElement('div'), err = null; try { pgx.body(box); } catch (e) { err = String(e) + ' ' + (e.stack || '').split('\n')[0]; } return { box: box, err: err }; };
+  var draw = function (pgx) { var box = document.createElement('div'), err = null;
+    try { pgx.body(box); } catch (e) { err = String(e) + ' ' + (e.stack || '').split('\n')[0]; } return { box: box, err: err }; };
   var all = function (el, out) { out = out || []; out.push(el); (el.children || []).forEach(function (c) { if (c && typeof c === 'object') all(c, out); }); return out; };
   var text = function (box) { return all(box).map(function (e) { return e._text || e.textContent || ''; }).join(' | '); };
   var d = draw(go('#/house/tablets/hall/sleep'));
@@ -316,7 +317,8 @@ print('\n=== Flat Colors: one editor at every scope (2026-10-17) ===');
   pg.pickers = {}; pg.errors = {}; pg.announce = function () {};
   var go = function (hash) { return P.resolve.call(pg, hash.replace(/^#\/?/, '').split('/')); };
   var scr = function (sub) { return P.p_screen.call(pg, 'dashboard-k', sub); };
-  var draw = function (pgx) { var box = document.createElement('div'), err = null; try { pgx.body(box); } catch (e) { err = String(e) + ' ' + (e.stack || '').split('\n')[0]; } return { box: box, err: err }; };
+  var draw = function (pgx) { var box = document.createElement('div'), err = null;
+    try { pgx.body(box); } catch (e) { err = String(e) + ' ' + (e.stack || '').split('\n')[0]; } return { box: box, err: err }; };
   var all = function (el, out) { out = out || []; out.push(el); (el.children || []).forEach(function (c) { if (c && typeof c === 'object') all(c, out); }); return out; };
   var text = function (box) { return all(box).map(function (e) { return e._text || e.textContent || ''; }).join(' | '); };
   var byFk = function (box, fk) { return all(box).filter(function (e) { return e.attrs && e.attrs['data-fk'] === fk; })[0]; };
@@ -352,11 +354,13 @@ print('\n=== Flat Colors: one editor at every scope (2026-10-17) ===');
   ok('the screen’s Accent Color: Same as All Screens, now Sage (All Screens’ Flat accent, in Flat)', /Same as All Screens/.test(text(pick)) && /Now Sage/.test(text(pick)), true);
   var pp = text(draw(go('#/page/calendar')).box);
   ok('Pages → Calendar → Look keeps the Accent Color and adds Flat Colors', /Accent Color/.test(pp) && /Flat Colors/.test(pp), true);
-  ok('the old Highlight Color address is the Accent Color, Sage while All Screens is Flat', /Sage/.test(text(draw(go('#/house/menu/accent')).box)) && go('#/house/menu/accent').title === 'Accent Color', true);
+  ok('the old Highlight Color address is the Accent Color, Sage while All Screens is Flat', /Sage/.test(text(draw(go('#/house/menu/accent')).box)) && go('#/house/menu/accent').title ===
+    'Accent Color', true);
   // the writes: one Accent Color, the menu's and Flat's together
   look.flat_colors = { accent: 'auto', off_tint: 'auto' };
   tap(byFk(draw(go('#/house/appearance/accent')).box, 'accent:blue'));
-  ok('an accent over an Automatic tint: both colors and the tint in one write', JSON.stringify(writes.pop()), JSON.stringify(['h', { 'menu.accent': 'blue', 'look.flat_colors.accent': 'blue', 'look.flat_colors.off_tint': 'accent' }]));
+  ok('an accent over an Automatic tint: both colors and the tint in one write', JSON.stringify(writes.pop()),
+    JSON.stringify(['h', { 'menu.accent': 'blue', 'look.flat_colors.accent': 'blue', 'look.flat_colors.off_tint': 'accent' }]));
   look.flat_colors = { accent: SAGE, off_tint: '#789484' };
   tap(byFk(draw(go('#/house/appearance/accent')).box, 'accent:pink'));
   ok('...over a tint of its own: the tint stays', JSON.stringify(writes.pop()), JSON.stringify(['h', { 'menu.accent': 'pink', 'look.flat_colors.accent': 'pink' }]));
@@ -431,7 +435,8 @@ print('\n=== Appearance and Menu, reorganized (2026-10-29) ===');
   pg.feat = function () { return { data: null }; };
   pg.pickers = {}; pg.errors = {}; pg.announce = function () {};
   var go = function (hash) { return P.resolve.call(pg, hash.replace(/^#\/?/, '').split('/')); };
-  var draw = function (pgx) { var box = document.createElement('div'), err = null; try { pgx.body(box); } catch (e) { err = String(e) + ' ' + (e.stack || '').split('\n')[0]; } return { box: box, err: err }; };
+  var draw = function (pgx) { var box = document.createElement('div'), err = null;
+    try { pgx.body(box); } catch (e) { err = String(e) + ' ' + (e.stack || '').split('\n')[0]; } return { box: box, err: err }; };
   var all = function (el, out) { out = out || []; out.push(el); (el.children || []).forEach(function (c) { if (c && typeof c === 'object') all(c, out); }); return out; };
   var text = function (box) { return all(box).map(function (e) { return e._text || e.textContent || ''; }).join(' | '); };
   var byFk = function (box, fk) { return all(box).filter(function (e) { return e.attrs && e.attrs['data-fk'] === fk; })[0]; };
@@ -455,7 +460,8 @@ print('\n=== Appearance and Menu, reorganized (2026-10-29) ===');
   ok('a screen’s device page opens its Menu', go('#/screens/dashboard-k/menu/phones').title, 'Menu');
   // All Screens -> Appearance
   var ap = text(draw(go('#/house/appearance')).box);
-  ok('All Screens’ Appearance: Style (with Tile Style), Colors & Background, Tab Bar', ['Style', 'Tile Style', 'Colors & Background', 'Tab Bar', 'Accent Color', 'Tab Bar Glass', 'Background'].every(function (w) { return ap.indexOf(w) >= 0; }) &&
+  ok('All Screens’ Appearance: Style (with Tile Style), Colors & Background, Tab Bar',
+    ['Style', 'Tile Style', 'Colors & Background', 'Tab Bar', 'Accent Color', 'Tab Bar Glass', 'Background'].every(function (w) { return ap.indexOf(w) >= 0; }) &&
      !/Tab Bar Look|Sky \/ Background|Tiles/.test(ap), true);
   ok('...no Flat Colors while no screen is Flat', /Flat Colors/.test(ap), false);
   // All Screens -> Menu
@@ -469,7 +475,8 @@ print('\n=== Appearance and Menu, reorganized (2026-10-29) ===');
   var sm = text(draw(go('#/screens/dashboard-k/menu')).box);
   ok('a screen’s Menu Settings lists only the kinds it uses', /Side Menu/.test(sm) && /Edge Tab/.test(sm) && /Tab Bar/.test(sm), true);
   var nm = draw(go('#/screens/dashboard-c/menu')).box;
-  ok('...a screen with no menu: its menu on each device at the top, no kinds', /Menu on This Screen/.test(text(nm)) && !!byFk(nm, 'b:menu:off') && !!byFk(nm, 'b:menu_phone:off') && !/Navigation/.test(text(nm)), true);
+  ok('...a screen with no menu: its menu on each device at the top, no kinds', /Menu on This Screen/.test(text(nm)) && !!byFk(nm, 'b:menu:off') && !!byFk(nm, 'b:menu_phone:off') &&
+    !/Navigation/.test(text(nm)), true);
   ok('...and its page has the one Menu row, its menus in words', /Off/.test(text(draw(go('#/screens/dashboard-c')).box)) && !byFk(draw(go('#/screens/dashboard-c')).box, 'b:menu:off'), true);
   var tbp = draw(go('#/screens/dashboard-k/menu/tab-bar')).box;
   ok('its Tab Bar page: Size Just This Screen, Position Same as All Screens', /Just This Screen/.test(text(tbp)) && /Same as All Screens/.test(text(tbp)), true);
@@ -477,14 +484,16 @@ print('\n=== Appearance and Menu, reorganized (2026-10-29) ===');
   ok('Reset to All Screens takes the one setting back', JSON.stringify(writes.pop()), JSON.stringify(['b', 'dashboard-k', { menu_own: ['accent'] }]));
   var sp = draw(go('#/screens/dashboard-k/menu/side/phones')).box;
   tap(byFk(sp, 'phone:chip'));
-  ok('a button style chosen on a screen is its own', JSON.stringify(writes.pop()), JSON.stringify(['b', 'dashboard-k', { button_phone: 'chip', menu_own: ['accent', 'tab_bar_size', 'button_phone'] }]));
+  ok('a button style chosen on a screen is its own', JSON.stringify(writes.pop()),
+    JSON.stringify(['b', 'dashboard-k', { button_phone: 'chip', menu_own: ['accent', 'tab_bar_size', 'button_phone'] }]));
   // a screen's page: Appearance one row; Back Button & Title in its Header
   var main = text(draw(go('#/screens/dashboard-k')).box);
   ok('a screen’s Appearance is one row: its style and whose it is', /Appearance/.test(main) && /Blur/.test(main) && !/Shared Layer/.test(main) && /Same as All Screens/.test(main), true);
   ok('...Back Button & Title beside its other header settings', /Back Button & Title/.test(main), true);
   ok('...no Sky group of its own any more', main.split('Sky / Background').length - 1, 0);
   var sa = text(draw(go('#/screens/dashboard-k/appearance')).box);
-  ok('a screen’s Appearance: laid out as All Screens’', ['Style', 'Colors', 'Background', 'Accent Color', 'Teal', 'Just This Screen', 'Tab Bar Glass'].every(function (w) { return sa.indexOf(w) >= 0; }), true);
+  ok('a screen’s Appearance: laid out as All Screens’', ['Style', 'Colors', 'Background', 'Accent Color', 'Teal', 'Just This Screen', 'Tab Bar Glass'].every(
+    function (w) { return sa.indexOf(w) >= 0; }), true);
   ok('...a screen with no tab bar has no Tab Bar Look', /Tab Bar Look/.test(text(draw(go('#/screens/dashboard-c/appearance')).box)), false);
 
   // RECOMMENDED (2026-10-29): one change that should help where a tablet draws under 45 frames a second (a sample from before the ladder speaks for the style)

@@ -141,7 +141,8 @@ H.run('power cards', [
     var r = S({ solar: 5000, imp: 0, exp: 1500, bc: 2000, bd: 0, home: 1500 });
     H.ok('the sun sells first, then charges, then the house', r.s2g === 1500 && r.s2b === 2000 && r.s2h === 1500 && r.main === 'sun', JSON.stringify(r));
     r = S({ solar: 1000, imp: 2500, exp: 0, bc: 2000, bd: 0, home: 1500 });
-    H.ok('the sun short of the battery: the grid makes up the rest, and the house is all grid', r.s2b === 1000 && r.g2b === 1000 && r.s2h === 0 && r.g2h === 1500 && r.main === 'grid', JSON.stringify(r));
+    H.ok('the sun short of the battery: the grid makes up the rest, and the house is all grid', r.s2b === 1000 && r.g2b === 1000 && r.s2h === 0 && r.g2h === 1500 && r.main === 'grid',
+      JSON.stringify(r));
     r = S({ solar: 0, imp: 0, exp: 0, bc: 0, bd: 900, home: null });
     H.ok('night on the battery: the house worked out (900 W), all battery', r.home === 900 && r.b2h === 900 && r.main === 'batt', JSON.stringify(r));
     r = S({ solar: 0, imp: 0, exp: 0, bc: 0, bd: 0, home: 0 });
@@ -150,7 +151,17 @@ H.run('power cards', [
   function () {
     H.section('hk-power-house-card');
     var BASE = '/hk/art/my-house/';
-    window.hkEnergyPage.__art(BASE, {"canvas": [1536, 1024], "anchors": {"grid": [62, 236], "solar": [699, 301], "house": [527, 780], "battery": [1432.5, 719], "cars": [1148, 818]}, "battery_window": [[1405, 722], [1457, 719], [1457, 890], [1405, 896]], "paths": {"grid": [[96.0, 286.0], [121.17, 365.77], [156.38, 436.62], [195.14, 486.67], [231.0, 504.0], [237.63, 516.07], [245.37, 515.93], [248.0, 506.0], [240, 500], [240, 610]], "solar_to_battery": [[760, 397], [760, 436], [756, 480], [740, 550], [715, 605], [783, 657], [900, 675], [1130, 675], [1337, 675], [1405, 719]], "battery_to_house": [[1405, 810], [1377, 805], [1355, 798], [1340, 794]], "to_charger_a": [[1405, 812], [1378, 811], [1341, 808], [1310, 680], [1145, 691], [965, 708], [908, 725], [908, 790]]}, "chargers": {"a": [908, 790]}, "cars": {"a": {"port": [1026, 858], "cable": [[908.0, 805.0], [913.67, 837.99], [921.9, 861.34], [932.61, 876.15], [945.7, 883.54], [961.1, 884.63], [978.71, 880.51], [998.45, 872.31], [1020.24, 861.13], [1026, 858]]}}, "windows": [], "layers": {"house": ["house.trim.webp", 2, 197, 1534, 827], "solar": ["solar.trim.webp", 370, 199, 661, 215], "battery": ["battery.trim.webp", 1340, 695, 134, 216], "pole": ["pole.trim.webp", 30, 233, 224, 618], "charger": ["charger.trim.webp", 892, 770, 28, 44], "car": ["car.trim.webp", 1001, 789, 379, 222], "cable": ["cable.trim.webp", 902, 800, 129, 92]}, "bar_cx": 1432.5, "crop": 150, "max_height": 560, "chip_side": {"battery": "r", "cars": "l", "grid": "r"}, "fade": {"right": [0.86, 0.985], "bottom": [0.9, 1]}});
+    window.hkEnergyPage.__art(BASE, {"canvas": [1536, 1024], "anchors": {"grid": [62, 236], "solar": [699, 301], "house": [527, 780], "battery": [1432.5, 719], "cars": [1148, 818]},
+      "battery_window": [[1405, 722], [1457, 719], [1457, 890], [1405, 896]], "paths": {
+      "grid": [[96.0, 286.0], [121.17, 365.77], [156.38, 436.62], [195.14, 486.67], [231.0, 504.0], [237.63, 516.07], [245.37, 515.93], [248.0, 506.0], [240, 500], [240, 610]],
+      "solar_to_battery": [[760, 397], [760, 436], [756, 480], [740, 550], [715, 605], [783, 657], [900, 675], [1130, 675], [1337, 675], [1405, 719]],
+      "battery_to_house": [[1405, 810], [1377, 805], [1355, 798], [1340, 794]], "to_charger_a": [[1405, 812], [1378, 811], [1341, 808], [1310, 680], [1145, 691], [965, 708], [908, 725], [908, 790]]},
+      "chargers": {"a": [908, 790]}, "cars": {"a": {"port": [1026, 858], "cable": [[908.0, 805.0], [913.67, 837.99], [921.9, 861.34], [932.61, 876.15], [945.7, 883.54], [961.1, 884.63],
+      [978.71, 880.51], [998.45, 872.31], [1020.24, 861.13], [1026, 858]]}}, "windows": [],
+      "layers": {"house": ["house.trim.webp", 2, 197, 1534, 827], "solar": ["solar.trim.webp", 370, 199, 661, 215], "battery": ["battery.trim.webp", 1340, 695, 134, 216],
+      "pole": ["pole.trim.webp", 30, 233, 224, 618], "charger": ["charger.trim.webp", 892, 770, 28, 44], "car": ["car.trim.webp", 1001, 789, 379, 222],
+      "cable": ["cable.trim.webp", 902, 800, 129, 92]}, "bar_cx": 1432.5, "crop": 150, "max_height": 560, "chip_side": {"battery": "r", "cars": "l", "grid": "r"},
+      "fade": {"right": [0.86, 0.985], "bottom": [0.9, 1]}});
     var house = powerHouse({ 'sensor.main_power': ['1.84', { unit_of_measurement: 'kW' }], 'sensor.solar': ['0', { unit_of_measurement: 'W' }],
       'sensor.car_level': ['52', { unit_of_measurement: '%' }], 'sensor.car_power': ['0', { unit_of_measurement: 'kW' }],
       'device_tracker.car': ['home', {}], 'binary_sensor.car_cable': ['on', {}], 'switch.car_charge': ['off', {}] });
@@ -162,7 +173,17 @@ H.run('power cards', [
     card.hass = house.hass();
     var html = drawn(card);
     // NO PICTURE FOLDER: the house that ships (frontend/power-house, 2026-10-14)
-    window.hkEnergyPage.__art('/hk/power-house/', {"canvas": [1536, 1024], "anchors": {"grid": [62, 236], "solar": [699, 301], "house": [527, 780], "battery": [1432.5, 719], "cars": [1148, 818]}, "battery_window": [[1405, 722], [1457, 719], [1457, 890], [1405, 896]], "paths": {"grid": [[96.0, 286.0], [121.17, 365.77], [156.38, 436.62], [195.14, 486.67], [231.0, 504.0], [237.63, 516.07], [245.37, 515.93], [248.0, 506.0], [240, 500], [240, 610]], "solar_to_battery": [[760, 397], [760, 436], [756, 480], [740, 550], [715, 605], [783, 657], [900, 675], [1130, 675], [1337, 675], [1405, 719]], "battery_to_house": [[1405, 810], [1377, 805], [1355, 798], [1340, 794]], "to_charger_a": [[1405, 812], [1378, 811], [1341, 808], [1310, 680], [1145, 691], [965, 708], [908, 725], [908, 790]]}, "chargers": {"a": [908, 790]}, "cars": {"a": {"port": [1026, 858], "cable": [[908.0, 805.0], [913.67, 837.99], [921.9, 861.34], [932.61, 876.15], [945.7, 883.54], [961.1, 884.63], [978.71, 880.51], [998.45, 872.31], [1020.24, 861.13], [1026, 858]]}}, "windows": [], "layers": {"house": ["house.trim.webp", 2, 197, 1534, 827], "solar": ["solar.trim.webp", 370, 199, 661, 215], "battery": ["battery.trim.webp", 1340, 695, 134, 216], "pole": ["pole.trim.webp", 30, 233, 224, 618], "charger": ["charger.trim.webp", 892, 770, 28, 44], "car": ["car.trim.webp", 1001, 789, 379, 222], "cable": ["cable.trim.webp", 902, 800, 129, 92]}, "bar_cx": 1432.5, "crop": 150, "max_height": 560, "chip_side": {"battery": "r", "cars": "l", "grid": "r"}, "fade": {"right": [0.86, 0.985], "bottom": [0.9, 1]}});
+    window.hkEnergyPage.__art('/hk/power-house/', {"canvas": [1536, 1024], "anchors": {"grid": [62, 236], "solar": [699, 301], "house": [527, 780], "battery": [1432.5, 719], "cars": [1148, 818]},
+      "battery_window": [[1405, 722], [1457, 719], [1457, 890], [1405, 896]], "paths": {
+      "grid": [[96.0, 286.0], [121.17, 365.77], [156.38, 436.62], [195.14, 486.67], [231.0, 504.0], [237.63, 516.07], [245.37, 515.93], [248.0, 506.0], [240, 500], [240, 610]],
+      "solar_to_battery": [[760, 397], [760, 436], [756, 480], [740, 550], [715, 605], [783, 657], [900, 675], [1130, 675], [1337, 675], [1405, 719]],
+      "battery_to_house": [[1405, 810], [1377, 805], [1355, 798], [1340, 794]], "to_charger_a": [[1405, 812], [1378, 811], [1341, 808], [1310, 680], [1145, 691], [965, 708], [908, 725], [908, 790]]},
+      "chargers": {"a": [908, 790]}, "cars": {"a": {"port": [1026, 858], "cable": [[908.0, 805.0], [913.67, 837.99], [921.9, 861.34], [932.61, 876.15], [945.7, 883.54], [961.1, 884.63],
+      [978.71, 880.51], [998.45, 872.31], [1020.24, 861.13], [1026, 858]]}}, "windows": [],
+      "layers": {"house": ["house.trim.webp", 2, 197, 1534, 827], "solar": ["solar.trim.webp", 370, 199, 661, 215], "battery": ["battery.trim.webp", 1340, 695, 134, 216],
+      "pole": ["pole.trim.webp", 30, 233, 224, 618], "charger": ["charger.trim.webp", 892, 770, 28, 44], "car": ["car.trim.webp", 1001, 789, 379, 222],
+      "cable": ["cable.trim.webp", 902, 800, 129, 92]}, "bar_cx": 1432.5, "crop": 150, "max_height": 560, "chip_side": {"battery": "r", "cars": "l", "grid": "r"},
+      "fade": {"right": [0.86, 0.985], "bottom": [0.9, 1]}});
     var bare = H.make('hk-power-house-card');
     bare.setConfig(Object.assign({}, HC, { art: undefined }));
     bare.hass = house.hass();
@@ -176,7 +197,8 @@ H.run('power cards', [
       / C[\d.]+ [\d.]+ [\d.]+ [\d.]+ [\d.]+ [\d.]+/.test(html) && html.indexOf('class="comet"') < 0 && /@keyframes hkf[a-z0-9]+\{0\.00%\{transform:translate\(/.test(html), html.slice(0, 300));
     H.ok('...at an even pace: 3.5 to 6 s a trip, whatever the watts', /linear infinite/.test(html) && /animation:hkf[a-z0-9]+ (3\.[5-9]\d|[45]\.\d\d|6\.00)s/.test(html));
     H.ok('the battery\'s level bar at 86%, standing by: no light in it', html.indexOf('class="lvtrack"') > 0 && html.indexOf('lvrun') < 0 && html.indexOf('86<u>%</u>') > 0);
-    H.ok('a tap on a chip opens its sensor', html.indexOf('data-more="sensor.main_power"') > 0 && html.indexOf('data-more="sensor.battery_level"') > 0 && html.indexOf('data-more="sensor.car_level"') > 0);
+    H.ok('a tap on a chip opens its sensor', html.indexOf('data-more="sensor.main_power"') > 0 && html.indexOf('data-more="sensor.battery_level"') > 0 && html.indexOf('data-more="sensor.car_level"') >
+      0);
     H.ok('the car home, not charging: its row, its name and its level; its cable not lit',
       html.indexOf('<div class="crow" data-more="sensor.car_level"><b>Blue Car</b><span>52<u>%</u></span>') > 0 && html.indexOf('>Car</div>') > 0 && html.indexOf('class="portdot"') < 0);
     H.ok('...plugged in (its cable sensor on): the cable drawn', html.indexOf('cable.trim.webp') > 0);
@@ -186,7 +208,8 @@ H.run('power cards', [
     card.hass = house.set('binary_sensor.car_cable', 'on');
     card.hass = house.set('sensor.car_power', '7.7');
     html = drawn(card);
-    H.ok('charging 7.7 kW: the cable lit, the port breathing, the chip shows the watts', html.indexOf('class="portdot"') > 0 && (html.match(/class="flowdot"/g) || []).length === 2 && html.indexOf('7.70<u>kW</u>') > 0);
+    H.ok('charging 7.7 kW: the cable lit, the port breathing, the chip shows the watts', html.indexOf('class="portdot"') > 0 && (html.match(/class="flowdot"/g) || []).length === 2 &&
+      html.indexOf('7.70<u>kW</u>') > 0);
     card.hass = house.set('sensor.battery_charge_power', '800');
     H.ok('the battery charging: light rising in the bar, its top glowing', drawn(card).indexOf('class="lvrun"') > 0 && drawn(card).indexOf('class="lvtop"') > 0);
     card.hass = house.set('sensor.battery_level', '8');
@@ -209,7 +232,8 @@ H.run('power cards', [
     // TWO CARS, two Wall Connectors: each car its own charger (its
     // settings), so each row its own watts -- whichever car started first
     var two = H.make('hk-power-house-card');
-    var h3 = powerHouse({ 'sensor.main_power': ['16000', { unit_of_measurement: 'W' }], 'sensor.left_wc': ['7600', { unit_of_measurement: 'W' }], 'sensor.right_wc': ['0', { unit_of_measurement: 'W' }],
+    var h3 = powerHouse({ 'sensor.main_power': ['16000', { unit_of_measurement: 'W' }], 'sensor.left_wc': ['7600', { unit_of_measurement: 'W' }],
+      'sensor.right_wc': ['0', { unit_of_measurement: 'W' }],
       'sensor.a_level': ['61', { unit_of_measurement: '%' }], 'sensor.b_level': ['80', { unit_of_measurement: '%' }], 'device_tracker.a': ['home', {}], 'device_tracker.b': ['home', {}],
       'sensor.a_power': ['0', { unit_of_measurement: 'kW' }], 'sensor.b_power': ['7.7', { unit_of_measurement: 'kW' }] });
     var CARS2 = [{ name: 'Red Car', level: 'sensor.a_level', power: 'sensor.a_power', home: 'device_tracker.a', charger: 'sensor.left_wc' },
@@ -218,13 +242,16 @@ H.run('power cards', [
     two.hass = h3.hass();
     html = drawn(two);
     H.ok('two cars: Cars, a row each; the left charger\'s 7.6 kW is Red Car\'s (its own reading says 0), Blue Car at 80% (its stale 7.7 kW ignored)',
-      html.indexOf('>Cars</div>') > 0 && /<b>Red Car<\/b><span class="chg"[^>]*><i class="blt"><\/i>7\.60<u>kW<\/u>/.test(html) && html.indexOf('<b>Blue Car</b><span>80<u>%</u>') > 0, html.slice(html.indexOf('crows'), html.indexOf('crows') + 400));
+      html.indexOf('>Cars</div>') > 0 && /<b>Red Car<\/b><span class="chg"[^>]*><i class="blt"><\/i>7\.60<u>kW<\/u>/.test(html) && html.indexOf('<b>Blue Car</b><span>80<u>%</u>') > 0,
+        html.slice(html.indexOf('crows'), html.indexOf('crows') + 400));
     two.hass = h3.set('sensor.right_wc', '7700');
-    H.ok('both charging: both rows with their watts', /Red Car<\/b><span class="chg"[^>]*><i class="blt"><\/i>7\.60/.test(drawn(two)) && /Blue Car<\/b><span class="chg"[^>]*><i class="blt"><\/i>7\.70/.test(drawn(two)));
+    H.ok('both charging: both rows with their watts', /Red Car<\/b><span class="chg"[^>]*><i class="blt"><\/i>7\.60/.test(drawn(two)) &&
+      /Blue Car<\/b><span class="chg"[^>]*><i class="blt"><\/i>7\.70/.test(drawn(two)));
     two.hass = h3.set('device_tracker.a', 'not_home');
     two.hass = h3.set('sensor.right_wc', '0');
     html = drawn(two);
-    H.ok('Red Car away, its charger still drawing: Away on its row, the watts "A car"', html.indexOf('<b>Red Car</b><span class="away">Away</span>') > 0 && /<b>A car<\/b><span class="chg"/.test(html));
+    H.ok('Red Car away, its charger still drawing: Away on its row, the watts "A car"', html.indexOf('<b>Red Car</b><span class="away">Away</span>') > 0 &&
+      /<b>A car<\/b><span class="chg"/.test(html));
     var ownR = H.make('hk-power-house-card');
     var h4 = powerHouse({ 'sensor.main_power': ['9000', { unit_of_measurement: 'W' }], 'sensor.a_level': ['61', { unit_of_measurement: '%' }], 'device_tracker.a': ['not_home', {}],
       'sensor.a_power': ['150', { unit_of_measurement: 'kW' }] });
@@ -253,7 +280,8 @@ H.run('power cards', [
                 { name: 'Crawl Space', power: 'sensor.crawl', backed: false }, { name: 'Network Rack', power: 'sensor.rack', backed: true, parent: true }] });
     card.hass = house.hass();
     var html = drawn(card);
-    H.ok('the whole house split: 1.07 kW backed up (the panel\'s output), 988 W not', html.indexOf('Backed Up <b>1.07 kW</b>') > 0 && html.indexOf('Not Backed Up <b>988 W</b>') > 0, html.slice(0, 400));
+    H.ok('the whole house split: 1.07 kW backed up (the panel\'s output), 988 W not', html.indexOf('Backed Up <b>1.07 kW</b>') > 0 && html.indexOf('Not Backed Up <b>988 W</b>') > 0,
+      html.slice(0, 400));
     H.ok('the three drawing the most, marked; a device inside a circuit not counted twice', html.indexOf('Crawl Space<em>not backed up</em>') > 0 &&
       html.indexOf('Refrigerator<em>backed up</em>') > 0 && html.indexOf('Network Rack') < 0);
     H.ok('the battery covers 52% now; Every device opens the Energy page', html.indexOf('<b>52%</b>') > 0 && html.indexOf('data-nav="./energy"') > 0);
@@ -265,7 +293,8 @@ H.run('power cards', [
     H.ok('the grid status unknown: not an outage', drawn(card).indexOf('only the backed-up circuits are on') < 0 && drawn(card).indexOf('The battery covers') > 0);
     card.hass = house.set('sensor.panel_ac_out', 'unavailable');
     html = drawn(card);
-    H.ok('the backed-up reading unavailable: no split and no "covers 0%"', html.indexOf('covers <b>0%') < 0 && html.indexOf('Backed Up') < 0 && html.indexOf('Drawing the most') > 0, html.slice(0, 400));
+    H.ok('the backed-up reading unavailable: no split and no "covers 0%"', html.indexOf('covers <b>0%') < 0 && html.indexOf('Backed Up') < 0 && html.indexOf('Drawing the most') > 0,
+      html.slice(0, 400));
     var plain = H.make('hk-power-load-card');
     plain.setConfig({ type: 'custom:hk-power-load-card', home: 'sensor.main_power', devices: [{ name: 'Crawl Space', power: 'sensor.crawl' }] });
     plain.hass = house.hass();

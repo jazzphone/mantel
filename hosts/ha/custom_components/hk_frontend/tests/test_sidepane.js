@@ -75,7 +75,8 @@ var states = {
 };
 var calls = [], reads = [];
 var client = { states: states, subscriptions: null,
-  callWS: function (m) { reads.push(m); return Promise.resolve({ entity_id: m.entity_id, left: 4, items: [{ uid: '1', summary: 'Milk', done: false }, { uid: '2', summary: 'Eggs', done: false }, { uid: '3', summary: 'Coffee beans', done: false }] }); },
+  callWS: function (m) { reads.push(m); return Promise.resolve({ entity_id: m.entity_id, left: 4,
+    items: [{ uid: '1', summary: 'Milk', done: false }, { uid: '2', summary: 'Eggs', done: false }, { uid: '3', summary: 'Coffee beans', done: false }] }); },
   actions: { callService: function (d, s, data, target) { calls.push([d, s, data, target]); return Promise.resolve(); } } };
 window.hkHostClient = window.hkHostClient || {};
 window.hkCards.client = function () { return client; };
@@ -232,7 +233,8 @@ ok('...no heading over the Weather or the Clock', X.SEC.weather('less', {}, clie
 var ck0 = X.SEC.clock('more', { kind: 'clock' }, client, ctx);
 ok('Clock: with no choices, today\'s markup (digits, AM/PM beside them, the long date, the sunset)',
    /^<div class="sec" data-k="clock" data-size="more"><div class="big2 ck"><span class="tm">\d{1,2}:\d\d(<small>[AP]M<\/small>)?<\/span><\/div><div class="sub2 ckd"><span class="dl">[^<]+<\/span><span class="ds">[^<]+<\/span><span class="sun">Sunset [^<]+<\/span><\/div><\/div>$/.test(ck0), ck0);
-ok('...and the section\'s own classes only for a choice made', X.SEC.clock('more', { kind: 'clock', align: 'right', scale: 'large', weight: 'bold' }, client, ctx).indexOf('class="sec cka-right cks-large ckw-bold"') > 0);
+ok('...and the section\'s own classes only for a choice made', X.SEC.clock('more', { kind: 'clock', align: 'right', scale: 'large', weight: 'bold' }, client, ctx).indexOf(
+  'class="sec cka-right cks-large ckw-bold"') > 0);
 var ckA = X.SEC.clock('more', { kind: 'clock', ampm: false }, client, ctx);
 ok('...AM/PM off takes it out', ckA.indexOf('<small>') < 0 && ck0.indexOf('<small>') > 0);
 ok('...a 24-hour clock has none to show either', (function () {
@@ -293,7 +295,8 @@ ok('...Less, a mini player (2026-10-31, the owner\'s pick): the speaker line ove
    at(less, 'pp') < at(less, 'next') && at(less, 'next') < at(less, 'queue') && /class="mbtn mpp"/.test(less), less);   // (the controls strip's keys since 2026-11-09: hk-np-strip.js)
 var src = readFile(HK_ROOT + '/frontend/modules/hk-sidepane.js');
 // (as a drawer from the section since 2026-11-01: the player risen to the pane's top, the tabs under it)
-ok('...Speakers, Browse and Up Next open the screensaver\'s panel over the pane, its four tabs', /musicPanel\(this, act === 'spk' \? 'speakers' : act === 'queue' \? 'queue' : 'browse', b\.closest\('\[data-k="now_playing"\]'\), 'drawer'\)/.test(src) &&
+ok('...Speakers, Browse and Up Next open the screensaver\'s panel over the pane, its four tabs',
+  /musicPanel\(this, act === 'spk' \? 'speakers' : act === 'queue' \? 'queue' : 'browse', b\.closest\('\[data-k="now_playing"\]'\), 'drawer'\)/.test(src) &&
    /tabs: \['speakers', 'volume', 'queue', 'browse'\]/.test(src));
 ok('...no volume where the player reports none', !/data-act="vol"/.test(less));
 client.states['media_player.kitchen'].attributes.volume_level = 0.42;
@@ -353,7 +356,8 @@ Promise.resolve().then(function () { return Promise.resolve(); }).then(function 
   var was = window.hkWxForecast, asked = 0, made = 0, port = {};
   window.hkWxForecast = { watch: function (conn) { made++; return { conn: conn, data: function () { return []; }, ensure: function () { asked++; }, release: function () {} }; } };
   // (the element's own method, on a stand-in: the test page does not upgrade custom elements)
-  var Pane = customElements.get('hk-side-pane'), pane = { _wx: {}, redraw: function () {}, _forecast: Pane.prototype._forecast }, cl = { states: { 'sensor.fc': { state: 'ok', attributes: { forecast: [{ datetime: 'x', temperature: 60 }] } } }, subscriptions: port };
+  var Pane = customElements.get('hk-side-pane'), pane = { _wx: {}, redraw: function () {}, _forecast: Pane.prototype._forecast },
+    cl = { states: { 'sensor.fc': { state: 'ok', attributes: { forecast: [{ datetime: 'x', temperature: 60 }] } } }, subscriptions: port };
   pane._forecast(cl, 'weather.home', 'hourly'); pane._forecast(cl, 'weather.home', 'hourly');
   ok('the pane\'s forecast: one watch, asked again at the next draw (after a refusal, or a reconnect)', made === 1 && asked === 1, [made, asked]);
   SET['weather.forecast_daily'] = 'sensor.fc';

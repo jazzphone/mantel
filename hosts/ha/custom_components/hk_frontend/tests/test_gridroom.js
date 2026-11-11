@@ -120,7 +120,8 @@ var o = E.addOver(g, 'camera', 'L', [0, 2]);
 ok('a Large card onto the four small tiles: they go, it takes their cells', o && [o.removed.map(function (it) { return it.id; }), o.moved, where(o.grid).b1, o.grid.items.length],
    [['coffee', 'fire', 'tread', 'lights'], [], '0,2', 8]);
 ok('...nothing else moves, nothing is resized, the layout is valid', o && [where(o.grid).cal, where(o.grid).weather, where(o.grid).thermo, E.valid(o.grid)], ['2,2', '0,0', '4,2', true]);
-ok('...the new block is the card at the size asked, last, with an id of its own', o && JSON.stringify(o.grid.items[o.grid.items.length - 1]), JSON.stringify({ id: 'b1', card: 'camera', size: 'L', at: [0, 2] }));
+ok('...the new block is the card at the size asked, last, with an id of its own', o && JSON.stringify(o.grid.items[o.grid.items.length - 1]),
+  JSON.stringify({ id: 'b1', card: 'camera', size: 'L', at: [0, 2] }));
 ok('the draft itself is untouched', JSON.stringify(g), before);
 o = E.addOver(g, 'clock', 'L', [1, 2]);
 ok('a Large card half over a small column and the Calendar: only the blocks it covers go', o && o.removed.map(function (it) { return it.id; }).sort(), ['cal', 'fire', 'lights']);
@@ -133,7 +134,8 @@ ok('a card that does not fit the grid there at all: null', [E.addOver(g, 'camera
 var some = house();
 some.items = some.items.filter(function (it) { return it.id !== 'morning' && it.id !== 'relax'; });
 o = E.addOver(some, 'timers', 'S', [0, 2]);
-ok('a free grid: the Small card goes onto the tile and that tile moves to a free place, nothing removed', o && [o.removed, o.moved, where(o.grid).b1, where(o.grid).coffee], [[], ['coffee'], '0,2', '5,2']);
+ok('a free grid: the Small card goes onto the tile and that tile moves to a free place, nothing removed', o && [o.removed, o.moved, where(o.grid).b1, where(o.grid).coffee],
+  [[], ['coffee'], '0,2', '5,2']);
 ok('...valid, and no block changed size', o && [E.valid(o.grid), o.grid.items.length], [true, 10]);
 o = E.addOver(some, 'camera', 'L', [0, 2]);
 ok('...a Large card onto the four small tiles with only two cells free: they can\'t all go there, so they are replaced', o && [o.removed.length, o.moved],
@@ -155,7 +157,8 @@ ok('...23 blocks and a free cell: it goes there', (function () { var r2 = E.addO
 // a block is covered only in the view it is added to
 var two = grid(6, 4, [b('a', 'weather', 'L', [0, 0]), b('v1', 'weather', 'L', [0, 0], 1), b('z', 'timers', 'S', [5, 3])], { views: 2 });
 o = E.addOver(two, 'camera', 'L', [0, 0], 1);
-ok('another view\'s blocks are never covered: the block in view 1 makes room, the one in view 0 stays', o && [o.removed, o.moved, where(o.grid).a, o.grid.items.slice(-1)[0].view], [[], ['v1'], '0,0', 1]);
+ok('another view\'s blocks are never covered: the block in view 1 makes room, the one in view 0 stays', o && [o.removed, o.moved, where(o.grid).a, o.grid.items.slice(-1)[0].view],
+  [[], ['v1'], '0,0', 1]);
 
 ok('what goes, in words', [E.listOf([{ card: 'camera' }]), E.listOf([{ card: 'camera' }, { card: 'clock' }]),
    E.listOf([{ card: 'camera' }, { card: 'clock' }, { card: 'people' }]), E.listOf([{ card: 'camera' }, { card: 'clock' }, { card: 'people' }, { card: 'vacuum' }, { card: 'timers' }])],
@@ -165,13 +168,15 @@ ok('what goes, in words', [E.listOf([{ card: 'camera' }]), E.listOf([{ card: 'ca
 ed.grid = house(); ed.undoStack = []; ed.selected = null;
 ed.panel.client = { states: {}, entities: {}, devices: {}, areas: {} };
 ed.addCard('camera', 'L', [0, 2]);
-ok('the drop is the draft: the four are gone, the card is there, the editor says so', [ed.grid.items.length, ed.grid.items.some(function (it) { return it.id === 'coffee'; }), where(ed.grid).b1, ed.undoStack.length],
+ok('the drop is the draft: the four are gone, the card is there, the editor says so',
+  [ed.grid.items.length, ed.grid.items.some(function (it) { return it.id === 'coffee'; }), where(ed.grid).b1, ed.undoStack.length],
    [8, false, '0,2', 1]);
 ok('...the message says how many went and that Undo brings them back', /^4 blocks were replaced by Camera\. Undo \(⌘Z\) puts them back\.$/.test(ed.message.textContent), true);
 ed.undo();
 ok('...one Undo puts every block back', JSON.stringify(ed.grid), JSON.stringify(house()));
 ed.addCard('timers', 'S');
-ok('the Add button\'s own place is the first free one: none on a full grid, and it says what to do', [ed.grid.items.length, /drag the card onto the blocks it should replace/.test(ed.message.textContent)], [11, true]);
+ok('the Add button\'s own place is the first free one: none on a full grid, and it says what to do',
+  [ed.grid.items.length, /drag the card onto the blocks it should replace/.test(ed.message.textContent)], [11, true]);
 
 // 10. COMPACT SECURITY (2026-11-09, the owner, Kitchen: a 5 x 4 square grid with the top row free; "A Compact Security
 // doesn't fit there", Add did nothing): a Compact block is born with its HomeView presentation, so valid() takes it

@@ -256,7 +256,9 @@ step(function () {
   // beside the Side Pane are said (more, and the grid gets smaller)
   ok('the columns offered', GE.COLS, [6, 5, 4, 3, 2]);
   var SQ = { cell: 'square', rows: 4, band: false, grow: true, frame: [1180, 820] }, PANE = { side_pane_read: { dashboard: { show: 'home' } } };
-  ok('4 rows on a 1180 x 820 tablet beside the pane: 3 columns at full size (3.8 fit); without it, 5; a 1366 x 1024 (its cells grown to fill the height), 3 and 5', [GE.fullColumns(SQ, PANE), GE.fullColumns(SQ, {}), GE.fullColumns(Object.assign({}, SQ, { frame: [1366, 1024] }), PANE), GE.fullColumns(Object.assign({}, SQ, { frame: [1366, 1024] }), {})], [3, 5, 3, 5]);
+  ok('4 rows on a 1180 x 820 tablet beside the pane: 3 columns at full size (3.8 fit); without it, 5; a 1366 x 1024 (its cells grown to fill the height), 3 and 5',
+    [GE.fullColumns(SQ, PANE), GE.fullColumns(SQ, {}), GE.fullColumns(Object.assign({}, SQ, { frame: [1366, 1024] }), PANE), GE.fullColumns(Object.assign({}, SQ, { frame: [1366, 1024] }), {})],
+    [3, 5, 3, 5]);
   ok('...and no other starter asks for it', GE.paneForStarter(S.tablet_landscape[1], { side_pane_read: { dashboard: { show: 'off' } } }), null);
   var por = GE.squareStarter(S.tablet_portrait[0], { v: 1, cols: 3, rows: 6, frame: [820, 1180], band: true, items: [] }, house);
   var ph = GE.squareStarter(S.phone_portrait[0], { v: 1, cols: 2, rows: 5, frame: [390, 844], band: false, items: [] }, house);
@@ -311,7 +313,8 @@ step(function () {
   pg.client = { states: { 'lock.front': { attributes: { friendly_name: 'Front Door' } }, 'lock.back': { attributes: { friendly_name: 'Back Door' } },
                           'cover.garage': { attributes: { friendly_name: 'Garage Door' } }, 'alarm_control_panel.house': { attributes: { friendly_name: 'Alarm' } } } };
   pg.data.boards['dashboard-den'] = { home_style: 'grid', home_grid: { v: 1, cols: 6, rows: 4, frame: [1280, 800], band: true, items: [
-    { id: 'd1', card: 'clock', size: 'S', at: [0, 0], interaction: { tap: 'custom_sheet', custom_sheet: { v: 1, title: 'Den Doors', entries: [{ id: 'e1', entity: 'lock.back', name: 'Patio' }] } } }] } };
+    { id: 'd1', card: 'clock', size: 'S', at: [0, 0], interaction: { tap: 'custom_sheet',
+      custom_sheet: { v: 1, title: 'Den Doors', entries: [{ id: 'e1', entity: 'lock.back', name: 'Patio' }] } } }] } };
   pg.data.dashboards = [{ path: 'dashboard-den', title: 'Den' }, { path: 'dashboard-hall', title: 'Hall' }];
   var ed = editor(pg, true);
   ed.load(pg.data.boards['dashboard-hall']);
@@ -362,7 +365,8 @@ step(function () {
   // Duplicate Block: the sheet goes with it, its entries new ids, and is its own
   ed.duplicate('a1');
   var dup = ed.grid.items[ed.grid.items.length - 1];
-  ok('Duplicate Block: a block of its own in the first free place, its sheet with it', [dup.id !== 'a1', dup.at, dup.interaction.custom_sheet.entries.length, dup.interaction.custom_sheet.title], [true, [1, 0], 3, 'Security']);
+  ok('Duplicate Block: a block of its own in the first free place, its sheet with it', [dup.id !== 'a1', dup.at, dup.interaction.custom_sheet.entries.length, dup.interaction.custom_sheet.title],
+    [true, [1, 0], 3, 'Security']);
   dup.interaction.custom_sheet.entries[0].name = 'Changed';
   ok('...and a copy, not a link', item().interaction.custom_sheet.entries[0].name, undefined);
   // Copy Sheet From: another screen's block, by its screen, card and title
@@ -466,7 +470,8 @@ step(function () {
   // the seventh rule: its condition, a second one and a third, and no fourth
   var whens = function () { return rows_('When'); };
   whens()[6].onChange('after_sunset');
-  ok('the seventh rule\'s condition changes, the others stay', kinds().join(), 'music_playing,music_playing,music_playing,music_playing,music_playing,music_playing,after_sunset,music_playing,music_playing,music_playing');
+  ok('the seventh rule\'s condition changes, the others stay', kinds().join(),
+    'music_playing,music_playing,music_playing,music_playing,music_playing,music_playing,after_sunset,music_playing,music_playing,music_playing');
   var also = function () { return rows_('And Also'); };
   also()[6].onChange('alarm_armed');
   also()[6].onChange('timer_running');
@@ -474,7 +479,8 @@ step(function () {
   ok('...and offers no fourth', also().length, 9);
   // the tenth: previewed from its own rows and from Preview, a menu with each rule's card
   var preview = rows_('Preview')[0];
-  ok('ten rules: Preview is a menu of Live, Default and each rule', [preview.kind, preview.options.length, preview.options[11][0], /^Rule 10: /.test(preview.options[11][1])], ['select', 12, '9', true]);
+  ok('ten rules: Preview is a menu of Live, Default and each rule', [preview.kind, preview.options.length, preview.options[11][0], /^Rule 10: /.test(preview.options[11][1])],
+    ['select', 12, '9', true]);
   preview.onChange('9');
   ok('...the tenth previews, and its card is the one being set', [ed.conditionPreview, ed.editing, previews > 0], [9, 9, true]);
   var edits = draw().filter(function (r) { return /^Edit .* Settings$/.test(r.label); });
@@ -485,7 +491,8 @@ step(function () {
   var mark = function () { return item().rules.map(function (r) { return r.when.all.length; }).indexOf(3); };
   for (var k = 0; k < 6; k++) rows_('Move Rule Up')[mark()].onClick();
   ok('Move Rule Up takes the seventh to the first', mark(), 0);
-  ok('...the first has no Move Rule Up, the last no Move Rule Down', [rows_('Move Rule Up')[0].disabled, rows_('Move Rule Down')[9].disabled, rows_('Move Rule Down')[0].disabled], [true, true, false]);
+  ok('...the first has no Move Rule Up, the last no Move Rule Down', [rows_('Move Rule Up')[0].disabled, rows_('Move Rule Down')[9].disabled, rows_('Move Rule Down')[0].disabled],
+    [true, true, false]);
   for (k = 0; k < 9; k++) rows_('Move Rule Down')[mark()].onClick();
   ok('Move Rule Down takes it to the tenth', [mark(), item().rules.length], [9, 10]);
   ed.editing = 8;
@@ -500,7 +507,8 @@ step(function () {
   draw();
   ok('past four Preview is still a menu; four or fewer, the segments as before', rows_('Preview')[0].kind, 'select');
   while (item().rules.length > 4) rows_('Remove Rule')[4].onClick();
-  ok('...four rules: Live, Default, Rule 1 to Rule 4', [rows_('Preview')[0].kind, rows_('Preview')[0].options.map(function (o) { return o[1]; })], ['seg', ['Live', 'Default', 'Rule 1', 'Rule 2', 'Rule 3', 'Rule 4']]);
+  ok('...four rules: Live, Default, Rule 1 to Rule 4', [rows_('Preview')[0].kind, rows_('Preview')[0].options.map(function (o) { return o[1]; })],
+    ['seg', ['Live', 'Default', 'Rule 1', 'Rule 2', 'Rule 3', 'Rule 4']]);
   ok('the layout with its rules is valid', window.hkGridEditor.valid(ed.grid), true);
   // valid(), as hk_core: ten rules, three conditions a rule
   var GE = window.hkGridEditor, block = function (rules) { return { v: 1, cols: 6, rows: 4, frame: [1280, 800], band: true,

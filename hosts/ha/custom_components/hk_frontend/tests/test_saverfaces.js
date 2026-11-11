@@ -124,22 +124,27 @@ F.KINDS.forEach(function (kind) {
 print('=== the faces’ grounds, the Day face moving, Big Weather beside the music ===');
 // THE INK ON EACH FACE (2026-10-31, the owner: the corners white on the light Day face): by its ground's luminance
 var noon = new Date(2026, 9, 31, 8, 11), late = new Date(2026, 9, 31, 21, 0);
-ok('the grounds’ luminance: Day light and Month light, Glance and Day dark not', [FU.luminance('#eceae5') > 0.6, FU.luminance('#f7f5f2') > 0.6, FU.luminance('#a9bcc6') < 0.6, FU.luminance('#16171b') < 0.1], [true, true, true, true]);
+ok('the grounds’ luminance: Day light and Month light, Glance and Day dark not',
+  [FU.luminance('#eceae5') > 0.6, FU.luminance('#f7f5f2') > 0.6, FU.luminance('#a9bcc6') < 0.6, FU.luminance('#16171b') < 0.1], [true, true, true, true]);
 ok('dark ink on Day (light, and By Time of Day in the morning) and Month; light on the rest',
-   [FU.inkFor('day', 'light', late), FU.inkFor('day', 'auto', noon), FU.inkFor('day', 'auto', late), FU.inkFor('day', 'dark', noon), FU.inkFor('month', 'auto', noon), FU.inkFor('glance', 'auto', noon), FU.inkFor('weather', 'auto', noon)],
+   [FU.inkFor('day', 'light', late), FU.inkFor('day', 'auto', noon), FU.inkFor('day', 'auto', late), FU.inkFor('day', 'dark', noon), FU.inkFor('month', 'auto', noon),
+     FU.inkFor('glance', 'auto', noon), FU.inkFor('weather', 'auto', noon)],
    ['dark', 'dark', 'light', 'light', 'dark', 'light', 'light']);
 ok('...and an odd colour reads as dark (white ink)', [FU.inkOn(null), FU.inkOn('red'), FU.luminance('#ffffff'), FU.luminance('#000000')], ['light', 'light', 1, 0]);
 // THE DAY FACE MOVING: bats drift, leaves rock, the moon rises a little, the web holds still -- not under Flat or a still preview
-ok('how each picture moves (2026-10-31, the owner: "bats flying, leaves falling")', ['bat1.webp', 'moon-hallow.webp', 'leaf-oak-f.webp', 'web.webp', 'sp-petal.webp', 'sp-crystal.webp', 'sp-butterfly.webp', 'sp-heart.webp'].map(FU.motionOf),
+ok('how each picture moves (2026-10-31, the owner: "bats flying, leaves falling")',
+  ['bat1.webp', 'moon-hallow.webp', 'leaf-oak-f.webp', 'web.webp', 'sp-petal.webp', 'sp-crystal.webp', 'sp-butterfly.webp', 'sp-heart.webp'].map(FU.motionOf),
    ['fly', 'moon', 'fall', '', 'fall', 'fall', 'flutter', 'drift']);
 ok('the moving face’s rules: leaves fall through their places, bats fly across with their wings beating, out of step, none under Reduce Motion',
    [/\.hkf\.day\.live \.art \.fall\{animation:hkf-fall 21s linear infinite\}/.test(FU.CSS), /\.fly\{animation:hkf-fly 19s linear infinite,hkf-flap/.test(FU.CSS),
     /@keyframes hkf-fall\{0%\{translate:0 calc\(-1 \* var\(--y,50cqh\) - 14cqh\)/.test(FU.CSS), FU.CSS.indexOf('animation-delay:var(--k,0s)') >= 0,
     FU.CSS.indexOf('@media (prefers-reduced-motion:reduce){.hkf.day.live .art > *{animation:none}}') >= 0], [true, true, true, true, true]);
 ok('...the day and its date move down by what the screensaver says (clear of its corner), the date smaller where it must be',
-   [FU.CSS.indexOf('.hkf.day .wd{translate:0 var(--hk-day-push,0px)}') >= 0, FU.CSS.indexOf('.hkf.day .dn{translate:0 var(--hk-day-push-dn,0px);scale:var(--hk-day-scale,1);transform-origin:50% 0}') >= 0], [true, true]);
+   [FU.CSS.indexOf('.hkf.day .wd{translate:0 var(--hk-day-push,0px)}') >= 0, FU.CSS.indexOf('.hkf.day .dn{translate:0 var(--hk-day-push-dn,0px);scale:var(--hk-day-scale,1);transform-origin:50% 0}') >=
+     0], [true, true]);
 (function () {
-  var mk = function (o) { var l = document.createElement('div'); var c = F.mount(l, Object.assign({ kind: 'day', look: 'light', still: false }, o)); var r = l.children[0]; var cls = r.className; var arts = walk(r).filter(function (e) { return /\b(fly|flutter|fall|moon|drift)\b/.test(e.className || ''); }).length; c.destroy(); return [cls, arts]; };
+  var mk = function (o) { var l = document.createElement('div'); var c = F.mount(l, Object.assign({ kind: 'day', look: 'light', still: false }, o)); var r = l.children[0]; var cls = r.className;
+    var arts = walk(r).filter(function (e) { return /\b(fly|flutter|fall|moon|drift)\b/.test(e.className || ''); }).length; c.destroy(); return [cls, arts]; };
   var saved = window.hkSettings;
   window.hkSettings = { rendering: function () { return { flat: false }; }, get: function (k, d) { return d; } };
   var live = mk({});
@@ -148,7 +153,8 @@ ok('...the day and its date move down by what the screensaver says (clear of its
   window.hkSettings = { rendering: function () { return { flat: true }; }, get: function (k, d) { return d; } };
   ok('...nor under Flat', /\blive\b/.test(mk({})[0]), false);
   window.hkSettings = saved;
-  ok('...and only the Day face', (function () { var l = document.createElement('div'); var c = F.mount(l, { kind: 'month' }); var k = l.children[0].className; c.destroy(); return /\blive\b/.test(k); })(), false);
+  ok('...and only the Day face', (function () { var l = document.createElement('div'); var c = F.mount(l, { kind: 'month' }); var k = l.children[0].className; c.destroy(); return /\blive\b/.test(k);
+    })(), false);
 })();
 // BIG WEATHER WHILE MUSIC PLAYS (2026-10-31): .np, so held sideways its readings move over beside the music
 (function () {
@@ -164,7 +170,8 @@ ok('...the day and its date move down by what the screensaver says (clear of its
 (function () {
   var W = read(DIR + 'frontend/cards/hk-weather.js');
   ok('the clock card asks again on each minute while it is on the page, and lets go when it leaves (chained)',
-     [/connectedCallback\(\) \{ super\.connectedCallback\(\); this\._armMinute\(\); \}/.test(W), /disconnectedCallback\(\) \{ clearTimeout\(this\._minT\); this\._minT = null; super\.disconnectedCallback\(\); \}/.test(W),
+     [/connectedCallback\(\) \{ super\.connectedCallback\(\); this\._armMinute\(\); \}/.test(W),
+       /disconnectedCallback\(\) \{ clearTimeout\(this\._minT\); this\._minT = null; super\.disconnectedCallback\(\); \}/.test(W),
       /60000 - Date\.now\(\) % 60000 \+ 250/.test(W)], [true, true, true]);
 })();
 
@@ -182,7 +189,8 @@ var c0 = U.readCfg({}), c1 = U.readCfg({ show: 'glance', forecast_layout: 'big',
 ok('nothing chosen: as before', [c0.show, c0.forecast_layout, c0.photo_titles, c0.time_behind, c0.day_look], ['photos', 'classic', false, false, 'auto']);
 ok('chosen: read', [c1.show, c1.forecast_layout, c1.photo_titles, c1.time_behind, c1.day_look], ['glance', 'big', true, true, 'dark']);
 ok('Month and Day are Shows too; anything else is Photos', [U.readCfg({ show: 'month' }).show, U.readCfg({ show: 'day' }).show, U.readCfg({ show: 'week' }).show], ['month', 'day', 'photos']);
-ok('...and odd values are their defaults', [U.readCfg({ forecast_layout: 'huge' }).forecast_layout, U.readCfg({ time_behind: 'yes' }).time_behind, U.readCfg({ day_look: 'dusk' }).day_look], ['classic', false, 'auto']);
+ok('...and odd values are their defaults', [U.readCfg({ forecast_layout: 'huge' }).forecast_layout, U.readCfg({ time_behind: 'yes' }).time_behind, U.readCfg({ day_look: 'dusk' }).day_look],
+  ['classic', false, 'auto']);
 var MASK = '/api/photos/' + '1'.repeat(32) + '/mask?v=9';
 ok('a sound cut-out is kept (a box from before is not)', U.cleanDepth({ depth: { mask: MASK, box: [0.3, 0.1, 0.4, 0.2] } }), { mask: MASK });
 ok('...without a box too', U.cleanDepth({ depth: { mask: MASK } }), { mask: MASK });
@@ -194,7 +202,8 @@ ok('where a filled photo is drawn', rect.map(function (v) { return Math.round(v)
 ok('...and a whole one, letterboxed', U.drawnRect(2000, 3000, 1180, 820, 'contain', 0.5, 0.5).map(function (v) { return Math.round(v); }), [317, 0, 547, 820]);
 // THE TIME'S ONE PLACE (2026-10-30): upper centre, the same on every photo -- its figures' box, and where it ends
 ok('the figures upper centre: the same box whatever the photo', U.glyphBox(1180, 820, '10:42').map(function (v) { return Math.round(v); }), [332, 93, 516, 142]);
-ok('...on a portrait tablet and a phone, from the shorter side', [U.glyphBox(820, 1180, '10:42'), U.glyphBox(390, 844, '9:05')].map(function (b) { return b.map(function (v) { return Math.round(v); }); }),
+ok('...on a portrait tablet and a phone, from the shorter side', [U.glyphBox(820, 1180, '10:42'), U.glyphBox(390, 844, '9:05')].map(
+  function (b) { return b.map(function (v) { return Math.round(v); }); }),
    [[152, 115, 516, 142], [100, 72, 191, 67]]);
 // WHERE THE REST OF THE CORNER GOES (2026-10-31, the owner: "why did the weather leave the upper-left corner?"): the
 // corner clock steps aside for the photo's time, and the weather keeps the corner -- no rule moves the corner itself
@@ -202,18 +211,27 @@ var TBQ = ':host([tb]:not([forecast]):not([fcslide]):not([muslide]):not([enslide
 ok('Time Behind: the corner clock steps aside', U.CSS.indexOf(TBQ + ' .info > hk-clock-card{display:none}') >= 0, true);
 ok('...and the weather keeps the corner (no rule places the corner under the time)', [U.CSS.indexOf(TBQ + ' .info{'), U.CSS.indexOf('--hk-tb-foot'), U.CSS.indexOf("[tb][pane]")], [-1, -1, -1]);
 // A LIGHT FACE'S CORNERS (2026-10-31): the ink the corner cards draw with goes dark, not only the box's colour
-ok('a light face: the corners’ ink dark, their glow gone', /:host\(\[ckface\]\[cklight\]:not\(\[cknight\]\)\) \.info\{[^}]*--hk-ink:#1c1c1e[^}]*--hk-glow:none[^}]*--hk-ss-ink:#1c1c1e[^}]*--hk-ss-glow:none/.test(U.CSS), true);
+ok('a light face: the corners’ ink dark, their glow gone',
+  /:host\(\[ckface\]\[cklight\]:not\(\[cknight\]\)\) \.info\{[^}]*--hk-ink:#1c1c1e[^}]*--hk-glow:none[^}]*--hk-ss-ink:#1c1c1e[^}]*--hk-ss-glow:none/.test(U.CSS), true);
 // BIG WEATHER'S CORNERS (2026-10-31, the owner: "Disarmed" over its time): Home Status under the time, the music beside the readings
-ok('Big Weather: Home Status under its time, at its edge, at the readings’ sizes', U.CSS.indexOf(':host([fcbig][forecast]:not([pane])) .info,:host([fcbig][fcslide]:not([pane])) .info{--hk-ss-status-top:13.1vmin;--hk-ss-status-right:7.3vmin;\n  --hk-ss-status-width:calc(100vw - 44.6vmin);--hk-ss-status-l1:3.7vmin;--hk-ss-status-l2:2.9vmin;') >= 0, true);
+ok('Big Weather: Home Status under its time, at its edge, at the readings’ sizes',
+  U.CSS.indexOf(
+  ':host([fcbig][forecast]:not([pane])) .info,:host([fcbig][fcslide]:not([pane])) .info{--hk-ss-status-top:13.1vmin;--hk-ss-status-right:7.3vmin;\n  --hk-ss-status-width:calc(100vw - 44.6vmin);' +
+  '--hk-ss-status-l1:3.7vmin;--hk-ss-status-l2:2.9vmin;') >= 0, true);
 ok('...the music on the face’s bottom row, to its numbers: its margins, a reading’s height, the readings’ sizes',
    U.CSS.indexOf('--hk-ss-now-left:7.3vmin;--hk-ss-now-bottom:6.1vmin;--hk-ss-np-art:14vmin;--hk-ss-np-title:3.7vmin;--hk-ss-np-artist:2.9vmin;--hk-ss-np-gap:2.4vmin;') >= 0, true);
-ok('...the row split at 40 % held sideways; upright, a row above the readings', [FU.CSS.indexOf('.hkf.weather.np .rd{left:calc(40cqw + 2.4cqmin);display:flex;justify-content:flex-end;gap:9.8cqmin}') >= 0, U.CSS.indexOf('--hk-ss-now-bottom:calc(6.1vmin + 32vmin + 4vmin)') >= 0, FU.CSS.indexOf('.hkf.weather .rd > div{height:14cqmin;') >= 0], [true, true, true]);
-ok('Month: no corner weather over its top line, Home Status under it', [U.CSS.indexOf(':host([ckface=month]) .info hk-weather-strip-card{display:none}') >= 0, /:host\(\[ckface=month\]:not\(\[pane\]\)\) \.info\{--hk-ss-status-top/.test(U.CSS)], [true, true]);
+ok('...the row split at 40 % held sideways; upright, a row above the readings', [
+  FU.CSS.indexOf('.hkf.weather.np .rd{left:calc(40cqw + 2.4cqmin);display:flex;justify-content:flex-end;gap:9.8cqmin}') >= 0, U.CSS.indexOf('--hk-ss-now-bottom:calc(6.1vmin + 32vmin + 4vmin)') >= 0,
+  FU.CSS.indexOf('.hkf.weather .rd > div{height:14cqmin;') >= 0], [true, true, true]);
+ok('Month: no corner weather over its top line, Home Status under it', [U.CSS.indexOf(':host([ckface=month]) .info hk-weather-strip-card{display:none}') >= 0,
+  /:host\(\[ckface=month\]:not\(\[pane\]\)\) \.info\{--hk-ss-status-top/.test(U.CSS)], [true, true]);
 // THE DAY FACE AND THE CORNER (2026-10-31, the owner: the clock "colliding into the name of the Day"): the corner's
 // words smaller on it, the weather's glyph in the light face's ink, a phone's Home Status under the corner
-ok('the Day face: the corner’s time and weather smaller, smaller still on a phone', [U.CSS.indexOf(':host([ckface=day]) .info > hk-clock-card,:host([ckface=day]) .info > hk-weather-strip-card{zoom:.6}') >= 0,
+ok('the Day face: the corner’s time and weather smaller, smaller still on a phone',
+  [U.CSS.indexOf(':host([ckface=day]) .info > hk-clock-card,:host([ckface=day]) .info > hk-weather-strip-card{zoom:.6}') >= 0,
    U.CSS.indexOf('@media (max-width:599px){:host([ckface=day]:not([pane])) .info > hk-clock-card,:host([ckface=day]:not([pane])) .info > hk-weather-strip-card{zoom:.45}') >= 0], [true, true]);
-ok('a light face: the weather glyph’s white in its ink; the pane’s cards keep theirs', [/--hk-wx-w:#1c1c1e\}/.test(U.CSS), U.CSS.indexOf(':host([ckface][cklight][pane]:not([cknight])) .info > hk-screensaver-status-card') >= 0], [true, true]);
+ok('a light face: the weather glyph’s white in its ink; the pane’s cards keep theirs',
+  [/--hk-wx-w:#1c1c1e\}/.test(U.CSS), U.CSS.indexOf(':host([ckface][cklight][pane]:not([cknight])) .info > hk-screensaver-status-card') >= 0], [true, true]);
 // CLOCK ON PHOTOS WITH TIME BEHIND (2026-10-31, the owner: "the clock is dim"): the time over the photos' dark wash
 // (.ph::after, z-index 2), and the cut-out over it darkened as much as the wash darkens the photo
 ok('the dark wash over the photos is a layer of its own', /:host\(\[ckphotos\]\) \.ph::after\{[^}]*z-index:2/.test(U.CSS), true);
@@ -229,7 +247,8 @@ ok('behind from 5 % to 35 %: none, a little, some, too much, unread', [0, 0.04, 
 // (hkSaver.preview's `over`), on this screen's settings -- the screensaver on whatever the screen says
 (function () {
   var made = [], HS0 = window.hkSettings, ST0 = window.hkStrategy;
-  window.hkSettings = { get: function (k, d) { return k === 'boards' ? { 'dashboard-kitchen': { title: 'Kitchen', screensaver: false, screensaver_options: { show: 'photos' } } } : k === 'look.saver' ? { show: 'forecast' } : d; } };
+  window.hkSettings = { get: function (k, d) { return k === 'boards' ? { 'dashboard-kitchen': { title: 'Kitchen', screensaver: false, screensaver_options: { show: 'photos' } } } : k === 'look.saver' ?
+    { show: 'forecast' } : d; } };
   window.hkStrategy = { saverBlock: function (c, b) { made.push([b.title, b.screensaver, b.screensaver_options.show]); return { show: b.screensaver_options.show }; } };
   ok('the options handed over make the block, on this screen, the screensaver on', [U.houseBlock({ show: 'day' }), made[0]], [{ show: 'day' }, ['Kitchen', true, 'day']]);
   ok('...none handed over: All Screens’ (the house preview)', U.houseBlock().show, 'forecast');
@@ -310,7 +329,8 @@ ok('Clock on Soft photos with both saved on: the photo alone (the clock stays th
 // THE PLANTED NUMERALS (2026-11-01, hk-saverfaces.js plant()): Big Weather's time standing in the meadow, its
 // shadow cast by the scene's sun through one camera fitted to the land
 print('=== the planted numerals ===');
-ok('Planted Numerals: on unless off', [U.readCfg({}).forecast_planted, U.readCfg({ forecast_planted: false }).forecast_planted, U.readCfg({ forecast_planted: 'no' }).forecast_planted], [true, false, true]);
+ok('Planted Numerals: on unless off', [U.readCfg({}).forecast_planted, U.readCfg({ forecast_planted: false }).forecast_planted, U.readCfg({ forecast_planted: 'no' }).forecast_planted],
+  [true, false, true]);
 var rnd = function (p) { return p.map(function (v) { return Math.round(v * 100) / 100; }); };
 var G = FU.plGeometry(1280, 800), GU = FU.plGeometry(820, 1180), GW = FU.plGeometry(1920, 1080);
 ok('the feet on the land\'s ground line (68 % of the art) at 16:10, upright and 16:9 -- not in the trees upright',

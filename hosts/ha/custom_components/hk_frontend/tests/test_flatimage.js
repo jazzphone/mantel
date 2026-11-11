@@ -42,6 +42,7 @@ var dark = I.table(look({ mode: 'original', brightness: -50 }), '#ff0000');
 ok('Brightness works in Original and preserves endpoints', bright[128][0] > 128 && dark[128][0] < 128 && bright[0][0] === 0 && dark[255][0] === 255);
 ok('chosen color lightness matters', JSON.stringify(I.table(look(), '#000000')) !== JSON.stringify(I.table(look(), '#ffffff')));
 var a = look(), b = look({ depth: 100 });
-ok('Depth changes palette without editing other values', JSON.stringify(I.table(a, '#0080ff')) !== JSON.stringify(I.table(b, '#0080ff')) && a.strength === b.strength && a.brightness === b.brightness && a.fade === b.fade);
+ok('Depth changes palette without editing other values', JSON.stringify(I.table(a, '#0080ff')) !== JSON.stringify(I.table(b, '#0080ff')) && a.strength === b.strength && a.brightness ===
+  b.brightness && a.fade === b.fade);
 ok('new Fade endpoints are literal and theme aware', I.fade(0, 'light') === 'rgba(238,236,230,0.000)' && I.fade(100, 'dark') === 'rgba(10,11,12,1.000)');
 print('ALL ' + pass + ' FLAT IMAGE TESTS PASS');

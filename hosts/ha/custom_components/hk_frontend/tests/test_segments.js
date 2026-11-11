@@ -29,7 +29,8 @@ ok('a choice of its own width does not clip the slide either', !/overflow:\s*hid
 ok('the slide starts from the old box with no transition (.slide-from)', css.indexOf('button.slide-from::before{transition:none}') > 0);
 // ...and slideSeg really draws that start: the new choice, at the old one's box, for one forced layout
 var seg = { cls: {}, props: {}, log: [] };
-var fake = function (x, w) { return { parentNode: { getBoundingClientRect: function () { return { left: 0 }; } }, getBoundingClientRect: function () { return { left: x, width: w }; }, offsetWidth: 1 }; };
+var fake = function (x, w) { return { parentNode: { getBoundingClientRect: function () { return { left: 0 }; } }, getBoundingClientRect: function () { return { left: x, width: w }; },
+  offsetWidth: 1 }; };
 var nb = fake(100, 90), toBox = C.segBox(nb), oldBox = { x: 0, w: 90 };
 nb.classList = { add: function (c) { seg.log.push('add ' + c); }, remove: function (c) { seg.log.push('remove ' + c); } };
 nb.style = { setProperty: function (k, v) { seg.log.push('set ' + k + '=' + v); }, removeProperty: function (k) { seg.log.push('unset ' + k); } };

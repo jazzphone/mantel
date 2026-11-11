@@ -182,7 +182,8 @@ function () {
   var m2 = X.moreMove(CTX, b(), 'playmusic', 0, V);
   eq('...Music among the top pages: it goes to the top', after(b(), m2).top, 'Music,Weather,Cameras');
   var m3 = X.moreMove(CTX, b(), 'weather', 3, V);
-  eq('...Weather dropped on the last cell: down into Categories, last', after(b(), m3), { top: 'Cameras', cats: 'Security,Climate,Lights,Timers,Music,Garden,Weather', rooms: 'Attic,Den,Kitchen,Yard' });
+  eq('...Weather dropped on the last cell: down into Categories, last', after(b(), m3),
+    { top: 'Cameras', cats: 'Security,Climate,Lights,Timers,Music,Garden,Weather', rooms: 'Attic,Den,Kitchen,Yard' });
   var m4 = X.moreMove(CTX, b(), 'weather', 2, V);
   eq('...on Garden\'s cell: before it (the place it is dropped on is its new place)', after(b(), m4).cats, 'Security,Climate,Lights,Timers,Music,Weather,Garden');
 },

@@ -102,7 +102,8 @@ function lv(k) { return st.getPropertyValue(k); }
 HS._apply({ configured: true, look: { glass: 'bright' } });
 v = vars();
 ok('the plate: a white wash brighter at the top left, as designed at 50 % (no sky: no light to mix in)',
-   v.plate === 'linear-gradient(rgba(255, 255, 255, 0), rgba(255, 255, 255, 0)), linear-gradient(160deg, rgba(255, 255, 255, 0.24) 0%, rgba(255, 255, 255, 0.09) 45%, rgba(255, 255, 255, 0.05))', v.plate);
+   v.plate === 'linear-gradient(rgba(255, 255, 255, 0), rgba(255, 255, 255, 0)), linear-gradient(160deg, rgba(255, 255, 255, 0.24) 0%, rgba(255, 255, 255, 0.09) 45%, rgba(255, 255, 255, 0.05))',
+     v.plate);
 ok('the blur: the bright tier, 4 px, so a wallpaper\'s edges show through', lv('--hk-blur-filter') === 'blur(4px) saturate(1.3) brightness(1.08)', lv('--hk-blur-filter'));
 ok('the rim, the glow and the shadow as inset shadows; no edge', lv('--hk-look-shadow') ===
    'inset 0 0 0 1.5px rgba(255,255,255,0.22), inset 0 1.5px 0 rgba(255,255,255,0.30), inset 0 0 24px rgba(255,255,255,0.06), 0 6px 20px rgba(40,0,60,0.10)' &&
@@ -323,7 +324,8 @@ ok('a normal row stays one layer', rowOnly.length === 1, rowOnly.length);
 var longRow = [];
 for (var k = 0; k < 20; k++) longRow.push({ x: k * 204, y: 7, w: 192, h: 70, r: 23.5 });
 var lr = B(longRow, 20 * 204, 104, 1.5);
-ok('a row wider than 4096 device px is cut into vertical bands', lr.length > 1 && lr.every(function (b) { return b.axis === 'x' && b.len * 1.5 <= 4096; }), lr.map(function (b) { return [b.axis, b.len]; }));
+ok('a row wider than 4096 device px is cut into vertical bands', lr.length > 1 && lr.every(function (b) { return b.axis === 'x' && b.len * 1.5 <= 4096; }),
+  lr.map(function (b) { return [b.axis, b.len]; }));
 
 print('\n=== a layer is drawn at full strength from its first frame (no fade) ===');
 var gsrc = readFile(HK_ROOT + '/frontend/modules/hk-glass.js');

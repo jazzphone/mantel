@@ -276,7 +276,8 @@ var weatherReading = window.hkSky._read({ states: {
   'sun.sun': { attributes: { elevation: -15, azimuth: 240 } },
   'weather.test': { state: 'lightning-rainy', attributes: { cloud_coverage: 95, wind_speed: 30 } }
 } });
-check('Weather off removes clouds, precipitation, lightning and fog', weatherReading.cover === 0 && weatherReading.wind === 0 && !weatherReading.fog && weatherReading.wet.kind === 'none' && !weatherReading.wet.bolt && weatherReading.weather === false);
+check('Weather off removes clouds, precipitation, lightning and fog', weatherReading.cover === 0 && weatherReading.wind === 0 && !weatherReading.fog && weatherReading.wet.kind === 'none' &&
+  !weatherReading.wet.bolt && weatherReading.weather === false);
 check('the sun and moon inputs survive Weather off', weatherReading.elev === -15 && weatherReading.azim === 240 && typeof weatherReading.moon === 'number');
 check('Decorations off empties the season and surprise gate', weatherReading.season === '' && weatherReading.seasonalOn === false);
 check('animation and curated backdrop reach paint', weatherReading.animations === false && weatherReading.backdrop.night.length === 4);

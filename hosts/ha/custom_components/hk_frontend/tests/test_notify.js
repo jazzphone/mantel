@@ -51,7 +51,8 @@ ok('...even an Important one or a test', N.decide(Object.assign({}, n, { importa
 ok('editing the dashboard', N.decide(n, ctx({ editing: true })) === 'drop:editing');
 // (2026-11-01: a preview's frame shows the screen, not the house's news -- the Screensaver editor's Slides &
 // Notifications turns them on)
-ok('hushed (a preview\'s frame), none; unhushed, as before', [window.hkNotify.hush(true), N.decide(n, ctx()), window.hkNotify.hush(false), N.decide(n, ctx())].join(' ') === 'true drop:hushed false show');
+ok('hushed (a preview\'s frame), none; unhushed, as before', [window.hkNotify.hush(true), N.decide(n, ctx()), window.hkNotify.hush(false), N.decide(n, ctx())].join(' ') ===
+  'true drop:hushed false show');
 ok('All Screens’ Do Not Disturb', N.decide(Object.assign({}, n, { dnd: DND }), ctx({ now: at(23) })) === 'drop:dnd');
 ok('...an Important one gets through', N.decide(Object.assign({}, n, { dnd: DND, important: true }), ctx({ now: at(23) })) === 'show');
 ok('the screen’s own DND over All Screens’',

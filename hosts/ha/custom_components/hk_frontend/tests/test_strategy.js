@@ -59,7 +59,8 @@ window.hkStrategy.generate({}, hass).then(function (cfg) {
   ok('the header comes first', home.cards[0].cards[0].type === 'custom:hk-header-card');
   ok('rooms by floor level, then name; empty rooms left out', JSON.stringify(roomNames(home)) === '["Garage","Kitchen","Den"]', roomNames(home));
   var k = tilesOf(home, 'Kitchen');
-  ok('hidden, config and area-less entities are not room tiles', k.length === 3 && cards(cfg).indexOf('light.hidden') < 0 && cards(cfg).indexOf('switch.cfg') < 0 && cards(home.cards.slice(1)).indexOf('light.nowhere') < 0);
+  ok('hidden, config and area-less entities are not room tiles', k.length === 3 && cards(cfg).indexOf('light.hidden') < 0 && cards(cfg).indexOf('switch.cfg') < 0 &&
+    cards(home.cards.slice(1)).indexOf('light.nowhere') < 0);
   ok('lights before switches, then by name', k[0].entity === 'light.kitchen_lights' && k[2].entity === 'switch.kitchen_coffee');
   ok('the room is not repeated in a tile name', k[1].name === 'Table Light', k[1].name);
   ok('a light group gets the group glyph at its measured size', k[0].icon === 'hk:lightbulb-group' && k[0].icon_size === '42px');
@@ -677,7 +678,8 @@ window.hkStrategy.generate({}, hass).then(function (cfg) {
     // THE MUSIC PAGE'S: a phone's only -- while the page says it is one
     // column (`hk-music-mini`), ahead of the bar's own trigger
     var mb = null;
-    (function f(o) { if (mb || !o || typeof o !== 'object') return; if (o.hash === '#media') { mb = o; return; } Object.keys(o).forEach(function (k) { f(o[k]); }); })(g3.views.filter(function (v) { return v.path === 'playmusic'; })[0]);
+    (function f(o) { if (mb || !o || typeof o !== 'object') return; if (o.hash === '#media') { mb = o; return; } Object.keys(o).forEach(function (k) { f(o[k]); }); })(
+      g3.views.filter(function (v) { return v.path === 'playmusic'; })[0]);
     ok('...the Music page\'s opens on the page\'s flag, then the bar\'s own trigger', mb && mb.trigger[0].condition === 'flag' &&
        mb.trigger[0].flag === 'hk-music-mini' && JSON.stringify(mb.trigger.slice(1)) === JSON.stringify(m3.trigger) && mb.carry === true && m3.carry === true, mb && mb.trigger);
     // (both carried: a phone's Home bar becomes the page's in place)

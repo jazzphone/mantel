@@ -40,7 +40,8 @@ settle().then(function () {
   var si = new StateIcon(), host = { states: {} }, st = { entity_id: 'light.a', state: 'on', attributes: {} };
   window.hkHostClient.from(host).bindStateIcon(si, st);
   var inner = si.inner;
-  ok('HA\'s hk-state-icon: ha-state-icon inside, given HA\'s object and the state', !!inner && String(inner.localName || inner.tagName).toLowerCase() === 'ha-state-icon' && inner.hass === host && inner.stateObj === st, inner && inner.tagName);
+  ok('HA\'s hk-state-icon: ha-state-icon inside, given HA\'s object and the state', !!inner && String(inner.localName || inner.tagName).toLowerCase() === 'ha-state-icon' && inner.hass === host &&
+    inner.stateObj === st, inner && inner.tagName);
   si.icon = 'mdi:lamp';
   ok('...and an icon of its own', inner.icon === 'mdi:lamp' && si.icon === 'mdi:lamp');
   // Phase 2 P2.2: the cards' CSS now lands on hk-state-icon where it landed on ha-state-icon, so
@@ -52,7 +53,9 @@ settle().then(function () {
   // ha-svg-icon (inline-flex, --mdc-icon-size), with HA's rules, so the cards' CSS lays out the same
   var css = window.hkElements.ICON_CSS;
   ok('hk-icon: the host is ha-icon\'s (inline, only the fill)', /^:host\{fill:currentcolor\}/.test(css), css.slice(0, 40));
-  ok('...the inner box is ha-svg-icon\'s', /\.i\{display:var\(--ha-icon-display,inline-flex\);vertical-align:middle;fill:var\(--icon-primary-color,currentcolor\);width:var\(--mdc-icon-size,24px\);height:var\(--mdc-icon-size,24px\)/.test(css));
+  ok('...the inner box is ha-svg-icon\'s',
+    /\.i\{display:var\(--ha-icon-display,inline-flex\);vertical-align:middle;fill:var\(--icon-primary-color,currentcolor\);width:var\(--mdc-icon-size,24px\);height:var\(--mdc-icon-size,24px\)/.test(
+    css));
   ok('...and its second path HA\'s half opacity', /path\.s\{fill:var\(--icon-secondary-color,currentcolor\);opacity:var\(--icon-secondary-opactity,\.5\)\}/.test(css));
   var e = new Icon(), box = e.shadowRoot.querySelector('.i');
   e.icon = 'mdi:lightbulb';

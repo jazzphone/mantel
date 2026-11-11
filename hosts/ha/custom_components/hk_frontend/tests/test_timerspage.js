@@ -301,11 +301,14 @@ H.run('TIMERS PAGE', [
     H.section('hk-timers-card, a made timer');
     var card = H.make('hk-timers-card');
     card.setConfig({ timers: [{ entity: 'timer.quick_1', label: 'Quick Timer 1' }] });
-    var end = new Date(Date.now() + 600000).toISOString(), st = { state: 'active', attributes: { finishes_at: end, duration: '0:15:00', friendly_name: 'Pasta' }, last_updated: 'x', last_changed: 'x' };
+    var end = new Date(Date.now() + 600000).toISOString(), st = { state: 'active', attributes: { finishes_at: end, duration: '0:15:00', friendly_name: 'Pasta' }, last_updated: 'x',
+      last_changed: 'x' };
     var quick = { state: 'idle', attributes: { duration: '0:00:00' }, last_updated: 'x', last_changed: 'x' };
-    card.hass = { states: { 'timer.quick_1': quick, 'timer.hk_timer_3': st, 'sensor.running_quick_timers': { state: '1', attributes: { running: [], made: ['timer.hk_timer_3', 'timer.hk_timer_9'] } } } };
+    card.hass = { states: { 'timer.quick_1': quick, 'timer.hk_timer_3': st, 'sensor.running_quick_timers': { state: '1',
+      attributes: { running: [], made: ['timer.hk_timer_3', 'timer.hk_timer_9'] } } } };
     var list = card._list();
-    H.eq('it joins the list, by its own name, and one already gone is not listed', list.map(function (t) { return t.entity + '/' + t.label; }).join(), 'timer.quick_1/Quick Timer 1,timer.hk_timer_3/Pasta');
+    H.eq('it joins the list, by its own name, and one already gone is not listed', list.map(function (t) { return t.entity + '/' + t.label; }).join(),
+      'timer.quick_1/Quick Timer 1,timer.hk_timer_3/Pasta');
     H.eq('and it counts as running', card._running().map(function (t) { return t.entity; }).join(), 'timer.hk_timer_3');
     card.hass = { states: { 'timer.quick_1': quick } };
     H.eq('with no sensor (a house with no helpers): only what the card was given', card._list().length, 1);
