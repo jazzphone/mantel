@@ -14,7 +14,7 @@ its own block ("it does something completely different").
 | Part | File |
 | --- | --- |
 | The rules: a TV's wiring, favorites, app counts, App Store icons, learning an input | `hk_core/tv.py` |
-| The server: counts the apps each Apple TV opens, fetches and keeps icons, learns inputs, `sensor.hk_tv`, `/api/tv/icon/<id>` | `hosts/server/mantel_server/tv.py`, migration `0038_tv_apps.sql` |
+| The server: counts the apps each Apple TV opens, fetches and keeps icons, learns inputs, `sensor.hk_tv`, `/api/tv/icon/<id>` | `hosts/server/mantel_server/tv.py`, migrations `0038_tv_apps.sql`, `0039_tv_guesses.sql` |
 | The page's half: rooms' sets, what's on, each brand's remote keys, volume, apps, A TV Is On | `web/hk/modules/hk-tv.js` |
 | The sheet (`hk-detail-tv`): any TV or Apple TV tile opens it | `web/hk/sheets/hk-sheet-tv.js` |
 | The block (`hk-grid-tv-card`, `tv` in the catalogs) | `web/hk/cards/hk-tv-card.js` |
@@ -66,8 +66,16 @@ neither works or the device is off.
 - **Icons**: Home Assistant gives app names and, for the open app, its bundle id. Mantel's server looks the id up in Apple's App
   Store once (`https://itunes.apple.com/lookup?bundleId=`), fetches the picture from Apple's host (`*.mzstatic.com`; is1 to is5)
   and keeps it in its database. **Firewall: allow the Mantel server to reach `itunes.apple.com` and `*.mzstatic.com`.** The tablets
-  only ever ask Mantel. Off with Look Up App Icons. Apple's own apps aren't in the lookup: they use the house's glyphs. An app nobody
-  has opened yet has no id, so it's a tile with its name.
+  only ever ask Mantel. Off with Look Up App Icons. Apple's own apps aren't in the lookup: they use the house's glyphs.
+- **Guessed icons** (2026-11-10, the owner: "Can it do the fuzzy match and then recheck/redownload when it opens?"): an app nobody
+  has opened yet has only its name, so the server asks the App Store's search (`https://itunes.apple.com/search?term=`), one name
+  every 3 seconds, and keeps the closest match (`best_match`): the same name, the name before a ':' or ' - ' ("Plex: Find Movies
+  and TV Shows"), or the name as its first word(s) ("Speedtest by Ookla"); never from a category no TV app is in (Food & Drink,
+  Lifestyle, Shopping...), TV-like categories first. On this house's Living Room Apple TV it found 22 of its 29 non-Apple apps;
+  the rest stay name tiles (Prime Video is "Amazon Prime Video" in the store). When the app opens, its bundle id decides: a guess
+  that named another app is dropped and the real icon looked up; an opened app is never guessed again. Kept by name in
+  `tv_guesses` (migration `0039_tv_guesses.sql`), served at the same `/api/tv/icon/<the guessed bundle id>`, shared as
+  `sensor.hk_tv`'s `guesses` {name: {id, src} | {glyph}}. Apple's own apps by name get their glyphs there too.
 - Tapping an app from a dark room: the player on, the TV on (where it can be turned on), the TV to the player's input when that's
   known, then the app.
 
@@ -100,6 +108,7 @@ every paged block uses; `tests/test_swipe_card.py`.
 ## Checks
 
 - `tests/test_tv.py`: the settings, counting, icons (asked once, never for Apple's own, only from Apple's host, not when off),
+  icons guessed by name (the closest name, never a drinks app's; a wrong guess dropped when the app opens),
   learning an input either way, and in node the sets, what's on, each brand's keys, an app from a dark room, the apps' order, A TV Is On.
 - HK Frontend's suites: the block at every size on both cells and its tap (`test_blocks_taps.js`), the sheet's CSS.
 - Drawn on the house's twin at 1280 × 800: the sheet on the Master Bedroom HomeView and the block at every size on both cells.

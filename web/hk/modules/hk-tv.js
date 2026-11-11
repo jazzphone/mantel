@@ -252,14 +252,25 @@
 
   // ------------------------------------------------------------ THE APPS
   // show: 'recent' (most opened here first), 'favorites' (Accessories -> TVs -> TV Apps), or an app's name. Recent and Favorites fill
-  // up from the player's own list, so a new house still has apps to tap.
-  /** @param {any} client @param {any} set @param {string} [show] @param {number} [n] */
-  function apps(client, set, show, n) {
-    var p = st(client, set && set.player), pa = (p && p.attributes) || {}, list = pa.source_list || [];
-    var known = (((st(client, SENSOR) || {}).attributes || {}).apps || []);
+  // up from the player's own list, so a new house still has apps to tap. An app nobody has opened takes the icon Mantel guessed by
+  // its name (sensor.hk_tv's `guesses`, hk_core/tv.py best_match) until it opens and its own is looked up.
+  /** @param {any} client */
+  function iconsOf(client) {
+    var sa = ((st(client, SENSOR) || {}).attributes || {}), known = sa.apps || [], guessed = sa.guesses || {};
     /** @type {Record<string, any>} */
     var byName = {};
     known.forEach(function (/** @type {any} */ a) { if (a && a.name && !byName[a.name]) byName[a.name] = a; });
+    /** @param {string} name */
+    function one(name) {
+      var a = byName[name] || {}, g = guessed[name] || {}, src = a.src || g.src;
+      return { id: a.id || null, icon: src ? (global.__hkBase || '') + src : null, glyph: a.glyph || g.glyph || null };
+    }
+    return { known: known, byName: byName, one: one };
+  }
+  /** @param {any} client @param {any} set @param {string} [show] @param {number} [n] */
+  function apps(client, set, show, n) {
+    var p = st(client, set && set.player), pa = (p && p.attributes) || {}, list = pa.source_list || [];
+    var ic = iconsOf(client), known = ic.known, byName = ic.byName;
     var mode = show || setting(client, 'features.tv_show', 'recent') || 'recent', names = [];
     if (mode !== 'recent' && mode !== 'favorites') names = [mode];
     else {
@@ -271,17 +282,16 @@
     names.forEach(function (name) {
       if (!name || seen[name] || (list.length && list.indexOf(name) < 0 && !byName[name])) return;
       seen[name] = 1;
-      var a = byName[name] || {};
-      out.push({ name: name, id: a.id || null, icon: a.src ? (global.__hkBase || '') + a.src : null, glyph: a.glyph || null,
-                 now: !!pa.app_name && pa.app_name === name && on(p) });
+      var a = ic.one(name);
+      out.push({ name: name, id: a.id, icon: a.icon, glyph: a.glyph, now: !!pa.app_name && pa.app_name === name && on(p) });
     });
     return typeof n === 'number' ? out.slice(0, n) : out;
   }
   // every app the player lists (All Apps…), A to Z
   /** @param {any} client @param {any} set */
   function allApps(client, set) {
-    var p = st(client, set && set.player), list = ((p && p.attributes) || {}).source_list || [];
-    return apps(client, set, 'recent').concat(list.map(function (/** @type {string} */ x) { return { name: x, id: null, icon: null, glyph: null, now: false }; }))
+    var p = st(client, set && set.player), list = ((p && p.attributes) || {}).source_list || [], ic = iconsOf(client);
+    return apps(client, set, 'recent').concat(list.map(function (/** @type {string} */ x) { var a = ic.one(x); return { name: x, id: a.id, icon: a.icon, glyph: a.glyph, now: false }; }))
       .filter(function (a, i, all) { return all.findIndex(function (b) { return b.name === a.name; }) === i; })
       .sort(function (a, b) { return a.name.localeCompare(b.name); });
   }

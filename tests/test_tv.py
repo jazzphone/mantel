@@ -1,6 +1,7 @@
 """TVs (phase 23; hk_core/tv.py, mantel_server/tv.py): what Accessories -> TVs may save, the apps an Apple TV opens counted and shared
 as Mantel's own sensor, the input a room's player is on learned as it wakes its TV, an icon looked up once on Apple's host only and
-never for Apple's own apps or with lookups off, and the icon served to signed-in screens."""
+never for Apple's own apps or with lookups off, and the icon served to signed-in screens; an app nobody has opened gets an icon
+guessed by its name, dropped when it opens as another app."""
 import pytest
 
 import gateway_fakes as GF
@@ -67,6 +68,39 @@ def test_icons_are_asked_for_once_a_week_never_for_apples_own_and_only_from_appl
     assert T.artwork(found) == "https://is1-ssl.mzstatic.com/image/thumb/x/512x512bb.jpg"
     assert T.artwork({"results": [{"artworkUrl512": "https://evil.example/icon.png"}]}) is None
     assert T.artwork({"results": []}) is None
+
+
+def _r(title, bundle, genre="Entertainment", art="https://is1-ssl.mzstatic.com/image/thumb/a/512x512bb.png"):
+    return {"trackName": title, "bundleId": bundle, "primaryGenreName": genre, "artworkUrl512": art}
+
+
+def test_an_icon_is_guessed_by_the_closest_name_never_from_a_category_no_tv_app_is_in():
+    # (shaped as the App Store search answered for this house's Apple TV, 2026-11-10)
+    dusk = {"results": [_r("DUSK - Drinks, Deals & Rewards", "co.uk.drinki", "Food & Drink"), _r("Dusk.fm", "fm.dusk", "Music"),
+                        _r("Dusk", "app.dusk", "Photo & Video")]}
+    assert T.best_match("Dusk", dusk)["bundle"] == "app.dusk"                    # (the drinks app's name comes first, not its icon)
+    plex = {"results": [_r("Plex: Find Movies and TV Shows", "com.plexapp.plex")]}
+    assert T.best_match("Plex", plex) == {"bundle": "com.plexapp.plex", "art": "https://is1-ssl.mzstatic.com/image/thumb/a/512x512bb.png"}
+    assert T.best_match("discovery+", {"results": [_r("discovery+ | Stream TV Shows", "com.discovery.plus")]})["bundle"] == "com.discovery.plus"
+    assert T.best_match("Speedtest", {"results": [_r("Speedtest by Ookla", "com.ookla.speedtest", "Utilities")]})["bundle"] == "com.ookla.speedtest"
+    tarot = {"results": [_r("Moonlight: Interactive Tarot", "world.moonlight", "Lifestyle"), _r("Moonlight", "moon.game", "Games")]}
+    assert T.best_match("Moonlight", tarot)["bundle"] == "moon.game"
+    assert T.best_match("Moon", {"results": [_r("Moonlight", "moon.game", "Games")]}) is None     # (a word, not part of one)
+    assert T.best_match("Prime Video", {"results": [_r("Amazon Prime Video", "com.amazon.aiv")]}) is None
+    assert T.best_match("YouTube", {"results": [_r("YouTube", "com.google.ios.youtube", art="https://evil.example/y.png")]}) is None
+    assert T.best_match("YouTube", {"results": [{"trackName": "YouTube", "bundleId": "../etc", "artworkUrl512": "https://a.mzstatic.com/x"}]}) is None
+
+
+def test_a_name_is_searched_once_a_week_never_apples_own_and_apples_own_get_glyphs():
+    assert T.wants_guess("Netflix", None, 1e9, True)
+    assert not T.wants_guess("Netflix", None, 1e9, False)                       # (lookups off)
+    assert not T.wants_guess("Netflix", {"icon": True}, 1e9, True)
+    assert not T.wants_guess("Netflix", {"tried": 1e9 - 3600}, 1e9, True)
+    assert not T.wants_guess("Settings", None, 1e9, True) and not T.wants_guess("", None, 1e9, True)
+    assert not T.wants_guess("App\u00a0Store", None, 1e9, True)                  # (as the Apple TV lists it, a no-break space)
+    rows = {"Netflix": {"bundle": "com.netflix.Netflix", "icon": True}, "Dusk": {"tried": 5}}
+    assert T.guesses(rows, ["Dusk", "Netflix", "Settings"]) == {
+        "Netflix": {"id": "com.netflix.Netflix", "src": "/api/tv/icon/com.netflix.Netflix"}, "Settings": {"glyph": "hk:cog"}}
 
 
 def test_a_players_tv_is_the_one_in_its_room():
@@ -166,6 +200,56 @@ async def test_lookups_off_in_settings_asks_nothing(gw, monkeypatch):
     assert asked == [] and h.host.lookup is False
 
 
+async def _settle():
+    for _ in range(8):
+        await __import__("asyncio").sleep(0)
+
+
+async def test_an_app_nobody_opened_gets_a_guessed_icon_and_a_wrong_guess_goes_when_it_opens(gw, monkeypatch):
+    h = House(gw)
+    monkeypatch.setattr(T, "SEARCH_GAP", 0)
+    searched, fetched = [], []
+
+    async def search(name):
+        searched.append(name)
+        return {"Coax": ("com.guess.coax", b"PNG coax", "image/png"), "Dusk": ("app.dusk.photos", b"PNG dusk", "image/png")}.get(name)
+
+    async def fetch(app):
+        fetched.append(app)
+        return b"PNG real", "image/png"
+    monkeypatch.setattr(h.host, "search_icon", search)
+    monkeypatch.setattr(h.host, "fetch_icon", fetch)
+    h.put(ATV, "standby", source_list=["Coax", "Dusk", "Settings", "Rivulet"])
+    await _settle()
+    assert sorted(searched) == ["Coax", "Dusk", "Rivulet"]                          # (Apple's Settings never)
+    g = h.sensor["guesses"]
+    assert g["Coax"] == {"id": "com.guess.coax", "src": "/api/tv/icon/com.guess.coax"} and g["Settings"] == {"glyph": "hk:cog"}
+    assert "Rivulet" not in g and h.host.store.guess_icon("com.guess.coax") == (b"PNG coax", "image/png")
+    h.put(ATV, "standby", source_list=["Coax", "Dusk", "Settings", "Rivulet", "Netflix"])
+    await _settle()
+    assert searched.count("Coax") == 1 and searched.count("Rivulet") == 1 and "Netflix" in searched   # (once a week; a new app)
+    # Coax opens as the guessed app: its guess stays and its own icon is looked up too; Dusk opens as another app: its guess goes
+    h.put(ATV, "playing", app_id="com.guess.coax", app_name="Coax")
+    h.put(ATV, "playing", app_id="com.real.dusk", app_name="Dusk")
+    await _settle()
+    assert fetched == ["com.guess.coax", "com.real.dusk"]
+    assert "Coax" in h.sensor["guesses"] and "Dusk" not in h.sensor["guesses"] and h.host.store.guess_icon("app.dusk.photos") is None
+    assert {a["id"]: a["icon"] for a in h.sensor["apps"]} == {"com.guess.coax": True, "com.real.dusk": True}
+
+
+async def test_no_name_is_searched_with_lookups_off(gw, monkeypatch):
+    h = House(gw)
+    gw.m.app["settings"].store.write([("house", "settings", {"features": {"tv_icons": False}})], actor=SettingsActor(label="test"))
+    searched = []
+
+    async def search(name):
+        searched.append(name)
+    monkeypatch.setattr(h.host, "search_icon", search)
+    h.put(ATV, "standby", source_list=["Coax", "Netflix"])
+    await _settle()
+    assert searched == [] and h.sensor["guesses"] == {}
+
+
 # -- the page's half (web/hk/modules/hk-tv.js), in node --------------------------------------------------------------------------
 import json as _json
 import shutil as _shutil
@@ -188,7 +272,9 @@ const states = {
   'media_player.kitchen_homepod': { state: 'playing', attributes: { friendly_name: 'Kitchen HomePod', app_id: 'music_assistant', mass_player_type: 'player', source_list: ['Music Assistant Queue'] } },
   'media_player.guest_apple_tv': { state: 'off', attributes: { friendly_name: 'Guest Apple TV', source_list: [] } },
   'sensor.hk_tv': { state: '2', attributes: { apps: [{ id: 'com.google.ios.youtubeunplugged', name: 'YouTube TV', count: 9, src: '/api/tv/icon/com.google.ios.youtubeunplugged', icon: true }],
-                                               inputs: {} } }
+                                               inputs: {}, guesses: { 'Coax': { id: 'com.guess.coax', src: '/api/tv/icon/com.guess.coax' },
+                                                                      'YouTube TV': { id: 'wrong.guess', src: '/api/tv/icon/wrong.guess' },
+                                                                      'App\u00a0Store': { glyph: 'hk:apple' } } } }
 };
 const entities = {
   'media_player.bed_tv': { area_id: 'bed', platform: 'webostv', device_id: 't1' }, 'media_player.bed_apple_tv': { area_id: 'bed', platform: 'apple_tv', device_id: 'a1' },
@@ -208,6 +294,7 @@ out.keys = { tvUp: T.press(client, bed, 'tv', 'up'), back: T.press(client, bed, 
 out.denVol = T.look(client, den).volume.mode;
 out.openDen = T.open(client, den, 'Netflix');
 out.apps = T.apps(client, bed, 'recent', 4).map((a) => [a.name, !!a.icon, a.now]);
+out.all = T.allApps(client, bed).map((a) => [a.name, a.icon, a.glyph]);
 out.on = { bed: T.isOn(client, 'media_player.bed_tv'), den: T.isOn(client, 'den'), any: G.matches({ kind: 'tv_on' }, states),
            tablet: G.matches({ kind: 'tv_on', entity: 'tablet_room' }, states), denRule: G.matches({ kind: 'tv_on', entity: 'media_player.den_tv' }, states) };
 console.log(JSON.stringify(out));
@@ -254,7 +341,12 @@ def test_an_app_from_a_dark_room_wakes_the_player_and_the_tv_first(js):
 
 
 def test_recent_apps_put_the_most_used_first_with_its_icon_and_leave_out_apples_utilities(js):
-    assert js["apps"] == [["YouTube TV", True, False], ["Netflix", False, True], ["Disney+", False, False], ["Coax", False, False]]
+    assert js["apps"] == [["YouTube TV", True, False], ["Netflix", False, True], ["Disney+", False, False], ["Coax", True, False]]
+
+
+def test_an_app_nobody_opened_shows_its_guessed_icon_and_an_opened_apps_own_icon_wins(js):
+    assert js["all"] == [["App\u00a0Store", None, "hk:apple"], ["Coax", "/api/tv/icon/com.guess.coax", None], ["Disney+", None, None],
+                         ["Netflix", None, None], ["YouTube TV", "/api/tv/icon/com.google.ios.youtubeunplugged", None]]
 
 
 def test_a_tv_is_on_by_a_tv_its_room_or_any(js):

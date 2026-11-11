@@ -7,6 +7,10 @@ hk_core/tv.py has the rules).
 * ICONS: an app the App Store knows gets its icon looked up once (itunes.apple.com's lookup by bundle id, the picture from
   *.mzstatic.com), kept in the database and served at /api/tv/icon/<app id> to signed-in screens. Off with features.tv_icons. Apple's
   own apps are never looked up (hk_core.tv.BUILTINS: the house's glyphs).
+* GUESSED ICONS: an app a player lists that nobody has opened yet is looked up by its name (the App Store's search, one name
+  every SEARCH_GAP seconds, hk_core.tv.best_match keeps the close match), its icon kept by name (tv_guesses) and served at the
+  same /api/tv/icon/<the guessed bundle id>. When the app opens, a guess that named another bundle id is dropped and the real
+  icon looked up by its bundle id, as above.
 * SHARED as Mantel's own ``sensor.hk_tv`` (``hub.store.ours``): attributes `apps` (most used first) and `inputs` {tv: input}, so
   every screen, block and sheet agrees. Nothing is created on the Home Assistant side.
 """
@@ -27,6 +31,7 @@ from .guards import guard
 log = logging.getLogger("mantel.tv")
 
 LOOKUP = "https://itunes.apple.com/lookup"
+SEARCH = "https://itunes.apple.com/search"
 ICON_MAX = 1_000_000            # bytes: an App Store icon is ~50-150 kB
 ICON_TYPES = {"image/png", "image/jpeg", "image/webp"}
 ICON_PATH = T.ICON_PATH + "{app}"
@@ -68,6 +73,27 @@ class Store:
         row = self.db.execute("SELECT icon, icon_type FROM tv_apps WHERE app_id = ?", (app,)).fetchone()
         return (bytes(row[0]), row[1]) if row and row[0] else None
 
+    def guesses(self) -> dict[str, dict[str, Any]]:
+        return {r[0]: {"bundle": r[1], "tried": r[2], "icon": bool(r[3])}
+                for r in self.db.execute("SELECT name, bundle, tried, icon IS NOT NULL FROM tv_guesses")}
+
+    def tried_guess(self, name: str, when: float) -> None:
+        with self.db:
+            self.db.execute("INSERT INTO tv_guesses (name, tried) VALUES (?,?) ON CONFLICT(name) DO UPDATE SET tried = excluded.tried",
+                            (name, when))
+
+    def save_guess(self, name: str, bundle: str, body: bytes, kind: str) -> None:
+        with self.db:
+            self.db.execute("UPDATE tv_guesses SET bundle = ?, icon = ?, icon_type = ? WHERE name = ?", (bundle, body, kind, name))
+
+    def drop_guess(self, name: str) -> None:
+        with self.db:
+            self.db.execute("DELETE FROM tv_guesses WHERE name = ?", (name,))
+
+    def guess_icon(self, bundle: str) -> tuple[bytes, str] | None:
+        row = self.db.execute("SELECT icon, icon_type FROM tv_guesses WHERE bundle = ? AND icon IS NOT NULL", (bundle,)).fetchone()
+        return (bytes(row[0]), row[1]) if row and row[0] else None
+
     def save_input(self, tv: str, value: str, player: str, when: float) -> None:
         with self.db:
             self.db.execute("INSERT OR REPLACE INTO tv_inputs (tv, input, player, at) VALUES (?,?,?,?)", (tv, value, player, when))
@@ -79,6 +105,10 @@ class TvApps:
         self.store = Store(app["store"].db)
         self.apps = self.store.apps()
         self.inputs = self.store.inputs()
+        self.guessed = self.store.guesses()            # name -> {bundle, tried, icon}
+        self.names: list[str] = []                     # every name the players list, A to Z
+        self.queue: list[str] = []                     # names waiting for a search
+        self.searching: asyncio.Task | None = None
         self.last: dict[str, dict[str, Any]] = {}       # the players' and TVs' states at the last look
         self.woke: dict[str, float] = {}                # player -> when it woke (a learn window open)
         self.moved: dict[str, tuple[float, str]] = {}   # TV -> when it came on or changed input, and to what
@@ -141,6 +171,11 @@ class TvApps:
             self.store.save_app(app, row)
             if len(self.apps) >= T.APPS_MAX:
                 self.store.drop_apps(set(self.apps))
+            g = self.guessed.get(name)
+            if g is not None and g.get("bundle") and g["bundle"] != app:     # the name's guess was another app: dropped
+                self.guessed.pop(name, None)
+                self.store.drop_guess(name)
+                log.info("tv: %s opened as %s, not the guessed %s: the guess dropped", name, app, g["bundle"])
             self._maybe_icon(app, now)
             hit = True
         return hit
@@ -186,6 +221,8 @@ class TvApps:
             hit = self._look_player(eid, now) or hit
         for eid in (changed & self.tvs) if not first else self.tvs:
             hit = self._look_tv(eid, now) or hit
+        if first or changed & self.players:
+            hit = self._look_names(now) or hit
         if not (hit or first or T.SENSOR in changed):
             return changed
         return self._publish(changed)
@@ -193,7 +230,8 @@ class TvApps:
     def _publish(self, changed: set[str]) -> set[str]:
         states, now = self.hub.store.states, self.clock()
         attrs = {"friendly_name": "TV apps", "icon": "mdi:television", "plumbing": True,
-                 "apps": T.ranked(self.apps)[:APPS_SHOWN], "inputs": dict(sorted(self.inputs.items()))}
+                 "apps": T.ranked(self.apps)[:APPS_SHOWN], "inputs": dict(sorted(self.inputs.items())),
+                 "guesses": T.guesses(self.guessed, self.names)}
         old = states.get(T.SENSOR)
         if old is not None and old.get("a") == attrs:
             return changed
@@ -229,6 +267,73 @@ class TvApps:
         finally:
             self.fetching.discard(app)
 
+    # -- icons guessed by name -------------------------------------------------------------------------------------------
+    def _look_names(self, now: float) -> bool:
+        """Every name the players list; the ones with no icon yet queued for a search. True when the list changed."""
+        states, names = self.hub.store.states, set()
+        for eid in self.players:
+            lst = ((states.get(eid) or {}).get("a") or {}).get("source_list")
+            if isinstance(lst, list):
+                names.update(n for n in lst if isinstance(n, str) and 0 < len(n) <= T.NAME_MAX)
+        listed = sorted(names)[:T.NAMES_MAX]
+        changed = listed != self.names
+        self.names = listed
+        if self.app.get("http") is None:
+            return changed
+        opened = {r.get("name") for r in self.apps.values()}        # (an app opened has its real bundle id: never guessed again)
+        for n in listed:
+            if n not in opened and n not in self.queue and T.wants_guess(n, self.guessed.get(n), now, self.lookup):
+                self.queue.append(n)
+        if self.queue and (self.searching is None or self.searching.done()):
+            self.searching = asyncio.ensure_future(self._search_all())
+            self.tasks.add(self.searching)
+            self.searching.add_done_callback(self.tasks.discard)
+        return changed
+
+    async def _search_all(self) -> None:
+        while self.queue:
+            name = self.queue.pop(0)
+            now = self.clock()
+            if not T.wants_guess(name, self.guessed.get(name), now, self.lookup):
+                continue
+            self.guessed.setdefault(name, {})["tried"] = now
+            self.store.tried_guess(name, now)
+            try:
+                got = await self.search_icon(name)
+                if got:
+                    bundle, body, kind = got
+                    self.store.save_guess(name, bundle, body, kind)
+                    self.guessed[name].update(bundle=bundle, icon=True)
+                    log.info("tv: %s's icon guessed from the App Store's %s (%d bytes)", name, bundle, len(body))
+                    self.hub.on_change({T.SENSOR})
+            except Exception:  # noqa: BLE001 -- asked again in a week
+                log.debug("tv: %s's icon by name", name, exc_info=True)
+            if self.queue:
+                await asyncio.sleep(T.SEARCH_GAP)
+
+    async def search_icon(self, name: str) -> tuple[str, bytes, str] | None:
+        """The App Store search's closest app to one name: (its bundle id, its icon, the icon's type), or None."""
+        http: aiohttp.ClientSession = self.app["http"]
+        timeout = aiohttp.ClientTimeout(total=15)
+        async with http.get(SEARCH, params={"term": name, "entity": "software", "country": "us", "limit": "10"}, timeout=timeout) as r:
+            if r.status != 200:
+                return None
+            found = await r.json(content_type=None)
+        hit = T.best_match(name, found if isinstance(found, dict) else {})
+        if not hit:
+            return None
+        got = await self._picture(hit["art"])
+        return (hit["bundle"],) + got if got else None
+
+    async def _picture(self, url: str) -> tuple[bytes, str] | None:
+        http: aiohttp.ClientSession = self.app["http"]
+        async with http.get(url, timeout=aiohttp.ClientTimeout(total=15)) as r:
+            kind = (r.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+            if r.status != 200 or kind not in ICON_TYPES:
+                return None
+            body = await r.content.read(ICON_MAX + 1)
+            return (body, kind) if 0 < len(body) <= ICON_MAX else None
+
     async def fetch_icon(self, app: str) -> tuple[bytes, str] | None:
         """The App Store's icon for one bundle id: the lookup, then its picture (Apple's host only), or None."""
         http: aiohttp.ClientSession = self.app["http"]
@@ -238,18 +343,12 @@ class TvApps:
                 return None
             found = await r.json(content_type=None)
         url = T.artwork(found if isinstance(found, dict) else {})
-        if not url:
-            return None
-        async with http.get(url, timeout=timeout) as r:
-            kind = (r.headers.get("Content-Type") or "").split(";")[0].strip().lower()
-            if r.status != 200 or kind not in ICON_TYPES:
-                return None
-            body = await r.content.read(ICON_MAX + 1)
-            return (body, kind) if 0 < len(body) <= ICON_MAX else None
+        return await self._picture(url) if url else None
 
     def status(self) -> dict[str, Any]:
         return {"players": sorted(self.players), "tvs": sorted(self.tvs), "apps": len(self.apps),
-                "icons": sum(1 for r in self.apps.values() if r.get("icon")), "inputs": dict(self.inputs), "lookup": self.lookup}
+                "icons": sum(1 for r in self.apps.values() if r.get("icon")),
+                "guessed": sum(1 for r in self.guessed.values() if r.get("icon")), "inputs": dict(self.inputs), "lookup": self.lookup}
 
     async def close(self) -> None:
         for t in list(self.tasks):
@@ -263,7 +362,7 @@ _APP = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$")
 async def api_icon(request: web.Request) -> web.Response:
     app = request.match_info.get("app", "")
     host = request.app.get("tv")
-    got = host.store.icon(app) if host is not None and _APP.match(app) else None
+    got = (host.store.icon(app) or host.store.guess_icon(app)) if host is not None and _APP.match(app) else None
     if not got:
         raise web.HTTPNotFound()
     body, kind = got

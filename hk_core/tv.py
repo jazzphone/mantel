@@ -15,6 +15,13 @@ label is no guide (the Master Bedroom's Apple TV shows through its soundbar's in
 own sensor.hk_tv ({apps, inputs}), for every screen. Apple's own apps aren't in the App Store's lookup: BUILTINS draws them
 with the house's glyphs.
 
+GUESSED ICONS (2026-11-10, the owner: "Can it do the fuzzy match and then recheck/redownload when it opens?"): an app the player
+lists but nobody has opened yet has no bundle id, so the server asks the App Store's search by its name and keeps the best close
+match (`best_match`: the same name, or the name before a ':' or ' - ', or the name as the first word(s), never from a category no
+TV app is in, TV-like categories first). The first time the app opens its real bundle id is known: a guess that named another
+app is dropped and the real icon looked up (`opened` -> mantel_server/tv.py). Apple's own apps are never searched: APPLE_NAMES
+draws them with the same glyphs as BUILTINS.
+
 FAVORITES (features.tv_apps, by the app's name as the player lists it) and what a block shows by default (features.tv_show).
 """
 from __future__ import annotations
@@ -46,6 +53,21 @@ BUILTINS: dict[str, str] = {
     "com.apple.TVSearch": "hk:magnify", "com.apple.facetime": "hk:video", "com.apple.TVMovies": "hk:filmstrip",
     "com.apple.TVShows": "hk:television",
 }
+
+
+# the same apps by the name a player lists them under (an app nobody has opened yet has only its name)
+APPLE_NAMES: dict[str, str] = {
+    "TV": "hk:television", "Music": "hk:music", "Photos": "hk:image", "Settings": "hk:cog", "App Store": "hk:apple",
+    "Arcade": "hk:gamepad-variant", "Fitness": "hk:run", "Computers": "hk:monitor", "Podcasts": "hk:podcast", "Search": "hk:magnify",
+    "FaceTime": "hk:video", "Movies": "hk:filmstrip", "TV Shows": "hk:television",
+}
+SEARCH_GAP = 3.0                        # seconds between two name searches (the App Store's search allows ~20 a minute)
+NAMES_MAX = 120                         # names searched, across every player's list
+# categories no TV app is in (a name shared with a drinks app or a tarot deck must not lend it its icon), and the TV-like ones
+NOT_TV = frozenset({"Food & Drink", "Lifestyle", "Shopping", "Business", "Finance", "Medical", "Productivity", "Navigation",
+                    "Travel", "Education", "Book", "Reference", "Social Networking", "Health & Fitness", "Developer Tools",
+                    "Graphics & Design", "Magazines & Newspapers"})
+TV_LIKE = frozenset({"Entertainment", "Photo & Video", "Games", "Sports", "News", "Music", "Kids"})
 
 
 class Invalid(ValueError):
@@ -177,3 +199,62 @@ def tv_of(player: str, area_of: Mapping[str, str | None], tvs: list[str]) -> str
         return None
     here = sorted(t for t in tvs if area_of.get(t) == area)
     return here[0] if here else None
+
+
+# -- guessing an icon by the app's name -----------------------------------------------------------------------------------------------
+def _norm(v: str) -> str:
+    return re.sub(r"[^a-z0-9+]", "", v.lower())
+
+
+def apple_glyph(name: str) -> str | None:
+    """Apple's own app's glyph by the name a player lists ("App Store" comes with a no-break space), or None."""
+    return APPLE_NAMES.get(re.sub(r"\s+", " ", name).strip()) if isinstance(name, str) else None
+
+
+def searchable(name: Any) -> bool:
+    """A name worth asking the App Store's search about: not Apple's own, not empty, not too long."""
+    return isinstance(name, str) and 0 < len(name.strip()) <= NAME_MAX and apple_glyph(name) is None and bool(_norm(name))
+
+
+def best_match(name: str, found: Mapping[str, Any]) -> dict[str, str] | None:
+    """The search answer's closest app to a player's app name, {bundle, art}, or None when nothing is close enough."""
+    want, best, score = _norm(name), None, 0.0
+    for i, r in enumerate(found.get("results") or []):
+        if not isinstance(r, Mapping) or r.get("primaryGenreName") in NOT_TV:
+            continue
+        title, bundle = r.get("trackName"), r.get("bundleId")
+        if not isinstance(title, str) or not (isinstance(bundle, str) and BUNDLE.match(bundle)):
+            continue
+        head = re.split(r"\s+[:\-\u2013\u2014|]\s*|:\s*", title)[0]
+        if _norm(title) == want:
+            s = 3.0
+        elif _norm(head) == want:
+            s = 2.0
+        elif re.match(re.escape(name.strip()) + r"\b", title, re.I):
+            s = 1.0
+        else:
+            continue
+        s += (1.5 if r.get("primaryGenreName") in TV_LIKE else 0.0) - i * 0.1
+        art = artwork({"results": [r]})
+        if art and s > score:
+            best, score = {"bundle": bundle, "art": art}, s
+    return best
+
+
+def wants_guess(name: str, row: Mapping[str, Any] | None, now: float, lookup: bool) -> bool:
+    """Search for this name now? Not with lookups off, not when a guess is kept, not twice a week for a name with no match."""
+    if not lookup or not searchable(name):
+        return False
+    row = row or {}
+    return not row.get("icon") and now - float(row.get("tried") or 0) >= ICON_RETRY
+
+
+def guesses(rows: Mapping[str, Mapping[str, Any]], names: list[str]) -> dict[str, dict[str, str]]:
+    """What the screens read for the apps nobody has opened: {name: {id, src}} for a kept guess, {name: {glyph}} for Apple's own."""
+    out: dict[str, dict[str, str]] = {}
+    for n in names:
+        if apple_glyph(n):
+            out[n] = {"glyph": str(apple_glyph(n))}
+        elif (rows.get(n) or {}).get("icon") and (rows.get(n) or {}).get("bundle"):
+            out[n] = {"id": str(rows[n]["bundle"]), "src": ICON_PATH + str(rows[n]["bundle"])}
+    return out
