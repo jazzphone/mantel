@@ -109,8 +109,8 @@ LOADER = """\
 {i}var PARTS_TRIES = 6;
 {i}function partKey(file) {{ return file.replace(/\\.js$/, ''); }}
 {i}function partsSettle(err) {{
-{i}  var r = (window.__hkSplitReady || {{}})['{label}'];
-{i}  if (r && r.settle) r.settle(err);
+{i}  var settle = (window.__hkSplitSettle || {{}})['{label}'];
+{i}  if (settle) settle(err);
 {i}}}
 {i}// ONE FILE THAT DIDN'T COME (a tablet's Wi-Fi waking, the server restarting) used to leave the cards dead until a reload
 {i}// (the third audit pass, WEB-11): the ones still missing are asked for again, a little later each time, at an address
@@ -122,10 +122,9 @@ LOADER = """\
 {i}    var started = window.__hkSplitStarted = window.__hkSplitStarted || {{}};
 {i}    if (started['{label}']) return;
 {i}    started['{label}'] = true;
-{i}    var settle = null, ready = new Promise(function (resolve, reject) {{
-{i}      settle = function (err) {{ if (err) reject(err); else resolve(); }};
+{i}    var ready = new Promise(function (resolve, reject) {{
+{i}      (window.__hkSplitSettle = window.__hkSplitSettle || {{}})['{label}'] = function (err) {{ if (err) reject(err); else resolve(); }};
 {i}    }});
-{i}    ready.settle = settle;
 {i}    ready.catch(function () {{ /* the console says so; an importer that awaits it reports it */ }});
 {i}    (window.__hkSplitReady = window.__hkSplitReady || {{}})['{label}'] = ready;
 {i}  }}

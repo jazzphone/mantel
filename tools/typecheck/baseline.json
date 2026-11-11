@@ -1,5 +1,5 @@
 {
- "total": 814,
+ "total": 812,
  "files": {
   "hosts/ha/frontend/hk-ha-client.js": 0,
   "hosts/ha/frontend/hk-ha-elements.js": 6,
@@ -21,7 +21,7 @@
   "web/hk/cards/hk-grid-cards.js": 0,
   "web/hk/cards/hk-grid-catalog.js": 0,
   "web/hk/cards/hk-headers.js": 27,
-  "web/hk/cards/hk-home.js": 11,
+  "web/hk/cards/hk-home.js": 1,
   "web/hk/cards/hk-intercom.js": 0,
   "web/hk/cards/hk-layout.js": 21,
   "web/hk/cards/hk-library.js": 0,
@@ -46,6 +46,10 @@
   "web/hk/grid-cards/hk-grid-room.js": 0,
   "web/hk/grid-cards/hk-grid-security.js": 0,
   "web/hk/grid-cards/hk-grid-widgets.js": 0,
+  "web/hk/home-cards/hk-home-shared.js": 2,
+  "web/hk/home-cards/hk-home-timer-page.js": 4,
+  "web/hk/home-cards/hk-home-timers.js": 2,
+  "web/hk/home-cards/hk-home-vacuum.js": 0,
   "web/hk/iconset/hk-icons.js": 1,
   "web/hk/media/hk-media-now.js": 0,
   "web/hk/media/hk-media-recent.js": 0,

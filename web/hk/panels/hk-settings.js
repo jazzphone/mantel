@@ -190,8 +190,8 @@
   var PARTS_TRIES = 6;
   function partKey(file) { return file.replace(/\.js$/, ''); }
   function partsSettle(err) {
-    var r = (window.__hkSplitReady || {})['hk-settings'];
-    if (r && r.settle) r.settle(err);
+    var settle = (window.__hkSplitSettle || {})['hk-settings'];
+    if (settle) settle(err);
   }
   // ONE FILE THAT DIDN'T COME (a tablet's Wi-Fi waking, the server restarting) used to leave the cards dead until a reload
   // (the third audit pass, WEB-11): the ones still missing are asked for again, a little later each time, at an address
@@ -203,10 +203,9 @@
       var started = window.__hkSplitStarted = window.__hkSplitStarted || {};
       if (started['hk-settings']) return;
       started['hk-settings'] = true;
-      var settle = null, ready = new Promise(function (resolve, reject) {
-        settle = function (err) { if (err) reject(err); else resolve(); };
+      var ready = new Promise(function (resolve, reject) {
+        (window.__hkSplitSettle = window.__hkSplitSettle || {})['hk-settings'] = function (err) { if (err) reject(err); else resolve(); };
       });
-      ready.settle = settle;
       ready.catch(function () { /* the console says so; an importer that awaits it reports it */ });
       (window.__hkSplitReady = window.__hkSplitReady || {})['hk-settings'] = ready;
     }

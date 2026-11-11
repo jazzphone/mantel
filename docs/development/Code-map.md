@@ -38,7 +38,11 @@ Mantel's pages and the code both hosts share: HK's cards, modules, panels and th
     - `hk-grid-widgets.js` — the action, everything, suggested scene and On Now blocks
   - `hk-grid-catalog.js` — the Home Grid catalog (docs/phase11/HOME-GRID.md)
   - `hk-headers.js` — THE PAGE HEADERS (2026-10-15)
-  - `hk-home.js` — household controls
+  - `hk-home.js` — household controls *(a shell: its parts are in `web/hk/home-cards/`, `tools/split_manifests/home.json`)*
+    - `hk-home-shared.js` — what the vacuum and timer cards share: the nested-card feed, the no-helpers line, the rooms picked and the room-picking base
+    - `hk-home-vacuum.js` — the vacuum card and the area select card
+    - `hk-home-timers.js` — the running timers grid and the new timer card
+    - `hk-home-timer-page.js` — the timers page and the timer strip
   - `hk-house-status.js` — House Status (docs/phase11/HOUSE-STATUS.md)
   - `hk-intercom.js` — the Intercom
   - `hk-laundry-card.js` — the Laundry block (`laundry` in hk-grid-catalog.js; docs/phase22/LAUNDRY.md), 2026-11-10.

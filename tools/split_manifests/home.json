@@ -1,0 +1,49 @@
+{
+  "shell": "web/hk/cards/hk-home.js",
+  "folder": "web/hk/home-cards",
+  "global": "hkHomeParts",
+  "label": "hk-home",
+  "what": "THE HOME CARDS",
+  "run_in": "whenBase",
+  "parts": [
+    {
+      "name": "hk-home-shared",
+      "title": "what the vacuum and timer cards share: the nested-card feed, the no-helpers line, the rooms picked and the room-picking base",
+      "members": [
+        "feed",
+        "NO_HELPERS",
+        "PICKED",
+        "picked",
+        "areaPicking"
+      ]
+    },
+    {
+      "name": "hk-home-vacuum",
+      "title": "the vacuum card and the area select card",
+      "members": [
+        "HkVacuumCard",
+        "HkAreaSelectCard"
+      ]
+    },
+    {
+      "name": "hk-home-timers",
+      "title": "the running timers grid and the new timer card",
+      "members": [
+        "HkTimersCard",
+        "HkTimerNewCard"
+      ]
+    },
+    {
+      "name": "hk-home-timer-page",
+      "title": "the timers page and the timer strip",
+      "members": [
+        "HkTimersPageCard",
+        "HkTimerStripCard"
+      ]
+    }
+  ],
+  "source": {
+    "blob": "16dc288d92f747f9fc79fb29d811479b68e99a1e",
+    "lines": 2500
+  }
+}
