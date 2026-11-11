@@ -11,7 +11,7 @@ Each pair is one commit, so one failure can be dropped alone.
 | Pair | Into | Names | Lines |
 |---|---|---|---|
 | HK Frontend `kinds.py` + Mantel Server `hidden.py` | `hk_core/settings/kind_match.py` | `Candidate`, `matches`, `automatic`, `legacy`, `resolve`, `SHOW_AS_KIND`, `accessories_over` | 94 |
-| HK Frontend `accessories.py` + Mantel Server `accessories.py` | `hk_core/settings/accessory_fields.py` | the 12 patterns and lists (`SHOW_AS` to `FAV_WITH_MAX`), `blank`, `_ids`, `clean_entity` | 72 |
+| HK Frontend `accessories.py` + Mantel Server `accessories.py` | `hk_core/settings/accessory_fields.py` | 12 patterns and lists, `blank`, `_ids`, `clean_entity` | 72 |
 | HK Frontend `linked_mode.py` + Mantel Link `entity.py` | `hk_core/link/linked_reserved.py` | `_RESERVED` only | 3 |
 | Mantel Link `pairing.py` + Mantel Server `linked_pairing.py` | `hk_core/pairing.py` | `VERSION`, `PINNED`, `PATH`, `_HOSTNAME`, `_SCHEMES`, `normalize_address`, `_mac` | 31 |
 | HK Frontend `features/live_tv/stream.py` + Mantel Link `tv.py` | `hk_core/link/tv_stream.py` | `BENIGN`, `QUALITY`, `ffmpeg_args` | 24 |
