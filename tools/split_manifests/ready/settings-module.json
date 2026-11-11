@@ -1,0 +1,98 @@
+{
+  "shell": "web/hk/modules/hk-settings.js",
+  "folder": "web/hk/settings-module",
+  "global": "hkSettingsModuleParts",
+  "label": "hk-settings-module",
+  "what": "THE HK SETTINGS MODULE (window.hkSettings)",
+  "parts": [
+    {
+      "name": "hk-settings-module-pages",
+      "title": "what a page shows: the sky ladder, swipe pages, backdrops, wallpaper, photos and landscapes",
+      "members": [
+        "SKY_BACKDROPS",
+        "backdropStops",
+        "DAYTIME",
+        "reducedMotion",
+        "skyLook",
+        "ladderSignature",
+        "SWIPE_PAGES",
+        "swipePages",
+        "swipeLeft",
+        "pageSky",
+        "BLACK",
+        "background",
+        "wallpaper",
+        "photoLook",
+        "LANDSCAPES",
+        "landscapeChoice",
+        "landscapeLook",
+        "pageLandscape",
+        "pagePhoto",
+        "pageLook",
+        "flatBackground",
+        "pageBackdrop",
+        "lookAt",
+        "pageFind"
+      ]
+    },
+    {
+      "name": "hk-settings-module-house",
+      "title": "what the page reads of the house: the weather, the calendar, the moon, the season and the sky window",
+      "members": [
+        "st",
+        "WX_DETAILS",
+        "weatherPage",
+        "radarNative",
+        "PS_CHECK",
+        "pagesScreen",
+        "radarPlan",
+        "weatherId",
+        "NOW_ATTR",
+        "nowRead",
+        "nowTemp",
+        "CAL_COLORS",
+        "calendarIds",
+        "calendarColor",
+        "eventKey",
+        "keywordColor",
+        "eventColor",
+        "pad",
+        "clock",
+        "moon",
+        "seasonName",
+        "BUILT_IN",
+        "SOUTH",
+        "usThanksgiving",
+        "mmdd",
+        "onYear",
+        "day0",
+        "between",
+        "skyWindow",
+        "often",
+        "seasonalOn",
+        "unit",
+        "themeOn"
+      ]
+    },
+    {
+      "name": "hk-settings-module-live",
+      "title": "the live feed: the integration's answer and its subscriptions",
+      "members": [
+        "subscribe",
+        "currentClient"
+      ]
+    },
+    {
+      "name": "hk-settings-module-tablet",
+      "title": "which wall tablet this page is: remembered in the browser, named by the client",
+      "members": [
+        "TABLET_KEY",
+        "rememberTablet",
+        "rememberedTablet",
+        "userName",
+        "tabletOf",
+        "lovelacePanel"
+      ]
+    }
+  ]
+}

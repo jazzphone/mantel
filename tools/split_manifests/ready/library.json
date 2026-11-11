@@ -1,0 +1,85 @@
+{
+  "shell": "web/hk/cards/hk-library.js",
+  "folder": "web/hk/library",
+  "global": "hkLibraryParts",
+  "label": "hk-library",
+  "what": "THE MUSIC LIBRARY CARD",
+  "run_in": "whenBase",
+  "class": "HkLibraryCard",
+  "kit_name": "KIT",
+  "parts": [
+    {
+      "name": "hk-library-player",
+      "title": "which player everything targets, and the websocket calls",
+      "members": [],
+      "methods": [
+        "_bindBack",
+        "_player",
+        "_sigOf",
+        "_entry",
+        "_ws",
+        "_seq",
+        "_inUse"
+      ]
+    },
+    {
+      "name": "hk-library-browse",
+      "title": "loading a level, a category's pages, the Discover shelves and search",
+      "members": [],
+      "methods": [
+        "_load",
+        "_loadCategory",
+        "_more",
+        "_filter",
+        "_hidden",
+        "_rows",
+        "_loadDiscover",
+        "_shelfNode",
+        "_search"
+      ]
+    },
+    {
+      "name": "hk-library-actions",
+      "title": "play, open, back, the saved search and the notices",
+      "members": [],
+      "methods": [
+        "_play",
+        "_open",
+        "_back",
+        "_restoreSearch",
+        "_flash",
+        "_retry",
+        "_empty"
+      ]
+    },
+    {
+      "name": "hk-library-draw",
+      "title": "the card's render and paint, and the shelves' element",
+      "members": [],
+      "methods": [
+        "_render",
+        "_paint",
+        "_shelvesEl"
+      ]
+    },
+    {
+      "name": "hk-library-items",
+      "title": "the items: kinds, the track list, the header, the list and grid, the crumb and the tiles",
+      "members": [],
+      "methods": [
+        "_kind",
+        "_split",
+        "_isTracks",
+        "_trackInfo",
+        "_head",
+        "_list",
+        "_grid",
+        "_playerName",
+        "_crumb",
+        "_toRoot",
+        "_toDepth",
+        "_tile"
+      ]
+    }
+  ]
+}

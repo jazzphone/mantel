@@ -10,6 +10,12 @@ ROOT = Path(__file__).resolve().parents[1]
 HELPER = ROOT / "tools/split_js.cjs"
 
 MANIFESTS = ROOT / "tools/split_manifests"
+# READY MANIFESTS (phase 25, Part E): a manifest for a file that is near the size limit but not split yet lives in
+# tools/split_manifests/ready/. Every other tool that reads tools/split_manifests/*.json (the tests, ci.py, split_race_check,
+# code_map) means a SPLIT shell and never looks in the folder; `split_js.py <name> --check` and `--all --check` prove the one
+# here against the unsplit file, nothing written. The day the file crosses its limit: `split_js.py <name>` splits it and
+# moves the manifest up into tools/split_manifests/.
+READY = MANIFESTS / "ready"
 
 # every declaration file the type checker reads (globals.d.ts, the host contract, the hand-written ones): a JSDoc type in a
 # part resolves in them as it does in tools/typecheck/check.py

@@ -8,7 +8,7 @@ import shutil
 import subprocess
 import tempfile
 from pathlib import Path
-from split_js_names import (CALL, GENERATED_CLASS_MODE, LOADER_BEGIN, LOADER_END, Refusal, ROOT, TS_BASELINE,
+from split_js_names import (CALL, GENERATED_CLASS_MODE, LOADER_BEGIN, LOADER_END, MANIFESTS, READY, Refusal, ROOT, TS_BASELINE,
     TS_FIXTURE, TYPES_D_TS,)
 from split_js_analysis import analyze, ask, diagnostics, kit_of, loader_block, lstrip_lines, node, Plan
 from split_js_plan import make_plan
@@ -290,6 +290,9 @@ def do_split(man: dict, p: Path, check_only: bool) -> int:
         if man.get("adopt"):        # (the one file was never a file of the repository: this is the commit it can be made from)
             man["source"]["adopt_from"] = git("rev-parse", "HEAD")
         saved = {k: v for k, v in man.items() if k not in ("name", "_adopted")}
+        if p.parent == READY:          # (a ready manifest, now split: it moves up, where the tests and tools look for it)
+            p.unlink()
+            p = MANIFESTS / p.name
         p.write_text(json.dumps(saved, indent=2, ensure_ascii=False) + "\n")
         update_fixtures(man, counts, opted)
         return 0

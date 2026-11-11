@@ -5,7 +5,7 @@ docs/phase18/CODE-HEALTH.md "Part B: split the four files").
     tools/split_js.py grid-cards              # split web/hk/cards/hk-grid-cards.js as tools/split_manifests/grid-cards.json says
     tools/split_js.py grid-cards --check      # unsplit: the whole proof, nothing written; split: the files still agree with it
     tools/split_js.py --find roomParts        # which part (or shell) holds a member, for a session porting an edit
-    tools/split_js.py --all --check           # every manifest
+    tools/split_js.py --all --check           # every manifest, and every ready one (below)
 
 THE METHOD IS THE ONE hk-detail.js'S SPLIT USED (commit 5573f9db): real files in a folder beside the shell, each registering
 one function; the shell fetches them in parallel, runs them in order with a kit K of what they use of it, takes back what it
@@ -86,6 +86,12 @@ the manifest's other parts take shell members by name. A part's member `"@GLYPHS
 nothing, named by how it begins. `--adopt-out FILE` writes the one file for reading. The recorded `source` is the one
 file's blob and the commit it can be made from again (`adopt_from`), which `--check` uses to say what was edited since.
 
+READY MANIFESTS (phase 25, Part E): a file near the size limit (tests/test_file_sizes.py "Near the size limit") gets its manifest
+BEFORE it needs it, in tools/split_manifests/ready/<name>.json, proven by `split_js.py <name> --check` on the unsplit file
+(`--all --check` proves them too, and `--all` alone never splits one). Nothing else that reads tools/split_manifests/*.json
+sees them: they name an unsplit shell. Re-run `--check` when the file has changed a lot; a refusal says what moved. When the
+file crosses the limit, `split_js.py <name>` splits it and moves the manifest up to tools/split_manifests/.
+
 Node: $NODE, else node on the PATH.
 """
 from __future__ import annotations
@@ -104,7 +110,7 @@ from pathlib import Path
 if str(Path(__file__).resolve().parent) not in sys.path:   # (tools/split_py.py, flat siblings)
     sys.path.insert(0, str(Path(__file__).resolve().parent))
 from split_js_names import (ADOPT_LOADER, CALL, GENERATED_CLASS_MODE, GENERATED_NAMES, HELPER, LOADER, LOADER_BEGIN,  # noqa: F401 -- tools/split_py.py
-    LOADER_END, MANIFESTS, MUTATORS, NO_WAIT_README, PART_HEADER, READY_LINES, READY_README, Refusal, ROOT,  # noqa: F401 -- tools/split_py.py
+    LOADER_END, MANIFESTS, MUTATORS, NO_WAIT_README, PART_HEADER, READY, READY_LINES, READY_README, Refusal, ROOT,  # noqa: F401 -- tools/split_py.py
     TS_BASELINE, TS_FIXTURE, TYPES_D_TS, WIDTH,)  # noqa: F401 -- tools/split_py.py
 from split_js_analysis import (analyze, ask, by_name, codes, commas, diagnostics, kit_of, loader_block, lstrip_lines,  # noqa: F401 -- tools/split_py.py
     Member, node, pack, parts_list, Plan, reindent,)  # noqa: F401 -- tools/split_py.py
@@ -161,12 +167,16 @@ def main(argv: list[str] | None = None) -> int:
         Path(args.adopt_out).write_text(text)
         return 1 if bad else 0
     names = [p.stem for p in sorted(MANIFESTS.glob("*.json"))] if args.all else args.manifest
+    ready = [p.stem for p in sorted(READY.glob("*.json"))] if args.all else []
     if not names:
         ap.error("name a manifest, or --all")
     rc = 0
     for n in names:
         man, p = load_manifest(n)
         rc |= do_split(man, p, args.check)
+    for n in ready:                      # (--all never splits a file that is only ready: it is proven, nothing written)
+        man, p = load_manifest(n)
+        rc |= do_split(man, p, True)
     return rc
 
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import subprocess
 from pathlib import Path
-from split_js_names import CALL, LOADER_BEGIN, MANIFESTS, PART_HEADER, Refusal, ROOT
+from split_js_names import CALL, LOADER_BEGIN, MANIFESTS, PART_HEADER, READY, Refusal, ROOT
 from split_js_analysis import by_name, commas, kit_of, loader_block, Member, pack, Plan, reindent
 from split_js_plan import code_scopes, is_tail_return
 
@@ -238,6 +238,8 @@ def load_manifest(arg: str) -> tuple[dict, Path]:
     p = Path(arg)
     if not p.suffix:
         p = MANIFESTS / f"{arg}.json"
+        if not p.is_file() and (READY / f"{arg}.json").is_file():
+            p = READY / f"{arg}.json"
     if not p.is_file():
         raise SystemExit(f"no manifest {p}")
     man = json.loads(p.read_text())
