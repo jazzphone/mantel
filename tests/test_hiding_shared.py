@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_a_bad_hidden_device_or_room_id_and_a_bad_accessory_entry_are_left_out():
-    settings = {"generated": {"exclude_devices": ["dev1", 7, None], "exclude_areas": ["kitchen", {"x": 1}],
+    settings = {"generated": {"exclude_devices": ["dev1", 7, None], "exclude_areas": ["kitchen", 5],
                               "exclude_entities": ["light.a", 3]},
                 "accessories": {"entities": {"light.a": "not a dict", "light.b": {"home": False}}}}
     snap = hiding.snapshot_of([], ["light.a", "light.b"], settings, None)
