@@ -36,7 +36,7 @@ from typing import Any, Callable
 
 from aiohttp import web
 
-from . import audit
+from .storage import audit
 from .identity.guards import guard
 from .identity.guards import ident as guarded
 

@@ -30,7 +30,7 @@ from mantel_server.config import Config  # noqa: E402
 from mantel_server.identity.rbac import Grant  # noqa: E402
 from mantel_server.identity.sessions import Identity, User  # noqa: E402
 from mantel_server.server import build_app  # noqa: E402
-from mantel_server.store import Store  # noqa: E402
+from mantel_server.storage.store import Store  # noqa: E402
 
 
 async def check() -> dict:

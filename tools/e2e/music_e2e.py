@@ -57,7 +57,7 @@ async def phase(tmp: Path, commands: bool) -> dict:
     from mantel_server.config import Config
     from mantel_server.server import build_app
     from mantel_server.settings_store import Actor
-    from mantel_server.store import Store
+    from mantel_server.storage.store import Store
 
     fake = MF.HouseMa()
     ma_server = TestServer(fake.app(), host="127.0.0.1")

@@ -106,7 +106,7 @@ async def run(work: Path, g_port: int) -> None:
     from mantel_server.ha.ha_client import HaClient
     from mantel_server.server import build_app
     from mantel_server.settings_store import Actor
-    from mantel_server.store import Store
+    from mantel_server.storage.store import Store
 
     async def no_ha(*_a, **_k):
         return None

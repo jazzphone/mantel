@@ -45,7 +45,7 @@ async def test_image_work_runs_in_a_worker_process_of_its_own():
     assert got["pid"] != os.getpid()
     assert imaging.state() == {"mode": "process", "pid": got["pid"]}
     # the worker imports the job's module and the picture code, not the server
-    assert not {"aiohttp", "mantel_server.server", "mantel_server.cameras.photos", "mantel_server.user_files"} & set(got["modules"])
+    assert not {"aiohttp", "mantel_server.server", "mantel_server.cameras.photos", "mantel_server.storage.user_files"} & set(got["modules"])
     assert (await imaging.run(helpers.about))["pid"] == got["pid"]                # one worker, kept between jobs
 
 

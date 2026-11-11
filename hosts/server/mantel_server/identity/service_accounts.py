@@ -35,7 +35,7 @@ from dataclasses import dataclass
 from importlib.resources import files
 from pathlib import Path
 
-from .. import audit
+from ..storage import audit
 from .guards import guard
 from .guards import ident as guarded
 
@@ -275,7 +275,7 @@ def register(app, hub=None) -> "ServiceAccounts":
 def cli(argv: list[str]) -> int:
     """``mantel-server service-account create --name N --scope linked | list | revoke --id ID``."""
     from ..config import Config
-    from ..db import Database
+    from ..storage.db import Database
     p = argparse.ArgumentParser(prog="mantel-server service-account")
     p.add_argument("action", choices=("create", "list", "revoke"))
     p.add_argument("--name")

@@ -394,7 +394,7 @@ async def test_revoking_a_connect_pairing_is_audited_first(tmp_path, monkeypatch
     from conftest import Mantel
     from mantel_server.config import Config
     from mantel_server.server import build_app
-    from mantel_server.store import Store
+    from mantel_server.storage.store import Store
     from argon2 import PasswordHasher
     cfg = Config(data_dir=tmp_path / "data", secrets_dir=tmp_path / "secrets", port=0, connect=True, ingress=True,
                  ingress_peers=(), ha_door_rules="trusted")
@@ -427,7 +427,7 @@ async def test_connect_is_managed_where_service_credentials_are_a_trusted_sideba
     from mantel_server.identity import sessions
     from mantel_server.config import Config
     from mantel_server.server import build_app
-    from mantel_server.store import Store
+    from mantel_server.storage.store import Store
     for rules, door, status in (("trusted", "ha", 200), ("tunnel", "ha", 403), ("trusted", "tunnel", 403)):
         cfg = Config(data_dir=tmp_path / rules / door / "data", secrets_dir=tmp_path / rules / door / "secrets",
                      port=0, connect=True, ingress=True, ingress_peers=(), ha_door_rules=rules)

@@ -37,7 +37,7 @@ from pathlib import Path
 from typing import Any, Awaitable, Callable
 
 from .apps import app_crypto
-from . import audit
+from .storage import audit
 from .identity.guards import guard
 from .identity.guards import ident as guarded
 

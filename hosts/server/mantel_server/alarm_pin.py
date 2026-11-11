@@ -62,7 +62,7 @@ from aiohttp import web
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError, VerifyMismatchError
 
-from . import audit
+from .storage import audit
 from .identity.accounts import PolicyError, read_json
 from .identity.guards import guard
 from .identity.guards import ident as guarded

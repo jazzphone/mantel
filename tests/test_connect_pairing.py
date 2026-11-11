@@ -72,7 +72,7 @@ async def srv(tmp_path, monkeypatch):
     from mantel_server.ha.ha_client import HaClient
     from mantel_server.ha.readproxy import ReadProxy
     from mantel_server.server import build_app
-    from mantel_server.store import Store
+    from mantel_server.storage.store import Store
 
     async def forbidden(*args, **kwargs):
         pytest.fail("connect tests attempted upstream access")
@@ -377,7 +377,7 @@ def test_the_listener_certificate_is_renewed_when_due(tmp_path):
 
 
 def test_the_cli_pairs_lists_and_revokes(tmp_path, capsys):
-    from mantel_server import db
+    from mantel_server.storage import db
     from mantel_server.__main__ import main
     data = str(tmp_path / "data")
     assert main(["connect", "pair", "--data-dir", data, "--address", "mantel.lan:8766"]) == 0
@@ -438,7 +438,7 @@ async def test_identity_headers_on_the_ordinary_listener_are_never_believed(srv,
 async def test_connect_off_means_no_listener_routes_and_no_trust(tmp_path, monkeypatch):
     from mantel_server.config import Config
     from mantel_server.server import build_app
-    from mantel_server.store import Store
+    from mantel_server.storage.store import Store
     cfg = Config(data_dir=tmp_path / "data", secrets_dir=tmp_path / "secrets", port=0)
     store = Store(cfg.data_dir / "mantel.db")
     app = build_app(cfg, "unused", store=store, connect_ha=False)
@@ -454,7 +454,7 @@ async def test_owner_rest_start_list_revoke(tmp_path, monkeypatch):
     from conftest import Mantel  # noqa: F401 -- fixture module is on the path
     from mantel_server.config import Config
     from mantel_server.server import build_app
-    from mantel_server.store import Store
+    from mantel_server.storage.store import Store
     from argon2 import PasswordHasher
     cfg = Config(data_dir=tmp_path / "data", secrets_dir=tmp_path / "secrets", port=0, connect=True, ingress=True,
                  ingress_peers=())
@@ -679,7 +679,7 @@ def test_asking_for_the_pending_code_leaves_no_transaction_open(tmp_path):
     import sqlite3
 
     from mantel_server.network.connect_pairing import Connect
-    from mantel_server.store import Store
+    from mantel_server.storage.store import Store
     store = Store(tmp_path / "mantel.db")
     pairing = Connect(store.db, tmp_path / "connect", clock=lambda: 1_000_000.0)
     pairing.pending()

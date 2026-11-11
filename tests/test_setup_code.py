@@ -107,7 +107,7 @@ async def _started(tmp_path, **cfg_args):
     """A whole app started and stopped with this Config; returns its data folder and its tick's result."""
     from mantel_server.config import Config
     from mantel_server.server import build_app
-    from mantel_server.store import Store
+    from mantel_server.storage.store import Store
 
     cfg = Config(data_dir=tmp_path / "data", secrets_dir=tmp_path / "secrets", port=0, **cfg_args)
     store = Store(cfg.data_dir / "mantel.db")

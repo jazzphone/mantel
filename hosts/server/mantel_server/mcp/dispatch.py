@@ -185,7 +185,7 @@ async def change(caller, tool: str, args: dict, run: Callable[[], Awaitable[Any]
     if not limits.take(caller.grant.id, "write", int(caller.app["mcp_settings"].get("mcp_write_rate"))):
         raise ToolError("rate_limited", "too many changes this minute: wait, then apply the plan again")
     # THE AUDIT ROW FIRST (Rules.md rule 7): the person, through this assistant, applying this plan
-    from .. import audit
+    from ..storage import audit
     detail = {"tool": tool, "documents": sorted(versions),
               "arguments": json.dumps({k: v for k, v in args.items() if k not in ("dry_run", "plan")},
                                       default=str, separators=(",", ":"))[:600]}

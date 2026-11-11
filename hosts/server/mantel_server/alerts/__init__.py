@@ -21,7 +21,7 @@ from typing import Any
 
 from aiohttp import web
 
-from .. import atrest
+from ..storage import atrest
 from . import api, catalog, sources
 from .center import APP, Center, ChannelError, Message
 from .channels import Invalid, host_ok, http_transport, senders, text

@@ -25,7 +25,7 @@ from aiohttp import web
 
 from hk_core.intercom import config as C, rooms as R
 
-from .. import audit
+from ..storage import audit
 from ..identity.accounts import read_json
 from ..connectors import Ctx, may_feature, ws_handlers
 from ..identity.guards import guard

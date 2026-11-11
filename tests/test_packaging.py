@@ -860,7 +860,7 @@ async def test_full_app_serves_healthz_without_a_session_once_registered(tmp_pat
     from mantel_server import health
     from mantel_server.config import Config
     from mantel_server.server import build_app
-    from mantel_server.store import Store
+    from mantel_server.storage.store import Store
     store = Store(tmp_path / "db")
     app = build_app(Config(data_dir=tmp_path), "unused", store=store, connect_ha=False)
     health.register(app, app["hub"])

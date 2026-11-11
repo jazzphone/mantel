@@ -104,20 +104,6 @@ Columns: **Rule** who may call it (`signed_in` any session, `person`, `manager` 
 | `GET /manifest.webmanifest` | own: static | none | none | yes | a static file or page shell any session (or the sign-in page) loads; the data behind it is guarded |  |
 | `GET /sw.js` | own: static | none | none | yes | a static file or page shell any session (or the sign-in page) loads; the data behind it is guarded |  |
 
-## mantel_server.backup
-
-| Route | Rule | Reads | Stream | Preview | Audit | Assistants |
-|---|---|---|---|---|---|---|
-| `GET /api/backup` | manager | admin | none |  |  |  |
-| `DELETE /api/backup/files/{name}` | owner |  | none |  | backup.delete |  |
-| `GET /api/backup/files/{name}` | owner | admin | bounded:one backup file |  |  |  |
-| `GET /api/backup/keys` | owner, fresh always | admin | none |  | backup.keys |  |
-| `DELETE /api/backup/restore` | owner |  | none |  | backup.restore_cancel |  |
-| `POST /api/backup/restore` | owner, fresh always |  | none |  | backup.restore |  |
-| `POST /api/backup/restore/upload` | owner, fresh always |  | none |  | backup.restore_upload |  |
-| `POST /api/backup/run` | owner |  | none |  | none: makes a backup file, changing no setting; the run writes its result row (backup.ok or backup.failed), as the nightly one does |  |
-| `POST /api/bootstrap/restore` | own: one_time_code |  | none |  | First start's Restore From a Backup: the one-time setup code, checked before the upload is read, and only while no Owner exists (backup.api_first_start_restore) |  |
-
 ## mantel_server.cameras.camera_setup
 
 | Route | Rule | Reads | Stream | Preview | Audit | Assistants |
@@ -669,6 +655,31 @@ Columns: **Rule** who may call it (`signed_in` any session, `person`, `manager` 
 | `PUT /api/setup` | owner |  | none |  | setup.dismissed |  |
 | `PUT /api/setup/steps/{id}` | owner |  | none |  | setup.step |  |
 
+## mantel_server.storage.backup
+
+| Route | Rule | Reads | Stream | Preview | Audit | Assistants |
+|---|---|---|---|---|---|---|
+| `GET /api/backup` | manager | admin | none |  |  |  |
+| `DELETE /api/backup/files/{name}` | owner |  | none |  | backup.delete |  |
+| `GET /api/backup/files/{name}` | owner | admin | bounded:one backup file |  |  |  |
+| `GET /api/backup/keys` | owner, fresh always | admin | none |  | backup.keys |  |
+| `DELETE /api/backup/restore` | owner |  | none |  | backup.restore_cancel |  |
+| `POST /api/backup/restore` | owner, fresh always |  | none |  | backup.restore |  |
+| `POST /api/backup/restore/upload` | owner, fresh always |  | none |  | backup.restore_upload |  |
+| `POST /api/backup/run` | owner |  | none |  | none: makes a backup file, changing no setting; the run writes its result row (backup.ok or backup.failed), as the nightly one does |  |
+| `POST /api/bootstrap/restore` | own: one_time_code |  | none |  | First start's Restore From a Backup: the one-time setup code, checked before the upload is read, and only while no Owner exists (backup.api_first_start_restore) |  |
+
+## mantel_server.storage.user_files
+
+| Route | Rule | Reads | Stream | Preview | Audit | Assistants |
+|---|---|---|---|---|---|---|
+| `GET /api/image/serve/{id}/{size}` | signed_in | none | bounded:one uploaded picture | yes |  |  |
+| `POST /api/image/upload` | manager |  | none |  | user_files.upload.photo |  |
+| `DELETE /api/image/{id}` | manager |  | none |  | user_files.delete.photo |  |
+| `GET /api/user-files` | manager | admin | none |  |  |  |
+| `POST /api/user-files/{kind}` | manager |  | none |  | user_files.upload.font, user_files.upload.glyphs, user_files.upload.photo |  |
+| `DELETE /api/user-files/{kind}/{name}` | manager |  | none |  | user_files.delete.font, user_files.delete.glyphs, user_files.delete.photo |  |
+
 ## mantel_server.tablet_links
 
 | Route | Rule | Reads | Stream | Preview | Audit | Assistants |
@@ -707,15 +718,4 @@ Columns: **Rule** who may call it (`signed_in` any session, `person`, `manager` 
 | Route | Rule | Reads | Stream | Preview | Audit | Assistants |
 |---|---|---|---|---|---|---|
 | `GET /api/tv/icon/{app}` | signed_in | none | none |  |  |  |
-
-## mantel_server.user_files
-
-| Route | Rule | Reads | Stream | Preview | Audit | Assistants |
-|---|---|---|---|---|---|---|
-| `GET /api/image/serve/{id}/{size}` | signed_in | none | bounded:one uploaded picture | yes |  |  |
-| `POST /api/image/upload` | manager |  | none |  | user_files.upload.photo |  |
-| `DELETE /api/image/{id}` | manager |  | none |  | user_files.delete.photo |  |
-| `GET /api/user-files` | manager | admin | none |  |  |  |
-| `POST /api/user-files/{kind}` | manager |  | none |  | user_files.upload.font, user_files.upload.glyphs, user_files.upload.photo |  |
-| `DELETE /api/user-files/{kind}/{name}` | manager |  | none |  | user_files.delete.font, user_files.delete.glyphs, user_files.delete.photo |  |
 

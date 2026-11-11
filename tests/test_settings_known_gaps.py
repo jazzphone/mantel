@@ -8,7 +8,7 @@ import pytest
 
 from hk_core.settings import model as M
 from mantel_server import settings_store as S
-from mantel_server.db import Database
+from mantel_server.storage.db import Database
 
 ROOT = Path(__file__).resolve().parent.parent
 WEB = ROOT / "web"

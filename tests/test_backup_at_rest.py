@@ -8,9 +8,9 @@ from pathlib import Path
 
 import pytest
 
-from mantel_server import backup as bk
+from mantel_server.storage import backup as bk
 from mantel_server.__main__ import main as cli_main
-from mantel_server.backup import BackupError
+from mantel_server.storage.backup import BackupError
 from test_backup import LATEST, NOW, _keys_json, _upload, app_local, key, make_home, target  # noqa: F401 -- fixtures
 
 

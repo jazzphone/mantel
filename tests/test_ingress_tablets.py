@@ -45,7 +45,7 @@ async def make(tmp_path, monkeypatch, *, rules="trusted", commands=False, core_p
     from mantel_server.ha.ha_client import HaClient
     from mantel_server.ha.readproxy import ReadProxy
     from mantel_server.server import build_app
-    from mantel_server.store import Store
+    from mantel_server.storage.store import Store
 
     async def forbidden(*args, **kwargs):
         pytest.fail("ingress tablet tests attempted upstream access")
@@ -508,7 +508,7 @@ def test_config_and_entrypoint_name_ha_core_in_app_mode(tmp_path):
 
 
 def test_migration_0012_links_tablets_to_devices(tmp_path):
-    from mantel_server.store import Store
+    from mantel_server.storage.store import Store
     store = Store(tmp_path / "m.db")
     cols = {r[1] for r in store.db.execute("PRAGMA table_info(ha_tablet_links)")}
     assert cols == {"ha_user_id", "device_id", "ha_name", "own_device", "created", "created_by"}

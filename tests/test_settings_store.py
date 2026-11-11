@@ -23,7 +23,7 @@ from hk_core.settings import model as M
 from mantel_server.ha import readproxy
 from mantel_server import settings_store as S
 from mantel_server.connectors import Ctx, Forbidden, Hooks
-from mantel_server.db import Database
+from mantel_server.storage.db import Database
 from mantel_server.ha.readproxy import READ_ALLOWED, RULES, SERVER_ONLY_READS, FilteredReads, ReadBlocked, ReadProxy
 from mantel_server.server import classify
 from mantel_server.identity.sessions import Device, Identity, User
@@ -818,7 +818,8 @@ class ServedHa:
 
 def save_connection(tmp_path, url, token=HA_TOKEN, key_dir="secrets"):
     """Home Assistant connected the normal way: on Mantel Settings -> Connections, sealed in the data folder."""
-    from mantel_server import atrest, connections
+    from mantel_server.storage import atrest
+    from mantel_server import connections
     files = connections.SealedFiles(tmp_path / "data" / "connections",
                                     atrest.SecretBox(tmp_path / key_dir / atrest.KEY_FILE))
     files.save(connections.Record(kind="ha", url=url, token=token, method="oauth", since=1.0))
@@ -938,7 +939,7 @@ async def mantel_app(tmp_path, monkeypatch):
     from mantel_server.config import Config
     from mantel_server.ha.ha_client import HaClient
     from mantel_server.server import build_app
-    from mantel_server.store import Store
+    from mantel_server.storage.store import Store
 
     async def forbidden(*args, **kwargs):
         pytest.fail("attempted upstream access")

@@ -8,9 +8,9 @@ from pathlib import Path
 
 import pytest
 
-from mantel_server import backup as bk
-from mantel_server import db as dbmod
-from mantel_server.backup import BackupError
+from mantel_server.storage import backup as bk
+from mantel_server.storage import db as dbmod
+from mantel_server.storage.backup import BackupError
 from test_backup import _keys_json, _upload, app_local  # noqa: F401
 
 
@@ -109,7 +109,7 @@ def test_a_keys_file_whose_at_rest_key_does_not_open_the_backup_reseals_nothing(
 def test_every_place_that_seals_a_value_is_one_reseal_knows():
     """reseal() goes through SEALED_COLUMNS, SEALED_SETTINGS and the connections folder. A value sealed anywhere
     else would come through a restore with another Mantel's keys unopenable: add it there, then here."""
-    root = Path(bk.__file__).parent
+    root = Path(bk.__file__).parents[1]                # (the server's package: backup is in storage/)
     sealing = sorted(str(f.relative_to(root)) for f in root.rglob("*.py")
                      if ".seal(" in f.read_text() and f.name not in ("atrest.py", "backup.py"))
     assert sealing == sorted(bk.SEALING_MODULES), sealing

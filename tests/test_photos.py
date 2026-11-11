@@ -21,7 +21,7 @@ from aiohttp import FormData, web
 from aiohttp.test_utils import TestServer
 from PIL import Image
 
-from mantel_server import backup
+from mantel_server.storage import backup
 from mantel_server.cameras import faces, photos
 
 
@@ -668,7 +668,7 @@ def test_two_modules_with_two_pixel_caps_do_not_fight_over_pillows_global_limit(
     """MED-2 (audit, second pass): photos.py and user_files.py each set the process-wide ``Image.MAX_IMAGE_PIXELS``
     (200 MP and 120 MP) on every call, so each module's limit depended on which upload ran last. Each now checks its
     own cap on the header of the picture it opens, and neither touches the global to anything but "off"."""
-    from mantel_server import user_files
+    from mantel_server.storage import user_files
     between = 8000, user_files.PHOTO_PIXELS_MAX // 8000 + 100        # over user_files' cap, under photos'
     assert user_files.PHOTO_PIXELS_MAX < between[0] * between[1] <= photos.PIXELS_MAX
     over = png_claiming(8000, photos.PIXELS_MAX // 8000 + 10)        # over both
@@ -809,7 +809,7 @@ async def test_a_start_up_sweeps_the_half_written_files_of_a_kill(tmp_path):
     from argon2 import PasswordHasher
     from mantel_server.config import Config
     from mantel_server.server import build_app
-    from mantel_server.store import Store
+    from mantel_server.storage.store import Store
     cfg = Config(data_dir=tmp_path / "data", secrets_dir=tmp_path / "secrets", port=0)
     store = Store(cfg.data_dir / "mantel.db")
     app = build_app(cfg, "unused-fictional-token", store=store, connect_ha=False, clock=lambda: 1_000_000.0)

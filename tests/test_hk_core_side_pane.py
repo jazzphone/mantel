@@ -222,7 +222,7 @@ def test_clear_sets_the_older_keys_back():
 @pytest.fixture
 def store(tmp_path):
     from mantel_server import settings_store as S
-    from mantel_server.db import Database
+    from mantel_server.storage.db import Database
     d = Database(tmp_path / "data" / "mantel.db")
     yield S.SettingsStore(d.conn, lambda: 1_000_000.0)
     d.close()

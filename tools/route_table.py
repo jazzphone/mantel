@@ -47,7 +47,7 @@ def build(options: dict, tmp: Path, strict: bool = False):
     from mantel_server import route_table
     from mantel_server.config import Config
     from mantel_server.server import build_app
-    from mantel_server.store import Store
+    from mantel_server.storage.store import Store
     cfg = Config(data_dir=tmp / "data", secrets_dir=tmp / "secrets", port=0, **options)
     store = Store(cfg.data_dir / "mantel.db")
     install = route_table.install

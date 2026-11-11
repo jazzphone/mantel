@@ -15,8 +15,8 @@ from mantel_server.identity.accounts import (
     ACCOUNT_FAILURES, IP_FAILURES, AttemptLimiter, PolicyError, check_password_policy, hotp, otpauth_uri, totp,
     totp_match,
 )
-from mantel_server.atrest import SecretBox, SecretKeyError, load_or_create_key
-from mantel_server.store import Store
+from mantel_server.storage.atrest import SecretBox, SecretKeyError, load_or_create_key
+from mantel_server.storage.store import Store
 
 
 def seed_of(secret_b32: str) -> bytes:

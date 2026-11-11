@@ -75,7 +75,7 @@ from urllib.parse import urlencode, urlparse
 import aiohttp
 from aiohttp import web
 
-from . import atrest, audit
+from .storage import atrest, audit
 from .identity.accounts import STEP_UP_WINDOW, read_json
 from .identity.guards import guard, open_route
 from .identity.guards import ident as guarded

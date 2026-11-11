@@ -647,7 +647,7 @@ async def list_sessions(request: web.Request) -> web.Response:
 @guard("person", device_ok=True, audit="session.revoke")
 async def revoke_session(request: web.Request) -> web.Response:
     """Me → My Sessions (yours), or People → a person (an Owner's or Admin's): the audit row first."""
-    from .. import audit
+    from ..storage import audit
     ident = guarded(request)
     mgr: SessionManager = request.app["sessions"]
     row = mgr.get(request.match_info["id"])
@@ -668,7 +668,7 @@ async def revoke_session(request: web.Request) -> web.Response:
 async def revoke_others(request: web.Request) -> web.Response:
     """Me → My Sessions → Sign Out Everywhere Else: every browser session of yours but this one (the Mantel
     apps keep theirs: Me → Mantel App)."""
-    from .. import audit
+    from ..storage import audit
     ident = guarded(request)
     mgr: SessionManager = request.app["sessions"]
     ids = [r["id"] for r in mgr.list(ident.user.id, request.app["clock"]())

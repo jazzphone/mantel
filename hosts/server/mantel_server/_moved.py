@@ -22,13 +22,17 @@ MOVED: dict[str, tuple[str, str]] = {
     "app_crypto": ("apps.app_crypto", "0.1.166"),
     "app_music": ("apps.app_music", "0.1.166"),
     "app_shell": ("apps.app_shell", "0.1.166"),
+    "atrest": ("storage.atrest", "0.1.166"),
+    "audit": ("storage.audit", "0.1.166"),
     "auth": ("identity.auth", "0.1.166"),
     "authz": ("identity.authz", "0.1.166"),
+    "backup": ("storage.backup", "0.1.166"),
     "camera_setup": ("cameras.camera_setup", "0.1.166"),
     "cameras_direct": ("cameras.cameras_direct", "0.1.166"),
     "cf_access": ("identity.cf_access", "0.1.166"),
     "connect_pairing": ("network.connect_pairing", "0.1.166"),
     "cutout": ("cameras.cutout", "0.1.166"),
+    "db": ("storage.db", "0.1.166"),
     "direct": ("network.direct", "0.1.166"),
     "direct_tls": ("network.direct_tls", "0.1.166"),
     "door_key": ("identity.door_key", "0.1.166"),
@@ -62,7 +66,10 @@ MOVED: dict[str, tuple[str, str]] = {
     "sessions": ("identity.sessions", "0.1.166"),
     "socket_reads": ("ha.socket_reads", "0.1.166"),
     "state": ("ha.state", "0.1.166"),
+    "store": ("storage.store", "0.1.166"),
     "supervisor_discovery": ("ha.supervisor_discovery", "0.1.166"),
+    "user_data": ("storage.user_data", "0.1.166"),
+    "user_files": ("storage.user_files", "0.1.166"),
     # --- end of the table ---
 }
 

@@ -29,7 +29,7 @@ from mantel_server.config import Config
 from mantel_server.connectors import Ctx
 from mantel_server.server import build_app
 from mantel_server.identity.sessions import Identity, User
-from mantel_server.store import Store
+from mantel_server.storage.store import Store
 
 
 # P3.5: HK's settings come from Mantel's own settings store (mantel_server/settings_store.py), as they

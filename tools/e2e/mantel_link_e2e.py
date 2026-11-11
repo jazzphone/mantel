@@ -181,7 +181,7 @@ def mantel_app(token: str, folder: Path, entry_id: str | None = None, port: int 
     from mantel_server.config import Config
     from mantel_server.server import build_app
     from mantel_server.settings_store import Actor
-    from mantel_server.store import Store
+    from mantel_server.storage.store import Store
     cfg = Config(data_dir=folder / "data", secrets_dir=folder / "secrets", port=port, ha_url=SCRATCH_URL,
                  frame_ancestors=tuple(frame_ancestors),
                  ha_ws_url=SCRATCH_URL.replace("http", "ws") + "/api/websocket", commands_enabled=commands)

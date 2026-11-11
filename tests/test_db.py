@@ -7,8 +7,8 @@ import stat
 
 import pytest
 
-from mantel_server import db
-from mantel_server.store import Store
+from mantel_server.storage import db
+from mantel_server.storage.store import Store
 
 PHASE0_SCHEMA = """
 CREATE TABLE IF NOT EXISTS links (

@@ -56,7 +56,7 @@ async def make(tmp_path, monkeypatch, ha_url):
     from mantel_server.ha.ha_client import HaClient
     from mantel_server.ha.readproxy import ReadProxy
     from mantel_server.server import build_app
-    from mantel_server.store import Store
+    from mantel_server.storage.store import Store
 
     async def forbidden(*args, **kwargs):
         pytest.fail("camera still tests attempted other upstream access")

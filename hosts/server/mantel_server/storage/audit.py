@@ -19,7 +19,7 @@ from typing import Any
 
 from aiohttp import web
 
-from . import dry_run
+from .. import dry_run
 
 log = logging.getLogger(__name__)
 
@@ -38,7 +38,7 @@ def event(request: web.Request | None, ident: Any, action: str, detail: Any, *, 
     or a bare person (``sessions.User``: code that is handed only the person, such as ``ingress.link_tablet``), or
     None (a change made by Mantel itself, or by a peer with no session); the source address is the request's, else
     the principal's."""
-    from .identity.sessions import client_ip
+    from ..identity.sessions import client_ip
     app = app if app is not None else request.app
     bare = ident is not None and not hasattr(ident, "user") and hasattr(ident, "role")
     user = ident if bare else getattr(ident, "user", None)

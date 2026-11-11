@@ -39,7 +39,7 @@ from mantel_server import settings_store
 from mantel_server.config import Config
 from mantel_server.server import build_app
 from mantel_server.identity.sessions import Identity, User
-from mantel_server.store import Store
+from mantel_server.storage.store import Store
 
 TOKEN = "Fict1onal_Ingress-Token"
 PREFIX = f"/api/hassio_ingress/{TOKEN}"

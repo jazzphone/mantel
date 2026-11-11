@@ -64,7 +64,7 @@ def test_a_sample_path_fills_each_parameter_as_its_pattern_asks():
 def _build(tmp_path):
     from mantel_server.config import Config
     from mantel_server.server import build_app
-    from mantel_server.store import Store
+    from mantel_server.storage.store import Store
     cfg = Config(data_dir=tmp_path / "data", secrets_dir=tmp_path / "secrets", port=0)
     store = Store(cfg.data_dir / "mantel.db")
     try:

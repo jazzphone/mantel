@@ -40,7 +40,7 @@ from aiohttp import web
 
 from hk_core.timeline import classify as C
 
-from .. import audit
+from ..storage import audit
 from ..identity.accounts import read_json
 from ..identity.guards import guard
 from ..identity.guards import ident as guarded
@@ -684,7 +684,7 @@ def _matched(app: Any, user_id: str) -> bool:
 
 
 def me_json(app: Any, user: Any) -> dict:
-    from ..user_data import TIMELINE_PRIVATE, TIMELINE_SUMMARY
+    from ..storage.user_data import TIMELINE_PRIVATE, TIMELINE_SUMMARY
     db = app["store"].db
     authz = app.get("authz")
     return {"private": _switch(db, user.id, TIMELINE_PRIVATE), "summary": _switch(db, user.id, TIMELINE_SUMMARY),
@@ -700,7 +700,7 @@ async def api_me(request: web.Request) -> web.Response:
 
 @guard("person", audit="timeline.me.saved")
 async def api_me_put(request: web.Request) -> web.Response:
-    from ..user_data import TIMELINE_PRIVATE, TIMELINE_SUMMARY
+    from ..storage.user_data import TIMELINE_PRIVATE, TIMELINE_SUMMARY
     body = await read_json(request)
     ident = guarded(request)
     user = ident.user

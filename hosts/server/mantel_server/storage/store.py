@@ -14,7 +14,7 @@ import time
 from pathlib import Path
 
 from .db import Database
-from .identity.sessions import SessionManager, token_hash
+from ..identity.sessions import SessionManager, token_hash
 
 ROLES = ("owner", "admin", "adult", "child", "guest", "wall_tablet")  # PLAN §5
 

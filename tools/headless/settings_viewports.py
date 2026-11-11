@@ -26,7 +26,7 @@ from argon2 import PasswordHasher  # noqa: E402
 from cdp import Browser  # noqa: E402
 from mantel_server.config import Config  # noqa: E402
 from mantel_server.server import build_app  # noqa: E402
-from mantel_server.store import Store  # noqa: E402
+from mantel_server.storage.store import Store  # noqa: E402
 
 PASSWORD = "correct horse battery staple"
 # (name, width, height, wide expected, safe-area insets top/right/bottom/left as an iPhone/iPad reports them)

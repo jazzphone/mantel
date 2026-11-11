@@ -14,7 +14,7 @@ from multidict import CIMultiDict
 from mantel_connect.channel import NONCE, PATH, SIGNATURE, STAMP, USER, Verifier, read_key, sign
 from mantel_connect.proxy import SUPERVISOR, build_proxy_app, validate_backend
 from mantel_server.connect_proof import build_connect_app
-from mantel_server.store import Store
+from mantel_server.storage.store import Store
 
 
 @pytest.fixture

@@ -209,7 +209,7 @@ async def run(token: str) -> dict:
     from mantel_server.identity.accounts import totp
     from mantel_server.config import Config
     from mantel_server.server import build_app
-    from mantel_server.store import Store
+    from mantel_server.storage.store import Store
 
     offset = [0.0]                                   # Mantel's clock only (to make a factor stale); HA's is real
     clock = lambda: time.time() + offset[0]  # noqa: E731

@@ -15,7 +15,7 @@ from mantel_server.cameras import protect_api as pa
 from mantel_server.cameras import protect_connector as PC
 from mantel_server.ha.registry import Registry
 from mantel_server.ha.state import StateStore
-from mantel_server.store import Store
+from mantel_server.storage.store import Store
 from mantel_server.timeline import protect as TP
 from mantel_server.timeline.core import Timeline
 from mantel_server.timeline.protect import ProtectTap

@@ -143,7 +143,7 @@ async def serve(data: Path, port: int, lan: bool = False, relay: str | None = No
     from mantel_server.apps import app_auth, app_crypto
     from mantel_server.config import Config
     from mantel_server.server import build_app
-    from mantel_server.store import Store
+    from mantel_server.storage.store import Store
 
     lan_ip = lan_address() if lan else None
     ma_fake, ma = None, {}
@@ -308,7 +308,7 @@ async def send_push(data: Path, text: str) -> None:
     if row["env"] == "relay":
         from mantel_server.config import Config
         from mantel_server.server import build_app
-        from mantel_server.store import Store
+        from mantel_server.storage.store import Store
         cfg = Config(data_dir=data / "data", secrets_dir=data / "secrets", ha_url="http://127.0.0.1:9")
         store = Store(cfg.data_dir / "mantel.db")
         app = build_app(cfg, "unused-fictional-token", store=store, connect_ha=False)

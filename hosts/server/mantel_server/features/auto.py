@@ -31,7 +31,7 @@ from typing import Any, Mapping, TYPE_CHECKING
 from hk_core import clean_areas as CA
 from hk_core import needs as N
 
-from .. import audit
+from ..storage import audit
 from .settings import FEATURES_DOC, check_settings
 
 if TYPE_CHECKING:

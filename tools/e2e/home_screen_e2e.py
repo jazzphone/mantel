@@ -124,7 +124,7 @@ async def ha_token(http: aiohttp.ClientSession, token: str) -> str:
 async def run(token: str, region: str, shots: Path) -> dict:
     from mantel_server.config import Config
     from mantel_server.server import build_app
-    from mantel_server.store import Store
+    from mantel_server.storage.store import Store
 
     evidence: dict = {"region": region}
     EVIDENCE.clear()

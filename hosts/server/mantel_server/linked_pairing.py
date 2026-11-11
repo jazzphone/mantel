@@ -55,7 +55,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from mantel_connect import protocol as CP
 
-from . import audit
+from .storage import audit
 from .network.connect_pairing import ALL_FAILS, ALL_WINDOW, IP_FAILS, IP_WINDOW, MAX_WRONG, Window
 from .identity.guards import guard, open_route
 from .identity.guards import ident as guarded

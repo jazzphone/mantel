@@ -11,7 +11,7 @@ from aiohttp import web
 from .config import Config, parse_args
 from .ha.ha_client import TokenMissing, read_token
 from .server import build_app
-from .store import ROLES, Store
+from .storage.store import ROLES, Store
 
 # Docker and the Supervisor stop a container after about 10 s and then kill it: sockets still open after this
 # many seconds are cut, so a stop ends cleanly (and the database closes) inside that.
@@ -26,7 +26,7 @@ def bootstrap(store: Store, port: int) -> int:
     import time
 
     from .identity.accounts import BOOTSTRAP_TTL, Accounts, PolicyError
-    from .atrest import SecretBox
+    from .storage.atrest import SecretBox
     try:
         token = Accounts(store.db, SecretBox(), time.time).issue_bootstrap_token()
     except PolicyError as exc:
@@ -116,16 +116,16 @@ def main(argv: list[str] | None = None) -> int:
     if argv and argv[0] == "import-settings":
         return import_settings(argv[1:])
     if argv and argv[0] == "backup":
-        from .backup import cli_backup
+        from .storage.backup import cli_backup
         return cli_backup(argv[1:])
     if argv and argv[0] == "restore":
-        from .backup import cli_restore
+        from .storage.backup import cli_restore
         return cli_restore(argv[1:])
     if argv and argv[0] == "import-files":
-        from .user_files import cli_import
+        from .storage.user_files import cli_import
         return cli_import(argv[1:])
     if argv and argv[0] == "files":
-        from .user_files import cli_files
+        from .storage.user_files import cli_files
         return cli_files(argv[1:])
     if argv and argv[0] == "service-account":
         from .identity.service_accounts import cli as service_cli

@@ -16,7 +16,7 @@ import pytest
 from mantel_server import performance
 from mantel_server.ha.registry import Registry
 from mantel_server.ha.state import StateStore
-from mantel_server.store import Store
+from mantel_server.storage.store import Store
 from mantel_server.timeline.core import Timeline
 
 N_ENTITIES = 5000

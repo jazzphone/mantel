@@ -12,7 +12,7 @@ from aiohttp.test_utils import TestClient, TestServer
 
 import gateway_fakes as GF
 from conftest import Mantel
-from mantel_server import user_data as UD
+from mantel_server.storage import user_data as UD
 
 ROOT = Path(__file__).resolve().parent.parent
 FOCUS = {"key": "media_player.office", "at": 1700000000000}
@@ -235,7 +235,7 @@ def test_the_page_and_the_server_agree_on_the_keys():
 
 
 def test_migration_0013_creates_the_table(tmp_path):
-    from mantel_server.store import Store
+    from mantel_server.storage.store import Store
     store = Store(tmp_path / "m.db")
     cols = {r[1] for r in store.db.execute("PRAGMA table_info(user_data)")}
     assert cols == {"subject", "key", "value", "updated"}

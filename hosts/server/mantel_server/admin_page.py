@@ -39,7 +39,7 @@ from .identity.guards import ident as guarded
 from .identity.login_page import login_url
 from .identity.service_accounts import SCOPES as SERVICE_SCOPES
 from .identity.sessions import Identity, identity
-from .store import ROLES
+from .storage.store import ROLES
 
 PAGE = "/admin"
 _PENDING_ID = re.compile(r"[A-Za-z0-9_-]{1,128}")    # a pending connection's id (connections.py), carried over

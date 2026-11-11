@@ -517,7 +517,7 @@ async def test_music_commands_are_unavailable_without_music_assistant(gw):
 
 
 def test_a_settings_row_s_reason_is_the_role_that_made_the_change(tmp_path):
-    from mantel_server.store import Store
+    from mantel_server.storage.store import Store
     db = Store(tmp_path / "m.db").db
     audit = gateway.Audit(db, lambda: 1.0)
     audit.config_event({"actor": "u1", "role": "admin", "action": "account.role", "detail": {"user": "u2"}})

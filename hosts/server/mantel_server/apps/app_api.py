@@ -31,7 +31,7 @@ from aiohttp import web
 
 from .. import apns
 from . import app_crypto
-from .. import user_data as UD
+from ..storage import user_data as UD
 from .app_auth import app_route
 from ..identity.guards import WHY_APP, open_route
 from ..identity.sessions import error, ok

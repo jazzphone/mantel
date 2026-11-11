@@ -422,7 +422,7 @@ def parse_args(argv: list[str] | None = None) -> Config:
         p.error("--public-url / --allow-host only apply together with --listen")
     if not (a.audit_retention_days >= 30) or a.audit_retention_days == float("inf"):
         p.error("--audit-retention-days must be at least 30")
-    from .backup import parse_time
+    from .storage.backup import parse_time
     try:
         parse_time(a.backup_time)
     except ValueError as exc:

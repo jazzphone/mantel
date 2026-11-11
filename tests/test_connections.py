@@ -21,10 +21,10 @@ from argon2 import PasswordHasher
 
 from connector_fakes import FakeMa, wait_for
 from mantel_server import connections
-from mantel_server.atrest import SecretBox
+from mantel_server.storage.atrest import SecretBox
 from mantel_server.config import Config
 from mantel_server.server import build_app
-from mantel_server.store import Store
+from mantel_server.storage.store import Store
 
 PASSWORD = "correct horse battery staple"
 TOKEN_A = "fictional-ha-token-AAAA-0123456789"
@@ -753,7 +753,7 @@ async def test_music_assistant_sign_in_makes_a_token_and_forgets_the_password(en
 
 # -- backups ---------------------------------------------------------------------------------------------------
 async def test_backups_carry_the_sealed_connections_and_restore_them(envs, tmp_path):
-    from mantel_server import backup
+    from mantel_server.storage import backup
     fake, url = await fake_ha(envs, TOKEN_A)
     env = await envs(connect_ha=False)
     await owner(env)

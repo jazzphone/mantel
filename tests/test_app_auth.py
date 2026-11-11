@@ -621,7 +621,7 @@ async def test_each_web_view_replaces_the_apps_last_and_goes_with_the_app(mantel
 
 def test_migration_0022_ends_the_web_views_it_cannot_place(tmp_path):
     import sqlite3
-    from mantel_server import db
+    from mantel_server.storage import db
     conn = sqlite3.connect(tmp_path / "m.db")
     conn.row_factory = sqlite3.Row
     found = [x for x in db.discover() if x.version < 22]

@@ -12,7 +12,7 @@ from argon2 import PasswordHasher
 
 from mantel_server.config import Config
 from mantel_server.server import build_app
-from mantel_server.store import Store
+from mantel_server.storage.store import Store
 
 PASSWORD = "correct horse battery staple"
 HOOK = "https://discord.com/api/webhooks/123456789012345678/" + "S3cretW3bh00kT0ken-abcdefghijklmnopqrstuvwxyz0123"

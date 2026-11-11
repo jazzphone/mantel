@@ -55,11 +55,11 @@ from hk_core.your_files import (  # noqa: F401 -- re-exported: the tests and ing
     GLYPH_ICONS_MAX, GLYPHS_HEADER, _glyph_data, _is_path)
 
 from . import audit
-from .cameras import imaging
+from ..cameras import imaging
 # a photo's decode and re-encode (image_work.py) runs in imaging.py's worker process; these names stay Your Files'
-from .cameras.image_work import PHOTO_EDGE, PHOTO_PIXELS_MAX, FileError, reencode_photo, sniff_image  # noqa: F401
-from .identity.guards import guard
-from .identity.guards import ident as guarded
+from ..cameras.image_work import PHOTO_EDGE, PHOTO_PIXELS_MAX, FileError, reencode_photo, sniff_image  # noqa: F401
+from ..identity.guards import guard
+from ..identity.guards import ident as guarded
 
 log = logging.getLogger("mantel.user_files")
 
@@ -622,7 +622,7 @@ def register(app: web.Application, hub=None) -> None:
 # -- CLI --------------------------------------------------------------------------------------------
 def cli_import(argv: list[str]) -> int:
     """``mantel-server import-files FOLDER``: the one-time move of today's Your files folder."""
-    from .config import Config
+    from ..config import Config
     p = argparse.ArgumentParser(prog="mantel-server import-files", description=cli_import.__doc__)
     p.add_argument("folder", help="the Your files folder (fonts/, iconset/, other images), e.g. a copy of /config/hk_local")
     p.add_argument("--images", metavar="DIR", help="Home Assistant's image_upload store (/config/image): "
@@ -649,7 +649,7 @@ def cli_import(argv: list[str]) -> int:
 
 def cli_files(argv: list[str]) -> int:
     """``mantel files import-assets FOLDER``: supply SF Pro and HK's glyph set once, from a copy of them."""
-    from .config import Config
+    from ..config import Config
     p = argparse.ArgumentParser(prog="mantel files", description=cli_files.__doc__)
     sub = p.add_subparsers(dest="action", required=True)
     ia = sub.add_parser("import-assets", help="pick SF-Pro.woff2, SF-Pro.ttf and hk-glyphs.js out of a folder")

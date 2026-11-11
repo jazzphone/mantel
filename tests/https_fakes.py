@@ -260,7 +260,7 @@ async def make_mantel(tmp_path, monkeypatch, app_items: dict | None = None, **cf
     from mantel_server.ha.ha_client import HaClient
     from mantel_server.ha.readproxy import ReadProxy
     from mantel_server.server import build_app
-    from mantel_server.store import Store
+    from mantel_server.storage.store import Store
 
     async def forbidden(*args, **kwargs):
         pytest.fail("these tests attempted to reach Home Assistant")

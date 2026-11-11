@@ -17,7 +17,7 @@ from aiohttp.test_utils import TestClient, TestServer
 from mantel_server.identity.auth import SESSION_COOKIE
 from mantel_server.config import Config
 from mantel_server.server import IMMUTABLE, NO_CACHE, build_app
-from mantel_server.store import Store
+from mantel_server.storage.store import Store
 import web_sources  # (a file cut into parts is read whole: tools/split_js.py)
 
 ROOT = Path(__file__).resolve().parents[1]

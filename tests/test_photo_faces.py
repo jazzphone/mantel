@@ -13,7 +13,7 @@ import pytest
 from aiohttp import FormData
 from PIL import Image
 
-from mantel_server import db as dbm
+from mantel_server.storage import db as dbm
 from mantel_server.cameras import faces, photos
 from mantel_server import setup_check
 

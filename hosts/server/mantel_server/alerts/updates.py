@@ -31,7 +31,8 @@ from typing import Any
 
 from aiohttp import web
 
-from .. import about, audit
+from .. import about
+from ..storage import audit
 from ..identity.accounts import read_json
 from ..identity.guards import guard
 from ..identity.guards import ident as guarded

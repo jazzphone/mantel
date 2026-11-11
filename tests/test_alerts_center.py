@@ -10,8 +10,8 @@ import pytest
 from mantel_server.alerts import catalog, center as C, sources
 from mantel_server.alerts.center import Center, ChannelError
 from mantel_server.alerts.store import Channels, Log, Settings
-from mantel_server.atrest import SecretBox
-from mantel_server.store import Store
+from mantel_server.storage.atrest import SecretBox
+from mantel_server.storage.store import Store
 
 MIN = 60.0
 

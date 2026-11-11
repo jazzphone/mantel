@@ -121,7 +121,7 @@ async def run(token: str) -> dict:
     from mantel_server.config import Config
     from mantel_server.server import build_app
     from mantel_server.settings_store import Actor
-    from mantel_server.store import Store
+    from mantel_server.storage.store import Store
 
     out: dict = {}
     with tempfile.TemporaryDirectory(prefix="mantel-linked-e2e-") as folder:

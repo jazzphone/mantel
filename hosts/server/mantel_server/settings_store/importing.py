@@ -328,7 +328,7 @@ async def import_cli(data_dir, ha_url: str, token: str, out=print, ws_url: str |
     from pathlib import Path
 
     from ..ha.readproxy import ReadProxy
-    from ..store import Store
+    from ..storage.store import Store
     st = Store(Path(data_dir).expanduser() / "mantel.db")
     proxy = ReadProxy(ha_url, token, ws_url=ws_url)
     try:

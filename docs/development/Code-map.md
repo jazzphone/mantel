@@ -437,13 +437,9 @@ Mantel Server.
   - `alarm_pin.py` — HK's Alarm PIN in Mantel (docs/phase3/PINS-AUDIT.md "The alarm keypad", docs/phase3/GATEWAY.md "The alarm", docs/phase4/MANTEL-FEATURES.md).
   - `announce.py` — Mantel on the network, by zeroconf (docs/phase9/MANTEL-LINK.md "Discovery and pairing", slice 9.5).
   - `apns.py` — Notifications to the iPhone, iPad and Mac apps through Apple's push service (docs/phase10/APPLE-APPS.md §5, slice 10.5; decision M10-2
-  - `atrest.py` — Secrets at rest
-  - `audit.py` — The one way a settings or account change is written to the audit log (Rules.md rule 3 and rule 7).
-  - `backup.py` — Encrypted backups of Mantel's database (and uploaded files), and a restore that checks before it swaps.
   - `config.py`
   - `connect_proof.py` — Separate TLS identity-only receiver.
   - `connections.py` — Connections
-  - `db.py` — Mantel's SQLite database
   - `default_screens.py` — The screen a person or a wall tablet opens on (migration 0014; decision 27's addendum, docs/phase8/SETTINGS.md).
   - `devices.py` — Device credentials
   - `docs_pages.py` — /docs
@@ -492,14 +488,11 @@ Mantel Server.
   - `setup_check.py` — HK Settings' Setup Check on Mantel
   - `setup_guide.py` — Set Up Mantel
   - `stats.py`
-  - `store.py` — Phase 0's store API, now a thin layer over the P3.1 database (``db.py``, migration 0001_core).
   - `tablet_links.py` — A wall tablet's Direct Connection
   - `talk_direct.py` — TALKING AT A UNIFI PROTECT DOORBELL DIRECTLY (docs/phase13/CAMERAS-DIRECT.md, phase 5, 2026-11-02).
   - `talk_relay.py` — LIVE TALK through Mantel (docs/phase3/GATEWAY.md "Doorbell talk-back")
   - `timers.py` — Timers on Mantel (phase 21, docs/phase21/TIMER-SLIDE.md)
   - `tv.py` — TVs
-  - `user_data.py` — HK's per-person frontend user data, kept by Mantel (migration 0013).
-  - `user_files.py` — YOUR FILES on Mantel Server
   - `vacuum_water.py` — A vacuum's water tank that ran dry, held for the card (2026-11-09, the owner; hk_core/vacuum_water.py has the story).
   - `view.py` — One client's filtered, coalesced view of the state store.
 - **hosts/server/mantel_server/alerts/**
@@ -633,6 +626,14 @@ Mantel Server.
   - `login.js` — Mantel sign-in page (/login).
 - **hosts/server/mantel_server/static/proxy-check/**
   - `check.js` — "Test my proxy" (proxy_check.py).
+- **hosts/server/mantel_server/storage/**
+  - `atrest.py` — Secrets at rest
+  - `audit.py` — The one way a settings or account change is written to the audit log (Rules.md rule 3 and rule 7).
+  - `backup.py` — Encrypted backups of Mantel's database (and uploaded files), and a restore that checks before it swaps.
+  - `db.py` — Mantel's SQLite database
+  - `store.py` — Phase 0's store API, now a thin layer over the P3.1 database (``db.py``, migration 0001_core).
+  - `user_data.py` — HK's per-person frontend user data, kept by Mantel (migration 0013).
+  - `user_files.py` — YOUR FILES on Mantel Server
 - **hosts/server/mantel_server/timeline/**
   - `api.py` — The House Timeline's REST and live feed (docs/phase19/HOUSE-TIMELINE.md "Who sees what", "The API and live feed").
   - `core.py` — The House Timeline's write path (docs/phase19/HOUSE-TIMELINE.md "The write path").

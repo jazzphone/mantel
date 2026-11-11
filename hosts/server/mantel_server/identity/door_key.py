@@ -123,7 +123,7 @@ def cli(argv: list[str]) -> int:
     import argparse
     from pathlib import Path
 
-    from .. import atrest
+    from ..storage import atrest
     from ..config import Config
     from ..connections import SealedFiles
     p = argparse.ArgumentParser(prog="mantel door-key", description="the door key your own reverse proxy sends")

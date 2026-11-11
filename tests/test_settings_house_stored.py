@@ -13,7 +13,7 @@ import pytest
 from hk_core.settings import model as M
 from mantel_server import linked_settings as LS
 from mantel_server import settings_store as S
-from mantel_server.db import Database
+from mantel_server.storage.db import Database
 
 OWNER = {"user_id": "owner-id", "role": "owner"}
 NORMALISED = "normalised to stored differences"
@@ -119,7 +119,7 @@ def test_the_server_normalises_at_start(tmp_path, place):
     place()
     from mantel_server.config import Config
     from mantel_server.server import build_app
-    from mantel_server.store import Store
+    from mantel_server.storage.store import Store
     store = Store(tmp_path / "mantel.db")
     try:
         st = S.SettingsStore(store.db)

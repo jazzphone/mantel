@@ -124,7 +124,7 @@ async def ha_get(http, token, path):
 async def run(token: str) -> dict:
     from mantel_server.config import Config
     from mantel_server.server import build_app
-    from mantel_server.store import Store
+    from mantel_server.storage.store import Store
 
     check, say = g.check, g.say
     offset = [0.0]

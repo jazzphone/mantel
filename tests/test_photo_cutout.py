@@ -14,7 +14,8 @@ from aiohttp import FormData
 from PIL import Image, ImageDraw
 
 from mantel_server.cameras import cutout, faces, image_work, imaging, photos
-from mantel_server import db as dbm, setup_check
+from mantel_server.storage import db as dbm
+from mantel_server import setup_check
 
 np = pytest.importorskip("numpy")
 
@@ -635,7 +636,7 @@ async def test_setup_check_says_when_the_model_cannot_run(mantel, monkeypatch, t
 
 async def test_the_masks_are_in_mantels_backup(mantel, fake_cutter, tmp_path):
     import os
-    from mantel_server import backup
+    from mantel_server.storage import backup
     await sign_in(mantel)
     aid = await album(mantel)
     pid = (await upload(mantel, aid, picture()))[1]["photo"]["id"]

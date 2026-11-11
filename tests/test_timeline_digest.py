@@ -16,7 +16,7 @@ from hk_core.timeline import classify as C
 from hk_core.timeline import digest as D
 from mantel_server.config import Config
 from mantel_server.server import build_app
-from mantel_server.store import Store
+from mantel_server.storage.store import Store
 from mantel_server.timeline import digest as TD
 from mantel_server.timeline.api import Viewer
 from mantel_server.timeline.store import Row

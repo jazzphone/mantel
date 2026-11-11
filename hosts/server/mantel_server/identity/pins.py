@@ -27,7 +27,7 @@ from aiohttp import web
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError, VerifyMismatchError
 
-from .. import audit
+from ..storage import audit
 from .accounts import AttemptLimiter, PolicyError, limited, read_json, who
 from .guards import guard
 from .guards import ident as guarded

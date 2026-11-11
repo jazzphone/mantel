@@ -19,7 +19,7 @@ from argon2 import PasswordHasher
 from PIL import Image
 
 from conftest import Mantel
-from mantel_server import user_files as uf
+from mantel_server.storage import user_files as uf
 from mantel_server.__main__ import main as cli_main
 
 
@@ -67,7 +67,7 @@ async def mantel(tmp_path, monkeypatch):
     from mantel_server.ha.ha_client import HaClient
     from mantel_server.ha.readproxy import ReadProxy
     from mantel_server.server import build_app
-    from mantel_server.store import Store
+    from mantel_server.storage.store import Store
 
     async def forbidden(*args, **kwargs):
         pytest.fail("user-files tests attempted upstream access")
@@ -704,8 +704,8 @@ def test_config_options(tmp_path):
 
 
 def test_uploaded_files_are_inside_the_backup_and_come_back(tmp_path):
-    from mantel_server import backup as bk
-    from mantel_server import db as dbmod
+    from mantel_server.storage import backup as bk
+    from mantel_server.storage import db as dbmod
     data = tmp_path / "data"
     dbmod.Database(data / "mantel.db").close()
     store = uf.UserFiles(data / "user-files")
@@ -728,7 +728,7 @@ def test_a_multi_picture_jpeg_from_a_phone_is_a_jpeg():
     own format" while Mantel Photos took it."""
     from PIL import Image
 
-    from mantel_server.user_files import reencode_photo
+    from mantel_server.storage.user_files import reencode_photo
     im = Image.new("RGB", (64, 48), (10, 120, 200))
     raw = io.BytesIO()
     im.save(raw, "MPO", save_all=True, append_images=[im])

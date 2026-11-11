@@ -102,7 +102,7 @@ async def make(tmp_path, monkeypatch, *, peers=("127.0.0.1",), ingress_on=True, 
     from mantel_server.ha.ha_client import HaClient
     from mantel_server.ha.readproxy import ReadProxy
     from mantel_server.server import build_app
-    from mantel_server.store import Store
+    from mantel_server.storage.store import Store
 
     async def forbidden(*args, **kwargs):
         pytest.fail("ingress tests attempted upstream access")
@@ -683,7 +683,7 @@ async def test_the_gzipped_body_counts_toward_the_cache_limit(mk, monkeypatch):
 
 async def test_uploaded_licensed_assets_are_served_for_the_prefix_with_etags(mk):
     """The fonts and the glyph file come from Your files at the URLs the (rewritten) CSS and JS ask for."""
-    from mantel_server import user_files as uf
+    from mantel_server.storage import user_files as uf
     m = await mk()
     m.store.link(OWNER_HA, "owner")
     await m.page()
@@ -740,7 +740,7 @@ def test_client_ip_is_the_browser_as_ha_saw_it():
 
 # -- the migration -------------------------------------------------------------------------------------
 def test_migration_0008_keeps_the_audit_and_allows_the_ha_door(tmp_path):
-    from mantel_server import db
+    from mantel_server.storage import db
     folder = tmp_path / "migs"
     folder.mkdir()
     src = Path(db.MIGRATIONS)

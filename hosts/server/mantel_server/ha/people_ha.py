@@ -28,7 +28,8 @@ from typing import Any
 
 from aiohttp import web
 
-from .. import audit, live
+from ..storage import audit
+from .. import live
 from ..identity.accounts import read_json, require_fresh_to_grant
 from ..identity.guards import guard
 from ..identity.guards import ident as guarded

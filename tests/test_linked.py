@@ -69,7 +69,7 @@ async def _env(tmp_path, monkeypatch, hooks=None):
     from mantel_server.ha.ha_client import HaClient
     from mantel_server.ha.readproxy import ReadProxy
     from mantel_server.server import build_app
-    from mantel_server.store import Store
+    from mantel_server.storage.store import Store
 
     async def forbidden(*args, **kwargs):
         pytest.fail("linked mode tests attempted upstream access")

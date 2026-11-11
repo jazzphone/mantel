@@ -772,7 +772,7 @@ class IntercomHost:
                 doc = C.live_result(doc, room, ok)
             demoted = sorted(r for r in rooms if C.room(doc, r).get("demoted") and r not in before)
             if demoted:
-                from .. import audit
+                from ..storage import audit
                 audit.config(None, None, "intercom.live.demoted", {"rooms": demoted}, app=self.app,
                              reason="three_live_failures")
             from ..settings_store.docs import Actor

@@ -242,7 +242,7 @@ class Probe:
         from aiohttp.test_utils import TestClient, TestServer
         from mantel_server.config import Config
         from mantel_server.server import build_app
-        from mantel_server.store import Store
+        from mantel_server.storage.store import Store
         cfg = Config(data_dir=self.tmp / "data", secrets_dir=self.tmp / "secrets", port=0, ingress=True,
                      ingress_peers=(), connect=True, connect_port=0, connect_listen="127.0.0.1")
         store = Store(cfg.data_dir / "mantel.db")

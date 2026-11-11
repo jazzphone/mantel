@@ -9,7 +9,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from mantel_server import audit
+from mantel_server.storage import audit
 from mantel_server import features as F
 from mantel_server.features import auto as A
 from mantel_server.settings_store import Actor

@@ -43,7 +43,7 @@ from urllib.parse import urlencode, urlparse
 
 from aiohttp import web
 
-from .. import audit
+from ..storage import audit
 from ..identity import sessions
 from ..identity.accounts import STEP_UP_WINDOW, is_fresh_to_add_factor
 from ..identity.guards import WHY_MCP_OAUTH, open_route

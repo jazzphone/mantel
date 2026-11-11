@@ -28,7 +28,7 @@ from typing import Any
 
 from aiohttp import web
 
-from . import audit
+from .storage import audit
 from .ha import ha_dashboards as HD
 from .identity.accounts import read_json
 from .identity.guards import guard

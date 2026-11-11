@@ -24,7 +24,7 @@ from urllib.parse import urlsplit
 
 from aiohttp import WSMsgType, web
 
-from .. import audit
+from ..storage import audit
 from ..identity import authz as authz_mod
 from ..identity import door_key, sessions
 from . import frame_origins, proxy_trust

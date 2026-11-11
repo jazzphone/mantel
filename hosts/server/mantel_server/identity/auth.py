@@ -24,7 +24,7 @@ from . import sessions
 from .guards import WHY_SIGN_IN, guard, open_route
 from ..ha.ha_oauth import HaOAuth, OAuthError
 from .login_page import DEFAULT_NEXT, HA_START, login_url, safe_next
-from ..store import Store
+from ..storage.store import Store
 
 log = logging.getLogger("mantel.auth")
 

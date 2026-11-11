@@ -12,7 +12,7 @@ from aiohttp import web
 from mantel_server.ha import readproxy
 from mantel_server import settings_store as S
 from mantel_server.connectors import Ctx, Hooks
-from mantel_server.db import Database
+from mantel_server.storage.db import Database
 from mantel_server.hidden import Hiding
 from mantel_server.ha.readproxy import MANTEL_READS, READ_ALLOWED, ROUTE_RULES, SERVER_ONLY_READS
 from mantel_server.ha.registry import Registry

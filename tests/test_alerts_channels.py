@@ -17,8 +17,8 @@ from mantel_server.alerts.center import Center, ChannelError, Message
 from mantel_server.alerts.channels import Invalid, apprise_, discord, notifiarr, telegram
 from mantel_server.alerts.channels import email as mail
 from mantel_server.alerts.store import Channels, Log, Settings
-from mantel_server.atrest import SecretBox
-from mantel_server.store import Store
+from mantel_server.storage.atrest import SecretBox
+from mantel_server.storage.store import Store
 
 HOOK = "https://discord.com/api/webhooks/123456789012345678/" + "A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6"
 TOKEN = "123456789:AAH-abcdefghijklmnopqrstuvwxyz0123456"

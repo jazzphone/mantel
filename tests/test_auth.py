@@ -11,7 +11,7 @@ from mantel_server.identity.auth import make_state_cookie, read_state_cookie
 from mantel_server.config import Config
 from mantel_server.ha.ha_oauth import HaOAuth, check_redirect
 from mantel_server.server import build_app
-from mantel_server.store import Store
+from mantel_server.storage.store import Store
 
 USER = {"id": "u-avery", "name": "Avery", "is_owner": True, "is_admin": True}
 

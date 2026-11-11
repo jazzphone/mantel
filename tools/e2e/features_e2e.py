@@ -133,7 +133,7 @@ async def phase(token: str, commands: bool) -> dict:
     from mantel_server.connectors import Hooks
     from mantel_server.server import build_app
     from mantel_server.settings_store import Actor
-    from mantel_server.store import Store
+    from mantel_server.storage.store import Store
     from hk_core.notifications.settings import new_category
 
     label = "B (commands ENABLED)" if commands else "A (commands disabled)"

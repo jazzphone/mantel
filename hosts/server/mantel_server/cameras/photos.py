@@ -69,7 +69,7 @@ from urllib.parse import unquote, urlsplit
 
 from aiohttp import web
 
-from .. import audit
+from ..storage import audit
 from . import imaging
 from . import cutout as cutter
 from . import faces as face_finder
@@ -1280,7 +1280,7 @@ async def api_focus(request: web.Request) -> web.Response:
 @guard("manager", audit="photos.upload")
 async def api_upload(request: web.Request) -> web.Response:
     ident = guarded(request)
-    from ..user_files import FileError, read_upload
+    from ..storage.user_files import FileError, read_upload
     lib = _lib(request)
     try:
         album = lib.album(request.match_info["album"])

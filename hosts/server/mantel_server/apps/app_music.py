@@ -33,7 +33,7 @@ from typing import Any
 
 from aiohttp import web
 
-from .. import user_data as UD
+from ..storage import user_data as UD
 from .app_auth import app_route
 from ..connectors import allowed_ids, may_feature
 from ..identity.guards import WHY_APP, open_route

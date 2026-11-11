@@ -14,7 +14,7 @@ from mantel_server.mcp.tools import all_tools
 from mantel_server.mcp.tools import timeline as T
 from mantel_server.server import build_app
 from mantel_server.identity.sessions import Identity
-from mantel_server.store import Store
+from mantel_server.storage.store import Store
 from mantel_server.timeline.store import Row
 
 NOW = 1_800_000_000.0

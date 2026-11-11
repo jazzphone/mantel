@@ -21,10 +21,10 @@ LATEST = max(int(p.name[:4]) for p in
 from argon2 import PasswordHasher
 
 from conftest import PASSWORD, Mantel
-from mantel_server import backup as bk
-from mantel_server import db as dbmod
+from mantel_server.storage import backup as bk
+from mantel_server.storage import db as dbmod
 from mantel_server.__main__ import main as cli_main
-from mantel_server.backup import BackupError
+from mantel_server.storage.backup import BackupError
 
 UTC = timezone.utc
 NOW = datetime(2026, 10, 18, 3, 15, tzinfo=UTC)
@@ -788,7 +788,7 @@ async def app_with_backups(tmp_path, monkeypatch):
     from mantel_server.ha.ha_client import HaClient
     from mantel_server.ha.readproxy import ReadProxy
     from mantel_server.server import build_app
-    from mantel_server.store import Store
+    from mantel_server.storage.store import Store
 
     async def forbidden(*args, **kwargs):
         pytest.fail("backup tests attempted upstream access")
@@ -843,7 +843,7 @@ async def test_status_and_run_now_are_for_managers_and_run_now_for_the_owner(app
 async def test_register_is_off_without_a_target(tmp_path, monkeypatch):
     from mantel_server.config import Config
     from mantel_server.server import build_app
-    from mantel_server.store import Store
+    from mantel_server.storage.store import Store
     cfg = Config(data_dir=tmp_path / "d", secrets_dir=tmp_path / "s", port=0)
     app = build_app(cfg, "x", store=Store(cfg.data_dir / "mantel.db"), connect_ha=False)
     bk.register(app, app["hub"])
@@ -891,7 +891,7 @@ async def app_local(tmp_path, monkeypatch):
     from mantel_server.ha.ha_client import HaClient
     from mantel_server.ha.readproxy import ReadProxy
     from mantel_server.server import build_app
-    from mantel_server.store import Store
+    from mantel_server.storage.store import Store
 
     async def forbidden(*args, **kwargs):
         pytest.fail("backup tests attempted upstream access")

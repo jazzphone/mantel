@@ -543,7 +543,7 @@ async def build(base: Path, showcase: bool = False, real_model: bool = False):
     from mantel_server.config import Config
     from mantel_server.server import build_app
     from mantel_server.identity.sessions import Identity, User
-    from mantel_server.store import Store
+    from mantel_server.storage.store import Store
 
     cfg = Config(data_dir=base / "data", fixtures=base / "fixtures", hk_files=base / "user-files", default_screen=SCREEN,
                  commands_enabled=True)

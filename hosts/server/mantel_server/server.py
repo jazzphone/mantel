@@ -39,14 +39,16 @@ from .network import connect_pairing, ingress
 from .cameras import cameras_direct, protect_connector
 from .ha import gateway, readproxy
 from . import (
-    admin_page, atrest, backup, connections, features, linked, linked_house, linked_owners, linked_pairing,
-    linked_files, linked_reads, linked_settings, screens, linked_actions, phones, talk_relay, user_files,
+    admin_page, connections, features, linked, linked_house, linked_owners, linked_pairing, linked_files,
+    linked_reads, linked_settings, screens, linked_actions, phones, talk_relay,
 )
+from .storage import atrest, backup, user_files
 from .cameras import photos
 from .ha import people_ha, supervisor_discovery
 from .identity import login_page, service_accounts
 from .cameras import camera_setup, media_proxy
-from . import default_screens, docs_pages, ma_page, route_table, tablet_links, user_data
+from . import default_screens, docs_pages, ma_page, route_table, tablet_links
+from .storage import user_data
 from .network import direct, direct_tls, proxy_check, proxy_trust, security_headers
 from .ha import ha_dashboards, socket_reads
 from . import alerts, timeline, hk_cards, live, mcp, page_health, performance, server_settings, setup_guide
@@ -60,7 +62,7 @@ from .connectors import camera_still, media_art, media_photos, person_picture
 from .connectors import ma as ma_connector
 from .ha.ha_oauth import HaOAuth
 from .ha.readproxy import ReadProxy
-from .store import Store
+from .storage.store import Store
 from .ha.ha_client import HaClient, commander_for
 from .ha.ha_client import SERVER_WRITES
 from .ha.registry import Registry

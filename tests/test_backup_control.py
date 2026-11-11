@@ -5,7 +5,7 @@ test_backup.py's."""
 import json
 import sqlite3
 
-from mantel_server import backup as bk
+from mantel_server.storage import backup as bk
 from test_backup import NOW, key, make_home, target  # noqa: F401 -- fixtures
 
 

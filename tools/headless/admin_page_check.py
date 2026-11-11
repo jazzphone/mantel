@@ -32,7 +32,7 @@ from mantel_server import admin_page  # noqa: E402
 from mantel_server.identity.accounts import totp  # noqa: E402
 from mantel_server.config import Config  # noqa: E402
 from mantel_server.server import build_app  # noqa: E402
-from mantel_server.store import Store  # noqa: E402
+from mantel_server.storage.store import Store  # noqa: E402
 from test_connections import FakeHa  # noqa: E402
 
 PASSWORD = "fictional password for the kid"      # fictional; at least 12 characters

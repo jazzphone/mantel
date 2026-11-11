@@ -104,7 +104,7 @@ def test_the_ha_record_is_checked():
 
 
 async def test_the_one_time_import_writes_the_features_too(tmp_path):
-    from mantel_server.db import Database
+    from mantel_server.storage.db import Database
     store = S.SettingsStore(Database(tmp_path / "m.db").conn)
 
     async def fetch():
@@ -119,7 +119,7 @@ async def test_the_one_time_import_writes_the_features_too(tmp_path):
 
 
 async def test_a_failed_feature_read_still_imports_the_settings(tmp_path):
-    from mantel_server.db import Database
+    from mantel_server.storage.db import Database
     store = S.SettingsStore(Database(tmp_path / "m.db").conn)
 
     async def fetch():

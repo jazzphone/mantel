@@ -55,7 +55,7 @@ from aiohttp import web
 
 from . import app_crypto
 from .. import qr
-from .. import audit
+from ..storage import audit
 from ..identity.accounts import MANAGERS, read_json
 from ..identity.guards import WHY_APP, guard, open_route
 from ..identity.guards import ident as guarded

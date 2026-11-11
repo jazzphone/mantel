@@ -15,7 +15,7 @@ import sqlite3
 import time
 from typing import Any, Callable
 
-from ..atrest import SecretBox
+from ..storage.atrest import SecretBox
 from . import catalog
 
 log = logging.getLogger("mantel.alerts")

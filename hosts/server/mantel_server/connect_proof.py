@@ -12,7 +12,7 @@ from aiohttp import web
 
 from mantel_connect.channel import PATH, Verifier
 from .config import Config
-from .store import Store
+from .storage.store import Store
 
 log = logging.getLogger("mantel.connect")
 HEADERS = {"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff",

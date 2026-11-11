@@ -97,7 +97,7 @@ from urllib.parse import urlsplit, urlunsplit
 import aiohttp
 from aiohttp import web
 
-from .. import atrest
+from ..storage import atrest
 from .. import connections as C
 from ..connectors import Ctx, Forbidden, Hooks, Route, read_routes, resolve, split_quality
 from ..identity.guards import guard
