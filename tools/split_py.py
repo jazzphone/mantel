@@ -931,8 +931,11 @@ def find(name: str) -> int:
         man = json.loads(p.read_text())
         mod = ROOT / man["module"]
         folder = mod.with_suffix("") if man.get("mode", "package") == "package" else mod.parent
+        # (a siblings module that became its package's __init__ since, phase 25's music: its parts are beside it, named
+        # after the package)
+        stem = mod.parent.name if mod.name == "__init__.py" else mod.stem
         cands = sorted(folder.glob("*.py")) if folder.is_dir() and man.get("mode", "package") == "package" else \
-            [mod] + sorted(mod.parent.glob(mod.stem + "_*.py"))
+            [mod] + sorted(mod.parent.glob(stem + "_*.py"))
         for f in cands:
             if not f.is_file():
                 continue

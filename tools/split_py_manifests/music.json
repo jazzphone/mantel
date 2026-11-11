@@ -1,5 +1,5 @@
 {
-  "module": "hosts/server/mantel_server/music.py",
+  "module": "hosts/server/mantel_server/music/__init__.py",
   "mode": "siblings",
   "parts": [
     {

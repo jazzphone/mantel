@@ -88,9 +88,9 @@ from hk_core.music.resume import Resumes
 from hk_core.music.queue import QUEUE_MAX
 from hk_core.music.warm import Warmer
 
-from .connectors import Ctx, Forbidden, Route, allowed_ids, may_feature, read_routes, ws_handlers
-from .ha.ha_client import HaCommandError
-from .house import MantelHouse
+from ..connectors import Ctx, Forbidden, Route, allowed_ids, may_feature, read_routes, ws_handlers
+from ..ha.ha_client import HaCommandError
+from ..house import MantelHouse
 from .music_announcements import Announcements
 
 from .music_names import (DOMAIN, ENTITY, IMPORT_READ, ITEMS_MAX, KEY, log, MA_LOGIN_FAILED, MA_PLATFORM, MEDIA_URI,  # noqa: F401 -- tools/split_py.py
@@ -848,7 +848,7 @@ class MusicHost:
         return None
 
     async def payload(self, identity: Any) -> dict[str, Any]:
-        from .ha.readproxy import music_config, music_players
+        from ..ha.readproxy import music_config, music_players
         if self.doc() is None:
             return {"configured": False}
         cfg = self.config()
@@ -912,7 +912,7 @@ class MusicHost:
 
     async def queue(self, entity_id: str, limit: int) -> dict[str, Any]:
         """HA's hk_music/queue answer, from Music Assistant: the songs from the current one on."""
-        from .ha.readproxy import music_queue
+        from ..ha.readproxy import music_queue
         try:
             qid, cur = await self.active_queue(entity_id)
             if not qid:
@@ -953,7 +953,7 @@ class MusicHost:
         m = MEDIA_URI.match(content_id) if isinstance(content_id, str) else None
         if m is None or self.ma is None:
             return None
-        from .connectors.ma import MaError
+        from ..connectors.ma import MaError
         try:
             await self.ma.playlist_tracks(m.group(3), m.group(1))
         except MaError as err:
@@ -1038,7 +1038,7 @@ class MusicHost:
         return MusicRefusal("invalid_format", json.dumps(dict(errors)))
 
     def _save(self, doc: dict, principal: Any, message: str) -> None:
-        from .settings_store import actor_of
+        from ..settings_store import actor_of
         self.store.write([("house", MUSIC_DOC, check_doc(doc))], actor=actor_of(principal), action="set",
                          message=message, source="hk_music")
         self.changed()
@@ -1167,7 +1167,7 @@ class MusicHost:
 
     def expand(self, cmd: Any) -> Any:
         """The checks Mantel's engine adds, knowing the configuration: Stop All names every room."""
-        from .ha.gateway import Check
+        from ..ha.gateway import Check
         m = cmd.music or {}
         if m.get("op") == OP_SERVICE:         # a plain media_player call: its own checks, as for HA's
             return cmd
@@ -1325,8 +1325,8 @@ def register(app: Any, hub: Any, hooks: Any = None) -> MusicHost:
     """``app["music"]``: the reads (in front of the interim bridge, which answers while the engine is off), the
     page's ``music_used`` message, ``GET /api/music/status`` (Owner/Admin), and the hub's changes. Commands come
     only through the gateway (``Gateway._forward`` -> ``MusicHost.run``)."""
-    from .connectors import Hooks
-    from .ha.readproxy import MEDIA_PLAYER, READ_ALLOWED, NotFound, ReadBlocked
+    from ..connectors import Hooks
+    from ..ha.readproxy import MEDIA_PLAYER, READ_ALLOWED, NotFound, ReadBlocked
     BROWSE_KEYS, SEARCH_KEYS = READ_ALLOWED["media_player/browse_media"], READ_ALLOWED["media_player/search_media"]
     if "music" in app:
         return app["music"]
@@ -1478,7 +1478,7 @@ def register(app: Any, hub: Any, hooks: Any = None) -> MusicHost:
                 raise ReadBlocked(f"{k} is text")
         if msg["entity_id"] not in await allowed_ids(hooks, ctx.identity, "view", [msg["entity_id"]]):
             raise NotFound("Entity not found")
-        from .connectors.ma import MaError
+        from ..connectors.ma import MaError
         try:
             return await answer()
         except music_browse.BrowseError as err:
@@ -1544,7 +1544,7 @@ def register(app: Any, hub: Any, hooks: Any = None) -> MusicHost:
 
     ws_handlers(app).update({"music_used": music_used})
 
-    from .identity.guards import guard
+    from ..identity.guards import guard
 
     @guard("manager", reads="admin")
     async def api_status(request) -> Any:

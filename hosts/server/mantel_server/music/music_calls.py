@@ -15,7 +15,7 @@ def _room_list(v: Any) -> list[str]:
     if isinstance(v, str):
         v = [x.strip() for x in v.split(",") if x.strip()]
     if not isinstance(v, list) or not all(isinstance(x, str) and ENTITY.match(x) for x in v):
-        from .ha.gateway import Refused
+        from ..ha.gateway import Refused
         raise Refused("invalid_command", "rooms are media_player entity ids")
     return list(v)
 
@@ -26,7 +26,7 @@ def classify_service(domain: Any, service: Any, data: Any, target: Any, return_r
     frame is HA's own call, sent to HA's engine when Mantel's is off."""
     if domain != DOMAIN or service not in MUSIC_SERVICES:
         return None
-    from .ha.gateway import Check, Command, Refused
+    from ..ha.gateway import Check, Command, Refused
     data = {} if data is None else data
     if not isinstance(data, dict) or target not in (None, {}) or not isinstance(return_response, bool):
         raise Refused("invalid_command", f"{DOMAIN}.{service} takes its fields in data")
@@ -94,7 +94,7 @@ def classify_ws(inner: dict) -> Any:
     t = inner.get("type")
     if t not in MUSIC_WS:
         return None
-    from .ha.gateway import Check, Command, Refused
+    from ..ha.gateway import Check, Command, Refused
     need, may = _WS_KEYS[t]
     body = {k: v for k, v in inner.items() if k not in ("type", "id")}
     if need - set(body) or set(body) - need - may:

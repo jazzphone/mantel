@@ -17,7 +17,7 @@ from conftest import Mantel
 from connector_fakes import wait_for
 from test_music import Env, build
 
-from mantel_server import music_states as S
+from mantel_server.music import music_states as S
 from mantel_server.connectors import media_art
 
 K, D, C, G = "media_player.kitchen_ma", "media_player.den_ma", "media_player.cody_ma", "media_player.downstairs_ma"

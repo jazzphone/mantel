@@ -19,7 +19,7 @@ from collections.abc import Mapping
 from typing import Any
 from urllib.parse import urlsplit
 
-from .connectors.ma import ws_url_of
+from ..connectors.ma import ws_url_of
 
 TITLE = "Music Assistant"
 LIBRARIES = {  # HA's id -> (title, its children's class, MA's library command, MA's media type)

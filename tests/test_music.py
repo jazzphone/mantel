@@ -1,4 +1,4 @@
-"""Phase 4: whole-home music on Mantel, talking to Music Assistant directly (mantel_server/music.py).
+"""Phase 4: whole-home music on Mantel, talking to Music Assistant directly (mantel_server/music/__init__.py).
 
 Against a fake Music Assistant (tests/music_fakes.py) that records every frame and moves the players' states
 the way HA's music_assistant integration reports them. Covers: the exact MA messages each request sends,
@@ -854,7 +854,7 @@ def test_every_music_read_route_has_one_rule():
     from mantel_server.pages import feature_pages as FP
     assert FP.PAGE_READS["hk_music/settings/get"] == "music"        # one path: feature_pages, MusicHost.page when on
     assert M.MUSIC_WS <= set(json.loads(open(
-        __import__("pathlib").Path(M.__file__).with_name("hk_writes.json")).read())["writes"])
+        __import__("importlib.resources").resources.files("mantel_server").joinpath("hk_writes.json")).read())["writes"])
 
 
 # ------------------------------------------------------------------------------- Browse's library (get_library)

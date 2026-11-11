@@ -2,8 +2,8 @@
 from types import SimpleNamespace as NS
 import asyncio
 import pytest
-from mantel_server.music_announcements import Announcements
-from mantel_server import music_announcements as M
+from mantel_server.music.music_announcements import Announcements
+from mantel_server.music import music_announcements as M
 from mantel_server.ha.registry import Registry
 from mantel_server.ha.readproxy import music_config
 

@@ -450,18 +450,6 @@ Mantel Server.
   - `live_tv.py` — LIVE TV SERVED BY MANTEL (docs/phase4/FEATURE-PARITY.md "Live TV served by Mantel"; PLAN §8, §10, Proof 4).
   - `ma_page.py` — The token for the Music Assistant page
   - `mcp_parity.py` — MCP parity (phase 18, A6)
-  - `music.py` — WHOLE-HOME MUSIC IN MANTEL (Phase 4) *(its parts beside it: `tools/split_py_manifests/music.json`)*
-    - `music_names.py` — the names and limits the music engine works with
-    - `music_docs.py` — the music settings document: its check and its import
-    - `music_library.py` — Music Assistant's players and library, search and the queue as the page reads them
-    - `music_calls.py` — which music call a service or a socket message is
-  - `music_announcements.py` — Display-only announcement markers from HA's read-only service event feed, and the Intercom's.
-  - `music_browse.py` — BROWSE'S TREE AND SEARCH FROM MUSIC ASSISTANT (2026-10-31; music_states.py's companion).
-  - `music_calls.py` — music.py's which music call a service or a socket message is (moved here by tools/split_py.py from hosts/server/mantel_server/music.py
-  - `music_docs.py` — music.py's the music settings document
-  - `music_library.py` — music.py's Music Assistant's players and library, search and the queue as the page reads them (moved here by tools/split_py.py from hosts/server/ma...
-  - `music_names.py` — music.py's the names and limits the music engine works with (moved here by tools/split_py.py from hosts/server/mantel_server/music.py
-  - `music_states.py` — THE SPEAKERS' STATES FROM MUSIC ASSISTANT (2026-10-31)
   - `performance.py` — PERFORMANCE (2026-10-26)
   - `phones.py` — Mantel's notifications on people's phones, through Home Assistant's Companion app (docs/phase9/MANTEL-LINK.md 9.7).
   - `push.py` — Notifications off the screens
@@ -591,6 +579,14 @@ Mantel Server.
   - `screens.py` — Screens and Home Grid
   - `settings.py` — Settings
   - `timeline.py` — The House Timeline for assistants (docs/phase19/HOUSE-TIMELINE.md "MCP")
+- **hosts/server/mantel_server/music/**
+  - `music_announcements.py` — Display-only announcement markers from HA's read-only service event feed, and the Intercom's.
+  - `music_browse.py` — BROWSE'S TREE AND SEARCH FROM MUSIC ASSISTANT (2026-10-31; music_states.py's companion).
+  - `music_calls.py` — music.py's which music call a service or a socket message is (moved here by tools/split_py.py from hosts/server/mantel_server/music.py
+  - `music_docs.py` — music.py's the music settings document
+  - `music_library.py` — music.py's Music Assistant's players and library, search and the queue as the page reads them (moved here by tools/split_py.py from hosts/server/ma...
+  - `music_names.py` — music.py's the names and limits the music engine works with (moved here by tools/split_py.py from hosts/server/mantel_server/music.py
+  - `music_states.py` — THE SPEAKERS' STATES FROM MUSIC ASSISTANT (2026-10-31)
 - **hosts/server/mantel_server/network/**
   - `connect_pairing.py` — Mantel Connect, Mantel Server's side
   - `direct.py` — HA App direct access (decision 26; docs/phase3/HA-APP.md "Direct access")
