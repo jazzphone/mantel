@@ -204,8 +204,9 @@ var wm = /\n( *)function within\(inRoot, el\) \{[\s\S]*?\n\1\}\n/.exec(src);
 var cm = /\n( *)function coverDashboard\(covered\) \{[\s\S]*?\n\1\}\n/.exec(src);
 ok('coverDashboard is there', !!cm && !!wm);
 if (cm && wm) {
-  // (the saver's state is one object since phase 24, ST: coverDashboard's own four on it)
-  var cover = new Function('window', 'var ST = { coverT: null, coveredPage: null, pageVisibility: null, coveredView: [] };' +
+  // (the saver's state is one object since phase 24, ST: coverDashboard's own on it; since phase 25 two of them are
+  // hk-saver-start.js's own variables, as coverDashboard reads them there)
+  var cover = new Function('window', 'var ST = { coverT: null, coveredPage: null }, pageVisibility = null, coveredView = [];' +
                            wm[0] + cm[0] + '; return coverDashboard;');
   function styled(tag) {
     var e = new El(tag);

@@ -86,7 +86,7 @@
       if (!autoAsked && typeof window.fetch === 'function') {
         autoAsked = true;
         // (the screen read again once it has come: the same options, a layout now -- so not the same read)
-        try { import('/hk/modules/hk-saverlayout.js').then(function () { if (window.hkSaverLayout) { ST.lastRaw = null; refresh(); } }, function () { /* the old way */ }); } catch (
+        try { import('/hk/modules/hk-saverlayout.js').then(function () { if (window.hkSaverLayout) { forgetRaw(); refresh(); } }, function () { /* the old way */ }); } catch (
           e) { /* the old way */ }
       }
       return c;
@@ -645,7 +645,8 @@
       slideReady, slideShow, slideView, SLOP, start, stop, syncPreviewSlide, tabletId, tagOf, takeover, tbKey,
       tbShares, TM, tmWatch, turnOf, user, viewFont, volEnd, volFrom, weatherPage, widgetPage, withPane, WX, zoneOf;
   // (phase 25: what the shell asks of the parts that own the state it changes, docs/phase25/SAVER-STATE.md)
-  var dashAgain, keepPh, paneCardGone, paneRelease, showsLayer, sinceSlide, tbCancel;
+  var beatFrom, dashAgain, forgetRaw, hkAgain, keepPh, paneCardGone, paneRelease, resumedNow, showsLayer, sinceSlide,
+      tbCancel;
 
   // A wake held until the kiosk's black (or its panel off) has ended.
   // WHAT THE TABLET LAST SHOWED: after each change, seen in a frame's
@@ -804,7 +805,6 @@
   // it at once, here, and turns the switch off. Only on the screen's own
   // tablet, as for the photos: a desk showing the same screen never goes
   // black. docs/TABLET-INVARIANTS.md 16p.
-  ST.hkFirst = true;
   // UNDER THE KIOSK'S BLACK, BLACK (2026-10-09). The tablet stops drawing
   // the page under it and, as it comes down, shows the last frame the page
   // drew until the page draws again: the photos as they were when the
@@ -833,8 +833,6 @@
 
   // compared as written: a block made from the settings is a new object
   // every time
-  ST.lastRaw = '';
-  ST.resumedAt = 0;
 
   // (the class: the shell registers it, hk-saver.js runParts -- a part registers no element)
 
@@ -923,8 +921,9 @@
     viewFont = K.viewFont; volEnd = K.volEnd; volFrom = K.volFrom; weatherPage = K.weatherPage;
     widgetPage = K.widgetPage; withPane = K.withPane; WX = K.WX; zoneOf = K.zoneOf;
     // (phase 25: the owners' writers the shell asks, docs/phase25/SAVER-STATE.md)
-    dashAgain = K.dashAgain; keepPh = K.keepPh; paneCardGone = K.paneCardGone; paneRelease = K.paneRelease;
-    showsLayer = K.showsLayer; sinceSlide = K.sinceSlide; tbCancel = K.tbCancel;
+    beatFrom = K.beatFrom; dashAgain = K.dashAgain; forgetRaw = K.forgetRaw; hkAgain = K.hkAgain; keepPh = K.keepPh;
+    paneCardGone = K.paneCardGone; paneRelease = K.paneRelease; resumedNow = K.resumedNow; showsLayer = K.showsLayer;
+    sinceSlide = K.sinceSlide; tbCancel = K.tbCancel;
   }
 
   loadParts(function () {
@@ -936,7 +935,7 @@
     // Its image is the one the sky shows, from the browser's cache; until it has loaded (or under Flat, which draws no
     // copies), the darkened sky as before.
     /** @type {any} */ ST.landIm = null;
-    ST.lastBeat = clock.now();
+    beatFrom();
 
     Deck.prototype.set = function (items) {
       var had = this.items.map(function (x) { return x.id; }).join('\n');
@@ -1193,7 +1192,7 @@
     window.addEventListener('popstate', function () { setTimeout(refresh, 0); });
     window.addEventListener('resize', function () { if (ST.on) { if (ST.previewOn) refresh(); layoutPane(); layoutMusic(); placePanel(); setTimeout(dayFit, 50); } });
     document.addEventListener('visibilitychange', function () {
-      if (!document.hidden) { ST.lastInput = Date.now(); armIdle(); ST.resumedAt = clock.now(); }
+      if (!document.hidden) { ST.lastInput = Date.now(); armIdle(); resumedNow(); }
       musicTick();
     });
     setInterval(beat, 1000);
@@ -1334,7 +1333,7 @@
       },
       _: { darkUnderBlack: function (v) { ST.DARK_UNDER_BLACK = !!v; }, clock: clock, beat: beat, justResumed: function () { return justResumed(); },
            // tests: as a page just loaded, for HK's black (its first decision)
-           hkFresh: function () { ST.hkFirst = true; },
+           hkFresh: function () { hkAgain(); },
            // tests: the next touch is told at once (not held by the 10 s between reports)
            touchFresh: function () { ST.touchSent = 0; },
            readCfg: readCfg, gate: gate, wake: WAKE, zoneOf: zoneOf, fitOf: fitOf, layoutOf: layoutOf, backdropSmall: backdropSmall, nightNow: nightNow,

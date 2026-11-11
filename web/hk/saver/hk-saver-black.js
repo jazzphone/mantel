@@ -32,6 +32,9 @@
     });
 
     // WHAT IT OWNS ON ST (phase 25, A: others read these; only this file writes them; tools/state_owners.py)
+    ST.hkFirst = true;
+    ST.lastRaw = '';
+    ST.resumedAt = 0;
     ST.cfg = null;    // the config in force (null: none here)
     ST.hkOn = false;
     ST.litAt = 0;
@@ -44,6 +47,13 @@
     /** @type {any} */ var hkWokeAt = 0;
     /** @type {any} */ var lightRun = 0;
     /** @type {any} */ var hubOff = null;
+
+    // WHAT THE OTHERS ASK OF IT (phase 25, A): the only way another file changes the config's or the heartbeat's
+    // state, each the assignment it was, by name
+    function forgetRaw() { ST.lastRaw = null; }             // the next refresh reads the config afresh
+    function hkAgain() { ST.hkFirst = true; }               // the house's black: the next sync is a first one
+    function beatFrom() { ST.lastBeat = clock.now(); }      // the heartbeat counts from now
+    function resumedNow() { ST.resumedAt = clock.now(); }   // the page was shown again
 
     var HK_WOKE_HOLD = 6000;
     // BLACK OR NOT -- OR NOT KNOWN YET (null): a page loading has its settings,
@@ -411,6 +421,7 @@
     }
 
     // what the shell and the later parts use of this one
+    K.beatFrom = beatFrom; K.forgetRaw = forgetRaw; K.hkAgain = hkAgain; K.resumedNow = resumedNow;
     K.beat = beat; K.bootCover = bootCover; K.clock = clock; K.clock24 = clock24; K.forecastTick = forecastTick;
     K.goDark = goDark; K.hkSync = hkSync; K.hkTapWake = hkTapWake; K.hookClient = hookClient;
     K.justResumed = justResumed; K.lightSoon = lightSoon; K.LIT_GRACE = LIT_GRACE; K.litNow = litNow;
