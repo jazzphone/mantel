@@ -1,15 +1,15 @@
 // hk-sheet-lock.js - The lock sheet and its hold ring, the garage and gate sheet, and the button sheet.
 //
 // PART OF THE DETAIL SHEETS (hk-detail.js). Not a card and not run on its own: it registers one
-// function, which hk-detail.js calls with the shared kit K once every sheet file has loaded (the
-// order is its SHEETS list). What this file uses from the shell or from an earlier file it takes
+// function, which hk-detail.js calls with the shared kit K once every part has loaded (the
+// order is its PARTS list). What this file uses from the shell or from an earlier file it takes
 // from K at the top; what the shell or a later file uses of it, it hands back at the bottom.
 // @ts-check
 (function () {
   'use strict';
   (window.hkSheets = window.hkSheets || {})['hk-sheet-lock'] = function (K) {
-    var at = K.at, C = K.C, domainOf = K.domainOf, glyph = K.glyph, gone = K.gone, num = K.num,
-        Panel = K.Panel, PANEL_CSS = K.PANEL_CSS;
+    var at = K.at, C = K.C, domainOf = K.domainOf, glyph = K.glyph, gone = K.gone, num = K.num, Panel = K.Panel,
+        PANEL_CSS = K.PANEL_CSS;
 
     // ------------------------------------------------------------ lock + garage
     // THE HOLD RING. A door that lets someone in is opened by a hold: the ring
@@ -17,6 +17,7 @@
     // wall tablet never opens a door. Securing it again is a tap. The lock and
     // the garage are two specs on one panel so they look and behave the same.
     var HOLD_MS = 1000;
+
     class RingPanel extends Panel {
       static get CSS() {
         return PANEL_CSS + [
@@ -252,11 +253,14 @@
         if (super.disconnectedCallback) super.disconnectedCallback();
       }
     }
+
     var PEND_MS = 60000, WANT_MS = 90000, FAIL_MS = 4000;
+
     // a moment the finger should feel (the iPhone app's haptics: shim/mantel-native.js; nothing else listens)
     function buzz(kind) {
       try { window.dispatchEvent(new CustomEvent('hk-haptic', { detail: { kind: kind } })); } catch (e) { /* no events */ }
     }
+
     // the art, white on the ring's core: the shackle (.shk) over the body,
     // its right leg long enough to stay in the body when it lifts; the
     // garage's frame and its door (.gd) in a window of its own that clips it
@@ -337,6 +341,7 @@
     // last pressed, so the ring pulses "Sent" for a moment after a press
     // and the line under it says when that was.
     var SENT_MS = 4000;
+
     class ButtonPanel extends RingPanel {
       hkWidthKind() { return 'lock'; }
       _wakes() {
@@ -366,6 +371,7 @@
       }
       disconnectedCallback() { clearTimeout(this._sentT); if (super.disconnectedCallback) super.disconnectedCallback(); }
     }
+
     // "Last woken 9:14 PM" today, "Last woken Oct 1, 9:14 PM" before that
     function lastText(iso, wake) {
       var t = Date.parse(iso), verb = wake ? 'Last woken ' : 'Last pressed ';
@@ -375,8 +381,7 @@
       return verb + d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ', ' + time;
     }
 
-    // what the shell and the later sheet files use of this one
-    K.ButtonPanel = ButtonPanel; K.GaragePanel = GaragePanel; K.LockPanel = LockPanel;
-    K.RingPanel = RingPanel;
+    // what the shell and the later parts use of this one
+    K.ButtonPanel = ButtonPanel; K.GaragePanel = GaragePanel; K.LockPanel = LockPanel; K.RingPanel = RingPanel;
   };
 })();

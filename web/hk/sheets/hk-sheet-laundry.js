@@ -1,22 +1,19 @@
 // hk-sheet-laundry.js - The laundry sheet: one machine, or several with a switch between them (phase 22, docs/phase22/LAUNDRY.md).
 //
 // PART OF THE DETAIL SHEETS (hk-detail.js). Not a card and not run on its own: it registers one
-// function, which hk-detail.js calls with the shared kit K once every sheet file has loaded (the
-// order is its SHEETS list). What this file uses from the shell or from an earlier file it takes
+// function, which hk-detail.js calls with the shared kit K once every part has loaded (the
+// order is its PARTS list). What this file uses from the shell or from an earlier file it takes
 // from K at the top; what the shell or a later file uses of it, it hands back at the bottom.
-//
-// THE SHEETS' OWN SIZES (the owner, 2026-11-10: "use DESIGN.md for guidance ... There are a few sizes for detail sheets"): the Wide
-// sheet (820) at the one sheet height on a tablet, two columns whose tops and feet line up -- the drawing, what it is doing and how
-// long on the left, centered; the cycle's steps, the machine's readings and its keys down the right, the keys at the foot. On a
-// phone, one column at the phone's height, scrolling. The header (the X, the glyph, the name) is the sheet's own.
-// Opened with hkLaundry.open(id): hkDetail.open(null, {name, icon}, {panel: {tag: 'hk-detail-laundry', config: {machine}}}).
 // @ts-check
 (function () {
   'use strict';
   (window.hkSheets = window.hkSheets || {})['hk-sheet-laundry'] = function (K) {
     var C = K.C, esc = K.esc, Panel = K.Panel, PANEL_CSS = K.PANEL_CSS, SP = K.SP;
-    var v = function (n) { return window.hkCards.v(n); };
+
+    var laundryVar = function (n) { return window.hkCards.v(n); };
+
     var MINT = (C.ACCENTS && C.ACCENTS.mint) || '#63e6e2', RED = (C.ACCENTS && C.ACCENTS.red) || '#ff453a';
+
     var ICON = {
       pause:
         '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect x="6" y="4.5" width="4.4" height="15" rx="1.6" fill="currentColor"/><rect x="13.6" y="4.5" width="4.4" height="15" ' +
@@ -41,36 +38,36 @@
           '.art{width:220px}',
           '.big{margin-top:4px}',
           '.muted{margin-top:-6px}',
-          '.fin{font-size:15px;color:' + v('ink-3') + ';font-variant-numeric:tabular-nums;min-height:20px}',
-          '.prog{width:240px;height:8px;border-radius:4px;background:' + v('line-strong') + ';overflow:hidden}',
+          '.fin{font-size:15px;color:' + laundryVar('ink-3') + ';font-variant-numeric:tabular-nums;min-height:20px}',
+          '.prog{width:240px;height:8px;border-radius:4px;background:' + laundryVar('line-strong') + ';overflow:hidden}',
           '.prog i{display:block;height:100%;border-radius:inherit;background:' + MINT + '}',
           '.big.mint{color:' + MINT + '}.big.red,.muted.red{color:' + RED + '}',
           // THE RIGHT COLUMN: a switch between machines, the steps, the readings, the keys at the foot
           '.rgt{display:flex;flex-direction:column;gap:' + SP.block + 'px;min-width:0;min-height:0}',
-          '.seg{display:flex;gap:4px;padding:3px;height:44px;box-sizing:border-box;border-radius:calc(44px / 2);background:' + v('key') + '}',
+          '.seg{display:flex;gap:4px;padding:3px;height:44px;box-sizing:border-box;border-radius:calc(44px / 2);background:' + laundryVar('key') + '}',
           '.seg button{all:unset;box-sizing:border-box;flex:1 1 0;min-width:0;height:38px;border-radius:calc(38px / 2);text-align:center;font-size:15px;font-weight:600;',
-          '  color:' + v('ink-2') + ';cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 10px}',
-          '.seg button.on{background:' + v('key-strong') + ';color:' + v('ink') + '}',
-          '.seg button:focus-visible{outline:2px solid ' + v('ink-2') + ';outline-offset:2px}',
+          '  color:' + laundryVar('ink-2') + ';cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 10px}',
+          '.seg button.on{background:' + laundryVar('key-strong') + ';color:' + laundryVar('ink') + '}',
+          '.seg button:focus-visible{outline:2px solid ' + laundryVar('ink-2') + ';outline-offset:2px}',
           '.crd{padding:' + SP.cardPad + ';border-radius:' + SP.cardR + 'px;background:rgba(255,255,255,0.08);display:flex;flex-direction:column;gap:10px}',
-          ':host([hk-flat]) .crd{background:' + v('key') + '}',
+          ':host([hk-flat]) .crd{background:' + laundryVar('key') + '}',
           '.lab{margin:0}',
           '.trk{display:flex;gap:6px}',
           '.trk .st{flex:1 1 0;display:flex;flex-direction:column;gap:8px;min-width:0}',
-          '.trk .bar{height:6px;border-radius:3px;background:' + v('line-strong') + ';overflow:hidden}',
+          '.trk .bar{height:6px;border-radius:3px;background:' + laundryVar('line-strong') + ';overflow:hidden}',
           '.trk .bar i{display:block;height:100%;background:' + MINT + ';border-radius:inherit}',
-          '.trk .lb{font-size:13px;font-weight:600;letter-spacing:.3px;text-transform:uppercase;color:' + v('ink-3') + '}',
-          '.trk .st.now .lb{color:' + v('ink') + '}.trk .st.done .lb{color:' + v('ink-2') + '}',
+          '.trk .lb{font-size:13px;font-weight:600;letter-spacing:.3px;text-transform:uppercase;color:' + laundryVar('ink-3') + '}',
+          '.trk .st.now .lb{color:' + laundryVar('ink') + '}.trk .st.done .lb{color:' + laundryVar('ink-2') + '}',
           '.rows{display:flex;flex-direction:column}',
-          '.rows .r{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid ' + v('line') + ';font-size:15px;color:' + v('ink-2') + '}',
+          '.rows .r{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid ' + laundryVar('line') + ';font-size:15px;color:' + laundryVar('ink-2') + '}',
           '.rows .r:first-child{border-top:0;padding-top:2px}.rows .r:last-child{padding-bottom:0}',
-          '.rows .r b{font-weight:600;color:' + v('ink') + ';text-align:right;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+          '.rows .r b{font-weight:600;color:' + laundryVar('ink') + ';text-align:right;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
           '.rows .r b.red{color:' + RED + '}',
           '.keys{margin-top:auto;display:flex;flex-direction:column;gap:8px}',
           '.keys .row{display:flex;gap:' + SP.block + 'px}.keys .btn{flex:1 1 0}',
           '.keys .btn.stop{color:' + RED + '}',
-          '.why{font-size:13px;color:' + v('ink-3') + ';text-align:center}',
-          '.none{font-size:15px;color:' + v('ink-2') + ';text-align:center;margin:auto}',
+          '.why{font-size:13px;color:' + laundryVar('ink-3') + ';text-align:center}',
+          '.none{font-size:15px;color:' + laundryVar('ink-2') + ';text-align:center;margin:auto}',
           // TWO COLUMNS ON A TABLET: the machine left (340), the rest right, their tops and feet the body's
           ':host([wide]) .pn{flex-direction:row;gap:' + SP.region + 'px;padding:0}',
           ':host([wide]) .lft{flex:0 0 340px}',
@@ -195,9 +192,7 @@
         }
       }
     }
-    if (!customElements.get('hk-detail-laundry')) customElements.define('hk-detail-laundry', /** @type {any} */ (LaundryPanel));
 
-    // what the shell and the later sheet files use of this one
-    K.LaundryPanel = LaundryPanel;
+    if (!customElements.get('hk-detail-laundry')) customElements.define('hk-detail-laundry', /** @type {any} */ (LaundryPanel));
   };
 })();

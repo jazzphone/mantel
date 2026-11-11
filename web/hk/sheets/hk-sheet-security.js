@@ -1,15 +1,14 @@
 // hk-sheet-security.js - The alarm keypad sheet and the camera sheet.
 //
 // PART OF THE DETAIL SHEETS (hk-detail.js). Not a card and not run on its own: it registers one
-// function, which hk-detail.js calls with the shared kit K once every sheet file has loaded (the
-// order is its SHEETS list). What this file uses from the shell or from an earlier file it takes
+// function, which hk-detail.js calls with the shared kit K once every part has loaded (the
+// order is its PARTS list). What this file uses from the shell or from an earlier file it takes
 // from K at the top; what the shell or a later file uses of it, it hands back at the bottom.
 (function () {
   'use strict';
   (window.hkSheets = window.hkSheets || {})['hk-sheet-security'] = function (K) {
-    var at = K.at, bridge = K.bridge, C = K.C, esc = K.esc, glyph = K.glyph, Panel = K.Panel,
-        PANEL_CSS = K.PANEL_CSS, pretty = K.pretty, SHORT_MQ = K.SHORT_MQ, stOf = K.stOf,
-        unavailable = K.unavailable;
+    var at = K.at, bridge = K.bridge, C = K.C, esc = K.esc, glyph = K.glyph, Panel = K.Panel, PANEL_CSS = K.PANEL_CSS,
+        pretty = K.pretty, SHORT_MQ = K.SHORT_MQ, stOf = K.stOf, unavailable = K.unavailable;
 
     // ------------------------------------------------------------ alarm
     // JUST THE KEYPAD, in the sheet: the state as the word every sheet leads
@@ -19,6 +18,7 @@
     var ALARM_WORDS = { disarmed: 'Disarmed', armed_home: 'Armed Home', armed_away: 'Armed Away', armed_night: 'Armed Night',
                         armed_vacation: 'Armed Vacation', armed_custom_bypass: 'Armed', arming: 'Arming…',
                         disarming: 'Disarming…', pending: 'Pending…', triggered: 'Triggered' };
+
     class AlarmPanel extends Panel {
       static get CSS() {
         return PANEL_CSS + [
@@ -173,6 +173,7 @@
       }).sort()[0];
       return hi || id;
     }
+
     function cameraSpeaker(h, id) {
       var ents = (h && h.entities) || {}, e = ents[id], dev = e && e.device_id;
       if (!dev) return null;
@@ -180,6 +181,7 @@
         return k.indexOf('media_player.') === 0 && ents[k].device_id === dev && /speaker/.test(k);
       }).sort()[0] || null;
     }
+
     function cameraName(h, id) {
       var ents = (h && h.entities) || {}, devs = (h && h.devices) || {}, e = ents[id] || {};
       var dv = e.device_id && devs[e.device_id];
@@ -187,6 +189,7 @@
       return String(n).replace(/\s+(low|medium|high)\s+resolution\s+channel$/i, '')
                       .replace(/\s+camera$/i, '') || n;
     }
+
     class CameraPanel extends Panel {
       static get CSS() {
         return PANEL_CSS + [
@@ -316,7 +319,7 @@
       }
     }
 
-    // what the shell and the later sheet files use of this one
+    // what the shell and the later parts use of this one
     K.AlarmPanel = AlarmPanel; K.CameraPanel = CameraPanel;
   };
 })();

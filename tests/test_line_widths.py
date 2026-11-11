@@ -72,10 +72,10 @@ def test_no_file_gets_more_long_lines():
                        "(python tests/test_line_widths.py --update) so they cannot come back:\n" + "\n".join(fewer))
 
 
-# THE ONLY FILES THE LIST MAY HOLD (phase 24): the ones held at their size (tests/test_file_sizes.py HELD), where a rewrap
-# would add lines, and hk-media-now.js, a phase 18 part of exactly 2,000 lines that a rewrap would take over its limit.
-# Every other long line is broken (tools/rewrap.py) or is a listed exception.
-HELD = {"web/hk/cards/hk-detail.js", "web/hk/media/hk-media-now.js"}
+# THE ONLY FILE THE LIST MAY HOLD (phase 24): hk-media-now.js, a phase 18 part of exactly 2,000 lines that a rewrap would
+# take over its limit (the four files held at their size until 2026-11-11 are cut and rewrapped). Every other long line
+# is broken (tools/rewrap.py) or is a listed exception.
+HELD = {"web/hk/media/hk-media-now.js"}
 
 
 def test_only_the_held_files_have_long_lines():

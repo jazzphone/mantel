@@ -1,16 +1,17 @@
 // hk-sheet-tv.js - The TV sheet: a room's TV and its player as one (phase 23, docs/phase23/TV.md; web/hk/modules/hk-tv.js reads them).
 //
-// PART OF THE DETAIL SHEETS (hk-detail.js), which calls the function below with the shared kit K. Any TV or Apple TV tile opens it
-// (kindOf: 'tv' for a media player hkTv counts in a set), and so does the TV block. The left side is the screen and what's on it --
-// Watching, the volume (a slider where the device takes a level, - and + where it only steps), the TV's inputs, the apps. The right
-// side is the remote: Apple TV | TV, already set to whatever is on screen (hkTv.look().arrows) and back to that when the sheet
-// closes, the arrows with OK, Back, Home and Play. Arrow keys, not a touchpad (the owner, 2026-11-10).
+// PART OF THE DETAIL SHEETS (hk-detail.js). Not a card and not run on its own: it registers one
+// function, which hk-detail.js calls with the shared kit K once every part has loaded (the
+// order is its PARTS list). What this file uses from the shell or from an earlier file it takes
+// from K at the top; what the shell or a later file uses of it, it hands back at the bottom.
 // @ts-check
 (function () {
   'use strict';
   (window.hkSheets = window.hkSheets || {})['hk-sheet-tv'] = function (K) {
     var esc = K.esc, Panel = K.Panel, PANEL_CSS = K.PANEL_CSS, SP = K.SP, throttle = K.throttle;
+
     var v = function (/** @type {string} */ n) { return window.hkCards.v(n); };
+
     var I = {
       up: '<path d="M12 7.5l7 7-1.6 1.6-5.4-5.4-5.4 5.4L5 14.5z"/>',
       back: '<path d="M14.5 5l1.6 1.6L10.7 12l5.4 5.4-1.6 1.6-7-7z"/>',
@@ -24,8 +25,10 @@
       spk: '<path d="M4 9h4l5-4v14l-5-4H4z"/>',
       spk2: '<path d="M3 9h4l5-4v14l-5-4H3zM15.5 8.5a5 5 0 0 1 0 7l-1.2-1.2a3.3 3.3 0 0 0 0-4.6zM18 6a8.5 8.5 0 0 1 0 12l-1.2-1.2a6.8 6.8 0 0 0 0-9.6z"/>'
     };
+
     /** @param {string} k @param {number} [n] */
     function svg(k, n) { return '<svg viewBox="0 0 24 24" width="' + (n || 22) + '" height="' + (n || 22) + '" aria-hidden="true" fill="currentColor">' + I[k] + '</svg>'; }
+
     // an app's tile: its App Store icon, else Apple's own glyph, else its name
     /** @param {any} a @param {string} [cls] */
     function tile(a, cls) {
@@ -278,7 +281,10 @@
         }
       }
     }
+
     if (!customElements.get('hk-detail-tv')) customElements.define('hk-detail-tv', /** @type {any} */ (TvPanel));
+
+    // what the shell and the later parts use of this one
     K.TvPanel = TvPanel;
   };
 })();

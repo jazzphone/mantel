@@ -1,17 +1,17 @@
 // hk-sheet-appliances.js - The valve, number, select and humidifier sheets.
 //
 // PART OF THE DETAIL SHEETS (hk-detail.js). Not a card and not run on its own: it registers one
-// function, which hk-detail.js calls with the shared kit K once every sheet file has loaded (the
-// order is its SHEETS list). What this file uses from the shell or from an earlier file it takes
+// function, which hk-detail.js calls with the shared kit K once every part has loaded (the
+// order is its PARTS list). What this file uses from the shell or from an earlier file it takes
 // from K at the top; what the shell or a later file uses of it, it hands back at the bottom.
 // @ts-check
 (function () {
   'use strict';
   (window.hkSheets = window.hkSheets || {})['hk-sheet-appliances'] = function (K) {
-    var at = K.at, BACK = K.BACK, C = K.C, CHEV = K.CHEV, clamp = K.clamp, domainOf = K.domainOf,
-        esc = K.esc, glyph = K.glyph, gone = K.gone, LIST_CSS = K.LIST_CSS, num = K.num, Panel = K.Panel,
-        PANEL_CSS = K.PANEL_CSS, pickList = K.pickList, pretty = K.pretty, RingPanel = K.RingPanel,
-        segPick = K.segPick, SHORT_MQ = K.SHORT_MQ, throttle = K.throttle;
+    var at = K.at, BACK = K.BACK, C = K.C, CHEV = K.CHEV, clamp = K.clamp, domainOf = K.domainOf, esc = K.esc,
+        glyph = K.glyph, gone = K.gone, LIST_CSS = K.LIST_CSS, num = K.num, Panel = K.Panel, PANEL_CSS = K.PANEL_CSS,
+        pickList = K.pickList, pretty = K.pretty, RingPanel = K.RingPanel, segPick = K.segPick, SHORT_MQ = K.SHORT_MQ,
+        throttle = K.throttle;
 
     // ------------------------------------------------------------ valve
     // The water is never one tap either way: the lock's ring, held to close
@@ -85,6 +85,7 @@
     // so eight options fill the height and three stay a list, centred --
     // and past what fits, it scrolls at 52.
     var ROW_MAX = 68;
+
     class SelectPanel extends Panel {
       static get CSS() {
         return PANEL_CSS + LIST_CSS + [
@@ -258,7 +259,7 @@
       }
     }
 
-    // what the shell and the later sheet files use of this one
+    // what the shell and the later parts use of this one
     K.HumidifierPanel = HumidifierPanel; K.NumberPanel = NumberPanel; K.SelectPanel = SelectPanel;
     K.ValvePanel = ValvePanel;
   };

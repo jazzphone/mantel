@@ -219,11 +219,13 @@ def test_the_escaping_helpers_all_escape_the_four_characters_that_end_a_text_or_
 def test_hk_detail_loads_every_sheet_file_and_nothing_in_cards_is_one():
     """The sheet files (web/hk/sheets/) are not cards: both hosts load every file in web/hk/cards/ as a card
     (server.py api_hk_cards, HK Frontend's resources.py), so the panels live beside it, and hk-detail.js's
-    SHEETS list names each one: a file outside the list is never loaded, a name without a file never starts."""
-    shell = text("web/hk/cards/hk-detail.js")
-    listed = re.findall(r"'(hk-sheet-[\w-]+\.js)'", re.search(r"var SHEETS = \[([^\]]*)\]", shell).group(1))
+    PARTS list names each one (tools/split_js.py, tools/split_manifests/detail.json): a file outside the list is never
+    loaded, a name without a file never starts."""
+    shell = (WEB / "hk/cards/hk-detail.js").read_text()
+    listed = re.findall(r"'([\w-]+\.js)'", re.search(r"var PARTS = \[([^\]]*)\]", shell).group(1))
     assert listed and len(listed) == len(set(listed))
     assert sorted(p.name for p in (WEB / "hk/sheets").glob("*.js")) == sorted(listed)
+    assert [n for n in listed if n.startswith("hk-sheet-")] and all(n.startswith(("hk-sheet-", "hk-detail-")) for n in listed)
     assert not list((WEB / "hk/cards").glob("hk-sheet-*.js"))
 
 
@@ -233,12 +235,8 @@ def test_a_sheet_file_that_did_not_come_is_asked_for_again():
     Chrome: the file blocked while the page loaded, then reachable -- hkDetail never started). The ones still missing
     are asked for again, later each time, at an address of their own (a browser keeps a failed module's answer for its
     address); so are the page's own modules (home.js) and HK Settings' (hk-settings.js boot)."""
-    detail = text("web/hk/cards/hk-detail.js")
-    load = detail[detail.index("function loadSheets(n)"):]
-    load = load[:load.index("\n    }\n")]
-    assert "'retry=' + n" in load and "setTimeout(function () { loadSheets(n + 1); }" in load and "SHEET_TRIES" in load
-    assert "import(window.hkV ? window.hkV(u) : u)" in load      # the first try at the build's own address
-    # the files tools/split_js.py cut up (tests/test_web_sources.py runs the loader itself): the same loop, from one template
+    # the files tools/split_js.py cut up (hk-detail.js and its sheets among them; tests/test_web_sources.py runs the loader
+    # itself): the same loop, from one template
     for shell in web_sources.shells():
         src = shell.read_text()
         if "var PARTS = [" not in src:

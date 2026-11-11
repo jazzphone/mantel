@@ -829,7 +829,7 @@ async def smoke(shot=None, shots=None):
                             assert pv["above"], pv      # narrower than the wide layout: above the settings
                     await browser.send("Emulation.clearDeviceMetricsOverride")
                     # its energy-sheet link ("More energy settings") is host-relative and lands on this page
-                    assert 'href="/hk-settings#/features/energy/devices/' in (Path(__file__).resolve().parents[2] / "web/hk/cards/hk-detail.js").read_text()
+                    assert 'href="/hk-settings#/features/energy/devices/' in (Path(__file__).resolve().parents[2] / "web/hk/sheets/hk-detail-accessory-pane.js").read_text()
                     # the way back, then the second row
                     await browser.eval("window.__mantelSettings.shadowRoot.querySelector('.side .hostback').click()")
                     assert await browser.wait("location.pathname.endsWith('/home')", 10), "the way back did not leave Mantel Settings"

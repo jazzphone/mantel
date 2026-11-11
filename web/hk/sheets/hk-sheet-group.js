@@ -1,8 +1,8 @@
 // hk-sheet-group.js - The entity registry sheet, a group's sheet, a custom pop-up's cards, and the registry of every sheet (PANELS).
 //
 // PART OF THE DETAIL SHEETS (hk-detail.js). Not a card and not run on its own: it registers one
-// function, which hk-detail.js calls with the shared kit K once every sheet file has loaded (the
-// order is its SHEETS list). What this file uses from the shell or from an earlier file it takes
+// function, which hk-detail.js calls with the shared kit K once every part has loaded (the
+// order is its PARTS list). What this file uses from the shell or from an earlier file it takes
 // from K at the top; what the shell or a later file uses of it, it hands back at the bottom.
 // @ts-check
 (function () {
@@ -12,9 +12,9 @@
         ButtonPanel = K.ButtonPanel, C = K.C, CameraPanel = K.CameraPanel, ClimatePanel = K.ClimatePanel,
         CoverPanel = K.CoverPanel, domainOf = K.domainOf, FanPanel = K.FanPanel, GaragePanel = K.GaragePanel,
         GenericPanel = K.GenericPanel, HkBase = K.HkBase, HumidifierPanel = K.HumidifierPanel,
-        LightPanel = K.LightPanel, LockPanel = K.LockPanel, MediaPanel = K.MediaPanel,
-        NumberPanel = K.NumberPanel, open = K.open, SelectPanel = K.SelectPanel, SensorPanel = K.SensorPanel,
-        sheetState = K.sheetState, StatePanel = K.StatePanel, stOf = K.stOf, TogglePanel = K.TogglePanel,
+        LightPanel = K.LightPanel, LockPanel = K.LockPanel, MediaPanel = K.MediaPanel, NumberPanel = K.NumberPanel,
+        open = K.open, SelectPanel = K.SelectPanel, SensorPanel = K.SensorPanel, sheetState = K.sheetState,
+        StatePanel = K.StatePanel, stOf = K.stOf, TogglePanel = K.TogglePanel, TvPanel = K.TvPanel,
         VacuumPanel = K.VacuumPanel, ValvePanel = K.ValvePanel, WaterHeaterPanel = K.WaterHeaterPanel;
 
     // ------------------------------------------------------------ registry
@@ -49,33 +49,56 @@
       // without a detail of its own (Phase 2 P2.5)
       generic: 'hk-detail-generic'
     };
+
     function def(tag, Ctor) { if (!customElements.get(tag)) customElements.define(tag, Ctor); }
+
     // The panels fed a client alone (open(): every panel defined here except
     // the camera, group and custom-cards sheets, which hold cards of their own
     // and are still fed through the bridge).
     var CLIENT_FED = [LightPanel, TogglePanel, FanPanel, CoverPanel, LockPanel, GaragePanel, ButtonPanel,
                       ClimatePanel, MediaPanel, SensorPanel, StatePanel, BinaryPanel, VacuumPanel, ValvePanel,
-                      NumberPanel, SelectPanel, HumidifierPanel, WaterHeaterPanel, AlarmPanel, GenericPanel].concat(K.TvPanel ? [K.TvPanel] : []);
+                      NumberPanel, SelectPanel, HumidifierPanel, WaterHeaterPanel, AlarmPanel, GenericPanel].concat([TvPanel]);
+
     def('hk-detail-light', LightPanel);
+
     def('hk-detail-generic', GenericPanel);
+
     def('hk-detail-toggle', TogglePanel);
+
     def('hk-detail-fan', FanPanel);
+
     def('hk-detail-cover', CoverPanel);
+
     def('hk-detail-lock', LockPanel);
+
     def('hk-detail-garage', GaragePanel);
+
     def('hk-detail-button', ButtonPanel);
+
     def('hk-detail-climate', ClimatePanel);
+
     def('hk-detail-media', MediaPanel);
+
     def('hk-detail-sensor', SensorPanel);
+
     def('hk-detail-state', StatePanel);
+
     def('hk-detail-binary', BinaryPanel);
+
     def('hk-detail-vacuum', VacuumPanel);
+
     def('hk-detail-valve', ValvePanel);
+
     def('hk-detail-number', NumberPanel);
+
     def('hk-detail-select', SelectPanel);
+
     def('hk-detail-humidifier', HumidifierPanel);
+
     def('hk-detail-water-heater', WaterHeaterPanel);
+
     def('hk-detail-alarm', AlarmPanel);
+
     def('hk-detail-camera', CameraPanel);
 
     // ------------------------------------------------------------ a group
@@ -93,6 +116,7 @@
       occupancy: { icon: 'hk:walk', label: 'state' },
       leaks: { icon: 'hk:water', on: 'hk:water-alert', label: 'state' }
     };
+
     function groupTile(h, id, room, kind) {
       var st = stOf(h, id), full = at(st, 'friendly_name') || id, S = window.hkStrategy;
       // the accessory's own name (its gear), as on every other page
@@ -120,6 +144,7 @@
       if (opened && opened !== closed) cfg.icon_states = { on: opened };
       return cfg;
     }
+
     class GroupPanel extends HkBase {
       static get CSS() {
         // A sheet is the same 460 px on an iPad as on a desk, so its two
@@ -236,6 +261,7 @@
         (this._kids || []).forEach(function (el) { feedPill(el, c); });
       }
     }
+
     // A CUSTOM DETAIL SHEET'S TILES (openSheet): each entry the dashboard's own tile for its accessory, with this
     // sheet's own look over it (a name, an icon, a color, its tile style, the line under its name) -- never a look of
     // the accessory's anywhere else, and never its state: a lock reads Unlocked however it is colored. A tile opens
@@ -268,12 +294,15 @@
       delete t.double_tap_action;
       return t;
     }
+
     // an entry's style: its own, else the sheet's (resolved by openSheet: the sheet's own, else the screen's)
     function styleOf(e, cfg) { return e.tile_style || cfg.style || 'home'; }
+
     // a wider sheet when HomeView's tiles are many: four to a row on a tablet, not two in a tall column
     function sheetWide(cfg) {
       return (cfg.entries || []).filter(function (e) { return styleOf(e, cfg) === 'centred'; }).length >= 5;
     }
+
     // `cfg`: the group openSheet made -- its entries, their style, preview -- where the entry opened and how far the
     // list was scrolled are noted, for Back to come to them (restoreGroup)
     GroupPanel.prototype._renderEntries = function (c, cfg) {
@@ -336,6 +365,7 @@
       this._ids = entries.map(function (e) { return e.entity; });
       (this._kids || []).forEach(function (el) { feedPill(el, c); });
     };
+
     // focus an entry's tile (Back from its accessory): the tile's own focusable part, else the tile
     GroupPanel.prototype.focusEntry = function (id) {
       var el = this._root.querySelector('[data-entry="' + String(id).replace(/["\\]/g, '') + '"]');
@@ -344,12 +374,15 @@
       try { (f || el).focus({ preventScroll: true }); } catch (e) { return false; }
       return true;
     };
+
     // A PILL (hkCards.create) gets what goes with the client once it is
     // configured; anything else straight through the host adapter.
     function feedPill(el, client) {
       if (el.hkSetClient) el.hkSetClient(client); else window.hkHostClient.bridge(el, client);
     }
+
     def('hk-detail-group', GroupPanel);
+
     // A CUSTOM POP-UP'S CARDS (Pop-ups -> Custom): any cards, in
     // a column, built by Home Assistant's own card helpers (a core card or a
     // custom one), fed what goes with the sheet's client (through the host
@@ -396,7 +429,9 @@
         (this._kids || []).forEach(function (el) { window.hkHostClient.bridge(el, c); });
       }
     }
+
     def('hk-detail-cards', CardsPanel);
+
     // openGroup(title, ids, { icon, room, kind, color, row, resolve })
     //   row: a page's status row the list was opened from (hk-room.js; the
     //   Climate page's was `climate`, still taken): each pill says its own
@@ -409,6 +444,7 @@
                   Object.assign({ group: { title: title, ids: ids.slice(), room: o.room || '', kind: o.kind || '',
                     icon: o.icon, color: o.color, row: o.row || o.climate, resolve: o.resolve } }, extra || {}));
     }
+
     function restoreGroup(g) {
       var current = g.resolve && g.resolve(C.client());
       // An empty category still needs a way back out after its last member
@@ -424,6 +460,7 @@
       }
       return ok;
     }
+
     // A BLOCK'S CUSTOM DETAIL SHEET (docs/phase11/HOME-GRID.md "Custom Detail Sheet"; hk-grid-catalog.js sheetOf):
     // openSheet(sheet, { title, icon, style, opener, preview }) -- `sheet` the block's {title, icon, tile_style,
     // entries}; `title` and `icon` what it is called without its own (the block's card's); `style` the screen's tile
@@ -439,8 +476,8 @@
       return open(null, { name: title, icon: icon, icon_color: o.color || 'rgba(255,255,255,0.92)' }, { group: g });
     }
 
-    // what the shell and the later sheet files use of this one
-    K.CLIENT_FED = CLIENT_FED; K.def = def; K.openGroup = openGroup; K.PANELS = PANELS;
-    K.restoreGroup = restoreGroup; K.openSheet = openSheet;
+    // what the shell and the later parts use of this one
+    K.CLIENT_FED = CLIENT_FED; K.def = def; K.openGroup = openGroup; K.openSheet = openSheet; K.PANELS = PANELS;
+    K.restoreGroup = restoreGroup;
   };
 })();

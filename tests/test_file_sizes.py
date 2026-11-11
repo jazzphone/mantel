@@ -76,9 +76,8 @@ def test_no_big_file_grows_and_no_file_crosses_the_line():
 
 # THE ONLY FILES THE LIST MAY HOLD (phase 24): the ones whose split was left for later, each with why. A file not named here
 # may never be over the limit, so `--update` cannot quietly put a new one on the list. A file comes off as it is split.
-HELD = {
-    "web/hk/cards/hk-detail.js": "its hand-split sheets share names (LIST_CSS, v) that one scope would merge: adopting them is a rename, not a move",
-}
+# (Empty since 2026-11-11: the last three, hk-saver.js, hk-detail.js and settings/model.py, were cut by the tools.)
+HELD: dict[str, str] = {}
 
 
 def test_only_the_held_files_are_over_the_limit():

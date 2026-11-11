@@ -1,14 +1,14 @@
 // hk-sheet-vacuum.js - The vacuum sheet and its rooms.
 //
 // PART OF THE DETAIL SHEETS (hk-detail.js). Not a card and not run on its own: it registers one
-// function, which hk-detail.js calls with the shared kit K once every sheet file has loaded (the
-// order is its SHEETS list). What this file uses from the shell or from an earlier file it takes
+// function, which hk-detail.js calls with the shared kit K once every part has loaded (the
+// order is its PARTS list). What this file uses from the shell or from an earlier file it takes
 // from K at the top; what the shell or a later file uses of it, it hands back at the bottom.
 (function () {
   'use strict';
   (window.hkSheets = window.hkSheets || {})['hk-sheet-vacuum'] = function (K) {
-    var at = K.at, BACK = K.BACK, bridge = K.bridge, C = K.C, CHEV = K.CHEV, esc = K.esc, glyph = K.glyph, num = K.num,
-        Panel = K.Panel, PANEL_CSS = K.PANEL_CSS, pretty = K.pretty, unavailable = K.unavailable;
+    var at = K.at, BACK = K.BACK, bridge = K.bridge, C = K.C, CHEV = K.CHEV, esc = K.esc, glyph = K.glyph,
+        num = K.num, Panel = K.Panel, PANEL_CSS = K.PANEL_CSS, pretty = K.pretty, unavailable = K.unavailable;
 
     // ------------------------------------------------------------ vacuum
     // The robot, what it is doing, and its four commands. Battery, room,
@@ -16,13 +16,16 @@
     // no battery_level): the vacuum page's card names them, and a vacuum
     // opened from anywhere else finds them on its own device.
     var VF = { PAUSE: 4, RETURN_HOME: 16, LOCATE: 512, START: 8192 };
+
     var VAC_WORDS = { docked: 'Docked', cleaning: 'Cleaning', paused: 'Paused', returning: 'Returning',
                       idle: 'Idle', error: 'Error' };
+
     var VAC_OK = ['no_error', 'none', 'ok', 'unknown', 'unavailable', ''];
+
     // THE ROOM PICKER AS A LIST (hk-area-select-card, `list`): on the sheet itself, no plate of its own; the count, Clear and Start
     // Cleaning held at the top; the rooms one to a row (two in the wide sheet: list="2") under them, scrolling in what the sheet leaves
     // -- the owner, 2026-11-10: "a scrollable section with 1 column of areas"; "it could probably have 2 columns"
-    var LIST_CSS = [
+    var VACUUM_LIST_CSS = [
       ':host([list]){display:flex;flex-direction:column;min-height:0}',
       ':host([list]) > div{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}',
       // (not a glass plate: hk-glass.js frosts every --hk-glass-surface, and laid one over the sheet's own glass -- a box behind the rooms)
@@ -37,6 +40,7 @@
       // (not a glass layer of their own: hk-glass.js frosts every --hk-glass-surface on a layer, a box behind them in a sheet)
       ':host([list]) .pill{--hk-glass-surface:0}'
     ].join('');
+
     function deviceSensor(h, id, test) {
       var ents = h && h.entities, me = ents && ents[id];
       if (!me || !me.device_id) return null;
@@ -48,6 +52,7 @@
       });
       return hit;
     }
+
     class VacuumPanel extends Panel {
       static get CSS() {
         return PANEL_CSS + [
@@ -257,6 +262,7 @@
         w.forEach(function (f) { f(); });
       });
     };
+
     // A PHONE (and a sheet too narrow for two columns): a row under the commands that opens the rooms
     VacuumPanel.prototype._roomsRow = function (kind) {
       var self = this;
@@ -272,6 +278,7 @@
       if (kind === 'house') { add('Choose'); return; }
       this._reachLoad(function () { if (self._reach.length) add(self._reach.length + ' rooms'); });
     };
+
     VacuumPanel.prototype._renderAreas = function () {
       var self = this, kind = this._roomsKind();
       if (!this._built) {
@@ -284,6 +291,7 @@
       if (this._pickCard && this._pickCard.isConnected) bridge(this._pickCard, this.client);
       if (kind === 'ha') this._paintAreas();
     };
+
     // THE ROOMS INTO `box`, one to a row, scrolling in what the sheet leaves them
     VacuumPanel.prototype._fillRooms = function (box, kind) {
       var self = this;
@@ -305,7 +313,7 @@
             // (its shadow root once it is upgraded: the helper can hand it over before -- then no style would land)
             var css = function (n) {
               if (pc.shadowRoot) { if (!pc.shadowRoot.querySelector('style.hkvl')) pc.shadowRoot.appendChild(
-                Object.assign(document.createElement('style'), { className: 'hkvl', textContent: LIST_CSS })); }
+                Object.assign(document.createElement('style'), { className: 'hkvl', textContent: VACUUM_LIST_CSS })); }
               else if (n < 40) setTimeout(function () { css(n + 1); }, 25);
             };
             css(0);
@@ -354,6 +362,7 @@
         self._paintAreas();
       });
     };
+
     VacuumPanel.prototype._paintAreas = function () {
       var pick = this._pick || new Set(), n = pick.size;
       this._root.querySelectorAll('.ag .btn').forEach(function (b) {
@@ -367,7 +376,7 @@
       }
     };
 
-    // what the shell and the later sheet files use of this one
+    // what the shell and the later parts use of this one
     K.VacuumPanel = VacuumPanel;
   };
 })();

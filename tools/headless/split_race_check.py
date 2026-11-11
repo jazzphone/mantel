@@ -6,7 +6,7 @@ its parts have run.
 
 Every other browser check waits for `__hkSplitDone` before it looks, which would hide this race. This one loads Home Grid,
 Home, Settings and a screensaver preview on the gallery's fictional house, each twice per engine: once as it is, and once
-with every part file (each split shell's folder, and the detail sheets) held back --delay ms by a request hook. It waits for
+with every part file (each split shell's folder, the detail sheets' included) held back --delay ms by a request hook. It waits for
 the page's first draw (web/home.js's `rendered`, the Settings panel ready, `window.hkSaver`) and for every shell that
 started to have run its parts, then looks.
 
@@ -40,7 +40,7 @@ PAGES = {
 
 
 def part_folders() -> list[str]:
-    out = {"sheets"}                                       # hk-detail.js's sheets (cut by hand)
+    out = set()
     for m in sorted((ROOT / "tools/split_manifests").glob("*.json")):
         out.add(Path(json.loads(m.read_text())["folder"]).name)
     return sorted(out)

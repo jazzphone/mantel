@@ -1,17 +1,16 @@
 // hk-sheet-light.js - The light sheet: brightness, colour and temperature, favourites.
 //
 // PART OF THE DETAIL SHEETS (hk-detail.js). Not a card and not run on its own: it registers one
-// function, which hk-detail.js calls with the shared kit K once every sheet file has loaded (the
-// order is its SHEETS list). What this file uses from the shell or from an earlier file it takes
+// function, which hk-detail.js calls with the shared kit K once every part has loaded (the
+// order is its PARTS list). What this file uses from the shell or from an earlier file it takes
 // from K at the top; what the shell or a later file uses of it, it hands back at the bottom.
 (function () {
   'use strict';
   (window.hkSheets = window.hkSheets || {})['hk-sheet-light'] = function (K) {
     var at = K.at, BACK = K.BACK, C = K.C, CHEV = K.CHEV, clamp = K.clamp, css = K.css, esc = K.esc,
-        favCss = K.favCss, favMatches = K.favMatches, favourites = K.favourites, glyph = K.glyph,
-        hsCss = K.hsCss, kelvinRgb = K.kelvinRgb, lightCaps = K.lightCaps, lightFill = K.lightFill,
-        num = K.num, Panel = K.Panel, PANEL_CSS = K.PANEL_CSS, SEARCH = K.SEARCH, SLIDER_H = K.SLIDER_H,
-        throttle = K.throttle, TICK = K.TICK;
+        favCss = K.favCss, favMatches = K.favMatches, favourites = K.favourites, glyph = K.glyph, hsCss = K.hsCss,
+        kelvinRgb = K.kelvinRgb, lightCaps = K.lightCaps, lightFill = K.lightFill, num = K.num, Panel = K.Panel,
+        PANEL_CSS = K.PANEL_CSS, SEARCH = K.SEARCH, SLIDER_H = K.SLIDER_H, throttle = K.throttle, TICK = K.TICK;
 
     // ------------------------------------------------------------ light
     class LightPanel extends Panel {
@@ -358,7 +357,7 @@
       }
     }
 
-    // what the shell and the later sheet files use of this one
+    // what the shell and the later parts use of this one
     K.LightPanel = LightPanel;
   };
 })();

@@ -63,7 +63,7 @@ def test_base_js_gives_a_put_together_address_its_own_version():
                         ("web/shim/early-cards.js", "link.href = hkV('/hk/cards/' + c)"),
                         ("web/hk/modules/hk-loader.js", "V('/hk/modules/' + m)"),
                         ("web/hk/modules/hk-loader.js", "import(V('/hk/cards/' + name))"),
-                        ("web/hk/cards/hk-detail.js", "import(window.hkV ? window.hkV(u) : u)"),
+                        ("web/hk/cards/hk-detail.js", "href = window.hkV ? window.hkV(u) : u"),
                         ("web/hk/cards/hk-weather.js", "window.hkV ? window.hkV(RADAR_URL) : RADAR_URL"),
                         ("web/hk/modules/hk-edit-menu.js", "global.hkV ? global.hkV(KIT_URL) : KIT_URL")):
         assert needle in web_sources.read(rel), (rel, needle)                  # (a shell with its parts)

@@ -1,17 +1,16 @@
 // hk-sheet-media.js - The media player sheet.
 //
 // PART OF THE DETAIL SHEETS (hk-detail.js). Not a card and not run on its own: it registers one
-// function, which hk-detail.js calls with the shared kit K once every sheet file has loaded (the
-// order is its SHEETS list). What this file uses from the shell or from an earlier file it takes
+// function, which hk-detail.js calls with the shared kit K once every part has loaded (the
+// order is its PARTS list). What this file uses from the shell or from an earlier file it takes
 // from K at the top; what the shell or a later file uses of it, it hands back at the bottom.
 // @ts-check
 (function () {
   'use strict';
   (window.hkSheets = window.hkSheets || {})['hk-sheet-media'] = function (K) {
     var at = K.at, BACK = K.BACK, C = K.C, CHEV = K.CHEV, clamp = K.clamp, esc = K.esc, glyph = K.glyph,
-        hasView = K.hasView, navigateFrom = K.navigateFrom, num = K.num, Panel = K.Panel,
-        PANEL_CSS = K.PANEL_CSS, roomOf = K.roomOf, SHORT_MQ = K.SHORT_MQ, throttle = K.throttle,
-        TICK = K.TICK, unavailable = K.unavailable;
+        hasView = K.hasView, navigateFrom = K.navigateFrom, num = K.num, Panel = K.Panel, PANEL_CSS = K.PANEL_CSS,
+        roomOf = K.roomOf, SHORT_MQ = K.SHORT_MQ, throttle = K.throttle, TICK = K.TICK, unavailable = K.unavailable;
 
     // ------------------------------------------------------------ media
     // THE PLAY MUSIC PAGE'S PLAYER: framed artwork, title, artist and album,
@@ -20,17 +19,20 @@
     // a TV adds an Input list (same pattern as a light's effects) and a power
     // button.
     var MF = { PAUSE: 1, VOLUME_SET: 4, PREV: 16, NEXT: 32, VOLUME_STEP: 1024, PLAY: 16384 };
+
     function isTv(s) {
       var a = s.attributes || {}, oid = String(s.entity_id).split('.')[1] || '';
       if (a.device_class === 'tv') return true;
       if (a.device_class === 'speaker' || a.mass_player_type) return false;
       return /(^|_)(tv|apple_tv|roku|webos)(_|$)/.test(oid) || (Array.isArray(a.source_list) && a.source_list.length > 0 && /tv/.test(oid));
     }
+
     function clock(sec) {
       sec = Math.max(0, Math.floor(sec || 0));
       var h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), x = sec % 60;
       return (h ? h + ':' + (m < 10 ? '0' : '') : '') + m + ':' + (x < 10 ? '0' : '') + x;
     }
+
     // The view to Browse Music on: the setting, if this dashboard has it.
     function browseView() {
       var v = C.setting ? C.setting('look.browse_view', 'music-browse') : 'music-browse';
@@ -38,6 +40,7 @@
       // cannot tell (null): offer it
       return hasView(v) === false ? null : v;
     }
+
     class MediaPanel extends Panel {
       static get CSS() {
         return PANEL_CSS + [
@@ -348,7 +351,7 @@
       }
     }
 
-    // what the shell and the later sheet files use of this one
+    // what the shell and the later parts use of this one
     K.MediaPanel = MediaPanel;
   };
 })();

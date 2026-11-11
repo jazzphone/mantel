@@ -52,8 +52,7 @@ pytestmark = pytest.mark.parametrize("path", MANIFESTS, ids=[p.stem for p in MAN
 
 def test_a_manifest_exists_for_every_shell_that_has_a_parts_list(path):
     shells = {s.relative_to(ROOT).as_posix() for s in web_sources.shells()}
-    detail = "web/hk/cards/hk-detail.js"           # split by hand (5573f9db): its list is SHEETS, no manifest
-    assert {_manifest(p)["shell"] for p in MANIFESTS} == shells - {detail}
+    assert {_manifest(p)["shell"] for p in MANIFESTS} == shells
 
 
 def test_the_parts_list_is_the_manifest_and_the_folder(path):
@@ -102,6 +101,14 @@ def test_the_register_calls_stay_in_the_shell(path, tmp_path):
         # (the base may carry a JSDoc cast for the type checker: `extends /** @type {...} */ (HTMLElement)`)
         assert re.search(r"^  class %s extends (?:/\*\* @type \{\w+\} \*/ \()?HTMLElement\)? \{$" % man["class"], text, re.M)
         assert text.index("customElements.define(") < text.index("var partsReady = ")
+    elif path.stem in ELEMENTS_IN_PARTS:
+        # hk-detail.js is a core card file, which nobody reads the tags of (only a lazy file's are, hk_cards.tags_of), and its
+        # panels' elements were always defined by the sheet files (the hand split of 5573f9db): the parts define every
+        # element the file had before, and the shell none
+        defined = {t for f in (ROOT / man["folder"]).glob("*.js") for t in hk_cards.tags_of(f)}
+        assert set(_tags_before(man, tmp_path)) <= defined and hk_cards.tags_of(shell) == ()
+        assert "hk-detail-light" in defined and "hk-detail-tv" in defined
+        return
     else:
         # (phase 24, A2) every tag the file had before the split is still the shell's (it may have gained some since): a
         # shell that registered nothing (hk-base, hk-sky, the Settings files) is held to nothing, and one whose tags
@@ -113,6 +120,9 @@ def test_the_register_calls_stay_in_the_shell(path, tmp_path):
         # but it is called from the shell
         assert not TOP_LEVEL_DEFINE.search(f.read_text()), f.name
 
+
+# the shells whose parts define the elements (hk-detail.js: the sheets' panels; a core file, so no one reads its tags)
+ELEMENTS_IN_PARTS = {"detail"}
 
 # a call that defines an element, at the top level of a part's function (four spaces in)
 TOP_LEVEL_DEFINE = re.compile(r"^    (?:customElements\.define\(|[\w$.]*\.register\()", re.M)
@@ -267,11 +277,6 @@ def test_a_known_shell_with_no_parts_list_is_an_error_not_a_plain_file(path, tmp
     other.parent.mkdir(parents=True, exist_ok=True)
     other.write_text("(function () {})();\n")
     assert web_sources.parts("web/hk/modules/plain.js") == []
-    detail = tmp_path / web_sources.DETAIL
-    detail.parent.mkdir(parents=True, exist_ok=True)
-    detail.write_text("(function () {})();\n")
-    with pytest.raises(ValueError):
-        web_sources.parts(web_sources.DETAIL)
 
 
 SYNTHETIC = """(function () {
@@ -619,6 +624,105 @@ def test_a_declared_scope_keeps_its_last_return_last_after_the_loaders_call(path
     assert body.index("loadParts(function () {") < body.index("    return true;\n  }")
     assert "window.thing = twice(2);" in body[body.index("loadParts(function () {"):]
 
+
+
+ADOPT_SHELL = """(function () {
+  'use strict';
+  function go(fn) { fn(); }
+  go(function () {
+    var D = { n: 1 };
+    function esc(s) { return String(s); }
+    var SHEETS = ['hk-sheet-a.js', 'hk-sheet-b.js'];
+    var make, label;
+    function kit() {
+      return { esc: esc, sheetState: function () { return D; } };
+    }
+    function sheetKey(file) { return file.replace(/\\.js$/, ''); }
+    function runSheets() {
+      var K = kit();
+      SHEETS.forEach(function (file) { window.hkSheets[sheetKey(file)](K); });
+      make = K.make; label = K.label;
+      wire();
+    }
+    var SHEET_TRIES = 6;
+    function loadSheets(n) {
+      n = n || 0;
+      var u = '/hk/x/' + SHEETS[0];
+      if (n > SHEET_TRIES) return u;
+      runSheets();
+    }
+    function wire() { window.hkX = { make: make, label: label }; }
+    loadSheets();
+  });
+})();
+"""
+
+ADOPT_A = """// hk-sheet-a.js - A.
+(function () {
+  'use strict';
+  (window.hkSheets = window.hkSheets || {})['hk-sheet-a'] = function (K) {
+    var esc = K.esc, sheetState = K.sheetState;
+
+    var SIZE = 3;
+    function make(s) { return esc(s) + SIZE + sheetState().n; }
+    make.extra = 1;
+
+    K.make = make;
+  };
+})();
+"""
+
+ADOPT_B = """// hk-sheet-b.js - B.
+(function () {
+  'use strict';
+  (window.hkSheets = window.hkSheets || {})['hk-sheet-b'] = function (K) {
+    var make = K.make;
+
+    var SIZE2 = 4;
+    function label(s) { return make(s) + SIZE2; }
+
+    K.label = label;
+  };
+})();
+"""
+
+ADOPT_MANIFEST = {"shell": "x.js", "folder": "web/hk/x", "global": "hkSheets", "label": "x", "what": "X", "name": "x",
+                  "run_in": "go", "adopt": "SHEETS", "wait_all": True,
+                  "parts": [{"name": "hk-sheet-a", "title": "a", "members": ["SIZE", "make"]},
+                            {"name": "hk-sheet-b", "title": "b", "members": ["SIZE2", "label"]}]}
+
+
+def test_adopt_makes_a_hand_split_shell_and_its_files_one_proven_file_and_refuses_what_would_clash(path, tmp_path):
+    """tools/split_js.py `"adopt": "SHEETS"` (phase 24, hk-detail.js): a shell with a hand-written loader and its files, as
+    the one file the ordinary split then cuts. Every statement of the shell and every member of the files is in it, in
+    place, text for text; a name two files declare, or a file that read the kit's object itself, is refused (renamed by
+    hand first); and the split puts every statement of a file, named or not, back in that file's part."""
+    if not _node_ready() or path.stem != "grid-cards":
+        pytest.skip("node or TypeScript (tools/typecheck) not installed, or run once")
+    tool = _tool()
+    files = {"x.js": ADOPT_SHELL, "web/hk/x/hk-sheet-a.js": ADOPT_A, "web/hk/x/hk-sheet-b.js": ADOPT_B}
+    man = json.loads(json.dumps(ADOPT_MANIFEST))
+    text, bad, ranges = tool.adopt_text(man, read=files.__getitem__)
+    assert bad == []
+    for gone in ("SHEETS", "kit", "runSheets", "loadSheets", "SHEET_TRIES", "K."):        # the hand-written loader is gone
+        assert gone not in text
+    assert "function sheetState() { return D; }" in text and text.rstrip().endswith("wire();\n  });\n})();")
+    assert text.index("var SIZE = 3;") < text.index("make.extra = 1;") < text.index("var SIZE2 = 4;") < text.index("wire();")
+    assert [r[0] for r in ranges] == ["hk-sheet-a", "hk-sheet-b"]
+    # the ordinary split cuts it again, and `make.extra = 1;`, which declares nothing, goes with its file
+    man["_adopted"] = ranges
+    plan, parts, shell = tool.build(man, text, tmp_path / "ok")
+    assert tool.verify(plan, parts, shell, tmp_path / "ok") == []
+    assert "make.extra = 1;" in parts["hk-sheet-a.js"] and "make.extra" not in shell
+    assert "var make = K.make" in parts["hk-sheet-b.js"] and "K.label = label;" in parts["hk-sheet-b.js"]
+    # a name two files declare cannot share one scope; a file that reads the kit's object cannot lose it
+    clash = dict(files, **{"web/hk/x/hk-sheet-b.js": ADOPT_B.replace("SIZE2", "SIZE")})
+    assert any("`SIZE` is declared twice" in b for b in tool.adopt_text(man, read=clash.__getitem__)[1])
+    reads = dict(files, **{"web/hk/x/hk-sheet-b.js": ADOPT_B.replace("make(s) + SIZE2", "K.make(s) + SIZE2")})
+    assert any("different top-level names in the one file: ['K']" in b for b in tool.adopt_text(man, read=reads.__getitem__)[1])
+    # a name that was a global before and is now a member
+    shadow = dict(files, **{"web/hk/x/hk-sheet-b.js": ADOPT_B.replace("return make(s)", "return esc(s) + make(s)")})
+    assert any("different top-level names in the one file: ['esc']" in b for b in tool.adopt_text(man, read=shadow.__getitem__)[1])
 
 
 def test_a_shells_label_is_its_files_name(path):

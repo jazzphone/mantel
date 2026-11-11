@@ -52,7 +52,28 @@ Mantel's pages and the code both hosts share: HK's cards, modules, panels and th
     - `hk-chip-row.js` — the chips row and Home Status
     - `hk-chip-scenes.js` — the scenes row
   - `hk-control.js` — hk-control-card
-  - `hk-detail.js` — detail sheets in the style of the Home app, in place of Home Assistant's more-info dialog.
+  - `hk-detail.js` — detail sheets in the style of the Home app, in place of Home Assistant's more-info dialog. *(a shell: its parts are in `web/hk/sheets/`, `tools/split_manifests/detail.json`)*
+    - `hk-detail-helpers.js` — what a sheet reads off a state: kinds, fan steps, colors and the charts' axes
+    - `hk-detail-readout.js` — the scrubbable readout, light colors and the favorites
+    - `hk-detail-accessory.js` — the accessory pane's glyphs, arrangement and the HA name moves
+    - `hk-detail-frame.js` — the sheet's sizes, CSS and looks, and the notification strip
+    - `hk-detail-routing.js` — whose taps and pop-ups these sheets answer: the dashboard test, sources and the route
+    - `hk-sheet-base.js` — The sheets' shared base: the panel CSS (and Flat's recessed controls), the Panel class every sheet extends,
+    - `hk-sheet-light.js` — The light sheet: brightness, colour and temperature, favourites
+    - `hk-sheet-lock.js` — The lock sheet and its hold ring, the garage and gate sheet, and the button sheet
+    - `hk-sheet-climate.js` — The thermostat sheet
+    - `hk-sheet-media.js` — The media player sheet
+    - `hk-sheet-sensor.js` — The sensor sheet (its history chart, the energy device sheet) and the binary-sensor, state and text-sensor sheets
+    - `hk-detail-accessory-pane.js` — the accessory pane: a room's or a device's accessories, their names, glyphs and order
+    - `hk-sheet-controls.js` — The toggle, fan and cover sheets
+    - `hk-sheet-generic.js` — The generic sheet (an entity HK draws no sheet of its own for) and the list sheets
+    - `hk-sheet-vacuum.js` — The vacuum sheet and its rooms
+    - `hk-sheet-appliances.js` — The valve, number, select and humidifier sheets
+    - `hk-sheet-waterheater.js` — The water heater sheet
+    - `hk-sheet-security.js` — The alarm keypad sheet and the camera sheet
+    - `hk-sheet-laundry.js` — The laundry sheet: one machine, or several with a switch between them (phase 22, docs/phase22/LAUNDRY.md)
+    - `hk-sheet-tv.js` — The TV sheet: a room's TV and its player as one (phase 23, docs/phase23/TV.md; web/hk/modules/hk-tv.js reads them)
+    - `hk-sheet-group.js` — The entity registry sheet, a group's sheet, a custom pop-up's cards, and the registry of every sheet (PANELS)
   - `hk-energy.js` — the energy charts *(a shell: its parts are in `web/hk/energy/`, `tools/split_manifests/energy.json`)*
     - `hk-energy-sums.js` — the Energy page's one state, its model and sums, and the words for a period
     - `hk-energy-page.js` — the Energy page's plate and tabs, the summary and hero (rings and lines), highlights and where it went
@@ -255,22 +276,6 @@ Mantel's pages and the code both hosts share: HK's cards, modules, panels and th
     - `hk-settings-rooms.js` — Rooms and Wall Tablets
     - `hk-settings-accessories.js` — Accessories and Hidden Accessories
     - `hk-settings-library.js` — Pop-ups, Custom Pages and System
-- **web/hk/sheets/**
-  - `hk-sheet-appliances.js` — The valve, number, select and humidifier sheets.
-  - `hk-sheet-base.js` — The sheets' shared base
-  - `hk-sheet-climate.js` — The thermostat sheet.
-  - `hk-sheet-controls.js` — The toggle, fan and cover sheets.
-  - `hk-sheet-generic.js` — The generic sheet (an entity HK draws no sheet of its own for) and the list sheets.
-  - `hk-sheet-group.js` — The entity registry sheet, a group's sheet, a custom pop-up's cards, and the registry of every sheet (PANELS).
-  - `hk-sheet-laundry.js` — The laundry sheet
-  - `hk-sheet-light.js` — The light sheet
-  - `hk-sheet-lock.js` — The lock sheet and its hold ring, the garage and gate sheet, and the button sheet.
-  - `hk-sheet-media.js` — The media player sheet.
-  - `hk-sheet-security.js` — The alarm keypad sheet and the camera sheet.
-  - `hk-sheet-sensor.js` — The sensor sheet (its history chart, the energy device sheet) and the binary-sensor, state and text-sensor sheets.
-  - `hk-sheet-tv.js` — The TV sheet
-  - `hk-sheet-vacuum.js` — The vacuum sheet and its rooms.
-  - `hk-sheet-waterheater.js` — The water heater sheet.
 - **web/hk/shell/**
   - `hk-overlays.js` — HK's own toast layer (Phase 2 P2.5, docs/phase2/SHEETS.md).
   - `hk-view-host.js` — HK's view host (Phase 2 P2.3)
