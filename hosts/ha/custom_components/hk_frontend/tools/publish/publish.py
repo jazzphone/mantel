@@ -293,6 +293,7 @@ def minified(repo: str) -> None:
         (out / rel).parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(front / rel, out / rel)
     bs.minify(out, rels)
+    bs.bundle(out, rels)          # (each waited-for split file with its parts in front of it: one request)
     for rel in rels:
         os.chmod(out / rel, 0o644)
 

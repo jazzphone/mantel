@@ -68,7 +68,9 @@ PARTS_LIST = re.compile(r"var PARTS = \[([^\]]*)\]")
 PARTS_FOLDER = re.compile(r"'/hk/([\w-]+)/' \+ file")
 
 
-NO_WAIT = "NOTHING WAITS FOR THESE PARTS"
+NO_WAIT = "NOTHING WAITS FOR THESE PARTS"       # (the loader's words in the source; minified, they are gone)
+WAITED = re.compile(r"__hkSplitReady\s*=\s*window\.__hkSplitReady")     # (build_static.WAITED: the loader's code)
+BUNDLED = "/* hk: the parts of this file are in it (tools/build_static.py bundle) */"     # (build_static.BUNDLED)
 
 
 def parts_of(path: Path) -> list[str]:
@@ -81,8 +83,10 @@ def parts_of(path: Path) -> list[str]:
     if not (listed and folder):
         return []
     # (a shell nothing waits for -- its manifest's "wait": false, hk-detail.js -- is not needed for the first draw: its
-    # parts are fetched by its own loader, not preloaded at the start beside the ones the draw needs, 2026-11-11)
-    if NO_WAIT in text:
+    # parts are fetched by its own loader, not preloaded at the start beside the ones the draw needs, 2026-11-11. Known
+    # by its loader keeping no window.__hkSplitReady: the shipped files are minified, so its comment is gone. And a
+    # shell the build shipped with its parts in it (tools/build_static.py BUNDLED) needs none fetched)
+    if not WAITED.search(text) or text.startswith(BUNDLED):
         return []
     return [f"{folder.group(1)}/{name}" for name in re.findall(r"'([^']+\.js)'", listed.group(1))]
 

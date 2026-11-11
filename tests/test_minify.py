@@ -40,6 +40,14 @@ def built(tmp_path_factory):
 
 
 @pytest.fixture(scope="module")
+def minified(tmp_path_factory):
+    """Minified, not bundled: every file its own text, for the sizes (a bundled shell carries copies of its parts)."""
+    out = tmp_path_factory.mktemp("min-only") / "out"
+    bs.build(ROOT / "web", out, stamped=False, bundled=False)
+    return out / "web"
+
+
+@pytest.fixture(scope="module")
 def ha_frontend(tmp_path_factory):
     """HK Frontend's own files (hosts/ha/frontend), minified as publish.py minifies frontend_min/."""
     d = tmp_path_factory.mktemp("ha")
@@ -62,7 +70,8 @@ def test_the_pinned_esbuild_is_the_one_package_json_names():
     assert lock["packages"]["node_modules/esbuild"]["version"] == bs.ESBUILD_VERSION
 
 
-def test_every_file_is_smaller_and_says_no_comment(built):
+def test_every_file_is_smaller_and_says_no_comment(minified):
+    built = minified
     src = ROOT / "web"
     assert _js(built) == _js(src)
     raw = sum((src / r).stat().st_size for r in _js(src))
@@ -126,8 +135,12 @@ def test_is_plain_knows_the_minified_forms():
 
 
 def test_every_import_specifier_comes_out_as_it_went_in(built):
+    import sys
+    sys.path.insert(0, str(ROOT / "tests"))
+    import web_sources
     for rel in _js(built):
-        source = (ROOT / "web" / rel).read_text()
+        # (a bundled shell carries its parts: their specifiers are the source's too)
+        source = web_sources.read("web/" + rel) if (built / rel).read_text().startswith(bs.BUNDLED) else (ROOT / "web" / rel).read_text()
         small = (built / rel).read_text()
         paths = lambda text, rx: {m.group(2) for m in rx.finditer(text) if re.match(r"\.{0,2}/", m.group(2))}  # noqa: E731
         got = paths(small, SPEC)
@@ -153,7 +166,53 @@ def test_strings_and_template_literals_survive(tmp_path):
         assert kept in out.replace('"  two  spaces  "', "'  two  spaces  '").replace('"→ Réglages"', "'→ Réglages'"), kept
 
 
-def test_the_gzipped_build_is_smaller_too(built):
+def test_the_gzipped_build_is_smaller_too(minified):
+    built = minified
     src = ROOT / "web"
     gz = lambda base: sum(len(gzip.compress((base / r).read_bytes(), 9)) for r in _js(base))  # noqa: E731
     assert gz(built) < 0.7 * gz(src)
+
+
+def test_a_waited_for_split_file_ships_with_its_parts_and_the_server_names_none_to_fetch(built):
+    """(2026-11-11) tools/build_static.py bundle(): each split shell something waits for has its parts in front of it, in
+    its PARTS order, so its loader starts at once (the parts cost the loft tablet's first draw 200-300 ms as separate
+    requests); hk-detail.js ("wait": false) is shipped as it was. The server's card list names no part of either."""
+    import sys
+    sys.path.insert(0, str(ROOT / "hosts/server"))
+    from mantel_server import hk_cards
+    seen = 0
+    for man in sorted((ROOT / "tools/split_manifests").glob("*.json")):
+        m = json.loads(man.read_text())
+        shell = built / m["shell"].removeprefix("web/")
+        text = shell.read_text()
+        if m.get("wait", True) is False:
+            assert not text.startswith(bs.BUNDLED), m["shell"]
+        else:
+            assert text.startswith(bs.BUNDLED), m["shell"]
+            at = [text.index(f"['{p['name']}']") if f"['{p['name']}']" in text else text.index(f'["{p["name"]}"]') for p in m["parts"]]
+            assert at == sorted(at) and at[-1] < text.index("function loadParts("), m["shell"]
+            seen += 1
+        assert hk_cards.parts_of(shell) == [], m["shell"]
+    assert seen >= 20
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node not installed")
+def test_a_bundled_shell_runs_its_parts_at_once_and_imports_nothing(tmp_path):
+    sys_path = str(ROOT / "tools")
+    import sys
+    sys.path.insert(0, sys_path)
+    import split_js
+    man = {"shell": "x.js", "folder": "web/hk/xparts", "global": "hkXParts", "label": "hk-x", "what": "X", "name": "x",
+           "parts": [{"name": "hk-x-a"}]}
+    loader = split_js.loader_block(man, "  ")
+    (tmp_path / "hk/cards").mkdir(parents=True)
+    (tmp_path / "hk/xparts").mkdir(parents=True)
+    (tmp_path / "hk/xparts/hk-x-a.js").write_text("(function(){(window.hkXParts=window.hkXParts||{})['hk-x-a']=function(K){K.ran=1;};})();\n")
+    (tmp_path / "hk/cards/x.js").write_text("(function () {\n" + loader + "  loadParts(function () { window.done = 1; });\n})();\n")
+    rels = ["hk/cards/x.js", "hk/xparts/hk-x-a.js"]
+    assert bs.bundle(tmp_path, rels) == ["hk/cards/x.js"]
+    run = subprocess.run(["node", "-e", "global.window=global; var asked=0; global.__imp=function(){asked++;return Promise.resolve({});};"
+                          "eval(require('fs').readFileSync(process.argv[1],'utf8').replace(/\\bimport\\(/g,'__imp('));"
+                          "console.log(JSON.stringify({done: window.done, asked: asked, ready: typeof window.__hkSplitReady['hk-x']}))",
+                          str(tmp_path / "hk/cards/x.js")], capture_output=True, text=True)
+    assert json.loads(run.stdout.strip()) == {"done": 1, "asked": 0, "ready": "object"}, run.stderr

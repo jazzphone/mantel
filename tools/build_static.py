@@ -100,6 +100,45 @@ def minify(root: Path, rels: list[str]) -> None:
             raise SystemExit("esbuild failed:\n" + (r.stderr or r.stdout)[-4000:])
 
 
+# -- a split file and its parts as one ---------------------------------------------------------------------------------
+# PARTS SHIPPED WITH THEIR FILE (2026-11-11). tools/split_js.py cut HK's big files into a shell and parts; the shell's
+# loader fetches its parts with import(), a round trip after the shell. On a wall tablet that cost the first draw
+# 200-300 ms (the loft tablet's Chrome, phase 24 against its parent). Here each shell that something waits for (its
+# loader keeps window.__hkSplitReady) is shipped with its parts in front of it, in its PARTS order: each part registers
+# its function as it runs, so the loader finds them all and starts at once, in the same turn -- what it already does in
+# the test suites, which load the parts first. The part files stay too (nothing asks for them). A shell nothing waits
+# for ("wait": false, hk-detail.js: its sheets) is left as it is. BUNDLED, first in the file, tells the server's
+# card list not to name the parts for preloading (hk_cards.parts_of).
+BUNDLED = "/* hk: the parts of this file are in it (tools/build_static.py bundle) */"
+_PARTS_LIST = re.compile(r"var PARTS\s*=\s*\[([^\]]*)\]")
+WAITED = re.compile(r"__hkSplitReady\s*=\s*window\.__hkSplitReady")     # (the loader's readiness, not its comment)
+_PARTS_FOLDER = re.compile(r"[\"']/hk/([\w-]+)/[\"']\s*\+\s*file")
+
+
+def bundle(root: Path, rels: list[str]) -> list[str]:
+    """Put each waited-for split shell's parts in front of it, in place (after minify); the shells bundled."""
+    have = set(rels)
+    done = []
+    for rel in rels:
+        if not rel.endswith(".js"):
+            continue
+        path = root / rel
+        text = path.read_text(encoding="utf-8")
+        listed, folder = _PARTS_LIST.search(text), _PARTS_FOLDER.search(text)
+        if not (listed and folder) or not WAITED.search(text) or text.startswith(BUNDLED):
+            continue
+        base = "hk/" if rel.startswith("hk/") else ""
+        names = re.findall(r"[\"']([^\"']+\.js)[\"']", listed.group(1))
+        parts = [f"{base}{folder.group(1)}/{n}" for n in names]
+        missing = [x for x in parts if x not in have]
+        if missing:
+            raise SystemExit(f"bundle: {rel} names parts that are not in the build: {missing}")
+        body = "\n".join((root / x).read_text(encoding="utf-8").rstrip("\n") + ";" for x in parts)
+        path.write_text(f"{BUNDLED}\n{body}\n{text}", encoding="utf-8")
+        done.append(rel)
+    return done
+
+
 # -- ?v=<build id> ------------------------------------------------------------------------------------------
 # CACHE THAT LASTS (2026-10-29, Phase 5). Every screen asked again for each of its ~120 files at every start (no-cache:
 # a conditional request, a 304). Now the build stamps ?v=<build id> on the addresses of HK's and Mantel's own code
@@ -138,7 +177,7 @@ def stamp(root: Path, rels: list[str], version: str) -> int:
     return n
 
 
-def build(src: Path, out: Path, minified: bool = True, stamped: bool = True) -> str:
+def build(src: Path, out: Path, minified: bool = True, stamped: bool = True, bundled: bool = True) -> str:
     """Copy src to out/web (minified, then stamped with its build id, unless told not to), write the manifest and
     BUILD_ID, return the build id."""
     if out.exists():
@@ -154,6 +193,8 @@ def build(src: Path, out: Path, minified: bool = True, stamped: bool = True) -> 
     rels = [p.relative_to(src).as_posix() for p in files]
     if minified:
         minify(web, rels)
+        if bundled:
+            bundle(web, rels)
     overall = hashlib.sha256()
     for rel in rels:
         overall.update(rel.encode() + b"\0" + file_digest(web / rel).encode() + b"\n")
