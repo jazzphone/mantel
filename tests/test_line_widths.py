@@ -72,6 +72,18 @@ def test_no_file_gets_more_long_lines():
                        "(python tests/test_line_widths.py --update) so they cannot come back:\n" + "\n".join(fewer))
 
 
+# THE ONLY FILES THE LIST MAY HOLD (phase 24): the ones held at their size (tests/test_file_sizes.py HELD), where a rewrap
+# would add lines, and hk-media-now.js, a phase 18 part of exactly 2,000 lines that a rewrap would take over its limit.
+# Every other long line is broken (tools/rewrap.py) or is a listed exception.
+HELD = {"web/hk/modules/hk-saver.js", "web/hk/cards/hk-detail.js", "hk_core/settings/model.py", "web/hk/modules/hk-settings.js",
+        "web/hk/media/hk-media-now.js"}
+
+
+def test_only_the_held_files_have_long_lines():
+    listed = set(json.loads(FIXTURE.read_text()))
+    assert listed <= HELD, f"not held, so no line over {WIDTH} characters allowed: {sorted(listed - HELD)}"
+
+
 def test_every_exception_is_still_a_long_line_that_is_there():
     """The list of lines that can't be broken only shrinks: a line that was broken or changed comes off it."""
     stale = []

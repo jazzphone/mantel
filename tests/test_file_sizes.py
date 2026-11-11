@@ -74,6 +74,21 @@ def test_no_big_file_grows_and_no_file_crosses_the_line():
                         "--update) so they cannot grow back:\n" + "\n".join(shrunk))
 
 
+# THE ONLY FILES THE LIST MAY HOLD (phase 24): the ones whose split was left for later, each with why. A file not named here
+# may never be over the limit, so `--update` cannot quietly put a new one on the list. A file comes off as it is split.
+HELD = {
+    "web/hk/modules/hk-saver.js": "its shared state: the phase 18 split's kit and runParts were edited by hand since, so it can't be cut again by the tool",
+    "web/hk/cards/hk-detail.js": "its hand-split sheets share names (LIST_CSS, v) that one scope would merge: adopting them is a rename, not a move",
+    "hk_core/settings/model.py": "its checks call one another across every section: any order of submodules is an import cycle",
+}
+
+
+def test_only_the_held_files_are_over_the_limit():
+    fixture = json.loads(FIXTURE.read_text())
+    listed = set(fixture["js"]) | set(fixture["py"])
+    assert listed <= set(HELD), f"not held, so not allowed over the limit: {sorted(listed - set(HELD))}"
+
+
 def test_the_warning_band_sits_below_the_wall():
     for kind in LIMITS:
         assert WARN[kind] < LIMITS[kind]
