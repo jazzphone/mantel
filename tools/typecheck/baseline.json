@@ -142,6 +142,7 @@
   "web/hk/modules/hk-saverpieces-time.js": 4,
   "web/hk/modules/hk-saverpieces-weather.js": 6,
   "web/hk/modules/hk-saverwidgets.js": 13,
+  "web/hk/modules/hk-settings-defaults.js": 0,
   "web/hk/modules/hk-settings.js": 9,
   "web/hk/modules/hk-sidepane.js": 3,
   "web/hk/modules/hk-sky.js": 4,

@@ -45,6 +45,7 @@ CORE = (
     "modules/tesla-viewport.js",       # needs hkShell
     "modules/hk-pairs.js",             # a stereo pair as one speaker: before the strategy builds
     "modules/hk-tap.js",
+    "modules/hk-settings-defaults.js", # the settings' first-paint defaults: hk-settings.js (AFTER) reads window.hkSettingsDefaults as it runs
 )
 # Imported in parallel once the core has run (each needs the core; none needs another here).
 AFTER = (

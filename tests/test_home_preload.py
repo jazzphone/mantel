@@ -22,7 +22,7 @@ def _home_js_modules() -> list[str]:
 def test_home_html_preloads_every_module_home_js_imports_in_turn():
     html = (WEB / "home.html").read_text()
     preloaded = re.findall(r'<link rel="modulepreload" href="/hk/([^"]+)">', html)
-    assert preloaded == _home_js_modules() and len(preloaded) == 8
+    assert preloaded == _home_js_modules() and len(preloaded) == 9
 
 
 def test_the_preloads_are_moved_under_the_ingress_prefix():

@@ -376,17 +376,17 @@ def test_no_string_has_an_angle_bracket():
 
 
 def test_the_screens_defaults_are_these_defaults():
-    """hk-settings.js carries its own copy of DEFAULTS, for the first paint
-    before the integration answers. The two must never disagree."""
+    """The screens carry their own copy of DEFAULTS (modules/hk-settings-defaults.js, which hk-settings.js reads), for
+    the first paint before the integration answers. The two must never disagree."""
     import json
     import os
     import re
     import subprocess
     from custom_components.hk_frontend.settings import DEFAULTS
-    src = os.path.join(COMPONENT, "frontend", "modules", "hk-settings.js")
+    src = os.path.join(COMPONENT, "frontend", "modules", "hk-settings-defaults.js")
     text = open(src, encoding="utf-8").read()
     body = re.search(r"var DEFAULTS = (\{.*?\n  \});", text, re.S)
-    assert body, "DEFAULTS not found in hk-settings.js"
+    assert body, "DEFAULTS not found in hk-settings-defaults.js"
     # node, else macOS's own JavaScriptCore, so a Mac without node still
     # compares the two copies instead of skipping.
     jsc = "/System/Library/Frameworks/JavaScriptCore.framework/Versions/Current/Helpers/jsc"

@@ -95,6 +95,7 @@ declare global {
     hkSaverWidgets: any;
     hkSecurity: any;
     hkSettings: any;
+    hkSettingsDefaults: any;
     hkSettingsFeatures: any;
     hkSettingsKit: any;
     hkSettingsModel: any;

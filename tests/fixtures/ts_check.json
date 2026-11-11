@@ -78,6 +78,7 @@
   "web/hk/modules/hk-saverpieces-energy.js",
   "web/hk/modules/hk-saverpieces-media.js",
   "web/hk/modules/hk-saverpieces-people.js",
+  "web/hk/modules/hk-settings-defaults.js",
   "web/hk/modules/hk-tabbar.js",
   "web/hk/modules/hk-tap.js",
   "web/hk/modules/hk-timer-ring.js",

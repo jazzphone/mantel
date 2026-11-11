@@ -163,8 +163,9 @@ const imp = async (u) => {
     return m;
   }
 };
-for (const m of ['modules/hk-settings.js', 'iconset/hk-icons.js', 'modules/tesla-viewport.js', 'modules/hk-tap.js',
-                 'modules/hk-header.js', 'modules/hk-loader.js', 'modules/hk-pairs.js', 'cards/hk-strategy.js']) await imp('/hk/' + m);
+for (const m of ['modules/hk-settings-defaults.js', 'modules/hk-settings.js', 'iconset/hk-icons.js',
+                 'modules/tesla-viewport.js', 'modules/hk-tap.js', 'modules/hk-header.js', 'modules/hk-loader.js',
+                 'modules/hk-pairs.js', 'cards/hk-strategy.js']) await imp('/hk/' + m);
 // ONLY THE CARDS A SCREEN USES (2026-10-29): the other card files are hk-loader.js's to import, the first time
 // one of their cards is asked for
 if (window.hkNeed) window.hkNeed.arm(cardList.lazy || {});
