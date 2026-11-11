@@ -25,7 +25,7 @@ import time
 from typing import Any, Callable
 
 from .connectors import Ctx, Forbidden, Route, read_routes, ws_handlers
-from .readproxy import ReadBlocked
+from .ha.readproxy import ReadBlocked
 
 log = logging.getLogger("mantel.user_data")
 

@@ -1105,7 +1105,7 @@ def register(app: web.Application, hub: Any, hooks: Any = None) -> FeatureHost:
     # Clean Areas over Mantel's House, never forwarded. Starting a clean is a COMMAND (the page's
     # hk_frontend.clean_areas service call, or clean_areas_run): the gateway's, never this read's.
     async def clean_areas_subscribe(ctx: Ctx, msg: dict, on_event: Callable[[dict], None]):
-        from ..readproxy import ReadBlocked
+        from ..ha.readproxy import ReadBlocked
         if set(msg) - {"type", "id"}:
             raise ReadBlocked("hk_clean_areas/subscribe carries nothing")
         if not _principal_ok(ctx.identity):
@@ -1124,7 +1124,7 @@ def register(app: web.Application, hub: Any, hooks: Any = None) -> FeatureHost:
     async def todo_items(ctx: Ctx, msg: dict):
         from hk_core import todo as TD
         from ..house import HouseCommandRefused
-        from ..readproxy import ReadBlocked
+        from ..ha.readproxy import ReadBlocked
         eid, done = msg.get("entity_id"), msg.get("completed", False)
         if set(msg) - {"type", "id", "entity_id", "completed"} or not TD.valid_list(eid) or not isinstance(done, bool):
             raise ReadBlocked("hk_frontend/todo/items carries a to-do list's entity_id and completed")

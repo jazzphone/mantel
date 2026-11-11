@@ -35,7 +35,7 @@ def test_missing_token_starts_unconnected_and_points_at_the_connections_page(tmp
 def test_ha_client_source_has_no_service_call_path():
     # P3.3: the state connection (HaClient and its check_outgoing) still has no service-call path at all;
     # the ONE command path, HaCommander, cannot even be constructed while commands are off (the default).
-    from mantel_server import ha_client
+    from mantel_server.ha import ha_client
     # Observing a call_service EVENT does not add a command path. The outgoing
     # type allowlist (enforced for every frame) still refuses service calls.
     assert "call_service" not in ha_client.ALLOWED_TYPES

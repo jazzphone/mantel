@@ -53,8 +53,8 @@ class FakeHaRest:
 
 async def make(tmp_path, monkeypatch, ha_url):
     from mantel_server.config import Config
-    from mantel_server.ha_client import HaClient
-    from mantel_server.readproxy import ReadProxy
+    from mantel_server.ha.ha_client import HaClient
+    from mantel_server.ha.readproxy import ReadProxy
     from mantel_server.server import build_app
     from mantel_server.store import Store
 
@@ -130,8 +130,8 @@ def test_shape_leaves_everything_else_alone():
 
 
 def test_every_view_shapes_even_without_a_gate():
-    from mantel_server.registry import Registry
-    from mantel_server.state import StateStore
+    from mantel_server.ha.registry import Registry
+    from mantel_server.ha.state import StateStore
     store, reg = StateStore(), Registry()
     store.apply_event({"a": {"camera.doorbell": cam_state()}})
     view = ClientView(store, reg, Coalescing())
@@ -331,8 +331,8 @@ def test_may_still_is_the_live_view_policy():
             return Policy.build()
 
     class Hub:
-        from mantel_server.registry import Registry
-        from mantel_server.state import StateStore
+        from mantel_server.ha.registry import Registry
+        from mantel_server.ha.state import StateStore
         registry, store = Registry(), StateStore()
 
     a = Authz({"cfg": None}, Hub(), Store(), clock=lambda: 1000.0)

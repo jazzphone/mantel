@@ -463,10 +463,6 @@ Mantel Server.
   - `feature_pages.py` — HK Settings -> Features on Mantel
   - `feature_watch.py` — Two of HK's clock-driven features on Mantel, through MantelHouse and FeatureCaller (docs/phase4/MANTEL-FEATURES.md "Phase 4 ports").
   - `frame_origins.py` — Which pages may show Mantel in a frame (CSP ``frame-ancestors``)
-  - `gateway.py` — The command gateway (PLAN §4 "Command gateway", §5, §7)
-  - `ha_client.py` — Read-only connection to Home Assistant's WebSocket API.
-  - `ha_dashboards.py` — Mantel's screens in Home Assistant's sidebar
-  - `ha_oauth.py` — 'Sign in with Home Assistant'
   - `health.py` — /healthz and /api/version
   - `hidden.py` — HIDDEN ACCESSORIES, MANTEL SERVER'S SIDE
   - `hk_cards.py` — GET /api/hk-cards
@@ -503,7 +499,6 @@ Mantel Server.
   - `notify_snaps.py` — Notification snapshots on Mantel (docs/phase4/MANTEL-FEATURES.md "Phase 4 ports").
   - `page_headers.py` — THE LIGHTS PAGE'S "TONIGHT" LIST on Mantel's screens (hk-headers.js subscribes ``hk_frontend/page_headers/subscribe``).
   - `page_health.py` — PAGE HEALTH (2026-10-22)
-  - `people_ha.py` — Home Assistant's users, each in one place (decision 29, docs/phase9/TWO-PRODUCTS.md "people in one list").
   - `performance.py` — PERFORMANCE (2026-10-26)
   - `phones.py` — Mantel's notifications on people's phones, through Home Assistant's Companion app (docs/phase9/MANTEL-LINK.md 9.7).
   - `photos.py` — MANTEL PHOTOS
@@ -513,9 +508,6 @@ Mantel Server.
   - `proxy_trust.py` — Who may tell Mantel about the browser
   - `push.py` — Notifications off the screens
   - `qr.py` — A small QR code encoder (byte mode, error correction M, versions 1 to 20) for the apps' pairing code.
-  - `readproxy.py` — ReadProxy
-  - `registry.py` — Area/device/entity registry index
-  - `registry_feed.py` — Registry changes reach open pages (Phase 6).
   - `route_table.py` — One route table, assembled from each handler's declaration (phase 18, Part A; Rules.md rule 7).
   - `screens.py` — Mantel's screens
   - `security_headers.py` — Mantel's own security headers, on every response, whatever proxy is (or is not) in front of it.
@@ -523,11 +515,8 @@ Mantel Server.
   - `server_settings.py` — Mantel's own settings that used to be start-up options, now in Mantel Settings (the same on the HA App, Docker and LXC; docs/phase3/HA-APP.md 0.1.52).
   - `setup_check.py` — HK Settings' Setup Check on Mantel
   - `setup_guide.py` — Set Up Mantel
-  - `socket_reads.py` — The socket's doors in the route table (phase 18, A8)
-  - `state.py` — In-memory copy of every HA state, kept current from `subscribe_entities` events.
   - `stats.py`
   - `store.py` — Phase 0's store API, now a thin layer over the P3.1 database (``db.py``, migration 0001_core).
-  - `supervisor_discovery.py` — The HA App announces Mantel to Home Assistant (docs/phase9/MANTEL-LINK.md "Discovery and pairing", slice 9.5).
   - `tablet_links.py` — A wall tablet's Direct Connection
   - `talk_direct.py` — TALKING AT A UNIFI PROTECT DOORBELL DIRECTLY (docs/phase13/CAMERAS-DIRECT.md, phase 5, 2026-11-02).
   - `talk_relay.py` — LIVE TALK through Mantel (docs/phase3/GATEWAY.md "Doorbell talk-back")
@@ -570,6 +559,18 @@ Mantel Server.
   - `settings.py` — The feature settings of Mantel's features
   - `sleep.py` — The Sleep Screen on Mantel
   - `tv_fetch.py` — Live TV's fetching
+- **hosts/server/mantel_server/ha/**
+  - `gateway.py` — The command gateway (PLAN §4 "Command gateway", §5, §7)
+  - `ha_client.py` — Read-only connection to Home Assistant's WebSocket API.
+  - `ha_dashboards.py` — Mantel's screens in Home Assistant's sidebar
+  - `ha_oauth.py` — 'Sign in with Home Assistant'
+  - `people_ha.py` — Home Assistant's users, each in one place (decision 29, docs/phase9/TWO-PRODUCTS.md "people in one list").
+  - `readproxy.py` — ReadProxy
+  - `registry.py` — Area/device/entity registry index
+  - `registry_feed.py` — Registry changes reach open pages (Phase 6).
+  - `socket_reads.py` — The socket's doors in the route table (phase 18, A8)
+  - `state.py` — In-memory copy of every HA state, kept current from `subscribe_entities` events.
+  - `supervisor_discovery.py` — The HA App announces Mantel to Home Assistant (docs/phase9/MANTEL-LINK.md "Discovery and pairing", slice 9.5).
 - **hosts/server/mantel_server/identity/**
   - `accounts.py` — Accounts
   - `auth.py` — Sign in with Home Assistant, and the middleware that puts /dev, /api and /ws behind a sign-in.

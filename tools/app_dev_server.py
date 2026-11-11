@@ -74,7 +74,7 @@ class FictionalCommander:
         self.writes = frozenset(writes)
 
     async def call(self, frame, ticket):
-        from mantel_server.ha_client import check_command
+        from mantel_server.ha.ha_client import check_command
         check_command(frame, ticket, self.writes)
         domain, service = frame.get("domain"), frame.get("service")
         data = frame.get("service_data") or {}

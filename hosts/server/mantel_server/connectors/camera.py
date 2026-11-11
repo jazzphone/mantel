@@ -27,8 +27,8 @@ import logging
 import time
 from typing import Any, Callable
 
-from ..ha_client import SIGNALING_TYPES, CommandBlocked, check_outgoing
-from ..readproxy import ReadProxy
+from ..ha.ha_client import SIGNALING_TYPES, CommandBlocked, check_outgoing
+from ..ha.readproxy import ReadProxy
 from . import Ctx, Forbidden, Hooks, Route, read_routes, resolve, split_quality
 
 log = logging.getLogger("mantel.camera")

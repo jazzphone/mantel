@@ -9,7 +9,7 @@ from pathlib import Path
 from aiohttp import web
 
 from .config import Config, parse_args
-from .ha_client import TokenMissing, read_token
+from .ha.ha_client import TokenMissing, read_token
 from .server import build_app
 from .store import ROLES, Store
 

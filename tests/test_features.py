@@ -497,8 +497,8 @@ async def test_an_engine_made_before_the_registries_finds_its_kiosk_when_they_lo
 
 def test_the_house_index_follows_every_registry_load():
     from mantel_server.house import MantelHouse
-    from mantel_server.registry import Registry
-    from mantel_server.state import StateStore
+    from mantel_server.ha.registry import Registry
+    from mantel_server.ha.state import StateStore
     reg = Registry()
     house = MantelHouse(StateStore(), reg)
     assert house.device_entities(KIOSK) == []
@@ -830,7 +830,7 @@ async def test_a_picture_folder_mantel_serves_is_kept(make_env, tmp_path, monkey
 
 
 def test_hk_energy_sources_is_a_server_only_read_and_not_a_page_read():
-    from mantel_server import readproxy as RP
+    from mantel_server.ha import readproxy as RP
     assert "hk_energy/sources" in RP.SERVER_ONLY_READS and RP.READ_ALLOWED["hk_energy/sources"] == frozenset()
 
 

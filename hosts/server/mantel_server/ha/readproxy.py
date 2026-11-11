@@ -30,7 +30,7 @@ from urllib.parse import parse_qs, urlsplit
 
 import aiohttp
 
-from .connectors import Ctx, Forbidden, Hooks, Route, allowed_ids, may_feature, media_art, read_routes, ws_handlers
+from ..connectors import Ctx, Forbidden, Hooks, Route, allowed_ids, may_feature, media_art, read_routes, ws_handlers
 
 log = logging.getLogger("mantel.readproxy")
 
@@ -670,7 +670,7 @@ class FilteredReads:
     async def request(self, identity: Any, msg: dict) -> Any:
         check_read(msg)
         t = msg["type"]
-        from .linked_reads import FROM_LINK
+        from ..linked_reads import FROM_LINK
         if FROM_LINK.get():
             raise ReadBlocked(f"{t!r} is Home Assistant's: a read relayed from Home Assistant is never sent back")
         if t in SUBSCRIBE_TYPES:
@@ -759,7 +759,7 @@ class FilteredReads:
         """-> an async unsubscribe function."""
         check_read(msg)
         t = msg["type"]
-        from .linked_reads import FROM_LINK
+        from ..linked_reads import FROM_LINK
         if FROM_LINK.get():
             raise ReadBlocked(f"{t!r} is Home Assistant's: a read relayed from Home Assistant is never sent back")
         if t not in SUBSCRIBE_TYPES:
@@ -873,7 +873,7 @@ def register(app, hub, hooks) -> FilteredReads:
     A read whose HA type a connector registered in app["read_routes"] (camera signaling) goes there.
     MANTEL_READS are registered there too, answered here from Mantel's own copies (ROUTE_RULES).
     """
-    from .hidden import MAX_IDS, Hiding
+    from ..hidden import MAX_IDS, Hiding
 
     reads = FilteredReads(lambda: getattr(hub, "readproxy", None), hooks)
     app["filtered_reads"] = reads
@@ -906,7 +906,7 @@ def register(app, hub, hooks) -> FilteredReads:
         service = app.get("settings")
         if service is None:
             raise ConnectionError("unavailable")
-        from .settings_store import Scope
+        from ..settings_store import Scope
         if not await service.allowed(ctx.identity, Scope("house", "settings")):
             raise Forbidden("Hidden Accessories needs configure on settings")
         settings = {**service.house_settings(),

@@ -36,7 +36,7 @@ from aiohttp import WSMsgType, web
 
 from ..identity.authz import Principal
 from ..identity.guards import guard
-from ..ha_client import talk_frame_max
+from ..ha.ha_client import talk_frame_max
 from ..talk_relay import Bucket, _keys, _name, _who
 
 log = logging.getLogger("mantel.intercom")

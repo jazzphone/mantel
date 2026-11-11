@@ -594,14 +594,14 @@ class DirectCameras:
         return src
 
     async def client_config(self, ctx: Ctx, msg: dict) -> dict[str, Any]:
-        from .readproxy import ReadBlocked
+        from .ha.readproxy import ReadBlocked
         if set(msg) - {"type", "id", "entity_id"}:
             raise ReadBlocked("get_client_config carries entity_id only")
         await self._gate(ctx, msg["entity_id"])
         return {"configuration": {"iceServers": json.loads(json.dumps(ICE_SERVERS))}, "getCandidatesUpfront": False}
 
     async def offer(self, ctx: Ctx, msg: dict, on_event: Callable[[dict], None], quality: str | None = None):
-        from .readproxy import ReadBlocked
+        from .ha.readproxy import ReadBlocked
         msg, hint = split_quality(msg)
         quality = quality or hint or "high"
         if set(msg) - {"type", "id", "entity_id", "offer"}:
@@ -678,7 +678,7 @@ class DirectCameras:
         return unsubscribe
 
     async def candidate(self, ctx: Ctx, msg: dict) -> None:
-        from .readproxy import ReadBlocked
+        from .ha.readproxy import ReadBlocked
         if set(msg) - {"type", "id", "entity_id", "session_id", "candidate"}:
             raise ReadBlocked("a candidate carries entity_id, session_id and candidate only")
         await self._gate(ctx, msg["entity_id"])

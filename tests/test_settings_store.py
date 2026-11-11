@@ -20,10 +20,11 @@ from argon2 import PasswordHasher
 from connector_fakes import HA_TOKEN, FakeHa
 from hk_core.settings import home_grid as HG
 from hk_core.settings import model as M
-from mantel_server import readproxy, settings_store as S
+from mantel_server.ha import readproxy
+from mantel_server import settings_store as S
 from mantel_server.connectors import Ctx, Forbidden, Hooks
 from mantel_server.db import Database
-from mantel_server.readproxy import READ_ALLOWED, RULES, SERVER_ONLY_READS, FilteredReads, ReadBlocked, ReadProxy
+from mantel_server.ha.readproxy import READ_ALLOWED, RULES, SERVER_ONLY_READS, FilteredReads, ReadBlocked, ReadProxy
 from mantel_server.server import classify
 from mantel_server.identity.sessions import Device, Identity, User
 
@@ -935,7 +936,7 @@ def test_settings_saves_are_not_commands_so_they_work_while_commands_are_disable
 @pytest.fixture
 async def mantel_app(tmp_path, monkeypatch):
     from mantel_server.config import Config
-    from mantel_server.ha_client import HaClient
+    from mantel_server.ha.ha_client import HaClient
     from mantel_server.server import build_app
     from mantel_server.store import Store
 

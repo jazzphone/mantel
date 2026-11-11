@@ -15,9 +15,10 @@ from aiohttp.test_utils import TestServer
 from gateway_fakes import gw, off, recv  # noqa: F401 -- fixtures
 from mantel_server import talk_relay
 from mantel_server.config import Config
-from mantel_server.gateway import Refused, classify, load_writes
-from mantel_server.ha_client import (CommandBlocked, CommandTicket, HaCommandError, HaCommander, HaTalkLink, check_command,
-                                     check_talk, talk_frame_max)
+from mantel_server.ha.gateway import Refused, classify, load_writes
+from mantel_server.ha.ha_client import (
+    CommandBlocked, CommandTicket, HaCommandError, HaCommander, HaTalkLink, check_command, check_talk, talk_frame_max,
+)
 from mantel_server.server import COMMANDS_DISABLED, tick_once
 from mantel_server.settings_store import Actor
 from test_gateway_talk import CLIP, SPEAKER, add_speaker, talk

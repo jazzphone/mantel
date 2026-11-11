@@ -215,8 +215,8 @@ async def run(token: str) -> dict:
             check(got["sent"] == 0 and "error" in (got["said"] or [{}])[0], "the spent ticket is refused (auth_invalid)")
             # the streaming itself, against a stand-in for HA's side (no Protect speaker in the demo)
             from mantel_server.config import Config as _Cfg
-            from mantel_server.gateway import load_writes
-            from mantel_server.ha_client import HaCommander
+            from mantel_server.ha.gateway import load_writes
+            from mantel_server.ha.ha_client import HaCommander
             stand = StandInTalkLive()
             sapp = web.Application()
             sapp.router.add_get("/api/websocket", stand.handler)

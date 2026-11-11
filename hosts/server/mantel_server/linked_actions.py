@@ -81,7 +81,7 @@ class LinkedActions:
         return tuple(out)
 
     def gateway(self) -> Any:
-        from . import gateway as G
+        from .ha import gateway as G
         from .features import FeatureAuthz
         authz, audit = self.app.get("authz"), self.app.get("audit")
         if authz is None or audit is None:
@@ -356,7 +356,7 @@ def register(app: web.Application) -> LinkedActions:
     from .connectors import Ctx, Forbidden, Route, allowed_ids, read_routes
 
     async def snooze_feed(ctx: Ctx, msg: dict, on_event: Callable[[dict], None]):
-        from .readproxy import ReadBlocked
+        from .ha.readproxy import ReadBlocked
         if set(msg) - {"type", "id"}:
             raise ReadBlocked(f"{SNOOZE_FEED} carries nothing")
         ident = ctx.identity

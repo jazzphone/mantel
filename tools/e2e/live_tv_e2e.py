@@ -103,7 +103,7 @@ async def run(work: Path, g_port: int) -> None:
     from argon2 import PasswordHasher
     from mantel_server import features as F
     from mantel_server.config import Config
-    from mantel_server.ha_client import HaClient
+    from mantel_server.ha.ha_client import HaClient
     from mantel_server.server import build_app
     from mantel_server.settings_store import Actor
     from mantel_server.store import Store

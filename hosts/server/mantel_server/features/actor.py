@@ -16,7 +16,7 @@ from aiohttp import web
 from hk_core.house import State
 from hk_core.screensaver.black import Black
 
-from .. import gateway as G
+from ..ha import gateway as G
 from ..house import HouseCommandRefused, HouseCommandsDisabled, MantelHouse
 from .settings import FEATURE_ACTOR, FEATURE_ACTOR_NAME, LOG_KEEP
 

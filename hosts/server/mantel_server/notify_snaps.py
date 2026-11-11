@@ -236,7 +236,7 @@ def _may_still(app: web.Application, principal: Any, camera: str) -> bool:
 def register(app: web.Application, store: SnapStore) -> None:
     """``GET /api/notify/snap/<id>`` and the ``hk_notify/snap/sign`` read (``app["read_routes"]``)."""
     from .connectors import Ctx, Route, read_routes
-    from .readproxy import ReadBlocked
+    from .ha.readproxy import ReadBlocked
 
     @guard("signed_in", reads="view",
            preview=True)          # any session; the roles decide the snapshot's camera (_may_still)

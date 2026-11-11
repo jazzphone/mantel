@@ -7,7 +7,7 @@ import time
 import pytest
 
 from gateway_fakes import gw, service  # noqa: F401 -- fixtures
-from mantel_server import gateway
+from mantel_server.ha import gateway
 from mantel_server.config import parse_args
 from mantel_server.server import tick_once
 

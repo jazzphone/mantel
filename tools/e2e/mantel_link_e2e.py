@@ -1025,7 +1025,7 @@ async def _discovered(ha: HA):
 
 
 async def steps_docs(app, ha: HA, owner, base: str, port: int, out: dict) -> None:
-    from mantel_server import supervisor_discovery as SD
+    from mantel_server.ha import supervisor_discovery as SD
     st, manifest = await ha.get("/api/config/config_entries/flow_handlers")
     check("mantel" in (manifest or []), "Mantel Link, installed from the built public repository, is offered by HA")
     first = await SD.announce(app)

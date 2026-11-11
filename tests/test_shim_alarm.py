@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from mantel_server.gateway import classify, load_writes
+from mantel_server.ha.gateway import classify, load_writes
 
 ROOT = Path(__file__).resolve().parent.parent
 PANEL = "alarm_control_panel.house_pin"

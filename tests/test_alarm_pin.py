@@ -14,7 +14,7 @@ import pytest
 from gateway_fakes import HOUSE_AREAS, HOUSE_ENTITIES, gw, off, service  # noqa: F401 -- fixtures
 from mantel_server import alarm_pin as A
 from mantel_server.identity.accounts import totp
-from mantel_server.gateway import Refused, classify, load_writes
+from mantel_server.ha.gateway import Refused, classify, load_writes
 from mantel_server.linked import LinkedError
 from mantel_server.identity.pins import LOCK_AFTER, LOCK_SECONDS
 from mantel_server.identity.sessions import Identity, User

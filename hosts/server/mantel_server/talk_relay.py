@@ -69,7 +69,7 @@ from aiohttp import WSMsgType, web
 
 from .identity.authz import Principal
 from .identity.guards import guard
-from .ha_client import TALK_LIVE_TYPE, TALK_RATES, CommandBlocked, CommandTicket, HaCommandError, talk_frame_max
+from .ha.ha_client import TALK_LIVE_TYPE, TALK_RATES, CommandBlocked, CommandTicket, HaCommandError, talk_frame_max
 
 log = logging.getLogger("mantel.talk")
 
@@ -291,7 +291,7 @@ class TalkRelay:
             await stream.ws.close(code=CLOSE_POLICY)
 
         def recheck() -> bool:
-            from .gateway import talk_checks
+            from .ha.gateway import talk_checks
             subject, ctx = stream.principal.subject, self.authz.context()
             return all(self.authz.decide_talk(subject, c.action, c.entity_id, feature=c.feature, ctx=ctx).allowed
                        for c in talk_checks(stream.speaker))

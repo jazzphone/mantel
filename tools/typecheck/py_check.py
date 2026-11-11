@@ -24,7 +24,7 @@ MYPY_BASELINE = HERE / "mypy_baseline.json"
 RUFF_BASELINE = HERE / "ruff_baseline.json"
 RUFF_PATHS = ("hk_core", "hosts/server", "tools", "tests")
 STRICT = ("mantel_server/route_table.py", "mantel_server/identity/guards.py", "mantel_server/live.py",
-          "mantel_server/socket_reads.py", "mantel_server/mcp_parity.py")
+          "mantel_server/ha/socket_reads.py", "mantel_server/mcp_parity.py")
 LINE = re.compile(r"^(?P<file>[^:\s]+\.py):\d+(?::\d+)?: (?:error|[A-Z]+\d+)")
 
 

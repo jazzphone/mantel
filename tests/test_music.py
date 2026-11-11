@@ -31,8 +31,8 @@ from mantel_server.settings_store import Actor
 # ------------------------------------------------------------------------------------------- the house
 async def build(tmp_path, monkeypatch, *, commands: bool, ma: bool = True, doc: bool = True):
     from mantel_server.config import Config
-    from mantel_server.ha_client import HaClient
-    from mantel_server.readproxy import ReadProxy
+    from mantel_server.ha.ha_client import HaClient
+    from mantel_server.ha.readproxy import ReadProxy
     from mantel_server.server import build_app
     from mantel_server.store import Store
 
@@ -220,8 +220,8 @@ def test_the_doc_is_checked_and_the_import_maps_has_page():
 def test_home_room_is_the_persons_then_the_wall_tablets():
     class Host(M.MusicHost):
         def __init__(self):
-            from mantel_server.registry import Registry
-            from mantel_server.state import StateStore
+            from mantel_server.ha.registry import Registry
+            from mantel_server.ha.state import StateStore
             st, reg = StateStore(), Registry()
             reg.load(MF.AREAS, [], MF.ENTITIES, MF.FLOORS)
             st.apply_event({"a": MF.states()})
@@ -1183,8 +1183,8 @@ async def test_keep_playlists_ready_starts_when_music_assistant_is_connected_lat
     from types import SimpleNamespace
 
     from mantel_server import music as M
-    from mantel_server.registry import Registry
-    from mantel_server.state import StateStore
+    from mantel_server.ha.registry import Registry
+    from mantel_server.ha.state import StateStore
     app = {}
     host = M.MusicHost(app, SimpleNamespace(store=StateStore(), registry=Registry()), None)
     doc = {"options": {M.CONF_KEEP_READY: True}, "items": []}

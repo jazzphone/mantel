@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from mantel_server.gateway import load_writes
+from mantel_server.ha.gateway import load_writes
 
 ROOT = Path(__file__).resolve().parent.parent
 spec = importlib.util.spec_from_file_location("export_writes", ROOT / "tools/export_writes.py")
@@ -36,7 +36,7 @@ def test_a_changed_catalog_is_caught(tmp_path):
 
 
 def test_the_catalog_is_writes_only():
-    from mantel_server.readproxy import READ_ALLOWED
+    from mantel_server.ha.readproxy import READ_ALLOWED
     w = load_writes()
     assert "call_service" in w and not (w & set(READ_ALLOWED))
     assert not {"get_config", "get_states", "subscribe_events", "auth", "execute_script", "fire_event"} & w

@@ -276,6 +276,6 @@ def test_the_audit_filters_find_the_new_rows_and_mark_the_old_decision(got):
     assert ["config", "Settings and Accounts"] in selects["Kind"]
     assert selects["Decision"] == [["", "Any"], ["allowed", "Allowed"], ["denied", "Denied"],
                                    ["step_up", "Needed Confirmation (Older Entries)"]]
-    from mantel_server.gateway import AUDIT_DECISIONS, AUDIT_KINDS
+    from mantel_server.ha.gateway import AUDIT_DECISIONS, AUDIT_KINDS
     assert {v for v, _ in selects["Kind"] if v} == set(AUDIT_KINDS)
     assert {v for v, _ in selects["Decision"] if v} == set(AUDIT_DECISIONS)

@@ -12,8 +12,8 @@ from aiohttp.test_utils import TestServer
 
 from gateway_fakes import HOUSE_AREAS, HOUSE_ENTITIES, gw, off, recv  # noqa: F401 -- fixtures
 from mantel_server.identity.accounts import totp
-from mantel_server.gateway import Refused, classify, load_writes
-from mantel_server.ha_client import (UPLOAD_MAX_BYTES, CommandBlocked, CommandTicket, HaCommander, check_upload)
+from mantel_server.ha.gateway import Refused, classify, load_writes
+from mantel_server.ha.ha_client import UPLOAD_MAX_BYTES, CommandBlocked, CommandTicket, HaCommander, check_upload
 from mantel_server.server import COMMANDS_DISABLED
 
 WRITES = load_writes()
@@ -250,7 +250,7 @@ async def test_a_refused_upload_is_audited_and_sends_nothing(gw):
 
 
 async def test_home_assistants_refusal_is_the_rows_result(gw, monkeypatch):
-    from mantel_server.ha_client import HaCommandError
+    from mantel_server.ha.ha_client import HaCommandError
     add_speaker(gw)
     await gw.login("avery", "owner")
     ws = await gw.socket()

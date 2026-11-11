@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from mantel_server.readproxy import INTERNAL, READ_ALLOWED, ReadBlocked, check_read
+from mantel_server.ha.readproxy import INTERNAL, READ_ALLOWED, ReadBlocked, check_read
 from mantel_server.server import FIXTURE_FILES, safe_file
 
 ROOT = Path(__file__).resolve().parent.parent

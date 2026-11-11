@@ -27,8 +27,8 @@ from dataclasses import dataclass, field
 from typing import Callable, Protocol
 
 from .connectors import media_art
-from .registry import Registry
-from .state import StateStore
+from .ha.registry import Registry
+from .ha.state import StateStore
 
 
 @dataclass

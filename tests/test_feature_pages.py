@@ -9,7 +9,7 @@ import pytest
 import gateway_fakes as GF
 from mantel_server import feature_pages as FP
 from mantel_server import features as F
-from mantel_server.readproxy import SERVER_ONLY_READS
+from mantel_server.ha.readproxy import SERVER_ONLY_READS
 from test_features import (DOOR, MOTION, PREFS, VACUUM, FakeProxy, events, make_env,  # noqa: F401
                            next_event)
 

@@ -72,8 +72,8 @@ async def rig(tmp_path, monkeypatch):
     async def make(*, go2rtc=True, settings=None, linked=False, tick=3600.0):
         from datetime import datetime
         from mantel_server.config import Config
-        from mantel_server.ha_client import HaClient
-        from mantel_server.readproxy import ReadProxy
+        from mantel_server.ha.ha_client import HaClient
+        from mantel_server.ha.readproxy import ReadProxy
         from mantel_server.server import build_app
         from mantel_server.store import Store
 

@@ -27,7 +27,7 @@ async def _stale_tunnel_owner(m, name="avery"):
 async def _sign_in_with_ha(m, monkeypatch, ha_user):
     """auth.callback with HA's answers faked (no Home Assistant is contacted): the session it makes, or None."""
     from mantel_server.identity import auth
-    from mantel_server.ha_oauth import HaOAuth
+    from mantel_server.ha.ha_oauth import HaOAuth
 
     async def exchange(self, http, code):
         return {"access_token": "fictional-access", "refresh_token": "fictional-refresh"}

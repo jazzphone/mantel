@@ -135,7 +135,7 @@ async def test_the_bridge_moves_only_when_home_assistant_can_take_it(make_env):
 
 
 def test_mantel_link_s_registry_entries_are_hk_frontend_s_to_mantel():
-    from mantel_server.registry import Registry
+    from mantel_server.ha.registry import Registry
     reg = Registry()
     reg.update(entities=[{"entity_id": "camera.tv_channel_nine", "platform": "mantel", "unique_id": "x_9.1_camera"},
                          {"entity_id": "camera.porch", "platform": "unifiprotect", "unique_id": "p"}])

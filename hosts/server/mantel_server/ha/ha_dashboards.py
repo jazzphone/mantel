@@ -51,12 +51,12 @@ from urllib.parse import urlsplit
 import aiohttp
 from aiohttp import web
 
-from . import audit, frame_origins
-from .identity.accounts import read_json
-from .identity.guards import guard
-from .identity.guards import ident as guarded
-from .default_screens import SCREEN, screens
-from .identity.sessions import error, ok
+from .. import audit, frame_origins
+from ..identity.accounts import read_json
+from ..identity.guards import guard
+from ..identity.guards import ident as guarded
+from ..default_screens import SCREEN, screens
+from ..identity.sessions import error, ok
 
 log = logging.getLogger("mantel.ha_dashboards")
 

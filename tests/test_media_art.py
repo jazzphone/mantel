@@ -63,8 +63,8 @@ class FakeHaRest:
 @pytest.fixture
 async def env(tmp_path, monkeypatch):
     from mantel_server.config import Config
-    from mantel_server.ha_client import HaClient
-    from mantel_server.readproxy import ReadProxy
+    from mantel_server.ha.ha_client import HaClient
+    from mantel_server.ha.readproxy import ReadProxy
     from mantel_server.server import build_app
     from mantel_server.store import Store
 
@@ -154,7 +154,7 @@ async def test_states_sent_to_a_page_carry_no_artwork_token(env):
 
 
 async def test_history_answers_carry_no_token(env, monkeypatch):
-    from mantel_server.readproxy import ReadProxy
+    from mantel_server.ha.readproxy import ReadProxy
 
     async def fake_request(self, msg, **kw):
         assert msg["type"] == "history/history_during_period"

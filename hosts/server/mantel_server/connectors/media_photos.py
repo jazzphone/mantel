@@ -111,7 +111,7 @@ def register(app: web.Application, token: Callable[[], str] | str | None = None)
     (``token`` is unused: HA's signature authorises the photo; kept so the call reads like its siblings.)"""
     photos = app.get("media_photos") or Photos()
     app["media_photos"] = photos
-    from ..readproxy import ReadBlocked
+    from ..ha.readproxy import ReadBlocked
 
     async def resolve(ctx: Ctx, msg: dict) -> dict:
         if set(msg) - {"type", "id", "media_content_id", "expires"}:

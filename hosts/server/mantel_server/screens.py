@@ -29,7 +29,7 @@ from typing import Any
 from aiohttp import web
 
 from . import audit
-from . import ha_dashboards as HD
+from .ha import ha_dashboards as HD
 from .identity.accounts import read_json
 from .identity.guards import guard
 from .identity.guards import ident as guarded

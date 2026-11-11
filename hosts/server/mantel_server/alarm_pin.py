@@ -341,7 +341,7 @@ async def linked_command(app: web.Application, *, entity: str, command: str, cod
     the linked alarm panel ``entity`` with the code its user typed. The code is checked here, RBAC decides,
     the audit row is written first, and the command goes to HA only with commands on -- through the SAME
     gateway code as a page's keypad. Returns the command's result; raises ``linked.LinkedError``."""
-    from . import gateway as G
+    from .ha import gateway as G
     from .linked import LinkedError
     if command not in SERVICES:
         raise LinkedError("unknown_command", f"an alarm takes no {command!r}")

@@ -7,10 +7,10 @@ import sqlite3
 import pytest
 
 from gateway_fakes import HOUSE_AREAS, HOUSE_ENTITIES, gw, off, recv, service  # noqa: F401 -- fixtures
-from mantel_server import gateway
+from mantel_server.ha import gateway
 from mantel_server.identity.accounts import totp
-from mantel_server.gateway import Refused, classify, load_writes
-from mantel_server.ha_client import CommandBlocked, CommandTicket, check_command, check_http
+from mantel_server.ha.gateway import Refused, classify, load_writes
+from mantel_server.ha.ha_client import CommandBlocked, CommandTicket, check_command, check_http
 from mantel_server.server import COMMANDS_DISABLED
 
 WRITES = load_writes()
@@ -231,7 +231,7 @@ async def test_audit_rows_are_append_only_and_the_result_is_written_once(gw):
 
 
 async def test_a_failing_home_assistant_answer_is_the_rows_result(gw):
-    from mantel_server.ha_client import HaCommandError
+    from mantel_server.ha.ha_client import HaCommandError
     await gw.login("avery", "owner")
     ws = await gw.socket()
     gw.fake.fail = HaCommandError("not_found", "Service light.turn_on not found")
@@ -317,7 +317,7 @@ async def test_also_rename_in_home_assistant_is_a_configure_command_audited_and_
 
 
 def test_the_command_connection_refuses_a_registry_entry_change_beyond_name_and_room():
-    from mantel_server.ha_client import check_command
+    from mantel_server.ha.ha_client import check_command
     ticket = CommandTicket(1, "ws")
     check_command({"type": "config/entity_registry/update", "entity_id": "light.a", "name": "x"}, ticket, WRITES)
     with pytest.raises(CommandBlocked):

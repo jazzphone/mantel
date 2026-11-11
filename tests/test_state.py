@@ -1,4 +1,4 @@
-from mantel_server.state import StateStore, normalize, patch
+from mantel_server.ha.state import StateStore, normalize, patch
 
 INITIAL = {"a": {
     "light.a": {"s": "on", "a": {"brightness": 100, "friendly_name": "A"}, "c": "ctx", "lc": 10.0, "lu": 11.0},

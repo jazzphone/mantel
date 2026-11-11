@@ -64,8 +64,8 @@ def picture(fmt="JPEG", size=(80, 60), mode="RGB", color=(200, 30, 30), exif=Fal
 @pytest.fixture
 async def mantel(tmp_path, monkeypatch):
     from mantel_server.config import Config
-    from mantel_server.ha_client import HaClient
-    from mantel_server.readproxy import ReadProxy
+    from mantel_server.ha.ha_client import HaClient
+    from mantel_server.ha.readproxy import ReadProxy
     from mantel_server.server import build_app
     from mantel_server.store import Store
 

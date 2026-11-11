@@ -310,7 +310,7 @@ def install(app: web.Application, strict: bool = True,
             report: Callable[[list[str]], None] | None = None) -> list[Row]:
     """Build the table into ``app["route_table"]`` and apply every rule: a broken one raises
     :class:`RouteTableError` (``strict``) or is logged."""
-    from . import socket_reads
+    from .ha import socket_reads
     tools = all_tools()
     rows = build(app, tools)
     app[APP_KEY] = rows

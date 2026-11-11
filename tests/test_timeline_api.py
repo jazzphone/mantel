@@ -654,7 +654,7 @@ async def test_a_removed_person_is_forgotten_by_every_way_of_removing_them(w):
               how="app", audit_id=70 + i)
     with w.db:
         w.db.execute("DELETE FROM users WHERE id = ?", (kim,))                           # (People removes a person)
-    from mantel_server import people_ha
+    from mantel_server.ha import people_ha
     with w.db:
         w.db.execute("UPDATE users SET kind = 'ha_linked' WHERE id = ?", (lee,))
     people_ha.merge(w.app, lee, w.uid["mark"])                                           # (and a merge removes one)

@@ -339,11 +339,11 @@ def request_addresses(request: web.Request) -> set[str]:
     announcement from its file (both Mantel's own), and the Host header the request arrived on."""
     app = request.app
     cfg = app.get("cfg")
-    from .supervisor_discovery import APP_URL
+    from .ha.supervisor_discovery import APP_URL
     app_url, announce_url = app.get(APP_URL), None     # known even when Mantel Link brought its own credential
     owners = app.get("linked_owners")
     if owners is not None and app_url is None:
-        from .supervisor_discovery import KEY
+        from .ha.supervisor_discovery import KEY
         try:
             app_url = (owners.remembered(KEY) or {}).get("url")
         except Exception:  # noqa: BLE001 -- nothing remembered: one address fewer

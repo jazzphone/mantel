@@ -210,7 +210,7 @@ def test_stage_contains_only_app_sources(tmp_path):
         module.stage(output)
     receiver = tmp_path / "receiver"
     module.stage_receiver(receiver)
-    assert not (receiver / "mantel_server/ha_client.py").exists()
+    assert not (receiver / "mantel_server/ha/ha_client.py").exists()
     assert not (receiver / "mantel_server/server.py").exists()
     assert not (receiver / "mantel_connect/proxy.py").exists()
     result = subprocess.run([sys.executable, "-m", "mantel_server.connect_proof", "--help"],

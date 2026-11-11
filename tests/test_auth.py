@@ -9,7 +9,7 @@ from aiohttp.test_utils import TestClient, TestServer
 from mantel_server.identity import auth
 from mantel_server.identity.auth import make_state_cookie, read_state_cookie
 from mantel_server.config import Config
-from mantel_server.ha_oauth import HaOAuth, check_redirect
+from mantel_server.ha.ha_oauth import HaOAuth, check_redirect
 from mantel_server.server import build_app
 from mantel_server.store import Store
 
@@ -299,7 +299,7 @@ def test_store_session_ids_are_not_stored_raw(tmp_path):
 
 def test_user_oauth_calls_do_not_use_haclient():
     import inspect
-    from mantel_server import ha_oauth, ha_client
+    from mantel_server.ha import ha_oauth, ha_client
     assert "HaClient" not in inspect.getsource(ha_oauth)
     assert "auth/current_user" not in inspect.getsource(ha_client)
 

@@ -785,8 +785,8 @@ async def test_catch_up_is_skipped_when_a_recent_backup_exists(tmp_path, monkeyp
 @pytest.fixture
 async def app_with_backups(tmp_path, monkeypatch):
     from mantel_server.config import Config
-    from mantel_server.ha_client import HaClient
-    from mantel_server.readproxy import ReadProxy
+    from mantel_server.ha.ha_client import HaClient
+    from mantel_server.ha.readproxy import ReadProxy
     from mantel_server.server import build_app
     from mantel_server.store import Store
 
@@ -888,8 +888,8 @@ def test_a_written_backup_is_read_back_before_it_counts(tmp_path, monkeypatch):
 async def app_local(tmp_path, monkeypatch):
     """No folder set (the Home Assistant App): Back Up Now writes under the data folder."""
     from mantel_server.config import Config
-    from mantel_server.ha_client import HaClient
-    from mantel_server.readproxy import ReadProxy
+    from mantel_server.ha.ha_client import HaClient
+    from mantel_server.ha.readproxy import ReadProxy
     from mantel_server.server import build_app
     from mantel_server.store import Store
 

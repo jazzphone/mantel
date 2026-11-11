@@ -14,8 +14,8 @@ from datetime import datetime, timezone
 
 from hk_core.house import Floor
 from mantel_server.house import MantelHouse
-from mantel_server.registry import Registry
-from mantel_server.state import StateStore
+from mantel_server.ha.registry import Registry
+from mantel_server.ha.state import StateStore
 
 
 def state_wire(s) -> dict:

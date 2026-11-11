@@ -26,7 +26,7 @@ import aiohttp
 
 from .registry import Registry
 from .state import StateStore
-from .stats import Counter
+from ..stats import Counter
 
 log = logging.getLogger("mantel.ha")
 

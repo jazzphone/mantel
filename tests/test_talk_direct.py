@@ -9,7 +9,7 @@ import pytest
 
 from gateway_fakes import gw, recv  # noqa: F401 -- fixtures
 from hk_core.talk.core import Target
-from mantel_server.ha_client import HaCommandError
+from mantel_server.ha.ha_client import HaCommandError
 from mantel_server.talk_direct import DirectTalk, Speaker
 from test_talk_live import SPEAKER, add_speaker, ha, open_talk, subscribe, ticket, until  # noqa: F401
 

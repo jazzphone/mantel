@@ -5,8 +5,8 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from mantel_server.identity.rbac import Context, Subject
-from mantel_server.registry import Registry
-from mantel_server.state import StateStore
+from mantel_server.ha.registry import Registry
+from mantel_server.ha.state import StateStore
 
 TZ = "America/Los_Angeles"
 NOW = datetime(2026, 10, 14, 12, 0, tzinfo=ZoneInfo(TZ)).timestamp()  # a Wednesday, noon

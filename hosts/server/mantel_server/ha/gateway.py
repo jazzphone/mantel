@@ -69,9 +69,10 @@ from hk_core.timers import SCRIPTS as TIMER_SCRIPTS
 from hk_core.vacuum_water import CLEAR as WATER_CLEAR
 from hk_core.laundry import CLEAR as LAUNDRY_CLEAR
 
-from . import alarm_pin, readproxy
-from .identity.authz import ENTITY_ID, Authz, Principal
-from .identity.guards import guard
+from .. import alarm_pin
+from . import readproxy
+from ..identity.authz import ENTITY_ID, Authz, Principal
+from ..identity.guards import guard
 from .ha_client import (REGISTRY_KEYS, TALK_ENTITY, TALK_LIVE_TYPE, CommandBlocked, CommandTicket, HaCommandError, HaCommander,
                         HTTP_METHODS, UPLOAD_MAX_BYTES, UPLOAD_METHOD, UPLOAD_MIN_BYTES, UPLOAD_TYPES, _API_PATH,
                         talk_target, upload_type)
@@ -396,7 +397,7 @@ def classify(msg: dict, writes: frozenset[str]) -> Command:
         return tablet_command(msg)
     if kind == "intercom":
         return intercom_command(msg)
-    from . import music      # HK's music actions and writes (hk_frontend.music_*, hk_music/*): music.py's checks
+    from .. import music      # HK's music actions and writes (hk_frontend.music_*, hk_music/*): music.py's checks
     if kind == "service" and msg.get("domain") == "script" and msg.get("service") in TIMER_SCRIPTS:
         cmd = service_command(msg.get("domain"), msg.get("service"), msg.get("data"), msg.get("target"), msg.get("return_response", False))
         cmd.timer = {"op": TIMER_SCRIPTS[msg["service"]], "data": msg.get("data") or {}}
@@ -488,7 +489,7 @@ def classify(msg: dict, writes: frozenset[str]) -> Command:
         return Command("http", f"{method} {path.split('?', 1)[0]}", checks, http=(method, path, body),
                        targets=[c.target for c in checks])
     # kind == "ma"
-    from .connectors.ma import MA_COMMANDS
+    from ..connectors.ma import MA_COMMANDS
     command, args = msg.get("command"), msg.get("args") or {}
     if command not in MA_COMMANDS:
         raise Refused("invalid_command", "not a Music Assistant command (connectors/ma.py MA_COMMANDS)")
@@ -707,8 +708,8 @@ class Gateway:
     # The Music Assistant command gate (connectors.Hooks.ma_gate): an MA command is allowed only
     # with the one-shot ticket this gateway minted for exactly that principal, command and args.
     def allow(self, identity: Any, command: str, args: dict) -> bool:
-        from .music import MusicRun
-        from .intercom.driver import IntercomRun
+        from ..music import MusicRun
+        from ..intercom.driver import IntercomRun
         if isinstance(identity, IntercomRun):
             # one broadcast's announcements (intercom/driver.py): minted after the intercom.play audit row, open while
             # it plays, for play_announcement only, on its approved players, with its own one-time link only
@@ -757,7 +758,7 @@ class Gateway:
         try:
             cmd = classify(msg, self.writes)
             if cmd.kind == "ma" and cmd.intercom is None:
-                from .music import ma_players
+                from ..music import ma_players
                 cmd = ma_player_checks(cmd, {pid: eid for eid, pid in ma_players(self.app["hub"].registry).items()})
         except Refused as exc:
             aid = self.audit.record(principal=principal, kind=_kind(msg), action=_action(msg), targets=[],
@@ -971,7 +972,7 @@ class Gateway:
 
     async def _forward(self, principal: Principal, cmd: Command, aid: int) -> Any:
         if cmd.tablet is not None:
-            from . import tablet_links
+            from .. import tablet_links
             return await tablet_links.send(self.app, *cmd.tablet)
         if cmd.live is not None:
             return self.app["talk"].issue(principal, cmd.live, aid)

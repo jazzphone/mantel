@@ -8,10 +8,10 @@ from aiohttp import WSMsgType, web
 from aiohttp.test_utils import TestClient, TestServer
 
 from connector_fakes import HA_TOKEN, ICE, MA_TOKEN, FakeHa, FakeMa, wait_for
-from mantel_server import readproxy
+from mantel_server.ha import readproxy
 from mantel_server.config import Config
 from mantel_server.connectors import Ctx, Hooks, camera, ma
-from mantel_server.readproxy import ReadProxy
+from mantel_server.ha.readproxy import ReadProxy
 from mantel_server.server import COMMAND_TYPES, COMMANDS_DISABLED, Hub, classify
 
 EXPECTED_HANDLERS = {"read", "read_subscribe", "read_unsubscribe", "read_api", "ma/read", "ma/subscribe",
@@ -162,7 +162,7 @@ async def test_a_calendar_ha_cannot_read_fails_alone_and_is_logged(env, caplog):
     """The house, 2026-10-20: HA's CalDAV account was signed out, both calendars unavailable, HA answering
     each events read with 500; the page said "couldn't be read" and Mantel's log nothing. Now the read fails
     with HA's answer and the calendar's name, a readable calendar beside it still reads, and the log says so."""
-    from mantel_server import readproxy as rp
+    from mantel_server.ha import readproxy as rp
     rp._refused_at.clear()
     env.fha.broken_calendars.add("calendar.school")
     ws = await env.client.ws_connect("/ws?who=adult")

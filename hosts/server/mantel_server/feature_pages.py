@@ -618,7 +618,7 @@ class FeaturePages:
 def register(app: Any, host: "FeatureHost") -> FeaturePages:
     """The page reads in ``app["read_routes"]`` (answered here, never forwarded)."""
     from .connectors import Ctx, Forbidden, Route, read_routes
-    from .readproxy import ReadBlocked
+    from .ha.readproxy import ReadBlocked
 
     pages = FeaturePages(host)
 

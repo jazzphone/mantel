@@ -25,7 +25,7 @@ import logging
 from collections import OrderedDict
 from typing import Any
 
-from .view import filter_registry
+from ..view import filter_registry
 
 log = logging.getLogger("mantel.registry_feed")
 

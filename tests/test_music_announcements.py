@@ -4,8 +4,8 @@ import asyncio
 import pytest
 from mantel_server.music_announcements import Announcements
 from mantel_server import music_announcements as M
-from mantel_server.registry import Registry
-from mantel_server.readproxy import music_config
+from mantel_server.ha.registry import Registry
+from mantel_server.ha.readproxy import music_config
 
 
 def fixture(monkeypatch):

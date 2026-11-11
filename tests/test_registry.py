@@ -1,4 +1,4 @@
-from mantel_server.registry import Registry
+from mantel_server.ha.registry import Registry
 
 AREAS = [{"area_id": "kitchen", "name": "Kitchen"}, {"area_id": "loft", "name": "Loft"}]
 DEVICES = [{"id": "d1", "area_id": "kitchen"}, {"id": "d2", "area_id": "loft"}]

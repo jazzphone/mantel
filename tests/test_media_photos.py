@@ -11,7 +11,7 @@ from aiohttp.test_utils import TestClient, TestServer
 
 from mantel_server.connectors import Ctx, Forbidden, Hooks, read_routes
 from mantel_server.connectors import media_photos as MP
-from mantel_server.readproxy import SERVER_ONLY_READS, ReadBlocked, check_read
+from mantel_server.ha.readproxy import SERVER_ONLY_READS, ReadBlocked, check_read
 
 TOKEN = "fictional-mantel-ha-credential"
 JPEG = b"\xff\xd8\xff\xe0fictional-photo\xff\xd9"

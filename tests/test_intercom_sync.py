@@ -283,7 +283,7 @@ def test_a_closed_run_or_one_with_no_groups_refuses_grouping():
 
 
 def test_a_raw_set_members_is_checked_for_every_speaker_it_names():
-    from mantel_server.gateway import Command, Refused, ma_player_checks
+    from mantel_server.ha.gateway import Command, Refused, ma_player_checks
     players = {"a": "media_player.a", "b": "media_player.b"}
     cmd = Command("ma", PART, [], ma=(PART, {"target_player": "a", "player_ids_to_remove": ["b"]}))
     assert {c.target for c in ma_player_checks(cmd, players).checks} == set(players.values())

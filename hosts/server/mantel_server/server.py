@@ -34,17 +34,20 @@ from aiohttp import WSCloseCode, WSMsgType, web
 from . import about, frame_origins, music
 from .identity import accounts, auth, pins, rbac_store, sessions
 from . import (
-    alarm_pin, cameras_direct, protect_connector, connect_pairing, devices, gateway, health, ingress, live_tv,
-    readproxy, settings_store,
+    alarm_pin, cameras_direct, protect_connector, connect_pairing, devices, health, ingress, live_tv, settings_store,
 )
+from .ha import gateway, readproxy
 from . import (
     admin_page, atrest, backup, connections, features, linked, linked_house, linked_owners, linked_pairing,
-    linked_files, linked_reads, linked_settings, people_ha, screens, linked_actions, phones, supervisor_discovery,
-    photos, talk_relay, user_files,
+    linked_files, linked_reads, linked_settings, screens, linked_actions, phones, photos, talk_relay, user_files,
 )
+from .ha import people_ha, supervisor_discovery
 from .identity import login_page, service_accounts
-from . import (camera_setup, default_screens, direct, direct_tls, docs_pages, ha_dashboards, ma_page, media_proxy, proxy_check,
-    proxy_trust, route_table, security_headers, socket_reads, tablet_links, user_data)
+from . import (
+    camera_setup, default_screens, direct, direct_tls, docs_pages, ma_page, media_proxy, proxy_check, proxy_trust,
+    route_table, security_headers, tablet_links, user_data,
+)
+from .ha import ha_dashboards, socket_reads
 from . import alerts, app_shell, timeline, hk_cards, live, mcp, page_health, performance, server_settings, setup_guide
 from .identity import cf_access, guards
 from .identity.authz import Authz, Principal, resolve_door
@@ -53,14 +56,14 @@ from .connectors import REFUSE_ALL, Ctx, Hooks
 from .connectors import camera as camera_connector
 from .connectors import camera_still, media_art, media_photos, person_picture
 from .connectors import ma as ma_connector
-from .ha_oauth import HaOAuth
-from .readproxy import ReadProxy
+from .ha.ha_oauth import HaOAuth
+from .ha.readproxy import ReadProxy
 from .store import Store
-from .ha_client import HaClient, commander_for
-from .ha_client import SERVER_WRITES
-from .registry import Registry
-from .registry_feed import PUSH_DELAY, RegistryBodies, RegistryFeed
-from .state import StateStore
+from .ha.ha_client import HaClient, commander_for
+from .ha.ha_client import SERVER_WRITES
+from .ha.registry import Registry
+from .ha.registry_feed import PUSH_DELAY, RegistryBodies, RegistryFeed
+from .ha.state import StateStore
 from .stats import Counter
 from .view import ClientView, Coalescing
 from hk_core.settings import model as settings_model

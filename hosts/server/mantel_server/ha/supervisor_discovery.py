@@ -70,7 +70,7 @@ async def announce(app: Any, *, http: aiohttp.ClientSession | None = None) -> di
         url = f"http://{hostname}:{int(getattr(cfg, 'port', 8099))}"
         app[APP_URL] = url                     # one of Mantel's own addresses, announced or not (pairing v2)
         before = owners.remembered(KEY) or {}
-        from .linked import LINK_ACCOUNT_KEY
+        from ..linked import LINK_ACCOUNT_KEY
         by_hand = (owners.remembered(LINK_ACCOUNT_KEY) or {}).get("account")
         if by_hand and by_hand != before.get("account") and accounts.live(by_hand):
             await _withdraw(http, base, headers, accounts, before)

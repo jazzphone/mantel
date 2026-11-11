@@ -12,10 +12,10 @@ from aiohttp.test_utils import TestServer
 import gateway_fakes as GF
 from connector_fakes import FEATURE_PAGES, HA_TOKEN, TV_CHANNELS, FakeHa
 from mantel_server import features as F
-from mantel_server import readproxy as rp
+from mantel_server.ha import readproxy as rp
 from mantel_server import settings_store as S
 from mantel_server.connectors import Hooks
-from mantel_server.readproxy import READ_ALLOWED, RULES, SERVER_ONLY_READS, FilteredReads, ReadBlocked, ReadProxy
+from mantel_server.ha.readproxy import READ_ALLOWED, RULES, SERVER_ONLY_READS, FilteredReads, ReadBlocked, ReadProxy
 from test_features import (AREAS, DEVICES, ENTITIES, PREFS, VACUUM, FakeProxy, build, make_env,  # noqa: F401
                            until)                                     # (make_env: the fixture, used by name)
 

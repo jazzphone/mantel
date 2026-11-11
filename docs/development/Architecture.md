@@ -163,7 +163,7 @@ With commands on, a command goes like this:
 
 1. The page's action port sends a `command` message over the hub socket. (`web/shim/mantel-client.js` only has
    actions when the server's `capabilities` frame says commands are on.)
-2. `Gateway.handle()` in `hosts/server/mantel_server/gateway.py` refreshes the subject (the person, or the wall
+2. `Gateway.handle()` in `hosts/server/mantel_server/ha/gateway.py` refreshes the subject (the person, or the wall
    tablet's device) from the database.
 3. `classify()` works out what the command is: a service call, a WebSocket write, an HTTP write, or a Music
    Assistant command, and how sensitive it is.

@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from mantel_server.registry import Registry
-from mantel_server.state import StateStore
+from mantel_server.ha.registry import Registry
+from mantel_server.ha.state import StateStore
 from mantel_server.view import ClientView, Coalescing
 
 ROOT = Path(__file__).resolve().parent.parent

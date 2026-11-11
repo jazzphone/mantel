@@ -712,7 +712,7 @@ class MantelLiveTv:
 
     # -- the channel list -------------------------------------------------------------------------------
     async def channel_list(self, ctx: Ctx, msg: dict) -> dict[str, Any]:
-        from .readproxy import ReadBlocked
+        from .ha.readproxy import ReadBlocked
         if set(msg) - {"type", "id"}:
             raise ReadBlocked("hk_tv/channels carries nothing")
         if not self.serves():
@@ -747,14 +747,14 @@ class MantelLiveTv:
         return isinstance(eid, str) and self.runs() and eid in self.by_camera()
 
     async def client_config(self, ctx: Ctx, msg: dict) -> dict[str, Any]:
-        from .readproxy import ReadBlocked
+        from .ha.readproxy import ReadBlocked
         if set(msg) - {"type", "id", "entity_id"}:
             raise ReadBlocked("get_client_config carries entity_id only")
         await self._gate(ctx, msg["entity_id"])
         return {"configuration": {"iceServers": json.loads(json.dumps(ICE_SERVERS))}, "getCandidatesUpfront": False}
 
     async def offer(self, ctx: Ctx, msg: dict, on_event: Callable[[dict], None]):
-        from .readproxy import ReadBlocked
+        from .ha.readproxy import ReadBlocked
         if set(msg) - {"type", "id", "entity_id", "offer"}:
             raise ReadBlocked("an offer carries entity_id and offer only")
         sdp = msg.get("offer")
@@ -851,7 +851,7 @@ class MantelLiveTv:
         await relay_go2rtc(sess, on_event)
 
     async def candidate(self, ctx: Ctx, msg: dict) -> None:
-        from .readproxy import ReadBlocked
+        from .ha.readproxy import ReadBlocked
         if set(msg) - {"type", "id", "entity_id", "session_id", "candidate"}:
             raise ReadBlocked("a candidate carries entity_id, session_id and candidate only")
         await self._gate(ctx, msg["entity_id"])

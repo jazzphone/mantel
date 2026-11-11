@@ -1,5 +1,5 @@
-from mantel_server.registry import Registry
-from mantel_server.state import StateStore
+from mantel_server.ha.registry import Registry
+from mantel_server.ha.state import StateStore
 from mantel_server.view import ClientView, Coalescing, diff_state
 
 

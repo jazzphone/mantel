@@ -601,7 +601,7 @@ def clean_overrides(body: Any, natural: Callable[[str], tuple[str | None, str | 
     if len(src) > 500:
         raise BadQuery("invalid_overrides")
     out: dict[str, dict] = {}
-    from ..registry import Registry  # noqa: F401 -- (entity ids only)
+    from ..ha.registry import Registry  # noqa: F401 -- (entity ids only)
     import re
     eid_re = re.compile(r"^[a-z_]+\.[a-z0-9_]+$")
     for eid, v in src.items():
@@ -736,7 +736,7 @@ async def api_clear_mine(request: web.Request) -> web.Response:
 # -- the live feed -----------------------------------------------------------------------------------------------------
 def register_live(app: Any) -> None:
     from ..connectors import Route, read_routes
-    from ..readproxy import ReadBlocked
+    from ..ha.readproxy import ReadBlocked
 
     async def subscribe(ctx: Any, msg: dict, on_event: Callable[[dict], None]):
         if set(msg) - {"type", "id", "family", "camera"}:

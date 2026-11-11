@@ -171,7 +171,7 @@ def register(app: web.Application, hub: Any) -> PageHeaders:
     ph = app["page_headers"] = PageHeaders(app, hub)
 
     async def feed(ctx: Ctx, msg: dict, on_event: Callable[[dict], None]):
-        from .readproxy import ReadBlocked
+        from .ha.readproxy import ReadBlocked
         if set(msg) - {"type", "id"}:
             raise ReadBlocked(f"{FEED} carries nothing")
         ident = ctx.identity

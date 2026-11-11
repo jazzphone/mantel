@@ -8,7 +8,7 @@ import pytest
 
 import gateway_fakes as GF
 from hk_core import timers as R
-from mantel_server.ha_client import HaCommandError
+from mantel_server.ha.ha_client import HaCommandError
 from mantel_server.settings_store import Actor as SettingsActor
 
 gw, service = GF.gw, GF.service          # (the fixture, by name)

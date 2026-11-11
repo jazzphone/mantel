@@ -12,7 +12,7 @@ from mantel_server.config import Config
 from mantel_server.connectors import Ctx, Forbidden, Hooks
 from mantel_server.connectors import camera
 from mantel_server.connectors.camera import CameraSignaling, SignalingProxy
-from mantel_server.ha_client import ALLOWED_TYPES, CommandBlocked
+from mantel_server.ha.ha_client import ALLOWED_TYPES, CommandBlocked
 
 VIEWERS = {("adult", "camera.porch"), ("adult", "camera.garage"), ("other", "camera.porch")}
 

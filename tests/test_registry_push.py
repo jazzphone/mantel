@@ -162,7 +162,7 @@ async def test_a_grant_change_tells_the_page(off):
 
 
 def test_the_digest_follows_the_registry():
-    from mantel_server.registry import Registry
+    from mantel_server.ha.registry import Registry
     r = Registry()
     r.load(HOUSE_AREAS, [], HOUSE_ENTITIES)
     d = r.digest

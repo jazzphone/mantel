@@ -190,7 +190,7 @@ def _library_image(v: Any) -> str | None:
     that is not a web address (a collage, a playlist's own picture, Apple Music's). The old form is kept only
     for a Music Assistant that sends no ``proxy_id``."""
     from urllib.parse import quote
-    from .readproxy import _safe_image
+    from .ha.readproxy import _safe_image
     if isinstance(v, str):
         return _safe_image(v)
     if not isinstance(v, Mapping) or not isinstance(v.get("path"), str) or not v["path"]:

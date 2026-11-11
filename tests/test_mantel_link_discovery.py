@@ -8,7 +8,8 @@ import pytest
 from aiohttp import web
 from aiohttp.test_utils import TestServer
 
-from mantel_server import announce, supervisor_discovery as SD
+from mantel_server import announce
+from mantel_server.ha import supervisor_discovery as SD
 from test_features import make_env  # noqa: F401
 from test_packaging import entrypoint
 

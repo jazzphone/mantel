@@ -14,7 +14,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from .identity.guards import READS
+from ..identity.guards import READS
 
 
 @dataclass(frozen=True)
@@ -99,12 +99,12 @@ def preview_allows(read_type: Any) -> bool:
 def registered(app: Any) -> set[str]:
     """Every read type this app answers or relays."""
     from . import readproxy
-    from .connectors import read_routes
+    from ..connectors import read_routes
     return set(read_routes(app)) | set(readproxy.READ_ALLOWED) | set(readproxy.MANTEL_READS) | {"read_api"}
 
 
 def linked_registered() -> set[str]:
-    from . import linked
+    from .. import linked
     return set(linked.CLIENT_TYPES) | set(linked.CLIENT_TYPES_2) | set(linked.SETTINGS_TYPES) | set(linked.READS_TYPES)
 
 
@@ -131,11 +131,11 @@ def lock_rows(app: Any) -> dict[str, dict[str, Any]]:
     out: dict[str, dict[str, Any]] = {}
     for t in sorted(registered(app) & set(READS_BY_TYPE)):
         r = READS_BY_TYPE[t]
-        out[f"READ {t}"] = {"module": "mantel_server.socket_reads", "handler": "/ws read", "kind": "socket_read",
+        out[f"READ {t}"] = {"module": "mantel_server.ha.socket_reads", "handler": "/ws read", "kind": "socket_read",
                             "why": r.why or "a page's read over its signed-in socket (/ws)", "reads": r.reads,
                             "stream": "none", "preview": r.preview, "csrf": "-", "mcp": []}
     for t in sorted(linked_registered() & set(LINKED_TYPES)):
-        out[f"LINKED {t}"] = {"module": "mantel_server.socket_reads", "handler": "/linked/ws message",
+        out[f"LINKED {t}"] = {"module": "mantel_server.ha.socket_reads", "handler": "/linked/ws message",
                               "kind": "link_credential", "why": LINKED_TYPES[t], "reads": None, "stream": "none",
                               "preview": False, "csrf": "-", "mcp": []}
     return out

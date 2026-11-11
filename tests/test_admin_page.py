@@ -23,8 +23,8 @@ STATIC = ROOT / "hosts/server/mantel_server/static/admin"
 async def admin(tmp_path, monkeypatch):
     """The conftest app with admin_page.register() called (as the orchestrator's server.py does)."""
     from mantel_server.config import Config
-    from mantel_server.ha_client import HaClient
-    from mantel_server.readproxy import ReadProxy
+    from mantel_server.ha.ha_client import HaClient
+    from mantel_server.ha.readproxy import ReadProxy
     from mantel_server.server import build_app
     from mantel_server.store import Store
 

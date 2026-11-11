@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from mantel_server import ha_dashboards as HD
+from mantel_server.ha import ha_dashboards as HD
 from mantel_server import screens as SC
 from mantel_server.settings_store import Actor
 from test_ha_dashboards import BASE, FakeHa, audits, ha, owner  # noqa: F401

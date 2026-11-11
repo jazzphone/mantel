@@ -374,8 +374,8 @@ async def probe_one(principal: str, door: str, routes_for: dict) -> dict:
 
 
 async def probe(principals, doors, jobs: int = 1) -> dict:
-    from mantel_server.ha_client import HaClient
-    from mantel_server.readproxy import ReadProxy
+    from mantel_server.ha.ha_client import HaClient
+    from mantel_server.ha.readproxy import ReadProxy
 
     async def forbidden(*args, **kwargs):
         raise RuntimeError("the route probe sends nothing upstream")

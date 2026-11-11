@@ -11,7 +11,7 @@ from pathlib import Path
 
 import yaml
 
-from mantel_server import ha_client as HC
+from mantel_server.ha import ha_client as HC
 from mantel_server import linked as LK
 
 ROOT = Path(__file__).resolve().parents[1]

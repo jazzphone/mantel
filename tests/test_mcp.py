@@ -1187,16 +1187,16 @@ async def test_a_previews_socket_reads_only_what_its_screen_draws_from(mantel):
 
 
 async def test_a_screens_reads_and_a_previews_never_reads_do_not_overlap():
-    from mantel_server.socket_reads import READS_BY_TYPE
+    from mantel_server.ha.socket_reads import READS_BY_TYPE
     preview = {t for t, r in READS_BY_TYPE.items() if r.preview}
     assert not any(t.startswith("mantel/settings") or t.endswith("/settings/get") or "setup" in t for t in preview)
 
 
 async def test_every_read_a_house_registers_is_a_screens_or_not_a_previews(mantel):
     """SRV-2: a new read is closed to previews until it is placed on one of the two lists."""
-    from mantel_server import readproxy
+    from mantel_server.ha import readproxy
     from mantel_server.connectors import read_routes
-    from mantel_server.socket_reads import READS_BY_TYPE
+    from mantel_server.ha.socket_reads import READS_BY_TYPE
     every = set(read_routes(mantel.app)) | set(readproxy.READ_ALLOWED) | set(readproxy.MANTEL_READS)
     assert not every - set(READS_BY_TYPE), sorted(every - set(READS_BY_TYPE))
 

@@ -27,7 +27,7 @@ from typing import Any, Awaitable, Callable
 
 from hk_core.talk.core import CODECS, LiveTalk, Target
 
-from .ha_client import HaCommandError, talk_frame_max
+from .ha.ha_client import HaCommandError, talk_frame_max
 
 log = logging.getLogger("mantel.talk_direct")
 

@@ -133,7 +133,7 @@ def test_build_app_installs_the_door_rule(tmp_path):
 
 
 def test_commands_on_builds_the_gateway_and_the_command_path(tmp_path):
-    from mantel_server.ha_client import HaCommander
+    from mantel_server.ha.ha_client import HaCommander
     from mantel_server.store import Store
     app = server.build_app(Config(data_dir=tmp_path, secrets_dir=tmp_path / "s", commands_enabled=True), "fictional",
                            store=Store(tmp_path / "m.db"), connect_ha=False)

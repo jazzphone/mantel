@@ -89,7 +89,7 @@ from hk_core.music.queue import QUEUE_MAX
 from hk_core.music.warm import Warmer
 
 from .connectors import Ctx, Forbidden, Route, allowed_ids, may_feature, read_routes, ws_handlers
-from .ha_client import HaCommandError
+from .ha.ha_client import HaCommandError
 from .house import MantelHouse
 from .music_announcements import Announcements
 
@@ -848,7 +848,7 @@ class MusicHost:
         return None
 
     async def payload(self, identity: Any) -> dict[str, Any]:
-        from .readproxy import music_config, music_players
+        from .ha.readproxy import music_config, music_players
         if self.doc() is None:
             return {"configured": False}
         cfg = self.config()
@@ -912,7 +912,7 @@ class MusicHost:
 
     async def queue(self, entity_id: str, limit: int) -> dict[str, Any]:
         """HA's hk_music/queue answer, from Music Assistant: the songs from the current one on."""
-        from .readproxy import music_queue
+        from .ha.readproxy import music_queue
         try:
             qid, cur = await self.active_queue(entity_id)
             if not qid:
@@ -1167,7 +1167,7 @@ class MusicHost:
 
     def expand(self, cmd: Any) -> Any:
         """The checks Mantel's engine adds, knowing the configuration: Stop All names every room."""
-        from .gateway import Check
+        from .ha.gateway import Check
         m = cmd.music or {}
         if m.get("op") == OP_SERVICE:         # a plain media_player call: its own checks, as for HA's
             return cmd
@@ -1326,7 +1326,7 @@ def register(app: Any, hub: Any, hooks: Any = None) -> MusicHost:
     page's ``music_used`` message, ``GET /api/music/status`` (Owner/Admin), and the hub's changes. Commands come
     only through the gateway (``Gateway._forward`` -> ``MusicHost.run``)."""
     from .connectors import Hooks
-    from .readproxy import MEDIA_PLAYER, READ_ALLOWED, NotFound, ReadBlocked
+    from .ha.readproxy import MEDIA_PLAYER, READ_ALLOWED, NotFound, ReadBlocked
     BROWSE_KEYS, SEARCH_KEYS = READ_ALLOWED["media_player/browse_media"], READ_ALLOWED["media_player/search_media"]
     if "music" in app:
         return app["music"]

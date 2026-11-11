@@ -230,18 +230,93 @@ Columns: **Rule** who may call it (`signed_in` any session, `person`, `manager` 
 | `GET /api/admin/frame-origins` | manager | admin | none |  |  |  |
 | `POST /api/admin/frame-origins` | owner, fresh away |  | none |  | frame_origin.add |  |
 
-## mantel_server.gateway
+## mantel_server.ha.gateway
 
 | Route | Rule | Reads | Stream | Preview | Audit | Assistants |
 |---|---|---|---|---|---|---|
 | `GET /api/audit` | signed_in | feature:audit | none |  |  |  |
 
-## mantel_server.ha_dashboards
+## mantel_server.ha.ha_dashboards
 
 | Route | Rule | Reads | Stream | Preview | Audit | Assistants |
 |---|---|---|---|---|---|---|
 | `GET /api/admin/ha-dashboards` | manager | admin | none |  |  |  |
 | `PUT /api/admin/screens/{key}/ha-dashboard` | manager |  | none |  | ha_dashboard.add, ha_dashboard.update, ha_dashboard.remove, frame_origin.add |  |
+
+## mantel_server.ha.people_ha
+
+| Route | Rule | Reads | Stream | Preview | Audit | Assistants |
+|---|---|---|---|---|---|---|
+| `PUT /api/devices/{id}/ha-user` | owner, door home |  | none |  | ingress.link_tablet, ingress.unlink_tablet, people.remove_tablet_account |  |
+| `GET /api/people/ha` | manager | admin | none |  |  |  |
+| `PUT /api/people/ha` | manager |  | none |  | people.ha_user |  |
+| `POST /api/users/{id}/merge` | owner, fresh add_factor |  | none |  | people.merge |  |
+
+## mantel_server.ha.socket_reads
+
+| Route | Rule | Reads | Stream | Preview | Audit | Assistants |
+|---|---|---|---|---|---|---|
+| `LINKED call_service` | own: link_credential |  | none |  | the linked HK Frontend's Service credential (linked.py) and the gateway: RBAC as the person HA names, the audit row first, the kill switch |  |
+| `READ camera/webrtc/candidate` | own: socket_read | view | none | yes | a page's read over its signed-in socket (/ws) |  |
+| `READ camera/webrtc/get_client_config` | own: socket_read | view | none | yes | a page's read over its signed-in socket (/ws) |  |
+| `READ camera/webrtc/offer` | own: socket_read | view | none | yes | a page's read over its signed-in socket (/ws) |  |
+| `READ config/entity_registry/get` | own: socket_read | view | none | yes | a page's read over its signed-in socket (/ws) |  |
+| `READ energy/get_prefs` | own: socket_read | feature:energy | none | yes | a page's read over its signed-in socket (/ws) |  |
+| `READ energy/info` | own: socket_read | feature:energy | none | yes | a page's read over its signed-in socket (/ws) |  |
+| `LINKED entity_command` | own: link_credential |  | none |  | the same, for one entity's command (linked.COMMANDS) |  |
+| `READ frontend/get_themes` | own: socket_read | none | none | yes | the theme list |  |
+| `READ frontend/get_user_data` | own: socket_read | self | none | yes | a page's read over its signed-in socket (/ws) |  |
+| `READ frontend/subscribe_user_data` | own: socket_read | self | none | yes | a page's read over its signed-in socket (/ws) |  |
+| `READ get_config` | own: socket_read | view | none | yes | the house's settings; its location only with feature:locations |  |
+| `READ history/history_during_period` | own: socket_read | view | none | yes | a page's read over its signed-in socket (/ws) |  |
+| `READ hk_alarm_pin/settings/get` | own: socket_read | admin | none |  | never for a page (readproxy.SERVER_ONLY_READS): an import's or Mantel's own read |  |
+| `READ hk_clean_areas/coverage` | own: socket_read | view | none | yes | a page's read over its signed-in socket (/ws) |  |
+| `READ hk_clean_areas/settings/get` | own: socket_read | admin | none |  | never for a page (readproxy.SERVER_ONLY_READS): an import's or Mantel's own read |  |
+| `READ hk_clean_areas/subscribe` | own: socket_read | view | none | yes | a page's read over its signed-in socket (/ws) |  |
+| `READ hk_energy/settings/get` | own: socket_read | admin | none |  | never for a page (readproxy.SERVER_ONLY_READS): an import's or Mantel's own read |  |
+| `READ hk_energy/sources` | own: socket_read | admin | none |  | never for a page (readproxy.SERVER_ONLY_READS): an import's or Mantel's own read |  |
+| `READ hk_frontend/events/subscribe` | own: socket_read | view | none | yes | a page's read over its signed-in socket (/ws) |  |
+| `READ hk_frontend/grid/starter` | own: socket_read | admin | none |  | an Owner's or Admin's Settings document or editor (configure on settings) |  |
+| `READ hk_frontend/hidden/get` | own: socket_read | admin | none |  | an Owner's or Admin's Settings document or editor (configure on settings) |  |
+| `READ hk_frontend/page_headers/subscribe` | own: socket_read | view | none | yes | a page's read over its signed-in socket (/ws) |  |
+| `READ hk_frontend/panel/get` | own: socket_read | admin | none |  | never for a page (readproxy.SERVER_ONLY_READS): an import's or Mantel's own read |  |
+| `READ hk_frontend/settings/subscribe` | own: socket_read | view | none | yes | the settings feed, cut per person (SRV-4) |  |
+| `READ hk_frontend/setup/check` | own: socket_read | admin | none |  | an Owner's or Admin's Settings document or editor (configure on settings) |  |
+| `READ hk_frontend/snooze/subscribe` | own: socket_read | view | none | yes | a page's read over its signed-in socket (/ws) |  |
+| `READ hk_frontend/todo/items` | own: socket_read | view | none | yes | a page's read over its signed-in socket (/ws) |  |
+| `READ hk_music/queue` | own: socket_read | view | none | yes | a page's read over its signed-in socket (/ws) |  |
+| `READ hk_music/settings/get` | own: socket_read | admin | none |  | never for a page (readproxy.SERVER_ONLY_READS): an import's or Mantel's own read |  |
+| `READ hk_music/settings/library` | own: socket_read | feature:music | none |  | Music's settings page: the library to pick from |  |
+| `READ hk_music/subscribe` | own: socket_read | feature:music | none | yes | a page's read over its signed-in socket (/ws) |  |
+| `READ hk_notify/settings/get` | own: socket_read | admin | none |  | never for a page (readproxy.SERVER_ONLY_READS): an import's or Mantel's own read |  |
+| `READ hk_notify/snap/sign` | own: socket_read | view | none | yes | a page's read over its signed-in socket (/ws) |  |
+| `READ hk_tv/channels` | own: socket_read | view | none | yes | a page's read over its signed-in socket (/ws) |  |
+| `READ hk_tv/settings/get` | own: socket_read | admin | none |  | never for a page (readproxy.SERVER_ONLY_READS): an import's or Mantel's own read |  |
+| `READ logbook/get_events` | own: socket_read | view | none | yes | a page's read over its signed-in socket (/ws) |  |
+| `READ mantel/clean_areas/coverage` | own: socket_read | view | none | yes | a page's read over its signed-in socket (/ws) |  |
+| `READ mantel/energy/plan` | own: socket_read | feature:energy | none | yes | a page's read over its signed-in socket (/ws) |  |
+| `READ mantel/energy/sources` | own: socket_read | admin | none |  | never for a page (readproxy.SERVER_ONLY_READS): an import's or Mantel's own read |  |
+| `READ mantel/live_tv/guide` | own: socket_read | feature:live_tv | none | yes | a page's read over its signed-in socket (/ws) |  |
+| `READ mantel/page_headers/get` | own: socket_read | admin | none |  | never for a page (readproxy.SERVER_ONLY_READS): an import's or Mantel's own read |  |
+| `READ mantel/settings/get` | own: socket_read | admin | none |  | an Owner's or Admin's Settings document or editor (configure on settings) |  |
+| `READ mantel/settings/history` | own: socket_read | admin | none |  | an Owner's or Admin's Settings document or editor (configure on settings) |  |
+| `READ media_player/browse_media` | own: socket_read | view | none | yes | a page's read over its signed-in socket (/ws) |  |
+| `READ media_player/search_media` | own: socket_read | view | none | yes | a page's read over its signed-in socket (/ws) |  |
+| `READ media_source/browse_media` | own: socket_read | feature:media | none | yes | a page's read over its signed-in socket (/ws) |  |
+| `READ media_source/resolve_media` | own: socket_read | feature:media | none | yes | a page's read over its signed-in socket (/ws) |  |
+| `READ music_assistant/get_library` | own: socket_read | feature:music | none | yes | a page's read over its signed-in socket (/ws) |  |
+| `READ music_assistant/get_queue` | own: socket_read | feature:music | none | yes | a page's read over its signed-in socket (/ws) |  |
+| `READ music_assistant/search` | own: socket_read | feature:music | none | yes | a page's read over its signed-in socket (/ws) |  |
+| `LINKED page` | own: link_credential |  | none |  | the credential; a linked dashboard's page reads, as the person linked to its HA user (linked_reads.py) |  |
+| `READ persistent_notification/subscribe` | own: socket_read | feature:notifications | none | yes | a page's read over its signed-in socket (/ws) |  |
+| `LINKED phone_action` | own: link_credential |  | none |  | the credential (protocol 2); a phone notification's action, as the person HA names, through the gateway |  |
+| `LINKED ping` | own: link_credential |  | none |  | the credential only; changes nothing |  |
+| `READ read_api` | own: socket_read | view | none | yes | read_api: a calendar's events (GET calendars/<entity>), view the calendar |  |
+| `READ recorder/statistics_during_period` | own: socket_read | view | none | yes | a page's read over its signed-in socket (/ws) |  |
+| `LINKED report` | own: link_credential |  | none |  | the credential; what HK Frontend reports of itself (linked._REPORT_KEYS) |  |
+| `LINKED settings_write` | own: link_credential |  | none |  | the credential's settings scope; SettingsService.save's own checks |  |
+| `READ timeline/subscribe` | own: socket_read | view | none |  | the House Timeline's live rows, each cut for the viewer (timeline/api.py) |  |
+| `READ weather/subscribe_forecast` | own: socket_read | view | none | yes | a page's read over its signed-in socket (/ws) |  |
 
 ## mantel_server.health
 
@@ -463,15 +538,6 @@ Columns: **Rule** who may call it (`signed_in` any session, `person`, `manager` 
 |---|---|---|---|---|---|---|
 | `GET /api/notify/snap/{snap_id}` | signed_in | view | none | yes |  |  |
 
-## mantel_server.people_ha
-
-| Route | Rule | Reads | Stream | Preview | Audit | Assistants |
-|---|---|---|---|---|---|---|
-| `PUT /api/devices/{id}/ha-user` | owner, door home |  | none |  | ingress.link_tablet, ingress.unlink_tablet, people.remove_tablet_account |  |
-| `GET /api/people/ha` | manager | admin | none |  |  |  |
-| `PUT /api/people/ha` | manager |  | none |  | people.ha_user |  |
-| `POST /api/users/{id}/merge` | owner, fresh add_factor |  | none |  | people.merge |  |
-
 ## mantel_server.performance
 
 | Route | Rule | Reads | Stream | Preview | Audit | Assistants |
@@ -602,72 +668,6 @@ Columns: **Rule** who may call it (`signed_in` any session, `person`, `manager` 
 | `GET /api/setup` | manager | admin | none |  |  |  |
 | `PUT /api/setup` | owner |  | none |  | setup.dismissed |  |
 | `PUT /api/setup/steps/{id}` | owner |  | none |  | setup.step |  |
-
-## mantel_server.socket_reads
-
-| Route | Rule | Reads | Stream | Preview | Audit | Assistants |
-|---|---|---|---|---|---|---|
-| `LINKED call_service` | own: link_credential |  | none |  | the linked HK Frontend's Service credential (linked.py) and the gateway: RBAC as the person HA names, the audit row first, the kill switch |  |
-| `READ camera/webrtc/candidate` | own: socket_read | view | none | yes | a page's read over its signed-in socket (/ws) |  |
-| `READ camera/webrtc/get_client_config` | own: socket_read | view | none | yes | a page's read over its signed-in socket (/ws) |  |
-| `READ camera/webrtc/offer` | own: socket_read | view | none | yes | a page's read over its signed-in socket (/ws) |  |
-| `READ config/entity_registry/get` | own: socket_read | view | none | yes | a page's read over its signed-in socket (/ws) |  |
-| `READ energy/get_prefs` | own: socket_read | feature:energy | none | yes | a page's read over its signed-in socket (/ws) |  |
-| `READ energy/info` | own: socket_read | feature:energy | none | yes | a page's read over its signed-in socket (/ws) |  |
-| `LINKED entity_command` | own: link_credential |  | none |  | the same, for one entity's command (linked.COMMANDS) |  |
-| `READ frontend/get_themes` | own: socket_read | none | none | yes | the theme list |  |
-| `READ frontend/get_user_data` | own: socket_read | self | none | yes | a page's read over its signed-in socket (/ws) |  |
-| `READ frontend/subscribe_user_data` | own: socket_read | self | none | yes | a page's read over its signed-in socket (/ws) |  |
-| `READ get_config` | own: socket_read | view | none | yes | the house's settings; its location only with feature:locations |  |
-| `READ history/history_during_period` | own: socket_read | view | none | yes | a page's read over its signed-in socket (/ws) |  |
-| `READ hk_alarm_pin/settings/get` | own: socket_read | admin | none |  | never for a page (readproxy.SERVER_ONLY_READS): an import's or Mantel's own read |  |
-| `READ hk_clean_areas/coverage` | own: socket_read | view | none | yes | a page's read over its signed-in socket (/ws) |  |
-| `READ hk_clean_areas/settings/get` | own: socket_read | admin | none |  | never for a page (readproxy.SERVER_ONLY_READS): an import's or Mantel's own read |  |
-| `READ hk_clean_areas/subscribe` | own: socket_read | view | none | yes | a page's read over its signed-in socket (/ws) |  |
-| `READ hk_energy/settings/get` | own: socket_read | admin | none |  | never for a page (readproxy.SERVER_ONLY_READS): an import's or Mantel's own read |  |
-| `READ hk_energy/sources` | own: socket_read | admin | none |  | never for a page (readproxy.SERVER_ONLY_READS): an import's or Mantel's own read |  |
-| `READ hk_frontend/events/subscribe` | own: socket_read | view | none | yes | a page's read over its signed-in socket (/ws) |  |
-| `READ hk_frontend/grid/starter` | own: socket_read | admin | none |  | an Owner's or Admin's Settings document or editor (configure on settings) |  |
-| `READ hk_frontend/hidden/get` | own: socket_read | admin | none |  | an Owner's or Admin's Settings document or editor (configure on settings) |  |
-| `READ hk_frontend/page_headers/subscribe` | own: socket_read | view | none | yes | a page's read over its signed-in socket (/ws) |  |
-| `READ hk_frontend/panel/get` | own: socket_read | admin | none |  | never for a page (readproxy.SERVER_ONLY_READS): an import's or Mantel's own read |  |
-| `READ hk_frontend/settings/subscribe` | own: socket_read | view | none | yes | the settings feed, cut per person (SRV-4) |  |
-| `READ hk_frontend/setup/check` | own: socket_read | admin | none |  | an Owner's or Admin's Settings document or editor (configure on settings) |  |
-| `READ hk_frontend/snooze/subscribe` | own: socket_read | view | none | yes | a page's read over its signed-in socket (/ws) |  |
-| `READ hk_frontend/todo/items` | own: socket_read | view | none | yes | a page's read over its signed-in socket (/ws) |  |
-| `READ hk_music/queue` | own: socket_read | view | none | yes | a page's read over its signed-in socket (/ws) |  |
-| `READ hk_music/settings/get` | own: socket_read | admin | none |  | never for a page (readproxy.SERVER_ONLY_READS): an import's or Mantel's own read |  |
-| `READ hk_music/settings/library` | own: socket_read | feature:music | none |  | Music's settings page: the library to pick from |  |
-| `READ hk_music/subscribe` | own: socket_read | feature:music | none | yes | a page's read over its signed-in socket (/ws) |  |
-| `READ hk_notify/settings/get` | own: socket_read | admin | none |  | never for a page (readproxy.SERVER_ONLY_READS): an import's or Mantel's own read |  |
-| `READ hk_notify/snap/sign` | own: socket_read | view | none | yes | a page's read over its signed-in socket (/ws) |  |
-| `READ hk_tv/channels` | own: socket_read | view | none | yes | a page's read over its signed-in socket (/ws) |  |
-| `READ hk_tv/settings/get` | own: socket_read | admin | none |  | never for a page (readproxy.SERVER_ONLY_READS): an import's or Mantel's own read |  |
-| `READ logbook/get_events` | own: socket_read | view | none | yes | a page's read over its signed-in socket (/ws) |  |
-| `READ mantel/clean_areas/coverage` | own: socket_read | view | none | yes | a page's read over its signed-in socket (/ws) |  |
-| `READ mantel/energy/plan` | own: socket_read | feature:energy | none | yes | a page's read over its signed-in socket (/ws) |  |
-| `READ mantel/energy/sources` | own: socket_read | admin | none |  | never for a page (readproxy.SERVER_ONLY_READS): an import's or Mantel's own read |  |
-| `READ mantel/live_tv/guide` | own: socket_read | feature:live_tv | none | yes | a page's read over its signed-in socket (/ws) |  |
-| `READ mantel/page_headers/get` | own: socket_read | admin | none |  | never for a page (readproxy.SERVER_ONLY_READS): an import's or Mantel's own read |  |
-| `READ mantel/settings/get` | own: socket_read | admin | none |  | an Owner's or Admin's Settings document or editor (configure on settings) |  |
-| `READ mantel/settings/history` | own: socket_read | admin | none |  | an Owner's or Admin's Settings document or editor (configure on settings) |  |
-| `READ media_player/browse_media` | own: socket_read | view | none | yes | a page's read over its signed-in socket (/ws) |  |
-| `READ media_player/search_media` | own: socket_read | view | none | yes | a page's read over its signed-in socket (/ws) |  |
-| `READ media_source/browse_media` | own: socket_read | feature:media | none | yes | a page's read over its signed-in socket (/ws) |  |
-| `READ media_source/resolve_media` | own: socket_read | feature:media | none | yes | a page's read over its signed-in socket (/ws) |  |
-| `READ music_assistant/get_library` | own: socket_read | feature:music | none | yes | a page's read over its signed-in socket (/ws) |  |
-| `READ music_assistant/get_queue` | own: socket_read | feature:music | none | yes | a page's read over its signed-in socket (/ws) |  |
-| `READ music_assistant/search` | own: socket_read | feature:music | none | yes | a page's read over its signed-in socket (/ws) |  |
-| `LINKED page` | own: link_credential |  | none |  | the credential; a linked dashboard's page reads, as the person linked to its HA user (linked_reads.py) |  |
-| `READ persistent_notification/subscribe` | own: socket_read | feature:notifications | none | yes | a page's read over its signed-in socket (/ws) |  |
-| `LINKED phone_action` | own: link_credential |  | none |  | the credential (protocol 2); a phone notification's action, as the person HA names, through the gateway |  |
-| `LINKED ping` | own: link_credential |  | none |  | the credential only; changes nothing |  |
-| `READ read_api` | own: socket_read | view | none | yes | read_api: a calendar's events (GET calendars/<entity>), view the calendar |  |
-| `READ recorder/statistics_during_period` | own: socket_read | view | none | yes | a page's read over its signed-in socket (/ws) |  |
-| `LINKED report` | own: link_credential |  | none |  | the credential; what HK Frontend reports of itself (linked._REPORT_KEYS) |  |
-| `LINKED settings_write` | own: link_credential |  | none |  | the credential's settings scope; SettingsService.save's own checks |  |
-| `READ timeline/subscribe` | own: socket_read | view | none |  | the House Timeline's live rows, each cut for the viewer (timeline/api.py) |  |
-| `READ weather/subscribe_forecast` | own: socket_read | view | none | yes | a page's read over its signed-in socket (/ws) |  |
 
 ## mantel_server.tablet_links
 

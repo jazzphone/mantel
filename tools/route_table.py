@@ -65,7 +65,7 @@ def tables(strict: bool = False) -> tuple[dict, dict[str, list[str]]]:
     import logging
     from mantel_server import route_table
     logging.getLogger("mantel.route_table").setLevel(logging.ERROR)
-    from mantel_server import socket_reads
+    from mantel_server.ha import socket_reads
     joined: dict = {}
     found: dict[str, list[str]] = {}
     never: set[str] | None = None

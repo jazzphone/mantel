@@ -14,7 +14,7 @@ import pytest
 
 import web_sources
 
-from mantel_server.gateway import classify, load_writes
+from mantel_server.ha.gateway import classify, load_writes
 
 ROOT = Path(__file__).resolve().parent.parent
 SPEAKER = "media_player.doorbell_speaker"

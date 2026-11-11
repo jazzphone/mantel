@@ -6,7 +6,7 @@ import asyncio
 from aiohttp import web
 from aiohttp.test_utils import TestServer
 
-from mantel_server.readproxy import ReadProxy
+from mantel_server.ha.readproxy import ReadProxy
 
 FORECAST = {"type": "weather/subscribe_forecast", "entity_id": "weather.home", "forecast_type": "daily"}
 

@@ -10,7 +10,7 @@ from argon2 import PasswordHasher
 
 from conftest import Mantel
 from mantel_server.identity.accounts import totp
-from mantel_server.ha_client import SERVER_WRITES, check_command, check_http, check_upload
+from mantel_server.ha.ha_client import SERVER_WRITES, check_command, check_http, check_upload
 
 HOUSE_AREAS = [{"area_id": "kitchen", "name": "Kitchen"}, {"area_id": "cody_room", "name": "Cody's Room"},
                {"area_id": "porch", "name": "Porch"}]
@@ -73,8 +73,8 @@ def seed_of(secret_b32: str) -> bytes:
 
 async def make(tmp_path, monkeypatch, *, commands: bool, trusted=()):
     from mantel_server.config import Config
-    from mantel_server.ha_client import HaClient
-    from mantel_server.readproxy import ReadProxy
+    from mantel_server.ha.ha_client import HaClient
+    from mantel_server.ha.readproxy import ReadProxy
     from mantel_server.server import build_app
     from mantel_server.store import Store
 

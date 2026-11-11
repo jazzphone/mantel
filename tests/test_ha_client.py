@@ -3,10 +3,12 @@ from pathlib import Path
 
 import pytest
 
-from mantel_server.ha_client import (ALLOWED_TYPES, READ_EVENTS, REGISTRY_EVENTS, SIGNALING_TYPES, CommandBlocked, HaClient,
-                                     TokenMissing, check_outgoing, read_token)
-from mantel_server.registry import Registry
-from mantel_server.state import StateStore
+from mantel_server.ha.ha_client import (
+    ALLOWED_TYPES, READ_EVENTS, REGISTRY_EVENTS, SIGNALING_TYPES, CommandBlocked, HaClient, TokenMissing,
+    check_outgoing, read_token,
+)
+from mantel_server.ha.registry import Registry
+from mantel_server.ha.state import StateStore
 
 
 @pytest.mark.parametrize("bad", ["call_service", "fire_event", "config/entity_registry/update",

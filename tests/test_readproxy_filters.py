@@ -5,8 +5,9 @@ from aiohttp.test_utils import TestServer
 
 from connector_fakes import HA_TOKEN, FakeHa, wait_for
 from mantel_server.connectors import Forbidden, Hooks
-from mantel_server.readproxy import (READ_ALLOWED, REST_READS, RULES, SUBSCRIBE_TYPES, FilteredReads, ReadBlocked,
-                                     ReadProxy, parse_api_path)
+from mantel_server.ha.readproxy import (
+    READ_ALLOWED, REST_READS, RULES, SUBSCRIBE_TYPES, FilteredReads, ReadBlocked, ReadProxy, parse_api_path,
+)
 
 # a fictional grant table: (identity, kind) -> the ids it may see
 GRANTS = {
@@ -188,7 +189,7 @@ async def test_hks_own_dates_reach_ha_unchanged(env, start, end):
 async def test_a_calendar_ha_cannot_read_is_a_failed_read(env):
     """A calendar whose account HA can no longer sign in to is unavailable and HA answers its events read
     with 500 (the house, 2026-10-20): a failed read naming it (test_connectors_wiring: over the socket)."""
-    from mantel_server.readproxy import _error_code
+    from mantel_server.ha.readproxy import _error_code
     env.fake.broken_calendars.add("calendar.family")
     with pytest.raises(RuntimeError, match="answered 500 for calendar.family") as err:
         await env.reads.calendar_events("adult", "calendar.family", "2026-10-18T00:00:00-04:00", "2026-10-25T00:00:00-04:00")
@@ -209,7 +210,7 @@ async def test_no_hooks_means_deny():
 
 def test_a_repeated_refusal_is_logged_once_per_interval(caplog):
     """A page feed that is not served yet retries for ever; the log says so once per interval."""
-    from mantel_server import readproxy as rp
+    from mantel_server.ha import readproxy as rp
     rp._refused_at.clear()
     clock = [1000.0]
     with caplog.at_level("WARNING", logger="mantel.readproxy"):
@@ -228,11 +229,11 @@ def test_a_repeated_refusal_is_logged_once_per_interval(caplog):
 def test_music_reads_are_exactly_the_three_reads():
     music = {t for t in READ_ALLOWED if t.startswith("hk_music/")}
     # (+ HK Settings' Music page, which only Mantel itself reads: feature_pages.py)
-    from mantel_server.readproxy import SERVER_ONLY_READS
+    from mantel_server.ha.readproxy import SERVER_ONLY_READS
     assert music - SERVER_ONLY_READS == {"hk_music/subscribe", "hk_music/queue", "hk_music/settings/library"}
     assert music & SERVER_ONLY_READS == {"hk_music/settings/get"}
     assert "hk_music/subscribe" in SUBSCRIBE_TYPES
-    from mantel_server.readproxy import check_read
+    from mantel_server.ha.readproxy import check_read
     for bad in ("hk_music/queue_play", "hk_music/used", "hk_music/item/remove", "hk_music/playlist/save",
                 "hk_music/preset/save", "hk_music/settings/set", "hk_music/playlists/order"):
         with pytest.raises(ReadBlocked):
@@ -265,7 +266,7 @@ async def test_music_subscription_needs_the_feature_and_is_pruned_to_viewable_pl
 
 
 async def test_music_queue_needs_view_of_the_player_and_hidden_reads_as_nonexistent(env):
-    from mantel_server.readproxy import NotFound
+    from mantel_server.ha.readproxy import NotFound
     got = await env.reads.request("adult", {"type": "hk_music/queue", "entity_id": "media_player.den", "limit": 10})
     assert got["ok"] and got["index"] == 4
     assert [i["image"] for i in got["items"]] == ["https://img.example/a.jpg", None, None]   # token / not http
@@ -320,7 +321,7 @@ def test_a_refused_live_view_is_logged_once_per_camera_per_interval(caplog):
 async def test_media_browsing_offers_no_camera_recordings(env):
     """Only media-source://camera was pruned: a Child (media browsing is decided as music) could list Frigate's
     or UniFi Protect's recordings of every camera."""
-    from mantel_server import readproxy as R
+    from mantel_server.ha import readproxy as R
     tree = {"title": "Media", "children": [
         {"title": "Radio", "media_content_id": "media-source://radio_browser"},
         {"title": "Cameras", "media_content_id": "media-source://camera"},

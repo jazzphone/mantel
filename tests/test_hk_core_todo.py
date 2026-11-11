@@ -9,11 +9,11 @@ import pytest
 
 from hk_core import todo as TD
 from hk_core.house import State
-from mantel_server import gateway as G
+from mantel_server.ha import gateway as G
 from mantel_server.identity import rbac
 from mantel_server.house import HouseCommandsDisabled, MantelHouse
-from mantel_server.registry import Registry
-from mantel_server.state import StateStore
+from mantel_server.ha.registry import Registry
+from mantel_server.ha.state import StateStore
 
 ANSWER = {"todo.groceries": {"items": [
     {"uid": "1", "summary": "Milk", "status": "needs_action"},

@@ -14,7 +14,7 @@ from aiohttp import web
 from aiohttp.test_utils import TestServer
 
 from conftest import Mantel  # noqa: F401  (the fixture's type)
-from mantel_server import ha_dashboards as HD
+from mantel_server.ha import ha_dashboards as HD
 from mantel_server import settings_store
 from mantel_server.config import Config
 

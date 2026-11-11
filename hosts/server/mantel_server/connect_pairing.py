@@ -714,7 +714,7 @@ async def serve(app: web.Application, cfg, stop: asyncio.Event | None = None) ->
 def cli(argv: list[str]) -> int:
     from .config import Config
     from .db import Database
-    from .gateway import Audit
+    from .ha.gateway import Audit
     p = argparse.ArgumentParser(prog="mantel connect", description="Pair Mantel Connect (HA's sidebar) with this server")
     p.add_argument("action", choices=("pair", "list", "revoke", "cancel", "status"))
     p.add_argument("--id", help="revoke: the pairing id (see `list`)")

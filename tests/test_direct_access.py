@@ -241,8 +241,8 @@ async def _start(tmp_path, monkeypatch, *, mode="proxy", ingress_peers=("172.30.
                  browser_url="http://homeassistant.local:8123", tablets=None, cert_pending=False, lan_networks=(),
                  public=(), frames=()):
     from mantel_server.config import Config
-    from mantel_server.ha_client import HaClient
-    from mantel_server.readproxy import ReadProxy
+    from mantel_server.ha.ha_client import HaClient
+    from mantel_server.ha.readproxy import ReadProxy
     from mantel_server.server import build_app
     from mantel_server.store import Store
 
@@ -577,7 +577,7 @@ async def test_in_home_assistants_frame_sign_in_goes_to_the_address_the_dashboar
 async def test_a_sign_in_state_counts_once_and_callbacks_are_rate_limited(started, monkeypatch):
     from urllib.parse import parse_qs, urlsplit
     from mantel_server.identity import auth
-    from mantel_server.ha_oauth import HaOAuth, OAuthError
+    from mantel_server.ha.ha_oauth import HaOAuth, OAuthError
 
     async def no_exchange(self, http, code):
         raise OAuthError("fictional: HA is not here")

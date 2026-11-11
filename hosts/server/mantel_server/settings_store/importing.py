@@ -327,7 +327,7 @@ async def import_cli(data_dir, ha_url: str, token: str, out=print, ws_url: str |
     write them as version 1. Exit 0 when imported or already imported."""
     from pathlib import Path
 
-    from ..readproxy import ReadProxy
+    from ..ha.readproxy import ReadProxy
     from ..store import Store
     st = Store(Path(data_dir).expanduser() / "mantel.db")
     proxy = ReadProxy(ha_url, token, ws_url=ws_url)

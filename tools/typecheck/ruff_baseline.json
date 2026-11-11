@@ -11,7 +11,7 @@
   "hosts/server/mantel_server/feature_pages.py": 1,
   "hosts/server/mantel_server/features/__init__.py": 55,
   "hosts/server/mantel_server/features/sleep.py": 1,
-  "hosts/server/mantel_server/ha_client.py": 1,
+  "hosts/server/mantel_server/ha/ha_client.py": 1,
   "hosts/server/mantel_server/ingress.py": 1,
   "hosts/server/mantel_server/tablet_links.py": 1,
   "hosts/server/mantel_server/talk_direct.py": 1,

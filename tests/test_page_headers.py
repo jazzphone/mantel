@@ -5,7 +5,7 @@ import asyncio
 
 import gateway_fakes as GF
 from mantel_server import page_headers as PH
-from mantel_server.readproxy import READ_ALLOWED, SERVER_ONLY_READS
+from mantel_server.ha.readproxy import READ_ALLOWED, SERVER_ONLY_READS
 from test_features import make_env  # noqa: F401 -- the fixture
 
 YARD = {"automation": "automation.yard", "trigger_id": "dusk", "kind": "sun", "event": "sunset", "offset_s": -900,

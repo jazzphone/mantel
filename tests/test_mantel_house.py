@@ -9,8 +9,8 @@ import pytest
 
 from hk_core.house import Device, Entity, Floor, State, area_of
 from mantel_server.house import HouseCommandsDisabled, MantelHouse
-from mantel_server.registry import Registry
-from mantel_server.state import StateStore
+from mantel_server.ha.registry import Registry
+from mantel_server.ha.state import StateStore
 
 LC = 1_760_000_000.5
 AREAS = [{"area_id": "kitchen", "name": "Kitchen", "floor_id": "ground"},

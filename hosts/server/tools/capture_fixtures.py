@@ -19,7 +19,7 @@ import aiohttp
 
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "hosts" / "server"))
-from mantel_server.ha_client import read_token  # noqa: E402
+from mantel_server.ha.ha_client import read_token  # noqa: E402
 
 OUT = ROOT / "spikes" / "hk-snapshot" / "fixtures"
 
