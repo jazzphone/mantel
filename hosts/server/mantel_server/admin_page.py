@@ -29,7 +29,8 @@ from importlib.resources import files
 
 from aiohttp import web
 
-from . import frame_origins, ingress, security_headers, setup_guide
+from .network import frame_origins, ingress, security_headers
+from . import setup_guide
 from .identity import rbac
 from .identity.accounts import MANAGERS
 from .devices import DEVICE_ROLES

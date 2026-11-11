@@ -24,12 +24,12 @@ from urllib.parse import urlsplit
 
 from aiohttp import WSMsgType, web
 
-from . import audit
-from .identity import authz as authz_mod
-from .identity import door_key, sessions
+from .. import audit
+from ..identity import authz as authz_mod
+from ..identity import door_key, sessions
 from . import frame_origins, proxy_trust
-from .identity.guards import WHY_PUBLIC, WHY_STATIC, guard, open_route
-from .identity.guards import ident as guarded
+from ..identity.guards import WHY_PUBLIC, WHY_STATIC, guard, open_route
+from ..identity.guards import ident as guarded
 
 PAGE = "/proxy-check"
 ASSETS = {"check.js": "text/javascript", "check.css": "text/css"}

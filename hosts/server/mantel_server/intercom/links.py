@@ -28,7 +28,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from ipaddress import ip_address
 
-from .. import direct
+from ..network import direct
 from .spool import Spool
 
 log = logging.getLogger("mantel.intercom")

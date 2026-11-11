@@ -29,7 +29,7 @@ from urllib.parse import quote, urlsplit
 
 from aiohttp import web
 
-from .. import frame_origins, security_headers
+from ..network import frame_origins, security_headers
 from .guards import WHY_STATIC, open_route
 from .sessions import door_of, identity
 

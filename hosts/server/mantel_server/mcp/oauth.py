@@ -69,7 +69,7 @@ SCOPE_WORDS = {"read": "Read the house, its settings, screens and Music",
 
 
 def issuer(request: web.Request) -> str:
-    from ..proxy_trust import public_origin
+    from ..network.proxy_trust import public_origin
     return public_origin(request)
 
 
@@ -307,7 +307,7 @@ async def authorize_page(request: web.Request) -> web.StreamResponse:
             "</form></div>")
     resp = _page("Connect an Assistant", body)
     # Allow redirects to the assistant's own address: form-action covers a form's redirects too
-    from ..security_headers import page_policy
+    from ..network.security_headers import page_policy
     u = urlparse(p["redirect_uri"])
     csp = page_policy(request.app.get("cfg")).replace("form-action 'self'", f"form-action 'self' {u.scheme}://{u.netloc}")
     resp.headers["Content-Security-Policy"] = re.sub(r"frame-ancestors [^;]*", "frame-ancestors 'none'", csp)

@@ -491,7 +491,7 @@ def test_each_tls_snippet_validates_in_the_caddy_image(tmp_path, snippet):
 
 
 def test_mantels_own_security_headers_are_checked(tmp_path):
-    src = ROOT / "hosts/server/mantel_server/security_headers.py"
+    src = ROOT / "hosts/server/mantel_server/network/security_headers.py"
     assert pc.check_security_headers(src) == []
     good = src.read_text()
     for edit, expect in [

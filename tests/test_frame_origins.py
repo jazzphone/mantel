@@ -8,7 +8,7 @@ import json
 import pytest
 
 from conftest import Mantel  # noqa: F401  (the fixture's type)
-from mantel_server.frame_origins import API, origin_of
+from mantel_server.network.frame_origins import API, origin_of
 
 HA_HOME = "https://ha.home.example"
 
@@ -106,7 +106,7 @@ async def test_a_person_gets_home_assistants_address_for_the_open_home_assistant
     """GET /api/me `ha_address` (the dashboard's one Home Assistant row, opened at Mantel's own address): HA's
     external URL, else its internal one, else Mantel's own address for HA; a wall tablet gets none (Avery,
     2026-10-19: nothing to get stuck in)."""
-    from mantel_server.frame_origins import ha_address
+    from mantel_server.network.frame_origins import ha_address
     m = mantel
     await owner(m)
     fallback = ha_address(m.app)
@@ -124,7 +124,7 @@ async def test_a_person_gets_home_assistants_address_for_the_open_home_assistant
 
 def test_the_apps_supervisor_address_is_never_a_browsers(tmp_path):
     from types import SimpleNamespace
-    from mantel_server.frame_origins import FrameOrigins, ha_address
+    from mantel_server.network.frame_origins import FrameOrigins, ha_address
     app = {"cfg": SimpleNamespace(ha_url="http://supervisor/core", ha_browser_url="", ha_managed_by_app=True)}
     app["frame_origins"] = FrameOrigins(app)
     assert ha_address(app) is None

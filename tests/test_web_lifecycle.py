@@ -96,7 +96,7 @@ def test_pings_nobody_answered_are_not_kept(observed):
 
 # ------------------------------------------------------------------------------------------ CSP and inline handlers
 def test_the_page_policy_allows_no_inline_script():
-    from mantel_server import security_headers as sh
+    from mantel_server.network import security_headers as sh
     assert sh.PAGE_POLICY["script-src"] == ("'self'",)         # so an `onclick="..."` attribute never runs
 
 

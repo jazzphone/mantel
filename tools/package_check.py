@@ -366,7 +366,7 @@ def _load_security_headers(path: Path):
 
 
 def check_security_headers(path: Path) -> list[str]:
-    """Mantel Server's own security headers (hosts/server/mantel_server/security_headers.py), the policy
+    """Mantel Server's own security headers (hosts/server/mantel_server/network/security_headers.py), the policy
     every page gets behind any proxy: strict script-src, no eval anywhere, the framing and HSTS rules."""
     name = "security_headers.py"
     try:
@@ -768,7 +768,7 @@ def run_all(release: bool = False, root: Path = ROOT) -> list[str]:
     problems += check_dockerfile(pkg / "docker/caddy.Dockerfile", release, require_nonroot=False)
     problems += check_compose(pkg / "compose/compose.yaml", release)
     problems += check_caddyfile(pkg / "compose/caddy/Caddyfile")
-    problems += check_security_headers(root / "hosts/server/mantel_server/security_headers.py")
+    problems += check_security_headers(root / "hosts/server/mantel_server/network/security_headers.py")
     problems += check_byo_compose(pkg / "compose/compose.byo-proxy.yaml")
     problems += check_lxc_script(pkg / "lxc/mantel.sh")
     problems += check_ha_app(pkg / "ha-app/config.yaml")

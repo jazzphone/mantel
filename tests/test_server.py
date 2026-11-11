@@ -167,7 +167,8 @@ def test_every_listener_gives_open_sockets_seconds_not_a_minute():
     for open handlers; each now passes a short shutdown_timeout (less than a container's 10 s stop)."""
     import inspect
 
-    from mantel_server import __main__ as entry, connect_pairing, direct
+    from mantel_server import __main__ as entry
+    from mantel_server.network import connect_pairing, direct
     assert entry.SHUTDOWN_TIMEOUT == direct.SHUTDOWN_TIMEOUT == connect_pairing.SHUTDOWN_TIMEOUT
     assert 0 < entry.SHUTDOWN_TIMEOUT < 10
     assert "shutdown_timeout=SHUTDOWN_TIMEOUT" in inspect.getsource(entry.main)

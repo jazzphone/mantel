@@ -19,7 +19,7 @@ from argon2 import PasswordHasher
 
 import gateway_fakes as GF
 from mantel_server import features as F
-from mantel_server import ingress
+from mantel_server.network import ingress
 from mantel_server.identity import sessions
 from test_ingress import ADULT_HA, OWNER_HA, PAGE, PREFIX, ROOT, STRANGER_HA, App, FakeDirectory
 

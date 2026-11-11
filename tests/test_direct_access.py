@@ -25,7 +25,7 @@ import aiohttp
 import pytest
 from aiohttp.test_utils import TestServer
 
-from mantel_server import direct, direct_tls, ingress
+from mantel_server.network import direct, direct_tls, ingress
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from acme_fakes import FakeAcme, FakeCloudflare, FakeDuckDns  # noqa: E402
@@ -278,7 +278,7 @@ async def _start(tmp_path, monkeypatch, *, mode="proxy", ingress_peers=("172.30.
         app["direct_tls"].pending = cert_pending
 
     async def probe(request):
-        from mantel_server import proxy_trust
+        from mantel_server.network import proxy_trust
         from mantel_server.identity import sessions
         return aiohttp.web.json_response({"door": sessions.door_of(request), "ingress": ingress.is_ingress(request),
                                           "direct": direct.is_direct(request), "trusted": proxy_trust.is_trusted(request),
@@ -422,7 +422,7 @@ def test_the_entrypoint_warns_when_the_proxy_is_a_relay_address(tmp_path, capsys
 
 
 async def test_the_proxy_check_flags_a_relay_address_and_names_the_app_option(started, monkeypatch):
-    from mantel_server import proxy_check
+    from mantel_server.network import proxy_check
     from mantel_server.identity import guards
     monkeypatch.setattr(guards, "check", lambda request, spec: None)      # the report, without an Owner's session
     r = await started(mode="proxy", trusted=("127.0.0.1", "172.30.32.1"), public=("/api/admin/proxy-check",))
@@ -619,7 +619,7 @@ async def test_an_enrolled_wall_tablet_opens_its_own_screen_on_the_direct_port(s
 
 
 async def test_the_https_panel_names_the_mode_of_the_port_it_was_opened_on(started):
-    from mantel_server import proxy_check
+    from mantel_server.network import proxy_check
 
     def req(cfg, on_direct):
         return SimpleNamespace(app={"cfg": cfg}, get=lambda k, d=None: {"direct": on_direct}.get(k, d))

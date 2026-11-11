@@ -271,7 +271,7 @@ def test_safe_tail_and_redirect_rules():
 # -- through HA's Ingress: the prefix ---------------------------------------------------------------------
 async def test_through_ingress_the_prefix_is_kept(tmp_path, monkeypatch):
     from test_ingress import OWNER_HA, PREFIX, FakeDirectory
-    from mantel_server import ingress
+    from mantel_server.network import ingress
     ma = await start_upstream(ma_app)
     m = await make_mantel(tmp_path, monkeypatch, {"ha_directory": FakeDirectory()}, ma_web_url=ma.url, ingress=True,
                           ingress_peers=("127.0.0.1",), ha_door_rules="trusted")

@@ -441,24 +441,19 @@ Mantel Server.
   - `audit.py` — The one way a settings or account change is written to the audit log (Rules.md rule 3 and rule 7).
   - `backup.py` — Encrypted backups of Mantel's database (and uploaded files), and a restore that checks before it swaps.
   - `config.py`
-  - `connect_pairing.py` — Mantel Connect, Mantel Server's side
   - `connect_proof.py` — Separate TLS identity-only receiver.
   - `connections.py` — Connections
   - `db.py` — Mantel's SQLite database
   - `default_screens.py` — The screen a person or a wall tablet opens on (migration 0014; decision 27's addendum, docs/phase8/SETTINGS.md).
   - `devices.py` — Device credentials
-  - `direct.py` — HA App direct access (decision 26; docs/phase3/HA-APP.md "Direct access")
-  - `direct_tls.py` — Built-in HTTPS for the HA App's direct access (decision 26; docs/phase3/HA-APP.md "Built-in HTTPS").
   - `docs_pages.py` — /docs
   - `dry_run.py` — A dry run
   - `feature_pages.py` — HK Settings -> Features on Mantel
   - `feature_watch.py` — Two of HK's clock-driven features on Mantel, through MantelHouse and FeatureCaller (docs/phase4/MANTEL-FEATURES.md "Phase 4 ports").
-  - `frame_origins.py` — Which pages may show Mantel in a frame (CSP ``frame-ancestors``)
   - `health.py` — /healthz and /api/version
   - `hidden.py` — HIDDEN ACCESSORIES, MANTEL SERVER'S SIDE
   - `hk_cards.py` — GET /api/hk-cards
   - `house.py` — THE HOUSE PORT, MANTEL SERVER'S SIDE (hk_core/house.py; PLAN §0 plan review, item 1 (c)).
-  - `ingress.py` — HA App mode
   - `laundry.py` — Laundry
   - `linked.py` — Phase 5
   - `linked_actions.py` — HK Frontend's other actions, run by Mantel (docs/phase9/MANTEL-LINK.md 9.8).
@@ -488,13 +483,10 @@ Mantel Server.
   - `page_health.py` — PAGE HEALTH (2026-10-22)
   - `performance.py` — PERFORMANCE (2026-10-26)
   - `phones.py` — Mantel's notifications on people's phones, through Home Assistant's Companion app (docs/phase9/MANTEL-LINK.md 9.7).
-  - `proxy_check.py` — "Test my proxy"
-  - `proxy_trust.py` — Who may tell Mantel about the browser
   - `push.py` — Notifications off the screens
   - `qr.py` — A small QR code encoder (byte mode, error correction M, versions 1 to 20) for the apps' pairing code.
   - `route_table.py` — One route table, assembled from each handler's declaration (phase 18, Part A; Rules.md rule 7).
   - `screens.py` — Mantel's screens
-  - `security_headers.py` — Mantel's own security headers, on every response, whatever proxy is (or is not) in front of it.
   - `server.py` — Client-facing side
   - `server_settings.py` — Mantel's own settings that used to be start-up options, now in Mantel Settings (the same on the HA App, Docker and LXC; docs/phase3/HA-APP.md 0.1.52).
   - `setup_check.py` — HK Settings' Setup Check on Mantel
@@ -616,6 +608,15 @@ Mantel Server.
   - `screens.py` — Screens and Home Grid
   - `settings.py` — Settings
   - `timeline.py` — The House Timeline for assistants (docs/phase19/HOUSE-TIMELINE.md "MCP")
+- **hosts/server/mantel_server/network/**
+  - `connect_pairing.py` — Mantel Connect, Mantel Server's side
+  - `direct.py` — HA App direct access (decision 26; docs/phase3/HA-APP.md "Direct access")
+  - `direct_tls.py` — Built-in HTTPS for the HA App's direct access (decision 26; docs/phase3/HA-APP.md "Built-in HTTPS").
+  - `frame_origins.py` — Which pages may show Mantel in a frame (CSP ``frame-ancestors``)
+  - `ingress.py` — HA App mode
+  - `proxy_check.py` — "Test my proxy"
+  - `proxy_trust.py` — Who may tell Mantel about the browser
+  - `security_headers.py` — Mantel's own security headers, on every response, whatever proxy is (or is not) in front of it.
 - **hosts/server/mantel_server/settings_store/**
   - `docs.py` — The shapes the settings store is made of
   - `hooks.py` — What a save asks and is classified by

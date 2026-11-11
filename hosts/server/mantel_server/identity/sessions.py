@@ -143,7 +143,7 @@ def client_ip(request: web.Request) -> str | None:
     if request.get("ingress_client_ip") is not None:   # set by ingress.py for Ingress requests only
         return request["ingress_client_ip"]
     remote = request.remote
-    from .. import proxy_trust
+    from ..network import proxy_trust
     if remote and proxy_trust.is_trusted(request):
         # every X-Forwarded-For line, not the first only: a proxy that adds a line of its own (HAProxy's
         # option forwardfor) left the browser's first, and the browser chose its address

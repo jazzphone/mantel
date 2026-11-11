@@ -23,7 +23,7 @@ from cryptography.x509.oid import NameOID
 
 from mantel_connect import app as connect_app
 from mantel_connect import pairing, pki, protocol
-from mantel_server import connect_pairing
+from mantel_server.network import connect_pairing
 
 OWNER_HA = "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6"
 STRANGER_HA = "99999999999999999999999999999999"
@@ -678,7 +678,7 @@ def test_asking_for_the_pending_code_leaves_no_transaction_open(tmp_path):
     connection: any other writer then failed with "database is locked" until an unrelated commit."""
     import sqlite3
 
-    from mantel_server.connect_pairing import Connect
+    from mantel_server.network.connect_pairing import Connect
     from mantel_server.store import Store
     store = Store(tmp_path / "mantel.db")
     pairing = Connect(store.db, tmp_path / "connect", clock=lambda: 1_000_000.0)

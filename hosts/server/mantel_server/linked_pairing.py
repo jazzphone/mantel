@@ -56,7 +56,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from mantel_connect import protocol as CP
 
 from . import audit
-from .connect_pairing import ALL_FAILS, ALL_WINDOW, IP_FAILS, IP_WINDOW, MAX_WRONG, Window
+from .network.connect_pairing import ALL_FAILS, ALL_WINDOW, IP_FAILS, IP_WINDOW, MAX_WRONG, Window
 from .identity.guards import guard, open_route
 from .identity.guards import ident as guarded
 # The protocol numbers, the path and the address are shared with Mantel Link (hk_core/pairing.py).

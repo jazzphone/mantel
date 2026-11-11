@@ -179,5 +179,5 @@ def test_the_mantel_app_image_carries_the_protocol_the_server_imports():
     spec.loader.exec_module(ha)
     dests = {d for _, d in ha.plan()}
     assert {"app/hosts/server/mantel_connect/protocol.py", "app/hosts/server/mantel_connect/pki.py",
-            "app/hosts/server/mantel_server/connect_pairing.py"} <= dests
+            "app/hosts/server/mantel_server/network/connect_pairing.py"} <= dests
     assert ha.scan(ha.plan()) == []

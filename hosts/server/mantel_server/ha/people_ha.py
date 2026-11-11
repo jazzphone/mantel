@@ -122,7 +122,7 @@ def merge(app: web.Application, src: str, into: str) -> dict:
 @guard("manager", reads="admin")
 async def api_get(request: web.Request) -> web.Response:
     app = request.app
-    from ..ingress import household, is_ha_admin, linked_user, tablet_link
+    from ..network.ingress import household, is_ha_admin, linked_user, tablet_link
     db = app["store"].db
     directory = _directory(app)
     users, err = [], None
@@ -156,7 +156,7 @@ async def api_put(request: web.Request) -> web.Response:
     if set(body) != {"ha_user", "user_id"} or not isinstance(target, str) or not _HA_USER.match(target) or (
             uid is not None and not isinstance(uid, str)):
         return error(400, "invalid", message="{ha_user, user_id: a person or null}")
-    from ..ingress import linked_user, tablet_link
+    from ..network.ingress import linked_user, tablet_link
     if tablet_link(db, target) is not None:
         return error(409, "tablet", message="That Home Assistant user is a wall tablet: change it on its "
                                                        "tablet's page (All Screens, Wall Tablets).")
@@ -235,7 +235,7 @@ async def api_device_ha_user(request: web.Request) -> web.Response:
     target = body.get("ha_user")
     if set(body) != {"ha_user"} or (target is not None and (not isinstance(target, str) or not _HA_USER.match(target))):
         return error(400, "invalid", message="{ha_user: an HA user id or null}")
-    from ..ingress import TabletLinkError, link_tablet, linked_user, unlink_tablet
+    from ..network.ingress import TabletLinkError, link_tablet, linked_user, unlink_tablet
     db = app["store"].db
     now = db.execute("SELECT ha_user_id FROM ha_tablet_links WHERE device_id = ?", (dev,)).fetchone()
     stand_in = linked_user(db, target) if target is not None else None

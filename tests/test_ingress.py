@@ -20,7 +20,7 @@ import pytest
 from aiohttp.test_utils import TestClient, TestServer
 from multidict import CIMultiDict
 
-from mantel_server import ingress
+from mantel_server.network import ingress
 from mantel_server.identity import sessions
 
 ROOT = Path(__file__).resolve().parents[1]

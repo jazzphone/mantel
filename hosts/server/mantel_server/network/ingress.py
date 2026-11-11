@@ -60,11 +60,11 @@ from urllib.parse import parse_qs
 import aiohttp
 from aiohttp import web
 
-from . import audit, live
-from .identity import sessions
-from .identity.guards import guard, open_route
-from .identity.guards import ident as guarded
-from .identity.sessions import INGRESS_METHOD, Identity, User
+from .. import audit, live
+from ..identity import sessions
+from ..identity.guards import guard, open_route
+from ..identity.guards import ident as guarded
+from ..identity.sessions import INGRESS_METHOD, Identity, User
 
 log = logging.getLogger("mantel.ingress")
 
@@ -667,7 +667,7 @@ async def api_tablets_get(request: web.Request) -> web.Response:
 
 @guard("owner", door="home", audit="ingress.link_tablet")
 async def api_tablets_post(request: web.Request) -> web.Response:
-    from .identity.accounts import read_json
+    from ..identity.accounts import read_json
     ident = guarded(request)
     body = await read_json(request)
     if set(body) - {"ha_user_id", "device_id", "name", "room"}:
@@ -811,7 +811,7 @@ def _needs_fresh(request: web.Request, ident, role: str, back: str, *, new_way_i
     ``POST /api/users`` ask: a fresh sign-in (``accounts.require_fresh_to_grant``; HA's own sidebar counts as fresh
     where it vouches for the person). A page saying so, not the REST route's JSON. Third audit pass, SRV-3: the
     form asked for nothing, so a stale Owner cookie from away made a new Owner here."""
-    from .identity.accounts import require_fresh_to_grant
+    from ..identity.accounts import require_fresh_to_grant
     try:
         require_fresh_to_grant(request, ident, role, new_way_in=new_way_in)
     except web.HTTPForbidden:
@@ -907,7 +907,7 @@ async def import_settings_post(request: web.Request) -> web.Response:
     form = parse_qs((await request.text())[:4096])
     if not ident.csrf or not hmac.compare_digest((form.get("csrf") or [""])[0], ident.csrf):
         raise web.HTTPForbidden(text="stale form: reload the page")
-    from . import settings_store
+    from .. import settings_store
     service = request.app.get("settings")
     hub = request.app.get("hub")
     proxy = getattr(hub, "readproxy", None)
@@ -1121,7 +1121,7 @@ async def middleware(request: web.Request, handler):
             return web.json_response({"error": "not_linked", "message": "ask a Mantel Owner to link your "
                                       "Home Assistant account"}, status=401)
         if request.path in ("/", "/home") and is_ha_tablet(ident):
-            from . import default_screens                     # the tablet's own screen, else its HK tablet's
+            from .. import default_screens                     # the tablet's own screen, else its HK tablet's
             start = default_screens.start_for(request.app, ident)
             if start is not None:
                 raise web.HTTPFound(base + start)

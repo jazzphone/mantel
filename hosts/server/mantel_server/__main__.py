@@ -131,7 +131,7 @@ def main(argv: list[str] | None = None) -> int:
         from .identity.service_accounts import cli as service_cli
         return service_cli(argv[1:])
     if argv and argv[0] == "connect":
-        from .connect_pairing import cli as connect_cli
+        from .network.connect_pairing import cli as connect_cli
         return connect_cli(argv[1:])
     if argv and argv[0] == "door-key":
         from .identity.door_key import cli as door_key_cli
@@ -161,14 +161,14 @@ def main(argv: list[str] | None = None) -> int:
     if cfg.connect:
         import asyncio
 
-        from .connect_pairing import serve
+        from .network.connect_pairing import serve
         print(f"mantel-server: Mantel Connect listens on {cfg.connect_listen}:{cfg.connect_port} (TLS, client certificates)",
               flush=True)
         asyncio.run(serve(app, cfg))
     elif cfg.direct_port:
         import asyncio
 
-        from .direct import serve as serve_direct
+        from .network.direct import serve as serve_direct
         how = "HTTPS with Mantel's own certificate" if cfg.direct_tls else "plain HTTP behind your own proxy"
         print(f"mantel-server: direct access on {cfg.host}:{cfg.direct_port} for {cfg.public_url} ({how})", flush=True)
         asyncio.run(serve_direct(app, cfg))

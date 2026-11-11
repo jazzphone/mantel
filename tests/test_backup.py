@@ -180,7 +180,7 @@ def test_the_connect_ca_travels_inside_the_encrypted_part_and_is_restored(tmp_pa
     inside the sealed archive, never in the file's clear bytes; restored 0600 in a 0700 folder."""
     import stat
 
-    from mantel_server.connect_pairing import Pki
+    from mantel_server.network.connect_pairing import Pki
     data = make_home(tmp_path)
     pki = Pki(data / "connect")
     pki.ensure()

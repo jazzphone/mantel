@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from mantel_server import security_headers as sh
+from mantel_server.network import security_headers as sh
 from mantel_server.config import Config, parse_args
 from https_fakes import make_mantel
 

@@ -232,7 +232,7 @@ def base_url(caller) -> str:
     cfg = caller.app.get("cfg")
     req = caller.request
     if req is not None:
-        from ...proxy_trust import public_origin
+        from ...network.proxy_trust import public_origin
         return public_origin(req)
     return (getattr(cfg, "public_url", "") or "").rstrip("/")
 

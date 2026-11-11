@@ -335,7 +335,7 @@ async def test_the_connect_listener_s_real_certificate_passes_mantel_link_s_pinn
     import ssl
 
     from hk_core.link.mantel_link import LINK_SERVER_NAME, pinned_context
-    from mantel_server.connect_pairing import Pki
+    from mantel_server.network.connect_pairing import Pki
 
     pki = Pki(tmp_path / "connect")
     pki.ensure()
@@ -377,7 +377,7 @@ async def test_mantel_link_pins_the_ca_built_off_the_event_loop(tmp_path, monkey
     from aiohttp import web
 
     from hk_core.link import mantel_link as ML
-    from mantel_server.connect_pairing import Pki
+    from mantel_server.network.connect_pairing import Pki
 
     pki, other = Pki(tmp_path / "connect"), Pki(tmp_path / "other")
     pki.ensure()

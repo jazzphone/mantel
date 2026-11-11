@@ -104,12 +104,12 @@ def check_origin(request: web.Request) -> None:
 
 
 def resource_url(request: web.Request) -> str:
-    from ..proxy_trust import public_origin
+    from ..network.proxy_trust import public_origin
     return public_origin(request) + PATH
 
 
 def www_authenticate(request: web.Request, exc: Refused) -> str:
-    from ..proxy_trust import public_origin
+    from ..network.proxy_trust import public_origin
     meta = f"{public_origin(request)}/.well-known/oauth-protected-resource{PATH}"
     out = f'Bearer resource_metadata="{meta}"'
     if exc.code == "invalid_token":

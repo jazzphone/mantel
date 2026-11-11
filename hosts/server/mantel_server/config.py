@@ -401,7 +401,7 @@ def parse_args(argv: list[str] | None = None) -> Config:
     for flag, value in (("--ma-web-url", a.ma_web_url),):
         if value and (urlparse(value).scheme not in ("http", "https") or not urlparse(value).hostname):
             p.error(f"{flag} must be an http(s):// URL")
-    from .security_headers import valid_source
+    from .network.security_headers import valid_source
     for flag, values in (("--frame-ancestors", a.frame_ancestors), ("--csp-connect-src", a.csp_connect_src),
                          ("--csp-frame-src", a.csp_frame_src)):
         for v in values:

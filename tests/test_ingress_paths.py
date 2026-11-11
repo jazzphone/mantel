@@ -14,7 +14,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from mantel_server import ingress
+from mantel_server.network import ingress
 from web_sources import owner as _owner
 
 ROOT = Path(__file__).resolve().parents[1]

@@ -97,7 +97,7 @@ class LinkedSettings:
 
     async def write(self, client: Any, msg: dict[str, Any]) -> Any:
         """One ``settings_write``: the save, as the linked person. Raises LinkedError to refuse."""
-        from .ingress import linked_user
+        from .network.ingress import linked_user
         from .linked import LinkedError
         from .identity.sessions import Identity, User
         from .settings_store import SettingsError
@@ -132,7 +132,7 @@ class LinkedSettings:
 
     async def people(self) -> list[dict[str, Any]]:
         """Home Assistant's people (no system users, no deactivated ones), each with who it is in Mantel."""
-        from .ingress import household, is_ha_admin, linked_user, tablet_link
+        from .network.ingress import household, is_ha_admin, linked_user, tablet_link
         directory = self._directory()
         if directory is None:
             return []
@@ -206,7 +206,7 @@ async def api_get(request: web.Request) -> web.Response:
 
 
 def _link_roles() -> tuple[str, ...]:
-    from .ingress import LINK_ROLES
+    from .network.ingress import LINK_ROLES
     return LINK_ROLES
 
 

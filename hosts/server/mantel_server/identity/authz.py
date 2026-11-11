@@ -146,7 +146,7 @@ def resolve_door(request: web.Request) -> str:
     h = request.headers
     if any(k in h for k in CF_HEADERS):
         return "tunnel"
-    from .. import direct, proxy_trust
+    from ..network import direct, proxy_trust
     if getattr(request, "get", None) is not None and request.get("link_direct"):
         # Mantel Link straight to Mantel Connect's listener (connect_pairing.LINK_PATHS): no proxy stamps a door, the
         # socket peer decides -- a home address is the LAN door, an internet one never
@@ -429,7 +429,7 @@ class Authz:
             # Home Assistant's sidebar before the page set Mantel's cookies (ingress.resolve: the user, no
             # session). No session row to re-read, so the link itself is: unlinked, disabled or re-linked to
             # someone else ends it, and a role change counts, as for a session.
-            from ..ingress import linked_user
+            from ..network.ingress import linked_user
             row = linked_user(self.app["store"].db, user.ha_user_id)
             if row is None or row["disabled"] or row["id"] != user.id:
                 p.valid = False

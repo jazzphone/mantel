@@ -224,7 +224,7 @@ async def test_an_alarm_pin_saved_on_the_settings_page_is_audited_before_it_is_s
 
 # -- the HA App's wall tablets and people page ----------------------------------------------------------------------
 async def test_linking_and_unlinking_a_wall_tablet_is_audited_before_it_changes(tmp_path, monkeypatch):
-    from mantel_server import ingress
+    from mantel_server.network import ingress
     from test_ingress_tablets import TABLET_HA, make, owner_page
     m = await make(tmp_path, monkeypatch)
     try:
@@ -256,7 +256,7 @@ async def test_the_ingress_people_page_refuses_an_owner_at_a_wall_tablet(tmp_pat
     """An Owner's session with a wall tablet's device beside it (a person at a tablet): Me only, as everywhere."""
     from mantel_server.identity import sessions
     from test_ingress_tablets import PAGE, TABLET_HA, make, owner_page, owner_user
-    from mantel_server import ingress
+    from mantel_server.network import ingress
     m = await make(tmp_path, monkeypatch)
     try:
         await owner_page(m)

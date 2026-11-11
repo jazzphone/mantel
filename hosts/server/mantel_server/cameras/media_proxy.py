@@ -52,7 +52,7 @@ from urllib.parse import quote, urlsplit
 import aiohttp
 from aiohttp import WSMsgType, web
 
-from .. import proxy_trust
+from ..network import proxy_trust
 from ..identity import sessions
 from ..identity.guards import WHY_PROXY, guard, open_route
 from ..connectors.kiosk import read_body     # the whole body, every piece (one read() is only the first)

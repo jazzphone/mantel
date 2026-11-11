@@ -31,9 +31,11 @@ from urllib.parse import urlparse
 import aiohttp
 from aiohttp import WSCloseCode, WSMsgType, web
 
-from . import about, frame_origins, music
+from . import about, music
+from .network import frame_origins
 from .identity import accounts, auth, pins, rbac_store, sessions
-from . import alarm_pin, connect_pairing, devices, health, ingress, live_tv, settings_store
+from . import alarm_pin, devices, health, live_tv, settings_store
+from .network import connect_pairing, ingress
 from .cameras import cameras_direct, protect_connector
 from .ha import gateway, readproxy
 from . import (
@@ -44,10 +46,8 @@ from .cameras import photos
 from .ha import people_ha, supervisor_discovery
 from .identity import login_page, service_accounts
 from .cameras import camera_setup, media_proxy
-from . import (
-    default_screens, direct, direct_tls, docs_pages, ma_page, proxy_check, proxy_trust, route_table, security_headers,
-    tablet_links, user_data,
-)
+from . import default_screens, docs_pages, ma_page, route_table, tablet_links, user_data
+from .network import direct, direct_tls, proxy_check, proxy_trust, security_headers
 from .ha import ha_dashboards, socket_reads
 from . import alerts, timeline, hk_cards, live, mcp, page_health, performance, server_settings, setup_guide
 from .apps import app_shell

@@ -51,9 +51,9 @@ from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
 
 from mantel_connect import pki, protocol
 
-from . import audit
-from .identity.guards import guard
-from .identity.guards import ident as guarded
+from .. import audit
+from ..identity.guards import guard
+from ..identity.guards import ident as guarded
 
 log = logging.getLogger("mantel.connect")
 
@@ -714,9 +714,9 @@ async def serve(app: web.Application, cfg, stop: asyncio.Event | None = None) ->
 
 # -- CLI: mantel connect pair | list | revoke | cancel | status ---------------------------------------------
 def cli(argv: list[str]) -> int:
-    from .config import Config
-    from .db import Database
-    from .ha.gateway import Audit
+    from ..config import Config
+    from ..db import Database
+    from ..ha.gateway import Audit
     p = argparse.ArgumentParser(prog="mantel connect", description="Pair Mantel Connect (HA's sidebar) with this server")
     p.add_argument("action", choices=("pair", "list", "revoke", "cancel", "status"))
     p.add_argument("--id", help="revoke: the pairing id (see `list`)")

@@ -77,7 +77,7 @@ def clean(key: str, value: Any) -> Any:
             raise Invalid("trusted, lan or tunnel")
         return value
     if key == "ha_sign_in_url":
-        from .frame_origins import origin_of
+        from .network.frame_origins import origin_of
         if value is None or value == "":
             return ""
         got = origin_of(value)
@@ -221,7 +221,7 @@ def move_frame_origins(app: web.Application, now: float) -> list[str]:
     ss: ServerSettings = app["server_settings"]
     if ss.moved("frame_origins"):
         return []
-    from . import frame_origins as F
+    from .network import frame_origins as F
     from .settings_store import Actor
     fo = app.get("frame_origins")
     wanted = [o for o in (F.origin_of(x) for x in getattr(app["cfg"], "ha_frame_origins", ()) or ()) if o]

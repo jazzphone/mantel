@@ -334,7 +334,7 @@ def register(app: web.Application, fetch: Fetch | None = None) -> None:
 
 def applies(request: web.Request) -> bool:
     """Does this request need an assertion? The tunnel door only; HA's Ingress never (the 'ha' door)."""
-    from .. import ingress
+    from ..network import ingress
     from . import sessions
     if ingress.is_ingress(request):
         return False

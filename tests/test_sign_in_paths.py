@@ -2,7 +2,7 @@
 pass, AUTH-1..6): a fresh factor away from home, the home door for a wall tablet, the sessions a link made ending
 with it, a handed-out session ending with its parent. Fictional people and HA users; no Home Assistant is contacted.
 """
-from mantel_server import frame_origins as FO
+from mantel_server.network import frame_origins as FO
 from mantel_server import server_settings as SS
 from mantel_server.apps.app_auth import APP_METHOD, APP_TTL, WEB_METHOD
 
@@ -147,7 +147,7 @@ async def test_moving_a_tablet_to_another_ha_user_does_not_revoke_it(mantel):
     """AUTH-6: api_device_ha_user unlinks the tablet's current HA user BEFORE linking the new one;
     a device made for that earlier link (own_device) is revoked by the unlink, so the link then fails and the
     tablet is gone."""
-    from mantel_server import ingress
+    from mantel_server.network import ingress
     from mantel_server.identity.sessions import User
     m = mantel
     uid = await m.user("avery", "owner")

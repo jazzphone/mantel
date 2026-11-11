@@ -84,7 +84,7 @@ def all_of(app: web.Application, kind: str) -> dict[str, str]:
 
 
 def _tablet(app: web.Application, device: Device) -> str | None:
-    from . import ingress
+    from .network import ingress
     start = ingress.tablet_start(app, device)            # "/<screen>/home?hk_tablet=<tid>", or None
     own = get(app, f"d:{device.id}")
     if own and own in _known(app):

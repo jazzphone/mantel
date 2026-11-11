@@ -10,7 +10,7 @@ import pytest
 from aiohttp import web
 from aiohttp.test_utils import make_mocked_request
 
-from mantel_server import proxy_trust
+from mantel_server.network import proxy_trust
 from mantel_server.config import Config
 from https_fakes import make_mantel
 

@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from mantel_server import proxy_check
+from mantel_server.network import proxy_check
 from https_fakes import make_mantel
 
 PROXY = "192.0.2.20"

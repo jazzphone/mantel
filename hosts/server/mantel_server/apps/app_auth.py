@@ -290,7 +290,7 @@ def clean(value: Any) -> str | None:
 
 
 def origin_of(request: web.Request) -> str:
-    from .. import proxy_trust
+    from ..network import proxy_trust
     scheme = "https" if proxy_trust.is_https(request) else request.scheme
     return f"{scheme}://{request.host}"
 

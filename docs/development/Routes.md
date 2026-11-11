@@ -191,16 +191,6 @@ Columns: **Rule** who may call it (`signed_in` any session, `person`, `manager` 
 | `POST /api/protect/test` | owner, fresh away |  | none |  | none: tests an address and an API key; saves nothing |  |
 | `POST /api/protect/trust` | owner, fresh away |  | none |  | connection.protect.certificate_trusted |  |
 
-## mantel_server.connect_pairing
-
-| Route | Rule | Reads | Stream | Preview | Audit | Assistants |
-|---|---|---|---|---|---|---|
-| `GET /api/connect` | owner, door home | admin | none |  |  |  |
-| `DELETE /api/connect/pair` | owner, door home |  | none |  | connect.pair_cancel |  |
-| `POST /api/connect/pair` | owner, door home |  | none |  | connect.pair_start |  |
-| `DELETE /api/connect/pairings/revoked` | owner, door home |  | none |  | connect.forget_revoked |  |
-| `DELETE /api/connect/pairings/{id}` | owner, door home |  | none |  | connect.revoke |  |
-
 ## mantel_server.connections
 
 | Route | Rule | Reads | Stream | Preview | Audit | Assistants |
@@ -277,14 +267,6 @@ Columns: **Rule** who may call it (`signed_in` any session, `person`, `manager` 
 | `GET /api/features/settings` | manager | admin | none |  |  |  |
 | `PUT /api/features/settings` | owner |  | none |  | none: a new version of house/mantel_features in the settings store, whose history names who saved it |  |
 | `GET /api/features/status` | manager | admin | none |  |  |  |
-
-## mantel_server.frame_origins
-
-| Route | Rule | Reads | Stream | Preview | Audit | Assistants |
-|---|---|---|---|---|---|---|
-| `DELETE /api/admin/frame-origins` | owner |  | none |  | frame_origin.remove |  |
-| `GET /api/admin/frame-origins` | manager | admin | none |  |  |  |
-| `POST /api/admin/frame-origins` | owner, fresh away |  | none |  | frame_origin.add |  |
 
 ## mantel_server.ha.gateway
 
@@ -464,20 +446,6 @@ Columns: **Rule** who may call it (`signed_in` any session, `person`, `manager` 
 | `POST /api/sessions/revoke-others` | person, tablet ok |  | none |  | session.revoke_others |  |
 | `DELETE /api/sessions/{id}` | person, tablet ok |  | none |  | session.revoke |  |
 
-## mantel_server.ingress
-
-| Route | Rule | Reads | Stream | Preview | Audit | Assistants |
-|---|---|---|---|---|---|---|
-| `GET /api/ingress/tablets` | manager | admin | none |  |  |  |
-| `POST /api/ingress/tablets` | owner, door home |  | none |  | ingress.link_tablet |  |
-| `DELETE /api/ingress/tablets/{ha_user_id}` | owner, door home |  | none |  | ingress.unlink_tablet |  |
-| `GET /ingress/bootstrap` | own: sign_in | none | none |  | the HA App's Ingress: first Owner or link by Home Assistant's own sign-in (loopback only, origin-checked, nonce); no Mantel session yet |  |
-| `POST /ingress/bootstrap` | own: sign_in | none | none |  | the HA App's Ingress: first Owner or link by Home Assistant's own sign-in (loopback only, origin-checked, nonce); no Mantel session yet |  |
-| `POST /ingress/import-features` | owner |  | none |  | ingress.import_features |  |
-| `POST /ingress/import-settings` | owner |  | none |  | ingress.import_settings |  |
-| `GET /ingress/people` | manager | admin | none |  |  |  |
-| `POST /ingress/people` | manager |  | none |  | ingress.link, ingress.unlink, ingress.link_tablet, ingress.unlink_tablet |  |
-
 ## mantel_server.intercom.relay
 
 | Route | Rule | Reads | Stream | Preview | Audit | Assistants |
@@ -578,6 +546,50 @@ Columns: **Rule** who may call it (`signed_in` any session, `person`, `manager` 
 |---|---|---|---|---|---|---|
 | `GET /api/music/status` | manager | admin | none |  |  |  |
 
+## mantel_server.network.connect_pairing
+
+| Route | Rule | Reads | Stream | Preview | Audit | Assistants |
+|---|---|---|---|---|---|---|
+| `GET /api/connect` | owner, door home | admin | none |  |  |  |
+| `DELETE /api/connect/pair` | owner, door home |  | none |  | connect.pair_cancel |  |
+| `POST /api/connect/pair` | owner, door home |  | none |  | connect.pair_start |  |
+| `DELETE /api/connect/pairings/revoked` | owner, door home |  | none |  | connect.forget_revoked |  |
+| `DELETE /api/connect/pairings/{id}` | owner, door home |  | none |  | connect.revoke |  |
+
+## mantel_server.network.frame_origins
+
+| Route | Rule | Reads | Stream | Preview | Audit | Assistants |
+|---|---|---|---|---|---|---|
+| `DELETE /api/admin/frame-origins` | owner |  | none |  | frame_origin.remove |  |
+| `GET /api/admin/frame-origins` | manager | admin | none |  |  |  |
+| `POST /api/admin/frame-origins` | owner, fresh away |  | none |  | frame_origin.add |  |
+
+## mantel_server.network.ingress
+
+| Route | Rule | Reads | Stream | Preview | Audit | Assistants |
+|---|---|---|---|---|---|---|
+| `GET /api/ingress/tablets` | manager | admin | none |  |  |  |
+| `POST /api/ingress/tablets` | owner, door home |  | none |  | ingress.link_tablet |  |
+| `DELETE /api/ingress/tablets/{ha_user_id}` | owner, door home |  | none |  | ingress.unlink_tablet |  |
+| `GET /ingress/bootstrap` | own: sign_in | none | none |  | the HA App's Ingress: first Owner or link by Home Assistant's own sign-in (loopback only, origin-checked, nonce); no Mantel session yet |  |
+| `POST /ingress/bootstrap` | own: sign_in | none | none |  | the HA App's Ingress: first Owner or link by Home Assistant's own sign-in (loopback only, origin-checked, nonce); no Mantel session yet |  |
+| `POST /ingress/import-features` | owner |  | none |  | ingress.import_features |  |
+| `POST /ingress/import-settings` | owner |  | none |  | ingress.import_settings |  |
+| `GET /ingress/people` | manager | admin | none |  |  |  |
+| `POST /ingress/people` | manager |  | none |  | ingress.link, ingress.unlink, ingress.link_tablet, ingress.unlink_tablet |  |
+
+## mantel_server.network.proxy_check
+
+| Route | Rule | Reads | Stream | Preview | Audit | Assistants |
+|---|---|---|---|---|---|---|
+| `GET /api/admin/proxy-check` | owner | admin | none |  |  |  |
+| `POST /api/admin/proxy-check/door-key` | owner, fresh away |  | none |  | door_key.rotated |  |
+| `GET /api/admin/proxy-check/summary` | manager | admin | none |  |  |  |
+| `GET /api/admin/proxy-check/ws` | owner | admin | bounded:5 s |  |  |  |
+| `GET /api/proxy-check/basics` | own: public | none | none |  | public on purpose: health and build checks, which the container and the HA App probe signed out |  |
+| `GET /proxy-check` | owner | admin | none |  |  |  |
+| `GET /proxy-check/{name}` | own: static | none | none |  | a static file or page shell any session (or the sign-in page) loads; the data behind it is guarded |  |
+
 ## mantel_server.performance
 
 | Route | Rule | Reads | Stream | Preview | Audit | Assistants |
@@ -591,18 +603,6 @@ Columns: **Rule** who may call it (`signed_in` any session, `person`, `manager` 
 |---|---|---|---|---|---|---|
 | `GET /api/phones` | manager | admin | none |  |  |  |
 | `PUT /api/users/{id}/phones` | manager |  | none |  | phones.set |  |
-
-## mantel_server.proxy_check
-
-| Route | Rule | Reads | Stream | Preview | Audit | Assistants |
-|---|---|---|---|---|---|---|
-| `GET /api/admin/proxy-check` | owner | admin | none |  |  |  |
-| `POST /api/admin/proxy-check/door-key` | owner, fresh away |  | none |  | door_key.rotated |  |
-| `GET /api/admin/proxy-check/summary` | manager | admin | none |  |  |  |
-| `GET /api/admin/proxy-check/ws` | owner | admin | bounded:5 s |  |  |  |
-| `GET /api/proxy-check/basics` | own: public | none | none |  | public on purpose: health and build checks, which the container and the HA App probe signed out |  |
-| `GET /proxy-check` | owner | admin | none |  |  |  |
-| `GET /proxy-check/{name}` | own: static | none | none |  | a static file or page shell any session (or the sign-in page) loads; the data behind it is guarded |  |
 
 ## mantel_server.push
 

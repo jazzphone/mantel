@@ -61,7 +61,7 @@ def is_trusted(request: web.Request) -> bool:
     if not listed(request):
         return False
     from . import direct
-    from .identity import door_key
+    from ..identity import door_key
     cfg = _cfg(request)
     if direct.enabled(cfg) and door_key.required(cfg):
         return door_key.status(request) == "ok"

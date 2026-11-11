@@ -281,7 +281,7 @@ def test_migration_0016_makes_the_table():
 
 
 def test_through_ingress_the_home_screen_tags_are_taken_out():
-    from mantel_server import ingress
+    from mantel_server.network import ingress
     for page in ("home.html", "settings.html"):
         html = ingress.inject_base((WEB / page).read_text(), "/api/hassio_ingress/Fict1onal")
         assert "manifest" not in html and "apple-touch-icon" not in html and "mantel-base" in html

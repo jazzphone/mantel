@@ -69,7 +69,7 @@ sys.path.insert(0, str(ROOT / "tests"))
 sys.path.insert(0, str(ROOT / "hosts/server"))
 import testha  # noqa: E402
 from https_fakes import Upstream, ma_app  # noqa: E402
-from mantel_server.proxy_check import PROBE, npm_advanced  # noqa: E402
+from mantel_server.network.proxy_check import PROBE, npm_advanced  # noqa: E402
 
 PROJECT = "mantel-e2e"
 PORT = 18443                 # Caddy's / nginx's https

@@ -51,7 +51,8 @@ from urllib.parse import urlsplit
 import aiohttp
 from aiohttp import web
 
-from .. import audit, frame_origins
+from .. import audit
+from ..network import frame_origins
 from ..identity.accounts import read_json
 from ..identity.guards import guard
 from ..identity.guards import ident as guarded

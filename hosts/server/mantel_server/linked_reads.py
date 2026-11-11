@@ -52,7 +52,7 @@ class LinkedReads:
         self.entries: dict[tuple[int, str], Any] = {}    # ... -> its live.py entry
 
     def _person(self, ha_user: str) -> Any:
-        from .ingress import linked_user
+        from .network.ingress import linked_user
         from .linked import LinkedError
         from .identity.sessions import Identity, User
         row = linked_user(self.app["store"].db, ha_user)

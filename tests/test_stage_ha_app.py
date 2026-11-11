@@ -21,7 +21,7 @@ def pairs():
 def test_the_plan_holds_the_app_and_its_code(pairs):
     dests = {d for _, d in pairs}
     for name in ("config.yaml", "Dockerfile", "DOCS.md", "README.md", "requirements.txt", "icon.png",
-                 "logo.png", "translations/en.yaml", "app/entrypoint.py", "app/hosts/server/mantel_server/ingress.py",
+                 "logo.png", "translations/en.yaml", "app/entrypoint.py", "app/hosts/server/mantel_server/network/ingress.py",
                  "app/hosts/server/mantel_server/__main__.py", "app/hosts/server/mantel_server/migrations/0008_ha_door.sql",
                  "app/hosts/server/mantel_server/hk_writes.json",
                  "app/web/home.html", "app/web/shim/base.js", "app/web/hk/shell/hk-view-host.js", "app/web/mdi/iconMetadata.json", "app/web/mdi/iconList.json"):

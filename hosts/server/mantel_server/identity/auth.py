@@ -187,7 +187,7 @@ async def login_ha(request: web.Request) -> web.StreamResponse:
     state = secrets.token_urlsafe(24)
     now = request.app["clock"]()
     _remember_state(request.app, state, now)
-    from .. import proxy_trust
+    from ..network import proxy_trust
     secure = proxy_trust.is_https(request)
     resp = web.HTTPFound(oauth.authorize_url(state, _ha_via(request)))
     resp.set_cookie(STATE_COOKIE, make_state_cookie(request.app["state_secret"], state, now),
@@ -206,7 +206,7 @@ def _ha_via(request: web.Request) -> str:
     ha_sign_in_url names the away one. HA's sign-in page sends X-Frame-Options: SAMEORIGIN, so in a frame it
     loads only from the address the dashboard is on. Anything else: the configured sign-in address."""
     via = request.query.get("via", "").rstrip("/")
-    from .. import frame_origins
+    from ..network import frame_origins
     allowed = frame_origins.ancestors(request.app)
     return via if via and via in allowed and via.startswith(("https://", "http://")) else ""
 
@@ -290,7 +290,7 @@ async def logout(request: web.Request) -> web.StreamResponse:
 
 @guard("signed_in", reads="self", preview=True)
 async def me(request: web.Request) -> web.Response:
-    from ..frame_origins import ha_address
+    from ..network.frame_origins import ha_address
     u = request["user"]
     # Home Assistant's address for the dashboard's "Open Home Assistant" row: a person's, never a wall tablet's
     # (nothing to get stuck in)
