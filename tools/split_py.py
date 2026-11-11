@@ -15,6 +15,20 @@ TWO SHAPES (the manifest's "mode"):
     it imports back. A name a test monkeypatches stays where its readers are (below), so a part may use only its own
     imports and earlier parts, never the module it came from.
 
+LAZY PACKAGES (the manifest's "lazy": true, package mode only; hk_core/settings/model.py): parts that call each other in
+every direction. The parts are ordered by what must be there WHILE THE MODULE LOADS (the tables, what mutates them, a
+constant built from another), and a call a function makes to a later part is resolved when it is called: the tool writes
+`from .<part> import <names>` as the first statement of each such function (after its docstring), nothing else changes.
+  * the names a part claims: "members" (by name) and "lines": [[first, last], ...] (the named statements that begin there);
+  * a statement that only changes a name (`X[k] = ...`, `X += ...`, `X.update(...)`) goes with the part that defines X;
+  * import time reaches further than the statement: a def or class it reads may be called as the module loads, so what that
+    reads counts too; so does a lambda made then (there is no place in it for a late import). Any such read of a later part,
+    and an import-time read with a binder of the name later in the file, is refused;
+  * proof, beyond the below: each function's syntax tree, with the inserted leading imports taken out, is the original's, and
+    those imports are exactly the ones the plan lists, each from a part that defines the name; no file reads a name nothing in
+    it defines or imports (a late import left out); and every value the module builds as it loads (not functions or classes)
+    has the same repr in the package as in the module (PYTHONHASHSEED=0, so a set or dict built the same way reads the same).
+
 WHAT IT REFUSES (and says so, naming the statement):
   * a part that uses a name of a later part, or (siblings) of the module that stays;
   * a name bound in two parts (an `X += ...`, a second `X = ...`, `X[k] = ...` or `X.append(...)` at the top level is a
@@ -23,7 +37,8 @@ WHAT IT REFUSES (and says so, naming the statement):
     comes later in the file: it would see the final value where it saw an earlier one;
   * a name a test monkeypatches separated from the code that reads it (read from the tests: `monkeypatch.setattr(M,
     "NAME", ...)`; a patch through a variable, as `for name, value in ...: setattr(M, name, value)`, counts as patching
-    every upper-case name of the module, the cautious reading);
+    every upper-case name of the module, the cautious reading). A PACKAGE refuses any patched name something reads: a patch
+    on `import pkg.mod as M` sets the package's attribute, and the parts read their own;
   * a statement that is not a def, class, import, assignment or docstring and has no named statement before it (an
     unnamed statement -- a call, an `if` -- goes with the named one before it).
 
@@ -41,6 +56,8 @@ from __future__ import annotations
 
 import argparse
 import ast
+import builtins
+import copy
 import json
 import os
 import re
@@ -71,6 +88,8 @@ class Stmt:
     binds: set[str]                 # what it binds or mutates at the top level (names + X += / X[k] = / X.f(...))
     now: set[str] = field(default_factory=set)        # module names read at import time
     later: set[str] = field(default_factory=set)      # module names read inside a function body
+    lam: set[str] = field(default_factory=set)        # module names read in a lambda that is made at import time
+    sites: list = field(default_factory=list)         # (function node, module names it reads): where a late import can go
     kind: str = ""
     part: int = -1
 
@@ -133,6 +152,50 @@ def free_globals(table: symtable.SymbolTable) -> set[str]:
     return out
 
 
+def import_time_lambda_reads(node: ast.AST) -> set[str]:
+    """The names read in the body of a lambda that is made while the module loads (not inside a function body): the
+    lambda runs later, but there is no place in it for a late import, so these count as import-time reads."""
+    out: set[str] = set()
+
+    def visit(n: ast.AST) -> None:
+        if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            for x in n.decorator_list + n.args.defaults + [d for d in n.args.kw_defaults if d is not None]:
+                visit(x)
+            return                                   # its body runs when it is called: a late import can go there
+        if isinstance(n, ast.Lambda):
+            own = {a.arg for a in n.args.args + n.args.posonlyargs + n.args.kwonlyargs}
+            own |= {a.arg for a in (n.args.vararg, n.args.kwarg) if a}
+            out.update(x.id for x in ast.walk(n.body) if isinstance(x, ast.Name) and isinstance(x.ctx, ast.Load)
+                       and x.id not in own)
+            for x in n.args.defaults + [d for d in n.args.kw_defaults if d is not None]:
+                visit(x)
+            return
+        for c in ast.iter_child_nodes(n):
+            visit(c)
+    visit(node)
+    return out
+
+
+def find_table(tables: list, name: str, lineno: int):
+    return next((c for c in tables if c.get_name() == name and c.get_lineno() == lineno), None)
+
+
+def collect_sites(node: ast.stmt, table: symtable.SymbolTable, module_names: set[str], out: list) -> None:
+    """The functions of a def or class a late import can go in -- the def itself, or each method of a class (a function inside
+    a function is covered by the outer one) -- each with the module names it (and what is inside it) reads, from the symbol
+    table, so a local of the same name never counts."""
+    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        out.append((node, free_globals(table) & module_names))
+        return
+    kids = table.get_children()
+    for b in node.body:
+        if isinstance(b, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            t = find_table(kids, b.name, b.lineno)
+            if t is None:
+                raise Refusal(f"line {b.lineno}: no symbol table for `{b.name}`")
+            collect_sites(b, t, module_names, out)
+
+
 def analyze(text: str, filename: str) -> list[Stmt]:
     tree = ast.parse(text, filename)
     lines = text.split("\n")
@@ -172,6 +235,12 @@ def analyze(text: str, filename: str) -> list[Stmt]:
                 st.now.add(sub.id)
             if isinstance(sub, ast.Name) and isinstance(sub.ctx, ast.Load) and sub.id in module_names and id(sub) in in_def:
                 st.later.add(sub.id)
+        st.lam = {x for x in import_time_lambda_reads(n) if x in module_names}
+        if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            table = find_table(children, n.name, n.lineno)
+            if table is None:
+                raise Refusal(f"line {n.lineno}: no symbol table for `{n.name}`")
+            collect_sites(n, table, module_names, st.sites)
         # a function's body: what its symbol table says it reads from the module (never one of its own locals)
         if st.later:
             got: set[str] = set()
@@ -192,6 +261,7 @@ class Plan:
     owner: dict[str, int]           # name -> the part that defines it (-1: stays, siblings mode)
     uses: dict[int, set[str]]       # part -> names it takes from other parts (or, in package mode, imports it keeps)
     refusals: list[str]
+    lazy: dict[int, list] = field(default_factory=dict)   # lazy mode: statement index -> [(function node, {part: names})]
 
 
 def patched_names(module_dotted: str, stmts: list[Stmt]) -> set[str]:
@@ -250,7 +320,10 @@ def loop_literals(text: str, var: str, at: int) -> set[str] | None:
 def make_plan(man: dict, text: str) -> Plan:
     stmts = analyze(text, man["module"])
     mode = man.get("mode", "package")
+    lazy = bool(man.get("lazy"))
     refusals: list[str] = []
+    if lazy and mode != "package":
+        refusals.append("\"lazy\" is for a package (its parts import each other, which a module that stays cannot)")
     by_name: dict[str, list[Stmt]] = {}
     for st in stmts:
         for n in st.names:
@@ -273,6 +346,24 @@ def make_plan(man: dict, text: str) -> Plan:
                 if st.part not in (-1, pi):
                     refusals.append(f"`{name}` (line {st.node.lineno}) is named by {man['parts'][st.part]['name']} and {part['name']}")
                 st.part = pi
+    # a part may also claim the named statements that begin on given lines ("lines": [[first, last], ...]); a name in
+    # "members" is claimed first
+    claimed: dict[int, int] = {}
+    for pi, part in enumerate(man["parts"]):
+        for lo, hi in part.get("lines", []):
+            for st in stmts:
+                if st.kind in ("import", "docstring") or not st.names or not lo <= st.first <= hi:
+                    continue
+                if st.part >= 0 and claimed.get(st.index) is None:
+                    continue                                   # named in "members"
+                if claimed.get(st.index, pi) != pi:
+                    refusals.append(f"`{st.names[0]}` (line {st.node.lineno}) is in the lines of {man['parts'][claimed[st.index]]['name']} "
+                                    f"and {part['name']}")
+                claimed[st.index] = st.part = pi
+    # in lazy mode a statement that only changes a name (`X[k] = ...`, `X += ...`, `X.update(...)`) goes with the part that
+    # defines X: its mutations then run there, in the file's order, as one would see them
+    named_part = {n: (st.part if st.part >= 0 else (rest[0] if rest else -1))
+                  for st in stmts if st.kind not in ("import", "docstring") and st.names for n in st.names}
     # an import goes everywhere it is used, so it has no part; the unnamed ones follow the statement before them
     last = -1
     for st in stmts:
@@ -281,6 +372,12 @@ def make_plan(man: dict, text: str) -> Plan:
         if st.part >= 0:
             last = st.part
             continue
+        if lazy and not st.names and st.kind in ("augassign", "call", "assign") and any(b in named_part for b in st.binds):
+            homes = {named_part[b] for b in st.binds if b in named_part}
+            if len(homes) > 1:
+                refusals.append(f"line {st.node.lineno} changes names of {len(homes)} different parts")
+            st.part = min(homes)
+            continue                                           # (it does not become "the statement before" the next one)
         if st.kind in ("augassign", "call", "other") or (st.kind == "assign" and not st.names):
             st.part = last if last >= 0 else (rest[0] if rest else -1)
         elif mode == "package":
@@ -306,34 +403,85 @@ def make_plan(man: dict, text: str) -> Plan:
         for b in st.binds:
             binders_at.setdefault(b, []).append(st.node.lineno)
     uses: dict[int, set[str]] = {i: set() for i in range(-1, len(man["parts"]))}
+    by_owner_stmt: dict[str, list[Stmt]] = {}
+    for st in stmts:
+        if st.kind not in ("import", "docstring"):
+            for n in st.names:
+                by_owner_stmt.setdefault(n, []).append(st)
+    lazy_plan: dict[int, list] = {}
     for st in stmts:
         if st.kind in ("import", "docstring"):
             continue
-        for n in (st.now | st.later) - imports:
+        if not lazy:
+            reads = {n: None for n in (st.now | st.later) - imports}
+        else:
+            # what must be there while the module loads: the names read outside function bodies (a lambda made then counts), and
+            # whatever a def or class read there reaches, since it may be called then (its late imports would find the later
+            # part not yet loaded)
+            reads, work = {}, [(n, None) for n in sorted(st.now | st.lam)]
+            while work:
+                n, via = work.pop()
+                if n in reads or n in imports:
+                    continue
+                reads[n] = via
+                for o_st in by_owner_stmt.get(n, []):
+                    if o_st.kind == "def" and o_st is not st:
+                        work += [(m, via or n) for m in sorted(o_st.later | o_st.now | o_st.lam)]
+        for n, via in reads.items():
             o = owner.get(n)
             if o is None or o == st.part:
                 continue
+            through = f" (through `{via}`, which it calls or may call)" if via else ""
             if mode == "siblings" and st.part >= 0 and o < 0:
                 refusals.append(f"{pname(man, st.part)}: line {st.node.lineno} uses `{n}`, which stays in {man['module']} "
                                 f"(a sibling may use only earlier siblings)")
                 continue
             if st.part >= 0 and o >= 0 and o > st.part:
-                refusals.append(f"{pname(man, st.part)}: line {st.node.lineno} uses `{n}` of the later part {pname(man, o)}")
+                refusals.append(f"{pname(man, st.part)}: line {st.node.lineno} uses `{n}` of the later part {pname(man, o)}"
+                                + (f" while it loads{through}" if lazy else ""))
                 continue
-            if n in st.now and any(line > st.node.lineno for line in binders_at.get(n, [])):
+            if via:
+                continue                                       # (reached through a function: ordered, but not a name this part imports)
+            if (n in st.now or (lazy and n in st.lam)) and any(line > st.node.lineno for line in binders_at.get(n, [])):
                 refusals.append(f"line {st.node.lineno} reads `{n}` at import time, and `{n}` is bound again later "
                                 f"(line {max(binders_at[n])}): in {pname(man, st.part)} it would see the final value")
             uses[st.part].add(n)
+        if lazy:
+            # the names a function reads when it is called: from an earlier part, a plain import at the top of the part; from a
+            # later part, an import as the first statement of the function (after its docstring), made when it runs
+            for node, got in st.sites:
+                need: dict[int, set[str]] = {}
+                for n in got - imports:
+                    o = owner.get(n)
+                    if o is not None and o >= 0 and o != st.part:
+                        if o > st.part:
+                            need.setdefault(o, set()).add(n)
+                        else:
+                            uses[st.part].add(n)
+                if need:
+                    lazy_plan.setdefault(st.index, []).append((node, {o: sorted(v, key=str.lower) for o, v in need.items()}))
+            if st.kind != "def":
+                for n in (st.later - st.now - st.lam) - imports:
+                    o = owner.get(n)
+                    if o is not None and st.part >= 0 and o > st.part:
+                        refusals.append(f"{pname(man, st.part)}: line {st.node.lineno} reads `{n}` of the later part {pname(man, o)} "
+                                        f"in a lambda (no place in it for a late import)")
     # monkeypatched names stay with every reader
     dotted = man["module"].removesuffix(".py").replace("/", ".")
     if mode == "siblings":
         dotted = dotted.split("hosts.server.", 1)[-1]
     for n in sorted(patched_names(dotted, stmts) & set(owner)):
         readers = {st.part for st in stmts if n in (st.now | st.later)}
-        if readers - {owner[n]}:
+        if mode == "package":
+            # a patch on the package sets the package's attribute; the code in a part reads the part's own
+            if readers:
+                refusals.append(f"`{n}` is monkeypatched by the tests on the package and read in "
+                                f"{sorted(pname(man, r) for r in readers)}: the patch would land on the package's __init__, "
+                                f"which the parts do not read")
+        elif readers - {owner[n]}:
             refusals.append(f"`{n}` is monkeypatched by the tests and read in {sorted(pname(man, r) for r in readers - {owner[n]})}, "
                             f"apart from {pname(man, owner[n])}, where the patch lands")
-    return Plan(man, text, stmts, owner, uses, list(dict.fromkeys(refusals)))
+    return Plan(man, text, stmts, owner, uses, list(dict.fromkeys(refusals)), lazy_plan)
 
 
 def pname(man: dict, pi: int) -> str:
@@ -380,6 +528,31 @@ def wrap(line: str, width: int = 118) -> list[str]:
     return out
 
 
+def late_imports(plan: Plan, st: Stmt, text: str, files: dict[int, str]) -> str:
+    """`text` (a def or class, from line st.first) with, as the first statement of each function that reads a name of a
+    later part -- after its docstring -- one `from .<part> import <names>` for each such part."""
+    lines = text.split("\n")
+    adds: list[tuple[int, list[str]]] = []
+    for node, need in plan.lazy[st.index]:
+        first = node.body[0]
+        if lines[first.lineno - st.first][:first.col_offset].strip():
+            raise Refusal(f"line {node.lineno}: `{node.name}` has its body on the line of its def; a late import has no place in it")
+        if isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant) and isinstance(first.value.value, str):
+            at = first.end_lineno - st.first + 1                    # after the docstring
+        else:
+            at = first.lineno - st.first
+            while at > 0 and lines[at - 1].lstrip().startswith("#"):    # (the comments above the first statement stay with it)
+                at -= 1
+        new = []
+        for o in sorted(need):
+            for ln in wrap(f"from .{Path(files[o]).stem} import {', '.join(need[o])}"):
+                new.append(" " * first.col_offset + ln)
+        adds.append((at, new))
+    for at, new in sorted(adds, key=lambda a: -a[0]):
+        lines[at:at] = new
+    return "\n".join(lines)
+
+
 def stmt_text(plan: Plan, st: Stmt) -> str:
     return "\n".join(plan.text.split("\n")[st.first - 1:st.last])
 
@@ -413,7 +586,7 @@ def build(plan: Plan) -> dict[str, str]:
         takes: dict[int, list[str]] = {}
         for n in sorted(plan.uses[pi] | (used & set(plan.owner))):
             o = plan.owner.get(n)
-            if o is not None and o != pi and o >= 0:
+            if o is not None and o != pi and o >= 0 and not (plan.man.get("lazy") and o > pi):    # (a later part: a late import)
                 takes.setdefault(o, []).append(n)
         for o in sorted(takes):
             head += wrap(f"from .{Path(files[o]).stem} import {', '.join(sorted(takes[o], key=str.lower))}")
@@ -422,6 +595,8 @@ def build(plan: Plan) -> dict[str, str]:
             text = stmt_text(plan, st)
             if mode == "package":
                 text = deeper(text, st.node, st.first)
+            if plan.lazy.get(st.index):
+                text = late_imports(plan, st, text, files)
             if k:
                 body.append("")
                 if isinstance(st.node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) or \
@@ -499,11 +674,55 @@ def names_in_annotations(node: ast.stmt) -> set[str]:
 
 
 # ------------------------------------------------------------------------------------------------ the proof
+def strip_late(node: ast.stmt, part_names: set[str]) -> tuple[ast.stmt, list[list[tuple[str, list[str]]]]]:
+    """A copy of a def or class with the late imports taken out -- the `from .<part> import ...` statements that open a function
+    (after its docstring) -- and, in source order, the ones taken from each function."""
+    node = copy.deepcopy(node)
+    found: list[list[tuple[str, list[str]]]] = []
+
+    def go(n: ast.AST) -> None:
+        if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            i = 1 if n.body and isinstance(n.body[0], ast.Expr) and isinstance(n.body[0].value, ast.Constant) \
+                and isinstance(n.body[0].value.value, str) else 0
+            j = i
+            while j < len(n.body) and isinstance(n.body[j], ast.ImportFrom) and n.body[j].level == 1 \
+                    and n.body[j].module in part_names and all(a.asname is None for a in n.body[j].names):
+                j += 1
+            if j > i:
+                found.append([(x.module or "", [a.name for a in x.names]) for x in n.body[i:j] if isinstance(x, ast.ImportFrom)])
+                del n.body[i:j]
+        elif isinstance(n, ast.ClassDef):
+            for b in n.body:
+                go(b)
+    go(node)
+    return node, found
+
+
+def unbound_names(text: str, filename: str) -> list[str]:
+    """Names a file reads that nothing in it defines, imports, or builtins gives (a lazy import left out)."""
+    top = symtable.symtable(text, filename, "exec")
+    have = {s.get_name() for s in top.get_symbols() if s.is_assigned() or s.is_imported() or s.is_namespace()}
+    ok = have | set(dir(builtins)) | {"__file__", "__name__", "__doc__", "__package__", "__spec__"}
+    bad: set[str] = set()
+
+    def go(t: symtable.SymbolTable, is_top: bool) -> None:
+        for sym in t.get_symbols():
+            if sym.is_referenced() and (is_top or sym.is_global()) and sym.get_name() not in ok:
+                bad.add(sym.get_name())
+        for c in t.get_children():
+            go(c, False)
+    go(top, True)
+    return sorted(bad)
+
+
 def prove(plan: Plan, files: dict[str, str]) -> list[str]:
     bad = []
     mode = plan.man.get("mode", "package")
+    lazy = bool(plan.man.get("lazy"))
+    part_names = {p["name"] for p in plan.man["parts"]}
     up = 1 if mode == "package" else 0
-    have: dict[str, list[str]] = {}
+    have: dict[str, list[tuple[str, list]]] = {}
+    defines: dict[str, set[str]] = {}
     for path, text in files.items():
         try:
             tree = ast.parse(text, path)
@@ -511,7 +730,16 @@ def prove(plan: Plan, files: dict[str, str]) -> list[str]:
             bad.append(f"{path}: does not parse: {err}")
             continue
         for node in tree.body:
-            have.setdefault(path, []).append(ast.dump(node))
+            if lazy and isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                node, found = strip_late(node, part_names)          # (what is left must be the original function)
+            else:
+                found = []
+            have.setdefault(path, []).append((ast.dump(node), found))
+            if not isinstance(node, (ast.Import, ast.ImportFrom)):
+                defines.setdefault(path, set()).update(defined(node)[0])
+        if lazy and Path(path).name != "__init__.py":
+            bad += [f"{path}: reads `{n}`, which nothing in it defines or imports" for n in unbound_names(text, path)]
+    stem_path = {Path(p).stem: p for p in files}
     for st in plan.stmts:
         if st.kind in ("import", "docstring"):
             continue
@@ -521,10 +749,20 @@ def prove(plan: Plan, files: dict[str, str]) -> list[str]:
                 if isinstance(sub, ast.ImportFrom) and sub.level:
                     sub.level += up
         want = ast.dump(node)
-        hits = [p for p, ds in have.items() if want in ds]
+        hits = [(p, f) for p, ds in have.items() for d, f in ds if d == want]
         if len(hits) != 1:
             bad.append(f"line {st.node.lineno} ({(st.names or [st.kind])[0]}): found {len(hits)} times after the split, not once")
-    # the parts import only earlier parts
+        elif lazy:
+            # the late imports are exactly the ones the plan says, each from the part that defines the name
+            expect = [[(plan.man["parts"][o]["name"], list(need[o])) for o in sorted(need)] for _n, need in plan.lazy.get(st.index, [])]
+            if hits[0][1] != expect:
+                bad.append(f"line {st.node.lineno} ({(st.names or [st.kind])[0]}): its late imports are {hits[0][1]}, the plan says {expect}")
+            for group in hits[0][1]:
+                for mod_name, names in group:
+                    for n in names:
+                        if n not in defines.get(stem_path.get(mod_name, ""), set()):
+                            bad.append(f"line {st.node.lineno}: a late import of `{n}` from {mod_name}, which does not define it")
+    # the parts import only earlier parts (at the top: a late import is inside a function and is not one of these)
     order = [p["name"] for p in plan.man["parts"]]
     for path, text in files.items():
         me = Path(path).stem
@@ -563,6 +801,28 @@ def import_names(root: Path, dotted: str, subs: list[str]) -> dict:
     return json.loads(run.stdout.strip().splitlines()[-1])
 
 
+VALUES_PROOF = r"""
+import importlib, json, re, sys
+m = importlib.import_module(sys.argv[1])
+out = {}
+for n, v in vars(m).items():
+    if n.startswith('__') and n.endswith('__') or callable(v) or isinstance(v, type(sys)):
+        continue
+    out[n] = re.sub(r'0x[0-9a-f]{6,}', '0x', repr(v))
+print(json.dumps(out))
+"""
+
+
+def import_values(root: Path, dotted: str) -> dict[str, str]:
+    """{name: repr} of every value the module builds as it loads (not its functions, classes or modules). Run with a fixed hash
+    seed, so a set or a dict made the same way is written the same way: the split must build every table as it was built."""
+    env = dict(os.environ, PYTHONPATH=f"{root}:{root}/hosts/server", PYTHONHASHSEED="0")
+    run = subprocess.run([PY, "-c", VALUES_PROOF, dotted], capture_output=True, text=True, env=env, cwd=root)
+    if run.returncode:
+        raise Refusal(f"importing {dotted} failed:\n{run.stderr[-2000:]}")
+    return json.loads(run.stdout.strip().splitlines()[-1])
+
+
 def dotted_of(man: dict) -> str:
     mod = Path(man["module"]).with_suffix("")
     parts = mod.parts[2:] if mod.parts[:2] == ("hosts", "server") else mod.parts
@@ -594,6 +854,7 @@ def do_split(man: dict, check_only: bool) -> int:
         return 1
     dotted = dotted_of(man)
     before = import_names(ROOT, dotted, [])
+    values_before = import_values(ROOT, dotted) if man.get("lazy") else {}
     mode = man.get("mode", "package")
     with tempfile.TemporaryDirectory(prefix="split_py-") as td:
         # the split tree: a copy of what the import reaches, with the new files in place of the module
@@ -609,8 +870,14 @@ def do_split(man: dict, check_only: bool) -> int:
         subs = [dotted + "." + Path(p).stem if mode == "package" else dotted.rsplit(".", 1)[0] + "." + Path(p).stem
                 for p in files if Path(p).name != "__init__.py" and Path(p).as_posix() != man["module"]]
         after = import_names(tmp, dotted, subs)
+        values_after = import_values(tmp, dotted) if man.get("lazy") else {}
     if after["notsame"]:
         bad += after["notsame"]
+    if man.get("lazy"):
+        bad += [f"`{n}` is built differently as the package loads" for n in sorted(values_before)
+                if values_after.get(n) != values_before[n]]
+        bad += [f"`{n}` is built by the package and was not by the module" for n in sorted(set(values_after) - set(values_before))
+                if n not in {Path(p).stem for p in files}]
     gone = sorted(set(before["names"]) - set(after["names"]))
     extra = sorted(set(after["names"]) - set(before["names"]) - {Path(p).stem for p in files} - {"annotations"})
     if gone:
