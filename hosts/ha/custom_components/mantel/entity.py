@@ -21,11 +21,8 @@ from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.event import async_call_later
 
 from .const import DOMAIN, HK_DOMAIN
+from .hk_core.link.linked_reserved import _RESERVED  # shared with HK Frontend
 
-# attributes Home Assistant itself sets: never taken from Mantel's
-_RESERVED = {"friendly_name", "icon", "entity_picture", "supported_features", "device_class",
-             "unit_of_measurement", "assumed_state", "attribution", "restored", "state_class", "options",
-             "access_token", "code_format", "code_arm_required", "frontend_stream_type", "entity_id"}
 MANUFACTURER = "Mantel"
 
 

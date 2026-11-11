@@ -32,23 +32,14 @@ from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 from homeassistant.core import HomeAssistant
 
+from .hk_core.link.tv_stream import BENIGN, QUALITY, ffmpeg_args  # noqa: F401 -- shared with HK Frontend
+
 _LOGGER = logging.getLogger(__name__)
 
 URL = "/api/mantel/tv/stream"
 CHANNEL = re.compile(r"^\d{1,4}(\.\d{1,4})?$")
 SOURCE = re.compile(r"^http://[A-Za-z0-9.\-]{1,253}(:\d{1,5})?/auto/v(?P<n>\d{1,4}(\.\d{1,4})?)$")
 IMAGE = re.compile(r"^https?://[^\s]{1,2000}$")
-
-BENIGN = ("Invalid frame dimensions 0x0", "Error submitting packet to decoder",
-          "Last message repeated")
-
-QUALITY = {
-    # Broadcast HD is 1080i: yadif makes it progressive at 29.97 fps.
-    "720": ["-vf", "yadif=0:-1:0,scale=-2:720",
-            "-b:v", "3000k", "-maxrate", "3500k", "-bufsize", "3000k"],
-    "1080": ["-vf", "yadif=0:-1:0",
-             "-b:v", "6000k", "-maxrate", "7000k", "-bufsize", "6000k"],
-}
 
 
 def channel_of(features: Any) -> dict[str, Any] | None:
@@ -74,23 +65,6 @@ def stream_url(hass: HomeAssistant, channel: str) -> str:
     port = api.port if api else 8123
     scheme = "https" if api and api.use_ssl else "http"
     return f"{scheme}://127.0.0.1:{port}{URL}/{channel}"
-
-
-def ffmpeg_args(url: str, quality: str) -> list[str]:
-    return [
-        "ffmpeg", "-hide_banner", "-loglevel", "error", "-nostdin",
-        # FAST START: probe a second of the stream, not ffmpeg's default five,
-        # and put a key frame every second so WebRTC can start on one soon.
-        "-probesize", "1500000", "-analyzeduration", "1000000",
-        "-fflags", "+genpts+discardcorrupt", "-i", url,
-        "-map", "0:v:0", "-map", "0:a:0",
-        *QUALITY.get(quality, QUALITY["720"]),
-        "-c:v", "libx264", "-preset", "veryfast", "-tune", "zerolatency",
-        "-profile:v", "high", "-level:v", "4.1", "-pix_fmt", "yuv420p",
-        "-g", "30", "-keyint_min", "30",
-        "-c:a", "aac", "-b:a", "128k", "-ac", "2", "-ar", "48000",
-        "-f", "mpegts", "-muxdelay", "0", "pipe:1",
-    ]
 
 
 def find(hass: HomeAssistant, channel: str) -> dict[str, Any] | None:

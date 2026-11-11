@@ -325,6 +325,7 @@ The decisions both hosts make the same way (Rule 2), in Python.
   - `laundry.py` — Laundry
   - `live_tv_guide.py` — THE LIVE TV GUIDE, as plain functions, shared by every host (hk_core; was features/live_tv/guide.py).
   - `needs.py` — WHETHER A FEATURE HAS WHAT IT NEEDS (docs/phase16/FEATURES-ON-BY-DEFAULT.md "The needs check").
+  - `pairing.py` — Pairing Mantel Link with Mantel, the words both sides use
   - `todo.py` — TO-DO LISTS (2026-10-30; the Side Pane's To-do section, docs/phase11/HOMEVIEW-LOOK.md "Phase A2").
   - `tv.py` — TVs
   - `vacuum_water.py` — A vacuum's water tank that ran dry, held until someone clears it (2026-11-09, the owner), the rules with no host in them.
@@ -341,10 +342,12 @@ The decisions both hosts make the same way (Rule 2), in Python.
   - `config.py` — THE INTERCOM'S SETTINGS
   - `rooms.py` — WHICH ROOMS A BROADCAST PLAYS IN, and why the others are left out (docs/phase17/INTERCOM.md "Rooms").
 - **hk_core/link/**
+  - `linked_reserved.py` — What a linked entity never takes from Mantel
   - `mantel_link.py` — THE LINK TO MANTEL SERVER (linked mode; linked_mode.py is the Home Assistant side, docs/phase5/LINKED-MODE.md in the Mantel repository the whole st...
   - `page_headers.py` — PAGE HEADERS, the part both integrations share
   - `talk.py` — TALK
   - `talk_live.py` — LIVE TALK
+  - `tv_stream.py` — Live TV's transcode command
 - **hk_core/music/**
   - `announcements.py` — Announcements, for display only
   - `checks.py` — The checks Music's forms share
@@ -370,8 +373,10 @@ The decisions both hosts make the same way (Rule 2), in Python.
   - `black.py` — WHAT A TABLET'S BLACK SCREEN SWITCH MEANS (Black Screen
   - `rules.py` — A WALL TABLET'S SCREENSAVER
 - **hk_core/settings/**
+  - `accessory_fields.py` — What an accessory's saved settings may hold, once
   - `changes.py` — THE SETTINGS PAGE'S WRITES
   - `home_grid.py` — HOME GRID (docs/phase11/HOME-GRID.md)
+  - `kind_match.py` — What a kind finds in the house, once (Status & Chips)
   - `kinds.py` — STATUS & CHIPS' KINDS
   - `looks.py` — LOOKS (2026-10-30, docs/phase11/HOMEVIEW-LOOK.md "Looks")
   - `model.py` — THE DASHBOARD SETTINGS

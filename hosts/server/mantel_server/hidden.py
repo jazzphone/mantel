@@ -27,11 +27,13 @@ settings_store.SettingsService writes it (audited, versioned), never Home Assist
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass
 import re
 from typing import Any
 
-from hk_core.settings.kinds import KINDS, LEGACY, Kind, clean
+from hk_core.settings.kinds import KINDS, LEGACY, Kind, clean  # noqa: F401 -- LEGACY, Kind: importable from here as before
+# What a kind finds is shared with Home Assistant (hk_core/settings/kind_match.py).
+from hk_core.settings.kind_match import (  # noqa: F401 -- shared
+    SHOW_AS_KIND, Candidate, accessories_over, automatic, legacy, matches, resolve)
 
 ENTITY = re.compile(r"^[a-z0-9_]+\.[a-z0-9_]+$")         # HA's accessories.ENTITY
 MAX_IDS = 500                                           # HA's hiding.MAX_IDS
@@ -69,61 +71,6 @@ ORDER = list(PLACES)
 READINGS = ("temperature", "humidity")
 
 
-@dataclass(frozen=True)
-class Candidate:
-    """kinds.Candidate: one entity a kind could find or be added to."""
-    entity_id: str
-    device_class: str | None
-    shown: bool
-    device_id: str | None
-    area_id: str | None
-    readings: tuple[str, ...] = ()
-    automatic_readings: tuple[str, ...] = ()
-    group: bool = False
-    listed: bool = True
-
-
-def matches(kind: Kind, cand: Candidate) -> bool:
-    domain = cand.entity_id.split(".", 1)[0]
-    if domain not in kind.domains:
-        return False
-    if kind.reading:
-        return kind.reading in cand.readings
-    if cand.device_class in kind.not_classes:
-        return False
-    if kind.classes is None:
-        return True
-    if cand.device_class is None and domain == "binary_sensor":
-        return False
-    return cand.device_class in kind.classes
-
-
-def automatic(cands: Iterable[Candidate], leave_out: Mapping[str, Any] | None) -> dict[str, list[str]]:
-    lo = leave_out or {}
-    x_ent = set(lo.get("exclude_entities") or [])
-    x_dev = set(lo.get("exclude_devices") or [])
-    x_area = set(lo.get("exclude_areas") or [])
-    out: dict[str, list[str]] = {k: [] for k in KINDS}
-    for c in cands:
-        if not c.shown or c.entity_id in x_ent or (c.device_id and c.device_id in x_dev) \
-                or (c.area_id and c.area_id in x_area):
-            continue
-        for name, kind in KINDS.items():
-            if matches(kind, c) and (not kind.reading or kind.reading in c.automatic_readings):
-                out[name].append(c.entity_id)
-    for v in out.values():
-        v.sort()
-    return out
-
-
-def legacy(settings: Mapping[str, Any], kind: str) -> list[str]:
-    where = LEGACY.get(kind)
-    if not where:
-        return []
-    v = (settings.get(where[0]) or {}).get(where[1])
-    return [x for x in v if isinstance(x, str)] if isinstance(v, list) else []
-
-
 def suggest(cands: list[Candidate], settings: Mapping[str, Any]) -> dict[str, dict[str, list[str]]]:
     auto = automatic(cands, settings.get("generated"))
     counts = settings.get("counts") or {}
@@ -141,56 +88,6 @@ def suggest(cands: list[Candidate], settings: Mapping[str, Any]) -> dict[str, di
         out[name] = {"exclude": [e for e in auto[name] if e not in keep],
                      "include": [e for e in old if e not in found]}
     return out
-
-
-def resolve(cands: list[Candidate], settings: Mapping[str, Any]) -> dict[str, list[str]]:
-    """kinds.resolve: every kind's entities, automatic, adjusted by what was saved (Leave out / Also count) or,
-    for a kind with nothing saved, its older list (LEGACY) where there is one; then what each accessory says."""
-    present = {c.entity_id for c in cands}
-    auto = automatic(cands, settings.get("generated"))
-    counts = settings.get("counts") or {}
-    out: dict[str, list[str]] = {}
-    for name in KINDS:
-        saved = clean(counts.get(name))
-        if saved is None:
-            old = legacy(settings, name)
-            out[name] = [e for e in old if e in present] if old else auto[name]
-            continue
-        drop = set(saved["exclude"])
-        ids = [e for e in auto[name] if e not in drop]
-        seen = set(ids)
-        ids += sorted(e for e in saved["include"] if e in present and e not in seen and e not in drop)
-        out[name] = ids
-    return accessories_over(out, present, settings.get("accessories"))
-
-
-# kinds.SHOW_AS_KIND: "Show as" a light or a fan counts it there; a switch or an outlet takes it out of both
-SHOW_AS_KIND = {"light": "lights", "fan": "fans"}
-
-
-def accessories_over(out: dict[str, list[str]], present: set[str],
-                     acc: Mapping[str, Any] | None) -> dict[str, list[str]]:
-    """kinds.accessories_over: "Include in status" off takes an accessory out of every kind; "Show as" moves it."""
-    ents = (acc or {}).get("entities") or {}
-    if not ents:
-        return out
-    res = {k: list(v) for k, v in out.items()}
-    for eid, a in ents.items():
-        if not isinstance(a, Mapping):
-            continue
-        if a.get("status") is False:
-            for k in res:
-                res[k] = [e for e in res[k] if e != eid]
-            continue
-        show = a.get("show_as")
-        if show in ("switch", "outlet", "light", "fan"):
-            for k in ("lights", "fans"):
-                if k != SHOW_AS_KIND.get(show):
-                    res[k] = [e for e in res[k] if e != eid]
-            k = SHOW_AS_KIND.get(show)
-            if k and eid in present and eid not in res[k]:
-                res[k] = res[k] + [eid]
-    return res
 
 
 def _also(cands: list[Candidate], auto: Mapping[str, list[str]], want: set[str]) -> dict[str, list[str]]:
