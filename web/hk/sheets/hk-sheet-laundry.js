@@ -154,7 +154,7 @@
         if (o.steps) {
           q('.trk').innerHTML = o.steps.map(function (s) {
             var f = s.done ? 100 : s.now ? 50 : 0;
-            return '<div class="st' + (s.done ? ' done' : s.now ? ' now' : '') + '"><div class="bar"><i style="width:' + f + '%"></i></div><div class="lb">' + esc(s.name) + '</div></div>';
+            return '<div class="st' + (s.done ? ' done' : s.now ? ' now' : '') + '"><div class="bar"><i style="width:' + f + '%' + (s.color ? ';background:' + s.color : '') + '"></i></div><div class="lb">' + esc(s.name) + '</div></div>';
           }).join('');
         }
         // THE READINGS: only what this machine has

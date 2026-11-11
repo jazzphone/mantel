@@ -70,6 +70,9 @@
                 cooling: 'Cooling', wrinkle: 'Done', paused: 'Paused', running: 'Running', done: 'Done', error: 'Needs Help',
                 offline: 'Unavailable', leak: 'Water Leak' };
   var STEP_NAMES = { wash: 'Wash', rinse: 'Rinse', spin: 'Spin', dry: 'Dry', cool: 'Cool' };
+  // A COLOR FOR EACH STEP (the owner, 2026-11-10: "build the color per step"), matched to what the drawing shows: water blue washing, a
+  // lighter blue rinsing, purple for the spin, the heat lines' warm for drying, mint cooling. A step done keeps its color
+  var STEP_COLORS = { wash: '#0a84ff', rinse: '#64d2ff', spin: '#bf5af2', dry: '#ffb15c', cool: '#63e6e2' };
   var KIND_NAMES = { washer: 'Washer', dryer: 'Dryer', combo: 'Washer & Dryer' };
 
   function tidy(v) { return String(v == null ? '' : v).trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, ''); }
@@ -291,7 +294,7 @@
       var fin = s === 'done' || s === 'wrinkle', i = at ? list.indexOf(at) : -1;
       if (fin || i >= 0) {
         o.step = at;
-        o.steps = list.map(function (n, k) { return { name: STEP_NAMES[n], done: fin || k < i, now: !fin && k === i }; });
+        o.steps = list.map(function (n, k) { return { key: n, name: STEP_NAMES[n], color: STEP_COLORS[n], done: fin || k < i, now: !fin && k === i }; });
       }
     }
     return o;
@@ -357,7 +360,7 @@
     var s = STATES.indexOf(state) >= 0 ? state : 'off', dry = kind === 'dryer', id = 'hkla' + (++uid);
     var wet = !dry && /^(washing|rinsing|running|paused|leak)$/.test(s);
     var lvl = s === 'rinsing' ? 84 : 92, lie = /^(off|done|offline|delayed|leak|error)$/.test(s);
-    var v = '<svg class="hkla s-' + s + '" viewBox="0 0 140 150" role="img" aria-label="' + String(o.label || NAMES[s] || '').replace(/[&<>"]/g, '') + '">';
+    var v = '<svg class="hkla s-' + s + '" viewBox="' + (o.crop ? '23 9 94 132" style="aspect-ratio:94/132' : '0 0 140 150') + '" role="img" aria-label="' + String(o.label || NAMES[s] || '').replace(/[&<>"]/g, '') + '">';
     v += '<defs><clipPath id="' + id + '"><circle cx="70" cy="90" r="25.5"/></clipPath></defs>';
     if (s === 'leak') v += '<ellipse class="pud" cx="64" cy="142" rx="58" ry="6.5"/>';
     v += '<ellipse class="sh" cx="70" cy="141" rx="50" ry="4.5"/>';
@@ -484,7 +487,7 @@
     return !!D.open(null, { name: list.length > 1 ? 'Laundry' : m.name, icon: glyph(m.kind) }, { panel: { tag: 'hk-detail-laundry', config: { machine: m.id } } });
   }
   global.hkLaundry = {
-    STATES: STATES, RUNNING: RUNNING, ROLES: ROLES, WORDS: WORDS, STEPS: STEPS, STEP_OF: STEP_OF, NAMES: NAMES, KIND_NAMES: KIND_NAMES,
+    STATES: STATES, RUNNING: RUNNING, ROLES: ROLES, WORDS: WORDS, STEPS: STEPS, STEP_OF: STEP_OF, STEP_COLORS: STEP_COLORS, NAMES: NAMES, KIND_NAMES: KIND_NAMES,
     HELD: HELD, CLEAR: 'laundry_done_clear', tidy: tidy, word: word, found: found, machines: machines, byId: byId, areaOf: areaOf, stateOf: stateOf,
     look: look, lookAll: lookAll, open: open, dur: dur, placed: placed, tile: tile, first: first, rank: rank, ids: ids, controls: controls, art: art, display: display, glyph: glyph,
     get CSS() { return css(); }
