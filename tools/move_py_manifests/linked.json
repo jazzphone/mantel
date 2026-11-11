@@ -1,0 +1,17 @@
+{
+  "package": "linked",
+  "init": "linked",
+  "why": "Linked mode: a Mantel linked to another house's, its pairing, owners, reads, actions, files, house and settings",
+  "modules": [
+    "linked_actions",
+    "linked_files",
+    "linked_house",
+    "linked_owners",
+    "linked_pairing",
+    "linked_reads",
+    "linked_settings"
+  ],
+  "checked": {
+    "linked_owners": "its migration is found through the package since the C prep of linked/"
+  }
+}

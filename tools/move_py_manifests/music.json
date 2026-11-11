@@ -1,0 +1,14 @@
+{
+  "package": "music",
+  "init": "music",
+  "why": "Music: Music Assistant's calls, states, library, browsing, names, docs and announcements",
+  "modules": [
+    "music_announcements",
+    "music_browse",
+    "music_calls",
+    "music_docs",
+    "music_library",
+    "music_names",
+    "music_states"
+  ]
+}

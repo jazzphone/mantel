@@ -363,3 +363,67 @@ def test_the_real_manifests_load():
     for name in ("identity", "ha"):
         man = mp.load_manifest(name)
         assert man["package"] == name and man["modules"] and man["why"]
+
+
+# ------------------------------------------------------------------------------------------------ a module as its package's __init__
+LINKED = {
+    f"{SERVER}/linked.py": '''"""The link."""
+from __future__ import annotations
+from . import store
+from . import linked_actions
+from .linked_reads import READ
+NAME = "link"
+def both() -> int:
+    return store.LIMIT + linked_actions.act() + READ
+''',
+    f"{SERVER}/linked_actions.py": '''"""Its actions."""
+from __future__ import annotations
+from . import store
+def act() -> int:
+    from . import linked
+    return store.LIMIT + len(linked.NAME)
+''',
+    f"{SERVER}/linked_reads.py": '''"""Its reads."""
+from __future__ import annotations
+READ = 2
+''',
+    f"{SERVER}/uses_link.py": '''"""Stays."""
+from __future__ import annotations
+from . import linked, linked_actions
+from .linked_reads import READ
+def go() -> int:
+    return linked.both() + linked_actions.act() + READ
+''',
+}
+
+
+def test_a_module_becomes_its_packages_init(tmp_path, capsys):
+    root = make(tmp_path, LINKED)
+    man = {"package": "linked", "init": "linked", "modules": ["linked_actions", "linked_reads"], "why": "The link"}
+    before = py(root, "import mantel_server.uses_link as u; print(u.go())").stdout.strip()
+    assert mp.run_move(root, man, check_only=False) == 0, capsys.readouterr().out
+    assert not (root / SERVER / "linked.py").exists() and (root / SERVER / "linked/__init__.py").is_file()
+    init = read(root, f"{SERVER}/linked/__init__.py")
+    assert '"""The link."""' in init                       # the module's own text, not a made-up docstring
+    assert "from .. import store\nfrom . import linked_actions\nfrom .linked_reads import READ\n" in init
+    acts = read(root, f"{SERVER}/linked/linked_actions.py")
+    assert "from .. import store" in acts and "    from .. import linked\n" in acts   # the package itself: one level up
+    uses = read(root, f"{SERVER}/uses_link.py")
+    assert "from . import linked\nfrom .linked import linked_actions\nfrom .linked.linked_reads import READ\n" in uses
+    table = read(root, f"{SERVER}/_moved.py")
+    assert '"linked_actions": ("linked.linked_actions"' in table and '"linked":' not in table     # its own name: no alias
+    assert py(root, "import mantel_server.uses_link as u; print(u.go())").stdout.strip() == before
+    assert py(root, "import mantel_server.linked_actions as a, mantel_server.linked.linked_actions as b; print(a is b)"
+              ).stdout.strip() == "True"
+
+
+def test_init_must_be_the_package_name(tmp_path, capsys):
+    root = make(tmp_path, LINKED)
+    try:
+        mp.make_plan(root, {"package": "links", "init": "linked", "modules": ["linked_reads"], "why": "x"})
+    except mp.Refusal as err:
+        assert "init" in str(err)
+    else:
+        raise AssertionError("refused")
+    plan = mp.make_plan(root, {"package": "linked", "modules": ["linked_reads"], "why": "x"})
+    assert any("already a module" in r for r in plan.refusals)

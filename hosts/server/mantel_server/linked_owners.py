@@ -33,6 +33,7 @@ from __future__ import annotations
 import json
 import logging
 import sqlite3
+from importlib.resources import files
 from pathlib import Path
 from typing import Any, Callable
 
@@ -50,7 +51,8 @@ BRIDGE = "bridge"
 UNITS_NOT_TABLETS = (HOUSE, BRIDGE)
 BRIDGES = ("hk_frontend", "mantel")
 OWNERS = ("ha", "mantel")
-MIGRATION = Path(__file__).with_name("migrations") / "0010_linked_owners.sql"
+# (found through the package, not beside this file: phase 25 moves the server's modules into packages)
+MIGRATION = Path(str(files("mantel_server").joinpath("migrations", "0010_linked_owners.sql")))
 
 
 def ensure_schema(conn: sqlite3.Connection) -> None:

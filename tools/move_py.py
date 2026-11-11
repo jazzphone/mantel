@@ -10,6 +10,9 @@ refusal that names the statement, a `--check` that proves everything and writes 
 THE MANIFEST (tools/move_py_manifests/<package>.json):
     {"package": "identity", "modules": ["accounts", "auth", ...], "why": "who may do what: ...",
      "checked": {"db": "its migrations folder is found by name; fixed in <commit>"}, "alias_until": "0.1.166"}
+`"init": "<package>"` (optional) names the module of the package's own name (`linked.py` for `linked/`): it becomes
+`<package>/__init__.py`, keeps its dotted name (no alias row: `mantel_server.linked` is the same module, now a package) and
+its relative imports are redone against the package itself; the proof allows it the package's own submodules as new names.
 `checked` names a module that looks things up beside its own file (the tool lists every such use and refuses the module until
 the manifest says someone looked); `alias_until` is the release the old paths stop importing in (else two releases past
 pyproject's version; `--until` overrides).
@@ -421,6 +424,7 @@ class Plan:
     mentions: list[str] = field(default_factory=list)                # non-Python files that name a moved module
     regenerate: list[str] = field(default_factory=list)
     refusals: list[str] = field(default_factory=list)
+    init: str | None = None                                          # the module that becomes the package's __init__
 
 
 def area(rel: str) -> str:
@@ -468,12 +472,26 @@ def make_plan(root: Path, man: dict, until: str | None = None, check_dirty: bool
         raise Refusal(f"`{package}` is not a package name")
     if len(set(modules)) != len(modules):
         raise Refusal("a module is listed twice")
+    # "init": the module of the package's own name becomes its __init__.py: its dotted name does not change (no alias),
+    # only its relative imports, which now resolve against the package itself
+    init = man.get("init")
+    if init is not None and (init != package or init in modules):
+        raise Refusal(f"\"init\" names the module that becomes {package}/__init__.py: `{package}`, and not among \"modules\"")
     plan = Plan(root, man, package, {m: package for m in modules}, until or man.get("alias_until") or next_release(root))
+    plan.init = init
     ref = plan.refusals
     base = root / SERVER
     tracked = set(listed(root, SERVER, others=False))
-    if (base / f"{package}.py").exists():
-        ref.append(f"`{package}` is already a module ({SERVER}/{package}.py)")
+    if (base / f"{package}.py").exists() and init is None:
+        ref.append(f"`{package}` is already a module ({SERVER}/{package}.py): name it the manifest's \"init\"")
+    if init is not None:
+        old = f"{SERVER}/{init}.py"
+        if old not in tracked:
+            ref.append(f"`{init}`: {old} is not a tracked flat module of the server")
+        elif (base / package).exists():
+            ref.append(f"`{init}`: {SERVER}/{package}/ already exists")
+        else:
+            plan.renames[old] = f"{SERVER}/{package}/__init__.py"
     if (base / package).exists() and not (base / package / "__init__.py").is_file():
         ref.append(f"{SERVER}/{package}/ exists and is not a package")
     for m in modules:
@@ -496,7 +514,7 @@ def make_plan(root: Path, man: dict, until: str | None = None, check_dirty: bool
         stem = Path(sm["module"]).stem
         parts = {f"{stem}_{part['name']}" for part in sm["parts"]}
         group = {stem} | parts
-        inside, outside = sorted(group & set(modules)), sorted(group - set(modules))
+        inside, outside = sorted(group & (set(modules) | {init})), sorted(group - (set(modules) | {init}))
         if inside and outside:
             ref.append(f"`{', '.join(inside)}` moves, and {', '.join(outside)} (the parts of {p.name}) does not: a module and its "
                        f"sibling parts move together")
@@ -535,11 +553,11 @@ def make_plan(root: Path, man: dict, until: str | None = None, check_dirty: bool
         return plan
     json_and_mentions(plan, mv)
     # the new package's __init__, the alias table, and the hook that installs it
-    init = f"{SERVER}/{package}/__init__.py"
-    if not (root / init).is_file():
+    init_rel = f"{SERVER}/{package}/__init__.py"
+    if not (root / init_rel).is_file() and plan.init is None:
         body = f"{man['why'].rstrip('.')}.\n\nModules: {', '.join(sorted(modules))}.\n"
-        plan.new[init] = f'"""{body}"""\n'
-        plan.created.add(init)
+        plan.new[init_rel] = f'"""{body}"""\n'
+        plan.created.add(init_rel)
     table = f"{SERVER}/_moved.py"
     cur = (root / table).read_text() if (root / table).is_file() else None
     rows = moved_rows(cur) if cur else {}
@@ -696,8 +714,9 @@ for old, new in spec["pairs"]:
         if n is not o:
             out["bad"].append(f"{old} and {new} are two different module objects")
             continue
-        if names(n) != spec["names"][old]:
-            gone = sorted(set(spec["names"][old]) - set(names(n))); extra = sorted(set(names(n)) - set(spec["names"][old]))
+        mine = set(spec.get("submodules", {}).get(old, []))
+        if [x for x in names(n) if x not in mine or x in spec["names"][old]] != spec["names"][old]:
+            gone = sorted(set(spec["names"][old]) - set(names(n))); extra = sorted(set(names(n)) - set(spec["names"][old]) - mine)
             out["bad"].append(f"{new}: top-level names differ (lost {gone[:8]}, new {extra[:8]})")
         for k in spec["names"][old]:
             if getattr(n, k, None) is not getattr(o, k, None):
@@ -738,7 +757,13 @@ def server_modules(tree: Path) -> list[str]:
 
 def before_names(plan: Plan) -> tuple[dict, dict]:
     pairs = [[f"{TOP}.{m}", f"{TOP}.{plan.package}.{m}"] for m in plan.moves]
-    spec = {"pairs": pairs, "skip": sorted(MODULE_ATTRS), "all": server_modules(plan.root)}
+    # (the init keeps its name: the same names before and after, but for its own submodules, which a package's
+    # namespace gains as they are imported)
+    extra = {}
+    if plan.init:
+        pairs.append([f"{TOP}.{plan.init}", f"{TOP}.{plan.init}"])
+        extra[f"{TOP}.{plan.init}"] = sorted(plan.moves)
+    spec = {"pairs": pairs, "skip": sorted(MODULE_ATTRS), "all": server_modules(plan.root), "submodules": extra}
     return spec, run_imports(plan.root, "before", spec)
 
 
