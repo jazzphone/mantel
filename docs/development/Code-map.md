@@ -208,7 +208,13 @@ Mantel's pages and the code both hosts share: HK's cards, modules, panels and th
   - `hk-wallpapers.js` — THE WALLPAPERS (2026-10-30, docs/phase11/HOMEVIEW-LOOK.md Phase E)
   - `tesla-viewport.js` — Give a CAR dashboard a usable layout width in the car's browser.
 - **web/hk/panels/**
-  - `hk-grid-editor.js` — Home Grid's desktop editor (docs/phase11/HOME-GRID.md, G5; rebuilt 2026-10-23 around a palette)
+  - `hk-grid-editor.js` — Home Grid's desktop editor (docs/phase11/HOME-GRID.md, G5; rebuilt 2026-10-23 around a palette) *(a shell: its parts are in `web/hk/grid-editor/`, `tools/split_manifests/grid-editor.json`)*
+    - `hk-grid-editor-screen.js` — the screen's type, its views, cell shape and starters
+    - `hk-grid-editor-palette.js` — the palette and the chosen card
+    - `hk-grid-editor-settings.js` — the screen's settings and a block's settings
+    - `hk-grid-editor-show-when.js` — Show When: a block's rules and each condition
+    - `hk-grid-editor-sheet.js` — Duplicate Block and a block's Custom Detail Sheet
+    - `hk-grid-editor-options.js` — a card's options as rows, the house's scenes, the preview and saving
   - `hk-saver-designs.js` — Saved designs use the ordinary screensaver options.
   - `hk-saver-editor.js` — THE SCREENSAVER EDITOR (2026-11-01, the owner
   - `hk-settings-features.js` — THE FEATURES' OWN SETTINGS on the HK Settings page. *(a shell: its parts are in `web/hk/settings-features/`, `tools/split_manifests/settings-features.json`)*

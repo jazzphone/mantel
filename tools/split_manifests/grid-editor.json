@@ -1,0 +1,140 @@
+{
+  "shell": "web/hk/panels/hk-grid-editor.js",
+  "folder": "web/hk/grid-editor",
+  "global": "hkGridEditorParts",
+  "label": "hk-grid-editor",
+  "what": "THE HOME GRID EDITOR",
+  "class": "GridEditor",
+  "kit_name": "KIT",
+  "early": [
+    "GridEditor",
+    "window.hkGridEditor",
+    "customElements.define"
+  ],
+  "early_methods": [
+    "constructor",
+    "connectedCallback",
+    "disconnectedCallback"
+  ],
+  "parts": [
+    {
+      "name": "hk-grid-editor-screen",
+      "title": "the screen's type, its views, cell shape and starters",
+      "members": [],
+      "methods": [
+        "removeView",
+        "screenType",
+        "columns",
+        "cellShape",
+        "asScreen",
+        "starter",
+        "starterOptions",
+        "squareStarters",
+        "squareHouse",
+        "loadStarters",
+        "miniMap",
+        "lookArt",
+        "lookGallery",
+        "lookGrid",
+        "useLook",
+        "starterGallery",
+        "starterGallery1",
+        "side"
+      ]
+    },
+    {
+      "name": "hk-grid-editor-palette",
+      "title": "the palette and the chosen card",
+      "members": [],
+      "methods": [
+        "sizeFor",
+        "sizesOf",
+        "drawPalette",
+        "paletteRow",
+        "paletteDetail",
+        "pickFor",
+        "usePicked",
+        "variantFor"
+      ]
+    },
+    {
+      "name": "hk-grid-editor-settings",
+      "title": "the screen's settings and a block's settings",
+      "members": [],
+      "methods": [
+        "screen",
+        "inspect",
+        "editingOf",
+        "onScreen",
+        "editCard",
+        "variantOf",
+        "resize",
+        "content",
+        "appearance",
+        "setShow",
+        "followRows",
+        "startingRoom",
+        "musicNote",
+        "roomNote",
+        "pages"
+      ]
+    },
+    {
+      "name": "hk-grid-editor-show-when",
+      "title": "Show When: a block's rules and each condition",
+      "members": [],
+      "methods": [
+        "conditions",
+        "newCondition",
+        "conditionRows",
+        "previewOptions",
+        "catalogClient",
+        "catalogPreviews",
+        "history",
+        "restore",
+        "copyTo",
+        "changed",
+        "reloadBoard"
+      ]
+    },
+    {
+      "name": "hk-grid-editor-sheet",
+      "title": "Duplicate Block and a block's Custom Detail Sheet",
+      "members": [],
+      "methods": [
+        "duplicate",
+        "sheetGroup",
+        "styled",
+        "entryLook",
+        "sheetSources",
+        "screenTile",
+        "previewSheet",
+        "update"
+      ]
+    },
+    {
+      "name": "hk-grid-editor-options",
+      "title": "a card's options as rows, the house's scenes, the preview and saving",
+      "members": [],
+      "methods": [
+        "fields",
+        "secondaryFields",
+        "accessoryFields",
+        "surfaceFields",
+        "musicPlaylists",
+        "musicSpeakers",
+        "tvChannels",
+        "sceneIds",
+        "choices",
+        "windows",
+        "preview",
+        "suspects",
+        "save"
+      ]
+    }
+  ],
+  "source": {
+    "blob": "266ef85e8072a1a9cf55f1152aea062d641d06a9",
+    "lines": 2503
+  }
+}

@@ -1,5 +1,5 @@
 {
- "total": 775,
+ "total": 788,
  "files": {
   "hosts/ha/frontend/hk-ha-client.js": 0,
   "hosts/ha/frontend/hk-ha-elements.js": 6,
@@ -69,6 +69,12 @@
   "web/hk/grid-cards/hk-grid-room.js": 0,
   "web/hk/grid-cards/hk-grid-security.js": 0,
   "web/hk/grid-cards/hk-grid-widgets.js": 0,
+  "web/hk/grid-editor/hk-grid-editor-options.js": 1,
+  "web/hk/grid-editor/hk-grid-editor-palette.js": 0,
+  "web/hk/grid-editor/hk-grid-editor-screen.js": 0,
+  "web/hk/grid-editor/hk-grid-editor-settings.js": 0,
+  "web/hk/grid-editor/hk-grid-editor-sheet.js": 0,
+  "web/hk/grid-editor/hk-grid-editor-show-when.js": 2,
   "web/hk/headers/hk-headers-base.js": 1,
   "web/hk/headers/hk-headers-climate-lights.js": 5,
   "web/hk/headers/hk-headers-security-vacuum.js": 4,
@@ -137,7 +143,7 @@
   "web/hk/modules/hk-timers.js": 0,
   "web/hk/modules/hk-wallpapers.js": 0,
   "web/hk/modules/tesla-viewport.js": 1,
-  "web/hk/panels/hk-grid-editor.js": 15,
+  "web/hk/panels/hk-grid-editor.js": 25,
   "web/hk/panels/hk-saver-editor.js": 4,
   "web/hk/panels/hk-settings-features.js": 0,
   "web/hk/panels/hk-settings-kit.js": 3,

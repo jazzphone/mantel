@@ -6,6 +6,9 @@
 // Placement functions are pure so mouse, keyboard and the palette share refusals.
 (function () {
   'use strict';
+  // THE SHARED STATE (tools/split_js.py state): the variables these functions set again and again, as properties of one
+  // object, so the code that sets one can live in another file. ST.x is what was the variable x.
+  var ST = /** @type {Record<string, any>} */ ({});
   if (window.hkGridEditor) return;
   var G = window.hkGridCatalog, SIZES = Object.assign({}, G.SIZES);
   // FULL (F, 2026-10-30, the Cameras face): the view's whole grid. Its
@@ -103,7 +106,7 @@
   }
   // THE VIEW BEING EDITED (VIEWS, 2026-10-24): what is added, placed and
   // drawn is in it; blocks in different views never overlap
-  var VIEW = 0;
+  ST.VIEW = 0;
   function overlap(a, b) {
     if ((a.view || 0) !== (b.view || 0)) return false;
     var x = SIZES[a.size], y = SIZES[b.size];
@@ -297,7 +300,7 @@
   function firstSpace(grid, size, view) {
     sized(grid);
     for (var row = 0; row < grid.rows; row++) for (var col = 0; col < grid.cols; col++) for (var hf = 0; hf < (size === 'XS' ? 2 : 1); hf++) {
-      var it = { size: size, at: hf ? [col, row, 1] : [col, row], view: view === undefined ? VIEW : view };   // (a Tiny: a cell's free half, top first)
+      var it = { size: size, at: hf ? [col, row, 1] : [col, row], view: view === undefined ? ST.VIEW : view };   // (a Tiny: a cell's free half, top first)
       if (fits(grid, it) && !grid.items.some(function (x) { return overlap(it, x); })) return it.at;
     }
     return null;
@@ -490,7 +493,7 @@
     var out = copy(grid), n = 1;
     while (out.items.some(function (it) { return it.id === 'b' + n; })) n++;
     var item = born({ id: 'b' + n, card: card, size: size, at: at || firstSpace(grid, size) });
-    if (VIEW) item.view = VIEW;
+    if (ST.VIEW) item.view = ST.VIEW;
     if (!item.at) return null;
     out.items.push(item);
     return valid(out) ? out : null;
@@ -505,7 +508,7 @@
   // -> { grid, moved: [ids moved aside], removed: [the blocks that went] }, or null: it doesn't fit the grid at all
   // (or the layout is full and nothing is covered).
   function addOver(grid, card, size, at, view) {
-    var z = SIZES[size], v = view === undefined ? VIEW : view || 0;
+    var z = SIZES[size], v = view === undefined ? ST.VIEW : view || 0;
     if (!z || !at || !fits(grid, { size: size, at: at })) return null;
     var fresh = function () {
       var out = copy(grid), n = 1;
@@ -740,12 +743,12 @@
       this.overlay.replaceChildren();
       if (!this.grid) return;
       var h = this.h, self = this;
-      if (VIEW >= (this.grid.views || 1)) VIEW = 0;               // (an undo can take the view away)
+      if (ST.VIEW >= (this.grid.views || 1)) ST.VIEW = 0;               // (an undo can take the view away)
       this.overlay.style.gridTemplateColumns = 'repeat(' + this.grid.cols + ',1fr)';
       this.overlay.style.gridTemplateRows = 'repeat(' + this.grid.rows + ',1fr)';
       for (var i = 0; i < this.grid.cols * this.grid.rows; i++) this.overlay.appendChild(h('div', { class: 'slot' }));
       this.grid.items.forEach(function (it) {
-        if ((it.view || 0) !== VIEW) return;                // another view's
+        if ((it.view || 0) !== ST.VIEW) return;                // another view's
         var b = h('button', { class: 'block', type: 'button', 'data-id': it.id, 'aria-label': NAMES[it.card] + ', ' + SIZE_NAMES[it.size] + ', column ' + (it.at[0] + 1) + ', row ' + (it.at[1] + 1),
           'aria-pressed': self.selected === it.id ? 'true' : 'false' }, h('span', { class: 'tag', text: NAMES[it.card] + ' · ' + SIZE_NAMES[it.size] }));
         self.position(b, it);
@@ -864,7 +867,7 @@
     slide(layout, id) {
       var s = this.step();
       this.grid.items.forEach((it) => {
-        if (it.id === id || (it.view || 0) !== VIEW) return;
+        if (it.id === id || (it.view || 0) !== ST.VIEW) return;
         var to = layout && layout.items.find((x) => x.id === it.id), at = to ? to.at : it.at;
         this.nudge(it.id, (at[0] - it.at[0]) * s[0], (at[1] - it.at[1]) * s[1], true);
       });
@@ -986,10 +989,10 @@
         this.overlay.style.setProperty('--grid-radius', radius * view._gridScale + 'px');
       }
       // (the view being edited, in the preview too; its own cells place the overlay)
-      if (view && view._showView && (this.grid.views || 1) > 1) view._showView(VIEW);
+      if (view && view._showView && (this.grid.views || 1) > 1) view._showView(ST.VIEW);
       var cell = view && view._config && view._config.grid && view.shadowRoot &&
         // (one that isn't sliding out of a moved block's way: makeRoom's, drag())
-        [].find.call(view.shadowRoot.querySelectorAll((this.grid.views || 1) > 1 ? '.cell[data-view="' + VIEW + '"]' : '.cell'), (c) => !c.style.translate && c.getAttribute('size') !== 'XS');
+        [].find.call(view.shadowRoot.querySelectorAll((this.grid.views || 1) > 1 ? '.cell[data-view="' + ST.VIEW + '"]' : '.cell'), (c) => !c.style.translate && c.getAttribute('size') !== 'XS');
       if (cell) {
         var r = cell.getBoundingClientRect(), it = view._config.cards.find((x) => x.hk_cell && x.hk_cell.id === cell.dataset.id).hk_cell;
         var gap = cellOf(this.grid).gap * (view._gridScale || 1); this.cellGap = gap; this.overlay.style.gap = gap + 'px';
@@ -1020,1476 +1023,7 @@
       this.selected = added.id; this.pickerCard = null; this.change(r.grid);
       if (r.removed.length) this.say(listOf(r.removed) + (r.removed.length > 1 ? ' were' : ' was') + ' replaced by ' + NAMES[card] + '. Undo (⌘Z) puts ' + (r.removed.length > 1 ? 'them' : 'it') + ' back.');
     }
-    // A SCREEN TYPE: its columns, rows, band and preview size together, the
-    // blocks re-packed in reading order; any that can't fit are named first
-    // A VIEW GOES, its blocks with it (asked first when it has any); the views after it close up
-    async removeView(v) {
-      var n = this.grid.items.filter((it) => (it.view || 0) === v).length;
-      if (n && !await this.K.confirm(this.shadowRoot, { title: 'Remove View ' + (v + 1) + '?', message: (n === 1 ? 'Its block goes' : 'Its ' + n + ' blocks go') + ' with it. Nothing is saved yet.', ok: 'Remove View', destructive: true })) return;
-      var next = copy(this.grid);
-      next.items = next.items.filter((it) => (it.view || 0) !== v).map((it) => {
-        if ((it.view || 0) > v) { it.view -= 1; if (!it.view) delete it.view; }
-        return it;
-      });
-      next.views = (next.views || 1) - 1;
-      if (next.views <= 1) delete next.views;
-      VIEW = Math.max(0, v - 1); this.selected = null;
-      this.change(next);
-    }
-    async screenType(key) {
-      var t = SCREEN_TYPES.find((x) => x[0] === key);
-      if (!t || !this.grid) return;
-      var r = reflow(this.grid, t[2], t[3]);
-      if (r.left.length) {
-        var names = r.left.map((it) => (NAMES[it.card] || it.card) + ' (' + SIZE_NAMES[it.size] + ')');
-        var ok = await this.K.confirm(this.shadowRoot, { title: 'Use ' + t[1] + '?',
-          message: (names.length === 1 ? 'This block doesn’t fit and leaves the draft: ' : 'These blocks don’t fit and leave the draft: ') + names.join(', ') + '. Nothing is saved yet.',
-          ok: 'Use ' + t[1] });
-        if (!ok) { this.side(); return; }
-      }
-      r.grid.band = t[4]; r.grid.frame = t[5].slice();
-      // (a phone fills itself: its grid is smaller than its screen on its side)
-      if (/^phone/.test(t[0])) r.grid.grow = true;
-      // ...the type's cells; Square: a square screen's, filled to its edge (its blocks keep their places)
-      if (t[6] === 'square') r.grid.cell = 'square'; else delete r.grid.cell;
-      if (t[0] === 'square') { r.grid.screen = 'square'; r.grid.grow = true; } else delete r.grid.screen;
-      if (r.grid.items.every((it) => it.id !== this.selected)) this.selected = null;
-      this.change(r.grid);
-    }
-    // COLUMNS: on square cells the rows follow (rowsFor) and the blocks flow
-    // onto the new grid in reading order; on tiles, as before, only when every
-    // block still fits
-    columns(n) {
-      if (this.grid.cell !== 'square') {
-        var next = copy(this.grid); next.cols = n;
-        if (valid(next)) this.change(next); else { this.say('Move or remove the blocks that would be outside the new grid first.'); this.side(); }
-        return;
-      }
-      // (the rows stay: they come from the height, fullColumns)
-      var r = reflow(this.grid, n, this.grid.rows);
-      if (r.left.length) this.say(r.left.length + (r.left.length === 1 ? ' block didn’t fit and was left out.' : ' blocks didn’t fit and were left out.'));
-      this.change(r.grid);
-    }
-    // CELL SHAPE (2026-10-30): Tile or Square, every block where it was
-    cellShape(v) {
-      var next = copy(this.grid);
-      if (v === 'square') next.cell = 'square'; else delete next.cell;
-      this.change(next);
-    }
-    // a starter (or Start Empty) on this screen's grid, when the screen has
-    // one other than the starters' own 6 x 4
-    asScreen(grid) {
-      var g = this.grid;
-      if (!g || !grid || (g.cols === grid.cols && g.rows === grid.rows)) return grid;
-      var out = reflow(grid, g.cols, g.rows).grid;
-      out.band = g.band; out.frame = g.frame.slice();
-      // (the screen's cells, and a Square screen stays one)
-      if (g.cell) out.cell = g.cell; else delete out.cell;
-      if (g.screen) out.screen = g.screen; else delete out.screen;
-      return out;
-    }
-    async starter(concept) {
-      if (this.busy) return;
-      if (this.grid && !await this.K.confirm(this.shadowRoot, { title: 'Use a Starter Layout?', message: 'This replaces your draft. Nothing is saved yet.', ok: 'Use Starter' })) return;
-      this.paneChange = null; this.lookChange = null;
-      if (concept === 'empty') { this.selected = null; this.change(this.asScreen(copy(EMPTY))); return; }
-      var sq = this.squareStarters().find((c) => c[0] === concept);
-      if (sq) {
-        VIEW = 0; this.selected = null; this.paneChange = paneForStarter(sq, this.o.board);
-        this.change(squareStarter(sq, this.grid, this.squareHouse()));
-        if (this.paneChange) this.say('Saving also turns on this screen’s Side Pane, beside Home.');
-        return;
-      }
-      var own = NIGHTSTAND.find((c) => c[0] === concept);
-      if (own && this.grid) {
-        var g2 = Object.assign(copy(this.grid), { items: copy(own[3]) });
-        if (own[4]) g2.views = own[4]; else delete g2.views;
-        VIEW = 0; this.selected = null; this.change(g2); return;
-      }
-      var result;
-      try {
-        this.busy = true;
-        result = this.starterGrids && this.starterGrids[concept] ? { grid: this.starterGrids[concept] }
-          : await this.panel.client.callWS({ type: 'hk_frontend/grid/starter', options: this.starterOptions(concept) });
-      } catch (e) { this.say('Couldn’t load the starter. ' + (e.message || e)); return; }
-      finally { this.busy = false; }
-      this.selected = null; this.change(this.asScreen(copy(result.grid)));
-    }
-    // what a starter is filled from: this screen's scenes, rooms, cameras,
-    // thermostats, its tablet's room and whether it shows the tab bar
-    starterOptions(concept) {
-      var client = this.panel.client, states = client.states || {}, board = this.o.board;
-      var ids = (domain) => Object.keys(states).filter((id) => id.indexOf(domain + '.') === 0).slice(0, 512);
-      var rooms = (board.room_order || []).filter((id) => (client.areas || {})[id]);
-      if (!rooms.length) rooms = Object.keys(client.areas || {});
-      rooms = rooms.slice(0, 512);
-      var tablet = Object.values(this.panel.data.tablets || {}).find((t) => t.screen === this.o.path && t.room);
-      var menu = board.menu;            // as read: a button's style All Screens' unless the screen owns it (settings.py resolved())
-      return { concept: concept, scenes: board.scenes && board.scenes.length ? board.scenes.filter((id) => id.indexOf('scene.') === 0) : this.sceneIds().slice(0, 512), rooms: rooms,
-        cameras: board.cameras && board.cameras.length ? board.cameras : ids('camera'), climate: ids('climate'),
-        tablet_room: tablet ? tablet.room : null, tab_bar: menu === 'tabbar' || menu === 'auto' || !menu };
-    }
-    // this screen type's HomeView-style starters (SQUARE_STARTERS)
-    squareStarters() { return SQUARE_STARTERS[screenTypeOf(this.grid)] || []; }
-    // WHAT A SQUARE STARTER IS FILLED FROM: this screen's (starterOptions:
-    // its scenes, rooms, cameras, thermostats and its tablet's room), and of
-    // the house's accessories those in the tablet's room first -- its
-    // thermostat, the front door's lock (else the first), its lights and
-    // fan, then the house's others (lights, fans, covers, switches)
-    squareHouse() {
-      var client = this.panel.client, states = client.states || {}, ents = client.entities || {}, devs = client.devices || {};
-      var o = this.starterOptions('A'), room = o.tablet_room || o.rooms[0] || null;
-      var areaOf = (id) => { var e = ents[id] || {}; return e.area_id || (devs[e.device_id] || {}).area_id || null; };
-      var shown = (id) => !(ents[id] && (ents[id].hidden || ents[id].entity_category));
-      var name = (id) => String(((states[id] || {}).attributes || {}).friendly_name || id);
-      var ids = (d) => Object.keys(states).filter((id) => id.indexOf(d + '.') === 0 && shown(id)).sort((a, b) => name(a).localeCompare(name(b)));
-      var near = (list) => list.filter((id) => areaOf(id) === room).concat(list.filter((id) => areaOf(id) !== room));
-      var locks = ids('lock'), lights = near(ids('light')), fans = near(ids('fan'));
-      return { climate: near(o.climate)[0] || null, scenes: o.scenes.slice(0, 24), lock: locks.find((id) => /front/i.test(id + ' ' + name(id))) || locks[0] || null,
-        light: lights.slice(0, 1), fan: fans.slice(0, 1), more: lights.slice(1).concat(fans.slice(1), near(ids('cover')), near(ids('switch'))),
-        weather: ids('weather').length > 0, camera: o.cameras.length > 0 };
-    }
-    // EVERY STARTER, as it would be for this screen (read-only requests, once):
-    // the maps beside their names
-    loadStarters() {
-      if (this.starterGrids || this._startersLoading) return;
-      this._startersLoading = true;
-      var client = this.panel.client, got = {};
-      Promise.all(STARTERS.filter((c) => c[0] !== 'empty').map((c) => client.callWS({ type: 'hk_frontend/grid/starter', options: this.starterOptions(c[0]) })
-        .then((r) => { got[c[0]] = r.grid; }, () => {}))).then(() => {
-        this._startersLoading = false; this.starterGrids = got;
-        if (this.ui && !this.selected) this.side();
-      });
-    }
-    // A LAYOUT'S MAP: its band and its blocks, each in its palette group's color with its glyph
-    miniMap(grid, waiting) {
-      var h = this.h, g = grid || EMPTY, kids = [];
-      var box = h('div', { class: 'mini', 'aria-hidden': 'true' });
-      box.style.gridTemplateColumns = 'repeat(' + g.cols + ',minmax(0,1fr))';
-      box.style.gridTemplateRows = (g.band ? 'minmax(0,.35fr) ' : '') + 'repeat(' + g.rows + ',minmax(0,1fr))';
-      if (g.band) kids.push(h('span', { class: 'band' }));
-      if (waiting) {
-        for (var k = 0; k < g.cols * g.rows; k++) kids.push(h('i', { class: 'wait' }));
-      }
-      (waiting ? [] : g.items.filter((it) => !it.view)).forEach((it) => {
-        var z = SIZES[it.size], tile = h('i', {}, h('hk-icon', { icon: GLYPHS[it.card] }));
-        tile.style.gridColumn = (it.at[0] + 1) + ' / span ' + z[0];
-        tile.style.gridRow = (it.at[1] + 1 + (g.band ? 1 : 0)) + ' / span ' + z[1];
-        tile.style.background = 'color-mix(in srgb,' + GROUP_TINT[groupOf(it.card)] + ' 38%,transparent)';
-        kids.push(tile);
-      });
-      kids.forEach((n) => box.appendChild(n));
-      return box;
-    }
-    // LAYOUT + LOOK (2026-10-30, hk_core looks.py): a whole setup -- the
-    // layout and the screen's settings -- in one step; each Look's picture
-    lookArt(l) {
-      var h = this.h, W = window.hkWallpapers, wall = l.settings.sky_background === 'wallpaper' && W && W.url(l.settings.sky_wallpaper, false, l.settings.sky_wallpaper_color);
-      var el = h('span', { class: 'lookart', 'aria-hidden': 'true' }, [h('i', {})]);
-      el.style.backgroundImage = wall ? 'url("' + wall + '")' : 'linear-gradient(160deg,' + l.art[0] + ',' + l.art[1] + ' 55%,' + l.art[2] + ')';
-      el.firstChild.style.background = l.art[3];
-      return el;
-    }
-    lookGallery() {
-      var h = this.h, K = this.K, M = window.hkSettingsModel;
-      if (!M || !M.LOOKS) return null;
-      return K.group({ header: 'Layout + Look', footer: 'A Look sets the layout and the screen’s look in one step: its style and colors, ' +
-        'background, tiles, Side Pane, swiping and screensaver. Nothing is saved until you Save, and the screen’s Looks page can undo it.' },
-        M.LOOKS.map((l) => h('button', { class: 'cell starter', type: 'button', 'data-look': l.id, 'aria-label': l.name + ', ' + l.about,
-          onclick: () => this.useLook(l.id) }, [this.lookArt(l), h('span', { class: 'st' }, [h('b', { text: l.name }), h('small', { text: l.about })])])));
-    }
-    // the Look's layout on this screen: its first starter this screen type
-    // has (HomeView-style, nightstand, or one of the house's, read from the
-    // server), its cells the Look's
-    async lookGrid(l) {
-      // (a screen with no grid yet is the empty one's type; Tap Weight last of all)
-      var grid = null, sq = SQUARE_STARTERS[screenTypeOf(this.grid || EMPTY)] || [];
-      for (var key of l.layout.starters.concat(['A'])) {
-        var a = sq.find((c) => c[0] === key);
-        if (a) { grid = squareStarter(a, this.grid, this.squareHouse()); break; }
-        var n = NIGHTSTAND.find((c) => c[0] === key);
-        if (n && this.grid) { grid = Object.assign(copy(this.grid), { items: copy(n[3]) }); if (n[4]) grid.views = n[4]; else delete grid.views; break; }
-        if (STARTERS.some((c) => c[0] === key)) {
-          var got = this.starterGrids && this.starterGrids[key];
-          if (!got) { try { got = (await this.panel.client.callWS({ type: 'hk_frontend/grid/starter', options: this.starterOptions(key) })).grid; } catch (e) { got = null; } }
-          if (got) { grid = this.asScreen(copy(got)); break; }
-        }
-      }
-      if (!grid) grid = copy(this.grid || EMPTY);
-      if (l.layout.cell === 'square') grid.cell = 'square';
-      else if (grid.screen !== 'square') delete grid.cell;
-      return grid;
-    }
-    async useLook(id) {
-      var M = window.hkSettingsModel, l = M.lookOf(id);
-      if (!l || this.busy) return;
-      if (!await this.K.confirm(this.shadowRoot, { title: 'Use the ' + l.name + ' Look?', message: 'Its layout replaces your draft, and Save also sets the ' +
-        'screen’s look: ' + l.about + ' The screen’s Looks page can undo it.', ok: 'Use ' + l.name })) return;
-      this.busy = true;
-      try {
-        var grid = await this.lookGrid(l), b = this.o.board || {};
-        var saver = M.saverOptions(b.screensaver_options || ((this.panel.data.settings || {}).look || {}).saver);
-        var r = M.lookChanges(l, b, saver, grid);
-        delete r.changes.home_grid; delete r.changes.home_style;
-        this.lookChange = r.changes; this.paneChange = null;
-        VIEW = 0; this.selected = null; this.change(grid);
-        this.say('Save also sets ' + r.rows.length + (r.rows.length === 1 ? ' thing' : ' things') + ' on this screen: ' +
-          r.rows.map((x) => x[0]).join(', ') + '.');
-      } finally { this.busy = false; }
-    }
-    starterGallery() {
-      var looks = this.lookGallery(), starters = this.starterGallery1();
-      if (!looks) return starters;
-      var box = this.h('div', {}, [looks, starters]);
-      return box;
-    }
-    starterGallery1() {
-      var h = this.h, K = this.K, waiting = !this.starterGrids;
-      this.loadStarters();
-      var kind = screenTypeOf(this.grid), night = kind === 'phone_landscape', square = this.squareStarters(), house = square.length ? this.squareHouse() : null;
-      // (a Square screen: its own and Start Empty, as a nightstand; the others' HomeView-style ones first)
-      var list = night ? NIGHTSTAND.concat([STARTERS[STARTERS.length - 1]]) : kind === 'square' ? square.concat([STARTERS[STARTERS.length - 1]]) : square.concat(STARTERS);
-      var rows = list.map((c) => {
-        var own = square.indexOf(c) >= 0;
-        var grid = own ? squareStarter(c, this.grid, house)
-          : this.asScreen(c[0] === 'empty' ? EMPTY : c[3] ? Object.assign(copy(this.grid), { items: copy(c[3]) }) : this.starterGrids && this.starterGrids[c[0]]);
-        if (!waiting && !grid) return null;               // a starter that couldn't be read
-        return h('button', { class: 'cell starter', type: 'button', 'data-starter': c[0], 'aria-label': c[1] + ', ' + c[2],
-          onclick: () => this.starter(c[0]) }, [this.miniMap(grid, waiting && c[0] !== 'empty' && !own), h('span', { class: 'st' }, [h('b', { text: c[1] }), h('small', { text: c[2] })])]);
-      });
-      return K.group({ header: this.grid ? 'Start Over With' : 'Start With',
-        footer: this.grid ? 'Replaces this draft. Nothing is saved until you Save.' : 'Each fills the grid from your home’s scenes, rooms, cameras and thermostats. Nothing is saved until you Save.' }, rows);
-    }
-    // BOTH SIDES, drawn again: the palette and the settings (each keeps its scroll)
-    side() {
-      this.drawPalette();
-      var key = this.selected + '|' + !!this.pickerTarget, keep = this._inspFor === key ? this.sidebar.scrollTop : 0;
-      this._inspFor = key;
-      this.sidebar.replaceChildren();
-      var item = this.grid && this.grid.items.find((it) => it.id === this.selected);
-      if (item) this.inspect(item); else this.screen();
-      this.sidebar.scrollTop = keep;
-    }
 
-    // ------------------------------------------------------------ the palette
-    sizeFor(card) {
-      var sizes = this.sizesOf(card), want = this.paletteSizes[card];
-      if (sizes.includes(want)) return want;
-      return (this.grid && sizes.find((s) => firstSpace(this.grid, s))) || sizes[0];
-    }
-    // a card's sizes this grid can hold (choosing a card for a block: that block's size only)
-    sizesOf(card) {
-      var target = this.pickerTarget && this.grid && this.grid.items.find((it) => it.id === this.selected);
-      if (target) return G.table()[card].sizes.filter((s) => s === target.size);
-      return G.table()[card].sizes.filter((s) => !this.grid || (SIZES[s][0] <= this.grid.cols && SIZES[s][1] <= this.grid.rows));
-    }
-    drawPalette() {
-      var h = this.h, K = this.K, self = this, P = this.palette, keep = P.scrollTop;
-      if (this.catalogOff) { this.catalogOff(); this.catalogOff = null; }
-      P.replaceChildren();
-      var target = this.pickerTarget && this.grid && this.grid.items.find((it) => it.id === this.selected);
-      var head = h('div', { class: 'pal-head' });
-      if (target) head.appendChild(h('div', { class: 'pick-banner' }, [h('span', { text: /^rule:/.test(this.pickerTarget) ? 'Choose the card rule ' + (+this.pickerTarget.slice(5) + 1) + ' shows in this ' + SIZE_NAMES[target.size] + ' block.' : 'Choose a new card for this ' + SIZE_NAMES[target.size] + ' block.' }),
-        h('button', { type: 'button', text: 'Cancel', onclick: () => this.pickFor(null) })]));
-      var search = h('input', { class: 'catalog-search', type: 'search', placeholder: 'Search cards', 'aria-label': 'Search cards', value: this.pickerSearch || '' });
-      head.appendChild(search);
-      if (!target) head.appendChild(h('p', { text: this.grid ? 'Drag a card onto the grid, or click it to preview and add.' : 'Choose a starter layout or Start Empty on the right, then drag cards onto the grid.' }));
-      P.appendChild(head);
-      var list = h('div', { class: 'catalog-list' }); P.appendChild(list);
-      var rows = function () {
-        list.replaceChildren();
-        var query = (search.value || '').trim().toLowerCase(), count = 0;
-        GROUPS.forEach(function (g) {
-          var keys = g[1].filter((k) => offered(k) && self.sizesOf(k).length && (NAMES[k] + ' ' + DESCRIPTIONS[k] + ' ' + g[0]).toLowerCase().includes(query));
-          if (!keys.length) return;
-          count += keys.length;
-          var cells = [];
-          keys.forEach((k) => { cells.push(self.paletteRow(k)); if (self.pickerCard === k) cells.push(self.paletteDetail(k)); });
-          list.appendChild(K.group({ header: g[0] }, cells));
-        });
-        if (!count) list.appendChild(h('p', { class: 'note', text: 'No cards match your search.' }));
-      };
-      search.addEventListener('input', () => { self.pickerSearch = search.value; rows(); if (self.pickerCard) self.catalogPreviews(); });
-      rows();
-      P.scrollTop = keep;
-      if (this.pickerCard) this.catalogPreviews();
-    }
-    paletteRow(k) {
-      var h = this.h, self = this, size = this.sizeFor(k), open = this.pickerCard === k;
-      var chips = h('div', { class: 'chips', role: 'group', 'aria-label': NAMES[k] + ' size' }, this.sizesOf(k).map((s) => {
-        var full = !this.pickerTarget && this.grid && !firstSpace(this.grid, s);
-        return h('button', { class: 'chip', type: 'button', 'data-size': s, 'data-full': String(!!full), 'aria-pressed': String(s === size),
-          title: SIZE_NAMES[s] + ' · ' + (s === 'XS' ? 'half a cell' : SIZES[s][0] + ' × ' + SIZES[s][1]) + (full ? ' · no free space' : ''), text: SIZE_SHORT[s] });
-      }));
-      var row = h('div', { class: 'cell pal-row', role: 'button', tabindex: '0', 'data-card': k, 'aria-expanded': String(open),
-        'aria-label': NAMES[k] + ', ' + DESCRIPTIONS[k] + (this.pickerTarget ? '' : '. Drag onto the grid, or press Enter to preview.') },
-        [h('hk-icon', { icon: GLYPHS[k] }), h('span', { class: 'pt' }, [h('b', { text: NAMES[k] }), h('small', { text: DESCRIPTIONS[k] }), chips])]);
-      // A FINGER SCROLLS THE LIST (2026-10-24, the owner on an iPad: "it keeps
-      // thinking I want to move a card"): up or down is the list's to scroll
-      // (touch-action pan-y); a card is picked up by a drag sideways, towards
-      // the grid, or by a hold (hkDrag.HOLD_MS, iOS's home screen) and then any way.
-      // A mouse picks it up on any 5 px drag, as before. While a card is
-      // carried the list doesn't scroll under it (touchmove, not passive).
-      // The press is told apart by modules/hk-drag.js, Edit mode's too.
-      var D = window.hkDrag;
-      D.holdStill(row, 'lifted');
-      row.addEventListener('pointerdown', function (e) {
-        // THE SIZE CHIP PRESSED is read here, not at the tap: the press captures the pointer to the row, so the
-        // pointerup's target is the row whatever was under the finger (2026-10-31, the owner: choosing Wide left the
-        // preview on Small -- the tap always fell through to opening and closing the row)
-        var chip = e.target.closest && e.target.closest('.chip');
-        D.press(row, e, {
-          axis: 'x',
-          lift: function (ev) { return self.paletteDrag(ev, k, row); },
-          tap: function () {
-            if (chip) { self.paletteSizes[k] = chip.dataset.size; self.pickerCard = k; }
-            else self.pickerCard = self.pickerCard === k ? null : k;
-            self.drawPalette();
-          }
-        });
-      });
-      row.addEventListener('keydown', (e) => {
-        if (e.key !== 'Enter' && e.key !== ' ') return;
-        e.preventDefault();
-        // (Enter on a size chip chooses that size, as a tap does; on the row, opens or closes it)
-        var chip = e.target.closest && e.target.closest('.chip');
-        if (chip) { this.paletteSizes[k] = chip.dataset.size; this.pickerCard = k; } else this.pickerCard = this.pickerCard === k ? null : k;
-        this.drawPalette();
-        var again = this.palette.querySelector(chip ? '[data-card="' + k + '"] .chip[data-size="' + chip.dataset.size + '"]' : '[data-card="' + k + '"]'); if (again) again.focus();
-      });
-      return row;
-    }
-    // THE CHOSEN CARD: its live preview at its size, and Add (or Use, for a block's card)
-    paletteDetail(k) {
-      var h = this.h, sz = this.sizeFor(k), space = this.pickerTarget || (this.grid && firstSpace(this.grid, sz));
-      this.pickerSize = sz;
-      var preview = h('div', { class: 'catalog-preview', 'data-preview-card': k, 'data-preview-size': sz, role: 'img',
-        'aria-label': NAMES[k] + ' preview, ' + SIZE_NAMES[sz] });
-      return h('div', { class: 'cell pal-detail' }, [preview,
-        h('p', { class: 'note', text: 'Sample readings. On your screen it shows your home.' + (space ? '' : ' There’s no free space for this size: drag the card onto the grid to replace the blocks it covers.') }),
-        h('button', { class: 'catalog-add', type: 'button', disabled: !space,
-          text: this.pickerTarget ? 'Use ' + NAMES[k] : space ? 'Add ' + SIZE_NAMES[sz] + ' ' + NAMES[k] : 'No room for this size',
-          onclick: () => this.usePicked(k, sz) })]);
-    }
-    pickFor(target) {
-      this.pickerTarget = target; this.pickerCard = null; this.pickerSearch = '';
-      this.side();
-      if (target) { var s = this.palette.querySelector('.catalog-search'); if (s) s.focus(); }
-    }
-    usePicked(key, size) {
-      if (!this.pickerTarget) { this.addCard(key, size); return; }
-      var item = this.grid.items.find((it) => it.id === this.selected), target = this.pickerTarget;
-      this.pickerTarget = null; this.pickerCard = null;
-      var variant = this.variantFor(key);
-      if (key === 'security' && item.size === 'C') variant.opts = Object.assign({}, variant.opts, { presentation: 'homeview' });
-      if (/^rule:/.test(target)) {
-        var rules = copy(item.rules || []), at = +target.slice(5);
-        if (rules[at]) { rules[at] = Object.assign({ when: rules[at].when }, variant); this.update(item.id, { rules: rules }); }
-        return;
-      }
-      this.update(item.id, { card: key, opts: variant.opts, pages: variant.pages || null });
-    }
-    // A card as a block or a fallback starts with: sample options, an
-    // Accessory Group's automatic pages (its samples may not fit one page),
-    // and a room that scrolls through all its accessories (the owner's
-    // choice, 2026-10-24; a saved room without the option stays Summary)
-    variantFor(key) {
-      var out = { card: key, opts: this.previewOptions(key) };
-      if (key === 'accessories') out.pages = { source: 'accessories' };
-      if (key === 'room') out.opts.accessory_display = 'scroll';
-      return out;
-    }
-
-    // ------------------------------------------------------------ the screen's settings
-    screen() {
-      var h = this.h, K = this.K, add = (n) => this.sidebar.appendChild(n);
-      var starters = () => this.starterGallery();
-      add(h('div', { class: 'insp-head' }, [h('hk-icon', { icon: 'mdi:tablet' }), h('div', {}, [h('h2', { text: 'Screen' }),
-        h('p', { text: this.grid ? this.grid.items.length + (this.grid.items.length === 1 ? ' block' : ' blocks') + ' · select one to change it' : 'No layout yet' })])]));
-      if (!this.grid) { add(starters()); return; }
-      var config = (key, value) => { var next = copy(this.grid); next[key] = value; if (valid(next)) this.change(next); else { this.say('Move or remove the blocks that would be outside the new grid first.'); this.side(); } };
-      var kind = screenTypeOf(this.grid), live = this.previewView && this.previewView.isConnected && this.previewView._gridScale;
-      var pct = Math.round(100 * (live || scaleAt(this.grid, this.grid.frame)));
-      var tip = kind === 'phone_landscape' ? ' On a phone on its side, set the screen’s Tab Bar Position to Left or Right, so the clock gets the height.'
-        : kind === 'phone_portrait' ? ' Phones start without the top band: turn it on under Header if you want it.' : '';
-      // VIEWS: whole layouts a swipe apart on this screen (StandBy's); the
-      // grid and the preview show the one chosen here
-      var views = this.grid.views || 1;
-      if (VIEW >= views) VIEW = 0;
-      var viewOpts = [];
-      for (var vi = 0; vi < views; vi++) viewOpts.push([String(vi), String(vi + 1)]);
-      if (views < 4) viewOpts.push(['add', '+']);
-      var viewRows = [K.seg({ label: 'View', value: String(VIEW), options: viewOpts, onChange: (v) => {
-        if (v === 'add') { VIEW = views; config('views', views + 1); return; }
-        // (the outlines and the preview turn to the view; the frame itself is not reloaded)
-        VIEW = +v; this.selected = null; this.blocks(); this.side(); this.fit();
-        // (and again once the preview's view has slid in: its cells place the outlines)
-        setTimeout(() => this.fit(), 520);
-      } })];
-      if (views > 1) viewRows.push(K.button({ label: 'Remove View ' + (VIEW + 1), destructive: true, onClick: () => this.removeView(VIEW) }));
-      add(K.group({ header: 'Views', footer: views > 1 ? 'Swipe sideways on the screen between its views. Each is a whole layout of its own on this grid.'
-        : 'Add a view for a second layout a swipe away, as StandBy has.' }, viewRows));
-      add(K.group({ header: 'Grid', footer: 'The grid scales to fit each screen; its blocks keep their shape. In this preview they show at ' + pct + '% of full size.' +
-        ' Square cells are as tall as they are wide, as on a HomeView.' +
-        (this.grid.cell === 'square' ? ' Up to ' + fullColumns(this.grid, this.o.board) + ' columns at full size here; more, and the cells get smaller.' : '') + tip }, [
-        K.select({ label: 'Screen Type', value: kind, options: [['custom', 'Custom']].concat(SCREEN_TYPES.map((t) => [t[0], t[1] + ' · ' + t[2] + ' × ' + t[3]])),
-          onChange: (k) => this.screenType(k) }),
-        // CELL SHAPE (2026-10-30): every block stays where it is; only the cells change shape
-        K.seg({ label: 'Cell Shape', value: this.grid.cell === 'square' ? 'square' : 'tile', options: [['tile', 'Tile'], ['square', 'Square']],
-          onChange: (v) => this.cellShape(v) }),
-        K.seg({ label: 'Columns', value: this.grid.cols, options: COLS.slice().reverse().map((n) => [n, String(n)]), onChange: (n) => this.columns(Number(n)) }),
-        K.select({ label: 'Rows', value: this.grid.rows, options: [2, 3, 4, 5, 6].map((n) => [n, String(n)]), onChange: (n) => config('rows', Number(n)) }),
-        K.toggle({ label: 'Show Boxes', sub: 'Off: every block straight on the background, as on a nightstand.', on: this.grid.boxes !== false, onChange: (on) => config('boxes', on) }),
-        K.toggle({ label: 'Fill the Screen', sub: 'Lets the grid grow past its own size on a screen bigger than it.', on: this.grid.grow === true, onChange: (on) => config('grow', on) }),
-        K.select({ label: 'Grid Scale', value: this.grid.scale || 100, options: [100, 90, 80, 70, 60, 50].map((n) => [n, n === 100 ? 'Automatic Fit' : n + '% of Fit']), onChange: (n) => config('scale', Number(n)) })]));
-      // NIGHT MODE (2026-10-24): the screen one dim red at night, as StandBy and the screensaver's clock have it
-      var night = this.grid.night || { mode: 'off', from: '22:00', to: '07:00' }, putNight = (patch) => config('night', Object.assign({ from: '22:00', to: '07:00' }, night, patch));
-      var nightRows = [K.seg({ label: 'Night Mode', value: night.mode, options: [['off', 'Off'], ['night', 'At Night'], ['always', 'Always']], onChange: (m) => putNight({ mode: m }) })];
-      if (night.mode === 'night') {
-        nightRows.push(K.text({ label: 'From', type: 'time', value: night.from, onCommit: (v) => { if (/^\d\d:\d\d$/.test(v) && v !== night.to) putNight({ from: v }); else this.side(); } }));
-        nightRows.push(K.text({ label: 'Until', type: 'time', value: night.to, onCommit: (v) => { if (/^\d\d:\d\d$/.test(v) && v !== night.from) putNight({ to: v }); else this.side(); } }));
-      }
-      add(K.group({ header: 'Night', footer: 'Everything on the screen one dim red, on black, while Home shows: for a bedroom or a nightstand.' }, nightRows));
-      // THE SIDE PANE (2026-10-30): the screen's own page; the grid lays itself beside it
-      if (this.panel.paneLink) add(K.group({ header: 'Side Pane', footer: 'A pane of sections beside Home (or every page): the grid lays itself in what it leaves. Save this layout first.' },
-        [this.panel.paneLink(this.o.path, 'dash', 'grid:side_pane')]));
-      add(K.group({ header: 'Header' }, [
-        K.toggle({ label: 'Top Band', sub: 'The clock, weather and status chips', on: this.grid.band, onChange: (v) => config('band', v) })]));
-      // ITS PARTS AND WHERE EACH SITS (2026-11-01, the owner: "the time on the Left, Chips in the Middle, and Weather on
-      // the Right"): Shown in their order, left to right within a place; each row's own Left / Center / Right. A part
-      // taken off the list is not shown. (The layout's `header`; before it, header_clock / header_weather.)
-      if (this.grid.band) {
-        var PARTS = { clock: ['Clock', 'mdi:clock'], weather: ['Weather', 'mdi:weather-partly-cloudy'], chips: ['Status Chips', 'mdi:label-multiple'] };
-        var parts = Array.isArray(this.grid.header) ? this.grid.header.slice()
-          : [{ k: 'clock', at: 'left' }, { k: 'weather', at: 'left' }, { k: 'chips', at: 'right' }].filter((p) =>
-            !(p.k === 'clock' && this.grid.header_clock === false) && !(p.k === 'weather' && this.grid.header_weather === false));
-        var putParts = (list) => {
-          var next = copy(this.grid);
-          next.header = list;
-          delete next.header_clock; delete next.header_weather;
-          this.change(next);
-        };
-        var atOf = (k) => (parts.filter((p) => p.k === k)[0] || {}).at || (k === 'chips' ? 'right' : 'left');
-        var placeCtl = (k) => K.popup({ label: PARTS[k][0] + ' place', value: atOf(k), fk: 'band:' + k,
-          options: [['left', 'Left'], ['center', 'Center'], ['right', 'Right']],
-          onChange: (v) => putParts(parts.map((p) => p.k === k ? { k: k, at: v } : p)) });
-        add(K.listEditor({ fk: 'band-parts', announce: this.say ? this.say.bind(this) : null,
-          shownHeader: 'In the Band', moreHeader: 'Not Shown',
-          shownFooter: 'Each part on the left, in the center or on the right; this order is their order left to right where they share a place.',
-          rows: parts.map((p) => ({ value: p.k, label: PARTS[p.k][0], icon: PARTS[p.k][1], control: placeCtl(p.k) })),
-          more: Object.keys(PARTS).filter((k) => !parts.some((p) => p.k === k)).map((k) => ({ value: k, label: PARTS[k][0], icon: PARTS[k][1] })),
-          onChange: (values) => putParts(values.map((k) => ({ k: k, at: atOf(k) }))) }));
-      }
-      var more = h('details', { class: 'screen-settings' }, [h('summary', { text: 'Preview Size and Starters' })]);
-      more.open = !!this.screenSettingsOpen;
-      more.addEventListener('toggle', () => { this.screenSettingsOpen = more.open; });
-      more.appendChild(K.group({ header: 'Preview Size', footer: 'The size this editor previews the screen at. The tablet itself always fits the grid to its own screen.' }, [
-        K.text({ label: 'Width', value: this.grid.frame[0], type: 'number', unit: 'px', onCommit: (v) => config('frame', [Number(v), this.grid.frame[1]]) }),
-        K.text({ label: 'Height', value: this.grid.frame[1], type: 'number', unit: 'px', onCommit: (v) => config('frame', [this.grid.frame[0], Number(v)]) })]));
-      more.appendChild(starters());
-      add(more);
-      if (this.panel.host() && this.panel.host().gridHistory) {
-        add(K.group({ header: 'Layout History' }, [K.button({ label: this.histories ? 'Refresh History' : 'Show Earlier Layouts', onClick: () => this.history() })]));
-        if (this.histories) {
-          var historyRows = this.histories.map((row) => K.button({ label: 'Version ' + row.version + ' · ' + new Date(row.created * 1000).toLocaleString() + ' · ' + (row.actor_name || row.actor || row.source || 'Unknown'), onClick: () => this.restore(row) }));
-          add(K.group({ header: 'Earlier Layouts', footer: historyRows.length ? 'A version becomes your draft. Save to restore its layout only.' : 'No earlier layouts.' }, historyRows));
-        }
-        var targets = this.panel.data.dashboards.filter((d) => d.item && d.generated && d.path !== this.o.path && this.panel.data.boards[d.path]);
-        if (targets.length) add(K.group({ header: 'Copy Layout To…' }, [K.select({ label: 'Screen', value: '', options: [['', 'Choose Screen']].concat(targets.map((d) => [d.path, d.title])), onChange: (path) => this.copyTo(path) })]));
-      }
-    }
-
-    // ------------------------------------------------------------ a block's settings
-    inspect(item) {
-      var h = this.h, K = this.K, add = (n) => this.sidebar.appendChild(n), rules = item.rules || [], at = this.editingOf(item), card = this.variantOf(item, at);
-      add(h('div', { class: 'insp-head' }, [h('hk-icon', { icon: GLYPHS[card.card] }), h('div', {}, [h('h2', { text: NAMES[card.card] }),
-        h('p', { text: SIZE_NAMES[item.size] + ' · column ' + (item.at[0] + 1) + ', row ' + (item.at[1] + 1) })]),
-        h('button', { class: 'done', type: 'button', text: 'Done', onclick: () => this.select(null) })]));
-      var sizes = G.table()[item.card].sizes.filter((sz) => SIZES[sz][0] <= this.grid.cols && SIZES[sz][1] <= this.grid.rows && offersSize(item.card, sz, item.opts));
-      var rows = [];
-      if (sizes.length > 1) rows.push(K.seg({ label: 'Size', value: item.size, options: sizes.map((sz) => [sz, SIZE_SHORT[sz]]), onChange: (sz) => this.resize(item, sz) }));
-      if (rules.length) rows.push(K.select({ label: 'Settings For', value: String(at),
-        options: [['-1', NAMES[item.card] + ' (Default)']].concat(rules.map((r, i) => [String(i), NAMES[r.card] + ' (Rule ' + (i + 1) + ')'])),
-        onChange: (v) => this.editCard(Number(v)) }));
-      rows.push(K.button({ label: 'Change Card…', onClick: () => this.pickFor(at < 0 ? 'primary' : 'rule:' + at) }));
-      add(K.group({ footer: rules.length ? 'Each of this block’s cards has its own settings. The one you choose shows in the preview.' : '' }, rows));
-      this.content(card);
-      this.appearance(item, card);
-      this.conditions(item);
-      this.sheetGroup(item);
-      add(K.group({}, [K.button({ label: 'Duplicate Block', onClick: () => this.duplicate(item.id) }),
-                       K.button({ label: 'Remove Block', destructive: true, onClick: () => this.remove(item.id) })]));
-    }
-    // A BLOCK WITH RULES IS SEVERAL CARDS IN ONE PLACE (2026-11-05, the owner, of Music with Now Playing while it plays:
-    // the panel opened on Music, whatever was on screen, with the other card's options down inside its rule, and the
-    // Appearance of none). So the panel sets ONE of them at a time, with every option a block's own card has: the card on
-    // screen when the block is chosen, then whichever Settings For says. -1 the block's own card, else a rule.
-    editingOf(item) {
-      var n = (item.rules || []).length;
-      if (!n) return -1;
-      if (this.editing == null) this.editing = this.onScreen(item);
-      if (this.editing >= n) this.editing = -1;
-      return this.editing;
-    }
-    // what the preview shows in the block now (hk-layout.js hk-grid-conditional-card)
-    onScreen(item) {
-      if (typeof this.conditionPreview === 'number') return this.conditionPreview;
-      var card = this.previewView && (this.previewView.cards || []).find((c) => c.localName === 'hk-grid-conditional-card' && c._config && c._config.item && c._config.item.id === item.id);
-      try { return card ? card._shown() : -1; } catch (e) { return -1; }
-    }
-    editCard(at) { this.editing = at; this.conditionPreview = at; this.preview(); this.side(); }
-    // the card being set, as a block: what `content` reads. A rule's id says where update() writes.
-    variantOf(item, at) {
-      if (at < 0) return item;
-      var r = item.rules[at];
-      return { id: item.id + RULE_MARK + at, card: r.card, size: item.size, at: item.at, opts: r.opts, pages: r.pages };
-    }
-    resize(item, sz) {
-      var no = cannotResize(item, sz);
-      if (no) { this.say(no); this.side(); return; }
-      var next = place(this.grid, item.id, item.at, sz);
-      if (next && sz === 'C' && item.card === 'security') {
-        var moved = next.items.find((x) => x.id === item.id);
-        moved.opts = Object.assign({}, moved.opts, { presentation: 'homeview' });
-      }
-      if (next) this.change(next); else { this.say('A ' + SIZE_NAMES[sz] + ' block doesn’t fit here. Make room around it first.'); this.side(); }
-    }
-    // WHAT THE BLOCK SHOWS: one thing or pages that swipe, then the options that apply
-    content(item) {
-      var K = this.K, cat = G.table()[item.card], add = (n) => this.sidebar.appendChild(n);
-      var src = item.pages && item.pages.source || '', words = SHOW[item.card] || [], rows = [], footer = null;
-      var show = item.card === 'accessories' ? [['accessories', words[1]], ['list', 'Choose Each Page']]
-        : [['', words[0] || 'One Page']].concat(cat.sources.map((s) => [s, words[1] || 'Swipe All']), [['list', 'Choose Each Page']]);
-      // a camera block may follow: swipe all cameras, turning to the one motion or a selector picks
-      var follows = item.card === 'camera' && src === 'cameras' && !!(item.opts || {}).follow;
-      if (item.card === 'camera') show.splice(2, 0, ['follow', 'Follow Motion or a Selector']);
-      if (item.card !== 'swipe') rows.push(K.select({ label: 'Show', value: follows ? 'follow' : src, options: show, onChange: (s) => this.setShow(item, s) }));   // (a Swipe's pages are its own)
-      var hide = { follow: 1, follow_select: 1 };
-      if (follows) this.followRows(item, rows);
-      if (SOURCE_HIDES[src]) hide[SOURCE_HIDES[src]] = 1;
-      if (item.card === 'room' && src === 'rooms') rows.push(this.startingRoom(item));
-      if (src === 'thermostats') rows.push(K.toggle({ label: 'Start on Tablet’s Room', on: item.pages.start === 'tablet_room', onChange: (on) => {
-        var p = copy(item.pages); if (on) p.start = 'tablet_room'; else delete p.start; this.update(item.id, { pages: p });
-      } }));
-      rows = rows.concat(this.fields(item.card, item.opts || {}, (opts) => this.update(item.id, { opts: opts }), { hide: hide, size: item.size, list: src === 'list' }));
-      if (item.card === 'room') footer = this.roomNote(item, src);
-      else if (item.card === 'music' && !src) footer = this.musicNote(item);
-      else if (src === 'list') footer = 'Each page repeats this card with its own choices. A choice left on Same as the Block uses the block’s.';
-      else if (item.card === 'accessories') footer = 'Each page holds ' + G.PER_PAGE[item.size] + ' at this size; more make more pages.';
-      else if (item.card === 'camera' && src === 'cameras' && (item.opts || {}).follow) footer = (item.opts.follow === 'motion'
-        ? 'Shows the camera in the room where motion was seen last (each camera with the motion sensors in its own room).'
-        : 'Shows the camera the selector picks: an option names a camera by its name.') + ' Swipe for the others; it follows again a minute after you stop.';
-      else if (src) footer = 'Swipe sideways on the block to change pages. It goes back to its first page when the screen goes idle.';
-      add(K.group({ header: 'Content', footer: footer }, rows));
-      if (src === 'list') this.pages(item);
-    }
-    // APPEARANCE: the block's box and its tile style are the place's, whichever card shows there; a group's own
-    // background is the card's. `card` is the card being set (a block's own, or a rule's: variantOf).
-    appearance(item, card) {
-      var K = this.K, cat = G.table()[card.card], add = (n) => this.sidebar.appendChild(n);
-      // HIDE BOX (2026-10-24): any block's card without its box; the screen's Show Boxes off hides every one
-      // (a clock saved with its own Hide Box option moves to the block's)
-      var noBoxes = this.grid.boxes === false, ownBare = item.card === 'clock' && (item.opts || {}).bare;
-      var look = [K.toggle({ label: 'Hide Box', on: noBoxes || !!item.bare || !!ownBare, disabled: noBoxes,
-        sub: noBoxes ? 'The screen hides every block’s box (Screen → Show Boxes).' : 'The card straight on the background, without its box.',
-        onChange: (on) => { var patch = { bare: on || null }; if (ownBare) { var o = copy(item.opts); delete o.bare; patch.opts = o; } this.update(item.id, patch); } })];
-      if (cat.opts && cat.opts.surface) this.surfaceFields((card.opts || {}).surface, (value) => { var o = copy(card.opts || {}); if (value) o.surface = value; else delete o.surface; this.update(card.id, { opts: o }); }, look);
-      // TILE STYLE (2026-10-30): a tile block's own, else the screen's (HK Settings → the screen → Appearance)
-      if (TILE_CARDS.indexOf(card.card) >= 0) look.push(K.seg({ label: 'Tile Style', value: item.tile || '', options: [['', 'Same as Screen'], ['home', 'Home'], ['centred', 'Centered']],
-        onChange: (v) => this.update(item.id, { tile: v || null }) }));
-      add(K.group({ header: 'Appearance', footer: cat.opts && cat.opts.surface ? 'A custom background changes only the group’s own; its tiles keep the screen’s look.'
-        : TILE_CARDS.indexOf(card.card) >= 0 ? 'Centered puts the icon above the name and room, as on a HomeView.' : '' }, look));
-    }
-    setShow(item, s) {
-      if (item.card === 'accessories') {
-        var opts = copy(item.opts || {}), per = G.PER_PAGE[item.size], entries = opts.accessories || [];
-        if (s === 'list') {
-          var list = [];
-          for (var i = 0; i < entries.length; i += per) list.push({ opts: { accessories: entries.slice(i, i + per) } });
-          delete opts.accessories;
-          this.update(item.id, { opts: opts, pages: { source: 'list', list: list.length ? list : [{ opts: {} }] } });
-        } else {
-          if (item.pages && item.pages.source === 'list') entries = item.pages.list.flatMap((pg) => (pg.opts || {}).accessories || []);
-          var seen = new Set(); entries = entries.filter((e) => !seen.has(e.entity) && seen.add(e.entity));
-          if (entries.length > 24) { this.say('Automatic pages hold up to 24 accessories. Remove some first.'); this.side(); return; }
-          if (entries.length) opts.accessories = entries;
-          this.update(item.id, { opts: opts, pages: { source: 'accessories' } });
-        }
-        return;
-      }
-      var o = copy(item.opts || {});
-      if (s === 'follow') { o.follow = o.follow || 'motion'; this.update(item.id, { opts: o, pages: { source: 'cameras' } }); return; }
-      delete o.follow; delete o.follow_select;
-      this.update(item.id, { opts: o, pages: s ? s === 'list' ? { source: 'list', list: [{ opts: {} }, { opts: {} }] } : { source: s } : null });
-    }
-    // WHAT A FOLLOWING CAMERA BLOCK FOLLOWS: motion in each camera's room, or a
-    // selector (its own, else the screen's Live Camera Follows)
-    followRows(item, rows) {
-      var K = this.K, o = item.opts || {}, put = (patch) => { var n = Object.assign(copy(o), patch); Object.keys(patch).forEach((k) => { if (patch[k] == null) delete n[k]; }); this.update(item.id, { opts: n }); };
-      rows.push(K.seg({ label: 'Follow', value: o.follow, options: [['motion', 'Motion'], ['selector', 'A Selector']], onChange: (v) => put({ follow: v, follow_select: v === 'motion' ? null : o.follow_select }) }));
-      if (o.follow === 'selector') {
-        var board = this.o.board || {}, here = board.camera_live;
-        rows.push(K.select({ label: 'Selector', value: o.follow_select || '', onChange: (v) => put({ follow_select: v || null }),
-          options: [['', here ? 'The Screen’s Live Camera Follows' : 'The Screen’s (None Set)']].concat(this.choices('select')) }));
-      }
-    }
-    startingRoom(item) {
-      var area = (item.opts || {}).area || (item.pages.start === 'tablet_room' ? 'tablet_room' : '');
-      var roomIds = this.previewView && this.previewView._config.grid_ctx && this.previewView._config.grid_ctx.rooms;
-      var choices = [['', 'First Room']].concat(this.choices('area').filter((op) => op[0] === 'tablet_room' || !roomIds || roomIds.includes(op[0])));
-      if (area && !choices.some((op) => op[0] === area)) choices.push([area, area + ' (Not on this screen)']);
-      return this.K.select({ label: 'Starting Room', value: area, options: choices, onChange: (value) => {
-        var opts = copy(item.opts || {}), pages = copy(item.pages);
-        if (value) opts.area = value; else delete opts.area;
-        if (value === 'tablet_room') pages.start = 'tablet_room'; else delete pages.start;
-        this.update(item.id, { opts: opts, pages: pages });
-      } });
-    }
-    // WHAT A MUSIC BLOCK SHOWS, plainly (its Shows option's footnote)
-    musicNote(item) {
-      var o = item.opts || {}, sp = o.speaker && this.musicSpeakers().filter((s) => s.entity === o.speaker)[0];
-      var tap = o.speaker ? ' A tap on one plays it on ' + (sp ? sp.name : o.speaker) + '.' : ' A tap on one plays it on this screen’s speakers.';
-      if (o.show === 'presets') return 'Shows the Music page’s playlists as tiles; a playlist with choices (Decades) shows each choice.' + tap;
-      if (o.show === 'playlist') return 'Shows one playlist: ' + (o.playlist || (this.musicPlaylists()[0] || {}).name || 'the first one you set up') + '. If it has choices, each is a tile.' + tap;
-      return 'Shows what played last, and covers to play again.' + tap;
-    }
-    roomNote(item, src) {
-      var area = (item.opts || {}).area || (item.pages && item.pages.start === 'tablet_room' ? 'tablet_room' : '');
-      var roomIds = this.previewView && this.previewView._config.grid_ctx && this.previewView._config.grid_ctx.rooms;
-      var name = area && area !== 'tablet_room' ? ((this.panel.client.areas || {})[area] || {}).name || area : '';
-      if (src === 'rooms') {
-        if (area && area !== 'tablet_room' && roomIds && !roomIds.includes(area)) return 'That room isn’t on this screen, so it opens on the first room.';
-        return (area === 'tablet_room' ? 'Opens on the wall tablet’s room (a desktop shows the first).' : name ? 'Opens on ' + name + '.' : 'Opens on the screen’s first room.') +
-          ' Swipe for the others; it comes back when the screen goes idle.';
-      }
-      if (src !== 'list' && (area === 'tablet_room' || !area)) return 'The wall tablet’s own room. A desktop shows the first room.';
-      return null;
-    }
-    // CHOOSE EACH PAGE: each page's own choices, then move or remove it, and Add Page
-    pages(item) {
-      var K = this.K, add = (n) => this.sidebar.appendChild(n), n = item.pages.list.length;
-      item.pages.list.forEach((pg, i) => {
-        var rows = this.fields(item.card, pg.opts || {}, (opts) => { var p = copy(item.pages); p.list[i].opts = opts; this.update(item.id, { pages: p }); },
-          { page: true, size: item.size, base: item.opts || {}, hide: { surface: 1 } });
-        rows.push(K.button({ label: 'Move Up', disabled: i === 0, onClick: () => { var p = copy(item.pages); p.list.splice(i - 1, 0, p.list.splice(i, 1)[0]); this.update(item.id, { pages: p }); } }));
-        rows.push(K.button({ label: 'Remove Page', destructive: true, disabled: n === 1, onClick: () => { var p = copy(item.pages); p.list.splice(i, 1); this.update(item.id, { pages: p }); } }));
-        add(K.group({ header: 'Page ' + (i + 1) + ' of ' + n }, rows));
-      });
-      add(K.group({}, [K.button({ label: 'Add Page', disabled: n >= G.PAGES_MAX, onClick: () => { var p = copy(item.pages); p.list.push({ opts: {} }); this.update(item.id, { pages: p }); } })]));
-    }
-    // SHOW WHEN (2026-10-24, the owner): the block's own card by default, and up to G.RULES_MAX rules (ten since
-    // 2026-11-10) -- each its card while all its conditions hold, the first that holds winning. Every card fills this
-    // space. Past four rules Preview is a menu (twelve segments don't fit), each rule named with its card.
-    conditions(item) {
-      var K = this.K, add = (n) => this.sidebar.appendChild(n), rules = item.rules || [], n = rules.length, head = [], full = n >= G.RULES_MAX;
-      var put = (next) => { this.conditionPreview = null; this.update(item.id, { rules: next.length ? next : null }); };
-      var swap = (i, j) => { var next = copy(rules); next.splice(j, 0, next.splice(i, 1)[0]); if (this.editing === i) this.editing = j; else if (this.editing === j) this.editing = i; put(next); };
-      var showing = (v) => { this.conditionPreview = v === 'live' ? null : Number(v); if (v !== 'live') this.editing = Number(v); this.preview(); this.side(); }, shown = this.conditionPreview == null ? 'live' : String(this.conditionPreview);
-      if (n) head.push(K[n <= 4 ? 'seg' : 'select']({ label: 'Preview', value: shown, onChange: showing, options: [['live', 'Live'], ['-1', n <= 4 ? 'Default' : 'Default: ' + NAMES[item.card]]]
-        .concat(rules.map((r, i) => n <= 4 ? [String(i), 'Rule ' + (i + 1)] : [String(i), 'Rule ' + (i + 1) + ': ' + NAMES[r.card], 'Rule ' + (i + 1)])) }));
-      add(K.group({ header: 'Show When', footer: n
-        ? 'Shows ' + NAMES[item.card] + ' unless a rule holds. Rules are checked in order, Rule 1 first, and the first that holds wins. Each card fills exactly this space, so nothing moves.'
-        : 'Add a rule to show another card here while something is true: music playing, a time of day, the alarm still armed.' }, head));
-      rules.forEach((r, i) => {
-        var conds = (r.when && r.when.all) || [], rows = [];
-        var putRule = (fn) => { var next = copy(rules); fn(next[i]); put(next); };
-        conds.forEach((c, j) => this.conditionRows(c, j, rows, (nc) => {
-          var next = copy(rules);
-          if (nc) next[i].when.all[j] = nc; else next[i].when.all.splice(j, 1);
-          if (!next[i].when.all.length) next.splice(i, 1);
-          put(next);
-        }));
-        if (conds.length < G.CONDITIONS_MAX) rows.push(K.select({ label: conds.length ? 'And Also' : 'When', value: '',
-          options: [['', 'Add a Condition…']].concat(G.CONDITIONS.map((k) => [k, CONDITION_NAMES[k]])),
-          onChange: (k) => { if (k) putRule((x) => x.when.all.push(this.newCondition(k))); } }));
-        rows.push(K.button({ label: 'Then Show: ' + NAMES[r.card] + '…', onClick: () => this.pickFor('rule:' + i) }));
-        rows.push(K.button({ label: 'Edit ' + NAMES[r.card] + ' Settings', disabled: this.editing === i, onClick: () => this.editCard(i) }));
-        // (the card being set stays the same card when its rule moves or another goes)
-        rows.push(K.button({ label: 'Move Rule Up', disabled: i === 0, onClick: () => swap(i, i - 1) }), ...(n > 1 ? [K.button({ label: 'Move Rule Down', disabled: i === n - 1, onClick: () => swap(i, i + 1) })] : []));
-        rows.push(K.button({ label: 'Remove Rule', destructive: true, onClick: () => { var next = copy(rules); next.splice(i, 1); if (this.editing === i) this.editing = -1; else if (this.editing > i) this.editing--; put(next); } }));
-        add(K.group({ header: 'Rule ' + (i + 1) + (n > 1 ? ' of ' + n : '') + ' · ' + NAMES[r.card] }, rows));
-      });
-      add(K.group({ footer: full ? 'A block holds up to ' + G.RULES_MAX + ' rules. Remove one to add another.' : '' }, [K.button({ label: 'Add Rule', disabled: full, onClick: () => {
-        if (full) return; var other = Object.keys(G.table()).find((k) => k !== item.card && G.table()[k].sizes.includes(item.size)) || item.card;
-        put(rules.concat([Object.assign({ when: { all: [this.newCondition('music_playing')] } }, this.variantFor(other))]));
-      } })]));
-    }
-    newCondition(kind) {
-      var c = { kind: kind };
-      if (kind === 'time') { c.from = '06:00'; c.to = '09:00'; } else if (kind === 'solar_window') Object.assign(c, G.solar.fresh());
-      if (kind === 'entity_state') { var ch = this.choices('entity')[0]; if (ch) { c.entity = ch[0]; c.state = 'on'; } }
-      return c;
-    }
-    // ONE CONDITION'S ROWS: what it is (or Remove), and what it watches
-    conditionRows(c, j, rows, put) {
-      var K = this.K, set = (key, value) => { var out = copy(c); if (value) out[key] = value; else delete out[key]; put(out); };
-      rows.push(K.select({ label: j ? 'And' : 'When', value: c.kind,
-        options: G.CONDITIONS.map((k) => [k, CONDITION_NAMES[k]]).concat([['', 'Remove This Condition']]),
-        onChange: (k) => put(k ? this.newCondition(k) : null) }));
-      if (c.kind === 'time') {
-        rows.push(K.text({ label: 'From', type: 'time', value: c.from, onCommit: (v) => { if (/^\d{2}:\d{2}$/.test(v)) set('from', v); } }));
-        rows.push(K.text({ label: 'Until', type: 'time', value: c.to, onCommit: (v) => { if (/^\d{2}:\d{2}$/.test(v)) set('to', v); } }));
-        return;
-      } else if (c.kind === 'solar_window') return void G.solar.rows(K, c, rows, put, (this.panel.client || {}).states, () => this.side());
-      if (c.kind !== 'after_sunset') rows.push(K.select({ label: 'Watch', value: c.entity || '',
-        // (Music Is Playing's Automatic is any of the house's speakers -- not a TV -- 2026-11-01: say so; A TV Is On's, any TV)
-        options: (c.kind === 'entity_state' ? [] : [['', c.kind === 'music_playing' ? 'Any Speaker' : c.kind === 'tv_on' ? 'Any TV' : 'Automatic']]).concat(this.choices({ music_playing: 'speaker', timer_running: 'timer', alarm_armed: 'alarm',
-          alarm_disarmed: 'alarm', doorbell: 'doorbell', tv_on: 'tv_target' }[c.kind] || 'entity').filter((op) => op[0] !== 'tablet_room' || c.kind === 'music_playing' || c.kind === 'tv_on')).concat(c.entity && c.kind === 'music_playing' && !this.choices('speaker').some((op) => op[0] === c.entity) ? [[c.entity, c.entity + ' (Not a Music Speaker)']] : []),
-        onChange: (v) => set('entity', v) }));
-      if (c.kind === 'entity_state') rows.push(K.text({ label: 'Is', value: c.state, maxlength: 80, onCommit: (v) => set('state', v) }));
-    }
-    previewOptions(key) {
-      var fields = G.table()[key].opts || {}, opts = {}, self = this;
-      if (key === 'swipe') return G.swipe.sample(); if (key === 'alert') return G.alert.sample((k) => self.choices(k), (this.panel.client || {}).states);
-      Object.keys(fields).forEach(function (name) {
-        var kind = fields[name];
-        if (['secondary', 'title', 'room_display', 'thermostat_style', 'tile_height', 'period', 'name_tag', 'tap_target', 'music_tap', 'tv_channel', 'music_show', 'music_playlist', 'music_speaker', 'tv_target', 'tv_show', 'swipe_pages', 'timeline_show', 'np_background', 'on_now_open', 'everything_more', 'security_presentation', 'security_members', 'security_lit'].includes(kind)) return;
-        if (kind === 'accessories') { opts[name] = sampleEntities(self.choices('entity'), ['light', 'switch', 'fan', 'sensor']).slice(0, 4).map((op) => ({ entity: op[0] })); if (!opts[name].length) delete opts[name]; return; }
-        var choices = self.choices(kind).filter((op) => op[0] !== 'tablet_room');
-        if (kind === 'scene' && key === 'scene') choices = choices.filter((op) => self.sceneIds().indexOf(op[0]) >= 0);
-        if (kind === 'entity') choices = sampleEntities(choices, ['light', 'switch', 'fan']);
-        if (kind === 'speaker') choices.sort((a, b) => (self.panel.client.states[b[0]]?.state === 'playing') - (self.panel.client.states[a[0]]?.state === 'playing'));
-        if (kind === 'scenes' || kind === 'calendars') { if (choices.length) opts[name] = choices.slice(0, kind === 'scenes' ? 6 : 2).map((op) => op[0]); return; }
-        if (kind === 'cameras' || kind === 'refresh') return;                  // (the face: every camera, its own refresh)
-        if (choices.length && !['windows', 'surface', 'boolean'].includes(kind)) opts[name] = choices[0][0];
-      });
-      return opts;
-    }
-    catalogClient(client) {
-      // This copy belongs only to the inert gallery iframe. It is never saved
-      // or published through the host, and it has no command action port.
-      var states = {}, now = Date.now(), stamp = new Date(now).toISOString();
-      Object.keys(client.states).forEach(function (id) {
-        var st = client.states[id], a = Object.assign({}, st.attributes), state = st.state;
-        if (id.startsWith('climate.')) { state = 'heat_cool'; Object.assign(a, { current_temperature: 71, target_temp_low: 68, target_temp_high: 74, hvac_action: 'idle' }); }
-        if (id.startsWith('media_player.')) { state = 'playing'; Object.assign(a, { media_title: 'A Favorite Song', media_artist: 'Sample Artist', media_album_name: 'Sample Album', media_duration: 240, media_position: 82, media_position_updated_at: stamp, volume_level: .4 }); }
-        if (id.startsWith('weather.')) { state = 'partlycloudy'; Object.assign(a, { temperature: 72, apparent_temperature: 74, humidity: 52, wind_speed: 8, wind_speed_unit: 'mph' }); }
-        if (id.startsWith('light.')) { state = 'on'; a.brightness = 180; }
-        if (id.startsWith('person.')) state = 'home';
-        if (id.startsWith('vacuum.')) { state = 'cleaning'; a.battery_level = 78; }
-        if (id.startsWith('alarm_control_panel.')) state = 'armed_home';
-        states[id] = Object.assign({}, st, { state: state, attributes: a, last_updated: stamp });
-      });
-      var forecast = (kind) => Array.from({ length: kind === 'daily' ? 5 : 12 }, (_, i) => ({
-        datetime: new Date(now + i * (kind === 'daily' ? 86400e3 : 3600e3)).toISOString(),
-        temperature: 72 + i % 4, templow: 55 + i, condition: i % 3 === 2 ? 'rainy' : 'partlycloudy', precipitation_probability: i % 3 === 2 ? 60 : 10
-      }));
-      Object.keys(states).forEach((id) => { if (states[id].attributes.forecast) states[id].attributes.forecast = forecast(/daily/.test(id) ? 'daily' : 'hourly'); });
-      var finish = new Date(now + 240e3).toISOString();
-      states['timer.grid_preview'] = { state: 'active', last_updated: stamp, attributes: { friendly_name: 'Tea', duration: '00:05:00', finishes_at: finish } };
-      states['sensor.running_quick_timers'] = { state: '1', last_updated: stamp, attributes: { running: [{ entity_id: 'timer.grid_preview', name: 'Tea', finishes_at: finish }] } };
-      var subs = Object.assign({}, client.subscriptions, { subscribeMessage: (callback, msg) => {
-        if (msg.type === 'timeline/subscribe') return Promise.resolve(() => {});          // (no live feed in a sample)
-        if (msg.type === 'weather/subscribe_forecast') { var timer = setTimeout(() => callback({ forecast: forecast(msg.forecast_type) }), 0); return Promise.resolve(() => clearTimeout(timer)); }
-        return client.subscriptions.subscribeMessage(callback, msg);
-      } });
-      // Recent's sample rows, invented: the inert preview reads no real house
-      var ago = (m) => Math.floor((now - m * 60e3) / 1000);
-      var sample = { names: true, limited: false, search: true, families: ['door', 'lock', 'garage', 'doorbell', 'detection'], next_before: null, events: [
-        { id: 5, at: ago(4), family: 'lock', kind: 'locked', level: 'info', title: 'Back Door locked', area_name: 'Kitchen', who: { name: 'Sample', device: 'Kitchen tablet', how: 'tablet' }, pics: [] },
-        { id: 4, at: ago(19), family: 'detection', kind: 'package', level: 'info', title: 'Package at Front Door', area_name: 'Porch', pics: [] },
-        { id: 3, at: ago(26), family: 'doorbell', kind: 'ring', level: 'info', title: 'Someone rang Front Door', area_name: 'Porch', pics: [] },
-        { id: 2, at: ago(61), family: 'garage', kind: 'closed', level: 'info', title: 'Garage closed', area_name: 'Garage', pics: [] },
-        { id: 1, at: ago(64), family: 'garage', kind: 'opened', level: 'info', title: 'Garage opened', area_name: 'Garage', pics: [] }] };
-      var summary = { window: 'overnight', label: 'Overnight', title: 'Overnight at the house (9 PM to 7 AM)', quiet: false, counts: { lock: 2, garage: 2 },
-        lines: ['Front door and back door locked all night.', 'Garage opened 6:12 AM, closed 6:20 AM.', 'Right now: all locks locked, garage closed.'], events: [] };
-      var read = (method, path) => method.toUpperCase() === 'GET' && /^timeline\/summary/.test(path) ? Promise.resolve(summary)
-        : method.toUpperCase() === 'GET' && /^timeline(\?|$)/.test(path) ? Promise.resolve(sample)
-        : method.toUpperCase() === 'GET' && path.startsWith('calendars/')
-        ? Promise.resolve([{ summary: 'Family Dinner', start: { dateTime: new Date(now + 3600e3).toISOString() }, end: { dateTime: new Date(now + 7200e3).toISOString() } },
-          { summary: 'Weekend Plans', start: { dateTime: new Date(now + 86400e3).toISOString() }, end: { dateTime: new Date(now + 90000e3).toISOString() } }])
-        : client.callApi(method, path);
-      return Object.assign({}, client, { states: states, subscriptions: subs, callApi: read });
-    }
-    catalogPreviews() {
-      var w = this.iframe.contentWindow;
-      if (!w || !w.hkCards || !this.previewView) return;
-      var box = this.palette.querySelector('[data-preview-card]'); if (!box) return;
-      // (its frame is the whole screen again: made once for this card, never again for a change elsewhere in the draft)
-      if (box.querySelector('iframe')) return;
-      if (this.catalogOff) this.catalogOff();
-      var sz = box.dataset.previewSize, z = SIZES[sz], ctx = this.previewView._config.grid_ctx || {};
-      var unit = cellOf(this.grid), gap = unit.gap;
-      var width = unit.w * z[0] + gap * (z[0] - 1), height = sz === 'XS' ? (unit.h - gap) / 2 : unit.h * z[1] + gap * (z[1] - 1);
-      var scale = Math.min(1, (box.clientWidth || 220) / width);
-      box.style.height = height * scale + 'px';
-      // Keep every descendant in the screen's custom-element registry. Adopting
-      // a card into Settings leaves its hk-plate and glyph elements undefined.
-      var frame = this.h('iframe', { title: NAMES[box.dataset.previewCard] + ' preview', tabindex: '-1', 'aria-hidden': 'true' });
-      Object.assign(frame.style, { width: width + 'px', height: height + 'px', left: '50%', marginLeft: -(width * scale / 2) + 'px', transformOrigin: 'top left', transform: 'scale(' + scale + ')' });
-      frame.inert = true; frame.src = this.iframe.src; box.replaceChildren(frame); box.setAttribute('data-loading', '');
-      var active = true, timer, retries = 0;
-      this.catalogOff = () => { active = false; clearTimeout(timer); };
-      var load = () => {
-        if (!active) return;
-        var fw = frame.contentWindow;
-        if (!fw || !fw.hkShell || !fw.hkShell.view() || !fw.hkCards || !fw.hkCards.client()) {
-          if (retries++ < 600) timer = setTimeout(load, 300);            // up to 3 minutes
-          return;
-        }
-        var doc = fw.document, cell = doc.createElement('div'); cell.className = 'cell'; cell.setAttribute('size', sz);
-        Object.assign(cell.style, { width: width + 'px', height: height + 'px', position: 'fixed', inset: '0', containerType: 'size', containerName: 'hk-cell' });
-        cell.style.setProperty('--hk-cell-w', (width + gap) / z[0] - gap + 'px'); cell.style.setProperty('--hk-cell-h', (height + gap) / z[1] - gap + 'px');
-        // (a square grid's cell as the grid gives it, hk-layout.js: its insets, inner corners and shape -- else a block looks unlike its place)
-        var sq = this.grid && this.grid.cell === 'square';
-        cell.style.setProperty('--hk-block-pad', sq ? '18px' : '14px');
-        // (and the SHAPES' inset, the grid cell's 13 on a square cell -- without it a square Wide Accessory Group's tiles had 375 px for 376 and stacked, 2026-11-09)
-        cell.style.setProperty('--hk-shape-pad', sq ? '13px' : 'var(--hk-block-pad)'); cell.style.setProperty('--hk-text-in', 'calc(var(--hk-block-pad) - var(--hk-shape-pad))');
-        ['t', 'r', 'b', 'l'].forEach(function (s) { cell.style.setProperty('--hk-pad-' + s, 'var(--hk-block-pad)'); cell.style.setProperty('--hk-spad-' + s, 'var(--hk-shape-pad)'); });
-        if (sq) {
-          cell.style.setProperty('--hk-cell-shape', 'square');
-          cell.style.setProperty('--hk-inner-radius', 'max(12px, calc(var(--hk-block-radius, 34px) - var(--hk-block-pad)))');
-        }
-        var view = doc.createElement('hk-home-grid-view');
-        Object.assign(view.style, { display: 'block', width: width + 'px', height: height + 'px', position: 'fixed', inset: '0' });
-        var it = { id: 'preview', card: box.dataset.previewCard, size: sz, at: [0, 0], opts: this.previewOptions(box.dataset.previewCard) };
-        var sample = fw.hkCards.previewClient(this.catalogClient(fw.hkCards.client()));
-        var card = fw.hkCards.createCard(fw.hkGridCatalog.config(it, ctx), sample);
-        card.setAttribute('size', sz); card.inert = true;
-        // THE SCREEN'S TILE STYLE (2026-11-08, the owner: "the card previews followed the appearance default for tiles (centered vs home)"):
-        // set on the card as the screen's grid sets it on a block (hk-layout.js, hk-strategy.js homeGridView)
-        if (this.screenTile(box.dataset.previewCard, sz, it.opts)) card.setAttribute('tile', 'centred');
-        Object.assign(card.style, { display: 'block', width: '100%', height: '100%' });
-        cell.appendChild(card); view.appendChild(cell); doc.body.replaceChildren(view);
-        fw.galleryCard = card; box.removeAttribute('data-loading');
-        // (sample readings, fixed: subscribed back to the frame's live hub they would feed into themselves)
-      };
-      frame.addEventListener('load', load, { once: true });
-    }
-    async history() {
-      if (this.busy) return;
-      try {
-        var data = await this.panel.host().gridHistory(this.o.path, this.panel);
-        this.histories = data.history.filter((row) => row.body && row.body.home_grid);
-        this.side();
-      } catch (e) { this.say('Couldn’t read history. ' + (e.message || e)); }
-    }
-    async restore(row) {
-      if (this.busy) return;
-      if (!await this.K.confirm(this.shadowRoot, { title: 'Restore This Layout?', message: 'Version ' + row.version + ' becomes your draft. Review it, then Save to apply it. Other screen settings stay as they are.', ok: 'Restore Draft' })) return;
-      this.selected = null; this.change(copy(row.body.home_grid));
-      this.say('Version ' + row.version + ' restored to the draft. Save to apply it.');
-    }
-    async copyTo(path, anyway) {
-      if (this.busy || !path || !valid(this.grid)) return;
-      if (!anyway && !await this.K.confirm(this.shadowRoot, { title: 'Copy Layout To This Screen?', message: 'This saves your draft layout to ' + path + '. Its other settings stay as they are. Tablet’s Room still means the tablet showing that screen.', ok: 'Copy Layout' })) return;
-      this.busy = true;
-      var changed = null;
-      try {
-        var grid = copy(this.grid), version = versionOf(this.panel, path);
-        var msg = { type: 'hk_frontend/board/set', dashboard: path, changes: { home_style: 'grid', home_grid: grid } };
-        if (!anyway && version != null) msg.expect_version = version;    // the target screen's, as last read
-        var result = await this.panel.actions().callWS(msg);
-        this.panel.data.boards[path] = result && result.board || Object.assign({}, this.panel.data.boards[path], { home_style: 'grid', home_grid: grid });
-        keepVersion(this.panel, path, result);
-        this.say('Layout copied.');
-      } catch (e) {
-        if (e && e.code === 'conflict') changed = true;
-        else this.say('Couldn’t copy the layout. ' + (e.message || e));
-      } finally { this.busy = false; }
-      if (!changed) return;
-      // THAT SCREEN CHANGED since this page read it: Reload reads the
-      // settings again (this screen's draft stays) to copy onto what it is
-      // now; Save Anyway replaces its layout with this one
-      var choice = await this.changed('That screen changed since you opened it, in another window or on another device. Reload to read it again (your draft here stays), or Save Anyway to replace its layout with this one.');
-      if (choice === 'anyway') return this.copyTo(path, true);
-      if (choice === 'reload') {
-        try { await this.panel.reload(); this.say('Reloaded. Copy the layout again to replace that screen’s.'); }
-        catch (e) { this.say('Couldn’t reload. ' + (e.message || e)); }
-      } else this.say('Not copied: that screen changed since you opened it.');
-    }
-    // "This screen changed": Reload (Cancel's place, where focus starts) or
-    // Save Anyway; Escape or a tap outside is neither ('reload' | 'anyway' | null)
-    async changed(message) {
-      var got = await this.K.confirm(this.shadowRoot, { title: 'This Screen Changed', message: message,
-        cancel: 'Reload', ok: 'Save Anyway', dismiss: null });
-      return got === true ? 'anyway' : got === false ? 'reload' : null;
-    }
-    // Reload: the screen as it is now (read again), the draft and its undo
-    // discarded
-    async reloadBoard() {
-      try {
-        await this.panel.reload();
-        this.selected = null; this.undoStack = [];
-        this.load(this.panel.data.boards[this.o.path] || {});
-        this.saveButton.disabled = !this.grid; this.undoButton.disabled = true;
-        this.blocks(); this.side(); this.fit(); this.preview();
-        this.say('Reloaded. This is the screen’s layout as it is now.');
-      } catch (e) { this.say('Couldn’t reload. ' + (e.message || e)); }
-    }
-    // DUPLICATE BLOCK (2026-11-07): the same block -- its card, options, rules, look and its custom sheet, the sheet's
-    // entries each a new id -- in the first free place of its size in this view; none free, nothing moves and it says so
-    duplicate(id) {
-      var src = this.grid.items.find((x) => x.id === id);
-      if (!src) return;
-      if (this.grid.items.length >= 24) { this.say('A Home Grid holds at most 24 blocks.'); return; }
-      var at = firstSpace(this.grid, src.size, src.view || 0);
-      if (!at) { this.say('No free space for another ' + SIZE_NAMES[src.size] + ' block. Make room first; nothing was moved.'); return; }
-      var next = copy(this.grid), n = 1;
-      while (next.items.some((x) => x.id === 'b' + n)) n++;
-      var dup = copy(src);
-      dup.id = 'b' + n; dup.at = at;
-      if (dup.interaction && dup.interaction.custom_sheet) dup.interaction.custom_sheet = G.copySheet(dup.interaction.custom_sheet);
-      next.items.push(dup);
-      this.selected = dup.id;
-      this.change(next);
-      this.say(NAMES[src.card] + ' duplicated.');
-    }
-    // ------------------------------------------------------------ a block's Custom Detail Sheet
-    // WHEN TAPPED -> CUSTOM DETAIL SHEET (2026-11-07, docs/phase11/HOME-GRID.md "Custom Detail Sheet"): any block may
-    // open a sheet of accessories of its own instead of what its card opens. The sheet is the BLOCK'S: it stays with
-    // the block whichever card its rules or pages show. Back to the block's own tap keeps the sheet as a draft; only
-    // Remove Sheet takes it away. Each entry's look is this sheet's alone -- the accessory is named, colored and drawn
-    // as before everywhere else.
-    sheetGroup(item) {
-      var K = this.K, h = this.h, self = this, add = (n) => this.sidebar.appendChild(n), S = G.SHEET;
-      var act = item.interaction || null, sheet = act && act.custom_sheet || null, on = !!act && act.tap === 'custom_sheet';
-      var put = (a) => this.update(item.id, { interaction: a });
-      // a change to the sheet: `fn` is handed a copy, changes it; the rest kept
-      var edit = (fn) => { var a = copy(act || { tap: 'default' }); a.custom_sheet = a.custom_sheet || { v: 1, entries: [] }; fn(a.custom_sheet); put(a); };
-      var own = item.card === 'security' && (item.opts || {}).presentation === 'homeview' ? 'Security Overview' : 'The Block’s Own';
-      var rows = [K.select({ label: 'When Tapped', value: on ? 'custom_sheet' : 'default', options: [['default', own], ['custom_sheet', 'Custom Detail Sheet']],
-        onChange: (v) => {
-          if (v === 'custom_sheet') { var a = copy(act || {}); a.tap = 'custom_sheet'; a.custom_sheet = a.custom_sheet || { v: 1, entries: [] }; put(a); }
-          else put(sheet ? { tap: 'default', custom_sheet: copy(sheet) } : null);
-        } })];
-      var footer = on ? 'This sheet opens from the whole block, whichever card it shows. Controls inside the block keep their own taps.'
-        : sheet ? 'A sheet is set up but not used: the block does what its card does. Choose Custom Detail Sheet to use it again.'
-        : 'Open a sheet of accessories you choose when the block is tapped, in place of what its card opens.';
-      if (on && !(sheet.entries || []).length) rows.push(K.info({ label: 'Add an accessory', sub: 'A sheet with nothing in it can’t be saved.' }));
-      add(K.group({ header: 'Detail Sheet', footer: footer }, rows));
-      if (!sheet) return;
-      var entries = sheet.entries || [];
-      // THE SHEET: its title, its header's icon, its tiles' style
-      var head = [
-        K.text({ label: 'Title', value: sheet.title || '', placeholder: NAMES[item.card], maxlength: S.titleMax, onCommit: (v) => edit((x) => { v = v.trim(); if (v) x.title = v; else delete x.title; }) }),
-        K.text({ label: 'Header Icon', value: sheet.icon || '', placeholder: 'Automatic', maxlength: 78,
-          onCommit: (v) => { v = v.trim(); if (v && !S.icon.test(v)) { self.say('An icon is a set and a name, such as mdi:shield-home.'); self.side(); return; } edit((x) => { if (v) x.icon = v; else delete x.icon; }); } }),
-        K.seg({ label: 'Tile Style', value: sheet.tile_style || '', options: [['', 'Same as Screen'], ['home', 'Home'], ['centred', 'Tall (HomeView)']],
-          onChange: (v) => edit((x) => { if (v) x.tile_style = v; else delete x.tile_style; }) }),
-        K.button({ label: 'Preview Sheet', disabled: !entries.length, onClick: () => this.previewSheet(item) })];
-      if (entries.some((e) => this.styled(e))) head.push(K.button({ label: 'Reset Every Entry’s Look', onClick: () => edit((x) => { x.entries = x.entries.map((e) => ({ id: e.id, entity: e.entity })); }) }));
-      add(K.group({ header: 'Sheet', footer: 'Same as Screen uses this screen’s tile style. Each entry may have its own below.' }, head));
-      // ITS ENTRIES, in order: each its accessory, how it looks here, and Move, Duplicate and Remove
-      var choices = this.choices('entity'), nameOf = (id) => (choices.find((op) => op[0] === id) || [id, id + ' (Unavailable)'])[1];
-      entries.forEach((e, i) => {
-        var rowsE = [], set = (patch) => edit((x) => { var t = x.entries[i]; Object.keys(patch).forEach((k) => { if (patch[k] == null || patch[k] === '') delete t[k]; else t[k] = patch[k]; }); });
-        var opts = choices.slice();
-        if (!opts.some((op) => op[0] === e.entity)) opts.push([e.entity, e.entity + ' (Unavailable)']);
-        rowsE.push(K.select({ label: 'Accessory', value: e.entity, options: opts, onChange: (v) => set({ entity: v, secondary: e.secondary && e.secondary.mode === 'attribute' ? null : e.secondary }) }));
-        var open = this.sheetEntry === e.id;
-        rowsE.push(K.button({ label: open ? 'Done Editing Look' : 'Edit Look' + (this.styled(e) ? ' (Custom)' : ''), onClick: () => { this.sheetEntry = open ? null : e.id; this.side(); } }));
-        if (open) this.entryLook(e, set, rowsE);
-        rowsE.push(K.button({ label: 'Move Up', disabled: i === 0, onClick: () => edit((x) => { x.entries.splice(i - 1, 0, x.entries.splice(i, 1)[0]); }) }));
-        rowsE.push(K.button({ label: 'Move Down', disabled: i === entries.length - 1, onClick: () => edit((x) => { x.entries.splice(i + 1, 0, x.entries.splice(i, 1)[0]); }) }));
-        rowsE.push(K.button({ label: 'Duplicate', disabled: entries.length >= S.max, onClick: () => edit((x) => {
-          var d = copy(x.entries[i]); d.id = G.entryId(x.entries); x.entries.splice(i + 1, 0, d); this.sheetEntry = d.id;
-        }) }));
-        rowsE.push(K.button({ label: 'Remove', destructive: true, onClick: () => edit((x) => { x.entries.splice(i, 1); }) }));
-        add(K.group({ header: (i + 1) + ' · ' + (e.name || nameOf(e.entity)) }, rowsE));
-      });
-      // ADD SEVERAL AT ONCE: the ones ticked, in the list's order
-      var addRows = [];
-      if (entries.length >= S.max) addRows.push(K.info({ label: 'This sheet is full', sub: 'A sheet holds at most ' + S.max + ' entries. Remove one to add another.' }));
-      else if (this.sheetAdding !== item.id) addRows.push(K.button({ label: 'Add Accessories…', onClick: () => { this.sheetAdding = item.id; this.sheetPick = []; this.sheetFind = ''; this.side(); } }));
-      else {
-        var q = (this.sheetFind || '').toLowerCase(), pick = this.sheetPick || [], room = S.max - entries.length;
-        addRows.push(K.text({ label: 'Search', value: this.sheetFind || '', placeholder: 'Name or ID', onCommit: (v) => { this.sheetFind = v; this.side(); } }));
-        choices.filter((op) => !q || op[1].toLowerCase().indexOf(q) >= 0 || op[0].indexOf(q) >= 0).slice(0, 80).forEach((op) => {
-          addRows.push(K.check({ label: op[1], multi: true, on: pick.indexOf(op[0]) >= 0, onClick: (on2) => {
-            var p2 = (this.sheetPick || []).filter((x) => x !== op[0]);
-            if (on2) { if (p2.length >= room) { this.say('There’s room for ' + room + ' more.'); this.side(); return; } p2.push(op[0]); }
-            this.sheetPick = p2; this.side();
-          } }));
-        });
-        addRows.push(K.button({ label: pick.length ? 'Add ' + pick.length + (pick.length === 1 ? ' Accessory' : ' Accessories') : 'Add', disabled: !pick.length, onClick: () => {
-          var now = this.sheetPick || [], order = choices.map((op) => op[0]).filter((id) => now.indexOf(id) >= 0);
-          edit((x) => { order.forEach((id) => { x.entries.push({ id: G.entryId(x.entries), entity: id }); }); });
-          this.sheetAdding = null; this.sheetPick = [];
-        } }));
-        addRows.push(K.button({ label: 'Cancel', onClick: () => { this.sheetAdding = null; this.sheetPick = []; this.side(); } }));
-      }
-      // COPY FROM ANOTHER BLOCK: a copy, never a link -- changing either later leaves the other as it is
-      var others = this.sheetSources(item.id);
-      if (others.length) addRows.push(K.select({ label: 'Copy Sheet From', value: '', options: [['', 'Choose a Block…']].concat(others.map((o, k) => [String(k), o.label])),
-        onChange: async (v) => {
-          if (v === '') return;
-          var src = others[+v];
-          if (entries.length && !await this.K.confirm(this.shadowRoot, { title: 'Replace This Sheet?', message: 'Its title, style and entries become a copy of ' + src.label + '.', ok: 'Replace' })) { this.side(); return; }
-          edit((x) => { var c = G.copySheet(src.sheet); Object.keys(x).forEach((k) => delete x[k]); Object.assign(x, c); });
-        } }));
-      add(K.group({ header: 'Entries', footer: entries.length + ' of ' + S.max + '. The same accessory may be here twice, each with its own look.' }, addRows));
-      add(K.group({}, [K.button({ label: 'Remove Sheet', destructive: true, onClick: () => put(null) })]));
-    }
-    // an entry has a look of its own here
-    styled(e) { return ['name', 'icon', 'color', 'tile_style', 'secondary'].some((k) => e[k] != null); }
-    // ONE ENTRY'S LOOK IN THIS SHEET: its name, icon, color, tile style and the line under its name; Reset takes them away
-    entryLook(e, set, rows) {
-      var K = this.K, S = G.SHEET, self = this;
-      rows.push(K.text({ label: 'Name', value: e.name || '', placeholder: 'Automatic', maxlength: S.nameMax, onCommit: (v) => set({ name: v.trim() || null }) }));
-      rows.push(K.text({ label: 'Icon', value: e.icon || '', placeholder: 'Automatic', maxlength: 78,
-        onCommit: (v) => { v = v.trim(); if (v && !S.icon.test(v)) { self.say('An icon is a set and a name, such as mdi:lock.'); self.side(); return; } set({ icon: v || null }); } }));
-      var custom = e.color && S.hex.test(e.color);
-      rows.push(K.select({ label: 'Color', value: custom ? 'custom' : e.color || '', options: [['', 'Automatic']].concat(S.colors.map((c) => [c, c.charAt(0).toUpperCase() + c.slice(1)]), [['custom', 'Custom…']]),
-        onChange: (v) => set({ color: v === 'custom' ? '#40c8e0' : v || null }) }));
-      if (custom) rows.push(K.text({ label: 'Custom Color', type: 'color', value: e.color, onCommit: (v) => { if (S.hex.test(v)) set({ color: v.toLowerCase() }); } }));
-      rows.push(K.seg({ label: 'Tile Style', value: e.tile_style || '', options: [['', 'Same as Sheet'], ['home', 'Home'], ['centred', 'Tall']], onChange: (v) => set({ tile_style: v || null }) }));
-      var sec = e.secondary || null;
-      if (sec && sec.mode === 'room') {
-        rows.push(K.select({ label: 'Line Under Name', value: 'room', options: [['auto', 'Automatic'], ['state', 'State'], ['room', 'Room'], ['brightness', 'Brightness'], ['attribute', 'An Attribute'], ['none', 'Hidden']],
-          onChange: (m) => set({ secondary: m === 'auto' ? null : m === 'attribute' ? { mode: m, attribute: 'friendly_name' } : { mode: m } }) }));
-      } else {
-        var tmp = [];
-        this.secondaryFields(sec, e.entity, (v) => set({ secondary: v }), tmp);
-        // (the accessories' choices, and Room: an entry's own line may say where it is)
-        if (tmp[0]) tmp[0] = K.select({ label: 'Line Under Name', value: sec ? sec.mode : 'auto', options: [['auto', 'Automatic'], ['state', 'State'], ['room', 'Room'], ['brightness', 'Brightness'], ['attribute', 'An Attribute'], ['none', 'Hidden']],
-          onChange: (m) => {
-            var a = (this.panel.client.states[e.entity] || {}).attributes || {}, keys = Object.keys(a).sort();
-            set({ secondary: m === 'auto' ? null : m === 'attribute' ? { mode: m, attribute: keys.includes('battery_level') ? 'battery_level' : keys[0] || 'friendly_name' } : { mode: m } });
-          } });
-        tmp.forEach((r) => rows.push(r));
-      }
-      rows.push(K.button({ label: 'Reset Look', disabled: !this.styled(e), onClick: () => set({ name: null, icon: null, color: null, tile_style: null, secondary: null }) }));
-    }
-    // THE SHEETS THAT COULD BE COPIED: this screen's other blocks', and other screens' Home Grids' -- each named by its
-    // screen, its card and its title
-    sheetSources(selfId) {
-      var out = [], data = this.panel.data || {}, here = this.o && this.o.path;
-      var titled = (path) => { var d = (data.dashboards || []).find((x) => x.path === path); return (d && (d.title || d.name)) || path; };
-      var from = (grid, path) => ((grid && grid.items) || []).forEach((it) => {
-        var sh = it.interaction && it.interaction.custom_sheet;
-        if (!sh || !(sh.entries || []).length || (path === here && it.id === selfId)) return;
-        out.push({ sheet: sh, label: (path === here ? 'This Screen' : titled(path)) + ' · ' + (NAMES[it.card] || it.card) + ' · ' + (sh.title || NAMES[it.card]) + ' (' + sh.entries.length + ')' });
-      });
-      from(this.grid, here);
-      Object.keys(data.boards || {}).forEach((path) => { if (path !== here) from((data.boards[path] || {}).home_grid, path); });
-      return out;
-    }
-    // THE SCREEN'S TILE STYLE, as the screen resolves it (hk-strategy.js homeGridView): this screen's own, else All Screens', Automatic
-    // being Centered on square cells; true where a block of this card and size draws Centered (Security past Small does not, as on the screen)
-    screenTile(card, size, opts) {
-      var own = this.o && this.o.board && this.o.board.tile_style, all = (((this.panel.data || {}).settings || {}).look || {}).tile_style;
-      var ts = ['auto', 'home', 'centred'].indexOf(own) >= 0 ? own : ['auto', 'home', 'centred'].indexOf(all) >= 0 ? all : 'auto';
-      var keeps = card === 'security' && size !== 'S' && (opts || {}).presentation !== 'homeview';
-      return !keeps && (ts === 'centred' || (ts === 'auto' && !!this.grid && this.grid.cell === 'square'));
-    }
-    // PREVIEW SHEET: the real sheet, in the preview's page, over the house as the preview has it; nothing in it answers a tap
-    previewSheet(item) {
-      var w = (this.iframe && this.iframe.contentWindow) || window, D = w.hkDetail, sheet = item.interaction && item.interaction.custom_sheet;
-      if (!D || !D.openSheet || !sheet) { this.say('The preview isn’t ready yet.'); return; }
-      var style = this.screenTile('', 'S') ? 'centred' : 'home';
-      D.openSheet(sheet, { title: NAMES[item.card], style: style, preview: true });
-    }
-    update(id, patch) {
-      var next = copy(this.grid), at = String(id).split(RULE_MARK), it = next.items.find((x) => x.id === at[0]);
-      if (at.length > 1) {                     // a rule's card (variantOf): its opts and pages, in the rule (none left, no key)
-        it = it.rules[+at[1]];
-        if (patch.opts && !Object.keys(patch.opts).length) patch = Object.assign({}, patch, { opts: null });
-      }
-      Object.keys(patch).forEach((key) => { if (patch[key] === null) delete it[key]; else it[key] = patch[key]; }); this.change(next);
-    }
-    // A CARD'S OPTIONS AS ROWS. o: { page (a Choose Each Page page: an
-    // option left empty uses the block's), base (the block's own options,
-    // for a page), hide {name: 1}, size, list (the block has custom pages) }
-    fields(card, opts, save, o) {
-      var K = this.K, self = this, kinds = G.table()[card].opts || {}, rows = [], hide = o.hide || {};
-      var set = (key, value) => { var out = copy(opts); if (value === '' || value == null) delete out[key]; else out[key] = value; save(out); };
-      if (['alert', 'tv', 'swipe'].indexOf(card) >= 0) return rows.concat(G[card].rows(K, opts, set, (k) => self.choices(k), self.panel.client, { size: o.size, fields: (c, v, sv) => self.fields(c, v, sv, { size: o.size, hide: { tap: 1 } }) }));   // (an Alert's, a TV's, a Swipe's rows: hk-grid-catalog.js)
-      Object.keys(kinds).forEach(function (key) {
-        if (hide[key]) return;
-        var kind = kinds[key], label = KIND_LABELS[kind] || NAME_LABELS[key] || key.charAt(0).toUpperCase() + key.slice(1);
-        if (kind === 'surface') return;                                         // Appearance, its own group
-        if (card === 'clock' && key === 'bare') return;                         // Appearance's Hide Box
-        if (card === 'room' && key === 'area' && o.list && !o.page) label = 'Default Room';
-        if (kind === 'room_display') {
-          if (o.page) return;
-          rows.push(K.seg({ label: 'Accessories', value: opts[key] || 'summary', options: [['summary', 'Summary'], ['scroll', 'Scroll All']], onChange: (v) => set(key, v === 'summary' ? null : v) }));
-          return;
-        }
-        if (kind === 'title') { rows.push(K.text({ label: o.page ? 'Page Name' : 'Group Name', value: opts[key] || '', maxlength: 60, placeholder: o.page ? '' : 'Accessories', onCommit: (v) => set(key, v.trim() || null) })); return; }
-        if (kind === 'secondary') { self.secondaryFields(opts[key], opts.entity || (o.base || {}).entity, (v) => set(key, v), rows); return; }
-        if (kind === 'accessories') { if (!(o.list && !o.page)) self.accessoryFields(opts[key] || [], (v) => set(key, v), rows, o.page ? G.PER_PAGE[o.size] : 24); return; }
-        if (kind === 'boolean') { rows.push(K.toggle({ label: label, sub: card === 'people' && key === 'map' ? MAP_SUB : undefined, on: opts[key] === true, onChange: (on) => set(key, on || null) })); return; }
-        if (kind === 'windows') { self.windows(opts, set, rows); return; }
-        if (kind === 'clock_style') {
-          rows.push(K.select({ label: 'Style', value: opts[key] || '', options: G.CLOCK_FACES, onChange: (v) => set(key, v || null) }));
-          return;
-        }
-        // THE CAMERAS FACE: how often its stills refresh (s), and which cameras -- none ticked: all of them
-        if (kind === 'refresh') {
-          rows.push(K.select({ label: 'Refresh', value: String(opts[key] || 10), options: [5, 10, 15, 20, 30, 60].map((n) => [String(n), 'Every ' + n + ' Seconds']),
-            onChange: (v) => set(key, +v === 10 ? null : +v) }));
-          return;
-        }
-        // a thermostat's Style: the dial or Big Number, Tall and Large (Extra Large is its sheet)
-        if (kind === 'thermostat_style') {
-          if (o.page || o.size === 'XL') return;
-          rows.push(K.seg({ label: 'Style', value: opts[key] || 'dial', options: G.THERMOSTAT_STYLES, onChange: (v) => set(key, v === 'dial' ? null : v) }));
-          return;
-        }
-        // SCENES AND ACCESSORIES (2026-10-31): Full or Half height, glass or Color; an Energy Rings block's period
-        if (kind === 'tile_height') {
-          // (none for Security: its locks are a list of rows since 2026-11-08's redraw)
-          var dflt = 'full';
-          if (card === 'security') return;
-          rows.push(K.seg({ label: 'Height', value: opts[key] || dflt, options: [['full', 'Full'], ['half', 'Half']], onChange: (v) => set(key, v === dflt ? null : v) }));
-          return;
-        }
-        // A CAMERA'S NAME at its foot (2026-10-31): Automatic (on a tile cell, not HomeView's square ones), Show, Hide
-        if (kind === 'name_tag') {
-          rows.push(K.seg({ label: 'Name', value: opts[key] || 'auto', options: [['auto', 'Automatic'], ['show', 'Show'], ['hide', 'Hide']], onChange: (v) => set(key, v === 'auto' ? null : v) }));
-          return;
-        }
-        if (kind === 'period') {
-          rows.push(K.seg({ label: 'Period', value: opts[key] || 'day', options: [['day', 'Today'], ['week', 'Week'], ['month', 'Month']], onChange: (v) => set(key, v === 'day' ? null : v) }));
-          return;
-        }
-        // WHEN TAPPED (2026-10-31, the owner on 0.1.94), as the Side Pane's: a tap on the block's plate opens its page or
-        // its detail sheet, whichever the screen has, or neither; the controls in the block keep their own taps
-        if (kind === 'tap_target') {
-          rows.push(K.seg({ label: 'When Tapped', value: opts[key] || 'auto', options: G.TAP_TARGETS, onChange: (v) => set(key, v === 'auto' ? null : v) }));
-          return;
-        }
-        // ...a Music block's, with Choose a Playlist (2026-11-01, the owner): five, so a list rather than a segment
-        if (kind === 'music_tap') {
-          rows.push(K.select({ label: 'When Tapped', value: opts[key] || 'auto', options: G.MUSIC_TAPS, onChange: (v) => set(key, v === 'auto' ? null : v) }));
-          return;
-        }
-        // ON NOW'S CATEGORIES (2026-11-08, the owner: "either show a pop up or go to those pages... users decisions")
-        if (kind === 'on_now_open') {
-          if (o.size === 'S') return;
-          rows.push(K.seg({ label: 'Categories', value: opts[key] || 'sheet', options: [['sheet', 'Show a Sheet'], ['page', 'Go to Its Page']], onChange: (v) => set(key, v === 'sheet' ? null : v) }));
-          return;
-        }
-        // EVERYTHING'S REST (2026-11-08, the owner: "scroll within the card or go to the page with the + button")
-        if (kind === 'everything_more') {
-          if (o.size === 'S') return;
-          rows.push(K.seg({ label: 'More Places', value: opts[key] || 'page', options: [['page', '+ Opens the Page'], ['scroll', 'Scroll in the Block']], onChange: (v) => set(key, v === 'page' ? null : v) }));
-          return;
-        }
-        // NOW PLAYING'S BACKGROUND (2026-11-05, the owner): the blurred album, or the plate every other block has
-        if (kind === 'np_background') {
-          rows.push(K.seg({ label: 'Background', value: opts[key] || 'album', options: [['album', 'Blurred Album'], ['card', 'Card']], onChange: (v) => set(key, v === 'album' ? null : v) }));
-          return;
-        }
-        // A MUSIC BLOCK'S SHOW (2026-10-31, the owner): Recently Played, the Music page's playlists, or one of them, chosen from
-        // the house's (as the Music page reads them); the Content footnote says what the block shows
-        if (kind === 'music_show') {
-          rows.push(K.select({ label: 'Shows', value: opts[key] || 'recent', options: [['recent', 'Recently Played'], ['presets', 'Playlists'], ['playlist', 'One Playlist']],
-            onChange: (v) => set(key, v === 'recent' ? null : v) }));
-          return;
-        }
-        // RECENT'S SHOW (2026-11-03): Automatic is the morning summary from 5 to 11 AM and the latest events after
-        if (kind === 'timeline_show') {
-          rows.push(K.select({ label: 'Shows', value: opts[key] || 'auto', options: [['auto', 'Automatic'], ['latest', 'Latest Events'], ['digest', 'Morning Summary']],
-            onChange: (v) => set(key, v === 'auto' ? null : v) }));
-          rows.push(K.info({ label: 'Automatic shows how the night went from 5 to 11 AM, then the latest events.' }));
-          return;
-        }
-        if (kind === 'music_playlist') {
-          if (opts.show !== 'playlist') return;
-          var pls = self.musicPlaylists().map((p) => [p.name, p.name]);
-          if (opts[key] && !pls.some((op) => op[0] === opts[key])) pls.push([opts[key], opts[key] + ' (Unavailable)']);
-          rows.push(K.select({ label: 'Playlist', value: opts[key] || (pls[0] || [''])[0], options: pls.length ? pls : [['', 'None Set Up']], onChange: (v) => set(key, v) }));
-          return;
-        }
-        // WHERE IT PLAYS (2026-10-31, the owner: "what HomePod or HomePod Group we want it to play on ... like a quick
-        // action"): Automatic -- this screen's music, as the Music page has it -- or one speaker, or a speaker group
-        if (kind === 'music_speaker') {
-          // (the house's speakers as the preview has them -- this page has no music of its own: musicPlaylists)
-          var sps = self.musicSpeakers(), gp = sps.filter((s) => !!s.members), rm = sps.filter((s) => !s.members);
-          var sp = [['', 'Automatic']].concat(gp.map((g) => [g.entity, g.name + ' (Group)']), rm.map((r) => [r.entity, r.name]));
-          if (opts[key] && !sp.some((op) => op[0] === opts[key])) sp.push([opts[key], opts[key] + ' (Unavailable)']);
-          rows.push(K.select({ label: 'Plays On', value: opts[key] || '', options: sp, onChange: (v) => set(key, v || null) }));
-          return;
-        }
-        // A LIVE TV BLOCK'S CHANNEL (2026-10-31, the owner): Automatic (the guide's first, as many as the size holds) or one
-        // of the guide's, asked of the house (hk_tv/channels) the first time a block shows this row
-        if (kind === 'tv_channel') {
-          var guide = self.tvChannels();
-          var tv = [['', 'Automatic']].concat(guide.map((c) => [c.number, c.number + ' ' + (c.name || '')]));
-          if (opts[key] && !tv.some((op) => op[0] === opts[key])) tv.push([opts[key], opts[key] + ' (Unavailable)']);
-          rows.push(K.select({ label: 'Channel', value: opts[key] || '', options: tv, onChange: (v) => set(key, v) }));
-          return;
-        }
-        // SECURITY'S PRESENTATION (2026-11-07): Classic, the block as it always was (its keypads), or HomeView's five
-        // compositions -- Compact is HomeView's alone, so a Compact block keeps it
-        if (kind === 'security_presentation') {
-          rows.push(K.seg({ label: 'Presentation', value: opts[key] || '', options: [['', 'Classic'], ['homeview', 'HomeView']],
-            onChange: (v) => { if (!v && o.size === 'C') { self.say('Compact is HomeView’s. Choose another size first.'); self.side(); return; } set(key, v || null); } }));
-          return;
-        }
-        // LIGHT UP WHEN ARMED (2026-11-09, the owner): on unless the option is false -- so Off is what is stored
-        if (kind === 'security_lit') {
-          if (opts.presentation !== 'homeview') return;
-          rows.push(K.toggle({ label: 'Light Up When Armed', sub: 'The alarm turns white while it is armed, red if it goes off. The locks beside it stay on the glass.',
-            on: opts[key] !== false, onChange: (on) => set(key, on ? null : false) }));
-          return;
-        }
-        // ...and HomeView's entries: Automatic (the house's locks, then its garage doors) or the ones chosen, in order
-        if (kind === 'security_members') {
-          if (opts.presentation !== 'homeview') return;
-          // (its locks and garage doors, as Automatic's -- not every blind and a car's charge port; and Choose starts from what
-          // Automatic shows, the house's lists, not the first six by name -- 2026-11-08, the owner's Kitchen block)
-          var st = (self.panel.client && self.panel.client.states) || {}, HS = window.hkSettings;
-          var garageish = (id) => /^cover\./.test(id) && st[id] && ['garage', 'gate'].includes((st[id].attributes || {}).device_class);
-          var mem = opts[key] || [], doors = self.choices('entity').filter((op) => /^lock\./.test(op[0]) || garageish(op[0]) || mem.includes(op[0]));
-          var house = () => {
-            var l = HS && HS.get ? HS.get('kinds.locks', null) : null, g = HS && HS.get ? HS.get('kinds.garage', null) : null;
-            var auto = (Array.isArray(l) && l.length ? l : doors.map((op) => op[0]).filter((id) => /^lock\./.test(id)))
-              .concat(Array.isArray(g) && g.length ? g : doors.map((op) => op[0]).filter(garageish));
-            return auto.filter((id) => st[id]).slice(0, G.SHEET.max);
-          };
-          rows.push(K.seg({ label: 'Entries', value: mem.length ? 'chosen' : '', options: [['', 'Automatic'], ['chosen', 'Choose']],
-            onChange: (v) => set(key, v ? house() : null) }));
-          if (!mem.length) { rows.push(K.info({ label: 'The house’s locks, then its garage doors' })); return; }
-          mem.forEach((id, i) => {
-            var nm = (doors.find((op) => op[0] === id) || [id, id + ' (Unavailable)'])[1];
-            rows.push(K.info({ label: (i + 1) + '. ' + nm }));
-            rows.push(K.button({ label: 'Move ' + nm + ' Up', disabled: i === 0, onClick: () => { var n2 = mem.slice(); n2.splice(i - 1, 0, n2.splice(i, 1)[0]); set(key, n2); } }));
-            rows.push(K.button({ label: 'Remove ' + nm, destructive: true, onClick: () => { var n2 = mem.filter((x, j) => j !== i); set(key, n2.length ? n2 : null); } }));
-          });
-          var left = doors.filter((op) => mem.indexOf(op[0]) < 0);
-          if (mem.length < G.SHEET.max && left.length) rows.push(K.select({ label: 'Add Entry', value: '', options: [['', 'Choose…']].concat(left), onChange: (v) => { if (v) set(key, mem.concat([v])); } }));
-          return;
-        }
-        if (kind === 'days') {
-          rows.push(K.select({ label: 'Days', value: String(opts[key] || 2), options: [1, 2, 3, 4, 5, 6, 7].map((n) => [String(n), n === 1 ? 'Today Only' : n === 2 ? 'Today and Tomorrow' : n + ' Days']),
-            onChange: (v) => set(key, +v === 2 ? null : +v) }));
-          return;
-        }
-        var choices = self.choices(kind).filter((op) => kind !== 'speaker' || op[0] !== 'tablet_room');
-        if (card === 'scene' && kind === 'scene') { var sids = self.sceneIds(); choices = choices.filter((op) => sids.indexOf(op[0]) >= 0); }
-        if (kind === 'cameras' && !(opts[key] || []).length) rows.push(K.info({ label: 'All Cameras, in the Cameras page’s order. Tick some to choose.' }));
-        if (kind === 'scenes' || kind === 'calendars' || kind === 'cameras') {
-          choices.forEach((op) => rows.push(K.check({ label: op[1], multi: true, on: (opts[key] || []).indexOf(op[0]) >= 0, onClick: (on) => {
-            var list = (opts[key] || []).filter((v) => v !== op[0]); if (on) list.push(op[0]);
-            if (list.length > 24) { self.say('At most 24 in a list.'); return; } set(key, list.length ? list : null);
-          } })));
-          return;
-        }
-        var auto = o.page ? 'Same as the Block' : card === 'camera' ? 'First Camera' : card === 'room' ? 'Tablet’s Room' : 'Automatic';
-        var all = card === 'room' && key === 'area' && !o.page ? choices : [['', auto]].concat(choices);
-        if (opts[key] && opts[key] !== 'tablet_room' && !all.some((op) => op[0] === opts[key])) all.push([opts[key], opts[key] + (kind === 'speaker' ? ' (Not a Music Speaker)' : ' (Unavailable)')]);
-        rows.push(K.select({ label: label, value: (kind === 'speaker' && opts[key] === 'tablet_room' ? '' : opts[key]) || (card === 'room' && key === 'area' && !o.page ? 'tablet_room' : ''), options: all, onChange: (v) => set(key, v) }));
-      });
-      // HOUSE STATUS has no options of its own: it is the screen's status chips (hk-house-status.js)
-      if (card === 'house_status' && !o.page) {
-        rows.push(K.info({ label: 'Shows this screen’s status chips, in their order', sub: 'Choose them, and Always or When Active, in the screen’s Status Chips.' }));
-      }
-      return rows;
-    }
-    secondaryFields(value, entity, save, rows) {
-      var K = this.K, mode = value && value.mode || 'auto';
-      var a = (this.panel.client.states[entity] || {}).attributes || {};
-      var keys = Object.keys(a).filter((k) => a[k] == null || ['string', 'number', 'boolean'].includes(typeof a[k])).sort();
-      var options = keys.map((k) => [k, k.replace(/_/g, ' ')]);
-      rows.push(K.select({ label: 'Line Under Name', value: mode, options: [['auto', 'Automatic'], ['state', 'State'], ['brightness', 'Brightness'], ['attribute', 'An Attribute'], ['none', 'Hidden']],
-        onChange: (m) => save(m === 'auto' ? null : m === 'attribute' ? { mode: m, attribute: keys.includes('battery_level') ? 'battery_level' : keys[0] || 'friendly_name' } : { mode: m }) }));
-      if (mode !== 'attribute') return;
-      var key = value.attribute;
-      if (!keys.includes(key)) options.push([key, key + ' (Not Reported)']);
-      rows.push(K.select({ label: 'Attribute', value: key, options: options, onChange: (v) => save(Object.assign({}, value, { attribute: v })) }));
-      rows.push(K.text({ label: 'Unit', value: value.unit || '', placeholder: 'Optional', maxlength: 20, onCommit: (v) => save(Object.assign({}, value, { unit: v })) }));
-    }
-    accessoryFields(entries, save, rows, max) {
-      var K = this.K, self = this, choices = this.choices('entity');
-      var put = (i, patch) => { var next = copy(entries); next[i] = Object.assign({}, next[i], patch); if (patch.secondary === null) delete next[i].secondary; save(next); };
-      entries.forEach(function (entry, i) {
-        var options = choices.filter((op) => op[0] === entry.entity || !entries.some((e) => e.entity === op[0]));
-        if (!options.some((op) => op[0] === entry.entity)) options.push([entry.entity, entry.entity + ' (Unavailable)']);
-        rows.push(K.select({ label: 'Accessory ' + (i + 1), value: entry.entity, options: options, onChange: (id) => put(i, { entity: id, secondary: null }) }));
-        self.secondaryFields(entry.secondary, entry.entity, (v) => put(i, { secondary: v }), rows);
-        rows.push(K.button({ label: 'Move Accessory ' + (i + 1) + ' Up', disabled: i === 0, onClick: () => { var next = copy(entries); next.splice(i - 1, 0, next.splice(i, 1)[0]); save(next); } }));
-        rows.push(K.button({ label: 'Remove Accessory ' + (i + 1), destructive: true, onClick: () => { var next = copy(entries); next.splice(i, 1); save(next.length ? next : null); } }));
-      });
-      if (entries.length >= max) { rows.push(K.info({ label: max + ' accessories: this page is full. Add another page for more.' })); return; }
-      rows.push(K.select({ label: 'Add Accessory', value: '', options: [['', 'Choose…']].concat(choices.filter((op) => !entries.some((e) => e.entity === op[0]))),
-        onChange: (id) => { if (id) save(entries.concat([{ entity: id }])); } }));
-    }
-    surfaceFields(surface, save, rows) {
-      var K = this.K;
-      rows.push(K.toggle({ label: 'Custom Group Background', on: !!surface, onChange: (on) => save(on ? { color: '#808080', opacity: 30, blur: 'screen' } : null) }));
-      if (!surface) return;
-      var put = (key, value) => save(Object.assign({}, surface, { [key]: value }));
-      rows.push(K.text({ label: 'Background Color', type: 'color', value: surface.color, onCommit: (v) => put('color', v) }));
-      rows.push(K.slider({ label: 'Background Opacity', value: surface.opacity, min: 0, max: 100, unit: '%', onChange: (v) => put('opacity', Number(v)) }));
-      rows.push(K.select({ label: 'Background Blur', value: surface.blur, options: [['screen', 'Follow Screen'], ['none', 'None'], ['light', 'Light'], ['medium', 'Medium'], ['heavy', 'Heavy']], onChange: (v) => put('blur', v) }));
-    }
-    // the house's playlists, as the Music page reads them (hkMusic.playlists(), the screen's copy in the preview): the
-    // list fills in once the house has answered
-    musicPlaylists() {
-      var w = (this.iframe && this.iframe.contentWindow) || window, Mu = w.hkMusic, self = this;
-      if (Mu && Mu.onChange && !this._muOff) this._muOff = Mu.onChange(function () { if (self.isConnected && self.selected) self.side(); });
-      return Mu && Mu.playlists ? Mu.playlists() : [];
-    }
-    // the house's speakers and speaker groups ({entity, name, members?}), from the same place
-    musicSpeakers() {
-      this.musicPlaylists();
-      var w = (this.iframe && this.iframe.contentWindow) || window, Mu = w.hkMusic;
-      return Mu && Mu.speakers ? Mu.speakers() : [];
-    }
-    // the guide's channels, [{number, name}], read once (the row fills in when they arrive)
-    tvChannels() {
-      var self = this;
-      if (!this._tv) {
-        this._tv = [];
-        var c = this.panel.client;
-        if (c && c.callWS) Promise.resolve(c.callWS({ type: 'hk_tv/channels' })).then(function (r) {
-          self._tv = (r && r.channels) || [];
-          if (self.isConnected && self.selected) self.side();
-        }, function () { /* not set up: Automatic only */ });
-      }
-      return this._tv;
-    }
-    // THE HOUSE'S SCENES (Accessories -> Scenes): HA's and the buttons and scripts added as one; before the counts load, HA's
-    sceneIds() { var st = this.panel.client.states || {}, ck = ((this.panel.data || {}).counts || {}).scenes; return ck && Array.isArray(ck.found) ? ck.found.filter((id) => !!st[id]) : Object.keys(st).filter((id) => id.indexOf('scene.') === 0); }
-    choices(kind) {
-      var client = this.panel.client, states = client.states || {};
-      if (kind === 'scene' || kind === 'scenes' || kind === 'action') {   // a scene block, a Scenes block: the house's scenes; a window, an Action: and every script
-        var ids = this.sceneIds(), sl = ids.concat(kind === 'scenes' ? [] : Object.keys(states).filter((id) => id.indexOf('script.') === 0 && ids.indexOf(id) < 0))
-          .map((id) => [id, (states[id].attributes || {}).friendly_name || id]).sort((a, b) => a[1].localeCompare(b[1]));
-        return kind === 'action' ? [['lock_up', 'Lock Up'], ['lights_off', 'All Lights Off'], ['garage', 'Garage']].concat(sl) : sl;
-      }
-      if (kind === 'tv_target') return G.tv.choices(client); if (kind === 'area') return [['tablet_room', 'Tablet’s Room']].concat(Object.keys(client.areas || {}).map((id) => [id, client.areas[id].name || id]));
-      if (kind === 'speaker') return G.speakerChoices(this.musicSpeakers());   // (2026-11-10: music rooms and groups, never a TV)
-      var domains = { speaker: ['media_player'], climate: ['climate'], camera: ['camera'],
-        timer: ['timer'], alarm: ['alarm_control_panel'], select: ['input_select', 'select'], doorbell: ['binary_sensor', 'camera'], weather: ['weather'], vacuum: ['vacuum'], calendars: ['calendar'],
-        cameras: ['camera'], todo: ['todo'] }[kind];
-      var list = Object.keys(states).filter((id) => !domains || domains.indexOf(id.split('.')[0]) >= 0).map((id) => [id, (states[id].attributes || {}).friendly_name || id]);
-      list.sort((a, b) => a[1].localeCompare(b[1]));
-      if (kind === 'climate') list.unshift(['tablet_room', 'Tablet’s Room']);
-      return list;
-    }
-    windows(opts, set, rows) {
-      var K = this.K, windows = opts.windows || [], self = this;
-      windows.forEach(function (w, i) {
-        var put = (key, value) => { var next = copy(windows); if (value) next[i][key] = value; else delete next[i][key]; set('windows', next); };
-        rows.push(K.text({ label: 'Window ' + (i + 1), value: w.label || '', placeholder: 'Name', maxlength: 24, onCommit: (v) => put('label', v) }));
-        ['start', 'end'].forEach((key) => rows.push(K.text({ label: key === 'start' ? 'From' : 'Until', type: 'time', value: w[key], onCommit: (v) => put(key, v) })));
-        rows.push(K.select({ label: 'Scene or Script', value: w.scene, options: self.choices('scene'), onChange: (v) => put('scene', v) }));
-        rows.push(K.button({ label: 'Remove Window ' + (i + 1), destructive: true, onClick: () => { var next = copy(windows); next.splice(i, 1); set('windows', next.length ? next : null); } }));
-      });
-      if (!windows.length) rows.push(K.info({ label: 'Morning, Day, Evening and Night', sub: 'Each finds its scene by name. Add a window to choose your own.' }));
-      rows.push(K.button({ label: 'Add Time Window', disabled: windows.length >= 8 || !this.choices('scene').length, onClick: () => {
-        set('windows', windows.concat([{ start: '05:00', end: '10:00', scene: this.choices('scene')[0][0] }]));
-      } }));
-    }
-    async preview() {
-      clearTimeout(this.previewTimer);
-      if (!this.grid || !this.isConnected) return;
-      var w = this.iframe.contentWindow;
-      try {
-        // WHAT IT IS WAITING FOR, said once it is slow (data-why), so a screen
-        // that never gets there says where it stopped
-        var wait = function (why) { var err = new Error('loading'); err.why = why; throw err; };
-        if (!w || !w.document || w.document.readyState === 'loading') wait('the screen to load');
-        if (!w.hkStrategy || !w.hkCards) wait('the screen’s code');
-        if (!w.hkShell || !w.hkShell.view()) wait('the screen’s page');
-        var serial = this.previewSerial = (this.previewSerial || 0) + 1;
-        var client = w.hkCards.client(), draft = copy(this.grid);
-        var selected = draft.items.find((it) => it.id === this.selected);
-        if (selected && (selected.rules || selected.when) && typeof this.conditionPreview === 'number') selected._conditionPreview = this.conditionPreview;
-        if (!client || !client.states) wait('the home’s accessories');
-        var config = await w.hkStrategy.generate({ home_grid_preview: draft }, client);
-        if (serial !== this.previewSerial || !this.isConnected) return;
-        var old = this.previewView && this.previewView.isConnected ? this.previewView : w.hkShell.view(), cfg = config.views.find((v) => v.path === 'home');
-        if (!cfg) wait('a Home page (this screen has ' + config.views.map((v) => v.path).join(', ') + ')');
-        if (cfg.type !== 'custom:hk-home-grid-view') wait('Home Grid (Home was drawn as ' + cfg.type + ')');
-        var el = w.document.createElement('hk-home-grid-view'); el.setConfig(cfg);
-        el.cards = cfg.cards.map((c) => w.hkCards.createCard(c, client));
-        // The overlay blocks pointer events; inert also blocks keyboard access to card actions.
-        el.inert = true;
-        if (old === this.previewView) old.replaceWith(el);
-        else {
-          // Keep the host's outer view: it owns tab-bar room and navigation.
-          (old.shadowRoot || old).replaceChildren(el);
-        }
-        // The host's view lookup may still point at its cached view. Keep the preview local.
-        this.previewView = el; this.previewRetries = 0; this.previewError = null;
-        this.box.removeAttribute('data-loading'); this.box.removeAttribute('data-why');
-        w.hkShell.announce({ detail: { replace: true } });
-        if (this.previewOff) this.previewOff();
-        this.previewOff = w.hkCards.onClient((next) => { el.cards.forEach((card) => w.hkHostClient.bridge(card, next)); });
-        if (this.previewRO) this.previewRO.disconnect();
-        this.previewRO = new w.ResizeObserver(() => this.fit()); this.previewRO.observe(el);
-        this.fit();
-        if (this.pickerCard) this.catalogPreviews();
-      } catch (e) {
-        // STILL LOADING: the preview is the whole screen in a frame, and on a
-        // slow connection that takes a while (2026-10-24, the owner: it gave
-        // up after 20 s and stayed blank). Keep asking, less often as it
-        // goes -- its frame's load asks at once too -- and only say so.
-        // A real error, or still waiting long after the frame came: say which
-        // (data-why), and after ~30 s step aside to a strip at the foot, so the
-        // blocks can be arranged without the live picture (fit() places them
-        // on the frame's own grid then)
-        var failed = !(e && e.message === 'loading');
-        if (failed) console.error('[hk-grid-editor] the preview failed', e);
-        this.previewError = String(e && e.message || e);
-        this.previewRetries = (this.previewRetries || 0) + 1;
-        this.box.setAttribute('data-why', failed ? 'It hit a problem: ' + this.previewError : 'Waiting for ' + (e.why || 'the screen'));
-        this.box.setAttribute('data-loading', failed || this.previewRetries > 25 ? 'slow' : 'yes');
-        this.fit();
-        if (this.previewRetries < 400) this.previewTimer = setTimeout(() => this.preview(), Math.min(2000, 300 + this.previewRetries * 50));
-        else this.say('The live preview couldn’t load. Reload this page to try again.');
-      }
-    }
-    // WHICH BLOCK a refused option or page is in (2026-11-01, the owner: "This error isn't very useful ... I had to find
-    // out where the error was"): the house says only what kind of thing it refused, and what was saved before was
-    // accepted -- so the blocks whose options or pages changed since are the ones to look at; the first is selected
-    suspects(code) {
-      if (code !== 'grid_option' && code !== 'grid_pages' && code !== 'grid_condition' && code !== 'grid_fallback') return '';
-      var was = {};
-      try { (JSON.parse(this.initial || 'null') || { items: [] }).items.forEach(function (it) { was[it.id] = it; }); } catch (e) { /* none saved */ }
-      var part = (it) => JSON.stringify([it.card, it.opts || null, it.pages || null, it.when || null, it.fallback || null, it.rules || null]);
-      var changed = (this.grid.items || []).filter((it) => !was[it.id] || part(was[it.id]) !== part(it));
-      if (!changed.length) return '';
-      if (this.selected !== changed[0].id) this.select(changed[0].id);
-      return ' Check ' + (changed.length > 3 ? 'the ' + changed.length + ' blocks you changed' : 'the ' + listOf(changed) + ' block' + (changed.length > 1 ? 's' : '')) + '.';
-    }
-    // anyway: Save Anyway, sent without the version (replaces what was saved meanwhile)
-    async save(anyway) {
-      if (this.busy || !this.grid || !valid(this.grid)) return;
-      this.busy = true; this.saveButton.disabled = true; this.say('Saving…');
-      var changed = false;
-      try {
-        var grid = copy(this.grid);
-        var msg = { type: 'hk_frontend/board/set', dashboard: this.o.path, changes: { home_style: 'grid', home_grid: grid } };
-        // (a starter that asked for the Side Pane: the screen's, in the same write)
-        if (this.paneChange) msg.changes.side_pane = this.paneChange;
-        // (a Look: its settings and its Undo -- the layout's own before it
-        // too -- in the same write)
-        if (this.lookChange) {
-          var b0 = this.o.board || {};
-          Object.assign(msg.changes, copy(this.lookChange));
-          msg.changes.look_undo.was.home_style = b0.home_style || 'generated';
-          msg.changes.look_undo.was.home_grid = b0.home_grid || null;
-        }
-        if (!anyway && this.version != null) msg.expect_version = this.version;
-        var result = await this.panel.actions().callWS(msg);
-        this.panel.data.boards[this.o.path] = result && result.board || Object.assign({}, this.o.board, { home_style: 'grid', home_grid: grid },
-          this.paneChange ? { side_pane: this.paneChange } : {}, this.lookChange || {});
-        this.paneChange = null; this.lookChange = null;
-        keepVersion(this.panel, this.o.path, result);
-        if (result && result.version != null) this.version = result.version;
-        this.initial = JSON.stringify(grid); this.o.onSaved();
-      } catch (e) {
-        if (e && e.code === 'conflict') { changed = true; this.say(''); }
-        else {
-          var fields = window.hkSettingsModel.refusals(e), code = fields && fields.home_grid;
-          this.say('Couldn’t save. ' + (code ? window.hkSettingsModel.errorText(code) + this.suspects(code) : e.message || e));
-        }
-      } finally { this.busy = false; this.saveButton.disabled = false; }
-      if (!changed) return;
-      // THIS SCREEN CHANGED since the editor opened it (another window,
-      // another device): nothing was saved. Reload shows it as it is now;
-      // Save Anyway replaces it with this draft
-      var choice = await this.changed('This screen changed since you opened it, in another window or on another device. Reload to see it as it is now (your changes here are discarded), or Save Anyway to replace it with your layout.');
-      if (choice === 'anyway') return this.save(true);
-      if (choice === 'reload') return this.reloadBoard();
-      this.say('Not saved: this screen changed since you opened it.');
-    }
   }
   window.hkGridEditor = { paneForStarter: paneForStarter, fullColumns: fullColumns, COLS: COLS, place: place, makeRoom: makeRoom, valid: valid, firstSpace: firstSpace, add: add, addOver: addOver, listOf: listOf, snap: snap, landing: landing,
                           SCREEN_TYPES: SCREEN_TYPES, SQUARE_STARTERS: SQUARE_STARTERS, screenTypeOf: screenTypeOf, scaleAt: scaleAt, squareStarter: squareStarter,
@@ -2497,4 +1031,108 @@
                           cannotResize: cannotResize, NAMES: NAMES, SIZE_NAMES: SIZE_NAMES, SIZE_SHORT: SIZE_SHORT, GLYPHS: GLYPHS,
                           GROUPS: GROUPS, DESCRIPTIONS: DESCRIPTIONS, offered: offered };
   customElements.define('hk-grid-editor', GridEditor);
+
+  // ------------------------------------------------------------ the parts (generated by tools/split_js.py)
+  // THIS FILE IS THE SHELL. Its members are cut into the files of web/hk/grid-editor/ (the PARTS below, in the order they
+  // run) by tools/split_js.py from tools/split_manifests/grid-editor.json; `split_js.py --find <name>` says which file holds
+  // one. Each file registers one function in window.hkGridEditorParts; they run here, in this order (a later one may use
+  // an earlier one), each given the kit K: what the parts use of the shell, in one object. What the shell uses of them,
+  // they hand back on K, and it is taken from there. The files are fetched in parallel; a host that has already loaded
+  // them (the suites) starts at once, in the same turn.
+  // READY: window.__hkSplitReady['hk-grid-editor'] is a promise that resolves once the parts have run (and rejects if they
+  // never come), so a page that imports this file and uses it at once awaits it first (web/home.js imp, hk-loader).
+  var PARTS = ['hk-grid-editor-screen.js', 'hk-grid-editor-palette.js', 'hk-grid-editor-settings.js',
+               'hk-grid-editor-show-when.js', 'hk-grid-editor-sheet.js', 'hk-grid-editor-options.js'];
+  var PARTS_TRIES = 6;
+  function partKey(file) { return file.replace(/\.js$/, ''); }
+  function partsSettle(err) {
+    var settle = (window.__hkSplitSettle || {})['hk-grid-editor'];
+    if (settle) settle(err);
+  }
+  // ONE FILE THAT DIDN'T COME (a tablet's Wi-Fi waking, the server restarting) used to leave the cards dead until a reload
+  // (the third audit pass, WEB-11): the ones still missing are asked for again, a little later each time, at an address
+  // of their own -- a browser keeps a failed module's answer for its address
+  function loadParts(then, n) {
+    // (the first call has no n; the retries and the finish pass it) a shell evaluated twice before its parts arrive
+    // must not run them twice: the flag is set at once, not when the parts have run
+    if (n === undefined) {
+      var started = window.__hkSplitStarted = window.__hkSplitStarted || {};
+      if (started['hk-grid-editor']) return;
+      started['hk-grid-editor'] = true;
+      var ready = new Promise(function (resolve, reject) {
+        (window.__hkSplitSettle = window.__hkSplitSettle || {})['hk-grid-editor'] = function (err) { if (err) reject(err); else resolve(); };
+      });
+      ready.catch(function () { /* the console says so; an importer that awaits it reports it */ });
+      (window.__hkSplitReady = window.__hkSplitReady || {})['hk-grid-editor'] = ready;
+    }
+    n = n || 0;
+    var have = window.hkGridEditorParts || {};
+    var missing = PARTS.filter(function (file) { return !have[partKey(file)]; });
+    if (!missing.length) {
+      var failed = null;
+      try { then(); } catch (err) { failed = err; console.error('[hk-grid-editor] the parts did not start', err); }
+      // (the checks that drive a page wait for every shell that started to say it is done)
+      (window.__hkSplitDone = window.__hkSplitDone || {})['hk-grid-editor'] = true;
+      partsSettle(failed);
+      return;
+    }
+    // (window.hkV: the build's ?v= on an address put together here, web/shim/base.js)
+    Promise.all(missing.map(function (file) {
+      var u = '/hk/grid-editor/' + file, href = window.hkV ? window.hkV(u) : u;
+      var got = n ? import(href + (href.indexOf('?') < 0 ? '?' : '&') + 'retry=' + n) : import(href);
+      return got.catch(function (err) { return err; });
+    })).then(function (got) {
+      var err = got.filter(function (r) { return r instanceof Error; })[0];
+      var left = PARTS.filter(function (file) { return !(window.hkGridEditorParts || {})[partKey(file)]; });
+      if (!left.length) { loadParts(then, n); return; }
+      err = err || new Error(left[0] + ' ran without registering');
+      if (n + 1 >= PARTS_TRIES) { console.error('[hk-grid-editor] the parts did not start', err); partsSettle(err); return; }
+      console.warn('[hk-grid-editor] a part did not load (' + err.message + '); again shortly');
+      setTimeout(function () { loadParts(then, n + 1); }, Math.min(1000 * Math.pow(2, n), 15000));
+    });
+  }
+  // ------------------------------------------------------------ end of the parts loader
+
+  // THE CLASS'S METHODS that parts add: as a class body defines them (writable, configurable, NOT enumerable; a
+  // getter or setter stays an accessor), so for-in and Object.getOwnPropertyNames over the prototype see the same names
+  function install(from) {
+    Object.getOwnPropertyNames(from.prototype).forEach(function (name) {
+      if (name === 'constructor') return;
+      if (Object.prototype.hasOwnProperty.call(GridEditor.prototype, name)) throw new Error('[hk-grid-editor] ' + name + ' is defined twice');
+      var d = Object.getOwnPropertyDescriptor(from.prototype, name);
+      Object.defineProperty(GridEditor.prototype, name, d.get || d.set
+        ? { get: d.get, set: d.set, enumerable: false, configurable: true }
+        : { value: d.value, writable: true, enumerable: false, configurable: true });
+    });
+  }
+  function kit() {
+    return {
+      cannotResize: cannotResize, cellOf: cellOf, COLS: COLS, CONDITION_NAMES: CONDITION_NAMES, copy: copy,
+      DESCRIPTIONS: DESCRIPTIONS, EMPTY: EMPTY, firstSpace: firstSpace, fullColumns: fullColumns, G: G,
+      GLYPHS: GLYPHS, GROUP_TINT: GROUP_TINT, groupOf: groupOf, GROUPS: GROUPS, keepVersion: keepVersion,
+      KIND_LABELS: KIND_LABELS, listOf: listOf, MAP_SUB: MAP_SUB, NAME_LABELS: NAME_LABELS, NAMES: NAMES,
+      NIGHTSTAND: NIGHTSTAND, offered: offered, offersSize: offersSize, paneForStarter: paneForStarter, place: place,
+      reflow: reflow, RULE_MARK: RULE_MARK, sampleEntities: sampleEntities, scaleAt: scaleAt,
+      SCREEN_TYPES: SCREEN_TYPES, screenTypeOf: screenTypeOf, SHOW: SHOW, SIZE_NAMES: SIZE_NAMES,
+      SIZE_SHORT: SIZE_SHORT, SIZES: SIZES, SOURCE_HIDES: SOURCE_HIDES, SQUARE_STARTERS: SQUARE_STARTERS,
+      squareStarter: squareStarter, ST: ST, STARTERS: STARTERS, TILE_CARDS: TILE_CARDS, valid: valid,
+      versionOf: versionOf, install: install
+    };
+  }
+  function runParts() {
+    var KIT = kit();
+    PARTS.forEach(function (file) { window.hkGridEditorParts[partKey(file)](KIT); });
+  }
+
+  var partsReady = new Promise(function (resolve, reject) {
+    var ran = false;
+    loadParts(function () {
+      runParts();
+      ran = true;
+      resolve();
+    });
+    // (the loader gives up after its last try with a note in the console; the page says so too)
+    if (!ran) setTimeout(function () { reject(new Error('its files did not load')); }, 75000);
+  });
+  partsReady.catch(function () { /* boot() reports it */ });
 })();
