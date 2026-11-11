@@ -747,3 +747,73 @@ integrations, `tools/`), one line per file from its opening comment, a shell's p
   `kit()` and `runParts()` (`panelDone` and `clock24` kit entries; `inPane` wrapped, `designController` made and the Now
   Playing page registered in `runParts`). An "unsplit" can't simply delete those functions; it has to carry that code back.
   `hk-detail.js`'s hand-written kit has a `sheetState` entry of the same kind. **B5 and B9 move to the end of the run.**
+
+### The splits so far (2026-11-10/11) — B1, B2, B3, B4 (three of four), B6, B7, B8, B11 committed; gates below
+
+Every split was made by the tool on this run's tree (an agent's manifest taken alone, the tool re-run here: the
+agents' branches had the loader template before readiness). Members moved text for text; `split_js.py --find NAME`
+(or `split_py.py --find NAME`) says which file holds one. Line counts are the files after the split.
+
+| File | Before | Shell | Parts |
+|---|---|---|---|
+| `hk-energy.js` | 4,299 | 433 | 8 in `web/hk/energy/` (largest 824) |
+| `hk-cameras.js` | 3,706 | 417 | 5 in `web/hk/cameras/` (the mosaic, one class, 1,632) |
+| `hk-calendar.js` | 2,561 | 581 | 6 in `web/hk/calendar/` |
+| `hk-home.js` | 2,500 | 306 | 4 in `web/hk/home-cards/` |
+| `hk-headers.js` | 2,496 | 647 | 4 in `web/hk/headers/` |
+| `hk-tile.js` | 2,048 | 294 | 4 in `web/hk/tile/` |
+| `hk-chip.js` | 2,183 | 298 | 4 in `web/hk/chip/` |
+| `hk-layout.js` | 2,792 | 332 | 4 in `web/hk/layout/` |
+| `hk-weather.js` | 3,694 | 953 | 7 in `web/hk/weather/` (`iife: 2`, `run_in_decl: boot`) |
+| `hk-menu.js` | 2,115 | 718 | 2 in `web/hk/menu/` |
+| `hk-sidepane.js` | 2,484 | 485 | 4 in `web/hk/sidepane/` |
+| `hk-strategy.js` | 3,320 | 429 | 5 in `web/hk/strategy/` |
+| `hk-settings-model.js` | 2,869 | 357 | 5 in `web/hk/settings-model/` |
+| `hk-settings-features.js` | 2,105 | 216 | 4 in `web/hk/settings-features/` (`live: ["K"]`) |
+| `hk-grid-editor.js` | 2,503 | 1,139 | 6 in `web/hk/grid-editor/` (`VIEW` on `ST`; class-method mode) |
+| `hk-sky.js` | 7,038 | 1,605 | 9 in `web/hk/sky-parts/` (40 names on `ST`; the largest part 1,444) |
+| `hk-base.js` | 4,811 | 1,099 | 10 in `web/hk/base/` (26 names on `ST`; `wait_all`; the largest part 1,789) |
+| `music.py` | 2,125 | 1,564 | 4 siblings (`music_names`, `_docs`, `_library`, `_calls`) |
+
+**Dropped, with why:**
+- **`modules/hk-settings.js` (2,027 lines) stays one file.** 83 files read `window.hkSettings` the moment they load, and
+  its literal names every exported function, whose bodies reach every helper. A part arrives a round trip after the
+  shell, so any member moved would be undefined for those readers. It is 27 lines over the 2,000 target and under the
+  2,300 warning.
+- **B10, `hk_core/settings/model.py` (3,737 lines), stays one module.** Its checks call one another across every
+  section, and the defaults are built and mutated in section order (`DEFAULTS["side_pane"] = ...`,
+  `SAVER_DEFAULTS.update(...)`). Any order of submodules has an earlier one using a later one (an import cycle), and the
+  best order the solver found put 3,243 lines in the first. Splitting it needs late imports inside functions, which is a
+  code change, not a move.
+
+**Tool changes found on the way** (each with a test or re-checked over every manifest):
+- `--write-loaders`; readiness's resolver in `window.__hkSplitSettle` (a property on the promise was a `tsc` error).
+- A kit name that is also a browser global (`CSS`, `valueOf`) is accepted though `tsc` never reports it missing.
+- Statements that share a line, if one waits, all wait (a line is cut whole); the state rewrite writes one statement to a
+  line.
+- A declared scope's last `return x;` stays last, after the loader's call (`hk-weather.js` `boot()`).
+- `live` works outside class mode (`hk-settings-features.js`'s `K`).
+- **Refused now:** a shell statement that runs at load and reaches a moved member through the shell's functions; a part
+  that reads, as it runs, an `ST` property set by a statement that waits, or an object a waiting statement changes
+  (`X.y =`, `X.push(`, `Object.assign(X`). `ST.x = value` and `X.y = value` that reach nothing moved stay where they were.
+  Every manifest (but the saver's and the settings panel's, from phase 18) re-checked against its original: none trips.
+- `wait_all` (`hk-base.js`): every statement of `initialize` that is not a declaration waits, in order, so
+  `window.hkCards` is made, filled and announced in one turn.
+- `split_py.py`: a statement begins at its own line or the comments right above it; a part may not be named like a
+  top-level name; a monkeypatch through a loop variable whose loop lists its names literally counts those names (the
+  plan's "every upper-case name" left `music.py` with no movable constant); the import-back and the imports only the
+  parts use are marked for ruff.
+
+**Tests that read a file's text** read a shell with its parts (`web_sources.read`, `split_files.js` `cut()`), or load
+the parts first; three jsc suites get `window = globalThis` (the loader registers on it); pins on a renamed variable read
+`ST.x`. Each pin reads the same code as before.
+
+**`tsc`:** the baseline total is 788 (the parent's 812). Measured one way (each file alone), `hk-chip` went 46 → 38 and
+`hk-grid-editor` 15 → 30: properties its moved methods assign are not seen on the shell's class. **mypy** has only the
+parent's two `hk_core/laundry.py` errors. **ruff** 518, its baseline.
+
+**The pictures can't be compared pixel for pixel.** Two runs of the parent differ in 25 of 40 gallery shots, 38 of 40
+house twin screens and 323 of 324 sheet shots. A countdown, the energy figures and the falling leaves move, and the
+gallery draws the real sky for the time of day. `shots_compare.py --noise` (what differs between two parent runs is
+noise) still leaves the leaves, which land somewhere new each run. So the picture gate is by eye: side-by-side contact
+sheets of every flagged shot. The DOM gates are the browser checks, the Settings sweep and `split_race_check.py`.
