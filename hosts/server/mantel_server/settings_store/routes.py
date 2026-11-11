@@ -101,7 +101,7 @@ def register(app: web.Application, hub: Any, hooks: Any = None, *, store: Settin
         SettingsService._only(msg, set())
         if not await service.allowed(ctx.identity, Scope("house", "settings")):
             raise Forbidden("HK Settings needs configure on settings")
-        from .. import setup_check as checks
+        from ..pages import setup_check as checks
         from .. import tablet_links
         lines = checks.lines(app, len(service.store.docs("board")))
         return {"lines": lines + await tablet_links.setup_lines(app)}

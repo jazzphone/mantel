@@ -21,7 +21,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from . import connections, setup_guide
+from .. import connections
+from . import setup_guide
 
 
 def _line(ok: bool | None, title: str, detail: str) -> dict[str, Any]:
@@ -77,11 +78,11 @@ def lines(app: Any, boards: int) -> list[dict[str, Any]]:
     except Exception:  # noqa: BLE001
         has_photos = False
     if has_photos:
-        from .cameras import imaging
+        from ..cameras import imaging
         if not imaging.faces_available():
             out.append(_line(None, "Photos", "Faces aren’t found on this platform; the screens’ own focus is used."))
         if not imaging.cutouts_available():
-            from .cameras import cutout
+            from ..cameras import cutout
             why = cutout.why_not() or "the cut-out model can’t run here"
             out.append(_line(None, "Time Behind", why[:1].upper() + why[1:] + ", so photos show the time in front."))
     out.append(_line(True if boards else False, "Screens",

@@ -167,7 +167,7 @@ async def test_a_page_socket_is_told_when_control_changes(make):
 
 
 async def test_the_house_default_screen_must_be_one_of_mantels(make):
-    from mantel_server import default_screens
+    from mantel_server.pages import default_screens
     from mantel_server.settings_store import Actor
     m = await make()
     await owner(m)

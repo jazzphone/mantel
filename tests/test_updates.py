@@ -13,7 +13,7 @@ import pytest
 from js_modules import copy_shim
 
 from conftest import Mantel  # noqa: F401  (the fixture's type)
-from mantel_server import about
+from mantel_server.pages import about
 from mantel_server.alerts import updates as U
 from mantel_server.alerts.center import ChannelError
 

@@ -266,7 +266,7 @@ def move_ma(app: web.Application, now: float) -> bool:
 # -- REST ----------------------------------------------------------------------------------------------------
 def _payload(request: web.Request, ident) -> dict:
     from . import connections as C
-    from . import default_screens
+    from .pages import default_screens
     app = request.app
     ss: ServerSettings = app["server_settings"]
     cfg = app["cfg"]
@@ -311,7 +311,7 @@ async def api_put(request: web.Request) -> web.Response:
         if not ident.fresh_within(STEP_UP_WINDOW, now):  # wherever they are: the house's commands, from now on
             return error(403, "step_up_required")
     if key == "default_screen" and value:
-        from . import default_screens
+        from .pages import default_screens
         if value not in {s["path"] for s in default_screens.screens(request.app)}:
             return error(400, "invalid", message="House Default Screen: that is not one of Mantel's screens.")
     old = ss.get(key)

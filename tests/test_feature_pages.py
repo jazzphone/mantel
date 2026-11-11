@@ -1,4 +1,4 @@
-"""HK Settings -> Features on Mantel (mantel_server/feature_pages.py): each feature's settings page read
+"""HK Settings -> Features on Mantel (mantel_server/pages/feature_pages.py): each feature's settings page read
 from Mantel's own feature settings and House (Music and Alarm PIN: an interim, rebuilt read of HA's page),
 and its saves checked by the shared checks and stored in Mantel's settings store (audited), never sent to
 Home Assistant. Owners/Admins only. A FICTIONAL house and fakes only; house commands stay off."""
@@ -7,7 +7,7 @@ import json
 import pytest
 
 import gateway_fakes as GF
-from mantel_server import feature_pages as FP
+from mantel_server.pages import feature_pages as FP
 from mantel_server import features as F
 from mantel_server.ha.readproxy import SERVER_ONLY_READS
 from test_features import (DOOR, MOTION, PREFS, VACUUM, FakeProxy, events, make_env,  # noqa: F401

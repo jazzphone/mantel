@@ -5,7 +5,7 @@
                                   [--config packaging/ha-app/config.yaml]
 
 The same shape tools/stage_ha_app.py writes for the Home Assistant App (``{version, commit, build, staged}``;
-hosts/server/mantel_server/about.py reads it from the image root). Docker and the LXC build their image from the
+hosts/server/mantel_server/pages/about.py reads it from the image root). Docker and the LXC build their image from the
 Dockerfile, which runs this in its ``release`` stage: the version is the MANTEL_VERSION build argument
 (.github/workflows/release.yml passes the release's own), or, when none is given (``docker compose build`` in the
 LXC, a local build), the ``version:`` of packaging/ha-app/config.yaml, the one number every package shares.

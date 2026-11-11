@@ -48,7 +48,7 @@ import time
 from collections import deque
 from typing import Any
 
-from .connectors import Ctx, ws_handlers
+from ..connectors import Ctx, ws_handlers
 
 log = logging.getLogger("mantel.page_health")
 

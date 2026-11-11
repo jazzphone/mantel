@@ -35,7 +35,7 @@ import sqlite3
 
 from aiohttp import web
 
-from . import default_screens
+from .pages import default_screens
 from .storage import audit
 from .identity.accounts import read_json, require_manager
 from .identity.guards import guard

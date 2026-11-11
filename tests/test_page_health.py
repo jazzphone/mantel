@@ -3,7 +3,7 @@ is, to find the wall tablets' 15-minute reloads. Numbers only, nothing answered,
 import logging
 from types import SimpleNamespace
 
-from mantel_server import page_health as PH
+from mantel_server.pages import page_health as PH
 from mantel_server.connectors import Ctx
 
 

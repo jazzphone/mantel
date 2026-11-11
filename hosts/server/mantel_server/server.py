@@ -31,27 +31,31 @@ from urllib.parse import urlparse
 import aiohttp
 from aiohttp import WSCloseCode, WSMsgType, web
 
-from . import about, music
+from .pages import about
+from . import music
 from .network import frame_origins
 from .identity import accounts, auth, pins, rbac_store, sessions
 from . import alarm_pin, devices, health, live_tv, settings_store
 from .network import connect_pairing, ingress
 from .cameras import cameras_direct, protect_connector
 from .ha import gateway, readproxy
+from .pages import admin_page, screens
 from . import (
-    admin_page, connections, features, linked, linked_house, linked_owners, linked_pairing, linked_files,
-    linked_reads, linked_settings, screens, linked_actions, phones, talk_relay,
+    connections, features, linked, linked_house, linked_owners, linked_pairing, linked_files, linked_reads,
+    linked_settings, linked_actions, phones, talk_relay,
 )
 from .storage import atrest, backup, user_files
 from .cameras import photos
 from .ha import people_ha, supervisor_discovery
 from .identity import login_page, service_accounts
 from .cameras import camera_setup, media_proxy
-from . import default_screens, docs_pages, ma_page, route_table, tablet_links
+from .pages import default_screens, docs_pages
+from . import ma_page, route_table, tablet_links
 from .storage import user_data
 from .network import direct, direct_tls, proxy_check, proxy_trust, security_headers
 from .ha import ha_dashboards, socket_reads
-from . import alerts, timeline, hk_cards, live, mcp, page_health, performance, server_settings, setup_guide
+from . import alerts, timeline, hk_cards, live, mcp, performance, server_settings
+from .pages import page_health, setup_guide
 from .apps import app_shell
 from .identity import cf_access, guards
 from .identity.authz import Authz, Principal, resolve_door
@@ -946,7 +950,7 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     # a linked HK Frontend's dashboards' feature reads, answered by Mantel as the person (decision 29)
     linked_reads.register(app)
     # the Lights page's "Tonight" list, from Mantel Link (docs/phase9/NO-HK-FRONTEND.md)
-    from . import page_headers
+    from .pages import page_headers
     page_headers.register(app, hub)
     # ...and how Home Assistant finds Mantel (9.5): the App's Supervisor announcement, or the zeroconf file
     supervisor_discovery.register(app)

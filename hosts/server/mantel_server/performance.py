@@ -35,7 +35,7 @@ from typing import Any
 
 from aiohttp import web
 
-from . import page_health
+from .pages import page_health
 from .identity.guards import guard
 
 log = logging.getLogger("mantel.performance")
@@ -189,7 +189,7 @@ def tablets(app: web.Application) -> list[dict]:
     """Each enrolled wall tablet's latest frame rate and device (page_health.TABLETS, which outlives a restart): the
     screens it shows (the one its frame rate was drawn on, then the one it opens on) and the style it was drawn with.
     A revoked or forgotten tablet is left out."""
-    from . import default_screens
+    from .pages import default_screens
     from .identity.sessions import Device
     mgr = app.get("devices")
     out = []

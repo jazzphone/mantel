@@ -29,17 +29,17 @@ from importlib.resources import files
 
 from aiohttp import web
 
-from .network import frame_origins, ingress, security_headers
+from ..network import frame_origins, ingress, security_headers
 from . import setup_guide
-from .identity import rbac
-from .identity.accounts import MANAGERS
-from .devices import DEVICE_ROLES
-from .identity.guards import WHY_STATIC, guard, open_route
-from .identity.guards import ident as guarded
-from .identity.login_page import login_url
-from .identity.service_accounts import SCOPES as SERVICE_SCOPES
-from .identity.sessions import Identity, identity
-from .storage.store import ROLES
+from ..identity import rbac
+from ..identity.accounts import MANAGERS
+from ..devices import DEVICE_ROLES
+from ..identity.guards import WHY_STATIC, guard, open_route
+from ..identity.guards import ident as guarded
+from ..identity.login_page import login_url
+from ..identity.service_accounts import SCOPES as SERVICE_SCOPES
+from ..identity.sessions import Identity, identity
+from ..storage.store import ROLES
 
 PAGE = "/admin"
 _PENDING_ID = re.compile(r"[A-Za-z0-9_-]{1,128}")    # a pending connection's id (connections.py), carried over

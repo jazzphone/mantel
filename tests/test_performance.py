@@ -12,7 +12,7 @@ from types import SimpleNamespace
 import pytest
 
 from mantel_server.storage import db as dbmod
-from mantel_server import page_health as PH
+from mantel_server.pages import page_health as PH
 from mantel_server import performance as P
 from mantel_server.connectors import Ctx
 

@@ -4,7 +4,7 @@ and read again when an automation switches. A FICTIONAL house; fakes only."""
 import asyncio
 
 import gateway_fakes as GF
-from mantel_server import page_headers as PH
+from mantel_server.pages import page_headers as PH
 from mantel_server.ha.readproxy import READ_ALLOWED, SERVER_ONLY_READS
 from test_features import make_env  # noqa: F401 -- the fixture
 

@@ -541,7 +541,7 @@ async def settings_page(app: Any) -> dict:
     read, rebuilt key by key; ``pin_set`` is Mantel's)."""
     if not hk_runs_keypads(app):
         return settings_page_mantel(app)
-    from .feature_pages import PageError, alarm_pin_page
+    from .pages.feature_pages import PageError, alarm_pin_page
     proxy = getattr(app.get("hub"), "readproxy", None)
     read = getattr(proxy, "read_server", None)
     if read is None:
@@ -550,7 +550,7 @@ async def settings_page(app: Any) -> dict:
 
 
 def _page_error(code: str, fields: Mapping[str, str] | None = None, message: str = "") -> Exception:
-    from .feature_pages import PageError
+    from .pages.feature_pages import PageError
     return PageError(code, message or code, fields)
 
 
@@ -671,7 +671,7 @@ async def _save_through_ha(app: Any, identity: Any, msg: Mapping[str, Any]) -> d
     import json as _json
 
     from .identity.authz import Principal
-    from .feature_pages import alarm_pin_page
+    from .pages.feature_pages import alarm_pin_page
     gw, authz = app.get("gateway"), app.get("authz")
     if gw is None or authz is None:
         raise _page_error("commands_disabled", message="HK Frontend in Home Assistant still runs the Alarm PIN, and "

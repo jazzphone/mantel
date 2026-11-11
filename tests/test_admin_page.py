@@ -1,4 +1,4 @@
-"""The admin page (`mantel_server/admin_page.py`): who is served, what the page may contain (CSP), and the
+"""The admin page (`mantel_server/pages/admin_page.py`): who is served, what the page may contain (CSP), and the
 one read it adds, `GET /api/admin/overview` (who I am, and which sections this identity may use)."""
 import re
 import shutil
@@ -12,7 +12,7 @@ from aiohttp.test_utils import TestClient, TestServer
 from argon2 import PasswordHasher
 
 from conftest import PASSWORD, Mantel
-from mantel_server import admin_page
+from mantel_server.pages import admin_page
 from mantel_server.identity.rbac import Grant
 
 ROOT = Path(__file__).resolve().parents[1]

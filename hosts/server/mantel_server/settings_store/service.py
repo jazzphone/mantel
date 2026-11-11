@@ -633,7 +633,7 @@ class SettingsService:
         pages = getattr(self.features, "pages", None)
         if pages is None:
             raise SettingsError("not_yet", REFUSALS["not_yet"])
-        from ..feature_pages import PageError
+        from ..pages.feature_pages import PageError
         try:
             return await pages.save(identity, msg)
         except PageError as exc:

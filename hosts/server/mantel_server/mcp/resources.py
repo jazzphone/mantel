@@ -60,7 +60,7 @@ def needs_of(uri: str) -> str | None:
 
 
 def _docs(app):
-    from ..docs_pages import Docs
+    from ..pages.docs_pages import Docs
     cfg = app["cfg"]
     return Docs(cfg.docs_hk, cfg.docs_mantel)
 

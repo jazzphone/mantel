@@ -15,7 +15,7 @@ from PIL import Image, ImageDraw
 
 from mantel_server.cameras import cutout, faces, image_work, imaging, photos
 from mantel_server.storage import db as dbm
-from mantel_server import setup_check
+from mantel_server.pages import setup_check
 
 np = pytest.importorskip("numpy")
 

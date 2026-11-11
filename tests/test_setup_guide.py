@@ -12,7 +12,7 @@ from __future__ import annotations
 import pytest
 
 from conftest import PASSWORD  # noqa: F401  (the fixture's password, for sign_in)
-from mantel_server import setup_check, setup_guide
+from mantel_server.pages import setup_check, setup_guide
 
 
 class FakeProxy:

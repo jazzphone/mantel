@@ -639,7 +639,7 @@ async def test_the_arm_rule_and_an_added_alarm_follow_too_and_nothing_else_is_ta
 
 
 def test_the_page_says_what_mantel_holds():
-    from mantel_server.feature_pages import alarm_pin_page
+    from mantel_server.pages.feature_pages import alarm_pin_page
 
     class Pins:
         def __init__(self, held):

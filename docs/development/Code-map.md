@@ -431,20 +431,15 @@ Mantel Server.
 - **hosts/server/mantel_server/**
   - `__main__.py`
   - `_moved.py` — The old paths of modules that moved into packages, importable for one release (tools/move_py.py, phase 25).
-  - `about.py` — Mantel Settings -> About
   - `accessories.py` — ACCESSORY SETTINGS, MANTEL'S SIDE
-  - `admin_page.py` — Mantel Server's admin page
   - `alarm_pin.py` — HK's Alarm PIN in Mantel (docs/phase3/PINS-AUDIT.md "The alarm keypad", docs/phase3/GATEWAY.md "The alarm", docs/phase4/MANTEL-FEATURES.md).
   - `announce.py` — Mantel on the network, by zeroconf (docs/phase9/MANTEL-LINK.md "Discovery and pairing", slice 9.5).
   - `apns.py` — Notifications to the iPhone, iPad and Mac apps through Apple's push service (docs/phase10/APPLE-APPS.md §5, slice 10.5; decision M10-2
   - `config.py`
   - `connect_proof.py` — Separate TLS identity-only receiver.
   - `connections.py` — Connections
-  - `default_screens.py` — The screen a person or a wall tablet opens on (migration 0014; decision 27's addendum, docs/phase8/SETTINGS.md).
   - `devices.py` — Device credentials
-  - `docs_pages.py` — /docs
   - `dry_run.py` — A dry run
-  - `feature_pages.py` — HK Settings -> Features on Mantel
   - `feature_watch.py` — Two of HK's clock-driven features on Mantel, through MantelHouse and FeatureCaller (docs/phase4/MANTEL-FEATURES.md "Phase 4 ports").
   - `health.py` — /healthz and /api/version
   - `hidden.py` — HIDDEN ACCESSORIES, MANTEL SERVER'S SIDE
@@ -475,18 +470,13 @@ Mantel Server.
   - `music_library.py` — music.py's Music Assistant's players and library, search and the queue as the page reads them (moved here by tools/split_py.py from hosts/server/ma...
   - `music_names.py` — music.py's the names and limits the music engine works with (moved here by tools/split_py.py from hosts/server/mantel_server/music.py
   - `music_states.py` — THE SPEAKERS' STATES FROM MUSIC ASSISTANT (2026-10-31)
-  - `page_headers.py` — THE LIGHTS PAGE'S "TONIGHT" LIST on Mantel's screens (hk-headers.js subscribes ``hk_frontend/page_headers/subscribe``).
-  - `page_health.py` — PAGE HEALTH (2026-10-22)
   - `performance.py` — PERFORMANCE (2026-10-26)
   - `phones.py` — Mantel's notifications on people's phones, through Home Assistant's Companion app (docs/phase9/MANTEL-LINK.md 9.7).
   - `push.py` — Notifications off the screens
   - `qr.py` — A small QR code encoder (byte mode, error correction M, versions 1 to 20) for the apps' pairing code.
   - `route_table.py` — One route table, assembled from each handler's declaration (phase 18, Part A; Rules.md rule 7).
-  - `screens.py` — Mantel's screens
   - `server.py` — Client-facing side
   - `server_settings.py` — Mantel's own settings that used to be start-up options, now in Mantel Settings (the same on the HA App, Docker and LXC; docs/phase3/HA-APP.md 0.1.52).
-  - `setup_check.py` — HK Settings' Setup Check on Mantel
-  - `setup_guide.py` — Set Up Mantel
   - `stats.py`
   - `tablet_links.py` — A wall tablet's Direct Connection
   - `talk_direct.py` — TALKING AT A UNIFI PROTECT DOORBELL DIRECTLY (docs/phase13/CAMERAS-DIRECT.md, phase 5, 2026-11-02).
@@ -610,6 +600,17 @@ Mantel Server.
   - `proxy_check.py` — "Test my proxy"
   - `proxy_trust.py` — Who may tell Mantel about the browser
   - `security_headers.py` — Mantel's own security headers, on every response, whatever proxy is (or is not) in front of it.
+- **hosts/server/mantel_server/pages/**
+  - `about.py` — Mantel Settings -> About
+  - `admin_page.py` — Mantel Server's admin page
+  - `default_screens.py` — The screen a person or a wall tablet opens on (migration 0014; decision 27's addendum, docs/phase8/SETTINGS.md).
+  - `docs_pages.py` — /docs
+  - `feature_pages.py` — HK Settings -> Features on Mantel
+  - `page_headers.py` — THE LIGHTS PAGE'S "TONIGHT" LIST on Mantel's screens (hk-headers.js subscribes ``hk_frontend/page_headers/subscribe``).
+  - `page_health.py` — PAGE HEALTH (2026-10-22)
+  - `screens.py` — Mantel's screens
+  - `setup_check.py` — HK Settings' Setup Check on Mantel
+  - `setup_guide.py` — Set Up Mantel
 - **hosts/server/mantel_server/settings_store/**
   - `docs.py` — The shapes the settings store is made of
   - `hooks.py` — What a save asks and is classified by

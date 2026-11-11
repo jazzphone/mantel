@@ -8,7 +8,7 @@ import web_sources
 import re
 from pathlib import Path
 
-from mantel_server import docs_pages as D
+from mantel_server.pages import docs_pages as D
 
 ROOT = Path(__file__).resolve().parents[1]
 HK_DOCS = ROOT / "hosts/ha/custom_components/hk_frontend/docs"

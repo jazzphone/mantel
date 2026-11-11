@@ -422,7 +422,7 @@ async def test_without_hk_frontend_in_ha_the_feed_says_not_set_up_once(bridge):
 async def test_the_settings_page_is_one_path_mantels_when_on_has_otherwise(on, monkeypatch):
     """HK Settings' Music page is feature_pages.py's route, and always Mantel's own settings (house/music), the
     engine on or off: HA's page is never read once Mantel holds them (HK Frontend can leave HA). Never two handlers."""
-    from mantel_server import feature_pages as FP
+    from mantel_server.pages import feature_pages as FP
     from mantel_server.connectors import read_routes
     asked = []
 
@@ -851,7 +851,7 @@ def test_every_music_read_route_has_one_rule():
     assert set(M.ROUTE_RULES) == {"hk_music/subscribe", "hk_music/queue", "hk_music/settings/library",
                                   "music_assistant/get_library", "media_player/browse_media",
                                   "media_player/search_media", "music_assistant/get_queue", "music_assistant/search"}
-    from mantel_server import feature_pages as FP
+    from mantel_server.pages import feature_pages as FP
     assert FP.PAGE_READS["hk_music/settings/get"] == "music"        # one path: feature_pages, MusicHost.page when on
     assert M.MUSIC_WS <= set(json.loads(open(
         __import__("pathlib").Path(M.__file__).with_name("hk_writes.json")).read())["writes"])

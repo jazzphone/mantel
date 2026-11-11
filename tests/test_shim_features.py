@@ -131,7 +131,7 @@ def test_feature_settings_saves_go_to_mantels_store(observed, mode):
 def test_the_feature_saves_are_exactly_the_stores():
     import re
     from mantel_server.settings_store import FEATURE_SAVES, SAVE_KINDS
-    from mantel_server.feature_pages import SAVES
+    from mantel_server.pages.feature_pages import SAVES
     src = (ROOT / "web/shim/mantel-client.js").read_text()
     page = set(re.findall(r"'([^']+)'", re.search(r"var FEATURE_SAVES = \[(.*?)\];", src, re.S).group(1)))
     assert page == set(FEATURE_SAVES) == set(SAVES)

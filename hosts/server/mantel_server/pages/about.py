@@ -29,8 +29,8 @@ from typing import Any
 from aiohttp import web
 
 from . import setup_guide
-from .config import REPO
-from .identity.guards import guard
+from ..config import REPO
+from ..identity.guards import guard
 
 RELEASE = "RELEASE.json"
 PATH = "/api/about"
@@ -45,7 +45,7 @@ _VERSION = re.compile(r'^version:\s*"?([0-9A-Za-z.+-]{1,32})"?\s*$', re.M)
 
 def release() -> dict[str, Any]:
     """{version, commit, build, staged}: the image's own, or the checkout's."""
-    from .health import build_id
+    from ..health import build_id
     try:
         got = json.loads((REPO / RELEASE).read_text())
         if isinstance(got, dict) and isinstance(got.get("version"), str):

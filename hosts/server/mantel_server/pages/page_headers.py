@@ -87,7 +87,7 @@ class PageHeaders:
 
     async def visible(self, identity: Any) -> list[dict[str, Any]]:
         """The schedule with only the lights and switches this subject may view."""
-        from .connectors import allowed_ids
+        from ..connectors import allowed_ids
         reads = self.app.get("filtered_reads")
         names = sorted({x for e in self.schedule for x in e.get("entities") or [] if isinstance(x, str)})
         seen = set(await allowed_ids(reads.hooks, identity, "view", names)) if reads is not None and names else set()
@@ -167,11 +167,11 @@ def register(app: web.Application, hub: Any) -> PageHeaders:
     """The route, and the hub's changes that make it read again. After readproxy.register."""
     if "page_headers" in app:
         return app["page_headers"]
-    from .connectors import Ctx, Forbidden, Route, read_routes
+    from ..connectors import Ctx, Forbidden, Route, read_routes
     ph = app["page_headers"] = PageHeaders(app, hub)
 
     async def feed(ctx: Ctx, msg: dict, on_event: Callable[[dict], None]):
-        from .ha.readproxy import ReadBlocked
+        from ..ha.readproxy import ReadBlocked
         if set(msg) - {"type", "id"}:
             raise ReadBlocked(f"{FEED} carries nothing")
         ident = ctx.identity

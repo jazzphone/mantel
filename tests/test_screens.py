@@ -7,7 +7,7 @@ import json
 import pytest
 
 from mantel_server.ha import ha_dashboards as HD
-from mantel_server import screens as SC
+from mantel_server.pages import screens as SC
 from mantel_server.settings_store import Actor
 from test_ha_dashboards import BASE, FakeHa, audits, ha, owner  # noqa: F401
 
@@ -55,7 +55,7 @@ async def test_a_new_home_assistant_screen_makes_hk_s_dashboard_there(mantel, ha
     assert made and made[-1]["url_path"] == "tablet-two"
     assert ha.configs["tablet-two"] == HD.HK_CONFIG, "HK's generated dashboard, nothing else"
     assert store(mantel).body("board", "tablet-two")["where"] == "ha"
-    from mantel_server import default_screens
+    from mantel_server.pages import default_screens
     assert "tablet-two" not in [s["path"] for s in default_screens.screens(mantel.app)], "not a screen Mantel opens"
 
 

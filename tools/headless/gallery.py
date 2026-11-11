@@ -599,7 +599,8 @@ def seed_alerts(app) -> None:
     """Mantel Settings -> Alerts, as a house that set it up: two channels (a Discord channel that has sent, an email
     that is quiet at night), a week of what was sent, and an update waiting. Written through the alerts' own stores;
     the secrets are made up and sealed like any other (nothing is sent: the center's loop is not running here)."""
-    from mantel_server import about, alerts
+    from mantel_server.pages import about
+    from mantel_server import alerts
     from mantel_server.alerts.updates import newer
     import os
     os.environ.setdefault("MANTEL_INSTALL", "lxc")      # About says how to update this install: one line, not both

@@ -28,7 +28,7 @@ import aiohttp  # noqa: E402
 from aiohttp.test_utils import TestServer  # noqa: E402
 from argon2 import PasswordHasher  # noqa: E402
 from cdp import Browser  # noqa: E402
-from mantel_server import admin_page  # noqa: E402
+from mantel_server.pages import admin_page  # noqa: E402
 from mantel_server.identity.accounts import totp  # noqa: E402
 from mantel_server.config import Config  # noqa: E402
 from mantel_server.server import build_app  # noqa: E402

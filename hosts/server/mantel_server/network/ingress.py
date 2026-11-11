@@ -1122,7 +1122,7 @@ async def middleware(request: web.Request, handler):
             return web.json_response({"error": "not_linked", "message": "ask a Mantel Owner to link your "
                                       "Home Assistant account"}, status=401)
         if request.path in ("/", "/home") and is_ha_tablet(ident):
-            from .. import default_screens                     # the tablet's own screen, else its HK tablet's
+            from ..pages import default_screens                     # the tablet's own screen, else its HK tablet's
             start = default_screens.start_for(request.app, ident)
             if start is not None:
                 raise web.HTTPFound(base + start)

@@ -26,11 +26,11 @@ from typing import Any
 
 from aiohttp import web
 
-from .storage import audit
-from .identity.accounts import read_json
-from .identity.guards import guard
-from .identity.guards import ident as guarded
-from .identity.sessions import Device, Identity, error, ok
+from ..storage import audit
+from ..identity.accounts import read_json
+from ..identity.guards import guard
+from ..identity.guards import ident as guarded
+from ..identity.sessions import Device, Identity, error, ok
 
 SCREEN = re.compile(r"^[A-Za-z0-9_]+-[A-Za-z0-9_-]{0,100}$")      # a board key, as server.py's screen routes take
 
@@ -84,7 +84,7 @@ def all_of(app: web.Application, kind: str) -> dict[str, str]:
 
 
 def _tablet(app: web.Application, device: Device) -> str | None:
-    from .network import ingress
+    from ..network import ingress
     start = ingress.tablet_start(app, device)            # "/<screen>/home?hk_tablet=<tid>", or None
     own = get(app, f"d:{device.id}")
     if own and own in _known(app):

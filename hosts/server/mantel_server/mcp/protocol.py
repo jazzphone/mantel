@@ -52,7 +52,7 @@ INSTRUCTIONS = (
 
 def _version_text() -> str:
     try:
-        from ..about import release
+        from ..pages.about import release
         return str(release().get("version") or "1")
     except Exception:  # noqa: BLE001
         return "1"

@@ -530,6 +530,6 @@ def test_the_page_and_me_are_american_english_and_draw_only_served_glyphs():
 
 
 def test_the_page_is_listed_with_the_server_section():
-    from mantel_server import admin_page
+    from mantel_server.pages import admin_page
     assert admin_page.SECTIONS.index("timeline") == admin_page.SECTIONS.index("alerts") + 1
     assert "'timeline'" in (SHIM / "mantel-settings.js").read_text(encoding="utf-8")

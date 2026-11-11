@@ -9,8 +9,8 @@ from types import SimpleNamespace
 import pytest
 
 from conftest import Mantel  # noqa: F401  (the fixture's type)
-from mantel_server import about as A
-from mantel_server import page_health as PH
+from mantel_server.pages import about as A
+from mantel_server.pages import page_health as PH
 from mantel_server.connectors import Ctx
 
 

@@ -300,7 +300,7 @@ async def test_hk_settings_says_where_each_screen_is_drawn(make_env):
 
 
 async def test_a_removed_home_assistant_dashboard_stops_marking_the_address_shared(make_env):
-    from mantel_server import screens as SC
+    from mantel_server.pages import screens as SC
     env = await make_env()
     ws = await connect(env)
     await ws.receive_json(timeout=5)

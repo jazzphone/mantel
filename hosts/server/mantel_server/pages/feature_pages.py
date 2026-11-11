@@ -40,7 +40,7 @@ from hk_core.notifications.accessories import members
 from hk_core.notifications.const import CONF_ITEMS, ITEMS_MAX
 
 if TYPE_CHECKING:
-    from .features import FeatureHost
+    from ..features import FeatureHost
 
 log = logging.getLogger("mantel.feature_pages")
 
@@ -228,7 +228,7 @@ class FeaturePages:
         if piece == "music":
             return await self.music_page()
         if piece == "alarm_pin":
-            from . import alarm_pin
+            from .. import alarm_pin
             return await alarm_pin.settings_page(h.app)
         raise PageError("unknown_type", piece)
 
@@ -247,8 +247,8 @@ class FeaturePages:
         return music.page(start=music.ma is not None)
 
     async def _import_music(self, music: Any) -> None:
-        from . import music as M
-        from .settings_store import Actor
+        from .. import music as M
+        from ..settings_store import Actor
         proxy = getattr(self.host.hub, "readproxy", None)
         read = getattr(proxy, "read_server", None)
         if read is None or music.store is None:
@@ -343,7 +343,7 @@ class FeaturePages:
     async def save(self, identity: Any, msg: dict[str, Any]) -> dict[str, Any]:
         """One save at a time over the feature settings (``FeatureHost.features_lock``, which Mantel's own turn-on
         holds too): each reads, writes and reloads before the next reads, so none is made from an overtaken copy."""
-        from .settings_store import SettingsError
+        from ..settings_store import SettingsError
         async with self.host.features_lock:
             try:
                 return await self._save(identity, msg)
@@ -372,7 +372,7 @@ class FeaturePages:
         if piece == "music":
             return await self.music_save(identity, t, msg)
         if piece == "alarm_pin":
-            from . import alarm_pin
+            from .. import alarm_pin
             return await alarm_pin.settings_save(self.host.app, identity, msg)
         settings, version = copy.deepcopy(self.host.settings), self.host.settings_version
         if not isinstance(msg.get("changes", {}), Mapping):
@@ -386,7 +386,7 @@ class FeaturePages:
             settings["energy"]["options"] = await self._energy(settings["energy"]["options"], t, msg)
         elif piece == "live_tv":
             self._tv(settings["live_tv"], dict(msg["changes"]))
-        from .features import FEATURES_DOC, check_settings
+        from ..features import FEATURES_DOC, check_settings
         body = check_settings(settings)
         if body != self.host.settings:
             self.host.write_doc(FEATURES_DOC, body, identity, t, expect_version=version)
@@ -401,7 +401,7 @@ class FeaturePages:
         Mantel never turns one on by itself after it (Live TV's older ``go2rtc_once`` is spent too)."""
         if not isinstance(enabled, bool):
             raise PageError("invalid_format", fields={"enabled": "true or false"})
-        from .features import FEATURES_DOC, check_settings
+        from ..features import FEATURES_DOC, check_settings
         settings, version = copy.deepcopy(self.host.settings), self.host.settings_version
         settings[piece]["enabled"] = enabled
         if piece == "live_tv":
@@ -421,7 +421,7 @@ class FeaturePages:
         feature a person turned off stays off either way."""
         if not isinstance(enabled, bool):
             raise PageError("invalid_format", fields={"enabled": "true or false"})
-        from .features import FEATURES_DOC, check_settings
+        from ..features import FEATURES_DOC, check_settings
         settings, version = copy.deepcopy(self.host.settings), self.host.settings_version
         settings["auto"]["enabled"] = enabled
         body = check_settings(settings)
@@ -433,7 +433,7 @@ class FeaturePages:
     async def music_save(self, identity: Any, t: str, msg: dict[str, Any]) -> dict[str, Any]:
         """HK Settings' music saves on Mantel's ``house/music`` (music.py), refused by field as HA's were."""
         import json as _json
-        from .music import MusicRefusal
+        from ..music import MusicRefusal
         music = self.host.app.get("music")
         if music is None or music.store is None:
             raise PageError("not_set_up", "Music isn’t run by this Mantel")
@@ -556,7 +556,7 @@ class FeaturePages:
     def _tv(self, piece: dict[str, Any], changes: dict[str, Any]) -> None:
         """live_tv/settings_ws.py apply, on Mantel's piece: the tuner's address, the guide, the channels
         and their names. Checked against Mantel's own lineup copy (no tuner is read for a save)."""
-        from .features import _HOST, _URL
+        from ..features import _HOST, _URL
         errors: dict[str, str] = {}
         for k in changes:
             if k not in ("host", "guide_url", "channels", "names", "quality"):
@@ -617,8 +617,8 @@ class FeaturePages:
 
 def register(app: Any, host: "FeatureHost") -> FeaturePages:
     """The page reads in ``app["read_routes"]`` (answered here, never forwarded)."""
-    from .connectors import Ctx, Forbidden, Route, read_routes
-    from .ha.readproxy import ReadBlocked
+    from ..connectors import Ctx, Forbidden, Route, read_routes
+    from ..ha.readproxy import ReadBlocked
 
     pages = FeaturePages(host)
 

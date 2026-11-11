@@ -31,11 +31,11 @@ from urllib.parse import urlparse
 
 from aiohttp import web
 
-from .storage import audit
-from . import connections
-from .identity.guards import guard
-from .identity.guards import ident as guarded
-from .identity.sessions import error, ok
+from ..storage import audit
+from .. import connections
+from ..identity.guards import guard
+from ..identity.guards import ident as guarded
+from ..identity.sessions import error, ok
 
 log = logging.getLogger(__name__)
 

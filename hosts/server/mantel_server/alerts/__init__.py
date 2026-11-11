@@ -266,7 +266,7 @@ class Alerts:
             await asyncio.sleep(sources.WATCH)
 
     async def start(self) -> None:
-        from ..about import release
+        from ..pages.about import release
         sources.started(self.center, self.app["cfg"].data_dir, release().get("version"), self.clock())
         loop = asyncio.get_running_loop()
         self.tasks = [loop.create_task(self.center.run()), loop.create_task(self.watch_loop()),

@@ -160,7 +160,7 @@ async def screen_import(caller, args: dict) -> dict:
     dropped = sorted(k for k in board if k not in settings and k not in ("where", "title"))
     names = {mapping.get(e, e): n for e, n in (exp.get("names") or {}).items()}
     title = args.get("title") or exp.get("title") or "Imported Screen"
-    from ... import screens as SCREENS
+    from ...pages import screens as SCREENS
     from .screens import _screens_call
     key = SCREENS.free_key(caller.app["settings"].store, title)
 
@@ -214,7 +214,7 @@ async def screen_from_template(caller, args: dict) -> dict:
     if room:
         options["tablet_room"] = room
     grid = (await read(caller, {"type": "hk_frontend/grid/starter", "options": options}))["grid"]
-    from ... import screens as SCREENS
+    from ...pages import screens as SCREENS
     from .screens import _screens_call
     title = args.get("title") or t["title"]
 

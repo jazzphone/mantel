@@ -24,7 +24,7 @@ from hk_core.settings import model as SM
 from hk_core.sleep import engine as SE
 
 from ..storage import audit
-from .. import feature_pages
+from ..pages import feature_pages
 from ..cameras import notify_snaps
 from ..connectors import Ctx, deny_read, Forbidden, may_feature, read_routes, Route, ws_handlers
 from ..feature_watch import CalendarLook, TabletWatch

@@ -55,7 +55,7 @@ async def house_summary(caller, args: dict) -> dict:
         domains[d] = domains.get(d, 0) + 1
     floors = [{"floor_id": f, "name": n, "rooms": sorted(a for a, fl in reg.area_floor.items() if fl == f)}
               for f, n in sorted(reg.floors.items(), key=lambda x: x[1].lower())]
-    from ...about import about
+    from ...pages.about import about
     info = about(caller.app)
     out: dict[str, Any] = {
         "mantel": {"version": info.get("version"), "install": info.get("install"),

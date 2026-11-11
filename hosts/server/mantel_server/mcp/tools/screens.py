@@ -11,7 +11,7 @@ import copy
 import re
 from typing import Any
 
-from ... import screens as SCREENS
+from ...pages import screens as SCREENS
 from ..dispatch import ToolError, change, read, save, step
 from . import NO_ROUTE_SAVE, Tool
 
