@@ -134,12 +134,11 @@ Everything else is 2,000 lines or fewer. `media/hk-media-now.js` is exactly 2,00
    other sessions' checks or Chrome may hold them. The session lists the ports in use and the running sessions
    (`list_sessions`). If a check's port is held, it waits for it to be free before that check, never more than 30
    minutes, and logs the wait. It doesn't stop anything it didn't start.
-2. **The house-only branches (decision 1).** `speaker-picker` (2 commits) is on the house and not on main, and so are
-   the merges in `hotfix-tv-speaker`. They edit `hk-grid-editor.js`, which this phase splits, and `hk-grid-catalog.js` and
-   `hk-media-now.js`, which it leaves whole. With decision 1's answer:
-   - **(a), merge first:** merge them before slice B1 and push.
-   - **(b), leave them:** the Build log lists every member they touch and the part it moved to (`split_js.py --find`),
-     so the next house build ports them in minutes.
+2. **Nothing the house runs is missing from main.** `speaker-picker` went to main on 2026-11-10 (`cb118148`,
+   decision 1). Before B1 the session runs `git cherry origin/main <branch>` for any branch a house hotfix was built
+   from since then (memory and the house's `MANTEL_SERVER_IMAGE` say which). If one has a change main lacks, the Build
+   log lists each member it touches and the part that member moved to (`split_js.py --find`). The session doesn't
+   merge it, because that is the owner's call.
 3. **Open branches.** List branches and worktrees with commits not on main that touch a file in the table, with
    `git diff --stat origin/main...<branch>`. Phase 18 decision 5 applies: split anyway, and put the `--find` note in
    the commit.
@@ -561,7 +560,7 @@ B (gated serially, about 8 to 10 hours), D, C, E, F.
 |---|---|---|
 | The Mac sleeps or the share drops | it's overnight | keep-awake; local-disk worktree; push from there |
 | Another session edits a file mid-split | 367 commits in the last 3 days on main | re-run the tool on the new tree (step 9); never merge by hand |
-| The house runs code main doesn't have | `speaker-picker`, `hotfix-tv-speaker` | decision 1; the `--find` port list in the Build log |
+| The house runs code main doesn't have | a hotfix built from a branch | P step 2's check; the `--find` port list in the Build log |
 | A text-pinning test breaks on a moved or wrapped line | ~190 files read `hk-base.js` by name | `split_files.js` already shows shells whole; C picks another break before touching a pin |
 | A card shows before `hk-base`'s parts arrive | `window.hkCards` filled later | (i): the object appears only when complete; the readers listed first |
 | First draw gets slower | parts are fetched at run time | preloads; 50 ms gate; decision 6's fallback |
@@ -578,7 +577,7 @@ B (gated serially, about 8 to 10 hours), D, C, E, F.
 
 | # | Question | Recommendation |
 |---|---|---|
-| 1 | `speaker-picker` (and the merges in `hotfix-tv-speaker`) are on the house but not on main, and they edit files this phase splits. Merge them into main before the run? | **Yes, merge first.** Otherwise every house build after tonight has to port them onto split files. It's quick with `--find`, but easy to forget, and a hotfix from main would silently drop them (it nearly did on 2026-11-10) |
+| 1 | `speaker-picker` was on the house but not on main, and it edits files this phase splits. Merge it into main before the run? | **Decided 2026-11-10 by the owner: yes** ("it's a valid change"). Merged and pushed the same day as `cb118148`, beside the TV block's picker, as the house build has it |
 | 2 | Which files: only the 12 over the wall, or **every file over 2,000 lines** (20 JS + 2 Python)? | **Every file over 2,000.** Otherwise five hot files (`hk-settings.js` 55 commits, `hk-chip` 31, `hk-tile` 30...) start the next week within 300 lines of the warning |
 | 3 | Limits: walls stay 2,500 JS / 2,200 Python; warning at 2,300 / 2,000; parts aimed at ≤1,500; nothing over 2,000 at the end? | **Yes.** |
 | 4 | Width 200 for **every** hand-written `.js`, `.cjs`, `.py` (web, hosts, `hk_core`, tools, tests), not just `web/`? | **Yes, with one named list:** the ~110 lines that overflow inside a template, regex or multi-line string, where a newline would change the value, kept with their reason in `line_width_exceptions.json`, which can only shrink. 1,899 lines in all, almost all done by the tool |

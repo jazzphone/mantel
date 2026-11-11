@@ -40,6 +40,39 @@
   // key, a small pill at the top of the block on the owner's Tesla HomeView -- seen in the house's twin, tools/headless/house_twin.py)
   function stand(name, icon, text) { return { type: 'custom:hk-grid-panel-card', panel: 'note', name: name, text: text || 'Not set up yet.' }; }
   function own(v) { return v && v !== TABLET_ROOM ? v : null; }
+  // ONE WAY TO PICK A SPEAKER (2026-11-10, the owner: Now Playing's speaker was any media player, and the Living Room's followed
+  // an Apple TV -- its song from the room, its time and volume from the TV). Now Playing and Music Is Playing name one of the
+  // house's music rooms or groups (hkMusic's speakers, Mantel Settings -> Music) or Tablet's Room: the room the tablet's
+  // music calls home (hkMusic.home). A key that is none of them (an older layout's TV) reads as it always did.
+  function musicSpeaker(key) {
+    var M = window.hkMusic, k = M && key ? (key === TABLET_ROOM ? M.home() : M.fold([key])[0]) : null;
+    return (k && M.speakers().filter(function (s) { return s.entity === k; })[0]) || null;
+  }
+  // the players a key plays on (a pair's both, a group's every room's), for Music Is Playing: [] for Tablet's Room on a
+  // page that is no tablet's (it never holds there), null for a key that is no music speaker (the entity itself)
+  function musicPlayers(key) {
+    var M = window.hkMusic, s = musicSpeaker(key), by = {};
+    if (!s) return key === TABLET_ROOM ? [] : null;
+    M.speakers().forEach(function (x) { by[x.entity] = x; });
+    return [].concat.apply([], (s.members || [s.entity]).map(function (r) { return (by[r] && by[r].parts) || [r]; }));
+  }
+  // the editor's list for both (hkMusic.speakers()): Tablet's Room, the groups, the rooms -- as the Music block's Plays On lists them
+  function speakerChoices(ms) {
+    return [[TABLET_ROOM, 'Tablet’s Room']].concat(ms.filter(function (s) { return !!s.members; }).map(function (g) { return [g.entity, g.name + ' (Group)']; }),
+      ms.filter(function (s) { return !s.members; }).map(function (r) { return [r.entity, r.name]; }));
+  }
+  // what a card set to a key follows: the music playing in that room or group, else that room (a group's leader) ready to
+  // play; with none chosen, or one that is no music speaker, the screen's own music (hkMusic.resolve) -- so the song, the
+  // time, the volume and the buttons all come from the one player
+  function musicAt(client, key) {
+    var M = window.hkMusic, s = musicSpeaker(key), rooms = s ? s.members || [s.entity] : [];
+    if (!M) return { player: null, context: null, reason: 'none', name: '' };
+    if (!s) return M.resolve(client);
+    var hit = M.contexts(client).filter(function (c) { return rooms.some(function (r) { return c.members.indexOf(r) >= 0; }); })
+      .sort(function (a, b) { return (b.playing ? 1 : 0) - (a.playing ? 1 : 0); })[0];
+    return hit ? { player: hit.key, context: hit, reason: 'chosen', name: M.label(hit) }
+      : { player: s.members ? M.leader(rooms) : s.entity, context: null, reason: 'chosen', name: s.name };
+  }
   // THE CLOCK FACES a block offers (hk-saverclock.js ids; '' is HK's own):
   // the ones that read at a block's size (Poster fills its screen edge to
   // edge and Glass draws a pane of its own: neither sits in a block)
@@ -77,9 +110,9 @@
       // T, L and XL: the progress above the transport (the Home app's and Apple
       // Music's order); L and XL the volume under it (Music's widgets,
       // 2026-10-31). Its speaker's own controls, or the screen's music.
+      // (the speaker: the music in that room or group, every part of it -- hkGridCatalog.musicAt)
       var sp = own(o.speaker), ctl = function (parts) {
-        return Object.assign({ type: 'custom:hk-media-control-card', color: 'purple', bare: true, parts: parts },
-                             sp ? { entity: sp } : { entity_from: { music: true } });
+        return { type: 'custom:hk-media-control-card', color: 'purple', bare: true, parts: parts, entity_from: Object.assign({ music: true }, sp ? { music_at: sp } : {}) };
       };
       // (2026-11-08, the owner: what does not fit goes to the player's sheet) -- and back (2026-11-09, the owner: "Looks
       // like the tall and the wide cards lost their volume slider?" and "Volume is more important than the progress bar for
@@ -87,7 +120,7 @@
       // progress is a thin read-only line (hk-media-now.js), the volume keeps its slider. S has play / pause alone.
       var extra = s === 'S' ? {} : { sub_card: ctl(['progress']), meta_card: ctl(['volume']) };
       // (background, 2026-11-05, the owner: the blurred album unless the block asks for the card every other block has)
-      return Object.assign({ type: 'custom:hk-now-playing-card', music: true }, sp ? { entity: sp } : {}, o.background === 'card' ? { background: 'card' } : {}, extra); } },
+      return Object.assign({ type: 'custom:hk-now-playing-card', music: true }, sp ? { music_at: sp } : {}, o.background === 'card' ? { background: 'card' } : {}, extra); } },
     // Extra Large: the thermostat's full controls, its sheet (2026-10-24) -- in Big Number, its face with the modes
     // beside it (hk-control.js _big, 2026-10-31)
     thermostat: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: ['thermostats'], opts: { entity: 'climate', style: 'thermostat_style', tap: 'tap_target' }, card: function (s, o, ctx) {
@@ -570,6 +603,7 @@
     if (c.kind === 'entity_state') return !!st[c.entity] && st[c.entity].state === c.state;
     if (c.kind === 'music_playing') {
       if (!c.entity && speakers && speakers.length) ids = speakers;
+      else if (c.entity) ids = musicPlayers(c.entity) || ids;           // (a room's players, a group's, Tablet's Room's)
       return any('media_player', function (s) { return s === 'playing'; });
     }
     // A TV IS ON (phase 23): a set's TV or its player (hk-tv.js), by a TV, Tablet's Room or any; never on a page with no host client
@@ -818,7 +852,7 @@
                            PAGES_MAX: PAGES_MAX, PER_PAGE: PER_PAGE, perPage: perPage, CLOCK_FACES: CLOCK_FACES, THERMOSTAT_STYLES: THERMOSTAT_STYLES, TAP_TARGETS: TAP_TARGETS, MUSIC_TAPS: MUSIC_TAPS,
                            SHEET: SHEET, sheetOf: sheetOf, entryId: entryId, copySheet: copySheet, sheetRoute: sheetRoute, NAMES: NAMES,
                            sheetSlot: sheetSlot, sheetCss: sheetCss, placed: placed,
-                           CONDITIONS: CONDITIONS, RULES_MAX: RULES_MAX, CONDITIONS_MAX: CONDITIONS_MAX, rulesFit: rulesFit, hostHas: hostHas, matches: matches, tv: tvBlock, rulesOf: rulesOf, choose: choose, houseNow: houseNow,
+                           CONDITIONS: CONDITIONS, RULES_MAX: RULES_MAX, CONDITIONS_MAX: CONDITIONS_MAX, rulesFit: rulesFit, hostHas: hostHas, matches: matches, musicAt: musicAt, musicPlayers: musicPlayers, speakerChoices: speakerChoices, tv: tvBlock, rulesOf: rulesOf, choose: choose, houseNow: houseNow,
                            nextChange: nextChange, armClock: armClock, alert: { rows: alertRows, sample: alertSample, KEYS: ALERT_KEYS, LIMITS: ALERT }, solar: { spans: solarSpans, rows: solarRows, fresh: solarFresh, atWall: atWall, dayOf: dayOf, OFFSET_MAX: SUN_OFFSET_MAX,
                              forget: function () { SUN_SEEN.sunrise = []; SUN_SEEN.sunset = []; } }, config: config, pages: pages, tabletRoom: tabletRoom, table: table };
   try { window.dispatchEvent(new CustomEvent('hk-grid-catalog-ready')); } catch (e) { /* a test page without events */ }
