@@ -1,6 +1,8 @@
 # Phase 24: clean code, start to finish (plan, 2026-11-10)
 
-**Status: plan. Nothing built. Decisions below are open until the owner accepts them.** Reviewed against the code the
+**Status: plan, ready to build. Nothing built yet. Every decision answered by the owner on 2026-11-10: all
+recommendations accepted (decision 1 already done as `cb118148`). The building session takes each recommendation as the
+answer and does not ask again.** Reviewed against the code the
 same day by an independent agent. Its three blockers are now part of the plan: re-splitting a file that is already
 split, files the page reads the moment they load, and the saver's state rewrite as first specified. The gaps it found
 are also in.
@@ -574,6 +576,9 @@ B (gated serially, about 8 to 10 hours), D, C, E, F.
 | An agent commits a manifest without its split | a manifest alone makes `web_sources` raise | agents hand back a branch with manifest and split in one commit; the building session lands nothing else |
 
 ## Decisions for the owner
+
+**Decided 2026-11-10:** the owner accepted every recommendation below: 2 "Every file", 3 to 5 "Yes", 6 "Split it", 7
+and 8 "Ok", 9 "Agreed", 10 "I'll start before I go to bed." The owner starts the building session.
 
 | # | Question | Recommendation |
 |---|---|---|
