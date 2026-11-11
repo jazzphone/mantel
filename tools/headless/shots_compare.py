@@ -10,6 +10,10 @@ by itself (settings_sweep.py --compare). This is the comparer for the rest:
 Every *.png and *.webp under BASE (by its path relative to BASE) is looked for under NEW. Two shots are the same when they have the
 same size and no more than --tolerance pixels differ (default 0). A shot missing on either side is a difference.
 
+--noise BASE2 (a second run of the parent's tree): almost every screen has something that moves on its own (a countdown,
+the energy figures, drifting particles), so no two runs are pixel-identical. The pixels that differ between BASE and BASE2
+are noise, grown by 4 px; a shot passes when no 16 px block holds 40 or more changed pixels outside the noise.
+
 A VOLATILE SHOT (a clock, a "2 min ago", an animation caught mid-way) differs between two runs of the same tree, so a pixel
 comparison of it proves nothing. --write-volatile lists the shots that differ between two runs of one tree; --volatile reads
 that list, and each such shot is judged by its DOM instead: the file of the same name ending .txt or .html beside it, when
@@ -39,8 +43,30 @@ def changed_pixels(a: Path, b: Path) -> tuple[int, Image.Image | None, str]:
         return ia.size[0] * ia.size[1], None, f"size {ia.size} -> {ib.size}"
     diff = ImageChops.difference(ia, ib)
     mask = diff.convert("L").point(lambda v: 255 if v else 0)
-    n = sum(1 for v in mask.getdata() if v)
+    n = sum(1 for v in mask.get_flattened_data() if v) if hasattr(mask, 'get_flattened_data') else sum(1 for v in mask.getdata() if v)
     return n, mask, ""
+
+
+def noisy_change(a: Path, b: Path, c: Path, block: int = 16, dots: int = 40, grow: int = 4) -> tuple[list, str]:
+    """`a` and `b` are two shots of one tree, `c` the change's. The pixels that differ between a and b are noise (a clock, a
+    countdown, a moving particle), grown by `grow` pixels; a change is a pixel of c that differs from a outside the noise.
+    Returns the 16 px blocks with at least `dots` changed pixels (a particle is smaller: a moved card, a lost glyph or
+    changed text is not), and a note."""
+    import numpy as np
+    A, B, C = (np.asarray(Image.open(x).convert("RGB"), dtype=np.int16) for x in (a, b, c))
+    if A.shape != C.shape:
+        return [("size", A.shape, C.shape)], "size"
+    noise = (np.abs(A - B).max(axis=2) > 0) if B.shape == A.shape else np.zeros(A.shape[:2], bool)
+    for _ in range(grow):
+        g = noise.copy()
+        g[1:] |= noise[:-1]; g[:-1] |= noise[1:]; g[:, 1:] |= noise[:, :-1]; g[:, :-1] |= noise[:, 1:]
+        noise = g
+    change = (np.abs(A - C).max(axis=2) > 0) & ~noise
+    h, w = change.shape
+    H, W = h // block * block, w // block * block
+    counts = change[:H, :W].reshape(H // block, block, W // block, block).sum(axis=(1, 3))
+    hits = [(int(y) * block, int(x) * block, int(counts[y, x])) for y, x in zip(*np.nonzero(counts >= dots))]
+    return hits, f"{int(change.sum())} px outside the noise ({int(noise.mean() * 100)}% of the shot is noise)"
 
 
 def dom_of(png: Path) -> Path | None:
@@ -51,8 +77,9 @@ def dom_of(png: Path) -> Path | None:
     return None
 
 
-def compare(base: Path, new: Path, volatile: set[str], tolerance: int, diffs: Path | None) -> dict:
+def compare(base: Path, new: Path, volatile: set[str], tolerance: int, diffs: Path | None, noise: Path | None = None) -> dict:
     a, b = shots(base), shots(new)
+    n2 = shots(noise) if noise else {}
     out: dict = {"same": [], "differ": [], "missing": [], "extra": [], "dom_same": [], "dom_differ": [], "not_compared": []}
     for name, pa in a.items():
         pb = b.get(name)
@@ -72,6 +99,12 @@ def compare(base: Path, new: Path, volatile: set[str], tolerance: int, diffs: Pa
         if n <= tolerance:
             out["same"].append(name)
             continue
+        if name in n2:                       # --noise: judged against what varies between two runs of the parent
+            hits, note = noisy_change(pa, n2[name], pb)
+            if not hits:
+                out.setdefault("same_but_noise", []).append(f"{name}: {note}")
+                continue
+            why = f"{len(hits)} blocks changed outside the noise, first at y={hits[0][0]} x={hits[0][1]} ({note})"
         out["differ"].append(f"{name}: {why or str(n) + ' pixels'}")
         if diffs is not None and mask is not None:
             pic = Image.open(pb).convert("RGBA")
@@ -91,10 +124,11 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--volatile", type=Path, help="a JSON list of shots (paths relative to BASE) to judge by their DOM")
     ap.add_argument("--write-volatile", type=Path, help="BASE and NEW are two runs of one tree: write the shots that differ")
     ap.add_argument("--tolerance", type=int, default=0, help="pixels a shot may differ by and still be the same")
+    ap.add_argument("--noise", type=Path, help="a second run of BASE's tree: what differs between the two is noise, not a change")
     ap.add_argument("--json", action="store_true", help="print the whole result as JSON")
     args = ap.parse_args(argv)
     volatile = set(json.loads(args.volatile.read_text())) if args.volatile else set()
-    got = compare(args.base, args.new, volatile, args.tolerance, args.diffs)
+    got = compare(args.base, args.new, volatile, args.tolerance, args.diffs, args.noise)
     if args.write_volatile:
         names = sorted({d.split(": ", 1)[0] for d in got["differ"]})
         args.write_volatile.write_text(json.dumps(names, indent=1) + "\n")
@@ -105,7 +139,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.json:
         print(json.dumps(got, indent=1))
     bad = got["differ"] + got["missing"] + got["extra"] + got["dom_differ"]
-    print(f"{len(got['same'])} shots identical, {len(got['dom_same'])} volatile shots identical by DOM, "
+    print(f"{len(got['same'])} shots identical, {len(got.get('same_but_noise', []))} the same but for what varies between "
+          f"two runs, {len(got['dom_same'])} volatile shots identical by DOM, "
           f"{len(got['not_compared'])} volatile shots not compared (no DOM file), {len(bad)} differences")
     for line in got["differ"]:
         print("  differs:", line)

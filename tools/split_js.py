@@ -480,6 +480,31 @@ def make_plan(man: dict, text: str, work: Path) -> Plan:
                                      f"{'the shell' if tpart < 0 else man['parts'][tpart]['name']}'s: it cannot move")
             if w.part < 0 and tpart >= 0:
                 plan.refusals.append(f"the shell's `{w.label}` assigns `{tk[3]}`, which moved to {man['parts'][tpart]['name']}")
+    # (phase 24) RUN AT LOAD, REACHED THROUGH A CALL: a statement of the shell that runs at once (it stays, does not wait,
+    # and is not a declaration) and calls a function of the shell that uses a moved member, or a variable that waits for
+    # the parts, would meet it undefined before the parts have run. The direct use is refused above; this follows calls.
+    by_key = plan.members
+    for m in sorted(plan.members.values(), key=lambda x: (x.scope, x.index)):
+        if m.part >= 0 or m.late or m.scope == plan.cs or m.d["kind"] in ("function", "directive", "class"):
+            continue
+        if man.get("class") and m.d["kind"] == "other":
+            continue
+        start = [r for r in m.d["refs"] if "index" in r and r.get("now")]
+        seen, stack, path = set(), [(r, [r.get("name")]) for r in start], {}
+        while stack:
+            r, via = stack.pop()
+            tgt = by_key.get((r["scope"], r["index"]))
+            if tgt is None or tgt.key in seen:
+                continue
+            seen.add(tgt.key)
+            if tgt.part >= 0 or (tgt.late and tgt.d["kind"] != "function"):
+                if len(via) > 1:
+                    plan.refusals.append(f"the shell's `{m.label}` (line {m.d['first']}) runs at load and reaches `{via[-1]}`, which "
+                                         f"{'moves to ' + man['parts'][tgt.part]['name'] if tgt.part >= 0 else 'waits for the parts'}, "
+                                         f"through {' -> '.join(via[:-1])}: it would meet it undefined")
+                continue
+            if tgt.d["kind"] == "function":
+                stack += [(r2, via + [r2.get("name")]) for r2 in tgt.d["refs"] if "index" in r2]
     plan.refusals = list(dict.fromkeys(plan.refusals))
     return plan
 
@@ -575,6 +600,7 @@ def shell_text(plan: Plan, extra_takes: dict[int, set[str]] | None = None) -> st
     hs = len(scopes) - 1
     kitn = kit_of(man)
     cls_mode = bool(man.get("class"))
+    live_mode = bool(man.get("live"))          # shell variables set once, later: bound by bindLate() (any shell)
     takes = {sc: set(v) for sc, v in plan.shell_takes.items()}
     for sc, extra in (extra_takes or {}).items():
         takes.setdefault(sc, set()).update(extra)
@@ -602,20 +628,22 @@ def shell_text(plan: Plan, extra_takes: dict[int, set[str]] | None = None) -> st
     kit = [f"{ind}function kit() {{", f"{ind2}return {{"]
     entries = [f"{n}: {n}" for n in by_name(plan.shell_kit)]
     if cls_mode:
-        entries += ["install: install", "late: lates"]
+        entries += ["install: install"]
+    if live_mode:
+        entries += ["late: lates"]
     kit += pack(commas(entries, last=""), ind2 + "  ", ind2 + "  ")
     kit += [f"{ind2}}};", f"{ind}}}"]
     back_all = by_name(set().union(*takes.values()) if takes else set())
     run = [f"{ind}function runParts() {{", f"{ind2}var {kitn} = kit();",
            f"{ind2}PARTS.forEach(function (file) {{ window.{man['global']}[partKey(file)]({kitn}); }});"]
     run += pack([f"{n} = {kitn}.{n};" for n in back_all], ind2, ind2) if back_all else []
-    if cls_mode:
+    if live_mode:
         run.append(f"{ind2}bindLate();")
     run.append(f"{ind}}}")
     decl = pack(commas(by_name(takes[hs])), ind + "var ", ind + "    ") if hs != 0 and takes.get(hs) else []
     cls_defs = []
+    names = by_name(man.get("live", []))
     if cls_mode:
-        names = by_name(man.get("live", []))
         cls = man["class"]
         cls_defs = [
             f"{ind}// THE CLASS'S METHODS that parts add: as a class body defines them (writable, configurable, NOT enumerable; a",
@@ -629,7 +657,9 @@ def shell_text(plan: Plan, extra_takes: dict[int, set[str]] | None = None) -> st
             f"{ind2}    ? {{ get: d.get, set: d.set, enumerable: false, configurable: true }}",
             f"{ind2}    : {{ value: d.value, writable: true, enumerable: false, configurable: true }});",
             f"{ind2}}});",
-            f"{ind}}}",
+            f"{ind}}}"]
+    if live_mode:
+        cls_defs += [
             f"{ind}// THE SHELL'S VARIABLES SET ONCE, LATER ({', '.join(names)}): each part that uses one has its own copy, handed over here",
             f"{ind}// whenever the shell has assigned them (the parts run, and the page's start)",
             f"{ind}var lates = [];",
@@ -860,18 +890,20 @@ def verify(plan: Plan, parts: dict[str, str], shell: str, work: Path) -> list[st
         else:
             fresh.remove(hit)
     # 3. nothing else is in the new shell but the generated statements
-    generated = {"PARTS", "PARTS_TRIES", "partKey", "partsSettle", "loadParts", "kit", "runParts"} | (GENERATED_CLASS_MODE if man.get("class") else set())
+    generated = {"PARTS", "PARTS_TRIES", "partKey", "partsSettle", "loadParts", "kit", "runParts"} | (GENERATED_CLASS_MODE if man.get("class") else set()) \
+        | ({"lates", "bindLate"} if man.get("live") else set())
     for st in fresh:
         names = set(st["names"])
         if not (names & generated or st["head"].startswith((CALL + "(", "runParts(", "partsReady.")) or
                 (st["kind"] == "var" and names and names <= sum_takes(plan))):
             bad.append(f"the shell has a statement the plan did not put there: {st['head'][:70]}")
     # the shell's variables that parts bind late must call bindLate() wherever the shell assigns them
-    if man.get("class"):
+    if man.get("live"):
         live = set(man.get("live", []))
         writers = [m for m in plan.members.values() if any(w.get("name") in live for w in m.d["writes"])]
         for m in writers:
-            texts = [st["text"] for st in fresh_all if st["kind"] == "method" and st.get("method") == m.d.get("method")] if m.scope == plan.cs else []
+            texts = ([st["text"] for st in fresh_all if st["kind"] == "method" and st.get("method") == m.d.get("method")]
+                     if m.scope == plan.cs else [st["text"] for st in fresh_all if st["names"] and st["names"] == m.d["names"]])
             if not texts or not all("bindLate()" in t for t in texts):
                 bad.append(f"`{m.label}` assigns {sorted(live & {w.get('name') for w in m.d['writes']})}, so it must call bindLate() "
                            f"(a shell_edit in the manifest puts it in)")
