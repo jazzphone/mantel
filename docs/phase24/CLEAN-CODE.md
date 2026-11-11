@@ -684,3 +684,66 @@ re-split, `adopt` and the state rewrite (B5, B9). The other order was the plan's
   gain some: the saver has since added `hk-now-playing-page-card`), so a shell that registered nothing is held to nothing;
   a part may not define an element at its top level (a helper that registers may live in one). Tests for `run_in_decl`
   with a `valueOf` member, `iife`, and `--report`.
+
+### Baselines (2026-11-10, the parent `bb278308`)
+
+- jsc suites green (`-- all suites green --`); main suite **6,862 passed**, 15 skipped; `tsc` at its baseline; `mypy`
+  **fails on the parent**: `hk_core/laundry.py` has 2 errors (lines 344-345, from the Laundry change, not this run), so the
+  type gate is "no file above the parent's count", not the fixture.
+- Gallery: 40 of 46 shots. Six fail on the parent too and are left out (`intercom-picker`, `intercom-sheet-message`,
+  `intercom-sheet-review`, `home-grid-speakers`, `home-grid-browse`, `home-grid-starters`: a wait that times out). The
+  gallery stops at its first failure, so the gate takes it one shot at a time.
+- House twin: 40 screens (14 × 2 engines, the six Home Grid screens `--busy` × 2) and 39 sheets (`--sheets`, WebKit).
+- `sheet_review.py`: 39 shots (730 s).
+- First load (medians of five; Chromium / WebKit): Home Grid 97 / 163 ms to first draw (parts 238 / 389), Home 82 / 139,
+  Settings 111 / 155, the screensaver preview 99 / 107. Five runs agree within about 10 ms.
+
+### A2, second stage (readiness) — committed, gates pending
+
+- The loader template keeps `window.__hkSplitReady[label]`: resolves once the parts have run, rejects when the loader gives
+  up (the `then` throwing, or the last try failing). `split_js.py --write-loaders` rewrote the four shells' loaders (the
+  saver's shell is 14 lines longer; its size entry follows).
+- **Every importer waits for every started shell**, not a shell by name: `web/home.js` `imp()`, `hk-loader.js` (the
+  bootstrap modules and `needFile`), the Settings panel's `boot()`, Home Assistant's panel (`importOnce`). By name would
+  have needed the label to be the file's name, and two shells will share one (`modules/hk-settings.js`,
+  `panels/hk-settings.js`). Waiting for all is a little longer only when another file's parts are still on their way.
+  Home Assistant's ordered boot (`boot.py`) imports its last five modules and waits for none of them; nothing there
+  changes.
+- `tools/headless/split_race_check.py` (with `.cjs`): Home Grid, Home, Settings and a screensaver preview in both
+  engines, as they are and with every part held back 300 ms; a delayed load passes with no error the plain load lacks, no
+  element undefined that the plain load defined, and the first draw done. **8 of 8 pass. The control (`--no-ready`) also
+  passes today**: no file a page reads at load is a shell yet (hk-grid-cards, hk-media, hk-saver and hk-settings are all
+  waited for by an element or by `boot()`). The control has to fail once B2 has made a core card a shell; that is part of
+  B2's gate.
+- Tests: the promise resolves when the parts ran and rejects when they never come (node, the loader's own text, per
+  shell); each of the four importers reads `__hkSplitReady`.
+
+### A3: `tools/split_py.py` — committed
+
+Package mode (a module becomes a package whose `__init__.py` imports every name back, in `__all__`) and sibling mode (the
+module stays; its parts become `<module>_<part>.py` beside it). Names are found with `symtable`, so a local is never taken
+for a module name. Refuses: a later part; a name bound in two parts (`X += ...`, `X[k] = ...`, `X.append(...)` at the top
+level bind X); an import-time read with a binder of that name later in the file (`model.py` has `SAVER_SHOWS += (...)`
+mid-file); a monkeypatched name apart from its readers (a patch through a variable means every upper-case name). Proof:
+each statement's `ast.dump` in its new place (a relative import one level deeper counted), the same names, each the same
+object through the package as through its file, imports only to earlier parts. `tests/test_split_py.py`: the split of a
+synthetic package that then runs, three refusals, the monkeypatch rule, a planted change caught.
+
+### A5: the code map — committed
+
+`tools/code_map.py` writes `docs/development/Code-map.md` (794 lines: `web/`, `hk_core/`, Mantel Server, the HA
+integrations, `tools/`), one line per file from its opening comment, a shell's parts under it with their titles.
+`tests/test_code_map.py` fails until it is written again.
+
+### A2, third stage — part committed
+
+- **The state rewrite** (`split_js.py --state FILE --vars ... [--write]`), as the plan specifies it, with its backwards
+  proof and its tests. `hk-grid-editor.js`'s `VIEW` rewrites and proves clean (B6 can use it).
+- **The saver: refused as specified.** Its 120 reassigned names (from `--report`) include names that locals and parameters
+  shadow (`on`, `layer`, `mx`, `force`, ...) and one in a loop header (`cards`). The plan refuses shadowing because the
+  backwards proof turns `ST.on` back into `on` by text, so a forward step that wrongly took a shadowed `on` would still
+  prove. Allowing it needs a second, independent scope resolver. Left for B9.
+- **Re-split and `adopt` are not built yet.** Since phase 18, other sessions have hand-edited the saver shell's generated
+  `kit()` and `runParts()` (`panelDone` and `clock24` kit entries; `inPane` wrapped, `designController` made and the Now
+  Playing page registered in `runParts`). An "unsplit" can't simply delete those functions; it has to carry that code back.
+  `hk-detail.js`'s hand-written kit has a `sheetState` entry of the same kind. **B5 and B9 move to the end of the run.**
