@@ -15,7 +15,7 @@
         LightPanel = K.LightPanel, LockPanel = K.LockPanel, MediaPanel = K.MediaPanel,
         NumberPanel = K.NumberPanel, open = K.open, SelectPanel = K.SelectPanel, SensorPanel = K.SensorPanel,
         sheetState = K.sheetState, StatePanel = K.StatePanel, stOf = K.stOf, TogglePanel = K.TogglePanel,
-        VacuumPanel = K.VacuumPanel, ValvePanel = K.ValvePanel, WaterHeaterPanel = K.WaterHeaterPanel;
+        TvPanel = K.TvPanel, VacuumPanel = K.VacuumPanel, ValvePanel = K.ValvePanel, WaterHeaterPanel = K.WaterHeaterPanel;
 
     // ------------------------------------------------------------ registry
     // kind (kindOf) -> element
@@ -55,7 +55,7 @@
     // and are still fed through the bridge).
     var CLIENT_FED = [LightPanel, TogglePanel, FanPanel, CoverPanel, LockPanel, GaragePanel, ButtonPanel,
                       ClimatePanel, MediaPanel, SensorPanel, StatePanel, BinaryPanel, VacuumPanel, ValvePanel,
-                      NumberPanel, SelectPanel, HumidifierPanel, WaterHeaterPanel, AlarmPanel, GenericPanel].concat(K.TvPanel ? [K.TvPanel] : []);
+                      NumberPanel, SelectPanel, HumidifierPanel, WaterHeaterPanel, AlarmPanel, GenericPanel].concat([TvPanel]);
     def('hk-detail-light', LightPanel);
     def('hk-detail-generic', GenericPanel);
     def('hk-detail-toggle', TogglePanel);
