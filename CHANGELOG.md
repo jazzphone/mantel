@@ -4,6 +4,9 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Fixed**
+- **Screens draw as fast as before on a wall tablet**: 0.1.163 split HK's big files into parts, each fetched a round trip after its file, and on a tablet that held the first draw back (the loft tablet's Home: 0.8 s before, 1.6 s in 0.1.163). Each file now ships with its parts in it, one request: Home 0.85 s, the screensaver 0.73 s (0.88 s before). The detail sheets no longer download with the page.
+
 ## 0.1.163 - 2026-11-11
 
 **Added**

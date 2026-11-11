@@ -5,6 +5,9 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+**Fixed**
+- **Screens draw as fast as before**: 1.59.0 split HK's big files into parts, each fetched a round trip after its file, which held a tablet's first draw back. Each file now ships with its parts in it, one request.
+
 ## 1.59.0 - 2026-11-11
 
 **Added**
