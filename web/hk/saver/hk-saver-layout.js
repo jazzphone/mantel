@@ -17,6 +17,7 @@
         nightCheck = K.nightCheck, photoOpts = K.photoOpts, pieceFile = K.pieceFile, piecesStarted = K.piecesStarted,
         reducedMotion = K.reducedMotion, ST = K.ST, TB_COVER = K.TB_COVER, tbShare = K.tbShare, timeNow = K.timeNow,
         timerHold = K.timerHold, updateBand = K.updateBand, weatherEntity = K.weatherEntity;
+    var slideShown = K.slideShown;   // (phase 25: the owners' writers)
 
     var black, clock, exArm, exHide, forecastTick, hideMusicSlide, musicNow, musicOf, setAttr, showNext;
     // (of later parts, used when called: bound once every part has run, runParts)
@@ -664,7 +665,7 @@
       // above whatever came after it (a clock mounted again), under the corner cards
       if (!underCards(ST.enCtl.el, info)) ST.root.insertBefore(ST.enCtl.el, info);
       if (!overBackdrop(ST.enCtl, h)) return false;
-      ST.enShowing = true; ST.sinceFc = 0; ST.lastSlide = 'energy';
+      ST.enShowing = true; slideShown('energy');
       ST.host.setAttribute('enslide', '');
       updateBand();
       forecastTick(false);                 // the forecast's sky holds still under it
@@ -754,7 +755,7 @@
       if (!underCards(S.ctl.el, info)) ST.root.insertBefore(S.ctl.el, info);
       slideLayout(S);
       if (!(S.draw ? S.draw(S.ctl, h) : S.ctl.draw(h))) { S.ctl.leave(); return false; }
-      S.showing = true; ST.sinceFc = 0; ST.lastSlide = S.key;
+      S.showing = true; slideShown(S.key);
       ST.host.setAttribute(S.attr, '');
       updateBand();
       forecastTick(false);                 // the forecast's own sky holds still under it

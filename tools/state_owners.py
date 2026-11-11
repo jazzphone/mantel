@@ -75,7 +75,7 @@ for _part, _why, _names in FEATURES:
     for _n in _names:
         OWNERS[_n] = (_part, _why)
 # the owners already moved (PLAN.md's Build log): each of their names must stay written by its owner alone
-DONE: set[str] = set()
+DONE: set[str] = {"hk-saver-photos"}
 
 
 def files(root: Path = ROOT) -> list[str]:
@@ -303,7 +303,12 @@ def own(owner: str, names: list[str], root: Path = ROOT, keep: bool = False) -> 
              "    // WHAT IT OWNS ON ST (phase 25, A: others read these; only this file writes them; tools/state_owners.py)"]
     block += [f"    {decl}" + (f"{' ' * (width - len(decl))}  {c}" if c else "") for _, decl, c in moved_lines]
     text = out[target]
-    out[target] = text[:at] + "\n".join(block) + text[at:]
+    header = block[2] + "\n"
+    if (h := text.find(header, at)) != -1 and not text[at:h].strip():
+        # (a block of the same kind already opens the owner: its lines go at its top, in this order)
+        out[target] = text[:h + len(header)] + "\n".join(block[3:]) + "\n" + text[h + len(header):]
+    else:
+        out[target] = text[:at] + "\n".join(block) + text[at:]
     return out
 
 

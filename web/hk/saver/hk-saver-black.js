@@ -21,6 +21,7 @@
         slidesAgain = K.slidesAgain, ST = K.ST, syncPreviewSlide = K.syncPreviewSlide, tabletNow = K.tabletNow,
         teardown = K.teardown, TM = K.TM, tmWatch = K.tmWatch, user = K.user, withPane = K.withPane,
         writeSwitch = K.writeSwitch, WX = K.WX;
+    var dropDeck = K.dropDeck;   // (phase 25: the owners' writers)
 
     var noteDrawn, schedule, start, stop, tellOthers;
     // (of later parts, used when called: bound once every part has run, runParts)
@@ -310,7 +311,7 @@
         // turned off while it shows: its switch goes off too (stop('config') alone left it on, and turning the
         // screensaver back on started it at once, "by the switch", instead of after Starts After)
         if (!ST.cfg && ST.on) { writeSwitch('off', was); stop('config'); }
-        if (ST.deck && ST.cfg && ST.deck.order !== ST.cfg.order) ST.deck = null;
+        if (ST.deck && ST.cfg && ST.deck.order !== ST.cfg.order) dropDeck();
         // a new Starts After counts from the last touch now, not when the old (longer) timer runs out
         if (was && ST.cfg && !ST.on && ST.idleT) armIdle();
       }

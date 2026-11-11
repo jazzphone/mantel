@@ -10,6 +10,7 @@
   (window.hkSaverParts = window.hkSaverParts || {})['hk-saver-draw'] = function (K) {
     var clientNow = K.clientNow, CROSSFADE_MS = K.CROSSFADE_MS, dashConf = K.dashConf, FACE_SHOWS = K.FACE_SHOWS,
         FC_TICK_MS = K.FC_TICK_MS, isFlat = K.isFlat, slideMarks = K.slideMarks, ST = K.ST, sunDown = K.sunDown;
+    var showsLayer = K.showsLayer, sinceSlide = K.sinceSlide, slideGone = K.slideGone, slideShown = K.slideShown;   // (phase 25: the owners' writers)
 
     var addBand, dropView, exHide, forecastTick, HL, layoutBigKind, layoutDraw, layoutModules, layoutMusic,
         layoutSlides, layoutSoon, mus, musicParts, musicWatch, reveal, setAttr, showNext, slideView, takeover, TM, WX;
@@ -489,7 +490,7 @@
       if (!ST.on || !ST.root || ST.mode === 'forecast') return;
       buildForecast();
       bigWeather();
-      ST.fcShowing = true; ST.sinceFc = 0; ST.lastSlide = 'forecast';
+      ST.fcShowing = true; slideShown('forecast');
       ST.host.setAttribute('fcslide', '');
       updateBand();
       forecastTick(true);
@@ -518,7 +519,7 @@
       if (ST.fscene) { try { ST.fscene.destroy(); } catch (e) { /* gone with the element */ } ST.fscene = null; }
       ST.fSky = null;
       if (ST.fband) ST.cards = ST.cards.filter(function (c) { return c !== ST.fband; });
-      ST.fband = null; ST.fSig = ''; ST.mode = 'photos'; ST.fcShowing = false; ST.sinceFc = 0;
+      ST.fband = null; ST.fSig = ''; ST.mode = 'photos'; ST.fcShowing = false; sinceSlide(0);
     }
     function resetForecast() {
       if (ST.fadeDone) ST.fadeDone();
@@ -527,12 +528,12 @@
       // that reveal un-tops and empties it rather than leaving it opaque over
       // the new photo (or under the forecast, decoded, for the whole session).
       var last = ST.root && ST.root.querySelectorAll('.ph')[ST.layer];
-      ST.displayLayer = last && last.classList.contains('top') ? last : null;
+      showsLayer(last && last.classList.contains('top') ? last : null);
       leaveForecast();
       if (ST.root) ST.root.querySelectorAll('.fc,.fcb').forEach(function (n) { n.remove(); });
       // the slide goes with the forecast's layers; the pane's music stays with the pane
       dropView(slideView());
-      ST.muShowing = false; ST.lastSlide = '';
+      ST.muShowing = false; slideGone();
       if (ST.host) ST.host.removeAttribute('muslide');
       if (ST.host) {
         ST.host.removeAttribute('forecast'); ST.host.removeAttribute('fcslide'); ST.host.removeAttribute('band'); ST.host.removeAttribute('bandph');

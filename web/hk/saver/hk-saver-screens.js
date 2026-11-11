@@ -15,6 +15,7 @@
         sendWS = K.sendWS, showEnergySlide = K.showEnergySlide, slideHide = K.slideHide, slideReady = K.slideReady,
         slideShow = K.slideShow, ST = K.ST, timedTurn = K.timedTurn, TM = K.TM, updateBand = K.updateBand,
         whoMsg = K.whoMsg, WX = K.WX;
+    var slideGone = K.slideGone, slideShown = K.slideShown;   // (phase 25: the owners' writers)
 
     var black, clock, dashLive, dashOutside, drawMusic, elapsed, forecastTick, hostOf, layoutMusicView, muGrace, mus,
         musicIn, musicNow, musicOf, musicPage, musicPaneView, musicParts, musicPlaying, musicUsed, musicView, nextArt,
@@ -463,7 +464,7 @@
       // (Home Energy over everything: the music in its place)
       if (ST.enShowing) { hideEnergySlide(); if (ST.exKind === 'energy') ST.exKind = ''; }
       [WX, HL, TM].forEach(function (S) { if (S.showing) { slideHide(S); if (ST.exKind === S.key) ST.exKind = ''; } });
-      ST.muShowing = true; ST.sinceFc = 0; ST.lastSlide = 'music'; mus.lostAt = 0;
+      ST.muShowing = true; slideShown('music'); mus.lostAt = 0;
       musicParts(v, ST.cfg.music_hide);
       renderMusic();
       ST.host.setAttribute('muslide', '');
@@ -554,7 +555,7 @@
       if (mus.drag && mus.drag.t) clearTimeout(mus.drag.t);
       mus.key = null; mus.next = null; mus.nextFor = ''; mus.year = ''; mus.lostAt = 0; mus.drag = null; mus.vol = null;
       mus.paneIn = false; mus.paneNext = null;
-      ST.muShowing = false; ST.lastSlide = '';
+      ST.muShowing = false; slideGone();
       if (ST.host) ST.host.removeAttribute('muslide');
     }
 

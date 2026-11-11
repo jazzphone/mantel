@@ -12,7 +12,7 @@
         blackPage = K.blackPage, build = K.build, callWS = K.callWS, cfgKey = K.cfgKey, ckPhotos = K.ckPhotos,
         cleanDepth = K.cleanDepth, cleanFocus = K.cleanFocus, cleanVariants = K.cleanVariants,
         clearCanvas = K.clearCanvas, clock = K.clock, closePanel = K.closePanel, CROSSFADE_MS = K.CROSSFADE_MS,
-        cutsFollow = K.cutsFollow, Deck = K.Deck, drawBackdrop = K.drawBackdrop, energyPrep = K.energyPrep,
+        cutsFollow = K.cutsFollow, drawBackdrop = K.drawBackdrop, energyPrep = K.energyPrep,
         energyReady = K.energyReady, enterClock = K.enterClock, enterForecast = K.enterForecast,
         enterLayout = K.enterLayout, ENTRANCE_MAX = K.ENTRANCE_MAX, exArm = K.exArm, FACE_SHOWS = K.FACE_SHOWS,
         FADE_BACK_MS = K.FADE_BACK_MS, FADE_IN_MS = K.FADE_IN_MS, GHOST_MS = K.GHOST_MS,
@@ -30,6 +30,7 @@
         slideReady = K.slideReady, slideShow = K.slideShow, ST = K.ST, syncPreviewSlide = K.syncPreviewSlide,
         takeover = K.takeover, teardown = K.teardown, TM = K.TM, tmWatch = K.tmWatch, updateBand = K.updateBand,
         within = K.within, writeSwitch = K.writeSwitch, WX = K.WX;
+    var countPhoto = K.countPhoto, deckFor = K.deckFor, flipLayer = K.flipLayer, keepPh = K.keepPh, lastPhotoIs = K.lastPhotoIs, mosaicGone = K.mosaicGone, showsLayer = K.showsLayer;   // (phase 25: the owners' writers)
 
     // WHAT IT OWNS ON ST (phase 25, A: others read these; only this file writes them; tools/state_owners.py)
     ST.startedBy = '';
@@ -342,13 +343,13 @@
           })
         : walk(ST.cfg.photos, 0);
       listing = source.then(function () {
-        if (!ST.deck || ST.deck.order !== ST.cfg.order) ST.deck = new Deck(ST.cfg.order);
+        deckFor(ST.cfg.order);
         ST.deck.set(out);
         listAt = Date.now(); ST.listKey = key;
         return ST.deck;
       }).catch(function (e) {
         console.warn('[hk-saver] photos', land ? LANDSCAPES : ST.cfg.photos, e && e.message);
-        if (!ST.deck) ST.deck = new Deck(ST.cfg.order);
+        if (!ST.deck) deckFor(ST.cfg.order);
         listAt = Date.now() - LIST_TTL_MS + 60000;   // try again in a minute
         return ST.deck;
       }).then(function (d) { listing = null; return d; });
@@ -494,7 +495,7 @@
       void next.offsetWidth;
       next.style.transition = first || !old ? 'none' : '';
       next.classList.add('top');
-      ST.displayLayer = next;
+      showsLayer(next);
       // (the subject's twin over the layout's face, in step: phase 3)
       if (ST.ly) { layoutCut(); cutsFollow(); }
       var timer;
@@ -531,10 +532,10 @@
       // (a mosaic's cells, from before: gone)
       next.classList.remove('mo');
       next.querySelectorAll('.mowrap').forEach(function (w) { w.querySelectorAll('canvas').forEach(clearCanvas); w.remove(); });
-      ST.moState = null;
+      mosaicGone();
       var L = layOut(next, ph), fit = L.fit, lay = L.lay;
       // (the preview keeps it, to show again as its settings change)
-      ST.lastPh = ST.previewOn ? ph : null;
+      keepPh(ST.previewOn ? ph : null);
       fg.src = ph.url;
       photoFaces(next, ph, L);
       // (with the calendar pane the blurred copy is always there: it is the
@@ -552,10 +553,10 @@
         next.classList.add('zoom');
       }
       reveal(next, first);
-      ST.layer = 1 - ST.layer;
+      flipLayer();
       // the first photo is in: the screensaver may fade in now (start)
       if (first && ST.entrance) ST.entrance();
-      ST.shown++; ST.sinceFc++; ST.lastPhoto = ph.item.title || ph.item.id;
+      countPhoto(); lastPhotoIs(ph.item.title || ph.item.id);
     }
 
     // what the shell and the later parts use of this one

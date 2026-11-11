@@ -154,10 +154,7 @@
   // the touch that stopped it: still down (up: null), or when it lifted
   ST.press = null;
   ST.pressStop = false;
-  ST.deck = null;
   ST.listKey = '';
-  ST.layer = 0;               // which of the two photo layers is on top
-  ST.displayLayer = null;
   ST.photoRun = 0;
   // the screensaver's fade in, waiting for its first photo (start)
   ST.entrance = null;
@@ -180,7 +177,6 @@
   // Photos & Forecast: the forecast as one slide every `forecast_every`
   // photos, over the photos, its sky still whenever it is not on screen
   ST.fcShowing = false;
-  ST.sinceFc = 0;
   // HK Settings' preview (hkSaver.preview): shown in the settings page's frame
   // whoever is signed in, deaf to the real tablet's switch, never writing it,
   // and rebuilt whenever the options change
@@ -203,8 +199,6 @@
   ST.previewOver = null;
   /** @type {any} */ var unsubCards = null;
   ST.cards = [];
-  ST.shown = 0;
-  ST.lastPhoto = null;
   ST.force = false;           // hkSaver.force(true): ignore the user (tests)
   ST.asked = false;           // showMusic(): somebody asked for the music full screen -- shown whoever the screensaver is for
 
@@ -483,8 +477,8 @@
   // and card subscriptions need not survive that interaction-only period.
   function releaseVisuals() {
     if (ST.fadeDone) ST.fadeDone();
-    ST.displayLayer = null;
-    if (ST.tbT) { clearTimeout(ST.tbT); ST.tbT = null; }
+    showsLayer(null);
+    tbCancel();
     if (ST.host) ST.host.removeAttribute('tb');
     leaveExtras();
     leaveEnergy();
@@ -656,6 +650,8 @@
       showForecastSlide, showMusicSlide, shuffle, skyStops, slideHide, slideLayout, slideLeave, slideOf, slidePrep,
       slideReady, slideShow, slideView, SLOP, start, stop, syncPreviewSlide, tabletId, tagOf, takeover, tbKey,
       tbShares, TM, tmWatch, turnOf, user, viewFont, volEnd, volFrom, weatherPage, widgetPage, withPane, WX, zoneOf;
+  // (phase 25: what the shell asks of the parts that own the state it changes, docs/phase25/SAVER-STATE.md)
+  var keepPh, showsLayer, sinceSlide, tbCancel;
 
   // A wake held until the kiosk's black (or its panel off) has ended.
   // WHAT THE TABLET LAST SHOWED: after each change, seen in a frame's
@@ -672,7 +668,6 @@
   // and a new photo every time would make a crop impossible to judge. Each
   // photo's shape is remembered once loaded, so the next pick skips the
   // others without loading them. Only the preview: a tablet keeps no photo.
-  ST.lastPh = null;
   ST.previewShape = null;
   // NOTHING TURNS UNDER A BLACK (2026-10-29). The photos' timer also held
   // while the kiosk's black (or HK's own) was up, and woke every few seconds
@@ -688,12 +683,10 @@
   // so five photos cost about what one full-screen photo does -- cropped by
   // its shape's Focus and Zoom. The two layers cross-fade as photos do.
   // Changes: One at a Time swaps one cell at a time in place (moState).
-  ST.moState = null;
   // UP TO (2026-10-13): how many photos the mosaic shows now -- its own
   // number, or with Up To one picked from 1 to it, kept for mosaic_every
   // minutes (another each time); 1 is one photo, full screen
   // the time on the photos, as the screen's clock tells it (its 24-Hour Time), put right on the minute
-  ST.tbT = null;
 
   // BIG WEATHER (2026-10-30; the Forecast's Layout: Big): hk-saverfaces.js's, in the forecast's layer over its sky,
   // wherever the forecast shows on its own -- Show: Forecast, the slide among the photos, no photos -- never under a
@@ -759,7 +752,6 @@
   ST.exOutT = null;
 
   ST.muShowing = false;
-  ST.lastSlide = '';
 
   // A TOUCH ON THE SCREENSAVER'S OWN CONTROLS (the music, its panel, a photo
   // stepped), told to the integration as such: Sleep Screen reads it as the
@@ -942,6 +934,7 @@
     tbKey = K.tbKey; tbShares = K.tbShares; TM = K.TM; tmWatch = K.tmWatch; turnOf = K.turnOf; user = K.user;
     viewFont = K.viewFont; volEnd = K.volEnd; volFrom = K.volFrom; weatherPage = K.weatherPage;
     widgetPage = K.widgetPage; withPane = K.withPane; WX = K.WX; zoneOf = K.zoneOf;
+    keepPh = K.keepPh; showsLayer = K.showsLayer; sinceSlide = K.sinceSlide; tbCancel = K.tbCancel;
   }
 
   loadParts(function () {
@@ -1283,11 +1276,11 @@
         ST.previewOver = v && over && typeof over === 'object' && !Array.isArray(over) ? over : null;
         if (sh !== ST.previewShape || en !== ST.previewEnergy || wx !== ST.previewWeather) {
           ST.previewShape = sh; ST.previewEnergy = en; ST.previewWeather = wx;
-          if (ST.lastPh && sh && shapeOfPh(ST.lastPh) !== sh) ST.lastPh = null;
+          if (ST.lastPh && sh && shapeOfPh(ST.lastPh) !== sh) keepPh(null);
           if (ST.previewOn && ST.on && v) setTimeout(restartPreview, 0);
         }
         ST.previewOn = !!v;
-        if (!ST.previewOn) { ST.lastPh = null; ST.nightPreview = null; ST.previewSelected = ''; ST.previewPane = null; ST.previewPaneNote = ''; }
+        if (!ST.previewOn) { keepPh(null); ST.nightPreview = null; ST.previewSelected = ''; ST.previewPane = null; ST.previewPaneNote = ''; }
         ST.force = ST.previewOn;
         refresh();
         if (ST.previewOn && !ST.on) start('preview');
@@ -1369,7 +1362,7 @@
            // tests: the layout drawn again now (what the face shows changed under it)
            layoutNow: function () { if (ST.ly) layoutDraw(); },
            // tests: the slide without real photos to count
-           slide: { show: showForecastSlide, hide: hideForecastSlide, since: function (n) { ST.sinceFc = n; }, schedule: function () { schedule(); } },
+           slide: { show: showForecastSlide, hide: hideForecastSlide, since: function (n) { sinceSlide(n); }, schedule: function () { schedule(); } },
            paneOf: paneOf, withPane: withPane, slideOf: slideOf, turnOf: turnOf, extrasOf: extrasOf, mmss: mmss, EXTRA_ORDER: EXTRA_ORDER,
            // tests: Home Energy and the additional screens without waiting minutes
            energy: { show: showEnergySlide, hide: hideEnergySlide, ready: energyReady, prep: energyPrep, layout: energyLayout,

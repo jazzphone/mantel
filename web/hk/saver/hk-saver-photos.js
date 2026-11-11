@@ -14,6 +14,7 @@
         glyphBox = K.glyphBox, isFlat = K.isFlat, layoutOf = K.layoutOf, MOSAIC_COLORS = K.MOSAIC_COLORS,
         mosaicAssign = K.mosaicAssign, mosaicPlan = K.mosaicPlan, photoUrl = K.photoUrl, screenEdge = K.screenEdge,
         ST = K.ST, TB_WAIT = K.TB_WAIT, tbKey = K.tbKey, tbShare = K.tbShare, teardown = K.teardown, WAKE = K.WAKE;
+    var Deck = K.Deck;
 
     var ckPhotos, clock, HL, layoutSoon, mus, paint, photoLum, releasePh, reveal, setAttr, setPane, showEnergySlide,
         showForecastExtra, showMusicSlide, slideShow, start, TM, WX;
@@ -26,8 +27,33 @@
     });
 
     // WHAT IT OWNS ON ST (phase 25, A: others read these; only this file writes them; tools/state_owners.py)
+    ST.deck = null;
+    ST.layer = 0;            // which of the two photo layers is on top
+    ST.displayLayer = null;
+    ST.sinceFc = 0;
+    ST.shown = 0;
+    ST.lastPhoto = null;
+    ST.lastPh = null;
+    ST.moState = null;
+    ST.tbT = null;
+    ST.lastSlide = '';
     ST.lyPhotoLum = null;
     ST.lyPhoto = null;
+
+    // WHAT THE OTHERS ASK OF IT (phase 25, A): the only way another file changes the photos' state. Each is the
+    // assignment it was, by name. A photo or a mosaic up counts toward the next slide; a slide up counts from 0.
+    function countPhoto() { ST.shown++; ST.sinceFc++; }
+    function lastPhotoIs(title) { ST.lastPhoto = title; }
+    function slideShown(kind) { ST.sinceFc = 0; ST.lastSlide = kind; }
+    function slideGone() { ST.lastSlide = ''; }
+    function sinceSlide(n) { ST.sinceFc = n; }
+    function flipLayer() { ST.layer = 1 - ST.layer; }
+    function mosaicGone() { ST.moState = null; }
+    function keepPh(ph) { ST.lastPh = ph; }               // the preview keeps the photo on screen (null: none)
+    function deckFor(order) { if (!ST.deck || ST.deck.order !== order) ST.deck = new Deck(order); }
+    function dropDeck() { ST.deck = null; }
+    function showsLayer(el) { ST.displayLayer = el; }    // the photo layer on top (null: none)
+    function tbCancel() { if (ST.tbT) { clearTimeout(ST.tbT); ST.tbT = null; } }
 
     // ITS OWN STATE (phase 25, A: off the shared ST, which only this file used; tools/state_owners.py)
     /** @type {any} */ var moRand = null;
@@ -512,5 +538,8 @@
     K.relayout = relayout; K.restartPreview = restartPreview; K.sansShapes = sansShapes; K.sendWS = sendWS;
     K.shapeOfPh = shapeOfPh; K.slideMarks = slideMarks; K.syncPreviewSlide = syncPreviewSlide; K.timeNow = timeNow;
     K.within = within;
+    K.countPhoto = countPhoto; K.lastPhotoIs = lastPhotoIs; K.slideShown = slideShown; K.slideGone = slideGone;
+    K.sinceSlide = sinceSlide; K.flipLayer = flipLayer; K.mosaicGone = mosaicGone; K.keepPh = keepPh; K.deckFor = deckFor;
+    K.dropDeck = dropDeck; K.showsLayer = showsLayer; K.tbCancel = tbCancel;
   };
 })();
