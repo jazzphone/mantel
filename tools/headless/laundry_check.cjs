@@ -38,7 +38,8 @@ function gaps(tag) {
   return deep(document, tag).map((c) => {
     const sr = c.shadowRoot, k = (() => { const p = sr.querySelector('hk-plate'); return p && p.offsetWidth ? p.getBoundingClientRect().width / p.offsetWidth : 1; })();
     const ink = [...sr.querySelectorAll('.art svg.hkla .mach, .art .hkva .gl')].filter((e) => e.getClientRects().length).map(box);
-    const words = [...sr.querySelectorAll('*')].filter((e) => !e.closest('.art') && [...e.childNodes].some((n) => n.nodeType === 3 && n.data.trim()) && e.getClientRects().length).map((e) => [e, box(e)]);
+    const words = [...sr.querySelectorAll('*')].filter((e) => !e.closest('.art') && [...e.childNodes].some((n) => n.nodeType === 3 && n.data.trim()) && e.getClientRects().length).map(
+      (e) => [e, box(e)]);
     let least = Infinity, who = '';
     ink.forEach((a) => words.forEach(([e, w]) => {
       const vo = Math.min(a.b, w.b) - Math.max(a.t, w.t), ho = Math.min(a.r, w.r) - Math.max(a.l, w.l);
@@ -97,7 +98,8 @@ function gaps(tag) {
             if (b.size !== 'S') check(label + ': its four steps, Dry now', () => assert.deepEqual(b.steps, ['Wash', 'Rinse', 'Spin', 'Dry']));
             check(label + ': no keys while remote control is off', () => assert.deepEqual(b.pills, []));
             // (THIS LOAD'S POWER, 2026-11-10: Large and Extra Large -- the circuit's watts, and the load's graph in its steps' colors)
-            if (b.size === 'L' || b.size === 'XL') check(label + ': this load\'s power, its watts and its graph', () => assert(b.power[0] === '1,840 W' && b.graph >= 4, JSON.stringify([b.power, b.graph])));
+            if (b.size === 'L' || b.size === 'XL') check(label + ': this load\'s power, its watts and its graph',
+              () => assert(b.power[0] === '1,840 W' && b.graph >= 4, JSON.stringify([b.power, b.graph])));
             if (b.size === 'XL') check(label + ': the cycle\'s settings under the finish', () => assert.deepEqual(b.setLine, ['Cold \u00B7 Extra High Spin \u00B7 Normal Soil']));
           } else if (b.size === 'S') {
             check(label + ': the one done soonest, and +1', () => assert(b.arts === 1 && b.names.includes('Washer') && b.subs.some((s) => /^[3-7] min left$/.test(s)), JSON.stringify(b)));
@@ -130,7 +132,8 @@ function gaps(tag) {
           const p = deep(document, 'hk-detail-laundry')[0];
           if (!p) return null;
           const sheet = p.closest('.sheet') || p.getRootNode().host && p.getRootNode().querySelector('.sheet');
-          const box = (e) => { const r = e.getBoundingClientRect(); return { l: Math.round(r.left), t: Math.round(r.top), r: Math.round(r.right), b: Math.round(r.bottom), w: Math.round(r.width), h: Math.round(r.height) }; };
+          const box = (e) => { const r = e.getBoundingClientRect(); return { l: Math.round(r.left), t: Math.round(r.top), r: Math.round(r.right), b: Math.round(r.bottom), w: Math.round(r.width),
+            h: Math.round(r.height) }; };
           const sr = p.shadowRoot, lft = sr.querySelector('.lft'), rgt = sr.querySelector('.rgt');
           const cut = [...sr.querySelectorAll('.big, .muted, .rows b, .seg button, .trk .lb')].filter((e) => e.getClientRects().length && e.scrollWidth > e.clientWidth + 1).map((e) => e.textContent);
           return { wide: p.hasAttribute('wide'), sheet: sheet ? box(sheet) : null, lft: box(lft), rgt: box(rgt), panel: box(p),
@@ -161,7 +164,8 @@ function gaps(tag) {
             check(label + ': the machine tapped, and a switch to the other', () => assert.deepEqual(sh.seg, [['Washer', false], ['Dryer', true]]));
             check(label + ': the dryer drying, its two steps', () => assert(sh.big === 'Drying' && sh.steps.join() === 'Dry,Cool', JSON.stringify(sh)));
           } else {
-            check(label + ': drying, its steps, its readings', () => assert(sh.big === 'Drying' && sh.steps.join() === 'Wash,Rinse,Spin,Dry' && sh.rows.some((r) => /Remote ControlOff/.test(r)), JSON.stringify(sh)));
+            check(label + ': drying, its steps, its readings', () => assert(sh.big === 'Drying' && sh.steps.join() === 'Wash,Rinse,Spin,Dry' && sh.rows.some((r) => /Remote ControlOff/.test(r)),
+              JSON.stringify(sh)));
             check(label + ': Pause and Stop dimmed, and why', () => assert(sh.keys.length === 2 && sh.keys.every((k) => k[1]) && /Remote Control/.test(sh.why), JSON.stringify([sh.keys, sh.why])));
           }
         }

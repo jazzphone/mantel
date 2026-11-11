@@ -32,7 +32,10 @@ async def main():
             await b.send('Emulation.setTouchEmulationEnabled', enabled=True, maxTouchPoints=5)
             await b.send('Emulation.setEmulatedMedia', features=[{'name': 'pointer', 'value': 'coarse'}, {'name': 'prefers-color-scheme', 'value': 'dark'}])
             await b.open(origin+'/settings#/screens/'+SCREEN+'/home-grid',cookie)
-            assert await b.wait("(()=>{let p=document.querySelector('hk-settings-panel'),e=p?.shadowRoot?.querySelector('hk-grid-editor');return !!e?.ui && matchMedia('(pointer:coarse)').matches && getComputedStyle(e.shadowRoot.querySelector('.work')).display!=='none' && getComputedStyle(e.shadowRoot.querySelector('.desktop-note')).display==='none' && p.hasAttribute('dark')})()",20)
+            assert await b.wait(
+                "(()=>{let p=document.querySelector('hk-settings-panel'),e=p?.shadowRoot?.querySelector('hk-grid-editor');"
+                "return !!e?.ui && matchMedia('(pointer:coarse)').matches && getComputedStyle(e.shadowRoot.querySelector('.work')).display!=='none' && "
+                "getComputedStyle(e.shadowRoot.querySelector('.desktop-note')).display==='none' && p.hasAttribute('dark')})()",20)
             await b.send('Emulation.setEmulatedMedia', features=[{'name': 'prefers-color-scheme', 'value': 'light'}])
             assert await b.wait("!document.querySelector('hk-settings-panel').hasAttribute('dark')",5)
             await b.send('Emulation.setTouchEmulationEnabled', enabled=False)
@@ -68,7 +71,9 @@ async def main():
             assert ready
             assert await b.eval('ed.grid.items.length > 0')
             # A preview that fails says why, steps aside to a strip, keeps the blocks usable, and recovers.
-            await b.eval("window.realGenerate=ed.iframe.contentWindow.hkStrategy.generate;ed.iframe.contentWindow.hkStrategy.generate=async()=>{throw new Error('Fictional failure')};ed.previewView=null;ed.preview();void 0")
+            await b.eval(
+                "window.realGenerate=ed.iframe.contentWindow.hkStrategy.generate;ed.iframe.contentWindow.hkStrategy.generate=async()=>{throw new Error('Fictional failure')};ed.previewView=null;"
+                "ed.preview();void 0")
             assert await b.wait("ed.box.getAttribute('data-loading')==='slow' && ed.box.getAttribute('data-why').includes('Fictional failure')", 10)
             assert await b.eval("ed.overlay.querySelectorAll('.block').length===ed.grid.items.length && ed.overlay.getBoundingClientRect().width>200")
             await b.eval("ed.iframe.contentWindow.hkStrategy.generate=realGenerate;ed.preview();void 0")
@@ -94,7 +99,9 @@ async def main():
                 assert await b.eval("!!ed.overlay.querySelector('.ghost') && !!ed.shadowRoot.querySelector('.float')")
                 bad = await b.eval("ed.overlay.querySelector('.ghost').classList.contains('bad')")
                 # (what the held card says it would do: the blocks it replaces, marked, and the hint line's words)
-                palette_drag.held = await b.eval("({replace:ed.overlay.querySelector('.ghost').classList.contains('replace'),going:[...ed.overlay.querySelectorAll('.block.going')].map(x=>x.dataset.id),note:ed.stage.querySelector('.note').textContent})")
+                palette_drag.held = await b.eval(
+                    "({replace:ed.overlay.querySelector('.ghost').classList.contains('replace'),going:[...ed.overlay.querySelectorAll('.block.going')].map(x=>x.dataset.id),"
+                    "note:ed.stage.querySelector('.note').textContent})")
                 await b.send('Input.dispatchMouseEvent', type='mouseReleased', x=dst['x'], y=dst['y'], button='left', clickCount=1)
                 assert await b.eval("!ed.overlay.querySelector('.ghost') && !ed.shadowRoot.querySelector('.float')")
                 return bad
@@ -106,7 +113,8 @@ async def main():
             before_taken = await b.eval('JSON.stringify(ed.grid)')
             assert not await palette_drag('security', 1)
             assert palette_drag.held['replace'] and len(palette_drag.held['going']) == 1 and palette_drag.held['note'].startswith('Dropping here replaces '), palette_drag.held
-            assert await b.eval("ed.grid.items.filter(i=>i.card==='security').length===2 && ed.grid.items.length===" + str(len(json.loads(before_taken)['items'])) + " && ed.message.textContent.includes('was replaced by Security')"), await b.eval('ed.message.textContent')
+            assert await b.eval("ed.grid.items.filter(i=>i.card==='security').length===2 && ed.grid.items.length===" + str(
+                len(json.loads(before_taken)['items'])) + " && ed.message.textContent.includes('was replaced by Security')"), await b.eval('ed.message.textContent')
             assert await b.eval("!ed.stage.querySelector('.note').classList.contains('warn') && ed.stage.querySelector('.note').textContent.startsWith('Drag a card')")
             await b.eval("ed.undo()")
             assert await b.eval('JSON.stringify(ed.grid)===' + json.dumps(before_taken))
@@ -131,26 +139,46 @@ async def main():
             assert await b.eval("ed.grid.items.find(i=>i.id==='a7').at[1]===3 && ed.grid.items.find(i=>i.id==='a10').at[1]===2")
             assert await b.wait('ed.previewView?.isConnected && ed.previewView._config.cards.find(c=>c.hk_cell?.id==="a7").hk_cell.at[1]===3',10)
             # Every overlay matches its actual cell in the scaled iframe.
-            geometry=await b.eval("(()=>{let fr=ed.iframe.getBoundingClientRect(),scale=fr.width/ed.grid.frame[0];return [...ed.overlay.querySelectorAll('.block')].every(btn=>{let r=btn.getBoundingClientRect(),c=ed.previewView.shadowRoot.querySelector('[data-id='+btn.dataset.id+']').getBoundingClientRect();return Math.abs(r.x-fr.x-c.x*scale)<2 && Math.abs(r.y-fr.y-c.y*scale)<2 && Math.abs(r.width-c.width*scale)<2 && Math.abs(r.height-c.height*scale)<2})})()")
+            geometry=await b.eval(
+                "(()=>{let fr=ed.iframe.getBoundingClientRect(),scale=fr.width/ed.grid.frame[0];"
+                "return [...ed.overlay.querySelectorAll('.block')].every(btn=>{let "
+                "r=btn.getBoundingClientRect(),c=ed.previewView.shadowRoot.querySelector('[data-id='+btn.dataset.id+']').getBoundingClientRect();"
+                "return Math.abs(r.x-fr.x-c.x*scale)<2 && Math.abs(r.y-fr.y-c.y*scale)<2 && Math.abs(r.width-c.width*scale)<2 && Math.abs(r.height-c.height*scale)<2})})()")
             assert geometry
-            assert await b.eval("(()=>{let w=ed.iframe.contentWindow,v=ed.previewView,p=v.shadowRoot.querySelector('[data-id=a2]').firstElementChild,room=p._els[p._index],plate=room.shadowRoot.querySelector('.room'),radius=parseFloat(w.getComputedStyle(plate).borderTopLeftRadius)*v._gridScale;return [...ed.overlay.querySelectorAll('.block,.slot')].every(e=>Math.abs(parseFloat(getComputedStyle(e).borderTopLeftRadius)-radius)<0.1)})()")
+            assert await b.eval(
+                "(()=>{let w=ed.iframe.contentWindow,v=ed.previewView,p=v.shadowRoot.querySelector('[data-id=a2]').firstElementChild,room=p._els[p._index],"
+                "plate=room.shadowRoot.querySelector('.room'),radius=parseFloat(w.getComputedStyle(plate).borderTopLeftRadius)*v._gridScale;return [...ed.overlay.querySelectorAll('.block,"
+                ".slot')].every(e=>Math.abs(parseFloat(getComputedStyle(e).borderTopLeftRadius)-radius)<0.1)})()")
             print('drag swap and overlay geometry passed',flush=True)
             # Room paging has one starting-room choice; a selected room is respected on a desktop.
             await b.eval("ed.screenSettingsOpen=false;ed.select('a2');ed.update('a2',{opts:{area:'kitchen'},pages:{source:'rooms',start:'tablet_room'}})")
-            assert await b.wait("ed.previewView?.shadowRoot.querySelector('[data-id=a2]')?.firstElementChild?._pages?.[ed.previewView.shadowRoot.querySelector('[data-id=a2]').firstElementChild._index]?.area==='kitchen'",15)
-            assert await b.eval("[...ed.sidebar.querySelectorAll('button')].filter(e=>e.textContent==='Tap Weight'||e.textContent==='Glance Up, Touch Down').every(e=>e.closest('.screen-settings')&&!e.closest('.screen-settings').open&&!e.checkVisibility())")
-            assert await b.eval("!ed.sidebar.textContent.includes('Start on Tablet’s Room') && ![...ed.sidebar.querySelectorAll('.cell')].some(e=>e.querySelector('select')&&e.textContent.startsWith('Area'))")
+            assert await b.wait("ed.previewView?.shadowRoot.querySelector('[data-id=a2]')?.firstElementChild"
+                "?._pages?.[ed.previewView.shadowRoot.querySelector('[data-id=a2]').firstElementChild._index]?.area==='kitchen'",15)
+            assert await b.eval(
+                "[...ed.sidebar.querySelectorAll('button')].filter(e=>e.textContent==='Tap Weight'||e.textContent==='Glance Up, Touch "
+                "Down').every(e=>e.closest('.screen-settings')&&!e.closest('.screen-settings').open&&!e.checkVisibility())")
+            assert await b.eval(
+                "!ed.sidebar.textContent.includes('Start on Tablet’s Room') && ![...ed.sidebar.querySelectorAll('.cell')].some(e=>e.querySelector('select')&&e.textContent.startsWith('Area'))")
             assert await b.eval("[...ed.sidebar.querySelectorAll('.cell')].find(e=>e.textContent.startsWith('Starting Room')).querySelector('select').value==='kitchen'")
-            await b.eval("(()=>{let s=[...ed.sidebar.querySelectorAll('.cell')].find(e=>e.textContent.startsWith('Starting Room')).querySelector('select');s.value='kitchen';s.dispatchEvent(new Event('change'))})()")
+            await b.eval(
+                "(()=>{let s=[...ed.sidebar.querySelectorAll('.cell')].find(e=>e.textContent.startsWith('Starting Room')).querySelector('select');s.value='kitchen';"
+                "s.dispatchEvent(new Event('change'))})()")
             assert await b.eval("ed.grid.items.find(i=>i.id==='a2').opts.area==='kitchen'&&!ed.grid.items.find(i=>i.id==='a2').pages.start")
             # Single-room mode uses the same selected room, then paging keeps it as the start.
-            await b.eval("(()=>{let s=[...ed.sidebar.querySelectorAll('.cell')].find(e=>e.querySelector('.t')?.textContent==='Show').querySelector('select');s.value='';s.dispatchEvent(new Event('change'))})()")
+            await b.eval(
+                "(()=>{let s=[...ed.sidebar.querySelectorAll('.cell')].find(e=>e.querySelector('.t')?.textContent==='Show').querySelector('select');s.value='';s.dispatchEvent(new Event('change'))})()"
+                )
             assert await b.wait("ed.previewView?.shadowRoot.querySelector('[data-id=a2]')?.firstElementChild?.localName==='hk-grid-room-card'",15)
             assert await b.eval("ed.previewView.shadowRoot.querySelector('[data-id=a2]').firstElementChild._area()==='kitchen'")
-            await b.eval("(()=>{let s=[...ed.sidebar.querySelectorAll('.cell')].find(e=>e.querySelector('.t')?.textContent==='Show').querySelector('select');s.value='rooms';s.dispatchEvent(new Event('change'))})()")
-            assert await b.wait("ed.previewView?.shadowRoot.querySelector('[data-id=a2]')?.firstElementChild?._pages?.[ed.previewView.shadowRoot.querySelector('[data-id=a2]').firstElementChild._index]?.area==='kitchen'",15)
+            await b.eval(
+                "(()=>{let s=[...ed.sidebar.querySelectorAll('.cell')].find(e=>e.querySelector('.t')?.textContent==='Show').querySelector('select');s.value='rooms';"
+                "s.dispatchEvent(new Event('change'))})()")
+            assert await b.wait("ed.previewView?.shadowRoot.querySelector('[data-id=a2]')?.firstElementChild"
+                "?._pages?.[ed.previewView.shadowRoot.querySelector('[data-id=a2]').firstElementChild._index]?.area==='kitchen'",15)
             await b.eval("(()=>{let p=ed.previewView.shadowRoot.querySelector('[data-id=a2]').firstElementChild;p.goTo(0,false);ed.iframe.contentWindow.dispatchEvent(new Event('hk-idle-return'))})()")
-            assert await b.wait("ed.previewView.shadowRoot.querySelector('[data-id=a2]').firstElementChild._pages[ed.previewView.shadowRoot.querySelector('[data-id=a2]').firstElementChild._index].area==='kitchen'",10)
+            assert await b.wait(
+                "ed.previewView.shadowRoot.querySelector('[data-id=a2]').firstElementChild._pages[ed.previewView.shadowRoot.querySelector('[data-id=a2]').firstElementChild._index].area==='kitchen'",
+                10)
             if ARGS.shots:
                 await screenshot_font(b)
                 await b.screenshot(ARGS.shots / 'home-grid-room-options.png')
@@ -234,8 +262,12 @@ async def main():
             await b.eval("ed.pickerCard=null;let it=ed.grid.items.find(i=>i.card==='camera');ed.select(it.id)")
             # Swipe All Cameras hides the one-camera choice; One Camera shows it
             assert await b.eval("![...ed.sidebar.querySelectorAll('select')].some(s=>[...s.options].some(o=>o.value==='camera.backyard'))")
-            await b.eval("(()=>{let s=[...ed.sidebar.querySelectorAll('.cell')].find(e=>e.querySelector('.t')?.textContent==='Show').querySelector('select');s.value='';s.dispatchEvent(new Event('change'))})()")
-            await b.eval("(()=>{let s=[...ed.sidebar.querySelectorAll('select')].find(s=>[...s.options].some(o=>o.value==='camera.backyard'));s.value='camera.backyard';s.dispatchEvent(new Event('change'))})()")
+            await b.eval(
+                "(()=>{let s=[...ed.sidebar.querySelectorAll('.cell')].find(e=>e.querySelector('.t')?.textContent==='Show').querySelector('select');s.value='';s.dispatchEvent(new Event('change'))})()"
+                )
+            await b.eval(
+                "(()=>{let s=[...ed.sidebar.querySelectorAll('select')].find(s=>[...s.options].some(o=>o.value==='camera.backyard'));s.value='camera.backyard';s.dispatchEvent(new Event('change'))})()"
+                )
             assert await b.eval("(()=>{let it=ed.grid.items.find(i=>i.card==='camera');return !it.pages && it.opts.entity==='camera.backyard'})()")
             await b.eval("ed.select('a2'); [...ed.sidebar.querySelectorAll('.cell')].find(row=>row.textContent.includes('Custom Group Background')).querySelector('button').click()")
             assert await b.eval("ed.grid.items.find(i=>i.id==='a2').opts.surface.opacity===30")
@@ -266,7 +298,9 @@ async def main():
             # the panel: And Also adds a condition, a time window's From, Add Rule, Remove Rule
             await b.eval("ed.conditionPreview=null; ed.side()")
             assert await b.eval("ed.sidebar.textContent.includes('Rule 1 · Weather') && ed.sidebar.textContent.includes('Then Show: Weather')")
-            await b.eval("(()=>{let s=[...ed.sidebar.querySelectorAll('.cell')].find(e=>e.querySelector('.t')?.textContent==='And Also').querySelector('select');s.value='time';s.dispatchEvent(new Event('change'))})()")
+            await b.eval(
+                "(()=>{let s=[...ed.sidebar.querySelectorAll('.cell')].find(e=>e.querySelector('.t')?.textContent==='And Also').querySelector('select');s.value='time';"
+                "s.dispatchEvent(new Event('change'))})()")
             assert await b.eval("JSON.stringify(ed.grid.items.find(i=>i.id==='a3').rules[0].when.all)===JSON.stringify([{kind:'music_playing'},{kind:'time',from:'06:00',to:'09:00'}])")
             await b.eval("[...ed.sidebar.querySelectorAll('button')].find(b=>b.textContent==='Add Rule').click()")
             assert await b.eval("ed.grid.items.find(i=>i.id==='a3').rules.length===2")

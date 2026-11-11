@@ -22,7 +22,9 @@ const HOOKS = `(() => {
 
 // the cells and their plates' empty points, measured in the page
 const PLATE_POINTS = (n) => {
-  const CONTROL = 'button,a,input,select,textarea,summary,[role=button],[role=slider],[role=switch],[role=checkbox],[role=link],[role=menuitem],[data-more],[data-hk-control],[data-notap],.ring,hk-tile-card,hk-light-card,hk-fan-card,hk-cover-card,hk-scene-card,hk-tall-card,hk-favorite-card,hk-climate-card,hk-climate-tall-card,hk-toggle-card';
+  const CONTROL =
+    'button,a,input,select,textarea,summary,[role=button],[role=slider],[role=switch],[role=checkbox],[role=link],[role=menuitem],[data-more],[data-hk-control],[data-notap],.ring,hk-tile-card,' +
+    'hk-light-card,hk-fan-card,hk-cover-card,hk-scene-card,hk-tall-card,hk-favorite-card,hk-climate-card,hk-climate-tall-card,hk-toggle-card';
   const all = (r, s) => [...r.querySelectorAll('*')].flatMap(e => [...(e.matches(s) ? [e] : []), ...(e.shadowRoot ? all(e.shadowRoot, s) : [])]);
   const deepest = (x, y) => {
     let el = document.elementFromPoint(x, y);
@@ -65,7 +67,8 @@ const PLATE_POINTS = (n) => {
       await p.waitForFunction(() => window.__mantelReady === true);
       await require('./grid_ready.cjs')(p);
       await p.waitForFunction(() => {
-        const d = (r) => { for (const e of r.querySelectorAll('*')) { if (e.localName === 'hk-home-grid-view') return e; if (e.shadowRoot) { const f = d(e.shadowRoot); if (f) return f; } } return null; };
+        const d = (r) => { for (const e of r.querySelectorAll('*')) { if (e.localName === 'hk-home-grid-view') return e;
+          if (e.shadowRoot) { const f = d(e.shadowRoot); if (f) return f; } } return null; };
         const v = d(document); return v && v.shadowRoot.querySelectorAll('.cell').length > 0;
       });
       await p.waitForTimeout(2500);

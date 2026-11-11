@@ -39,7 +39,8 @@ function blocks() {
     const ls = sr.querySelector('.ls.sc');
     let sc = null;
     if (ls) {
-      const before = { sh: ls.scrollHeight, ch: ls.clientHeight, more: ls.classList.contains('more'), role: ls.getAttribute('role'), oy: getComputedStyle(ls).overflowY, ta: getComputedStyle(ls).touchAction };
+      const before = { sh: ls.scrollHeight, ch: ls.clientHeight, more: ls.classList.contains('more'), role: ls.getAttribute('role'), oy: getComputedStyle(ls).overflowY,
+        ta: getComputedStyle(ls).touchAction };
       ls.scrollTop = ls.scrollHeight;
       ls.dispatchEvent(new Event('scroll'));
       const rows = ls.querySelectorAll('.ln'), last = rows[rows.length - 1], lb = last ? last.getBoundingClientRect() : null, lr = ls.getBoundingClientRect();
@@ -111,7 +112,8 @@ function sheetState() {
           check(label + ': drawn inside its plate', () => assert(!b.past.length, JSON.stringify(b.past)));
           check(label + ': every section a finger tall', () => b.secs.forEach((s) => assert(s.h / b.k >= 55.5, s.name + ' ' + s.h / b.k)));
           if (b.sc) {
-            check(label + ': a list of rows, contained, by finger (role=list, overflow-y, pan-y)', () => assert(b.sc.role === 'list' && /auto|scroll/.test(b.sc.oy) && b.sc.ta === 'pan-y', JSON.stringify(b.sc)));
+            check(label + ': a list of rows, contained, by finger (role=list, overflow-y, pan-y)',
+              () => assert(b.sc.role === 'list' && /auto|scroll/.test(b.sc.oy) && b.sc.ta === 'pan-y', JSON.stringify(b.sc)));
             check(label + ': it scrolls where its rows do not fit, to the last row, and the fade goes at the foot', () => {
               assert(b.sc.lastIn, JSON.stringify(b.sc));
               assert(b.sc.sh > b.sc.ch + 4 ? b.sc.more && !b.sc.endMore : !b.sc.more, JSON.stringify(b.sc));
@@ -177,11 +179,13 @@ function sheetState() {
           await page.waitForTimeout(800);
           up = await sheetUp();
           check(`${engine} ${screen}: Small opens the sheet (the keyboard's Enter)`, () => assert(up));
-          const inSheet = await page.evaluate(() => { let a = document.activeElement; while (a && a.shadowRoot && a.shadowRoot.activeElement) a = a.shadowRoot.activeElement; return !!(a && a.closest && a.closest('.sheet')); });
+          const inSheet = await page.evaluate(() => { let a = document.activeElement; while (a && a.shadowRoot && a.shadowRoot.activeElement) a = a.shadowRoot.activeElement;
+            return !!(a && a.closest && a.closest('.sheet')); });
           check(`${engine} ${screen}: ...the focus goes into the sheet`, () => assert(inSheet));
           await page.keyboard.press('Escape');
           await page.waitForTimeout(600);
-          const back = await page.evaluate(() => { let a = document.activeElement; while (a && a.shadowRoot && a.shadowRoot.activeElement) a = a.shadowRoot.activeElement; return a ? a.className : null; });
+          const back = await page.evaluate(() => { let a = document.activeElement; while (a && a.shadowRoot && a.shadowRoot.activeElement) a = a.shadowRoot.activeElement; return a ? a.className :
+            null; });
           up = await sheetUp();
           check(`${engine} ${screen}: Escape closes it, the focus back on Small`, () => { assert(!up); assert(/(^| )sm-s( |$)/.test(back || ''), 'got ' + back); });
         }

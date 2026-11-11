@@ -37,7 +37,9 @@ async def main():
             await b.restrict_origin(origin)
             await b.open(origin + '/' + screen + '/home', cookie)
             assert await b.wait('window.__mantelReady===true', 30)
-            await b.eval("window.deep=(r,s)=>[...r.querySelectorAll('*')].flatMap(e=>[...(e.matches(s)?[e]:[]),...(e.shadowRoot?deep(e.shadowRoot,s):[])]); window.conditional=deep(document,'hk-grid-conditional-card')[0]")
+            await b.eval(
+                "window.deep=(r,s)=>[...r.querySelectorAll('*')].flatMap(e=>[...(e.matches(s)?[e]:[]),...(e.shadowRoot?deep(e.shadowRoot,s):[])]);"
+                " window.conditional=deep(document,'hk-grid-conditional-card')[0]")
             assert await b.wait("conditional?._child?.localName==='hk-weather-band-card'", 10)
             bounds = await b.eval('(()=>{let r=conditional.getBoundingClientRect();return [r.x,r.y,r.width,r.height]})()')
             def state(entity, value, attrs):
@@ -55,7 +57,9 @@ async def main():
             assert await b.wait("!!deep(document,'hk-grid-weather-sky')[0]?._scene", 10)
             assert await b.eval("deep(document,'hk-grid-weather-sky')[0]._scene.el.classList.contains('skyonly')")
             assert await b.eval("(()=>{let e=deep(document,'hk-grid-weather-sky')[0];return e._scene.update(e._client).cond==='rainy'})()")
-            assert await b.eval("(()=>{let e=deep(document,'hk-grid-weather-sky')[0],a=e.getBoundingClientRect(),s=e._scene.el.getBoundingClientRect();return Math.abs(a.width-s.width)<1 && Math.abs(a.height-s.height)<1})()")
+            assert await b.eval(
+                "(()=>{let e=deep(document,'hk-grid-weather-sky')[0],a=e.getBoundingClientRect(),s=e._scene.el.getBoundingClientRect();"
+                "return Math.abs(a.width-s.width)<1 && Math.abs(a.height-s.height)<1})()")
             await b.send('Emulation.setEmulatedMedia', features=[{'name': 'prefers-reduced-motion', 'value': 'reduce'}])
             assert await b.wait("deep(document,'hk-grid-weather-sky')[0]._scene.el.classList.contains('held')",5)
             await b.send('Emulation.setEmulatedMedia', features=[])
@@ -64,14 +68,18 @@ async def main():
             await b.eval("wx.setConfig({...wx._config,sky:true})")
             assert await b.wait("!!deep(document,'hk-grid-weather-sky')[0]?._scene",5)
             # The group plate changes independently of its accessory pills.
-            await b.eval("window.room=deep(document,'hk-grid-room-card')[0];window.originalRoom=room._config;window.pillBackground=getComputedStyle(deep(room.shadowRoot,'hk-plate')[0]).background;room.setConfig({...originalRoom,surface:{color:'#345678',opacity:42,blur:'none'}})")
+            await b.eval(
+                "window.room=deep(document,'hk-grid-room-card')[0];window.originalRoom=room._config;window.pillBackground=getComputedStyle(deep(room.shadowRoot,'hk-plate')[0]).background;"
+                "room.setConfig({...originalRoom,surface:{color:'#345678',opacity:42,blur:'none'}})")
             assert await b.eval("getComputedStyle(room.shadowRoot.querySelector('.room')).backgroundColor==='rgba(52, 86, 120, 0.42)'")
             assert await b.eval("getComputedStyle(room.shadowRoot.querySelector('.room')).backdropFilter==='none'")
             assert await b.eval("getComputedStyle(deep(room.shadowRoot,'hk-plate')[0]).background===pillBackground")
             await b.eval("room.setConfig({...originalRoom,surface:{color:'#345678',opacity:42,blur:'light'}})")
             assert await b.eval("getComputedStyle(room.shadowRoot.querySelector('.room')).backdropFilter.includes('blur(20px)')")
             await b.eval('room.setConfig(originalRoom)')
-            await b.eval("window.timer=deep(document,'hk-timer-strip-card')[0]; window.calls=[];timer._call=(...args)=>{calls.push(args);return Promise.resolve(true)};timer.shadowRoot.querySelector('[data-service=pause]').click()")
+            await b.eval(
+                "window.timer=deep(document,'hk-timer-strip-card')[0]; window.calls=[];timer._call=(...args)=>{calls.push(args);return Promise.resolve(true)};"
+                "timer.shadowRoot.querySelector('[data-service=pause]').click()")
             assert await b.eval("calls.length===1 && calls[0][0]==='timer' && calls[0][1]==='pause'")
             state('timer.quick_1', 'paused', {'friendly_name': 'Tea', 'remaining': '00:02:30', 'duration': '00:05:00'})
             state('sensor.running_quick_timers', '0', {'running': []})

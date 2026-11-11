@@ -55,18 +55,23 @@ const deepJs = 'const deep=(r,s)=>[...r.querySelectorAll("*")].flatMap(e=>[...(e
     // LAYOUT + LOOK in the editor: the layout and the settings in one Save
     await settings('/screens/' + input.screen + '/home-grid');
     await page.waitForTimeout(1500);
-    const opened = await page.evaluate(new Function(deepJs + 'const e=deep(document,"hk-grid-editor")[0]; if(!e) return false; e.screenSettingsOpen=true; e.side(); const b=e.shadowRoot.querySelector("[data-look=\\"homeview\\"]"); if(!b) return false; b.click(); return true;'));
+    const opened = await page.evaluate(
+      new Function(deepJs +
+      'const e=deep(document,"hk-grid-editor")[0]; if(!e) return false; e.screenSettingsOpen=true; e.side(); const b=e.shadowRoot.querySelector("[data-look=\\"homeview\\"]"); if(!b) return false;' +
+      ' b.click(); return true;'));
     say(opened, 'the editor offers Layout + Look', opened);
     await page.waitForTimeout(400);
     await confirmOk();
     await page.waitForTimeout(2500);
-    const draft = await page.evaluate(new Function(deepJs + 'const e=deep(document,"hk-grid-editor")[0]; return {cell: e.grid && e.grid.cell, items: e.grid && e.grid.items.length, look: !!e.lookChange};'));
+    const draft = await page.evaluate(
+      new Function(deepJs + 'const e=deep(document,"hk-grid-editor")[0]; return {cell: e.grid && e.grid.cell, items: e.grid && e.grid.items.length, look: !!e.lookChange};'));
     say(draft.cell === 'square' && draft.items > 0 && draft.look, 'HomeView\'s layout in the draft, its settings waiting for Save', draft);
     await page.evaluate(new Function(deepJs + 'return deep(document,"hk-grid-editor")[0].save();'));
     await page.waitForTimeout(2000);
     const saved = await board();
     say(saved && saved.home_grid && saved.home_grid.cell === 'square' && saved.glass === 'bright' && saved.look_undo && saved.look_undo.look === 'homeview' &&
-        'home_grid' in saved.look_undo.was, 'Save writes the layout, the settings and an Undo that keeps the layout before', saved && { cell: saved.home_grid && saved.home_grid.cell, glass: saved.glass, undo: saved.look_undo && Object.keys(saved.look_undo.was) });
+        'home_grid' in saved.look_undo.was, 'Save writes the layout, the settings and an Undo that keeps the layout before', saved &&
+          { cell: saved.home_grid && saved.home_grid.cell, glass: saved.glass, undo: saved.look_undo && Object.keys(saved.look_undo.was) });
     await page.goto(input.origin + '/' + input.screen + '/home');
     await page.waitForFunction(() => window.__mantelReady === true, null, { timeout: 30000 });
     await require('./grid_ready.cjs')(page);

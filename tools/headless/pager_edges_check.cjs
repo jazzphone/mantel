@@ -10,7 +10,8 @@ const FIND = () => {
   // a finger: pointer events, pointerType touch, on what it went down on until it lifts (swipe_motion_check.cjs)
   window.__finger = {
     t: null,
-    ev(type, x, y) { return new PointerEvent(type, { bubbles: true, composed: true, cancelable: true, pointerId: 41, pointerType: 'touch', isPrimary: true, clientX: x, clientY: y, button: type === 'pointermove' ? -1 : 0, buttons: /up|cancel/.test(type) ? 0 : 1 }); },
+    ev(type, x, y) { return new PointerEvent(type, { bubbles: true, composed: true, cancelable: true, pointerId: 41, pointerType: 'touch', isPrimary: true, clientX: x, clientY: y, button: type ===
+      'pointermove' ? -1 : 0, buttons: /up|cancel/.test(type) ? 0 : 1 }); },
     down(t, x, y) { this.t = t; t.dispatchEvent(this.ev('pointerdown', x, y)); },
     move(x, y) { this.t.dispatchEvent(this.ev('pointermove', x, y)); },
     up(x, y) { const t = this.t; this.t = null; t.dispatchEvent(this.ev('pointerup', x, y)); },

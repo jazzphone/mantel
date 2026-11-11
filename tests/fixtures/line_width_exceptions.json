@@ -83,5 +83,275 @@
   "file": "web/hk/settings/hk-settings-tables.js",
   "hash": "d6722db6dcb8c54c",
   "why": "inside a regular expression: it cannot be broken"
+ },
+ {
+  "file": "tests/test_alert_card.py",
+  "hash": "0cdf545f82f9c82a",
+  "why": "inside a multi-line string (code embedded in a test): a newline there would be part of the string"
+ },
+ {
+  "file": "tests/test_hk_core_home_grid.py",
+  "hash": "ace37f564673285f",
+  "why": "inside a multi-line string (code embedded in a test): a newline there would be part of the string"
+ },
+ {
+  "file": "tests/test_intercom_settings.py",
+  "hash": "a1f8d92d4e78b347",
+  "why": "inside a multi-line string (code embedded in a test): a newline there would be part of the string"
+ },
+ {
+  "file": "tests/test_laundry.py",
+  "hash": "ef719144f570791c",
+  "why": "inside a multi-line string (code embedded in a test): a newline there would be part of the string"
+ },
+ {
+  "file": "tests/test_laundry.py",
+  "hash": "92480dc7d0b5ab11",
+  "why": "inside a multi-line string (code embedded in a test): a newline there would be part of the string"
+ },
+ {
+  "file": "tests/test_mantel_settings_cameras.py",
+  "hash": "c4f4c6378a89532b",
+  "why": "inside a multi-line string (code embedded in a test): a newline there would be part of the string"
+ },
+ {
+  "file": "tests/test_mantel_settings_devices.py",
+  "hash": "fc5b246f614b4c57",
+  "why": "inside a multi-line string (code embedded in a test): a newline there would be part of the string"
+ },
+ {
+  "file": "tests/test_saverpieces_cameras.py",
+  "hash": "9b39ce655912afe8",
+  "why": "inside a multi-line string (code embedded in a test): a newline there would be part of the string"
+ },
+ {
+  "file": "tests/test_saverpieces_cameras.py",
+  "hash": "030f53fc45f8590a",
+  "why": "inside a multi-line string (code embedded in a test): a newline there would be part of the string"
+ },
+ {
+  "file": "tests/test_saverpieces_cameras.py",
+  "hash": "f601038dfc172edb",
+  "why": "inside a multi-line string (code embedded in a test): a newline there would be part of the string"
+ },
+ {
+  "file": "tests/test_saverpieces_energy.py",
+  "hash": "a9f0b11f2de2df01",
+  "why": "inside a multi-line string (code embedded in a test): a newline there would be part of the string"
+ },
+ {
+  "file": "tests/test_saverpieces_home.py",
+  "hash": "1b43d5acb53f43bd",
+  "why": "inside a multi-line string (code embedded in a test): a newline there would be part of the string"
+ },
+ {
+  "file": "tests/test_saverpieces_media.py",
+  "hash": "48a9c15390c03e94",
+  "why": "inside a multi-line string (code embedded in a test): a newline there would be part of the string"
+ },
+ {
+  "file": "tests/test_saverpieces_people.py",
+  "hash": "ade8ffcaff3647a9",
+  "why": "inside a multi-line string (code embedded in a test): a newline there would be part of the string"
+ },
+ {
+  "file": "tests/test_saverpieces_picked.py",
+  "hash": "51ab1aa3e2d0333a",
+  "why": "inside a multi-line string (code embedded in a test): a newline there would be part of the string"
+ },
+ {
+  "file": "tests/test_saverpieces_picked.py",
+  "hash": "aed2c08370cf9f83",
+  "why": "inside a multi-line string (code embedded in a test): a newline there would be part of the string"
+ },
+ {
+  "file": "tests/test_saverpieces_picked.py",
+  "hash": "fdbbcf9a65050146",
+  "why": "inside a multi-line string (code embedded in a test): a newline there would be part of the string"
+ },
+ {
+  "file": "tests/test_saverpieces_picked.py",
+  "hash": "7ccc0820b8c787e1",
+  "why": "inside a multi-line string (code embedded in a test): a newline there would be part of the string"
+ },
+ {
+  "file": "tests/test_saverpieces_picked.py",
+  "hash": "c8b05a1879484010",
+  "why": "inside a multi-line string (code embedded in a test): a newline there would be part of the string"
+ },
+ {
+  "file": "tests/test_saverpieces_picked.py",
+  "hash": "1e5d932235341dc4",
+  "why": "inside a multi-line string (code embedded in a test): a newline there would be part of the string"
+ },
+ {
+  "file": "tests/test_saverpieces_picked.py",
+  "hash": "8f6b861587a222ec",
+  "why": "inside a multi-line string (code embedded in a test): a newline there would be part of the string"
+ },
+ {
+  "file": "tests/test_saverpieces_picked.py",
+  "hash": "ab589b665b03397e",
+  "why": "inside a multi-line string (code embedded in a test): a newline there would be part of the string"
+ },
+ {
+  "file": "tests/test_saverpieces_picked.py",
+  "hash": "8b4dc840303b9dbb",
+  "why": "inside a multi-line string (code embedded in a test): a newline there would be part of the string"
+ },
+ {
+  "file": "tests/test_saverpieces_picked.py",
+  "hash": "fc9186a0b7b17d56",
+  "why": "inside a multi-line string (code embedded in a test): a newline there would be part of the string"
+ },
+ {
+  "file": "tests/test_saverpieces_time.py",
+  "hash": "5bdaba5ffa6ce316",
+  "why": "inside a multi-line string (code embedded in a test): a newline there would be part of the string"
+ },
+ {
+  "file": "tests/test_saverpieces_weather.py",
+  "hash": "64880c7de72c9b5e",
+  "why": "inside a multi-line string (code embedded in a test): a newline there would be part of the string"
+ },
+ {
+  "file": "tests/test_saverpieces_weather.py",
+  "hash": "3b58d377a76b0dd7",
+  "why": "inside a multi-line string (code embedded in a test): a newline there would be part of the string"
+ },
+ {
+  "file": "tests/test_saverpieces_weather.py",
+  "hash": "5d01cd6afc276102",
+  "why": "inside a multi-line string (code embedded in a test): a newline there would be part of the string"
+ },
+ {
+  "file": "tests/test_saverwidgets_pieces.py",
+  "hash": "72350e2648a0968f",
+  "why": "inside a multi-line string (code embedded in a test): a newline there would be part of the string"
+ },
+ {
+  "file": "tests/test_saverwidgets_pieces.py",
+  "hash": "6f170b2aa8626b20",
+  "why": "inside a multi-line string (code embedded in a test): a newline there would be part of the string"
+ },
+ {
+  "file": "tests/test_swipe_card.py",
+  "hash": "f8a3193bbae11546",
+  "why": "inside a multi-line string (code embedded in a test): a newline there would be part of the string"
+ },
+ {
+  "file": "tests/test_timeline_block.py",
+  "hash": "05dc8be390b4c280",
+  "why": "inside a multi-line string (code embedded in a test): a newline there would be part of the string"
+ },
+ {
+  "file": "tests/test_timeline_block.py",
+  "hash": "593045e0a42ff9df",
+  "why": "inside a multi-line string (code embedded in a test): a newline there would be part of the string"
+ },
+ {
+  "file": "tests/test_timeline_block.py",
+  "hash": "24f61c105ffaebf9",
+  "why": "inside a multi-line string (code embedded in a test): a newline there would be part of the string"
+ },
+ {
+  "file": "tests/test_timeline_block.py",
+  "hash": "f1218bd30490d00d",
+  "why": "inside a multi-line string (code embedded in a test): a newline there would be part of the string"
+ },
+ {
+  "file": "tests/test_timeline_page.py",
+  "hash": "363084e2c0e3032e",
+  "why": "inside a multi-line string (code embedded in a test): a newline there would be part of the string"
+ },
+ {
+  "file": "tests/test_timeline_page.py",
+  "hash": "33b9c69bc9096bbf",
+  "why": "inside a multi-line string (code embedded in a test): a newline there would be part of the string"
+ },
+ {
+  "file": "tests/test_timeline_page.py",
+  "hash": "11fd13856a965df4",
+  "why": "inside a multi-line string (code embedded in a test): a newline there would be part of the string"
+ },
+ {
+  "file": "tests/test_tv.py",
+  "hash": "257701ea245d63ce",
+  "why": "inside a multi-line string (code embedded in a test): a newline there would be part of the string"
+ },
+ {
+  "file": "tests/test_tv.py",
+  "hash": "df7b4dc152e6844c",
+  "why": "inside a multi-line string (code embedded in a test): a newline there would be part of the string"
+ },
+ {
+  "file": "tools/headless/block_taps_check.cjs",
+  "hash": "570c9e6fd8ec80cb",
+  "why": "inside a template literal: a newline there would be part of the string"
+ },
+ {
+  "file": "tools/headless/block_taps_check.cjs",
+  "hash": "ced50d8d48f21161",
+  "why": "inside a template literal: a newline there would be part of the string"
+ },
+ {
+  "file": "tools/headless/grid_editor_smoke.py",
+  "hash": "46e96a1f0a96cf16",
+  "why": "inside a multi-line string (code embedded in a test): a newline there would be part of the string"
+ },
+ {
+  "file": "tools/headless/grid_panels_check.py",
+  "hash": "d9355ee1b2d698c1",
+  "why": "inside a multi-line string (code embedded in a test): a newline there would be part of the string"
+ },
+ {
+  "file": "tools/headless/home_grid_audit.py",
+  "hash": "5395c56663375b8c",
+  "why": "inside a multi-line string (code embedded in a test): a newline there would be part of the string"
+ },
+ {
+  "file": "tools/headless/home_grid_audit.py",
+  "hash": "74037432825f6a3b",
+  "why": "inside a multi-line string (code embedded in a test): a newline there would be part of the string"
+ },
+ {
+  "file": "tools/headless/home_grid_audit.py",
+  "hash": "cc152a01f907cd5d",
+  "why": "inside a multi-line string (code embedded in a test): a newline there would be part of the string"
+ },
+ {
+  "file": "tools/headless/home_grid_audit.py",
+  "hash": "73aa17dff61aef37",
+  "why": "inside a multi-line string (code embedded in a test): a newline there would be part of the string"
+ },
+ {
+  "file": "tools/headless/intercom_check.cjs",
+  "hash": "4e9e88e4a24fad3d",
+  "why": "inside a template literal: a newline there would be part of the string"
+ },
+ {
+  "file": "tools/headless/now_playing_page_check.cjs",
+  "hash": "0ffd2e7215f2872b",
+  "why": "inside a template literal: a newline there would be part of the string"
+ },
+ {
+  "file": "tools/headless/saver_designs_check.cjs",
+  "hash": "8138de734cf4b7e4",
+  "why": "inside a template literal: a newline there would be part of the string"
+ },
+ {
+  "file": "tools/headless/settings_sweep.cjs",
+  "hash": "1184f9f9ffd1b05f",
+  "why": "inside a template literal: a newline there would be part of the string"
+ },
+ {
+  "file": "tools/headless/side_pane_check.py",
+  "hash": "a9135cb87c577920",
+  "why": "inside a multi-line string (code embedded in a test): a newline there would be part of the string"
+ },
+ {
+  "file": "tools/split_js.py",
+  "hash": "f67bf1acca1795d2",
+  "why": "inside a multi-line string (code embedded in a test): a newline there would be part of the string"
  }
 ]

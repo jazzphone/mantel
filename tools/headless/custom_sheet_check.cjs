@@ -90,7 +90,8 @@ function sheetState() {
         // (Extra Large keeps the keypad in HomeView since 2026-11-08: the keypad card, not HomeView's own -- the other four are HomeView's)
         check(`${engine} ${screen}: the four HomeView sizes drawn`, () => assert.deepEqual(got.map((b) => b.size).sort(), ['C', 'L', 'S', 'W']));
         const kp = await page.evaluate(() => {
-          const d = (r) => { for (const e of r.querySelectorAll('*')) { if (e.localName === 'hk-grid-keypad-card') return e; if (e.shadowRoot) { const f = d(e.shadowRoot); if (f) return f; } } return null; };
+          const d = (r) => { for (const e of r.querySelectorAll('*')) { if (e.localName === 'hk-grid-keypad-card') return e;
+            if (e.shadowRoot) { const f = d(e.shadowRoot); if (f) return f; } } return null; };
           const k = d(document); return !!(k && k.shadowRoot && k.shadowRoot.querySelector('.kpad'));
         });
         check(`${engine} ${screen}: Extra Large keeps the keypad`, () => assert.equal(kp, true));
@@ -114,7 +115,8 @@ function sheetState() {
             });
           }
           if (b.size === 'XL' && screen === 'cs-square') check(label + ': on square cells all five entries in sight', () => assert.equal(b.ents.filter((e) => !e.more).length, 5));
-          if (b.size === 'XL' && screen === 'cs-tiles') check(label + ': on tile cells, three and "2 more"', () => assert.deepEqual(b.ents.map((e) => e.more ? e.name : 'x'), ['x', 'x', 'x', '2 more']));
+          if (b.size === 'XL' && screen === 'cs-tiles') check(label + ': on tile cells, three and "2 more"',
+            () => assert.deepEqual(b.ents.map((e) => e.more ? e.name : 'x'), ['x', 'x', 'x', '2 more']));
           if (b.size === 'S') check(label + ': Small is a key: Security and its one line' + (screen === 'cs-square' ? ', HomeView on square cells' : ''), () => {
             assert.equal(b.big, 'Security'); if (screen === 'cs-square') assert.equal(b.tile, 'centred');
           });
@@ -167,7 +169,8 @@ function sheetState() {
           await page.waitForTimeout(700);
           // the light with a custom sheet: its sheet, never a toggle
           const before = await page.evaluate(() => (window.hkCards.client() || {}).states['light.porch'].state);
-          const lt = await page.evaluate(() => { const v = deep(document, 'hk-home-grid-view')[0]; const cell = v.shadowRoot.querySelector('.cell[data-id="lt"]'); const r = cell.getBoundingClientRect(); return { l: r.left, t: r.top, w: r.width, h: r.height }; });
+          const lt = await page.evaluate(() => { const v = deep(document, 'hk-home-grid-view')[0]; const cell = v.shadowRoot.querySelector('.cell[data-id="lt"]');
+            const r = cell.getBoundingClientRect(); return { l: r.left, t: r.top, w: r.width, h: r.height }; });
           c = center(lt);
           await page.touchscreen.tap(c.x, c.y);
           await page.waitForTimeout(900);
@@ -177,7 +180,8 @@ function sheetState() {
           await page.keyboard.press('Escape');
           await page.waitForTimeout(700);
           // Weather: its corner button
-          const go = await page.evaluate(() => { const v = deep(document, 'hk-home-grid-view')[0]; const b = v.shadowRoot.querySelector('.cell[data-id="wx"] .sheet-go'); if (!b) return null; const r = b.getBoundingClientRect(); return { l: r.left, t: r.top, w: r.width, h: r.height, label: b.getAttribute('aria-label') }; });
+          const go = await page.evaluate(() => { const v = deep(document, 'hk-home-grid-view')[0]; const b = v.shadowRoot.querySelector('.cell[data-id="wx"] .sheet-go'); if (!b) return null;
+            const r = b.getBoundingClientRect(); return { l: r.left, t: r.top, w: r.width, h: r.height, label: b.getAttribute('aria-label') }; });
           check(`${engine}: Weather has its 44 px corner button`, () => { assert(go); assert(go.w >= 40 && go.h >= 40, JSON.stringify(go)); });
           if (go) {
             c = center(go);
@@ -198,7 +202,8 @@ function sheetState() {
     if (want('sheet')) {
       for (const [w, h] of SHEET_SIZES) {
         const { ctx, page, errors, commands } = await open('cs-mixed', w, h);
-        await page.evaluate(() => { const v = deep(document, 'hk-home-grid-view')[0]; const cell = v.shadowRoot.querySelector('.cell[data-id="ck"]'); cell.firstElementChild.shadowRoot.querySelector('*').click(); });
+        await page.evaluate(() => { const v = deep(document, 'hk-home-grid-view')[0]; const cell = v.shadowRoot.querySelector('.cell[data-id="ck"]');
+          cell.firstElementChild.shadowRoot.querySelector('*').click(); });
         await page.waitForTimeout(1000);
         const s = await page.evaluate(sheetState);
         await shot(page, `${engine}-mixed-${w}x${h}`);
@@ -209,7 +214,8 @@ function sheetState() {
         check(label + ': inside the window', () => assert(s.sheet.l >= -0.5 && s.sheet.t >= -0.5 && s.sheet.r <= s.W + 0.5 && s.sheet.b <= s.H + 0.5, JSON.stringify(s.sheet)));
         check(label + ': no sideways scroll', () => { assert(s.scroll.sw <= s.scroll.cw + 1, JSON.stringify(s.scroll)); assert(s.docW <= s.W + 1); });
         check(label + ': all twelve, in order, never "N more"', () => assert.deepEqual(s.tiles.map((t) => t.entry), ['e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7', 'e8', 'e9', 'e10', 'e11', 'e12']));
-        check(label + ': Home pills and HomeView tiles as each entry says', () => assert.deepEqual(s.tiles.map((t) => t.centred), [true, true, true, true, true, true, false, false, true, true, true, true]));
+        check(label + ': Home pills and HomeView tiles as each entry says', () => assert.deepEqual(s.tiles.map((t) => t.centred),
+          [true, true, true, true, true, true, false, false, true, true, true, true]));
         check(label + ': every tile a finger\'s 44 px and inside the body', () => s.tiles.forEach((t) => {
           assert(t.w >= 44 && t.h >= 44, t.entry + ' ' + t.w + 'x' + t.h); assert(t.l >= s.body.l - 1 && t.r <= s.body.r + 1, t.entry + ' sideways');
         }));

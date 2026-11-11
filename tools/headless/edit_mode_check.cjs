@@ -21,7 +21,8 @@ const HELP = () => {
   window.order = id => { const g = gridWith(id); return g ? [...g._e.children].map(k => k._config && k._config.entity).filter(Boolean) : null; };
   window.tileIn = id => [...gridWith(id)._e.children].find(k => k._config && k._config.entity === id);
   window.mid = el => { el.scrollIntoView({ block: 'center', inline: 'nearest' }); return box(el); };
-  window.sceneRow = () => { const c = deep(document, 'hk-scenes-card').find(x => x.getBoundingClientRect().height > 0); const rc = c && deep(c, 'hk-row-card')[0]; return rc && rc.shadowRoot.querySelector('.row'); };
+  window.sceneRow = () => { const c = deep(document, 'hk-scenes-card').find(x => x.getBoundingClientRect().height > 0); const rc = c && deep(c, 'hk-row-card')[0]; return rc &&
+    rc.shadowRoot.querySelector('.row'); };
   window.rowKeys = () => [...sceneRow().children].filter(c => c._config).map(c => c._config.entity || (c._config.tap_action || {}).navigation_path);
   window.acc = () => window.hkSettings.get('accessories', {}) || {};
   window.menuRows = () => { const sr = menuSR(); return sr ? [...sr.querySelectorAll('.list .row span')].map(x => x.textContent) : []; };
@@ -42,7 +43,8 @@ async function open(path, cookies, more) {
   // (ResizeObserver's "loop completed with undelivered notifications" is the browser's notice that a layout
   // settled over two frames -- the menu's rows as they are rearranged -- not an error of the page's)
   page.on('pageerror', e => { if (!/ResizeObserver loop/.test(e.message)) errors.push('page error: ' + e.message); });
-  page.on('console', m => { if (m.type() === 'error' && !HOMES_OWN.test((m.location() && m.location().url) || '')) errors.push('console: ' + m.text() + (m.location() && m.location().url ? ' (' + m.location().url.replace(input.origin, '') + ')' : '')); });
+  page.on('console', m => { if (m.type() === 'error' && !HOMES_OWN.test((m.location() && m.location().url) || '')) errors.push('console: ' + m.text() +
+    (m.location() && m.location().url ? ' (' + m.location().url.replace(input.origin, '') + ')' : '')); });
   const t = { ctx, page, errors, cdp: null };
   await go(t, path);
   return t;
@@ -296,7 +298,8 @@ async function pages() {
   const f1 = await p.evaluate(() => order('cover.garage_door'));
   assert.equal(f1[0], 'cover.garage_door', 'Favorites: carried ' + JSON.stringify(f1));
   const lastScene = r0.filter(k => /^scene\./.test(k)).pop();
-  const pa = await p.evaluate(id => { const c = [...sceneRow().children].find(c => c._config && c._config.entity === id); c.scrollIntoView({ block: 'center', inline: 'nearest' }); return box(c); }, lastScene);
+  const pa = await p.evaluate(id => { const c = [...sceneRow().children].find(c => c._config && c._config.entity === id); c.scrollIntoView({ block: 'center', inline: 'nearest' }); return box(c); },
+    lastScene);
   const pb = await p.evaluate(() => { const b = box(sceneRow().children[0]); return { x: b.l + 6, y: b.y }; });
   await carry(t, pa, pb, 16);
   const r1 = await p.evaluate(() => rowKeys());
@@ -421,7 +424,8 @@ async function conflict() {
   await other.evaluate(() => hkCards.client().actions.callWS({ type: 'hk_frontend/accessory/set', entity_id: 'light.porch', name: 'Porch Lantern' }));
   await tap(t, () => box(editBtn('Done')));
   await p.waitForFunction(() => deep(document, '#hk-confirm[data-open]').length === 1, null, { timeout: 8000 });
-  const ask = await p.evaluate(() => { const c = deep(document, '#hk-confirm')[0]; return [c.querySelector('.txt').textContent, c.querySelector('[data-no]').textContent, c.querySelector('[data-yes]').textContent]; });
+  const ask = await p.evaluate(() => { const c = deep(document, '#hk-confirm')[0];
+    return [c.querySelector('.txt').textContent, c.querySelector('[data-no]').textContent, c.querySelector('[data-yes]').textContent]; });
   assert.deepEqual(ask, ['This page changed since you started editing', 'Reload', 'Save Anyway']);
   assert(await p.evaluate(() => !!hkEdit.active()), 'still editing while it asks');
   await shot(t, 'conflict');

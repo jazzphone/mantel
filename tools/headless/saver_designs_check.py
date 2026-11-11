@@ -34,7 +34,8 @@ async def main():
     gallery.SETTINGS['settings']['look']['saver'] = original
     gallery.SETTINGS['boards'][screen] = {'title': 'Fictional Design Tablet', 'pages': [], 'screensaver': True, 'screensaver_options': None,
         'side_pane': {'dashboard': {'show': 'off', 'sections': []}, 'saver': {'show': 'own', 'sections': [{'kind': 'clock'}, {'kind': 'weather'}]}}}
-    gallery.SETTINGS['boards']['design-off'] = {'title': 'Fictional Disabled Pane', 'pages': [], 'screensaver': True, 'screensaver_options': None, 'side_pane': {'dashboard': {'show': 'off', 'sections': []}, 'saver': {'show': 'off', 'sections': []}}}
+    gallery.SETTINGS['boards']['design-off'] = {'title': 'Fictional Disabled Pane', 'pages': [], 'screensaver': True, 'screensaver_options': None,
+        'side_pane': {'dashboard': {'show': 'off', 'sections': []}, 'saver': {'show': 'off', 'sections': []}}}
     gallery.HOUSE['sensor.test_market'] = (None, ('123.45', {'friendly_name': 'Fictional Index', 'change_percent': -1.2, 'unit_of_measurement': 'USD'}))
     gallery.HOUSE['sensor.test_news'] = (None, ('3', {'entries': [{'title': 'Fictional headline for the test'}]}))
     for key,(meta,reading) in list(gallery.HOUSE.items()):

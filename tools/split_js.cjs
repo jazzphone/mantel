@@ -500,7 +500,8 @@ function stateRewrite(req) {
         } else {
           let up = p;
           while (up && ts.isParenthesizedExpression(up)) up = up.parent;
-          if (ts.isTypeOfExpression(up) || ts.isDeleteExpression(up)) refusals.push('`' + n.text + '` is used under ' + (ts.isTypeOfExpression(up) ? 'typeof' : 'delete') + ' at line ' + lineOfPos(n.getStart(sf)));
+          if (ts.isTypeOfExpression(up) || ts.isDeleteExpression(up)) refusals.push('`' + n.text + '` is used under ' + (ts.isTypeOfExpression(up) ? 'typeof' : 'delete') + ' at line ' +
+            lineOfPos(n.getStart(sf)));
           for (let q = n; q && q !== sf; q = q.parent) {
             if (ts.isWithStatement(q)) refusals.push('`' + n.text + '` is used in a `with` at line ' + lineOfPos(n.getStart(sf)));
             const hdr = q.parent && ((ts.isForStatement(q.parent) && (q.parent.initializer === q || q.parent.incrementor === q || q.parent.condition === q)) ||

@@ -33,7 +33,8 @@ function standIn(plate) {
 // by the blur's brightness, under the plate's tint and the top of its sheen; WCAG contrast of white .94 on that
 function sheetContrast() {
   const sky = window.hkSky && window.hkSky.element && window.hkSky.element();
-  const rgb = (s) => (/rgba?\(([^)]+)\)/.exec(s) || /#(..)(..)(..)/.exec(s) || [])[1] ? (s.startsWith('#') ? [1, 3, 5].map((i) => parseInt(s.slice(i, i + 2), 16)) : /rgba?\(([^)]+)\)/.exec(s)[1].split(',').slice(0, 3).map(Number)) : null;
+  const rgb = (s) => (/rgba?\(([^)]+)\)/.exec(s) || /#(..)(..)(..)/.exec(s) || [])[1] ?
+    (s.startsWith('#') ? [1, 3, 5].map((i) => parseInt(s.slice(i, i + 2), 16)) : /rgba?\(([^)]+)\)/.exec(s)[1].split(',').slice(0, 3).map(Number)) : null;
   const lum = (c) => { const f = (v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }; return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]); };
   const stops = [0, 1, 2, 3].map((i) => rgb(sky.style.getPropertyValue('--sk' + i).trim())).filter(Boolean);
   const light = stops.sort((a, b) => lum(b) - lum(a))[0].map((v) => v * 0.86);

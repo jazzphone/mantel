@@ -106,7 +106,8 @@ async def main():
                 keys['tall'] /= keys['scale']
             # the ways to arm, each a real button: in the keypad's right column on a tile, side by side under the keys
             # on a square cell (2026-10-31: they carry the typed PIN), each at least 44 px wide in the block's own px
-            acts = await b.eval("(()=>{let kp=deep(cell('keypad'),'hk-alarm-keypad-card')[0];return [...kp.shadowRoot.querySelectorAll('.acts .a')].map(a=>Math.round(a.getBoundingClientRect().width))})()")
+            acts = await b.eval(
+                "(()=>{let kp=deep(cell('keypad'),'hk-alarm-keypad-card')[0];return [...kp.shadowRoot.querySelectorAll('.acts .a')].map(a=>Math.round(a.getBoundingClientRect().width))})()")
             if args.cell == 'square':
                 acts = [a / keys['scale'] for a in acts]
             assert len(acts) >= 2 and min(acts) >= 44, acts

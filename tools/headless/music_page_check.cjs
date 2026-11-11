@@ -19,7 +19,8 @@ function measureSrc() {
   const out = { cols, sheet: !!(left && left.classList.contains('sheetup')), card: R(card) };
   if (strip && window.hkNpStrip) {
     out.strip = window.hkNpStrip.check(strip, { min: 44, line: q('.ttl .hksl') });
-    out.ends = [...r.querySelectorAll('.hks .mctl > [data-act]')].filter((e) => e.getBoundingClientRect().width > 0 && getComputedStyle(e).visibility !== 'hidden').map((e) => e.getAttribute('data-act'));
+    out.ends = [...r.querySelectorAll('.hks .mctl > [data-act]')].filter((e) => e.getBoundingClientRect().width > 0 && getComputedStyle(e).visibility !== 'hidden').map(
+      (e) => e.getAttribute('data-act'));
     out.look = playerLook(r, { bar: '.mbar', pp: '.mpp svg', vol: '.mvt', buttons: '.hks .mbtn' });
     // (the column's margins either side: the strip's bars to the left section's edges)
     const L = R(left), bar = R(q('.hks .mbar'));
@@ -60,7 +61,8 @@ const measure = new Function('return ' + measureSrc.toString().replace('PLAYER_L
           assert(n.pp.l - n.rb.r >= 8 || n.rb.l - n.pp.r >= 8, tag + ': its two targets 8 px apart ' + JSON.stringify(n));
           assert(Math.abs(n.gap - n.edge) <= 1, tag + ': its cover as far from the song as from the edge ' + JSON.stringify(n));
         }
-        await page.evaluate(() => { const c = (function find(r) { for (const e of r.querySelectorAll('*')) { if (e.localName === 'hk-music-card') return e; if (e.shadowRoot) { const f = find(e.shadowRoot); if (f) return f; } } return null; })(document); c._sheet(true); });
+        await page.evaluate(() => { const c = (function find(r) { for (const e of r.querySelectorAll('*')) { if (e.localName === 'hk-music-card') return e;
+          if (e.shadowRoot) { const f = find(e.shadowRoot); if (f) return f; } } return null; })(document); c._sheet(true); });
         await page.waitForTimeout(2500);
         m = await page.evaluate(measure);
       }
@@ -93,7 +95,8 @@ const measure = new Function('return ' + measureSrc.toString().replace('PLAYER_L
         assert(!m.look.wells.length && m.look.above !== undefined && Math.abs(m.look.above - m.look.below) <= 3, tag + ': the player bare, the pause halfway ' + JSON.stringify(m.look));
         assert(Math.abs(m.margins.left - m.margins.right) <= 1, tag + ': the column\'s margins even ' + JSON.stringify(m.margins));
         console.log(`PASS ${input.engine} ${tag} (${m.cols} column${m.cols === '1' ? ', the sheet' : 's'}): targets ${JSON.stringify(m.strip.targets)}, keys to volume ${m.strip.gapTV} px, ` +
-                    `progress to keys ${m.strip.gapPT} px, ${m.look.above} px above the pause and ${m.look.below} below, margins ${JSON.stringify(m.margins)}` + (m.mini ? `, mini ${JSON.stringify(m.mini)}` : ''));
+                    `progress to keys ${m.strip.gapPT} px, ${m.look.above} px above the pause and ${m.look.below} below, margins ${JSON.stringify(m.margins)}` +
+                      (m.mini ? `, mini ${JSON.stringify(m.mini)}` : ''));
       }
       assert.deepEqual(errors, []);
       await context.close();

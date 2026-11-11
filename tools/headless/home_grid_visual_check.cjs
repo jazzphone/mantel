@@ -21,7 +21,8 @@ const pw = require(process.env.PLAYWRIGHT_PATH || 'playwright');
       const all=(root,sel)=>[...root.querySelectorAll('*')].flatMap(e=>[...(e.matches(sel)?[e]:[]),...(e.shadowRoot?all(e.shadowRoot,sel):[])]);
       const view=all(document,'hk-home-grid-view')[0],issues=[];
       const band=view.shadowRoot.querySelector('.band');
-      if(band){let b=band.getBoundingClientRect();for(const n of all(band,'[data-hk-clock=time],[data-hk-clock=date]')){let r=n.getBoundingClientRect();if(r.top<b.top-1||r.bottom>b.bottom+1)issues.push('band clip');}}
+      if(band){let b=band.getBoundingClientRect();for(const n of all(band,'[data-hk-clock=time],[data-hk-clock=date]')){let r=n.getBoundingClientRect();
+        if(r.top<b.top-1||r.bottom>b.bottom+1)issues.push('band clip');}}
       if(band){
         const date=all(band,'[data-hk-clock=date]')[0],detail=all(band,'[data-hk-wx=detail]')[0];
         if(date&&detail&&detail.getBoundingClientRect().height){
@@ -31,13 +32,16 @@ const pw = require(process.env.PLAYWRIGHT_PATH || 'playwright');
       }
       for(const cell of view.shadowRoot.querySelectorAll('.cell')){
         const b=cell.getBoundingClientRect(),card=cell.firstElementChild;
-        for(const p of (card.localName==='hk-pager-card'?[card]:all(card,'hk-pager-card'))) for(const slot of p._slots){if(Math.abs(slot.getBoundingClientRect().height-b.height)>1)issues.push('short page '+cell.dataset.id);}
+        for(const p of (card.localName==='hk-pager-card'?[card]:all(card,'hk-pager-card'))) for(const slot of p._slots){
+          if(Math.abs(slot.getBoundingClientRect().height-b.height)>1)issues.push('short page '+cell.dataset.id);}
         for(const p of (card.localName==='hk-pager-card'?[card]:[])){
           // (a Room block hides the pager's dots: its own foot line has them, 2026-10-31)
           const dots=p.shadowRoot.querySelector('.pc').getBoundingClientRect();
           if(dots.width&&Math.abs((dots.left+dots.right-b.left-b.right)/2)>1)issues.push('page dots are not centred '+cell.dataset.id);
           for(const slot of p._slots){let r=slot.getBoundingClientRect();if(r.right<b.left+5||r.left>b.right-5)continue;
-            for(const button of all(slot,'.segment,.tb')){let br=button.getBoundingClientRect();for(const dot of p._dots){let d=dot.getBoundingClientRect();if(br.left<d.right-1&&br.right>d.left+1&&br.top<d.bottom-1&&br.bottom>d.top+1)issues.push('dots cover control '+cell.dataset.id);}}
+            for(const button of all(slot,'.segment,.tb')){let br=button.getBoundingClientRect();
+              for(const dot of p._dots){let d=dot.getBoundingClientRect();if(br.left<d.right-1&&br.right>d.left+1&&br.top<d.bottom-1&&br.bottom>d.top+1)issues.push('dots cover control '+
+              cell.dataset.id);}}
           }
         }
         const rooms=card.localName==='hk-grid-room-card'?[card]:all(card,'hk-grid-room-card');
@@ -59,7 +63,8 @@ const pw = require(process.env.PLAYWRIGHT_PATH || 'playwright');
           const surface=thermostat.shadowRoot.querySelector('.surface');
           if(surface.localName!=='hk-plate')issues.push('thermostat is missing the shared plate');
           const room=all(view.shadowRoot,'hk-grid-room-card')[0];
-          if(room){const a=getComputedStyle(surface),r=getComputedStyle(room.shadowRoot.querySelector('.room'));if(a.backgroundColor!==r.backgroundColor||a.backgroundImage!==r.backgroundImage)issues.push('thermostat appearance differs from the room plate');}
+          if(room){const a=getComputedStyle(surface),r=getComputedStyle(room.shadowRoot.querySelector('.room'));
+            if(a.backgroundColor!==r.backgroundColor||a.backgroundImage!==r.backgroundImage)issues.push('thermostat appearance differs from the room plate');}
         }
         const groups=card.localName==='hk-scenes-card'?[card]:all(card,'hk-scenes-card');
         for(const group of groups) for(const tile of group._tiles||[]) {
@@ -72,7 +77,8 @@ const pw = require(process.env.PLAYWRIGHT_PATH || 'playwright');
           // the words from the label (Large has one over the song since 2026-10-31) to the artist's line
           const lab=player.shadowRoot.querySelector('.lab'),top=(lab&&lab.getBoundingClientRect().height?lab:player.shadowRoot.querySelector('.title')).getBoundingClientRect();
           const byline=player.shadowRoot.querySelector('.artist').getBoundingClientRect();
-          if(Math.abs((art.top+art.bottom)/2-(top.top+byline.bottom)/2)>2)issues.push('album art and track metadata are not centred together '+JSON.stringify([art.top,art.bottom,top.top,byline.bottom].map(Math.round)));
+          if(Math.abs((art.top+art.bottom)/2-(top.top+byline.bottom)/2)>2)issues.push('album art and track metadata are not centred together '+
+            JSON.stringify([art.top,art.bottom,top.top,byline.bottom].map(Math.round)));
         }
         for(const r of all(card,'[data-ring]')){
           const face=r.parentElement.querySelector('[data-face]'),range=document.createRange();range.selectNodeContents(face);
@@ -123,14 +129,16 @@ const pw = require(process.env.PLAYWRIGHT_PATH || 'playwright');
         });
         if(!fits)throw new Error('page-control pill does not enclose '+count+' dots');
         await target.locator('.dot').last().click();
-        await page.waitForFunction(count=>{const all=r=>[...r.querySelectorAll('*')].flatMap(e=>[e,...(e.shadowRoot?all(e.shadowRoot):[])]);return all(document).some(p=>p.localName==='hk-pager-card'&&p._config.item.card==='thermostat'&&p._index===count-1);},count);
+        await page.waitForFunction(count=>{const all=r=>[...r.querySelectorAll('*')].flatMap(e=>[e,...(e.shadowRoot?all(e.shadowRoot):[])]);
+          return all(document).some(p=>p.localName==='hk-pager-card'&&p._config.item.card==='thermostat'&&p._index===count-1);},count);
       }
       await target.evaluate((p,cfg)=>p.setConfig(cfg),original);
       console.log(JSON.stringify({pagePill:'2, 6 and 12 dots fit; final dot remains clickable'}));
     }
     if(input.shots){
       // Documentation images must not contain Apple's licensed fonts or glyphs.
-      await page.evaluate(()=>{function visit(root){const style=document.createElement('style');style.textContent='*{font-family:Arial,sans-serif!important}';(root.head||root).appendChild(style);for(const e of root.querySelectorAll('*'))if(e.shadowRoot)visit(e.shadowRoot);}visit(document);});
+      await page.evaluate(()=>{function visit(root){const style=document.createElement('style');style.textContent='*{font-family:Arial,sans-serif!important}';(root.head||root).appendChild(style);
+        for(const e of root.querySelectorAll('*'))if(e.shadowRoot)visit(e.shadowRoot);}visit(document);});
       await page.screenshot({path:input.shots+'/'+screen+'-'+input.engine+'.png'});
     }
     const pager=page.locator('hk-pager-card').filter({has:page.locator('hk-grid-room-card')}).first();
@@ -139,7 +147,8 @@ const pw = require(process.env.PLAYWRIGHT_PATH || 'playwright');
       // (the Room block's own foot line: a tap right of the current dot is the next room, 2026-10-31)
       const fd=pager.locator('hk-grid-room-card').first().locator('.fd'),fb=await fd.boundingBox();
       await fd.click({position:{x:fb.width-2,y:fb.height/2}});
-      await page.waitForFunction(()=>{const all=r=>[...r.querySelectorAll('*')].flatMap(e=>[e,...(e.shadowRoot?all(e.shadowRoot):[])]);return all(document).some(e=>e.localName==='hk-pager-card'&&e._index===1&&e._els.some(c=>c?.localName==='hk-grid-room-card'));});
+      await page.waitForFunction(()=>{const all=r=>[...r.querySelectorAll('*')].flatMap(e=>[e,...(e.shadowRoot?all(e.shadowRoot):[])]);
+        return all(document).some(e=>e.localName==='hk-pager-card'&&e._index===1&&e._els.some(c=>c?.localName==='hk-grid-room-card'));});
       // Real mouse drag, then a client state push: retain the chosen page.
       await pager.evaluate(p=>p.goTo(0,false));
       await page.waitForTimeout(150);
@@ -230,7 +239,8 @@ const pw = require(process.env.PLAYWRIGHT_PATH || 'playwright');
     }
     if(screen===input.screens[0]) {
       const fallback=await page.evaluate(async()=>{
-        const C=window.hkCards,port=Object.assign({},C.client(),{states:{'person.fictional':{entity_id:'person.fictional',state:'home',attributes:{friendly_name:'Avery Fixture',entity_picture:'/missing-fictional-portrait.png'}}}});
+        const C=window.hkCards,port=Object.assign({},C.client(),{states:{'person.fictional':{entity_id:'person.fictional',state:'home',
+          attributes:{friendly_name:'Avery Fixture',entity_picture:'/missing-fictional-portrait.png'}}}});
         const card=C.createCard({type:'custom:hk-people-card'},C.previewClient(port));
         Object.assign(card.style,{position:'fixed',width:'402px',height:'150px'});document.body.appendChild(card);
         await new Promise(resolve=>setTimeout(resolve,150));
@@ -265,7 +275,8 @@ const pw = require(process.env.PLAYWRIGHT_PATH || 'playwright');
     const room=ed.grid.items.find(i=>i.card==='room'),p=ed.previewView?.shadowRoot.querySelector('[data-id='+room.id+']')?.firstElementChild;
     return p?._pages?.[p._index]?.area==='kitchen';
   });
-  if(!await page.evaluate(()=>[...ed.sidebar.querySelectorAll('button')].filter(e=>e.textContent==='Tap Weight'||e.textContent==='Glance Up, Touch Down').every(e=>e.closest('.screen-settings')&&!e.closest('.screen-settings').open&&!e.checkVisibility())))throw new Error('starters remain visible in card controls');
+  if(!await page.evaluate(()=>[...ed.sidebar.querySelectorAll('button')].filter(e=>e.textContent==='Tap Weight'||e.textContent==='Glance Up, Touch Down').every(e=>e.closest('.screen-settings')&&
+    !e.closest('.screen-settings').open&&!e.checkVisibility())))throw new Error('starters remain visible in card controls');
   if(!await page.evaluate(()=>{
     const w=ed.iframe.contentWindow,v=ed.previewView,it=ed.grid.items.find(i=>i.card==='room'),p=v.shadowRoot.querySelector('[data-id='+it.id+']').firstElementChild;
     const room=p._els[p._index],radius=parseFloat(w.getComputedStyle(room.shadowRoot.querySelector('.room')).borderTopLeftRadius)*v._gridScale;
@@ -304,21 +315,28 @@ async function homeview(input){
           const s=view._gridScale,sq=window.hkCards.HOME_GRID.square,g=view._grid(),bounds=view.getBoundingClientRect(),root=view._root.getBoundingClientRect();
           if(g.cell!=='square')issues.push('cells are not square');
           if(root.left<bounds.left-1||root.right>bounds.right+1||root.top<bounds.top-1||root.bottom>bounds.bottom+1)issues.push('canvas past the screen');
-          const se=document.scrollingElement;if(se.scrollHeight>innerHeight+1||se.scrollWidth>innerWidth+1){const deep=(r)=>[...r.querySelectorAll('*')].flatMap((e)=>[e,...(e.shadowRoot?deep(e.shadowRoot):[])]);const mb=deep(document).filter((e)=>e.style&&e.style.marginBottom).map((e)=>e.localName+' '+e.style.marginBottom);issues.push('page scroll '+(se.scrollWidth-innerWidth)+' x '+(se.scrollHeight-innerHeight)+(document.documentElement.scrollTop?' (scrolled '+document.documentElement.scrollTop+')':'')+' band '+document.documentElement.style.getPropertyValue('--hk-pane-b')+' view '+Math.round(bounds.height)+' margins '+mb.join(','));}
+          const se=document.scrollingElement;if(se.scrollHeight>innerHeight+1||se.scrollWidth>innerWidth+1){
+            const deep=(r)=>[...r.querySelectorAll('*')].flatMap((e)=>[e,...(e.shadowRoot?deep(e.shadowRoot):[])]);
+            const mb=deep(document).filter((e)=>e.style&&e.style.marginBottom).map((e)=>e.localName+' '+e.style.marginBottom);
+            issues.push('page scroll '+(se.scrollWidth-innerWidth)+' x '+(se.scrollHeight-innerHeight)+(document.documentElement.scrollTop?' (scrolled '+document.documentElement.scrollTop+')':'')+
+            ' band '+document.documentElement.style.getPropertyValue('--hk-pane-b')+' view '+Math.round(bounds.height)+' margins '+mb.join(','));}
           for(const cell of view.shadowRoot.querySelectorAll('.cell')){
             const id=cell.dataset.id,dims=window.hkCards.HOME_GRID.sizes[cell.getAttribute('size')],r=cell.getBoundingClientRect(),card=cell.firstElementChild;
-            if(Math.abs(r.width/s-(sq.w*dims[0]+sq.gap*(dims[0]-1)))>1||Math.abs(r.height/s-(sq.h*dims[1]+sq.gap*(dims[1]-1)))>1)issues.push(id+': not square cells '+Math.round(r.width/s)+'x'+Math.round(r.height/s));
+            if(Math.abs(r.width/s-(sq.w*dims[0]+sq.gap*(dims[0]-1)))>1||Math.abs(r.height/s-(sq.h*dims[1]+sq.gap*(dims[1]-1)))>1)issues.push(id+': not square cells '+Math.round(r.width/s)+'x'+
+              Math.round(r.height/s));
             // the corners the plates are drawn with
             const plate=inside(card,'hk-plate,.ck,.plate').map(p=>({p,b:p.getBoundingClientRect()})).filter(x=>x.b.width>r.width*.9&&x.b.height>r.height*.9)[0];
             const want=cell.style.getPropertyValue('--hk-block-radius').trim();
-            if(plate&&!cell.hasAttribute('data-bare')){const cs=getComputedStyle(plate.p),got=[cs.borderTopLeftRadius,cs.borderTopRightRadius,cs.borderBottomRightRadius,cs.borderBottomLeftRadius].join(' ');
+            if(plate&&!cell.hasAttribute('data-bare')){const cs=getComputedStyle(plate.p),
+              got=[cs.borderTopLeftRadius,cs.borderTopRightRadius,cs.borderBottomRightRadius,cs.borderBottomLeftRadius].join(' ');
               const w=want.split(' ');const exp=(w.length===1?[w[0],w[0],w[0],w[0]]:w).join(' ');if(got!==exp)issues.push(id+': corners '+got+', not '+exp);}
             // THE SHARED LAYER'S CUT IS THE PLATE'S SHAPE (the owner's Good Morning, 2026-10-30): its arcs at the radius
             // the plate is drawn with, scaled with the canvas
             if(plate&&!cell.hasAttribute('data-bare')&&getComputedStyle(plate.p).getPropertyValue('--hk-glass-surface').trim()==='1'){
               const cs=getComputedStyle(plate.p),k=plate.b.width/plate.p.offsetWidth||1,want=Math.round(parseFloat(cs.borderBottomRightRadius)*k*10)/10;
               const paths=all(document,'[data-hk-glass-layer]').map(L=>L.getAttribute('data-path')||'').join(' ');
-              if(paths&&want>0&&!new RegExp('A'+want+','+want+' ').test(paths)&&!new RegExp('A'+(want-0.1).toFixed(1)+',|A'+(want+0.1).toFixed(1)+',').test(paths))issues.push(id+': the shared layer is not cut at the plate\'s '+want+' px corner');}
+              if(paths&&want>0&&!new RegExp('A'+want+','+want+' ').test(paths)&&!new RegExp('A'+(want-0.1).toFixed(1)+',|A'+(want+0.1).toFixed(1)+',').test(paths))issues.push(id+
+                ': the shared layer is not cut at the plate\'s '+want+' px corner');}
             // NO WORD CUT BY A CORNER (the owner's "ff" for "Off", 2026-10-30): each line of text inside its
             // block's rounded plate -- the line box's ends, less its descender room, inside the corner's circle
             if(plate&&!cell.hasAttribute('data-bare')){const cs=getComputedStyle(plate.p),b=plate.b,k=b.width/plate.p.offsetWidth||1;
@@ -326,7 +344,8 @@ async function homeview(input){
               const out=(x,y)=>{const c=[[b.left+rad[0],b.top+rad[0],rad[0],x<b.left+rad[0]&&y<b.top+rad[0]],[b.right-rad[1],b.top+rad[1],rad[1],x>b.right-rad[1]&&y<b.top+rad[1]],
                 [b.right-rad[2],b.bottom-rad[2],rad[2],x>b.right-rad[2]&&y>b.bottom-rad[2]],[b.left+rad[3],b.bottom-rad[3],rad[3],x<b.left+rad[3]&&y>b.bottom-rad[3]]].find(q=>q[3]);
                 return c?Math.hypot(x-c[0],y-c[1])>c[2]+1:false;};
-              const texts=[];const walk=n=>{for(const ch of n.childNodes){if(ch.nodeType===3&&ch.textContent.trim())texts.push(ch);else if(ch.nodeType===1){if(ch.shadowRoot)walk(ch.shadowRoot);if(ch.localName!=='style'&&ch.localName!=='svg')walk(ch);}}};
+              const texts=[];const walk=n=>{for(const ch of n.childNodes){if(ch.nodeType===3&&ch.textContent.trim())texts.push(ch);
+                else if(ch.nodeType===1){if(ch.shadowRoot)walk(ch.shadowRoot);if(ch.localName!=='style'&&ch.localName!=='svg')walk(ch);}}};
               walk(card.shadowRoot||card);
               for(const t of texts){const rg=document.createRange();rg.selectNodeContents(t);for(const q of rg.getClientRects()){if(!q.width||q.width<2)continue;
                 const el=t.parentNode.nodeType===1?t.parentNode:t.parentNode.host;if(el&&getComputedStyle(el).visibility==='hidden')continue;
@@ -339,7 +358,8 @@ async function homeview(input){
             const tile=card.localName==='hk-grid-entity-card'?card._child:null;
             if(tile&&!homeTiles){
               if(tile.getAttribute('tile')!=='centred')issues.push(id+': its tile is not centred');
-              const icon=tile.shadowRoot.querySelector('.icon').getBoundingClientRect(),name=tile.shadowRoot.querySelector('.name'),nr=document.createRange();nr.selectNodeContents(name);const n=nr.getBoundingClientRect();
+              const icon=tile.shadowRoot.querySelector('.icon').getBoundingClientRect(),name=tile.shadowRoot.querySelector('.name'),nr=document.createRange();nr.selectNodeContents(name);
+                const n=nr.getBoundingClientRect();
               const cx=(r.left+r.right)/2;
               if(Math.abs((icon.left+icon.right)/2-cx)>1.5)issues.push(id+': glyph off centre');
               if(Math.abs((n.left+n.right)/2-cx)>1.5)issues.push(id+': name off centre');
@@ -354,13 +374,15 @@ async function homeview(input){
                 if(ft.left<r.left||ft.right>r.right)issues.push(id+': the foot is past the block');
                 seen.big=(seen.big||0)+1;}}
             if(card.localName==='hk-grid-clock-card'){const f=inside(card,'.f-numbers')[0];if(!f)issues.push(id+': no Analog Numbers face');else{
-              const d=f.querySelector('svg').getBoundingClientRect();if(d.width<r.width*.9||d.width>r.width*1.06)issues.push(id+': the face does not fill its block ('+Math.round(d.width)+' of '+Math.round(r.width)+')');seen.clock=1;}}
+              const d=f.querySelector('svg').getBoundingClientRect();if(d.width<r.width*.9||d.width>r.width*1.06)issues.push(id+': the face does not fill its block ('+Math.round(d.width)+' of '+
+                Math.round(r.width)+')');seen.clock=1;}}
           }
           return {issues,scale:+s.toFixed(3),cell:Math.round(sq.w*s),seen};
         },!!homeTiles);
         report.errors=errors;
         if(input.shots){
-          await page.evaluate(()=>{function visit(root){const style=document.createElement('style');style.textContent='*{font-family:Arial,sans-serif!important}';(root.head||root).appendChild(style);for(const e of root.querySelectorAll('*'))if(e.shadowRoot)visit(e.shadowRoot);}visit(document);});
+          await page.evaluate(()=>{function visit(root){const style=document.createElement('style');style.textContent='*{font-family:Arial,sans-serif!important}';(root.head||root).appendChild(style);
+            for(const e of root.querySelectorAll('*'))if(e.shadowRoot)visit(e.shadowRoot);}visit(document);});
           await page.waitForTimeout(300);
           await page.screenshot({path:input.shots+'/'+screen+'-'+size+'-'+input.engine+'.png'});
         }

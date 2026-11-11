@@ -64,7 +64,8 @@ async def main():
                     for sheet in SHEETS:
                         if sheet == 'event':
                             code = ("(()=>{let s=new Date();s.setHours(19,0,0,0);window.hkDetail.open('calendar.family',null,{event:"
-                                    "{cal:'calendar.family',uid:'u1',title:'Dinner with the Riveras',desc:'Bring dessert',loc:'Riverside Grill',allDay:false,start:s,end:new Date(+s+36e5),key:'k'}})})();void 0")
+                                    "{cal:'calendar.family',uid:'u1',title:'Dinner with the Riveras',desc:'Bring dessert',loc:'Riverside Grill',allDay:false,start:s,end:new Date(+s+36e5),key:'k'}})}"
+                                        ")();void 0")
                         else:
                             code = "window.hkDetail.open(%s);void 0" % json.dumps(sheet)
                         await b.eval(code)

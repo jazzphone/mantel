@@ -1,7 +1,8 @@
 // Mantel admin page: why does it say "The page lost its session token"? Read-only; prints no secret.
 // Paste into the browser console on the Home Assistant page that shows Mantel (the sidebar panel).
 (async () => {
-  const find = (root) => { for (const e of root.querySelectorAll('*')) { if (e.localName === 'iframe' && /hassio_ingress/.test(e.src)) return e; if (e.shadowRoot) { const f = find(e.shadowRoot); if (f) return f; } } return null; };
+  const find = (root) => { for (const e of root.querySelectorAll('*')) { if (e.localName === 'iframe' && /hassio_ingress/.test(e.src)) return e;
+    if (e.shadowRoot) { const f = find(e.shadowRoot); if (f) return f; } } return null; };
   const fr = find(document);
   const w = fr ? fr.contentWindow : window;
   const base = (fr ? fr.src : location.href).replace(/^https?:\/\/[^/]+/, '').match(/^\/api\/hassio_ingress\/[^/]+/);

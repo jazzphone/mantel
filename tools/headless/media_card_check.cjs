@@ -68,20 +68,23 @@ async function home(browser) {
   const t = await page(browser, '/' + input.screen + '/home');
   await t.p.waitForFunction(() => window.__mantelReady === true, null, { timeout: 30000 });
   await t.p.evaluate(HELP);
-  await t.p.waitForFunction(() => ['album', 'plain', 'wide', 'small', 'cond'].every(id => { try { return !!__mc.np(id).shadowRoot.querySelector('.title').textContent; } catch (e) { return false; } }), null, { timeout: 20000 });
+  await t.p.waitForFunction(() => ['album', 'plain', 'wide', 'small', 'cond'].every(id => { try { return !!__mc.np(id).shadowRoot.querySelector('.title').textContent; } catch (e) { return false; } }),
+    null, { timeout: 20000 });
   return t;
 }
 
 // ---- FLICKER: the bar and the time move and the card draws again; the blurred cover is never touched
 async function flicker(browser) {
   const { p, ctx, errors } = await home(browser);
-  await p.waitForFunction(() => ['album', 'wide', 'small', 'cond'].every(id => { const i = __mc.np(id).shadowRoot.querySelector('.bg img'); return !!(i && i.complete && i.naturalWidth > 0); }), null, { timeout: 20000 });
+  await p.waitForFunction(() => ['album', 'wide', 'small', 'cond'].every(id => { const i = __mc.np(id).shadowRoot.querySelector('.bg img'); return !!(i && i.complete && i.naturalWidth > 0); }), null,
+    { timeout: 20000 });
   for (const id of ['album', 'wide', 'small', 'cond']) assert.equal(await p.evaluate((i) => __mc.layered(i), id), 'transform', id + ': the blurred cover has its own layer');
   // the docked bar's: only in WebKit, where it flickered (a page scrolls under it: a layer would blur every frame on Android)
   const bar = await p.evaluate(() => {
     const el = hkCards.createCard({ type: 'custom:hk-now-playing-card', bar: true, music: true, entity: 'media_player.living_room' }, hkCards.client());
     el.style.cssText = 'position:fixed;left:0;bottom:0;width:800px;height:100px'; document.body.appendChild(el);
-    return new Promise((done) => { let n = 0; const look = () => { const i = el.shadowRoot && el.shadowRoot.querySelector('.bg img'); if (i || n++ > 200) { const v = i ? getComputedStyle(i).willChange : null; el.remove(); done(v); } else setTimeout(look, 25); }; look(); });
+    return new Promise((done) => { let n = 0; const look = () => { const i = el.shadowRoot && el.shadowRoot.querySelector('.bg img');
+      if (i || n++ > 200) { const v = i ? getComputedStyle(i).willChange : null; el.remove(); done(v); } else setTimeout(look, 25); }; look(); });
   });
   assert.equal(bar, input.engine === 'webkit' ? 'transform' : 'auto', 'the docked bar\'s cover');
   for (const id of ['album', 'plain', 'cond']) await p.evaluate((i) => __mc.np(i).shadowRoot.querySelector('.bg') && __mc.watch(i), id);
@@ -107,7 +110,8 @@ async function flicker(browser) {
   const wells = await p.evaluate(() => __mc.wells());
   // (Speakers and Browse are on the Large and Extra Large blocks and the page's players only: Small, Wide and Tall have the keys alone, 2026-11-08)
   assert.ok(wells.length >= 4, 'wells measured: ' + wells.length);
-  for (const w of wells) assert.ok(w.bare && Math.abs(w.dx) < 0.3 && Math.abs(w.dy) < 0.3, w.at + ': the glyph centered in its button, no well (' + w.dx.toFixed(2) + ', ' + w.dy.toFixed(2) + ' px, bare ' + w.bare + ')');
+  for (const w of wells) assert.ok(w.bare && Math.abs(w.dx) < 0.3 && Math.abs(w.dy) < 0.3, w.at + ': the glyph centered in its button, no well (' + w.dx.toFixed(2) + ', ' + w.dy.toFixed(2) +
+    ' px, bare ' + w.bare + ')');
   assert.ok(titles.size >= 2, 'a new title reached the card: ' + [...titles].join(', '));
   assert.deepEqual(errors, [], 'page errors');
   say('the time and bar move, the card draws each push, the blurred cover is untouched; ' + wells.length + ' glyphs bare and centered in their buttons');
@@ -134,10 +138,13 @@ async function background(browser) {
     const cs = (e) => getComputedStyle(e), P = plate('plain'), A = plate('album');
     const sh = (id) => __mc.np(id).shadowRoot;
     return { albumPlain: A.classList.contains('plain'), albumBg: cs(sh('album').querySelector('.bg')).display, albumImg: !!sh('album').querySelector('.bg img'),
-             plainClass: P.classList.contains('plain'), plainBg: cs(sh('plain').querySelector('.bg')).display, plainShade: cs(sh('plain').querySelector('.shade')).display, plainImg: !!sh('plain').querySelector('.bg img'),
+             plainClass: P.classList.contains('plain'), plainBg: cs(sh('plain').querySelector('.bg')).display, plainShade: cs(sh('plain').querySelector('.shade')).display,
+               plainImg: !!sh('plain').querySelector('.bg img'),
              coverStill: !!sh('plain').querySelector('.art img'),
-             plate: [cs(P).backgroundColor, cs(P).borderTopColor, cs(P).boxShadow, cs(P).borderTopLeftRadius], music: [cs(mu).backgroundColor, cs(mu).borderTopColor, cs(mu).boxShadow, cs(mu).borderTopLeftRadius],
-             title: cs(sh('plain').querySelector('.title')).color, ink: ink ? cs(ink).color : null, glyph: cs(sh('plain').querySelector('.mpp svg')).fill, glyphShadow: cs(sh('plain').querySelector('.mpp svg')).filter };
+             plate: [cs(P).backgroundColor, cs(P).borderTopColor, cs(P).boxShadow, cs(P).borderTopLeftRadius],
+               music: [cs(mu).backgroundColor, cs(mu).borderTopColor, cs(mu).boxShadow, cs(mu).borderTopLeftRadius],
+             title: cs(sh('plain').querySelector('.title')).color, ink: ink ? cs(ink).color : null, glyph: cs(sh('plain').querySelector('.mpp svg')).fill,
+               glyphShadow: cs(sh('plain').querySelector('.mpp svg')).filter };
   });
   assert.equal(got.albumPlain, false, 'the album is the default');
   assert.equal(got.albumBg, 'block'); assert.ok(got.albumImg);
@@ -174,7 +181,8 @@ async function pane(browser) {
   say('the Side Pane\'s volume on a group sets both rooms: ' + JSON.stringify(await vols()));
   // THE MUSIC PANEL, turned from the block's Browse, with playlists that have covers (stood in) and one that hasn't
   await p.evaluate(() => {
-    const pic = (h) => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); x.fillStyle = 'hsl(' + h + ',70%,50%)'; x.fillRect(0, 0, 64, 64); return c.toDataURL(); };
+    const pic = (h) => { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); x.fillStyle = 'hsl(' + h + ',70%,50%)'; x.fillRect(0, 0, 64, 64);
+      return c.toDataURL(); };
     hkMusic.playlists = () => [{ name: 'Favorites Mix', icon: 'hk:star-fill', key: 'a', image: pic(10) }, { name: 'Country', icon: 'hk:guitar-acoustic', key: 'b', image: null },
                                { name: 'Your Essentials', icon: 'mdi:playlist-music', key: 'c', image: pic(270) }];
   });
@@ -215,11 +223,13 @@ async function pane(browser) {
 const RULE = { all: [{ kind: 'after_sunset' }] };
 async function editor(browser) {
   const { p, ctx, errors } = await page(browser, '/settings#/screens/' + input.screen + '/home-grid');
-  await p.waitForFunction(() => { const e = document.querySelector('hk-settings-panel')?.shadowRoot?.querySelector('hk-grid-editor'); return !!e?.previewView?.isConnected; }, null, { timeout: 30000 });
+  await p.waitForFunction(() => { const e = document.querySelector('hk-settings-panel')?.shadowRoot?.querySelector('hk-grid-editor'); return !!e?.previewView?.isConnected; }, null,
+    { timeout: 30000 });
   await p.evaluate(() => {
     window.ed = document.querySelector('hk-settings-panel').shadowRoot.querySelector('hk-grid-editor');
     window.row = (label) => [...ed.sidebar.querySelectorAll('.cell')].find(e => e.querySelector('.t')?.textContent === label);
-    window.labels = (group) => { const g = [...ed.sidebar.querySelectorAll('*')].find(e => e.children.length === 0 && e.textContent === group); return g ? [...g.parentElement.querySelectorAll('.cell .t')].map(t => t.textContent) : []; };
+    window.labels = (group) => { const g = [...ed.sidebar.querySelectorAll('*')].find(e => e.children.length === 0 && e.textContent === group); return g ?
+      [...g.parentElement.querySelectorAll('.cell .t')].map(t => t.textContent) : []; };
     window.head = () => ed.sidebar.querySelector('.insp-head h2').textContent;
     window.shownCard = (id) => { const c = ed.previewView.cards.find(c => c.localName === 'hk-grid-conditional-card' && c._config.item.id === id); return c && c._child && c._child.localName; };
   });
@@ -234,7 +244,8 @@ async function editor(browser) {
   // Card: in the rule, and the preview shows it
   await p.evaluate(() => [...row('Background').querySelectorAll('button')].find(x => x.textContent === 'Card').click());
   assert.deepEqual(await p.evaluate(() => { const i = ed.grid.items.find(x => x.id === 'cond'); return [i.rules[0].opts.background, (i.opts || {}).background || null]; }), ['card', null]);
-  await p.waitForFunction(() => { const c = ed.previewView.cards.find(c => c.localName === 'hk-grid-conditional-card' && c._config.item.id === 'cond'); return c?._child?.shadowRoot?.querySelector('hk-plate.np.plain'); }, null, { timeout: 15000 });
+  await p.waitForFunction(() => { const c = ed.previewView.cards.find(c => c.localName === 'hk-grid-conditional-card' && c._config.item.id === 'cond');
+    return c?._child?.shadowRoot?.querySelector('hk-plate.np.plain'); }, null, { timeout: 15000 });
   // Blurred Album takes the key away again, and back to Card
   await p.evaluate(() => [...row('Background').querySelectorAll('button')].find(x => x.textContent === 'Blurred Album').click());
   assert.equal(await p.evaluate(() => 'background' in (ed.grid.items.find(x => x.id === 'cond').rules[0].opts || {})), false, 'the default is saved as nothing');
@@ -288,7 +299,8 @@ async function editor(browser) {
 // ---- --pixels: the page held for real frames; the script takes them (a window it can capture)
 async function hold(browser) {
   const { p } = await home(browser);
-  await p.waitForFunction(() => ['album', 'cond'].every(id => { const i = __mc.np(id).shadowRoot.querySelector('.bg img'); return !!(i && i.complete && i.naturalWidth > 0); }), null, { timeout: 20000 });
+  await p.waitForFunction(() => ['album', 'cond'].every(id => { const i = __mc.np(id).shadowRoot.querySelector('.bg img'); return !!(i && i.complete && i.naturalWidth > 0); }), null,
+    { timeout: 20000 });
   await p.evaluate(() => { __mc.watch('album'); __mc.watch('cond'); });
   await p.waitForTimeout(1500);
   const now = () => p.evaluate(() => Object.fromEntries(['album', 'cond'].map(id => [id, { ...__mc.now(id), renders: window.__mcw[id].renders, same: __mc.watched(id).same }])));

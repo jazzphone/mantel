@@ -62,7 +62,9 @@ async def main():
             # on its "min", not its numbers: a wheel takes a finger anywhere in its column (2026-11-10, the owner)
             r = await b.eval("(()=>{const b=wheels(maker().shadowRoot)[1].getBoundingClientRect(),u=deep(maker().shadowRoot,'.hkr-u')[1].getBoundingClientRect();"
                              "return {x:(u.left+u.right)/2,y:b.top+b.height*.7,h:b.height}})()")
-            under = await b.eval(f"(()=>{{let e=document.elementFromPoint({r['x']},{r['y']});while(e&&e.shadowRoot&&e.shadowRoot.elementFromPoint({r['x']},{r['y']})&&e.shadowRoot.elementFromPoint({r['x']},{r['y']})!==e)e=e.shadowRoot.elementFromPoint({r['x']},{r['y']});return !!(e&&e.closest&&e.closest('.hkr-w'))}})()")
+            under = await b.eval(f"(()=>{{let e=document.elementFromPoint({r['x']},{r['y']});"
+                f"while(e&&e.shadowRoot&&e.shadowRoot.elementFromPoint({r['x']},{r['y']})&&e.shadowRoot.elementFromPoint({r['x']},{r['y']})"
+                f"!==e)e=e.shadowRoot.elementFromPoint({r['x']},{r['y']});return !!(e&&e.closest&&e.closest('.hkr-w'))}})()")
             assert under, 'the minutes wheel is under a finger on its "min"'
             await b.send('Input.synthesizeScrollGesture', x=r['x'], y=r['y'], yDistance=-int(r['h'] * 0.42), gestureSourceType='touch', speed=500)
             assert await b.wait("(()=>{const w=wheels(maker().shadowRoot)[1],t=w.scrollTop;return new Promise(k=>setTimeout(()=>k(w.scrollTop===t),300))})()", 8)

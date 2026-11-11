@@ -212,7 +212,8 @@ def test_portrait_shaping_and_path_boundary():
     absolute = {"s": "home", "a": {"entity_picture": "https://ha.example/local/people/avery.jpg"}}
     assert media_art.page_shaper("", "https://ha.example")("person.avery", absolute)["a"]["entity_picture"].startswith("/api/person/")
     assert person_picture.portrait_path("/local/people/avery.jpg") == "/local/people/avery.jpg"
-    for path in ["//evil.example/a", "https://evil.example/api/image/serve/x/512x512", "/local/../secret", "/local/%2e%2e/secret", "/api/config", "/api/image/serve/x/512x512?token=secret", "/local/a.svg#fragment"]:
+    for path in ["//evil.example/a", "https://evil.example/api/image/serve/x/512x512", "/local/../secret", "/local/%2e%2e/secret", "/api/config", "/api/image/serve/x/512x512?token=secret",
+            "/local/a.svg#fragment"]:
         assert person_picture.portrait_path(path, "https://ha.example") is None
 
 

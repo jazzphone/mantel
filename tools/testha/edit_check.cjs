@@ -99,7 +99,8 @@ const shot = (t, name) => t.page.screenshot({ path: input.shots + '/edit-' + E +
     if (lay.header) assert(lay.bar.t >= lay.header.b + 4, 'the Edit bar under HA\'s header: ' + JSON.stringify(lay));
     assert(lay.title && lay.title.t >= lay.bar.b, 'the page\'s title under the Edit bar: ' + JSON.stringify(lay));
     // the last light before the first, and the (then) last one Tall (or Regular)
-    await p.evaluate(([a, b]) => { const ra = tileIn(a).getBoundingClientRect(), rb = tileIn(b).getBoundingClientRect(); scrollBy(0, (ra.top + rb.bottom) / 2 - innerHeight / 2); }, [L0[L0.length - 1], L0[0]]);
+    await p.evaluate(([a, b]) => { const ra = tileIn(a).getBoundingClientRect(), rb = tileIn(b).getBoundingClientRect(); scrollBy(0, (ra.top + rb.bottom) / 2 - innerHeight / 2); },
+      [L0[L0.length - 1], L0[0]]);
     await p.waitForTimeout(300);
     const [a, b] = await p.evaluate(([a, b]) => [box(tileIn(a)), box(tileIn(b))], [L0[L0.length - 1], L0[0]]);
     await carry(t, a, { x: b.l + b.w * 0.2, y: b.y });
@@ -157,7 +158,8 @@ const shot = (t, name) => t.page.screenshot({ path: input.shots + '/edit-' + E +
     assert.equal((after.settings.rooms || {}).menu, 'order', 'panel/get: the menu\'s rooms in the room order');
     assert.notEqual(after.versions.house, before.versions.house, 'the house settings\' version moved on');
     // drawn again from what was saved
-    await p.waitForFunction(w => { const g = gridWith(w[0]); return g && (g._config.cards || []).map(c => c.entity).filter(x => w.includes(x)).join() === w.join() && !deep(document, '.hk-editing').length; }, L1, { timeout: 15000 });
+    await p.waitForFunction(w => { const g = gridWith(w[0]); return g && (g._config.cards || []).map(c => c.entity).filter(x => w.includes(x)).join() === w.join() &&
+      !deep(document, '.hk-editing').length; }, L1, { timeout: 15000 });
     await go(t, '/' + S + '/room-office');
     assert.deepEqual(await p.evaluate(() => order('light.office_rgbw_lights')), L1, 'after a reload');
     if (!(await p.evaluate(() => hkMenu.isOpen()))) { await p.evaluate(() => hkMenu.open()); await p.waitForTimeout(600); }

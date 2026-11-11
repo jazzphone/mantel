@@ -92,7 +92,9 @@ async def main():
                             await asyncio.sleep(0.9)
                             back = await b.eval(f"pagerOf('{bid}')._index")
                             total += 1
-                            what = await b.eval(f"(()=>{{let e=document.elementFromPoint({x},{y});while(e&&e.shadowRoot){{let n=e.shadowRoot.elementFromPoint({x},{y});if(!n||n===e)break;e=n}}return e?(e.localName+'.'+[...e.classList].join('.')):'-'}})()")
+                            what = await b.eval(
+                                f"(()=>{{let e=document.elementFromPoint({x},{y});while(e&&e.shadowRoot){{let n=e.shadowRoot.elementFromPoint({x},{y});if(!n||n===e)break;"
+                                f"e=n}}return e?(e.localName+'.'+[...e.classList].join('.')):'-'}})()")
                             if after != before + 1 or back != before:
                                 misses.append((bid, name, round(fx, 2), round(fy, 2), what, before, after, back))
                             # a tap may have toggled something: no matter, only the page is measured

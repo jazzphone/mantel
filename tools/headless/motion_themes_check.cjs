@@ -17,7 +17,8 @@ async function sky(page, wait) {
     const t1 = kids.map((k) => getComputedStyle(k).transform + '|' + getComputedStyle(k).opacity);
     const anims = kids.flatMap((k) => k.getAnimations()).filter((a) => a.playState === 'running');
     return { th: wall.classList.contains('th'), wm: S.getAttribute('data-wm'), wall: S.style.getPropertyValue('--wall'), layers: kids.length,
-             moved: t1.some((t, i) => t !== t0[i]) || (kids.some((k) => k.className === 'meteor') && c0.some((x) => x[1] != null && x[0].currentTime > x[1])), running: anims.length, fps: Math.round(frames / (ms / 1000)),
+             moved: t1.some((t, i) => t !== t0[i]) || (kids.some((k) => k.className === 'meteor') && c0.some((x) => x[1] != null && x[0].currentTime > x[1])), running: anims.length,
+               fps: Math.round(frames / (ms / 1000)),
              props: [...new Set(anims.flatMap((a) => a.effect.getKeyframes().flatMap((f) => Object.keys(f).filter((k) => !['offset', 'computedOffset', 'easing', 'composite'].includes(k)))))],
              filters: kids.filter((k) => getComputedStyle(k).filter !== 'none').length, sk3: S.style.getPropertyValue('--sk3') };
   }, wait || 1500);
@@ -45,7 +46,8 @@ async function sky(page, wait) {
         await go('/' + s.path + '/home');
         const m = await sky(page);
         const tag = size + ' ' + s.theme + ' ' + s.color, hex = await page.evaluate((c) => window.hkWallpapers.color(c), s.color);
-        say(m && (s.art ? !m.th && m.layers === 1 : m.th && m.layers >= 2) && m.wm === 'medium' && /^"[a-z]+@#[0-9a-f]{6}:(day|night)"$/.test(m.wall) && m.wall.indexOf(s.theme + '@' + hex + ':') === 1,
+        say(m && (s.art ? !m.th && m.layers === 1 : m.th && m.layers >= 2) && m.wm === 'medium' && /^"[a-z]+@#[0-9a-f]{6}:(day|night)"$/.test(m.wall) && m.wall.indexOf(s.theme + '@' + hex + ':') ===
+          1,
             tag + ': the sky shows it (a theme with its layers inside), in its colour, Motion Medium', m);
         say(m && m.moved && m.running >= 1 && m.filters === 0 && m.props.every((p) => p === 'transform' || p === 'opacity'),
             tag + ': ...they move, by transform and opacity alone', m && { moved: m.moved, running: m.running, props: m.props, filters: m.filters });
@@ -106,7 +108,8 @@ async function sky(page, wait) {
                        running: [...w.children].flatMap((k) => k.getAnimations()).filter((a) => a.playState === 'running').length } : null;
         });
         const theme = sv === 'mt-saver-theme';
-        say(started && ck && ck.bg && (theme ? ck.layers === 5 && ck.mv && ck.running >= 1 : ck.layers === 0), size + ' ' + sv + ': the clock over its wallpaper' + (theme ? ', its meteors flying' : ''), ck);
+        say(started && ck && ck.bg && (theme ? ck.layers === 5 && ck.mv && ck.running >= 1 : ck.layers === 0), size + ' ' + sv + ': the clock over its wallpaper' +
+          (theme ? ', its meteors flying' : ''), ck);
         await page.screenshot({ path: input.shots + '/' + sv + '-' + size + '.png' });
         if (theme) {
           await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -133,7 +136,8 @@ async function sky(page, wait) {
                  on: all.filter((e) => e.matches && e.matches('.wallgrid button[aria-pressed="true"]')).map((b) => b.getAttribute('data-fk')),
                  night: all.some((e) => e.getAttribute && /wallpaper_night/.test(e.getAttribute('data-sk') || '')) };
       });
-      say(sp.pick && sp.grids.join() === '10' && sp.color >= 9 && sp.on.join() === 'swall:meteors' && !sp.night, size + ' Settings, the clock\'s wallpaper: the same picker, no Night Version or Motion of its own', sp);
+      say(sp.pick && sp.grids.join() === '10' && sp.color >= 9 && sp.on.join() === 'swall:meteors' && !sp.night, size +
+        ' Settings, the clock\'s wallpaper: the same picker, no Night Version or Motion of its own', sp);
       await page.waitForTimeout(600);
       await page.screenshot({ path: input.shots + '/settings-saver-' + size + '.png' });
       await page.evaluate(() => {

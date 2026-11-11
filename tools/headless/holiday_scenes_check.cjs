@@ -22,33 +22,41 @@ const measure = () => {
   const q = (s) => vis(host.querySelector(s));
   const R = (e) => e.getBoundingClientRect();
   // the letters themselves (a box around words holds room above and below them)
-  const ink = (el) => { const rs = []; (function walk(n) { if (n.nodeType === 3) { if (n.textContent.trim()) { const g = document.createRange(); g.selectNodeContents(n); for (const r of g.getClientRects()) if (r.width > 0) rs.push(r); } return; }
+  const ink = (el) => { const rs = []; (function walk(n) { if (n.nodeType === 3) {
+    if (n.textContent.trim()) { const g = document.createRange(); g.selectNodeContents(n); for (const r of g.getClientRects()) if (r.width > 0) rs.push(r); } return; }
     if (n.nodeType === 1 && getComputedStyle(n).display !== 'none') n.childNodes.forEach(walk); })(el);
-    return rs.length ? { left: Math.min(...rs.map((r) => r.left)), top: Math.min(...rs.map((r) => r.top)), right: Math.max(...rs.map((r) => r.right)), bottom: Math.max(...rs.map((r) => r.bottom)) } : null; };
+    return rs.length ? { left: Math.min(...rs.map((r) => r.left)), top: Math.min(...rs.map((r) => r.top)), right: Math.max(...rs.map((r) => r.right)), bottom: Math.max(...rs.map((r) => r.bottom)) } :
+      null; };
   const meet = (a, b) => !!(a && b && a.left < b.right - 0.5 && b.left < a.right - 0.5 && a.top < b.bottom - 0.5 && b.top < a.bottom - 0.5);
   const inside = (a, b, slack) => a.left >= b.left - slack && a.right <= b.right + slack && a.top >= b.top - slack && a.bottom <= b.bottom + slack;
   // every live word inside its piece
-  for (const [box, sel] of [['.scr', ['.big', '.osdl', '.osdd', '.osdt']], ['.stn', ['.big', '.e1', '.e3', '.e4', '.gr']], ['.chalk .cw', ['.c1', '.cbig', '.cg', '.c2', '.c3']], ['.flap .fin', ['.fr']]]) {
+  for (const [box, sel] of [['.scr', ['.big', '.osdl', '.osdd', '.osdt']], ['.stn', ['.big', '.e1', '.e3', '.e4', '.gr']], ['.chalk .cw', ['.c1', '.cbig', '.cg', '.c2', '.c3']],
+    ['.flap .fin', ['.fr']]]) {
     const b = q(box); if (!b) continue;
-    sel.forEach((s) => b.querySelectorAll(s).forEach((e) => { const r = ink(e); if (r && !inside(r, R(b), 1)) out.bad.push(s + ' outside ' + box + ' ' + [r.left - R(b).left, R(b).right - r.right, r.top - R(b).top, R(b).bottom - r.bottom].map(Math.round)); }));
+    sel.forEach((s) => b.querySelectorAll(s).forEach((e) => { const r = ink(e); if (r && !inside(r, R(b), 1)) out.bad.push(s + ' outside ' + box + ' ' +
+      [r.left - R(b).left, R(b).right - r.right, r.top - R(b).top, R(b).bottom - r.bottom].map(Math.round)); }));
   }
   // nothing live off the screen
   ['.num', '.hdl', '.dt', '.eye', '.hello', '.enfoot', '.tv', '.stn', '.vcr', '.chalk', '.flap'].forEach((s) => { const e = q(s); if (!e) return; const r = ink(e) || R(e);
     if (!inside(r, hr, 1)) out.bad.push(s + ' off the screen ' + [r.left - hr.left, hr.right - r.right, r.top - hr.top, hr.bottom - r.bottom].map(Math.round)); });
   host.querySelectorAll('.enfoot .its > div').forEach((d) => { const r = ink(d); if (r && r.right > hr.right + 1) out.bad.push('row item off the screen: ' + d.textContent); });
   // the corner and the row meet none of the slide's words
-  const tl = q('.scs.tl'), tr = q('.scs.tr'), parts = ['.num', '.hdl', '.dt', '.eye', '.hello', '.enfoot', '.scr', '.stn .big', '.stn .e3', '.stn .e1', '.stn .e4', '.chalk .cw > *', '.flap .fin'].map(q).filter(Boolean);
+  const tl = q('.scs.tl'), tr = q('.scs.tr'), parts = ['.num', '.hdl', '.dt', '.eye', '.hello', '.enfoot', '.scr', '.stn .big', '.stn .e3', '.stn .e1', '.stn .e4', '.chalk .cw > *', '.flap .fin'].map(
+    q).filter(Boolean);
   for (const c of [tl, tr]) if (c) parts.forEach((x) => { if (meet(ink(c), ink(x) || R(x))) out.bad.push('the corner ' + c.className + ' meets ' + x.className); });
   const f = q('.enfoot');
   // (the outdoor hero by its boxes, as the mock-up's check: a text range's box is the font's whole line, well below a
   // 300 px figure's ink; the scenes' words by their letters)
-  if (f) ['.num', '.hdl', '.dt', '.hello', '.scr', '.stn .e4', '.chalk .cw', '.flap .fin'].map(q).filter(Boolean).forEach((x) => { const r = x.closest('.hlhero') ? R(x) : ink(x) || R(x); if (r.bottom > R(f).top + 1) out.bad.push(x.className + ' into the row'); });
+  if (f) ['.num', '.hdl', '.dt', '.hello', '.scr', '.stn .e4', '.chalk .cw', '.flap .fin'].map(q).filter(Boolean).forEach(
+    (x) => { const r = x.closest('.hlhero') ? R(x) : ink(x) || R(x); if (r.bottom > R(f).top + 1) out.bad.push(x.className + ' into the row'); });
   const n = q('.num'), w = q('.words'); if (n && w && !host.querySelector('.hkhol').hasAttribute('tall') && ink(n).right > ink(w).left + 1) out.bad.push('the number meets its words');
   const info = window.__ctl.info();
   // the window's glass clear of House Status
-  if (info.win && tr) { const s = ink(tr), g = { left: hr.left + info.win.x, top: hr.top + info.win.y, right: hr.left + info.win.x + info.win.w, bottom: hr.top + info.win.y + info.win.h }; if (meet(s, g)) out.bad.push('the window behind House Status'); }
+  if (info.win && tr) { const s = ink(tr), g = { left: hr.left + info.win.x, top: hr.top + info.win.y, right: hr.left + info.win.x + info.win.w, bottom: hr.top + info.win.y + info.win.h };
+    if (meet(s, g)) out.bad.push('the window behind House Status'); }
   // nothing floats: every floor-standing piece's feet at or above the scene's front edge
-  if (info.feet) Object.keys(info.feet).forEach((k) => { if (info.feet[k] > info.foot + 1) out.bad.push(k + "'s feet below the front edge " + Math.round(info.feet[k]) + ' > ' + Math.round(info.foot)); });
+  if (info.feet) Object.keys(info.feet).forEach((k) => { if (info.feet[k] > info.foot + 1) out.bad.push(k + "'s feet below the front edge " + Math.round(info.feet[k]) + ' > ' + Math.round(info.foot));
+    });
   out.info = info;
   out.still = host.querySelector('.hkhol').hasAttribute('still');
   return out;
@@ -120,14 +128,17 @@ const measure = () => {
     // THE LEAK CHECK: 20 turns (drawn, arrived, left), then nothing grew and nothing is left running
     for (const hol of [['christmas', '2026-11-08'], ['newyear', '2026-12-08'], ['easter', '2027-03-01']]) {
       const page = await open('hol=' + hol[0] + '&date=' + hol[1], 1280, 800);
-      const before = await page.evaluate(() => ({ layers: document.querySelectorAll('.hkhol').length, canvases: [...document.querySelectorAll('.hkhol canvas')].map((c) => c.width + 'x' + c.height).join(), kids: document.querySelector('.hkhol').children.length }));
+      const before = await page.evaluate(() => ({ layers: document.querySelectorAll('.hkhol').length,
+        canvases: [...document.querySelectorAll('.hkhol canvas')].map((c) => c.width + 'x' + c.height).join(), kids: document.querySelector('.hkhol').children.length }));
       for (let i = 0; i < 20; i++) {
         await page.evaluate(() => { const c = window.__ctl; c.leave(); c.draw(null); c.arrived(); });
         await page.waitForTimeout(60);
       }
       await page.evaluate(() => window.__ctl.leave());
       await page.waitForTimeout(3600);
-      const after = await page.evaluate(() => ({ layers: document.querySelectorAll('.hkhol').length, canvases: [...document.querySelectorAll('.hkhol canvas')].map((c) => c.width + 'x' + c.height).join(), kids: document.querySelector('.hkhol').children.length, running: window.__ctl.info().running, pending: window.__pending() }));
+      const after = await page.evaluate(() => ({ layers: document.querySelectorAll('.hkhol').length,
+        canvases: [...document.querySelectorAll('.hkhol canvas')].map((c) => c.width + 'x' + c.height).join(), kids: document.querySelector('.hkhol').children.length,
+        running: window.__ctl.info().running, pending: window.__pending() }));
       say(after.layers === before.layers && after.canvases === before.canvases && after.kids === before.kids, eng + ' ' + hol[0] + ': after 20 turns, the same layer and canvases', [before, after]);
       say(!after.running && after.pending === 0, eng + ' ' + hol[0] + ': ...and once it has left, no loop and no animation frame waiting', after);
       await page.close();

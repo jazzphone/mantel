@@ -35,7 +35,8 @@ const input = JSON.parse(fs.readFileSync(0, 'utf8'));
           // THE TOUCH RULES, MEASURED (2026-11-09, the owner: a tap meant for play landed on the volume): every target 44 px,
           // play / pause the biggest, none overlapping, 12 px clear between the keys and the volume and the progress and the keys
           // (and the speaker line over the song, 44 px tall, 12 px clear -- the owner's mockup 12h, 2026-11-09)
-          const ps=await page.evaluate(()=>{const r=document.querySelector('hk-side-pane[mode="dash"]').shadowRoot;return hkNpStrip.check(r.querySelector('.hks'),{min:44,line:r.querySelector('.np .hksl')});});
+          const ps=await page.evaluate(()=>{const r=document.querySelector('hk-side-pane[mode="dash"]').shadowRoot;
+            return hkNpStrip.check(r.querySelector('.hks'),{min:44,line:r.querySelector('.np .hksl')});});
           assert(!ps.breaks.length&&ps.gapTV>=12&&ps.gapL>=12&&ps.targets.line[1]>=43.5,'Side Pane player strip: '+JSON.stringify(ps));
           console.log(`  Side Pane player (${side}): targets ${JSON.stringify(ps.targets)}, keys to volume ${ps.gapTV} px, progress to keys ${ps.gapPT} px`);
           const mixed = await page.evaluate(()=>{
@@ -43,7 +44,8 @@ const input = JSON.parse(fs.readFileSync(0, 'utf8'));
             const before=Math.round(p.shadowRoot.querySelector('.npqueue').getBoundingClientRect().height);
             p._o.list=[{kind:'clock',size:'less'},...original.map(s=>({...s,place:'bottom'}))];p.redraw();
             const r=p.shadowRoot,s=r.querySelector('.secs'),m=r.querySelector('[data-k="now_playing"]');
-            const result={before,after:Math.round(r.querySelector('.npqueue')?.getBoundingClientRect().height||0),size:m.dataset.size,clock:!!r.querySelector('[data-k="clock"]'),scroll:s.scrollHeight-s.clientHeight};
+            const result={before,after:Math.round(r.querySelector('.npqueue')?.getBoundingClientRect().height||0),size:m.dataset.size,clock:!!r.querySelector('[data-k="clock"]'),scroll:s.scrollHeight-
+              s.clientHeight};
             p._o.list=original;p.redraw();return result;
           });
           assert(mixed.clock&&mixed.size==='more'&&mixed.after<mixed.before&&mixed.scroll<=1,JSON.stringify(mixed));
@@ -58,7 +60,8 @@ const input = JSON.parse(fs.readFileSync(0, 'utf8'));
           // fade is on while more are below and off at the end, no scrollbar is drawn, and a wheel moves the rows
           const sc0=await page.evaluate(()=>{const r=document.querySelector('hk-side-pane[mode="dash"]').shadowRoot,qs=r.querySelector('.npqueue .qs'),cs=getComputedStyle(qs);
             const rows=[...qs.querySelectorAll('.qr')].map(e=>e.offsetHeight);
-            return {n:rows.length,minH:Math.min(...rows),open:qs.scrollHeight>qs.clientHeight+10,more:qs.hasAttribute('more'),mask:cs.webkitMaskImage||cs.maskImage,bar:cs.scrollbarWidth,top:qs.scrollTop,
+            return {n:rows.length,minH:Math.min(...rows),open:qs.scrollHeight>qs.clientHeight+10,more:qs.hasAttribute('more'),mask:cs.webkitMaskImage||cs.maskImage,bar:cs.scrollbarWidth,
+              top:qs.scrollTop,
               head:r.querySelector('.npqueue .qh').getBoundingClientRect().top};});
           assert(sc0.n===39&&sc0.minH>=56&&sc0.open&&sc0.more&&/gradient/.test(sc0.mask)&&sc0.bar==='none'&&sc0.top===0,'Up Next list: '+JSON.stringify(sc0));
           const qbox=await page.locator('hk-side-pane[mode="dash"]').locator('.npqueue .qs').boundingBox();
@@ -87,9 +90,12 @@ const input = JSON.parse(fs.readFileSync(0, 'utf8'));
           const host=document.querySelector('hk-screensaver'),r=host.shadowRoot,mu=r.querySelector('.mu'),box=s=>{
             const b=r.querySelector(s).getBoundingClientRect();return {l:b.left,r:b.right,t:b.top,b:b.bottom,w:b.width,h:b.height};};
           const row=host.hasAttribute('murow');
-          const transportBottom=Math.max(...[...mu.querySelectorAll('.mctl .mbtn,.mvol svg')].filter(e=>getComputedStyle(e).visibility!=='hidden'&&e.getBoundingClientRect().height>0).map(e=>e.getBoundingClientRect().bottom));
-          return {transportBottom,next:box('.mu .mnext'),row,up:host.hasAttribute('muup'),pane:host.hasAttribute('pane'),area:box('.mu .mbody'),art:box('.mu .mart'),col:box(row?'.mu .mstage':'.mu .mcol'),meta:box('.mu .mmeta'),album:box('.mu .malbum'),
-            buttons:[...mu.querySelectorAll('.mbtn:not(.mqr), .mq .mql')].filter(e=>e.getBoundingClientRect().width>0).map(e=>{const b=e.getBoundingClientRect();return {l:b.left,r:b.right,t:b.top,b:b.bottom};})};
+          const transportBottom=Math.max(...[...mu.querySelectorAll('.mctl .mbtn,.mvol svg')].filter(e=>getComputedStyle(e).visibility!=='hidden'&&e.getBoundingClientRect().height>0).map(
+            e=>e.getBoundingClientRect().bottom));
+          return {transportBottom,next:box('.mu .mnext'),row,up:host.hasAttribute('muup'),pane:host.hasAttribute('pane'),area:box('.mu .mbody'),art:box('.mu .mart'),
+            col:box(row?'.mu .mstage':'.mu .mcol'),meta:box('.mu .mmeta'),album:box('.mu .malbum'),
+            buttons:[...mu.querySelectorAll('.mbtn:not(.mqr), .mq .mql')].filter(e=>e.getBoundingClientRect().width>0).map(
+              e=>{const b=e.getBoundingClientRect();return {l:b.left,r:b.right,t:b.top,b:b.bottom};})};
         });
         if(slide.pane&&W<1900&&W>H)assert(slide.row||slide.up,JSON.stringify(slide));
         assert(Math.abs(slide.art.w-slide.art.h)<1,JSON.stringify(slide));
@@ -104,7 +110,8 @@ const input = JSON.parse(fs.readFileSync(0, 'utf8'));
               for(const hide of [true,false]){
                 mu.classList.toggle('h-next',hide);window.hkSaver._.music.layout();
                 const art=mu.querySelector('.mart').getBoundingClientRect(),meta=mu.querySelector('.mmeta').getBoundingClientRect();
-                const end=Math.max(...[...mu.querySelectorAll('.mctl .mbtn,.mvol svg')].filter(e=>getComputedStyle(e).visibility!=='hidden'&&e.getBoundingClientRect().height>0).map(e=>e.getBoundingClientRect().bottom));
+                const end=Math.max(...[...mu.querySelectorAll('.mctl .mbtn,.mvol svg')].filter(e=>getComputedStyle(e).visibility!=='hidden'&&e.getBoundingClientRect().height>0).map(
+                  e=>e.getBoundingClientRect().bottom));
                 out.push({delta:Math.abs(end-art.bottom),top:meta.top});
               }
               mu.classList.toggle('h-next',hidden);window.hkSaver._.music.layout();return out;
@@ -135,8 +142,10 @@ const input = JSON.parse(fs.readFileSync(0, 'utf8'));
           const qa=await page.evaluate(()=>{
             const r=document.querySelector('hk-screensaver').shadowRoot,ql=r.querySelector('.mu .mq .mql');
             if(!ql||getComputedStyle(r.querySelector('.mu .mq')).display==='none')return null;
-            const b=ql.getBoundingClientRect(),cs=getComputedStyle(ql),mu=r.querySelector('.mu'),meta=r.querySelector('.mu .mmeta').getBoundingClientRect(),art=r.querySelector('.mu .mart').getBoundingClientRect();
-            return {x:b.left+b.width/2,y:b.top+Math.min(b.height-4,30),box:b.height,n:ql.children.length,open:ql.scrollHeight>ql.clientHeight+4,more:ql.hasAttribute('more'),mask:cs.webkitMaskImage||cs.maskImage,bar:cs.scrollbarWidth,
+            const b=ql.getBoundingClientRect(),cs=getComputedStyle(ql),mu=r.querySelector('.mu'),meta=r.querySelector('.mu .mmeta').getBoundingClientRect(),
+              art=r.querySelector('.mu .mart').getBoundingClientRect();
+            return {x:b.left+b.width/2,y:b.top+Math.min(b.height-4,30),box:b.height,n:ql.children.length,open:ql.scrollHeight>ql.clientHeight+4,more:ql.hasAttribute('more'),mask:cs.webkitMaskImage||
+              cs.maskImage,bar:cs.scrollbarWidth,
               minH:Math.min(...[...ql.children].map(e=>e.offsetHeight)),metaB:meta.bottom,artB:art.bottom,artH:art.height,over:cs.overscrollBehaviorY};
           });
           if(qa){
@@ -150,7 +159,8 @@ const input = JSON.parse(fs.readFileSync(0, 'utf8'));
               for(let k=1;k<=8;k++){await page.mouse.move(qa.x,qa.y-k*12);await page.waitForTimeout(20);}
               await page.mouse.up();await page.waitForTimeout(300);
               qb=await page.evaluate(()=>{const r=document.querySelector('hk-screensaver').shadowRoot,ql=r.querySelector('.mu .mq .mql');
-                return {top:ql.scrollTop,panel:!!r.querySelector('.mpanel'),art:r.querySelector('.mu .mart').getBoundingClientRect().height,metaB:r.querySelector('.mu .mmeta').getBoundingClientRect().bottom};});
+                return {top:ql.scrollTop,panel:!!r.querySelector('.mpanel'),art:r.querySelector('.mu .mart').getBoundingClientRect().height,
+                  metaB:r.querySelector('.mu .mmeta').getBoundingClientRect().bottom};});
               if(qb.top>=60||qb.panel)break;
               await page.waitForTimeout(500);
             }

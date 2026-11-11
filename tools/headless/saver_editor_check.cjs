@@ -49,9 +49,11 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
     const words = await E((ed, sr, $, $$) => $('aside.sidebar').textContent);
     say(!/\bLayout\b/.test(words) && !/Mantel/.test(words), 'no "Layout" and no "Mantel" in the visible words', words.match(/.{20}\b(Layout|Mantel)\b.{10}/));
     const rowsLook = await E((ed, sr, $, $$) => $$('aside.sidebar .lbl .t').map((t) => t.textContent));
-    say(['Background', 'Big', 'Face', 'Size', 'Position', 'Align', 'Depth', 'Shadow', 'Outline'].every((x) => rowsLook.includes(x)), 'the Landscape\'s Look section: Background, Big, Face, Size, Position, Align, Depth, Legibility', rowsLook);
+    say(['Background', 'Big', 'Face', 'Size', 'Position', 'Align', 'Depth', 'Shadow', 'Outline'].every((x) => rowsLook.includes(x)),
+      'the Landscape\'s Look section: Background, Big, Face, Size, Position, Align, Depth, Legibility', rowsLook);
     say(!rowsLook.includes('Darken') && !rowsLook.includes('Motion'), '...and no row that does nothing here (no Darken, no Motion)', rowsLook);
-    const scrollTo = (n) => E((ed, sr, $, $$, n) => { const sb = $('aside.sidebar'), h = $$('aside.sidebar .sec')[n]; sb.scrollTop += h.getBoundingClientRect().top - sb.getBoundingClientRect().top - 4; return true; }, n);
+    const scrollTo = (n) => E((ed, sr, $, $$, n) => { const sb = $('aside.sidebar'), h = $$('aside.sidebar .sec')[n]; sb.scrollTop += h.getBoundingClientRect().top - sb.getBoundingClientRect().top -
+      4; return true; }, n);
     await scrollTo(0); await page.waitForTimeout(400); await shot('02-look');
     await scrollTo(1); await page.waitForTimeout(400); await shot('03-info');
     await scrollTo(2); await page.waitForTimeout(400); await shot('04-slides');
@@ -87,7 +89,8 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
     say(!!dlg && /Start Over/.test(dlg), 'Start Over asks first, in the page', dlg);
     await E((ed, sr, $) => { $('.dlg .db button.red, .dlg .db button.bold:not(.cx)').click(); return true; });
     await page.waitForTimeout(600);
-    const so = await E((ed) => ({ zones: Object.keys(ed.opts.layout.zones).filter((z) => ed.opts.layout.zones[z].length).map((z) => z + ':' + ed.opts.layout.zones[z].map((w) => w.piece + '.' + w.shape).join('+')) }));
+    const so = await E((ed) => ({ zones: Object.keys(ed.opts.layout.zones).filter((z) => ed.opts.layout.zones[z].length).map((z) => z + ':' +
+      ed.opts.layout.zones[z].map((w) => w.piece + '.' + w.shape).join('+')) }));
     say(so.zones.join() === 'bl:music.card,br:status.inline', 'Start Over from Month puts back Month\'s own pieces', so);
     await E((ed) => { ed.undo(); ed.undo(); ed.select(null); return true; });          // (back to the Lock Screen, the layout it had)
     await page.waitForTimeout(500);
@@ -115,7 +118,8 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
     say(!!returned, 'switching back to Photos replaces the landscape', returned);
     await E((ed, sr, $, $$) => { $$('.lk').find((b) => b.querySelector('b').textContent === 'Clock').click(); return true; });
     await page.waitForTimeout(500);
-    const clock = await E((ed, sr, $, $$) => ({ rows: $$('aside.sidebar .lbl .t').map((t) => t.textContent), why: $$('aside.sidebar .cell').filter((c) => /Behind needs Photos/.test(c.textContent)).length,
+    const clock = await E((ed, sr, $, $$) => ({ rows: $$('aside.sidebar .lbl .t').map((t) => t.textContent),
+      why: $$('aside.sidebar .cell').filter((c) => /Behind needs Photos/.test(c.textContent)).length,
                                                 depth: ed.opts.layout.big.depth }));
     say(clock.rows.includes('Pattern') && clock.rows.includes('Motion') && !clock.rows.includes('Shadow') && clock.why === 1 && clock.depth === 'front',
         'Moving Color: Pattern, Speed and Motion; no Legibility; Depth says why Behind isn\'t possible', clock);
@@ -129,7 +133,8 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
 
     // ---- the library: grouped, searched, one entry per piece, from the glance catalog
     await E((ed) => { ed.q = ''; ed.search.value = ''; ed.pieces(); return true; });
-    const lib = await E((ed, sr, $, $$) => ({ groups: $$('.pieces .gh').map((g) => g.textContent), n: $$('.pitem').length, names: $$('.pitem b').map((b) => b.textContent), samples: $$('.pitem .pv .hksw').length,
+    const lib = await E((ed, sr, $, $$) => ({ groups: $$('.pieces .gh').map((g) => g.textContent), n: $$('.pitem').length, names: $$('.pitem b').map((b) => b.textContent),
+      samples: $$('.pitem .pv .hksw').length,
                                                pieces: Object.keys(window.hkSaverLayout.PIECES).length }));
     say(lib.groups.slice(0, 6).join() === 'Time and Calendar,Weather and Sky,Home,People and Travel,Energy,Media and Photos', 'the library is grouped as the glance catalog is', lib.groups);
     say(lib.n === lib.pieces && new Set(lib.names).size === lib.n, 'one entry per piece (' + lib.n + ')', lib);
@@ -157,7 +162,8 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
     const pg = await E((ed, sr, $, $$) => ({ head: $('.insp-head h2').textContent, tiles: $$('.shtile').map((t) => t.querySelector('b').textContent), drawn: $$('.shtile .hksw').length,
                                               labels: $$('aside.sidebar .lbl .t').map((t) => t.textContent), pressed: $$('.shtile[aria-checked=true] b').map((b) => b.textContent) }));
     say(pg.head === 'Moon' && pg.tiles.join() === 'Inline,Circular' && pg.drawn === 2, 'the piece\'s page: its shapes as tiles, each drawn', pg);
-    say(['Backdrop', 'Color', 'Show'].every((x) => pg.labels.includes(x)) && (pg.labels.includes('Where') || pg.labels.includes('The Row Goes')) && (pg.labels.includes('Size') || pg.labels.includes('Its Own Size')), '...Size, Backdrop, Color, Show and Where', pg.labels);
+    say(['Backdrop', 'Color', 'Show'].every((x) => pg.labels.includes(x)) && (pg.labels.includes('Where') || pg.labels.includes('The Row Goes')) &&
+      (pg.labels.includes('Size') || pg.labels.includes('Its Own Size')), '...Size, Backdrop, Color, Show and Where', pg.labels);
     // a shape this place can't take moves it to the nearest place that can
     await E((ed, sr, $, $$) => { $$('.shtile').find((t) => t.querySelector('b').textContent === 'Inline').click(); return true; });
     await page.waitForTimeout(500);
@@ -191,22 +197,26 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
     const pk = await E((ed, sr, $, $$) => ({ title: $('.insp-head h2').textContent, n: $$('.pk-list .cell').length, first: $$('.pk-list .cell .t').slice(0, 3).map((t) => t.textContent) }));
     say(pk.title === 'Entity' && pk.n > 3, 'the entity picker lists the house\'s entities', pk);
     await shot('10-entity-picker');
-    const pick = await E((ed, sr, $, $$) => { const c = $$('.pk-list .cell').find((x) => /sensor\./.test(x.textContent)); const id = c && c.querySelector('small').textContent; c.click(); return id; });
+    const pick = await E((ed, sr, $, $$) => { const c = $$('.pk-list .cell').find((x) => /sensor\./.test(x.textContent)); const id = c && c.querySelector('small').textContent; c.click(); return id;
+      });
     await page.waitForTimeout(500);
     const chosen = await E((ed) => ed.placed().filter((p) => p.w.piece === 'sensor').map((p) => p.w.opts && p.w.opts.entity));
     say(!!pick && chosen[0] === pick, 'picking one sets the piece\'s entity (' + pick + ')', chosen);
     // Show: When…
     await E((ed, sr, $, $$) => { $$('aside.sidebar .seg button').find((b) => b.textContent === 'When…').click(); return true; });
     await page.waitForTimeout(400);
-    const wh = await E((ed, sr, $, $$) => ({ labels: $$('aside.sidebar .lbl .t').map((t) => t.textContent), ops: $$('aside.sidebar [role=radio]').map((b) => b.textContent).filter((t) => /^Is/.test(t)) }));
-    say(['Entity', 'Condition', 'Value'].every((x) => wh.labels.includes(x)) && wh.ops.join() === 'Is,Is Not,Is Above,Is Below', 'Show When…: an entity, is / is not / is above / is below, a value', wh);
+    const wh = await E((ed, sr, $, $$) => ({ labels: $$('aside.sidebar .lbl .t').map((t) => t.textContent),
+      ops: $$('aside.sidebar [role=radio]').map((b) => b.textContent).filter((t) => /^Is/.test(t)) }));
+    say(['Entity', 'Condition', 'Value'].every((x) => wh.labels.includes(x)) && wh.ops.join() === 'Is,Is Not,Is Above,Is Below', 'Show When…: an entity, is / is not / is above / is below, a value',
+      wh);
     await E((ed, sr, $, $$) => { $$('aside.sidebar .cell').filter((c) => c.querySelector('.t') && c.querySelector('.t').textContent === 'Entity')[1].click(); return true; });
     await page.waitForTimeout(400);
     await E((ed, sr, $, $$) => { $$('.pk-list .cell').find((x) => /light\./.test(x.textContent)).click(); return true; });
     await page.waitForTimeout(400);
     await E((ed, sr, $) => { const t = [...sr.querySelectorAll('aside.sidebar input.tx')].pop(); t.value = 'on'; t.dispatchEvent(new Event('blur')); return true; });
     await page.waitForTimeout(500);
-    const show = await E((ed, sr, $, $$) => ({ show: ed.placed().filter((p) => p.w.piece === 'sensor')[0].w.show, foot: $$('aside.sidebar .gf').map((g) => g.textContent).filter((t) => /Shows when/.test(t)) }));
+    const show = await E((ed, sr, $, $$) => ({ show: ed.placed().filter((p) => p.w.piece === 'sensor')[0].w.show,
+      foot: $$('aside.sidebar .gf').map((g) => g.textContent).filter((t) => /Shows when/.test(t)) }));
     say(!!show.show && show.show.op === 'is' && show.show.value === 'on' && show.foot.length === 1, 'the condition is written as { entity, op, value } and the page says it', show);
     await shot('11-show-when');
 
@@ -218,7 +228,8 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
     await page.waitForTimeout(300);
     await E((ed, sr, $, $$) => { $$('aside.sidebar .cell').find((c) => /Color Accents/.test(c.textContent)).querySelector('.sw').click(); return true; });
     await page.waitForTimeout(300);
-    await E((ed, sr, $, $$) => { const r = $$('aside.sidebar .cell.slider').find((c) => /One size for the whole row/.test(c.textContent)).querySelector('input'); r.value = '80'; r.dispatchEvent(new Event('input')); r.dispatchEvent(new Event('change')); return true; });
+    await E((ed, sr, $, $$) => { const r = $$('aside.sidebar .cell.slider').find((c) => /One size for the whole row/.test(c.textContent)).querySelector('input'); r.value = '80';
+      r.dispatchEvent(new Event('input')); r.dispatchEvent(new Event('change')); return true; });
     await page.waitForTimeout(300);
     await E((ed, sr, $, $$) => { $$('aside.sidebar [role=radio]').find((b) => b.textContent === 'Along the Bottom').click(); return true; });
     await page.waitForTimeout(500);
@@ -234,7 +245,8 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
     await E((ed, sr, $, $$) => { $$('aside.sidebar .pvgrid button').find((b) => /Moving Color/.test(b.textContent)).click(); return true; });
     await page.waitForTimeout(500);
     const mc = await E((ed, sr, $, $$) => ({ show: ed.opts.show, bg: ed.opts.clock_bg, depth: ed.opts.layout.big.depth, rows: $$('aside.sidebar .lbl .t').map((t) => t.textContent) }));
-    say(mc.show === 'clock' && mc.bg === 'aurora' && mc.depth === 'front' && mc.rows.includes('Motion') && mc.rows.includes('Position'), 'Moving Color picked: Behind gives way to In Front; Motion appears', mc);
+    say(mc.show === 'clock' && mc.bg === 'aurora' && mc.depth === 'front' && mc.rows.includes('Motion') && mc.rows.includes('Position'),
+      'Moving Color picked: Behind gives way to In Front; Motion appears', mc);
     await E((ed, sr, $, $$) => { $$('aside.sidebar button.pvrow').find((b) => /Face/.test(b.textContent)).click(); return true; });
     await page.waitForTimeout(800);
     const faces = await E((ed, sr, $, $$) => $$('aside.sidebar .pvgrid button .pvcap').map((c) => c.textContent));
@@ -253,7 +265,8 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
     await E((ed) => { ed.select(null); return true; });
 
     // ---- a suggested default, named: Phone Alarm with a next-alarm sensor in the house
-    await E((ed) => { ed.states()['sensor.pixel_next_alarm'] = { entity_id: 'sensor.pixel_next_alarm', state: '2026-11-03T06:30:00+00:00', attributes: { friendly_name: 'Pixel Next Alarm', device_class: 'timestamp' } }; return true; });
+    await E((ed) => { ed.states()['sensor.pixel_next_alarm'] = { entity_id: 'sensor.pixel_next_alarm', state: '2026-11-03T06:30:00+00:00',
+      attributes: { friendly_name: 'Pixel Next Alarm', device_class: 'timestamp' } }; return true; });
     await E((ed, sr, $) => { $('.pitem[data-piece=alarm]').click(); return true; });
     await E((ed, sr, $) => { $('.ov .z.want').click(); return true; });
     await page.waitForTimeout(600);
@@ -262,8 +275,10 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
     await E((ed) => { ed.undo(); return true; });
 
     // ---- dragged with a mouse: from the library to a green place, and one piece on the screen to another place
-    const box = async (sel) => page.evaluate((sel) => { const deep = (r, s) => [...r.querySelectorAll('*')].flatMap((e) => [...(e.matches(s) ? [e] : []), ...(e.shadowRoot ? deep(e.shadowRoot, s) : [])]);
-      const ed = deep(document, 'hk-saver-editor')[0], e = ed.shadowRoot.querySelector(sel); if (!e) return null; e.scrollIntoView({ block: 'center' }); const r = e.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; }, sel);
+    const box = async (sel) => page.evaluate((sel) => { const deep = (r, s) => [...r.querySelectorAll('*')].flatMap(
+      (e) => [...(e.matches(s) ? [e] : []), ...(e.shadowRoot ? deep(e.shadowRoot, s) : [])]);
+      const ed = deep(document, 'hk-saver-editor')[0], e = ed.shadowRoot.querySelector(sel); if (!e) return null; e.scrollIntoView({ block: 'center' }); const r = e.getBoundingClientRect();
+        return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; }, sel);
     const n0 = await E((ed) => ed.placed().length);
     await E((ed) => { ed.palette.scrollTop = 0; ed.q = 'Wind'; ed.search.value = 'Wind'; ed.pieces(); return true; });
     const from = await box('.pitem[data-piece=wind]');
@@ -289,11 +304,15 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
 
     // ---- See a Slide, Day / Night
     await E((ed) => { ed.select(null); return true; });
-    await page.evaluate(() => { const deep = (r, s) => [...r.querySelectorAll('*')].flatMap((e) => [...(e.matches(s) ? [e] : []), ...(e.shadowRoot ? deep(e.shadowRoot, s) : [])]); window.__slides = []; const ed = deep(document, 'hk-saver-editor')[0]; const S = ed.saver(); const pre = S.previewSlide, pn = S.previewNight; S.previewSlide = function (k) { window.__slides.push(k); return pre ? pre.apply(this, arguments) : undefined; }; S.previewNight = function (o) { window.__slides.push('night:' + o); return pn ? pn.apply(this, arguments) : undefined; }; });
+    await page.evaluate(() => { const deep = (r, s) => [...r.querySelectorAll('*')].flatMap((e) => [...(e.matches(s) ? [e] : []), ...(e.shadowRoot ? deep(e.shadowRoot, s) : [])]);
+      window.__slides = []; const ed = deep(document, 'hk-saver-editor')[0]; const S = ed.saver(); const pre = S.previewSlide, pn = S.previewNight;
+      S.previewSlide = function (k) { window.__slides.push(k); return pre ? pre.apply(this, arguments) : undefined; };
+      S.previewNight = function (o) { window.__slides.push('night:' + o); return pn ? pn.apply(this, arguments) : undefined; }; });
     await E((ed, sr, $, $$) => { const s = $('.seeslide select'); s.value = 'music'; s.dispatchEvent(new Event('change')); return true; });
     await page.waitForTimeout(600);
     const sl = await E((ed, sr, $) => ({ under: $('.under').textContent, slide: ed.slide }));
-    say(sl.slide === 'music' && /Music slide/.test(sl.under) && /Its corner adds Time, Date, Weather and House Status/.test(sl.under), 'See a Slide: Music, and the line under the screen says what its corner adds', sl);
+    say(sl.slide === 'music' && /Music slide/.test(sl.under) && /Its corner adds Time, Date, Weather and House Status/.test(sl.under),
+      'See a Slide: Music, and the line under the screen says what its corner adds', sl);
     await page.waitForTimeout(3500);
     await shot('12-slide-music');
     await E((ed, sr, $, $$) => { $$('.pills button').find((b) => b.textContent === 'Night').click(); return true; });
@@ -306,15 +325,18 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
     await page.waitForTimeout(300);
 
     // ---- Slides: toggles with See It, the Forecast's Classic / Big, How Often
-    const slides = await E((ed, sr, $, $$) => ({ labels: $$('aside.sidebar .lbl .t').map((t) => t.textContent), see: $$('.seeit').length, subs: $$('aside.sidebar .lbl small').map((s) => s.textContent).filter((t) => /Its corner adds/.test(t)).length }));
+    const slides = await E((ed, sr, $, $$) => ({ labels: $$('aside.sidebar .lbl .t').map((t) => t.textContent), see: $$('.seeit').length,
+      subs: $$('aside.sidebar .lbl small').map((s) => s.textContent).filter((t) => /Its corner adds/.test(t)).length }));
     // (on the Landscape the forecast and the weather are the background: no row for them)
-    say(['Music Full Screen', 'Home Energy', 'Holidays', 'Timers'].every((x) => slides.labels.includes(x)) && slides.see === 4 && slides.subs === 4, 'Slides on the Landscape: Music, Home Energy, Holidays and Timers, each with its corner and See It', slides);
+    say(['Music Full Screen', 'Home Energy', 'Holidays', 'Timers'].every((x) => slides.labels.includes(x)) && slides.see === 4 && slides.subs === 4,
+      'Slides on the Landscape: Music, Home Energy, Holidays and Timers, each with its corner and See It', slides);
     // THE HOLIDAY SLIDE (phase 20): on, its options a row away on the Screensaver page, See It asks the preview for it
     await E((ed, sr, $, $$) => { $$('aside.sidebar .cell').find((c) => /^Holidays/.test(c.textContent.trim())).querySelector('.sw').click(); return true; });
     await page.waitForTimeout(400);
     const hol = await E((ed, sr, $, $$) => { const nav = $$('aside.sidebar a').find((c) => /Holiday Options/.test(c.textContent));
       return { on: ed.opts.holiday_slide, nav: nav ? nav.textContent.replace(/\s+/g, ' ').trim() : null, href: nav ? nav.getAttribute('href') : null }; });
-    say(hol.on === true && /Next Up · 60 Days/.test(hol.nav || '') && /\/screensaver\/holiday$/.test(hol.href || ''), 'Holidays on: Holiday Options a row away, Next Up · 60 Days, on the Screensaver page', hol);
+    say(hol.on === true && /Next Up · 60 Days/.test(hol.nav || '') && /\/screensaver\/holiday$/.test(hol.href || ''),
+      'Holidays on: Holiday Options a row away, Next Up · 60 Days, on the Screensaver page', hol);
     await page.evaluate(() => { window.__slides = []; });
     await E((ed, sr, $, $$) => { $$('aside.sidebar .cell').find((c) => /^Holidays/.test(c.textContent.trim())).querySelector('.seeit').click(); return true; });
     await page.waitForTimeout(400);
@@ -327,8 +349,10 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
     say(ph.includes('The Forecast') && ph.includes('Darken'), 'Photos: the forecast between photos is a slide', ph);
     await E((ed, sr, $, $$) => { $$('aside.sidebar .cell').find((c) => /The Forecast/.test(c.textContent)).querySelector('.sw').click(); return true; });
     await page.waitForTimeout(400);
-    const fc = await E((ed, sr, $, $$) => ({ show: ed.opts.show, labels: $$('aside.sidebar .lbl .t').map((t) => t.textContent), seg: $$('aside.sidebar [role=radio]').map((b) => b.textContent).filter((t) => /Classic|Big/.test(t)), often: $$('aside.sidebar .lbl .t').includes && 1 }));
-    say(fc.show === 'both' && fc.seg.filter((t) => /^(Classic|Big)$/.test(t)).join() === 'Classic,Big' && fc.labels.includes('How Often'), 'the forecast slide on: The Forecast Classic / Big and How Often', fc);
+    const fc = await E((ed, sr, $, $$) => ({ show: ed.opts.show, labels: $$('aside.sidebar .lbl .t').map((t) => t.textContent),
+      seg: $$('aside.sidebar [role=radio]').map((b) => b.textContent).filter((t) => /Classic|Big/.test(t)), often: $$('aside.sidebar .lbl .t').includes && 1 }));
+    say(fc.show === 'both' && fc.seg.filter((t) => /^(Classic|Big)$/.test(t)).join() === 'Classic,Big' && fc.labels.includes('How Often'),
+      'the forecast slide on: The Forecast Classic / Big and How Often', fc);
     await E((ed) => { ed.undo(); ed.undo(); return true; });
 
     // ---- Reset: an in-page confirmation, back to the screen before the editor
@@ -342,7 +366,8 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
     say((await E((ed) => !ed.dirty())) === true, 'Reset: the screensaver as it was before the editor', null);
 
     // ---- Save: a v2 layout hk-saverlayout.js takes
-    await E((ed) => { ed.change((o) => { o.layout.zones.tr.push({ piece: 'status', shape: 'inline', back: 'none', color: 'auto' }); o.holiday_slide = true; o.holiday_pick = 'turns'; }); return true; });
+    await E((ed) => { ed.change((o) => { o.layout.zones.tr.push({ piece: 'status', shape: 'inline', back: 'none', color: 'auto' }); o.holiday_slide = true; o.holiday_pick = 'turns'; }); return true;
+      });
     const saved = await page.evaluate(async () => {
       const deep = (r, s) => [...r.querySelectorAll('*')].flatMap((e) => [...(e.matches(s) ? [e] : []), ...(e.shadowRoot ? deep(e.shadowRoot, s) : [])]);
       const ed = deep(document, 'hk-saver-editor')[0]; let got = null;
@@ -350,7 +375,8 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
       ed.o.onSaved = () => {};
       await ed.save();
       const L = window.hkSaverLayout;
-      return got && { v: got.layout.v, code: L.check(got.layout), clean: JSON.stringify(L.clean(got.layout)) === JSON.stringify(got.layout), n: ed.message.textContent, hol: [got.holiday_slide, got.holiday_pick] };
+      return got && { v: got.layout.v, code: L.check(got.layout), clean: JSON.stringify(L.clean(got.layout)) === JSON.stringify(got.layout), n: ed.message.textContent,
+        hol: [got.holiday_slide, got.holiday_pick] };
     });
     say(!!saved && saved.v === 2 && saved.code === null && saved.clean, 'Save writes a v2 layout that passes hkSaverLayout.check', saved);
     say(!!saved && saved.hol[0] === true && saved.hol[1] === 'turns', '...and the Holiday slide\u2019s options with it', saved && saved.hol);
@@ -374,9 +400,11 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
     await until((ed) => { const s = ed.saver(); return s && s.layoutInfo && s.layoutInfo() && ed.live; }, null, 40000);
     await page.waitForTimeout(4000);
     const clashes = () => E((ed, sr, $, $$) => {
-      const bs = $$('.ov .z, .ov .w').filter((e) => e.getBoundingClientRect().width > 0).map((e) => { const r = e.getBoundingClientRect(); return { n: (e.getAttribute('aria-label') || '').slice(0, 40), l: r.left, t: r.top, r: r.right, b: r.bottom }; });
+      const bs = $$('.ov .z, .ov .w').filter((e) => e.getBoundingClientRect().width > 0).map(
+        (e) => { const r = e.getBoundingClientRect(); return { n: (e.getAttribute('aria-label') || '').slice(0, 40), l: r.left, t: r.top, r: r.right, b: r.bottom }; });
       const out = [];
-      for (let i = 0; i < bs.length; i++) for (let j = i + 1; j < bs.length; j++) { const a = bs[i], b = bs[j]; if (a.l < b.r - 1 && b.l < a.r - 1 && a.t < b.b - 1 && b.t < a.b - 1) out.push([a.n, b.n]); }
+      for (let i = 0; i < bs.length; i++) for (let j = i + 1; j < bs.length; j++) { const a = bs[i], b = bs[j];
+        if (a.l < b.r - 1 && b.l < a.r - 1 && a.t < b.b - 1 && b.t < a.b - 1) out.push([a.n, b.n]); }
       return { n: bs.length, out, claimed: $$('.ov .w.claimed').length };
     });
     const c0 = await clashes();

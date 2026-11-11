@@ -85,7 +85,8 @@ const VISIBLE_IMGS = () => {
       }
       if (input.art === 'good-then-bad' && view.screen === input.views[0].screen) {
         // the pictures loaded once (the thumbnails are kept); now the next version of each cannot be had
-        const kept = await page.evaluate(() => { try { return Object.keys(JSON.parse(localStorage.getItem('hk-snap-v1') || '{}')).filter((k) => k.indexOf('art:') === 0).length; } catch (e) { return -1; } });
+        const kept = await page.evaluate(() => { try { return Object.keys(JSON.parse(localStorage.getItem('hk-snap-v1') || '{}')).filter((k) => k.indexOf('art:') === 0).length; } catch (e) {
+          return -1; } });
         await page.evaluate(() => {
           try { window.hkCards.snapCache._flush(); } catch (e) { /* none */ }
         });
@@ -106,7 +107,8 @@ const VISIBLE_IMGS = () => {
         const brk = after.filter((i) => !i.ok);
         if (brk.length) fails.push(name + ' (next version refused): ' + JSON.stringify(brk.slice(0, 4)));
         else if (wrong.length) fails.push(name + ' (next version refused): a cover is not the note: ' + JSON.stringify(wrong.slice(0, 3)));
-        else if (kind.some((k) => k.startsWith('av:')) && !kind.includes('av:last-good')) fails.push(name + ' (next version refused): no last-good picture shown; kept=' + kept + ' re-asked=' + re + ' got ' + JSON.stringify(kind));
+        else if (kind.some((k) => k.startsWith('av:')) && !kind.includes('av:last-good')) fails.push(name + ' (next version refused): no last-good picture shown; kept=' + kept + ' re-asked=' + re +
+          ' got ' + JSON.stringify(kind));
         else notes.push(name + ' (next version refused): ' + kind.join(',') + ' (kept ' + kept + ')');
         bad = false;
       }

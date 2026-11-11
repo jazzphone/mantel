@@ -31,7 +31,8 @@ function measureSrc() {
     // THE TOUCH RULES, MEASURED (hk-np-strip.js check; 2026-11-09, the owner: a tap meant for play landed on the volume)
     strip: window.hkNpStrip.check(r.querySelector('.mu .hks'), { min: 44, line: r.querySelector('.mu .hksl') }),
     // (the ends since the owner's mockup 12h, 2026-11-09: Browse at the left, Up Next at the right)
-    ends: [...r.querySelectorAll('.mu .hks .mctl > [data-act]')].filter((e) => e.getBoundingClientRect().width > 0 && getComputedStyle(e).visibility !== 'hidden').map((e) => e.getAttribute('data-act')),
+    ends: [...r.querySelectorAll('.mu .hks .mctl > [data-act]')].filter((e) => e.getBoundingClientRect().width > 0 && getComputedStyle(e).visibility !== 'hidden').map(
+      (e) => e.getAttribute('data-act')),
     // THE THREE MARGINS (2026-11-09, the owner: the art's gap to the right edge as the column's to the left, and between them
     // the same): the column's to the left edge, the art's (or, beside the pane, the bars') to the right, the gap between
     margins: ((r) => { const q = s => r.querySelector(s), R = e => e.getBoundingClientRect(), body = R(q('.mu .mbody')), art = R(q('.mu .mart')), bar = R(q('.mu .mbar'));
@@ -82,7 +83,8 @@ const measure = new Function('return ' + measureSrc.toString().replace('PLAYER_L
           if (w.l < m.card.l + m.card.w / 2 && w.r > m.card.l) assert(w.t >= low - 1, tag + ': the music under the corner ' + JSON.stringify([w, low]));
         }
         assert(!m.look.wells.length && m.look.above !== undefined && Math.abs(m.look.above - m.look.below) <= 3, tag + ': the player bare, the pause halfway ' + JSON.stringify(m.look));
-        assert(!m.strip.breaks.length && m.strip.gapTV >= 12 && m.strip.gapPT >= 12 && m.strip.gapL >= 12 && m.strip.targets.line[1] >= 43.5, tag + ': 44 px targets (the speaker line\'s too), nothing overlapping, 12 px clear round the keys and the line ' + JSON.stringify(m.strip));
+        assert(!m.strip.breaks.length && m.strip.gapTV >= 12 && m.strip.gapPT >= 12 && m.strip.gapL >= 12 && m.strip.targets.line[1] >= 43.5, tag +
+          ': 44 px targets (the speaker line\'s too), nothing overlapping, 12 px clear round the keys and the line ' + JSON.stringify(m.strip));
         assert.deepEqual([m.ends[0], m.ends[m.ends.length - 1]], ['brw', 'queue'], tag + ': Browse at the row\'s left end, Up Next at its right ' + JSON.stringify(m.ends));
         if (!m.up) assert(Math.abs(m.margins.left - m.margins.right) <= 1 && Math.abs(m.margins.gap - m.margins.left) <= 1, tag + ': one margin left, right and between ' + JSON.stringify(m.margins));
         if (screen === 'np-pane') {
@@ -103,7 +105,8 @@ const measure = new Function('return ' + measureSrc.toString().replace('PLAYER_L
           await card.locator(`.mpanel.up [data-p="${tab}"]:not([hidden])`).waitFor({ state: 'visible' });
           await page.waitForTimeout(700);
           const pb = await card.locator('.mpanel.up').boundingBox();
-          assert(pb && pb.x >= m.card.l - 1 && pb.x + pb.width <= m.card.r + 1 && pb.y >= m.card.t - 1 && pb.y + pb.height <= m.card.b + 1, tag + ': the music panel stays inside the page ' + JSON.stringify(pb));
+          assert(pb && pb.x >= m.card.l - 1 && pb.x + pb.width <= m.card.r + 1 && pb.y >= m.card.t - 1 && pb.y + pb.height <= m.card.b + 1, tag + ': the music panel stays inside the page ' +
+            JSON.stringify(pb));
           if (input.shots && tab === 'speakers') await page.screenshot({ path: `${input.shots}/${W}x${H}-${screen}-speakers.png` });
           await card.locator('.mpanel.up [data-k="close"]').tap();
           await card.locator('.mpanel').waitFor({ state: 'detached' });
@@ -114,9 +117,12 @@ const measure = new Function('return ' + measureSrc.toString().replace('PLAYER_L
         if (screen === 'np-pane') {
           const q0 = await card.evaluate((c) => { const r = c.shadowRoot, ql = r.querySelector('.mu .mq .mql'), cs = getComputedStyle(ql),
             art = r.querySelector('.mu .mart').getBoundingClientRect(), meta = r.querySelector('.mu .mmeta').getBoundingClientRect(), b = ql.getBoundingClientRect();
-            return { n: ql.children.length, open: ql.scrollHeight > ql.clientHeight + 4, more: ql.hasAttribute('more'), mask: cs.webkitMaskImage || cs.maskImage, bar: cs.scrollbarWidth, over: cs.overscrollBehaviorY,
-              minH: Math.min(...[...ql.children].map((e) => e.offsetHeight)), metaB: meta.bottom, artB: art.bottom, artH: art.height, x: b.left + b.width / 2, y: b.top + b.height / 2, top: ql.scrollTop }; });
-          assert(q0.n > 10 && q0.open && q0.more && /gradient/.test(q0.mask) && q0.bar === 'none' && q0.over === 'contain' && q0.minH >= 44 && q0.metaB <= q0.artB + 1 && q0.top === 0, tag + ': Up Next scrolls ' + JSON.stringify(q0));
+            return { n: ql.children.length, open: ql.scrollHeight > ql.clientHeight + 4, more: ql.hasAttribute('more'), mask: cs.webkitMaskImage || cs.maskImage, bar: cs.scrollbarWidth,
+              over: cs.overscrollBehaviorY,
+              minH: Math.min(...[...ql.children].map((e) => e.offsetHeight)), metaB: meta.bottom, artB: art.bottom, artH: art.height, x: b.left + b.width / 2, y: b.top + b.height / 2,
+                top: ql.scrollTop }; });
+          assert(q0.n > 10 && q0.open && q0.more && /gradient/.test(q0.mask) && q0.bar === 'none' && q0.over === 'contain' && q0.minH >= 44 && q0.metaB <= q0.artB + 1 && q0.top === 0, tag +
+            ': Up Next scrolls ' + JSON.stringify(q0));
           if (input.shots) await page.screenshot({ path: `${input.shots}/${W}x${H}-${screen}-queue.png` });
           await page.mouse.move(q0.x, q0.y); await page.mouse.wheel(0, 150); await page.waitForTimeout(500);
           const q1 = await card.evaluate((c) => { const r = c.shadowRoot, ql = r.querySelector('.mu .mq .mql');
@@ -147,7 +153,8 @@ const measure = new Function('return ' + measureSrc.toString().replace('PLAYER_L
             let e = document.elementFromPoint(x, y);
             while (e && e.shadowRoot) { const n = e.shadowRoot.elementFromPoint(x, y); if (!n || n === e) break; e = n; }
             const c = chain(e);
-            if (e && c.includes(view) && !hkDrag.sideways(c, view) && !c.some(n => n.localName === 'hk-pager-card' || n.localName === 'hk-header-card' || (n.hasAttribute && n.hasAttribute('inert')))) return { x, y };
+            if (e && c.includes(view) && !hkDrag.sideways(c, view) && !c.some(n => n.localName === 'hk-pager-card' || n.localName === 'hk-header-card' ||
+              (n.hasAttribute && n.hasAttribute('inert')))) return { x, y };
           }
           return null;
         }, right);
@@ -174,7 +181,10 @@ const measure = new Function('return ' + measureSrc.toString().replace('PLAYER_L
         await swipe({ x: x0, y }, 1);
         await page.waitForFunction(() => /\/now-playing$/.test(location.pathname), null, { timeout: 5000 }).catch(() => {});
         const at = await page.evaluate(() => location.pathname);
-        if (!/\/now-playing$/.test(at)) console.log('swipe:', JSON.stringify(await page.evaluate(() => { const s = hkPageSwipe._.state(); const it = hkPageSwipe.order(); let nb = null; try { nb = hkPageSwipe._.neighbors(it, location.pathname, (x, p) => x.path === p); nb = nb && { prev: nb.prev && nb.prev.path, next: nb.next && nb.next.path }; } catch (e) { nb = String(e); } return { why: s.why, blocked: hkPageSwipe.blocked(), G: !!s.G, L: !!s.L, nb, order: it.map((i) => i.path).slice(0, 3) }; })));
+        if (!/\/now-playing$/.test(at)) console.log('swipe:', JSON.stringify(await page.evaluate(
+          () => { const s = hkPageSwipe._.state(); const it = hkPageSwipe.order(); let nb = null;
+          try { nb = hkPageSwipe._.neighbors(it, location.pathname, (x, p) => x.path === p); nb = nb && { prev: nb.prev && nb.prev.path, next: nb.next && nb.next.path }; } catch (e) { nb = String(e);
+          } return { why: s.why, blocked: hkPageSwipe.blocked(), G: !!s.G, L: !!s.L, nb, order: it.map((i) => i.path).slice(0, 3) }; })));
         assert(/\/now-playing$/.test(at), `${W}x${H}: a swipe right on Home lands on Now Playing (at ${at})`);
         await ready();
         const back = await spot(false);

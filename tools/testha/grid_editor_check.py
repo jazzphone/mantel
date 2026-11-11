@@ -36,7 +36,9 @@ async def main():
         await b.screenshot(testha.SCRATCH / 'shots' / 'home-grid-editor.png')
         assert ready
         assert not await b.eval("!!ed.panel.host()?.gridHistory")
-        rects=await b.eval("window.pair=ed.grid.items.filter(i=>i.size==='S').slice(-2);pair.map(it=>{let r=ed.overlay.querySelector('[data-id='+it.id+']').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})")
+        rects=await b.eval(
+            "window.pair=ed.grid.items.filter(i=>i.size==='S').slice(-2);pair.map(it=>{let r=ed.overlay.querySelector('[data-id='+it.id+']').getBoundingClientRect();"
+            "return {x:r.x+r.width/2,y:r.y+r.height/2}})")
         a,z=rects
         for t,pos,kw in [('mousePressed',a,{'button':'left','clickCount':1}),('mouseMoved',z,{'button':'left','buttons':1}),('mouseReleased',z,{'button':'left','clickCount':1})]:
             await b.send('Input.dispatchMouseEvent',type=t,x=pos['x'],y=pos['y'],**kw)

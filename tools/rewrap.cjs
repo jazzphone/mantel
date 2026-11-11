@@ -175,8 +175,9 @@ function stringGaps(text, t, depth, out) {
       i += 2;
       continue;
     }
-    if ((c === ' ' || c === ';' || c === '}') && i < body.length - 1) {
-      out.push({ pos: t.start + 2 + i, next: t.start + 2 + i, left: q + ' +', right: q, tier: c === ' ' ? 5 : 4, depth, str: true });
+    if ((c === ' ' || c === ';' || c === '}' || c === ',') && i < body.length - 1) {
+      // (a comma last: a selector list or embedded code with no space; 'a,' + 'b' folds back to the same string)
+      out.push({ pos: t.start + 2 + i, next: t.start + 2 + i, left: q + ' +', right: q, tier: c === ' ' ? 5 : c === ',' ? 6 : 4, depth, str: true });
     }
     i++;
   }

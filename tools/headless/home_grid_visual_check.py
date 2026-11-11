@@ -118,7 +118,8 @@ async def homeview():
         app,cookie=await gallery.build(Path(td))
         async with TestServer(app) as server:
             if args.shots: args.shots.mkdir(parents=True,exist_ok=True)
-            proc=await asyncio.create_subprocess_exec(args.node,str(Path(__file__).with_suffix('.cjs')),stdin=asyncio.subprocess.PIPE,stdout=asyncio.subprocess.PIPE,stderr=asyncio.subprocess.PIPE,env=os.environ)
+            proc=await asyncio.create_subprocess_exec(args.node,str(Path(__file__).with_suffix('.cjs')),stdin=asyncio.subprocess.PIPE,stdout=asyncio.subprocess.PIPE,stderr=asyncio.subprocess.PIPE,
+                env=os.environ)
             out,err=await proc.communicate(json.dumps({'homeview':True,'origin':str(server.make_url('')).rstrip('/'),'cookie':cookie,'screens':screens,
                                                        'shots':str(args.shots) if args.shots else None,'engine':args.engine,'browser':args.browser}).encode())
             print(out.decode());print(err.decode())
@@ -132,8 +133,10 @@ async def main():
         for concept in ['A','C']:
             name=f'polish-{concept.lower()}-{look.replace("_","-")}'
             screens.append(name)
-            grid=HG.starter(concept,scenes=[x for x in gallery.HOUSE if x.startswith('scene.')],rooms=[x[0] for x in gallery.ROOMS],cameras=['camera.front_door','camera.backyard'],climate=['climate.main_floor','climate.bedroom'],tablet_room='kitchen')
-            gallery.SETTINGS['boards'][name]={'home_style':'grid','home_grid':grid,'menu_custom':True,'menu':'tabbar','flat':look.startswith('flat'),'flat_theme':'light' if look=='flat_light' else 'dark','glass':'blur'}
+            grid=HG.starter(concept,scenes=[x for x in gallery.HOUSE if x.startswith('scene.')],rooms=[x[0] for x in gallery.ROOMS],cameras=['camera.front_door','camera.backyard'],
+                climate=['climate.main_floor','climate.bedroom'],tablet_room='kitchen')
+            gallery.SETTINGS['boards'][name]={'home_style':'grid','home_grid':grid,'menu_custom':True,'menu':'tabbar','flat':look.startswith('flat'),
+                'flat_theme':'light' if look=='flat_light' else 'dark','glass':'blur'}
     with tempfile.TemporaryDirectory() as td:
         app,cookie=await gallery.build(Path(td))
         async with TestServer(app) as server:
@@ -141,8 +144,10 @@ async def main():
             if shots: shots.mkdir(parents=True,exist_ok=True)
             probe=shots or Path(td)/'shared-blur-probe'
             probe.mkdir(parents=True,exist_ok=True)
-            proc=await asyncio.create_subprocess_exec(args.node,str(Path(__file__).with_suffix('.cjs')),stdin=asyncio.subprocess.PIPE,stdout=asyncio.subprocess.PIPE,stderr=asyncio.subprocess.PIPE,env=os.environ)
-            out,err=await proc.communicate(json.dumps({'origin':str(server.make_url('')).rstrip('/'),'cookie':cookie,'screens':screens,'shots':str(shots) if shots else None,'engine':args.engine,'browser':args.browser,'probe':str(probe)}).encode())
+            proc=await asyncio.create_subprocess_exec(args.node,str(Path(__file__).with_suffix('.cjs')),stdin=asyncio.subprocess.PIPE,stdout=asyncio.subprocess.PIPE,stderr=asyncio.subprocess.PIPE,
+                env=os.environ)
+            out,err=await proc.communicate(json.dumps({'origin':str(server.make_url('')).rstrip('/'),'cookie':cookie,'screens':screens,'shots':str(shots) if shots else None,'engine':args.engine,
+                'browser':args.browser,'probe':str(probe)}).encode())
             print(out.decode());print(err.decode())
             if proc.returncode: return proc.returncode
             from PIL import Image,ImageStat

@@ -35,7 +35,8 @@ async def main():
             proc = await asyncio.create_subprocess_exec(args.node, str(Path(__file__).with_suffix('.cjs')), stdin=asyncio.subprocess.PIPE,
                                                         stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, env=os.environ)
             out, err = await proc.communicate(json.dumps({'origin': str(server.make_url('')).rstrip('/'), 'cookie': cookie, 'screen': 'looks',
-                                                          'looks': list(L.IDS), 'glass': {x['id']: 'flat' if x['settings'].get('flat') else x['settings'].get('glass') for x in L.LOOKS}, 'shots': str(args.shots) if args.shots else None}).encode())
+                                                          'looks': list(L.IDS), 'glass': {x['id']: 'flat' if x['settings'].get('flat') else x['settings'].get('glass') for x in L.LOOKS},
+                                                              'shots': str(args.shots) if args.shots else None}).encode())
             print(out.decode())
             if err.strip():
                 print(err.decode(), file=sys.stderr)

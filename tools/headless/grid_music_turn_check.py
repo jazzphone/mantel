@@ -176,7 +176,8 @@ async def main():
             # EXTRA LARGE'S UP NEXT SCROLLS (2026-11-09, the owner: "the up next should scroll as well"): a finger's drag moves the
             # list and plays nothing, the fade at its foot gone at the end; a tap on a song plays it (hk_music/queue_play)
             assert await b.wait("np('x').shadowRoot.querySelectorAll('.npqr').length===20", 10)
-            r = await b.eval("(()=>{const l=np('x').shadowRoot.querySelector('.npql'),b=l.getBoundingClientRect();return {x:(b.left+b.right)/2,y:b.top+b.height*.75,more:l.classList.contains('more')}})()")
+            r = await b.eval(
+                "(()=>{const l=np('x').shadowRoot.querySelector('.npql'),b=l.getBoundingClientRect();return {x:(b.left+b.right)/2,y:b.top+b.height*.75,more:l.classList.contains('more')}})()")
             assert r['more'], r
             await b.send('Input.synthesizeScrollGesture', x=r['x'], y=r['y'], yDistance=-160, gestureSourceType='touch', speed=600)
             await asyncio.sleep(0.6)

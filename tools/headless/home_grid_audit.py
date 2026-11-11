@@ -109,7 +109,8 @@ OPTS = {"accessory": {"entity": "light.living_room_lamps"}, "scene": {"scene": "
 ACCESSORIES = ["light.living_room_lamps", "fan.bedroom_ceiling", "light.living_room_ceiling", "media_player.living_room",
                "lock.front_door", "light.kitchen_pendants", "cover.garage_door", "switch.garage_outlet", "light.office_desk",
                "light.porch", "light.bedroom_lamps", "light.backyard_string"]
-SIZED = {"accessories": lambda s: {"accessories": [] if STATES[STATE["name"]].get("accessories_none") else [{"entity": e} for e in ACCESSORIES[:COUNT["n"] or {"S": 2, "W": 2, "T": 2, "L": 4, "XL": 6, "XXL": 12}[s]]
+SIZED = {"accessories": lambda s: {"accessories": [] if STATES[STATE["name"]].get("accessories_none") else [
+    {"entity": e} for e in ACCESSORIES[:COUNT["n"] or {"S": 2, "W": 2, "T": 2, "L": 4, "XL": 6, "XXL": 12}[s]]
                                                     [:{"S": 2, "W": 2, "T": 2, "L": 4, "XL": 6, "XXL": 12}[s]]]}}
 # MORE OR FEWER OF THEM (2026-11-08, round three, the tile groups): `--count N` gives the Living Room N lights, an Accessories block N
 # entries (never more than its size's capacity: hk_core checks it) and a Scenes block N scenes -- a house with one and a house with
@@ -760,7 +761,9 @@ def _sugg_windows(n: int) -> list[dict]:
     names = [("scene.dinner", "Evening", "evening"), ("scene.good_night", "Night", "night"), ("scene.good_morning", "Morning", "morning"),
              ("scene.movie_night", "Movie", "evening")]
     return [{"start": hh(m - 60 + 120 * i), "end": hh(m + 59 + 120 * i), "scene": sc, "label": lb} for i, (sc, lb, _a) in enumerate(names[:n])]
-STATES["sugg_next"] = {"opts": {"scene_suggested": {"windows": [dict(w, start=w["start"][:0] + _sugg_windows(4)[(i + 1) % 4]["start"], end=_sugg_windows(4)[(i + 1) % 4]["end"]) for i, w in enumerate(_sugg_windows(4)[:3])]}}}  # (none holds now: the first to come is "Up Next")
+# (none holds now: the first to come is "Up Next")
+STATES["sugg_next"] = {"opts": {"scene_suggested": {"windows": [dict(w, start=w["start"][:0] + _sugg_windows(4)[(i + 1) % 4]["start"], end=_sugg_windows(4)[(i + 1) % 4]["end"]) for i,
+    w in enumerate(_sugg_windows(4)[:3])]}}}
 STATES["sugg_many"] = {"opts": {"scene_suggested": {"windows": _sugg_windows(4)}}}
 STATES["sugg_one"] = {"opts": {"scene_suggested": {"windows": _sugg_windows(1)}}}
 STATES["sugg_two"] = {"opts": {"scene_suggested": {"windows": _sugg_windows(2)}}}
@@ -1040,7 +1043,9 @@ async def audit(keys: list[str], looks: list[str], shots: Path | None, long: boo
                     await asyncio.sleep(2.0)            # pictures, fonts and the sky settle
                     picked = STATES[STATE["name"]].get("picked")
                     if picked and key == "vacuum":      # the rooms ticked on the Vacuum block (hk-home.js: hkHome.picked, by vacuum)
-                        await b.eval("(() => { if (!window.hkHome || !window.hkHome.picked) return; const s = (window.hkHome.picked['vacuum.downstairs'] = window.hkHome.picked['vacuum.downstairs'] || new Set()); s.clear(); %s.forEach(a => s.add(a));"
+                        await b.eval(
+                            "(() => { if (!window.hkHome || !window.hkHome.picked) return;"
+                            " const s = (window.hkHome.picked['vacuum.downstairs'] = window.hkHome.picked['vacuum.downstairs'] || new Set()); s.clear(); %s.forEach(a => s.add(a));"
                                      " window.dispatchEvent(new Event('hk-vacuum-rooms')); })()" % json.dumps(picked))
                         await asyncio.sleep(0.8)
                     got = await b.eval(MEASURE)

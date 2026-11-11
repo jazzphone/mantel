@@ -65,7 +65,8 @@ const HELP = () => {
     grid: () => { const v = view(); return v && v.localName === 'hk-home-grid-view' ? v._view || 0 : null; },
     menuOpen: () => !!(window.hkMenu && hkMenu.isOpen && hkMenu.isOpen()),
     // why a swipe did nothing
-    diag: () => { const s = hkPageSwipe._.state(); return { why: s.why, blocked: hkPageSwipe.blocked(), landing: !!s.L, gesture: s.G ? (s.G.live ? 'live' : 'waiting') : null, path: location.pathname }; },
+    diag: () => { const s = hkPageSwipe._.state(); return { why: s.why, blocked: hkPageSwipe.blocked(), landing: !!s.L, gesture: s.G ? (s.G.live ? 'live' : 'waiting') : null,
+      path: location.pathname }; },
   };
   // WebKit's finger: pointer events, pointerType touch, on what is under the point (each touch the target's own
   // until it ends, as a browser sends them)

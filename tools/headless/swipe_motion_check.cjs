@@ -46,7 +46,8 @@ const PROBE = () => {
         if (!L.on) return;
         const s = hkPageSwipe._.state();
         L.frames.push({ t, now: performance.now(), finger: L.finger, st: (s.G && s.G.live ? 'G' : '') + (s.A ? 'A' : '') + (s.L ? 'L' : ''), path: location.pathname,
-                        pages: pagesOf().map(k => ({ id: idOf(k), ghost: k.classList.contains('hk-swipe-ghost'), x: k.getBoundingClientRect().left, o: +getComputedStyle(k).opacity, cur: k === view() })) });
+                        pages: pagesOf().map(k => ({ id: idOf(k), ghost: k.classList.contains('hk-swipe-ghost'), x: k.getBoundingClientRect().left, o: +getComputedStyle(k).opacity, cur: k ===
+                          view() })) });
         requestAnimationFrame(tick);
       };
       requestAnimationFrame(tick);
@@ -54,7 +55,8 @@ const PROBE = () => {
     stop() { L.on = false; return L.frames; },
     spot(xf) {
       const v = view();
-      const allowed=(x,y)=>{const el=deepAt(x,y),c=chain(el);return el&&(c.includes(v)||el===slot())&&!hkDrag.sideways(c,c.includes(v)?v:slot())&&!c.some(n=>n.localName==='hk-pager-card'||n.getAttribute&&n.getAttribute('inert')!==null);};
+      const allowed=(x,y)=>{const el=deepAt(x,y),c=chain(el);return el&&(c.includes(v)||el===slot())&&!hkDrag.sideways(c,c.includes(v)?v:slot())&&
+        !c.some(n=>n.localName==='hk-pager-card'||n.getAttribute&&n.getAttribute('inert')!==null);};
       // Chromium's touch adjustment can pick a nearby control across a thin gap.
       // Use a background patch large enough for a fingertip, including headers.
       const clear=(x,y)=>[[0,0],[-12,0],[12,0],[0,-12],[0,12]].every(([dx,dy])=>allowed(x+dx,y+dy));
@@ -69,19 +71,23 @@ const PROBE = () => {
     rest() {
       const v = view(), st = v.getAttribute('style') || '', s = hkPageSwipe._.state(), kids = pagesOf();
       const e = deepAt(innerWidth / 2, innerHeight / 2);
-      return { path: location.pathname, left: Math.round(v.getBoundingClientRect().left), stray: /(^|;\s*)(transform|position|will-change|opacity|overflow|max-height|pointer-events|transition)\s*:/.test(st),
-               inert: v.hasAttribute('inert'), offstage: v.hasAttribute('data-hk-offstage'), busy: !!(s.G || s.A || s.L), pages: kids.length, ghosts: kids.filter(k => k.classList.contains('hk-swipe-ghost')).length,
+      return { path: location.pathname, left: Math.round(v.getBoundingClientRect().left),
+        stray: /(^|;\s*)(transform|position|will-change|opacity|overflow|max-height|pointer-events|transition)\s*:/.test(st),
+               inert: v.hasAttribute('inert'), offstage: v.hasAttribute('data-hk-offstage'), busy: !!(s.G || s.A || s.L), pages: kids.length,
+                 ghosts: kids.filter(k => k.classList.contains('hk-swipe-ghost')).length,
                others: kids.filter(k => k !== v).every(k => {const r=k.getBoundingClientRect();return k.hasAttribute('inert') && (r.right<=.5 || r.left>=innerWidth-.5);}),
                level: kids.filter(k => k !== v).every(k => Math.abs(k.getBoundingClientRect().top - (v.getBoundingClientRect().top + (document.scrollingElement.scrollTop || 0))) <= 2),
                grounds: deep(document, '.hk-swipe-ground').length,
                // (the page, or the empty screen under a page shorter than it -- the view's own container, which a press
                // and a swipe treat as the page's: hk-pageswipe.js; Cameras on the fictional house, reached through More)
                hit: !!e && (chain(e).indexOf(v) >= 0 || (e.localName === 'hk-view-container' && e.contains(v))),
-               at: e ? chain(e).slice(0, 6).map(n => (n.localName || '#') + (n.id ? '#' + n.id : '') + (n.className && n.className.baseVal === undefined && n.className ? '.' + String(n.className).split(' ')[0] : '')).join(' < ') : null };
+               at: e ? chain(e).slice(0, 6).map(n => (n.localName || '#') + (n.id ? '#' + n.id : '') +
+                 (n.className && n.className.baseVal === undefined && n.className ? '.' + String(n.className).split(' ')[0] : '')).join(' < ') : null };
     },
     // WebKit's finger: on what is under the point, each touch the target's own until it ends
     t: null,
-    ev(type, x, y) { return new PointerEvent(type, { bubbles: true, composed: true, cancelable: true, pointerId: 41, pointerType: 'touch', isPrimary: true, clientX: x, clientY: y, button: type === 'pointermove' ? -1 : 0, buttons: /up|cancel/.test(type) ? 0 : 1 }); },
+    ev(type, x, y) { return new PointerEvent(type, { bubbles: true, composed: true, cancelable: true, pointerId: 41, pointerType: 'touch', isPrimary: true, clientX: x, clientY: y, button: type ===
+      'pointermove' ? -1 : 0, buttons: /up|cancel/.test(type) ? 0 : 1 }); },
     down(x, y) { L.t = deepAt(x, y) || document.body; L.t.dispatchEvent(L.ev('pointerdown', x, y)); },
     move(x, y) { if (L.t) L.t.dispatchEvent(L.ev('pointermove', x, y)); },
     up(x, y, type) { const t = L.t; if (t) { L.t = null; t.dispatchEvent(L.ev(type || 'pointerup', x, y)); } },
@@ -100,7 +106,8 @@ const PROBE = () => {
     },
   };
   document.addEventListener('pointermove', (e) => { L.finger = e.clientX; }, { capture: true, passive: true });
-  document.addEventListener('pointerdown', (e) => { L.finger = e.clientX; L.lastDown={x:e.clientX,y:e.clientY,nodes:e.composedPath().filter(n=>n.nodeType===1).map(n=>({tag:n.localName,cls:String(n.className),}))}; }, { capture: true, passive: true });
+  document.addEventListener('pointerdown', (e) => { L.finger = e.clientX; L.lastDown={x:e.clientX,y:e.clientY,
+    nodes:e.composedPath().filter(n=>n.nodeType===1).map(n=>({tag:n.localName,cls:String(n.className),}))}; }, { capture: true, passive: true });
 };
 
 async function open(browser, screen, o = {}) {
@@ -116,13 +123,15 @@ async function open(browser, screen, o = {}) {
   });
   await page.addInitScript(PROBE);
   await page.goto(input.origin + '/' + screen + '/' + (o.segment || 'home'), {waitUntil:'domcontentloaded',timeout:60000});
-  await page.waitForFunction(() => window.__mantelReady === true && window.hkPageSwipe && window.hkDrag && window.hkTabBar && window.hkTabBar.pages && hkShell.view(hkShell.viewSlot(hkCards.menu.panel())), null, { timeout: 45000 });
+  await page.waitForFunction(() => window.__mantelReady === true && window.hkPageSwipe && window.hkDrag && window.hkTabBar && window.hkTabBar.pages &&
+    hkShell.view(hkShell.viewSlot(hkCards.menu.panel())), null, { timeout: 45000 });
   const t = { ctx, page, errors, cdp: CDP ? await ctx.newCDPSession(page) : null };
   await ready(t);
   return t;
 }
 // the page beside this one is ready: a real page in the slot (the point of the swipe's quiet-moment work), or give up and let the section say so
-async function ready(t) { await t.page.waitForFunction(() => { const s = hkPageSwipe._.state(); return !s.G && !s.A && !s.L && __m.pagesOf().length >= 2 && __m.pagesOf().length <= 3; }, null, { timeout: 15000 }).catch(() => {}); await sleep(400); }
+async function ready(t) { await t.page.waitForFunction(() => { const s = hkPageSwipe._.state(); return !s.G && !s.A && !s.L && __m.pagesOf().length >= 2 && __m.pagesOf().length <= 3; }, null,
+  { timeout: 15000 }).catch(() => {}); await sleep(400); }
 const close = async (t, name) => { assert.deepEqual(t.errors, [], name + ': no page or console errors'); await t.ctx.close(); };
 const spot = (t, dir) => t.page.evaluate(xf => __m.spot(xf), dir < 0 ? 0.65 : 0.35);
 const rest = (t) => t.page.evaluate(() => __m.rest());
@@ -132,8 +141,10 @@ function pathOf(a, segs) {
   for (const s of segs) { const n = Math.max(1, Math.round(s.ms / 8)); for (let i = 1; i <= n; i++) out.push([t0 + (s.ms * i) / n, a.x + x0 + ((s.dx - x0) * i) / n, a.y]); t0 += s.ms; x0 = s.dx; }
   return out;
 }
-async function down(t, x, y) { if (t.cdp) await t.cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] }); else await t.page.evaluate(([a, b]) => __m.down(a, b), [x, y]); }
-async function move(t, x, y) { if (t.cdp) await t.cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y }] }); else await t.page.evaluate(([a, b]) => __m.move(a, b), [x, y]); }
+async function down(t, x, y) { if (t.cdp) await t.cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] }); else await t.page.evaluate(([a, b]) => __m.down(a, b), [x, y]);
+  }
+async function move(t, x, y) { if (t.cdp) await t.cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y }] }); else await t.page.evaluate(([a, b]) => __m.move(a, b), [x, y]);
+  }
 async function up(t, x, y) { if (t.cdp) await t.cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); else await t.page.evaluate(([a, b]) => __m.up(a, b), [x, y]); }
 async function play(t, pts, cancel) {
   if (!t.cdp) return t.page.evaluate(([p, c]) => __m.play(p, c), [pts, !!cancel]);
@@ -208,7 +219,8 @@ async function inkIn(t, png, rect) {
     g.drawImage(im, -r.x, -r.y);
     const d = g.getImageData(0, 0, r.w, r.h).data;
     let edges = 0;
-    for (let y = 0; y < r.h; y += 2) for (let x = 0; x + 1 < r.w; x++) { const i = (y * r.w + x) * 4; if (Math.abs(d[i] - d[i + 4]) + Math.abs(d[i + 1] - d[i + 5]) + Math.abs(d[i + 2] - d[i + 6]) > 60) edges++; }
+    for (let y = 0; y < r.h; y += 2) for (let x = 0; x + 1 < r.w; x++) { const i = (y * r.w + x) * 4;
+      if (Math.abs(d[i] - d[i + 4]) + Math.abs(d[i + 1] - d[i + 5]) + Math.abs(d[i + 2] - d[i + 6]) > 60) edges++; }
     return edges / (r.w * r.h / 2);
   }, [png.toString('base64'), rect]);
 }
@@ -315,7 +327,8 @@ const SECTIONS = {
         const next=s.pill.querySelector(here.getAttribute('data-t')==='more'?'.tab[data-t="'+(s.tabs.length-1)+'"]':'.tab[data-t="more"]');
         const a=here.getBoundingClientRect(),z=next.getBoundingClientRect(),css=getComputedStyle(here,'::before');
         const k=Math.min(1,Math.abs(st.view.getBoundingClientRect().left-st.rect.left)/st.rect.width);
-        return {x:new DOMMatrixReadOnly(css.transform).m41,want:(z.x-a.x)*k,k,here:here.getAttribute('aria-label'),next:next.getAttribute('aria-label'),box:s.hereBox,path:location.pathname,gesture:!!hkPageSwipe._.state().G,landing:s.landing};
+        return {x:new DOMMatrixReadOnly(css.transform).m41,want:(z.x-a.x)*k,k,here:here.getAttribute('aria-label'),next:next.getAttribute('aria-label'),box:s.hereBox,path:location.pathname,
+          gesture:!!hkPageSwipe._.state().G,landing:s.landing};
       }));
       if(!held.r.tight) assert(Math.abs(held.r.x-held.r.want)<2,name+': highlight follows the page into/out of More '+JSON.stringify(held.r));
       await up(t,held.end[1],held.end[2]);await sleep(900);
@@ -332,7 +345,8 @@ const SECTIONS = {
       const s=hkPageSwipe._.state(),d=document.querySelector('hk-side-pane[mode=dash]'),bar=document.getElementById('hk-tabbar'),row=bar?.shadowRoot?.querySelector('.row');
       // (the pane's plate is what fades: hk-sidepane.js plate())
       const pl=d&&(d.shadowRoot&&d.shadowRoot.querySelector('.pane')||d),cs=pl&&getComputedStyle(pl),bcs=row&&getComputedStyle(row);
-      return {p:s.ST?Math.abs(__m.view().getBoundingClientRect().left-s.ST.rect.left)/s.ST.rect.width:0,opacity:cs?+cs.opacity:1,side:d?.getAttribute('side'),w:d?.getBoundingClientRect().width||0,shift:bcs?parseFloat(bcs.translate)||0:0,curve:s.A?.ms,paneMs:cs?.transitionDuration,barMs:bcs?.transitionDuration,hash:location.hash,docked:!!(window.hkPopup&&hkPopup.docked(location.hash))};
+      return {p:s.ST?Math.abs(__m.view().getBoundingClientRect().left-s.ST.rect.left)/s.ST.rect.width:0,opacity:cs?+cs.opacity:1,side:d?.getAttribute('side'),w:d?.getBoundingClientRect().width||0,
+        shift:bcs?parseFloat(bcs.translate)||0:0,curve:s.A?.ms,paneMs:cs?.transitionDuration,barMs:bcs?.transitionDuration,hash:location.hash,docked:!!(window.hkPopup&&hkPopup.docked(location.hash))};
     });
     const run = async (dir, name, leaving) => {
       const a=await spot(t,dir);await down(t,a.x,a.y);await move(t,a.x+W*.28*dir,a.y);await sleep(90);
@@ -352,9 +366,16 @@ const SECTIONS = {
       return drag;
     };
     const gridViews=await t.page.evaluate(()=>Math.max(1,...__m.deep(document,'hk-home-grid-view').filter(e=>__m.chain(e).includes(__m.view())).map(e=>e._views?e._views():1)));
-    for(let n=0;n<=gridViews && await where(t)===order[0];n++) await run(-1,'Home to Pages',true);assert.equal(await where(t),order[1],JSON.stringify(await t.page.evaluate(()=>({why:hkPageSwipe._.state().why,last:__m.lastDown,grids:__m.deep(document,'hk-home-grid-view').map(g=>({view:g._view,views:g._views?.()})),blocked:__m.chain(__m.deepAt(__m.spot(.65).x,__m.spot(.65).y)).filter(n=>n.nodeType===1&&hkDrag.sideways([n])).map(n=>({tag:n.localName,cls:String(n.className),ta:getComputedStyle(n).touchAction}))}))));await ready(t);
+    for(let n=0;n<=gridViews && await where(t)===order[0];n++) await run(-1,'Home to Pages',true);
+      assert.equal(await where(t),order[1],JSON.stringify(await t.page.evaluate(
+      ()=>({why:hkPageSwipe._.state().why,last:__m.lastDown,grids:__m.deep(document,'hk-home-grid-view').map(g=>({view:g._view,views:g._views?.()})),
+      blocked:__m.chain(__m.deepAt(__m.spot(.65).x,__m.spot(.65).y)).filter(n=>n.nodeType===1&&hkDrag.sideways([n])).map(
+      n=>({tag:n.localName,cls:String(n.className),ta:getComputedStyle(n).touchAction}))}))));await ready(t);
     // Home's Now Playing pane hands the player to the docked media popup on Pages.
-    await t.page.waitForFunction(() => __m.deep(document,'.hkp.dock.open').some(n=>n.getBoundingClientRect().height>0),null,{timeout:15000}).catch(async()=>{throw new Error('Dock not visible '+JSON.stringify(await t.page.evaluate(()=>({path:location.pathname,flag:document.documentElement.hasAttribute('hk-pane-music'),states:hkCards.client().states['media_player.living_room'],popups:__m.deep(document,'hk-popup-card').map(n=>({config:n._config||n._cfg,open:n._open})).filter(n=>n.config?.hash==='#media'),boxes:__m.deep(document,'.hkp').map(n=>n.className)}))));});
+    await t.page.waitForFunction(() => __m.deep(document,'.hkp.dock.open').some(n=>n.getBoundingClientRect().height>0),null,{timeout:15000}).catch(
+      async()=>{throw new Error('Dock not visible '+JSON.stringify(await t.page.evaluate(
+      ()=>({path:location.pathname,flag:document.documentElement.hasAttribute('hk-pane-music'),states:hkCards.client().states['media_player.living_room'],
+      popups:__m.deep(document,'hk-popup-card').map(n=>({config:n._config||n._cfg,open:n._open})).filter(n=>n.config?.hash==='#media'),boxes:__m.deep(document,'.hkp').map(n=>n.className)}))));});
     await t.page.evaluate(()=>hkPopup.open('#media'));await sleep(150);
     assert(await t.page.evaluate(()=>hkPopup.docked('#media')),'media popup is the real docked player');
     await run(1,'Pages with media back to Home',false);assert.equal(await where(t),order[0]);await ready(t);
@@ -364,7 +385,8 @@ const SECTIONS = {
     const back=await swipe(t,[{ms:400,dx:W*.08}]);tracksFinger(back,'short drag with media');assert.equal(await where(t),order[2]);isClean(await rest(t),'short drag with media');
     await t.page.evaluate(()=>hkPopup.open('#alarm'));await sleep(350);
     assert(['popup','sheet'].includes(await t.page.evaluate(()=>hkPageSwipe.blocked())),'a covering sheet owns its gesture');
-    const before=await where(t);await swipe(t,[{ms:200,dx:-W*.3}]);assert.equal(await where(t),before);assert.equal((await rest(t)).left,0);await t.page.evaluate(()=>{if(window.hkDetail)hkDetail.close();});await sleep(700);isClean(await rest(t),'covering sheet dismissed');
+    const before=await where(t);await swipe(t,[{ms:200,dx:-W*.3}]);assert.equal(await where(t),before);assert.equal((await rest(t)).left,0);
+      await t.page.evaluate(()=>{if(window.hkDetail)hkDetail.close();});await sleep(700);isClean(await rest(t),'covering sheet dismissed');
     await close(t,'companions');
   },
 
@@ -375,10 +397,13 @@ const SECTIONS = {
       const route = await t.page.evaluate(k => hkPageSwipe.order().find(i => i.kind === k || i.path.endsWith('/' + (k === 'live_tv' ? 'live-tv' : k)))?.path, kind);
       assert(route, kind + ': page is in the order');
       await t.page.evaluate(p => hkShell.navigate(p), route); await ready(t); await sleep(800);
-      if (kind === 'calendar') await t.page.waitForFunction(() => __m.deep(document, 'hk-calendar-card').filter(c => __m.chain(c).includes(__m.view())).some(c => c.shadowRoot && c.shadowRoot.textContent.includes('Fictional event')), null, {timeout:10000});
-      if (kind === 'live_tv') await t.page.waitForFunction(() => __m.deep(document, 'hk-tv-guide-card').filter(c => __m.chain(c).includes(__m.view())).some(c => c.shadowRoot && c.shadowRoot.textContent.includes('Fictional Channel')), null, {timeout:10000});
+      if (kind === 'calendar') await t.page.waitForFunction(() => __m.deep(document, 'hk-calendar-card').filter(c => __m.chain(c).includes(__m.view())).some(c => c.shadowRoot &&
+        c.shadowRoot.textContent.includes('Fictional event')), null, {timeout:10000});
+      if (kind === 'live_tv') await t.page.waitForFunction(() => __m.deep(document, 'hk-tv-guide-card').filter(c => __m.chain(c).includes(__m.view())).some(c => c.shadowRoot &&
+        c.shadowRoot.textContent.includes('Fictional Channel')), null, {timeout:10000});
       const sign = kind === 'live_tv' ? 1 : -1, s = await spot(t, sign);
-      await t.page.evaluate(() => {document.addEventListener('pointerdown', function remember(e){window.__pressed=e.composedPath()[0];document.removeEventListener('pointerdown',remember,true);},true);__m.start();});
+      await t.page.evaluate(() => {document.addEventListener('pointerdown', function remember(e){window.__pressed=e.composedPath()[0];document.removeEventListener('pointerdown',remember,true);},true);
+        __m.start();});
       await down(t,s.x,s.y); await move(t,s.x+W*.15*sign,s.y); await sleep(40);
       if(t.cdp) assert(await t.page.evaluate(() => {const s=hkPageSwipe._.state();return s.G && s.G.stage.view.hasPointerCapture(s.G.id);}), kind+': the stable view owns the native pointer');
       await t.page.evaluate(() => { if(window.__pressed && window.__pressed!==__m.view() && window.__pressed!==__m.slot()) window.__pressed.replaceWith(window.__pressed.cloneNode(true)); });
@@ -398,7 +423,9 @@ const SECTIONS = {
     const incoming = { x: Math.round(W * 0.58), y: 0, w: Math.round(W * 0.42), h: Math.round(H * 0.8) };
     const check = async (name, wantPage) => {
       const h = await holdThen(t, -1, async () => {
-        const seen = await t.page.evaluate(() => { const p = __m.pagesOf().filter(k => k !== __m.view()); const q = p.find(k => { const l = k.getBoundingClientRect().left; return l > 0 && l < innerWidth; }); return q ? { ghost: q.classList.contains('hk-swipe-ghost'), shows: __m.inSight(q), inert: q.hasAttribute('inert') } : null; });
+        const seen = await t.page.evaluate(() => { const p = __m.pagesOf().filter(k => k !== __m.view());
+          const q = p.find(k => { const l = k.getBoundingClientRect().left; return l > 0 && l < innerWidth; }); return q ?
+          { ghost: q.classList.contains('hk-swipe-ghost'), shows: __m.inSight(q), inert: q.hasAttribute('inert') } : null; });
         const png = await t.page.screenshot({ type: 'png' });
         if (input.shots) require('fs').writeFileSync(path.join(input.shots, input.engine + '-' + input.size + '-' + name + '.png'), png);
         return { seen, ink: await inkIn(t, png, incoming) };
@@ -499,13 +526,16 @@ const SECTIONS = {
       await down(t, b1[0][1], b1[0][2]);
       for (const q of b1.slice(1)) { await move(t, q[1], q[2]); await sleep(5); }
       await sleep(50);
-      const lv = await t.page.evaluate(() => { const v = __m.view(), s = hkPageSwipe._.state().ST; const k = [...__m.pagesOf()].filter(e => e !== (s ? s.view : v)); const y = (s ? s.view : v).getBoundingClientRect().top; return k.map(e => Math.round(e.getBoundingClientRect().top - y)); });
+      const lv = await t.page.evaluate(() => { const v = __m.view(), s = hkPageSwipe._.state().ST; const k = [...__m.pagesOf()].filter(e => e !== (s ? s.view : v));
+        const y = (s ? s.view : v).getBoundingClientRect().top; return k.map(e => Math.round(e.getBoundingClientRect().top - y)); });
       await up(t, b1[b1.length - 1][1], b1[b1.length - 1][2]);
       await sleep(900);
       assert(lv.every(d => Math.abs(d) <= 2), name + ': the pages level with each other in a caught swipe ' + JSON.stringify(lv));
       // no leap as it is caught: the moved page's steps stay within the finger's and the spring's
-      const se = frames.map(f => { const k = f.pages.find(p => p.id === id); return k ? { x: k.x, now: f.now, t: f.t } : null; }).filter(Boolean).filter(p => p.now >= pressedAt - 34 && p.now <= pressedAt + 34);
-      for (let i = 1; i < se.length; i++) assert(Math.abs(se[i].x - se[i - 1].x) <= Math.max(140, (se[i].t - se[i - 1].t) * 8.5), name + ': no leap at the press ' + JSON.stringify(se.map(p => Math.round(p.x))));
+      const se = frames.map(f => { const k = f.pages.find(p => p.id === id); return k ? { x: k.x, now: f.now, t: f.t } : null; }).filter(Boolean).filter(p => p.now >= pressedAt - 34 && p.now <=
+        pressedAt + 34);
+      for (let i = 1; i < se.length; i++) assert(Math.abs(se[i].x - se[i - 1].x) <= Math.max(140, (se[i].t - se[i - 1].t) * 8.5), name + ': no leap at the press ' +
+        JSON.stringify(se.map(p => Math.round(p.x))));
       await close(t, name);
     }
     // a tap on a settling page lets it go on to where it was going
@@ -571,7 +601,8 @@ const SECTIONS = {
     await t.page.setViewportSize({ width: W, height: H }); await sleep(500); await ready(t);
     await under('turned', () => t.page.setViewportSize({ width: H, height: W }));
     await t.page.setViewportSize({ width: W, height: H }); await sleep(500); await ready(t);
-    const hide = () => t.page.evaluate(() => { Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' }); document.dispatchEvent(new Event('visibilitychange')); delete document.visibilityState; document.dispatchEvent(new Event('visibilitychange')); });
+    const hide = () => t.page.evaluate(() => { Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' }); document.dispatchEvent(new Event('visibilitychange'));
+      delete document.visibilityState; document.dispatchEvent(new Event('visibilitychange')); });
     await under('hidden', hide);
     await under('back button', () => t.page.evaluate(() => window.dispatchEvent(new PopStateEvent('popstate'))));
     // hidden as it settles: it ends now, and where it was going
@@ -586,7 +617,9 @@ const SECTIONS = {
     await sleep(900);
     // (at rest past the window's edge, laid out at the page's new width: 2026-11-05, a width away was on the screen beside
     // the Side Pane, and one laid out at a stale width drew itself again after it landed)
-    const rw = await t.page.evaluate(() => { const v = __m.view().getBoundingClientRect().width; return __m.pagesOf().filter(k => k !== __m.view()).map(k => { const r = k.getBoundingClientRect(); return { out: r.right <= 0 || r.left >= innerWidth, w: Math.round(r.width), v: Math.round(v) }; }); });
+    const rw = await t.page.evaluate(() => { const v = __m.view().getBoundingClientRect().width;
+      return __m.pagesOf().filter(k => k !== __m.view()).map(k => { const r = k.getBoundingClientRect(); return { out: r.right <= 0 || r.left >= innerWidth, w: Math.round(r.width), v: Math.round(v) };
+      }); });
     assert(rw.length && rw.every(k => k.out && Math.abs(k.w - k.v) <= 2), 'the neighbors out of sight, at the new width ' + JSON.stringify(rw));
     await t.page.setViewportSize({ width: W, height: H }); await sleep(500);
     const w = await swipe(t, [{ ms: 300, dx: W * -0.4 }]);
@@ -602,7 +635,8 @@ const SECTIONS = {
       const heard = [];
       window.addEventListener('hk-view-ready', (e) => heard.push(e.detail.view === __m.view()));
       const n = __m.pagesOf().filter(k => k !== __m.view());
-      return { waiting: n.length, inert: n.every(k => k.hasAttribute('inert') && k.getAttribute('aria-hidden') === 'true' && k.hasAttribute('data-hk-offstage')), noTab: !n.some(k => k.contains(document.activeElement)) };
+      return { waiting: n.length, inert: n.every(k => k.hasAttribute('inert') && k.getAttribute('aria-hidden') === 'true' && k.hasAttribute('data-hk-offstage')),
+        noTab: !n.some(k => k.contains(document.activeElement)) };
     });
     assert(said.waiting >= 1 && said.inert && said.noTab, 'offstage: inert, hidden from a reader, and off stage ' + JSON.stringify(said));
     // shown by a tab, it is simply the page; what it was is gone
@@ -634,7 +668,8 @@ const SECTIONS = {
     const moved = w.frames.some(f => f.pages.some(p => p.cur && Math.abs(p.x) > 1));
     assert(!moved, 'reduced: nothing moves');
     const both = w.frames.filter(f => f.pages.filter(p => p.o > 0.05 && p.o < 0.95 && Math.abs(p.x) < 1).length === 2);
-    assert(both.length >= 1, 'reduced: both pages on the screen in the fade, not a dip to the sky ' + JSON.stringify(w.frames.slice(-40).map(f => f.pages.map(p => [Math.round(p.x), +p.o.toFixed(2)]))));
+    assert(both.length >= 1, 'reduced: both pages on the screen in the fade, not a dip to the sky ' +
+      JSON.stringify(w.frames.slice(-40).map(f => f.pages.map(p => [Math.round(p.x), +p.o.toFixed(2)]))));
     assert.equal(await where(t), order[1], 'reduced: lands');
     isClean(await rest(t), 'reduced');
     await close(t, 'reduced');
@@ -668,8 +703,10 @@ const SECTIONS = {
     const t = await open(b, 'ps-grid');
     // (a block whose page doesn't scroll sideways inside itself at that point: that is the browser's own pan)
     const info = () => t.page.evaluate(() => {
-      const fine = (q) => { const r = q.getBoundingClientRect(), x = r.right - Math.min(40, r.width / 4), y = (r.top + r.bottom) / 2, e = __m.deepAt(x, y); return e && __m.chain(e).indexOf(q) >= 0 && !__m.chain(e).some(n => n.classList && n.classList.contains('tiles')); };
-      window.__mp = window.__mp || __m.deep(document, 'hk-pager-card').filter(q => (q._pages || []).length > 1 && !__m.chain(q).some(n => n.getAttribute && n.getAttribute('inert') !== null)).filter(fine)[0];
+      const fine = (q) => { const r = q.getBoundingClientRect(), x = r.right - Math.min(40, r.width / 4), y = (r.top + r.bottom) / 2, e = __m.deepAt(x, y); return e && __m.chain(e).indexOf(q) >= 0 &&
+        !__m.chain(e).some(n => n.classList && n.classList.contains('tiles')); };
+      window.__mp = window.__mp || __m.deep(document, 'hk-pager-card').filter(q => (q._pages || []).length > 1 && !__m.chain(q).some(n => n.getAttribute && n.getAttribute('inert') !== null)).filter(
+        fine)[0];
       const p = window.__mp; if (!p) return null;
       const r = p.getBoundingClientRect();
       return { x: r.right - Math.min(40, r.width / 4), y: (r.top + r.bottom) / 2, w: r.width, i: p._index, left: p._track.scrollLeft, want: p._pageLeft(p._index), glide: !!p._glide };

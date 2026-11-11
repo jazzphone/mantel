@@ -22,7 +22,8 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
    const geometry=await page.evaluate(()=>{
     window.room=deep(document,'hk-grid-room-card').find(r=>r._config?.area==='kitchen');window.tiles=room.shadowRoot.querySelector('.tiles');
     const r=tiles.getBoundingClientRect(),slot=tiles.firstElementChild.getBoundingClientRect();
-    return {count:room._kids.length,height:r.height,tileHeight:slot.height,scroll:tiles.scrollHeight,lock:room._kids.some(k=>k._config.entity==='lock.back_door'),more:!!tiles.querySelector('.more'),x:r.x+r.width/2,y:r.y+r.height/2};
+    return {count:room._kids.length,height:r.height,tileHeight:slot.height,scroll:tiles.scrollHeight,lock:room._kids.some(k=>k._config.entity==='lock.back_door'),more:!!tiles.querySelector('.more'),
+      x:r.x+r.width/2,y:r.y+r.height/2};
    });
    assert(geometry.count>8 && geometry.lock && !geometry.more,JSON.stringify(geometry));
    assert(geometry.scroll>geometry.height && Math.abs(geometry.tileHeight-(geometry.height-8)/2)<2,JSON.stringify(geometry));
@@ -31,7 +32,8 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
    assert(await page.evaluate(()=>tiles.scrollTop>100));assert.equal(await page.evaluate(()=>p._index),index);
    await page.evaluate(()=>tiles.scrollTop=tiles.scrollHeight);
    assert(await page.evaluate(()=>Math.abs(tiles.lastElementChild.getBoundingClientRect().bottom-tiles.getBoundingClientRect().bottom)<2));
-   await page.waitForFunction(()=>['switch.coffee','input_button.good_morning','switch.unsupported_icon'].every(id=>deep(document,'hk-tile-card,hk-scene-card').filter(c=>c._config?.entity===id).some(c=>deep(c.shadowRoot,'hk-state-icon').some(i=>i.shadowRoot.querySelector('path.p')?.getAttribute('d')))));
+   await page.waitForFunction(()=>['switch.coffee','input_button.good_morning','switch.unsupported_icon'].every(
+     id=>deep(document,'hk-tile-card,hk-scene-card').filter(c=>c._config?.entity===id).some(c=>deep(c.shadowRoot,'hk-state-icon').some(i=>i.shadowRoot.querySelector('path.p')?.getAttribute('d')))));
    assert(await page.evaluate(()=>{
     const standalone=id=>deep(document,'hk-grid-entity-card').find(c=>c._config.entity===id)._child;
     const coffee=standalone('switch.coffee'), morning=standalone('input_button.good_morning'), scene=standalone('scene.good_morning');
@@ -62,11 +64,15 @@ const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
     await touch('touchStart',geometry.x+100,geometry.y);await page.waitForTimeout(50);
     for(let i=1;i<=8;i++){await touch('touchMove',geometry.x+100-i*35,geometry.y);await page.waitForTimeout(20);}
     await touch('touchEnd');await page.waitForTimeout(600);
-    try{await page.waitForFunction(i=>p._index!==i,index,{timeout:3000});}catch(e){console.log(await page.evaluate(()=>({index:p._index,left:p._track.scrollLeft,width:p._track.clientWidth,held:p._track.className,roomBox:room.getBoundingClientRect().toJSON(),tiles:tiles.getBoundingClientRect().toJSON()})));throw e;}
+    try{await page.waitForFunction(i=>p._index!==i,index,{timeout:3000});}catch(e){
+      console.log(await page.evaluate(()=>({index:p._index,left:p._track.scrollLeft,width:p._track.clientWidth,held:p._track.className,roomBox:room.getBoundingClientRect().toJSON(),
+      tiles:tiles.getBoundingClientRect().toJSON()})));throw e;}
    }
    await page.goto(input.origin+'/settings#/screens/room-scroll/home-grid');
    await page.waitForFunction(()=>!!document.querySelector('hk-settings-panel')?.shadowRoot?.querySelector('hk-grid-editor')?.previewView?.isConnected);
-   await page.evaluate(()=>{window.ed=document.querySelector('hk-settings-panel').shadowRoot.querySelector('hk-grid-editor');ed.select('room');window.seg=(v)=>[...ed.sidebar.querySelectorAll('.cell')].find(c=>c.querySelector('.t')?.textContent==='Accessories').querySelector('[role=radio][data-fk$=":'+v+'"]');seg('summary').click();ed.save();});
+   await page.evaluate(()=>{window.ed=document.querySelector('hk-settings-panel').shadowRoot.querySelector('hk-grid-editor');ed.select('room');
+     window.seg=(v)=>[...ed.sidebar.querySelectorAll('.cell')].find(c=>c.querySelector('.t')?.textContent==='Accessories').querySelector('[role=radio][data-fk$=":'+v+'"]');seg('summary').click();
+     ed.save();});
    await page.waitForFunction(()=>!ed.busy&&!ed.dirty());
    assert(await page.evaluate(()=>(ed.grid.items[0].opts.accessory_display||'summary')==='summary'));   // Summary is the default: saved as no value
    await page.evaluate(()=>{seg('scroll').click();ed.save();});

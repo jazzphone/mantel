@@ -137,7 +137,8 @@ async function shot(t, name) {
 async function enterFromMore(t) {
   await tapAt(t, await t.page.evaluate(() => { const sr = document.getElementById('hk-tabbar').shadowRoot, m = sr.querySelector('.tab[data-t="more"]'); return m && __ge.box(m); }));
   await t.page.waitForTimeout(300);
-  await tapAt(t, await t.page.evaluate(() => { const sr = document.getElementById('hk-tabbar').shadowRoot, e = sr.querySelector('.sheet.open .it[data-k="e"]'); return e && (e.scrollIntoView({ block: 'center' }), __ge.box(e)); }));
+  await tapAt(t, await t.page.evaluate(() => { const sr = document.getElementById('hk-tabbar').shadowRoot, e = sr.querySelector('.sheet.open .it[data-k="e"]'); return e &&
+    (e.scrollIntoView({ block: 'center' }), __ge.box(e)); }));
   await ready(t);
 }
 async function ready(t) {
@@ -164,7 +165,8 @@ async function tiles(inp) {
   const covers = await ge(t, 'covers');
   assert.equal(covers.length, 7, 'every block drawn');
   assert(covers.every(c => c.cover && c.x), 'every block has its cover and its minus: ' + JSON.stringify(covers));
-  assert.deepEqual(covers.filter(c => c.sz).map(c => c.id).sort(), ['cam', 'clock', 'lock', 'np', 'thermo', 'timers', 'weather'], 'a size where the card has more than one (an Accessory has Small, Wide and Tall since 2026-11-07)');
+  assert.deepEqual(covers.filter(c => c.sz).map(c => c.id).sort(), ['cam', 'clock', 'lock', 'np', 'thermo', 'timers', 'weather'],
+    'a size where the card has more than one (an Accessory has Small, Wide and Tall since 2026-11-07)');
   const bar = await ge(t, 'bar'), rb = await ge(t, 'rootBox');
   assert(bar.b <= rb.t + 2, 'the grid fits under the Edit bar: ' + JSON.stringify([bar, rb]));
   const tb = await p.evaluate(() => { const sr = document.getElementById('hk-tabbar').shadowRoot, pill = sr && sr.querySelector('.pill'); return pill ? __ge.box(pill) : null; });
@@ -229,7 +231,8 @@ async function replace(inp) {
   const choose = async () => {
     await tapAt(t, await ge(t, 'barBtn', 'Add'));
     await p.waitForFunction(() => !!__ge.sheet(), null, { timeout: 5000 });
-    const chip = await p.evaluate(() => { const c = __ge.sheet().querySelector('.chip[data-card="camera"][data-size="L"]'); return c && { replace: c.hasAttribute('data-replace'), disabled: c.disabled, title: c.title }; });
+    const chip = await p.evaluate(() => { const c = __ge.sheet().querySelector('.chip[data-card="camera"][data-size="L"]'); return c &&
+      { replace: c.hasAttribute('data-replace'), disabled: c.disabled, title: c.title }; });
     assert.deepEqual([chip && chip.replace, chip && chip.disabled], [true, false], 'a size with no free space is offered, marked as one that replaces: ' + JSON.stringify(chip));
     assert.match(chip.title, /place it over the blocks it replaces/);
     return chip;
@@ -242,13 +245,15 @@ async function replace(inp) {
   const over = await ge(t, 'blockAt', 0, 2, 2, 2);
   // held over the lock, Timers and Scenes. A mouse's pointer is enough; a finger goes down on the grid and moves there.
   const hold = async () => {
-    if (t.finger) { await p.evaluate(([x, y]) => __finger.down(x, y), [over.x + 120, over.y]); for (let i = 1; i <= 8; i++) { await p.evaluate(([x, y]) => __finger.move(x, y), [over.x + 120 - 120 * i / 8, over.y]); await p.waitForTimeout(25); } }
+    if (t.finger) { await p.evaluate(([x, y]) => __finger.down(x, y), [over.x + 120, over.y]);
+      for (let i = 1; i <= 8; i++) { await p.evaluate(([x, y]) => __finger.move(x, y), [over.x + 120 - 120 * i / 8, over.y]); await p.waitForTimeout(25); } }
     else { await p.mouse.move(over.x + 120, over.y); for (let i = 1; i <= 8; i++) { await p.mouse.move(over.x + 120 - 120 * i / 8, over.y); await p.waitForTimeout(25); } }
     await p.waitForTimeout(350);
   };
   await hold();
   const held = await ge(t, 'placing');
-  assert.deepEqual([held.at, held.shown, held.replace, held.going], [[0, 2], true, true, ['lock', 'scenes', 'timers']], 'held over them: the outline is red, and the three they would replace are dimmed');
+  assert.deepEqual([held.at, held.shown, held.replace, held.going], [[0, 2], true, true, ['lock', 'scenes', 'timers']],
+    'held over them: the outline is red, and the three they would replace are dimmed');
   assert.equal(await ge(t, 'barMsg'), 'The Large Camera replaces Action, Timers and Scenes here. Cancel puts them back.', 'the bar names them');
   assert.deepEqual(await items(), start, 'nothing is changed while it is held');
   assert.equal(await p.evaluate(() => getComputedStyle(__ge.cell('lock')).opacity), '0.45', 'the dimmed block is dimmed');
@@ -258,7 +263,8 @@ async function replace(inp) {
   await p.waitForTimeout(250);
   if (t.finger) await p.evaluate(([x, y]) => __finger.up(x, y), [over.x, over.y]); else await p.mouse.move(over.x, over.y - 400);
   await p.waitForTimeout(300);
-  assert.deepEqual([await ge(t, 'placing'), await items(), await ge(t, 'barMsg'), await p.evaluate(() => !!hkEdit.active())], [null, start, 'Cancelled.', true], 'Escape: nothing placed, Edit mode goes on');
+  assert.deepEqual([await ge(t, 'placing'), await items(), await ge(t, 'barMsg'), await p.evaluate(() => !!hkEdit.active())], [null, start, 'Cancelled.', true],
+    'Escape: nothing placed, Edit mode goes on');
   assert.deepEqual(await ge(t, 'shown'), shown0, '...every block drawn where it was');
   // the drop
   await choose();
@@ -268,7 +274,8 @@ async function replace(inp) {
   else { await p.mouse.down(); await p.mouse.up(); }
   await p.waitForTimeout(700);
   const placed = await items();
-  assert.deepEqual(placed, start.filter(s => !/^(lock|timers|scenes)@/.test(s)).concat(['b1@0,2 L']).sort(), 'dropped: the three are gone, the Camera took their cells, nothing else moved (' + how + ')');
+  assert.deepEqual(placed, start.filter(s => !/^(lock|timers|scenes)@/.test(s)).concat(['b1@0,2 L']).sort(), 'dropped: the three are gone, the Camera took their cells, nothing else moved (' + how +
+    ')');
   assert.equal(await ge(t, 'barMsg'), 'Action, Timers and Scenes were replaced by Camera. Cancel puts them back.');
   assert.deepEqual(await ge(t, 'placing'), null, 'placing is over');
   assert.equal(await p.evaluate(() => hkGridEditor.valid(hkEditGrid.active().grid)), true, '...the layout valid');

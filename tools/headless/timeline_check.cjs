@@ -131,7 +131,8 @@ function sheetState() {
       check(key + ' chips', () => assert.deepEqual(m.chips.slice(0, 1), ['All*']));
       check(key + ' summary', () => assert(m.sum && /Today/.test(m.sum), String(m.sum)));
       const byTitle = (t) => m.rows.find(r => r.title === t);
-      check(key + ' who: tablet', () => assert(byTitle('Back Door unlocked').subs.some(s => s === 'Emma · Hallway tablet') || m.rows.some(r => r.title === 'Back Door unlocked' && r.subs.includes('Emma · Hallway tablet'))));
+      check(key + ' who: tablet', () => assert(byTitle('Back Door unlocked').subs.some(s => s === 'Emma · Hallway tablet') ||
+        m.rows.some(r => r.title === 'Back Door unlocked' && r.subs.includes('Emma · Hallway tablet'))));
       check(key + ' who: by hand', () => assert(m.rows.some(r => r.subs.includes('By hand or an automation'))));
       check(key + ' who: away', () => assert(m.rows.some(r => r.subs.includes('Mark · away'))));
       check(key + ' who: assistant', () => assert(m.rows.some(r => r.subs.includes('Through an assistant for Emma'))));
@@ -143,7 +144,8 @@ function sheetState() {
       check(key + ' warnings tinted', () => assert(m.rows.filter(r => r.warn).length >= 4));
       check(key + ' no sideways scroll', () => assert(m.scrollW <= m.W, m.scrollW + ' > ' + m.W));
       check(key + ' touch targets', () => { for (const t of m.targets) assert(t.h >= 43.5 && t.w >= 43.5, `${t.cls} "${t.label}" is ${t.w} x ${t.h}`); });
-      check(key + ' inside the window', () => { for (const t of m.targets) if (!/chip/.test(t.cls) || w > 640) assert(t.l >= -0.5 && t.r <= m.W + 0.5, `${t.cls} "${t.label}" ${t.l}..${t.r} of ${m.W}`); });
+      check(key + ' inside the window', () => { for (const t of m.targets) if (!/chip/.test(t.cls) || w > 640) assert(t.l >= -0.5 && t.r <= m.W + 0.5,
+        `${t.cls} "${t.label}" ${t.l}..${t.r} of ${m.W}`); });
 
       // ---- the filters, by touch
       phase = 'filters';
@@ -170,7 +172,8 @@ function sheetState() {
       await page.keyboard.type('garage');
       await page.waitForTimeout(800);
       m = await page.evaluate(measure);
-      check(key + ' search asks for q=garage once', () => { assert(/q=garage/.test(last()), last()); assert.equal(reads.filter(r => /q=g(a|ar|arag)?(&|$)/.test(r)).length, 0, 'a read per letter: ' + reads.join(' ')); });
+      check(key + ' search asks for q=garage once', () => { assert(/q=garage/.test(last()), last());
+        assert.equal(reads.filter(r => /q=g(a|ar|arag)?(&|$)/.test(r)).length, 0, 'a read per letter: ' + reads.join(' ')); });
       check(key + ' search rows', () => assert(m.rows.length >= 5 && m.rows.every(r => /Garage/.test(r.title + ' ' + r.subs.join(' ')))));
       await shot(page, key + '-4-search');
       await page.evaluate(() => window.scrollTo(0, 0));
@@ -182,14 +185,16 @@ function sheetState() {
       await page.locator(CARD + ' [data-act=pick-day]').tap();
       await page.waitForTimeout(300);
       const dp = await page.evaluate((sel) => {
-        const deep = (r) => { const h = r.querySelector(sel); if (h) return h; for (const e of r.querySelectorAll('*')) if (e.shadowRoot) { const f = deep(e.shadowRoot); if (f) return f; } return null; };
+        const deep = (r) => { const h = r.querySelector(sel); if (h) return h; for (const e of r.querySelectorAll('*')) if (e.shadowRoot) { const f = deep(e.shadowRoot); if (f) return f;
+          } return null; };
         const card = deep(document);
         const root = card && card.shadowRoot, box = root && root.querySelector('.dp'), r = box && box.getBoundingClientRect();
         const days = root ? [...root.querySelectorAll('.dp [data-act=day-pick]')] : [];
         return { open: !!box, inView: !!r && r.left >= 0 && r.right <= innerWidth + 0.5 && r.height > 200, title: box && box.querySelector('.mh b').textContent,
                  future: days.filter(d => d.disabled).map(d => d.getAttribute('data-v')).slice(0, 1), date: root ? root.querySelectorAll('input[type=date]').length : -1 };
       }, CARD);
-      check(key + ' the day jump opens the little month, in sight, no date input', () => { assert(dp.open && dp.inView && dp.date === 0, JSON.stringify(dp)); assert.equal(dp.title, 'November 2026'); });
+      check(key + ' the day jump opens the little month, in sight, no date input',
+        () => { assert(dp.open && dp.inView && dp.date === 0, JSON.stringify(dp)); assert.equal(dp.title, 'November 2026'); });
       check(key + ' a day after today cannot be picked', () => assert.deepEqual(dp.future, ['2026-11-04'], JSON.stringify(dp.future)));
       await shot(page, key + '-5-day-picker');
       await page.locator(CARD + ' .dp [data-act=day-pick][data-v="2026-11-02"]').tap();
@@ -208,7 +213,8 @@ function sheetState() {
       await page.waitForTimeout(800);
       m = await page.evaluate(measure);
       check(key + ' only mine asks mine=1', () => assert(/mine=1/.test(last()), last()));
-      check(key + ' only mine rows', () => assert(m.rows.length >= 6 && m.rows.every(r => r.subs.some(s => /^Emma|assistant for Emma/.test(s)) || /Emma/.test(r.subs.join())), JSON.stringify(m.rows.map(r => r.title + '|' + r.subs.join('/')).slice(0, 4))));
+      check(key + ' only mine rows', () => assert(m.rows.length >= 6 && m.rows.every(r => r.subs.some(s => /^Emma|assistant for Emma/.test(s)) || /Emma/.test(r.subs.join())),
+        JSON.stringify(m.rows.map(r => r.title + '|' + r.subs.join('/')).slice(0, 4))));
       await page.evaluate(() => window.scrollTo(0, 0));
       await page.locator(CARD + ' [data-act=mine]').tap();
       await page.waitForTimeout(700);
@@ -220,9 +226,11 @@ function sheetState() {
       await page.waitForTimeout(900);
       let s = await page.evaluate(sheetState);
       check(key + ' sheet: pictures', () => { assert.equal(s.pics, 2); assert(s.imgsLoaded, 'pictures loaded'); });
-      check(key + ' sheet: title and rows', () => { assert.equal(s.title, 'Someone rang Front Door'); assert(s.rows.some(r => /^Time\s*Tuesday, November 3, 2026 at 2:47:00 PM/.test(r)), s.rows.join(' | ')); });
+      check(key + ' sheet: title and rows', () => { assert.equal(s.title, 'Someone rang Front Door');
+        assert(s.rows.some(r => /^Time\s*Tuesday, November 3, 2026 at 2:47:00 PM/.test(r)), s.rows.join(' | ')); });
       check(key + ' sheet: show all', () => assert.equal(s.go, 'Show All for Front Door', String(s.go)));
-      check(key + ' sheet: fits and touch', () => { assert(s.sheet.l >= 0 && s.sheet.r <= s.W && s.sheet.t >= 0 && s.sheet.b <= s.H, JSON.stringify(s.sheet)); for (const t of s.targets) assert(t.h >= 43.5 && t.w >= 43.5, t.label + ' ' + t.w + 'x' + t.h); });
+      check(key + ' sheet: fits and touch', () => { assert(s.sheet.l >= 0 && s.sheet.r <= s.W && s.sheet.t >= 0 && s.sheet.b <= s.H, JSON.stringify(s.sheet));
+        for (const t of s.targets) assert(t.h >= 43.5 && t.w >= 43.5, t.label + ' ' + t.w + 'x' + t.h); });
       if (process.env.TL_DEBUG) console.log('sheet css', JSON.stringify(s.cs));
       await shot(page, key + '-6-sheet');
       // swipe to the second picture (a touch drag along the strip)
@@ -230,7 +238,8 @@ function sheetState() {
       await page.evaluate(() => { document.querySelector('#hk-timeline-sheet .pics').scrollTo({ left: 100000, behavior: 'instant' }); });
       await page.waitForTimeout(500);
       s = await page.evaluate(sheetState);
-      check(key + ' sheet: swiped to the second picture', () => { assert(s.strip.sl > s.strip.w * 0.9, JSON.stringify(s.strip)); assert.deepEqual(s.dots, ['', 'on']); assert(/2 of 2/.test(s.caption), s.caption); });
+      check(key + ' sheet: swiped to the second picture', () => { assert(s.strip.sl > s.strip.w * 0.9, JSON.stringify(s.strip)); assert.deepEqual(s.dots, ['', 'on']);
+        assert(/2 of 2/.test(s.caption), s.caption); });
       await shot(page, key + '-7-sheet-second');
       await page.locator('#hk-timeline-sheet [data-nav="-1"]').tap();
       await page.waitForTimeout(700);
@@ -278,7 +287,8 @@ function sheetState() {
           return !!first && first.textContent === 'Front Door locked';
         }, null, { timeout: 8000 }).catch(() => { failures++; console.log('FAIL ' + key + ' live: no new row'); });
         m = await page.evaluate(measure);
-        check(key + ' live: the new row is first, with its who line', () => assert(m.rows[0].title === 'Front Door locked' && m.rows[0].subs.includes('Emma · Hallway tablet'), JSON.stringify(m.rows[0])));
+        check(key + ' live: the new row is first, with its who line', () => assert(m.rows[0].title === 'Front Door locked' && m.rows[0].subs.includes('Emma · Hallway tablet'),
+          JSON.stringify(m.rows[0])));
         await shot(page, key + '-11-live');
       }
 
@@ -314,7 +324,8 @@ function sheetState() {
       // ---- the empty state, the error state and Try Again
       phase = 'states';
       await page.route('**/api/timeline?*', (route) => route.fulfill({ status: 200, contentType: 'application/json',
-        body: JSON.stringify({ events: [], next_before: null, limited: false, names: true, search: true, families: ['door', 'lock', 'garage', 'alarm', 'arrival', 'doorbell', 'detection', 'motion', 'safety', 'system', 'refused'] }) }));
+        body: JSON.stringify({ events: [], next_before: null, limited: false, names: true, search: true,
+          families: ['door', 'lock', 'garage', 'alarm', 'arrival', 'doorbell', 'detection', 'motion', 'safety', 'system', 'refused'] }) }));
       await page.goto(page.url(), { waitUntil: 'commit' });
       await page.waitForFunction(() => window.__mantelReady === true, null, { timeout: 30000 });
       await page.waitForTimeout(1800);

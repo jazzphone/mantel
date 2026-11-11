@@ -50,7 +50,8 @@ const MEASURE = () => {
     buttons: q('.rv button').map((b) => b.textContent), seg: q('.seg button').map((b) => b.textContent + (b.classList.contains('sel') ? '*' : '')),
     chips: q('.chips .pill').map((p) => p.querySelector('.l b').textContent.trim() + (p.getAttribute('aria-pressed') === 'true' ? '*' : '') + (p.classList.contains('preset') ? '~' : '')),
     // name, * picked, [its line] (Music's speaker rows, 2026-11-10)
-    pills: q('.rooms .rm').map((p) => p.querySelector('.l b').textContent.trim() + (p.getAttribute('aria-pressed') === 'true' ? '*' : '') + (p.querySelector('.l small') ? '[' + p.querySelector('.l small').textContent + ']' : '')),
+    pills: q('.rooms .rm').map((p) => p.querySelector('.l b').textContent.trim() + (p.getAttribute('aria-pressed') === 'true' ? '*' : '') +
+      (p.querySelector('.l small') ? '[' + p.querySelector('.l small').textContent + ']' : '')),
     // a row of pills that stops short of the section's edge is an orphan gap; so is a big empty area under the foot
     // every room one width and one height (one grid: the last row simply ends short); the groups one height
     sizes: [...new Set(q('.rooms .rm').map((p) => { const r = p.getBoundingClientRect(); return Math.round(r.width) + 'x' + Math.round(r.height); }))],
@@ -84,7 +85,8 @@ const MEASURE = () => {
       const page = await ctx.newPage();
       const errors = [];
       page.on('pageerror', (e) => errors.push('page error: ' + e.message));
-      page.on('console', (m) => { if (m.type() === 'error' && !/glyphs\.js|hk-glyphs|SF-Pro|Failed to load resource|intercom/i.test(m.text() + ((m.location() || {}).url || ''))) errors.push('console: ' + m.text()); });
+      page.on('console', (m) => { if (m.type() === 'error' && !/glyphs\.js|hk-glyphs|SF-Pro|Failed to load resource|intercom/i.test(m.text() + ((m.location() || {}).url || ''))) errors.push(
+        'console: ' + m.text()); });
       const shot = (what) => page.screenshot({ path: `${input.shots}/${input.tag || ''}${name}-${what}.png` });
       const tapAt = async (selector, nth = 0) => {
         const box = await page.evaluate(([sel, n]) => {
@@ -110,7 +112,8 @@ const MEASURE = () => {
         if (!box) throw new Error('nothing to tap in the sheet: ' + selector);
         await page.touchscreen.tap(box.x, box.y);
       };
-      const lineIs = (re) => page.waitForFunction((src) => { const c = deep(document, 'hk-intercom-sheet-card')[0]; return !!c && new RegExp(src).test(c.shadowRoot.querySelector('.line').textContent); }, re.source, { timeout: 8000 });
+      const lineIs = (re) => page.waitForFunction((src) => { const c = deep(document, 'hk-intercom-sheet-card')[0]; return !!c && new RegExp(src).test(c.shadowRoot.querySelector('.line').textContent);
+        }, re.source, { timeout: 8000 });
       const openSheet = async () => {
         await page.evaluate(() => hkIntercom.open());
         await page.waitForFunction(() => { const c = deep(document, 'hk-intercom-sheet-card')[0]; return !!c && c.shadowRoot.querySelectorAll('.rooms .rm').length > 0; }, null, { timeout: 15000 });
@@ -140,7 +143,8 @@ const MEASURE = () => {
           await page.waitForFunction(() => !!window.hkIntercom, null, { timeout: 15000 }).catch(() => {});
           await page.evaluate(DEEP);
           await page.waitForFunction(() => deep(document, 'hk-intercom-sheet-card').length > 0 && !!window.hkMic, null, { timeout: 15000 })
-            .catch(async () => fail(name, '#intercom opens the sheet on any page, with its microphone module', await page.evaluate(() => ({ card: !!window.hkIntercom, mic: !!window.hkMic, hash: location.hash }))));
+            .catch(async () => fail(name, '#intercom opens the sheet on any page, with its microphone module',
+              await page.evaluate(() => ({ card: !!window.hkIntercom, mic: !!window.hkMic, hash: location.hash }))));
           const late = asked.filter((u) => /hk-intercom\.js|hk-mic\.js/.test(u)).map((u) => u.split('/').pop());
           if (late.join() !== 'hk-intercom.js,hk-mic.js') fail(name, 'the address loads the card file, then the microphone module', late);
           page.off('request', onReq); page.off('websocket', onSocket);
@@ -150,7 +154,8 @@ const MEASURE = () => {
         await page.waitForFunction(() => window.__mantelReady === true && !!window.hkIntercom && !!window.hkDetail, null, { timeout: 40000 });
         await page.evaluate(DEEP);
         // headless WebKit draws no backdrop blur: the frost Safari gives the sheet stood in for (sheet_review.cjs's)
-        await page.evaluate(() => { const css = new CSSStyleSheet(); css.replaceSync('.hkd .sheet{background:rgba(44,44,50,.96)!important}'); document.adoptedStyleSheets = [...document.adoptedStyleSheets, css]; });
+        await page.evaluate(() => { const css = new CSSStyleSheet(); css.replaceSync('.hkd .sheet{background:rgba(44,44,50,.96)!important}');
+          document.adoptedStyleSheets = [...document.adoptedStyleSheets, css]; });
         await page.evaluate(() => __intercomFake.install({ mem: { mode: 'message', rooms: ['media_player.living_room', 'media_player.kitchen'] }, firstUse: false }));
         await page.waitForFunction(() => deep(document, 'hk-intercom-card').length >= 2, null, { timeout: 20000 });
         await page.waitForTimeout(1200);
@@ -183,7 +188,8 @@ const MEASURE = () => {
         if (m.clipped.length) fail(name, 'a long room name ends in an ellipsis, never cut off', m.clipped);
         if (m.scrollX > 1) fail(name, 'no sideways scroll', m.scrollX);
         if (m.seg.length) fail(name, 'Live is hidden unless the feed allows it', m.seg);
-        if (m.chips.join('|') !== 'Whole House|Main Floor|Upstairs|Dinner~|Quiet Rooms~') fail(name, 'the chips: Whole House, floors, presets (one equal to the whole house, one to a floor, left out)', m.chips);
+        if (m.chips.join('|') !== 'Whole House|Main Floor|Upstairs|Dinner~|Quiet Rooms~') fail(name, 'the chips: Whole House, floors, presets (one equal to the whole house, one to a floor, left out)',
+          m.chips);
         if (m.sizes.length !== 1) fail(name, 'every room is the same width and height', m.sizes);
         if (m.chipHeights.length !== 1) fail(name, 'every group is the same height', m.chipHeights);
         if (m.count !== '2 of 8' || m.clear !== 'false') fail(name, 'the count and Clear All', [m.count, m.clear]);
@@ -191,7 +197,9 @@ const MEASURE = () => {
         out(`ok ${name} the rooms are ${m.side} the talk button` + (m.ellipsed.length ? ` (with "…": ${m.ellipsed.join(', ')})` : ''));
         if (m.slack > 80) fail(name, 'the sheet is as tall as its content: no big empty area', m.slack);
         if (m.dashed.some((d) => d !== 'dashed')) fail(name, 'presets have a dashed border', m.dashed);
-        if (m.pills.join('|') !== 'Living Room*|Kitchen*|Dining Room[Plays with Office]|Office[Plays with Dining Room]|Bedroom[Quiet hours]|Guest Room|Nursery|Craft Room|Primary Suite HomePods|Laundry Room') fail(name, 'the room rows, picked ones marked; a group leader says who it plays with; quiet hours says so', m.pills);
+        if (m.pills.join('|') !==
+          'Living Room*|Kitchen*|Dining Room[Plays with Office]|Office[Plays with Dining Room]|Bedroom[Quiet hours]|Guest Room|Nursery|Craft Room|Primary Suite HomePods|Laundry Room') fail(name,
+          'the room rows, picked ones marked; a group leader says who it plays with; quiet hours says so', m.pills);
         if (m.touchAction !== 'none') fail(name, 'touch-action:none on the microphone', m.touchAction);
         if (m.line !== 'Living Room, Kitchen') fail(name, 'the status line names the rooms', m.line);
         await shot('picker');
@@ -341,7 +349,8 @@ const MEASURE = () => {
           __intercomFake.install({ listener: true, firstUse: false });
         });
         await page.waitForTimeout(700);
-        const L0 = await page.evaluate(() => { const L = hkIntercom._.listener(); return { started: !!L, state: L && L.ctx ? L.ctx.state : null, pill: !!document.getElementById('hk-intercom-pill') }; });
+        const L0 = await page.evaluate(() => { const L = hkIntercom._.listener(); return { started: !!L, state: L && L.ctx ? L.ctx.state : null, pill: !!document.getElementById('hk-intercom-pill') };
+          });
         if (!L0.started || !L0.state) fail(name, 'the page-wide listener started and made its audio', L0);
         if (L0.state !== 'running' && !L0.pill) fail(name, 'a context that will not start asks for a touch with one pill', L0);
         if (L0.state === 'running' && L0.pill) fail(name, 'no pill when audio runs', L0);
@@ -351,13 +360,15 @@ const MEASURE = () => {
         if (got[0] !== '/api/intercom/clip/b1.wav' || got[1] !== 'include') fail(name, 'the clip is fetched with the page\'s credentials', got);
         if (L0.pill) {
           await page.waitForTimeout(500);
-          const box = await page.evaluate(() => { const r = document.getElementById('hk-intercom-pill').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, h: r.height }; });
+          const box = await page.evaluate(() => { const r = document.getElementById('hk-intercom-pill').getBoundingClientRect();
+            return { x: r.left + r.width / 2, y: r.top + r.height / 2, h: r.height }; });
           if (box.h < 44) fail(name, 'the pill is a 44 pt target', box.h);
           await shot('listener-pill');
           await page.touchscreen.tap(box.x, box.y);
           await page.waitForFunction(() => !document.getElementById('hk-intercom-pill'), null, { timeout: 5000 }).catch(() => fail(name, 'a touch takes the pill away'));
         }
-        await page.waitForFunction(() => hkIntercom._.listener().played === 1, null, { timeout: 8000 }).catch(async () => fail(name, 'the clip played', await page.evaluate(() => { const L = hkIntercom._.listener(); return { state: L.ctx.state, played: L.played }; })));
+        await page.waitForFunction(() => hkIntercom._.listener().played === 1, null, { timeout: 8000 }).catch(
+          async () => fail(name, 'the clip played', await page.evaluate(() => { const L = hkIntercom._.listener(); return { state: L.ctx.state, played: L.played }; })));
         await page.evaluate(() => __intercomFake.install({ listener: true, firstUse: false, play: { id: 'b1', url: '/api/intercom/clip/b1.wav', volume: 0.5 } }));
         await page.waitForTimeout(400);
         if ((await page.evaluate(() => window.__fetched.length)) !== 1) fail(name, 'the same broadcast is not played twice');
@@ -383,7 +394,9 @@ const MEASURE = () => {
             await page.mouse.click(p.x, p.y);
             await page.waitForFunction(() => !!hkEdit.active() && !!hkEditGrid.active() && hkEditGrid.active().ready, null, { timeout: 10000 });
             await page.waitForTimeout(1200);
-            const ed = await page.evaluate(() => deep(document, 'hk-intercom-card').map((c) => { const r = c.getBoundingClientRect(), k = c.shadowRoot.querySelector('.k').getBoundingClientRect(); return { w: c.getAttribute('size'), box: [r.width | 0, r.height | 0], k: [k.width | 0, k.height | 0] }; }));
+            const ed = await page.evaluate(() => deep(document, 'hk-intercom-card').map(
+              (c) => { const r = c.getBoundingClientRect(), k = c.shadowRoot.querySelector('.k').getBoundingClientRect();
+              return { w: c.getAttribute('size'), box: [r.width | 0, r.height | 0], k: [k.width | 0, k.height | 0] }; }));
             if (ed.length !== 2 || ed.some((b) => b.k[0] < 40)) fail(name, 'both blocks drawn in Edit mode', ed);
             await shot('edit');
             out(`ok ${name} edit mode`);

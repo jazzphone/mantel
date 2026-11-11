@@ -38,7 +38,8 @@ const HELP = () => {
 };
 
 let cdp;
-async function down(p, a) { if (FINGER) await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: a.x, y: a.y }] }); else { await p.mouse.move(a.x, a.y); await p.mouse.down(); } }
+async function down(p, a) { if (FINGER) await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: a.x, y: a.y }] });
+  else { await p.mouse.move(a.x, a.y); await p.mouse.down(); } }
 async function to(p, a, b, steps = 14) {
   for (let i = 1; i <= steps; i++) {
     const x = a.x + (b.x - a.x) * i / steps, y = a.y + (b.y - a.y) * i / steps;
@@ -140,13 +141,16 @@ async function shot(p, name) {
     // 4. THE PICKER (2026-10-31, the owner: choosing a size left the preview on Small; a card with no room could not be
     // dragged onto the grid). A size chip chosen: the preview is that size's shape, as the grid draws it.
     await p.evaluate(() => {
-      window.rowAt = k => { const e = ed.palette.querySelector('[data-card=' + k + ']'); e.scrollIntoView({ block: 'center' }); const r = e.getBoundingClientRect(); return { x: r.x + 30, y: r.y + 20 }; };
-      window.chipAt = (k, s) => { const e = ed.palette.querySelector('[data-card=' + k + '] .chip[data-size=' + s + ']'); e.scrollIntoView({ block: 'center' }); const r = e.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; };
+      window.rowAt = k => { const e = ed.palette.querySelector('[data-card=' + k + ']'); e.scrollIntoView({ block: 'center' }); const r = e.getBoundingClientRect();
+        return { x: r.x + 30, y: r.y + 20 }; };
+      window.chipAt = (k, s) => { const e = ed.palette.querySelector('[data-card=' + k + '] .chip[data-size=' + s + ']'); e.scrollIntoView({ block: 'center' }); const r = e.getBoundingClientRect();
+        return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; };
       window.drawnSize = () => { const f = ed.palette.querySelector('[data-preview-card] iframe'); return f && { w: parseFloat(f.style.width), h: parseFloat(f.style.height) }; };
       window.going = () => [...ed.overlay.querySelectorAll('.block.going')].map(b => b.dataset.id).sort();
     });
     async function tap(a) { await down(p, a); await up(p); await p.waitForTimeout(250); }
-    const sized = s => p.waitForFunction(z => { const f = ed.palette.querySelector('[data-preview-card] iframe'); const c = f && f.contentWindow && f.contentWindow.galleryCard; return !!c && c.getAttribute('size') === z && !!c.shadowRoot; }, s, { timeout: 40000 });
+    const sized = s => p.waitForFunction(z => { const f = ed.palette.querySelector('[data-preview-card] iframe'); const c = f && f.contentWindow && f.contentWindow.galleryCard; return !!c &&
+      c.getAttribute('size') === z && !!c.shadowRoot; }, s, { timeout: 40000 });
     const cellUnit = await p.evaluate(() => { const u = hkGridCatalog.CELLS[ed.grid.cell === 'square' ? 'square' : 'tile']; return { w: u.w, h: u.h, gap: u.gap }; });
     const SZ = { S: [1, 1], W: [2, 1], T: [1, 2], L: [2, 2], XL: [3, 2] }, SAYS = { S: 'Small', W: 'Wide', T: 'Tall', L: 'Large', XL: 'Extra Large' };
     // open Weather's row with a tap on the row itself, then choose each size with a tap on its chip
@@ -186,7 +190,8 @@ async function shot(p, name) {
     await p.waitForTimeout(350);
     const held = await p.evaluate(() => {
       const n = ed.stage.querySelector('.note'), g = ed.overlay.querySelector('.ghost');
-      return { replace: g && g.classList.contains('replace'), bad: g && g.classList.contains('bad'), going: going(), note: n.textContent, warn: n.classList.contains('warn'), noteH: n.getBoundingClientRect().height,
+      return { replace: g && g.classList.contains('replace'), bad: g && g.classList.contains('bad'), going: going(), note: n.textContent, warn: n.classList.contains('warn'),
+        noteH: n.getBoundingClientRect().height,
                draft: at(), washed: [...ed.overlay.querySelectorAll('.block.going')].every(b => getComputedStyle(b).backgroundColor !== 'rgba(0, 0, 0, 0)') };
     });
     assert.equal(held.replace && !held.bad, true, 'held over blocks with no room: the outline is the replacing one, not "no"');
@@ -211,7 +216,8 @@ async function shot(p, name) {
     await shot(p, 'picker-replaced');
     await p.evaluate(() => ed.undoButton.click());
     assert.deepEqual(await p.evaluate(() => at()), start, 'one Undo puts all four back, and the new card away');
-    await p.waitForFunction(() => ed.previewView._config.cards.find(c => c.hk_cell && c.hk_cell.id === 'coffee') && !ed.previewView._config.cards.some(c => c.hk_cell && c.hk_cell.id === 'b1'), null, { timeout: 10000 });
+    await p.waitForFunction(() => ed.previewView._config.cards.find(c => c.hk_cell && c.hk_cell.id === 'coffee') && !ed.previewView._config.cards.some(c => c.hk_cell && c.hk_cell.id === 'b1'), null,
+      { timeout: 10000 });
     console.log('PASS ' + TAG + ' a card dragged onto a full grid: the blocks it covers marked and named while held, replaced when dropped, one Undo brings them back');
 
     // ...let go off the grid: nothing changes, the blocks and the hint as they were
@@ -225,7 +231,8 @@ async function shot(p, name) {
     assert.equal((await p.evaluate(() => going())).length, 4, 'held over them again');
     await to(p, dragTo, away, 8);
     await p.waitForTimeout(250);
-    assert.deepEqual(await p.evaluate(() => [going(), !!ed.overlay.querySelector('.ghost'), ed.stage.querySelector('.note').textContent]), [[], false, noteBefore], 'carried off the grid: nothing marked, the hint as it was');
+    assert.deepEqual(await p.evaluate(() => [going(), !!ed.overlay.querySelector('.ghost'), ed.stage.querySelector('.note').textContent]), [[], false, noteBefore],
+      'carried off the grid: nothing marked, the hint as it was');
     await up(p);
     await p.waitForTimeout(400);
     assert.deepEqual(await p.evaluate(() => [at(), ed.undoStack.length]), [start, 0], 'let go off the grid: nothing placed, nothing to undo');
@@ -245,7 +252,8 @@ async function shot(p, name) {
     assert.deepEqual([room.replace, room.going, room.slid.includes('coffee')], [false, [], true], 'with free cells elsewhere: the tile under it slides aside, none is marked to go');
     await up(p);
     await p.waitForFunction(() => ed.grid.items.some(i => i.id === 'b1'), null, { timeout: 5000 });
-    assert.deepEqual(await p.evaluate(() => [ed.grid.items.length, ed.grid.items.some(i => i.id === 'coffee'), at().b1, hkGridEditor.valid(ed.grid)]), [10, true, '0,2', true], 'dropped: all there, the tile moved, the card in its place');
+    assert.deepEqual(await p.evaluate(() => [ed.grid.items.length, ed.grid.items.some(i => i.id === 'coffee'), at().b1, hkGridEditor.valid(ed.grid)]), [10, true, '0,2', true],
+      'dropped: all there, the tile moved, the card in its place');
     await p.evaluate(() => { ed.undo(); ed.undo(); ed.undo(); });
     assert.deepEqual(await p.evaluate(() => at()), start, 'three Undos: every block back');
     console.log('PASS ' + TAG + ' a card dragged off the grid changes nothing; with free cells the blocks make room and none is removed');

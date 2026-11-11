@@ -95,7 +95,8 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       await page.waitForTimeout(2500);
       const midway = await page.evaluate(async () => {
         const p = document.querySelector('hk-side-pane[mode="dash"]');
-        const deep = (r, sel) => { const x = r.querySelector(sel); if (x) return x; for (const e of r.querySelectorAll('*')) { if (e.shadowRoot) { const y = deep(e.shadowRoot, sel); if (y) return y; } } return null; };
+        const deep = (r, sel) => { const x = r.querySelector(sel); if (x) return x;
+          for (const e of r.querySelectorAll('*')) { if (e.shadowRoot) { const y = deep(e.shadowRoot, sel); if (y) return y; } } return null; };
         const tb = deep(document, '#hk-tabbar'), row = tb && tb.shadowRoot && tb.shadowRoot.querySelector('.row');
         const rx0 = row ? row.getBoundingClientRect().right : null;
         const to = ((window.hkCards.menu.config().views || []).map((v) => v.path).filter((v) => v && v !== 'home' && v !== 'weather'))[0];
@@ -128,10 +129,12 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       await require('./grid_ready.cjs')(page);
       await page.waitForTimeout(2500);
       const sw = () => page.evaluate(() => {
-        const deep = (r, sel) => { const x = r.querySelector(sel); if (x) return x; for (const e of r.querySelectorAll('*')) { if (e.shadowRoot) { const y = deep(e.shadowRoot, sel); if (y) return y; } } return null; };
+        const deep = (r, sel) => { const x = r.querySelector(sel); if (x) return x;
+          for (const e of r.querySelectorAll('*')) { if (e.shadowRoot) { const y = deep(e.shadowRoot, sel); if (y) return y; } } return null; };
         const p = document.querySelector('hk-side-pane[mode="dash"]'), tb = deep(document, '#hk-tabbar'), row = tb && tb.shadowRoot.querySelector('.row'), rr = row && row.getBoundingClientRect();
         const plate = p && p.shadowRoot && p.shadowRoot.querySelector('.pane');
-        return { path: location.pathname, op: plate ? +getComputedStyle(plate).opacity : null, hostOp: p ? +getComputedStyle(p).opacity : null, shown: p ? getComputedStyle(p).display !== 'none' : false, mid: rr ? Math.round(rr.left + rr.width / 2) : null,
+        return { path: location.pathname, op: plate ? +getComputedStyle(plate).opacity : null, hostOp: p ? +getComputedStyle(p).opacity : null, shown: p ? getComputedStyle(p).display !== 'none' :
+          false, mid: rr ? Math.round(rr.left + rr.width / 2) : null,
                  rootShift: document.documentElement.style.getPropertyValue('--hk-pane-shift'), barShift: tb ? tb.style.getPropertyValue('--hk-pane-shift') : '' };
       });
       const s0 = await sw(), sy = 300;
@@ -158,7 +161,8 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       // width it lands at, and the Pages screen's blur is a still layer as strong as the page is on; landed, the grid
       // is where it was all along (no frame elsewhere) and the layer is gone
       const gridAt = () => page.evaluate(() => {
-        const deep = (r, sel) => { const x = r.querySelector(sel); if (x) return x; for (const e of r.querySelectorAll('*')) { if (e.shadowRoot) { const y = deep(e.shadowRoot, sel); if (y) return y; } } return null; };
+        const deep = (r, sel) => { const x = r.querySelector(sel); if (x) return x;
+          for (const e of r.querySelectorAll('*')) { if (e.shadowRoot) { const y = deep(e.shadowRoot, sel); if (y) return y; } } return null; };
         const g = deep(document, 'hk-home-grid-view'), root = g && g.shadowRoot.querySelector('#root'), b = root && root.getBoundingClientRect();
         const ps = deep(document, 'hk-pages-screen-card'), bg = ps && ps.shadowRoot.querySelector('.bg');
         return { path: location.pathname, w: b ? Math.round(b.width) : null, bg: bg ? +getComputedStyle(bg).opacity : null,
@@ -168,7 +172,8 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       for (let k = 1; k <= 10; k++) { await page.mouse.move(300 + 0.045 * W * k, sy); await page.waitForTimeout(16); }
       const h1 = await gridAt();
       await page.evaluate(() => {
-        const deep = (r, sel) => { const x = r.querySelector(sel); if (x) return x; for (const e of r.querySelectorAll('*')) { if (e.shadowRoot) { const y = deep(e.shadowRoot, sel); if (y) return y; } } return null; };
+        const deep = (r, sel) => { const x = r.querySelector(sel); if (x) return x;
+          for (const e of r.querySelectorAll('*')) { if (e.shadowRoot) { const y = deep(e.shadowRoot, sel); if (y) return y; } } return null; };
         window.__landing = []; const t0 = performance.now();
         const tick = () => {
           const g = deep(document, 'hk-home-grid-view'), root = g && g.shadowRoot.querySelector('#root'), b = root && root.getBoundingClientRect();
@@ -192,7 +197,8 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       await require('./grid_ready.cjs')(page);
       await page.waitForTimeout(2000);
       const volAt = () => page.evaluate(() => {
-        const deep = (r, sel) => { const x = r.querySelector(sel); if (x) return x; for (const e of r.querySelectorAll('*')) { if (e.shadowRoot) { const y = deep(e.shadowRoot, sel); if (y) return y; } } return null; };
+        const deep = (r, sel) => { const x = r.querySelector(sel); if (x) return x;
+          for (const e of r.querySelectorAll('*')) { if (e.shadowRoot) { const y = deep(e.shadowRoot, sel); if (y) return y; } } return null; };
         // (the controls strip's volume track since 2026-11-09, hk-np-strip.js -- the Music page's own, not the Side Pane's)
         const m = deep(document, 'hk-music-card'), t = m && m.shadowRoot && m.shadowRoot.querySelector('.hks .mvt'), b = t && t.getBoundingClientRect();
         return b && { x: b.left, y: b.top + b.height / 2, w: b.width, v: +getComputedStyle(t).getPropertyValue('--v'), path: location.pathname };
@@ -214,7 +220,8 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       await require('./grid_ready.cjs')(page);
       await page.waitForTimeout(2000);
       const dial = await page.evaluate(() => {
-        const deep = (r, sel) => { const x = r.querySelector(sel); if (x) return x; for (const e of r.querySelectorAll('*')) { if (e.shadowRoot) { const y = deep(e.shadowRoot, sel); if (y) return y; } } return null; };
+        const deep = (r, sel) => { const x = r.querySelector(sel); if (x) return x;
+          for (const e of r.querySelectorAll('*')) { if (e.shadowRoot) { const y = deep(e.shadowRoot, sel); if (y) return y; } } return null; };
         const t = deep(document, 'svg.ring'), b = t && t.getBoundingClientRect();
         return b && { x: b.left + b.width * 0.15, y: b.top + b.height * 0.55, w: b.width };
       });
@@ -457,7 +464,8 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       for (const k of ['on', 'off']) {
         await open('pane-art-' + k);
         await page.waitForTimeout(2500);
-        art[k] = await page.evaluate(() => { const p = document.querySelector('hk-side-pane[mode="dash"]'); return { arted: p.hasAttribute('arted'), layers: p.shadowRoot.querySelectorAll('.artbg b').length }; });
+        art[k] = await page.evaluate(() => { const p = document.querySelector('hk-side-pane[mode="dash"]');
+          return { arted: p.hasAttribute('arted'), layers: p.shadowRoot.querySelectorAll('.artbg b').length }; });
         await shot(page, tag + '-art-' + k);
       }
       want('Album Art Background: on, the pane takes the art; off (the section\'s switch), its ordinary ground', art, art.on.arted && art.on.layers > 0 && !art.off.arted && art.off.layers === 0);
@@ -529,7 +537,8 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       }
       if (!upright) {
         const L = looks;
-        want('clock A: today\'s -- digits with AM/PM, the date and the sunset, no extra classes', L.A, L.A && /^sec\b/.test(L.A.cls) && !/ck[asw]-/.test(L.A.cls) && L.A.ampm && L.A.sun && !L.A.colon && !L.A.line2 && L.A.weight === 600);
+        want('clock A: today\'s -- digits with AM/PM, the date and the sunset, no extra classes', L.A, L.A && /^sec\b/.test(L.A.cls) && !/ck[asw]-/.test(L.A.cls) && L.A.ampm && L.A.sun &&
+          !L.A.colon && !L.A.line2 && L.A.weight === 600);
         want('clock B: right, no AM/PM', L.B, L.B && /cka-right/.test(L.B.cls) && !L.B.ampm && L.B.align === 'right');
         want('clock C: centered, large, light, the colon flashing (where animations are on), the short date, and larger than A', [L.C, L.A],
              L.C && /cka-center/.test(L.C.cls) && L.C.weight === 300 && L.C.size > L.A.size * 1.2 && L.C.colon === L.C.anim && !L.C.ampm && L.C.align === 'center');
@@ -603,7 +612,8 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
                  rect: r ? [Math.round(r.left), Math.round(r.width)] : null,
                  kinds: sp ? [...sp.shadowRoot.querySelectorAll('.secs > *')].map((k) => (k.dataset.k || '') + ':' + (k.dataset.size || '')) : [] };
       });
-      want('screensaver ' + side + ': its own sections on its side', s, phone ? !s.on : s.on && (side === 'left' ? s.side !== null && s.rect[0] === 0 : s.side === null && s.rect[0] + s.rect[1] === W));
+      want('screensaver ' + side + ': its own sections on its side', s, phone ? !s.on : s.on &&
+        (side === 'left' ? s.side !== null && s.rect[0] === 0 : s.side === null && s.rect[0] + s.rect[1] === W));
       const sd = await drawn('hk-side-pane[mode="saver"]');
       want('screensaver ' + side + ': its dividers and second ink as the Dashboard\'s, its weather there', sd,
            phone ? sd === null : sd && sd.lines > 0 && sd.ruled && sd.sub !== 'rgb(255, 255, 255)' && (!sd.weather || (/\d°/.test(sd.weather) && sd.weather.indexOf('No weather') < 0)));
@@ -629,7 +639,8 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
            phone || alone ? !l.on && !l.attr : l.on && !(await status()) && l.kinds.some((k) => k.startsWith('weather')));
       await shot(page, tag + '-' + scr + '-hidden');
       await setState('sensor.mailbox_status', 'Mail Likely Delivered');
-      if (!phone) await page.waitForFunction(() => { const p = document.querySelector('hk-side-pane[mode="dash"]'); return p && p.hasAttribute('on') && p.shadowRoot.querySelector('.secs>[data-k="status"]'); }, null, { timeout: 5000 }).catch(() => {});
+      if (!phone) await page.waitForFunction(() => { const p = document.querySelector('hk-side-pane[mode="dash"]'); return p && p.hasAttribute('on') &&
+        p.shadowRoot.querySelector('.secs>[data-k="status"]'); }, null, { timeout: 5000 }).catch(() => {});
       await page.waitForTimeout(700);
       const st = await status();
       l = await look(page);
@@ -639,7 +650,8 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
                 (upright || st.size === (alone ? 'more' : 'less')));
       await shot(page, tag + '-' + scr + '-shown');
       await setState('sensor.mailbox_status', 'No Mail');
-      if (!phone) await page.waitForFunction(() => { const p = document.querySelector('hk-side-pane[mode="dash"]'); return !(p && p.hasAttribute('on') && p.shadowRoot.querySelector('.secs>[data-k="status"]')); }, null, { timeout: 5000 }).catch(() => {});
+      if (!phone) await page.waitForFunction(() => { const p = document.querySelector('hk-side-pane[mode="dash"]');
+        return !(p && p.hasAttribute('on') && p.shadowRoot.querySelector('.secs>[data-k="status"]')); }, null, { timeout: 5000 }).catch(() => {});
       await page.waitForTimeout(700);
       l = await look(page);
       want(scr + ': the mail taken in, the status gone again' + (alone ? ', the pane with it' : ''), [l, await status()],
@@ -674,7 +686,8 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
             const secs = el.shadowRoot.querySelector('.secs'), k = secs.firstElementChild;
             // (a button cut off by its section: the owner, 2026-11-01, Now Playing's play at Tiny, the pane's last section)
             const kr = k && k.getBoundingClientRect();
-            const cut = k ? [...k.querySelectorAll('button')].filter((b) => { const r = b.getBoundingClientRect(); return r.height && (r.top < kr.top - 0.5 || r.bottom > kr.bottom + 0.5); }).length : 0;
+            const cut = k ? [...k.querySelectorAll('button')].filter((b) => { const r = b.getBoundingClientRect(); return r.height && (r.top < kr.top - 0.5 || r.bottom > kr.bottom + 0.5); }).length :
+              0;
             return { k: k && (k.dataset.k + ':' + k.dataset.size), h: k ? Math.round(kr.height) : 0, scrolls: secs.scrollHeight > secs.clientHeight + 1, cut };
           }, [kind, size]);
           want('alone ' + kind + ' ' + size, got, got.k === kind + ':' + size && got.h > 0 && !got.scrolls && !got.cut);

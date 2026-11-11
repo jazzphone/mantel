@@ -256,7 +256,7 @@ def _string_candidates(raw: str, atom: dict) -> list[int]:
             continue
         if isf and depth and c in "'\"#":
             return []
-        if c in " ;}" and depth == 0 and i < len(body) - 1:
+        if c in " ;}," and depth == 0 and i < len(body) - 1:      # (a comma too: adjacent literals fold back whole)
             out.append(pl + ql + i + 1)
         i += 1
     return out
