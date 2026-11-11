@@ -1,0 +1,5 @@
+{
+  "package": "network",
+  "why": "Mantel Connect's receiver proof",
+  "modules": ["connect_proof"]
+}

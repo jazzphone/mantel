@@ -450,7 +450,6 @@ Mantel Server.
   - `alarm_pin.py` — HK's Alarm PIN in Mantel (docs/phase3/PINS-AUDIT.md "The alarm keypad", docs/phase3/GATEWAY.md "The alarm", docs/phase4/MANTEL-FEATURES.md).
   - `apns.py` — Notifications to the iPhone, iPad and Mac apps through Apple's push service (docs/phase10/APPLE-APPS.md §5, slice 10.5; decision M10-2
   - `config.py`
-  - `connect_proof.py` — Separate TLS identity-only receiver.
   - `connections.py` — Connections
   - `devices.py` — Device credentials
   - `dry_run.py` — A dry run
@@ -605,6 +604,7 @@ Mantel Server.
 - **hosts/server/mantel_server/network/**
   - `announce.py` — Mantel on the network, by zeroconf (docs/phase9/MANTEL-LINK.md "Discovery and pairing", slice 9.5).
   - `connect_pairing.py` — Mantel Connect, Mantel Server's side
+  - `connect_proof.py` — Separate TLS identity-only receiver.
   - `direct.py` — HA App direct access (decision 26; docs/phase3/HA-APP.md "Direct access")
   - `direct_tls.py` — Built-in HTTPS for the HA App's direct access (decision 26; docs/phase3/HA-APP.md "Built-in HTTPS").
   - `frame_origins.py` — Which pages may show Mantel in a frame (CSP ``frame-ancestors``)

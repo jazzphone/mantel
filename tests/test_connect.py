@@ -13,7 +13,7 @@ from multidict import CIMultiDict
 
 from mantel_connect.channel import NONCE, PATH, SIGNATURE, STAMP, USER, Verifier, read_key, sign
 from mantel_connect.proxy import SUPERVISOR, build_proxy_app, validate_backend
-from mantel_server.connect_proof import build_connect_app
+from mantel_server.network.connect_proof import build_connect_app
 from mantel_server.storage.store import Store
 
 
@@ -213,6 +213,6 @@ def test_stage_contains_only_app_sources(tmp_path):
     assert not (receiver / "mantel_server/ha/ha_client.py").exists()
     assert not (receiver / "mantel_server/server.py").exists()
     assert not (receiver / "mantel_connect/proxy.py").exists()
-    result = subprocess.run([sys.executable, "-m", "mantel_server.connect_proof", "--help"],
+    result = subprocess.run([sys.executable, "-m", "mantel_server.network.connect_proof", "--help"],
                             cwd=receiver, capture_output=True, text=True, check=True)
     assert "--tls-cert" in result.stdout

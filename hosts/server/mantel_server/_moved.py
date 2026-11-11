@@ -34,6 +34,7 @@ MOVED: dict[str, tuple[str, str]] = {
     "cameras_direct": ("cameras.cameras_direct", "0.1.166"),
     "cf_access": ("identity.cf_access", "0.1.166"),
     "connect_pairing": ("network.connect_pairing", "0.1.166"),
+    "connect_proof": ("network.connect_proof", "0.1.167"),
     "cutout": ("cameras.cutout", "0.1.166"),
     "db": ("storage.db", "0.1.166"),
     "default_screens": ("pages.default_screens", "0.1.166"),

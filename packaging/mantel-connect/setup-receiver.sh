@@ -7,7 +7,7 @@ DEST=/opt/mantel-connect-proof
 [ "$(id -u)" -eq 0 ] || { echo 'Run as root inside the proof LXC.' >&2; exit 1; }
 [ "$(hostname)" = mantel-proof4 ] || { echo 'Expected the existing mantel-proof4 LXC. Do not run on the Proxmox host.' >&2; exit 1; }
 [ ! -e "$DEST" ] || { echo "$DEST already exists; use its printed run command to resume, or inspect it before replacing anything." >&2; exit 1; }
-[ -f "$HERE/mantel_server/connect_proof.py" ] || { echo 'Use the staged receiver bundle.' >&2; exit 1; }
+[ -f "$HERE/mantel_server/network/connect_proof.py" ] || { echo 'Use the staged receiver bundle.' >&2; exit 1; }
 echo 'Container addresses:'
 hostname -I
 read -r -p 'Container IPv4 address reachable from Home Assistant (no port): ' RECEIVER_IP
@@ -44,7 +44,7 @@ cat > "$DEST/run.sh" <<EOF
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$DEST"
-exec "$DEST/venv/bin/python" -m mantel_server.connect_proof --host "$RECEIVER_IP" --port 8766 --data-dir "$DEST/data" --key-file "$DEST/channel.key" --tls-cert "$DEST/receiver.crt" --tls-key "$DEST/receiver.key"
+exec "$DEST/venv/bin/python" -m mantel_server.network.connect_proof --host "$RECEIVER_IP" --port 8766 --data-dir "$DEST/data" --key-file "$DEST/channel.key" --tls-cert "$DEST/receiver.crt" --tls-key "$DEST/receiver.key"
 EOF
 chmod 700 "$DEST/run.sh"
 echo "Receiver prepared: https://${RECEIVER_IP}:8766"

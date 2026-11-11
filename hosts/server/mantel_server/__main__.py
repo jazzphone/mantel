@@ -137,7 +137,7 @@ def main(argv: list[str] | None = None) -> int:
         from .identity.door_key import cli as door_key_cli
         return door_key_cli(argv[1:])
     if argv and argv[0] == "connect-proof":
-        from .connect_proof import main as connect_main
+        from .network.connect_proof import main as connect_main
         return connect_main(argv[1:])
     if argv and argv[0] in ADMIN_COMMANDS:
         return admin(argv)
