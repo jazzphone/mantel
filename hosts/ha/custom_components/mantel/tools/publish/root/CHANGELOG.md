@@ -5,6 +5,9 @@ Mantel Link's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+**Internal**
+- Code health: the pairing address rules, the TV stream's ffmpeg arguments and the reserved entity keys now come from hk_core, the same code Mantel Server and HK Frontend use (they were exact copies); nothing it does changes.
+
 ## 0.1.13 - 2026-11-07
 
 - Home Assistant 2026.11 no longer warns about a blocking call (`load_verify_locations`) from Mantel Link at every start and when pairing. Mantel Link now loads Mantel's certificate authority off Home Assistant's event loop, on the link's first connection. It trusts that authority alone, as before.
