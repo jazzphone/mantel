@@ -152,7 +152,9 @@
     if (cardsReady) return cardsReady;
     cardsReady = (async function () {
       var v = Date.now();
-      var tries = [['hkSettings', '/hk/modules/hk-settings.js'], ['customIconsets', '/hk/iconset/hk-icons.js'],
+      // (hk-settings-defaults.js before hk-settings.js, which reads it as it runs: phase 24)
+      var tries = [['hkSettingsDefaults', '/hk/modules/hk-settings-defaults.js'], ['hkSettings', '/hk/modules/hk-settings.js'],
+                   ['customIconsets', '/hk/iconset/hk-icons.js'],
                    ['hkCards', '/hk/cards/hk-base.js'], ['hkDetail', '/hk/cards/hk-detail.js']];
       for (var i = 0; i < tries.length; i++) {
         var t = tries[i];
@@ -340,7 +342,10 @@
       if (this._bootTry > 1) v += '&retry=' + this._bootTry;
       try {
         await Promise.all([partsReady, import('/hk/panels/hk-settings-model.js?v=' + v), import('/hk/panels/hk-settings-kit.js?v=' + v),
-                           import('/hk/panels/hk-settings-features.js?v=' + v), import('/hk/modules/hk-settings.js?v=' + v),
+                           import('/hk/panels/hk-settings-features.js?v=' + v),
+                           // (its defaults first: hk-settings.js reads them as it runs, and on Home Assistant this page may boot
+                           // before boot.py's core has run them, phase 24)
+                           import('/hk/modules/hk-settings-defaults.js?v=' + v).then(function () { return import('/hk/modules/hk-settings.js?v=' + v); }),
                            import('/hk/modules/hk-flat-image.js?v=' + v), import('/hk/modules/hk-drag.js?v=' + v),
                            // (the Wallpaper picker's previews, 2026-10-30)
                            import('/hk/modules/hk-wallpapers.js?v=' + v),

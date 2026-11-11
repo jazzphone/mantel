@@ -193,6 +193,7 @@ Mantel's pages and the code both hosts share: HK's cards, modules, panels and th
   - `hk-saverpieces-time.js` — THE SCREENSAVER'S TIME AND CALENDAR GLANCE PIECES (2026-11-02, phase 13 / 1b, wave A; docs/phase13/GLANCE-SPEC.md, "Time and Calendar")
   - `hk-saverpieces-weather.js` — THE SCREENSAVER'S WEATHER AND SKY PIECES (2026-11-02, phase 13, phase 1b, wave A
   - `hk-saverwidgets.js` — THE SCREENSAVER'S PIECES, drawn in every shape (2026-11-01, the owner
+  - `hk-settings-defaults.js` — the first-paint copy of the settings' DEFAULTS, for hk-settings.js.
   - `hk-settings.js` — THE DASHBOARD SETTINGS, on every screen, before any card.
   - `hk-sidepane.js` — THE SIDE PANE (2026-10-30, docs/phase11/HOMEVIEW-LOOK.md "Phase A2") *(a shell: its parts are in `web/hk/sidepane/`, `tools/split_manifests/sidepane.json`)*
     - `hk-sidepane-decide.js` — what the pane shows: its decisions and the house it reads

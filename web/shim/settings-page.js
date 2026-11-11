@@ -119,7 +119,7 @@ try {
 
   // the dashboards' modules HK Settings draws with (the panel loads the rest itself)
   const imp = (u) => import(hkV(u)).catch((e) => console.error('[mantel] could not load', u, e));   // (hkV: base.js)
-  for (const m of ['modules/hk-settings.js', 'iconset/hk-icons.js']) await imp('/hk/' + m);
+  for (const m of ['modules/hk-settings-defaults.js', 'modules/hk-settings.js', 'iconset/hk-icons.js']) await imp('/hk/' + m);
   for (const f of ['hk-settings-model', 'hk-settings-kit', 'hk-settings-features', 'hk-settings']) await imp('/hk/panels/' + f + '.js');
 
   const el = document.createElement('hk-settings-panel');
