@@ -22,7 +22,7 @@
     // THE ROOM PICKER AS A LIST (hk-area-select-card, `list`): on the sheet itself, no plate of its own; the count, Clear and Start
     // Cleaning held at the top; the rooms one to a row (two in the wide sheet: list="2") under them, scrolling in what the sheet leaves
     // -- the owner, 2026-11-10: "a scrollable section with 1 column of areas"; "it could probably have 2 columns"
-    var LIST_CSS = [
+    var VACUUM_LIST_CSS = [
       ':host([list]){display:flex;flex-direction:column;min-height:0}',
       ':host([list]) > div{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}',
       // (not a glass plate: hk-glass.js frosts every --hk-glass-surface, and laid one over the sheet's own glass -- a box behind the rooms)
@@ -305,7 +305,7 @@
             // (its shadow root once it is upgraded: the helper can hand it over before -- then no style would land)
             var css = function (n) {
               if (pc.shadowRoot) { if (!pc.shadowRoot.querySelector('style.hkvl')) pc.shadowRoot.appendChild(
-                Object.assign(document.createElement('style'), { className: 'hkvl', textContent: LIST_CSS })); }
+                Object.assign(document.createElement('style'), { className: 'hkvl', textContent: VACUUM_LIST_CSS })); }
               else if (n < 40) setTimeout(function () { css(n + 1); }, 25);
             };
             css(0);
