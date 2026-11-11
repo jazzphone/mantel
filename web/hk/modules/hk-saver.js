@@ -929,12 +929,6 @@
   loadParts(function () {
     runParts();
 
-    // OVER THE FORECAST, ITS LANDSCAPE BLURRED (2026-10-31, the owner: Home Energy over the forecast "doesn't blur the
-    // forecast backdrop" -- the big temperature and the details read through its dark wash): the season's landscape on
-    // screen drawn small, as a photo's blurred copy is, its foot at the foot (hk-sky.js .land: cover, center bottom).
-    // Its image is the one the sky shows, from the browser's cache; until it has loaded (or under Flat, which draws no
-    // copies), the darkened sky as before.
-    /** @type {any} */ ST.landIm = null;
     beatFrom();
 
     Deck.prototype.set = function (items) {

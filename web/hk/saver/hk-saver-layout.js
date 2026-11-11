@@ -40,6 +40,12 @@
     /** @type {any} */ var lyClientAt = 0;
     /** @type {any} */ var enT = null;
     /** @type {any} */ var enRun = 0;
+    // OVER THE FORECAST, ITS LANDSCAPE BLURRED (2026-10-31, the owner: Home Energy over the forecast "doesn't blur the
+    // forecast backdrop" -- the big temperature and the details read through its dark wash): the season's landscape on
+    // screen drawn small, as a photo's blurred copy is, its foot at the foot (hk-sky.js .land: cover, center bottom).
+    // Its image is the one the sky shows, from the browser's cache; until it has loaded (or under Flat, which draws no
+    // copies), the darkened sky as before.
+    /** @type {any} */ var landIm = null;
 
     function layoutModules() {
       if (!lyLoad) {
@@ -623,8 +629,8 @@
       if (isFlat() || !ST.root) return null;
       var i = ST.root.querySelector('.fc .land>i.on'), m = i && /url\(["']?([^"')]+)["']?\)/.exec(getComputedStyle(i).backgroundImage || '');
       if (!m) return null;
-      if (!ST.landIm || ST.landIm.hkSrc !== m[1]) { ST.landIm = new Image(); ST.landIm.hkSrc = m[1]; ST.landIm.src = m[1]; }
-      return ST.landIm.complete && ST.landIm.naturalWidth ? ST.landIm : null;
+      if (!landIm || landIm.hkSrc !== m[1]) { landIm = new Image(); landIm.hkSrc = m[1]; landIm.src = m[1]; }
+      return landIm.complete && landIm.naturalWidth ? landIm : null;
     }
     // ...and the sky over it, as it is now: the art's top is transparent (the live sky shows through it), so its copy
     // alone left the sky, its clouds and Big Weather's words sharp above the land (2026-10-31, the owner: "only half
