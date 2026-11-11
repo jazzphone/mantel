@@ -48,7 +48,7 @@
     ':host{display:block;height:100%}',
     'hk-plate.tv{box-sizing:border-box;height:100%;position:relative;display:flex;flex-direction:column;overflow:hidden;padding:' + C.blockPad('18px') + ';' +
       C.plate('card') + ';color:' + v('ink') + ';-webkit-tap-highlight-color:transparent;cursor:pointer}',
-    '.lbl{font-size:13px;font-weight:600;letter-spacing:.3px;text-transform:uppercase;color:' + v('ink-2') + ';line-height:16px;margin-top:-3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}',
+    window.hkCards.headCss('.lbl'),   // a block's heading: as written, not capitals (hk-base.js headCss)
     '.hd{font-size:17px;font-weight:600;letter-spacing:-.3px;line-height:21px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '.sb{font-size:13px;font-weight:500;line-height:17px;color:' + v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '.row{display:flex;align-items:center;gap:12px;min-width:0}',
