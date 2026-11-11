@@ -922,12 +922,23 @@
       settle(G.caught.to, st.x, 0);
       return;
     }
-    var dir = raw < 0 ? 1 : -1, to = st.items[st.at + dir] || null;
-    var goes = e.type === 'pointerup' && !!to && lands(raw, st.rect.width, v);
+    var r = letGoTo(st.items, st.at, raw, st.rect.width, v, G.chain, e.type === 'pointerup');
+    settle(r.goes ? r.to : null, raw, r.to ? v : v * GIVE);
+  }
+  // WHERE A LIFT GOES: the page beside it that way (`to`), and whether it gets there (`goes`); `up` false, the browser
+  // took the finger, and it goes nowhere. `chain`, the way a settle it caught was going (catchIt): it has landed there.
+  function letGoTo(items, at, raw, width, v, chain, up) {
+    var dir = raw < 0 ? 1 : -1, to = items[at + dir] || null;
+    var goes = up && !!to && lands(raw, width, v);
     // (a flick that caught a settle, on the way it was going: the page after the one it caught, wherever it was)
-    var fd = v < 0 ? 1 : -1, on = G.chain && fd === G.chain && Math.abs(v) > FLICK && st.items[st.at + fd];
-    if (e.type === 'pointerup' && on) { dir = fd; to = on; goes = true; }
-    settle(goes ? to : null, raw, to ? v : v * GIVE);
+    var fd = v < 0 ? 1 : -1, on = chain && fd === chain && Math.abs(v) > FLICK && items[at + fd];
+    if (up && on) return { to: on, goes: true };
+    // ...and moving on that way, slower than a flick: it stays on the page it caught, never back to the one it left
+    // (2026-11-11: caught early, the page it left is still most of the screen, so the finger pushing on was past TURN
+    // from the caught page's rest the other way. On a phone a flick's half of a tablet's px/ms, and it went back:
+    // swipe_motion_check's "a finger 30 ms into a settle" at 390x844, since 64d6b6a1)
+    if (goes && chain && dir !== chain && fd === chain && Math.abs(v) > FLICK / 5) goes = false;
+    return { to: to, goes: goes };
   }
 
   // LET GO: to the page `to`, or back. From where it is, at the speed it was going (v, px/ms).
@@ -1341,6 +1352,7 @@
          viewSeg: viewSeg, ghost: ghost, slow: slow, park: park,
          NUMBERS: { EDGE: EDGE, START: START, RATIO: RATIO, TURN: TURN, FLICK: FLICK, FLICK_MIN: FLICK_MIN, GIVE: GIVE,
                     STANDARD_MS: STANDARD_MS, FADE_MS: FADE_MS, SLOW_FPS: SLOW_FPS, REST: REST },
+         letGoTo: letGoTo,
          state: function () { return { G: G, L: L, A: A, ST: ST, why: why }; } }
   };
   if (typeof document !== 'undefined' && document.addEventListener) start();

@@ -133,6 +133,19 @@ ok('...or on a flick over 0.5 px/ms, that way, past 30 px', X.lands(-40, 1180, -
    !X.lands(-20, 1180, -2) && !X.lands(-40, 1180, -0.4));
 ok('no travel, no landing', !X.lands(0, 1180, 5));
 ok('...and past a fifth but flicked back, it goes back', !X.lands(-500, 1180, 1.2) && X.lands(-500, 1180, 0.2) && X.lands(-500, 1180, -1.2));
+// WHERE A LIFT GOES (letGoTo): items Home, Calendar, Security; the finger on Calendar (at 1)
+var IT = [{ path: '/h' }, { path: '/c' }, { path: '/s' }];
+var lg = function (raw, w, v, chain, up) {
+  var r = X.letGoTo(IT, 1, raw, w, v, chain, up === undefined ? true : up);
+  return r.goes ? r.to.path : '-';
+};
+ok('a lift past a fifth goes to the page that way; under it, nowhere', lg(-300, 1180, 0) === '/s' && lg(300, 1180, 0) === '/h' && lg(100, 1180, 0) === '-');
+ok('...the browser taking the finger goes nowhere', lg(-300, 1180, 0, 0, false) === '-' && lg(-300, 1180, -2, 1, false) === '-');
+ok('a flick on from a settle it caught goes a page further, wherever the page is', lg(454, 1180, -1.53, 1) === '/s' && lg(-38, 1180, -1.52, 1) === '/s');
+// (2026-11-11: swipe_motion_check at 390x844 -- caught 30 ms in, Calendar 39% on the screen, pushed on at 0.47 px/ms, it
+// went back to Home)
+ok('...pushed on slower than a flick, it stays on the page it caught, not back', lg(151, 390, -0.466, 1) === '-' && lg(-151, 390, 0.466, -1) === '-');
+ok('...held still and let go there, or pulled back, it goes back as any lift', lg(151, 390, 0, 1) === '/h' && lg(151, 390, 0.3, 1) === '/h' && lg(151, 390, -0.05, 1) === '/h');
 print('=== the spring ===');
 var D = window.hkDrag;
 var sp = D.spring(-500, -1180, -1.2);
