@@ -1,0 +1,794 @@
+# Code map
+
+Where everything lives: one line per file, from its own opening comment. A file cut into parts lists its parts
+under it, each with what it holds; `tools/split_js.py --find NAME` (or `tools/split_py.py --find NAME`) says which
+file holds a name. Written by `tools/code_map.py` (phase 24); `tests/test_code_map.py` fails until it is written
+again after a file is added, moved or split. Don't edit it by hand.
+
+## `web/`
+
+Mantel's pages and the code both hosts share: HK's cards, modules, panels and their parts.
+
+- **web/**
+  - `home.js` — Mantel's bootstrap for an HK dashboard
+- **web/app/**
+  - `push.js` — turn this browser's notifications on or off (Web Push, docs/phase10/APPLE-APPS.md slice 10.0).
+  - `sw.js` — Mantel's service worker, for Web Push only (docs/phase10/APPLE-APPS.md slice 10.0).
+- **web/cards/**
+  - `hk-metric.js` — The existing HK metric card, using HKClient for its data and host icon binding.
+- **web/client/**
+  - `hk-card-state.js` — Shared card state/update lifecycle.
+  - `hk-client.js` — HKClient's first shared surface
+  - `hk-host-shell.js` — HK's host shell
+- **web/hk/cards/**
+  - `hk-alert.js` — the Alert block (`alert` in hk-grid-catalog.js; docs/phase11/ALERT.md), 2026-11-10.
+  - `hk-base.js` — the foundation every hk card file builds on.
+  - `hk-calendar.js` — the house's calendars
+  - `hk-cameras.js` — the camera strip mosaic and its editor
+  - `hk-chip.js` — the chip and icon families as native Lovelace cards.
+  - `hk-control.js` — hk-control-card
+  - `hk-detail.js` — detail sheets in the style of the Home app, in place of Home Assistant's more-info dialog.
+  - `hk-energy.js` — the energy charts
+  - `hk-grid-cards.js` — the Home Grid's own cards (docs/phase11/HOME-GRID.md, slice G3). *(a shell: its parts are in `web/hk/grid-cards/`, `tools/split_manifests/grid-cards.json`)*
+    - `hk-grid-math.js` — the helpers and the room math
+    - `hk-grid-room.js` — the room card, the entity card and the accessories card
+    - `hk-grid-security.js` — the small key, the security card and its keypad, the vacuum
+    - `hk-grid-panel.js` — the pages' own panels as blocks
+    - `hk-grid-faces.js` — the clock block and the Cameras face
+    - `hk-grid-widgets.js` — the action, everything, suggested scene and On Now blocks
+  - `hk-grid-catalog.js` — the Home Grid catalog (docs/phase11/HOME-GRID.md)
+  - `hk-headers.js` — THE PAGE HEADERS (2026-10-15)
+  - `hk-home.js` — household controls
+  - `hk-house-status.js` — House Status (docs/phase11/HOUSE-STATUS.md)
+  - `hk-intercom.js` — the Intercom
+  - `hk-laundry-card.js` — the Laundry block (`laundry` in hk-grid-catalog.js; docs/phase22/LAUNDRY.md), 2026-11-10.
+  - `hk-layout.js` — building blocks
+  - `hk-library.js` — browse and search Music Assistant, in our own chrome.
+  - `hk-media.js` — the music cards *(a shell: its parts are in `web/hk/media/`, `tools/split_manifests/media.json`)*
+    - `hk-media-now.js` — the player (Now Playing) and its stacked geometry, speaker panel CSS and music-page address
+    - `hk-media-speakers.js` — the speaker picker and the notification ids it shows
+    - `hk-media-saver.js` — the screensaver's now-playing line and the Browse Music frame
+    - `hk-media-recent.js` — the Home Grid's Music block: recently played and the playlists' sheet
+    - `hk-media-tv.js` — the Home Grid's Live TV channels block
+  - `hk-music.js` — the Music page
+  - `hk-pages-screen.js` — THE PAGES SCREEN
+  - `hk-people.js` — hk-people-card
+  - `hk-person.js` — THE PERSON SHEET (hk-detail.js kind `person`)
+  - `hk-popup.js` — a hash-driven sheet over the dashboard, as a native card.
+  - `hk-room.js` — a room page's STATUS ROW (hk-room-status-card), and a category page's (hk-page-status-card
+  - `hk-row.js` — a horizontally scrolling row, as a native Lovelace card.
+  - `hk-security.js` — the alarm keypad
+  - `hk-stat.js` — headings and metric readouts as native Lovelace cards.
+  - `hk-strategy.js` — A WHOLE HOME APP-STYLE DASHBOARD FROM THE HOUSE ITSELF.
+  - `hk-tile.js` — the tile family as native Lovelace cards.
+  - `hk-timeline-block.js` — the House Timeline in two small places (docs/phase19/HOUSE-TIMELINE.md, "The views").
+  - `hk-timeline.js` — the Timeline page
+  - `hk-tv-card.js` — the TV block (`tv` in hk-grid-catalog.js; docs/phase23/TV.md), 2026-11-10.
+  - `hk-weather.js` — the Weather page's summary band, as a native Lovelace card.
+- **web/hk/elements/**
+  - `hk-elements.js` — HK'S OWN ELEMENTS (Phase 2, P2.1)
+- **web/hk/iconset/**
+  - `hk-icons.js` — the hk
+- **web/hk/modules/**
+  - `hk-campost.js` — give the cameras page a poster it already has.
+  - `hk-charts.js` — the drawing half of the pop-up charts.
+  - `hk-drag.js` — PICKING A THING UP WITH A FINGER OR A MOUSE, shared by Home Grid's editor (its palette rows, panels/hk-grid-editor.js) and Edit mode (hk-edit.js).
+  - `hk-edit-grid.js` — EDIT MODE ON A HOME GRID (2026-10-31, the owner
+  - `hk-edit-menu.js` — EDIT MODE'S MENU, TAB BAR AND ROOM ORDER (the plan "Edit pages in place", phase G, 2026-10-26).
+  - `hk-edit-pages.js` — EDIT MODE'S OTHER SURFACES (hk-edit.js has the shell and the room pages)
+  - `hk-edit.js` — EDIT MODE
+  - `hk-flat-image.js` — Flat's still photo treatment.
+  - `hk-fps.js` — THE FRAME RATE a screen draws, sampled now and then (2026-10-29).
+  - `hk-frosttint.js` — TINT FROM BACKGROUND, for the Frosted look (2026-10-09).
+  - `hk-glass.js` — the SHARED BLUR behind every glass surface (look.glass = blur).
+  - `hk-globe-map.js` — Accurate, offline land geometry with spherical clipping at the globe's rim.
+  - `hk-header.js` — the wall header's CLOCK and WEATHER blocks, as one source.
+  - `hk-holidays.js` — THE HOLIDAY CALENDAR (phase 20, docs/phase20/HOLIDAY-SLIDE.md)
+  - `hk-idle.js` — put a wall tablet back on its dashboard when nobody is using it.
+  - `hk-kiosk.js` — HIDE HOME ASSISTANT'S HEADER AND SIDEBAR on a screen that asks (HK Frontend 1.3).
+  - `hk-laundry.js` — LAUNDRY, READ AND DRAWN (phase 22, 2026-11-10; docs/phase22/LAUNDRY.md).
+  - `hk-loader.js` — imports the order-independent dashboard modules (MODULES below
+  - `hk-menu.js` — THE MENU OF PAGES AND ROOMS, modeled on the Home app's sidebar.
+  - `hk-mic-tap.js` — the Intercom's microphone tap
+  - `hk-mic.js` — the microphone for the Intercom (docs/phase17/INTERCOM.md, "The microphone code").
+  - `hk-notify.js` — NOTIFICATIONS
+  - `hk-np-strip.js` — the music player's CONTROLS STRIP, one piece every player draws with.
+  - `hk-pageswipe.js` — SWIPE BETWEEN PAGES (docs/phase11/HOMEVIEW-LOOK.md, Phase 0; DESIGN.md Motion, "A page swipe", 2026-10-30; rebuilt 2026-11-04 from measurements, do...
+  - `hk-pairs.js` — a stereo pair is one speaker on the generated dashboards.
+  - `hk-pcm-tap.js` — the doorbell's live talk as a worklet file (cards/hk-cameras.js PCM_TAP, the same source)
+  - `hk-radar.js` — the Weather page's precipitation radar, HK's own (2026-10-16; hk_house/docs/PLAN-2026-10-16-weather-page.md §3, §5, §7).
+  - `hk-roller.js` — THE ROLLER (2026-11-09, the owner's mockup 5c, "Yes, build it")
+  - `hk-saver-chooser.js` — A device-local chooser.
+  - `hk-saver-energy.js` — THE SCREENSAVER'S HOME ENERGY (2026-10-14)
+  - `hk-saver-holiday-fx.js` — THE HOLIDAY SLIDE'S EFFECTS (phase 20, docs/phase20/HOLIDAY-SLIDE.md "The rules for the effects")
+  - `hk-saver-holiday-scenes.js` — THE HOLIDAY SLIDE'S PAINTED SCENES (phase 20, docs/phase20/HOLIDAY-SLIDE.md "The scenes")
+  - `hk-saver-holiday.js` — THE SCREENSAVER'S HOLIDAY SLIDE (phase 20, docs/phase20/HOLIDAY-SLIDE.md)
+  - `hk-saver-panel.js` — the screensaver music's panel
+  - `hk-saver-timers.js` — THE SCREENSAVER'S TIMER SLIDE (phase 21, docs/phase21/TIMER-SLIDE.md)
+  - `hk-saver-weather.js` — THE SCREENSAVER'S WEATHER (2026-10-14)
+  - `hk-saver.js` — HK Frontend's photo screensaver, for a wall tablet's own user. *(a shell: its parts are in `web/hk/saver/`, `tools/split_manifests/saver.json`)*
+    - `hk-saver-helpers.js` — helpers, the photo deck and device-local design chooser
+    - `hk-saver-css.js` — the saver's CSS
+    - `hk-saver-photos.js` — start, photos, the mosaic, the forecast slide and its corner
+    - `hk-saver-draw.js` — the layout, the clocks, Home Energy and the weather
+    - `hk-saver-music.js` — the music slide and its panel
+    - `hk-saver-pane.js` — the dashboard's pane and the side pane
+    - `hk-saver-black.js` — HK's own black and the loop
+  - `hk-saverclock.js` — THE SCREENSAVER'S CLOCKS (2026-10-13)
+  - `hk-saverfaces.js` — THE SCREENSAVER'S HOMEVIEW-STYLE SHOWS (2026-10-30; docs/phase11/HOMEVIEW-LOOK.md, Phase I)
+  - `hk-saverlayout.js` — THE SCREENSAVER'S LAYOUT (2026-11-01, the owner
+  - `hk-saverpieces-cameras.js` — THE SCREENSAVER'S CAMERA PIECES (2026-11-02, phase 13 / 1b, wave B; docs/phase13/GLANCE-SPEC.md, "Cameras")
+  - `hk-saverpieces-energy.js` — THE SCREENSAVER'S ENERGY GLANCE PIECES (2026-11-02, phase 13, phase 1b, wave B
+  - `hk-saverpieces-home.js` — THE SCREENSAVER'S HOME PIECES (2026-11-02, phase 13, phase 1b, wave B
+  - `hk-saverpieces-media.js` — THE SCREENSAVER'S MEDIA AND PHOTOS GLANCE PIECES (2026-11-02, phase 13 / 1b, wave B; docs/phase13/GLANCE-SPEC.md, "Media")
+  - `hk-saverpieces-people.js` — THE SCREENSAVER'S PEOPLE PIECE (2026-11-02, phase 13, phase 1b, wave B
+  - `hk-saverpieces-picked.js` — THE SCREENSAVER'S PICKED-ENTITY GLANCE PIECES (2026-11-02, phase 13, phase 1b, wave C
+  - `hk-saverpieces-sensor.js` — THE SCREENSAVER'S ANY SENSOR GLANCE PIECE (2026-11-02, phase 13, phase 1b, wave C
+  - `hk-saverpieces-time.js` — THE SCREENSAVER'S TIME AND CALENDAR GLANCE PIECES (2026-11-02, phase 13 / 1b, wave A; docs/phase13/GLANCE-SPEC.md, "Time and Calendar")
+  - `hk-saverpieces-weather.js` — THE SCREENSAVER'S WEATHER AND SKY PIECES (2026-11-02, phase 13, phase 1b, wave A
+  - `hk-saverwidgets.js` — THE SCREENSAVER'S PIECES, drawn in every shape (2026-11-01, the owner
+  - `hk-settings.js` — THE DASHBOARD SETTINGS, on every screen, before any card.
+  - `hk-sidepane.js` — THE SIDE PANE (2026-10-30, docs/phase11/HOMEVIEW-LOOK.md "Phase A2")
+  - `hk-sky.js` — a live sky behind the weather view.
+  - `hk-skylab.js`
+  - `hk-skyshot.js` — THE SKY, AS A PICTURE
+  - `hk-stats.js` — long-term statistics and history for the hk card set.
+  - `hk-tabbar.js` — THE TAB BAR, after iOS 26's floating tab bar (docs/Tab-Bar.md)
+  - `hk-tap.js` — holds a tap "active" look on momentary tiles (scene pills).
+  - `hk-timer-ring.js` — A TIMER THAT ENDED, on this screen (phase 21, docs/phase21/TIMER-SLIDE.md).
+  - `hk-timers.js` — a live countdown a card cannot draw on its own.
+  - `hk-tv.js` — A ROOM'S TV, READ (phase 23, 2026-11-10; docs/phase23/TV.md, hk_core/tv.py has the rules).
+  - `hk-vacuum-art.js` — THE VACUUM, DRAWN (2026-11-09, the owner
+  - `hk-wallpapers.js` — THE WALLPAPERS (2026-10-30, docs/phase11/HOMEVIEW-LOOK.md Phase E)
+  - `tesla-viewport.js` — Give a CAR dashboard a usable layout width in the car's browser.
+- **web/hk/panels/**
+  - `hk-grid-editor.js` — Home Grid's desktop editor (docs/phase11/HOME-GRID.md, G5; rebuilt 2026-10-23 around a palette)
+  - `hk-saver-designs.js` — Saved designs use the ordinary screensaver options.
+  - `hk-saver-editor.js` — THE SCREENSAVER EDITOR (2026-11-01, the owner
+  - `hk-settings-features.js` — THE FEATURES' OWN SETTINGS on the HK Settings page.
+  - `hk-settings-kit.js` — THE HK SETTINGS PAGE'S CONTROLS.
+  - `hk-settings-model.js` — WHAT THE HK SETTINGS PAGE SAYS AND DECIDES, with no page in it.
+  - `hk-settings.js` — HK SETTINGS, the admin page (panel.py), built as an Apple settings screen *(a shell: its parts are in `web/hk/settings/`, `tools/split_manifests/settings.json`)*
+    - `hk-settings-css.js` — the panel's stylesheet
+    - `hk-settings-tables.js` — the tables and small helpers the pages draw from: colors, the sidebar's lists, option pages, entity pools
+    - `hk-settings-screen.js` — a screen's own pages: Overview, the screen, its menu and tab bar, accent
+    - `hk-settings-screen-pages.js` — a screen's pages: chips, cameras, scenes, sleep, rooms, pages, glass, the screensaver, kiosk
+    - `hk-settings-add.js` — Add a Screen and Custom Chips
+    - `hk-settings-house-pages.js` — All Screens: Pages, House, header, Weather and radar, Side Pane, Looks, Pages screen
+    - `hk-settings-house-looks.js` — All Screens: Now Playing, Calendar, Appearance, recommendations, Sky
+    - `hk-settings-house-sky.js` — All Screens: the Sky page, backgrounds, Flat colors, Theme, Birthdays, Menu
+    - `hk-settings-rooms.js` — Rooms and Wall Tablets
+    - `hk-settings-accessories.js` — Accessories and Hidden Accessories
+    - `hk-settings-library.js` — Pop-ups, Custom Pages and System
+- **web/hk/sheets/**
+  - `hk-sheet-appliances.js` — The valve, number, select and humidifier sheets.
+  - `hk-sheet-base.js` — The sheets' shared base
+  - `hk-sheet-climate.js` — The thermostat sheet.
+  - `hk-sheet-controls.js` — The toggle, fan and cover sheets.
+  - `hk-sheet-generic.js` — The generic sheet (an entity HK draws no sheet of its own for) and the list sheets.
+  - `hk-sheet-group.js` — The entity registry sheet, a group's sheet, a custom pop-up's cards, and the registry of every sheet (PANELS).
+  - `hk-sheet-laundry.js` — The laundry sheet
+  - `hk-sheet-light.js` — The light sheet
+  - `hk-sheet-lock.js` — The lock sheet and its hold ring, the garage and gate sheet, and the button sheet.
+  - `hk-sheet-media.js` — The media player sheet.
+  - `hk-sheet-security.js` — The alarm keypad sheet and the camera sheet.
+  - `hk-sheet-sensor.js` — The sensor sheet (its history chart, the energy device sheet) and the binary-sensor, state and text-sensor sheets.
+  - `hk-sheet-tv.js` — The TV sheet
+  - `hk-sheet-vacuum.js` — The vacuum sheet and its rooms.
+  - `hk-sheet-waterheater.js` — The water heater sheet.
+- **web/hk/shell/**
+  - `hk-overlays.js` — HK's own toast layer (Phase 2 P2.5, docs/phase2/SHEETS.md).
+  - `hk-view-host.js` — HK's view host (Phase 2 P2.3)
+- **web/shim/**
+  - `base.js` — the page's address prefix.
+  - `boot-retry.js` — a page whose start failed starts again (web/home.js, shim/settings-page.js).
+  - `early-cards.js` — the card list is asked for, and the cards' files start downloading, with the page.
+  - `ha-elements.js` — the few Home Assistant elements HK's cards draw, as plain stand-ins.
+  - `ha-frame.js` — a Mantel screen shown INSIDE Home Assistant, two ways
+  - `hub.js` — the page's connection to Mantel Server
+  - `mantel-client.js` — Mantel's client port for compatibility snapshots made by mantel-host.js.
+  - `mantel-host.js` — mantel-host.js (was hass-shim.js) -- a `hass`-shaped snapshot for HK's cards, built from Mantel Server instead of Home Assistant.
+  - `mantel-native.js` — the page's side of the iPhone and iPad app (jazzphone/mantel-ios
+  - `mantel-photos.js` — Mantel Settings → Your Files → Photos
+  - `mantel-settings.js` — Mantel's own pages in Mantel Settings (HK's settings panel with Mantel's host).
+  - `mantel-shell.js` — Mantel's host shell (the contract is web/client/hk-host-shell.js).
+  - `page-health.js` — shim/page-health.js -- PAGE HEALTH (page_health.py, 2026-10-22), for the dashboard (home.js) and Mantel Settings.
+  - `registry-sync.js` — shim/registry-sync.js -- the page's registries follow the house (Phase 6, registry_feed.py on the server).
+  - `settings-page.js` — Mantel Settings (served at /settings to every signed-in person, never to a wall tablet).
+- **web/shim/settings/**
+  - `about.js` — settings/about.js -- Mantel Settings, About
+  - `alerts.js` — settings/alerts.js -- Mantel Settings, Alerts (alerts/api.py; docs/phase14/SYSTEM-ALERTS.md "Mantel Settings → Alerts")
+  - `assistants.js` — settings/assistants.js -- Mantel Settings, Advanced → Assistants (MCP)
+  - `audit.js` — settings/audit.js -- Mantel Settings, Audit Log.
+  - `backups.js` — settings/backups.js -- Mantel Settings, Backups (backup.py, 2026-10-28)
+  - `cameras.js` — settings/cameras.js -- Mantel Settings, Cameras
+  - `connect.js` — settings/connect.js -- Mantel Settings, Mantel Connect
+  - `connections.js` — settings/connections.js -- Mantel Settings, Connections
+  - `core.js` — settings/core.js -- state, the server (api), reads (load) and actions (act) that every page of Mantel Settings shares.
+  - `devices.js` — settings/devices.js -- Mantel Settings, Devices
+  - `files.js` — settings/files.js -- Mantel Settings, Your Files
+  - `general.js` — settings/general.js -- Mantel Settings, General
+  - `ha-screens.js` — settings/ha-screens.js -- Mantel Settings, screens in Home Assistant's sidebar, and where each screen is drawn.
+  - `intercom.js` — settings/intercom.js -- Mantel Settings, Intercom (docs/phase17/INTERCOM.md "Rooms", "The address MA uses")
+  - `kit.js` — settings/kit.js -- what every page draws with
+  - `link.js` — settings/link.js -- Mantel Settings, Mantel Link and HK Frontend in Home Assistant, and moving from one to the other.
+  - `me.js` — settings/me.js -- Mantel Settings, Me
+  - `people.js` — settings/people.js -- Mantel Settings, People
+  - `performance.js` — settings/performance.js -- Mantel Settings, About, Performance (performance.py)
+  - `protect.js` — settings/protect.js -- Mantel Settings, Connections, UniFi Protect
+  - `proxy.js` — settings/proxy.js -- Mantel Settings, HTTPS and Your Proxy, and Home Assistant's frame.
+  - `roles.js` — settings/roles.js -- Mantel Settings, Roles & Grants
+  - `secure.js` — settings/secure.js -- Mantel Settings, About, Secure Connection (about.py, page-health.js)
+  - `service.js` — settings/service.js -- Mantel Settings, Service Accounts
+  - `setup.js` — settings/setup.js -- Mantel Settings, Set Up Mantel
+  - `tablets.js` — settings/tablets.js -- Mantel Settings, a wall tablet's Direct Connection, and its Reload and Clear Cache.
+  - `timeline.js` — settings/timeline.js -- Mantel Settings, Timeline (timeline/api.py; docs/phase19/HOUSE-TIMELINE.md "Mantel Settings → Timeline")
+
+## `hk_core/`
+
+The decisions both hosts make the same way (Rule 2), in Python.
+
+- **hk_core/**
+  - `clean_areas.py` — CLEAN THESE AREAS -- one action, every vacuum, the house's own mapping.
+  - `house.py` — THE HOUSE PORT
+  - `laundry.py` — Laundry
+  - `live_tv_guide.py` — THE LIVE TV GUIDE, as plain functions, shared by every host (hk_core; was features/live_tv/guide.py).
+  - `needs.py` — WHETHER A FEATURE HAS WHAT IT NEEDS (docs/phase16/FEATURES-ON-BY-DEFAULT.md "The needs check").
+  - `todo.py` — TO-DO LISTS (2026-10-30; the Side Pane's To-do section, docs/phase11/HOMEVIEW-LOOK.md "Phase A2").
+  - `tv.py` — TVs
+  - `vacuum_water.py` — A vacuum's water tank that ran dry, held until someone clears it (2026-11-09, the owner), the rules with no host in them.
+  - `your_files.py` — YOUR FILES' CHECKS, written once
+- **hk_core/art/**
+  - `fetch.py` — WHERE ARTWORK MAY BE FETCHED FROM, and the fetch (moved here from HK Frontend's art.py, 2026-10-29, for Mantel too).
+  - `resize.py` — ALBUM ART SCALED TO THE TILE (moved here from HK Frontend's art.py, 2026-10-29, so Mantel scales it too).
+- **hk_core/energy/**
+  - `const.py` — Energy's constants.
+  - `plan.py` — THE ENERGY PAGE'S PLAN, shared by every host (hk_core; was features/energy/plan.py).
+  - `power.py` — THE POWER PAGE'S PLAN (PLAN-2026-10-12-home-power)
+  - `settings.py` — Energy's HK Settings page checks (Features -> Energy)
+- **hk_core/intercom/**
+  - `config.py` — THE INTERCOM'S SETTINGS
+  - `rooms.py` — WHICH ROOMS A BROADCAST PLAYS IN, and why the others are left out (docs/phase17/INTERCOM.md "Rooms").
+- **hk_core/link/**
+  - `mantel_link.py` — THE LINK TO MANTEL SERVER (linked mode; linked_mode.py is the Home Assistant side, docs/phase5/LINKED-MODE.md in the Mantel repository the whole st...
+  - `page_headers.py` — PAGE HEADERS, the part both integrations share
+  - `talk.py` — TALK
+  - `talk_live.py` — LIVE TALK
+- **hk_core/music/**
+  - `announcements.py` — Announcements, for display only
+  - `checks.py` — The checks Music's forms share
+  - `config.py` — Whole-home music's configuration
+  - `const.py` — Music's constants, shared by every host (PLAN.md §0, plan review).
+  - `covers.py` — PLAYLIST COVERS (2026-11-01, the owner
+  - `engine.py` — Whole-home music's engine
+  - `groups.py` — SPEAKERS MADE OF SEVERAL PLAYERS, as Music Assistant has them.
+  - `queue.py` — THE MUSIC PAGE'S QUEUE
+  - `resume.py` — MUSIC STOPPED AFTER A PAUSE, kept for the screens (2026-11-01).
+  - `settings.py` — Music's settings, for the HK Settings page
+  - `warm.py` — KEEP PLAYLISTS READY
+- **hk_core/notifications/**
+  - `accessories.py` — WHAT A NOTIFICATION WATCHES, found in the house
+  - `banner.py` — WHAT GOES TO THE SCREENS, and when.
+  - `calendars.py` — CALENDARS
+  - `const.py` — Notifications' constants
+  - `dnd.py` — DO NOT DISTURB
+  - `migrate.py` — STORED OPTIONS MOVED FORWARD, once each (the host saves what comes back).
+  - `rules.py` — WHAT A NOTIFICATION MEANS, without a host (hk_core; tested on its own)
+  - `settings.py` — Notifications' HK Settings page (Features -> Notifications)
+- **hk_core/screensaver/**
+  - `black.py` — WHAT A TABLET'S BLACK SCREEN SWITCH MEANS (Black Screen
+  - `rules.py` — A WALL TABLET'S SCREENSAVER
+- **hk_core/settings/**
+  - `changes.py` — THE SETTINGS PAGE'S WRITES
+  - `home_grid.py` — HOME GRID (docs/phase11/HOME-GRID.md)
+  - `kinds.py` — STATUS & CHIPS' KINDS
+  - `looks.py` — LOOKS (2026-10-30, docs/phase11/HOMEVIEW-LOOK.md "Looks")
+  - `model.py` — THE DASHBOARD SETTINGS
+  - `pages.py` — The page kinds a host's HK Settings offers (hk_core; every host).
+  - `pane_status.py` — A SIDE PANE STATUS (2026-11-06; the owner
+  - `saver_designs.py` — Bounded saved screensavers; snapshots contain ordinary saver options only.
+  - `saver_holidays.py` — THE HOLIDAY SLIDE'S SETTINGS (phase 20, docs/phase20/HOLIDAY-SLIDE.md "Settings"; web/hk/modules/hk-saver-holiday.js).
+  - `saver_layout.py` — THE SCREENSAVER'S LAYOUT (docs/phase12/SCREENSAVER-EDITOR.md)
+  - `saver_timers.py` — The Timer slide's options (phase 21, docs/phase21/TIMER-SLIDE.md; web/hk/modules/hk-saver-timers.js)
+- **hk_core/sleep/**
+  - `engine.py` — Sleep Screen's engine, its DECISIONS
+  - `rules.py` — Sleep Screen
+- **hk_core/tablets/**
+  - `alerts.py` — THE TABLETS' ALERTS AND THE SCHEDULED RESTART (All Tablets).
+  - `kiosk.py` — A WALL TABLET'S KIOSK APP
+  - `setup.py` — SETUP CHECK'S LINE FOR THE WALL TABLETS
+  - `suggestions.py` — WHAT MAY BE A WALL TABLET THAT ISN'T ONE YET
+- **hk_core/talk/**
+  - `core.py` — LIVE TALK'S CORE
+- **hk_core/timeline/**
+  - `classify.py` — WHAT THE HOUSE TIMELINE RECORDS, without a host (hk_core; tested on its own)
+  - `digest.py` — THE MORNING DIGEST'S WORDS, without a host (hk_core; tested on its own)
+  - `words.py` — HOW A TIMELINE ROW READS, without a host (hk_core; tested on its own)
+
+## `hosts/server/mantel_server/`
+
+Mantel Server.
+
+- **hosts/server/mantel_server/**
+  - `__main__.py`
+  - `about.py` — Mantel Settings -> About
+  - `accessories.py` — ACCESSORY SETTINGS, MANTEL'S SIDE
+  - `accounts.py` — Accounts
+  - `admin_page.py` — Mantel Server's admin page
+  - `alarm_pin.py` — HK's Alarm PIN in Mantel (docs/phase3/PINS-AUDIT.md "The alarm keypad", docs/phase3/GATEWAY.md "The alarm", docs/phase4/MANTEL-FEATURES.md).
+  - `announce.py` — Mantel on the network, by zeroconf (docs/phase9/MANTEL-LINK.md "Discovery and pairing", slice 9.5).
+  - `apns.py` — Notifications to the iPhone, iPad and Mac apps through Apple's push service (docs/phase10/APPLE-APPS.md §5, slice 10.5; decision M10-2
+  - `app_api.py` — What the apps' system surfaces ask the house (docs/phase10/APPLE-APPS.md §1, §6, §7; slice 10.3).
+  - `app_auth.py` — Signing in the iPhone, iPad and Mac apps (docs/phase10/APPLE-APPS.md §2-§4, slice 10.2).
+  - `app_crypto.py` — The cryptography the phone and Mac apps and Web Push share (docs/phase10/APPLE-APPS.md §3, §5).
+  - `app_music.py` — The apps' music, over REST (docs/phase10/APPLE-APPS.md §12
+  - `app_shell.py` — Phase 10
+  - `atrest.py` — Secrets at rest
+  - `audit.py` — The one way a settings or account change is written to the audit log (Rules.md rule 3 and rule 7).
+  - `auth.py` — Sign in with Home Assistant, and the middleware that puts /dev, /api and /ws behind a sign-in.
+  - `authz.py` — P3.7 wiring
+  - `backup.py` — Encrypted backups of Mantel's database (and uploaded files), and a restore that checks before it swaps.
+  - `camera_setup.py` — RTSP CAMERAS
+  - `cameras_direct.py` — DIRECT CAMERA SOURCES (docs/phase13/CAMERAS-DIRECT.md "The design -> Camera sources", phase 3).
+  - `cf_access.py` — Cloudflare Access in front of the tunnel
+  - `config.py`
+  - `connect_pairing.py` — Mantel Connect, Mantel Server's side
+  - `connect_proof.py` — Separate TLS identity-only receiver.
+  - `connections.py` — Connections
+  - `cutout.py` — TIME BEHIND
+  - `db.py` — Mantel's SQLite database
+  - `default_screens.py` — The screen a person or a wall tablet opens on (migration 0014; decision 27's addendum, docs/phase8/SETTINGS.md).
+  - `devices.py` — Device credentials
+  - `direct.py` — HA App direct access (decision 26; docs/phase3/HA-APP.md "Direct access")
+  - `direct_tls.py` — Built-in HTTPS for the HA App's direct access (decision 26; docs/phase3/HA-APP.md "Built-in HTTPS").
+  - `docs_pages.py` — /docs
+  - `door_key.py` — The per-install door key for "bring your own reverse proxy".
+  - `dry_run.py` — A dry run
+  - `faces.py` — WHERE THE FACES ARE
+  - `feature_pages.py` — HK Settings -> Features on Mantel
+  - `feature_watch.py` — Two of HK's clock-driven features on Mantel, through MantelHouse and FeatureCaller (docs/phase4/MANTEL-FEATURES.md "Phase 4 ports").
+  - `frame_origins.py` — Which pages may show Mantel in a frame (CSP ``frame-ancestors``)
+  - `gateway.py` — The command gateway (PLAN §4 "Command gateway", §5, §7)
+  - `guards.py` — Every route declares its guard (Rules.md rule 7).
+  - `ha_client.py` — Read-only connection to Home Assistant's WebSocket API.
+  - `ha_dashboards.py` — Mantel's screens in Home Assistant's sidebar
+  - `ha_oauth.py` — 'Sign in with Home Assistant'
+  - `health.py` — /healthz and /api/version
+  - `hidden.py` — HIDDEN ACCESSORIES, MANTEL SERVER'S SIDE
+  - `hk_cards.py` — GET /api/hk-cards
+  - `house.py` — THE HOUSE PORT, MANTEL SERVER'S SIDE (hk_core/house.py; PLAN §0 plan review, item 1 (c)).
+  - `image_work.py` — THE PICTURE WORK ITSELF
+  - `imaging.py` — IMAGE WORK IN ITS OWN PROCESS (docs/phase4/PHOTOS.md, "Where the work runs").
+  - `ingress.py` — HA App mode
+  - `laundry.py` — Laundry
+  - `linked.py` — Phase 5
+  - `linked_actions.py` — HK Frontend's other actions, run by Mantel (docs/phase9/MANTEL-LINK.md 9.8).
+  - `linked_files.py` — The home's own SF Pro and SF Symbols glyph file, for a linked HK Frontend (2026-11-07).
+  - `linked_house.py` — Linked mode, the rest of the entry on Mantel (docs/phase5/LINKED-MODE.md "What Mantel publishes"; CUTOVER.md Step 7), and the forwarded actions fea...
+  - `linked_owners.py` — Linked mode's per-tablet ownership during the cutover (docs/phase6/CUTOVER.md §1, Option A, the recorded recommendation; docs/phase5/LINKED-MODE.md...
+  - `linked_pairing.py` — Pairing codes for Mantel Link (docs/phase9/MANTEL-LINK.md "Discovery and pairing", slice 9.4).
+  - `linked_reads.py` — The features on a linked HK Frontend's dashboards, answered by Mantel (decision 29, docs/phase9/TWO-PRODUCTS.md "features on HK Frontend's dashboar...
+  - `linked_settings.py` — HK's settings for a linked HK Frontend (decision 29, docs/phase9/TWO-PRODUCTS.md "one copy of the settings").
+  - `live.py` — One lifecycle for long-lived connections
+  - `live_tv.py` — LIVE TV SERVED BY MANTEL (docs/phase4/FEATURE-PARITY.md "Live TV served by Mantel"; PLAN §8, §10, Proof 4).
+  - `login_page.py` — Mantel Server's sign-in page
+  - `ma_page.py` — The token for the Music Assistant page
+  - `mcp_parity.py` — MCP parity (phase 18, A6)
+  - `media_proxy.py` — Music Assistant's web app and go2rtc, served under Mantel's own address (``/ma/…``, ``/go2rtc/…``).
+  - `music.py` — WHOLE-HOME MUSIC IN MANTEL (Phase 4)
+  - `music_announcements.py` — Display-only announcement markers from HA's read-only service event feed, and the Intercom's.
+  - `music_browse.py` — BROWSE'S TREE AND SEARCH FROM MUSIC ASSISTANT (2026-10-31; music_states.py's companion).
+  - `music_states.py` — THE SPEAKERS' STATES FROM MUSIC ASSISTANT (2026-10-31)
+  - `notify_snaps.py` — Notification snapshots on Mantel (docs/phase4/MANTEL-FEATURES.md "Phase 4 ports").
+  - `page_headers.py` — THE LIGHTS PAGE'S "TONIGHT" LIST on Mantel's screens (hk-headers.js subscribes ``hk_frontend/page_headers/subscribe``).
+  - `page_health.py` — PAGE HEALTH (2026-10-22)
+  - `people_ha.py` — Home Assistant's users, each in one place (decision 29, docs/phase9/TWO-PRODUCTS.md "people in one list").
+  - `performance.py` — PERFORMANCE (2026-10-26)
+  - `phones.py` — Mantel's notifications on people's phones, through Home Assistant's Companion app (docs/phase9/MANTEL-LINK.md 9.7).
+  - `photos.py` — MANTEL PHOTOS
+  - `pins.py` — A person's PIN, and the alarm keypad's lockout counters.
+  - `protect_api.py` — UNIFI PROTECT'S PUBLIC API, AS MANTEL'S OWN CLIENT (docs/phase13/CAMERAS-DIRECT.md, phase 4
+  - `protect_connector.py` — THE UNIFI PROTECT CONNECTOR (docs/phase13/CAMERAS-DIRECT.md, phase 4, and phase 5's wiring of direct talk).
+  - `proxy_check.py` — "Test my proxy"
+  - `proxy_trust.py` — Who may tell Mantel about the browser
+  - `push.py` — Notifications off the screens
+  - `qr.py` — A small QR code encoder (byte mode, error correction M, versions 1 to 20) for the apps' pairing code.
+  - `rbac.py` — Roles and grants (PLAN §5, §7)
+  - `rbac_store.py` — Storage for roles and grants (P3.2), over a plain `sqlite3.Connection`, and the Owner-only REST.
+  - `readproxy.py` — ReadProxy
+  - `registry.py` — Area/device/entity registry index
+  - `registry_feed.py` — Registry changes reach open pages (Phase 6).
+  - `route_table.py` — One route table, assembled from each handler's declaration (phase 18, Part A; Rules.md rule 7).
+  - `screens.py` — Mantel's screens
+  - `security_headers.py` — Mantel's own security headers, on every response, whatever proxy is (or is not) in front of it.
+  - `server.py` — Client-facing side
+  - `server_settings.py` — Mantel's own settings that used to be start-up options, now in Mantel Settings (the same on the HA App, Docker and LXC; docs/phase3/HA-APP.md 0.1.52).
+  - `service_accounts.py` — Service accounts (PLAN §5 "Service"
+  - `sessions.py` — Sessions and the identity of a request (PLAN §7 "Identity and sessions").
+  - `setup_check.py` — HK Settings' Setup Check on Mantel
+  - `setup_guide.py` — Set Up Mantel
+  - `socket_reads.py` — The socket's doors in the route table (phase 18, A8)
+  - `state.py` — In-memory copy of every HA state, kept current from `subscribe_entities` events.
+  - `stats.py`
+  - `store.py` — Phase 0's store API, now a thin layer over the P3.1 database (``db.py``, migration 0001_core).
+  - `supervisor_discovery.py` — The HA App announces Mantel to Home Assistant (docs/phase9/MANTEL-LINK.md "Discovery and pairing", slice 9.5).
+  - `tablet_links.py` — A wall tablet's Direct Connection
+  - `talk_direct.py` — TALKING AT A UNIFI PROTECT DOORBELL DIRECTLY (docs/phase13/CAMERAS-DIRECT.md, phase 5, 2026-11-02).
+  - `talk_relay.py` — LIVE TALK through Mantel (docs/phase3/GATEWAY.md "Doorbell talk-back")
+  - `timers.py` — Timers on Mantel (phase 21, docs/phase21/TIMER-SLIDE.md)
+  - `tv.py` — TVs
+  - `user_data.py` — HK's per-person frontend user data, kept by Mantel (migration 0013).
+  - `user_files.py` — YOUR FILES on Mantel Server
+  - `vacuum_water.py` — A vacuum's water tank that ran dry, held for the card (2026-11-09, the owner; hk_core/vacuum_water.py has the story).
+  - `view.py` — One client's filtered, coalesced view of the state store.
+- **hosts/server/mantel_server/alerts/**
+  - `api.py` — Mantel Settings → Alerts' REST (docs/phase14/SYSTEM-ALERTS.md "The API, roles and audit").
+  - `catalog.py` — The system alerts' event catalog (docs/phase14/SYSTEM-ALERTS.md "The event catalog").
+  - `center.py` — The alert center (docs/phase14/SYSTEM-ALERTS.md "The alert center").
+  - `sources.py` — What the alert center hears about (docs/phase14/SYSTEM-ALERTS.md, the catalog's sources).
+  - `store.py` — The alerts' tables (migration 0031)
+  - `updates.py` — The update check (docs/phase14/SYSTEM-ALERTS.md "The update check")
+- **hosts/server/mantel_server/alerts/channels/**
+  - `apprise_.py` — Apprise
+  - `discord.py` — Discord
+  - `email.py` — Email
+  - `notifiarr.py` — Notifiarr
+  - `telegram.py` — Telegram
+- **hosts/server/mantel_server/connectors/**
+  - `camera.py` — Camera WebRTC signaling, proxied to Home Assistant (PLAN §7 "Remote cameras
+  - `camera_still.py` — Camera stills through Mantel (PLAN §4 "proxies, not copies", §5 cameras, §7 doors).
+  - `fully.py` — Fully Kiosk Browser, through its own REST API (docs/phase8/KIOSK.md; wired in by tablet_links.py).
+  - `kiosk.py` — What the wall tablets' kiosk apps share (docs/phase8/KIOSK.md)
+  - `kiosk_satellite.py` — Kiosk Satellite, through its own remote API (docs/phase8/KIOSK.md
+  - `ma.py` — Music Assistant, through its own WebSocket API (PLAN §3, §4, §10 "Music").
+  - `media_art.py` — Media player artwork through Mantel (PLAN §4 "proxies, not copies"; the camera stills' twin).
+  - `media_photos.py` — The screensaver's own photos through Mantel (the camera stills' and media artwork's twin).
+  - `person_picture.py` — Home Assistant person portraits on Mantel's origin, behind the person's view grant.
+- **hosts/server/mantel_server/features/**
+  - `actor.py` — Who a feature acts as and what it talks to
+  - `auto.py` — FEATURES ON BY DEFAULT (docs/phase16/FEATURES-ON-BY-DEFAULT.md "The runner").
+  - `energy_plan.py` — The Energy page's inputs on Mantel
+  - `host.py` — The feature host
+  - `linked_handler.py` — The linked handler
+  - `notify.py` — Notifications on Mantel
+  - `settings.py` — The feature settings of Mantel's features
+  - `sleep.py` — The Sleep Screen on Mantel
+  - `tv_fetch.py` — Live TV's fetching
+- **hosts/server/mantel_server/intercom/**
+  - `driver.py` — THE BROADCAST DRIVER (docs/phase17/INTERCOM.md "Concurrency", "Automatic fallback")
+  - `host.py` — THE INTERCOM ON MANTEL (docs/phase17/INTERCOM.md), ``app["intercom"]``
+  - `links.py` — One-time links
+  - `listener.py` — The Intercom's stream listener
+  - `relay.py` — THE INTERCOM'S AUDIO SOCKET, ``/ws/intercom`` (docs/phase17/INTERCOM.md "The audio socket"), modeled on talk_relay.py; the same words where the rul...
+  - `routes.py` — THE INTERCOM'S ROUTES AND FEED (docs/phase17/INTERCOM.md "Permissions, audit, API and storage").
+  - `spool.py` — The spool
+  - `wiring.py` — Wiring the Intercom into Mantel Server (server.wire)
+- **hosts/server/mantel_server/mcp/**
+  - `admin.py` — Mantel Settings → Advanced → Assistants (MCP)
+  - `auth.py` — Who is calling ``/mcp``
+  - `config.py` — The house's switches for assistants (Mantel Settings → Advanced → Assistants (MCP)).
+  - `dispatch.py` — MCP is another door, not another way in
+  - `grants.py` — An assistant's credential
+  - `oauth.py` — Signing an assistant in
+  - `plans.py` — Plan, then apply (docs/phase12/MCP-SERVER.md "Changing things safely"), with no session to remember it in.
+  - `preview.py` — A screen's preview, opened by the assistant's own browser (docs/phase12/MCP-SERVER.md "Previews"
+  - `protocol.py` — ``/mcp``
+  - `resources.py` — Resources (read-only context a client can attach) and prompts (one-click starting points).
+- **hosts/server/mantel_server/mcp/tools/**
+  - `alerts.py` — System alerts and the update check (docs/phase14/SYSTEM-ALERTS.md "MCP")
+  - `audit.py` — The audit log (the ``audit`` scope)
+  - `commands.py` — House commands (opt-in
+  - `deploy.py` — Making deploying easy (docs/phase12/MCP-SERVER.md "Making deploying easy")
+  - `house.py` — Reading the house
+  - `music.py` — Music
+  - `screens.py` — Screens and Home Grid
+  - `settings.py` — Settings
+  - `timeline.py` — The House Timeline for assistants (docs/phase19/HOUSE-TIMELINE.md "MCP")
+- **hosts/server/mantel_server/settings_store/**
+  - `docs.py` — The shapes the settings store is made of
+  - `hooks.py` — What a save asks and is classified by
+  - `importing.py` — The one-time import of HK's settings from HA (read path only), the generated Home screen, and ``import_cli``.
+  - `model.py` — The checks a write passes before it is stored
+  - `routes.py` — ``register``
+  - `service.py` — ``SettingsService``
+  - `store.py` — ``SettingsStore``
+- **hosts/server/mantel_server/static/**
+  - `webauthn.js` — the passkey (WebAuthn) helpers shared by Mantel's own pages
+- **hosts/server/mantel_server/static/admin/**
+  - `admin.js` — Mantel admin page.
+- **hosts/server/mantel_server/static/login/**
+  - `login.js` — Mantel sign-in page (/login).
+- **hosts/server/mantel_server/static/proxy-check/**
+  - `check.js` — "Test my proxy" (proxy_check.py).
+- **hosts/server/mantel_server/timeline/**
+  - `api.py` — The House Timeline's REST and live feed (docs/phase19/HOUSE-TIMELINE.md "Who sees what", "The API and live feed").
+  - `core.py` — The House Timeline's write path (docs/phase19/HOUSE-TIMELINE.md "The write path").
+  - `digest.py` — The morning digest (docs/phase19/HOUSE-TIMELINE.md "The morning digest").
+  - `pictures.py` — The House Timeline's pictures (docs/phase19/HOUSE-TIMELINE.md "Pictures and clips").
+  - `protect.py` — UniFi Protect's events in the House Timeline (docs/phase19/HOUSE-TIMELINE.md "The write path" 8).
+  - `store.py` — The House Timeline's tables (migration 0033)
+
+## `hosts/ha/custom_components/`
+
+Home Assistant's integrations (HK Frontend, Mantel Link).
+
+- **hosts/ha/custom_components/hk_frontend/**
+  - `accessories.py` — ACCESSORY SETTINGS
+  - `alarm_control_panel.py` — Alarm PIN's panels -- see features/alarm_pin.
+  - `art.py` — ARTWORK THROUGH HOME ASSISTANT
+  - `binary_sensor.py` — Each screen's in-use sensor (screensaver.py)
+  - `boot.py` — THE ORDERED BOOT
+  - `camera.py` — Live TV's channels -- see features/live_tv.
+  - `config_flow.py` — The UI
+  - `const.py` — Constants for hk_frontend.
+  - `diagnostics.py` — Settings -> Devices & services -> HK Frontend -> Download diagnostics.
+  - `entity.py` — What every entity of this integration shares
+  - `files.py` — YOUR FILES
+  - `files_sync.py` — YOUR FILES FROM MANTEL SERVER (linked mode, 2026-11-07)
+  - `handover.py` — THE BRIDGE HAND-OVER, HK FRONTEND'S SIDE (docs/phase9/MANTEL-LINK.md in the Mantel repository; decision 29
+  - `hiding.py` — HIDDEN ACCESSORIES
+  - `hk_panel.py` — HK AS ITS OWN PANEL (Phase 2 P2.6, opt-in)
+  - `house.py` — THE HOUSE PORT, HOME ASSISTANT'S SIDE (hk_core/house.py).
+  - `kinds.py` — STATUS & CHIPS
+  - `linked_mode.py` — LINKED TO MANTEL SERVER (Configure -> Linked to Mantel Server)
+  - `lovelace_boards.py` — Home Assistant's dashboards, by the address HK Frontend knows them by.
+  - `mantel_link.py` — THE LINK TO MANTEL SERVER (linked mode; docs/phase5/LINKED-MODE.md in the Mantel repository the whole story)
+  - `mirror.py` — HK'S SETTINGS HANDED BACK (decision 29 in Mantel's docs/phase9/TWO-PRODUCTS.md).
+  - `page_headers.py` — PAGE HEADERS, the server's part
+  - `panel.py` — THE HK SETTINGS PAGE
+  - `rename.py` — Follow an entity rename through HK Frontend's own settings.
+  - `resources.py` — The Lovelace resources the cards need, registered by the integration.
+  - `screensaver.py` — THE PHOTO SCREENSAVER'S ENTITIES (HK Frontend 1.3)
+  - `sensor.py` — Live TV's "now on" and viewers sensors -- see features/live_tv -- and each screen's Sleep Screen (sensor.<screen>_sleep_screen, sleep_engine.py).
+  - `settings.py` — THE DASHBOARD SETTINGS
+  - `settings_api.py` — THE SETTINGS PAGE'S WRITES
+  - `setup_check.py` — Configure -> Setup check
+  - `sleep_engine.py` — Sleep Screen's engine
+  - `sleep_rules.py` — Sleep Screen's rules, re-exported
+  - `snooze.py` — OFF UNTIL TOMORROW
+  - `switch.py` — The integration's own switch
+  - `tablets.py` — WALL TABLETS (entry 1.14)
+  - `talk.py` — TALK
+  - `talk_live.py` — LIVE TALK
+  - `themes.py` — THE HK KIOSK THEMES, loaded by the integration -- no configuration.yaml.
+  - `thirdparty.py` — THE THIRD-PARTY CARDS a generated dashboard uses, and whether each is ready
+  - `todo_lists.py` — THE SIDE PANE'S TO-DO LISTS, HOME ASSISTANT'S SIDE (hk_core/todo.py).
+- **hosts/ha/custom_components/hk_frontend/features/alarm_pin/**
+  - `alarm_control_panel.py` — The PIN panel
+  - `checks.py` — What the Add form, its gear and the settings page check alike
+  - `const.py` — Alarm PIN's constants.
+  - `pin.py` — The PIN is never stored, only a salted PBKDF2-SHA256 hash of it.
+  - `settings_ws.py` — Alarm PIN's settings, for the HK Settings page.
+- **hosts/ha/custom_components/hk_frontend/features/clean_areas/**
+  - `clean.py` — CLEAN THESE AREAS, inside Home Assistant
+  - `const.py` — Clean Areas' constants (the option keys are the shared logic's
+  - `settings_ws.py` — Clean Areas' settings and its live area list.
+- **hosts/ha/custom_components/hk_frontend/features/energy/**
+  - `const.py` — Energy's constants live in hk_core (hk_core/energy/const.py); the feature keeps importing them here.
+  - `plan.py` — THE ENERGY PAGE inside Home Assistant
+  - `power.py` — The Power page's logic lives in hk_core (hk_core/energy/power.py); the feature keeps importing it here.
+  - `settings_ws.py` — Energy's settings, for the HK Settings page (admin only)
+- **hosts/ha/custom_components/hk_frontend/features/live_tv/**
+  - `camera.py` — One camera per channel
+  - `channels.py` — Which channels
+  - `const.py` — Live TV's constants.
+  - `coordinator.py` — The guide, refreshed every GUIDE_REFRESH_MIN minutes, and the lineup.
+  - `guide.py` — The guide's functions live in hk_core (hk_core/live_tv_guide.py), written once for every host; this module keeps the names the Live TV feature and...
+  - `sensor.py` — Per channel
+  - `settings_ws.py` — Live TV's settings, for the HK Settings page.
+  - `stream.py` — The transcode
+- **hosts/ha/custom_components/hk_frontend/features/music/**
+  - `announcements.py` — Recognize HA announcements before player state arrives, for display only.
+  - `const.py` — Music's constants live in hk_core (hk_core/music/const.py); the feature keeps importing them here.
+  - `flows.py` — Music's items and the checks its forms share.
+  - `music.py` — Whole-home music inside Home Assistant
+  - `settings_ws.py` — Music's settings, for the HK Settings page.
+  - `warm.py` — KEEP PLAYLISTS READY inside Home Assistant
+- **hosts/ha/custom_components/hk_frontend/features/notifications/**
+  - `const.py` — Notifications' constants live in hk_core (hk_core/notifications/const.py); the feature keeps importing them here.
+  - `rules.py` — What a notification means lives in hk_core (hk_core/notifications/rules.py), written once for every host; the feature and its tests keep importing...
+  - `settings_ws.py` — Notifications' settings, for the HK Settings page (admin only)
+  - `snaps.py` — THE SNAPSHOTS
+- **hosts/ha/custom_components/hk_frontend/tools/**
+  - `gen_theme.py` — THE HK KIOSK THEME'S GLASS, WRITTEN FROM THE DESIGN TABLE (design consolidation 5.2).
+  - `merge_translations.py` — Merge each feature's translations.en.json fragment into translations/en.json (a deep merge; the fragment's keys win), and report keys that clash be...
+- **hosts/ha/custom_components/hk_frontend/tools/font/**
+  - `make_woff2.py` — Make the SF Pro web font for your HK Frontend files folder.
+- **hosts/ha/custom_components/hk_frontend/tools/publish/**
+  - `publish.py` — BUILD THE PUBLIC REPOSITORY from this component (HK Frontend 1.0).
+- **hosts/ha/custom_components/hk_frontend/tools/sf_symbols/**
+  - `build_glyphs.py` — Build hk-glyphs.js -- the hk
+  - `names.py` — The SF Symbols the glyph file is built from, as two lists a person can use without running the builder
+  - `sfsvg.py` — SF Symbols export -> the hk
+- **hosts/ha/custom_components/hk_frontend/tools/sky/**
+  - `cloud_art.py` — Realistic clouds
+  - `cloud_webp.py` — The cloud masks as WebP
+  - `gen_sky.py` — Generate the hk-sky textures.
+  - `holiday_webp.py` — The forecast screensaver's holiday art
+  - `land_webp.py` — The forecast screensaver's landscapes
+  - `near_webp.py` — New Decorations' woodland art
+- **hosts/ha/custom_components/mantel/**
+  - `alarm_control_panel.py` — Mantel's alarm control panel entities (bridge.py mirrors them; entity.py draws them).
+  - `binary_sensor.py` — Mantel's binary sensor entities (bridge.py mirrors them; entity.py draws them).
+  - `bridge.py` — THE BRIDGE
+  - `camera.py` — Mantel's camera entities (bridge.py mirrors them; entity.py draws them).
+  - `config_flow.py` — Setting Mantel Link up
+  - `const.py` — Constants for Mantel Link (domain `mantel`)
+  - `diagnostics.py` — Download diagnostics
+  - `energy.py` — ONE READ FOR MANTEL'S ENERGY PLAN
+  - `entity.py` — Mantel's entities, as Home Assistant shows them (bridge.py mirrors them).
+  - `frontend.py` — Mantel's screens in Home Assistant's sidebar
+  - `mantel_link.py` — THE LINK TO MANTEL SERVER (linked mode; docs/phase5/LINKED-MODE.md in the Mantel repository the whole story)
+  - `page_headers.py` — THE LIGHTS PAGE'S "TONIGHT" LIST, for Mantel
+  - `pairing.py` — Pairing by code (Mantel's linked_pairing.py is the other half; docs/phase9/MANTEL-LINK.md 9.4).
+  - `phones.py` — The Companion app's phones, for Mantel's notifications (docs/phase9/MANTEL-LINK.md 9.7).
+  - `sensor.py` — Mantel's sensor entities (bridge.py mirrors them; entity.py draws them).
+  - `services.py` — MANTEL LINK'S ACTIONS
+  - `switch.py` — Mantel's switches (bridge.py mirrors them; entity.py draws them)
+  - `talk.py` — TALK
+  - `talk_live.py` — LIVE TALK
+  - `tv.py` — LIVE TV'S TRANSCODE
+- **hosts/ha/custom_components/mantel/frontend/**
+  - `mantel-link.js` — Mantel Link on Home Assistant's own pages (docs/phase9/MANTEL-LINK.md 9.6).
+- **hosts/ha/custom_components/mantel/tools/publish/**
+  - `publish.py` — BUILD MANTEL LINK'S PUBLIC REPOSITORY from this component (decision M1
+
+## `tools/`
+
+Build, release and check tools.
+
+- **tools/**
+  - `app_dev_server.py` — A fictional Mantel on this Mac for the iPhone/iPad/Mac apps in the Simulator (docs/phase10/APPLE-APPS.md; the apps are jazzphone/mantel-ios and jaz...
+  - `build_ha.py` — Build a new HA/HACS staging directory from Mantel.
+  - `build_static.py` — Stage the static web app for the image and stamp it with a content-derived build id (PLAN §8).
+  - `build_tools.py` — Install the build tools (tools/package.json
+  - `build_wiki.py` — Build Mantel's GitHub Wiki from the user guide (docs/guide).
+  - `bump_version.py` — Set Mantel's one version number in every file that carries it.
+  - `check_links.py` — Fail on broken relative links in README.md and docs/**/*.md.
+  - `check_private.py` — Fail when a tracked file, or a commit message, names a home's own words.
+  - `check_version.py` — Check that Mantel has ONE version number.
+  - `ci.py` — Mantel's checks, run on this Mac instead of GitHub Actions (docs/development/Building-and-Testing.md, "Local checks").
+  - `code_map.py` — Write docs/development/Code-map.md
+  - `diagnose_session_snippet.js` — Mantel admin page
+  - `export_writes.py` — Export HKClient's write catalog (``hkClient.WRITES`` in web/client/hk-client.js) as JSON for the command gateway, so the frontend and Mantel Server...
+  - `holiday_art.py` — The Holiday slide's painted scenes, from the full-size paintings to what ships (phase 20, docs/phase20/HOLIDAY-SLIDE.md "Shipping the art").
+  - `intercom_proof.py` — THE INTERCOM'S LIVE PROOF (docs/phase17/INTERCOM.md "Slice 0")
+  - `make_app_icons.py` — Draw Mantel's app icon (a mantelpiece with a warm hearth) at every size the web app and the Apple apps use.
+  - `make_brand_logos.py` — Draw the store logos
+  - `package_check.py` — Static checks on the packaging (PLAN §7, §8).
+  - `products_table.py` — Copy the products table (tools/products_table.md) into every page that shows it, or check that they match.
+  - `publish_ha_apps.py` — Write Mantel's Home Assistant add-on repository (the `ha-apps` branch).
+  - `release_house.py` — Put a release on the house and publish it
+  - `route_probe.py` — The route probe (phase 18, docs/phase18/CODE-HEALTH.md, "Zero behavior change
+  - `route_table.py` — Mantel Server's route table (phase 18, Part A; hosts/server/mantel_server/route_table.py).
+  - `split_js.cjs`
+  - `split_js.py` — Cut a big web JavaScript file into parts, by name, and prove nothing but the place changed (phase 18, Part B; docs/phase18/CODE-HEALTH.md "Part B
+  - `split_py.py` — Cut a big Python module into parts, by name, and prove nothing but the place changed (phase 24, A3
+  - `stage_connect_app.py` — Assemble the Mantel Connect Home Assistant App folder (a LOCAL App) from this repository.
+  - `stage_ha_app.py` — Assemble Mantel's Home Assistant App folder (a LOCAL App) from this repository.
+  - `write_release.py` — Write RELEASE.json for a Docker image
+- **tools/e2e/**
+  - `compose_e2e.py` — THE DOCKER MODE, END TO END
+  - `fake_tuner.py` — A FAKE HDHOMERUN for Live TV tests
+  - `feature_parity_e2e.py` — End-to-end
+  - `features_e2e.py` — End-to-end
+  - `gateway_e2e.py` — End-to-end
+  - `home_screen_e2e.py` — End-to-end
+  - `linked_e2e.py` — Linked mode against a REAL Home Assistant
+  - `live_tv_e2e.py` — LIVE TV SERVED BY MANTEL, END TO END against a REAL go2rtc (the compose stack's `transcode` image) and a FAKE tuner that sends real MPEG-2 video an...
+  - `mantel_link_e2e.py` — Mantel Link against a REAL Home Assistant (docs/phase9/MANTEL-LINK.md)
+  - `music_e2e.py` — End-to-end
+  - `talk_e2e.py` — End-to-end
+- **tools/headless/**
+  - `accessory_pages_check.py` — Fictional collection paging, caption editing and content-sized person sheets.
+  - `admin_page_check.py` — Offline check of the admin page (/admin) in an isolated headless Chrome, on a fictional house.
+  - `alert_check.cjs` — alert_check.py's browser half
+  - `alert_check.py` — The Alert block (web/hk/cards/hk-alert.js, docs/phase11/ALERT.md) in WebKit and Chromium, on a fictional house.
+  - `art_fallback_check.cjs` — the browser side of art_fallback_check.py (Playwright, WebKit, the gallery's fictional house).
+  - `art_fallback_check.py` — NEVER THE BROKEN-IMAGE "?" in WebKit (2026-10-31, the owner's item 46
+  - `block_taps_check.cjs` — Every block opens something when tapped, in WebKit (block_taps_check.py starts the server over the fictional home; 2026-10-31, the owner's note on...
+  - `block_taps_check.py` — Every block of the Home Grid opens something when it is tapped (2026-10-31, the owner's note on 0.1.94, item 29
+  - `bright_glass_check.cjs` — bright_glass_check.py's browser half
+  - `bright_glass_check.py` — Bright Glass over the Wallpapers, in WebKit (Safari's engine)
+  - `cameras_face_check.cjs` — The Cameras face in WebKit (cameras_face_check.py starts the server over the fictional home; 2026-10-30).
+  - `cameras_face_check.py` — The Cameras face (2026-10-30, docs/phase11/HOMEVIEW-LOOK.md Phase G) against the fictional home, never a household's
+  - `cdp.py` — A small Chrome DevTools driver for headless checks of Mantel pages (no Playwright needed).
+  - `client_smoke.py` — Offline current-Home/client smoke
+  - `corner_look.cjs` — At fonts below 14 px, text and SVG antialiasing can round opposite edges by one pixel each.
+  - `custom_sheet_check.cjs` — custom_sheet_check.py's browser half
+  - `custom_sheet_check.py` — A Home Grid block's Custom Detail Sheet and Security's HomeView sizes (docs/phase11/HOME-GRID.md) in WebKit and Chromium, on a fictional house, wit...
+  - `edit_mode_check.cjs` — Edit mode in a browser (edit_mode_check.py starts the server and says what each section checks).
+  - `edit_mode_check.py` — Edit mode in a browser
+  - `editor_preview_tile_check.py` — The Home Grid editor's card previews follow the screen's tile style (2026-11-08, the owner
+  - `eval.py` — Run a JS expression in the loaded /home page and print the JSON result.
+  - `first_load.cjs`
+  - `first_load.py` — First-load numbers for Home, Settings and a screensaver screen, cold, on the gallery's fictional house (phase 24, Part P).
+  - `gallery.py` — Screenshots for the docs, from a fictional house
+  - `gateway_page_check.py` — Offline page check for the command gateway's web side
+  - `glass_image_look_check.py` — The Glass looks' Image Look (2026-10-24) against the fictional home, never a household.
+  - `grid_blocks_check.cjs` — Home Grid's editor makes room (grid_blocks_check.py starts the server; 2026-10-30, the owner on an iPad
+  - `grid_blocks_check.py` — Home Grid's full-control blocks, rules and following cameras (2026-10-24) against the fictional home, never a household's
+  - `grid_edit_check.cjs` — grid_edit_check.py's browser half
+  - `grid_edit_check.py` — Edit mode on a Home Grid (2026-10-31, hk-edit-grid.js) in WebKit, with a finger and with a mouse, at a tablet held either way and a phone, on a fic...
+  - `grid_editor_smoke.py` — Home Grid editor
+  - `grid_editor_touch_check.py` — Home Grid editor with a finger (2026-10-24, the owner on an iPad
+  - `grid_music_turn_check.py` — Home Grid's Now Playing blocks turn over (2026-10-27) against the fictional home, never a household's
+  - `grid_panels_check.py` — Home Grid's page panels as blocks (2026-10-24) against the fictional home, never a household's
+  - `grid_ready.cjs`
+  - `grid_review_check.py` — Round-two Home Grid interactions against the fictional home, never a household.
+  - `holiday_scenes_check.cjs`
+  - `holiday_scenes_check.py` — THE HOLIDAY SLIDE'S SCENES, placed, in WebKit and Chromium (phase 20, docs/phase20/HOLIDAY-SLIDE.md "Tests").
+  - `home_grid_audit.py` — The Home Grid render audit (docs/phase11/HOME-GRID.md, G2)
+  - `home_grid_visual_check.cjs`
+  - `home_grid_visual_check.py` — Check complete starter layouts in Chromium or WebKit against a fictional home.
+  - `home_numbers.py` — The Home-page proof's numbers and checks, headless at 1280x800 (the Kitchen tablet's CSS size).
+  - `home_probe.py` — Load /home headlessly, print what the page did, take a screenshot.
+  - `homeview_starters.cjs` — THE HOMEVIEW-STYLE STARTERS as the editor makes them (hk-grid-editor.js SQUARE_STARTERS, squareStarter, squareHouse), for home_grid_visual_check.py...
+  - `house_status_check.cjs` — house_status_check.py's browser half
+  - `house_status_check.py` — House Status (web/hk/cards/hk-house-status.js, docs/phase11/HOUSE-STATUS.md) in WebKit and Chromium, on a fictional house.
+  - `house_twin.cjs` — house_twin.py's browser half
+  - `house_twin.py` — THE HOUSE'S TWIN
+  - `house_twin_insets.js` — house_twin.py --insets
+  - `ingress_smoke.py` — Offline smoke of Mantel's page as an HA App
+  - `intercom_check.cjs` — intercom_check.py's browser
+  - `intercom_check.py` — The Intercom's block and sheet in WebKit (Safari's engine) with a finger, on a fictional house
+  - `intercom_fakes.js` — The Intercom's surroundings, made up, for the browser checks (intercom_check.py / .cjs, and the gallery's intercom shots)
+  - `laundry_check.cjs` — laundry_check.py's browser half
+  - `laundry_check.py` — The Laundry block, its sheet, its room tile and its chip (docs/phase22/LAUNDRY.md) in WebKit and Chromium, on a fictional house.
+  - `looks_check.cjs` — looks_check.py's browser half
+  - `looks_check.py` — THE LOOKS in WebKit (hk_core/settings/looks.py, 2026-10-30), against the gallery's fictional house.
+  - `media_card_check.cjs` — media_card_check.py's browser half
+  - `media_card_check.py` — The Now Playing block while music really plays (2026-11-05, the owner's screen recordings and "make sure the test includes the progress bar moving...
+  - `motion_themes_check.cjs` — motion_themes_check.py's browser half
+  - `motion_themes_check.py` — THE WALLPAPERS AND MOTION THEMES IN A COLOUR, in WebKit (2026-10-31 the themes; 2026-11-01 the arts, item 45).
+  - `music_page_check.cjs` — music_page_check.py's browser
+  - `music_page_check.py` — THE MUSIC PAGE'S PLAYER (hk-music.js, Play Music) in a real browser, against the gallery's fictional house, playing.
+  - `music_pane_check.cjs`
+  - `music_pane_check.py` — Music beside a pane
+  - `now_playing_page_check.cjs` — now_playing_page_check.py's browser
+  - `now_playing_page_check.py` — THE NOW PLAYING PAGE (2026-11-07, the owner
+  - `page_swipe_check.cjs` — page_swipe_check.py's browser half
+  - `page_swipe_check.py` — Swipe Between Pages in Chromium and WebKit, with a finger, on the fictional house (docs/phase11/HOMEVIEW-LOOK.md, Phase 0).
+  - `pager_edges_check.cjs`
+  - `pager_edges_check.py` — A Home Grid block that swipes moves as a whole block, in WebKit (Safari's engine), on the fictional house.
+  - `pager_swipe_check.py` — How reliably a touch swipe turns a Home Grid block's page, against the fictional home, never a household.
+  - `pages_screen_check.cjs` — pages_screen_check.py's browser half
+  - `pages_screen_check.py` — The Pages screen (docs/phase11/HOMEVIEW-LOOK.md, Phase J) in WebKit, on the fictional house.
+  - `player_look.js` — the one look every music player is held to (2026-11-07, the owner
+  - `pre_glass_motion_check.cjs` — pre_glass_motion_check.py's browser half
+  - `pre_glass_motion_check.py` — PRE-RENDERED GLASS OVER A MOVING WALLPAPER, in WebKit (2026-11-07).
+  - `room_scroll_check.cjs`
+  - `room_scroll_check.py` — Room scrolling and entity icons in Chromium and WebKit, using a fictional house.
+  - `saver_designs_check.cjs`
+  - `saver_designs_check.py` — Saved screensaver scope, persistence, preview selection and touch editor on a fictional house.
+  - `saver_editor_check.cjs` — saver_editor_check.py's browser half
+  - `saver_editor_check.py` — THE SCREENSAVER EDITOR (phase 13, phase 5
+  - `saver_faces_check.cjs` — saver_faces_check.py's browser half
+  - `saver_faces_check.py` — The screensaver's HomeView-style faces (docs/phase11/HOMEVIEW-LOOK.md, Phase I) in WebKit, at a tablet held either way (1180 x 820, 820 x 1180) and...
+  - `saver_shows_check.cjs` — saver_shows_check.py's browser half
+  - `saver_shows_check.py` — THE SCREENSAVER'S SHOWS FROM A SCREEN'S SETTINGS, in WebKit (2026-10-30), against the gallery's fictional house.
+  - `settings_sweep.cjs`
+  - `settings_sweep.py` — EVERY PAGE OF HK SETTINGS, drawn at three sizes in Chromium and WebKit, kept as deep DOM text and a screenshot, and compared (phase 18, Part B
+  - `settings_viewports.py` — Mantel Settings on iPhone and iPad sizes (docs/phase10/APPLE-APPS.md §8, slice 10.1), in an isolated headless Chrome.
+  - `sheet_review.cjs` — sheet_review.py's browser
+  - `sheet_review.py` — Every detail sheet at every screen size, in WebKit (Safari's engine), measured and shot.
+  - `sheet_short_check.py` — Detail sheets on a short screen (2026-10-24
+  - `shots_compare.py` — Two folders of screenshots compared pixel for pixel (phase 24, A6
+  - `side_pane_check.cjs` — the browser side of side_pane_check.py (Playwright, the gallery's fictional house)
+  - `side_pane_check.py` — THE SIDE PANE in a real browser (docs/phase11/HOMEVIEW-LOOK.md "Phase A2"), against the gallery's fictional house.
+  - `side_strip_check.cjs` — side_strip_check.py's browser half
+  - `side_strip_check.py` — The page beside a side strip of system controls (the iPhone Duo's), in WebKit, on the fictional house.
+  - `split_race_check.cjs`
+  - `split_race_check.py` — The no-wait check (phase 24, A2
+  - `stereo_pair_check.py` — A stereo pair is one speaker on the generated dashboards (2026-11-06; web/hk/modules/hk-pairs.js), on the fictional house
+  - `swipe_motion_check.cjs` — swipe_motion_check.py's browser half
+  - `swipe_motion_check.py` — How a full-page swipe MOVES, frame by frame, in Chromium and WebKit, on the fictional house (docs/development/Motion.md).
+  - `timeline_check.cjs` — timeline_check.py's browser half
+  - `timeline_check.py` — The Timeline page (web/hk/cards/hk-timeline.js, docs/phase19/HOUSE-TIMELINE.md) in WebKit, on a fictional house.
+  - `timer_roller_check.py` — The timer wheels (hk-roller.js; the owner's mockup 5c, 2026-11-09, "Yes, build it") against the fictional home, never a household's
+  - `timer_slide_check.cjs`
+  - `timer_slide_check.py` — THE TIMER SLIDE, placed, in WebKit and Chromium (phase 21, docs/phase21/TIMER-SLIDE.md).
+  - `wallpaper_stops.cjs` — measures each wallpaper's four stops off its drawn art (hk-wallpapers.js, 2026-10-30)
+- **tools/typecheck/**
+  - `check.py` — Type-check the web app's JavaScript with TypeScript (phase 18, Part C; docs/phase18/CODE-HEALTH.md).
+  - `py_check.py` — Python's type and lint ratchets (phase 18, Part C; docs/phase18/CODE-HEALTH.md C3 and C4).
