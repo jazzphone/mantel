@@ -42,7 +42,7 @@ Most of this exists. The work is mostly joining parts that already work.
 
 | Part | Where | What it gives |
 |---|---|---|
-| The generated Home page | `web/hk/strategy/hk-strategy-views.js`, `views()`: `home = [header, strip, scenes, favorites, rooms...]` | the chips, scenes, favorites and every room section, in the house's order |
+| The generated Home page | `web/hk/strategy/hk-strategy-views.js`, `views()`: `home = [header, strip, scenes, favorites, rooms...]` | the chips, the camera strip, scenes, favorites and every room section, in the house's order |
 | A room as a section | `hk-strategy-rooms.js` `roomSection` | "Room ›" over its pills |
 | The category pages | `hk-strategy-pages.js` `categoryPages` | Security, Climate, Lights... |
 | A room in a sheet | `web/hk/cards/hk-room.js`, `hk-detail-room`, `hkRoom.openSheet(area)` | a sheet drawing `hkStrategy.roomCards`, 864 px wide (four pills), back from a sheet opened inside it via `hkKeepBack()` |
@@ -95,9 +95,13 @@ holds them equal).
 
 A panel like `hk-detail-room`, drawing new `hkStrategy.homeCards(client, opts)`:
 
-- **What it draws:** the generated Home's own list, minus the clock and weather header, which the grid already shows.
-  In order: the chip row, Scenes, Favorites, then every room section. `homeCards` is cut out of `views()` so the
-  generated Home and the sheet share one list. The car home's Security section stays a car-only part.
+- **What it draws:** everything a generated dashboard's Home draws, minus the clock and weather header, which the grid
+  already shows (the owner, 2026-11-12: "it looks like the Home Button actually loads what a generated dashboard would
+  load...Cameras, Scenes, Favorites as well"). In the generated Home's own order: the chip row, the camera strip (where
+  the house has cameras and the screen has them on), Scenes, Favorites, then every room section. `homeCards` is cut out
+  of `views()` so the generated Home and the sheet share one list, and anything the generated Home gains later shows up
+  in the sheet too. The car home's Security section stays a car-only part. A camera in the strip opens its own live
+  sheet on top, as on the generated Home, and Back returns to the Home sheet.
 - **Header:** the sheet frame's own: the X at the top left, and the title (the house's name, from Home Assistant's
   `location_name`) in the middle. It has no clock, because the frame has none and the grid shows the time.
 - **Size:** the Room sheet's: 864 px wide (four 196 px pills, 10 apart), the one sheet height, 680 px on the tablet.

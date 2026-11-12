@@ -124,6 +124,12 @@ p { margin: 0; max-width: 68ch; }
 .pad { padding: 4px var(--sp, 24px) 0; }
 .chips { display: flex; gap: 8px; overflow-x: auto; padding: 4px var(--sp, 24px) 6px; scrollbar-width: none; }
 .chips::-webkit-scrollbar { display: none; }
+/* The camera strip: the generated Home's own, between the chips and Scenes. Made-up pictures (gradients), live in the real one. */
+.camstrip { display: flex; gap: 10px; overflow-x: auto; padding: 10px var(--sp, 24px) 4px; scrollbar-width: none; }
+.camstrip::-webkit-scrollbar { display: none; }
+.cam { flex: 0 0 auto; width: 240px; aspect-ratio: 16 / 9; border-radius: 14px; position: relative; overflow: hidden; border: 0; padding: 0; cursor: pointer; font: inherit; color: #fff; }
+.cam span { position: absolute; left: 10px; bottom: 8px; font-size: 13px; font-weight: 600; text-shadow: 0 1px 3px rgba(0,0,0,.6); }
+.cam i { position: absolute; right: 10px; top: 8px; font-style: normal; font-size: 11px; font-weight: 600; background: rgba(0,0,0,.45); border-radius: 6px; padding: 2px 6px; }
 .chip { flex: none; height: 43px; border-radius: 22px; border: 0; background: rgba(255,255,255,.14); color: #fff; font: inherit; cursor: pointer;
   display: flex; align-items: center; gap: 8px; padding: 0 16px 0 12px; text-align: left; }
 .chip svg { width: 22px; height: 22px; flex: none; }
@@ -455,6 +461,10 @@ p { margin: 0; max-width: 68ch; }
   }
   function pageHome() {
     var h = homeChips();
+    // the camera strip, where the house has cameras on: the generated Home's order is chips, cameras, Scenes, Favorites, rooms
+    h += '<div class="camstrip">' + [['Driveway', '#3a4a3a,#6d7f62'], ['Back Yard', '#2f3d4a,#5f7486'], ['Front Door', '#4a3f35,#86705c'], ['Garage', '#33363b,#62676e']].map(function (c) {
+      return '<button class="cam" style="background:linear-gradient(160deg,' + c[1] + ')" aria-label="' + c[0] + ' camera"><i>LIVE</i><span>' + c[0] + '</span></button>';
+    }).join('') + '</div>';
     h += section('Scenes', SCENES.map(scenePill).join(''));
     h += section('Favorites', FAVS.map(function (id) { return pill(BYID[id]); }).join(''));
     ROOMS.forEach(function (r) { h += section(r.name, r.items.map(pill).join(''), 'room:' + r.id); });
