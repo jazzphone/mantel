@@ -51,8 +51,8 @@
     ['type', 'Typewriter', 'A sentence, typed out, the cursor blinking'],
     // THE HOMEVIEW-STYLE FACES (2026-10-30; below, "the HomeView-style faces")
     ['liquid', 'Liquid', 'Soft, glossy numerals that drift slowly over a pastel gradient'],
-    ['giant', 'Giant Numerals', 'An analog clock with 12, 3, 6 and 9 drawn huge on a strong colour'],
-    ['scattered', 'Scattered Numerals', 'A quiet analog face whose numerals lean and fade, on a soft colour']
+    ['giant', 'Giant Numerals', 'An analog clock with 12, 3, 6 and 9 drawn huge on a strong color'],
+    ['scattered', 'Scattered Numerals', 'A quiet analog face whose numerals lean and fade, on a soft color']
   ];
   // [id, name, moving] -- every one moves but Black (PAINTERS below)
   var BGS = [

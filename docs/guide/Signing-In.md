@@ -35,7 +35,7 @@ Inside Home Assistant's sidebar there is no sign-in page: Home Assistant has alr
 | Away from home, a password alone is not enough… | You're outside the home network. Use a passkey, or set up an authenticator app first ([below](#home-and-away)). |
 | That code was not accepted. | The authenticator code is wrong or already used. Wait for the next one. |
 | That took too long. Enter your password again. | The code step expired (after 5 minutes or 5 wrong codes). |
-| That passkey was not accepted. | The passkey isn't registered with this Mantel, or the browser cancelled. |
+| That passkey was not accepted. | The passkey isn't registered with this Mantel, or the browser canceled. |
 | Passkeys need the name you use to reach Mantel, not an IP address. | You opened Mantel by an IP address, such as `https://192.0.2.10/`. Use its name. |
 | Not linked yet | (After **Sign in with Home Assistant**) Your Home Assistant user isn't linked to a Mantel role. The page shows your Home Assistant user id; give it to an Owner. See [People and Roles](People-and-Roles.md#a-home-assistant-user). |
 

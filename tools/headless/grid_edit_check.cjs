@@ -263,7 +263,7 @@ async function replace(inp) {
   await p.waitForTimeout(250);
   if (t.finger) await p.evaluate(([x, y]) => __finger.up(x, y), [over.x, over.y]); else await p.mouse.move(over.x, over.y - 400);
   await p.waitForTimeout(300);
-  assert.deepEqual([await ge(t, 'placing'), await items(), await ge(t, 'barMsg'), await p.evaluate(() => !!hkEdit.active())], [null, start, 'Cancelled.', true],
+  assert.deepEqual([await ge(t, 'placing'), await items(), await ge(t, 'barMsg'), await p.evaluate(() => !!hkEdit.active())], [null, start, 'Canceled.', true],
     'Escape: nothing placed, Edit mode goes on');
   assert.deepEqual(await ge(t, 'shown'), shown0, '...every block drawn where it was');
   // the drop

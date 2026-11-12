@@ -328,7 +328,7 @@ function () {
   // Escape gives up: nothing changed, every block as it was
   part.placeAt(100, 600);
   eq('Escape while held: Edit mode is still on, the card not placed', [part.escape(), part.placing, part.grid.items.length, cells(v).length, E.active() !== null, E._.barMessage()],
-    [true, null, 11, 11, true, 'Cancelled.']);
+    [true, null, 11, 11, true, 'Canceled.']);
   eq('...no block dimmed, the outline gone, the badges back', [cells(v).filter(function (c) { return c.className.indexOf('hk-ge-going') >= 0; }).length,
      v._root.childNodes.filter(function (k) { return k.className.indexOf('hk-ge-target') >= 0; }).length, v._root.className.split(' ').indexOf('hk-ge-carrying') >= 0], [0, 0, false]);
   // a finger: down on the grid, over the blocks, up there -- the card drops
@@ -364,7 +364,7 @@ function () {
   fire(v._root, 'pointerdown', ev({ clientX: 500, clientY: 1400, pointerType: 'touch' }));
   var off = ev({ clientX: 500, clientY: 1400, pointerType: 'touch' });
   (globalThis.__winL.pointerup || []).forEach(function (f) { f(off); });
-  eq('a finger lifted off the grid gives up: nothing placed, everything as it was', [part.placing, part.grid.items.length, E._.barMessage()], [null, 11, 'Cancelled.']);
+  eq('a finger lifted off the grid gives up: nothing placed, everything as it was', [part.placing, part.grid.items.length, E._.barMessage()], [null, 11, 'Canceled.']);
   part.placeStart('cameras', 'XXL', 0);
   (globalThis.__winL.keydown || []).forEach(function (f) { f(ev({ key: 'ArrowDown', path: [] })); });
   (globalThis.__winL.keydown || []).forEach(function (f) { f(ev({ key: 'Enter', path: [] })); });

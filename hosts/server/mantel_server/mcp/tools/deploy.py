@@ -302,7 +302,7 @@ TOOLS = [
          like="POST /api/screens"),
     Tool("tablet_setup", "Set up a wall tablet",
          "A wall tablet's screen (planned first, when `screen` is given), and the link a person opens ON the tablet "
-         "to enrol it (an assistant never enrols a device).",
+         "to enroll it (an assistant never enrolls a device).",
          {"tablet": {"type": "string", "maxLength": 80}, "screen": SCREEN}, tablet_setup, needs="settings",
          required=("tablet",), write=True,
          no_route=NO_ROUTE_SAVE),

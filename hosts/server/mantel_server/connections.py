@@ -845,7 +845,7 @@ async def oauth_callback(request: web.Request) -> web.StreamResponse:
     code = request.query.get("code")
     if request.query.get("error") or not code:
         conns.drop_pending(p.id, http)
-        return _page("Sign-in cancelled", f"<p><a href='{html.escape(back, quote=True)}'>Back to Connections</a>.</p>", 400)
+        return _page("Sign-in canceled", f"<p><a href='{html.escape(back, quote=True)}'>Back to Connections</a>.</p>", 400)
     cfg = app["cfg"]
     try:
         try:
@@ -887,7 +887,7 @@ async def api_pending(request: web.Request) -> web.Response:
     p = _pending_of(request, ident, request.match_info["pid"])
     if p is None:
         return error(404, "not_found", message="That sign-in is no longer waiting (ten minutes passed, or it was "
-                                                "saved or cancelled). Start again.")
+                                                "saved or canceled). Start again.")
     state = "error" if p.error else "ready" if p.result else "waiting"
     return ok({"pending": {"id": p.id, "kind": p.kind, "url": p.url, "state": state, "result": p.result,
                            "error": p.error, "expires": p.expires,

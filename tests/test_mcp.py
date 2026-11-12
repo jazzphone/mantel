@@ -384,7 +384,7 @@ async def test_resources_and_prompts(mantel):
 
 async def test_resources_answer_to_the_scopes_of_the_tools_behind_them(mantel):
     """SRV-6 (third audit pass): resources/list and resources/read applied no scope check, so a key given only
-    `audit` read mantel://house, every screen and the Home Grid catalogue."""
+    `audit` read mantel://house, every screen and the Home Grid catalog."""
     token, _ = await setup(mantel, scopes=["audit"])
     rpc = Rpc(mantel, token)
     got, err = await rpc.tool("house_summary")

@@ -21,7 +21,7 @@ PAGE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9-]{0,80}\Z")
 STATIC = [
     ("mantel://house", "House summary", "Floors, rooms, screens, tablets, Mantel's version: house_summary."),
     ("mantel://screens", "Screens", "Every screen and the tablets on it: screens_list."),
-    ("mantel://grid/cards", "Home Grid catalogue", "Cards, sizes and options: grid_cards."),
+    ("mantel://grid/cards", "Home Grid catalog", "Cards, sizes and options: grid_cards."),
     ("mantel://settings/schema/house", "House settings schema", "Every house key settings_change takes."),
     ("mantel://settings/schema/board", "Screen settings schema", "Every screen key settings_change takes."),
     ("mantel://settings/schema/tablet", "Wall tablet settings schema", "Every tablet key settings_change takes."),
@@ -128,7 +128,7 @@ PROMPTS = {
                 "template (screen_templates, screen_from_template), lay out a Home Grid with its room first "
                 "(grid_cards, grid_starter, grid_set), then point the tablet at the screen (tablet_setup). Plan every "
                 "change (dry_run) and show me the plan before applying it. Finish with the link I open on the tablet "
-                "to enrol it, and a preview (screen_preview) if you can open it."},
+                "to enroll it, and a preview (screen_preview) if you can open it."},
     "build_home_grid": {
         "title": "Build a Home Grid for a room",
         "description": "A Home Grid layout for one room's screen.",

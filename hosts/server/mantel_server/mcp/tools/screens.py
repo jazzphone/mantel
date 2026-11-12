@@ -1,4 +1,4 @@
-"""Screens and Home Grid: list, read, add, rename, move, remove a screen; the Home Grid catalogue, a starter, a
+"""Screens and Home Grid: list, read, add, rename, move, remove a screen; the Home Grid catalog, a starter, a
 whole layout, one block placed or removed. Screens go through screens.py's own functions (the REST routes'), a
 layout through the screen's board/set save, so hk_core checks every block (no overlap, inside the grid, a size the
 card has, cols 6/5/4/3/2, rows 2-6) and a bad one comes back with its code.
@@ -261,7 +261,7 @@ TOOLS = [
          "Remove a screen no wall tablet opens (its history stays: settings_restore brings it back). Planned first.",
          {"screen": SCREEN}, screen_remove, needs="screens", required=("screen",), write=True, destructive=True,
          like="DELETE /api/screens/{key}"),
-    Tool("grid_cards", "Home Grid catalogue",
+    Tool("grid_cards", "Home Grid catalog",
          "The Home Grid's cards: each card's sizes (S, W, C, T, L, XL, XXL, F as columns x rows), its options and the "
          "pages it can swipe through; the grid's columns and rows; the starters.", {}, grid_cards, idempotent=True),
     Tool("grid_starter", "A starter Home Grid",

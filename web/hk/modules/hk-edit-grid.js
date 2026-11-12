@@ -613,7 +613,7 @@
   // Escape while a block is carried, or a sheet is open: theirs, not Cancel's
   Part.prototype.escape = function () {
     if (this.sheet) { this.closeSheet(); return true; }
-    if (this.placing) { this.placeEnd(false); say('Cancelled.'); return true; }
+    if (this.placing) { this.placeEnd(false); say('Canceled.'); return true; }
     if (this.carry) { if (this.press && this.press.stop) this.press.stop(); this.drop(null, true); return true; }
     return false;
   };
@@ -648,7 +648,7 @@
         if (self.placing !== p || !p.down) return;
         p.down = false;
         self.placeAt(e.clientX, e.clientY);
-        if (p.at) self.placeDrop(); else { self.placeEnd(false); say('Cancelled.'); }
+        if (p.at) self.placeDrop(); else { self.placeEnd(false); say('Canceled.'); }
       },
       cancel: function () { if (self.placing === p) { p.down = false; self.placeAim(null); } },
       key: function (e) { self.placeKey(e); }

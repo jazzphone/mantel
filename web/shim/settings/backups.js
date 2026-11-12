@@ -148,7 +148,7 @@ function drawRestore(c, b) {
           destructive: true }))) return;
         if (await act('backups', () => api('POST', '/api/backup/restore'), 'Restoring. Mantel is restarting…')) waitForRestart();
       }, { destructive: true, fk: 'mx:backup-restore' }),
-      button('Cancel', () => act('backups', () => api('DELETE', '/api/backup/restore'), 'Restore cancelled.', 'backups'), { fk: 'mx:backup-cancel' })]));
+      button('Cancel', () => act('backups', () => api('DELETE', '/api/backup/restore'), 'Restore canceled.', 'backups'), { fk: 'mx:backup-cancel' })]));
     return;
   }
   const file = hh('input', { type: 'file', accept: '.mbk', class: 'mxfile', 'aria-label': 'Choose a backup', 'data-fk': 'mx:backup-file' });

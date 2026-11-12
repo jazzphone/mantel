@@ -47,7 +47,7 @@ LOOKS: tuple[dict[str, Any], ...] = (
                   "sky_wallpaper_motion": "slow", "swipe_pages": "on", "side_pane": PANE_HOME, "screensaver": True},
      "saver": {"show": "clock", "clock_style": "numbers", "clock_bg": "gradient", "clock_motion": "slow"}},
     {"id": "flat", "name": "Flat",
-     "about": "Clean and solid: no blur, high contrast, the cards on one dark colour.",
+     "about": "Clean and solid: no blur, high contrast, the cards on one dark color.",
      "art": ["#1c1c1e", "#1c1c1e", "#1c1c1e", "#0a84ff"],
      "layout": {"cell": "tile", "starters": ["A"]},
      "settings": {"flat": True, "flat_theme": "dark", "accent": "blue", "tab_bar_glass": "tinted", "tile_style": "home",
@@ -90,7 +90,7 @@ LOOKS: tuple[dict[str, Any], ...] = (
                   "sky_wallpaper_motion": "slow", "swipe_pages": "on", "screensaver": True},
      "saver": {"show": "clock", "clock_style": "liquid", "clock_bg": "gradient", "clock_motion": "slow"}},
     {"id": "night", "name": "Night & Bedside",
-     "about": "Dark and quiet for a bedroom: a deep colour, the big clock a swipe from the weather, and a dim red "
+     "about": "Dark and quiet for a bedroom: a deep color, the big clock a swipe from the weather, and a dim red "
               "clock at night.",
      "art": ["#0b1026", "#121a3a", "#05070f", "#ff453a"],
      "layout": {"cell": "tile", "starters": ["n_standby", "n_clock"]},

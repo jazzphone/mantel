@@ -235,7 +235,7 @@ async def callback(request: web.Request) -> web.StreamResponse:
                          "<a href='/login'>Try again</a>.</p>", 400))
     code = request.query.get("code")
     if request.query.get("error") or not code:
-        return done(page("Sign-in cancelled", "<p><a href='/login'>Try again</a>.</p>", 400))
+        return done(page("Sign-in canceled", "<p><a href='/login'>Try again</a>.</p>", 400))
     http = app["http"]
     refresh = None
     try:

@@ -204,7 +204,7 @@ export function pEnroll(back = ['Wall Tablets', '#/house/tablets'], forTablet = 
     if (nothing) c.appendChild(
       group(
       { header: 'Which HK Tablet',
-      footer: 'Mantel knows no rooms yet: no HK wall tablets in its settings, no Home Assistant areas. Enrol it now, and choose its tablet in All Screens, Wall Tablets once they are here.' }, []));
+      footer: 'Mantel knows no rooms yet: no HK wall tablets in its settings, no Home Assistant areas. Enroll it now, and choose its tablet in All Screens, Wall Tablets once they are here.' }, []));
     else {
       for (const g of roomChoice('device', rooms, null, (t) => {   // the name follows the tablet picked, until it is typed
         if (!d.name || d.name === d.auto) { d.name = t.name; d.auto = t.name; }
