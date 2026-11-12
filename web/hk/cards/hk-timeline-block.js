@@ -427,6 +427,7 @@
     '.r.c .ph,.r.c .ph img{width:36px;height:36px;border-radius:8px}.r.c .ph{margin:0 4px}',
     '.ph .ic{position:absolute;right:-6px;bottom:-6px;width:24px;height:24px;margin:0;box-shadow:0 1px 4px rgba(0,0,0,.3)}',
     '.ic hk-icon{display:block;--mdc-icon-size:100%}',
+    '.ic.bare{background:none}',
     '.tx{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center}',
     '.t1{display:flex;align-items:baseline;gap:8px;min-width:0}',
     '.ti{flex:1;min-width:0;' + type('headline') + ';line-height:21px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
@@ -655,7 +656,8 @@
         few = (size === 'L' || size === 'XL') && 150 + gap + (rows.length - 1) * h <= room;
         var ld = rows.shift(), up = size !== 'L' || few, lh = few ? 150 : size === 'L' ? 84 : size === 'T' ? 150 : room;
         hero = '<div class="lead' + (up ? ' up' : '') + '" role="button" tabindex="0" data-ev="' + esc(ld.id) + '" aria-label="' + esc(ld.title + ', ' + ld.agoLong) + '" style="height:' + lh + 'px' +
-          (size === 'XL' && !few ? ';width:' + Math.round((box.iw - 18) / 2) + 'px' : '') + '">' + well(ld, up ? 72 : 56) + '<div><b>' + esc(size === 'T' ? ld.a : ld.title) + '</b>' +
+          (size === 'XL' && !few ? ';width:' + Math.round((box.iw - 18) / 2) + 'px' : '') + '">' + well(ld, up ? 72 : 56, this.getAttribute('tile') === 'centred') + '<div><b>' +
+            esc(size === 'T' ? ld.a : ld.title) + '</b>' +
           (size === 'T' ? '<span>' + esc(ld.b || ld.room) + '</span><span>' + esc(ld.agoLong) + '</span>'
                         : '<span>' + esc([ld.sub, size === 'XL' ? '' : ld.agoLong].filter(Boolean).join(' · ')) + '</span>' + (size === 'XL' ? '<span>' + esc(ld.agoLong) + '</span>' : '')) +
                           '</div></div>';
@@ -678,10 +680,12 @@
     _row(r, h, narrow) {
       var aria = r.title + ', ' + r.agoLong + (r.sub ? ', ' + r.sub : '');
       var open = '<div class="r' + (narrow ? ' n' : '') + (h < 56 ? ' c' : '') + '" role="button" tabindex="0" data-ev="' + esc(r.id) + '" aria-label="' + esc(aria) + '" style="height:' + h + 'px">';
-      if (narrow) return open + well(r, 32) + '<div class="tx"><div class="ti">' + esc(r.a) + '</div><div class="sb">' + esc([r.b || r.room, r.ago].filter(Boolean).join(' · ')) + '</div></div></div>';
+      var bare = this.getAttribute('tile') === 'centred';
+      if (narrow) return open + well(r, 32, bare) + '<div class="tx"><div class="ti">' + esc(r.a) + '</div><div class="sb">' + esc([r.b || r.room, r.ago].filter(Boolean).join(' · ')) +
+        '</div></div></div>';
       // (the badge on a picture: the kind's color, the glyph white -- a tint over a photograph reads as mud)
       var lead = r.thumb ? '<div class="ph"><img src="' + esc(r.thumb) + '" alt="" loading="lazy" decoding="async" draggable="false">' +
-        '<div class="ic" style="background:' + tint(r.color, 0.92) + ';color:#fff">' + icon(r.icon, 14) + '</div></div>' : well(r, 38);
+        '<div class="ic" style="background:' + tint(r.color, 0.92) + ';color:#fff">' + icon(r.icon, 14) + '</div></div>' : well(r, 38, bare);
       return open + lead + '<div class="tx"><div class="t1"><div class="ti">' + esc(r.title) + '</div><div class="tm">' + esc(r.ago) + '</div></div>' +
         (r.sub ? '<div class="sb">' + esc(r.sub) + '</div>' : '') + '</div></div>';
     }
@@ -747,7 +751,9 @@
   }
   // A ROW'S GLYPH: white on its kind's solid color (the Home app's lit well; 2026-11-08, the lead's review -- a 22 %
   // tint all but vanished on the Blur look's glass)
-  function well(r, px) {
+  // (bare: the Home Grid in HomeView's Centered style -- no well, the glyph larger in the kind's own color; DESIGN.md "No wells in HomeView")
+  function well(r, px, bare) {
+    if (bare) return '<div class="ic bare" style="color:' + inkOf(r.color) + '">' + icon(r.icon, Math.round(px * 0.72)) + '</div>';
     return '<div class="ic" style="background:' + tint(r.color, 0.92) + ';color:#fff">' + icon(r.icon, Math.round(px * 0.56)) + '</div>';
   }
   // SMALL'S SECOND LINE: what it did and when, short enough for the tile ("Unlocked · 41m", "Armed night · Yest.")

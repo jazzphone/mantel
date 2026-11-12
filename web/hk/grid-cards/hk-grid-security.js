@@ -348,6 +348,16 @@
       '.ents.lst .ent.open .s{color:' + v('ink') + ';font-weight:600}',
       // (HomeView's too: secured, the glyph teal -- one rule at every size, DESIGN.md's Security, 2026-11-09)
       'hk-plate.sec.hv .ents.lst .ent .dk.dk>hk-icon{color:' + C.ACCENTS.teal + '}hk-plate.sec.hv .ents.lst .ent.open .dk.dk>hk-icon{color:#fff}',
+      // HOMEVIEW, NO WELLS (2026-11-12, DESIGN.md "No wells in HomeView"): HomeView's Extra Large list beside the keypad as its other sizes'
+      // entries (hk-grid-security-hv-card): the glyph bare, 26 px, white; one that needs a look on a white tile, its glyph teal. (Classic past
+      // Small keeps the Home look on any screen: hk-strategy-pages.js never gives it the Centered style)
+      'hk-plate.sec.hv .ents.lst .ent .dk{background:none}',
+      'hk-plate.sec.hv .ents.lst .ent .dk.dk>hk-icon{width:26px;height:26px;color:' + v('glyph') + '}',
+      'hk-plate.sec.hv .ents.lst .ent.open .dk{background:none}hk-plate.sec.hv .ents.lst .ent.open .dk.dk>hk-icon{color:' + C.ACCENTS.teal + '}',
+      'hk-plate.sec.hv .ents.lst .ent .in{padding:0 6px}hk-plate.sec.hv .ents.lst .ent{position:relative;z-index:0}hk-plate.sec.hv .ents.lst .ent.open{border-top-color:transparent}',
+      'hk-plate.sec.hv .ents.lst .ent.open::before{content:"";position:absolute;z-index:-1;inset:3px 0;border-radius:var(--hk-inner-radius,' + C.R.inner + 'px);background:#fff;' +
+        'box-shadow:0 1px 4px rgba(0,0,0,.12)}',
+      'hk-plate.sec.hv .ents.lst .ent.open .n{color:rgba(0,0,0,0.88);text-shadow:none}hk-plate.sec.hv .ents.lst .ent.open .s{color:' + v('ink-on-state') + ';text-shadow:none}',
       'hk-plate.sec.kp .ops{margin-top:auto;justify-content:flex-start}',
       // LARGE (Classic) THE SAME (2026-11-08, the owner: its tiles' words ran into their edges, the strip wider than the tiles -- "it
       // looks thrown together"): the alarm's heading ("+N more" at its right), the rows, the notice and Home, Away and Disarm -- every

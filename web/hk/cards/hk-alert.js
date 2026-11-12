@@ -351,8 +351,13 @@
       var dkEl = q('.dk');
       if (dkEl) {
         var px = parseFloat(dkEl.style.width) || 32;
-        dkEl.style.background = m.color;
-        C.morph(dkEl, this._glyph(m, Math.round(px * 0.58), '#fff'));
+        // (HomeView, the Home Grid in the Centered style: no well -- the glyph bare and larger, in the alert's own color; DESIGN.md
+        // "No wells in HomeView", 2026-11-12)
+        var bare = this.getAttribute('tile') === 'centred';
+        dkEl.style.background = bare ? 'none' : m.color;
+        // (bare, an alert with no glyph of its own takes the warning triangle: the default's circled "!" would read as the well it lost)
+        var mb = bare && !m.icon && !m.glyphOf ? Object.assign({}, m, { icon: 'mdi:alert' }) : m;
+        C.morph(dkEl, bare ? this._glyph(mb, Math.round(px * 0.8), m.color) : this._glyph(m, Math.round(px * 0.58), '#fff'));
       }
       var pill = q('.go');
       if (pill && m.words) {

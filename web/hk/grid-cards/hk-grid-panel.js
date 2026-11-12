@@ -186,6 +186,14 @@
       '.wr.dl>div{height:56px}.wr.dl b{' + type('headline') + ';font-weight:600}.wr.dl em{' + type('body') + ';color:' + v('ink-2') + '}.wr.dl em.o{color:' + v('ink') + ';font-weight:600}' +
       '.dd{display:grid;place-items:center;border-radius:50%;flex:none;box-sizing:border-box;background:' + v('key') + ';color:' + v('ink-2') + '}' +
       '.dd.on{color:#fff}' +
+      // HOMEVIEW, NO WELLS (2026-11-12, DESIGN.md "No wells in HomeView": the Home Grid in the Centered style): the glyph bare in its 36 px
+      // column -- white closed, Security's teal open -- and an open one's row on a white tile, 3 px inside it, as Security's entries
+      '.dd.bare{background:none !important}' +
+      '.wr.dl.bare>div{padding:0 6px;position:relative;z-index:0}' +
+      '.wr.dl.bare>div.hl{border-bottom-color:transparent}.wr.dl.bare>div:has(+ div.hl){border-bottom-color:transparent}' +
+      '.wr.dl.bare>div.hl::before{content:"";position:absolute;z-index:-1;inset:3px 0;border-radius:var(--hk-inner-radius,' + C.R.inner + 'px);background:#fff;' +
+        'box-shadow:0 1px 4px rgba(0,0,0,.12)}' +
+      '.wr.dl.bare>div.hl b,.wr.dl.bare>div.hl em.o{color:rgba(0,0,0,0.88);text-shadow:none}.wr.dl.bare>div.hl small{color:' + v('ink-on-state') + ' !important;text-shadow:none}' +
       '.dd.dd>hk-icon{display:flex;--mdc-icon-size:100%}' +
       '.dt{font-size:22px;font-weight:600;line-height:26px;letter-spacing:-0.2px;white-space:nowrap;flex:none}' +
       '.dh{display:flex;align-items:center;gap:10px;flex:none}.dsub{margin-top:2px;padding-left:36px}' +
@@ -463,7 +471,7 @@
       // it; Large and Tall: the headline above the list; Small: the headline alone. The open ones first; what does not fit is
       // "N more" in the last row's place. Rows are 56 px -- each a tap target -- and a row opens that door's own sheet.
       _ownDoors(p, size, box, h) {
-        var list = [];
+        var list = [], bare = this.getAttribute('tile') === 'centred';
         [['door', p.doors], ['garage', p.garage], ['window', p.windows]].forEach(function (x) {
           (x[1] || []).forEach(function (id) { var st = h.states[id]; if (st) list.push({ id: id, kind: x[0], st: st, open: opened(st) }); });
         });
@@ -484,6 +492,11 @@
         };
         // the glyph in its circle: the same disc as House Status's (.dk) -- lit teal when open, the glyph teal in an off well when closed
         var disc = function (g, on, px) {
+          // (HomeView: no well -- the glyph bare and larger, white closed, teal open)
+          if (bare) {
+            return '<span class="dd bare' + (on ? ' on' : '') + '" style="width:' + px + 'px;height:' + px + 'px;color:' + (on ? C.flatColor(ACC.teal, 'on') : v('glyph')) + '">' +
+              gly(g, Math.round(px * (px >= 40 ? 0.8 : 0.72)), null) + '</span>';
+          }
           return '<span class="dd' + (on ? ' on' : '') + '" style="width:' + px + 'px;height:' + px + 'px;' +
             (on ? 'background:' + C.flatColor(ACC.teal, 'well') : 'color:' + C.flatColor(ACC.teal, 'glyph')) + '">' +
             gly(g, Math.round(px * 0.56), null) + '</span>';
@@ -503,10 +516,12 @@
         var row = function (x) {
           var g = WAY_GLYPH[x.kind][x.open ? 0 : 1], s = x.open ? since(x.st) : '';
           if (size === 'T') {
-            return '<div data-more="' + esc(x.id) + '">' + disc(g, x.open, 36) + '<span class="wt"><b>' + esc(name(x)) + '</b><small' + (x.open ? ' style="color:' + v('ink') + '"' : '') + '>' +
+            return '<div data-more="' + esc(x.id) + '"' + (bare && x.open ? ' class="hl"' : '') + '>' + disc(g, x.open, 36) + '<span class="wt"><b>' + esc(name(x)) + '</b><small' +
+              (x.open ? ' style="color:' + v('ink') + '"' : '') + '>' +
               esc(s || 'Closed') + '</small></span></div>';
           }
-          return '<div data-more="' + esc(x.id) + '">' + disc(g, x.open, 36) + '<span class="wt"><b>' + esc(name(x)) + '</b>' + (s ? '<small>' + esc(s) + '</small>' : '') + '</span><em' +
+          return '<div data-more="' + esc(x.id) + '"' + (bare && x.open ? ' class="hl"' : '') + '>' + disc(g, x.open, 36) + '<span class="wt"><b>' + esc(name(x)) + '</b>' +
+            (s ? '<small>' + esc(s) + '</small>' : '') + '</span><em' +
             (x.open ? ' class="o"' : '') + '>' + (x.open ? 'Open' : 'Closed') + '</em></div>';
         };
         // the headline column (Extra Large, Wide): the glyph over the count over the line, top left; the gap to the list is the block's inset.
@@ -517,12 +532,13 @@
         };
         var gap = 'gap:var(--hk-pad-l,18px)';
         if (size === 'XL' || size === 'W') {
-          return '<div class="wsplit" style="' + gap + '">' + col(size === 'XL' ? 150 : 130) + '<div class="wcol wr tall dl" role="list">' + list.map(row).join('') + '</div></div>';
+          return '<div class="wsplit" style="' + gap + '">' + col(size === 'XL' ? 150 : 130) + '<div class="wcol wr tall dl' + (bare ? ' bare' : '') + '" role="list">' + list.map(row).join('') +
+            '</div></div>';
         }
         // Large and Tall: the headline (the glyph beside the count, the line under it), then every row, the list scrolling
         // (the headline in the upper left, the rows under it -- the owner, 2026-11-09: "I want the upper left corner back!", never centered)
         return '<div class="dh">' + head(26) + '<span class="dt">' + esc(title) + '</span></div><div class="ws dsub">' + esc(line) + '</div>' +
-          '<div class="wr tall dl" role="list" style="margin-top:12px">' + list.map(row).join('') + '</div>';
+          '<div class="wr tall dl' + (bare ? ' bare' : '') + '" role="list" style="margin-top:12px">' + list.map(row).join('') + '</div>';
       }
       // THE FADE at the list's foot while more is below (as Now Playing's _idleFade): the class is set after each draw, since the morph would drop it
       _doorsFade(plate) {
