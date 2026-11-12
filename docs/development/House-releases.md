@@ -926,6 +926,8 @@ Records of releases made with `release_house.py mantel` (phase 15) are written b
 
 ## Mantel 0.1.166 (2026-11-11)
 
+- Phase 25's follow-ups (docs/phase25/PLAN.md, round four): the old module paths dropped, `connect_proof` in `network/`, HK's three biggest settings files split. The owner's OK, in the building session: "Ok, so lets do connect_proof, we should also do hk-settings and hk-library while we are here" (with 0.1.166 among the steps agreed earlier: "I'd like to these after step 6 please", "Yes I am good with a new release to the house").
+- Its first release run failed 16 browser checks on one real bug (the library card registered before its methods came with its parts), fixed and split again (`da890d6`); one fictional-house flake after it (`e1d2895`). The first attempt (release commit `5e91ad3`) put 0.1.166 on the LXC healthy and stopped before its tag on a test that read the pinned TypeScript the Linux runner lacks; fixed in `3687dbd`, and `--retry` finished from it. The release checks were trimmed the same night (`87ed730`): the last full run, 10 min 20 s.
 - Mantel 0.1.166, release commit `3687dbd`, tagged `v0.1.166`; the LXC 0.1.166 -> 0.1.166 (build `12b406544b0b2e0c`).
 - Images run 43135361248 (stage=images), promote run 43136996719, GitHub Release `v0.1.166`.
 - Strict health 200, all services healthy, mantel-server built from `3687dbd`, Home Assistant connected for 62 s; no "Traceback" or "ERROR" in Mantel's log.

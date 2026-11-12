@@ -4,6 +4,9 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Changed**
+- **The last old module path is gone**: `mantel_server.connect_proof` is `mantel_server.network.connect_proof` only (0.1.166 moved it). A Mantel Connect receiver set up before 0.1.166 carries its own copy and keeps working.
+
 ## 0.1.166 - 2026-11-11
 
 **Changed**

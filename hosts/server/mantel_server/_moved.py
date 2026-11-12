@@ -16,7 +16,6 @@ import sys
 # old name -> (new path under mantel_server, the release the old name goes away in)
 MOVED: dict[str, tuple[str, str]] = {
     # --- the table: written by tools/move_py.py ---
-    "connect_proof": ("network.connect_proof", "0.1.167"),
     # --- end of the table ---
 }
 
