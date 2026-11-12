@@ -128,7 +128,7 @@
   }
   // ------------------------------------------------------------ end of the parts loader
   var boardOf, clientOf, climateMembers, contactGlyphs, dashSeg, groupOf, HkDashboardStrategy, HkRoomViewStrategy,
-      homeGridView, inventory, kioskOf, lookSample, notHouseCamera, overlay, pageMembers, PX, PX_KIN, roomCards,
+      homeGridView, homeSheet, inventory, kioskOf, lookSample, notHouseCamera, overlay, pageMembers, PX, PX_KIN, roomCards,
       rooms, saverBlock, setting, shortName, sibling, TILE, tileFor;
 
   // REBUILT WHEN ITS SETTINGS CHANGE. A strategy builds the dashboard once,
@@ -384,7 +384,7 @@
     PARTS.forEach(function (file) { window.hkStrategyParts[partKey(file)](K); });
     boardOf = K.boardOf; clientOf = K.clientOf; climateMembers = K.climateMembers; contactGlyphs = K.contactGlyphs;
     dashSeg = K.dashSeg; groupOf = K.groupOf; HkDashboardStrategy = K.HkDashboardStrategy;
-    HkRoomViewStrategy = K.HkRoomViewStrategy; homeGridView = K.homeGridView; inventory = K.inventory;
+    HkRoomViewStrategy = K.HkRoomViewStrategy; homeGridView = K.homeGridView; homeSheet = K.homeSheet; inventory = K.inventory;
     kioskOf = K.kioskOf; lookSample = K.lookSample; notHouseCamera = K.notHouseCamera; overlay = K.overlay;
     pageMembers = K.pageMembers; PX = K.PX; PX_KIN = K.PX_KIN; roomCards = K.roomCards; rooms = K.rooms;
     saverBlock = K.saverBlock; setting = K.setting; shortName = K.shortName; sibling = K.sibling; TILE = K.TILE;
@@ -423,6 +423,8 @@
                           groupOf: viaClient(groupOf), ownChange: ownChange,
                           // a Home Grid's view from a layout (Edit mode's preview, hk-edit-grid.js)
                           homeGridView: homeGridView,
+                          // the generated Home and the pages it leads to, for the Home sheet (hk-home-block.js; phase 27)
+                          homeSheet: viaClient(homeSheet),
                           // built again now, from the settings as they are (Edit mode's Reload)
                           rebuild: refreshKeepingPlace,
                           room: HkRoomViewStrategy.generate,

@@ -34,6 +34,8 @@ LAZY = frozenset({
     "hk-intercom.js",
     # House Status (docs/phase11/HOUSE-STATUS.md): its block on a Home Grid page and the sheet the block opens
     "hk-house-status.js",
+    # Home (docs/phase27/PLAN.md): its block on a Home Grid page and the Home sheet the block opens
+    "hk-home-block.js",
     # the Alert (docs/phase11/ALERT.md): a block's Show When card, drawn only while its rule holds
     "hk-alert.js",
     # Laundry (docs/phase22/LAUNDRY.md): its block on a Home Grid page (its sheet is hk-detail's, hk-sheet-laundry.js)

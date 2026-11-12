@@ -18,22 +18,28 @@ function measure() {
   const name = (e) => e.localName + (typeof e.className === 'string' && e.className ? '.' + e.className.split(' ')[0] : '');
   // what it draws: the leaves (an element with nothing in it, or a picture), cut to the body
   let u = null; const wide = [];
-  const walk = (e) => {
+  // (a box counts only as far as it paints across: a row that scrolls sideways, or anything that clips across, cuts what
+  // is in it at its own edges -- the Home sheet's chips, camera mosaic and scenes run on past the sheet's edge, unpainted)
+  const walk = (e, cut) => {
     if (SKIP.test(e.localName) || !shown(e)) return;
-    const k = LEAF.test(e.localName) ? [] : kids(e).filter((c) => !SKIP.test(c.localName));
-    k.forEach(walk);
-    // (a box counts where it paints -- a card's plate, a track -- not only what is innermost)
     const cs = getComputedStyle(e);
+    let inner = cut;
+    if (cs.overflowX !== 'visible') { const o = e.getBoundingClientRect(); inner = cut ? [Math.max(cut[0], o.left), Math.min(cut[1], o.right)] : [o.left, o.right]; }
+    const k = LEAF.test(e.localName) ? [] : kids(e).filter((c) => !SKIP.test(c.localName));
+    k.forEach((c) => walk(c, inner));
+    // (a box counts where it paints -- a card's plate, a track -- not only what is innermost)
     const paints = !/rgba\(0, 0, 0, 0\)|transparent/.test(cs.backgroundColor) || cs.backgroundImage !== 'none' || parseFloat(cs.borderTopWidth) > 0;
     if (k.length && !paints) return;
-    const q = e.getBoundingClientRect();
+    const q0 = e.getBoundingClientRect();
+    const q = cut ? { left: Math.max(q0.left, cut[0]), right: Math.min(q0.right, cut[1]), top: q0.top, bottom: q0.bottom,
+                      width: Math.min(q0.right, cut[1]) - Math.max(q0.left, cut[0]), height: q0.height } : q0;
     if (q.width < 1 || q.height < 1 || q.right <= b.left || q.left >= b.right || q.bottom <= b.top || q.top >= b.bottom) return;
     // (a bare sheet, the camera's, is the picture to every edge)
     if (!sheet.classList.contains('bare') && (q.left < r.left + 12 || q.right > r.right - 12)) wide.push(name(e));
     const c = [Math.max(q.left, b.left), Math.max(q.top, b.top), Math.min(q.right, b.right), Math.min(q.bottom, b.bottom)];
     u = u ? [Math.min(u[0], c[0]), Math.min(u[1], c[1]), Math.max(u[2], c[2]), Math.max(u[3], c[3])] : c;
   };
-  kids(body).forEach(walk);
+  kids(body).forEach((c) => walk(c, null));
   // the controls, and any a finger could miss
   const small = [];
   all(sheet).forEach((e) => {
@@ -69,6 +75,8 @@ function measure() {
 
 function openSheet(id) {
   if (id === 'intercom') { window.hkIntercom.open(); return; }
+  // (the Home sheet, phase 27: its panel's file comes when it is asked for, hkDetail.open's hkNeed)
+  if (id === 'home') { window.hkDetail.open(null, { name: 'Home' }, { panel: { tag: 'hk-detail-home', config: { at: 'home' } } }); return; }
   if (id !== 'event') { window.hkDetail.open(id); return; }
   const s = new Date(); s.setHours(19, 0, 0, 0);
   window.hkDetail.open('calendar.family', null, { event: { cal: 'calendar.family', uid: 'u1', title: 'Dinner with the Riveras',

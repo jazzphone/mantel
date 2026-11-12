@@ -260,6 +260,12 @@
     timeline: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { show: 'timeline_show', tap: 'tap_target', glyphs: 'glyph_color' }, card: function (s, o) {
       if (!hostHas('timeline')) return stand('Recent', 'mdi:history', 'Recent isn\'t available here.');
       return Object.assign({ type: 'custom:hk-timeline-block-card', size: s, show: o.show === 'latest' || o.show === 'digest' ? o.show : 'auto' }, gl(o)); } },
+    // HOME (phase 27, docs/phase27/PLAN.md, hk-home-block.js): the house as a way in -- Small its glyph alone, Wide its name
+    // and what is going on, Tall up House Status's headline over the categories and the rooms -- each part opening the
+    // generated Home page in a sheet at that place. Its name (`title`, the house's by default) and Glyphs; no When Tapped:
+    // the sheet is where it goes.
+    home: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { title: 'title', glyphs: 'glyph_color' }, card: function (s, o) {
+      return Object.assign({ type: 'custom:hk-home-block-card', size: s }, o.title ? { title: o.title } : {}, gl(o)); } },
     // HOUSE STATUS (2026-11-07, docs/phase11/HOUSE-STATUS.md, hk-house-status.js): this screen's status chips as
     // sections, each a tap to its chip's page; the rest, and Small, open the House Status sheet. No options: it shows
     // what the screen's Status Chips say, whether or not the screen draws its chip row. No When Tapped: each section
@@ -811,7 +817,7 @@
     calendar: 'Calendar', battery: 'House Battery', people: 'People', vacuum: 'Vacuum', laundry: 'Laundry', tv: 'TV', swipe: 'Swipe', clock: 'Clock',
     room: 'Room', scene_suggested: 'Suggested Scene', action: 'Action', everything: 'Everything', cameras: 'Cameras',
     power: 'Power', music: 'Music', doors: 'Doors & Locks', live_tv: 'Live TV', water: 'Water',
-    on_now: 'On Now', todo: 'To-do', energy_rings: 'Energy Rings', timeline: 'Recent', intercom: 'Intercom', house_status: 'House Status', alert: 'Alert' };
+    on_now: 'On Now', todo: 'To-do', energy_rings: 'Energy Rings', timeline: 'Recent', intercom: 'Intercom', house_status: 'House Status', alert: 'Alert', home: 'Home' };
 
   // ------------------------------------------------------------ an Alert's settings
   // AN ALERT'S ROWS (hk-grid-editor.js fields, for card `alert`): the headline, its own line, the accessory it counts the time

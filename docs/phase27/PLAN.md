@@ -1,12 +1,48 @@
 # Phase 27: The Home block and its sheet (plan, 2026-11-12)
 
-**Status: a plan and a mockup, nothing built.** All three decisions answered on 2026-11-12: the Room sheet's size, chips
-and rooms inside the sheet, and all five block sizes. Ready to build.
+**Status: built (2026-11-12), on `main`, not on the house.** All three decisions were answered on 2026-11-12: the Room
+sheet's size, chips and rooms inside the sheet, and all five block sizes. "As built" below says where the build differs
+from this plan, and why.
 
 - **Mockup:** [mockup/home-sheet.html](mockup/home-sheet.html). Open the file: it stands alone, with the fictional
   house and made-up states, and touches nothing in the house. Published for review at
   https://claude.ai/artifact/HBGLwXZQJuhTMNE8cUsgiu (private to the owner).
 - **Line numbers** are left out on purpose, because `main` moves. Search for the names.
+
+## As built (2026-11-12)
+
+- **Files:** the block and the sheet are `web/hk/cards/hk-home-block.js` (`hk-home-block-card`, `hk-detail-home`), loaded
+  on first use (`hk_cards.py` LAZY). The catalog key `home` is in `hk-grid-catalog.js` and `home_grid.py`, with a Name
+  (`title`) and Glyphs. The editor lists it first under Rooms & Lights.
+- **The sheet's list is `views()`'s own, not a cut-out.** `hkStrategy.homeSheet(client)` (`hk-strategy-views.js`) runs
+  `views()` for this screen with its Home set to the generated one. It takes Home's cards less the header's clock and the
+  pop-ups, the chip row without its menu key (`lead: false`), and each page's cards less its title bar. The generated
+  Home itself is untouched, so the before-and-after test step 1 asked for isn't needed: the same function builds both.
+  The pages that are screens of their own (Weather, Calendar, Live TV, Music, Energy, Power, the Timeline) stay the
+  screen's, and a tap on one goes there.
+- **One hook keeps a page change inside the sheet.** `hkCards.navigate(path, el)` (`hk-base-card-core.js`) first asks
+  any ancestor with `hkCatchNav(path)`, across shadow roots. Every card's page change goes through it, so the chips, a
+  room's heading and "Cameras ›" open inside the sheet with no change to those cards.
+- **The back key** is "‹ Home" at the start of the header, where every Mantel sheet has its back key
+  (`hk-detail.js`), not beside the X: the frame's X is at the top right.
+- **The glyph** is `hk:home`: the house's glyph file's house, and Material's `home` without one (the iconset's fallback),
+  so `hk-icons.js` needed nothing.
+- **The rooms' readings** are the Room block's own short line (`hkGridCards._.roomLine`), plus "Unlocked" and "Open".
+  Their glyphs come from the area's icon, else the sofa, as the Room block's do.
+- **House Status's shared parts** are `window.hkHouseStatus.parts`. That covers its headline and sentence (`summary()`,
+  which House Status now calls too), the chip model's mixin, a section's glyph, colors and words, `lines()` and
+  `headline()`.
+- **Sideways:** the sheet clips sideways (`overflow-x: clip`), because the camera mosaic's row bleeds 22 px past its
+  column, as it does on the page.
+- **Checks:** `tests/test_home_block.py` covers the pure part, both catalogs, the saved layout and the wiring.
+  `tools/headless/home_sheet_check.py` (WebKit and Chromium) covers every size of block on square and tile cells, each
+  tap opening the sheet at its place, the sheet at 1280 x 800, an iPad and a phone, a chip, a room and Cameras inside it
+  and back, an accessory opened there and back, Escape, Reduce Motion's fade, a car's screen, no command, and no page
+  change. The Home sheet is in `sheet_review.py`; the review now cuts a box to its nearest sideways clip, as it is
+  painted.
+- **Not done:** the gallery's Wall Display is a starter layout, and a block there would move every doc screenshot of it,
+  so the new check's own screens on the fictional house show the block instead. DESIGN.md is unchanged: the owner says
+  when.
 
 ## The ask (the owner, 2026-11-12)
 

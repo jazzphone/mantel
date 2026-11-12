@@ -24,7 +24,7 @@
     calendar: 'Calendar', battery: 'House Battery', people: 'People', vacuum: 'Vacuum', laundry: 'Laundry', tv: 'TV', swipe: 'Swipe', clock: 'Clock',
     room: 'Room', scene_suggested: 'Suggested Scene', action: 'Action', everything: 'Everything', cameras: 'Cameras',
     power: 'Power', music: 'Music', doors: 'Doors & Locks', live_tv: 'Live TV', water: 'Water',
-    on_now: 'On Now', todo: 'To-do', energy_rings: 'Energy Rings', timeline: 'Recent', intercom: 'Intercom', house_status: 'House Status', alert: 'Alert' };
+    on_now: 'On Now', todo: 'To-do', energy_rings: 'Energy Rings', timeline: 'Recent', intercom: 'Intercom', house_status: 'House Status', alert: 'Alert', home: 'Home' };
   var MAP_SUB = 'Extra Large: where everyone is, on a map, for anyone who can see this screen.';   // (Who's Home's Show Map says so: mockup 13b)
   var SIZE_NAMES = { XS: 'Tiny', S: 'Small', W: 'Wide', C: 'Compact', T: 'Tall', L: 'Large', XL: 'Extra Large', XXL: 'Full Width', F: 'Full View' };
   // a size on a chip or a segment, short enough for four in a row
@@ -42,7 +42,7 @@
   // this editor or in Edit mode's Add). tests/test_grideditor.js holds the two equal, name, description and glyph
   // included. On Now sits with the lights it turns off; Energy Rings beside Power and Water.
   var GROUPS = [
-    ['Rooms & Lights', ['room', 'accessory', 'accessories', 'action', 'on_now']], ['Scenes', ['scene', 'scenes', 'scene_suggested']],
+    ['Rooms & Lights', ['home', 'room', 'accessory', 'accessories', 'action', 'on_now']], ['Scenes', ['scene', 'scenes', 'scene_suggested']],
     ['Climate', ['thermostat', 'weather']], ['Music', ['now_playing', 'music', 'tv', 'live_tv', 'intercom']],
     ['Security & Cameras', ['security', 'doors', 'camera', 'cameras']],
     ['Info', ['house_status', 'alert', 'swipe', 'clock', 'timers', 'calendar', 'todo', 'battery', 'power', 'energy_rings', 'water', 'people', 'vacuum', 'laundry', 'timeline', 'everything']]
@@ -62,6 +62,7 @@
     on_now: 'What’s on in the house, and a way to turn it off', todo: 'A to-do list; tick items off', energy_rings: 'The Energy page’s rings: today, this week or this month',
     intercom: 'Speak a message into the rooms you pick',
     timeline: 'What just happened at the house; in the morning, how the night went',
+    home: 'Your home’s page in a sheet: its rooms, scenes and cameras',
     house_status: 'Your status chips at a glance; each opens its page', alert: 'Something that needs a look, its camera and one action: for Show When' };
   var GLYPHS = { room: 'mdi:sofa', accessory: 'mdi:lightbulb', accessories: 'mdi:view-grid', action: 'mdi:gesture-tap', scene: 'mdi:palette',
     scenes: 'mdi:palette', scene_suggested: 'mdi:weather-sunset', thermostat: 'mdi:thermostat', weather: 'mdi:weather-partly-cloudy',
@@ -70,6 +71,7 @@
       swipe: 'mdi:gesture-swipe-horizontal', everything: 'mdi:dots-horizontal',
     power: 'mdi:lightning-bolt', music: 'mdi:speaker-multiple', doors: 'mdi:door-closed-lock', live_tv: 'mdi:television-classic', water: 'mdi:water',
     on_now: 'mdi:lightbulb-on', todo: 'mdi:clipboard-check', energy_rings: 'mdi:lightning-bolt', timeline: 'mdi:history', intercom: 'mdi:microphone', house_status: 'mdi:home',
+      home: 'mdi:home-outline',
       alert: 'mdi:alert-circle' };
   // AN OPTION'S NAME in the panel: by its kind (hk-grid-catalog.js opts), else by its own name
   var KIND_LABELS = { entity: 'Accessory', climate: 'Thermostat', camera: 'Camera', weather: 'Weather', vacuum: 'Vacuum',

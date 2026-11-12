@@ -442,7 +442,7 @@
     return '<div class="sm' + (m.top ? ' tp' : '') + '">' + row(m.key) + hd + (P.sentence ? snt : '') + '<div class="bd">' + lines(m, P, box.iw) + '</div>' +
       (size === 'T' && pill ? '<div class="tf">' + pill + '</div>' : '') + '</div>';
   }
-  window.hkHouseStatus.tiles = { CSS: SUM_CSS, plan: plan, compose: compose, disc: disc, fade: fade, POOL: POOL };
+  window.hkHouseStatus.tiles = { CSS: SUM_CSS, plan: plan, compose: compose, disc: disc, fade: fade, POOL: POOL, lines: lines, headline: headline };
 
   // ======================================================================== the Home Grid block
   var BLOCK_CSS = [
@@ -481,14 +481,7 @@
       var shown = m.sections.slice(0, size === 'S' ? 0 : P.shown);
       this._shown = shown;
       if (!m.sections.length && size !== 'S') { C.morph(this._plate, lab + '<div class="none">Nothing to report</div>'); return; }
-      // the headline: the one thing that matters most, in words ("1 Window Open"), else All Good with a green check
-      var sec = lead(m.sections), need = !!(sec && (sec.urgent || sec.attention));
-      var others = m.sections.filter(function (x) { return x !== sec && (x.urgent || x.attention); }).length;
-      var green = (C.ACCENTS && C.ACCENTS.green) || '#30d158';
-      // (Small has the green check on its own disc above the words)
-      var head = need ? { words: reading(sec.reading) + (OPEN_WORD[sec.kind] ? ' ' + OPEN_WORD[sec.kind] : '') }
-        : { words: (size === 'S' ? '' : '<hk-icon icon="mdi:check-circle" style="width:24px;height:24px;--mdc-icon-size:24px;color:' + green + '"></hk-icon>') + 'All Good' };
-      var sentence = need ? esc(sec.name) + (others ? ' · ' + others + ' more to check' : '') : 'Nothing needs a look';
+      var sum = summary(m.sections, size), sec = sum.sec, need = sum.need, others = sum.others, green = sum.green, head = sum.head, sentence = sum.sentence;
       // (2026-11-09, the owner: "If everything doesn't fit, maybe have a vertical scroll within the card": no "+N more" key now -- every section is a
       // line of the list, which scrolls; the headline and the plate's tap, the sheet, stay)
       var model = { label: '', top: true, head: head, sentence: sentence, words: true, bare: this.getAttribute('tile') === 'centred', white: (this._config || {}).glyphs === 'white',
@@ -507,6 +500,18 @@
   }
   // what a headline adds to a reading in words: a door's "1 Window" is "1 Window Open", a timer's "8:38" "8:38 Left"
   var OPEN_WORD = { doors_windows: 'Open', timers: 'Left' };
+  // THE HEADLINE AND ITS SENTENCE (House Status's, and the Home block's from Tall up -- hk-home-block.js, phase 27 -- so the two
+  // never say it differently): the one thing that matters most, in words ("1 Window Open"), else All Good with a green check
+  // (Small has the check on its own disc above the words); the sentence names it and how many more ask for a look
+  function summary(sections, size) {
+    var sec = lead(sections), need = !!(sec && (sec.urgent || sec.attention));
+    var others = (sections || []).filter(function (x) { return x !== sec && (x.urgent || x.attention); }).length;
+    var green = (C.ACCENTS && C.ACCENTS.green) || '#30d158';
+    var head = need ? { words: reading(sec.reading) + (OPEN_WORD[sec.kind] ? ' ' + OPEN_WORD[sec.kind] : '') }
+      : { words: (size === 'S' ? '' : '<hk-icon icon="mdi:check-circle" style="width:24px;height:24px;--mdc-icon-size:24px;color:' + green + '"></hk-icon>') + 'All Good' };
+    var sentence = need ? esc(sec.name) + (others ? ' · ' + others + ' more to check' : '') : 'Nothing needs a look';
+    return { sec: sec, need: need, others: others, green: green, head: head, sentence: sentence };
+  }
   // A SECTION'S DISC lit: in its chip's color while it asks for a look, or while something is on, playing or open
   // its glyph's color in HomeView's bare rows: the chip's own, lit or not (the owner, 2026-11-11: "not all the glyphs have color? Power,
   // Climate.."); a chip with no color of its own, the ink
@@ -660,5 +665,9 @@
     return openSheet(n);
   };
   window.hkHouseStatus._ = { go: go, goes: goes, reading: reading, viewport: viewport };
+  // WHAT THE HOME BLOCK SHARES (hk-home-block.js, phase 27): the chip model's mixin, the headline and its sentence, a
+  // section's glyph, its colors and its words -- one place, never a copy
+  window.hkHouseStatus.parts = { Mixin: Mixin, summary: summary, glyph: glyph, litOf: litOf, hueOf: hueOf, words: words, ariaOf: ariaOf,
+                                 bindGlyphs: bindGlyphs, go: go, goes: goes, reading: reading, board: board, inner: inner, sizeOf: sizeOf };
   });
 })();

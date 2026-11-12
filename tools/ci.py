@@ -332,6 +332,12 @@ def steps(build: Build | None = None, parts: dict[str, int] | None = None) -> li
     out += [Step(f"house-status-check-{e}-{p}", [py, "tools/headless/house_status_check.py", "--engine", e, "--only", p], tier="full",
                  timeout=900, skip=playwright_missing, **check_inputs("tools/headless/house_status_check.py", e))
             for e in ("webkit", "chromium") for p in ("blocks", "sheet")]
+    # The Home block and its sheet (phase 27, docs/phase27/PLAN.md), house commands off: every size on square and tile cells, each
+    # tap opening the sheet at its place, the sheet at the wall tablet's, an iPad's and a phone's size, a chip, a room and Cameras
+    # inside it and back (each engine and part a step of its own)
+    out += [Step(f"home-sheet-check-{e}-{p}", [py, "tools/headless/home_sheet_check.py", "--engine", e, "--only", p], tier="full",
+                 timeout=900, skip=playwright_missing, **check_inputs("tools/headless/home_sheet_check.py", e))
+            for e in ("webkit", "chromium") for p in ("blocks", "sheet")]
     # The Alert (2026-11-10, docs/phase11/ALERT.md), house commands off: every size on square and tile cells with and without a
     # camera, its taps, and a Show When block going to the alert and back as the house moves (each engine a step of its own)
     out += [Step(f"alert-check-{e}", [py, "tools/headless/alert_check.py", "--engine", e], tier="full",

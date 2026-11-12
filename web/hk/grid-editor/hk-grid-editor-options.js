@@ -47,6 +47,10 @@
               onChange: (v) => set(key, v === 'summary' ? null : v) }));
             return;
           }
+          // (the Home block's Name: the house's own, from Home Assistant, unless it is given one)
+          if (kind === 'title' && card === 'home') { rows.push(K.text({ label: 'Name', value: opts[key] || '', maxlength: 60,
+            placeholder: (self.panel.client && self.panel.client.config && self.panel.client.config.location_name) || 'Home',
+            onCommit: (v) => set(key, v.trim() || null) })); return; }
           if (kind === 'title') { rows.push(K.text({ label: o.page ? 'Page Name' : 'Group Name', value: opts[key] || '', maxlength: 60, placeholder: o.page ? '' : 'Accessories',
             onCommit: (v) => set(key, v.trim() || null) })); return; }
           if (kind === 'secondary') { self.secondaryFields(opts[key], opts.entity || (o.base || {}).entity, (v) => set(key, v), rows); return; }

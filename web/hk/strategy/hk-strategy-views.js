@@ -561,6 +561,57 @@
       v.cards = [head, scenes, room].filter(Boolean);
     }
 
+    // THE HOME SHEET (phase 27, docs/phase27/PLAN.md; hk-home-block.js): the generated Home and the pages it leads to, for a
+    // screen whose Home is something else (a Home Grid). Built by views() itself, from this screen's item as if its Home were
+    // the generated list, so the sheet is the page and never a second idea of it (the owner, 2026-11-12: "it looks like the
+    // Home Button actually loads what a generated dashboard would load...Cameras, Scenes, Favorites as well").
+    //   home   Home's cards: the chip row, the camera mosaic, Scenes, Favorites and the rooms -- less the clock and weather (the
+    //          grid shows the time) and the pop-ups Home listens for (#alarm, the docked bar: the screen's, never a sheet's)
+    //   pages  {path: {title, icon, area (a room's), cards}}: each page a chip, a room's heading or Cameras opens, less its title bar (the
+    //          sheet's header is the page's name). The pages that are a screen of their own -- Weather, Calendar, Live TV,
+    //          Music, Energy, Power, the Timeline -- are not here: a tap on one goes to the screen's page.
+    var OWN_SCREEN = { home: 1, weather: 1, calendar: 1, 'live-tv': 1, energy: 1, timeline: 1, 'now-playing': 1 };
+    function sheetCards(list) {
+      return (list || []).map(function (c) {
+        if (!c || typeof c !== 'object' || c.page_header || c.type === 'custom:hk-popup-card') return null;
+        if (Array.isArray(c.cards)) {
+          var kept = sheetCards(c.cards);
+          if (!kept.length && c.cards.length) return null;
+          c = Object.assign({}, c, { cards: kept });
+        }
+        return c;
+      }).filter(Boolean);
+    }
+    function homeSheet(client) {
+      var G = setting('generated') || {};
+      var opts = { __build: {} };
+      ['exclude_areas', 'exclude_entities', 'exclude_devices', 'include_entities'].forEach(function (k) { opts[k] = [].concat(G[k] || []); });
+      // (this screen's item, its Home the generated one: not its grid, not a page of its own, not a car's)
+      opts.board = Object.assign({}, boardOf(dashSeg()), { home_style: 'list', home_grid: null, home_view: null, home_page: true,
+                                                           only_pages: [], car_layout: null, popups: false,
+                                                           now_playing: false, timer_bar: false });
+      if (opts.board.sky === false) opts.sky = false;
+      var all = views(client, opts, false), out = { home: [], pages: {} };
+      var power = setting('energy') && setting('energy').power;
+      all.forEach(function (v) {
+        if (!v || !Array.isArray(v.cards)) return;
+        if (v.path === 'home') {
+          var head = v.cards[0], row = ((head && head.cards) || []).filter(function (c) { return c && c.type === 'custom:hk-chips-card'; })[0];
+          // (the chip row without its lead, the screen's menu key: a sheet is no place to open the screen's menu)
+          if (row) row = Object.assign({}, row, { lead: false });
+          out.home = sheetCards((row ? [row] : []).concat(v.cards.slice(1))).map(function (c) {
+            var o = Object.assign({}, c); delete o.view_layout; return o;
+          });
+          return;
+        }
+        if (OWN_SCREEN[v.path] || MUSIC_PAGE[v.path] || (power && v.path === power.path)) return;
+        out.pages[v.path] = { title: v.title || '', icon: v.icon || '', area: v.area || null, cards: sheetCards(v.cards).map(function (c) {
+          var o = Object.assign({}, c); delete o.view_layout; return o;
+        }) };
+      });
+      return out;
+    }
+
     class HkDashboardStrategy extends HTMLElement {
       static shouldRegenerate(config, oldInput, newInput) { return regChanged(config, clientOf(oldInput), clientOf(newInput)); }
       static async generate(config, input) {
@@ -661,5 +712,6 @@
 
     // what the shell and the later parts use of this one
     K.HkDashboardStrategy = HkDashboardStrategy; K.HkRoomViewStrategy = HkRoomViewStrategy; K.lookSample = lookSample;
+    K.homeSheet = homeSheet;
   };
 })();

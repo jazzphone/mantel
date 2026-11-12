@@ -96,6 +96,7 @@ Mantel's pages and the code both hosts share: HK's cards, modules, panels and th
     - `hk-headers-climate-lights.js` — the climate and lighting headers
     - `hk-headers-security-vacuum.js` — the security and cleaning headers
     - `hk-headers-timers-water.js` — the timers and water headers
+  - `hk-home-block.js` — the Home block and its sheet (phase 27, docs/phase27/PLAN.md)
   - `hk-home.js` — household controls *(a shell: its parts are in `web/hk/home-cards/`, `tools/split_manifests/home.json`)*
     - `hk-home-shared.js` — what the vacuum and timer cards share: the nested-card feed, the no-helpers line, the rooms picked and the room-picking base
     - `hk-home-vacuum.js` — the vacuum card and the area select card
@@ -895,6 +896,8 @@ Build, release and check tools.
   - `home_grid_visual_check.py` — Check complete starter layouts in Chromium or WebKit against a fictional home.
   - `home_numbers.py` — The Home-page proof's numbers and checks, headless at 1280x800 (the Kitchen tablet's CSS size).
   - `home_probe.py` — Load /home headlessly, print what the page did, take a screenshot.
+  - `home_sheet_check.cjs` — home_sheet_check.py's browser half
+  - `home_sheet_check.py` — The Home block and its sheet (web/hk/cards/hk-home-block.js, docs/phase27/PLAN.md) in WebKit and Chromium, on a fictional house.
   - `homeview_starters.cjs` — THE HOMEVIEW-STYLE STARTERS as the editor makes them (hk-grid-editor.js SQUARE_STARTERS, squareStarter, squareHouse), for home_grid_visual_check.py...
   - `house_status_check.cjs` — house_status_check.py's browser half
   - `house_status_check.py` — House Status (web/hk/cards/hk-house-status.js, docs/phase11/HOUSE-STATUS.md) in WebKit and Chromium, on a fictional house.

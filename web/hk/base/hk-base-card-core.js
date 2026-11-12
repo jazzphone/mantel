@@ -340,7 +340,13 @@
     // more than it gave (the whole page change measured on the tablets: twice
     // as fast with this and the other page-change holds gone). `el` is kept
     // for the callers.
-    function navigate(path, el) {  // eslint-disable-line no-unused-vars
+    // A SHEET THAT HOLDS PAGES (the Home sheet, phase 27, hk-home-block.js) is asked first: a chip, a room's heading or
+    // Cameras inside it opens that page in the sheet (its hkCatchNav answers true) rather than the screen's. Found up the
+    // tree from the card, across its shadow roots.
+    function navigate(path, el) {
+      for (var n = el; n; n = n.parentNode || n.host) {
+        if (typeof n.hkCatchNav === 'function' && n.hkCatchNav(path)) return;
+      }
       window.hkShell.navigate(path);
     }
     // WHERE A `navigate` ACTION GOES (a card's _act, and House Status, hk-house-status.js, which opens what a chip opens)

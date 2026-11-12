@@ -86,12 +86,14 @@ SHEETS = [
     ('number', 'input_number.speaker_volume'), ('select', 'input_select.house_mode'), ('button', 'button.restart_router'),
     ('alarm', 'alarm_control_panel.home'), ('camera', 'camera.front_door'), ('person', 'person.sam'), ('weather', 'weather.home'),
     ('automation', 'automation.porch_lights'), ('timer', 'timer.laundry'), ('event', 'event'), ('intercom', 'intercom'),
+    ('home', 'home'),
 ]
 
 
 # sheets that scroll by design: the weather's hours and days run on, as Apple's Weather does
-# (and the Intercom's rooms run on under its foot, which stays put: ten rooms are more than a phone's height)
-SCROLLS = {'weather', 'intercom'}
+# (and the Intercom's rooms run on under its foot, which stays put: ten rooms are more than a phone's height; the Home
+# sheet is the generated Home page, every room of the house: phase 27)
+SCROLLS = {'weather', 'intercom', 'home'}
 
 
 def faults(size, m, name=''):
@@ -109,10 +111,13 @@ def faults(size, m, name=''):
     # (4: a colour light's labels step in 4 px to share their edge with the circles' ring room)
     # (the Intercom's talk key is centered in its column while its rooms run to the right inset: two columns, not one
     # thing off-center -- 2026-11-07)
-    if m['lr'] is not None and abs(m['lr'][0] - m['lr'][1]) > 4 and name != 'intercom':
+    # (the Home sheet's rows that scroll sideways -- its chips, camera mosaic, scenes -- start where its column does and run on
+    # into the margin past its last pill, as on the generated page: phase 27)
+    if m['lr'] is not None and abs(m['lr'][0] - m['lr'][1]) > 4 and name not in ('intercom', 'home'):
         out.append('left/right %s' % m['lr'])
     # (10: the thermostat's ring and the alarm's word sit a line's leading below the body's top)
-    if h <= 500 and w > h and m['tb'] is not None and abs(m['tb'][0] - m['tb'][1]) > 10:
+    # (a list that scrolls by design is cut at the body's foot: nothing under its last line to measure)
+    if h <= 500 and w > h and m['tb'] is not None and abs(m['tb'][0] - m['tb'][1]) > 10 and not (name in SCROLLS and m['scroll'] > 2):
         out.append('top/bottom %s' % m['tb'])
     # NOT SITTING HIGH (2026-11-07, the review): every sheet keeps one height (the X and the name always in one place) and
     # centers what it draws in its body, or fills it -- so no more glass under the last thing than over the first, give or

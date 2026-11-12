@@ -137,6 +137,9 @@ CATALOG: dict[str, dict[str, Any]] = {
     # host with no Timeline (Home Assistant) never offers it and draws a stand-in for a layout that has one. show:
     # Automatic (the morning summary from 5 to 11 AM, the rows after), Latest Events, or Morning Summary
     "timeline": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"show": "timeline_show", "tap": "tap_target", "glyphs": "glyph_color"}},
+    # HOME (phase 27, docs/phase27/PLAN.md): the house as a way in, each part opening the generated Home page in a sheet at
+    # that place. Its name (title: the house's by default) and Glyphs; no When Tapped, the sheet is where it goes
+    "home": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"title": "title", "glyphs": "glyph_color"}},
     # HOUSE STATUS (2026-11-07, docs/phase11/HOUSE-STATUS.md): this screen's status chips as sections, each a tap to its
     # chip's page, the rest in a sheet. No options: what it shows is the screen's Status Chips (chips, chips_quiet,
     # chips_extra, chips_custom), drawn whether or not the screen shows its chip row. No When Tapped: each section
