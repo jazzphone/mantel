@@ -29,8 +29,11 @@ from this plan, and why.
   other, so the room headings open inside it with no change to those cards.
 - **The back key** is "‹ Home" at the start of the header, where every Mantel sheet has its back key
   (`hk-detail.js`), not beside the X: the frame's X is at the top right.
-- **The glyph** is `hk:home`: the house's glyph file's house, and Material's `home` without one (the iconset's fallback),
-  so `hk-icons.js` needed nothing.
+- **The glyph** is `hk:homekit`, Apple's Home symbol (SF Symbols' `apple.homekit`: the house with a smaller house inside
+  it), as HomeView's house tile has it. The owner asked for it on 2026-11-12 ("is there any way to match the one in the
+  screenshot/video"). It comes from the house's glyph file; without one, Material's `home-outline` stands in
+  (`hk-icons.js` MDI_ALIAS). Small's glyph is half the block's shorter side, so its ink spans about 44% of the tile, as
+  Apple's does. The owner, after trying it: "could probably be a bit bigger".
 - **The rooms' readings** are the Room block's own short line (`hkGridCards._.roomLine`), plus "Unlocked" and "Open".
   Their glyphs come from the area's icon, else the sofa, as the Room block's do.
 - **House Status's shared parts** are `window.hkHouseStatus.parts`. That covers its headline and sentence (`summary()`,

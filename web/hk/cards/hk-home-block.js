@@ -58,7 +58,10 @@
   whenBase(function (C) {
     if (window.hkHomeBlock.Sheet) return;
     var HkBase = C.HkBase, esc = C.esc, v = C.v, T = C.TYPE;
-    var HOUSE = 'hk:home';                               // (the house's glyph file's house; without one, Material's)
+    // THE GLYPH: Apple's Home symbol, the house with a smaller house inside it, as HomeView's own house tile has it (the owner,
+    // 2026-11-12: "is there any way to match the one in the screenshot/video") -- the house's glyph file's `homekit` (SF Symbols'
+    // apple.homekit); without one, Material's home-outline (hk-icons.js MDI_ALIAS)
+    var HOUSE = 'hk:homekit';
     function type(role) {
       var t = T[role];
       return 'font-size:' + t.size + 'px;font-weight:' + t.weight + (t.track ? ';letter-spacing:' + t.track : '') +
@@ -328,10 +331,11 @@
         'hk-plate.hm{box-sizing:border-box;height:100%;position:relative;display:flex;flex-direction:column;overflow:hidden;',
         '  padding:' + C.blockPad('14px') + ';' + C.plate('card') + ';color:' + v('ink') + ';-webkit-tap-highlight-color:transparent;cursor:pointer}',
         '.g{display:flex;color:' + v('ink') + '}',
-        // SMALL, Centered (HomeView's own tile): the glyph alone, a little above the middle -- the Centered tile's glyph (hkCards.TILE.centred)
-        '.hs{flex:1;display:grid;place-items:center;padding-bottom:6%}',
-        '.hs .g{width:min(' + C.TILE.centred.square.glyph + 'px,45cqmin);height:min(' + C.TILE.centred.square.glyph + 'px,45cqmin);' +
-          '--mdc-icon-size:100%}',
+        // SMALL, Centered (HomeView's own tile): the glyph alone and large, in the middle -- measured off the owner's recording of
+        // HomeView, its house about 44 % of the tile across (2026-11-12, the owner: "could probably be a bit bigger"): half the
+        // block's shorter side, the symbol's ink about nine tenths of its box
+        '.hs{flex:1;display:grid;place-items:center}',
+        '.hs .g{width:50cqmin;height:50cqmin;--mdc-icon-size:100%}',
         ':host(:not([tile=centred])) .hs{display:none}',
         // SMALL, Home: the glyph in its well at the top, the name and its line at the foot (a tile's way)
         '.hh{flex:1;display:flex;flex-direction:column;justify-content:space-between;min-width:0}',
@@ -343,7 +347,7 @@
         // WIDE: the glyph in a quarter of it, the name over its line beside it
         '.hw{flex:1;display:grid;grid-template-columns:25% minmax(0,1fr);align-items:center;column-gap:14px;min-width:0}',
         '.hw .gc{display:grid;place-items:center}',
-        '.hw .g{width:min(58px,100%);height:58px;--mdc-icon-size:100%}',
+        '.hw .g{width:min(72px,100%);height:72px;--mdc-icon-size:100%}',
         ':host(:not([tile=centred])) .hw .g{width:36px;height:36px}',
         ':host(:not([tile=centred])) .hw .gc{width:56px;height:56px;border-radius:50%;background:' + v('key') + ';justify-self:center}',
         '.hw .nm{' + type('title') + ';line-height:28px}',
