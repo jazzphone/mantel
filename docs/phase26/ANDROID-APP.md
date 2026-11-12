@@ -111,6 +111,14 @@ A doorbell pop-up plays the camera in the page today. A native player (hardware-
 the page) is built **only if measured to matter**: a live camera in the app costing the page more than 15 % of its frames
 or the tablet more than 30 % CPU over the page alone. Slice 26.5 measures this and records the result either way.
 
+## Reset
+
+Device owner, and with it a true lock-task kiosk, Restart Device and updates with no tap, needs a factory reset of a
+tablet whose owner is Kiosk Satellite. The path is in the app's repository (`docs/RESET.md`): the app's identity saved
+(name, address, ESPHome key, MAC) so Home Assistant's device and entity ids carry on, the reset and setup wizard with no
+accounts, `tools/setup_tablet.py --owner --debloat` (82 packages a wall panel doesn't use taken off the tablet's user,
+reversibly), pairing by code, and a dedicated Google account afterwards so Android System WebView keeps updating.
+
 ## iOS
 
 The iPhone app already is this kind of shell. iPadOS gives no screen-off, no running in the background, no Bluetooth
