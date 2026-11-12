@@ -329,8 +329,8 @@
     '.dk.bare{background:none}',
     '.ln.hl{position:relative;z-index:0;border-top-color:transparent}',
     // (the tile inside the row, never past it: the list scrolls, and a tile wider than it made it overflow, resize and redraw without end.
-    // The bare rows are padded 6 px each side instead, so the glyph and the words sit inside the tile's corners)
-    '.ls.bare .ln{padding:0 6px}',
+    // The bare rows are padded 6 px, 14 on the right where the reading is at the right or the row is tiled, so the glyph and the reading sit well inside the tile's corners)
+    '.ls.bare .ln{padding:0 14px 0 6px}.ls.bare .ln.u:not(.hl){padding-right:6px}',
     '.ln.hl::before{content:"";position:absolute;z-index:-1;inset:3px 0;border-radius:var(--hk-inner-radius,' + C.R.inner + 'px);background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.12)}',
     '.ln.hl .tx,.ln.hl .rd{text-shadow:none}.ln.hl .nm,.ln.hl .rd{color:rgba(0,0,0,0.88)}.ln.hl .dt,.ln.hl .rd small{color:' + v('ink-on-state') + '}',
     // (2026-11-09, the owner on On Now: "the icons/glyphs inside the wells/circles are not aligned". The blocks' own `.wg hk-icon{display:block}`
@@ -375,13 +375,14 @@
   }
   // A LINE: r = {live, attrs, aria, icon(px, color), lit (its color while lit), name, reading (html), say (the reading in words, where it
   // goes under the name), detail, level, rest}; under: the reading under the name (a narrow line with words to say)
-  function line(r, P, i, under, dk, bare) {
+  // (white: the block's Glyphs option set to White -- every bare glyph white but one on a white tile, which keeps its color)
+  function line(r, P, i, under, dk, bare, white) {
     var tag = r.live ? 'button type="button"' : 'div role="group"';
     var lv = r.level != null ? '<i class="lv"><b style="width:' + Math.max(4, Math.min(100, r.level)) + '%;background:' + (r.lit || v('ink-2')) + '"></b></i>' : '';
     var under2 = under ? (r.say != null ? esc(r.say) : r.reading) + (r.detail ? ' · ' + esc(r.detail) : '') : lv + esc(r.detail || '');
     return '<' + tag + ' class="ln' + (under ? ' u' : '') + (r.live ? '' : ' in') + (r.rest ? ' at' : '') + (i < 1 ? ' r0' : '') + (bare && r.look ? ' hl' : '') + '"' +
       (r.attrs ? ' ' + r.attrs : '') +
-      ' aria-label="' + esc(r.aria || r.name) + '">' + disc(r.icon, dk, r.lit, bare, r.hue) + '<span class="tx"><span class="nm">' + esc(r.name) + '</span>' +
+      ' aria-label="' + esc(r.aria || r.name) + '">' + disc(r.icon, dk, r.lit, bare, white && !r.look ? v('glyph') : r.hue) + '<span class="tx"><span class="nm">' + esc(r.name) + '</span>' +
       (under2 ? '<span class="dt">' + under2 + '</span>' : '') + '</span>' + (under ? '' : '<span class="rd">' + r.reading + '</span>') +
       '</' + (r.live ? 'button' : 'div') + '>';
   }
@@ -390,7 +391,7 @@
     // (a narrow column -- Tall's, Small's -- a smaller disc and gap; a line under 200 wide says its reading under the name)
     var nw = width < 200, dk = nw ? 32 : 36, under = width < (m.underAt != null ? m.underAt : m.words ? 300 : 0);
     return '<div class="ls sc' + (nw ? ' nw' : '') + (m.bare ? ' bare' : '') + '" role="list" style="--rh:' + P.rowH + 'px;--dk:' + dk + 'px">' +
-      m.rows.slice(0, P.shown).map(function (r, i) { return line(r, P, i, under, dk, m.bare); }).join('') + '</div>';
+      m.rows.slice(0, P.shown).map(function (r, i) { return line(r, P, i, under, dk, m.bare, m.white); }).join('') + '</div>';
   }
   // THE FADE at a list's foot while there is more below it, as Up Next's (hk-media-now.js _idleFade); bound once per list, checked each draw
   function fade(root) {
@@ -420,7 +421,7 @@
         // (On Now's Small, 2026-11-09, the owner: "the individual things ... really hard to touch ... especially on the small card": the count, then
         // its first kind as one line of 56 under it, its own tap; the rest of the block is the plate's)
         return '<div class="sm-s sn tp">' + headline(m.head, false) + (P.sentence ? snt : '') + (m.sr ? '<div class="bd">' +
-          lines({ rows: [m.sr], underAt: 200, bare: m.bare }, { rowH: P.rowH, shown: 1 }, box.iw) + '</div>' : '') + '</div>';
+          lines({ rows: [m.sr], underAt: 200, bare: m.bare, white: m.white }, { rowH: P.rowH, shown: 1 }, box.iw) + '</div>' : '') + '</div>';
       }
       // (a Small with no line -- House Status's -- the leading thing's glyph on its disc over the headline, as a tile has)
       var ld = m.lead ? '<div class="sld">' + disc(m.lead.icon, 30, m.lead.lit, m.bare) + '</div>' : '';
@@ -490,7 +491,7 @@
       var sentence = need ? esc(sec.name) + (others ? ' · ' + others + ' more to check' : '') : 'Nothing needs a look';
       // (2026-11-09, the owner: "If everything doesn't fit, maybe have a vertical scroll within the card": no "+N more" key now -- every section is a
       // line of the list, which scrolls; the headline and the plate's tap, the sheet, stay)
-      var model = { label: '', top: true, head: head, sentence: sentence, words: true, bare: this.getAttribute('tile') === 'centred',
+      var model = { label: '', top: true, head: head, sentence: sentence, words: true, bare: this.getAttribute('tile') === 'centred', white: (this._config || {}).glyphs === 'white',
         lead: need ? { icon: function (px, col) { return glyph(sec, px, col); }, lit: litOf(sec) || (C.ACCENTS && C.ACCENTS.orange) }
                    : { icon: function (px, col) { return '<hk-icon icon="mdi:check" style="width:' + px + 'px;height:' + px + 'px;color:' + col + '"></hk-icon>'; }, lit: green },
         small: { attrs: 'data-all', aria: 'House Status: ' + (need ? words(sec.reading) + ', ' + sec.name : 'all good') + (others ? ', ' + others + ' more to check' : '') + '. Opens House Status' },

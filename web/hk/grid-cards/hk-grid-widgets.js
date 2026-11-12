@@ -693,7 +693,7 @@
           // NO HEADING (2026-11-09, the owner: "we can remove the On Now heading"): the headline is the block's top, at Extra Large top left
           label: '', top: true, pill: all, underAt: 200, rows: rows, sr: rows[0] || null,
           // (HomeView's Centered style: the glyphs bare, in their kinds' colors -- DESIGN.md, no wells in HomeView; hk-house-status.js disc)
-          bare: this.getAttribute('tile') === 'centred',
+          bare: this.getAttribute('tile') === 'centred', white: (this._config || {}).glyphs === 'white',
           // the headline: the count on, or, quiet, a calm All Off said once
           head: o.n ? { num: o.n, unit: 'On' } : { words: 'All Off' },
           // (quiet, Extra Large's column says so under All Off)

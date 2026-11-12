@@ -357,7 +357,7 @@
         dkEl.style.background = bare ? 'none' : m.color;
         // (bare, an alert with no glyph of its own takes the warning triangle: the default's circled "!" would read as the well it lost)
         var mb = bare && !m.icon && !m.glyphOf ? Object.assign({}, m, { icon: 'mdi:alert' }) : m;
-        C.morph(dkEl, bare ? this._glyph(mb, Math.round(px * 0.8), m.color) : this._glyph(m, Math.round(px * 0.58), '#fff'));
+        C.morph(dkEl, bare ? this._glyph(mb, Math.round(px * 0.8), (this._config || {}).glyphs === 'white' ? v('glyph') : m.color) : this._glyph(m, Math.round(px * 0.58), '#fff'));
       }
       var pill = q('.go');
       if (pill && m.words) {

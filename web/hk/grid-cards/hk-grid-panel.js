@@ -189,7 +189,7 @@
       // HOMEVIEW, NO WELLS (2026-11-12, DESIGN.md "No wells in HomeView": the Home Grid in the Centered style): the glyph bare in its 36 px
       // column -- white closed, Security's teal open -- and an open one's row on a white tile, 3 px inside it, as Security's entries
       '.dd.bare{background:none !important}' +
-      '.wr.dl.bare>div{padding:0 6px;position:relative;z-index:0}' +
+      ':host([size=T]) .wr.dl.bare>div:not(.hl){padding-right:6px}.wr.dl.bare>div{padding:0 14px 0 6px;position:relative;z-index:0}' +
       '.wr.dl.bare>div.hl{border-bottom-color:transparent}.wr.dl.bare>div:has(+ div.hl){border-bottom-color:transparent}' +
       '.wr.dl.bare>div.hl::before{content:"";position:absolute;z-index:-1;inset:3px 0;border-radius:var(--hk-inner-radius,' + C.R.inner + 'px);background:#fff;' +
         'box-shadow:0 1px 4px rgba(0,0,0,.12)}' +
@@ -471,7 +471,7 @@
       // it; Large and Tall: the headline above the list; Small: the headline alone. The open ones first; what does not fit is
       // "N more" in the last row's place. Rows are 56 px -- each a tap target -- and a row opens that door's own sheet.
       _ownDoors(p, size, box, h) {
-        var list = [], bare = this.getAttribute('tile') === 'centred';
+        var list = [], bare = this.getAttribute('tile') === 'centred', tealRest = (this._config || {}).glyphs === 'color';   // (Glyphs: Color)
         [['door', p.doors], ['garage', p.garage], ['window', p.windows]].forEach(function (x) {
           (x[1] || []).forEach(function (id) { var st = h.states[id]; if (st) list.push({ id: id, kind: x[0], st: st, open: opened(st) }); });
         });
@@ -494,7 +494,7 @@
         var disc = function (g, on, px) {
           // (HomeView: no well -- the glyph bare and larger, white closed, teal open)
           if (bare) {
-            return '<span class="dd bare' + (on ? ' on' : '') + '" style="width:' + px + 'px;height:' + px + 'px;color:' + (on ? C.flatColor(ACC.teal, 'on') : v('glyph')) + '">' +
+            return '<span class="dd bare' + (on ? ' on' : '') + '" style="width:' + px + 'px;height:' + px + 'px;color:' + (on || tealRest ? C.flatColor(ACC.teal, 'on') : v('glyph')) + '">' +
               gly(g, Math.round(px * (px >= 40 ? 0.8 : 0.72)), null) + '</span>';
           }
           return '<span class="dd' + (on ? ' on' : '') + '" style="width:' + px + 'px;height:' + px + 'px;' +

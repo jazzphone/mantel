@@ -303,3 +303,23 @@ def test_a_music_block_plays_on_a_speaker_or_a_preset(speaker):
 def test_a_music_block_plays_on_nothing_else(speaker):
     _, errors = write({"id": "m1", "card": "music", "size": "W", "at": [0, 0], "opts": {"speaker": speaker}})
     assert errors == {"home_grid": "grid_option"}
+
+
+# ------------------------------------------------------------ glyphs (2026-11-12, the owner: "an option for Color or White Glyphs")
+@pytest.mark.parametrize('card,size', [('security', 'W'), ('doors', 'L'), ('timeline', 'L'), ('house_status', 'L'), ('on_now', 'L'), ('alert', 'L')])
+@pytest.mark.parametrize('value', ['color', 'white'])
+def test_a_homeview_blocks_glyphs_are_color_or_white(card, size, value):
+    board, errors = write({'id': 'b', 'card': card, 'size': size, 'at': [0, 0], 'opts': {'glyphs': value}})
+    assert not errors
+    assert board['home_grid']['items'][0]['opts']['glyphs'] == value
+
+
+@pytest.mark.parametrize('value', ['pink', 'White', True, 1, {}])
+def test_glyphs_refuse_anything_else(value):
+    _, errors = write({'id': 'b', 'card': 'house_status', 'size': 'L', 'at': [0, 0], 'opts': {'glyphs': value}})
+    assert errors == {'home_grid': 'grid_option'}
+
+
+def test_glyphs_are_only_the_six_blocks():
+    _, errors = write({'id': 'b', 'card': 'weather', 'size': 'L', 'at': [0, 0], 'opts': {'glyphs': 'white'}})
+    assert errors == {'home_grid': 'grid_option'}

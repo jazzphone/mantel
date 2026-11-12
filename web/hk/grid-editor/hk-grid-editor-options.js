@@ -20,13 +20,25 @@
       fields(card, opts, save, o) {
         var K = this.K, self = this, kinds = G.table()[card].opts || {}, rows = [], hide = o.hide || {};
         var set = (key, value) => { var out = copy(opts); if (value === '' || value == null) delete out[key]; else out[key] = value; save(out); };
+        // GLYPHS (2026-11-12, the owner: "an option for Color or White Glyphs for the cards...sometimes it looks good, sometimes it
+        // doesn't"): only where the block draws HomeView's bare glyphs -- the screen's Centered style (Security: its HomeView presentation);
+        // the block's own default stores nothing
+        var glyphRow = () => {
+          if (!kinds.glyphs || hide.glyphs || (card === 'security' ? opts.presentation !== 'homeview' : self.screenTile && !self.screenTile(card, o.size, opts))) return null;
+          var dflt = G.GLYPH_WHITE && G.GLYPH_WHITE[card] ? 'white' : 'color';
+          return K.seg({ label: 'Glyphs', value: opts.glyphs || dflt, options: [['color', 'Color'], ['white', 'White']],
+            onChange: (v) => set('glyphs', v === dflt ? null : v) });
+        };
         // (an Alert's, a TV's, a Swipe's rows: hk-grid-catalog.js)
+        if (card === 'alert') { var ag = glyphRow(); rows = rows.concat(G.alert.rows(K, opts, set, (k) => self.choices(k), self.panel.client,
+          { size: o.size, fields: (c, v, sv) => self.fields(c, v, sv, { size: o.size, hide: { tap: 1 } }) })); return ag ? rows.concat([ag]) : rows; }
         if (['alert', 'tv', 'swipe'].indexOf(card) >= 0) return rows.concat(G[card].rows(K, opts, set, (k) => self.choices(k), self.panel.client,
           { size: o.size, fields: (c, v, sv) => self.fields(c, v, sv, { size: o.size, hide: { tap: 1 } }) }));
         Object.keys(kinds).forEach(function (key) {
           if (hide[key]) return;
           var kind = kinds[key], label = KIND_LABELS[kind] || NAME_LABELS[key] || key.charAt(0).toUpperCase() + key.slice(1);
           if (kind === 'surface') return;                                         // Appearance, its own group
+          if (kind === 'glyph_color') { var gr = glyphRow(); if (gr) rows.push(gr); return; }
           if (card === 'clock' && key === 'bare') return;                         // Appearance's Hide Box
           if (card === 'room' && key === 'area' && o.list && !o.page) label = 'Default Room';
           if (kind === 'room_display') {

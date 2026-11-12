@@ -656,7 +656,7 @@
         few = (size === 'L' || size === 'XL') && 150 + gap + (rows.length - 1) * h <= room;
         var ld = rows.shift(), up = size !== 'L' || few, lh = few ? 150 : size === 'L' ? 84 : size === 'T' ? 150 : room;
         hero = '<div class="lead' + (up ? ' up' : '') + '" role="button" tabindex="0" data-ev="' + esc(ld.id) + '" aria-label="' + esc(ld.title + ', ' + ld.agoLong) + '" style="height:' + lh + 'px' +
-          (size === 'XL' && !few ? ';width:' + Math.round((box.iw - 18) / 2) + 'px' : '') + '">' + well(ld, up ? 72 : 56, this.getAttribute('tile') === 'centred') + '<div><b>' +
+          (size === 'XL' && !few ? ';width:' + Math.round((box.iw - 18) / 2) + 'px' : '') + '">' + well(ld, up ? 72 : 56, this._bare()) + '<div><b>' +
             esc(size === 'T' ? ld.a : ld.title) + '</b>' +
           (size === 'T' ? '<span>' + esc(ld.b || ld.room) + '</span><span>' + esc(ld.agoLong) + '</span>'
                         : '<span>' + esc([ld.sub, size === 'XL' ? '' : ld.agoLong].filter(Boolean).join(' · ')) + '</span>' + (size === 'XL' ? '<span>' + esc(ld.agoLong) + '</span>' : '')) +
@@ -677,10 +677,12 @@
       var stack = (hero ? hero + '<div style="height:' + gap + 'px;flex:none"></div>' : '') + list;
       return hd + (fits ? '<div class="body grp">' + stack + '</div>' : stack);
     }
+    // HomeView's bare glyphs (the Home Grid's Centered style): 'white' where the block's Glyphs say White, else true; Home style false
+    _bare() { return this.getAttribute('tile') === 'centred' ? ((this._config || {}).glyphs === 'white' ? 'white' : true) : false; }
     _row(r, h, narrow) {
       var aria = r.title + ', ' + r.agoLong + (r.sub ? ', ' + r.sub : '');
       var open = '<div class="r' + (narrow ? ' n' : '') + (h < 56 ? ' c' : '') + '" role="button" tabindex="0" data-ev="' + esc(r.id) + '" aria-label="' + esc(aria) + '" style="height:' + h + 'px">';
-      var bare = this.getAttribute('tile') === 'centred';
+      var bare = this._bare();
       if (narrow) return open + well(r, 32, bare) + '<div class="tx"><div class="ti">' + esc(r.a) + '</div><div class="sb">' + esc([r.b || r.room, r.ago].filter(Boolean).join(' · ')) +
         '</div></div></div>';
       // (the badge on a picture: the kind's color, the glyph white -- a tint over a photograph reads as mud)
@@ -752,8 +754,9 @@
   // A ROW'S GLYPH: white on its kind's solid color (the Home app's lit well; 2026-11-08, the lead's review -- a 22 %
   // tint all but vanished on the Blur look's glass)
   // (bare: the Home Grid in HomeView's Centered style -- no well, the glyph larger in the kind's own color; DESIGN.md "No wells in HomeView")
+  // (bare 'white': the block's Glyphs set to White)
   function well(r, px, bare) {
-    if (bare) return '<div class="ic bare" style="color:' + inkOf(r.color) + '">' + icon(r.icon, Math.round(px * 0.72)) + '</div>';
+    if (bare) return '<div class="ic bare" style="color:' + (bare === 'white' ? v('glyph') : inkOf(r.color)) + '">' + icon(r.icon, Math.round(px * 0.72)) + '</div>';
     return '<div class="ic" style="background:' + tint(r.color, 0.92) + ';color:#fff">' + icon(r.icon, Math.round(px * 0.56)) + '</div>';
   }
   // SMALL'S SECOND LINE: what it did and when, short enough for the tile ("Unlocked · 41m", "Armed night · Yest.")

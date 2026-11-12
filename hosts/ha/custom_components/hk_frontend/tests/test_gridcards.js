@@ -191,7 +191,18 @@ function () {
   // (2026-11-08, round two) Everything's More Places and On Now's Categories, carried into the card only when not the default
   eq('...Everything\'s More Places, On Now\'s Categories', [t.on_now.opts, C.config({ card: 'everything', size: 'L', opts: { more: 'scroll' } }, ctx).more,
      C.config({ card: 'everything', size: 'L', opts: { more: 'page' } }, ctx).more, C.config({ card: 'on_now', size: 'L', opts: { open: 'page' } }, ctx).open,
-     C.config({ card: 'on_now', size: 'L', opts: { open: 'sheet' } }, ctx).open], [{ tap: 'tap_target', open: 'on_now_open' }, 'scroll', undefined, 'page', undefined]);
+     C.config({ card: 'on_now', size: 'L', opts: { open: 'sheet' } }, ctx).open], [{ tap: 'tap_target', open: 'on_now_open', glyphs: 'glyph_color' }, 'scroll', undefined, 'page', undefined]);
+  // (2026-11-12, the owner: "an option for Color or White Glyphs for the cards") Glyphs on the six HomeView blocks, carried only when set
+  eq('...Glyphs: declared by the six, carried into each card, nothing when absent or unknown',
+     [['security', 'doors', 'timeline', 'house_status', 'on_now', 'alert'].map(function (k) { return t[k].opts.glyphs; }),
+      C.config({ card: 'house_status', size: 'L', opts: { glyphs: 'white' } }, ctx).glyphs, C.config({ card: 'doors', size: 'L', opts: { glyphs: 'color' } }, ctx).glyphs,
+      C.config({ card: 'on_now', size: 'L', opts: { glyphs: 'white' } }, ctx).glyphs, C.config({ card: 'alert', size: 'L', opts: { glyphs: 'white' } }, ctx).glyphs,
+      C.config({ card: 'security', size: 'W', opts: { presentation: 'homeview', glyphs: 'color' } }, ctx).glyphs,
+      C.config({ card: 'security', size: 'XL', opts: { presentation: 'homeview', glyphs: 'color' } }, ctx).glyphs,
+      C.config({ card: 'house_status', size: 'L', opts: {} }, ctx).glyphs, C.config({ card: 'doors', size: 'L', opts: { glyphs: 'pink' } }, ctx).glyphs,
+      Object.keys(C.GLYPH_WHITE).sort()],
+     [['glyph_color', 'glyph_color', 'glyph_color', 'glyph_color', 'glyph_color', 'glyph_color'], 'white', 'color', 'white', 'white', 'color', 'color', undefined, undefined,
+      ['doors', 'security']]);
   // (2026-10-31) the widget blocks, and Scenes' and Accessories' Height and Color
   eq('...the widget blocks and their sizes', [t.on_now.sizes, t.todo.sizes, t.energy_rings.sizes, t.energy_rings.opts, t.todo.opts],
      [['S', 'W', 'T', 'L', 'XL'], ['S', 'W', 'T', 'L', 'XL'], ['S', 'W', 'T', 'L', 'XL'], { period: 'period', tap: 'tap_target' }, { entity: 'todo', tap: 'tap_target' }]);
