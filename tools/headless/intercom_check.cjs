@@ -297,7 +297,19 @@ const MEASURE = () => {
         out(`ok ${name} Needs HTTPS`);
 
         // ---- Live, drawn only when the feed allows it
+        // Live goes to one room (2026-11-11): two rooms kept from a Message wait for one, no groups are offered, the note says why
         await page.evaluate(() => __intercomFake.install({ live: true, canOverride: true, mem: { mode: 'live', rooms: ['media_player.living_room', 'media_player.guest_room'] }, firstUse: false }));
+        await openSheet();
+        m = await page.evaluate(MEASURE);
+        const note = () => page.evaluate(() => { const n = deep(document, 'hk-intercom-sheet-card')[0].shadowRoot.querySelector('.lnote');
+          return n && !n.hidden && n.getBoundingClientRect().height > 0 ? n.textContent : ''; });
+        if (m.line !== 'Live goes to one room. Pick one') fail(name, 'two rooms in Live wait for one', m.line);
+        if (m.chips.length) fail(name, 'no Whole House, floor or preset in Live', m.chips);
+        if (await note() !== 'Live talks to one room. For more rooms, use Message.') fail(name, 'Live\'s one-room note over the rooms', await note());
+        if (m.cut.length) fail(name, 'Live: nothing on the talk side cut off', m.cut);
+        await shot('sheet-live-two-kept');
+        await closeSheet();
+        await page.evaluate(() => __intercomFake.install({ live: true, canOverride: true, mem: { mode: 'live', rooms: ['media_player.guest_room'] }, firstUse: false }));
         await openSheet();
         m = await page.evaluate(MEASURE);
         if (m.seg.join() !== 'Message,Live*') fail(name, 'the Live / Message switch when the feed allows Live', m.seg);

@@ -1321,8 +1321,8 @@
       '.seg button{min-height:36px}',
       '.seg[hidden]{display:none}',
       '.seg button[aria-disabled="true"]{opacity:.45}',
-      // LIVE'S NOTE under the switch (caption: 13 / 500, secondary ink)
-      '.lnote{align-self:stretch;font-size:13px;font-weight:500;line-height:18px;text-align:center;color:' + v('ink-2') + '}',
+      // LIVE'S NOTE under the rooms panel's head, over the rooms it is about (caption: 13 / 500, secondary ink)
+      '.lnote{font-size:13px;font-weight:500;line-height:18px;color:' + v('ink-2') + '}',
       '.lnote[hidden]{display:none}',
 
       // THE TALK SIDE
@@ -1490,14 +1490,13 @@
         this._built = true;
         this._root.innerHTML =
           '<div class="sh"><div class="cols"><div class="talk foot"><div class="seg" role="tablist" aria-label="Mode" hidden></div>' +
-          '<div class="lnote" hidden></div>' +
           '<div class="mic" data-kind="idle"><button class="mb" type="button" aria-label="Record">' +
           '<svg class="ring" viewBox="0 0 236 236" aria-hidden="true"><circle class="trk" cx="118" cy="118" r="112"/>' +
           '<circle class="prg" cx="118" cy="118" r="112" pathLength="1" transform="rotate(-90 118 118)"/></svg>' +
           '<span class="core">' + svg('mic') + '</span></button><div class="wd"></div><div class="mt"></div></div>' +
           '<div class="line" role="status" aria-live="polite"></div><div class="rv" hidden></div></div>' +
           '<div class="pick"><div class="ph"><span class="lab">To</span><span class="cnt"></span>' +
-          '<button class="clr" type="button">Clear All</button></div>' +
+          '<button class="clr" type="button">Clear All</button></div><div class="lnote" hidden></div>' +
           '<div class="sec gsec" hidden><div class="grid chips"></div></div>' +
           '<div class="sec rsec"><div class="grid rooms"></div></div><div class="none" hidden></div></div></div></div>';
         var self = this, q = this._root.querySelector.bind(this._root);
@@ -1584,7 +1583,7 @@
             (m.disabled ? ' aria-disabled="true"' : '') + (m.on ? ' class="sel"' : '') + '>' + m.label + '</button>'; }).join('');
           if (this._slide && C.slideSeg) { var now = e.seg.querySelector('.sel'); if (now) C.slideSeg(now, this._slide); this._slide = null; }
         }
-        // under the switch, in Live: where Live goes (one room)
+        // over the rooms, in Live: where Live goes (one room)
         e.lnote.hidden = !view.note;
         if (e.lnote.textContent !== view.note) e.lnote.textContent = view.note;
         // the chips and pills, drawn again only when they differ
