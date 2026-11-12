@@ -81,7 +81,7 @@
     '.vol input{flex:1 1 auto;min-width:0;-webkit-appearance:none;appearance:none;height:6px;border-radius:3px;background:' + v('line-strong') + ';outline:none;margin:0}',
     '.vol input::-webkit-slider-thumb{-webkit-appearance:none;width:24px;height:24px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.3)}',
     '.vol input::-moz-range-thumb{width:24px;height:24px;border:0;border-radius:50%;background:#fff}',
-    // THE APPS: tiles the plate's width, the one open ringed
+    // THE APPS: tiles the plate's width (the one open is not ringed: its icon is already in the picture -- the owner, 2026-11-11)
     '.apps{display:flex;justify-content:space-between;gap:8px}',
     '.apps.g2{display:grid;grid-template-columns:repeat(2,auto);justify-content:space-between;row-gap:13px}',
     '.app{all:unset;box-sizing:border-box;position:relative;flex:none;border-radius:22%;cursor:pointer;display:grid;place-items:center;overflow:hidden;background:' + v('key') + ';color:' + v('ink') +
@@ -89,9 +89,6 @@
     '.app img{width:100%;height:100%;object-fit:cover;display:block}',
     '.app.gl{background:#111;color:#fff}',
     '.app.nm span{font-size:11px;font-weight:600;line-height:1.15;text-align:center;padding:4px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}',
-    // (the app that's open: a ring that is the tile's own outline, so it follows its corners exactly -- a dark hairline, then white,
-    // so it shows on a white icon too; the owner, 2026-11-11: a separate ring with its own corners looked like a UI error)
-    '.app.now{box-shadow:0 0 0 2px rgba(0,0,0,.55),0 0 0 5px #fff,0 0 16px 4px rgba(255,255,255,.3)}',
     '.app:active{transform:scale(.95)}',
     // THE REMOTE (Extra Large)
     '.seg{display:flex;gap:2px;padding:3px;border-radius:12px;background:' + v('key') + '}',

@@ -322,6 +322,17 @@
     // THE DISC: the glyph in white on its color while something is on or asks for a look; a neutral disc at rest
     '.dk{display:grid;place-items:center;border-radius:50%;color:#fff;flex:none}',
     '.dk.off{background:' + v('key') + ';color:' + v('ink-2') + '}',
+    // HOMEVIEW, NO WELLS (2026-11-11, the owner: "when HomeView (Tall) style is selected ... we don't have any Circle/Wells and we do have
+    // slightly taller glyphs"): in the Centered style the glyph is bare -- 26 px in the 36 px column (24 in a narrow one's 32) -- in its
+    // section's own color at rest and lit alike; only a critical one (`urgent`: Smoke & CO, a leak, the alarm going off) sits on a white tile --
+    // the owner, 2026-11-11: "I'm not sure Home Status items need to be highlighted here, unless its a critical event"
+    '.dk.bare{background:none}',
+    '.ln.hl{position:relative;z-index:0;border-top-color:transparent}',
+    // (the tile inside the row, never past it: the list scrolls, and a tile wider than it made it overflow, resize and redraw without end.
+    // The bare rows are padded 6 px each side instead, so the glyph and the words sit inside the tile's corners)
+    '.ls.bare .ln{padding:0 6px}',
+    '.ln.hl::before{content:"";position:absolute;z-index:-1;inset:3px 0;border-radius:var(--hk-inner-radius,' + C.R.inner + 'px);background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.12)}',
+    '.ln.hl .tx,.ln.hl .rd{text-shadow:none}.ln.hl .nm,.ln.hl .rd{color:rgba(0,0,0,0.88)}.ln.hl .dt,.ln.hl .rd small{color:' + v('ink-on-state') + '}',
     // (2026-11-09, the owner on On Now: "the icons/glyphs inside the wells/circles are not aligned". The blocks' own `.wg hk-icon{display:block}`
     // was as specific as this rule and this sheet comes first in the cascade, so the glyph stayed a block: hk-icon's inline-flex inner box
     // then sat in a line box, vertical-align:middle and the strut's line-height pushing it down 1-3 px. Two classes win it; as a flex
@@ -351,7 +362,9 @@
     '@media (prefers-reduced-motion:reduce){.ln{transition:none}}'
   ].join('');
   // a glyph on its disc: px the disc, color its color when lit (null: at rest); icon(px, color) draws the glyph
-  function disc(icon, px, color) {
+  // (bare: HomeView's -- no disc, the glyph larger, in hue, its color whether or not it is lit)
+  function disc(icon, px, color, bare, hue) {
+    if (bare) return '<span class="dk bare" style="width:' + px + 'px;height:' + px + 'px" aria-hidden="true">' + icon(px >= 36 ? 26 : px >= 32 ? 24 : px, hue || color || null) + '</span>';
     return '<span class="dk' + (color ? '' : ' off') + '" style="width:' + px + 'px;height:' + px + 'px' + (color ? ';background:' + color : '') + '" aria-hidden="true">' +
       icon(Math.round(px * 0.58), color ? '#fff' : null) + '</span>';
   }
@@ -362,12 +375,13 @@
   }
   // A LINE: r = {live, attrs, aria, icon(px, color), lit (its color while lit), name, reading (html), say (the reading in words, where it
   // goes under the name), detail, level, rest}; under: the reading under the name (a narrow line with words to say)
-  function line(r, P, i, under, dk) {
+  function line(r, P, i, under, dk, bare) {
     var tag = r.live ? 'button type="button"' : 'div role="group"';
     var lv = r.level != null ? '<i class="lv"><b style="width:' + Math.max(4, Math.min(100, r.level)) + '%;background:' + (r.lit || v('ink-2')) + '"></b></i>' : '';
     var under2 = under ? (r.say != null ? esc(r.say) : r.reading) + (r.detail ? ' · ' + esc(r.detail) : '') : lv + esc(r.detail || '');
-    return '<' + tag + ' class="ln' + (under ? ' u' : '') + (r.live ? '' : ' in') + (r.rest ? ' at' : '') + (i < 1 ? ' r0' : '') + '"' + (r.attrs ? ' ' + r.attrs : '') +
-      ' aria-label="' + esc(r.aria || r.name) + '">' + disc(r.icon, dk, r.lit) + '<span class="tx"><span class="nm">' + esc(r.name) + '</span>' +
+    return '<' + tag + ' class="ln' + (under ? ' u' : '') + (r.live ? '' : ' in') + (r.rest ? ' at' : '') + (i < 1 ? ' r0' : '') + (bare && r.look ? ' hl' : '') + '"' +
+      (r.attrs ? ' ' + r.attrs : '') +
+      ' aria-label="' + esc(r.aria || r.name) + '">' + disc(r.icon, dk, r.lit, bare, r.hue) + '<span class="tx"><span class="nm">' + esc(r.name) + '</span>' +
       (under2 ? '<span class="dt">' + under2 + '</span>' : '') + '</span>' + (under ? '' : '<span class="rd">' + r.reading + '</span>') +
       '</' + (r.live ? 'button' : 'div') + '>';
   }
@@ -375,8 +389,8 @@
   function lines(m, P, width) {
     // (a narrow column -- Tall's, Small's -- a smaller disc and gap; a line under 200 wide says its reading under the name)
     var nw = width < 200, dk = nw ? 32 : 36, under = width < (m.underAt != null ? m.underAt : m.words ? 300 : 0);
-    return '<div class="ls sc' + (nw ? ' nw' : '') + '" role="list" style="--rh:' + P.rowH + 'px;--dk:' + dk + 'px">' +
-      m.rows.slice(0, P.shown).map(function (r, i) { return line(r, P, i, under, dk); }).join('') + '</div>';
+    return '<div class="ls sc' + (nw ? ' nw' : '') + (m.bare ? ' bare' : '') + '" role="list" style="--rh:' + P.rowH + 'px;--dk:' + dk + 'px">' +
+      m.rows.slice(0, P.shown).map(function (r, i) { return line(r, P, i, under, dk, m.bare); }).join('') + '</div>';
   }
   // THE FADE at a list's foot while there is more below it, as Up Next's (hk-media-now.js _idleFade); bound once per list, checked each draw
   function fade(root) {
@@ -406,10 +420,10 @@
         // (On Now's Small, 2026-11-09, the owner: "the individual things ... really hard to touch ... especially on the small card": the count, then
         // its first kind as one line of 56 under it, its own tap; the rest of the block is the plate's)
         return '<div class="sm-s sn tp">' + headline(m.head, false) + (P.sentence ? snt : '') + (m.sr ? '<div class="bd">' +
-          lines({ rows: [m.sr], underAt: 200 }, { rowH: P.rowH, shown: 1 }, box.iw) + '</div>' : '') + '</div>';
+          lines({ rows: [m.sr], underAt: 200, bare: m.bare }, { rowH: P.rowH, shown: 1 }, box.iw) + '</div>' : '') + '</div>';
       }
       // (a Small with no line -- House Status's -- the leading thing's glyph on its disc over the headline, as a tile has)
-      var ld = m.lead ? '<div class="sld">' + disc(m.lead.icon, 30, m.lead.lit) + '</div>' : '';
+      var ld = m.lead ? '<div class="sld">' + disc(m.lead.icon, 30, m.lead.lit, m.bare) + '</div>' : '';
       return '<button type="button" class="sm-s' + (m.top ? ' tp' : '') + '"' + (m.small.attrs ? ' ' + m.small.attrs : '') + ' aria-label="' + esc(m.small.aria) + '">' + row() + ld +
         headline(m.head, false) + snt + '</button>';
     }
@@ -476,13 +490,13 @@
       var sentence = need ? esc(sec.name) + (others ? ' · ' + others + ' more to check' : '') : 'Nothing needs a look';
       // (2026-11-09, the owner: "If everything doesn't fit, maybe have a vertical scroll within the card": no "+N more" key now -- every section is a
       // line of the list, which scrolls; the headline and the plate's tap, the sheet, stay)
-      var model = { label: '', top: true, head: head, sentence: sentence, words: true,
+      var model = { label: '', top: true, head: head, sentence: sentence, words: true, bare: this.getAttribute('tile') === 'centred',
         lead: need ? { icon: function (px, col) { return glyph(sec, px, col); }, lit: litOf(sec) || (C.ACCENTS && C.ACCENTS.orange) }
                    : { icon: function (px, col) { return '<hk-icon icon="mdi:check" style="width:' + px + 'px;height:' + px + 'px;color:' + col + '"></hk-icon>'; }, lit: green },
         small: { attrs: 'data-all', aria: 'House Status: ' + (need ? words(sec.reading) + ', ' + sec.name : 'all good') + (others ? ', ' + others + ' more to check' : '') + '. Opens House Status' },
         rows: shown.map(function (x, i) {
           var say = words(x.reading), dt = x.detail && x.detail.toLowerCase() !== say.toLowerCase() ? x.detail : null;
-          return { live: goes(x), attrs: 'data-i="' + i + '"', aria: ariaOf(x), icon: function (px, col) { return glyph(x, px, col); }, lit: litOf(x),
+          return { live: goes(x), attrs: 'data-i="' + i + '"', aria: ariaOf(x), icon: function (px, col) { return glyph(x, px, col); }, lit: litOf(x), hue: hueOf(x), look: !!x.urgent,
                    name: x.name, reading: reading(x.reading), detail: dt };
         }) };
       C.morph(this._plate, compose(model, size, box, P));
@@ -493,6 +507,11 @@
   // what a headline adds to a reading in words: a door's "1 Window" is "1 Window Open", a timer's "8:38" "8:38 Left"
   var OPEN_WORD = { doors_windows: 'Open', timers: 'Left' };
   // A SECTION'S DISC lit: in its chip's color while it asks for a look, or while something is on, playing or open
+  // its glyph's color in HomeView's bare rows: the chip's own, lit or not (the owner, 2026-11-11: "not all the glyphs have color? Power,
+  // Climate.."); a chip with no color of its own, the ink
+  function hueOf(sec) {
+    return litOf(sec) || (sec.color ? (C.flatColor ? C.flatColor(sec.color, 'on') : sec.color) : null);
+  }
   function litOf(sec) {
     var r = sec.reading || {}, on = r.num != null && Number(r.num) > 0 && /^(on|playing|open|running|leak|leaks)$/i.test(String(r.unit || ''));
     if (!(sec.urgent || sec.attention || on)) return null;

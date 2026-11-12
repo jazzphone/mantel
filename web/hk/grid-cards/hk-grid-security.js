@@ -966,15 +966,24 @@
         ';border-radius:0;box-shadow:none;--hk-glass-surface:0;',
       '  --hk-glass-backdrop:none;-webkit-backdrop-filter:none;backdrop-filter:none;transition:opacity ' + C.DUR.press + ' ease}',
       'hk-plate.hv .ents.ls .en:active{transform:none;opacity:.6}',
-      'hk-plate.hv .ents.ls .en .gw{grid-row:1 / span 2;grid-column:1;width:36px;height:36px;margin:0;border-radius:50%;background:' + v('key') + '}',
-      'hk-plate.hv .ents.ls .en .gw hk-icon{width:20px;height:20px;color:' + C.ACCENTS.teal + '}',
+      // (2026-11-11, the owner: "the Well should be removed, the Glyph made bigger and white, matching the HomeView styling"): the glyph
+      // bare, 26 px in its 36 px column, white at rest -- no disc, as HomeView's tiles draw a glyph (DESIGN.md: no wells in HomeView)
+      'hk-plate.hv .ents.ls .en{padding:0 6px}',
+      'hk-plate.hv .ents.ls .en .gw{grid-row:1 / span 2;grid-column:1;width:36px;height:36px;margin:0;border-radius:0;background:none;display:grid;place-items:center}',
+      'hk-plate.hv .ents.ls .en .gw hk-icon{width:26px;height:26px;color:' + v('glyph') + '}',
       'hk-plate.hv .ents.ls .en .n{grid-column:2;font-size:17px;line-height:22px;font-weight:600;color:' + v('ink') + '}',
       'hk-plate.hv .ents.ls .en .s{grid-column:2;font-size:13px;line-height:17px;font-weight:400;color:' + v('ink-2') + '}',
       // (Large: the state at the right of the name, one line)
       'hk-plate.hv[size=L]:not(.tl) .ents.ls .en .n{grid-row:1 / span 2}hk-plate.hv[size=L]:not(.tl) .ents.ls .en .s{grid-column:3;grid-row:1 / span 2;font-size:15px;line-height:20px;' +
         'text-align:right}',
-      'hk-plate.hv .ents.ls .en.lit{background:none}hk-plate.hv .ents.ls .en.lit .n{color:' + v('ink') + '}',
-      'hk-plate.hv .ents.ls .en.lit .gw{background:' + C.ACCENTS.teal + '}hk-plate.hv .ents.ls .en.lit .gw hk-icon{color:#fff}hk-plate.hv .ents.ls .en.lit .s{color:' + v('ink') + ';font-weight:600}',
+      // NEEDS A LOOK (unlocked, open): a white tile under the row, as Light Up When Armed lights the alarm -- the glyph Security's teal, the
+      // words the dark of a lit tile; the row keeps its place and height, the tile 3 px inside it so the hairlines either side stay clear, and
+      // never past its sides (the list clips them); the rows are padded 6 px each side so the glyph and words sit inside its corners
+      'hk-plate.hv .ents.ls .en.lit{background:none;position:relative;z-index:0;border-top-color:transparent}',
+      'hk-plate.hv .ents.ls .en.lit::before{content:"";position:absolute;z-index:-1;inset:3px 0;border-radius:var(--hk-inner-radius,' + C.R.inner +
+        'px);background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.12)}',
+      'hk-plate.hv .ents.ls .en.lit .gw{background:none}hk-plate.hv .ents.ls .en.lit .gw hk-icon{color:' + C.ACCENTS.teal + '}',
+      'hk-plate.hv .ents.ls .en.lit .n{color:rgba(0,0,0,0.88);text-shadow:none}hk-plate.hv .ents.ls .en.lit .s{color:' + v('ink-on-state') + ';font-weight:600;text-shadow:none}',
       'hk-plate.hv .ents.ls .en.unk .gw hk-icon,hk-plate.hv .ents.ls .en.more .gw hk-icon{color:' + v('glyph') + '}',
       // WIDE AND COMPACT: the alarm's column at the left, its words in its upper left (DESIGN.md: the headline is the upper left, across the
       // board); armed, its white plate fills the column top to bottom (the owner: "It should fill the space vertically in the card, so there is

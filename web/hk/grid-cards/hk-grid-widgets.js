@@ -684,7 +684,7 @@
           // (Large and Extra Large say more: where, and how bright, how fast, or what is playing)
           var detail = on ? (rich && ln.extra && x.kind.key !== 'lights' ? [ln.detail, ln.extra].filter(Boolean).join(' · ') : ln.detail) : ln.detail;
           return { live: true, rest: !on, attrs: 'data-open-kind="' + x.kind.key + '"', name: many, count: on || x.kind.rest,
-            icon: function (px, col) { return gly(x.kind.icon, px, col || null); }, lit: on ? x.kind.color : null,
+            icon: function (px, col) { return gly(x.kind.icon, px, col || null); }, lit: on ? x.kind.color : null, hue: x.kind.color,
             aria: 'Open ' + (on ? plural(on, x.kind.one, x.kind.many) + (x.kind.key === 'speakers' ? ' playing' : ' on') : many + ', ' + x.kind.rest.toLowerCase()),
             n: on, reading: on ? String(on) : x.kind.rest, say: on ? on + (x.kind.key === 'speakers' ? ' playing' : ' on') : x.kind.rest,
             detail: detail, level: rich && on && x.kind.key === 'lights' ? ln.level : null };
@@ -692,6 +692,8 @@
         var model = {
           // NO HEADING (2026-11-09, the owner: "we can remove the On Now heading"): the headline is the block's top, at Extra Large top left
           label: '', top: true, pill: all, underAt: 200, rows: rows, sr: rows[0] || null,
+          // (HomeView's Centered style: the glyphs bare, in their kinds' colors -- DESIGN.md, no wells in HomeView; hk-house-status.js disc)
+          bare: this.getAttribute('tile') === 'centred',
           // the headline: the count on, or, quiet, a calm All Off said once
           head: o.n ? { num: o.n, unit: 'On' } : { words: 'All Off' },
           // (quiet, Extra Large's column says so under All Off)

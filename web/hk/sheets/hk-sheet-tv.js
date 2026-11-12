@@ -58,7 +58,9 @@
           '.art.scr hk-icon{--mdc-icon-size:40px;width:40px;height:40px;color:rgba(255,255,255,.42)}',
           // (the open app's icon in the middle of a black picture: the owner, 2026-11-11 -- not a bright wash of its colors)
           '.art.ico{background-color:#050507;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}',
-          '.art .aic{position:relative;height:62%;aspect-ratio:1;border-radius:12px;box-shadow:0 4px 14px rgba(0,0,0,.35);object-fit:cover}',
+          // (placed, not a grid item: in WebKit the grid's auto row took the icon's own size, so its 62 % pushed it out of the picture and only its
+          // top edge showed at the foot -- the owner's iPad, 2026-11-11. Against the picture's box, whose height its aspect ratio gives, it is exact)
+          '.art .aic{position:absolute;left:50%;top:50%;height:62%;width:auto;aspect-ratio:1;transform:translate(-50%,-50%);border-radius:12px;box-shadow:0 4px 14px rgba(0,0,0,.35);object-fit:cover}',
           '.words{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:2px}',
           '.ttl{font-size:17px;font-weight:600;letter-spacing:-.3px;color:' + v('ink') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
           '.sub{font-size:13px;font-weight:500;color:' + v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
@@ -82,16 +84,13 @@
           '  font-size:13px;font-weight:600;background:' + v('key') + ';color:' + v('ink') + ';max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
           '.chip.on{background:rgba(255,255,255,.94);color:#1c1c1e}',
           '.chip small{font-weight:500;opacity:.7}',
-          // APPS: 64 px tiles, the one open ringed
+          // APPS: 64 px tiles (the one open is not ringed: its icon is already in the picture -- the owner, 2026-11-11)
           '.apps{display:grid;grid-template-columns:repeat(auto-fill,64px);gap:12px;justify-content:space-between}',
           '.app{all:unset;box-sizing:border-box;width:64px;height:64px;border-radius:12px;cursor:pointer;position:relative;display:grid;place-items:center;overflow:hidden;',
           '  background:' + v('key') + ';color:' + v('ink') + ';box-shadow:0 2px 6px rgba(0,0,0,.18)}',
           '.app img{width:100%;height:100%;object-fit:cover;display:block}',
           '.app.gl{background:#111;color:#fff}.app.gl hk-icon{--mdc-icon-size:30px;width:30px;height:30px}',
           '.app.nm span{font-size:11px;font-weight:600;line-height:1.15;text-align:center;padding:4px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}',
-          // (the app that's open: a ring that is the tile's own outline, so it follows its corners exactly -- a dark hairline, then white,
-          // so it shows on a white icon too; the owner, 2026-11-11: a separate ring with its own corners looked like a UI error)
-          '.app.now{box-shadow:0 0 0 2px rgba(0,0,0,.55),0 0 0 5px #fff,0 0 16px 4px rgba(255,255,255,.3)}',
           '.app:active{transform:scale(.95)}',
           '.all{max-height:300px;overflow-y:auto;overscroll-behavior:contain}',
           // THE REMOTE
