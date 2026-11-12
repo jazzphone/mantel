@@ -494,8 +494,8 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
         if (how !== 'panel') { await page.waitForTimeout(140); await shot(page, tag + '-tap-' + how + '-moving'); }
         await page.waitForTimeout(900);
         const st = await panelState();
-        want('Now Playing tapped (' + how + '): the panel open inside the pane, its four tabs' + (how === 'flip' ? ', the section turned away' : ''), st,
-             st.open && st.inPane && /Speakers.*Volume.*Queue.*Browse/i.test(st.tabs) && (how !== 'flip' || st.shown === 'hidden') &&
+        want('Now Playing tapped (' + how + '): the panel open inside the pane, its three tabs (no Volume since 2026-11-12)' + (how === 'flip' ? ', the section turned away' : ''), st,
+             st.open && st.inPane && /Speakers.*Queue.*Browse/i.test(st.tabs) && !/Volume/.test(st.tabs) && (how !== 'flip' || st.shown === 'hidden') &&
              (how === 'flip' || (st.drawer && st.playerFirst)));
         await shot(page, tag + '-tap-' + how);
         await page.keyboard.press('Escape');

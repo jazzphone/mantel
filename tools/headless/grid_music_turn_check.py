@@ -150,7 +150,7 @@ async def main():
                       tabs:[...p.querySelectorAll('.mptabs [data-tab]')].map(t=>t.textContent),on:p.querySelector('.mptabs .on').textContent,
                       flat:getComputedStyle(p).transform}})()""")
             box, block = back['box'], back['block']
-            assert back['tabs'] == ['Speakers', 'Volume', 'Queue', 'Browse'] and back['on'] == 'Browse', back
+            assert back['tabs'] == ['Speakers', 'Queue', 'Browse'] and back['on'] == 'Browse', back   # (no Volume tab since 2026-11-12)
             assert back['hidden'] == 'hidden', 'the card\'s front stays up under its back'
             assert back['flat'] in ('none', 'matrix(1, 0, 0, 1, 0, 0)'), back
             assert box[2] - box[0] >= 520 and box[3] - box[1] > block[3] - block[1], back
