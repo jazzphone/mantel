@@ -84,9 +84,12 @@ async def main():
             assert await b.eval("!ed.sidebar.querySelector('.screen-settings').open")
             await b.eval("ed.sidebar.querySelector('.screen-settings').open=true")
             assert await b.wait('ed.screenSettingsOpen===true', 5)
-            await b.eval("[...ed.sidebar.querySelectorAll('.cell')].find(e=>e.querySelector('.t')?.textContent==='Clock').querySelector('button').click()")
-            assert await b.eval('ed.grid.header_clock===false && ed.grid.header_weather!==false')
-            await b.eval("[...ed.sidebar.querySelectorAll('.cell')].find(e=>e.querySelector('.t')?.textContent==='Clock').querySelector('button').click()")
+            # the band's parts (2026-11-01: a list of parts and their places, `header`, in place of header_clock / header_weather):
+            # taking the Clock off keeps the Weather, then Undo puts it back
+            await b.eval("ed.sidebar.querySelector('[data-fk=\"band-parts:rm:clock\"]').click()")
+            assert await b.wait("Array.isArray(ed.grid.header) && !ed.grid.header.some(p=>p.k==='clock') && ed.grid.header.some(p=>p.k==='weather')", 5)
+            await b.eval("ed.undo()")
+            assert await b.wait("!Array.isArray(ed.grid.header) || ed.grid.header.some(p=>p.k==='clock')", 5)
             # A card dragged out of the palette lands where its footprint shows; a taken space refuses it.
             await b.eval("ed.remove('a8')")
             assert await b.eval("!ed.grid.items.some(i=>i.id==='a8') && !ed.undoButton.disabled")
@@ -121,7 +124,8 @@ async def main():
             await b.eval("ed.undo()")
             assert await b.eval("!ed.grid.items.some(i=>i.card==='security'&&i.at.join()==='0,3')")
             await b.eval("ed.undo()")
-            assert await b.eval("ed.grid.items.some(i=>i.id==='a8') && ed.undoButton.disabled===false")
+            # (a8 back, and nothing left to undo: the band step above undid its own change)
+            assert await b.eval("ed.grid.items.some(i=>i.id==='a8') && ed.undoButton.disabled===true")
             # Delete on a chosen block removes it; Escape lets it go.
             await b.eval("ed.select('a8');ed.overlay.querySelector('[data-id=a8]').focus()")
             await b.send('Input.dispatchKeyEvent', type='keyDown', key='Delete', code='Delete', windowsVirtualKeyCode=46)
