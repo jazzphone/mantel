@@ -158,6 +158,15 @@ RBAC, the gateway, connectors, the settings store, `hk_core`, the packaging chec
 (`tests/test_boundaries.py`, `tests/test_shell_boundary.py`) and the docs link check. Tests that need something
 you don't have (Node, Chrome, Home Assistant's test venv, Caddy) are skipped and say why.
 
+**A test that runs a tool built on the pinned TypeScript** (`tools/split_js.py`, `tools/state_owners.py`, the exports
+check, `tools/rewrap.py`) skips where `tools/typecheck/node_modules/typescript` is not installed, not only where Node is
+missing: GitHub's Linux runner, which a house release waits on, has Node and no TypeScript (0.1.165's and 0.1.166's
+first attempts stopped on exactly that). Before pushing a new one, run the suite as the runner does:
+
+```bash
+mv tools/typecheck/node_modules /tmp/ts-away && .venv/bin/python -m pytest -q; mv /tmp/ts-away tools/typecheck/node_modules
+```
+
 Run one file or one test the usual way:
 
 ```bash

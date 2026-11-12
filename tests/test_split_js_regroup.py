@@ -11,7 +11,8 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
-pytestmark = pytest.mark.skipif(not shutil.which("node"), reason="needs Node.js")
+pytestmark = pytest.mark.skipif(not shutil.which("node") or not (ROOT / "tools/typecheck/node_modules/typescript/package.json").is_file(),
+                                reason="needs Node.js and the pinned TypeScript (tools/typecheck: npm ci)")
 
 PART = """// p-one.js - one part.
 //
