@@ -119,7 +119,7 @@
       skyModeOptions, skyMoments, skyPageRows, skyPreviewScreen, skySummary, SLOW_FPS, slowRecommend, STATUS_LABELS,
       STATUS_ROWS, STATUS_SAYS, STATUS_SOURCE, statusSummary, stylesFor, styleValue, SWIPE_PAGES, SWIPE_PAGES_SAYS,
       swipeChanges, TAB_BAR_GLASS, TAB_BAR_LABELS, TAB_BAR_MORE, TAB_BAR_POS, TAB_BAR_ROOMS, TAB_BAR_SCROLLS,
-      TAB_BAR_SIZES, TAB_BAR_TABS, TAB_BAR_TABS_PHONE, TAB_SIZES, TABLET_APPS, tabletApp, tabletChecks, tabletStatus,
+      TAB_BAR_SIZES, TAB_BAR_TABS, TAB_BAR_TABS_PHONE, TAB_SIZES, TABLET_APPS, kioskDeviceApp, tabletAppName, tabletApp, tabletChecks, tabletStatus,
       tabletSummary, tabletTab, tabletTabBar, tabletUrl, tabPosJoin, tabPosLabel, tabPosParts, THERMOSTAT_STYLES,
       TILE_ICONS, TILE_STYLES, TINT_WELLS, topsOf, usedBy, usesSide, WALLPAPER_MOTION, WALLPAPER_NIGHT, WEATHER_PARTS,
       weatherShown, WOODLAND, woodlandSummary, WX_DAYS, WX_DETAILS, WX_HOURS, WX_METRICS, WX_PAGE_DEFAULTS, wxPage,
@@ -222,7 +222,7 @@
     TAB_BAR_LABELS = K.TAB_BAR_LABELS; TAB_BAR_MORE = K.TAB_BAR_MORE; TAB_BAR_POS = K.TAB_BAR_POS;
     TAB_BAR_ROOMS = K.TAB_BAR_ROOMS; TAB_BAR_SCROLLS = K.TAB_BAR_SCROLLS; TAB_BAR_SIZES = K.TAB_BAR_SIZES;
     TAB_BAR_TABS = K.TAB_BAR_TABS; TAB_BAR_TABS_PHONE = K.TAB_BAR_TABS_PHONE; TAB_SIZES = K.TAB_SIZES;
-    TABLET_APPS = K.TABLET_APPS; tabletApp = K.tabletApp; tabletChecks = K.tabletChecks;
+    TABLET_APPS = K.TABLET_APPS; kioskDeviceApp = K.kioskDeviceApp; tabletAppName = K.tabletAppName; tabletApp = K.tabletApp; tabletChecks = K.tabletChecks;
     tabletStatus = K.tabletStatus; tabletSummary = K.tabletSummary; tabletTab = K.tabletTab;
     tabletTabBar = K.tabletTabBar; tabletUrl = K.tabletUrl; tabPosJoin = K.tabPosJoin; tabPosLabel = K.tabPosLabel;
     tabPosParts = K.tabPosParts; THERMOSTAT_STYLES = K.THERMOSTAT_STYLES; TILE_ICONS = K.TILE_ICONS;
@@ -347,7 +347,7 @@
       RADAR_CENTERS: RADAR_CENTERS, RADAR_HISTORY: RADAR_HISTORY, RADAR_SPEEDS: RADAR_SPEEDS, RADAR_LEGACY_MAPPED: RADAR_LEGACY_MAPPED,
       RADAR_REASONS: RADAR_REASONS, wxPage: wxPage, radarOf: radarOf, forecastSummary: forecastSummary, radarPlanOf: radarPlanOf,
       radarSummary: radarSummary, radarAdvancedSummary: radarAdvancedSummary,
-      TABLET_APPS: TABLET_APPS, tabletApp: tabletApp, IDLE_TIMES: IDLE_TIMES, idleLabel: idleLabel, tabletStatus: tabletStatus,
+      TABLET_APPS: TABLET_APPS, kioskDeviceApp: kioskDeviceApp, tabletAppName: tabletAppName, tabletApp: tabletApp, IDLE_TIMES: IDLE_TIMES, idleLabel: idleLabel, tabletStatus: tabletStatus,
       tabletChecks: tabletChecks, idleTimeline: idleTimeline, tabletUrl: tabletUrl,
       errorText: errorText, refusals: refusals,
       menuMode: menuMode, menuFor: menuFor, menuStyleLabel: menuStyleLabel, showsTab: showsTab,

@@ -316,6 +316,8 @@
       "title": "wall tablets, the Weather page, the side pane and the looks",
       "members": [
         "TABLET_APPS",
+        "kioskDeviceApp",
+        "tabletAppName",
         "tabletApp",
         "IDLE_TIMES",
         "idleLabel",
