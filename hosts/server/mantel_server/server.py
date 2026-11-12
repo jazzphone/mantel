@@ -59,7 +59,8 @@ from .ha import ha_dashboards, socket_reads
 from . import alerts, timeline, hk_cards, live, mcp, performance, server_settings
 from .pages import page_health, setup_guide
 from .apps import app_shell
-from .identity import cf_access, guards
+from .identity import cf_access, device_claim, guards
+from .apps import android as android_app
 from .identity.authz import Authz, Principal, resolve_door
 from .config import Config
 from .connectors import REFUSE_ALL, Ctx, Hooks
@@ -749,6 +750,8 @@ def build_app(cfg: Config, token: str, store: Store | None = None, connect_ha: b
     sessions.register(app, hub)
     accounts.register(app, hub)
     devices.register(app, hub)
+    device_claim.register(app)       # a tablet app paired by a one-time code (docs/phase26/ANDROID-APP.md)
+    android_app.register(app)        # the tablet app's updates (<data_dir>/android/)
     login_page.register(app, hub)     # /login (passkey, password + TOTP, Sign in with HA via /login/ha)
     admin_page.register(app, hub)     # /admin -> /settings; /admin?plain=1 the plain fallback page; the overview
     setup_guide.register(app)         # Set Up Mantel: the first run's checklist (GET /api/setup)

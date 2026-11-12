@@ -232,6 +232,10 @@ def test_a_restart_not_back_in_front_after_three_minutes_raises_an_alert(house):
     house.set(KS["app"], K.KS_PACKAGE)
     al.restarted["loft"] = NOW
     assert al.check(house, tabs, o, NOW + timedelta(minutes=4)) == [A.Alert(False, "loft", "restart")]
+    # Mantel for Android stands in for Kiosk Satellite by the same entities: its own package in front is back too
+    house.set(KS["app"], K.MANTEL_PACKAGE)
+    al.restarted["loft"] = NOW
+    assert not [a for a in al.check(house, tabs, o, NOW + timedelta(minutes=4)) if a.up]
 
 
 def test_the_scheduled_restart_runs_at_its_times_and_presses_cache_then_restart(house):

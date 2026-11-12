@@ -23,7 +23,7 @@ Enrolling a browser links it to the tablet by room: you pick the tablet, and the
 - Nothing to add first. When you enroll, pick one of HK's wall tablets, or **A New Tablet** and its Home Assistant area: Mantel adds that HK tablet for you (Owners and Admins), so its idle return, screensaver and black screen work at once. Its screen and behavior are in **Mantel Settings** → **All Screens** → **Wall Tablets** afterwards.
 - The tablet must be **on your home network**. Enrolling from outside the home is refused, and a tablet's credential never works from outside.
 - You need someone who can enroll: an **Owner** or **Admin**, or a **Wall Tablet** account made for this tablet ([below](#with-a-wall-tablet-account)).
-- A kiosk app on the tablet, such as **Fully Kiosk Browser** or **Kiosk Satellite**, or any browser.
+- A kiosk app on the tablet: **Mantel for Android** (below), **Fully Kiosk Browser** or **Kiosk Satellite**, or any browser.
 
 ## 1. Set up the kiosk app
 
@@ -46,6 +46,18 @@ In Fully Kiosk Browser's settings on the tablet:
 - Leave cookies on, and don't set the app to clear cookies or data on start. The tablet's credential is a cookie.
 - Kiosk mode (Fully's own lock), if you don't want anyone leaving the page.
 
+### Mantel for Android
+
+Mantel's own app for Android wall tablets: HK's screens in a full-screen WebView, the tablet's kiosk (as its device owner), and the tablet in Home Assistant as an ESPHome device with the same entities Kiosk Satellite has (`light.<tablet>_screen`, `switch.<tablet>_screensaver_active`, the buttons), so Sleep Screen and your automations work as they do with Kiosk Satellite. [Phase 26](../phase26/ANDROID-APP.md) has the details.
+
+1. Install the app (over adb: `adb install mantel.apk`) and make it the tablet's device owner: `adb shell dpm set-device-owner com.jazzphone.mantel.android/.AdminReceiver` (a tablet with no accounts on it; another kiosk app that is device owner gives that up first).
+2. Open it: give **Mantel's Address**, the tablet's **Name** (Home Assistant's device, so "Kitchen Kiosk" makes `light.kitchen_kiosk_screen`) and a **Pairing Code** ([below](#with-a-pairing-code)).
+3. In Home Assistant, add the ESPHome device it announces (or **Add Integration** → **ESPHome**, the tablet's address, port 6053) with the key the setup page shows.
+
+Updates come from Mantel: put a release in Mantel's data folder (`android/`), and each tablet installs it at a quiet moment.
+
+On the tablet, seven quick taps in the top-left corner open the app's own menu (Reload, Set Up, Wi-Fi, Android Settings for ten minutes), behind a PIN if its setup page has one. A tablet whose device owner is still Kiosk Satellite (only a factory reset ends that) keeps it installed: the app runs beside it as the home app, on ESPHome port 6055, and comes back to the front by itself.
+
 ### Kiosk Satellite
 
 - Set its dashboard URL to `https://mantel.example.com/home`.
@@ -65,6 +77,15 @@ Do this **on the tablet itself**, in the kiosk app's own browser. The credential
 6. Select **Make This a Wall Tablet**, then **Make It a Tablet**.
 
 You're signed out of that browser at once, and the browser is now the tablet. Select **Open the Dashboard**. The tablet stays enrolled across reloads, reboots and app restarts.
+
+### With a pairing code
+
+Nobody signs in on the tablet:
+
+1. Anywhere, signed in as an Owner or Admin: **Mantel Settings** → **All Screens** → **Wall Tablets** → the tablet → **Mantel** → **Pair a Tablet App…**. Mantel shows a code such as `K7MQ-2XRD`. It works once, for 10 minutes.
+2. On the tablet: Mantel for Android's setup takes the code; any other browser opens `https://mantel.example.com/device/claim` and types it. The tablet must be on the home network.
+
+The browser is now the tablet, with the Wall Tablet role in that tablet's room. The Audit Log records it as enrolled by the person who made the code.
 
 ### With a Wall Tablet account
 

@@ -225,7 +225,7 @@ def test_wall_tablets_calls_out_a_device_whose_room_has_no_hk_tablet(got):
 def test_a_tablets_page_has_what_mantel_has_of_it(got):
     [mantel] = [g for g in got["kitchen"] if g.get("header") == "Mantel"]
     labels = [r["label"] for r in mantel["rows"]]
-    assert labels == ["Signed In to Mantel", "Home Assistant User", "Sign Out This Tablet…"]
+    assert labels == ["Signed In to Mantel", "Home Assistant User", "Pair a Tablet App…", "Sign Out This Tablet…"]
     assert row(got["kitchen"], "Signed In to Mantel")["value"] == "Kitchen Tablet"
     ha = row(got["kitchen"], "Home Assistant User")
     # a free HA user, or one linked to a Wall Tablet account; never a person's or an admin
@@ -234,6 +234,8 @@ def test_a_tablets_page_has_what_mantel_has_of_it(got):
     nobody = row(got["master"], "Signed In to Mantel")
     assert nobody["value"] == "Not Yet"
     assert row(got["master"], "Sign In This Browser as Master Bedroom…")["href"] == "#/mantel/devices/enroll/master"
+    # ...or to pair a tablet app with a one-time code, from anywhere (docs/phase26/ANDROID-APP.md)
+    assert row(got["master"], "Pair a Tablet App…")["kind"] == "button"
 
 
 def test_a_devices_page_moves_it_to_a_tablet_in_place(got):

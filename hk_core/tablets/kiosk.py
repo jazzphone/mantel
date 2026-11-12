@@ -36,6 +36,10 @@ PARTS: dict[str, dict[str, tuple[str, str]]] = {
     },
 }
 KS_PACKAGE = "me.jxl.kiosk_satellite"     # Kiosk Satellite's app, in front when it is
+# Mantel for Android (docs/phase26/ANDROID-APP.md): the same entities by the same endings, so HK takes it as a
+# Kiosk Satellite tablet; its own package is the one in front when it is
+MANTEL_PACKAGE = "com.jazzphone.mantel.android"
+KIOSK_PACKAGES = (KS_PACKAGE, MANTEL_PACKAGE)
 BATTERY_CARE = 85                         # % while charging: above it, Protect Battery is off
 SAVER_TIMEOUT = 86400                     # Kiosk Satellite's own screensaver: a day (HK's runs)
 

@@ -486,6 +486,7 @@ Mantel Server.
   - `notifiarr.py` — Notifiarr
   - `telegram.py` — Telegram
 - **hosts/server/mantel_server/apps/**
+  - `android.py` — Mantel for Android's updates, served by Mantel (docs/phase26/ANDROID-APP.md "Updates").
   - `app_api.py` — What the apps' system surfaces ask the house (docs/phase10/APPLE-APPS.md §1, §6, §7; slice 10.3).
   - `app_auth.py` — Signing in the iPhone, iPad and Mac apps (docs/phase10/APPLE-APPS.md §2-§4, slice 10.2).
   - `app_crypto.py` — The cryptography the phone and Mac apps and Web Push share (docs/phase10/APPLE-APPS.md §3, §5).
@@ -545,6 +546,7 @@ Mantel Server.
   - `auth.py` — Sign in with Home Assistant, and the middleware that puts /dev, /api and /ws behind a sign-in.
   - `authz.py` — P3.7 wiring
   - `cf_access.py` — Cloudflare Access in front of the tunnel
+  - `device_claim.py` — Pairing a tablet app by code (docs/phase26/ANDROID-APP.md "Enrolling a tablet without a password on it").
   - `door_key.py` — The per-install door key for "bring your own reverse proxy".
   - `guards.py` — Every route declares its guard (Rules.md rule 7).
   - `login_page.py` — Mantel Server's sign-in page

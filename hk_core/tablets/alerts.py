@@ -18,7 +18,7 @@ from typing import Any
 
 from ..house import House
 from ..notifications.dnd import hhmm
-from .kiosk import KS_PACKAGE, parts, state_of
+from .kiosk import KIOSK_PACKAGES, parts, state_of
 
 OFFLINE_AFTER = timedelta(minutes=10)
 CHARGING_AFTER = timedelta(minutes=10)
@@ -84,7 +84,7 @@ class Alerts:
             if at and now - at >= BACK_AFTER:
                 self.restarted.pop(tid, None)
                 front = state_of(house, p.get("app"))
-                back = not gone and (t["app"] != "kiosk_satellite" or front in (None, KS_PACKAGE))
+                back = not gone and (t["app"] != "kiosk_satellite" or front in (None, *KIOSK_PACKAGES))
                 if not back and options.get("alert_restart"):
                     self._raise(out, tid, "restart", f"{t['name']} tablet didn’t come back",
                                 "Its scheduled restart was 3 minutes ago and the kiosk app isn’t in front. "

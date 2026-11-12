@@ -366,6 +366,8 @@ def test_a_kiosk_that_does_not_answer_is_not_acted_on(house, clock):
 def test_another_app_in_front(house, clock):
     s = screen(house, clock)
     assert not s.app_front()
+    house.set(K["app"], "com.jazzphone.mantel.android")                  # Mantel for Android is the kiosk too
+    assert not s.app_front()
     house.set(K["app"], "com.netflix.mediaclient")
     s.decide(clock())
     assert s.app_front() and s.want == "hold" and "com.netflix.mediaclient" in s.reason
