@@ -308,3 +308,13 @@ loader as the page starts).
     (the decision in `hk_core`, the server's side in its feature's package -- a table of them --, the web side's places,
     a file sized to one feature, under about 800 lines) and gains rules 9-12 (server packages, a file in parts, the
     screensaver's state owners, tests that run where the release's checks run).
+- **D, the house's own numbers** (page health, the five wall tablets' first draw, each release's reload with the cache
+  cleared, all five at once): 0.1.164 (bundled) 3.3-3.7 s; 0.1.165 2.3-4.6 s; HK Frontend 1.59.2 2.6-4.1 s; 0.1.166
+  (the settings splits) 2.3-3.8 s; HK Frontend 1.59.3 3.0-4.2 s. No release of phase 25 slowed a tablet's first screen.
+  A tablet's ordinary reload on 0.1.164: 2.1-4.4 s. (A reload during Home Assistant's restart: 13-198 s, the server
+  waiting for Home Assistant, not the page.) The detail sheets had already stopped loading with the page in 0.1.164, so
+  Part D's other question is answered. The lab's 0.85 s (one tablet, the Mac serving, PLAN.md above) is not the house's
+  ~3 s: five tablets at once over the house's proxy, the cache cleared.
+- **Left for later:** when Home Assistant restarts, two of Mantel's pending calls to it fail with "Home Assistant closed
+  the connection" and nobody reads them ("Future exception was never retrieved", twice per restart): E1's kind of noise
+  on the Home Assistant side (`mantel_server/ha/ha_client.py`), harmless, its own small fix and release.
