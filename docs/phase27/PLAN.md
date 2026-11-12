@@ -1,7 +1,7 @@
 # Phase 27: The Home block and its sheet (plan, 2026-11-12)
 
-**Status: a plan and a mockup, nothing built.** Decision 1 agreed and decision 3 answered (all sizes) on 2026-11-12;
-decision 2 is explained side by side in the mockup and still open.
+**Status: a plan and a mockup, nothing built.** All three decisions answered on 2026-11-12: the Room sheet's size, chips
+and rooms inside the sheet, and all five block sizes. Ready to build.
 
 - **Mockup:** [mockup/home-sheet.html](mockup/home-sheet.html). Open the file: it stands alone, with the fictional
   house and made-up states, and touches nothing in the house. Published for review at
@@ -42,7 +42,7 @@ Most of this exists. The work is mostly joining parts that already work.
 
 | Part | Where | What it gives |
 |---|---|---|
-| The generated Home page | `web/hk/strategy/hk-strategy-views.js`, `views()`: `home = [header, strip, scenes, favorites, rooms...]` | the chips, scenes, favorites and every room section, in the house's order |
+| The generated Home page | `web/hk/strategy/hk-strategy-views.js`, `views()`: `home = [header, strip, scenes, favorites, rooms...]` | the chips, the camera strip, scenes, favorites and every room section, in the house's order |
 | A room as a section | `hk-strategy-rooms.js` `roomSection` | "Room ›" over its pills |
 | The category pages | `hk-strategy-pages.js` `categoryPages` | Security, Climate, Lights... |
 | A room in a sheet | `web/hk/cards/hk-room.js`, `hk-detail-room`, `hkRoom.openSheet(area)` | a sheet drawing `hkStrategy.roomCards`, 864 px wide (four pills), back from a sheet opened inside it via `hkKeepBack()` |
@@ -95,9 +95,16 @@ holds them equal).
 
 A panel like `hk-detail-room`, drawing new `hkStrategy.homeCards(client, opts)`:
 
-- **What it draws:** the generated Home's own list, minus the clock and weather header, which the grid already shows.
-  In order: the chip row, Scenes, Favorites, then every room section. `homeCards` is cut out of `views()` so the
-  generated Home and the sheet share one list. The car home's Security section stays a car-only part.
+- **What it draws:** everything a generated dashboard's Home draws, minus the clock and weather header, which the grid
+  already shows (the owner, 2026-11-12: "it looks like the Home Button actually loads what a generated dashboard would
+  load...Cameras, Scenes, Favorites as well"). In the generated Home's own order: the chip row, the camera mosaic
+  (`cameraStrip`: "Cameras ›" over `hk-camera-mosaic-card`, one live 16:9 tile then stills in 4:3 columns, 195 px
+  high, scrolling sideways; where the house has cameras and the screen has the strip on), Scenes, Favorites, then every
+  room section. `homeCards` is cut out of `views()` so the generated Home and the sheet share one list, and anything
+  the generated Home gains later shows up in the sheet too. The car home's Security section stays a car-only part. A
+  camera in the mosaic opens its own live sheet on top, as on the generated Home, and Back returns to the Home sheet.
+  The mosaic keeps its sideways scroll in the sheet: it fetches only the cameras on screen, which on a 4 GB wall
+  tablet is the point (`hk-cameras-mosaic.js`).
 - **Header:** the sheet frame's own: the X at the top left, and the title (the house's name, from Home Assistant's
   `location_name`) in the middle. It has no clock, because the frame has none and the grid shows the time.
 - **Size:** the Room sheet's: 864 px wide (four 196 px pills, 10 apart), the one sheet height, 680 px on the tablet.
@@ -115,6 +122,8 @@ This is the part the recording shows at 2.6 s.
 - **A chip** (Security, Climate, Lights, Speakers) shows that category's page inside the sheet: its cards from
   `categoryPages`, through a new `hkStrategy.pageCards(client, path)`.
 - **A room heading** ("Kitchen ›") shows that room inside the sheet, with the same cards `hk-detail-room` draws.
+- **"Cameras ›"** shows the Cameras page inside the sheet: every camera, two across at the sheet's 864 px (the page is
+  three across on the screen), opened one after another as the page does.
 - **The header on an inner page:** the X stays where it is and closes the whole sheet. A back key ("‹ Home", the
   standard 40 px pill) appears right of the X, and the title becomes the page's name. The rule stands: the X and the
   name are always in the same place.
@@ -158,13 +167,11 @@ This is the part the recording shows at 2.6 s.
 ## The owner's decisions
 
 1. **The sheet's size: agreed (2026-11-12).** The Room sheet's 864 x 680, four pills across.
-2. **Chips and rooms inside the sheet**, with a back key, which is **recommended** and is what Apple's does. The
-   alternative is that they go to the screen's own page and close the sheet. The owner asked for more understanding
-   (2026-11-12) and liked the chips together at the top of the sheet, which both choices keep. The mockup now has a
-   "Chips and rooms open" switch to try both, and a side-by-side section: inside the sheet you never leave the grid;
-   the screen's page closes the sheet, fills the screen with the page and its tab bar, and the way back is the menu.
+2. **Chips and rooms open inside the sheet: agreed (2026-11-12),** with the "‹ Home" back key beside the X, as Apple's
+   does (section 3). The other choice, going to the screen's own page and closing the sheet, was set aside: inside the
+   sheet you never leave the grid. The chips stay together at the top of the sheet, which the owner liked.
 3. **Sizes: all five (2026-11-12).** Small, Wide, Tall, Large and Extra Large, from Tall up the House Status mixture
-   above. Still to confirm from the mockup: the three bigger layouts.
+   above, laid out as the mockup's "Every size" strip shows.
 
 ## Build order
 
