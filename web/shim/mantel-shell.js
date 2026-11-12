@@ -243,6 +243,8 @@
     haName: (name) => name + ' in Home Assistant',
     // Mantel Link's cameras are Live TV's channels (once the house's Live TV is Mantel's): not the house's
     notHouseCameraPlatforms: () => ['mantel'],
+    // HK's "Tablet App" (Kiosk App: android_app) is Mantel's own (docs/phase26/ANDROID-APP.md)
+    kioskAppName: (id) => (id === 'android_app' ? 'Mantel for Android' : null),
     tabletRoom,
     atTablet,
     // Mantel's own docs (/docs, docs_pages.py: HK's pages and Mantel's), under the page's prefix

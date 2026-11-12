@@ -342,7 +342,7 @@
         var hs = (this.data.settings && this.data.settings.tablets) || {};
         // WHAT MAY BE A TABLET that isn't one (tablets.py suggestions)
         (this.data.tablet_suggest || []).forEach(function (sg) {
-          var app = M.tabletApp(sg.app)[1];
+          var app = M.tabletAppName(M.tabletApp(sg.app));
           var what = sg.device
             ? 'The ' + app + ' device “' + sg.name + '”' + (sg.ip ? ' (' + sg.ip + ')' : '') + ' isn’t on a wall tablet yet' +
               (sg.screen ? '. It’s showing ' + self.screenTitle(sg.screen) + '.' : '.')
@@ -359,7 +359,7 @@
           var t = tabs[tid], ts = self.tabletStatusOf(tid);
           var v = !ts.known ? '' : ts.st === 'off' ? 'Offline' : ts.word + (ts.batt !== null ? ' · ' + ts.batt + '%' : '');
           return K.nav({ tile: ['mdi:tablet', ts.known ? self.tabTile(ts.st) : C.blue], label: t.name,
-                         sub: self.screenTitle(t.screen) + ' screen · ' + M.tabletApp(t.app)[1], value: v,
+                         sub: self.screenTitle(t.screen) + ' screen · ' + M.tabletAppName(M.tabletApp(t.app)), value: v,
                          href: '#/house/tablets/' + encodeURIComponent(tid), fk: 'tab:' + tid });
         });
         rows.push(K.nav({ tile: ['mdi:plus', C.gray], label: 'Add Tablet…', href: '#/house/tablets/add', sk: 'tablet:add' }));
@@ -454,7 +454,7 @@
         if (val(p.touched)) now.push(K.info({ label: 'Last Touched', value: this.when(val(p.touched)) }));
         if (val(p.uptime)) now.push(K.info({ label: 'Running Since', sub: 'Its last restart.', value: this.when(val(p.uptime)) }));
         if (val(p.model) || val(p.version)) {
-          now.push(K.info({ label: 'Device', value: [val(p.model), val(p.version) ? M.tabletApp(t.app)[1] + ' ' + val(p.version) : ''].filter(Boolean).join(' · ') }));
+          now.push(K.info({ label: 'Device', value: [val(p.model), val(p.version) ? M.tabletAppName(M.tabletApp(t.app)) + ' ' + val(p.version) : ''].filter(Boolean).join(' · ') }));
         }
         if (now.length) {
           c.appendChild(K.group({ header: 'Now', footer: ids.sleep ? 'Why comes from ' + ids.sleep + ', which automations can read too.' : null }, now));
@@ -521,7 +521,7 @@
           hostOwn.tablet_user ? null : K.select({ label: 'Tablet User', sub: 'The person it signs in as. Its own is best.', sk: 't:user', value: t.user || '',
                      options: [['', 'None']].concat(users.map(function (u) { return [u, u]; })),
                      onChange: function (v) { set({ user: v }); } }),
-          K.select({ label: 'Kiosk App', sk: 't:app', value: t.app, options: M.TABLET_APPS.map(function (a) { return [a[0], a[1]]; }),
+          K.select({ label: 'Kiosk App', sk: 't:app', value: t.app, options: M.TABLET_APPS.map(function (a) { return [a[0], M.tabletAppName(a)]; }),
                      onChange: function (v) { set(M.kioskDeviceApp(v) ? { app: v } : { app: v, device: '' }); } })];
         if (M.kioskDeviceApp(t.app)) {
           var devs = (this.data.kiosk_devices || []).filter(function (d) { return d.app === t.app; });
@@ -625,7 +625,7 @@
           K.select({ label: 'Room', sk: 'new:room', value: n.room, options: [['', 'None']].concat(this.areasAZ().map(function (a) { return [a, self.areaName(a)]; })),
                      onChange: function (v) { n.room = v; } })];
         c.appendChild(K.group({}, rows));
-        var app = [K.select({ label: 'Kiosk App', sk: 'new:app', value: n.app, options: M.TABLET_APPS.map(function (a) { return [a[0], a[1]]; }),
+        var app = [K.select({ label: 'Kiosk App', sk: 'new:app', value: n.app, options: M.TABLET_APPS.map(function (a) { return [a[0], M.tabletAppName(a)]; }),
                               onChange: function (v) { n.app = v; n.device = ''; redraw(); } })];
         if (M.kioskDeviceApp(n.app)) {
           var devs = (this.data.kiosk_devices || []).filter(function (d) { return d.app === n.app; });

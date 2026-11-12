@@ -539,7 +539,7 @@
         var trows = mine.map(function (tid) {
           var tt = self.tabs()[tid], ts = self.tabletStatusOf(tid);
           return K.nav({ tile: ['mdi:tablet', ts.known ? self.tabTile(ts.st) : C.blue], label: tt.name,
-                         sub: M.tabletApp(tt.app)[1], href: '#/house/tablets/' + encodeURIComponent(tid), fk: 'b:tab:' + tid,
+                         sub: M.tabletAppName(M.tabletApp(tt.app)), href: '#/house/tablets/' + encodeURIComponent(tid), fk: 'b:tab:' + tid,
                          value: !ts.known ? '' : ts.st === 'off' ? 'Offline' : ts.word + (ts.batt !== null ? ' · ' + ts.batt + '%' : '') });
         });
         var addT = K.nav({ tile: ['mdi:plus', C.gray], label: 'Add a Tablet to This Screen…', href: '#/house/tablets/add', sk: 'b:tablets' });

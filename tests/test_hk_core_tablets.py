@@ -271,16 +271,16 @@ def test_mantel_for_android_is_its_own_kiosk_app(house):
     """It has Kiosk Satellite's entity endings (Sleep Screen and the checks find them the same way) and says what it
     is with `sensor.<tablet>_kiosk_app` (docs/phase26/ANDROID-APP.md)."""
     house._entities["sensor.loft_kiosk_kiosk_app"] = Entity("sensor.loft_kiosk_kiosk_app", device_id=DEV, platform="esphome")
-    assert [d["app"] for d in K.devices(house) if d["id"] == DEV] == ["mantel"]
-    p = K.parts(house, "mantel", DEV)
+    assert [d["app"] for d in K.devices(house) if d["id"] == DEV] == ["android_app"]
+    p = K.parts(house, "android_app", DEV)
     assert p["battery"] == KS["battery"] and p["kiosk_app"] == "sensor.loft_kiosk_kiosk_app"
     # Kiosk Satellite's own screensaver check is not one for it
-    assert "saver" not in [c["key"] for c in K.checks(house, {"app": "mantel"}, p)]
+    assert "saver" not in [c["key"] for c in K.checks(house, {"app": "android_app"}, p)]
 
 
 def test_sleep_screen_drives_a_mantel_tablet():
     from hk_core.settings.model import tablet_rules as TR
     dev = "a" * 32
-    assert TR.tablet({"app": "mantel", "device": dev})["sleep"]["kiosk"] == dev
+    assert TR.tablet({"app": "android_app", "device": dev})["sleep"]["kiosk"] == dev
     assert TR.tablet({"app": "kiosk_satellite", "device": dev})["sleep"]["kiosk"] == dev
     assert TR.tablet({"app": "fully", "device": dev})["sleep"]["kiosk"] == ""

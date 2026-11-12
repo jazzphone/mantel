@@ -150,6 +150,8 @@
     // notHouseCamera). The host's own Live TV channels, once its integration
     // holds them. Home Assistant: none beyond HK's own.
     notHouseCameraPlatforms: function () { return []; },
+    // a Kiosk App's name as the host says it (null: HK's own name)
+    kioskAppName: function () { return null; },
     // THE ROOM OF THE WALL TABLET SHOWING THIS PAGE (an area id), for a Home
     // Grid block whose option is `tablet_room` (docs/phase11/HOME-GRID.md):
     // tabletRoom(client). Home Assistant: its Wall Tablets entry's room;
@@ -238,7 +240,7 @@
    'dashboardRoot', 'viewContainer', 'viewSlot', 'view', 'viewBackground', 'toolbar', 'dashboardConfig', 'onDashboard', 'isDashboard',
    'defined', 'showNotifications', 'keepAwake', 'sidebarData', 'haNav', 'haNavigate', 'openHaMenu', 'hostMenu', 'hostPage', 'settingsHost', 'screensaverEditor', 'holdWrites', 'menuButton',
    'hostDetail', 'openHostDetail', 'hostToast', 'dialogRoot', 'serviceUrl', 'photoSource', 'listPhotos', 'artSized', 'productName', 'settingsName', 'settingsPlace', 'haPlace',
-   'haName', 'docsUrl', 'notHouseCameraPlatforms', 'tabletRoom', 'atTablet'].forEach(function (name) {
+   'haName', 'docsUrl', 'notHouseCameraPlatforms', 'kioskAppName', 'tabletRoom', 'atTablet'].forEach(function (name) {
     shell[name] = function () {
       try { return get(name).apply(shell, arguments); } catch (e) {
         return name === 'onDashboard' ? true : FALSE[name] ? false : WORDS[name] ? NONE[name].apply(shell, arguments) : null;

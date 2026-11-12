@@ -25,12 +25,12 @@ from .menu_rules import AREA_ID
 # ids and history. docs/Wall-Tablets.md.
 SUBENTRY_TABLET = "tablet"
 
-# mantel, kiosk_satellite and fully: a device in Home Assistant (status, actions,
-# Sleep Screen with Mantel for Android or Kiosk Satellite); wallpanel: WallPanel in
+# android_app (Mantel for Android), kiosk_satellite and fully: a device in Home Assistant
+# (status, actions, Sleep Screen with either of the first two); wallpanel: WallPanel in
 # the browser; browser: Just a Browser -- any browser the house says is a tablet
-TABLET_APPS = ("mantel", "kiosk_satellite", "fully", "wallpanel", "browser")
+TABLET_APPS = ("android_app", "kiosk_satellite", "fully", "wallpanel", "browser")
 # the apps Sleep Screen drives (their screen, screensaver and buttons: hk_core/sleep/engine.py KIOSK_PARTS)
-SLEEP_APPS = ("mantel", "kiosk_satellite")
+SLEEP_APPS = ("android_app", "kiosk_satellite")
 
 IDLE_TIMES = (30, 50, 60, 120, 300, 0)          # s; 0: never
 
