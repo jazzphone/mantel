@@ -13,6 +13,9 @@ through it: no port on the tablet, no password of its own.
   The list is closed (COMMANDS) and each value checked here. Like a Kiosk Satellite tablet's Reload (tablet_links.py),
   these are house commands: refused while house commands are off.
 * ``GET /api/devices/{id}/app``: the latest status, whether the tablet's page is connected now, and the commands.
+* **A picture of the glass** (the owner, 2026-11-12: "a preview of what's on the tablet"): the ``screenshot`` command has
+  the app copy its window (960 px wide, JPEG); it rides back on the answer and is kept in memory, newest only, for
+  ``GET /api/devices/{id}/app/screenshot``. Taken only when asked, audited like any command, never stored.
 """
 from __future__ import annotations
 
@@ -38,11 +41,13 @@ log = logging.getLogger("mantel.tablet_app")
 COMMANDS: dict[str, str | None] = {
     "screen": "bool", "brightness": "fraction", "curtain": "bool", "kiosk_mode": "bool",
     "reload": None, "clear_cache": None, "restart": None, "check_update": None, "menu_pin": "pin",
+    "screenshot": None,
 }
+SHOT_MAX = 900_000          # bytes of JPEG: the app sends 960 px wide at quality 70 (about 100 KB)
 STATUS_KEYS = {"version": str, "version_code": int, "screen": bool, "brightness": float, "curtain": bool,
                "battery": float, "charging": bool, "kiosk_mode": bool, "owner": bool, "admin": bool,
                "esphome_port": int, "menu_pin": bool, "page": str, "ip": str, "model": str, "update": str}
-ANSWER_WAIT = 6.0
+ANSWER_WAIT = 8.0
 STALE = 180.0              # a status older than this is "not heard from"
 PIN = re.compile(r"\d{0,12}")
 
@@ -64,6 +69,19 @@ def _clean(status: Any) -> dict:
         elif kind is str and isinstance(v, str):
             out[k] = v[:300]
     return out
+
+
+def _jpeg(b64: Any) -> bytes | None:
+    """The app's picture: base64 of a JPEG, no bigger than SHOT_MAX; anything else is None."""
+    import base64
+    import binascii
+    if not isinstance(b64, str) or not b64 or len(b64) > SHOT_MAX * 4 // 3 + 4:
+        return None
+    try:
+        raw = base64.b64decode(b64, validate=True)
+    except (binascii.Error, ValueError):
+        return None
+    return raw if raw[:3] == b"\xff\xd8\xff" and len(raw) <= SHOT_MAX else None
 
 
 def checked(command: Any, value: Any) -> tuple[str, Any] | None:
@@ -88,6 +106,7 @@ class TabletApps:
         self.clock = clock
         self.status: dict[str, dict] = {}                   # device id -> {status, at}
         self.waiting: dict[str, asyncio.Future] = {}        # nonce -> the answer
+        self.shots: dict[str, tuple[bytes, float]] = {}     # device id -> its latest picture (JPEG), when
 
     def heard(self, device_id: str, status: dict) -> None:
         self.status[device_id] = {"status": status, "at": self.clock()}
@@ -121,9 +140,14 @@ def handler(app: web.Application):
             st.heard(device.id, _clean(msg.get("status")))
         elif msg.get("event") == "done":
             fut = st.waiting.get(str(msg.get("nonce", "")))
-            if fut is not None and not fut.done():
+            if fut is None:
+                return                                  # an answer nobody asked for (a picture especially): dropped
+            shot = _jpeg(msg.get("image"))
+            if shot is not None:
+                st.shots[device.id] = (shot, st.clock())
+            if not fut.done():
                 fut.set_result({"ok": bool(msg.get("ok")), "status": _clean(msg.get("status")),
-                                "message": str(msg.get("message") or "")[:200]})
+                                "message": str(msg.get("message") or "")[:200], "image": shot is not None})
             if isinstance(msg.get("status"), dict):
                 st.heard(device.id, _clean(msg.get("status")))
     return tablet_app
@@ -195,7 +219,20 @@ async def post_app(request: web.Request) -> web.Response:
     log.info("tablet %s's app: %s %s", row["name"], command, "done" if answer["ok"] else "refused")
     if not answer["ok"]:
         return error(502, "app_refused", message=answer["message"] or "The app didn’t do it.")
-    return ok({"sent": len(pages), "answered": True, "status": answer["status"]})
+    out = {"sent": len(pages), "answered": True, "status": answer["status"]}
+    if command == "screenshot" and answer.get("image"):
+        out["image"] = f"/api/devices/{row['id']}/app/screenshot?at={int(st.shots[row['id']][1])}"
+    return ok(out)
+
+
+@guard("manager", door="lan", reads="admin")
+async def get_screenshot(request: web.Request) -> web.Response:
+    """The tablet's latest picture (POST .../app {command: screenshot} takes one), in memory only."""
+    row = _device_row(request)
+    got = apps_of(request.app).shots.get(row["id"]) if row is not None else None
+    if got is None:
+        return error(404, "not_found")
+    return web.Response(body=got[0], content_type="image/jpeg", headers={"Cache-Control": "no-store"})
 
 
 def register(app: web.Application) -> None:
@@ -203,3 +240,4 @@ def register(app: web.Application) -> None:
     ws_handlers(app)["tablet_app"] = handler(app)
     app.router.add_get("/api/devices/{id}/app", get_app)
     app.router.add_post("/api/devices/{id}/app", post_app)
+    app.router.add_get("/api/devices/{id}/app/screenshot", get_screenshot)

@@ -1640,6 +1640,23 @@
   "stream": "none",
   "who": "manager"
  },
+ "GET /api/devices/{id}/app/screenshot": {
+  "audit": [],
+  "csrf": "-",
+  "device_ok": false,
+  "door": "lan",
+  "first": false,
+  "fresh": "never",
+  "handler": "get_screenshot",
+  "mcp": [],
+  "module": "mantel_server.apps.tablet_app",
+  "no_audit": null,
+  "preview": false,
+  "reads": "admin",
+  "reads_why": null,
+  "stream": "none",
+  "who": "manager"
+ },
  "GET /api/entities": {
   "audit": [],
   "csrf": "-",

@@ -2,12 +2,22 @@
 // home network (apps/tablet_app.py; docs/phase26/ANDROID-APP.md "Managing a tablet"). Mantel reaches the app through the
 // page the tablet has open, so nothing listens on the tablet and there is no password of its own.
 // @ts-check
-import { act, api, can, K, load, me } from './core.js';
+import { act, api, can, hh, K, load, me, redraw } from './core.js';
 import { button, draft, field, group, info, result } from './kit.js';
 
 const devicesRead = () => load('devices', () => api('GET', '/api/devices'));
 const appRead = (id) => load('tablet-app:' + id, () => api('GET', '/api/devices/' + encodeURIComponent(id) + '/app'));
 const pct = (v) => Math.round((v || 0) * 100);
+// WHAT'S ON THE SCREEN (the owner, 2026-11-12): a picture the app takes when asked, kept by Mantel in memory
+const pictures = {};             // device id -> { src, at } or { busy } or { err }
+async function takePicture(id) {
+  pictures[id] = { ...(pictures[id] || {}), busy: true, err: null }; redraw();
+  try {
+    const r = await api('POST', '/api/devices/' + encodeURIComponent(id) + '/app', { command: 'screenshot' });
+    pictures[id] = r.image ? { src: r.image, at: Date.now() } : { err: 'The tablet took no picture.' };
+  } catch (e) { pictures[id] = { ...(pictures[id] || {}), busy: false, err: e.message }; }
+  redraw();
+}
 // the app's last update check (Updater.check), in words
 function updateSays(u) {
   if (!u) return '';
@@ -65,6 +75,16 @@ export function drawTabletApp(c, ctx) {
     c.appendChild(group({ header, footer: (data.commands_on ? '' : 'House commands are off, so the app’s controls are too. ') +
       'Mantel reaches the app through the page the tablet has open, on the home network only; each change is in the Audit Log.' }, rows));
     result(c, key);
+    const pic = pictures[dv.id] || {};
+    const shot = pic.src ? hh('img', { src: pic.src, alt: 'What ' + dv.name + ' shows', class: 'mx-tablet-shot' }) : null;
+    if (shot) Object.assign(shot.style, { display: 'block', width: '100%', aspectRatio: '16 / 10', objectFit: 'cover',
+                                          borderRadius: '10px', background: '#000' });
+    c.appendChild(group({ header: 'What’s on the Screen', footer: pic.err ? hh('span', { class: 'mxerr', text: pic.err })
+      : pic.src ? 'Taken ' + new Date(pic.at).toLocaleTimeString([], { timeStyle: 'short' }) + '. Only when you ask; each one is in the Audit Log.'
+      : 'A picture of the tablet’s screen as it is now, taken when you ask. Each one is in the Audit Log.' },
+      [shot ? hh('div', { style: 'padding:12px 16px' }, [shot]) : null,
+       button(pic.busy ? 'Taking a Picture…' : shot ? 'Take Another' : 'Show What’s on the Screen',
+              () => { if (!pic.busy) takePicture(dv.id); }, { fk: 'mx:app-shot:' + dv.id })].filter(Boolean)));
     const d = draft(form);
     c.appendChild(group({}, [
       button('Reload Page', () => send('reload', undefined, 'Reloading.'), { fk: 'mx:app-reload:' + dv.id }),

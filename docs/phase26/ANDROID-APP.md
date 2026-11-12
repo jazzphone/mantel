@@ -94,6 +94,10 @@ brightness, curtain, kiosk mode, reload, clear cache, restart, check for an upda
 the tablet and there is no password of its own. The tablet's Direct Connection group (Kiosk Satellite's, Fully's) is
 left out once the app is heard from.
 
+**What's on the Screen** (the owner: "a preview of what's on the tablet"): a button takes a picture of the glass (the
+app copies its window, 960 px wide, JPEG) and shows it in the group. Only when asked, audited as a command, kept in
+memory (newest only), never stored; nothing is sent while the screen is off.
+
 ## Updates
 
 Mantel serves the app: `GET /apps/android/latest.json` (version, size, SHA-256) and the APK beside it, from

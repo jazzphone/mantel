@@ -64,7 +64,7 @@
         Promise.resolve(A.command(String(m.command), m.value === undefined ? null : m.value))
           .then((r) => (typeof r === 'string' ? JSON.parse(r) : r))
           .then((r) => hub.tell('tablet_app', { event: 'done', nonce: m.nonce, ok: !!(r && r.ok), message: (r && r.message) || '',
-                                                status: (r && r.status) || null }),
+                                                status: (r && r.status) || null, image: (r && r.image) || undefined }),
                 (e) => hub.tell('tablet_app', { event: 'done', nonce: m.nonce, ok: false, message: String(e && e.message || e) }));
       };
       g.setTimeout(tell, 3000);
