@@ -301,7 +301,8 @@
         var nm = cfg.name || (st && st.attributes && st.attributes.friendly_name) || cfg.entity;
         if (e.label.textContent !== nm) e.label.textContent = nm;
         var lk = window.hkVacuumArt ? window.hkVacuumArt.look(this.client, cfg.entity, cfg) : { state: 'idle', words: C.sentenceCase(state.replace(/_/g, ' ')) };
-        if (e.art.__s !== lk.state + lk.words) { e.art.__s = lk.state + lk.words; e.art.innerHTML = window.hkVacuumArt ? window.hkVacuumArt.html(lk.state, nm + ', ' + lk.words) : ''; }
+        if (e.art.__s !== lk.state + lk.words + lk.doing) { e.art.__s = lk.state + lk.words + lk.doing; e.art.innerHTML = window.hkVacuumArt ?
+          window.hkVacuumArt.html(lk.state, nm + ', ' + lk.words, lk.doing) : ''; }
         // (Mantel is holding a water tank report: Clear beside Clean, in the row of keys -- it is the same 56 px capsule as the others)
         e.clr.hidden = !lk.latched; e.clr.setAttribute('aria-label', 'Clear the water tank report for ' + nm);
         e.vst.textContent = lk.words; e.vst.className = 'vst' + (/^(water|error)$/.test(lk.state) ? ' err' : /^(docked|idle)$/.test(lk.state) ? ' idle' : '');
@@ -385,7 +386,7 @@
           : '<button type="button" class="key rm' + (said ? ' on' : '') + '" data-rooms aria-label="Choose rooms to clean' + (said ? ': ' + esc(chosen.join(', ')) : '') +
             '"><hk-icon icon="mdi:floor-plan"></hk-icon><span>' + (chosen.length ? chosen.length + (chosen.length === 1 ? ' room' : ' rooms') : 'Rooms') + '</span></button>') : '';
         // THE VACUUM DRAWN (Extra Large, Tall, Wide; hk-vacuum-art.js) and what it is doing in words under it, the battery in the line after
-        var art = window.hkVacuumArt ? '<div class="art">' + window.hkVacuumArt.html(lk.state, nm + ', ' + lk.words) + '</div>' : '';
+        var art = window.hkVacuumArt ? '<div class="art">' + window.hkVacuumArt.html(lk.state, nm + ', ' + lk.words, lk.doing) + '</div>' : '';
         var subw = (bat ? [bat] : []).concat(rest.slice(1)), what = '<b class="state">' + esc(lk.words) + '</b>' + clr;
         var html;
         if (sz === 'S') {

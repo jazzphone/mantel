@@ -58,9 +58,10 @@
     var chg = x.charge && states[x.charge] ? String(states[x.charge].state) : '';
     var bad = err && OK.indexOf(err.toLowerCase()) < 0;
     var held = latch(client, id);
-    if (bad && WATER.test(err)) return { state: 'water', words: words(err), latched: !!held };
+    var doing = s === 'cleaning' ? 'cleaning' : '';   // (the water badge is drawn over the work, not instead of it: html() keeps the robot moving)
+    if (bad && WATER.test(err)) return { state: 'water', words: words(err), latched: !!held, doing: doing };
     if (s === 'error' || bad) return { state: 'error', words: bad ? words(err) : 'Needs help', latched: !!held };
-    if (held) return { state: 'water', words: held.words, latched: true };
+    if (held) return { state: 'water', words: held.words, latched: true, doing: doing };
     if (s === 'cleaning') return { state: 'cleaning', words: 'Cleaning' };
     if (s === 'returning') return { state: 'returning', words: 'Returning' };
     if (s === 'paused') return { state: 'paused', words: 'Paused' };
@@ -72,12 +73,12 @@
   // THE DRAWING: three layers in one 200 x 140 box -- behind (the shadow, the dock, the path), the robot (the glyph and its side brush,
   // moving together) and in front (motion lines, the bolt, a badge). The glyph sits as the mockup drew it: 144 units square at (28, 6)
   var V = '<svg viewBox="0 0 200 140" aria-hidden="true">';
-  function html(state, label) {
-    var s = STATES.indexOf(state) >= 0 ? state : 'idle', dock = /^(docked|charging|returning)$/.test(s), back = '', front = '', brush = '';
+  function html(state, label, doing) {
+    var s = STATES.indexOf(state) >= 0 ? state : 'idle', run = s === 'water' && doing === 'cleaning', dock = /^(docked|charging|returning)$/.test(s), back = '', front = '', brush = '';
     back += '<ellipse class="sh" cx="100" cy="123" rx="64" ry="6"/>';
     if (dock) back += '<rect class="dk" x="72" y="22" width="56" height="74" rx="14"/><circle class="led" cx="100" cy="36" r="3.2"/>';
-    if (s === 'cleaning') back += '<path class="tr" d="M168 121 C150 132 118 134 92 131 C70 129 52 126 40 120"/>';
-    if (s === 'cleaning' || s === 'returning') {
+    if (s === 'cleaning' || run) back += '<path class="tr" d="M168 121 C150 132 118 134 92 131 C70 129 52 126 40 120"/>';
+    if (s === 'cleaning' || s === 'returning' || run) {
       brush = V + '<g transform="translate(50 118)"><g class="sp"><line x1="0" y1="0" x2="0" y2="-11"/><line x1="0" y1="0" x2="9.5" y2="5.5"/>' +
         '<line x1="0" y1="0" x2="-9.5" y2="5.5"/></g></g></svg>';
     }
@@ -94,7 +95,7 @@
       'error') front += '<g class="bg warn"><circle cx="158" cy="34" r="17"/><rect x="155.6" y="23" width="4.8" height="15" rx="2.4" class="mk"/><circle cx="158" cy="43.5" r="2.8" class="mk"/></g>';
     var over = s === 'charging' ? '<hk-icon class="bolt" icon="hk:battery-charging"></hk-icon>'
       : '';
-    return '<div class="hkva s-' + s + '" role="img" aria-label="' + String(label || words(s)).replace(/[&<>"]/g, '') + '">' +
+    return '<div class="hkva s-' + s + (run ? ' s-cleaning' : '') + '" role="img" aria-label="' + String(label || words(s)).replace(/[&<>"]/g, '') + '">' +
       V + back + '</svg><div class="rb"><hk-icon class="gl" icon="hk:robot-vacuum"></hk-icon>' + brush + '</div>' +
       (front ? V + front + '</svg>' : '') + over + '</div>';
   }

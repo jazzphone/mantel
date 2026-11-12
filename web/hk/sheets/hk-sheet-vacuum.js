@@ -230,7 +230,7 @@
         this._bot.classList.toggle('bad', bad);
         if (window.hkVacuumArt) {
           var lk = window.hkVacuumArt.look(this.client, this._id, this._src.config || {});
-          var draw = window.hkVacuumArt.html(lk.state, (at(s, 'friendly_name') || this._id) + ', ' + lk.words);
+          var draw = window.hkVacuumArt.html(lk.state, (at(s, 'friendly_name') || this._id) + ', ' + lk.words, lk.doing);
           if (this._drawn !== draw) { this._drawn = draw; this._bot.innerHTML = draw; }
         }
         this._big.textContent = unavailable(s) ? 'Unavailable' : VAC_WORDS[st] || pretty(st);

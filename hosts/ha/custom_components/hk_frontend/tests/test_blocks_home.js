@@ -282,6 +282,23 @@ function () {
       ok('...stuck stays first, and Clear is still offered', lk().state === 'error' && lk().words === 'Stuck' && lk().latched === true);
       house.set('sensor.vac_err', 'no_error', {});
       ok('...another vacuum\'s report is not this one\'s', !VA.look(house.hass(), 'vacuum.other', {}).latched && VA.latch(house.hass(), 'vacuum.downstairs').since === 1000);
+      // STILL CLEANING, THE TANK EMPTY (the owner, 2026-11-11): the badge shows, the robot keeps moving (its drift, brush and path run on s-cleaning)
+      house.set('vacuum.downstairs', 'cleaning', { friendly_name: 'Downstairs', battery_level: 80 });
+      var busy = lk();
+      ok('held and still cleaning: the water badge, and the drawing keeps cleaning', busy.state === 'water' && busy.doing === 'cleaning' && busy.latched === true);
+      var bd = VA.html(busy.state, 'x', busy.doing);
+      ok('...drawn with the badge, the cleaning class, the path and the side brush', /class="hkva s-water s-cleaning"/.test(bd) && /class="tr"/.test(bd) && /class="sp"/.test(bd) &&
+        /class="bg warn"/.test(bd));
+      house.set('sensor.vacuum_water_tanks', '0', { tanks: {} }); house.set('sensor.vac_err', 'water_tank_empty', {});
+      ok('the live report while cleaning is the same', lk().state === 'water' && lk().doing === 'cleaning' && !lk().latched);
+      ['XL', 'T', 'W'].forEach(function (z) {
+        ok(z + ': cleaning with the tank empty: drawn s-water s-cleaning', /class="hkva s-water s-cleaning"/.test(
+          sized('hk-vacuum-card', z, { entity: 'vacuum.downstairs', error: 'sensor.vac_err' })._root.__html));
+      });
+      house.set('sensor.vac_err', 'no_error', {});
+      house.set('sensor.vacuum_water_tanks', '1', { tanks: { 'vacuum.downstairs': { since: 1000, words: 'Water tank missing' } } });
+      house.set('vacuum.downstairs', 'docked', { friendly_name: 'Downstairs', battery_level: 92 });
+      ok('docked with the tank held: the badge, nothing moving', lk().state === 'water' && !lk().doing && !/s-cleaning|class="sp"/.test(VA.html(lk().state, 'x', lk().doing)));
       var latched = {};
       ['XL', 'T', 'W'].forEach(function (z) {
         var h = sized('hk-vacuum-card', z, { entity: 'vacuum.downstairs', error: 'sensor.vac_err' })._root.__html;
