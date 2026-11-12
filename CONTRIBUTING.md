@@ -4,7 +4,7 @@ Thanks for helping. Bug reports, fixes, docs and screenshots are all welcome.
 
 ## Before you start
 
-- **Read the rules**: [docs/development/Rules.md](docs/development/Rules.md). The short version: Home Assistant's object stays in the host adapters, feature decisions live in `hk_core`, commands are off by default, secrets are files, Apple's fonts never ship, nothing personal goes in the repository, and every route declares who may call it and what it may show (Mantel won't start otherwise: run `tools/route_table.py --write` after adding one).
+- **Read the rules**: [docs/development/Rules.md](docs/development/Rules.md). The short version: Home Assistant's object stays in the host adapters, feature decisions live in `hk_core`, commands are off by default, secrets are files, Apple's fonts never ship, nothing personal goes in the repository, every route declares who may call it and what it may show (Mantel won't start otherwise: run `tools/route_table.py --write` after adding one), files stay small and lines short, a server module lives in its feature's package, a file in parts is edited where its manifest puts each member, and each of the screensaver's state names has one owner. Its first section, "Where new code goes", says where each piece of a new feature belongs.
 - **For anything bigger than a small fix**, open an issue first so the approach can be agreed before you build it.
 - **Security problems** go to [SECURITY.md](SECURITY.md), not an issue.
 

@@ -3,6 +3,41 @@
 Every change to Mantel follows these rules. Where a rule can be checked, a test or tool checks it, and a change
 that breaks it fails the main suite. [Architecture](Architecture.md) explains the design behind them.
 
+## Where new code goes
+
+Before writing a feature, find its place; a new file is cut to the size of one feature, well under the limits of rule 8
+(aim under about 800 lines: a file that starts big reaches the wall in a few weeks).
+
+- **The decision** (what the feature does, in plain data and words): `hk_core/<feature>.py`, or `hk_core/<feature>/` for a
+  big one (rule 2), tested once in `tests/test_hk_core_<feature>.py`. Both hosts call it.
+- **Mantel Server's side** goes in its feature's package under `hosts/server/mantel_server/`, never a new flat module:
+
+  | Package | For |
+  |---|---|
+  | `identity/` | people, sign-in, sessions, roles, guards, pins, service accounts |
+  | `ha/` | Home Assistant's bridge: the gateway, the client, the registry, states, socket reads |
+  | `cameras/` | cameras, Protect, Live TV, photos, faces, images |
+  | `music/` | Music Assistant: calls, states, the library, browsing |
+  | `linked/` | linked mode: a Mantel linked to Home Assistant's Mantel Link |
+  | `features/` | hk_core's features running in Mantel, and the house's own (laundry, TVs, timers, the vacuum's water) |
+  | `accessories/` | how each accessory shows up on the screens |
+  | `intercom/`, `alerts/`, `timeline/`, `mcp/` | those features |
+  | `apps/` | the iPhone and Mac apps' API |
+  | `network/` | how pages and apps reach the server: the direct listener, Ingress, proxies, headers, Connect, discovery |
+  | `storage/` | the database, backups, the store, users' files, sealing, the audit |
+  | `pages/` | the server's own pages: About, admin, docs, setup, feature pages, page health |
+
+  A new family of modules gets a package of its own. The flat modules left are the core (`server`, `config`, `live`,
+  `view`, `route_table`, ...) and the `python -m` entry points (`health`). A route it adds is declared (rule 7).
+- **The web side**, in `web/hk/`: a Home Grid or HomeView block in `cards/hk-<name>.js`, its detail sheet in
+  `sheets/hk-sheet-<name>.js` (a part of `cards/hk-detail.js`: it reaches the open sheet only through the sheets' context,
+  the kit `hk-detail.js` makes), a shared module in `modules/`, a Settings page as methods in the `settings/` part of its
+  section (a section that grows gets a part of its own with `tools/split_js.py settings --regroup`). A screensaver
+  feature goes in the part that owns its kind of state (rule 11), with its own `ST` names given an owner.
+- **A check:** the main suite first; a browser check only for what the main suite can't see, at the fewest engines and
+  sizes that say it ([Building and testing](Building-and-Testing.md#local-checks)).
+- **Its documentation:** a phase plan or a feature page under `docs/`, and the code map (`tools/code_map.py`).
+
 ## 1. `hass` stays in the host adapters
 
 The shared frontend talks only to `HKClient` and the host shell. Nothing in `web/` names Home Assistant's object
@@ -96,7 +131,8 @@ never made shorter by joining lines: that is what the width rule is for.
 
 When a file gets near the limit, cut it by feature with the tools, never by hand: `tools/split_js.py --report FILE`
 shows which members must move together, a manifest in `tools/split_manifests/` names the parts, and `tools/split_js.py
-NAME` moves the members and proves nothing but their place changed (`tools/split_py.py` for Python). A long line is
+NAME` moves the members and proves nothing but their place changed (`tools/split_py.py` for Python). A part of a class-method split (the settings panel's) that grows is cut with `tools/split_js.py NAME
+--regroup` (rule 10); a file's manifest can be made and proven before it is needed (`tools/split_manifests/ready/`). A long line is
 broken with `tools/rewrap.py`, which proves the program's syntax tree is unchanged. See
 [Building and testing](Building-and-Testing.md#big-files-and-long-lines) and
 [Architecture](Architecture.md#how-a-big-web-file-is-cut).
@@ -107,3 +143,43 @@ Each keeps a list that only shrinks: the files whose split was left for later (`
 regular expression or a multi-line string (`tests/fixtures/line_width_exceptions.json`, each with its reason). A new
 file or line over the limit fails the run.
 
+## 9. Server modules live in their package
+
+A module of Mantel Server is in its feature's package ("Where new code goes"). Modules are moved with
+`tools/move_py.py <manifest>` (`tools/move_py_manifests/`): `git mv`, every import rewritten by the syntax tree, and the
+proof that each module is the same object at its new path. The old path keeps importing for one release
+(`hosts/server/mantel_server/_moved.py`), so other work in progress goes on; the release its row names deletes it
+(`tools/move_py.py --expired VERSION` lists them). A module that finds files beside itself (`__file__`) finds them
+through the package (`files("mantel_server")`) instead, so it can move.
+
+**Checked by** `tests/test_moved_aliases.py` (an old path past its release fails) and `tests/test_move_py.py`.
+
+## 10. A file in parts is one file to its callers
+
+A web file cut by `tools/split_js.py` is a shell and parts that register with it; the manifest
+(`tools/split_manifests/<name>.json`) says which member is where (`tools/split_js.py --find NAME`). Edit a member where
+it is. A part takes from the shell's kit what it uses and hands back what others use; a part that calls a LATER part
+does so through that part's exports object (`Run.schedule()`: made empty by the kit, filled by its part), and only when
+it is called, never as the parts load. A page that imports a file in parts and uses it at once waits for
+`window.__hkSplitReady['<folder>/<name>']` (`imp()` in `web/home.js` and `hk-loader.js` do): two shells share a file
+name, so the key is the folder and the name. A file near its limit can have its manifest ready before it is needed,
+in `tools/split_manifests/ready/`, proven by `split_js.py <name> --check`.
+
+**Checked by** `tests/test_web_sources.py` (`split_js.py <name> --check` for every split: the members, the kit, `tsc`,
+the loader, the exports objects' rule) and `tests/test_settings_prototype.py` (the settings panel's class).
+
+## 11. The screensaver's state has one owner per name
+
+The screensaver's shared state, `ST`, holds what several of its parts read; each name has one owner, the part that
+writes it (`tools/state_owners.py`, its `FEATURES`), and the others change it only through a function the owner
+exports (`countPhoto()`, `slideCancel()`, `noteInput()`). A name only one part uses is that part's own variable, not on
+`ST`. `docs/phase25/SAVER-STATE.md` is the map.
+
+**Checked by** `tests/test_state_owners.py`: the map is current, every name has an owner, and no name has a second writer.
+
+## 12. A test runs where the release's checks run
+
+A test that needs a tool the Linux runner lacks skips there: one that runs a TypeScript-backed tool (`split_js`,
+`state_owners`, `rewrap`, the exports check) checks for `tools/typecheck/node_modules/typescript`, not only for Node
+(a house release waits on that runner's suite). Before pushing such a test, run the suite with that folder moved away
+([Building and testing](Building-and-Testing.md#the-main-suite)).

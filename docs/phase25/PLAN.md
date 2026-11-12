@@ -281,3 +281,30 @@ loader as the page starts).
   - **Old paths in comments and current docs** follow the moves (`55fab4b0`; 34 mentions; migrations' SQL left as is).
   - **The aliases' deadline, held by a test:** `tests/test_moved_aliases.py` fails once the version reaches a row's
     release (all 87 rows: 0.1.166) while the row is there; that release deletes them.
+- **Round four (the owner: "Yes I am good with a new release to the house"; then "lets do connect_proof, we should also
+  do hk-settings and hk-library while we are here").**
+  - **Mantel 0.1.165 and HK Frontend 1.59.2 on the house** (E, A, C and B released; House-releases.md has the OK quoted).
+    0.1.165's first attempt stopped before its tag: two new tests read the pinned TypeScript GitHub's Linux runner
+    doesn't install, and move_py's proof left `__pycache__` (`b33bd853`); `--retry` finished it.
+  - **`split_js.py --regroup`:** a class-method part cut into more, each method moved whole and proven (every method once,
+    its text the same, then the whole --check). `hk-settings-screen-pages.js` 1,839 -> 249 lines and six parts.
+  - **`modules/hk-settings.js` split** (1,851 -> 915 and five parts, after its `lookNow` was set by a statement of its
+    own) **and `hk-library.js`** (1,926 -> 759 and five). Two things the browser checks found: a split shell's
+    readiness was found by its file's name, and two shells share one (`hk-settings.js`): every label is now its folder
+    and name (`modules/hk-settings`), and every importer looks it up that way; and the library card registered at once
+    while its methods came with its parts (`this._bindBack is not a function` on every page with the card): a card in
+    class mode may now let its `register(...)` wait (`"register_waits"` with `"wait_all"`), so it is defined only once
+    every method is there.
+  - **`connect_proof` in `network/`** (its receiver's `python -m` and stage follow), and **0.1.166 drops the 87 old
+    paths** (`connect_proof`'s row stays until 0.1.167). Removing them found what the import rewrite couldn't see:
+    three tests' child-process code in strings, the receiver's setup script.
+  - **The release checks trimmed** (`87ed730e`): a release's motion checks are carried when they passed in a release run
+    as they are, and run in two lanes (Chromium's, WebKit's) side by side. A release's full run: 25+ minutes that night,
+    10 minutes 20 seconds on `3687dbd2` with every motion check run (each as long as alone: no new noise).
+  - **More flakes found and fixed:** the fictional house's random passwords could hold a user's name (the policy refused
+    it); a third TypeScript-reading test without the guard (0.1.166's first attempt: `3687dbd2`, and the suite run with
+    the pinned TypeScript moved away, as the runner has it: 7,181 passed).
+  - **The rules, written for whoever adds a feature next:** `docs/development/Rules.md` opens with "Where new code goes"
+    (the decision in `hk_core`, the server's side in its feature's package -- a table of them --, the web side's places,
+    a file sized to one feature, under about 800 lines) and gains rules 9-12 (server packages, a file in parts, the
+    screensaver's state owners, tests that run where the release's checks run).
