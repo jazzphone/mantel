@@ -18,7 +18,8 @@ def test_no_alias_outlives_its_release():
     now = version(tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]["version"])
     table = (ROOT / "hosts/server/mantel_server/_moved.py").read_text()
     rows = re.findall(r'^    "(\w+)": \("([\w.]+)", "([\d.]+)"\),$', table, re.M)
-    assert rows, "the alias table is empty or unreadable"
+    # (empty is fine: every moved module's old path has gone. The table's markers must still be there for move_py.py)
+    assert "# --- the table: written by tools/move_py.py ---" in table and "# --- end of the table ---" in table
     due = sorted(f"{old} -> {new}" for old, new, until in rows if now >= version(until))
     assert not due, (f"version {'.'.join(map(str, now))}: these old paths go away in this release; delete their rows "
                      f"(tools/move_py.py --expired) and import each at its new path: {due[:10]}")
