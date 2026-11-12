@@ -328,7 +328,7 @@ def test_the_catalog_draws_the_block_where_the_host_has_a_timeline_and_a_stand_i
     assert w == {"type": "custom:hk-timeline-block-card", "size": "W", "show": "latest"}
     assert xl == {"type": "custom:hk-timeline-block-card", "size": "XL", "show": "digest", "tap": "none"}
     assert bogus["show"] == "auto" and none["show"] == "auto"
-    assert table == {"sizes": ["S", "W", "T", "L", "XL"], "sources": [], "opts": {"show": "timeline_show", "tap": "tap_target"}} and has is True
+    assert table == {"sizes": ["S", "W", "T", "L", "XL"], "sources": [], "opts": {"show": "timeline_show", "tap": "tap_target", "glyphs": "glyph_color"}} and has is True
     for host in ("ha", "broken", "noShell"):             # Home Assistant's HK Frontend, a host that throws, no shell at all
         cfg = catalog[host]
         # (the note a block with nothing to show draws -- its own options, a tap, may ride along)
@@ -380,7 +380,7 @@ def test_what_a_recent_block_refuses(item, code):
 
 
 def test_the_mirror_and_the_catalog_name_the_same_option():
-    assert HG.CATALOG["timeline"] == {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"show": "timeline_show", "tap": "tap_target"}}
+    assert HG.CATALOG["timeline"] == {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"show": "timeline_show", "tap": "tap_target", "glyphs": "glyph_color"}}
     assert HG.TIMELINE_SHOWS == ("auto", "latest", "digest")
 
 

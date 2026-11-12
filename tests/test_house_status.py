@@ -109,9 +109,10 @@ def test_the_sheet_is_wide_only_where_two_columns_of_panels_fit(got):
 
 # -- the catalog and the saved layout ------------------------------------------------------------------------------
 @needs_node
-def test_both_catalogs_name_the_block_its_sizes_and_no_options(got):
-    assert HG.CATALOG["house_status"] == {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {}}
-    assert got["table"]["sizes"] == ["S", "W", "T", "L", "XL"] and got["table"]["opts"] == {}
+def test_both_catalogs_name_the_block_its_sizes_and_one_option(got):
+    # (its one option, 2026-11-12: Glyphs, Color or White -- the owner: "an option for Color or White Glyphs for the cards")
+    assert HG.CATALOG["house_status"] == {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"glyphs": "glyph_color"}}
+    assert got["table"]["sizes"] == ["S", "W", "T", "L", "XL"] and got["table"]["opts"] == {"glyphs": "glyph_color"}
     assert got["card"] == [{"type": "custom:hk-house-status-card", "size": s} for s in ("S", "W", "T", "L", "XL")]
 
 
@@ -165,4 +166,4 @@ def test_the_block_is_wired_in_the_way_the_other_blocks_are():
 async def test_the_assistants_card_list_offers_it():
     from mantel_server.mcp.tools import screens
     got = await screens.grid_cards(None, {})
-    assert got["cards"]["house_status"] == {"sizes": ["S", "W", "T", "L", "XL"], "pages_from": [], "options": {}}
+    assert got["cards"]["house_status"] == {"sizes": ["S", "W", "T", "L", "XL"], "pages_from": [], "options": {"glyphs": "glyph_color"}}
