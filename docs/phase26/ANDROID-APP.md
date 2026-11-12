@@ -200,4 +200,19 @@ proxy and no self-locking kiosk (that is Guided Access). There is no iPad on a w
   (it would end adb's session; on the emulator the app came back in front); the tablet's controls in Mantel Settings
   over the LAN (the owner asked, 2026-11-12) are the next slice; keeping the cache through the daily restart is the
   owner's call.
+- **Performance on the test tablet (2026-11-12, measured awake and at rest, 20 s windows, `top` per process).** The page
+  cost 1.6 cores: the app's WebView drawing 73 %, its renderer 42 %, Android's compositor 34 + 12 %; JavaScript only
+  15 % busy. Pausing CSS animations alone took it to 0.64; the only ones running were `hk-wall-turn`, the wallpaper's
+  Slow turn (6 degrees in 90 s): under a pixel a frame, but each frame every glass card re-blurs what moved under it. Now
+  the whole picture's motion steps 4 / 6 / 10 times a second (hk-sky.js): **0.66 cores at rest**, app 5 %, compositor
+  11 + 3 %, still 60 fps. The camera in the side pane cost nothing measurable; the glass blur alone little.
+- **Mantel's files kept on the tablet (AssetStore):** versioned files served from the app's own disk. A/B over six cold
+  loads each (Clear Cache, then the first draw Mantel logs): on, median **2.21 s** (2.03-2.36), 146 KB; off, median 2.70 s
+  (2.23-5.00), 847 KB. Safe Browsing lookups and WebView's metrics are off.
+- **Kiosk App: Mantel for Android** (`android_app`; HK's Home Assistant build calls it "Tablet App", Mantel's shell names
+  it): found by its `sensor.<tablet>_kiosk_app`, driven by Sleep Screen, without Kiosk Satellite's screensaver check and
+  Direct Connection. The test tablet set to it (undo: settings_restore tablet loft v8).
+- **Gaps closed:** the house's nightly maintenance presses every tablet's Restart Device (now always there: a reboot as
+  device owner, else the cache cleared and the app restarted in place) and a bathroom's volume follows its fan (Volume,
+  the media stream, 0-100 %).
 
