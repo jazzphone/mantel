@@ -680,7 +680,16 @@ async def seed_people(app, owner_id: str) -> None:
     people = {}
     for username, name, role in (("alex", "Alex Rivera", "adult"), ("riley", "Riley Rivera", "child"),
                                  ("grandma", "Pat Rivera", "guest")):
-        people[username] = await acc.create_user(username, name, role, secrets.token_urlsafe(16))
+        # (a random password that passes the policy: one could hold the user name, "pat" or "alex", by chance -- phase 25)
+        from mantel_server.identity.accounts import PolicyError, check_password_policy
+        while True:
+            password = secrets.token_urlsafe(16)
+            try:
+                check_password_policy(password, username, name)
+                break
+            except PolicyError:
+                continue
+        people[username] = await acc.create_user(username, name, role, password)
     app["devices"].enroll("Kitchen Tablet", "wall_tablet", "kitchen", owner_id)
     app["devices"].enroll("Hallway Tablet", "wall_tablet", "living_room", owner_id)
     service = app.get("settings")
