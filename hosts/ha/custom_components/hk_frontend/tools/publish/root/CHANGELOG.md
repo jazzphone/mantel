@@ -5,6 +5,8 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+## 1.59.3 - 2026-11-11
+
 **Changed**
 - **HK's three biggest settings files in parts** (phase 25): the HK Settings module (`window.hkSettings`), the settings page's screen pages and the Music Library card, each shipped with its parts in one file as the others are. Nothing they do changes.
 
