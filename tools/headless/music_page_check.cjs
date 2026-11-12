@@ -78,20 +78,80 @@ const measure = new Function('return ' + measureSrc.toString().replace('PLAYER_L
         await card.locator('.mpanel [data-p="speakers"]:not([hidden])').first().waitFor({ state: 'visible', timeout: 8000 });
         await page.waitForTimeout(700);
         if (input.shots) await page.screenshot({ path: `${input.shots}/${tag}-speakers.png` });
-        // THE VOLUME TAB (2026-11-10, the owner: "a Global Volume control as well on this tab"): the whole group's slider first
-        // wherever two rooms or more play; every slider lets a vertical finger scroll the list (touch-action pan-y)
-        await card.locator('.mpanel [data-tab="volume"]').first().tap();
-        await card.locator('.mpanel [data-p="volume"]:not([hidden])').first().waitFor({ state: 'visible', timeout: 8000 });
-        await page.waitForTimeout(500);
+        // EACH ROOM ITS OWN VOLUME (2026-11-12, the owner's pick C; it was the Volume tab): no Volume tab; every room in the music a
+        // row that fills to its level, All Speakers on top wherever two rooms or more play; every such row lets a vertical finger
+        // scroll the list (touch-action pan-y); no glyph in a well
         const vt = await page.evaluate(() => {
           const deep = (r, sel) => [...r.querySelectorAll('*')].flatMap((e) => [...(e.matches(sel) ? [e] : []), ...(e.shadowRoot ? deep(e.shadowRoot, sel) : [])]);
-          const rows = deep(document, '.mpanel [data-p="volume"] .mpvrow');
-          return { rows: rows.length, grp: rows.length ? rows[0].classList.contains('grp') : false,
-                   touch: [...new Set(deep(document, '.mpanel .mpvs').map((s) => getComputedStyle(s).touchAction))] };
+          const vol = deep(document, '.mpanel [data-p="speakers"] .mproom.vol');
+          const wells = deep(document, '.mpanel .mproom .ri').filter((e) => { const b = getComputedStyle(e).backgroundColor; return b && b !== 'rgba(0, 0, 0, 0)' && b !== 'transparent'; });
+          return { tabs: deep(document, '.mpanel [data-tab]').map((t) => t.getAttribute('data-tab')), vol: vol.length,
+                   all: deep(document, '.mpanel .mpall .mproom').length, wells: wells.length,
+                   touch: [...new Set(vol.map((s) => getComputedStyle(s).touchAction))] };
         });
-        if (input.shots) await page.screenshot({ path: `${input.shots}/${tag}-volume.png` });
-        assert(vt.rows < 3 || vt.grp, tag + ': two rooms or more, the whole group\'s slider first ' + JSON.stringify(vt));
-        assert.deepEqual(vt.touch, ['pan-y'], tag + ': a vertical finger scrolls the Volume tab ' + JSON.stringify(vt));
+        assert(vt.tabs.indexOf('volume') < 0, tag + ': no Volume tab ' + JSON.stringify(vt));
+        assert(vt.vol < 2 || vt.all === 1, tag + ': two rooms or more in the music, All Speakers on top ' + JSON.stringify(vt));
+        assert(!vt.vol || vt.touch.length === 1 && vt.touch[0] === 'pan-y', tag + ': a vertical finger scrolls the rooms ' + JSON.stringify(vt));
+        assert(!vt.wells, tag + ': the rooms\' glyphs bare, no wells ' + JSON.stringify(vt));
+        if (input.players) {
+          // PLAYING IN THE HOUSE (2026-11-12, mockup D): a row per stream; the page's own lit, the other with its own play / pause --
+          // a tap on that pauses THAT player and the page stays where it is; a tap on the row hands the page to it
+          await card.locator('.mpanel [data-k="close"]').first().tap();
+          await page.waitForTimeout(900);
+          const rows = () => page.evaluate(() => {
+            const deep = (r, sel) => [...r.querySelectorAll('*')].flatMap((e) => [...(e.matches(sel) ? [e] : []), ...(e.shadowRoot ? deep(e.shadowRoot, sel) : [])]);
+            return deep(document, '.house .cx').map((e) => ({ on: e.classList.contains('on'), text: e.textContent, pp: !!e.querySelector('[data-ppk]'),
+              wells: [...e.querySelectorAll('.pp')].filter((p) => { const b = getComputedStyle(p).backgroundColor; return b && b !== 'rgba(0, 0, 0, 0)'; }).length }));
+          });
+          const r0 = await rows();
+          assert(r0.length === 2 && r0.filter((r) => r.on).length === 1 && r0.filter((r) => !r.on).every((r) => r.pp && !r.wells),
+                 tag + ': two streams, the page\'s own lit, the other its own bare play / pause ' + JSON.stringify(r0));
+          if (input.shots) await page.screenshot({ path: `${input.shots}/${tag}-players.png` });
+          // (the fictional house answers a transport without acting on it: what is checked is the call -- that player, play / pause --
+          // and that the page stayed on its own)
+          const want = await page.evaluate(() => {
+            const deep = (r, sel) => [...r.querySelectorAll('*')].flatMap((e) => [...(e.matches(sel) ? [e] : []), ...(e.shadowRoot ? deep(e.shadowRoot, sel) : [])]);
+            const c = deep(document, 'hk-music-card')[0], orig = c._callResp;
+            window.__mpCalls = [];
+            c._callResp = function (d, sv, data) { window.__mpCalls.push([d + '.' + sv, data]); return orig.apply(this, arguments); };
+            return deep(document, '.house .cx:not(.on) [data-ppk]')[0].getAttribute('data-ppk');
+          });
+          await card.locator('.house .cx:not(.on) [data-ppk]').first().click();
+          await page.waitForTimeout(600);
+          const calls = await page.evaluate(() => window.__mpCalls);
+          const r1 = await rows();
+          assert(calls.length === 1 && calls[0][0] === 'hk_frontend.music_transport' && calls[0][1].player === want && calls[0][1].command === 'play_pause',
+                 tag + ': its play / pause asks for that player alone ' + JSON.stringify({ want, calls }));
+          assert(JSON.stringify(r1.map((r) => r.on)) === JSON.stringify(r0.map((r) => r.on)) && r1.find((r) => r.on).text === r0.find((r) => r.on).text,
+                 tag + ': ...and the page stayed on its own ' + JSON.stringify({ r0, r1 }));
+          await card.locator('.house .cx:not(.on) .t').first().click();
+          await page.waitForTimeout(800);
+          const r2 = await rows();
+          assert(/Paper Lanterns/.test(r2.find((r) => r.on).text), tag + ': a tap on the row hands the page to it ' + JSON.stringify(r2));
+        }
+        if (input.group) {
+          // ALL SPEAKERS KEEPS THE BALANCE: dragged a fifth of its width to the right, every room in the music goes up by the
+          // same step from its own level (relative to where the pointer went down, never to where it is)
+          const levels = () => page.evaluate(() => {
+            const deep = (r, sel) => [...r.querySelectorAll('*')].flatMap((e) => [...(e.matches(sel) ? [e] : []), ...(e.shadowRoot ? deep(e.shadowRoot, sel) : [])]);
+            const all = deep(document, '.mpanel .mpall .mproom')[0], r = all && all.getBoundingClientRect();
+            return { box: r ? [r.left, r.top, r.width, r.height] : null,
+                     rooms: Object.fromEntries(deep(document, '.mpanel .mprooms .mproom.vol').map((e) => [e.getAttribute('data-room'), Number(e.style.getPropertyValue('--v'))])) };
+          });
+          const before = await levels();
+          assert(before.box && Object.keys(before.rooms).length === 2, tag + ': two rooms in the music and All Speakers ' + JSON.stringify(before));
+          if (input.shots) await page.screenshot({ path: `${input.shots}/${tag}-group.png` });
+          const [x, y, w, h] = before.box;
+          await page.mouse.move(x + w * 0.5, y + h / 2);
+          await page.mouse.down();
+          for (let i = 1; i <= 10; i++) await page.mouse.move(x + w * 0.5 + w * 0.02 * i, y + h / 2);
+          await page.mouse.up();
+          await page.waitForTimeout(300);
+          const after = await levels();
+          const d = Object.keys(before.rooms).map((k) => Math.round((after.rooms[k] - before.rooms[k]) * 100));
+          assert(d.every((x) => x === d[0]) && d[0] >= 18 && d[0] <= 22, tag + ': every room up by the same fifth ' + JSON.stringify({ before, after, d }));
+          if (input.shots) await page.screenshot({ path: `${input.shots}/${tag}-group-dragged.png` });
+        }
         assert(!m.look.wells.length && m.look.above !== undefined && Math.abs(m.look.above - m.look.below) <= 3, tag + ': the player bare, the pause halfway ' + JSON.stringify(m.look));
         assert(Math.abs(m.margins.left - m.margins.right) <= 1, tag + ': the column\'s margins even ' + JSON.stringify(m.margins));
         console.log(`PASS ${input.engine} ${tag} (${m.cols} column${m.cols === '1' ? ', the sheet' : 's'}): targets ${JSON.stringify(m.strip.targets)}, keys to volume ${m.strip.gapTV} px, ` +

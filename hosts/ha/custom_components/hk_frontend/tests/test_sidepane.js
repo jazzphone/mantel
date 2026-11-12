@@ -295,9 +295,9 @@ ok('...Less, a mini player (2026-10-31, the owner\'s pick): the speaker line ove
    at(less, 'pp') < at(less, 'next') && at(less, 'next') < at(less, 'queue') && /class="mbtn mpp"/.test(less), less);   // (the controls strip's keys since 2026-11-09: hk-np-strip.js)
 var src = readFile(HK_ROOT + '/frontend/modules/hk-sidepane.js');
 // (as a drawer from the section since 2026-11-01: the player risen to the pane's top, the tabs under it)
-ok('...Speakers, Browse and Up Next open the screensaver\'s panel over the pane, its four tabs',
+ok('...Speakers, Browse and Up Next open the screensaver\'s panel over the pane, its three tabs (no Volume since 2026-11-12)',
   /musicPanel\(this, act === 'spk' \? 'speakers' : act === 'queue' \? 'queue' : 'browse', b\.closest\('\[data-k="now_playing"\]'\), 'drawer'\)/.test(src) &&
-   /tabs: \['speakers', 'volume', 'queue', 'browse'\]/.test(src));
+   /tabs: \['speakers', 'queue', 'browse'\]/.test(src));
 ok('...no volume where the player reports none', !/data-act="vol"/.test(less));
 client.states['media_player.kitchen'].attributes.volume_level = 0.42;
 var lessV = X.SEC.now_playing('less', {}, client, ctx);

@@ -301,7 +301,8 @@
           // Every row string has to AGREE on the count, because a grid whose
           // rows disagree on column count is not an error: it silently grows
           // implicit tracks and the artwork drifts.
-          '  grid-template-areas:var(--hk-np-areas,"art . . . . ." "art title title title title title" "art artist artist artist artist artist" "art player player player player player" "art meta meta meta meta meta" "art prev play next stop .");',
+          '  grid-template-areas:var(--hk-np-areas,"art . . . . ." "art title title title title title" "art artist artist artist artist artist" "art player player player player player" "art meta ' +
+            'meta meta meta meta" "art prev play next stop .");',
           '  grid-template-columns:var(--hk-np-cols,306px 62px 62px 62px 62px minmax(0,1fr));',
           '  grid-template-rows:var(--hk-np-rows,1fr min-content min-content min-content min-content min-content);',
           '  column-gap:var(--hk-np-gap,18px);row-gap:8px;align-items:center}',
@@ -873,7 +874,8 @@
           // (2026-11-09: the strip's room -- 56 px targets, 64 for play, 12 clear above and below them -- comes off the cover,
           // and the gap over the progress is 16; on a tile's shorter block the progress is the thin line in its place, the
           // volume keeps its slider -- the owner: "Volume is more important than the progress bar")
-          // (the cover's inset above as beside it, 2026-11-10, the owner: the stack ran taller than the block, the cover pushed up -- the block its own container, the cover what the strip leaves, the stack from the top)
+          // (the cover's inset above as beside it, 2026-11-10, the owner: the stack ran taller than the block, the cover pushed up -- the block its own container, the cover what the strip leaves, the
+          // stack from the top)
           ':host([size=L]) hk-plate.np{container-type:size;--np-art:min(100cqh - 203px, 100cqw - 174px);',
           '  --np-flank:calc((var(--np-art) - 64px) / 2);',
           '  --hk-np-cols:minmax(0,1fr);',
@@ -897,7 +899,8 @@
           ':host(:is([size=L],[size=XL])) .np .title{' + window.hkCards.typeCss('title') + ';line-height:27px;white-space:nowrap;overflow:hidden;text-overflow:clip}',
           // (one line, 2026-11-10: two lines pushed the cover against the block's top; a long one drifts instead -- _marquee)
           ':host(:is([size=L],[size=XL])) .np .title .mqt{display:inline-block;padding-right:2px}',
-          ':host(:is([size=L],[size=XL])) .np .title.mq{-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 18px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 18px),transparent)}',
+          ':host(:is([size=L],[size=XL])) .np .title.mq{-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 18px),transparent);' +
+            'mask-image:linear-gradient(90deg,#000 calc(100% - 18px),transparent)}',
           '@media (prefers-reduced-motion:no-preference){:host(:is([size=L],[size=XL])) .np .title.mq .mqt{animation:hk-np-mq var(--mqt,14s) ease-in-out 3s infinite}}',
           '@keyframes hk-np-mq{0%,22%{transform:translateX(0)}50%,64%{transform:translateX(var(--mqd,0px))}92%,100%{transform:translateX(0)}}',
           // XL (mockup 12i, 2026-11-09, the owner: "this player should work more like the Large card (vertical style
@@ -980,10 +983,12 @@
           window.hkCards.headCss(':host(:is([size=L],[size=XL])) .np.idle .npi-lab'),
           ':host(:is([size=L],[size=XL])) .np.idle .npi-lab{color:rgba(255,255,255,.7);display:block;margin-bottom:2px}',
           ':host(:is([size=L],[size=XL])) .np.idle .npi-t{' + window.hkCards.typeCss('headline') + ';letter-spacing:0;line-height:22px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-          ':host(:is([size=L],[size=XL])) .np.idle .npi-a{' + window.hkCards.typeCss('body') + ';line-height:19px;color:rgba(255,255,255,.7);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+          ':host(:is([size=L],[size=XL])) .np.idle .npi-a{' + window.hkCards.typeCss('body') +
+            ';line-height:19px;color:rgba(255,255,255,.7);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
           // Play: a white key drawn 40 px with a 56 px target (8 past it above and below, into room nothing else takes)
           ':host(:is([size=L],[size=XL])) .np.idle .npi-play{position:relative;align-self:flex-start;display:inline-flex;align-items:center;gap:6px;height:40px;margin-top:6px;padding:0 18px 0 14px;',
-          '  border:0;border-radius:20px;background:rgba(255,255,255,.94);color:#1c1c1e;font:inherit;font-size:15px;font-weight:600;line-height:1;cursor:pointer;-webkit-tap-highlight-color:transparent}',
+          '  border:0;border-radius:20px;background:rgba(255,255,255,.94);color:#1c1c1e;font:inherit;font-size:15px;font-weight:600;line-height:1;cursor:pointer;' +
+            '-webkit-tap-highlight-color:transparent}',
           ':host(:is([size=L],[size=XL])) .np.idle .npi-play::after{content:"";position:absolute;inset:-8px -6px}',
           ':host(:is([size=L],[size=XL])) .np.idle .npi-play svg{width:18px;height:18px;fill:currentColor}',
           ':host(:is([size=L],[size=XL])) .np.idle .npi-play:active{transform:scale(.96)}',
@@ -992,20 +997,24 @@
           // capsule, the key's fill, an 18 px glyph and a word, as wide as its word; its touch 56 px tall (44 on the screen), and 8 px
           // clear between the two (16 between the pills, each reaching 4 past its ends)
           ':host(:is([size=L],[size=XL])) .np.idle .npi-btns{display:flex;gap:16px;min-width:0}',
-          ':host(:is([size=L],[size=XL])) .np.idle .npi-b{position:relative;flex:none;min-width:0;max-width:100%;display:inline-flex;align-items:center;gap:7px;height:40px;padding:0 16px;border:0;border-radius:20px;',
+          ':host(:is([size=L],[size=XL])) .np.idle .npi-b{position:relative;flex:none;min-width:0;max-width:100%;display:inline-flex;align-items:center;gap:7px;height:40px;padding:0 16px;border:0;' +
+            'border-radius:20px;',
           '  background:rgba(255,255,255,.16);color:#fff;font:inherit;font-size:15px;font-weight:600;line-height:1;cursor:pointer;-webkit-tap-highlight-color:transparent}',
           ':host(:is([size=L],[size=XL])) .np.idle .npi-b::after{content:"";position:absolute;inset:-8px -4px}',
           ':host(:is([size=L],[size=XL])) .np.idle .npi-b:active{background:rgba(255,255,255,.28)}',
-          ':host(:is([size=L],[size=XL])) .np.idle .npi-b>svg,:host(:is([size=L],[size=XL])) .np.idle .npi-b>hk-icon{flex:none;width:18px;height:18px;--mdc-icon-size:18px;fill:currentColor;display:flex}',
+          ':host(:is([size=L],[size=XL])) .np.idle .npi-b>svg,:host(:is([size=L],[size=XL])) .np.idle .npi-b>hk-icon{flex:none;width:18px;height:18px;--mdc-icon-size:18px;fill:currentColor;' +
+            'display:flex}',
           ':host(:is([size=L],[size=XL])) .np.idle .npi-b b{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}',
           // Large's playlists: a heading, a row of covers with their names, scrolling across, the fade at its end
           window.hkCards.headCss(':host([size=L]) .np.idle .npi-h'),
           ':host([size=L]) .np.idle .npi-h{color:rgba(255,255,255,.7);margin-bottom:8px}',
           ':host([size=L]) .np.idle .npi-r{display:flex;flex-direction:column;flex:none;min-height:0}',
-          ':host([size=L]) .np.idle .npi-row{display:flex;gap:12px;overflow-x:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-x;scrollbar-width:none;margin-right:-' + NP_PAD.r + ';padding-right:' + NP_PAD.r + '}',
+          ':host([size=L]) .np.idle .npi-row{display:flex;gap:12px;overflow-x:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-x;scrollbar-width:none;' +
+            'margin-right:-' + NP_PAD.r + ';padding-right:' + NP_PAD.r + '}',
           ':host([size=L]) .np.idle .npi-row::-webkit-scrollbar{display:none}',
           ':host([size=L]) .np.idle .npi-row.more{-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 48px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 48px),transparent)}',
-          ':host([size=L]) .np.idle .npi-pc{flex:none;width:72px;display:flex;flex-direction:column;gap:5px;padding:0;border:0;background:none;color:#fff;font:inherit;text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent}',
+          ':host([size=L]) .np.idle .npi-pc{flex:none;width:72px;display:flex;flex-direction:column;gap:5px;padding:0;border:0;background:none;color:#fff;font:inherit;text-align:left;' +
+            'cursor:pointer;-webkit-tap-highlight-color:transparent}',
           ':host([size=L]) .np.idle .npi-pc:active{opacity:.6}',
           ':host([size=L]) .np.idle .npic.pl{width:72px;height:72px;border-radius:' + window.hkCards.R.inner + 'px}',
           ':host([size=L]) .np.idle .npi-pc span:last-child{font-size:13px;line-height:16px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
@@ -1129,7 +1138,7 @@
         sr.appendChild(scrim);
         var me = { host: host, scrim: scrim, phone: phone, doneT: null, ticked: 0 };
         me.p = P.create({
-          tabs: ['speakers', 'volume', 'queue'],
+          tabs: ['speakers', 'queue'],
           client: function () { return self.client; },
           ctx: function () { return self._musicCtx(); },
           art: function () { return null; },
@@ -1207,7 +1216,7 @@
         sr.appendChild(scrim);
         me = { host: host, scrim: scrim, turn: plate, doneT: null, ticked: 0, anim: null };
         me.p = P.create({
-          tabs: ['speakers', 'volume', 'queue', 'browse'],
+          tabs: ['speakers', 'queue', 'browse'],
           client: function () { return self.client; },
           ctx: function () { return self._musicCtx(); },
           // the cover, blurred behind the panel as on the screensaver
@@ -1663,7 +1672,8 @@
                   '<button class="npi-play" type="button" data-ia="play" aria-label="Play ' + esc(last.name) + '">' + S.svg(S.ICON.play) + 'Play</button>'
                 : '<b class="npi-t">Nothing Playing</b>') + '</div></div>';
         var btns = '<div class="npi-btns"><button class="npi-b" type="button" data-ia="browse">' + S.svg(S.ICON.search) + '<b>Browse</b></button>' +
-          '<button class="npi-b" type="button" data-ia="spk" aria-label="Speaker: ' + esc(room) + '">' + '<hk-icon icon="' + esc((window.hkIcons && window.hkIcons.speaker ? window.hkIcons.speaker(p ? p.entity_id : this._res().player) : 'hk:homepod')) + '"></hk-icon><b>' + esc(room) + '</b></button></div>';
+          '<button class="npi-b" type="button" data-ia="spk" aria-label="Speaker: ' + esc(room) + '">' + '<hk-icon icon="' +
+            esc((window.hkIcons && window.hkIcons.speaker ? window.hkIcons.speaker(p ? p.entity_id : this._res().player) : 'hk:homepod')) + '"></hk-icon><b>' + esc(room) + '</b></button></div>';
         var list = size === 'XL'
           ? '<div class="npq-h"><span>Playlists</span></div><div class="npql">' + (pls.length ? pls.map(function (it, i) {
               return '<button class="npqr" type="button" data-pi="' + i + '" aria-label="' + (it.options ? 'Choose from ' : 'Play ') + esc(it.name) + '">' +
@@ -1821,11 +1831,11 @@
             });
           } else {
             // ON A HOME GRID (a block of its own, `size`): the card turns over
-            // -- a Small block's Speakers to the Volume, the one it has no
-            // slider for (the mock-up, 2026-10-31)
+            // -- to Speakers, whose rows are each room's volume too (2026-11-12: the Volume tab went; a Small block, with no slider of
+            // its own, turned to it before)
             // (the speaker line: the Speakers key's turn, 2026-11-09; Up Next the turn's Queue)
             q('.hksl').addEventListener('click', function () {
-              if (self.hasAttribute('size')) self._turn(self.getAttribute('size') === 'S' ? 'volume' : 'speakers');
+              if (self.hasAttribute('size')) self._turn('speakers');
             });
             q('[data-act=brw]').addEventListener('click', function () { if (self.hasAttribute('size')) self._turn('browse'); });
             q('[data-act=queue]').addEventListener('click', function () { if (self.hasAttribute('size')) self._turn('queue'); });

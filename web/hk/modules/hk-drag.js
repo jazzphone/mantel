@@ -472,14 +472,15 @@
   // Volume tab): a finger is the slider's only once it has gone sideways -- SLOP_TOUCH first, more across than down
   // (classify, axis x); down, it was the list's, and the slider never moved. A mouse takes it at once. The element wears
   // touch-action:pan-y (the browser scrolls the list, and says pointercancel) and data-hk-control (the page swipe leaves
-  // it be). h: target(e) -> the slider under the press or null, start(t, x), move(t, x), end(t, cancelled).
+  // it be). h: target(e) -> the slider under the press or null, start(t, x), move(t, x), end(t, cancelled); keepClick (a slider that is
+  // also a button -- the Speakers panel's rows, 2026-11-12): a mouse press that never went SLOP_MOUSE stays a click, not a drag's end.
   // (hk-control.js wireSlider is the same rule, for an <input type=range>.)
   function slider(el, h) {
     var g = null;
     el.addEventListener('pointerdown', function (e) {
       var t = h.target ? h.target(e) : el;
       if (!t || e.isPrimary === false) return;
-      g = { id: e.pointerId, x: e.clientX, y: e.clientY, t: t, live: e.pointerType === 'mouse' };
+      g = { id: e.pointerId, x: e.clientX, y: e.clientY, t: t, live: e.pointerType === 'mouse', far: e.pointerType !== 'mouse' };
       if (g.live) { try { el.setPointerCapture(e.pointerId); } catch (x) { /* gone */ } h.start(t, e.clientX); }
     });
     el.addEventListener('pointermove', function (e) {
@@ -492,6 +493,7 @@
         try { el.setPointerCapture(e.pointerId); } catch (x) { /* gone */ }
         h.start(g.t, e.clientX);
       }
+      if (!g.far && Math.abs(e.clientX - g.x) + Math.abs(e.clientY - g.y) > SLOP_MOUSE) g.far = true;
       h.move(g.t, e.clientX);
       if (e.cancelable) e.preventDefault();
     }, { passive: false });
@@ -499,7 +501,7 @@
     var end = function (e) {
       if (!g || e.pointerId !== g.id) return;
       var was = g; g = null;
-      if (was.live) { swallow = Date.now(); h.end(was.t, e.type === 'pointercancel'); }
+      if (was.live) { if (!h.keepClick || was.far) swallow = Date.now(); h.end(was.t, e.type === 'pointercancel'); }
     };
     el.addEventListener('pointerup', end);
     el.addEventListener('pointercancel', end);
