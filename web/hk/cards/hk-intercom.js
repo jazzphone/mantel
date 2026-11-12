@@ -1402,7 +1402,8 @@
       // a room: a row with its tick, its name and what's true of it (Plays with ..., Quiet hours), its glyph at the end
       // a room: the speaker's well, its name over what is true of it (Plays with Office, Quiet hours, Unavailable, Live), the tick
       // at the end -- hk-saver-panel.js's .mproom, the Music page's speaker picker
-      '.rm{display:flex;align-items:center;gap:12px;min-height:52px;padding:6px 10px 6px 8px;border-radius:13px;min-width:0;',
+      // (a capsule, Apple's: the ends fully round, the glyph and the ring 16 px in -- the owner, 2026-11-12)
+      '.rm{display:flex;align-items:center;gap:12px;min-height:52px;padding:6px 14px 6px 16px;border-radius:99px;min-width:0;',
       '  background:var(--hk-pill-bg, rgba(255,255,255,0.07));color:' + v('ink') + ';cursor:pointer;box-sizing:border-box;',
       '  touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:background-color .22s ease}',
       // the speaker's glyph bare, no well (Apple's AirPlay list, 2026-11-12, the owner's option A), in a 34 px box so the names stay put
@@ -1412,16 +1413,17 @@
       // a name too long for its row ends in "…", whole names in the aria-label (2026-11-07, the owner: "Names are getting clipped off")
       '.rm .l b{display:block;font-size:16px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
       '.rm .l small{display:block;font-size:12.5px;opacity:0.72;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-      // the tick shows only on a picked row; an unpicked one has nothing at the end
       // (picked: Apple's dark disc with a white check, as the Speakers panel's rows -- DESIGN.md "Speakers, Apple's AirPlay way")
-      '.rm .tk{flex:none;width:28px;height:28px;border-radius:50%;background:rgba(0,0,0,0.82);display:none;align-items:center;justify-content:center}',
-      '.rm .tk svg{width:17px;height:17px;fill:#fff}',
+      // (unpicked, an empty ring -- the room can be picked, and the finger has a place to aim; picked, the dark disc and its check)
+      '.rm .tk{flex:none;width:28px;height:28px;border-radius:50%;box-shadow:inset 0 0 0 2px ' + v('mark') + ';display:flex;align-items:center;justify-content:center}',
+      '.rm .tk svg{width:17px;height:17px;fill:#fff;visibility:hidden}',
+      '.rm.off:not([aria-pressed="true"]) .tk{visibility:hidden}',
       // picked: the white of a lit tile, dark ink on it
       '.rm[aria-pressed="true"]{background:rgba(255,255,255,0.94);color:rgba(0,0,0,0.88);text-shadow:none}',
       '.rm[aria-pressed="true"] .l b{color:rgba(0,0,0,0.88)}',
       '.rm[aria-pressed="true"] .l small{color:' + v('ink-on-state') + ';opacity:1}',
       '.rm[aria-pressed="true"] .ri hk-icon{color:rgba(0,0,0,0.78)}',
-      '.rm[aria-pressed="true"] .tk{display:flex}',
+      '.rm[aria-pressed="true"] .tk{background:rgba(0,0,0,0.82);box-shadow:none}.rm[aria-pressed="true"] .tk svg{visibility:visible}',
       // a room a tap can't pick is dimmed as Music's unavailable speaker; one on quiet hours (Send Anyway may include it) less so
       '.rm.off{opacity:0.38;cursor:default}',
       '.rm.quiet{opacity:0.6}',
