@@ -5,6 +5,9 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+**Added**
+- **Mantel for Android counts as the kiosk app**: a wall tablet running it (the same entities as Kiosk Satellite, through ESPHome) is driven by Sleep Screen and checked by the tablet alerts as a Kiosk Satellite tablet is; its own package in front counts as the kiosk's.
+
 ## 1.59.3 - 2026-11-11
 
 **Changed**

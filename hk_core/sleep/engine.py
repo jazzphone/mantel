@@ -26,7 +26,7 @@ from . import rules as R
 
 # the kiosk's apps that are not "another app": Kiosk Satellite itself, and
 # the home screens it replaces on a wake (the house's KIOSK list)
-KIOSK_APPS = ("me.jxl.kiosk_satellite", "com.sec.android.app.launcher", "com.google.android.apps.nexuslauncher",
+KIOSK_APPS = ("me.jxl.kiosk_satellite", "com.jazzphone.mantel.android", "com.sec.android.app.launcher", "com.google.android.apps.nexuslauncher",
               "none", "", "unknown", "unavailable")
 # a Kiosk Satellite device's entities, by the end of their ids
 KIOSK_PARTS = {"screen": ("light", "_screen"), "active": ("switch", "_screensaver_active"),

@@ -2675,6 +2675,40 @@
   "stream": "bounded:one icon file under web/app/art",
   "why": "a static file or page shell any session (or the sign-in page) loads; the data behind it is guarded"
  },
+ "GET /apps/android/latest.json": {
+  "audit": [],
+  "csrf": "-",
+  "device_ok": true,
+  "door": "lan",
+  "first": false,
+  "fresh": "never",
+  "handler": "latest",
+  "mcp": [],
+  "module": "mantel_server.apps.android",
+  "no_audit": null,
+  "preview": false,
+  "reads": "none",
+  "reads_why": "the tablet app's own update: a manifest and a signed APK, nothing of the house",
+  "stream": "none",
+  "who": "signed_in"
+ },
+ "GET /apps/android/{file}": {
+  "audit": [],
+  "csrf": "-",
+  "device_ok": true,
+  "door": "lan",
+  "first": false,
+  "fresh": "never",
+  "handler": "apk",
+  "mcp": [],
+  "module": "mantel_server.apps.android",
+  "no_audit": null,
+  "preview": false,
+  "reads": "none",
+  "reads_why": "the tablet app's own update: a manifest and a signed APK, nothing of the house",
+  "stream": "bounded:64 MB (one APK)",
+  "who": "signed_in"
+ },
  "GET /auth/callback": {
   "csrf": "-",
   "handler": "callback",
@@ -2713,6 +2747,17 @@
   "reads_why": "a page shell; the data behind it is read through guarded routes and the socket",
   "stream": "none",
   "who": "signed_in"
+ },
+ "GET /device/claim": {
+  "csrf": "-",
+  "handler": "claim_page",
+  "kind": "static",
+  "mcp": [],
+  "module": "mantel_server.identity.device_claim",
+  "preview": false,
+  "reads": "none",
+  "stream": "none",
+  "why": "the page a tablet types its pairing code on: a form, no house data; the code is checked by POST /api/devices/claim"
  },
  "GET /docs": {
   "csrf": "-",
@@ -3875,6 +3920,36 @@
   "reads_why": null,
   "stream": "none",
   "who": "owner"
+ },
+ "POST /api/devices/claim": {
+  "csrf": "own",
+  "handler": "claim",
+  "kind": "one_time_code",
+  "mcp": [],
+  "module": "mantel_server.identity.device_claim",
+  "preview": false,
+  "reads": "none",
+  "stream": "none",
+  "why": "a tablet app pairing with a one-time code an Owner or Admin made: the code is the check (home network only, rate limited); it enrolls this browser as that tablet and answers no house data"
+ },
+ "POST /api/devices/claim-codes": {
+  "audit": [
+   "device.claim_code"
+  ],
+  "csrf": "session",
+  "device_ok": false,
+  "door": "any",
+  "first": false,
+  "fresh": "never",
+  "handler": "make_code",
+  "mcp": [],
+  "module": "mantel_server.identity.device_claim",
+  "no_audit": null,
+  "preview": false,
+  "reads": "none",
+  "reads_why": "answers the new code and when it runs out, nothing of the house",
+  "stream": "none",
+  "who": "manager"
  },
  "POST /api/devices/enroll": {
   "audit": [

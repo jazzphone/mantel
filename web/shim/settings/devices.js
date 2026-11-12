@@ -109,6 +109,13 @@ export function drawTabletMantel(c, ctx) {
                              (v) => api('PUT', '/api/devices/' + encodeURIComponent(dv.id) + '/default-screen', { screen: v })));
     }
   }
+  // A TABLET APP PAIRED BY CODE (docs/phase26/ANDROID-APP.md): no password typed on the tablet; the code works once
+  if (me.user.role === 'owner' || me.user.role === 'admin') rows.push(button('Pair a Tablet App…', async () => {
+    const out = await act(key, () => api('POST', '/api/devices/claim-codes', { tablet: tid }), null);
+    if (out && out.code) await ask({ title: 'Pairing Code: ' + out.code, ok: 'Done',
+      message: 'On the tablet, enter it in Mantel for Android’s setup, or open ' + location.origin + mantelUrl('/device/claim') +
+        ' in its browser. It works once, on the home network, for the next 10 minutes.' });
+  }, { fk: 'mx:claim-code:' + tid }));
   for (const dv of mine) rows.push(button('Sign Out ' + (mine.length > 1 ? dv.name : 'This Tablet') + '…', async () => {
     if (!(await ask({ title: 'Sign out ' + dv.name + '?', message: 'Mantel refuses it at once. To use it again, sign it in here from the tablet itself.', ok: 'Sign Out', destructive: true }))) return;
     act(key, () => api('DELETE', '/api/devices/' + encodeURIComponent(dv.id)), dv.name + ' is signed out.', 'devices', 'devrooms', 'hapeople');

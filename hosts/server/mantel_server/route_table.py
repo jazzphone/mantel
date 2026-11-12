@@ -56,9 +56,10 @@ SIGNED_OUT = frozenset({
     "/api/app/music/queue/play", "/api/app/music/volume", "/api/app/push/register", "/api/app/sign-out",
     "/api/app/snap", "/api/app/summary", "/api/app/token", "/api/app/web-session", "/api/auth/passkey/options",
     "/api/auth/passkey/verify", "/api/auth/password", "/api/auth/totp/verify", "/api/bootstrap",
-    "/api/bootstrap/restore", "/api/proxy-check/basics", "/api/version", "/app/art/apple-touch-icon.png",
+    "/api/bootstrap/restore", "/api/devices/claim", "/api/proxy-check/basics", "/api/version", "/app/art/apple-touch-icon.png",
     "/app/art/badge-96.png", "/app/art/mantel-192.png", "/app/art/mantel-512.png", "/app/art/mantel-maskable-512.png",
     "/app/authorize", "/app/web-session", "/apple-touch-icon.png", "/auth/callback", "/auth/connection/callback",
+    "/device/claim",
     "/healthz", "/ingress/bootstrap", "/linked/pair", "/linked/ws", "/login", "/login/ha", "/login/login.css",
     "/login/login.js", "/logout", "/manifest.webmanifest", "/mcp", "/mcp/oauth/authorize", "/mcp/oauth/register",
     "/mcp/oauth/revoke", "/mcp/oauth/token", "/sw.js", "/webauthn.js"})
