@@ -8,8 +8,8 @@ const input = JSON.parse(fs.readFileSync(0, 'utf8'));
 const want = (part) => !input.only.length || input.only.includes(part);
 
 const DEEP = `window.deep = (r, s) => [...r.querySelectorAll('*')].flatMap(e => [...(e.matches(s) ? [e] : []), ...(e.shadowRoot ? deep(e.shadowRoot, s) : [])]);`;
-// the sheet's sizes: the wall tablet, an iPad across and upright, a phone
-const SHEET_SIZES = [[1280, 800], [1180, 820], [820, 1180], [390, 844]].filter(([w, h]) => !(input.sizes || []).length || input.sizes.includes(w + 'x' + h));
+// the sheet's sizes: the wall tablet, an iPad across and upright, a 1024 px window (four across), a phone
+const SHEET_SIZES = [[1280, 800], [1180, 820], [1024, 768], [820, 1180], [390, 844]].filter(([w, h]) => !(input.sizes || []).length || input.sizes.includes(w + 'x' + h));
 
 // every Home block on the page: its size, what it draws, how its parts sit
 function blocks() {
@@ -46,6 +46,18 @@ function sheetState() {
     W: innerWidth, H: innerHeight, sheet: box(sheet), body: box(body), title: host.querySelector('.tt').textContent, panel: !!panel,
     back: back ? Object.assign(box(back), { text: back.textContent.trim() }) : null, x: box(hd.querySelector('.x:not(.hk-home-back)')),
     types, kinds: [...new Set(kinds)],
+    // how many pills a row holds: the most tracks of the sheet's pill grids (they auto-fill the column), inside the body
+    ...(() => {
+      if (!sr) return { across: 0, pills: [] };
+      const bb = body.getBoundingClientRect();
+      const counts = deep(sr, '*').filter((e) => e.getClientRects().length && getComputedStyle(e).display === 'grid').map((e) => {
+        const r = e.getBoundingClientRect();
+        if (r.left < bb.left - 6 || r.right > bb.right + 6) return 0;
+        const t = getComputedStyle(e).gridTemplateColumns.split(' ').filter((x) => parseFloat(x) >= 120);
+        return t.length;
+      });
+      return { across: counts.length ? Math.max(...counts) : 0, pills: [...new Set(counts)] };
+    })(),
     scroll: { top: body.scrollTop, h: body.scrollHeight, ch: body.clientHeight, sw: body.scrollWidth, cw: body.clientWidth },
     docW: document.scrollingElement.scrollWidth,
     focus: (() => { let a = document.activeElement; while (a && a.shadowRoot && a.shadowRoot.activeElement) a = a.shadowRoot.activeElement; return a ? a.tagName + '.' + a.className : null; })()
@@ -188,7 +200,10 @@ function sheetState() {
           assert(s.sheet.l >= -0.5 && s.sheet.t >= -0.5 && s.sheet.r <= s.W + 0.5 && s.sheet.b <= s.H + 0.5, JSON.stringify(s.sheet));
           assert(s.scroll.sw <= s.scroll.cw + 1 && s.docW <= s.W + 1, JSON.stringify(s.scroll));
         });
-        if (w === 1280) check(`${engine} ${sz}: the Room sheet's size, 864 x 680`, () => assert(Math.abs(s.sheet.w - 864) <= 2 && Math.abs(s.sheet.h - 680) <= 2, JSON.stringify(s.sheet)));
+        // FIVE PILLS ACROSS where the window holds them, at the one sheet height (2026-11-12); fewer, whole, where it does not
+        const across = { 1280: 5, 1180: 5, 1024: 4, 820: 3, 390: 2 }[w];
+        if (w >= 1180) check(`${engine} ${sz}: five pills wide, 1070 x 680`, () => assert(Math.abs(s.sheet.w - 1070) <= 2 && Math.abs(s.sheet.h - 680) <= 2, JSON.stringify(s.sheet)));
+        check(`${engine} ${sz}: ${across} pills across, whole`, () => assert.equal(s.across, across, JSON.stringify(s.pills)));
         check(`${engine} ${sz}: the generated Home's list -- the chips, the camera mosaic, Scenes, the rooms -- no clock, no pop-ups`, () => {
           ['hk-chips-card', 'hk-camera-mosaic-card', 'hk-scenes-card', 'hk-heading-card'].forEach((k) => assert(s.kinds.includes(k), k + ' ' + JSON.stringify(s.kinds)));
           ['hk-header-card', 'hk-popup-card', 'hk-now-playing-card'].forEach((k) => assert(!s.kinds.includes(k), k + ' ' + JSON.stringify(s.kinds)));

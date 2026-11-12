@@ -39,6 +39,7 @@ from this plan, and why.
 - **House Status's shared parts** are `window.hkHouseStatus.parts`. That covers its headline and sentence (`summary()`,
   which House Status now calls too), the chip model's mixin, a section's glyph, colors and words, `lines()` and
   `headline()`.
+- **The size** is five pills across (decision 1 below), `hkWidthKind()` 5 x 196 + 4 x 10 + 48 + 2 = 1070.
 - **Sideways:** the sheet clips sideways (`overflow-x: clip`), because the camera mosaic's row bleeds 22 px past its
   column, as it does on the page.
 - **Checks:** `tests/test_home_block.py` covers the pure part, both catalogs, the saved layout and the wiring.
@@ -208,7 +209,11 @@ This is the part the recording shows at 2.6 s. **Changed 2026-11-12 (decision 2)
 
 ## The owner's decisions
 
-1. **The sheet's size: agreed (2026-11-12).** The Room sheet's 864 x 680, four pills across.
+1. **The sheet's size: five pills across, 1070 x 680 (2026-11-12, changed after trying it).** First agreed as the Room
+   sheet's 864 x 680, four across. On the house the owner asked whether it should fill the screen; full screen would add
+   only one column (six don't fit in 1280 with the padding) and about a row, hide the grid and break the one sheet
+   height. So the sheet is one pill wider than the Room sheet, at the same height. It is never wider than the window:
+   five across at 1280 and 1180, four in a 1024 px window, three on an iPad upright, two on a phone.
 2. **Chips go to their page, rooms open inside the sheet: agreed (2026-11-12).** First answered "Inside the sheet", and
    built that way. After trying it the owner found a chip's page inside the sheet "not the best place for it": he had
    read "inside the sheet" as the chips being inside it. So a chip and Cameras go to the screen's own page, the sheet

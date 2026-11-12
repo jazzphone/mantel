@@ -101,8 +101,10 @@
     }
 
     // ======================================================================== the sheet's body
-    // ITS WIDTH: the Room sheet's (hk-room.js): four of the page's pills and their gaps, the sheet's 24 px padding a side and
-    // its 1 px border. On a phone hk-detail.js's phone sheet, two pills across.
+    // ITS WIDTH: five of the page's pills and their gaps, the sheet's 24 px padding a side and its 1 px border -- 1070 px on the
+    // wall tablet, one pill wider than the Room sheet (hk-room.js), at the one sheet height (the owner, 2026-11-12, asked about
+    // filling the screen: five across keeps the grid at the edges and the header where every sheet has it). Never wider than the
+    // window (hk-detail.js): an iPad upright holds three, a 1024 px window four; a phone has its own sheet, two across.
     var RS = { pill: C.TILE.w, gap: C.TILE.gridGap };
     var SHEET_CSS = [
       ':host{display:block;--hk-pill:' + RS.pill + 'px;--hk-track:' + RS.pill + 'px;--hk-cell-bleed:0px;--hk-pill-end:0px}',
@@ -121,7 +123,7 @@
 
     class HkHomeSheet extends HkBase {
       static get CSS() { return SHEET_CSS; }
-      hkWidthKind() { return 4 * RS.pill + 3 * RS.gap + 2 * 24 + 2; }
+      hkWidthKind() { return 5 * RS.pill + 4 * RS.gap + 2 * 24 + 2; }
       hkFill() { return true; }
       hkNoGear() { return true; }
       // an accessory, a camera or a count's list opened from here comes back here, to the page it was opened on
