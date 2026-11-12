@@ -6,14 +6,15 @@
 //
 //   LEFT     what plays, always there. At its top "Playing on <rooms>" (or
 //            "Ready on", nothing playing) with Change; under it, when more
-//            than one thing plays in the house, a card for each (the one this
-//            page controls lit, the others' Switch hands the page to them);
+//            than one thing plays in the house, a player row for each (the one this
+//            page controls lit white, a tap on another hands the page to it, its
+//            own play / pause at the right);
 //            then the art, the song, the progress, Speakers / previous /
 //            play-pause / next / Queue, the volume and Up Next.
 //   BACK     Speakers (and Change) turns what plays over to the panel the
 //            screensaver has (modules/hk-saver-panel.js): Speakers -- what's
 //            ticked is where it plays: the next pick, and Update moves what
-//            plays there; Reset, Stop -- each room's Volume, and the Queue.
+//            plays there; Reset, Stop -- and the Queue (the tabs: Speakers, Queue).
 //            With nothing playing, Speakers picks where the next music plays.
 //   RIGHT    Browse Music (hk-library-card, `layout: music`): search, Your
 //            Playlists (the Play Music tiles, here), Discover, the Library --
@@ -90,9 +91,9 @@
   var TICK = 1000, VOL_EVERY = 250, VOL_HOLD = 4000, TURN_MS = 620;
   // the cover's least size beside a long house list (.artbox's min-height:
   // more, and two cards no longer fit the Kitchen tablet); a capped list's
-  // card pitch (.cx 52 + the gap 6) and how much of the next card it shows,
+  // card pitch (.cx 72 + the gap 6) and how much of the next card it shows,
   // so it plainly scrolls -- a sliver of one read as a glitch
-  var ART_MIN = 120, CX_PITCH = 58, CX_PEEK = 24;
+  var ART_MIN = 120, CX_PITCH = 78, CX_PEEK = 24;
 
   // ------------------------------------------------------------ pure (tests)
   // "Kitchen", "Kitchen and Loft", "Kitchen, Loft and Office"
@@ -137,12 +138,11 @@
     '.mpanel.pg .mpact,.mpanel.sheet .mpact{font-size:15px;gap:6px}',
     '.mpanel.pg .mpact svg,.mpanel.sheet .mpact svg{width:16px;height:16px}',
     '.mpanel.pg .mpact.stop svg,.mpanel.sheet .mpact.stop svg{width:18px;height:18px}',
-    // ...the desk's rooms column: always open, Speakers and Volume as the
-    // pop-up's tabs (the user's ask, 2026-10-14) -- no close button
+    // ...the desk's rooms column: always open, Speakers as the
+    // pop-up's tab (the user's ask, 2026-10-14) -- no close button
     '.rooms .mpanel{display:block;position:absolute;inset:0}',
     '.rooms .mpx{display:none}',
-    // ...and a panel of one tab (the desk's Queue, its Volume in the
-    // column): that tab as its title
+    // ...and a panel of one tab (the desk's Queue): that tab as its title
     '.mpanel.one .mptabs{background:none;border:0;padding:0}',
     '.mpanel.one .mptabs div.on{color:#fff;font-size:17px;padding:0 2px;justify-content:flex-start}',
     '.mpanel.one .mptabs div.on::before{display:none}',
@@ -158,8 +158,7 @@
     ''
   ].join('');
 
-  // PLAYS ON'S DROP-DOWN (2026-10-14): the Speakers panel (Speakers and
-  // Volume, as the desk's column has them) under the button -- an opaque
+  // PLAYS ON'S DROP-DOWN (2026-10-14): the Speakers panel (as the desk's column has it) under the button -- an opaque
   // plate of its own, the panel inside it as on the page (.pg)
   var PICK_CSS = [
     '.pkscrim{position:fixed;inset:0;z-index:24}',
@@ -280,18 +279,28 @@
     '.house > *{flex:none}',
     '.house:empty{display:none}',
     '.house .hl{font-size:11px;font-weight:600;letter-spacing:0.4px;opacity:.6;text-transform:uppercase;margin:0 2px 2px}',
-    '.cx{display:flex;align-items:center;gap:10px;height:52px;padding:0 10px 0 6px;border-radius:12px;cursor:pointer;box-sizing:border-box;',
-    '  background:' + window.hkCards.v('key') + ';box-shadow:inset 0 0 0 1px ' + window.hkCards.v('line') + '}',
-    '.cx.on{background:' + window.hkCards.v('key-strong') + ';box-shadow:inset 0 0 0 1.5px var(--hk-mark,rgba(255,255,255,.55));cursor:default}',
-    '.cx .th{width:40px;height:40px;border-radius:8px;background:' + window.hkCards.v('key') + ';flex:none;overflow:hidden;display:flex;align-items:center;justify-content:center}',
+    // A PLAYER ROW (the owner's "D", after Apple's player list, 2026-11-12): 72 tall, 52 art, "Song -- Artist" over the rooms
+    '.cx{display:flex;align-items:center;gap:12px;height:72px;padding:0 10px 0 10px;border-radius:23.5px;cursor:pointer;box-sizing:border-box;',
+    '  background:rgba(255,255,255,.10);box-shadow:inset 0 0 0 1px rgba(255,255,255,.14)}',
+    '.cx.on{background:rgba(255,255,255,.94);color:rgba(0,0,0,.88);box-shadow:none;cursor:default}',
+    '.cx .th{width:52px;height:52px;border-radius:12px;background:rgba(255,255,255,.12);box-shadow:0 2px 8px rgba(0,0,0,.28);flex:none;overflow:hidden;display:flex;align-items:center;' +
+      'justify-content:center}',
+    '.cx.on .th{background:rgba(0,0,0,.08);box-shadow:0 2px 8px rgba(0,0,0,.18)}',
     '.cx .th img{width:100%;height:100%;object-fit:cover;display:block}',
-    '.cx .th hk-icon,.cx .th svg{--mdc-icon-size:20px;width:20px;height:20px;fill:var(--hk-glyph,rgba(255,255,255,.5));color:var(--hk-glyph,rgba(255,255,255,.5))}',
-    '.cx .t{flex:1;min-width:0;line-height:1.2}',
-    '.cx .t b{display:block;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-    '.cx .t small{display:block;font-size:12px;opacity:.7;white-space:nowrap;overflow:hidden}',
-    '.cx .sw{font-size:12px;font-weight:600;opacity:.75;flex:none}',
+    '.cx .th hk-icon,.cx .th svg{--mdc-icon-size:24px;width:24px;height:24px;fill:' + window.hkCards.v('ink-2') + ';color:' + window.hkCards.v('ink-2') + '}',
+    '.cx.on .th hk-icon,.cx.on .th svg{fill:#767678;color:#767678}',
+    '.cx .t{flex:1;min-width:0;line-height:1.25}',
+    '.cx .t b{display:block;font-size:17px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '.cx .t small{display:flex;align-items:center;gap:5px;font-size:15px;color:' + window.hkCards.v('ink-2') + ';white-space:nowrap;overflow:hidden}',
+    '.cx .t small hk-icon{--mdc-icon-size:16px;width:16px;height:16px;flex:none;color:currentColor;display:flex}',
+    '.cx .t small span{min-width:0;overflow:hidden;text-overflow:ellipsis}',
+    '.cx.on .t small{color:#767678}',
+    // (the glyph bare, as Apple's player list has it: no disc behind it -- the 44 px stays its touch)
+    '.cx .pp{width:44px;height:44px;flex:none;display:flex;align-items:center;justify-content:center;cursor:pointer}',
+    '.cx .pp:active{opacity:.6}',
+    '.cx .pp svg{width:26px;height:26px;fill:currentColor}',
     '.cx .eq{display:flex;gap:2px;align-items:flex-end;height:12px;flex:none}',
-    '.cx .eq i{width:3px;height:12px;background:var(--hk-glyph,#fff);border-radius:1px;transform-origin:50% 100%;animation:mueq 1s ease-in-out infinite}',
+    '.cx .eq i{width:3px;height:12px;background:rgba(0,0,0,.88);border-radius:1px;transform-origin:50% 100%;animation:mueq 1s ease-in-out infinite}',
     '.cx .eq i:nth-child(2){animation-delay:-.3s}.cx .eq i:nth-child(3){animation-delay:-.6s}',
     '.cx.paused .eq i{animation:none;transform:scaleY(.3)}',
     '@keyframes mueq{0%,100%{transform:scaleY(.25)}50%{transform:scaleY(1)}}',
@@ -634,8 +643,10 @@
       this._artUrl = undefined; this._houseSig = null; this._nextFor = ''; this._next = null;
       // taps
       this._root.addEventListener('click', function (ev) {
-        var t = ev.target.closest && ev.target.closest('[data-k],[data-ctx]');
+        var t = ev.target.closest && ev.target.closest('[data-k],[data-ctx],[data-ppk]');
         if (!t) return;
+        // a row's own play / pause: that player only, the page stays (the row's tap does not fire)
+        if (t.hasAttribute('data-ppk')) { ev.stopPropagation(); self._callResp('hk_frontend', 'music_transport', { player: t.getAttribute('data-ppk'), command: 'play_pause' }); return; }
         if (t.hasAttribute('data-ctx')) { self._switchTo(t.getAttribute('data-ctx')); return; }
         var k = t.getAttribute('data-k');
         if (k === 'now') { self._sheet(true); return; }
@@ -781,7 +792,7 @@
       var P = window.hkSaverPanel;
       if (this._roomsPnl) { this._roomsPnl.destroy(); this._roomsPnl = null; }
       if (!on || !P || !this._panelCss()) return;
-      this._roomsPnl = P.create(this._panelOpts(['speakers', 'volume'], true));
+      this._roomsPnl = P.create(this._panelOpts(['speakers'], true));
       this._roomsPnl.el.classList.add('pg');
       this._e.rooms.appendChild(this._roomsPnl.el);
       this._roomsPnl.size(this._e.rooms.clientWidth || 380, this._e.rooms.clientHeight || 700, 1);
@@ -907,15 +918,31 @@
         // on that player, as "Playing on" says
         if (!on && x) d.setAttribute('data-ctx', (x.ctxs.filter(function (y) { return home && y.members.indexOf(home) >= 0; })[0] || x.ctxs[0]).key);
         var th = document.createElement('div'); th.className = 'th';
-        if (x && x.image) self._artImage(x.image.charAt(0) === '/' ? location.origin + x.image : x.image, th, svg(ICON.note), 80);
+        if (x && x.image) self._artImage(x.image.charAt(0) === '/' ? location.origin + x.image : x.image, th, svg(ICON.note), 104);
         else th.innerHTML = svg(ICON.note);
         d.appendChild(th);
         var t = document.createElement('div'); t.className = 't';
-        var b = document.createElement('b'); b.textContent = idle ? 'Nothing Playing' : (x.title || Mu.label(x.ctxs[0]));
-        var s = document.createElement('small'); s.setAttribute('data-fit', (idle ? self._targetRooms() : x.members).join(','));
+        // "Song -- Artist" (the em dash only when the stream has an artist)
+        var b = document.createElement('b');
+        b.textContent = idle ? 'Nothing Playing' : [x.title || Mu.label(x.ctxs[0]), x.artist].filter(Boolean).join(' — ');
+        // the rooms under it, led by the first room's speaker glyph; " · Paused" when it is
+        var rooms = idle ? self._targetRooms() : x.members;
+        var s = document.createElement('small');
+        var gi = document.createElement('hk-icon');
+        gi.setAttribute('icon', window.hkIcons && window.hkIcons.speaker ? window.hkIcons.speaker(rooms[0]) : 'hk:homepod');
+        var sp = document.createElement('span'); sp.setAttribute('data-fit', rooms.join(','));
+        s.appendChild(gi); s.appendChild(sp);
+        if (!idle && !x.playing) { var ps = document.createElement('i'); ps.style.cssText = 'font-style:normal;flex:none'; ps.textContent = ' · Paused'; s.appendChild(ps); }
         t.appendChild(b); t.appendChild(s); d.appendChild(t);
         if (on && !idle) d.insertAdjacentHTML('beforeend', '<span class="eq"><i></i><i></i><i></i></span>');
-        if (!on) d.insertAdjacentHTML('beforeend', '<span class="sw">Switch</span>');
+        // THE OTHERS: a play / pause button for THAT player, the page stays where it is
+        if (!on && x) {
+          var pp = document.createElement('div'); pp.className = 'pp'; pp.setAttribute('role', 'button');
+          pp.setAttribute('data-ppk', d.getAttribute('data-ctx'));
+          pp.setAttribute('aria-label', (x.playing ? 'Pause ' : 'Play ') + (x.title || Mu.label(x.ctxs[0])));
+          pp.innerHTML = svg(x.playing ? ICON.pause : ICON.play);
+          d.appendChild(pp);
+        }
         el.appendChild(d);
         if (on) lit = d;
       };
@@ -1372,7 +1399,7 @@
       box.style.top = Math.round(ar.bottom - cr.top + 8) + 'px';
       box.style.width = w + 'px'; box.style.height = h + 'px';
       card.appendChild(scrim); card.appendChild(box);
-      var o = this._panelOpts(['speakers', 'volume'], true);
+      var o = this._panelOpts(['speakers'], true);
       // (its X, and a moment after Update has landed, close it)
       o.done = function (ms) { clearTimeout(self._pickT); self._pickT = setTimeout(function () { self._closePick(); }, ms || 0); };
       var p = P.create(o);
@@ -1407,12 +1434,12 @@
 
     // ------------------------------------------------------------ the panel
     // Turned over in place of the left column (a sheet on a phone); its tabs
-    // Speakers, Volume, Queue -- Queue alone with the desk's rooms column
-    // showing (Speakers and Volume are its tabs)
+    // Speakers, Queue -- Queue alone with the desk's rooms column
+    // showing (Speakers is its tab)
     _openPanel(tab) {
       var P = window.hkSaverPanel, self = this;
       if (!this._e) return;                 // not built (the Music feature is not added)
-      if (this._cols === 3 && (tab === 'speakers' || tab === 'volume')) {
+      if (this._cols === 3 && tab === 'speakers') {
         if (this._roomsPnl && this._roomsPnl.tab() !== tab) this._roomsPnl.show(tab);
         var r = this._e.rooms; r.classList.remove('hl'); void r.offsetWidth; r.classList.add('hl');
         return;
@@ -1422,7 +1449,7 @@
         if (this._pnl.p.tab() === tab) this._closePanel(true); else { this._pnl.p.show(tab); this._buttons(); }
         return;
       }
-      var tabs = this._cols === 3 ? ['queue'] : ['speakers', 'volume', 'queue'];
+      var tabs = this._cols === 3 ? ['queue'] : ['speakers', 'queue'];
       var p = P.create(this._panelOpts(tabs, false));
       if (tabs.length === 1) p.el.classList.add('one');
       var sheet = this._cols === 1;
@@ -1502,7 +1529,7 @@
   }
 
   register('hk-music-card', HkMusicCard, 'HK Music',
-    'The Music page: what plays and where (Speakers, Volume, Queue), with Browse Music beside it.',
+    'The Music page: what plays and where (Speakers, Queue), with Browse Music beside it.',
     [{ name: 'focus_search', label: 'Start in the search box', selector: { boolean: {} } }],
     function () { return {}; });
 

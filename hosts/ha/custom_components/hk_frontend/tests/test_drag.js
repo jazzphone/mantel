@@ -124,7 +124,7 @@ function () {
   eq('lifted: null adds no class', Object.keys(el.classes), []);
 },
 function () {
-  H.section('a sideways slider in a list that scrolls (hkDrag.slider: the Volume tabs)');
+  H.section('a sideways slider in a list that scrolls (hkDrag.slider: the Speakers panel\'s rooms, the Music page, the media sheet)');
   var mk = function () {
     var el = thing(), log = [];
     D.slider(el, { start: function (t, x) { log.push(['start', x]); }, move: function (t, x) { log.push(['move', x]); },
@@ -162,6 +162,28 @@ function () {
   d.el.fire('pointerdown', at(100, 100));
   d.el.fire('pointerup', at(100, 100));
   eq('a tap on the track is no drag', d.log, []);
+  // (2026-11-12, keepClick: the Speakers panel's rows are sliders AND buttons -- a click that never moved still ticks the room)
+  var mk2 = function () {
+    var el = thing(), log = [];
+    D.slider(el, { keepClick: true, start: function (t, x) { log.push(['start', x]); }, move: function (t, x) { log.push(['move', x]); },
+                   end: function (t, c) { log.push(['end', !!c]); } });
+    return { el: el, log: log };
+  };
+  var click = function (el) { var n = 0; el.fire('click', { stopPropagation: function () { n++; }, preventDefault: function () {} }); return n; };
+  var e = mk2();
+  e.el.fire('pointerdown', at(100, 100, 'mouse'));
+  e.el.fire('pointerup', at(100, 100, 'mouse'));
+  eq('keepClick: a mouse click that never moved is still a tap', [e.log, click(e.el)], [[['start', 100], ['end', false]], 0]);
+  var f = mk2();
+  f.el.fire('pointerdown', at(100, 100, 'mouse'));
+  f.el.fire('pointermove', mv(130, 101, 'mouse'));
+  f.el.fire('pointerup', at(130, 101, 'mouse'));
+  eq('...dragged past the slop, its click is no tap', click(f.el), 1);
+  var g = mk2();
+  g.el.fire('pointerdown', at(100, 100));
+  g.el.fire('pointermove', mv(125, 102));
+  g.el.fire('pointerup', at(125, 102));
+  eq('...a finger that went sideways: no tap either', click(g.el), 1);
 },
 function () {
   H.section('the lifted touchmove blocker and the ghost');

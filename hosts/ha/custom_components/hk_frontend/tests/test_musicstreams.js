@@ -125,8 +125,10 @@ function page(h, mine) {
   return p;
 }
 function cards(p) { return p._e.house.children.filter(function (x) { return /\bcx\b/.test(x.className); }); }
-function title(cx) { return cx.children[1].children[0].textContent; }
-function rooms(cx) { return cx.children[1].children[1].getAttribute('data-fit').split(','); }
+// (the song, before " — Artist": the row says both since 2026-11-12)
+function title(cx) { return cx.children[1].children[0].textContent.split(' — ')[0]; }
+// (the rooms' line: a speaker glyph, then the rooms -- the span that says them, 2026-11-12)
+function rooms(cx) { return cx.children[1].children[1].children.filter(function (x) { return x.getAttribute && x.getAttribute('data-fit') != null; })[0].getAttribute('data-fit').split(','); }
 
 (function () {
   var all = {};
@@ -167,10 +169,10 @@ function rooms(cx) { return cx.children[1].children[1].getAttribute('data-fit').
 // _houseFit: what the column has left once the player has its room
 (function () {
   var fit = Card.prototype._houseFit;
-  // a list of n cards: its heading 27 px, then a card every 58
+  // a list of n cards: its heading 27 px, then a card every 78 (72 and the 6 between: Apple's player rows, 2026-11-12)
   function col(o) {
     var house = { offsetTop: 100, children: { length: o.n, 1: { offsetTop: 127 } }, style: {} };
-    Object.defineProperty(house, 'scrollHeight', { get: function () { return 27 + o.n * 58 - 6; } });
+    Object.defineProperty(house, 'scrollHeight', { get: function () { return 27 + o.n * 78 - 6; } });
     return {
       _cols: o.cols, _houseKey: null,
       _e: { house: house, nx: { hidden: true }, art: { parentNode: { offsetHeight: o.art } },
@@ -179,19 +181,19 @@ function rooms(cx) { return cx.children[1].children[1].getAttribute('data-fit').
     };
   }
   // the Kitchen tablet's column (measured): 600 high; the song and its
-  // controls 260 under the cover. Room: 600 - (50 + 14) - 12 - (260 + 120) = 144
-  var p = col({ cols: 2, n: 2, art: 120, front: 380, left: 600 });
+  // controls 260 under the cover. Room: 600 - (50 + 14) - 12 - (260 + 120) = 144; a taller column, 640: 184
+  var p = col({ cols: 2, n: 2, art: 120, front: 380, left: 640 });
   fit.call(p, true);
-  eq('two cards (137 px) in 144 px of room: all of them, nothing cut', p._e.house.style.maxHeight, '144px');
+  eq('two cards (177 px) in 184 px of room: all of them, nothing cut', p._e.house.style.maxHeight, '184px');
   p = col({ cols: 2, n: 9, art: 120, front: 380, left: 600 });
   fit.call(p, true);
-  eq('nine cards: whole cards, then 24 px of the next (27 + 58 + 24)', p._e.house.style.maxHeight, '109px');
+  eq('nine cards: whole cards, then 24 px of the next (27 + 78 + 24)', p._e.house.style.maxHeight, '129px');
   p = col({ cols: 2, n: 9, art: 120, front: 380, left: 600, idle: true });
   fit.call(p, true);
-  eq('...nothing playing here: no Playing on, so a card more (27 + 2 x 58 + 24)', p._e.house.style.maxHeight, '167px');
+  eq('...nothing playing here: no Playing on, so a card more (27 + 2 x 78 + 24)', p._e.house.style.maxHeight, '207px');
   p = col({ cols: 2, n: 9, art: 120, front: 380, left: 420 });
   fit.call(p, true);
-  eq('...a short column: one card and the peek at the least', p._e.house.style.maxHeight, '109px');
+  eq('...a short column: one card and the peek at the least', p._e.house.style.maxHeight, '129px');
   p = col({ cols: 1, n: 9, art: 120, front: 380, left: 600 });
   p._e.house.style.maxHeight = '50px';
   fit.call(p, true);
@@ -200,9 +202,9 @@ function rooms(cx) { return cx.children[1].children[1].getAttribute('data-fit').
   fit.call(p, true);
   p._e.left.clientHeight = 900;
   fit.call(p);
-  eq('...measured again only when asked to (a resize) or the list changes', p._e.house.style.maxHeight, '109px');
+  eq('...measured again only when asked to (a resize) or the list changes', p._e.house.style.maxHeight, '129px');
   fit.call(p, true);
-  eq('...and then fitted to the new column (27 + 6 x 58 + 24)', p._e.house.style.maxHeight, '399px');
+  eq('...and then fitted to the new column (27 + 5 x 78 + 24)', p._e.house.style.maxHeight, '441px');
 })();
 
 H.run('MUSIC STREAMS', []);

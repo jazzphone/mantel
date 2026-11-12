@@ -1129,7 +1129,7 @@
         sr.appendChild(scrim);
         var me = { host: host, scrim: scrim, phone: phone, doneT: null, ticked: 0 };
         me.p = P.create({
-          tabs: ['speakers', 'volume', 'queue'],
+          tabs: ['speakers', 'queue'],
           client: function () { return self.client; },
           ctx: function () { return self._musicCtx(); },
           art: function () { return null; },
@@ -1207,7 +1207,7 @@
         sr.appendChild(scrim);
         me = { host: host, scrim: scrim, turn: plate, doneT: null, ticked: 0, anim: null };
         me.p = P.create({
-          tabs: ['speakers', 'volume', 'queue', 'browse'],
+          tabs: ['speakers', 'queue', 'browse'],
           client: function () { return self.client; },
           ctx: function () { return self._musicCtx(); },
           // the cover, blurred behind the panel as on the screensaver
@@ -1821,12 +1821,9 @@
             });
           } else {
             // ON A HOME GRID (a block of its own, `size`): the card turns over
-            // -- a Small block's Speakers to the Volume, the one it has no
-            // slider for (the mock-up, 2026-10-31)
+            // -- to Speakers, whose rows are each room's volume (the Volume tab went 2026-11-12)
             // (the speaker line: the Speakers key's turn, 2026-11-09; Up Next the turn's Queue)
-            q('.hksl').addEventListener('click', function () {
-              if (self.hasAttribute('size')) self._turn(self.getAttribute('size') === 'S' ? 'volume' : 'speakers');
-            });
+            q('.hksl').addEventListener('click', function () { if (self.hasAttribute('size')) self._turn('speakers'); });
             q('[data-act=brw]').addEventListener('click', function () { if (self.hasAttribute('size')) self._turn('browse'); });
             q('[data-act=queue]').addEventListener('click', function () { if (self.hasAttribute('size')) self._turn('queue'); });
             q('.npqb').addEventListener('click', function () { if (self.hasAttribute('size')) self._turn('browse'); });

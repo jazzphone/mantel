@@ -43,7 +43,7 @@
       sr.appendChild(scrim);
       var me = { host: host, doneT: null };
       me.p = P.create({
-        tabs: ['speakers', 'volume', 'queue', 'browse'],
+        tabs: ['speakers', 'queue', 'browse'],
         client: function () { return clientNow(); },
         ctx: function () { return musicNow(clientNow()); },
         art: function () { return null; },

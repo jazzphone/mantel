@@ -23,7 +23,8 @@ function security() {
       const cs = getComputedStyle(e), n = e.querySelector('.n');
       return Object.assign(box(e), { name: n ? n.textContent : '', state: (e.querySelector('.s') || {}).textContent, more: e.classList.contains('more'),
         lit: e.classList.contains('lit'), bg: cs.backgroundColor, ink: n ? getComputedStyle(n).color : '', label: e.getAttribute('aria-label'),
-        disc: e.querySelector('.gw') ? getComputedStyle(e.querySelector('.gw')).backgroundColor : '', lock: e.classList.contains('lk') });
+        disc: e.querySelector('.gw') ? getComputedStyle(e.querySelector('.gw')).backgroundColor : '', lock: e.classList.contains('lk'),
+        glyph: e.querySelector('.gw hk-icon') ? getComputedStyle(e.querySelector('.gw hk-icon')).color : '', tile: getComputedStyle(e, '::before').backgroundColor });
     });
     const past = shown.filter((e) => { const b = box(e); return b.r > pb.r + 1 || b.b > pb.b + 1 || b.l < pb.l - 1 || b.t < pb.t - 1; }).length;
     const al = sr.querySelector('.al') || sr.querySelector('hk-plate');
@@ -102,10 +103,12 @@ function sheetState() {
           // (the line counts what needs a look since 2026-11-09, mockup 14b: "1 unlocked · 1 open" -- the hidden one counted, not named)
           check(label + ': the hidden unlocked Crawl Space still in the alarm\'s line', () => assert(/\b1 unlocked\b/.test(b.line), b.line));
           const lit = b.ents.filter((e) => e.lit), rest = b.ents.filter((e) => !e.lit && !e.more);
-          // (one calm list since 2026-11-09, mockups 14b / 14d and DESIGN.md: not secured is LIT -- its disc teal, no white plate behind the row)
-          check(label + ': not secured is lit, its disc teal; secured rests', () => {
-            lit.forEach((e) => { assert.notEqual(e.bg, 'rgb(255, 255, 255)', e.name); assert.equal(e.disc, 'rgb(64, 200, 224)', e.name + ' ' + e.disc); });
-            rest.forEach((e) => { assert.notEqual(e.bg, 'rgb(255, 255, 255)', e.name); assert.notEqual(e.disc, 'rgb(64, 200, 224)', e.name); });
+          // (one calm list since 2026-11-09; NO WELLS since 2026-11-11, DESIGN.md "No wells in HomeView": not secured is LIT -- a white
+          // tile under the row (its ::before), the glyph teal; secured rests -- the glyph bare and white, no tile; no disc either way)
+          check(label + ': not secured is lit, a white tile and a teal glyph; secured rests; no discs', () => {
+            lit.forEach((e) => { assert.equal(e.tile, 'rgb(255, 255, 255)', e.name + ' ' + e.tile); assert.equal(e.glyph, 'rgb(64, 200, 224)', e.name + ' ' + e.glyph); });
+            rest.forEach((e) => { assert.notEqual(e.tile, 'rgb(255, 255, 255)', e.name); assert.notEqual(e.glyph, 'rgb(64, 200, 224)', e.name); });
+            b.ents.forEach((e) => assert(!e.disc || e.disc === 'rgba(0, 0, 0, 0)', e.name + ' disc ' + e.disc));
           });
           const more = b.ents.find((e) => e.more);
           if (more) {

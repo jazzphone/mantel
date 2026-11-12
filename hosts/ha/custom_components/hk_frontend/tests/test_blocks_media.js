@@ -136,7 +136,8 @@ function () {
     var spk = np._root.querySelector('.hksl');   // (the speaker line over the title since 2026-11-09: the Speakers key's place)
     (spk._listeners.click || [])[0]();
   });
-  eq('Small: Volume (no slider of its own); Wide: Speakers', turned, ['S:volume', 'W:speakers']);
+  // (2026-11-12: the Volume tab went -- each Speakers row is its room's volume -- so Small turns to Speakers too)
+  eq('Small and Wide: Speakers, whose rows are the volumes', turned, ['S:speakers', 'W:speakers']);
   var np = sized('hk-now-playing-card', 'T');
   hkGive(np, house.hass());
   window.hkMusic.setFocus('media_player.kitchen_homepod_ma');
