@@ -230,7 +230,7 @@ var NO_TAP = {
   'vacuum XL': 'the block is the vacuum card itself at its larger sizes: its own listener opens the vacuum\'s sheet (hk-home.js)',
   camera: 'the picture is the control: a tap opens the camera, live (hk-cameras.js)',
   cameras: 'the block is its camera tiles, each a control: a tap opens that camera, live (hk-cameras.js)',
-  'energy_rings S': 'Small is its own switch: a tap changes the period (the owner\'s mock-up)',
+  'energy_rings S': 'Small is its own control: a tap shows its figures over the rings, the period under them changes it (the owner, 2026-11-12)',
   intercom: 'inside Home Assistant the Intercom has no server to talk to: the block only says it needs one (hk-intercom.js)'
 };
 function noTap(key, size) { return NO_TAP[key + ' ' + size] || NO_TAP[key] || null; }
