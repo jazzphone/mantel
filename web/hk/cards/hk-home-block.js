@@ -7,11 +7,13 @@
 //                        language (hk-house-status.js: the same chip model, headline and sentence, so the two never say it
 //                        differently) and adds what House Status has not, the rooms: Tall the categories as lines, Large
 //                        the categories as standard pills over the rooms' lines, Extra Large a column for the categories
-//                        beside the rooms. Every part opens the sheet at its place; nothing in the block turns anything on.
+//                        beside the rooms. The plate opens the sheet, a room the sheet at that room, a category its own
+//                        page as its chip does (House Status's way); nothing in the block turns anything on.
 //   hk-detail-home       the sheet's body (hkDetail.open {panel}): the generated Home, as a generated screen draws it --
 //                        the chips, the camera mosaic, Scenes, Favorites, every room (hkStrategy.homeSheet) -- at the Room
-//                        sheet's size. A chip, a room's heading or Cameras opens that page INSIDE the sheet, one level
-//                        deep, with a "‹ Home" key where every sheet has its back key (the owner, 2026-11-12: "Inside the sheet").
+//                        sheet's size. A room's heading opens the room INSIDE the sheet, one level deep, with a "‹ Home"
+//                        key where every sheet has its back key; a chip or Cameras goes to the screen's own page and the
+//                        sheet goes with it (the owner, 2026-11-12: the chips' pages in the sheet were "not the best place").
 //
 // THE PURE PART is first and has no DOM (window.hkHomeBlock.lib): tests/test_home_block.py runs it in node.
 (function () {
@@ -156,9 +158,9 @@
           if (focused) { var x0 = hd.querySelector('.x'); if (x0) /** @type {any} */ (x0).focus(); }
         }
       }
-      // A CARD INSIDE THAT CHANGES PAGE (hkCards.navigate asks first): a page the sheet has opens here -- from an inner page
-      // too, in its place, so it is never more than one level deep; any other (Weather, Music) is the screen's, and the
-      // sheet goes as the screen moves
+      // A CARD INSIDE THAT CHANGES PAGE (hkCards.navigate asks first): a room's page opens here -- from another room's too, in
+      // its place, so it is never more than one level deep; any other (a chip's, Cameras) is the screen's, and the sheet goes
+      // as the screen moves
       hkCatchNav(path) {
         var seg = segOf(path), pages = built(this.client).pages;
         if (!pages[seg]) return false;
@@ -454,15 +456,9 @@
           TL.fade(this._plate);
           P.bindGlyphs(this._plate, c);
         }
-        // a category: its page in the sheet when the sheet has it, else what its chip's tap does (an entity's sheet, a link)
-        _openSection(sec) {
-          var t = sec.tap || {};
-          if (t.action === 'navigate' && t.navigation_path) {
-            var seg = segOf(t.navigation_path), pages = built(this.client).pages;
-            if (pages[seg]) return this._open(seg);
-          }
-          return P.go(this, sec, false);
-        }
+        // a category: what its chip's tap does -- the screen's own page, an entity's sheet, a link -- as House Status's (the owner,
+        // 2026-11-12: a category's page in the sheet was "not the best place for it")
+        _openSection(sec) { return P.go(this, sec, false); }
         // a room: its page in the sheet, else the sheet at Home
         _openRoom(area) {
           var pages = built(this.client).pages, at = Object.keys(pages).filter(function (k) { return pages[k].area === area; })[0];

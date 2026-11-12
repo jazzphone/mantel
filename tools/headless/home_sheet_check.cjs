@@ -127,7 +127,8 @@ function sheetState() {
             () => assert(b.pills.length >= 3 && b.pills.every((p) => Math.abs(p.h / b.k - 40) < 1), JSON.stringify(b.pills)));
         }
         if (screen === 'home-sq') {
-          // TAPS: each opens the sheet at its place, and the screen goes nowhere
+          // TAPS: the plate opens the sheet, a room the sheet at that room, a category its own page (its chip's tap, as House
+          // Status's -- the owner, 2026-11-12: a category's page in the sheet was "not the best place for it")
           let t = await tapIn(page, 'S', 'hk-plate');
           await page.touchscreen.tap(t.x, t.y);
           await settle(page);
@@ -135,35 +136,38 @@ function sheetState() {
           check(`${engine} Small opens the sheet at Home`, () => assert(s && s.panel && !s.back, JSON.stringify(s)));
           await page.keyboard.press('Escape');
           await settle(page);
-          t = await tapIn(page, 'XL', '.ln[data-i]', 'Lights');
-          await page.touchscreen.tap(t.x, t.y);
-          await settle(page);
-          s = await st(page);
-          check(`${engine} Extra Large's Lights opens the sheet at Lights (${t.name})`, () => assert(s && s.title === 'Lights' && s.back, JSON.stringify(s)));
-          await page.keyboard.press('Escape');
-          await settle(page);
-          s = await st(page);
-          check(`${engine} ...Escape there goes back to Home`, () => assert(s && !s.back && s.title !== 'Lights', JSON.stringify(s)));
-          await page.keyboard.press('Escape');
-          await settle(page);
-          const gone = await st(page);
-          check(`${engine} ...and Escape at Home closes it`, () => assert.equal(gone, null));
           t = await tapIn(page, 'L', '.ln[data-r]', 'Kitchen');
           await page.touchscreen.tap(t.x, t.y);
           await settle(page);
           s = await st(page);
           check(`${engine} Large's Kitchen opens the sheet at the Kitchen (${t.name})`, () => assert(s && s.title === 'Kitchen' && s.back, JSON.stringify(s)));
-          await page.keyboard.press('Escape'); await page.keyboard.press('Escape');
+          await page.keyboard.press('Escape');
           await settle(page);
+          s = await st(page);
+          check(`${engine} ...Escape there goes back to Home`, () => assert(s && !s.back && s.title !== 'Kitchen', JSON.stringify(s)));
+          await page.keyboard.press('Escape');
+          await settle(page);
+          const gone = await st(page);
+          check(`${engine} ...and Escape at Home closes it`, () => assert.equal(gone, null));
+          let w = await went(page);
+          check(`${engine} ...the screen still where it was`, () => assert.deepEqual(w, []));
+          t = await tapIn(page, 'XL', '.ln[data-i]', 'Lights');
+          await page.touchscreen.tap(t.x, t.y);
+          await settle(page);
+          s = await st(page);
+          w = await went(page);
+          check(`${engine} Extra Large's Lights goes to the Lights page, once, and opens no sheet (${t.name})`,
+            () => { assert.deepEqual(w, ['/home-sq/lights']); assert.equal(s, null); });
+          await page.goBack();
+          await page.waitForFunction(() => deep(document, 'hk-home-block-card').length >= 6, null, { timeout: 15000 });
+          await settle(page);
+          await page.evaluate(() => { window.__went.length = 0; });
           t = await tapIn(page, 'L', '.cp .sm-k', 'Security');
           await page.touchscreen.tap(t.x, t.y);
           await settle(page);
           s = await st(page);
-          check(`${engine} Large's Security pill opens the sheet at Security (${t.name})`, () => assert(s && s.title === 'Security' && s.back, JSON.stringify(s)));
-          await page.keyboard.press('Escape'); await page.keyboard.press('Escape');
-          await settle(page);
-          const w = await went(page);
-          check(`${engine} the blocks never move the screen`, () => assert.deepEqual(w, []));
+          w = await went(page);
+          check(`${engine} Large's Security pill goes to the Security page (${t.name})`, () => { assert.deepEqual(w, ['/home-sq/security']); assert.equal(s, null); });
         }
         check(`${engine} ${screen}: no errors`, () => assert.deepEqual(errors, []));
         check(`${engine} ${screen}: no command sent`, () => assert.deepEqual(commands, []));
@@ -189,8 +193,33 @@ function sheetState() {
           ['hk-chips-card', 'hk-camera-mosaic-card', 'hk-scenes-card', 'hk-heading-card'].forEach((k) => assert(s.kinds.includes(k), k + ' ' + JSON.stringify(s.kinds)));
           ['hk-header-card', 'hk-popup-card', 'hk-now-playing-card'].forEach((k) => assert(!s.kinds.includes(k), k + ' ' + JSON.stringify(s.kinds)));
         });
-        // a chip: its page inside the sheet, the back key, the screen still where it was
-        let t = await page.evaluate(() => {
+        // a room's heading: the room inside the sheet, the back key, an accessory and back, Escape and the Home key back
+        let t = await tapSheet(page, 'hk-heading-card', 'Kitchen');
+        if (t) {
+          await page.touchscreen.tap(t.x, t.y);
+          await settle(page);
+          s = await st(page);
+          await shot(page, `${engine}-sheet-${sz}-kitchen`);
+          check(`${engine} ${sz}: a room's heading opens the room inside the sheet, a Home key beside it`,
+            () => assert(s && s.title === 'Kitchen' && s.back && s.back.text === 'Home', JSON.stringify(s)));
+          check(`${engine} ${sz}: ...the back key before the title, inside the sheet`, () => assert(s.back.l >= s.sheet.l && s.back.r <= s.sheet.r && s.back.r < s.x.l, JSON.stringify([s.back, s.x])));
+          // an accessory from the inner page, and back to that page
+          await page.evaluate(() => window.hkShell.moreInfo('light.kitchen_pendants'));
+          await settle(page);
+          const acc = await st(page);
+          await page.evaluate(() => { const b = document.querySelector('.hkd .hd .x[aria-label="Back"]'); if (b) b.click(); });
+          await settle(page);
+          s = await st(page);
+          check(`${engine} ${sz}: an accessory opened there comes back to the Kitchen (${acc && acc.title})`, () => assert(s && s.title === 'Kitchen' && s.back, JSON.stringify(s)));
+          await page.touchscreen.tap(s.back.l + s.back.w / 2, s.back.t + s.back.h / 2);
+          await settle(page);
+          s = await st(page);
+          check(`${engine} ${sz}: Home goes back`, () => assert(s && !s.back && s.kinds.includes('hk-chips-card'), JSON.stringify(s)));
+        } else check(`${engine} ${sz}: a Kitchen heading in the sheet`, () => assert.fail('none'));
+        let wnt = await went(page);
+        check(`${engine} ${sz}: ...the screen still where it was`, () => assert.deepEqual(wnt, []));
+        // a chip: the screen's own page, and the sheet goes
+        t = await page.evaluate(() => {
           const p = document.querySelector('.hkd hk-detail-home'), row = deep(p.shadowRoot, 'hk-chips-card')[0];
           const el = deep(row.shadowRoot || row, '*').find((e) => /Security/.test(e.getAttribute && (e.getAttribute('aria-label') || '')) && e.getClientRects().length) ||
             deep(row.shadowRoot || row, '*').find((e) => e.children.length === 0 && /^Security/.test(e.textContent.trim()));
@@ -200,50 +229,26 @@ function sheetState() {
         await page.touchscreen.tap(t.x, t.y);
         await settle(page);
         s = await st(page);
-        await shot(page, `${engine}-sheet-${sz}-security`);
-        check(`${engine} ${sz}: the Security chip opens Security inside the sheet, a Home key beside it`,
-          () => assert(s && s.title === 'Security' && s.back && s.back.text === 'Home', JSON.stringify(s)));
-        check(`${engine} ${sz}: ...the back key before the title, inside the sheet`, () => assert(s.back.l >= s.sheet.l && s.back.r <= s.sheet.r && s.back.r < s.x.l, JSON.stringify([s.back, s.x])));
-        await page.touchscreen.tap(s.back.l + s.back.w / 2, s.back.t + s.back.h / 2);
+        wnt = await went(page);
+        check(`${engine} ${sz}: the Security chip goes to the Security page and the sheet goes`, () => { assert.deepEqual(wnt, ['/home-sq/security']); assert.equal(s, null); });
+        // Cameras: the same, from the sheet opened again
+        await page.evaluate(() => { window.__went.length = 0; window.hkHomeBlock.openSheet('home'); });
         await settle(page);
-        s = await st(page);
-        check(`${engine} ${sz}: Home goes back`, () => assert(s && !s.back && s.kinds.includes('hk-chips-card'), JSON.stringify(s)));
-        // a room's heading
-        t = await tapSheet(page, 'hk-heading-card', 'Kitchen');
-        if (t) {
-          await page.touchscreen.tap(t.x, t.y);
-          await settle(page);
-          s = await st(page);
-          check(`${engine} ${sz}: a room's heading opens the room inside the sheet`, () => assert(s && s.title === 'Kitchen' && s.back, JSON.stringify(s)));
-          // an accessory from the inner page, and back to that page
-          await page.evaluate(() => window.hkShell.moreInfo('light.kitchen_pendants'));
-          await settle(page);
-          const acc = await st(page);
-          await page.evaluate(() => { const b = document.querySelector('.hkd .hd .x[aria-label="Back"]'); if (b) b.click(); });
-          await settle(page);
-          s = await st(page);
-          check(`${engine} ${sz}: an accessory opened there comes back to the Kitchen (${acc && acc.title})`, () => assert(s && s.title === 'Kitchen' && s.back, JSON.stringify(s)));
-          await page.keyboard.press('Escape');
-          await settle(page);
-        } else check(`${engine} ${sz}: a Kitchen heading in the sheet`, () => assert.fail('none'));
-        // Cameras
         t = await tapSheet(page, 'hk-heading-card', 'Cameras');
         if (t) {
           await page.touchscreen.tap(t.x, t.y);
           await settle(page);
           s = await st(page);
-          await shot(page, `${engine}-sheet-${sz}-cameras`);
-          check(`${engine} ${sz}: Cameras opens the cameras inside the sheet`, () => assert(s && s.title === 'Cameras' && s.back, JSON.stringify(s)));
-          check(`${engine} ${sz}: ...inside the window, no sideways scroll`, () => assert(s.scroll.sw <= s.scroll.cw + 1 && s.docW <= s.W + 1, JSON.stringify(s.scroll)));
-          await page.keyboard.press('Escape');
-          await settle(page);
-        }
+          wnt = await went(page);
+          check(`${engine} ${sz}: Cameras goes to the Cameras page and the sheet goes`, () => { assert.deepEqual(wnt, ['/home-sq/cameras']); assert.equal(s, null); });
+        } else check(`${engine} ${sz}: a Cameras heading in the sheet`, () => assert.fail('none'));
+        // Escape at Home closes it
+        await page.evaluate(() => window.hkHomeBlock.openSheet('home'));
+        await settle(page);
         await page.keyboard.press('Escape');
         await settle(page);
         const gone = await st(page);
         check(`${engine} ${sz}: Escape at Home closes the sheet`, () => assert.equal(gone, null));
-        const wnt = await went(page);
-        check(`${engine} ${sz}: the screen never moved`, () => assert.deepEqual(wnt, []));
         check(`${engine} ${sz}: no errors`, () => assert.deepEqual(errors, []));
         check(`${engine} ${sz}: no command sent`, () => assert.deepEqual(commands, []));
         await ctx.close();
@@ -257,7 +262,7 @@ function sheetState() {
         const orig = Element.prototype.animate;
         Element.prototype.animate = function (k, o) { window.__anims.push(JSON.stringify(k)); return orig.call(this, k, o); };
       });
-      await page.evaluate(() => document.querySelector('.hkd hk-detail-home')._go('lights'));
+      await page.evaluate(() => document.querySelector('.hkd hk-detail-home')._go('room-kitchen'));
       await settle(page);
       const anims = await page.evaluate(() => window.__anims.slice());
       check(`${engine} Reduce Motion: a fade, no slide`, () => assert(anims.some((a) => /opacity/.test(a)) && !anims.some((a) => /translate/.test(a)), JSON.stringify(anims)));

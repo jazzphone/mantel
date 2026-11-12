@@ -11,12 +11,12 @@ Three screens, each a Home Grid with the Home block at every size (Small, Wide, 
   home-car     square cells on a screen whose own Home would be a car's: the sheet is still the generated Home
 
 It checks, at each size of block: nothing past its plate, Tall up its lines a finger tall in a list that scrolls, Large's
-categories as standard pills, and that a tap opens the sheet at that place -- the plate at Home, a category at its page,
-a room at its room -- never the screen's page. In the sheet, at the wall tablet's size, an iPad's and a phone's: the
-generated Home's own list (the chips, the camera mosaic, Scenes, Favorites, the rooms) less its clock and its pop-ups;
-a chip, a room's heading and Cameras opening their page inside the sheet with a "Home" key, the key and Escape coming
-back, Escape at Home closing it; an accessory opened from an inner page coming back to that page; nothing past the
-window, no sideways scroll; Reduce Motion's fade.
+categories as standard pills; the plate opening the sheet at Home and a room at that room, a category going to its own
+page as its chip does. In the sheet, at the wall tablet's size, an iPad's and a phone's: the generated Home's own list
+(the chips, the camera mosaic, Scenes, Favorites, the rooms) less its clock, its pop-ups and the menu key; a room's
+heading opening the room inside the sheet with a "Home" key, an accessory opened there coming back to it, the key coming
+back; a chip and Cameras going to the screen's own page, the sheet with them; Escape at Home closing it; nothing past
+the window, no sideways scroll; Reduce Motion's fade.
 
     export PLAYWRIGHT_PATH=/path/to/node_modules/playwright-core NODE=$(command -v node)
     ~/.venvs/mantel/bin/python tools/headless/home_sheet_check.py [--shots DIR] [--engine webkit|chromium|both]

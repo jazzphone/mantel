@@ -567,10 +567,9 @@
     // Home Button actually loads what a generated dashboard would load...Cameras, Scenes, Favorites as well").
     //   home   Home's cards: the chip row, the camera mosaic, Scenes, Favorites and the rooms -- less the clock and weather (the
     //          grid shows the time) and the pop-ups Home listens for (#alarm, the docked bar: the screen's, never a sheet's)
-    //   pages  {path: {title, icon, area (a room's), cards}}: each page a chip, a room's heading or Cameras opens, less its title bar (the
-    //          sheet's header is the page's name). The pages that are a screen of their own -- Weather, Calendar, Live TV,
-    //          Music, Energy, Power, the Timeline -- are not here: a tap on one goes to the screen's page.
-    var OWN_SCREEN = { home: 1, weather: 1, calendar: 1, 'live-tv': 1, energy: 1, timeline: 1, 'now-playing': 1 };
+    //   pages  {path: {title, icon, area, cards}}: each room's page, which its heading opens inside the sheet, less its title bar
+    //          (the sheet's header is the room's name). Only the rooms (the owner, 2026-11-12, of the chips' pages in the sheet:
+    //          "not the best place for it"): a chip, Cameras or any other page goes to the screen's own page, as everywhere.
     function sheetCards(list) {
       return (list || []).map(function (c) {
         if (!c || typeof c !== 'object' || c.page_header || c.type === 'custom:hk-popup-card') return null;
@@ -592,7 +591,6 @@
                                                            now_playing: false, timer_bar: false });
       if (opts.board.sky === false) opts.sky = false;
       var all = views(client, opts, false), out = { home: [], pages: {} };
-      var power = setting('energy') && setting('energy').power;
       all.forEach(function (v) {
         if (!v || !Array.isArray(v.cards)) return;
         if (v.path === 'home') {
@@ -604,7 +602,7 @@
           });
           return;
         }
-        if (OWN_SCREEN[v.path] || MUSIC_PAGE[v.path] || (power && v.path === power.path)) return;
+        if (!v.area) return;                                        // (a room's page has its area: the rest are the screen's)
         out.pages[v.path] = { title: v.title || '', icon: v.icon || '', area: v.area || null, cards: sheetCards(v.cards).map(function (c) {
           var o = Object.assign({}, c); delete o.view_layout; return o;
         }) };

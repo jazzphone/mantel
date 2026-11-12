@@ -16,13 +16,17 @@ from this plan, and why.
   (`title`) and Glyphs. The editor lists it first under Rooms & Lights.
 - **The sheet's list is `views()`'s own, not a cut-out.** `hkStrategy.homeSheet(client)` (`hk-strategy-views.js`) runs
   `views()` for this screen with its Home set to the generated one. It takes Home's cards less the header's clock and the
-  pop-ups, the chip row without its menu key (`lead: false`), and each page's cards less its title bar. The generated
-  Home itself is untouched, so the before-and-after test step 1 asked for isn't needed: the same function builds both.
-  The pages that are screens of their own (Weather, Calendar, Live TV, Music, Energy, Power, the Timeline) stay the
-  screen's, and a tap on one goes there.
-- **One hook keeps a page change inside the sheet.** `hkCards.navigate(path, el)` (`hk-base-card-core.js`) first asks
-  any ancestor with `hkCatchNav(path)`, across shadow roots. Every card's page change goes through it, so the chips, a
-  room's heading and "Cameras ›" open inside the sheet with no change to those cards.
+  pop-ups, the chip row without its menu key (`lead: false`), and each room page's cards less its title bar. The
+  generated Home itself is untouched, so the before-and-after test step 1 asked for isn't needed: the same function
+  builds both.
+- **Only the rooms open inside the sheet (the owner, 2026-11-12, after trying it).** He found a chip's page inside the
+  sheet "not the best place for it", and had read "inside the sheet" as meaning the chips themselves are inside it. So
+  a chip and "Cameras ›" go to the screen's own page, as they do everywhere, and the sheet goes as the screen moves. A
+  room's heading still opens the room inside the sheet. The block does the same: its categories go to their page, as
+  House Status's do, and its rooms open the sheet at that room.
+- **One hook keeps a room inside the sheet.** `hkCards.navigate(path, el)` (`hk-base-card-core.js`) first asks any
+  ancestor with `hkCatchNav(path)`, across shadow roots. The Home sheet answers yes for a room's page and no for any
+  other, so the room headings open inside it with no change to those cards.
 - **The back key** is "‹ Home" at the start of the header, where every Mantel sheet has its back key
   (`hk-detail.js`), not beside the X: the frame's X is at the top right.
 - **The glyph** is `hk:home`: the house's glyph file's house, and Material's `home` without one (the iconset's fallback),
@@ -36,9 +40,9 @@ from this plan, and why.
   column, as it does on the page.
 - **Checks:** `tests/test_home_block.py` covers the pure part, both catalogs, the saved layout and the wiring.
   `tools/headless/home_sheet_check.py` (WebKit and Chromium) covers every size of block on square and tile cells, each
-  tap opening the sheet at its place, the sheet at 1280 x 800, an iPad and a phone, a chip, a room and Cameras inside it
-  and back, an accessory opened there and back, Escape, Reduce Motion's fade, a car's screen, no command, and no page
-  change. The Home sheet is in `sheet_review.py`; the review now cuts a box to its nearest sideways clip, as it is
+  tap opening the sheet at its place or going to its page, the sheet at 1280 x 800, an iPad and a phone, a room inside
+  it and back, an accessory opened there and back, a chip and Cameras going to their page with the sheet, Escape, Reduce
+  Motion's fade, a car's screen, and no command. The Home sheet is in `sheet_review.py`; the review now cuts a box to its nearest sideways clip, as it is
   painted.
 - **Not done:** the gallery's Wall Display is a starter layout, and a block there would move every doc screenshot of it,
   so the new check's own screens on the fictional house show the block instead. DESIGN.md is unchanged: the owner says
@@ -119,8 +123,9 @@ holds them equal).
     "1 on · Unlocked", "All off").
   - **Extra Large:** a column of its own for the label, the headline, the sentence and the category lines; the rooms'
     lines beside it.
-  - **Every part is a way in:** the plate opens the sheet at Home, a category opens the sheet at its page, and a room
-    opens the sheet at that room. Nothing in the block turns anything on or off, as with House Status.
+  - **Every part is a way in:** the plate opens the sheet at Home, a room opens the sheet at that room, and a category
+    goes to its own page as its chip does (changed 2026-11-12, decision 2). Nothing in the block turns anything on or
+    off, as with House Status.
 - **Home and House Status stay two blocks.** The headline, sentence and category readings come from the same
   `hkChip.status` model House Status draws, so the two never disagree; the Home block's own part is the rooms and the
   sheet. A screen with a Large or Extra Large Home rarely needs House Status beside it. A screen that wants only what
@@ -153,13 +158,12 @@ A panel like `hk-detail-room`, drawing new `hkStrategy.homeCards(client, opts)`:
 
 ### 3. Going further inside the sheet
 
-This is the part the recording shows at 2.6 s.
+This is the part the recording shows at 2.6 s. **Changed 2026-11-12 (decision 2): only the rooms go further inside.**
 
-- **A chip** (Security, Climate, Lights, Speakers) shows that category's page inside the sheet: its cards from
-  `categoryPages`, through a new `hkStrategy.pageCards(client, path)`.
+- **A chip** (Security, Climate, Lights, Speakers) goes to the screen's own page, as chips do everywhere, and the sheet
+  goes with it. (Planned at first: the category's page inside the sheet.)
 - **A room heading** ("Kitchen ›") shows that room inside the sheet, with the same cards `hk-detail-room` draws.
-- **"Cameras ›"** shows the Cameras page inside the sheet: every camera, two across at the sheet's 864 px (the page is
-  three across on the screen), opened one after another as the page does.
+- **"Cameras ›"** goes to the screen's Cameras page, as a chip does.
 - **The header on an inner page:** the X stays where it is and closes the whole sheet. A back key ("‹ Home", the
   standard 40 px pill) appears right of the X, and the title becomes the page's name. The rule stands: the X and the
   name are always in the same place.
@@ -167,8 +171,7 @@ This is the part the recording shows at 2.6 s.
   Motion it is a cross-fade (`fade`, .2 s), which is what the recording shows.
 - **A pill** opens its accessory's sheet on top, as everywhere. Back returns to the page inside the Home sheet at its
   scroll position, through `hkKeepBack()`.
-- **One level deep.** A chip inside an inner page (Security's own "4 Unlocked") filters in place as it does on the
-  page. It does not push again.
+- **One level deep.** A room's page that leads to another room's replaces it in place; Back is always Home.
 
 ### 4. Settings, the MCP and the docs
 
@@ -203,9 +206,11 @@ This is the part the recording shows at 2.6 s.
 ## The owner's decisions
 
 1. **The sheet's size: agreed (2026-11-12).** The Room sheet's 864 x 680, four pills across.
-2. **Chips and rooms open inside the sheet: agreed (2026-11-12),** with the "‹ Home" back key beside the X, as Apple's
-   does (section 3). The other choice, going to the screen's own page and closing the sheet, was set aside: inside the
-   sheet you never leave the grid. The chips stay together at the top of the sheet, which the owner liked.
+2. **Chips go to their page, rooms open inside the sheet: agreed (2026-11-12).** First answered "Inside the sheet", and
+   built that way. After trying it the owner found a chip's page inside the sheet "not the best place for it": he had
+   read "inside the sheet" as the chips being inside it. So a chip and Cameras go to the screen's own page, the sheet
+   with them, as chips do everywhere. A room's heading still opens the room inside the sheet, with the "‹ Home" key.
+   The chips stay together at the top of the sheet.
 3. **Sizes: all five (2026-11-12).** Small, Wide, Tall, Large and Extra Large, from Tall up the House Status mixture
    above, laid out as the mockup's "Every size" strip shows.
 

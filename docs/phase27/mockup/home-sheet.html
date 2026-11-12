@@ -252,12 +252,12 @@ p { margin: 0; max-width: 68ch; }
     <h3>Decision 2, side by side</h3>
     <p class="hint" style="margin-bottom:12px">Both choices start the same way: you tap the house, and the sheet opens with the chips across the top. They only differ once you tap a chip such as Security, or a room's name. Use the "Chips and rooms open" switch above to try each one.</p>
     <div class="cmp">
-      <div class="note"><span class="rec">Chosen</span><b>Inside the sheet</b>
+      <div class="note"><span class="rec">Rooms only</span><b>Inside the sheet</b>
         <ol><li>Tap Security. The sheet stays open, and Security slides in inside it.</li>
             <li>The title becomes "Security", and a "‹ Home" key appears next to the X.</li>
             <li>"‹ Home" goes back to the house list, where you were. X closes the sheet, and you're back on the grid.</li></ol>
         <p style="margin-top:8px">You never leave the grid. It's a quick look and back, which is how Apple's works.</p></div>
-      <div class="note"><b>The screen's page</b>
+      <div class="note"><span class="rec">Chips</span><b>The screen's page</b>
         <ol><li>Tap Security. The sheet closes, and the screen goes to its full Security page, the one the menu and tab bar already go to.</li>
             <li>That page fills the screen, with more room and the tab bar at its foot.</li>
             <li>To come back you use the menu or the tab bar's Home. The sheet isn't there anymore.</li></ol>
@@ -269,7 +269,7 @@ p { margin: 0; max-width: 68ch; }
     <h3>Decisions</h3>
     <div class="cols">
       <div class="note"><span class="rec">Agreed: Room size</span><b>1. How big the sheet is</b><p>864 × 680 with four pills across, the same as a Room block's sheet. The Sheet switch above still shows Full for comparison.</p></div>
-      <div class="note"><span class="rec">Agreed: inside the sheet</span><b>2. Where chips and rooms go</b><p>A chip or a room's name opens one level in inside the sheet, with "‹ Home" beside the X. The chips stay together at the top of the sheet. The switch above still shows the screen's page for comparison.</p></div>
+      <div class="note"><span class="rec">Agreed: chips to their page, rooms inside</span><b>2. Where chips and rooms go</b><p>A chip goes to the screen’s own page (Security, Climate, Lights), as chips do everywhere, and the sheet goes with it. A room’s name opens the room inside the sheet, with “‹ Home” to come back. The block’s categories go to their page too; its rooms open the sheet at that room.</p></div>
       <div class="note"><span class="rec">Agreed: all five sizes</span><b>3. Sizes, and House Status</b><p>Small, Wide, Tall, Large and Extra Large. Home doesn't replace House Status: it uses House Status's headline and wording, which come from the same chip model, so the two never disagree. Then it adds the rooms. A screen with a Large or Extra Large Home won't need House Status beside it, and a screen that wants only the alerts keeps House Status.</p></div>
     </div>
   </section>
@@ -564,7 +564,8 @@ p { margin: 0; max-width: 68ch; }
   }
   function push(where) {
     if (nav.length > 1) return;            // one level deep
-    if (S.open === 'page') { closeSheet(); return showPage(where); }
+    // (the owner, 2026-11-12: a chip goes to its page, as everywhere; a room opens inside the sheet)
+    if (S.open === 'page' || where.indexOf('cat:') === 0) { closeSheet(); return showPage(where); }
     var st = device.querySelector('#stack'), cur = top(), nx = mkPage(where);
     nx.classList.add('enter'); st.appendChild(nx); nx.getBoundingClientRect();
     nx.classList.add('anim'); cur.classList.add('anim');
@@ -648,7 +649,7 @@ p { margin: 0; max-width: 68ch; }
   }
   function hidePage() { var fp = device.querySelector('#fp'); if (fp && fp.classList.contains('on')) { fp.classList.remove('on'); var t = device.querySelector('[data-open="home"]'); if (t) t.focus({ preventScroll: true }); return true; } return false; }
   function openAt(where) {
-    if (where !== 'home' && S.open === 'page') return showPage(where);
+    if (where !== 'home' && (S.open === 'page' || where.indexOf('cat:') === 0)) return showPage(where);
     openSheet();
     if (where !== 'home') setTimeout(function () { push(where); }, S.motion === 'reduce' ? 0 : 200);
   }

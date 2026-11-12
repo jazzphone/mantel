@@ -139,6 +139,8 @@ def test_the_sheet_is_the_generated_home_and_a_page_change_inside_it_stays_there
     assert "var all = views(client, opts, false)" in views and "home_style: 'list', home_grid: null" in views
     assert "car_layout: null, popups: false" in views and "K.homeSheet = homeSheet;" in views
     assert "row = Object.assign({}, row, { lead: false });" in views        # no menu key in a sheet
+    assert "if (!v.area) return;" in views                                   # only the rooms open inside; a chip goes to its page
+    assert "_openSection(sec) { return P.go(this, sec, false); }" in web_sources.read("web/hk/cards/hk-home-block.js")
     assert "homeSheet: viaClient(homeSheet)" in web_sources.read("web/hk/cards/hk-strategy.js")
     # every card's page change asks a sheet that holds pages first (hkCatchNav), across shadow roots
     core = web_sources.read("web/hk/base/hk-base-card-core.js")
