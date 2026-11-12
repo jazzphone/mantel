@@ -482,6 +482,9 @@ class IntercomHost:
         if why:
             await s.ws.send_json({"type": "error", "code": why})
             return f"refused:{why}"
+        if not C.live_rooms_ok(rooms):              # one room hears Live; more rooms are a Message (the sheet says so)
+            await s.ws.send_json({"type": "error", "code": "live_one_room"})
+            return "refused:live_one_room"
         plan, pids, music = await self.plan(s.principal, rooms, "live", False)
         await s.ws.send_json({"type": "rooms", "rooms": _public(plan.rooms), "can_override": False})
         if not plan.calls:
@@ -607,7 +610,7 @@ class IntercomHost:
             deadline = t_call + D.PLAYING_WAIT
             while loop.time() < deadline:
                 if self._playing(call.player):
-                    b.lags.append(loop.time() - b.t0)
+                    b.lags.append(max(0.0, loop.time() - b.t0 - C.SOUND_BEFORE_PLAYING_S))
                     return
                 await asyncio.sleep(0.2)
             b.failed.add(call.player)                                     # signal 3

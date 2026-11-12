@@ -76,7 +76,10 @@
     forbidden: 'You can’t use the Intercom',
     unreachable: 'Can’t reach ',
     tapAgain: 'Tap the microphone again',
-    pickRoom: 'Pick a room first'
+    pickRoom: 'Pick a room first',
+    // LIVE GOES TO ONE ROOM (2026-11-11, the owner): one room hears you as you talk; more rooms get a Message
+    liveNote: 'Live talks to one room. For more rooms, use Message.',
+    liveOneRoom: 'Live goes to one room. Pick one'
   };
   // WHY THE GATEWAY SAID NO, in words. It answers {code: 'unavailable', message: <reason>} (or the reason as the code):
   // none of these is mended by trying again, so the recording ends and the sheet says which it was.
@@ -88,7 +91,8 @@
     intercom_not_listening: 'The Intercom isn’t listening yet (Settings → Intercom)',
     music_assistant_off: 'Music Assistant isn’t connected',
     live_off: 'Live isn’t on',
-    live_not_away: 'Live works only at home. Send a message instead'
+    live_not_away: 'Live works only at home. Send a message instead',
+    live_one_room: WORDS.liveOneRoom
   };
   function reasonOf(code, err) {
     var c = [code, err && err.message, err && err.reason];
@@ -105,7 +109,7 @@
   function plain(reason) { return String(reason || '').replace(/;\s*skipped\.?$/i, '').replace(/\.$/, ''); }
 
   // ------------------------------------------------------------------ the feed, as the sheet reads it
-  // {enabled, live_allowed, away, default_mode, max_live_s, max_message_s, lag_ms, can_override, here, rooms, floors, presets}
+  // {enabled, live_allowed, live_rooms, away, default_mode, max_live_s, max_message_s, lag_ms, can_override, here, rooms, floors, presets}
   function normalize(e) {
     if (!e || typeof e !== 'object') return null;
     var list = function (v) { return Array.isArray(v) ? v : []; };
@@ -113,6 +117,7 @@
       enabled: e.enabled !== false,
       away: !!e.away,
       live_allowed: !!e.live_allowed && !e.away,
+      live_rooms: Math.max(1, num(e.live_rooms, 1)),             // how many rooms one Live talk may go to (hk_core LIVE_ROOMS)
       default_mode: e.default_mode === 'live' ? 'live' : 'message',
       max_live_s: num(e.max_live_s, 60), max_message_s: num(e.max_message_s, 30),
       lag_ms: e.lag_ms == null ? null : num(e.lag_ms, null),
@@ -273,11 +278,22 @@
     return this.limit || (f ? (m === 'live' ? f.max_live_s : f.max_message_s) : 30);
   };
   /** @this {Ctl} */ CP.pills = function () { return pillsOf(this.feed(), this.modeNow()); };
-  /** @this {Ctl} */ CP.chips = function () { return chipsOf(this.pills(), this.feed(), this.sel); };
-  // the rooms a send would go to: the picked ones a tap can pick (in the feed's order)
-  /** @this {Ctl} */ CP.chosen = function () {
+  // Live's room limit (the feed's live_rooms): Whole House, a floor or a preset with more rooms is no Live target
+  /** @this {Ctl} */ CP.liveMax = function () { var f = this.feed(); return f ? f.live_rooms : 1; };
+  /** @this {Ctl} */ CP.chips = function () {
+    var chips = chipsOf(this.pills(), this.feed(), this.sel), max = this.liveMax();
+    if (this.modeNow() !== 'live') return chips;
+    return max === 1 ? [] : chips.filter(function (c) { return c.ids.length <= max; });     // a group of rooms is no one-room target
+  };
+  /** @this {Ctl} */ CP._picked = function () {
     var sel = this.sel;
     return this.pills().filter(function (p) { return p.pickable && sel.indexOf(p.id) >= 0; }).map(function (p) { return p.id; });
+  };
+  // the rooms a send would go to: the picked ones a tap can pick (in the feed's order); Live, with more picked than it
+  // may go to (rooms kept from a Message), none until one is picked
+  /** @this {Ctl} */ CP.chosen = function () {
+    var picked = this._picked();
+    return this.modeNow() === 'live' && picked.length > this.liveMax() ? [] : picked;
   };
   /** @this {Ctl} */ CP._nameOf = function (id) {
     var f = this.feed(), r = f && f.rooms.filter(function (x) { return x.room === id; })[0];
@@ -318,6 +334,7 @@
     if (!f) return { text: WORDS.connecting, kind: 'pending' };
     if (!this.d.supported()) return { text: this._noRecording(), kind: 'warn' };
     if (!this.d.oneWay.seen()) return { text: WORDS.oneWay, kind: 'info' };
+    if (m === 'live' && this._picked().length > this.liveMax()) return { text: WORDS.liveOneRoom, kind: 'info' };
     if (m === 'live') {
       var later = this.pills().filter(function (p) { return p.pickable && p.glyph === 'clock' && this.sel.indexOf(p.id) >= 0; }, this).map(function (p) { return p.name; });
       if (later.length) return { text: later.join(', ') + ': after you finish', kind: 'info' };
@@ -370,7 +387,9 @@
     if (!p.pickable) { this._say(p.line, 'info'); return; }
     this.touchedRooms = true;
     var i = this.sel.indexOf(id);
-    if (i >= 0) this.sel.splice(i, 1); else if (this.sel.length < ROOMS_MAX) this.sel.push(id);
+    // Live to one room: a tap picks that room alone (a second tap clears it)
+    if (this.modeNow() === 'live' && this.liveMax() === 1) this.sel = i >= 0 && this.sel.length === 1 ? [] : [id];
+    else if (i >= 0) this.sel.splice(i, 1); else if (this.sel.length < ROOMS_MAX) this.sel.push(id);
     this.said = null;
     if (p.note || (p.quiet && i < 0)) this._say(p.line, 'info');
     this._afterPick();
@@ -461,7 +480,7 @@
     var why = this._refusal();
     if (why) { this._say(why, 'warn'); return; }
     // Live speaks to the rooms picked, named before the first frame: with none picked there is no one to hear it
-    if (mode === 'live' && !this.chosen().length) { this._say(WORDS.pickRoom, 'info'); return; }
+    if (mode === 'live' && !this.chosen().length) { this._say(this._picked().length ? WORDS.liveOneRoom : WORDS.pickRoom, 'info'); return; }
     var self = this, mic = this.mic || (this.mic = this.d.mic());
     if (!mic || !mic.unlock()) {
       if (!mic && this.d.loading && this.d.loading()) this._say(WORDS.connecting, 'info');       // the microphone module is still on its way
@@ -722,6 +741,7 @@
     else if (code === 'music_assistant_off') text = 'Music Assistant is off';
     else if (code === 'rate') text = 'Too many announcements. Wait a moment';
     else if (code === 'not_allowed') text = 'You can’t announce to those rooms';
+    else if (code === 'live_one_room') text = WORDS.liveOneRoom;
     else text = e.message || 'Couldn’t send';
     this.socket = 'none';
     if (this.mic) this.mic.closeSocket();
@@ -800,6 +820,7 @@
     var modes = f && f.enabled && f.live_allowed ? MODES.map(function (m) { return { id: m, label: m === 'live' ? 'Live' : 'Message', on: m === mode, disabled: !free }; }) : [];
     var n = this.count();
     return { mode: mode, modes: modes, status: st, mic: mic, actions: actions, secs: this.secs, state: s, count: n,
+             note: live && modes.length && this.liveMax() === 1 ? WORDS.liveNote : '',
              canClear: n.on > 0 && free,
              pills: this.pills().map(function (p) { p.on = this.sel.indexOf(p.id) >= 0 && p.pickable; return p; }, this), chips: this.chips(),
              stamp: mmss(this.secs),
@@ -1300,6 +1321,9 @@
       '.seg button{min-height:36px}',
       '.seg[hidden]{display:none}',
       '.seg button[aria-disabled="true"]{opacity:.45}',
+      // LIVE'S NOTE under the rooms panel's head, over the rooms it is about (caption: 13 / 500, secondary ink)
+      '.lnote{font-size:13px;font-weight:500;line-height:18px;color:' + v('ink-2') + '}',
+      '.lnote[hidden]{display:none}',
 
       // THE TALK SIDE
       '.talk{display:flex;flex-direction:column;align-items:center;gap:' + SPC.piece + 'px;min-width:0}',
@@ -1472,11 +1496,12 @@
           '<span class="core">' + svg('mic') + '</span></button><div class="wd"></div><div class="mt"></div></div>' +
           '<div class="line" role="status" aria-live="polite"></div><div class="rv" hidden></div></div>' +
           '<div class="pick"><div class="ph"><span class="lab">To</span><span class="cnt"></span>' +
-          '<button class="clr" type="button">Clear All</button></div>' +
+          '<button class="clr" type="button">Clear All</button></div><div class="lnote" hidden></div>' +
           '<div class="sec gsec" hidden><div class="grid chips"></div></div>' +
           '<div class="sec rsec"><div class="grid rooms"></div></div><div class="none" hidden></div></div></div></div>';
         var self = this, q = this._root.querySelector.bind(this._root);
-        this._e = { seg: q('.seg'), pick: q('.pick'), gsec: q('.gsec'), rsec: q('.rsec'), chips: q('.chips'), rooms: q('.rooms'), none: q('.none'), line: q('.line'), mic: q('.mic'), mb: q('.mb'),
+        this._e = { seg: q('.seg'), lnote: q('.lnote'), pick: q('.pick'), gsec: q('.gsec'), rsec: q('.rsec'), chips: q('.chips'), rooms: q('.rooms'), none: q('.none'), line: q('.line'),
+          mic: q('.mic'), mb: q('.mb'),
           mt: q('.mt'), rv: q('.rv'), foot: q('.foot'),
           core: q('.core'), wd: q('.wd'), cnt: q('.cnt'), clr: q('.clr') };
         this._e.clr.addEventListener('click', function (e) { e.stopPropagation(); if (self._ctl && self._e.clr.getAttribute('aria-disabled') !== 'true') self._ctl.clearRooms(); });
@@ -1558,6 +1583,9 @@
             (m.disabled ? ' aria-disabled="true"' : '') + (m.on ? ' class="sel"' : '') + '>' + m.label + '</button>'; }).join('');
           if (this._slide && C.slideSeg) { var now = e.seg.querySelector('.sel'); if (now) C.slideSeg(now, this._slide); this._slide = null; }
         }
+        // over the rooms, in Live: where Live goes (one room)
+        e.lnote.hidden = !view.note;
+        if (e.lnote.textContent !== view.note) e.lnote.textContent = view.note;
         // the chips and pills, drawn again only when they differ
         var cKey = JSON.stringify(view.chips.map(function (c) { return [c.kind, c.id, c.name, c.on]; }));
         if (cKey !== this._cKey) { this._cKey = cKey; e.chips.innerHTML = view.chips.map(function (c) { return self._pill(c); }).join(''); }

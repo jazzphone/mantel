@@ -44,12 +44,14 @@ from mantel_server.connectors.ma import MaClient  # noqa: E402
 from mantel_server.intercom.links import Links  # noqa: E402
 from mantel_server.intercom.listener import StreamListener  # noqa: E402
 from mantel_server.intercom.spool import Spool  # noqa: E402
+# the sound starts this long BEFORE Music Assistant says "playing" (measured by microphone, 2026-11-11; the first proof
+# added an assumed 2 s for AirPlay instead: 7.45 s where the room heard it at 4.8)
+from hk_core.intercom.config import SOUND_BEFORE_PLAYING_S  # noqa: E402
 
 NEVER = Path("~/.config/mantel/intercom-never").expanduser()
 COUNT = Path("~/.config/mantel/intercom-proof-count.json").expanduser()
 HOURS = (9, 19)
 MAX_VOLUME, MAX_SOUNDS, MAX_SECONDS = 25, 40, 60
-AIRPLAY_BUFFER_S = 2.0          # stated, not measured: AirPlay's own buffer on top of the measured start
 ANNOUNCE = "players/cmd/play_announcement"
 RATE, FRAME_S, LEVEL = 24000, 0.04, 0.12
 PLANS = {"live": ("live", 20, 1), "long": ("live", 45, 1), "message": ("message", 10, 1), "two": ("live", 20, 2)}
@@ -218,7 +220,7 @@ async def one_run(ma: MaClient, links: Links, gate: Gate, watch: Watch, base: st
     rec["ended_early"] = link.ended_early
     plays = {p: watch.first_playing(p, t0) for p in pids}
     rec["playing_s"] = {p: (None if t is None else round(t - t0, 3)) for p, t in plays.items()}
-    rec["start_lag_s"] = {p: (None if t is None else round(t - t0 + AIRPLAY_BUFFER_S, 3)) for p, t in plays.items()}
+    rec["start_lag_s"] = {p: (None if t is None else round(t - t0 - SOUND_BEFORE_PLAYING_S, 3)) for p, t in plays.items()}
     rec["volumes_during"] = {p: watch.volumes(p, t0, t_end) for p in pids}
     links.kill(link)
     await asyncio.sleep(6)

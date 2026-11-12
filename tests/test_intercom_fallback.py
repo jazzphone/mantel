@@ -263,6 +263,14 @@ async def assert_fell_back(env, ws_events, url, pcm, failed: list[str], live: li
     assert types(ws_events).index("fallback") < types(ws_events).index("sent")
 
 
+@pytest.fixture(autouse=True)
+def many_live_rooms(monkeypatch):
+    """These are Live's paths for several rooms at once (one plan, its fallbacks, its group). The house's Live goes to one
+    room (C.LIVE_ROOMS, 2026-11-11); the code for more stays tested for the day that changes."""
+    from hk_core.intercom import config as C
+    monkeypatch.setattr(C, "LIVE_ROOMS", 64)
+
+
 @pytest.fixture
 async def avery(lv):
     return await lv.actor("avery", "owner")

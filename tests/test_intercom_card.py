@@ -79,6 +79,7 @@ SCENARIOS = [
     "words_a_suspended_context_or_a_recording_with_nothing_in_it_says_to_tap_again",
     "pointer_the_release_and_the_click_unlock_the_audio_again_for_a_touch",
     "live_with_no_room_picked_opens_no_microphone_and_says_so",
+    "live_goes_to_one_room_a_tap_picks_it_alone_and_the_sheet_says_so",
     "live_after_busy_the_socket_is_closed_so_send_again_opens_a_new_one",
     "a_stale_ticket_after_cancel_opens_nothing",
     "pointer_a_message_tap_acts_on_release_and_a_cancel_does_nothing",

@@ -34,11 +34,20 @@ PRIVATE_NETS = (ipaddress.IPv4Network((10 << 24, 8)), ipaddress.IPv4Network(((17
 _SPEAKER = re.compile(r"^media_player\.[a-z0-9_]+$")
 _TABLET = re.compile(r"^[A-Za-z0-9_.:-]{1,64}$")
 
-# THE PROOF'S MEASUREMENT (slice 0, 2026-11-03, Music Assistant 2.10.9, one idle HomePod): Live starts this far behind
-# the talker (the median from the first byte to the player playing, plus AirPlay's own 2 s). The sheet says it, a
-# listener tablet delays by it, and Settings offers "Live Allowed" only once it is known. Run tools/intercom_proof.py
-# again on a newer Music Assistant and change it here.
-PROOF_LAG_MS = 7450
+# THE PROOF'S MEASUREMENT: how far behind the talker Live is heard. 2026-11-11, Music Assistant 2.10.9, measured by a
+# microphone beside an idle HomePod: 4.77 and 4.83 s from the first byte to the sound (the 2026-11-03 proof's 7450 was
+# the player's "playing" plus an assumed 2 s for AirPlay; the sound in fact starts ~0.45 s BEFORE "playing"). The sheet
+# says it until the rooms play (then the broadcast's own figure, host.py), and Settings offers "Live Allowed" only once
+# it is known. Run tools/intercom_proof.py again on a newer Music Assistant and change it here.
+PROOF_LAG_MS = 4800
+# Earlier proofs' figures: a stored document carries the default it was saved with (lag_ms is no setting), so one of
+# these reads as today's figure.
+SUPERSEDED_PROOF_LAGS = (7450,)
+# The sound starts this long before Music Assistant reports the player playing (measured with the figure above): a
+# broadcast's own lag is the time to "playing" less this.
+SOUND_BEFORE_PLAYING_S = 0.45
+# LIVE GOES TO ONE ROOM (2026-11-11, the owner): one room hears you as you talk; more rooms get a Message.
+LIVE_ROOMS = 1
 
 QUIET_DEFAULT = {"schedule": True, "from": "21:00", "to": "07:00", "while": []}
 
@@ -174,6 +183,8 @@ def check(body: Any) -> dict[str, Any]:
                 out[k] = normal_base(v)
         elif k == "lag_ms":
             out[k] = None if v is None else _int(v, "lag_ms", 0, 60000)
+            if out[k] in SUPERSEDED_PROOF_LAGS:
+                out[k] = PROOF_LAG_MS
         elif k == "max_volume":
             out[k] = _int(v, "the highest volume", 1, 100)
         elif k == "volume":
@@ -229,6 +240,11 @@ def room(doc: Mapping[str, Any], entity: str) -> dict[str, Any]:
 
 def limit_s(doc: Mapping[str, Any], mode: str) -> int:
     return int(doc["max_live_s"] if mode == "live" else doc["max_message_s"])
+
+
+def live_rooms_ok(rooms: Any) -> bool:
+    """Whether one Live talk may go to these rooms (LIVE_ROOMS at most)."""
+    return len(set(rooms)) <= LIVE_ROOMS
 
 
 def live_offered(doc: Mapping[str, Any]) -> bool:
