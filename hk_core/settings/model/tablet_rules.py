@@ -25,10 +25,12 @@ from .menu_rules import AREA_ID
 # ids and history. docs/Wall-Tablets.md.
 SUBENTRY_TABLET = "tablet"
 
-# kiosk_satellite and fully: a device in Home Assistant (status, actions,
-# Sleep Screen with Kiosk Satellite); wallpanel: WallPanel in the browser;
-# browser: Just a Browser -- any browser the house says is a tablet
-TABLET_APPS = ("kiosk_satellite", "fully", "wallpanel", "browser")
+# mantel, kiosk_satellite and fully: a device in Home Assistant (status, actions,
+# Sleep Screen with Mantel for Android or Kiosk Satellite); wallpanel: WallPanel in
+# the browser; browser: Just a Browser -- any browser the house says is a tablet
+TABLET_APPS = ("mantel", "kiosk_satellite", "fully", "wallpanel", "browser")
+# the apps Sleep Screen drives (their screen, screensaver and buttons: hk_core/sleep/engine.py KIOSK_PARTS)
+SLEEP_APPS = ("mantel", "kiosk_satellite")
 
 IDLE_TIMES = (30, 50, 60, 120, 300, 0)          # s; 0: never
 
@@ -70,7 +72,7 @@ def tablet(data: Mapping[str, Any] | None, tid: str = "") -> dict[str, Any]:
     out["idle_time"] = it if isinstance(it, int) and not isinstance(it, bool) and it in IDLE_TIMES else None
     out["black_screen"] = d["black_screen"] if d.get("black_screen") in BLACK_SCREENS else "kiosk"
     out["sleep"] = SR.sleep_options(d.get("sleep")) or SR.sleep_options(None)
-    out["sleep"]["kiosk"] = out["device"] if out["app"] == "kiosk_satellite" else ""
+    out["sleep"]["kiosk"] = out["device"] if out["app"] in SLEEP_APPS else ""
     uid = str(d.get("uid") or "").strip()
     out["uid"] = uid if re.fullmatch(r"[a-z0-9_-]{1,80}", uid) else (f"tablet_{tid}" if tid else "")
     return out

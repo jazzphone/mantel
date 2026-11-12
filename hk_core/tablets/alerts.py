@@ -84,7 +84,7 @@ class Alerts:
             if at and now - at >= BACK_AFTER:
                 self.restarted.pop(tid, None)
                 front = state_of(house, p.get("app"))
-                back = not gone and (t["app"] != "kiosk_satellite" or front in (None, *KIOSK_PACKAGES))
+                back = not gone and (t["app"] not in ("kiosk_satellite", "mantel") or front in (None, *KIOSK_PACKAGES))
                 if not back and options.get("alert_restart"):
                     self._raise(out, tid, "restart", f"{t['name']} tablet didn’t come back",
                                 "Its scheduled restart was 3 minutes ago and the kiosk app isn’t in front. "

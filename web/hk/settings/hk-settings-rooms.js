@@ -522,8 +522,8 @@
                      options: [['', 'None']].concat(users.map(function (u) { return [u, u]; })),
                      onChange: function (v) { set({ user: v }); } }),
           K.select({ label: 'Kiosk App', sk: 't:app', value: t.app, options: M.TABLET_APPS.map(function (a) { return [a[0], a[1]]; }),
-                     onChange: function (v) { set(v === 'kiosk_satellite' || v === 'fully' ? { app: v } : { app: v, device: '' }); } })];
-        if (t.app === 'kiosk_satellite' || t.app === 'fully') {
+                     onChange: function (v) { set(M.kioskDeviceApp(v) ? { app: v } : { app: v, device: '' }); } })];
+        if (M.kioskDeviceApp(t.app)) {
           var devs = (this.data.kiosk_devices || []).filter(function (d) { return d.app === t.app; });
           setup.push(K.select({ label: 'Device', sk: 't:device', value: t.device || '', placeholder: 'Choose…',
                                 options: [['', 'None']].concat(devs.map(function (d) { return [d.id, d.name]; })),
@@ -627,7 +627,7 @@
         c.appendChild(K.group({}, rows));
         var app = [K.select({ label: 'Kiosk App', sk: 'new:app', value: n.app, options: M.TABLET_APPS.map(function (a) { return [a[0], a[1]]; }),
                               onChange: function (v) { n.app = v; n.device = ''; redraw(); } })];
-        if (n.app === 'kiosk_satellite' || n.app === 'fully') {
+        if (M.kioskDeviceApp(n.app)) {
           var devs = (this.data.kiosk_devices || []).filter(function (d) { return d.app === n.app; });
           devs.sort(function (a, b) { return (used[a.id] ? 1 : 0) - (used[b.id] ? 1 : 0); });
           app.push(K.select({ label: 'Device', sk: 'new:device', value: n.device, placeholder: 'Choose…',

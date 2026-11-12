@@ -14,12 +14,15 @@
     // ------------------------------------------------------------ wall tablets (1.14)
     // A TABLET'S KIOSK APP: [id, name, what HK can do with it]
     var TABLET_APPS = [
+      ['mantel', 'Mantel for Android', 'Status, brightness, wake, sleep, restart; its controls in Mantel.'],
       ['kiosk_satellite', 'Kiosk Satellite', 'Status, brightness, wake, sleep, restart.'],
       ['fully', 'Fully Kiosk', 'Status, brightness, reload, restart.'],
       ['wallpanel', 'WallPanel', 'HK’s idle and screensaver in the browser; no status.'],
       ['browser', 'Just a Browser', 'Any browser you say is a tablet: HK’s idle and screensaver.']
     ];
-    function tabletApp(id) { return TABLET_APPS.filter(function (a) { return a[0] === id; })[0] || TABLET_APPS[3]; }
+    // a kiosk app that is a device in Home Assistant (its status and buttons: Setup's Device)
+    function kioskDeviceApp(id) { return id === 'mantel' || id === 'kiosk_satellite' || id === 'fully'; }
+    function tabletApp(id) { return TABLET_APPS.filter(function (a) { return a[0] === id; })[0] || TABLET_APPS[4]; }
     // Idle Time (settings.IDLE_TIMES), seconds; 0 never
     var IDLE_TIMES = [[30, '30 Seconds'], [50, '50 Seconds'], [60, '1 Minute'], [120, '2 Minutes'], [300, '5 Minutes'], [0, 'Never']];
     function idleLabel(sec) {
@@ -484,7 +487,7 @@
     K.RADAR_REASONS = RADAR_REASONS; K.RADAR_SPEEDS = RADAR_SPEEDS; K.radarAdvancedSummary = radarAdvancedSummary;
     K.radarOf = radarOf; K.radarPlanOf = radarPlanOf; K.radarSummary = radarSummary; K.secKey = secKey;
     K.secsAdd = secsAdd; K.secSays = secSays; K.secSet = secSet; K.secsMore = secsMore; K.secsOrder = secsOrder;
-    K.TABLET_APPS = TABLET_APPS; K.tabletApp = tabletApp; K.tabletChecks = tabletChecks;
+    K.TABLET_APPS = TABLET_APPS; K.tabletApp = tabletApp; K.kioskDeviceApp = kioskDeviceApp; K.tabletChecks = tabletChecks;
     K.tabletStatus = tabletStatus; K.tabletUrl = tabletUrl; K.WX_DAYS = WX_DAYS; K.WX_DETAILS = WX_DETAILS;
     K.WX_HOURS = WX_HOURS; K.WX_METRICS = WX_METRICS; K.WX_PAGE_DEFAULTS = WX_PAGE_DEFAULTS; K.wxPage = wxPage;
   };

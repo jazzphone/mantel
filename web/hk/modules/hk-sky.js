@@ -595,6 +595,14 @@
       '#hk-sky[data-ws="petals"] .wall{transform-origin:86% 98%;animation-name:hk-wall-breathe}',
       '#hk-sky[data-ws="shards"] .wall{animation-name:hk-wall-drift}',
       '#hk-sky[data-ws="pinwheel"] .wall{transform-origin:32% 33%;animation-name:hk-wall-turn}',
+      // A FEW STEPS A SECOND, NOT SIXTY (2026-11-12, measured on a wall tablet, a Galaxy Tab A9+): the whole picture
+      // moves a fraction of a pixel a frame (Slow turns 6 degrees in 90 s), yet every frame it moves, each glass card
+      // over it blurs it again -- the page cost 1.6 cores at rest, 0.9 stepped, at the same 59 fps. Stepped about 4 /
+      // 6 / 10 times a second (Slow / Medium / Fast) the drift reads the same and the glass is redrawn that often. A
+      // motion theme's own layers (.th) keep every frame: a meteor's flight is quick.
+      '#hk-sky[data-wm="slow"] .wall:not(.th){animation-timing-function:steps(360)}',
+      '#hk-sky[data-wm="medium"] .wall:not(.th){animation-timing-function:steps(270)}',
+      '#hk-sky[data-wm="fast"] .wall:not(.th){animation-timing-function:steps(200)}',
       '@keyframes hk-wall-sway{from{transform:translate3d(-3%,1%,0)}to{transform:translate3d(3%,-1%,0)}}',
       '@keyframes hk-wall-breathe{from{transform:rotate(-2deg) scale(1)}to{transform:rotate(2deg) scale(1.04)}}',
       '@keyframes hk-wall-drift{from{transform:translate3d(-2%,-2%,0) scale(1.02)}to{transform:translate3d(2%,2%,0) scale(1)}}',

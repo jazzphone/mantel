@@ -24,6 +24,8 @@ PARTS: dict[str, dict[str, tuple[str, str]]] = {
         "restart_app": ("button", "_restart_app"), "restart_device": ("button", "_restart_device"),
         "front": ("button", "_bring_to_front"),
     },
+    # Mantel for Android (docs/phase26/ANDROID-APP.md): Kiosk Satellite's entities by the same endings, set below
+    "mantel": {},
     # Fully Kiosk Browser (Home Assistant's fully_kiosk integration)
     "fully": {
         "battery": ("sensor", "_battery"), "charging": ("binary_sensor", "_plugged_in"),
@@ -35,6 +37,7 @@ PARTS: dict[str, dict[str, tuple[str, str]]] = {
         "front": ("button", "_bring_to_foreground"),
     },
 }
+PARTS["mantel"] = {**PARTS["kiosk_satellite"], "kiosk_app": ("sensor", "_kiosk_app")}
 KS_PACKAGE = "me.jxl.kiosk_satellite"     # Kiosk Satellite's app, in front when it is
 # Mantel for Android (docs/phase26/ANDROID-APP.md): the same entities by the same endings, so HK takes it as a
 # Kiosk Satellite tablet; its own package is the one in front when it is
@@ -83,7 +86,9 @@ def devices(house: House) -> list[dict[str, str]]:
                 fully.add(e.device_id)
     out = []
     for dev_id, ids in by_dev.items():
+        # Mantel for Android says so (its `sensor.<tablet>_kiosk_app`); otherwise it has Kiosk Satellite's endings
         app = ("fully" if dev_id in fully else
+               "mantel" if any(i.endswith("_kiosk_app") for i in ids) else
                "kiosk_satellite" if any(i.endswith("_foreground_app") for i in ids)
                and any(i.endswith("_screensaver_active") for i in ids) else None)
         d = house.device(dev_id) if app else None

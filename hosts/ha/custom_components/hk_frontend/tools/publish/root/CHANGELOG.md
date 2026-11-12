@@ -5,6 +5,10 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+**Changed**
+- **A moving wallpaper costs a wall tablet far less**: the whole picture's motion steps a few times a second instead of every frame (it reads the same; the glass over it was blurring it again every frame: 1.6 cores at rest on a Galaxy Tab A9+, 0.9 after).
+- **Mantel for Android** is a Kiosk App choice in a wall tablet's Setup.
+
 **Added**
 - **Mantel for Android counts as the kiosk app**: a wall tablet running it (the same entities as Kiosk Satellite, through ESPHome) is driven by Sleep Screen and checked by the tablet alerts as a Kiosk Satellite tablet is; its own package in front counts as the kiosk's.
 

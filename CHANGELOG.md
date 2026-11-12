@@ -4,6 +4,10 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Changed**
+- **A moving wallpaper costs a wall tablet far less**: the whole picture's drift, sway or turn now steps a few times a second (4 / 6 / 10 for Slow / Medium / Fast) rather than every frame. It reads the same (a step moves it under a pixel), but each frame it moved, every glass card over it blurred it again: a wall tablet's page at rest went from 1.6 cores to 0.9. A motion theme's own layers keep every frame.
+- **Mantel for Android is a Kiosk App** in a wall tablet's Setup: picked by itself for a tablet that runs it (its Home Assistant device says so), driven by Sleep Screen like Kiosk Satellite, without Kiosk Satellite's own screensaver check or Direct Connection.
+
 **Added**
 - **Pair a tablet app with a code** (phase 26, docs/phase26/ANDROID-APP.md): Mantel Settings → All Screens → Wall Tablets → the tablet → **Pair a Tablet App…** makes a one-time code (8 letters and digits, 10 minutes). On the tablet, Mantel for Android's setup (or `/device/claim` in any browser) takes it, on the home network only, and that browser becomes the tablet: nobody's password is typed on it. Audited as the person who made the code.
 - **Mantel for Android's updates**: an enrolled tablet's app reads `/apps/android/latest.json` and its APK from Mantel's data folder (`android/`), on the home network.
