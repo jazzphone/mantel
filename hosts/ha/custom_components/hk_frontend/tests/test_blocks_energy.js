@@ -156,10 +156,28 @@ function () {
   var sm = sized('hk-energy-rings-card', 'S', {});
   sm._clock = at; hkGive(sm, hass); sm._render();
   html = H.morphed(sm._card);
-  ok('S: the rings and the period under them, no switch', /<small>Today<\/small>/.test(html) && !/data-p=/.test(html), html);
-  eq('...the block is the button', [sm._card.getAttribute('role'), sm._card.getAttribute('tabindex')], ['button', '0']);
-  sm._pick(null);
-  ok('...a tap moves it on to This Week', sm._period === 'week' && /This Week/.test(H.morphed(sm._card)));
+  // (2026-11-12, the owner: the figures in a box over the rings, a tap away; the period under them a button of its own)
+  ok('S: the rings and the period under them, a button for the next one, no switch',
+     /class="oh" data-p="week"[^>]*>Today<svg/.test(html) && !/aria-pressed/.test(html), html);
+  ok('...the box of figures there, hidden: each ring\'s dot, name and figure, no unit', /<div class="ov" style="border-radius:\d+px" aria-hidden="true">/.test(html) &&
+     /<b>Energy<\/b><span>[\d.,]+<\/span>/.test(html) && /<b>Cost<\/b><span>\$[\d.,]+<\/span>/.test(html) && /<b>Water<\/b><span>[\d.,]+<\/span>/.test(html), html);
+  eq('...the block is the button, closed', [sm._card.getAttribute('role'), sm._card.getAttribute('tabindex'), sm._card.getAttribute('aria-expanded')],
+     ['button', '0', 'false']);
+  var ov = sm._card.querySelector('.ov');
+  sm._show(true);
+  ok('a tap shows the box', sm._open === true && sm._card.getAttribute('aria-expanded') === 'true' && (!ov || (ov.classList.contains('on') && !ov.getAttribute('aria-hidden'))));
+  sm._render();
+  ok('...a redraw keeps it shown', /<div class="ov on"/.test(H.morphed(sm._card)), H.morphed(sm._card).slice(0, 400));
+  H.runTimers(8001);
+  ok('...eight seconds take it away', sm._open === false && sm._card.getAttribute('aria-expanded') === 'false');
+  sm._show(true); sm._show(false);
+  ok('...as does a second tap', sm._open === false);
+  sm._pick('week');
+  html = H.morphed(sm._card);
+  ok('the period under the rings moves it on to This Week, its button now for This Month', sm._period === 'week' && /class="oh" data-p="month"[^>]*>This Week<svg/.test(html), html);
+  var smW = sized('hk-energy-rings-card', 'W', {});
+  smW._open = true; smW._clock = at; hkGive(smW, hass); smW._render();
+  ok('a size past Small has no box, and is not a button', !/class="ov/.test(H.morphed(smW._card)) && smW._open === false && !smW._card.getAttribute('aria-expanded'));
   var tl = sized('hk-energy-rings-card', 'T', { period: 'bogus' });
   eq('a period the block does not know starts on Today', tl._period, 'day');
   window.hkSettings = savedHS; EP.cache = null; EP.prefs = null;

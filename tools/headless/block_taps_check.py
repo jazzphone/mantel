@@ -38,7 +38,7 @@ NO_TAP = {
     'scenes': 'the block is its scenes, each a control: a tap runs it',
     'action': 'the whole block is the action\'s control: a tap runs it',
     'scene_suggested': 'the whole block is the suggested scene\'s control: a tap runs it',
-    'energy_rings S': 'Small is its own switch: a tap changes the period (the owner\'s mock-up)',
+    'energy_rings S': 'Small is its own control: a tap shows its figures over the rings, the period under them changes it (the owner, 2026-11-12)',
     'live_tv S': 'Small is one channel\'s tile: a tap plays it full screen',
     'cameras': 'the block is its camera tiles, each a control: a tap opens that camera, live',
 }
