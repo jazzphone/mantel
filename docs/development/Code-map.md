@@ -337,6 +337,7 @@ Mantel's pages and the code both hosts share: HK's cards, modules, panels and th
   - `secure.js` — settings/secure.js -- Mantel Settings, About, Secure Connection (about.py, page-health.js)
   - `service.js` — settings/service.js -- Mantel Settings, Service Accounts
   - `setup.js` — settings/setup.js -- Mantel Settings, Set Up Mantel
+  - `tablet-app.js` — settings/tablet-app.js -- Mantel Settings, a wall tablet running Mantel for Android
   - `tablets.js` — settings/tablets.js -- Mantel Settings, a wall tablet's Direct Connection, and its Reload and Clear Cache.
   - `timeline.js` — settings/timeline.js -- Mantel Settings, Timeline (timeline/api.py; docs/phase19/HOUSE-TIMELINE.md "Mantel Settings → Timeline")
 
@@ -492,6 +493,7 @@ Mantel Server.
   - `app_crypto.py` — The cryptography the phone and Mac apps and Web Push share (docs/phase10/APPLE-APPS.md §3, §5).
   - `app_music.py` — The apps' music, over REST (docs/phase10/APPLE-APPS.md §12
   - `app_shell.py` — Phase 10
+  - `tablet_app.py` — Mantel for Android, managed from Mantel Settings on the home network (docs/phase26/ANDROID-APP.md "Managing a tablet").
 - **hosts/server/mantel_server/cameras/**
   - `camera_setup.py` — RTSP CAMERAS
   - `cameras_direct.py` — DIRECT CAMERA SOURCES (docs/phase13/CAMERAS-DIRECT.md "The design -> Camera sources", phase 3).

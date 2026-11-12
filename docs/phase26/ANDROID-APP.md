@@ -82,6 +82,18 @@ tablet moving to the app is enrolled again. Typing an Owner's password on the ta
 - The app's setup page takes Mantel's address and the code, and opens the claim page with the code in the URL's
   fragment (never sent to the server's log).
 
+## Managing a tablet
+
+The owner (2026-11-12): "a web interface for me to access to manage the tablet remotely ... on the same LAN". Mantel
+Settings → Wall Tablets → the tablet gets a **Mantel for Android** group (`web/shim/settings/tablet-app.js`): the app's
+status and its controls. Mantel reaches the app through the page the tablet already has open (`apps/tablet_app.py`): the
+page reports the app's status every minute (`window.mantelNative.status()`), and a command (a closed list: screen,
+brightness, curtain, kiosk mode, reload, clear cache, restart, check for an update, the menu PIN) goes to that page as a
+`tablet_app` frame, which has the app do it and answers. An Owner or Admin, the home network only, audited
+(`device.app_command`), and only while house commands are on, like a Kiosk Satellite tablet's Reload. Nothing listens on
+the tablet and there is no password of its own. The tablet's Direct Connection group (Kiosk Satellite's, Fully's) is
+left out once the app is heard from.
+
 ## Updates
 
 Mantel serves the app: `GET /apps/android/latest.json` (version, size, SHA-256) and the APK beside it, from

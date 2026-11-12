@@ -7,6 +7,7 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 **Added**
 - **Pair a tablet app with a code** (phase 26, docs/phase26/ANDROID-APP.md): Mantel Settings → All Screens → Wall Tablets → the tablet → **Pair a Tablet App…** makes a one-time code (8 letters and digits, 10 minutes). On the tablet, Mantel for Android's setup (or `/device/claim` in any browser) takes it, on the home network only, and that browser becomes the tablet: nobody's password is typed on it. Audited as the person who made the code.
 - **Mantel for Android's updates**: an enrolled tablet's app reads `/apps/android/latest.json` and its APK from Mantel's data folder (`android/`), on the home network.
+- **A tablet running Mantel for Android, managed from Mantel Settings** (Wall Tablets → the tablet → Mantel for Android, on the home network): its status, Screen, Brightness, Black Curtain, Kiosk Mode, Reload, Clear Cache, Restart, Check for an Update and its menu PIN. Mantel reaches the app through the page the tablet has open (no port on the tablet, no password of its own); each change is audited and needs house commands on. Its Direct Connection group is left out for such a tablet.
 - **Mantel for Android counts as the kiosk app**: Sleep Screen and the tablet alerts take its package in front as the kiosk's, as they do Kiosk Satellite's.
 
 **Changed**

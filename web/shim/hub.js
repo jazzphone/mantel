@@ -167,6 +167,9 @@ export class Hub {
             if (m.type === 'intercom_event') cb(m.event, null);
             else if (m.error) cb(null, m.error);
           } catch (e) { console.error('[hub]', e); }
+        } else if (m.type === 'tablet_app') {
+          // Mantel Settings asking this tablet's app to do something (apps/tablet_app.py; mantel-native.js answers)
+          if (this.onTabletApp) { try { this.onTabletApp(m); } catch (e) { console.error('[hub]', e); } }
         } else if (m.type === 'pong') {
           const waiting = this.pings || [];
           this.pings = [];

@@ -33,7 +33,7 @@ URL_ROOT = re.compile(r"""(["'`(])(?!""" + re.escape(PREFIX) + r""")/(api|hk|web
 MANTEL_OWN = {"home.js", "shim/settings-page.js", "shim/mantel-settings.js", "shim/settings/core.js", "shim/settings/kit.js", "shim/settings/me.js",
               "shim/settings/people.js", "shim/settings/devices.js", "shim/settings/roles.js", "shim/settings/files.js", "shim/settings/backups.js",
               "shim/settings/alerts.js", "shim/settings/timeline.js", "shim/settings/service.js", "shim/settings/assistants.js", "shim/settings/connect.js", "shim/settings/connections.js",
-                  "shim/settings/tablets.js",
+                  "shim/settings/tablets.js", "shim/settings/tablet-app.js",
               "shim/settings/ha-screens.js", "shim/settings/link.js", "shim/settings/proxy.js", "shim/settings/audit.js",
               "shim/settings/setup.js", "shim/settings/general.js", "shim/settings/about.js", "shim/settings/performance.js", "shim/settings/secure.js", "shim/settings/cameras.js",
                   "shim/settings/intercom.js", "shim/settings/protect.js", "shim/base.js", "shim/hub.js", "shim/mantel-client.js", "shim/mantel-host.js",

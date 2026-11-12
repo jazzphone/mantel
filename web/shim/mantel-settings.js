@@ -36,6 +36,7 @@ import { pConnections } from './settings/connections.js';
 import { pCameras } from './settings/cameras.js';
 import { pIntercom } from './settings/intercom.js';
 import { drawDirect, pressTablets } from './settings/tablets.js';
+import { drawTabletApp } from './settings/tablet-app.js';
 import { drawHaDashboard, drawWhere, pAddScreen } from './settings/ha-screens.js';
 import { pAudit } from './settings/audit.js';
 import { pSetup, setupOpen } from './settings/setup.js';
@@ -173,7 +174,7 @@ export const host = {
   },
   extend(where, c, ctx, p) {
     if (p) { setPanel(p); ensureStyle(p.shadowRoot); }
-    if (where === 'tablet' && me && ctx && ctx.tablet) { if (can('devices')) drawTabletMantel(c, ctx); drawDirect(c, ctx); }
+    if (where === 'tablet' && me && ctx && ctx.tablet) { let app = false; if (can('devices')) { drawTabletMantel(c, ctx); app = drawTabletApp(c, ctx); } if (!app) drawDirect(c, ctx); }
     if (where === 'tablets' && me && can('devices')) drawTabletsMantel(c);
     if (where === 'screen' && me && ctx && ctx.screen) { drawWhere(c, ctx); if (!ctx.where || ctx.where.where !== 'ha') drawHaDashboard(c, ctx); }
     if ((where === 'saver' || where === 'house-saver') && me && can('photos')) photos.extend(where, c, ctx || {}, photoTools);

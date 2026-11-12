@@ -56,6 +56,8 @@ Mantel's own app for Android wall tablets: HK's screens in a full-screen WebView
 
 Updates come from Mantel: put a release in Mantel's data folder (`android/`), and each tablet installs it at a quiet moment.
 
+From any browser at home, **Mantel Settings** → **All Screens** → **Wall Tablets** → the tablet → **Mantel for Android** shows the app's status and has its controls: the screen, its brightness, the black curtain, kiosk mode, Reload, Clear Cache, Restart, Check for an Update and the menu PIN. They need house commands on, and each is in the Audit Log.
+
 On the tablet, seven quick taps in the top-left corner open the app's own menu (Reload, Set Up, Wi-Fi, Android Settings for ten minutes), behind a PIN if its setup page has one. A tablet whose device owner is still Kiosk Satellite (only a factory reset ends that) keeps it installed: the app runs beside it as the home app, on ESPHome port 6055, and comes back to the front by itself.
 
 ### Kiosk Satellite
