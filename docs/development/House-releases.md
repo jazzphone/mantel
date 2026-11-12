@@ -932,3 +932,12 @@ Records of releases made with `release_house.py mantel` (phase 15) are written b
 - Linux suite passed.
 - Times: preflight 4 s, release commit (retry) 0 s, images run started 4 s, images built and pushed 114 s, the LXC updated and healthy 170 s, Linux suite passed 573 s, tagged 2 s, promoted (latest, ha-apps) 66 s, GitHub Release 1 s; 15.6 minutes in all.
 - The 5 Kiosk Satellite tablets: cache cleared (5) and the page reloaded (kitchen, living room, loft, master bathroom, master bedroom).
+
+## HK Frontend 1.59.3 (2026-11-11)
+
+- hk-frontend 1.59.3, commit `0e2c1cc`, tagged `hk-frontend/v1.59.3`, copied with rsync --inplace; diff -rq shows no difference.
+- Home Assistant restarted and serves `/hk/panels/hk-settings.js` (37 s from the restart).
+- Mantel on the LXC reconnected to Home Assistant and was still healthy a minute later (307 s).
+- Published to jazzphone/hk-frontend main as `f5a13e0`, tagged `v1.59.3` and released on GitHub.
+- The Wiki had no changes.
+- The 5 Kiosk Satellite tablets: cache cleared (5) and the page reloaded (kitchen, living room, loft, master bathroom, master bedroom).
