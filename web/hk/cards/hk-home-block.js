@@ -331,7 +331,14 @@
       var BLOCK_CSS = [
         ':host{display:block;height:100%}',
         'hk-plate.hm{box-sizing:border-box;height:100%;position:relative;display:flex;flex-direction:column;overflow:hidden;',
-        '  padding:' + C.blockPad('14px') + ';' + C.plate('card') + ';color:' + v('ink') + ';-webkit-tap-highlight-color:transparent;cursor:pointer}',
+        '  padding:' + C.blockPad('14px') + ';' + C.plate('card') + ';color:' + v('ink') + ';-webkit-tap-highlight-color:transparent;cursor:pointer;',
+        '  transition:transform ' + C.DUR.press + ' ease,filter ' + C.DUR.press + ' ease}',
+        // PRESSED, as every block that is a way in (the Suggested Scene's, the Intercom's): a touch smaller and darker under the finger
+        // (the owner, 2026-11-12: "The home card doesn't light up or anything when you tap it") -- not while a line or a pill of its own
+        // is the one pressed (they answer for themselves)
+        'hk-plate.hm:active:not(:has(.ln:active,.sm-k:active)){transform:scale(0.98);filter:brightness(0.93)}',
+        'hk-plate.hm:focus-visible{outline:2px solid ' + v('ink-2') + ';outline-offset:2px}',
+        '@media (prefers-reduced-motion:reduce){hk-plate.hm,hk-plate.hm:active{transition:none;transform:none}}',
         '.g{display:flex;color:' + v('ink') + '}',
         // SMALL, Centered (HomeView's own tile): the glyph alone and large, in the middle -- measured off the owner's recording of
         // HomeView, its house about 44 % of the tile across (2026-11-12, the owner: "could probably be a bit bigger"): half the
@@ -394,15 +401,28 @@
             this._plate = this._root.querySelector('hk-plate');
             this._plate.addEventListener('click', function (e) {
               var t = /** @type {any} */ (e.target), b = t && t.closest ? t.closest('[data-i],[data-r]') : null;
+              // (Small and Wide are one button, so hk-base's block tap leaves them be -- it never takes a tap on a [role=button] --
+              // and the plate opens the sheet itself)
+              if (!b && self._one) { e.stopPropagation(); self._open('home'); return; }
               if (!b) return;
               e.stopPropagation();                         // one tap, one place: never the plate's too
               if (b.hasAttribute('data-r')) { self._openRoom(b.getAttribute('data-r')); return; }
               var sec = (self._shown || [])[Number(b.getAttribute('data-i'))];
               if (sec) self._openSection(sec);
             });
+            // (Small and Wide are one button: the keyboard's Enter and Space open the sheet, as a tap does)
+            this._plate.addEventListener('keydown', function (e) {
+              if (e.target !== self._plate || (e.key !== 'Enter' && e.key !== ' ')) return;
+              e.preventDefault();
+              self._open('home');
+            });
           }
           var size = this._size(), name = this._name(), c = this.client;
           this._plate.setAttribute('aria-label', name + '. Opens ' + name);
+          // Small and Wide: the whole block is the button; from Tall up a group of its own buttons (the lines, the pills)
+          var one = this._one = size === 'S' || size === 'W';
+          this._plate.setAttribute('role', one ? 'button' : 'group');
+          if (one) this._plate.setAttribute('tabindex', '0'); else this._plate.removeAttribute('tabindex');
           var bare = this.getAttribute('tile') === 'centred', glyph = '<hk-icon class="g" icon="' + HOUSE + '" aria-hidden="true"></hk-icon>';
           var m = size === 'S' && bare ? null : this._sections();
           var sections = (m && m.sections) || [];

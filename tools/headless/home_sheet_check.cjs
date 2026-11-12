@@ -142,8 +142,21 @@ function sheetState() {
           // TAPS: the plate opens the sheet, a room the sheet at that room, a category its own page (its chip's tap, as House
           // Status's -- the owner, 2026-11-12: a category's page in the sheet was "not the best place for it")
           let t = await tapIn(page, 'S', 'hk-plate');
-          await page.touchscreen.tap(t.x, t.y);
+          // PRESSED: the block answers the finger, a touch smaller and darker while held, as every block that is a way in
+          await page.mouse.move(t.x, t.y);
+          await page.mouse.down();
+          await page.waitForTimeout(90);
+          const held = await page.evaluate(() => {
+            const p = deep(document, 'hk-home-block-card').find((x) => x.getAttribute('size') === 'S').shadowRoot.querySelector('hk-plate');
+            const cs = getComputedStyle(p);
+            return { transform: cs.transform, filter: cs.filter, role: p.getAttribute('role'), tab: p.getAttribute('tabindex') };
+          });
+          await page.mouse.up();
           await settle(page);
+          check(`${engine} Small presses under the finger, and is a button`, () => {
+            assert(held.transform !== 'none' && /brightness/.test(held.filter), JSON.stringify(held));
+            assert(held.role === 'button' && held.tab === '0', JSON.stringify(held));
+          });
           let s = await st(page);
           check(`${engine} Small opens the sheet at Home`, () => assert(s && s.panel && !s.back, JSON.stringify(s)));
           await page.keyboard.press('Escape');
