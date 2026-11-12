@@ -40,6 +40,7 @@ def test_quick_is_part_of_full_and_full_adds_the_rest():
     # the pager, the swipe and the glass, and a failure gets one more try
     motion = [s for s in steps if ci.is_motion(s.name)]
     assert len(motion) == 5 and all(s.name in full and s.alone and s.attempts == 2 for s in motion)
+    assert {s.lane for s in motion} == {"motion-chromium", "motion-webkit"}       # two lanes side by side
     # the timing budgets: out of the main suite's parallel run, alone at the end of full (phase 25)
     perf = next(s for s in steps if s.name == "perf-budgets")
     assert perf.alone and perf.tier == "full" and "perf" in perf.cmd and "not perf" in next(s for s in steps if s.name == "main-suite").cmd()
@@ -522,7 +523,7 @@ def test_a_check_whose_parts_multiplied_or_a_whole_run_that_grew_is_named(tmp_pa
     assert len(ci.read_timing(timing)["history"][ci.WHOLE]) == 1, "an --only run is not the whole"
 
 
-def test_alone_steps_run_after_the_rest_one_at_a_time_and_a_failure_gets_another_try(tmp_path, monkeypatch):
+def test_alone_steps_run_after_the_rest_a_lane_one_at_a_time_and_a_failure_gets_another_try(tmp_path, monkeypatch):
     # phase 25, E2: the motion checks run on a quiet Mac, after everything else, and once more when they fail
     log, tries = tmp_path / "order", tmp_path / "tries"
     def stamp(name, alone=False, fail_first=False):
@@ -530,7 +531,7 @@ def test_alone_steps_run_after_the_rest_one_at_a_time_and_a_failure_gets_another
                 f"open({str(tries)!r},'a').write('x')\nraise SystemExit(1 if n == 0 else 0)\n") if fail_first else ""
         step = ci.Step(name, [sys.executable, "-c", f"import time\nopen({str(log)!r},'a').write('{name}+\\n')\n"
                                                     f"time.sleep(0.1)\nopen({str(log)!r},'a').write('{name}-\\n')\n{fail}"],
-                       timeout=30, alone=alone, attempts=2 if alone else 1)
+                       timeout=30, alone=alone, attempts=2 if alone else 1, lane="motion-x" if alone else "")
         return step
     monkeypatch.setenv("CI_JOBS", "6")
     rec = ci.run([stamp("m1", True, fail_first=True), stamp("a"), stamp("m2", True), stamp("b")], "full",
@@ -555,6 +556,9 @@ def test_a_release_takes_only_a_full_run_in_which_the_motion_checks_ran(tmp_path
     ci.remember(record(tree, commit=base, steps=steps("passed"), release=True), store)
     found, how = ci.full_run_for(base, store, root, motion=True)
     assert how == "same" and found["release"] is True
+    # a release run's carried motion checks count (carried only from a release pass); another run's do not
+    assert ci.motion_ran({"release": True, "steps": {"swipe-motion-check-webkit-390x844": "unchanged"}})
+    assert not ci.motion_ran({"release": False, "steps": {"swipe-motion-check-webkit-390x844": "unchanged"}})
 
 
 def test_release_runs_the_motion_checks_even_when_unchanged(tmp_path, monkeypatch):
@@ -566,3 +570,7 @@ def test_release_runs_the_motion_checks_even_when_unchanged(tmp_path, monkeypatc
                                                                echo=lambda _: None, step_store=tmp_path / "s.json", **kw)["steps"]}
     assert ran() == {"swipe-motion-check-x": "unchanged", "other": "unchanged"}
     assert ran(release=True) == {"swipe-motion-check-x": "passed", "other": "unchanged"}
+    # ...unless its key passed in a release run already: a release's rerun after a flake doesn't run them again
+    monkeypatch.setattr(ci, "carried_passes",
+                        lambda keys, store: {n: {"commit": "c" * 40, "finished": "f", "release": True} for n in keys})
+    assert ran(release=True) == {"swipe-motion-check-x": "unchanged", "other": "unchanged"}

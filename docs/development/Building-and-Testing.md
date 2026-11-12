@@ -65,9 +65,11 @@ CI_JOBS=22 ~/.venvs/mantel/bin/python tools/ci.py full --all  # ~220 s, not ~320
 - **What the release run leaves out** (2026-11-08, the owner: "a lot of these tests aren't needed"). A step with
   `tier="by-hand"` runs only when named (`full --only NAME`), never in a whole run (none since phase 25). The
   frame-timing checks (`swipe-motion-check`, `pre-glass-motion-check`) were by hand from 2026-11-08 to 11-11; they are
-  **motion checks** now (phase 25, decision 5): in a full run after everything else, one at a time, a failure tried
-  once more, run again only when the pager, the swipe or the glass changed (`MOTION_INPUTS`), and always in a
-  release's run, `tools/ci.py full --release`; `release_house.py` takes only a full run in which they ran. The screensaver Shows' check runs each Show at its first size
+  **motion checks** now (phase 25, decision 5): in a full run after everything else, one lane per engine with the two
+  lanes side by side, a failure tried once more, run again only when the pager, the swipe or the glass changed
+  (`MOTION_INPUTS`), and in a release's run, `tools/ci.py full --release`, unless they passed in a release run as they
+  are (so a release's rerun after a flake elsewhere doesn't run them again); `release_house.py` takes only a full run in
+  which they ran or were carried from a release run. The screensaver Shows' check runs each Show at its first size
   (`--one-size`; whole, at three and four sizes, it was a third of the run's step time) and Swipe Between Pages at
   three sizes; run either script by hand for every size. Before adding a browser check to `full`, ask what it guards
   that the main suite can't, and give it the fewest engines and sizes that say so: a one-off bug's guard belongs in
@@ -326,8 +328,8 @@ Without `PLAYWRIGHT_PATH` or `NODE` it says so and exits 2. It was **by hand** f
 full runs of 2026-11-05 to 11-07 it failed 20 times on a busy Mac's timing, side by side with a dozen browsers) until
 phase 25, when its phone-size failure had gone unseen for three days. Now its four steps
 (`swipe-motion-check-<engine>-<size>`) and `pre-glass-motion-check` are the full run's **motion checks**: they run last,
-alone, once more on a failure, again whenever the pager, the swipe or the glass changes, and in every release's run
-(`tools/ci.py full --release`). `tools/ci.py full --only swipe-motion` still runs them alone.
+in two lanes (Chromium's, WebKit's) side by side, once more on a failure, again whenever the pager, the swipe or the glass
+changes, and in a release's run (`tools/ci.py full --release`) unless they already passed in one as they are. `tools/ci.py full --only swipe-motion` still runs them alone.
 
 ### The screensaver's faces in WebKit
 

@@ -9,7 +9,7 @@ checks"). One runner, one table, one record:
     tools/ci.py full --all       # every step, whatever passed before
     tools/ci.py versions         # what reads the version files and changelogs (seconds): a release's re-check
     tools/ci.py full --only js   # only the steps whose name contains "js"
-    tools/ci.py full --release   # a release's run: also the motion checks, whatever passed before (phase 25, E2)
+    tools/ci.py full --release   # a release's run: also the motion checks, unless they passed in a release run as they are
     tools/ci.py full --only swipe-motion  # only the motion checks (swipe-motion, pre-glass-motion)
     tools/ci.py quick --skip-passed  # (the pre-push hook) a tree that already passed: only the commit messages
     tools/ci.py --list           # the steps of each tier
@@ -80,9 +80,10 @@ HISTORY = 10                                   # each step's last passed times k
 SWIPE_MOTION = {"chromium": ("1280x800", "390x844"), "webkit": ("1180x820", "390x844")}
 # THE MOTION CHECKS (phase 25, E2; decision 5: "every release's full run, and once on main after a change to the pager or
 # the swipe"). They read the pager, the swipe and the glass under it, not the whole page: a full run runs them again only
-# when one of these changed since they passed, and `full --release` runs them whatever passed before (release_house.py
-# takes only a full run in which they ran). They run after the rest, one at a time: 20 of the 33 failed full runs from
-# 2026-11-05 to 11-08 were these four on timing noise, side by side with a dozen browsers. A failure is tried once more.
+# when one of these changed since they passed, and `full --release` runs them unless they passed in a release run as they
+# are (release_house.py takes only a full run in which they ran, or were carried from a release run). They run after the
+# rest, one lane per engine, the two lanes side by side: 20 of the 33 failed full runs from 2026-11-05 to 11-08 were these
+# four on timing noise beside a dozen browsers. A failure is tried once more.
 MOTION = ("swipe-motion-check-", "pre-glass-motion-check")
 MOTION_INPUTS = ("web/hk/modules/hk-pageswipe.js", "web/hk/modules/hk-drag.js", "web/hk/layout/hk-layout-pager.js",
                  "web/hk/shell/", "web/hk/modules/hk-glass.js", "web/hk/modules/hk-frosttint.js", "web/hk/modules/hk-sky.js",
@@ -245,9 +246,10 @@ def check_inputs(script: str, engine: str = "webkit") -> dict:
 
 
 def motion_inputs(script: str, engine: str = "webkit") -> dict:
-    """A motion check's: the pager, the swipe and the glass (MOTION_INPUTS) and its script's files; it runs alone."""
+    """A motion check's: the pager, the swipe and the glass (MOTION_INPUTS) and its script's files; it runs after the rest,
+    in its engine's lane (two lanes side by side)."""
     return {**check_inputs(script, engine), "inputs": lambda: (*MOTION_INPUTS, *imported([script])), "alone": True,
-            "attempts": 2}
+            "attempts": 2, "lane": "motion-" + engine}
 
 
 def is_motion(name: str) -> bool:
@@ -513,7 +515,9 @@ def run(chosen: list[Step], tier: str, record_dir: Path = RECORD_DIR, echo: Call
     keys = step_keys(chosen, build, root) if step_store else {}
     carried = carried_passes(keys, step_store) if step_store and reuse else {}
     if release:
-        carried = {k: v for k, v in carried.items() if not is_motion(k)}
+        # (a motion check carried only when its key passed in a release run already: a release's rerun after a flake
+        # elsewhere doesn't run them again -- phase 25, the 0.1.166 night, ~14 minutes a rerun)
+        carried = {k: v for k, v in carried.items() if not is_motion(k) or v.get("release")}
     if carried:
         echo(f"  ({len(carried)} of {len(chosen)} steps unchanged since they passed: not run again; --all runs them)")
     got: dict[str, Result] = {}
@@ -566,8 +570,14 @@ def run(chosen: list[Step], tier: str, record_dir: Path = RECORD_DIR, echo: Call
     with concurrent.futures.ThreadPoolExecutor(max_workers=width) as pool:
         for f in [pool.submit(lambda job=job: [one(s) for s in job]) for job in jobs]:
             f.result()
-    for step in [s for s in chosen if s.alone and not s.first]:     # then the motion checks, one at a time
-        one(step)
+    # then the motion checks, after everything else: one lane per engine, the two lanes side by side (each lane's steps
+    # one at a time) -- the noise that failed them was a dozen browsers at once, not two (phase 25)
+    alone: dict[str, list[Step]] = {}
+    for step in [s for s in chosen if s.alone and not s.first]:
+        alone.setdefault(step.lane or step.name, []).append(step)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+        for f in [pool.submit(lambda job=job: [one(s) for s in job]) for job in alone.values()]:
+            f.result()
     results = [got[s.name] for s in chosen]
     head, tree, dirty = git_state(root)
     record = {
@@ -675,7 +685,8 @@ def beyond_versions(base: str, head: str = "HEAD", root: Path = ROOT) -> str | N
 def motion_ran(run: dict) -> bool:
     """A stored run in which the motion checks ran and passed (not carried as unchanged)."""
     named = {n: st for n, st in (run.get("steps") or {}).items() if is_motion(n)}
-    return bool(named) and all(st == "passed" for st in named.values())
+    ok = ("passed", "unchanged") if run.get("release") else ("passed",)   # (carried in a release run: from a release pass)
+    return bool(named) and all(st in ok for st in named.values())
 
 
 def full_run_for(head: str, store: Path, root: Path = ROOT, look: int = 20,
@@ -923,7 +934,8 @@ def remember_steps(record: dict, keys: dict[str, str], store: Path, keep: int = 
                 continue
             kept = [e for e in passes.get(s["name"], []) if e["key"] != key]
             if s["status"] == "passed":
-                kept.append({"key": key, "commit": record["commit"], "finished": record["finished"]})
+                kept.append({"key": key, "commit": record["commit"], "finished": record["finished"],
+                             "release": bool(record.get("release"))})
             passes[s["name"]] = kept[-keep:]
         tmp = store.with_suffix(f".{os.getpid()}.tmp")
         tmp.write_text(json.dumps({"steps": passes}, indent=1, sort_keys=True) + "\n")
@@ -1149,7 +1161,7 @@ def install_hooks(hooks: Path | None = None) -> list[Path]:
 def plan(chosen: list[Step], build: Build, store: Path, release: bool = False) -> str:
     """What a run would do with each step (--plan): run it, and why, or carry its pass."""
     keys = step_keys(chosen, build)
-    carried = {k: v for k, v in carried_passes(keys, store).items() if not (release and is_motion(k))}
+    carried = {k: v for k, v in carried_passes(keys, store).items() if not (release and is_motion(k) and not v.get("release"))}
     rows = []
     for s in chosen:
         if s.name in carried:
@@ -1174,7 +1186,7 @@ def main(argv: list[str] | None = None) -> int:
                                                      "they run even when unchanged")
     ap.add_argument("--all", action="store_true", help="run every step, even those whose inputs are unchanged")
     ap.add_argument("--release", action="store_true",
-                    help="full: a release's run, the motion checks run whatever passed before (release_house.py's)")
+                    help="full: a release's run: the motion checks too, unless they passed in a release run as they are")
     ap.add_argument("--list", action="store_true", help="list the steps of each tier")
     ap.add_argument("--plan", action="store_true", help="say which steps would run and which are unchanged, run none")
     ap.add_argument("--skip-passed", action="store_true",
