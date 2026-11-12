@@ -94,6 +94,10 @@ brightness, curtain, kiosk mode, reload, clear cache, restart, check for an upda
 the tablet and there is no password of its own. The tablet's Direct Connection group (Kiosk Satellite's, Fully's) is
 left out once the app is heard from.
 
+**What's on the Screen** (the owner: "a preview of what's on the tablet"): a button takes a picture of the glass (the
+app copies its window, 960 px wide, JPEG) and shows it in the group. Only when asked, audited as a command, kept in
+memory (newest only), never stored; nothing is sent while the screen is off.
+
 ## Updates
 
 Mantel serves the app: `GET /apps/android/latest.json` (version, size, SHA-256) and the APK beside it, from
@@ -106,6 +110,14 @@ moment: the screen off or nobody touching it for 10 minutes.
 A doorbell pop-up plays the camera in the page today. A native player (hardware-decoded go2rtc, drawn by Android over
 the page) is built **only if measured to matter**: a live camera in the app costing the page more than 15 % of its frames
 or the tablet more than 30 % CPU over the page alone. Slice 26.5 measures this and records the result either way.
+
+## Reset
+
+Device owner, and with it a true lock-task kiosk, Restart Device and updates with no tap, needs a factory reset of a
+tablet whose owner is Kiosk Satellite. The path is in the app's repository (`docs/RESET.md`): the app's identity saved
+(name, address, ESPHome key, MAC) so Home Assistant's device and entity ids carry on, the reset and setup wizard with no
+accounts, `tools/setup_tablet.py --owner --debloat` (82 packages a wall panel doesn't use taken off the tablet's user,
+reversibly), pairing by code, and a dedicated Google account afterwards so Android System WebView keeps updating.
 
 ## iOS
 

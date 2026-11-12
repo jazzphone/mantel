@@ -106,3 +106,34 @@ async def test_a_persons_page_speaks_for_no_tablet(mantel):
     await asyncio.sleep(0.1)
     assert (await (await mantel.get(f"/api/devices/{did}/app")).json())["status"] is None
     await ws.close()
+
+
+async def test_a_picture_of_the_glass_rides_back_and_is_served_to_the_managers_only(mantel):
+    import base64
+    did = await paired_tablet(mantel)
+    ws = await mantel.client.ws_connect("/ws")
+    await owner_again(mantel)
+    commands_on(mantel)
+    jpeg = b"\xff\xd8\xff\xe0" + b"fictional picture" * 10
+
+    async def page():
+        m = await frames(ws, "tablet_app")
+        assert m["command"] == "screenshot" and m["value"] is None
+        await ws.send_json({"type": "tablet_app", "event": "done", "nonce": m["nonce"], "ok": True,
+                            "image": base64.b64encode(jpeg).decode()})
+    answering = asyncio.create_task(page())
+    r = await mantel.post(f"/api/devices/{did}/app", {"command": "screenshot"})
+    await answering
+    got = await r.json()
+    assert r.status == 200 and got["image"].startswith(f"/api/devices/{did}/app/screenshot?at=")
+    r = await mantel.get(got["image"])
+    assert r.status == 200 and r.headers["Content-Type"] == "image/jpeg" and await r.read() == jpeg
+    assert r.headers["Cache-Control"] == "no-store"
+    # a picture nobody asked for, or not a JPEG, is dropped
+    await ws.send_json({"type": "tablet_app", "event": "done", "nonce": "nobody", "ok": True,
+                        "image": base64.b64encode(b"\xff\xd8\xff other").decode()})
+    await asyncio.sleep(0.1)
+    assert await (await mantel.get(got["image"])).read() == jpeg
+    assert T._jpeg(base64.b64encode(b"GIF89a").decode()) is None and T._jpeg("not base64!") is None
+    assert (await mantel.get(got["image"], tunnel=True)).status in (401, 403)
+    await ws.close()
