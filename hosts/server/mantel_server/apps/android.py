@@ -18,7 +18,7 @@ from ..identity.sessions import error
 
 FOLDER = "android"
 MANIFEST = "latest.json"
-FILE_NAME = re.compile(r"^[A-Za-z0-9._-]{1,96}\.apk$")
+FILE_NAME = re.compile(r"[A-Za-z0-9._-]{1,96}\.apk")
 WHY = "the tablet app's own update: a manifest and a signed APK, nothing of the house"
 
 
@@ -31,7 +31,7 @@ def manifest(app: web.Application) -> dict | None:
         got = json.loads((folder(app) / MANIFEST).read_text())
     except (OSError, ValueError):
         return None
-    if not isinstance(got, dict) or not FILE_NAME.match(str(got.get("file", ""))):
+    if not isinstance(got, dict) or not FILE_NAME.fullmatch(str(got.get("file", ""))):
         return None
     return {k: got.get(k) for k in ("version_code", "version_name", "file", "size", "sha256")}
 
@@ -49,7 +49,7 @@ async def latest(request: web.Request) -> web.Response:
 async def apk(request: web.Request) -> web.StreamResponse:
     name = request.match_info["file"]
     got = manifest(request.app)
-    if not FILE_NAME.match(name) or got is None or got["file"] != name:      # only the release the manifest names
+    if not FILE_NAME.fullmatch(name) or got is None or got["file"] != name:      # only the release the manifest names
         return error(404, "not_found")
     path = folder(request.app) / name
     if not path.is_file() or path.stat().st_size > 64 * 1024 * 1024:

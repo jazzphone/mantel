@@ -29,7 +29,7 @@ from ..storage import audit
 from .accounts import AttemptLimiter, limited, read_json
 from .guards import guard, open_route
 from .guards import ident as guarded
-from .sessions import CSRF_COOKIE, Device, client_ip, device_json, door_of, error, ok
+from .sessions import CSRF_COOKIE, Device, client_ip, device_json, door_of, end_session, error, ok, token_hash
 
 log = logging.getLogger("mantel.device_claim")
 
@@ -124,26 +124,43 @@ async def claim(request: web.Request) -> web.Response:
         return error(403, "lan_only", message="A tablet pairs on the home network only.")
     st = codes_of(request.app)
     who = client_ip(request) or "?"
-    wait = st.tries.retry_after(who)
-    if wait > 0:
-        return limited(wait)
     try:
         body = await read_json(request)
     except web.HTTPException:
         body = {}
+    wait = st.tries.retry_after(who)        # (after the body: requests sent at once each see the failures before them)
+    if wait > 0:
+        return limited(wait)
     got = st.take(body.get("code"))
     if got is None:
         st.tries.fail(who)
+        log.warning("a wrong or expired pairing code from %s", who)
         return error(403, "invalid_code", message="That code isn’t right, or it ran out. Make a new one in Mantel Settings.")
     st.tries.reset(who)
+    # the person who made it must still manage the house (disabled, demoted or removed in its ten minutes: refused)
+    acc = request.app.get("accounts")
+    row = acc.get_user(got.maker.id) if acc is not None else None
+    if row is None or row["disabled"] or row["role"] not in ("owner", "admin"):
+        return error(403, "invalid_code", message="The person who made that code can’t add tablets now.")
     mgr: D.DeviceManager = request.app["devices"]
+    db = request.app["store"].db
+    # a browser that is a tablet already: that tablet is replaced, not left behind as a second credential
+    secret_now = request.cookies.get(D.DEVICE_COOKIE)
+    old = (db.execute("SELECT id, name, room FROM devices WHERE revoked IS NULL AND (secret_hash = ? OR next_hash = ?)",
+                      (token_hash(secret_now), token_hash(secret_now))).fetchone() if secret_now else None)
     device_id = secrets.token_hex(16)
     audit.config(request, got.maker, "device.enroll", {"device": device_id, "name": got.name, "role": "wall_tablet",
                                                        "room": got.room, "tablet": got.tablet, "via": "claim_code"})
-    device_id, secret, csrf = mgr.enroll(got.name, "wall_tablet", got.room, getattr(got.maker, "id", None),
-                                         client_ip(request), device_id=device_id)
+    if old is not None:
+        audit.config(request, got.maker, "device.revoke", {"device": old["id"], "name": old["name"], "room": old["room"],
+                                                           "replaced_by": device_id})
+    device_id, secret, csrf = mgr.enroll(got.name, "wall_tablet", got.room, got.maker.id, client_ip(request),
+                                         device_id=device_id)
+    if old is not None:
+        mgr.revoke(old["id"], "replaced")
     row = mgr.get(device_id)
     resp = ok({"device": device_json(Device(row["id"], row["name"], row["role"], row["room"]))}, status=201)
+    end_session(request, resp, "became_device")       # a person signed in on this browser is signed out of it
     resp.set_cookie(D.DEVICE_COOKIE, secret, **D.device_cookie_opts(request))
     resp.set_cookie(CSRF_COOKIE, csrf, **{**D.device_cookie_opts(request), "httponly": False})
     resp.headers["Cache-Control"] = "no-store"
@@ -177,7 +194,7 @@ async def claim_page(request: web.Request) -> web.Response:
            "padding:72px 20px}h1{font-size:30px;margin:0 0 8px}p{color:#98989f;margin:6px auto;max-width:460px}"
            "input{font:600 32px ui-monospace,monospace;letter-spacing:4px;text-align:center;text-transform:uppercase;"
            "width:min(320px,90%);padding:14px;margin:28px auto 8px;border-radius:14px;border:0;background:#1c1c1e;"
-           "color:#fff;display:block}button{font:600 18px inherit;padding:14px 40px;border:0;border-radius:14px;"
+           "color:#fff;display:block}button{font:inherit;font-weight:600;font-size:18px;padding:14px 40px;border:0;border-radius:14px;"
            "background:#0a84ff;color:#fff;margin-top:12px}#problem{color:#ff6961;min-height:1.4em}</style>"
            "<h1>Pair This Tablet</h1><p>Enter the code from Mantel Settings → All Screens → Wall Tablets → the tablet → "
            "Pair a Tablet App.</p><form><input id=code autocomplete=off autocapitalize=characters spellcheck=false "

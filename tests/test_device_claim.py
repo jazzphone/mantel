@@ -139,3 +139,28 @@ async def test_a_paired_tablet_reads_its_update(mantel):
     assert (await mantel.get("/apps/android/old.apk")).status == 404
     assert (await mantel.get("/apps/android/..%2Fmantel.db")).status == 404
     assert (await mantel.get("/apps/android/mantel-0.2.0.apk", tunnel=True)).status == 401
+
+
+async def test_a_code_dies_with_its_makers_right_to_add_tablets(mantel):
+    uid = await mantel.user("ada", "admin")
+    await mantel.sign_in("ada")
+    code = (await make(mantel))[1]["code"]
+    mantel.store.db.execute("UPDATE users SET role = 'adult' WHERE id = ?", (uid,))
+    mantel.store.db.commit()
+    mantel.forget_cookies()
+    r, body = await claim(mantel, code)
+    assert r.status == 403 and body["error"] == "invalid_code"
+    assert mantel.store.db.execute("SELECT COUNT(*) FROM devices").fetchone()[0] == 0
+
+
+async def test_a_browser_that_is_a_tablet_already_is_replaced_not_doubled(mantel):
+    await mantel.user("avery", "owner")
+    await mantel.sign_in("avery")
+    first, second = (await make(mantel))[1]["code"], (await make(mantel, room="living_room"))[1]["code"]
+    mantel.forget_cookies()
+    old = (await claim(mantel, first))[1]["device"]["id"]
+    r, body = await claim(mantel, second)
+    assert r.status == 201 and body["device"]["room"] == "living_room"
+    rows = {r_["id"]: r_["revoked_reason"] for r_ in mantel.store.db.execute("SELECT id, revoked_reason FROM devices")}
+    assert rows[old] == "replaced" and rows[body["device"]["id"]] is None
+    assert [x["action"] for x in audit(mantel)][-2:] == ["device.enroll", "device.revoke"]
