@@ -481,7 +481,9 @@
       var t = h.target ? h.target(e) : el;
       if (!t || e.isPrimary === false) return;
       g = { id: e.pointerId, x: e.clientX, y: e.clientY, t: t, live: e.pointerType === 'mouse', far: e.pointerType !== 'mouse' };
-      if (g.live) { try { el.setPointerCapture(e.pointerId); } catch (x) { /* gone */ } h.start(t, e.clientX); }
+      // (keepClick: no capture until the mouse has moved -- captured, a click lands on el, never on the row under it: the Speakers
+      // panel's rooms could not be ticked with a mouse, 2026-11-12)
+      if (g.live) { if (!h.keepClick) { try { el.setPointerCapture(e.pointerId); } catch (x) { /* gone */ } } h.start(t, e.clientX); }
     });
     el.addEventListener('pointermove', function (e) {
       if (!g || e.pointerId !== g.id) return;
@@ -493,7 +495,10 @@
         try { el.setPointerCapture(e.pointerId); } catch (x) { /* gone */ }
         h.start(g.t, e.clientX);
       }
-      if (!g.far && Math.abs(e.clientX - g.x) + Math.abs(e.clientY - g.y) > SLOP_MOUSE) g.far = true;
+      if (!g.far && Math.abs(e.clientX - g.x) + Math.abs(e.clientY - g.y) > SLOP_MOUSE) {
+        g.far = true;
+        if (h.keepClick) { try { el.setPointerCapture(e.pointerId); } catch (x) { /* gone */ } }
+      }
       h.move(g.t, e.clientX);
       if (e.cancelable) e.preventDefault();
     }, { passive: false });

@@ -223,7 +223,8 @@
     // A ROOM: Apple's AirPlay list, no well (2026-11-12, mockup "Speaker Rows Without Wells" A and C): the speaker's own glyph bare,
     // the name, a line under it; TICKED, the row is light with dark words and a dark check at the right, unticked nothing there;
     // IN THE MUSIC, the row fills white to its volume (--v) and a drag across it sets it (hkDrag.slider, below)
-    '.mproom{position:relative;overflow:hidden;isolation:isolate;display:flex;align-items:center;gap:12px;min-height:56px;padding:6px 14px 6px 10px;border-radius:16px;',
+    // (a capsule, Apple's: the ends fully round, the glyph and the ring 16 px in from them -- the owner, 2026-11-12)
+    '.mproom{position:relative;overflow:hidden;isolation:isolate;display:flex;align-items:center;gap:12px;min-height:56px;padding:6px 14px 6px 16px;border-radius:99px;',
     '  background:rgba(255,255,255,.10);box-shadow:inset 0 0 0 1px rgba(255,255,255,.12);cursor:pointer;box-sizing:border-box;outline:none}',
     '.mproom:focus-visible{box-shadow:inset 0 0 0 2px rgba(100,181,255,.9)}',
     '.mproom>*{position:relative;z-index:1}',
@@ -233,13 +234,18 @@
     '.mproom .rn b{display:block;font-size:16px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '.mproom .rn small{display:flex;align-items:center;gap:6px;font-size:12.5px;opacity:.72;margin-top:1px;white-space:nowrap;overflow:hidden}',
     // (mpck, not ck: the screensaver's clock face is .ck in the same shadow root, and its rules hid every tick there -- the
-    // panel's names all mp*). Unticked, nothing; ticked, Apple's dark disc with a white check
-    '.mproom .mpck{flex:none;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;visibility:hidden}',
-    '.mproom .mpck svg{width:17px;height:17px;fill:#fff}',
+    // panel's names all mp*). Unticked, an empty ring (the owner, 2026-11-12: "maybe we do need the ring area for the check box"):
+    // the room can be picked, and the finger has a place to aim; ticked, Apple's dark disc with a white check. Its touch reaches
+    // 8 px past it, and a press there is the tick's alone, never a volume drag (below)
+    '.mproom .mpck{flex:none;position:relative;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;' +
+      'box-shadow:inset 0 0 0 2px rgba(255,255,255,.42)}',
+    '.mproom .mpck::after{content:"";position:absolute;inset:-8px}',
+    '.mproom .mpck svg{width:17px;height:17px;fill:#fff;visibility:hidden}',
+    '.mproom.off .mpck{visibility:hidden}',
     '.mproom.sel{background:rgba(255,255,255,.58);box-shadow:none;color:rgba(0,0,0,.88);text-shadow:none}',
     '.mproom.sel .ri hk-icon{color:rgba(0,0,0,.78)}',
     '.mproom.sel .rn small{opacity:1;color:#4f4f55}',
-    '.mproom.sel .mpck{visibility:visible;background:rgba(0,0,0,.82)}',
+    '.mproom.sel .mpck{background:rgba(0,0,0,.82);box-shadow:none}.mproom.sel .mpck svg{visibility:visible}',
     '.mproom.sel .mpeq i{background:rgba(0,0,0,.75)}',
     // ITS VOLUME: white from the left to the level; a room let go but still playing (unticked, before Update) a faint one
     '.mproom.vol{touch-action:pan-y}',
@@ -698,7 +704,8 @@
     withDrag(function (D) {
       D.slider(E.spk, {
         keepClick: true,
-        target: function (e) { return e.target.closest && e.target.closest('.mproom.vol'); },
+        // (a press on the check is the tick's alone, never a drag, so a finger that wobbles there still ticks -- 2026-11-12)
+        target: function (e) { return e.target.closest && !e.target.closest('.mpck') && e.target.closest('.mproom.vol'); },
         start: function (t, x) {
           var key = t.hasAttribute('data-all') ? GROUP : t.getAttribute('data-room'), r = t.getBoundingClientRect();
           S.drag = { key: key, el: t, x0: x, w: r.width || 1, base: basesFor(key), sent: 0, t: null };

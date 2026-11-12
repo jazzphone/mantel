@@ -174,11 +174,13 @@ function () {
   e.el.fire('pointerdown', at(100, 100, 'mouse'));
   e.el.fire('pointerup', at(100, 100, 'mouse'));
   eq('keepClick: a mouse click that never moved is still a tap', [e.log, click(e.el)], [[['start', 100], ['end', false]], 0]);
+  eq('...and it never captured the pointer (captured, the click landed on the list, not the row)', e.el.captured || [], []);
   var f = mk2();
   f.el.fire('pointerdown', at(100, 100, 'mouse'));
   f.el.fire('pointermove', mv(130, 101, 'mouse'));
   f.el.fire('pointerup', at(130, 101, 'mouse'));
   eq('...dragged past the slop, its click is no tap', click(f.el), 1);
+  eq('...captured once it moved', f.el.captured, [7]);
   var g = mk2();
   g.el.fire('pointerdown', at(100, 100));
   g.el.fire('pointermove', mv(125, 102));

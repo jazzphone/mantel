@@ -151,6 +151,22 @@ const measure = new Function('return ' + measureSrc.toString().replace('PLAYER_L
           const d = Object.keys(before.rooms).map((k) => Math.round((after.rooms[k] - before.rooms[k]) * 100));
           assert(d.every((x) => x === d[0]) && d[0] >= 18 && d[0] <= 22, tag + ': every room up by the same fifth ' + JSON.stringify({ before, after, d }));
           if (input.shots) await page.screenshot({ path: `${input.shots}/${tag}-group-dragged.png` });
+          // A TAP UNTICKS A ROOM AND A TAP TICKS IT AGAIN, by finger and by mouse (2026-11-12, the owner: "a hard time selecting speakers
+          // after I uncheck them") -- the row is a slider too, and a tap must still be a tap
+          const ticked = () => page.evaluate(() => {
+            const deep = (r, sel) => [...r.querySelectorAll('*')].flatMap((e) => [...(e.matches(sel) ? [e] : []), ...(e.shadowRoot ? deep(e.shadowRoot, sel) : [])]);
+            const k = deep(document, '.mpanel .mprooms .mproom[data-room="media_player.kitchen"]')[0];
+            return k ? k.getAttribute('aria-checked') : null;
+          });
+          const kRow = card.locator('.mpanel .mprooms .mproom[data-room="media_player.kitchen"] .rn').first();
+          const seen = [await ticked()];
+          for (const how of ['tap', 'tap', 'click', 'click']) {
+            await page.waitForTimeout(450);
+            if (how === 'tap') await kRow.tap(); else await kRow.click();
+            await page.waitForTimeout(450);
+            seen.push(how + ':' + (await ticked()));
+          }
+          assert.deepEqual(seen, ['true', 'tap:false', 'tap:true', 'click:false', 'click:true'], tag + ': untick and tick again, finger and mouse ' + JSON.stringify(seen));
         }
         assert(!m.look.wells.length && m.look.above !== undefined && Math.abs(m.look.above - m.look.below) <= 3, tag + ': the player bare, the pause halfway ' + JSON.stringify(m.look));
         assert(Math.abs(m.margins.left - m.margins.right) <= 1, tag + ': the column\'s margins even ' + JSON.stringify(m.margins));
