@@ -1,6 +1,7 @@
 # Phase 27: The Home block and its sheet (plan, 2026-11-12)
 
-**Status: a plan and a mockup, nothing built.** Waiting on the owner's three decisions below.
+**Status: a plan and a mockup, nothing built.** Decision 1 agreed and decision 3 answered (all sizes) on 2026-11-12;
+decision 2 is explained side by side in the mockup and still open.
 
 - **Mockup:** [mockup/home-sheet.html](mockup/home-sheet.html). Open the file: it stands alone, with the fictional
   house and made-up states, and touches nothing in the house. Published for review at
@@ -68,7 +69,27 @@ holds them equal).
   generated Home page to go to, so When Tapped has nothing else to offer here.
 - **Glyph:** the house glyph from the house's glyph file if it has one, else `mdi:home-outline`, chosen once in
   `hk-icons.js`. The repository's own glyph set has no house today.
-- Nothing stretches: Small and Wide only, as Intercom has. A bigger Home would be the sheet's job.
+- **Tall, Large and Extra Large** (the owner, 2026-11-12: "If you could do all sizes that would be great...and as it
+  gets bigger, more data of the house can be placed on it. Maybe it's a mixture of This and Home Status?"). From Tall
+  up, the block speaks House Status's language (docs/phase11/HOUSE-STATUS.md, `hk-house-status.js`): the house's name
+  as the label (19 px row, 8 under it), the one thing that matters most as the headline in words ("Back Door
+  Unlocked", "All Good" in green), the rest as a sentence ("3 lights on · 1 playing · 66–69° inside"), and lines of
+  56 px that scroll inside the block, with no "+N more". Bare glyphs, no wells (HomeView). The headline is upper
+  left at every size. What House Status doesn't have is the rooms, so the bigger sizes add them:
+  - **Tall:** the label, the headline, then the categories as lines with the reading under the name (Security
+    1 Unlocked, Lights 3 On, Climate 66–69°, Speakers & TVs 1 Playing).
+  - **Large:** the label, the headline and its sentence, the categories as one row of standard pills (glyph and
+    reading, 40 px), then the rooms as lines: the room's glyph, its name, and its reading at the right ("68° · 1 on",
+    "1 on · Unlocked", "All off").
+  - **Extra Large:** a column of its own for the label, the headline, the sentence and the category lines; the rooms'
+    lines beside it.
+  - **Every part is a way in:** the plate opens the sheet at Home, a category opens the sheet at its page, and a room
+    opens the sheet at that room. Nothing in the block turns anything on or off, as with House Status.
+- **Home and House Status stay two blocks.** The headline, sentence and category readings come from the same
+  `hkChip.status` model House Status draws, so the two never disagree; the Home block's own part is the rooms and the
+  sheet. A screen with a Large or Extra Large Home rarely needs House Status beside it. A screen that wants only what
+  needs a look keeps House Status. The shared parts (label, headline, sentence, line) move into one place both files
+  use, not a copy.
 
 ### 2. The Home sheet (`hk-detail-home`)
 
@@ -116,7 +137,7 @@ This is the part the recording shows at 2.6 s.
 
 - `tests/test_hk_core_home_grid.py`: the catalog keys equal on both sides; the new options accepted and refused.
 - A headless check, `tools/headless/home_sheet_check.py`, in WebKit and Chromium at 1280 x 800, an iPad (1180 x 820)
-  and a phone (390 x 844). It covers: the block at Small and Wide on square cells and tiles; the sheet open; a chip
+  and a phone (390 x 844). It covers: the block at every size on square cells and tiles, a category and a room in it each opening the sheet at that place; the sheet open; a chip
   pushed and back; a room pushed and back; an accessory sheet over an inner page and back to the same scroll; Reduce
   Motion's fade.
 - `sheet_review.py` gains the Home sheet, so it is in the 8-size contact sheet.
@@ -136,13 +157,14 @@ This is the part the recording shows at 2.6 s.
 
 ## The owner's decisions
 
-1. **The sheet's size.** The Room sheet's 864 x 680, four pills across, which is **recommended** because it matches
-   the Room sheet and the drill-in is that same sheet. The alternative is near full screen as Apple's is: 1264 x 784, six
-   pills across, on a 1280 x 800 tablet. The mockup has a switch for both.
+1. **The sheet's size: agreed (2026-11-12).** The Room sheet's 864 x 680, four pills across.
 2. **Chips and rooms inside the sheet**, with a back key, which is **recommended** and is what Apple's does. The
-   alternative is that they go to the screen's own page and close the sheet.
-3. **Sizes.** Small (glyph only) and Wide (name and status line), which is **recommended**. The alternative is Small
-   only, as Apple's.
+   alternative is that they go to the screen's own page and close the sheet. The owner asked for more understanding
+   (2026-11-12) and liked the chips together at the top of the sheet, which both choices keep. The mockup now has a
+   "Chips and rooms open" switch to try both, and a side-by-side section: inside the sheet you never leave the grid;
+   the screen's page closes the sheet, fills the screen with the page and its tab bar, and the way back is the menu.
+3. **Sizes: all five (2026-11-12).** Small, Wide, Tall, Large and Extra Large, from Tall up the House Status mixture
+   above. Still to confirm from the mockup: the three bigger layouts.
 
 ## Build order
 
@@ -150,6 +172,7 @@ One session, Opus 5.5 Medium; agents on Sonnet 5.5.
 
 1. `homeCards` and `pageCards` cut out of `views()` / `categoryPages`, the generated Home unchanged (a test compares
    its cards before and after).
-2. The `home` catalog key on both sides, the Small and Wide card, the editor's options.
+2. The `home` catalog key on both sides, every size, the editor's options; House Status's label, headline, sentence
+   and line moved to one shared place first, House Status unchanged (its check, `house_status_check.py`, passes as before).
 3. `hk-detail-home`, its header, the chip and room push, Back, Reduce Motion.
 4. The headless check, `sheet_review.py`, the twin on the house's screens; screenshots to the owner.

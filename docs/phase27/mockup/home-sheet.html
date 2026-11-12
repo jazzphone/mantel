@@ -160,6 +160,54 @@ p { margin: 0; max-width: 68ch; }
 .k-sensor .w.num { color: #fff; font-size: 17px; }
 .k-sensor.on .w.num, .k-thermo.on .w.num.cool { color: #0a84ff; }
 
+/* ---------- the bigger Home blocks: House Status's grammar, then the rooms ---------- */
+.blk { position: relative; border-radius: 34px; background: rgba(255,255,255,.13); border: 1px solid rgba(255,255,255,.16);
+  backdrop-filter: blur(24px) saturate(1.4); -webkit-backdrop-filter: blur(24px) saturate(1.4); color: #fff; box-sizing: border-box;
+  padding: 18px; overflow: hidden; display: flex; flex-direction: column; text-align: left; cursor: pointer; }
+.blk.xl { flex-direction: row; gap: 18px; }
+.blk .col { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.blk .lab { display: flex; align-items: center; gap: 6px; height: 19px; margin-bottom: 8px; font-size: 15px; font-weight: 600; color: rgba(255,255,255,.7); white-space: nowrap; }
+.blk .lab svg { width: 19px; height: 19px; flex: none; }
+.blk .hl { font: 600 24px/1.15 var(--display); letter-spacing: -.01em; }
+.blk .hl.big { font-size: 30px; }
+.blk .snt { font-size: 15px; line-height: 1.3; color: rgba(255,255,255,.62); margin-top: 4px; }
+.blk .strip { display: flex; gap: 8px; margin-top: 12px; flex-wrap: nowrap; overflow: hidden; border-radius: 0; }
+.blk .cap2 { height: 40px; border-radius: 20px; background: rgba(255,255,255,.14); display: inline-flex; align-items: center; gap: 6px; padding: 0 12px 0 10px;
+  font-size: 15px; font-weight: 600; border: 0; color: #fff; font-family: inherit; cursor: pointer; flex: none; }
+.blk .cap2 svg { width: 20px; height: 20px; }
+.blk .lines { margin-top: 10px; overflow-y: auto; min-height: 0; flex: 1; scrollbar-width: none; }
+.blk .lines::-webkit-scrollbar { display: none; }
+.blk .ln { width: 100%; height: 56px; display: flex; align-items: center; gap: 4px; border: 0; background: none; color: #fff; font: inherit; cursor: pointer;
+  padding: 0 14px 0 0; text-align: left; border-top: 1px solid rgba(255,255,255,.12); }
+.blk .ln:first-child { border-top: 0; }
+.blk .ln .gl { width: 36px; flex: none; display: grid; place-items: center; }
+.blk .ln .gl svg { width: 26px; height: 26px; }
+.blk .ln .nm2 { flex: 1; min-width: 0; font-size: 17px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.blk .ln .rd { flex: none; font-size: 15px; color: rgba(255,255,255,.62); }
+.blk .ln.two { align-items: center; }
+.blk .ln.two .tx2 { flex: 1; min-width: 0; }
+.blk .ln.two .tx2 b { display: block; font-size: 16px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.blk .ln.two .tx2 i { display: block; font-style: normal; font-size: 13px; color: rgba(255,255,255,.62); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.blk .ln:focus-visible, .blk .cap2:focus-visible { outline: 2px solid #ff9f0a; outline-offset: -2px; border-radius: 12px; }
+.blk .ok { color: #30d158; }
+
+/* ---------- option B: the screen's own page ---------- */
+.fullpage { position: absolute; inset: 0; display: flex; flex-direction: column; background: rgba(12,16,28,.86); backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px);
+  opacity: 0; pointer-events: none; transition: opacity var(--dur) var(--std); }
+.fullpage.on { opacity: 1; pointer-events: auto; }
+.fullpage .fp-head { flex: none; height: 72px; display: flex; align-items: center; gap: 12px; padding: 0 24px; }
+.fullpage .fp-head h2 { margin: 0; font: 700 30px var(--display); }
+.fullpage .fp-body { flex: 1; overflow-y: auto; --cols: 5; --pw: 196px; --sp: 40px; }
+.phone .fullpage .fp-body { --cols: 2; --pw: 1fr; --sp: 16px; }
+.fullpage .tabs { flex: none; height: 64px; display: flex; justify-content: center; gap: 36px; align-items: center; border-top: 1px solid rgba(255,255,255,.1); font-size: 12px; color: rgba(255,255,255,.55); }
+.fullpage .tabs span { display: grid; justify-items: center; gap: 2px; }
+.fullpage .tabs svg { width: 24px; height: 24px; }
+.fullpage .tabs .cur { color: #ff9f0a; }
+.cmp { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+.cmp ol { margin: 8px 0 0; padding-left: 20px; font-size: 14px; color: var(--muted); }
+.cmp ol li { margin: 3px 0; }
+.cmp .note b { margin-bottom: 2px; }
+
 @media (prefers-reduced-motion: reduce) { .tile.ring { animation: none; } }
 </style>
 
@@ -173,6 +221,7 @@ p { margin: 0; max-width: 68ch; }
     <div class="ctl">Screen <span class="seg" data-k="screen"><button data-v="tablet" aria-pressed="true">Wall tablet 1280 × 800</button><button data-v="phone" aria-pressed="false">Phone</button></span></div>
     <div class="ctl">Sheet <span class="seg" data-k="size"><button data-v="room" aria-pressed="true">Room size, 864</button><button data-v="full" aria-pressed="false">Full, 1264</button></span></div>
     <div class="ctl">Tiles <span class="seg" data-k="style"><button data-v="centered" aria-pressed="true">Centered (HomeView)</button><button data-v="home" aria-pressed="false">Home</button></span></div>
+    <div class="ctl">Chips and rooms open <span class="seg" data-k="open"><button data-v="sheet" aria-pressed="true">Inside the sheet</button><button data-v="page" aria-pressed="false">The screen's page</button></span></div>
     <div class="ctl">Motion <span class="seg" data-k="motion"><button data-v="std" aria-pressed="true">Slide</button><button data-v="reduce" aria-pressed="false">Reduce Motion</button></span></div>
   </div>
 
@@ -180,16 +229,34 @@ p { margin: 0; max-width: 68ch; }
   <p class="hint" id="hint">The house tile, with the orange ring, is the new block. Escape goes back one level, then closes the sheet.</p>
 
   <section>
-    <h3>The block's sizes</h3>
-    <div class="strip"><div id="sizes" style="display:flex;gap:22px;padding:22px;width:max-content;position:relative;border-radius:18px;overflow:hidden"></div></div>
+    <h3>Every size: the house at a glance, then its rooms</h3>
+    <p class="hint" style="margin-bottom:12px">Small is only a door into the sheet. From Tall up, the top of the block is House Status's: the house's name as the label, the one thing that matters most as the headline, the rest in a sentence. Under that, the bigger sizes add what House Status doesn't have, the rooms. Every part opens the sheet at that place: a category opens its page and a room opens that room. The lines scroll inside the block, as House Status's do. Tap any of them.</p>
+    <div class="strip"><div id="sizes" style="display:flex;flex-wrap:wrap;align-items:flex-start;gap:22px;padding:22px;width:1320px;position:relative;border-radius:18px;overflow:hidden"></div></div>
   </section>
 
   <section>
-    <h3>Decisions for you</h3>
+    <h3>Decision 2, side by side</h3>
+    <p class="hint" style="margin-bottom:12px">Both choices start the same way: you tap the house, and the sheet opens with the chips across the top. They only differ once you tap a chip such as Security, or a room's name. Use the "Chips and rooms open" switch above to try each one.</p>
+    <div class="cmp">
+      <div class="note"><span class="rec">Recommended</span><b>Inside the sheet</b>
+        <ol><li>Tap Security. The sheet stays open, and Security slides in inside it.</li>
+            <li>The title becomes "Security", and a "‹ Home" key appears next to the X.</li>
+            <li>"‹ Home" goes back to the house list, where you were. X closes the sheet, and you're back on the grid.</li></ol>
+        <p style="margin-top:8px">You never leave the grid. It's a quick look and back, which is how Apple's works.</p></div>
+      <div class="note"><b>The screen's page</b>
+        <ol><li>Tap Security. The sheet closes, and the screen goes to its full Security page, the one the menu and tab bar already go to.</li>
+            <li>That page fills the screen, with more room and the tab bar at its foot.</li>
+            <li>To come back you use the menu or the tab bar's Home. The sheet isn't there anymore.</li></ol>
+        <p style="margin-top:8px">It's better for a long stay on one page. Each trip away from the grid costs a tap or two to get back.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h3>Decisions</h3>
     <div class="cols">
-      <div class="note"><span class="rec">Recommended: Room size</span><b>1. How big the sheet is</b><p>Room size is 864 × 680 with four pills across, the same as a Room block's sheet, so going into a room looks the same either way. Full is 1264 × 784 with six pills across, closer to Apple's. Use the Sheet switch above to compare them.</p></div>
-      <div class="note"><span class="rec">Recommended: inside the sheet</span><b>2. Where chips and rooms go</b><p>Security, Climate, Lights or a room's name opens that page inside the sheet. A "‹ Home" key appears next to the X, and the X still closes everything, as in Apple's video. The other option is to go to the screen's own page and close the sheet.</p></div>
-      <div class="note"><span class="rec">Recommended: Small and Wide</span><b>3. Which sizes the block has</b><p>Small is the bare house glyph, the tile from HomeView. Wide adds the house's name and one status line taken from the chips, for example "1 unlocked · 3 lights on". The other option is Small only, as Apple has it.</p></div>
+      <div class="note"><span class="rec">Agreed: Room size</span><b>1. How big the sheet is</b><p>864 × 680 with four pills across, the same as a Room block's sheet. The Sheet switch above still shows Full for comparison.</p></div>
+      <div class="note"><span class="rec">Recommended: inside the sheet</span><b>2. Where chips and rooms go</b><p>See "Decision 2, side by side" above. Either way, the chips stay together at the top of the sheet, the part you liked.</p></div>
+      <div class="note"><span class="rec">Proposed: all five sizes</span><b>3. Sizes, and House Status</b><p>Small, Wide, Tall, Large and Extra Large. Home doesn't replace House Status: it uses House Status's headline and wording, which come from the same chip model, so the two never disagree. Then it adds the rooms. A screen with a Large or Extra Large Home won't need House Status beside it, and a screen that wants only the alerts keeps House Status.</p></div>
     </div>
   </section>
 </div>
@@ -219,6 +286,10 @@ p { margin: 0; max-width: 68ch; }
     bed: '<path d="M3.5 18.5v-9M3.5 15h17v3.5M20.5 15v-3a2.5 2.5 0 0 0-2.5-2.5h-7V15"/><circle cx="7" cy="12" r="1.6"/>',
     climate: '<path d="M12 3.2a2 2 0 0 1 2 2v8.6a4 4 0 1 1-4 0V5.2a2 2 0 0 1 2-2z"/>',
     chev: '<path d="m9 5.5 6.5 6.5L9 18.5"/>', back: '<path d="M15 5.5 8.5 12l6.5 6.5"/>', x: '<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>',
+    sofa: '<path d="M5 11V8.5A2.5 2.5 0 0 1 7.5 6h9A2.5 2.5 0 0 1 19 8.5V11"/><path d="M3.5 12.5a1.5 1.5 0 0 1 3 0V14h11v-1.5a1.5 1.5 0 0 1 3 0V18h-17z"/><path d="M5.5 18v1.5M18.5 18v1.5"/>',
+    kitchen: '<path d="M7 3.5v7M5 3.5v4.5a2 2 0 0 0 4 0V3.5M7 10.5v10"/><path d="M16.5 20.5v-17c-2 1-3 3.5-3 6.5v3.5h3"/>',
+    table: '<path d="M3.5 9.5h17M6 9.5v10M18 9.5v10M6 14h12"/>',
+    desk: '<rect x="4" y="4" width="16" height="11" rx="1.5"/><path d="M9 20h6M12 15v5"/>',
     wave: '<path d="M5 10v4M8 7.5v9M11 5v14M14 7.5v9M17 9.5v5M20 11v2"/>'
   };
   function ic(n, sw) { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="' + (sw || 1.8) + '" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (P[n] || '') + '</svg>'; }
@@ -227,26 +298,26 @@ p { margin: 0; max-width: 68ch; }
   // ---------- the made-up house ----------
   var HOUSE = 'Linden House';
   var ROOMS = [
-    { id: 'living', name: 'Living Room', items: [
+    { id: 'living', name: 'Living Room', g: 'sofa', items: [
       { id: 'l1', n: 'Floor Lamp', k: 'light', on: true, lvl: 60 }, { id: 'l2', n: 'Ceiling Lights', k: 'light', on: false },
       { id: 't1', n: 'Thermostat', k: 'thermo', t: 68, s: 'Heating to 70°' }, { id: 'b1', n: 'Shades', k: 'blind', on: true, s: 'Open' },
       { id: 's1', n: 'Living Room', k: 'speaker', on: true, s: 'Playing' }, { id: 'tv1', n: 'TV', k: 'tv', on: false } ] },
-    { id: 'kitchen', name: 'Kitchen', items: [
+    { id: 'kitchen', name: 'Kitchen', g: 'kitchen', items: [
       { id: 'l3', n: 'Pendants', k: 'light', on: true, lvl: 80 }, { id: 'l4', n: 'Under Cabinet', k: 'light', on: false },
       { id: 'p1', n: 'Coffee Maker', k: 'plug', on: false }, { id: 'k1', n: 'Back Door', k: 'lock', on: true },
       { id: 'c1', n: 'Back Door', k: 'door', on: false, sensor: true }, { id: 'h1', n: 'Humidity', k: 'sensor', t: '41%' } ] },
-    { id: 'dining', name: 'Dining Room', items: [
+    { id: 'dining', name: 'Dining Room', g: 'table', items: [
       { id: 'l5', n: 'Chandelier', k: 'light', on: false }, { id: 'b2', n: 'Dining Shade', k: 'blind', on: false, s: 'Closed' } ] },
-    { id: 'foyer', name: 'Entry', items: [
+    { id: 'foyer', name: 'Entry', g: 'door', items: [
       { id: 'k2', n: 'Front Door', k: 'lock', on: false }, { id: 'a1', n: 'Alarm', k: 'alarm', on: false, s: 'Disarmed' },
       { id: 'l6', n: 'Closet', k: 'light', on: true, lvl: 100 }, { id: 'c2', n: 'Front Door', k: 'door', on: false, sensor: true } ] },
-    { id: 'bedroom', name: 'Bedroom', items: [
+    { id: 'bedroom', name: 'Bedroom', g: 'bed', items: [
       { id: 'l7', n: 'Bedside Lamps', k: 'light', on: false }, { id: 't2', n: 'Bedroom', k: 'sensor', t: '66°' },
       { id: 'b3', n: 'Blackout Shade', k: 'blind', on: false, s: 'Closed' }, { id: 's2', n: 'Bedroom', k: 'speaker', on: false, s: 'Paused' } ] },
-    { id: 'office', name: 'Office', items: [
+    { id: 'office', name: 'Office', g: 'desk', items: [
       { id: 'l8', n: 'Desk Lamp', k: 'light', on: false }, { id: 'p2', n: 'Space Heater', k: 'plug', on: false },
       { id: 't3', n: 'Office', k: 'sensor', t: '69°' } ] },
-    { id: 'garage', name: 'Garage', items: [
+    { id: 'garage', name: 'Garage', g: 'garage', items: [
       { id: 'g1', n: 'Garage Door', k: 'garage', on: false }, { id: 'k3', n: 'Side Door', k: 'lock', on: false },
       { id: 'l9', n: 'Garage Lights', k: 'light', on: false } ] }
   ];
@@ -294,7 +365,7 @@ p { margin: 0; max-width: 68ch; }
   }
 
   // ---------- settings of the mockup ----------
-  var S = { screen: 'tablet', size: 'room', style: 'centered', motion: (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) ? 'reduce' : 'std' };
+  var S = { screen: 'tablet', size: 'room', open: 'sheet', style: 'centered', motion: (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) ? 'reduce' : 'std' };
   var device = document.getElementById('device'), stage = document.getElementById('stage'), box = document.getElementById('stagebox');
   var DIM = { tablet: [1280, 800], phone: [390, 844] };
 
@@ -458,6 +529,7 @@ p { margin: 0; max-width: 68ch; }
   }
   function push(where) {
     if (nav.length > 1) return;            // one level deep
+    if (S.open === 'page') { closeSheet(); return showPage(where); }
     var st = device.querySelector('#stack'), cur = top(), nx = mkPage(where);
     nx.classList.add('enter'); st.appendChild(nx); nx.getBoundingClientRect();
     nx.classList.add('anim'); cur.classList.add('anim');
@@ -473,6 +545,79 @@ p { margin: 0; max-width: 68ch; }
     setTimeout(function () { if (cur.parentNode) cur.parentNode.removeChild(cur); }, 380);
   }
 
+  // ---------- the bigger Home blocks ----------
+  function catLines() {
+    var c = counts();
+    return [
+      { go: 'cat:security', g: c.unlocked ? 'unlock' : 'lock', color: '#30c8c0', n: 'Security', r: c.unlocked ? c.unlocked + ' Unlocked' : c.open ? c.open + ' Open' : 'Locked' },
+      { go: 'cat:lights', g: 'light', color: '#ffd60a', n: 'Lights', r: c.lights ? c.lights + ' On' : 'Off' },
+      { go: 'cat:climate', g: 'climate', color: '#64d2ff', n: 'Climate', r: '66–69°' },
+      { go: 'cat:speakers', g: 'speaker', color: '#d1d1d6', n: 'Speakers & TVs', r: c.playing ? c.playing + ' Playing' : 'Off' } ];
+  }
+  function headline() {
+    var unl = all().filter(function (i) { return i.k === 'lock' && i.on; }), opn = all().filter(function (i) { return (i.k === 'door' || i.k === 'garage') && i.on; });
+    if (unl.length === 1) return unl[0].n + ' Unlocked';
+    if (unl.length) return unl.length + ' Doors Unlocked';
+    if (opn.length) return opn.length === 1 ? opn[0].n + ' Open' : opn.length + ' Doors Open';
+    return '<span class="ok">All Good</span>';
+  }
+  function sentence() {
+    var c = counts(), p = [];
+    if (c.lights) p.push(c.lights + (c.lights === 1 ? ' light on' : ' lights on'));
+    if (c.playing) p.push(c.playing + ' playing');
+    p.push('66–69° inside');
+    return p.join(' · ');
+  }
+  function roomReading(r) {
+    var p = [], on = 0;
+    r.items.forEach(function (i) {
+      if (i.k === 'thermo') p.unshift(i.t + '°'); else if (i.k === 'sensor' && /°/.test(i.t)) p.unshift(i.t);
+      if ((i.k === 'light' || i.k === 'plug') && i.on) on++;
+      if (i.k === 'lock' && i.on) p.push('Unlocked');
+      if ((i.k === 'garage' || i.k === 'door') && i.on) p.push('Open');
+    });
+    if (on) p.splice(p.length && /°/.test(p[0]) ? 1 : 0, 0, on + ' on');
+    return p.slice(0, 2).join(' · ') || 'All off';
+  }
+  function lab() { return '<div class="lab">' + ic('house', 2) + HOUSE + '</div>'; }
+  function catLine(x, two) {
+    var g = '<span class="gl" style="color:' + x.color + '">' + ic(x.g, 1.9) + '</span>';
+    return two ? '<button class="ln two" data-at="' + x.go + '">' + g + '<span class="tx2"><b>' + esc(x.n) + '</b><i>' + esc(x.r) + '</i></span></button>'
+               : '<button class="ln" data-at="' + x.go + '">' + g + '<span class="nm2">' + esc(x.n) + '</span><span class="rd">' + esc(x.r) + '</span></button>';
+  }
+  function roomLine(r, two) {
+    var g = '<span class="gl">' + ic(r.g, 1.9) + '</span>';
+    return two ? '<button class="ln two" data-at="room:' + r.id + '">' + g + '<span class="tx2"><b>' + esc(r.name) + '</b><i>' + esc(roomReading(r)) + '</i></span></button>'
+               : '<button class="ln" data-at="room:' + r.id + '">' + g + '<span class="nm2">' + esc(r.name) + '</span><span class="rd">' + esc(roomReading(r)) + '</span></button>';
+  }
+  function bigBlock(size) {
+    if (size === 'T') return '<div class="blk" data-at="home" style="width:196px;height:405px">' + lab() + '<div class="hl">' + headline() + '</div>' +
+      '<div class="lines">' + catLines().map(function (x) { return catLine(x, true); }).join('') + '</div></div>';
+    if (size === 'L') return '<div class="blk" data-at="home" style="width:405px;height:405px">' + lab() + '<div class="hl">' + headline() + '</div><div class="snt">' + sentence() + '</div>' +
+      '<div class="strip">' + catLines().map(function (x) { return '<button class="cap2" data-at="' + x.go + '" aria-label="' + esc(x.n + ', ' + x.r) + '"><span style="color:' + x.color + '">' + ic(x.g, 2) + '</span>' + esc(x.r.replace(/ (On|Playing|Unlocked|Open)$/, '')) + '</button>'; }).join('') + '</div>' +
+      '<div class="lines">' + ROOMS.map(function (r) { return roomLine(r); }).join('') + '</div></div>';
+    return '<div class="blk xl" data-at="home" style="width:614px;height:405px"><div class="col" style="width:214px;flex:none">' + lab() + '<div class="hl big">' + headline() + '</div><div class="snt">' + sentence() + '</div>' +
+      '<div class="lines">' + catLines().map(function (x) { return catLine(x, true); }).join('') + '</div></div>' +
+      '<div class="col" style="flex:1"><div class="lines" style="margin-top:0">' + ROOMS.map(function (r) { return roomLine(r); }).join('') + '</div></div></div>';
+  }
+
+  // ---------- option B: the screen's own page ----------
+  function showPage(where) {
+    var fp = device.querySelector('#fp');
+    fp.innerHTML = '<div class="fp-head"><button class="xbtn" data-fpback="1" aria-label="Back to the Home Grid">' + ic('back', 2.4) + '</button><h2>' + esc(titleOf(where)) + '</h2></div>' +
+      '<div class="fp-body">' + bodyOf(where) + '</div>' +
+      '<div class="tabs"><span>' + ic('house', 1.8) + 'Home</span><span' + (where === 'cat:security' ? ' class="cur"' : '') + '>' + ic('lock', 1.8) + 'Security</span><span' + (where === 'cat:climate' ? ' class="cur"' : '') + '>' + ic('climate', 1.8) + 'Climate</span><span' + (where === 'cat:lights' ? ' class="cur"' : '') + '>' + ic('light', 1.8) + 'Lights</span><span' + (where.indexOf('room:') === 0 ? ' class="cur"' : '') + '>' + ic('sofa', 1.8) + 'Rooms</span></div>';
+    fp.querySelectorAll('[data-go]').forEach(function (b) { b.removeAttribute('data-go'); b.classList.add('static'); });
+    fp.classList.add('on'); nav = [];
+    setTimeout(function () { var b = fp.querySelector('[data-fpback]'); if (b) b.focus({ preventScroll: true }); }, 60);
+  }
+  function hidePage() { var fp = device.querySelector('#fp'); if (fp && fp.classList.contains('on')) { fp.classList.remove('on'); var t = device.querySelector('[data-open="home"]'); if (t) t.focus({ preventScroll: true }); return true; } return false; }
+  function openAt(where) {
+    if (where !== 'home' && S.open === 'page') return showPage(where);
+    openSheet();
+    if (where !== 'home') setTimeout(function () { push(where); }, S.motion === 'reduce' ? 0 : 200);
+  }
+
   // ---------- draw ----------
   function fit() {
     var d = DIM[S.screen], avail = box.clientWidth - 24, maxH = Math.max(420, window.innerHeight * .78);
@@ -484,7 +629,7 @@ p { margin: 0; max-width: 68ch; }
   function draw() {
     var keep = nav.slice();
     device.className = 'device ' + S.screen + (S.motion === 'reduce' ? ' reduce' : '');
-    device.innerHTML = '<div class="wall"></div>' + gridHtml() + sheetHtml();
+    device.innerHTML = '<div class="wall"></div>' + gridHtml() + '<div class="fullpage" id="fp" role="region" aria-label="Page"></div>' + sheetHtml();
     fit(); tickClock(); drawSizes();
     if (keep.length) {
       openSheet();
@@ -502,12 +647,16 @@ p { margin: 0; max-width: 68ch; }
     drawSizes();
   }
   function drawSizes() {
-    var el = document.getElementById('sizes');
-    el.innerHTML = '<div class="wall" style="border-radius:18px"></div>' +
-      [['S', 'centered', 'Small, Centered'], ['W', 'centered', 'Wide, Centered'], ['S', 'home', 'Small, Home'], ['W', 'home', 'Wide, Home']].map(function (v) {
-        var w = v[0] === 'W' ? 405 : 196;
-        return '<div style="position:relative;color:#fff"><div style="width:' + w + 'px;height:196px;display:grid">' + homeTile(v[0], v[1]).replace('<button ', '<button style="width:100%;height:100%" ') + '</div><div class="cap" style="color:rgba(255,255,255,.75)">' + v[2] + '</div></div>';
-      }).join('');
+    var el = document.getElementById('sizes'), keep = {};
+    el.querySelectorAll('.lines').forEach(function (l, i) { keep[i] = l.scrollTop; });
+    var defs = [['S', 'Small'], ['W', 'Wide'], ['T', 'Tall'], ['L', 'Large'], ['XL', 'Extra Large']];
+    el.innerHTML = '<div class="wall" style="border-radius:18px"></div>' + defs.map(function (v) {
+      var inner = v[0] === 'S' || v[0] === 'W'
+        ? '<div style="width:' + (v[0] === 'W' ? 405 : 196) + 'px;height:196px;display:grid">' + homeTile(v[0], S.style).replace('<button ', '<button style="width:100%;height:100%" ') + '</div>'
+        : bigBlock(v[0]);
+      return '<div style="position:relative;color:#fff">' + inner + '<div class="cap" style="color:rgba(255,255,255,.75)">' + v[1] + '</div></div>';
+    }).join('');
+    el.querySelectorAll('.lines').forEach(function (l, i) { if (keep[i]) l.scrollTop = keep[i]; });
   }
 
   // ---------- events ----------
@@ -515,6 +664,7 @@ p { margin: 0; max-width: 68ch; }
     var t = e.target.closest('button'); if (!t) { if (e.target.id === 'scrim') closeSheet(); return; }
     if (t.dataset.open === 'home') return openSheet();
     if (t.id === 'shX') return closeSheet();
+    if (t.dataset.fpback) return hidePage();
     if (t.id === 'shBack') return pop();
     if (t.dataset.go) return push(t.dataset.go);
     if (t.dataset.tog) {
@@ -529,9 +679,13 @@ p { margin: 0; max-width: 68ch; }
     }
   });
   document.getElementById('sizes').addEventListener('click', function (e) {
-    if (e.target.closest('[data-open="home"]')) { openSheet(); stage.scrollIntoView({ behavior: S.motion === 'reduce' ? 'auto' : 'smooth', block: 'center' }); }
+    var at = e.target.closest('[data-at]'), home = e.target.closest('[data-open="home"]');
+    if (!at && !home) return;
+    stage.scrollIntoView({ behavior: S.motion === 'reduce' ? 'auto' : 'smooth', block: 'center' });
+    openAt(at ? at.dataset.at : 'home');
   });
   document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && hidePage()) return;
     if (e.key !== 'Escape' || !nav.length) return;
     e.preventDefault(); nav.length > 1 ? pop() : closeSheet();
   });
