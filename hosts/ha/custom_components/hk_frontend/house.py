@@ -68,6 +68,12 @@ class HaHouse:
         """No direct cameras in Home Assistant (hk_core/house.py): a camera's sensors are on its device."""
         return {}
 
+    def accessory_name(self, entity_id: str) -> str | None:
+        """The name HK Settings -> Accessories gives it (accessories.current), read each time."""
+        from . import accessories
+        from .hk_core.settings.accessory_fields import name_override
+        return name_override(accessories.current(self._hass), entity_id)
+
     def area_ids(self) -> set[str]:
         return set(ar.async_get(self._hass).areas)
 

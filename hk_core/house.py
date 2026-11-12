@@ -105,6 +105,12 @@ class House(Protocol):
         kind whatever its device class says (accessories.kind). A host with no such cameras answers {}; the
         notification code reads this with ``getattr``, so a House that leaves it out is the same as {}."""
 
+    def accessory_name(self, entity_id: str) -> str | None:
+        """The name the house's own settings give an accessory (HK Settings -> Accessories -> Name: Mantel's
+        rename, apart from Home Assistant's friendly name), or None when it has none. The notifications read it
+        with ``getattr`` (accessories.name_of), so a House that leaves it out names an accessory as Home
+        Assistant does."""
+
     def area_ids(self) -> set[str]:
         """The ids of the house's areas."""
 

@@ -26,6 +26,11 @@ class SettingsStore:
         row = self.conn.execute("SELECT * FROM settings_docs WHERE scope=? AND key=?", (scope, key)).fetchone()
         return self._doc(row) if row else None
 
+    def version(self, scope: str, key: str) -> int | None:
+        """A document's version now (None: no such document) -- one cheap read, for a reader that keeps its parsed body."""
+        row = self.conn.execute("SELECT version FROM settings_docs WHERE scope=? AND key=?", (scope, key)).fetchone()
+        return int(row["version"]) if row else None
+
     def body(self, scope: str, key: str) -> dict:
         d = self.get(scope, key)
         return copy.deepcopy(d.body) if d else {}

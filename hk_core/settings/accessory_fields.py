@@ -37,6 +37,21 @@ def _ids(v: Any) -> list[str]:
     return seen
 
 
+def name_override(accessories: Any, entity_id: str, screen: str | None = None) -> str | None:
+    """The name Mantel (HK Settings -> Accessories) gives an accessory, or None when it has none: the one set for
+    `screen` (a dashboard's url path) if any, else the house's. Python's side of the web app's
+    ``hkCards.accName`` (web/hk/cards/hk-base.js): the cards, the banners and the settings lists name an
+    accessory the same way. `accessories` is the stored ``house/accessories`` document (or HK Frontend's)."""
+    ent = ((accessories or {}).get("entities") or {}).get(entity_id) if isinstance(accessories, dict) else None
+    if not isinstance(ent, dict):
+        return None
+    names = ent.get("names")
+    for n in ((names.get(screen) if screen and isinstance(names, dict) else None), ent.get("name")):
+        if isinstance(n, str) and n.strip():
+            return n.strip()
+    return None
+
+
 def clean_entity(v: Any) -> dict[str, Any]:
     """One accessory's stored settings, each value checked; empty ones gone."""
     v = v if isinstance(v, dict) else {}

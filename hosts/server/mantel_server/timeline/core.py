@@ -137,10 +137,12 @@ class Timeline:
     # -- what is recorded ------------------------------------------------------------------------------------------
     def _house(self):
         if self.house is None:
-            from ..house import MantelHouse
+            from ..house import MantelHouse, accessory_names
             direct = self.app.get("cameras_direct") if hasattr(self.app, "get") else None
             links = (lambda: direct.sensor_links()) if direct is not None and hasattr(direct, "sensor_links") else None
-            self.house = MantelHouse(self.hub.store, self.hub.registry, links=links)
+            svc = self.app.get("settings") if hasattr(self.app, "get") else None
+            self.house = MantelHouse(self.hub.store, self.hub.registry, links=links,
+                                     accessories=accessory_names(svc.store) if svc is not None else None)
         return self.house
 
     def refresh(self) -> None:

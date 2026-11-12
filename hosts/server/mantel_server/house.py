@@ -95,13 +95,28 @@ def entity_view(e: Mapping[str, Any] | None) -> Entity | None:
                   device_class=e.get("device_class"), original_device_class=e.get("original_device_class"))
 
 
+def accessory_names(store: Any) -> Callable[[], Mapping[str, Any] | None]:
+    """The reader for MantelHouse's ``accessories``: the stored ``house/accessories`` document, parsed again only
+    when its version moved (one cheap query per read, so a rename reaches the very next notification)."""
+    seen: list[Any] = [None, None]                      # [version, body]
+
+    def read() -> Mapping[str, Any] | None:
+        version = store.version("house", "accessories")
+        if version != seen[0]:
+            seen[:] = [version, store.body("house", "accessories") if version is not None else None]
+        return seen[1]
+    return read
+
+
 class MantelHouse:
     """``hk_core.house.House`` over the hub's StateStore and Registry (see the module docstring)."""
 
     def __init__(self, store, registry, *, tz: Callable[[], str] | str = "UTC", caller: Caller | None = None,
                  now: Callable[[], datetime] | None = None,
-                 links: Callable[[], Mapping[str, tuple[str, str]]] | None = None) -> None:
+                 links: Callable[[], Mapping[str, tuple[str, str]]] | None = None,
+                 accessories: Callable[[], Mapping[str, Any] | None] | None = None) -> None:
         self._store = store
+        self._accessories = accessories
         self._registry = registry
         self._links = links
         self._tz = tz if callable(tz) else (lambda: tz)
@@ -161,6 +176,13 @@ class MantelHouse:
         rules read them here instead (hk_core/notifications/accessories.py). {} where Mantel has no direct cameras."""
         got = self._links() if self._links is not None else None
         return dict(got) if got else {}
+
+    def accessory_name(self, entity_id: str) -> str | None:
+        """The name HK Settings -> Accessories gives it (``accessories``: the stored house/accessories document,
+        read each time, so a rename reaches the next notification); None with no such document or name."""
+        from hk_core.settings.accessory_fields import name_override
+        got = self._accessories() if self._accessories is not None else None
+        return name_override(got, entity_id)
 
     def area_ids(self) -> set[str]:
         return set(self._registry.areas)

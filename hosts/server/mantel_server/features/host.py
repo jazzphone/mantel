@@ -30,7 +30,7 @@ from ..connectors import Ctx, deny_read, Forbidden, may_feature, read_routes, Ro
 from ..feature_watch import CalendarLook, TabletWatch
 from ..identity.guards import guard
 from ..identity.guards import ident as guarded
-from ..house import HouseCommandRefused, HouseCommandsDisabled, MantelHouse
+from ..house import HouseCommandRefused, HouseCommandsDisabled, MantelHouse, accessory_names
 from .auto import COALESCE_S, AutoFeatures, decided_marker
 from .actor import FeatureCaller, Feed, OverlayHouse, ScreenState, _slug
 from .energy_plan import energy_context, energy_house
@@ -81,10 +81,12 @@ class FeatureHost:
 
     def __init__(self, app: web.Application, hub: Any, hooks: FeatureHooks) -> None:
         self.app, self.hub, self.hooks = app, hub, hooks
+        self._names_reader: Any = None
         self._publishing = False                     # inside _sync_client's own settings-feed publish
         self.caller = FeatureCaller(app, self.acting_entities)
         self.house = MantelHouse(hub.store, hub.registry, tz=self._tz, caller=self.caller, now=self.now,
-                                 links=self._camera_links)
+                                 links=self._camera_links,
+                                 accessories=self._accessory_names)
         self.own_house = OverlayHouse(self.house, self.own_state)
         self.feed = Feed()
         self.screens: dict[str, ScreenState] = {}
@@ -170,6 +172,12 @@ class FeatureHost:
             from ..settings_store import SettingsStore
             self.app["_feature_settings_store"] = SettingsStore(self.app["store"].db, lambda: self.app["clock"]())
         return self.app["_feature_settings_store"]
+
+    def _accessory_names(self) -> Any:
+        """House/accessories for the House's ``accessory_name`` (house.accessory_names); the store is found on use."""
+        if self._names_reader is None:
+            self._names_reader = accessory_names(self.store)
+        return self._names_reader()
 
     def doc(self, key: str) -> dict:
         return self.store.body("house", key)

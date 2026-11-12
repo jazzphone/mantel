@@ -54,9 +54,13 @@ def _device_name(house: House, entity_id: str) -> str | None:
 
 
 def name_of(house: House, entity_id: str) -> str:
-    """The accessory's name for a banner: its friendly name -- or, for a
-    detection a device names after itself ("Front Door Camera Person
-    detected"), the device ("Front Door Camera")."""
+    """The accessory's name for a banner: the name the house gave it in Mantel (the cards' name; the House's
+    ``accessory_name``) -- else its friendly name -- or, for a detection a device names after itself ("Front Door
+    Camera Person detected"), the device ("Front Door Camera")."""
+    got = getattr(house, "accessory_name", None)
+    renamed = got(entity_id) if callable(got) else None
+    if isinstance(renamed, str) and renamed:
+        return renamed
     st = house.state(entity_id)
     full = str(st.name if st is not None else entity_id.split(".", 1)[-1].replace("_", " ").title())
     dev = _device_name(house, entity_id)
