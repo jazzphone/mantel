@@ -1,7 +1,7 @@
 # Phase 27: The Home block and its sheet (plan, 2026-11-12)
 
-**Status: a plan and a mockup, nothing built.** Decision 1 agreed and decision 3 answered (all sizes) on 2026-11-12;
-decision 2 is explained side by side in the mockup and still open.
+**Status: a plan and a mockup, nothing built.** All three decisions answered on 2026-11-12: the Room sheet's size, chips
+and rooms inside the sheet, and all five block sizes. Ready to build.
 
 - **Mockup:** [mockup/home-sheet.html](mockup/home-sheet.html). Open the file: it stands alone, with the fictional
   house and made-up states, and touches nothing in the house. Published for review at
@@ -158,13 +158,11 @@ This is the part the recording shows at 2.6 s.
 ## The owner's decisions
 
 1. **The sheet's size: agreed (2026-11-12).** The Room sheet's 864 x 680, four pills across.
-2. **Chips and rooms inside the sheet**, with a back key, which is **recommended** and is what Apple's does. The
-   alternative is that they go to the screen's own page and close the sheet. The owner asked for more understanding
-   (2026-11-12) and liked the chips together at the top of the sheet, which both choices keep. The mockup now has a
-   "Chips and rooms open" switch to try both, and a side-by-side section: inside the sheet you never leave the grid;
-   the screen's page closes the sheet, fills the screen with the page and its tab bar, and the way back is the menu.
+2. **Chips and rooms open inside the sheet: agreed (2026-11-12),** with the "‹ Home" back key beside the X, as Apple's
+   does (section 3). The other choice, going to the screen's own page and closing the sheet, was set aside: inside the
+   sheet you never leave the grid. The chips stay together at the top of the sheet, which the owner liked.
 3. **Sizes: all five (2026-11-12).** Small, Wide, Tall, Large and Extra Large, from Tall up the House Status mixture
-   above. Still to confirm from the mockup: the three bigger layouts.
+   above, laid out as the mockup's "Every size" strip shows.
 
 ## Build order
 
