@@ -699,33 +699,6 @@
 
   }
 
-  register('hk-library-card', HkLibraryCard, 'HK Music Library',
-    'Browse and search Music Assistant, playing to the speaker this screen is showing.',
-    C.editor && [
-      { name: 'player', label: 'Speaker',
-        helper: 'Always play here. Empty: the screen\'s music room.',
-        selector: { entity: { filter: { domain: 'media_player' } } } },
-      { name: 'fallback_player', selector: { entity: { filter: { domain: 'media_player' } } },
-        helper: 'Used only when this screen has no speaker at all.' },
-      // THE CATEGORY IDS browse_media gives Music Assistant's first page
-      // (settings.py BROWSE_CATEGORIES, CATEGORY_ICON above), in MA's order
-      { name: 'hide', label: 'Hide Categories',
-        helper: 'Left off the first page. Not set here: the ones hidden in HK Settings → Pages → Music.',
-        selector: { select: { multiple: true, mode: 'list', options: [
-          { value: 'artists', label: 'Artists' }, { value: 'albums', label: 'Albums' },
-          { value: 'tracks', label: 'Tracks' }, { value: 'playlists', label: 'Playlists' },
-          { value: 'radio', label: 'Radio' }, { value: 'podcasts', label: 'Podcasts' },
-          { value: 'audiobooks', label: 'Audiobooks' }] } } },
-      // Rows are QUERIES (title, media_type, order_by or favorite), not names
-      // from a list, so they stay YAML
-      { name: 'discover', label: 'Discover Rows',
-        helper: 'The first page\'s rows, as a YAML list of title, media type and order. Not set here: the ones picked in HK Settings → Pages → Music.',
-        selector: { object: {} } }
-    ],
-    function () { return { music: true }; });
-
-  window.hkLibrary = { version: '1.0.0' };
-
   // THE CLASS'S METHODS that parts add: as a class body defines them (writable, configurable, NOT enumerable; a
   // getter or setter stays an accessor), so for-in and Object.getOwnPropertyNames over the prototype see the same names
   function install(from) {
@@ -751,16 +724,35 @@
     PARTS.forEach(function (file) { window.hkLibraryParts[partKey(file)](KIT); });
   }
 
-  var partsReady = new Promise(function (resolve, reject) {
-    var ran = false;
-    loadParts(function () {
-      runParts();
-      ran = true;
-      resolve();
-    });
-    // (the loader gives up after its last try with a note in the console; the page says so too)
-    if (!ran) setTimeout(function () { reject(new Error('its files did not load')); }, 75000);
+  loadParts(function () {
+    runParts();
+
+    register('hk-library-card', HkLibraryCard, 'HK Music Library',
+      'Browse and search Music Assistant, playing to the speaker this screen is showing.',
+      C.editor && [
+        { name: 'player', label: 'Speaker',
+          helper: 'Always play here. Empty: the screen\'s music room.',
+          selector: { entity: { filter: { domain: 'media_player' } } } },
+        { name: 'fallback_player', selector: { entity: { filter: { domain: 'media_player' } } },
+          helper: 'Used only when this screen has no speaker at all.' },
+        // THE CATEGORY IDS browse_media gives Music Assistant's first page
+        // (settings.py BROWSE_CATEGORIES, CATEGORY_ICON above), in MA's order
+        { name: 'hide', label: 'Hide Categories',
+          helper: 'Left off the first page. Not set here: the ones hidden in HK Settings → Pages → Music.',
+          selector: { select: { multiple: true, mode: 'list', options: [
+            { value: 'artists', label: 'Artists' }, { value: 'albums', label: 'Albums' },
+            { value: 'tracks', label: 'Tracks' }, { value: 'playlists', label: 'Playlists' },
+            { value: 'radio', label: 'Radio' }, { value: 'podcasts', label: 'Podcasts' },
+            { value: 'audiobooks', label: 'Audiobooks' }] } } },
+        // Rows are QUERIES (title, media_type, order_by or favorite), not names
+        // from a list, so they stay YAML
+        { name: 'discover', label: 'Discover Rows',
+          helper: 'The first page\'s rows, as a YAML list of title, media type and order. Not set here: the ones picked in HK Settings → Pages → Music.',
+          selector: { object: {} } }
+      ],
+      function () { return { music: true }; });
+
+    window.hkLibrary = { version: '1.0.0' };
   });
-  partsReady.catch(function () { /* boot() reports it */ });
   });
 })();

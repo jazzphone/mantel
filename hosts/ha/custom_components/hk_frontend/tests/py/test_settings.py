@@ -276,7 +276,10 @@ def test_the_built_in_dates_match_the_screens():
     import subprocess
     from custom_components.hk_frontend import settings as S
     src = os.path.join(COMPONENT, "frontend", "modules", "hk-settings.js")
-    text = open(src, encoding="utf-8").read()
+    # (and its parts: phase 25 cut the module into web/hk/settings-module/, where the dates are now)
+    parts = os.path.join(COMPONENT, "frontend", "settings-module")
+    text = "\n".join(open(f, encoding="utf-8").read() for f in [src] + sorted(
+        os.path.join(parts, n) for n in (os.listdir(parts) if os.path.isdir(parts) else []) if n.endswith(".js")))
     js = {}
     for name in ("BUILT_IN", "SOUTH"):
         body = re.search(r"var " + name + r" = (\{.*?\});", text, re.S)
@@ -948,8 +951,11 @@ def test_sky_palette_mirror_and_readability():
     import re
     import subprocess
     from custom_components.hk_frontend import settings as S
-    src = open(os.path.join(COMPONENT, "frontend", "modules", "hk-settings.js")).read()
-    body = re.search(r"var SKY_BACKDROPS = (\[.*?\n  \]);", src, re.S)
+    # (the module and its parts: phase 25 cut it into web/hk/settings-module/, one indent deeper)
+    parts = os.path.join(COMPONENT, "frontend", "settings-module")
+    src = "\n".join(open(f).read() for f in [os.path.join(COMPONENT, "frontend", "modules", "hk-settings.js")] + sorted(
+        os.path.join(parts, n) for n in (os.listdir(parts) if os.path.isdir(parts) else []) if n.endswith(".js")))
+    body = re.search(r"var SKY_BACKDROPS = (\[.*?\n {2,4}\]);", src, re.S)
     assert body
     engines = [["node", "-e", "console.log(JSON.stringify(" + body[1] + "))"],
                ["/System/Library/Frameworks/JavaScriptCore.framework/Versions/A/Helpers/jsc",

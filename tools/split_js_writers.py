@@ -165,7 +165,7 @@ def shell_text(plan: Plan, extra_takes: dict[int, set[str]] | None = None) -> st
         insert.setdefault(home["close"], []).extend([""] + prelude)
     # the call, with the statements that wait for the parts (in their order, as they were)
     cont = ind + "  "
-    if cls_mode:
+    if cls_mode and not man.get("register_waits"):
         # the element is defined at once (the host makes one the moment the module is in); the page waits for its methods:
         # boot() awaits partsReady (a shell_edit). Nothing waits in the shell itself.
         if late:

@@ -129,6 +129,8 @@ def make_plan(man: dict, text: str, work: Path) -> Plan:
             continue
         if m.d["kind"] in ("function", "directive"):
             continue
+        if m.d["kind"] == "class" and man.get("class"):    # (class mode: the class the parts add methods to is there at once)
+            continue
         if is_tail_return(plan, m):                        # a declared scope's last `return x;` stays last (tail_return)
             continue
         if (m.d["first"], m.d["last"]) in host_lines:      # the call that holds the next scope stays where it is

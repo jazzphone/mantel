@@ -12,7 +12,6 @@ of a part's methods, in order, right after it, keep the prototype's order of nam
 """
 from __future__ import annotations
 
-import json
 import re
 from pathlib import Path
 

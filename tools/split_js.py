@@ -63,6 +63,9 @@ tests/test_settings_prototype.py proves it. The things this needs of the manifes
   * "live": shell variables that are set once, later (the panel's M, K, h, F, set when it boots). A part that uses one has
     its own `var` and a binder; the shell calls `bindLate()` after assigning (the manifest's shell_edits put the call in);
   * the shell waits: `partsReady` is a promise the shell's own code (boot) awaits, put in by a shell_edit.
+  * "register_waits" with "wait_all" (a CARD in class mode, phase 25's hk-library.js): the statements after the class -- its
+    register(...) -- wait for the parts instead, so the element is defined only once every method is on its prototype
+    (a card made before that is an unknown element the browser upgrades then; whenDefined callers wait for it);
 Moved methods may not use `super`, and may not assign a shell variable (as for any member).
 EXPORTS OBJECTS (phase 25, the screensaver, which no longer binds ahead): the shell's kit makes an empty object per
 part that an earlier part calls (`Run: {}`), the part fills it as it runs (`Run.start = start`), and an earlier part
