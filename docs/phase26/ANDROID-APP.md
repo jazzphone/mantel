@@ -152,3 +152,28 @@ proxy and no self-locking kiosk (that is Guided Access). There is no iPad on a w
   to the front; a wrong hash was refused. Silent self-updates need `UPDATE_PACKAGES_WITHOUT_USER_ACTION`, the app as its
   own installer of record (`pm install -i`) and "install unknown apps"; coming back in front after an update needs
   "display over other apps". `tools/setup_tablet.py` does all of it.
+- **On the house (2026-11-12).** Mantel's side went on as a hotfix (`0.1.166-main.096b37d42`, main `096b37d4`, which
+  also carried the other session's Speakers hotfix already there); healthy, kiosks reloaded. The test tablet runs the app
+  (0.1.0, then 0.1.1 installed by itself from Mantel's `android/` folder with no tap): paired by a code the owner made,
+  Home Assistant's entities moved with their old ids (`tools/ha_switch.py`; the old ones kept as `*_ks`, the old entry
+  disabled), HK's tablet settings pointed at the new device (`device`, `sleep.kiosk`; undo: settings_restore version 7),
+  and Sleep Screen turned its screen off through the app (`light.turn_off ... by Mantel features`, audit 25904).
+  `tools/tablet_check.py` on the tablet: 37 of 37.
+- **Found on the real tablet, fixed:** the old app's ESPHome server keeps port 6053 (it can't be stopped), so the app
+  takes 6055 when 6053 is held; the never-drew watchdog reloaded the sign-in and pairing pages (only the screens are
+  watched now); a Restart App that ended the process handed the screen to the next task, the old app's (now in place),
+  and kiosk mode pulls the app back within a few seconds of anything else coming up; Samsung ignores `pm install -i`
+  until the app is installed (installed twice).
+- **First draw (26.6), on the tablet:** the daily restart's load (Clear Cache, then Restart App) draws in 2.0-2.9 s in the
+  app, 0.8-3.3 MB; the old app's this morning was 7.4 s. Part of it is the in-place restart (no new process, no cold
+  WebView). Of what's left, most is the page's own work between `code` and `strategy` (about 1.2 s), not the network.
+- **Cameras (26.5): not measured.** The test tablet's screen has no camera pop-up to open; the native player stays
+  unbuilt until a tablet with one is measured (`tools/measure_page.py --camera`).
+- **The menu on the glass:** wall tablets never get Mantel Settings; the app's own menu is seven quick taps in the
+  top-left corner, behind an optional PIN (Reload, Set Up, Wi-Fi, Android Settings for ten minutes).
+- **Open:** the old app's page still runs behind the app and reports as the tablet's old credential, which only an
+  Owner can sign out (Wall Tablets -> the tablet -> Sign Out, the older one); a reboot of the real tablet is untested
+  (it would end adb's session; on the emulator the app came back in front); the tablet's controls in Mantel Settings
+  over the LAN (the owner asked, 2026-11-12) are the next slice; keeping the cache through the daily restart is the
+  owner's call.
+
