@@ -698,7 +698,8 @@
     withDrag(function (D) {
       D.slider(E.spk, {
         keepClick: true,
-        target: function (e) { return e.target.closest && e.target.closest('.mproom.vol'); },
+        // (a press on the check is the tick's alone, never a drag, so a finger that wobbles there still ticks -- 2026-11-12)
+        target: function (e) { return e.target.closest && !e.target.closest('.mpck') && e.target.closest('.mproom.vol'); },
         start: function (t, x) {
           var key = t.hasAttribute('data-all') ? GROUP : t.getAttribute('data-room'), r = t.getBoundingClientRect();
           S.drag = { key: key, el: t, x0: x, w: r.width || 1, base: basesFor(key), sent: 0, t: null };
