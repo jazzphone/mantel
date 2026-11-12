@@ -762,3 +762,29 @@ Review notes not changed (follow-ups):
 - **A TestFlight build** for the iPhone and iPad microphone: `python3 tools/testflight.py --team <TEAMID>`.
 - **Fully Kiosk's Autoplay audio** on a listener tablet, and a real phone's microphone through the app: not
   verifiable here.
+
+**2026-11-11: Live measured by microphone, and Live goes to one room.**
+
+- **The lag, heard rather than inferred.** A microphone beside an idle HomePod, recording with wall-clock stamps
+  (`ffmpeg -use_wallclock_as_timestamps 1 -f avfoundation`; the microphone's own sample clock ran about 12% slow), and
+  the proof's beep train: Live is heard **4.77 and 4.83 s** behind the first byte, steady to the hundredth through the
+  talk. The slice 0 figure (7.45 s) was Music Assistant's `playing` plus an assumed 2 s for AirPlay; the sound in fact
+  starts about **0.45 s before** `playing` (every run, one room and ten). So `PROOF_LAG_MS` is 4800, a stored 7450
+  reads as 4800 (`SUPERSEDED_PROOF_LAGS`: `lag_ms` is no setting, so a stored one is the default it was saved with), a
+  broadcast's own lag and the proof's `start_lag_s` are the time to `playing` less `SOUND_BEFORE_PLAYING_S`.
+- **Where it goes.** About 1.4 s is Music Assistant preparing the announcement (until "Streaming to"); the rest is the
+  idle HomePod's cold start (pairing, SETUP, the clock, an anchor half a second after it is ready). cliairplay's fixed
+  2 s lead is not in that path. Ten HomePods at once were first 11.8 s: one speaker answered its stream SETUP in 7 s
+  every time (a stereo pair whose halves disagreed on their group; restarting the pair fixed it), and the group waited
+  for it. After the restart: about 5.3 s for ten. ma-airplay-groups 0.2.7 now starts a group without a speaker still
+  connecting 2 s after the rest and adds it back once the group plays.
+- **The lag is shown, not acted on.** `lag_ms` is Settings' "Live Allowed — About N s behind" (and Live is offered only
+  once a number exists) and the sheet's "Live, about N s behind you" until the rooms play. A listener tablet does not
+  delay by it: it gets the whole talk as a clip when the talk ends (17.4).
+- **Live goes to one room (the owner).** `LIVE_ROOMS = 1` (`hk_core/intercom/config.py`): the feed says it
+  (`live_rooms`), the sheet picks one room at a time in Live (a tap picks that room alone; Whole House, floors and
+  presets are not offered), says so under the switch ("Live talks to one room. For more rooms, use Message."), and with
+  more rooms kept from a Message waits for one ("Live goes to one room. Pick one"); a `start` to more rooms is refused
+  (`live_one_room`) before anything is audited or played. A Message still goes to any rooms. The code for Live to
+  several rooms (one plan, its fallbacks, its temporary group) stays and stays tested with the limit raised in those
+  tests: raising `LIVE_ROOMS` is the one change if the owner wants whole-house Live back.

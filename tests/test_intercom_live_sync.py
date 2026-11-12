@@ -45,6 +45,14 @@ def leader_of(env) -> str:
     return next(f["args"]["target_player"] for f in env.ma.frames if f.get("command") == JOIN)
 
 
+@pytest.fixture(autouse=True)
+def many_live_rooms(monkeypatch):
+    """These are Live's paths for several rooms at once (one plan, its fallbacks, its group). The house's Live goes to one
+    room (C.LIVE_ROOMS, 2026-11-11); the code for more stays tested for the day that changes."""
+    from hk_core.intercom import config as C
+    monkeypatch.setattr(C, "LIVE_ROOMS", 64)
+
+
 @pytest.fixture
 async def avery(lv):
     grouping(lv)

@@ -723,13 +723,13 @@ test('mode_is_remembered_per_person_with_the_rooms', () => {
   eq(s.ctl.sel, [L]);
   s.ctl.setMode('live');
   eq(s.saves.at(-1), { mode: 'live', rooms: [L] });
-  s.ctl.toggleRoom(P);
+  s.ctl.toggleRoom(P);                                        // Live to one room: the tap picks Playroom alone
   assert.equal(s.saves.length, 1, 'the rooms are saved a moment after the last change');
   s.clk.advance(s.H.SAVE_MS + 5);
-  eq(s.saves.at(-1), { mode: 'live', rooms: [L, P] });
+  eq(s.saves.at(-1), { mode: 'live', rooms: [P] });
   const again = sheet({ feed: feed({ live_allowed: true }), mem: s.saves.at(-1) });
   assert.equal(again.ctl.modeNow(), 'live');
-  eq(again.ctl.sel, [L, P]);
+  eq(again.ctl.sel, [P]);
   const fresh = sheet({ feed: feed({ live_allowed: true, default_mode: 'live' }) });
   assert.equal(fresh.ctl.modeNow(), 'live', 'the house\'s default when nothing is remembered');
 });
@@ -1048,9 +1048,9 @@ test('words_idle_lines', () => {
   assert.equal(lines(sheet({ mem: { rooms: [K] } })), 'Kitchen');
   assert.equal(lines(sheet({ mem: { rooms: [K, L] } })), 'Kitchen, Living Room');
   assert.equal(lines(sheet({ mem: { rooms: [K, L, B] } })), '3 rooms picked');
-  const live = sheet({ feed: feed({ live_allowed: true }), mem: { mode: 'live', rooms: [L, B, P] } });
+  const live = sheet({ feed: feed({ live_allowed: true }), mem: { mode: 'live', rooms: [B] } });
   assert.equal(lines(live), 'Bedroom: after you finish');
-  const live2 = sheet({ feed: feed({ live_allowed: true, here: [], rooms: [ROOM('kitchen', 'Kitchen', 'D', { live: false, state: 'after' }), ROOM('office', 'Office', 'D', { live: false, state: 'after' })] }), mem: { mode: 'live', rooms: [K, O] } });
+  const live2 = sheet({ feed: feed({ live_allowed: true, live_rooms: 2, here: [], rooms: [ROOM('kitchen', 'Kitchen', 'D', { live: false, state: 'after' }), ROOM('office', 'Office', 'D', { live: false, state: 'after' })] }), mem: { mode: 'live', rooms: [K, O] } });
   assert.equal(lines(live2), 'Kitchen, Office: after you finish', 'the spec\'s own example');
 });
 
@@ -1318,9 +1318,49 @@ test('words_a_suspended_context_or_a_recording_with_nothing_in_it_says_to_tap_ag
 });
 
 // ================================================================== Live (drawn only when the feed allows it)
-const liveFeed = () => feed({ live_allowed: true });
+test('live_goes_to_one_room_a_tap_picks_it_alone_and_the_sheet_says_so', async () => {
+  const s = sheet({ feed: feed({ live_allowed: true }), mem: { mode: 'message', rooms: [L, P] } });
+  eq(s.ctl.chosen(), [L, P], 'a Message goes to every room picked');
+  assert.equal(s.ctl.view().note, '', 'no note in Message');
+  assert.ok(s.ctl.chips().some((c) => c.name === 'Whole House'));
+  s.ctl.setMode('live');
+  eq(s.ctl.chosen(), [], 'two rooms kept from the Message: Live waits for one');
+  assert.equal(lines(s), 'Live goes to one room. Pick one');
+  assert.equal(s.ctl.view().note, 'Live talks to one room. For more rooms, use Message.');
+  eq(s.ctl.chips(), [], 'no Whole House, floor or preset: each is more than one room');
+  s.ctl.micDown(); s.ctl.micUp();
+  eq(s.tickets, [], 'a press with two rooms opens nothing');
+  assert.equal(lines(s), 'Live goes to one room. Pick one');
+  s.ctl.toggleRoom(L);
+  eq(s.ctl.sel, [L], 'a tap picks that room alone');
+  eq(s.ctl.chosen(), [L]);
+  s.ctl.toggleRoom(P);
+  eq(s.ctl.sel, [P], 'another tap moves it');
+  s.ctl.toggleRoom(P);
+  eq(s.ctl.sel, [], 'and a tap on it clears it');
+  s.ctl.toggleRoom(P);
+  s.ctl.micDown(); await flush();
+  eq(s.mic.texts()[0], { type: 'start', rooms: [P] });
+  s.ctl.micCancel();
+  const back = sheet({ feed: feed({ live_allowed: true }), mem: { mode: 'live', rooms: [P] } });
+  back.ctl.setMode('message');
+  back.ctl.toggleRoom(L);
+  eq(back.ctl.chosen(), [L, P], 'Message picks many again');
+  const two = sheet({ feed: feed({ live_allowed: true, live_rooms: 2 }), mem: { mode: 'live', rooms: [L] } });
+  two.ctl.toggleRoom(P);
+  eq(two.ctl.chosen(), [L, P], 'a house allowing two: a second tap adds');
+  assert.equal(two.ctl.view().note, '', 'and the one-room note is not shown');
+  const off = sheet({ feed: feed({ live_allowed: false }), mem: { mode: 'live', rooms: [L, P] } });
+  assert.equal(off.ctl.view().note, '', 'no note where Live is not offered');
+  eq(off.ctl.chosen(), [L, P]);
+  const old = sheet({ feed: (() => { const f = feed({ live_allowed: true }); delete f.live_rooms; return f; })(), mem: { mode: 'live', rooms: [L] } });
+  assert.equal(old.ctl.liveMax(), 1, 'a feed that does not say: one room');
+});
+
+const liveFeed = (o = {}) => feed({ live_allowed: true, ...o });
+const MANY = { live_rooms: 6 };                               // Live to several rooms (the house allows one: LIVE_ROOMS)
 test('live_hold_to_talk_starts_at_the_press_and_ends_at_the_release', async () => {
-  const s = sheet({ feed: liveFeed(), mem: { mode: 'live', rooms: [L, P] } });
+  const s = sheet({ feed: liveFeed(MANY), mem: { mode: 'live', rooms: [L, P] } });
   assert.equal(s.ctl.view().mic.label, 'Hold to talk');
   s.ctl.micDown();
   assert.equal(s.ctl.state, 'connecting');
@@ -1363,7 +1403,7 @@ test('live_a_taken_press_ends_a_held_talk', async () => {
 });
 
 test('live_the_status_uses_the_feeds_lag_then_the_servers_and_the_servers_sending_frame_changes_nothing_else', async () => {
-  const s = sheet({ feed: feed({ live_allowed: true, lag_ms: 8000 }), mem: { mode: 'live', rooms: [L, P] } });
+  const s = sheet({ feed: feed({ live_allowed: true, lag_ms: 8000, ...MANY }), mem: { mode: 'live', rooms: [L, P] } });
   s.ctl.micDown(); await flush(); s.mic.ready(60); s.mic.speak(2); s.clk.advance(100);
   assert.equal(lines(s), 'Live, about 8 s behind you', 'the feed\'s lag, rounded to whole seconds');
   s.mic.server({ type: 'rooms', rooms: [{ room: L, state: 'ok' }, { room: P, state: 'ok' }] });
@@ -1380,7 +1420,7 @@ test('live_the_status_uses_the_feeds_lag_then_the_servers_and_the_servers_sendin
 });
 
 test('live_rooms_that_did_not_connect_live_are_named_and_the_talk_ends_on_the_servers_word', async () => {
-  const s = sheet({ feed: feed({ live_allowed: true, can_override: true }), mem: { mode: 'live', rooms: [L, P, D] } });
+  const s = sheet({ feed: feed({ live_allowed: true, can_override: true, ...MANY }), mem: { mode: 'live', rooms: [L, P, D] } });
   s.ctl.micDown(); await flush(); s.mic.ready(60); s.mic.speak(5); s.clk.advance(100);
   s.mic.server({ type: 'rooms', rooms: [{ room: L, state: 'ok' }, { room: P, state: 'ok' }, { room: D, state: 'skipped', why: 'quiet', reason: 'Quiet hours' }] });
   s.mic.server({ type: 'fallback', rooms: ['Kitchen'] });
@@ -1402,7 +1442,7 @@ test('live_rooms_that_did_not_connect_live_are_named_and_the_talk_ends_on_the_se
 });
 
 test('live_a_socket_that_drops_mid_talk_sends_the_copy_as_a_message_on_a_new_ticket', async () => {
-  const s = sheet({ feed: liveFeed(), mem: { mode: 'live', rooms: [L, P] } });
+  const s = sheet({ feed: liveFeed(MANY), mem: { mode: 'live', rooms: [L, P] } });
   s.ctl.micDown(); await flush(); s.mic.ready(60); s.mic.speak(6); s.clk.advance(HOLD() + 50);
   assert.equal(s.tickets.length, 1);
   s.mic.sync_ = { open: false, dropped: false };

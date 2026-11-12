@@ -321,6 +321,19 @@ async def test_live_is_not_offered_until_an_owner_allows_it(ic):
     assert reply["error"]["code"] == "unavailable" and reply["error"]["message"] == "live_not_away"
 
 
+
+async def test_live_goes_to_one_room_and_a_start_to_more_is_refused_before_anything_plays(ic):
+    """2026-11-11, the owner: Live talks to one room; more rooms are a Message (the sheet says so, and offers no more)."""
+    ic.edit(live_allowed=True)
+    avery = await ic.actor("avery", "owner")
+    ws = await avery.talk("live")
+    await ws.send_json({"type": "start", "rooms": [KITCHEN, DEN]})
+    assert await ws.receive_json() == {"type": "error", "code": "live_one_room"}
+    await closed(ws)
+    await result_is(ic, ws.audit_id, "refused:live_one_room")
+    assert ic.ma.announced() == []
+
+
 # ------------------------------------------------------------------- a Message, from the page to the speakers
 async def test_a_message_reaches_the_fake_music_assistant_exactly_and_is_audited_in_order(ic):
     avery = await ic.actor("avery", "owner")

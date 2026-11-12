@@ -276,7 +276,7 @@ class Feed:
     async def snapshot(self, identity: Any) -> dict:
         host = self.host
         doc = host.doc()
-        out = {"enabled": bool(doc["enabled"]), "live_allowed": C.live_offered(doc),
+        out = {"enabled": bool(doc["enabled"]), "live_allowed": C.live_offered(doc), "live_rooms": C.LIVE_ROOMS,
                "default_mode": doc["default_mode"], "max_live_s": doc["max_live_s"],
                "max_message_s": doc["max_message_s"], "lag_ms": doc["lag_ms"], "can_override": False,
                "away": False, "here": [], "rooms": [], "floors": [], "presets": [], "listener": False, "play": None}
