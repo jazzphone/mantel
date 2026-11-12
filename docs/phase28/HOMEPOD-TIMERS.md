@@ -129,8 +129,8 @@ the Home app."
 - **The network:** one small request from the Home app to one HomePod per sheet opened, the same as a person opening the
   sheet. Eleven HomePods every 20 s is far under 1 KB/s.
 - **The HomePods:** nothing they would notice.
-- **The Mac:** the Home app and the reader, a few percent of one core in bursts. A macOS virtual machine for it would take
-  4 to 8 GB of memory and two mostly idle cores.
+- **The Mac:** the Home app and the reader, a few percent of one core in bursts (the prototype: the Home app at 214 MB,
+  no measurable CPU).
 
 ## Build order
 
@@ -147,14 +147,20 @@ the Home app."
 
 - Hours of passes: whether the Home app slows down, leaks or stops fetching while in the background.
 - A named timer's label, two timers on one HomePod, how a paused timer shows.
-- Whether the Home app in a macOS virtual machine, signed into the household's account, sees the HomePods (it needs the
-  same network, bridged).
-- Discovery from the Speakers & TVs view (only the Home view and two sheets were read by hand).
+- **A macOS virtual machine can't do it (tested 2026-11-12):** a macOS 27.2 virtual machine (Tart, bridged onto the
+  HomePods' VLAN) signed into the household's Apple account got no iCloud services ("Device is a virtual machine, not
+  enabling FindMy"; the device identity service: "VM support disabled"): its iCloud settings were locked and its Home
+  app stayed empty. It needs a real Mac.
+- **The prototype (2026-11-12, on the owner's Mac):** discovery from the sidebar's Speakers & TVs found all nine HomePod
+  tiles (two stereo pairs among them) and skipped every TV and Apple TV; a pass over the nine took about 25 s. Two things
+  learned: after switching views, Accessibility lists the old view's tiles for about half a second (wait until the list
+  changes, then until it settles), and an Apple TV's More Controls opens another kind of sheet (close it with View >
+  the home and treat the speaker as no HomePod).
 
 ## Decisions for the owner
 
-1. **Which Mac reads them:** an always-on Mac you use (the Home app is busy there: its sheets open and close every
-   20 s), a spare Mac, or a macOS virtual machine on an always-on Mac (to be proven in 28.0).
+1. **Which Mac reads them:** a spare Mac (the owner's choice, 2026-11-12), or an always-on Mac you use (the Home app is
+   busy there: its sheets open and close every 20 s). Not a virtual machine: Apple gives it no iCloud.
 2. **Where they show:** the timer slide and the Timers sheet, with Mantel's timers (proposed), or the Timers sheet only.
 3. **The last minute on every tablet,** as for Mantel's timers (proposed), or only in the HomePod's room.
 4. **Cancel from a tablet** later (the reader presses the Home app's own Close), or read-only for good.
