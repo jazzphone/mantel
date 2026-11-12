@@ -97,11 +97,14 @@ A panel like `hk-detail-room`, drawing new `hkStrategy.homeCards(client, opts)`:
 
 - **What it draws:** everything a generated dashboard's Home draws, minus the clock and weather header, which the grid
   already shows (the owner, 2026-11-12: "it looks like the Home Button actually loads what a generated dashboard would
-  load...Cameras, Scenes, Favorites as well"). In the generated Home's own order: the chip row, the camera strip (where
-  the house has cameras and the screen has them on), Scenes, Favorites, then every room section. `homeCards` is cut out
-  of `views()` so the generated Home and the sheet share one list, and anything the generated Home gains later shows up
-  in the sheet too. The car home's Security section stays a car-only part. A camera in the strip opens its own live
-  sheet on top, as on the generated Home, and Back returns to the Home sheet.
+  load...Cameras, Scenes, Favorites as well"). In the generated Home's own order: the chip row, the camera mosaic
+  (`cameraStrip`: "Cameras ›" over `hk-camera-mosaic-card`, one live 16:9 tile then stills in 4:3 columns, 195 px
+  high, scrolling sideways; where the house has cameras and the screen has the strip on), Scenes, Favorites, then every
+  room section. `homeCards` is cut out of `views()` so the generated Home and the sheet share one list, and anything
+  the generated Home gains later shows up in the sheet too. The car home's Security section stays a car-only part. A
+  camera in the mosaic opens its own live sheet on top, as on the generated Home, and Back returns to the Home sheet.
+  The mosaic keeps its sideways scroll in the sheet: it fetches only the cameras on screen, which on a 4 GB wall
+  tablet is the point (`hk-cameras-mosaic.js`).
 - **Header:** the sheet frame's own: the X at the top left, and the title (the house's name, from Home Assistant's
   `location_name`) in the middle. It has no clock, because the frame has none and the grid shows the time.
 - **Size:** the Room sheet's: 864 px wide (four 196 px pills, 10 apart), the one sheet height, 680 px on the tablet.
@@ -119,6 +122,8 @@ This is the part the recording shows at 2.6 s.
 - **A chip** (Security, Climate, Lights, Speakers) shows that category's page inside the sheet: its cards from
   `categoryPages`, through a new `hkStrategy.pageCards(client, path)`.
 - **A room heading** ("Kitchen ›") shows that room inside the sheet, with the same cards `hk-detail-room` draws.
+- **"Cameras ›"** shows the Cameras page inside the sheet: every camera, two across at the sheet's 864 px (the page is
+  three across on the screen), opened one after another as the page does.
 - **The header on an inner page:** the X stays where it is and closes the whole sheet. A back key ("‹ Home", the
   standard 40 px pill) appears right of the X, and the title becomes the page's name. The rule stands: the X and the
   name are always in the same place.
