@@ -136,9 +136,11 @@
               next: null, drawn: null, gen: 0, busySig: null, unsettled: false };
   // A NEW PAGE: its picture is painted the moment its sky has drawn
   // (hk-sky-paint), or PRE_NAV_MS after the move when nothing says so, and
-  // faded in. Until then everything keeps the last page's picture: taking it
-  // off left a gap -- the menu's panel showed the sky unblurred for a third
-  // of a second at every page change (screen-recorded, 2026-10-10)
+  // faded in. Until then it blurs live (dropStale(), 2026-11-12): it once
+  // kept the last page's picture, as taking it off had left a gap -- the
+  // menu's panel showed the sky unblurred for a third of a second at every
+  // page change (screen-recorded, 2026-10-10) -- and that picture was the
+  // owner's "transition bugs", the last page's glass on the new one
   var PRE_NAV_MS = 400, navT = null;
   // THE PAGE ON SCREEN, which is not yet the page navigated to: Home
   // Assistant swaps the view a few frames after the address changes (more
@@ -569,7 +571,19 @@
   // was the wrong blur on every pill until the new one was painted -- 0.2-
   // 0.5 s on a tablet (2026-10-10). Meanwhile they blur live, which is
   // right by definition; the pinned glass keeps its fade.
-  function ownPicture() { return fresh() && pre.path === skyAt(); }
+  // ...AND ONLY WHILE THE ADDRESS, THE SKY AND THE PICTURE ALL SAY THE SAME PAGE (2026-11-12, the owner: Pre-rendered's
+  // "transition bugs (moving from one screen to another)"; traced frame by frame on the Loft). The sky cuts to a page a
+  // few frames after its address, and in between "the picture the sky is at" was the last page's: a Side Pane coming
+  // back with Home wore Security's, and the cards on a page seen the first time wore the last page's for 100-350 ms.
+  // Anything else blurs live, as Shared Layer does, until its own page's picture is worn (dropStale()).
+  function ownPicture() { return fresh() && pre.path === skyAt() && pre.path === here(); }
+  // A PICTURE NOT THIS PAGE'S COMES OFF AT ONCE: the page's layers (a page beside this one, or one a swipe just landed,
+  // keeps its own: aside, landedAt) and the pinned glass (pinAll unpins it), all blurring live until wearAll
+  function dropStale() {
+    if (ownPicture()) return;
+    eachLayer(function (L) { if (L._hkPre && !L._hkOverlay && !aside(L) && !landedAt(viewOf(L))) preUndress(L); });
+    pinAll(false);
+  }
   function preDress(L) {
     var want = PRE && !L._hkOverlay ? pictureFor(L) : null;
     if (!want) { preUndress(L); return; }
@@ -719,7 +733,9 @@
   // what it wears now (crossfade) instead of jumping.
   function pinAll(fade, ms, coarse) {
     if (!PRE) return;
-    var W = window.innerWidth, H = window.innerHeight, ok = fresh(), moves = [];
+    // (only this page's picture: the menu's panel and the tab bar belong to no page, and wore the last one's until the
+    // new one came, then faded across for FADE_MS -- 0.7 s of Home's glass on Security's tab bar on the Loft)
+    var W = window.innerWidth, H = window.innerHeight, ok = ownPicture(), moves = [];
     // a new fade starts from where the last one was going; a plain pass
     // leaves a fading surface to its fade -- snapping it to its end mid-fade
     // and the fade pulling it back read as a flicker
@@ -817,6 +833,7 @@
     // judged as that picture (its age, its sky), not the last one painted
     if (c) { pre.drawn = path; pre.big = c.big; pre.small = c.small; pre.at = c.at; decoded(c.url); }
     if (viewUp === path) wearNext();
+    dropStale();
     clearTimeout(navT);
     navT = setTimeout(function () { navT = null; preTick(false); }, PRE_NAV_MS);
     clearTimeout(viewUpT);
@@ -833,8 +850,9 @@
   // sky that says only that)
   function onSkyChange() {
     if (!PRE || !active) return;
-    // the sky has cut to a page whose picture is waiting: on now, with it
+    // the sky has cut to a page whose picture is waiting: on now, with it; one with none yet blurs live until painted
     wearNext();
+    dropStale();
     // the same page: preTick weighs it (big -- at once; the light -- at most
     // every PRE_DRIFT)
     if (pre.drawn !== here() && pre.url) { clearTimeout(navT); navT = null; }

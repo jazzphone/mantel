@@ -1,6 +1,6 @@
 # Phase 29: The sky drawn by the tablet app (plan, 2026-11-12)
 
-**Status: plan. Decisions 1, 2 and 4 answered (2026-11-12); 3, the glass, is open and gates the phase (step 0).** The prototype is on mantel-android's `native-sky`
+**Status: plan. Decisions 1, 2 and 4 answered (2026-11-12); 3, the glass, gates the phase (step 0: its first run below).** The prototype is on mantel-android's `native-sky`
 branch (`docs/NATIVE-SKY.md` there), installed on the Loft and switched off.
 
 ## Why
@@ -81,7 +81,14 @@ of scenes, so a new scene is sorted the same way.
 ## The build, in steps
 
 0. **The glass check** (decision 3): the frost-picture mode only, against Shared Layer, on the owner's four bugs. The
-   phase goes on only if it passes.
+   phase goes on only if it passes. **First run, 2026-11-12, on the Loft** (Bright Glass, recorded at 20 frames a second:
+   Home → Security → scroll → Home, a swipe across and back; the frost picture stood in by wearing Pre-rendered's own
+   picture as each layer's fixed background). Swipes, scrolling and edges: the frost picture matched Shared Layer, with
+   none of Pre-rendered's hard edge where its pinned picture starts. Screen changes failed: the last page's glass for
+   100-150 ms (Pre-rendered's: 100-350 ms on the cards, 0.7 s on the tab bar), a fault of the picture's timing that both
+   share. Fixed in hk-glass (a picture worn only while the address, the sky and the picture agree;
+   `pre_glass_motion_check` checks every frame) and run again: all three modes the same in every frame, both ways. Not
+   yet run on the emulator; the owner's call whether that passes the gate.
 1. **The hand-over part in hk-sky**, moved over from the prototype, with node and headless tests: the scene it hands
    over for a fixed sky (parts, keyframes, timing), what counts as busy, the signatures (an unchanged part keeps its
    picture), crossings finished on time, the sky handed back when calm, nothing at all in Home Assistant's host.

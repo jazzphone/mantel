@@ -131,6 +131,33 @@ async function motion(page, path, m) {
         const SS = window.hkSkyShot, orig = SS.render.bind(SS);
         window.__pgmRenders = [];
         SS.render = function (sky, o) { window.__pgmRenders.push({ page: location.pathname, sky: window.hkSky.path() }); return orig(sky, o); };
+        // ...AND NOTHING WEARS ANOTHER PAGE'S PICTURE, in any frame (2026-11-12, the owner's "transition bugs"): each
+        // picture is known by the page it was painted for (pre.path as it became pre.url), and every frame each one
+        // shown -- a layer's (not faded out) or a pinned surface's slice -- must be the address's page's
+        const deep = (r, out) => { r.querySelectorAll('*').forEach((e) => { out.push(e); if (e.shadowRoot) deep(e.shadowRoot, out); }); return out; };
+        const W = window.__pgmWorn = { of: new Map(), bad: [], frames: 0, unknown: 0 };
+        const tick = () => {
+          const p = window.hkGlass._pre.state();
+          if (p.url && !W.of.has(p.url)) W.of.set(p.url, p.path);
+          const shown = [];
+          // (on screen only: a page the swipe keeps beside this one wears its own picture, off to the side)
+          const onScreen = (el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && r.right > 0 && r.left < innerWidth && r.bottom > 0 && r.top < innerHeight; };
+          deep(document, []).forEach((e) => {
+            if (e.hasAttribute('data-hk-pre')) { if (+getComputedStyle(e).opacity > 0.05 && onScreen(e.parentNode)) shown.push(['layer', e.getAttribute('data-src')]); return; }
+            const bg = e.style && e.style.background;
+            if (bg && bg.indexOf('blob:') >= 0 && onScreen(e)) for (const m of bg.matchAll(/url\("?(blob:[^")]+)"?\)/g)) shown.push([e.id || e.className || e.tagName, m[1]]);
+          });
+          W.last = { layers: shown.filter((s) => s[0] === 'layer').length, pinned: shown.filter((s) => s[0] !== 'layer').length,
+                     own: shown.every(([, u]) => W.of.get(u) === location.pathname) };
+          W.frames++;
+          shown.forEach(([where, u]) => {
+            const of = W.of.get(u);
+            if (of === undefined) W.unknown++;
+            else if (of !== location.pathname && W.bad.length < 50) W.bad.push({ frame: W.frames, page: location.pathname, picture: of, where: String(where) });
+          });
+          if (!W.stop) requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
       });
       const pages = ['climate', 'lights', 'home', 'security', 'climate', 'home'];
       for (let i = 0; i < 18; i++) {
@@ -140,6 +167,10 @@ async function motion(page, path, m) {
       await sleep(2500);
       const nav = await page.evaluate(() => ({ paints: window.__pgmRenders.length, stale: window.__pgmRenders.filter((r) => r.sky && r.sky !== r.page) }));
       say(nav.paints >= 6 && !nav.stale.length, size + ': page changes paint each page\'s own sky', { paints: nav.paints, stale: nav.stale.slice(0, 3) });
+      const worn = await page.evaluate(() => { const W = window.__pgmWorn; W.stop = true; return { frames: W.frames, bad: W.bad.length, first: W.bad.slice(0, 4), last: W.last }; });
+      say(worn.frames > 200 && !worn.bad, size + ': ...and no frame wears another page\'s picture', worn);
+      // (and the glass is dressed again once the picture is in, the cards and the tab bar: not left blurring live)
+      say(worn.last && worn.last.layers > 0 && worn.last.pinned > 0 && worn.last.own, size + ': ...and it is back in its own page\'s picture after', worn.last);
       say(!errors.length, size + ' no page errors', errors.slice(0, 3));
       await ctx.close();
     }

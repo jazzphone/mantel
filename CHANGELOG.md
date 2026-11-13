@@ -5,6 +5,7 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 ## Unreleased
 
 **Fixed**
+- **Pre-rendered glass showed the last page's blur on the next one**: at a page change the cards, the tab bar and a Side Pane kept the page just left's picture until the new page's was painted, then faded across (on the Loft: Home's warm glass on Security's cards for up to 350 ms and on its tab bar for 0.7 s, Security's on the Side Pane coming back to Home). Now a picture is worn only while the address, the sky and the picture all name the same page; until then the glass blurs live, as Shared Layer does, and the page's own picture goes on everywhere in one frame.
 - **A screen subscribed to the whole house when it showed a laundry tile or chip**: Laundry's search for the washer and dryer read every entity, and a screen keeps every state it has read, so it took every update of every entity in the house (the Loft: 4,518, about 5 a second). The search no longer counts as the screen's need (`hkShell.unrecorded`); what it finds is kept as before.
 - **A wall tablet woke onto black after its connection dropped**: when a page subscribes to the screens' feed, Mantel now tells it every screen's black and photos, on or off. Only the "on"s were sent before, but a page that reconnects keeps its last states, so a wake's "black off" lost with a dropped socket never came again, and the screen stayed lit onto HK's black until the next sleep (the Loft, a minute and a half).
 
