@@ -252,10 +252,43 @@ LAUNDRY_RE = re.compile(r"wash|dryer|laundry|(^|_)dry(_|$)|tumble")
 NOT_LAUNDRY = re.compile(r"dish|vacuum|robot|oven|fridge|freezer|microwave|cooktop")
 NOT_DOMAINS = ("vacuum.", "climate.", "water_heater.", "lawn_mower.", "fan.", "humidifier.")
 STEP_WORDS = ("washing", "rinsing", "spinning", "drying", "wrinkle")
+DEVICE_WORDS = ("name_by_user", "name", "model", "model_id")
 
 
 def _name(e: Mapping[str, Any], st: Mapping[str, Any] | None) -> str:
     return str(e.get("name") or ((st or {}).get("a") or {}).get("friendly_name") or "")
+
+
+def _key(eid: str, e: Mapping[str, Any]) -> str:
+    """What `found` groups an entity by: its device, else its room and its first word ('' for neither)."""
+    return e.get("device_id") or (f"~{e['area_id']}:{eid.split('.', 1)[1].split('_')[0]}" if e.get("area_id") else "")
+
+
+def keys_of(machines: list[Mapping[str, Any]], entries: Mapping[str, Mapping[str, Any]]) -> set[str]:
+    """The groups the found machines are on (``may_find``'s first question)."""
+    return {k for m in machines if m.get("status") for k in (_key(m["status"], entries.get(m["status"]) or {}),) if k}
+
+
+def may_find(eids: Any, entries: Mapping[str, Mapping[str, Any]], devices: Mapping[str, Mapping[str, Any]],
+             states: Mapping[str, Mapping[str, Any]], keys: set[str]) -> bool:
+    """Whether entities that came or went could change what ``found`` finds: one on a found machine's device, or one whose
+    words, device or options read like a laundry machine's. Mantel Server asks this per batch rather than looking at the whole
+    house again: Home Assistant starting adds thousands of entities a few at a time, and a full look at each batch held its
+    event loop for minutes (2026-11-13). What this misses (a circuit's power sensor named for nothing) its slow look catches."""
+    for eid in eids:
+        e = entries.get(eid) or {}
+        if _key(eid, e) in keys:
+            return True
+        d, oid = devices.get(e.get("device_id") or "") or {}, eid.split(".", 1)[-1]
+        said = tidy(oid + " " + _name(e, states.get(eid)) + " " + " ".join(str(d.get(k) or "") for k in DEVICE_WORDS))
+        if NOT_LAUNDRY.search(said):
+            continue
+        o = ((states.get(eid) or {}).get("a") or {}).get("options")
+        said_by = [WORDS.get(tidy(x)) for x in o] if isinstance(o, list) else []
+        if (LAUNDRY_RE.search(said) or any(w in STEP_WORDS for w in said_by)
+                or (STATUS_RE.search(oid) and sum(1 for w in said_by if w not in (None, "off")) >= 2)):
+            return True
+    return False
 
 
 def found(entries: Mapping[str, Mapping[str, Any]], devices: Mapping[str, Mapping[str, Any]],
@@ -274,14 +307,14 @@ def found(entries: Mapping[str, Mapping[str, Any]], devices: Mapping[str, Mappin
         e = entries.get(eid)
         if not e or e.get("hidden") or e.get("hidden_by") or e.get("disabled_by"):
             continue
-        key = e.get("device_id") or (f"~{e['area_id']}:{eid.split('.', 1)[1].split('_')[0]}" if e.get("area_id") else "")
+        key = _key(eid, e)
         if key:
             by.setdefault(key, []).append(eid)
     out: list[dict[str, Any]] = []
     seen: set[str] = set()
     for dev in sorted(by):
         mine, d = sorted(by[dev]), devices.get(dev) or {}
-        said = tidy(" ".join(str(d.get(k) or "") for k in ("name_by_user", "name", "model", "model_id"))) + " " + " ".join(text(x) for x in mine)
+        said = tidy(" ".join(str(d.get(k) or "") for k in DEVICE_WORDS)) + " " + " ".join(text(x) for x in mine)
         if any(x.startswith(NOT_DOMAINS) for x in mine) or NOT_LAUNDRY.search(said):
             continue
         if not any(WORDS.get(tidy(o)) in STEP_WORDS for x in mine for o in opts(x)) and not LAUNDRY_RE.search(said):
@@ -313,7 +346,7 @@ def found(entries: Mapping[str, Mapping[str, Any]], devices: Mapping[str, Mappin
                 "power": pick(re.compile(r"(^|_)power$"), lambda x: x.startswith("sensor.") and attrs(x).get("device_class") == "power"),
                 "running": None, "watts": DEFAULT_WATTS,
                 "_dev": dev, "_area": d.get("area_id") or (entries.get(sid) or {}).get("area_id"),
-                "_dryer": _dryer(text(sid) + " " + tidy(" ".join(str(d.get(k) or "") for k in ("name_by_user", "name", "model", "model_id")))),
+                "_dryer": _dryer(text(sid) + " " + tidy(" ".join(str(d.get(k) or "") for k in DEVICE_WORDS))),
             })
     _circuits(out, entries, devices, states, text)
     for m in out:
@@ -337,7 +370,7 @@ def _circuits(out: list[dict[str, Any]], entries: Mapping[str, Mapping[str, Any]
     circ: list[tuple[str, str, Any]] = []
     for eid in sorted(states):
         e, a, t = entries.get(eid) or {}, (states.get(eid) or {}).get("a") or {}, text(eid)
-        key = e.get("device_id") or (f"~{e['area_id']}:{eid.split('.', 1)[1].split('_')[0]}" if e.get("area_id") else "")
+        key = _key(eid, e)
         if not eid.startswith("sensor.") or not re.search(r"wash|dryer|laundry", t) or NOT_LAUNDRY.search(t) or (e and key in mine):
             continue
         src = a.get("source")

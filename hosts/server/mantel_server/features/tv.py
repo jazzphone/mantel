@@ -112,7 +112,7 @@ class TvApps:
         self.last: dict[str, dict[str, Any]] = {}       # the players' and TVs' states at the last look
         self.woke: dict[str, float] = {}                # player -> when it woke (a learn window open)
         self.moved: dict[str, tuple[float, str]] = {}   # TV -> when it came on or changed input, and to what
-        self.loads: tuple = ()
+        self.loads = -1                                 # the registry load the players and TVs were sorted from
         self.players: set[str] = set()
         self.tvs: set[str] = set()
         self.fetching: set[str] = set()
@@ -133,25 +133,33 @@ class TvApps:
         except Exception:  # noqa: BLE001 -- no settings yet: as they come
             return
 
-    def _map(self) -> None:
-        """The players and TVs, again when the registry or the number of states changed."""
+    def _map(self, changed: set[str]) -> None:
+        """The players and TVs: all of them again when the registry changed; else a media player in this batch that is gone
+        or not yet sorted. (Keyed on the number of states, it looked at every state on each batch that added an entity,
+        thousands of times while Home Assistant started, 2026-11-13.)"""
         states, reg = self.hub.store.states, self.hub.registry
-        key = (reg.loads, len(states))
-        if key == self.loads:
-            return
-        self.loads = key
-        players, tvs = set(), set()
-        for eid, st in states.items():
+        if reg.loads != self.loads:
+            self.loads, self.players, self.tvs = reg.loads, set(), set()
+            look: Any = states
+        else:
+            look = changed
+        for eid in look:
             if not eid.startswith("media_player."):
                 continue
+            st = states.get(eid)
+            if st is None:
+                self.players.discard(eid)
+                self.tvs.discard(eid)
+                continue
+            if eid in self.players or eid in self.tvs:
+                continue                                # (sorted once, until the registry loads again)
             a = st.get("a") or {}
             entry = reg.entries.get(eid) or {}
             if entry.get("platform") == "apple_tv" or (not entry.get("platform") and "app_id" in a and not a.get("mass_player_type")
                                                        and a.get("device_class") != "speaker" and a.get("source_list")):
-                players.add(eid)
+                self.players.add(eid)
             elif a.get("device_class") == "tv" or entry.get("original_device_class") == "tv" or entry.get("device_class") == "tv":
-                tvs.add(eid)
-        self.players, self.tvs = players, tvs
+                self.tvs.add(eid)
 
     # -- watching it -------------------------------------------------------------------------------------------------
     def _look_player(self, eid: str, now: float) -> bool:
@@ -211,7 +219,7 @@ class TvApps:
         """Ahead of the sessions, on every batch: an app opened counted, an input learned, the sensor the screens read kept."""
         try:
             self._look_settings()
-            self._map()
+            self._map(changed)
         except Exception:  # noqa: BLE001
             log.debug("tv: the look at the house failed", exc_info=True)
         states, now = self.hub.store.states, self.clock()
