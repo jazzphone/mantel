@@ -944,11 +944,18 @@
         if (ST.still) card.setAttribute('hk-still', ''); else card.removeAttribute('hk-still');
       }
     }
+    // INSIDE A SURFACE THAT IS ITS OWN GLASS (the attribute `hk-no-glass`: the Home sheet's Glass and Solid, hk-home-block.js): every
+    // card in it, the ones its cards make too (the chips, a grid's tiles), stays out of the shared blur. A walk up, on a join only
+    function noGlass(card) {
+      for (var n = card.parentNode || card.host; n; n = n.parentNode || n.host) if (n.hasAttribute && n.hasAttribute('hk-no-glass')) return true;
+      return false;
+    }
     function glassJoin(card, on) {
       // ON A LIGHT PAGE (tone() below) the shared blur has no sky to frost: it
       // laid its tinted layer behind each plate and turned the light glass a
       // muddy gray. Out of it, as a card that says `glass: false` is.
-      var off = !!(window.hkSettings && window.hkSettings.rendering && window.hkSettings.rendering().flat) || !!(card._config && card._config.glass === false) || !!card._hkLight;
+      var off = !!(window.hkSettings && window.hkSettings.rendering && window.hkSettings.rendering().flat) || !!(card._config && card._config.glass === false) || !!card._hkLight ||
+        noGlass(card);
       // Out of "Blur each card" too, and everything inside it (the variable
       // inherits into child cards' shadow roots).
       if (card.style) {

@@ -716,6 +716,8 @@
       appearance: appearance, rendering: rendering, refreshLook: applyLook,
       glass: glass,
       lookAt: lookAt,
+      // (every variable a look sets: a surface that keeps its own look sets them back -- the Home sheet's Glass and Solid)
+      lookVars: function () { return LOOK_VARS.slice(); },
       frostTint: frostTint,
       tileStyle: tileStyle,
       tileIcons: tileIcons,

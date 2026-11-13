@@ -32,6 +32,12 @@
           });
         } catch (e) { /* already registered by an earlier import; harmless */ }
       });
+      // A WALLPAPER'S MOTION AS A NUMBER (--hk-wp, 0 to 1; the .wall rules in hk-sky.js): typed, it animates in its
+      // steps like any number; untyped it could only jump end to end. ST.wpv says it took (an earlier import counts).
+      try {
+        window.CSS.registerProperty({ name: '--hk-wp', syntax: '<number>', inherits: false, initialValue: '0.5' });
+        ST.wpv = true;
+      } catch (e) { ST.wpv = /already/i.test(String(e && e.message)) || (e && e.name === 'InvalidModificationError'); }
     }
 
     // ------------------------------------------------------------------ mount

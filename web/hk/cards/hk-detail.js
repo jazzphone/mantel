@@ -322,7 +322,7 @@
       panel.setConfig(Object.assign({ entity: id, kind: kind, src: src || {}, glass: false, event: opts.event || null },
         opts.group ? { entities: opts.group.ids, room: opts.group.room, groupKind: opts.group.kind,
                        row: opts.group.row, resolve: opts.group.resolve, group: opts.group } :
-        opts.cards ? { cards: opts.cards.cards, width: opts.cards.width, height: opts.cards.height } : Object.assign({}, (opts.panel || {}).config || {})));
+        opts.cards ? { cards: opts.cards.cards, width: opts.cards.width, fill: opts.cards.fill } : Object.assign({}, (opts.panel || {}).config || {})));
 
       D = {
         el: el, id: id, kind: kind, src: src || {}, panel: panel, sheet: sheet, tok: tok,

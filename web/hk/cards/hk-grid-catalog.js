@@ -265,8 +265,11 @@
     // and what is going on, Tall up House Status's headline over the categories and the rooms -- each part opening the
     // generated Home page in a sheet at that place. Its name (`title`, the house's by default) and Glyphs; no When Tapped:
     // the sheet is where it goes.
-    home: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { title: 'title', glyphs: 'glyph_color' }, card: function (s, o) {
-      return Object.assign({ type: 'custom:hk-home-block-card', size: s }, o.title ? { title: o.title } : {}, gl(o)); } },
+    // Its Sheet (2026-11-12, the owner: "letting me set the appearance would help with looks and performance"): Same as Screen (no
+    // key), Glass or Solid (hk-home-block.js LOOKS)
+    home: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { title: 'title', look: 'sheet_look', glyphs: 'glyph_color' }, card: function (s, o) {
+      return Object.assign({ type: 'custom:hk-home-block-card', size: s }, o.title ? { title: o.title } : {},
+                           o.look === 'glass' || o.look === 'solid' ? { look: o.look } : {}, gl(o)); } },
     // HOUSE STATUS (2026-11-07, docs/phase11/HOUSE-STATUS.md, hk-house-status.js): this screen's status chips as
     // sections, each a tap to its chip's page; the rest, and Small, open the House Status sheet. No options: it shows
     // what the screen's Status Chips say, whether or not the screen draws its chip row. No When Tapped: each section

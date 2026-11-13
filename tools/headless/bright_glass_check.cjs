@@ -92,10 +92,15 @@ function sheetContrast() {
           const t0 = getComputedStyle(wall).transform;
           let frames = 0; const start = performance.now();
           await new Promise((res) => { const tick = () => { frames++; if (performance.now() - start < 3000) requestAnimationFrame(tick); else res(); }; requestAnimationFrame(tick); });
-          return { wm: sky.getAttribute('data-wm'), moved: getComputedStyle(wall).transform !== t0, fps: Math.round(frames / 3), filter: getComputedStyle(wall).filter };
+          // (what its animation moves: --hk-wp alone, so the picture is drawn into the sky's layer, not a layer of its own)
+          // (WebKit's getKeyframes leaves custom properties out: the animation is known by its name, hk-wall-p's keyframes
+          // by test_wallpapers.js)
+          return { wm: sky.getAttribute('data-wm'), moved: getComputedStyle(wall).transform !== t0, fps: Math.round(frames / 3), filter: getComputedStyle(wall).filter,
+                   wc: getComputedStyle(wall).willChange, names: wall.getAnimations().map((a) => a.animationName) };
         });
         const m = await motion();
         say(m && m.wm === input.motion && m.moved && m.filter === 'none', size + ' the wallpaper moves (' + input.motion + '), by transform alone', m);
+        say(m && m.wc === 'auto' && m.names.length === 1 && m.names[0] === 'hk-wall-p', size + ' ...moved by --hk-wp, no layer of its own (2026-11-12, the car)', m && { wc: m.wc, names: m.names });
         say(m && m.fps >= 50, size + ' ...and the page keeps its frame rate', m && m.fps);
         await page.emulateMedia({ reducedMotion: 'reduce' });
         const r = await motion();

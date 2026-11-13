@@ -1057,7 +1057,7 @@
     o = o || {};
     var done = function () { opened = false; if (o.onClose) o.onClose(); };
     var ok = D.open(null, { name: 'Intercom', icon: 'mdi:microphone', icon_color: 'rgba(255,255,255,0.92)' },
-      Object.assign({ cards: { cards: [{ type: 'custom:hk-intercom-sheet-card' }], width: 'wide', height: 'auto' }, onClose: done }, o.hashed ? { hashed: true } : {}));
+      Object.assign({ cards: { cards: [{ type: 'custom:hk-intercom-sheet-card' }], width: 'wide', fill: true }, onClose: done }, o.hashed ? { hashed: true } : {}));
     opened = !!ok;
     return !!ok;
   }
@@ -1304,11 +1304,24 @@
     // their own panel ("To", how many, Clear All, the groups, the rooms) beside it where the sheet is wide (a container
     // query: the sheet's own width, whatever the screen), under it where it isn't.
     var TALK = { idle: '#0a84ff', rec: '#ff453a', live: '#30d158', wait: '#ff9f0a' };   // the Lock sheet's literals, as there
+    var COLS_W = 680;                          // the sheet's own width from which the rooms sit beside the talk button
     var SHEET_CSS = [
       ':host{display:block}',
       '.sh{container-type:inline-size;display:block;padding:2px 0 0}',
+      // THE SHEET'S ONE HEIGHT (2026-11-12, the owner: the tablet's two columns, the same size in Message and Live, on every
+      // screen; DESIGN.md: a detail sheet keeps its one height, a two-column sheet's columns share their top and foot). In two
+      // columns ([cols], set by the sheet's own width, as the container query) the card is the sheet's body: the rooms panel
+      // its full height, the rooms scrolling inside it under To, the groups and Live's note, the talk side on its center
+      // line. Stacked (a phone), the card is as tall as it is and the sheet's body scrolls.
+      ':host([cols]){min-height:0;display:flex;flex-direction:column}',
+      ':host([cols]) > div{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}',
+      ':host([cols]) .sh{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}',
+      ':host([cols]) .cols{flex:1 1 auto;min-height:0;grid-template-rows:minmax(0,1fr)}',
+      ':host([cols]) .pick{align-self:stretch;min-height:0}',
+      ':host([cols]) .rsec{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none}',
+      ':host([cols]) .rsec::-webkit-scrollbar{display:none}',
       '.cols{display:flex;flex-direction:column;gap:' + SPC.piece + 'px}',
-      '@container (min-width:680px){.cols{display:grid;grid-template-columns:minmax(300px,340px) minmax(0,1fr);align-items:start}',
+      '@container (min-width:' + COLS_W + 'px){.cols{display:grid;grid-template-columns:minmax(300px,340px) minmax(0,1fr);align-items:start}',
       // THE TALK GROUP ON THE ROOMS PANEL'S CENTER LINE (2026-11-07, the review): the button, its word and the line were
       // top-weighted ~65 px above the panel's middle on a 1280 x 800 tablet; a taller list of rooms still scrolls past it
       '  .talk{align-self:center}}',
@@ -1512,6 +1525,12 @@
           mic: q('.mic'), mb: q('.mb'),
           mt: q('.mt'), rv: q('.rv'), foot: q('.foot'),
           core: q('.core'), wd: q('.wd'), cnt: q('.cnt'), clr: q('.clr') };
+        // [cols]: the two columns' layout (SHEET_CSS), by the sheet's own width, as the container query decides it
+        var sh = q('.sh');
+        if (typeof window.ResizeObserver === 'function') {
+          this._ro = new window.ResizeObserver(function () { self.toggleAttribute('cols', sh.clientWidth >= COLS_W); });
+          this._ro.observe(sh);
+        }
         this._e.clr.addEventListener('click', function (e) { e.stopPropagation(); if (self._ctl && self._e.clr.getAttribute('aria-disabled') !== 'true') self._ctl.clearRooms(); });
         var mb = this._e.mb, down = false;
         // POINTER EVENTS, with pointercancel. The press makes and resumes the AudioContext (hk-mic.js unlock) and Message

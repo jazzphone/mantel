@@ -303,6 +303,50 @@ function sheetState() {
       check(`${engine} a car's screen: the sheet has the rooms`, () => assert(cs && cs.kinds.includes('hk-heading-card') && cs.types.length > 4, JSON.stringify(cs)));
       await car.ctx.close();
     }
+    // THE SHEET OPTION (hk-home-block.js LOOKS): Same as Screen wears the screen's look, Solid no blur at all, Glass the dark glass;
+    // either takes the cards out of the shared blur; a Flat screen's sheet is Flat whatever it says
+    if (want('look')) {
+      const sheetLook = () => {
+        const host = document.querySelector('.hkd'), sheet = host.querySelector('.sheet'), cs = getComputedStyle(sheet);
+        const blur = (e) => { const c = getComputedStyle(e); const f = c.backdropFilter || c.webkitBackdropFilter || 'none'; return f !== 'none' && f !== ''; };
+        const panel = host.querySelector('hk-detail-home');
+        const inner = deep(panel.shadowRoot, '*').filter((e) => e.getClientRects().length && blur(e));
+        return { look: sheet.getAttribute('data-hk-look'), bg: cs.backgroundColor, sheetBlur: blur(sheet), flat: host.hasAttribute('hk-flat'),
+                 innerBlur: inner.length, layers: host.querySelectorAll('[data-hk-glass-layer]').length + deep(panel.shadowRoot, '[data-hk-glass-layer]').length,
+                 // (what blurs, when anything does)
+                 blurs: [...new Set(inner.map((e) => e.tagName.toLowerCase() + '.' + (e.getAttribute('class') || '') + '<' +
+                   ((e.getRootNode().host || {}).tagName || '').toLowerCase()))].slice(0, 8) };
+      };
+      for (const screen of ['home-bright', 'home-flat']) {
+        const { ctx, page, errors, commands } = await open(screen, 1280, 800);
+        const got = {};
+        for (const [name, size, nth] of [['screen', 'XL', 0], ['solid', 'S', 0], ['glass', 'S', 1]]) {
+          await page.evaluate(([size, nth]) => deep(document, 'hk-home-block-card').filter((c) => c.getAttribute('size') === size)[nth]._open('home'), [size, nth]);
+          await page.waitForTimeout(1500);
+          await page.evaluate(DEEP);
+          got[name] = await page.evaluate(sheetLook);
+          await shot(page, `${engine}-${screen}-sheet-${name}`);
+          await page.keyboard.press('Escape');
+          await page.waitForFunction(() => !document.querySelector('.hkd'), null, { timeout: 5000 }).catch(() => {});
+        }
+        console.log(engine, screen, JSON.stringify(got));
+        if (screen === 'home-bright') {
+          check(`${engine} Bright Glass, Same as Screen: Bright's white glass, its own look, its cards on the shared blur`,
+            () => assert(!got.screen.look && got.screen.sheetBlur && got.screen.layers > 0, JSON.stringify(got.screen)));
+          check(`${engine} ...Solid: the near-solid plate, no blur in the sheet at all`, () => assert(got.solid.look === 'solid' && got.solid.bg === 'rgba(24, 24, 28, 0.93)' &&
+            !got.solid.sheetBlur && got.solid.innerBlur === 0 && got.solid.layers === 0, JSON.stringify(got.solid)));
+          check(`${engine} ...Glass: the dark glass, one blur (the sheet's)`, () => assert(got.glass.look === 'glass' && got.glass.bg === 'rgba(28, 28, 32, 0.52)' &&
+            got.glass.sheetBlur && got.glass.innerBlur === 0 && got.glass.layers === 0, JSON.stringify(got.glass)));
+          check(`${engine} ...and the three differ from Bright's own`, () => assert(got.screen.bg !== got.glass.bg && got.screen.bg !== got.solid.bg, JSON.stringify(got)));
+        } else {
+          check(`${engine} Flat: the sheet is Flat whatever the block says`, () => assert(['screen', 'solid', 'glass'].every((k) => got[k].flat && !got[k].look && !got[k].sheetBlur) &&
+            got.solid.bg === got.screen.bg && got.glass.bg === got.screen.bg, JSON.stringify(got)));
+        }
+        check(`${engine} ${screen}: no errors`, () => assert.deepEqual(errors, []));
+        check(`${engine} ${screen}: no command sent`, () => assert.deepEqual(commands, []));
+        await ctx.close();
+      }
+    }
     await browser.close();
   }
   console.log(failures ? failures + ' failed' : 'all passed');

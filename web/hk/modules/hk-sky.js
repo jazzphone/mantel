@@ -607,6 +607,25 @@
       '@keyframes hk-wall-breathe{from{transform:rotate(-2deg) scale(1)}to{transform:rotate(2deg) scale(1.04)}}',
       '@keyframes hk-wall-drift{from{transform:translate3d(-2%,-2%,0) scale(1.02)}to{transform:translate3d(2%,2%,0) scale(1)}}',
       '@keyframes hk-wall-turn{from{transform:rotate(-3deg)}to{transform:rotate(3deg)}}',
+      // ...AS A NUMBER, NOT A MOVING LAYER (2026-11-12, the owner's car: boxes of blur and cards missing on a fresh
+      // load). A transform animation keeps the picture a layer of its own, and everything drawn over it in the sky
+      // (the grain, the scrim) and the page above then each need a full-screen layer too: the car's Home took 183 MB
+      // of tiles with the wallpaper moving and 74 still (Chromium at the car's 1306 x 700 at 1.96; at a 64 MB budget
+      // half its cards and its tab bar went undrawn, and the glass's cut-outs with them). Here the animation moves
+      // --hk-wp from 0 to 1 in the same steps, and the picture's transform is worked out from it, so the picture is
+      // drawn into the sky's own layer, a few times a second: the same drift, sway, breath and turn, the same stops
+      // (.hidden, .held, .noanim, Reduce Motion). The still frame is the picture as it was, no transform: --hk-wp at
+      // rest (0.5) is the middle of a drift but not of a breath or a scale, and the picture moved as the Motion
+      // caught up. Where --hk-wp could not be typed (hk-sky-front.js register: WebKit before 16.4) there is no
+      // data-wpv and the transform above runs.
+      '#hk-sky[data-wpv][data-wm] .wall:not(.th){will-change:auto;animation-name:hk-wall-p;',
+      '  transform:translate(calc(6% * var(--hk-wp) - 3%),calc(1% - 2% * var(--hk-wp)))}',
+      '#hk-sky[data-wpv][data-ws="petals"] .wall:not(.th){transform:rotate(calc(4deg * var(--hk-wp) - 2deg)) scale(calc(1 + .04 * var(--hk-wp)))}',
+      '#hk-sky[data-wpv][data-ws="shards"] .wall:not(.th){transform:translate(calc(4% * var(--hk-wp) - 2%),calc(4% * var(--hk-wp) - 2%)) scale(calc(1.02 - .02 * var(--hk-wp)))}',
+      '#hk-sky[data-wpv][data-ws="pinwheel"] .wall:not(.th){transform:rotate(calc(6deg * var(--hk-wp) - 3deg))}',
+      '@keyframes hk-wall-p{from{--hk-wp:0}to{--hk-wp:1}}',
+      '#hk-sky.noanim[data-wpv] .wall:not(.th){transform:none!important}',
+      '@media (prefers-reduced-motion:reduce){#hk-sky[data-wpv] .wall:not(.th){transform:none!important}}',
       // A MOTION THEME (2026-10-31, hk-wallpapers.js THEMES; paintWall's
       // wallScene): the ground stands still (no sway of the whole picture);
       // its own layers move instead, each by one of four keyframes with its

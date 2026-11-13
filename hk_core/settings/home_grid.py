@@ -139,7 +139,7 @@ CATALOG: dict[str, dict[str, Any]] = {
     "timeline": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"show": "timeline_show", "tap": "tap_target", "glyphs": "glyph_color"}},
     # HOME (phase 27, docs/phase27/PLAN.md): the house as a way in, each part opening the generated Home page in a sheet at
     # that place. Its name (title: the house's by default) and Glyphs; no When Tapped, the sheet is where it goes
-    "home": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"title": "title", "glyphs": "glyph_color"}},
+    "home": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"title": "title", "look": "sheet_look", "glyphs": "glyph_color"}},
     # HOUSE STATUS (2026-11-07, docs/phase11/HOUSE-STATUS.md): this screen's status chips as sections, each a tap to its
     # chip's page, the rest in a sheet. No options: what it shows is the screen's Status Chips (chips, chips_quiet,
     # chips_extra, chips_custom), drawn whether or not the screen shows its chip row. No When Tapped: each section
@@ -463,6 +463,9 @@ EVERYTHING_MORE = ("page", "scroll")
 # ENERGY RINGS SMALL'S FIGURES (2026-11-12, the owner: "an option to always show the data, not just on tap"): the box
 # of figures over the rings on a tap (the default) or always
 RINGS_FIGURES = ("tap", "always")
+# THE HOME SHEET'S LOOK (2026-11-12, the owner: "letting me set the appearance would help with looks and performance"): the dark
+# glass or a solid plate with no blur; no key is Same as Screen
+SHEET_LOOKS = ("glass", "solid")
 
 
 def _on_now_open(v: Any) -> str:
@@ -473,6 +476,12 @@ def _on_now_open(v: Any) -> str:
 
 def _rings_figures(v: Any) -> str:
     if v not in RINGS_FIGURES:
+        raise GridInvalid("grid_option")
+    return v
+
+
+def _sheet_look(v: Any) -> str:
+    if v not in SHEET_LOOKS:
         raise GridInvalid("grid_option")
     return v
 
@@ -544,6 +553,7 @@ OPTION_KINDS = {
     "on_now_open": _on_now_open,
     "everything_more": _everything_more,
     "rings_figures": _rings_figures,
+    "sheet_look": _sheet_look,
     "glyph_color": _glyph_color,
     "security_presentation": _security_presentation,
     "security_members": _security_members,

@@ -206,6 +206,20 @@ check('a theme\'s layers move only while its Motion is on (data-wm), transform a
       (src.match(/@keyframes (hk-wt-[a-z]+|hk-meteor-wt)\{[^']*/g) || []).every(function (k) { return !/(left|top|width|height|margin|background|filter)\s*:/.test(k); }));
 check('...the rules are hkWallpapers.motionCss\'s for the sky, written out (the screensaver\'s clock takes the same)',
       W.motionCss('#hk-sky .wall.th>i', '#hk-sky[data-wm] .wall.th>i', 'hk-wt-').split('\n').every(function (r) { return src.indexOf("'" + r + "'") >= 0; }));
+// A DRAWN WALLPAPER'S MOTION IS A NUMBER, NOT A MOVING LAYER (2026-11-12, the owner's car): the animation moves
+// --hk-wp alone, the picture's transform is worked out from it, nothing holds it a layer of its own (will-change auto),
+// and it keeps the hk-wall- name hkSky.drifting() follows; only where --hk-wp was typed (data-wpv)
+var front = read(HK_ROOT + '/frontend/sky-parts/hk-sky-front.js'), stat = read(HK_ROOT + '/frontend/sky-parts/hk-sky-static.js');
+check('a drawn wallpaper moves by --hk-wp: its keyframes move nothing else, it is no layer of its own, each shape is worked out from it',
+      /'@keyframes hk-wall-p\{from\{--hk-wp:0\}to\{--hk-wp:1\}\}'/.test(src) &&
+      /'#hk-sky\[data-wpv\]\[data-wm\] \.wall:not\(\.th\)\{will-change:auto;animation-name:hk-wall-p;'/.test(src) &&
+      ['petals', 'shards', 'pinwheel'].every(function (s) { return new RegExp("'#hk-sky\\[data-wpv\\]\\[data-ws=\"" + s + "\"\\] \\.wall:not\\(\\.th\\)\\{transform:[^']*var\\(--hk-wp\\)").test(src);
+        }) &&
+      !/'#hk-sky\[data-wpv\][^']*will-change:transform/.test(src));
+check('...--hk-wp is typed a number (0.5 at rest, the middle) and data-wpv says so; the old transform animation where it is not',
+      /name: '--hk-wp', syntax: '<number>', inherits: false, initialValue: '0\.5'/.test(front) &&
+      /if \(ST\.wpv\) el\.setAttribute\('data-wpv', ''\); else el\.removeAttribute\('data-wpv'\)/.test(stat) &&
+      /'#hk-sky\[data-ws="shards"\] \.wall\{animation-name:hk-wall-drift\}'/.test(src));
 check('...a meteor is a mover a Pre-rendered blur leaves out; Reduce Motion stops all', hkSky.moves({ animationName: 'hk-wt-meteor' }) &&
       /@media \(prefers-reduced-motion:reduce\)\{#hk-sky \*\{animation:none!important\}\}/.test(src));
 check('the layers fade as the stops do (4 s), and stay off the sky\'s animations (a still: the static sky)',

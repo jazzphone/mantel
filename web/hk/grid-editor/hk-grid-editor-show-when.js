@@ -87,7 +87,8 @@
         Object.keys(fields).forEach(function (name) {
           var kind = fields[name];
           if (['secondary', 'title', 'room_display', 'thermostat_style', 'tile_height', 'period', 'name_tag', 'tap_target', 'music_tap', 'tv_channel', 'music_show', 'music_playlist', 'music_speaker',
-            'tv_target', 'tv_show', 'swipe_pages', 'timeline_show', 'np_background', 'on_now_open', 'everything_more', 'rings_figures', 'security_presentation', 'security_members', 'security_lit',
+            'tv_target', 'tv_show', 'swipe_pages', 'timeline_show', 'np_background', 'on_now_open', 'everything_more', 'rings_figures', 'sheet_look',
+            'security_presentation', 'security_members', 'security_lit',
               'glyph_color'].includes(
             kind)) return;
           if (kind === 'accessories') { opts[name] = sampleEntities(self.choices('entity'), ['light', 'switch', 'fan', 'sensor']).slice(0, 4).map((op) => ({ entity: op[0] }));

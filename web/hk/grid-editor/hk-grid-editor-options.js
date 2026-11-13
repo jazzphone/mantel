@@ -116,6 +116,12 @@
               onChange: (v) => set(key, v === 'tap' ? null : v) }));
             return;
           }
+          // THE HOME SHEET'S LOOK (2026-11-12, the owner: "letting me set the appearance would help with looks and performance")
+          if (kind === 'sheet_look') {
+            rows.push(K.seg({ label: 'Sheet', sub: 'Solid draws no blur, the lightest for a wall tablet.', value: opts[key] || 'auto',
+              options: [['auto', 'Same as Screen'], ['glass', 'Glass'], ['solid', 'Solid']], onChange: (v) => set(key, v === 'auto' ? null : v) }));
+            return;
+          }
           // EVERYTHING'S REST (2026-11-08, the owner: "scroll within the card or go to the page with the + button")
           if (kind === 'everything_more') {
             if (o.size === 'S') return;

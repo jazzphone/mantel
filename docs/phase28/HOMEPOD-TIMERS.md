@@ -2,8 +2,8 @@
 
 **Status: the reader is built and running; Mantel's side (28.2, 28.3) is built and on `main`, not on the house.** The
 alarms' list on the Timers page is look A of [mockup/alarms.html](mockup/alarms.html) (the Clock app's list), built while
-the owner's pick is still open: B or C replace one method (`HkTimersCard._alarms`). See "As built" at the end. The reader runs in a macOS virtual machine on the
-house's Proxmox host and serves what it reads over HTTP (below). The owner's decisions are recorded at the end
+the owner's pick is still open: B or C replace one method (`HkTimersCard._alarms`). See "As built" at the end.
+The reader runs in a macOS virtual machine on the house's Proxmox host and serves what it reads over HTTP (below). The owner's decisions are recorded at the end
 (2026-11-12, revised the same evening: the first version put the reader in Mantel for Mac and said a VM couldn't work).
 
 - **Line numbers** are left out on purpose. Search for the names.

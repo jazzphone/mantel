@@ -392,12 +392,14 @@
       static get CSS() {
         return ':host{display:block}' +
           '.cards{display:flex;flex-direction:column;gap:12px;padding:2px 0 8px}' +
+          // `fill: true` (the Intercom): its one card is the sheet's body, the one height every sheet shares (DESIGN.md: a
+          // detail sheet keeps its one height), and lays itself out in it
+          ':host([fill]) > div{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}' +
+          '.cards.fill{flex:1 1 auto;min-height:0;padding-bottom:0}.cards.fill > *{flex:1 1 auto}' +
           '.none{color:' + window.hkCards.v('ink-2') + ';font-size:15px;text-align:center;padding:40px 12px}';
       }
       hkWidthKind() { return (this._config || {}).width === 'wide' ? 'cards_wide' : 'cards'; }
       hkFill() { return true; }
-      // `height: 'auto'` (the Intercom): a sheet as tall as its cards, not the one height every control sheet shares
-      hkAutoHeight() { return (this._config || {}).height === 'auto'; }
       _sigOf() { return null; }
       _render() {
         var c = this.client, cfg = this._config || {}, self = this;
@@ -406,7 +408,8 @@
           this._built = true;
           this._kids = [];
           var box = document.createElement('div');
-          box.className = 'cards';
+          box.className = cfg.fill ? 'cards fill' : 'cards';
+          this.toggleAttribute('fill', !!cfg.fill);
           this._root.innerHTML = '';
           this._root.appendChild(box);
           var list = Array.isArray(cfg.cards) ? cfg.cards : [];
