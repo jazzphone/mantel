@@ -21,12 +21,14 @@
     // Month: the block's `period` is where it starts, and the switch in its top
     // right corner (Tall: across the top) changes it in place -- the block's
     // own, never the page's tab.
-    //   S   the rings, and the period under them -- a tap on it moves it on; a tap anywhere else lays a box of the
+    //   S   the period in the upper left (the owner, 2026-11-12: "It should be at the top left"), a tap on it moves
+    //       it on, and the rings under it; a tap anywhere else lays a box of the
     //       figures over the foot of the rings (2026-11-12, the owner: "an overlay box over the ring that displayed
     //       what you had on the back of the turn it over card"; "Why is there a blur? And we only need it over the
     //       Energy / Cost / Water / Gas portion"; after white boxes, "maybe black box, but lighter than before with white
     //       text" -- he chose 62 %): each ring's dot, name and figure, no blur, as tall as its rows; a tap, or eight
-    //       seconds, takes it away
+    //       seconds, takes it away. Its Figures option Always (the owner, the same day: "an option to always show the
+    //       data, not just on tap") keeps the box up; a tap anywhere but the period does the block's When Tapped
     //   W   the rings, and each figure beside them
     //   T   the switch, the rings and the figures, evenly spaced
     //   L   the switch; the rings centred under it; the figures two by two
@@ -63,7 +65,7 @@
       '.wgrid span em{font-style:normal;font-size:.55em;font-weight:600;color:' + window.hkCards.v('ink-2') + ';margin-left:2px}',
       '.wgrid small{' + window.hkCards.typeCss('caption') + ';color:' + window.hkCards.v('ink-2') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
       '.wgrid.c>div{align-items:center;text-align:center}',
-      '.er-s{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;flex:1;min-height:0}',
+      '.er-s{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;flex:1;min-height:0}.er-s .oh{align-self:flex-start}',
       '.er-s small{' + window.hkCards.typeCss('caption') + ';color:' + window.hkCards.v('ink-2') + '}',
       // SMALL'S BOX OF FIGURES: the floating strip's dark (OVER.float, 62 %: the owner's pick over the solid overlay's 93
       // and the overlay's 52), the rings through it, no blur -- the scale's value, not the look's --hk-float-plate (Bright
@@ -76,13 +78,13 @@
       '  transition:opacity ' + window.hkCards.DUR.fade + ' ease,transform ' + window.hkCards.DUR.standard + ' ' + window.hkCards.EASE.standard + '}',
       '.ov.on{opacity:1;transform:none;pointer-events:auto}',
       '.ov .ev{gap:4px}.ov .ev b,.ov .ev span{color:' + window.hkCards.T.ink + '}',
-      // the period under the rings, a button: the word and a chevron, its target 44 px tall
+      // the period over the rings, upper left, a button: the word and a chevron, its target 44 px tall
       '.oh{all:unset;position:relative;display:flex;align-items:center;gap:5px;cursor:pointer;' + window.hkCards.typeCss('caption') + ';',
       '  line-height:16px;color:' + window.hkCards.v('ink-2') + '}',
       '.oh::after{content:"";position:absolute;left:-10px;right:-10px;top:-14px;bottom:-14px}',
       '.oh:focus-visible{outline:2px solid ' + window.hkCards.v('ink-2') + ';outline-offset:3px;border-radius:' + window.hkCards.R.small + 'px}',
-      // (the box open: the period under it is not shown through it, nor tapped)
-      'hk-plate.er[aria-expanded=true] .oh{visibility:hidden}',
+      // (Always: the box is there from the start, never moving in)
+      '.ov.fix{transition:none}',
       '@media (prefers-reduced-motion: reduce){.ov{transition:none;transform:none}}',
       '.er-w{display:flex;align-items:center;gap:20px;flex:1;min-height:0}.er-w .ev{flex:1;padding-top:30px}',
       '.er-t{display:flex;flex-direction:column;align-items:center;justify-content:space-between;flex:1;min-height:0}.er-t .ev{align-self:stretch}',
@@ -103,13 +105,14 @@
     class HkEnergyRingsCard extends HkBase {
       static get CSS() { return RINGS_CSS; }
       // (a block's tap, hk-base.js openTarget) Energy. Small is its own control (a tap shows its figures over the
-      // rings): its whole plate is a button
-      _tapTarget() { return this._cellSize() === 'S' ? [] : [{ page: 'energy' }]; }
+      // rings): its whole plate is a button -- unless its figures are always shown
+      _tapTarget() { return this._cellSize() === 'S' && !this._always ? [] : [{ page: 'energy' }]; }
       getCardSize() { return 4; }
       setConfig(config) {
         super.setConfig(config);
         var p = (config || {}).period;
         this._period = RING_PERIODS.some(function (x) { return x[0] === p; }) ? p : 'day';
+        this._always = (config || {}).figures === 'always';
       }
       // the period, the size and the minute: the sums move on with the clock;
       // their statistics landing (hk-stats) and the page's settings (prefs)
@@ -124,20 +127,20 @@
           this._card.addEventListener('click', function (e) {
             var b = e.target.closest && e.target.closest('button[data-p]');
             if (b) { e.stopPropagation(); self._pick(b.getAttribute('data-p')); return; }
-            if (self._cellSize() === 'S') self._show(!self._open);
+            if (self._cellSize() === 'S' && !self._always) self._show(!self._open);
           });
           this._card.addEventListener('keydown', function (e) {
-            if (e.target === self._card && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); self._show(!self._open); }
+            if (e.target === self._card && !self._always && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); self._show(!self._open); }
           });
           this._built = true;
           this._ringWas = null;
         }
         var b = blockBox(this, size), card = this._card;
         card.className = 'er ' + size;
-        var small = size === 'S';
-        if (small) {
+        var small = size === 'S', always = small && this._always;
+        if (small && !always) {
           card.setAttribute('role', 'button'); card.setAttribute('tabindex', '0'); card.setAttribute('aria-expanded', String(!!this._open));
-        } else { card.removeAttribute('role'); card.removeAttribute('tabindex'); card.removeAttribute('aria-expanded'); this._open = false; }
+        } else { card.removeAttribute('role'); card.removeAttribute('tabindex'); card.removeAttribute('aria-expanded'); this._open = false; clearTimeout(this._ovT); }
         var s = null;
         // (`_clock`: a test's own time)
         try { s = h ? summary(h, this, this._clock ? +this._clock() : undefined) : null; } catch (e) { console.warn('[hk-energy-rings]', e && e.message); s = null; }
@@ -177,11 +180,10 @@
         if (small) {
           // the figure alone in the box, as the back of the mock-up's card had it (the unit is the ring's: its name says it)
           var bare = function (r) { return r.key === 'cost' ? esc(s.money(r.v, 2)) : r.key === 'water' || r.key === 'gas' ? fx(r.v, 0) : fx(r.v, Math.abs(r.v) >= 100 ? 0 : 1); };
-          var next = { day: 'week', week: 'month', month: 'day' }[p], open = !!this._open;
-          html = '<div class="er-s">' + rings(Math.max(60, Math.min(b.iw, b.ih - 22))) +
-            '<button type="button" class="oh" data-p="' + next + '" aria-label="' + name + '. Show ' +
-            { day: 'today', week: 'this week', month: 'this month' }[next] + '">' + name + CHEV + '</button></div>' +
-            '<div class="ov' + (open ? ' on' : '') + '" style="border-radius:' + (b.pad >= 18 ? window.hkCards.R.square - 12 : window.hkCards.R.inner) + 'px"' +
+          var next = { day: 'week', week: 'month', month: 'day' }[p], open = always || !!this._open;
+          html = '<div class="er-s"><button type="button" class="oh" data-p="' + next + '" aria-label="' + name + '. Show ' +
+            { day: 'today', week: 'this week', month: 'this month' }[next] + '">' + name + CHEV + '</button>' + rings(Math.max(60, Math.min(b.iw, b.ih - 22))) + '</div>' +
+            '<div class="ov' + (open ? ' on' : '') + (always ? ' fix' : '') + '" style="border-radius:' + (b.pad >= 18 ? window.hkCards.R.square - 12 : window.hkCards.R.inner) + 'px"' +
             (open ? '' : ' aria-hidden="true"') + '>' +
             '<div class="ev">' + per.rings.map(function (r) {
               return '<div><i style="background:' + r.c + '"></i><b>' + esc(r.name) + '</b><span>' + bare(r) + '</span></div>';
@@ -200,7 +202,7 @@
             '<div class="wcol">' + grid('') + '<div class="so"><b>' + esc(soFar) + '</b><small>Heading for ' + esc(toward) + '</small></div></div></div>';
         }
         card.setAttribute('aria-label', 'Energy rings, ' + name + ': ' + per.rings.map(function (r) { return r.name + ' ' + amount(r, false).replace(/<[^>]+>/g, '') + ', ' + usual(r); }).join('; ') +
-          (small ? '. Tap to ' + (this._open ? 'hide' : 'show') + ' the figures' : ''));
+          (small && !always ? '. Tap to ' + (this._open ? 'hide' : 'show') + ' the figures' : ''));
         window.hkCards.morph(card, html);
         // THE RINGS SWEEP IN as the page's do: from nothing on a new period,
         // from where they were on an update
@@ -209,6 +211,7 @@
       }
       // SMALL'S BOX of figures shown or taken away; shown, it goes by itself after eight seconds
       _show(on) {
+        if (this._always) return;
         this._open = !!on;
         clearTimeout(this._ovT);
         var ov = this._card && this._card.querySelector('.ov');

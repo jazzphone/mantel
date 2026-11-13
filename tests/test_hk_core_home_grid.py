@@ -736,6 +736,18 @@ def test_on_now_categories_and_everythings_more_places():
     assert HG.CATALOG["on_now"]["opts"]["open"] == "on_now_open" and HG.CATALOG["everything"]["opts"]["more"] == "everything_more"
 
 
+def test_energy_rings_figures_are_on_tap_or_always():
+    """Energy Rings Small's Figures (2026-11-12, the owner: "an option to always show the data, not just on tap"): the
+    box of figures on a tap (`tap`, also what no key means) or always; nothing else."""
+    for value in ("tap", "always"):
+        b, errors = write(grid(block("a1", "energy_rings", "S", [0, 0], opts={"figures": value})))
+        assert errors == {} and b["home_grid"]["items"][0]["opts"]["figures"] == value
+    for bad in ("hover", "", True, None, ["always"]):
+        _, errors = write(grid(block("a1", "energy_rings", "S", [0, 0], opts={"figures": bad})))
+        assert errors, bad
+    assert HG.CATALOG["energy_rings"]["opts"]["figures"] == "rings_figures"
+
+
 def test_now_playings_background_is_the_album_or_the_card():
     """Now Playing's Background (2026-11-05): Blurred Album (`album`, also what no key means) or Card, on a block of
     its own and on a rule's card; nothing else."""

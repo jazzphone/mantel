@@ -205,7 +205,10 @@ function () {
       ['doors', 'security']]);
   // (2026-10-31) the widget blocks, and Scenes' and Accessories' Height and Color
   eq('...the widget blocks and their sizes', [t.on_now.sizes, t.todo.sizes, t.energy_rings.sizes, t.energy_rings.opts, t.todo.opts],
-     [['S', 'W', 'T', 'L', 'XL'], ['S', 'W', 'T', 'L', 'XL'], ['S', 'W', 'T', 'L', 'XL'], { period: 'period', tap: 'tap_target' }, { entity: 'todo', tap: 'tap_target' }]);
+     [['S', 'W', 'T', 'L', 'XL'], ['S', 'W', 'T', 'L', 'XL'], ['S', 'W', 'T', 'L', 'XL'], { period: 'period', figures: 'rings_figures', tap: 'tap_target' }, { entity: 'todo', tap: 'tap_target' }]);
+  // (2026-11-12, the owner: "an option to always show the data, not just on tap") Small's Figures, carried only when Always
+  eq('...Energy Rings\' Figures: Always carried, On Tap and nothing not', [C.config({ card: 'energy_rings', size: 'S', opts: { figures: 'always' } }, ctx).figures,
+     C.config({ card: 'energy_rings', size: 'S', opts: { figures: 'tap' } }, ctx).figures, C.config({ card: 'energy_rings', size: 'S' }, ctx).figures], ['always', undefined, undefined]);
   eq('...Scenes and Accessories: Height and Color', [t.scenes.opts.height, t.scenes.opts.color, t.accessories.opts.height, t.accessories.opts.color, t.scene.opts.color],
      ['tile_height', 'boolean', 'tile_height', 'boolean', 'boolean']);
 },
