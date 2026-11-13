@@ -260,6 +260,21 @@ async def test_music_assistant_subscriptions_follow_a_replaced_connection(music_
     await ws.close()
 
 
+async def test_saving_another_connection_leaves_the_music_assistant_client_alone(music_off, monkeypatch):
+    from mantel_server.connectors.ma import MaClient
+    env = music_off
+    hub = env.app["hub"]
+    monkeypatch.setattr(MaClient, "start", lambda self: None)
+    await server.apply_connection(env.app, hub, False, "ma", C.Current("ma", "mantel", "http://ma.invalid:8095", "t"))
+    client = env.app["ma"]
+    await server.apply_connection(env.app, hub, False, "homepod",
+                                  C.Current("homepod", "mantel", "http://reader.invalid:8787", "r"))
+    assert env.app["ma"] is client and env.app["cfg"].ma_url == "http://ma.invalid:8095"
+    assert "reader.invalid" not in client.ws_url
+    await server.apply_connection(env.app, hub, False, "homepod", None)    # nor does disconnecting it
+    assert env.app["ma"] is client
+
+
 # -- settings saves over the socket ---------------------------------------------------------------------------
 async def test_a_settings_save_over_the_socket_is_refused_once_its_principal_is_no_longer_valid(off):
     await off.login("avery", "owner")

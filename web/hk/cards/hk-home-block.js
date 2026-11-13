@@ -146,6 +146,9 @@
       ':host{overflow-x:hidden;overflow-x:clip}',
       '.col{display:flex;flex-direction:column;box-sizing:border-box;margin:0 auto;width:var(--hk-room-w,100%);max-width:100%;padding:2px 0 8px}',
       '.col > *{display:block;margin:0 -4px}',
+      // (...but not the chip row: it has no grid child's 4 px of its own, so pulled out with the rest its first chip sat 4 px past
+      // the column, cut by the sheet's sideways clip -- the owner's Kitchen, 2026-11-13. Its scroller still bleeds and pays it back)
+      '.col > hk-chips-card{margin:0}',
       '.none{color:' + v('ink-2') + ';font-size:15px;text-align:center;padding:48px 16px}',
       '@media (max-width:' + C.BP.phone + 'px){:host{--hk-track:minmax(130px,1fr)}.col{width:100%}}'
     ].join('');
