@@ -1136,6 +1136,8 @@ async def apply_connection(app: web.Application, hub: Hub, connect_ha: bool, kin
         if connect_ha and cur is not None:
             restart_house_tz(app, hub)                     # (another HA, perhaps another time zone)
         return
+    if kind != "ma":            # the HomePod Timer Reader has its own applier (features/homepod_timers.py)
+        return
     # Music Assistant. The music engine (music.py) reads app["ma"] at each use, so it follows at once: with a
     # client it is Mantel's engine (when the music settings are imported), with none the interim bridge to HA.
     client = app.get("ma")
