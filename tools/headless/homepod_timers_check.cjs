@@ -56,10 +56,20 @@ function cards() {
         await page.touchscreen.tap(at.x, at.y);
         await page.waitForTimeout(900);
       };
+      // what the stand-in reader was sent since `from`, once `n` have come (a command can take a while under load)
+      const sentSince = async (from, n) => {
+        for (let i = 0; i < 40; i++) {
+          const got = (await (await page.request.get(input.origin + '/__check/posts')).json()).slice(from);
+          if (got.length >= n) return got;
+          await page.waitForTimeout(250);
+        }
+        return (await (await page.request.get(input.origin + '/__check/posts')).json()).slice(from);
+      };
       const before = (await (await page.request.get(input.origin + '/__check/posts')).json()).length;
       await tap('Pasta', 'Pause');
+      await sentSince(before, 1);
       await tap('Timer', 'Cancel');
-      const posts = (await (await page.request.get(input.origin + '/__check/posts')).json()).slice(before);
+      const posts = await sentSince(before, 2);
       const frames = sent.filter((f) => f.domain === 'timer').map((f) => [f.service, (f.target || {}).entity_id || (f.data || {}).entity_id]);
       say(JSON.stringify(frames) === JSON.stringify([['pause', HP.Pasta], ['cancel', HP.Timer]]), `${t}: the keys send the HomePod's pause and cancel`, frames);
       say(posts.length === 2 && posts[0][1].action === 'pause' && posts[0][1].id === 't-pasta' &&
@@ -71,10 +81,11 @@ function cards() {
           alarms[1].time === '9:00PM' && alarms[1].on === false && alarms[1].off, `${t}: the alarms: time, where, on or off`, alarms);
       const at = (sel, i) => page.evaluate(([sel, i]) => { const e = deep(document, sel).filter((x) => x.getClientRects().length)[i || 0]; e.scrollIntoView({ block: 'center' });
         const r = e.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, r: [r.left, r.right] }; }, [sel, i]);
+      const abefore = (await (await page.request.get(input.origin + '/__check/posts')).json()).length;
       const sw = await at('.al .sw', 1);
       say(sw.r[1] <= W, `${t}: the switch inside the window`, sw);
       await page.touchscreen.tap(sw.x, sw.y);
-      await page.waitForTimeout(900);
+      await sentSince(abefore, 1);
       const ed = await at('.al .ed');
       await page.touchscreen.tap(ed.x, ed.y);
       await page.waitForTimeout(300);
@@ -85,8 +96,7 @@ function cards() {
       say(/Delete the 6:30 AM Alarm\?/.test(yes || '') && /Bedroom HomePod mini/.test(yes || ''), `${t}: Delete asks first`, yes);
       if (input.shots) await page.screenshot({ path: path.join(input.shots, `${engine}-${size}-alarm-delete.png`) });
       await page.evaluate(() => document.querySelector('#hk-confirm [data-yes]').click());
-      await page.waitForTimeout(900);
-      const aposts = (await (await page.request.get(input.origin + '/__check/posts')).json()).filter((p) => p[0] === '/alarm').slice(-2);
+      const aposts = (await sentSince(abefore, 2)).filter((p) => p[0] === '/alarm');
       say(aposts.length === 2 && aposts[0][1].action === 'on' && aposts[0][1].time === '9:00 PM' && aposts[1][1].action === 'delete' && aposts[1][1].time === '6:30 AM',
         `${t}: the switch and Delete reach the reader`, aposts);
       await page.evaluate(() => { const b = deep(document, '.al .ed')[0]; if (b && b.textContent === 'Done') b.click(); });
@@ -121,7 +131,7 @@ function cards() {
         say(card && /^Ringing · Kitchen HomePod/.test(card.sub || '') && JSON.stringify(card.keys) === '["Stop"]', `${t}: its card: Ringing, Stop alone`, card);
         const before2 = (await (await page.request.get(input.origin + '/__check/posts')).json()).length;
         await tap('Pasta', 'Stop');
-        const stops = (await (await page.request.get(input.origin + '/__check/posts')).json()).slice(before2);
+        const stops = await sentSince(before2, 1);
         say(stops.length === 1 && stops[0][0] === '/timer' && stops[0][1].action === 'stop' && stops[0][1].id === 't-pasta', `${t}: Stop reaches the reader, by its id`, stops);
         await page.request.get(input.origin + '/__check/ring?on=0');
       }

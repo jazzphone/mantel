@@ -124,7 +124,8 @@ def parse_timers(doc: Any, now: float) -> tuple[bool, list[Read]] | None:
             continue
         paused, ringing = t.get("paused") is True, t.get("ringing") is True
         ends = None if paused and not ringing else (_when(t.get("ends_at")) or at + left)
-        rid = t.get("id") if isinstance(t.get("id"), str) and 0 < len(t["id"]) <= 80 else ""
+        raw = t.get("id")
+        rid = raw if isinstance(raw, str) and 0 < len(raw) <= 80 else ""
         out.append(Read(tile, index, _text(t.get("label"), "Timer"), 0.0 if ringing else max(0.0, left), paused and not ringing, ends,
                         _text(t.get("room")), _text(t.get("homepod"), "HomePod"), at, rid, ringing,
                         (_when(t.get("rang_at")) or ends) if ringing else None))
