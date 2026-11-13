@@ -1,8 +1,8 @@
 # Phase 30: AirPlay to a wall tablet (plan, 2026-11-13)
 
-**Status: plan and prototype. Waiting on the owner's decisions below; nothing beyond the prototype is built until
-they're answered.** The prototype is on mantel-android's `airplay` branch (cut from `native-sky`, so the Loft keeps
-phase 29's sky), installed on the Loft and switched off.
+**Status: decisions answered (2026-11-13); built, waiting on the owner's four-minute mirror (step 0) and his OK for a
+tablet build.** Mantel's side is on main; the app's is on mantel-android main (the receiver off on every tablet until
+switched on). No app build is published and nothing is on the house.
 
 The owner: "I'd like to do AirPlay Mirroring/Video", and then: "This should also cover audio as well... AirPlay 1 and 2
 if possible!"
@@ -108,13 +108,12 @@ UxPlay never had it (shairport-sync does). See decision 5.
   **switch** on the tablet's ESPHome device (`switch.<tablet>_airplay`), so an automation can open it for a party and
   close it after.
 - **The name it advertises:** the tablet's own name ("Kitchen Kiosk"). Decision 3 is whether to offer another.
-- **A code on screen (optional):** with it on, the first time a sender connects the tablet shows a four-digit code
-  and the sender types it (UxPlay's PIN pairing, which then remembers that sender). Off by default.
+- **A code on screen:** not a setting (decision 4); the receiver can still do it, switched on over adb only.
 - **What it can be sent:** mirroring, video, sound: three switches under AirPlay, all on (each is a feature bit in the
   advertisement; off means the sender's picker doesn't offer it).
-- **Home Assistant sees it:** a **sensor** `sensor.<tablet>_airplay` (Idle / Mirroring / Playing Video / Playing
-  Audio), with the sender's name as an attribute, so an automation can, say, dim the lights when a mirror starts.
-  The kiosk app sensor Mantel already reads gets the same state, so HK can show it.
+- **Home Assistant sees it:** a **sensor** `sensor.<tablet>_airplay_state` (Off / Idle / Mirroring / Playing Video /
+  Playing Audio), so an automation can, say, dim the lights when a mirror starts; and HK's Sleep Screen reads it (a
+  mirror or a video counts as another app in front).
 
 ## The receiver, as it will be built
 
@@ -122,10 +121,11 @@ UxPlay never had it (shairport-sync does). See decision 5.
   prototype: UxPlay as a submodule pinned to a release, the Android port's patches applied before CMake, arm64 only
   (every house tablet). OpenSSL linked statically and the libraries stripped.
 - **Video:** H.265 offered when the tablet has a hardware decoder (the Loft has a low-latency one), else H.264.
-  MediaCodec decodes onto the mirror's surface. Two changes from the port: decode **straight onto the SurfaceView**
-  (the port's GL pipeline costs a copy of every frame, worth it only for picture-in-picture, which a wall tablet
-  doesn't need), and **drain the decoder on its own callback** rather than at the next frame's arrival (a still sender
-  sends few frames, and the last one can wait in the decoder until the next arrives).
+  MediaCodec decodes onto the mirror's surface through the port's GL pipeline, which survives the surface coming and
+  going (a sender sends a keyframe only at the start, so the decoder can't wait for the view). Its cost is one GPU
+  copy a frame; whether decoding straight onto the SurfaceView is worth the risk is for step 0's numbers. **The decoder
+  is drained every 4 ms on a thread of its own**, not only when the next frame arrives (a still sender sends few
+  frames, and the last one would wait in the decoder for the next).
 - **Audio:** AAC-ELD with a mirror, ALAC or AAC-LC on its own; AAC by MediaCodec, ALAC by FFmpeg's decoder, played
   through Oboe at the tablet's own volume times the sender's. On the house's tablets the media stream is the one
   Volume already sets (a bathroom's follows its fan).
@@ -133,7 +133,7 @@ UxPlay never had it (shairport-sync does). See decision 5.
   sender's remembered code survives a restart.
 - **Off means off:** no advertisement, no port open, no threads.
 
-## Decisions for the owner
+## Decisions for the owner (answered 2026-11-13)
 
 1. **Is this worth the app's weight and the license?** The receiver is GPL-3.0 code linked into the app, which makes
    the app's build a GPL-3.0 work. For an app built by the owner and installed only on the house's own tablets, the
@@ -142,13 +142,16 @@ UxPlay never had it (shairport-sync does). See decision 5.
    APK triples in size (8.5 to ~20 MB after stripping). The FairPlay part is a reverse-engineered library UxPlay itself
    calls legally unclear, as every non-Apple receiver's is. *Recommended: yes, kept in its own module and off by
    default*, so the app without it stays what it is; and if the app is ever given out, it goes as GPL-3.0 then.
+   **Answered: yes.** "That's fine." 
 2. **What it offers: mirroring only, or mirroring, video and sound.** *Recommended: all three*, each a switch. Sound
    alone costs nothing extra (the same code), and a guest's music on the kitchen tablet is the likeliest use after a
-   mirror. Video is YouTube only; the rest falls back to a mirror.
+   mirror. Video is YouTube only; the rest falls back to a mirror. **Answered: all three, each a switch.**
 3. **The name.** *Recommended: the tablet's own name* ("Kitchen Kiosk"), since that is how the house already names
-   it. The alternative, a name of its own per tablet ("Kitchen Display"), is one more field.
+   it. The alternative, a name of its own per tablet ("Kitchen Display"), is one more field. **Answered: the tablet's
+   own name.**
 4. **A code on screen.** *Recommended: off*, as the house's Apple TVs are (anyone on the house's Wi-Fi can already
-   mirror to those). On for a tablet in a room where a stranger's phone appearing would be unwelcome.
+   mirror to those). On for a tablet in a room where a stranger's phone appearing would be unwelcome. **Answered: off**
+   ("Off, let's make it easy"). The code stays an adb switch only (`--ez pin true`), not a setting.
 5. **Sound with HomePods and Music Assistant (the "AirPlay 2" and "AirPlay 1" the owner asked for).** Neither can come
    from the tablet alone. Three ways, from cheapest:
    - **a. Not at all:** the tablet is a speaker on its own, picked alone in the AirPlay menu. Free with the receiver.
@@ -163,11 +166,24 @@ UxPlay never had it (shairport-sync does). See decision 5.
      tablet behaves. Real work (one shairport-sync and its ports per tablet, a stream to the app, keeping it in step),
      and it brings the house's PTP troubles of 2026-11-04 to the tablets.
    *Recommended: a now*; b if the owner wants the tablets in Music Assistant's groups; c only if grouping with HomePods
-   from an iPhone matters enough for a phase of its own.
+   from an iPhone matters enough for a phase of its own. **Answered: a now; c later, as a piece of its own** ("It's not
+   super needed, but if we can do AirPlay 2 that would be great!"). See "Later: AirPlay 2 through the Mantel host".
 6. **Sleep Screen during a mirror.** *Recommended: a mirroring tablet stays on.* Sleep Screen (and the curtain's
    timeout) leave it alone until the mirror ends, then their usual timeouts start over. The alternative is that the
-   house's rules win and a mirror goes dark at the usual time.
+   house's rules win and a mirror goes dark at the usual time. **Answered: yes, a mirroring tablet stays on.**
 7. **Where it's turned on first.** *Recommended: the Loft*, for a week, then any tablet the owner switches on.
+   **Answered: a control in Home Assistant through ESPHome, off by default on every tablet** ("It should have a control
+   in HA for ESP. It should be off by default."): `switch.<tablet>_airplay`, a config switch beside `screen_rotation`
+   and Kiosk mode, as well as Mantel Settings' AirPlay switch.
+
+## Later: AirPlay 2 through the Mantel host
+
+Decision 5's option c, wanted but not needed: for each tablet that wants it, shairport-sync in AirPlay 2 mode on the
+Mantel host (with nqptp, the PTP clock, which the LXC can run as root) advertises a name of its own (the tablet's, with
+the app's own receiver then offering mirroring and video only, so an iPhone sees one speaker), and streams PCM to the
+app, which plays it a fixed delay late against Android's audio timestamps (`AudioTrack.getTimestamp`). Then an iPhone
+can group the tablet with HomePods. Its own plan when it's picked up: one shairport-sync and its ports per tablet, the
+stream to the app and its delay measured on the Loft against a HomePod, and what a tablet does when the host is down.
 
 ## The build, in steps
 
@@ -205,3 +221,17 @@ UxPlay never had it (shairport-sync does). See decision 5.
 
 - 2026-11-13: research, the prototype (mantel-android `airplay`, bf0e06b), the iPad's mirror on the Loft (above). The Loft's media volume was at 0 for every
   test and is back at its 6 of 15; the receiver is off.
+- 2026-11-13, after the owner's answers: steps 1-4 built.
+  - **The app** (mantel-android main): the `:airplay` module stripped and OpenSSL linked into it (the native libraries
+    9 MB → 7 MB; the APK 20.9 MB with ExoPlayer), the decoder drained on its own thread, YouTube's video links played by
+    ExoPlayer on a surface of their own, the three offers each a switch, `switch.<tablet>_airplay` (config, off by
+    default) and `sensor.<tablet>_airplay_state` over ESPHome, the app's commands (`airplay`, `airplay_mirroring`,
+    `airplay_video`, `airplay_audio`) and status, and the curtain and a screen-off waiting while a mirror or a video is
+    up.
+  - **Mantel** (main): the commands and status in `apps/tablet_app.py`, the AirPlay group in
+    `web/shim/settings/tablet-app.js`, Sleep Screen's `AIRPLAY_HOLDS` (`hk_core/sleep/engine.py`), tests.
+  - **Checked on the Mac's emulator** (a copy of the app beside the one there, removed after): the receiver starts
+    with OpenSSL linked in and answers `GET /info` (its key, features, a 1920 × 1200 display at 60 fps); over
+    ESPHome, as Home Assistant connects, the switch and the sensor are listed, and the switch off and on stops and
+    starts the receiver (the sensor Idle → Off → Idle). Not checked: a mirror, a video or sound through this build
+    (a sender is the owner's: step 0 and step 5).

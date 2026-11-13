@@ -42,6 +42,9 @@ COMMANDS: dict[str, str | None] = {
     "screen": "bool", "brightness": "fraction", "curtain": "bool", "kiosk_mode": "bool",
     "reload": None, "clear_cache": None, "restart": None, "check_update": None, "menu_pin": "pin",
     "screenshot": None, "rotation": "rotation",
+    # AIRPLAY (phase 30, docs/phase30/PLAN.md): the app's receiver on or off (off on every tablet until switched on), and
+    # what it offers -- a mirror, a video's link, sound -- each a switch (the owner, 2026-11-13: "all three")
+    "airplay": "bool", "airplay_mirroring": "bool", "airplay_video": "bool", "airplay_audio": "bool",
 }
 # SCREEN ROTATION (2026-11-13, the owner: Android 16 ignores an app's own landscape on a tablet, and the Loft came back
 # from an update sideways): the app sets Android's rotation, 0/90/180/270 as Android counts them from the tablet's natural
@@ -52,6 +55,8 @@ STATUS_KEYS = {"version": str, "version_code": int, "screen": bool, "brightness"
                "battery": float, "charging": bool, "kiosk_mode": bool, "owner": bool, "admin": bool,
                "esphome_port": int, "menu_pin": bool, "page": str, "ip": str, "model": str, "update": str,
                "rotation": str, "rotation_allowed": bool,
+               "airplay": bool, "airplay_mirroring": bool, "airplay_video": bool, "airplay_audio": bool,
+               "airplay_state": str, "airplay_name": str,
                # the sky drawn by the app (phase 29): off, ready (the tablet's setting on) or playing
                "sky": str}
 ANSWER_WAIT = 8.0

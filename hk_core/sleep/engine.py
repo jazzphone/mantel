@@ -32,7 +32,10 @@ KIOSK_APPS = ("me.jxl.kiosk_satellite", "com.jazzphone.mantel.android", "com.sec
 KIOSK_PARTS = {"screen": ("light", "_screen"), "active": ("switch", "_screensaver_active"),
                "armed": ("switch", "_screensaver"), "mode": ("select", "_screensaver_mode"),
                "app": ("sensor", "_foreground_app"), "touched": ("sensor", "_last_interaction"),
-               "front": ("button", "_bring_to_front")}
+               "front": ("button", "_bring_to_front"), "airplay": ("sensor", "_airplay_state")}
+# MANTEL FOR ANDROID'S AIRPLAY (phase 30): a mirror or a video holds the screen as another app in front would (the
+# owner, 2026-11-13: a mirroring tablet stays on; Sleep Screen waits until it ends)
+AIRPLAY_HOLDS = ("Mirroring", "Playing Video")
 HAND_LIT_S = 30          # a display lit by hand, before quiet hours turn it off again
 HAND_WAKE_S = 60         # ...and lit by the power button: in use this long (the house's hand-wake minute)
 # s: the kiosk's last tap, by the tablet's clock, still the screensaver's own
@@ -300,8 +303,8 @@ class Sleep:
         f["quiet"] = bool((o.get("schedule") and R.in_window(local.time(), o["quiet_from"], o["quiet_to"]))
                           or self._on(o.get("quiet_while") or []))
         app = self._st(self.kiosk.get("app"))
-        f["app_name"] = app.state if app is not None else ""
-        f["app_front"] = app is not None and app.state not in KIOSK_APPS
+        f["app_name"] = "AirPlay" if self._airplay_holds() else app.state if app is not None else ""
+        f["app_front"] = self.app_front()
         f["awake"] = [self._name(i) for i in self._on(o.get("awake_while") or [])] + list(self.awake_also())
         f["dark"] = [self._name(i) for i in self._on(o.get("dark_while") or [])]
         present = self._presence(now)
@@ -464,7 +467,12 @@ class Sleep:
     def app_front(self) -> bool:
         """Another app is in front of the kiosk: neither a sleep nor a wake touches it."""
         app = self._st(self.kiosk.get("app"))
-        return app is not None and app.state not in KIOSK_APPS
+        return (app is not None and app.state not in KIOSK_APPS) or self._airplay_holds()
+
+    def _airplay_holds(self) -> bool:
+        """The tablet app's AirPlay shows a mirror or a video (AIRPLAY_HOLDS)."""
+        ap = self._st(self.kiosk.get("airplay"))
+        return ap is not None and ap.state in AIRPLAY_HOLDS
 
     # ------------------------------------------------------ the brightness
     def brightness_step(self, black: tuple[str | None, bool] | None) -> tuple[str, str | None, int] | None:
