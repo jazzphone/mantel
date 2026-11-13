@@ -120,7 +120,10 @@ of scenes, so a new scene is sorted the same way.
    things.** The picture leaves out what the app draws (bats, rain, snow, flybys) and is never painted again because
    they moved; it follows what changes (another page, weather, a cover) and the slow drift, as Pre-rendered does. Its
    timing at a page change is Pre-rendered's, fixed the same day (the tab bar's flicker on the Loft: the glass follows
-   the sky on screen, not the address). Sheets too: their panels blur live behind themselves, so
+   the sky on screen, not the address). **And through a swipe** (the owner, 2026-11-13: the stand-in's blur "pops in
+   and out" on quick swipes): Pre-rendered takes a moving page's picture off and blurs live until it lands, and the
+   stand-in rode on that; over a sky the app draws live blur shows nothing, so the frost picture stays on a moving page
+   (a fixed background is in line wherever the page is). Sheets too: their panels blur live behind themselves, so
    while the sky is handed over they wear the same picture (or the sky comes back to the page while a sheet is up).
 3. **`hkShell.skyPlayer()`** in both shells and `hk-shell.d.ts`; the app's bridge answers it.
 4. **The app**: the bridge and the player from the prototype, the injected script gone, the switch read from the
