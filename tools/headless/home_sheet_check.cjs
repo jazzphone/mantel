@@ -314,7 +314,8 @@ function sheetState() {
         return { look: sheet.getAttribute('data-hk-look'), bg: cs.backgroundColor, sheetBlur: blur(sheet), flat: host.hasAttribute('hk-flat'),
                  innerBlur: inner.length, layers: host.querySelectorAll('[data-hk-glass-layer]').length + deep(panel.shadowRoot, '[data-hk-glass-layer]').length,
                  // (what blurs, when anything does)
-                 blurs: [...new Set(inner.map((e) => e.tagName.toLowerCase() + '.' + (e.getAttribute('class') || '') + '<' + ((e.getRootNode().host || {}).tagName || '').toLowerCase()))].slice(0, 8) };
+                 blurs: [...new Set(inner.map((e) => e.tagName.toLowerCase() + '.' + (e.getAttribute('class') || '') + '<' +
+                   ((e.getRootNode().host || {}).tagName || '').toLowerCase()))].slice(0, 8) };
       };
       for (const screen of ['home-bright', 'home-flat']) {
         const { ctx, page, errors, commands } = await open(screen, 1280, 800);
