@@ -24,6 +24,24 @@ see-through page: the page draws nothing while the bats fly, and the app can dra
 prototype's player redraws the whole screen whenever anything has moved half a pixel, and 25 slowly drifting clouds
 pass that mark almost every frame. Each new cloud also costs a small bake. So a calm sky stays the page's (decision 1).
 
+**Can the page get there alone? Checked 2026-11-13: no.** On the Loft again, page only, the share of one core (two
+readings each; under the night curtain made 99.6 % opaque, so the room stayed dark and nothing was culled; the page's
+own numbers came out as the day before's):
+
+| Busy sky | The page today | Still glass (no live blur) | Still glass, sky in 30 fps steps | One canvas drawn at 30 fps | The app, 30 fps (11-12) |
+|---|---|---|---|---|---|
+| Halloween night | 1.94 | 1.81 | 1.72 | | 1.02 |
+| Pouring rain | 1.71 | 1.61 | 1.76 | 1.46 | 1.00 |
+| Heavy snow | 1.70 | 1.28-1.64 | 1.61 | | 0.99 |
+
+Nothing moving: 0.73-0.88. The still glass saves about a tenth of a core. Stepping every sky animation to a shared 30 fps
+grid saves nothing: Chromium still makes 60 frames a second while any animation runs. Hiding the grain and scrim (the
+full-screen layers the moving parts force) saves nothing either. The rain drawn into one canvas only 30 times a second, every
+other sky animation paused, still cost 1.46 (1.74 at 60): on this tablet any change on screen costs Chromium about 0.7
+of a core at 30 fps, against the app's 0.25. So the app's saving is real and the page can't get it; the app is still the way
+for the wall tablets. Not checked again: the app's own numbers (it holds the sky while the curtain is up), and the app's
+GPU memory (its pictures are 72-99 MB).
+
 ## What it is
 
 **hk-sky stays the one sky.** Nothing about any scene is written twice. When the page's host offers it, hk-sky hands a
