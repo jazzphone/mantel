@@ -227,6 +227,25 @@
   // Android's WebView window.innerWidth read after a change laid the whole page out first -- 80 ms of every 2 s on the
   // Loft once the menu stopped asking)
   ST.safeGen = 0; window.addEventListener('resize', function () { ST.safeGen++; [250, 800].forEach(function (ms) { setTimeout(function () { ST.safeGen++; }, ms); }); });
+  // THE WINDOW'S SIZE, READ ONCE A SIZE (2026-11-13, the Loft): on Android's WebView window.innerWidth and innerHeight
+  // -- like visualViewport and the root's clientWidth -- lay the whole page out first when anything has changed, 30-115
+  // ms each, and the tab bar, the menu and the Side Pane asked on every page change and update. Kept until the window
+  // says it changed (resize, a turn). A test's stand-in window (no real media queries) is read each time, as its size
+  // is set without an event.
+  ST.win = null;
+  ST.realMedia = null;
+  window.addEventListener('resize', function () { ST.win = null; });
+  window.addEventListener('orientationchange', function () { ST.win = null; });
+  function winSize() {
+    if (ST.realMedia === null) {
+      try { var q = typeof window.matchMedia === 'function' ? window.matchMedia('(min-width: 0px)') : null; ST.realMedia = !!(q && typeof q.media === 'string' && typeof q.matches === 'boolean'); }
+      catch (e) { ST.realMedia = false; }
+    }
+    if (ST.realMedia && ST.win && ST.win.w) return { w: ST.win.w, h: ST.win.h };
+    var w = window.innerWidth || 0, h = window.innerHeight || 0;
+    if (ST.realMedia) ST.win = { w: w, h: h };
+    return { w: w, h: h };
+  }
   function safeArea() {
     var st = document.documentElement && document.documentElement.style, k = (document.styleSheets || []).length + '|' + ST.safeGen;
     if (st) k += ['top', 'right', 'bottom', 'left'].map(function (v) { return st.getPropertyValue('--hk-safe-' + v); }).join('|');
@@ -1017,6 +1036,7 @@
     window.hkCards.FONT_ROOT = FONT_ROOT;
     window.hkCards.SAFE = SAFE;
     window.hkCards.safeArea = safeArea;
+    window.hkCards.winSize = winSize;
     // A SCROLLER THAT FITS TAKES NO SIDEWAYS PAN (2026-10-30, Swipe Between
     // Pages, hk-pageswipe.js): a scroll container takes every sideways pan for
     // itself, scrollable or not, so the browser cancelled the page's swipe over

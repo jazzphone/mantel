@@ -44,6 +44,10 @@
 // @ts-check
 (function () {
   'use strict';
+  // (the window's size as hk-base.js keeps it -- read once a size: on Android's WebView a read of window.innerWidth
+  // lays the page out first; 2026-11-13)
+  function IW() { var C = window.hkCards; return C && C.winSize ? C.winSize().w : window.innerWidth || 0; }
+  function IH() { var C = window.hkCards; return C && C.winSize ? C.winSize().h : window.innerHeight || 0; }
   if (window.hkTabBar) return;
   // the host's page: where the bar mounts, its view, navigation
   var SH = window.hkShell;
@@ -272,7 +276,7 @@
   function phoneAt(width) {
     if (width !== undefined) return width < PHONE_W;
     var Mn = window.hkCards && window.hkCards.menu;
-    return Mn && Mn.phone ? !!Mn.phone() : (window.innerWidth || 1280) < PHONE_W;
+    return Mn && Mn.phone ? !!Mn.phone() : (IW() || 1280) < PHONE_W;
   }
   // PHONES' SETTINGS HERE (While Scrolling, More): a phone, and a tablet
   // showing Phones' menu where its own doesn't fit (hkCards.menu.phoneForm)
@@ -883,7 +887,7 @@
       // worked out the whole page's styles right after the bar's own write, 15-29 ms of a landing at 4x CPU, 2026-11-13)
       var de = document.documentElement, d = 0;
       try { d = parseFloat(de && de.style ? de.style.getPropertyValue('--hk-dock-h') : '') || 0; } catch (e) { d = 0; }
-      return Math.max(0, (window.innerHeight || 800) - d);
+      return Math.max(0, (IH() || 800) - d);
     }
     // THE SIDE SAFE AREAS in px (hk-base.js safeArea), and the page's width
     // between them (EDGE_L / EDGE_R): what the bar's tabs are fitted to
@@ -898,7 +902,7 @@
         if (room.side === 'left') left = Math.max(left, leftOf0() + room.width);
         else right = Math.max(right, room.width);
       }
-      return Math.max(0, (window.innerWidth || 0) - Math.max(left, sa.left) - Math.max(right, sa.right));
+      return Math.max(0, (IW() || 0) - Math.max(left, sa.left) - Math.max(right, sa.right));
     }
     // THE STRIP HERE (stripSide), for stripFit -- null without one, or with
     // Use the Side Strip off
@@ -906,8 +910,8 @@
       if ((b || {}).tab_bar_strip === false) return null;
       var sa = safe(), side = stripSide(sa.left, sa.right);
       if (!side) return null;
-      return { side: side, inset: Math.round(side === 'right' ? sa.right : sa.left), width: window.innerWidth || 0,
-               height: window.innerHeight || 0, bottom: Math.round(sa.bottom), dock: Math.round((window.innerHeight || 0) - railH()) };
+      return { side: side, inset: Math.round(side === 'right' ? sa.right : sa.left), width: IW() || 0,
+               height: IH() || 0, bottom: Math.round(sa.bottom), dock: Math.round((IH() || 0) - railH()) };
     }
     function listKey(width) {
       var h = C.client(), side = H.sidebarSource(), b = M.board();
@@ -929,7 +933,7 @@
       // sideways keeps a phone's bar and fit -- and its rail, when the
       // screen puts the bar at a side (position: by the width)
       var ph = phoneAt();
-      var pos = position(b.tab_bar_pos, window.innerWidth || 1280, ph), rail = pos === 'left' || pos === 'right';
+      var pos = position(b.tab_bar_pos, IW() || 1280, ph), rail = pos === 'left' || pos === 'right';
       var rm = m.rooms.length ? roomsOf(b) : 'off';
       if (rail && rm === 'button') rm = 'more';      // a rail has no room for a second button
       var roomsOn = rm === 'button';
@@ -1004,7 +1008,7 @@
       // of the two -- More's (860 px of icons, 420 of list) or what the tabs
       // need -- within the screen, so opening More never widens anything
       // More Style: a phone's own, else the tablet's (moreOf)
-      var list = moreOf(b) === 'list', big = !list && Math.min(width, window.innerHeight || width) >= SHEET_TABLET;
+      var list = moreOf(b) === 'list', big = !list && Math.min(width, IH() || width) >= SHEET_TABLET;
       var sheetW = list ? 420 : big ? Math.min(SHEET_BIG, width - 2 * SHEET_OUT) : 860;
       S.big = big;
       var joinW = Math.min(Math.max(0, width - 2 * GUTTER), Math.max(f.width, sheetW));
@@ -1317,7 +1321,7 @@
       if (S.roomsMode === 'button') {
         var room = parseFloat(getComputedStyle(more).maxHeight) || 0;
         var want = S.more.length ? more.scrollHeight : rooms.scrollHeight;
-        var h = Math.round(Math.max(SHEET_MIN, want, (window.innerHeight || 0) * SHEET_SHARE));
+        var h = Math.round(Math.max(SHEET_MIN, want, (IH() || 0) * SHEET_SHARE));
         if (room) h = Math.min(h, room);
         [more, rooms].forEach(function (el) { el.style.height = h + 'px'; });
       }
@@ -1391,7 +1395,7 @@
           });
           // the stash (as tall as the bar) and a gutter either side of it
           var need = barH(undefined, sizeNow()) + 2 * GUTTER;
-          ok = r > 0 && (window.innerWidth || 0) - Math.max(paneR(), safe().right) - r >= need;
+          ok = r > 0 && (IW() || 0) - Math.max(paneR(), safe().right) - r >= need;
         }
         if (de.hasAttribute('hk-tabbar-room') !== ok) { if (ok) de.setAttribute('hk-tabbar-room', 'end'); else de.removeAttribute('hk-tabbar-room'); }
       });
@@ -1494,7 +1498,7 @@
         S.asideScale = 1;
         return;
       }
-      var w = hv.getBoundingClientRect().width / (S.asideScale || 1) || window.innerWidth || 1280;
+      var w = hv.getBoundingClientRect().width / (S.asideScale || 1) || IW() || 1280;
       var k = Math.max(0.5, (w - asideW()) / w);
       hv.style.transformOrigin = (pos === 'left' ? 'right' : 'left') + ' top';
       hv.style.transform = full ? 'scale(' + k.toFixed(4) + ')' : '';

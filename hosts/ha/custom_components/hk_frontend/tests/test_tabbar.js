@@ -411,5 +411,8 @@ ok('the docked bar\'s hk-dock syncs once a frame', /window\.addEventListener\('h
 ok('a tab\'s box in the pill is measured once, kept until a build, a resize, a tab moved or resized (2026-11-13)',
    /function boxOf\(el\) \{\s*var b = boxes && boxes\.get\(el\);/.test(tbSrc) && /S\.built = listKey\(width\);\s*boxWatch\(\);/.test(tbSrc) &&
    /boxMo\.observe\(S\.pill, \{ childList: true \}\)/.test(tbSrc) && /addEventListener\('resize', function \(\) \{ boxesGone\(\);/.test(tbSrc));
+ok('the window\'s size through hkCards.winSize (read once a size), never window.innerWidth/innerHeight directly (2026-11-13)',
+   /function IW\(\) \{ var C = window\.hkCards; return C && C\.winSize \? C\.winSize\(\)\.w : window\.innerWidth \|\| 0; \}/.test(tbSrc) &&
+   tbSrc.split('\n').filter(function (l) { return /window\.inner(Width|Height)/.test(l) && !/^\s*\/\//.test(l) && !/function I[WH]\(\)/.test(l); }).length === 0);
 print('\n' + (fail ? fail + ' FAILED, ' + pass + ' passed' : 'ALL ' + pass + ' TAB BAR TESTS PASS'));
 if (fail) throw new Error(fail + ' failed');

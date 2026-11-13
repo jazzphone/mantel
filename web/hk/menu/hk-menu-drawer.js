@@ -6,6 +6,10 @@
 // from K at the top; what the shell or a later file uses of it, it hands back at the bottom.
 (function () {
   'use strict';
+  // (the window's size as hk-base.js keeps it -- read once a size: on Android's WebView a read of window.innerWidth
+  // lays the page out first; 2026-11-13)
+  function IW() { var C = window.hkCards; return C && C.winSize ? C.winSize().w : window.innerWidth || 0; }
+  function IH() { var C = window.hkCards; return C && C.winSize ? C.winSize().h : window.innerHeight || 0; }
   (window.hkMenuParts = window.hkMenuParts || {})['hk-menu-drawer'] = function (K) {
     var BAND_WIDE = K.BAND_WIDE, C = K.C, CSS = K.CSS, editItems = K.editItems, editKey = K.editKey, esc = K.esc,
         glyph = K.glyph, haKey = K.haKey, haList = K.haList, haOpen = K.haOpen, hostItems = K.hostItems,
@@ -51,7 +55,7 @@
     var S = { host: null, root: null, open: false, dash: null, idle: null, shut: {}, built: '' };
 
     function haRoot() { return SH.overlayRoot(); }
-    function narrow() { return (window.innerWidth || 1280) < M.NARROW; }
+    function narrow() { return (IW() || 1280) < M.NARROW; }
     // Its item's Menu: "Always open beside the page", when there is room.
     function docked() { return M.docked(); }
 
@@ -143,18 +147,26 @@
     // THE PANEL COVERS THE DASHBOARD, not the whole window: on a desktop
     // Home Assistant's own sidebar stays visible to its left, and on a phone
     // the menu runs from the top of the screen like the Home app's.
+    // THE PANEL'S BOX: where a host's panel is the page's <body> (hkShell.panel), at 0, 0 and the window's width -- read
+    // as such, not measured (2026-11-13: each read after a change laid the whole page out first, 30 ms of every 2 s on
+    // a wall tablet); inside Home Assistant it is HA's own panel, beside its sidebar, and measured
+    function panelBox(p) {
+      if (!p || !p.getBoundingClientRect) return null;
+      if (p === document.body || p === document.documentElement) return { left: 0, top: 0, width: IW(), right: IW() };
+      return p.getBoundingClientRect();
+    }
     function place() {
       if (!S.root) return;
       // The SCREEN's height, not the panel's: the document is what scrolls,
       // so on a long page the panel is as tall as the page (thousands of px
       // on a phone) while the menu must fill only what is visible.
-      var p = M.panel(), r = p && p.getBoundingClientRect ? p.getBoundingClientRect() : null;
+      var p = M.panel(), r = panelBox(p);
       var l = r ? r.left : 0, t = r ? Math.max(0, r.top) : 0;
-      var h = Math.max(0, (window.innerHeight || 800) - t);
+      var h = Math.max(0, (IH() || 800) - t);
       S.root.style.setProperty('--l', l + 'px');
       S.root.style.setProperty('--t', t + 'px');
       S.root.style.setProperty('--h', h + 'px');
-      S.root.style.setProperty('--edge-w', edgeWidth(r ? r.width : (window.innerWidth || 0)) + 'px');
+      S.root.style.setProperty('--edge-w', edgeWidth(r ? r.width : (IW() || 0)) + 'px');
       // THE TAB, centered on the date line (hk-header-card publishes it per
       // dashboard, from the top of the page); without one yet, where the Home
       // header's date sits on a wall tablet. The tab lives in the panel, whose
@@ -169,7 +181,7 @@
       S.root.style.setProperty('--tab-ic', ts[2] + 'px');
       S.root.style.setProperty('--tab-r', Math.round(ts[0] * 15 / TAB_W) + 'px');
       var y = tabCentre(M.board().tab_position || '', M.dateY(),
-                        Math.max(0, (window.innerHeight || 800) - Math.max(0, top)), ts[1]);
+                        Math.max(0, (IH() || 800) - Math.max(0, top)), ts[1]);
       S.root.style.setProperty('--tab-y', ((top - t) + y - ts[1] / 2) + 'px');
     }
 
@@ -184,7 +196,7 @@
     //                      so it never lies over the menu's last rows.
     // Backdrops still cover everything; only the sheet moves.
     function publishLeft() {
-      var p = M.panel(), r = p && p.getBoundingClientRect ? p.getBoundingClientRect() : null;
+      var p = M.panel(), r = panelBox(p);
       var left = Math.max(0, r ? r.left : 0);
       var de = document.documentElement;
       if (!de || !de.style) return;
@@ -207,7 +219,7 @@
       // iPad's was a squeeze (hk-responsive.css, [data-hk-band="wide"]).
       // (less the room the view keeps beside a side safe area: hk-base.js SAFE)
       var sa = window.hkCards && window.hkCards.safeArea ? window.hkCards.safeArea() : { left: 0, right: 0 };
-      var pw = (window.innerWidth || 0) - pageLeft - ps.r - Math.max(0, sa.left - pageLeft) - Math.max(0, sa.right - ps.r);
+      var pw = (IW() || 0) - pageLeft - ps.r - Math.max(0, sa.left - pageLeft) - Math.max(0, sa.right - ps.r);
       var band = pw > M.NARROW && pw < M.TAB_MIN ? (pw >= BAND_WIDE ? 'wide' : 'narrow') : null;
       if (band !== de.getAttribute('data-hk-band')) {
         if (band) de.setAttribute('data-hk-band', band); else de.removeAttribute('data-hk-band');
@@ -257,7 +269,7 @@
       var frame = typeof requestAnimationFrame === 'function' ? requestAnimationFrame : function (f) { return setTimeout(f, 16); };
       (function look() {
         if (run !== S.settleRun) return;
-        var p = M.panel(), r = p && p.getBoundingClientRect ? p.getBoundingClientRect() : null;
+        var p = M.panel(), r = panelBox(p);
         var l = r ? Math.round(r.left) : 0;
         same = l === last ? same + 1 : 0; last = l; n++;
         if (same < SETTLE_FRAMES && n < SETTLE_MAX) { frame(look); return; }
@@ -352,7 +364,7 @@
       // put while the page scrolls (viewTop is the page's top at rest)
       var p = M.panel(), r = p && p.getBoundingClientRect ? p.getBoundingClientRect() : null;
       var rest = r ? r.top + (window.scrollY || 0) : 0;
-      var edge = Math.max(0, r ? r.top : 0) + Math.max(0, M.viewTop() - rest), vh = window.innerHeight || 800;
+      var edge = Math.max(0, r ? r.top : 0) + Math.max(0, M.viewTop() - rest), vh = IH() || 800;
       return !els.some(function (el) {
         var r = el.getBoundingClientRect();
         var mid = (r.top + r.bottom) / 2;         // half of it gone counts as gone
@@ -1014,7 +1026,7 @@
     // sheets (the root's z-index), which cover it while they are up.
     var EDGE_MIN = 14, EDGE_MAX = 24;
     function edgeWidth(pw) {
-      if ((window.innerWidth || 1280) < M.NARROW) return 16;
+      if ((IW() || 1280) < M.NARROW) return 16;
       return Math.round(Math.max(EDGE_MIN, Math.min(EDGE_MAX, 0.02 * pw + 4)));
     }
     function swipeOn() { return typeof M.swipe === 'function' && !!M.swipe(); }
