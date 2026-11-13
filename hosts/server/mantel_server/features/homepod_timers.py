@@ -104,12 +104,20 @@ class HomePodTimers:
     def configured(self) -> bool:
         return self._current() is not None
 
+    def _http(self) -> aiohttp.ClientSession:
+        """The server's session, made by one of its own start-up steps: the first look can come before it (a restart
+        logged a KeyError every time, 2026-11-13). Until then the look is a quiet miss and the next one, 2 s on, reads."""
+        http = self.app.get("http")
+        if http is None:
+            raise ReaderError("not_ready", "Mantel is still starting")
+        return http
+
     async def _get(self, path: str) -> Any:
         cur = self._current()
         if cur is None:
             raise ReaderError("not_set_up")
         try:
-            async with self.app["http"].get(cur.url + path, allow_redirects=False, timeout=aiohttp.ClientTimeout(total=TIMEOUT)) as r:
+            async with self._http().get(cur.url + path, allow_redirects=False, timeout=aiohttp.ClientTimeout(total=TIMEOUT)) as r:
                 if r.status != 200:
                     raise ReaderError("http", f"the reader answered {r.status}")
                 return await r.json(content_type=None)
@@ -121,7 +129,7 @@ class HomePodTimers:
         if cur is None:
             raise ReaderError("not_set_up")
         try:
-            async with self.app["http"].post(cur.url + path, params={k: str(v) for k, v in params.items()}, allow_redirects=False,
+            async with self._http().post(cur.url + path, params={k: str(v) for k, v in params.items()}, allow_redirects=False,
                                              headers={"Authorization": f"Bearer {cur.token}"},
                                              timeout=aiohttp.ClientTimeout(total=TIMEOUT)) as r:
                 body = await r.json(content_type=None)
