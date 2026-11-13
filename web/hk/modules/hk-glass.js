@@ -141,7 +141,7 @@
   // menu's panel showed the sky unblurred for a third of a second at every
   // page change (screen-recorded, 2026-10-10) -- and that picture was the
   // owner's "transition bugs", the last page's glass on the new one
-  var PRE_NAV_MS = 400, navT = null;
+  var PRE_NAV_MS = 400, navT = null, PRE_KEEP = 10000;
   // THE PAGE ON SCREEN, which is not yet the page navigated to: Home
   // Assistant swaps the view a few frames after the address changes (more
   // for a page drawn the first time, held hidden until it is). A page's
@@ -845,7 +845,11 @@
     // dropped from the decoded cache)
     // ...and what it was painted from, and when: back on its page, it is
     // judged as that picture (its age, its sky), not the last one painted
-    if (c) { pre.drawn = path; pre.big = c.big; pre.small = c.small; pre.at = c.at; decoded(c.url); }
+    // ...ITS CLOCK RESTARTED when it is recent (PRE_KEEP; 2026-11-13, the owner: "some flicker between pages"): with a
+    // moving wallpaper a picture 2 s old was due, so a fresh one faded in 0.1-0.3 s after the remembered one went on --
+    // two changes at every page change. A recent one stays until the next repaint on the usual rhythm; an older one,
+    // or a sky that has changed (preTick: big), is painted again at once.
+    if (c) { pre.drawn = path; pre.big = c.big; pre.small = c.small; pre.at = Date.now() - c.at < PRE_KEEP ? Date.now() : c.at; decoded(c.url); }
     if (viewUp === path) wearNext();
     dropStale();
     clearTimeout(navT);

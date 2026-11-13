@@ -369,6 +369,8 @@ ok('...by the sky on screen, not the address (2026-11-13, the nav bar\'s flicker
    /var W = window\.innerWidth, H = window\.innerHeight, ok = ownPicture\(\), moves = \[\];/.test(gsrc));
 ok('a pinned surface that has moved fades to the new picture too, cut at its new place (2026-11-13: the tab bar sliding between layouts snapped)',
    /moves = moves\.filter\(function \(m\) \{\s*if \(XFADE && window\.requestAnimationFrame\) return true;/.test(gsrc));
+ok('back on a page, a recent remembered picture keeps it until the usual repaint (PRE_KEEP; 2026-11-13: two changes at every page change)',
+   /PRE_KEEP = 10000/.test(gsrc) && /pre\.at = Date\.now\(\) - c\.at < PRE_KEEP \? Date\.now\(\) : c\.at;/.test(gsrc));
 ok('HkBase passes the card and direction to changed()', /hkGlass\.changed\(card, join\)/.test(readFile(HK_ROOT + '/frontend/cards/hk-base.js')));
 
 // The press loop, the row promotions, the hold of a view already painted and
