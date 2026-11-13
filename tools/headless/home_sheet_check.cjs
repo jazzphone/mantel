@@ -60,6 +60,9 @@ function sheetState() {
     })(),
     scroll: { top: body.scrollTop, h: body.scrollHeight, ch: body.clientHeight, sw: body.scrollWidth, cw: body.clientWidth },
     docW: document.scrollingElement.scrollWidth,
+    // the chip row's first chip and the column's left edge (a card's content, the Cameras heading)
+    chip0: sr ? box(deep(sr, 'hk-plate.chip').filter((e) => e.getClientRects().length)[0]) : null,
+    colL: sr ? box(sr.querySelector('.col')).l : null,
     focus: (() => { let a = document.activeElement; while (a && a.shadowRoot && a.shadowRoot.activeElement) a = a.shadowRoot.activeElement; return a ? a.tagName + '.' + a.className : null; })()
   };
 }
@@ -216,6 +219,8 @@ function sheetState() {
         // FIVE PILLS ACROSS where the window holds them, at the one sheet height (2026-11-12); fewer, whole, where it does not
         const across = { 1280: 5, 1180: 5, 1024: 4, 820: 3, 390: 2 }[w];
         if (w >= 1180) check(`${engine} ${sz}: five pills wide, 1070 x 680`, () => assert(Math.abs(s.sheet.w - 1070) <= 2 && Math.abs(s.sheet.h - 680) <= 2, JSON.stringify(s.sheet)));
+        check(`${engine} ${sz}: the first chip whole, on the column's edge`, () => assert(s.chip0 && Math.abs(s.chip0.l - s.colL) <= 1 &&
+          s.chip0.l >= s.body.l - 0.5, JSON.stringify([s.chip0, s.colL, s.body])));
         check(`${engine} ${sz}: ${across} pills across, whole`, () => assert.equal(s.across, across, JSON.stringify(s.pills)));
         check(`${engine} ${sz}: the generated Home's list -- the chips, the camera mosaic, Scenes, the rooms -- no clock, no pop-ups`, () => {
           ['hk-chips-card', 'hk-camera-mosaic-card', 'hk-scenes-card', 'hk-heading-card'].forEach((k) => assert(s.kinds.includes(k), k + ' ' + JSON.stringify(s.kinds)));
