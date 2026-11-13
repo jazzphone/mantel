@@ -54,6 +54,7 @@ Home app in the background. What the Home app (macOS 15 and 27) shows:
 A command-line program (Swift, about 900 lines) in a macOS virtual machine, run as a LaunchAgent in the logged-in
 session. It is not part of Mantel for Mac: it needs a Mac that is always on and signed into the household's Apple
 account, and the house's Proxmox host is.
+Its code, README and the VM script are their own repository, `jazzphone/homepod-timers-reader` (private).
 
 ### The virtual machine
 
