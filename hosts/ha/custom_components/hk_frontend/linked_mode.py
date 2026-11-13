@@ -85,7 +85,7 @@ from homeassistant.components.alarm_control_panel import (
 )
 from homeassistant.components.binary_sensor import BinarySensorEntity
 from homeassistant.components.camera import Camera, CameraEntityFeature
-from homeassistant.components.sensor import SensorEntity
+from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.core import HomeAssistant, callback
@@ -98,6 +98,7 @@ from homeassistant.helpers.storage import Store
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.event import async_call_later
+from homeassistant.util import dt as dt_util
 
 from .const import CONF_MANTEL_LINK, CONF_MANTEL_OWNERS, DOMAIN, SIGNAL_CONFIG
 from .mantel_link import LinkError, MantelLink, Refused, plain_target, ws_url
@@ -1017,7 +1018,15 @@ class LinkedSensor(LinkedEntity, SensorEntity):
     linked_platform = "sensor"
 
     @property
+    def device_class(self) -> SensorDeviceClass | None:
+        """`features.device_class` (2026-11-12): `timestamp` for a HomePod's next alarm (Mantel's phase 28), whose state
+        is an ISO time; anything else, none. (In `features`, which every linked side already carries as it is.)"""
+        return SensorDeviceClass.TIMESTAMP if self._features.get("device_class") == "timestamp" else None
+
+    @property
     def native_value(self) -> Any:
+        if self.device_class is SensorDeviceClass.TIMESTAMP:
+            return dt_util.parse_datetime(self._state) if isinstance(self._state, str) else None
         return self._state
 
     @property

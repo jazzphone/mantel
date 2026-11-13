@@ -1,6 +1,8 @@
 # Phase 28: HomePod timers in Mantel (plan, 2026-11-12)
 
-**Status: the reader is built and running; Mantel's side is a plan.** The reader runs in a macOS virtual machine on the
+**Status: the reader is built and running; Mantel's side (28.2, 28.3) is built and on `main`, not on the house.** The
+alarms' list on the Timers page is look A of [mockup/alarms.html](mockup/alarms.html) (the Clock app's list), built while
+the owner's pick is still open: B or C replace one method (`HkTimersCard._alarms`). See "As built" at the end. The reader runs in a macOS virtual machine on the
 house's Proxmox host and serves what it reads over HTTP (below). The owner's decisions are recorded at the end
 (2026-11-12, revised the same evening: the first version put the reader in Mantel for Mac and said a VM couldn't work).
 
@@ -159,3 +161,36 @@ every 1.5 s across the house. The VM: two to four cores busy (the Home app and i
 3. **They work like Mantel's timers,** the last minute included, with the same settings.
 4. **Pause, resume and cancel from Mantel:** yes.
 5. **Alarms:** yes, in the Timers sheet; how they look is still to design.
+
+## As built (28.2 and 28.3, 2026-11-12)
+
+- **The rules:** `hk_core/timers/homepod.py` (tests: `tests/test_hk_core_homepod_timers.py`): what the reader says, staleness
+  (`availability`: broken, or no good answer for 2 minutes; never "no timers"), identity (`match`: the same HomePod and label
+  ending within 5 s, then the same label paired by time left, so a pause or a resume between reads keeps the timer), how a
+  timer went (`how_gone`: within 5 s of its end it ended, else it was canceled), the helper's calls (`steps`: `timer.change`
+  keeps the helper's length, a restart only beyond it), room matching (`room_for`: the owner's pick, else the same name,
+  apostrophes and case aside), alarms (ids that survive a row moving, the next ring, a one-time alarm that went off).
+- **The server:** `features/homepod_timers.py` (tests: `tests/test_homepod_timers.py`). Helpers are `timer.hk_homepod_<n>`,
+  made as phase 21's are (`timer/create` under a fixed name, then its label) and followed in the `homepod_timers` table
+  (migration 0041). Mantel's own timer code skips them: they never ring. Nothing is mirrored with house commands off or
+  without an administrator's credential (Settings says so). One audit row per helper change, Mantel's.
+- **Commands:** the cards' own `timer.pause`, `timer.start` (no duration: resume) and `timer.cancel` on a HomePod's helper go
+  to the reader (`gateway.homepod_of`); a restart, more time or Finish is refused. An alarm's switch and Delete are
+  `script.homepod_alarm {alarm, action}`. Both are checked and audited as every command; a reader that is down refuses them
+  (`homepod_reader_unavailable`). Every wall tablet may see and control them (`rbac.py`).
+- **The connection:** Connections' third kind, `homepod`: the address and the token from the reader's config.json, tested
+  (status answers; a wrong token is refused by `POST /check` before it looks) and sealed as the others are.
+- **The screens:** sensor.running_quick_timers carries `homepod` (the reader's state, each HomePod timer's room and HomePod,
+  the alarms, the Home app rooms); each HomePod timer's `running` row says `source: "homepod"`. hk-timers.js reads it
+  (`homepod`, `homepodFeed`, `alarmAct`).
+- **Home Assistant:** through Mantel Link, while Mantel owns `house`: `sensor.<room>_<homepod>_next_alarm`, a timestamp
+  (`features.device_class`, which Mantel Link and HK Frontend's linked mode now read).
+- **Alarms on the Timers page** (`HkTimersCard._alarms`, look A): under Running, one plate, a row per alarm (the time large
+  and light, label, HomePod and room, repeat; an off alarm gray) with the iOS switch; Edit puts a red minus on each row,
+  and Delete asks first (`hkCards.confirmSheet`). Only while the reader is reading. No Stop: the Home app never shows a
+  ringing alarm.
+- **Checked:** `tools/headless/homepod_timers_check.py` (the Timers page, its keys reaching a stand-in reader, its sheet,
+  the alarms' switch and Delete, "unavailable", Settings) and the HomePod cases of `timer_slide_check.py`, at 1280 x 800, an iPad's and a phone's, both
+  engines.
+- **Not proven until 28.4:** a real Siri timer through the reader to a tablet; Pause from a tablet on a real HomePod; how often
+  the helper needs setting right (`steps`) against the reader's whole-second reads.

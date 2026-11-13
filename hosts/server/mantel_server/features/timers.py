@@ -30,6 +30,7 @@ from typing import Any, Callable
 from aiohttp import web
 
 from hk_core import timers as R
+from hk_core.timers import homepod as HP
 from hk_core.intercom.rooms import Call
 from hk_core.notifications import banner as NB
 
@@ -184,6 +185,9 @@ class Timers:
         except Exception:  # noqa: BLE001 -- no music set up
             pass
         attrs["rooms"] = sorted(({"id": a, "name": n or a} for a, n in names.items()), key=lambda x: x["name"])
+        homepod = self.app.get("homepod_timers")
+        if homepod is not None:
+            homepod.decorate(attrs)
 
     def settings_look(self) -> None:
         """A settings save, within a few seconds: every screen hears (Which Timers, where it rings), with no timer changing."""
@@ -216,7 +220,7 @@ class Timers:
             states[R.SENSOR] = {"s": str(n), "a": attrs, "lc": now, "lu": now}
             changed = changed | {R.SENSOR}
         for script, what in (("script.quick_timer_start", "Start a Quick Timer"), ("script.quick_timer_create", "Create a Named Quick Timer"),
-                             ("script.quick_timer_ring", "Stop a Ringing Timer")):
+                             ("script.quick_timer_ring", "Stop a Ringing Timer"), (f"script.{HP.ALARM_SCRIPT}", "Change a HomePod Alarm")):
             if script not in states:
                 now = self.clock()
                 self.hub.store.ours.add(script)
@@ -227,8 +231,8 @@ class Timers:
     def _follow(self, ignore: set[str], include: set[str]) -> None:
         states, now = self._states(), self.clock()
         for eid, st in list(states.items()):
-            if not eid.startswith("timer.") or not R.counts(eid, ignore, include) or eid in self.starting:
-                continue
+            if not eid.startswith("timer.") or not R.counts(eid, ignore, include) or eid in self.starting or R.is_homepod(eid):
+                continue                     # (a HomePod's timer is the HomePod's to ring: homepod_timers.py follows it)
             row, s = self.rows.get(eid), st.get("s")
             if s == "active" or s == "paused":
                 end = R.when((st.get("a") or {}).get("finishes_at")) if s == "active" else None

@@ -123,8 +123,8 @@ class Watch:
         self.clock = clock
 
     def look(self) -> None:
-        for step in (self.home_assistant, self.music_assistant, self.mantel_link, self.protect, self.backups,
-                     self.disks, self.credentials):
+        for step in (self.home_assistant, self.music_assistant, self.mantel_link, self.protect, self.homepod_reader,
+                     self.backups, self.disks, self.credentials):
             try:
                 step()
             except Exception:  # noqa: BLE001 -- one source never stops the rest
@@ -147,6 +147,11 @@ class Watch:
     def music_assistant(self) -> None:
         ma = self.app.get("ma")
         set_to(self.center, "ma.lost", "", ma is not None and not ma.connected.is_set())
+
+    def homepod_reader(self) -> None:
+        """The HomePod timer reader unavailable for 10 minutes (homepod_timers.py); cleared when it answers."""
+        host = self.app.get("homepod_timers")
+        set_to(self.center, "homepod.lost", "", host is not None and host.alert_due())
 
     def mantel_link(self) -> None:
         """Mantel Link not answering while Home Assistant is connected: only once it has been paired (a Mantel

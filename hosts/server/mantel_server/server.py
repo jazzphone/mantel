@@ -988,6 +988,9 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     # Phase 21: timers people set, made as Home Assistant helpers (timers.py), reached only through the gateway
     from .features import timers as timers_host
     timers_host.register(app, hub)
+    # Phase 28: the HomePods' timers and alarms, read by the HomePod timer reader and mirrored as helpers (homepod_timers.py)
+    from .features import homepod_timers as homepod_timers_host
+    homepod_timers_host.register(app, hub)
     # 2026-11-09: a vacuum's water tank that ran dry, held until cleared (vacuum_water.py)
     from .features import vacuum_water as vacuum_water_host
     vacuum_water_host.register(app, hub)

@@ -31,6 +31,8 @@
   var FONT = '"SF Pro","SF Pro Display",-apple-system,system-ui,"Roboto",sans-serif';
   var LAST = 60, RED = 10;                     // the last minute; the ring reddens for its last ten seconds
   var ORANGE = '#ff9f0a', RED_C = '#ff453a', PAUSED = 'rgba(255,255,255,.5)';
+  // a HomePod's timer (phase 28): its glyph, a little under the line's cap height, before its name or where it rings
+  var HP_GLYPH = '<hk-icon class="tmhp" icon="hk:homepod" aria-hidden="true"></hk-icon>';
   var SAMPLE = [{ id: 'sample.1', name: 'Pasta', left: 738, total: 900 }, { id: 'sample.2', name: 'Oven', left: 1520, total: 2700 },
                 { id: 'sample.3', name: 'Laundry', left: 1390, total: 2700, paused: true }];
 
@@ -84,6 +86,7 @@
     '.tm .tmsn{font-size:calc(17px * var(--z));font-weight:600;margin-top:calc(9px * var(--z));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '.tm .tmse{font-size:calc(13.5px * var(--z));opacity:.62;margin-top:calc(1px * var(--z));white-space:nowrap}',
     '.tm .tmlede{font-size:calc(21px * var(--z));font-weight:500;line-height:1.35;opacity:.88}',
+    '.tm .tmhp{display:inline-block;vertical-align:-.12em;width:.95em;height:.95em;--mdc-icon-size:.95em;margin-right:.3em}',
     '.tm .tmlede b{display:inline-block;vertical-align:.08em;margin-right:.45em;width:.55em;height:.55em;border-radius:50%;background:#ff9f0a;animation:tmglow 1.1s ease-in-out infinite}',
     '.tm[done] circle.arc{animation:tmglow 1.6s ease-in-out infinite}',
     '@keyframes tmglow{50%{opacity:.55}}',
@@ -247,7 +250,7 @@
       return '<div class="tmsb' + (left >= 3600 ? ' long' : '') + '"><div class="tmsbr"><svg viewBox="0 0 220 220" aria-hidden="true">' + circle(r.id, 92, 24, color, fraction(r, left, false)) +
         '</svg>' +
         '<div class="tmsd" data-v="' + esc(r.id) + '">' + txt + '</div></div>' +
-        '<div class="tmsn">' + esc(r.name) + '</div><div class="tmse">' + (r.paused ? 'Paused' : 'Ends ' + esc(endsAt(r.end))) + '</div></div>';
+        '<div class="tmsn">' + (r.homepod ? HP_GLYPH : '') + esc(r.name) + '</div><div class="tmse">' + (r.paused ? 'Paused' : 'Ends ' + esc(endsAt(r.end))) + '</div></div>';
     }
     // THE WHOLE OF IT, only when what it holds changes: who, in what order, paused or not, the last minute's size
     function buildDone() {
@@ -302,6 +305,8 @@
     // Rings on... under its name: on Mantel, which says where. Nothing in Home Assistant, where it doesn't ring.
     /** @param {any} hero */
     function ledeOf(hero) {
+      // a HomePod's timer (phase 28): the HomePod rings it, wherever the screen is
+      if (hero.homepod) return '<div class="tmlede">' + HP_GLYPH + 'Rings on the ' + esc(window.hkTimers.homepodWords(hero.homepod)) + '.</div>';
       var q = client && client.states && client.states['sensor.running_quick_timers'], run = (q && q.attributes && q.attributes.running) || [];
       var row = run.filter(function (r) { return r.entity_id === hero.id; })[0];
       if (!row || row.tablet === undefined) return '';

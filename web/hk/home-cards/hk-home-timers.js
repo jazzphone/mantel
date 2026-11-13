@@ -115,6 +115,31 @@
           // sit at the right of it: pages cost no height, and the House timers
           // under the grid stay level with the keypad however many there are.
           '.hrow{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}',
+          // THE HOMEPODS' ALARMS (phase 28; docs/phase28/mockup/alarms.html, look A): the Clock app's list on one plate, under
+          // Running. A row: the time large and light (the countdown's weight), a line under it, the iOS switch; Edit puts a red
+          // minus on each row, and Delete asks first. An alarm that is off goes gray.
+          '.al{margin-top:20px;max-width:600px}',
+          '.al .hrow{align-items:baseline}',
+          '.al .ed{all:unset;cursor:pointer;font-size:15px;font-weight:600;color:var(--al-tint,#ff9f0a);padding:10px 4px;margin:-10px 0;-webkit-tap-highlight-color:transparent}',
+          '.al .pl{border-radius:' + M.radius + ';' + M.glass + ';border:' + M.border + ';box-shadow:' + M.shSm + ';padding:0 18px}',
+          '.al .ar{display:flex;align-items:center;gap:14px;min-height:78px;border-top:1px solid ' + window.hkCards.v('line') + '}',
+          '.al .ar:first-child{border-top:0}',
+          '.al .aw{flex:1;min-width:0}',
+          '.al .at{font-size:34px;font-weight:300;letter-spacing:-0.6px;line-height:1.1;font-variant-numeric:tabular-nums;color:' + window.hkCards.v('ink') + '}',
+          '.al .at small{font-size:17px;font-weight:400;letter-spacing:0;margin-left:3px}',
+          '.al .as{display:flex;align-items:center;gap:5px;font-size:13px;font-weight:500;color:' + window.hkCards.v('ink-2') + ';white-space:nowrap;overflow:hidden}',
+          '.al .as span{overflow:hidden;text-overflow:ellipsis}',
+          '.al .as hk-icon{flex:none;--mdc-icon-size:14px;width:14px;height:14px}',
+          '.al .ar.off .at,.al .ar.off .as{color:' + window.hkCards.v('ink-3') + '}',
+          '.al .sw{-webkit-appearance:none;appearance:none;flex:none;width:51px;height:31px;border-radius:16px;margin:0;position:relative;cursor:pointer;',
+          '  background:rgba(120,120,128,0.32);transition:background .2s}',
+          '.al .sw::after{content:"";position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;',
+          '  box-shadow:0 2px 6px rgba(0,0,0,0.3);transition:transform .2s}',
+          '.al .sw:checked{background:#34c759}.al .sw:checked::after{transform:translateX(20px)}',
+          '.al .mi{all:unset;flex:none;width:44px;height:44px;margin:0 -11px 0 -11px;display:flex;align-items:center;justify-content:center;cursor:pointer}',
+          '.al .mi i{width:22px;height:22px;border-radius:50%;background:#ff3b30;position:relative}',
+          '.al .mi i::after{content:"";position:absolute;left:5px;right:5px;top:10px;height:2px;border-radius:1px;background:#fff}',
+          '@media (prefers-reduced-motion: reduce){.al .sw,.al .sw::after{transition:none}}',
           // The dots: 24 px targets around an 8 px dot. Swiping is the way;
           // a dot is a jump to that page.
           '.dots{display:flex;justify-content:flex-end;gap:2px;height:24px;margin-top:5px}',
@@ -160,7 +185,68 @@
           var nm = t.label_entity ? (self._st(t.label_entity) || {}).state : '';
           return [t.entity, st.state, a.finishes_at || '', a.remaining || '',
                   a.duration || '', nm || ''].join('|');
-        }).join(';') + (window.hkTimers ? ';M' : ';-');
+        }).join(';') + (window.hkTimers ? ';M' : ';-') + ';' + this._hpState() + ';' +
+          this._alarmList().map(function (a) { return a.id + (a.enabled ? '+' : '-') + a.room_name; }).join(',') + (this._editAl ? ';E' : '');
+      }
+      // THE HOMEPOD TIMER READER (phase 28): while it is down the page says so, under Running -- never "nothing is running"
+      // alone, which a HomePod's timer may be
+      _hpState() { var T = window.hkTimers; return T && T.homepodFeed ? T.homepodFeed(this.client && this.client.states).state : 'off'; }
+      // the alarms, as Mantel says on the timers' sensor; none in Home Assistant, or with the reader down (it says so above)
+      _alarmList() {
+        var T = window.hkTimers, f = T && T.homepodFeed ? T.homepodFeed(this.client && this.client.states) : null;
+        return f && f.state === 'ok' && this._config.alarms !== false ? f.alarms || [] : [];
+      }
+      _alarms() {
+        var self = this, list = this._alarmList(), T = window.hkTimers;
+        if (!list.length) { this._editAl = false; return null; }
+        var box = document.createElement('div');
+        box.className = 'al';
+        box.style.setProperty('--al-tint', this._tint());
+        var hr = document.createElement('div'); hr.className = 'hrow';
+        var hd = document.createElement('div'); hd.className = 'head'; hd.textContent = 'Alarms';
+        var ed = document.createElement('button'); ed.className = 'ed'; ed.type = 'button'; ed.textContent = this._editAl ? 'Done' : 'Edit';
+        ed.addEventListener('click', function (e) { e.stopPropagation(); self._editAl = !self._editAl; self._sig = null; self._render(); });
+        hr.appendChild(hd); hr.appendChild(ed); box.appendChild(hr);
+        var pl = document.createElement('div'); pl.className = 'pl'; pl.setAttribute('role', 'list');
+        list.forEach(function (a) {
+          var r = document.createElement('div');
+          r.className = 'ar' + (a.enabled ? '' : ' off'); r.setAttribute('role', 'listitem');
+          var m = /^(.*?)\s*([AP]M)$/i.exec(a.time || ''), where = (a.room_name ? a.room_name + ' ' : '') + (a.homepod || 'HomePod');
+          var words = [a.label || 'Alarm', where].concat(a.repeats ? [a.repeats] : []).join(' \u00B7 ');
+          if (self._editAl) {
+            var mi = document.createElement('button'); mi.className = 'mi'; mi.type = 'button';
+            mi.setAttribute('aria-label', 'Delete the ' + a.time + ' alarm');
+            mi.appendChild(document.createElement('i'));
+            mi.addEventListener('click', function (e) {
+              e.stopPropagation();
+              window.hkCards.confirmSheet('Delete the ' + a.time + ' ' + (a.label || 'Alarm') + '?', function () {
+                T.alarmAct(self.client, a.id, 'delete');
+              }, { yes: 'Delete', destructive: true, detail: 'On the ' + where + '. It can\u2019t be undone here.' });
+            });
+            r.appendChild(mi);
+          }
+          var w = document.createElement('div'); w.className = 'aw';
+          w.innerHTML = '<div class="at">' + esc(m ? m[1] : a.time) + (m ? '<small>' + esc(m[2].toUpperCase()) + '</small>' : '') + '</div>' +
+            '<div class="as"><hk-icon icon="hk:homepod"></hk-icon><span>' + esc(words) + '</span></div>';
+          r.appendChild(w);
+          if (!self._editAl) {
+            var sw = document.createElement('input'); sw.type = 'checkbox'; sw.className = 'sw'; sw.setAttribute('role', 'switch');
+            sw.checked = !!a.enabled; sw.setAttribute('aria-label', 'The ' + a.time + ' alarm');
+            sw.addEventListener('click', function (e) { e.stopPropagation(); });
+            sw.addEventListener('change', function () { T.alarmAct(self.client, a.id, sw.checked ? 'on' : 'off'); });
+            r.appendChild(sw);
+          }
+          pl.appendChild(r);
+        });
+        box.appendChild(pl);
+        return box;
+      }
+      _hpNote() {
+        if (this._hpState() !== 'unavailable') { return null; }
+        var d = document.createElement('div');
+        d.className = 'empty hp-down';
+        d.textContent = 'HomePod timers unavailable';
+        return d;
       }
 
       _boot() {
@@ -266,6 +352,10 @@
         var dur = T ? T.pretty((st.attributes || {}).duration) : '';
         var word = s === 'active' ? 'Running' : s === 'paused' ? 'Paused' : 'Ready';
         var sub = dur ? word + ' · ' + dur : word;
+        // A HOMEPOD'S TIMER (phase 28): its glyph, and where it rings for the sub-line ("Paused · Kitchen HomePod");
+        // its length is the time it had when Mantel first saw it, so it isn't shown
+        var hp = T && T.homepod ? T.homepod(this.client && this.client.states, t.entity) : null;
+        if (hp) { sub = word + ' · ' + T.homepodWords(hp); t = Object.assign({}, t, { glyph: 'hk:homepod' }); }
 
         var d = document.createElement('div');
         d.className = 'head';
@@ -315,10 +405,23 @@
         count.innerHTML = (T && T.html(st.attributes, { fill: this._tint() })) || blank;
         c.appendChild(count);
 
+        var s = st.state;
+        // A HOMEPOD'S TIMER (phase 28): Pause or Resume and Cancel, each across two of the four tracks -- the HomePod does
+        // those and nothing else (no more time, no restart, no Finish). They go to the HomePod, through Mantel. In Home
+        // Assistant, which can't reach the HomePod, it is only shown.
+        var T = window.hkTimers, hp = T && T.homepod ? T.homepod(this.client && this.client.states, e) : null;
+        if (hp) {
+          if (!hp.controls) { return c; }
+          var pz = this._btn('pause', s === 'active' ? 'mdi:pause' : 'mdi:play', s === 'active' ? 'Pause' : 'Resume',
+            function () { T.act(e, s === 'active' ? 'pause' : 'resume'); });
+          var cx = this._btn('finish', 'mdi:close', 'Cancel', function () { T.act(e, 'cancel'); });
+          pz.style.gridArea = '3 / 1 / 4 / 3'; cx.style.gridArea = '3 / 3 / 4 / 5';
+          c.appendChild(pz); c.appendChild(cx);
+          return c;
+        }
         // 1. Start / Pause / Resume. One key does all three: timer.start resumes
         //    a paused timer and runs an idle one at its configured duration, so
         //    only the ACTIVE case needs the other service.
-        var s = st.state;
         c.appendChild(this._btn('pause',
           s === 'active' ? 'mdi:pause' : 'mdi:play',
           s === 'active' ? 'Pause' : s === 'paused' ? 'Resume' : 'Start',
@@ -364,8 +467,15 @@
         this._sig = sig;
 
         var running = this._running();
-        if (this._config.fit) { this._renderFit(running); return; }
+        if (this._config.fit) {
+          this._renderFit(running);
+          var al = this._alarms();
+          if (al) { this._root.appendChild(al); }
+          return;
+        }
         this._root.innerHTML = '';
+        var down = this._hpNote();
+        if (down) { this._root.appendChild(down); }
         var grid = document.createElement('div');
         grid.className = 'grid';
         for (var i = 0; i < running.length; i++) {
@@ -382,6 +492,8 @@
                           'Nothing is running. Set one above.';
           this._root.appendChild(e);
         }
+        var alarms = this._alarms();
+        if (alarms) { this._root.appendChild(alarms); }
       }
       // THE SHAPE FOR THIS MANY -- see `fit` in the CSS. Exposed for the tests.
       static shape(n) {
@@ -402,11 +514,13 @@
           hrow.appendChild(hd);
           this._root.appendChild(hrow);
         }
+        var down = this._hpNote();
+        if (down) { this._root.appendChild(down); }
         if (!n) {
           var e = document.createElement('div');
           e.className = 'empty';
           e.textContent = this._config.empty_text || 'Nothing is running.';
-          this._root.appendChild(e);
+          if (!down) { this._root.appendChild(e); }
           return;
         }
         if (n <= 6) {

@@ -481,6 +481,7 @@
       '.dial .w{position:relative;font-size:13px;line-height:18px;color:' + v('ink-2') + ';text-align:center;max-width:150px}',
       // the commands: the vacuum sheet's round 72s with their captions
       '.cmds{align-self:stretch;display:grid;grid-template-columns:repeat(4,1fr);gap:12px}',
+      '.cmds.two{grid-template-columns:repeat(2,1fr)}',
       '.cmds button{display:flex;flex-direction:column;align-items:center;gap:8px;border:0;background:none;color:' + v('ink') + ';',
       '  font:inherit;cursor:pointer;padding:0;-webkit-tap-highlight-color:transparent}',
       '.cmds .ci{width:72px;height:72px;border-radius:' + C.R.capsule('72px') + ';display:flex;align-items:center;justify-content:center;',
@@ -523,6 +524,8 @@
       '@media (prefers-reduced-motion: reduce){.cmds .ci{transition:none}}'
     ].join('');
 
+    // A HOMEPOD'S TIMER (phase 28): who it is, from the sensor Mantel keeps (hk-timers.js homepod), or null
+    var hpOf = function (h, id) { var T = window.hkTimers; return T && T.homepod ? T.homepod(h && h.states, id) : null; };
     class TimerPanel extends U.Panel {
       static get CSS() { return U.PANEL_CSS + CSS; }
       hkWidthKind() { return 'timer'; }
@@ -537,7 +540,7 @@
         d.icon.style.color = on ? 'rgba(0,0,0,0.82)' : TINT;
         // h: the sheet's client (hk-detail.js paintHeader)
         if (h.bindStateIcon) h.bindStateIcon(d.icon, s); else d.icon.stateObj = s;
-        d.icon.icon = U.headIcon(d.look, s) || (s.attributes || {}).icon || 'mdi:timer-outline';
+        d.icon.icon = (hpOf(h, d.id) ? 'hk:homepod' : '') || U.headIcon(d.look, s) || (s.attributes || {}).icon || 'mdi:timer-outline';
         // the tile's name, else the accessory's, else the timer's own less "- Timer"
         d.tt.textContent = (d.src && d.src.name) || U.accName(d.id) || nameOf(h, d.id);
         return true;
@@ -579,6 +582,7 @@
         else if (what === 'plus') call = this._svc('timer', 'start', { duration: this._hms(this._left(s) + 300) });
         else if (what === 'restart') call = this._svc('timer', 'start', { duration: (s.attributes || {}).duration || '0:00:00' });
         else if (what === 'finish') call = this._svc('timer', 'finish');
+        else if (what === 'cancel') call = this._svc('timer', 'cancel');           // a HomePod's (phase 28)
         Promise.resolve(call).then(function (ok) { self._why = ok === false ? 'Could not reach Home Assistant' : ''; self._kick(); });
       }
       _render() {
@@ -595,12 +599,12 @@
           });
         }
         this._history();
-        var na = this._na(s), st = s.state, a = s.attributes || {}, total = secs(a.duration);
+        var na = this._na(s), st = s.state, a = s.attributes || {}, total = secs(a.duration), hp = hpOf(h, this._id);
         var tp = this._root.querySelector('.tp');
         tp.className = 'tp ' + (st === 'active' ? 'run' : st === 'paused' ? 'held' : 'idle');
         // THE DIAL: rebuilt only when what it counts from changes, so the
         // countdown keeps its own clock between
-        var key = st + '|' + (a.finishes_at || '') + '|' + (a.remaining || '') + '|' + (a.duration || '');
+        var key = st + '|' + (a.finishes_at || '') + '|' + (a.remaining || '') + '|' + (a.duration || '') + '|' + !!hp;
         if (this._dialKey !== key) {
           this._dialKey = key;
           var end = Date.parse(a.finishes_at), cd, words;
@@ -615,6 +619,8 @@
             cd = '<div class="cd">' + (total ? clock(total) : '—') + '</div>';
             words = na ? 'Unavailable' : total ? 'Ready · ' + length(total) : 'Ready';
           }
+          // a HomePod's: where it rings, not a length Mantel can't know (it's what was left when Mantel first saw it)
+          if (hp && (st === 'active' || st === 'paused')) words = (st === 'active' ? 'Ends ' + esc(hm(end)) : 'Paused') + ' \u00b7 ' + esc(window.hkTimers.homepodWords(hp));
           var dial = this._root.querySelector('.dial');
           dial.style.setProperty('--hk-left', st === 'idle' || !total ? '1' : String(Math.max(0, Math.min(1, this._left(s) / total)).toFixed(2)));
           dial.innerHTML = '<svg viewBox="0 0 200 200" aria-hidden="true"><circle class="tr" cx="100" cy="100" r="92"/><circle class="fl" cx="100" cy="100" r="92"/></svg>' +
@@ -627,11 +633,16 @@
             '<span class="ci"><hk-icon icon="' + icon + '"></hk-icon></span><span class="cl">' + label + '</span></button>';
         };
         var cmds = st === 'active' ? btn('toggle', 'mdi:pause', 'Pause') : btn('toggle', 'mdi:play', st === 'paused' ? 'Resume' : 'Start', true);
-        cmds += idle ? '<button disabled aria-hidden="true" tabindex="-1"><span class="ci"><hk-icon icon="mdi:plus"></hk-icon></span><span class="cl">5 min</span></button>'
-                     : btn('plus', 'mdi:plus', '5 min');
-        cmds += btn('restart', 'mdi:restart', 'Restart');
-        cmds += idle ? '<button disabled aria-hidden="true" tabindex="-1"><span class="ci"><hk-icon icon="mdi:check"></hk-icon></span><span class="cl">Finish</span></button>'
-                     : btn('finish', 'mdi:check', 'Finish');
+        // A HOMEPOD'S TIMER (phase 28): what the HomePod does, Pause or Resume and Cancel; only shown where Mantel can't reach it
+        if (hp) cmds = hp.controls && !idle ? cmds + btn('cancel', 'mdi:close', 'Cancel') : '';
+        else {
+          cmds += idle ? '<button disabled aria-hidden="true" tabindex="-1"><span class="ci"><hk-icon icon="mdi:plus"></hk-icon></span><span class="cl">5 min</span></button>'
+                       : btn('plus', 'mdi:plus', '5 min');
+          cmds += btn('restart', 'mdi:restart', 'Restart');
+          cmds += idle ? '<button disabled aria-hidden="true" tabindex="-1"><span class="ci"><hk-icon icon="mdi:check"></hk-icon></span><span class="cl">Finish</span></button>'
+                       : btn('finish', 'mdi:check', 'Finish');
+        }
+        this._root.querySelector('.cmds').classList.toggle('two', !!hp);
         C.morph(this._root.querySelector('.cmds'), cmds);
         this._root.querySelector('.why').textContent = this._why || '';
         // Past 7 Days

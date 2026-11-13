@@ -16,7 +16,11 @@ const CASES = [
   ['last', 'Pasta:48:900', { rings: 0, last: true }],
   ['last-many', 'Oven:22:2700,Pasta:48:900,Laundry:1390:2700', { rings: 2, last: true }],
   ['red', 'Pasta:8:900', { rings: 0, last: true, red: true }],
-  ['long-name', 'A Very Long Timer Name That Goes On And On:738:900,Another Quite Long Timer Name Here:1500:2700', { rings: 1, last: false }]
+  ['long-name', 'A Very Long Timer Name That Goes On And On:738:900,Another Quite Long Timer Name Here:1500:2700', { rings: 1, last: false }],
+  // A HOMEPOD'S TIMER (phase 28): the same slide and the same last minute; the HomePod's glyph, and it rings on the HomePod
+  ['homepod-one', 'Pasta:738:900', { rings: 0, last: false, hp: 'hero' }, '&hp=0'],
+  ['homepod-sub', 'Oven:300:900,Pasta:738:900,Rice:2240:3000', { rings: 2, last: false, hp: 'sub' }, '&hp=1'],
+  ['homepod-last', 'Pasta:48:900', { rings: 0, last: true, hp: 'hero' }, '&hp=0']
 ];
 
 // [tag, timers, rings, query]: Time's Up
@@ -59,8 +63,8 @@ const measure = () => {
     for (const [size, W, H] of input.sizes) {
       const ctx = await b.newContext({ viewport: { width: W, height: H } }), p = await ctx.newPage();
       const errs = []; p.on('pageerror', (e) => errs.push(e.message)); p.on('console', (m) => { if (m.type() === 'error') errs.push(m.text()); });
-      for (const [tag, timers, want] of CASES) {
-        await p.goto(`${input.origin}/timer_slide_harness.html?w=${W}&h=${H}&timers=${encodeURIComponent(timers)}`);
+      for (const [tag, timers, want, q] of CASES) {
+        await p.goto(`${input.origin}/timer_slide_harness.html?w=${W}&h=${H}&timers=${encodeURIComponent(timers)}${q || ''}`);
         await p.waitForFunction('window.__ready === true');
         const m = await p.evaluate(measure), t = `${eng} ${size} ${tag}`;
         say(m.ok === true, `${t}: it draws`);
@@ -71,7 +75,13 @@ const measure = () => {
         say(m.last === want.last, `${t}: the last minute's look ${want.last ? 'on' : 'off'}`, m.last);
         if (want.red) say(m.stroke === '#ff453a', `${t}: the ring red for its last ten seconds`, m.stroke);
         say(!m.names.includes('Nap'), `${t}: a House Timer never shows`, m.names);
-        if (input.shots && ['two', 'four', 'last-many', 'one'].includes(tag)) await p.screenshot({ path: `${input.shots}/${eng}-${size}-${tag}.png` });
+        if (want.hp) {
+          const hp = await p.evaluate(() => ({ lede: (document.querySelector('.tmread .tmlede') || {}).textContent || '', hero: !!document.querySelector('.tmread > .tmlede .tmhp'),
+            sub: [...document.querySelectorAll('.tmsb .tmsn')].filter((n) => n.querySelector('.tmhp')).map((n) => n.textContent) }));
+          if (want.hp === 'hero') say(hp.hero && hp.lede === 'Rings on the Kitchen HomePod.', `${t}: the HomePod's glyph, and it rings on the HomePod`, hp);
+          else say(hp.sub.length === 1 && hp.sub[0] === 'Pasta' && !hp.hero, `${t}: the small ring's HomePod glyph`, hp);
+        }
+        if (input.shots && ['two', 'four', 'last-many', 'one', 'homepod-sub', 'homepod-last'].includes(tag)) await p.screenshot({ path: `${input.shots}/${eng}-${size}-${tag}.png` });
       }
       for (const [tag, timers, rings, q] of DONE) {
         await p.goto(`${input.origin}/timer_slide_harness.html?w=${W}&h=${H}&room=kitchen&timers=${encodeURIComponent(timers)}&rings=${encodeURIComponent(rings.join(','))}${q || ''}`);
