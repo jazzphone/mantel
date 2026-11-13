@@ -105,13 +105,19 @@ of scenes, so a new scene is sorted the same way.
    none of Pre-rendered's hard edge where its pinned picture starts. Screen changes failed: the last page's glass for
    100-150 ms (Pre-rendered's: 100-350 ms on the cards, 0.7 s on the tab bar), a fault of the picture's timing that both
    share. Fixed in hk-glass (a picture worn only while the address, the sky and the picture agree;
-   `pre_glass_motion_check` checks every frame) and run again: all three modes the same in every frame, both ways. Not
-   yet run on the emulator; the owner's call whether that passes the gate.
+   `pre_glass_motion_check` checks every frame) and run again: all three modes the same in every frame, both ways.
+   **Sheets, 2026-11-13, on the Loft** (the Lamp's sheet, Weather scrolled down and back, the Home sheet; Shared Layer and
+   the frost picture recorded): opening, scrolling and closing the same in both, no stray frost, outline or old picture.
+   But a sheet isn't hk-glass: each panel blurs live behind itself (`backdrop-filter: blur(34px)`), so this only shows the
+   page's glass around a sheet. Over a sky the app draws, a sheet's live blur would see the see-through page and no sky,
+   so step 2 has to cover sheets too. The emulator half is skipped (the Loft is the tablet that runs it first); the frost
+   picture was left on the Loft for the owner to look at (until the page reloads).
 1. **The hand-over part in hk-sky**, moved over from the prototype, with node and headless tests: the scene it hands
    over for a fixed sky (parts, keyframes, timing), what counts as busy, the signatures (an unchanged part keeps its
    picture), crossings finished on time, the sky handed back when calm, nothing at all in Home Assistant's host.
 2. **hk-glass's frost-picture mode**, with a test that its layers wear the picture and no live blur while the sky is
-   handed over, and are back to the look's own glass after.
+   handed over, and are back to the look's own glass after. Sheets too: their panels blur live behind themselves, so
+   while the sky is handed over they wear the same picture (or the sky comes back to the page while a sheet is up).
 3. **`hkShell.skyPlayer()`** in both shells and `hk-shell.d.ts`; the app's bridge answers it.
 4. **The app**: the bridge and the player from the prototype, the injected script gone, the switch read from the
    tablet's settings, 30 frames a second (decision 2).
