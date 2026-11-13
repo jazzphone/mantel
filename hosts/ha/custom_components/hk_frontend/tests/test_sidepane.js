@@ -301,6 +301,10 @@ ok('the camera\'s still rests while nobody can see it: black, hidden, the screen
 ok('...and is downloaded once, shown from that copy, the one before let go after a while',
    /return fetch\(url, \{ credentials: 'same-origin', cache: 'no-store' \}\)/.test(src) && /stillBlob\(url\)\.then\(function \(shown\)/.test(src) &&
    /setTimeout\(function \(\) \{ URL\.revokeObjectURL\(was\); \}, BLOB_KEEP_MS\)/.test(src));
+// (2026-11-13: the page stays live with a wall tablet's display off; the pane redrew for every update behind the black)
+ok('under any black the pane follows the house every ten seconds, not every second; the black lifting draws it at once',
+   /wait = \(darkNow\(\) \? DARK_MS : 1000\) - \(now - lastPush\)/.test(src) && /var DARK_MS = 10000;/.test(src) &&
+   /addEventListener\('hk-black', function \(e\) \{\s*if \(e && e\.detail && e\.detail\.on\) return;\s*if \(pushLate\) \{ clearTimeout\(pushLate\); pushLate = 0; \}\s*lastPush = Date\.now\(\); soon\(\);/.test(src));
 // (as a drawer from the section since 2026-11-01: the player risen to the pane's top, the tabs under it)
 ok('...Speakers, Browse and Up Next open the screensaver\'s panel over the pane, its three tabs (no Volume since 2026-11-12)',
   /musicPanel\(this, act === 'spk' \? 'speakers' : act === 'queue' \? 'queue' : 'browse', b\.closest\('\[data-k="now_playing"\]'\), 'drawer'\)/.test(src) &&

@@ -284,6 +284,20 @@ settle().then(function () {
   var c3 = current;
   dispatchEvent(new CustomEvent('hk-client-update'));
   ok('a client update goes to the view shown only', cur.cards[0].got === c3 && homeEl.got === c2);
+  // under the black (a wall tablet's page stays live with its display off): updates wait, the black lifting feeds the newest
+  var isBlack = true;
+  window.hkSaver = { black: function () { return isBlack; } };
+  current = window.hkHostClient.from(house({}));
+  var cDark = current;
+  dispatchEvent(new CustomEvent('hk-client-update'));
+  ok('under the black a client update waits (no card redrawn behind it)', cur.cards[0].got === c3 && vh.client() === cDark);
+  dispatchEvent(new CustomEvent('hk-black', { detail: { on: true } }));
+  ok('...going black again changes nothing', cur.cards[0].got === c3);
+  isBlack = false;
+  dispatchEvent(new CustomEvent('hk-black', { detail: { on: false } }));
+  ok('...the black lifting feeds the view the newest at once', cur.cards[0].got === cDark);
+  delete window.hkSaver;
+  c3 = cDark;
   history.back();
   return settle().then(function () { return c3; });
 }).then(function (c3) {

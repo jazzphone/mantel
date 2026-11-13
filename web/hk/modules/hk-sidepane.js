@@ -401,8 +401,12 @@
   // (...and one more at the end of the second when a push came too soon: a Status coming up as its entity changes --
   // a pane with nothing showing has no ticking second to catch it, and a quiet house may not push again for long)
   var lastPush = 0, pushLate = 0;
+  // (under any black, every DARK_MS: nobody sees the pane, 2026-11-13 -- the page stays live with the display off now;
+  // the black lifting draws it at once, hk-black below)
+  var DARK_MS = 10000;
+  function darkNow() { var S = window.hkSaver; try { return !!(S && S.black && S.black()); } catch (e) { return false; } }
   function pushed() {
-    var now = Date.now(), wait = 1000 - (now - lastPush);
+    var now = Date.now(), wait = (darkNow() ? DARK_MS : 1000) - (now - lastPush);
     if (wait > 0) { if (!pushLate) pushLate = setTimeout(function () { pushLate = 0; pushed(); }, wait); return; }
     lastPush = now; soon();
   }
@@ -416,6 +420,11 @@
     window.addEventListener('hk-saver', soon);
     window.addEventListener('hk-module-ready', soon);
     window.addEventListener('hk-client-update', pushed);
+    window.addEventListener('hk-black', function (e) {
+      if (e && e.detail && e.detail.on) return;
+      if (pushLate) { clearTimeout(pushLate); pushLate = 0; }
+      lastPush = Date.now(); soon();
+    });
     // the look changing (a setting, the slow tablets' ladder): the material
     try { new MutationObserver(soon).observe(document.documentElement, { attributes: true, attributeFilter: ['data-hk-glass'] }); } catch (e) { /* none */ }
     window.addEventListener('hk-view-ready', function (e) {

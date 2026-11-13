@@ -152,4 +152,32 @@ const releaseAway = held; held = null; releaseAway.forEach((fn) => realTimeout(f
 await tick(30);
 back.afterBackoff = sockets.length - awayBefore;                     // the held back-off, run late, opens no second one
 
-console.log(JSON.stringify(Object.assign(first, { wake, healthy, visible, back, unhandled })));
+// FROZEN, THEN RESUMED: a page frozen a long while lets its socket go at once and opens a new one (no ping, no backlog
+// read); a short freeze is a wake like any other (one ping, the socket kept)
+answerPings = true;
+pg = page();
+const frozen = new Hub();
+let frozenBack = 0;
+frozen.onReconnect = () => { frozenBack++; };
+await frozen.connect();
+frozen.subscribe(['light.loft'], [], false);
+const frozenBefore = sockets.length;
+const frozenWs = sockets[frozenBefore - 1];
+const realNow = Date.now;
+pg.fire('freeze');
+Date.now = () => realNow() + 60000;
+pg.fire('resume');
+Date.now = realNow;
+await until(() => frozenBack > 0);
+const resumed = { closed: !!frozenWs.closedByPage, pinged: pings(frozenWs), newSockets: sockets.length - frozenBefore,
+                  reconnected: frozenBack, resent: sockets[sockets.length - 1].sent.filter((m) => m.type === 'subscribe') };
+pg = page();
+const brief = new Hub();
+await brief.connect();
+const briefBefore = sockets.length;
+const briefWs = sockets[briefBefore - 1];
+pg.fire('freeze'); pg.fire('resume');
+await tick(30);
+resumed.brief = { closed: !!briefWs.closedByPage, pinged: pings(briefWs), newSockets: sockets.length - briefBefore };
+
+console.log(JSON.stringify(Object.assign(first, { wake, healthy, visible, back, resumed, unhandled })));
