@@ -28,7 +28,7 @@
     //   3. Else none: a desk, a phone -- no screensaver, no idle return.
     // A server from before 1.14 sends no tablets: the screen's Tablet User,
     // as it was. The answer: {id, name, screen, room, user, app, idle_return,
-    // idle_time, black_screen, screensaver_switch, black_switch} or null.
+    // idle_time, black_screen, app_sky, screensaver_switch, black_switch} or null.
     var TABLET_KEY = 'hk-tablet';
     function rememberTablet() {
       try {

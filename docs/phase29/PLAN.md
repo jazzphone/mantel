@@ -1,7 +1,8 @@
 # Phase 29: The sky drawn by the tablet app (plan, 2026-11-12)
 
-**Status: plan. Decisions 1, 2 and 4 answered (2026-11-12); 3, the glass, gates the phase (step 0: its first run below).** The prototype is on mantel-android's `native-sky`
-branch (`docs/NATIVE-SKY.md` there), installed on the Loft and switched off.
+**Status: built (2026-11-13), steps 1-5 on Mantel main and mantel-android main; step 6, the Loft, in the build log below.
+Every decision answered:** 1, 2 and 4 on 2026-11-12; 3, the glass, on 2026-11-13 (the owner: "we should finish phase 29").
+Step 7 (DESIGN.md) waits for the owner to ask.
 
 ## Why
 
@@ -77,7 +78,9 @@ of scenes, so a new scene is sorted the same way.
 2. **Its frame rate.** **Answered: 30 frames a second.** *Recommended: 30 frames a second.* It halves Android's own work too, and is where most of the
    saving is (about 0.85 of a core on Halloween night against 0.63 at 60). Bats and rain at 30 look like a film's motion
    rather than a game's; worth a look on the Loft before it's decided.
-3. **The glass over it.** **Open, and the gate for the whole phase.** The owner's Pre-rendered bugs (2026-11-12):
+3. **The glass over it.** **Answered 2026-11-13: the still frost picture** (the owner: "we should finish phase 29", after
+   the glass check below passed for page changes, swipes, scrolling, edges and sheets). It was the gate for the whole
+   phase. The owner's Pre-rendered bugs (2026-11-12):
    transitions from one screen to another; the blur sometimes not looking right; a blurred outline outside the blurred
    element; the blurred area not moving correctly on scroll. "Shared Layer is just way more reliable." A sky the app draws
    leaves Shared Layer nothing to blur (the page is see-through), so the glass over it can only be a still picture. **So
@@ -142,3 +145,54 @@ of scenes, so a new scene is sorted the same way.
 - **Chromium's software drawing can't be trusted for baking.** `WebView.draw` into a bitmap lost canvases, let one part's
   mask spill onto the next, and drew a large photograph at a fifth of its size. The bake copies the window as the
   display shows it (PixelCopy), with a colored mark on each sheet: on the Loft, 6 of 23 copies arrived a frame late.
+
+## Build log (2026-11-13)
+
+**Step 1, the hand-over** (`web/hk/sky-parts/hk-sky-handover.js`, a tenth part of hk-sky, last in its PARTS): the
+prototype's injected script, moved over. It starts only where `hkShell.skyPlayer()` answers and this page's wall tablet
+(`hkSettings.tablet().app_sky`) says so; nothing else of it runs. New beside the prototype:
+- **Busy, from the keyframes** (`busyAnim`): a part faster than 100 px a second at any point of its keyframes, a
+  flipbook (`steps()` in a keyframe's easing), or a loop that carries a part down the screen more than across it (rain
+  and snow decks, a falling leaf). A calm sky is never baked: read without touching anything (`busyNow`), and one the
+  app plays is handed back (`stop`) once it turns calm.
+- **A big change hands the sky back at once** (`hk-sky-change` with a new `sig().big`: another page's sky, the weather,
+  a season) and hands it over again once it has been quiet: the app's old sky behind a new page, or the old picture on
+  the glass, would be wrong meanwhile; the page drawing it for a few seconds is not. hk-sky's signature leaves the
+  hand-over's own class out (`SKY_STATES`), or every hand-over read as a change.
+- **The glass first**: `play` is sent only once `hkGlass.frost(true)` says the glass wears the picture.
+- **The app told the setting** (`switch {on}`), so its surface is under the page from its next start.
+
+**Step 2, the frost picture** (`hk-glass.js` FROST): Pre-rendered's machinery whatever the mode (Blur or Bright Glass,
+Shared Layer or Pre-rendered), with these differences: each layer wears the picture on a child in its own box whose
+background is fixed to the screen (no fixed child: the WebView's clip-path bug); the layers over the page and the pages
+waiting beside it wear it too; every page wears the newest picture, which never comes off at a page change (live blur
+shows nothing). **Measured on the way** (Chromium and WebKit, 2026-11-13): a fixed background under a transformed
+ancestor is drawn from the element's own corner, not the screen's -- so the plan's "in line wherever the page is" holds
+only at rest. Through a swipe the child becomes fixed itself and is moved back as the page moves (`frostAt`, as
+Pre-rendered's picture is), and back in place after. **Sheets**: `hk-detail-frame.js` and the timeline's sheet wear
+`--hk-frost-url` under their plate through a style query (`@container style(--hk-frost: 1)`), no blur, and open with
+their fade alone (the opening transform would put the picture out of line). **The pinned glass** (tab bar, menu, Side
+Pane) pins its slice as in a Pre-rendered look (`hkGlass.pictured`, `hk-glass-frost`). Not covered: the float plates
+(`--hk-float-backdrop`: Security's header, Energy's and Calendar's floating panels) still blur live, which over the
+app's sky shows it unblurred through their plate.
+
+**Step 3**: `hkShell.skyPlayer()` in the contract (`hk-host-shell.js`: none), Home Assistant's shell (explicitly none),
+Mantel's (`mantelNative.sky` on Android) and `hk-shell.d.ts` (`HkSkyPlayer`).
+
+**Step 4, the app** (mantel-android main): `sky/SkyScene.kt`, `SkyView.kt` (30 fps by default), `NativeSky.kt` from the
+branch; `Bridge.kt` always offers `mantelNative.sky`; the injected script is gone (the branch's `assets/native-sky.js`
+never reaches main). The switch is the page's word (`switch`): kept in the app's store, so the surface and the
+see-through window are made at the start when it was on, and dropped (window opaque again) when it goes off. Status
+`sky`: off, ready or playing (shown in Mantel Settings as "Drawing the sky"). adb `SKY` gives its numbers and fps.
+
+**Step 5, the setting**: `app_sky` on a tablet (hk_core `tablet_rules.py`, `changes.py`), off by default, stored only
+when on; `sky_by_app(t)` is the decision (the switch, under Mantel for Android only), and both feeds send the decision
+as `tablet_items[...].app_sky`. Mantel Settings → Wall Tablets → the tablet → Mantel for Android → **Sky Drawn by the
+App** saves it like the tablet's other settings.
+
+**Checks**: `tests/test_sky_handover.py` (the setting, both feeds, the shells' player, busy against each kind of
+motion, nothing without a player); `tools/headless/app_sky_check.py` (`tools/ci.py full`: `app-sky-check`), Chromium at
+1280 x 800, 820 x 1180 and 390 x 844 with a stand-in bridge: rain handed over (switch, begin, the sheets, play, shown),
+the sky clipped, every layer and the tab bar on the picture with no live blur, a sheet on it, a swipe in line; a clear
+day handed back; the setting off; no bridge.
+

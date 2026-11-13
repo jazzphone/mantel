@@ -389,7 +389,9 @@
     else { el.removeAttribute('dim'); el.style.removeProperty('--pane-dim'); }
     var G = window.hkGlass, pane = el.shadowRoot && el.shadowRoot.querySelector('.pane');
     if (!G || !G.pin || !pane) return;
-    if (up && g === 'blur_pre') G.pin(pane, PIN_TINT); else if (up && g === 'bright_pre') G.pin(pane, PIN_BRIGHT); else G.unpin(pane);
+    // (the frost picture over a sky the tablet app draws: as Pre-rendered, hk-glass.js pictured)
+    var pg = G.pictured ? G.pictured(g) : g;
+    if (up && pg === 'blur_pre') G.pin(pane, PIN_TINT); else if (up && pg === 'bright_pre') G.pin(pane, PIN_BRIGHT); else G.unpin(pane);
   }
   // at most once a frame, and again each second while it is up (the clock,
   // a countdown, a grace running out)
@@ -419,6 +421,7 @@
     window.addEventListener('hk-popup-change', soon);
     window.addEventListener('hk-saver', soon);
     window.addEventListener('hk-module-ready', soon);
+    window.addEventListener('hk-glass-frost', soon);
     window.addEventListener('hk-client-update', pushed);
     window.addEventListener('hk-black', function (e) {
       if (e && e.detail && e.detail.on) return;

@@ -208,6 +208,17 @@
     return TIMELINE_ROLES.indexOf(role) >= 0 || (deviceSession && PEOPLE.indexOf(role) < 0);
   }
 
+  // THE SKY DRAWN BY THE TABLET APP (hkShell.skyPlayer, phase 29; hk-sky-handover.js): Mantel for Android's bridge,
+  // when the app on this tablet offers it (jazzphone/mantel-android sky/NativeSky.kt). Whether this tablet hands its
+  // sky over is its own setting (Wall Tablets -> Sky Drawn by the App), which the sky reads.
+  let skyBridge = null;
+  function skyPlayer() {
+    const N = global.mantelNative;
+    if (!N || N.platform !== 'android' || typeof N.sky !== 'function') return null;
+    if (!skyBridge) skyBridge = { send: (op, data) => Promise.resolve(N.sky(String(op), data == null ? null : data)) };
+    return skyBridge;
+  }
+
   /** @type {HkShellHost} */
   const MANTEL = {
     kind: 'mantel',
@@ -258,6 +269,7 @@
     },
     tabletRoom,
     atTablet,
+    skyPlayer,
     // Mantel's own docs (/docs, docs_pages.py: HK's pages and Mantel's), under the page's prefix
     docsUrl: (page, anchor) => (global.__mantelBase || '') + '/docs/' + encodeURIComponent(page) + (anchor ? '#' + encodeURIComponent(anchor) : ''),
     tags: { viewContainer: 'hk-view-container' },

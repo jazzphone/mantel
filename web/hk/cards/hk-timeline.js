@@ -1068,6 +1068,10 @@
     // a backing under the glass, so words behind it never show through where the blur is not drawn
     '#hk-timeline-sheet .sheet{isolation:isolate}',
     '#hk-timeline-sheet .sheet::before{content:"";position:absolute;inset:0;z-index:-1;background:rgba(18,18,22,0.8);pointer-events:none}',
+    // over a sky the tablet app draws, the glass's frost picture under its plate (as hk-detail-frame.js's sheets)
+    '@container style(--hk-frost: 1){#hk-timeline-sheet .sheet{background:var(--hk-frost-url) 0 0 / var(--hk-vw,100vw) var(--hk-vh,100vh) no-repeat fixed;',
+    '  -webkit-backdrop-filter:none;backdrop-filter:none;transform:none}',
+    '  #hk-timeline-sheet .sheet::before{background:var(--hk-sheet-plate,rgba(28,28,32,0.52))}}',
     '#hk-timeline-sheet button{font:inherit;color:inherit;-webkit-tap-highlight-color:transparent}',
     '#hk-timeline-sheet .hd{display:flex;align-items:center;gap:14px;flex:none;min-height:44px}',
     '#hk-timeline-sheet .well{width:44px;height:44px;border-radius:22px;flex:none;display:flex;align-items:center;justify-content:center}',

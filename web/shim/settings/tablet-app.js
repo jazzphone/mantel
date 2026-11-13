@@ -32,6 +32,7 @@ function says(st) {
   return [st.version ? 'Version ' + st.version : null,
           st.screen === false ? 'Screen off' : st.screen ? 'Screen on at ' + pct(st.brightness) + '%' : null,
           st.curtain ? 'Black curtain up' : null,
+          st.sky === 'playing' ? 'Drawing the sky' : null,
           typeof st.battery === 'number' ? 'Battery ' + Math.round(st.battery) + '%' + (st.charging ? ', charging' : '') : null,
           st.ip || null].filter(Boolean).join(' · ');
 }
@@ -78,6 +79,14 @@ export function drawTabletApp(c, ctx) {
                         onChange: (v) => send('rotation', v, v === 'auto' ? 'Left to the tablet.' : 'Turned to ' + v + '°.') }));
     if (rot !== 'auto' && st.rotation_allowed === false) {
       rows.push(info('Rotation', 'On the tablet, allow Mantel to modify system settings (the app opened that screen), then choose again.', 'Not Allowed', 'warn'));
+    }
+    // SKY DRAWN BY THE APP (phase 29): this tablet's own setting, HK's (hk_core tablet_rules.py app_sky), saved like
+    // the rest of the tablet's page -- not a command to the app, which follows the page (hk-sky-handover.js)
+    if (typeof ctx.set === 'function') {
+      rows.push(K().toggle({ label: 'Sky Drawn by the App', on: ctx.app_sky === true, fk: 'mx:app-sky:' + dv.id,
+                             sub: 'Bats, birds, rain, snow and the other busy skies drawn by the app itself, at 30 frames a second: ' +
+                                  'about half the work for the tablet. Calm skies and wallpapers stay the page’s.',
+                             onChange: (on) => ctx.set({ app_sky: on }) }));
     }
     rows.push(info('App', [st.owner ? 'Device owner' : st.admin ? 'Device admin' : 'No device role', st.esphome_port ? 'ESPHome port ' + st.esphome_port : null,
                            st.model || null].filter(Boolean).join(' · '), updateSays(st.update)));

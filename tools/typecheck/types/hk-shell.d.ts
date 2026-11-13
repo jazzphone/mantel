@@ -87,6 +87,13 @@ interface HkShellMethods {
   unrecorded<T>(fn: () => T): T;
   tabletRoom(client?: HKClient | null): string | null;
   atTablet(client?: HKClient | null): boolean;
+  /** The tablet app's sky player (phase 29), or null where nothing can draw the sky (Home Assistant: none). */
+  skyPlayer(): HkSkyPlayer | null;
+}
+
+/** One step of a busy sky handed to the tablet app (web/hk/sky-parts/hk-sky-handover.js "THE PLAYER"). */
+interface HkSkyPlayer {
+  send(op: string, data?: any): Promise<any>;
 }
 
 /** window.hkShell */
@@ -115,7 +122,7 @@ interface HkShell extends HkShellMethods {
 type HkShellBoth =
   'root' | 'overlayRoot' | 'panel' | 'viewContainer' | 'viewSlot' | 'view' | 'dashboardConfig' | 'onDashboard' |
   'isDashboard' | 'sidebarData' | 'holdWrites' | 'menuButton' | 'hostDetail' | 'openHostDetail' | 'hostToast' |
-  'showNotifications' | 'tabletRoom' | 'atTablet';
+  'showNotifications' | 'tabletRoom' | 'atTablet' | 'skyPlayer';
 // Home Assistant only (Mantel has no HA elements, no toolbar, no socket to keep awake, and its overlays mount in
 // its own root, so the facade's default dialogRoot does).
 type HkShellHaOnly =
@@ -155,7 +162,7 @@ type HkHaShellHost = HkShellHost & {
 // which TypeScript cannot follow against a declared type: while it is being built these are optional. Their
 // signatures are still checked where they are assigned; that none is forgotten is not (the list below is the whole
 // of them, and test_shell_boundary.py's text checks cover the rest).
-type HkHaShellLate = 'tabletRoom' | 'atTablet' | 'sidebarData' | 'holdWrites' | 'menuButton' | 'hostDetail' |
+type HkHaShellLate = 'tabletRoom' | 'atTablet' | 'skyPlayer' | 'sidebarData' | 'holdWrites' | 'menuButton' | 'hostDetail' |
                      'openHostDetail' | 'hostToast' | 'dialogRoot' | 'ownPanel' | 'lovelace' | 'currentMode';
 type HkHaShellBuilding = Omit<HkHaShellHost, HkHaShellLate> & Partial<Pick<HkHaShellHost, HkHaShellLate>>;
 

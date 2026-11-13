@@ -123,6 +123,8 @@
   };
   // AT A WALL TABLET: this page is one of the Wall Tablets entries (its
   // ?hk_tablet= address, or the tablet signed in as this user)
+  // NO SKY PLAYER: HK Frontend's page draws its own sky everywhere (phase 29: only Mantel for Android draws one)
+  HA.skyPlayer = function () { return null; };
   HA.atTablet = function (client) {
     var S = global.hkSettings;
     return !!(S && typeof S.tablet === 'function' && S.tablet(client));

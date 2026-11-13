@@ -107,6 +107,15 @@
       '  opacity:0;transform:translateY(24px) scale(.98);',
       '  transition:opacity .25s ease,transform .3s cubic-bezier(.32,.72,0,1)}',
       '.hkd.open .sheet{opacity:1;transform:none}',
+      // OVER A SKY THE TABLET APP DRAWS (phase 29, hk-glass.js FROST): the page is see-through and a live blur sees nothing,
+      // so the sheet wears the glass's frost picture fixed to the screen (--hk-frost-url, set on the root), its own plate
+      // over it, and no blur. It opens with its fade alone: under a transform a fixed picture is drawn from the sheet's
+      // corner (measured, 2026-11-13), out of line until it landed.
+      '@container style(--hk-frost: 1){',
+      '  .hkd .sheet:not(.bare){background:var(--hk-frost-url) 0 0 / var(--hk-vw,100vw) var(--hk-vh,100vh) no-repeat fixed;',
+      '    -webkit-backdrop-filter:none;backdrop-filter:none;transform:none;isolation:isolate}',
+      '  .hkd .sheet:not(.bare)::after{content:"";position:absolute;inset:0;z-index:-1;border-radius:inherit;pointer-events:none;',
+      '    background:var(--hk-sheet-plate,rgba(28,28,32,0.52))}}',
       // One clip edge for the scroller AND its shadow. A sticky pseudo inside
       // the padded body sat 8 px below that edge, letting content show above
       // it. The frame needs no measured top and stays aligned at Safari zoom.

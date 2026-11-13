@@ -51,7 +51,9 @@ SHOT_MAX = 900_000          # bytes of JPEG: the app sends 960 px wide at qualit
 STATUS_KEYS = {"version": str, "version_code": int, "screen": bool, "brightness": float, "curtain": bool,
                "battery": float, "charging": bool, "kiosk_mode": bool, "owner": bool, "admin": bool,
                "esphome_port": int, "menu_pin": bool, "page": str, "ip": str, "model": str, "update": str,
-               "rotation": str, "rotation_allowed": bool}
+               "rotation": str, "rotation_allowed": bool,
+               # the sky drawn by the app (phase 29): off, ready (the tablet's setting on) or playing
+               "sky": str}
 ANSWER_WAIT = 8.0
 STALE = 180.0              # a status older than this is "not heard from"
 PIN = re.compile(r"\d{0,12}")

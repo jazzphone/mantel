@@ -214,6 +214,8 @@ class SettingsService:
                 "name": t["name"], "screen": t["screen"], "room": t["room"], "user": t["user"],
                 "app": t["app"], "idle_return": t["idle_return"], "idle_time": t["idle_time"],
                 "black_screen": t["black_screen"],
+                # Sky Drawn by the App (phase 29): the decision, on a Mantel for Android tablet (hk-sky-handover.js)
+                "app_sky": SM.sky_by_app(t),
                 # a tablet's own HA switches: HA run-time entities, not settings (linked mode, later)
                 "screensaver_switch": None, "black_switch": None,
             } for tid, t in tablets.items()},

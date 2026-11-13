@@ -48,6 +48,10 @@ TABLET_DEFAULTS: dict[str, Any] = {
     "black_screen": "kiosk",
     # Sleep Screen: WHEN it sleeps and wakes (hk_core/sleep/rules.py SLEEP_DEFAULTS)
     "sleep": None,
+    # SKY DRAWN BY THE APP (phase 29, docs/phase29/PLAN.md decision 4): Mantel for Android draws a busy sky (bats, rain,
+    # snow, flybys) itself, under a see-through page, at 30 frames a second; calm skies stay the page's. Per tablet, off
+    # until asked for; only Mantel for Android can (sky_by_app).
+    "app_sky": False,
     "uid": "",
 }
 
@@ -73,9 +77,20 @@ def tablet(data: Mapping[str, Any] | None, tid: str = "") -> dict[str, Any]:
     out["black_screen"] = d["black_screen"] if d.get("black_screen") in BLACK_SCREENS else "kiosk"
     out["sleep"] = SR.sleep_options(d.get("sleep")) or SR.sleep_options(None)
     out["sleep"]["kiosk"] = out["device"] if out["app"] in SLEEP_APPS else ""
+    out["app_sky"] = d.get("app_sky") is True
     uid = str(d.get("uid") or "").strip()
     out["uid"] = uid if re.fullmatch(r"[a-z0-9_-]{1,80}", uid) else (f"tablet_{tid}" if tid else "")
     return out
+
+
+# the kiosk apps that can draw the page's sky themselves (hk-sky-handover.js; hkShell.skyPlayer)
+SKY_APPS = ("android_app",)
+
+
+def sky_by_app(t: Mapping[str, Any] | None) -> bool:
+    """Does this tablet's app draw its busy skies (Sky Drawn by the App)? Its own switch, and an app that can: the
+    switch is kept through a change of Kiosk App, and means nothing under any other."""
+    return bool(t) and t.get("app_sky") is True and t.get("app") in SKY_APPS
 
 
 def tablets(stored: Stored | None) -> dict[str, dict[str, Any]]:

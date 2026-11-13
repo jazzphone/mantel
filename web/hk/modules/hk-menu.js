@@ -673,6 +673,8 @@
       // Side Strip of its sideways inset until the next resize -- hkCards.safeArea measures afresh at 250 and 800 ms, 2026-11-10)
       window.addEventListener('resize', function () { sync(); setTimeout(sync, 300); setTimeout(sync, 900); });
       window.addEventListener('hk-module-ready', function () { S.built = ''; sync(); });
+      // the frost picture on or off (hk-glass.js, a sky the tablet app draws): the panel pins its slice, or blurs again
+      window.addEventListener('hk-glass-frost', function () { sync(); });
       // the host's Home Assistant rows changed (hkShell.haNav: it learned where the page is)
       window.addEventListener('hk-ha-nav-changed', function () { S.built = ''; sync(); });
       // Edit mode begun or ended (hk-edit.js): the Edit Page row goes or comes back

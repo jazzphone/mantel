@@ -1607,6 +1607,8 @@
       if (!mount()) return;
       var b = M.board() || {};
       var look = document.documentElement.getAttribute('data-hk-glass');
+      // (the frost picture over a sky the tablet app draws: as Pre-rendered, hk-glass.js pictured)
+      if (window.hkGlass && window.hkGlass.pictured) look = window.hkGlass.pictured(look);
       var mat = material(b.tab_bar_glass, look);
       pinGlass(mat === 'blur' && look === 'blur_pre' ? 'blur' : mat === 'bright' && look === 'bright_pre' ? 'bright' : null);
       var a = typeof M.accent === 'function' ? M.accent() : null;
@@ -1700,6 +1702,7 @@
     window.addEventListener('hk-dock', syncSoon);
     window.addEventListener('hk-pane', syncSoon);
     window.addEventListener('hk-module-ready', function () { S.built = ''; sync(); });
+    window.addEventListener('hk-glass-frost', function () { sync(); });
     // the host's Home Assistant rows changed (hkShell.haNav: it learned where the page is)
     window.addEventListener('hk-ha-nav-changed', function () { S.built = ''; sync(); });
     // Edit mode begun or ended (hk-edit.js): More's Edit Page row goes or comes back

@@ -304,7 +304,9 @@
       if (glass === 'frosted' || glass === 'tinted') cls.push(glass);
       // Bright Glass in any of its modes (2026-10-30)
       if (glass === 'bright' || glass === 'bright_pre' || glass === 'bright_each') cls.push('bright');
-      pinGlass(glass === 'blur_pre' ? 'blur' : glass === 'bright_pre' ? 'bright' : null, dock);
+      // (the frost picture over a sky the tablet app draws: as Pre-rendered, hk-glass.js pictured)
+      var pg = window.hkGlass && window.hkGlass.pictured ? window.hkGlass.pictured(glass) : glass;
+      pinGlass(pg === 'blur_pre' ? 'blur' : pg === 'bright_pre' ? 'bright' : null, dock);
       var tabAt = typeof M.tab === 'function' ? M.tab() : (style === 'tab' ? 'always' : 'never');
       // a menu docking by itself appears where it belongs (settle)
       if (dock && !S.wasDock) settle();

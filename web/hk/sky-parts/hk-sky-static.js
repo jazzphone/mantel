@@ -476,7 +476,8 @@
     // places written on it). It changes when, and only when, the sky's
     // picture does: hk-sky-paint is said then, and a pre-rendered blur
     // (hk-glass.js) paints from it instead of looking every few seconds.
-    var SKY_STATES = /(^|\s)(hidden|held|hk-snap|noanim)(?=\s|$)/g;
+    // (hk-sky-app: the sky handed to the tablet app, hk-sky-handover.js -- where it is drawn, not what it shows)
+    var SKY_STATES = /(^|\s)(hidden|held|hk-snap|noanim|hk-sky-app)(?=\s|$)/g;
     // the season's field as built: the old decorations' key, or the new
     // decorations' theme (paintSeason) -- each changes only on a rebuild. A
     // key with no season and no surprise ('||...') is an empty field: its

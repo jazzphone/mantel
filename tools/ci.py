@@ -353,6 +353,12 @@ def steps(build: Build | None = None, parts: dict[str, int] | None = None) -> li
     out += [Step(f"custom-sheet-check-{e}", [py, "tools/headless/custom_sheet_check.py", "--engine", e], tier="full",
                  timeout=900, skip=playwright_missing, **check_inputs("tools/headless/custom_sheet_check.py", e))
             for e in ("webkit", "chromium")]
+    # The sky drawn by the tablet app, the page's half (phase 29, docs/phase29/PLAN.md), in Chromium -- the app's page is
+    # Android's WebView: a busy sky handed to a stand-in bridge, the frost picture on the glass, the tab bar and a sheet, a
+    # swipe; a calm sky handed back; the setting off; no bridge (a tablet's, a tablet's on its side and a phone's size)
+    out.append(Step("app-sky-check", [py, "tools/headless/app_sky_check.py", "--size", "1280x800", "--size", "820x1180",
+                                      "--size", "390x844"], tier="full", timeout=900, skip=playwright_missing,
+                    **check_inputs("tools/headless/app_sky_check.py", "chromium")))
     # Pre-rendered glass (Blur and Bright Glass) over a moving wallpaper, the real detector and painter (2026-11-07)
     # (by hand 2026-11-08 to 11-11, like swipe-motion below; a motion check since phase 25: MOTION above)
     out.append(Step("pre-glass-motion-check", [py, "tools/headless/pre_glass_motion_check.py"], tier="full", timeout=600,
