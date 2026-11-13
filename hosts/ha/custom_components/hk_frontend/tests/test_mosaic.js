@@ -394,6 +394,10 @@ dispatchEvent(new Event('kiosksatellite:screenon')); __runTimersUnder(2600);
 ok('...and back after it is on', !!blk._timer && !blk._liveSlot.asleep);
 dispatchEvent(new CustomEvent('hk-black', { detail: { on: true } }));
 ok('HK\'s own black screen (hk-black): the same rest', !blk._timer && blk._liveSlot.asleep);
+// (2026-11-13: one flag for both, the panel coming back on under the black woke the live camera behind it)
+// (no timers run here: this shim keeps a timeout that has fired, and running them again would replay an earlier wake)
+dispatchEvent(new Event('kiosksatellite:screenoff')); dispatchEvent(new Event('kiosksatellite:screenon'));
+ok('...the panel coming back on under the black: still resting, no wake set for it', !blk._blackT && blk._black && !blk._timer && blk._liveSlot.asleep);
 // a pick under the black (Live Camera Follows moving on): the strip rebuilds,
 // and its new live tile is built asleep -- the Kitchen decoded one for nobody
 var underBlack = {}; for (var k in blk.hass.states) underBlack[k] = blk.hass.states[k];

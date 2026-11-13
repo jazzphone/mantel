@@ -1293,8 +1293,13 @@
         if (!this._onBlack) {
           this._onBlack = function (e) {
             // (hk-black: HK's own black screen, or any black -- hk-saver.js)
-            var up = e && (e.type === 'kiosksatellite:screensaverstart' || e.type === 'kiosksatellite:screenoff' ||
-                           (e.type === 'hk-black' && !!(e.detail && e.detail.on)));
+            // (the black and the panel off are two things, 2026-11-13: one flag for both, the panel coming back on
+            // under the black woke the live camera behind it)
+            var t = e && e.type;
+            if (t === 'hk-black') self._hkBlack = !!(e.detail && e.detail.on);
+            else if (t === 'kiosksatellite:screensaverstart' || t === 'kiosksatellite:screenoff') self._panelOff = true;
+            else if (t === 'kiosksatellite:screensaverstop' || t === 'kiosksatellite:screenon') self._panelOff = false;
+            var up = !!(self._hkBlack || self._panelOff);
             clearTimeout(self._blackT); self._blackT = null;
             if (up) { self._black = true; self._grabLive(); self._stopInterval(); self._sleepLive(); return; }
             self._blackT = setTimeout(function () {
