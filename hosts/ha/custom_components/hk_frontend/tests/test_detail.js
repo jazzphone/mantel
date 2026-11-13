@@ -259,7 +259,8 @@ ok('no panel relies on a CSS container query (Safari would keep the thermostat s
    // (a block's custom sheet gives each HomeView tile a cell of its own, hk-cell, as the Home Grid's .cell does: the
    // tile's own Centred rules query it from inside the tile; no panel's layout is ever a container query)
    // (the thermostat, a person or event, the vacuum with rooms, the laundry, the TV, 2026-11-10)
-   !/'@container/.test(src) && !/container-type:/.test(src.replace("'.cc{position:relative;aspect-ratio:1;min-width:0;container-type:size;container-name:hk-cell;--hk-cell-shape:square}'", '')) &&
+   // (a STYLE query is no layout: the frost picture under a sheet's plate, only on Android's WebView, phase 29)
+   !/'@container(?! style\()/.test(src) && !/container-type:/.test(src.replace("'.cc{position:relative;aspect-ratio:1;min-width:0;container-type:size;container-name:hk-cell;--hk-cell-shape:square}'", '')) &&
      (src.match(/_wideAt\(\) \{ return 700; \}/g) || []).length === 5 &&
   
    /_wideAt\(\) \{ return window\.matchMedia && matchMedia\(SHORT_MQ\)\.matches \? Infinity : 700; \}/.test(src) &&
