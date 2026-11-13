@@ -38,6 +38,7 @@ SIZES = {
     'phone': {'device': 'iPhone 13'},
     'phone-landscape': {'device': 'iPhone 13 landscape'},
     'wall': {'viewport': [1280, 800]},
+    'desktop': {'viewport': [1512, 945]},
 }
 GRID = {'v': 1, 'cols': 6, 'rows': 4, 'frame': [1280, 800], 'band': True, 'items': [
     {'id': 'ic-s', 'card': 'intercom', 'size': 'S', 'at': [0, 0]},
