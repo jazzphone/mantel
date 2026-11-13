@@ -83,6 +83,8 @@ interface HkShellMethods {
   notHouseCameraPlatforms(): string[];
   /** A Kiosk App's name as this host says it (HK's "Tablet App", android_app: Mantel's own app), null for HK's own. */
   kioskAppName(id: string): string | null;
+  /** Runs `fn`; its reads of the client's states (a whole-house discovery scan) are no screen's need. */
+  unrecorded<T>(fn: () => T): T;
   tabletRoom(client?: HKClient | null): string | null;
   atTablet(client?: HKClient | null): boolean;
 }
@@ -122,7 +124,7 @@ type HkShellHaOnly =
 // Mantel only (Home Assistant is the product these answers are about, or needs none).
 type HkShellMantelOnly =
   'haNav' | 'haNavigate' | 'openHaMenu' | 'hostMenu' | 'hostPage' | 'settingsHost' | 'serviceUrl' | 'photoSource' | 'listPhotos' |
-  'artSized' | 'productName' | 'settingsName' | 'haPlace' | 'haName' | 'docsUrl' | 'notHouseCameraPlatforms' | 'kioskAppName';
+  'artSized' | 'productName' | 'settingsName' | 'haPlace' | 'haName' | 'docsUrl' | 'notHouseCameraPlatforms' | 'kioskAppName' | 'unrecorded';
 // Neither: only the facade's default (settingsName() → path) answers.
 type HkShellNeither = 'settingsPlace' | 'screensaverEditor';
 

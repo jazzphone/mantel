@@ -201,7 +201,9 @@
     if (Array.isArray(saved) && saved.length) return saved.filter(function (m) { return m && m.id; });
     var ents = client && client.entities, devs = client && client.devices, n = client && client.states ? Object.keys(client.states).length : 0;
     if (memo.list && memo.ents === ents && memo.devs === devs && memo.n === n && ents) return memo.list;
-    var list = found(client);
+    // (a scan of every entity is no screen's need: the host doesn't keep the whole house for it -- hkShell.unrecorded)
+    var shell = global.hkShell, list = shell && typeof shell.unrecorded === 'function'
+      ? shell.unrecorded(function () { return found(client); }) || [] : found(client);
     memo = { ents: ents, devs: devs, n: n, list: list };
     return list;
   }
