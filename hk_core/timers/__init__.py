@@ -17,6 +17,7 @@ from typing import Any
 
 QUICK = re.compile(r"^timer\.quick_(\d+)$")
 MADE = re.compile(r"^timer\.hk_timer_(\d+)$")
+HOMEPOD = re.compile(r"^timer\.hk_homepod_(\d+)$")     # a HomePod's timer, mirrored (homepod.py): shows, never rings
 SENSOR = "sensor.running_quick_timers"
 SCRIPTS = {"quick_timer_start": "start", "quick_timer_create": "create", "quick_timer_ring": "ring"}
 RING_OPS = ("stop", "more", "again")
@@ -34,14 +35,19 @@ def is_made(entity_id: str) -> bool:
     return bool(MADE.match(entity_id))
 
 
+def is_homepod(entity_id: str) -> bool:
+    """A HomePod's timer, mirrored as a helper (phase 28): it shows as Mantel's do, and the HomePod rings it, never Mantel."""
+    return bool(HOMEPOD.match(entity_id))
+
+
 def counts(entity_id: str, ignore: Iterable[str] = (), include: Iterable[str] = ()) -> bool:
-    """A timer that shows and rings: one turned on in Which Timers, whatever it is; else a timer someone set (a quick slot or
-    one a host made) that isn't ignored. Off by default, the rest of the house's timers, which are mostly automations' plumbing."""
+    """A timer that shows (and, unless it is a HomePod's, rings): one turned on in Which Timers, whatever it is; else a timer
+    someone set (a quick slot, one a host made, or a HomePod's) that isn't ignored. Off by default, the rest of the house's timers, which are mostly automations' plumbing."""
     if not entity_id.startswith("timer."):
         return False
     if entity_id in include:
         return True
-    return bool(QUICK.match(entity_id) or MADE.match(entity_id)) and entity_id not in ignore
+    return bool(QUICK.match(entity_id) or MADE.match(entity_id) or HOMEPOD.match(entity_id)) and entity_id not in ignore
 
 
 def rules(features: Mapping[str, Any]) -> tuple[set[str], set[str]]:
@@ -191,7 +197,7 @@ def sensor_attributes(states: Mapping[str, Mapping[str, Any]], ignore: Iterable[
         if not eid.startswith("timer.") or not counts(eid, ignored, turned_on):
             continue
         s = st.get("s")
-        if (is_made(eid) or eid in turned_on) and s in ("active", "paused"):
+        if (is_made(eid) or is_homepod(eid) or eid in turned_on) and s in ("active", "paused"):
             made.append(eid)
         if s == "active":
             rows.append({"entity_id": eid, "name": name_of(states, eid), "finishes_at": (st.get("a") or {}).get("finishes_at")})

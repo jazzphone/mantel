@@ -68,6 +68,7 @@ from aiohttp import web
 from hk_core.timers import SCRIPTS as TIMER_SCRIPTS
 from hk_core.vacuum_water import CLEAR as WATER_CLEAR
 from hk_core.laundry import CLEAR as LAUNDRY_CLEAR
+from hk_core.timers import homepod as HOMEPOD
 
 from .. import alarm_pin
 from . import readproxy
@@ -168,6 +169,8 @@ class Command:
     timer: dict | None = None
     water: str | None = None                # a vacuum's latched water tank to clear (vacuum_water.py): the vacuum
     laundry: str | None = None              # a machine's held Done to clear (laundry.py): the machine's id
+    # A HOMEPOD'S TIMER OR ALARM (homepod_timers.py): {"timer": entity, "action"} or {"alarm": id, "action"}, to the reader
+    homepod: dict | None = None
 
 
 def _entity_list(value: Any) -> list[str]:
@@ -384,6 +387,32 @@ def intercom_command(msg: dict) -> Command:
                    targets=["feature:intercom"])
 
 
+# A HOMEPOD'S TIMER (docs/phase28/HOMEPOD-TIMERS.md): its helper is a mirror, so the cards' own pause, resume and cancel go to
+# the HomePod timer reader instead (the HomePod is the timer; the helper follows at the next read). What a HomePod can't do
+# (a restart, more time, Finish) is refused, never sent to the mirror alone.
+HOMEPOD_SERVICES = {"pause": "pause", "start": "resume", "cancel": "cancel"}
+
+
+def homepod_of(cmd: Command, domain: Any, service: Any, data: Any) -> Command:
+    ids = [c.entity_id for c in cmd.checks if c.entity_id and HOMEPOD.is_helper(c.entity_id)]
+    if domain != "timer" or not ids:
+        return cmd
+    if len(cmd.checks) != 1 or service not in HOMEPOD_SERVICES or (service == "start" and (data or {}).get("duration")):
+        raise Refused("unsupported_command", "a HomePod's timer can be paused, resumed or canceled, one at a time")
+    cmd.homepod = {"timer": ids[0], "action": HOMEPOD_SERVICES[service]}
+    return cmd
+
+
+def homepod_alarm(cmd: Command, data: Any) -> Command:
+    d = data if isinstance(data, dict) else {}
+    if set(d) - {"alarm", "action"} or not isinstance(d.get("alarm"), str) or len(d["alarm"]) > 300 \
+            or d.get("action") not in HOMEPOD.ALARM_ACTIONS:
+        raise Refused("invalid_command", f"a HomePod alarm command carries its alarm and an action, one of {HOMEPOD.ALARM_ACTIONS}")
+    cmd.homepod = {"alarm": d["alarm"], "action": d["action"]}
+    cmd.targets = cmd.targets + [f"homepod_alarm:{d['alarm']}"]
+    return cmd
+
+
 def classify(msg: dict, writes: frozenset[str]) -> Command:
     """A client `command` message -> Command, or Refused. Pure: no I/O."""
     kind = msg.get("kind")
@@ -406,6 +435,9 @@ def classify(msg: dict, writes: frozenset[str]) -> Command:
         cmd = service_command(msg.get("domain"), msg.get("service"), msg.get("data"), msg.get("target"), msg.get("return_response", False))
         cmd.water = (msg.get("data") or {}).get("vacuum") or ""
         return cmd
+    if kind == "service" and msg.get("domain") == "script" and msg.get("service") == HOMEPOD.ALARM_SCRIPT:
+        cmd = service_command(msg.get("domain"), msg.get("service"), msg.get("data"), msg.get("target"), msg.get("return_response", False))
+        return homepod_alarm(cmd, msg.get("data"))
     if kind == "service" and msg.get("domain") == "script" and msg.get("service") == LAUNDRY_CLEAR:
         cmd = service_command(msg.get("domain"), msg.get("service"), msg.get("data"), msg.get("target"), msg.get("return_response", False))
         cmd.laundry = str((msg.get("data") or {}).get("machine") or "")
@@ -415,8 +447,8 @@ def classify(msg: dict, writes: frozenset[str]) -> Command:
                                      msg.get("return_response", False))
         if got is not None:
             return got
-        return service_command(msg.get("domain"), msg.get("service"), msg.get("data"), msg.get("target"),
-                               msg.get("return_response", False))
+        return homepod_of(service_command(msg.get("domain"), msg.get("service"), msg.get("data"), msg.get("target"),
+                                          msg.get("return_response", False)), msg.get("domain"), msg.get("service"), msg.get("data"))
     if kind == "ws":
         inner = msg.get("msg")
         if not isinstance(inner, dict) or not isinstance(inner.get("type"), str):
@@ -434,8 +466,11 @@ def classify(msg: dict, writes: frozenset[str]) -> Command:
                                          inner.get("target"), inner.get("return_response", False))
             if got is not None:
                 return got
-            return service_command(inner.get("domain"), inner.get("service"), inner.get("service_data"),
-                                   inner.get("target"), inner.get("return_response", False))
+            if inner.get("domain") == "script" and inner.get("service") == HOMEPOD.ALARM_SCRIPT:
+                raise Refused("unsupported_command", "a HomePod alarm is the service command script.homepod_alarm")
+            return homepod_of(service_command(inner.get("domain"), inner.get("service"), inner.get("service_data"),
+                                              inner.get("target"), inner.get("return_response", False)),
+                              inner.get("domain"), inner.get("service"), inner.get("service_data"))
         if t == "config/entity_registry/update":
             # HK writes two things to an entity's registry entry: its room (area_id) and, with "Also rename in
             # Home Assistant" (2026-10-31), its display name. Nothing else goes through: above all not
@@ -958,6 +993,11 @@ class Gateway:
             return None if self.commander is not None else "commands_disabled"
         if cmd.live is not None and (self.commander is None or self.app.get("talk") is None):
             return "commands_disabled"
+        if cmd.homepod is not None:
+            host = self.app.get("homepod_timers")
+            down = "homepod_reader_off" if host is None else host.unavailable()
+            if down:
+                return down
         if self._music_engine(cmd) is not None:
             return None
         if cmd.kind == "ma":
@@ -985,6 +1025,8 @@ class Gateway:
             got = await self.app["timers"].start(principal, cmd.timer, aid)
             if got is not None:
                 return {"context": {"id": f"timer-{aid}"}, "response": got}      # as Home Assistant answers a blocking script
+        if cmd.homepod is not None:
+            return {"context": {"id": f"homepod-{aid}"}, "response": await self.app["homepod_timers"].command(cmd.homepod)}
         if cmd.water is not None and self.app.get("vacuum_water") is not None:
             return {"context": {"id": f"water-{aid}"}, "response": self.app["vacuum_water"].clear(cmd.water)}
         if cmd.laundry is not None and self.app.get("laundry") is not None:

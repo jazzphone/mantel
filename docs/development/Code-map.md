@@ -441,6 +441,8 @@ The decisions both hosts make the same way (Rule 2), in Python.
   - `classify.py` — WHAT THE HOUSE TIMELINE RECORDS, without a host (hk_core; tested on its own)
   - `digest.py` — THE MORNING DIGEST'S WORDS, without a host (hk_core; tested on its own)
   - `words.py` — HOW A TIMELINE ROW READS, without a host (hk_core; tested on its own)
+- **hk_core/timers/**
+  - `homepod.py` — HomePod timers and alarms (phase 28, docs/phase28/HOMEPOD-TIMERS.md), the rules with no host in them.
 
 ## `hosts/server/mantel_server/`
 
@@ -522,6 +524,7 @@ Mantel Server.
   - `actor.py` — Who a feature acts as and what it talks to
   - `auto.py` — FEATURES ON BY DEFAULT (docs/phase16/FEATURES-ON-BY-DEFAULT.md "The runner").
   - `energy_plan.py` — The Energy page's inputs on Mantel
+  - `homepod_timers.py` — HomePod timers and alarms on Mantel (phase 28, docs/phase28/HOMEPOD-TIMERS.md)
   - `host.py` — The feature host
   - `laundry.py` — Laundry
   - `linked_handler.py` — The linked handler
@@ -898,6 +901,8 @@ Build, release and check tools.
   - `home_probe.py` — Load /home headlessly, print what the page did, take a screenshot.
   - `home_sheet_check.cjs` — home_sheet_check.py's browser half
   - `home_sheet_check.py` — The Home block and its sheet (web/hk/cards/hk-home-block.js, docs/phase27/PLAN.md) in WebKit and Chromium, on a fictional house.
+  - `homepod_timers_check.cjs`
+  - `homepod_timers_check.py` — HOMEPOD TIMERS on the screens (phase 28, docs/phase28/HOMEPOD-TIMERS.md), in WebKit and Chromium, on the fictional house.
   - `homeview_starters.cjs` — THE HOMEVIEW-STYLE STARTERS as the editor makes them (hk-grid-editor.js SQUARE_STARTERS, squareStarter, squareHouse), for home_grid_visual_check.py...
   - `house_status_check.cjs` — house_status_check.py's browser half
   - `house_status_check.py` — House Status (web/hk/cards/hk-house-status.js, docs/phase11/HOUSE-STATUS.md) in WebKit and Chromium, on a fictional house.

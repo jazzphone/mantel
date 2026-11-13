@@ -78,6 +78,12 @@ KINDS: dict[str, Kind] = {k.id: k for k in (
          "Home Assistant is connected, but Mantel Link isn't. Phones through the Companion app and HK Frontend's "
          "dashboards wait for it.", "Mantel Link is back", "Mantel Link is connected again.", hold=5 * MIN,
          needs=_HA, page="link", start_grace=True),
+    # the HomePod timer reader (docs/phase28/HOMEPOD-TIMERS.md): raised by its source after 10 minutes unavailable (its own
+    # count, hk_core.timers.homepod.alert_due, so the group's hold isn't stretched)
+    Kind("homepod.lost", "connections", "warning", "HomePod timers unavailable",
+         "Mantel can't read the HomePods' timers and alarms: the HomePod timer reader is down or can't read the Home app. "
+         "Timers set with Siri won't show on the screens until it's back.", "HomePod timers are back",
+         "Mantel is reading the HomePods' timers again.", page="connections"),
     Kind("token.expiring", "connections", "warning", "{name}'s credential expires {when}",
          "Replace it in Mantel Settings → Connections before then, or the connection stops.",
          "{name}'s credential was replaced", page="connections"),

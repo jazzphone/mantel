@@ -259,13 +259,16 @@
       var end = Date.parse(r.finishes_at);
       if (isNaN(end)) return '';
       var total = r.total ? ' total="' + Number(r.total) + '"' : '';
+      // a HomePod's timer (phase 28): its glyph, and what the HomePod can do -- pause and cancel, never more time
+      var hp = r.source === 'homepod';
+      var keys = !r.entity_id ? '' : hp ? (r.controls ? btn(r.entity_id, 'pl', 'mdi:pause', 'pause', 'Pause timer') + btn(r.entity_id, 'fn', 'mdi:close', 'cancel', 'Cancel timer') : '')
+        : btn(r.entity_id, 'rs', 'mdi:restart', 'restart', 'Restart timer') + btn(r.entity_id, 'pl', 'mdi:plus', 'plus', 'Add one minute') +
+          btn(r.entity_id, 'fn', 'mdi:flag-checkered', 'finish', 'Finish timer');
       return '<div class="sg">' +
-        '<div class="rg"><div class="gl"><hk-icon icon="mdi:timer-outline"></hk-icon></div></div>' +
-        '<div class="nm">' + esc(r.name || 'Timer') + '</div>' +
+        '<div class="rg"><div class="gl"><hk-icon icon="' + (hp ? 'hk:homepod' : 'mdi:timer-outline') + '"></hk-icon></div></div>' +
+        '<div class="nm">' + esc(r.name || 'Timer') + (hp && r.room_name ? ' \u00B7 ' + esc(r.room_name) : '') + '</div>' +
         '<hk-countdown deadline="' + end + '"' + total + '></hk-countdown>' +
-        (r.entity_id ? '<div class="ct">' + btn(r.entity_id, 'rs', 'mdi:restart', 'restart', 'Restart timer') +
-          btn(r.entity_id, 'pl', 'mdi:plus', 'plus', 'Add one minute') +
-          btn(r.entity_id, 'fn', 'mdi:flag-checkered', 'finish', 'Finish timer') + '</div>' : '') +
+        (keys ? '<div class="ct">' + keys + '</div>' : '') +
         '</div>';
     }).join('');
     var dots = rows.length > 1 ? '<div class="dt">' + rows.map(function (r, i) { return '<i' + (i ? '' : ' class="on"') + '></i>'; }).join('') + '</div>' : '';
@@ -374,6 +377,14 @@
       var st = client.states && client.states[entityId];
       if (!st) return false;
 
+      // A HOMEPOD'S TIMER (phase 28): Mantel sends these to the HomePod; nothing else is for a HomePod
+      if (this.isHomePod(entityId)) {
+        var svc = { pause: 'pause', resume: 'start', cancel: 'cancel' }[what];
+        if (!svc || !this.homepod(client.states, entityId).controls) return false;
+        client.actions.callService('timer', svc, { entity_id: entityId });
+        return true;
+      }
+
       if (what === 'finish') {
         // finish, not cancel: it FIRES the finished event, so whatever the
         // timer was for actually happens. Cancel is the silent one and is
@@ -466,14 +477,18 @@
         // Re-enabling it on the buttons ONLY is deliberate: the rest of the
         // pill stays inert, so a stray tap on the name or the countdown still
         // does nothing.
+        var hp = window.hkTimers.isHomePod(id);
+        if (hp && !rowOf(id).controls) return '';
         return '<div style="flex:0 0 auto;display:flex;align-items:center;' +
                'pointer-events:auto;gap:' +
                px(5) + ';margin-inline-start:' + px(8) + ';">' +
-                 btn('mdi:restart', 'restart', 'Restart timer') +
-                 btn('mdi:plus', 'plus', 'Add one minute') +
-                 btn('mdi:flag-checkered', 'finish', 'Finish timer') +
+                 (hp ? btn('mdi:pause', 'pause', 'Pause timer') + btn('mdi:close', 'cancel', 'Cancel timer')
+                     : btn('mdi:restart', 'restart', 'Restart timer') +
+                       btn('mdi:plus', 'plus', 'Add one minute') +
+                       btn('mdi:flag-checkered', 'finish', 'Finish timer')) +
                '</div>';
       };
+      var rowOf = function (id) { return rows.filter(function (r) { return r.entity_id === id; })[0] || {}; };
 
       var html = rows.map(function (r) {
         var end = Date.parse(r.finishes_at);
@@ -673,7 +688,30 @@
     // `rules`: {ignore: {id: true}, include: {id: true}}, from the settings (rulesOf).
     counts: function (id, rules) {
       if (rules.include[id]) return /^timer\./.test(id);
-      return /^timer\.(?:quick_\d+|hk_timer_\d+)$/.test(id) && !rules.ignore[id];
+      return /^timer\.(?:quick_\d+|hk_timer_\d+|hk_homepod_\d+)$/.test(id) && !rules.ignore[id];
+    },
+    // A HOMEPOD'S TIMER (phase 28, docs/phase28/HOMEPOD-TIMERS.md): Mantel mirrors each Siri timer as timer.hk_homepod_<n>, and
+    // says on the sensor whose it is: {homepod, home_room, room, room_name, controls}. The HomePod rings it, never a screen.
+    // With no `controls` (HK Frontend in Home Assistant, which can't reach the HomePod) it is only shown.
+    isHomePod: function (id) { return /^timer\.hk_homepod_\d+$/.test(String(id)); },
+    homepod: function (states, id) {
+      if (!this.isHomePod(id)) return null;
+      var h = this.homepodFeed(states);
+      return (h.timers && h.timers[id]) || { source: 'homepod', homepod: 'HomePod', room_name: '' };
+    },
+    // the reader's state and the alarms: {state: 'ok' | 'starting' | 'unavailable' | 'off', alarms: [...], went_off: [...]}
+    homepodFeed: function (states) {
+      var q = states && states['sensor.running_quick_timers'], h = q && q.attributes && q.attributes.homepod;
+      return h || { state: 'off', timers: {}, alarms: [], went_off: [] };
+    },
+    // "Kitchen HomePod": where it rings
+    homepodWords: function (hp) {
+      return hp ? ((hp.room_name ? hp.room_name + ' ' : '') + (hp.homepod || 'HomePod')) : '';
+    },
+    // an alarm's switch and Delete: to the HomePod, through Mantel
+    alarmAct: function (client, alarmId, action) {
+      var act = client && client.actions;
+      if (act && act.callService) return act.callService('script', 'homepod_alarm', { alarm: alarmId, action: action });
     },
     rulesOf: function (S) {
       var get = function (k) { var v = S && S.get && S.get('features.' + k); return Array.isArray(v) ? v : []; }, out = { ignore: {}, include: {} };
@@ -691,7 +729,7 @@
         if (!st || (st.state !== 'active' && st.state !== 'paused')) return;
         var a = st.attributes || {}, slot = m ? states['input_text.quick_timer_' + m[1] + '_name'] : null;
         var given = slot && slot.state && slot.state !== 'unknown' && slot.state !== 'unavailable' ? slot.state : '';
-        var row = { id: id, name: given || a.friendly_name || 'Timer', total: self.secs(a.duration) };
+        var row = { id: id, name: given || a.friendly_name || 'Timer', total: self.secs(a.duration), homepod: self.homepod(states, id) };
         if (st.state === 'paused') { row.paused = true; row.left = self.secs(a.remaining); }
         else {
           row.end = Date.parse(a.finishes_at);

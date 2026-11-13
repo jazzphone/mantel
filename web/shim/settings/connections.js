@@ -18,6 +18,8 @@ function testedSays(kind, r, warnings) {
   if (user.name) bits.push('as ' + user.name + (user.is_admin ? ' (administrator)' : ''));
   if (r && r.version) bits.push((kind === 'ha' ? 'Home Assistant ' : 'Music Assistant ') + r.version);
   if (kind === 'ha' && r && typeof r.entities === 'number') bits.push(r.entities + ' entities');
+  if (kind === 'homepod' && r && typeof r.homepods === 'number') bits.push('reading ' + r.homepods + ' HomePod' + (r.homepods === 1 ? '' : 's') +
+    (r.broken ? ', but it can’t read the Home app now' : ''));
   return ['It works: connected ' + bits.join(' · ') + '.'].concat(warnings || []).join(' ');
 }
 export function pConnections(sub) {
@@ -27,7 +29,7 @@ export function pConnections(sub) {
   if (sub[0] === 'ha' && sub[1] === 'moving') return sub[2] === 'advanced' ? pLinkAdvanced() : pMoving();
   if (sub[0] === 'link') return sub[1] === 'advanced' ? pLinkAdvanced() : pConnection('ha');     // its old address
   if (sub[0] === 'ma-page') return pConnection('ma');                                           // its old address
-  if (sub[0] === 'ha' || sub[0] === 'ma') return pConnection(sub[0]);
+  if (sub[0] === 'ha' || sub[0] === 'ma' || sub[0] === 'homepod') return pConnection(sub[0]);
   if (sub[0] === 'proxy') return pProxy();
   if (sub[0] === 'protect') return pProtect(sub.slice(1));
   if (sub[0] === 'push') return pPushRelay();
@@ -42,14 +44,17 @@ export function pConnections(sub) {
     if (!got) { pending(c); return; }
     if (got.err) { failed(c, got.err); return; }
     const can = got.data.can_edit, cs = got.data.connections;
+    const SUB = { ha: 'Its connection, and Mantel Link and HK Frontend in it', ma: 'Its connection, and the Browse Music page’s sign-in',
+                  homepod: 'The HomePods’ Siri timers and alarms, read from the Home app' };
     const row = (kind) => {
-      const x = cs[kind], now = x.live || {};
-      const value = x.state !== 'set' ? 'Not Set Up' : now.connected ? 'Connected' : 'Not Connected';
-      return nav(x.label, 'connections/' + kind, { value, sub: kind === 'ha' ? 'Its connection, and Mantel Link and HK Frontend in it' : 'Its connection, and the Browse Music page’s sign-in',
-                                                   icon: kind === 'ha' ? 'mdi:home-assistant' : 'mdi:music' });
+      const x = cs[kind];
+      if (!x) return null;
+      const now = x.live || {};
+      const value = x.state !== 'set' ? 'Not Set Up' : now.connected ? 'Connected' : kind === 'homepod' && now.state === 'starting' ? 'Connecting' : 'Not Connected';
+      return nav(x.label, 'connections/' + kind, { value, sub: SUB[kind], icon: { ha: 'mdi:home-assistant', ma: 'mdi:music', homepod: 'hk:homepod' }[kind] });
     };
     c.appendChild(group({ footer: !can ? 'Only an Owner can change connections.' : got.data.needs_fresh ? 'From outside the home network you will be asked to confirm it is you first.' : null },
-      [row('ha'), row('ma'), protectRow()]));
+      [row('ha'), row('ma'), row('homepod'), protectRow()].filter(Boolean)));
     if (['owner', 'admin'].includes(me.user.role)) c.appendChild(group({ footer: 'How browsers reach Mantel, and how Mantel’s notifications reach the Mantel app on iPhone and iPad.' }, [
       nav('HTTPS and Your Proxy', 'connections/proxy', { icon: 'mdi:lock', sub: 'Mantel’s Caddy, your own proxy, the Home Assistant App or a Cloudflare tunnel' }),
       nav('Notifications to the App', 'connections/push', { icon: 'mdi:bell', sub: 'The push relay, your own, or none' })]));
@@ -243,7 +248,18 @@ function pConnection(kind) {
     const suggested = !x.url && x.suggested_url && x.suggested_from === 'music_assistant_app';
     c.appendChild(group({ header: 'Address', footer: suggested ? 'Found Music Assistant’s App: press Test.' : null },
       [field('conn-' + kind, 'url', 'Address', { type: 'url', maxlength: 300, value: x.url || x.suggested_url || '',
-        placeholder: kind === 'ha' ? 'http://homeassistant.local:8123' : 'http://music-assistant.local:8095' })]));
+        placeholder: { ha: 'http://homeassistant.local:8123', ma: 'http://music-assistant.local:8095', homepod: 'http://192.0.2.10:8787' }[kind] })]));
+    if (kind === 'homepod') {
+      // THE HOMEPOD TIMER READER (phase 28): its address and the token from its config.json, nothing else
+      c.appendChild(group({ header: 'Its Token', footer:
+        'The token is in the reader’s config.json, beside its tiles.json. Reading needs none; pausing a timer or turning an alarm off does. Keep the reader on the home network: it speaks plain HTTP.'
+          }, [
+        field('conn-homepod', 'token', 'Token', { type: 'password', maxlength: 4096 }),
+        button('Test', test('token'), { fk: 'mx:homepod-token-test' }), button('Save', save('token'), { fk: 'mx:homepod-token-save' })]));
+      if (out) c.appendChild(hh('p', { class: 'mxflash' + (out.err ? ' err' : ''), role: out.err ? 'alert' : 'status', text: out.text }));
+      if (set) c.appendChild(group({}, [button('Cancel', () => { clearDraft('conn-' + kind); delete shown['test:' + kind]; redraw(); }, { fk: 'mx:replace-cancel' })]));
+      return;
+    }
     if (kind === 'ha') {
       c.appendChild(
         group(

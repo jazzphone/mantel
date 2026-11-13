@@ -83,8 +83,9 @@ from .identity.sessions import Identity, error, ok
 
 log = logging.getLogger("mantel.connections")
 
-KINDS = ("ha", "ma")
-LABEL = {"ha": "Home Assistant", "ma": "Music Assistant"}
+KINDS = ("ha", "ma", "homepod")
+LABEL = {"ha": "Home Assistant", "ma": "Music Assistant", "homepod": "HomePod Timer Reader"}
+EXAMPLE = {"ha": "http://homeassistant.local:8123", "ma": "http://music-assistant.local:8095", "homepod": "http://192.0.2.10:8787"}
 FILE = "{kind}.connection"
 FORMAT = 1
 TIMEOUT = 15.0
@@ -112,11 +113,10 @@ class ConnectionFailed(Exception):
 def clean_url(kind: str, raw: object) -> str:
     """An address as typed, checked: http(s) for HA, http(s) or ws(s) for MA; no user info, query or fragment."""
     if not isinstance(raw, str) or not raw.strip() or len(raw.strip()) > MAX_URL:
-        raise ConnectionFailed("url_invalid", f"Type {LABEL.get(kind, kind)}'s address, for example "
-                               + ("http://homeassistant.local:8123" if kind == "ha" else "http://music-assistant.local:8095"))
+        raise ConnectionFailed("url_invalid", f"Type {LABEL.get(kind, kind)}'s address, for example " + EXAMPLE.get(kind, EXAMPLE["ma"]))
     url = raw.strip().rstrip("/")
     p = urlparse(url)
-    schemes = ("http", "https") if kind == "ha" else ("http", "https", "ws", "wss")
+    schemes = ("http", "https", "ws", "wss") if kind == "ma" else ("http", "https")
     if p.scheme not in schemes or not p.hostname or p.username or p.password or p.query or p.fragment:
         raise ConnectionFailed("url_invalid", f"That is not an address Mantel can use. It should start with "
                                f"{' or '.join(s + '://' for s in schemes)} and name the host (and port).")
@@ -322,6 +322,27 @@ async def ma_login_token(http: aiohttp.ClientSession, url: str, username: str, p
     return await ma_run(http, url, body)
 
 
+async def test_homepod(http: aiohttp.ClientSession, url: str, token: str) -> dict:
+    """The HomePod timer reader (docs/phase28/HOMEPOD-TIMERS.md): its status answers, and it takes the token. The token is
+    tried on a check of a HomePod that can't exist: a wrong token is refused (401) before the reader looks (404)."""
+    timeout = aiohttp.ClientTimeout(total=TIMEOUT)
+    try:
+        async with http.get(url + "/status.json", allow_redirects=False, timeout=timeout) as r:
+            body = await r.json(content_type=None) if r.status == 200 else None
+        if not isinstance(body, dict) or not isinstance(body.get("homepods"), list):
+            raise ConnectionFailed("not_the_reader", "That address answered, but not as the HomePod timer reader does.")
+        async with http.post(url + "/check", params={"tile": "mantel-connection-test"}, allow_redirects=False, timeout=timeout,
+                             headers={"Authorization": f"Bearer {token}"}) as r:
+            status = r.status
+    except (aiohttp.ClientError, asyncio.TimeoutError, OSError, ValueError) as exc:
+        raise _reach_error("homepod", url, exc) from None
+    if status == 401:
+        raise ConnectionFailed("token_rejected", "The reader refused that token. It is in the reader's config.json.")
+    if status not in (200, 404):
+        raise ConnectionFailed("not_the_reader", "That address answered, but not as the HomePod timer reader does.")
+    return {"user": None, "version": None, "homepods": len(body["homepods"]), "broken": body.get("broken") is True}
+
+
 # -- storage ------------------------------------------------------------------------------------------------
 @dataclass
 class Record:
@@ -434,8 +455,10 @@ class Connections:
         self.files = SealedFiles(cfg.connections_dir, box)
         self.app_mode = bool(getattr(cfg, "ha_managed_by_app", False))
         # what the installation provided, remembered before anything is overridden
-        self.install_url = {"ha": getattr(cfg, "ha_url", "") or "", "ma": getattr(cfg, "ma_url", "") or ""}
-        self.install_file = {"ha": getattr(cfg, "token_file", None), "ma": getattr(cfg, "ma_token_file", None)}
+        self.install_url = {"ha": getattr(cfg, "ha_url", "") or "", "ma": getattr(cfg, "ma_url", "") or "",
+                            "homepod": getattr(cfg, "homepod_reader_url", "") or ""}
+        self.install_file = {"ha": getattr(cfg, "token_file", None), "ma": getattr(cfg, "ma_token_file", None),
+                             "homepod": getattr(cfg, "homepod_reader_token_file", None)}
         self._install_ha = install_ha_token if install_ha_token is not None else _read_file_token(self.install_file["ha"])
         self.own: dict[str, Record | None] = {}
         self.unreadable: dict[str, str] = {}
@@ -456,7 +479,7 @@ class Connections:
 
     # -- what is in effect -----------------------------------------------------------------------
     def install_token(self, kind: str) -> str:
-        return self._install_ha if kind == "ha" else _read_file_token(self.install_file["ma"])
+        return self._install_ha if kind == "ha" else _read_file_token(self.install_file[kind])
 
     def current(self, kind: str) -> Current | None:
         if kind == "ha" and self.app_mode:
@@ -472,8 +495,7 @@ class Connections:
     def expiring(self) -> list[tuple[str, str, float | None]]:
         """(kind, name, when its credential expires) for each saved connection (the alerts' token.expiring; only MA's
         sign-in tokens say when today)."""
-        names = {"ha": "Home Assistant", "ma": "Music Assistant"}
-        return [(k, names.get(k, k), rec.expires) for k, rec in self.own.items() if rec is not None]
+        return [(k, LABEL.get(k, k), rec.expires) for k, rec in self.own.items() if rec is not None]
 
     def ha_token(self) -> str:
         cur = self.current("ha")
@@ -485,7 +507,7 @@ class Connections:
 
     def effective_url(self, kind: str) -> str:
         cur = self.current(kind)
-        return cur.url if cur is not None else ("" if kind == "ma" else self.install_url["ha"])
+        return cur.url if cur is not None else (self.install_url["ha"] if kind == "ha" else "")
 
     # -- changes ---------------------------------------------------------------------------------
     async def _apply(self, kind: str) -> None:
@@ -567,6 +589,15 @@ def live_ma(app: web.Application) -> dict:
             "user": _ma_user(client.user) if isinstance(client.user, dict) else None, "error": None}
 
 
+def live_homepod(app: web.Application) -> dict:
+    host = app.get("homepod_timers")
+    if host is None:
+        return {"connected": False, "version": None, "error": None}
+    st = host.status()
+    return {"connected": st["state"] == "ok", "version": None, "state": st["state"], "error": st["error"],
+            "broken": st["broken"], "last_ok": st["last_ok"]}
+
+
 def status(app: web.Application, kind: str) -> dict:
     conns: Connections = app["connections"]
     cur = conns.current(kind)
@@ -582,7 +613,7 @@ def status(app: web.Application, kind: str) -> dict:
                     and cur.source == "mantel"},
         "saved": cur.record.public() if cur is not None and cur.record is not None else None,
         "unreadable": kind in conns.unreadable,
-        "live": live_ha(app) if kind == "ha" else live_ma(app),
+        "live": live_ha(app) if kind == "ha" else live_ma(app) if kind == "ma" else live_homepod(app),
     }
     return out
 
@@ -705,7 +736,8 @@ async def _test(request: web.Request, kind: str, body: dict, create: bool) -> tu
             got = await test_ma(http, url, token)     # the new token itself works
         return url, token, got, "login"
     token = clean_token(body.get("token"))
-    result = await (test_ha(http, url, token) if kind == "ha" else test_ma(http, url, token))
+    result = await (test_ha(http, url, token) if kind == "ha" else test_ma(http, url, token) if kind == "ma"
+                    else test_homepod(http, url, token))
     return url, token, result, "token"
 
 
@@ -752,7 +784,7 @@ async def _store(request: web.Request, ident: Identity, rec: Record) -> web.Resp
     return ok({"connection": status(request.app, rec.kind)})
 
 
-@guard("owner", fresh="away", first=_kind, audit=("connection.ha.saved", "connection.ma.saved"))
+@guard("owner", fresh="away", first=_kind, audit=("connection.ha.saved", "connection.ma.saved", "connection.homepod.saved"))
 async def api_save(request: web.Request) -> web.Response:
     kind = _kind(request)
     ident = guarded(request)
@@ -774,7 +806,8 @@ async def api_save(request: web.Request) -> web.Response:
     return await _store(request, ident, rec)
 
 
-@guard("owner", fresh="away", first=_kind, audit=("connection.ha.disconnected", "connection.ma.disconnected"))
+@guard("owner", fresh="away", first=_kind, audit=("connection.ha.disconnected", "connection.ma.disconnected",
+                                                  "connection.homepod.disconnected"))
 async def api_disconnect(request: web.Request) -> web.Response:
     kind = _kind(request)
     ident = guarded(request)

@@ -268,7 +268,26 @@ class LinkedHouse:
                                     "available": c is not None, "attributes": {"channel": n},
                                     "features": {"tv": dict(c["tv"])} if c is not None and c.get("tv") else {}},
                                    ("camera", n))
+        self._homepod_alarms(entry, out)
         return out
+
+    def _homepod_alarms(self, entry: str, out: dict[str, tuple[dict[str, Any], tuple[str, Any]]]) -> None:
+        """Each HomePod's next alarm (docs/phase28/HOMEPOD-TIMERS.md), for automations: a timestamp sensor, unknown while
+        none is on. Only while the HomePod timer reader is set up; a HomePod is known by its room and name."""
+        host = self.app.get("homepod_timers")
+        if host is None or not host.configured:
+            return
+        up = host.availability() == "ok"
+        for row in host.next_alarms():
+            uid = f"{entry}_homepod_{row['slug']}_next_alarm"
+            name = f"{row['home_room']} {row['homepod']} next alarm".strip()
+            attrs = {"homepod": row["homepod"], "home_room": row["home_room"], "room": host.room_of(row["home_room"]),
+                     **({k: row[k] for k in ("label", "time", "repeats")} if row.get("at") else {})}
+            out[uid] = ({"unique_id": uid, "platform": "sensor", "entity_id": f"sensor.{row['slug']}_next_alarm",
+                         "name": name, "has_entity_name": False, "icon": "mdi:alarm",
+                         "device": {"identifier": entry, "name": "HK Frontend"},
+                         "state": row["at"], "available": up, "attributes": attrs,
+                         "features": {"device_class": "timestamp"}}, ("homepod_alarm", row["tile"]))
 
     # -- publishing ------------------------------------------------------------------------------------
     async def refresh(self) -> None:
@@ -446,6 +465,9 @@ class LinkedHouse:
                 log.exception("linked house: refresh failed")
 
     async def start(self) -> None:
+        homepod = self.app.get("homepod_timers")
+        if homepod is not None:
+            homepod.on_alarms.append(lambda: self.host.spawn(self.refresh()))     # a HomePod's next alarm changed
         await self.refresh()
         svc = self.app.get("settings")
         if svc is not None:

@@ -102,6 +102,7 @@
                                                         body: function (c) { self.a_pageOrder(c, key); } };
         if (key === 'timers' && s0 === 'house') return mk('House Timers', function (c) { self.h_timers(c); });
         if (key === 'timers' && s0 === 'which') return mk('Which Timers', function (c) { self.h_whichTimers(c); });
+        if (key === 'timers' && s0 === 'homepod') return mk('HomePod Rooms', function (c) { self.h_homepodRooms(c); });
         if (key === 'weather' && s0 === 'sensors') return mk('Sensors', function (c) { self.h_weatherSensors(c); });
         if (key === 'weather' && s0 === 'forecast') return mk('Forecast & Details', function (c) { self.h_weatherForecast(c); });
         if (key === 'weather' && s0 === 'radar') {
@@ -177,6 +178,7 @@
           c.appendChild(K.group({ header: 'Which Timers', footer: 'What shows on the screensaver and rings, and what is ignored.' }, [
             K.nav({ label: 'Which Timers', value: wh.waiting ? '' : wh.on.length + ' On \u00B7 ' + wh.off.length + ' Ignored', href: base + '/which', sk: 'features.timer_include' })]));
           this.h_timerEnds(c);
+          this.h_homepod(c, base);
         }
         if (key === 'vacuums') {
           this.pageFeature(c, 'clean');
@@ -413,7 +415,7 @@
         var self = this, T = window.hkTimers;
         if (!this.timerModules() || !T) return { on: [], off: [], st: {}, waiting: true };
         var st = (this.client && this.client.states) || {}, rules = T.rulesOf({ get: function (p) { return self.hs(p); } });
-        var ids = this.entityIds({ domains: ['timer'] }).filter(function (id) { return !/^timer\.hk_timer_\d+$/.test(id); });
+        var ids = this.entityIds({ domains: ['timer'] }).filter(function (id) { return !/^timer\.hk_(?:timer|homepod)_\d+$/.test(id); });
         ids.sort(function (a, b) { return self.name(a).localeCompare(self.name(b)); });
         return { on: ids.filter(function (id) { return T.counts(id, rules); }), off: ids.filter(function (id) { return !T.counts(id, rules); }), st: st };
       }
@@ -484,6 +486,45 @@
             [K.toggle({ label: 'The Whole House', sk: 'features.timer_also', fk: 'timers:all', on: also.indexOf('all') >= 0, onChange: flip('all') })].concat(
               rooms.map(function (r) { return K.toggle({ label: r.name, sk: 'features.timer_also', fk: 'timers:' + r.id, on: also.indexOf(r.id) >= 0, onChange: flip(r.id) }); }))));
         }
+      }
+      // HOMEPOD TIMERS (phase 28, docs/phase28/HOMEPOD-TIMERS.md): the reader's state, as the host says on the timers' sensor, and
+      // which room each Home app room is. The reader itself is set up in the host's Connections.
+      hpFeed() { var T = window.hkTimers; return this.timerModules() && T ? T.homepodFeed((this.client && this.client.states) || {}) : null; }
+      h_homepod(c, base) {
+        var f = this.hpFeed(), q = ((this.client && this.client.states) || {})['sensor.running_quick_timers'];
+        if (!f || !q || !q.attributes || !q.attributes.homepod) return;        // (a host with no reader of its own: nothing to say)
+        if (f.state === 'off') {
+          c.appendChild(
+            K.group({ header: 'HomePod Timers', footer: 'Timers and alarms set with Siri on a HomePod show here once the HomePod timer reader is set up in Connections.' }, []));
+          return;
+        }
+        var says = { ok: 'Reading', starting: 'Connecting', unavailable: 'Unavailable' }[f.state] || f.state;
+        var n = Object.keys(f.timers || {}).length, rooms = f.rooms || [], loose = rooms.filter(function (r) { return !r.area; }).length;
+        var rows = [K.info({ label: 'Reader', value: says }), K.info({ label: 'Running Now', value: n ? n + ' Timer' + (n === 1 ? '' : 's') : 'None' }),
+          K.info({ label: 'Alarms', value: String((f.alarms || []).length) })];
+        rows.push(K.nav({ label: 'HomePod Rooms', value: loose ? loose + ' Not Matched' : rooms.length ? 'All Matched' : '', href: base + '/homepod', sk: 'features.homepod_rooms' }));
+        c.appendChild(K.group({ header: 'HomePod Timers', footer: (f.state === 'unavailable' ?
+          'The reader isn\u2019t answering, or can\u2019t read the Home app. The screens say HomePod timers are unavailable. ' : '') +
+          'They show and hold their last minute as these do, and the HomePod rings them. ' +
+            (f.can_mirror === false ? 'Home Assistant needs Allow Control of the House on, and an administrator\u2019s credential, to show them.' : '') }, rows));
+      }
+      h_homepodRooms(c) {
+        var self = this, f = this.hpFeed();
+        if (!f) return;
+        var areas = (this.client && this.client.areas) || {}, cur = Object.assign({}, this.hs('features.homepod_rooms') || {});
+        var opts = Object.keys(areas).map(function (a) { return [a, self.areaName(a)]; }).sort(function (x, y) { return x[1].localeCompare(y[1]); });
+        var rows = (f.rooms || []).map(function (r) {
+          var auto = r.how === 'name' ? 'Same Name (' + (r.area_name || r.area) + ')' : 'Not Matched';
+          return K.select({ label: r.home, sub: r.how === 'none' ? 'Choose the room it is' : 'In the Home app', sk: 'features.homepod_rooms', fk: 'hp-room:' + r.home,
+            value: cur[r.home] || '', options: [['', auto]].concat(opts), onChange: function (v) {
+              var next = Object.assign({}, self.hs('features.homepod_rooms') || {});
+              if (v) next[r.home] = v; else delete next[r.home];
+              self.setH({ 'features.homepod_rooms': next });
+            } });
+        });
+        c.appendChild(
+          K.group({ header: 'Home App Rooms', footer: 'A Home app room with the same name as one here is matched by itself. A HomePod\u2019s timer wakes its room\u2019s tablet for its last minute.' },
+          rows.length ? rows : [K.info({ label: 'None seen yet' })]));
       }
       h_timers(c) {
         var self = this, cur = this.hs('features.house_timers') || [];

@@ -191,8 +191,8 @@ Columns: **Rule** who may call it (`signed_in` any session, `person`, `manager` 
 | `POST /api/connections/ha/oauth/start` | owner, fresh away |  | none |  | none: starts a sign-in at Home Assistant; nothing is saved until api_save (connection.ha.saved) |  |
 | `DELETE /api/connections/pending/{pid}` | manager |  | none |  | none: drops a sign-in the same person started; nothing was saved |  |
 | `GET /api/connections/pending/{pid}` | manager | admin | none |  |  |  |
-| `DELETE /api/connections/{kind}` | owner, fresh away |  | none |  | connection.ha.disconnected, connection.ma.disconnected |  |
-| `POST /api/connections/{kind}` | owner, fresh away |  | none |  | connection.ha.saved, connection.ma.saved |  |
+| `DELETE /api/connections/{kind}` | owner, fresh away |  | none |  | connection.ha.disconnected, connection.ma.disconnected, connection.homepod.disconnected |  |
+| `POST /api/connections/{kind}` | owner, fresh away |  | none |  | connection.ha.saved, connection.ma.saved, connection.homepod.saved |  |
 | `POST /api/connections/{kind}/test` | owner, fresh away |  | none |  | none: tests an address and a credential; saves nothing |  |
 | `GET /auth/connection/callback` | own: one_time_code | none | none |  | Connect to Home Assistant's OAuth return: its signed single-use state, made by an Owner's guarded /api/connections/ha/oauth/start; it answers a page and saves nothing |  |
 

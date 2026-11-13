@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HomePod Alarms</title>
+<!-- Phase 28's mock-up (docs/phase28/HOMEPOD-TIMERS.md "Alarms in the Timers sheet"): three ways to show the HomePods' alarms
+     on the Timers page, under Running. It stands alone and touches nothing; every name in it is invented. Values follow
+     DESIGN.md: the glass plate (23.5 corners), ink / ink-2 / ink-3, the label role, the 196 x 70 pill, the 388 px timer card. -->
+<style>
+:root{--ink:rgba(255,255,255,.94);--ink2:rgba(255,255,255,.68);--ink3:rgba(255,255,255,.40);--line:rgba(255,255,255,.10);--key:rgba(255,255,255,.10);
+  --glass:rgba(255,255,255,.12);--border:rgba(255,255,255,.14);--orange:#ff9f0a}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.3 -apple-system,"SF Pro Text",system-ui,sans-serif;color:var(--ink);
+  background:linear-gradient(160deg,#2a1a0c,#1e1408 45%,#5a3412);min-height:100vh;padding:28px}
+h1{font-size:28px;margin:0 0 4px}.lede{color:var(--ink2);margin:0 0 24px;max-width:900px}
+.opt{margin:0 0 40px}.opt h2{font-size:13px;font-weight:600;letter-spacing:.3px;text-transform:uppercase;color:var(--ink2);margin:0 0 6px}
+.opt p{margin:0 0 14px;color:var(--ink2);max-width:900px}
+.head{display:flex;align-items:baseline;justify-content:space-between;max-width:1226px;margin:0 0 10px}
+.head b{font-size:19.7px;font-weight:700}.head a{color:var(--orange);font-weight:600;font-size:15px}
+.plate{background:var(--glass);border:1px solid var(--border);border-radius:23.5px;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+/* A: a list */
+.list{max-width:600px;padding:0 18px}
+.row{display:flex;align-items:center;gap:14px;min-height:78px;border-top:1px solid var(--line)}.row:first-child{border-top:0}
+.row .t{font-size:34px;font-weight:300;letter-spacing:-.6px;font-variant-numeric:tabular-nums}.row .t small{font-size:17px;font-weight:400;margin-left:3px}
+.row .w{flex:1;min-width:0}.row .s{color:var(--ink2);font-size:13px;font-weight:500;display:flex;align-items:center;gap:5px}
+.row.off .t,.row.off .s{color:var(--ink3)}
+.hp{width:13px;height:15px;border-radius:3px;border:1.6px solid currentColor;position:relative;flex:none}.hp:after{content:"";position:absolute;left:2.6px;top:4.2px;width:4px;height:4px;border-radius:50%;border:1.4px solid currentColor}
+.sw{width:51px;height:31px;border-radius:16px;background:#34c759;position:relative;flex:none}.sw:after{content:"";position:absolute;top:2px;right:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 2px 4px rgba(0,0,0,.2)}
+.sw.off{background:rgba(120,120,128,.32)}.sw.off:after{right:auto;left:2px}
+.minus{width:22px;height:22px;border-radius:50%;background:#ff3b30;flex:none;position:relative}.minus:after{content:"";position:absolute;left:5px;right:5px;top:10px;height:2px;background:#fff;border-radius:1px}
+/* B: cards */
+.cards{display:grid;grid-template-columns:repeat(auto-fill,388px);gap:10px}
+.card{height:196px;padding:16px 18px;display:grid;grid-template-rows:52px 1fr 52px;gap:12px}
+.card .h{display:flex;gap:12px;align-items:center}.well{width:52px;height:52px;border-radius:26px;background:var(--orange);display:flex;align-items:center;justify-content:center;color:rgba(0,0,0,.82)}
+.well.off{background:rgba(255,255,255,.18);color:rgba(255,255,255,.8)}.well .hp{width:18px;height:22px;border-width:2px}.well .hp:after{left:4px;top:6px;width:6px;height:6px}
+.card .n{font-size:17px;font-weight:600}.card .s{font-size:13px;color:var(--ink2);font-weight:500}
+.card .t{font-size:30px;font-weight:300;letter-spacing:-.8px;align-self:center}.card.off .t{color:var(--ink3)}
+.keys{display:grid;grid-template-columns:1fr 1fr;gap:12px}.key{border-radius:18px;background:var(--key);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:var(--ink2);gap:8px}
+/* C: pills */
+.pills{display:grid;grid-template-columns:repeat(auto-fill,196px);gap:10px}
+.pill{width:196px;height:70px;border-radius:23.5px;padding:10.7px 12.8px 10.7px 9.8px;display:flex;align-items:center;gap:9.6px;background:rgba(255,255,255,.12);border:1px solid var(--border)}
+.pill.on{background:rgba(255,255,255,.92);color:#1d1d1f}.pill .well{width:42px;height:42px;border-radius:21px;flex:none}.pill .nm{font-size:15px;font-weight:600}.pill .st{font-size:15px;font-weight:600;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pill > div:last-child{min-width:0}
+.pill.on .st{color:#767678}
+.confirm{display:inline-block;margin-top:16px;width:270px;border-radius:14px;background:rgba(40,40,44,.96);text-align:center;overflow:hidden}
+.confirm b{display:block;padding:18px 16px 4px;font-size:17px}.confirm span{display:block;padding:0 16px 18px;font-size:13px;color:var(--ink2)}
+.confirm div{display:flex;border-top:1px solid rgba(255,255,255,.14)}.confirm i{flex:1;font-style:normal;padding:11px;font-size:17px;color:#0a84ff}.confirm i+i{border-left:1px solid rgba(255,255,255,.14);color:#ff453a;font-weight:600}
+@media (max-width:640px){body{padding:16px}.cards{grid-template-columns:1fr}.card{width:auto}}
+</style></head><body>
+<h1>HomePod Alarms on the Timers Page</h1>
+<p class="lede">Under Running, an Alarms section for every alarm set on a HomePod, on or off. Each says its time, its label, the HomePod and room, and
+when it repeats; a switch turns it on or off, and Delete asks first. Mantel can't stop a ringing alarm (the Home app doesn't show one), so none of
+these has a Stop. Pick one.</p>
+
+<section class="opt"><h2>A · A list, like the Clock app (recommended)</h2>
+<p>One glass plate, a row per alarm: the time large and light, a line under it, the iOS switch at the right. An off alarm goes gray. <b>Edit</b>
+beside the heading shows a red minus on each row; tapping it asks before deleting. The quietest of the three, and it holds many alarms.</p>
+<div class="head" style="max-width:600px"><b>Alarms</b><a>Edit</a></div>
+<div class="plate list">
+  <div class="row"><div class="w"><div class="t">6:30<small>AM</small></div><div class="s"><span class="hp"></span>Alarm · Bedroom HomePod mini · Weekdays</div></div><div class="sw"></div></div>
+  <div class="row"><div class="w"><div class="t">7:45<small>AM</small></div><div class="s"><span class="hp"></span>School Run · Kitchen HomePod · Every Day</div></div><div class="sw"></div></div>
+  <div class="row off"><div class="w"><div class="t">9:00<small>PM</small></div><div class="s"><span class="hp"></span>Alarm · Den HomePod</div></div><div class="sw off"></div></div>
+</div>
+<div class="head" style="max-width:600px;margin-top:18px"><b>Alarms</b><a>Done</a></div>
+<div class="plate list">
+  <div class="row"><span class="minus"></span><div class="w"><div class="t">6:30<small>AM</small></div><div class="s"><span class="hp"></span>Alarm · Bedroom HomePod mini · Weekdays</div></div></div>
+  <div class="row off"><span class="minus"></span><div class="w"><div class="t">9:00<small>PM</small></div><div class="s"><span class="hp"></span>Alarm · Den HomePod</div></div></div>
+</div>
+<div class="confirm"><b>Delete the 9:00 PM Alarm?</b><span>On the Den HomePod. It can't be undone here.</span><div><i>Cancel</i><i>Delete</i></div></div>
+</section>
+
+<section class="opt"><h2>B · Cards, like the running timers</h2>
+<p>The 388 px timer card: the HomePod in its well (lit while on), the label and where, the time, and two keys: On / Off and Delete. Matches the
+timers above it; takes more room (three across at 1,280).</p>
+<div class="cards">
+  <div class="plate card"><div class="h"><div class="well"><span class="hp"></span></div><div><div class="n">Alarm</div><div class="s">Bedroom HomePod mini · Weekdays</div></div></div>
+    <div class="t">6:30 AM</div><div class="keys"><div class="key">Turn Off</div><div class="key">Delete</div></div></div>
+  <div class="plate card off"><div class="h"><div class="well off"><span class="hp"></span></div><div><div class="n">Alarm</div><div class="s">Den HomePod · Off</div></div></div>
+    <div class="t">9:00 PM</div><div class="keys"><div class="key">Turn On</div><div class="key">Delete</div></div></div>
+</div></section>
+
+<section class="opt"><h2>C · Pills, like accessories</h2>
+<p>A 196 x 70 pill each: the time as its name, the room and repeat as its state. A tap turns it on or off (lit while on); press and hold opens a
+sheet with Delete. The most compact; the least like the Clock app.</p>
+<div class="pills">
+  <div class="pill on"><div class="well"><span class="hp" style="color:#000"></span></div><div><div class="nm">6:30 AM</div><div class="st">Bedroom · Weekdays</div></div></div>
+  <div class="pill on"><div class="well"><span class="hp" style="color:#000"></span></div><div><div class="nm">7:45 AM</div><div class="st">Kitchen · Every Day</div></div></div>
+  <div class="pill"><div class="well off"><span class="hp"></span></div><div><div class="nm">9:00 PM</div><div class="st">Den · Off</div></div></div>
+</div></section>
+</body></html>
