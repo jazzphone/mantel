@@ -4,6 +4,9 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Fixed**
+- **A wall tablet woke onto black after its connection dropped**: when a page subscribes to the screens' feed, Mantel now tells it every screen's black and photos, on or off. Only the "on"s were sent before, but a page that reconnects keeps its last states, so a wake's "black off" lost with a dropped socket never came again, and the screen stayed lit onto HK's black until the next sleep (the Loft, a minute and a half).
+
 **Changed**
 - **A moving wallpaper costs a wall tablet far less**: the whole picture's drift, sway or turn now steps a few times a second (4 / 6 / 10 for Slow / Medium / Fast) rather than every frame. It reads the same (a step moves it under a pixel), but each frame it moved, every glass card over it blurred it again: a wall tablet's page at rest went from 1.6 cores to 0.9. A motion theme's own layers keep every frame.
 - **Mantel for Android is a Kiosk App** in a wall tablet's Setup: picked by itself for a tablet that runs it (its Home Assistant device says so), driven by Sleep Screen like Kiosk Satellite, without Kiosk Satellite's own screensaver check or Direct Connection.

@@ -1069,16 +1069,18 @@ def register(app: web.Application, hub: Any, hooks: Any = None) -> FeatureHost:
         if not _principal_ok(ctx.identity):
             raise Forbidden("sign in to receive the house's events")
         end = host.feed.subscribe(ctx.identity, on_event)
-        # a page that opens (or reloads) while a screen is black or showing photos is told so at once,
-        # in the same `screen` frames; a screen that is neither needs no frame (the page's default)
+        # EVERY SCREEN AS IT IS NOW, on or off, in the same `screen` frames: a page that opens (or reloads) is
+        # told what is black or showing photos, and a page that RECONNECTS is told what is no longer. Only the
+        # "on"s were sent once, "off" being a new page's default -- but a page that reconnects still holds its
+        # last states, and a wake's "black off" sent while its socket was down never came again: the Loft lit
+        # onto HK's black for a minute and a half (2026-11-12, 18:58, the black off sent 0.2 s before its
+        # socket dropped and came back).
         for tid, scr in list(host.screens.items()):
             if tid not in host.tablets:
                 continue
-            if scr.black.on:
-                on_event({"type": "screen", "tablet": tid, "black": True, "brightness": scr.black.brightness,
-                          "confirmed": scr.black.confirmed, "dashboards": [], "users": []})
-            if scr.photos:
-                on_event({"type": "screen", "tablet": tid, "photos": True, "dashboards": [], "users": []})
+            on_event({"type": "screen", "tablet": tid, "black": bool(scr.black.on), "brightness": scr.black.brightness,
+                      "confirmed": bool(scr.black.on and scr.black.confirmed), "dashboards": [], "users": []})
+            on_event({"type": "screen", "tablet": tid, "photos": bool(scr.photos), "dashboards": [], "users": []})
 
         async def unsubscribe() -> None:
             end()

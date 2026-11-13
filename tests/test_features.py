@@ -124,9 +124,25 @@ def change(app, eid, state, **attrs):
 
 
 async def events(env, ws):
+    """Subscribe to the screens' feed; -> the frames it replays at once (every screen as it is, on or off)."""
     await ws.send_json({"type": "read_subscribe", "id": 7, "msg": {"type": "hk_frontend/events/subscribe"}})
-    got = await GF.recv(ws)
-    assert got == {"type": "read_result", "id": 7, "result": None}, got
+    replayed, answered = [], False
+    while not answered:
+        got = await GF.recv(ws)
+        if got.get("type") == "read_event" and got.get("id") == 7:
+            replayed.append(got["event"])
+            continue
+        assert got == {"type": "read_result", "id": 7, "result": None}, got
+        answered = True
+    # (the replay may follow the answer: what comes in the next moment is part of it)
+    while True:
+        try:
+            got = await GF.recv(ws, 0.3)
+        except Exception:
+            break
+        assert got.get("type") == "read_event" and got["event"].get("type") == "screen", got
+        replayed.append(got["event"])
+    return replayed
 
 
 async def next_event(ws, timeout=3):
@@ -394,6 +410,34 @@ async def test_a_page_that_opens_under_a_black_screen_is_told_so(make_env):
     assert frames ==[{"type": "screen", "tablet": "hall", "black": True, "brightness": 174, "confirmed": False, "dashboards": [], "users": []},
                       {"type": "screen", "tablet": "hall", "photos": True, "dashboards": [], "users": []}]
     assert env.audit() == []
+    await ws.close()
+    await lk.ws.close()
+
+
+async def test_a_page_that_reconnects_is_told_the_black_is_over(make_env):
+    """A wake's "black off" sent while the page's socket was down: the page reconnects still holding "black on",
+    and the replay must say "off" -- only the "on"s were replayed, and the Loft lit onto HK's black (2026-11-12)."""
+    env = await make_env(settings={"linked": {"enabled": True, "entry_id": ENTRY}})
+    lk, _hello = await linked_ws(env)
+    target = [{"entity_id": "switch.hall_black_screen", "unique_id": UID["black_screen"]}]
+    res, _ = await lk.call(1, type="call_service", service="set_black_screen",
+                           data={"black": True, "brightness": 174}, targets=target)
+    assert res["success"]
+    await env.login("owner1", "owner")
+    ws = await env.socket(expect_caps=False)
+    first = await events(env, ws)
+    assert {"type": "screen", "tablet": "hall", "black": True, "brightness": 174, "confirmed": False,
+            "dashboards": [], "users": []} in first
+    await ws.close()                                   # the socket drops...
+    res, _ = await lk.call(2, type="call_service", service="set_black_screen",
+                           data={"black": False}, targets=target)     # ...as the wake turns the black off
+    assert res["success"]
+    ws = await env.socket(expect_caps=False)           # the page's next socket
+    again = await events(env, ws)
+    black = [f for f in again if f.get("tablet") == "hall" and "black" in f]
+    photos = [f for f in again if f.get("tablet") == "hall" and "photos" in f]
+    assert black and black[0]["black"] is False and black[0]["confirmed"] is False
+    assert photos == [{"type": "screen", "tablet": "hall", "photos": False, "dashboards": [], "users": []}]
     await ws.close()
     await lk.ws.close()
 
