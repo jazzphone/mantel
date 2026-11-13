@@ -302,8 +302,8 @@ def steps(helper: Mapping[str, Any] | None, k: Known, now: float) -> list[tuple[
     have = helper.get("remaining") or 0.0          # paused
     if k.paused:
         return [("start", {"duration": hms(want)}), ("pause", {})] if abs(have - want) > SYNC_TOL else []
-    out: list[tuple[str, dict[str, Any]]] = [("start", {})]       # resume: it runs from what it had left
-    return out + _adjust(have, want, helper.get("duration")) if abs(have - want) > SYNC_TOL else out
+    resume: list[tuple[str, dict[str, Any]]] = [("start", {})]    # resume: it runs from what it had left
+    return resume + _adjust(have, want, helper.get("duration")) if abs(have - want) > SYNC_TOL else resume
 
 
 # ---- rooms ---------------------------------------------------------------------------------------------------------------

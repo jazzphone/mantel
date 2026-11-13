@@ -118,7 +118,7 @@
           // THE HOMEPODS' ALARMS (phase 28; docs/phase28/mockup/alarms.html, look A): the Clock app's list on one plate, under
           // Running. A row: the time large and light (the countdown's weight), a line under it, the iOS switch; Edit puts a red
           // minus on each row, and Delete asks first. An alarm that is off goes gray.
-          '.al{margin-top:20px;max-width:600px}',
+          '.al{margin-top:20px;max-width:min(100%,600px)}',
           '.al .hrow{align-items:baseline}',
           '.al .ed{all:unset;cursor:pointer;font-size:15px;font-weight:600;color:var(--al-tint,#ff9f0a);padding:10px 4px;margin:-10px 0;-webkit-tap-highlight-color:transparent}',
           '.al .pl{border-radius:' + M.radius + ';' + M.glass + ';border:' + M.border + ';box-shadow:' + M.shSm + ';padding:0 18px}',

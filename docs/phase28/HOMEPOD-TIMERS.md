@@ -1,8 +1,8 @@
 # Phase 28: HomePod timers in Mantel (plan, 2026-11-12)
 
 **Status: the reader is built and running; Mantel's side (28.2, 28.3) is built and on `main`, not on the house.** The
-alarms' list on the Timers page is look A of [mockup/alarms.html](mockup/alarms.html) (the Clock app's list), built while
-the owner's pick is still open: B or C replace one method (`HkTimersCard._alarms`). See "As built" at the end.
+alarms' list on the Timers page is look A of [mockup/alarms.html](mockup/alarms.html), the Clock app's list (the owner's
+pick, 2026-11-13). See "As built" at the end.
 The reader runs in a macOS virtual machine on the house's Proxmox host and serves what it reads over HTTP (below). The owner's decisions are recorded at the end
 (2026-11-12, revised the same evening: the first version put the reader in Mantel for Mac and said a VM couldn't work).
 
@@ -161,6 +161,8 @@ every 1.5 s across the house. The VM: two to four cores busy (the Home app and i
 3. **They work like Mantel's timers,** the last minute included, with the same settings.
 4. **Pause, resume and cancel from Mantel:** yes.
 5. **Alarms:** yes, in the Timers sheet; how they look is still to design.
+6. **The alarms' look (2026-11-13):** A, the Clock app's list ([mockup/alarms.html](mockup/alarms.html)): one plate, the time
+   large and light, the switch, Edit and Delete with a confirmation.
 
 ## As built (28.2 and 28.3, 2026-11-12)
 

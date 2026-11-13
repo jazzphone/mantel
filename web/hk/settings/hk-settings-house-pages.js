@@ -487,8 +487,8 @@
               rooms.map(function (r) { return K.toggle({ label: r.name, sk: 'features.timer_also', fk: 'timers:' + r.id, on: also.indexOf(r.id) >= 0, onChange: flip(r.id) }); }))));
         }
       }
-      // HOMEPOD TIMERS (phase 28, docs/phase28/HOMEPOD-TIMERS.md): the reader's state, as Mantel says on the timers' sensor, and
-      // which room each Home app room is. The reader itself is set up in Mantel Settings -> Connections.
+      // HOMEPOD TIMERS (phase 28, docs/phase28/HOMEPOD-TIMERS.md): the reader's state, as the host says on the timers' sensor, and
+      // which room each Home app room is. The reader itself is set up in the host's Connections.
       hpFeed() { var T = window.hkTimers; return this.timerModules() && T ? T.homepodFeed((this.client && this.client.states) || {}) : null; }
       h_homepod(c, base) {
         var f = this.hpFeed(), q = ((this.client && this.client.states) || {})['sensor.running_quick_timers'];
