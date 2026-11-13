@@ -393,8 +393,9 @@ print('\n=== Pre-rendered: the same layers, a picture of the sky pinned in each 
 window.innerWidth = 1280; window.innerHeight = 800;
 var imgRect = { x: 0, y: 0, w: 1280, h: 800 }, mkEl = document.createElement;
 document.createElement = function (t) { var e = mkEl(t); if (t === 'img' || t === 'canvas') e._rect = imgRect; return e; };
-// (the picture is a canvas holding it: data-src names it)
-var imgsOf = function (l) { return l.children.filter(function (c) { return c.tagName === 'CANVAS' && c.getAttribute('data-src'); })
+// (the picture is a child whose background it is, fixed to the screen: data-src names it -- no fixed child, 2026-11-13:
+// Android's WebView didn't clip one to the layer's clip-path)
+var imgsOf = function (l) { return l.children.filter(function (c) { return c.getAttribute('data-hk-pre') !== null && c.getAttribute('data-src'); })
   .map(function (c) { c.src = c.getAttribute('data-src'); return c; }); };
 var live = function (l) { return /blur\(/.test(l.style.backdropFilter) && !imgsOf(l).length; };
 var V10 = view();
@@ -416,7 +417,7 @@ ok('...blurring live until there is a picture to wear', pl.every(live));
 G._pre.show('blob:one');
 ok('a picture: each layer wears it, pinned to the screen, and blurs nothing live',
    pl.every(function (l) { return l.style.backdropFilter === 'none' && imgsOf(l).length === 1 && imgsOf(l)[0].src === 'blob:one'; }) &&
-   /position:fixed/.test(imgsOf(pl[0])[0].style.cssText) && /100vw/.test(imgsOf(pl[0])[0].style.cssText));
+   imgsOf(pl[0])[0].style.position === 'absolute' && /blob:one.*100vw.*fixed/.test(imgsOf(pl[0])[0].style.background));
 ok('...the first picture is whole, not faded in', pl.every(function (l) { return imgsOf(l)[0].style.opacity !== '0'; }));
 G._pre.show('blob:two');
 ok('a new picture arrives transparent over the old', pl.every(function (l) { var i = imgsOf(l); return i.length === 2 && i[1].style.opacity === '0'; }));
@@ -440,8 +441,8 @@ ok('a change (a new page, a new cover, rain) fades in quickly', pl.every(functio
    imgsOf(pl[0]).map(function (i) { return i.style.transition; }));
 advance(900);
 ok('...done in well under a second', pl.every(function (l) { var i = imgsOf(l); return i.length === 1 && i[0].src === 'blob:three'; }));
-imgRect = { x: 30, y: 24, w: 1200, h: 760 };       // a sheet sliding in: its transform is the fixed child's box
 var r10 = row(V10.grid, 500);
+r10._cs.transform = 'translateY(24px) scale(0.98)';  // a sheet sliding in: a fixed background under it is out of line
 add(r10, card({ x: 20, y: 507, w: 192, h: 70 })); advance(300);
 ok('a layer whose picture cannot be pinned to the screen blurs live instead', layersIn(r10).length > 0 && layersIn(r10).every(live));
 ok('...and the others keep their picture', pl.every(function (l) { return imgsOf(l).length === 1; }));
@@ -523,10 +524,10 @@ ok('a layer held over the page (in a fixed box) blurs live, though its picture w
    barL.length > 0 && barL.every(live), barL.map(function (l) { return l.style.backdropFilter; }));
 ok('...while the page\'s own layers wear the picture', pageL.length > 0 && pageL.every(function (l) { return imgsOf(l).length === 1 && !live(l); }));
 var r22 = row(V22.grid, 450); add(r22, card({ x: 20, y: 457, w: 192, h: 70 }));
-imgRect = { x: 30, y: 24, w: 1200, h: 760 };    // something above it moving: its picture out of line
+r22._cs.transform = 'translate(30px, 24px)';      // something above it moving: its picture out of line
 advance(300);
 ok('a page layer whose picture is out of line blurs live meanwhile', layersIn(r22).length > 0 && layersIn(r22).every(live));
-imgRect = { x: 0, y: 0, w: 1280, h: 800 };       // still again
+r22._cs.transform = 'none';                       // still again
 G.refresh(); advance(300);
 ok('...and wears the picture again once it lines up (it stayed live for good)', layersIn(r22).every(function (l) { return imgsOf(l).length === 1 && !live(l); }));
 setLook('blur'); V22.v.remove(); Array.from(GL).forEach(leave); advance(300);
