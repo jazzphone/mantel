@@ -373,6 +373,18 @@ def test_another_app_in_front(house, clock):
     assert s.app_front() and s.want == "hold" and "com.netflix.mediaclient" in s.reason
 
 
+def test_an_airplay_mirror_holds_the_screen_as_another_app_would(house, clock):
+    # Mantel for Android's AirPlay (phase 30): a mirror or a video keeps the screen on until it ends; sound alone doesn't
+    s = screen(house, clock)
+    s.kiosk["airplay"] = "sensor.hall_kiosk_airplay_state"
+    house.set(K["app"], "com.jazzphone.mantel.android")
+    for state, holds in (("Idle", False), ("Playing Audio", False), ("Off", False), ("Mirroring", True), ("Playing Video", True)):
+        house.set("sensor.hall_kiosk_airplay_state", state)
+        assert s.app_front() is holds, state
+    s.decide(clock())
+    assert s.want == "hold" and "AirPlay" in s.reason
+
+
 def test_a_loop_waits():
     ok, recent = E.room_to_act([], 100.0)
     assert ok and recent == []
