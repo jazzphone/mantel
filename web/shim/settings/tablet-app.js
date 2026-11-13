@@ -70,6 +70,15 @@ export function drawTabletApp(c, ctx) {
                            fk: 'mx:app-curtain:' + dv.id, onChange: (on) => send('curtain', on, null) }));
     rows.push(K().toggle({ label: 'Kiosk Mode', sub: st.owner ? 'Pinned: nothing else can come to the front' : 'Brings the app back to the front when anything else comes up',
                            on: st.kiosk_mode !== false, disabled: off, fk: 'mx:app-kiosk:' + dv.id, onChange: (on) => send('kiosk_mode', on, null) }));
+    // SCREEN ROTATION (2026-11-13): Android 16 ignores the app's own landscape on a tablet, so the app sets Android's
+    // rotation itself -- with Android's "Modify system settings" for the app, given once at the tablet
+    const rot = st.rotation || 'auto';
+    rows.push(K().seg({ label: 'Screen Rotation', sk: 'mx:app-rotation:' + dv.id, value: rot,
+                        options: [['auto', 'Automatic'], ['0', '0°'], ['90', '90°'], ['180', '180°'], ['270', '270°']],
+                        onChange: (v) => send('rotation', v, v === 'auto' ? 'Left to the tablet.' : 'Turned to ' + v + '°.') }));
+    if (rot !== 'auto' && st.rotation_allowed === false) {
+      rows.push(info('Rotation', 'On the tablet, allow Mantel to modify system settings (the app opened that screen), then choose again.', 'Not Allowed', 'warn'));
+    }
     rows.push(info('App', [st.owner ? 'Device owner' : st.admin ? 'Device admin' : 'No device role', st.esphome_port ? 'ESPHome port ' + st.esphome_port : null,
                            st.model || null].filter(Boolean).join(' · '), updateSays(st.update)));
     c.appendChild(group({ header, footer: (data.commands_on ? '' : 'House commands are off, so the app’s controls are too. ') +
