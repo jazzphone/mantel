@@ -62,7 +62,7 @@ function cards() {
       const posts = (await (await page.request.get(input.origin + '/__check/posts')).json()).slice(before);
       const frames = sent.filter((f) => f.domain === 'timer').map((f) => [f.service, (f.target || {}).entity_id || (f.data || {}).entity_id]);
       say(JSON.stringify(frames) === JSON.stringify([['pause', HP.Pasta], ['cancel', HP.Timer]]), `${t}: the keys send the HomePod's pause and cancel`, frames);
-      say(posts.length === 2 && posts[0][1].action === 'pause' && posts[0][1].label === 'Pasta' && posts[0][1].tile === 'Kitchen-HomePod-TileCell' &&
+      say(posts.length === 2 && posts[0][1].action === 'pause' && posts[0][1].id === 't-pasta' &&
           posts[1][1].action === 'cancel' && posts[1][1].tile === 'Bedroom-HomePod-mini-TileCell', `${t}: ...and they reach the reader`, posts);
       // THE ALARMS, under Running: each row, its switch, and Edit's Delete after its confirmation
       const alarms = await page.evaluate(() => deep(document, '.al .ar').filter((r) => r.getClientRects().length).map((r) => ({
@@ -108,6 +108,23 @@ function cards() {
       say(down, `${t}: the reader down: "HomePod timers unavailable"`);
       if (input.shots) await page.screenshot({ path: path.join(input.shots, `${engine}-${size}-down.png`) });
       await page.request.get(input.origin + '/__check/flip?broken=0');
+      // RINGING ON ITS HOMEPOD (2026-11-13, the house's kitchen): Done and Stop on its card, Time's Up over the page, Stop to the reader
+      {
+        const rung = await (await page.request.get(input.origin + '/__check/ring?on=1')).json();
+        say(rung.ringing.length === 1, `${t}: the stand-in's Pasta rings`, rung);
+        const pop = await page.waitForFunction(() => { const h = document.getElementById('hk-timer-ring'), s = h && h.shadowRoot, p = s && s.querySelector('.pop');
+          return p ? { text: p.innerText, keys: [...p.querySelectorAll('.acts button')].map((b) => b.textContent) } : null; }, null, { timeout: 8000 }).then((h) => h.jsonValue(), () => null);
+        say(pop && /Pasta/.test(pop.text) && /Ringing on the Kitchen HomePod\./.test(pop.text) && JSON.stringify(pop.keys) === '["Stop"]', `${t}: Time's Up: where it rings, Stop alone`, pop);
+        if (input.shots) await page.screenshot({ path: path.join(input.shots, `${engine}-${size}-ringing.png`) });
+        await page.evaluate(() => { const h = document.getElementById('hk-timer-ring'); const s = h.shadowRoot.querySelector('.scrim'); if (s) s.remove(); });
+        const card = await page.evaluate(cards).then((cs) => cs.find((c) => c.name === 'Pasta'));
+        say(card && /^Ringing · Kitchen HomePod/.test(card.sub || '') && JSON.stringify(card.keys) === '["Stop"]', `${t}: its card: Ringing, Stop alone`, card);
+        const before2 = (await (await page.request.get(input.origin + '/__check/posts')).json()).length;
+        await tap('Pasta', 'Stop');
+        const stops = (await (await page.request.get(input.origin + '/__check/posts')).json()).slice(before2);
+        say(stops.length === 1 && stops[0][0] === '/timer' && stops[0][1].action === 'stop' && stops[0][1].id === 't-pasta', `${t}: Stop reaches the reader, by its id`, stops);
+        await page.request.get(input.origin + '/__check/ring?on=0');
+      }
       // SETTINGS > TIMERS: the reader's state and the rooms
       if (size === 'wall') {
         await page.goto(input.origin + '/settings#/page/timers', { waitUntil: 'commit' });

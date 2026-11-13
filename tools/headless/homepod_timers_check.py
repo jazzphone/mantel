@@ -13,6 +13,8 @@ Assistant would have them. At the wall tablet's size (1280 x 800), an iPad's (82
     confirmation) reach the reader
   * Settings > Timers: the reader's state and the Home app rooms, one of them not matched
   * the reader down: the page says "HomePod timers unavailable"
+  * a timer gone off, ringing on its HomePod: its card says Done with Stop alone, Time's Up over the page says
+    where it rings with Stop and no +1 Min, and Stop reaches the reader
 
     export PLAYWRIGHT_PATH=/path/to/node_modules/playwright-core NODE=$(command -v node)
     ~/.venvs/mantel/bin/python tools/headless/homepod_timers_check.py [--shots DIR] [--engine webkit|chromium|both]
@@ -44,11 +46,14 @@ class Reader:
     """The stand-in reader: what /timers.json and /alarms.json answer, and every command it is sent."""
 
     def __init__(self, now: float) -> None:
-        self.t0, self.broken, self.posts = now, False, []
+        self.t0, self.broken, self.posts, self.ringing = now, False, [], False
 
     def timers(self, now: float) -> list[dict]:
-        return [{"label": "Pasta", "left_s": max(0, int(self.t0 + 900 - now)), "ends_at": iso(self.t0 + 900), "paused": False, "room": "Kitchen",
-                 "homepod": "HomePod", "tile": "Kitchen-HomePod-TileCell", "index": 0, "read_at": iso(now)},
+        pasta = {"id": "t-pasta", "label": "Pasta", "left_s": max(0, int(self.t0 + 900 - now)), "ends_at": iso(self.t0 + 900), "paused": False,
+                 "room": "Kitchen", "homepod": "HomePod", "tile": "Kitchen-HomePod-TileCell", "index": 0, "read_at": iso(now)}
+        if self.ringing:          # (it went off: the reader keeps its end, left 0, ringing)
+            pasta.update(left_s=0, ringing=True, rang_at=iso(self.t0 + 900))
+        return [pasta,
                 {"label": "Timer", "left_s": 420, "paused": True, "room": "Bedroom", "homepod": "HomePod mini", "tile": "Bedroom-HomePod-mini-TileCell",
                  "index": 0, "read_at": iso(now)},
                 {"label": "Tea", "left_s": max(0, int(self.t0 + 1500 - now)), "ends_at": iso(self.t0 + 1500), "paused": False, "room": "Sunroom",
@@ -109,10 +114,23 @@ async def main(shots: Path | None, engines: list[str]) -> int:
             hub.on_change({R.SENSOR})
             return web.json_response({"state": host.availability()})
 
+        async def ring(request: web.Request) -> web.Response:      # (the Kitchen's Pasta goes off, or rings no more)
+            reader.ringing = request.query.get("on") == "1"
+            eid = homepods["Pasta"]
+            if reader.ringing:                                     # Home Assistant finished its helper on time
+                hub.on_change(hub.store.apply_event({"a": {eid: {"s": "idle", "a": {"friendly_name": "Pasta", "duration": "0:15:00"}, "lc": now, "lu": now}}}))
+            else:                                                  # (and back, for the next size)
+                hub.on_change(hub.store.apply_event({"a": {eid: {"s": "active", "a": {"friendly_name": "Pasta", "duration": "0:15:00",
+                                                                                      "finishes_at": iso(reader.t0 + 900)}, "lc": now, "lu": now}}}))
+            await host.look()
+            hub.on_change({R.SENSOR})
+            return web.json_response({"ringing": [k.entity_id for k in host.ringing()]})
+
         async def posts(_request: web.Request) -> web.Response:
             return web.json_response(reader.posts)
         app.router.add_get("/__check/flip", flip)
         app.router.add_get("/__check/posts", posts)
+        app.router.add_get("/__check/ring", ring)
         async with TestServer(app) as server:
             proc = await asyncio.create_subprocess_exec(os.environ["NODE"], str(Path(__file__).with_suffix(".cjs")), stdin=asyncio.subprocess.PIPE)
             await proc.communicate(json.dumps({

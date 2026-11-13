@@ -482,6 +482,7 @@
       // the commands: the vacuum sheet's round 72s with their captions
       '.cmds{align-self:stretch;display:grid;grid-template-columns:repeat(4,1fr);gap:12px}',
       '.cmds.two{grid-template-columns:repeat(2,1fr)}',
+      '.cmds.one{grid-template-columns:1fr}',
       '.cmds button{display:flex;flex-direction:column;align-items:center;gap:8px;border:0;background:none;color:' + v('ink') + ';',
       '  font:inherit;cursor:pointer;padding:0;-webkit-tap-highlight-color:transparent}',
       '.cmds .ci{width:72px;height:72px;border-radius:' + C.R.capsule('72px') + ';display:flex;align-items:center;justify-content:center;',
@@ -548,7 +549,8 @@
       _kick() { this._hkSig = null; if (this.client) super.redraw(); }
       _sigOf() {
         var s = this._stateObj, h = this.client, lab = labelOf(this._id);
-        return s ? s.last_updated + '|' + (lab && h.states[lab] ? h.states[lab].state : '') + '|' + (this._logN || 0) + '|' +
+        var hp = hpOf(h, this._id);
+        return s ? s.last_updated + '|' + (lab && h.states[lab] ? h.states[lab].state : '') + '|' + (this._logN || 0) + '|' + !!(hp && hp.ringing) + '|' +
           (this._why || '') + '|' + Math.floor(Date.now() / MIN) : null;
       }
       connectedCallback() { if (super.connectedCallback) super.connectedCallback(); this._log = null; }
@@ -583,6 +585,7 @@
         else if (what === 'restart') call = this._svc('timer', 'start', { duration: (s.attributes || {}).duration || '0:00:00' });
         else if (what === 'finish') call = this._svc('timer', 'finish');
         else if (what === 'cancel') call = this._svc('timer', 'cancel');           // a HomePod's (phase 28)
+        else if (what === 'stop') call = window.hkTimers.act(this._id, 'stop');     // ...ringing on its HomePod
         Promise.resolve(call).then(function (ok) { self._why = ok === false ? 'Could not reach Home Assistant' : ''; self._kick(); });
       }
       _render() {
@@ -604,7 +607,7 @@
         tp.className = 'tp ' + (st === 'active' ? 'run' : st === 'paused' ? 'held' : 'idle');
         // THE DIAL: rebuilt only when what it counts from changes, so the
         // countdown keeps its own clock between
-        var key = st + '|' + (a.finishes_at || '') + '|' + (a.remaining || '') + '|' + (a.duration || '') + '|' + !!hp;
+        var key = st + '|' + (a.finishes_at || '') + '|' + (a.remaining || '') + '|' + (a.duration || '') + '|' + !!hp + '|' + !!(hp && hp.ringing);
         if (this._dialKey !== key) {
           this._dialKey = key;
           var end = Date.parse(a.finishes_at), cd, words;
@@ -620,7 +623,8 @@
             words = na ? 'Unavailable' : total ? 'Ready · ' + length(total) : 'Ready';
           }
           // a HomePod's: where it rings, not a length Mantel can't know (it's what was left when Mantel first saw it)
-          if (hp && (st === 'active' || st === 'paused')) words = (st === 'active' ? 'Ends ' + esc(hm(end)) : 'Paused') + ' \u00b7 ' + esc(window.hkTimers.homepodWords(hp));
+          if (hp && hp.ringing) { cd = '<div class="cd">Done</div>'; words = 'Ringing on the ' + esc(window.hkTimers.homepodWords(hp)); }
+          else if (hp && (st === 'active' || st === 'paused')) words = (st === 'active' ? 'Ends ' + esc(hm(end)) : 'Paused') + ' \u00b7 ' + esc(window.hkTimers.homepodWords(hp));
           var dial = this._root.querySelector('.dial');
           dial.style.setProperty('--hk-left', st === 'idle' || !total ? '1' : String(Math.max(0, Math.min(1, this._left(s) / total)).toFixed(2)));
           dial.innerHTML = '<svg viewBox="0 0 200 200" aria-hidden="true"><circle class="tr" cx="100" cy="100" r="92"/><circle class="fl" cx="100" cy="100" r="92"/></svg>' +
@@ -634,7 +638,7 @@
         };
         var cmds = st === 'active' ? btn('toggle', 'mdi:pause', 'Pause') : btn('toggle', 'mdi:play', st === 'paused' ? 'Resume' : 'Start', true);
         // A HOMEPOD'S TIMER (phase 28): what the HomePod does, Pause or Resume and Cancel; only shown where Mantel can't reach it
-        if (hp) cmds = hp.controls && !idle ? cmds + btn('cancel', 'mdi:close', 'Cancel') : '';
+        if (hp) cmds = !hp.controls ? '' : hp.ringing ? btn('stop', 'mdi:stop', 'Stop', true) : !idle ? cmds + btn('cancel', 'mdi:close', 'Cancel') : '';
         else {
           cmds += idle ? '<button disabled aria-hidden="true" tabindex="-1"><span class="ci"><hk-icon icon="mdi:plus"></hk-icon></span><span class="cl">5 min</span></button>'
                        : btn('plus', 'mdi:plus', '5 min');
@@ -642,7 +646,8 @@
           cmds += idle ? '<button disabled aria-hidden="true" tabindex="-1"><span class="ci"><hk-icon icon="mdi:check"></hk-icon></span><span class="cl">Finish</span></button>'
                        : btn('finish', 'mdi:check', 'Finish');
         }
-        this._root.querySelector('.cmds').classList.toggle('two', !!hp);
+        this._root.querySelector('.cmds').classList.toggle('two', !!hp && !hp.ringing);
+        this._root.querySelector('.cmds').classList.toggle('one', !!(hp && hp.ringing));
         C.morph(this._root.querySelector('.cmds'), cmds);
         this._root.querySelector('.why').textContent = this._why || '';
         // Past 7 Days

@@ -191,6 +191,14 @@ every 1.5 s across the house. The VM: two to four cores busy (the Home app and i
   and light, label, HomePod and room, repeat; an off alarm gray) with the iOS switch; Edit puts a red minus on each row,
   and Delete asks first (`hkCards.confirmSheet`). Only while the reader is reading. No Stop: the Home app never shows a
   ringing alarm.
+- **A timer that goes off** (2026-11-13, the first real one, in the house's kitchen): while its HomePod rings, the Home app
+  keeps it listed, shown back at its full length and not counting down. Mantel took that for a new countdown and moved the
+  helper back to its full length. The reader now reports it `ringing` with its own end, `left_s` 0, `rang_at`, and an `id`
+  for every timer and alarm that holds from read to read. Mantel matches by that id first, never moves a ringing timer's
+  helper (it finishes at its real end, so automations hear `timer.finished`), and shows Time's Up as for its own timers
+  (sensor `ringing`, `tablet: false`, no speakers: no screen makes a sound), "Ringing on the Kitchen HomePod.", with Stop
+  alone (`script.quick_timer_ring {op: stop}`, or the card's and sheet's Stop: the reader's `action=stop`). No +1 Min or
+  Restart. When the reader drops it, its helper is deleted as a finished one is. Commands name a timer by the reader's id.
 - **Checked:** `tools/headless/homepod_timers_check.py` (the Timers page, its keys reaching a stand-in reader, its sheet,
   the alarms' switch and Delete, "unavailable", Settings) and the HomePod cases of `timer_slide_check.py`, at 1280 x 800, an iPad's and a phone's, both
   engines.

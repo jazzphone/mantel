@@ -169,9 +169,11 @@
         var self = this;
         return this._list().filter(function (t) {
           var st = self._st(t.entity);
-          return st && (st.state === 'active' || st.state === 'paused');
+          return st && (st.state === 'active' || st.state === 'paused' || self._ringing(t.entity));
         });
       }
+      // A HOMEPOD'S TIMER THAT WENT OFF (phase 28): it rings on its HomePod until stopped, though its helper has finished
+      _ringing(id) { var T = window.hkTimers, hp = T && T.homepod ? T.homepod(this.client && this.client.states, id) : null; return !!(hp && hp.ringing); }
 
       // Everything a redraw could possibly change, in one string. `finishes_at`
       // is what moves when a timer is started, paused or extended; `remaining` is
@@ -186,6 +188,7 @@
           return [t.entity, st.state, a.finishes_at || '', a.remaining || '',
                   a.duration || '', nm || ''].join('|');
         }).join(';') + (window.hkTimers ? ';M' : ';-') + ';' + this._hpState() + ';' +
+          this._list().filter(function (t) { return self._ringing(t.entity); }).map(function (t) { return t.entity; }).join(',') + ';' +
           this._alarmList().map(function (a) { return a.id + (a.enabled ? '+' : '-') + a.room_name; }).join(',') + (this._editAl ? ';E' : '');
       }
       // THE HOMEPOD TIMER READER (phase 28): while it is down the page says so, under Running -- never "nothing is running"
@@ -327,7 +330,7 @@
         // Filled well while RUNNING, hollow otherwise -- the same grammar as
         // the vacuum card. Colour means "this is happening now", and
         // a paused timer is deliberately not shouting.
-        var liveNow = s === 'active';
+        var liveNow = s === 'active' || this._ringing(t.entity);
         var bg = liveNow ? tint : '' + window.hkCards.v('key-strong') + '';
         // (Flat: a white glyph in a colored lit well, as on every tile --
         // DESIGN.md; the other looks keep the vacuum card's dark one)
@@ -355,7 +358,7 @@
         // A HOMEPOD'S TIMER (phase 28): its glyph, and where it rings for the sub-line ("Paused · Kitchen HomePod");
         // its length is the time it had when Mantel first saw it, so it isn't shown
         var hp = T && T.homepod ? T.homepod(this.client && this.client.states, t.entity) : null;
-        if (hp) { sub = word + ' · ' + T.homepodWords(hp); t = Object.assign({}, t, { glyph: 'hk:homepod' }); }
+        if (hp) { sub = (hp.ringing ? 'Ringing' : word) + ' · ' + T.homepodWords(hp); t = Object.assign({}, t, { glyph: 'hk:homepod' }); }
 
         var d = document.createElement('div');
         d.className = 'head';
@@ -403,6 +406,11 @@
           'color:' + window.hkCards.v('ink-3') + ';">&mdash;</div>' +
           '<div style="margin-top:10px;height:4px;"></div></div>';
         count.innerHTML = (T && T.html(st.attributes, { fill: this._tint() })) || blank;
+        // RINGING ON ITS HOMEPOD: Done, the bar full, as Time's Up says it; Stop alone
+        if (this._ringing(e)) {
+          count.innerHTML = '<div style="text-align:left;"><div style="font-size:30px;font-weight:300;letter-spacing:-0.8px;line-height:1;color:' + this._tint() + ';">Done</div>' +
+            '<div style="margin-top:10px;height:4px;border-radius:2px;background:' + this._tint() + ';"></div></div>';
+        }
         c.appendChild(count);
 
         var s = st.state;
@@ -412,6 +420,12 @@
         var T = window.hkTimers, hp = T && T.homepod ? T.homepod(this.client && this.client.states, e) : null;
         if (hp) {
           if (!hp.controls) { return c; }
+          if (hp.ringing) {
+            var stop = this._btn('finish', 'mdi:stop', 'Stop', function () { T.act(e, 'stop'); });
+            stop.style.gridArea = '3 / 1 / 4 / 5';
+            c.appendChild(stop);
+            return c;
+          }
           var pz = this._btn('pause', s === 'active' ? 'mdi:pause' : 'mdi:play', s === 'active' ? 'Pause' : 'Resume',
             function () { T.act(e, s === 'active' ? 'pause' : 'resume'); });
           var cx = this._btn('finish', 'mdi:close', 'Cancel', function () { T.act(e, 'cancel'); });
