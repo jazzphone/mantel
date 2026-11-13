@@ -23,6 +23,7 @@ from hk_core import laundry as R
 log = logging.getLogger("mantel.laundry")
 
 LOOK_EVERY = 5.0        # seconds between looks at the settings and at what has run out its time
+LOOK_AGAIN = 60.0       # seconds: at most this often, the whole house again for entities that came or went unlike laundry
 ICON = "mdi:washing-machine"
 
 
@@ -55,6 +56,12 @@ class LaundryDone:
         self.loads: Any = None
         self.machines: list[dict[str, Any]] = []
         self.watched: set[str] = set()              # every entity a machine reads
+        self.ids: set[str] = set()                  # the entities there at the last full look, kept as they come and go
+        self.keys: set[str] = set()                 # the devices the found machines are on (R.keys_of)
+        self.stale = False                          # entities came or went since the last full look, none like laundry
+        self.due = False                            # the slow look: the whole house again at the next batch
+        self.mapped_at = 0.0
+        self.devices: tuple[int, dict[str, Any]] = (-1, {})   # (registry load, device id -> device)
         self.looking: asyncio.Task | None = None
 
     # -- what the house has ------------------------------------------------------------------------------------------
@@ -79,18 +86,30 @@ class LaundryDone:
         self.saved, self.hours = saved, hours
         return changed
 
-    def _map(self) -> bool:
-        """The machines again when the registry, the number of states or the saved list changed; True when it looked."""
-        reg = self.hub.registry
-        key = (reg.loads, len(self.hub.store.states), self.settings_version)
-        if key == self.loads:
-            return False
-        self.loads = key
+    def _map(self, changed: set[str]) -> bool:
+        """The machines again when the registry or the saved list changed, or an entity that may be a machine's came or went;
+        True when it looked. Not for every entity that comes: Home Assistant starting adds thousands, a few at a time, and a
+        full look (R.found) at each batch held the event loop for minutes (2026-11-13). The rest wait for the slow look."""
+        reg, states, ours = self.hub.registry, self.hub.store.states, self.hub.store.ours
+        key = (reg.loads, self.settings_version)
+        moved = [e for e in changed if (e in states) != (e in self.ids) and e not in ours]
+        if self.devices[0] != reg.loads:
+            self.devices = (reg.loads, {d.get("id"): d for d in (reg.device_entries or []) if d.get("id")})
+        devices = self.devices[1]
+        if key == self.loads and not self.due:
+            if not moved or self.saved:
+                return False
+            if not R.may_find(moved, reg.entries, devices, states, self.keys):
+                self.ids.update(e for e in moved if e in states)
+                self.ids.difference_update(e for e in moved if e not in states)
+                self.stale = True
+                return False
+        self.loads, self.due, self.stale, self.mapped_at, self.ids = key, False, False, self.clock(), set(states)
         if self.saved:
             self.machines = list(self.saved)
         else:
-            devices = {d.get("id"): d for d in (reg.device_entries or []) if d.get("id")}
-            self.machines = R.found(reg.entries, devices, self.hub.store.states)
+            self.machines = R.found(reg.entries, devices, states)
+        self.keys = R.keys_of(self.machines, reg.entries)
         self.watched = {e for m in self.machines for e in (m.get(r) for r in R.ROLES) if e}
         return True
 
@@ -127,7 +146,7 @@ class LaundryDone:
         except Exception:  # noqa: BLE001
             log.debug("laundry: the settings' look failed", exc_info=True)
         first = R.SENSOR not in states
-        mapped = self._map()
+        mapped = self._map(changed)
         if not first and not mapped and not (changed & self.watched):
             # (a Clear or an expiry names the sensor itself: published as it is now)
             return self._publish(changed, True) if R.SENSOR in changed else changed
@@ -174,7 +193,9 @@ class LaundryDone:
             self.latches.pop(k)
             self.store.drop(k)
             log.info("%s: Done cleared by itself (%d h)", k, self.hours)
-        if gone or self._look_settings():
+        if self.stale and now - self.mapped_at >= LOOK_AGAIN:
+            self.due = True
+        if gone or self._look_settings() or self.due:
             self.hub.on_change({R.SENSOR})
 
     def status(self) -> dict[str, Any]:

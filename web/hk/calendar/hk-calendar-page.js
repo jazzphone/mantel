@@ -277,9 +277,14 @@
         // So the width is taken now, the page drawn again for it, and the
         // panels measured, before the first frame -- and again once they are
         // drawn: measured from the body itself.
-        var w0 = this.clientWidth || 0;
+        // (...but not on a page put beside this one for a swipe, off the stage: it shows no frame there, and measured as it
+        // was attached it laid the landing page out once more, 22 ms of the landing at 4x CPU, 2026-11-13. The timer
+        // below and the ResizeObserver measure it.)
+        var off = false;
+        for (var n = this; n && !off; n = n.parentNode || (n.host || null)) off = !!(n.hasAttribute && n.hasAttribute('data-hk-offstage'));
+        var w0 = off ? 0 : this.clientWidth || 0;
         if (w0 && Math.abs(w0 - this._w) >= 2) { this._w = w0; if (this.client && this._config) this.redraw(); }
-        this._measure();
+        if (!off) this._measure();
         this._m0 = setTimeout(function () { self._m0 = null; self._measure(); setTimeout(function () { if (self.isConnected) self._measure(); }, 400); }, 0);
       }
       disconnectedCallback() {

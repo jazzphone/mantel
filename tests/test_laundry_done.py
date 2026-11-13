@@ -167,3 +167,80 @@ async def test_a_bad_saved_list_watches_the_found_machines(gw, bad):
     h.run()
     h.finish()
     assert "washer" in h.done
+
+
+class Walked(dict):
+    """The states, counting each look at every one of them."""
+    walks = 0
+
+    def __iter__(self):
+        Walked.walks += 1
+        return super().__iter__()
+
+    def items(self):
+        Walked.walks += 1
+        return super().items()
+
+    def keys(self):
+        Walked.walks += 1
+        return super().keys()
+
+
+def startup(h, others=600, batch=3, on_change=None):
+    """Home Assistant starting: the registry first, then its states a few at a time, the washer's among them (2026-11-13)."""
+    devs = [{"id": f"d{i}", "name": f"Thing {i}", "model": "T1"} for i in range(others // 3)] + [{"id": "w1", "name": "Washer", "model": "WD53"}]
+    ents = [{"entity_id": f"sensor.thing_{i}_temperature", "device_id": f"d{i // 3}"} for i in range(others)]
+    ents += [{"entity_id": e, "device_id": "w1"} for e in (ST, JOB, DOOR, "select.washer")]
+    h.hub.registry.load(GF.HOUSE_AREAS, devs, ents)
+    rows = [(e["entity_id"], {"s": "21.5", "a": {"device_class": "temperature"}}) for e in ents[:others]]
+    rows[others // 2:others // 2] = [(ST, {"s": "stop", "a": {"device_class": "enum", "options": ["pause", "run", "stop"]}}),
+                                     (JOB, {"s": "none", "a": {"device_class": "enum", "options": JOBS}})]
+    rows.append((DOOR, {"s": "off", "a": {"device_class": "door"}}))
+    states = h.hub.store.states
+    for i in range(0, len(rows), batch):
+        part = rows[i:i + batch]
+        for eid, st in part:
+            states[eid] = {**st, "lc": h.gw.now[0], "lu": h.gw.now[0]}
+        (on_change or h.hub.on_change)({eid for eid, _ in part})
+
+
+async def test_home_assistant_starting_up_is_not_a_full_look_per_batch(gw, monkeypatch):
+    # 2026-11-13: every batch that added an entity looked at the whole house again (`found`), and Home Assistant's start
+    # (thousands of entities, a few at a time) held Mantel Server's event loop for minutes
+    h = House(gw)
+    calls = []
+    real = R.found
+    monkeypatch.setattr(R, "found", lambda *a: calls.append(1) or real(*a))
+    startup(h)
+    assert len(calls) <= 5, f"{len(calls)} full looks for one start"
+    assert h.host.status()["watching"] == ["washer"]
+    h.run()
+    h.finish()
+    assert "washer" in h.done
+    h.put(DOOR, "on")                                # (the door, which came last, is watched)
+    assert h.done == {}
+
+
+async def test_an_entity_that_does_not_read_like_laundry_is_found_by_the_slow_look(gw):
+    h = House(gw)
+    h.put("sensor.laundry_energy", "12.0", device_class="energy", source="sensor.circuit_7_power")
+    h.put("sensor.circuit_7_power", "1.0", device_class="power", unit_of_measurement="W")
+    machine = next(m for m in h.host.machines if m["id"] == "washer")
+    assert machine["power"] is None                  # (nothing in its words says laundry: not looked at per batch)
+    gw.now[0] += 61
+    h.host.expire()
+    machine = next(m for m in h.host.machines if m["id"] == "washer")
+    assert machine["power"] == "sensor.circuit_7_power"
+
+
+async def test_no_overlay_looks_at_every_state_per_batch_while_home_assistant_starts(gw):
+    # (the TV's players and the vacuums were found again on every batch that added an entity too)
+    h = House(gw)
+    h.hub.store.states = Walked(h.hub.store.states)
+    Walked.walks = 0
+
+    def overlays(changed):
+        for overlay in h.hub.overlays:
+            changed = overlay(changed)
+    startup(h, on_change=overlays)
+    assert Walked.walks <= 10, f"{Walked.walks} walks over every state for {len(h.hub.store.states) // 3} batches"

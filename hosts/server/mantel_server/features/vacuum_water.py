@@ -60,10 +60,12 @@ class VacuumWater:
     # -- what the house has ------------------------------------------------------------------------------------------
     def _map(self, changed: set[str]) -> None:
         reg = self.hub.registry
-        if reg.loads == self.loads and self.vacuums and all(v in self.vacuums for v in changed if v.startswith("vacuum.")):
+        states = self.hub.store.states
+        # (again only for a registry load or a vacuum that came or went: `self.vacuums and` here looked at every state on
+        # every batch in a house with no vacuum, 2026-11-13)
+        if reg.loads == self.loads and all((v in self.vacuums) == (v in states) for v in changed if v.startswith("vacuum.")):
             return
         self.loads = reg.loads
-        states = self.hub.store.states
         vacs = {k: (reg.entries.get(k) or {}).get("device_id") for k in states if k.startswith("vacuum.")}
         self.vacuums = {v: R.error_sensor_of(v, dev, reg.entries, states) for v, dev in vacs.items()}
         self.watched = {s: v for v, sensors in self.vacuums.items() for s in sensors}

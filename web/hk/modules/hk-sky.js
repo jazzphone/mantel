@@ -298,6 +298,7 @@
   ST.saidSig = null;
   ST.saidFor = null;
   ST.changeSig = null;
+  ST.saidPath = null;
   ST.changedSig = null;
   ST.changedFor = null;
   ST.asked = false;

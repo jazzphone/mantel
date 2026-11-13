@@ -210,3 +210,32 @@ def test_a_one_time_alarm_that_turned_off_at_its_time_went_off():
     rep_on, rep_off = alarm("07:00", repeats="Weekdays"), alarm("07:00", enabled=False, repeats="Weekdays")
     assert H.went_off([rep_on], [rep_off], datetime(2026, 11, 11, 7, 1)) == []      # a repeating one stays on when it rings
     assert H.slug("Sam’s Room HomePod") == "sams_room_homepod"
+
+
+# ---- a timer that went off (2026-11-13, the house's kitchen): the Home app shows it back at its full length while it rings
+def test_a_ringing_timer_is_read_as_ringing_at_its_own_end():
+    doc = {"at": iso(T0 + 3), "timers": [{"id": "t-1", "label": "Timer", "left_s": 0, "ringing": True, "ends_at": iso(T0), "rang_at": iso(T0),
+                                          "paused": False, "room": "Kitchen", "tile": "Kitchen-HomePod-TileCell", "index": 0}]}
+    _, (r,) = H.parse_timers(doc, T0 + 3)
+    assert r.ringing and r.rid == "t-1" and r.ends == T0 and r.left == 0 and r.left_at(T0 + 30) == 0 and r.rang_at == T0
+
+
+def test_ringing_is_the_same_timer_and_never_moves_its_helper():
+    k = known(ends=T0 + 1)
+    ring = H.Read("Kitchen-HomePod-TileCell", 0, "Timer", 0.0, False, T0 + 60, "Kitchen", "HomePod", T0 + 5, "", True, T0 + 1)
+    pairs, new, gone = H.match([k], [ring])              # (an end the Home app shows back at its full length: still this one)
+    assert len(pairs) == 1 and not new and not gone
+    k.take(ring)
+    assert k.ringing and k.ends == T0 + 1                # the end it had, not a new countdown
+    assert H.steps({"s": "active", "ends": T0 + 6, "duration": 60.0}, k, T0 + 5) == []
+    assert H.steps({"s": "idle"}, k, T0 + 9) == []
+    assert H.how_gone(k, T0 + 300) == "ended"            # stopped while ringing: it ended, its helper finished
+
+
+def test_the_reader_s_id_wins():
+    a, b = known(1, ends=T0 + 100), known(2, ends=T0 + 100)
+    a.rid, b.rid = "t-a", "t-b"
+    reads = [H.Read("Kitchen-HomePod-TileCell", i, "Timer", 90.0, False, T0 + 100, "Kitchen", "HomePod", T0 + 10, rid) for i, rid in enumerate(("t-b", "t-a"))]
+    pairs, new, gone = H.match([a, b], reads)
+    assert {k.n: r.rid for k, r in pairs} == {1: "t-a", 2: "t-b"} and not new and not gone
+    assert "stop" in H.TIMER_ACTIONS

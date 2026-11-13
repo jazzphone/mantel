@@ -105,13 +105,14 @@
   /** @param {any[]} rings @param {string} room @param {boolean} tablet */
   function draw(rings, room, tablet) {
     var saver = window.hkSaver, up = !!(saver && saver.running && saver.running());
-    var key = up || !rings.length ? '' : JSON.stringify(rings.map(function (r) { return [r.entity_id, r.name, r.tablet, r.speakers]; })) + room + tablet;
+    var key = up || !rings.length ? '' : JSON.stringify(rings.map(function (r) { return [r.entity_id, r.name, r.tablet, r.speakers, r.source]; })) + room + tablet;
     if (key === drawn) return;
     drawn = key;
     if (root) { var old = root.querySelector('.scrim'); if (old) old.remove(); }
     if (!key) return;
     mount();
     var T = window.hkTimers, one = rings.length === 1, r0 = rings[0], c = 2 * Math.PI * 96;
+    var more = one && r0.source !== 'homepod';          // (a HomePod's can be stopped from here, never given more time)
     var where = T.whereWords(r0, room, tablet);
     var el = document.createElement('div');
     el.className = 'scrim';
@@ -122,7 +123,7 @@
       '<div class="nm">' + esc(rings.map(function (r) { return r.name; }).join(' and ')) + '</div>' +
       (where ? '<div class="where">Ringing on ' + esc(where) + '.</div>' : '') +
       '<div class="acts"><button class="stop" data-a="stop">' + (one ? 'Stop' : 'Stop All') + '</button>' +
-      (one ? '<button data-a="more" data-id="' + esc(r0.entity_id) + '">+1 Min</button><button data-a="again" data-id="' + esc(r0.entity_id) + '">Restart</button>' : '') + '</div></div>';
+      (more ? '<button data-a="more" data-id="' + esc(r0.entity_id) + '">+1 Min</button><button data-a="again" data-id="' + esc(r0.entity_id) + '">Restart</button>' : '') + '</div></div>';
     root.appendChild(el);
   }
   // THE SOUND: only for this tablet's room (or every tablet, for a timer with no room), once for all of them at a time

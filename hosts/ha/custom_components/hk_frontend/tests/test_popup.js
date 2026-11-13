@@ -437,6 +437,12 @@ ok('a pop-up with Detail and no Cards is a valid config', threw, false);
 var PG = customElements.get('hk-popup-group-card');
 ok('the pop-up group takes no space, so asks for none', new PG().getCardSize(), 0);
 
+// (2026-11-13, a page swipe's landing on the Loft: the docked bar published three times a landing, each a forced layout)
+ok('the bar publishes once a frame, at the frame\'s start',
+  /_publish\(\) \{[\s\S]{0,160}if \(this\._pubRaf\) return;\s*this\._pubRaf = requestAnimationFrame\(function \(\) \{ self\._pubRaf = 0; if \(self\._open\) self\._publishNow\(\); \}\);/.test(psrc),
+  true);
+ok('...and reads the sheet\'s height before its first write', /var sheetH = dock \? \(sheet\.offsetHeight \|\| 0\) : 0;/.test(psrc) && !/dockRoom\(none \? 0 : sheet\.offsetHeight/.test(psrc), true);
+
 // auto_close and the sheet's mount/animation are checked in the browser --
 // they are timers and DOM, which this shim does not model faithfully.
 

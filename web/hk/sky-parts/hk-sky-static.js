@@ -516,8 +516,13 @@
     function announce() {
       if (!ST.mounted) return;
       var sg = skySig(ST.mounted), psig = sg.big + '||' + sg.small + '|' + location.pathname;
-      if (psig === ST.paintSig) return;
-      if (psig !== ST.changeSig) {
+      // ...AND EVERY TIME IT CUTS TO ANOTHER PAGE (2026-11-13): back on the page it last settled on before any page
+      // between had settled, it said nothing -- and a pre-rendered blur, which follows the sky's page (hk-glass.js
+      // ownPicture), wore the last page's picture over it until its next paint
+      var moved = ST.saidPath !== ST.mountedPath;
+      ST.saidPath = ST.mountedPath;
+      if (psig === ST.paintSig && !moved) return;
+      if (psig !== ST.changeSig || moved) {
         ST.changeSig = psig; ST.changedSig = sg; ST.changedFor = ST.mounted;
         try { window.dispatchEvent(new Event('hk-sky-change')); } catch (e) { /* no window events */ }
       }

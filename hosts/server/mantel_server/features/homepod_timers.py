@@ -337,6 +337,8 @@ class HomePodTimers:
 
     async def _create(self, k: H.Known) -> None:
         eid, now = k.entity_id, self.clock()
+        if k.ringing:
+            return                        # (first seen ringing, after a restart: nothing left to count)
         self.creating[k.n] = now
         aid = self._audit("homepod.create", eid, "homepod_timer")
         try:
@@ -416,7 +418,9 @@ class HomePodTimers:
             k = self.following(ask["timer"])
             if k is None or ask.get("action") not in H.TIMER_ACTIONS:
                 raise HaCommandError("not_found", "that HomePod timer isn't running now")
-            path, params = "/timer", {"tile": k.tile, "index": k.index, "action": ask["action"], "label": k.label}
+            # (by the reader's own id where it gives one: it finds the row as the command runs)
+            path, params = "/timer", ({"id": k.rid, "action": ask["action"]} if k.rid else
+                                      {"tile": k.tile, "index": k.index, "action": ask["action"], "label": k.label})
         else:
             a = H.find_alarm(self.alarms, ask.get("alarm"))
             if a is None or ask.get("action") not in H.ALARM_ACTIONS:
@@ -451,7 +455,12 @@ class HomePodTimers:
             return None
         area = self.room_of(k.room)
         return {"source": "homepod", "homepod": k.homepod, "home_room": k.room, "room": area,
-                "room_name": self._areas().get(area) if area else k.room, "controls": list(H.TIMER_ACTIONS), "total": k.total}
+                "room_name": self._areas().get(area) if area else k.room, "total": k.total, "ringing": k.ringing, "rang_at": k.rang_at,
+                "controls": ["stop"] if k.ringing else ["pause", "resume", "cancel"]}
+
+    def ringing(self) -> list[H.Known]:
+        """The HomePod timers that went off and are ringing on their HomePod now (never in Mantel: it only says so)."""
+        return [k for k in sorted(self.known.values(), key=lambda k: k.n) if k.over is None and k.ringing]
 
     def decorate(self, attrs: dict[str, Any]) -> None:
         """sensor.running_quick_timers: each HomePod timer's row says whose it is, and `homepod` the reader and the alarms."""
@@ -460,10 +469,19 @@ class HomePodTimers:
             if got is not None:
                 r.update(got)
         homepods = {}
-        for eid in attrs.get("made") or []:
-            got = self.rows_for(eid)
+        for k in self.known.values():
+            got = self.rows_for(k.entity_id)
             if got is not None:
-                homepods[eid] = got
+                homepods[k.entity_id] = got
+        # RINGING ON ITS HOMEPOD: Time's Up as Mantel's own timers show it, with no sound from a screen (`tablet` false, no
+        # speakers) and Stop going to the HomePod; on the cards too, though its helper has finished
+        states = self._states()
+        for k in self.ringing():
+            got = homepods.get(k.entity_id) or {}
+            attrs.setdefault("ringing", []).append({"entity_id": k.entity_id, "name": k.label or "Timer", "until": None, "tablet": False,
+                                                    "areas": [got["room"]] if got.get("room") else [], "speakers": [], "tone": None, **got})
+            if k.entity_id in states and k.entity_id not in (attrs.get("made") or []):
+                attrs.setdefault("made", []).append(k.entity_id)
         state = self.availability()
         areas = self._areas()
         alarms = []
@@ -475,7 +493,7 @@ class HomePodTimers:
                             "rooms": H.room_table(self.homes, areas, self._features().get("homepod_rooms") or {})}
 
     def _push(self) -> None:
-        state = (self.availability(), tuple((k.n, k.label, k.paused, k.over) for k in self.known.values()),
+        state = (self.availability(), tuple((k.n, k.label, k.paused, k.over, k.ringing) for k in self.known.values()),
                  tuple((a.id, a.enabled) for a in self.alarms), len(self.went_off), tuple(sorted(self.homes)))
         if state != self.published:
             self.published = state

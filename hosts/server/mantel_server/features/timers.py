@@ -532,8 +532,15 @@ class Timers:
         if op not in R.RING_OPS or (eid is not None and not isinstance(eid, str)):
             return {"ok": False, "reason": "unknown"}
         rows = [r for e, r in self.rows.items() if r.ring_until is not None and (eid is None or e == eid)]
-        if not rows:
+        # A HOMEPOD'S, ringing on the HomePod (homepod_timers.py): Stop goes to the HomePod; it can't be given more time here
+        homepod = self.app.get("homepod_timers")
+        hp = [k.entity_id for k in (homepod.ringing() if homepod is not None else []) if eid is None or k.entity_id == eid]
+        if not rows and not hp:
             return {"ok": False, "reason": "not_ringing"}
+        if hp and op != "stop" and not rows:
+            return {"ok": False, "reason": "homepod"}
+        for h in hp if op == "stop" else []:
+            await homepod.command({"timer": h, "action": "stop"})
         commander = self._commander()
         for row in rows:
             if op == "stop":
@@ -543,7 +550,7 @@ class Timers:
             secs = R.MORE_SECS if op == "more" else row.total or R.MORE_SECS
             await commander.call({"type": "call_service", "domain": "timer", "service": "start",
                                   "service_data": {"entity_id": row.entity_id, "duration": R.hms(secs)}}, CommandTicket(aid, "ws"))
-        return {"ok": True, "timers": [r.entity_id for r in rows]}
+        return {"ok": True, "timers": [r.entity_id for r in rows] + (hp if op == "stop" else [])}
 
     def status(self) -> dict[str, Any]:
         return {"can_make": self._commander() is not None and not self.no_admin, "following": sorted(self.rows),
