@@ -1,6 +1,7 @@
 # Phase 29: The sky drawn by the tablet app (plan, 2026-11-12)
 
-**Status: built (2026-11-13), steps 1-5 on Mantel main and mantel-android main; step 6, the Loft, in the build log below.
+**Status: built (2026-11-13), steps 1-5 on Mantel main and mantel-android main; step 6 measured on the Loft (below): every busy
+scene cheaper in the app, every calm one kept by the page at the same cost. On the house: waits for the owner's OK (a hotfix, the app's release).
 Every decision answered:** 1, 2 and 4 on 2026-11-12; 3, the glass, on 2026-11-13 (the owner: "we should finish phase 29").
 Step 7 (DESIGN.md) waits for the owner to ask.
 
@@ -195,4 +196,37 @@ motion, nothing without a player); `tools/headless/app_sky_check.py` (`tools/ci.
 1280 x 800, 820 x 1180 and 390 x 844 with a stand-in bridge: rain handed over (switch, begin, the sheets, play, shown),
 the sky clipped, every layer and the tab bar on the picture with no live blur, a sheet on it, a swipe in line; a clear
 day handed back; the setting off; no bridge.
+
+**Step 6, on the Loft** (2026-11-13, evening; the app a release-signed test build of mantel-android main, 1029; the page
+the worktree's build served through DevTools). The Loft's screen is now a HomeView (`loft-homeview`: Bright Glass, a
+Side Pane), not the plan's `dashboard-loft`; its Home was switched to the Live Sky for the test, on this page only, and
+each scene pinned (`hkSky._pin`). Awake, nobody touching, the night curtain at .94 and the backlight at its lowest (the
+room dark), 30 fps; the share of one core over 12 s, totaled over the app, its WebView renderers, SurfaceFlinger and the
+composer; three readings each way, the mean (range).
+
+| Scene | The page keeps the sky | The tablet's setting on | |
+|---|---|---|---|
+| Halloween night (spooky, decorations, animations) | 1.55 (1.53-1.56) | 0.81 (0.69-1.01) | handed over: −48 % |
+| Pouring rain | 1.46 (1.45-1.48) | 0.80 (0.62-1.07) | handed over: −45 % |
+| Heavy snow | 1.45 (1.29-1.54) | 0.96 (0.77-1.15) | handed over: −34 % |
+| Realistic clouds, slow | 1.52 (1.52-1.54) | 1.46 (1.32-1.54) | calm: the page keeps it |
+| Nothing moving | 0.23 (0.19-0.29) | 0.24 (0.19-0.26) | calm: the page keeps it |
+| A clear day | 1.37 (1.30-1.41) | 1.38 (1.27-1.43) | calm: the page keeps it |
+| A moving wallpaper (Pinwheel, Fast) | 0.94 (0.89-0.99) | 0.94 (0.87-0.98) | calm: the page keeps it |
+
+Acceptance met: on every busy scene the app beats the page, and on every calm one the page keeps the sky at the same cost.
+
+**Found on the Loft, and built in:**
+- **Something else moving on the page undoes the saving.** The Laundry block's washer was spinning (a load in its
+  cycle): the page makes every frame anyway, and Android composed the app's sky with a page changing out of step with
+  it -- pouring rain 2.08 handed over against 1.67 kept (SurfaceFlinger and the composer 0.86 against 0.43). The page
+  now keeps its sky while anything else on it moves (`pageMoves`: a loop or a long animation outside the sky, a video),
+  and looks again each minute. The table above was measured with the washer's animation held still by a style, so the
+  sky's own share shows; with it spinning, the setting changes nothing.
+- **A bake's copy of a window without its surface killed the app** (`PixelCopy` threw, once in a run): the copy is
+  guarded now, the hand-over fails, the page keeps its sky and tries again a minute on (seen once after: no crash).
+- The prototype's stored 60 fps survived on the Loft: the frame rate has a key of its own now (`sky_fps_cap`, 30).
+
+**Not done here:** the house's hotfix and the app's release (the owner's OK), then Sky Drawn by the App on for the Loft
+only. Step 7 (DESIGN.md) when the owner asks.
 
