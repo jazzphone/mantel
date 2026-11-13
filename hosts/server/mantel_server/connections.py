@@ -337,7 +337,7 @@ async def test_homepod(http: aiohttp.ClientSession, url: str, token: str) -> dic
     except (aiohttp.ClientError, asyncio.TimeoutError, OSError, ValueError) as exc:
         raise _reach_error("homepod", url, exc) from None
     if status == 401:
-        raise ConnectionFailed("token_rejected", "The reader refused that token. It is in the reader's config.json.")
+        raise ConnectionFailed("token_rejected", "The reader refused that token. Copy it from the Token card on the reader's page.")
     if status not in (200, 404):
         raise ConnectionFailed("not_the_reader", "That address answered, but not as the HomePod timer reader does.")
     return {"user": None, "version": None, "homepods": len(body["homepods"]), "broken": body.get("broken") is True}

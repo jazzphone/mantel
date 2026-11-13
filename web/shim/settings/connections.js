@@ -250,9 +250,9 @@ function pConnection(kind) {
       [field('conn-' + kind, 'url', 'Address', { type: 'url', maxlength: 300, value: x.url || x.suggested_url || '',
         placeholder: { ha: 'http://homeassistant.local:8123', ma: 'http://music-assistant.local:8095', homepod: 'http://192.0.2.10:8787' }[kind] })]));
     if (kind === 'homepod') {
-      // THE HOMEPOD TIMER READER (phase 28): its address and the token from its config.json, nothing else
+      // THE HOMEPOD TIMER READER (phase 28): its address and the token from its page's Token card, nothing else
       c.appendChild(group({ header: 'Its Token', footer:
-        'The token is in the reader’s config.json, beside its tiles.json. Reading needs none; pausing a timer or turning an alarm off does. Keep the reader on the home network: it speaks plain HTTP.'
+        'Open the reader’s page and copy the token from its Token card. Reading needs none; pausing a timer or turning an alarm off does. Keep the reader on the home network: it speaks plain HTTP.'
           }, [
         field('conn-homepod', 'token', 'Token', { type: 'password', maxlength: 4096 }),
         button('Test', test('token'), { fk: 'mx:homepod-token-test' }), button('Save', save('token'), { fk: 'mx:homepod-token-save' })]));

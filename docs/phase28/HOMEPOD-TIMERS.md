@@ -180,7 +180,7 @@ every 1.5 s across the house. The VM: two to four cores busy (the Home app and i
   to the reader (`gateway.homepod_of`); a restart, more time or Finish is refused. An alarm's switch and Delete are
   `script.homepod_alarm {alarm, action}`. Both are checked and audited as every command; a reader that is down refuses them
   (`homepod_reader_unavailable`). Every wall tablet may see and control them (`rbac.py`).
-- **The connection:** Connections' third kind, `homepod`: the address and the token from the reader's config.json, tested
+- **The connection:** Connections' third kind, `homepod`: the address and the token from the Token card on the reader's page, tested
   (status answers; a wrong token is refused by `POST /check` before it looks) and sealed as the others are.
 - **The screens:** sensor.running_quick_timers carries `homepod` (the reader's state, each HomePod timer's room and HomePod,
   the alarms, the Home app rooms); each HomePod timer's `running` row says `source: "homepod"`. hk-timers.js reads it
