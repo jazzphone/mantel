@@ -180,7 +180,8 @@
     function flatForced(el) {
       if (el._hkFlatForce !== undefined) return el._hkFlatForce;
       var n = el, t = null;
-      for (; n && !t; n = n.parentNode || n.host) if (n.getAttribute) t = n.getAttribute('hk-flat-force');
+      // (a node that can't say -- a test page's stand-in -- says nothing)
+      try { for (; n && !t; n = n.parentNode || n.host) if (n.getAttribute) t = n.getAttribute('hk-flat-force'); } catch (e) { t = null; }
       t = t === 'light' || t === 'dark' ? t : null;
       if (el.isConnected || t) el._hkFlatForce = t;
       return t;
