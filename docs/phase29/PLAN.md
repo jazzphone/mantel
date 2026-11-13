@@ -116,7 +116,11 @@ of scenes, so a new scene is sorted the same way.
    over for a fixed sky (parts, keyframes, timing), what counts as busy, the signatures (an unchanged part keeps its
    picture), crossings finished on time, the sky handed back when calm, nothing at all in Home Assistant's host.
 2. **hk-glass's frost-picture mode**, with a test that its layers wear the picture and no live blur while the sky is
-   handed over, and are back to the look's own glass after. Sheets too: their panels blur live behind themselves, so
+   handed over, and are back to the look's own glass after. **The owner (2026-11-13): no repaint for fast-moving
+   things.** The picture leaves out what the app draws (bats, rain, snow, flybys) and is never painted again because
+   they moved; it follows what changes (another page, weather, a cover) and the slow drift, as Pre-rendered does. Its
+   timing at a page change is Pre-rendered's, fixed the same day (the tab bar's flicker on the Loft: the glass follows
+   the sky on screen, not the address). Sheets too: their panels blur live behind themselves, so
    while the sky is handed over they wear the same picture (or the sky comes back to the page while a sheet is up).
 3. **`hkShell.skyPlayer()`** in both shells and `hk-shell.d.ts`; the app's bridge answers it.
 4. **The app**: the bridge and the player from the prototype, the injected script gone, the switch read from the

@@ -84,7 +84,7 @@
   // the picture is painted every PRE_MOVE, each step small, and every
   // same-page repaint fades over PRE_FADE (2.5 s, was 0.8): a slow drift the
   // eye follows, not a jump. A still sky keeps PRE_MAX. (A page change keeps
-  // its quick swap and the pinned glass its 0.5 s FADE_MS turn.)
+  // its quick swap, the pinned glass too since 2026-11-13.)
   var PRE_MOVE = 30000;
   // A CHANGE IS NOT A DRIFT (2026-10-11, the user: the glass "detects
   // changes" too slowly -- between pages, a new song's cover on Music). The
@@ -576,7 +576,12 @@
   // few frames after its address, and in between "the picture the sky is at" was the last page's: a Side Pane coming
   // back with Home wore Security's, and the cards on a page seen the first time wore the last page's for 100-350 ms.
   // Anything else blurs live, as Shared Layer does, until its own page's picture is worn (dropStale()).
-  function ownPicture() { return fresh() && pre.path === skyAt() && pre.path === here(); }
+  // ...BY THE SKY ON SCREEN, NOT THE ADDRESS (2026-11-13, the owner: "quite a bit of flicker on the nav bar going across
+  // pages"): the address moves 115-175 ms before the page and its sky do on the Loft, and taking the picture off then
+  // left the last page, still on screen over its own sky, blurring live for those frames -- then the remembered
+  // picture, then the fresh one: three changes in 300 ms. The glass wears the picture of the sky behind it, as Shared
+  // Layer's live blur does; the sky cutting to the next page is what takes it off (onSkyChange).
+  function ownPicture() { return fresh() && pre.path === skyAt(); }
   // A PICTURE NOT THIS PAGE'S COMES OFF AT ONCE: the page's layers (a page beside this one, or one a swipe just landed,
   // keeps its own: aside, landedAt) and the pinned glass (pinAll unpins it), all blurring live until wearAll
   function dropStale() {
@@ -739,7 +744,9 @@
     // a new fade starts from where the last one was going; a plain pass
     // leaves a fading surface to its fade -- snapping it to its end mid-fade
     // and the fade pulling it back read as a flicker
-    if (fade || !ok) finishFade();
+    // (...and a fade still drawing another picture -- the last page's 2 s repaint, when the sky cut to the next one
+    // mid-fade: its surfaces kept the last page's glass for its last steps, 2026-11-13)
+    if (fade || !ok || (fading && fading.url !== pre.url)) finishFade();
     var busy = fading;
     var inFade = function (el) { return busy && busy.some(function (m) { return m.el === el; }); };
     pinned.forEach(function (tint, el) {
@@ -751,12 +758,15 @@
       var z = zoomOf(el), at = placeOf(r, W, H), bg = tint + ', ' + sliceOf(pre.url, at[0], at[1], W, H, z);
       if (el._hkPin === bg) return;
       var from = el._hkPin && el._hkPinUrl ? sliceOf(el._hkPinUrl, el._hkPinPos[0], el._hkPinPos[1], W, H, z) : '';
-      // ANOTHER PAGE'S PICTURE FADES ACROSS (2026-10-10): the menu's panel
-      // belongs to no page, and a swap a few frames off the page's own
-      // showed; over FADE_MS it reads as the page arriving.
+      // ANOTHER PAGE'S PICTURE once faded across over FADE_MS (2026-10-10), as
+      // a swap a few frames off the page's own showed: the swap now comes in
+      // the sky's own frame (ownPicture),
       var turn = from && el._hkPinPath && el._hkPinPath !== pre.path;
-      if ((fade || turn) && from) moves.push({ el: el, fromUrl: el._hkPinUrl, fromAt: el._hkPinPos, at: at, bg: bg, pin: tint,
-                                               ms: turn ? FADE_MS : (ms || PRE_FADE), coarse: !turn && !!coarse });
+      // ...NOW AT ONCE (2026-11-13): it is put on in the frame the sky cuts to that page, as the live blur would change;
+      // a fade across showed the last page's glass for its length (0.7 s on the Loft's tab bar, 2026-11-12). Only a
+      // repaint of the same page fades.
+      if (fade && !turn && from) moves.push({ el: el, fromUrl: el._hkPinUrl, fromAt: el._hkPinPos, at: at, bg: bg, pin: tint,
+                                              ms: ms || PRE_FADE, coarse: !!coarse });
       else wearPin(el, bg);
       el._hkPinPos = at; el._hkPinUrl = pre.url; el._hkPinPath = pre.path;
     });
@@ -767,21 +777,25 @@
   // WebKit and Chrome both) at the share the fade has reached, under the
   // surface's own tint. It once took 29 see-through copies of every new
   // picture, made as PNGs -- about 100 ms of WebKit's main thread at each
-  // repaint (the Mac, 2026-10-10). A surface that has moved as well is put
-  // straight on: the two slices would not line up.
+  // repaint (the Mac, 2026-10-10). A surface that has moved fades too: both
+  // pictures are cut at its new place (2026-11-13).
   var XFADE = (function () {
     try { return !!(window.CSS && CSS.supports && CSS.supports('background-image', '-webkit-cross-fade(url(a.png), url(b.png), 50%)')); } catch (e) { return false; }
   })();
   function crossfade(moves, W, H) {
     var url = pre.url;
+    // (a surface that has moved fades too, 2026-11-13: both pictures are the whole screen, cut at its new place, so they
+    // line up -- put straight on, the tab bar sliding between Home's layout and the next page's snapped to the fresh
+    // picture 130 ms after the remembered one, a flicker at every page change)
     moves = moves.filter(function (m) {
-      if (XFADE && window.requestAnimationFrame && m.fromAt && m.fromAt[0] === m.at[0] && m.fromAt[1] === m.at[1]) return true;
+      if (XFADE && window.requestAnimationFrame) return true;
       wearPin(m.el, m.bg);
       return false;
     });
     if (!moves.length) return;
     finishFade();
     fading = moves;
+    fading.url = url;
     var t0 = performance.now(), last = -1, ms = Math.max.apply(null, moves.map(function (m) { return m.ms || FADE_MS; }));
     // THE CLOUDS' 2 s REPAINTS FADE IN COARSE STEPS (PIN_STEPS): a pinned
     // surface's fade restyles it once a step, and a step every frame, back

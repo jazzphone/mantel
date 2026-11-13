@@ -362,11 +362,13 @@ ok('...a view put on the page, or a card joining it, is the page on screen for t
 ok('...and a view Home Assistant kept is laid with its glass before its first frame: one pass, a microtask, for all its cards (2026-10-13)',
    /keptPass = true;/.test(gsrc) && /queueMicrotask\(run\)/.test(gsrc) && /var run = function \(\) \{ keptPass = false; if \(active\) update\(\); \}/.test(gsrc));
 ok('a page\'s picture goes on with its sky, not its view: ownPicture, the waiting picture and a new paint all ask the sky\'s page (hkSky.path)',
-   /function ownPicture\(\) \{ return fresh\(\) && pre\.path === skyAt\(\) && pre\.path === here\(\); \}/.test(gsrc) && /if \(!n \|\| n\.path !== skyAt\(\)\) return;/.test(gsrc) &&
+   /function ownPicture\(\) \{ return fresh\(\) && pre\.path === skyAt\(\); \}/.test(gsrc) && /if \(!n \|\| n\.path !== skyAt\(\)\) return;/.test(gsrc) &&
    /if \(path !== skyAt\(\)\) \{ var was = pre\.next;/.test(gsrc) && /function onSkyChange\(\) \{\s*if \(!PRE \|\| !active\) return;\s*\/\/[^\n]*\n\s*wearNext\(\);\s*dropStale\(\);/.test(gsrc));
-ok('...and only while the address says the same page (2026-11-12, the owner\'s transition bugs): a page change and a sky that cut to a page with no picture yet take the last one off at once',
+ok('...by the sky on screen, not the address (2026-11-13, the nav bar\'s flicker): a sky that cut to a page with no picture yet takes the last one off at once; the address moving alone does not',
    /function dropStale\(\) \{\s*if \(ownPicture\(\)\) return;/.test(gsrc) && /if \(viewUp === path\) wearNext\(\);\s*dropStale\(\);/.test(gsrc) &&
    /var W = window\.innerWidth, H = window\.innerHeight, ok = ownPicture\(\), moves = \[\];/.test(gsrc));
+ok('a pinned surface that has moved fades to the new picture too, cut at its new place (2026-11-13: the tab bar sliding between layouts snapped)',
+   /moves = moves\.filter\(function \(m\) \{\s*if \(XFADE && window\.requestAnimationFrame\) return true;/.test(gsrc));
 ok('HkBase passes the card and direction to changed()', /hkGlass\.changed\(card, join\)/.test(readFile(HK_ROOT + '/frontend/cards/hk-base.js')));
 
 // The press loop, the row promotions, the hold of a view already painted and

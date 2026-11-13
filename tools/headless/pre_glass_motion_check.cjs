@@ -133,7 +133,11 @@ async function motion(page, path, m) {
         SS.render = function (sky, o) { window.__pgmRenders.push({ page: location.pathname, sky: window.hkSky.path() }); return orig(sky, o); };
         // ...AND NOTHING WEARS ANOTHER PAGE'S PICTURE, in any frame (2026-11-12, the owner's "transition bugs"): each
         // picture is known by the page it was painted for (pre.path as it became pre.url), and every frame each one
-        // shown -- a layer's (not faded out) or a pinned surface's slice -- must be the address's page's
+        // shown -- a layer's (not faded out) or a pinned surface's slice -- must be the page the sky on screen shows (the
+        // address moves first; the last page stays on screen over its own sky for a few frames: 2026-11-13, the nav
+        // bar's flicker when its picture came off with the address). A page's own layer may wear its own page's
+        // picture a frame early: a page a swipe keeps beside this one comes on in its own, a frame before the sky cuts
+        // to it. The pinned glass belongs to no page: it is the sky's, always.
         const deep = (r, out) => { r.querySelectorAll('*').forEach((e) => { out.push(e); if (e.shadowRoot) deep(e.shadowRoot, out); }); return out; };
         const W = window.__pgmWorn = { of: new Map(), bad: [], frames: 0, unknown: 0 };
         const tick = () => {
@@ -147,13 +151,14 @@ async function motion(page, path, m) {
             const bg = e.style && e.style.background;
             if (bg && bg.indexOf('blob:') >= 0 && onScreen(e)) for (const m of bg.matchAll(/url\("?(blob:[^")]+)"?\)/g)) shown.push([e.id || e.className || e.tagName, m[1]]);
           });
+          const at = (window.hkSky && window.hkSky.path && window.hkSky.path()) || location.pathname;
           W.last = { layers: shown.filter((s) => s[0] === 'layer').length, pinned: shown.filter((s) => s[0] !== 'layer').length,
-                     own: shown.every(([, u]) => W.of.get(u) === location.pathname) };
+                     own: shown.every(([, u]) => W.of.get(u) === at) };
           W.frames++;
           shown.forEach(([where, u]) => {
             const of = W.of.get(u);
             if (of === undefined) W.unknown++;
-            else if (of !== location.pathname && W.bad.length < 50) W.bad.push({ frame: W.frames, page: location.pathname, picture: of, where: String(where) });
+            else if (of !== at && !(where === 'layer' && of === location.pathname) && W.bad.length < 50) W.bad.push({ frame: W.frames, page: at, picture: of, where: String(where) });
           });
           if (!W.stop) requestAnimationFrame(tick);
         };
