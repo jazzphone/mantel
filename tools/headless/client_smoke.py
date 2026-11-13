@@ -92,7 +92,14 @@ class OfflineReads:
 
     async def get_calendar_events(self, entity_id, start, end):
         # A populated calendar; all local fixture data, no REST connection.
+        # (from today when today is in the range: a phone opens the Calendar on today's day, and events from the start of
+        # a month's grid left today empty after the month's first days -- swipe_motion_check's heavy step, 2026-11-13)
         first = datetime.fromisoformat(start.replace("Z", "+00:00"))
+        last = datetime.fromisoformat(end.replace("Z", "+00:00")) if end else None
+        # (a day early: the day is UTC's, and a US evening is already tomorrow there)
+        today = datetime.now(first.tzinfo).replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=1)
+        if first <= today and (last is None or today < last):
+            first = today
         return [{"summary": f"Fictional event {i + 1}",
                  "start": {"dateTime": (first + timedelta(days=i, hours=10)).isoformat()},
                  "end": {"dateTime": (first + timedelta(days=i, hours=11)).isoformat()}}

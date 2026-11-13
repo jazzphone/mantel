@@ -129,5 +129,7 @@ def test_the_shared_frontend_is_untouched_by_this():
 
 
 def test_a_read_the_narrowed_states_lack_is_reported(observed):
-    # home.js asks the hub again for it (web/home.js host.onMiss), so a late read is never left "unknown"
+    # home.js asks the hub again for it (web/home.js host.onMiss), so a late read is never left "unknown" -- but not one
+    # made while recording, nor in a whole-house pass (the strategy's or hkShell.unrecorded's: a room tile's sort of the
+    # house asked for every entity in the registry, and the Loft's narrowed screen kept all 4,602 again, 2026-11-13)
     assert observed["misses"] == ["vacuum.downstairs"]

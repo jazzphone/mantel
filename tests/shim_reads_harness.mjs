@@ -110,6 +110,7 @@ host.applySnapshot({ 'light.kitchen': { s: 'on', a: {}, lc: 1, lu: 1 } });
 const st = host.hass.states;
 void st['light.kitchen']; void st['vacuum.downstairs']; void st['toJSON'];
 host.recording = true; void st['vacuum.upstairs']; host.recording = false;
+host.building = true; void st['vacuum.garage']; host.building = false;     // a whole-house pass: no screen's need
 out.misses = misses;
 
 // UPDATES BATCHED PER FRAME (2026-10-29): the hub's diffs wait for the next animation frame and are applied together,
