@@ -245,6 +245,17 @@
     notHouseCameraPlatforms: () => ['mantel'],
     // HK's "Tablet App" (Kiosk App: android_app) is Mantel's own (docs/phase26/ANDROID-APP.md)
     kioskAppName: (id) => (id === 'android_app' ? 'Mantel for Android' : null),
+    // a discovery scan's reads (Laundry's, over every entity) are no screen's need: the page's narrowing keeps
+    // only what its surfaces read (home.js), and one scan that read every state kept the whole house -- the
+    // Loft's screen took every update of 4,518 entities (2026-11-12). What the scan finds is read again by the
+    // tiles and chips that show it, and kept.
+    unrecorded: (fn) => {
+      const h = global.__mantel;
+      if (!h) return fn();
+      const building = h.building, recording = h.recording;
+      h.building = true; h.recording = false;
+      try { return fn(); } finally { h.building = building; h.recording = recording; }
+    },
     tabletRoom,
     atTablet,
     // Mantel's own docs (/docs, docs_pages.py: HK's pages and Mantel's), under the page's prefix

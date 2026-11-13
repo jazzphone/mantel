@@ -152,6 +152,10 @@
     notHouseCameraPlatforms: function () { return []; },
     // a Kiosk App's name as the host says it (null: HK's own name)
     kioskAppName: function () { return null; },
+    // A LOOK OVER THE WHOLE HOUSE THAT IS NO SCREEN'S NEED: unrecorded(fn) runs fn, whose reads of the
+    // client's states (a discovery scan: Laundry's, every entity) a host that keeps only what a screen
+    // reads does not count as the screen's. Home Assistant keeps every state anyway: fn, as it is.
+    unrecorded: function (fn) { return fn(); },
     // THE ROOM OF THE WALL TABLET SHOWING THIS PAGE (an area id), for a Home
     // Grid block whose option is `tablet_room` (docs/phase11/HOME-GRID.md):
     // tabletRoom(client). Home Assistant: its Wall Tablets entry's room;
@@ -240,7 +244,7 @@
    'dashboardRoot', 'viewContainer', 'viewSlot', 'view', 'viewBackground', 'toolbar', 'dashboardConfig', 'onDashboard', 'isDashboard',
    'defined', 'showNotifications', 'keepAwake', 'sidebarData', 'haNav', 'haNavigate', 'openHaMenu', 'hostMenu', 'hostPage', 'settingsHost', 'screensaverEditor', 'holdWrites', 'menuButton',
    'hostDetail', 'openHostDetail', 'hostToast', 'dialogRoot', 'serviceUrl', 'photoSource', 'listPhotos', 'artSized', 'productName', 'settingsName', 'settingsPlace', 'haPlace',
-   'haName', 'docsUrl', 'notHouseCameraPlatforms', 'kioskAppName', 'tabletRoom', 'atTablet'].forEach(function (name) {
+   'haName', 'docsUrl', 'notHouseCameraPlatforms', 'kioskAppName', 'unrecorded', 'tabletRoom', 'atTablet'].forEach(function (name) {
     shell[name] = function () {
       try { return get(name).apply(shell, arguments); } catch (e) {
         return name === 'onDashboard' ? true : FALSE[name] ? false : WORDS[name] ? NONE[name].apply(shell, arguments) : null;
