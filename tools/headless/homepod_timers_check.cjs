@@ -49,12 +49,22 @@ function cards() {
       say(docW <= W && cs.every((c) => c.box[0] >= 0 && c.box[2] <= W + 0.5), `${t}: nothing past the window`, { docW, boxes: cs.map((c) => c.box) });
       if (input.shots) await page.screenshot({ path: path.join(input.shots, `${engine}-${size}-timers.png`) });
       // PAUSE: to the reader, through the gateway, with its HomePod, row and label
+      // a key's middle, once it holds still (the page may still be scrolling it into view), then a finger on it
       const tap = async (name, key) => {
-        const at = await page.evaluate(([name, key]) => { const c = deep(document, '.tc').find((x) => x.getClientRects().length && x.querySelector('.head').textContent.includes(name));
-          const b = [...c.querySelectorAll('.tb')].find((x) => x.textContent.trim() === key); b.scrollIntoView({ block: 'center' }); const r = b.getBoundingClientRect();
-          return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; }, [name, key]);
+        const where = () => page.evaluate(([name, key]) => { const c = deep(document, '.tc').find((x) => x.getClientRects().length && x.querySelector('.head').textContent.includes(name));
+          const b = [...c.querySelectorAll('.tb')].find((x) => x.textContent.trim() === key); const r = b.getBoundingClientRect();
+          return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2), in: r.top >= 0 && r.bottom <= innerHeight }; }, [name, key]);
+        await page.evaluate(([name, key]) => { const c = deep(document, '.tc').find((x) => x.getClientRects().length && x.querySelector('.head').textContent.includes(name));
+          [...c.querySelectorAll('.tb')].find((x) => x.textContent.trim() === key).scrollIntoView({ block: 'center' }); }, [name, key]);
+        let at = await where();
+        for (let i = 0; i < 20; i++) {
+          await page.waitForTimeout(150);
+          const now = await where();
+          if (now.x === at.x && now.y === at.y && now.in) break;
+          at = now;
+        }
         await page.touchscreen.tap(at.x, at.y);
-        await page.waitForTimeout(900);
+        await page.waitForTimeout(400);
       };
       // what the stand-in reader was sent since `from`, once `n` have come (a command can take a while under load)
       const sentSince = async (from, n) => {
@@ -110,7 +120,14 @@ function cards() {
         return { keys: [...p.querySelectorAll('.cmds button')].map((b) => b.textContent.trim()), words: (p.querySelector('.dial .w') || {}).textContent }; }) : null;
       say(sh && JSON.stringify(sh.keys) === '["Pause","Cancel"]' && /Kitchen HomePod/.test(sh.words || ''), `${t}: its sheet: Pause and Cancel, and where it rings`, sh);
       if (input.shots && sheet) await page.screenshot({ path: path.join(input.shots, `${engine}-${size}-sheet.png`) });
-      await page.keyboard.press('Escape');
+      // closed again (Escape once the sheet has its focus; a second if the first came too soon)
+      const sheetUp = () => page.evaluate(() => deep(document, 'hk-detail-timer').some((e) => e.getClientRects().length));
+      for (let i = 0; i < 3 && await sheetUp(); i++) {
+        await page.waitForTimeout(500);
+        await page.keyboard.press('Escape');
+        await page.waitForFunction(() => !deep(document, 'hk-detail-timer').some((e) => e.getClientRects().length), null, { timeout: 3000 }).catch(() => null);
+      }
+      say(!(await sheetUp()), `${t}: its sheet closes`);
       // THE READER DOWN: the page says so
       await page.request.get(input.origin + '/__check/flip?broken=1');
       const down = await page.waitForFunction(() => deep(document, '.hp-down').some((e) => e.getClientRects().length && e.textContent === 'HomePod timers unavailable'), null,
@@ -129,6 +146,21 @@ function cards() {
         await page.evaluate(() => { const h = document.getElementById('hk-timer-ring'); const s = h.shadowRoot.querySelector('.scrim'); if (s) s.remove(); });
         const card = await page.evaluate(cards).then((cs) => cs.find((c) => c.name === 'Pasta'));
         say(card && /^Ringing · Kitchen HomePod/.test(card.sub || '') && JSON.stringify(card.keys) === '["Stop"]', `${t}: its card: Ringing, Stop alone`, card);
+        // its sheet, while it rings: Done, where it rings, Stop alone
+        const hd2 = await page.evaluate(() => { const c = deep(document, '.tc').find((x) => x.getClientRects().length && x.querySelector('.head').textContent.includes('Pasta'));
+          const h = c.querySelector('.head'); h.scrollIntoView({ block: 'center' }); const r = h.getBoundingClientRect(); return { x: r.left + 30, y: r.top + r.height / 2 }; });
+        await page.waitForTimeout(300);
+        await page.touchscreen.tap(hd2.x, hd2.y);
+        const rs = await page.waitForFunction(() => { const p = deep(document, 'hk-detail-timer')[0], s = p && p.shadowRoot;
+          return s && s.querySelector('.cmds button') ? { keys: [...s.querySelectorAll('.cmds button')].map((b) => b.textContent.trim()), words: (s.querySelector('.dial .w') || {}).textContent,
+            cd: (s.querySelector('.dial .cd') || {}).textContent } : null; }, null, { timeout: 8000 }).then((h) => h.jsonValue(), () => null);
+        say(rs && JSON.stringify(rs.keys) === '["Stop"]' && /Ringing on the Kitchen HomePod/.test(rs.words || '') && rs.cd === 'Done', `${t}: its sheet while it rings: Done, Stop alone`, rs);
+        if (input.shots) await page.screenshot({ path: path.join(input.shots, `${engine}-${size}-ringing-sheet.png`) });
+        for (let i = 0; i < 3 && await sheetUp(); i++) {
+          await page.waitForTimeout(500);
+          await page.keyboard.press('Escape');
+          await page.waitForFunction(() => !deep(document, 'hk-detail-timer').some((e) => e.getClientRects().length), null, { timeout: 3000 }).catch(() => null);
+        }
         const before2 = (await (await page.request.get(input.origin + '/__check/posts')).json()).length;
         await tap('Pasta', 'Stop');
         const stops = await sentSince(before2, 1);

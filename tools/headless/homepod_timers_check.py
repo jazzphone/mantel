@@ -116,7 +116,7 @@ async def main(shots: Path | None, engines: list[str]) -> int:
 
         async def ring(request: web.Request) -> web.Response:      # (the Kitchen's Pasta goes off, or rings no more)
             reader.ringing = request.query.get("on") == "1"
-            eid = homepods["Pasta"]
+            eid, now = homepods["Pasta"], time.time()          # (a fresh time: a screen redraws a state that changed)
             if reader.ringing:                                     # Home Assistant finished its helper on time
                 hub.on_change(hub.store.apply_event({"a": {eid: {"s": "idle", "a": {"friendly_name": "Pasta", "duration": "0:15:00"}, "lc": now, "lu": now}}}))
             else:                                                  # (and back, for the next size)
