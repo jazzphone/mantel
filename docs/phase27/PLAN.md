@@ -40,6 +40,14 @@ from this plan, and why.
   which House Status now calls too), the chip model's mixin, a section's glyph, colors and words, `lines()` and
   `headline()`.
 - **The size** is five pills across (decision 1 below), `hkWidthKind()` 5 x 196 + 4 x 10 + 48 + 2 = 1070.
+- **The sheet's look (the block's Sheet option, added 2026-11-12).** The owner asked for it ("letting me set the appearance
+  would help with looks and performance"). Same as Screen, the default, is what every sheet wears: the screen's look
+  (Bright Glass's white glass, Flat's plate). Glass is the detail sheets' own dark glass (`overlay` over the heavy blur)
+  whatever the screen wears. Solid is `overlay-solid` with no blur at all. Either one sets every variable a look sets back
+  to nothing inside the sheet (`hkSettings.lookVars()`), turns the status chips' own blur off, and keeps every card in
+  the sheet out of the shared blur, including the cards they make (`hk-no-glass` on the sheet, `glassJoin` in
+  `hk-base-card-core.js`). So the only blur left is the sheet's own, under Glass, or none, under Solid. A Flat screen's
+  sheet stays Flat. A sheet opened from inside it (an accessory) wears the screen's look, as any sheet does.
 - **Sideways:** the sheet clips sideways (`overflow-x: clip`), because the camera mosaic's row bleeds 22 px past its
   column, as it does on the page.
 - **Checks:** `tests/test_home_block.py` covers the pure part, both catalogs, the saved layout and the wiring.

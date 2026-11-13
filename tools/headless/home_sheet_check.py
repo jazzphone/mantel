@@ -9,6 +9,8 @@ Three screens, each a Home Grid with the Home block at every size (Small, Wide, 
   home-sq      square cells, the Centered style (HomeView's): the block's glyphs bare
   home-tiles   tile cells (196 x 150), the Home style: the glyph in its well
   home-car     square cells on a screen whose own Home would be a car's: the sheet is still the generated Home
+  home-bright  Bright Glass, its blocks' Sheet Same as Screen, Solid and Glass: the sheet wears what it says
+  home-flat    the same blocks on a Flat Light screen: the sheet is Flat whatever they say
 
 It checks, at each size of block: nothing past its plate, Tall up its lines a finger tall in a list that scrolls, Large's
 categories as standard pills; the plate opening the sheet at Home and a room at that room, a category going to its own
@@ -46,7 +48,7 @@ EXTRA = {
 CHIPS = ["security", "climate", "lights", "speakers", "blinds"]
 
 
-def grid(cell: str) -> dict:
+def grid(cell: str, looks: bool = False) -> dict:
     g = {"v": 1, "cols": 6, "rows": 4, "frame": [1180, 820], "band": False, "items": [
         {"id": "xl", "card": "home", "size": "XL", "at": [0, 0]},
         {"id": "l", "card": "home", "size": "L", "at": [3, 0]},
@@ -56,12 +58,15 @@ def grid(cell: str) -> dict:
         {"id": "s2", "card": "home", "size": "S", "at": [3, 2], "opts": {"title": "Linden House"}}]}
     if cell == "square":
         g["cell"] = "square"
+    if looks:                                       # the Sheet option: Same as Screen (Extra Large), Solid, Glass
+        g["items"][4]["opts"] = {"look": "solid"}
+        g["items"][5]["opts"] = {"title": "Linden House", "look": "glass"}
     return g
 
 
-def board(cell: str, style: str, car: bool = False) -> dict:
+def board(cell: str, style: str, car: bool = False, looks: bool = False) -> dict:
     b = {"title": "Home Block", "pages": [], "headers": {"home": True}, "menu_custom": True, "menu": "tabbar",
-         "home_style": "grid", "home_grid": grid(cell), "chips": CHIPS, "tile_style": style}
+         "home_style": "grid", "home_grid": grid(cell, looks), "chips": CHIPS, "tile_style": style}
     if car:
         b.update({"car": True, "car_layout": "car"})
     return b
@@ -76,6 +81,9 @@ async def main(shots: Path | None, engines: list[str], only: list[str], sizes: l
     gallery.SETTINGS["boards"]["home-sq"] = board("square", "centred")
     gallery.SETTINGS["boards"]["home-tiles"] = board("tile", "home")
     gallery.SETTINGS["boards"]["home-car"] = board("square", "centred", car=True)
+    # the Sheet option over Bright Glass (the shared layer: its cards each blur in a sheet that keeps the screen's look) and Flat
+    gallery.SETTINGS["boards"]["home-bright"] = dict(board("square", "centred", looks=True), glass="bright")
+    gallery.SETTINGS["boards"]["home-flat"] = dict(board("square", "centred", looks=True), flat=True, flat_theme="light")
     with tempfile.TemporaryDirectory() as td:
         app, cookie = await gallery.build(Path(td))
         # HOUSE COMMANDS OFF for the whole run: no gateway, every command refused (the page is watched too)
@@ -94,7 +102,7 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--shots", type=Path, help="keep the screenshots here")
     ap.add_argument("--engine", choices=["webkit", "chromium", "both"], default="both")
-    ap.add_argument("--only", nargs="*", default=[], help="parts to run: blocks, sheet")
+    ap.add_argument("--only", nargs="*", default=[], help="parts to run: blocks, sheet, look")
     ap.add_argument("--sizes", nargs="*", default=[], help="the sheet's window sizes to run (1280x800 390x844 ...)")
     a = ap.parse_args()
     if not os.environ.get("PLAYWRIGHT_PATH") or not os.environ.get("NODE"):
