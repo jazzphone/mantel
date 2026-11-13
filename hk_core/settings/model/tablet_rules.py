@@ -90,7 +90,7 @@ SKY_APPS = ("android_app",)
 def sky_by_app(t: Mapping[str, Any] | None) -> bool:
     """Does this tablet's app draw its busy skies (Sky Drawn by the App)? Its own switch, and an app that can: the
     switch is kept through a change of Kiosk App, and means nothing under any other."""
-    return bool(t) and t.get("app_sky") is True and t.get("app") in SKY_APPS
+    return t is not None and t.get("app_sky") is True and t.get("app") in SKY_APPS
 
 
 def tablets(stored: Stored | None) -> dict[str, dict[str, Any]]:
