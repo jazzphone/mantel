@@ -21,6 +21,11 @@
 // faster than BUSY_SPEED, a flipbook (steps()), or something falling -- a loop that carries a part down the screen (rain,
 // snow, leaves). Nothing busy: the sky is the page's, and one the app plays is handed back.
 //
+// ...AND ONLY WHILE NOTHING ELSE ON THE PAGE MOVES (pageMoves, measured on the Loft 2026-11-13): a washer spinning on
+// the Laundry block, a playing video, moving things in front of the cards -- the page then makes every frame anyway, so
+// handing the sky over saved it little, and Android composed the app's sky with a page changing out of step with it:
+// pouring rain cost 2.08 of a core handed over against 1.67 kept (1.24-1.31 against 1.29-1.52 with the washer still).
+//
 // WHERE. Only where the page's host offers a player (hkShell.skyPlayer(): Mantel's shell answers with the tablet app's
 // bridge; Home Assistant's facade answers none) and the wall tablet's own setting says so (Wall Tablets -> the tablet ->
 // Mantel for Android -> Sky Drawn by the App, `app_sky`, hk_core/settings/model/tablet_rules.py). Never in front of the
@@ -227,6 +232,32 @@
         out.push({ anims: as.map(function (a) { return animOf(a, box); }) });
       });
       return busyOf(out);
+    }
+
+    // WHAT ELSE MOVES (the ...AND ONLY WHILE above): a running animation outside the sky that won't end soon (a loop, or
+    // more than LONG left), in any shadow root, or a playing video; '' when nothing does, else what moves
+    var LONG = 5000;
+    function pageMoves() {
+      var sky = rootEl(), found = '';
+      (function walk(/** @type {Document | ShadowRoot} */ r) {
+        var all = r.querySelectorAll('*');
+        for (var i = 0; i < all.length && !found; i++) {
+          var e = all[i];
+          if (sky && (e === sky || sky.contains(e))) continue;
+          if (e.tagName === 'VIDEO' && !(/** @type {HTMLVideoElement} */ (e)).paused) { found = 'video'; break; }
+          var as = e.getAnimations ? e.getAnimations() : [];
+          for (var j = 0; j < as.length; j++) {
+            var a = as[j];
+            if (a.playState !== 'running' || !a.effect) continue;
+            var t = a.effect.getComputedTiming(), end = typeof t.endTime === 'number' ? t.endTime : Infinity;
+            if (!isFinite(end) || end - (Number(a.currentTime) || 0) > LONG) {
+              found = String(/** @type {any} */ (a).animationName || e.tagName.toLowerCase()); break;
+            }
+          }
+          if (e.shadowRoot) walk(e.shadowRoot);
+        }
+      })(document);
+      return found;
     }
 
     // -- one hand-over --------------------------------------------------------------------------------------------------
@@ -564,6 +595,10 @@
       var root = rootEl();
       if (!root) { if (playing()) await giveBack('no sky'); info.state = 'off'; return; }
       if (isHeld() || document.hidden) { schedule(QUIET); return; }
+      // SOMETHING ELSE MOVES: the page makes every frame anyway, and keeps its sky (looked at again in a minute)
+      var other = pageMoves();
+      info.moves = other;
+      if (other) { if (playing()) await giveBack('the page moves: ' + other); info.state = 'page moves'; lastRun = Date.now(); return; }
       // CALM, at a look that changes nothing: the page keeps it (or has it back)
       if (!playing() && !busyNow(root)) { info.busy = ''; info.state = 'calm'; lastRun = Date.now(); return; }
       busy = true;
@@ -649,7 +684,7 @@
       status: function () { return Object.assign({ playing: playing() }, info); },
       again: function (all) { if (all) baked = new Map(); lastRun = 0; schedule(0); },
       start: start,
-      _busyAnim: busyAnim, _busyOf: busyOf, _busyNow: busyNow, _ops: ops, _shift: shift, BUSY_SPEED: BUSY_SPEED
+      _busyAnim: busyAnim, _busyOf: busyOf, _busyNow: busyNow, _pageMoves: pageMoves, _ops: ops, _shift: shift, BUSY_SPEED: BUSY_SPEED
     };
   };
 })();

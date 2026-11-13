@@ -125,8 +125,26 @@ const CLEAR = { season: '', cond: 'sunny', wet: { kind: 'none', rate: 0 }, fog: 
         say(swipe && swipe.moving && swipe.moving.pos === 'fixed' && /translate\(300(\.0)?px/.test(swipe.moving.tf) && swipe.moving.att === 'scroll' &&
             swipe.rest && swipe.rest.pos === 'absolute' && !swipe.rest.tf && swipe.rest.att === 'fixed',
             tag + ': through a swipe the picture stays in line, and is fixed to the screen again after', swipe);
+        // SOMETHING ELSE ON THE PAGE MOVES (a washer spinning on the Laundry block): the page makes every frame anyway,
+        // and has its sky back; still again, the app has it again
+        let before = (await page.evaluate(state)).ops.length;
+        await page.evaluate(() => {
+          const d = document.createElement('div'); d.id = 'spin';
+          d.style.cssText = 'position:fixed;left:0;top:0;width:10px;height:10px;background:#fff;opacity:.01';
+          document.body.appendChild(d);
+          d.animate([{ transform: 'rotate(0)' }, { transform: 'rotate(360deg)' }], { duration: 1000, iterations: Infinity });
+          window.hkSkyHandover.again();
+        });
+        const moved = await until(page, () => window.hkSkyHandover.status().state === 'page moves', null, 30000);
+        s = await page.evaluate(state);
+        say(moved && s.ops.slice(before).indexOf('stop') >= 0 && !s.clipped && !s.glass.frost,
+            tag + ': something else moving on the page: the sky is the page\'s again', { state: s.status.state, moves: s.status.moves, ops: s.ops.slice(before) });
+        await page.evaluate(() => { document.getElementById('spin').remove(); window.hkSkyHandover.again(); });
+        const back = await until(page, () => window.hkSkyHandover.status().state === 'playing', null, 40000);
+        say(back, tag + ': ...and still again, the app\'s');
+        await sleep(800);
         // A CALM SKY: handed back
-        const before = s.ops.length;
+        before = (await page.evaluate(state)).ops.length;
         await page.evaluate((c) => { window.hkSky._pin(c); }, CLEAR);
         await sleep(1500);
         await page.evaluate(() => window.hkSkyHandover.again(true));

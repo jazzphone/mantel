@@ -10,6 +10,7 @@ Chromium only: the app's page is Android's WebView. On a Bright Glass screen wit
     page's sky clipped away; the glass wears the frost picture -- every layer its child with the picture fixed to the
     screen and no live blur, the tab bar its slice -- and a sheet opened over it wears the picture under its plate, no
     blur; a page moved by a swipe keeps the picture in line (its child fixed and moved back by as much);
+  * something else moving on the page (a spinning tile): the sky is the page's again, and the app's once it is still;
   * a calm sky (a clear day) is handed back: stop, the clip gone, the glass the look's own again (live blur, no frost);
   * Sky Drawn by the App off: nothing handed over, the app told so;
   * no bridge (a browser, Home Assistant): nothing of it runs at all.
@@ -36,6 +37,9 @@ SCREEN = 'app-sky'
 
 async def main():
     from aiohttp.test_utils import TestServer
+    # (a still page: the ceiling fan off, or its tile spins and the page keeps its sky -- hk-sky-handover.js pageMoves)
+    area, (_, attrs) = gallery.HOUSE['fan.bedroom_ceiling']
+    gallery.HOUSE['fan.bedroom_ceiling'] = (area, ('off', {**attrs, 'percentage': 0}))
     gallery.SETTINGS['boards'][SCREEN] = {
         'title': 'App Sky', 'pages': [], 'headers': {'home': True}, 'menu_custom': True, 'menu': 'tabbar',
         'tab_bar_rooms': 'button', 'tab_bar_rooms_phone': 'button', 'glass': 'bright', 'sky': True}
