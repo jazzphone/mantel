@@ -393,3 +393,18 @@ def test_home_assistant_gets_a_timestamp_sensor_per_homepod():
     none = {}
     house._homepod_alarms("entry1", none)
     assert none == {}
+
+
+async def test_a_look_before_the_server_s_session_is_a_quiet_miss(hp, caplog):
+    """The first look can come before the server's HTTP session exists (a restart logged a KeyError every time)."""
+    host, app = hp.host, hp.gw.m.app
+    host.get = host._get                       # the real reader client, with no session yet
+    http = app._state.pop("http", None) if hasattr(app, "_state") else None
+    try:
+        with caplog.at_level("ERROR"):
+            await look(hp)
+        assert host.error == "Mantel is still starting" and host.availability() == "starting"
+        assert not [r for r in caplog.records if r.levelname == "ERROR"]
+    finally:
+        if http is not None:
+            app._state["http"] = http
