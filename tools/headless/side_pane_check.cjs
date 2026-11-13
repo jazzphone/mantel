@@ -554,8 +554,12 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
     // carried a query Mantel's still route refuses): each camera section's picture decoded (naturalWidth > 0) over
     // its glyph, no request for a still refused, and its name hidden unless the section says Show
     if (!phone && !upright) {
-      const bad = [];
-      const onRes = (r) => { if (/\/api\/camera\/.+\/still/.test(r.url()) && r.status() >= 400) bad.push(r.status() + ' ' + r.url()); };
+      const bad = [], asked = [];
+      const onRes = (r) => {
+        if (!/\/api\/camera\/.+\/still/.test(r.url())) return;
+        asked.push(r.url());
+        if (r.status() >= 400) bad.push(r.status() + ' ' + r.url());
+      };
       page.on('response', onRes);
       await open('pane-camera');
       await page.waitForTimeout(2500);
@@ -569,7 +573,9 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       });
       page.off('response', onRes);
       want('camera: two sections, each still loaded (naturalWidth > 0) over its glyph, none refused', [cam, bad],
-           cam.length === 2 && cam.every((c) => c.loaded && c.glyph && /_hk=\d+/.test(c.src) && c.src.indexOf('hk_n') < 0) && !bad.length);
+           cam.length === 2 && cam.every((c) => c.loaded && c.glyph && /^blob:/.test(c.src)) && !bad.length &&
+           asked.length > 0 && asked.every((u) => /_hk=\d+/.test(u) && /width=480&height=270/.test(u) && u.indexOf('hk_n') < 0));
+      // (shown from ONE download, 2026-11-13: the image wears the fetched copy, a blob:, not the still's address again)
       want('...the name hidden by default, shown when the section says Show', cam, cam[0].name === 'hide' && !cam[0].nameShown && cam[1].name === 'show' && cam[1].nameShown);
       // ...and refreshed in place: a later still (a new counter) replaces the first without a redraw
       await page.waitForTimeout(10500);

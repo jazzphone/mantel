@@ -18,6 +18,49 @@
         setting = K.setting, shieldOf = K.shieldOf, states = K.states, statusOf = K.statusOf, timersOf = K.timersOf,
         TODO = K.TODO, todoAdd = K.todoAdd, todoCheck = K.todoCheck, todoOf = K.todoOf, WX_LAST = K.WX_LAST,
         wxGlyph = K.wxGlyph, wxIcon = K.wxIcon;
+    // A STILL NOBODY CAN SEE IS NOT FETCHED (2026-11-13: the Side Pane's camera loaded every ten seconds through the
+    // black and under the screensaver, all day, on every wall tablet). The page's pane rests while the screen is black
+    // or hidden or the screensaver covers it -- the signals hk-cameras-helpers.js restWatch rests the cameras on; the
+    // screensaver's own pane (mode saver) only while black or hidden. Each pane takes a fresh still the moment it is
+    // seen again, not the last one from before the black.
+    var CAM_REST = (function () {
+      // (the black -- hk-black -- and the screen itself off -- the kiosk app's screenoff -- are two things: the tablet's
+      // screen coming back on under the black is no reason to fetch, as a single flag for both once read it)
+      var black = false, off = false, covered = false, panes = [];
+      function wake() {
+        panes = panes.filter(function (p) { return p.isConnected; });
+        panes.forEach(function (p) { if (p._cams) p._cams(); });
+      }
+      var soon = function () { setTimeout(wake, 0); };
+      try {
+        window.addEventListener('hk-black', function (e) { black = !!(e && e.detail && e.detail.on); if (!black) soon(); });
+        window.addEventListener('hk-saver-covered', function () { covered = true; });
+        window.addEventListener('hk-saver', function (e) { if (!(e && e.detail && e.detail.on)) { covered = false; soon(); } });
+        ['screensaverstart', 'screenoff'].forEach(function (k) { window.addEventListener('kiosksatellite:' + k, function () { off = true; }); });
+        ['screensaverstop', 'screenon'].forEach(function (k) { window.addEventListener('kiosksatellite:' + k, function () { off = false; soon(); }); });
+        document.addEventListener('visibilitychange', function () { if (!document.hidden) soon(); });
+      } catch (e) { /* no window events */ }
+      return {
+        resting: function (pane) {
+          if (document.hidden || black || off) return true;
+          if (pane && pane.getAttribute && pane.getAttribute('mode') === 'saver') return false;
+          var S = window.hkSaver;
+          return covered || !!(S && S.running && S.running());
+        },
+        watch: function (pane) { if (panes.indexOf(pane) < 0) panes.push(pane); }
+      };
+    })();
+    // ONE DOWNLOAD A STILL: fetched once and shown from that copy (a blob: address), where the off-screen load and then
+    // the shown <img> each downloaded it -- Mantel sends camera pictures "no-store", so the browser kept neither. The
+    // copy before is let go once nothing can still be drawing it.
+    var BLOB_KEEP_MS = 30000;
+    function stillBlob(url) {
+      if (typeof fetch !== 'function' || typeof URL === 'undefined' || !URL.createObjectURL) return Promise.resolve(url);
+      return fetch(url, { credentials: 'same-origin', cache: 'no-store' }).then(function (r) {
+        if (!r.ok) throw new Error('still ' + r.status);
+        return r.blob();
+      }).then(function (b) { return URL.createObjectURL(b); });
+    }
 
     // A SECTION'S HEADING (2026-10-30): the small uppercase title -- text alone
     // since 2026-10-31 (the owner: "remove the glyph/icon... rather it just be
@@ -978,7 +1021,8 @@
         var any = Object.keys(ids);
         if (!any.length) { if (this._camT) { clearInterval(this._camT); this._camT = null; } return; }
         if (!this._camT) this._camT = setInterval(function () { self._cams(); }, 10000);
-        if (!c) return;
+        CAM_REST.watch(this);
+        if (!c || CAM_REST.resting(this)) return;
         any.forEach(function (id) {
           var st = states(c)[id], HC = C(), a = st && st.attributes;
           var pic = a && !a.restored && !(HC && HC.stale && HC.stale(st)) ? a.entity_picture : null;
@@ -988,20 +1032,29 @@
           if (!pic || s.busy || Date.now() - s.at < 9000) return;
           if (s.bad === pic && Date.now() - s.badAt < 60000) return;
           s.busy = true; s.at = Date.now(); s.n++;
-          var url = pic + (pic.indexOf('?') < 0 ? '?' : '&') + '_hk=' + s.n + '&width=480&height=270', im = new Image();
-          im.onload = function () {
-            s.busy = false;
-            if (!im.naturalWidth) { s.bad = pic; s.badAt = Date.now(); return; }
-            s.url = url; s.bad = '';
-            Array.prototype.forEach.call(self._secs.querySelectorAll('.cam2[data-k="camera"]'), function (n) {
-              if (n.getAttribute('data-cam') !== id) return;
-              var el = n.querySelector('img');
-              if (!el) { el = document.createElement('img'); el.alt = ''; n.insertBefore(el, n.querySelector('.cn')); }
-              if (el.getAttribute('src') !== url) el.setAttribute('src', url);
-            });
+          var url = pic + (pic.indexOf('?') < 0 ? '?' : '&') + '_hk=' + s.n + '&width=480&height=270';
+          var failed = function (shown) {
+            s.busy = false; s.bad = pic; s.badAt = Date.now();
+            if (shown && shown.indexOf('blob:') === 0) URL.revokeObjectURL(shown);
           };
-          im.onerror = function () { s.busy = false; s.bad = pic; s.badAt = Date.now(); };
-          im.src = url;
+          stillBlob(url).then(function (shown) {
+            var im = new Image();
+            im.onload = function () {
+              s.busy = false;
+              if (!im.naturalWidth) { failed(shown); return; }
+              var was = s.url;
+              s.url = shown; s.bad = '';
+              Array.prototype.forEach.call(self._secs.querySelectorAll('.cam2[data-k="camera"]'), function (n) {
+                if (n.getAttribute('data-cam') !== id) return;
+                var el = n.querySelector('img');
+                if (!el) { el = document.createElement('img'); el.alt = ''; n.insertBefore(el, n.querySelector('.cn')); }
+                if (el.getAttribute('src') !== shown) el.setAttribute('src', shown);
+              });
+              if (was && was.indexOf('blob:') === 0 && was !== shown) setTimeout(function () { URL.revokeObjectURL(was); }, BLOB_KEEP_MS);
+            };
+            im.onerror = function () { failed(shown); };
+            im.src = shown;
+          }, function () { failed(null); });
         });
       }
       // ELEMENTS KEPT BETWEEN DRAWS (the music pane, the doorbell's live
