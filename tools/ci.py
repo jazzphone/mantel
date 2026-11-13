@@ -388,6 +388,10 @@ def steps(build: Build | None = None, parts: dict[str, int] | None = None) -> li
         out.append(Step(f"timer-slide-check-{e}", [py, "tools/headless/timer_slide_check.py", "--engine", e], tier="full", timeout=600,
                         skip=playwright_missing, **dict(check_inputs("tools/headless/timer_slide_check.py", e),
                         inputs=lambda: (*PAGE_INPUTS, *imported(["tools/headless/timer_slide_check.py"]), "tools/headless/timer_slide_harness.html"))))
+    # (HomePod timers on the screens, phase 28: the Timers page, its keys and alarms reaching a stand-in reader, the sheet,
+    # "unavailable", Settings -- the fictional house at three sizes)
+    out += [Step(f"homepod-timers-check-{e}", [py, "tools/headless/homepod_timers_check.py", "--engine", e], tier="full", timeout=900,
+                 skip=playwright_missing, **check_inputs("tools/headless/homepod_timers_check.py", e)) for e in ("webkit", "chromium")]
     # the Screensaver editor in WebKit (phase 13): Looks that keep the Info, the four sections, a piece's page, the library
     out += [Step(f"saver-designs-check-{e}-{z}", [py, "tools/headless/saver_designs_check.py", "--engine", e, "--size", z],
                  tier="full", timeout=600, skip=playwright_missing, **check_inputs("tools/headless/saver_designs_check.py", e))
