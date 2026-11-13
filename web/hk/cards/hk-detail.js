@@ -323,6 +323,10 @@
         opts.group ? { entities: opts.group.ids, room: opts.group.room, groupKind: opts.group.kind,
                        row: opts.group.row, resolve: opts.group.resolve, group: opts.group } :
         opts.cards ? { cards: opts.cards.cards, width: opts.cards.width, fill: opts.cards.fill } : Object.assign({}, (opts.panel || {}).config || {})));
+      // A PANEL FLAT ON ITS OWN (hkFlat: 'light' or 'dark'; the Home block's Sheet option): the whole sheet Flat whatever the screen
+      // wears, its frame and every card in it (hk-base flatForced)
+      var ownFlat = panel.hkFlat ? panel.hkFlat() : null;
+      if (ownFlat) { el.setAttribute('hk-flat-force', ownFlat); el._hkFlatForce = undefined; C.flatSurface(el, 'detail'); }
 
       D = {
         el: el, id: id, kind: kind, src: src || {}, panel: panel, sheet: sheet, tok: tok,

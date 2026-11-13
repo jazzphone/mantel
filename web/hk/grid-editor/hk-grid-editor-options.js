@@ -118,8 +118,9 @@
           }
           // THE HOME SHEET'S LOOK (2026-11-12, the owner: "letting me set the appearance would help with looks and performance")
           if (kind === 'sheet_look') {
-            rows.push(K.seg({ label: 'Sheet', sub: 'Solid draws no blur, the lightest for a wall tablet.', value: opts[key] || 'auto',
-              options: [['auto', 'Same as Screen'], ['glass', 'Glass'], ['solid', 'Solid']], onChange: (v) => set(key, v === 'auto' ? null : v) }));
+            // (2026-11-13, the owner: "the main goal is to make it easier on the tablet to run... Flat, Glass, Frost, Tint, or Auto")
+            rows.push(K.select({ label: 'Sheet', sub: 'Flat draws no blur or motion, the lightest for a wall tablet. Glass, Frosted and Tinted blur the sheet alone.',
+              value: opts[key] === 'solid' ? 'flat' : opts[key] || 'auto', options: G.SHEET_LOOK_NAMES, onChange: (v) => set(key, v === 'auto' ? null : v) }));
             return;
           }
           // EVERYTHING'S REST (2026-11-08, the owner: "scroll within the card or go to the page with the + button")

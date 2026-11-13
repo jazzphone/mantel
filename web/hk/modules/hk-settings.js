@@ -718,6 +718,8 @@
       lookAt: lookAt,
       // (every variable a look sets: a surface that keeps its own look sets them back -- the Home sheet's Glass and Solid)
       lookVars: function () { return LOOK_VARS.slice(); },
+      // the variables a look sets (LOOKS: 'frosted', 'tinted' ...) at this screen's amounts -- a sheet wearing one of its own
+      lookOf: function (name) { return LOOKS[name] ? Object.assign({}, LOOKS[name]()) : null; },
       frostTint: frostTint,
       tileStyle: tileStyle,
       tileIcons: tileIcons,

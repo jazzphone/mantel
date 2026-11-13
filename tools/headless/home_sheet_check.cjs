@@ -308,24 +308,29 @@ function sheetState() {
       check(`${engine} a car's screen: the sheet has the rooms`, () => assert(cs && cs.kinds.includes('hk-heading-card') && cs.types.length > 4, JSON.stringify(cs)));
       await car.ctx.close();
     }
-    // THE SHEET OPTION (hk-home-block.js LOOKS): Same as Screen wears the screen's look, Solid no blur at all, Glass the dark glass;
-    // either takes the cards out of the shared blur; a Flat screen's sheet is Flat whatever it says
+    // THE SHEET OPTION (hk-home-block.js LOOKS; 2026-11-13, the owner: "the main goal is to make it easier on the tablet to run...
+    // Flat, Glass, Frost, Tint, or Auto"): Same as Screen wears the screen's look; Flat is Flat, the frame and every card in it, no
+    // blur; Glass, Frosted and Tinted blur the sheet alone, each card in its look's plate; the first form's Solid is Flat; a Flat
+    // screen's sheet is Flat whatever it says; the page is never Flat for it
     if (want('look')) {
       const sheetLook = () => {
         const host = document.querySelector('.hkd'), sheet = host.querySelector('.sheet'), cs = getComputedStyle(sheet);
         const blur = (e) => { const c = getComputedStyle(e); const f = c.backdropFilter || c.webkitBackdropFilter || 'none'; return f !== 'none' && f !== ''; };
         const panel = host.querySelector('hk-detail-home');
         const inner = deep(panel.shadowRoot, '*').filter((e) => e.getClientRects().length && blur(e));
-        return { look: sheet.getAttribute('data-hk-look'), bg: cs.backgroundColor, sheetBlur: blur(sheet), flat: host.hasAttribute('hk-flat'),
+        const tile = deep(panel.shadowRoot, 'hk-plate.card').find((e) => e.getClientRects().length), tc = tile && getComputedStyle(tile);
+        return { look: sheet.getAttribute('data-hk-look'), bg: cs.backgroundColor, sheetBlur: blur(sheet), flat: host.getAttribute('hk-flat'),
                  innerBlur: inner.length, layers: host.querySelectorAll('[data-hk-glass-layer]').length + deep(panel.shadowRoot, '[data-hk-glass-layer]').length,
+                 cardsFlat: deep(panel.shadowRoot, '[hk-flat]').length, tile: tc ? tc.backgroundColor + ' ' + tc.backgroundImage.slice(0, 40) : null,
                  // (what blurs, when anything does)
                  blurs: [...new Set(inner.map((e) => e.tagName.toLowerCase() + '.' + (e.getAttribute('class') || '') + '<' +
                    ((e.getRootNode().host || {}).tagName || '').toLowerCase()))].slice(0, 8) };
       };
+      const LOOKS = [['screen', 'XL', 0], ['flat', 'L', 0], ['frosted', 'T', 0], ['tinted', 'W', 0], ['solid', 'S', 0], ['glass', 'S', 1]];
       for (const screen of ['home-bright', 'home-flat']) {
         const { ctx, page, errors, commands } = await open(screen, 1280, 800);
         const got = {};
-        for (const [name, size, nth] of [['screen', 'XL', 0], ['solid', 'S', 0], ['glass', 'S', 1]]) {
+        for (const [name, size, nth] of LOOKS) {
           await page.evaluate(([size, nth]) => deep(document, 'hk-home-block-card').filter((c) => c.getAttribute('size') === size)[nth]._open('home'), [size, nth]);
           await page.waitForTimeout(1500);
           await page.evaluate(DEEP);
@@ -334,19 +339,27 @@ function sheetState() {
           await page.keyboard.press('Escape');
           await page.waitForFunction(() => !document.querySelector('.hkd'), null, { timeout: 5000 }).catch(() => {});
         }
+        const pageFlat = await page.evaluate(() => deep(document, '[hk-flat]').length);
         console.log(engine, screen, JSON.stringify(got));
+        const g = got, alone = (k) => g[k].innerBlur === 0 && g[k].layers === 0;
         if (screen === 'home-bright') {
           check(`${engine} Bright Glass, Same as Screen: Bright's white glass, its own look, its cards on the shared blur`,
-            () => assert(!got.screen.look && got.screen.sheetBlur && got.screen.layers > 0, JSON.stringify(got.screen)));
-          check(`${engine} ...Solid: the near-solid plate, no blur in the sheet at all`, () => assert(got.solid.look === 'solid' && got.solid.bg === 'rgba(24, 24, 28, 0.93)' &&
-            !got.solid.sheetBlur && got.solid.innerBlur === 0 && got.solid.layers === 0, JSON.stringify(got.solid)));
-          check(`${engine} ...Glass: the dark glass, one blur (the sheet's)`, () => assert(got.glass.look === 'glass' && got.glass.bg === 'rgba(28, 28, 32, 0.52)' &&
-            got.glass.sheetBlur && got.glass.innerBlur === 0 && got.glass.layers === 0, JSON.stringify(got.glass)));
-          check(`${engine} ...and the three differ from Bright's own`, () => assert(got.screen.bg !== got.glass.bg && got.screen.bg !== got.solid.bg, JSON.stringify(got)));
+            () => assert(!g.screen.look && g.screen.sheetBlur && g.screen.layers > 0 && !g.screen.flat, JSON.stringify(g.screen)));
+          check(`${engine} ...Flat: the screen's Flat theme on the frame and every card in it, no blur at all`, () => assert(g.flat.flat === 'dark' &&
+            !g.flat.sheetBlur && alone('flat') && g.flat.cardsFlat > 10 && g.flat.bg !== g.screen.bg, JSON.stringify(g.flat)));
+          check(`${engine} ...the first form's Solid is Flat`, () => assert(g.solid.flat === 'dark' && g.solid.bg === g.flat.bg && g.solid.tile === g.flat.tile, JSON.stringify(g.solid)));
+          check(`${engine} ...Glass: the dark glass, one blur (the sheet's)`, () => assert(g.glass.look === 'glass' && g.glass.bg === 'rgba(28, 28, 32, 0.52)' &&
+            g.glass.sheetBlur && alone('glass') && !g.glass.cardsFlat, JSON.stringify(g.glass)));
+          check(`${engine} ...Frosted: that sheet, Frosted's grain on the cards`, () => assert(g.frosted.look === 'frosted' && g.frosted.bg === g.glass.bg &&
+            g.frosted.sheetBlur && alone('frosted') && /svg/.test(g.frosted.tile), JSON.stringify(g.frosted)));
+          check(`${engine} ...Tinted: that sheet, Tinted's lift on the cards`, () => assert(g.tinted.look === 'tinted' && g.tinted.bg === g.glass.bg &&
+            g.tinted.sheetBlur && alone('tinted') && /^rgba\(255, 255, 255, 0\.08\)/.test(g.tinted.tile), JSON.stringify(g.tinted)));
+          check(`${engine} ...each card's plate its own look's`, () => assert(new Set(['screen', 'flat', 'glass', 'frosted', 'tinted'].map((k) => g[k].tile)).size === 5, JSON.stringify(g)));
         } else {
-          check(`${engine} Flat: the sheet is Flat whatever the block says`, () => assert(['screen', 'solid', 'glass'].every((k) => got[k].flat && !got[k].look && !got[k].sheetBlur) &&
-            got.solid.bg === got.screen.bg && got.glass.bg === got.screen.bg, JSON.stringify(got)));
+          check(`${engine} Flat: the sheet is Flat whatever the block says`, () => assert(LOOKS.every(([k]) => g[k].flat === 'light' && !g[k].look && !g[k].sheetBlur &&
+            g[k].bg === g.screen.bg), JSON.stringify(g)));
         }
+        if (screen === 'home-bright') check(`${engine} ${screen}: the page never Flat for a sheet (${pageFlat})`, () => assert.equal(pageFlat, 0));
         check(`${engine} ${screen}: no errors`, () => assert.deepEqual(errors, []));
         check(`${engine} ${screen}: no command sent`, () => assert.deepEqual(commands, []));
         await ctx.close();
