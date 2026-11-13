@@ -276,7 +276,7 @@ async def test_saving_another_connection_leaves_the_music_assistant_client_alone
 
 
 # -- settings saves over the socket ---------------------------------------------------------------------------
-async def test_a_settings_save_over_the_socket_is_refused_once_its_principal_is_no_longer_valid(off):
+async def test_a_settings_save_over_the_socket_is_refused_once_its_principal_is_no_longer_valid(off):  # noqa: F811
     await off.login("avery", "owner")
     ws = await off.socket(expect_caps=False)
     msg = {"type": "hk_frontend/settings/set", "changes": {"look.glass": "clear"}}
