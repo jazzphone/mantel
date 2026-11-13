@@ -109,6 +109,13 @@
               onChange: (v) => set(key, v === 'sheet' ? null : v) }));
             return;
           }
+          // ENERGY RINGS SMALL'S FIGURES (2026-11-12, the owner: "an option to always show the data, not just on tap")
+          if (kind === 'rings_figures') {
+            if (o.size !== 'S') return;
+            rows.push(K.seg({ label: 'Figures', value: opts[key] || 'tap', options: [['tap', 'On Tap'], ['always', 'Always']],
+              onChange: (v) => set(key, v === 'tap' ? null : v) }));
+            return;
+          }
           // EVERYTHING'S REST (2026-11-08, the owner: "scroll within the card or go to the page with the + button")
           if (kind === 'everything_more') {
             if (o.size === 'S') return;

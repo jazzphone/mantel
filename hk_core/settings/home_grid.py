@@ -129,7 +129,7 @@ CATALOG: dict[str, dict[str, Any]] = {
     # list, and the Energy page's rings over a period of the block's own
     "on_now": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"tap": "tap_target", "open": "on_now_open", "glyphs": "glyph_color"}},
     "todo": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"entity": "todo", "tap": "tap_target"}},
-    "energy_rings": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"period": "period", "tap": "tap_target"}},
+    "energy_rings": {"sizes": ("S", "W", "T", "L", "XL"), "sources": (), "opts": {"period": "period", "figures": "rings_figures", "tap": "tap_target"}},
     # THE INTERCOM (2026-11-03, docs/phase17/INTERCOM.md): a button that opens its sheet; Wide also shows the last rooms
     # picked. Always the sheet, so no When Tapped
     "intercom": {"sizes": ("S", "W"), "sources": (), "opts": {}},
@@ -460,10 +460,19 @@ ON_NOW_OPENS = ("sheet", "page")
 # EVERYTHING'S REST (2026-11-08, the owner: "scroll within the card or go to the page with the + button"): the last
 # place, "+N", opens the page (the default, as before) or the places scroll in the block
 EVERYTHING_MORE = ("page", "scroll")
+# ENERGY RINGS SMALL'S FIGURES (2026-11-12, the owner: "an option to always show the data, not just on tap"): the box
+# of figures over the rings on a tap (the default) or always
+RINGS_FIGURES = ("tap", "always")
 
 
 def _on_now_open(v: Any) -> str:
     if v not in ON_NOW_OPENS:
+        raise GridInvalid("grid_option")
+    return v
+
+
+def _rings_figures(v: Any) -> str:
+    if v not in RINGS_FIGURES:
         raise GridInvalid("grid_option")
     return v
 
@@ -534,6 +543,7 @@ OPTION_KINDS = {
     "np_background": _np_background,
     "on_now_open": _on_now_open,
     "everything_more": _everything_more,
+    "rings_figures": _rings_figures,
     "glyph_color": _glyph_color,
     "security_presentation": _security_presentation,
     "security_members": _security_members,
