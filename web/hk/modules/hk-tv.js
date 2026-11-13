@@ -18,6 +18,15 @@
 // @ts-check
 (function (global) {
   'use strict';
+  // HOW MANY STATES, once per set of them (2026-11-13, swipes on the Loft): asked by every card on every update, the
+  // count walked the whole house each time; a host gives a new states object with every change, so it is counted once
+  var NSTATES = typeof WeakMap === 'function' ? new WeakMap() : null;
+  function nStates(st) {
+    if (!st) return 0;
+    var n = NSTATES ? NSTATES.get(st) : undefined;
+    if (n === undefined) { n = Object.keys(st).length; if (NSTATES) NSTATES.set(st, n); }
+    return n;
+  }
   if (global.hkTv) return;
 
   var SENSOR = 'sensor.hk_tv';
@@ -87,11 +96,13 @@
   }
 
   // ------------------------------------------------------------ THE SETS
-  var memo = { ents: null, n: -1, saved: '', list: /** @type {any[]} */ ([]) };
+  var memo = { ents: null, n: -1, saved: '', savedList: /** @type {any} */ (null), list: /** @type {any[]} */ ([]) };
   /** @param {any} client */
   function sets(client) {
     var states = (client && client.states) || {}, ents = (client && client.entities) || {}, areas = (client && client.areas) || {};
-    var savedList = setting(client, 'features.tv_sets', []) || [], savedKey = JSON.stringify(savedList), n = Object.keys(states).length;
+    var savedList = setting(client, 'features.tv_sets', []) || [], n = nStates(states);
+    // (the saved list's text once per list, not on every call)
+    var savedKey = memo.savedList === savedList && memo.saved !== undefined ? memo.saved : JSON.stringify(savedList);
     if (memo.ents === ents && memo.n === n && memo.saved === savedKey && ents) return memo.list;
     /** @type {Record<string, any>} */
     var saved = {};
@@ -115,7 +126,7 @@
     });
     // a player with no TV in its room (the Guest Bedroom's Apple TV): a set of its own
     players.forEach(function (p) { if (!used[p]) out.push(make(client, null, p, areaOf(client, p), {}, areas)); });
-    memo = { ents: ents, n: n, saved: savedKey, list: out };
+    memo = { ents: ents, n: n, saved: savedKey, savedList: savedList, list: out };
     return out;
   }
   /** @param {any} client @param {string|null} tv @param {string|null} player @param {string|null} area @param {any} w @param {any} areas */

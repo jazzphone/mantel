@@ -29,8 +29,24 @@
     // tablet and the 1280 x 800 wall tablets stay tablets either way up, and a
     // short desktop window is never a phone.
     var PHONE_SIDE = 500;
+    // (the width by a media query, 2026-11-13: every card asks on every update, and on Android's WebView
+    // window.innerWidth read after a change laid the whole page out first -- 30-115 ms each on the Loft, 45 ms of every
+    // 2 s while a swipe ran. A media query's answer is kept by the browser and costs nothing to read. A test's stand-in
+    // -- no `media` of its own -- gets the window's width as before.)
+    var narrowMq;
+    function narrowByMedia() {
+      if (narrowMq === undefined) {
+        narrowMq = null;
+        try {
+          var q = typeof window.matchMedia === 'function' ? window.matchMedia('(max-width: ' + (MENU_NARROW - 0.02) + 'px)') : null;
+          if (q && typeof q.media === 'string' && typeof q.matches === 'boolean') narrowMq = q;
+        } catch (e) { narrowMq = null; }
+      }
+      return narrowMq ? narrowMq.matches : null;
+    }
     function menuNarrow() {
-      if ((window.innerWidth || 1280) < MENU_NARROW) return true;
+      var byMedia = narrowByMedia();
+      if (byMedia === null ? (window.innerWidth || 1280) < MENU_NARROW : byMedia) return true;
       var sc = window.screen, a = sc && Number(sc.width), b = sc && Number(sc.height);
       return a > 0 && b > 0 && Math.min(a, b) < PHONE_SIDE;
     }

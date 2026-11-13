@@ -18,6 +18,15 @@
 // THE PURE PART is first and has no DOM (window.hkHomeBlock.lib): tests/test_home_block.py runs it in node.
 (function () {
   'use strict';
+  // HOW MANY STATES, once per set of them (2026-11-13, swipes on the Loft): asked by every card on every update, the
+  // count walked the whole house each time; a host gives a new states object with every change, so it is counted once
+  var NSTATES = typeof WeakMap === 'function' ? new WeakMap() : null;
+  function nStates(st) {
+    if (!st) return 0;
+    var n = NSTATES ? NSTATES.get(st) : undefined;
+    if (n === undefined) { n = Object.keys(st).length; if (NSTATES) NSTATES.set(st, n); }
+    return n;
+  }
   if (window.hkHomeBlock) return;                       // double-load guard
 
   // ======================================================================== pure
@@ -80,7 +89,7 @@
       if (!S || !S.homeSheet || !client || !client.states) return { home: [], pages: {} };
       var regs = [client.entities, client.devices, client.areas];
       if (!BUILT.regs || regs.some(function (r, i) { return r !== BUILT.regs[i]; })) { BUILT.regs = regs; BUILT.n++; }
-      var key = dash() + '|' + BUILT.n + '|' + (HS ? HS.version : '') + '|' + Object.keys(client.states).length;
+      var key = dash() + '|' + BUILT.n + '|' + (HS ? HS.version : '') + '|' + nStates(client.states);
       if (BUILT.out && BUILT.key === key) return BUILT.out;
       var out;
       try { out = S.homeSheet(client) || { home: [], pages: {} }; } catch (e) { console.error('[hk-home-block] the Home sheet:', e); out = { home: [], pages: {} }; }
@@ -339,7 +348,7 @@
       function roomList(client) {
         var S = window.hkStrategy, G = window.hkGridCards, HSet = window.hkSettings;
         if (!S || !S.rooms || !client || !client.states) return [];
-        var key = (HSet ? HSet.version : '') + '|' + Object.keys(client.states).length + '|' + BUILT.n + '|' + (G ? 'g' : '-');
+        var key = (HSet ? HSet.version : '') + '|' + nStates(client.states) + '|' + BUILT.n + '|' + (G ? 'g' : '-');
         var regs = [client.entities, client.devices, client.areas];
         if (ROOMS.key === key && ROOMS.regs && regs.every(function (r, i) { return r === ROOMS.regs[i]; })) return ROOMS.list;
         var gen = (HSet && HSet.get && HSet.get('generated', null)) || {}, hides = {};

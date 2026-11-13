@@ -408,5 +408,8 @@ ok('the rail\'s height reads the docked bar\'s --hk-dock-h on <html>\'s own styl
    /function railH\(\) \{[\s\S]{0,400}de\.style\.getPropertyValue\('--hk-dock-h'\)/.test(tbSrc) && !/getComputedStyle\(document\.documentElement\)\.getPropertyValue\('--hk-dock-h'\)/.test(tbSrc));
 ok('the docked bar\'s hk-dock syncs once a frame', /window\.addEventListener\('hk-dock', syncSoon\);/.test(tbSrc));
 
+ok('a tab\'s box in the pill is measured once, kept until a build, a resize, a tab moved or resized (2026-11-13)',
+   /function boxOf\(el\) \{\s*var b = boxes && boxes\.get\(el\);/.test(tbSrc) && /S\.built = listKey\(width\);\s*boxWatch\(\);/.test(tbSrc) &&
+   /boxMo\.observe\(S\.pill, \{ childList: true \}\)/.test(tbSrc) && /addEventListener\('resize', function \(\) \{ boxesGone\(\);/.test(tbSrc));
 print('\n' + (fail ? fail + ' FAILED, ' + pass + ' passed' : 'ALL ' + pass + ' TAB BAR TESTS PASS'));
 if (fail) throw new Error(fail + ' failed');
