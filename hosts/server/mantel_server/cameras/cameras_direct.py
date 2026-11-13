@@ -101,6 +101,7 @@ from ..storage import atrest
 from .. import connections as C
 from ..connectors import Ctx, Forbidden, Hooks, Route, read_routes, resolve, split_quality
 from ..identity.guards import guard
+from . import image_work
 from .live_tv import (
     CANDIDATE, CONFIG, ICE_SERVERS, MAX_SDP, OFFER, Go2rtc, Go2rtcError, LocalEntities, go2rtc_api_url, relay_go2rtc,
 )
@@ -738,13 +739,14 @@ class DirectCameras:
         if provider is not None:
             got = await provider(src, width, height)
             if got is not None:
-                return got
+                return await _sized(got, width, height)
         secret = self.secret(src.slug)
         if secret is None:
             raise StillRefused(502, "camera_unavailable")
         if secret.still:
             # the camera's own snapshot URL (a login in it is sent as HTTP Basic; never logged)
-            return await read_image(self.app, secret.still, {}, None, f"camera still for {entity_id}")
+            got = await read_image(self.app, secret.still, {}, None, f"camera still for {entity_id}")
+            return await _sized(got, width, height)
         quality, _ = secret.url("low")             # no snapshot URL: a frame of the sub-stream, else the main one
         name = stream_name(src.slug, quality)
         self._stills_busy[name] = self._stills_busy.get(name, 0) + 1
@@ -980,3 +982,14 @@ def register(app: web.Application, hub: Any, hooks: Any = None, cam_hooks: Direc
     app.on_startup.append(start)
     app.on_cleanup.append(stop)
     return cams
+
+
+async def _sized(got: tuple[bytes, str], width: int | None, height: int | None) -> tuple[bytes, str]:
+    """A provider's or a snapshot URL's still at the size the page asked (go2rtc's frame is sized by go2rtc): Protect's
+    snapshot and a camera's own URL take no size, and came whole -- 1600 x 1200 to the Side Pane's 480 x 270 tile every
+    ten seconds (2026-11-13). Shrunk in a thread (image_work.shrink_still: a few ms); as it came when no size was asked,
+    it is small enough already, or it isn't a picture Pillow reads."""
+    if not width or not height:
+        return got
+    shrunk = await asyncio.to_thread(image_work.shrink_still, got[0], width, height)
+    return shrunk or got

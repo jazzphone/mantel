@@ -537,6 +537,48 @@ async def test_a_direct_cameras_still_comes_from_go2rtc_and_is_shared(rig):
     assert resp.status == 502 and (await resp.json())["error"] == "camera_unavailable"
 
 
+# -- a still at the size asked (2026-11-13: Protect's snapshot came whole to the Side Pane's 480 x 270 tile) ---------
+def _jpeg(w: int, h: int) -> bytes:
+    import io
+    from PIL import Image
+    out = io.BytesIO()
+    Image.new("RGB", (w, h), (90, 120, 160)).save(out, "JPEG", quality=90)
+    return out.getvalue()
+
+
+def _size(data: bytes) -> tuple[int, int]:
+    import io
+    from PIL import Image
+    with Image.open(io.BytesIO(data)) as im:
+        return im.size
+
+
+def test_a_still_is_shrunk_to_cover_the_size_asked_and_never_enlarged():
+    from mantel_server.cameras import image_work
+    big = _jpeg(1600, 1200)
+    body, ctype = image_work.shrink_still(big, 480, 270)
+    assert ctype == "image/jpeg" and _size(body) == (480, 360) and len(body) < len(big)
+    assert image_work.shrink_still(big, 1920, 1080) is None            # larger than the picture: as it came
+    assert image_work.shrink_still(b"\xff\xd8not a picture\xff\xd9", 480, 270) is None
+    assert image_work.shrink_still(big, 0, 270) is None
+
+
+async def test_a_direct_cameras_provider_still_comes_at_the_size_asked(rig):
+    r = await rig()
+    await r.cams.put(porch_cam())
+    await r.env.login("owner1", "owner")
+    big = _jpeg(1600, 1200)
+
+    async def protect_snapshot(src, width, height):
+        return big, "image/jpeg"
+    r.cams.set_still_provider("protect", protect_snapshot)
+    resp = await r.env.m.get("/api/camera/camera.mantel_front/still?width=480&height=270")
+    assert resp.status == 200 and _size(await resp.read()) == (480, 360)
+    # no size asked: the camera's own picture, as it came
+    resp = await r.env.m.get("/api/camera/camera.mantel_front/still")
+    assert await resp.read() == big
+
+
 # -- which stream plays (2026-11-02, the owner: low for tiles, high for pop-ups) ------------------------------------
 def test_each_quality_plays_its_stream_or_the_nearest_one():
     full = D.CameraSecret("camera-x", "rtsp://h/high", "rtsp://h/low", None, "rtsp://h/medium")
