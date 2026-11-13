@@ -64,12 +64,16 @@
       // (2026-10-24: without them the block showed accessories hidden from every screen)
       var G = (HS && HS.get && HS.get('generated', null)) || {}, hides = {};
       ['exclude_entities', 'exclude_devices', 'exclude_areas', 'include_entities'].forEach(function (k) { if (Array.isArray(G[k])) hides[k] = G[k]; });
-      try { cards = S.roomCards(client, [area], room.name || area, hides) || []; } catch (e) { cards = []; }
+      // (the strategy sorts the whole house by room to answer: no screen's need, so unrecorded -- read in a card, it kept
+      // all 4,602 of the Loft's entities and every update of every one, 2026-11-13. The room's own accessories are
+      // read below, so the screen keeps exactly those.)
+      var shell = window.hkShell, ask = function () { return S.roomCards(client, [area], room.name || area, hides) || []; };
+      try { cards = shell && typeof shell.unrecorded === 'function' ? shell.unrecorded(ask) || [] : ask(); } catch (e) { cards = []; }
       (function walk(list) {
         (list || []).forEach(function (c) {
           if (!c || typeof c !== 'object') return;
           var g = c.hk_place && c.hk_place.group;
-          if (c.entity && g) out.all.push(c);
+          if (c.entity && g) { out.all.push(c); void client.states[c.entity]; }
           if (c.entity && (g === 'Lights' || (g === 'Climate' && dom(c.entity) === 'fan'))) out.lights.push(c);
           else if (g === 'Speakers & TVs' && c.entity) {
             var dc = attr(client.states[c.entity], 'device_class');

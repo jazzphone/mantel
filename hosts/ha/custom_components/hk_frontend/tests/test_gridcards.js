@@ -249,6 +249,23 @@ function () {
   ok('the speaker\'s pill keeps its own tap', !l[3].tap_action || l[3].tap_action.action !== 'toggle');
 },
 function () {
+  H.section('the room: its sort of the house is no screen\'s need');
+  // (2026-11-13: read in a card, the strategy's sort of every entity by room kept the whole house on the Loft's screen
+  // -- 4,602 entities and every update of each; Mantel keeps what a screen reads outside hkShell.unrecorded)
+  var quiet = 0, outside = {};
+  var states = new Proxy(client.states, { get: function (t, k) { if (typeof k === 'string' && k in t && !quiet) outside[k] = 1; return t[k]; } });
+  var c2 = Object.assign({}, client, { states: states, entities: Object.assign({}, client.entities) });
+  window.hkShell.use({ unrecorded: function (fn) { quiet++; try { return fn(); } finally { quiet--; } } });
+  var parts = P.roomParts(c2, 'kitchen');
+  window.hkShell.use(window.hkHAShell);
+  var mine = {};
+  parts.all.forEach(function (c) { mine[c.entity] = 1; });
+  var read = Object.keys(outside);
+  ok('the same room as before', parts.lights.length === 3 && parts.speakers.length === 1, parts);
+  ok('...its accessories read where they count (kept by the screen)', parts.all.every(function (c) { return outside[c.entity]; }), read);
+  ok('...and nothing else in the house', read.every(function (id) { return mine[id]; }), read);
+},
+function () {
   H.section('the room, Extra Large and Full Width: Large\'s tiles from the top-left (2026-11-09, mockup 8b)');
   var xl = H.make('hk-grid-room-card');
   xl.setAttribute('size', 'XL'); xl.setConfig({ area: 'kitchen', size: 'XL' }); hkGive(xl, hass()); xl._h = 405; H.attach(xl); xl._render();
