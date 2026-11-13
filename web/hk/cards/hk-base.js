@@ -223,9 +223,12 @@
   ST.safeKept = null;
   ST.safeKey = '';
   // (a rotation's insets come after its resize: an upright iPhone kept its sideways inset, 2026-11-10)
-  ST.safeGen = 0; window.addEventListener('resize', function () { [250, 800].forEach(function (ms) { setTimeout(function () { ST.safeGen++; }, ms); }); });
+  // (...and the window's size by its resize, not by reading it, 2026-11-13: every card asks on every update, and on
+  // Android's WebView window.innerWidth read after a change laid the whole page out first -- 80 ms of every 2 s on the
+  // Loft once the menu stopped asking)
+  ST.safeGen = 0; window.addEventListener('resize', function () { ST.safeGen++; [250, 800].forEach(function (ms) { setTimeout(function () { ST.safeGen++; }, ms); }); });
   function safeArea() {
-    var st = document.documentElement && document.documentElement.style, k = window.innerWidth + 'x' + window.innerHeight + '|' + (document.styleSheets || []).length + '|' + ST.safeGen;
+    var st = document.documentElement && document.documentElement.style, k = (document.styleSheets || []).length + '|' + ST.safeGen;
     if (st) k += ['top', 'right', 'bottom', 'left'].map(function (v) { return st.getPropertyValue('--hk-safe-' + v); }).join('|');
     if (k !== ST.safeKey || !ST.safeKept || !ST.safeProbe || !ST.safeProbe.isConnected) { ST.safeKept = safeMeasure(); ST.safeKey = k; }
     return Object.assign({}, ST.safeKept);

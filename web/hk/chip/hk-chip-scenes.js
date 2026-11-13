@@ -6,6 +6,15 @@
 // from K at the top; what the shell or a later file uses of it, it hands back at the bottom.
 (function () {
   'use strict';
+  // HOW MANY STATES, once per set of them (2026-11-13, swipes on the Loft): asked by every card on every update, the
+  // count walked the whole house each time; a host gives a new states object with every change, so it is counted once
+  var NSTATES = typeof WeakMap === 'function' ? new WeakMap() : null;
+  function nStates(st) {
+    if (!st) return 0;
+    var n = NSTATES ? NSTATES.get(st) : undefined;
+    if (n === undefined) { n = Object.keys(st).length; if (NSTATES) NSTATES.set(st, n); }
+    return n;
+  }
   (window.hkChipParts = window.hkChipParts || {})['hk-chip-scenes'] = function (K) {
     var accOf = K.accOf, C0 = K.C0, icEntry = K.icEntry, ICON_INTERCOM = K.ICON_INTERCOM, icWatch = K.icWatch,
         KIND_NAMES = K.KIND_NAMES, KIND_ORDER = K.KIND_ORDER, S = K.S, SCENE_ICON = K.SCENE_ICON,
@@ -232,7 +241,7 @@
       // re-plan, and 4,195 keys on each of ~12 pushes a second was the cost.
       _onClient(client) {
         var first = !this._seenClient;
-        var n = (first || this._auto) && client && client.states ? Object.keys(client.states).length : this._n;
+        var n = (first || this._auto) && client && client.states ? nStates(client.states) : this._n;
         this._seenClient = client;
         if (C0().tone) C0().tone(this, client);
         if (first || (this._auto && n !== this._n)) { this._n = n; this._plan(); }

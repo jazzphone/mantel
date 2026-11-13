@@ -7,6 +7,15 @@
 // @ts-check
 (function () {
   'use strict';
+  // HOW MANY STATES, once per set of them (2026-11-13, swipes on the Loft): asked by every card on every update, the
+  // count walked the whole house each time; a host gives a new states object with every change, so it is counted once
+  var NSTATES = typeof WeakMap === 'function' ? new WeakMap() : null;
+  function nStates(st) {
+    if (!st) return 0;
+    var n = NSTATES ? NSTATES.get(st) : undefined;
+    if (n === undefined) { n = Object.keys(st).length; if (NSTATES) NSTATES.set(st, n); }
+    return n;
+  }
   (window.hkGridCardsParts = window.hkGridCardsParts || {})['hk-grid-math'] = function (K) {
     var TABLET_ROOM = 'tablet_room';
     var OFF = { unavailable: 1, unknown: 1 };
@@ -45,7 +54,7 @@
       var S = window.hkStrategy, out = { lights: [], speakers: [], all: [] };
       if (!S || !S.roomCards || !client || !client.states) return out;
       var HS = window.hkSettings;
-      var key = area + '|' + (HS ? HS.version : '') + '|' + Object.keys(client.states).length;
+      var key = area + '|' + (HS ? HS.version : '') + '|' + nStates(client.states);
       var m = partsMemo;
       if (m.out && m.key === key && m.ents === client.entities && m.devs === client.devices && m.areas === client.areas) return m.out;
       partsMemo = { key: key, ents: client.entities, devs: client.devices, areas: client.areas, out: out };

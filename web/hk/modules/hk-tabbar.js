@@ -1068,6 +1068,7 @@
         S.sheets[k].style.setProperty('--sheet-w', (roomsOn ? sheetW : joinW) + 'px');
       });
       S.built = listKey(width);
+      boxWatch();
       // EDIT MODE: the tabs and More's pages and rooms drag (hk-edit-menu.js)
       if (ed) {
         window.hkEditMenu.wireBar({ pill: S.pill, sheet: S.sheets.more, roomsSheet: S.sheets.rooms, rail: rail,
@@ -1154,9 +1155,37 @@
       el.classList.remove('slide-from');
       ['--hx', '--hy', '--sx', '--sy'].forEach(function (v) { el.style.removeProperty(v); });
     }
+    // A TAB'S BOX IN THE PILL, measured once (2026-11-13, swipe landings on the Loft): a swipe measured the tab it
+    // follows to, its landing (markHere) the same tab again, and the page change's sync a third time -- each the first
+    // read after the frame's writes, a layout of the whole page each, 15 ms a swipe. A tab's place in the pill changes
+    // only when the bar is built again or a tab or the pill changes size (boxWatch), or the window does; `.here` moves
+    // only the highlight drawn behind it. Each caller gets its own copy (drawnBoxOf adds to it).
+    var boxes = null, boxRo = null, boxMo = null;
+    function boxesGone() { boxes = null; }
+    function boxWatch() {
+      boxesGone();
+      if (!S.pill) return;
+      // (Edit mode's drag puts a tab in another place without any size changing)
+      if (typeof MutationObserver === 'function') {
+        if (!boxMo) boxMo = new MutationObserver(boxesGone);
+        boxMo.disconnect();
+        boxMo.observe(S.pill, { childList: true });
+      }
+      if (typeof ResizeObserver !== 'function') return;
+      if (!boxRo) boxRo = new ResizeObserver(boxesGone);
+      boxRo.disconnect();
+      boxRo.observe(S.pill);
+      S.pill.querySelectorAll('.tab').forEach(function (t) { boxRo.observe(t); });
+    }
     function boxOf(el) {
-      var p = S.pill.getBoundingClientRect(), r = el.getBoundingClientRect();
-      return { x: r.left - p.left, y: r.top - p.top, w: r.width, h: r.height, pos: S.pos };
+      var b = boxes && boxes.get(el);
+      if (!b || b.pos !== S.pos) {
+        var p = S.pill.getBoundingClientRect(), r = el.getBoundingClientRect();
+        b = { x: r.left - p.left, y: r.top - p.top, w: r.width, h: r.height, pos: S.pos };
+        // (a tab not laid out yet -- the bar hidden -- is measured again next time)
+        if (r.width && typeof WeakMap === 'function') (boxes = boxes || new WeakMap()).set(el, b);
+      }
+      return { x: b.x, y: b.y, w: b.w, h: b.h, pos: b.pos };
     }
     // A second tab tap catches the capsule where it is, rather than where the first tap was sending it.
     // Only read on a selection change: a swipe supplies its own measured box through follow()/land().
@@ -1661,7 +1690,7 @@
     document.addEventListener('visibilitychange', function () { if (document.hidden) closeSheet(true); });
     // (and again once a rotation's safe areas have come: WebKit says resize first, and an iPhone turned upright kept the
     // Side Strip of its sideways inset until the next resize -- hkCards.safeArea measures afresh at 250 and 800 ms, 2026-11-10)
-    window.addEventListener('resize', function () { sync(); setTimeout(sync, 300); setTimeout(sync, 900); });
+    window.addEventListener('resize', function () { boxesGone(); sync(); setTimeout(sync, 300); setTimeout(sync, 900); });
     // the docked bar came, went or changed height: the rail's room did
     // (once a frame: the bar says so from inside its own publish, between its writes -- 2026-11-13)
     window.addEventListener('hk-dock', syncSoon);
