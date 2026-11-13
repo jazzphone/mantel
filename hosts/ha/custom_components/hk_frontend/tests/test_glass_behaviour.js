@@ -456,7 +456,9 @@ document.createElement = mkEl;
 
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
-print('\n=== a page change: no gap -- the last picture stays until the new one is painted ===');
+// (2026-11-12, the owner's transition bugs: the last page's picture stayed on the next one. A picture is worn only
+// while the address, the sky and the picture say the same page; until then the glass blurs live, as Shared Layer does)
+print('\n=== a page change: the last page\'s picture comes off at once; live until the new one is painted ===');
 globalThis.location = { pathname: '/dashboard-home/home' };
 imgRect = { x: 0, y: 0, w: 1280, h: 800 }; document.createElement = function (t) { var e = mkEl(t); if (t === 'img' || t === 'canvas') e._rect = imgRect; return e; };
 var V12 = view(); add(V12.grid, card({ x: 20, y: 300, w: 192, h: 70 }));
@@ -464,17 +466,17 @@ setLook('blur_pre'); advance(300); G._pre.show('blob:home');
 var hl = layersIn(V12.v);
 ok('(Home wears Home\'s picture)', hl.length > 0 && hl.every(function (l) { return imgsOf(l).length === 1; }));
 location.pathname = '/dashboard-home/climate'; G._pre.nav();
-ok('the page moves: the layers keep the last picture (taking it off left the sky unblurred for a third of a second)',
-   hl.every(function (l) { return imgsOf(l).length === 1 && imgsOf(l)[0].src === 'blob:home' && l.style.backdropFilter === 'none'; }));
+ok('the page moves: the layers no longer wear the last page\'s picture -- they blur live',
+   hl.every(function (l) { return imgsOf(l).length === 0 && live(l); }));
 G._pre.show('blob:climate'); advance(1000);
-ok('the new picture: the last page\'s layers keep theirs until they leave (they wore it while Home Assistant swapped the page)',
-   hl.every(function (l) { return imgsOf(l).length === 1 && imgsOf(l)[0].src === 'blob:home'; }));
+ok('the new picture painted, its page not yet up: the layers on screen wear neither page\'s -- still live',
+   hl.every(function (l) { return imgsOf(l).length === 0 && live(l); }));
 var V12b = view(); add(V12b.grid, card({ x: 20, y: 300, w: 192, h: 70 })); advance(300);
 ok('...and the new page\'s layers wear the new picture', layersIn(V12b.v).length > 0 &&
    layersIn(V12b.v).every(function (l) { return imgsOf(l).length === 1 && imgsOf(l)[0].src === 'blob:climate'; }));
 V12b.v.remove();
 location.pathname = '/dashboard-home/lights'; G._pre.nav();
-ok('another page change: the layers still on screen keep a picture -- never bare', hl.every(function (l) { return imgsOf(l).length === 1 && l.style.backdropFilter === 'none'; }));
+ok('another page change: the layers still on screen take the picture off again and blur live', hl.every(function (l) { return imgsOf(l).length === 0 && live(l); }));
 setLook('blur'); V12.v.remove(); Array.from(GL).forEach(leave); advance(300);
 document.createElement = mkEl; delete globalThis.location;
 
@@ -489,13 +491,13 @@ setLook('blur_pre'); advance(300);
 G.pin(side, 'linear-gradient(red,red)');
 G._pre.show('blob:home-1');
 location.pathname = '/dashboard-home/weather'; G._pre.nav(); G._pre.show('blob:weather-1');
-ok('the sidebar keeps Home\'s picture while Home is still the page on screen', /blob:home-1/.test(side.style.background || ''), side.style.background);
-ok('on Weather: Home\'s layers keep Home\'s picture while they are still on screen', /^(blob:home-1 ?)+$/.test(srcOf(V14.v)), srcOf(V14.v));
+ok('the sidebar takes Home\'s picture off as the address leaves Home: live until Weather\'s', !/blob:/.test(side.style.background || ''), side.style.background);
+ok('on Weather: Home\'s layers still on screen blur live -- neither page\'s picture', /^ *$/.test(srcOf(V14.v)), srcOf(V14.v));
 var V14w = view(), cw = add(V14w.grid, card({ x: 20, y: 300, w: 192, h: 70 })); advance(300);
 ok('...and Weather\'s layers wear Weather\'s', /^(blob:weather-1 ?)+$/.test(srcOf(V14w.v)), srcOf(V14w.v));
 var sideMid = side.style.background || '';
-ok('...and as Weather\'s view shows the sidebar fades across: Home\'s picture and Weather\'s blended, part way',
-   /^linear-gradient\(red,red\), -webkit-cross-fade\(url\("blob:home-1"\), url\("blob:weather-1"\), ([1-9]\d?)%\) -?0\.0px -?0\.0px \/ 1280px 800px no-repeat$/.test(sideMid), sideMid);
+ok('...and as Weather\'s view shows the sidebar wears Weather\'s at once: no fade across from Home\'s',
+   /^linear-gradient\(red,red\), url\("blob:weather-1"\) -?0\.0px -?0\.0px \/ 1280px 800px no-repeat$/.test(sideMid), sideMid);
 advance(400);
 ok('...ending on Weather\'s alone', /blob:weather-1/.test(side.style.background || '') && !/blob:home-1|cross-fade/.test(side.style.background), side.style.background);
 V14w.v.remove(); leave(cw);
