@@ -879,8 +879,10 @@
     // ends above (hk-popup.js --hk-dock-h) -- what its tabs must fit in, or
     // its ends run past the rail as the bar comes up (2026-10-10)
     function railH() {
-      var d = 0;
-      try { d = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hk-dock-h')) || 0; } catch (e) { d = 0; }
+      // (hk-popup.js dockRoom writes it on <html>'s own style, or takes it off: read there. Through getComputedStyle it
+      // worked out the whole page's styles right after the bar's own write, 15-29 ms of a landing at 4x CPU, 2026-11-13)
+      var de = document.documentElement, d = 0;
+      try { d = parseFloat(de && de.style ? de.style.getPropertyValue('--hk-dock-h') : '') || 0; } catch (e) { d = 0; }
       return Math.max(0, (window.innerHeight || 800) - d);
     }
     // THE SIDE SAFE AREAS in px (hk-base.js safeArea), and the page's width
@@ -1118,12 +1120,11 @@
       // (hk-menu.js writes it on <html>'s own style: read there first. Through getComputedStyle it worked out the whole
       // document's styles each time, ~10-14 ms of a page swipe's landing at 4x CPU, 2026-11-07)
       var de = document.documentElement, own = de && de.style ? de.style.getPropertyValue('--hk-content-left') : '';
+      // (...and what it wrote is the answer, 0 included -- no menu docked: read as "not known", the panel was measured
+      // after every write, twice in each landing, 15 ms each at 4x CPU, 2026-11-13)
+      if (own) return Math.max(0, parseFloat(own) || 0);
       var v = 0;
-      if (own) v = parseFloat(own) || 0;
-      else {
-        try { v = parseFloat(getComputedStyle(de).getPropertyValue('--hk-content-left')) || 0; }
-        catch (e) { v = 0; }
-      }
+      try { v = parseFloat(getComputedStyle(de).getPropertyValue('--hk-content-left')) || 0; } catch (e) { v = 0; }
       if (!v) {
         var p = M.panel(), r = p && p.getBoundingClientRect ? p.getBoundingClientRect() : null;
         v = r ? Math.max(0, r.left) : 0;
@@ -1662,7 +1663,8 @@
     // Side Strip of its sideways inset until the next resize -- hkCards.safeArea measures afresh at 250 and 800 ms, 2026-11-10)
     window.addEventListener('resize', function () { sync(); setTimeout(sync, 300); setTimeout(sync, 900); });
     // the docked bar came, went or changed height: the rail's room did
-    window.addEventListener('hk-dock', function () { sync(); });
+    // (once a frame: the bar says so from inside its own publish, between its writes -- 2026-11-13)
+    window.addEventListener('hk-dock', syncSoon);
     window.addEventListener('hk-pane', syncSoon);
     window.addEventListener('hk-module-ready', function () { S.built = ''; sync(); });
     // the host's Home Assistant rows changed (hkShell.haNav: it learned where the page is)
