@@ -134,7 +134,8 @@
           '  -webkit-tap-highlight-color:transparent;transition:transform ' + C.DUR.press + ' ease}',
           '.qk:active{transform:scale(0.96);background:' + v('key-strong') + '}',
           '.qk:disabled{opacity:.45;cursor:default}',
-          '.mk{display:flex;align-items:center;gap:14px;margin-top:auto;min-width:0}',
+          // (at the card's foot, and never closer than 14 px to the presets: on a phone the card is no taller than they are)
+          '.mk{display:flex;align-items:center;gap:14px;margin-top:auto;padding-top:14px;min-width:0}',
           '.mk .new{flex:none;background:' + C.SELECTED_BG + ';color:' + C.SELECTED_TEXT + ';border-color:transparent;padding:0 18px;display:flex;align-items:center;gap:6px}',
           '.mk .new hk-icon{--mdc-icon-size:18px;width:18px;height:18px;display:flex}',
           // (the hint on one line, or not at all: in a narrow card it wrapped

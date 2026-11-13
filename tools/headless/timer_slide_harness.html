@@ -51,7 +51,11 @@ function sensor(names) {
   client.states['sensor.running_quick_timers'] = { state: '0', attributes: { running: (P.get('lede') ? Object.keys(client.states).filter(function (e) { return /^timer\.hk/.test(e) && client.states[e].state === 'active'; }).map(function (e) { return { entity_id: e, tablet: !silent, areas: ['kitchen'], speakers: silent ? [] : ['Kitchen'], tone: 'bell' }; }) : []), made: [],
     homepod: { state: P.get('hpstate') || 'ok', alarms: [], went_off: [], timers: HP.reduce(function (o, i) {
       o[idOf(i)] = { source: 'homepod', homepod: 'HomePod', home_room: 'Kitchen', room: 'kitchen', room_name: 'Kitchen', controls: ['pause', 'resume', 'cancel'] }; return o; }, {}) },
-    ringing: names.map(function (n, i) { return { entity_id: 'timer.hk_timer_' + (40 + i), name: n, until: 0, tablet: !silent, areas: ['kitchen'], speakers: silent ? [] : ['Kitchen'], tone: 'chime' }; }) } };
+    ringing: names.map(function (n, i) {
+      // hpring=1: a HomePod's, ringing on its HomePod (phase 28): no sound on a screen, Stop to the HomePod
+      if (P.get('hpring')) return { entity_id: 'timer.hk_homepod_' + (40 + i), name: n, until: null, tablet: false, areas: ['kitchen'], speakers: [], tone: null, source: 'homepod',
+        homepod: 'HomePod', room_name: 'Kitchen', ringing: true, controls: ['stop'] };
+      return { entity_id: 'timer.hk_timer_' + (40 + i), name: n, until: 0, tablet: !silent, areas: ['kitchen'], speakers: silent ? [] : ['Kitchen'], tone: 'chime' }; }) } };
 }
 sensor((P.get('rings') || '').split(',').filter(Boolean));
 window.__ring = function (names) { sensor(names); ctl.setClient(client); window.__listeners.forEach(function (f) { f(client); }); };

@@ -21,7 +21,7 @@ from typing import Any
 
 HELPER = re.compile(r"^timer\.hk_homepod_(\d+)$")
 ALARM_SCRIPT = "homepod_alarm"          # script.homepod_alarm {alarm, action}: an alarm's switch and Delete, through the gateway
-TIMER_ACTIONS = ("pause", "resume", "cancel")
+TIMER_ACTIONS = ("pause", "resume", "cancel", "stop")      # stop: a ringing timer (the Home app's own cancel)
 ALARM_ACTIONS = ("on", "off", "delete")
 POLL_EVERY = 2.0        # seconds between two looks at the reader
 STALE_AFTER = 120.0     # seconds with no good answer: unavailable
@@ -81,8 +81,13 @@ class Read:
     room: str
     homepod: str
     at: float
+    rid: str = ""                 # the reader's own id, which holds from read to read (2026-11-13; "" from an older reader)
+    ringing: bool = False         # gone off: the HomePod rings it, the Home app shows it back at its full length, not counting
+    rang_at: float | None = None
 
     def left_at(self, t: float) -> float:
+        if self.ringing:
+            return 0.0
         return max(0.0, self.ends - t) if not self.paused and self.ends is not None else self.left
 
 
@@ -117,10 +122,13 @@ def parse_timers(doc: Any, now: float) -> tuple[bool, list[Read]] | None:
         tile, index, left = t.get("tile"), t.get("index"), _num(t.get("left_s"))
         if not isinstance(tile, str) or not tile or isinstance(index, bool) or not isinstance(index, int) or index < 0 or left is None:
             continue
-        paused = t.get("paused") is True
-        ends = None if paused else (_when(t.get("ends_at")) or at + left)
-        out.append(Read(tile, index, _text(t.get("label"), "Timer"), max(0.0, left), paused, ends,
-                        _text(t.get("room")), _text(t.get("homepod"), "HomePod"), at))
+        paused, ringing = t.get("paused") is True, t.get("ringing") is True
+        ends = None if paused and not ringing else (_when(t.get("ends_at")) or at + left)
+        raw = t.get("id")
+        rid = raw if isinstance(raw, str) and 0 < len(raw) <= 80 else ""
+        out.append(Read(tile, index, _text(t.get("label"), "Timer"), 0.0 if ringing else max(0.0, left), paused and not ringing, ends,
+                        _text(t.get("room")), _text(t.get("homepod"), "HomePod"), at, rid, ringing,
+                        (_when(t.get("rang_at")) or ends) if ringing else None))
     return doc.get("broken") is True, out
 
 
@@ -188,14 +196,21 @@ class Known:
     total: int = 0                   # its length as first seen (the Home app never says how long it was set for)
     over: str | None = None          # 'ended' or 'canceled': gone from the HomePod, its helper still to finish or go
     index: int = field(default=-1, compare=False)
+    rid: str = field(default="", compare=False)          # the reader's id (not stored: the next read says it again)
+    ringing: bool = field(default=False, compare=False)
+    rang_at: float | None = field(default=None, compare=False)
 
     def left_at(self, t: float) -> float:
+        if self.ringing:
+            return 0.0
         return max(0.0, self.ends - t) if not self.paused and self.ends is not None else self.left
 
     def take(self, r: Read) -> None:
         self.label, self.room, self.homepod, self.index = r.label, r.room, r.homepod, r.index
         self.paused, self.left, self.seen = r.paused, r.left, r.at
-        self.ends = None if r.paused else r.ends
+        self.rid, self.ringing, self.rang_at = r.rid or self.rid, r.ringing, r.rang_at
+        # (a ringing timer keeps the end it had: the Home app shows it back at its full length, which is no new countdown)
+        self.ends = None if r.paused else r.ends if not r.ringing or self.ends is None else self.ends
 
     @property
     def entity_id(self) -> str:
@@ -207,8 +222,15 @@ def match(known: Iterable[Known], reads: Iterable[Read]) -> tuple[list[tuple[Kno
     then, for what is left on a HomePod, the same label paired in order of time left (a pause or a resume between two reads
     moves its end by however long it took). Anything else is new."""
     free = [k for k in known if k.over is None]
-    rest = sorted(reads, key=lambda r: (r.tile, r.index))
     pairs: list[tuple[Known, Read]] = []
+    rest = []
+    for r in sorted(reads, key=lambda r: (r.tile, r.index)):      # the reader's own id first, where both have one
+        same = next((k for k in free if r.rid and k.rid == r.rid), None)
+        if same is not None:
+            free.remove(same)
+            pairs.append((same, r))
+        else:
+            rest.append(r)
     left_over: list[Read] = []
     for r in rest:
         best, gap = None, MATCH_TOL
@@ -240,7 +262,7 @@ def match(known: Iterable[Known], reads: Iterable[Read]) -> tuple[list[tuple[Kno
 def how_gone(k: Known, now: float) -> str:
     """A timer no longer on its HomePod: 'ended' (at its time: the HomePod rang; its helper finishes by itself, so
     automations hear timer.finished) or 'canceled' (before it: its helper is canceled)."""
-    if not k.paused and k.ends is not None and k.ends <= now + GONE_SLACK:
+    if k.ringing or (not k.paused and k.ends is not None and k.ends <= now + GONE_SLACK):
         return "ended"
     return "canceled"
 
@@ -290,8 +312,8 @@ def steps(helper: Mapping[str, Any] | None, k: Known, now: float) -> list[tuple[
     """The timer services that bring a helper in line with the HomePod: [(service, data)], nothing when it already is.
     A timer at its end is left alone: Home Assistant finishes it."""
     want = k.left_at(now)
-    if not k.paused and want <= 1:
-        return []
+    if k.ringing or (not k.paused and want <= 1):
+        return []                    # (ringing: never moved to the length the Home app shows back; it finishes at its end)
     if helper is None or helper.get("s") not in ("active", "paused"):
         out = [("start", {"duration": hms(want)})]
         return out + [("pause", {})] if k.paused else out

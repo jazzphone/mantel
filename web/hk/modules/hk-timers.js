@@ -379,6 +379,7 @@
 
       // A HOMEPOD'S TIMER (phase 28): Mantel sends these to the HomePod; nothing else is for a HomePod
       if (this.isHomePod(entityId)) {
+        if (what === 'stop') return !!this.ringAct(client, 'stop', entityId);     // ringing on its HomePod
         var svc = { pause: 'pause', resume: 'start', cancel: 'cancel' }[what];
         if (!svc || !this.homepod(client.states, entityId).controls) return false;
         client.actions.callService('timer', svc, { entity_id: entityId });
@@ -654,6 +655,7 @@
     // "this tablet and the Kitchen speaker", for Rings on... or Ringing on...: '' with nothing playing it
     whereWords: function (r, room, tablet) {
       if (!r) return '';
+      if (r.source === 'homepod') return 'the ' + this.homepodWords(r);        // (a HomePod's: it rings there, never on a screen)
       var parts = (this.heardHere(r, room, tablet) ? ['this tablet'] : []).concat((r.speakers || []).map(function (n) { return 'the ' + n + ' speaker'; }));
       return parts.length < 2 ? parts.join('') : parts.slice(0, -1).join(', ') + ' and ' + parts[parts.length - 1];
     },

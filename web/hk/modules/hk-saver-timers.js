@@ -256,7 +256,8 @@
     function buildDone() {
       el.setAttribute('done', ''); el.removeAttribute('last');
       var T = window.hkTimers, others = rows.filter(function (r) { return !rings.some(function (g) { return g.entity_id === r.id; }); });
-      var key = JSON.stringify(['done', rings.map(function (g) { return [g.entity_id, g.name, g.tablet, g.speakers]; }), others.map(function (r) { return [r.id, !!r.paused, r.end || 0]; }), W, H,
+      var key = JSON.stringify(['done', rings.map(function (g) { return [g.entity_id, g.name, g.tablet, g.speakers, g.source]; }), others.map(function (r) { return [r.id, !!r.paused, r.end || 0]; }),
+        W, H,
         room]);
       if (key === built) return;
       built = key;
@@ -269,7 +270,8 @@
         '<div class="tmnm">' + esc(rings.map(function (g) { return g.name; }).join(' and ')) + '</div>' +
         '<div class="tmlede">' + (where ? '<b></b>Ringing on ' + esc(where) + '.' : 'Silent, as set.') + '</div>' +
         '<div class="tmacts"><button class="stop" data-a="stop">' + (one ? 'Stop' : 'Stop All') + '</button>' +
-        (one ? '<button data-a="more" data-id="' + esc(hero.entity_id) + '">+1 Min</button><button data-a="again" data-id="' + esc(hero.entity_id) + '">Restart</button>' : '') + '</div>' +
+        (one && hero.source !== 'homepod' ? '<button data-a="more" data-id="' + esc(hero.entity_id) + '">+1 Min</button><button data-a="again" data-id="' + esc(hero.entity_id) +
+          '">Restart</button>' : '') + '</div>' +
         (others.length ? '<div class="tmsubs">' + shown.map(sub).join('') + (more ? '<div class="tmsb more"><div class="tmsbr">+' + more + '</div><div class="tmsn">More</div></div>' : '') + '</div>' :
           '') + '</div>';
     }

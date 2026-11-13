@@ -25,7 +25,8 @@ const CASES = [
 
 // [tag, timers, rings, query]: Time's Up
 const DONE = [['done-one', '', ['Pasta']], ['done-others', 'Oven:1520:2700,Rice:40:900', ['Pasta']], ['done-two', 'Laundry:37:2700', ['Pasta', 'Oven']],
-  ['done-long', '', ['A Very Long Timer Name That Goes On And On']], ['done-silent', '', ['Pasta'], '&where=none']];
+  ['done-long', '', ['A Very Long Timer Name That Goes On And On']], ['done-silent', '', ['Pasta'], '&where=none'],
+  ['done-homepod', 'Oven:1520:2700', ['Pasta'], '&hpring=1']];
 
 const measure = () => {
   const host = document.getElementById('host'), hr = host.getBoundingClientRect(), bad = [];
@@ -92,9 +93,10 @@ const measure = () => {
         const d = await p.evaluate(() => ({ done: document.querySelector('.tm').hasAttribute('done'), last: document.querySelector('.tm').hasAttribute('last'),
           text: document.querySelector('.tmread').innerText, stop: document.querySelector('.tmacts .stop').textContent, btn: document.querySelectorAll('.tmacts button').length }));
         say(d.done && !d.last, `${t}: Time's Up`, d);
-        say(d.stop === (rings.length > 1 ? 'Stop All' : 'Stop') && d.btn === (rings.length > 1 ? 1 : 3), `${t}: its buttons`, d);
-        say(q ? /Silent, as set/.test(d.text) : /Ringing on this tablet and the Kitchen speaker/.test(d.text), `${t}: it says where`, d.text);
-        if (input.shots && ['done-others', 'done-two'].includes(tag)) await p.screenshot({ path: `${input.shots}/${eng}-${size}-${tag}.png` });
+        const hpr = /hpring/.test(q || '');
+        say(d.stop === (rings.length > 1 ? 'Stop All' : 'Stop') && d.btn === (rings.length > 1 || hpr ? 1 : 3), `${t}: its buttons`, d);
+        say(hpr ? /Ringing on the Kitchen HomePod\./.test(d.text) : q ? /Silent, as set/.test(d.text) : /Ringing on this tablet and the Kitchen speaker/.test(d.text), `${t}: it says where`, d.text);
+        if (input.shots && ['done-others', 'done-two', 'done-homepod'].includes(tag)) await p.screenshot({ path: `${input.shots}/${eng}-${size}-${tag}.png` });
       }
       if (size === 'wall') {
         // A TAP: its buttons, and anywhere else stops the sound

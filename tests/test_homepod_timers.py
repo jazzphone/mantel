@@ -408,3 +408,36 @@ async def test_a_look_before_the_server_s_session_is_a_quiet_miss(hp, caplog):
     finally:
         if http is not None:
             app._state["http"] = http
+
+
+async def test_a_ringing_homepod_timer_is_times_up_with_stop_and_its_helper_left_alone(hp):
+    """2026-11-13, the house's kitchen: at 0:00 the Home app showed the timer back at its full length while the HomePod rang,
+    and Mantel moved its helper to it. A ringing timer keeps its end; Time's Up says so, silent, and Stop reaches the HomePod."""
+    t = hp.reader.timer("Pasta", 5)
+    t["id"] = "t-1"
+    await look(hp)
+    sent = len(hp.gw.fake.frames)
+    hp.gw.now[0] += 6
+    t.update(ringing=True, left_s=0, rang_at=t["ends_at"])                    # (ends_at: its own, as the reader keeps it)
+    hp.house.put("timer.hk_homepod_1", "idle", friendly_name="Pasta")        # Home Assistant finished it on time
+    await look(hp, 1)
+    await look(hp)
+    assert len(hp.gw.fake.frames) == sent                                    # never moved, restarted or deleted while it rings
+    a = attrs(hp)
+    (ring,) = a["ringing"]
+    assert ring["entity_id"] == "timer.hk_homepod_1" and ring["name"] == "Pasta" and ring["source"] == "homepod"
+    assert ring["tablet"] is False and ring["speakers"] == [] and ring["controls"] == ["stop"] and ring["room_name"] == "Kitchen"
+    assert "timer.hk_homepod_1" in a["made"] and a["homepod"]["timers"]["timer.hk_homepod_1"]["ringing"] is True
+    # Stop, as Time's Up sends it: to the HomePod, by the reader's id
+    await hp.gw.login("avery", "owner")
+    ws = await hp.gw.socket()
+    r = await hp.gw.command(ws, kind="service", domain="script", service="quick_timer_ring", data={"op": "stop"}, return_response=True)
+    assert r["result"]["response"] == {"ok": True, "timers": ["timer.hk_homepod_1"]}, r
+    assert hp.reader.posts[-1] == ("/timer", {"id": "t-1", "action": "stop"})
+    r = await hp.gw.command(ws, id=2, kind="service", domain="script", service="quick_timer_ring", data={"op": "more", "entity_id": "timer.hk_homepod_1"},
+                            return_response=True)
+    assert r["result"]["response"] == {"ok": False, "reason": "homepod"}
+    await ws.close()
+    hp.reader.timers.clear()                                                 # it stopped: gone from the list
+    await look(hp)
+    assert hp.house.sent()[-1] == "timer/delete" and hp.host.known == {} and attrs(hp)["ringing"] == []
