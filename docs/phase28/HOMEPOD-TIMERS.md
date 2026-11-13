@@ -1,16 +1,18 @@
 # Phase 28: HomePod timers in Mantel (plan, 2026-11-12)
 
-**Status: a plan, nothing built.** The reading was proven by hand on the owner's Mac on 2026-11-12 (below). Four
-decisions for the owner are at the end. The Mantel side waits until the restructuring of phase 25 has settled; the Mac
-side can start before.
+**Status: the reader is built and running; Mantel's side is a plan.** The reader runs in a macOS virtual machine on the
+house's Proxmox host and serves what it reads over HTTP (below). The owner's decisions are recorded at the end
+(2026-11-12, revised the same evening: the first version put the reader in Mantel for Mac and said a VM couldn't work).
 
 - **Line numbers** are left out on purpose. Search for the names.
 
 ## The ask (the owner, 2026-11-12)
 
 Timers set on the HomePods with Siri ("Hey Siri, set a timer for 10 minutes") should show in Mantel, beside the timers
-Mantel sets itself (phase 21). A Siri phrase that starts a Mantel timer instead was offered and turned down: the household
-says "set a timer", and a new phrase wouldn't get used.
+Mantel sets itself (phase 21), and work like them: the same slide, the same last minute on the tablets, the same
+settings, and in Home Assistant too. A Siri phrase that starts a Mantel timer instead was offered and turned down: the
+household says "set a timer", and a new phrase wouldn't get used. Later the same day: pause, resume and cancel from
+Mantel, and the HomePods' alarms in the Timers sheet.
 
 ## What was ruled out, and why
 
@@ -24,143 +26,136 @@ Every direct route is closed by Apple, on purpose:
 | Shortcuts | The Clock's actions start, pause, resume, update and cancel one timer. None lists timers ("Shortcuts can't find or output details for running timers"). |
 | The Mac's files | The clock service's database (Full Disk Access) holds only the Mac's own timer; nothing on disk changes when a HomePod timer starts. The Home app asks each HomePod live. |
 
-## What works: reading the Home app on a Mac
+## What works: reading the Home app
 
-The Mac's Home app shows each HomePod's timers in the HomePod's sheet, fetched live from the speaker. macOS's
-Accessibility interface (the one VoiceOver uses) can read that sheet and open it, with the Home app in the background.
-Proven by hand on 2026-11-12, with the Home app behind other windows and never brought to the front:
+macOS's Home app shows each HomePod's timers and alarms in the HomePod's sheet, fetched live from the speaker. The
+Accessibility interface (the one VoiceOver uses) can open that sheet, read it, press its controls and close it, with the
+Home app in the background. What the Home app (macOS 15 and 27) shows:
 
 - **The tiles** have stable identifiers built from the room and the name: `Kitchen-HomePod-TileCell`,
-  `Office-HomePods-TileCell` (a stereo pair is one tile). The description is the name and state: "HomePod, Not Playing".
-  Tiles never show a countdown.
-- **Opening a sheet:** the tile's custom action **More Controls** (`AXUIElementPerformAction` with its full action name).
-  Never `AXPress`: on a speaker it may toggle playback.
-- **The sheet's timers** are static texts under the identifier `AccessoryControl.alarmsAndTimers.AlarmsAndTimers`: the
-  section heading "Timers", then for each timer its label ("Timer", or the name Siri was given), its time left ("14:42",
-  counting down live in the background) and two images, "Pause" and "Close". The button "New Timer" ends the section.
-  Alarms are listed above it, only while the Mac is on the HomePods' network.
-- **Within a second:** a running timer was in the sheet one second after it opened.
-- **Closing the sheet:** the menu item **View > (the home's name)**. `AXCancel` on the sheet, an Escape key and a click sent
-  to the Home app's process all did nothing while it was in the background.
-- **What Accessibility sees:** only the tiles on screen. The Speakers & TVs view should hold every speaker.
+  `Office-HomePods-TileCell` (a stereo pair is one tile). Tiles never show a countdown. In the Speakers & TVs view every
+  speaker and TV is a tile.
+- **Opening a sheet:** the tile's custom action **More Controls**. Never `AXPress`: on a speaker it may toggle playback.
+- **Timers** sit under the identifier `AccessoryControl.alarmsAndTimers.AlarmsAndTimers`: the heading "Timers", then for
+  each timer its label ("Timer", or the name Siri was given), its time left ("14:42", counting down live) and two images
+  that take a press: "Pause" (or "Resume" when paused) and "Close" (cancels it). "New Timer" ends the section.
+- **Alarms** sit above them, under the same identifier: one group per alarm holding its label ("Alarm"), its time ("9:00
+  PM", with a narrow no-break space), a repeat line when it repeats, and a checkbox (value On/Off) that turns it on or
+  off. The group has a custom action **Delete**. A ringing alarm shows nothing: a one-time alarm flips to Off the moment
+  it fires, with no Snooze or Stop anywhere (tested). So Mantel can say an alarm went off, not stop it.
+- **Closing a sheet:** on macOS 15, `AXCancel` on the sheet (the View menu's home item works one time in three); on
+  macOS 27, the View menu's home item (`AXCancel` does nothing there). The reader tries both.
+- **Only what is on screen** is in the Accessibility tree: the reader makes the window tall enough for every speaker.
 
-## The design
+## The reader (built, 2026-11-12)
 
-```
-Home app (Mac, in the background)
-   │  Accessibility: open each HomePod's sheet, read its timers, close it
-Mantel for Mac (the menu bar app, MantelKit's session)
-   │  POST the list of HomePod timers (HTTPS, the app's device key)
-Mantel Server  ── store: who, where, label, ends at, state, last seen
-   │  the timers feed
-Wall tablets, phones: the timer slide and the Timers sheet, marked as a HomePod's
-```
+A command-line program (Swift, about 900 lines) in a macOS virtual machine, run as a LaunchAgent in the logged-in
+session. It is not part of Mantel for Mac: it needs a Mac that is always on and signed into the household's Apple
+account, and the house's Proxmox host is.
 
-### 1. The reader, in Mantel for Mac (`jazzphone/mantel-mac`)
+### The virtual machine
 
-The menu bar app already holds the house's session, its device key and the API client (MantelKit), and it runs outside
-the sandbox, which Accessibility needs. So the reader is a feature of that app, off until the owner turns it on, not a
-helper of its own.
+Apple's own virtualization (Tart, macOS 27) gets no iCloud: "Device is a virtual machine, not enabling FindMy". A
+QEMU/KVM virtual machine on Proxmox with OpenCore does, with three things that each took a dead end to find:
 
-- **Turning it on:** a switch in the app's settings, "Read HomePod Timers from the Home App". It asks for the
-  Accessibility permission (`AXIsProcessTrustedWithOptions`) and says why. It opens the Home app if it isn't running,
-  and turns off App Nap for itself.
-- **Finding the HomePods** (on first run, every hour, and when a known tile is gone): from the Speakers & TVs view, open
-  each speaker's sheet once and keep those with a Timers section: HomePods and stereo pairs, whatever they're named. Other
-  speakers and TVs have none. Fallbacks when Speakers & TVs isn't there: each room's view from the sidebar, then the Home
-  view scrolled, then the list it already has.
-- **A pass** (about every 20 s): for each HomePod, More Controls, wait for the Timers section (up to 3 s), read each timer
-  (label, time left, paused or not: a paused timer shows Resume where a running one shows Pause, to be confirmed), then
-  View > the home. About 1 to 2 s per HomePod.
-- **Each timer becomes** `{speaker tile id, room, speaker name, label, ends_at = now + time left, paused, left_s}`. A
-  timer's identity is the speaker and the label plus its end time within a few seconds, since the sheet gives no id.
-- **Sending:** after each pass, the whole list for every HomePod, so the server can drop what's gone. Nothing is sent when
-  nothing changed, apart from a heartbeat every minute.
-- **The self-check:** each pass checks that every sheet opened, that each had a Timers section and that it closed. Two
-  failed passes in a row send `reader: broken` with the step that failed, instead of a list. A pass with no running timer
-  is a list with nothing in it, never silence.
-- **Never:** a press on a tile, a typed key, a change to any accessory. Only More Controls, reading, and View > home.
+- **Apple's SMC key** in QEMU's `isa-applesmc` device. Without it boot stops at "busy timeout ... AppleACPICPU" (the
+  window server can't be decrypted).
+- **VMHide** (a Lilu plug-in, with Lilu 1.7 or later). Without it the Apple Account sign-in sees `kern.hv_vmm_present` =
+  1, takes the virtual-platform path and fails ("No Anisette for you today", "Verification failed"). Hiding the
+  hypervisor from the CPU instead stops the kernel from starting. VMHide is reported broken on macOS 26.5; there a
+  kernel patch in OpenCore does the same.
+- **A Mac model and serial** the account accepts (the owner's choice).
 
-### 2. The server (`hosts/server/mantel_server/features/timers.py` and its neighbors)
+Also: macOS 15.8 (Sequoia); 4 cores, 8 GB; 1920 x 1440 so every speaker tile fits on screen; TRIM off for its disk (the
+iSCSI storage clears it 2 MB at a time); a QEMU guest agent for macOS (`mac-guest-agent`, ISA serial) for clean
+shutdowns; its clock set from NTP every 2 minutes through that agent (it drifts about 4 s an hour); Apple's
+PerfPowerServices disabled (it held a core). Setup and every step are recorded in the house's own notes, not here.
 
-HomePod timers are **read-only copies**, not timers Mantel owns: the HomePod runs and rings them.
+### What it does
 
-- **A route** for the Mac app: `POST /api/timers/homepod` with the full list, or `{reader: "broken", step}`. Guarded as a
-  device of the house with the timers feature (rule 7: the guard first, `tools/route_table.py --write`); audited as a
-  read-only import or with a reason for writing none.
-- **A store** beside phase 21's `timers` table (a migration): one row per HomePod timer seen, with the time it was last
-  seen. A whole list replaces the speaker's rows. A list older than 2 minutes counts as unknown, not as "no timers".
-- **The decisions** go in `hk_core/timers` (rule 2): matching the Home app's room name to a Mantel room (the same name,
-  else an owner's choice in Settings, else shown under the Home app's name), when a copy is stale, and that a HomePod timer
-  never rings in Mantel.
-- **The feed:** the timers clients already get, each HomePod timer marked `source: "homepod"` with its speaker.
+- **Never idles:** reads one HomePod after another, the Normal ones in screen order, and after every few a High one (the
+  kitchen by default; any HomePod with a timer running counts as High). A read takes about 1.5 s; a round of nine about
+  17 s; the kitchen about every 6 s. Skip leaves a HomePod out.
+- **Remembers** which tiles are HomePods (a sheet with a Timers section) and which are TVs, so it opens a TV only once,
+  ever.
+- **End times** are stamped at the moment the sheet showed the time left.
+- **Commands** (pause, resume, cancel a timer; turn an alarm on or off, delete it) jump the queue: done within about 2
+  s, through the sheet's own controls, and only if the timer's label or the alarm's time still matches.
+- **Heals itself:** restarts the Home app after three failed reads in a row and waits for it to load.
 
-### 3. The pages (`web/hk`)
+### Its interface (HTTP, port 8787)
 
-- **The timer slide and the Timers sheet** show HomePod timers with Mantel's own: the label, the room, a small HomePod
-  glyph, the countdown run locally from `ends_at`. Paused shows paused.
-- **The last minute:** like phase 21's timers, every tablet shows it. A HomePod timer never rings on a tablet or a room
-  speaker; the HomePod rings itself.
-- **"HomePod timers unavailable"** in the Timers sheet while the reader reports broken or stale, so an empty list never
-  hides a broken reader.
-- **Settings → Timers:** the reader's state (last pass, HomePods found), and the room matching for a HomePod whose room
-  has no Mantel twin.
+| | |
+|---|---|
+| `GET /timers.json` | the running and paused timers: `label`, `left_s`, `ends_at`, `paused`, `room`, `tile`, `index`, `read_at` |
+| `GET /alarms.json` | every alarm, on or off: `label`, `time`, `time_24`, `enabled`, `repeats`, `room`, `tile`, `index` |
+| `GET /status.json` | everything, plus each HomePod's last read and the reader's health (`broken`) |
+| `POST /timer?tile=&index=&action=pause\|resume\|cancel&label=` | queue a timer command; `GET /command?id=` for its result |
+| `POST /alarm?tile=&index=&action=on\|off\|delete&time=` | queue an alarm command |
+| `GET /` | a status page: timers, alarms, HomePods, priorities |
 
-### 4. Alerts
+Before Mantel uses it: a token for the commands, and an id for each timer and alarm that holds from one read to the
+next.
 
-The server raises one alert (the house's alert channel) when the reader has been broken or silent for 10 minutes, and
-clears it when a pass comes in: "HomePod timers stopped updating: the Mac reading them is off, or a macOS update changed
-the Home app."
+## Mantel's side (to build)
+
+### 1. The server
+
+- **Settings > Connections:** "HomePod timer reader", its address and token.
+- **A poller:** `/timers.json` and `/alarms.json` every 2 seconds. A reader that is `broken` or hasn't answered for 2
+  minutes is "unavailable", never "no timers".
+- **HomePod timers become Home Assistant timers,** the way phase 21's do (Mantel creates a real `timer.*` helper and
+  deletes it when the timer ends): created when a HomePod timer appears, kept in step with its end time and pause,
+  deleted when it's gone. So every tablet, card and automation sees them like Mantel's own, and Mantel keeps only the
+  room, the HomePod and `source: "homepod"`. A HomePod timer never rings in Mantel: the HomePod rings itself.
+- **Commands from Mantel** on a HomePod timer go to the reader (pause, resume, cancel), not only to Home Assistant; the
+  helper follows on the next read. Guarded and audited like every Mantel command (rule 7, the route table).
+- **Alarms** go to clients in the timers feed, and to Home Assistant through Mantel Link (a sensor per HomePod with its
+  next alarm, for automations).
+- **The decisions** in `hk_core/timers` (rule 2): a Home app room to a Mantel room (the same name, else the owner's
+  choice in Settings), staleness, identity from one read to the next, which Home Assistant helper is whose.
+- **An alert** when the reader has been unavailable for 10 minutes, cleared when it answers.
+
+### 2. The pages
+
+- **HomePod timers like Mantel's:** the timer slide and the Timers sheet, with the room and a small HomePod glyph; the
+  last minute on every tablet, with the same settings as Mantel's timers; pause, resume and cancel.
+- **Alarms in the Timers sheet:** their own list under the timers (time, label, room, repeat, an on/off switch, delete
+  with a confirmation). How it looks is a design question for DESIGN.md before it's built.
+- **"HomePod timers unavailable"** while the reader is down.
+- **Settings > Timers:** the reader's state and the room matching.
 
 ## What can change, and what happens
 
 | Change | What happens |
 |---|---|
-| A HomePod renamed or moved to another room | Its tile id changes; the next discovery finds a new HomePod and drops the old one. The timer shows under the new name and room. |
-| A room in the Home app that Mantel doesn't have | The timer shows under the Home app's room; Settings asks once which Mantel room it belongs to. |
-| A non-HomePod speaker or an Apple TV | No Timers section in its sheet, so it's never read. |
-| Speakers & TVs removed in an update | Discovery falls back to rooms, then the scrolled Home view, then the known list. |
-| The Home app redesigned | The self-check fails; Mantel shows "HomePod timers unavailable" and alerts. The reader needs an update; Mantel's side doesn't change. Holding back major macOS updates on that Mac until the reader is checked avoids the surprise. |
-| The Mac asleep, off or signed out | Stale after 2 minutes: "unavailable", then the alert. |
-| A language other than English on that Mac | The labels it reads are English: the Mac stays in English (checked at start). |
+| A HomePod renamed or moved | Its tile id changes: the reader finds the new tile and drops the old one after three misses. |
+| A room in the Home app that Mantel doesn't have | Shown under the Home app's room; Settings asks which Mantel room it is. |
+| The Home app redesigned by a macOS update | Reads fail, the reader reports broken, Mantel shows "unavailable" and alerts. Updates on the VM are off until the reader is checked on the new version. |
+| The VM off, or its sign-in lost | "Unavailable" after 2 minutes, then the alert. |
+| A language other than English | The labels it reads are English: the VM stays in English. |
 
 ## Load
 
-- **The network:** one small request from the Home app to one HomePod per sheet opened, the same as a person opening the
-  sheet. Eleven HomePods every 20 s is far under 1 KB/s.
-- **The HomePods:** nothing they would notice.
-- **The Mac:** the Home app and the reader, a few percent of one core in bursts (the prototype: the Home app at 214 MB,
-  no measurable CPU).
+One small request from the Home app to one HomePod per sheet opened, the same as a person opening the sheet: about one
+every 1.5 s across the house. The VM: two to four cores busy (the Home app and its software-drawn window).
 
 ## Build order
 
 | Step | What | Where | Checked by |
 |---|---|---|---|
-| 28.0 the proof | A command-line reader: discovery and passes, printing what it reads; run it for 8 hours with the Home app in the background, with several timers, a named one ("set a pasta timer"), two on one HomePod, a paused one | the Mac, a scratch folder | Its log against the Home app by eye at the start and end; the Home app still responsive after 8 hours; no HomePod affected |
-| 28.1 the reader | The feature in Mantel for Mac: switch, permission, discovery, passes, self-check, sending | `mantel-mac` | `xcodebuild`; a fake Home app tree for discovery and the self-check (MantelKit tests) |
-| 28.2 the server | Route, store, migration, the `hk_core/timers` decisions, the feed, the alert | `mantel` | the main suite: the route table, the store, staleness, room matching, never ringing |
-| 28.3 the pages | Slide, Timers sheet, Settings, "unavailable" | `mantel` (`web/hk`) | the timer harness; the headless checks at the wall tablet's, an iPad's and a phone's sizes, WebKit too |
-| 28.4 on the house | A release, with the owner's OK; the Mac app updated on the chosen Mac | the house | A Siri timer seen on a wall tablet within 30 s, counting down with the HomePod; canceled with Siri, gone within 30 s |
-| Later | Cancel and pause from a tablet (the reader presses the sheet's own Close or Pause); alarms (the sheet lists them too) | both | |
+| 28.0 the reader | Done: reading, priorities, commands, alarms, the status page | the VM | By eye against the Home app; a real kitchen timer paused and resumed, an alarm turned off and on |
+| 28.0b the proof | Hours of reads: the Home app still responsive, no leak, timers caught with the right end time | the VM's log | |
+| 28.1 the reader for Mantel | A token on commands, stable ids, its source in a repository | the reader | |
+| 28.2 the server | Connection, poller, Home Assistant helpers, commands, alarms, `hk_core/timers`, the alert | `mantel` | the main suite: the route table, staleness, identity, room matching, never ringing |
+| 28.3 the pages | Slide, Timers sheet with alarms, Settings, "unavailable" | `mantel` (`web/hk`) | the timer harness; the headless checks at the wall tablet's, an iPad's and a phone's sizes, WebKit too |
+| 28.4 on the house | A release, with the owner's OK | the house | A Siri timer on a wall tablet within seconds, counting down with the HomePod; paused from a tablet; canceled with Siri, gone within seconds |
 
-## Not proven until it runs
+## Decisions (the owner, 2026-11-12)
 
-- Hours of passes: whether the Home app slows down, leaks or stops fetching while in the background.
-- A named timer's label, two timers on one HomePod, how a paused timer shows.
-- **A macOS virtual machine can't do it (tested 2026-11-12):** a macOS 27.2 virtual machine (Tart, bridged onto the
-  HomePods' VLAN) signed into the household's Apple account got no iCloud services ("Device is a virtual machine, not
-  enabling FindMy"; the device identity service: "VM support disabled"): its iCloud settings were locked and its Home
-  app stayed empty. It needs a real Mac.
-- **The prototype (2026-11-12, on the owner's Mac):** discovery from the sidebar's Speakers & TVs found all nine HomePod
-  tiles (two stereo pairs among them) and skipped every TV and Apple TV; a pass over the nine took about 25 s. Two things
-  learned: after switching views, Accessibility lists the old view's tiles for about half a second (wait until the list
-  changes, then until it settles), and an Apple TV's More Controls opens another kind of sheet (close it with View >
-  the home and treat the speaker as no HomePod).
-
-## Decisions for the owner
-
-1. **Which Mac reads them:** a spare Mac (the owner's choice, 2026-11-12), or an always-on Mac you use (the Home app is
-   busy there: its sheets open and close every 20 s). Not a virtual machine: Apple gives it no iCloud.
-2. **Where they show:** the timer slide and the Timers sheet, with Mantel's timers (proposed), or the Timers sheet only.
-3. **The last minute on every tablet,** as for Mantel's timers (proposed), or only in the HomePod's room.
-4. **Cancel from a tablet** later (the reader presses the Home app's own Close), or read-only for good.
+1. **Which Mac:** a macOS virtual machine on the house's Proxmox host (a spare Mac was the first idea; a VM works with
+   the steps above).
+2. **Where they show:** the timer slide and the Timers sheet, with Mantel's timers, and in Home Assistant too.
+3. **They work like Mantel's timers,** the last minute included, with the same settings.
+4. **Pause, resume and cancel from Mantel:** yes.
+5. **Alarms:** yes, in the Timers sheet; how they look is still to design.
