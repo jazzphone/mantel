@@ -115,3 +115,11 @@ async def test_how_it_stands_is_read_from_the_driver(hass):
     other = MockConfigEntry(domain="homekit", data={"name": "HK Lights", "port": 21066})
     other.add_to_hass(hass)
     assert H.ours(hass) is e
+
+
+async def test_a_mantel_without_the_apple_tv_camera_is_told_nothing(hass, mantel):
+    await linked(hass, mantel)
+    await until(hass, lambda: any("hk_frontend" in (r or {}) for r in mantel.reports))
+    for _ in range(20):
+        await hass.async_block_till_done()
+    assert not any("homekit" in (r or {}) for r in mantel.reports)
