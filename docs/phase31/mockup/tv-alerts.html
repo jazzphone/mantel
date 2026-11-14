@@ -134,7 +134,7 @@ section { display: grid; gap: 18px; }
     <div class="eyebrow">Phase 31 · Mockup · 2026-11-14</div>
     <h1>Notifications on the Apple TVs</h1>
     <p>Each picture below is what Mantel would draw for one notification: 1920 × 1080, drawn as SVG and turned into a
-    JPEG on the server, then shown by HomeKit in the corner of every Apple TV. Pick a look; tap a picture to see it on the TV.</p>
+    JPEG on the server, then shown by HomeKit in the corner of every Apple TV. All three looks are offered, Color by default. Pick one; tap a picture to see it on the TV.</p>
   </header>
 
   <section aria-labelledby="tv-h">
@@ -145,11 +145,12 @@ section { display: grid; gap: 18px; }
       </div>
       <div class="controls">
         <div class="seg" role="group" aria-label="Look">
-          <button type="button" id="look-black" data-look="black" aria-pressed="true">Black</button>
+          <button type="button" id="look-color" data-look="color" aria-pressed="true">Color</button>
+          <button type="button" id="look-black" data-look="black" aria-pressed="false">Black</button>
           <button type="button" id="look-glass" data-look="glass" aria-pressed="false">Glass</button>
-          <button type="button" id="look-color" data-look="color" aria-pressed="false">Color</button>
         </div>
         <label class="check"><input type="checkbox" id="use-cam" checked> Use Camera Picture</label>
+        <label class="check"><input type="checkbox" id="readable" checked> Darken Light Colors</label>
       </div>
     </div>
     <div class="tv" id="tv"></div>
@@ -172,12 +173,12 @@ section { display: grid; gap: 18px; }
       <div class="phone" id="settings"></div>
       <div class="notes">
         <div>
-          <span class="tag">Recommended</span>
-          <h3>Black</h3>
+          <span class="tag">The default</span>
+          <h3>Three looks, Color first</h3>
           <ul>
-            <li>The look of an iPhone's Live Activities and StandBy: black, the glyph in its own color, white type.</li>
-            <li>It reads from across a room at a quarter of the screen, and sits quietly over any show.</li>
-            <li><b>Glass</b> brings the tablets' look (the house's background under dark glass). <b>Color</b> is HomeView's Color tiles: the accessory's own color, white on top.</li>
+            <li><b>Color</b> is HomeView's Color tiles: the accessory's own color, white on top. A light color is darkened until white type stays readable.</li>
+            <li><b>Black</b> is the look of an iPhone's Live Activities and StandBy. <b>Glass</b> is the tablets' look: the house's background under dark glass.</li>
+            <li>The Apple TV page sets the house's look; any notification can choose its own on its page.</li>
           </ul>
         </div>
         <div>
@@ -229,7 +230,7 @@ section { display: grid; gap: 18px; }
     { id: 'mail', title: 'Mail', line: 'The mailbox opened', place: 'Front Yard', time: '1:12 PM', color: '#0A84FF', glyph: 'mail' }
   ];
 
-  var state = { look: 'black', cam: true, pick: 'timer', hk: 'paired' };
+  var state = { look: 'color', readable: true, cam: true, pick: 'timer', hk: 'paired' };
   var uidN = 0;
 
   function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/'/g, '&#39;'); }
@@ -237,6 +238,15 @@ section { display: grid; gap: 18px; }
     var n = parseInt(hex.slice(1), 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255;
     function m(c) { return Math.round(c * (1 - k)); }
     return 'rgb(' + m(r) + ',' + m(g) + ',' + m(b) + ')';
+  }
+  function lum(rgb) { // WCAG relative luminance of [r, g, b]
+    return rgb.map(function (c) { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); })
+      .reduce(function (a, c, i) { return a + c * [0.2126, 0.7152, 0.0722][i]; }, 0);
+  }
+  function rgbOf(hex, k) { var n = parseInt(hex.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255].map(function (c) { return Math.round(c * (1 - k)); }); }
+  function readable(hex, ratio) { // darken until white type holds the ratio against it
+    for (var k = 0; k < 0.9; k += 0.02) if (1.05 / (lum(rgbOf(hex, k)) + 0.05) >= ratio) return k;
+    return 0.9;
   }
   function fit(text, size, max, k) { // shrink a line to its room (the server measures with the font itself)
     var w = text.length * size * (k || 0.56);
@@ -309,7 +319,8 @@ section { display: grid; gap: 18px; }
       s += '<rect x="72" y="72" width="1776" height="936" rx="88" fill="rgba(28,28,32,.56)" stroke="rgba(255,255,255,.18)" stroke-width="3"/>';
       ink2 = 'rgba(235,235,245,.66)';
     } else {
-      s += '<defs><linearGradient id="cg' + u + '" x1="0" y1="0" x2=".55" y2="1"><stop offset="0" stop-color="' + n.color + '"/><stop offset="1" stop-color="' + shade(n.color, 0.42) + '"/></linearGradient>' +
+      var kTop = state.readable ? readable(n.color, 3) : 0;
+      s += '<defs><linearGradient id="cg' + u + '" x1="0" y1="0" x2=".55" y2="1"><stop offset="0" stop-color="' + shade(n.color, kTop) + '"/><stop offset="1" stop-color="' + shade(n.color, Math.min(0.9, kTop + 0.4)) + '"/></linearGradient>' +
         '<radialGradient id="hl' + u + '" cx="300" cy="120" r="1100" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity=".22"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient></defs>' +
         '<rect width="1920" height="1080" fill="url(#cg' + u + ')"/><rect width="1920" height="1080" fill="url(#hl' + u + ')"/>';
       ink2 = 'rgba(255,255,255,.8)'; lineFill = 'rgba(255,255,255,.95)'; gColor = '#fff'; ringTrack = '#fff'; trackOp = 0.28;
@@ -380,7 +391,7 @@ section { display: grid; gap: 18px; }
         '<div class="row"><button type="button" id="hk-remove" data-hk="none"><span class="red">Remove from HomeKit</span></button></div></div>' +
         '<div class="foot">On each phone, turn this camera\'s notifications off in the Home app: Mantel already sends them there.</div>';
     }
-    var looks = [['black', 'Black'], ['glass', 'Glass'], ['color', 'Color']].map(function (l) {
+    var looks = [['color', 'Color'], ['black', 'Black'], ['glass', 'Glass']].map(function (l) {
       return '<div class="row"><button type="button" id="set-look-' + l[0] + '" data-look="' + l[0] + '"><span>' + l[1] + '</span>' + (state.look === l[0] ? '<span class="tick">✓</span>' : '') + '</button></div>';
     }).join('');
     var which = [['Front Door Doorbell', true], ['Timers', true], ['Washer and Dryer', true], ['Water Leaks', true], ['Garage Door Left Open', false], ['Mailbox', false]]
@@ -416,6 +427,7 @@ section { display: grid; gap: 18px; }
     render();
   });
   document.getElementById('use-cam').addEventListener('change', function (e) { state.cam = e.target.checked; render(); });
+  document.getElementById('readable').addEventListener('change', function (e) { state.readable = e.target.checked; render(); });
   render();
 })();
 </script>

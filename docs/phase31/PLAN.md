@@ -75,19 +75,28 @@ Text is set for the size it is seen at: the title at 168 px of the 1080 (about a
 the room and time at 62 px, the line at 88 px, one line each; a long name shrinks to fit, then shortens by words, never
 mid-word.
 
-### The looks (decision 1)
+### The looks (decision 1: all three, Color by default)
 
-Three looks are drawn in the mockup, each at full size and as it sits in the corner of a TV:
+All three are offered (the owner, 2026-11-14: "I like Color the best... why not offer all 3"). **Look** on the Apple TV
+page sets the house's; each notification's page can choose its own (**Look**: Automatic, Black, Glass, Color;
+Automatic follows the Apple TV page). A template each, sharing the layout, so a third look costs little:
 
-- **A. Black** (recommended): pure black, the glyph in its color at the left, the title and line in white and gray. The
-  look of an iPhone's Live Activities and StandBy: it reads at a glance from across a room and is the most "Apple" at a
-  small size.
-- **B. Glass**: the house's own background (its sky or wallpaper), blurred, under a dark glass plate: the tablets'
-  look, at TV size.
-- **C. Color**: a gradient of the accessory's own color with a white glyph: HomeView's Color tiles.
+- **Color** (the default): a gradient of the accessory's own color with a white glyph and white type: HomeView's Color
+  tiles.
+- **Black**: pure black, the glyph in its color at the left, the title in white, the line in the accessory's color. The
+  look of an iPhone's Live Activities and StandBy.
+- **Glass**: the house's own background (its sky or wallpaper), blurred, under a dark glass plate: the tablets' look,
+  at TV size.
 
-Whatever the look, a notification **with a camera** shows its snapshot full bleed with the title on a dark glass strip
-at the bottom (the mockup's doorbell), unless Use Camera Picture is off.
+**Color keeps its white type readable.** A light color (yellow, cyan, mint) would wash white text out, so the gradient
+is darkened until white holds 4.5:1 against its lightest stop where the line sits, and 3:1 under the title (large
+text), measured as Bright Glass's wallpapers are (`tests/py/test_settings.py`). A test draws every accessory color in
+`hk-base.js` and checks both.
+The cost: orange turns amber-brown and cyan steel blue. The mockup's Darken Light Colors switch shows both; the
+owner decides (decision 8).
+
+Whatever the look, a notification **with a camera** shows its snapshot full bleed with the title on a dark fade at the
+bottom (the mockup's doorbell), unless Use Camera Picture is off.
 
 ## What is new, file by file
 
@@ -112,7 +121,7 @@ presses Add to HomeKit in Mantel Settings ("Who serves the camera", below). The 
 - **Show Notifications on Apple TV**: the switch for all of it.
 - **HomeKit**: Add to HomeKit (Mantel Link makes the bridge entry), then the QR code and code to scan in the Home app,
   then "Paired". Remove from HomeKit, under it.
-- **Look**: Black, Glass, Color. **Use Camera Picture**: on.
+- **Look**: Color (the default), Black, Glass. **Use Camera Picture**: on.
 - **Show For**: 10 s, 20 s (default), 30 s. How long the sensor stays on; tvOS decides how long the alert stays.
 - **Only When a TV Is On**: off by default; when on, the Apple TVs it watches (their `media_player`s). Nothing is sent
   while every one of them is off, which also keeps the camera alert off the phones.
@@ -121,7 +130,7 @@ presses Add to HomeKit in Mantel Settings ("Who serves the camera", below). The 
 - **Notifications on Apple TV**: the list of notifications with their switches, each opening its own page.
 
 **Each notification's page** gains one row in its "Where" group, beside the screens and the phones: **Apple TV**, a
-switch.
+switch, and under it **Look** (Automatic, Color, Black, Glass).
 
 ## What the build proves first (step 0)
 
@@ -187,27 +196,28 @@ sensors), and is written up under "Later".
 
 ## Decisions for the owner
 
-1. **The look**: A Black (recommended), B Glass, or C Color.
+1. **The look** (answered 2026-11-14): all three offered, Color by default, and a notification may choose its own.
 2. **The font**: SF Pro from the house's files folder, Inter where there is none (recommended), or Inter always.
 3. **On by default**: the doorbell only (recommended), or the doorbell, timers and laundry.
 4. **Show For** default: 20 s (recommended).
 5. **Only When a TV Is On**: off by default (recommended), or on.
 6. **The Washer Camera**: remove it from Home Assistant once Laundry's Done goes to the TVs (recommended), or keep both.
-7. **Who serves the HomeKit camera** (answered 2026-11-14: HA's HomeKit Bridge, made by Mantel Link): Home Assistant's HomeKit Bridge, its entry made
-   by Mantel Link so nothing is set up by hand in HA (recommended for this phase), or Mantel itself as a HomeKit
-   accessory (HAP-python, paired from Mantel Settings with a QR code). See "Who serves the camera" below.
-8. **Release**: Mantel and Mantel Link released together after step 0 and the build (recommended), or a hotfix of
+7. **Who serves the HomeKit camera** (answered 2026-11-14): Home Assistant's HomeKit Bridge, its entry made by Mantel
+   Link so nothing is set up by hand in HA. Not Mantel itself as a HomeKit accessory, for now (see "Who serves the
+   camera" above, and "Later").
+8. **Color's light colors**: darkened for readable white type (recommended), or Apple's colors as they are.
+9. **Release**: Mantel and Mantel Link released together after step 0 and the build (recommended), or a hotfix of
    Mantel's side first.
 
 ## The build, in steps
 
 0. **Prove it** on one Apple TV (above). Uses a hand-made card through a Mantel Link build on a test HomeKit Bridge
    entry, then removes both.
-1. **The card**: `tv_card.py` and `render_card`; the three looks and the snapshot card; golden pictures in the tests,
-   compared by pixels with a tolerance; WebKit-free, so they run on GitHub's runner.
+1. **The card**: `tv_card.py` and `render_card`; the three looks, Color's contrast rule and the snapshot card;
+   golden pictures in the tests, compared by pixels with a tolerance; WebKit-free, so they run on GitHub's runner.
 2. **The camera and the sensor**: `tv_alerts.py`, the queue, the still's route, Mantel Link's `features.still`.
 3. **Settings**: the Apple TV page, the switch on each notification, Send Test, the HomeKit status check.
-4. **On the house**: the owner makes the HomeKit Bridge entry; Send Test; the doorbell and a timer for a day.
+4. **On the house**: the owner presses Add to HomeKit and scans the code; Send Test; the doorbell and a timer for a day.
 
 ## Later
 
