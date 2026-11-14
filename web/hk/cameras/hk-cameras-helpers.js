@@ -145,14 +145,16 @@
     // `focus`: this player also rests while another window has the focus
     // (CAM_FOCUS); every player rests behind the screensaver and the black
     function restWatch(rest, wake, focus) {
-      var black = false, covered = false, wakeT = null, seq = 0, away = !!focus && CAM_FOCUS.away();
+      // (the black -- hk-black -- and the screen itself off -- the kiosk app's screenoff -- are two things, 2026-11-13:
+      // with one flag for both, the tablet's screen coming back on under the black woke the live cameras behind it)
+      var black = false, off = false, covered = false, wakeT = null, seq = 0, away = !!focus && CAM_FOCUS.away();
       var later = function (ms) {
         clearTimeout(wakeT);
         var my = ++seq;
         wakeT = setTimeout(function () {
           if (my !== seq) return;
           wakeT = null;
-          if (black || covered || away || document.hidden) return;
+          if (black || off || covered || away || document.hidden) return;
           if (window.hkSaver && window.hkSaver.running && window.hkSaver.running()) return;
           wake();
         }, ms);
@@ -165,10 +167,10 @@
           black = !!(e && e.detail && e.detail.on);
           if (black) { stop(); rest(); } else later(AFTER_BLACK);
         },
-        'kiosksatellite:screensaverstart': function () { black = true; stop(); rest(); },
-        'kiosksatellite:screenoff': function () { black = true; stop(); rest(); },
-        'kiosksatellite:screensaverstop': function () { black = false; later(AFTER_BLACK); },
-        'kiosksatellite:screenon': function () { black = false; later(AFTER_BLACK); }
+        'kiosksatellite:screensaverstart': function () { off = true; stop(); rest(); },
+        'kiosksatellite:screenoff': function () { off = true; stop(); rest(); },
+        'kiosksatellite:screensaverstop': function () { off = false; later(AFTER_BLACK); },
+        'kiosksatellite:screenon': function () { off = false; later(AFTER_BLACK); }
       };
       if (focus) on['hk-camera-focus'] = function (e) {
         away = !!(e && e.detail && e.detail.away);

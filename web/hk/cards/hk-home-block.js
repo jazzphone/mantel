@@ -18,6 +18,15 @@
 // THE PURE PART is first and has no DOM (window.hkHomeBlock.lib): tests/test_home_block.py runs it in node.
 (function () {
   'use strict';
+  // HOW MANY STATES, once per set of them (2026-11-13, swipes on the Loft): asked by every card on every update, the
+  // count walked the whole house each time; a host gives a new states object with every change, so it is counted once
+  var NSTATES = typeof WeakMap === 'function' ? new WeakMap() : null;
+  function nStates(st) {
+    if (!st) return 0;
+    var n = NSTATES ? NSTATES.get(st) : undefined;
+    if (n === undefined) { n = Object.keys(st).length; if (NSTATES) NSTATES.set(st, n); }
+    return n;
+  }
   if (window.hkHomeBlock) return;                       // double-load guard
 
   // ======================================================================== pure
@@ -80,7 +89,7 @@
       if (!S || !S.homeSheet || !client || !client.states) return { home: [], pages: {} };
       var regs = [client.entities, client.devices, client.areas];
       if (!BUILT.regs || regs.some(function (r, i) { return r !== BUILT.regs[i]; })) { BUILT.regs = regs; BUILT.n++; }
-      var key = dash() + '|' + BUILT.n + '|' + (HS ? HS.version : '') + '|' + Object.keys(client.states).length;
+      var key = dash() + '|' + BUILT.n + '|' + (HS ? HS.version : '') + '|' + nStates(client.states);
       if (BUILT.out && BUILT.key === key) return BUILT.out;
       var out;
       try { out = S.homeSheet(client) || { home: [], pages: {} }; } catch (e) { console.error('[hk-home-block] the Home sheet:', e); out = { home: [], pages: {} }; }
@@ -98,29 +107,42 @@
       var D = window.hkDetail;
       if (!D || typeof D.open !== 'function') return false;
       return !!D.open(null, { name: name || 'Home', icon: HOUSE },
-        { panel: { tag: 'hk-detail-home', config: Object.assign({ at: at || 'home', name: name || '' }, LOOKS[look] ? { look: look } : {}) } });
+        { panel: { tag: 'hk-detail-home', config: Object.assign({ at: at || 'home', name: name || '' }, lookOf(look) ? { look: lookOf(look) } : {}) } });
     }
     // THE SHEET'S OWN LOOK (the block's Sheet option; the owner, 2026-11-12: "letting me set the appearance would help with looks and
-    // performance"). None -- Same as Screen -- is every sheet's: the screen's look's (Bright Glass's white glass, Flat's plate). Glass
-    // is the detail sheets' own dark glass (DESIGN.md Overlays `overlay` over the heavy blur) whatever the screen wears; Solid is
-    // `overlay-solid` with no blur at all. Either sets every variable a look sets back to nothing inside the sheet, and its cards
-    // say `glass: false`, out of the page's shared blur (DESIGN.md Sheets: the sheet is their glass), and the ones they make with them
-    // (`hk-no-glass` on the sheet's body, hk-base glassJoin); the status chips' own blur off too: no blur but the sheet's.
-    // A Flat screen's sheet is Flat whatever this says (Flat has no blur to choose).
-    var LOOKS = {
-      glass: { '--hk-sheet-plate': v('overlay'), '--hk-sheet-backdrop': C.BLUR.heavy, '--hk-chip-backdrop': 'none' },
-      solid: { '--hk-sheet-plate': v('overlay-solid'), '--hk-sheet-backdrop': 'none', '--hk-chip-backdrop': 'none' }
-    };
+    // performance"; 2026-11-13: "the main goal is to make it easier on the tablet to run... Flat, Glass, Frost, Tint, or Auto"). None
+    // -- Same as Screen -- is every sheet's: the screen's look's. The others are the screen looks of those names, worn by this sheet
+    // alone, each as that look draws a sheet:
+    //   flat     Flat, in the screen's Flat theme (Light or Dark): the frame and every card in it (hk-flat-force, hk-base
+    //            flatForced) -- no blur, no motion, opaque plates; the lightest for a wall tablet
+    //   glass    the detail sheets' own dark glass (DESIGN.md Overlays `overlay`) over the heavy blur, the cards' plain glass plate
+    //   frosted  Frosted's milky plates (hkSettings.lookOf, at the screen's Frost amount) on that same sheet
+    //   tinted   Tinted's dark plates and their light lift on a sheet (at the screen's Tint amount), on that same sheet
+    // The three glass ones blur the sheet and nothing else: every look variable set back to nothing first, the cards `glass: false`,
+    // out of the page's shared blur (DESIGN.md Sheets: the sheet is their glass), and the ones they make with them (`hk-no-glass`
+    // on the sheet's body, hk-base glassJoin); the status chips' own blur off too. 'solid', the first form's (2026-11-12, overlay-solid,
+    // no blur), reads as Flat. A Flat screen's sheet is Flat whatever this says.
+    var SHEET = { '--hk-sheet-plate': v('overlay'), '--hk-sheet-backdrop': C.BLUR.heavy, '--hk-chip-backdrop': 'none' };
+    var LOOKS = { flat: 1, glass: 1, frosted: 1, tinted: 1 };
+    function lookOf(look) { look = look === 'solid' ? 'flat' : look; return LOOKS[look] ? look : null; }
     function flatHere() {
       var S = window.hkSettings;
       try { return !!(S && S.rendering && S.rendering().flat); } catch (e) { return false; }
     }
+    // the screen's Flat theme, for a sheet that is Flat on its own
+    function flatTheme() {
+      var S = window.hkSettings;
+      try { return S && S.rendering && S.rendering().theme === 'light' ? 'light' : 'dark'; } catch (e) { return 'dark'; }
+    }
     function wearLook(sheet, look) {
-      var L = LOOKS[look], S = window.hkSettings;
-      if (!L || !sheet || !sheet.style || flatHere()) return false;
+      var S = window.hkSettings;
+      if (!look || look === 'flat' || !sheet || !sheet.style || flatHere()) return false;
       var vars = S && S.lookVars ? S.lookVars() : [];
       vars.concat(['--hk-plate-here']).forEach(function (k) { sheet.style.setProperty(k, 'initial'); });
-      Object.keys(L).forEach(function (k) { sheet.style.setProperty(k, L[k]); });
+      var own = look === 'glass' ? {} : (S && S.lookOf ? S.lookOf(look) : null) || {};
+      [own, SHEET].forEach(function (L) { Object.keys(L).forEach(function (k) { sheet.style.setProperty(k, L[k]); }); });
+      // (Tinted's lift for a card on a sheet, where the frame reads it)
+      if (own['--hk-glass-plate-sheet']) sheet.style.setProperty('--hk-plate-here', 'var(--hk-glass-plate-sheet)');
       sheet.setAttribute('data-hk-look', look);
       return true;
     }
@@ -167,10 +189,12 @@
       setConfig(config) {
         super.setConfig(config || {});
         this._at = (config && config.at) || 'home';
-        this._look = config && LOOKS[config.look] ? config.look : null;
+        this._look = lookOf(config && config.look);
         if (this._look && !flatHere()) this.setAttribute('hk-no-glass', ''); else this.removeAttribute('hk-no-glass');
         this._scroll = (config && config.scroll) || 0;
       }
+      // Flat on its own (hk-detail.js): the screen's Flat theme
+      hkFlat() { return this._look === 'flat' && !flatHere() ? flatTheme() : null; }
       // the header: the house's glyph and name at Home, the page's on an inner page, and the back key there
       hkHead(h, d) {
         this._d = d;
@@ -339,7 +363,7 @@
       function roomList(client) {
         var S = window.hkStrategy, G = window.hkGridCards, HSet = window.hkSettings;
         if (!S || !S.rooms || !client || !client.states) return [];
-        var key = (HSet ? HSet.version : '') + '|' + Object.keys(client.states).length + '|' + BUILT.n + '|' + (G ? 'g' : '-');
+        var key = (HSet ? HSet.version : '') + '|' + nStates(client.states) + '|' + BUILT.n + '|' + (G ? 'g' : '-');
         var regs = [client.entities, client.devices, client.areas];
         if (ROOMS.key === key && ROOMS.regs && regs.every(function (r, i) { return r === ROOMS.regs[i]; })) return ROOMS.list;
         var gen = (HSet && HSet.get && HSet.get('generated', null)) || {}, hides = {};

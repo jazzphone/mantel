@@ -537,7 +537,7 @@
         // THE HOST'S OWN, for this tablet (extend, above): nothing in Home Assistant
         var hx = this.host();
         if (hx && typeof hx.extend === 'function') {
-          try { hx.extend('tablet', c, { tablet: tid, name: t.name, app: t.app }, this); } catch (e) { /* the host's own page */ }
+          try { hx.extend('tablet', c, { tablet: tid, name: t.name, app: t.app, app_sky: t.app_sky === true, set: set }, this); } catch (e) { /* the host's own page */ }
         }
         // SETUP CHECK, with Fix where HK can set it right
         var checks = M.tabletChecks(t, st);

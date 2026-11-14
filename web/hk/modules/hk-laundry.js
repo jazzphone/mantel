@@ -23,6 +23,15 @@
 // @ts-check
 (function (global) {
   'use strict';
+  // HOW MANY STATES, once per set of them (2026-11-13, swipes on the Loft): asked by every card on every update, the
+  // count walked the whole house each time; a host gives a new states object with every change, so it is counted once
+  var NSTATES = typeof WeakMap === 'function' ? new WeakMap() : null;
+  function nStates(st) {
+    if (!st) return 0;
+    var n = NSTATES ? NSTATES.get(st) : undefined;
+    if (n === undefined) { n = Object.keys(st).length; if (NSTATES) NSTATES.set(st, n); }
+    return n;
+  }
   if (global.hkLaundry) return;
 
   // THE TABLE (hk_core/laundry.py WORDS and STEPS, the same: tests/test_laundry.py)
@@ -199,7 +208,7 @@
   function machines(client, saved) {
     if (saved === undefined) saved = setting('features.laundry', null);
     if (Array.isArray(saved) && saved.length) return saved.filter(function (m) { return m && m.id; });
-    var ents = client && client.entities, devs = client && client.devices, n = client && client.states ? Object.keys(client.states).length : 0;
+    var ents = client && client.entities, devs = client && client.devices, n = client && client.states ? nStates(client.states) : 0;
     if (memo.list && memo.ents === ents && memo.devs === devs && memo.n === n && ents) return memo.list;
     // (a scan of every entity is no screen's need: the host doesn't keep the whole house for it -- hkShell.unrecorded)
     var shell = global.hkShell, list = shell && typeof shell.unrecorded === 'function'

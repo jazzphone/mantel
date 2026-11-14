@@ -402,5 +402,17 @@ ok('a tablet\'s sheet: up to 1040 wide, 72 in from each side (a tablet by its sh
    /Math\.min\(SHEET_BIG, width - 2 \* SHEET_OUT\)/.test(tbSrc) && /var APP_ICON = 60, APP_ICON_BIG = 76, ICON_CORNER = 0\.224/.test(tbSrc) &&
    /appIconCss\(APP_ICON_BIG, '\.bigsheet '\)/.test(tbSrc));
 
+// (2026-11-13, a page swipe's landing on the Loft: reads after another module's write, each a forced layout)
+ok('the content edge the menu wrote is the answer, 0 included: no panel measured', /if \(own\) return Math\.max\(0, parseFloat\(own\) \|\| 0\);/.test(tbSrc));
+ok('the rail\'s height reads the docked bar\'s --hk-dock-h on <html>\'s own style, not its computed style',
+   /function railH\(\) \{[\s\S]{0,400}de\.style\.getPropertyValue\('--hk-dock-h'\)/.test(tbSrc) && !/getComputedStyle\(document\.documentElement\)\.getPropertyValue\('--hk-dock-h'\)/.test(tbSrc));
+ok('the docked bar\'s hk-dock syncs once a frame', /window\.addEventListener\('hk-dock', syncSoon\);/.test(tbSrc));
+
+ok('a tab\'s box in the pill is measured once, kept until a build, a resize, a tab moved or resized (2026-11-13)',
+   /function boxOf\(el\) \{\s*var b = boxes && boxes\.get\(el\);/.test(tbSrc) && /S\.built = listKey\(width\);\s*boxWatch\(\);/.test(tbSrc) &&
+   /boxMo\.observe\(S\.pill, \{ childList: true \}\)/.test(tbSrc) && /addEventListener\('resize', function \(\) \{ boxesGone\(\);/.test(tbSrc));
+ok('the window\'s size through hkCards.winSize (read once a size), never window.innerWidth/innerHeight directly (2026-11-13)',
+   /function IW\(\) \{ var C = window\.hkCards; return C && C\.winSize \? C\.winSize\(\)\.w : window\.innerWidth \|\| 0; \}/.test(tbSrc) &&
+   tbSrc.split('\n').filter(function (l) { return /window\.inner(Width|Height)/.test(l) && !/^\s*\/\//.test(l) && !/function I[WH]\(\)/.test(l); }).length === 0);
 print('\n' + (fail ? fail + ' FAILED, ' + pass + ' passed' : 'ALL ' + pass + ' TAB BAR TESTS PASS'));
 if (fail) throw new Error(fail + ' failed');

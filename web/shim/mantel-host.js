@@ -378,7 +378,10 @@ export class Host {
       get(t, k) {
         if (typeof k === 'string') {
           if (self.recording) self.reads.add(k);
-          else if (self.onMiss && !(k in t) && k.indexOf('.') > 0) self.onMiss(k);
+          // (not in a whole-house pass -- the strategy's, or hkShell.unrecorded's: a room tile's sort of the house asks
+          // for every entity in the registry, and each one the narrowed page lacked came back as a miss, so the Loft's
+          // screen kept all 4,602 again, 2026-11-13)
+          else if (self.onMiss && !self.building && !(k in t) && k.indexOf('.') > 0) self.onMiss(k);
           if (!self.building && k in t) self.seen.add(k);
         }
         return t[k];

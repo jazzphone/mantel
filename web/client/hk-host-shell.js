@@ -169,6 +169,10 @@
     // session, with or without a person on top (GET /api/me `at_tablet`), or
     // that same HK tablet. A bare page: false.
     atTablet: function () { return false; },
+    // THE TABLET APP'S SKY PLAYER (phase 29, web/hk/sky-parts/hk-sky-handover.js): an object whose send(op, data)
+    // hands one step of a busy sky to an app that draws it under a see-through page (a Promise of the app's answer),
+    // or null where nothing can. Mantel: Mantel for Android's bridge, when the app offers it. Home Assistant: none.
+    skyPlayer: nil,
     // THE PRODUCT'S NAME where HK's screens and settings speak of themselves
     // ("Drawn By: … | HK Frontend", "the photos that come with HK Frontend"):
     // HK Frontend in Home Assistant, the host's own name elsewhere (Mantel).
@@ -244,7 +248,7 @@
    'dashboardRoot', 'viewContainer', 'viewSlot', 'view', 'viewBackground', 'toolbar', 'dashboardConfig', 'onDashboard', 'isDashboard',
    'defined', 'showNotifications', 'keepAwake', 'sidebarData', 'haNav', 'haNavigate', 'openHaMenu', 'hostMenu', 'hostPage', 'settingsHost', 'screensaverEditor', 'holdWrites', 'menuButton',
    'hostDetail', 'openHostDetail', 'hostToast', 'dialogRoot', 'serviceUrl', 'photoSource', 'listPhotos', 'artSized', 'productName', 'settingsName', 'settingsPlace', 'haPlace',
-   'haName', 'docsUrl', 'notHouseCameraPlatforms', 'kioskAppName', 'unrecorded', 'tabletRoom', 'atTablet'].forEach(function (name) {
+   'haName', 'docsUrl', 'notHouseCameraPlatforms', 'kioskAppName', 'unrecorded', 'tabletRoom', 'atTablet', 'skyPlayer'].forEach(function (name) {
     shell[name] = function () {
       try { return get(name).apply(shell, arguments); } catch (e) {
         return name === 'onDashboard' ? true : FALSE[name] ? false : WORDS[name] ? NONE[name].apply(shell, arguments) : null;

@@ -41,12 +41,24 @@ log = logging.getLogger("mantel.tablet_app")
 COMMANDS: dict[str, str | None] = {
     "screen": "bool", "brightness": "fraction", "curtain": "bool", "kiosk_mode": "bool",
     "reload": None, "clear_cache": None, "restart": None, "check_update": None, "menu_pin": "pin",
-    "screenshot": None,
+    "screenshot": None, "rotation": "rotation",
+    # AIRPLAY (phase 30, docs/phase30/PLAN.md): the app's receiver on or off (off on every tablet until switched on), and
+    # what it offers -- a mirror, a video's link, sound -- each a switch (the owner, 2026-11-13: "all three")
+    "airplay": "bool", "airplay_mirroring": "bool", "airplay_video": "bool", "airplay_audio": "bool",
 }
+# SCREEN ROTATION (2026-11-13, the owner: Android 16 ignores an app's own landscape on a tablet, and the Loft came back
+# from an update sideways): the app sets Android's rotation, 0/90/180/270 as Android counts them from the tablet's natural
+# way up, or leaves it to Android (auto). It needs Android's "Modify system settings" for the app, given at the tablet.
+ROTATIONS = ("auto", "0", "90", "180", "270")
 SHOT_MAX = 900_000          # bytes of JPEG: the app sends 960 px wide at quality 70 (about 100 KB)
 STATUS_KEYS = {"version": str, "version_code": int, "screen": bool, "brightness": float, "curtain": bool,
                "battery": float, "charging": bool, "kiosk_mode": bool, "owner": bool, "admin": bool,
-               "esphome_port": int, "menu_pin": bool, "page": str, "ip": str, "model": str, "update": str}
+               "esphome_port": int, "menu_pin": bool, "page": str, "ip": str, "model": str, "update": str,
+               "rotation": str, "rotation_allowed": bool,
+               "airplay": bool, "airplay_mirroring": bool, "airplay_video": bool, "airplay_audio": bool,
+               "airplay_state": str, "airplay_name": str,
+               # the sky drawn by the app (phase 29): off, ready (the tablet's setting on) or playing
+               "sky": str}
 ANSWER_WAIT = 8.0
 STALE = 180.0              # a status older than this is "not heard from"
 PIN = re.compile(r"\d{0,12}")
@@ -98,6 +110,8 @@ def checked(command: Any, value: Any) -> tuple[str, Any] | None:
         return (command, round(float(value), 3)) if ok_ else None
     if kind == "pin":
         return (command, value) if isinstance(value, str) and PIN.fullmatch(value) else None
+    if kind == "rotation":
+        return (command, value) if isinstance(value, str) and value in ROTATIONS else None
     return None
 
 

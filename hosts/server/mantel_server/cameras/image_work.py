@@ -109,6 +109,41 @@ def reencode_photo(data: bytes, *, expect: str | None = None) -> tuple[bytes, st
         _trim()
 
 
+# -- a camera's still at the size a page asked ---------------------------------------------------------------------
+STILL_QUALITY = 82
+
+
+def shrink_still(data: bytes, width: int, height: int) -> tuple[bytes, str] | None:
+    """A camera's still made no larger than it needs to be to COVER ``width`` x ``height`` (as Home Assistant's own
+    scaling and go2rtc's frame do: a 4:3 frame asked at 480 x 270 comes back 480 x 360, so the page's cover crop never
+    enlarges it), as a JPEG. None when it is that small already, or isn't a picture Pillow can read: the caller sends
+    it as it came. (2026-11-13: a Direct camera's Protect snapshot or own snapshot URL ignored the size, and the Side
+    Pane's 480 x 270 tile on a wall tablet downloaded and decoded the whole 1600 x 1200 frame every ten seconds.)
+
+    Small enough for a thread of the server: a JPEG is decoded straight at a half or a quarter of its size
+    (``draft``), so a 1600 x 1200 frame costs a few milliseconds, not a full decode."""
+    if not data or width <= 0 or height <= 0:
+        return None
+    try:
+        from PIL import Image
+        with Image.open(io.BytesIO(data)) as im:
+            w0, h0 = im.size
+            scale = max(width / w0, height / h0)
+            if scale >= 1 or not w0 or not h0:
+                return None
+            size = (max(1, round(w0 * scale)), max(1, round(h0 * scale)))
+            if im.format == "JPEG":
+                im.draft("RGB", size)
+            img = im.convert("RGB")
+            if img.size != size:
+                img = img.resize(size, Image.BILINEAR if min(img.size) < 2 * min(size) else Image.LANCZOS)
+            out = io.BytesIO()
+            img.save(out, "JPEG", quality=STILL_QUALITY)
+            return out.getvalue(), "image/jpeg"
+    except Exception:  # noqa: BLE001 -- not a picture Pillow reads (or a truncated one): sent as it came
+        return None
+
+
 # -- faces --------------------------------------------------------------------------------------------------------
 _detector = None
 

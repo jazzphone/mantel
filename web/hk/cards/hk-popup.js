@@ -456,6 +456,9 @@
     var dock = el.classList.contains('dock');
     var h = Math.max(0, Math.round((dock ? (el.offsetHeight || 0) : (el.clientHeight || window.innerHeight || 0)) - (sheet.offsetTop || 0)));
     var v = h + 'px';
+    // (every read before the first write: --hk-bar-h on the root invalidates the whole page, and the sheet's height read
+    // after it laid the page out a second time, 14 ms of a landing at 4x CPU, 2026-11-13)
+    var sheetH = dock ? (sheet.offsetHeight || 0) : 0;
     // (--hk-bar-h is the bottom's: the docked menu's list and the stash
     // stand on it -- a bar at the top covers none of the bottom)
     if (top) de.style.removeProperty('--hk-bar-h');
@@ -469,9 +472,9 @@
         return !k.hasAttribute('data-hk-glass-layer') && !k.classList.contains('x');
       });
       if (!built) return;
-      var none = (sheet.offsetHeight || 0) <= 2;
+      var none = sheetH <= 2;
       el.classList.toggle('empty', none);
-      dockRoom(none ? 0 : sheet.offsetHeight, top);
+      dockRoom(none ? 0 : sheetH, top);
     }
   }
   // A DOCKED BAR (`dock: true`, the now-playing bar since 2026-10-10) is the
@@ -1573,7 +1576,17 @@
         (this._kids || []).forEach(function (k) { if (typeof k.hkLastUse === 'function') t = Math.max(t, k.hkLastUse() || 0); });
         return t;
       }
+      // ONCE A FRAME (2026-11-13, a page swipe's landing on the Loft): a page change placed the docked bar from a timer,
+      // the inset and its build, and each publish read the bar's height straight after a write -- three forced layouts
+      // of the whole page in one landing, 13-18 ms each at 4x CPU, while the next finger waited. Asked again before the
+      // frame, it is one read, at the frame's start.
       _publish() {
+        var self = this;
+        if (typeof requestAnimationFrame !== 'function') { this._publishNow(); return; }
+        if (this._pubRaf) return;
+        this._pubRaf = requestAnimationFrame(function () { self._pubRaf = 0; if (self._open) self._publishNow(); });
+      }
+      _publishNow() {
         var p = this._placeNow;
         if (p && p.kind === 'pane') publishPane(p.side, p.w); else publishPane(null);
         publishBar(this._el, this._sheet);

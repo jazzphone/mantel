@@ -163,6 +163,13 @@ var bez = /cubic-bezier\(([\d.]+),([\d.]+),/.exec(D.easing(sp, false));
 ok('...else a curve that leaves at the same speed', bez && Math.abs(+bez[2] / +bez[1] - (-1.2 * sp.ms / -680)) < 0.01);
 ok('a flick back is measured from where it turned, not averaged with the way it came',
    X.speed([[0, 500], [40, 460], [60, 440], [80, 480], [100, 520]], 100) === 2);
+// (2026-11-13, the owner: "pages bouncing back on page swipes"; logged on the Loft: the lift 8 px back from the last move)
+ok('a few px back at the very end (the touch resampled past where it stopped) is no flick back: the swipe keeps its speed',
+   X.speed([[0, 591], [26, 644], [33, 675], [51, 741], [136, 967], [161, 1040], [169, 1075], [184, 1067]], 184) > 0.5 &&
+   X.lands(732, 1280, X.speed([[0, 591], [26, 644], [33, 675], [51, 741], [136, 967], [161, 1040], [169, 1075], [184, 1067]], 184)));
+ok('...and the lift alone 16 px back from a fast swipe (a frame\'s run past) is no flick back either',
+   X.speed([[0, 900], [17, 950], [34, 1000], [51, 1050], [68, 1083], [85, 1067]], 85) > 0.5);
+ok('...but a real turn back, however short its time, still flicks back', X.speed([[0, 500], [16, 540], [32, 580], [48, 560], [64, 530]], 64) < -0.5);
 ok('the flick is the last 100 ms, not the whole drag', Math.abs(X.speed([[0, 500], [400, 490], [450, 460], [500, 420]]) - (-0.7)) < 1e-9 &&
    X.speed([[0, 1]]) === 0);
 // (2026-11-02, the owner: quick short flicks turned the page only sometimes)

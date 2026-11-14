@@ -174,8 +174,25 @@
         p + ' [tabindex="-1"]:focus{outline:none}';
     }
     var FLAT_ROOTS = new Set();
+    // A SHEET FLAT ON ITS OWN (the Home block's Sheet option, 2026-11-13, the owner: "the main goal is to make it easier on the
+    // tablet to run"): `hk-flat-force` (light or dark) on an element makes it and everything inside it Flat whatever the screen
+    // wears. Looked up once a card is in the page (it never moves between sheets) and kept; null where none says so.
+    function flatForced(el) {
+      if (el._hkFlatForce !== undefined) return el._hkFlatForce;
+      var n = el, t = null;
+      // (a node that can't say -- a test page's stand-in -- says nothing)
+      try { for (; n && !t; n = n.parentNode || n.host) if (n.getAttribute) t = n.getAttribute('hk-flat-force'); } catch (e) { t = null; }
+      t = t === 'light' || t === 'dark' ? t : null;
+      if (el.isConnected || t) el._hkFlatForce = t;
+      return t;
+    }
+    // the look this element is drawn in: the screen's (hkSettings.rendering), or Flat where a sheet says so
+    function renderingAt(el) {
+      var S = window.hkSettings, a = S && S.rendering ? S.rendering() : { flat: false }, t = el ? flatForced(el) : null;
+      return t && !a.flat ? Object.assign({}, a, { flat: true, theme: t }) : a;
+    }
     function flatTone(el) {
-      var S = window.hkSettings, a = S && S.rendering ? S.rendering() : { flat: false };
+      var a = renderingAt(el);
       var key = a.flat ? (el._hkFlatKind === 'music' ? 'dark' : a.theme) : '';
       var own = !!key && (!el._hkNested || !!el._hkFlatKind);
       if (el._hkFlatTone === key && el._hkFlatOwn === own) return;
@@ -954,8 +971,7 @@
       // ON A LIGHT PAGE (tone() below) the shared blur has no sky to frost: it
       // laid its tinted layer behind each plate and turned the light glass a
       // muddy gray. Out of it, as a card that says `glass: false` is.
-      var off = !!(window.hkSettings && window.hkSettings.rendering && window.hkSettings.rendering().flat) || !!(card._config && card._config.glass === false) || !!card._hkLight ||
-        noGlass(card);
+      var off = !!renderingAt(card).flat || !!(card._config && card._config.glass === false) || !!card._hkLight || noGlass(card);
       // Out of "Blur each card" too, and everything inside it (the variable
       // inherits into child cards' shadow roots).
       if (card.style) {
@@ -1670,8 +1686,8 @@
       // inherits them -- so a dark plate inside a card (Now Playing's artwork,
       // the Music page's phone sheet) can set them back to `initial` for all it
       // holds. A nested card still gets `data-hk-light` for its own rules.
-      var S = window.hkSettings, flat = !!(S && S.rendering && S.rendering().flat);
-      if (flat) light = S.rendering().theme === 'light';
+      var r = renderingAt(el), flat = !!r.flat;
+      if (flat) light = r.theme === 'light';
       flatTone(el);
       // a card that is not an HkBase (the scenes row, hk-chip.js) is toned by
       // its client alone: re-toned with the flat roots when the look changes

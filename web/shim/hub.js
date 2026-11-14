@@ -33,6 +33,12 @@ const lost = () => Object.assign(new Error('connection lost'), { code: 'unavaila
 const LIVE_PING = 3000;
 const LIVE_EVERY = 45000;
 const LIVE_GAP = 10000;
+// FROZEN, THEN RESUMED (2026-11-13, the Loft's motion wake: seconds of black): a browser freezes a page hidden for a
+// while (Chromium a minute on; the page's own `freeze` and `resume` events), and a frozen page reads nothing from its
+// socket. Resumed, it worked through what had piled up, then found the socket dead and reconnected -- about 2.5 s on a
+// wall tablet before Mantel's newest word reached it. A page frozen RESUME_STALE or longer lets its socket go at once
+// (the pile unread) and opens a new one; a shorter freeze is checked as any wake is (checkAlive).
+const RESUME_STALE = 20000;
 // BACK AT ONCE (2026-11-08, the iPhone app: "things don't load all the way and it is unresponsive"): iOS closes a
 // suspended app's sockets, and the page that comes back found its socket closed with the reconnect still waiting out
 // its back-off (2 s at best, 30 s after a few refusals while the phone was locked -- a timer iOS froze, not skipped).
@@ -297,6 +303,14 @@ export class Hub {
     win.addEventListener('pageshow', (e) => { if (e && e.persisted) check(); });
     win.addEventListener('online', check);
     win.addEventListener('focus', check);
+    let frozenAt = 0;
+    doc.addEventListener('freeze', () => { frozenAt = Date.now(); });
+    doc.addEventListener('resume', () => {
+      const stale = frozenAt > 0 && Date.now() - frozenAt >= RESUME_STALE;
+      frozenAt = 0;
+      if (stale && this._open()) this.cycle();
+      this.wake();
+    });
     setInterval(() => { if (visible()) check(); }, LIVE_EVERY);
   }
 

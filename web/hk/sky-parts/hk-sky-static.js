@@ -476,7 +476,8 @@
     // places written on it). It changes when, and only when, the sky's
     // picture does: hk-sky-paint is said then, and a pre-rendered blur
     // (hk-glass.js) paints from it instead of looking every few seconds.
-    var SKY_STATES = /(^|\s)(hidden|held|hk-snap|noanim)(?=\s|$)/g;
+    // (hk-sky-app: the sky handed to the tablet app, hk-sky-handover.js -- where it is drawn, not what it shows)
+    var SKY_STATES = /(^|\s)(hidden|held|hk-snap|noanim|hk-sky-app)(?=\s|$)/g;
     // the season's field as built: the old decorations' key, or the new
     // decorations' theme (paintSeason) -- each changes only on a rebuild. A
     // key with no season and no surprise ('||...') is an empty field: its
@@ -516,8 +517,13 @@
     function announce() {
       if (!ST.mounted) return;
       var sg = skySig(ST.mounted), psig = sg.big + '||' + sg.small + '|' + location.pathname;
-      if (psig === ST.paintSig) return;
-      if (psig !== ST.changeSig) {
+      // ...AND EVERY TIME IT CUTS TO ANOTHER PAGE (2026-11-13): back on the page it last settled on before any page
+      // between had settled, it said nothing -- and a pre-rendered blur, which follows the sky's page (hk-glass.js
+      // ownPicture), wore the last page's picture over it until its next paint
+      var moved = ST.saidPath !== ST.mountedPath;
+      ST.saidPath = ST.mountedPath;
+      if (psig === ST.paintSig && !moved) return;
+      if (psig !== ST.changeSig || moved) {
         ST.changeSig = psig; ST.changedSig = sg; ST.changedFor = ST.mounted;
         try { window.dispatchEvent(new Event('hk-sky-change')); } catch (e) { /* no window events */ }
       }

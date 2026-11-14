@@ -45,7 +45,7 @@ def as_client(stored: Stored | None,
     screen still running older files."""
     from .chip_rules import custom_chips, custom_pages, popups
     from .menu_rules import boards, legacy_screens
-    from .tablet_rules import tablets
+    from .tablet_rules import sky_by_app, tablets
     out = {"configured": stored is not None, **merged(stored.options if stored else None)}
     del out["counts"]
     items = boards(stored)
@@ -57,6 +57,8 @@ def as_client(stored: Stored | None,
     out["tablet_items"] = {tid: {
         "name": t["name"], "screen": t["screen"], "room": t["room"], "user": t["user"], "app": t["app"],
         "idle_return": t["idle_return"], "idle_time": t["idle_time"], "black_screen": t["black_screen"],
+        # (the decision, not the switch: Sky Drawn by the App, on a Mantel for Android tablet)
+        "app_sky": sky_by_app(t),
         "screensaver_switch": (switches or {}).get(tid), "black_switch": (blacks or {}).get(tid),
     } for tid, t in tablets(stored).items()}
     if items:

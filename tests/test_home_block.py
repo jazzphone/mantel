@@ -41,7 +41,7 @@ console.log(JSON.stringify({
   place: [L.placeOf('security', pages), L.placeOf('weather', pages), L.placeOf('home', pages), L.placeOf(null, pages)],
   card: ['S', 'W', 'T', 'L', 'XL'].map((s) => G.config({ id: 'h', card: 'home', size: s, at: [0, 0] }, {})),
   named: G.config({ id: 'h', card: 'home', size: 'W', at: [0, 0], opts: { title: 'Linden House', glyphs: 'white' } }, {}),
-  looks: ['glass', 'solid', 'auto', 'bright'].map((look) => G.config({ id: 'h', card: 'home', size: 'S', at: [0, 0], opts: { look } }, {}).look),
+  looks: ['flat', 'glass', 'frosted', 'tinted', 'solid', 'auto', 'bright'].map((look) => G.config({ id: 'h', card: 'home', size: 'S', at: [0, 0], opts: { look } }, {}).look),
   table: G.table().home
 }));
 """
@@ -112,20 +112,28 @@ def test_a_home_block_is_kept_at_every_size(size):
 
 
 @needs_node
-def test_the_sheet_is_the_screens_look_unless_it_says_glass_or_solid(got):
-    # (2026-11-12, the owner: "letting me set the appearance would help with looks and performance"): Glass and Solid carried to the
-    # card, Same as Screen is no key at all
-    assert got["looks"] == ["glass", "solid", None, None]
-    for look in ("glass", "solid"):
+def test_the_sheet_wears_the_screens_look_or_a_look_of_its_own(got):
+    # (2026-11-12, the owner: "letting me set the appearance would help with looks and performance"; 2026-11-13: "the main goal is
+    # to make it easier on the tablet to run... Flat, Glass, Frost, Tint, or Auto"): each carried to the card, Same as Screen is no
+    # key at all, the first form's Solid reads as Flat
+    assert got["looks"] == ["flat", "glass", "frosted", "tinted", "flat", None, None]
+    for look in ("flat", "glass", "frosted", "tinted"):
         b, errors = write({"id": "h1", "card": "home", "size": "S", "at": [0, 0], "opts": {"look": look}})
         assert errors == {} and b["home_grid"]["items"][0]["opts"] == {"look": look}
-    for bad in ("auto", "", "bright", True, None, ["solid"]):
+    b, errors = write({"id": "h1", "card": "home", "size": "S", "at": [0, 0], "opts": {"look": "solid"}})
+    assert errors == {} and b["home_grid"]["items"][0]["opts"] == {"look": "flat"}
+    for bad in ("auto", "", "bright", "blur", True, None, ["flat"]):
         _, errors = write({"id": "h1", "card": "home", "size": "S", "at": [0, 0], "opts": {"look": bad}})
         assert errors == {"home_grid": "grid_option"}, bad
     src = web_sources.read("web/hk/cards/hk-home-block.js")
-    # every variable a look sets, set back inside the sheet; its cards out of the shared blur; a Flat screen's sheet stays Flat
-    assert "S.lookVars ? S.lookVars() : []" in src and "unglassed(cfg)" in src and "flatHere()) return false" in src
-    assert "lookVars: function () { return LOOK_VARS.slice(); }" in web_sources.read("web/hk/modules/hk-settings.js")
+    # every variable a look sets, set back inside the sheet, then the chosen look's own; its cards out of the shared blur; Flat is
+    # the frame's own Flat (hkFlat, hk-detail.js) for every card in it; a Flat screen's sheet stays Flat
+    assert "S.lookVars ? S.lookVars() : []" in src and "S.lookOf(look)" in src and "unglassed(cfg)" in src
+    assert "hkFlat() { return this._look === 'flat' && !flatHere() ? flatTheme() : null; }" in src
+    assert "lookOf: function (name)" in web_sources.read("web/hk/modules/hk-settings.js")
+    assert "panel.hkFlat ? panel.hkFlat() : null" in web_sources.read("web/hk/cards/hk-detail.js")
+    core = web_sources.read("web/hk/base/hk-base-card-core.js")
+    assert "function flatForced(el)" in core and "var a = renderingAt(el);" in core
     assert "kind === 'sheet_look'" in web_sources.read("web/hk/grid-editor/hk-grid-editor-options.js")
 
 

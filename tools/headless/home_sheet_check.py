@@ -58,7 +58,10 @@ def grid(cell: str, looks: bool = False) -> dict:
         {"id": "s2", "card": "home", "size": "S", "at": [3, 2], "opts": {"title": "Linden House"}}]}
     if cell == "square":
         g["cell"] = "square"
-    if looks:                                       # the Sheet option: Same as Screen (Extra Large), Solid, Glass
+    if looks:                                       # the Sheet option: Same as Screen (Extra Large), each look, the first form's Solid
+        g["items"][1]["opts"] = {"look": "flat"}
+        g["items"][2]["opts"] = {"look": "frosted"}
+        g["items"][3]["opts"] = {"look": "tinted"}
         g["items"][4]["opts"] = {"look": "solid"}
         g["items"][5]["opts"] = {"title": "Linden House", "look": "glass"}
     return g

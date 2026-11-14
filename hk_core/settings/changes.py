@@ -1503,6 +1503,7 @@ TABLET: dict[str, Callable[[Any], Any]] = {
     "idle_time": _idle_time,
     "black_screen": _choice(S.BLACK_SCREENS),
     "sleep": _sleep,
+    "app_sky": _bool,
 }
 
 

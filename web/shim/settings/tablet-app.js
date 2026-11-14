@@ -32,11 +32,34 @@ function says(st) {
   return [st.version ? 'Version ' + st.version : null,
           st.screen === false ? 'Screen off' : st.screen ? 'Screen on at ' + pct(st.brightness) + '%' : null,
           st.curtain ? 'Black curtain up' : null,
+          st.sky === 'playing' ? 'Drawing the sky' : null,
           typeof st.battery === 'number' ? 'Battery ' + Math.round(st.battery) + '%' + (st.charging ? ', charging' : '') : null,
           st.ip || null].filter(Boolean).join(' · ');
 }
 
 // Returns true when it drew a tablet's app (its Direct Connection, Kiosk Satellite's and Fully's, is then left out)
+// AIRPLAY (phase 30, docs/phase30/PLAN.md): the app as an AirPlay receiver under the tablet's own name, off until
+// switched on (here or by Home Assistant's switch); what it offers, each a switch, while it's on
+const AIRPLAY_OFFERS = [['airplay_mirroring', 'Screen Mirroring', 'Fills the screen over the page until the sender stops'],
+                        ['airplay_video', 'Video', 'A video sent with AirPlay plays on the tablet (YouTube; not protected video)'],
+                        ['airplay_audio', 'Sound', 'Music and other sound from the tablet’s speaker']];
+
+function drawAirPlay(c, st, send, off, id) {
+  const rows = [K().toggle({ label: 'AirPlay', on: !!st.airplay, disabled: off, fk: 'mx:app-airplay:' + id,
+                             sub: st.airplay_name ? 'As “' + st.airplay_name + '”' : null,
+                             onChange: (on) => send('airplay', on, on ? 'AirPlay on.' : 'AirPlay off.') })];
+  if (st.airplay) {
+    for (const [cmd, label, sub] of AIRPLAY_OFFERS) {
+      rows.push(K().toggle({ label, sub, on: st[cmd] !== false, disabled: off, fk: 'mx:app-' + cmd + ':' + id,
+                             onChange: (on) => send(cmd, on, null) }));
+    }
+    if (st.airplay_state) rows.push(info('Now', null, st.airplay_state));
+  }
+  c.appendChild(group({ header: 'AirPlay', footer: 'An iPhone, iPad or Mac on the home network can mirror its screen to the '
+    + 'tablet, send it a video or play sound to it. A mirror or a video keeps the screen on until it ends. '
+    + 'Speakers can’t be grouped with HomePods.' }, rows));
+}
+
 export function drawTabletApp(c, ctx) {
   if (!can('devices')) return false;
   let drew = false;
@@ -70,11 +93,29 @@ export function drawTabletApp(c, ctx) {
                            fk: 'mx:app-curtain:' + dv.id, onChange: (on) => send('curtain', on, null) }));
     rows.push(K().toggle({ label: 'Kiosk Mode', sub: st.owner ? 'Pinned: nothing else can come to the front' : 'Brings the app back to the front when anything else comes up',
                            on: st.kiosk_mode !== false, disabled: off, fk: 'mx:app-kiosk:' + dv.id, onChange: (on) => send('kiosk_mode', on, null) }));
+    // SCREEN ROTATION (2026-11-13): Android 16 ignores the app's own landscape on a tablet, so the app sets Android's
+    // rotation itself -- with Android's "Modify system settings" for the app, given once at the tablet
+    const rot = st.rotation || 'auto';
+    rows.push(K().seg({ label: 'Screen Rotation', sk: 'mx:app-rotation:' + dv.id, value: rot,
+                        options: [['auto', 'Automatic'], ['0', '0°'], ['90', '90°'], ['180', '180°'], ['270', '270°']],
+                        onChange: (v) => send('rotation', v, v === 'auto' ? 'Left to the tablet.' : 'Turned to ' + v + '°.') }));
+    if (rot !== 'auto' && st.rotation_allowed === false) {
+      rows.push(info('Rotation', 'On the tablet, allow Mantel to modify system settings (the app opened that screen), then choose again.', 'Not Allowed', 'warn'));
+    }
+    // SKY DRAWN BY THE APP (phase 29): this tablet's own setting, HK's (hk_core tablet_rules.py app_sky), saved like
+    // the rest of the tablet's page -- not a command to the app, which follows the page (hk-sky-handover.js)
+    if (typeof ctx.set === 'function') {
+      rows.push(K().toggle({ label: 'Sky Drawn by the App', on: ctx.app_sky === true, fk: 'mx:app-sky:' + dv.id,
+                             sub: 'Bats, birds, rain, snow and the other busy skies drawn by the app itself, at 30 frames a second: ' +
+                                  'about half the work for the tablet. Calm skies and wallpapers stay the page’s.',
+                             onChange: (on) => ctx.set({ app_sky: on }) }));
+    }
     rows.push(info('App', [st.owner ? 'Device owner' : st.admin ? 'Device admin' : 'No device role', st.esphome_port ? 'ESPHome port ' + st.esphome_port : null,
                            st.model || null].filter(Boolean).join(' · '), updateSays(st.update)));
     c.appendChild(group({ header, footer: (data.commands_on ? '' : 'House commands are off, so the app’s controls are too. ') +
       'Mantel reaches the app through the page the tablet has open, on the home network only; each change is in the Audit Log.' }, rows));
     result(c, key);
+    if (typeof st.airplay === 'boolean') drawAirPlay(c, st, send, off, dv.id);
     const pic = pictures[dv.id] || {};
     const shot = pic.src ? hh('img', { src: pic.src, alt: 'What ' + dv.name + ' shows', class: 'mx-tablet-shot' }) : null;
     if (shot) Object.assign(shot.style, { display: 'block', width: '100%', aspectRatio: '16 / 10', objectFit: 'cover',

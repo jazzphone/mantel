@@ -463,9 +463,11 @@ EVERYTHING_MORE = ("page", "scroll")
 # ENERGY RINGS SMALL'S FIGURES (2026-11-12, the owner: "an option to always show the data, not just on tap"): the box
 # of figures over the rings on a tap (the default) or always
 RINGS_FIGURES = ("tap", "always")
-# THE HOME SHEET'S LOOK (2026-11-12, the owner: "letting me set the appearance would help with looks and performance"): the dark
-# glass or a solid plate with no blur; no key is Same as Screen
-SHEET_LOOKS = ("glass", "solid")
+# THE HOME SHEET'S LOOK (2026-11-12, the owner: "letting me set the appearance would help with looks and performance"; 2026-11-13:
+# "the main goal is to make it easier on the tablet to run... Flat, Glass, Frost, Tint, or Auto"): a screen look the sheet wears on
+# its own (hk-home-block.js LOOKS); no key is Same as Screen. "solid", the first form's (2026-11-12), is kept as Flat
+SHEET_LOOKS = ("flat", "glass", "frosted", "tinted")
+SHEET_LOOKS_RENAMED = {"solid": "flat"}
 
 
 def _on_now_open(v: Any) -> str:
@@ -481,6 +483,7 @@ def _rings_figures(v: Any) -> str:
 
 
 def _sheet_look(v: Any) -> str:
+    v = SHEET_LOOKS_RENAMED.get(v, v) if isinstance(v, str) else v
     if v not in SHEET_LOOKS:
         raise GridInvalid("grid_option")
     return v

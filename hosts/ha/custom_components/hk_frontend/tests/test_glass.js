@@ -362,11 +362,21 @@ ok('...a view put on the page, or a card joining it, is the page on screen for t
 ok('...and a view Home Assistant kept is laid with its glass before its first frame: one pass, a microtask, for all its cards (2026-10-13)',
    /keptPass = true;/.test(gsrc) && /queueMicrotask\(run\)/.test(gsrc) && /var run = function \(\) \{ keptPass = false; if \(active\) update\(\); \}/.test(gsrc));
 ok('a page\'s picture goes on with its sky, not its view: ownPicture, the waiting picture and a new paint all ask the sky\'s page (hkSky.path)',
-   /function ownPicture\(\) \{ return fresh\(\) && pre\.path === skyAt\(\) && pre\.path === here\(\); \}/.test(gsrc) && /if \(!n \|\| n\.path !== skyAt\(\)\) return;/.test(gsrc) &&
+   /function ownPicture\(\) \{ return fresh\(\) && \(FROST \|\| pre\.path === skyAt\(\)\); \}/.test(gsrc) && /if \(!n \|\| n\.path !== skyAt\(\)\) return;/.test(gsrc) &&
    /if \(path !== skyAt\(\)\) \{ var was = pre\.next;/.test(gsrc) && /function onSkyChange\(\) \{\s*if \(!PRE \|\| !active\) return;\s*\/\/[^\n]*\n\s*wearNext\(\);\s*dropStale\(\);/.test(gsrc));
-ok('...and only while the address says the same page (2026-11-12, the owner\'s transition bugs): a page change and a sky that cut to a page with no picture yet take the last one off at once',
+ok('...by the sky on screen, not the address (2026-11-13, the nav bar\'s flicker): a sky that cut to a page with no picture yet takes the last one off at once; the address moving alone does not',
    /function dropStale\(\) \{\s*if \(ownPicture\(\)\) return;/.test(gsrc) && /if \(viewUp === path\) wearNext\(\);\s*dropStale\(\);/.test(gsrc) &&
    /var W = window\.innerWidth, H = window\.innerHeight, ok = ownPicture\(\), moves = \[\];/.test(gsrc));
+ok('a pinned surface that has moved fades to the new picture too, cut at its new place (2026-11-13: the tab bar sliding between layouts snapped)',
+   /moves = moves\.filter\(function \(m\) \{\s*if \(XFADE && window\.requestAnimationFrame\) return true;/.test(gsrc));
+ok('back on a page, a recent remembered picture keeps it until the usual repaint (PRE_KEEP; 2026-11-13: two changes at every page change)',
+   /PRE_KEEP = 10000/.test(gsrc) && /pre\.at = Date\.now\(\) - c\.at < PRE_KEEP \? Date\.now\(\) : c\.at;/.test(gsrc));
+// THE FROST PICTURE (phase 29: the sky drawn by the tablet app): every page's picture is the one sky's, worn by a child
+// with the picture fixed to the screen (never a fixed child: the WebView's clip-path), moved back through a swipe
+ok('the frost picture: every page wears the newest, on a child in the layer\'s own box, fixed to the screen at rest',
+   /function pictureFor\(L, path\) \{\s*if \(FROST\) return pre\.url;/.test(gsrc) && /if \(FROST\) return frostImg\(url\);/.test(gsrc) &&
+   /d\.style\.position = 'absolute';[\s\S]{0,200}d\.style\.background = bg \+ ' fixed';/.test(gsrc) &&
+   /if \(isFrost\(img\)\) frostAt\(img, m\);/.test(gsrc) && /frost: frost,\s*frosted:/.test(gsrc));
 ok('HkBase passes the card and direction to changed()', /hkGlass\.changed\(card, join\)/.test(readFile(HK_ROOT + '/frontend/cards/hk-base.js')));
 
 // The press loop, the row promotions, the hold of a view already painted and

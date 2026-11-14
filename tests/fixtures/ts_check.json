@@ -146,6 +146,7 @@
   "web/hk/sidepane/hk-sidepane-music.js",
   "web/hk/sky-parts/hk-sky-api.js",
   "web/hk/sky-parts/hk-sky-builders.js",
+  "web/hk/sky-parts/hk-sky-handover.js",
   "web/hk/sky-parts/hk-sky-season.js",
   "web/hk/sky-parts/hk-sky-surprises.js",
   "web/hk/strategy/hk-strategy-house.js",

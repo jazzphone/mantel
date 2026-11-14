@@ -40,6 +40,15 @@ def test_commands_and_their_values_are_a_closed_list():
     assert T.checked("brightness", True) is None and T.checked("reload", None) == ("reload", None)
     assert T.checked("reload", "x") is None and T.checked("menu_pin", "1234") == ("menu_pin", "1234")
     assert T.checked("menu_pin", "12a4") is None and T.checked("uninstall", None) is None
+    # the screen's rotation (2026-11-13): Android's own four, or left to Android; nothing else, and never a number
+    assert [T.checked("rotation", v) for v in ("auto", "90", "270")] == [("rotation", "auto"), ("rotation", "90"), ("rotation", "270")]
+    assert T.checked("rotation", "45") is None and T.checked("rotation", 90) is None and T.checked("rotation", None) is None
+    # AirPlay (phase 30): the receiver and its three offers, each on or off and nothing else
+    assert [T.checked(c, True) for c in ("airplay", "airplay_mirroring", "airplay_video", "airplay_audio")] == \
+        [("airplay", True), ("airplay_mirroring", True), ("airplay_video", True), ("airplay_audio", True)]
+    assert T.checked("airplay", "on") is None and T.checked("airplay_audio", None) is None and T.checked("airplay_name", "x") is None
+    assert T._clean({"airplay": True, "airplay_state": "Mirroring", "airplay_name": "Kitchen Kiosk", "airplay_pin": "1234"}) == \
+        {"airplay": True, "airplay_state": "Mirroring", "airplay_name": "Kitchen Kiosk"}
     assert T._clean({"version": "0.1.1", "battery": 82, "screen": True, "secret": "x", "brightness": "high"}) == \
         {"version": "0.1.1", "battery": 82.0, "screen": True}
 

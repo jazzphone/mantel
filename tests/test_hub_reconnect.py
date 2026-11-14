@@ -85,3 +85,12 @@ def test_a_page_shown_again_with_its_socket_closed_reconnects_at_once(run):
     assert b["atOnce"] == 1 and b["reconnected"] == 1, "shown again: a new socket now, not when the back-off ends"
     assert b["resent"] == [{"type": "subscribe", "entity_ids": ["lock.front"], "areas": [], "all": False}]
     assert b["afterBackoff"] == 1, "the back-off it replaced opens no second socket"
+
+
+def test_a_page_resumed_after_a_long_freeze_reconnects_at_once(run):
+    r = run["resumed"]
+    assert r["closed"] and r["pinged"] == 0, "frozen a minute: the socket let go at once, nothing asked of it"
+    assert r["newSockets"] == 1 and r["reconnected"] == 1
+    assert r["resent"] == [{"type": "subscribe", "entity_ids": ["light.loft"], "areas": [], "all": False}]
+    b = r["brief"]
+    assert not b["closed"] and b["pinged"] == 1 and b["newSockets"] == 0, "a short freeze: checked, and kept"

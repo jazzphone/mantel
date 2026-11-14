@@ -68,7 +68,29 @@
 
   // ------------------------------------------------------------ let go
   // THE SPRING: per ms; the fastest it takes up from a finger, px/ms
-  var OMEGA = 0.028, V_MAX = 8, FLICK_WINDOW = 100, REST = 60;
+  var OMEGA = 0.028, V_MAX = 8, FLICK_WINDOW = 100, REST = 60, TWITCH = 16, OVERSHOOT_MS = 24;
+  // A FEW PX BACK AT THE VERY END IS NO FLICK BACK (2026-11-13, the owner: "pages bouncing back on page swipes"; logged
+  // on the Loft): Android resamples a moving finger to the frame and runs past where it stopped, and the lift then says
+  // where it really is -- 6-16 px back in the last 15 ms, read as a flick back over FLICK about one swipe in four, so a
+  // full swipe went back. Left out: a last run the other way of under TWITCH px, and the lift's own step back when it is
+  // under OVERSHOOT_MS of the way the finger was going (a frame and a half's run past). A real flick back takes moves.
+  function untwitch(pts) {
+    var n = pts.length, k = n - 1, dir = 0;
+    while (k > 0) {
+      var st = pts[k][1] - pts[k - 1][1];
+      if (st && dir && (st < 0) !== (dir < 0)) break;
+      if (st) dir = st;
+      k--;
+    }
+    if (k <= 0) return pts;
+    var back = Math.abs(pts[n - 1][1] - pts[k][1]);
+    if (back < TWITCH) return pts.slice(0, k + 1);
+    if (n - 1 - k === 1) {
+      var j = Math.max(0, k - 3), dt = pts[k][0] - pts[j][0], v = dt > 0 ? Math.abs(pts[k][1] - pts[j][1]) / dt : 0;
+      if (back < v * OVERSHOOT_MS) return pts.slice(0, k + 1);
+    }
+    return pts;
+  }
   // (the last FLICK_WINDOW ms of the finger's [t, x] moves, from the move at or just past the window's start: a busy
   // tablet hands moves over far apart, and one alone in the window measured nothing. The lift -- `up`, its time -- is no
   // sample: it comes where the last move was, and counted, it slowed every quick flick under FLICK; a finger that
@@ -76,8 +98,9 @@
   // it came.)
   function speed(pts, up) {
     if (!pts || pts.length < 2) return 0;
+    if (up != null && up - pts[pts.length - 1][0] > REST) return 0;
+    pts = untwitch(pts);
     var last = pts[pts.length - 1], first = last, way = 0;
-    if (up != null && up - last[0] > REST) return 0;
     for (var i = pts.length - 2; i >= 0; i--) {
       var step = first[1] - pts[i][1];
       if (way && step && (step < 0) !== (way < 0)) break;

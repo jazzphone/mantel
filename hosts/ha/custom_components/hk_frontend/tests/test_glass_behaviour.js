@@ -456,9 +456,10 @@ document.createElement = mkEl;
 
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
-// (2026-11-12, the owner's transition bugs: the last page's picture stayed on the next one. A picture is worn only
-// while the address, the sky and the picture say the same page; until then the glass blurs live, as Shared Layer does)
-print('\n=== a page change: the last page\'s picture comes off at once; live until the new one is painted ===');
+// (2026-11-12, the owner's transition bugs: the last page's picture stayed on the next one; 2026-11-13, the nav bar's
+// flicker when it came off with the address. A picture is worn while it is the picture of the sky on screen: the last
+// page, still up over its own sky, keeps it; the sky cutting to a page with no picture yet takes it off)
+print('\n=== a page change: the picture follows the sky on screen, not the address ===');
 globalThis.location = { pathname: '/dashboard-home/home' };
 imgRect = { x: 0, y: 0, w: 1280, h: 800 }; document.createElement = function (t) { var e = mkEl(t); if (t === 'img' || t === 'canvas') e._rect = imgRect; return e; };
 var V12 = view(); add(V12.grid, card({ x: 20, y: 300, w: 192, h: 70 }));
@@ -466,17 +467,17 @@ setLook('blur_pre'); advance(300); G._pre.show('blob:home');
 var hl = layersIn(V12.v);
 ok('(Home wears Home\'s picture)', hl.length > 0 && hl.every(function (l) { return imgsOf(l).length === 1; }));
 location.pathname = '/dashboard-home/climate'; G._pre.nav();
-ok('the page moves: the layers no longer wear the last page\'s picture -- they blur live',
-   hl.every(function (l) { return imgsOf(l).length === 0 && live(l); }));
+ok('the address moves: the last page, still on screen over its own sky, keeps its picture',
+   hl.every(function (l) { var i = imgsOf(l); return i.length === 1 && i[0].src === 'blob:home' && !live(l); }));
 G._pre.show('blob:climate'); advance(1000);
-ok('the new picture painted, its page not yet up: the layers on screen wear neither page\'s -- still live',
-   hl.every(function (l) { return imgsOf(l).length === 0 && live(l); }));
+ok('the new picture painted, its page not yet up: it waits; the page on screen keeps its own',
+   hl.every(function (l) { var i = imgsOf(l); return i.length === 1 && i[0].src === 'blob:home'; }));
 var V12b = view(); add(V12b.grid, card({ x: 20, y: 300, w: 192, h: 70 })); advance(300);
 ok('...and the new page\'s layers wear the new picture', layersIn(V12b.v).length > 0 &&
    layersIn(V12b.v).every(function (l) { return imgsOf(l).length === 1 && imgsOf(l)[0].src === 'blob:climate'; }));
 V12b.v.remove();
 location.pathname = '/dashboard-home/lights'; G._pre.nav();
-ok('another page change: the layers still on screen take the picture off again and blur live', hl.every(function (l) { return imgsOf(l).length === 0 && live(l); }));
+ok('another page change: the address alone takes nothing off', hl.every(function (l) { return imgsOf(l).length >= 1 && !live(l); }));
 setLook('blur'); V12.v.remove(); Array.from(GL).forEach(leave); advance(300);
 document.createElement = mkEl; delete globalThis.location;
 
@@ -491,8 +492,9 @@ setLook('blur_pre'); advance(300);
 G.pin(side, 'linear-gradient(red,red)');
 G._pre.show('blob:home-1');
 location.pathname = '/dashboard-home/weather'; G._pre.nav(); G._pre.show('blob:weather-1');
-ok('the sidebar takes Home\'s picture off as the address leaves Home: live until Weather\'s', !/blob:/.test(side.style.background || ''), side.style.background);
-ok('on Weather: Home\'s layers still on screen blur live -- neither page\'s picture', /^ *$/.test(srcOf(V14.v)), srcOf(V14.v));
+ok('the address leaves Home, Home still on screen: the sidebar keeps Home\'s picture (no live gap)', /blob:home-1/.test(side.style.background || '') && !/weather/.test(side.style.background || ''),
+  side.style.background);
+ok('...and Home\'s layers keep Home\'s', /^(blob:home-1 ?)+$/.test(srcOf(V14.v)), srcOf(V14.v));
 var V14w = view(), cw = add(V14w.grid, card({ x: 20, y: 300, w: 192, h: 70 })); advance(300);
 ok('...and Weather\'s layers wear Weather\'s', /^(blob:weather-1 ?)+$/.test(srcOf(V14w.v)), srcOf(V14w.v));
 var sideMid = side.style.background || '';

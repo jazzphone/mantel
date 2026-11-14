@@ -76,6 +76,25 @@
   // drifting at most every PRE_DRIFT; and every PRE_MAX whatever, for the
   // clouds, which drift with nothing to say so (plan(): one deadline).
   var PRE = false, PRE_SCALE = 1 / 6, PRE_DRIFT = 45000, PRE_MAX = 120000, PRE_FADE = 2500;
+  // THE FROST PICTURE (phase 29, docs/phase29/PLAN.md): while the tablet app draws the sky (hk-sky-handover.js), the page
+  // is see-through over it and a live blur sees nothing -- the cards would show the app's sky sharp. So the glass wears
+  // Pre-rendered's own picture whatever its mode (Blur or Bright Glass, Shared Layer or Pre-rendered): the same painting,
+  // the same page-by-page timing, the slow drift followed, never painted again because fast things moved (the owner,
+  // 2026-11-13: what the app draws -- bats, rain, flybys -- is left out of it or a veil, as Pre-rendered has it). Two
+  // things differ from Pre-rendered:
+  //   * each layer wears it as a FIXED BACKGROUND on a child in the layer's own box, not a fixed child: Android's WebView
+  //     doesn't clip a fixed child to the layer's clip-path (a frosted rectangle the size of the screen, PLAN.md "Found on
+  //     the way"). A fixed background is in line with the screen only while nothing above it is transformed (measured in
+  //     Chromium and WebKit, 2026-11-13: under a transform it is drawn from the element's own corner), so through a swipe
+  //     the child is fixed and moved back as the page moves, as Pre-rendered's picture is (frostAt);
+  //   * the picture stays on through a page change, a swipe and a page seen the first time -- live blur shows nothing --
+  //     and every page wears the one picture: the app plays one sky, and a change of it hands the sky back to the page
+  //     first (hk-sky-handover.js), so the picture never has to be another page's.
+  // Sheets (hk-detail-frame.js) and the timeline's wear it too, through --hk-frost and --hk-frost-url on the root; the
+  // pinned glass (the tab bar, the menu, the Side Pane) wears its slice as in Pre-rendered.
+  var FROST = false, frostWas = false, frostWaits = [], FROST_WAIT = 5000;
+  // the looks with the shared layer (blur and Bright Glass, live or pictured): the ones the frost picture can stand in for
+  var SHARED = { blur: 1, blur_pre: 1, bright: 1, bright_pre: 1 };
   // A MOVING SKY (Animations on): the clouds drift under the still picture,
   // measured headless 2026-10-11 -- a picture 10 s old was already 5/255 off
   // on average and 70+ in its worst cell, and 8 / 90 by a minute, until the
@@ -84,7 +103,7 @@
   // the picture is painted every PRE_MOVE, each step small, and every
   // same-page repaint fades over PRE_FADE (2.5 s, was 0.8): a slow drift the
   // eye follows, not a jump. A still sky keeps PRE_MAX. (A page change keeps
-  // its quick swap and the pinned glass its 0.5 s FADE_MS turn.)
+  // its quick swap, the pinned glass too since 2026-11-13.)
   var PRE_MOVE = 30000;
   // A CHANGE IS NOT A DRIFT (2026-10-11, the user: the glass "detects
   // changes" too slowly -- between pages, a new song's cover on Music). The
@@ -141,7 +160,7 @@
   // menu's panel showed the sky unblurred for a third of a second at every
   // page change (screen-recorded, 2026-10-10) -- and that picture was the
   // owner's "transition bugs", the last page's glass on the new one
-  var PRE_NAV_MS = 400, navT = null;
+  var PRE_NAV_MS = 400, navT = null, PRE_KEEP = 10000;
   // THE PAGE ON SCREEN, which is not yet the page navigated to: Home
   // Assistant swaps the view a few frames after the address changes (more
   // for a page drawn the first time, held hidden until it is). A page's
@@ -532,6 +551,7 @@
   // in). Looked at again on every layout pass (preCheck), so a layer caught
   // mid-move blurs live for that while, then wears the picture again.
   function lined(img) {
+    if (isFrost(img)) return true;               // (in the layer's own box: in line wherever the layer is, FROST above)
     var r = img.getBoundingClientRect();
     return Math.abs(r.left) <= 1 && Math.abs(r.top) <= 1 && Math.abs(r.width - window.innerWidth) <= 2;
   }
@@ -547,6 +567,7 @@
   // picture's, 1/6 of the screen), scaled on the GPU: no tiles at all.
   // `data-src` names the picture it holds.
   function preImg(url) {
+    if (FROST) return frostImg(url);
     var cv = document.createElement('canvas');
     cv.setAttribute('aria-hidden', 'true'); cv.setAttribute('data-hk-pre', ''); cv.setAttribute('data-src', url);
     // the window in the page's own units: under a car dashboard's zoom
@@ -565,6 +586,48 @@
     return cv;
   }
   function picOf(el) { return el ? el.getAttribute('data-src') : null; }
+  // THE FROST PICTURE'S CHILD: the layer's own box, its background the picture fixed to the screen (FROST above). A
+  // child, not the layer's own background, so a new picture fades in over the last as Pre-rendered's do.
+  var FROST_BG = '0 0 / var(--hk-vw,100vw) var(--hk-vh,100vh) no-repeat';
+  function frostImg(url) {
+    var d = document.createElement('div');
+    d.setAttribute('aria-hidden', 'true'); d.setAttribute('data-hk-pre', ''); d.setAttribute('data-hk-frost', '');
+    d.setAttribute('data-src', url);
+    d.style.cssText = 'margin:0;padding:0;border:0;pointer-events:none;transition:opacity ' + PRE_FADE + 'ms linear';
+    frostAt(d, null);
+    return d;
+  }
+  // at rest (m null): in the layer's box, the picture fixed to the screen; through a swipe (`m`, the page moved by a
+  // transform): fixed itself -- in the moving page's box -- and moved back by as much as the page, as Pre-rendered's
+  function frostAt(d, m) {
+    var bg = 'url("' + picOf(d) + '") ' + FROST_BG;
+    if (!m) {
+      d.style.position = 'absolute'; d.style.left = '0'; d.style.top = '0'; d.style.width = '100%'; d.style.height = '100%';
+      d.style.background = bg + ' fixed';
+      d.style.transform = '';
+      return;
+    }
+    d.style.position = 'fixed'; d.style.left = '0'; d.style.top = '0';
+    d.style.width = 'var(--hk-vw,100vw)'; d.style.height = 'var(--hk-vh,100vh)';
+    d.style.background = bg;
+  }
+  function isFrost(el) { return !!(el && el.hasAttribute && el.hasAttribute('data-hk-frost')); }
+  // the sheets' share (hk-detail-frame.js): the picture on the root, for a style query to put under their plates
+  function frostRoot() {
+    var de = document.documentElement;
+    if (!de || !de.style) return;
+    if (FROST && pre.url) {
+      de.style.setProperty('--hk-frost', '1');
+      de.style.setProperty('--hk-frost-url', 'url("' + pre.url + '")');
+    } else {
+      de.style.removeProperty('--hk-frost');
+      de.style.removeProperty('--hk-frost-url');
+    }
+  }
+  function frostSettle(ok) {
+    var w = frostWaits; frostWaits = [];
+    w.forEach(function (fn) { fn(ok); });
+  }
   // A PAGE LAYER WEARS ONLY ITS OWN PAGE'S PICTURE. Pages' pictures differ
   // (measured: 34-47/255 on average between one page's and the next), so on
   // a page seen for the first time since the load the last page's picture
@@ -576,7 +639,13 @@
   // few frames after its address, and in between "the picture the sky is at" was the last page's: a Side Pane coming
   // back with Home wore Security's, and the cards on a page seen the first time wore the last page's for 100-350 ms.
   // Anything else blurs live, as Shared Layer does, until its own page's picture is worn (dropStale()).
-  function ownPicture() { return fresh() && pre.path === skyAt() && pre.path === here(); }
+  // ...BY THE SKY ON SCREEN, NOT THE ADDRESS (2026-11-13, the owner: "quite a bit of flicker on the nav bar going across
+  // pages"): the address moves 115-175 ms before the page and its sky do on the Loft, and taking the picture off then
+  // left the last page, still on screen over its own sky, blurring live for those frames -- then the remembered
+  // picture, then the fresh one: three changes in 300 ms. The glass wears the picture of the sky behind it, as Shared
+  // Layer's live blur does; the sky cutting to the next page is what takes it off (onSkyChange).
+  // (the frost picture: every page's, while the app plays one sky -- FROST above)
+  function ownPicture() { return fresh() && (FROST || pre.path === skyAt()); }
   // A PICTURE NOT THIS PAGE'S COMES OFF AT ONCE: the page's layers (a page beside this one, or one a swipe just landed,
   // keeps its own: aside, landedAt) and the pinned glass (pinAll unpins it), all blurring live until wearAll
   function dropStale() {
@@ -585,7 +654,7 @@
     pinAll(false);
   }
   function preDress(L) {
-    var want = PRE && !L._hkOverlay ? pictureFor(L) : null;
+    var want = PRE && (FROST || !L._hkOverlay) ? pictureFor(L) : null;
     if (!want) { preUndress(L); return; }
     // the live blur off FIRST: a backdrop-filter makes its own element the
     // box a fixed child sits in, so measured under it every picture would
@@ -606,7 +675,7 @@
   // every layout pass: a page layer out of line blurs live, one back in line
   // wears the picture again (all in this task: never painted half-way)
   function preCheck(L) {
-    if (L._hkOverlay) return;
+    if (L._hkOverlay && !FROST) return;
     var m = alongOf(L);
     if (!m) L._hkNoPic = false;
     if (L._hkPre) { if (!lined(L._hkPre)) { L._hkNoPic = true; preUndress(L); } }
@@ -640,6 +709,7 @@
   // a layer of a page that isn't the one shown: it keeps its own picture
   function aside(L) { var m = alongOf(L); return !!(m && m.path && m.path !== here()); }
   function pictureFor(L, path) {
+    if (FROST) return pre.url;                   // (one sky, the app's: every page's picture is the newest -- FROST)
     if (path === undefined) { var m = alongOf(L); path = m && m.path; if (!path) path = landedAt(viewOf(L)); }
     if (!path) return ownPicture() ? pre.url : null;
     if (pre.url && pre.path === path) return pre.url;
@@ -650,6 +720,7 @@
   }
   // (its own fade kept beside it: __hkOpa, what wearAll gave it)
   function shiftPic(img, m) {
+    if (isFrost(img)) frostAt(img, m);
     var opa = img.__hkOpa !== undefined ? img.__hkOpa : 'opacity ' + PRE_FADE + 'ms linear';
     var parts = [opa, m && m.tr && m.tr !== 'none' ? m.tr : ''].filter(Boolean);
     img.style.transition = parts.length ? parts.join(', ') : 'none';
@@ -739,7 +810,9 @@
     // a new fade starts from where the last one was going; a plain pass
     // leaves a fading surface to its fade -- snapping it to its end mid-fade
     // and the fade pulling it back read as a flicker
-    if (fade || !ok) finishFade();
+    // (...and a fade still drawing another picture -- the last page's 2 s repaint, when the sky cut to the next one
+    // mid-fade: its surfaces kept the last page's glass for its last steps, 2026-11-13)
+    if (fade || !ok || (fading && fading.url !== pre.url)) finishFade();
     var busy = fading;
     var inFade = function (el) { return busy && busy.some(function (m) { return m.el === el; }); };
     pinned.forEach(function (tint, el) {
@@ -751,12 +824,15 @@
       var z = zoomOf(el), at = placeOf(r, W, H), bg = tint + ', ' + sliceOf(pre.url, at[0], at[1], W, H, z);
       if (el._hkPin === bg) return;
       var from = el._hkPin && el._hkPinUrl ? sliceOf(el._hkPinUrl, el._hkPinPos[0], el._hkPinPos[1], W, H, z) : '';
-      // ANOTHER PAGE'S PICTURE FADES ACROSS (2026-10-10): the menu's panel
-      // belongs to no page, and a swap a few frames off the page's own
-      // showed; over FADE_MS it reads as the page arriving.
+      // ANOTHER PAGE'S PICTURE once faded across over FADE_MS (2026-10-10), as
+      // a swap a few frames off the page's own showed: the swap now comes in
+      // the sky's own frame (ownPicture),
       var turn = from && el._hkPinPath && el._hkPinPath !== pre.path;
-      if ((fade || turn) && from) moves.push({ el: el, fromUrl: el._hkPinUrl, fromAt: el._hkPinPos, at: at, bg: bg, pin: tint,
-                                               ms: turn ? FADE_MS : (ms || PRE_FADE), coarse: !turn && !!coarse });
+      // ...NOW AT ONCE (2026-11-13): it is put on in the frame the sky cuts to that page, as the live blur would change;
+      // a fade across showed the last page's glass for its length (0.7 s on the Loft's tab bar, 2026-11-12). Only a
+      // repaint of the same page fades.
+      if (fade && !turn && from) moves.push({ el: el, fromUrl: el._hkPinUrl, fromAt: el._hkPinPos, at: at, bg: bg, pin: tint,
+                                              ms: ms || PRE_FADE, coarse: !!coarse });
       else wearPin(el, bg);
       el._hkPinPos = at; el._hkPinUrl = pre.url; el._hkPinPath = pre.path;
     });
@@ -767,21 +843,25 @@
   // WebKit and Chrome both) at the share the fade has reached, under the
   // surface's own tint. It once took 29 see-through copies of every new
   // picture, made as PNGs -- about 100 ms of WebKit's main thread at each
-  // repaint (the Mac, 2026-10-10). A surface that has moved as well is put
-  // straight on: the two slices would not line up.
+  // repaint (the Mac, 2026-10-10). A surface that has moved fades too: both
+  // pictures are cut at its new place (2026-11-13).
   var XFADE = (function () {
     try { return !!(window.CSS && CSS.supports && CSS.supports('background-image', '-webkit-cross-fade(url(a.png), url(b.png), 50%)')); } catch (e) { return false; }
   })();
   function crossfade(moves, W, H) {
     var url = pre.url;
+    // (a surface that has moved fades too, 2026-11-13: both pictures are the whole screen, cut at its new place, so they
+    // line up -- put straight on, the tab bar sliding between Home's layout and the next page's snapped to the fresh
+    // picture 130 ms after the remembered one, a flicker at every page change)
     moves = moves.filter(function (m) {
-      if (XFADE && window.requestAnimationFrame && m.fromAt && m.fromAt[0] === m.at[0] && m.fromAt[1] === m.at[1]) return true;
+      if (XFADE && window.requestAnimationFrame) return true;
       wearPin(m.el, m.bg);
       return false;
     });
     if (!moves.length) return;
     finishFade();
     fading = moves;
+    fading.url = url;
     var t0 = performance.now(), last = -1, ms = Math.max.apply(null, moves.map(function (m) { return m.ms || FADE_MS; }));
     // THE CLOUDS' 2 s REPAINTS FADE IN COARSE STEPS (PIN_STEPS): a pinned
     // surface's fade restyles it once a step, and a step every frame, back
@@ -831,7 +911,11 @@
     // dropped from the decoded cache)
     // ...and what it was painted from, and when: back on its page, it is
     // judged as that picture (its age, its sky), not the last one painted
-    if (c) { pre.drawn = path; pre.big = c.big; pre.small = c.small; pre.at = c.at; decoded(c.url); }
+    // ...ITS CLOCK RESTARTED when it is recent (PRE_KEEP; 2026-11-13, the owner: "some flicker between pages"): with a
+    // moving wallpaper a picture 2 s old was due, so a fresh one faded in 0.1-0.3 s after the remembered one went on --
+    // two changes at every page change. A recent one stays until the next repaint on the usual rhythm; an older one,
+    // or a sky that has changed (preTick: big), is painted again at once.
+    if (c) { pre.drawn = path; pre.big = c.big; pre.small = c.small; pre.at = Date.now() - c.at < PRE_KEEP ? Date.now() : c.at; decoded(c.url); }
     if (viewUp === path) wearNext();
     dropStale();
     clearTimeout(navT);
@@ -908,9 +992,10 @@
     var old = pre.url;
     pre.url = url; pre.path = path;
     eachLayer(function (L) {
-      if (L._hkOverlay || aside(L)) return;
+      // (the frost picture: every layer's, the pages beside this one and the ones over it too -- FROST)
+      if (!FROST && (L._hkOverlay || aside(L))) return;
       // (a page just landed on keeps its own until the sky reaches it: landedAt)
-      var lp = landedAt(viewOf(L));
+      var lp = FROST ? null : landedAt(viewOf(L));
       if (lp && lp !== path) return;
       if (!L._hkPre) { preDress(L); return; }
       if (picOf(L._hkPre) === url) return;
@@ -942,6 +1027,7 @@
     });
     pinAll(fade, ms, coarse);
     if (old && old !== url) freePic(old);
+    if (FROST) { frostRoot(); frostSettle(true); }
   }
   // THE DECODED PICTURES, by url: what each layer's canvas is drawn from
   var pics = new Map();
@@ -990,6 +1076,7 @@
     pinAll();
     eachLayer(preUndress);
     freePic(old);
+    frostRoot();
   }
 
   // ---- PRE-RENDERED: the picture ----
@@ -1548,6 +1635,7 @@
     if (pre.url) { try { URL.revokeObjectURL(pre.url); } catch (e) { /* gone */ } }
     if (pre.next && pre.next.url) { try { URL.revokeObjectURL(pre.next.url); } catch (e) { /* gone */ } }
     pre.url = null; pre.big = ''; pre.small = ''; pre.at = 0; pre.path = null; pre.again = false; pre.next = null; pre.drawn = null;
+    frostRoot();
   }
   function onResize() { schedule(true); if (PRE && active) preTick(false); }
   function onVisible() { if (!document.hidden) { schedule(false); onWakePre(); } }
@@ -1558,14 +1646,41 @@
   // them, live or pictured. Bright Glass (2026-10-30) in its Shared Layer
   // and Pre-rendered modes wears the same layers with its own filter
   // (--hk-blur-filter)
+  // ...and the frost picture (FROST) is Pre-rendered's machinery whatever the mode: a change either way rebuilds the
+  // layers, wearing its child or the look's own glass again
   function sync() {
-    var g = window.hkSettings && window.hkSettings.glass ? window.hkSettings.glass() : '';
-    var want = g === 'blur' || g === 'blur_pre' || g === 'bright' || g === 'bright_pre';
-    var wantPre = g === 'blur_pre' || g === 'bright_pre';
-    if (active && wantPre !== PRE) stop();
-    PRE = wantPre;
+    var g = glassNow();
+    var want = !!SHARED[g];
+    var wantPre = g === 'blur_pre' || g === 'bright_pre' || (FROST && want);
+    if (active && (wantPre !== PRE || FROST !== frostWas)) stop();
+    PRE = wantPre; frostWas = FROST;
     if (want) start(); else stop();
     if (PRE && active) preTick(false);          // the blur's strength, say
+    if (FROST && !want) frostSettle(false);
+  }
+  function glassNow() { return window.hkSettings && window.hkSettings.glass ? window.hkSettings.glass() : ''; }
+  // THE PINNED GLASS'S LOOK (the tab bar, the menu, the Side Pane pin themselves in a Pre-rendered look): the look's
+  // Pre-rendered twin while the frost picture is worn, as they must wear it too; told by hk-glass-frost when it changes
+  function pictured(g) { return FROST && SHARED[g] ? (/_pre$/.test(g) ? g : g + '_pre') : g; }
+  function frostSaid() { try { window.dispatchEvent(new Event('hk-glass-frost')); } catch (e) { /* no window events */ } }
+  // THE SKY HANDED TO THE TABLET APP (hk-sky-handover.js): on -- a Promise of true once the glass wears the frost
+  // picture, false when it can't (a look whose cards blur themselves, no picture in FROST_WAIT); off -- the look's own
+  // glass again.
+  function frost(on) {
+    on = !!on;
+    if (!on) {
+      frostSettle(false);
+      if (FROST) { FROST = false; sync(); frostSaid(); }
+      return Promise.resolve(true);
+    }
+    if (!SHARED[glassNow()]) return Promise.resolve(false);
+    if (FROST && active && pre.url) return Promise.resolve(true);
+    return new Promise(function (res) {
+      var done = false, fin = function (ok) { if (done) return; done = true; clearTimeout(t); res(ok); };
+      var t = setTimeout(function () { frostWaits = frostWaits.filter(function (f) { return f !== fin; }); fin(false); }, FROST_WAIT);
+      frostWaits.push(fin);
+      if (!FROST) { FROST = true; sync(); frostSaid(); }
+    });
   }
 
   window.hkGlass = {
@@ -1601,7 +1716,7 @@
     stats: function () {
       var live = 0, pictured = 0;
       eachLayer(function (L) { if (L._hkPre) pictured++; else live++; });
-      return Object.assign({ active: active, cards: cards.size, pre: PRE, pictured: pictured, live: live,
+      return Object.assign({ active: active, cards: cards.size, pre: PRE, frost: FROST, pictured: pictured, live: live,
                              preAge: pre.at ? Date.now() - pre.at : null }, stats);
     },
     // PRE-RENDERED: paint the picture again now (debugging, Sky Lab)
@@ -1623,6 +1738,11 @@
     // runs no animation frames).
     refresh: function () { full = true; queued = false; update(); return this.stats(); },
     _rrect: rrect,     // tests
+    // the sky drawn by the tablet app (above): frost(true) a Promise of whether the glass wears the frost picture now;
+    // frosted() whether it is meant to
+    frost: frost,
+    frosted: function () { return FROST; },
+    pictured: pictured,
     _pre: { show: preShow, none: preNone, render: preRender, nav: onNavPre, sigs: preSigs, state: function () { return pre; } },
     _bands: bands,
     _transformScale: transformScale,

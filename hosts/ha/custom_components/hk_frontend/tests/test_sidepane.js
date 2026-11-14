@@ -294,6 +294,18 @@ ok('...Less, a mini player (2026-10-31, the owner\'s pick): the speaker line ove
    at(less, 'spk') < less.indexOf('Late Light') && less.indexOf('Late Light') < at(less, 'brw') && at(less, 'brw') < at(less, 'prev') && at(less, 'prev') < at(less, 'pp') &&
    at(less, 'pp') < at(less, 'next') && at(less, 'next') < at(less, 'queue') && /class="mbtn mpp"/.test(less), less);   // (the controls strip's keys since 2026-11-09: hk-np-strip.js)
 var src = readFile(HK_ROOT + '/frontend/modules/hk-sidepane.js');
+// (2026-11-13: the camera's still loaded every ten seconds through the black, two or three times each)
+ok('the camera\'s still rests while nobody can see it: black, hidden, the screensaver over the page (its own pane keeps going)',
+   /if \(!c \|\| CAM_REST\.resting\(this\)\) return;/.test(src) && /if \(document\.hidden \|\| black \|\| off\) return true;/.test(src) &&
+   /getAttribute\('mode'\) === 'saver'\) return false;/.test(src) && /addEventListener\('hk-saver-covered'/.test(src));
+ok('...and is downloaded once, shown from that copy, the one before let go after a while',
+   /return fetch\(url, \{ credentials: 'same-origin', cache: 'no-store' \}\)/.test(src) && /stillBlob\(url\)\.then\(function \(shown\)/.test(src) &&
+   /setTimeout\(function \(\) \{ URL\.revokeObjectURL\(was\); \}, BLOB_KEEP_MS\)/.test(src));
+// (2026-11-13: the page stays live with a wall tablet's display off; the pane redrew for every update behind the black)
+ok('under any black the pane follows the house every ten seconds, not every second; the black lifting draws it at once',
+   /wait = \(darkNow\(\) \? DARK_MS : 1000\) - \(now - lastPush\)/.test(src) && /var DARK_MS = 10000;/.test(src) &&
+   /addEventListener\('hk-black', function \(e\) \{\s*if \(e && e\.detail && e\.detail\.on\) return;/.test(src) &&
+   /if \(pushLate\) \{ clearTimeout\(pushLate\); pushLate = 0; \}\s*lastPush = Date\.now\(\); soon\(\);/.test(src));
 // (as a drawer from the section since 2026-11-01: the player risen to the pane's top, the tabs under it)
 ok('...Speakers, Browse and Up Next open the screensaver\'s panel over the pane, its three tabs (no Volume since 2026-11-12)',
   /musicPanel\(this, act === 'spk' \? 'speakers' : act === 'queue' \? 'queue' : 'browse', b\.closest\('\[data-k="now_playing"\]'\), 'drawer'\)/.test(src) &&

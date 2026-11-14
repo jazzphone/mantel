@@ -242,6 +242,7 @@ Mantel's pages and the code both hosts share: HK's cards, modules, panels and th
     - `hk-sky-static.js` — static skies, the album backdrop and a photo of your own
     - `hk-sky-api.js` — watching, the focus pause and what moves
     - `hk-sky-mount.js` — the flat sky, the covers and the self-mount
+    - `hk-sky-handover.js` — the sky handed to the tablet app (phase 29)
   - `hk-skylab.js`
   - `hk-skyshot.js` — THE SKY, AS A PICTURE
   - `hk-stats.js` — long-term statistics and history for the hk card set.
@@ -860,6 +861,8 @@ Build, release and check tools.
   - `admin_page_check.py` — Offline check of the admin page (/admin) in an isolated headless Chrome, on a fictional house.
   - `alert_check.cjs` — alert_check.py's browser half
   - `alert_check.py` — The Alert block (web/hk/cards/hk-alert.js, docs/phase11/ALERT.md) in WebKit and Chromium, on a fictional house.
+  - `app_sky_check.cjs` — app_sky_check.py's browser half
+  - `app_sky_check.py` — THE SKY DRAWN BY THE TABLET APP, the page's half, in Chromium (phase 29, docs/phase29/PLAN.md steps 1-3 and 5).
   - `art_fallback_check.cjs` — the browser side of art_fallback_check.py (Playwright, WebKit, the gallery's fictional house).
   - `art_fallback_check.py` — NEVER THE BROKEN-IMAGE "?" in WebKit (2026-10-31, the owner's item 46
   - `block_taps_check.cjs` — Every block opens something when tapped, in WebKit (block_taps_check.py starts the server over the fictional home; 2026-10-31, the owner's note on...

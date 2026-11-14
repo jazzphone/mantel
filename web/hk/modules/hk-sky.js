@@ -82,7 +82,8 @@
   // READY: window.__hkSplitReady['modules/hk-sky'] is a promise that resolves once the parts have run (and rejects if they
   // never come), so a page that imports this file and uses it at once awaits it first (web/home.js imp, hk-loader).
   var PARTS = ['hk-sky-season.js', 'hk-sky-front.js', 'hk-sky-builders.js', 'hk-sky-surprises.js',
-               'hk-sky-surprises-more.js', 'hk-sky-saver.js', 'hk-sky-static.js', 'hk-sky-api.js', 'hk-sky-mount.js'];
+               'hk-sky-surprises-more.js', 'hk-sky-saver.js', 'hk-sky-static.js', 'hk-sky-api.js', 'hk-sky-mount.js',
+               'hk-sky-handover.js'];
   var PARTS_TRIES = 6;
   function partKey(file) { return file.replace(/\.js$/, ''); }
   function partsSettle(err) {
@@ -298,6 +299,7 @@
   ST.saidSig = null;
   ST.saidFor = null;
   ST.changeSig = null;
+  ST.saidPath = null;
   ST.changedSig = null;
   ST.changedFor = null;
   ST.asked = false;

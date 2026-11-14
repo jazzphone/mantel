@@ -83,6 +83,10 @@
   // A THERMOSTAT BLOCK'S STYLE (2026-10-30): the dial, or Big Number -- the
   // target large, the arrows at its foot (Tall and Large; Extra Large is the sheet)
   var THERMOSTAT_STYLES = [['dial', 'Dial'], ['big', 'Big Number']];
+  // THE HOME BLOCK'S SHEET (2026-11-13): the screen looks a Home sheet can wear on its own (hk-home-block.js LOOKS), as the tab
+  // bar's Glass names them (Same as Screen is none); hk_core/settings/home_grid.py SHEET_LOOKS
+  var SHEET_LOOKS = ['flat', 'glass', 'frosted', 'tinted'];
+  var SHEET_LOOK_NAMES = [['auto', 'Same as Screen'], ['flat', 'Flat'], ['glass', 'Glass'], ['frosted', 'Frosted'], ['tinted', 'Tinted']];
   // ...and the HomeView-style faces (2026-10-30, docs/phase11/HOMEVIEW-LOOK.md Phase I), each on its own colour
   // -- the block becomes that colour (home_grid.py CLOCK_FACES)
   CLOCK_FACES.push(['liquid', 'Liquid'], ['giant', 'Giant Numerals'], ['scattered', 'Scattered Numerals']);
@@ -266,10 +270,11 @@
     // generated Home page in a sheet at that place. Its name (`title`, the house's by default) and Glyphs; no When Tapped:
     // the sheet is where it goes.
     // Its Sheet (2026-11-12, the owner: "letting me set the appearance would help with looks and performance"): Same as Screen (no
-    // key), Glass or Solid (hk-home-block.js LOOKS)
+    // key), Flat, Glass, Frosted or Tinted (2026-11-13; hk-home-block.js LOOKS; 'solid', the first form's, reads as Flat)
     home: { sizes: ['S', 'W', 'T', 'L', 'XL'], sources: [], opts: { title: 'title', look: 'sheet_look', glyphs: 'glyph_color' }, card: function (s, o) {
+      var lk = o.look === 'solid' ? 'flat' : o.look;
       return Object.assign({ type: 'custom:hk-home-block-card', size: s }, o.title ? { title: o.title } : {},
-                           o.look === 'glass' || o.look === 'solid' ? { look: o.look } : {}, gl(o)); } },
+                           SHEET_LOOKS.indexOf(lk) >= 0 ? { look: lk } : {}, gl(o)); } },
     // HOUSE STATUS (2026-11-07, docs/phase11/HOUSE-STATUS.md, hk-house-status.js): this screen's status chips as
     // sections, each a tap to its chip's page; the rest, and Small, open the House Status sheet. No options: it shows
     // what the screen's Status Chips say, whether or not the screen draws its chip row. No When Tapped: each section
@@ -915,7 +920,8 @@
   };
 
   window.hkGridCatalog = { version: '1.0.0', GLYPH_WHITE: GLYPH_WHITE, SIZES: SIZES, span: span, CELLS: CELLS, SOURCES: SOURCES, TABLET_ROOM: TABLET_ROOM,
-                           PAGES_MAX: PAGES_MAX, PER_PAGE: PER_PAGE, perPage: perPage, CLOCK_FACES: CLOCK_FACES, THERMOSTAT_STYLES: THERMOSTAT_STYLES, TAP_TARGETS: TAP_TARGETS, MUSIC_TAPS: MUSIC_TAPS,
+                           PAGES_MAX: PAGES_MAX, PER_PAGE: PER_PAGE, perPage: perPage, CLOCK_FACES: CLOCK_FACES, THERMOSTAT_STYLES: THERMOSTAT_STYLES, SHEET_LOOK_NAMES: SHEET_LOOK_NAMES,
+                             TAP_TARGETS: TAP_TARGETS, MUSIC_TAPS: MUSIC_TAPS,
                            SHEET: SHEET, sheetOf: sheetOf, entryId: entryId, copySheet: copySheet, sheetRoute: sheetRoute, NAMES: NAMES,
                            sheetSlot: sheetSlot, sheetCss: sheetCss, placed: placed,
                            CONDITIONS: CONDITIONS, RULES_MAX: RULES_MAX, CONDITIONS_MAX: CONDITIONS_MAX, rulesFit: rulesFit, hostHas: hostHas, matches: matches, musicAt: musicAt,
