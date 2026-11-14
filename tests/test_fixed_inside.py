@@ -1,8 +1,9 @@
 """A page keeps a layer of its own at rest on the wall tablets (hk-pageswipe.js `layer`, 2026-11-14): a swipe then draws
 nothing again. A layer makes the page the box that anything `position: fixed` inside it is placed in, and the page it
 is stacked in -- so a card that puts something fixed INSIDE itself (not on the document's body) must say so, and its
-page keeps no layer (`FIXED_INSIDE`, or `hkFixedInside` on the card): the Music page's panels. One fixed to the whole
-window (`FIXED_WINDOW`: the Pages screen's ground) keeps its page out of a layer wherever the page's box is not the window.
+page keeps no layer (`FIXED_INSIDE`, or `hkFixedInside` on the card). One whose fixed things are placed by the window's
+edges (`FIXED_WINDOW`: the Pages screen's ground, the Music page's scrim and sheets) keeps its page out of a layer
+wherever the page's box is not the window.
 
 Every file with a fixed rule is named here with where what it fixes lives. A new one fails this test until it is: put
 on the body (nothing to do but name it), or declared in hk-pageswipe.js FIXED_INSIDE."""
@@ -45,7 +46,7 @@ WHERE = {
     "settings.html": TOOL,
     "hk/modules/hk-glass.js": SWIPE, "hk/modules/hk-pageswipe.js": SWIPE,
     "hk/home-cards/hk-home-timer-page.js": WORDS,
-    "hk/cards/hk-music.js": INSIDE, "hk/cards/hk-pages-screen.js": WINDOW,
+    "hk/cards/hk-music.js": WINDOW, "hk/cards/hk-pages-screen.js": WINDOW,
 }
 # the card each INSIDE file defines, as hk-pageswipe.js names it
 TAGS = {"hk/cards/hk-music.js": "hk-music-card", "hk/cards/hk-pages-screen.js": "hk-pages-screen-card"}
