@@ -58,6 +58,7 @@ def test_a_page_s_scripts_and_stylesheets_are_stamped():
 def test_base_js_gives_a_put_together_address_its_own_version():
     base = (ROOT / "web/shim/base.js").read_text()
     assert "new URL(import.meta.url).searchParams.get('v')" in base and "window.hkV = hkV" in base
+    assert "(m?js|css|webp|png|jpe?g|avif|svg)" in base                          # code, and the pictures that ship
     # every import whose address is put together at run time goes through it
     for rel, needle in (("web/home.js", "import(hkV(u))"), ("web/shim/settings-page.js", "import(hkV(u))"),
                         ("web/shim/early-cards.js", "link.href = hkV('/hk/cards/' + c)"),
@@ -65,7 +66,12 @@ def test_base_js_gives_a_put_together_address_its_own_version():
                         ("web/hk/modules/hk-loader.js", "import(V('/hk/cards/' + name))"),
                         ("web/hk/cards/hk-detail.js", "href = window.hkV ? window.hkV(u) : u"),
                         ("web/hk/cards/hk-weather.js", "window.hkV ? window.hkV(RADAR_URL) : RADAR_URL"),
-                        ("web/hk/modules/hk-edit-menu.js", "global.hkV ? global.hkV(KIT_URL) : KIT_URL")):
+                        ("web/hk/modules/hk-edit-menu.js", "global.hkV ? global.hkV(KIT_URL) : KIT_URL"),
+                        # ...and the house picture that ships (2026-11-14: asked for bare, it was asked for again at
+                        # every showing of the Power and Security pages; a house's own folder stays as it is)
+                        ("web/hk/energy/hk-energy-house.js", "base === '/hk/power-house/' && window.hkV ? window.hkV(u) : u"),
+                        ("web/hk/headers/hk-headers-security-vacuum.js",
+                         "base === '/hk/power-house/' && window.hkV ? window.hkV(base + L[0]) : base + L[0]")):
         assert needle in web_sources.read(rel), (rel, needle)                  # (a shell with its parts)
 
 

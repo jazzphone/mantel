@@ -1246,10 +1246,28 @@
     }
 
     // --------------------------------------------------------- choosing
+    // THE TAP IS ANSWERED BEFORE THE PAGE IS MADE (2026-11-14, the Kitchen's tablet: a tab tapped, and nothing for 420 ms
+    // -- the page's cards attached, laid out and its glass placed, all in the tap's own task, the highlight waiting
+    // with them). The highlight goes to the tab at once, in a frame of its own (as a swipe's landing says where it is
+    // going before the address does: S.landing), and the page is asked for once that frame is drawn. The last tap
+    // wins, as before; a page that draws no frames goes by the timer.
+    var TAP_FRAME_MS = 120, goT = 0;
     function go(it) {
       closeSheet();
       if (!it || H.isHere(it, location.pathname)) return;
-      SH.navigate(it.path);
+      var path = it.path;
+      if (!S.root || !S.on || typeof requestAnimationFrame !== 'function' || document.hidden) { SH.navigate(path); return; }
+      S.landing = path;
+      markHere();
+      var gone = false, turn = ++goT;
+      var nav = function () {
+        if (gone) return;
+        gone = true;
+        // (overtaken by a later tap: that one's page, not this)
+        if (turn === goT) SH.navigate(path);
+      };
+      requestAnimationFrame(function () { setTimeout(nav, 0); });
+      setTimeout(nav, TAP_FRAME_MS);
     }
     function onTab(e) {
       var el = e.target.closest && e.target.closest('.tab');

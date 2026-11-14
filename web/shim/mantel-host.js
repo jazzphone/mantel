@@ -80,6 +80,29 @@ export const USER_DATA_KEYS = new Set(['hk_music_focus', 'favorites', 'intercom'
 // here, as it does for every address Mantel gives a page (HA App mode serves Mantel under Ingress).
 export const SNAP_SIGN = 'hk_notify/snap/sign';
 const DIFF_FALLBACK_MS = 250;      // a hidden page draws no frames: the hub's diffs are applied by this timer then
+// the hub's diffs wait while a finger is down or a page swipe moves (Host.applyDiff): this long at most, looked at
+// again this often
+const HOLD_MS = 1200, HOLD_STEP_MS = 80;
+// a walk of the house: more ids than this (and than half the house) read for the first time in one go (Host._scanned)
+const SCAN_MIN = 1000;
+// A FINGER ON THE GLASS, or a page a swipe is moving (hk-pageswipe.js moving()). Fingers are counted as they come down
+// and lift; one whose lift never came (a pointer lost with its element) stops counting FINGER_MS after it came down.
+const FINGER_MS = 4000;
+let fingers = 0, fingerAt = 0;
+if (typeof window !== 'undefined' && window.addEventListener) {
+  const down = () => { fingers += 1; fingerAt = Date.now(); };
+  const up = () => { fingers = Math.max(0, fingers - 1); };
+  const o = { capture: true, passive: true };
+  window.addEventListener('pointerdown', down, o);
+  window.addEventListener('pointerup', up, o);
+  window.addEventListener('pointercancel', up, o);
+}
+function held() {
+  if (fingers > 0 && Date.now() - fingerAt > FINGER_MS) fingers = 0;
+  if (fingers > 0) return true;
+  const P = typeof window !== 'undefined' ? window.hkPageSwipe : null;
+  try { return !!(P && P.moving && P.moving()); } catch (e) { return false; }
+}
 export const ART_SIGN = 'hk_frontend/art/sign';
 // ALBUM ART SCALED BY MANTEL (2026-10-29; connectors/media_art.py, hk_core/art): a remote cover (Apple's CDN,
 // Music Assistant's image proxy) is fetched by the server and scaled to the tile's size bucket, so a tablet
@@ -264,6 +287,8 @@ export class Host {
     // it, their next read missed and asked again, and their data went away and came back (the owner,
     // 2026-10-30: "lots of the data seems to just disappear and come back"). home.js keeps these too.
     this.seen = new Set();
+    this._burst = null;                     // what one piece of work has read for the first time (_begin)
+    this._house = 0;                        // the most states the house has shown at once (a walk is half of it: _scanOver)
     this.building = false;                  // the strategy's whole-house pass: its reads are no surface's
     // a read of an id the current (narrowed) subscription does not carry: home.js asks the hub for it
     // (onMiss), so a card that reads something later than the recorded pass still gets its state
@@ -367,6 +392,35 @@ export class Host {
     this._wrapStates();
   }
 
+  // A LOOK OVER THE WHOLE HOUSE IN ONE GO IS NO SCREEN'S NEED, WHOEVER FORGOT TO SAY SO (2026-11-14). A card that walks
+  // every entity -- for the battery of a lock's device, the washer among the sensors -- reads each one's state, and each
+  // read is "this screen shows it": the narrowed page kept the whole house again, and a wall tablet took every update
+  // of 4,500 entities for a list of five. Each such walk was found on a tablet and marked (hkShell.unrecorded: Laundry,
+  // the weather's air quality, a chip row, a room tile, Security's device care); this is for the next one. The ids one
+  // piece of work reads for the first time (from one task's start to its end: a walk is one loop) are counted, and
+  // past half the house (SCAN_MIN at least: a small house's page may well show most of it) it was a walk: what it
+  // read is not kept (onScan gives back the ones it asked for), and the console says where it came from, once.
+  _begin() {
+    const b = this._burst = { reads: [], seen: [], miss: [], scan: false };
+    queueMicrotask(() => { if (this._burst === b) this._burst = null; });
+    return b;
+  }
+  _scanOver() { return Math.max(SCAN_MIN, this._house / 2); }
+  _scanned(b) {
+    b.scan = true;
+    for (const k of b.reads) this.reads.delete(k);
+    for (const k of b.seen) this.seen.delete(k);
+    if (b.miss.length && this.onScan) this.onScan(b.miss);
+    if (!this._scanSaid) {
+      this._scanSaid = true;
+      const n = b.reads.length + b.seen.length + b.miss.length;
+      try {
+        console.warn('[mantel] a walk of the whole house read ' + n + ' states in one go: not kept for this screen ' +
+                     '(hkShell.unrecorded says so on purpose)', new Error('the walk').stack);
+      } catch (e) { /* no console */ }
+    }
+  }
+
   get client() { return window.hkHostClient.from(this.hass); }
   // the current snapshot (the object the adapter makes clients from), by its neutral name
   get snapshot() { return this.hass; }
@@ -376,13 +430,16 @@ export class Host {
     // while recording, reading a state by id notes the id (what a screen really needs from the hub)
     this._raw.states = new Proxy(this._merged, {
       get(t, k) {
-        if (typeof k === 'string') {
-          if (self.recording) self.reads.add(k);
+        if (typeof k === 'string' && !self.building) {
+          const b = self._burst || self._begin();
+          if (b.scan) return t[k];
+          if (self.recording) { if (!self.reads.has(k)) { self.reads.add(k); b.reads.push(k); } }
           // (not in a whole-house pass -- the strategy's, or hkShell.unrecorded's: a room tile's sort of the house asks
           // for every entity in the registry, and each one the narrowed page lacked came back as a miss, so the Loft's
           // screen kept all 4,602 again, 2026-11-13)
-          else if (self.onMiss && !self.building && !(k in t) && k.indexOf('.') > 0) self.onMiss(k);
-          if (!self.building && k in t) self.seen.add(k);
+          else if (self.onMiss && !(k in t) && k.indexOf('.') > 0) { b.miss.push(k); self.onMiss(k); }
+          if (k in t && !self.seen.has(k)) { self.seen.add(k); b.seen.push(k); }
+          if (b.reads.length + b.seen.length + b.miss.length > self._scanOver()) self._scanned(b);
         }
         return t[k];
       },
@@ -415,7 +472,9 @@ export class Host {
     this._diffs.length = 0;
     this._disarm();
     const next = {};
-    for (const [id, s] of Object.entries(entities)) next[id] = stateObj(id, s);
+    let n = 0;
+    for (const [id, s] of Object.entries(entities)) { next[id] = stateObj(id, s); n += 1; }
+    if (n > this._house) this._house = n;
     this._states = next;
     this._publish();
   }
@@ -427,11 +486,23 @@ export class Host {
   // a timer is set beside the frame request and whichever comes first applies them: the state of a tablet whose
   // screen is off (or a tab in the background) does not stall, and is not left to pile up. applySnapshot drops what
   // waits (it is older), and flushDiffs() applies it now (tests, and anything that must read the newest).
+  // ...AND NOT UNDER A FINGER (2026-11-14, the Kitchen's tablet): one publish is every card on the screen looking at
+  // the house again, 20-75 ms of the page's one thread there (50-135 with the whole house), and one that landed in a
+  // swipe or on a press was frames not drawn. While a finger is on the glass or a page is on its way home (held()),
+  // what came waits, HOLD_MS at most from the first of it: a slider held for a minute still sees the house.
   applyDiff(m) {
     this._diffs.push(m);
     if (this._armed) return;
-    const gen = this._armed = ++this._gen;
-    const go = () => { if (this._armed === gen) this.flushDiffs(); };
+    const gen = this._armed = ++this._gen, since = Date.now();
+    const go = () => {
+      if (this._armed !== gen) return;
+      if (held() && Date.now() - since < HOLD_MS) {
+        clearTimeout(this._diffTimer);
+        this._diffTimer = setTimeout(go, HOLD_STEP_MS);
+        return;
+      }
+      this.flushDiffs();
+    };
     if (typeof requestAnimationFrame === 'function') requestAnimationFrame(go);
     this._diffTimer = setTimeout(go, typeof requestAnimationFrame === 'function' ? DIFF_FALLBACK_MS : 0);
   }

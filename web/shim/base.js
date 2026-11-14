@@ -27,7 +27,11 @@ export const mantelUrl = (path) => base + path;
 // it is fetched once and runs once. Run from a checkout (nothing stamped) it changes nothing. HK Frontend has no
 // hkV: its callers use the address as it is.
 const BUILD = new URL(import.meta.url).searchParams.get('v');
-export const hkV = (u) => (BUILD && typeof u === 'string' && u.indexOf('?') < 0 && /\.(m?js|css)$/.test(u)
+// ...AND THE PICTURES THAT SHIP (2026-11-14, the owner: the house on the Power and Security pages "sometimes takes
+// awhile to load"): asked for bare, the picture's layers were no-cache -- every showing of the page asked the server
+// again before it drew them, and the tablet app keeps only stamped files on its own disk. A caller stamps only what
+// comes with the build (hk-energy-house.js: /hk/power-house/), never a house's own folder, which changes under one id.
+export const hkV = (u) => (BUILD && typeof u === 'string' && u.indexOf('?') < 0 && /\.(m?js|css|webp|png|jpe?g|avif|svg)$/.test(u)
   ? u + '?v=' + BUILD : u);
 window.hkV = hkV;
 export const wsUrl = (path) => `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}${base}${path}`;

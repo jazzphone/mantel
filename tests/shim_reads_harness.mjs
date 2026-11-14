@@ -3,7 +3,8 @@
 // Prints one JSON object of what was observed.
 const sent = [];
 globalThis.window = globalThis;
-globalThis.addEventListener = () => {};
+const heard = {};
+globalThis.addEventListener = (type, fn) => { heard[type] = fn; };
 globalThis.dispatchEvent = () => true;
 globalThis.location = { origin: 'http://mantel.test', search: '', protocol: 'http:', host: 'mantel.test' };
 globalThis.document = { querySelector: () => null };
@@ -152,9 +153,83 @@ out.misses = misses;
   host.applyDiff({ changes: { 'sensor.w': { '+': { s: 'now' } } } });
   host.flushDiffs();
   b.flushed = host.hass.states['sensor.w'].state;
+  // NOT UNDER A FINGER (2026-11-14): while a finger is down or a page swipe moves, what came waits -- looked at again
+  // by a timer, never longer than HOLD_MS from the first of it
+  {
+    const h = {}, live = () => timers.filter((x) => x.live), realNow = Date.now;
+    let now = 1000000; Date.now = () => now;
+    const pub = () => published - b.published;
+    heard.pointerdown();
+    const p0 = pub();
+    host.applyDiff({ changes: { 'sensor.w': { '+': { s: 'held' } } } });
+    frames.splice(0).forEach((f) => f());
+    h.down = { published: pub() - p0, w: host.hass.states['sensor.w'].state, timer: live().length === 1 && live()[0].ms };
+    now += 80; live()[0].f();                                            // still down: it waits on
+    h.still = { published: pub() - p0, timers: live().length };
+    heard.pointerup();
+    now += 80; live()[0].f();                                            // lifted: applied by the timer's next look
+    h.up = { published: pub() - p0, w: host.hass.states['sensor.w'].state, timers: live().length };
+    // a page on its way home (hk-pageswipe.js moving()) holds it too...
+    globalThis.hkPageSwipe = { moving: () => true };
+    const p1 = pub();
+    host.applyDiff({ changes: { 'sensor.w': { '+': { s: 'moving' } } } });
+    frames.splice(0).forEach((f) => f());
+    h.moving = { published: pub() - p1, w: host.hass.states['sensor.w'].state };
+    // ...but never past HOLD_MS from the first of what waits
+    now += 1300; live()[0].f();
+    h.capped = { published: pub() - p1, w: host.hass.states['sensor.w'].state, timers: live().length };
+    delete globalThis.hkPageSwipe;
+    // a finger whose lift never came stops counting
+    heard.pointerdown(); now += 5000;
+    const p2 = pub();
+    host.applyDiff({ changes: { 'sensor.w': { '+': { s: 'lost' } } } });
+    frames.splice(0).forEach((f) => f());
+    h.lost = { published: pub() - p2, w: host.hass.states['sensor.w'].state };
+    Date.now = realNow;
+    b.hold = h;
+  }
   host.listeners = null;
   globalThis.setTimeout = realSet; globalThis.clearTimeout = realClear; delete globalThis.requestAnimationFrame;
   out.batch = b;
+}
+// A WALK OF THE WHOLE HOUSE IS NOT KEPT (2026-11-14): more ids than half the house (1,000 at least) read for the first
+// time in one go are no screen's need -- not recorded, not seen, and the misses given back (onScan)
+{
+  const tick = () => new Promise((r) => setTimeout(r, 0));
+  const house = {}; for (let i = 0; i < 3000; i++) house['sensor.s' + i] = { s: String(i), a: {}, lc: 1, lu: 1 };
+  const w = {}; const warned = []; const realWarn = console.warn; console.warn = (...a) => warned.push(String(a[0]));
+  host.applySnapshot(house);
+  host.seen.clear(); host.reads.clear();
+  let s2 = host.hass.states;
+  for (let i = 0; i < 1400; i++) void s2['sensor.s' + i];              // a big page, under half the house: seen
+  w.page = host.seen.size;
+  await tick();
+  for (let i = 0; i < 3000; i++) void s2['sensor.s' + i];              // a walk: what it read first is not kept
+  w.walk = host.seen.size; w.warned = warned.length;
+  await tick();
+  void s2['sensor.s2999'];                                             // ...and a read of one of them afterwards is
+  w.after = host.seen.has('sensor.s2999');
+  host.recording = true; host.reads.clear();
+  for (let i = 0; i < 3000; i++) void s2['sensor.s' + i];              // the same while a pass is recorded
+  w.recorded = host.reads.size; host.recording = false;
+  await tick();
+  // narrowed: the walk's misses are given back
+  const few = { 'sensor.s0': house['sensor.s0'] };
+  host.applySnapshot(few);
+  const asked = [], back = [];
+  host.onMiss = (id) => asked.push(id); host.onScan = (ids) => back.push(...ids);
+  s2 = host.hass.states;
+  void s2['sensor.s5']; void s2['sensor.s6'];
+  await tick();
+  w.misses = asked.length;
+  for (let i = 0; i < 3000; i++) void s2['sensor.s' + i];
+  w.walkAsked = asked.length - w.misses; w.walkBack = back.length; w.same = back.every((id) => asked.includes(id));
+  await tick();
+  host.building = true; for (let i = 0; i < 3000; i++) void s2['sensor.s' + i]; host.building = false;   // (said on purpose: nothing)
+  w.unrecorded = asked.length - w.misses - w.walkAsked;
+  w.warnedOnce = warned.length;
+  console.warn = realWarn; host.onScan = null;
+  out.walk = w;
 }
 out.sent = sent;
 console.log(JSON.stringify(out));

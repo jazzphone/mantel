@@ -312,3 +312,76 @@ What still costs it, for later:
 - **OpenGL through a reboot**: Android keeps `debug.hwui.renderer` only until a restart, and no WebView flag gives
   Vulkan the same speed (WebViewVulkanIntermediateBuffer is a debugging switch). A tablet app can't set it; something
   holding adb (the app's own Wireless Debugging, paired once) could set it again after each boot.
+
+
+## The Kitchen's tablet, the day after (2026-11-14): the feed, and a swipe's layers
+
+The owner asked for a look across the whole code for what still makes the Kitchen's tablet struggle, taps and page
+swipes above all, and named the Energy and Power pages. Measured on the tablet over adb and DevTools: Chrome traces of
+swipes and taps (frames drawn in `DrawFn_DrawGL`, the draw's waits, tiles made), the layers that repaint at each stage
+of a staged swipe (`LayerTree.layerPainted`), a script profile at rest, and the hub's subscription.
+
+**The feed.** Three faults put the whole house back on a narrowed screen, and with it every update of 4,566 entities
+(two a second, each 50-135 ms of every card's work on this tablet, landing in swipes and on taps):
+
+- **The idle return never narrowed again.** `hk-idle.js` goes Home by `/<screen>/0`; `home.js` took an address whose
+  view it didn't know by that name for a page not seen, and widened -- and nothing narrows after a widening but a
+  page's *first* showing. Home had been seen: wide for good. Now the view host says whether the page an address means
+  has been seen (`hasSeen`), and every widening is followed up (8 s on, a page still wide narrows to what it has read).
+- **Security's device care walked every entity** for a battery sensor, and each read counted as the screen's: a tablet
+  that had been to Security -- or had it waiting beside Power for a swipe -- kept 4,559 states. The walk now reads only
+  the sensors on the care entities' own devices, unrecorded.
+- **The fifth such walk found on a tablet**, so the host now tells one itself: more ids than half the house (1,000 at
+  least) read for the first time in one go are not kept, and the console says where it came from
+  (`mantel-host.js` `_scanned`).
+
+And the hub's updates wait while a finger is on the glass or a page swipe moves the page (1.2 s at most).
+
+**A swipe's layers.** What a swipe drew again, and when:
+
+- The page waiting beside the one shown had no layer until the finger's first move: drawn for the first time under it,
+  the page 300-400 ms behind the finger. It keeps a layer while it waits (it is fixed and moved aside already).
+- Pre-rendered glass moved its picture back on every move of the finger, and a picture moved is its layer painted
+  again: on a page that scrolls the document, the whole page (Energy: 4.7 screens a move). On Android the picture now
+  rides with its page, placed once for where the page will rest. For the third of a second a page is on its way, the
+  frost in a card is the sky where the card will be, not where it is; at rest nothing differs.
+- A page landing gave its layer up at once (the whole page drawn again into the document's layer) and took one again at
+  the next flick's first move. It keeps it for 1.5 s, and gives it back at once at a tap: a layer of its own makes a
+  page the box its cards' sheets are fixed in.
+- Not in a car's browser, which runs short of GPU memory on the page it shows (`hk-pageswipe.js` `keeps`): there a
+  page gets its layer as the finger starts and gives it back as it lands, as before.
+- Tried and taken out: a layer of its own for the glass's layer. Android's WebView then drew the picture across the
+  layer's whole box, a lighter box around every page (the owner saw it by the back arrow).
+
+**The house on the Power and Security pages** (the owner: "sometimes takes awhile to load"). Not its size: the house
+is 216 KB of WebP, 1,534 px wide, the set 325 KB. Its layers were asked for bare, so the server said no-cache: every
+showing of the page asked again before it drew them, and the tablet app keeps only files named with the build on its
+own disk. The picture that ships now goes under the build's id (`hkV`): kept by the browser for good, and by the app.
+A house's own picture folder is as it was.
+
+**A tab tapped** answered after 420 ms: the page's cards attached and laid out in the tap's own task, the highlight
+waiting with them. The highlight goes at once, the page a frame later (first frame 126 ms).
+
+| What | Before | After |
+|---|---|---|
+| States kept after the idle return (Home seen) | 4,566, for good | ~300 |
+| States kept after Energy, Power (Security beside it) | 4,559 | 467 |
+| The hub's updates at rest, once it had widened | 2.1 a second, ~100 ms each | 0.8 a second, ~55 ms each |
+| Script at rest, of the page's one thread | 19 % | 9 % |
+| Energy to Power and back: frames a second while it moves | 10-16 | 31-34 |
+| ...tiles made in a swipe | 104-155 | 25-40 |
+| Home to Pages and back: frames a second | 23-31 | 26-38 |
+| ...the page behind the finger at the start | ~360 ms | 130-190 ms |
+| A tab tapped: the first frame after | 420 ms | 126 ms |
+
+What still costs it, for later:
+
+- **Each update is still every card's work** (~55 ms here with 300-500 states): the Side Pane's timers, Show When's
+  conditions, a room tile's line, House Status drawn again. A card told only when something it read has changed is the
+  fix for all of them at once; the host already knows what each read.
+- **The page shown has no layer at rest**, so the first swipe after a rest draws it again as it starts (Home ~100 ms,
+  a page that scrolls the document 150-240 ms). It can't keep one for good (sheets fixed inside cards).
+- **The landing's own task** is 100-190 ms (`end`: the address, the Side Pane, the tab bar, a layout), and the page
+  after next is attached right behind it (another 100-150 ms): nothing moves by then, but a finger waits.
+- **Drawing a frame takes about 20 ms** on this tablet with nothing to paint (2-7 render passes: the lists' fade masks,
+  the sky's layers, a page's blurred ground), so 60 frames a second is out of reach before any of the above.

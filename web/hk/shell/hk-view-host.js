@@ -1615,6 +1615,9 @@
       seen: function () {
         return Object.keys(seen).map(function (k) { return pathOf(views()[Number(k)], Number(k)); });
       },
+      // ...and whether the page an address means is one of them (find(): a path, a view's number, '' for the first --
+      // the idle return goes to `/<dashboard>/0`, which is Home whatever Home's path is)
+      hasSeen: function (path) { var i = find(path); return i >= 0 && !!seen[i]; },
       shellParts: shellParts,
       onView: onView
     };

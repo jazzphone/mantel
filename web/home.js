@@ -238,6 +238,16 @@ let narrowTimer = 0, narrowPending = false;
 // after the page narrowed -- a timer, a later render, a path the recorded pass missed -- adds it, and the
 // hub is asked again (batched), so the card never stays "unknown" (seen on the Vacuums page, 2026-10-18).
 host.onMiss = (id) => { if (narrowed) keep(id); };
+// (...but not a walk of the whole house: what it asked for is given back -- mantel-host.js _scanned)
+host.onScan = (ids) => { for (const id of ids) needed.delete(id); window.__mantelNarrow = needed.size; };
+// ...AND NARROWED AGAIN, WHOEVER WIDENED IT (2026-11-14, the Kitchen's tablet: the whole house, 4,566 states and two
+// updates a second, each 50-135 ms of every card's work, long after the page had narrowed to 300). Only a page's
+// first showing narrowed again (onView, warmed) -- and a widening may end in none: the idle return's address
+// (`/<screen>/0`, a view by its number) read as a page not seen, a tap overtaken by the next one, a page that
+// could not be built. So every widening is followed up: WIDE_MS on, a page still wide with no narrowing on its way
+// narrows to what the screen has read.
+const WIDE_MS = 8000;
+let wideTimer = 0;
 async function widen() {
   if (!narrowed) return;
   narrowed = false;
@@ -246,6 +256,8 @@ async function widen() {
   host.recording = false;
   const got = nextSnapshot();
   hub.subscribe([], [], true);
+  clearTimeout(wideTimer);
+  wideTimer = setTimeout(() => { if (!narrowed && !narrowPending) narrowSoon(window.__mantelView); }, WIDE_MS);
   await got;
 }
 // (`view`: the page's config. Its cards whose code a page loads on first use (hk-loader.js hkNeed) are waited for
@@ -306,7 +318,9 @@ window.__mantelViewHost = viewHost;
   let latest = 0;
   S.navigate = function (path, init, opts) {
     const parts = String(path || '').split(/[?#]/)[0].split('/');
-    const unseen = narrowed && parts[1] === seg && viewHost.seen().indexOf(parts[2] || '') < 0;
+    // (the page the address means, as the view host finds it: a view's number -- the idle return's `/0` -- or no
+    // view at all is Home, seen long ago)
+    const unseen = narrowed && parts[1] === seg && !viewHost.hasSeen(parts[2] || '');
     const mine = ++latest;
     if (!unseen) return go.call(S, path, init, opts);
     widen().then(() => { if (mine === latest) go.call(S, path, init, opts); });

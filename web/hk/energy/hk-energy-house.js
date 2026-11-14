@@ -225,7 +225,10 @@
         var crop = A.crop != null ? A.crop : Math.max(0, Math.min.apply(null, Object.keys(L).map(function (k) { return L[k][2]; })) - 50);
         var vh = H - crop, maxh = c.max_height || A.max_height || 560;
         // the layers, each at its trimmed place
-        var img = function (k) { var l = L[k]; return l ? '<image href="' + base + l[0] + '" x="' + l[1] + '" y="' + l[2] + '" width="' + l[3] + '" height="' + l[4] + '"/>' : ''; };
+        // (the house that ships is the build's own: its layers under the build's id, kept by the browser and the tablet
+        // app rather than asked for again at every showing -- window.hkV, web/shim/base.js; a folder of your own isn't)
+        var at = function (f) { var u = base + f; return base === '/hk/power-house/' && window.hkV ? window.hkV(u) : u; };
+        var img = function (k) { var l = L[k]; return l ? '<image href="' + at(l[0]) + '" x="' + l[1] + '" y="' + l[2] + '" width="' + l[3] + '" height="' + l[4] + '"/>' : ''; };
         var fade = A.fade || { right: [0.86, 0.985], bottom: [0.9, 1] };
         var svg = '<svg viewBox="0 ' + crop + ' ' + W + ' ' + vh + '" preserveAspectRatio="xMidYMid meet" aria-hidden="true"><defs>' +
           '<linearGradient id="hfx" x1="0" x2="1" y1="0" y2="0"><stop offset="' + fade.right[0] + '" stop-color="#fff"/><stop offset="' + fade.right[1] + '" stop-color="#000"/></linearGradient>' +

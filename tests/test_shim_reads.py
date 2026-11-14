@@ -99,6 +99,19 @@ def test_the_hubs_diffs_are_applied_once_per_frame_in_order(observed):
     assert b["flushed"] == "now"
 
 
+def test_the_hubs_diffs_wait_while_a_finger_is_down_or_a_page_moves(observed):
+    """Not under a finger (2026-11-14, the Kitchen's tablet): one publish is every card looking at the house again,
+    20-75 ms there, and one landing in a swipe or on a press was frames not drawn. What came waits while a finger is on
+    the glass or a page swipe moves it, looked at again by a timer and never more than 1.2 s from the first of it."""
+    h = observed["batch"]["hold"]
+    assert h["down"] == {"published": 0, "w": "now", "timer": 80}          # the frame came: held, a timer looks again
+    assert h["still"] == {"published": 0, "timers": 1}
+    assert h["up"] == {"published": 1, "w": "held", "timers": 0}           # the finger lifted: applied
+    assert h["moving"] == {"published": 0, "w": "held"}                    # a page on its way home holds it too
+    assert h["capped"] == {"published": 1, "w": "moving", "timers": 0}     # ...1.2 s at most
+    assert h["lost"] == {"published": 1, "w": "lost"}                      # a finger never lifted stops counting
+
+
 def test_the_music_queue_is_a_read(observed):
     frames = [m for m in observed["sent"] if m["type"] == "read" and m["msg"]["type"].startswith("hk_music/")]
     assert [f["msg"] for f in frames] == [{"type": "hk_music/queue", "entity_id": "media_player.kitchen", "limit": 40}]
@@ -133,3 +146,18 @@ def test_a_read_the_narrowed_states_lack_is_reported(observed):
     # made while recording, nor in a whole-house pass (the strategy's or hkShell.unrecorded's: a room tile's sort of the
     # house asked for every entity in the registry, and the Loft's narrowed screen kept all 4,602 again, 2026-11-13)
     assert observed["misses"] == ["vacuum.downstairs"]
+
+
+def test_a_walk_of_the_whole_house_is_not_kept_for_the_screen(observed):
+    """2026-11-14, the Kitchen's tablet: Security's device care walked every entity for a battery, each read counted as
+    one the screen shows, and the narrowed page kept 4,559 of the house's 4,566 states from the first swipe past Power.
+    The fifth such walk found on a tablet -- so the host tells one itself: more ids than half the house (1,000 at
+    least) read for the first time in one go are not kept, and what a narrowed page asked for is given back."""
+    w = observed["walk"]
+    assert w["page"] == 1400                                   # a big page's reads, under half the house: kept
+    assert w["walk"] == 1400 and w["warned"] == 1              # the walk added nothing, and the console said so
+    assert w["after"] is True                                  # one of them read afterwards is the screen's
+    assert w["recorded"] == 0                                  # the same in a recorded pass
+    assert w["misses"] == 2                                    # narrowed: a card's own misses are asked for...
+    assert w["walkAsked"] == w["walkBack"] == 1501 and w["same"]   # ...a walk's are given back, all of them
+    assert w["unrecorded"] == 0 and w["warnedOnce"] == 1       # hkShell.unrecorded's pass asks nothing; said once

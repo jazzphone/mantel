@@ -523,7 +523,12 @@
       var placing = 0;
       (anchor === DOC ? window : anchor).addEventListener('scroll', function () {
         if (!(FROST || BY_HAND) || placing) return;
-        placing = requestAnimationFrame(function () { placing = 0; if (layer.isConnected) frostPlaceAll(layer); });
+        placing = requestAnimationFrame(function () {
+          placing = 0;
+          if (!layer.isConnected) return;
+          var m = RIDES ? alongOf(layer) : null;
+          frostPlaceAll(layer, m, m ? viewOf(layer) : null);
+        });
       }, { passive: true });
     }
     preDress(layer);
@@ -626,7 +631,21 @@
   // where the sharp wallpaper belongs -- a hard-edged box over the grid. Placed by hand it is a plain background, cut to
   // the cards like the rest (the gaps then matched live glass: 6,125 differing pixels to 350, the clock's).
   var BY_HAND = typeof navigator !== 'undefined' && /Android/.test(navigator.userAgent || '');
-  function frostPlace(d) {
+  // ...AND FOR WHERE ITS PAGE WILL REST, THROUGH A SWIPE (RIDES; 2026-11-14, the Kitchen's tablet, the owner: the Power
+  // and Energy pages "have lots of stutter swiping between them"). The picture was held still under a moving page by
+  // moving it back as far, on every move of the finger (frostAt, shiftPic) -- and a picture moved is its layer painted
+  // again: on a page that scrolls the document that layer is the whole page, 4,025 px of cards drawn again for each
+  // frame (4.7 screens a move, 10 frames a second), and on any page two or three screen-size layers made as the settle
+  // began, the frame waiting for them. Placed by hand, the picture is put once where the screen will be when its page
+  // has landed (`m`: the page's box corner; the layer's place in its page is the same wherever the swipe has it) and
+  // rides with the page: nothing is painted while it moves, and it lands lined up with the sky, where it stays.
+  // What it gives up: for the third of a second a page is on its way, the frost in a card is the sky where the card
+  // will be, not where it is.
+  var RIDES = BY_HAND;
+  // (Its layer is NOT given a layer of its own to spare that drawing at a swipe's start: tried 2026-11-14, will-change on
+  // the layer -- Android's WebView then drew the picture across the layer's whole box, not only in the cards' shapes, a
+  // lighter box around every page: the owner saw it at once by the back arrow. It saved nothing that could be measured.)
+  function frostPlace(d, m, el) {
     var L = d.parentNode;
     if (!L || L.nodeType !== 1 || d.style.position === 'fixed') return;
     if (!BY_HAND && !transformedAbove(L)) {
@@ -636,13 +655,21 @@
     }
     var r = L.getBoundingClientRect(), s = L.offsetWidth ? r.width / L.offsetWidth : 1;
     if (!(s > 0)) return;
+    var left = r.left, top = r.top;
+    if (m && el && el.getBoundingClientRect) {
+      var e = el.getBoundingClientRect();
+      left = (m.left || 0) + (r.left - e.left); top = (m.top || 0) + (r.top - e.top);
+    }
+    var W = window.hkCards && window.hkCards.winSize ? window.hkCards.winSize() : null;
+    var size = ((W ? W.w : window.innerWidth) / s).toFixed(1) + 'px ' + ((W ? W.h : window.innerHeight) / s).toFixed(1) + 'px';
+    var pos = (-left / s).toFixed(1) + 'px ' + (-top / s).toFixed(1) + 'px';
     d.__hkPlaced = true;
-    d.style.backgroundAttachment = 'scroll';
-    d.style.backgroundSize = (window.innerWidth / s).toFixed(1) + 'px ' + (window.innerHeight / s).toFixed(1) + 'px';
-    d.style.backgroundPosition = (-r.left / s).toFixed(1) + 'px ' + (-r.top / s).toFixed(1) + 'px';
+    if (d.style.backgroundAttachment !== 'scroll') d.style.backgroundAttachment = 'scroll';
+    if (d.__hkSize !== size) { d.__hkSize = size; d.style.backgroundSize = size; }
+    if (d.__hkPos !== pos) { d.__hkPos = pos; d.style.backgroundPosition = pos; }
   }
-  function frostPlaceAll(L) {
-    Array.prototype.forEach.call(L.children || [], function (c) { if (isFrost(c)) frostPlace(c); });
+  function frostPlaceAll(L, m, el) {
+    Array.prototype.forEach.call(L.children || [], function (c) { if (isFrost(c)) frostPlace(c, m, el); });
   }
   // the sheets' share (hk-detail-frame.js): the picture on the root, for a style query to put under their plates
   function frostRoot() {
@@ -696,7 +723,7 @@
     if (!L._hkPre) {
       var img = preImg(want), m = alongOf(L);
       L.appendChild(img);
-      if (m) shiftPic(img, m); else if (isFrost(img)) frostPlace(img);
+      if (m) shiftPic(img, m, viewOf(L)); else if (isFrost(img)) frostPlace(img);
       // (a layer in something scaled inside the page -- a pager's track -- is
       // out of line however the page is moved: it blurs live, and along()
       // leaves it so until it is looked at again with the page at rest)
@@ -711,6 +738,8 @@
     var m = alongOf(L);
     if (!m) L._hkNoPic = false;
     if ((FROST || BY_HAND) && !m) frostPlaceAll(L);
+    // (a page a swipe has, its pictures riding with it: looked at again where they will rest -- its box may have changed)
+    else if (RIDES && m) frostPlaceAll(L, m, viewOf(L));
     if (L._hkPre) { if (!lined(L._hkPre)) { L._hkNoPic = true; preUndress(L); } }
     else if (!L._hkNoPic) preDress(L);
   }
@@ -752,9 +781,17 @@
     return null;
   }
   // (its own fade kept beside it: __hkOpa, what wearAll gave it)
-  function shiftPic(img, m) {
-    if (isFrost(img)) frostAt(img, m);
+  function shiftPic(img, m, el) {
     var opa = img.__hkOpa !== undefined ? img.__hkOpa : 'opacity ' + PRE_FADE + 'ms linear';
+    // (a picture that rides with its page: placed for where the page will rest, once, and left -- RIDES)
+    if (RIDES && isFrost(img)) {
+      if (img.style.position === 'fixed' || img.style.transform) { frostAt(img, null); img.__hkPos = img.__hkSize = null; }
+      if (img.style.transition !== opa) img.style.transition = opa || 'none';
+      if (m) { if (img.parentNode && !img.__hkRides) { img.__hkRides = true; frostPlace(img, m, el); } }
+      else img.__hkRides = false;
+      return;
+    }
+    if (isFrost(img)) frostAt(img, m);
     var parts = [opa, m && m.tr && m.tr !== 'none' ? m.tr : ''].filter(Boolean);
     img.style.transition = parts.length ? parts.join(', ') : 'none';
     img.style.transform = m ? 'translate(' + (-(m.left + m.x)).toFixed(1) + 'px,' + (-m.top).toFixed(1) + 'px)' : '';
@@ -794,7 +831,7 @@
         L.appendChild(L._hkPre);
       }
       // (the one it wore before, still fading out under it after a repaint, too)
-      Array.prototype.forEach.call(L.querySelectorAll('[data-hk-pre]'), function (img) { shiftPic(img, m); });
+      Array.prototype.forEach.call(L.querySelectorAll('[data-hk-pre]'), function (img) { shiftPic(img, m, el); });
       if (!m && (FROST || BY_HAND)) frostPlaceAll(L);
     });
   }
@@ -1036,9 +1073,9 @@
       var was = L._hkPre, img = preImg(url);
       if (!same) img.style.transition = 'none'; else { img.style.transition = 'opacity ' + ms + 'ms linear'; img.style.opacity = '0'; }
       var am = alongOf(L);
-      if (am) { img.__hkOpa = same ? 'opacity ' + ms + 'ms linear' : ''; shiftPic(img, am); }
+      if (am) { img.__hkOpa = same ? 'opacity ' + ms + 'ms linear' : ''; shiftPic(img, am, viewOf(L)); }
       L.appendChild(img);
-      if (!am && isFrost(img)) frostPlace(img);
+      if (isFrost(img)) { if (!am) frostPlace(img); else if (RIDES) shiftPic(img, am, viewOf(L)); }
       L._hkPre = img;
       // THE OLD PICTURE GOES ONCE THE NEW ONE IS IN -- counted from when its
       // fade STARTS, not from when it was put in. The fade starts in the next

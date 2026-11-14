@@ -407,6 +407,12 @@
     s.setProperty('overflow', 'hidden');
     s.setProperty('pointer-events', 'none');
     s.setProperty('transition', 'none');
+    // ITS OWN LAYER WHILE IT WAITS, not from the finger's first move (2026-11-14, the Kitchen's tablet: a page moved
+    // 300-400 ms after the finger did). Given a layer only then (heat), the page beside this one was drawn for the
+    // first time under the finger -- every tile of it, the frame waiting -- and its layer taken away again as it
+    // landed. Fixed and moved aside it is its own box already, so a layer changes nothing it shows; the browser draws
+    // it while nothing else wants the time, and a swipe finds it drawn.
+    if (keeps()) s.setProperty('will-change', 'transform');
     if (st.origin) s.setProperty('transform-origin', st.origin);
     if (G && G.stage === st) setX(N.el, N.off + xOfNeighbor(st, N), st.base);
     else rest(st, N);
@@ -457,7 +463,8 @@
       return kept;
     }
     var N = { item: item, dir: dir, real: !!p, el: p ? p.el : ghost(item), ground: null };
-    N.saved = save(N.el);
+    N.saved = saveEl(N.el);
+    unlinger(N.el, true);
     // (beside the page, not it: its pop-ups wait for it to land -- hk-popup.js peeking)
     N.el.setAttribute('hk-swipe-peek', '');
     if (N.real) {
@@ -651,17 +658,21 @@
   function heat(st) {
     if (st.hot) return;
     st.hot = true;
-    if (!st.saved) st.saved = save(st.view);
+    if (!st.saved) st.saved = saveEl(st.view);
+    unlinger(st.view, true);
     st.view.style.setProperty('will-change', 'transform');
     Object.keys(st.nb).forEach(function (k) { if (st.nb[k]) st.nb[k].el.style.setProperty('will-change', 'transform'); });
   }
-  function cool(st) {
+  // (`swiped`: a page that went somewhere and came back keeps its layer a moment -- linger; a press that turned into
+  // nothing gives it back at once, as a tap is about to open something on it)
+  function cool(st, swiped) {
     st.hot = false;
-    if (st.saved) { restore(st.view, st.saved); st.saved = null; }
+    if (st.saved) { restore(st.view, st.saved); st.saved = null; if (swiped) linger(st.view); }
     Object.keys(st.nb).forEach(function (k) {
       var N = st.nb[k];
       if (!N) return;
-      N.el.style.removeProperty('will-change');
+      // (what waits beside the page keeps its layer: place)
+      if (!keeps()) N.el.style.removeProperty('will-change');
       unground(N.ground);
       N.ground = null;
     });
@@ -670,6 +681,51 @@
     st.x = 0;
     var H = host();
     if (H && H.busy) H.busy(false);
+  }
+  // THE PAGE SHOWN KEEPS ITS LAYER A MOMENT AFTER A SWIPE (LINGER_MS; 2026-11-14): giving it up is the whole page drawn
+  // again into the document's layer, and the next swipe's first move its own layer drawn again -- 100-250 ms each on
+  // the Kitchen's tablet, in the frame a landing ends on and the one a flick begins on. A run of flicks keeps it all
+  // the way. It can't keep it for good: a layer of its own makes the page the box its cards' sheets and panels are
+  // fixed in (the Music page's speakers, a timer's ring), and the page they are stacked in, under the tab bar. So it
+  // goes back at a quiet moment -- and at once at a tap, before whatever the tap opens is laid out.
+  var LINGER_MS = 1500;
+  // NOT IN A CAR'S BROWSER (tesla-viewport.js marks its page): it runs short of GPU memory on what one page draws --
+  // frosted boxes and cards missing, 2026-11-12 -- and a page drawn ahead of the finger is memory. There a page gets
+  // its layer as the finger starts sideways and gives it back as it lands, as every screen did before.
+  function keeps() {
+    var de = document.documentElement;
+    return !(de && de.hasAttribute && de.hasAttribute('data-hk-zoomed'));
+  }
+  // (a page's styles as they were before a swipe had it: the layer it lingers in is the swipe's, not its own)
+  function saveEl(el) {
+    var o = save(el);
+    if (el.__hkLinger) o['will-change'] = ['', ''];
+    return o;
+  }
+  function linger(el) {
+    if (!el || !el.style || !keeps()) return;
+    el.style.setProperty('will-change', 'transform');
+    clearTimeout(el.__hkLinger);
+    el.__hkLinger = setTimeout(function () {
+      var go = function () { unlinger(el); };
+      if (typeof requestIdleCallback === 'function') requestIdleCallback(go, { timeout: 600 }); else go();
+    }, LINGER_MS);
+  }
+  // (`keep`: a swipe has the page again -- under a finger, or waiting beside another -- and its layer with it)
+  function unlinger(el, keep) {
+    if (!el || !el.__hkLinger) return;
+    clearTimeout(el.__hkLinger);
+    el.__hkLinger = 0;
+    if (keep) return;
+    var st = ST;
+    if (st && st.view === el && (st.hot || (G && G.live && G.stage === st) || (A && A.st === st))) return;
+    if (st && Object.keys(st.nb).map(function (k) { return st.nb[k]; }).concat(st.spare || []).some(function (N) { return N && N.el === el; })) return;
+    el.style.removeProperty('will-change');
+  }
+  // A TAP (a finger lifted that moved no page, a click): what it opens is laid out on a page with no layer of its own
+  function tapped() {
+    if (G && G.live) return;
+    if (ST && ST.view && ST.view.__hkLinger) unlinger(ST.view);
   }
 
   // THE FINGER'S OWN ELEMENT, DRAWN AWAY: a card that draws itself again under a finger (the Calendar, as the Now
@@ -914,6 +970,7 @@
   }
 
   function onUp(e) {
+    if (e.type === 'pointerup') tapped();
     if (!G || e.pointerId !== G.id || G.cancelling) return;
     if (!G.live) { letGo(); return; }
     // (the lift a sample only where it moved past the last move)
@@ -1057,7 +1114,7 @@
       N.el.style.setProperty('transition', 'none');
       rest(st, N);
     });
-    cool(st);
+    cool(st, true);
     st.skyAt = null;
     planSoon();
   }
@@ -1117,7 +1174,8 @@
   // to the sky, the new one comes up as it is built)
   function crossfade(st, to, dir, N) {
     var fade = 'opacity ' + FADE_MS + 'ms linear';
-    st.saved = st.saved || save(st.view);
+    st.saved = st.saved || saveEl(st.view);
+    unlinger(st.view, true);
     st.view.style.setProperty('transition', fade);
     st.view.style.setProperty('opacity', '0');
     if (N && N.real) {
@@ -1142,7 +1200,8 @@
   function arrive(st, to, dir, N, left, faded) {
     if (!(N && N.real)) { commit(st, to, dir, N, faded); return; }
     var H = host(), S = SH(), P = window.hkSidePane, old = st.view, other = st.nb[-dir];
-    var back = { item: st.items[st.at], dir: -dir, real: true, el: old, saved: st.saved || save(old), ground: null };
+    var back = { item: st.items[st.at], dir: -dir, real: true, el: old, saved: st.saved || saveEl(old), ground: null };
+    unlinger(old, true);
     unground(st.here);
     unground(N.ground);
     // (kept in the slot until the host has shown it: it stays where it is, and its cards go on)
@@ -1153,6 +1212,8 @@
     onAttrs(N.el);
     N.el.removeAttribute('hk-swipe-peek');
     restore(N.el, N.saved);
+    // (the page it landed on keeps the layer it came in on, for a moment: linger)
+    if (!left) linger(N.el);
     var next = ST = { view: N.el, nb: {}, x: left || 0, rect: st.rect, top: st.top, base: '', origin: '', saved: null,
                       items: st.items, at: st.at + dir, spare: (st.spare || []).concat(other ? [other] : []), here: null, arrived: now() };
     next.nb[-dir] = back;
@@ -1175,7 +1236,7 @@
       setX(next.view, left, next.base);
       setX(back.el, back.off + (back.dir === (left < 0 ? 1 : -1) ? left : 0), next.base);
       back.el.style.setProperty('will-change', 'transform');
-    } else {
+    } else if (!keeps()) {
       back.el.style.removeProperty('will-change');
     }
     landed(N.el);
@@ -1305,6 +1366,7 @@
 
   // the tap a swipe ends with is no tap on what is under it
   function onClick(e) {
+    tapped();
     if (Date.now() < eatUntil) { eatUntil = 0; e.stopPropagation(); e.preventDefault(); }
   }
   // THE WINDOW TURNED OR WENT AWAY: a finger's swipe goes back where it was, and a settle ends now: nothing keeps moving
@@ -1365,7 +1427,7 @@
     arm: arm,
     plan: plan,
     _: { enabled: enabled, order: order, leftOfHome: leftOfHome, neighbors: neighbors, atEdge: atEdge, travel: travel, lands: lands, speed: speed,
-         viewSeg: viewSeg, ghost: ghost, slow: slow, park: park,
+         viewSeg: viewSeg, ghost: ghost, slow: slow, park: park, keeps: keeps,
          NUMBERS: { EDGE: EDGE, START: START, RATIO: RATIO, TURN: TURN, FLICK: FLICK, FLICK_MIN: FLICK_MIN, GIVE: GIVE,
                     STANDARD_MS: STANDARD_MS, FADE_MS: FADE_MS, SLOW_FPS: SLOW_FPS, REST: REST },
          letGoTo: letGoTo,

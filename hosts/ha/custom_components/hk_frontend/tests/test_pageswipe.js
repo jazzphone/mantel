@@ -372,12 +372,23 @@ ok('beside a page narrower than the window, still past its edge', P._.park({ dir
    P._.park({ dir: -1, left: 0, off: -1180, width: 1180 }) <= 0 && P._.park({ dir: 1, left: 0, off: 2000, width: 1180 }) === 0);
 ok('...held by the host', heldNow.indexOf(made.climate) >= 0 && heldNow.indexOf(made.home) >= 0);
 fire('pointerdown', ev(600, 400, path(made.lights)));
-ok('a press alone costs nothing: no layers (a tap is most presses)', !made.lights.style.getPropertyValue('will-change') && !made.climate.style.getPropertyValue('will-change'));
+// (the pages waiting beside it have had theirs since they were placed -- 2026-11-14: given one only as the finger moved,
+// they were drawn for the first time under it, and a page started 300-400 ms after the finger on the Kitchen's tablet)
+ok('a press alone costs the page nothing: no layer (a tap is most presses)', !made.lights.style.getPropertyValue('will-change'));
+ok('...the pages waiting beside it keep a layer of their own, drawn before a finger comes', made.climate.style.getPropertyValue('will-change') === 'transform' &&
+   made.home.style.getPropertyValue('will-change') === 'transform');
+// (a car's browser runs short of GPU memory on what one page draws: nothing is drawn ahead there)
+var deWas = document.documentElement;
+document.documentElement = { hasAttribute: function (k) { return k === 'data-hk-zoomed'; } };
+ok('...but not in a car\'s browser, short of memory for the page it shows', P._.keeps() === false);
+document.documentElement = deWas;
+ok('...everywhere else they do', P._.keeps() === true);
 fire('pointermove', ev(595, 400, path(made.lights)));
 ok('a finger starting sideways gives what may move a layer of its own, and moves nothing', made.lights.style.getPropertyValue('will-change') === 'transform' &&
   made.climate.style.getPropertyValue('will-change') === 'transform' && !made.lights.style.transform);
 fire('pointerup', ev(595, 400, path(made.lights)));
-ok('...a press that stops there gives it back', !made.lights.style.getPropertyValue('will-change') && !made.climate.style.getPropertyValue('will-change') && !P._.state().G);
+ok('...a press that stops there gives the page\'s back (a tap opens what it opens on a page with no layer)', !made.lights.style.getPropertyValue('will-change') &&
+   made.climate.style.getPropertyValue('will-change') === 'transform' && !P._.state().G);
 fire('pointerdown', ev(600, 400, path(made.lights)));
 fire('pointermove', ev(500, 400, path(made.lights)));
 ok('a swipe moves the real page, no stand-in', made.climate.style.transform === 'translateX(1090.0px)' && slot.children.every(function (c) { return c.className !== 'hk-swipe-ghost'; }),
@@ -413,8 +424,19 @@ ok('...and the page it left is its neighbor now, not gone', made.lights.parentNo
 ok('...the page it landed on wears the root\'s look, the one it left its own', !made.climate.style.getPropertyValue('--hk-glass-plate') &&
    made.lights.style.getPropertyValue('--hk-glass-plate') === 'bright', [made.climate.style.getPropertyValue('--hk-glass-plate'), made.lights.style.getPropertyValue('--hk-glass-plate')]);
 ok('...the swipe is over', !P._.state().A && !P._.state().G && !P._.state().L);
+// THE PAGE SHOWN KEEPS ITS LAYER A MOMENT (2026-11-14, the Kitchen's tablet: giving it up is the whole page drawn again
+// as it lands, and the next flick's first move its layer drawn again). Not for good: a layer makes the page the box its
+// cards' sheets are fixed in -- so it goes at a quiet moment, and at once at a tap.
+ok('the page it landed on keeps the layer it came in on, for a moment', made.climate.style.getPropertyValue('will-change') === 'transform');
+ok('...the page it left keeps its own, waiting beside it', made.lights.style.getPropertyValue('will-change') === 'transform');
+fire('pointerdown', ev(600, 400, path(made.climate)));
+ok('...a finger coming down leaves it (it may be the next flick)', made.climate.style.getPropertyValue('will-change') === 'transform');
+fire('pointerup', ev(600, 400, path(made.climate)));
+ok('...a tap gives it back at once: what it opens is laid out on a page with no layer', !made.climate.style.getPropertyValue('will-change') &&
+   made.lights.style.getPropertyValue('will-change') === 'transform');
 run();
 drainPromises();
+ok('...and a quiet moment later it is still the page\'s own', !made.climate.style.getPropertyValue('will-change'));
 P.plan();
 drainPromises();
 delete window.hkSettings.lookAt;

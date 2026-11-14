@@ -67,11 +67,14 @@ const PROBE = () => {
       for(let yf=.12;yf<.9;yf+=.015)for(let q=.08;q<.92;q+=.02){const x=Math.round(innerWidth*q),y=Math.round(innerHeight*yf);if(clear(x,y))return{x,y};}
       throw new Error('No page background available for this swipe');
     },
-    // what a swipe may leave behind: nothing
+    // what a swipe may leave behind: nothing -- but the layer the page moved in, for a moment (hk-pageswipe.js linger:
+    // given back at a quiet moment, and at once at a tap; `lingers` says it is still held)
     rest() {
-      const v = view(), st = v.getAttribute('style') || '', s = hkPageSwipe._.state(), kids = pagesOf();
+      const v = view(), all = v.getAttribute('style') || '', s = hkPageSwipe._.state(), kids = pagesOf();
+      const lingers = /(^|;\s*)will-change\s*:\s*transform\s*(;|$)/.test(all);
+      const st = all.replace(/(^|;\s*)will-change\s*:\s*transform\s*(;|$)/, '$1');
       const e = deepAt(innerWidth / 2, innerHeight / 2);
-      return { path: location.pathname, left: Math.round(v.getBoundingClientRect().left),
+      return { path: location.pathname, left: Math.round(v.getBoundingClientRect().left), lingers,
         stray: /(^|;\s*)(transform|position|will-change|opacity|overflow|max-height|pointer-events|transition)\s*:/.test(st),
                inert: v.hasAttribute('inert'), offstage: v.hasAttribute('data-hk-offstage'), busy: !!(s.G || s.A || s.L), pages: kids.length,
                  ghosts: kids.filter(k => k.classList.contains('hk-swipe-ghost')).length,
@@ -499,6 +502,10 @@ const SECTIONS = {
     assert(Math.abs(edge.x - (edge.finger - w.s.x - 10) / 3) < 3, 'the first page gives a third ' + JSON.stringify(edge));
     settlesSmoothly(w, 0, 'edge');
     isClean(await rest(t), 'edge');
+    // (the page keeps the layer it moved in for a moment after a swipe, and gives it back at a quiet one: linger. Looked
+    // at here, after the last swipe: between two, the page drawn again as it gives the layer back is under the next finger)
+    await sleep(2400);
+    assert(!(await rest(t)).lingers, 'the page gives its layer back at a quiet moment');
     await close(t, 'follows');
   },
   // A NEW FINGER ON A PAGE STILL SETTLING: it is caught where it is, and nothing queued overwrites what it does next

@@ -153,7 +153,9 @@
                 (w.t && now - w.t < DAY ? ' · ' + hm(w.t) : '') + '</span></div>';
             });
           }
-          pic = '<div class="stage"><div class="pic" style="--ar:' + (lw / lh).toFixed(4) + '"><img src="' + esc(base + L[0]) + '" alt="" decoding="async">' +
+          // (the house that ships under the build's id, kept rather than asked for at every showing: window.hkV)
+          var src = base === '/hk/power-house/' && window.hkV ? window.hkV(base + L[0]) : base + L[0];
+          pic = '<div class="stage"><div class="pic" style="--ar:' + (lw / lh).toFixed(4) + '"><img src="' + esc(src) + '" alt="" decoding="async">' +
             '<svg class="wire" viewBox="0 0 ' + lw + ' ' + lh + '" preserveAspectRatio="none" aria-hidden="true">' + wire + '</svg>' + tags + '</div></div>';
         }
         // ---- today's activity, from the logbook -- and, while today has been
@@ -231,12 +233,22 @@
         if (!bats || this._batsAt !== careIds.join(',')) {
           // the battery sensors on the care entities' own devices (once per
           // list: a walk of every entity)
+          // (...which is no screen's need -- hkShell.unrecorded: read plainly, every entity of the house counted as one
+          // this screen shows, and a wall tablet that had been to Security, or had it waiting beside Power for a swipe,
+          // kept the whole house from then on: the Kitchen's, 4,559 states and every update of each, 2026-11-14. Only
+          // a device that has one of the care entities is looked at, and what is found is read again below, and kept.)
           bats = this._bats = [];
           this._batsAt = careIds.join(',');
-          if (h.entities) Object.keys(h.entities).forEach(function (id) {
-            var e = h.entities[id], s = h.states[id];
-            if (e.device_id && devs[e.device_id] && id.indexOf('sensor.') === 0 && s && s.attributes.device_class === 'battery') bats.push([id, devs[e.device_id]]);
-          });
+          var scan = function () {
+            if (h.entities) Object.keys(h.entities).forEach(function (id) {
+              var e = h.entities[id];
+              if (!e.device_id || !devs[e.device_id] || id.indexOf('sensor.') !== 0) return;
+              var s = h.states[id];
+              if (s && s.attributes.device_class === 'battery') bats.push([id, devs[e.device_id]]);
+            });
+          };
+          var shell = window.hkShell;
+          if (shell && typeof shell.unrecorded === 'function') shell.unrecorded(scan); else scan();
         }
         bats.forEach(function (b) {
           var s = h.states[b[0]], n = s && num(s.state);
