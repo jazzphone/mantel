@@ -638,3 +638,30 @@ hk-tabbar.js and css/hk-responsive.css, and the sheets on the body read the root
 
 In the same traces, under Pre-rendered glass: Home to the Pages screen 42-47 frames a second and back 41-42 (27 and
 30 under live Bright glass that afternoon).
+
+## "Nothing on the root changes at a landing": tested before building, and not built (2026-11-14, evening)
+
+The owner: "Yes, build it." Tested first on the Kitchen's tablet, two ways, and looked at over the whole landing --
+450 ms from the landing task's start, not that task alone, which is what the table above measured:
+
+| Landing on the Pages screen / on Home | The task | Style | Layout | Longest gap between frames |
+|---|---|---|---|---|
+| as it was | 98 / 121 ms | 116 / 90 | 49 / 64 | 161 / 186 ms |
+| no touch block, no inert on a page beside (built, above) | 102 / 91 | 118 / 78 | 50 / 36 | 170 / 149 |
+| ...and every page carrying its own band and edge, the root still changing | 94 / 89 | 107 / 75 | 47 / 26 | 168 / -- |
+| the root held still, the touch block and inert held (in the page) | 55 / 48 | 107 / 97 | 87 / 22 | 169 / 168 |
+
+- Pages carrying their own values while the root still changes buys nothing: the root's change still has every
+  element styled, and the landing's layout is not the pages' band at all.
+- With the root held still the landing's first task halves -- and the same style and layout are done in the tasks
+  right after it. Over the whole landing nothing is saved, and the screen is not free any sooner: the longest gap
+  between frames is the same 160-170 ms. The half-length task of the table above was work moved, not work removed.
+
+So it is not built: it would touch the Side Pane, the menu, the tab bar, the responsive stylesheet and what the
+sheets read, for no time the screen gets back. What the landing is, by its tasks (landing on the Pages screen):
+one task of ~155 ms as the settle ends (hk-pageswipe.js `end` 107 ms; in all style 69, layout 33, paint 11) -- the
+page landed on taking its place in the document and the page left being put beside it -- and, 170 ms later, the
+next page being made ready beside it at a quiet moment (141 ms: its cards attached, hk-weather.js alone 39). Both
+are a page's own cards being styled and laid out once, at ~0.1-0.2 ms an element on this tablet. What would shorten
+them is less to style in a page (a card's shadow tree and the sheets it adopts), or doing it in pieces between
+frames; neither was looked into.
