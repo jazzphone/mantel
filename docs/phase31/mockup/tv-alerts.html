@@ -1,0 +1,421 @@
+<title>Apple TV Alerts</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: one dark column, the way an Apple TV is seen -- the TV first, then the six pictures, then Settings beside the notes. */
+:root {
+  --bg: #0b0b0d;
+  --surface: #161618;
+  --group: #1c1c1e;
+  --ink: #f5f5f7;
+  --ink-2: rgba(235, 235, 245, 0.62);
+  --ink-3: rgba(235, 235, 245, 0.36);
+  --line: rgba(255, 255, 255, 0.10);
+  --accent: #ff9f0a;
+  --blue: #0a84ff;
+  --green: #30d158;
+  --red: #ff453a;
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro", Inter, system-ui, sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro", Inter, system-ui, sans-serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font: 15px/1.5 var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+.wrap {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding-block: 40px 80px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid;
+  gap: 56px;
+}
+header { display: grid; gap: 14px; }
+.eyebrow { font-size: 13px; font-weight: 600; letter-spacing: 0.3px; text-transform: uppercase; color: var(--ink-2); }
+h1 { font: 700 34px/1.15 var(--font-display); letter-spacing: -0.6px; margin: 0; text-wrap: balance; }
+h2 { font: 700 22px/1.2 var(--font-display); letter-spacing: -0.35px; margin: 0; }
+p { margin: 0; max-width: 68ch; color: var(--ink-2); }
+section { display: grid; gap: 18px; }
+.head { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: end; justify-content: space-between; }
+.head > div { display: grid; gap: 6px; min-width: 0; }
+
+/* the look switch: HK's segmented control */
+.seg { display: inline-flex; background: rgba(118,118,128,0.24); border-radius: 9px; padding: 2px; gap: 2px; }
+.seg button {
+  font: 600 13px/1 var(--font); color: var(--ink); background: transparent; border: 0;
+  padding: 8px 16px; border-radius: 7px; cursor: pointer;
+}
+.seg button[aria-pressed="true"] { background: #636366; box-shadow: 0 3px 8px rgba(0,0,0,.12); }
+.seg button:focus-visible, .card:focus-visible, .row button:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.check { display: inline-flex; gap: 8px; align-items: center; font-size: 13px; color: var(--ink-2); cursor: pointer; }
+.controls { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; }
+
+/* the TV */
+.tv {
+  container-type: inline-size;
+  position: relative;
+  aspect-ratio: 16 / 9;
+  max-width: 100%;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #000;
+  box-shadow: 0 0 0 10px #050506, 0 0 0 11px #2a2a2c, 0 30px 60px rgba(0,0,0,.5);
+  margin: 11px;
+}
+.tv > svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.pip {
+  position: absolute; top: 4.5cqw; right: 3.5cqw; width: 29cqw;
+  display: grid; gap: 0.7cqw; justify-items: start;
+  animation: arrive .42s cubic-bezier(.34,1.24,.42,1) both;
+}
+.pip .pic { width: 100%; aspect-ratio: 16 / 9; border-radius: 1.3cqw; overflow: hidden; box-shadow: 0 1.2cqw 3cqw rgba(0,0,0,.55); }
+.pip .pic svg { display: block; width: 100%; height: 100%; }
+.pip .name {
+  font: 600 1.25cqw/1 var(--font); color: #fff; padding: 0.55cqw 0.9cqw; border-radius: 99px;
+  background: rgba(28,28,32,.62); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
+}
+@keyframes arrive { from { transform: translateX(6cqw); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .pip { animation: none; } }
+.tvnote { font-size: 13px; color: var(--ink-3); }
+
+/* the six pictures */
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 22px; }
+.card { display: grid; gap: 10px; background: none; border: 0; padding: 0; text-align: left; color: inherit; font: inherit; cursor: pointer; min-width: 0; }
+.card .pic { aspect-ratio: 16 / 9; max-width: 100%; border-radius: 12px; overflow: hidden; box-shadow: 0 0 0 1px var(--line); transition: box-shadow .2s; }
+.card .pic svg { display: block; width: 100%; height: 100%; }
+.card[aria-pressed="true"] .pic { box-shadow: 0 0 0 3px var(--accent); }
+.card .cap { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; color: var(--ink-2); }
+.card .cap b { color: var(--ink); font-weight: 600; }
+
+/* Settings, as HK Settings draws it (iOS Settings) */
+.split { display: grid; grid-template-columns: minmax(0, 400px) minmax(0, 1fr); gap: 40px; align-items: start; }
+@media (max-width: 860px) { .split { grid-template-columns: minmax(0, 1fr); } }
+.phone { background: #000; border-radius: 28px; padding: 18px 16px 26px; box-shadow: 0 0 0 1px var(--line); display: grid; gap: 22px; max-width: 400px; width: 100%; }
+.nav { display: grid; gap: 4px; }
+.nav .back { color: var(--blue); font-size: 17px; }
+.nav h3 { font: 700 30px/1.1 var(--font-display); letter-spacing: -0.5px; margin: 0; }
+.grp { display: grid; gap: 7px; }
+.grp .lbl { font-size: 13px; color: var(--ink-2); text-transform: uppercase; letter-spacing: .2px; padding-left: 16px; }
+.grp .foot { font-size: 13px; color: var(--ink-2); padding: 0 16px; line-height: 1.38; }
+.rows { background: var(--group); border-radius: 10px; overflow: hidden; }
+.row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; padding: 0 16px; font-size: 17px; position: relative; }
+.row + .row::before { content: ""; position: absolute; top: 0; left: 16px; right: 0; height: 0.5px; background: rgba(84,84,88,.65); }
+.row .val { color: var(--ink-2); display: inline-flex; gap: 6px; align-items: center; }
+.row .chev { color: var(--ink-3); font-size: 15px; }
+.row button { all: unset; cursor: pointer; flex: 1; min-height: 44px; display: flex; align-items: center; justify-content: space-between; }
+.row .blue { color: var(--blue); }
+.row .red { color: var(--red); }
+.tick { color: var(--blue); font-weight: 600; }
+.sw { width: 51px; height: 31px; border-radius: 99px; background: rgba(120,120,128,.32); position: relative; flex: none; }
+.sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 27px; height: 27px; border-radius: 50%; background: #fff; box-shadow: 0 3px 8px rgba(0,0,0,.15); transition: transform .2s; }
+.sw.on { background: var(--green); }
+.sw.on::after { transform: translateX(20px); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
+.qr { display: grid; justify-items: center; gap: 10px; padding: 18px 16px; text-align: center; }
+.qr svg { width: 168px; height: 168px; border-radius: 12px; background: #fff; padding: 10px; }
+.qr .code { font: 600 22px/1 var(--font-display); letter-spacing: 1px; font-variant-numeric: tabular-nums; }
+.state { font-size: 13px; color: var(--ink-2); }
+
+.notes { display: grid; gap: 22px; }
+.notes h3 { font: 600 17px/1.3 var(--font); margin: 0 0 6px; }
+.notes ul { margin: 0; padding-left: 20px; color: var(--ink-2); display: grid; gap: 6px; max-width: 68ch; }
+.notes li b { color: var(--ink); font-weight: 600; }
+.tag { display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: .4px; text-transform: uppercase; color: var(--accent); }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Phase 31 · Mockup · 2026-11-14</div>
+    <h1>Notifications on the Apple TVs</h1>
+    <p>Each picture below is what Mantel would draw for one notification: 1920 × 1080, drawn as SVG and turned into a
+    JPEG on the server, then shown by HomeKit in the corner of every Apple TV. Pick a look; tap a picture to see it on the TV.</p>
+  </header>
+
+  <section aria-labelledby="tv-h">
+    <div class="head">
+      <div>
+        <h2 id="tv-h">On the TV</h2>
+        <p>The alert arrives over whatever is playing and leaves on its own after a few seconds.</p>
+      </div>
+      <div class="controls">
+        <div class="seg" role="group" aria-label="Look">
+          <button type="button" id="look-black" data-look="black" aria-pressed="true">Black</button>
+          <button type="button" id="look-glass" data-look="glass" aria-pressed="false">Glass</button>
+          <button type="button" id="look-color" data-look="color" aria-pressed="false">Color</button>
+        </div>
+        <label class="check"><input type="checkbox" id="use-cam" checked> Use Camera Picture</label>
+      </div>
+    </div>
+    <div class="tv" id="tv"></div>
+    <div class="tvnote">How tvOS frames a camera alert (its size, corner and the name under it) is approximate here; the build's first step checks it on a real Apple TV.</div>
+  </section>
+
+  <section aria-labelledby="cards-h">
+    <div class="head">
+      <div>
+        <h2 id="cards-h">The pictures, 1920 × 1080</h2>
+        <p>Six of the house's notifications. The type is SF Pro and the glyphs are SF Symbols from the house's own files; this page stands in with your device's system font and hand-drawn glyphs.</p>
+      </div>
+    </div>
+    <div class="cards" id="cards"></div>
+  </section>
+
+  <section aria-labelledby="set-h">
+    <h2 id="set-h">In Settings</h2>
+    <div class="split">
+      <div class="phone" id="settings"></div>
+      <div class="notes">
+        <div>
+          <span class="tag">Recommended</span>
+          <h3>Black</h3>
+          <ul>
+            <li>The look of an iPhone's Live Activities and StandBy: black, the glyph in its own color, white type.</li>
+            <li>It reads from across a room at a quarter of the screen, and sits quietly over any show.</li>
+            <li><b>Glass</b> brings the tablets' look (the house's background under dark glass). <b>Color</b> is HomeView's Color tiles: the accessory's own color, white on top.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>How Mantel draws it</h3>
+          <ul>
+            <li><b>A template per look</b>, filled with the notification's title, its line, its room and time, its glyph and color.</li>
+            <li><b>SF Pro and SF Symbols</b> from the house's files folder, the same ones the tablets draw with. Inter and Material glyphs where a house has none.</li>
+            <li><b>resvg</b> turns the SVG into a JPEG in Mantel's image worker, in about a tenth of a second; the same card is drawn once.</li>
+            <li><b>A camera's notification</b> (the doorbell) uses its own snapshot, full bleed, with the words on a dark fade at the bottom.</li>
+            <li>Type is sized for the corner: the title 168 px of 1080, two lines at most, names shortened by words.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Setting it up</h3>
+          <ul>
+            <li><b>Add to HomeKit</b> has Mantel Link add the Mantel Alerts camera to Home Assistant's HomeKit Bridge. Nothing else changes in Home Assistant.</li>
+            <li>Scan the code in the Home app once. Settings says Paired when it is.</li>
+            <li>Each person turns this camera's notifications off on their phone, since Mantel already notifies the phones.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var FONT = "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro', Inter, system-ui, sans-serif";
+  var MONO = "ui-monospace, 'SF Mono', Menlo, monospace";
+
+  // Glyphs on a 24-unit grid, standing in for the house's SF Symbols. [path, 'f' fill | 's' stroke]
+  var GLYPHS = {
+    timer: [['M12 13.6m-7.6 0a7.6 7.6 0 1 0 15.2 0a7.6 7.6 0 1 0 -15.2 0', 's'], ['M9.8 2.6h4.4M12 2.6v3.4', 's'], ['M12 13.6l3.1-3.1', 's'], ['M18.4 6.2l1.3-1.3', 's']],
+    washer: [['M7 2.6h10a3 3 0 0 1 3 3v12.8a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V5.6a3 3 0 0 1 3-3z', 's'], ['M4 7.2h16', 's'], ['M12 14.4m-4.5 0a4.5 4.5 0 1 0 9 0a4.5 4.5 0 1 0 -9 0', 's'], ['M9.3 15c.9-.9 1.8.9 2.7 0s1.8.9 2.7 0', 's'], ['M7 4.9m-.8 0a.8 .8 0 1 0 1.6 0a.8 .8 0 1 0 -1.6 0', 'f'], ['M9.6 4.9m-.8 0a.8 .8 0 1 0 1.6 0a.8 .8 0 1 0 -1.6 0', 'f']],
+    bell: [['M12 2.4c-3.6 0-6 2.8-6 6.3v3.6l-1.8 3.2c-.4.7.1 1.5.9 1.5h13.8c.8 0 1.3-.8.9-1.5L18 12.3V8.7c0-3.5-2.4-6.3-6-6.3z', 'f'], ['M9.4 18.6a2.6 2.6 0 0 0 5.2 0z', 'f']],
+    drop: [['M12 2.6C9 6.8 5.7 10.4 5.7 14.4a6.3 6.3 0 0 0 12.6 0c0-4-3.3-7.6-6.3-11.8z', 'f']],
+    garage: [['M3 21V9.6L12 4l9 5.6V21', 's'], ['M6.6 21v-8.2h10.8V21', 's'], ['M6.6 15.6h10.8M6.6 18.3h10.8', 's']],
+    mail: [['M5.5 5.4h13a2.5 2.5 0 0 1 2.5 2.5v8.2a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 16.1V7.9a2.5 2.5 0 0 1 2.5-2.5z', 's'], ['M3.6 7.2l8.4 6 8.4-6', 's']]
+  };
+
+  // Six notifications, as the Notifier would hand them over. Rooms are the fictional house's.
+  var ITEMS = [
+    { id: 'timer', title: 'Pasta Timer', line: 'Done · 10 min', place: 'Kitchen', time: '6:42 PM', color: '#FF9F0A', glyph: 'timer', ring: true },
+    { id: 'door', title: 'Front Door', line: "Someone's at the door", place: 'Doorbell', time: '7:31 PM', color: '#0A84FF', glyph: 'bell', snapshot: true },
+    { id: 'washer', title: 'Washer', line: 'Done · 58 min cycle', place: 'Laundry Room', time: '7:15 PM', color: '#64D2FF', glyph: 'washer' },
+    { id: 'leak', title: 'Water Leak', line: 'Under the kitchen sink', place: 'Critical · Kitchen', time: '8:02 PM', color: '#FF453A', glyph: 'drop' },
+    { id: 'garage', title: 'Garage Door', line: 'Open for 15 min', place: 'Garage', time: '9:20 PM', color: '#40CBE0', glyph: 'garage' },
+    { id: 'mail', title: 'Mail', line: 'The mailbox opened', place: 'Front Yard', time: '1:12 PM', color: '#0A84FF', glyph: 'mail' }
+  ];
+
+  var state = { look: 'black', cam: true, pick: 'timer', hk: 'paired' };
+  var uidN = 0;
+
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/'/g, '&#39;'); }
+  function shade(hex, k) { // mix toward black by k
+    var n = parseInt(hex.slice(1), 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255;
+    function m(c) { return Math.round(c * (1 - k)); }
+    return 'rgb(' + m(r) + ',' + m(g) + ',' + m(b) + ')';
+  }
+  function fit(text, size, max, k) { // shrink a line to its room (the server measures with the font itself)
+    var w = text.length * size * (k || 0.56);
+    return w > max ? Math.floor(size * max / w) : size;
+  }
+  function glyph(name, cx, cy, px, color) {
+    var s = px / 24, out = '<g transform="translate(' + (cx - px / 2) + ' ' + (cy - px / 2) + ') scale(' + s + ')">';
+    GLYPHS[name].forEach(function (p) {
+      out += p[1] === 'f'
+        ? '<path d="' + p[0] + '" fill="' + color + '"/>'
+        : '<path d="' + p[0] + '" fill="none" stroke="' + color + '" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>';
+    });
+    return out + '</g>';
+  }
+  function text(x, y, size, weight, fill, s, extra) {
+    return '<text x="' + x + '" y="' + y + '" font-size="' + size + '" font-weight="' + weight + '" fill="' + fill +
+      '" style="font-family:' + FONT + '"' + (extra || '') + '>' + esc(s) + '</text>';
+  }
+
+  // The house's background for Glass: a dusk wallpaper, blurred.
+  function wallpaper(u) {
+    return '<defs><linearGradient id="wp' + u + '" x1="0" y1="0" x2="0.4" y2="1">' +
+      '<stop offset="0" stop-color="#1c2b52"/><stop offset=".55" stop-color="#6a3f72"/><stop offset="1" stop-color="#d9845c"/></linearGradient>' +
+      '<filter id="bl' + u + '" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="70"/></filter></defs>' +
+      '<rect width="1920" height="1080" fill="url(#wp' + u + ')"/>' +
+      '<g filter="url(#bl' + u + ')"><circle cx="1500" cy="260" r="330" fill="#f2a46a" opacity=".55"/>' +
+      '<circle cx="380" cy="880" r="420" fill="#3a6fb0" opacity=".6"/><circle cx="1080" cy="760" r="300" fill="#b25a8a" opacity=".5"/></g>';
+  }
+
+  // A doorbell camera's frame, illustrated (the real card takes the snapshot itself).
+  function porch(u) {
+    return '<defs><linearGradient id="wall' + u + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#27303d"/><stop offset="1" stop-color="#11151b"/></linearGradient>' +
+      '<radialGradient id="lamp' + u + '" cx="1610" cy="300" r="520" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ffcf8a" stop-opacity=".55"/><stop offset="1" stop-color="#ffcf8a" stop-opacity="0"/></radialGradient>' +
+      '<radialGradient id="vig' + u + '" cx="960" cy="540" r="1150" gradientUnits="userSpaceOnUse"><stop offset=".55" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".7"/></radialGradient>' +
+      '<linearGradient id="fade' + u + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".85"/></linearGradient></defs>' +
+      '<rect width="1920" height="1080" fill="url(#wall' + u + ')"/>' +
+      '<polygon points="0,900 1920,860 1920,1080 0,1080" fill="#2c2924"/>' +
+      '<rect x="1110" y="170" width="430" height="720" rx="6" fill="#4b3527"/>' +
+      '<rect x="1150" y="215" width="160" height="280" rx="6" fill="none" stroke="#5e4433" stroke-width="10"/>' +
+      '<rect x="1340" y="215" width="160" height="280" rx="6" fill="none" stroke="#5e4433" stroke-width="10"/>' +
+      '<rect x="1150" y="540" width="350" height="300" rx="6" fill="none" stroke="#5e4433" stroke-width="10"/>' +
+      '<circle cx="1495" cy="560" r="14" fill="#c9a46a"/>' +
+      '<rect width="1920" height="1080" fill="url(#lamp' + u + ')"/>' +
+      '<rect x="1590" y="250" width="40" height="70" rx="10" fill="#ffe2b0"/>' +
+      '<rect x="1260" y="820" width="230" height="150" rx="6" fill="#8b6a46"/><rect x="1260" y="820" width="230" height="22" fill="#a07d55"/>' +
+      '<circle cx="700" cy="420" r="118" fill="#0b0d11"/>' +
+      '<path d="M440 1080c0-250 110-430 260-430s260 180 260 430z" fill="#0b0d11"/>' +
+            '<rect width="1920" height="1080" fill="url(#vig' + u + ')"/>' +
+      '<text x="64" y="96" font-size="40" fill="#fff" fill-opacity=".78" style="font-family:' + MONO + '">FRONT DOOR  7:31:08 PM</text>' +
+      '<rect y="600" width="1920" height="480" fill="url(#fade' + u + ')"/>';
+  }
+
+  function card(n, look, cam) {
+    var u = ++uidN, s = '<svg viewBox="0 0 1920 1080" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="' + esc(n.title + ', ' + n.line) + '">';
+    var critical = n.place.indexOf('Critical') === 0;
+
+    if (n.snapshot && cam) {
+      s += porch(u);
+      s += glyph(n.glyph, 190, 912, 150, '#fff');
+      s += text(320, 900, fit(n.title, 112, 1400), 700, '#fff', n.title, ' letter-spacing="-2"');
+      s += text(322, 990, 62, 500, 'rgba(255,255,255,.78)', n.line + ' · ' + n.time);
+      return s + '</svg>';
+    }
+
+    var ink = '#fff', ink2 = 'rgba(235,235,245,.6)', lineFill = n.color, gColor = n.color, ringTrack = n.color, trackOp = 0.22;
+    if (look === 'black') {
+      s += '<rect width="1920" height="1080" fill="#000"/>';
+    } else if (look === 'glass') {
+      s += wallpaper(u);
+      s += '<rect x="72" y="72" width="1776" height="936" rx="88" fill="rgba(28,28,32,.56)" stroke="rgba(255,255,255,.18)" stroke-width="3"/>';
+      ink2 = 'rgba(235,235,245,.66)';
+    } else {
+      s += '<defs><linearGradient id="cg' + u + '" x1="0" y1="0" x2=".55" y2="1"><stop offset="0" stop-color="' + n.color + '"/><stop offset="1" stop-color="' + shade(n.color, 0.42) + '"/></linearGradient>' +
+        '<radialGradient id="hl' + u + '" cx="300" cy="120" r="1100" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity=".22"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient></defs>' +
+        '<rect width="1920" height="1080" fill="url(#cg' + u + ')"/><rect width="1920" height="1080" fill="url(#hl' + u + ')"/>';
+      ink2 = 'rgba(255,255,255,.8)'; lineFill = 'rgba(255,255,255,.95)'; gColor = '#fff'; ringTrack = '#fff'; trackOp = 0.28;
+    }
+    if (critical && look !== 'color') ink2 = n.color;
+
+    var gx = 390, gy = 530;
+    if (n.ring) {
+      s += '<circle cx="' + gx + '" cy="' + gy + '" r="222" fill="none" stroke="' + ringTrack + '" stroke-opacity="' + trackOp + '" stroke-width="28"/>';
+      s += '<circle cx="' + gx + '" cy="' + gy + '" r="222" fill="none" stroke="' + gColor + '" stroke-width="28" stroke-linecap="round" transform="rotate(-90 ' + gx + ' ' + gy + ')"/>';
+      s += glyph(n.glyph, gx, gy, 240, gColor);
+    } else {
+      s += glyph(n.glyph, gx, gy, 360, gColor);
+    }
+    var x = 700, max = 1920 - x - 110;
+    s += text(x, 384, 62, 600, ink2, n.place + ' · ' + n.time);
+    s += text(x, 566, fit(n.title, 168, max), 700, ink, n.title, ' letter-spacing="-3"');
+    s += text(x, 694, fit(n.line, 88, max, 0.5), 500, lineFill, n.line);
+    return s + '</svg>';
+  }
+
+  function show() {
+    var tvScene = '<svg viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><defs>' +
+      '<linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0d2340"/><stop offset=".62" stop-color="#c8735a"/><stop offset="1" stop-color="#f3b27a"/></linearGradient>' +
+      '<linearGradient id="lake" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e8a072"/><stop offset="1" stop-color="#1b2338"/></linearGradient></defs>' +
+      '<rect width="1920" height="1080" fill="url(#sky)"/><circle cx="640" cy="640" r="90" fill="#ffe0a8" opacity=".9"/>' +
+      '<polygon points="0,700 260,470 470,610 760,380 1040,600 1300,430 1600,640 1920,500 1920,760 0,760" fill="#3a3b5c"/>' +
+      '<polygon points="0,760 300,600 560,720 880,560 1180,730 1500,610 1920,740 1920,800 0,800" fill="#232742"/>' +
+      '<rect y="790" width="1920" height="290" fill="url(#lake)" opacity=".9"/></svg>';
+    var n = ITEMS.filter(function (i) { return i.id === state.pick; })[0];
+    document.getElementById('tv').innerHTML = tvScene +
+      '<div class="pip" key="' + n.id + state.look + '"><div class="pic">' + card(n, state.look, state.cam) + '</div><div class="name">Mantel Alerts</div></div>';
+  }
+
+  function cards() {
+    var el = document.getElementById('cards');
+    el.innerHTML = ITEMS.map(function (n) {
+      return '<button type="button" class="card" id="card-' + n.id + '" data-id="' + n.id + '" aria-pressed="' + (n.id === state.pick) + '">' +
+        '<div class="pic">' + card(n, state.look, state.cam) + '</div>' +
+        '<div class="cap"><b>' + esc(n.title) + '</b><span>' + (n.snapshot && state.cam ? 'with its snapshot' : esc(n.place.replace('Critical · ', 'critical · '))) + '</span></div></button>';
+    }).join('');
+  }
+
+  // A QR code's look (not a real code): the three finder squares and a seeded pattern.
+  function qr() {
+    var N = 25, seed = 7, out = '<svg viewBox="0 0 ' + N + ' ' + N + '" aria-label="HomeKit setup code" role="img" shape-rendering="crispEdges">';
+    function rnd() { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; }
+    function finder(x, y) { return '<rect x="' + x + '" y="' + y + '" width="7" height="7" fill="#000"/><rect x="' + (x + 1) + '" y="' + (y + 1) + '" width="5" height="5" fill="#fff"/><rect x="' + (x + 2) + '" y="' + (y + 2) + '" width="3" height="3" fill="#000"/>'; }
+    for (var y = 0; y < N; y++) for (var x = 0; x < N; x++) {
+      var inF = (x < 8 && y < 8) || (x > N - 9 && y < 8) || (x < 8 && y > N - 9);
+      if (!inF && rnd() > 0.52) out += '<rect x="' + x + '" y="' + y + '" width="1" height="1" fill="#000"/>';
+    }
+    return out + finder(0, 0) + finder(N - 7, 0) + finder(0, N - 7) + '</svg>';
+  }
+
+  function sw(on) { return '<span class="sw' + (on ? ' on' : '') + '" aria-hidden="true"></span>'; }
+  function settings() {
+    var hk;
+    if (state.hk === 'none') {
+      hk = '<div class="rows"><div class="row"><button type="button" id="hk-add" data-hk="scan"><span class="blue">Add to HomeKit</span></button></div></div>' +
+        '<div class="foot">Mantel Link adds a camera named Mantel Alerts to Home Assistant\'s HomeKit Bridge. Nothing else changes in Home Assistant.</div>';
+    } else if (state.hk === 'scan') {
+      hk = '<div class="rows"><div class="qr">' + qr() + '<div class="code">482-19-736</div>' +
+        '<div class="state">Open the Home app, tap +, then Add Accessory, and scan this code.</div></div>' +
+        '<div class="row"><button type="button" id="hk-done" data-hk="paired"><span class="state">Waiting for the Home app…</span><span class="chev">Show Paired ›</span></button></div></div>';
+    } else {
+      hk = '<div class="rows"><div class="row"><span>Mantel Alerts</span><span class="val"><span class="dot"></span>Paired</span></div>' +
+        '<div class="row"><button type="button" id="hk-remove" data-hk="none"><span class="red">Remove from HomeKit</span></button></div></div>' +
+        '<div class="foot">On each phone, turn this camera\'s notifications off in the Home app: Mantel already sends them there.</div>';
+    }
+    var looks = [['black', 'Black'], ['glass', 'Glass'], ['color', 'Color']].map(function (l) {
+      return '<div class="row"><button type="button" id="set-look-' + l[0] + '" data-look="' + l[0] + '"><span>' + l[1] + '</span>' + (state.look === l[0] ? '<span class="tick">✓</span>' : '') + '</button></div>';
+    }).join('');
+    var which = [['Front Door Doorbell', true], ['Timers', true], ['Washer and Dryer', true], ['Water Leaks', true], ['Garage Door Left Open', false], ['Mailbox', false]]
+      .map(function (w) { return '<div class="row"><span>' + w[0] + '</span>' + sw(w[1]) + '</div>'; }).join('');
+    document.getElementById('settings').innerHTML =
+      '<div class="nav"><span class="back">‹ Notifications</span><h3>Apple TV</h3></div>' +
+      '<div class="grp"><div class="rows"><div class="row"><span>Show on Apple TV</span>' + sw(true) + '</div></div>' +
+      '<div class="foot">Shows the notifications you pick below on every Apple TV in your home, in the corner of the screen.</div></div>' +
+      '<div class="grp"><div class="lbl">HomeKit</div>' + hk + '</div>' +
+      '<div class="grp"><div class="lbl">Look</div><div class="rows">' + looks +
+      '<div class="row"><button type="button" id="set-cam" data-cam="1"><span>Use Camera Picture</span>' + sw(state.cam) + '</button></div></div></div>' +
+      '<div class="grp"><div class="rows"><div class="row"><span>Show For</span><span class="val">20 s <span class="chev">›</span></span></div>' +
+      '<div class="row"><span>Only When a TV Is On</span>' + sw(false) + '</div>' +
+      '<div class="row"><span>Follows Do Not Disturb</span>' + sw(true) + '</div>' +
+      '<div class="row"><span class="blue">Send Test</span></div></div></div>' +
+      '<div class="grp"><div class="lbl">Notifications on Apple TV</div><div class="rows">' + which + '</div>' +
+      '<div class="foot">Each notification also has an Apple TV switch on its own page.</div></div>';
+  }
+
+  function render() {
+    document.querySelectorAll('.seg button').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.look === state.look)); });
+    document.getElementById('use-cam').checked = state.cam;
+    show(); cards(); settings();
+  }
+
+  document.addEventListener('click', function (e) {
+    var t = e.target.closest('[data-look],[data-id],[data-hk],[data-cam]');
+    if (!t) return;
+    if (t.dataset.look) state.look = t.dataset.look;
+    if (t.dataset.id) state.pick = t.dataset.id;
+    if (t.dataset.hk) state.hk = t.dataset.hk;
+    if (t.dataset.cam) state.cam = !state.cam;
+    render();
+  });
+  document.getElementById('use-cam').addEventListener('change', function (e) { state.cam = e.target.checked; render(); });
+  render();
+})();
+</script>
