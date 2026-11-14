@@ -48,7 +48,10 @@ FORBIDDEN_NAME = re.compile(r"(^|/)(spikes|fixtures|secrets|\.env(\..*)?|.*\.(ke
 # Font License (Google Fonts' files, cut by tools/holiday_art.py), free to redistribute -- the only font files the App may
 # carry, each by its exact path and only with its license text beside it. Apple's fonts and the glyphs stay refused.
 OPEN_FONTS = {"web/hk/holiday/fonts/vt323.woff2": "VT323-OFL.txt", "web/hk/holiday/fonts/cinzel.woff2": "Cinzel-OFL.txt",
-              "web/hk/holiday/fonts/cabin-sketch-bold.woff2": "CabinSketch-OFL.txt", "web/hk/holiday/fonts/oswald-500.woff2": "Oswald-OFL.txt"}
+              "web/hk/holiday/fonts/cabin-sketch-bold.woff2": "CabinSketch-OFL.txt", "web/hk/holiday/fonts/oswald-500.woff2": "Oswald-OFL.txt",
+              # (phase 31) the Apple TV card's type where a home has no SF Pro: Inter (OFL, no Reserved Font Name), cut to
+              # Latin with fontTools (cameras/tv_card.py)
+              "hosts/server/mantel_server/cameras/fonts/Inter.ttf": "Inter-OFL.txt"}
 
 
 def open_font(src: Path) -> bool:

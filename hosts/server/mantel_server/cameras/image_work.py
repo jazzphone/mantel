@@ -144,6 +144,27 @@ def shrink_still(data: bytes, width: int, height: int) -> tuple[bytes, str] | No
         return None
 
 
+# -- an Apple TV notification's card (phase 31, tv_card.py) --------------------------------------------------------
+CARD_QUALITY = 88
+CARD_SIZE = (1920, 1080)
+
+
+def render_card(svg: str, font_files: list[str], family: str) -> bytes:
+    """The card's SVG as a 1920 x 1080 JPEG: resvg draws it with only the fonts given (the home's SF Pro or Inter,
+    never the machine's own), Pillow encodes it. ValueError when resvg refuses the SVG."""
+    import resvg_py
+    from PIL import Image
+    png = resvg_py.svg_to_bytes(svg_string=svg, font_files=list(font_files), skip_system_fonts=True,
+                                font_family=family, sans_serif_family=family, width=CARD_SIZE[0], height=CARD_SIZE[1])
+    try:
+        with Image.open(io.BytesIO(bytes(png))) as im:
+            out = io.BytesIO()
+            im.convert("RGB").save(out, "JPEG", quality=CARD_QUALITY, **_jpeg_options())
+            return out.getvalue()
+    finally:
+        _trim()
+
+
 # -- faces --------------------------------------------------------------------------------------------------------
 _detector = None
 

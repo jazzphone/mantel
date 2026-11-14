@@ -1003,6 +1003,10 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     # linked mode's notify and the rest of the entry (Seasonal decorations, Alarm PIN through the
     # gateway as the person whose PIN it is, Live TV), published only while Mantel owns `house`
     linked_house.register(app, hub)
+    # Phase 31: notifications on the Apple TVs, a picture Mantel draws shown by a HomeKit camera Mantel Link mirrors
+    # (tv_alerts.py); its two entities are published beside the house's own (linked_house.py's descriptors)
+    from .features import tv_alerts as tv_alerts_host
+    tv_alerts_host.register(app, hub)
     # Live TV served by Mantel where it has its own go2rtc (--go2rtc-url); otherwise HA's stays the interim
     live_tv.register(app, hub, hooks)
     # direct camera sources (docs/phase13/CAMERAS-DIRECT.md phase 3): camera.mantel_* through Mantel's own go2rtc;

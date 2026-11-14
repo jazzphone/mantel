@@ -316,6 +316,7 @@ Mantel's pages and the code both hosts share: HK's cards, modules, panels and th
 - **web/shim/settings/**
   - `about.js` — settings/about.js -- Mantel Settings, About
   - `alerts.js` — settings/alerts.js -- Mantel Settings, Alerts (alerts/api.py; docs/phase14/SYSTEM-ALERTS.md "Mantel Settings → Alerts")
+  - `appletv.js` — settings/appletv.js -- Notifications on the Apple TVs (docs/phase31/PLAN.md "In Settings"; features/tv_alerts.py).
   - `assistants.js` — settings/assistants.js -- Mantel Settings, Advanced → Assistants (MCP)
   - `audit.js` — settings/audit.js -- Mantel Settings, Audit Log.
   - `backups.js` — settings/backups.js -- Mantel Settings, Backups (backup.py, 2026-10-28)
@@ -397,6 +398,7 @@ The decisions both hosts make the same way (Rule 2), in Python.
   - `migrate.py` — STORED OPTIONS MOVED FORWARD, once each (the host saves what comes back).
   - `rules.py` — WHAT A NOTIFICATION MEANS, without a host (hk_core; tested on its own)
   - `settings.py` — Notifications' HK Settings page (Features -> Notifications)
+  - `tv.py` — NOTIFICATIONS ON THE APPLE TVS (phase 31, docs/phase31/PLAN.md), the decision in plain data.
 - **hk_core/screensaver/**
   - `black.py` — WHAT A TABLET'S BLACK SCREEN SWITCH MEANS (Black Screen
   - `rules.py` — A WALL TABLET'S SCREENSAVER
@@ -511,6 +513,7 @@ Mantel Server.
   - `photos.py` — MANTEL PHOTOS
   - `protect_api.py` — UNIFI PROTECT'S PUBLIC API, AS MANTEL'S OWN CLIENT (docs/phase13/CAMERAS-DIRECT.md, phase 4
   - `protect_connector.py` — THE UNIFI PROTECT CONNECTOR (docs/phase13/CAMERAS-DIRECT.md, phase 4, and phase 5's wiring of direct talk).
+  - `tv_card.py` — THE APPLE TV CARD (phase 31, docs/phase31/PLAN.md "How Mantel draws the picture")
 - **hosts/server/mantel_server/connectors/**
   - `camera.py` — Camera WebRTC signaling, proxied to Home Assistant (PLAN §7 "Remote cameras
   - `camera_still.py` — Camera stills through Mantel (PLAN §4 "proxies, not copies", §5 cameras, §7 doors).
@@ -534,6 +537,7 @@ Mantel Server.
   - `sleep.py` — The Sleep Screen on Mantel
   - `timers.py` — Timers on Mantel (phase 21, docs/phase21/TIMER-SLIDE.md)
   - `tv.py` — TVs
+  - `tv_alerts.py` — NOTIFICATIONS ON THE APPLE TVS (phase 31, docs/phase31/PLAN.md)
   - `tv_fetch.py` — Live TV's fetching
   - `vacuum_water.py` — A vacuum's water tank that ran dry, held for the card (2026-11-09, the owner; hk_core/vacuum_water.py has the story).
 - **hosts/server/mantel_server/ha/**
@@ -774,6 +778,7 @@ Home Assistant's integrations (HK Frontend, Mantel Link).
   - `energy.py` — ONE READ FOR MANTEL'S ENERGY PLAN
   - `entity.py` — Mantel's entities, as Home Assistant shows them (bridge.py mirrors them).
   - `frontend.py` — Mantel's screens in Home Assistant's sidebar
+  - `homekit_entry.py` — MANTEL'S APPLE TV CAMERA IN HOMEKIT (phase 31, docs/phase31/PLAN.md "Who serves the camera").
   - `mantel_link.py` — THE LINK TO MANTEL SERVER (linked mode; docs/phase5/LINKED-MODE.md in the Mantel repository the whole story)
   - `page_headers.py` — THE LIGHTS PAGE'S "TONIGHT" LIST, for Mantel
   - `pairing.py` — Pairing by code (Mantel's linked_pairing.py is the other half; docs/phase9/MANTEL-LINK.md 9.4).
