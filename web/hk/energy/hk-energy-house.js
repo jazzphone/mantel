@@ -143,6 +143,8 @@
           '.lvtop{animation:lvTop 1.6s ease-in-out infinite;filter:drop-shadow(0 0 3px rgba(108,240,143,.9))}',
           '@keyframes port{50%{opacity:.25}}',
           '@media (prefers-reduced-motion:reduce){.glint,.lvrun,.lvtop,.portdot{animation:none}.flowdot{display:none}}',
+          // the screen's Animations off (Sky / Background; hk-base.js marks the card hk-still): as Reduce Motion
+          ':host([hk-still]) .glint,:host([hk-still]) .lvrun,:host([hk-still]) .lvtop,:host([hk-still]) .portdot{animation:none}:host([hk-still]) .flowdot{display:none}',
           // a phone: the chips in a grid above the house, no stems
           '@container (max-width:' + window.hkCards.BP.cardSide + 'px){.hart{margin-top:0;display:flex;flex-direction:column-reverse;aspect-ratio:auto !important;max-width:none !important}',
           '  .pic{position:relative}.hart svg{position:static;height:auto}.chips{position:static;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:8px}',

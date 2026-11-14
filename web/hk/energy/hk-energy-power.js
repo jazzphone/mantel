@@ -97,6 +97,8 @@
       }
     }
     var POWER_ANIM = '@media (prefers-reduced-motion: reduce){.run,.gw,.shim,.wfill,.cell .fill,.hshim{animation:none !important}}' +
+      // the screen's Animations off (Sky / Background; hk-base.js marks the card hk-still): the moving light stands, as Reduce Motion
+      ':host([hk-still]) .run,:host([hk-still]) .gw,:host([hk-still]) .shim,:host([hk-still]) .hshim{animation:none !important}' +
       // a card that fills its row (`fill`): as tall as the row, at least its own height
       // (stretched, not a percentage: the grid stretches the host to the row,
       // and the card grows in it)

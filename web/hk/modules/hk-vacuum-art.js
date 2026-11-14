@@ -6,7 +6,7 @@
 // large on a floor shadow, and what it is doing around it: on its dock (the dock behind it, its light steady), charging (the light
 // breathes, a charge bolt over the dock), cleaning (the side brush spins, the robot drifts, its path marches along the floor), returning
 // (it glides back to the dock), paused (a pause badge), the water tank empty (a red water badge, struck through) and stuck (a red badge,
-// a shake now and then). Everything is still where motion is off (prefers-reduced-motion, and Flat's stopped animations).
+// a shake now and then). Everything is still where motion is off (prefers-reduced-motion, Flat's stopped animations, the screen's Animations off).
 //
 //   hkVacuumArt.CSS                      the styles, for a card's shadow root
 //   hkVacuumArt.html(state, words)       the drawing for a state (one of STATES) -- a box of 200 : 140, as wide as its parent makes it
@@ -73,6 +73,10 @@
   // THE DRAWING: three layers in one 200 x 140 box -- behind (the shadow, the dock, the path), the robot (the glyph and its side brush,
   // moving together) and in front (motion lines, the bolt, a badge). The glyph sits as the mockup drew it: 144 units square at (28, 6)
   var V = '<svg viewBox="0 0 200 140" aria-hidden="true">';
+  // the screen's Animations off (Sky / Background): a sheet's drawing is drawn still (a card's follows its hk-still as well)
+  function stillNow() {
+    try { var S = global.hkSettings; return !!(S && S.skyLook && S.skyLook().animations === false); } catch (e) { return false; }
+  }
   function html(state, label, doing) {
     var s = STATES.indexOf(state) >= 0 ? state : 'idle', run = s === 'water' && doing === 'cleaning', dock = /^(docked|charging|returning)$/.test(s), back = '', front = '', brush = '';
     back += '<ellipse class="sh" cx="100" cy="123" rx="64" ry="6"/>';
@@ -95,7 +99,7 @@
       'error') front += '<g class="bg warn"><circle cx="158" cy="34" r="17"/><rect x="155.6" y="23" width="4.8" height="15" rx="2.4" class="mk"/><circle cx="158" cy="43.5" r="2.8" class="mk"/></g>';
     var over = s === 'charging' ? '<hk-icon class="bolt" icon="hk:battery-charging"></hk-icon>'
       : '';
-    return '<div class="hkva s-' + s + (run ? ' s-cleaning' : '') + '" role="img" aria-label="' + String(label || words(s)).replace(/[&<>"]/g, '') + '">' +
+    return '<div class="hkva s-' + s + (run ? ' s-cleaning' : '') + (stillNow() ? ' still' : '') + '" role="img" aria-label="' + String(label || words(s)).replace(/[&<>"]/g, '') + '">' +
       V + back + '</svg><div class="rb"><hk-icon class="gl" icon="hk:robot-vacuum"></hk-icon>' + brush + '</div>' +
       (front ? V + front + '</svg>' : '') + over + '</div>';
   }
@@ -136,7 +140,10 @@
     '  .hkva.s-water .bg,.hkva.s-error .bg{transform-origin:79% 24.3%;animation:hkva-pulse 1.8s ease-in-out infinite}@keyframes hkva-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}',
     '  .hkva.s-error .rb{animation:hkva-shake 3s ease-in-out infinite}',
     '  @keyframes hkva-shake{0%,82%,100%{transform:translateX(0)}85%{transform:translateX(-2%)}88%{transform:translateX(2%)}91%{transform:translateX(-1.5%)}94%{transform:translateX(1%)}}',
-    '}'
+    '}',
+    // the screen's Animations off (Sky / Background): still, in a card (hk-base.js marks it hk-still) or drawn still (a sheet)
+    ':host([hk-still]) .hkva *{animation:none!important}',
+    '.hkva.still *{animation:none!important}'
     ].join(''));
   }
 
