@@ -99,7 +99,7 @@
   var PARK_GAP = 48;
   // the props a swipe sets on a view, given back as they were
   var PROPS = ['transform', 'transition', 'transform-origin', 'position', 'left', 'top', 'width', 'height', 'max-height',
-               'overflow', 'will-change', 'pointer-events', 'opacity', '--hk-ground-hide'];
+               'overflow', 'will-change', 'pointer-events', 'opacity'];
 
   // ------------------------------------------------------------ the rules
   // (pure: the tests hold them, test_pageswipe.js)
@@ -365,6 +365,7 @@
     var r = view.getBoundingClientRect();
     if (base) view.style.setProperty('transform', base);
     st.vtop = r.top;
+    view.__hkBox = { l: r.left, t: r.top, w: r.width, h: r.height };
     var se = document.scrollingElement || document.documentElement, body = document.body;
     var scrolled = Math.max(window.scrollY || 0, se ? se.scrollTop : 0, body ? body.scrollTop : 0);
     var left = r.left, width = r.width || IW() || 1;
@@ -401,6 +402,8 @@
     N.off = N.dir > 0 ? r.left + r.width - left : r.left - left - width;
     N.left = left;
     N.width = width;
+    // (the box it will have when it is the page: fills)
+    N.el.__hkBox = { l: left, t: st.top, w: width, h: IH() - st.top };
     s.setProperty('position', 'fixed');
     s.setProperty('left', left + 'px');
     s.setProperty('top', st.top + 'px');
@@ -608,13 +611,13 @@
   // A PAGE WITH A GROUND OF ITS OWN (the Pages screen's blurred sky, hk-pages-screen.js swipeGround) draws it fixed to
   // the window -- and a page moving by transform takes its fixed things with it: the blur rode along, a plate with an
   // edge (2026-11-01, the owner: "the blur going from the Apps Page back to the HomeView seems to follow"). While a
-  // swipe moves the page, its own is hidden (--hk-ground-hide) and a still layer behind the pages wears it, as
+  // swipe moves the page, its own is hidden (`hk-ground-out` on its card) and a still layer behind the pages wears it, as
   // strong as the page is on the screen.
   function groundOf(el) {
     var q = [el], i = 0;
     while (i < q.length && i < 4000) {
       var n = q[i++];
-      if (typeof n.swipeGround === 'function') { try { return n.swipeGround() || null; } catch (e) { return null; } }
+      if (typeof n.swipeGround === 'function') { el.__hkGroundEl = n; try { return n.swipeGround() || null; } catch (e) { return null; } }
       if (n.shadowRoot) q.push(n.shadowRoot);
       for (var c = n.firstElementChild; c; c = c.nextElementSibling) q.push(c);
     }
@@ -632,8 +635,13 @@
     // from before Home was shown), and over it the blur fell on its icons as it landed -- every icon a blur until the
     // landing let go of it (the owner's video, 2026-11-08)
     parent.insertBefore(d, firstPage(st, parent));
-    el.style.setProperty('--hk-ground-hide', '1');
-    d._of = el;
+    // ITS OWN, OUT -- SAID TO THE CARD, NOT TO THE PAGE (2026-11-14, the Kitchen's tablet). It was a custom property on
+    // the page (--hk-ground-hide), which every element of the page inherits: all 218 of the Pages screen's had their
+    // style worked out again, 29 ms of the first move's frame -- of any swipe from a page with the Pages screen beside
+    // it, either way -- and again as it landed. An attribute on the card is the card's own rule for its ground.
+    var c = el.__hkGroundEl || null;
+    if (c) c.setAttribute('hk-ground-out', '');
+    d._of = c;
     return d;
   }
   function firstPage(st, parent) {
@@ -650,7 +658,7 @@
   }
   function unground(d) {
     if (!d) return;
-    if (d._of) d._of.style.removeProperty('--hk-ground-hide');
+    if (d._of) d._of.removeAttribute('hk-ground-out');
     if (d.parentNode) d.parentNode.removeChild(d);
   }
 
@@ -696,14 +704,21 @@
   // other). Not in Edit mode (plan retires the stage: its drag pictures are fixed), and only on the Android wall
   // tablets, where it was measured and where Pre-rendered glass places its picture by hand: elsewhere a picture
   // fixed to the window would be fixed to the page's layer.
-  var FIXED_INSIDE = { 'hk-music-card': 1, 'hk-pages-screen-card': 1, 'hk-view-fallback': 1 };
+  var FIXED_INSIDE = { 'hk-music-card': 1, 'hk-view-fallback': 1 };
+  // ...AND ONE FIXED TO THE WHOLE WINDOW (the Pages screen's blurred ground: inset 0, under its icons): in a layer it is
+  // placed in the page's box instead -- the same place where the page's box is the window, which it is on a wall
+  // tablet (the Pages screen has no Side Pane beside it). So its page rests in a layer where its box is the window
+  // (fills), and nowhere else. Without one, every swipe from the Pages screen drew the page again as it started.
+  var FIXED_WINDOW = { 'hk-pages-screen-card': 1 };
   function fixedIn(el) {
     if (!el) return true;
     if (el.__hkFixedIn !== undefined) return el.__hkFixedIn;
-    var q = [el], i = 0, found = false;
-    while (i < q.length && i < 6000 && !found) {
+    var q = [el], i = 0, found = 0;
+    while (i < q.length && i < 6000 && found !== 1) {
       var n = q[i++];
-      if (FIXED_INSIDE[n.localName] || n.hkFixedInside === true || typeof n.swipeGround === 'function') { found = true; break; }
+      if (FIXED_INSIDE[n.localName] || n.hkFixedInside === true) { found = 1; break; }
+      if (FIXED_WINDOW[n.localName]) found = 2;
+      else if (typeof n.swipeGround === 'function') { found = 1; break; }
       if (n.shadowRoot) q.push(n.shadowRoot);
       for (var c = n.firstElementChild; c; c = c.nextElementSibling) q.push(c);
     }
@@ -711,7 +726,16 @@
     return found;
   }
   function android() { try { return /Android/.test(navigator.userAgent || ''); } catch (e) { return false; } }
-  function restOk(el) { return android() && keeps() && !fixedIn(el); }
+  // (the page's box as last laid out -- measure, place -- is the window)
+  function fills(el) {
+    var b = el && el.__hkBox;
+    return !!b && b.l === 0 && b.t === 0 && Math.abs(b.w - IW()) < 1 && b.h >= IH() - 1;
+  }
+  function restOk(el) {
+    if (!android() || !keeps()) return false;
+    var f = fixedIn(el);
+    return !f || (f === 2 && fills(el));
+  }
   // (the page shown, at rest: its layer kept if it may have one, given back if not)
   function layer(el) {
     if (!el || !el.style) return;
