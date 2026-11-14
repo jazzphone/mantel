@@ -582,24 +582,22 @@ with it and 50-76 without, 27-28 frames a second and 32-33. (The Weather page's 
 its tall layer; not looked into.) Making the next page's sky ahead would need a second sky kept drawn beside the
 screen -- hk-sky.js has one sky, and its cover is a copy of that one made as the finger moves. Not built.
 
-**A landing's whole-document style pass is the page's width band.** The landing is one task (hk-pageswipe.js `end`,
-95-120 ms): one style pass over every element of the document -- 678 elements landing on the Pages screen, 1,205
-on Home, 53-73 ms; 1,300-1,700 and up to 177 ms with a third page in the slot -- and one layout (22 ms). Traced with
-what invalidated it, then by taking the suspects out one at a time on the tablet:
+**What a landing is, and what it is not.** The landing is one task (hk-pageswipe.js `end`, 95-120 ms on the
+Kitchen's tablet, 37-80 on the Loft's): one style pass over every element of the page landed on -- 678 elements
+landing on the Pages screen, 1,205 on Home, 53-73 ms on the Kitchen's and 15-40 on the Loft's -- and one layout
+(22 ms; 15-32). So it is not two rounds any more, and pages held in fixed slots would not shorten it: its layout is
+the smaller half. What makes the style pass that wide was looked for by taking one suspect out at a time on the
+tablets, and three are ruled out -- the count did not move for any:
 
-- not `inert` on the page left and the page landed on (taken off on the tablet: the same count);
-- not the Side Pane's room or the page's edge on the root (`--hk-pane-r`, `--hk-page-right`: each page given its
-  own copy on the tablet: the same count);
-- **`data-hk-band` on the root** (hk-menu-drawer.js, css/hk-responsive.css): set when the page is 641-1023 px wide
-  -- Home beside its Side Pane is 880 -- and taken off when it is not -- the Pages screen is the window. Under it
-  the root redefines thirteen properties every element inherits (`--hk-pill`, `--hk-track`, `--hk-rail`,
-  `--hk-dial`, `--hk-cols-5`, the Weather and camera columns...). It flips at every landing between a page with the
-  pane and one without, and every element of every page in the document is styled again; the page waiting beside
-  the one shown is also laid out for the wrong band until it lands.
+- `inert` on the page left and the page landed on (not set, on the Kitchen's);
+- the Side Pane's room and the page's edge on the root (`--hk-pane-r`, `--hk-page-right`): each page given its own
+  copy (the Kitchen's);
+- the page's width band (`data-hk-band` on the root, under which css/hk-responsive.css redefines thirteen
+  inherited properties): each page in the slot given its own band and every property declared on it, built and
+  served to the Loft's tablet, then taken out again.
 
-The fix that follows from it (not built): a page carries its own band -- the attribute on the page's element, by the
-page's own width, set as the swipe places it and as it is shown -- with the root's kept for what is on the body
-(sheets). The properties must be declared on every page, in or out of the band, so that the root's flip stops at
-each page: the out-of-band values need names of their own in hk-responsive.css (tests/test_pillsize.js holds the
-band's two blocks equal). That is a change to one stylesheet, the menu's band function and the swipe's `place` --
-not pages held in fixed slots, which the trace does not ask for: the landing's layout is 22 ms.
+Chrome's invalidation tracking marks none of the landing's writes as a subtree's; what is left is an inherited
+property changing on the page's own element as it lands. Two are written there: `pointer-events` (the swipe keeps
+touches off a page beside the one shown, and gives it back) and the page's own look (`wearLook`: custom properties,
+taken off or put on as it lands). Not yet tried: keeping both as they are across the landing, and changing them at
+a quiet moment after it.
