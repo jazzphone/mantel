@@ -20,6 +20,7 @@ through it: no port on the tablet, no password of its own.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import re
 import secrets
@@ -156,12 +157,39 @@ def checked(command: Any, value: Any) -> tuple[str, Any] | None:
     return None
 
 
+# ALL TABLETS AND EACH ITS OWN (the owner, 2026-11-14: "Global or 'Fleet' management where tablets have the same
+# settings ... also able to adjust the settings independently"): the options HK's settings want for a tablet's app --
+# All Tablets' (`tablets.app`) with the tablet's own (`app_options`) over them (hk_core tablet_rules.app_wanted) -- sent
+# to the app when what it says differs; the same command again only after FOLLOW_AGAIN (an app that can't take one, a
+# renderer before its adb is paired, isn't asked every status).
+FOLLOW_AGAIN = 600.0
+# what goes in one `settings` command (the app's own COPYABLE, its rotation aside: each tablet's own)
+FOLLOWED_IN_SETTINGS = ("kiosk_mode", "keep_awake", "keep_screen_on", "adaptive_brightness", "scale",
+                        "airplay", "airplay_mirroring", "airplay_video", "airplay_audio")
+
+
+def to_send(wanted: dict, status: dict) -> list[tuple[str, Any]]:
+    """The commands that bring an app to `wanted`: one `settings` for those it takes together, the renderer and the
+    resolution each their own and only with its adb paired. An option its status doesn't say (an app from before it,
+    adaptive brightness it can't read) is left alone."""
+    diff = {k: v for k, v in wanted.items() if k in status and status[k] != v}
+    out: list[tuple[str, Any]] = []
+    together = {k: v for k, v in diff.items() if k in FOLLOWED_IN_SETTINGS}
+    if together:
+        out.append(("settings", together))
+    for k in ("renderer", "render_size"):
+        if k in diff and status.get("adb_paired") is True:
+            out.append((k, diff[k]))
+    return out
+
+
 class TabletApps:
     def __init__(self, clock=time.time) -> None:
         self.clock = clock
         self.status: dict[str, dict] = {}                   # device id -> {status, at}
         self.waiting: dict[str, asyncio.Future] = {}        # nonce -> the answer
         self.shots: dict[str, tuple[bytes, float]] = {}     # device id -> its latest picture (JPEG), when
+        self.followed: dict[tuple[str, str, str], float] = {}   # (device, command, its value) -> when last sent
 
     def heard(self, device_id: str, status: dict) -> None:
         self.status[device_id] = {"status": status, "at": self.clock()}
@@ -185,6 +213,49 @@ def sessions_of(app: web.Application, device_id: str) -> list:
             and s.principal.device.id == device_id and not getattr(s, "gone", False)]
 
 
+def wanted_for(app: web.Application, device_id: str) -> dict | None:
+    """What HK's settings want for the app on the tablet `device_id` is: None when it is no tablet's."""
+    service = app.get("settings")
+    if service is None:
+        return None
+    from hk_core.settings import model as SM
+    from ..settings_store.importing import stored_of
+    stored = stored_of(service.store)
+    for t in SM.tablets(stored).values():
+        if t.get("device") == device_id:
+            house = (service.house_settings().get("tablets") or {}).get("app")
+            return SM.app_wanted(house, t.get("app_options"))
+    return None
+
+
+async def follow(app: web.Application, device_id: str, status: dict) -> int:
+    """The app on `device_id` brought to what HK's settings want (to_send); how many commands went."""
+    if not status or not _commands_on(app):
+        return 0
+    try:
+        wanted = wanted_for(app, device_id)
+    except Exception:  # noqa: BLE001 -- a status is never refused for this
+        log.exception("tablet app: its wanted options")
+        return 0
+    if not wanted:
+        return 0
+    st = apps_of(app)
+    now = st.clock()
+    sent = 0
+    for command, value in to_send(wanted, status):
+        key = (device_id, command, json.dumps(value, sort_keys=True))
+        if now - st.followed.get(key, -FOLLOW_AGAIN) < FOLLOW_AGAIN:
+            continue
+        st.followed[key] = now
+        for s in sessions_of(app, device_id):
+            # (no answer waited for: the app's next status says what it took)
+            await s.send({"type": "tablet_app", "event": "command", "nonce": secrets.token_urlsafe(12),
+                          "command": command, "value": value}, count=False)
+        log.info("tablet app %s: %s %s, as HK's settings want", device_id, command, value)
+        sent += 1
+    return sent
+
+
 def handler(app: web.Application):
     async def tablet_app(ctx: Ctx, msg: dict) -> None:
         device = _device_of(ctx)
@@ -193,6 +264,7 @@ def handler(app: web.Application):
         st = apps_of(app)
         if msg.get("event") == "status":
             st.heard(device.id, _clean(msg.get("status")))
+            await follow(app, device.id, st.status[device.id]["status"])
         elif msg.get("event") == "done":
             fut = st.waiting.get(str(msg.get("nonce", "")))
             if fut is None:

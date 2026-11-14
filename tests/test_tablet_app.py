@@ -174,3 +174,36 @@ async def test_a_picture_of_the_glass_rides_back_and_is_served_to_the_managers_o
     assert T._jpeg(base64.b64encode(b"GIF89a").decode()) is None and T._jpeg("not base64!") is None
     assert (await mantel.get(got["image"], tunnel=True)).status in (401, 403)
     await ws.close()
+
+
+def test_what_an_app_is_sent_to_follow_all_tablets():
+    """All Tablets' options with a tablet's own over them (hk_core app_wanted), sent where the app says otherwise."""
+    st = {"keep_awake": True, "scale": 100, "renderer": "default", "render_size": 100, "airplay": False, "adb_paired": False}
+    assert T.to_send({"keep_awake": True, "scale": 100}, st) == []
+    assert T.to_send({"keep_awake": False, "scale": 125, "airplay": True}, st) == \
+        [("settings", {"keep_awake": False, "scale": 125, "airplay": True})]
+    # the renderer and the resolution only through the app's own adb, each its own command
+    assert T.to_send({"renderer": "opengl", "render_size": 67}, st) == []
+    assert T.to_send({"renderer": "opengl", "render_size": 67}, {**st, "adb_paired": True}) == \
+        [("renderer", "opengl"), ("render_size", 67)]
+    # an option the app doesn't say (an older app) is left alone
+    assert T.to_send({"keep_screen_on": False}, st) == []
+
+
+async def test_an_app_follows_all_tablets_and_its_own(mantel):
+    from mantel_server.settings_store.store import Actor
+    did = await paired_tablet(mantel)
+    ws = await mantel.client.ws_connect("/ws")
+    commands_on(mantel)
+    mantel.app["settings"].store.write(
+        [("house", "settings", {"tablets": {"app": {"keep_awake": False, "scale": 110}}}),
+         ("tablet", "kitchen", {"name": "Kitchen", "screen": "dashboard-kitchen", "app": "android_app", "device": did,
+                                "app_options": {"scale": 125}})],
+        actor=Actor(label="test"), message="All Tablets and the Kitchen's own")
+    await ws.send_json({"type": "tablet_app", "event": "status",
+                        "status": {"keep_awake": True, "scale": 100, "renderer": "default", "adb_paired": False}})
+    m = await frames(ws, "tablet_app")
+    assert m["event"] == "command" and m["command"] == "settings" and m["value"] == {"keep_awake": False, "scale": 125}
+    # the same again within FOLLOW_AGAIN is not sent twice
+    assert await T.follow(mantel.app, did, {"keep_awake": True, "scale": 100}) == 0
+    await ws.close()
