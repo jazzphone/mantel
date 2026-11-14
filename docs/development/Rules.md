@@ -183,3 +183,31 @@ A test that needs a tool the Linux runner lacks skips there: one that runs a Typ
 `state_owners`, `rewrap`, the exports check) checks for `tools/typecheck/node_modules/typescript`, not only for Node
 (a house release waits on that runner's suite). Before pushing such a test, run the suite with that folder moved away
 ([Building and testing](Building-and-Testing.md#the-main-suite)).
+
+## 13. A screen keeps what it reads, and a card is told when that changes
+
+A wall tablet is the screen to build for: on the slowest one in a house, every update of the house used to be every
+card on the screen working out again what it shows (`docs/phase29/PLAN.md`, the Kitchen's tablet). Mantel's host
+adapter now does three things for a card, and each asks something of the card:
+
+- **It takes down what a card reads while the card is told** (its `client` setter, `redraw`), keeps the hub's
+  subscription to those states for as long as the card's page is on the screen (a few minutes after), and tells the
+  card again only when one of them has changed. So a card reads its states **when it is told**. A state read later --
+  in a timer, an event handler, after an `await` -- is not known to be the card's: read it when told as well, or look
+  again on a clock of your own (the camera mosaic does). What no state says (the time) reaches a card at the host's
+  look by everyone, every 15 s; anything that must be sharper has its own timer.
+- **A card never walks the house to find something** (`Object.keys(states)`, every entity of a domain): a walk reads
+  thousands of states, and what a screen reads is what it keeps. The registries, `hk_core` and the strategy say what
+  there is. A look that is no screen's need runs in `hkShell.unrecorded(fn)`; one that must have every state asks
+  `hkShell.wholeHouse()` first and waits for it (the Home sheet does both).
+- **A page rests in a layer of its own** on an Android tablet, so a swipe draws nothing again. A layer is the box
+  anything `position: fixed` inside the page is placed in: what a card fixes to the screen goes on the document's
+  body, or the card is named in `hk-pageswipe.js` `FIXED_INSIDE` and its page keeps no layer. Never give a layer
+  (`will-change`) to a glass layer: Android draws its picture across the whole box.
+
+A page shown again must not wait for anything: the address changes at the tap, and whatever the page waits for is
+the old page standing under the new one's sky. Before calling a change to any of this done, look at it on a real
+wall tablet (`docs/development/Motion.md` and phase 29's log say how it was measured).
+
+**Checked by** `tests/test_shim_reads.py` (what is taken down, a walk told from a card's reads, the gate, what is read
+outside any card) and `tests/test_fixed_inside.py` (every file with a fixed rule says where what it fixes lives).
