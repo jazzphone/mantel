@@ -45,7 +45,18 @@ COMMANDS: dict[str, str | None] = {
     # AIRPLAY (phase 30, docs/phase30/PLAN.md): the app's receiver on or off (off on every tablet until switched on), and
     # what it offers -- a mirror, a video's link, sound -- each a switch (the owner, 2026-11-13: "all three")
     "airplay": "bool", "airplay_mirroring": "bool", "airplay_video": "bool", "airplay_audio": "bool",
+    # THE TABLET'S OWN OPTIONS (the owner, 2026-11-13: "keep tablet awake and such should be options ... on by default";
+    # adaptive brightness; the tablet's scaling; wireless debugging; "copy settings between tablets"): the app's
+    # Options.kt and PageScale.kt. `settings` is several of them at once, from another tablet (COPYABLE).
+    "keep_awake": "bool", "keep_screen_on": "bool", "adaptive_brightness": "bool", "scale": "scale",
+    "wireless_debugging": "bool", "settings": "settings",
 }
+# the page's size on the tablet, percent of Mantel's own (PageScale.CHOICES)
+SCALES = (80, 90, 100, 110, 125, 150)
+# what Copy Settings From carries from one tablet's app to another's: never the screen, the brightness, the curtain, the
+# menu PIN (the app never says it) or wireless debugging -- each tablet's own
+COPYABLE = ("kiosk_mode", "rotation", "keep_awake", "keep_screen_on", "adaptive_brightness", "scale",
+            "airplay", "airplay_mirroring", "airplay_video", "airplay_audio")
 # SCREEN ROTATION (2026-11-13, the owner: Android 16 ignores an app's own landscape on a tablet, and the Loft came back
 # from an update sideways): the app sets Android's rotation, 0/90/180/270 as Android counts them from the tablet's natural
 # way up, or leaves it to Android (auto). It needs Android's "Modify system settings" for the app, given at the tablet.
@@ -58,7 +69,11 @@ STATUS_KEYS = {"version": str, "version_code": int, "screen": bool, "brightness"
                "airplay": bool, "airplay_mirroring": bool, "airplay_video": bool, "airplay_audio": bool,
                "airplay_state": str, "airplay_name": str,
                # the sky drawn by the app (phase 29): off, ready (the tablet's setting on) or playing
-               "sky": str}
+               "sky": str,
+               # the tablet's own options (Options.kt, PageScale.kt), and whether Android lets the app set them
+               "keep_awake": bool, "keep_screen_on": bool, "scale": int, "adaptive_brightness": bool,
+               "adaptive_brightness_allowed": bool, "wireless_debugging": bool, "wireless_debugging_allowed": bool,
+               "adb_port": int}
 ANSWER_WAIT = 8.0
 STALE = 180.0              # a status older than this is "not heard from"
 PIN = re.compile(r"\d{0,12}")
@@ -112,6 +127,13 @@ def checked(command: Any, value: Any) -> tuple[str, Any] | None:
         return (command, value) if isinstance(value, str) and PIN.fullmatch(value) else None
     if kind == "rotation":
         return (command, value) if isinstance(value, str) and value in ROTATIONS else None
+    if kind == "scale":
+        return (command, value) if isinstance(value, int) and not isinstance(value, bool) and value in SCALES else None
+    if kind == "settings":
+        if not isinstance(value, dict) or not value or any(k not in COPYABLE for k in value):
+            return None
+        each = {k: checked(k, v) for k, v in value.items()}
+        return (command, {k: got[1] for k, got in each.items() if got}) if all(each.values()) else None
     return None
 
 

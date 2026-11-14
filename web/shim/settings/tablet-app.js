@@ -60,6 +60,77 @@ function drawAirPlay(c, st, send, off, id) {
     + 'Speakers can’t be grouped with HomePods.' }, rows));
 }
 
+// THE TABLET'S OWN OPTIONS (the owner, 2026-11-13: "keep tablet awake and such should be options ... but on by
+// default"; adaptive brightness; the tablet's scaling): the app's Options.kt and PageScale.kt, drawn when it says them
+const SCALES = [80, 90, 100, 110, 125, 150];
+const NEEDS_WRITE = 'On the tablet, allow Mantel to modify system settings (the app opened that screen), then choose again.';
+function optionRows(rows, st, send, off, id) {
+  if (typeof st.keep_awake !== 'boolean') return;                       // an app from before them
+  rows.push(K().toggle({ label: 'Keep Awake', on: st.keep_awake, disabled: off, fk: 'mx:app-awake:' + id,
+                         sub: 'Wi-Fi and the processor stay awake while the screen is off, so a wake shows the page at once',
+                         onChange: (on) => send('keep_awake', on, null) }));
+  rows.push(K().toggle({ label: 'Keep Screen On', on: st.keep_screen_on !== false, disabled: off, fk: 'mx:app-lit:' + id,
+                         sub: 'Off, Android’s own screen timeout can turn the screen off',
+                         onChange: (on) => send('keep_screen_on', on, null) }));
+  if (typeof st.adaptive_brightness === 'boolean') {
+    rows.push(K().toggle({ label: 'Adaptive Brightness', on: st.adaptive_brightness, disabled: off, fk: 'mx:app-adaptive:' + id,
+                           sub: 'Android’s own: the light sensor sets the screen’s brightness',
+                           onChange: (on) => send('adaptive_brightness', on, null) }));
+    if (st.adaptive_brightness_allowed === false) rows.push(info('Adaptive Brightness', NEEDS_WRITE, 'Not Allowed', 'warn'));
+  }
+  const scale = SCALES.includes(st.scale) ? st.scale : 100;
+  rows.push(K().select({ label: 'Scale', sub: 'Everything on the screen larger or smaller; the page loads again',
+                         options: SCALES.map((v) => [String(v), v + '%' + (v === 100 ? ' (Mantel’s Own)' : ''), v + '%']),
+                         value: String(scale), disabled: off, fk: 'mx:app-scale:' + id,
+                         onChange: (v) => send('scale', Number(v), 'Scale ' + v + '%.') }));
+}
+
+// WIRELESS DEBUGGING (the owner, 2026-11-13): Android's, kept on through restarts while chosen; the app needs a grant
+// only adb gives, once (the app's tools/setup_tablet.py does it)
+function drawDebugging(c, st, send, off, id) {
+  if (typeof st.wireless_debugging !== 'boolean') return;
+  const rows = [K().toggle({ label: 'Wireless Debugging', on: st.wireless_debugging, fk: 'mx:app-adb:' + id,
+                             disabled: off || (!st.wireless_debugging && st.wireless_debugging_allowed === false),
+                             sub: st.wireless_debugging && st.adb_port && st.ip ? 'adb connect ' + st.ip + ':' + st.adb_port : null,
+                             onChange: (on) => send('wireless_debugging', on, on ? 'Wireless debugging on.' : 'Wireless debugging off.') })];
+  if (st.wireless_debugging_allowed === false) {
+    rows.push(info('Needs a Grant', 'Once, over adb: adb shell pm grant com.jazzphone.mantel.android android.permission.WRITE_SECURE_SETTINGS', 'Not Allowed', 'warn'));
+  }
+  c.appendChild(group({ header: 'Developer', footer: 'Android’s wireless debugging, kept on through restarts while this is on. '
+    + 'Its port changes each time it starts. A computer still has to be paired with the tablet once.' }, rows));
+}
+
+// COPY SETTINGS FROM ANOTHER TABLET (the owner, 2026-11-13): what another app tablet last said, sent to this one as one
+// command. Never the screen, the brightness, the menu PIN or wireless debugging; the rotation only between the same model.
+const COPYABLE = ['kiosk_mode', 'keep_awake', 'keep_screen_on', 'adaptive_brightness', 'scale',
+                  'airplay', 'airplay_mirroring', 'airplay_video', 'airplay_audio'];
+const copyFrom = {};             // device id -> the device id chosen to copy from
+function copied(src, st) {
+  const out = {};
+  for (const k of COPYABLE) if (typeof src[k] === (k === 'scale' ? 'number' : 'boolean')) out[k] = src[k];
+  if (src.rotation && src.model && src.model === st.model) out.rotation = src.rotation;
+  if (!SCALES.includes(out.scale)) delete out.scale;
+  return out;
+}
+function drawCopy(c, dv, st, all, send, off) {
+  if (typeof st.keep_awake !== 'boolean') return;
+  const others = all.filter((d) => d.id !== dv.id && !d.revoked && (d.hk_tablets || []).length)
+    .map((d) => ({ d, st: ((appRead(d.id) || {}).data || {}).status })).filter((o) => o.st && typeof o.st.keep_awake === 'boolean');
+  if (!others.length) return;
+  const pick = others.find((o) => o.d.id === copyFrom[dv.id]);
+  const rows = [K().select({ label: 'Copy From', fk: 'mx:app-copy-from:' + dv.id, value: pick ? pick.d.id : '',
+                             options: [['', 'Choose a Tablet']].concat(others.map((o) => [o.d.id, o.d.name])),
+                             onChange: (v) => { copyFrom[dv.id] = v; redraw(); } })];
+  if (pick) {
+    const got = copied(pick.st, st);
+    rows.push(button('Copy ' + pick.d.name + '’s Settings', () => send('settings', got, 'Copied from ' + pick.d.name + '.'),
+                     { fk: 'mx:app-copy:' + dv.id, disabled: off }));
+  }
+  c.appendChild(group({ header: 'Copy Settings', footer: 'Kiosk mode, Keep Awake, Keep Screen On, Adaptive Brightness, '
+    + 'Scale and AirPlay as the other tablet has them, and its rotation when it’s the same model. Never the screen, '
+    + 'its brightness, the menu PIN or wireless debugging.' }, rows));
+}
+
 export function drawTabletApp(c, ctx) {
   if (!can('devices')) return false;
   let drew = false;
@@ -99,9 +170,8 @@ export function drawTabletApp(c, ctx) {
     rows.push(K().seg({ label: 'Screen Rotation', sk: 'mx:app-rotation:' + dv.id, value: rot,
                         options: [['auto', 'Automatic'], ['0', '0°'], ['90', '90°'], ['180', '180°'], ['270', '270°']],
                         onChange: (v) => send('rotation', v, v === 'auto' ? 'Left to the tablet.' : 'Turned to ' + v + '°.') }));
-    if (rot !== 'auto' && st.rotation_allowed === false) {
-      rows.push(info('Rotation', 'On the tablet, allow Mantel to modify system settings (the app opened that screen), then choose again.', 'Not Allowed', 'warn'));
-    }
+    if (rot !== 'auto' && st.rotation_allowed === false) rows.push(info('Rotation', NEEDS_WRITE, 'Not Allowed', 'warn'));
+    optionRows(rows, st, send, off, dv.id);
     // SKY DRAWN BY THE APP (phase 29): this tablet's own setting, HK's (hk_core tablet_rules.py app_sky), saved like
     // the rest of the tablet's page -- not a command to the app, which follows the page (hk-sky-handover.js)
     if (typeof ctx.set === 'function') {
@@ -116,6 +186,8 @@ export function drawTabletApp(c, ctx) {
       'Mantel reaches the app through the page the tablet has open, on the home network only; each change is in the Audit Log.' }, rows));
     result(c, key);
     if (typeof st.airplay === 'boolean') drawAirPlay(c, st, send, off, dv.id);
+    drawCopy(c, dv, st, got.data.devices, send, off);
+    drawDebugging(c, st, send, off, dv.id);
     const pic = pictures[dv.id] || {};
     const shot = pic.src ? hh('img', { src: pic.src, alt: 'What ' + dv.name + ' shows', class: 'mx-tablet-shot' }) : null;
     if (shot) Object.assign(shot.style, { display: 'block', width: '100%', aspectRatio: '16 / 10', objectFit: 'cover',
