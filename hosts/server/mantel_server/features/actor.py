@@ -85,10 +85,13 @@ class Feed:
 @dataclass
 class ScreenState:
     """One wall tablet's screen as Mantel holds it: its black (hk_core's ``Black``), its photos, the
-    page's last touch and the screensaver's own last touch, and whether it is in use."""
+    page's last touch and the screensaver's own last touch, and whether it is in use. ``heard``: which of "black" and
+    "photos" Mantel has been told or has set since it started -- a page connecting is told only those (a restarted
+    Mantel's "off" is not knowing, and every tablet's screensaver went to its dashboard on one, 2026-11-14)."""
     tid: str
     black: Black = field(default_factory=Black)
     photos: bool = False
+    heard: set[str] = field(default_factory=set)
     touch: datetime | None = None
     saver_touch: datetime | None = None
     in_use: bool = False
