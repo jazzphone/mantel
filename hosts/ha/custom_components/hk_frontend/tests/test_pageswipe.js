@@ -437,6 +437,9 @@ var page = function (tag, kid) { return { localName: tag, style: {}, firstElemen
 var plain = page('hk-grid-view', 'hk-tile-card'), music = page('hk-grid-view', 'hk-music-card'), pages = page('hk-grid-view', 'hk-pages-screen-card');
 var other = page('hk-view-fallback');
 ok('on an Android wall tablet a page may rest in a layer', P._.restOk(plain) === true);
+// (...and there a page beside the one shown is not marked inert nor kept from touches: both are every element's by
+// inheritance, and changing them as a page landed was a layout and a style pass of the landing's own, 2026-11-14)
+ok('...and a page beside the one shown is left as it is there: no inert, no touch block', P._.untouched() === true);
 ok('...the Music page not before its page\'s box is known (its sheets are placed by the window\'s edges)', P._.restOk(music) === false);
 // (the Pages screen's ground is fixed to the whole window: in a layer it is placed in its page's box -- the same place
 // only where that box is the window)
@@ -453,6 +456,7 @@ music.__hkBox = { l: 0, t: 0, w: winW, h: winH };
 ok('...the Music page where its page is the window and wide enough for its wall-tablet layout', P._.restOk(music) === (winW >= 900), [winW, winH]);
 ok('...nor a view of cards that aren\'t ours', P._.restOk(other) === false);
 if (navWas === undefined) delete globalThis.navigator; else globalThis.navigator = navWas;
+ok('...off the wall tablets it is inert and takes no touch, as before', P._.untouched() === false);
 run();
 drainPromises();
 P.plan();
