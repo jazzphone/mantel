@@ -197,7 +197,7 @@ async def test_an_app_follows_all_tablets_and_its_own(mantel):
     commands_on(mantel)
     mantel.app["settings"].store.write(
         [("house", "settings", {"tablets": {"app": {"keep_awake": False, "scale": 110}}}),
-         ("tablet", "kitchen", {"name": "Kitchen", "screen": "dashboard-kitchen", "app": "android_app", "device": did,
+         ("tablet", "kitchen", {"name": "Kitchen", "screen": "dashboard-kitchen", "room": "kitchen", "app": "android_app",
                                 "app_options": {"scale": 125}})],
         actor=Actor(label="test"), message="All Tablets and the Kitchen's own")
     await ws.send_json({"type": "tablet_app", "event": "status",
@@ -205,5 +205,7 @@ async def test_an_app_follows_all_tablets_and_its_own(mantel):
     m = await frames(ws, "tablet_app")
     assert m["event"] == "command" and m["command"] == "settings" and m["value"] == {"keep_awake": False, "scale": 125}
     # the same again within FOLLOW_AGAIN is not sent twice
-    assert await T.follow(mantel.app, did, {"keep_awake": True, "scale": 100}) == 0
+    assert await T.follow(mantel.app, did, {"keep_awake": True, "scale": 100}, "kitchen") == 0
+    # a device in a room no tablet has is sent nothing
+    assert await T.follow(mantel.app, did, {"keep_awake": True, "scale": 100}, "garage") == 0
     await ws.close()
