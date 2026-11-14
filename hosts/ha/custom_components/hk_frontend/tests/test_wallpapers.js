@@ -212,7 +212,7 @@ check('...the rules are hkWallpapers.motionCss\'s for the sky, written out (the 
 var front = read(HK_ROOT + '/frontend/sky-parts/hk-sky-front.js'), stat = read(HK_ROOT + '/frontend/sky-parts/hk-sky-static.js');
 check('a drawn wallpaper moves by --hk-wp: its keyframes move nothing else, it is no layer of its own, each shape is worked out from it',
       /'@keyframes hk-wall-p\{from\{--hk-wp:0\}to\{--hk-wp:1\}\}'/.test(src) &&
-      /'#hk-sky\[data-wpv\]\[data-wm\] \.wall:not\(\.th\)\{will-change:auto;animation-name:hk-wall-p;'/.test(src) &&
+      /'#hk-sky\[data-wpv\]\[data-wm\] \.wall:not\(\.th\)\{will-change:auto;animation-name:hk-wall-p;animation-play-state:paused;'/.test(src) &&
       ['petals', 'shards', 'pinwheel'].every(function (s) { return new RegExp("'#hk-sky\\[data-wpv\\]\\[data-ws=\"" + s + "\"\\] \\.wall:not\\(\\.th\\)\\{transform:[^']*var\\(--hk-wp\\)").test(src);
         }) &&
       !/'#hk-sky\[data-wpv\][^']*will-change:transform/.test(src));
@@ -221,6 +221,12 @@ check('...--hk-wp is typed a number (0.5 at rest, the middle) and data-wpv says 
       /name: '--hk-wp', syntax: '<number>', inherits: false, initialValue: '0\.5'/.test(front) &&
       /if \(ST\.wpv && !ST\.appSky\) el\.setAttribute\('data-wpv', ''\); else el\.removeAttribute\('data-wpv'\)/.test(stat) &&
       /'#hk-sky\[data-ws="shards"\] \.wall\{animation-name:hk-wall-drift\}'/.test(src));
+// ...STEPPED BY A TIMER (2026-11-14, the Kitchen's tablet): run, the number's animation drew every frame; paused, its
+// time is set at each of its steps, and drifting() still counts it
+check('...the number\'s animation is paused and a timer sets its time at each step (from its own steps), held where the sky is',
+      /a\.currentTime = now % \(2 \* d\);/.test(stat) && /steps\\\(\(\\d\+\)/.test(stat) &&
+      /\(hidden\|held\|noanim\)/.test(stat) && /if \(m && el\.hasAttribute\('data-wpv'\) && !wallT\) wallT = setTimeout\(wallStep, 0\);/.test(stat) &&
+      /an\.playState === 'paused' && nm === 'hk-wall-p' && ST\.wallSteps/.test(read(HK_ROOT + '/frontend/sky-parts/hk-sky-api.js')));
 check('...a meteor is a mover a Pre-rendered blur leaves out; Reduce Motion stops all', hkSky.moves({ animationName: 'hk-wt-meteor' }) &&
       /@media \(prefers-reduced-motion:reduce\)\{#hk-sky \*\{animation:none!important\}\}/.test(src));
 check('the layers fade as the stops do (4 s), and stay off the sky\'s animations (a still: the static sky)',

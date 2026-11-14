@@ -620,7 +620,8 @@
       // rest (0.5) is the middle of a drift but not of a breath or a scale, and the picture moved as the Motion
       // caught up. Where --hk-wp could not be typed (hk-sky-front.js register: WebKit before 16.4) there is no
       // data-wpv and the transform above runs.
-      '#hk-sky[data-wpv][data-wm] .wall:not(.th){will-change:auto;animation-name:hk-wall-p;',
+      // (paused: its time is set at each step by a timer, hk-sky-static.js wallStep -- run, it drew every frame)
+      '#hk-sky[data-wpv][data-wm] .wall:not(.th){will-change:auto;animation-name:hk-wall-p;animation-play-state:paused;',
       '  transform:translate(calc(6% * var(--hk-wp) - 3%),calc(1% - 2% * var(--hk-wp)))}',
       '#hk-sky[data-wpv][data-ws="petals"] .wall:not(.th){transform:rotate(calc(4deg * var(--hk-wp) - 2deg)) scale(calc(1 + .04 * var(--hk-wp)))}',
       '#hk-sky[data-wpv][data-ws="shards"] .wall:not(.th){transform:translate(calc(4% * var(--hk-wp) - 2%),calc(4% * var(--hk-wp) - 2%)) scale(calc(1.02 - .02 * var(--hk-wp)))}',

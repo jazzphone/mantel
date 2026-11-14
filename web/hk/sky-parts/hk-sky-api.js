@@ -77,7 +77,8 @@
       try { list = el.getAnimations({ subtree: true }); } catch (e) { return false; }
       for (var i = 0; i < list.length; i++) {
         var an = list[i], nm = String(an.animationName || '');
-        if (an.playState !== 'running' || !nm) continue;
+        // (a drawn wallpaper's own motion is paused and stepped by a timer: hk-sky-static.js wallStep)
+        if (!nm || (an.playState !== 'running' && !(an.playState === 'paused' && nm === 'hk-wall-p' && ST.wallSteps))) continue;
         try { d = +an.effect.getTiming().duration || 0; } catch (e) { d = 0; }
         for (j = 0; j < WALLS.length; j++) if (nm.indexOf(WALLS[j]) === 0 && d >= 4000) return true;
         for (j = 0; !still && j < DRIFTS.length; j++) if (nm.indexOf(DRIFTS[j]) === 0) return true;

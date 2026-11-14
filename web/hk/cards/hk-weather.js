@@ -172,7 +172,11 @@
     var daily = Array.isArray(o.daily) ? o.daily : [];
     if (!daily.length && g('forecast_daily') && st[g('forecast_daily')]) daily = (st[g('forecast_daily')].attributes || {}).forecast || [];
     var today = daily[0] || {}, sun = st['sun.sun'], set = sun && sun.attributes && sun.attributes.next_setting;
-    var aqi = Object.keys(st).filter(function (k) { return k.indexOf('sensor.') === 0 && (st[k].attributes || {}).device_class === 'aqi' && num(st[k].state) !== null; })[0];
+    // (a look over every sensor is no screen's need -- hkShell.unrecorded: read in a screensaver's Glance, it kept the
+    // whole house on the Kitchen's page, 4,566 states, each power meter's tick a redraw, 2026-11-13. The sensor found
+    // is read below, and kept.)
+    var scan = function () { return Object.keys(st).filter(function (k) { return k.indexOf('sensor.') === 0 && (st[k].attributes || {}).device_class === 'aqi' && num(st[k].state) !== null; })[0]; };
+    var shell = window.hkShell, aqi = shell && typeof shell.unrecorded === 'function' ? shell.unrecorded(scan) : scan();
     var place = g('place') || (client && client.config && client.config.location_name) || 'Home';
     var wind = sensor('wind');
     return {

@@ -159,6 +159,34 @@
       // tablet app draws the sky, ST.appSky: hk-sky-handover.js -- its player plays transforms, not a number, and the
       // page draws no sky there for the moving layer to cost it anything)
       if (ST.wpv && !ST.appSky) el.setAttribute('data-wpv', ''); else el.removeAttribute('data-wpv');
+      if (m && el.hasAttribute('data-wpv') && !wallT) wallT = setTimeout(wallStep, 0);
+    }
+    // ...STEPPED BY A TIMER, NOT BY THE FRAME (2026-11-14, measured on the Kitchen's tablet, a Rockchip RK3576): an
+    // animation of a custom property is the page's own, and Chromium runs it every frame whatever its steps -- the page
+    // drew 60 frames a second, every glass card blurred again each time, to move the picture 4 to 10 times a second
+    // (1.07 cores at rest; 0.84 stepped here). The animation stays, paused (the .wall rules in hk-sky.js), and its time
+    // is set here at each of its steps, from the clock: a frame is drawn only when the picture moves -- the same steps,
+    // drift and stops (.hidden, .held, .noanim, Reduce Motion). hkSky's drifting() counts it as moving (ST.wallSteps).
+    var wallT = 0;
+    function wallStep() {
+      wallT = 0;
+      var el = ST.mounted, next = 250;
+      if (!el || !el.isConnected || !el.hasAttribute('data-wpv') || !el.hasAttribute('data-wm')) { ST.wallSteps = false; return; }
+      ST.wallSteps = true;
+      if (!document.hidden && !/(^|\s)(hidden|held|noanim)(\s|$)/.test(el.className)) {
+        var now = performance.now();
+        el.querySelectorAll('.wall:not(.th)').forEach(function (w) {
+          (w.getAnimations ? w.getAnimations() : []).forEach(function (a) {
+            if (/** @type {any} */ (a).animationName !== 'hk-wall-p' || !a.effect) return;
+            var fx = /** @type {KeyframeEffect} */ (a.effect), d = Number(fx.getTiming().duration) || 0;
+            var kf = fx.getKeyframes()[0], n = Number((/steps\((\d+)/.exec(String(kf && kf.easing)) || [])[1]) || 360;
+            if (!(d > 0)) return;
+            a.currentTime = now % (2 * d);
+            next = Math.min(next, d / n - (now % (d / n)) + 4);
+          });
+        });
+      }
+      wallT = setTimeout(wallStep, Math.max(40, next));
     }
     // A MOTION THEME (2026-10-31, hk-wallpapers.js scene()): its ground is the
     // layer's picture, as a drawn wallpaper's is, and its own layers go inside
