@@ -1,8 +1,9 @@
 # Phase 30: AirPlay to a wall tablet (plan, 2026-11-13)
 
-**Status: decisions answered and built (2026-11-13); step 0's numbers taken on the Loft (below). Waiting on the owner's
-OK for a tablet build with AirPlay switched on, and on a delay measurement (step 0's one gap).** Mantel's side is on main; the app's is on mantel-android main (the receiver off on every tablet until
-switched on). No app build is published and nothing is on the house.
+**Status: decisions answered and built (2026-11-13); step 0 done on the Loft (below), the delay included. Waiting on
+the owner's OK for a tablet build with AirPlay switched on.** Mantel's side is on main; the app's is on mantel-android
+main (the receiver off on every tablet until switched on). The published 0.1.11 has the receiver but not the fixes
+after it (the decoder's size, the page held under a mirror): the next release carries them.
 
 The owner: "I'd like to do AirPlay Mirroring/Video", and then: "This should also cover audio as well... AirPlay 1 and 2
 if possible!"
@@ -44,13 +45,31 @@ The prototype (below) on the Loft, Android 16, nothing else changed:
 
   Against step 0's bar: **60 fps held** while anything moves, nothing dropped; **the skin far under 40 °C**; the app's
   own processes about 0.9 of a core more than idle (the whole tablet 1.2 more, a little over the bar's one core).
-  Two savings left: the page keeps running under the mirror at twice its idle cost (pausing it would save about
-  0.15), and the GL copy of each frame (decoding straight onto the surface). The sound had 20 buffer underruns
-  (at volume 0, so none were heard): worth a listen. **Delay: not measured.** The receiver's own measure needs
-  UxPlay's clock sync with the sender, which this iPad never completed (its frames' times came through as 0). A
-  clock on the sender filmed beside the tablet by a phone camera settles it.
+  Two savings: the page kept running under the mirror at twice its idle cost (**now held**, below), and the GL copy
+  of each frame (decoding straight onto the surface: **left as it is**, the owner agreeing, since a decoder that
+  isn't ready for an iPad's only full frame leaves the mirror black). The sound had 20 buffer underruns (at volume
+  0, so none were heard): worth a listen.
   The app's own summary of the whole mirror (343 s, `AIRPLAY` → `last:`): 13,329 frames, 0 dropped, 44 fps on
   average, the app 0.50 of a core, Android's thermal headroom 0.51 (1.0 is where it throttles), no thermal status.
+- **The delay: about 0.1 s** (2026-11-13 19:44, the owner's iPad sideways). The receiver's own measure needs
+  UxPlay's clock sync with the sender, which the iPad never completes (its frames' times come through as 0), so a
+  clock page on the Mac (its time to the millisecond, synced by round trips) was mirrored and the Loft's screen
+  captured over adb, each capture's moment turned into the Mac's time through the tablet's clock offset (DevTools
+  round trips, ±3 ms). The same clock laid over the Loft's own page, captured the same way, measured how late
+  `screencap` takes its picture (about 120 ms after it's asked). Net: a frame drawn on the iPad is on the Loft's
+  screen about 50 ms plus the Loft's own display time later, **roughly 70-100 ms**, under the bar's 150.
+- **An iPad sideways mirrored black, now fixed.** That run's first try: the receiver had told senders the screen's
+  1920 x 1200; the iPad sent 1746 x 1200; the Loft's low-latency HEVC decoder takes at most 1920 x 1088
+  (`media_codecs_blair.xml`), all 12 starts failed, and with no decoder for the iPad's one full frame the mirror
+  stayed black. Senders are now told the largest box of the screen's shape every chosen decoder takes (the Loft:
+  1744 x 1088); the same iPad sideways came as 1584 x 1088, the decoder started in 0.14 s, 60.6 fps over 53 s,
+  nothing dropped. (Upright, as at first, it fitted by luck: 826 x 1200 turned sideways is inside 1920 x 1088.)
+- **The page held under a picture.** `WebView.onPause` while a mirror or a video is up: its animations stop, its
+  script and its socket to Mantel keep running (its timers slow to about one a second, as any hidden page's). On the
+  emulator with an animated page: 181 frames in 3 s shown, 0 under the picture, 181 again after, and the live page
+  on screen a quarter second after the picture went. The app's own sky (phase 29) holds still under it too.
+- **When a mirror ends at night, the screen goes dark at once.** Sleep Screen waited for the mirror (decision 6) and
+  turned the Loft off a second after it ended, quiet hours being on. As decided; worth knowing.
 - **Idle, the receiver costs nothing measurable.** With it on and nobody sending, the app and its page measured 0.4-0.7
   of a core each, the page's own spread on the Loft with the receiver off.
 - **Sound from a non-Apple sender is refused.** pyatv's "stream a file" (the classic AirPlay 1 audio handshake,
@@ -206,7 +225,7 @@ stream to the app and its delay measured on the Loft against a HomePod, and what
 
 ## The build, in steps
 
-0. **The Loft's numbers** (done 2026-11-13, above, but for the delay): mirror an iPhone or iPad to `Loft Kiosk` for four minutes with
+0. **The Loft's numbers** (done 2026-11-13, above): mirror an iPhone or iPad to `Loft Kiosk` for four minutes with
    something moving (a muted video, or a clock page), then read them over adb:
    `am broadcast -a com.jazzphone.mantel.android.AIRPLAY -n com.jazzphone.mantel.android/.AdbControl` (its `last:`), and
    the CPU of the decoder and SurfaceFlinger beside the app's, and the tablet's temperatures. Bar: 60 fps held, under
@@ -242,6 +261,9 @@ stream to the app and its delay measured on the Loft against a HomePod, and what
   test and is back at its 6 of 15; the receiver is off.
 - 2026-11-13 19:18: step 0 on the Loft (above): the owner mirrored his iPad for about four minutes. The Loft's media
   volume was 0 throughout; AirPlay was switched off afterwards and the Loft left on mantel-android main for phase 29.
+- 2026-11-13 19:40-19:48: the delay (above). The first run was black (the decoder's size, fixed in mantel-android
+  e499e8f and tried on the Loft as a test build, then the published 0.1.11 put back exactly as it was); the page
+  held under a picture (30705a1). The Loft: AirPlay off, media volume 6, its screen asleep as Sleep Screen had it.
 - 2026-11-13, after the owner's answers: steps 1-4 built.
   - **The app** (mantel-android main): the `:airplay` module stripped and OpenSSL linked into it (the native libraries
     9 MB → 7 MB; the APK 20.9 MB with ExoPlayer), the decoder drained on its own thread, YouTube's video links played by
