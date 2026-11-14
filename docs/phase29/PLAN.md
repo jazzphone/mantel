@@ -271,3 +271,7 @@ Still the page's: a sky the app can't play (the guard), anything else on the pag
 every screen without the app or the setting. Fixed on the way: hk-sky writing its class list anew took the hand-over's
 clip with it (the page's sky showed and moved under the app's until the next hand-over); the clip is put back at once.
 
+**On the house** (2026-11-13, late evening): hotfix 0.1.166-main.0362c89fe, Mantel for Android 0.1.12 (1033) published and
+on the Loft; installed on the Kitchen tablet beside Kiosk Satellite (still in front there until the app is paired: a
+person's step), with Sky Drawn by the App set for the Kitchen too (it means nothing until its Kiosk App is the app).
+
