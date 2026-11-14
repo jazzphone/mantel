@@ -28,6 +28,7 @@ import { pRoles } from './settings/roles.js';
 import { pFiles, photoTools } from './settings/files.js';
 import { pBackups } from './settings/backups.js';
 import { pAlerts } from './settings/alerts.js';
+import { drawItemTv, drawNotifyTv, pAppleTv, SECTION as APPLE_TV } from './settings/appletv.js';
 import { pTimeline } from './settings/timeline.js';
 import { pService } from './settings/service.js';
 import { pAssistants } from './settings/assistants.js';
@@ -138,6 +139,7 @@ export const host = {
     const at = parts.join('/');
     if (at !== lastPage) { lastPage = at; forgetFailed(); }     // a failed read is asked again on a page opened anew
     if (s === 'add-screen' && manages()) return pAddScreen();
+    if (s === APPLE_TV && manages()) return pAppleTv();
     if (s === 'connect' && can('connect')) return pConnections(['ha', 'sidebar']);
     if (!BUILD[s] || !can(s)) return pMe([]);
     return BUILD[s](parts.slice(2));
@@ -179,6 +181,9 @@ export const host = {
     if (where === 'tablets' && me && can('devices')) drawTabletsMantel(c);
     if (where === 'screen' && me && ctx && ctx.screen) { drawWhere(c, ctx); if (!ctx.where || ctx.where.where !== 'ha') drawHaDashboard(c, ctx); }
     if ((where === 'saver' || where === 'house-saver') && me && can('photos')) photos.extend(where, c, ctx || {}, photoTools);
+    // phase 31: notifications on the Apple TVs, on HK's Notifications page and each notification's (settings/appletv.js)
+    if (where === 'notify' && manages()) drawNotifyTv(c, ctx || {});
+    if (where === 'notify-item' && manages()) drawItemTv(c, ctx || {});
   },
   search() {
     if (!me) return [];
@@ -187,6 +192,8 @@ export const host = {
       : s === 'intercom' ? 'intercom announce announcement broadcast talk speak microphone rooms homepod live message chime music assistant'
       : s === 'alerts' ? 'alerts notifications discord telegram notifiarr email apprise heartbeat system alerts'
       : s === 'timeline' ? 'timeline history recorded doors locks garage alarm arrivals doorbell detections retention pictures morning summary digest clear' : s }));
+    if (manages()) out.push({ label: 'Apple TV', route: ROUTE + '/' + APPLE_TV, where: 'Notifications',
+                              words: 'apple tv notifications homekit camera picture television alerts corner' });
     if (can('photos')) out.push({ label: 'Photos', route: ROUTE + '/' + photos.SECTION, where: 'Mantel → Your Files', words: 'photos albums upload screensaver pictures' });
     return out;
   },

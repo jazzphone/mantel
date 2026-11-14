@@ -551,3 +551,53 @@ its own for the bar's row while it moves was tried and bought nothing.
 Not done yet, of "all of that": the pages kept in fixed slots so that a landing only moves them (it is still two
 rounds of style and layout, ~150 ms to the next frame in these traces); the next page's sky made ready before the
 finger; the Music page's panels out of its page; the Pages screen's ground as a picture where the glass is one.
+
+## The Pages screen's ground as a picture: tried, and taken out (2026-11-14, afternoon)
+
+Built (hk-glass.js painted the sky under the ground's own filter after the page's picture, at half size; the card
+and the swipe's still layer wore it) and it matched the live blur on the Kitchen's tablet -- 0.3 of 255 a channel on
+average, no pixel off by more than 8. It was slower: under Pre-rendered glass, Home to the Pages screen ran 42
+frames a second with the backdrop blur and 34 with the picture, and its first frame went from 94 ms behind the
+finger to 267 -- a picture is a layer the size of the window, drawn as the swipe starts and blended in every frame,
+where a backdrop blur has nothing of its own to draw. The 27-to-34 the blur's absence had bought (above) was measured
+under live Bright glass, which the Kitchen's screen had been set to that morning (its board's history: `bright_pre`
+to `bright` at 10:17, by way of Flat and Clear).
+
+What that measurement says instead: the same swipe, the same build, is 27 frames a second under Bright glass (Shared
+Layer) and 42 under its Pre-rendered twin. The screen's glass is the first thing to look at on a slow tablet.
+
+## The Music page in a layer; the sky's hand-over; what a landing really is (2026-11-14, afternoon)
+
+**The Music page rests in a layer** where its page is exactly the window and the window is wide enough for its
+wall-tablet layout (`FIXED_WINDOW`, with the narrowest window it applies on; `fills` now wants the page no taller
+than the window either -- a taller one scrolls the document, and what is fixed in its layer would scroll along). Its
+scrim and sheets are placed by the window's edges; with its Speakers panel open the screen was the same to the
+pixel with and without the layer. From the Music page to the Calendar and back on the Kitchen's tablet: the first
+frame 215 -> 196 ms one way, 71 -> 74 the other; frames a second 31 -> 31 and 33 -> 36. Little, as measured.
+
+**The sky's hand-over is not what delays a swipe's first frame.** Weather to the Calendar (different skies), with
+the hand-over and with it switched off in the page: the first frame 181 ms and 199 ms behind the finger, 155 and
+158 coming back -- the same. What it costs is in the middle of the swipe: the worst gap between two frames 106-152 ms
+with it and 50-76 without, 27-28 frames a second and 32-33. (The Weather page's own first frame is its radar and
+its tall layer; not looked into.) Making the next page's sky ahead would need a second sky kept drawn beside the
+screen -- hk-sky.js has one sky, and its cover is a copy of that one made as the finger moves. Not built.
+
+**What a landing is, and what it is not.** The landing is one task (hk-pageswipe.js `end`, 95-120 ms on the
+Kitchen's tablet, 37-80 on the Loft's): one style pass over every element of the page landed on -- 678 elements
+landing on the Pages screen, 1,205 on Home, 53-73 ms on the Kitchen's and 15-40 on the Loft's -- and one layout
+(22 ms; 15-32). So it is not two rounds any more, and pages held in fixed slots would not shorten it: its layout is
+the smaller half. What makes the style pass that wide was looked for by taking one suspect out at a time on the
+tablets, and three are ruled out -- the count did not move for any:
+
+- `inert` on the page left and the page landed on (not set, on the Kitchen's);
+- the Side Pane's room and the page's edge on the root (`--hk-pane-r`, `--hk-page-right`): each page given its own
+  copy (the Kitchen's);
+- the page's width band (`data-hk-band` on the root, under which css/hk-responsive.css redefines thirteen
+  inherited properties): each page in the slot given its own band and every property declared on it, built and
+  served to the Loft's tablet, then taken out again.
+
+Chrome's invalidation tracking marks none of the landing's writes as a subtree's; what is left is an inherited
+property changing on the page's own element as it lands. Two are written there: `pointer-events` (the swipe keeps
+touches off a page beside the one shown, and gives it back) and the page's own look (`wearLook`: custom properties,
+taken off or put on as it lands). Not yet tried: keeping both as they are across the landing, and changing them at
+a quiet moment after it.

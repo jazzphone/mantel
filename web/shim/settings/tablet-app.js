@@ -100,6 +100,39 @@ function drawDebugging(c, st, send, off, id) {
     + 'Its port changes each time it starts. A computer still has to be paired with the tablet once.' }, rows));
 }
 
+// HOW THE TABLET DRAWS (the owner, 2026-11-14: "having the app able to turn on OpenGL is worth us implementing ... it
+// would also be great if we could change resolution"): the app's Graphics.kt, through its own adb (SelfAdb.kt), paired
+// once with the code Android shows under Wireless debugging -> Pair device with pairing code
+const RENDER_SIZES = [[100, 'Full (the Panel’s Own)'], [83, '83% (1600 × 900 on a 1080p Panel)'], [67, '67% (1280 × 720 on a 1080p Panel)']];
+function drawGraphics(c, st, send, off, id) {
+  if (typeof st.renderer !== 'string') return;                          // an app from before it
+  const ready = st.adb_paired && st.wireless_debugging_allowed !== false;
+  const rows = [K().select({ label: 'Renderer', fk: 'mx:app-renderer:' + id, value: st.renderer, disabled: off || !ready,
+                             sub: st.renderer_now && st.renderer_now !== st.renderer ? 'Android has ' + (st.renderer_now === 'opengl' ? 'OpenGL' : 'its default') + ' now' : null,
+                             options: [['default', 'Android’s Default'], ['opengl', 'OpenGL']],
+                             onChange: (v) => send('renderer', v, v === 'opengl' ? 'OpenGL: the app starts again.' : 'Android’s default: the app starts again.') }),
+                K().select({ label: 'Resolution', fk: 'mx:app-render-size:' + id, value: String(st.render_size || 100), disabled: off || !ready,
+                             sub: 'Fewer pixels to draw, stretched to the screen: smoother on a slow tablet, softer text up close',
+                             options: RENDER_SIZES.map(([v, l]) => [String(v), l]),
+                             onChange: (v) => send('render_size', Number(v), 'Resolution ' + v + '%.') })];
+  if (st.wireless_debugging_allowed === false) {
+    rows.push(info('Needs a Grant', 'Once, over adb: adb shell pm grant com.jazzphone.mantel.android android.permission.WRITE_SECURE_SETTINGS', 'Not Allowed', 'warn'));
+  } else if (!st.adb_paired) {
+    const form = 'app-pair:' + id;
+    rows.push(info('Pair the App', 'On the tablet: Developer options → Wireless debugging → Pair device with pairing code. '
+      + 'Enter the code and the port after the colon here while that stays open.', 'Not Paired', 'warn'));
+    rows.push(field(form, 'code', 'Pairing Code', { inputmode: 'numeric', maxlength: 6, placeholder: '123456' }));
+    rows.push(field(form, 'port', 'Port', { inputmode: 'numeric', maxlength: 5, placeholder: '37000' }));
+    rows.push(button('Pair', () => {
+      const d = draft(form);
+      send('adb_pair', { code: String(d.code || '').replace(/\D/g, ''), port: Number(d.port) }, 'Paired.');
+    }, { fk: 'mx:app-pair:' + id, disabled: off }));
+  }
+  c.appendChild(group({ header: 'Graphics', footer: 'Set by the app through Android’s own debugging, so it stays on while these '
+    + 'are chosen. OpenGL draws a page swipe in about half the time on some tablets (one measured: 90 ms a frame to 44); '
+    + 'Android forgets it at every restart, and the app sets it again and starts once more.' }, rows));
+}
+
 // COPY SETTINGS FROM ANOTHER TABLET (the owner, 2026-11-13): what another app tablet last said, sent to this one as one
 // command. Never the screen, the brightness, the menu PIN or wireless debugging; the rotation only between the same model.
 const COPYABLE = ['kiosk_mode', 'keep_awake', 'keep_screen_on', 'adaptive_brightness', 'scale',
@@ -188,6 +221,7 @@ export function drawTabletApp(c, ctx) {
     if (typeof st.airplay === 'boolean') drawAirPlay(c, st, send, off, dv.id);
     drawCopy(c, dv, st, got.data.devices, send, off);
     drawDebugging(c, st, send, off, dv.id);
+    drawGraphics(c, st, send, off, dv.id);
     const pic = pictures[dv.id] || {};
     const shot = pic.src ? hh('img', { src: pic.src, alt: 'What ' + dv.name + ' shows', class: 'mx-tablet-shot' }) : null;
     if (shot) Object.assign(shot.style, { display: 'block', width: '100%', aspectRatio: '16 / 10', objectFit: 'cover',

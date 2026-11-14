@@ -2605,6 +2605,40 @@
   "stream": "none",
   "who": "signed_in"
  },
+ "GET /api/tv_alerts": {
+  "audit": [],
+  "csrf": "-",
+  "device_ok": false,
+  "door": "any",
+  "first": false,
+  "fresh": "never",
+  "handler": "get_status",
+  "mcp": [],
+  "module": "mantel_server.features.tv_alerts",
+  "no_audit": null,
+  "preview": false,
+  "reads": "admin",
+  "reads_why": null,
+  "stream": "none",
+  "who": "manager"
+ },
+ "GET /api/tv_alerts/preview": {
+  "audit": [],
+  "csrf": "-",
+  "device_ok": false,
+  "door": "any",
+  "first": false,
+  "fresh": "never",
+  "handler": "get_preview",
+  "mcp": [],
+  "module": "mantel_server.features.tv_alerts",
+  "no_audit": null,
+  "preview": false,
+  "reads": "admin",
+  "reads_why": null,
+  "stream": "none",
+  "who": "manager"
+ },
  "GET /api/updates": {
   "audit": [],
   "csrf": "-",
@@ -3201,6 +3235,17 @@
   "reads": null,
   "stream": "none",
   "why": "the linked HK Frontend's Service credential (linked.py) and the gateway: RBAC as the person HA names, the audit row first, the kill switch"
+ },
+ "LINKED camera_image": {
+  "csrf": "-",
+  "handler": "/linked/ws message",
+  "kind": "link_credential",
+  "mcp": [],
+  "module": "mantel_server.ha.socket_reads",
+  "preview": false,
+  "reads": null,
+  "stream": "none",
+  "why": "the credential (protocol 2); the picture of the one camera Mantel draws, the Apple TVs' (features/tv_alerts.py); reads nothing of a person's or the house's"
  },
  "LINKED entity_command": {
   "csrf": "-",
@@ -4549,6 +4594,42 @@
   "reads_why": null,
   "stream": "none",
   "who": "owner"
+ },
+ "POST /api/tv_alerts/homekit": {
+  "audit": [
+   "tv_alerts.homekit"
+  ],
+  "csrf": "session",
+  "device_ok": false,
+  "door": "any",
+  "first": false,
+  "fresh": "never",
+  "handler": "post_homekit",
+  "mcp": [],
+  "module": "mantel_server.features.tv_alerts",
+  "no_audit": null,
+  "preview": false,
+  "reads": null,
+  "reads_why": null,
+  "stream": "none",
+  "who": "manager"
+ },
+ "POST /api/tv_alerts/test": {
+  "audit": [],
+  "csrf": "session",
+  "device_ok": false,
+  "door": "any",
+  "first": false,
+  "fresh": "never",
+  "handler": "post_test",
+  "mcp": [],
+  "module": "mantel_server.features.tv_alerts",
+  "no_audit": "shows a test card on the house's Apple TVs; saves nothing",
+  "preview": false,
+  "reads": null,
+  "reads_why": null,
+  "stream": "none",
+  "who": "manager"
  },
  "POST /api/updates/check": {
   "audit": [],

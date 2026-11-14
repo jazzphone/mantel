@@ -87,6 +87,8 @@ LINKED_TYPES: dict[str, str] = {
     "page": "the credential; a linked dashboard's page reads, as the person linked to its HA user (linked_reads.py)",
     "phone_action": "the credential (protocol 2); a phone notification's action, as the person HA names, through the "
                     "gateway",
+    "camera_image": "the credential (protocol 2); the picture of the one camera Mantel draws, the Apple TVs' "
+                    "(features/tv_alerts.py); reads nothing of a person's or the house's",
 }
 
 

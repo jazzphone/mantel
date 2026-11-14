@@ -185,6 +185,8 @@ def build(house: House, opts: dict[str, Any], item: dict[str, Any], new: State |
         "mute": mute_key(item, eid), "event": None,
         "buttons": rules.buttons(k, st, camera), "test": test, "ts": time.time(),
         "dashboards": [], "users": [],
+        # Apple TV (phase 31, tv.py): this notification on the TVs, and its own look (None: the house's)
+        "tv": bool(item.get("tv")), "tv_look": item.get("tv_look") or None,
     }
 
 
@@ -237,6 +239,7 @@ def build_action(house: House, opts: dict[str, Any], data: dict[str, Any], pins:
         # (a dashboard as its url path: the screen compares its first segment)
         "dashboards": [p for p in (str(d).strip().strip("/").split("/")[0] for d in data.get(ATTR_DASHBOARDS) or []) if p],
         "users": [str(u).strip() for u in data.get(ATTR_USERS) or [] if str(u).strip()],
+        "tv": False, "tv_look": None,
     }
 
 

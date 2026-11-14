@@ -2,7 +2,7 @@
 
 **Status: a plan and a mockup ([mockup/tv-alerts.html](mockup/tv-alerts.html), also at
 https://claude.ai/artifact/6jjG6ZfTjdTr8xhRm3LhY6), every decision at the end answered by the owner (2026-11-14).
-Ready to build; nothing is built.**
+Steps 1-3 built (Build log); step 0 and 4 need the owner at an Apple TV.**
 
 - **Line numbers** are left out on purpose. Search for the names.
 
@@ -231,4 +231,32 @@ sensors), and is written up under "Later".
 
 ## Build log
 
-(empty)
+**2026-11-14, steps 1-3 built** (branch `phase31-tv-alerts`, then main). Step 0 is still to do: it needs the owner at an
+Apple TV, and was moved after the build because Send Test now does it with the real thing.
+
+- **The decision**: `hk_core/notifications/tv.py` (`goes`, `card`, `test_card`, Color's `darken`), the options
+  (`tv`: on, look, camera, dnd) and each notification's `tv` and `tv_look` in `const.py` / `settings.py`, and both in
+  the payload (`banner.build`; an automation's own never goes). Tests: `tests/test_hk_core_notifications_tv.py`.
+- **The picture**: `cameras/tv_card.py` (fonts, glyphs, the three looks and the snapshot card as SVG) and
+  `image_work.render_card` (resvg, then a JPEG) in the image worker. Measured on the Mac: Black 45 ms, Color ~200 ms,
+  Glass ~490 ms (its blur). SF Pro is read from Your Files (a `.woff2` is unpacked once into
+  `<data>/cache/tv-alerts/`); Inter (OFL, cut to Latin, 222 KB) is bundled in `cameras/fonts/` and allowed by path in
+  the App's scan (`tools/stage_ha_app.py OPEN_FONTS`). Glass uses a fixed dusk background with the accessory's color
+  in it, not yet the house's own wallpaper.
+- **The queue and the entities**: `features/tv_alerts.py` taps the feed; `linked_house.py` publishes the camera and the
+  sensor while the TVs are on or HomeKit is wanted; the link has a new client message, `camera_image` (declared in
+  `socket_reads.LINKED_TYPES`), and `report.homekit`. The sensor is held on 10 s, then off 5 s, until step 0 says
+  otherwise. REST: `/api/tv_alerts` (status, preview, test, homekit), in the route table.
+- **Mantel Link**: `entity.py` (`features.still`, the binary sensor's device class), `homekit_entry.py` (the HomeKit
+  Bridge entry through HomeKit's import flow; status from its driver), `bridge.py` (`camera_image`).
+- **Settings**: Mantel Settings → Apple TV (`web/shim/settings/appletv.js`), reached from Notifications (the host's
+  `extend('notify')`) and each notification's own Apple TV switch and look (`extend('notify-item')`). Drawn headless at
+  1280 x 800, an iPad's and a phone's size in all three HomeKit states: no overflow, no script error.
+- **Dependencies**: `resvg_py` 0.5.0 and `fonttools[woff]` (with `brotli`, `zopfli`) in `pyproject.toml` and the lock.
+- **Review** (an agent read the diff): fixed Remove from HomeKit while the Apple TVs are off (the camera stays published
+  until Mantel Link reports the entry gone), the picture's version (from the clock, never repeated after a restart), a
+  pulse racing linked_house's refresh (both under its lock), the idle picture racing a card, the sensor left on after a
+  failed pulse, characters XML refuses breaking a card, an old picture served after a failed fetch, the Settings page
+  blinking while it waits for the Home app, and the unpacked SF Pro's freshness (by the upload's size and time).
+- **Checks**: `tools/ci.py full` from a local worktree: 98 of 99 passed; `side-pane-check-1180x820` failed once (Now
+  Playing's panel in the Side Pane, nothing this phase touches) and passed alone.
