@@ -1,7 +1,7 @@
 # Phase 30: AirPlay to a wall tablet (plan, 2026-11-13)
 
-**Status: decisions answered (2026-11-13); built, waiting on the owner's four-minute mirror (step 0) and his OK for a
-tablet build.** Mantel's side is on main; the app's is on mantel-android main (the receiver off on every tablet until
+**Status: decisions answered and built (2026-11-13); step 0's numbers taken on the Loft (below). Waiting on the owner's
+OK for a tablet build with AirPlay switched on, and on a delay measurement (step 0's one gap).** Mantel's side is on main; the app's is on mantel-android main (the receiver off on every tablet until
 switched on). No app build is published and nothing is on the house.
 
 The owner: "I'd like to do AirPlay Mirroring/Video", and then: "This should also cover audio as well... AirPlay 1 and 2
@@ -26,12 +26,29 @@ The prototype (below) on the Loft, Android 16, nothing else changed:
   826 × 1200** (an iPad upright, scaled by the iPad to the tablet's 1200-pixel height), decoded by the tablet's
   **low-latency hardware HEVC decoder** (`c2.qti.hevc.decoder.low_latency`). The picture was right: upright, centered
   on black, full height, over the page; the curtain lifted; the page came back when the mirror ended.
-- **Not yet measured: a sustained mirror.** That run lasted 18 seconds, too short for the frame rate, delay, CPU and
-  temperature samples. A Mac can't be made to start a mirror from here (the menu that does it belongs to a system
-  helper the session can't press), so **the numbers are waiting on four minutes of mirroring by the owner** (step 0
-  below). The app now keeps them itself: each mirror's frame rate, delay (from the sender's capture to arriving, and to
-  leaving the decoder, on the AirPlay clock both ends share), the app's share of a core, and Android's thermal
-  headroom, logged at its end and returned by adb (`AIRPLAY` → `last:`).
+- **A sustained mirror (step 0, 2026-11-13 19:18, the owner's iPad, about 4 minutes; build 0.1.11-main from
+  mantel-android main).** 826 × 1200 upright, H.265 on the low-latency hardware decoder. Sampled every 10 s for 3 min
+  (19 samples) beside 30 s idle just before, CPU as the share of one core (mean / peak):
+
+  | | Idle before | Mirroring |
+  |---|---|---|
+  | Frames a second | | 60-62 while the picture moves; 4-10 while the iPad's screen is still (it sends fewer); mean 45; 0 dropped of 8,079 |
+  | Bitrate | | mean 3.1 Mb/s, peak 12.6 |
+  | The app (receiver, GL copy, sound) | 0.07 | 0.48 / 0.81 |
+  | The page's renderer (hidden under the mirror) | 0.13 | 0.27 / 0.35 |
+  | The hardware decoder's service | 0 | 0.20 / 0.44 |
+  | SurfaceFlinger | 0.06 | 0.22 / 0.33 |
+  | Audio server (the mirror's AAC-ELD, at volume 0) | 0 | 0.04 / 0.11 |
+  | **The whole tablet** (cores busy) | **0.79** | **1.95 / 2.83** |
+  | Skin / hottest CPU core / GPU | 22.6 / 26.6 / 25.5 °C | 25.5 / 37.2 / 33.3 °C at the end (the skin still rising about 1 °C every 3 min) |
+
+  Against step 0's bar: **60 fps held** while anything moves, nothing dropped; **the skin far under 40 °C**; the app's
+  own processes about 0.9 of a core more than idle (the whole tablet 1.2 more, a little over the bar's one core).
+  Two savings left: the page keeps running under the mirror at twice its idle cost (pausing it would save about
+  0.15), and the GL copy of each frame (decoding straight onto the surface). The sound had 20 buffer underruns
+  (at volume 0, so none were heard): worth a listen. **Delay: not measured.** The receiver's own measure needs
+  UxPlay's clock sync with the sender, which this iPad never completed (its frames' times came through as 0). A
+  clock on the sender filmed beside the tablet by a phone camera settles it.
 - **Idle, the receiver costs nothing measurable.** With it on and nobody sending, the app and its page measured 0.4-0.7
   of a core each, the page's own spread on the Loft with the receiver off.
 - **Sound from a non-Apple sender is refused.** pyatv's "stream a file" (the classic AirPlay 1 audio handshake,
@@ -187,7 +204,7 @@ stream to the app and its delay measured on the Loft against a HomePod, and what
 
 ## The build, in steps
 
-0. **The Loft's numbers** (waiting on the owner): mirror an iPhone or iPad to `Loft Kiosk` for four minutes with
+0. **The Loft's numbers** (done 2026-11-13, above, but for the delay): mirror an iPhone or iPad to `Loft Kiosk` for four minutes with
    something moving (a muted video, or a clock page), then read them over adb:
    `am broadcast -a com.jazzphone.mantel.android.AIRPLAY -n com.jazzphone.mantel.android/.AdbControl` (its `last:`), and
    the CPU of the decoder and SurfaceFlinger beside the app's, and the tablet's temperatures. Bar: 60 fps held, under
@@ -221,6 +238,8 @@ stream to the app and its delay measured on the Loft against a HomePod, and what
 
 - 2026-11-13: research, the prototype (mantel-android `airplay`, bf0e06b), the iPad's mirror on the Loft (above). The Loft's media volume was at 0 for every
   test and is back at its 6 of 15; the receiver is off.
+- 2026-11-13 19:18: step 0 on the Loft (above): the owner mirrored his iPad for about four minutes. The Loft's media
+  volume was 0 throughout; AirPlay was switched off afterwards and the Loft left on mantel-android main for phase 29.
 - 2026-11-13, after the owner's answers: steps 1-4 built.
   - **The app** (mantel-android main): the `:airplay` module stripped and OpenSSL linked into it (the native libraries
     9 MB → 7 MB; the APK 20.9 MB with ExoPlayer), the decoder drained on its own thread, YouTube's video links played by
