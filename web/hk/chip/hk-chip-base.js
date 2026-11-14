@@ -584,7 +584,12 @@
       if (kindsLive()) { var k = S('kinds.' + kind, []); return Array.isArray(k) ? k : []; }
       var f = FIND[kind], states = (client && client.states) || {}, ents = (client && client.entities) || {};
       if (!f) return [];
-      return Object.keys(states).filter(function (id) {
+      // (a scan of every entity is no screen's need: read in the page's pass, every binary sensor's device class kept the
+      // whole house's sensors on a generated screen -- 590 of them, 2026-11-13. The chips read what it finds again, and
+      // that is kept: hkShell.unrecorded, as Laundry's scan)
+      var shell = window.hkShell;
+      return shell && typeof shell.unrecorded === 'function' ? shell.unrecorded(scan) || [] : scan();
+      function scan() { return Object.keys(states).filter(function (id) {
         if (f[0].indexOf(id.split('.')[0]) < 0) return false;
         var e = ents[id] || {}, a = states[id].attributes || {};
         if (e.hidden || e.entity_category || Array.isArray(a.entity_id)) return false;
@@ -593,7 +598,7 @@
         if (!f[1]) return true;
         if (dc === undefined && id.indexOf('binary_sensor.') === 0) return false;
         return f[1].indexOf(dc) >= 0;
-      }).sort();
+      }).sort(); }
     }
     function kindPage(kind) {
       var want = KIND_PAGES[kind] || [];

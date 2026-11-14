@@ -177,6 +177,28 @@ house.states['light.hidden'] = S('on');
 ok('lights: not a group, not hidden', K.found('lights', house).join() === 'light.a', K.found('lights', house).join());
 ok('doors: a door contact only', K.found('doors', house).join() === 'binary_sensor.d');
 ok('blinds: a cover with no class, not a door cover', K.found('blinds', house).join() === 'cover.blind');
+// THE SCAN IS NO SCREEN'S NEED (2026-11-13): read in the page's pass, every binary sensor's device class kept the whole
+// house's sensors on a generated screen (590 of them; 1,332 states held, 797 without). Mantel keeps what a screen reads
+// outside hkShell.unrecorded: the scan runs in it, and the chip reads what it found where that counts.
+(function () {
+  var quiet = 0, outside = {};
+  var sts = Object.assign({}, house.states, { 'binary_sensor.motion': S('off', { device_class: 'motion' }),
+                                              'binary_sensor.w': S('on', { device_class: 'window' }) });
+  var proxied = new Proxy(sts, { get: function (t, k) { if (typeof k === 'string' && k in t && !quiet) outside[k] = 1; return t[k]; } });
+  var c2 = { states: proxied, entities: house.entities };
+  window.hkShell.use({ unrecorded: function (fn) { quiet++; try { return fn(); } finally { quiet--; } } });
+  var doors, cfg, label;
+  try {
+    doors = K.found('doors', c2); cfg = K.config('doors_windows', c2);
+    var card = { _st: function (id) { return proxied[id] || null; } };
+    label = cfg && HC.labelFor(card, cfg, card._st(cfg.entity));
+  } finally { window.hkShell.use(window.hkHAShell); }
+  var read = Object.keys(outside).sort();
+  ok('scanned unrecorded: the same doors', doors.join() === 'binary_sensor.d', doors.join());
+  ok('...the chip still drawn', !!cfg && label === '1 Window', label);
+  ok('...it reads the door and the window it counts', outside['binary_sensor.d'] && outside['binary_sensor.w'], read.join());
+  ok('...and no sensor it does not count', !outside['binary_sensor.motion'] && !outside['binary_sensor.x'] && !outside['light.a'], read.join());
+})();
 SET = keep;
 
 print('\n=== the page a chip opens is one this dashboard has ===');
