@@ -213,27 +213,27 @@ def sessions_of(app: web.Application, device_id: str) -> list:
             and s.principal.device.id == device_id and not getattr(s, "gone", False)]
 
 
-def wanted_for(app: web.Application, device_id: str) -> dict | None:
-    """What HK's settings want for the app on the tablet `device_id` is: None when it is no tablet's."""
+def wanted_for(app: web.Application, room: str | None) -> dict | None:
+    """What HK's settings want for the app of a device in `room`: its HK tablet's (a device speaks for the tablets in
+    its room: devices.tablets_in), All Tablets' with that tablet's own over them. None when it is no tablet's."""
     service = app.get("settings")
-    if service is None:
+    if service is None or not room:
         return None
     from hk_core.settings import model as SM
     from ..settings_store.importing import stored_of
-    stored = stored_of(service.store)
-    for t in SM.tablets(stored).values():
-        if t.get("device") == device_id:
-            house = (service.house_settings().get("tablets") or {}).get("app")
-            return SM.app_wanted(house, t.get("app_options"))
-    return None
+    mine = [t for t in SM.tablets(stored_of(service.store)).values() if t.get("room") == room]
+    if not mine:
+        return None
+    house = (service.house_settings().get("tablets") or {}).get("app")
+    return SM.app_wanted(house, mine[0].get("app_options") if len(mine) == 1 else None)
 
 
-async def follow(app: web.Application, device_id: str, status: dict) -> int:
-    """The app on `device_id` brought to what HK's settings want (to_send); how many commands went."""
+async def follow(app: web.Application, device_id: str, status: dict, room: str | None) -> int:
+    """The app on `device_id` (in `room`) brought to what HK's settings want (to_send); how many commands went."""
     if not status or not _commands_on(app):
         return 0
     try:
-        wanted = wanted_for(app, device_id)
+        wanted = wanted_for(app, room)
     except Exception:  # noqa: BLE001 -- a status is never refused for this
         log.exception("tablet app: its wanted options")
         return 0
@@ -264,7 +264,7 @@ def handler(app: web.Application):
         st = apps_of(app)
         if msg.get("event") == "status":
             st.heard(device.id, _clean(msg.get("status")))
-            await follow(app, device.id, st.status[device.id]["status"])
+            await follow(app, device.id, st.status[device.id]["status"], getattr(device, "room", None))
         elif msg.get("event") == "done":
             fut = st.waiting.get(str(msg.get("nonce", "")))
             if fut is None:
