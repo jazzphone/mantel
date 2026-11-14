@@ -441,3 +441,57 @@ async def test_a_ringing_homepod_timer_is_times_up_with_stop_and_its_helper_left
     hp.reader.timers.clear()                                                 # it stopped: gone from the list
     await look(hp)
     assert hp.house.sent()[-1] == "timer/delete" and hp.host.known == {} and attrs(hp)["ringing"] == []
+
+
+async def test_a_ringing_homepod_timer_rings_also_play_in_s_speakers_but_its_own_room_s(hp, monkeypatch):
+    """2026-11-14: The Whole House on in General > Timers, and a HomePod timer rang on its HomePod alone. Also Play In's
+    speakers ring with it now, as for every timer -- never its own room's (its HomePod rings there) -- and stop with it."""
+    timers = hp.gw.m.app["timers"]
+    area = hp.host.room_of("Kitchen")
+    rooms = [("media_player.kitchen", area), ("media_player.living_room", "living_room"), ("media_player.office", "office")]
+    played, gate = [], asyncio.Event()
+
+    async def play(picks, reason="timer_ended"):
+        played.append((list(picks), reason))
+        gate.set()
+    monkeypatch.setattr(timers, "_music_rooms", lambda: rooms)
+    monkeypatch.setattr(timers, "play", play)
+    monkeypatch.setattr(timers, "options", lambda: {**type(timers).options(timers), "timer_also": ["all"]})
+    t = hp.reader.timer("Pasta", 5)
+    t["id"] = "t-1"
+    await look(hp)
+    assert played == [] and not hp.host.ringers                              # nothing while it counts
+    hp.gw.now[0] += 6
+    t.update(ringing=True, left_s=0, rang_at=t["ends_at"])
+    await look(hp, 1)
+    await asyncio.wait_for(gate.wait(), 2)
+    assert played == [(["media_player.living_room", "media_player.office"], "homepod_timer")]
+    (ring,) = attrs(hp)["ringing"]
+    assert ring["tablet"] is False and len(ring["speakers"]) == 2            # the screens may say where
+    await look(hp)
+    assert len(played) == 1, "once per 20 s, and not again for every look"
+    task = hp.host.ringers[1]
+    hp.reader.timers.clear()                                                 # stopped on the HomePod
+    await look(hp)
+    await asyncio.sleep(0)
+    assert task.cancelled() or task.done()
+    assert not hp.host.ringers
+
+
+async def test_a_homepod_timer_found_ringing_long_after_it_went_off_rings_no_speaker(hp, monkeypatch):
+    """A restart that finds it ringing past Ring For: the HomePod goes on, the speakers don't start."""
+    timers = hp.gw.m.app["timers"]
+    played = []
+
+    async def play(picks, reason="timer_ended"):
+        played.append(picks)
+    monkeypatch.setattr(timers, "_music_rooms", lambda: [("media_player.office", "office")])
+    monkeypatch.setattr(timers, "play", play)
+    monkeypatch.setattr(timers, "options", lambda: {**type(timers).options(timers), "timer_also": ["all"]})
+    t = hp.reader.timer("Pasta", 5)
+    await look(hp)
+    t.update(ringing=True, left_s=0, rang_at=iso(hp.gw.now[0] - 600))
+    await look(hp, 1)
+    for _ in range(3):
+        await asyncio.sleep(0)
+    assert played == [] and not hp.host.ringers

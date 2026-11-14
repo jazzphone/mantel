@@ -437,9 +437,25 @@ async def test_a_page_that_reconnects_is_told_the_black_is_over(make_env):
     black = [f for f in again if f.get("tablet") == "hall" and "black" in f]
     photos = [f for f in again if f.get("tablet") == "hall" and "photos" in f]
     assert black and black[0]["black"] is False and black[0]["confirmed"] is False
-    assert photos == [{"type": "screen", "tablet": "hall", "photos": False, "dashboards": [], "users": []}]
+    assert photos == [], "the photos never heard of since Mantel started: not told (a restart's 'off' is not knowing)"
     await ws.close()
     await lk.ws.close()
+
+
+async def test_a_restarted_mantel_tells_a_page_nothing_it_has_not_heard(make_env):
+    """2026-11-14, 08:37: a hotfix restarted Mantel, every page reconnected and was told "photos off" -- Mantel's
+    default, not what it knew -- and every tablet showing its screensaver went to its dashboard."""
+    env = await make_env(settings={"linked": {"enabled": True, "entry_id": ENTRY}})
+    await env.login("owner1", "owner")
+    ws = await env.socket(expect_caps=False)
+    assert [f for f in await events(env, ws) if f.get("type") == "screen"] == []
+    await ws.send_json({"type": "screen_report", "id": 1, "tablet": "hall", "photos": True})   # its screensaver came up
+    assert (await GF.recv(ws))["result"]["changed"] is True
+    await ws.close()
+    ws = await env.socket(expect_caps=False)           # the page's next socket: told what Mantel heard, and only that
+    again = [f for f in await events(env, ws) if f.get("type") == "screen"]
+    assert again == [{"type": "screen", "tablet": "hall", "photos": True, "dashboards": [], "users": []}]
+    await ws.close()
 
 
 async def test_a_page_speaks_only_for_its_own_tablet(make_env):

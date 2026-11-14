@@ -110,7 +110,9 @@ next.
 - **HomePod timers become Home Assistant timers,** the way phase 21's do (Mantel creates a real `timer.*` helper and
   deletes it when the timer ends): created when a HomePod timer appears, kept in step with its end time and pause,
   deleted when it's gone. So every tablet, card and automation sees them like Mantel's own, and Mantel keeps only the
-  room, the HomePod and `source: "homepod"`. A HomePod timer never rings in Mantel: the HomePod rings itself.
+  room, the HomePod and `source: "homepod"`. The HomePod rings its own timer; while it does, General > Timers' Also
+  Play In speakers ring too, as for every timer, never its own room's speaker, and no tablet makes a sound (the owner,
+  2026-11-14: The Whole House was on and no speaker rang).
 - **Commands from Mantel** on a HomePod timer go to the reader (pause, resume, cancel), not only to Home Assistant; the
   helper follows on the next read. Guarded and audited like every Mantel command (rule 7, the route table).
 - **Alarms** go to clients in the timers feed, and to Home Assistant through Mantel Link (a sensor per HomePod with its
@@ -175,7 +177,8 @@ every 1.5 s across the house. The VM: two to four cores busy (the Home app and i
   apostrophes and case aside), alarms (ids that survive a row moving, the next ring, a one-time alarm that went off).
 - **The server:** `features/homepod_timers.py` (tests: `tests/test_homepod_timers.py`). Helpers are `timer.hk_homepod_<n>`,
   made as phase 21's are (`timer/create` under a fixed name, then its label) and followed in the `homepod_timers` table
-  (migration 0041). Mantel's own timer code skips them: they never ring. Nothing is mirrored with house commands off or
+  (migration 0041). Mantel's own timer code skips them; while one rings on its HomePod, `homepod_timers.py` plays the timer's
+  sound on Also Play In's speakers (`ring_speakers`, never its own room's), every 20 s for Ring For, stopped with it. Nothing is mirrored with house commands off or
   without an administrator's credential (Settings says so). One audit row per helper change, Mantel's.
 - **Commands:** the cards' own `timer.pause`, `timer.start` (no duration: resume) and `timer.cancel` on a HomePod's helper go
   to the reader (`gateway.homepod_of`); a restart, more time or Finish is refused. An alarm's switch and Delete are

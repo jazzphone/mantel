@@ -10,7 +10,9 @@ hk_core.timers.homepod has the rules; this module runs them.
 * EVERY HOMEPOD TIMER IS A HOME ASSISTANT TIMER, as Mantel's own are (features/timers.py): ``timer.hk_homepod_<n>``,
   created when it appears, kept in step with its end and its pause, and canceled or left to finish when it's gone, then
   deleted. Every card, tablet and automation sees an ordinary timer. Mantel keeps the room, the HomePod and the reader's
-  row in the `homepod_timers` table, so a restart keeps the same helpers. It NEVER RINGS IN MANTEL: the HomePod rings it.
+  row in the `homepod_timers` table, so a restart keeps the same helpers. The HomePod rings it; while it does, General ->
+  Timers' Also Play In speakers ring too, as for every timer, but never its own room's (hk_core ring_speakers), and no
+  tablet makes a sound.
 * COMMANDS on a HomePod timer (pause, resume, cancel) and on an alarm (on, off, delete) come through the gateway, checked
   and audited as every command is, and go to the reader, which presses the sheet's own control; the helper follows on
   the next read, which comes at once.
@@ -33,6 +35,7 @@ from hk_core.timers import homepod as H
 from ..ha.ha_client import CommandTicket, HaCommandError
 
 log = logging.getLogger("mantel.homepod_timers")
+SPEAK_EVERY = 20.0      # seconds between the speakers' clips, as for Mantel's own timers (timers.py)
 
 ICON = "mdi:timer-outline"
 TIMEOUT = 4.0               # seconds for one look at the reader
@@ -94,6 +97,8 @@ class HomePodTimers:
         self._next_digest: Any = None
         self._woken: set[int] = set()
         self._wake_t: Any = None
+        self.ringers: dict[int, asyncio.Task] = {}       # Also Play In's speakers, while a timer rings on its HomePod
+        self._rung: set[int] = set()                     # (rung, or ringing: once each)
 
     # -- the connection ------------------------------------------------------------------------------------------------
     def _current(self) -> Any:
@@ -207,6 +212,7 @@ class HomePodTimers:
                 self._take_alarms(a[1])
             self._after(now)
         await self.mirror()
+        self._ring_speakers()
 
     def _after(self, now: float) -> None:
         state = self.availability()
@@ -362,6 +368,8 @@ class HomePodTimers:
         self.known.pop(n, None)
         self.creating.pop(n, None)
         self._woken.discard(n)
+        self._rung.discard(n)
+        self._quiet(n)
         self.store.drop(n)
 
     # -- the last minute: the tablet in its room wakes, as for Mantel's own (Wake a Dark Screen) --------------------
@@ -399,6 +407,62 @@ class HomePodTimers:
                     eng.notify_wake(k.label or "Timer", int(seconds))
         except Exception:  # noqa: BLE001 -- the slide still shows; the screen stays dark
             log.debug("homepod timers: could not wake the tablet for %s", k.entity_id, exc_info=True)
+
+    # -- Also Play In: the speakers ring while it rings on its HomePod, as for Mantel's own timers -------------------
+    def speakers_of(self, k: H.Known) -> list[str]:
+        """The speakers (music rooms) it rings on: Also Play In's, never its own room's (its HomePod rings there)."""
+        timers = self.app.get("timers")
+        if timers is None:
+            return []
+        return H.ring_speakers(self.room_of(k.room), timers.options()["timer_also"], timers._music_rooms())
+
+    def _ring_speakers(self) -> None:
+        ringing = {k.n for k in self.ringing()}
+        for n in list(self.ringers):
+            if n not in ringing:          # stopped (here, on the HomePod, or with Siri): the speakers stop now
+                self._quiet(n)
+        for n in ringing - self._rung:
+            self._rung.add(n)
+            try:
+                self.ringers[n] = asyncio.get_running_loop().create_task(self._ring(n))
+            except RuntimeError:          # no loop (a test reading the rules)
+                pass
+
+    async def _ring(self, n: int) -> None:
+        timers, first = self.app.get("timers"), self.clock()
+        try:
+            while timers is not None:
+                k = self.known.get(n)
+                if k is None or k.over is not None or not k.ringing:
+                    return
+                opts = timers.options()
+                until = H.ring_until(k.rang_at, first, R.ring_secs(opts["timer_ring_for"]))
+                started = self.clock()
+                if started >= until:
+                    return
+                picks = self.speakers_of(k)
+                if not picks:
+                    return
+                try:
+                    await timers.play(picks, reason="homepod_timer")
+                except asyncio.CancelledError:
+                    raise
+                except Exception:  # noqa: BLE001 -- the HomePod rings on; the next clip tries again
+                    log.warning("homepod timers: the speakers did not play for %s", k.entity_id, exc_info=True)
+                await asyncio.sleep(max(0.0, min(started + SPEAK_EVERY, until) - self.clock()))
+        finally:
+            if self.ringers.get(n) is asyncio.current_task():
+                self.ringers.pop(n, None)
+            if timers is not None:
+                timers.quiet_if_idle()
+
+    def _quiet(self, n: int) -> None:
+        task = self.ringers.pop(n, None)
+        if task is not None:
+            task.cancel()
+            timers = self.app.get("timers")
+            if timers is not None:
+                timers.quiet_if_idle()
 
     # -- commands (the gateway's, after its checks and its audit row) ------------------------------------------------
     def following(self, entity_id: str) -> H.Known | None:
@@ -479,7 +543,8 @@ class HomePodTimers:
         for k in self.ringing():
             got = homepods.get(k.entity_id) or {}
             attrs.setdefault("ringing", []).append({"entity_id": k.entity_id, "name": k.label or "Timer", "until": None, "tablet": False,
-                                                    "areas": [got["room"]] if got.get("room") else [], "speakers": [], "tone": None, **got})
+                                                    "areas": [got["room"]] if got.get("room") else [],
+                                                    "speakers": self._speaker_names(self.speakers_of(k)), "tone": None, **got})
             if k.entity_id in states and k.entity_id not in (attrs.get("made") or []):
                 attrs.setdefault("made", []).append(k.entity_id)
         state = self.availability()
@@ -491,6 +556,16 @@ class HomePodTimers:
         attrs["homepod"] = {"state": state, "timers": homepods, "alarms": alarms, "went_off": self.went_off[:3],
                             "can_mirror": self._can_mirror(),
                             "rooms": H.room_table(self.homes, areas, self._features().get("homepod_rooms") or {})}
+
+    def _speaker_names(self, picks: list[str]) -> list[str]:
+        names = []
+        music = self.app.get("music")
+        for e in picks:
+            try:
+                names.append(music.config().name_of(e))
+            except Exception:  # noqa: BLE001 -- its name, or its id
+                names.append(e)
+        return names
 
     def _push(self) -> None:
         state = (self.availability(), tuple((k.n, k.label, k.paused, k.over, k.ringing) for k in self.known.values()),
@@ -543,6 +618,8 @@ class HomePodTimers:
     async def close(self) -> None:
         if self._wake_t is not None:
             self._wake_t.cancel()
+        for task in list(self.ringers.values()):
+            task.cancel()
         if self.task is not None:
             self.task.cancel()
 

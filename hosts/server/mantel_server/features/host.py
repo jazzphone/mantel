@@ -421,6 +421,7 @@ class FeatureHost:
             s.black.brightness = int(brightness)
         if black is not None:
             s.black.set(bool(black))
+            s.heard.add("black")
         self.feed.send({"type": "screen", "tablet": tid, "black": s.black.on, "brightness": s.black.brightness,
                         "confirmed": s.black.on and s.black.confirmed, "dashboards": [], "users": []})
         await self.push_tablet(tid, only=SS.BLACK_KEY)
@@ -447,7 +448,10 @@ class FeatureHost:
 
     async def set_photos(self, tid: str, on: bool) -> None:
         s = self.screen(tid)
-        if s is None or s.photos == on:
+        if s is None:
+            return
+        s.heard.add("photos")
+        if s.photos == on:
             return
         s.photos = on
         self.feed.send({"type": "screen", "tablet": tid, "photos": on, "dashboards": [], "users": []})
@@ -460,6 +464,7 @@ class FeatureHost:
         s = self.screen(tid)
         if s is None:
             return False
+        s.heard.add("black")
         changed = s.black.page_says(bool(black))
         if changed:
             if s.black.on and s.black.confirmed:
@@ -1074,13 +1079,17 @@ def register(app: web.Application, hub: Any, hooks: Any = None) -> FeatureHost:
         # "on"s were sent once, "off" being a new page's default -- but a page that reconnects still holds its
         # last states, and a wake's "black off" sent while its socket was down never came again: the Loft lit
         # onto HK's black for a minute and a half (2026-11-12, 18:58, the black off sent 0.2 s before its
-        # socket dropped and came back).
+        # socket dropped and came back). ONLY WHAT MANTEL HAS HEARD since it started: a restarted Mantel holds
+        # "off" for every screen without knowing it, and told so every tablet left its screensaver for the
+        # dashboard (2026-11-14, 08:37, a hotfix's restart). A page reloading defaults to "off" by itself.
         for tid, scr in list(host.screens.items()):
             if tid not in host.tablets:
                 continue
-            on_event({"type": "screen", "tablet": tid, "black": bool(scr.black.on), "brightness": scr.black.brightness,
-                      "confirmed": bool(scr.black.on and scr.black.confirmed), "dashboards": [], "users": []})
-            on_event({"type": "screen", "tablet": tid, "photos": bool(scr.photos), "dashboards": [], "users": []})
+            if "black" in scr.heard:
+                on_event({"type": "screen", "tablet": tid, "black": bool(scr.black.on), "brightness": scr.black.brightness,
+                          "confirmed": bool(scr.black.on and scr.black.confirmed), "dashboards": [], "users": []})
+            if "photos" in scr.heard:
+                on_event({"type": "screen", "tablet": tid, "photos": bool(scr.photos), "dashboards": [], "users": []})
 
         async def unsubscribe() -> None:
             end()

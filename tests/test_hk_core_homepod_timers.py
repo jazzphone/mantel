@@ -239,3 +239,12 @@ def test_the_reader_s_id_wins():
     pairs, new, gone = H.match([a, b], reads)
     assert {k.n: r.rid for k, r in pairs} == {1: "t-a", 2: "t-b"} and not new and not gone
     assert "stop" in H.TIMER_ACTIONS
+
+
+def test_a_ringing_homepod_timer_s_speakers_are_also_play_in_s_but_its_own_room_s():
+    rooms = [("media_player.kitchen", "kitchen"), ("media_player.den", "den"), ("media_player.porch", None)]
+    assert H.ring_speakers("kitchen", ["all"], rooms) == ["media_player.den", "media_player.porch"]
+    assert H.ring_speakers("kitchen", ["den", "kitchen"], rooms) == ["media_player.den"]
+    assert H.ring_speakers("kitchen", [], rooms) == []                       # Also Play In off: the HomePod alone
+    assert H.ring_speakers(None, ["all"], rooms) == [e for e, _a in rooms]   # its room not matched: nothing to leave out
+    assert H.ring_until(100.0, 900.0, 60) == 160.0 and H.ring_until(None, 900.0, 60) == 960.0

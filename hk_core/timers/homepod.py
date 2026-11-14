@@ -5,7 +5,8 @@ the time left, counting down) and its alarms. Nothing it serves has an id: a tim
 the rows move when one ends. These rules make one timer the same timer from one read to the next, say when the reader can't
 be believed, match a Home app room to a Mantel room, and say which calls keep a Home Assistant helper in step with a read.
 
-* A HOMEPOD TIMER NEVER RINGS IN MANTEL: the HomePod rings itself. Its helper (``timer.hk_homepod_<n>``) is a mirror, so every
+* THE HOMEPOD RINGS ITS OWN TIMER: no tablet makes a sound, and only Also Play In's speakers ring with it, never its own
+  room's (ring_speakers). Its helper (``timer.hk_homepod_<n>``) is a mirror, so every
   screen, card and automation sees it as an ordinary timer; Mantel's own timers (``timer.hk_timer_<n>``) are a separate set.
 * "UNAVAILABLE", NEVER "NO TIMERS": a reader that says it is broken, or hasn't answered for STALE_AFTER, is unavailable,
   and an unavailable reader's list is never taken to mean the timers ended.
@@ -333,6 +334,21 @@ def norm(name: Any) -> str:
     text = unicodedata.normalize("NFKC", name if isinstance(name, str) else "")
     text = text.replace("’", "'").replace("‘", "'").replace("ʼ", "'")
     return " ".join(text.casefold().split())
+
+
+def ring_speakers(area: str | None, also: Iterable[str], rooms: Iterable[tuple[str, str | None]]) -> list[str]:
+    """The speakers (music rooms) a HomePod timer that went off rings on: General -> Timers' Also Play In ('all', the whole
+    house, or its rooms), as for every timer -- but never its own room's, its HomePod ringing there by itself (the owner,
+    2026-11-14: The Whole House on, and no speaker rang). `area`: the HomePod's room (None: not matched, nothing left out)."""
+    extra = set(also)
+    every = "all" in extra
+    return [e for e, a in rooms if (every or (a and a in extra)) and not (area and a == area)]
+
+
+def ring_until(rang_at: float | None, seen: float, ring_for_s: float) -> float:
+    """Until when Mantel's speakers ring for it: Ring For from the moment it went off (as the reader says; else from when
+    Mantel first saw it ringing), however long the HomePod itself rings."""
+    return (rang_at if rang_at is not None else seen) + ring_for_s
 
 
 def room_for(home_room: str, areas: Mapping[str, str], chosen: Mapping[str, Any] | None = None) -> tuple[str | None, str]:
