@@ -50,6 +50,10 @@ COMMANDS: dict[str, str | None] = {
     # Options.kt and PageScale.kt. `settings` is several of them at once, from another tablet (COPYABLE).
     "keep_awake": "bool", "keep_screen_on": "bool", "adaptive_brightness": "bool", "scale": "scale",
     "wireless_debugging": "bool", "settings": "settings",
+    # HOW THE TABLET DRAWS (the owner, 2026-11-14: "having the app able to turn on OpenGL is worth us implementing ... it
+    # would also be great if we could change resolution"): the app's Graphics.kt, through its own adb (SelfAdb.kt), which
+    # is paired once with the port and six-digit code Android shows under Wireless debugging -> Pair device with pairing code
+    "renderer": "renderer", "render_size": "render_size", "adb_pair": "adb_pair",
 }
 # the page's size on the tablet, percent of Mantel's own (PageScale.CHOICES)
 SCALES = (80, 90, 100, 110, 125, 150)
@@ -61,6 +65,10 @@ COPYABLE = ("kiosk_mode", "rotation", "keep_awake", "keep_screen_on", "adaptive_
 # from an update sideways): the app sets Android's rotation, 0/90/180/270 as Android counts them from the tablet's natural
 # way up, or leaves it to Android (auto). It needs Android's "Modify system settings" for the app, given at the tablet.
 ROTATIONS = ("auto", "0", "90", "180", "270")
+# the renderer (Android's default, or OpenGL) and the screen's resolution, percent of the panel's own (Graphics.kt)
+RENDERERS = ("default", "opengl")
+RENDER_SIZES = (100, 83, 67)
+PAIR_CODE = re.compile(r"\d{6}")
 SHOT_MAX = 900_000          # bytes of JPEG: the app sends 960 px wide at quality 70 (about 100 KB)
 STATUS_KEYS = {"version": str, "version_code": int, "screen": bool, "brightness": float, "curtain": bool,
                "battery": float, "charging": bool, "kiosk_mode": bool, "owner": bool, "admin": bool,
@@ -73,7 +81,9 @@ STATUS_KEYS = {"version": str, "version_code": int, "screen": bool, "brightness"
                # the tablet's own options (Options.kt, PageScale.kt), and whether Android lets the app set them
                "keep_awake": bool, "keep_screen_on": bool, "scale": int, "adaptive_brightness": bool,
                "adaptive_brightness_allowed": bool, "wireless_debugging": bool, "wireless_debugging_allowed": bool,
-               "adb_port": int}
+               "adb_port": int,
+               # how the tablet draws (Graphics.kt): as chosen, what Android has now, and whether the app's adb is paired
+               "renderer": str, "renderer_now": str, "render_size": int, "adb_paired": bool}
 ANSWER_WAIT = 8.0
 STALE = 180.0              # a status older than this is "not heard from"
 PIN = re.compile(r"\d{0,12}")
@@ -129,6 +139,15 @@ def checked(command: Any, value: Any) -> tuple[str, Any] | None:
         return (command, value) if isinstance(value, str) and value in ROTATIONS else None
     if kind == "scale":
         return (command, value) if isinstance(value, int) and not isinstance(value, bool) and value in SCALES else None
+    if kind == "renderer":
+        return (command, value) if isinstance(value, str) and value in RENDERERS else None
+    if kind == "render_size":
+        return (command, value) if isinstance(value, int) and not isinstance(value, bool) and value in RENDER_SIZES else None
+    if kind == "adb_pair":
+        port, code = (value.get("port"), value.get("code")) if isinstance(value, dict) else (None, None)
+        good = (isinstance(port, int) and not isinstance(port, bool) and 0 < port < 65536 and isinstance(code, str)
+                and PAIR_CODE.fullmatch(code) and set(value) == {"port", "code"})
+        return (command, {"port": port, "code": code}) if good else None
     if kind == "settings":
         if not isinstance(value, dict) or not value or any(k not in COPYABLE for k in value):
             return None
@@ -235,7 +254,8 @@ async def post_app(request: web.Request) -> web.Response:
     if not pages:
         return error(409, "not_connected", message=f"{row['name']}’s app isn’t connected to Mantel right now.")
     audit.config(request, ident, "device.app_command", {"device": row["id"], "name": row["name"], "command": command,
-                                                        **({"value": value} if command != "menu_pin" else
+                                                        **({"value": value} if command not in ("menu_pin", "adb_pair") else
+                                                           {"value": "given"} if command == "adb_pair" else
                                                            {"value": "set" if value else "none"})})
     st = apps_of(request.app)
     nonce = secrets.token_urlsafe(12)
