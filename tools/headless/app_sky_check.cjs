@@ -56,14 +56,14 @@ const CLEAR = { season: '', cond: 'sunny', wet: { kind: 'none', rate: 0 }, fog: 
   try {
     for (const size of input.sizes) {
       const [width, height] = size.split('x').map(Number);
-      const open = async (tablet, withBridge) => {
+      const open = async (tablet, withBridge, screen) => {
         const ctx = await browser.newContext({ viewport: { width, height }, hasTouch: true, deviceScaleFactor: 1 });
         await ctx.addCookies([{ name: 'mantel_session', value: input.cookie, url: input.origin }]);
         await ctx.route('**/*', (r) => new URL(r.request().url()).origin === input.origin ? r.continue() : r.abort());
         if (withBridge) await ctx.addInitScript(bridge);
         const page = await ctx.newPage();
         const errors = []; page.on('pageerror', (e) => { if (!/^ResizeObserver loop/.test(e.message)) errors.push(e.message); });
-        await page.goto(input.origin + '/' + input.screen + '/home?hk_tablet=' + tablet);
+        await page.goto(input.origin + '/' + (screen || input.screen) + '/home?hk_tablet=' + tablet);
         await page.waitForFunction(() => window.__mantelReady === true && !!window.hkSky && !!window.hkGlass, null, { timeout: 30000 });
         await require('./grid_ready.cjs')(page);
         return { ctx, page, errors };
@@ -137,26 +137,63 @@ const CLEAR = { season: '', cond: 'sunny', wet: { kind: 'none', rate: 0 }, fog: 
         });
         const moved = await until(page, () => window.hkSkyHandover.status().state === 'page moves', null, 30000);
         s = await page.evaluate(state);
-        say(moved && s.ops.slice(before).indexOf('stop') >= 0 && !s.clipped && !s.glass.frost,
-            tag + ': something else moving on the page: the sky is the page\'s again', { state: s.status.state, moves: s.status.moves, ops: s.ops.slice(before) });
+        // (ONE GLASS: the frost picture stays on while the page has the sky back -- all in, 2026-11-13)
+        say(moved && s.ops.slice(before).indexOf('stop') >= 0 && !s.clipped && s.glass.frost && s.frostVar === '1',
+            tag + ': something else moving on the page: the sky is the page\'s again, the glass still the frost picture',
+            { state: s.status.state, moves: s.status.moves, ops: s.ops.slice(before), frost: s.glass.frost });
         await page.evaluate(() => { document.getElementById('spin').remove(); window.hkSkyHandover.again(); });
         const back = await until(page, () => window.hkSkyHandover.status().state === 'playing', null, 40000);
         say(back, tag + ': ...and still again, the app\'s');
         await sleep(800);
-        // A CALM SKY: handed back
-        before = (await page.evaluate(state)).ops.length;
+        // EVERY SKY: a clear day stays the app's, and a sky with nothing moving in it too
         await page.evaluate((c) => { window.hkSky._pin(c); }, CLEAR);
         await sleep(1500);
         await page.evaluate(() => window.hkSkyHandover.again(true));
-        const calm = await until(page, () => window.hkSkyHandover.status().state === 'calm', null, 30000);
-        await sleep(800);
+        await sleep(6000);
+        await until(page, () => window.hkSkyHandover.status().state === 'playing', null, 30000);
         s = await page.evaluate(state);
-        say(calm && s.ops.slice(before).indexOf('stop') >= 0, tag + ': a clear day is handed back (stop)', { state: s.status.state, ops: s.ops.slice(before) });
-        say(!s.clipped && !s.see, tag + ': ...the page\'s sky shows again');
-        say(!s.glass.frost && s.layers.length > 0 && s.layers.every((L) => L.live && !L.frost), tag + ': ...and the glass is the look\'s own (live blur, no frost)',
-            { stats: s.glass, layers: s.layers.slice(0, 3) });
-        say(s.frostVar === '', tag + ': ...the sheets\' too');
+        say(s.status.state === 'playing' && s.clipped && s.glass.frost, tag + ': a clear day is the app\'s too', { state: s.status.state, busy: s.status.busy });
         await shot(page, 'app-sky-clear');
+        await page.evaluate((c) => { window.hkSky._pin(Object.assign({}, c, { animations: false, cover: 0, wind: 0 })); }, CLEAR);
+        await sleep(1500);
+        await page.evaluate(() => window.hkSkyHandover.again(true));
+        await until(page, () => { const t = window.hkSkyHandover.status(); return t.state === 'playing' && t.still === true && !t.baking; }, null, 30000);
+        s = await page.evaluate(state);
+        say(s.status.state === 'playing' && s.status.still === true && s.clipped, tag + ': ...and a sky with nothing moving in it', { state: s.status.state, still: s.status.still });
+        // THE GUARD: an animation the app can't play (here `translate`) keeps the sky the page's; gone again, the app's
+        before = s.ops.length;
+        await page.evaluate((c) => {
+          window.hkSky._pin(c);
+          const st = document.createElement('style'); st.id = 'mz-slide';
+          st.textContent = '@keyframes mz-slide{from{translate:0 0}to{translate:60px 0}}' +
+            '#mz-slide-el{position:absolute;left:10px;top:10px;width:8px;height:8px;background:#fff;animation:mz-slide 3s linear infinite}';
+          document.head.appendChild(st);
+          const d = document.createElement('div'); d.id = 'mz-slide-el'; window.hkSky.element().appendChild(d);
+          window.hkSkyHandover.again(true);
+        }, CLEAR);
+        const kept = await until(page, () => window.hkSkyHandover.status().state === 'page keeps', null, 30000);
+        s = await page.evaluate(state);
+        say(kept && /translate/.test(s.status.cannot || '') && s.ops.slice(before).indexOf('stop') >= 0 && !s.clipped && s.glass.frost,
+            tag + ': an animation the app can\'t play keeps the sky the page\'s (the glass still the frost picture)',
+            { state: s.status.state, cannot: s.status.cannot, ops: s.ops.slice(before) });
+        await page.evaluate(() => { document.getElementById('mz-slide-el').remove(); document.getElementById('mz-slide').remove(); window.hkSkyHandover.again(true); });
+        say(await until(page, () => window.hkSkyHandover.status().state === 'playing', null, 40000), tag + ': ...and without it, the app\'s again');
+        say(!errors.length, tag + ': no page errors', errors.slice(0, 3));
+        await ctx.close();
+      }
+      // ---- a drawn wallpaper (Pinwheel, Motion Fast) on the Loft: the app's too, moving by its transform (no number)
+      {
+        const { ctx, page, errors } = await open('loft', true, input.wall);
+        const tag = size + ' wallpaper';
+        await sleep(1500);
+        await page.evaluate(() => window.hkSkyHandover.again(true));
+        const got = await until(page, () => window.hkSkyHandover.status().state === 'playing', null, 40000);
+        const w = await page.evaluate(() => {
+          const el = window.hkSky.element(), play = (window.__skyOps.filter((o) => o[0] === 'play').pop() || [])[1];
+          const turns = !!(play && play.scene.nodes.some((n) => n.anims.some((a) => (a.t || []).some((k) => k.v.some((op) => op[0] === 'r')))));
+          return { wm: el.getAttribute('data-wm'), wpv: el.hasAttribute('data-wpv'), turns, st: window.hkSkyHandover.status() };
+        });
+        say(got && w.wm === 'fast' && !w.wpv && w.turns, tag + ': a moving wallpaper is the app\'s, turning by its transform', w);
         say(!errors.length, tag + ': no page errors', errors.slice(0, 3));
         await ctx.close();
       }

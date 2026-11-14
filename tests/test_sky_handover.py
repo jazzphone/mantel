@@ -173,6 +173,16 @@ for (const name in cases) out.verdicts[name] = H._busyAnim(cases[name]);
 out.scene = H._busyOf([{ anims: [cases.cloud, cases.candle] }, { anims: [cases.bat] }]);
 out.calmScene = H._busyOf([{ anims: [cases.cloud, cases.wisp] }, { anims: [cases.candle] }]);
 out.ops = H._ops('translate3d(-50%, 10px, 0px) scaleY(0.5)', 200, 100);
+// THE GUARD: what the app's player can play (transform and opacity), by each animation's keyframes as Chromium gives them
+const anim = (name, kfs) => ({ animationName: name, effect: { getKeyframes: () => kfs } });
+const meta = { offset: 0, computedOffset: 0, easing: 'linear', composite: 'auto' };
+out.guard = {
+  moves: H._unplayable([anim('hk-drift', [Object.assign({ transform: 'none' }, meta), Object.assign({ transform: 'translate3d(-40px, 0px, 0px)' }, meta)])]),
+  fades: H._unplayable([anim('hk-bolt', [Object.assign({ opacity: '0' }, meta), Object.assign({ opacity: '0.9' }, meta)])]),
+  number: H._unplayable([anim('hk-wall-p', [Object.assign({}, meta), Object.assign({}, meta)])]),
+  translate: H._unplayable([anim('slide', [Object.assign({ translate: '10px' }, meta), Object.assign({ translate: '50px' }, meta)])]),
+  color: H._unplayable([anim('hk-drift', [Object.assign({ transform: 'none' }, meta)]), anim('glow', [Object.assign({ backgroundColor: 'red', opacity: '1' }, meta)])]),
+};
 out.status = H.status();
 console.log(JSON.stringify(out));
 """
@@ -201,3 +211,22 @@ def test_the_part_is_one_of_the_skys():
     assert "'hk-sky-handover.js'" in sky
     manifest = json.loads((ROOT / "tools/split_manifests/sky.json").read_text())
     assert manifest["parts"][-1]["name"] == "hk-sky-handover"
+
+
+def test_the_guard_keeps_what_the_app_cannot_play():
+    """The app's player plays transform and opacity (SkyScene.kt). A drawn wallpaper's number (--hk-wp: Chromium names no
+    property for a custom property's keyframes), `translate` or a color would be drawn frozen or wrong: the page keeps
+    that sky."""
+    g = run_node(PART)["guard"]
+    assert g["moves"] == "" and g["fades"] == ""
+    assert g["number"] == "hk-wall-p"
+    assert g["translate"] == "slide (translate)"
+    assert g["color"] == "glow (backgroundColor)"
+
+
+def test_every_sky_on_a_tablet_with_the_setting_on():
+    """All in (2026-11-13): still skies too, the glass the frost picture either way, a wallpaper by its transform."""
+    src = (ROOT / "web/hk/sky-parts/hk-sky-handover.js").read_text()
+    assert "var STILL = true;" in src
+    assert "frostGlass(true);" in src and "frostGlass(false);" in src
+    assert "if (ST.wpv && !ST.appSky) el.setAttribute('data-wpv', '')" in (ROOT / "web/hk/sky-parts/hk-sky-static.js").read_text()

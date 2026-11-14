@@ -7,9 +7,8 @@
 //
 // WHY. A wall tablet's page costs the most while its sky moves: Chromium draws the whole page and composes it again
 // every frame anything in the sky moves, and every glass card blurs the moving sky again. Mantel for Android draws a
-// busy sky on a surface of its own under a see-through page, at 30 frames a second, for about half of it (PLAN.md's
-// table: Halloween night 1.86 -> 1.02 of a core on the Loft). A calm sky -- clouds inching along, a wallpaper -- costs
-// Chromium only slivers, and stays the page's (decision 1).
+// sky on a surface of its own under a see-through page, at 30 frames a second, for about half of it (PLAN.md's tables:
+// Halloween night 1.55 -> 0.81 of a core on the Loft, realistic clouds 1.37 -> 0.84).
 //
 // WHAT IT HANDS OVER. hk-sky stays the one sky: nothing about a scene is written twice. This reads what hk-sky built --
 // every part under #hk-sky that moves by a CSS animation (the Web Animations API gives each one's keyframes, easing and
@@ -17,9 +16,12 @@
 // each part from this page, sheet by sheet, then play the same keyframes. A new kind of scene works in the app with no
 // change, as long as it moves by CSS keyframes on transform and opacity, as every scene does today.
 //
-// BUSY, decided at each hand-over from the keyframes themselves, not from a list of scenes (busyOf): a part that moves
-// faster than BUSY_SPEED, a flipbook (steps()), or something falling -- a loop that carries a part down the screen (rain,
-// snow, leaves). Nothing busy: the sky is the page's, and one the app plays is handed back.
+// EVERY SKY, ON A TABLET WITH THE SETTING ON (the owner, 2026-11-13: "go all in"): moving or still, busy or calm, the app
+// draws it, so such a tablet has one mode -- one sky, one glass (the frost picture, frostGlass). It began with busy skies
+// only (decision 1, busyOf: faster than BUSY_SPEED, a flipbook, something falling -- kept as the status's word); then
+// the Loft showed a moving calm sky costs the app ~40 % less too, and a still one the app draws once and leaves. Three
+// things keep a sky the page's: an animation the app can't play (the guard, unplayable), something else on the page
+// moving (below), and no player or the setting off.
 //
 // ...AND ONLY WHILE NOTHING ELSE ON THE PAGE MOVES (pageMoves, measured on the Loft 2026-11-13): a washer spinning on
 // the Laundry block, a playing video, moving things in front of the cards -- the page then makes every frame anyway, so
@@ -63,6 +65,9 @@
     // WHAT IS BUSY (decision 1): faster than this, in CSS px a second, at any point of its keyframes
     var BUSY_SPEED = 100;
     var OURS = ['hk-sky-app'];
+    // A STILL SKY (nothing in it moves) to the app as well: drawn once there (SkyView), and not read again each minute
+    // here (LOOK) -- a change under the sky is heard as it happens (the observer)
+    var STILL = true;
     var info = { state: 'off', bakes: 0, same: 0, finished: 0, last: null, error: null, busy: null, why: '' };
 
     var css = null;
@@ -221,6 +226,34 @@
       }
       return '';
     }
+    // WHAT THE APP CAN PLAY (the guard): an animation of `transform` and `opacity` only, the two the app's player knows
+    // (SkyScene.kt). Anything else -- a custom property (a drawn wallpaper's --hk-wp: Chromium's getKeyframes names no
+    // property at all for it), `translate`, a color, a filter -- would be drawn frozen or wrong by the app, so the page
+    // keeps that sky. Returns the first animation it can't play, by name, or ''.
+    var META = { offset: 1, computedOffset: 1, easing: 1, composite: 1 }, PLAYS = { transform: 1, opacity: 1 };
+    function unplayable(anims) {
+      for (var i = 0; i < anims.length; i++) {
+        var kfs = [], seen = 0, bad = '';
+        try { kfs = anims[i].effect.getKeyframes(); } catch (e) { return 'unread'; }
+        kfs.forEach(function (k) {
+          Object.keys(k).forEach(function (p) { if (META[p]) return; if (PLAYS[p]) seen++; else bad = bad || p; });
+        });
+        if (bad || !seen) return String(/** @type {any} */ (anims[i]).animationName || 'an animation') + (bad ? ' (' + bad + ')' : '');
+      }
+      return '';
+    }
+    function unplayableIn(root) {
+      var all = [root].concat(Array.from(root.querySelectorAll('*')));
+      for (var i = 0; i < all.length; i++) { var u = unplayable(cssAnims(all[i])); if (u) return u; }
+      return '';
+    }
+    // ANYTHING MOVING IN THE SKY (2026-11-13, on the Loft: a moving calm sky costs the app ~40 % less than the page too --
+    // clouds 1.37 -> 0.84, a clear day 1.34 -> 0.77 -- so every moving sky the app can play goes to it, not only busy ones)
+    function movesNow(root) {
+      var all = [root].concat(Array.from(root.querySelectorAll('*')));
+      for (var i = 0; i < all.length; i++) if (cssAnims(all[i]).length) return true;
+      return false;
+    }
     // A LOOK WITHOUT TOUCHING ANYTHING: the sky's animations as they are, judged (the full read lays parts flat)
     function busyNow(root) {
       var out = [];
@@ -279,7 +312,9 @@
       } catch (e) { return c.width + 'x' + c.height + ':' + Math.random(); }
     }
     function playing() { return info.state === 'playing'; }
+    var clipWanted = false;
     function clipOn(on) {
+      clipWanted = on;
       var r = rootEl(), html = document.documentElement;
       if (r) r.classList.toggle('hk-sky-app', on);
       html.classList.toggle('hk-sky-app', on);
@@ -331,13 +366,16 @@
             bo: parseFloat(cs.opacity), btStr: cs.transform, origin: cs.transformOrigin,
             movesT: as.some(function (a) { return a.effect.getKeyframes().some(function (k) { return k.transform != null; }); }) });
         });
-        // BUSY? read before anything is laid flat (the boxes as they are)
+        // WHAT KIND OF SKY (for the status: busy's kind, or just moving, or still), read before anything is laid flat
         var why = busyOf(nodes.map(function (n) {
           var box = { width: n.el.offsetWidth || 0, height: n.el.offsetHeight || 0 };
           return { anims: n.as.map(function (a) { return animOf(a, box); }) };
         }));
+        var moving = nodes.some(function (n) { return n.as.length > 0; });
         info.busy = why;
-        if (!why) return 'calm';
+        info.still = !moving;
+        if (!moving && !STILL) return 'calm';
+        why = why || (moving ? 'moving' : 'still');
         if (!live) await cover();
         nodes.forEach(function (n) { setImp(n.el, 'opacity', '1'); setImp(n.el, 'transform', 'none'); });
         var vw = innerWidth, vh = innerHeight, items = [], rects = {};
@@ -579,19 +617,40 @@
       clipOn(false);
       baked = new Map(); lastShape = null; playedAt = 0;
       if (was) { try { await send('stop'); } catch (e) { /* the app has gone: its sky with it */ } }
-      if (window.hkGlass && window.hkGlass.frost && window.hkGlass.frosted && window.hkGlass.frosted()) window.hkGlass.frost(false);
       info.why = why || '';
+    }
+    // THE SAME GLASS EITHER WAY (the owner, 2026-11-13: "align things"): on a tablet whose app draws the sky, the glass
+    // wears the frost picture all the time -- the app's sky or the page's -- so the cards don't change from a live blur
+    // to a still picture as the weather turns. Off with the setting.
+    var frosting = false;
+    function frostGlass(on) {
+      wallByTransform(on);
+      var G = window.hkGlass;
+      if (on === frosting || !G || typeof G.frost !== 'function') return;
+      frosting = on;
+      G.frost(on);
+    }
+    // A DRAWN WALLPAPER THE APP CAN PLAY: it moves by a number (--hk-wp) on a page that draws it, which the app's player
+    // can't play (the guard keeps that sky the page's); on a tablet whose app draws the sky it moves by its transform
+    // instead (hk-sky-static.js wallMotion, ST.appSky) -- the same steps, the same drift.
+    function wallByTransform(on) {
+      if (!!ST.appSky === on) return;
+      ST.appSky = on;
+      var r = ST.mounted;
+      if (r && r.setAttribute && r.hasAttribute('data-wm')) { if (on || !ST.wpv) r.removeAttribute('data-wpv'); else r.setAttribute('data-wpv', ''); }
     }
     async function run() {
       if (busy) return;
       var P = player(), want = !!P && wantedHere();
       if (!want) {
         if (playing()) await giveBack(P ? 'switched off' : 'no player');
+        frostGlass(false);
         info.state = 'off';
         if (P) tell(false);
         return;
       }
       tell(true);
+      frostGlass(true);
       var root = rootEl();
       if (!root) { if (playing()) await giveBack('no sky'); info.state = 'off'; return; }
       if (isHeld() || document.hidden) { schedule(QUIET); return; }
@@ -599,8 +658,12 @@
       var other = pageMoves();
       info.moves = other;
       if (other) { if (playing()) await giveBack('the page moves: ' + other); info.state = 'page moves'; lastRun = Date.now(); return; }
+      // A SKY THE APP CAN'T PLAY (the guard): the page keeps it, whatever else
+      var cannot = unplayableIn(root);
+      info.cannot = cannot;
+      if (cannot) { if (playing()) await giveBack('the app can\'t play ' + cannot); info.state = 'page keeps'; lastRun = Date.now(); return; }
       // CALM, at a look that changes nothing: the page keeps it (or has it back)
-      if (!playing() && !busyNow(root)) { info.busy = ''; info.state = 'calm'; lastRun = Date.now(); return; }
+      if (!playing() && !STILL && !movesNow(root)) { info.busy = ''; info.state = 'calm'; lastRun = Date.now(); return; }
       busy = true;
       try {
         var got = await handOver();
@@ -646,6 +709,9 @@
       if (!r) { if (playing() && !busy) giveBack('no sky').then(function () { info.state = 'off'; }); return; }
       mo = new MutationObserver(function (list) {
         if (busy) return;
+        // (hk-sky writing its class list anew -- Animations off adds .noanim -- takes the clip with it: the page's sky
+        // showed and moved again under the app's until the next hand-over. Put back at once.)
+        if (clipWanted && !r.classList.contains('hk-sky-app')) clipOn(true);
         var real = list.some(function (m) {
           // (hk-sky sets many styles to what they were already: nothing changed)
           if (m.type === 'attributes' && m.oldValue === /** @type {Element} */ (m.target).getAttribute(m.attributeName || '')) return false;
@@ -665,7 +731,7 @@
       started = true;
       style();
       info.state = 'waiting';
-      setInterval(function () { if (!busy && !held) schedule(0); }, LOOK);
+      setInterval(function () { if (!busy && !held && !(playing() && info.still)) schedule(0); }, LOOK);
       setInterval(function () {
         watch();
         if (!playing() || busy) return;
@@ -681,10 +747,10 @@
 
     // what the shell and the later parts use of this one: the status and the pieces the tests check
     window.hkSkyHandover = {
-      status: function () { return Object.assign({ playing: playing() }, info); },
+      status: function () { return Object.assign({ playing: playing(), baking: busy }, info); },
       again: function (all) { if (all) baked = new Map(); lastRun = 0; schedule(0); },
       start: start,
-      _busyAnim: busyAnim, _busyOf: busyOf, _busyNow: busyNow, _pageMoves: pageMoves, _ops: ops, _shift: shift, BUSY_SPEED: BUSY_SPEED
+      _busyAnim: busyAnim, _busyOf: busyOf, _busyNow: busyNow, _pageMoves: pageMoves, _unplayable: unplayable, _ops: ops, _shift: shift, BUSY_SPEED: BUSY_SPEED
     };
   };
 })();

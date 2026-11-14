@@ -155,8 +155,10 @@
       var shape = !m ? null : W && W.isTheme(wall.id) ? 'theme' : W ? W.resolve(wall.id).id : 'ribbons';
       if (m) { el.setAttribute('data-wm', m); el.setAttribute('data-ws', shape); }
       else { el.removeAttribute('data-wm'); el.removeAttribute('data-ws'); }
-      // (data-wpv: the motion is the number --hk-wp, not a moving layer -- the .wall rules in hk-sky.js)
-      if (ST.wpv) el.setAttribute('data-wpv', ''); else el.removeAttribute('data-wpv');
+      // (data-wpv: the motion is the number --hk-wp, not a moving layer -- the .wall rules in hk-sky.js. Not where the
+      // tablet app draws the sky, ST.appSky: hk-sky-handover.js -- its player plays transforms, not a number, and the
+      // page draws no sky there for the moving layer to cost it anything)
+      if (ST.wpv && !ST.appSky) el.setAttribute('data-wpv', ''); else el.removeAttribute('data-wpv');
     }
     // A MOTION THEME (2026-10-31, hk-wallpapers.js scene()): its ground is the
     // layer's picture, as a drawn wallpaper's is, and its own layers go inside

@@ -237,3 +237,37 @@ Acceptance met: on every busy scene the app beats the page, and on every calm on
 **On the house (2026-11-13 evening, the owner's OK):** the hotfix, the app's release, Sky Drawn by the App on for the
 Loft only. Step 7 (DESIGN.md) when the owner asks.
 
+## All in (2026-11-13, late evening; the owner: "go all in, in that order")
+
+On a tablet with Sky Drawn by the App on, **every sky is the app's** -- busy or calm, moving or still -- so such a
+tablet has one mode: one sky, one glass. What led there, measured on the Loft (`loft-homeview`, washer held still,
+three 12 s readings, the share of one core):
+
+| Sky | The page draws it | The app draws it |
+|---|---|---|
+| Realistic clouds | 1.46 (1.33-1.55) | 0.83 (0.71-1.04) |
+| A clear day | 1.40 (1.27-1.47) | 0.77 (0.66-0.99) |
+| Pouring rain | 1.37 (1.28-1.47) | 0.88 (0.80-1.02) |
+| A drawn wallpaper, Pinwheel, Fast | 0.97 (0.93-0.99) | 0.63 (0.46-0.90) |
+| The same, Slow | 0.76 (0.75-0.78) | 0.53 (0.33-0.73) |
+| Nothing moving | 0.30 (0.18-0.38) | 0.41 (0.19-0.81; 0.24 without its one spike) |
+
+Decision 1's "calm loses" came from the prototype on `dashboard-loft`, where clouds cost the page 0.86: on the Loft's
+screen now any motion costs Chromium a whole frame, and a calm sky costs the page as much as a busy one. The player
+already skips a frame where nothing moved half a pixel (most of the clouds' frames), so no new drawing was needed; 10 fps
+saved nothing over 30.
+
+Built, in the owner's order:
+1. **The guard** (`unplayable`): an animation of anything but `transform` and `opacity` (a custom property, `translate`,
+   a color, a filter) is one the app's player can't play, and the page keeps that sky (`page keeps`).
+2. **One glass** (`frostGlass`): on such a tablet the glass wears the frost picture all the time, whoever draws the sky.
+3. **Every moving sky the app can play** goes to it (`movesNow`): the speed threshold is only the status's word now.
+4. **Drawn wallpapers**: they move by a number (`--hk-wp`, which the app can't play) on other screens, and by their
+   transform on these tablets (`ST.appSky`, `wallMotion`): the same steps, playable.
+5. **Still skies** too (`STILL`): the app draws one once and asks for no frames until something changes (`SkyView`),
+   and the page doesn't re-read a still sky each minute. Within ~0.1 of the page.
+
+Still the page's: a sky the app can't play (the guard), anything else on the page moving every frame (`pageMoves`), and
+every screen without the app or the setting. Fixed on the way: hk-sky writing its class list anew took the hand-over's
+clip with it (the page's sky showed and moved under the app's until the next hand-over); the clip is put back at once.
+

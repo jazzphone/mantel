@@ -10,8 +10,11 @@ Chromium only: the app's page is Android's WebView. On a Bright Glass screen wit
     page's sky clipped away; the glass wears the frost picture -- every layer its child with the picture fixed to the
     screen and no live blur, the tab bar its slice -- and a sheet opened over it wears the picture under its plate, no
     blur; a page moved by a swipe keeps the picture in line (its child fixed and moved back by as much);
-  * something else moving on the page (a spinning tile): the sky is the page's again, and the app's once it is still;
-  * a calm sky (a clear day) is handed back: stop, the clip gone, the glass the look's own again (live blur, no frost);
+  * something else moving on the page (a spinning tile): the sky is the page's again, and the app's once it is still --
+    the glass the frost picture throughout (one glass on such a tablet);
+  * every sky the app's (all in, 2026-11-13): a clear day, a sky with nothing moving, a drawn wallpaper (by its
+    transform, not the number it moves by on other screens); an animation it can't play (`translate`) keeps the sky the
+    page's (the guard);
   * Sky Drawn by the App off: nothing handed over, the app told so;
   * no bridge (a browser, Home Assistant): nothing of it runs at all.
 
@@ -43,6 +46,9 @@ async def main():
     gallery.SETTINGS['boards'][SCREEN] = {
         'title': 'App Sky', 'pages': [], 'headers': {'home': True}, 'menu_custom': True, 'menu': 'tabbar',
         'tab_bar_rooms': 'button', 'tab_bar_rooms_phone': 'button', 'glass': 'bright', 'sky': True}
+    gallery.SETTINGS['boards'][SCREEN + '-wall'] = {
+        **gallery.SETTINGS['boards'][SCREEN], 'title': 'App Sky Wall', 'sky_background': 'wallpaper',
+        'sky_wallpaper': 'pinwheel', 'sky_wallpaper_color': 'amber', 'sky_wallpaper_motion': 'fast'}
     if args.shots:
         args.shots.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as td:
@@ -57,7 +63,7 @@ async def main():
             proc = await asyncio.create_subprocess_exec(
                 args.node, str(Path(__file__).with_suffix('.cjs')), stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE)
             out, _ = await proc.communicate(json.dumps({
-                'origin': str(server.make_url('')).rstrip('/'), 'cookie': cookie, 'screen': SCREEN, 'sizes': SIZES,
+                'origin': str(server.make_url('')).rstrip('/'), 'cookie': cookie, 'screen': SCREEN, 'wall': SCREEN + '-wall', 'sizes': SIZES,
                 'shots': str(args.shots) if args.shots else None}).encode())
     bad = [line for line in out.decode().splitlines() if print(line, flush=True) or line.startswith('FAIL')]
     if proc.returncode and not bad:
