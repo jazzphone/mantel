@@ -109,6 +109,25 @@ def test_the_tap_and_the_writer_stay_within_budget_on_a_5000_entity_house(tmp_pa
     store.db.close()
 
 
+def test_a_first_state_outside_the_catalogs_domains_does_not_work_it_out_again(tmp_path):
+    """Home Assistant starting brings thousands of first states a few at a time; each one worked the whole catalog out
+    again (2026-11-13). Only an id the catalog could hold does now."""
+    areas, devices, entities, first = house()
+    store = Store(tmp_path / "m.db")
+    hub = SimpleNamespace(store=StateStore(), registry=Registry(), taps=[], ha=None)
+    hub.registry.load(areas, devices, entities)
+    tl = Timeline({"cfg": None}, hub, store.db, clock=lambda: T0, folder=tmp_path / "timeline")
+    tl.tap(hub.store.replace_all({"a": {e: {"s": s, "a": {}, "lc": T0 - 60} for e, s in first.items()}}))
+    calls = []
+    real = tl.refresh
+    tl.refresh = lambda: calls.append(1) or real()
+    tl.tap(hub.store.apply_event({"a": {"sensor.new_power": {"s": "1", "a": {"device_class": "power"}, "lc": T0}}}))
+    assert calls == []
+    tl.tap(hub.store.apply_event({"a": {"binary_sensor.new_door": {"s": "off", "a": {"device_class": "door"}, "lc": T0}}}))
+    assert calls == [1] and "binary_sensor.new_door" in tl.members
+    store.db.close()
+
+
 def test_the_hub_fans_out_the_same_with_the_tap():
     """A hub batch with and without the timeline's tap: the tap adds well under the fan-out's own noise."""
     from mantel_server.server import Hub

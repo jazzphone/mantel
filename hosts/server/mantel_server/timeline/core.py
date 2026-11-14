@@ -237,7 +237,11 @@ class Timeline:
             fresh = changed - self.known
             if fresh:
                 self.known |= fresh
-                self.refresh()
+                # (only an id the catalog could hold: a member is worked out from its own state and the registry, so a
+                # sensor's first state changes nothing -- and Home Assistant starting brings thousands, 2026-11-13)
+                overrides = self.settings.get("overrides") or {}
+                if any(e.partition(".")[0] in DOMAINS or e in overrides for e in fresh):
+                    self.refresh()
             hit = changed & self.members.keys()
             if hit:
                 states = self.hub.store.states
