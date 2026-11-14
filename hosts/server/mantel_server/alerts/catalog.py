@@ -84,6 +84,15 @@ KINDS: dict[str, Kind] = {k.id: k for k in (
          "Mantel can't read the HomePods' timers and alarms: the HomePod timer reader is down or can't read the Home app. "
          "Timers set with Siri won't show on the screens until it's back.", "HomePod timers are back",
          "Mantel is reading the HomePods' timers again.", page="connections"),
+    # AirPlay Groups (ma-airplay-groups' status page, features/airplay_groups.py): unreachable for 10 minutes (its own count,
+    # hk_core.music.airplay_groups.alert_due), or a HomePod locked out of AirPlay (at once: it stays so until fixed)
+    Kind("airplay_groups.lost", "connections", "warning", "AirPlay Groups' status page isn't answering",
+         "Mantel can't read ma-airplay-groups' status page on the Music Assistant computer. The add-on or that computer "
+         "may be down.", "AirPlay Groups' status page is back", "Mantel is reading AirPlay Groups' status page again.",
+         page="connections"),
+    Kind("airplay_groups.locked", "connections", "warning", "{names} locked out of AirPlay",
+         "It refused AirPlay Groups' password too often and won't play in a group. Its page on the Music Assistant computer "
+         "says how to fix it.", "No speaker is locked out of AirPlay", page="connections"),
     Kind("token.expiring", "connections", "warning", "{name}'s credential expires {when}",
          "Replace it in Mantel Settings → Connections before then, or the connection stops.",
          "{name}'s credential was replaced", page="connections"),

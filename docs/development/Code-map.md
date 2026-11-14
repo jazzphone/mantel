@@ -377,6 +377,7 @@ The decisions both hosts make the same way (Rule 2), in Python.
   - `talk_live.py` — LIVE TALK
   - `tv_stream.py` — Live TV's transcode command
 - **hk_core/music/**
+  - `airplay_groups.py` — AirPlay Groups' status page, as Mantel's Connections screen reads it
   - `announcements.py` — Announcements, for display only
   - `checks.py` — The checks Music's forms share
   - `config.py` — Whole-home music's configuration
@@ -523,6 +524,7 @@ Mantel Server.
   - `person_picture.py` — Home Assistant person portraits on Mantel's origin, behind the person's view grant.
 - **hosts/server/mantel_server/features/**
   - `actor.py` — Who a feature acts as and what it talks to
+  - `airplay_groups.py` — AirPlay Groups on Mantel's Connections screen
   - `auto.py` — FEATURES ON BY DEFAULT (docs/phase16/FEATURES-ON-BY-DEFAULT.md "The runner").
   - `energy_plan.py` — The Energy page's inputs on Mantel
   - `homepod_timers.py` — HomePod timers and alarms on Mantel (phase 28, docs/phase28/HOMEPOD-TIMERS.md)

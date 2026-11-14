@@ -11,7 +11,20 @@ import { pProtect, protectRow } from './protect.js';
 
 // ============================================================================================ Connections
 const SOURCE_LABEL = { app: 'Provided by Home Assistant (App)', mantel: 'Saved in Mantel', install: 'Set by the Installation' };
-const METHOD_LABEL = { oauth: 'Home Assistant sign-in', token: 'pasted token', login: 'Music Assistant sign-in' };
+const METHOD_LABEL = { oauth: 'Home Assistant sign-in', token: 'pasted token', login: 'Music Assistant sign-in', address: 'address only' };
+const PLACEHOLDER = { ha: 'http://homeassistant.local:8123', ma: 'http://music-assistant.local:8095', homepod: 'http://192.0.2.10:8787',
+                      airplay_groups: 'http://192.0.2.10:54398' };
+const PAGE_LABEL = { homepod: 'Open the Reader’s Page', airplay_groups: 'Open the Status Page' };
+// AIRPLAY GROUPS (hk_core.music.airplay_groups): what its status page says, in a few words for the Connections row
+const plural = (n, one) => n + ' ' + one + (n === 1 ? '' : 's');
+function groupsSays(g) {
+  if (!g) return null;
+  const a = g.addon || {};
+  const bits = [(a.on ? 'Add-on on' : 'Add-on off') + (a.version ? ' (' + a.version + ')' : ''), plural(g.speakers, 'speaker')];
+  if (g.locked_out && g.locked_out.length) bits.push(g.locked_out.length + ' locked out');
+  if (g.alerts && g.alerts.length) bits.push(plural(g.alerts.length, 'alert'));
+  return bits.join(' · ');
+}
 function testedSays(kind, r, warnings) {
   const user = (r && r.user) || {};
   const bits = [];
@@ -20,6 +33,7 @@ function testedSays(kind, r, warnings) {
   if (kind === 'ha' && r && typeof r.entities === 'number') bits.push(r.entities + ' entities');
   if (kind === 'homepod' && r && typeof r.homepods === 'number') bits.push('reading ' + r.homepods + ' HomePod' + (r.homepods === 1 ? '' : 's') +
     (r.broken ? ', but it can’t read the Home app now' : ''));
+  if (kind === 'airplay_groups' && r && r.summary) bits.push('AirPlay Groups ' + (r.version || '') + ' · ' + groupsSays(r.summary));
   return ['It works: connected ' + bits.join(' · ') + '.'].concat(warnings || []).join(' ');
 }
 export function pConnections(sub) {
@@ -29,7 +43,7 @@ export function pConnections(sub) {
   if (sub[0] === 'ha' && sub[1] === 'moving') return sub[2] === 'advanced' ? pLinkAdvanced() : pMoving();
   if (sub[0] === 'link') return sub[1] === 'advanced' ? pLinkAdvanced() : pConnection('ha');     // its old address
   if (sub[0] === 'ma-page') return pConnection('ma');                                           // its old address
-  if (sub[0] === 'ha' || sub[0] === 'ma' || sub[0] === 'homepod') return pConnection(sub[0]);
+  if (['ha', 'ma', 'homepod', 'airplay_groups'].includes(sub[0])) return pConnection(sub[0]);
   if (sub[0] === 'proxy') return pProxy();
   if (sub[0] === 'protect') return pProtect(sub.slice(1));
   if (sub[0] === 'push') return pPushRelay();
@@ -45,16 +59,18 @@ export function pConnections(sub) {
     if (got.err) { failed(c, got.err); return; }
     const can = got.data.can_edit, cs = got.data.connections;
     const SUB = { ha: 'Its connection, and Mantel Link and HK Frontend in it', ma: 'Its connection, and the Browse Music page’s sign-in',
-                  homepod: 'The HomePods’ Siri timers and alarms, read from the Home app' };
+                  homepod: 'The HomePods’ Siri timers and alarms, read from the Home app',
+                  airplay_groups: 'ma-airplay-groups: HomePods playing together in Music Assistant' };
     const row = (kind) => {
       const x = cs[kind];
       if (!x) return null;
       const now = x.live || {};
-      const value = x.state !== 'set' ? 'Not Set Up' : now.connected ? 'Connected' : kind === 'homepod' && now.state === 'starting' ? 'Connecting' : 'Not Connected';
-      return nav(x.label, 'connections/' + kind, { value, sub: SUB[kind], icon: { ha: 'mdi:home-assistant', ma: 'mdi:music', homepod: 'hk:homepod' }[kind] });
+      const value = x.state !== 'set' ? 'Not Set Up' : now.connected ? 'Connected' : now.state === 'starting' ? 'Connecting' : 'Not Connected';
+      return nav(x.label, 'connections/' + kind, { value, sub: (now.connected && groupsSays(now.summary)) || SUB[kind],
+        icon: { ha: 'mdi:home-assistant', ma: 'mdi:music', homepod: 'hk:homepod', airplay_groups: 'mdi:speaker-multiple' }[kind] });
     };
     c.appendChild(group({ footer: !can ? 'Only an Owner can change connections.' : got.data.needs_fresh ? 'From outside the home network you will be asked to confirm it is you first.' : null },
-      [row('ha'), row('ma'), row('homepod'), protectRow()].filter(Boolean)));
+      [row('ha'), row('ma'), row('homepod'), row('airplay_groups'), protectRow()].filter(Boolean)));
     if (['owner', 'admin'].includes(me.user.role)) c.appendChild(group({ footer: 'How browsers reach Mantel, and how Mantel’s notifications reach the Mantel app on iPhone and iPad.' }, [
       nav('HTTPS and Your Proxy', 'connections/proxy', { icon: 'mdi:lock', sub: 'Mantel’s Caddy, your own proxy, the Home Assistant App or a Cloudflare tunnel' }),
       nav('Notifications to the App', 'connections/push', { icon: 'mdi:bell', sub: 'The push relay, your own, or none' })]));
@@ -193,13 +209,16 @@ function pConnection(kind) {
     const rows = [info('Status', null, set ? (now.connected ? 'Connected' : 'Not Connected') : 'Not Set Up', set && now.connected ? '' : 'warn')];
     if (x.source) rows.push(info('From', null, SOURCE_LABEL[x.source] || x.source));
     if (x.url) rows.push(info('Address', null, x.url));
-    if (saved) rows.push(info('Connected As', `Since ${fmt(saved.since)} · ${METHOD_LABEL[saved.method] || saved.method}${saved.by_name ? ' · set by ' + saved.by_name : ''}` +
+    if (saved && x.token === false) rows.push(info('Saved', saved.by_name ? 'By ' + saved.by_name : null, fmt(saved.since)));
+    else if (saved) rows.push(info('Connected As', `Since ${fmt(saved.since)} · ${METHOD_LABEL[saved.method] || saved.method}${saved.by_name ? ' · set by ' + saved.by_name : ''}` +
       (saved.expires ? ' · the token expires ' + fmt(saved.expires) + '; replace it before then' : ''),
       saved.user && saved.user.name ? saved.user.name + (saved.user.is_admin ? ' (Admin)' : '') : '—'));
     if (set && now.connected) {
       if (now.version) rows.push(info('Version', null, now.version));
       if (typeof now.entities === 'number') rows.push(info('Entities', null, String(now.entities)));
     }
+    if (set && now.connected && now.summary) rows.push(...groupsRows(now.summary));
+    if (x.dashboard) rows.push(button(PAGE_LABEL[kind] || 'Open Its Page', () => { window.open(x.dashboard, '_blank', 'noopener'); }, { fk: 'mx:dashboard-' + kind }));
     const notes = [];
     if (set && !now.connected && now.error) notes.push('Not connected: ' + now.error);
     if (x.source === 'install') notes.push('This comes from the installation’s secret file' + (x.install.file ? ' (' + x.install.file + ')' : '') +
@@ -216,7 +235,8 @@ function pConnection(kind) {
       if (x.source === 'mantel' || x.unreadable) acts.push(button('Disconnect…', async () => {
         const back2 = x.install && x.install.present ? ' Mantel goes back to the installation’s file.' : ' Mantel stops using ' + x.label + ' until it is set up again.';
         const revoke = kind === 'ha' ? ' To revoke the token in Home Assistant as well: that user’s profile, Security, Long-lived access tokens.' : '';
-        if (!(await ask({ title: 'Disconnect ' + x.label + '?', message: 'Mantel forgets its saved token.' + back2 + revoke, ok: 'Disconnect', destructive: true }))) return;
+        const forgets = x.token === false ? 'Mantel forgets its address.' : 'Mantel forgets its saved token.';
+        if (!(await ask({ title: 'Disconnect ' + x.label + '?', message: forgets + back2 + revoke, ok: 'Disconnect', destructive: true }))) return;
         act('conn-' + kind, () => api('DELETE', '/api/connections/' + kind), x.label + ' disconnected.', 'connections');
       }, { destructive: true, fk: 'mx:disconnect-' + kind }));
       c.appendChild(group({}, acts));
@@ -224,7 +244,7 @@ function pConnection(kind) {
     }
     const body = (mode) => {
       const b = { url: (d.url || '').trim() };
-      if (mode === 'login') { b.username = (d.username || '').trim(); b.password = d.password || ''; } else b.token = (d.token || '').trim();
+      if (mode === 'login') { b.username = (d.username || '').trim(); b.password = d.password || ''; } else if (mode === 'token') b.token = (d.token || '').trim();
       return b;
     };
     const test = (mode) => async () => {
@@ -248,7 +268,16 @@ function pConnection(kind) {
     const suggested = !x.url && x.suggested_url && x.suggested_from === 'music_assistant_app';
     c.appendChild(group({ header: 'Address', footer: suggested ? 'Found Music Assistant’s App: press Test.' : null },
       [field('conn-' + kind, 'url', 'Address', { type: 'url', maxlength: 300, value: x.url || x.suggested_url || '',
-        placeholder: { ha: 'http://homeassistant.local:8123', ma: 'http://music-assistant.local:8095', homepod: 'http://192.0.2.10:8787' }[kind] })]));
+        placeholder: PLACEHOLDER[kind] })]));
+    if (kind === 'airplay_groups') {
+      // AIRPLAY GROUPS: ma-airplay-groups' status page, an address only (it takes no token; Mantel only reads /status.json)
+      c.appendChild(group({ footer: 'The status page ma-airplay-groups serves on the Music Assistant computer, port 54398. It takes no token: ' +
+        'Mantel only reads what it shows, and never uses its AirPlay password box.' }, [
+        button('Test', test('address'), { fk: 'mx:airplay-groups-test' }), button('Save', save('address'), { fk: 'mx:airplay-groups-save' })]));
+      if (out) c.appendChild(hh('p', { class: 'mxflash' + (out.err ? ' err' : ''), role: out.err ? 'alert' : 'status', text: out.text }));
+      if (set) c.appendChild(group({}, [button('Cancel', () => { clearDraft('conn-' + kind); delete shown['test:' + kind]; redraw(); }, { fk: 'mx:replace-cancel' })]));
+      return;
+    }
     if (kind === 'homepod') {
       // THE HOMEPOD TIMER READER (phase 28): its address and the token from its page's Token card, nothing else
       c.appendChild(group({ header: 'Its Token', footer:
@@ -293,6 +322,17 @@ function pConnection(kind) {
     if (kind === 'ha') { drawHaAccess(c); drawInHa(c, x); }
     if (kind === 'ma' && x.state === 'set') drawMaPage(c, got.data.can_edit);
   } };
+}
+// AIRPLAY GROUPS' status page, as its connection page lists it: the add-on, the speakers, what is wrong
+function groupsRows(g) {
+  const a = g.addon || {}, rows = [];
+  rows.push(info('Add-on', [a.cli_version ? 'cliairplay ' + a.cli_version : null, a.ma_version ? 'Music Assistant ' + a.ma_version : null,
+                            !a.on && a.reason ? a.reason : null].filter(Boolean).join(' · '), a.on ? 'On' : 'Off', a.on ? '' : 'warn'));
+  rows.push(info('Speakers', g.online !== g.speakers ? g.online + ' online' : 'All online', String(g.speakers), g.online !== g.speakers ? 'warn' : ''));
+  if (g.locked_out.length) rows.push(info('Locked Out', g.locked_out.join(', '), String(g.locked_out.length), 'warn'));
+  if (g.needs_setup.length) rows.push(info('Needs Setup', g.needs_setup.join(', '), String(g.needs_setup.length), 'warn'));
+  if (g.alerts.length) rows.push(info('Alerts', g.alerts.join(' · '), String(g.alerts.length), 'warn'));
+  return rows;
 }
 // THE BROWSE MUSIC PAGE'S SIGN-IN (ma_page.py), on Music Assistant's page: an ordinary MA user's token, separate
 // from Mantel's own

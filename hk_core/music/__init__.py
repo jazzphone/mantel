@@ -9,6 +9,7 @@
   warm       Keep Playlists Ready's rounds, against Music Assistant's own client
   queue      a queue item, as the Music page reads it
   announcements  which service calls are announcements, and which players they hide
+  airplay_groups what ma-airplay-groups' status page says, for Mantel's Connections screen
 
 The steps themselves (service calls, waiting on states, the locks, notifications, timers) are
 the host's: inside Home Assistant, features/music/. In Mantel the engine talks to Music

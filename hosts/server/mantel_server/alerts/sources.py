@@ -124,7 +124,7 @@ class Watch:
 
     def look(self) -> None:
         for step in (self.home_assistant, self.music_assistant, self.mantel_link, self.protect, self.homepod_reader,
-                     self.backups, self.disks, self.credentials):
+                     self.airplay_groups, self.backups, self.disks, self.credentials):
             try:
                 step()
             except Exception:  # noqa: BLE001 -- one source never stops the rest
@@ -152,6 +152,15 @@ class Watch:
         """The HomePod timer reader unavailable for 10 minutes (homepod_timers.py); cleared when it answers."""
         host = self.app.get("homepod_timers")
         set_to(self.center, "homepod.lost", "", host is not None and host.alert_due())
+
+    def airplay_groups(self) -> None:
+        """AirPlay Groups' status page unreachable for 10 minutes, or a speaker locked out (features/airplay_groups.py)."""
+        host = self.app.get("airplay_groups")
+        set_to(self.center, "airplay_groups.lost", "", host is not None and host.alert_due())
+        state = host.state() if host is not None else "off"
+        if state in ("ok", "off"):              # unreachable or starting: what was locked out stays so until a read says
+            names = host.locked_out() if host is not None else ""
+            set_to(self.center, "airplay_groups.locked", "", bool(names), {"names": names} if names else None)
 
     def mantel_link(self) -> None:
         """Mantel Link not answering while Home Assistant is connected: only once it has been paired (a Mantel

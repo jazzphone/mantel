@@ -371,7 +371,8 @@
   "audit": [
    "connection.ha.disconnected",
    "connection.ma.disconnected",
-   "connection.homepod.disconnected"
+   "connection.homepod.disconnected",
+   "connection.airplay_groups.disconnected"
   ],
   "csrf": "session",
   "device_ok": false,
@@ -3923,7 +3924,8 @@
   "audit": [
    "connection.ha.saved",
    "connection.ma.saved",
-   "connection.homepod.saved"
+   "connection.homepod.saved",
+   "connection.airplay_groups.saved"
   ],
   "csrf": "session",
   "device_ok": false,

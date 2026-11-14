@@ -92,6 +92,14 @@ reaches Home Assistant and Music Assistant, so nobody handles token files. The s
   settings and listing HA's users need an administrator).
 * *Music Assistant*: the address, then a Music Assistant **user name and password** (MA 2.7+: used once for
   `auth/login` and `auth/token/create`, kept nowhere) or a pasted token (Test, Save). MA's tokens last a year.
+* *HomePod Timer Reader* (phase 28): the reader's address and the token from its page's Token card. *AirPlay Groups*
+  (2026-11-14, `features/airplay_groups.py`, `hk_core/music/airplay_groups.py`): the address of ma-airplay-groups'
+  status page on the Music Assistant computer (`http://<host>:54398`), nothing else: the page takes no token, and
+  Mantel only reads its `/status.json` (never its AirPlay password box). Mantel looks at it once a minute; the row
+  says the add-on on or off and its version, how many speakers, and any locked out or active alerts, and its page
+  lists them. A page unreachable for ten minutes (`airplay_groups.lost`) or a speaker locked out
+  (`airplay_groups.locked`) is an alert. Both pages have a button that opens the service's own page in a new tab (the
+  saved address's `/`, `dashboard` in the status).
 * **Test** runs the live check and saves nothing; **Save** tests again and saves only if it passes. Errors are
   plain words: the address is malformed, nothing answers there, something answers but is not HA/MA, the token
   was refused, the certificate does not match, it timed out.

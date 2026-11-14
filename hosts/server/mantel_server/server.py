@@ -991,6 +991,9 @@ def wire(app: web.Application, hub: Hub, token: str, connect_ha: bool) -> None:
     # Phase 28: the HomePods' timers and alarms, read by the HomePod timer reader and mirrored as helpers (homepod_timers.py)
     from .features import homepod_timers as homepod_timers_host
     homepod_timers_host.register(app, hub)
+    # 2026-11-14: ma-airplay-groups' status page, looked at for Settings > Connections and the alerts (airplay_groups.py)
+    from .features import airplay_groups as airplay_groups_host
+    airplay_groups_host.register(app)
     # 2026-11-09: a vacuum's water tank that ran dry, held until cleared (vacuum_water.py)
     from .features import vacuum_water as vacuum_water_host
     vacuum_water_host.register(app, hub)
@@ -1136,7 +1139,7 @@ async def apply_connection(app: web.Application, hub: Hub, connect_ha: bool, kin
         if connect_ha and cur is not None:
             restart_house_tz(app, hub)                     # (another HA, perhaps another time zone)
         return
-    if kind != "ma":            # the HomePod Timer Reader has its own applier (features/homepod_timers.py)
+    if kind != "ma":            # the HomePod Timer Reader and AirPlay Groups have their own (features/homepod_timers.py, airplay_groups.py)
         return
     # Music Assistant. The music engine (music.py) reads app["ma"] at each use, so it follows at once: with a
     # client it is Mantel's engine (when the music settings are imported), with none the interim bridge to HA.

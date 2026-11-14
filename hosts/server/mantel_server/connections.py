@@ -53,6 +53,11 @@ reconnects at once with the new values; pages connected to Mantel keep their soc
 **The test connections** are their own short sockets, separate from the hub's read-only connection and its
 allowlist: to HA ``auth``, ``auth/current_user``, ``get_states`` (counted, then dropped) and, only when saving an
 OAuth connection, ``auth/long_lived_access_token``; to MA ``auth`` (or ``auth/login`` + ``auth/token/create``).
+
+**Two more kinds** connect Mantel to the house's own helpers: the HomePod Timer Reader (``homepod``, an address and its
+token; features/homepod_timers.py) and AirPlay Groups (``airplay_groups``, ma-airplay-groups' read-only status page: an
+address only, tested by reading its ``/status.json``; features/airplay_groups.py). Each has its own page, which status
+links to (``dashboard``).
 """
 from __future__ import annotations
 
@@ -83,9 +88,12 @@ from .identity.sessions import Identity, error, ok
 
 log = logging.getLogger("mantel.connections")
 
-KINDS = ("ha", "ma", "homepod")
-LABEL = {"ha": "Home Assistant", "ma": "Music Assistant", "homepod": "HomePod Timer Reader"}
-EXAMPLE = {"ha": "http://homeassistant.local:8123", "ma": "http://music-assistant.local:8095", "homepod": "http://192.0.2.10:8787"}
+KINDS = ("ha", "ma", "homepod", "airplay_groups")
+LABEL = {"ha": "Home Assistant", "ma": "Music Assistant", "homepod": "HomePod Timer Reader", "airplay_groups": "AirPlay Groups"}
+EXAMPLE = {"ha": "http://homeassistant.local:8123", "ma": "http://music-assistant.local:8095", "homepod": "http://192.0.2.10:8787",
+           "airplay_groups": "http://192.0.2.10:54398"}
+NO_TOKEN = ("airplay_groups",)      # an address only: ma-airplay-groups' status page is read-only and takes no token
+DASHBOARD = ("homepod", "airplay_groups")   # a service with its own page, at its address's "/" (Settings links to it)
 FILE = "{kind}.connection"
 FORMAT = 1
 TIMEOUT = 15.0
@@ -343,6 +351,22 @@ async def test_homepod(http: aiohttp.ClientSession, url: str, token: str) -> dic
     return {"user": None, "version": None, "homepods": len(body["homepods"]), "broken": body.get("broken") is True}
 
 
+async def test_airplay_groups(http: aiohttp.ClientSession, url: str) -> dict:
+    """ma-airplay-groups' status page (hk_core.music.airplay_groups): ``/status.json`` answers as that page does. It takes
+    no token, and Mantel never uses the page's AirPlay password box."""
+    from hk_core.music import airplay_groups as AG
+    try:
+        async with http.get(url + AG.STATUS_PATH, allow_redirects=False, timeout=aiohttp.ClientTimeout(total=TIMEOUT)) as r:
+            body = await r.json(content_type=None) if r.status == 200 else None
+    except (aiohttp.ClientError, asyncio.TimeoutError, OSError, ValueError) as exc:
+        raise _reach_error("airplay_groups", url, exc) from None
+    got = AG.read(body)
+    if got is None:
+        raise ConnectionFailed("not_airplay_groups", "That address answered, but not as AirPlay Groups' status page does. "
+                               f"It is on the Music Assistant computer, port {AG.PORT}.")
+    return {"user": None, "version": got["version"], "summary": got}
+
+
 # -- storage ------------------------------------------------------------------------------------------------
 @dataclass
 class Record:
@@ -350,7 +374,7 @@ class Record:
     kind: str
     url: str
     token: str = field(repr=False)
-    method: str                        # "token" (pasted) | "oauth" (HA sign-in) | "login" (MA sign-in)
+    method: str                        # "token" (pasted) | "oauth" (HA sign-in) | "login" (MA sign-in) | "address" (no token)
     since: float
     user: dict | None = None           # who Mantel is connected as: {id, name, is_admin}
     by: str | None = None              # the Mantel user who saved it
@@ -456,9 +480,9 @@ class Connections:
         self.app_mode = bool(getattr(cfg, "ha_managed_by_app", False))
         # what the installation provided, remembered before anything is overridden
         self.install_url = {"ha": getattr(cfg, "ha_url", "") or "", "ma": getattr(cfg, "ma_url", "") or "",
-                            "homepod": getattr(cfg, "homepod_reader_url", "") or ""}
+                            "homepod": getattr(cfg, "homepod_reader_url", "") or "", "airplay_groups": ""}
         self.install_file = {"ha": getattr(cfg, "token_file", None), "ma": getattr(cfg, "ma_token_file", None),
-                             "homepod": getattr(cfg, "homepod_reader_token_file", None)}
+                             "homepod": getattr(cfg, "homepod_reader_token_file", None), "airplay_groups": None}
         self._install_ha = install_ha_token if install_ha_token is not None else _read_file_token(self.install_file["ha"])
         self.own: dict[str, Record | None] = {}
         self.unreadable: dict[str, str] = {}
@@ -479,7 +503,7 @@ class Connections:
 
     # -- what is in effect -----------------------------------------------------------------------
     def install_token(self, kind: str) -> str:
-        return self._install_ha if kind == "ha" else _read_file_token(self.install_file[kind])
+        return self._install_ha if kind == "ha" else _read_file_token(self.install_file.get(kind))
 
     def current(self, kind: str) -> Current | None:
         if kind == "ha" and self.app_mode:
@@ -487,7 +511,7 @@ class Connections:
         rec = self.own.get(kind)
         if rec is not None:
             return Current(kind, "mantel", rec.url, rec.token, rec)
-        url, token = self.install_url[kind], self.install_token(kind)
+        url, token = self.install_url.get(kind, ""), self.install_token(kind)
         if url and token:
             return Current(kind, "install", url, token)
         return None
@@ -598,23 +622,34 @@ def live_homepod(app: web.Application) -> dict:
             "broken": st["broken"], "last_ok": st["last_ok"]}
 
 
+def live_airplay_groups(app: web.Application) -> dict:
+    host = app.get("airplay_groups")
+    if host is None:
+        return {"connected": False, "version": None, "error": None}
+    return host.status()
+
+
 def status(app: web.Application, kind: str) -> dict:
     conns: Connections = app["connections"]
     cur = conns.current(kind)
-    install_present = bool(conns.install_url[kind] and conns.install_token(kind))
+    install_present = bool(conns.install_url.get(kind) and conns.install_token(kind))
     out = {
         "kind": kind, "label": LABEL[kind],
         "source": cur.source if cur is not None else None,
         "state": "not_set_up" if cur is None else "set",
-        "url": cur.url if cur is not None else (conns.install_url[kind] or None),
+        "url": cur.url if cur is not None else (conns.install_url.get(kind) or None),
         "editable": not (kind == "ha" and conns.app_mode),
-        "install": {"present": install_present, "file": str(conns.install_file[kind] or "") or None,
-                    "url": conns.install_url[kind] or None, "overridden": install_present and cur is not None
+        "install": {"present": install_present, "file": str(conns.install_file.get(kind) or "") or None,
+                    "url": conns.install_url.get(kind) or None, "overridden": install_present and cur is not None
                     and cur.source == "mantel"},
         "saved": cur.record.public() if cur is not None and cur.record is not None else None,
         "unreadable": kind in conns.unreadable,
-        "live": live_ha(app) if kind == "ha" else live_ma(app) if kind == "ma" else live_homepod(app),
+        "live": live_ha(app) if kind == "ha" else live_ma(app) if kind == "ma" else live_homepod(app) if kind == "homepod"
+        else live_airplay_groups(app),
+        "token": kind not in NO_TOKEN,
     }
+    if kind in DASHBOARD and cur is not None:
+        out["dashboard"] = cur.url.rstrip("/") + "/"
     return out
 
 
@@ -735,6 +770,8 @@ async def _test(request: web.Request, kind: str, body: dict, create: bool) -> tu
         if create:
             got = await test_ma(http, url, token)     # the new token itself works
         return url, token, got, "login"
+    if kind in NO_TOKEN:
+        return url, None, await test_airplay_groups(http, url), "address"
     token = clean_token(body.get("token"))
     result = await (test_ha(http, url, token) if kind == "ha" else test_ma(http, url, token) if kind == "ma"
                     else test_homepod(http, url, token))
@@ -784,7 +821,8 @@ async def _store(request: web.Request, ident: Identity, rec: Record) -> web.Resp
     return ok({"connection": status(request.app, rec.kind)})
 
 
-@guard("owner", fresh="away", first=_kind, audit=("connection.ha.saved", "connection.ma.saved", "connection.homepod.saved"))
+@guard("owner", fresh="away", first=_kind, audit=("connection.ha.saved", "connection.ma.saved", "connection.homepod.saved",
+                                                  "connection.airplay_groups.saved"))
 async def api_save(request: web.Request) -> web.Response:
     kind = _kind(request)
     ident = guarded(request)
@@ -807,7 +845,7 @@ async def api_save(request: web.Request) -> web.Response:
 
 
 @guard("owner", fresh="away", first=_kind, audit=("connection.ha.disconnected", "connection.ma.disconnected",
-                                                  "connection.homepod.disconnected"))
+                                                  "connection.homepod.disconnected", "connection.airplay_groups.disconnected"))
 async def api_disconnect(request: web.Request) -> web.Response:
     kind = _kind(request)
     ident = guarded(request)
