@@ -313,8 +313,7 @@ class Timers:
         task = self.ringers.pop(entity_id, None)
         if task is not None:
             task.cancel()
-        if not self.ringers:
-            self._listener(False)
+        self.quiet_if_idle()
 
     async def _ring(self, entity_id: str) -> None:
         """While it rings: the speakers' clip, again and again, and then it is over."""
@@ -340,11 +339,16 @@ class Timers:
 
     def _over(self, row: Row) -> None:
         self._forget(row.entity_id)
-        if not self.ringers:
-            self._listener(False)
+        self.quiet_if_idle()
         if row.made:
             self._delete(row.entity_id)
         self._push()
+
+    def quiet_if_idle(self) -> None:
+        """The stream listener off once nothing rings on a speaker: none of Mantel's timers, and no HomePod's."""
+        homepod = self.app.get("homepod_timers")
+        if not self.ringers and not (homepod is not None and homepod.ringers):
+            self._listener(False)
 
     def _listener(self, on: bool) -> None:
         """The Intercom's stream listener: on while a timer rings, whether or not the Intercom is on."""
@@ -355,12 +359,17 @@ class Timers:
         self._spawn(host.apply())
 
     async def _speak(self, row: Row) -> None:
+        opts = self.options()
+        area = R.area_for(row.rings_in, row.room, opts["timer_phone"])
+        await self.play(R.speakers_for(area, opts["timer_also"], self._music_rooms(), bool(opts["timer_speaker"])))
+
+    async def play(self, picks: list[str], reason: str = "timer_ended") -> None:
+        """The timer's sound once on these speakers (music rooms), through the Intercom's stream: Mantel's own timers, and
+        a HomePod's that went off (homepod_timers.py, Also Play In's speakers)."""
         host = self.app.get("intercom")
         if host is None or host.ma is None:
             return
         opts = self.options()
-        area = R.area_for(row.rings_in, row.room, opts["timer_phone"])
-        picks = R.speakers_for(area, opts["timer_also"], self._music_rooms(), bool(opts["timer_speaker"]))
         doc = host.doc()
         if not picks or not doc.get("stream_base"):
             if picks:
@@ -381,7 +390,7 @@ class Timers:
         spool.finish()
         audit = self.app["audit"]
         aid = audit.record(principal=None, kind="ma", action="timer.ring", targets=[c.room for c in calls], decision="allowed",
-                           reason="timer_ended", actor="mantel", actor_name="Mantel Server")
+                           reason=reason, actor="mantel", actor_name="Mantel Server")
         limit = len(pcm) / (2 * R.CLIP_RATE) + 5
         token, link = host.links.mint(spool, mode="message", finite=True, limit_s=limit)
         url = f"{doc['stream_base']}/s/{token}.wav"
