@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import contextlib
 import logging
 import time
 from collections import deque
@@ -83,7 +84,8 @@ class TvAlerts:
         self.glyphs = tv_card.Glyphs(hk)
         self.queue: deque[dict[str, Any]] = deque()
         self.jpeg: bytes | None = None
-        self.version = 0
+        # the picture's version: from the clock, so a restarted Mantel never repeats one Mantel Link holds a picture for
+        self.version = time.time_ns() // 1_000_000
         self.on = False
         self.entry: str | None = None
         self.sent: deque[dict[str, Any]] = deque(maxlen=20)
@@ -99,7 +101,9 @@ class TvAlerts:
         return bool(self.host.doc(DOC).get("homekit"))
 
     def wanted(self) -> bool:
-        return self.options()["on"] or self.homekit_wanted()
+        """Publish the two entities: the TVs on, HomeKit wanted, or HomeKit's entry still there -- Remove from HomeKit
+        reaches Mantel Link through the camera's features, so the camera stays until Mantel Link says it is gone."""
+        return self.options()["on"] or self.homekit_wanted() or self.homekit().get("state", "none") != "none"
 
     def _registry(self) -> Any:
         lk = self.app.get("linked")
@@ -138,12 +142,16 @@ class TvAlerts:
         }
 
     async def _set(self, which: int, **kw: Any) -> None:
+        """One change to a published entity, under linked_house's lock: a refresh under way publishes what it read
+        first, and this lands after it (never a stale "off" over a pulse, or a version without its picture)."""
         reg, entry = self._registry(), self.entry
         if reg is None or not entry:
             return
         uid = uids(entry)[which]
-        if reg.get(uid) is not None:
-            await reg.update(uid, **kw)
+        house = self.app.get("linked_house")
+        async with (house.lock if house is not None else contextlib.nullcontext()):
+            if reg.get(uid) is not None:
+                await reg.update(uid, **kw)
 
     # -- the feed ---------------------------------------------------------------------------------------------------
     def on_event(self, event: dict) -> None:
@@ -191,17 +199,21 @@ class TvAlerts:
 
     async def show(self, card: dict[str, Any]) -> None:
         """One card on the TVs: the picture first, then the sensor on for ``hold``, off for ``gap``."""
-        self.jpeg = await self.draw(card)
-        self.version += 1
+        jpeg = await self.draw(card)
+        self.jpeg, self.version = jpeg, self.version + 1
         await self._set(0, attributes={"still": self.version})
         await asyncio.sleep(self.settle)
-        self.on = True
-        await self._set(1, state="on")
-        self.sent.append({"at": time.time(), "title": card.get("title"), "look": card.get("look"), "ok": True,
-                          "published": self.published()})
-        await asyncio.sleep(self.hold)
-        self.on = False
-        await self._set(1, state="off")
+        try:
+            self.on = True
+            await self._set(1, state="on")
+            self.sent.append({"at": time.time(), "title": card.get("title"), "look": card.get("look"), "ok": True,
+                              "published": self.published()})
+            await asyncio.sleep(self.hold)
+        finally:
+            # always off again: a sensor left on would never alert again (HomeKit needs off -> on)
+            self.on = False
+            with contextlib.suppress(Exception):
+                await self._set(1, state="off")
         await asyncio.sleep(self.gap)
 
     async def camera_image(self, _client: Any, msg: dict[str, Any]) -> dict[str, Any]:
@@ -210,9 +222,12 @@ class TvAlerts:
             from ..linked import LinkedError
             raise LinkedError("unknown_entity", "not Mantel's Apple TV camera")
         if self.jpeg is None:
-            self.jpeg = await self.draw({**TV.test_card(self.host.house, self.host.notifier.opts or {}, now=self.host.now()),
-                                         "title": NAME, "line": "Ready for notifications"})
-        return {"version": self.version, "jpeg": base64.b64encode(self.jpeg).decode("ascii")}
+            idle = await self.draw({**TV.test_card(self.host.house, self.host.notifier.opts or {}, now=self.host.now()),
+                                    "title": NAME, "line": "Ready for notifications"})
+            if self.jpeg is None:                         # a card drawn meanwhile wins: never its version with this picture
+                self.jpeg = idle
+        jpeg, version = self.jpeg, self.version           # read together
+        return {"version": version, "jpeg": base64.b64encode(jpeg).decode("ascii")}
 
     def status(self) -> dict[str, Any]:
         o = self.options()
@@ -248,7 +263,8 @@ async def get_preview(request: web.Request) -> web.Response:
                         now=t.host.now())
     jpeg = await t.draw({**card, "title": "Pasta Timer", "line": "Timer ended", "glyph": "hk:timer-sand", "kind": "timer",
                          "color": "#FF9F0A", "caption": "Kitchen · " + card["caption"]})
-    return web.Response(body=jpeg, content_type="image/jpeg", headers={"Cache-Control": "no-store"})
+    # the page asks with ?at= when the look changes; a redraw of the page reuses the picture it has
+    return web.Response(body=jpeg, content_type="image/jpeg", headers={"Cache-Control": "private, max-age=600"})
 
 
 @guard("manager", no_audit="shows a test card on the house's Apple TVs; saves nothing")
@@ -294,6 +310,13 @@ def register(app: web.Application, hub: Any = None) -> TvAlerts | None:
     lk = app.get("linked")
     if lk is not None:
         lk.camera_image = t.camera_image
+
+        def heard(client: Any) -> None:
+            # Mantel Link's HomeKit state changed what is published (an entry removed: the entities go)
+            house = app.get("linked_house")
+            if house is not None and client.domain == "mantel" and "homekit" in client.report:
+                host.spawn(house.refresh())
+        lk.listeners.append(heard)
     app.router.add_get("/api/tv_alerts", get_status)
     app.router.add_get("/api/tv_alerts/preview", get_preview)
     app.router.add_post("/api/tv_alerts/test", post_test)

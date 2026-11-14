@@ -14,7 +14,7 @@
 // (/api/tv_alerts), which decide who may use them. Every notification starts off: a doorbell already in HomeKit shows on the
 // Apple TV by itself.
 import { mantelUrl } from '../base.js';
-import { act, api, ask, forget, hh, K, load, panel, redraw, ROUTE } from './core.js';
+import { act, api, ask, cache, hh, K, load, panel, redraw, ROUTE } from './core.js';
 import { button, failed, group, info, nav, pending, result } from './kit.js';
 
 export const SECTION = 'apple-tv';
@@ -164,14 +164,14 @@ function drawWhich(c, d, tv) {
     'All start off. ' + DOORBELL }, rows));
 }
 
-// while HomeKit is being added or waits for the Home app, the page looks again every few seconds
+// while HomeKit is being added or waits for the Home app, the page looks again every few seconds -- keeping what it shows
+// (the code being scanned) until the new answer replaces it
 function keepLooking(s) {
   const st = (s.homekit || {}).state;
   if (!s.homekit_wanted || st === 'paired' || st === 'error') return;
   const n = ++lookAgain;
   setTimeout(() => {
     if (n !== lookAgain || !location.hash.startsWith(HOME)) return;
-    forget('appletv');
-    redraw();
+    api('GET', '/api/tv_alerts').then((data) => { cache.appletv = { data }; redraw(); }, () => {});
   }, 5000);
 }

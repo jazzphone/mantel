@@ -93,6 +93,17 @@ def test_a_long_title_shrinks_to_its_room():
     assert tv_card._fit(fonts, "The Guest Bathroom Exhaust Fan", 168, 700, 1110) < 168
 
 
+def test_characters_xml_refuses_never_break_a_card():
+    from hk_core.notifications import tv as TVD
+    fonts, glyphs = tv_card.Fonts(None, None), tv_card.Glyphs(None)
+    fonts.refresh()
+    card = {"look": "black", "title": "Door\x01 open", "line": "a\x0bb", "caption": "", "glyph": "hk:bell", "kind": "door",
+            "color": "#FF9F0A", "critical": False, "snapshot": False}
+    from mantel_server.cameras.image_work import render_card
+    assert jpeg_size(render_card(tv_card.svg(card, fonts, glyphs), fonts.files, fonts.family))[1] == (1920, 1080)
+    assert TVD.clean("Door\x01  open\n") == "Door open"
+
+
 def test_words_are_escaped_and_glyphs_stand_in():
     fonts, glyphs = tv_card.Fonts(None, None), tv_card.Glyphs(None)
     fonts.refresh()
@@ -136,9 +147,11 @@ async def test_a_notification_draws_then_pulses_the_sensor():
     t.on_event(event())
     await t.task
     cam, sensor = TA.uids("e1")
-    assert [(u, k) for u, k in seen] == [(cam, {"attributes": {"still": 1}}), (sensor, {"state": "on"}),
+    v0 = seen[0][1]["attributes"]["still"]
+    assert v0 > 1_700_000_000_000                                    # from the clock: a restart never repeats one
+    assert [(u, k) for u, k in seen] == [(cam, {"attributes": {"still": v0}}), (sensor, {"state": "on"}),
                                          (sensor, {"state": "off"})]
-    assert jpeg_size(t.jpeg) == ("JPEG", (1920, 1080)) and t.version == 1
+    assert jpeg_size(t.jpeg) == ("JPEG", (1920, 1080)) and t.version == v0
     assert t.sent[-1]["title"] == "Pasta Timer" and t.sent[-1]["ok"]
 
 
@@ -157,7 +170,53 @@ async def test_mantel_link_asks_for_the_picture():
     with pytest.raises(LinkedError):
         await t.camera_image(None, {"unique_id": "someone_else"})
     got = await t.camera_image(None, {"unique_id": TA.uids("e1")[0]})
-    assert got["version"] == 0 and jpeg_size(base64.b64decode(got["jpeg"]))[1] == (1920, 1080)
+    assert got["version"] == t.version and jpeg_size(base64.b64decode(got["jpeg"]))[1] == (1920, 1080)
+
+
+async def test_a_card_drawn_meanwhile_wins_over_the_idle_one():
+    t, _ = make(on=True)
+    t.descriptors("e1")
+    real = t.draw
+
+    async def slow(card):
+        out = await real(card)
+        t.jpeg, t.version = b"the alert", t.version + 1            # a card landed while the idle one was drawn
+        return out
+    t.draw = slow
+    got = await t.camera_image(None, {"unique_id": TA.uids("e1")[0]})
+    assert base64.b64decode(got["jpeg"]) == b"the alert" and got["version"] == t.version
+
+
+async def test_the_sensor_goes_off_even_when_a_pulse_fails():
+    t, reg = make(on=True)
+    for desc, _kind in t.descriptors("e1").values():
+        await reg.publish(desc)
+    t.jpeg = b"x"
+
+    async def boom(card):
+        return b"x"
+    t.draw = boom
+    calls = []
+    orig = reg.update
+
+    async def flaky(uid, **kw):
+        calls.append(kw)
+        if kw == {"state": "on"}:
+            raise RuntimeError("the link dropped")
+        return await orig(uid, **kw)
+    reg.update = flaky
+    with pytest.raises(RuntimeError):
+        await t.show({"title": "x"})
+    assert calls[-1] == {"state": "off"} and t.on is False
+
+
+def test_remove_from_homekit_keeps_the_camera_until_mantel_link_says_it_is_gone():
+    t, _ = make()                                                    # the Apple TVs off, HomeKit no longer wanted
+    t.homekit = lambda: {"state": "paired"}
+    descs = t.descriptors("e1")
+    assert descs[TA.uids("e1")[0]][0]["features"]["homekit"]["want"] is False
+    t.homekit = lambda: {"state": "none"}
+    assert t.descriptors("e1") == {}
 
 
 def test_homekits_report_is_checked():

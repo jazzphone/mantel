@@ -83,6 +83,12 @@ class LinkedHouse:
 
     # -- what applies ----------------------------------------------------------------------------------
     @property
+    def lock(self) -> asyncio.Lock:
+        """Held while ``refresh`` publishes: a feature changing one of these entities itself takes it too
+        (features/tv_alerts.py's pulse)."""
+        return self._lock
+
+    @property
     def owners(self) -> Any:
         return self.app.get("linked_owners")
 

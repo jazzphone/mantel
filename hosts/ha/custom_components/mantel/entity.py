@@ -258,7 +258,7 @@ class LinkedCamera(LinkedEntity, Camera):
         if self._still_bytes is None or want != self._still_version:
             got = await self._linked.camera_image(self.unique_id)
             if got is None:
-                return self._still_bytes
+                return None                       # no picture rather than the last alert's under this one
             self._still_version, self._still_bytes = got
         return self._still_bytes
 

@@ -24,6 +24,8 @@ from .dnd import dnd_on
 from .settings import tv_options
 
 HEX = re.compile(r"^#[0-9a-fA-F]{6}$")
+# characters XML 1.0 refuses (an entity's name or an automation's words may carry one): the drawing would fail whole
+NOT_XML = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\ufffe\uffff]")
 # white type on Color's gradient: 3:1 at its lightest stop (large text, WCAG), the owner's choice (decision 8)
 WHITE_RATIO = 3.0
 TITLE_MAX = 40
@@ -59,8 +61,13 @@ def color_of(tint: Any) -> str:
     return tint.upper() if isinstance(tint, str) and HEX.match(tint) else rules.BLUE.upper()
 
 
+def clean(text: Any) -> str:
+    """One line of words a picture can carry: no characters XML refuses, spaces collapsed."""
+    return " ".join(NOT_XML.sub("", str(text or "")).split())
+
+
 def _short(text: Any, limit: int) -> str:
-    s = " ".join(str(text or "").split())
+    s = clean(text)
     if len(s) <= limit:
         return s
     cut = s[:limit].rsplit(" ", 1)[0].rstrip(" ,.;:·-")
@@ -76,7 +83,7 @@ def card(house: House, opts: Mapping[str, Any], payload: Mapping[str, Any], now:
     kind = str(payload.get("kind") or "state")
     critical = bool(payload.get("important")) and kind in rules.IMPORTANT
     when = house.local_time(now)
-    caption = " · ".join(p for p in ("Critical" if critical else "", room(house, payload.get("entity")), clock(when)) if p)
+    caption = " · ".join(p for p in ("Critical" if critical else "", clean(room(house, payload.get("entity"))), clock(when)) if p)
     icon = payload.get("icon")
     return {
         "look": look,

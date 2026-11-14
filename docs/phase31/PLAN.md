@@ -253,3 +253,10 @@ Apple TV, and was moved after the build because Send Test now does it with the r
   `extend('notify')`) and each notification's own Apple TV switch and look (`extend('notify-item')`). Drawn headless at
   1280 x 800, an iPad's and a phone's size in all three HomeKit states: no overflow, no script error.
 - **Dependencies**: `resvg_py` 0.5.0 and `fonttools[woff]` (with `brotli`, `zopfli`) in `pyproject.toml` and the lock.
+- **Review** (an agent read the diff): fixed Remove from HomeKit while the Apple TVs are off (the camera stays published
+  until Mantel Link reports the entry gone), the picture's version (from the clock, never repeated after a restart), a
+  pulse racing linked_house's refresh (both under its lock), the idle picture racing a card, the sensor left on after a
+  failed pulse, characters XML refuses breaking a card, an old picture served after a failed fetch, the Settings page
+  blinking while it waits for the Home app, and the unpacked SF Pro's freshness (by the upload's size and time).
+- **Checks**: `tools/ci.py full` from a local worktree: 98 of 99 passed; `side-pane-check-1180x820` failed once (Now
+  Playing's panel in the Side Pane, nothing this phase touches) and passed alone.

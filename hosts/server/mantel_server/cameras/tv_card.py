@@ -69,8 +69,10 @@ class Fonts:
         if src.suffix != ".woff2":
             return src
         assert self.cache_dir is not None
-        out = self.cache_dir / "SF-Pro.ttf"
-        if not out.is_file() or out.stat().st_mtime < src.stat().st_mtime:
+        out, mark = self.cache_dir / "SF-Pro.ttf", self.cache_dir / "SF-Pro.from"
+        st = src.stat()
+        made_from = f"{st.st_size}:{st.st_mtime_ns}"          # the upload it was unpacked from: any other is unpacked again
+        if not out.is_file() or not mark.is_file() or mark.read_text() != made_from:
             from fontTools.ttLib import TTFont
             self.cache_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
             f = TTFont(str(src))
@@ -79,11 +81,15 @@ class Fonts:
             f.save(str(tmp))
             tmp.chmod(0o600)
             tmp.replace(out)
+            mark.write_text(made_from)
         return out
 
     def refresh(self) -> None:
         src = self._source()
-        key = (str(src), src.stat().st_mtime) if src is not None else None
+        try:
+            key = (str(src), src.stat().st_mtime_ns) if src is not None else None
+        except OSError:                                       # removed as it was looked at: Inter until the next card
+            src, key = None, None
         with self._lock:
             if key == self._key and self._font is not None:
                 return
@@ -194,7 +200,7 @@ def _text(x: float, y: float, size: float, weight: int, fill: str, words: str, f
     extra = f' letter-spacing="{track:g}"' if track else ""
     extra += f' fill-opacity="{opacity:g}"' if opacity is not None else ""
     return (f'<text x="{x:g}" y="{y:g}" font-family="{escape(family)}" font-size="{size:.1f}" font-weight="{weight}" '
-            f'fill="{fill}"{extra}>{escape(words)}</text>')
+            f'fill="{fill}"{extra}>{escape(TV.clean(words))}</text>')
 
 
 def _fit(fonts: Fonts, words: str, size: float, weight: int, room: float, track: float = 0.0) -> float:
