@@ -1158,14 +1158,18 @@
     next.nb[-dir] = back;
     // (the page it left out of the flow first, so that this one's box is its own)
     place(next, back);
-    measure(next);
-    watchSize(next.view);
-    next.spare.forEach(function (o) { o.el.style.setProperty('transition', 'none'); rest(next, o); });
     arm();
     if (S && S.navigate) S.navigate(to.path);
     // (the room it lands in first: the Side Pane says where it is now, so the page takes its place as it is put back)
     if (P && P.sync) { try { P.sync(); } catch (e) { /* not drawn */ } }
     relook(next);
+    // ITS BOX ONCE EVERYTHING ABOVE HAS WRITTEN (2026-11-14): the Side Pane's room and the page's look change the
+    // whole page; measured before them, the landing laid the page out once for this and once for the next reader (the
+    // tab bar, a page made ready) -- 60 ms each on the Kitchen's tablet. Measured here, it is the one, and the room it
+    // reads is the pane's new one
+    measure(next);
+    watchSize(next.view);
+    next.spare.forEach(function (o) { o.el.style.setProperty('transition', 'none'); rest(next, o); });
     if (left) {
       heat(next);
       setX(next.view, left, next.base);
@@ -1176,7 +1180,14 @@
     }
     landed(N.el);
     var far = next.items[next.at + dir];
-    if (far && !next.nb[dir]) makeReady(next, dir, far);
+    // (the page after it, made ready once this landing's frame is drawn -- put in the slot in the landing's own task, its
+    // styles were worked out there, 12-29 ms of it at 4x CPU on the Kitchen's tablet, 2026-11-14 -- but at once under a
+    // finger that caught the page on its way: a run of flicks goes on to it, catchIt)
+    var ready = function () { if (ST === next && !next.nb[dir]) makeReady(next, dir, far); };
+    if (far && !next.nb[dir]) {
+      if (left) ready();
+      else later(function () { setTimeout(ready, 0); });
+    }
     planSoon(0);
   }
   // (the page it left is not the page now, and the page it landed on is: what waited for that -- hk-popup.js -- looks

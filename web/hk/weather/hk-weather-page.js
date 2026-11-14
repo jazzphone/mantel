@@ -769,12 +769,16 @@
       connectedCallback() {
         if (super.connectedCallback) { super.connectedCallback(); }
         wxEnter(this);
-        if (this._section() === 'hero') {
+        // (balanced already, with the face in, it is as it was: a page swipe putting a page made ready beside the one it
+        // landed on asked document.fonts.ready, which works out the whole page's styles first -- 12 ms of the landing at
+        // 4x CPU on the Kitchen's tablet, 2026-11-14)
+        if (this._section() === 'hero' && !(PAGE_METHODS._fontsIn && this._heroKey)) {
           // measured again once SF Pro is in (the first draw can be in a fallback face)
           var self0 = this;
           this._heroKey = null;
-          if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { self0._heroKey = null; self0._balanceHero(); });
-          else this._balanceHero();
+          if (document.fonts && document.fonts.ready) {
+            document.fonts.ready.then(function () { PAGE_METHODS._fontsIn = true; self0._heroKey = null; self0._balanceHero(); });
+          } else this._balanceHero();
         }
         if (this._section() === 'hero' && !this._heroVisibility) {
           var hero = this;

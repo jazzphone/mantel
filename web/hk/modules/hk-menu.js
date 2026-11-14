@@ -602,7 +602,7 @@
     var EASE = 'cubic-bezier(.32,.72,0,1)';   // UIKit's sheet curve
     // the highlight's slide: a touch past and back, as a UIKit spring (the tab bar's)
     var SPRING = 'cubic-bezier(.34,1.24,.42,1)';
-    var build, close, CSS, docked, haUpdates, listKey, markHere, onPageChange, open, openHaSidebar, paintNow, place,
+    var build, close, CSS, docked, haUpdates, listKey, markHere, onPageChange, open, openHaSidebar, paintNow, place, publishLeft,
         room, S, scrolled, sync, toggle;
     function kit() {
       return {
@@ -618,7 +618,7 @@
       PARTS.forEach(function (file) { window.hkMenuParts[partKey(file)](K); });
       build = K.build; close = K.close; CSS = K.CSS; docked = K.docked; haUpdates = K.haUpdates; listKey = K.listKey;
       markHere = K.markHere; onPageChange = K.onPageChange; open = K.open; openHaSidebar = K.openHaSidebar;
-      paintNow = K.paintNow; place = K.place; room = K.room; S = K.S; scrolled = K.scrolled; sync = K.sync;
+      paintNow = K.paintNow; place = K.place; publishLeft = K.publishLeft; room = K.room; S = K.S; scrolled = K.scrolled; sync = K.sync;
       toggle = K.toggle;
     }
 
@@ -681,7 +681,7 @@
       // (an open menu draws again too: its rows are Edit mode's or not)
       window.addEventListener('hk-edit', function () { S.built = ''; sync(); if (S.open && S.list && listKey() !== S.built) { build(); markHere(); } });
       window.addEventListener('hk-pane', function () {
-        try { room(!!S.wasDock && M.on()); } catch (e) { /* the frame's sync puts it right */ }
+        try { room(!!S.wasDock && M.on()); publishLeft(true); } catch (e) { /* the frame's sync puts it right */ }
         if (paneFrame || navFrame) return;
         paneFrame = requestAnimationFrame(function () { paneFrame = 0; sync(); });
       });

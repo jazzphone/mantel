@@ -1490,6 +1490,11 @@
           // A static page paints a fixed palette and draws no weather at all.
           var snapping = ST.snapNext;
           ST.snapNext = false;
+          // ITS BOX, READ BEFORE IT IS WRITTEN (2026-11-14): the paint below places the moon and the seasons by the
+          // sky's size; read there, after this render's own writes, a landing page swipe worked out the sky's styles
+          // and the page's layout again (13 + 13 ms at 4x CPU) -- hk-sky-saver.js paintSky
+          var held = ST.mounted, heldSeason = held.querySelector('.season');
+          held._hkBox = { w: held.clientWidth, h: held.clientHeight, sw: heldSeason ? heldSeason.clientWidth : null };
           if (snapping) ST.mounted.classList.add('hk-snap');
 
           // a page's still backdrop: its day stops while the sun is up, its
@@ -1558,6 +1563,7 @@
           // every render -- Tint from Background follows its colors
           // (hk-frosttint.js), a pre-rendered blur its picture (hk-glass.js)
           announce();
+          held._hkBox = null;
 
           if (snapping) {
             // Transitions stay off until a frame has worked out the new values, so they are the computed style rather than
@@ -1568,6 +1574,7 @@
           }
         } catch (e) {
           console.error('[hk-sky]', e);
+          if (ST.mounted) ST.mounted._hkBox = null;
         }
         return '';
       },

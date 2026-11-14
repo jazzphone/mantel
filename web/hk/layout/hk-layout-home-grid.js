@@ -297,6 +297,7 @@
         // (the width between the view's side paddings -- a side safe area, hk-grid-view's -- and the grid
         // centred in it: the absolute root is placed from the padding box)
         var cs = getComputedStyle(this), pl = parseFloat(cs.paddingLeft) || 0, pr = parseFloat(cs.paddingRight) || 0;
+        this._sidePad = pl + pr;
         var cw = Math.max(0, this.clientWidth - pl - pr);
         var scale = Math.min(g.grow ? Infinity : 1, cw / w, this.clientHeight / h) * g.scale / 100;
         if (!(scale > 0)) return;
@@ -324,8 +325,14 @@
         var w = rs ? parseFloat(rs.width) : 0, h = rs ? parseFloat(rs.height) : 0;
         if (!(w > 0 && h > 0 && H > 0)) return 0;
         var scale = Math.min(g.grow ? Infinity : 1, H / h) * g.scale / 100;
-        var cs = typeof getComputedStyle === 'function' ? getComputedStyle(this) : null;
-        var side = cs ? (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0) : 0;
+        // (its side paddings as _measure last read them -- a side safe area's, which a resize measures again: read here,
+        // the Side Pane asking as a page swipe lands on Home, it worked out the page's styles before the pane's writes,
+        // and again after them, 2026-11-14)
+        var side = this._sidePad;
+        if (side === undefined) {
+          var cs = typeof getComputedStyle === 'function' ? getComputedStyle(this) : null;
+          side = cs ? (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0) : 0;
+        }
         return Math.round(w * scale + side);
       }
 

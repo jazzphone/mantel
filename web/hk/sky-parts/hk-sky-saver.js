@@ -1054,7 +1054,8 @@
       return out;
     }
     function paintSky(el, s) {
-      var st = el.style;
+      // (its box as hk-sky.js render read it before writing anything: else read here)
+      var st = el.style, held = el._hkBox || null;
       // Sky / Background: a chosen backdrop takes the live ramp's place -- its
       // day set while the sun is above the horizon, its night set below.
       // The --sk0..3 cross-fade is the same either way, and the luma estimate
@@ -1217,7 +1218,7 @@
         if (moonAnchor && moonEl.nextElementSibling !== moonAnchor) el.insertBefore(moonEl, moonAnchor);
       }
       if (woodlandMoon) {
-        var moonW = el.clientWidth || 1280, moonH = el.clientHeight || 800;
+        var moonW = (held ? held.w : el.clientWidth) || 1280, moonH = (held ? held.h : el.clientHeight) || 800;
         var moonPhone = moonW < 640;
         var seasonNode = el.querySelector('.season');
         var menuInset = seasonNode ? parseFloat(getComputedStyle(seasonNode).left) || 0 : 0;
@@ -1355,16 +1356,16 @@
       // paintSeason. Returns what it composites, for the cap below.
       // laid out in the seasonal layer's own box (beside an open menu, the
       // page's), the moon's centre given in that box's fractions
-      var sbox = el.querySelector('.season'), EW = el.clientWidth || 1280;
-      var SW = (sbox && sbox.clientWidth) || EW, SL = EW - SW;
-      var seasonCover = paintSeason(el, s, SW, el.clientHeight || 800, moonS,
+      var sbox = el.querySelector('.season'), EW = (held ? held.w : el.clientWidth) || 1280;
+      var SW = (held && held.sw !== null ? held.sw : sbox && sbox.clientWidth) || EW, SL = EW - SW;
+      var seasonCover = paintSeason(el, s, SW, (held ? held.h : el.clientHeight) || 800, moonS,
         SW ? (moonXf * EW - SL) / SW : moonXf, moonYf, route);
 
       // ---- realistic clouds, after the seasons: they need the scene's horizon
       // -- the woodland's hills, laid out as its valley is (center/cover in the
       // seasonal box), the forecast landscape's (cover, from the bottom), else
       // the gradient's own
-      var EH = el.clientHeight || 800, hz = 0.72;
+      var EH = (held ? held.h : el.clientHeight) || 800, hz = 0.72;
       if (el._hkNear && NEAR_HORIZON[el._hkNearTheme]) {
         var aH = Math.max(EH, SW * 992 / 1586);
         hz = ((EH - aH) / 2 + NEAR_HORIZON[el._hkNearTheme] * aH) / EH;

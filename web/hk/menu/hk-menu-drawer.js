@@ -195,9 +195,13 @@
     //                      sheet that is not modal (the now-playing bar) starts,
     //                      so it never lies over the menu's last rows.
     // Backdrops still cover everything; only the sheet moves.
-    function publishLeft() {
-      var p = M.panel(), r = panelBox(p);
-      var left = Math.max(0, r ? r.left : 0);
+    // (`kept`: the panel's left as last measured -- the Side Pane's room changing as a page swipe lands writes the page's
+    // edges at once, in the moment the pane writes its own, nothing read: written a frame later, after another module
+    // had read the page, the whole document's styles were worked out once for each, 2026-11-14 on the Kitchen's tablet)
+    function publishLeft(kept) {
+      var r = kept && S.leftKept !== undefined ? null : panelBox(M.panel());
+      var left = r ? Math.max(0, r.left) : kept && S.leftKept !== undefined ? S.leftKept : 0;
+      S.leftKept = left;
       var de = document.documentElement;
       if (!de || !de.style) return;
       // (--hk-menu-right: where the page would start with no pane -- the
@@ -1280,7 +1284,7 @@
     // what the shell and the later parts use of this one
     K.build = build; K.close = close; K.docked = docked; K.haUpdates = haUpdates; K.listKey = listKey;
     K.markHere = markHere; K.onPageChange = onPageChange; K.open = open; K.openHaSidebar = openHaSidebar;
-    K.paintNow = paintNow; K.place = place; K.room = room; K.S = S; K.scrolled = scrolled; K.sync = sync;
+    K.paintNow = paintNow; K.place = place; K.publishLeft = publishLeft; K.room = room; K.S = S; K.scrolled = scrolled; K.sync = sync;
     K.toggle = toggle;
   };
 })();

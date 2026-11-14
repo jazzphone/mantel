@@ -340,8 +340,11 @@
       dash.setAttribute('mode', 'dash');
       document.body.appendChild(dash);
     }
-    var up = dash ? dash.show({ list: list, place: p, side: sp ? sp.side : 'right', doorbell: door }) : false;
-    if (dash) dress(dash, up);
+    // ITS ROOM WRITTEN BEFORE IT DRAWS (2026-11-14): where it goes and how wide are decided above, nothing of its
+    // drawing in them -- so the page's edges on <html> (and the menu's, hk-pane) change before the first read of the
+    // landing, its sections' fit, rather than after it: one layout of the whole page for a page swipe landing on Home,
+    // not one for the pane and one for whatever read next (as dash.show decides it: a place, and something to show)
+    var up = !!dash && p.kind !== 'none' && !!(list.length || door);
     if (dash) {
       var s = dash.style;
       if (up && p.kind === 'side') {
@@ -357,6 +360,7 @@
     publish(up && p.kind === 'side' ? sp.side : null, up && p.kind === 'side' ? p.w : 0, up && p.kind === 'band' ? p.h : 0);
     // (a Home Grid takes the band off its own height: hk-layout.js --hk-pane-b)
     bandRoom(up && p.kind === 'band' && !(grid && grid.isConnected) ? p.h : 0);
+    if (dash) dress(dash, dash.show({ list: list, place: p, side: sp ? sp.side : 'right', doorbell: door }));
     // (the pane WILL take the music: up here, or coming up, with a Now Playing section -- whether or not anything
     // plays yet. Said only once the music was in the pane, the bar came up for the frames between the music starting
     // and the pane's next draw, the page lost its height and a Home Grid fitted itself smaller, then back: the owner,

@@ -303,7 +303,9 @@ What still costs it, for later:
   module reads after another has written: the swipe's measure, the Side Pane, the tab bar or the Pages grid, the
   scroll edges), about 60 ms each on this CPU, and a root custom property's change (the page's own looks) makes each a
   whole-document pass (124 ms measured). Fewer passes needs the landing's reads gathered before its writes, across
-  modules -- a piece of work of its own.
+  modules -- a piece of work of its own. **Done 2026-11-14** (docs/development/Motion.md, "One layout a landing"): on the
+  house twin's Kitchen screen at 4x CPU the landing's frame went from 98-122 ms to 26-61 ms; not yet measured on the
+  tablet itself.
 - **Anything animating every frame** costs the whole screen's composite: the Laundry block's drum and heat waves (SVG,
   the page's own main thread) took the page from 0.84 cores to 2.09 while the dryer ran. Pre-rendered glass took
   about 0.9 cores off the same in one run, not repeated (no live blur under each card); a swipe was no faster.

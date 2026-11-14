@@ -718,7 +718,9 @@
         var on = !!(o && o.place && o.place.kind !== 'none' && ((o.list && o.list.length) || o.doorbell));
         var was = this.hasAttribute('on');
         this.toggleAttribute('on', on);
-        if (!on) { this._sig = null; if (was) this._slide(false); else this._park(); return false; }
+        // (its drawing kept while it is away, its live parts parked: back as it was -- Home again after a page swipe --
+        // it puts them back and fits nothing again, 2026-11-14: three layouts of its sections on each landing)
+        if (!on) { if (was) this._slide(false); else this._park(); return false; }
         this.setAttribute('side', o.place.kind === 'band' ? 'band' : o.side === 'left' ? 'left' : 'right');
         this._draw();
         if (!was) this._slide(true);
@@ -800,20 +802,33 @@
         };
         this._artBg(list, c);
         var sig = JSON.stringify([list, W, H, o.side, band, o.doorbell, HEAD_ON]) + '|' + this._dataSig(c);
-        if (!again && sig === this._sig) return;
+        if (!again && sig === this._sig) {
+          if (this._parked) { this._parked = false; this._fill(); this._cams(); }
+          return;
+        }
         this._sig = sig;
+        this._parked = false;
+        // (each draw tried once: the fit asks again for the one it has just tried, and its answer is most often the
+        // last draw -- everything fits -- drawn and laid out three times as the pane came back on Home, 2026-11-14)
+        var drawn = null, wasOver = false, keyOf = function (sizes, n) { return sizes.slice(0, n).join(',') + '|' + n; };
         var over = function (sizes, n) {
+          var k = keyOf(sizes, n);
+          if (k === drawn) return wasOver;
+          drawn = k;
           self._secs.innerHTML = render(sizes, n);
           self._fill();
           self._floors();
-          return band ? self._secs.scrollWidth > self._secs.clientWidth + 1 || self._tallest() > self._secs.clientHeight + 1
-                      : self._secs.scrollHeight > self._secs.clientHeight + 1;
+          wasOver = band ? self._secs.scrollWidth > self._secs.clientWidth + 1 || self._tallest() > self._secs.clientHeight + 1
+                         : self._secs.scrollHeight > self._secs.clientHeight + 1;
+          return wasOver;
         };
         var got = fit(list, over);
         // (the last measured draw may be a step past the answer: draw the answer)
-        this._secs.innerHTML = render(got.sizes, got.n);
-        this._fill();
-        this._floors();
+        if (drawn !== keyOf(got.sizes, got.n)) {
+          this._secs.innerHTML = render(got.sizes, got.n);
+          this._fill();
+          this._floors();
+        }
         this._cuts();
         this._cams();
         this._fit = got;
@@ -1092,7 +1107,16 @@
         var np = this._slots.np;
         if (this._camT) { clearInterval(this._camT); this._camT = null; }
         if (np && np.active) np.active(false);
-        Object.keys(this._slots).forEach(function (k) { var el = this._slots[k]; if (el.parentNode) el.parentNode.removeChild(el); }, this);
+        // (each live part's place kept for it: a pane back with the same drawing puts them back, _draw)
+        Object.keys(this._slots).forEach(function (k) {
+          var el = this._slots[k];
+          if (!el.parentNode) return;
+          var ph = document.createElement('div');
+          ph.className = 'slot';
+          ph.setAttribute('data-slot', k);
+          el.parentNode.replaceChild(ph, el);
+        }, this);
+        this._parked = true;
       }
       // THE DOORBELL at the top, live, while its pop-up shows
       _door(cam, c) {
@@ -1172,6 +1196,7 @@
         Object.keys(wx).forEach(function (k) { wx[k].release(); });
         this._wx = {};
         this._park();
+        this._sig = null;
       }
     }
 

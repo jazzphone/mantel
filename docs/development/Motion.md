@@ -183,6 +183,41 @@ CPU). Avoiding it would mean the page staying where it waited until a quiet mome
 The next page made ready after a landing (`plan()`, an idle callback) took about 50 ms at 4x CPU, and a finger coming
 down 150, 400 or 800 ms after a landing had the page moving under it within 34-50 ms: not a stall here.
 
+### One layout a landing (2026-11-14)
+
+On the Kitchen's tablet (RK3576) a landing between Home and the Pages screen was still 300-450 ms of the page's own
+work: the page's styles and layout worked out three times or so, because each change to `<html>`'s own style (the
+Side Pane's room, the menu's page edges, the Now Playing bar's room) re-styles the whole document, and a different
+module read the page after each. Traced with Chromium's invalidation tracking (which write dirtied what, which read
+paid for it) on the house twin's Kitchen screen, 4x CPU, 1.5x pixels, six landings each:
+
+| | The landing's frame (LoAF), median | Forced style and layout, median |
+|---|---|---|
+| Before | 98-122 ms (Pages screen → Home 86-148) | 56-61 ms |
+| After | 26-61 ms (several under 50 ms, so no long frame at all) | 10-20 ms |
+
+The order now: everything that writes the page's edges writes first, then the page is measured once.
+
+- The Side Pane writes its room on `<html>` (`--hk-pane-*`) before it draws its sections; where it goes and how wide
+  never depended on the drawing. The menu writes the page's edges (`--hk-page-right`, the band) at once on `hk-pane`
+  from the panel's last-measured left, not a frame later.
+- The swipe measures the page it landed on (`measure`) after the Side Pane and the look have written, so that read
+  is the landing's one layout, and the room it reads is the pane's new one.
+- The Home Grid's side paddings, which the pane asks for (`paneRoom`), are the ones `_measure` last read.
+- The Side Pane keeps its drawing while it is away (its live parts parked in placeholders): back on Home unchanged,
+  it puts them back and fits nothing. When it does fit, a draw the fit asks for twice is drawn once (one layout of
+  its sections instead of three when everything fits).
+- The sky reads its box at the start of a render, before its own writes (`hk-snap`, the palette).
+- The page after the landed one is made ready once the landing's frame is drawn, not in its task (still at once under
+  a finger that caught the settle). A weather hero already balanced does not ask `document.fonts.ready` again (the
+  getter works out the whole page's styles).
+- The Now Playing bar no longer clears the Side Pane's room: it took `--hk-pane-*` off whenever it published, though
+  it has not published a pane since the Side Pane took that over, and a bar carried off Home cleared the Side Pane's
+  1.5 s after a swipe back there (the page under the pane, the tab bar centered on the whole window).
+
+Left in the landing's frame: that one layout, and the tab bar's own small one. The frame after it makes the next page
+ready (its styles, 9-12 ms at 4x CPU).
+
 **The Side Pane's fade.** In a swipe between Home and the Pages screen the pane fades with the finger. It faded as a
 whole (`opacity` on `hk-side-pane`), and an ancestor below full opacity is a backdrop root: in Chromium, the pane's blur
 stopped seeing the page behind it, and the Pages screen's icons showed sharp through a flat tint for the whole drag.
