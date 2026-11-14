@@ -142,7 +142,11 @@ of scenes, so a new scene is sorted the same way.
 - **Pre-rendered glass draws a frosted rectangle on Android's WebView.** Its picture is a `position: fixed` child of the
   layer, and the WebView doesn't clip a fixed child to its parent's `clip-path`: the whole view's rectangle shows frost,
   not only the cards. Seen on the emulator with the page's own Pre-rendered glass, without the app. A fix of its own,
-  whatever is decided here (the frost-picture mode's fixed background doesn't have it).
+  whatever is decided here (the frost-picture mode's fixed background doesn't have it). **Fixed 2026-11-13** (the
+  owner's ask): Pre-rendered wears its picture as the frost picture does, a fixed background on a child in the layer's
+  own box (`hk-glass.js` preImg); out of line is now a transformed ancestor (`lined`), and a swipe's page still has its
+  picture moved back. `pre_glass_motion_check`, the page swipes and HK Frontend's glass suites pass; on the emulator's
+  WebView a fixed-background child is clipped to the layer's path. Not yet seen on the Loft (in use that evening).
 - **Chromium's software drawing can't be trusted for baking.** `WebView.draw` into a bitmap lost canvases, let one part's
   mask spill onto the next, and drew a large photograph at a fifth of its size. The bake copies the window as the
   display shows it (PixelCopy), with a colored mark on each sheet: on the Loft, 6 of 23 copies arrived a frame late.

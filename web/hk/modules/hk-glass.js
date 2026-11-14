@@ -82,11 +82,8 @@
   // the same page-by-page timing, the slow drift followed, never painted again because fast things moved (the owner,
   // 2026-11-13: what the app draws -- bats, rain, flybys -- is left out of it or a veil, as Pre-rendered has it). Two
   // things differ from Pre-rendered:
-  //   * each layer wears it as a FIXED BACKGROUND on a child in the layer's own box, not a fixed child: Android's WebView
-  //     doesn't clip a fixed child to the layer's clip-path (a frosted rectangle the size of the screen, PLAN.md "Found on
-  //     the way"). A fixed background is in line with the screen only while nothing above it is transformed (measured in
-  //     Chromium and WebKit, 2026-11-13: under a transform it is drawn from the element's own corner), so through a swipe
-  //     the child is fixed and moved back as the page moves, as Pre-rendered's picture is (frostAt);
+  //   * (the first, each layer wearing it as a fixed background on a child in its own box, is Pre-rendered's own now too:
+  //     preImg, frostImg);
   //   * the picture stays on through a page change, a swipe and a page seen the first time -- live blur shows nothing --
   //     and every page wears the one picture: the app plays one sky, and a change of it hands the sky back to the page
   //     first (hk-sky-handover.js), so the picture never has to be another page's.
@@ -547,47 +544,33 @@
     return false;
   }
   // A PAGE LAYER'S PICTURE LINES UP with the sky only while nothing above it
-  // is transformed (that would make itself the box the fixed picture sits
-  // in). Looked at again on every layout pass (preCheck), so a layer caught
-  // mid-move blurs live for that while, then wears the picture again.
+  // is transformed (a fixed background under a transform is drawn from the
+  // element's own corner, measured 2026-11-13) -- but a page moved by a swipe,
+  // whose picture is moved back as much (along, frostAt). Looked at again on
+  // every layout pass (preCheck), so a layer caught mid-move blurs live for
+  // that while, then wears the picture again. (The frost picture is worn out
+  // of line too: live blur would show the tablet app's sky sharp.)
   function lined(img) {
-    if (isFrost(img)) return true;               // (in the layer's own box: in line wherever the layer is, FROST above)
-    var r = img.getBoundingClientRect();
-    return Math.abs(r.left) <= 1 && Math.abs(r.top) <= 1 && Math.abs(r.width - window.innerWidth) <= 2;
+    if (FROST) return true;
+    for (var n = flatParent(img.parentNode || img); n && n.nodeType === 1 && n !== document.documentElement; n = flatParent(n)) {
+      if (n.__hkAlong) continue;
+      var t = getComputedStyle(n).transform;
+      if (t && t !== 'none') return false;
+    }
+    return true;
   }
-  // THE PICTURE IS A SMALL CANVAS THE COMPOSITOR STRETCHES, not an <img>.
-  // An <img> pinned over the screen is rastered at the screen's full size
-  // into tiles -- one per layer, a screen of tile memory each where the
-  // layer shows -- and every repaint added a second one per layer for its
-  // fade: on a wall tablet near its tile budget that pushed it over, the
-  // browser dropped the old picture's tiles, and for two frames every pill
-  // showed the sharp sky (screen-recorded on the Master Bedroom tablet, at
-  // each repaint; reproduced headless at the budget's edge: 0 tile warnings
-  // at rest, 2 at a repaint). A canvas is one texture at its own size (the
-  // picture's, 1/6 of the screen), scaled on the GPU: no tiles at all.
+  // THE PICTURE ON A LAYER: a child in the layer's own box whose background is the picture fixed to the screen
+  // (frostImg, below), in Pre-rendered as in the frost picture. Not a fixed child (2026-11-13, the owner): Android's
+  // WebView doesn't clip a fixed child to its layer's clip-path, so every Android tablet in Pre-rendered showed frost
+  // across the whole view, not only behind the cards (PLAN.md phase 29, "Found on the way"; Kiosk Satellite's tablets
+  // too). Before that it was a small canvas, fixed, the compositor stretching it -- not an <img>, which was rastered at
+  // the screen's size into tiles and on a wall tablet near its tile budget dropped them for two frames at a repaint
+  // (the Master Bedroom, 2026-10-11). The fixed background is drawn at the layer's size, where the cards are.
   // `data-src` names the picture it holds.
-  function preImg(url) {
-    if (FROST) return frostImg(url);
-    var cv = document.createElement('canvas');
-    cv.setAttribute('aria-hidden', 'true'); cv.setAttribute('data-hk-pre', ''); cv.setAttribute('data-src', url);
-    // the window in the page's own units: under a car dashboard's zoom
-    // (tesla-viewport.js publishes --hk-vw / --hk-vh) 100vw is only Z of the
-    // screen -- the picture covered two thirds of it and lined up with nothing
-    cv.style.cssText = 'position:fixed;left:0;top:0;width:var(--hk-vw,100vw);height:var(--hk-vh,100vh);max-width:none;max-height:none;' +
-      'margin:0;padding:0;border:0;pointer-events:none;transition:opacity ' + PRE_FADE + 'ms linear';
-    var draw = function (im) {
-      if (!im || !cv.getContext) return;
-      cv.width = im.naturalWidth || im.width || 1; cv.height = im.naturalHeight || im.height || 1;
-      var x = cv.getContext('2d');
-      if (x) x.drawImage(im, 0, 0);
-    };
-    var rec = pics.get(url);
-    if (rec && rec.done) draw(rec.im); else decoded(url).then(draw);
-    return cv;
-  }
+  function preImg(url) { return frostImg(url); }
   function picOf(el) { return el ? el.getAttribute('data-src') : null; }
-  // THE FROST PICTURE'S CHILD: the layer's own box, its background the picture fixed to the screen (FROST above). A
-  // child, not the layer's own background, so a new picture fades in over the last as Pre-rendered's do.
+  // THE PICTURE'S CHILD: the layer's own box, its background the picture fixed to the screen (preImg above). A child,
+  // not the layer's own background, so a new picture fades in over the last.
   var FROST_BG = '0 0 / var(--hk-vw,100vw) var(--hk-vh,100vh) no-repeat';
   function frostImg(url) {
     var d = document.createElement('div');

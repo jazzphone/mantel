@@ -123,7 +123,7 @@ delete globalThis.CSSTransition;
      /\(a\.left - b\.left\) \/ Z/.test(g) && /\.scale\(c\.width \/ VP\.W, c\.height \/ VP\.H\)\.scale\(Z, Z\)/.test(g) && /svgPrims\(fl, kz, check\)/.test(g));
   var h = readFile(HK_ROOT + '/frontend/modules/hk-glass.js');
   ok('...and the glass: the picture as wide as the window in the page\'s units, pinned slices / zoom',
-     /width:var\(--hk-vw,100vw\);height:var\(--hk-vh,100vh\)/.test(h) && /function sliceOf\(url, x, y, W, H, z\)/.test(h));
+     /0 0 \/ var\(--hk-vw,100vw\) var\(--hk-vh,100vh\) no-repeat/.test(h) && /function sliceOf\(url, x, y, W, H, z\)/.test(h));
 })();
 
 print(fail ? '  ' + fail + ' SKYSHOT TESTS FAILED' : '  ALL ' + pass + ' SKYSHOT TESTS PASS');

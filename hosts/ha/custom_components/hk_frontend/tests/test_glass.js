@@ -371,10 +371,11 @@ ok('a pinned surface that has moved fades to the new picture too, cut at its new
    /moves = moves\.filter\(function \(m\) \{\s*if \(XFADE && window\.requestAnimationFrame\) return true;/.test(gsrc));
 ok('back on a page, a recent remembered picture keeps it until the usual repaint (PRE_KEEP; 2026-11-13: two changes at every page change)',
    /PRE_KEEP = 10000/.test(gsrc) && /pre\.at = Date\.now\(\) - c\.at < PRE_KEEP \? Date\.now\(\) : c\.at;/.test(gsrc));
-// THE FROST PICTURE (phase 29: the sky drawn by the tablet app): every page's picture is the one sky's, worn by a child
-// with the picture fixed to the screen (never a fixed child: the WebView's clip-path), moved back through a swipe
+// THE PICTURE ON A LAYER (Pre-rendered's and the frost picture's, 2026-11-13): a child with the picture fixed to the screen
+// as its background, never a fixed child (Android's WebView didn't clip one to the layer's clip-path: frost across the
+// whole view), moved back through a swipe; the frost picture (phase 29) is every page's newest
 ok('the frost picture: every page wears the newest, on a child in the layer\'s own box, fixed to the screen at rest',
-   /function pictureFor\(L, path\) \{\s*if \(FROST\) return pre\.url;/.test(gsrc) && /if \(FROST\) return frostImg\(url\);/.test(gsrc) &&
+   /function pictureFor\(L, path\) \{\s*if \(FROST\) return pre\.url;/.test(gsrc) && /function preImg\(url\) \{ return frostImg\(url\); \}/.test(gsrc) &&
    /d\.style\.position = 'absolute';[\s\S]{0,200}d\.style\.background = bg \+ ' fixed';/.test(gsrc) &&
    /if \(isFrost\(img\)\) frostAt\(img, m\);/.test(gsrc) && /frost: frost,\s*frosted:/.test(gsrc));
 ok('HkBase passes the card and direction to changed()', /hkGlass\.changed\(card, join\)/.test(readFile(HK_ROOT + '/frontend/cards/hk-base.js')));
