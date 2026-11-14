@@ -2,12 +2,33 @@
 // home network (apps/tablet_app.py; docs/phase26/ANDROID-APP.md "Managing a tablet"). Mantel reaches the app through the
 // page the tablet has open, so nothing listens on the tablet and there is no password of its own.
 // @ts-check
-import { act, api, can, hh, K, load, me, redraw } from './core.js';
+import { act, api, cache, can, hh, K, load, me, redraw } from './core.js';
 import { button, draft, field, group, info, result } from './kit.js';
 
 const devicesRead = () => load('devices', () => api('GET', '/api/devices'));
 const appRead = (id) => load('tablet-app:' + id, () => api('GET', '/api/devices/' + encodeURIComponent(id) + '/app'));
 const pct = (v) => Math.round((v || 0) * 100);
+// A CONTROL STAYS WHERE IT WAS PUT (2026-11-14, the owner: "the Tablet settings may have the same issue"). A command's
+// value goes into the page's copy of the app's status before it is sent (the app answers within seconds, and any redraw
+// meanwhile -- the tablet's page saving its own option first -- drew the old value back); the app's answer, which
+// carries its status, replaces the copy, and a refused or unanswered one reads the status again. The copy is never
+// dropped while it is read: the group stays on the page.
+// each command whose value the app reports back under the same name
+const SHOWN = new Set(['screen', 'brightness', 'curtain', 'kiosk_mode', 'rotation', 'keep_awake', 'keep_screen_on',
+                       'adaptive_brightness', 'scale', 'airplay', 'airplay_mirroring', 'airplay_video', 'airplay_audio',
+                       'wireless_debugging', 'renderer', 'render_size']);
+function hold(id, command, value) {
+  const got = cache['tablet-app:' + id];
+  if (got && got.data && got.data.status && SHOWN.has(command)) got.data = { ...got.data, status: { ...got.data.status, [command]: value } };
+}
+function took(id, r) {
+  const got = cache['tablet-app:' + id];
+  if (got && got.data && r && r.status) got.data = { ...got.data, status: r.status };
+}
+function readAgain(id) {
+  api('GET', '/api/devices/' + encodeURIComponent(id) + '/app')
+    .then((data) => { cache['tablet-app:' + id] = { data }; redraw(); }, () => {});
+}
 // WHAT'S ON THE SCREEN (the owner, 2026-11-12): a picture the app takes when asked, kept by Mantel in memory
 const pictures = {};             // device id -> { src, at } or { busy } or { err }
 async function takePicture(id) {
@@ -246,15 +267,20 @@ export function drawTabletApp(c, ctx) {
       c.appendChild(group({ header, footer: 'The app’s controls are on the home network only.' }, rows));
       continue;
     }
-    const send = (command, value, okText) => act(key, async () => {
-      const r = await api('POST', '/api/devices/' + encodeURIComponent(dv.id) + '/app', value === undefined ? { command } : { command, value });
-      return r;
-    }, okText, key);
+    const send = (command, value, okText) => {
+      hold(dv.id, command, value);
+      return act(key, async () => {
+        const r = await api('POST', '/api/devices/' + encodeURIComponent(dv.id) + '/app', value === undefined ? { command } : { command, value });
+        if (r && r.status) took(dv.id, r); else readAgain(dv.id);     // unanswered (a reload, a restart): read it again
+        return r;
+      }, okText).then((ok) => { if (ok === false) readAgain(dv.id); return ok; });
+    };
     const off = !live || !data.commands_on;
     // ALL TABLETS AND EACH ITS OWN: an option chosen here is this tablet's own (HK's app_options) and sent at once;
     // one it doesn't set follows All Tablets' (Mantel sends it within a minute: apps/tablet_app.py follow)
     const own = ctx.app_options || {};
     const sendAs = (command, value, okText) => {
+      hold(dv.id, command, value);                                      // before the tablet's page saves and redraws
       if (FOLLOWED.includes(command) && typeof ctx.set === 'function') ctx.set({ app_options: { ...own, [command]: value } });
       return send(command, value, okText);
     };
