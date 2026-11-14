@@ -177,7 +177,8 @@ const CLEAR = { season: '', cond: 'sunny', wet: { kind: 'none', rate: 0 }, fog: 
             tag + ': an animation the app can\'t play keeps the sky the page\'s (the glass still the frost picture)',
             { state: s.status.state, cannot: s.status.cannot, ops: s.ops.slice(before) });
         await page.evaluate(() => { document.getElementById('mz-slide-el').remove(); document.getElementById('mz-slide').remove(); window.hkSkyHandover.again(true); });
-        say(await until(page, () => window.hkSkyHandover.status().state === 'playing', null, 40000), tag + ': ...and without it, the app\'s again');
+        // (a hand-over waits for quiet and spacing, then bakes: under a full run's load, longer than 40 s at a phone's size)
+        say(await until(page, () => window.hkSkyHandover.status().state === 'playing', null, 75000), tag + ': ...and without it, the app\'s again');
         say(!errors.length, tag + ': no page errors', errors.slice(0, 3));
         await ctx.close();
       }
