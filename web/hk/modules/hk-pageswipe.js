@@ -712,19 +712,23 @@
   // the Kitchen's tablet), into the document's as it landed. With a layer all the time a swipe draws nothing.
   // What a layer changes: the page becomes the box that anything fixed inside it is placed in, and the page it is
   // stacked in (under the tab bar and the Side Pane). The sheets and panels cards open are on the document's body, so
-  // it changes nothing for them -- but for three it does, and those pages keep no layer at rest (fixedIn): the Music
-  // page (its speaker panel and phone sheet are fixed in the card), the Pages screen (its blurred ground is fixed to
-  // the window) and a view of cards that aren't ours. A card that puts something fixed inside itself says so
+  // it changes nothing for them -- but for a view of cards that aren't ours it may, and that page keeps no layer at
+  // rest (fixedIn); the Music page and the Pages screen keep one only where their box is the window (FIXED_WINDOW,
+  // below). A card that puts something fixed inside itself says so
   // (`hkFixedInside`, or its tag in FIXED_INSIDE; tests/test_fixed_inside.py holds every fixed rule to one or the
   // other). Not in Edit mode (plan retires the stage: its drag pictures are fixed), and only on the Android wall
   // tablets, where it was measured and where Pre-rendered glass places its picture by hand: elsewhere a picture
   // fixed to the window would be fixed to the page's layer.
-  var FIXED_INSIDE = { 'hk-music-card': 1, 'hk-view-fallback': 1 };
+  var FIXED_INSIDE = { 'hk-view-fallback': 1 };
   // ...AND ONE FIXED TO THE WHOLE WINDOW (the Pages screen's blurred ground: inset 0, under its icons): in a layer it is
   // placed in the page's box instead -- the same place where the page's box is the window, which it is on a wall
   // tablet (the Pages screen has no Side Pane beside it). So its page rests in a layer where its box is the window
   // (fills), and nowhere else. Without one, every swipe from the Pages screen drew the page again as it started.
-  var FIXED_WINDOW = { 'hk-pages-screen-card': 1 };
+  // The Music page's are of the same kind -- its scrim and its sheets are placed by the window's edges -- on a window
+  // wide enough for its wall-tablet layout (the number: the narrowest window it may keep a layer on; its panel open
+  // was the same picture to the pixel with and without one on the Kitchen's tablet, 2026-11-14). On a phone its
+  // sheets rise over the tab bar, which a page in a layer cannot do.
+  var FIXED_WINDOW = { 'hk-pages-screen-card': 0, 'hk-music-card': 900 };
   function fixedIn(el) {
     if (!el) return true;
     if (el.__hkFixedIn !== undefined) return el.__hkFixedIn;
@@ -732,7 +736,7 @@
     while (i < q.length && i < 6000 && found !== 1) {
       var n = q[i++];
       if (FIXED_INSIDE[n.localName] || n.hkFixedInside === true) { found = 1; break; }
-      if (FIXED_WINDOW[n.localName]) found = 2;
+      if (FIXED_WINDOW[n.localName] !== undefined) { found = 2; el.__hkFixedMinW = Math.max(el.__hkFixedMinW || 0, FIXED_WINDOW[n.localName]); }
       else if (typeof n.swipeGround === 'function') { found = 1; break; }
       if (n.shadowRoot) q.push(n.shadowRoot);
       for (var c = n.firstElementChild; c; c = c.nextElementSibling) q.push(c);
@@ -741,10 +745,11 @@
     return found;
   }
   function android() { try { return /Android/.test(navigator.userAgent || ''); } catch (e) { return false; } }
-  // (the page's box as last laid out -- measure, place -- is the window)
+  // (the page's box as last laid out -- measure, place -- is the window: no wider, no taller -- a page taller than the
+  // window scrolls the document, and what is fixed in its layer would scroll with it)
   function fills(el) {
-    var b = el && el.__hkBox;
-    return !!b && b.l === 0 && b.t === 0 && Math.abs(b.w - IW()) < 1 && b.h >= IH() - 1;
+    var b = el && el.__hkBox, W = IW(), H = IH();
+    return !!b && b.l === 0 && b.t === 0 && Math.abs(b.w - W) < 1 && Math.abs(b.h - H) < 1.5 && W >= (el.__hkFixedMinW || 0);
   }
   function restOk(el) {
     if (!android() || !keeps()) return false;
