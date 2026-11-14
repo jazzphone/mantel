@@ -481,6 +481,12 @@ told (the camera mosaic and a picture entity for a camera's picture, a Show When
 draws only from a state it read where the gate could not see it; what no state says (the time) reaches a card at the
 host's look by everyone, 15 s at most.
 
+On the Kitchen's tablet afterwards (the house's build, real taps): 299 states at rest with its Home block on the
+page; Home after the Pages screen 22 ms from the tap; the Home sheet whole (27 rooms and pages), a later opening
+asking for 232 states by name (0.4 s) or for nothing. One thing more there: the whole house took longer than the
+sheet's 1.5 s to read, the answer was dropped for coming late, and the next opening asked for the whole house again
+-- a late answer now counts (hk-home-block.js _askWhole; on main, not on the house).
+
 Seen once and not again: for a minute or two after the Loft's tablet woke from sleep, the frosted shapes of Home's
 cards stood faintly on the Pages screen and the Calendar. Not found in the page (Home was out of the document), not
 there in any capture since.

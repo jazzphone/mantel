@@ -83,7 +83,7 @@
 
     // ---- what the sheet draws: hkStrategy.homeSheet, built again only when what it is built from moves -- the screen, the
     // registries, the settings, the house's entities -- never on a state (a state goes to the cards in place)
-    var BUILT = { key: null, regs: null, n: 0, out: null, count: 0, whole: null, ids: null };
+    var BUILT = { key: null, regs: null, n: 0, out: null, count: 0, whole: null };
     // the sheet's cards made in the tap that opens it, and each time after (HkHomeSheet._render)
     var FIRST = 4, FILL = 5;
     // the sheet waits this long at most for the whole house before it draws from what is at hand (HkHomeSheet)
@@ -325,23 +325,31 @@
       // sheet's frame is up meanwhile; WHOLE_MS at most), and at once on one that has it all (it answers true, no
       // promise). Drawn from what a narrowed screen had, it was 19 cards of the house's 28.
       // ...ONCE: what it drew with the whole house at hand stands until the house's makeup moves (built's key), and at
-      // every opening after that it asks only for the states of what it drew (BUILT.ids) -- the whole house is
+      // every opening after that it asks only for the states of what it drew (idsOf) -- the whole house is
       // thousands of states read and every card looking again, over a second of the Kitchen's tablet.
       _askWhole() {
         var SH = window.hkShell, asked = null, self = this, c = this.client;
-        var key = c ? keyOf(c) : null, had = !!key && BUILT.whole === key && BUILT.key === key && !!BUILT.ids;
-        if (SH && typeof SH.wholeHouse === 'function') { try { asked = had ? SH.wholeHouse(BUILT.ids) : SH.wholeHouse(); } catch (e) { asked = null; } }
-        var whole = function () { if (!had && self.client) { built(self.client); BUILT.whole = BUILT.key; BUILT.ids = idsOf(BUILT.out); } };
+        var key = c ? keyOf(c) : null, had = !!key && BUILT.whole === key && BUILT.key === key && !!BUILT.out;
+        // (the states of what it drew, read off what it drew as it stands now)
+        if (SH && typeof SH.wholeHouse === 'function') { try { asked = had ? SH.wholeHouse(idsOf(BUILT.out)) : SH.wholeHouse(); } catch (e) { asked = null; } }
+        var whole = function () { if (!had && self.client) { built(self.client); BUILT.whole = BUILT.key; } };
         if (!asked || typeof asked.then !== 'function') { if (asked === true) whole(); return; }
-        var turn = this._whole = (this._whole || 0) + 1, go = function (ok) {
+        var turn = this._whole = (this._whole || 0) + 1, go = function () {
           if (self._whole !== turn || !self._wait) return;
           self._wait = false;
-          if (ok === true) whole();
           if (self.client) self.redraw();
         };
         this._wait = true;
-        asked.then(go, function () { go(false); });
-        setTimeout(function () { go(false); }, WHOLE_MS);
+        // (THE ANSWER COUNTS HOWEVER LATE: on the Kitchen's tablet the whole house can take longer than WHOLE_MS to
+        // read, and an answer dropped for coming after it was the whole house asked for again at the next opening)
+        asked.then(function (ok) {
+          if (ok === true && self._whole === turn) {
+            whole();
+            if (!self._wait && self.client) self.redraw();
+          }
+          go();
+        }, go);
+        setTimeout(go, WHOLE_MS);
       }
       _render() {
         var c = this.client;
