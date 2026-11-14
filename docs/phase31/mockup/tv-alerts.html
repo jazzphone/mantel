@@ -196,7 +196,7 @@ section { display: grid; gap: 18px; }
           <ul>
             <li><b>Add to HomeKit</b> has Mantel Link add the Mantel Alerts camera to Home Assistant's HomeKit Bridge. Nothing else changes in Home Assistant.</li>
             <li>Scan the code in the Home app once. Settings says Paired when it is.</li>
-            <li>Each person turns this camera's notifications off on their phone, since Mantel already notifies the phones.</li>
+            <li>Phones get the same picture when this camera's notifications are on in the Home app; anyone who already gets Mantel's own notification can turn them off there.</li>
           </ul>
         </div>
       </div>
@@ -389,12 +389,12 @@ section { display: grid; gap: 18px; }
     } else {
       hk = '<div class="rows"><div class="row"><span>Mantel Alerts</span><span class="val"><span class="dot"></span>Paired</span></div>' +
         '<div class="row"><button type="button" id="hk-remove" data-hk="none"><span class="red">Remove from HomeKit</span></button></div></div>' +
-        '<div class="foot">On each phone, turn this camera\'s notifications off in the Home app: Mantel already sends them there.</div>';
+        '<div class="foot">Phones with this camera\'s notifications on in the Home app get the same picture. If you already get Mantel\'s own notification, turn this camera\'s off there.</div>';
     }
     var looks = [['color', 'Color'], ['black', 'Black'], ['glass', 'Glass']].map(function (l) {
       return '<div class="row"><button type="button" id="set-look-' + l[0] + '" data-look="' + l[0] + '"><span>' + l[1] + '</span>' + (state.look === l[0] ? '<span class="tick">✓</span>' : '') + '</button></div>';
     }).join('');
-    var which = [['Front Door Doorbell', true], ['Timers', true], ['Washer and Dryer', true], ['Water Leaks', true], ['Garage Door Left Open', false], ['Mailbox', false]]
+    var which = [['Front Door Doorbell', false], ['Timers', true], ['Washer and Dryer', true], ['Water Leaks', true], ['Garage Door Left Open', false], ['Mailbox', false]]
       .map(function (w) { return '<div class="row"><span>' + w[0] + '</span>' + sw(w[1]) + '</div>'; }).join('');
     document.getElementById('settings').innerHTML =
       '<div class="nav"><span class="back">‹ Notifications</span><h3>Apple TV</h3></div>' +
@@ -403,12 +403,10 @@ section { display: grid; gap: 18px; }
       '<div class="grp"><div class="lbl">HomeKit</div>' + hk + '</div>' +
       '<div class="grp"><div class="lbl">Look</div><div class="rows">' + looks +
       '<div class="row"><button type="button" id="set-cam" data-cam="1"><span>Use Camera Picture</span>' + sw(state.cam) + '</button></div></div></div>' +
-      '<div class="grp"><div class="rows"><div class="row"><span>Show For</span><span class="val">20 s <span class="chev">›</span></span></div>' +
-      '<div class="row"><span>Only When a TV Is On</span>' + sw(false) + '</div>' +
-      '<div class="row"><span>Follows Do Not Disturb</span>' + sw(true) + '</div>' +
+      '<div class="grp"><div class="rows"><div class="row"><span>Follows Do Not Disturb</span>' + sw(true) + '</div>' +
       '<div class="row"><span class="blue">Send Test</span></div></div></div>' +
       '<div class="grp"><div class="lbl">Notifications on Apple TV</div><div class="rows">' + which + '</div>' +
-      '<div class="foot">Each notification also has an Apple TV switch on its own page.</div></div>';
+      '<div class="foot">All off to start. A doorbell already in HomeKit shows on the Apple TV by itself; turn it on here only for one that isn\'t. Each notification also has an Apple TV switch and a Look on its own page.</div></div>';
   }
 
   function render() {

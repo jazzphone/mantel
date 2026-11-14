@@ -1,8 +1,8 @@
 # Phase 31: Notifications on the Apple TVs (plan, 2026-11-14)
 
 **Status: a plan and a mockup ([mockup/tv-alerts.html](mockup/tv-alerts.html), also at
-https://claude.ai/artifact/6jjG6ZfTjdTr8xhRm3LhY6), waiting on the owner's decisions at the end. HA's HomeKit Bridge
-was chosen to serve the camera (the owner, 2026-11-14). Nothing is built.**
+https://claude.ai/artifact/6jjG6ZfTjdTr8xhRm3LhY6), every decision at the end answered by the owner (2026-11-14).
+Ready to build; nothing is built.**
 
 - **Line numbers** are left out on purpose. Search for the names.
 
@@ -102,10 +102,10 @@ bottom (the mockup's doorbell), unless Use Camera Picture is off.
 
 | Where | What |
 |---|---|
-| `features/tv_alerts.py` (new) | taps the feed like `push.py`; which notifications go (their Apple TV switch); the queue (one at a time, each held Show For, 5 s between); Only When a TV Is On; publishes the camera and the sensor through the link; the picture's route |
+| `features/tv_alerts.py` (new) | taps the feed like `push.py`; which notifications go (their Apple TV switch); the queue (one at a time; the sensor held on 10 s, then off, and the gap step 0 measures); publishes the camera and the sensor through the link; the picture's route |
 | `cameras/tv_card.py` (new) | builds the card's SVG from the look, the words, the glyph, the colors, the snapshot; pure (no I/O), so it is tested by its SVG |
 | `cameras/image_work.py`, `imaging.py` | `render_card(svg, fonts) -> jpeg` in the worker with resvg; SF Pro read from the files folder (the `.ttf`, else the `.woff2` unpacked once with fontTools) |
-| `hk_core/notifications/banner.py`, `settings.py` | a notification's `tv` switch (default off; the doorbell on), the Apple TV options; `options()` cleans them |
+| `hk_core/notifications/banner.py`, `settings.py` | a notification's `tv` switch and look (off for every notification, the doorbell included), the Apple TV options; `options()` cleans them |
 | Mantel Link `entity.py` | `LinkedCamera` takes a still from Mantel (`features.still`, fetched through the link, kept until its version changes). The binary sensor is already mirrored with its device class. A Mantel Link release. |
 | Mantel Link `homekit_entry.py` (new) | Add to HomeKit / Remove from HomeKit: makes or removes the HomeKit Bridge entry, and reports its pairing code, setup URI and Paired to Mantel |
 | Settings | Notifications -> **Apple TV** (a page), and an **Apple TV** switch on each notification (below) |
@@ -122,12 +122,14 @@ presses Add to HomeKit in Mantel Settings ("Who serves the camera", below). The 
 - **HomeKit**: Add to HomeKit (Mantel Link makes the bridge entry), then the QR code and code to scan in the Home app,
   then "Paired". Remove from HomeKit, under it.
 - **Look**: Color (the default), Black, Glass. **Use Camera Picture**: on.
-- **Show For**: 10 s, 20 s (default), 30 s. How long the sensor stays on; tvOS decides how long the alert stays.
-- **Only When a TV Is On**: off by default; when on, the Apple TVs it watches (their `media_player`s). Nothing is sent
-  while every one of them is off, which also keeps the camera alert off the phones.
 - **Follows Do Not Disturb**: on.
 - **Preview**, with each look, and **Send Test**.
-- **Notifications on Apple TV**: the list of notifications with their switches, each opening its own page.
+- **Notifications on Apple TV**: the list of notifications with their switches, each opening its own page; every
+  switch off to start. Under the doorbells: "A doorbell already in HomeKit shows on the Apple TV by itself; turn this
+  on only for one that isn't."
+
+No Show For and no Only When a TV Is On (the owner, 2026-11-14): tvOS decides how long the alert stays on screen, and
+the same alert can be wanted on a phone while every TV is off. How long the sensor stays on is Mantel's own (10 s).
 
 **Each notification's page** gains one row in its "Where" group, beside the screens and the phones: **Apple TV**, a
 switch, and under it **Look** (Automatic, Color, Black, Glass).
@@ -151,9 +153,9 @@ Apple TV, no sound):
   about is in the picture.
 - Every Apple TV with camera alerts on shows it; Mantel can't pick one TV. Each Apple TV's own settings can turn camera
   alerts off.
-- Phones get a motion alert for the camera too, for each person whose Home app has that camera's notifications on.
-  Mantel already pushes to the phones, so each person turns this camera's notifications off in the Home app (Settings
-  says so).
+- Phones get the same alert, picture and all, for each person whose Home app has this camera's notifications on. That
+  can be wanted (a picture on the lock screen); someone who already gets Mantel's own push for the same thing turns
+  this camera's notifications off in the Home app (Settings says so).
 - There is no button on the TV: it can't stop a timer or open a door. It is a picture for a few seconds.
 - The Washer Camera keeps working until the owner removes it; laundry's own Done notification replaces it.
 
@@ -187,7 +189,7 @@ is what speaks HomeKit to the Apple TVs.
 - **Turning it off** keeps the entry (so it isn't paired again) unless the owner chooses Remove from HomeKit.
 
 **What stays a person's, either way** (Apple's side): scanning the code in the Home app once; the camera's room;
-each person turning this camera's notifications off on their phone; each Apple TV's own camera-alert setting.
+whether each person's phone gets this camera's alerts; each Apple TV's own camera-alert setting.
 
 Recommended: **HA's HomeKit Bridge, its entry made by Mantel Link**, for this phase. It is the path the washer proves, it
 adds no network or pairing code to Mantel, and the owner touches HA once (scanning the code). Mantel's own HomeKit
@@ -197,17 +199,18 @@ sensors), and is written up under "Later".
 ## Decisions for the owner
 
 1. **The look** (answered 2026-11-14): all three offered, Color by default, and a notification may choose its own.
-2. **The font**: SF Pro from the house's files folder, Inter where there is none (recommended), or Inter always.
-3. **On by default**: the doorbell only (recommended), or the doorbell, timers and laundry.
-4. **Show For** default: 20 s (recommended).
-5. **Only When a TV Is On**: off by default (recommended), or on.
-6. **The Washer Camera**: remove it from Home Assistant once Laundry's Done goes to the TVs (recommended), or keep both.
+2. **The font** (answered): SF Pro from the house's files folder, Inter where there is none.
+3. **On by default** (answered): nothing, the doorbell included: a doorbell already in HomeKit shows on the Apple TV by
+   itself, and a second alert would repeat it.
+4. **Show For** (answered): no setting. tvOS decides how long the alert stays; the sensor is held 10 s.
+5. **Only When a TV Is On** (answered): no setting. The same alert can go to a phone, wanted while every TV is off.
+6. **The Washer Camera** (answered): removed from Home Assistant once Laundry's Done goes to the TVs (the owner's step,
+   on the house; Mantel's build doesn't touch `/config`).
 7. **Who serves the HomeKit camera** (answered 2026-11-14): Home Assistant's HomeKit Bridge, its entry made by Mantel
    Link so nothing is set up by hand in HA. Not Mantel itself as a HomeKit accessory, for now (see "Who serves the
    camera" above, and "Later").
 8. **Color's light colors** (answered 2026-11-14): darkened until white type holds 3:1, not Apple's colors as they are.
-9. **Release**: Mantel and Mantel Link released together after step 0 and the build (recommended), or a hotfix of
-   Mantel's side first.
+9. **Release** (answered): Mantel and Mantel Link released together, after step 0 and the build.
 
 ## The build, in steps
 
