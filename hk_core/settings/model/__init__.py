@@ -92,7 +92,7 @@ from .menu_rules import (_MENU_SHOWN, _menu_shown, _MENU_TAB, _narrow, _OLD_MENU
     boards, button_phone, cameras_lifted, house_cameras, house_menu, house_rooms, legacy_screens, MENU_KEYS,
     menu_lifted, menu_own, menu_per_setting, MENU_STYLES, new_board, page_accents, PAGE_HEADERS, phone_menu,
     phones_lifted, preset_menu, resolved, ROOM_KEYS, rooms_lifted, settings_tidied, status_lifted,)
-from .tablet_rules import (DEVICE_ID, house_idle_time, IDLE_TIMES, RESTART_TIMES_MAX, SUBENTRY_TABLET, tablet,
+from .tablet_rules import (APP_OPTIONS, app_options, app_wanted, DEVICE_ID, house_idle_time, IDLE_TIMES, RESTART_TIMES_MAX, SUBENTRY_TABLET, tablet,
     TABLET_APPS, TABLET_DEFAULTS, tablet_id, tablets, tablets_lifted, USER_NAME, SKY_APPS, sky_by_app,)
 from .stored_rules import board_stored, house_stored, only_set, settings_trimmed, TABLET_KEEP, tablet_stored
 from .text_field_rules import (_BIRTHDAY, _ROOM, format_birthdays, format_rooms, parse_birthdays, parse_rooms,
@@ -445,7 +445,7 @@ __all__ = [
     'TAB_POSITION',
     'tab_position',
     'tablet',
-    'TABLET_APPS',
+    'TABLET_APPS', 'APP_OPTIONS', 'app_options', 'app_wanted',
     'TABLET_DEFAULTS',
     'SKY_APPS',
     'sky_by_app',

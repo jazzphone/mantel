@@ -205,7 +205,8 @@ print('\n=== a host\'s own groups on a wall tablet\'s page (extend) ===');
   };
   var c = tabletPage(x);
   ok('the host is asked on a tablet\'s page, with the tablet', asked, [['tablet', { tablet: 'living_room', name: 'Living Room', app: 'kiosk_satellite', app_sky: false,
-                                                                          set: asked.length && asked[0][1].set }]]);
+                                                                          set: asked.length && asked[0][1].set,
+                                                                          app_options: {}, house_app: {} }]]);
   ok('...and a way to save the tablet\'s own settings (Mantel\'s Sky Drawn by the App)', typeof (asked[0] && asked[0][1].set), 'function');
   ok('...and what it draws is on the page', texts(c).indexOf('The host’s own group') >= 0, true);
   var y = example(); y.extend = function () { throw new Error('a host that fails'); };
