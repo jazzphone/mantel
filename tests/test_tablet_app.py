@@ -47,6 +47,19 @@ def test_commands_and_their_values_are_a_closed_list():
     assert [T.checked(c, True) for c in ("airplay", "airplay_mirroring", "airplay_video", "airplay_audio")] == \
         [("airplay", True), ("airplay_mirroring", True), ("airplay_video", True), ("airplay_audio", True)]
     assert T.checked("airplay", "on") is None and T.checked("airplay_audio", None) is None and T.checked("airplay_name", "x") is None
+    # the tablet's own options (2026-11-13): switches, the page's size from a short list, and a copy of several at once
+    assert [T.checked(c, False) for c in ("keep_awake", "keep_screen_on", "adaptive_brightness", "wireless_debugging")] == \
+        [("keep_awake", False), ("keep_screen_on", False), ("adaptive_brightness", False), ("wireless_debugging", False)]
+    assert T.checked("scale", 125) == ("scale", 125) and T.checked("scale", 123) is None
+    assert T.checked("scale", True) is None and T.checked("scale", "125") is None
+    copy = {"kiosk_mode": True, "rotation": "90", "scale": 110, "keep_awake": True, "airplay": False}
+    assert T.checked("settings", copy) == ("settings", copy)
+    assert T.checked("settings", {}) is None and T.checked("settings", {"scale": 111}) is None
+    # never another tablet's wireless debugging, screen, brightness or PIN
+    for k, v in (("wireless_debugging", True), ("screen", False), ("brightness", 0.5), ("menu_pin", "1")):
+        assert T.checked("settings", {"scale": 100, k: v}) is None
+    assert T._clean({"keep_awake": True, "scale": 110, "adb_port": 37011, "wireless_debugging": True}) == \
+        {"keep_awake": True, "scale": 110, "adb_port": 37011, "wireless_debugging": True}
     assert T._clean({"airplay": True, "airplay_state": "Mirroring", "airplay_name": "Kitchen Kiosk", "airplay_pin": "1234"}) == \
         {"airplay": True, "airplay_state": "Mirroring", "airplay_name": "Kitchen Kiosk"}
     assert T._clean({"version": "0.1.1", "battery": 82, "screen": True, "secret": "x", "brightness": "high"}) == \

@@ -98,6 +98,28 @@ left out once the app is heard from.
 app copies its window, 960 px wide, JPEG) and shows it in the group. Only when asked, audited as a command, kept in
 memory (newest only), never stored; nothing is sent while the screen is off.
 
+**The tablet's own options** (the owner, 2026-11-13: "keep tablet awake and such should be options ... but on by
+default", adaptive brightness, "adjust the tablet scaling", wireless debugging, "copy settings between tablets"), each a
+command and drawn only when the app reports it (the app's `Options.kt` and `PageScale.kt`):
+
+- **Keep Awake** (on): the Wi-Fi and processor locks that keep the page and ESPHome current with the screen off.
+- **Keep Screen On** (on): the app's window holds the screen lit; off, Android's own screen timeout may turn it off.
+- **Adaptive Brightness**: Android's own, left as the tablet has it until chosen, then held at every return to the
+  front. Needs "Modify system settings" for the app, as the rotation does.
+- **Scale** (80-150 %, 100 Mantel's own): the page is given a viewport `width` of the screen's width over the scale and
+  the WebView fits it to the screen, so the layout itself narrows or widens (at 125 % a 1280-wide tablet lays out at
+  1024 and draws it a quarter larger; `innerWidth`, breakpoints and the app's sky all follow). The page loads again.
+- **Wireless Debugging** (off, in its own Developer group): Android's, kept on through restarts while chosen, with the
+  `adb connect` address once Android announces its port (found by mDNS: an app can't read adbd's property). The app
+  needs `WRITE_SECURE_SETTINGS`, which only adb gives, once (`tools/setup_tablet.py` grants it); Android asks at the
+  tablet, once per network, whether to allow it there.
+- **Copy Settings**: another app tablet's kiosk mode, the options above but wireless debugging, AirPlay, and its rotation
+  when it's the same model, sent as one `settings` command (each value checked as it would be alone). Never the screen,
+  the brightness, the menu PIN or wireless debugging.
+
+Home Assistant has Keep Awake, Keep Screen On and Adaptive Brightness as switches and Scale as a select (`page_scale`);
+wireless debugging is Mantel Settings' only.
+
 ## Updates
 
 Mantel serves the app: `GET /apps/android/latest.json` (version, size, SHA-256) and the APK beside it, from
