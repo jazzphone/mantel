@@ -312,19 +312,31 @@ async function narrowSoon(view) {
 // notification's). Looked at again a moment after each page change, and the hub asked only when it differs.
 // A page left is remembered by what it read (pageIds): shown again, its states are asked for first (ensure), so it
 // never draws from what it knew an hour ago.
+// ...BUT NOT LET GO AT ONCE, AND THE FIRST PAGE NEVER (the same day, the owner: "going back and forth between the
+// pages and the home page... the content from the previous page carries over to the home screen. It does update a
+// moment later"). Let go 1.5 s after it was left, a page tapped back to waited for the hub to send its states again
+// -- 0.3 s on the Loft's tablet, and 2 s (ensure's limit) with the tablet busy, after which Home drew with none --
+// while the address had changed at the tap: Home's sky, Side Pane and tab bar over the Calendar's cards. So a page
+// keeps its states PAGE_KEEP_MS after it was last on the screen, and the screen's first page -- where the idle return
+// and the Home tab go -- for as long as the screen is up. Flipping through every page still ends with only what is
+// on the screen, a few minutes later.
+const PAGE_KEEP_MS = 3 * 60 * 1000;
 const pageIds = new Map();             // a page's path -> the states its view and cards read
+const pageAt = new Map();              // a page's path -> when it was last on the screen (shown, or kept beside the one shown)
 function readsOf(e) {
   const ids = new Set();
   for (const el of [e.el].concat(e.cards || [])) if (el && el.__hkReads) for (const id of el.__hkReads) ids.add(id);
   return ids;
 }
 function wanted() {
-  const w = new Set(pinned);
+  const w = new Set(pinned), now = Date.now();
   for (const id of host.ambientIds()) w.add(id);
   for (const e of viewHost.entries()) {
     const ids = readsOf(e);
     if (ids.size) pageIds.set(e.path, ids);
-    if (e.shown || e.held) for (const id of ids) w.add(id);
+    if (e.shown || e.held) pageAt.set(e.path, now);
+    const at = pageAt.get(e.path);
+    if (e.shown || e.held || e.index === 0 || (at !== undefined && now - at < PAGE_KEEP_MS)) for (const id of ids) w.add(id);
   }
   for (const id of w) if (!houseIds.has(id)) w.delete(id);
   return w;
@@ -359,11 +371,34 @@ async function ensure(path) {
   window.__mantelNarrow = needed.size;
   const got = nextSnapshot();
   hub.subscribe([...needed], [], false);
-  await Promise.race([got, new Promise((res) => setTimeout(res, 2000))]);
+  await Promise.race([got, new Promise((res) => setTimeout(res, ENSURE_MS))]);
 }
+// (as long as a page shown again waits for its states: the old page stands under the new page's sky meanwhile)
+const ENSURE_MS = 800;
+// THE WHOLE HOUSE, ASKED FOR (hkShell.wholeHouse: the Home sheet decides what to draw from every room's accessories,
+// and from a narrowed screen's states it drew 19 cards of the house's 28 -- 2026-11-14). Widened as for a page not
+// seen yet, and narrowed again a moment later to what is then on the screen: what the sheet's cards read is read
+// outside any page, and kept while it is (mantel-client.js told).
+// (true, no promise, while the whole house is here already: before the first narrowing, or with one on its way)
+// ...OR ONLY THESE (`ids`: what it drew the last time it had the whole house): the whole house is 4,566 states read
+// and every card looking again, over a second of the Kitchen's tablet -- asked for once, not at every opening.
+window.__mantelWholeHouse = (ids) => {
+  if (!narrowed) return true;
+  if (!Array.isArray(ids) || !ids.length) {
+    return widen().then(() => { if (!narrowPending) narrowSoon(window.__mantelView); return true; });
+  }
+  let asked = false;
+  for (const id of ids) if (houseIds.has(id) && !needed.has(id)) { needed.add(id); asked = true; }
+  if (!asked) return true;
+  window.__mantelNarrow = needed.size;
+  const got = nextSnapshot();
+  hub.subscribe([...needed], [], false);
+  return Promise.race([got, new Promise((res) => setTimeout(res, 2000))]).then(() => true);
+};
 window.addEventListener('hk-swipe-landed', () => renarrowSoon());
-// (what is read outside any card is let go a quarter of an hour after it was last read: looked at now and then)
-setInterval(() => renarrowSoon(), 5 * 60 * 1000);
+// (what is read outside any card is let go a quarter of an hour after it was last read, a page left PAGE_KEEP_MS
+// after: looked at now and then -- a look is a walk of the pages' sets, and the hub is asked only when they differ)
+setInterval(() => renarrowSoon(), 60 * 1000);
 
 const viewHost = window.hkViewHost.create({
   container: document.getElementById('view'),

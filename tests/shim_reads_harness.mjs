@@ -204,8 +204,14 @@ out.misses = misses;
   for (let i = 0; i < 1400; i++) void s2['sensor.s' + i];              // a big page, under half the house: seen
   w.page = host.seen.size;
   await tick();
-  for (let i = 0; i < 3000; i++) void s2['sensor.s' + i];              // a walk: what it read first is not kept
+  host.ambient.clear();
+  const walker = new Set();
+  host.track(walker, () => { for (let i = 0; i < 3000; i++) void s2['sensor.s' + i]; });     // a walk, by a card: what it read first is not kept
   w.walk = host.seen.size; w.warned = warned.length;
+  w.walker = walker.size;                                              // ...as the card's either (the page's own 1,400 are)
+  await tick();
+  for (let i = 0; i < 3000; i++) void s2['sensor.s' + i];              // ...nor as read outside any card
+  w.ambient = host.ambientIds().length;
   await tick();
   void s2['sensor.s2999'];                                             // ...and a read of one of them afterwards is
   w.after = host.seen.has('sensor.s2999');
@@ -242,6 +248,8 @@ out.misses = misses;
   host.track(grid, () => host.track(card, () => { void host.hass.states['light.a']; void host.hass.states['light.none']; }));
   g.reads = [[...card].sort(), [...grid].sort()];                       // the card's, and the grid's around it
   void host.hass.states['sensor.q'];                                    // read by no card
+  const sheet = new Set();
+  host.track(sheet, () => { void host.hass.states['sensor.p']; }, true);          // ...and by a card in no page (a sheet's)
   const r0 = host.revOf(host.hass);
   g.same = host.quiet(card, r0);
   host.applyDiff({ changes: { 'sensor.p': { '+': { s: '2' } } } }); host.flushDiffs();
@@ -273,6 +281,9 @@ out.misses = misses;
   g.resnapGone = host.quiet(card, host.revOf(host.hass) - 1);           // a state gone with it: every card looks
   // what no card read, and when
   g.ambient = host.ambientIds().includes('sensor.q') && !host.ambientIds().includes('light.a');
+  g.outside = sheet.has('sensor.p') && host.ambient.has('sensor.p');    // a sheet's card: its own, and the screen's too
+  host.outside(['sensor.later']);                                       // ...and one found to be in no page a moment after it was told
+  g.later = host.ambient.has('sensor.later') && host.ambientIds().includes('sensor.later');
   for (let i = 0; i < 25; i++) { now += 61000; host.applyDiff({ changes: { 'sensor.p': { '+': { s: 'x' + i } } } }); host.flushDiffs(); }
   g.ambientGone = !host.ambientIds().includes('sensor.q');              // 25 publishes and 25 minutes on: let go
   Date.now = realNow;

@@ -445,3 +445,42 @@ Still there: a swipe's first frame is 120-170 ms behind the finger (its first mo
 style, 30 ms, and the page's own cut-out under the finger); a landing is still two rounds of style and layout
 (~100 ms); a page with something fixed inside it, and every page off Android, gets its layer under the finger as
 before; House Status draws itself again for every change of the power it shows (~18 ms each).
+
+## The Kitchen's tablet, what the afternoon broke (2026-11-14): four things found on the house
+
+The afternoon's build went to the house (hotfix 0.1.166-main.92524e532) and three things in it were wrong there, found
+by looking again on the tablets and by the owner ("the content from the previous page carries over to the home
+screen. It does update a moment later"). A fourth was only slow.
+
+- **A page tapped back to waited for its states** -- the owner's. A page left was let go 1.5 s later; shown again,
+  its states were asked for and waited on (home.js ensure), while the address had changed at the tap: Home's sky,
+  Side Pane and tab bar over the Calendar's cards, 0.3 s on the Loft's tablet by script, 2 s (the wait's limit) by a
+  real tap with the tablet busy, and then Home drawn with no states at all. A page now keeps its states three minutes
+  after it was last on the screen (PAGE_KEEP_MS), the screen's first page always (where the Home tab and the idle
+  return go), and the wait that is left is 0.8 s at most. Home after the Calendar on the Loft: 154 ms from the tap,
+  nothing asked of the hub.
+- **A walk leaked into what is read outside any card.** The guard that tells a whole-house walk (mantel-host.js
+  _scanned) took its reads back from the screen's needs but not from the ambient set or from the walking card's own:
+  the Home block's sheet, built ahead at a quiet moment, walks every room, and a tablet with a Home block kept 2,281
+  states again. Taken back from both (157-169 on the Kitchen's tablet afterwards).
+- **The Home sheet was built from a narrowed screen's states**: 19 cards and 15 pages of the house's 28 and 24. It
+  asks the host for the whole house first (hkShell.wholeHouse: Mantel widens, Home Assistant has it all) and waits
+  1.5 s at most -- once per build: at every later opening it asks only for the states of what it drew (four states
+  not held: 191 ms on the Loft, nothing widened), the whole house being 4,566 states read and every card looking
+  again, over a second of the Kitchen's tablet.
+- **A page's cards counted as read outside any card.** A card is made and told before it is put on its page, and was
+  judged where it stood: in no page, so kept for a quarter of an hour like the Side Pane's. Judged 0.4 s later, where
+  it has been put (mantel-client.js where). A walk through eight pages of the Loft: 477 states just after, 282 three
+  and a half minutes on (all 43 pages had left 1,252 for fifteen minutes).
+
+Every card was looked at for the gate (a card is told only when something it read has changed): on the Loft, every
+state read outside a card being told was written down with where it was read from, over all 43 pages. What reads
+that way is the shell (the Side Pane, the sky, the screensaver and its widgets, the timer rings), which is told at
+every update whatever the gate, and three cards looking again on a clock of their own at what they also read when
+told (the camera mosaic and a picture entity for a camera's picture, a Show When block for its conditions). No card
+draws only from a state it read where the gate could not see it; what no state says (the time) reaches a card at the
+host's look by everyone, 15 s at most.
+
+Seen once and not again: for a minute or two after the Loft's tablet woke from sleep, the frosted shapes of Home's
+cards stood faintly on the Pages screen and the Calendar. Not found in the page (Home was out of the document), not
+there in any capture since.

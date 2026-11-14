@@ -267,6 +267,9 @@
       h.building = true; h.recording = false;
       try { return fn(); } finally { h.building = building; h.recording = recording; }
     },
+    // the whole house's states, for what decides what to draw from them (the Home sheet): the page's subscription
+    // widened, and narrowed again to what is then on the screen (web/home.js)
+    wholeHouse: (ids) => (typeof global.__mantelWholeHouse === 'function' ? global.__mantelWholeHouse(ids) : true),
     tabletRoom,
     atTablet,
     skyPlayer,
