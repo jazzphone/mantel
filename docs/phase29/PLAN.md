@@ -293,8 +293,9 @@ SurfaceFlinger and the composer at rest; frames per page swipe from `dumpsys gfx
 | ...rendered at 1x (`wm size 1280x720`, `wm density 160`) | -- | 24-33 a second |
 | The longest landing frames | ~415 ms | ~395 ms |
 
-On the tablet now (not in the repository): OpenGL for HWUI (a system property: **lost at a reboot**), the 1x render
-(`wm size` and `wm density`: kept through reboots; undo `wm size reset; wm density reset`), Kiosk Satellite disabled.
+On the tablet now (not in the repository): OpenGL for HWUI (a system property: **lost at a reboot**), Kiosk Satellite
+disabled. The 1x render was undone the same morning (`wm size reset; wm density reset`): the owner chose 1080p at 1.5x,
+since 720p looks soft up close.
 Sky Drawn by the App stays off there (single black frames on this GPU).
 
 What still costs it, for later:
