@@ -943,3 +943,15 @@ Records of releases made with `release_house.py mantel` (phase 15) are written b
 - Published to jazzphone/hk-frontend main as `f5a13e0`, tagged `v1.59.3` and released on GitHub.
 - The Wiki had no changes.
 - The 5 Kiosk Satellite tablets: cache cleared (5) and the page reloaded (kitchen, living room, loft, master bathroom, master bedroom).
+
+## Mantel Link 0.1.15 (2026-11-14)
+
+- mantel-link 0.1.15, commit `913a9e3`, tagged `mantel-link/v0.1.15`, copied with rsync --inplace; diff -rq shows no difference.
+- Home Assistant restarted and serves Mantel Link 0.1.15.
+- `release_house.py` stopped at its last check: Mantel on the LXC runs another session's hotfix (`37be924d`), not the
+  checkout's `3687dbd2`, so the revision check could not pass. Checked by hand instead: mantel-server healthy, strict
+  health 200, Home Assistant connected again 349 s after the restart, no errors in its log; then tagged by hand.
+- What it carries: phase 31's Apple TV camera, its motion sensor and the HomeKit Bridge entry (nothing happens until
+  Mantel has phase 31), and phase 28's HomePod next-alarm timestamp sensors. Mantel itself was held back (the owner).
+- Not published to jazzphone/mantel-link (the release's default).
+- The 4 Kiosk Satellite tablets: cache cleared (4) and the page reloaded (living room, master bathroom, master bedroom, office).
