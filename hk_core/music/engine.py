@@ -70,6 +70,27 @@ def available(house: House, entity: str) -> bool:
     return state_of(house, entity) not in (None, *GONE)
 
 
+def drop_gone(house: House, cfg: MusicConfig, rooms: list[str]) -> tuple[list[str], list[str]]:
+    """A pick of several rooms plays in the rooms that are there: (the rooms kept, the rooms left out). A room that is
+    gone (switched off, unplugged, taken out by Music Assistant) is left out and named rather than refusing the whole
+    pick -- one speaker should not stop the others (the owner, 2026-11-14). One room alone, a pick with every room gone,
+    or a name that isn't a room is left to `validate`, whose refusal says why."""
+    if len(rooms) < 2:
+        return rooms, []
+    gone = [r for r in rooms if r in cfg.room_ids and not available(house, r)]
+    if len(gone) == len(rooms):
+        return rooms, []
+    return [r for r in rooms if r not in gone], gone
+
+
+def left_out(house: House, players: Iterable[str], leader: str) -> list[str]:
+    """The players a join leaves out: the ones Home Assistant shows as gone (switched off, unplugged, or taken out by
+    Music Assistant -- a HomePod locked out of pairing is, until it is restarted). Asking for one held the whole group
+    up and then broke it, so it is left out and named, and the others play. The leader is never left out (it was chosen
+    among the rooms): one that is gone still fails the join."""
+    return [p for p in players if p != leader and not available(house, p)]
+
+
 def grouped(house: House, cfg: MusicConfig | None, entity: str) -> list[str]:
     """Its group as ROOMS, leader first: a virtual pair's two players are its one room. Players that are
     not rooms stay as they are (a group with a player no screen shows is still a group)."""
