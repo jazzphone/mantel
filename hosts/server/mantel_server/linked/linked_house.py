@@ -269,6 +269,9 @@ class LinkedHouse:
                                     "features": {"tv": dict(c["tv"])} if c is not None and c.get("tv") else {}},
                                    ("camera", n))
         self._homepod_alarms(entry, out)
+        tv = self.app.get("tv_alerts")
+        if tv is not None:
+            out.update(tv.descriptors(entry))       # phase 31: the Apple TVs' camera and its motion sensor
         return out
 
     def _homepod_alarms(self, entry: str, out: dict[str, tuple[dict[str, Any], tuple[str, Any]]]) -> None:

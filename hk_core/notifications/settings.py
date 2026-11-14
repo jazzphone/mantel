@@ -13,8 +13,8 @@ from typing import Any
 from ..house import House, area_of
 from . import rules
 from .accessories import Pins, about, camera_pairs, candidates, describe, kind, name_of, no_pins
-from .const import (CONF_CHIME, CONF_DND, CONF_ITEMS, CONF_SAVER, CONF_STAY, CONF_WAKE, COOLDOWNS, GO_NONE, ITEM_FIELDS,
-                    ITEMS_MAX, MESSAGE_MAX, ONLY, PAGE_RE, SAVERS, STAYS, TAPS, TITLE_MAX)
+from .const import (CONF_CHIME, CONF_DND, CONF_ITEMS, CONF_SAVER, CONF_STAY, CONF_TV, CONF_WAKE, COOLDOWNS, GO_NONE,
+                    ITEM_FIELDS, ITEMS_MAX, MESSAGE_MAX, ONLY, PAGE_RE, SAVERS, STAYS, TAPS, TITLE_MAX, TV_DEFAULT, TV_LOOKS)
 from .dnd import DND_MAX, hhmm, notify_dnd
 
 ENTITY_ID = re.compile(r"^[a-z0-9_]+\.[a-z0-9_]+$")
@@ -85,11 +85,12 @@ def page(house: House, opts: dict[str, Any], on_now: dict[str, float], state: st
         "configured": True,
         "state": state,
         "options": {CONF_STAY: opts[CONF_STAY], CONF_SAVER: opts[CONF_SAVER], CONF_CHIME: opts[CONF_CHIME],
-                    CONF_DND: opts[CONF_DND], CONF_WAKE: opts[CONF_WAKE]},
+                    CONF_DND: opts[CONF_DND], CONF_WAKE: opts[CONF_WAKE], CONF_TV: tv_options(opts.get(CONF_TV))},
         "items": items,
         "categories": cats,
         "limits": {"stays": list(STAYS), "savers": list(SAVERS), "only": list(ONLY), "cooldowns": list(COOLDOWNS),
-                   "taps": list(TAPS), "title": TITLE_MAX, "message": MESSAGE_MAX, "items": ITEMS_MAX},
+                   "taps": list(TAPS), "title": TITLE_MAX, "message": MESSAGE_MAX, "items": ITEMS_MAX,
+                   "tv_looks": list(TV_LOOKS)},
     }
 
 
@@ -217,7 +218,30 @@ def _dnd(v: Any) -> dict[str, Any]:
     return out
 
 
-HOUSE = {CONF_STAY: _in(STAYS), CONF_SAVER: _in(SAVERS), CONF_CHIME: _bool, CONF_DND: _dnd, CONF_WAKE: _bool}
+def tv_options(v: Any) -> dict[str, Any]:
+    """The Apple TVs' options as saved, every key there (TV_DEFAULT); anything else is left out."""
+    v = v if isinstance(v, dict) else {}
+    out = dict(TV_DEFAULT)
+    out.update({k: v[k] for k in ("on", "camera", "dnd") if isinstance(v.get(k), bool)})
+    if v.get("look") in TV_LOOKS:
+        out["look"] = v["look"]
+    return out
+
+
+def _tv(v: Any) -> dict[str, Any]:
+    """The Apple TVs' options: on, look, camera (Use Camera Picture), dnd (Follows Do Not Disturb)."""
+    if not isinstance(v, dict) or set(v) - set(TV_DEFAULT):
+        raise Bad("unknown")
+    for k in ("on", "camera", "dnd"):
+        if k in v:
+            _bool(v[k])
+    if "look" in v:
+        _in(TV_LOOKS)(v["look"])
+    return tv_options(v)
+
+
+HOUSE = {CONF_STAY: _in(STAYS), CONF_SAVER: _in(SAVERS), CONF_CHIME: _bool, CONF_DND: _dnd, CONF_WAKE: _bool,
+         CONF_TV: _tv}
 
 FIELDS = {
     "entity": _entity,
@@ -239,16 +263,22 @@ FIELDS = {
     "tap": _in(TAPS),
     "page": _page,
     "go": _go,
+    # Apple TV (phase 31): this notification on the TVs, and its own look (None: the Apple TV page's)
+    "tv": _bool,
+    "tv_look": lambda v: None if v in (None, "", "auto") else _in(TV_LOOKS)(v),
 }
 
 
 def apply_house(options: dict[str, Any], changes: dict[str, Any]) -> tuple[dict[str, Any], dict[str, str]]:
-    """All Screens' choices (stay, saver, chime, dnd, wake) changed, or the refusals."""
+    """All Screens' choices (stay, saver, chime, dnd, wake, tv) changed, or the refusals. The Apple TVs' options
+    change by the keys given (a page sends the one switch it changed)."""
     out, errors = dict(options), {}
     for k, v in changes.items():
         try:
             if k not in HOUSE:
                 raise Bad("unknown")
+            if k == CONF_TV and isinstance(v, dict):
+                v = {**tv_options(options.get(CONF_TV)), **v}
             out[k] = HOUSE[k](v)
         except Bad as err:
             errors[k] = err.code

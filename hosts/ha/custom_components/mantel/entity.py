@@ -11,7 +11,7 @@ from typing import Any
 from homeassistant.components.alarm_control_panel import (
     AlarmControlPanelEntity, AlarmControlPanelEntityFeature, AlarmControlPanelState, CodeFormat,
 )
-from homeassistant.components.binary_sensor import BinarySensorEntity
+from homeassistant.components.binary_sensor import BinarySensorDeviceClass, BinarySensorEntity
 from homeassistant.components.camera import Camera, CameraEntityFeature
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.components.switch import SwitchEntity
@@ -143,9 +143,17 @@ class LinkedSensor(LinkedEntity, SensorEntity):
 
 
 class LinkedBinarySensor(LinkedEntity, BinarySensorEntity):
-    """binary_sensor.<tablet>_screen_in_use."""
+    """binary_sensor.<tablet>_screen_in_use; the Apple TVs' motion sensor (phase 31)."""
 
     linked_platform = "binary_sensor"
+
+    @property
+    def device_class(self) -> BinarySensorDeviceClass | None:
+        """`features.device_class` (phase 31): `motion` for the sensor HomeKit links to the Apple TVs' camera."""
+        try:
+            return BinarySensorDeviceClass(self._features.get("device_class"))
+        except ValueError:
+            return None
 
     @property
     def is_on(self) -> bool:
@@ -156,7 +164,10 @@ class LinkedCamera(LinkedEntity, Camera):
     """Live TV's channels. A channel Mantel names in `features.tv` streams
     through Mantel Link's own transcode (tv.py, this machine) and its still
     is the programme's artwork (never a frame: that would take a tuner);
-    otherwise the stream Mantel names, no still of its own."""
+    otherwise the stream Mantel names, no still of its own. A camera with
+    `features.still` (phase 31: the Apple TVs' camera) is a picture Mantel
+    draws, asked for over the link and kept until its `still` attribute (a
+    version) changes."""
 
     linked_platform = "camera"
 
@@ -167,6 +178,8 @@ class LinkedCamera(LinkedEntity, Camera):
         self._art: bytes | None = None
         self._picked: tuple[Any, ...] | None = None
         self._repicking: Any = None
+        self._still_version: Any = None
+        self._still_bytes: bytes | None = None
 
     @property
     def supported_features(self) -> CameraEntityFeature:
@@ -221,6 +234,8 @@ class LinkedCamera(LinkedEntity, Camera):
         return self._source()
 
     async def async_camera_image(self, width: int | None = None, height: int | None = None) -> bytes | None:
+        if self._features.get("still"):
+            return await self._still()
         tv = self._tv()
         url = tv["image"] if tv else None
         if not url:
@@ -236,6 +251,17 @@ class LinkedCamera(LinkedEntity, Camera):
             except Exception:  # noqa: BLE001 -- no artwork: no picture
                 return None
         return self._art
+
+    async def _still(self) -> bytes | None:
+        """Mantel's picture: asked for again only when its version changed (HomeKit asks on every alert)."""
+        want = (self._desc.get("attributes") or {}).get("still")
+        if self._still_bytes is None or want != self._still_version:
+            got = await self._linked.camera_image(self.unique_id)
+            if got is None:
+                return self._still_bytes
+            self._still_version, self._still_bytes = got
+        return self._still_bytes
+
 
 
 class LinkedAlarmPanel(LinkedEntity, AlarmControlPanelEntity):

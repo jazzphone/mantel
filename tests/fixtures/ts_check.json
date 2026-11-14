@@ -162,6 +162,7 @@
   "web/shim/mantel-shell.js",
   "web/shim/settings/about.js",
   "web/shim/settings/alerts.js",
+  "web/shim/settings/appletv.js",
   "web/shim/settings/assistants.js",
   "web/shim/settings/audit.js",
   "web/shim/settings/backups.js",

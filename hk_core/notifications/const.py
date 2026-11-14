@@ -12,18 +12,24 @@ CONF_SAVER = "saver"               # over a screensaver: all / important / off
 CONF_CHIME = "chime"               # a soft chime on wall tablets and computers
 CONF_DND = "dnd"                   # Do Not Disturb for All Screens (settings.notify_dnd)
 CONF_WAKE = "wake"                 # Wakes the Screen, for every notification that doesn't set its own
+CONF_TV = "tv"                     # Notifications on the Apple TVs (phase 31): on, look, camera picture, Do Not Disturb
 OPTION_KEYS = (CONF_STAY, CONF_SAVER, CONF_CHIME, CONF_DND, CONF_WAKE)
 
 STAYS = (10, 30, 60, 120, 300)     # Stays On Screen; an item's 0 is Until Dismissed
 STAY_DEFAULT = 30
 SAVERS = ("all", "important", "off")
 SAVER_DEFAULT = "important"
+# THE APPLE TVS (phase 31, docs/phase31/PLAN.md): a notification shown on every Apple TV as a HomeKit camera's alert,
+# its picture drawn by the host (tv.py). Off until the house turns it on; each notification goes only when its own
+# Apple TV switch is on (`tv`), in the house's look or its own (`tv_look`)
+TV_LOOKS = ("color", "black", "glass")
+TV_DEFAULT = {"on": False, "look": "color", "camera": True, "dnd": True}
 DEFAULTS = {CONF_STAY: STAY_DEFAULT, CONF_SAVER: SAVER_DEFAULT, CONF_CHIME: True, CONF_WAKE: False,
-            CONF_DND: {"schedule": False, "from": "22:00", "to": "07:00", "while": []}}
+            CONF_DND: {"schedule": False, "from": "22:00", "to": "07:00", "while": []}, CONF_TV: dict(TV_DEFAULT)}
 
 # one notification's fields
 ITEM_FIELDS = ("entity", "category", "exclude", "pairs", "when", "only", "cooldown", "title", "message", "important", "wake", "stay",
-               "pop", "snap", "camera", "tap", "page", "go", "allday")
+               "pop", "snap", "camera", "tap", "page", "go", "allday", "tv", "tv_look")
 ONLY = ("always", "home", "away", "night")
 COOLDOWNS = (0, 60, 300, 900, 3600)
 # Tap Opens: its sheet (the notification at its top), the live camera, a

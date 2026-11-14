@@ -4,6 +4,9 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Added**
+- **Notifications on the Apple TVs** (phase 31, docs/phase31/PLAN.md): a notification can show in the corner of every Apple TV, as a picture Mantel draws for it -- its glyph, its words, its room and time, in one of three looks (Color, the default; Black; Glass), or the doorbell's own snapshot. HomeKit shows it, through a camera Mantel Link adds to Home Assistant's HomeKit Bridge (Mantel Settings → Apple TV → Add to HomeKit, then the code scanned in the Home app). Drawn with the home's own SF Pro and SF Symbols from Your Files, else Inter (bundled, SIL Open Font License) and Mantel's own glyphs; a light color is darkened until white type reads on it. Off until turned on, and each notification only when its own Apple TV switch is (Notifications → the notification → Apple TV). Needs Mantel Link with the same release. Two new dependencies: `resvg_py` (draws the picture) and `fonttools`.
+
 **Fixed**
 - **A restart of Mantel took every wall tablet off its screensaver**: as each page reconnected, Mantel told it every screen's screensaver and black-screen state, and a Mantel just started holds "off" for all of them without having heard from any page -- so every tablet showing its screensaver went to its dashboard (and one on HK's own black would have lit). A connecting page is now told only what Mantel has heard or set since it started.
 - **A HomePod timer rang on its HomePod alone**, though General → Timers → Also Play In says its speakers play every timer. While a HomePod timer rings, those speakers ring too now, every 20 s for Ring For, as for Mantel's own timers -- never the speaker in the HomePod's own room (it rings there by itself), and no tablet makes a sound. Stopping it on the HomePod, with Siri or with Stop on a screen stops them.

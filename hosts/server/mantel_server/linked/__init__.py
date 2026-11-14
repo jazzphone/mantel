@@ -72,7 +72,9 @@ COMMANDS: dict[str, frozenset[str]] = {"switch": frozenset({"turn_on", "turn_off
                                        "alarm_control_panel": ALARM_COMMANDS}
 CLIENT_TYPES = frozenset({"call_service", "entity_command", "ping"})
 # protocol 2 adds `report`: what Mantel Link tells about its Home Assistant (is HK Frontend there?)
-CLIENT_TYPES_2 = CLIENT_TYPES | {"report", "phone_action"}
+CLIENT_TYPES_2 = CLIENT_TYPES | {"report", "phone_action", "camera_image"}
+# (phase 31) `camera_image`: the picture of a camera Mantel publishes with `features.still` (the Apple TVs' camera,
+# features/tv_alerts.py), asked for when Home Assistant asks Mantel Link for it
 # a client that asked for the settings (feature `settings`, HK Frontend) may also send `settings_write`: one save,
 # as the person linked to the Home Assistant user who made it (linked_settings.py)
 SETTINGS_TYPES = frozenset({"settings_write", "report"})
@@ -101,9 +103,14 @@ _KEYS = {"call_service": {"id", "type", "service", "data", "targets"},
          "phone_action": {"id", "type", "action", "service"},
          "settings_write": {"id", "type", "ha_user", "msg"},
          "page": {"id", "type", "ha_user", "frame"},
-         "file_chunk": {"id", "type", "path", "offset"}}
+         "file_chunk": {"id", "type", "path", "offset"},
+         "camera_image": {"id", "type", "unique_id"}}
 # a report's parts (protocol 2), each checked by its own key
-_REPORT_KEYS = frozenset({"hk_frontend", "phones", "hk_dashboards", "versions"})
+_REPORT_KEYS = frozenset({"hk_frontend", "phones", "hk_dashboards", "versions", "homekit"})
+# (phase 31) report.homekit: the Apple TVs' camera in Home Assistant's HomeKit Bridge (Mantel Link's homekit_entry.py)
+_HOMEKIT_STATES = frozenset({"none", "starting", "unpaired", "paired", "error"})
+_SETUP_CODE = re.compile(r"^\d{3}-\d{2}-\d{3}$")
+_SETUP_URI = re.compile(r"^X-HM://[0-9A-Z]{9,20}$")
 _VERSION = re.compile(r"^[0-9][0-9A-Za-z.+-]{0,31}$")
 _BOARD = re.compile(r"^[a-z0-9_-]{1,80}$")
 _PHONE = re.compile(r"^mobile_app_[a-z0-9_]{1,80}$")
@@ -517,6 +524,7 @@ class Linked:
         self.settings_write = None            # async fn(client, msg): a `settings_write` (linked_settings.py)
         self.page = None                      # async fn(client, msg): a `page` read (linked_reads.py)
         self.file_chunk = None                # async fn(client, msg): a `file_chunk` (linked_files.py)
+        self.camera_image = None              # async fn(client, msg): a `camera_image` (features/tv_alerts.py)
         self.on_disconnect: list = []         # async fn(client) once its socket has closed
 
     def verify(self, token: str, peer: str | None) -> Any:
@@ -559,6 +567,15 @@ class Linked:
                     for b in boards)):
                 raise LinkedError("invalid", "report.hk_dashboards: [{path, title}]")
             client.report["hk_dashboards"] = [{"path": b["path"], "title": b["title"]} for b in boards]
+        hk = report.get("homekit")
+        if hk is not None:
+            if (not isinstance(hk, Mapping) or set(hk) - {"state", "code", "uri", "error"}
+                    or hk.get("state") not in _HOMEKIT_STATES
+                    or (hk.get("code") is not None and not (isinstance(hk["code"], str) and _SETUP_CODE.match(hk["code"])))
+                    or (hk.get("uri") is not None and not (isinstance(hk["uri"], str) and _SETUP_URI.match(hk["uri"])))
+                    or (hk.get("error") is not None and not (isinstance(hk["error"], str) and len(hk["error"]) <= 200))):
+                raise LinkedError("invalid", "report.homekit: {state, code?, uri?, error?}")
+            client.report["homekit"] = {k: hk[k] for k in ("state", "code", "uri", "error") if hk.get(k) is not None}
         for fn in list(self.listeners):
             try:
                 fn(client)
@@ -670,6 +687,10 @@ async def _answer(linked: Linked, client: LinkedClient, msg: dict[str, Any]) -> 
             if linked.settings_write is None:
                 raise LinkedError("not_set_up", "Mantel takes no settings saves here")
             result = await asyncio.wait_for(linked.settings_write(client, msg), linked.timeout)
+        elif t == "camera_image":
+            if linked.camera_image is None:
+                raise LinkedError("not_set_up", "Mantel draws no camera pictures here")
+            result = await asyncio.wait_for(linked.camera_image(client, msg), linked.timeout)
         elif t == "call_service":
             result = await linked.call_service(msg, ctx)
         else:

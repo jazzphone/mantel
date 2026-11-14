@@ -153,6 +153,11 @@
         K.toggle({ label: 'Chime', sub: o.chime !== false ? 'Wall tablets and computers play a soft chime; an Important one plays it twice'
                      : 'Off: only an Important one chimes', on: o.chime !== false,
                    sk: 'f:' + NT + ':chime', onChange: function (on) { notifySet(P, { chime: on }); } })]));
+      // THE HOST'S OWN for all notifications (extend 'notify': Mantel's Apple TV row, phase 31)
+      var hx = P.host && P.host();
+      if (hx && typeof hx.extend === 'function') {
+        try { hx.extend('notify', c, { tv: o.tv || null }, P); } catch (e) { /* the host's own group */ }
+      }
     }
     function notifyNew(P, c, d) {
       void d;
@@ -302,6 +307,11 @@
         : tap === 'none' ? 'A tap does nothing; the banner just goes when its time is up, or with a swipe.'
         : 'A tap opens ' + (cal ? 'the event' : tap === 'camera' ? 'the camera, live,' : 'its sheet') + ' with the notification on it: when it went off, ' +
           'the snapshot, its page, and Mute 1 Hour (that accessory quiet on every screen for an hour).' }, opened));
+      // THE HOST'S OWN for this notification (extend 'notify-item': Mantel's Apple TV switch and look, phase 31)
+      var hxi = P.host && P.host();
+      if (hxi && typeof hxi.extend === 'function') {
+        try { hxi.extend('notify-item', c, { item: it, tv: (d.options || {}).tv || null, save: save }, P); } catch (e) { /* the host's own group */ }
+      }
       if (it.category) {
         c.appendChild(K.group({ footer: it.kind === 'calendar' ? 'Send Test shows the next event of its calendars (within a week) now, on every screen that allows notifications.'
           : 'Send Test shows it now — for one of its accessories — on every screen that allows notifications, as if it went off.' }, [

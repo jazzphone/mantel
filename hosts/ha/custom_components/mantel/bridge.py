@@ -169,6 +169,8 @@ class Bridge:
         self._pending_owners: dict[str, Any] | None = None
         self._unwait: Any = None
         self.waiting: set[str] = set()                       # entities HK Frontend has not let go of yet
+        from .homekit_entry import HomeKitLink
+        self.homekit = HomeKitLink(self)                     # phase 31: the Apple TV camera's HomeKit Bridge entry
 
     @callback
     def on_auth_failed(self, status: int) -> None:
@@ -222,8 +224,10 @@ class Bridge:
 
     def start(self) -> None:
         self.entry.async_create_background_task(self.hass, self.link.run(), f"{NAME}: link to Mantel")
+        self.homekit.start()
 
     async def stop(self) -> None:
+        self.homekit.stop()
         if self._unwait is not None:
             self._unwait()
             self._unwait = None
@@ -302,12 +306,15 @@ class Bridge:
         for uid in [u for u in self.descs if u not in seen]:
             self.descs.pop(uid, None)
             self._drop(uid, registry=False)          # gone from Mantel's list: off the state machine only
+        self.homekit.changed()
 
     @callback
     def on_entity(self, entity: dict[str, Any]) -> None:
         d = self._checked(entity)
         if d is not None:
             self._upsert(d)
+            if d["platform"] == "camera" and isinstance((d.get("features") or {}).get("homekit"), dict):
+                self.homekit.changed()
 
     @callback
     def on_state(self, unique_id: str, state: Any, attributes: dict[str, Any], available: bool) -> None:
@@ -334,6 +341,7 @@ class Bridge:
                 ent.async_write_ha_state()
         if connected:
             self.hass.async_create_task(self.report(), f"{NAME}: report")
+            self.homekit.reconnected()
 
     async def report(self) -> None:
         """Tell Mantel whether this Home Assistant has HK Frontend (whether the
@@ -496,6 +504,17 @@ class Bridge:
             return await self.link.request("call_service", payload)
         except LinkError as err:
             raise self._fail(name or f"{DOMAIN}.{service}", err) from None
+
+    async def camera_image(self, unique_id: str) -> tuple[int, bytes] | None:
+        """The picture of a camera Mantel draws (`features.still`: the Apple TVs' camera), with its version; None
+        when Mantel can't answer now (the camera shows no picture rather than an old one it never had)."""
+        import base64
+        try:
+            got = await self.link.request("camera_image", {"unique_id": unique_id})
+            return int(got["version"]), base64.b64decode(got["jpeg"], validate=True)
+        except (LinkError, KeyError, TypeError, ValueError) as err:
+            _LOGGER.debug("%s: no picture for %s: %s", NAME, unique_id, err)
+            return None
 
     async def command(self, ent: Any, command: str, code: str | None = None) -> Any:
         """A command to one mirrored entity, to Mantel."""
