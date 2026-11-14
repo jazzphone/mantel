@@ -369,7 +369,7 @@
         // THE HOST'S OWN, for the tablets as a whole (extend 'tablets'): nothing in Home Assistant
         var hxs = this.host();
         if (hxs && typeof hxs.extend === 'function') {
-          try { hxs.extend('tablets', c, { tablets: tabs }, this); } catch (e) { /* the host's own page */ }
+          try { hxs.extend('tablets', c, { tablets: tabs, house: hs }, this); } catch (e) { /* the host's own page */ }
         }
         if (ids.length) {
           var probs = [];
@@ -537,7 +537,10 @@
         // THE HOST'S OWN, for this tablet (extend, above): nothing in Home Assistant
         var hx = this.host();
         if (hx && typeof hx.extend === 'function') {
-          try { hx.extend('tablet', c, { tablet: tid, name: t.name, app: t.app, app_sky: t.app_sky === true, set: set }, this); } catch (e) { /* the host's own page */ }
+          try {
+            hx.extend('tablet', c, { tablet: tid, name: t.name, app: t.app, app_sky: t.app_sky === true, set: set,
+                                     app_options: t.app_options || {}, house_app: house.app || {} }, this);
+          } catch (e) { /* the host's own page */ }
         }
         // SETUP CHECK, with Fix where HK can set it right
         var checks = M.tabletChecks(t, st);

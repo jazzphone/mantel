@@ -133,6 +133,68 @@ function drawGraphics(c, st, send, off, id) {
     + 'Android forgets it at every restart, and the app sets it again and starts once more.' }, rows));
 }
 
+// ALL TABLETS (the owner, 2026-11-14: "Global or 'Fleet' management where tablets have the same settings ... also able
+// to adjust the settings independently"): HK's `tablets.app`, what every tablet's app is sent unless the tablet sets its
+// own (`app_options`); hk_core tablet_rules.APP_OPTIONS says what each may be
+const FOLLOWED = ['kiosk_mode', 'keep_awake', 'keep_screen_on', 'adaptive_brightness', 'scale', 'renderer', 'render_size',
+                  'airplay', 'airplay_mirroring', 'airplay_video', 'airplay_audio'];
+/** @type {Array<[any, string]>} */
+const ON_OFF = [[true, 'On'], [false, 'Off']];
+/** @type {Array<[string, string, Array<[any, string]>]>} */
+const FLEET = [['kiosk_mode', 'Kiosk Mode', ON_OFF], ['keep_awake', 'Keep Awake', ON_OFF], ['keep_screen_on', 'Keep Screen On', ON_OFF],
+               ['adaptive_brightness', 'Adaptive Brightness', ON_OFF],
+               ['scale', 'Scale', SCALES.map((v) => /** @type {[any, string]} */ ([v, v + '%']))],
+               ['renderer', 'Renderer', /** @type {Array<[any, string]>} */ ([['default', 'Android’s Default'], ['opengl', 'OpenGL']])],
+               ['render_size', 'Resolution', RENDER_SIZES.map(([v]) => /** @type {[any, string]} */ ([v, v + '%']))],
+               ['airplay', 'AirPlay', ON_OFF], ['airplay_mirroring', 'AirPlay Screen Mirroring', ON_OFF],
+               ['airplay_video', 'AirPlay Video', ON_OFF], ['airplay_audio', 'AirPlay Sound', ON_OFF]];
+const sayValue = (k, v) => { const f = FLEET.find(([kk]) => kk === k); const o = f && f[2].find(([x]) => x === v); return o ? o[1] : String(v); };
+const lastOf = (k) => FLEET.find(([kk]) => kk === k)[1];
+
+// a tablet's own choices over All Tablets', and the way back
+function drawOwn(c, ctx, own) {
+  const keys = Object.keys(own).filter((k) => FOLLOWED.includes(k));
+  const house = ctx.house_app || {};
+  if (!keys.length && !Object.keys(house).length) return;
+  const rows = keys.map((k) => info(lastOf(k), house[k] !== undefined ? 'All Tablets: ' + sayValue(k, house[k]) : 'Not set for All Tablets',
+                                    'Just This Tablet: ' + sayValue(k, own[k])));
+  if (keys.length && typeof ctx.set === 'function') {
+    rows.push(button('Use All Tablets’ Settings', () => ctx.set({ app_options: {} }), { fk: 'mx:app-own-reset:' + ctx.tablet }));
+  } else rows.push(info('Settings', null, 'Same as All Tablets'));
+  c.appendChild(group({ header: 'This Tablet’s Own', footer: 'A setting chosen on this page is this tablet’s own; the rest follow '
+    + 'All Tablets (Wall Tablets), sent to the app within a minute.' }, rows));
+}
+
+// Wall Tablets: All Tablets' app settings, and every app checking for an update at once
+export function drawAllTablets(c, ctx, p) {
+  const got = devicesRead();
+  if (!got || got.err || !got.data) return;
+  const apps = got.data.devices.filter((d) => !d.revoked && (d.hk_tablets || []).length)
+    .filter((d) => { const a = appRead(d.id); return a && a.data && a.data.status; });
+  if (!apps.length) return;
+  const house = (ctx && ctx.house && ctx.house.app) || {};
+  const setHouse = (k, v) => {
+    const next = { ...house };
+    if (v === '') delete next[k]; else next[k] = v;
+    if (p && typeof p.setH === 'function') p.setH({ 'tablets.app': next });
+  };
+  const rows = FLEET.map(([k, label, opts]) => K().select({
+    label, fk: 'mx:fleet-' + k, value: house[k] === undefined ? '' : String(house[k]),
+    options: [['', 'Each Tablet’s Own']].concat(opts.map(([v, l]) => [String(v), l])),
+    onChange: (v) => setHouse(k, v === '' ? '' : (opts.find(([x]) => String(x) === v) || [v])[0]) }));
+  rows.push(button('Check for Updates on All Tablets', () => act('fleet-update', async () => {
+    // (one at a time: each answers within seconds; a tablet whose app isn't connected is passed over)
+    for (const d of apps) {
+      try { await api('POST', '/api/devices/' + encodeURIComponent(d.id) + '/app', { command: 'check_update' }); } catch (e) { /* not connected */ }
+    }
+    return {};
+  }, 'Each tablet checked; one with a new version installs it now.', 'fleet-update'), { fk: 'mx:fleet-update' }));
+  c.appendChild(group({ header: 'Mantel for Android, All Tablets', footer: 'What every tablet running Mantel for Android is set to, '
+    + 'sent to each app within a minute. A tablet can still choose its own on its page. Renderer and Resolution reach a tablet '
+    + 'once its app is paired (its Graphics). Updates: each app installs a new version at a quiet moment, or at once when checked.' }, rows));
+  result(c, 'fleet-update');
+}
+
 // COPY SETTINGS FROM ANOTHER TABLET (the owner, 2026-11-13): what another app tablet last said, sent to this one as one
 // command. Never the screen, the brightness, the menu PIN or wireless debugging; the rotation only between the same model.
 const COPYABLE = ['kiosk_mode', 'keep_awake', 'keep_screen_on', 'adaptive_brightness', 'scale',
@@ -189,6 +251,13 @@ export function drawTabletApp(c, ctx) {
       return r;
     }, okText, key);
     const off = !live || !data.commands_on;
+    // ALL TABLETS AND EACH ITS OWN: an option chosen here is this tablet's own (HK's app_options) and sent at once;
+    // one it doesn't set follows All Tablets' (Mantel sends it within a minute: apps/tablet_app.py follow)
+    const own = ctx.app_options || {};
+    const sendAs = (command, value, okText) => {
+      if (FOLLOWED.includes(command) && typeof ctx.set === 'function') ctx.set({ app_options: { ...own, [command]: value } });
+      return send(command, value, okText);
+    };
     rows.push(K().toggle({ label: 'Screen', on: st.screen !== false, disabled: off, fk: 'mx:app-screen:' + dv.id,
                            onChange: (on) => send('screen', on, on ? 'Screen on.' : 'Screen off.') }));
     rows.push(K().slider({ label: 'Brightness', sk: 'mx:app-bright:' + dv.id, value: pct(st.brightness), min: 1, max: 100, step: 1, unit: '%',
@@ -196,7 +265,7 @@ export function drawTabletApp(c, ctx) {
     rows.push(K().toggle({ label: 'Black Curtain', sub: 'Over the screen until somebody touches it', on: !!st.curtain, disabled: off,
                            fk: 'mx:app-curtain:' + dv.id, onChange: (on) => send('curtain', on, null) }));
     rows.push(K().toggle({ label: 'Kiosk Mode', sub: st.owner ? 'Pinned: nothing else can come to the front' : 'Brings the app back to the front when anything else comes up',
-                           on: st.kiosk_mode !== false, disabled: off, fk: 'mx:app-kiosk:' + dv.id, onChange: (on) => send('kiosk_mode', on, null) }));
+                           on: st.kiosk_mode !== false, disabled: off, fk: 'mx:app-kiosk:' + dv.id, onChange: (on) => sendAs('kiosk_mode', on, null) }));
     // SCREEN ROTATION (2026-11-13): Android 16 ignores the app's own landscape on a tablet, so the app sets Android's
     // rotation itself -- with Android's "Modify system settings" for the app, given once at the tablet
     const rot = st.rotation || 'auto';
@@ -204,7 +273,7 @@ export function drawTabletApp(c, ctx) {
                         options: [['auto', 'Automatic'], ['0', '0°'], ['90', '90°'], ['180', '180°'], ['270', '270°']],
                         onChange: (v) => send('rotation', v, v === 'auto' ? 'Left to the tablet.' : 'Turned to ' + v + '°.') }));
     if (rot !== 'auto' && st.rotation_allowed === false) rows.push(info('Rotation', NEEDS_WRITE, 'Not Allowed', 'warn'));
-    optionRows(rows, st, send, off, dv.id);
+    optionRows(rows, st, sendAs, off, dv.id);
     // SKY DRAWN BY THE APP (phase 29): this tablet's own setting, HK's (hk_core tablet_rules.py app_sky), saved like
     // the rest of the tablet's page -- not a command to the app, which follows the page (hk-sky-handover.js)
     if (typeof ctx.set === 'function') {
@@ -218,10 +287,11 @@ export function drawTabletApp(c, ctx) {
     c.appendChild(group({ header, footer: (data.commands_on ? '' : 'House commands are off, so the app’s controls are too. ') +
       'Mantel reaches the app through the page the tablet has open, on the home network only; each change is in the Audit Log.' }, rows));
     result(c, key);
-    if (typeof st.airplay === 'boolean') drawAirPlay(c, st, send, off, dv.id);
+    if (typeof st.airplay === 'boolean') drawAirPlay(c, st, sendAs, off, dv.id);
     drawCopy(c, dv, st, got.data.devices, send, off);
     drawDebugging(c, st, send, off, dv.id);
-    drawGraphics(c, st, send, off, dv.id);
+    drawGraphics(c, st, sendAs, off, dv.id);
+    drawOwn(c, ctx, own);
     const pic = pictures[dv.id] || {};
     const shot = pic.src ? hh('img', { src: pic.src, alt: 'What ' + dv.name + ' shows', class: 'mx-tablet-shot' }) : null;
     if (shot) Object.assign(shot.style, { display: 'block', width: '100%', aspectRatio: '16 / 10', objectFit: 'cover',

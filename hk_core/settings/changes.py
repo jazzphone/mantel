@@ -940,6 +940,7 @@ HOUSE.update({
     "tablets.restart": _bool,
     "tablets.restart_times": lambda v: _restart_times(v),
     "tablets.dismissed": lambda v: _keys(v),
+    "tablets.app": S.app_options,
 })
 # THE SIDE PANE (settings.side_pane): All Screens' groups, each whole -- a
 # Dashboard or Screensaver group is what it shows and its sections together
@@ -1504,6 +1505,7 @@ TABLET: dict[str, Callable[[Any], Any]] = {
     "black_screen": _choice(S.BLACK_SCREENS),
     "sleep": _sleep,
     "app_sky": _bool,
+    "app_options": S.app_options,
 }
 
 

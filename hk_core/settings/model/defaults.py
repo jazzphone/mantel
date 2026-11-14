@@ -149,7 +149,9 @@ DEFAULTS: dict[str, dict[str, Any]] = {
     # (tablets.py). The tablets themselves are items (SUBENTRY_TABLET).
     "tablets": {"idle_return": True, "idle_time": 50,
                 "alert_offline": True, "alert_restart": True, "alert_charging": True,
-                "restart": False, "restart_times": ["00:02", "15:00"], "dismissed": []},
+                "restart": False, "restart_times": ["00:02", "15:00"], "dismissed": [],
+                # Mantel for Android's options for every tablet (tablet_rules.APP_OPTIONS): none set until chosen
+                "app": {}},
     # Dashboards opened in a car browser: the viewport is pinned (tesla-viewport.js).
     "car": {"dashboards": [], "widths": {}},
     # The generated dashboards (custom:hk-dashboard): what to leave out (also
