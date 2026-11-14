@@ -575,7 +575,12 @@
         rowH = wide ? rowH / r.weeks : 56;
         var weeks = '';
         for (var w = 0; w < r.weeks; w++) {
-          var from = addDays(r.from, w * 7), bs = bars(evs, from, 7), shownLanes = wide ? Math.min(bs.lanes, 2) : 0;
+          // THE BARS THAT LEAVE A LINE FOR "+N MORE" (2026-11-13, the owner on the Kitchen's 1280 x 720: each row's "+1 more"
+          // was cut in half by the next row -- 82 px rows held the date, two bars and no line for it): a bar left out is
+          // one of the day's own, counted in "+N more" with the rest
+          var from = addDays(r.from, w * 7), bs = bars(evs, from, 7);
+          var fitLanes = Math.max(0, Math.floor((rowH - 31 - 2 - 19) / 20));
+          var shownLanes = wide ? Math.min(bs.lanes, 2, bs.lanes > fitLanes ? fitLanes : 2) : 0;
           var cells = '';
           for (var c = 0; c < 7; c++) {
             var day = addDays(from, c), cls = 'cell' + (day.getMonth() !== d.getMonth() ? ' out' : '') +

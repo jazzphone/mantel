@@ -125,6 +125,11 @@
   function maxAge() {
     var HS = window.hkSettings, look = HS && HS.skyLook ? HS.skyLook() : null;
     if (!(look && look.animations)) return PRE_MAX;
+    // (THE FROST PICTURE doesn't track a drift every PRE_TRACK, 2026-11-13: on the Kitchen's tablet, the slowest, each
+    // new picture painted every layer and sheet again at its size while the last faded out -- flicker, and a frame with
+    // cards missing as its graphics memory ran short. The slow rhythm: the drift it follows is the page's, when the
+    // page keeps the sky, and an app's sky moves under a still picture anyway.)
+    if (FROST) return PRE_MOVE;
     return window.hkSky && window.hkSky.drifting && window.hkSky.drifting() ? PRE_TRACK : PRE_MOVE;
   }
   function onInput(e) {
@@ -513,6 +518,14 @@
       into.insertBefore(layer, into.firstChild);
     }
     layer._hkOverlay = overContent(layer);
+    // (a frost picture placed by hand follows its scroller: a pager's track paging, a row scrolled sideways)
+    if (anchor !== DOC && typeof anchor.addEventListener === 'function') {
+      var placing = 0;
+      anchor.addEventListener('scroll', function () {
+        if (!FROST || placing) return;
+        placing = requestAnimationFrame(function () { placing = 0; if (layer.isConnected) frostPlaceAll(layer); });
+      }, { passive: true });
+    }
     preDress(layer);
     return layer;
   }
@@ -595,6 +608,37 @@
     d.style.background = bg;
   }
   function isFrost(el) { return !!(el && el.hasAttribute && el.hasAttribute('data-hk-frost')); }
+  // UNDER A TRANSFORM (2026-11-13, the Kitchen's tablet: its Home Grid scaled to 0.71 to fit 1280 x 720, a pager's cards
+  // inside it): a fixed background is drawn from the element's own corner there, so the picture came out of line -- a
+  // lighter box over the Laundry block. The picture is placed by hand instead: the screen's size and the screen's corner
+  // in the layer's own units, worked out from where the layer is (again on every layout pass and as its scroller moves,
+  // frostPlaceAll). A swipe's page is moved back by along/frostAt, not here.
+  function transformedAbove(el) {
+    for (var n = flatParent(el); n && n.nodeType === 1 && n !== document.documentElement; n = flatParent(n)) {
+      if (n.__hkAlong) continue;
+      var t = getComputedStyle(n).transform;
+      if (t && t !== 'none') return n;
+    }
+    return null;
+  }
+  function frostPlace(d) {
+    var L = d.parentNode;
+    if (!L || L.nodeType !== 1 || d.style.position === 'fixed') return;
+    if (!transformedAbove(L)) {
+      if (d.__hkPlaced) { d.__hkPlaced = false; d.style.backgroundAttachment = 'fixed'; d.style.backgroundPosition = '0 0';
+                          d.style.backgroundSize = 'var(--hk-vw,100vw) var(--hk-vh,100vh)'; }
+      return;
+    }
+    var r = L.getBoundingClientRect(), s = L.offsetWidth ? r.width / L.offsetWidth : 1;
+    if (!(s > 0)) return;
+    d.__hkPlaced = true;
+    d.style.backgroundAttachment = 'scroll';
+    d.style.backgroundSize = (window.innerWidth / s).toFixed(1) + 'px ' + (window.innerHeight / s).toFixed(1) + 'px';
+    d.style.backgroundPosition = (-r.left / s).toFixed(1) + 'px ' + (-r.top / s).toFixed(1) + 'px';
+  }
+  function frostPlaceAll(L) {
+    Array.prototype.forEach.call(L.children || [], function (c) { if (isFrost(c)) frostPlace(c); });
+  }
   // the sheets' share (hk-detail-frame.js): the picture on the root, for a style query to put under their plates
   function frostRoot() {
     var de = document.documentElement;
@@ -647,7 +691,7 @@
     if (!L._hkPre) {
       var img = preImg(want), m = alongOf(L);
       L.appendChild(img);
-      if (m) shiftPic(img, m);
+      if (m) shiftPic(img, m); else if (isFrost(img)) frostPlace(img);
       // (a layer in something scaled inside the page -- a pager's track -- is
       // out of line however the page is moved: it blurs live, and along()
       // leaves it so until it is looked at again with the page at rest)
@@ -661,6 +705,7 @@
     if (L._hkOverlay && !FROST) return;
     var m = alongOf(L);
     if (!m) L._hkNoPic = false;
+    if (FROST && !m) frostPlaceAll(L);
     if (L._hkPre) { if (!lined(L._hkPre)) { L._hkNoPic = true; preUndress(L); } }
     else if (!L._hkNoPic) preDress(L);
   }
@@ -745,6 +790,7 @@
       }
       // (the one it wore before, still fading out under it after a repaint, too)
       Array.prototype.forEach.call(L.querySelectorAll('[data-hk-pre]'), function (img) { shiftPic(img, m); });
+      if (!m && FROST) frostPlaceAll(L);
     });
   }
 
@@ -987,6 +1033,7 @@
       var am = alongOf(L);
       if (am) { img.__hkOpa = same ? 'opacity ' + ms + 'ms linear' : ''; shiftPic(img, am); }
       L.appendChild(img);
+      if (!am && isFrost(img)) frostPlace(img);
       L._hkPre = img;
       // THE OLD PICTURE GOES ONCE THE NEW ONE IS IN -- counted from when its
       // fade STARTS, not from when it was put in. The fade starts in the next
