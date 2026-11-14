@@ -49,6 +49,8 @@ The prototype (below) on the Loft, Android 16, nothing else changed:
   (at volume 0, so none were heard): worth a listen. **Delay: not measured.** The receiver's own measure needs
   UxPlay's clock sync with the sender, which this iPad never completed (its frames' times came through as 0). A
   clock on the sender filmed beside the tablet by a phone camera settles it.
+  The app's own summary of the whole mirror (343 s, `AIRPLAY` → `last:`): 13,329 frames, 0 dropped, 44 fps on
+  average, the app 0.50 of a core, Android's thermal headroom 0.51 (1.0 is where it throttles), no thermal status.
 - **Idle, the receiver costs nothing measurable.** With it on and nobody sending, the app and its page measured 0.4-0.7
   of a core each, the page's own spread on the Loft with the receiver off.
 - **Sound from a non-Apple sender is refused.** pyatv's "stream a file" (the classic AirPlay 1 audio handshake,
