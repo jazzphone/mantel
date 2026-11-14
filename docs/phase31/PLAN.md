@@ -93,7 +93,7 @@ is darkened until white holds 4.5:1 against its lightest stop where the line sit
 text), measured as Bright Glass's wallpapers are (`tests/py/test_settings.py`). A test draws every accessory color in
 `hk-base.js` and checks both.
 The cost: orange turns amber-brown and cyan steel blue. The mockup's Darken Light Colors switch shows both; the
-owner decides (decision 8).
+owner chose darkened (decision 8, 2026-11-14).
 
 Whatever the look, a notification **with a camera** shows its snapshot full bleed with the title on a dark fade at the
 bottom (the mockup's doorbell), unless Use Camera Picture is off.
@@ -205,7 +205,7 @@ sensors), and is written up under "Later".
 7. **Who serves the HomeKit camera** (answered 2026-11-14): Home Assistant's HomeKit Bridge, its entry made by Mantel
    Link so nothing is set up by hand in HA. Not Mantel itself as a HomeKit accessory, for now (see "Who serves the
    camera" above, and "Later").
-8. **Color's light colors**: darkened for readable white type (recommended), or Apple's colors as they are.
+8. **Color's light colors** (answered 2026-11-14): darkened until white type holds 3:1, not Apple's colors as they are.
 9. **Release**: Mantel and Mantel Link released together after step 0 and the build (recommended), or a hotfix of
    Mantel's side first.
 
