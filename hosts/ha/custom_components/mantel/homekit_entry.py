@@ -177,6 +177,8 @@ class HomeKitLink:
         got = status(self.hass)
         if self.error and got["state"] in ("none", "starting"):
             got = {"state": "error", "error": self.error}
+        if got == {"state": "none"} and self.wish() is None:
+            return            # a Mantel with no Apple TV camera (one from before phase 31) has nothing to hear
         if got == self._told or not self.bridge.link.connected:
             return
         try:

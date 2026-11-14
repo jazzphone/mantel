@@ -6,7 +6,8 @@ Mantel Link's releases, newest first. A GitHub release's notes are its section h
 ## Unreleased
 
 **Added**
-- **Notifications on the Apple TVs** (Mantel's phase 31): Mantel's Apple TV camera (`camera.mantel_alerts`, its picture drawn by Mantel and fetched over the link only when it changes) and its motion sensor (`binary_sensor.mantel_alerts`, a motion sensor now that Mantel says so). Mantel Settings → Apple TV → Add to HomeKit makes Home Assistant's HomeKit Bridge entry for the camera (accessory mode, "Mantel Alerts", the sensor as its motion sensor) and tells Mantel the code to scan and when it is paired; Remove from HomeKit removes that entry. No other HomeKit entry is touched. Needs Mantel with the same release.
+- **Notifications on the Apple TVs** (Mantel's phase 31): Mantel's Apple TV camera (`camera.mantel_alerts`, its picture drawn by Mantel and fetched over the link only when it changes) and its motion sensor (`binary_sensor.mantel_alerts`, a motion sensor now that Mantel says so). Mantel Settings → Apple TV → Add to HomeKit makes Home Assistant's HomeKit Bridge entry for the camera (accessory mode, "Mantel Alerts", the sensor as its motion sensor) and tells Mantel the code to scan and when it is paired; Remove from HomeKit removes that entry. No other HomeKit entry is touched. Until Mantel has it, nothing changes: Mantel Link tells an older Mantel nothing about HomeKit.
+- **Each HomePod's next alarm is a timestamp sensor** (Mantel's phase 28): `sensor.<homepod>_next_alarm` shows as a date and time in Home Assistant, for automations, once Mantel publishes it.
 
 ## 0.1.14 - 2026-11-11
 
