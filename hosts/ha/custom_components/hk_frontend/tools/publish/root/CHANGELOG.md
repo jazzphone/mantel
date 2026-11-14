@@ -5,6 +5,9 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 
 ## Unreleased
 
+**Fixed**
+- **Settings' switches jumped back for seconds**: a feature's change (a notification's Important or Wakes the Screen, Stays On Screen, Do Not Disturb, any option of Notifications or Energy) showed its old value until the save was answered. It shows at once now; a refused save reads the page again.
+
 **Changed**
 - **A moving wallpaper costs a wall tablet far less**: the whole picture's motion steps a few times a second instead of every frame (it reads the same; the glass over it was blurring it again every frame: 1.6 cores at rest on a Galaxy Tab A9+, 0.9 after).
 - **Mantel for Android** is a Kiosk App choice in a wall tablet's Setup.

@@ -256,6 +256,32 @@ print('\n=== a photo uploaded: the same authenticated POST, through actions.requ
   ok('...and the page gets its address', url, '/api/image/serve/0123456789abcdef0123456789abcdef/original');
 })();
 
+print('\n=== a feature\'s change shows at once: on the page\'s copy before the save is answered ===');
+(function () {
+  var pending = [];
+  var client = window.hkHostClient.from({ states: STATES, entities: {}, devices: {}, areas: {}, config: {},
+    callWS: function () { return new Promise(function (r) { pending.push(r); }); },
+    fetchWithAuth: function () {}, callService: function () {},
+    connection: { subscribeMessage: function () { return Promise.resolve(function () {}); } } });
+  var pg = page(client), drawn = [];
+  pg.feats.hk_notify = { at: Date.now(), data: { options: { stay: 30, wake: false, dnd: { schedule: false, from: '22:00', to: '07:00', 'while': [] },
+    tv: { on: false, look: 'color', camera: true, dnd: true } }, items: [{ id: 'n1', important: false, tv: false }, { id: 'n2', important: false }] } };
+  pg.render = function () { drawn.push(JSON.parse(JSON.stringify(pg.feats.hk_notify.data))); };
+  P.featCall.call(pg, 'hk_notify', { type: 'hk_notify/item/save', item: 'n1', changes: { important: true, tv: true } }, ['important', 'tv']);
+  ok('an entry\'s switch: drawn on, before the answer', [drawn[0].items[0].important, drawn[0].items[0].tv, drawn[0].items[1].important],
+     [true, true, false]);
+  P.featSet.call(pg, 'hk_notify', { wake: true, stay: 60 });
+  ok('an option under options: drawn at once', [drawn[1].options.wake, drawn[1].options.stay], [true, 60]);
+  P.featSet.call(pg, 'hk_notify', { tv: { look: 'glass' } });
+  ok('...an object merged, as the server applies it', drawn[2].options.tv, { on: false, look: 'glass', camera: true, dnd: true });
+  P.featSet.call(pg, 'hk_notify', { dnd: { schedule: true, from: '21:00', to: '06:00', 'while': ['input_boolean.quiet'] } });
+  ok('...and a whole one taken as given', drawn[3].options.dnd, { schedule: true, from: '21:00', to: '06:00', 'while': ['input_boolean.quiet'] });
+  P.featCall.call(pg, 'hk_notify', { type: 'hk_notify/item/remove', item: 'n2' }, ['item']);
+  ok('a removal waits for its answer', drawn[4].items.length, 2);
+  pending.forEach(function (r) { r({ options: { stay: 60 }, items: [] }); }); drain();
+  ok('the answer replaces the copy', pg.feats.hk_notify.data, { options: { stay: 60 }, items: [] });
+})();
+
 print('\n=== Mantel: every save is refused at the port, nothing sent ===');
 (function () {
   var m = mantel(), pg = page(m.client);

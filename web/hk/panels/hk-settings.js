@@ -90,6 +90,13 @@
   // A BACKGROUND PHOTO, made no bigger than `max` px on its long side and
   // saved as a JPEG, before it is uploaded (photoUpload). Its pixels come
   // through a canvas, so what is stored carries no location or camera data.
+  // a change on a feature's copy: an object merged into the one there (a partial change, as the server applies it),
+  // anything else as given; copied, never shared with the message sent
+  function featMerged(old, v) {
+    var c = v && typeof v === 'object' ? JSON.parse(JSON.stringify(v)) : v;
+    var objs = function (x) { return !!x && typeof x === 'object' && !Array.isArray(x); };
+    return objs(old) && objs(c) ? Object.assign({}, old, c) : c;
+  }
   function shrinkPhoto(file, max) {
     return new Promise(function (resolve, reject) {
       var u = URL.createObjectURL(file), img = new Image();
@@ -670,14 +677,22 @@
       st.loading = false; st.at = Date.now();
       self.render(true);
     }
+    // A CHANGE SHOWS AT ONCE (2026-11-14, the owner: switches took seconds to move). A feature's save reloads the
+    // feature on the server, a few seconds on a large house, and the redraw a save starts drew the page's copy as it
+    // was: a switch jumped back, then over again with the answer. So the change goes into the copy first -- a top-level
+    // value, an option under `options` (Notifications' and Energy's; an object merged, as the features' own
+    // apply_house does), an entry's `<id>/item/save` on its item -- and the answer replaces the copy; a refused save
+    // reads it again (save()).
     featSet(domain, changes, keys) {
       var st = this.feat(domain);
       keys = keys || Object.keys(changes);
       return this.save({ type: domain + '/settings/set', changes: changes }, keys.map(function (k) { return 'f:' + domain + ':' + k; }),
         function () {
           if (!st.data) return;
+          var opts = st.data.options && typeof st.data.options === 'object' ? st.data.options : null;
           Object.keys(changes).forEach(function (k) {
             if (k in st.data && typeof changes[k] !== 'object') st.data[k] = changes[k];
+            else if (opts && k in opts) opts[k] = featMerged(opts[k], changes[k]);
           });
         }, function (r) { if (r) { st.data = r; st.at = Date.now(); } });
     }
@@ -685,8 +700,13 @@
     // entry): its answer is the page again
     featCall(domain, msg, keys) {
       var st = this.feat(domain);
-      return this.save(msg, (keys || []).map(function (k) { return 'f:' + domain + ':' + k; }), function () {},
-        function (r) { if (r) { st.data = r; st.at = Date.now(); } });
+      return this.save(msg, (keys || []).map(function (k) { return 'f:' + domain + ':' + k; }), function () {
+        var ch = msg && msg.changes;
+        if (!st.data || !ch || typeof ch !== 'object' || !msg.item || !/\/item\/save$/.test(String(msg.type))) return;
+        (st.data.items || []).forEach(function (it) {
+          if (it && it.id === msg.item) Object.keys(ch).forEach(function (k) { it[k] = featMerged(it[k], ch[k]); });
+        });
+      }, function (r) { if (r) { st.data = r; st.at = Date.now(); } });
     }
     ws(msg, keys) {
       var self = this;
