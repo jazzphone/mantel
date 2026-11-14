@@ -275,3 +275,37 @@ clip with it (the page's sky showed and moved under the app's until the next han
 on the Loft; installed on the Kitchen tablet beside Kiosk Satellite (still in front there until the app is paired: a
 person's step), with Sky Drawn by the App set for the Kitchen too (it means nothing until its Kiosk App is the app).
 
+
+## The Kitchen's tablet, a night of measuring (2026-11-14)
+
+The slowest wall tablet in the house: an Apolosign 15.6" (Rockchip RK3576, Mali-G52, 4 GB, Android 16, WebView 140),
+a 1920 x 1080 panel shown at 1280 x 720 CSS px. Measured over adb and DevTools: CPU of the app, its renderer,
+SurfaceFlinger and the composer at rest; frames per page swipe from `dumpsys gfxinfo framestats`; long frames (LoAF).
+
+| What | Before | After |
+|---|---|---|
+| States the page kept (the weather's air-quality look read every sensor) | 4,566 | 315 |
+| Updates the page applied in 30 s | 60 | 7 |
+| The page at rest, wallpaper moving (Slow), nothing else | 0.93-0.96 cores | 0.78-0.81 (stepped by a timer) |
+| A page swipe, HWUI on Vulkan (the tablet's default) | median frame 90 ms, 70 % janky | -- |
+| ...on OpenGL (`setprop debug.hwui.renderer skiagl`) | -- | median frame 44 ms, 20 % janky |
+| Frames in a swipe, OpenGL, full resolution | 18 a second | -- |
+| ...rendered at 1x (`wm size 1280x720`, `wm density 160`) | -- | 24-33 a second |
+| The longest landing frames | ~415 ms | ~395 ms |
+
+On the tablet now (not in the repository): OpenGL for HWUI (a system property: **lost at a reboot**), the 1x render
+(`wm size` and `wm density`: kept through reboots; undo `wm size reset; wm density reset`), Kiosk Satellite disabled.
+Sky Drawn by the App stays off there (single black frames on this GPU).
+
+What still costs it, for later:
+- **The landing** of a page swipe is 300-450 ms of the page's own work: its style worked out three times or so (each
+  module reads after another has written: the swipe's measure, the Side Pane, the tab bar or the Pages grid, the
+  scroll edges), about 60 ms each on this CPU, and a root custom property's change (the page's own looks) makes each a
+  whole-document pass (124 ms measured). Fewer passes needs the landing's reads gathered before its writes, across
+  modules -- a piece of work of its own.
+- **Anything animating every frame** costs the whole screen's composite: the Laundry block's drum and heat waves (SVG,
+  the page's own main thread) took the page from 0.84 cores to 2.09 while the dryer ran. Pre-rendered glass took
+  about 0.9 cores off the same in one run, not repeated (no live blur under each card); a swipe was no faster.
+- **OpenGL through a reboot**: Android keeps `debug.hwui.renderer` only until a restart, and no WebView flag gives
+  Vulkan the same speed (WebViewVulkanIntermediateBuffer is a debugging switch). A tablet app can't set it; something
+  holding adb (the app's own Wireless Debugging, paired once) could set it again after each boot.
