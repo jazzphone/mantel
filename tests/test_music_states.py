@@ -330,3 +330,15 @@ async def test_up_next_and_the_cover_search_come_from_music_assistant(on):
     got = await on.read(ws, {"type": "music_assistant/get_queue", "entity_id": K})
     assert got["error"]["code"] == "not_found" and on.ma.frames[n:] == []
     await ws.close()
+
+
+async def test_a_batch_without_a_media_player_never_lists_the_speakers(on):
+    # (the list walks every registry entry: it ran on every batch, most of the hub's time on an ordinary change, 2026-11-13)
+    states, hub = on.app["music"].states, on.app["hub"]
+    calls = []
+    real = states.entities
+    states.entities = lambda: calls.append(1) or real()
+    hub.ha.on_change(hub.store.apply_event({"a": {"sensor.outside_temperature": {"s": "21", "a": {}, "lc": 4.0}}}))
+    assert calls == []
+    hub.ha.on_change(hub.store.apply_event({"a": {"media_player.tv": {"s": "off", "a": {"friendly_name": "TV"}, "lc": 4.0}}}))
+    assert calls, "a media player HA adds is still looked at"

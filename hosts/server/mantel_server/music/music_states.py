@@ -346,7 +346,10 @@ class MusicStates:
             if ha is not None and ha is not self.local.mine[eid]:
                 self._learn(eid, ha)
         self.local.reassert(set(changed))
-        if changed & set(self.entities()) - set(self.local.mine) and self.on:
+        # (the speakers' list walks every registry entry: asked only for a batch with a media player not ours, never
+        # on every batch -- it was most of the hub's time on an ordinary state change, 2026-11-13)
+        media = {e for e in changed if e.startswith("media_player.") and e not in self.local.mine}
+        if media and self.on and media & set(self.entities()):
             self.local.put_all(self.wanted())       # a speaker HA just added (the registry reloaded first)
 
     def status(self) -> dict[str, Any]:
