@@ -216,9 +216,10 @@ check('a drawn wallpaper moves by --hk-wp: its keyframes move nothing else, it i
       ['petals', 'shards', 'pinwheel'].every(function (s) { return new RegExp("'#hk-sky\\[data-wpv\\]\\[data-ws=\"" + s + "\"\\] \\.wall:not\\(\\.th\\)\\{transform:[^']*var\\(--hk-wp\\)").test(src);
         }) &&
       !/'#hk-sky\[data-wpv\][^']*will-change:transform/.test(src));
-check('...--hk-wp is typed a number (0.5 at rest, the middle) and data-wpv says so; the old transform animation where it is not',
+// (and where the tablet app draws the sky, ST.appSky -- phase 29's all in: the app's player plays a transform, not a number)
+check('...--hk-wp is typed a number (0.5 at rest, the middle) and data-wpv says so; the old transform animation where it is not, or where the tablet app draws the sky',
       /name: '--hk-wp', syntax: '<number>', inherits: false, initialValue: '0\.5'/.test(front) &&
-      /if \(ST\.wpv\) el\.setAttribute\('data-wpv', ''\); else el\.removeAttribute\('data-wpv'\)/.test(stat) &&
+      /if \(ST\.wpv && !ST\.appSky\) el\.setAttribute\('data-wpv', ''\); else el\.removeAttribute\('data-wpv'\)/.test(stat) &&
       /'#hk-sky\[data-ws="shards"\] \.wall\{animation-name:hk-wall-drift\}'/.test(src));
 check('...a meteor is a mover a Pre-rendered blur leaves out; Reduce Motion stops all', hkSky.moves({ animationName: 'hk-wt-meteor' }) &&
       /@media \(prefers-reduced-motion:reduce\)\{#hk-sky \*\{animation:none!important\}\}/.test(src));
