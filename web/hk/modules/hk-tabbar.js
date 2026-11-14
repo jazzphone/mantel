@@ -521,6 +521,9 @@
       // it where the last page's was (--hx/--hy, --sx/--sy), then lets go --
       // a short spring along the bar, or down the rail
       '  transform-origin:0 0;transform:translate(var(--hx,0px),var(--hy,0px)) scale(var(--sx,1),var(--sy,1));',
+      // (a layer of its own: under a page swipe it is moved with the finger every frame, and without one each move
+      // was the whole bar drawn again -- its glass, every glyph -- 12-15 ms a frame on the Kitchen's tablet, 2026-11-14)
+      '  will-change:transform;',
       '  transition:transform .46s ' + SPRING + '}',
       '.tab.here.slide-from::before{transition:none}',
       // a page swipe's landing: the spring at DUR.spring (DESIGN.md, "A page swipe")

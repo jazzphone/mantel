@@ -67,8 +67,8 @@ const PROBE = () => {
       for(let yf=.12;yf<.9;yf+=.015)for(let q=.08;q<.92;q+=.02){const x=Math.round(innerWidth*q),y=Math.round(innerHeight*yf);if(clear(x,y))return{x,y};}
       throw new Error('No page background available for this swipe');
     },
-    // what a swipe may leave behind: nothing -- but the layer the page moved in, for a moment (hk-pageswipe.js linger:
-    // given back at a quiet moment, and at once at a tap; `lingers` says it is still held)
+    // what a swipe may leave behind: nothing -- but the layer the page rests in, where it may have one (hk-pageswipe.js
+    // layer: the Android wall tablets; `lingers` says it has)
     rest() {
       const v = view(), all = v.getAttribute('style') || '', s = hkPageSwipe._.state(), kids = pagesOf();
       const lingers = /(^|;\s*)will-change\s*:\s*transform\s*(;|$)/.test(all);
@@ -502,10 +502,8 @@ const SECTIONS = {
     assert(Math.abs(edge.x - (edge.finger - w.s.x - 10) / 3) < 3, 'the first page gives a third ' + JSON.stringify(edge));
     settlesSmoothly(w, 0, 'edge');
     isClean(await rest(t), 'edge');
-    // (the page keeps the layer it moved in for a moment after a swipe, and gives it back at a quiet one: linger. Looked
-    // at here, after the last swipe: between two, the page drawn again as it gives the layer back is under the next finger)
-    await sleep(2400);
-    assert(!(await rest(t)).lingers, 'the page gives its layer back at a quiet moment');
+    // (a page rests in a layer of its own only on the Android wall tablets: never in these browsers)
+    assert(!(await rest(t)).lingers, 'off the wall tablets the page rests in no layer');
     await close(t, 'follows');
   },
   // A NEW FINGER ON A PAGE STILL SETTLING: it is caught where it is, and nothing queued overwrites what it does next

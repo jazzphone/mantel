@@ -448,11 +448,63 @@
     var host = hosts.get(client);
     if (host) element.hass = host; else element.client = client;
   }
+  // A CARD IS TOLD ONLY WHEN SOMETHING IT READ HAS CHANGED (2026-11-14, the Kitchen's tablet: every update of the
+  // house was every card on the screen working out again what it shows -- the Side Pane's timers, Show When's
+  // conditions, a room tile's line -- ~55 ms there, for the one card that showed the sensor). The host takes down the
+  // states a card reads while it is told (mantel-host.js track), and says whether any has changed since the
+  // snapshot it was last told with (quiet): if none has, the card keeps the new snapshot and is left alone. What a
+  // card reads is what it and everything it tells in turn reads (a grid, its blocks): each one's reads go up to the
+  // cards around it, so a grid is told when any block of it has something new, and tells that block.
+  // What no state says -- the time, a feed of a module's own -- a card picked up at the next update of anything; it
+  // still does, at the host's next look by everyone (SWEEP_MS). `?gate=0` on the address tells every card always.
+  var GATE = (function () { try { return new URLSearchParams(global.location.search).get('gate') !== '0'; } catch (e) { return true; } })();
+  // (how many times a card was told, and left alone: window.__mantelGate, for a look from the console)
+  var GATED = global.__mantelGate = { told: 0, quiet: 0 };
+  function told(el, input, c) {
+    var H = global.__mantel;
+    if (!GATE || !H || typeof H.track !== 'function' || H.hass !== input && H.revOf(input) < 0) { el._onClient(c); return; }
+    var rev = H.revOf(input), reads = el.__hkReads;
+    // (a card that has read nothing yet is not known to need nothing: one told before it was on the page drew later)
+    if (reads && reads.size && el.__hkRev !== undefined && H.quiet(reads, el.__hkRev)) {
+      if (rev > el.__hkRev) el.__hkRev = rev;
+      GATED.quiet += 1;
+      return;
+    }
+    GATED.told += 1;
+    if (!reads) reads = el.__hkReads = new Set();
+    var had = reads.size;
+    try { H.track(reads, function () { el._onClient(c); }); }
+    finally {
+      el.__hkRev = rev;
+      // (what it read, the cards around it read: one of them told is this one told)
+      if (reads.size !== had) up(el, reads);
+    }
+  }
+  function up(el, reads) {
+    for (var n = el.parentNode || el.host, i = 0; n && i < 64; n = n.parentNode || n.host, i++) {
+      var r = n.__hkReads;
+      if (r && r !== reads) reads.forEach(function (id) { r.add(id); });
+    }
+  }
   // THE LOVELACE ENTRY for a shared card that is not an HkBase (hk-row, hk-control, …).
   // The host sets `hass` on a card; the card never sees that object: it gets
   // `_onClient(client)` with this adapter's client for each new one, and reads
   // `this.client`. The getter gives the host (and a parent card) the object back.
   function entry(Ctor) {
+    // (a card drawn again for what no state says -- data that came, a choice made on it -- reads as it draws: taken
+    // down as the card's too, HkBase.redraw)
+    var rd = Ctor.prototype.redraw;
+    if (GATE && typeof rd === 'function' && !rd.__hkTracked) {
+      var tracked = function () {
+        var el = this, a = arguments, H = global.__mantel;
+        if (!H || typeof H.track !== 'function') return rd.apply(el, a);
+        var reads = el.__hkReads || (el.__hkReads = new Set()), had = reads.size;
+        try { return H.track(reads, function () { return rd.apply(el, a); }); }
+        finally { if (reads.size !== had) up(el, reads); }
+      };
+      tracked.__hkTracked = true;
+      Ctor.prototype.redraw = tracked;
+    }
     Object.defineProperty(Ctor.prototype, 'hass', {
       configurable: true,
       set: function (input) {
@@ -461,7 +513,7 @@
         this._hkEntryClient = c;
         var C = global.hkCards;
         if (C && typeof C.seen === 'function') C.seen(input);
-        if (typeof this._onClient === 'function') this._onClient(c);
+        if (typeof this._onClient === 'function') told(this, input, c);
       },
       get: function () { return this._hkInput; }
     });

@@ -161,3 +161,26 @@ def test_a_walk_of_the_whole_house_is_not_kept_for_the_screen(observed):
     assert w["misses"] == 2                                    # narrowed: a card's own misses are asked for...
     assert w["walkAsked"] == w["walkBack"] == 1501 and w["same"]   # ...a walk's are given back, all of them
     assert w["unrecorded"] == 0 and w["warnedOnce"] == 1       # hkShell.unrecorded's pass asks nothing; said once
+
+
+def test_a_card_is_told_only_when_something_it_read_has_changed(observed):
+    """2026-11-14, the Kitchen's tablet: every update of the house was every card on the screen working out again what
+    it shows, ~55 ms there. The host takes down what a card reads while it works, numbers every publish, and says
+    whether anything in those reads has changed since the snapshot the card was last told with."""
+    g = observed["gate"]
+    assert g["reads"] == [["light.a", "light.none"], ["light.a", "light.none"]]      # its own, and the grid's around it
+    assert g["same"] is True and g["other"] is True                    # nothing since; another's state
+    assert g["own"] is False and g["told"] is True                     # its own changed: told, and quiet from there
+    assert g["later"] is True                                          # two publishes on
+    assert g["recording"] is False                                     # a narrowing pass: every card looks
+    assert g["added"] is False                                         # a state come or gone
+    assert g["sweep"] is False                                         # fifteen seconds since everyone looked
+    assert g["registry"] is False                                      # a registry
+    assert g["resnap"] == [True, False] and g["resnapGone"] is False   # the same states again: only what differs
+
+
+def test_what_no_card_reads_is_kept_while_it_is_being_read(observed):
+    """What is read outside any card (the Side Pane, the tab bar, the screensaver) is the screen's whatever page is up,
+    for as long as it is being read: let go 20 publishes and a quarter of an hour after it last was (home.js wanted)."""
+    g = observed["gate"]
+    assert g["ambient"] is True and g["ambientGone"] is True

@@ -1555,10 +1555,27 @@
     }
     return null;
   }
+  // ...ON A PICTURE, ONCE THE PRESS IS IN AND ONCE IT IS OUT, not on every frame between (PRESS_STEP_MS; 2026-11-14, the
+  // Kitchen's tablet). The cut-out is one path for the whole layer, and in Pre-rendered that layer holds the picture: a
+  // path changed is the page's glass painted again, whole -- on each frame of a tile's 0.12 s press and of its release
+  // a tap was twenty of them, and a swipe's first frame waited for the first. So there: a finger held is cut once the
+  // tile is in; a finger lifted, once it is back; a quick tap, and a press that turns into a page swipe, not at all.
+  // For the tenth of a second a tile is on its way the frost is a few px off its edge. Live blur keeps every frame
+  // (its layer holds nothing to paint), and so does what moves by more than a press (moving(): Edit mode's pills).
+  var PRESS_STEP_MS = 140, pressFine = 0, upAt = 0;
+  function swiping() { var P = window.hkPageSwipe; try { return !!(P && P.moving && P.moving()); } catch (e) { return false; } }
+  function tickSoon(ms) { setTimeout(function () { requestAnimationFrame(pressTick); }, ms); }
   function pressTick() {
-    if (active && (pointers.size || performance.now() <= pressUntil) && pressUpdate(pressed)) {
-      requestAnimationFrame(pressTick);
-      return;
+    var now = performance.now(), coarse = PRE && now > pressFine;
+    if (active && (pointers.size || now <= pressUntil)) {
+      if (coarse) {
+        var wait = swiping() ? PRESS_STEP_MS : !pointers.size && now < upAt + PRESS_STEP_MS ? upAt + PRESS_STEP_MS - now : 0;
+        if (wait) { tickSoon(wait); return; }
+      }
+      if (pressUpdate(pressed)) {
+        if (coarse) tickSoon(PRESS_STEP_MS); else requestAnimationFrame(pressTick);
+        return;
+      }
     }
     pressTicking = false; pressed.clear(); pointers.clear();
     schedule(false);
@@ -1570,11 +1587,11 @@
     pressed.add(c); pointers.add(e.pointerId);
     if (pressTicking) return;
     pressTicking = true;
-    requestAnimationFrame(pressTick);
+    if (PRE && performance.now() > pressFine) tickSoon(PRESS_STEP_MS); else requestAnimationFrame(pressTick);
   }
   function onUp(e) {
     if (!pointers.delete(e.pointerId)) return;
-    if (!pointers.size) pressUntil = performance.now() + PRESS_TAIL_MS;
+    if (!pointers.size) { upAt = performance.now(); pressUntil = upAt + PRESS_TAIL_MS; }
   }
   // The glass cards `el` is or holds (a grid's wrapper round its pill).
   function cardsIn(el) {
@@ -1593,6 +1610,7 @@
     if (!cs.length) return;
     cs.forEach(function (c) { pressed.add(c); });
     pressUntil = Math.max(pressUntil, performance.now() + (ms || 0));
+    pressFine = Math.max(pressFine, pressUntil + PRESS_TAIL_MS);
     if (pressTicking) return;
     pressTicking = true;
     requestAnimationFrame(pressTick);

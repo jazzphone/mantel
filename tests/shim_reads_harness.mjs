@@ -231,6 +231,53 @@ out.misses = misses;
   console.warn = realWarn; host.onScan = null;
   out.walk = w;
 }
+// A CARD IS TOLD ONLY WHEN SOMETHING IT READ HAS CHANGED (2026-11-14): the host takes down what a card reads while it
+// works (track), numbers every publish, and says whether anything in a card's reads has changed since the snapshot
+// it was told with (quiet); what is read outside any card is remembered by when (ambientIds)
+{
+  const g = {}, realNow = Date.now; let now = realNow() + 100; Date.now = () => now;       // (on from the real clock: the host has used it)
+  host.onMiss = null;
+  host.applySnapshot({ 'light.a': { s: 'on', a: {}, lc: 1, lu: 1 }, 'sensor.p': { s: '1', a: {}, lc: 1, lu: 1 }, 'sensor.q': { s: '1', a: {}, lc: 1, lu: 1 } });
+  const card = new Set(), grid = new Set();
+  host.track(grid, () => host.track(card, () => { void host.hass.states['light.a']; void host.hass.states['light.none']; }));
+  g.reads = [[...card].sort(), [...grid].sort()];                       // the card's, and the grid's around it
+  void host.hass.states['sensor.q'];                                    // read by no card
+  const r0 = host.revOf(host.hass);
+  g.same = host.quiet(card, r0);
+  host.applyDiff({ changes: { 'sensor.p': { '+': { s: '2' } } } }); host.flushDiffs();
+  g.other = host.quiet(card, r0);                                       // another's state: nothing to show
+  host.applyDiff({ changes: { 'light.a': { '+': { s: 'off' } } } }); host.flushDiffs();
+  g.own = host.quiet(card, r0);                                         // its own: told
+  const r1 = host.revOf(host.hass);
+  g.told = host.quiet(card, r1);
+  host.applyDiff({ changes: { 'sensor.p': { '+': { s: '3' } } } }); host.flushDiffs();
+  host.applyDiff({ changes: { 'sensor.p': { '+': { s: '4' } } } }); host.flushDiffs();
+  g.later = host.quiet(card, r1);                                       // two publishes on, still nothing of its own
+  host.recording = true; g.recording = host.quiet(card, r1); host.recording = false;     // a narrowing pass: every card looks
+  host.applyDiff({ added: { 'light.none': { s: 'on', a: {}, lc: 1, lu: 1 } }, changes: {} }); host.flushDiffs();
+  g.added = host.quiet(card, r1);                                       // a state come: every card looks again
+  const r2 = host.revOf(host.hass);
+  now += 16000;
+  host.applyDiff({ changes: { 'sensor.p': { '+': { s: '5' } } } }); host.flushDiffs();
+  g.sweep = host.quiet(card, r2);                                       // fifteen seconds since everyone looked: again
+  const r3 = host.revOf(host.hass);
+  host.applyRegistry({ entities: {}, devices: {}, areas: {}, floors: {} });
+  g.registry = host.quiet(card, r3);                                    // a registry: anything may have changed
+  // the same states again (a subscription changed): only what differs
+  const r4 = host.revOf(host.hass);
+  const again = { 'light.a': { s: 'off', a: {}, lc: 1, lu: 1 }, 'sensor.q': { s: '1', a: {}, lc: 1, lu: 1 },
+                  'light.none': { s: 'on', a: {}, lc: 1, lu: 1 }, 'sensor.p': { s: '9', a: {}, lc: 1, lu: 99 } };
+  host.applySnapshot(again);
+  g.resnap = [host.quiet(card, r4), host.quiet(new Set(['sensor.p']), r4)];
+  delete again['sensor.q']; host.applySnapshot(again);
+  g.resnapGone = host.quiet(card, host.revOf(host.hass) - 1);           // a state gone with it: every card looks
+  // what no card read, and when
+  g.ambient = host.ambientIds().includes('sensor.q') && !host.ambientIds().includes('light.a');
+  for (let i = 0; i < 25; i++) { now += 61000; host.applyDiff({ changes: { 'sensor.p': { '+': { s: 'x' + i } } } }); host.flushDiffs(); }
+  g.ambientGone = !host.ambientIds().includes('sensor.q');              // 25 publishes and 25 minutes on: let go
+  Date.now = realNow;
+  out.gate = g;
+}
 out.sent = sent;
 console.log(JSON.stringify(out));
 process.exit(0);

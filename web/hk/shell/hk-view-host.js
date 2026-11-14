@@ -1220,8 +1220,8 @@
   //   base       the dashboard's address, '/<dashboard>' (default: the
   //              address's first segment)
   //   follow     false: the caller hands each client with setClient()
-  //   willShow(view, first)  awaited before a view is shown or made ready
-  //              (Mantel widens its state subscription for a page it has not seen)
+  //   willShow(view, first, path)  awaited before a view is shown or made ready
+  //              (Mantel widens its state subscription for a page it has not seen, and has the states of one it has)
   //   warmed(view)  a page not seen yet was made ready without being shown
   //              (Mantel narrows the subscription again, with its states)
   //   leave(path)  an address outside this dashboard (default: load it)
@@ -1341,7 +1341,7 @@
       target = i;
       if (i < 0) return Promise.resolve(null);
       var first = !seen[i];
-      var wait = opts.willShow ? Promise.resolve().then(function () { return opts.willShow(views()[i], first); })
+      var wait = opts.willShow ? Promise.resolve().then(function () { return opts.willShow(views()[i], first, pathOf(views()[i], i)); })
                                      .catch(function (e) { try { console.error('[hk-view-host] willShow', e); } catch (x) { /* */ } })
                                : Promise.resolve();
       return wait.then(function () {
@@ -1472,7 +1472,7 @@
       if (i < 0) return Promise.resolve(null);
       if (cache[i]) { if (cache[i] === cur) return Promise.resolve(null); return Promise.resolve(peek(path, true)); }
       var mine = gen, first = !seen[i], view = views()[i];
-      var wait = opts.willShow ? Promise.resolve().then(function () { return opts.willShow(view, first); })
+      var wait = opts.willShow ? Promise.resolve().then(function () { return opts.willShow(view, first, pathOf(view, i)); })
                                      .catch(function (e) { try { console.error('[hk-view-host] willShow', e); } catch (x) { /* */ } })
                                : Promise.resolve();
       return wait.then(function () { return mine === gen ? entryOf(i) : null; }).then(function (entry) {
@@ -1614,6 +1614,15 @@
       // the pages built at least once since the config was made (cached() are the ones still held)
       seen: function () {
         return Object.keys(seen).map(function (k) { return pathOf(views()[Number(k)], Number(k)); });
+      },
+      // every page it holds, with its view and its cards: the one shown (`shown`), the ones kept in the slot beside it
+      // (`held`: a page swipe's neighbors) and the ones kept out of the document (Mantel keeps the states of the first
+      // two kinds, web/home.js)
+      entries: function () {
+        return Object.keys(cache).map(function (k) {
+          var e = cache[k];
+          return { path: e.path, el: e.el, cards: e.cards.slice(), shown: e === cur, held: held.indexOf(e) >= 0 };
+        });
       },
       // ...and whether the page an address means is one of them (find(): a path, a view's number, '' for the first --
       // the idle return goes to `/<dashboard>/0`, which is Home whatever Home's path is)

@@ -106,11 +106,16 @@ let snapshotWaiters = [];
 let narrowed = false;                  // (narrowing: below) declared here, read by every snapshot
 const houseIds = new Set();            // every entity id of the house, from each whole-house snapshot
 const needed = new Set();              // the states the narrowed subscription keeps (narrowing: below)
+const pinned = new Set();              // ...whatever page is up: a pop-up's, a notification's
 let missTimer = 0;
 // KEEP ONE MORE STATE: added to what the narrowed subscription keeps, and, once the page has narrowed,
 // the hub asked again (batched). Before that the whole house is here, and narrowing keeps `needed`.
-function keep(id) {
-  if (typeof id !== 'string' || needed.has(id) || !houseIds.has(id)) return;
+// (`pin`: for good -- nothing on a page reads it until it is wanted. One a card asked for and missed is kept for
+// as long as what reads it is on the screen: wanted(), below.)
+function keep(id, pin) {
+  if (typeof id !== 'string' || !houseIds.has(id)) return;
+  if (pin) pinned.add(id);
+  if (needed.has(id)) return;
   needed.add(id);
   if (!narrowed) return;
   window.__mantelNarrow = needed.size;
@@ -124,7 +129,7 @@ function keep(id) {
 // away (2026-10-19). Kept as the notification arrives, so its state is here well before the tap.
 window.addEventListener('hk-house-event', (e) => {
   const n = e && e.detail;
-  if (n && n.type === 'notification') [n.sheet, n.entity, n.camera].forEach(keep);
+  if (n && n.type === 'notification') [n.sheet, n.entity, n.camera].forEach((id) => keep(id, true));
 });
 const nextSnapshot = () => new Promise((res) => snapshotWaiters.push(res));
 hub.onSnapshot = (m) => { if (!narrowed) for (const id of Object.keys(m.entities || {})) houseIds.add(id); host.applySnapshot(m.entities); const w = snapshotWaiters; snapshotWaiters = [];
@@ -196,7 +201,7 @@ import('./shim/ha-frame.js').then((m) => m.start()).catch((e) => console.error('
 function keepPopups() {
   const S = window.hkSettings;
   const walk = (v) => {
-    if (typeof v === 'string') keep(v);
+    if (typeof v === 'string') keep(v, true);
     else if (v && typeof v === 'object') Object.values(v).forEach(walk);
   };
   if (S) walk([S.get('popups', null) || [], S.get('security.alarm', null)]);
@@ -228,10 +233,10 @@ mark('strategy');
 }
 
 // NARROWING: after a page is first drawn, note which states the screen really reads and narrow the hub
-// subscription to those (with the pages seen before: a cached page keeps its cards and catches up when
-// shown again; a page let go after the last four (hk-view-host.js) is made again from what the screen has
-// read -- it counts as seen: `needed` keeps every state any page read, and a miss adds it). The strategy needed the whole house to decide what to draw, the cards do not. A page
-// not seen yet widens the subscription again first, so it is drawn with the whole house.
+// subscription to those: the page shown and the pages beside it (wanted(), below; a page left is asked for
+// again before it is shown: ensure). The strategy needed the whole house to decide what to draw, the cards do
+// not. A page not seen yet widens the subscription again first, so it is drawn with the whole house; one asked
+// for and missed is added (onMiss).
 const narrowing = new URLSearchParams(location.search).get('narrow') !== '0';
 let narrowTimer = 0, narrowPending = false;
 // SELF-HEALING: every entity id the house has (from each whole-house snapshot). A card that reads one
@@ -282,10 +287,12 @@ async function narrowSoon(view) {
     if (window.hkCards && window.hkCards.redrawAll) window.hkCards.redrawAll();
     narrowTimer = setTimeout(() => {
       host.recording = false;
-      for (const k of host.reads) if (host._states[k]) needed.add(k);
-      // ...and every state anything on the screen has read so far -- the Side Pane, the menu, the tab bar, the
-      // screensaver draw outside the page's cards and its recorded pass (Host.seen)
-      for (const k of host.seen) if (host._states[k]) needed.add(k);
+      // (what the pages on the screen read, and what is read outside any card -- the Side Pane, the menu, the tab
+      // bar, the screensaver: wanted(); and the pass's own, for a card the host does not follow)
+      const w = wanted();
+      for (const k of host.reads) if (host._states[k]) w.add(k);
+      needed.clear();
+      for (const k of w) needed.add(k);
       window.__mantelNarrow = needed.size;
       narrowed = true;
       narrowPending = false;
@@ -296,12 +303,74 @@ async function narrowSoon(view) {
   narrowTimer = setTimeout(pass, 1500);
 }
 
+// THE PAGES ON THE SCREEN, NOT EVERY PAGE THERE HAS BEEN (2026-11-14, the owner: "if a user flips through pages
+// quickly, they are penalized for doing that because things build up?"). A narrowed screen kept every state any page
+// it had shown ever read: after Energy and Power, Home took every update of their sensors for as long as the page
+// was up. What it keeps now is what is on the screen: the states read by the page shown and the pages a swipe keeps
+// beside it (the host takes down what each card reads: mantel-client.js entry), what is read outside any card and
+// has been lately (the Side Pane, the tab bar, the screensaver: Host.ambientIds), and what is pinned (a pop-up's, a
+// notification's). Looked at again a moment after each page change, and the hub asked only when it differs.
+// A page left is remembered by what it read (pageIds): shown again, its states are asked for first (ensure), so it
+// never draws from what it knew an hour ago.
+const pageIds = new Map();             // a page's path -> the states its view and cards read
+function readsOf(e) {
+  const ids = new Set();
+  for (const el of [e.el].concat(e.cards || [])) if (el && el.__hkReads) for (const id of el.__hkReads) ids.add(id);
+  return ids;
+}
+function wanted() {
+  const w = new Set(pinned);
+  for (const id of host.ambientIds()) w.add(id);
+  for (const e of viewHost.entries()) {
+    const ids = readsOf(e);
+    if (ids.size) pageIds.set(e.path, ids);
+    if (e.shown || e.held) for (const id of ids) w.add(id);
+  }
+  for (const id of w) if (!houseIds.has(id)) w.delete(id);
+  return w;
+}
+let renarrowT = 0;
+function renarrowSoon(ms) {
+  if (!narrowing) return;
+  clearTimeout(renarrowT);
+  renarrowT = setTimeout(renarrow, ms === undefined ? 1500 : ms);
+}
+function renarrow() {
+  if (!narrowed || narrowPending) return;
+  // (not under a finger, or with a page on its way home: the hub's answer is every card looking again)
+  if (window.hkPageSwipe && window.hkPageSwipe.moving && window.hkPageSwipe.moving()) { renarrowSoon(600); return; }
+  const w = wanted();
+  let same = w.size === needed.size;
+  if (same) for (const id of w) if (!needed.has(id)) { same = false; break; }
+  if (same) return;
+  needed.clear();
+  for (const id of w) needed.add(id);
+  window.__mantelNarrow = needed.size;
+  hub.subscribe([...needed], [], false);
+}
+// A PAGE SEEN BEFORE, ABOUT TO BE SHOWN OR MADE READY: the states it read, if the screen has let them go
+async function ensure(path) {
+  if (!narrowed) return;
+  const ids = pageIds.get(path);
+  if (!ids) return;
+  let asked = false;
+  for (const id of ids) if (!needed.has(id) && houseIds.has(id)) { needed.add(id); asked = true; }
+  if (!asked) return;
+  window.__mantelNarrow = needed.size;
+  const got = nextSnapshot();
+  hub.subscribe([...needed], [], false);
+  await Promise.race([got, new Promise((res) => setTimeout(res, 2000))]);
+}
+window.addEventListener('hk-swipe-landed', () => renarrowSoon());
+// (what is read outside any card is let go a quarter of an hour after it was last read: looked at now and then)
+setInterval(() => renarrowSoon(), 5 * 60 * 1000);
+
 const viewHost = window.hkViewHost.create({
   container: document.getElementById('view'),
   config: cfg,
   client: host.client,
   base: '/' + seg,
-  willShow: (view, firstVisit) => (firstVisit ? widen() : null),
+  willShow: (view, firstVisit, path) => (firstVisit ? widen() : ensure(path).then(() => renarrowSoon())),
   // (a page made ready beside this one, for a swipe, was widened for: narrowed again with its states in. A narrowing already
   // on its way takes them too, and isn't put off: the pass reads what every card on the screen has read so far)
   warmed: (view) => { if (!narrowPending) narrowSoon(view); },
@@ -332,6 +401,7 @@ window.hkMantelShell.attach(viewHost);
 viewHost.onView((el, view, config, info) => {
   window.__mantelView = view;
   if (info.first) narrowSoon(view);
+  else renarrowSoon();
 });
 await viewHost.start();
 mark('rendered');

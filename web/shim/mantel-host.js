@@ -85,6 +85,12 @@ const DIFF_FALLBACK_MS = 250;      // a hidden page draws no frames: the hub's d
 const HOLD_MS = 1200, HOLD_STEP_MS = 80;
 // a walk of the house: more ids than this (and than half the house) read for the first time in one go (Host._scanned)
 const SCAN_MIN = 1000;
+// A CARD IS TOLD ONLY WHEN SOMETHING IT READ HAS CHANGED (Host.track / quiet, mantel-client.js entry) -- but every
+// card looks again at least this often while the house is saying anything: what a card shows that no state says (the
+// time, a module's own feed) was picked up at the next update, whatever it was, and still is, this late at most
+const SWEEP_MS = 15000;
+// what is read outside any card is kept this long after it was last read (Host.ambientIds)
+const AMBIENT_MS = 15 * 60 * 1000, AMBIENT_REVS = 20;
 // A FINGER ON THE GLASS, or a page a swipe is moving (hk-pageswipe.js moving()). Fingers are counted as they come down
 // and lift; one whose lift never came (a pointer lost with its element) stops counting FINGER_MS after it came down.
 const FINGER_MS = 4000;
@@ -288,6 +294,21 @@ export class Host {
     // 2026-10-30: "lots of the data seems to just disappear and come back"). home.js keeps these too.
     this.seen = new Set();
     this._burst = null;                     // what one piece of work has read for the first time (_begin)
+    // WHAT CHANGED, AND WHEN (2026-11-14: each update was every card on the screen working out what it shows again,
+    // ~55 ms of the Kitchen's tablet, for the one card that showed the sensor). Every publish has a number (`_rev`);
+    // each state remembers the publish that last changed it (`_revOf`), and `_allRev` is the last publish that may
+    // have changed anything (a registry, a state come or gone, the screens' overlay -- or SWEEP_MS since the last).
+    // A card's reads are taken down while it works (`_readers`: the sets of the cards at work, the innermost last).
+    this._rev = 0;
+    this._revOf = new Map();
+    this._allRev = 0;
+    this._fullAt = 0;
+    this._last = [];                        // the ids the newest publish changed (the common question: quiet since the one before?)
+    this._readers = [];
+    // WHAT IS READ OUTSIDE ANY CARD, and the publish it was last read at (ambientIds): a screen keeps these while
+    // they are being read, whatever page is up, and lets them go once nothing has asked for a good while
+    this.ambient = new Map();
+    this._revTimes = [];                    // [publish, when], a minute apart: how long ago a publish was
     this._house = 0;                        // the most states the house has shown at once (a walk is half of it: _scanOver)
     this.building = false;                  // the strategy's whole-house pass: its reads are no surface's
     // a read of an id the current (narrowed) subscription does not carry: home.js asks the hub for it
@@ -421,6 +442,42 @@ export class Host {
     }
   }
 
+  // THE CARD AT WORK: fn runs with its reads of the states taken down in `set` (mantel-client.js entry)
+  track(set, fn) {
+    this._readers.push(set);
+    try { return fn(); } finally { this._readers.pop(); }
+  }
+  // the publish a snapshot (the object a card is handed) is of
+  revOf(snapshot) { return snapshot && typeof snapshot.__rev === 'number' ? snapshot.__rev : -1; }
+  // NOTHING IN `set` HAS CHANGED since the publish `since`: the card that read it has nothing new to show. Never
+  // while the page's reads are being recorded for narrowing (home.js: every card is to look again), nor since a
+  // publish that may have changed anything (_allRev).
+  quiet(set, since) {
+    if (this.recording || since < 0 || since < this._allRev) return false;
+    if (since >= this._rev) return true;
+    if (since === this._rev - 1) {
+      for (const id of this._last) if (set.has(id)) return false;
+      return true;
+    }
+    const at = this._revOf;
+    for (const id of set) { const r = at.get(id); if (r !== undefined && r > since) return false; }
+    return true;
+  }
+  // a publish that may have changed anything: every card looks again
+  _full() { this._allRev = this._rev; this._fullAt = Date.now(); }
+  // THE STATES READ OUTSIDE ANY CARD, LATELY: within the last AMBIENT_REVS publishes, or the last AMBIENT_MS. Both
+  // must have passed before one is let go: a quiet house publishes little in a quarter of an hour, a busy one a
+  // hundred times a minute, and what reads on a timer of its own (the sky, a screensaver's slide) is neither's.
+  ambientIds() {
+    const now = Date.now(), t = this._revTimes;
+    let old = -1;
+    for (let i = 0; i < t.length && t[i][1] <= now - AMBIENT_MS; i++) old = t[i][0];
+    while (t.length > 1 && t[1][1] <= now - AMBIENT_MS) t.shift();
+    const cut = Math.min(old, this._rev - AMBIENT_REVS), out = [];
+    for (const [id, rev] of this.ambient) { if (rev >= cut) out.push(id); else this.ambient.delete(id); }
+    return out;
+  }
+
   get client() { return window.hkHostClient.from(this.hass); }
   // the current snapshot (the object the adapter makes clients from), by its neutral name
   get snapshot() { return this.hass; }
@@ -441,9 +498,18 @@ export class Host {
           if (k in t && !self.seen.has(k)) { self.seen.add(k); b.seen.push(k); }
           if (b.reads.length + b.seen.length + b.miss.length > self._scanOver()) self._scanned(b);
         }
+        // (the card at work reads it: what it shows depends on it -- one it asked for and didn't get, too)
+        // (...and each card around it that is telling it: a block made and told before it is in its grid)
+        if (typeof k === 'string' && !self.building) {
+          const r = self._readers;
+          if (r.length) for (let i = r.length - 1; i >= 0; i--) r[i].add(k);
+          // (...or no card's: the Side Pane, the tab bar, the screensaver, a card's own timer -- when it last was)
+          else if (!(self._burst && self._burst.scan)) self.ambient.set(k, self._rev);
+        }
         return t[k];
       },
     });
+    this._raw.__rev = this._rev;
     this.hass = this.trace ? this._traced(this._raw, '') : this._raw;
     window.hkMantelClient.setCurrent(this.hass);
   }
@@ -471,12 +537,21 @@ export class Host {
     // a snapshot is the whole house as of now: a diff still waiting for its frame is older than it, and would undo it
     this._diffs.length = 0;
     this._disarm();
-    const next = {};
-    let n = 0;
-    for (const [id, s] of Object.entries(entities)) { next[id] = stateObj(id, s); n += 1; }
+    const next = {}, was = this._states || {}, rev = ++this._rev, last = [];
+    let n = 0, same = true;
+    for (const [id, s] of Object.entries(entities)) {
+      const o = next[id] = stateObj(id, s), w = was[id];
+      n += 1;
+      // (the same states again -- a subscription changed, a socket back -- change only what differs)
+      if (!w) same = false;
+      else if (w.last_updated !== o.last_updated || w.state !== o.state) { this._revOf.set(id, rev); last.push(id); }
+    }
+    if (same) for (const id in was) if (!(id in next)) { same = false; break; }
     if (n > this._house) this._house = n;
     this._states = next;
-    this._publish();
+    this._last = last;
+    if (!same) this._full();
+    this._publish(true);
   }
 
   // UPDATES BATCHED PER FRAME (2026-10-29). Each diff from the hub used to be applied and published at once: a house
@@ -516,10 +591,18 @@ export class Host {
   flushDiffs() {
     this._disarm();
     if (!this._diffs.length) return;
-    const next = Object.assign({}, this._states);
-    for (const m of this._diffs.splice(0)) this._applyOne(next, m);
+    const next = Object.assign({}, this._states), rev = ++this._rev, last = [];
+    let shape = false;
+    for (const m of this._diffs.splice(0)) {
+      this._applyOne(next, m);
+      for (const id in (m.changes || {})) { this._revOf.set(id, rev); last.push(id); }
+      // (a state come or gone: what walks the house finds something else)
+      if ((m.removed && m.removed.length) || (m.added && Object.keys(m.added).length)) shape = true;
+    }
     this._states = next;
-    this._publish();
+    this._last = last;
+    if (shape || Date.now() - this._fullAt >= SWEEP_MS) this._full();
+    this._publish(true);
   }
 
   _applyOne(next, m) {
@@ -547,7 +630,10 @@ export class Host {
     this._publish();
   }
 
-  _publish() {
+  // (`known`: the caller has said what this publish changed -- _revOf, _full; any other may have changed anything)
+  _publish(known) {
+    if (!known) { this._rev += 1; this._last = []; this._full(); }
+    { const t = this._revTimes, now = Date.now(); if (!t.length || now - t[t.length - 1][1] >= 60000) t.push([this._rev, now]); }
     this._merged = Object.keys(this._overlay).length ? Object.assign({}, this._states, this._overlay) : this._states;
     this._raw = Object.assign({}, this._raw);
     this._wrapStates();

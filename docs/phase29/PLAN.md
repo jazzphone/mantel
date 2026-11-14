@@ -385,3 +385,63 @@ What still costs it, for later:
   after next is attached right behind it (another 100-150 ms): nothing moves by then, but a finger waits.
 - **Drawing a frame takes about 20 ms** on this tablet with nothing to paint (2-7 render passes: the lists' fade masks,
   the sky's layers, a page's blurred ground), so 60 frames a second is out of reach before any of the above.
+
+
+## The Kitchen's tablet, the same afternoon (2026-11-14): what a card is told, what a screen keeps, a page's layer
+
+The owner, on reading the morning's list: "States accumulate across pages you've visited ... if a user flips through pages
+quickly, they are penalized for doing that because things build up?" -- and "let's do all of that". Five things, built and
+measured on the tablet the same way.
+
+**1. A card is told only when something it read has changed** (`web/shim/mantel-client.js` `told`, `mantel-host.js`
+`track` / `quiet`; Mantel's adapter only -- HK Frontend in Home Assistant hands every card every update, as before).
+The host takes down the states each card reads while it is told, numbers every publish, and remembers the publish
+that last changed each state. A card whose reads have not changed since the snapshot it was last told with keeps
+the new snapshot and is left alone. A card's reads are also those of every card it tells in turn (a grid, its
+blocks), so a grid is told when any block of it has something new. Everyone looks again when a state comes or
+goes, a registry or the screens' overlay changes, during a narrowing pass, and at least every 15 s while the house
+says anything: what a card shows that no state says (Energy Rings' minute, a module's own feed) was picked up at
+the next update of anything, and still is. An audit on the tablet (every skipped card's signature worked out
+anyway, a minute on Home) found that one card and no other. `?gate=0` tells every card always.
+
+**2. A screen keeps the pages on the screen, not every page there has been** (`web/home.js` `wanted`). What is kept:
+the states read by the page shown and the pages a swipe keeps beside it, what is read outside any card and has been
+lately (the Side Pane, the tab bar, the screensaver: 20 publishes and a quarter of an hour), and what is pinned (a
+pop-up's, a notification's). Looked at again a moment after each page change; the hub is asked only when it
+differs. A page left is remembered by what it read, and asked for again before it is shown or made ready, so it
+never draws from what it knew an hour ago.
+
+**3. The page shown rests in a layer of its own** on the Android wall tablets (`hk-pageswipe.js` `layer`), so a swipe
+draws nothing as it starts or lands. A layer makes a page the box that anything fixed inside it is placed in: every
+card's sheet is on the document's body but the Music page's panels and the Pages screen's ground, and those pages
+(and a view of cards that aren't ours) keep no layer (`FIXED_INSIDE`; `tests/test_fixed_inside.py` holds every
+fixed rule in the web to a place). Not in Edit mode, not in a car's browser, not off Android (a picture fixed to the
+window would be fixed to the page). This replaces the morning's layer kept for 1.5 s.
+
+**4. What each frame still drew.** The tab bar was painted again on every frame of a swipe (its highlight follows
+the finger): the highlight has a layer of its own. A press on a glass tile re-cut the frost on every frame of the
+tile's 0.12 s press and release, and in Pre-rendered the cut-out is the page's whole glass painted again -- a tap
+was twenty of them, and a swipe's first frame waited for the first: it is cut once the press is in and once it is
+out, not at all for a quick tap or a press that becomes a swipe. The lists' fade masks (House Status, the Side
+Pane) were measured and left: two render passes, and no difference in a frame's time with them off. A frame of a
+Home swipe is now drawn in 14-15 ms at the median (it was ~22).
+
+**5. The landing, and a tap.** The page after the one a swipe lands on is put in the slot 300 ms later at a quiet
+moment, not in the landing's next frame. A card attached in a Flat sheet asked for its animations to stop them, and
+that question is the whole document's style worked out again, once a card: a card never drawn has none, and is not
+asked (the Home sheet's tap: 1.9 s of nothing, now a first frame in 0.4-0.7 s, with its cards made a few at a
+time and what it draws worked out at a quiet moment before the tap).
+
+| What | Morning's build | Now |
+|---|---|---|
+| States kept on Home after Energy and Power | 467 | 307 |
+| Script at rest, of the page's one thread | 9 % | 3.4 % |
+| Home to Pages and back: frames a second | 26-38 | 35-41 |
+| ...the worst gap between two frames | 75-110 ms | 46-68 ms |
+| Energy to Power and back: frames a second | 31-34 | 35-37 |
+| The Home block tapped: the first frame after | 1.9 s | 0.4-0.7 s |
+
+Still there: a swipe's first frame is 120-170 ms behind the finger (its first move works out 200-odd elements'
+style, 30 ms, and the page's own cut-out under the finger); a landing is still two rounds of style and layout
+(~100 ms); a page with something fixed inside it, and every page off Android, gets its layer under the finger as
+before; House Status draws itself again for every change of the power it shows (~18 ms each).

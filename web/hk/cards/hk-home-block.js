@@ -84,6 +84,8 @@
     // ---- what the sheet draws: hkStrategy.homeSheet, built again only when what it is built from moves -- the screen, the
     // registries, the settings, the house's entities -- never on a state (a state goes to the cards in place)
     var BUILT = { key: null, regs: null, n: 0, out: null };
+    // the sheet's cards made in the tap that opens it, and each time after (HkHomeSheet._render)
+    var FIRST = 4, FILL = 5;
     function built(client) {
       var S = window.hkStrategy, HS = window.hkSettings;
       if (!S || !S.homeSheet || !client || !client.states) return { home: [], pages: {} };
@@ -309,11 +311,27 @@
             var col = document.createElement('div');
             col.className = 'col';
             var self = this, own = !!this._look && !flatHere();
-            cards.forEach(function (cfg) {
-              var el = C.createCard(own ? unglassed(cfg) : cfg, c);
-              if (el) { col.appendChild(el); self._kids.push(el); }
-            });
-            if (!this._kids.length) {
+            // THE FIRST OF IT AT ONCE, THE REST BEHIND IT (2026-11-14, the Kitchen's tablet: the tap that opens Home
+            // drew nothing for a second and more -- sixty cards of the whole house made and put in, all in the tap).
+            // The top of the sheet is made now -- what shows before anyone scrolls -- and the cards under it a few at a
+            // time, a frame between: the sheet is up at once and fills downward. One made again meanwhile (another
+            // page of it, a setting) drops what was still to come.
+            var turn = this._turn = (this._turn || 0) + 1, at0 = 0;
+            var add = function (n) {
+              for (var end = Math.min(cards.length, at0 + n); at0 < end; at0++) {
+                var el = C.createCard(own ? unglassed(cards[at0]) : cards[at0], self.client || c);
+                if (el) { col.appendChild(el); self._kids.push(el); }
+              }
+            };
+            var more = function () {
+              if (self._turn !== turn || !self.isConnected) return;
+              add(FILL);
+              self._fit();
+              if (at0 < cards.length) setTimeout(more, 0);
+            };
+            add(FIRST);
+            if (at0 < cards.length) setTimeout(more, 0);
+            if (!cards.length) {
               var none = document.createElement('div');
               none.className = 'none';
               none.textContent = 'Nothing here yet.';
@@ -448,6 +466,17 @@
           // the rooms' readings come with hk-grid-cards.js: drawn again once it is here
           var self = this;
           if (!window.hkGridCards && !this._askedGrid) { this._askedGrid = true; need('hk-grid-room-card').then(function () { self.redraw(); }); }
+          // (what the sheet draws worked out at a quiet moment, not in the tap that opens it: a quarter of a second of
+          // the Kitchen's tablet. built() keeps it until the house's makeup moves.)
+          clearTimeout(this._ahead);
+          this._ahead = setTimeout(function () {
+            var go = function () { if (self.isConnected && self.client) { try { built(self.client); } catch (e) { /* made at the tap */ } } };
+            if (typeof requestIdleCallback === 'function') requestIdleCallback(go, { timeout: 2000 }); else go();
+          }, 4000);
+        }
+        disconnectedCallback() {
+          if (super.disconnectedCallback) super.disconnectedCallback();
+          clearTimeout(this._ahead);
         }
         _sigOf() {
           var size = this._size(), base = size === 'S' && this.getAttribute('tile') === 'centred' ? 'hb:S' : super._sigOf(), c = this.client;

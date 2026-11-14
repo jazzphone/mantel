@@ -197,8 +197,13 @@
       var own = !!key && (!el._hkNested || !!el._hkFlatKind);
       if (el._hkFlatTone === key && el._hkFlatOwn === own) return;
       var wasFlat = !!el._hkFlatTone && el._hkFlatOwn;
+      // (a card toned for the first time has drawn nothing that could be moving: asking for its animations made the
+      // browser work out the whole document's style again, once for each card put in -- a Flat sheet of sixty tiles
+      // was 1.1 s of it inside the tap that opened it, on the Kitchen's tablet, 2026-11-14. Only a card that was
+      // drawn in another look has anything to stop.)
+      var drawn = el._hkFlatTone !== undefined;
       el._hkFlatOwn = own;
-      if (key && el.getAnimations && !(el.constructor && el.constructor.FLAT_MOTION)) {
+      if (key && drawn && el.getAnimations && !(el.constructor && el.constructor.FLAT_MOTION)) {
         el.getAnimations({ subtree: true }).forEach(function (a) { try { a.cancel(); } catch (e) { /* already ended */ } });
       }
       if (key && el._progAnim) { try { el._progAnim.cancel(); } catch (e) {} el._progAnim = null; }

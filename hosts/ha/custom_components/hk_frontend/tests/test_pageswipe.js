@@ -424,19 +424,25 @@ ok('...and the page it left is its neighbor now, not gone', made.lights.parentNo
 ok('...the page it landed on wears the root\'s look, the one it left its own', !made.climate.style.getPropertyValue('--hk-glass-plate') &&
    made.lights.style.getPropertyValue('--hk-glass-plate') === 'bright', [made.climate.style.getPropertyValue('--hk-glass-plate'), made.lights.style.getPropertyValue('--hk-glass-plate')]);
 ok('...the swipe is over', !P._.state().A && !P._.state().G && !P._.state().L);
-// THE PAGE SHOWN KEEPS ITS LAYER A MOMENT (2026-11-14, the Kitchen's tablet: giving it up is the whole page drawn again
-// as it lands, and the next flick's first move its layer drawn again). Not for good: a layer makes the page the box its
-// cards' sheets are fixed in -- so it goes at a quiet moment, and at once at a tap.
-ok('the page it landed on keeps the layer it came in on, for a moment', made.climate.style.getPropertyValue('will-change') === 'transform');
+// THE PAGE SHOWN KEEPS A LAYER OF ITS OWN AT REST, ON THE WALL TABLETS (2026-11-14, the Kitchen's: given one only under
+// a finger and giving it up as it landed, the whole page was drawn again twice a swipe). A layer makes the page the box
+// that anything fixed inside it is placed in: so not a page with something fixed in it, not a car's browser, and only
+// on Android, where Pre-rendered glass places its picture by hand.
+ok('off the wall tablets the page it landed on rests as it always did, in no layer', !made.climate.style.getPropertyValue('will-change'));
 ok('...the page it left keeps its own, waiting beside it', made.lights.style.getPropertyValue('will-change') === 'transform');
-fire('pointerdown', ev(600, 400, path(made.climate)));
-ok('...a finger coming down leaves it (it may be the next flick)', made.climate.style.getPropertyValue('will-change') === 'transform');
-fire('pointerup', ev(600, 400, path(made.climate)));
-ok('...a tap gives it back at once: what it opens is laid out on a page with no layer', !made.climate.style.getPropertyValue('will-change') &&
-   made.lights.style.getPropertyValue('will-change') === 'transform');
+var navWas = typeof navigator === 'undefined' ? undefined : navigator;
+globalThis.navigator = { userAgent: 'Mozilla/5.0 (Linux; Android 16; wv) Chrome/140' };
+// (a page as the walk sees it: its tag, its first child, each child's next)
+var page = function (tag, kid) { return { localName: tag, style: {}, firstElementChild: kid ? { localName: kid, firstElementChild: null, nextElementSibling: null } : null }; };
+var plain = page('hk-grid-view', 'hk-tile-card'), music = page('hk-grid-view', 'hk-music-card'), pages = page('hk-grid-view', 'hk-pages-screen-card');
+var other = page('hk-view-fallback');
+ok('on an Android wall tablet a page may rest in a layer', P._.restOk(plain) === true);
+ok('...but not the Music page (its panels are fixed in the card), the Pages screen (its ground is fixed to the window)', P._.restOk(music) === false &&
+   P._.restOk(pages) === false);
+ok('...nor a view of cards that aren\'t ours', P._.restOk(other) === false);
+if (navWas === undefined) delete globalThis.navigator; else globalThis.navigator = navWas;
 run();
 drainPromises();
-ok('...and a quiet moment later it is still the page\'s own', !made.climate.style.getPropertyValue('will-change'));
 P.plan();
 drainPromises();
 delete window.hkSettings.lookAt;
