@@ -66,6 +66,21 @@ def test_commands_and_their_values_are_a_closed_list():
         {"version": "0.1.1", "battery": 82.0, "screen": True}
 
 
+def test_graphics_commands_are_closed_too():
+    """How the tablet draws (the app's Graphics.kt): the renderer, the resolution, and the pairing of its own adb."""
+    assert T.checked("renderer", "opengl") == ("renderer", "opengl") and T.checked("renderer", "default") == ("renderer", "default")
+    assert T.checked("renderer", "vulkan") is None and T.checked("renderer", True) is None
+    assert [T.checked("render_size", v) for v in (100, 83, 67)] == [("render_size", 100), ("render_size", 83), ("render_size", 67)]
+    assert T.checked("render_size", 50) is None and T.checked("render_size", True) is None and T.checked("render_size", "83") is None
+    assert T.checked("adb_pair", {"port": 37123, "code": "482913"}) == ("adb_pair", {"port": 37123, "code": "482913"})
+    for bad in ({"port": 37123, "code": "4829"}, {"port": 0, "code": "482913"}, {"port": "37123", "code": "482913"},
+                {"port": 37123, "code": "482913", "extra": 1}, {"port": True, "code": "482913"}, "482913", None):
+        assert T.checked("adb_pair", bad) is None, bad
+    assert "renderer" not in T.COPYABLE and "render_size" not in T.COPYABLE   # each tablet's own
+    st = T._clean({"renderer": "opengl", "renderer_now": "default", "render_size": 83, "adb_paired": True, "junk": 1})
+    assert st == {"renderer": "opengl", "renderer_now": "default", "render_size": 83, "adb_paired": True}
+
+
 async def test_the_tablet_reports_and_an_owner_reads_it(mantel):
     did = await paired_tablet(mantel)
     ws = await mantel.client.ws_connect("/ws")
