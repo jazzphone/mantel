@@ -3,7 +3,8 @@
 ma-airplay-groups is an add-on to Music Assistant that plays one group to several HomePods. Its server serves a
 read-only status page for the home network (``http://<host>:54398/``) and the same facts as ``GET /status.json``:
 ``version``, ``uptime``, ``addon`` (active, reason, addon_version, cli_version, ma_version, seen), ``speakers`` (name,
-online, available, state, group, asks_password, password_stored, locked_out, needs_setup, monitoring_off, ip),
+online, available, state, group, asks_password, password_stored, locked_out, needs_setup (null, or what it needs:
+"password_required", "pairing_required"), monitoring_off, ip),
 ``groups`` and ``alerts`` (active, recent: {at, title, active}). It takes no token. The page also has a box that
 stores an AirPlay password; Mantel never uses it, and only ever reads ``/status.json``.
 
@@ -37,7 +38,8 @@ def _text(v: Any) -> str | None:
 def _names(speakers: list, flag: str) -> list[str]:
     out = []
     for s in speakers:
-        if isinstance(s, Mapping) and s.get(flag) is True:
+        # (locked_out is true or false; needs_setup is null or what it needs: "password_required", "pairing_required")
+        if isinstance(s, Mapping) and (s.get(flag) is True or (isinstance(s.get(flag), str) and s.get(flag).strip())):
             name = _text(s.get("name")) or _text(s.get("ip")) or "A speaker"
             if name not in out:
                 out.append(name)

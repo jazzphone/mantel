@@ -30,15 +30,17 @@ def test_a_healthy_page_reads_as_the_row_shows_it():
 
 def test_what_is_wrong_is_named():
     body = page(speakers=[speaker("Den HomePod", locked_out=True), speaker("Porch HomePod", online=False),
-                          speaker("Studio HomePod", locked_out=True, needs_setup=True), "junk", {"name": None, "locked_out": True}],
+                          speaker("Studio HomePod", locked_out=True, needs_setup="password_required"),
+                          speaker("Kitchen HomeView", needs_setup="pairing_required", paired=False), speaker("Garage HomePod", needs_setup=""),
+                          "junk", {"name": None, "locked_out": True}],
                 addon={"active": False, "reason": "Music Assistant isn't running", "addon_version": "0.2.15"},
                 groups=[{"names": ["Den HomePod", "Porch HomePod"], "playing": True}],
                 alerts={"active": [{"at": 1, "title": "Den HomePod is locked out", "active": True}, {"title": "Den HomePod is locked out"}, "x"],
                         "recent": []})
     got = AG.read(body)
     assert got["addon"]["on"] is False and got["addon"]["reason"] == "Music Assistant isn't running"
-    assert got["speakers"] == 4 and got["online"] == 2 and got["groups"] == 1
-    assert got["locked_out"] == ["A speaker", "Den HomePod", "Studio HomePod"] and got["needs_setup"] == ["Studio HomePod"]
+    assert got["speakers"] == 6 and got["online"] == 4 and got["groups"] == 1
+    assert got["locked_out"] == ["A speaker", "Den HomePod", "Studio HomePod"] and got["needs_setup"] == ["Kitchen HomeView", "Studio HomePod"]
     assert got["alerts"] == ["Den HomePod is locked out"]
     assert not AG.healthy(got)
     assert AG.locked_out(got) == "A speaker, Den HomePod and Studio HomePod"
