@@ -346,16 +346,20 @@ const SECTIONS = {
     const order = await t.page.evaluate(() => hkPageSwipe.order().map(i=>i.path));
     const sample = () => t.page.evaluate(() => {
       const s=hkPageSwipe._.state(),d=document.querySelector('hk-side-pane[mode=dash]'),bar=document.getElementById('hk-tabbar'),row=bar?.shadowRoot?.querySelector('.row');
-      // (the pane's plate is what fades: hk-sidepane.js plate())
+      // (THE PANE GOES WITH ITS PAGE, 2026-11-14 -- it faded with the finger before: where the page is, as far as a page
+      // and its pane travel together (the swipe's span), is where the pane is; its plate never fades)
       const pl=d&&(d.shadowRoot&&d.shadowRoot.querySelector('.pane')||d),cs=pl&&getComputedStyle(pl),bcs=row&&getComputedStyle(row);
-      return {p:s.ST?Math.abs(__m.view().getBoundingClientRect().left-s.ST.rect.left)/s.ST.rect.width:0,opacity:cs?+cs.opacity:1,side:d?.getAttribute('side'),w:d?.getBoundingClientRect().width||0,
+      const dx=s.ST?__m.view().getBoundingClientRect().left-s.ST.rect.left:0,N=s.ST&&s.ST.nb?s.ST.nb[dx<0?1:-1]:null,span=s.ST?((N&&N.span)||s.ST.rect.width):1;
+      const tr=d?getComputedStyle(d).transform:'none';
+      return {p:s.ST?Math.abs(dx)/span:0,dx,span,paneX:tr&&tr!=='none'?new DOMMatrixReadOnly(tr).m41:0,opacity:cs?+cs.opacity:1,side:d?.getAttribute('side'),w:d?.getBoundingClientRect().width||0,
         shift:bcs?parseFloat(bcs.translate)||0:0,curve:s.A?.ms,paneMs:cs?.transitionDuration,barMs:bcs?.transitionDuration,hash:location.hash,docked:!!(window.hkPopup&&hkPopup.docked(location.hash))};
     });
     const run = async (dir, name, leaving) => {
       const a=await spot(t,dir);await down(t,a.x,a.y);await move(t,a.x+W*.28*dir,a.y);await sleep(90);
       const drag=await sample();
       if(drag.w>0 && drag.side!=='band') {
-        const want=leaving?1-drag.p:drag.p;assert(Math.abs(drag.opacity-want)<.06,name+': pane stays with finger '+JSON.stringify(drag));
+        const want=leaving?drag.dx:drag.dx-Math.sign(drag.dx)*drag.span;
+        assert(Math.abs(drag.paneX-want)<3 && drag.opacity===1,name+': pane stays with its page under the finger '+JSON.stringify(drag));
         assert(Math.abs(Math.abs(drag.shift)-drag.p*drag.w/2)<3,name+': navbar stays with finger '+JSON.stringify(drag));
       }
       await up(t,a.x+W*.28*dir,a.y);
@@ -363,7 +367,10 @@ const SECTIONS = {
       if(drag.w>0 && drag.side!=='band') {
         const moving=frames.filter(f=>f.curve&&f.p>.02&&f.p<.98);
         assert(moving.length>0,name+': sampled the shared release');
-        for(const f of moving) {const want=leaving?1-f.p:f.p;assert(Math.abs(f.opacity-want)<.12,name+': pane and page share release curve '+JSON.stringify(f));}
+        for(const f of moving) {
+          const want=leaving?f.dx:f.dx-Math.sign(f.dx)*f.span;
+          assert(Math.abs(f.paneX-want)<.12*f.span && f.opacity===1,name+': pane and page share release curve '+JSON.stringify(f));
+        }
       }
       await sleep(950);isClean(await rest(t),name);
       return drag;

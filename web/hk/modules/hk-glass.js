@@ -892,6 +892,10 @@
       if (inFade(el)) return;
       var r = el.getBoundingClientRect();
       if (!r.width || !r.height) return;
+      // CARRIED WITH A PAGE (the Side Pane in a page swipe, hk-sidepane.js: `_hkCarry`, how far it is from its place):
+      // it wears the slice of its place, and takes it along -- cut again where it stood at each frame of the swipe,
+      // the pane was painted again at each (6-21 ms a frame on the Kitchen's tablet, 2026-11-14)
+      if (typeof el._hkCarry === 'number') r = { left: r.left - el._hkCarry, top: r.top, width: r.width, height: r.height };
       var z = zoomOf(el), at = placeOf(r, W, H), bg = tint + ', ' + sliceOf(pre.url, at[0], at[1], W, H, z);
       if (el._hkPin === bg) return;
       var from = el._hkPin && el._hkPinUrl ? sliceOf(el._hkPinUrl, el._hkPinPos[0], el._hkPinPos[1], W, H, z) : '';
