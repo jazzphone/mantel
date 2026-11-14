@@ -519,10 +519,10 @@
     }
     layer._hkOverlay = overContent(layer);
     // (a frost picture placed by hand follows its scroller: a pager's track paging, a row scrolled sideways)
-    if (anchor !== DOC && typeof anchor.addEventListener === 'function') {
+    if (typeof anchor.addEventListener === 'function' || anchor === DOC) {
       var placing = 0;
-      anchor.addEventListener('scroll', function () {
-        if (!FROST || placing) return;
+      (anchor === DOC ? window : anchor).addEventListener('scroll', function () {
+        if (!(FROST || BY_HAND) || placing) return;
         placing = requestAnimationFrame(function () { placing = 0; if (layer.isConnected) frostPlaceAll(layer); });
       }, { passive: true });
     }
@@ -621,10 +621,15 @@
     }
     return null;
   }
+  // ...AND ALWAYS ON ANDROID (2026-11-14, the owner: "the blur behind the security card"): Android's WebView draws a fixed
+  // background inside a clip-path by tiles, and on the Kitchen's tablet a block of the Home Grid's gaps showed the picture
+  // where the sharp wallpaper belongs -- a hard-edged box over the grid. Placed by hand it is a plain background, cut to
+  // the cards like the rest (the gaps then matched live glass: 6,125 differing pixels to 350, the clock's).
+  var BY_HAND = typeof navigator !== 'undefined' && /Android/.test(navigator.userAgent || '');
   function frostPlace(d) {
     var L = d.parentNode;
     if (!L || L.nodeType !== 1 || d.style.position === 'fixed') return;
-    if (!transformedAbove(L)) {
+    if (!BY_HAND && !transformedAbove(L)) {
       if (d.__hkPlaced) { d.__hkPlaced = false; d.style.backgroundAttachment = 'fixed'; d.style.backgroundPosition = '0 0';
                           d.style.backgroundSize = 'var(--hk-vw,100vw) var(--hk-vh,100vh)'; }
       return;
@@ -705,7 +710,7 @@
     if (L._hkOverlay && !FROST) return;
     var m = alongOf(L);
     if (!m) L._hkNoPic = false;
-    if (FROST && !m) frostPlaceAll(L);
+    if ((FROST || BY_HAND) && !m) frostPlaceAll(L);
     if (L._hkPre) { if (!lined(L._hkPre)) { L._hkNoPic = true; preUndress(L); } }
     else if (!L._hkNoPic) preDress(L);
   }
@@ -790,7 +795,7 @@
       }
       // (the one it wore before, still fading out under it after a repaint, too)
       Array.prototype.forEach.call(L.querySelectorAll('[data-hk-pre]'), function (img) { shiftPic(img, m); });
-      if (!m && FROST) frostPlaceAll(L);
+      if (!m && (FROST || BY_HAND)) frostPlaceAll(L);
     });
   }
 
