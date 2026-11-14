@@ -473,12 +473,36 @@
     GATED.told += 1;
     if (!reads) reads = el.__hkReads = new Set();
     var had = reads.size;
-    try { H.track(reads, function () { el._onClient(c); }); }
+    // (MADE AND TOLD BEFORE IT IS PUT ANYWHERE -- every card of a page, as the page is built: where it is a moment
+    // later says which it is. Counted at once as read outside any card, a page's states were kept a quarter of an
+    // hour after the page was left: 1,252 states after a walk through the Loft's 43 pages, 2026-11-14.)
+    var out = !paged(el);
+    if (out && el.isConnected === false) { out = false; where(el); }
+    try { H.track(reads, function () { el._onClient(c); }, out); }
     finally {
       el.__hkRev = rev;
       // (what it read, the cards around it read: one of them told is this one told)
       if (reads.size !== had) up(el, reads);
     }
+  }
+  // A CARD IN A PAGE (the host's views: hkShell.viewTags) is kept for by its page (home.js wanted). One in none -- a
+  // sheet's, a pop-up's, one made and told before it is put anywhere -- is kept for as what is read outside any card.
+  function paged(el) {
+    if (el.__hkPaged) return true;
+    var S = global.hkShell, tags = (S && S.viewTags) || [];
+    for (var n = el, i = 0; n && i < 64; n = n.parentNode || n.host, i++) {
+      if (n.localName && tags.indexOf(n.localName) >= 0) { el.__hkPaged = true; return true; }
+    }
+    return false;
+  }
+  var WHERE_MS = 400;
+  function where(el) {
+    if (el.__hkWhere) return;
+    el.__hkWhere = setTimeout(function () {
+      el.__hkWhere = 0;
+      var H = global.__mantel;
+      if (!paged(el) && el.__hkReads && H && typeof H.outside === 'function') H.outside(el.__hkReads);
+    }, WHERE_MS);
   }
   function up(el, reads) {
     for (var n = el.parentNode || el.host, i = 0; n && i < 64; n = n.parentNode || n.host, i++) {
@@ -499,7 +523,7 @@
         var el = this, a = arguments, H = global.__mantel;
         if (!H || typeof H.track !== 'function') return rd.apply(el, a);
         var reads = el.__hkReads || (el.__hkReads = new Set()), had = reads.size;
-        try { return H.track(reads, function () { return rd.apply(el, a); }); }
+        try { return H.track(reads, function () { return rd.apply(el, a); }, !paged(el)); }
         finally { if (reads.size !== had) up(el, reads); }
       };
       tracked.__hkTracked = true;

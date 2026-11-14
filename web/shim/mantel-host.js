@@ -305,6 +305,7 @@ export class Host {
     this._fullAt = 0;
     this._last = [];                        // the ids the newest publish changed (the common question: quiet since the one before?)
     this._readers = [];
+    this._outside = 0;                      // cards at work that are in no page (track)
     // WHAT IS READ OUTSIDE ANY CARD, and the publish it was last read at (ambientIds): a screen keeps these while
     // they are being read, whatever page is up, and lets them go once nothing has asked for a good while
     this.ambient = new Map();
@@ -431,6 +432,14 @@ export class Host {
     b.scan = true;
     for (const k of b.reads) this.reads.delete(k);
     for (const k of b.seen) this.seen.delete(k);
+    // (...nor any card's, nor "read outside any card": what the walk read up to here was taken down as both -- the
+    // first 2,283 states of a walk, kept by the Kitchen's screen from the first page it had not seen, 2026-11-14)
+    for (const list of [b.reads, b.seen, b.miss]) {
+      for (const k of list) {
+        this.ambient.delete(k);
+        for (const set of this._readers) set.delete(k);
+      }
+    }
     if (b.miss.length && this.onScan) this.onScan(b.miss);
     if (!this._scanSaid) {
       this._scanSaid = true;
@@ -443,9 +452,12 @@ export class Host {
   }
 
   // THE CARD AT WORK: fn runs with its reads of the states taken down in `set` (mantel-client.js entry)
-  track(set, fn) {
+  // (`outside`: a card that is in no page -- a sheet's, a pop-up's: its reads are also "read outside any card", which
+  // a screen keeps whatever page is up: ambientIds)
+  track(set, fn, outside) {
     this._readers.push(set);
-    try { return fn(); } finally { this._readers.pop(); }
+    if (outside) this._outside += 1;
+    try { return fn(); } finally { this._readers.pop(); if (outside) this._outside -= 1; }
   }
   // the publish a snapshot (the object a card is handed) is of
   revOf(snapshot) { return snapshot && typeof snapshot.__rev === 'number' ? snapshot.__rev : -1; }
@@ -468,6 +480,8 @@ export class Host {
   // THE STATES READ OUTSIDE ANY CARD, LATELY: within the last AMBIENT_REVS publishes, or the last AMBIENT_MS. Both
   // must have passed before one is let go: a quiet house publishes little in a quarter of an hour, a busy one a
   // hundred times a minute, and what reads on a timer of its own (the sky, a screensaver's slide) is neither's.
+  // (what a card in no page has read, found out a moment after it was told: mantel-client.js told)
+  outside(ids) { for (const k of ids) this.ambient.set(k, this._rev); }
   ambientIds() {
     const now = Date.now(), t = this._revTimes;
     let old = -1;
@@ -500,11 +514,12 @@ export class Host {
         }
         // (the card at work reads it: what it shows depends on it -- one it asked for and didn't get, too)
         // (...and each card around it that is telling it: a block made and told before it is in its grid)
-        if (typeof k === 'string' && !self.building) {
+        if (typeof k === 'string' && !self.building && !(self._burst && self._burst.scan)) {
           const r = self._readers;
           if (r.length) for (let i = r.length - 1; i >= 0; i--) r[i].add(k);
-          // (...or no card's: the Side Pane, the tab bar, the screensaver, a card's own timer -- when it last was)
-          else if (!(self._burst && self._burst.scan)) self.ambient.set(k, self._rev);
+          // (...or no card's: the Side Pane, the tab bar, the screensaver, a card's own timer -- when it last was;
+          // and a card's that is in no page)
+          if (!r.length || self._outside) self.ambient.set(k, self._rev);
         }
         return t[k];
       },

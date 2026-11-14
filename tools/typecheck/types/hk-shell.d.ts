@@ -85,6 +85,9 @@ interface HkShellMethods {
   kioskAppName(id: string): string | null;
   /** Runs `fn`; its reads of the client's states (a whole-house discovery scan) are no screen's need. */
   unrecorded<T>(fn: () => T): T;
+  /** The whole house's states are here (true), or will be (a promise): a host that keeps only what a screen reads
+   *  fetches the rest. `ids`: what the asker drew the last time it had the whole house -- enough to bring those. */
+  wholeHouse(ids?: string[]): true | Promise<boolean>;
   tabletRoom(client?: HKClient | null): string | null;
   atTablet(client?: HKClient | null): boolean;
   /** The tablet app's sky player (phase 29), or null where nothing can draw the sky (Home Assistant: none). */
@@ -131,7 +134,8 @@ type HkShellHaOnly =
 // Mantel only (Home Assistant is the product these answers are about, or needs none).
 type HkShellMantelOnly =
   'haNav' | 'haNavigate' | 'openHaMenu' | 'hostMenu' | 'hostPage' | 'settingsHost' | 'serviceUrl' | 'photoSource' | 'listPhotos' |
-  'artSized' | 'productName' | 'settingsName' | 'haPlace' | 'haName' | 'docsUrl' | 'notHouseCameraPlatforms' | 'kioskAppName' | 'unrecorded';
+  'artSized' | 'productName' | 'settingsName' | 'haPlace' | 'haName' | 'docsUrl' | 'notHouseCameraPlatforms' | 'kioskAppName' | 'unrecorded' |
+  'wholeHouse';
 // Neither: only the facade's default (settingsName() → path) answers.
 type HkShellNeither = 'settingsPlace' | 'screensaverEditor';
 

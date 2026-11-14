@@ -156,6 +156,9 @@ def test_a_walk_of_the_whole_house_is_not_kept_for_the_screen(observed):
     w = observed["walk"]
     assert w["page"] == 1400                                   # a big page's reads, under half the house: kept
     assert w["walk"] == 1400 and w["warned"] == 1              # the walk added nothing, and the console said so
+    # ...nor to the card that walked, nor to what is read outside any card: only the 1,400 the page had read before
+    # (the first 2,283 states of a walk were kept as both -- the Kitchen's screen, 2026-11-14)
+    assert w["walker"] == 1400 and w["ambient"] == 1400
     assert w["after"] is True                                  # one of them read afterwards is the screen's
     assert w["recorded"] == 0                                  # the same in a recorded pass
     assert w["misses"] == 2                                    # narrowed: a card's own misses are asked for...
@@ -184,3 +187,7 @@ def test_what_no_card_reads_is_kept_while_it_is_being_read(observed):
     for as long as it is being read: let go 20 publishes and a quarter of an hour after it last was (home.js wanted)."""
     g = observed["gate"]
     assert g["ambient"] is True and g["ambientGone"] is True
+    # ...and what a card in no page reads (a sheet's, a pop-up's) is kept the same way: no page keeps it
+    assert g["outside"] is True
+    # (a card made and told before it is put anywhere is judged a moment later: mantel-client.js where)
+    assert g["later"] is True

@@ -83,19 +83,43 @@
 
     // ---- what the sheet draws: hkStrategy.homeSheet, built again only when what it is built from moves -- the screen, the
     // registries, the settings, the house's entities -- never on a state (a state goes to the cards in place)
-    var BUILT = { key: null, regs: null, n: 0, out: null };
+    var BUILT = { key: null, regs: null, n: 0, out: null, count: 0, whole: null, ids: null };
     // the sheet's cards made in the tap that opens it, and each time after (HkHomeSheet._render)
     var FIRST = 4, FILL = 5;
+    // the sheet waits this long at most for the whole house before it draws from what is at hand (HkHomeSheet)
+    var WHOLE_MS = 1500;
+    // (what it is built from, but the states: the screen, the registries, the settings)
+    function keyOf(client) {
+      var HS = window.hkSettings, regs = [client.entities, client.devices, client.areas];
+      if (!BUILT.regs || regs.some(function (r, i) { return r !== BUILT.regs[i]; })) { BUILT.regs = regs; BUILT.n++; }
+      return dash() + '|' + BUILT.n + '|' + (HS ? HS.version : '');
+    }
+    // every state a build names (an entity id anywhere in it)
+    function idsOf(out) {
+      var seen = {}, ids = [];
+      (function walk(v) {
+        if (typeof v === 'string') { if (!seen[v] && /^[a-z_]+\.[a-z0-9_]+$/.test(v)) { seen[v] = 1; ids.push(v); } }
+        else if (v && typeof v === 'object') Object.keys(v).forEach(function (k) { walk(v[k]); });
+      })(out);
+      return ids;
+    }
     function built(client) {
       var S = window.hkStrategy, HS = window.hkSettings;
       if (!S || !S.homeSheet || !client || !client.states) return { home: [], pages: {} };
-      var regs = [client.entities, client.devices, client.areas];
-      if (!BUILT.regs || regs.some(function (r, i) { return r !== BUILT.regs[i]; })) { BUILT.regs = regs; BUILT.n++; }
-      var key = dash() + '|' + BUILT.n + '|' + (HS ? HS.version : '') + '|' + nStates(client.states);
-      if (BUILT.out && BUILT.key === key) return BUILT.out;
-      var out;
-      try { out = S.homeSheet(client) || { home: [], pages: {} }; } catch (e) { console.error('[hk-home-block] the Home sheet:', e); out = { home: [], pages: {} }; }
+      // (...and never from fewer states than it was built from: a host that keeps only what a screen reads has the
+      // whole house only while the sheet asks for it -- hkShell.wholeHouse, below -- and what it drew then stands when
+      // the rest has gone again. Built from a narrowed screen's states it was 19 cards of the house's 28, 2026-11-14.)
+      var key = keyOf(client), count = nStates(client.states);
+      if (BUILT.out && BUILT.key === key && count <= BUILT.count) return BUILT.out;
+      var out, SH = window.hkShell;
+      // (a walk of every room's accessories: no screen's need -- hkShell.unrecorded; the cards it makes read their own)
+      var walk = function () { return S.homeSheet(client) || { home: [], pages: {} }; };
+      try { out = SH && typeof SH.unrecorded === 'function' ? SH.unrecorded(walk) : walk(); }
+      catch (e) { console.error('[hk-home-block] the Home sheet:', e); out = null; }
+      // (the shell answers nothing for a walk that threw)
+      if (!out || !out.pages) out = { home: [], pages: {} };
       BUILT.key = key;
+      BUILT.count = count;
       BUILT.out = out;
       return out;
     }
@@ -279,6 +303,8 @@
       }
       disconnectedCallback() {
         super.disconnectedCallback();
+        this._asked = false;              // (opened again: the whole house asked for again)
+        this._wait = false;
         if (this._ro) { this._ro.disconnect(); this._ro = null; }
         if (this._esc) { document.removeEventListener('keydown', this._esc); this._esc = null; }
       }
@@ -294,10 +320,35 @@
         this.style.setProperty('--hk-room-w', (n * RS.pill + (n - 1) * RS.gap) + 'px');
       }
       _sigOf() { return null; }
+      // THE WHOLE HOUSE, for what the sheet draws (built, above): asked of the host before the sheet first draws, and the
+      // sheet draws its cards once it is at hand -- a moment, on a host that keeps only what a screen reads (the
+      // sheet's frame is up meanwhile; WHOLE_MS at most), and at once on one that has it all (it answers true, no
+      // promise). Drawn from what a narrowed screen had, it was 19 cards of the house's 28.
+      // ...ONCE: what it drew with the whole house at hand stands until the house's makeup moves (built's key), and at
+      // every opening after that it asks only for the states of what it drew (BUILT.ids) -- the whole house is
+      // thousands of states read and every card looking again, over a second of the Kitchen's tablet.
+      _askWhole() {
+        var SH = window.hkShell, asked = null, self = this, c = this.client;
+        var key = c ? keyOf(c) : null, had = !!key && BUILT.whole === key && BUILT.key === key && !!BUILT.ids;
+        if (SH && typeof SH.wholeHouse === 'function') { try { asked = had ? SH.wholeHouse(BUILT.ids) : SH.wholeHouse(); } catch (e) { asked = null; } }
+        var whole = function () { if (!had && self.client) { built(self.client); BUILT.whole = BUILT.key; BUILT.ids = idsOf(BUILT.out); } };
+        if (!asked || typeof asked.then !== 'function') { if (asked === true) whole(); return; }
+        var turn = this._whole = (this._whole || 0) + 1, go = function (ok) {
+          if (self._whole !== turn || !self._wait) return;
+          self._wait = false;
+          if (ok === true) whole();
+          if (self.client) self.redraw();
+        };
+        this._wait = true;
+        asked.then(go, function () { go(false); });
+        setTimeout(function () { go(false); }, WHOLE_MS);
+      }
       _render() {
         var c = this.client;
         if (!c) return;
-        var b = built(c), at = this._place(), key = BUILT.key + '|' + at;
+        if (!this._asked) { this._asked = true; this._askWhole(); }
+        if (this._wait) return;
+        var b = built(c), at = this._place(), key = BUILT.key + '|' + BUILT.count + '|' + at;
         if (!this._built || key !== this._key) {
           var cards = at === 'home' ? b.home : b.pages[at].cards, sig = at + '|' + JSON.stringify(cards);
           this._key = key;

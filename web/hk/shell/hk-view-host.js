@@ -1621,7 +1621,7 @@
       entries: function () {
         return Object.keys(cache).map(function (k) {
           var e = cache[k];
-          return { path: e.path, el: e.el, cards: e.cards.slice(), shown: e === cur, held: held.indexOf(e) >= 0 };
+          return { path: e.path, index: Number(k), el: e.el, cards: e.cards.slice(), shown: e === cur, held: held.indexOf(e) >= 0 };
         });
       },
       // ...and whether the page an address means is one of them (find(): a path, a view's number, '' for the first --
