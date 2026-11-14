@@ -950,3 +950,55 @@ def test_the_clients_playlists_carry_a_cover_where_there_is_one(cfg):
     assert decades["image"] == "/ma/imageproxy/dd", "the choices' pill: its first choice that has a picture"
     assert decades["options"] == [{"name": "1980s", "key": "pl_80s", "uris": ["library://playlist/148"]},
                                   {"name": "1990s", "key": "pl_90s", "uris": ["library://playlist/155"], "image": "/ma/imageproxy/dd"}]
+
+
+def test_a_join_leaves_out_the_players_that_are_gone():
+    """2026-11-14: a HomePod Music Assistant had taken out (locked out of pairing) was still asked to join, and Mantel
+    waited for it, then broke the group up. A gone player is left out; the leader never is (one that is gone still fails)."""
+    from hk_core.music import engine as E
+
+    class St:
+        def __init__(self, state):
+            self.state, self.attributes = state, {}
+
+    class House:
+        def __init__(self, states):
+            self.states = states
+
+        def state(self, entity):
+            s = self.states.get(entity)
+            return St(s) if s else None
+
+    house = House({"media_player.a": "idle", "media_player.b": "unavailable", "media_player.c": "playing",
+                   "media_player.d": "unknown", "media_player.lead": "unavailable"})
+    players = ["media_player.lead", "media_player.a", "media_player.b", "media_player.c", "media_player.d", "media_player.e"]
+    assert E.left_out(house, players, "media_player.lead") == ["media_player.b", "media_player.d", "media_player.e"]
+    assert E.left_out(house, ["media_player.a", "media_player.c"], "media_player.a") == []
+
+
+def test_a_pick_of_several_rooms_plays_in_the_rooms_that_are_there():
+    """2026-11-14 (the owner): one speaker should not stop the others. A gone room is left out of a pick of several and
+    named; one room alone, every room gone, or a name that isn't a room is left to validate's refusal."""
+    from hk_core.music import engine as E
+
+    class St:
+        def __init__(self, state):
+            self.state, self.attributes = state, {}
+
+    class House:
+        def __init__(self, states):
+            self.states = states
+
+        def state(self, entity):
+            s = self.states.get(entity)
+            return St(s) if s else None
+
+    class Cfg:
+        room_ids = {"media_player.a", "media_player.b", "media_player.c"}
+
+    house = House({"media_player.a": "idle", "media_player.b": "unavailable", "media_player.c": "playing"})
+    a, b, c = "media_player.a", "media_player.b", "media_player.c"
+    assert E.drop_gone(house, Cfg, [a, b, c]) == ([a, c], [b])
+    assert E.drop_gone(house, Cfg, [b]) == ([b], [])                           # alone: validate says why
+    assert E.drop_gone(house, Cfg, [b, b]) == ([b, b], [])                      # every room gone
+    assert E.drop_gone(house, Cfg, [a, "media_player.nope"]) == ([a, "media_player.nope"], [])  # not a room: refused later

@@ -299,18 +299,39 @@ class MantelMusic:
         await self._call("media_player", "unjoin", {"entity_id": rooms})
         return await self._wait(rooms, lambda: all(len(self._members(r)) <= 1 for r in rooms), RELEASE_TIMEOUT)
 
-    async def _join(self, leader: str, rooms: list[str]) -> bool:
+    def _left_out(self, cfg, gone: list[str], result: dict[str, Any]) -> dict[str, Any]:
+        """Rooms a pick left out because they were unavailable (E.drop_gone), named in a request that went ahead."""
+        if not gone or not result.get("ok") or result.get("superseded"):
+            return result
+        names = ", ".join(cfg.name_of(r) for r in gone)
+        one = len(gone) == 1
+        self._note(NOTE_GROUP, "A speaker was left out" if one else "Speakers were left out",
+                   f"{names} {'is' if one else 'are'} unavailable, so the music plays in the other rooms. A HomePod "
+                   "that stays unavailable may need a restart.")
+        said = f"{names} left out: unavailable."
+        return {**result, "message": f"{said} {result['message']}" if result.get("message") else said}
+
+    async def _join(self, leader: str, rooms: list[str]) -> tuple[bool, list[str]]:
+        """Join the rooms under the leader: (joined exactly, the players left out because they are gone; E.left_out).
+        One that goes while joining is left out too, rather than holding the group up until it is broken."""
+        left = E.left_out(self.house, rooms, leader)
+        rooms = [r for r in rooms if r not in left]
         others = [r for r in rooms if r != leader]
-        want = sorted(rooms)
-        exact = lambda: sorted(self._members(leader)) == want  # noqa: E731
+        if left:
+            log.info("music: join %s leaves out %s (unavailable)", leader, left)
+        if not others:
+            return True, left
+        def exact() -> bool:
+            gone = set(E.left_out(self.house, rooms, leader))
+            return sorted(self._members(leader)) == sorted(r for r in rooms if r not in gone)
         for attempt in (1, 2):
             await asyncio.sleep(self.settle)
             await self._call("media_player", "join", {"entity_id": leader, "group_members": others})
             if await self._wait(rooms, exact, JOIN_TIMEOUT):
-                return True
+                return True, left + [r for r in E.left_out(self.house, rooms, leader) if r not in left]
             log.warning("music: join %s <- %s attempt %d gave %s", leader, others, attempt, self._members(leader))
             await self._call("media_player", "unjoin", {"entity_id": rooms})
-        return False
+        return False, left
 
     # ---------------------------------------------------------------------------- requests
     async def play(self, rooms: list[str], playlist: str | None) -> dict[str, Any]:
@@ -318,6 +339,7 @@ class MantelMusic:
         cfg = self.config
         rooms = list(rooms or [])
         what = f"play {playlist} rooms={rooms}"
+        rooms, gone_rooms = E.drop_gone(self.house, cfg, rooms)
         fail, pl = E.check_play(self.house, cfg, rooms, playlist)
         if fail:
             return self._done(fail, what, rid, t0)
@@ -332,7 +354,8 @@ class MantelMusic:
         stamps = self._claims.claim(E.entangled(self.house, cfg, members))
         try:
             async with self._request(stamps):
-                return self._done(await self._play(cfg, pl, rooms, preset, members, stamps), what, rid, t0)
+                return self._done(self._left_out(cfg, gone_rooms, await self._play(cfg, pl, rooms, preset, members,
+                                                                                   stamps)), what, rid, t0)
         except asyncio.CancelledError:
             if self._was_stopped():
                 return self._done(dict(STOPPED), what, rid, t0)
@@ -370,8 +393,10 @@ class MantelMusic:
                     return {"ok": False, "message": "The speakers did not release."}
                 if preset is not None:
                     await asyncio.sleep(self.settle)
+            left: list[str] = []
             if E.needs_join(rooms, preset, existing, cfg):
-                if not await self._join(target, cfg.players_of(rooms)):
+                joined, left = await self._join(target, cfg.players_of(rooms))
+                if not joined:
                     missing = list(dict.fromkeys(cfg.name_of(r) for r in cfg.players_of(rooms)
                                                  if r not in self._members(target)))
                     self._note(NOTE_GROUP, "Speakers did not group",
@@ -379,6 +404,12 @@ class MantelMusic:
                                "is playing -- the group was broken up rather than left wrong.")
                     return {"ok": False, "message": "The speakers did not group."}
             self._clear(NOTE_GROUP, NOTE_PRESET)
+            left_names = ", ".join(dict.fromkeys(cfg.name_of(r) for r in left))
+            if left:
+                self._note(NOTE_GROUP, "A speaker was left out" if len(left_names.split(", ")) == 1 else
+                           "Speakers were left out", f"{left_names} {'is' if len(left_names.split(', ')) == 1 else 'are'} "
+                           "unavailable, so the music plays in the other rooms. A HomePod that stays unavailable may "
+                           "need a restart.")
             await self._call("media_player", "volume_set", {"entity_id": E.volume_players(cfg, members),
                                                             "volume_level": cfg.volume})
             await self._call("media_player", "shuffle_set", {"entity_id": target, "shuffle": True})
@@ -404,6 +435,8 @@ class MantelMusic:
                 self._note(NOTE_PRESET, "Some speakers did not join",
                            f"{names} did not join {preset.name}. The music is playing in the other rooms.")
                 return {"ok": True, "leader": target, "message": f"{names} did not join."}
+        if left_names:
+            return {"ok": True, "leader": target, "message": f"{left_names} left out: unavailable."}
         return {"ok": True, "leader": target}
 
     async def transfer(self, rooms: list[str], source: str) -> dict[str, Any]:
@@ -411,6 +444,7 @@ class MantelMusic:
         cfg = self.config
         rooms = list(rooms or [])
         what = f"transfer {source} -> {rooms}"
+        rooms, gone_rooms = E.drop_gone(self.house, cfg, rooms)
         source = E.source_of(self.house, cfg, source)       # a virtual pair playing through its own group: the group
         fail, preset = E.check_transfer(self.house, cfg, rooms, source)
         if fail:
@@ -421,7 +455,8 @@ class MantelMusic:
                 async with self._hold(stamps):
                     if self._claims.superseded(stamps):
                         return self._done(dict(SUPERSEDED), what, rid, t0)
-                    return self._done(await self._move(cfg, rooms, source, preset), what, rid, t0)
+                    return self._done(self._left_out(cfg, gone_rooms, await self._move(cfg, rooms, source, preset)),
+                                      what, rid, t0)
         except asyncio.CancelledError:
             if self._was_stopped():
                 return self._done(dict(STOPPED), what, rid, t0)
@@ -532,7 +567,7 @@ class MantelMusic:
                 # A VIRTUAL PAIR plays as one: through its own Music Assistant group, else its second player
                 # joined to its first before the item is sent
                 target, join = E.browse_target(self.house, cfg, player)
-                if join and not await self._join(player, [player] + join):
+                if join and not (await self._join(player, [player] + join))[0]:
                     return self._done({"ok": False, "message": f"{cfg.name_of(player)}’s two speakers did not "
                                        "group."}, what, rid, t0)
                 # Browse starts afresh, as Apple Music does: the queue is replaced, never added to (a
