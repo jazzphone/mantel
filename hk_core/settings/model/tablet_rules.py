@@ -52,8 +52,42 @@ TABLET_DEFAULTS: dict[str, Any] = {
     # snow, flybys) itself, under a see-through page, at 30 frames a second; calm skies stay the page's. Per tablet, off
     # until asked for; only Mantel for Android can (sky_by_app).
     "app_sky": False,
+    # MANTEL FOR ANDROID'S OPTIONS, this tablet's own (app_options): each one set here wins over All Tablets'
+    "app_options": {},
     "uid": "",
 }
+
+# MANTEL FOR ANDROID'S OPTIONS (the owner, 2026-11-14: "Global or 'Fleet' management where tablets have the same
+# settings ... Similar to how we have Global settings for Screens but also able to adjust the settings independently"):
+# All Tablets' (the house's `tablets.app`) and a tablet's own (its `app_options`), each option on its own; Mantel sends
+# the app what they come to (Mantel Server's apps/tablet_app.py). An option set in neither is the app's own business.
+# What each may be, as the app takes it (its Options.kt, PageScale.kt, Graphics.kt, AirPlay.kt).
+APP_OPTIONS: dict[str, tuple] = {
+    "kiosk_mode": (True, False), "keep_awake": (True, False), "keep_screen_on": (True, False),
+    "adaptive_brightness": (True, False), "scale": (80, 90, 100, 110, 125, 150),
+    "renderer": ("default", "opengl"), "render_size": (100, 83, 67),
+    "airplay": (True, False), "airplay_mirroring": (True, False), "airplay_video": (True, False),
+    "airplay_audio": (True, False),
+}
+
+
+def app_options(v: Any) -> dict[str, Any]:
+    """The options in `v` that are some of APP_OPTIONS' as it allows them (a bool for a switch, never 1 for True)."""
+    out: dict[str, Any] = {}
+    if not isinstance(v, Mapping):
+        return out
+    for k, choices in APP_OPTIONS.items():
+        x = v.get(k)
+        if x is None or isinstance(x, bool) != isinstance(choices[0], bool):
+            continue
+        if x in choices:
+            out[k] = x
+    return out
+
+
+def app_wanted(house_app: Any, own: Any) -> dict[str, Any]:
+    """What a tablet's app is to have: All Tablets' options, with the tablet's own over them."""
+    return {**app_options(house_app), **app_options(own)}
 
 
 def tablet(data: Mapping[str, Any] | None, tid: str = "") -> dict[str, Any]:
@@ -78,6 +112,7 @@ def tablet(data: Mapping[str, Any] | None, tid: str = "") -> dict[str, Any]:
     out["sleep"] = SR.sleep_options(d.get("sleep")) or SR.sleep_options(None)
     out["sleep"]["kiosk"] = out["device"] if out["app"] in SLEEP_APPS else ""
     out["app_sky"] = d.get("app_sky") is True
+    out["app_options"] = app_options(d.get("app_options"))
     uid = str(d.get("uid") or "").strip()
     out["uid"] = uid if re.fullmatch(r"[a-z0-9_-]{1,80}", uid) else (f"tablet_{tid}" if tid else "")
     return out
