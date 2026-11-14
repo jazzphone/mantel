@@ -715,10 +715,16 @@
   }
   // the pane's width on its side of <html> (hk-menu.js narrows the page,
   // hk-tabbar.js keeps clear of it), and the word that it changed
+  // (taken off only if this wrote it: the Side Pane writes the same room (hk-sidepane.js), and a bar carried off Home
+  // cleared the Side Pane's 1.5 s after a page swipe landed back there -- the page under the pane, its tab bar centered
+  // on the whole window, 2026-11-14)
+  var paneOwn = false;
   function publishPane(side, w) {
     var de = document.documentElement;
     if (!de || !de.style) return;
     var l = side === 'left' && w ? w + 'px' : '', r = side === 'right' && w ? w + 'px' : '';
+    if (!l && !r && !paneOwn) return;
+    paneOwn = !!(l || r);
     if (de.style.getPropertyValue('--hk-pane-l') === l && de.style.getPropertyValue('--hk-pane-r') === r) return;
     if (l) de.style.setProperty('--hk-pane-l', l); else de.style.removeProperty('--hk-pane-l');
     if (r) de.style.setProperty('--hk-pane-r', r); else de.style.removeProperty('--hk-pane-r');
