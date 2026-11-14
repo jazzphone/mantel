@@ -30,9 +30,29 @@ let lookAgain = 0;
 const readStatus = () => load('appletv', () => api('GET', '/api/tv_alerts'));
 const notify = () => (panel && panel.feat ? panel.feat(NT) : null) || {};
 const tvOf = (o) => Object.assign({ on: false, look: 'color', camera: true, dnd: true }, (o && o.tv) || {});
-const setTv = (ch) => (panel ? panel.featSet(NT, { tv: ch }) : Promise.resolve(false));
-const saveItem = (id, ch) => (panel ? panel.featCall(NT, { type: 'hk_notify/item/save', item: id, changes: ch }, Object.keys(ch)) : Promise.resolve(false));
-const titleOf = (it) => (it.title || '').trim() || it.auto_title || it.name || it.entity || 'Notification';
+// A SWITCH STAYS WHERE IT WAS PUT. Each change is written into the page's copy first, so the redraw a save starts shows
+// it at once; the save (a reload of Mantel's features: a few seconds on a large house) goes on behind, and its answer
+// replaces the copy. A refused one reads the page again, so the switch goes back to what is saved.
+const keep = (p) => p.then((ok) => { if (ok === false && panel) panel.featLoad(NT, true); return ok; });
+function setTv(ch) {
+  if (!panel) return Promise.resolve(false);
+  const st = notify();
+  if (st.data) st.data.options = Object.assign({}, st.data.options, { tv: Object.assign(tvOf(st.data.options), ch) });
+  return keep(panel.featSet(NT, { tv: ch }));
+}
+function saveItem(it, ch, save) {
+  Object.assign(it, ch);
+  return keep(save ? save(ch) : panel ? panel.featCall(NT, { type: 'hk_notify/item/save', item: it.id, changes: ch }, Object.keys(ch))
+    : Promise.resolve(false));
+}
+// what a notification is called here: a category by its own name (Doors, Leaks...), never its words' placeholder
+// ("Each one’s name"), as the Notifications page lists them
+const categoryOf = (d, it) => (d.categories || []).find((c) => c.key === it.category) || null;
+function nameOf(d, it) {
+  const cat = it.category ? categoryOf(d, it) : null;
+  if (cat) return cat.label;
+  return (it.title || '').trim() || it.name || it.auto_title || it.entity || 'Notification';
+}
 
 // ============================================================================================ HK's Notifications page
 export function drawNotifyTv(c, ctx) {
@@ -48,11 +68,11 @@ export function drawItemTv(c, ctx) {
   const tv = tvOf({ tv: ctx.tv });
   const rows = [K().toggle({ label: 'Show on Apple TV', on: !!it.tv, fk: 'mx:appletv:item:' + it.id,
     sub: tv.on ? null : 'Apple TV notifications are off for the house',
-    onChange: (on) => ctx.save({ tv: on }) })];
+    onChange: (on) => saveItem(it, { tv: on }, ctx.save) })];
   if (it.tv) {
     rows.push(K().select({ label: 'Look', value: it.tv_look || '', fk: 'mx:appletv:look:' + it.id,
       options: [['', 'Automatic (' + LOOK_WORD[tv.look] + ')']].concat(LOOKS.map((l) => [l[0], l[1]])),
-      onChange: (v) => ctx.save({ tv_look: v || null }) }));
+      onChange: (v) => saveItem(it, { tv_look: v || null }, ctx.save) }));
   }
   const footer = it.kind === 'doorbell' ? DOORBELL : 'Drawn as a picture in the corner of every Apple TV when it goes off.';
   rows.push(nav('Apple TV Settings', SECTION, { fk: 'mx:appletv:go:' + it.id }));
@@ -154,14 +174,27 @@ function drawWhen(c, s, tv) {
   c.appendChild(group({ footer }, rows));
 }
 
+// the notifications, as the Notifications page groups them: its Categories (by their names), then One Accessory
 function drawWhich(c, d, tv) {
   const items = d.items || [];
-  const rows = items.map((it) => K().toggle({ label: titleOf(it), sub: it.tv && it.tv_look ? LOOK_WORD[it.tv_look] : null, on: !!it.tv,
-    tile: [it.icon || 'hk:bell', it.tint || '#8e8e93'], fk: 'mx:appletv:which:' + it.id,
-    onChange: (on) => saveItem(it.id, { tv: on }) }));
-  if (!rows.length) rows.push(info('No notifications yet', 'Add them in Notifications', ''));
-  c.appendChild(group({ header: 'Notifications on Apple TV', footer: (tv.on ? '' : 'Off for the house: none show until Show on Apple TV is on. ') +
-    'All start off. ' + DOORBELL }, rows));
+  const row = (it) => {
+    const cat = it.category ? categoryOf(d, it) : null;
+    const tile = cat ? [cat.icon, cat.tint] : [it.icon || 'hk:bell', it.tint || '#8e8e93'];
+    const sub = [!it.category && it.name && it.name !== nameOf(d, it) ? it.name : '',
+                 it.tv && it.tv_look ? LOOK_WORD[it.tv_look] + ' look' : ''].filter(Boolean).join(' · ') || null;
+    return K().toggle({ label: nameOf(d, it), sub, on: !!it.tv, tile, fk: 'mx:appletv:which:' + it.id,
+                        onChange: (on) => saveItem(it, { tv: on }) });
+  };
+  const byName = (a, b) => nameOf(d, a).localeCompare(nameOf(d, b));
+  const cats = items.filter((it) => it.category).sort(byName).map(row);
+  const ones = items.filter((it) => !it.category).sort(byName).map(row);
+  const footer = (tv.on ? '' : 'Off for the house: none show until Show on Apple TV is on. ') + 'All start off. ' + DOORBELL;
+  if (!cats.length && !ones.length) {
+    c.appendChild(group({ header: 'Notifications on Apple TV', footer }, [info('No notifications yet', 'Add them in Notifications', '')]));
+    return;
+  }
+  if (cats.length) c.appendChild(group({ header: 'Categories on Apple TV', footer: ones.length ? null : footer }, cats));
+  if (ones.length) c.appendChild(group({ header: 'One Accessory on Apple TV', footer }, ones));
 }
 
 // while HomeKit is being added or waits for the Home app, the page looks again every few seconds -- keeping what it shows
