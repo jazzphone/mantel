@@ -195,7 +195,10 @@ class HouseMa(FakeMa):
         pid = PID[entity]
         p = dict(self.model[pid])
         q = dict(self.qs[pid])
-        if s is not None:
+        if s == "unavailable":                                      # Music Assistant took it out (a locked HomePod)
+            p["available"] = False
+        elif s is not None:
+            p["available"] = True
             p["playback_state"], p["powered"] = (s, True) if s != "off" else (p["playback_state"], False)
         if "volume_level" in attrs:
             p["volume_level"] = p["group_volume"] = round(attrs.pop("volume_level") * 100)

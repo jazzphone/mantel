@@ -527,6 +527,24 @@ async def test_a_preset_plays_as_its_rooms_joined(on):
     await ws.close()
 
 
+async def test_a_speaker_that_is_unavailable_is_left_out_of_the_group(on):
+    """2026-11-14: Music Assistant took a HomePod locked out of pairing out (unavailable). Mantel still asked it to join,
+    waited for it, broke the group up and tried again, and nothing played. It is left out now, named, and the others play."""
+    await on.connected()
+    await on.login("jamie", "adult")
+    await on.ma.set("media_player.cody_ma", "unavailable")
+    ws = await on.socket()
+    reply = await on.command(ws, **play(["media_player.kitchen_ma", "media_player.den_ma", "media_player.cody_ma"]))
+    r = reply["result"]["response"]
+    assert r["ok"] is True and r["leader"] == "media_player.kitchen_ma", r
+    assert "left out" in r["message"] and "Cody" in r["message"], r
+    assert on.ma.sent()[0] == ("players/cmd/group_many", {"target_player": "ma-kitchen", "child_player_ids": ["ma-den"]}), on.ma.sent()
+    assert "ma-cody" not in json.dumps(on.ma.sent()[:1]), "never asked to join"
+    assert ("player_queues/play_media", {"queue_id": "ma-kitchen", "media": ["library://playlist/1"],
+                                         "option": "replace"}) in on.ma.sent()
+    await ws.close()
+
+
 async def test_the_house_says_who_leads_not_the_order_the_rooms_came_in(on):
     """2026-11-02: the rooms come in A to Z (or tap) order, and eleven HomePods joined under a bedroom's HomePod, the first.
     Home Assistant announces to that HomePod, and Music Assistant plays an announcement to a sync leader on its whole
