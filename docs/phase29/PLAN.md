@@ -522,3 +522,32 @@ trace's synthetic swipe; a finger starts slower); between pages with different s
 two frames in (its first frame 230 ms behind the finger from Weather to the Calendar); every early frame of a swipe
 with the Pages screen in it costs 45-55 ms to draw (its blurred ground is a pass of its own: 27 frames a second, 34
 with the blur off).
+
+## The Side Pane goes with its page (2026-11-14, afternoon)
+
+The owner, as the first-frame work went on: "the side pane going in and out the way it does on page switches is
+pretty jarring. Can the side pane just move with the whole page content..like it's part of the page?" -- and, shown
+that it cost a little coming back: "Regardless, I want the Side Pane to ride along with the page...it just makes
+sense." On the Kitchen's screen Animations are off, and there the pane did not follow the finger at all: the page
+slid, the pane stood, and cut at the landing. docs/development/Motion.md ("The Side Pane goes with its page") has
+what was built; the design spec's Motion section says nothing of the pane, and was not changed.
+
+Measured on the Kitchen's tablet after its reboot (OpenGL again), six and seven swipes each way, the build before
+and this one back to back:
+
+| Median | before | the pane riding |
+|---|---|---|
+| Home to the Pages screen: the first frame behind the finger | 108 ms | 102-138 ms |
+| ...frames a second | 27 | 27-28 |
+| The Pages screen to Home: the first frame | 127 ms | 133-154 ms |
+| ...frames a second | 30 | 26 |
+
+Three runs of the riding build, as it was tuned; the runs spread as widely as before (17-223 ms). Going out costs
+nothing that can be told from the spread; coming back, the pane and the bar are two more things moving in every
+frame, where they stood still before. What the tuning took out is in Motion.md: the pane's glass cut again at each
+frame, the pane laid out in the first move's frame, the bar's place as a property every tab inherited. A layer of
+its own for the bar's row while it moves was tried and bought nothing.
+
+Not done yet, of "all of that": the pages kept in fixed slots so that a landing only moves them (it is still two
+rounds of style and layout, ~150 ms to the next frame in these traces); the next page's sky made ready before the
+finger; the Music page's panels out of its page; the Pages screen's ground as a picture where the glass is one.

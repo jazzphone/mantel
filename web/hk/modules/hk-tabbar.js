@@ -466,10 +466,11 @@
       '  bottom:' + LIFT_CSS + ';display:none;justify-content:center;',
       // (left and right too: the Side Pane coming or going moves the page's edge, and the bar glides to its new middle
       // rather than jumping there -- 2026-11-01, the owner, swiping between pages: "jarring is always the issue")
-      '  align-items:center;gap:' + GAP + 'px;pointer-events:none;transition:translate var(--hk-pane-glide,0s) var(--hk-pane-ease,' + EASE + '),transform .34s ' + EASE + ',bottom .3s ' + EASE +
-        ',left var(--hk-pane-glide,.34s) var(--hk-pane-ease,' + EASE + '),right var(--hk-pane-glide,.34s) var(--hk-pane-ease,' + EASE + ');',
-      // (...and with the finger, during a swipe between pages: hk-sidepane.js FOLLOW)
-      '  translate:var(--hk-pane-shift,0px) 0}',
+      // (...and with the finger, during a swipe between pages -- hk-sidepane.js FOLLOW -- which writes the row's
+      // `translate` and, through glide() below, its transition, on the row itself: as custom properties on the bar
+      // every tab inherited them and was styled again, 12-16 ms a frame of a swipe on the Kitchen's tablet)
+      '  align-items:center;gap:' + GAP + 'px;pointer-events:none;transition:translate 0s,transform .34s ' + EASE + ',bottom .3s ' + EASE +
+        ',left .34s ' + EASE + ',right .34s ' + EASE + '}',
       '.root.on .row{display:flex}',
       '.root.gone .row{transform:translateY(calc(100% + 8px + ' + LIFT_CSS + '))}',
       '.root.small .row{justify-content:space-between}',
@@ -1829,6 +1830,30 @@
     window.hkTabBar.pages = swipePages;
     window.hkTabBar.follow = follow;
     window.hkTabBar.land = land;
+    // WITH THE SIDE PANE, UNDER THE FINGER (hk-sidepane.js follow): the row `px` from its place, null back in it. Its
+    // glass keeps the slice of its place meanwhile (hk-glass.js pinAll, `_hkCarry`), cut again where it has landed.
+    // (A layer of its own while it moves -- will-change -- was tried on the Kitchen's tablet, 2026-11-14: no frame
+    // was drawn sooner for it, and the layer was made in the swipe's first frame.)
+    window.hkTabBar.shift = function (px) {
+      var row = S.root && S.root.querySelector('.row'), parts = [S.pill, S.roomsBtn];
+      if (!row) return;
+      if (px === null || px === undefined) {
+        row.style.removeProperty('translate');
+        parts.forEach(function (el) { if (el) delete el._hkCarry; });
+        return;
+      }
+      row.style.setProperty('translate', (+px).toFixed(1) + 'px 0');
+      parts.forEach(function (el) { if (el) el._hkCarry = +px; });
+    };
+    // THE SIDE PANE'S GLIDE: how long the row takes to its new middle (translate) and its new edges (left, right) --
+    // `ms` null gives the row's own back
+    window.hkTabBar.glide = function (ms, ease) {
+      var row = S.root && S.root.querySelector('.row');
+      if (!row) return;
+      if (ms === null || ms === undefined) { row.style.removeProperty('transition'); return; }
+      var t = ms + 'ms ' + (ease || EASE);
+      row.style.setProperty('transition', 'translate ' + t + ',transform .34s ' + EASE + ',bottom .3s ' + EASE + ',left ' + t + ',right ' + t);
+    };
     window.hkTabBar.sync = sync;
     window.hkTabBar.open = openSheet;
     window.hkTabBar.close = closeSheet;

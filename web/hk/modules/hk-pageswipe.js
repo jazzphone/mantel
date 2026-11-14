@@ -399,7 +399,18 @@
     var r = st.rect, s = N.el.style, P = window.hkSidePane, room = P && P.room ? P.room(N.item.path) : null;
     var left = r.left, width = r.width;
     if (room) { width += room.grow; if (room.side === 'left') left -= room.grow; }
-    N.off = N.dir > 0 ? r.left + r.width - left : r.left - left - width;
+    // THE PAGE AND ITS SIDE PANE ARE ONE THING (2026-11-14, the owner: "the side pane going in and out the way it does
+    // on page switches is pretty jarring. Can the side pane just move with the whole page content..like it's part of
+    // the page?"). A page with the pane beside it and a page without are the same width with the pane counted in
+    // (the one without is laid out `grow` wider): so a swipe between them goes that far (`span`), both pages and the
+    // pane together -- not the page's own width, with the next page coming out from under a pane that faded.
+    N.span = r.width + Math.max(0, room ? room.grow : 0);
+    N.off = N.dir * N.span;
+    // (a page that brings the pane: the pane waits beside this one as its page does, drawn before the finger comes)
+    if (N.real && P && P.beside && keeps()) {
+      if (room && room.grow < 0) { P.beside(N.item.path, { dir: N.dir, span: N.span }); N.pane = true; }
+      else if (N.pane) { P.beside(null); N.pane = false; }
+    }
     N.left = left;
     N.width = width;
     // (the box it will have when it is the page: fills)
@@ -423,6 +434,9 @@
     else rest(st, N);
   }
   function xOfNeighbor(st, N) { return N.dir === (st.x < 0 ? 1 : -1) ? st.x : 0; }
+  // how far a swipe to that side goes: the page's width, the Side Pane's with it where the pane goes with the page
+  function span(st, dir) { var N = st.nb[dir]; return (N && N.span) || st.rect.width; }
+  function sideOf(x) { return x < 0 ? 1 : -1; }
   // AT REST, PAST THE WINDOW'S EDGE (2026-11-05, the owner: the Pages screen showed through Home's Side Pane, and the
   // Calendar sat over the right of the Pages screen): a page's width away from a page narrower than the window (the Side
   // Pane beside it) is still on the screen. While nothing moves, what waits beside the page waits out of sight; a
@@ -486,6 +500,7 @@
   }
   function drop(N) {
     if (!N) return;
+    if (N.pane) { N.pane = false; var SP = window.hkSidePane; if (SP && SP.beside) SP.beside(null); }
     N.el.removeAttribute('hk-swipe-peek');
     unground(N.ground);
     N.ground = null;
@@ -896,7 +911,8 @@
     if (G.calm) return;
     var dir = dx < 0 ? 1 : -1, to = st.items[st.at + dir] || null;
     var x = travel(dx, !!to);
-    if (Math.abs(x) > st.rect.width) x = (x < 0 ? -1 : 1) * (st.rect.width + (Math.abs(x) - st.rect.width) * GIVE);
+    var far = span(st, dir);
+    if (Math.abs(x) > far) x = (x < 0 ? -1 : 1) * (far + (Math.abs(x) - far) * GIVE);
     st.x = x;
     // the page on that side, made ready the first time the finger goes that way, if it isn't yet
     if (to && !st.nb[dir]) {
@@ -915,7 +931,7 @@
   }
   function companions(g) {
     var st = g.stage, dir = st.x < 0 ? 1 : -1, to = st.items[st.at + dir] || null, N = st.nb[dir], O = st.nb[-dir];
-    var T = window.hkTabBar, P = window.hkSidePane, f = to ? Math.min(1, Math.abs(st.x) / st.rect.width) : 0, at = (to || st.items[st.at]).path;
+    var T = window.hkTabBar, P = window.hkSidePane, f = to ? Math.min(1, Math.abs(st.x) / span(st, dir)) : 0, at = (to || st.items[st.at]).path;
     shade(st.here, 1 - f);
     if (N) shade(N.ground, f);
     if (O) shade(O.ground, 0);
@@ -924,7 +940,7 @@
       try { T.follow(f, at); } catch (e) { /* not drawn */ }
     }
     // (the Side Pane and the bar's place with the finger too, where the pane shows on one page and not the other)
-    if (P && P.follow) P.follow(f, at);
+    if (P && P.follow) P.follow(f, at, { dir: dir, span: span(st, dir) });
   }
 
   // THE BACKGROUND WITH THE FINGER (skyFade; 2026-11-05, the owner: swiping to the Calendar, its background
@@ -945,7 +961,7 @@
         var st = g.stage, now = st.items[st.at + (st.x < 0 ? 1 : -1)];
         if (!now || now.path !== want) { g.skyAsk = null; return; }
         g.sky = skyFade(want);
-        if (g.sky) g.sky.set(Math.min(1, Math.abs(st.x) / st.rect.width));
+        if (g.sky) g.sky.set(Math.min(1, Math.abs(st.x) / span(st, sideOf(st.x))));
       });
     });
   }
@@ -1016,7 +1032,7 @@
       settle(G.caught.to, st.x, 0);
       return;
     }
-    var r = letGoTo(st.items, st.at, raw, st.rect.width, v, G.chain, e.type === 'pointerup');
+    var r = letGoTo(st.items, st.at, raw, span(st, sideOf(raw)), v, G.chain, e.type === 'pointerup');
     settle(r.goes ? r.to : null, raw, r.to ? v : v * GIVE);
   }
   // WHERE A LIFT GOES: the page beside it that way (`to`), and whether it gets there (`goes`); `up` false, the browser
@@ -1062,7 +1078,7 @@
   // the transitions of a settle: the page and what is beside it, the same curve; what it wore comes back when it ends.
   // `sky`: the background the finger was bringing in (skyHold), the rest of the way with the page, on its curve
   function run(st, to, dir, N, x, v, sky) {
-    var target = to ? -dir * st.rect.width : 0;
+    var target = to ? -dir * span(st, dir) : 0;
     var c = D().curve(x, target, v), s = c.spring, ms = c.ms;
     var tr = 'transform ' + ms + 'ms ' + c.ease;
     var T = window.hkTabBar, P = window.hkSidePane;
@@ -1080,7 +1096,7 @@
     // (the highlight and the Side Pane set off after that flush, in the same style update as the page: before it, they
     // started a frame ahead of it, the pane's fade leading the page by a tenth all the way -- WebKit, 2026-11-07)
     try { if (T && T.land) T.land(to ? to.path : null, c); } catch (e) { /* not drawn */ }
-    if (P && P.land) P.land(to ? to.path : null, c);
+    if (P && P.land) P.land(to ? to.path : null, c, { dir: dir, span: span(st, dir) });
     st.x = target;
     moved.forEach(function (el) { el.style.setProperty('transition', tr); });
     setX(st.view, target, st.base);
@@ -1174,13 +1190,13 @@
     // only which one the finger holds -- and a flick on the way it was going goes on to the page after (onUp, `chain`).
     // (Past ADVANCE only, before: caught under half way, the next flick finished the first one's page.)
     var arriving = !!(to && a.N && a.N.real);
-    if (sky && to && (arriving || Math.abs(x) >= st.rect.width * ADVANCE)) { sky.done(true, FADE_MS, STANDARD); sky = null; }
+    if (sky && to && (arriving || Math.abs(x) >= span(st, a.dir) * ADVANCE)) { sky.done(true, FADE_MS, STANDARD); sky = null; }
     // (...to a page not ready yet, its stand-in: the finger holds it where it is, as for one ready, and the real page
     // takes the stand-in's place when it is made -- makeReady. It once landed there and refused the finger while the
     // page was built: the owner's flicks that "sometimes don't swipe", 2026-11-08)
     var chain = 0;
     if (arriving) {
-      arrive(st, to, a.dir, a.N, x + a.dir * st.rect.width);
+      arrive(st, to, a.dir, a.N, x + a.dir * span(st, a.dir));
       st = ST;
       x = st.x;
       to = null;
@@ -1191,7 +1207,7 @@
     G = { id: e.pointerId, type: e.pointerType, x0: e.clientX, y0: e.clientY, stage: st, target: null, grid: null, live: true,
           calm: false, pts: [[e.timeStamp || Date.now(), e.clientX]], dx: 0, caught: { to: to }, chain: chain,
           from: st.items[st.at + (x < 0 ? 1 : -1)] ? x : x / GIVE, sky: sky || null, skyAsk: sky ? sky.path : null };
-    if (sky) sky.set(Math.min(1, Math.abs(x) / st.rect.width));
+    if (sky) sky.set(Math.min(1, Math.abs(x) / span(st, sideOf(x))));
     why = '';
     // (what goes with the page, the next frame, as for any move: here it held the press up 30-60 ms at 4x CPU)
     var g = G;

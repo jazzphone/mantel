@@ -218,10 +218,29 @@ The order now: everything that writes the page's edges writes first, then the pa
 Left in the landing's frame: that one layout, and the tab bar's own small one. The frame after it makes the next page
 ready (its styles, 9-12 ms at 4x CPU).
 
-**The Side Pane's fade.** In a swipe between Home and the Pages screen the pane fades with the finger. It faded as a
-whole (`opacity` on `hk-side-pane`), and an ancestor below full opacity is a backdrop root: in Chromium, the pane's blur
-stopped seeing the page behind it, and the Pages screen's icons showed sharp through a flat tint for the whole drag.
-The plate inside it (`.pane`, which carries the blur) fades instead. WebKit drew both the same.
+**The Side Pane goes with its page** (2026-11-14, the owner: "the side pane going in and out the way it does on page
+switches is pretty jarring. Can the side pane just move with the whole page content..like it's part of the page?"). A
+page with the pane beside it and a page without are the same width with the pane counted in, so a swipe between them
+goes that far -- the swipe's `span`: the page's width, the pane's with it -- and both pages and the pane move
+together: the pane off the screen with Home, or in ahead of Home's grid from the side Home waits on. The pane does not
+fade, and it follows the finger with Animations off too (a page still follows the finger there; the pane that stood
+still and cut at the landing was what jarred). Only Reduce Motion, which cross-fades the pages, leaves it where it
+is. A pane on every page does not move at all. What it took:
+
+- The page waiting beside this one starts a span away (`N.off = dir * span`), not this page's width away with the next
+  page coming out from under the pane; the settle, the fraction the companions hear and the let-go thresholds all go by
+  the span.
+- The pane hears which way and how far (`follow(p, path, { dir, span })`, `land(path, motion, move)`) and is moved as
+  its page is. Its glass keeps the slice of the picture of its own place while it is carried (`_hkCarry`, hk-glass.js
+  `pinAll`): cut again where it stood, the pane was painted again at each frame (6-21 ms each on the Kitchen's tablet).
+- A pane that comes with the page waiting beside this one waits there too, drawn and off the screen (`beside`): shown
+  only at the finger's first move, it was laid out in that frame (45 ms).
+- The tab bar's place with the finger is its row's own `translate`, and its glide the row's own transition (hk-tabbar.js
+  `shift`, `glide`): as custom properties on the bar, every tab inherited them and was styled again (29 ms at the
+  first move, 12-16 ms a frame).
+
+Before this (2026-11-01 to 2026-11-14) the pane faded with the finger, by its plate's opacity: faded as a whole, an
+ancestor below full opacity is a backdrop root, and in Chromium the pane's blur stopped seeing the page behind it.
 
 **The release, together.** The tab bar's highlight and the Side Pane set off on the settle's curve before the forced
 style flush that fixes the page's starting place, so their transitions began a frame ahead of the page's: in WebKit the

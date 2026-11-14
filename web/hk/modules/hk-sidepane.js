@@ -200,10 +200,16 @@
   // with the page ... The Side pane ... may just need a fade out"): hk-pageswipe.js says how far a swipe has gone
   // toward a page (`follow`, 0..1) and where it lands (`land`, or null: back). Where the pane shows on one page and
   // not the other, it fades with the finger, drifting a little toward its own edge, and the tab bar moves with it to
-  // the middle it will have (--hk-pane-shift, half the pane's width: hk-tabbar.js .row's `translate`). Let go, both
+  // the middle it will have (half the pane's width, written on hk-tabbar.js's .row as its `translate`). Let go, both
   // finish the way the page does; the room itself changes as the page lands, and handOver swaps the bar's offset for
   // its new edges in the same frame.
-  var FOLLOW = { p: 0, to: null, going: 0, shift: 0, landed: false, tween: 0 };
+  // ...AND WITH ITS PAGE, AS PART OF IT (2026-11-14, the owner: "the side pane going in and out the way it does on page
+  // switches is pretty jarring. Can the side pane just move with the whole page content..like it's part of the
+  // page?"). The fade it was given on 2026-11-01 is gone: the swipe says which way it goes and how far a page and its
+  // pane travel (`move`: dir, span -- hk-pageswipe.js span), and the pane is moved as its page is, off the screen with
+  // it or in beside it. With Animations off as well: a page still follows the finger there, and the pane that
+  // stood still and then cut was the jarring part. (Reduce Motion cross-fades the pages and never calls follow.)
+  var FOLLOW = { p: 0, to: null, going: 0, shift: 0, landed: false, tween: 0, dir: 0, span: 0 };
   var SWIPE_MS = 300, DRIFT = 28;
   function stillMotion() {
     return (window.hkSettings && window.hkSettings.skyLook && window.hkSettings.skyLook().animations === false) ||
@@ -234,9 +240,10 @@
       { width: sp.width, menu: menuLeft(), gridW: b.home_style === 'grid' ? 1 : 0 });
     return p.kind === 'side' ? { side: sp.side === 'left' ? 'left' : 'right', width: p.w } : null;
   }
-  // THE BAR'S OWN (hk-tabbar.js reads --hk-pane-shift and --hk-pane-glide, and nothing else does): set on <html>, a
-  // custom property every element inherits, each frame of a swipe restyled the whole document -- every card's shadow
-  // tree -- and the swipes between Home and the Pages screen dropped frames (2026-11-02, the owner: "stutter")
+  // THE BAR'S OWN, ON THE BAR'S ROW: set on <html> as a custom property, which every element inherits, each frame of a
+  // swipe restyled the whole document -- every card's shadow tree -- and the swipes between Home and the Pages screen
+  // dropped frames (2026-11-02, the owner: "stutter"); set on the bar, every tab still inherited it (2026-11-14). The
+  // row's own `translate` and transition now: barShift, glide.
   function barHost() { return document.getElementById('hk-tabbar'); }
   // WHAT FADES: the pane's own plate, not the element around it (2026-11-07). An ancestor below full opacity cuts a
   // backdrop-filter off from what is behind it (hk-glass.js), so fading the host turned the frosted pane into a flat
@@ -246,16 +253,68 @@
     return el || dash;
   }
   function followDraw(p) {
-    var bar = barHost(), k = FOLLOW.going, side = dash && dash.getAttribute('side');
+    var k = FOLLOW.going, side = dash && dash.getAttribute('side');
     if (!k || !dash) return;
     var out = k > 0 ? p : 1 - p, sign = side === 'left' ? -1 : 1;
-    plate().style.opacity = String(1 - out);
-    dash.style.transform = 'translateX(' + (sign * out * DRIFT).toFixed(1) + 'px)';
-    // (the bar's middle: half the pane's width toward the pane's side as it goes, back as it comes)
-    if (bar) bar.style.setProperty('--hk-pane-shift', (k * p * FOLLOW.shift).toFixed(1) + 'px');
+    if (FOLLOW.dir && FOLLOW.span) {
+      // (going: where its page is, -dir * p of the way; coming: beside the page that brings it, the rest of the way off)
+      var x = -FOLLOW.dir * FOLLOW.span * (k > 0 ? p : p - 1);
+      dash.style.transform = 'translateX(' + x.toFixed(1) + 'px)';
+      carry(x);
+    } else {
+      plate().style.opacity = String(1 - out);
+      dash.style.transform = 'translateX(' + (sign * out * DRIFT).toFixed(1) + 'px)';
+    }
+    // (the bar's middle: half the pane's width toward the pane's side as it goes, back as it comes -- written on the
+    // bar's row itself: as a custom property on the bar, every tab inherited it and was styled again each frame of a
+    // swipe, 12-16 ms a frame on the Kitchen's tablet)
+    barShift(k * p * FOLLOW.shift);
   }
-  function follow(p, toPath) {
-    if (stillMotion()) return;
+  // (by the bar's own hand: hk-tabbar.js shift -- its row's `translate`, in a layer while it moves)
+  function barShift(px) { var T = window.hkTabBar; if (T && T.shift) { try { T.shift(px); } catch (e) { /* not drawn */ } } }
+  // (the row's transition, by the bar's own hand: hk-tabbar.js glide)
+  function glide(ms, ease) { var T = window.hkTabBar; if (T && T.glide) { try { T.glide(ms, ease); } catch (e) { /* not drawn */ } } }
+  // (its glass keeps the slice of its own place while it is moved with a page: hk-glass.js pinAll)
+  function carry(x) {
+    var pl = dash && plate();
+    if (!pl) return;
+    if (x === null) delete pl._hkCarry; else pl._hkCarry = x;
+  }
+  // BESIDE THE PAGE, BEFORE THE FINGER (hk-pageswipe.js place: the page waiting beside this one brings the pane). Shown
+  // only as the finger's first move asked for it, the pane was laid out in that frame (45 ms of style and layout on
+  // the Kitchen's tablet, coming back to Home). It waits drawn, off the screen where its page waits, parked as it is
+  // while away (its live parts are not running).
+  var WAIT = null;
+  function beside(toPath, move) {
+    WAIT = toPath && move && move.dir && move.span > 0 ? { path: toPath, dir: move.dir, span: move.span } : null;
+    if (!FOLLOW.going) waitDraw();
+  }
+  function waitDraw() {
+    if (!dash) return;
+    var ok = !!WAIT && !reduced() && !dash.hasAttribute('on') && paneChange(WAIT.path) < 0;
+    if (ok) {
+      var x = WAIT.dir * WAIT.span;
+      dash._waits = true;
+      dash.setAttribute('peek', '');
+      dash.style.transition = 'none';
+      dash.style.transform = 'translateX(' + x.toFixed(1) + 'px)';
+      carry(x);
+    } else if (dash._waits) {
+      dash._waits = false;
+      dash.removeAttribute('peek'); dash.style.transform = ''; dash.style.transition = '';
+      carry(null);
+    }
+  }
+  function reduced() {
+    try { return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); } catch (e) { return false; }
+  }
+  function moveBy(move) {
+    FOLLOW.dir = move && move.dir ? move.dir : 0;
+    FOLLOW.span = move && move.span > 0 ? move.span : 0;
+  }
+  function follow(p, toPath, move) {
+    if (move ? reduced() : stillMotion()) return;
+    moveBy(move);
     if (FOLLOW.to !== toPath) {
       FOLLOW.to = toPath; FOLLOW.going = paneChange(toPath);
       // (its width as placed: a pane that is coming is not drawn yet)
@@ -266,22 +325,22 @@
     if (!FOLLOW.going) { unfollow(); return; }
     cancelAnimationFrame(FOLLOW.tween);
     if (dash) { dash.style.transition = 'none'; plate().style.transition = 'none'; }
-    var bar = barHost(); if (bar) bar.style.setProperty('--hk-pane-glide', '0s');
+    glide(0);
     FOLLOW.p = Math.max(0, Math.min(1, p || 0));
     followDraw(FOLLOW.p);
   }
-  function land(path, motion) {
+  function land(path, motion, move) {
     if (!FOLLOW.going) { unfollow(); return; }
+    if (move) moveBy(move);
     var from = FOLLOW.p, goal = path ? 1 : 0, t0 = 0;
-    if (motion && !stillMotion()) {
+    if (motion && !(move ? reduced() : stillMotion())) {
       FOLLOW.landed = !!path;
       if (dash) {
         dash._followed = !!path;
         dash.style.transition = 'transform ' + motion.ms + 'ms ' + motion.ease;
         plate().style.transition = 'opacity ' + motion.ms + 'ms ' + motion.ease;
       }
-      var bar = barHost();
-      if (bar) { bar.style.setProperty('--hk-pane-glide', motion.ms + 'ms'); bar.style.setProperty('--hk-pane-ease', motion.ease); }
+      glide(motion.ms, motion.ease);
       FOLLOW.p = goal; followDraw(goal);
       cancelAnimationFrame(FOLLOW.tween); clearTimeout(FOLLOW.giveUp);
       FOLLOW.giveUp = setTimeout(function () { if (path) handOver(); else unfollow(); }, motion.ms + 250);
@@ -307,21 +366,24 @@
     FOLLOW.landed = false;
     clearTimeout(FOLLOW.giveUp);
     cancelAnimationFrame(FOLLOW.tween);
-    var bar = barHost();
-    if (bar) bar.style.setProperty('--hk-pane-glide', '0s');
+    glide(0);
     unfollow(true);
-    requestAnimationFrame(function () { requestAnimationFrame(function () { if (bar) bar.style.removeProperty('--hk-pane-glide'); }); });
+    requestAnimationFrame(function () { requestAnimationFrame(function () { if (!FOLLOW.going) glide(null); }); });
   }
   function unfollow(keepGlide) {
     clearTimeout(FOLLOW.giveUp); cancelAnimationFrame(FOLLOW.tween);
-    var bar = barHost();
-    if (bar) { bar.style.removeProperty('--hk-pane-shift'); bar.style.removeProperty('--hk-pane-ease'); if (!keepGlide) bar.style.removeProperty('--hk-pane-glide'); }
+    barShift(null);
+    if (!keepGlide) glide(null);
     if (dash) {
       var pl = plate();
       pl.style.opacity = ''; pl.style.transition = '';
       dash.style.opacity = ''; dash.style.transform = ''; dash.style.transition = ''; dash.removeAttribute('peek');
     }
-    FOLLOW.to = null; FOLLOW.going = 0; FOLLOW.p = 0;
+    FOLLOW.to = null; FOLLOW.going = 0; FOLLOW.p = 0; FOLLOW.dir = 0; FOLLOW.span = 0;
+    carry(null);
+    if (dash) dash._waits = false;
+    // (still beside a page that brings it: waiting there again)
+    waitDraw();
   }
 
   var dash = null;
@@ -482,8 +544,9 @@
       create: function (mode) { var el = document.createElement('hk-side-pane'); el.setAttribute('mode', mode || 'saver'); return el; },
       // a swipe between pages (hk-pageswipe.js): how far toward `toPath`, and where it landed (null: back); the room
       // the page there will have, so it comes in laid out as it lands
-      follow: function (p, toPath) { try { follow(p, toPath); } catch (e) { /* not drawn */ } },
-      land: function (path, motion) { try { land(path, motion); } catch (e) { /* not drawn */ } },
+      follow: function (p, toPath, move) { try { follow(p, toPath, move); } catch (e) { /* not drawn */ } },
+      land: function (path, motion, move) { try { land(path, motion, move); } catch (e) { /* not drawn */ } },
+      beside: function (toPath, move) { try { beside(toPath, move); } catch (e) { /* not drawn */ } },
       room: function (toPath) { try { return roomFor(toPath); } catch (e) { return null; } },
       navigationRoom: navigationRoom,
       // THE SETTINGS SLIDER'S DIM while it moves (hk-settings.js pvPaneDim): held a few seconds past the last move,

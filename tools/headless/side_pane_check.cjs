@@ -121,8 +121,11 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       });
       want('...back Home: it slides in, and rests in place', back, back.on && /matrix/.test(back.coming) && back.rest === 'none');
       // ...AND WITH THE FINGER (2026-11-01, the owner: "if I swipe half way ... the side pane and navbar should also
-      // move in motion with the page"): halfway, the pane half faded and the bar part way to its new middle; let go,
-      // both finish, and the bar takes its new edges where it already is (no jump)
+      // move in motion with the page"): halfway, the bar part way to its new middle; let go, both finish, and the bar
+      // takes its new edges where it already is (no jump).
+      // ...AS PART OF ITS PAGE (2026-11-14, the owner: "Can the side pane just move with the whole page content..like
+      // it's part of the page?"): the pane is where its page is, as far off its place as the page is off its own, and
+      // does not fade (the fade of 2026-11-01 is gone)
       cur = 'pane-swipe';
       await page.goto(input.origin + '/pane-swipe/home');
       await page.waitForFunction(() => window.__mantelReady === true);
@@ -133,9 +136,13 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
           for (const e of r.querySelectorAll('*')) { if (e.shadowRoot) { const y = deep(e.shadowRoot, sel); if (y) return y; } } return null; };
         const p = document.querySelector('hk-side-pane[mode="dash"]'), tb = deep(document, '#hk-tabbar'), row = tb && tb.shadowRoot.querySelector('.row'), rr = row && row.getBoundingClientRect();
         const plate = p && p.shadowRoot && p.shadowRoot.querySelector('.pane');
+        const xOf = (el) => { if (!el) return null; const t = getComputedStyle(el).transform; return t && t !== 'none' ? Math.round(new DOMMatrixReadOnly(t).m41) : 0; };
         return { path: location.pathname, op: plate ? +getComputedStyle(plate).opacity : null, hostOp: p ? +getComputedStyle(p).opacity : null, shown: p ? getComputedStyle(p).display !== 'none' :
-          false, mid: rr ? Math.round(rr.left + rr.width / 2) : null,
-                 rootShift: document.documentElement.style.getPropertyValue('--hk-pane-shift'), barShift: tb ? tb.style.getPropertyValue('--hk-pane-shift') : '' };
+          false, mid: rr ? Math.round(rr.left + rr.width / 2) : null, x: xOf(p), pageX: xOf(deep(document, 'hk-home-grid-view')),
+                 // (on the screen at all: a pane that comes with the page beside this one waits drawn, off the screen)
+                 seen: !!p && getComputedStyle(p).display !== 'none' && p.getBoundingClientRect().right > 0 && p.getBoundingClientRect().left < innerWidth,
+                 rootShift: document.documentElement.style.getPropertyValue('--hk-pane-shift'),
+                 hostShift: tb ? tb.style.getPropertyValue('--hk-pane-shift') : '', barShift: row ? row.style.getPropertyValue('translate') : '' };
       });
       const s0 = await sw(), sy = 300;
       await page.mouse.move(700, sy); await page.mouse.down();
@@ -146,16 +153,18 @@ const SIZES = ['tiny', 'less', 'more', 'full'];
       for (let k = 0; k < 14; k++) { await page.waitForTimeout(50); mids.push((await sw()).mid); }
       await page.waitForTimeout(600);
       const s2 = await sw();
-      want('swiping off Home, halfway: the pane fading with the finger, the bar part way to its new middle', [s0, s1],
-           s1.shown && s1.op > 0.2 && s1.op < 0.9 && s1.mid > s0.mid);
+      want('swiping off Home, halfway: the pane where its page is, not faded, the bar part way to its new middle', [s0, s1],
+           s1.shown && s1.op === 1 && s1.x < -100 && Math.abs(s1.x - s1.pageX) <= 2 && s1.mid > s0.mid);
       // (the bar's offset on the bar, never on <html>: there every frame of a swipe restyled the whole document --
       // 2026-11-02, the owner's Kitchen tablet, "stutter" swiping between Home and the Pages screen)
-      want('...the bar\'s offset set on the bar alone, not on <html>', s1, !s1.rootShift && !!s1.barShift);
-      // (the plate fades, not the pane around it: below full opacity the pane would cut its own blur off from the page
-      // behind it, a flat tint from the first frame of the swipe -- 2026-11-07)
-      want('...the pane\'s plate fades, the pane itself stays opaque (its blur still sees the page)', s1, s1.hostOp === 1);
+      // (...and on the bar's row itself since 2026-11-14: as a custom property on the bar every tab inherited it and was
+      // styled again each frame)
+      want('...the bar\'s offset set on the bar\'s row alone, not on <html> nor in a property its tabs inherit', s1,
+           !s1.rootShift && !s1.hostShift && !!s1.barShift);
+      // (opaque all the way: below full opacity the pane would cut its own blur off from the page behind it)
+      want('...the pane itself stays opaque (its blur still sees the page)', s1, s1.hostOp === 1);
       want('...let go: the pane gone, the bar at its new middle without a step back (always forward)', [s2, mids],
-           s2.path !== s0.path && !s2.shown && s2.mid > s1.mid && mids.every((m, j) => j === 0 || m >= mids[j - 1] - 1));
+           s2.path !== s0.path && !s2.seen && s2.mid > s1.mid && mids.every((m, j) => j === 0 || m >= mids[j - 1] - 1));
       // BACK FROM THE PAGES SCREEN (2026-11-01, the owner: "the HomeView Grid kind of snaps into place behind the side
       // pane ... the blur going from the Apps Page back to the HomeView seems to follow"): halfway, Home comes in at the
       // width it lands at, and the Pages screen's blur is a still layer as strong as the page is on; landed, the grid
