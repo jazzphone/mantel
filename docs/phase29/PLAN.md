@@ -1,7 +1,9 @@
 # Phase 29: The sky drawn by the tablet app (plan, 2026-11-12)
 
 **Status: built (2026-11-13), steps 1-5 on Mantel main and mantel-android main; step 6 measured on the Loft (below): every busy
-scene cheaper in the app, every calm one kept by the page at the same cost. On the house: waits for the owner's OK (a hotfix, the app's release).
+scene cheaper in the app, every calm one kept by the page at the same cost. **On the house** since 2026-11-13 evening, with
+the owner's OK: hotfix 0.1.166-main.536904263, Mantel for Android 0.1.11 (1031) published, Sky Drawn by the App on for
+the Loft only.
 Every decision answered:** 1, 2 and 4 on 2026-11-12; 3, the glass, on 2026-11-13 (the owner: "we should finish phase 29").
 Step 7 (DESIGN.md) waits for the owner to ask.
 
@@ -146,7 +148,8 @@ of scenes, so a new scene is sorted the same way.
   owner's ask): Pre-rendered wears its picture as the frost picture does, a fixed background on a child in the layer's
   own box (`hk-glass.js` preImg); out of line is now a transformed ancestor (`lined`), and a swipe's page still has its
   picture moved back. `pre_glass_motion_check`, the page swipes and HK Frontend's glass suites pass; on the emulator's
-  WebView a fixed-background child is clipped to the layer's path. Not yet seen on the Loft (in use that evening).
+  WebView a fixed-background child is clipped to the layer's path. On the house in the same hotfix; not yet looked at on
+  a tablet in Pre-rendered.
 - **Chromium's software drawing can't be trusted for baking.** `WebView.draw` into a bitmap lost canvases, let one part's
   mask spill onto the next, and drew a large photograph at a fifth of its size. The bake copies the window as the
   display shows it (PixelCopy), with a colored mark on each sheet: on the Loft, 6 of 23 copies arrived a frame late.
@@ -231,6 +234,6 @@ Acceptance met: on every busy scene the app beats the page, and on every calm on
   guarded now, the hand-over fails, the page keeps its sky and tries again a minute on (seen once after: no crash).
 - The prototype's stored 60 fps survived on the Loft: the frame rate has a key of its own now (`sky_fps_cap`, 30).
 
-**Not done here:** the house's hotfix and the app's release (the owner's OK), then Sky Drawn by the App on for the Loft
-only. Step 7 (DESIGN.md) when the owner asks.
+**On the house (2026-11-13 evening, the owner's OK):** the hotfix, the app's release, Sky Drawn by the App on for the
+Loft only. Step 7 (DESIGN.md) when the owner asks.
 
