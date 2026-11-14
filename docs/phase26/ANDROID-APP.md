@@ -127,6 +127,27 @@ Mantel serves the app: `GET /apps/android/latest.json` (version, size, SHA-256) 
 enrolled app checks once an hour and installs a newer one by itself as device owner (`PackageInstaller`), at a quiet
 moment: the screen off or nobody touching it for 10 minutes.
 
+**Uploading a new version** (2026-11-14, the owner: "allow a user to download the apk and then push it ... pick one to
+test first, and then if that one succeeds, proceed to upgrading the rest ... with information on failure"): Mantel
+Settings → Wall Tablets → Mantel for Android Updates. An Owner or Admin downloads the APK from the app's GitHub releases
+and uploads it (`POST /api/apps/android/upload`). Mantel reads it first (`apps/apk_check.py`: the package, the version
+and the certificate of its v2/v3 signature) and refuses another app, a version not newer than the tablets', or one signed
+by another key than the version already served. Then (`POST /api/apps/android/rollout`):
+
+1. **A test tablet**, chosen from the connected app tablets: only its manifest names the new version, and it is asked to
+   check now, so it installs at once.
+2. When its app comes back on the new version, the new version becomes `latest.json` and every other connected app tablet
+   is asked to check now; one not connected takes it at its hourly check, and one that connects during the rollout is
+   asked then.
+3. Each tablet's outcome is kept: updated, or failed with the app's reason (a download that arrived damaged, say) or
+   Android's (`INSTALL_FAILED_...`, the app's `install` and `install_for` in its status), or waiting for a tap on the
+   glass. A tablet not back on the new version within 10 minutes has failed. A failed test stops there: no other tablet
+   is offered the version, and it can be tried again on the same or another tablet, or discarded.
+
+Stop takes the offer back (`latest.json` as before; an updated tablet stays updated). The rollout is
+`<data>/android/rollout.json`, so a restart picks it up again. `tools/publish_apk.py` still copies a release straight in,
+for a developer's own builds.
+
 ## Cameras
 
 A doorbell pop-up plays the camera in the page today. A native player (hardware-decoded go2rtc, drawn by Android over

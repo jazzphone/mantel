@@ -84,7 +84,10 @@ STATUS_KEYS = {"version": str, "version_code": int, "screen": bool, "brightness"
                "adaptive_brightness_allowed": bool, "wireless_debugging": bool, "wireless_debugging_allowed": bool,
                "adb_port": int,
                # how the tablet draws (Graphics.kt): as chosen, what Android has now, and whether the app's adb is paired
-               "renderer": str, "renderer_now": str, "render_size": int, "adb_paired": bool}
+               "renderer": str, "renderer_now": str, "render_size": int, "adb_paired": bool,
+               # the app's last install of an update (Updater.kt): installing, waiting (for a tap) or failed: Android's
+               # reason, and the version it was for (android.py's rollout reads both)
+               "install": str, "install_for": int}
 ANSWER_WAIT = 8.0
 STALE = 180.0              # a status older than this is "not heard from"
 PIN = re.compile(r"\d{0,12}")
@@ -190,6 +193,7 @@ class TabletApps:
         self.waiting: dict[str, asyncio.Future] = {}        # nonce -> the answer
         self.shots: dict[str, tuple[bytes, float]] = {}     # device id -> its latest picture (JPEG), when
         self.followed: dict[tuple[str, str, str], float] = {}   # (device, command, its value) -> when last sent
+        self.listeners: list = []                           # async fn(device id, status): an update's rollout (android.py)
 
     def heard(self, device_id: str, status: dict) -> None:
         self.status[device_id] = {"status": status, "at": self.clock()}
@@ -265,6 +269,7 @@ def handler(app: web.Application):
         if msg.get("event") == "status":
             st.heard(device.id, _clean(msg.get("status")))
             await follow(app, device.id, st.status[device.id]["status"], getattr(device, "room", None))
+            await _tell(st, device.id)
         elif msg.get("event") == "done":
             fut = st.waiting.get(str(msg.get("nonce", "")))
             if fut is None:
@@ -277,7 +282,38 @@ def handler(app: web.Application):
                                 "message": str(msg.get("message") or "")[:200], "image": shot is not None})
             if isinstance(msg.get("status"), dict):
                 st.heard(device.id, _clean(msg.get("status")))
+                await _tell(st, device.id)
     return tablet_app
+
+
+async def _tell(st: TabletApps, device_id: str) -> None:
+    for fn in list(st.listeners):
+        try:
+            await fn(device_id, st.status[device_id]["status"])
+        except Exception:  # noqa: BLE001 -- a status is never refused for a listener
+            log.exception("tablet app: a status listener")
+
+
+async def ask(app: web.Application, device_id: str, command: str, value: Any = None, wait: float = ANSWER_WAIT) -> dict | None:
+    """Send one of COMMANDS to the tablet's app and wait for its answer ({ok, status, message}); None when its page isn't
+    connected or it didn't answer in time. For Mantel's own steps (an update's rollout): the caller audits."""
+    pages = sessions_of(app, device_id)
+    if not pages:
+        return None
+    st = apps_of(app)
+    nonce = secrets.token_urlsafe(12)
+    fut = asyncio.get_running_loop().create_future()
+    st.waiting[nonce] = fut
+    try:
+        for s in pages:
+            await s.send({"type": "tablet_app", "event": "command", "nonce": nonce, "command": command, "value": value},
+                         count=False)
+        try:
+            return await asyncio.wait_for(asyncio.shield(fut), wait)
+        except TimeoutError:
+            return None
+    finally:
+        st.waiting.pop(nonce, None)
 
 
 def _device_row(request: web.Request):

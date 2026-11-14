@@ -1271,6 +1271,23 @@
   "stream": "none",
   "why": "the iPhone app's own routes: a DPoP-bound app credential (app_auth.app_route), not a session"
  },
+ "GET /api/apps/android": {
+  "audit": [],
+  "csrf": "-",
+  "device_ok": false,
+  "door": "lan",
+  "first": false,
+  "fresh": "never",
+  "handler": "get_release",
+  "mcp": [],
+  "module": "mantel_server.apps.android",
+  "no_audit": null,
+  "preview": false,
+  "reads": "admin",
+  "reads_why": null,
+  "stream": "none",
+  "who": "manager"
+ },
  "GET /api/areas": {
   "audit": [],
   "csrf": "-",
@@ -3609,6 +3626,46 @@
   "reads": null,
   "stream": "none",
   "why": "the iPhone app's own routes: a DPoP-bound app credential (app_auth.app_route), not a session"
+ },
+ "POST /api/apps/android/rollout": {
+  "audit": [
+   "android.rollout.test",
+   "android.rollout.stop",
+   "android.rollout.discard"
+  ],
+  "csrf": "session",
+  "device_ok": false,
+  "door": "lan",
+  "first": false,
+  "fresh": "never",
+  "handler": "post_rollout",
+  "mcp": [],
+  "module": "mantel_server.apps.android",
+  "no_audit": null,
+  "preview": false,
+  "reads": "admin",
+  "reads_why": null,
+  "stream": "none",
+  "who": "manager"
+ },
+ "POST /api/apps/android/upload": {
+  "audit": [
+   "android.upload"
+  ],
+  "csrf": "session",
+  "device_ok": false,
+  "door": "lan",
+  "first": false,
+  "fresh": "never",
+  "handler": "upload",
+  "mcp": [],
+  "module": "mantel_server.apps.android",
+  "no_audit": null,
+  "preview": false,
+  "reads": "admin",
+  "reads_why": null,
+  "stream": "none",
+  "who": "manager"
  },
  "POST /api/auth/passkey/options": {
   "csrf": "own",
