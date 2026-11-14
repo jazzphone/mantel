@@ -490,3 +490,35 @@ sheet's 1.5 s to read, the answer was dropped for coming late, and the next open
 Seen once and not again: for a minute or two after the Loft's tablet woke from sleep, the frosted shapes of Home's
 cards stood faintly on the Pages screen and the Calendar. Not found in the page (Home was out of the document), not
 there in any capture since.
+
+## A swipe's first frame (2026-11-14, afternoon): the Pages screen's ground
+
+The owner: "we should do all of that" -- the first frame of a swipe (120-190 ms behind the finger) and the landing
+(~100 ms). Traced on the Kitchen's tablet with what invalidated each style pass written down (Chrome's invalidation
+tracking, over adb). Home to the Pages screen and back, eleven and fourteen swipes:
+
+- **29 ms of the first move was the Pages screen's style, all 218 elements of it.** The swipe hides a page's own
+  ground while a still layer wears it, and said so with a custom property on the page (`--hk-ground-hide`), which
+  every element of the page inherits -- for any swipe from a page with the Pages screen beside it, either way, and
+  again as it landed. It says so on the card now (`hk-ground-out`, the card's own rule for its ground).
+- **The Pages screen rests in a layer of its own.** Its ground is fixed to the whole window; in a layer it is placed
+  in the page's box, which is the window on a wall tablet (`FIXED_WINDOW`, `fills`): the page keeps a layer where
+  that holds and nowhere else.
+
+| The first frame after the finger's first move, median | before | after |
+|---|---|---|
+| Home to the Pages screen | 117 ms | 92 ms |
+| The Pages screen to Home | 126 ms | 107 ms |
+
+The runs spread widely (40-242 ms one way, 92-119 the other), so the medians are what to read.
+
+Tried and taken out: a page waiting beside the screen shrunk to a tenth just past the edge, to bring all of it within
+what the browser draws ahead (it draws ahead some 200 px past the edge: of Home waiting to the left of the Pages
+screen, the near third). The tablet drew more at the start, not less -- a layer kept for moving is not kept at full
+size through a change of scale there.
+
+Still in the first frame: Home's far two-thirds drawn as it comes in from the Pages screen (57 ms of drawing in the
+trace's synthetic swipe; a finger starts slower); between pages with different skies, the next page's sky painted
+two frames in (its first frame 230 ms behind the finger from Weather to the Calendar); every early frame of a swipe
+with the Pages screen in it costs 45-55 ms to draw (its blurred ground is a pass of its own: 27 frames a second, 34
+with the blur off).

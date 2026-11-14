@@ -272,8 +272,10 @@
       // the screen's background, blurred (fixed: the whole window, under the
       // bar too); not in Flat, where there is nothing to blur
       // (a page swipe moving it wears it on a still layer of its own instead: hk-pageswipe.js, swipeGround below)
-      '.bg{position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:calc(1 - var(--hk-ground-hide, 0));',
+      '.bg{position:fixed;inset:0;z-index:-1;pointer-events:none;',
       '  -webkit-backdrop-filter:' + BG_BLUR + ';backdrop-filter:' + BG_BLUR + '}',
+      // (...which says so on the card -- `hk-ground-out` -- not in a property the whole page inherits)
+      ':host([hk-ground-out]) .bg{opacity:0}',
       ':host([data-flat]) .bg{display:none}',
       '.time{position:absolute;left:0;right:0;text-align:center;font-weight:500;line-height:1;letter-spacing:-0.0425em;',
       '  font-variant-numeric:tabular-nums;white-space:nowrap;pointer-events:none;color:currentColor;opacity:' + TIME_ALPHA + '}',

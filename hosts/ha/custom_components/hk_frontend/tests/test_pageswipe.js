@@ -437,8 +437,16 @@ var page = function (tag, kid) { return { localName: tag, style: {}, firstElemen
 var plain = page('hk-grid-view', 'hk-tile-card'), music = page('hk-grid-view', 'hk-music-card'), pages = page('hk-grid-view', 'hk-pages-screen-card');
 var other = page('hk-view-fallback');
 ok('on an Android wall tablet a page may rest in a layer', P._.restOk(plain) === true);
-ok('...but not the Music page (its panels are fixed in the card), the Pages screen (its ground is fixed to the window)', P._.restOk(music) === false &&
-   P._.restOk(pages) === false);
+ok('...but not the Music page (its panels are fixed in the card)', P._.restOk(music) === false);
+// (the Pages screen's ground is fixed to the whole window: in a layer it is placed in its page's box -- the same place
+// only where that box is the window)
+var winW = (window.hkCards && window.hkCards.winSize ? window.hkCards.winSize().w : window.innerWidth) || 0;
+var winH = (window.hkCards && window.hkCards.winSize ? window.hkCards.winSize().h : window.innerHeight) || 0;
+ok('...the Pages screen not before its page\'s box is known', P._.restOk(pages) === false);
+pages.__hkBox = { l: 0, t: 0, w: winW - 400, h: winH };
+ok('...nor where a Side Pane stands beside it', P._.restOk(pages) === false);
+pages.__hkBox = { l: 0, t: 0, w: winW, h: winH };
+ok('...but where its page is the window, it may', P._.restOk(pages) === true, [winW, winH]);
 ok('...nor a view of cards that aren\'t ours', P._.restOk(other) === false);
 if (navWas === undefined) delete globalThis.navigator; else globalThis.navigator = navWas;
 run();
