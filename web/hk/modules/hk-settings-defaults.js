@@ -111,7 +111,9 @@
            liveliness_all: 'classic', liveliness: {}, liveliness_custom: {} },
     idle: { dashboards: [], rooms: {}, 'default': null },
     tablets: { idle_return: true, idle_time: 50, alert_offline: true, alert_restart: true, alert_charging: true,
-               restart: false, restart_times: ['00:02', '15:00'], dismissed: [] },
+               restart: false, restart_times: ['00:02', '15:00'], dismissed: [],
+               // Mantel for Android's options for every tablet (tablet_rules.APP_OPTIONS): none set until chosen
+               app: {} },
     car: { dashboards: [], widths: {} },
     generated: { exclude_areas: [], exclude_devices: [], exclude_entities: [], include_entities: [] },
     features: { vacuum_script: null, alarm_bad_code: null, laundry: [], laundry_clear: 4, tv_sets: [], tv_apps: [], tv_show: 'recent', tv_icons: true, thermostats: [], temperature: null, power: null,
