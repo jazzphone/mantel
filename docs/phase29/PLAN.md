@@ -601,3 +601,40 @@ property changing on the page's own element as it lands. Two are written there: 
 touches off a page beside the one shown, and gives it back) and the page's own look (`wearLook`: custom properties,
 taken off or put on as it lands). Not yet tried: keeping both as they are across the landing, and changing them at
 a quiet moment after it.
+
+## The landing's suspects, held still one at a time (2026-11-14, evening)
+
+The owner: "Feel free to test the 2 remaining items." On the Kitchen's tablet (Pre-rendered glass again), the
+landing task (`end`) in each case, landing on the Pages screen and on Home:
+
+| What was held still | Elements styled | Style | Layout | The task |
+|---|---|---|---|---|
+| nothing (as built) | 678 / 1,204 | 52 / 60 ms | 27 / 50 ms | 99 / 121 ms |
+| the touch block alone, or the look alone | 678 / 1,204 | the same | the same | the same |
+| the root's settings (the band, the pane's room, the page's edge) | 216 / 399 | 45 / 51 | 28 / 32 | 91 / 93 |
+| ...and `inert` | 215 / 399 | 35 / 37 | 30 / 38 | 86 / 86 |
+| ...and the touch block (pointer-events) | 215 / 399 | 32 / 34 | 2 / 3 | 55 / 48 |
+| ...and the page's own look | 215 / 399 | 32 / 42 | 2 / 3 | 52 / 59 |
+
+What it says:
+
+- **The earlier tries showed nothing because the root changes at every landing whatever else is held**: the band,
+  the Side Pane's room and the page's edge are written on `<html>`, and a custom property changed there has every
+  element of the document styled again (in Blink a child's inherited properties are not equal to what they were when
+  its parent's are not, whether or not the child sets them itself -- giving each page its own copies stopped
+  nothing). Those 460-800 extra elements are the shell's and cheap, though: 5-10 ms.
+- **The touch block is the layout.** `pointer-events: none` on a page beside the one shown, taken off as it lands
+  and put on the page left: with it held still, the landing's layout is 2-3 ms, not 28-50. `inert` is another
+  ~12 ms of style. The page's own look is not written at all on these pages.
+- What is left with everything held (215 / 399 elements, ~32 ms) is the page landed on, styled once: not traced.
+
+**Built from it:** on an Android wall tablet a page beside the one shown gets neither (`untouched`): it waits off
+the screen, where no finger reaches it, and aria-hidden keeps it from a screen reader. With the root still
+changing: landing on Home 121 -> 91 ms (layout 50 -> 23); landing on the Pages screen unchanged (99 -> 101), the
+root's change forcing that layout by itself. **Not built:** nothing on the root changing at a landing -- each page
+carrying its band, its edge and the pane's room, and the tab bar and the menu told theirs directly -- which the
+table says is worth the landing's other half (to ~50 ms). It is a change across hk-sidepane.js, hk-menu-drawer.js,
+hk-tabbar.js and css/hk-responsive.css, and the sheets on the body read the root's band today.
+
+In the same traces, under Pre-rendered glass: Home to the Pages screen 42-47 frames a second and back 41-42 (27 and
+30 under live Bright glass that afternoon).

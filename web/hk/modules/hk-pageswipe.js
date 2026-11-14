@@ -305,7 +305,17 @@
       return m ? parseFloat(m[1].split(',')[4]) || 0 : fallback;
     } catch (e) { return fallback; }
   }
-  function offAttrs(el) { el.setAttribute('inert', ''); el.setAttribute('aria-hidden', 'true'); }
+  // A PAGE BESIDE THE ONE SHOWN TAKES NO INPUT: `inert`, and no touch (pointer-events: none, place) -- BUT NOT ON AN
+  // ANDROID WALL TABLET (2026-11-14, the Kitchen's; `untouched`). Both are every element's by inheritance, and both
+  // change as a page lands: taking the touch block off the page landed on and putting it on the page left cost the
+  // landing a whole layout of its own (30 ms of its ~100; 2 ms without), and `inert` another 12 ms of style. Found
+  // by holding each still on the tablet in turn, the root's own changes held still first -- they had every element
+  // styled again whatever else was tried, which is why three earlier tries showed nothing. There a page beside the
+  // one shown waits off the screen (park), where no finger reaches it; while a swipe moves it, the finger is the
+  // swipe's; and it is hidden from a screen reader by aria-hidden. What `inert` adds is the keyboard's Tab, which
+  // a wall tablet has none of. Everywhere else, as before.
+  function untouched() { return android() && keeps(); }
+  function offAttrs(el) { if (!untouched()) el.setAttribute('inert', ''); el.setAttribute('aria-hidden', 'true'); }
   function onAttrs(el) { el.removeAttribute('inert'); el.removeAttribute('aria-hidden'); }
   function later(fn) {
     if (typeof requestAnimationFrame === 'function') requestAnimationFrame(fn); else fn();
@@ -421,7 +431,7 @@
     s.setProperty('width', width + 'px');
     s.setProperty(N.real ? 'max-height' : 'height', Math.max(0, IH() - st.top) + 'px');
     s.setProperty('overflow', 'hidden');
-    s.setProperty('pointer-events', 'none');
+    if (!untouched()) s.setProperty('pointer-events', 'none');
     s.setProperty('transition', 'none');
     // ITS OWN LAYER WHILE IT WAITS, not from the finger's first move (2026-11-14, the Kitchen's tablet: a page moved
     // 300-400 ms after the finger did). Given a layer only then (heat), the page beside this one was drawn for the
@@ -1483,7 +1493,7 @@
     arm: arm,
     plan: plan,
     _: { enabled: enabled, order: order, leftOfHome: leftOfHome, neighbors: neighbors, atEdge: atEdge, travel: travel, lands: lands, speed: speed,
-         viewSeg: viewSeg, ghost: ghost, slow: slow, park: park, keeps: keeps, restOk: restOk, fixedIn: fixedIn,
+         viewSeg: viewSeg, ghost: ghost, slow: slow, park: park, keeps: keeps, restOk: restOk, fixedIn: fixedIn, untouched: untouched,
          NUMBERS: { EDGE: EDGE, START: START, RATIO: RATIO, TURN: TURN, FLICK: FLICK, FLICK_MIN: FLICK_MIN, GIVE: GIVE,
                     STANDARD_MS: STANDARD_MS, FADE_MS: FADE_MS, SLOW_FPS: SLOW_FPS, REST: REST },
          letGoTo: letGoTo,
