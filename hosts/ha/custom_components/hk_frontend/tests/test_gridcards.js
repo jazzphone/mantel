@@ -266,6 +266,21 @@ function () {
   ok('...and nothing else in the house', read.every(function (id) { return mine[id]; }), read);
 },
 function () {
+  H.section('the room: its sort of the house is kept for each room, not only the last asked (2026-11-14)');
+  // (two room tiles on a screen took turns throwing the other's answer away, and the house was sorted twice on every
+  // update -- the Kitchen's tablet)
+  var S = window.hkStrategy, real = S.roomCards, n = 0;
+  S.roomCards = function () { n++; return real.apply(this, arguments); };
+  var c3 = Object.assign({}, client, { entities: Object.assign({}, client.entities) });
+  try {
+    var a = P.roomParts(c3, 'kitchen'), b = P.roomParts(c3, 'den'), a2 = P.roomParts(c3, 'kitchen'), b2 = P.roomParts(c3, 'den');
+    eq('two rooms asked in turn: each sorted once', n, 2);
+    ok('...the same answers again', a2 === a && b2 === b);
+    P.roomParts(Object.assign({}, c3, { entities: Object.assign({}, c3.entities) }), 'kitchen');
+    eq('...and a new registry sorts again', n, 3);
+  } finally { S.roomCards = real; }
+},
+function () {
   H.section('the room, Extra Large and Full Width: Large\'s tiles from the top-left (2026-11-09, mockup 8b)');
   var xl = H.make('hk-grid-room-card');
   xl.setAttribute('size', 'XL'); xl.setConfig({ area: 'kitchen', size: 'XL' }); hkGive(xl, hass()); xl._h = 405; H.attach(xl); xl._render();

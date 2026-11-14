@@ -49,15 +49,21 @@
     // KEPT while the registries, the settings and the house's entities are the
     // same: the room card asks on every new client (several a second), and the
     // room page's build walks every entity.
-    var partsMemo = { key: null, ents: null, devs: null, areas: null, out: null };
+    // (one answer kept per room, 2026-11-14: kept for one room only, two room tiles on a screen took turns throwing
+    // the other's away, and the Kitchen's tablet sorted the house twice on every update -- a quarter of a second in
+    // four page swipes)
+    var partsMemo = { key: null, ents: null, devs: null, areas: null, by: {} };
     function roomParts(client, area) {
       var S = window.hkStrategy, out = { lights: [], speakers: [], all: [] };
       if (!S || !S.roomCards || !client || !client.states) return out;
       var HS = window.hkSettings;
-      var key = area + '|' + (HS ? HS.version : '') + '|' + nStates(client.states);
+      var key = (HS ? HS.version : '') + '|' + nStates(client.states);
       var m = partsMemo;
-      if (m.out && m.key === key && m.ents === client.entities && m.devs === client.devices && m.areas === client.areas) return m.out;
-      partsMemo = { key: key, ents: client.entities, devs: client.devices, areas: client.areas, out: out };
+      if (m.key !== key || m.ents !== client.entities || m.devs !== client.devices || m.areas !== client.areas) {
+        m = partsMemo = { key: key, ents: client.entities, devs: client.devices, areas: client.areas, by: {} };
+      }
+      if (Object.prototype.hasOwnProperty.call(m.by, area)) return m.by[area];
+      m.by[area] = out;
       var room = (client.areas || {})[area] || {};
       var cards = [];
       // HIDDEN ACCESSORIES (HK Settings; `generated`): what the room's page leaves out, the block does too

@@ -88,6 +88,11 @@
   // px a finger goes sideways before what may move gets its layer
   var HEAT = 3;
   var STANDARD = 'cubic-bezier(.32,.72,0,1)', STANDARD_MS = 340, FADE_MS = 200;
+  // THE WINDOW'S SIZE as the cards keep it (hkCards.winSize): on Android's WebView window.innerWidth and innerHeight lay
+  // the page out first when anything has changed, and a landing read them between its writes -- the neighbors placed and
+  // parked, about 100 ms of each landing on the Kitchen's tablet (2026-11-14)
+  function IW() { var C = window.hkCards; return C && C.winSize ? C.winSize().w : window.innerWidth || 0; }
+  function IH() { var C = window.hkCards; return C && C.winSize ? C.winSize().h : window.innerHeight || 0; }
   // px past the window's edge (and a tenth of its width more) a page waiting beside this one sits at rest (park)
   var PARK_GAP = 48;
   // the props a swipe sets on a view, given back as they were
@@ -360,8 +365,8 @@
     st.vtop = r.top;
     var se = document.scrollingElement || document.documentElement, body = document.body;
     var scrolled = Math.max(window.scrollY || 0, se ? se.scrollTop : 0, body ? body.scrollTop : 0);
-    var left = r.left, width = r.width || window.innerWidth || 1;
-    var top = Math.max(0, Math.min((window.innerHeight || 0) / 2, r.top + scrolled));
+    var left = r.left, width = r.width || IW() || 1;
+    var top = Math.max(0, Math.min(IH() / 2, r.top + scrolled));
     var same = st.rect && st.rect.left === left && st.rect.width === width && st.top === top && st.placedBase === base;
     st.placedBase = base;
     st.rect = { left: left, width: width };
@@ -398,7 +403,7 @@
     s.setProperty('left', left + 'px');
     s.setProperty('top', st.top + 'px');
     s.setProperty('width', width + 'px');
-    s.setProperty(N.real ? 'max-height' : 'height', Math.max(0, (window.innerHeight || 0) - st.top) + 'px');
+    s.setProperty(N.real ? 'max-height' : 'height', Math.max(0, IH() - st.top) + 'px');
     s.setProperty('overflow', 'hidden');
     s.setProperty('pointer-events', 'none');
     s.setProperty('transition', 'none');
@@ -412,7 +417,7 @@
   // Pane beside it) is still on the screen. While nothing moves, what waits beside the page waits out of sight; a
   // finger's first move brings it to the page's edge (follow), as a settle takes it back there (run)
   function park(N) {
-    var W = window.innerWidth || 0, gap = PARK_GAP + W / 10, l = (N.left || 0) + (N.off || 0);
+    var W = IW(), gap = PARK_GAP + W / 10, l = (N.left || 0) + (N.off || 0);
     return N.dir > 0 ? Math.max(0, W + gap - l) : Math.min(0, -gap - (l + (N.width || 0)));
   }
   function rest(st, N) { setX(N.el, (N.off || 0) + park(N), st.base); }
@@ -717,7 +722,7 @@
     path.forEach(function (n) { if (!pane && n && n.localName === 'hk-side-pane') pane = n; });
     if (path.indexOf(view) < 0 && !under && !pane) { why = 'off the page'; return; }
     var sa = safe();
-    if (atEdge(e.clientX, window.innerWidth || 0, sa.left, sa.right)) { why = 'edge'; return; }
+    if (atEdge(e.clientX, IW(), sa.left, sa.right)) { why = 'edge'; return; }
     var drag = D(), stop = pane && path.indexOf(view) < 0 ? pane : under ? slot : view, row = null;
     // (a row at an end that pans only one way: a swipe the other way is ours -- decided at the first move, onMove)
     if (!drag || !drag.sideways || (drag.sideways(path, stop) && !(row = drag.sidewaysRow ? drag.sidewaysRow(path, stop) : null))) { why = 'its own'; return; }

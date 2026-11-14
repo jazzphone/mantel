@@ -1083,13 +1083,19 @@
     // Assistant's own edit mode (editing(), above)
     function arranging() { return !!(window.hkEditMenu && window.hkEditMenu.on()); }
     function viewPath(it) { var p = it.paths || []; return String(p[1] != null ? p[1] : p[0]); }
+    // (the same list is not written again, 2026-11-14: a page with the Side Pane beside it is narrower, so every swipe
+    // between it and one without built the bar again, and More's and the rooms' lists -- 62 buttons and their icons --
+    // were made anew to be laid out in a landing, on the Kitchen's tablet)
     function fill(grid, items, k, at) {
       var ed = arranging() && (k === 'p' || k === 'r');
-      grid.innerHTML = items.map(function (it, i) {
+      var html = items.map(function (it, i) {
         return '<button class="it" data-k="' + k + '" data-i="' + (i + (at || 0)) + '"' +
           (ed ? ' data-p="' + esc(k === 'r' ? it.path : viewPath(it)) + '"' : '') + '>' + appIcon(it, k, i + (at || 0)) + '<span>' +
           esc(it.title) + '</span></button>';
       }).join('');
+      if (grid.__hkFill === html && grid.childElementCount === items.length) return;
+      grid.innerHTML = html;
+      grid.__hkFill = html;
     }
     // AN ITEM'S APP ICON (the CSS's APP ICONS): a page in its accent (Home
     // and a page with none, the menu's orange), a room in its tint by its

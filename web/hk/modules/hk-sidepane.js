@@ -151,15 +151,22 @@
   }
   // the tab bar's room at the bottom (hk-tabbar.js --hk-tabbar-h: a calc(),
   // so measured on a probe)
-  var probe = null;
+  // (measured again only when the bar's calc() or the window changes, 2026-11-14: read at every page change after the
+  // page had moved, the probe laid the page out first -- 45 ms of each landing on the Kitchen's tablet)
+  var probe = null, probeKey = null, probeH = 0;
   function tabRoom() {
     try {
-      if (!probe) {
+      var de = document.documentElement, ds = de && de.style;
+      var key = (ds ? ds.getPropertyValue('--hk-tabbar-h') + '|' + ds.getPropertyValue('--hk-dock-h') : '') + '|' + IW() + 'x' + IH();
+      if (probe && probe.isConnected && key === probeKey) return probeH;
+      if (!probe || !probe.isConnected) {
         probe = document.createElement('div');
         probe.style.cssText = 'position:fixed;left:-9px;top:0;width:1px;visibility:hidden;pointer-events:none;height:var(--hk-tabbar-h,0px)';
         document.body.appendChild(probe);
       }
-      return probe.offsetHeight || 0;
+      probeH = probe.offsetHeight || 0;
+      probeKey = key;
+      return probeH;
     } catch (e) { return 0; }
   }
   // A BAND'S ROOM at the page's foot: the view's margin (hk-menu.js keeps its
