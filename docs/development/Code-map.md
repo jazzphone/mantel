@@ -341,6 +341,7 @@ Mantel's pages and the code both hosts share: HK's cards, modules, panels and th
   - `service.js` — settings/service.js -- Mantel Settings, Service Accounts
   - `setup.js` — settings/setup.js -- Mantel Settings, Set Up Mantel
   - `tablet-app.js` — settings/tablet-app.js -- Mantel Settings, a wall tablet running Mantel for Android
+  - `tablet-release.js` — settings/tablet-release.js -- Mantel Settings, Wall Tablets
   - `tablets.js` — settings/tablets.js -- Mantel Settings, a wall tablet's Direct Connection, and its Reload and Clear Cache.
   - `timeline.js` — settings/timeline.js -- Mantel Settings, Timeline (timeline/api.py; docs/phase19/HOUSE-TIMELINE.md "Mantel Settings → Timeline")
 
@@ -495,6 +496,7 @@ Mantel Server.
   - `telegram.py` — Telegram
 - **hosts/server/mantel_server/apps/**
   - `android.py` — Mantel for Android's updates, served by Mantel (docs/phase26/ANDROID-APP.md "Updates").
+  - `apk_check.py` — What an uploaded APK is, read before any tablet is offered it (android.py)
   - `app_api.py` — What the apps' system surfaces ask the house (docs/phase10/APPLE-APPS.md §1, §6, §7; slice 10.3).
   - `app_auth.py` — Signing in the iPhone, iPad and Mac apps (docs/phase10/APPLE-APPS.md §2-§4, slice 10.2).
   - `app_crypto.py` — The cryptography the phone and Mac apps and Web Push share (docs/phase10/APPLE-APPS.md §3, §5).

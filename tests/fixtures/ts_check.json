@@ -184,6 +184,7 @@
   "web/shim/settings/service.js",
   "web/shim/settings/setup.js",
   "web/shim/settings/tablet-app.js",
+  "web/shim/settings/tablet-release.js",
   "web/shim/settings/tablets.js",
   "web/shim/settings/timeline.js"
  ],
