@@ -54,7 +54,8 @@ function pRules(name) {
     const r = rr.data.roles[name];
     if (!r) { c.appendChild(group({ footer: 'There is no such role.' }, [])); return; }
     c.appendChild(group({ footer: r.overridden ? 'Changed from Mantel’s defaults.' : 'Mantel’s own rules for this role. Grants are added to them.' },
-      r.grants.length ? r.grants.map((g) => info((g.effect === 'deny' ? 'Deny ' : 'Allow ') + g.actions.join(', ') + ' on ' + (g.resource_kind === 'all' ? 'everything' : g.resource === '@subject' ? 'their rooms'
+      r.grants.length ? r.grants.map((g) => info((g.effect === 'deny' ? 'Deny ' : 'Allow ') + g.actions.join(', ') + ' on ' +
+        (g.resource_kind === 'all' ? 'everything' : g.resource === '@subject' ? 'their rooms'
         : g.resource_kind === 'feature' ? 'the ' + g.resource + ' feature' : g.resource_kind + ' ' + g.resource) + (g.domains.length ? ' (only ' + g.domains.join(', ') + ')' : ''), g.note || null))
         : [info('No rules of its own')]));
   } };
@@ -98,7 +99,8 @@ function pAddGrant(preset) {
         field('grant', 'not_before', 'Starting', { type: 'datetime-local' }), field('grant', 'not_after', 'Ending', { type: 'datetime-local' }),
         ...ticks('grant', 'days', DAYS.map((x, i) => [String(i), x]), DAYS.map((x, i) => String(i))));
     }
-    c.appendChild(group({ header: 'When', footer: d.scheduled ? 'Times of day are the house’s; the start and end dates are this browser’s clock. The days are the ones the window starts on.' : 'Without a schedule the grant always applies.' }, when));
+    c.appendChild(group({ header: 'When', footer: d.scheduled ? 'Times of day are the house’s; the start and end dates are this browser’s clock. The days are the ones the window starts on.' :
+      'Without a schedule the grant always applies.' }, when));
     c.appendChild(group({}, [button('Add Grant', async () => {
       const body = { effect: d.effect || 'allow', actions: (d.actions || ['view']).slice(), resource_kind: d.kind,
         resource: d.kind === 'feature' ? d.feature : d.kind === 'all' ? '' : (d.resource || '').trim(),

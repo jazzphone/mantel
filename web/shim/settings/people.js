@@ -21,15 +21,14 @@ function standInTablet(u, devices) {
   const names = [squash(u.person.name), squash(u.name)].filter(Boolean);
   return (devices || []).find((dv) => names.includes(squash(dv.name))) || null;
 }
-// the docs row is drawn with the error group when Home Assistant's users can't be read, else after the page
-const haNoUsers = () => { const g = haPeopleRead(); return !!(g && g.data && g.data.error && !(g.data.users || []).length); };
 function drawHaUsers(c, others) {
   const got = haPeopleRead();
   if (!got) { if (!others) pending(c); return; }
   if (got.err) { failed(c, got.err); return; }
   const d = got.data, all = d.users || [];
   if (d.error && !all.length) {
-    c.appendChild(group({ header: 'Home Assistant Users', footer: d.error + ' Link one with mantel-server link, as the docs say.' }, [docsRow('People-and-Roles', 'a-home-assistant-user')].filter(Boolean)));
+    c.appendChild(group({ header: 'Home Assistant Users', footer: d.error + ' Link one with mantel-server link, as the docs say.' },
+      [docsRow('People-and-Roles', 'a-home-assistant-user')].filter(Boolean)));
     return;
   }
   const tablets = all.filter(standIn);
@@ -134,9 +133,12 @@ export function pPeople(sub) {
     const other = users.filter((u) => !LISTED.includes(u.role));
     if (other.length) c.appendChild(group({ header: 'Other Accounts' }, other.map(row)));
     c.appendChild(group({}, [nav('Add Person…', 'people/add', { icon: 'mdi:plus' })]));
-    const docs = docsRow('People-and-Roles');
+    // (In the Docs once: with Home Assistant's users when they can't be read, else at the end)
+    const before = c.childNodes.length;
     drawHaUsers(c, false);
-    if (docs && !haNoUsers()) c.appendChild(group({}, [docs]));
+    const drewDocs = [].slice.call(c.childNodes, before).some((n) => n.querySelector && n.querySelector('[data-fk^="mx:docs:"]'));
+    const docs = drewDocs ? null : docsRow('People-and-Roles');
+    if (docs) c.appendChild(group({}, [docs]));
   } };
 }
 // THEIR PHONES (phones.py; docs/phase9/MANTEL-LINK.md 9.7): Mantel's notifications on the Home Assistant Companion
@@ -154,7 +156,6 @@ function drawPhones(c, u, locked) {
   const put = (services, send) => act('person', () => api('PUT', '/api/users/' + encodeURIComponent(u.id) + '/phones', { services, send }),
                                       'Phones saved.', 'phones');
   const rows = [];
-  if (!d.linked && !mine.services.length) return;      // nothing to say until Mantel Link brings phones
   if (locked) {
     rows.push(info('Phones', null, mine.services.map((s) => names[s] || s).join(', ') || 'None'));
   } else {
@@ -185,7 +186,8 @@ function pMerge(id) {
     c.appendChild(
       group(
       { footer:
-      'This account was made for a Home Assistant user. Merged into a person, their Home Assistant sign-in, Default Screen, own settings, phones and rooms go to that person (where they have none of ' +
+      'This account was made for a Home Assistant user. Merged into a person, their Home Assistant sign-in, Default Screen, own settings, phones and rooms go to that person (where they have none ' +
+        'of ' +
       'their own), and this account is removed.' }, [
       K().select({ label: 'Into', options: [['', 'Choose a Person'], ...into.map((x) => [x.id, (x.name || x.username) + ' · ' + roleLabel(x.role)])], value: d.into || '', fk: 'mx:merge:' + u.id,
         onChange: (v) => { d.into = v || null; redraw(); } }),

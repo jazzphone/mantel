@@ -64,7 +64,8 @@ def build(tmp_path):
     src.write_text(head + TAIL)
     data = json.loads(json.dumps(DATA))
     owner = data["me"]["owner"]
-    owner.update(sections=["me", "people", "devices", "roles", "service", "audit"], actions=["view", "control", "control.sensitive", "history", "configure"], resource_kinds=["entity", "domain", "area", "floor", "feature", "all"],
+    owner.update(sections=["me", "people", "devices", "roles", "service", "audit"], actions=["view", "control", "control.sensitive", "history", "configure"],
+        resource_kinds=["entity", "domain", "area", "floor", "feature", "all"],
                  features=["cameras", "music"], roles=["owner", "admin", "adult", "child", "guest", "wall_tablet", "service"])
     data["reads"].update({
         "/api/admin/overview": owner,

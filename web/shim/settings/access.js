@@ -65,6 +65,7 @@ export function grantRow(g, who) {
 // grant on rooms counts only in their rooms), so the rows say it in words. Grants on one entity or a floor and
 // scheduled ones are not counted here; they are listed as grants.
 const FEATURE_DOMAINS = { cameras: ['camera'], music: ['media_player'], garage: [], locations: ['person', 'device_tracker'] };
+/** @type {Array<[string, Array<{ a: string, d?: string, f?: string }>]>} */
 const AREAS = [
   ['Lights & Switches', [{ a: 'control', d: 'light' }, { a: 'control', d: 'switch' }]],
   ['Locks & Garage', [{ a: 'control.sensitive', d: 'lock' }, { a: 'control.sensitive', f: 'garage' }]],
@@ -203,7 +204,8 @@ export function pSubjectRooms(kind, id) {
 }
 // the old Rooms page: everyone with rooms, each opening their own
 export function pRoomsIndex() {
-  return { title: 'Rooms', back: ['Roles & Permissions', '#/' + ROUTE + '/roles'], scope: 'A Child’s or Guest’s rooms, or a wall tablet’s, are set on their own page, under Access. They are listed here too.',
+  return { title: 'Rooms', back: ['Roles & Permissions', '#/' + ROUTE + '/roles'],
+    scope: 'A Child’s or Guest’s rooms, or a wall tablet’s, are set on their own page, under Access. They are listed here too.',
   body(c) {
     const gg = grantsRead();
     if (!gg) { pending(c); return; }
