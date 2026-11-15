@@ -176,19 +176,24 @@ old_mantel_images() {  # old_mantel_images LOCAL_REFS IN_USE_REFS: the image tag
   # (`docker ps -a`). Only ghcr.io/jazzphone/mantel-{server,transcode,caddy}:<version> tags are ever listed, never
   # one a container uses, nor the running version's, the one before it or a newer one (any of the three, used or not), nor
   # mantel-rollback/* or anything else. Nothing at all when no container runs a published Mantel image.
+  # A hotfix's image (mantel-hotfix.sh: <its commit's version>-main.<sha9>) is no version to compare: its sha would
+  # sort as one, keeping some and not others. A container on a hotfix runs its version's release; every hotfix
+  # image no container uses is old (35 of them were on the house's LXC on 2026-11-15).
   local re='^ghcr\.io/jazzphone/mantel-(server|transcode|caddy):[0-9]+\.[0-9]+\.[0-9]+[0-9A-Za-z.+-]*$'
+  local hot='-main\.[0-9a-f]{9}$'
   local current previous ref version
-  current="$(grep -E "$re" "$2" 2>/dev/null | sed 's/.*://' | sort -uV | tail -1 || true)"
+  current="$(grep -E "$re" "$2" 2>/dev/null | sed -E "s/.*://; s/$hot//" | sort -uV | tail -1 || true)"
   [ -n "$current" ] || return 0
-  previous="$({ grep -E "$re" "$1" 2>/dev/null | sed 's/.*://'; echo "$current"; } | sort -uV \
+  previous="$({ grep -E "$re" "$1" 2>/dev/null | sed 's/.*://' | grep -Ev -- "$hot"; echo "$current"; } | sort -uV \
               | grep -B1 -xF "$current" | head -1 || true)"
   while IFS= read -r ref; do
     [[ "$ref" =~ $re ]] || continue
+    grep -qxF "$ref" "$2" 2>/dev/null && continue
     version="${ref##*:}"
+    if [[ "$version" =~ $hot ]]; then printf '%s\n' "$ref"; continue; fi
     [ "$version" != "$current" ] && [ "$version" != "$previous" ] || continue
     # a newer one than runs (pulled, not started yet) is not old
     [ "$(printf '%s\n%s\n' "$current" "$version" | sort -V | tail -1)" = "$current" ] || continue
-    grep -qxF "$ref" "$2" 2>/dev/null && continue
     printf '%s\n' "$ref"
   done < "$1"
   return 0

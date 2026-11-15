@@ -9,7 +9,11 @@
 # image is tagged <the commit's version>-main.<sha9> and never pushed: release.yml tags images by version alone.
 #
 # Phase 25 (E3): every way out prunes Docker's build cache. The house's LXC was 92% full on 2026-11-11, 19.5 GB of it
-# build cache from hotfixes built here; `docker builder prune -f` keeps no cache between hotfixes (a build is ~5 min).
+# build cache from hotfixes built here. `docker builder prune -af`: all of it, so no cache is kept between hotfixes (a
+# build is ~5 min). Without -a only the cache no image holds went, and every hotfix left its image: 35 of them held
+# 16 GB of cache on 2026-11-15 (88% full again). So a hotfix that started also removes the hotfix images before it, by
+# exact tag, all but itself and the one it replaced (the way back); `update` removes those two (mantel.sh
+# old_mantel_images).
 set -euo pipefail
 SHA="${1:?usage: mantel-hotfix.sh <full sha of a main commit>}"
 SHORT="${SHA:0:9}"
@@ -18,7 +22,7 @@ WORK="${MANTEL_HOTFIX_DIR:-/root/hotfix}"
 LOGS="${MANTEL_HOTFIX_LOGS:-/root}"           # the build and up logs, and .env as it was
 
 prune_cache() {
-  docker builder prune -f >/dev/null 2>&1 && echo "build cache pruned" || echo "build cache NOT pruned: docker builder prune -f by hand" >&2
+  docker builder prune -af >/dev/null 2>&1 && echo "build cache pruned" || echo "build cache NOT pruned: docker builder prune -af by hand" >&2
 }
 trap prune_cache EXIT
 
@@ -42,4 +46,11 @@ docker compose up -d >"$LOGS/hotfix-up.log" 2>&1 || {
   exit 1
 }
 cd "$INSTALL_DIR" && git worktree remove --force "$WORK"
+# the hotfix images before this one: never -f (an image a container still uses stays), never `docker image prune`
+BEFORE="$(sed -n 's/^MANTEL_SERVER_IMAGE=//p' "$LOGS/env.before-hotfix-${SHORT}" | head -1)"
+docker images --format '{{.Repository}}:{{.Tag}}' 2>/dev/null \
+  | grep -E '^ghcr\.io/jazzphone/mantel-server:[0-9][0-9A-Za-z.+-]*-main\.[0-9a-f]{9}$' \
+  | grep -vxF -e "$TAG" -e "${BEFORE:-$TAG}" \
+  | { n=0; while IFS= read -r ref; do docker rmi "$ref" >/dev/null 2>&1 && n=$((n + 1)); done
+      echo "old hotfix images removed: $n"; } || true
 docker ps --format '{{.Names}} {{.Image}} {{.Status}}'

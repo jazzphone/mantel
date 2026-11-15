@@ -354,6 +354,19 @@ def test_versions_are_compared_as_versions(tmp_path):
     assert old_images(tmp_path, images, [f"{GHCR}server:0.1.100"]) == [f"{GHCR}server:0.1.98"]
 
 
+def test_a_hotfix_image_no_container_uses_is_old_and_a_house_on_a_hotfix_keeps_its_releases(tmp_path):
+    # hotfixes are tagged <version>-main.<sha9>; as versions their shas would sort, keeping whichever came "after"
+    hot = [f"{GHCR}server:0.1.141-main.{sha}" for sha in ("0362c89fe", "3bd980482", "e87faa217", "9298ef9c8")]
+    images = [*HOUSE_IMAGES, *hot]
+    old = [f"{GHCR}transcode:0.1.139", f"{GHCR}server:0.1.139", f"{GHCR}server:0.1.138", f"{GHCR}transcode:0.1.138",
+           f"{GHCR}transcode:0.1.137", f"{GHCR}server:0.1.137", f"{GHCR}caddy:0.1.130"]
+    # the house on a hotfix: the hotfix it runs stays, with its release and the one before; the other three go
+    ps = [hot[1], hot[1], f"{GHCR}transcode:0.1.141"]
+    assert old_images(tmp_path, images, ps) == [*old, hot[0], hot[2], hot[3]]
+    # after a release's update (the house on 0.1.141 itself): every hotfix image goes
+    assert old_images(tmp_path, images, HOUSE_PS) == [*old, *hot]
+
+
 @pytest.mark.parametrize("ps", [[], ["mantel-server:local", "mantel-rollback/mantel-server:previous"],
                                 [f"{GHCR}server:latest", "sha256:6f88f8534665"]])
 def test_nothing_is_removed_when_no_container_runs_a_published_version(tmp_path, ps):

@@ -267,7 +267,10 @@ are found by maker, so a new one needs no list. A refresh that fails is said in 
 - **A hotfix on the house** (only with the owner's OK; no tag, no GitHub release): `packaging/lxc/mantel-hotfix.sh`
   builds mantel-server inside the LXC from a commit of main, tags it `<that commit's version>-main.<sha9>` (never
   pushed: `release.yml` tags images by version alone), pins `.env` to it and recreates; the next release's `update`
-  rewrites the pin. Every way out prunes Docker's build cache (phase 25: hotfixes had left 19.5 GB of it on the LXC).
+  rewrites the pin. Every way out prunes Docker's build cache, all of it (phase 25: hotfixes had left 19.5 GB of it on
+  the LXC), and a hotfix that started removes the hotfix images before it, all but itself and the one it replaced:
+  without that each image held its cache (35 images, 16 GB, on 2026-11-15). A release's `update` removes the hotfix
+  images no container uses with the other old images (`mantel.sh prune-images` does the same by hand).
 
   ```bash
   scp -i ~/.ssh/mantel_lxc packaging/lxc/mantel-hotfix.sh root@<lxc>:/root/
