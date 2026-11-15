@@ -14,6 +14,7 @@ logic, the Home Assistant integrations, the packaging or the Apple apps. If you 
 | [Screenshots](Screenshots.md) | regenerate or add the screenshots in `docs/images/` |
 | [Performance baseline](Performance-baseline.md) | see what is measured on each tablet, and the numbers to compare a performance change with |
 | [Motion](Motion.md) | see how things move (the release, the rules for what runs under a finger), what has been measured, and what only a real tablet can say |
+| [Building for slow tablets](Slow-tablets.md) | build a card, an animation, a glass surface or a server overlay that is right on the slowest wall tablet the first time: the checklist, and what each line was measured as |
 | [Design notes](Design-Notes.md) | find the detailed design note or build record behind a part of the code |
 | [Engineering audit](Audit-2026-10.md), [second pass](Audit-2026-10-second-pass.md) | see what the audits found and fixed, what was deferred and why, and the checks they ran |
 

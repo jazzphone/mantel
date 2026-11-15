@@ -208,6 +208,8 @@ adapter now does three things for a card, and each asks something of the card:
 A page shown again must not wait for anything: the address changes at the tap, and whatever the page waits for is
 the old page standing under the new one's sky. Before calling a change to any of this done, look at it on a real
 wall tablet (`docs/development/Motion.md` and phase 29's log say how it was measured).
+[Building for slow tablets](Slow-tablets.md) is the checklist around this rule: what moves, glass, a landing, every way
+to a page, the server's side, and what fooled the measuring.
 
 **Checked by** `tests/test_shim_reads.py` (what is taken down, a walk told from a card's reads, the gate, what is read
 outside any card) and `tests/test_fixed_inside.py` (every file with a fixed rule says where what it fixes lives).
