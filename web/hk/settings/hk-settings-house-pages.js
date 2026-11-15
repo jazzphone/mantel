@@ -1158,7 +1158,7 @@
       // (2026-10-30: a "Same as All Screens | All Screens" group before each)
       paneWhose(path, p, g) {
         if (!path) return null;
-        return p.own.indexOf(g) >= 0 ? 'Just This Screen' : 'Same as All Screens';
+        return p.own.indexOf(g) >= 0 ? 'Just This Screen' : null;
       }
       paneResetAll(path) {
         var b = this.data.boards[path], house = M.paneOf((this.data.settings || {}).side_pane, null);
@@ -1426,7 +1426,7 @@
                             onChange: function (v) { ps.set(field, v); } });
         }
         var hv = ps.house[field];
-        return K.select({ label: label, sk: 'b:pages_screen:' + field, sub: ps.own[field] ? 'Just This Screen' : 'Same as All Screens',
+        return K.select({ label: label, sk: 'b:pages_screen:' + field, sub: ps.own[field] ? 'Just This Screen' : null,
                           value: ps.own[field] ? ps.value[field] : '',
                           options: [['', 'Same as All Screens (' + lab(hv) + ')', lab(hv)]].concat(list),
                           onChange: function (v) { ps.set(field, v || undefined); } });
@@ -1461,7 +1461,7 @@
         c.appendChild(K.group({ header: 'Icons', footer: 'Each page as a large icon in its Accent Color. Calendar shows today’s date, ' +
             'Weather the temperature, and a red badge shows what’s waiting: timers running, a door open, a notification.' }, [
           K.nav({ label: 'Icons', value: icons, href: ctx.base + '/icons', sk: ctx.house ? 'pages_screen.icons' : 'b:pages_screen:icons',
-                  sub: ctx.house ? null : ps.own.icons ? 'Just This Screen' : 'Same as All Screens' }),
+                  sub: ctx.house ? null : ps.own.icons ? 'Just This Screen' : null }),
           this.psSelect(ctx, ps, 'rooms', 'Rooms', M.PAGES_SCREEN_ROOMS)]));
         // WIDGETS: the Side Pane's sections among the icons
         var widgets = val.widgets || [], have = {};

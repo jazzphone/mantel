@@ -909,14 +909,14 @@
         if (o.saver) return;
         // MOTION (2026-10-30): the picture drifts, or a theme's layers move, at a speed
         var mOwn = o.motionHouse !== undefined && !!o.motion;
-        var mRows = [K.seg({ label: 'Motion', sub: o.motionHouse === undefined ? null : (mOwn ? 'Just This Screen' : 'Same as All Screens'),
+        var mRows = [K.seg({ label: 'Motion', sub: o.motionHouse === undefined ? null : (mOwn ? 'Just This Screen' : null),
           sk: o.sk.replace('wallpaper', 'wallpaper_motion'), value: mEff, options: M.WALLPAPER_MOTION, onChange: function (v) { o.onMotion(v); } })];
         if (mOwn) mRows.push(K.button({ label: 'Reset to All Screens (' + M.choiceLabel(M.WALLPAPER_MOTION, o.motionHouse) + ')',
           sk: o.sk.replace('wallpaper', 'wallpaper_motion') + ':reset', onClick: function () { o.onMotion(null); } }));
         c.appendChild(K.group({ footer: 'A wallpaper drifts, sways or turns slowly; a motion theme moves its own way. It stops while the screen is dark or hidden, ' +
           'when Animations are off, and for Reduce Motion.' }, mRows));
         var nOwn = o.nightHouse !== undefined && !!o.night, nEff = o.night || o.nightHouse || 'auto';
-        var nRows = [K.seg({ label: 'Night Version', sub: o.nightHouse === undefined ? null : (nOwn ? 'Just This Screen' : 'Same as All Screens'),
+        var nRows = [K.seg({ label: 'Night Version', sub: o.nightHouse === undefined ? null : (nOwn ? 'Just This Screen' : null),
           sk: o.sk.replace('wallpaper', 'wallpaper_night'), value: nEff, options: M.WALLPAPER_NIGHT, onChange: function (v) { o.onNight(v); } })];
         if (nOwn) nRows.push(K.button({ label: 'Reset to All Screens (' + M.choiceLabel(M.WALLPAPER_NIGHT, o.nightHouse) + ')',
           sk: o.sk.replace('wallpaper', 'wallpaper_night') + ':reset', onClick: function () { o.onNight(null); } }));

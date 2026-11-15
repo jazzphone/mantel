@@ -493,7 +493,7 @@
                                 sub: 'The music playing, in a side pane or a bar.',
                                 onChange: function (on) { set({ now_playing: on }); } })];
           if (b.now_playing && b.np_style !== undefined) {
-            npr.push(K.nav({ label: 'Now Playing Options', href: base + '/nowplaying', sk: 'b:np_options', value: M.npOwn(b) ? 'Just This Screen' : 'Same as All Screens' }));
+            npr.push(K.nav({ label: 'Now Playing Options', href: base + '/nowplaying', sk: 'b:np_options', value: M.npShowAs(this.paneNow(path)), sub: M.npOwn(b) ? 'Just This Screen' : null }));
           }
           // (shown once the integration knows it: an older one would drop it)
           if (b.timer_bar !== undefined) {
@@ -1231,7 +1231,7 @@
       accentNav(x, b, href) {
         var ac = this.accentOf(x, b);
         return K.nav({ label: 'Accent Color', value: ac.name, href: href, sk: b ? 'b:accent' : 'menu.accent',
-                       sub: b ? (ac.own ? 'Just This Screen' : 'Same as All Screens') : null,
+                       sub: b && ac.own ? 'Just This Screen' : null,
                        tile: ['', ac.hex || AUTO_ACCENT_TILE] });
       }
       accentPage(c, x, b) {
