@@ -355,9 +355,9 @@
       s_main(c, x, b) {
         var self = this, path = x.path, base = '#/screens/' + encodeURIComponent(path), gen = x.generated;
         var look = this.data.settings.look;
-        // PREVIEW: on a phone the preview is a tab of its own; beside it on a wide screen it is the column
+        // PREVIEW: the frame above (the column beside the page when it is wide); a phone also gets the screen itself in a tab
         if (!this.hasAttribute('wide')) {
-          c.appendChild(K.group({}, [K.nav({ label: 'Preview', sub: 'Open this screen in a new tab', href: '/' + path + '/0', icon: 'mdi:open-in-new' })]));
+          c.appendChild(K.group({}, [K.nav({ label: 'Open Screen', sub: 'In a new tab', href: '/' + path + '/0', icon: 'mdi:open-in-new' })]));
           var o = c.lastChild.querySelector('a');
           o.setAttribute('target', '_blank'); o.setAttribute('rel', 'noopener');
         }
@@ -1054,6 +1054,10 @@
           return;
         }
         var tb = all || M.tabletTabBar(v), ph = all || M.phoneMenu(v) === 'tabbar';
+        if (!tb && !ph) {
+          c.appendChild(K.group({}, [K.info({ label: 'This Screen Has No Tab Bar', sub: 'Choose Tab Bar in its Menu and the settings appear here.' })]));
+          return;
+        }
         var pos = v.tab_bar_pos || 'bottom', rail = pos === 'left' || pos === 'right';
         var L = function (list) { return function (x) { return M.choiceLabel(list, x); }; };
         // POSITION is a page of four choices (its Reset to All Screens is there)
@@ -1106,7 +1110,7 @@
                               sk: ctx.sk('tab_bar_start'), on: v.tab_bar_start === 'small', onChange: function (on) { set({ tab_bar_start: on ? 'small' : 'full' }); } });
           }, function (x) { return x === 'small' ? 'On' : 'Off'; }));
         }
-        c.appendChild(
+        if (scroll.length) c.appendChild(
           K.group(
           { header: 'While Scrolling', footer: 'Shrink folds the bar into one small button as you scroll down; Hide slides it away. Scrolling up, either end of the page or a tap brings it back.' },
           scroll));
@@ -1123,7 +1127,7 @@
           return K.select({ label: 'Tabs in Rail', sub: whose || 'Down the left or the right.', sk: ctx.sk('tab_bar_tabs_rail'),
                             value: String(v.tab_bar_tabs_rail || 6), options: nums(M.TAB_BAR_TABS), onChange: function (x) { set({ tab_bar_tabs_rail: Number(x) }); } });
         }, String));
-        c.appendChild(K.group({ header: 'Tabs', footer: 'Pages, besides Home and More. A narrow phone shows fewer when they don’t fit; the rest are in More.' }, tabs));
+        if (tabs.length) c.appendChild(K.group({ header: 'Tabs', footer: 'Pages, besides Home and More. A narrow phone shows fewer when they don’t fit; the rest are in More.' }, tabs));
         var more = [];
         [[tb, '', 'Tablets & Computers', 'icons'], [ph, '_phone', 'Phones', 'list']].forEach(function (d) {
           if (!d[0]) return;
@@ -1135,7 +1139,7 @@
                            options: M.TAB_BAR_ROOMS, onChange: function (x) { var ch = {}; ch['tab_bar_rooms' + d[1]] = x; set(ch); } });
           }, function (x) { return M.choiceLabel(M.TAB_BAR_ROOMS, M.roomsPlace(x)); }));
         });
-        c.appendChild(
+        if (more.length) c.appendChild(
           K.group(
           { header: 'More', footer: 'Icons are a grid and List is rows like the side menu. Rooms In More sit under the pages; Own Button is a round button beside the bar.' },
           more));
