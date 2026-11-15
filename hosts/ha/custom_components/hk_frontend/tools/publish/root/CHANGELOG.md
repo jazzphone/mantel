@@ -10,6 +10,7 @@ HK Frontend's releases, newest first. A GitHub release's notes are its section h
 - **A switch slides once**: a change drew the whole page three times and replaced the switch mid-tap; it now redraws only when something it shows changed. A row whose label wraps puts its control underneath. Accessories draws in about a third of the time on a large house.
 
 **Fixed**
+- **The confirm and choose pop-ups (Turn Off on the Power page, Play On and the like) were dark in Flat Light, with dark words on them**: they follow the theme now -- white with dark words and Apple's blue and red in Light; Dark and the Glass looks keep the alert gray.
 - **A long song title in a Large or Extra Large Now Playing block slid over the cover** as it drifted: it now disappears at the gap beside the cover. Every look did it; Flat showed it most.
 - **The Side Pane stayed dark in Flat Light**, with dark words on it. It is light in Flat Light and dark in Flat Dark; under a song's cover it is a dark media surface in both, and the music's panel over it is opaque in Flat.
 - **A HomePod's leftover AirPlay session showed as paused music** after Music Assistant restarted mid-song. A paused, untitled AirPlay session with no artist is no longer music.

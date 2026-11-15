@@ -83,5 +83,14 @@ var sheet = C.confirmSheet('Turn off the circuit?', function () {});
 ok('HK\'s confirm sheet mounts on the document\'s body, as always', sheet.parentNode === document.body && sheet.id === 'hk-confirm');
 var choose = C.chooseSheet('Which?', [{ name: 'A' }], function () {});
 ok('...and its choose sheet', choose.parentNode === document.body);
+// (2026-11-15, the owner: the Power page's Turn Off was the dark alert gray in Flat Light, under Light's dark ink)
+ok('both dialogs wear the theme\'s alert: Flat Light white with its blue and red, Dark and Glass the alert gray',
+   [sheet, choose].every(function (d) {
+     var h = String(d.innerHTML);
+     return h.indexOf('background:var(--hk-alert-bg,rgba(42,42,44,0.94))') >= 0 && h.indexOf('color:var(--hk-alert-key,#0a84ff)') >= 0 &&
+       h.indexOf('var(--hk-alert-sep,rgba(255,255,255,0.18))') >= 0 && !/(solid|0\.5px 0) rgba\(255,255,255,0\.18\)/.test(h);
+   }) && String(sheet.innerHTML).indexOf('color:var(--hk-alert-red,#ff453a)') >= 0 &&
+   C.FLAT.light['--hk-alert-bg'] === '#FFFFFF' && C.FLAT.light['--hk-alert-key'] === '#007AFF' && C.FLAT.light['--hk-alert-red'] === '#FF3B30' &&
+   C.FLAT.dark['--hk-alert-bg'] === 'rgba(42,42,44,0.94)' && C.FLAT.dark['--hk-alert-key'] === '#0a84ff' && C.FLAT.dark['--hk-alert-red'] === '#ff453a');
 
 sheetResult('SHEETS (HA)');

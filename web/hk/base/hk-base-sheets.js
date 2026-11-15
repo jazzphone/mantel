@@ -119,23 +119,23 @@
           // is ~52% of the screen. Unset everywhere else: plain 100vh.
           '#hk-choose .box{position:relative;width:340px;max-height:calc(var(--hk-vh, 100vh) * .78);border-radius:16px;' +
           // no blur: at .94 over a dimmed page it could not be seen
-          '  overflow:hidden;background:rgba(42,42,44,0.94);' +
+          '  overflow:hidden;background:var(--hk-alert-bg,rgba(42,42,44,0.94));' +
           '  color:' + v('ink') + ';text-align:center;display:flex;flex-direction:column;' +
-          '  box-shadow:0 24px 64px rgba(0,0,0,0.55),0 2px 10px rgba(0,0,0,0.35)}' +
+          '  box-shadow:var(--hk-alert-shadow,0 24px 64px rgba(0,0,0,0.55),0 2px 10px rgba(0,0,0,0.35))}' +
           '#hk-choose .txt{padding:22px 24px 16px;font-size:15px;font-weight:600;' +
           '  line-height:1.35;color:' + v('ink') + '}' +
           // The list scrolls if it ever outgrows the sheet; six fit without it.
           '#hk-choose .list{overflow-y:auto;-webkit-overflow-scrolling:touch}' + edgeCss('#hk-choose ') +
           '#hk-choose .opt{appearance:none;border:0;background:none;width:100%;' +
-          '  color:#0a84ff;font:inherit;font-size:17px;padding:15px 20px;' +
+          '  color:var(--hk-alert-key,#0a84ff);font:inherit;font-size:17px;padding:15px 20px;' +
           '  cursor:pointer;display:block;' +
-          '  box-shadow:inset 0 0.5px 0 rgba(255,255,255,0.18)}' +
-          '#hk-choose .opt:active{background:rgba(255,255,255,0.08)}' +
+          '  box-shadow:inset 0 0.5px 0 var(--hk-alert-sep,rgba(255,255,255,0.18))}' +
+          '#hk-choose .opt:active{background:var(--hk-alert-press,rgba(255,255,255,0.08))}' +
           // Cancel is the last row and reads as the way out, not as a seventh
           // decade -- 600 against the options' regular weight, the same device
           // iOS uses to separate a sheet's dismissal from its choices.
           '#hk-choose .cancel{font-weight:600;' +
-          '  box-shadow:inset 0 0.5px 0 rgba(255,255,255,0.18)}' +
+          '  box-shadow:inset 0 0.5px 0 var(--hk-alert-sep,rgba(255,255,255,0.18))}' +
           // the title riding on the list, once it scrolls (shade)
           '</style>' +
           '<div class="box"><div class="txt"></div>' +
