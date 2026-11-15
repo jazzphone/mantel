@@ -440,7 +440,7 @@
       var alarm = !!(has && has.alarm);
       var want = {
         climate: n('thermostats') || n('fans') || n('temperature'), lights: n('lights'),
-        security: alarm || n('locks') || n('garage'), doors_windows: !alarm && (n('doors') || n('windows')),
+        security: true, doors_windows: !alarm && (n('doors') || n('windows')),
         water: n('leaks') || n('valves'), energy: true, power: true, timers: n('timers'), vacuums: n('vacuums'), music: true,
         cameras: !!(has && has.cameras), calendar: !!(has && has.calendars), weather: !!(has && has.weather), live_tv: true
       };

@@ -213,6 +213,7 @@ print('\n=== Pages (2026-10-16) ===');
   var keys = P.pagesListed.call(pg).map(function (p) { return p[0]; });
   ok('the Pages section lists what the house has', keys.join(','), 'security,water,energy,power,timers,vacuums,music,cameras,calendar,weather,live_tv');
   ok('...Doors & Windows only without an alarm', keys.indexOf('doors_windows') < 0, true);
+  ok('...Security is listed even with no alarm or lock yet: its Alarm Panel is where they begin', M.pagesListed({ kinds: {}, alarm: null }).some(function (p) { return p[0] === 'security'; }), true);
   ok('a page opens its own settings page', go('#/page/water').title, 'Water');
   ok('...a top page, beside the sidebar', go('#/page/water').top, true);
   ok('its status row below it', go('#/page/water/status').back[1], '#/page/water');
@@ -288,6 +289,20 @@ print('\n=== Pages (2026-10-16) ===');
   go('#/page/water').body(box);
   var html = JSON.stringify(box, function (k, v) { return k === 'parentNode' || k === '_listeners' ? undefined : v; }) || '';
   ok('a page lists its screens, each opening that screen’s pages', html.indexOf('#/screens/dashboard-a/pages') >= 0, true);
+  // PHASE 32: every Pages' own page ends in the same three groups, and Cameras has no Related group any more
+  var cbox = document.createElement('div');
+  go('#/page/cameras').body(cbox);
+  var cht = JSON.stringify(cbox, function (k, v) { return k === 'parentNode' || k === '_listeners' ? undefined : v; }) || '';
+  ok('the Cameras page: What’s on It, Look and On Screens, no Related group', /What’s on It/.test(cht) && /\bLook\b/.test(cht) && /On Screens/.test(cht) && !/Related/.test(cht), true);
+  var wbox = document.createElement('div');
+  go('#/page/weather').body(wbox);
+  var wht = JSON.stringify(wbox, function (k, v) { return k === 'parentNode' || k === '_listeners' ? undefined : v; }) || '';
+  ok('the Weather page: its settings are one group, On the Page', /On the Page/.test(wht) && !/Optional Readings|Presentation/.test(wht), true);
+  var sbox = document.createElement('div');
+  go('#/page/security').body(sbox);
+  var sht = JSON.stringify(sbox, function (k, v) { return k === 'parentNode' || k === '_listeners' ? undefined : v; }) || '';
+  ok('the Security page leads with the Security System: the panel and its keypad in one group', sht.indexOf('Security System') < sht.indexOf('Show Header') &&
+     /Wrong-Code Indicator/.test(sht) && !/Alarm Keypad/.test(sht), true);
 })();
 
 print('\n=== Flat Colors: one editor at every scope (2026-10-17) ===');
@@ -421,7 +436,7 @@ print('\n=== Appearance and Menu, reorganized (2026-10-29) ===');
                      accent: 'teal', tab_bar_size: 'large', tab_bar_pos: 'bottom', tab_position: '', tab_size: 'large', tab_size_phone: 'standard',
                      page_header: 'current', flat_colors: {}, rooms_custom: false, chips_row: true, chips: [], cameras: [], scenes: [], favorites: [],
                      categories: [], menu_top: [], headers: {}, tablets: [], popups: true, sky: true },
-    'dashboard-c': { pages: [], glass: 'house', menu: 'off', menu_phone: 'off', menu_own: [], flat_colors: {} } };
+    'dashboard-c': { pages: [], favorites: [], chips: [], scenes: [], cameras: [], glass: 'house', menu: 'off', menu_phone: 'off', menu_own: [], flat_colors: {} } };
   pg.data = { settings: { sky: { pages: {}, flat_pages: {}, background: 'live' }, look: look, menu: { accent: 'orange', bar_size: 'medium', style: 'auto' },
                           rooms: {}, generated: {}, headers: {}, status_rows: {}, security: {}, features: {}, weather: {}, calendar: {}, cameras: {}, browse: { hide: [], discover: [] } },
               choices: {}, counts: {}, kinds: {}, accessories: { pages: {} }, tablets: {},
@@ -449,10 +464,62 @@ print('\n=== Appearance and Menu, reorganized (2026-10-29) ===');
     ok(h + ' draws', draw(go(h)).err, null);
   });
   ok('opening every one of them wrote nothing', writes.length, 0);
+  // PHASE 32: a screen's page, in the iOS shape -- More for This Screen, choice pages, Reset to All Screens, one footer
+  var mp = text(draw(go('#/screens/dashboard-k')).box);
+  ok('a screen’s page: Home Page, Pages with its Menu, Look, then One More for This Screen row', ['Home Page', 'Pages', 'Menu', 'Look', 'More for This Screen', 'Wall Tablets',
+    'Copy Settings From…'].every(function (w) { return mp.indexOf(w) >= 0; }), true);
+  ok('...Now Playing, Pop-ups and the Screensaver are on that page, not this one', /Allow Pop-ups|Fit a car/.test(mp), false);
+  var mo = text(draw(go('#/screens/dashboard-k/more')).box);
+  ok('More for This Screen has them: Pop-ups, Screensaver, Header, Car Browser', ['Pop-ups', 'Screensaver', 'Header', 'Car Browser'].every(function (w) { return mo.indexOf(w) >= 0; }), true);
+  ok('a value that follows All Screens is the value, never Same as All Screens (Cameras, Rooms, Page Headers)', /Same as All Screens/.test(mp), false);
+  var cm = draw(go('#/screens/dashboard-k/menu/choose/tablets')).box;
+  ok('a screen’s Menu on tablets is a choice page: Off, Button, Always Open, Tab Bar', ['off', 'button', 'open', 'tabbar'].every(function (k) { return !!byFk(cm, 'menu:tablets:' + k); }), true);
+  ok('...its checkmark is on the Tab Bar', byFk(cm, 'menu:tablets:tabbar').attrs['aria-checked'], 'true');
+  tap(byFk(cm, 'menu:tablets:open'));
+  ok('...choosing Always Open writes the screen’s menu', writes.pop()[2].menu, window.hkSettingsModel.menuFor('open', boards['dashboard-k'], undefined));
+  var cp = draw(go('#/screens/dashboard-k/menu/tab-bar/position')).box;
+  ok('the Tab Bar’s Position is a choice page of four, none of them its own yet', ['bottom', 'top', 'left', 'right'].every(function (k) { return !!byFk(cp, 'tabpos:' + k); }) &&
+     !byFk(cp, 'tabpos:reset'), true);
+  tap(byFk(cp, 'tabpos:left'));
+  ok('...choosing Left makes the position the screen’s own', JSON.stringify(writes.pop()),
+     JSON.stringify(['b', 'dashboard-k', { tab_bar_pos: 'left', menu_own: ['accent', 'tab_bar_pos', 'tab_bar_size'] }]));
+  boards['dashboard-k'].menu_own.push('tab_bar_pos');
+  cp = draw(go('#/screens/dashboard-k/menu/tab-bar/position')).box;
+  ok('...once its own, Reset to All Screens is on that page', !!byFk(cp, 'tabpos:reset'), true);
+  tap(byFk(cp, 'tabpos:reset'));
+  ok('...and gives the position back', JSON.stringify(writes.pop()), JSON.stringify(['b', 'dashboard-k', { menu_own: ['accent', 'tab_bar_size'] }]));
+  boards['dashboard-k'].menu_own.pop();
+  var hp = draw(go('#/house/menu/tab-bar/position')).box;
+  ok('All Screens’ Tab Bar Position is the same page, without a Reset', !!byFk(hp, 'tabpos:top') && !byFk(hp, 'tabpos:reset'), true);
+  var ht = text(draw(go('#/house/menu/tab-bar')).box);
+  ok('the Tab Bar page: Position is a row opening a page, and the rest while a screen uses a tab bar', /Position/.test(ht) && /Labels/.test(ht), true);
+  boards['dashboard-k'].menu = 'button';
+  ht = text(draw(go('#/house/menu/tab-bar')).box);
+  ok('...with no screen using one it is the one row saying so', /No Screen Uses a Tab Bar/.test(ht) && !/Labels/.test(ht), true);
+  boards['dashboard-k'].menu = 'tabbar';
+  // the Screensaver: Photos is one row, the host's album hook draws on that row's page
+  var asked2 = [];
+  pg._host = { extend: function (where, box, ctx) { asked2.push(where + ':' + (ctx.screen || ctx.photos)); } };
+  var sv = text(draw(go('#/house/screensaver')).box);
+  ok('All Screens’ Screensaver: one Photos row, Slideshow with Photo Layout, Also Show, Timing, Night Mode', ['Photos', 'Slideshow', 'Photo Layout', 'Also Show', 'Timing', 'Night Mode'].every(
+    function (w) { return sv.indexOf(w) >= 0; }) && !/Now and Then|Portrait Photos/.test(sv), true);
+  ok('...the host is asked nothing until the Photos page opens', asked2.length, 0);
+  var phb = draw(go('#/house/screensaver/photos'));
+  ok('...the Photos page draws Screensaver Photos, and asks the host for its album', phb.err === null && /Screensaver Photos/.test(text(phb.box)) && asked2[0] === 'house-saver:undefined', true);
+  ok('...and Photo Layout has Portrait and Landscape', /Portrait Photos/.test(text(draw(go('#/house/screensaver/layout')).box)) || /Zoom/.test(text(draw(go('#/house/screensaver/layout')).box)), true);
+  draw(go('#/screens/dashboard-k/screensaver/photos'));
+  ok('a screen’s Photos page asks the host for that screen’s album', asked2[asked2.length - 1], 'saver:dashboard-k');
+  pg._host = null;
+  // the Screensaver and the Background, in the same shape
+  var dc = text(draw(go('#/house/appearance/sky/decorations')).box);
+  ok('Seasonal Decorations is a page of its own under Background: the switch, their style, Liveliness', ['Seasonal Decorations', 'Decoration Style', 'Woodland'].every(
+    function (w) { return dc.indexOf(w) >= 0; }), true);
+  var sdp = text(draw(go('#/screens/dashboard-k/sky/decorations')).box);
+  ok('...and a screen’s, saying once that it follows All Screens', /Seasonal Decorations/.test(sdp) && /follows All Screens until/.test(sdp), true);
   // the old addresses open the new pages
   // (a section of its own in the sidebar since phase 32)
   ok('Background (Sky / Background before) opens as its own section', go('#/house/sky').title === 'Background' && go('#/house/sky').top === true, true);
-  ok('...and its pages too', go('#/house/sky/woodland').back[1], '#/house/appearance/sky');
+  ok('...and its pages too', go('#/house/sky/woodland').back[1], '#/house/appearance/sky/decorations');
   ok('the sidebar has no Sky entry', /\['sky',/.test(read(HK_ROOT + '/frontend/panels/hk-settings.js').split('var HOUSE = [')[1].split('];')[0]), false);
   ok('the Highlight Color is the Accent Color', go('#/house/menu/accent').title, 'Accent Color');
   ok('...a screen’s too, whether its menu follows or not', go('#/screens/dashboard-k/menu/accent').title, 'Accent Color');
@@ -476,11 +543,12 @@ print('\n=== Appearance and Menu, reorganized (2026-10-29) ===');
   var sm = text(draw(go('#/screens/dashboard-k/menu')).box);
   ok('a screen’s Menu Settings lists only the kinds it uses', /Side Menu/.test(sm) && /Edge Tab/.test(sm) && /Tab Bar/.test(sm), true);
   var nm = draw(go('#/screens/dashboard-c/menu')).box;
-  ok('...a screen with no menu: its menu on each device at the top, no kinds', /Menu on This Screen/.test(text(nm)) && !!byFk(nm, 'b:menu:off') && !!byFk(nm, 'b:menu_phone:off') &&
+  ok('...a screen with no menu: its menu on each device at the top, no kinds', /Menu on This Screen/.test(text(nm)) && !!byFk(nm, 'b:menu') && !!byFk(nm, 'b:menu_phone') &&
     !/Navigation/.test(text(nm)), true);
-  ok('...and its page has the one Menu row, its menus in words', /Off/.test(text(draw(go('#/screens/dashboard-c')).box)) && !byFk(draw(go('#/screens/dashboard-c')).box, 'b:menu:off'), true);
+   ok('...and its page has the one Menu row, its menus in words', /Off/.test(text(draw(go('#/screens/dashboard-c')).box)) && !byFk(draw(go('#/screens/dashboard-c')).box, 'b:menu'), true);
   var tbp = draw(go('#/screens/dashboard-k/menu/tab-bar')).box;
-  ok('its Tab Bar page: Size Just This Screen, Position Same as All Screens', /Just This Screen/.test(text(tbp)) && /Same as All Screens/.test(text(tbp)), true);
+  ok('its Tab Bar page: Size Just This Screen, and said once that the rest follows All Screens', /Just This Screen/.test(text(tbp)) && /follows All Screens until/.test(text(tbp)) &&
+     !/Same as All Screens/.test(text(tbp)), true);
   tap(byFk(tbp, 'b:tab_bar_size:reset'));
   ok('Reset to All Screens takes the one setting back', JSON.stringify(writes.pop()), JSON.stringify(['b', 'dashboard-k', { menu_own: ['accent'] }]));
   var sp = draw(go('#/screens/dashboard-k/menu/side/phones')).box;
@@ -489,8 +557,9 @@ print('\n=== Appearance and Menu, reorganized (2026-10-29) ===');
     JSON.stringify(['b', 'dashboard-k', { button_phone: 'chip', menu_own: ['accent', 'tab_bar_size', 'button_phone'] }]));
   // a screen's page: Appearance one row; Back Button & Title in its Header
   var main = text(draw(go('#/screens/dashboard-k')).box);
-  ok('a screen’s Appearance is one row: its style and whose it is', /Appearance/.test(main) && /Blur/.test(main) && !/Shared Layer/.test(main) && /Same as All Screens/.test(main), true);
-  ok('...Back Button & Title beside its other header settings', /Back Button & Title/.test(main), true);
+  ok('a screen’s Appearance is one row: its style as the value, never “Same as All Screens”',
+     /Appearance/.test(main) && /Blur/.test(main) && !/Shared Layer/.test(main) && !/Same as All Screens/.test(main), true);
+  ok('...Back Button & Title beside its other header settings, on More for This Screen', /Back Button & Title/.test(text(draw(go('#/screens/dashboard-k/more')).box)), true);
   ok('...no Sky group of its own any more', main.split('Sky / Background').length - 1, 0);
   var sa = text(draw(go('#/screens/dashboard-k/appearance')).box);
   ok('a screen’s Appearance: laid out as All Screens’', ['Style', 'Colors', 'Background', 'Accent Color', 'Teal', 'Just This Screen', 'Tab Bar Glass'].every(
@@ -592,14 +661,14 @@ print('\n=== Appearance and Menu, reorganized (2026-10-29) ===');
   // HOME ASSISTANT: no reports; this device's own sample, under This Device on the screen it measured
   pg._host = null; pg._health = undefined;
   localStorage.setItem('hk-fps', JSON.stringify({ fps: 31.6, at: Date.now() - 60000, screen: 'dashboard-k', style: 'blur' }));
-  var dp = draw(go('#/screens/dashboard-k')).box, dt = text(dp);
+  var dp = draw(go('#/screens/dashboard-k/more')).box, dt = text(dp);
   ok('This Device: this device’s own number, on the screen it measured', /Recommended for This Device/.test(dt) &&
      /This device draws 32 frames a second with Blur/.test(dt) && dt.indexOf('Recommended for This Device') > dt.indexOf('Car Browser'), true);
   ok('...with the same two buttons', !!byFk(dp, 'rec:glass') && !!byFk(dp, 'rec:flat'), true);
-  ok('...not on another screen’s page', /for This Device/.test(text(draw(go('#/screens/dashboard-c')).box)), false);
+  ok('...not on another screen’s page', /for This Device/.test(text(draw(go('#/screens/dashboard-c/more')).box)), false);
   ok('...nor on the Appearance page (its home is This Device)', /Recommended/.test(text(draw(go('#/screens/dashboard-k/appearance')).box)), false);
   localStorage.removeItem('hk-fps');
-  ok('...and nothing without a sample', /for This Device/.test(text(draw(go('#/screens/dashboard-k')).box)), false);
+  ok('...and nothing without a sample', /for This Device/.test(text(draw(go('#/screens/dashboard-k/more')).box)), false);
   // ...the ladder too: the next step from a new sample, none from one drawn with something else on
   var mine = function (b2, fps) {
     return JSON.stringify({ fps: fps, at: Date.now() - 60000, screen: 'dashboard-k', style: 'clear',
@@ -607,11 +676,11 @@ print('\n=== Appearance and Menu, reorganized (2026-10-29) ===');
   };
   kb.glass = 'clear';
   localStorage.setItem('hk-fps', mine(kb, 33));
-  var dr = draw(go('#/screens/dashboard-k')).box;
+  var dr = draw(go('#/screens/dashboard-k/more')).box;
   ok('This Device: once the style is Glass, the next step from a sample drawn with it', /Recommended for This Device/.test(text(dr)) &&
      /This device draws 33 frames a second with Rain & Snow on\./.test(text(dr)) && !!byFk(dr, 'rec:rain'), true);
   localStorage.setItem('hk-fps', mine(Object.assign({}, kb, { glass: 'blur' }), 33));
-  ok('...but nothing from one drawn with Blur still on', /for This Device/.test(text(draw(go('#/screens/dashboard-k')).box)), false);
+  ok('...but nothing from one drawn with Blur still on', /for This Device/.test(text(draw(go('#/screens/dashboard-k/more')).box)), false);
   localStorage.removeItem('hk-fps');
   kb.glass = 'house';
   ok('opening every one of them wrote nothing', writes.length, 0);

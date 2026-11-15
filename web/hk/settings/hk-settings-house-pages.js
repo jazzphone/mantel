@@ -132,6 +132,41 @@
         var fp = F.page(this, [route]);
         if (fp && fp.body) fp.body(c);
       }
+      // THE CAMERAS PAGE (phase 32): which cameras and in what order -- every screen's Home strip and Cameras page, and the room pages'
+      // cameras in that order, unless a screen sets its own (that screen -> Cameras) -- then the strip's live video, and a host's direct cameras
+      h_cameraPage(c) {
+        var self = this, ents = this.client.entities || {};
+        var ok = this.entityIds({ domains: ['camera'], shown: true }).filter(function (id) { return !self.notHouseCamera(id); }).sort();
+        var autoCams = M.autoCameras(ok, function (id) { return (ents[id] || {}).device_id; });
+        var save = function (v) { return self.setH({ 'cameras.order': v }); };
+        var bd = this.data.boards || {}, own = Object.keys(bd).filter(function (p) { return bd[p].cameras_custom; });
+        var cs = this.data.settings.cameras || {};
+        var mdl = M.camerasModel({ cameras: cs.order || [] }, ok, autoCams);
+        c.appendChild(K.listEditor({ fk: 'house-cams', auto: mdl.auto, minRows: 1, announce: this.announce.bind(this),
+          autoFooter: 'Automatic shows one of every camera, its low-resolution channel.',
+          rows: mdl.rows.map(function (r) { return { value: r.value, label: self.name(r.value) }; }),
+          more: mdl.more.map(function (r) { return { value: r.value, label: self.name(r.value) }; }),
+          onAuto: function (on) {
+            if (!on) { save(mdl.rows.map(function (r) { return r.value; })); return; }
+            self.confirmSwitch({ title: 'Use Automatic Cameras?', message: 'All Screens’ camera order and choices will be replaced.', ok: 'Use Automatic' },
+                function () { save([]); });
+          },
+          onChange: function (v) { save(v); } }));
+        // THE STRIP ON HOME: live video (2026-10-10) and a computer's pause (2026-10-21), the screens that follow
+        var ownLive = Object.keys(bd).filter(function (p) { return typeof bd[p].camera_live_video === 'boolean'; });
+        c.appendChild(K.group({ header: 'Camera Strip on Home', footer: own.length || ownLive.length
+            ? 'A screen that sets its own: ' + own.concat(ownLive.filter(function (p) { return own.indexOf(p) < 0; }))
+              .map(function (p) { var d = self.dash(p); return d ? d.title : p; }).join(', ') + '.'
+            : 'Every screen follows these. A screen can set its own in its Cameras.' }, [
+          K.info({ label: 'Screens Following', value: (Object.keys(bd).length - own.length) + ' of ' + Object.keys(bd).length }),
+          K.toggle({ label: 'Live First Camera', sub: 'Off, the first tile is a snapshot too: lighter on a computer or an older tablet.', sk: 'cameras.live', on: cs.live !== false,
+                     onChange: function (on) { self.setH({ 'cameras.live': on }); } }),
+          K.toggle({ label: 'Pause When Not in Focus', sub: 'On a computer, live cameras stop while another window is in front. Behind the screensaver they always stop.',
+                     sk: 'cameras.focus_pause', on: cs.focus_pause !== false, onChange: function (on) { self.setH({ 'cameras.focus_pause': on }); } })]));
+        // (a host's own cameras, its direct ones, belong to this page: one Cameras in the sidebar, phase 32)
+        var hxc = this.host();
+        if (hxc && typeof hxc.extend === 'function') { try { hxc.extend('page-cameras', c, {}, this); } catch (e) { /* the host's own group */ } }
+      }
       h_page(c, key) {
         var self = this, S = this.data.settings || {}, base = '#/page/' + key;
         var set = function (k) { return function (v) { var o = {}; o[k] = v; self.setH(o); }; };
@@ -148,6 +183,18 @@
           c.appendChild(K.group({ footer: 'The circuits, meters and batteries the Power page draws are the Energy page’s devices.' }, [
             K.nav({ label: 'Energy’s Devices', icon: 'mdi:lightning-bolt', href: '#/features/energy/devices', fk: 'page:power:devices' })]));
         }
+        if (key === 'security') {
+          // THE SECURITY SYSTEM FIRST (phase 32): the panel, its PIN, its keypad -- the setting that decides whether the page has an alarm at all
+          var sugg = !this.hs('security.alarm') && (this.data.suggest || {}).alarm;
+          c.appendChild(K.group({ header: 'Security System', footer: 'The header’s security line, the Security chip and page, and the alarm keypad. ' +
+            'Wrong-Code Indicator: only for a panel that fails silently.' }, [
+            this.entityRow({ label: 'Alarm Panel', sk: 'security.alarm', value: this.hs('security.alarm'), none: 'No Alarm',
+                             filter: { domains: ['alarm_control_panel'] }, onPick: set('security.alarm') }),
+            sugg ? K.button({ label: 'Use ' + this.name(sugg), fk: 'alarm:suggest', onClick: function () { set('security.alarm')(sugg); } }) : null,
+            this.entityRow({ label: 'Wrong-Code Indicator', sk: 'features.alarm_bad_code', value: this.hs('features.alarm_bad_code'), none: 'Automatic',
+                             filter: { domains: ['input_boolean', 'binary_sensor'] }, onPick: set('features.alarm_bad_code') })]));
+          this.pageFeature(c, 'alarm');
+        }
         // 1. HEADER
         if (M.HEADER_PAGES[key]) {
           this.h_header(c, key);
@@ -160,25 +207,13 @@
             })));
           }
         }
-        // 2. STATUS ROW
-        var ch = ((this.data.choices || {}).status_rows || {})[key];
+        // 2. STATUS ROW: a row of What's on It below (the page's name's own line)
+        var ch = ((this.data.choices || {}).status_rows || {})[key], statusRow = null;
         if (ch) {
           var cur = Object.assign({ status: ch.default }, (S.status_rows || {})[key]);
-          c.appendChild(K.group({ header: 'Status Row', footer: 'Under the page’s name: what it shows, in order, and the rooms it leaves out.' }, [
-            K.nav({ label: 'Status Row', value: M.statusSummary(cur.status), href: base + '/status', sk: 'status_rows.' + key })]));
+          statusRow = K.nav({ label: 'Status Row', sub: 'Under the page’s name', value: M.statusSummary(cur.status), href: base + '/status', sk: 'status_rows.' + key });
         }
         // 3. THE PAGE'S OWN SETTINGS
-        if (key === 'security') {
-          var sugg = !this.hs('security.alarm') && (this.data.suggest || {}).alarm;
-          c.appendChild(K.group({ header: 'Security System', footer: 'The header’s security line, the Security chip and page, and the alarm keypad.' }, [
-            this.entityRow({ label: 'Alarm Panel', sk: 'security.alarm', value: this.hs('security.alarm'), none: 'No Alarm',
-                             filter: { domains: ['alarm_control_panel'] }, onPick: set('security.alarm') }),
-            sugg ? K.button({ label: 'Use ' + this.name(sugg), fk: 'alarm:suggest', onClick: function () { set('security.alarm')(sugg); } }) : null]));
-          this.pageFeature(c, 'alarm');
-          c.appendChild(K.group({ header: 'Alarm Keypad', footer: 'Empty for most alarms: a refused code shows “Wrong Code” by itself. Only for a panel that fails silently.' }, [
-            this.entityRow({ label: 'Wrong-Code Indicator', sk: 'features.alarm_bad_code', value: this.hs('features.alarm_bad_code'), none: 'Automatic',
-                             filter: { domains: ['input_boolean', 'binary_sensor'] }, onPick: set('features.alarm_bad_code') })]));
-        }
         if (key === 'timers') {
           var ht = this.hs('features.house_timers') || [];
           c.appendChild(
@@ -198,7 +233,7 @@
             this.entityRow({ label: 'Clean-Areas Script', sk: 'features.vacuum_script', value: this.hs('features.vacuum_script'), none: 'Clean Areas',
                              filter: { domains: ['script'] }, onPick: set('features.vacuum_script') })]));
         }
-        if (key === 'cameras') this.h_cameras(c, true);
+        if (key === 'cameras') this.h_cameraPage(c);
         // THE THERMOSTATS' STYLE (2026-11-07, the owner: "an option for climate page settings to use either the
         // HomeView Style or this style of thermostat cards for the climate page and detail sheets")
         if (key === 'climate') {
@@ -221,11 +256,12 @@
             rows.push(K.nav({ label: 'Tile Order', value: po.length ? 'Custom' : 'Automatic', href: base + '/order', sk: 'accessories.pages.' + key }));
           }
           rows.push(K.nav({ label: 'Hidden Accessories', icon: 'mdi:eye-off', href: '#/accessories/hidden', fk: 'page:hidden' }));
+          if (statusRow) rows.unshift(statusRow);
           c.appendChild(K.group({ header: 'What’s on It', footer: 'Names, icons, rooms and what counts are each accessory’s own, the same on every page.' }, rows));
-        }
+        } else if (statusRow) c.appendChild(K.group({}, [statusRow]));
         // 5. BACKGROUND and 6. ITS PILL ON HOME
         var look = [], row = this.skyRow(key, null), bds = (this.data.choices || {}).sky_backdrops || [];
-        if (row && key !== 'cameras') {          // (Cameras' is in its Related)
+        if (row) {
           look.push(K.nav({ label: 'Background', value: this.skyPageLabel(row, null),
                             href: base + '/background', sk: (this.flatHere(null) ? 'sky.flat_pages:' : 'sky.pages:') + key }));
         }
@@ -241,12 +277,9 @@
                           tile: ['', pa.a.hex], sk: 'look.page_accents:' + key }));
         // 8. FLAT COLORS (2026-10-17): Flat's own palette for this page, over
         // the screens' general colors -- where any screen uses Flat
-        var lookFoot =
-          'Its background on every screen that doesn’t choose its own, the pill in a screen’s Scenes row that opens it, and its Accent Color: the page’s identity in every look — its color in the ' +
-          'menu while a screen’s Highlight Color is Automatic, and in Flat the shade of its Automatic background.';
+        var lookFoot = 'How the page looks on every screen that doesn’t choose its own. Its Accent Color is its color in the menu and in Flat.';
         if (row && this.flatAnywhere()) {
           look.push(this.flatColorsNav(this.flatScope('house-page', null, null, key), { tile: false, inherited: 'Same as All Screens' }));
-          lookFoot += ' Flat Colors: Flat’s own Accent Color and Off Pill Tint for this page; Automatic uses the Accent Color above.';
         }
         if (look.length) c.appendChild(K.group({ header: 'Look', footer: lookFoot }, look));
         // 7. ON SCREENS: every generated screen, whether it shows the page --
@@ -263,7 +296,7 @@
           return a;
         });
         if (scr.length) {
-          c.appendChild(K.group({ header: 'On Screens', footer: 'Which pages a screen shows, and where each sits in its menu, is that screen’s own: tap one to change it there.' }, scr));
+          c.appendChild(K.group({ header: 'On Screens', footer: 'Which pages a screen shows, and where each sits in its menu, is that screen’s own.' }, scr));
         }
         var rel = [];
         if (key === 'music') rel.push(K.nav({ label: 'Now Playing', sub: 'The bar or side pane on every page', icon: 'mdi:music', href: '#/house/nowplaying', fk: 'page:rel:np' }));
@@ -274,10 +307,7 @@
         }
         if (key === 'weather') rel.push(K.nav({ label: 'Screensaver', sub: 'Its forecast and weather screen read these too', icon: 'mdi:image-multiple', href: '#/house/screensaver',
           fk: 'page:rel:saver' }));
-        // (a host's own cameras, its direct ones, belong to this page: one Cameras in the sidebar, phase 32)
-        var hxc = key === 'cameras' ? this.host() : null;
-        if (hxc && typeof hxc.extend === 'function') { try { hxc.extend('page-cameras', c, {}, this); } catch (e) { /* the host's own group */ } }
-        if (rel.length) c.appendChild(K.group({ header: key === 'cameras' ? 'Also' : 'Related' }, rel));
+        if (rel.length) c.appendChild(K.group({ header: 'Related' }, rel));
       }
       p_house(page, sub) {
         // WHAT COUNTS (2026-10-13) is each type's page under Accessories now: its
@@ -327,6 +357,9 @@
               ? mk('Button Style on Phones', function (c) { self.phoneStyle(c, M.phoneButton(hmv), pickH('button_phone'), hmv.swipe); }, sbH)
               : mk('Button Style', function (c) { self.menuStyle(c, hmv.menu, pickH('menu'), hmv.swipe); }, sbH);
           }
+          if (sub[0] === 'tab-bar' && sub[1] === 'position') {
+            return mk('Position', function (c) { self.tabBarPosPage(c, self.menuCtx(null, null)); }, ['Tab Bar', base + '/tab-bar']);
+          }
           var hkind = M.menuKind(sub[0]);
           if (hkind) return Object.assign(mk(hkind[1], function (c) { self.kindPage(c, self.menuCtx(null, null), hkind[0]); }), { scope: this.usedLine(hkind[0]) });
           if (sub[0] === 'header') return mk('Back Button & Title', function (c) { self.headerPage(c, self.menuCtx(null, null)); });
@@ -362,6 +395,16 @@
           if (sub[0] === 'editor' || sub[0] === 'clock-style') {
             return this.saverEditorPage('house', { house: true, path: pv || '', previewPath: pv, title: 'All Screens', back: [title, '#/house/screensaver'],
               options: this.hs('look.saver') });
+          }
+          if (sub[0] === 'photos' || sub[0] === 'layout' || sub[0] === 'forecast') {
+            var hcur2 = M.saverOptions(this.hs('look.saver')), hput = self.saverPutH();
+            var hpg2 = sub[0] === 'photos'
+              ? mk('Photos', function (c) { self.saverPhotosPage(c, hcur2, hput, true, { photos: self.hs('look.photos'), set: function (v) { return self.setH({ 'look.photos': v }); } }); },
+                   [title, base])
+              : sub[0] === 'layout' ? mk('Photo Layout', function (c) { self.saverLayoutPage(c, hcur2, hput); })
+              : mk('Forecast Look', function (c) { self.saverForecastPage(c, hcur2, hput); });
+            if (pv) { hpg2.preview = pv; hpg2.saverPreview = true; hpg2.saverHouse = true; }
+            return hpg2;
           }
           if (sub[0] === 'weather') {
             var wcur = M.saverOptions(this.hs('look.saver'));
@@ -669,9 +712,8 @@
         // before the header's early return -- it has nothing to do with the header
         if (page === 'vacuums') {
           var wt = cur.water_tank !== false;
-          c.appendChild(K.group({ header: 'Water Tank', footer: 'A mop vacuum says its water tank is empty for under a second, then carries on. ' +
-              'The house catches it and keeps it on the vacuum’s card, with a Clear key, until someone clears it or Clear After has passed. ' +
-              'It needs the house’s own server; with Home Assistant alone, only a tank that stays empty shows.' },
+          c.appendChild(K.group({ header: 'Water Tank', footer: 'A mop vacuum says its water tank is empty for under a second, then carries on. The house keeps it on ' +
+            'the vacuum’s card, with a Clear key, until someone clears it or Clear After has passed.' },
             [K.toggle({ label: 'Water Tank Reminder', on: wt, sk: 'headers.vacuums', fk: 'hd:water_tank', onChange: function (on) { save('water_tank', on); } })]
               .concat(wt ? [K.select({ label: 'Clear After', options: [[12, '12 hours'], [24, '24 hours'], [48, '48 hours'], [0, 'Until Cleared']],
                 value: cur.water_clear == null ? 24 : cur.water_clear, sk: 'headers.vacuums', fk: 'hd:water_clear', onChange: function (v) { save('water_clear', Number(v)); } })] : [])));
@@ -684,16 +726,15 @@
           c.appendChild(K.group({ header: 'Lighting Through the Day' }, [
             K.seg({ label: 'Rooms Shown', options: [[2, '2'], [3, '3'], [4, '4'], [5, '5']], value: cur.rooms || 3, sk: 'headers.lights', fk: 'hd:rooms',
                     onChange: function (v) { save('rooms', Number(v)); } })]));
-          c.appendChild(K.group({ header: 'Left On', footer: 'A light on in a room whose motion, occupancy or presence sensors have all said nobody for this long. ' +
-              'A room without such a sensor is never named. Automatic leaves out the rooms this row leaves out, and outdoor ones — a yard, a deck, the garage.' },
+          c.appendChild(K.group({ header: 'Left On', footer: 'A light on in a room whose motion, occupancy or presence sensors have all said ' +
+            'nobody for this long. A room without such a sensor is never named.' },
             [K.toggle({ label: 'Show Left On', on: cur.left_on !== false, sk: 'headers.lights', fk: 'hd:left_on', onChange: function (on) { save('left_on', on); } }),
              K.select({ label: 'Empty For', options: [[5, '5 minutes'], [10, '10 minutes'], [15, '15 minutes'], [30, '30 minutes'], [60, '1 hour'], [120, '2 hours']],
                         value: cur.after_min || 10, sk: 'headers.lights', fk: 'hd:after', onChange: function (v) { save('after_min', Number(v)); } })]
               .concat(listRow('exclude_areas', 'Rooms Left Out', null, function () {
                 return self.areasAZ().map(function (a) { return { value: a, label: self.areaName(a) }; });
               }, 'Rooms Left Out', 'Automatic'))));
-          c.appendChild(K.group({ header: 'Tonight', footer: 'What your automations will do to this page’s lights in the next 16 hours, from their sun and time triggers. ' +
-              'One whose conditions don’t hold right now is shown dimmed.' },
+          c.appendChild(K.group({ header: 'Tonight', footer: 'What your automations will do to this page’s lights in the next 16 hours; one whose conditions don’t hold right now is dimmed.' },
             [K.toggle({ label: 'Show Tonight', on: cur.tonight !== false, sk: 'headers.lights', fk: 'hd:tonight', onChange: function (on) { save('tonight', on); } })]
               .concat(listRow('automations', 'Automations', null, ents(['automation']), 'Automations', 'Automatic'))));
         } else if (page === 'security') {
@@ -703,21 +744,20 @@
               return id.indexOf('binary_sensor.') !== 0 || /^(door|garage_door|opening)$/.test(dc || '');
             }), label, 'Automatic');
           };
-          c.appendChild(K.group({ header: 'Your Home', footer: 'Each label on the house reads its lock and door together. ' +
-              'Automatic finds them by name — a lock or door whose name says Front, Back or Garage.' },
+          c.appendChild(K.group({ header: 'On the Header', footer: 'Each label reads its lock and door together; Automatic finds them by name. ' +
+            'Device Care shows only while something needs looking after.' },
             [K.toggle({ label: 'Show Labels', on: cur.callouts !== false, sk: 'headers.security', fk: 'hd:callouts', onChange: function (on) { save('callouts', on); } })]
-              .concat(way('front_door', 'Front Door'), way('back_door', 'Back Door'), way('garage', 'Garage'))));
-          c.appendChild(K.group({ header: 'Device Care', footer: 'Shown only while a lock, door, window or leak sensor needs looking after: a low battery, or one gone quiet.' },
-            [K.select({ label: 'Low Battery', options: [[10, '10%'], [15, '15%'], [20, '20%'], [25, '25%'], [30, '30%'], [40, '40%']],
-                       value: cur.low_battery || 20, sk: 'headers.security', fk: 'hd:battery', onChange: function (v) { save('low_battery', Number(v)); } })]));
+              .concat(way('front_door', 'Front Door'), way('back_door', 'Back Door'), way('garage', 'Garage'),
+                [K.select({ label: 'Low Battery', sub: 'Device Care: a lock, door, window or ' +
+                  'leak sensor below this', options: [[10, '10%'], [15, '15%'], [20, '20%'], [25, '25%'], [30, '30%'], [40, '40%']],
+                           value: cur.low_battery || 20, sk: 'headers.security', fk: 'hd:battery', onChange: function (v) { save('low_battery', Number(v)); } })])));
         } else if (page === 'water') {
           // AUTOMATIC SPELLED OUT: what the header reads when nothing is chosen
           var valves = ((this.data.counts || {}).valves || {}).found || [];
           var vn = function (id) { return self.name(id) + ' ' + id; };
           var autoSupply = valves.filter(function (id) { return /main|supply|shut.?off/i.test(vn(id)); })[0] ||
             (valves.length === 1 && !/sprinkl|irrigat|garden|drip|hose|lawn|zone|pool/i.test(vn(valves[0])) ? valves[0] : null);
-          c.appendChild(K.group({ header: 'Water Through the Day', footer: 'Automatic reads the water meter in Home Assistant’s Energy settings (Settings → Dashboards → Energy → Water). ' +
-              'With none there, the card stays off.' }, [
+          c.appendChild(K.group({ header: 'Water Through the Day', footer: 'Automatic reads the water meter in Home Assistant’s Energy settings; with none there, the card stays off.' }, [
             this.entityRow({ label: 'Water Meter', sk: 'headers.water', value: cur.meter, none: 'Automatic',
                              filter: { domains: ['sensor'] }, onPick: function (v) { save('meter', v || null); } })]));
           c.appendChild(K.group({ header: 'Main Supply', footer: 'The valve the header opens and closes, after asking. Automatic: ' +
@@ -749,8 +789,8 @@
                        onCommit: function (v) { v = String(v || '').trim(); if (v && nm.indexOf(v) < 0) save('names', nm.concat(v).slice(0, 6)); } })]));
           }
         } else if (page === 'vacuums') {
-          c.appendChild(K.group({ header: 'How Runs End', footer: 'A run is Done when a vacuum’s successful-missions counter goes up, Failed or Canceled by its others. ' +
-              'Automatic finds each vacuum’s own (a Roomba’s); without them a run ends when it docks.' },
+          c.appendChild(K.group({ header: 'How Runs End', footer: 'A run is Done when a vacuum’s successful-missions counter goes up. Automatic ' +
+            'finds each vacuum’s own; without them a run ends when it docks.' },
             listRow('counters', 'Mission Counters', null, ents(['sensor'], function (id) { return /mission|clean/i.test(id); }), 'Mission Counters', 'Automatic')));
         }
       }
@@ -795,16 +835,15 @@
           K.text({ label: 'Place', sk: 'weather.place', value: this.hs('weather.place'), placeholder: place, maxlength: 60,
                    error: this.err('weather.place'), onCommit: function (v) { self.setH({ 'weather.place': v }); } })]));
         var pg = M.wxPage(this.data.settings), r = M.radarOf(this.data.settings), plan = M.radarPlanOf(r, this.client);
-        c.appendChild(K.group({ header: 'Forecast', footer: 'What the Weather page shows. Only on this page: the header and the screensaver keep their own.' }, [
-          K.nav({ label: 'Forecast & Details', value: M.forecastSummary(pg), href: '#/page/weather/forecast', sk: 'weather.page' })]));
         var keys = ['feels_like', 'humidity', 'wind', 'gust', 'uv', 'outside', 'forecast_daily', 'forecast_hourly', 'alerts'];
         var n = keys.filter(function (k) { return self.hs('weather.' + k); }).length;
-        c.appendChild(K.group({ header: 'Optional Readings', footer: 'Sensors are optional: without one, the weather service’s own reading is used.' }, [
-          K.nav({ label: 'Sensors', value: n ? n + ' Chosen' : 'None', href: '#/page/weather/sensors', sk: 'weather.sensors' })]));
-        c.appendChild(K.group({ header: 'Radar', footer: r.enabled && plan.reason ? M.RADAR_REASONS[plan.reason] : 'A precipitation radar map beside the daily forecast.' }, [
-          K.nav({ label: 'Radar Map', value: M.radarSummary(r, plan), href: '#/page/weather/radar', sk: 'weather.radar_native' })]));
-        c.appendChild(K.group({ header: 'Presentation', footer: 'Each card’s contents build when the page opens, as on the Energy page; the cards stay in place. Not with Reduce Motion.' }, [
-          K.toggle({ label: 'Animate Page Loading', on: pg.load_animation, sk: 'weather.page.load_animation',
+        c.appendChild(K.group({ header: 'On the Page', footer: 'Only on this page: the header and the screensaver keep their own. Sensors are ' +
+          'optional; without one, the weather service’s own reading is used.' }, [
+          K.nav({ label: 'Forecast & Details', value: M.forecastSummary(pg), href: '#/page/weather/forecast', sk: 'weather.page' }),
+          K.nav({ label: 'Sensors', value: n ? n + ' Chosen' : 'None', href: '#/page/weather/sensors', sk: 'weather.sensors' }),
+          K.nav({ label: 'Radar Map', sub: r.enabled && plan.reason ? M.RADAR_REASONS[plan.reason] : 'A precipitation radar map beside the daily forecast', value: M.radarSummary(r, plan),
+                  href: '#/page/weather/radar', sk: 'weather.radar_native' }),
+          K.toggle({ label: 'Animate Page Loading', sub: 'Each card’s contents build when the page opens. Not with Reduce Motion.', on: pg.load_animation, sk: 'weather.page.load_animation',
                      onChange: function (on) { self.wxPageSet({ load_animation: on }); } })]));
       }
       // one key of the page's composition: the whole object goes (the
@@ -1131,7 +1170,7 @@
       // (2026-10-30: a "Same as All Screens | All Screens" group before each)
       paneWhose(path, p, g) {
         if (!path) return null;
-        return p.own.indexOf(g) >= 0 ? 'Just This Screen' : 'Same as All Screens';
+        return p.own.indexOf(g) >= 0 ? 'Just This Screen' : null;
       }
       paneResetAll(path) {
         var b = this.data.boards[path], house = M.paneOf((this.data.settings || {}).side_pane, null);
@@ -1399,7 +1438,7 @@
                             onChange: function (v) { ps.set(field, v); } });
         }
         var hv = ps.house[field];
-        return K.select({ label: label, sk: 'b:pages_screen:' + field, sub: ps.own[field] ? 'Just This Screen' : 'Same as All Screens',
+        return K.select({ label: label, sk: 'b:pages_screen:' + field, sub: ps.own[field] ? 'Just This Screen' : null,
                           value: ps.own[field] ? ps.value[field] : '',
                           options: [['', 'Same as All Screens (' + lab(hv) + ')', lab(hv)]].concat(list),
                           onChange: function (v) { ps.set(field, v || undefined); } });
@@ -1434,7 +1473,7 @@
         c.appendChild(K.group({ header: 'Icons', footer: 'Each page as a large icon in its Accent Color. Calendar shows today’s date, ' +
             'Weather the temperature, and a red badge shows what’s waiting: timers running, a door open, a notification.' }, [
           K.nav({ label: 'Icons', value: icons, href: ctx.base + '/icons', sk: ctx.house ? 'pages_screen.icons' : 'b:pages_screen:icons',
-                  sub: ctx.house ? null : ps.own.icons ? 'Just This Screen' : 'Same as All Screens' }),
+                  sub: ctx.house ? null : ps.own.icons ? 'Just This Screen' : null }),
           this.psSelect(ctx, ps, 'rooms', 'Rooms', M.PAGES_SCREEN_ROOMS)]));
         // WIDGETS: the Side Pane's sections among the icons
         var widgets = val.widgets || [], have = {};

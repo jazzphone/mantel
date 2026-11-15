@@ -194,7 +194,7 @@
             options: FOR.concat(FOR.indexOf(cur.extra_for) < 0 ? [cur.extra_for] : []).map(function (n) { return [String(n), secs(n)]; }),
             onChange: function (v) { put('extra_for', Number(v)); } }));
         }
-        c.appendChild(K.group({ header: 'Now and Then', footer: on.length
+        c.appendChild(K.group({ header: 'Also Show', footer: on.length
             ? 'Every ' + mins(cur.extra_every).toLowerCase() + ', ' + (on.length > 1 ? 'one of these' : on[0]) + ' fades in over the ' + base +
               ' for ' + secs(cur.extra_for).toLowerCase() + ', then the ' + base + ' comes back.' +
               (on.length > 1 ? ' ' + M.listText(on).replace(/^t/, 'T') + ' take turns, so each comes around every ' + mins(cur.extra_every * on.length).toLowerCase() + '.' : '') +
@@ -289,7 +289,7 @@
       // THE PHOTOS' OWN SETTINGS (Layout, the mosaic, Order, Slow Zoom, then
       // Portrait and Landscape): the Photo Screensaver's -- and, the same rows,
       // the clock's when Photos is behind it (2026-10-13, the user: mimic them)
-      saverPhotoGroups(c, cur, put, tog, clockMode, afterSrc) {
+      saverPhotoGroups(c, cur, put, tog, clockMode, layoutHref) {
         var self = this, wideP = this.hasAttribute('wide');
         // THE MOSAIC (2026-10-13): 2-5 photos at once, in a layout picked at
         // random; portraits in the tall cells
@@ -337,15 +337,24 @@
         // widget, the big time Behind the Subject)
         // (under the photos' source groups -- a folder, a host's album and its
         // import -- this one is how they show: Slideshow, never a second Photos)
-        c.appendChild(K.group({ header: afterSrc ? 'Slideshow' : 'Photos', footer: (mo
-            ? (upTo ? 'Up To: a new number of photos every ' + (cur.mosaic_every || 10) + ' minutes, one of them full screen now and then. ' : '') +
-              'A new layout each time, picked at random — portraits in the tall cells, landscapes in the wide ones. One Photo at a Time changes one cell every ' +
-              MIN(cur.each_photo).toLowerCase() + ', and after a while the whole mosaic. '
-            : '') + (clockMode ? 'The same settings as the Photos show’s, for the photos behind the clock.'
-            : 'Tap the left or right edge of the screensaver for the previous or next ' + (mo ? 'mosaic' : 'photo') + ', or the forecast details for the Weather page; anywhere else closes it.') },
-              prow));
-        this.saverShape(c, cur, put, 'portrait', mo);
-        this.saverShape(c, cur, put, 'landscape', mo);
+        // PHOTO LAYOUT (phase 32): Portrait and Landscape, each on a page of their own
+        var layoutCustom = ['portrait', 'landscape'].some(function (side) {
+          var def = self.saverShapeDefaults(side);
+          return Object.keys(def).some(function (k) { return cur[k] !== def[k]; });
+        });
+        if (self.saverKnown('portrait_zoom')) {
+          prow.push(K.nav({ label: 'Photo Layout', sub: 'How portrait and landscape photos sit on the screen', value: layoutCustom ? 'Custom' : 'Default', href: layoutHref, sk: 'saver:layout' }));
+        }
+        c.appendChild(K.group({ header: 'Slideshow', footer: mo
+            ? 'Portraits go in the tall cells and landscapes in the wide ones, in a new layout each time. One Photo at a Time changes one cell every ' + MIN(cur.each_photo).toLowerCase() + '.'
+            : 'Tap the left or right edge of the screensaver for the previous or next photo; anywhere else closes it.' }, prow));
+      }
+
+      // WHAT A PHOTO SHAPE'S SETTINGS ARE BY DEFAULT (settings.py's): a portrait photo whole over its blurred copy, a landscape one filling the screen
+      saverShapeDefaults(side) {
+        var P = side === 'portrait', def = P ? { portrait_fill: false } : { fill: true };
+        def[side + '_blur'] = 50; def[side + '_dim'] = 20; def[side + '_zoom'] = 100; def[side + '_x'] = 'center'; def[side + '_y'] = 'center';
+        return def;
       }
 
       // PORTRAIT OR LANDSCAPE PHOTOS (2026-10-13), each their own: Whole (over
@@ -379,8 +388,7 @@
                           options: [['top', 'Top'], ['center', 'Center'], ['bottom', 'Bottom']], onChange: function (v) { set(k('y'), v); } }));
         rows.push(K.seg({ label: cropped ? 'Horizontal Focus' : 'Horizontal Position', sk: 'saver:' + k('x'), value: cur[k('x')] || 'center',
                           options: [['left', 'Left'], ['center', 'Center'], ['right', 'Right']], onChange: function (v) { set(k('x'), v); } }));
-        var def = P ? { portrait_fill: false } : { fill: true };
-        def[k('blur')] = 50; def[k('dim')] = 20; def[k('zoom')] = 100; def[k('x')] = 'center'; def[k('y')] = 'center';
+        var def = this.saverShapeDefaults(side);
         var custom = Object.keys(def).some(function (x) { return cur[x] !== def[x]; });
         if (custom) rows.push(K.button({ label: 'Reset to Default', sk: 'saver:' + side + ':default', onClick: function () { set(def); } }));
         c.appendChild(K.group({ header: P ? 'Portrait Photos' : 'Landscape Photos', footer: mosaic
@@ -400,29 +408,18 @@
         var follow = savers.filter(function (p) { return M.saverFollows(boards[p]); });
         // THE EDITOR (2026-11-01), for every screen that uses these
         if (savers.length) this.saverEditRow(c, '#/house/screensaver/editor', cur, this.saverPutH(),
-          'Saved designs here are shared by screens using Same as All Screens. Each screen keeps its own Side Pane.');
-        // THE PHOTOS (2026-10-09: on Wall Tablets before): where they come from,
-        // in the Photos group's place (2026-10-30: first on the page before) --
-        // drawn on every show, as screens with their own may show photos
-        var hx = this.host();
-        var photoSrc = function (c2) {
-          c2.appendChild(K.group({ header: 'Photos', footer: 'A media folder (media-source://…) of the photos every screen’s screensaver shows.' }, [
-            K.text({ label: 'Screensaver Photos', sk: 'look.photos', value: self.hs('look.photos'), placeholder: 'media-source://…', error: self.err('look.photos'),
-                     onCommit: function (v) { self.setH({ 'look.photos': v }); } })]));
-          // THE HOST'S OWN beside the photos (extend): nothing in Home Assistant
-          if (hx && typeof hx.extend === 'function') {
-            try { hx.extend('house-saver', c2, { photos: self.hs('look.photos'), set: function (v) { return self.setH({ 'look.photos': v }); } }, self); } catch (e) { /* the host's own group */ }
-          }
-          return true;
-        };
+          'Saved designs here are shared by every screen that uses All Screens’ screensaver.');
+        // THE PHOTOS (phase 32): one row, the folder or an album the host keeps picked inside -- drawn on every show, as screens with their own
+        // may show photos
+        var ph = String(this.hs('look.photos') || '');
+        var photos = { always: true, value: /^(?!media-source:)[a-z-]+:\/\//.test(ph) ? 'An Album' : ph ? 'Home Assistant Folder' : 'None' };
         this.saverGroups(c, cur, function (k, v) {
           var o = M.saverOptions(cur); if (k && typeof k === 'object') Object.assign(o, k); else o[k] = v;
           return self.setH({ 'look.saver': self.saverOut(o) });
-        }, '#/house/screensaver/clock-style', null, photoSrc);
+        }, '#/house/screensaver/clock-style', null, photos);
         var name = function (p) { return (self.dash(p) || { title: p }).title; };
-        c.appendChild(K.group({ header: 'Screens', footer: savers.length
-            ? 'A screen with its own settings keeps them; turn on Same as All Screens on its Screensaver Options to use these.'
-            : 'No screen has its Screensaver on yet (on the screen’s page).' },
+        // WHICH SCREENS KEEP THEIR OWN (the group is left out while no screen has its Screensaver on)
+        if (savers.length) c.appendChild(K.group({ header: 'Screens', footer: 'A screen with its own settings keeps them; Same as All Screens on its Screensaver Options uses these.' },
           savers.map(function (p) {
             var own = follow.indexOf(p) < 0;
             return K.nav({ label: name(p), value: own ? 'Just This Screen' : 'Same as All Screens',

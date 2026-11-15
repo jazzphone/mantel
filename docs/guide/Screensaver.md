@@ -58,7 +58,7 @@ Things line up by what you see, not by their boxes: the top of the time is level
 
 **Save** stores the screensaver for the screen. Everything stays a draft until then, and **Cancel** asks before it throws a draft away. **Undo** (⌘Z or Ctrl+Z) takes back the last change, one at a time.
 
-The editor is the only place to change what the screensaver shows and how it looks: the background, the time and its face, the pieces, the legibility over photos, and which slides come now and then, and how often. **Screensaver Options** keeps what cannot be laid out on the screen: where the photos come from (a folder, or Mantel Photos), how they show (one at a time or a mosaic, their order, **Each Photo For**, **Slow Zoom**, and how portrait and landscape photos fit), the wallpaper when the background is Wallpaper, **Night Mode**, the **Side Pane** (each screen's own, even when the rest follows All Screens; All Screens' page names the screens that have their own), **Starts After** and the other timing, and the entities for automations. The editor's **Starts After, Night Mode and More** row opens it (**Choose the Wallpaper**, when the background is Wallpaper). A screen with a saved layout can go back to its old look with **Remove the Layout…** there.
+The editor is the only place to change what the screensaver shows and how it looks: the background, the time and its face, the pieces, the legibility over photos, and which slides come now and then, and how often. **Screensaver Options** keeps what cannot be laid out on the screen: **Photos** (one row: a Home Assistant folder, or a Mantel Photos album chosen inside it, with **Forecast When There Are No Photos**), the **Slideshow** (one at a time or a mosaic, their order, **Slow Zoom**, and **Photo Layout**, where portrait and landscape photos each fit), **Also Show** (the slides among the photos), the wallpaper when the background is Wallpaper, **Timing** (**Starts After**, **Each Photo For**, **Fade Back**), **Night Mode**, the **Side Pane** (each screen's own, even when the rest follows All Screens; All Screens' page names the screens that have their own), and the entities for automations. The editor's **Starts After, Night Mode and More** row opens it (**Choose the Wallpaper**, when the background is Wallpaper). A screen with a saved layout can go back to its old look with **Remove the Layout…** there.
 
 ## The Timer slide
 
@@ -97,7 +97,7 @@ If a timer ended while Mantel or Home Assistant was restarting, it rings when th
 
 ## The Holiday slide
 
-**Holidays** (Edit Screensaver → Slides, or Screensaver Options → Now and Then) counts down to the next holiday: how many days until it, themed for it. It comes among the photos or now and then over a clock, as Weather and Home Energy do, and only once a holiday is near. Its corner adds the time, the date, the weather and House Status, with the corner's Time Size and switches.
+**Holidays** (Edit Screensaver → Slides, or Screensaver Options → Also Show) counts down to the next holiday: how many days until it, themed for it. It comes among the photos or now and then over a clock, as Weather and Home Energy do, and only once a holiday is near. Its corner adds the time, the date, the weather and House Status, with the corner's Time Size and switches.
 
 - **Christmas** is a 90s living room at night: the count on the TV as a VCR's blue on-screen display, the tree's lights chasing, snow falling past the window.
 - **Halloween** is a haunted house on a hill, the count carved in a tombstone, bats leaving the attic and fog drifting.

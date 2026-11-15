@@ -208,6 +208,12 @@
             ? mk('Button Style on Phones', function (c) { self.phoneStyle(c, M.phoneButton(b), pickB('button_phone'), b.swipe); }, sbk)
             : mk('Button Style', function (c) { self.menuStyle(c, b.menu, pickB('menu'), b.swipe); }, sbk);
         }
+        if (s === 'menu' && sub[1] === 'choose' && (sub[2] === 'tablets' || sub[2] === 'phones')) {
+          return mk(sub[2] === 'phones' ? 'Phones' : 'Tablets & Computers', function (c) { self.menuModePage(c, x, b, sub[2]); }, mb);
+        }
+        if (s === 'menu' && sub[1] === 'tab-bar' && sub[2] === 'position') {
+          return mk('Position', function (c) { self.tabBarPosPage(c, self.menuCtx(x, b)); }, ['Tab Bar', base + '/menu/tab-bar']);
+        }
         var mkind = s === 'menu' ? M.menuKind(sub[1]) : null;
         if (mkind) return mk(mkind[1], function (c) { self.kindPage(c, self.menuCtx(x, b), mkind[0]); }, mb);
         if (s === 'menu') return mk('Menu', function (c) { self.s_menu(c, x, b); });
@@ -251,13 +257,14 @@
           }, ['Background', base + '/sky']);
         }
         if (s === 'sky' && sub[1] === 'pages') return mkl('Background', function (c) { self.s_sky(c, x, b); }, ab);
+        if (s === 'sky' && sub[1] === 'decorations') return mkl('Seasonal Decorations', function (c) { self.s_skyDecor(c, x, b); }, ['Background', base + '/sky']);
         if (s === 'sky' && sub[1] === 'lively' && sub[2]) {
           var locc = decodeURIComponent(sub[2]);
           return mkl(M.livelyOccLabel(locc), function (c) { self.livelyGroup(c, locc, null, { b: b, path: path }); },
                     ['Each Occasion', base + '/sky/lively']);
         }
         if (s === 'sky' && sub[1] === 'lively') {
-          return mkl('Each Occasion', function (c) { self.livelyList(c, { b: b, path: path, base: base }); }, ['Background', base + '/sky']);
+          return mkl('Each Occasion', function (c) { self.livelyList(c, { b: b, path: path, base: base }); }, ['Seasonal Decorations', base + '/sky/decorations']);
         }
         if (s === 'sky' && sub[1] === 'page' && sub[2]) {
           var skey = decodeURIComponent(sub[2]);
@@ -269,6 +276,7 @@
         if (s === 'glass') return mkl('Appearance Style', function (c) { self.s_glass(c, x, b); }, ab);
         if (s === 'flat-colors') return this.p_flatColors('screen', x, b, sub.slice(1), mkl, ab);
         if (s === 'copy') return mk('Copy Settings', function (c) { self.s_copy(c, x, b); });
+        if (s === 'more') return mk('More for This Screen', function (c) { self.s_more(c, x, b); });
         // SLEEP SCREEN is each tablet's since 1.14: a screen's old address opens
         // its (first) tablet's
         if (s === 'sleep') {
@@ -282,6 +290,17 @@
             c.appendChild(K.group({ footer: 'Sleep Screen is each wall tablet’s own. Add the tablet that shows this screen in Wall Tablets.' }, [
               K.nav({ label: 'Wall Tablets', href: '#/house/tablets' })]));
           });
+        }
+        if (s === 'screensaver' && (sub[1] === 'photos' || sub[1] === 'layout' || sub[1] === 'forecast')) {
+          var sbk2 = ['Screensaver Options', base + '/screensaver'], sfollow = M.saverFollows(b);
+          var sown = M.saverOptions(sfollow && sub[1] !== 'photos' ? self.hs('look.saver') : b.screensaver_options);
+          var sput = self.saverPutB(path);
+          var spg2 = sub[1] === 'photos'
+            ? mk('Photos', function (c) { self.saverPhotosPage(c, M.saverOptions(b.screensaver_options), sput, false, { screen: path, title: x.title }, sfollow); }, sbk2)
+            : sub[1] === 'layout' ? mk('Photo Layout', function (c) { self.saverLayoutPage(c, sown, sput); }, sbk2)
+            : mk('Forecast Look', function (c) { self.saverForecastPage(c, sown, sput); }, sbk2);
+          spg2.saverPreview = true;
+          return spg2;
         }
         if (s === 'screensaver' && sub[1] === 'weather') {
           var wpg = mk('Weather', function (c) { self.saverWeather(c, M.saverOptions(b.screensaver_options), self.saverPutB(path)); },
@@ -335,8 +354,8 @@
       }
       s_main(c, x, b) {
         var self = this, path = x.path, base = '#/screens/' + encodeURIComponent(path), gen = x.generated;
-        var set = function (ch) { return self.setB(path, ch); };
         var look = this.data.settings.look;
+        // PREVIEW: the frame above (the column beside the page when it is wide); a phone also gets the screen itself in a tab
         if (!this.hasAttribute('wide')) {
           c.appendChild(K.group({}, [K.nav({ label: 'Open Screen', sub: 'In a new tab', href: '/' + path + '/0', icon: 'mdi:open-in-new' })]));
           var o = c.lastChild.querySelector('a');
@@ -354,41 +373,12 @@
                     value: 'Change Pages', href: base + '/pages', fk: 'only:pages' }),
             K.button({ label: 'Make It a Whole Screen', fk: 'only:whole', onClick: function () { self.setHomePage(path, true); } })]));
         }
-        // MENU & HEADER (2026-10-30 tidy-up): one row to the screen's Menu
-        // (its menu on each device is set at the top of that page -- menu and
-        // menu_phone, menuKind), then what sits at the top of its pages. THE
-        // HEADER (2026-10-09): what sits at the top of Home on a phone, and Home
-        // Assistant's own header and sidebar -- every screen, generated or not
-        // (hk-kiosk.js), or the Kiosk Mode plugin on a generated one that
-        // chooses it
-        var mode = M.menuMode(b), pmode = M.phoneMenu(b), rows = [];
-        rows.push(K.nav({ label: 'Menu', value: M.menuWord(b), sub: mode !== 'off' || pmode !== 'off' ? M.menuSummary(b) : null,
-                          href: base + '/menu', sk: 'b:menu_own' }));
-        // a YAML screen says which pages its menu lists here (a generated one, on its Pages)
-        if (!gen && (mode !== 'off' || pmode !== 'off')) {
-          rows.push(K.nav({ label: 'Pages in Menu', sk: 'b:categories', href: base + '/menu-pages',
-                            value: b.categories.length || (b.menu_top || []).length ? 'Custom' : 'Automatic' }));
-        }
-        if (gen) rows.push(K.seg({ label: 'Header on Phones', sk: 'b:phone_header', stack: !this.hasAttribute('wide'),
-                                   value: b.phone_header || 'header', options: [['header', 'Clock & Weather'], ['strip', 'Weather Strip']],
-                                   onChange: function (v) { self.setB(path, { phone_header: v }); } }));
-        // BACK BUTTON & TITLE (Menu's Page Header before 2026-10-29): the
-        // header on every page but Home, beside the other header settings
-        if (mode !== 'off' || pmode !== 'off') rows = rows.concat(this.headerRows(this.menuCtx(x, b)));
-        rows.push(K.nav({ label: 'Home Assistant Header & Sidebar', href: base + '/kiosk', sk: 'b:kiosk', value: M.kioskSummary(b, gen) }));
-        var hdrFoot = [];
-        if (gen && b.kiosk && b.kiosk_engine === 'kiosk_mode' && (this.data.thirdparty.kiosk || {}).state !== 'ready') {
-          hdrFoot.push((this.data.thirdparty.kiosk || {}).note || '');
-        }
-        if (gen) hdrFoot.unshift('Header on Phones: on a phone held upright, narrower than 640 px.');
-        c.appendChild(K.group({ header: 'Menu & Header', footer: hdrFoot.join(' ') || null }, rows));
 
-        // HOME PAGE
+        // HOME PAGE: what a value that follows All Screens says is the value itself, in gray (rule 7)
         var chipsVal = !b.chips_row ? 'Off' : b.chips.length ? b.chips.length + ' Chips' : 'Automatic';
-        var camsVal = gen && !b.camera_strip ? 'Off' : !b.cameras_custom ? 'Same as All Screens'
-          : b.cameras.length ? b.cameras.length + ' Cameras' : 'Automatic';
+        var camsVal = gen && !b.camera_strip ? 'Off' : (b.cameras || []).length ? b.cameras.length + ' Cameras' : 'Automatic';
         var scenesVal = !b.scenes_row ? 'Off' : b.scenes.length ? b.scenes.length + ' Scenes' : 'Automatic';
-        var roomsVal = b.rooms_custom ? M.roomsSummary(b) : 'Same as All Screens';
+        var roomsVal = M.roomsSummary(b);
         var home = [
           K.nav({ label: 'Status Chips', value: chipsVal, href: base + '/chips', sk: 'b:chips' }),
           K.nav({ label: 'Cameras', value: camsVal, href: base + '/cameras', sk: 'b:cameras' }),
@@ -407,33 +397,94 @@
             sub: 'Arrange on a desktop. Save when ready.', value: b.home_grid ? b.home_grid.items.length + ' Blocks' : 'Choose a Starter' }));
         }
         // only some pages: no Home page to set up here
-        if (!only) c.appendChild(K.group({ header: 'Home Page', footer: gen ? null :
+        if (!only) c.appendChild(K.group({ header: 'Home Page', footer: gen ? 'What this screen doesn’t change follows All Screens.' :
           'This screen is written in YAML, so it draws its own Home page. These lists apply where its cards read them: the chip row, the scenes row, the camera strip and the room order.' }, home));
 
-        // PAGES
+        // PAGES: its menu, then the pages it shows, in the menu's order
+        var mode = M.menuMode(b), pmode = M.phoneMenu(b), menuOwn = (b.menu_own || []).length;
+        var prows = [K.nav({ label: 'Menu', value: M.menuWord(b), sub: menuOwn ? M.menuSummary(b) : null, href: base + '/menu', sk: 'b:menu_own' })];
+        // a YAML screen says which pages its menu lists here (a generated one, on its Pages)
+        if (!gen && (mode !== 'off' || pmode !== 'off')) {
+          prows.push(K.nav({ label: 'Pages in Menu', sk: 'b:categories', href: base + '/menu-pages',
+                             value: b.categories.length || (b.menu_top || []).length ? 'Custom' : 'Automatic' }));
+        }
         if (gen && !only) {
-          var hdOff = Object.keys(b.headers || {}).length;
-          c.appendChild(K.group({ header: 'Pages', footer: 'The order here is the menu’s too; each page’s row says where it sits in the menu. ' +
-              'Each page’s own settings are under Pages in the sidebar; Page Headers turns a page’s header off on this screen alone.' }, [
-            K.nav({ label: 'Pages on This Screen', href: base + '/pages', sk: 'b:pages',
-                    value: b.pages.length ? b.pages.filter(function (k) { return k !== 'browse'; }).length + ' Pages' : 'Automatic' }),
-            K.nav({ label: 'Page Headers', href: base + '/page-headers', sk: 'b:headers',
-                    value: hdOff ? hdOff + ' Off' : 'Same as All Screens' }),
+          var hdOff = this.headersOff(b);
+          prows.push(K.nav({ label: 'Pages on This Screen', href: base + '/pages', sk: 'b:pages',
+                             value: b.pages.length ? b.pages.filter(function (k) { return k !== 'browse'; }).length + ' Pages' : 'Automatic' }),
+            K.nav({ label: 'Page Headers', href: base + '/page-headers', sk: 'b:headers', value: hdOff ? hdOff + ' Off' : 'All On' }),
             // THE PAGES SCREEN (Phase J): its own, or All Screens'
             K.nav({ label: 'Pages Screen', href: base + '/pages-screen', sk: 'b:pages_screen',
-                    value: b.pages_screen ? M.pagesScreenSummary(M.pagesScreenOf(this.data.settings.pages_screen, b.pages_screen).value)
-                                          : 'Same as All Screens' })]));
+                    value: M.pagesScreenSummary(M.pagesScreenOf(this.data.settings.pages_screen, b.pages_screen).value) }));
         }
+        c.appendChild(K.group({ header: 'Pages', footer: gen && !only ? 'The order of the pages is the menu’s too. Each page’s own settings are under Pages in the sidebar.' : null }, prows));
 
-        // LOOK (2026-10-30 tidy-up): Appearance, Looks and the Side Pane, one
-        // group -- each its page laid out as All Screens'
+        // LOOK: Appearance, Looks and the Side Pane, each its page laid out as All Screens'
         var lu = b.look_undo && M.lookOf(b.look_undo.look);
         c.appendChild(K.group({ header: 'Look' }, [
-          K.nav({ label: 'Appearance', value: M.glassShort(M.glassOf(b, this.data.settings.look).effective), sub: this.appearanceSays(b), href: base + '/appearance', sk: 'b:appearance' }),
+          K.nav({ label: 'Appearance', value: M.glassShort(M.glassOf(b, look).effective), sub: this.appearanceSays(b), href: base + '/appearance', sk: 'b:appearance' }),
           K.nav({ label: 'Looks', value: lu ? lu.name : '', sub: 'HomeView, Flat, Performance, Holiday Whimsy and more, in one step',
                   href: base + '/looks', sk: 'b:looks' }),
           K.nav({ label: 'Side Pane', value: M.paneSummary(this.paneNow(x.path)), href: base + '/sidepane', sk: 'b:side_pane' })]));
 
+        // MORE FOR THIS SCREEN: what is set once and left alone (the page below)
+        c.appendChild(K.group({}, [K.nav({ label: 'More for This Screen', href: base + '/more', sk: 'b:more',
+          sub: (gen ? 'Now Playing, Timer Bar, ' : '') + 'Pop-ups, Screensaver, Car Browser' + (gen ? ', Header on Phones' : '') })]));
+
+        // WALL TABLETS (1.14): the tablets that run this screen -- each one's
+        // user, room, idle time and Sleep Screen are its own
+        var mine = (b.tablets || []).filter(function (tid) { return self.tabs()[tid]; });
+        var trows = mine.map(function (tid) {
+          var tt = self.tabs()[tid], ts = self.tabletStatusOf(tid);
+          return K.nav({ tile: ['mdi:tablet', ts.known ? self.tabTile(ts.st) : C.blue], label: tt.name,
+                         sub: M.tabletAppName(M.tabletApp(tt.app)), href: '#/house/tablets/' + encodeURIComponent(tid), fk: 'b:tab:' + tid,
+                         value: !ts.known ? '' : ts.st === 'off' ? 'Offline' : ts.word + (ts.batt !== null ? ' · ' + ts.batt + '%' : '') });
+        });
+        var addT = K.nav({ tile: ['mdi:plus', C.gray], label: 'Add a Tablet to This Screen…', href: '#/house/tablets/add', sk: 'b:tablets' });
+        addT.addEventListener('click', function () { self._newT = null; self._addScreen = path; });
+        trows.push(addT);
+        c.appendChild(K.group({ header: 'Wall Tablets', footer: 'Each tablet’s user, room, idle time and Sleep Screen are its own, in Wall Tablets.' }, trows));
+
+        // COPY SETTINGS, then (the host's own, below) Where and Remove Screen last
+        c.appendChild(K.group({}, [K.nav({ label: 'Copy Settings From…', href: base + '/copy', sk: 'b:copy', sub: 'Another screen’s menu, Home page, appearance and more' })]));
+        if (!gen) c.appendChild(K.group({ footer: 'What this dashboard’s own YAML can say beyond these settings: the live sky, HK cards, ' +
+            'rooms in the menu, and more, ready to copy.' }, [K.nav({ label: 'YAML Reference', href: '#/advanced/yaml', sk: 'b:yaml-ref' })]));
+        // THE HOST'S OWN, for this screen (extend, above): nothing in Home Assistant. a host's Where and Remove Screen… are the last
+        var hx = this.host(), hasExt = !!(hx && typeof hx.extend === 'function');
+        if (hasExt) {
+          try { hx.extend('screen', c, { screen: path, title: x.title, where: x.where || null }, this); } catch (e) { /* the host's own page */ }
+        }
+        if (gen && x.mode === 'storage') { c.appendChild(this.deleteGroup(x)); return; }
+        if (hasExt) return;
+        // a host that can't remove a screen's settings says why instead
+        if (this.hostNote('screen_remove')) {
+          c.appendChild(K.group({ footer: this.hostNote('screen_remove') }, []));
+          return;
+        }
+        c.appendChild(K.group({ footer: 'The dashboard itself stays. Its menu, Home page and appearance go back to the defaults.' }, [
+          K.button({ label: 'Remove HK Settings…', destructive: true, sk: 'b:remove', onClick: function () {
+            K.confirm(self.shadowRoot, { title: 'Remove HK settings for ' + x.title + '?',
+              message: 'The dashboard stays. Its menu, Home page, pages and appearance go back to the defaults.',
+              ok: 'Remove', destructive: true }).then(function (yes) {
+              if (!yes) return;
+              self.ws({ type: 'config_entries/subentries/delete', entry_id: self.data.entry_id, subentry_id: x.item })
+                .then(function (ok) { if (ok) self.reload().then(function () { self.render(); }); });
+            });
+          } })]));
+      }
+      // HOW MANY OF A SCREEN'S PAGES HAVE THEIR HEADER OFF (its own, or All Screens'): the Page Headers row's value
+      headersOff(b) {
+        var S = this.data.settings || {}, own = b.headers || {};
+        return this.pagesListed().filter(function (p) {
+          return M.HEADER_PAGES[p[0]] && M.screenShows(b, p[0]) && (((S.headers || {})[p[0]] || {}).show === false || own[p[0]] === false);
+        }).length;
+      }
+      // MORE FOR THIS SCREEN (phase 32): what a screen has once and leaves alone -- Now Playing and the Timer Bar,
+      // Pop-ups and notifications, its Screensaver, the Home Assistant header, a car's browser
+      s_more(c, x, b) {
+        var self = this, path = x.path, base = '#/screens/' + encodeURIComponent(path), gen = x.generated;
+        var set = function (ch) { return self.setB(path, ch); };
+        var mode = M.menuMode(b), pmode = M.phoneMenu(b);
         // NOW PLAYING (2026-10-30 tidy-up: out of Behavior): the switch, then
         // its options on a page of their own as the screensaver's are
         // (s_nowPlaying) -- All Screens' Now Playing, or this screen's own
@@ -442,8 +493,7 @@
                                 sub: 'The music playing, in a side pane or a bar.',
                                 onChange: function (on) { set({ now_playing: on }); } })];
           if (b.now_playing && b.np_style !== undefined) {
-            npr.push(K.nav({ label: 'Now Playing Options', href: base + '/nowplaying', sk: 'b:np_options',
-                             value: M.npOwn(b) ? 'Just This Screen' : 'Same as All Screens' }));
+            npr.push(K.nav({ label: 'Now Playing Options', href: base + '/nowplaying', sk: 'b:np_options', value: M.npShowAs(this.paneNow(path)), sub: M.npOwn(b) ? 'Just This Screen' : null }));
           }
           // (shown once the integration knows it: an older one would drop it)
           if (b.timer_bar !== undefined) {
@@ -478,13 +528,13 @@
           var nwhile = null;
           if (b.notify !== false) {
             var hs = SAVERS[nd.saver] || 'Important Only';
-            nrows.push(K.select({ label: 'On the Screensaver', sub: b.notify_saver ? 'Just This Screen' : 'Same as All Screens',
+            nrows.push(K.select({ label: 'On the Screensaver', sub: b.notify_saver ? 'Just This Screen' : null,
               value: b.notify_saver || '', sk: 'b:notify_saver',
               options: [['', 'Same as All Screens (' + hs + ')', hs], ['all', 'All'], ['important', 'Important Only'], ['off', 'Off']],
               onChange: function (v) { set({ notify_saver: v || null }); } }));
             var dnd = b.notify_dnd, own = !!(dnd && (dnd.schedule || (dnd['while'] || []).length));
             var hd = F.dndSummary(nd.dnd);
-            nrows.push(K.select({ label: 'Do Not Disturb', sub: dnd ? 'Just This Screen' : 'Same as All Screens',
+            nrows.push(K.select({ label: 'Do Not Disturb', sub: dnd ? 'Just This Screen' : null,
               value: !dnd ? '' : own ? 'own' : 'off', sk: 'b:notify_dnd',
               options: [['', 'Same as All Screens (' + hd + ')', hd], ['off', 'Off on This Screen', 'Off'], ['own', 'Its Own Hours']],
               onChange: function (v) {
@@ -492,7 +542,7 @@
                   : { schedule: true, from: (nd.dnd || {}).from || '22:00', to: (nd.dnd || {}).to || '07:00', 'while': [] } });
               } }));
             if (own) {
-              var dr = F.dndRows(this, dnd, function (x) { set({ notify_dnd: x }); }, 'b:notify_dnd');
+              var dr = F.dndRows(this, dnd, function (x2) { set({ notify_dnd: x2 }); }, 'b:notify_dnd');
               nrows = nrows.concat(dr.rows);
               nwhile = dr.whileRows;
             }
@@ -502,7 +552,7 @@
           if (nwhile) c.appendChild(K.group({ header: 'Do Not Disturb While This Is On', footer: 'An input_boolean, a switch, a timer while it runs.' }, nwhile));
         }
 
-        // WHEN IDLE: the photo screensaver -- what it shows is the screen's
+        // SCREENSAVER: the photo screensaver -- what it shows is the screen's
         // (an existing dashboard's comes from these settings unless its own
         // YAML has hk_screensaver, hk-saver.js fromSettings; WallPanel for a
         // generated screen only). When it starts, Home and dark are each wall
@@ -513,31 +563,33 @@
           var wp = gen && b.screensaver_engine === 'wallpanel';
           idle.push(K.nav({ label: 'Screensaver Options', href: base + (wp ? '/wallpanel' : '/screensaver'),
                             sk: wp ? 'b:wallpanel_options' : 'b:screensaver_options',
-                            value: wp ? 'WallPanel' : (M.saverFollows(b) ? 'Same as All Screens' : 'Just This Screen') }));
+                            value: wp ? 'WallPanel' : (M.saverFollows(b) ? M.saverSummary(M.saverOptions(this.hs('look.saver'))) : 'Just This Screen') }));
         }
         var mine = (b.tablets || []).filter(function (tid) { return self.tabs()[tid]; });
         var idf = [];
         if (b.screensaver) {
-          idf.push(mine.length ? 'It runs on this screen’s wall tablets (below), never on a desk or a phone opening it.'
-            : 'It runs only on a wall tablet: add the tablet that shows this screen, below.');
+          idf.push(mine.length ? 'It runs on this screen’s wall tablets, never on a desk or a phone opening it.'
+            : 'It runs only on a wall tablet: add the tablet that shows this screen.');
           if (!gen) idf.push('If this dashboard’s own YAML has an hk_screensaver block, that is used instead.');
         }
         c.appendChild(K.group({ header: 'Screensaver', footer: idf.join(' ') || null }, idle));
 
-        // WALL TABLETS (1.14): the tablets that run this screen -- each one's
-        // user, room, idle time and Sleep Screen are its own
-        var trows = mine.map(function (tid) {
-          var tt = self.tabs()[tid], ts = self.tabletStatusOf(tid);
-          return K.nav({ tile: ['mdi:tablet', ts.known ? self.tabTile(ts.st) : C.blue], label: tt.name,
-                         sub: M.tabletAppName(M.tabletApp(tt.app)), href: '#/house/tablets/' + encodeURIComponent(tid), fk: 'b:tab:' + tid,
-                         value: !ts.known ? '' : ts.st === 'off' ? 'Offline' : ts.word + (ts.batt !== null ? ' · ' + ts.batt + '%' : '') });
-        });
-        var addT = K.nav({ tile: ['mdi:plus', C.gray], label: 'Add a Tablet to This Screen…', href: '#/house/tablets/add', sk: 'b:tablets' });
-        addT.addEventListener('click', function () { self._newT = null; self._addScreen = path; });
-        trows.push(addT);
-        c.appendChild(K.group({ header: 'Wall Tablets', footer: 'The tablets that run this screen. Each one’s user, room, idle time and Sleep Screen are its own, in Wall Tablets.' }, trows));
+        // HEADER: what sits at the top of Home on a phone, the header on every page but Home, and Home Assistant's
+        // own header and sidebar -- every screen, generated or not (hk-kiosk.js)
+        var hrows = [];
+        if (gen) hrows.push(K.seg({ label: 'Header on Phones', sk: 'b:phone_header', stack: !this.hasAttribute('wide'),
+                                    value: b.phone_header || 'header', options: [['header', 'Clock & Weather'], ['strip', 'Weather Strip']],
+                                    onChange: function (v) { set({ phone_header: v }); } }));
+        if (mode !== 'off' || pmode !== 'off') hrows = hrows.concat(this.headerRows(this.menuCtx(x, b)));
+        hrows.push(K.nav({ label: 'Home Assistant Header & Sidebar', href: base + '/kiosk', sk: 'b:kiosk', value: M.kioskSummary(b, gen) }));
+        var hdrFoot = [];
+        if (gen && b.kiosk && b.kiosk_engine === 'kiosk_mode' && (this.data.thirdparty.kiosk || {}).state !== 'ready') {
+          hdrFoot.push((this.data.thirdparty.kiosk || {}).note || '');
+        }
+        if (gen) hdrFoot.unshift('Header on Phones: on a phone held upright, narrower than 640 px.');
+        c.appendChild(K.group({ header: 'Header', footer: hdrFoot.join(' ') || null }, hrows));
 
-        // THIS DEVICE: a car's browser -- and, in one, which Home the screen
+        // CAR BROWSER (This Device): a car's browser -- and, in one, which Home the screen
         // generates (M.CAR_LAYOUTS) and how much layout its window holds
         // (M.CAR_WIDTHS: tesla-viewport.js zooms to it; Custom, any width)
         var carRows = [K.toggle({ label: 'Car Browser', sub: 'Fit a car’s narrow browser to a desktop layout.', sk: 'b:car', on: b.car,
@@ -565,36 +617,9 @@
             ' Scale: how much of a desktop layout the car’s window holds — Larger shows less of it, bigger; ' +
             'Custom takes a width of your own (Standard is ' + M.CAR_WIDTH.toLocaleString(window.hkLocale.numTag()) + ' px).';
         }
-        c.appendChild(K.group({ header: 'This Device', footer: carFoot }, carRows));
+        c.appendChild(K.group({ header: 'Car Browser', footer: carFoot }, carRows));
         var devRec = this.deviceRecommend(path, b);
         if (devRec) c.appendChild(devRec);
-
-        // THE HOST'S OWN, for this screen (extend, above): nothing in Home Assistant
-        var hx = this.host();
-        if (hx && typeof hx.extend === 'function') {
-          try { hx.extend('screen', c, { screen: path, title: x.title, where: x.where || null }, this); } catch (e) { /* the host's own page */ }
-        }
-
-        c.appendChild(K.group({ footer: 'Another screen’s menu, Home page, appearance and more, onto this one — you choose which.' }, [
-          K.nav({ label: 'Copy Settings From…', href: base + '/copy', sk: 'b:copy' })]));
-        if (!gen) c.appendChild(K.group({ footer: 'What this dashboard’s own YAML can say beyond these settings: the live sky, HK cards, ' +
-            'rooms in the menu, and more, ready to copy.' }, [K.nav({ label: 'YAML Reference', href: '#/advanced/yaml', sk: 'b:yaml-ref' })]));
-        if (gen && x.mode === 'storage') { c.appendChild(this.deleteGroup(x)); return; }
-        // a host that can't remove a screen's settings says why instead
-        if (this.hostNote('screen_remove')) {
-          c.appendChild(K.group({ footer: this.hostNote('screen_remove') }, []));
-          return;
-        }
-        c.appendChild(K.group({ footer: 'The dashboard itself stays. Its menu, Home page and appearance go back to the defaults.' }, [
-          K.button({ label: 'Remove HK Settings…', destructive: true, sk: 'b:remove', onClick: function () {
-            K.confirm(self.shadowRoot, { title: 'Remove HK settings for ' + x.title + '?',
-              message: 'The dashboard stays. Its menu, Home page, pages and appearance go back to the defaults.',
-              ok: 'Remove', destructive: true }).then(function (yes) {
-              if (!yes) return;
-              self.ws({ type: 'config_entries/subentries/delete', entry_id: self.data.entry_id, subentry_id: x.item })
-                .then(function (ok) { if (ok) self.reload().then(function () { self.render(); }); });
-            });
-          } })]));
       }
       // COPY SETTINGS FROM ANOTHER SCREEN onto this one: which screen, which
       // parts (M.COPY_GROUPS; Favorites and Scenes are left unticked), then one
@@ -753,12 +778,12 @@
       // Screens until it is changed here, then Just This Screen (menu_own)
       s_menu(c, x, b) {
         var self = this, base = '#/screens/' + encodeURIComponent(x.path);
-        var set = function (ch) { return self.setB(x.path, ch); };
         // MENU ON THIS SCREEN (on its page until 2026-10-30): the kind of menu
         // on each device -- always the screen's own (menu, menu_phone)
         c.appendChild(K.group({ header: 'Menu on This Screen', footer: M.DEVICES.fold }, [
-          this.menuKind(b, set, 'tablets', 'Tablets & Computers'),
-          this.menuKind(b, set, 'phones', 'Phones')]));
+          this.menuKind(b, base, 'tablets', 'Tablets & Computers'),
+          this.menuKind(b, base, 'phones', 'Phones')]));
+
         var kinds = M.MENU_KINDS.filter(function (k) { return k[2](b); });
         if (!kinds.length) {
           this.swipePagesGroup(c, b, x);
@@ -766,11 +791,13 @@
         }
         c.appendChild(K.group({ header: 'Navigation', footer: 'The ones this screen uses. Each setting follows All Screens until you change it here.' },
           kinds.map(function (k) {
-            return K.nav({ label: k[1], value: M.menuSummary(b, M.KIND_KEYS[k[0]]), href: base + '/menu/' + k[0], sk: 'b:menu:' + k[0] });
+            var own = M.menuSummary(b, M.KIND_KEYS[k[0]]);
+            return K.nav({ label: k[1], value: self.kindValue(b, k[0]), sub: own === 'Same as All Screens' ? null : own,
+                           href: base + '/menu/' + k[0], sk: 'b:menu:' + k[0] });
           })));
         this.swipePagesGroup(c, b, x);
         c.appendChild(K.group({ header: 'In the Menu' }, [
-          K.nav({ label: 'Rooms in the Menu', value: b.rooms_custom ? 'Just This Screen' : 'Same as All Screens', href: base + '/rooms', sk: 'b:menu_rooms' })]));
+          K.nav({ label: 'Rooms in the Menu', value: M.roomsSummary(b), sub: b.rooms_custom ? 'Just This Screen' : null, href: base + '/rooms', sk: 'b:menu_rooms' })]));
         var mine = [];
         kinds.forEach(function (k) { M.KIND_KEYS[k[0]].forEach(function (key) { if (M.ownsMenu(b, key) && mine.indexOf(key) < 0) mine.push(key); }); });
         if (mine.length) {
@@ -787,7 +814,7 @@
         var own = !!b && M.SWIPE_PAGES.some(function (o) { return o[0] === b.swipe_pages; });
         var cur = own ? b.swipe_pages : house;
         var rows = [K.seg({ label: 'Swipe Between Pages', sk: b ? 'b:swipe_pages' : 'menu.swipe_pages', value: cur, stack: !wide,
-          sub: b ? (own ? 'Just This Screen' : 'Same as All Screens') : null, options: M.SWIPE_PAGES,
+          sub: b && own ? 'Just This Screen' : null, options: M.SWIPE_PAGES,
           onChange: function (v) { return b ? self.setB(x.path, { swipe_pages: v }) : self.setH({ 'menu.swipe_pages': v }); } })];
         if (own) {
           rows.push(K.button({ label: 'Reset to All Screens (' + M.choiceLabel(M.SWIPE_PAGES, house) + ')', sk: 'b:swipe_pages:reset',
@@ -838,7 +865,7 @@
       mRow(ctx, key, make, said) {
         if (ctx.house) return [make(ctx.set, null)];
         var own = M.ownsMenu(ctx.b, key);
-        var rows = [make(function (ch) { return ctx.set(M.menuOwnSet(ctx.b, ch)); }, own ? 'Just This Screen' : 'Same as All Screens')];
+        var rows = [make(function (ch) { return ctx.set(M.menuOwnSet(ctx.b, ch)); }, own ? 'Just This Screen' : null)];
         if (own) {
           rows.push(K.button({ label: 'Reset to All Screens (' + said(ctx.hv[key]) + ')', sk: 'b:' + key + ':reset',
             onClick: function () { ctx.set(M.menuOwnReset(ctx.b, key)); } }));
@@ -852,6 +879,54 @@
         if (kind === 'side') this.sidePage(c, ctx);
         else if (kind === 'edge-tab') this.edgeTabPage(c, ctx);
         else this.tabBarPage(c, ctx);
+        // RULE 7: said once. A setting this screen has not changed follows All Screens; a changed one says so and can go back
+        if (!ctx.house) c.appendChild(K.group({ footer: 'This screen follows All Screens until you change a setting here.' }, []));
+      }
+      // WHAT A KIND OF MENU IS, in a word, for its row on a screen's Menu: the value, not whose it is
+      kindValue(b, kind) {
+        if (kind === 'side') return M.menuMode(b) === 'button' || M.menuMode(b) === 'open' ? M.tabletSummary(b) : M.phoneSummary(b);
+        if (kind === 'edge-tab') return M.tabPosLabel(b.tab_position);
+        return M.choiceLabel(M.TAB_BAR_POS, b.tab_bar_pos || 'bottom');
+      }
+      // A CHOICE PAGE (phase 32, rule 4): a segmented control of four is a page of choices, a checkmark on the one chosen.
+      // o: { options: [[value, label, sub]], value, pick(v), back: the page it goes back to, footer,
+      //      reset: { label, onClick } (a screen's own value, on its way back to All Screens') }
+      choicePage(c, o) {
+        var self = this;
+        c.appendChild(K.group({ footer: o.footer || null }, o.options.map(function (op) {
+          return K.check({ label: op[1], sub: op[2] || null, on: String(op[0]) === String(o.value), fk: (o.fk || 'choice') + ':' + op[0],
+                           onClick: function () { if (String(op[0]) !== String(o.value)) o.pick(op[0]); self.back(o.back); } });
+        })));
+        if (o.reset) c.appendChild(K.group({}, [K.button({ label: o.reset.label, fk: (o.fk || 'choice') + ':reset',
+          onClick: function () { o.reset.onClick(); self.back(o.back); } })]));
+      }
+      // A SCREEN'S MENU ON ONE DEVICE, as a choice page (the screen's own, never All Screens')
+      menuModePage(c, x, b, device) {
+        var self = this, base = '#/screens/' + encodeURIComponent(x.path) + '/menu', phones = device === 'phones';
+        var says = { off: 'No menu', button: 'A button opens the side menu', open: 'The side menu stays open beside the page',
+                     tabbar: 'A tab bar of the main pages, the rest in More' };
+        var list = (phones ? M.PHONE_MENUS : [['off', 'Off'], ['button', 'Button'], ['open', 'Always Open'], ['tabbar', 'Tab Bar']]);
+        this.choicePage(c, {
+          options: list.map(function (o) { return [o[0], o[1], says[o[0]]]; }), value: phones ? M.phoneMenu(b) : M.menuMode(b), back: base, fk: 'menu:' + device,
+          footer: phones ? M.DEVICES.phones : M.DEVICES.tablets + ' ' + M.DEVICES.fold,
+          pick: function (v) {
+            if (phones) { self.setB(x.path, { menu_phone: v }); return; }
+            var ch = { menu: M.menuFor(v, b, self._lastStyle) };
+            if (!b.menu_phone) ch.menu_phone = M.phoneMenu(b);
+            self.setB(x.path, ch);
+          } });
+      }
+      // THE TAB BAR'S POSITION: Bottom, Top, Left, Right
+      tabBarPosPage(c, ctx) {
+        var self = this, own = !ctx.house && M.ownsMenu(ctx.b, 'tab_bar_pos');
+        var says = { bottom: 'Along the bottom, as on an iPhone', top: 'Along the top of the page', left: 'A rail down the left side', right: 'A rail down the right side' };
+        this.choicePage(c, {
+          options: M.TAB_BAR_POS.map(function (o) { return [o[0], o[1], says[o[0]]]; }), value: ctx.v.tab_bar_pos || 'bottom', back: ctx.base + '/tab-bar', fk: 'tabpos',
+          footer: 'Left and right are a rail on a tablet or computer; a phone keeps the bar at the bottom.',
+          pick: function (v) { ctx.set(ctx.house ? { tab_bar_pos: v } : M.menuOwnSet(ctx.b, { tab_bar_pos: v })); },
+          reset: own ? { label: 'Reset to All Screens (' + M.choiceLabel(M.TAB_BAR_POS, ctx.hv.tab_bar_pos || 'bottom') + ')',
+                         onClick: function () { ctx.set(M.menuOwnReset(ctx.b, 'tab_bar_pos')); } } : null });
+        void self;
       }
       sidePage(c, ctx) {
         var self = this, v = ctx.v, all = ctx.house, wide = this.hasAttribute('wide');
@@ -919,7 +994,7 @@
                             href: ctx.base + '/side', sk: ctx.sk('ha_row') }));
         }
         rows.push(K.nav({ label: 'Rooms in the Menu', href: ctx.rooms, sk: ctx.house ? 'menu:rooms' : 'b:menu_rooms',
-                          value: ctx.house ? '' : (ctx.b.rooms_custom ? 'Just This Screen' : 'Same as All Screens') }));
+                          value: ctx.house ? '' : M.roomsSummary(ctx.b), sub: !ctx.house && ctx.b.rooms_custom ? 'Just This Screen' : null }));
         c.appendChild(K.group({ header: 'In the Menu', footer: 'The Home Assistant section shows only what each person may open. Which rooms show, and their order, are in Rooms.' }, rows));
       }
       edgeTabPage(c, ctx) {
@@ -973,13 +1048,22 @@
       // it looks: under Appearance.
       tabBarPage(c, ctx) {
         var self = this, v = ctx.v, all = ctx.house, wide = this.hasAttribute('wide');
+        // RULE 3: while no screen uses a tab bar there is nothing to set, and the page says how to get one
+        if (all && !M.kindUsers('tab-bar', this.data.boards, function (p) { return p; }).length) {
+          c.appendChild(K.group({}, [K.info({ label: 'No Screen Uses a Tab Bar', sub: 'Choose Tab Bar in a screen’s Menu and its settings appear here.' })]));
+          return;
+        }
         var tb = all || M.tabletTabBar(v), ph = all || M.phoneMenu(v) === 'tabbar';
+        if (!tb && !ph) {
+          c.appendChild(K.group({}, [K.info({ label: 'This Screen Has No Tab Bar', sub: 'Choose Tab Bar in its Menu and the settings appear here.' })]));
+          return;
+        }
         var pos = v.tab_bar_pos || 'bottom', rail = pos === 'left' || pos === 'right';
         var L = function (list) { return function (x) { return M.choiceLabel(list, x); }; };
-        var bar = this.mRow(ctx, 'tab_bar_pos', function (set, whose) {
-          return K.seg({ label: 'Position', sub: whose || 'Left and right are a rail on a tablet or computer; a phone keeps the bar at the bottom.',
-                         sk: ctx.sk('tab_bar_pos'), value: pos, stack: !wide, options: M.TAB_BAR_POS, onChange: function (x) { set({ tab_bar_pos: x }); } });
-        }, L(M.TAB_BAR_POS)).concat(this.mRow(ctx, 'tab_bar_size', function (set, whose) {
+        // POSITION is a page of four choices (its Reset to All Screens is there)
+        var bar = [K.nav({ label: 'Position', sub: !ctx.house && M.ownsMenu(ctx.b, 'tab_bar_pos') ? 'Just This Screen' : null, value: M.choiceLabel(M.TAB_BAR_POS, pos),
+                           href: ctx.base + '/tab-bar/position', sk: ctx.sk('tab_bar_pos') })]
+          .concat(this.mRow(ctx, 'tab_bar_size', function (set, whose) {
           return K.seg({ label: 'Size', sub: whose || 'The bar’s thickness (a rail’s width), its icons and labels.',
                          sk: ctx.sk('tab_bar_size'), value: v.tab_bar_size || 'medium', stack: !wide, options: M.TAB_BAR_SIZES,
                          onChange: function (x) { set({ tab_bar_size: x }); } });
@@ -998,16 +1082,15 @@
               onChange: function (on) { set({ tab_bar_adjust: on }); } });
           }, function (on) { return on !== false ? 'On' : 'Off'; }));
         }
-        c.appendChild(K.group({ header: 'The Bar', footer: 'Its glass is under Appearance, with the other looks.' }, bar));
         // THE SIDE STRIP (2026-10-30, hk-tabbar.js stripSide): the iPhone
         // Duo's strip of system controls down one side, its foot empty -- the
         // bar becomes a rail there, as its own apps have it
-        var strip = this.mRow(ctx, 'tab_bar_strip', function (set, whose) {
+        bar = bar.concat(this.mRow(ctx, 'tab_bar_strip', function (set, whose) {
           return K.toggle({ label: 'Use the Side Strip', sk: ctx.sk('tab_bar_strip'), on: v.tab_bar_strip !== false,
-            sub: whose || 'Tabs that don’t fit below the strip’s own items are in More.',
+            sub: whose || 'On a phone with a strip of system controls at its side, such as iPhone Duo, the bar sits in the strip’s empty part.',
             onChange: function (on) { set({ tab_bar_strip: on }); } });
-        }, function (on) { return on !== false ? 'On' : 'Off'; });
-        c.appendChild(K.group({ header: 'Side Strip', footer: 'On a phone with a strip of system controls at its side, such as iPhone Duo, the tab bar sits in the strip’s empty part.' }, strip));
+        }, function (on) { return on !== false ? 'On' : 'Off'; }));
+        c.appendChild(K.group({ header: 'The Bar', footer: 'Its glass is under Appearance, with the other looks.' }, bar));
         var scroll = [];
         if (tb) scroll = scroll.concat(this.mRow(ctx, 'tab_bar_scroll', function (set, whose) {
           return K.seg({ label: 'Tablets & Computers', sub: whose, sk: ctx.sk('tab_bar_scroll'), value: v.tab_bar_scroll || 'shrink', stack: !wide,
@@ -1027,7 +1110,7 @@
                               sk: ctx.sk('tab_bar_start'), on: v.tab_bar_start === 'small', onChange: function (on) { set({ tab_bar_start: on ? 'small' : 'full' }); } });
           }, function (x) { return x === 'small' ? 'On' : 'Off'; }));
         }
-        c.appendChild(
+        if (scroll.length) c.appendChild(
           K.group(
           { header: 'While Scrolling', footer: 'Shrink folds the bar into one small button as you scroll down; Hide slides it away. Scrolling up, either end of the page or a tap brings it back.' },
           scroll));
@@ -1044,7 +1127,7 @@
           return K.select({ label: 'Tabs in Rail', sub: whose || 'Down the left or the right.', sk: ctx.sk('tab_bar_tabs_rail'),
                             value: String(v.tab_bar_tabs_rail || 6), options: nums(M.TAB_BAR_TABS), onChange: function (x) { set({ tab_bar_tabs_rail: Number(x) }); } });
         }, String));
-        c.appendChild(K.group({ header: 'Tabs', footer: 'Pages, besides Home and More. A narrow phone shows fewer when they don’t fit; the rest are in More.' }, tabs));
+        if (tabs.length) c.appendChild(K.group({ header: 'Tabs', footer: 'Pages, besides Home and More. A narrow phone shows fewer when they don’t fit; the rest are in More.' }, tabs));
         var more = [];
         [[tb, '', 'Tablets & Computers', 'icons'], [ph, '_phone', 'Phones', 'list']].forEach(function (d) {
           if (!d[0]) return;
@@ -1056,9 +1139,9 @@
                            options: M.TAB_BAR_ROOMS, onChange: function (x) { var ch = {}; ch['tab_bar_rooms' + d[1]] = x; set(ch); } });
           }, function (x) { return M.choiceLabel(M.TAB_BAR_ROOMS, M.roomsPlace(x)); }));
         });
-        c.appendChild(
+        if (more.length) c.appendChild(
           K.group(
-          { header: 'More', footer: 'Icons: a grid, as wide as the screen allows. List: rows like the side menu. Rooms In More sit under the pages; Own Button is a round button beside the bar.' },
+          { header: 'More', footer: 'Icons are a grid and List is rows like the side menu. Rooms In More sit under the pages; Own Button is a round button beside the bar.' },
           more));
         this.inMenuRows(c, ctx, false);
       }
@@ -1078,21 +1161,15 @@
       // A SCREEN'S MENU ON ONE DEVICE (`device` 'tablets' or 'phones'): always
       // the screen's own, set only on its page. Changing the tablets' writes
       // the phones' down first, so phones keep what they show.
-      menuKind(b, set, device, label) {
-        var self = this, wide = this.hasAttribute('wide');
+      menuKind(b, base, device, label) {
+        base = base + '/menu/choose/';
         if (device === 'phones') {
-          return K.seg({ label: label, sk: 'b:menu_phone', value: M.phoneMenu(b), stack: !wide, options: M.PHONE_MENUS,
-                         onChange: function (v) { set({ menu_phone: v }); } });
+          return K.nav({ label: label, sk: 'b:menu_phone', value: M.choiceLabel(M.PHONE_MENUS, M.phoneMenu(b)), href: base + 'phones' });
         }
         var mode = M.menuMode(b);
         if (mode === 'button') this._lastStyle = b.menu;
-        return K.seg({ label: label, sk: 'b:menu', value: mode, stack: !wide,
-          options: [['off', 'Off'], ['button', 'Button'], ['open', 'Always Open'], ['tabbar', 'Tab Bar']],
-          onChange: function (v) {
-            var ch = { menu: M.menuFor(v, b, self._lastStyle) };
-            if (!b.menu_phone) ch.menu_phone = M.phoneMenu(b);
-            set(ch);
-          } });
+        return K.nav({ label: label, sk: 'b:menu', value: M.choiceLabel([['off', 'Off'], ['button', 'Button'], ['open', 'Always Open'], ['tabbar', 'Tab Bar']], mode),
+                      href: base + 'tablets' });
       }
       // ONE PICK OF MANY, then back: the tablets' button style, Phones'
       menuStyle(c, cur, pick, swipe) {
@@ -1158,7 +1235,7 @@
       accentNav(x, b, href) {
         var ac = this.accentOf(x, b);
         return K.nav({ label: 'Accent Color', value: ac.name, href: href, sk: b ? 'b:accent' : 'menu.accent',
-                       sub: b ? (ac.own ? 'Just This Screen' : 'Same as All Screens') : null,
+                       sub: b && ac.own ? 'Just This Screen' : null,
                        tile: ['', ac.hex || AUTO_ACCENT_TILE] });
       }
       accentPage(c, x, b) {

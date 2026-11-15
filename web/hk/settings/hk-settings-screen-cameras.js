@@ -47,7 +47,7 @@
         // LIVE FIRST CAMERA, this screen's own or All Screens' (2026-10-10)
         var hLive = (this.data.settings.cameras || {}).live !== false, ownLive = typeof b.camera_live_video === 'boolean';
         top.push(K.toggle({ label: 'Live First Camera', sk: 'b:camera_live_video', on: ownLive ? b.camera_live_video : hLive,
-          sub: ownLive ? 'Just This Screen' : 'Same as All Screens', onChange: function (on) { set({ camera_live_video: on }); } }));
+          sub: ownLive ? 'Just This Screen' : null, onChange: function (on) { set({ camera_live_video: on }); } }));
         if (ownLive) top.push(K.button({ label: 'Reset to All Screens (' + (hLive ? 'On' : 'Off') + ')', sk: 'b:camera_live_video:reset',
                                          onClick: function () { set({ camera_live_video: null }); } }));
         c.appendChild(K.group({ footer: 'The first tile plays live video; the others show snapshots. A dropdown helper can choose which camera is first — the one where someone was just seen, say. ' +
@@ -232,7 +232,7 @@
             'the Timers page’s Quick Start beside what runs. A header off for All Screens is off everywhere (its page, under Pages).' },
           listed.map(function (p) {
             var house = ((S.headers || {})[p[0]] || {}).show !== false, mine = own[p[0]] === false;
-            return K.toggle({ label: p[1], sub: !house ? 'Off for All Screens' : mine ? 'Off on This Screen' : 'Same as All Screens',
+            return K.toggle({ label: p[1], sub: !house ? 'Off for All Screens' : mine ? 'Off on This Screen' : null,
               on: house && !mine, disabled: !house, sk: 'b:headers', fk: 'pghd:' + p[0],
               onChange: function (on) {
                 var next = Object.assign({}, own);
