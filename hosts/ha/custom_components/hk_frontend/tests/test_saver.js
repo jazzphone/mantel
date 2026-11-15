@@ -378,6 +378,13 @@ push(hassWith('on'));
 ok('the house turning the switch ON starts it (the sleep script)', S.running() && S.stats().startedBy === 'switch');
 ok('...and a start by the switch writes nothing back', calls.length === 0, calls);
 ok('...a screensaver element is on the page', walkFake(document.body).some(function (e) { return e.tagName === 'HK-SCREENSAVER'; }));
+// (2026-11-15, the owner: "Appearances shouldn't apply to screensavers")
+ok('...wearing no look: never Flat inside it, and none of Flat\'s values from the page', (function () {
+  var sv = walkFake(document.body).filter(function (e) { return e.tagName === 'HK-SCREENSAVER'; }).pop(), F = window.hkCards && window.hkCards.FLAT;
+  var prop = function (k) { return sv.style.getPropertyValue ? sv.style.getPropertyValue(k) : sv.style[k]; };
+  return sv.attrs['hk-flat-force'] === 'off' && !sv.hasAttribute('hk-flat') &&
+    (!F || Object.keys(F.light).every(function (k) { return prop(k) === 'initial'; }));
+})());
 ok('...the sky and the cards are told', window.__hkSaverEvents === undefined || true);
 push(hassWith('off'));
 ok('the house turning it OFF stops it (wake, the doorbell)', !S.running());

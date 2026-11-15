@@ -98,6 +98,20 @@ C.STYLES.filter(function (st) { return !SVG_MARKUP[st[0]]; }).forEach(function (
   try { ctl = C.mount(layer, { style: st[0], bg: 'aurora', drift: false, client: window.hkClient.create({ states: {} }) }); ctl.destroy(); } catch (e) { err = String(e); }
   ok(st[1] + ' mounts', err, null);
 });
+// THE SCREENSAVER WEARS NO LOOK (2026-11-15, the owner: "Appearances shouldn't apply to screensavers"): a block on a Flat page
+// gets Flat's ground for its background; the screensaver's clock (flat: false) keeps its own, still only with Motion off
+(function () {
+  var saved = window.hkSettings, at = function (r, o) {
+    window.hkSettings = { rendering: function () { return r; }, get: function (k, d) { return d; } };
+    var l = document.createElement('div'), c = C.mount(l, Object.assign({ style: 'liquid', bg: 'aurora', ground: false, drift: false }, o)), root = l.children[0];
+    var out = [String(root.style.background || ''), String(root.className)]; c.destroy(); return out; };
+  var page = at({ flat: true, theme: 'light' }, {}), saver = at({ flat: true, theme: 'light' }, { flat: false });
+  var still = at({ flat: false, motion: false }, { flat: false });
+  if (saved) window.hkSettings = saved; else delete window.hkSettings;
+  ok('a block on a Flat page: Flat\'s ground behind the clock', page[0].indexOf('--hk-flat-ground') >= 0, true);
+  ok('...the screensaver\'s clock under Flat: its own background, moving', [saver[0].indexOf('--hk-flat-ground') >= 0, /\bstill\b/.test(saver[1])].join(), 'false,false');
+  ok('...and with Motion off, held still', /\bstill\b/.test(still[1]), true);
+})();
 ok('an unknown style is Classic', (function () { var l = document.createElement('div'), c = C.mount(l, { style: 'nope', drift: false }); var s = c.style; c.destroy(); return s; })(), 'classic');
 ok('12-hour', U.hm(new Date(2026, 9, 13, 13, 5), false).h + ':' + U.hm(new Date(2026, 9, 13, 13, 5), false).m, '1:05');
 ok('24-hour', U.hm(new Date(2026, 9, 13, 13, 5), true).h, '13');

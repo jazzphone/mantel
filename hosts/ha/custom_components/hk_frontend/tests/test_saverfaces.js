@@ -152,6 +152,9 @@ ok('...the day and its date move down by what the screensaver says (clear of its
   ok('...a still preview doesn’t', /\blive\b/.test(mk({ still: true })[0]), false);
   window.hkSettings = { rendering: function () { return { flat: true }; }, get: function (k, d) { return d; } };
   ok('...nor under Flat', /\blive\b/.test(mk({})[0]), false);
+  ok('...but the screensaver wears no look: under Flat it moves (flat: false; 2026-11-15, the owner)', /\blive\b/.test(mk({ flat: false })[0]), true);
+  window.hkSettings = { rendering: function () { return { flat: false, motion: false }; }, get: function (k, d) { return d; } };
+  ok('...and Motion off holds it still in any look', /\blive\b/.test(mk({ flat: false })[0]), false);
   window.hkSettings = saved;
   ok('...and only the Day face', (function () { var l = document.createElement('div'); var c = F.mount(l, { kind: 'month' }); var k = l.children[0].className; c.destroy(); return /\blive\b/.test(k);
     })(), false);

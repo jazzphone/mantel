@@ -448,8 +448,9 @@
       if (!a || a === S.art) return;
       var cx = E.bg.getContext && E.bg.getContext('2d');
       if (!cx) return;
-      // FLAT: no blur -- the cover itself, sharp and very dim on near black, as the players behind it (2026-11-10, the owner)
-      var flat = document.documentElement.hasAttribute('data-hk-flat'), n = flat ? FLAT_ART : BLUR;
+      // FLAT: no blur -- the cover itself, sharp and very dim on near black, as the players behind it (2026-11-10, the owner);
+      // the screen's Flat only, never in the screensaver, which wears no look (hk-flat-force="off" on it; 2026-11-15, the owner)
+      var flat = document.documentElement.hasAttribute('data-hk-flat') && !lookOff(el), n = flat ? FLAT_ART : BLUR;
       if (E.bg.width !== n) { E.bg.width = n; E.bg.height = n; }
       try {
         var w = a.naturalWidth || a.width, h = a.naturalHeight || a.height, side = Math.min(w, h);
@@ -1049,6 +1050,11 @@
     return rec;
   }
 
+  // inside an element that wears no look (the screensaver: hk-flat-force="off")
+  function lookOff(n) {
+    try { for (; n; n = n.parentNode || n.host) if (n.getAttribute && n.getAttribute('hk-flat-force')) return n.getAttribute('hk-flat-force') === 'off'; } catch (e) { /* a stand-in */ }
+    return false;
+  }
   window.hkSaverPanel = { create: create, CSS: CSS, volumeCalls: volumeCalls, turn: turn, _: { ticksPlan: ticksPlan, ticksCaption: ticksCaption, playTarget: playTarget, volumeCalls: volumeCalls } };
   try { window.dispatchEvent(new Event('hk-saver-panel')); } catch (e) { /* ignore */ }
 })();

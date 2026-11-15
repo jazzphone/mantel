@@ -751,6 +751,7 @@
     }
 
     // ------------------------------------------------------------ state
+    // the SCREEN's Flat: for what the page draws with this code (the Music page's card, the Side Pane's music), never the screensaver
     function isFlat() { var S = window.hkSettings; return !!(S && S.rendering && S.rendering().flat); }
 
     function houseBlock(over) {

@@ -567,7 +567,8 @@
     var C = x.clocks, face = null;
     if (C && C.mount) {
       var has = (C.STYLES || []).some(function (s) { return s[0] === 'numbers'; });
-      try { face = C.mount(clk, { style: has ? 'numbers' : 'analog', bg: 'none', scrim: false, drift: false, h24: x.h24, still: x.still, minutely: true, client: x.client() }); } catch (e) {
+      try { face = C.mount(clk, { style: has ? 'numbers' : 'analog', bg: 'none', scrim: false, drift: false, h24: x.h24, still: x.still, flat: x.flat, minutely: true, client: x.client() }); } catch (
+        e) {
         face = null; }
     }
     x.parts.push(face);
@@ -713,9 +714,12 @@
   function mount(layer, opts) {
     opts = opts || {};
     var kind = KINDS.indexOf(opts.kind) >= 0 ? opts.kind : 'glance';
-    var HS = window.hkSettings, flat = !!(HS && HS.rendering && HS.rendering().flat);
+    // (opts.flat: false in the screensaver, which wears no look -- 2026-11-15, the owner; a block on a page wears the screen's)
+    var HS = window.hkSettings, flat = opts.flat != null ? !!opts.flat : !!(HS && HS.rendering && HS.rendering().flat);
+    // (and Motion off holds it still in any look: Motion is its own switch since 2026-11-14)
+    var still = !!opts.still || !!(HS && HS.rendering && HS.rendering().motion === false);
     // (the Day face's art moves, but under Flat -- the look that spares a tablet -- or in a still preview)
-    var root = el('div', 'hkf ' + kind + (kind === 'day' && !flat && !opts.still ? ' live' : '')), css = el('style'), ground = el('div', 'ckbg'), inn = el('div', 'in');
+    var root = el('div', 'hkf ' + kind + (kind === 'day' && !flat && !still ? ' live' : '')), css = el('style'), ground = el('div', 'ckbg'), inn = el('div', 'in');
     css.textContent = CSS;
     root.append(css);
     if (kind !== 'weather') root.appendChild(ground);       // (Big Weather: the forecast's sky is its ground)
@@ -723,7 +727,7 @@
     layer.appendChild(root);
     var client = opts.client || null, dead = false, fc = null, fcFor = '', daily = [];
     var x = {
-      h24: !!opts.h24, look: opts.look || 'auto', big: opts.big === 'clock' ? 'clock' : 'temp', clocks: opts.clocks || window.hkSaverClock || null, still: !!opts.still, parts: [],
+      h24: !!opts.h24, look: opts.look || 'auto', big: opts.big === 'clock' ? 'clock' : 'temp', clocks: opts.clocks || window.hkSaverClock || null, still: !!opts.still, flat: flat, parts: [],
       onReadings: typeof opts.onReadings === 'function' ? opts.onReadings : null,
       // Big Weather's time planted in the meadow (opts.planted, on unless false) and the sky's reading it is lit by
       planted: opts.planted !== false, sky: opts.sky || null,

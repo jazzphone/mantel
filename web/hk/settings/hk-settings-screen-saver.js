@@ -172,15 +172,15 @@
             if (/^bg:/.test(what)) {
               // the clock as chosen over each Background (the two pictures above: the clock over them, no ground)
               var bgId = what.slice(3), own = bgId === 'skyonly' || bgId === 'landscapes';
-              C.mount(inner, { style: o.clock_style || 'classic', options: o.clock_options, still: true, drift: false, h24: !!o.clock_24, bg: own ? 'none' : bgId, speed: 0,
+              C.mount(inner, { flat: false, style: o.clock_style || 'classic', options: o.clock_options, still: true, drift: false, h24: !!o.clock_24, bg: own ? 'none' : bgId, speed: 0,
                                ground: !own, scrim: false, color: (o.clock_colors || {})[o.clock_style || 'classic'] || '', client: self.client,
                                wallpaper: { id: o.clock_wallpaper || 'aurora', color: o.clock_wallpaper_color || 'blue' } });
             } else if (/^clock/.test(what)) {
               var style = what.indexOf(':') > 0 ? what.split(':')[1] : (o.clock_style || 'classic');
-              C.mount(inner, { style: style, options: o.clock_options, still: true, drift: false, h24: !!o.clock_24, bg: 'gradient', speed: 0,
+              C.mount(inner, { flat: false, style: style, options: o.clock_options, still: true, drift: false, h24: !!o.clock_24, bg: 'gradient', speed: 0,
                                color: (o.clock_colors || {})[style] || '', client: self.client });
             } else {
-              F.mount(inner, { kind: what, still: true, h24: !!o.clock_24, look: o.day_look, client: self.client, clocks: C });
+              F.mount(inner, { kind: what, flat: false, still: true, h24: !!o.clock_24, look: o.day_look, client: self.client, clocks: C });
             }
           } catch (e) { /* no picture: the frame alone */ }
         };

@@ -26,7 +26,8 @@
     function showClocks() {
       var C=window.hkSaverClock;if(!C)return;
       Array.from(rail.children).forEach(function(card,i){var d=o.designs[i],v=d.options,layer=card.querySelector('.picture>div');
-        if(v.show==='clock')ctls.push(C.mount(layer,{style:v.clock_style,options:v.clock_options,color:(v.clock_colors||{})[v.clock_style],h24:v.clock_24,bg:v.clock_bg,still:true,drift:false,
+        if(v.show==='clock')ctls.push(C.mount(layer,{flat:false,style:v.clock_style,options:v.clock_options,color:(v.clock_colors||{})[v.clock_style],h24:v.clock_24,bg:v.clock_bg,still:true,
+          drift:false,
           client:o.client}));
         else {var t=document.createElement('div');t.style.cssText='display:grid;place-items:center;height:100%;font-size:clamp(28px,7vw,88px);font-weight:300';
           t.textContent=new Intl.DateTimeFormat(undefined,{hour:'numeric',minute:'2-digit'}).format(new Date());layer.appendChild(t);}

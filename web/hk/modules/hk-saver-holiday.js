@@ -17,7 +17,7 @@
 //   - ONE LAYER FOR GOOD, hidden by its opacity, as .en and .wx are: never rebuilt at a turn
 //   - its background drawn once per layout (cached by scene, size, foot and scale); only the effects canvas redraws,
 //     at 30 frames a second (20 at Gentle), and only while the slide is up; a still picture under Effects Off, Reduce
-//     Motion, Flat or Sky Animations off
+//     Motion or Sky Animations off (never Flat: the screensaver wears no look -- 2026-11-15, the owner)
 //   - the scene's pieces and its font asked for at the start (ready), so its first turn has them; until they have
 //     all loaded, it shows its outdoor version
 //
@@ -45,7 +45,7 @@
     thanks: ['HK Cabin Sketch', 'cabin-sketch-bold.woff2', { weight: '700' }],
     newyear: ['HK Oswald', 'oswald-500.woff2', { weight: '500' }]
   };
-  // the outdoor sky under Flat (no Live Sky): its four stops by the light
+  // the outdoor sky under the Live Sky, and in its place where there is none: its four stops by the light
   var SKYG = { night: ['#040916', '#0a1730', '#132a4c', '#1f3a60'], dusk: ['#191b4b', '#4e3172', '#b65a70', '#efa06c'], day: ['#2f6fb8', '#5a9ad6', '#a2cdee', '#dcecf6'] };
   // the landscapes with a lit overlay (the sky's -lights.webp and holiday.json's bulbs)
   var LIGHTS = { 'christmas-dusk': 1, 'christmas-night': 1, 'halloween-dusk': 1, 'halloween-night': 1, 'july4-night': 1 };
@@ -206,7 +206,6 @@
       return !(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
     } catch (e) { return true; }
   }
-  function flat() { var HS = window.hkSettings; try { return !!(HS && HS.rendering && HS.rendering().flat); } catch (e) { return false; } }
 
   // THE LIVE PARTS' WORDS
   function tvHtml(h, n) {
@@ -354,12 +353,13 @@
       footEl.innerHTML = foot;
       return sc;
     }
-    // OUTDOORS: the season's landscape at the house's light, over the Live Sky (Sky Only); under Flat a gradient
+    // OUTDOORS: the season's landscape at the house's light, over the Live Sky (Sky Only) -- in every look, Flat too (the
+    // screensaver wears none)
     function outdoors(l) {
       var h = cur, lk = h.land + '-' + l, sk = SKYG[l] || SKYG.night, skyEl = $('.hlsky');
       el.setAttribute('light', l);
       skyEl.style.background = 'linear-gradient(180deg,' + sk[0] + ' 0%,' + sk[1] + ' 24%,' + sk[2] + ' 44%,' + sk[3] + ' 62%,' + sk[3] + ' 100%)';
-      if (!flat() && !sky && window.hkSky && window.hkSky.scene) { try { sky = window.hkSky.scene(skyEl, { skyOnly: true }); } catch (e) { sky = null; } }
+      if (!sky && window.hkSky && window.hkSky.scene) { try { sky = window.hkSky.scene(skyEl, { skyOnly: true }); } catch (e) { sky = null; } }
       if (sky) { try { if (client) sky.update(client); sky.pause(!showing); } catch (e) { /* the next update */ } }
       $('.hlland').style.backgroundImage = 'url("' + url(SKY + 'land-' + lk + '.webp') + '")';
       $('.hllights').style.backgroundImage = LIGHTS[lk] ? 'url("' + url(SKY + 'land-' + lk + '-lights.webp') + '")' : 'none';

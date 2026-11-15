@@ -4,6 +4,9 @@ All notable changes to Mantel are listed here. Versions follow [semantic version
 
 ## Unreleased
 
+**Fixed**
+- **The screensaver wears no Appearance**: under Flat it put Flat's ground behind everything and changed its own options -- photos weren't drawn (a Flat Light screen showed white words on a light ground), the clock was Classic on black, the forecast had no sky and nothing faded. It is now the same in every look; Motion still decides what moves on it.
+
 ## 0.1.167 - 2026-11-15
 
 **Added**

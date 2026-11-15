@@ -189,12 +189,14 @@
     // A SHEET FLAT ON ITS OWN (the Home block's Sheet option, 2026-11-13, the owner: "the main goal is to make it easier on the
     // tablet to run"): `hk-flat-force` (light or dark) on an element makes it and everything inside it Flat whatever the screen
     // wears. Looked up once a card is in the page (it never moves between sheets) and kept; null where none says so.
+    // `off` is the other way: never Flat inside, whatever the screen wears -- the screensaver (hk-saver.js build; 2026-11-15,
+    // the owner: "Appearances shouldn't apply to screensavers").
     function flatForced(el) {
       if (el._hkFlatForce !== undefined) return el._hkFlatForce;
       var n = el, t = null;
       // (a node that can't say -- a test page's stand-in -- says nothing)
       try { for (; n && !t; n = n.parentNode || n.host) if (n.getAttribute) t = n.getAttribute('hk-flat-force'); } catch (e) { t = null; }
-      t = t === 'light' || t === 'dark' ? t : null;
+      t = t === 'light' || t === 'dark' || t === 'off' ? t : null;
       if (el.isConnected || t) el._hkFlatForce = t;
       return t;
     }
@@ -202,6 +204,7 @@
     function renderingAt(el) {
       var S = window.hkSettings, a = S && S.rendering ? S.rendering() : { flat: false }, t = el ? flatForced(el) : null;
       // (a sheet made Flat on its own is made so to be easy on the tablet: still, as it has been)
+      if (t === 'off') return a.flat ? Object.assign({}, a, { flat: false, blur: true, liveSky: true, autoplay: true }) : a;
       return t && !a.flat ? Object.assign({}, a, { flat: true, theme: t, motion: false }) : a;
     }
     function flatTone(el) {

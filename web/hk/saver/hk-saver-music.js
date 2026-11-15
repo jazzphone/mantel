@@ -124,12 +124,16 @@
     // own for good (will-change on the frame, not the picture: a picture let
     // go took its layer with it, and what was round it was drawn again)
     // (look 'slide': a dashboard view drawn as the slide -- the Now Playing page, hk-saver-pane.js)
+    // FLAT IS THE SCREEN'S, NEVER THE SCREENSAVER'S (2026-11-15, the owner: "Appearances shouldn't apply to screensavers"):
+    // the screensaver's own views (a slide, its pane) are drawn as in every look; the page's ('dash': the Music page's card, the
+    // Side Pane's) wear the screen's Flat
+    function viewFlat(kind) { return kind === 'dash' && isFlat(); }
     function musicView(kind, look) {
       var el = document.createElement('div'), sl = kind === 'slide' || look === 'slide';
       el.className = sl ? 'mu' : 'pm';
       el.setAttribute('idle', '');
       el.innerHTML =
-        (isFlat() ? '<div class="mbgf fa"></div><div class="mbgf fa"></div>' : '<div class="mbgf"><canvas class="mbg"></canvas></div><div class="mbgf"><canvas class="mbg"></canvas></div>') +
+        (viewFlat(kind) ? '<div class="mbgf fa"></div><div class="mbgf fa"></div>' : '<div class="mbgf"><canvas class="mbg"></canvas></div><div class="mbgf"><canvas class="mbg"></canvas></div>') +
           '<div class="mshade"></div>' +
         '<div class="mbody">' + (sl ? '<div class="mstage">' : '') + '<div class="mart"><div class="msq"><div class="mph">' + svg(ICON.note) + '</div>' +
         '<div class="mfr"><img alt=""></div><div class="mfr"><img alt=""></div></div></div>' +
@@ -142,7 +146,7 @@
           (sl ? '</div>' : '<div class="mq"></div>') + '</div>';
       if (!window.hkSaverPanel) el.setAttribute('nomx', '');
       var q = function (s) { return el.querySelector(s); };
-      var v = { kind: kind, el: el, flat: isFlat(), flip: 0, pic: null, d: null, ready: Promise.resolve(),
+      var v = { kind: kind, el: el, flat: viewFlat(kind), flip: 0, pic: null, d: null, ready: Promise.resolve(),
                 bgf: el.querySelectorAll('.mbgf'), bg: /** @type {NodeListOf<HTMLCanvasElement>} */ (el.querySelectorAll('canvas.mbg')), fr: el.querySelectorAll('.mfr'),
                 room: q('.mroom'), line: q('.hksl'), title: q('.mtitle'), artist: q('.martist'), album: q('.malbum'),
                 strip: q('.hks'), nextImg: q('.mnext img'), nextT: q('.mnt'), vt: q('.mvt'), vh: q('.mvol'), mq: q('.mq') };
@@ -196,7 +200,7 @@
     var BLUR_LOOK = { slide: { sat: 1.35, dark: 0.24 }, pane: { sat: 1, dark: 0.38 } };
 
     function drawBlur(c, img, kind) {
-      if (isFlat()) { clearCanvas(c); return; }
+      if (viewFlat(kind)) { clearCanvas(c); return; }
       var look = BLUR_LOOK[kind] || BLUR_LOOK.pane;
       var ctx = c && c.getContext && c.getContext('2d', { willReadFrequently: true });
       if (!ctx) return;
@@ -235,7 +239,7 @@
         var done = function () {
           if (v.pic !== url) return;
           // (Flat: no blur -- the cover itself, very dim: hk-saver-css.js .mbgf.fa; 2026-11-10, the owner)
-          if (!isFlat()) drawBlur(v.bg[n], im, v.kind); else v.bgf[n].style.backgroundImage = im ? 'url("' + String(url).replace(/"/g, '%22') + '")' : 'none';
+          if (!v.flat) drawBlur(v.bg[n], im, v.kind); else v.bgf[n].style.backgroundImage = im ? 'url("' + String(url).replace(/"/g, '%22') + '")' : 'none';
           setAttr(v.el, 'noart', !im);
           // THE DASHBOARD PANE'S FIRST ART is there as it comes in, not faded
           // in over the placeholder: the pane slides in once it is ready

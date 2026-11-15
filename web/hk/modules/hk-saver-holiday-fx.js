@@ -16,7 +16,7 @@
 //      frames a second at Full, 20 at Gentle with under half the particles.
 //   3. ONLY WHILE IT IS UP: the loop starts as the slide is drawn and stops once its fade out is done (stop()); a
 //      hidden page draws nothing. Nothing wakes itself.
-//   5. A STILL PICTURE under Effects Off, Reduce Motion, Flat or Sky Animations off: the scene and one frame of its
+//   5. A STILL PICTURE under Effects Off, Reduce Motion or Sky Animations off: the scene and one frame of its
 //      effects, mid-fall (the windows are never empty), and no loop.
 //
 //   hkHolidayFx.create(canvas, env) -> fx

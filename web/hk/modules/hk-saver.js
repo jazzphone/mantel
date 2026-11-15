@@ -285,7 +285,7 @@
     if (paneResetT) clearTimeout(paneResetT);
     paneResetT = setTimeout(function () {
       paneResetT = null;
-      if (ST.paneSc) { try { ST.paneSc.scrollTo({ top: 0, behavior: isFlat() ? 'instant' : 'smooth' }); } catch (e) { ST.paneSc.scrollTop = 0; } }
+      if (ST.paneSc) { try { ST.paneSc.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) { ST.paneSc.scrollTop = 0; } }
     }, PANE_RESET_MS);
   }
   function onInput(e) {
@@ -414,15 +414,18 @@
     // (the calendar pane's list rides under Home Status: hk-base.js shade --
     // the cards are loaded by the time a screensaver starts)
     var HC = window.hkCards;
-    if (HC && HC.flatSurface) HC.flatSurface(ST.host, 'screensaver');
-    var st = document.createElement('style'); st.textContent = CSS + (HC && HC.flatCss ? HC.flatCss() : '') +
-      ':host([hk-flat]){background:var(--hk-flat-ground)}' +
-      ':host([hk-flat]) .pane,:host([hk-flat]) .mu,:host([hk-flat]) .pm{' + (HC && HC.flatVars ? HC.flatVars('dark') : '') + ';background:#24252A}' +
-      ':host([hk-flat]) .mbgf,:host([hk-flat]) .mshade{display:none}' +
-      ':host([hk-flat]) .sc,:host([hk-flat]) .pane{color:var(--hk-ink)}'  + (HC && HC.edgeCss ? '\n' + HC.edgeCss() : ''); ST.root.appendChild(st);
+    // NO APPEARANCE IN THE SCREENSAVER (2026-11-15, the owner: "Appearances shouldn't apply to screensavers"): Flat is the
+    // screen's look, and the screensaver is drawn as in every look -- its photos, their blur, the clock's backgrounds, the
+    // forecast's sky, its cross-fades (Flat had put its own ground behind them and held them still). `hk-flat-force="off"`
+    // keeps every card in its panes out of Flat too (hk-base renderingAt), and the Flat values <html> carries are put back
+    // to nothing here, so what the screensaver draws with var()'s own values is as it is outside Flat. Motion (and the
+    // Background's Animations) still decide what moves.
+    ST.host.setAttribute('hk-flat-force', 'off');
+    if (HC && HC.FLAT) Object.keys(HC.FLAT.light).forEach(function (k) { ST.host.style.setProperty(k, 'initial'); });
+    var st = document.createElement('style'); st.textContent = CSS + (HC && HC.edgeCss ? '\n' + HC.edgeCss() : ''); ST.root.appendChild(st);
     for (var i = 0; i < 2; i++) {
       var ph = document.createElement('div'); ph.className = 'ph';
-      var bg = document.createElement(isFlat() ? 'div' : 'canvas'); bg.className = 'bg'; bg.hidden = true;
+      var bg = document.createElement('canvas'); bg.className = 'bg'; bg.hidden = true;
       var fg = document.createElement('img'); fg.className = 'fg'; fg.alt = '';
       var scrim = document.createElement('div'); scrim.className = 'phscrim';
       ph.appendChild(bg); ph.appendChild(fg); ph.appendChild(scrim); ST.root.appendChild(ph);
@@ -1179,7 +1182,7 @@
     } catch (e) { /* no settings module (a test harness) */ }
     window.addEventListener('hk-module-ready', function (e) {
       if (e.detail && e.detail.module === 'hk-settings') { refresh(); mus.views.forEach(function (v) {
-        var flat = isFlat();
+        var flat = v.kind === 'dash' && isFlat();
         if (v.flat === flat) return;
         v.flat = flat;
         if (flat) v.bg.forEach(function (c) { clearCanvas(c); c.remove(); });

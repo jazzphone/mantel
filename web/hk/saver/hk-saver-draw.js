@@ -9,7 +9,7 @@
   'use strict';
   (window.hkSaverParts = window.hkSaverParts || {})['hk-saver-draw'] = function (K) {
     var clientNow = K.clientNow, CROSSFADE_MS = K.CROSSFADE_MS, dashConf = K.dashConf, FACE_SHOWS = K.FACE_SHOWS,
-        FC_TICK_MS = K.FC_TICK_MS, isFlat = K.isFlat, slideMarks = K.slideMarks, ST = K.ST, sunDown = K.sunDown;
+        FC_TICK_MS = K.FC_TICK_MS, slideMarks = K.slideMarks, ST = K.ST, sunDown = K.sunDown;
     // (phase 25: the owners' writers, docs/phase25/SAVER-STATE.md)
     var Black = K.Black, dropCard = K.dropCard, Layout = K.Layout, mus = K.mus, musicParts = K.musicParts,
         Pane = K.Pane, Run = K.Run, Screens = K.Screens, setAttr = K.setAttr, showsLayer = K.showsLayer,
@@ -70,7 +70,7 @@
       var sky = document.createElement('div');
       sky.className = 'fsky';
       fc.appendChild(sky);
-      try { ST.fscene = !isFlat() && window.hkSky && window.hkSky.scene ? window.hkSky.scene(sky, { skyOnly: skyOnly }) : null; } catch (e) { ST.fscene = null; }
+      try { ST.fscene = window.hkSky && window.hkSky.scene ? window.hkSky.scene(sky, { skyOnly: skyOnly }) : null; } catch (e) { ST.fscene = null; }
       startTick();
     }
     // the details' layer, built the first time they are wanted
@@ -118,7 +118,7 @@
       facesModule().then(function (F) {
         if (!F || run !== bigRun || !ST.on || !fc.isConnected || ST.bigCtl) return;
         bigFor = ST.cfg.forecast_big + '|' + ST.cfg.forecast_planted;
-        ST.bigCtl = F.mount(fc, { kind: 'weather', h24: ST.cfg.clock_24, big: ST.cfg.forecast_big, weather: weatherEntity(), client: clientNow(),
+        ST.bigCtl = F.mount(fc, { kind: 'weather', flat: false, h24: ST.cfg.clock_24, big: ST.cfg.forecast_big, weather: weatherEntity(), client: clientNow(),
                                planted: ST.cfg.forecast_planted, sky: ST.fSky,
                                onReadings: function (n) { if (ST.host) ST.host.setAttribute('fcn', String(n)); } });
       });
@@ -328,9 +328,10 @@
         if (run !== ckRun || !ST.on || !clockLayer.isConnected) return;
         if (!C || (face && !F)) { clockLayer.remove(); if (ST.mode === 'clock') { ST.mode = 'photos'; ST.host.removeAttribute('ckgen'); ST.host.removeAttribute('ckface'); enterForecast(); } return; }
         ST.ckCtl = face
-          ? F.mount(clockLayer, { kind: ST.cfg.show, h24: ST.cfg.clock_24, weather: weatherEntity(), look: ST.cfg.day_look, clocks: C, client: clientNow(), groundOnly: !!ST.cfg.layout &&
+          ? F.mount(clockLayer, { kind: ST.cfg.show, flat: false, h24: ST.cfg.clock_24, weather: weatherEntity(), look: ST.cfg.day_look, clocks: C, client: clientNow(), groundOnly: !!ST.cfg.layout &&
             Layout.layoutBigKind() !== 'none' })
-          : C.mount(clockLayer, { style: ST.cfg.clock_style, options: ST.cfg.clock_options, h24: ST.cfg.clock_24, music: ST.cfg.clock_today_music, todayWeather: ST.cfg.clock_today_weather,
+          : C.mount(clockLayer, { flat: false, style: ST.cfg.clock_style, options: ST.cfg.clock_options, h24: ST.cfg.clock_24, music: ST.cfg.clock_today_music,
+            todayWeather: ST.cfg.clock_today_weather,
             color: ST.cfg.clock_color, bg: bg, motion: ST.cfg.clock_motion, face: !ST.cfg.layout,
                              speed: ST.cfg.clock_speed, depth: ST.cfg.clock_depth, weather: weatherEntity(),
                              // a Wallpaper: its night version while the sun is down, as the dashboard's After Sunset

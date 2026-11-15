@@ -13,7 +13,7 @@
         CURTAIN_HOLD_HK = K.CURTAIN_HOLD_HK, curtainDown = K.curtainDown, dashConf = K.dashConf,
         drawCurtain = K.drawCurtain, energyLayout = K.energyLayout, fcVisible = K.fcVisible, framed = K.framed,
         fromSettings = K.fromSettings, HL = K.HL, hostPhotoSource = K.hostPhotoSource, houseBlock = K.houseBlock,
-        isFlat = K.isFlat, layoutPane = K.layoutPane, layoutSoon = K.layoutSoon, mine = K.mine, mus = K.mus,
+        layoutPane = K.layoutPane, layoutSoon = K.layoutSoon, mine = K.mine, mus = K.mus,
         musicWatch = K.musicWatch, onUpdate = K.onUpdate, previewPaneOf = K.previewPaneOf, readCfg = K.readCfg,
         refreshSoon = K.refreshSoon, relayout = K.relayout, remountClock = K.remountClock,
         reportTouch = K.reportTouch, restartPreview = K.restartPreview, sansClock = K.sansClock,
@@ -288,15 +288,7 @@
       // (hostPhotoSource; none in Home Assistant)
       var ownPhotos = raw ? hostPhotoSource(raw.photos) : null;
       if (ownPhotos && ownPhotos !== raw.photos) raw = Object.assign({}, raw, { photos: ownPhotos });
-      // Derive effective options without changing any saved screensaver choice.
-      if (raw && isFlat()) raw = Object.assign({}, raw, {
-        zoom: false, photo_layout: 'single', portrait_blur: 0, landscape_blur: 0,
-        portrait_dim: 0, landscape_dim: 0, portrait_zoom: 100, landscape_zoom: 100,
-        clock_style: 'classic', clock_bg: ['photos','landscapes','black'].indexOf(raw.clock_bg) >= 0 ? raw.clock_bg : 'black',
-        clock_motion: 'still', clock_speed: 0, clock_depth: 0, clock_photo_soft: false,
-        clock_text_shadow: 0, clock_text_outline: 0
-      });
-      var key = raw ? JSON.stringify(raw) + '|' + isFlat() : '';
+      var key = raw ? JSON.stringify(raw) : '';
       if (key !== ST.lastRaw) {
         ST.lastRaw = key;
         var was = ST.cfg;

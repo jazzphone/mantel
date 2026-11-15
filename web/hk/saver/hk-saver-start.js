@@ -17,7 +17,7 @@
         enterLayout = K.enterLayout, ENTRANCE_MAX = K.ENTRANCE_MAX, exArm = K.exArm, FACE_SHOWS = K.FACE_SHOWS,
         FADE_BACK_MS = K.FADE_BACK_MS, FADE_IN_MS = K.FADE_IN_MS, GHOST_MS = K.GHOST_MS,
         hideEnergySlide = K.hideEnergySlide, hideForecastSlide = K.hideForecastSlide,
-        hideMusicSlide = K.hideMusicSlide, HL = K.HL, hostPhotoList = K.hostPhotoList, isFlat = K.isFlat,
+        hideMusicSlide = K.hideMusicSlide, HL = K.HL, hostPhotoList = K.hostPhotoList,
         isImage = K.isImage, justResumed = K.justResumed, LANDSCAPES = K.LANDSCAPES, landscapes = K.landscapes,
         layOut = K.layOut, layoutCut = K.layoutCut, leaveClock = K.leaveClock, LIST_DEPTH = K.LIST_DEPTH,
         LIST_MAX = K.LIST_MAX, LIST_TTL_MS = K.LIST_TTL_MS, LIT_GRACE = K.LIT_GRACE, load = K.load,
@@ -187,7 +187,7 @@
       if (!keep) coverDashboard(false);
       if (ST.slideT) { clearTimeout(ST.slideT); ST.slideT = null; }
       exCancel();
-      var ms = isFlat() ? 0 : ST.cfg ? ST.cfg.fade_back : FADE_BACK_MS;
+      var ms = ST.cfg ? ST.cfg.fade_back : FADE_BACK_MS;
       if (reason === 'touch') { writeSwitch('off'); pressIs({ up: ST.pressStop ? null : clock.now(), at: clock.now() }); }
       pressStopped(false);
       // the dashboard, its sky and its cameras wake now, under the screensaver
@@ -545,7 +545,7 @@
         ST.fadeDone = null;
         if (ST.ly) cutsFollow();
       };
-      if (isFlat()) done(); else timer = setTimeout(done, first || !old ? 0 : CROSSFADE_MS + 100);
+      timer = setTimeout(done, first || !old ? 0 : CROSSFADE_MS + 100);
     }
     function paint(ph, first) {
       if (!ST.root) return;

@@ -11,7 +11,7 @@
     var actionsNow = K.actionsNow, alignOf = K.alignOf, behindAt = K.behindAt, cleanDepth = K.cleanDepth,
         clientNow = K.clientNow, coverRect = K.coverRect, CROSSFADE_MS = K.CROSSFADE_MS, drawnRect = K.drawnRect,
         faceOrigin = K.faceOrigin, faceWindow = K.faceWindow, fitOf = K.fitOf, FOCUS_F = K.FOCUS_F,
-        glyphBox = K.glyphBox, isFlat = K.isFlat, layoutOf = K.layoutOf, MOSAIC_COLORS = K.MOSAIC_COLORS,
+        glyphBox = K.glyphBox, layoutOf = K.layoutOf, MOSAIC_COLORS = K.MOSAIC_COLORS,
         mosaicAssign = K.mosaicAssign, mosaicPlan = K.mosaicPlan, photoUrl = K.photoUrl, screenEdge = K.screenEdge,
         ST = K.ST, TB_WAIT = K.TB_WAIT, tbKey = K.tbKey, tbShare = K.tbShare, teardown = K.teardown, WAKE = K.WAKE;
     // (phase 25: the owners' writers, docs/phase25/SAVER-STATE.md)
@@ -315,7 +315,6 @@
     var FADE_LATE = 1500;
 
     function afterFade(h, ms, fn) {
-      if (isFlat()) { fn(); return; }
       var done = false;
       var end = function (e) { if (!e || (e.target === h && e.propertyName === 'opacity')) go(); };
       var go = function () {
@@ -436,7 +435,6 @@
 
     // `sky`: colour stops painted under the picture first ([[offset, colour]...]: a landscape's transparent sky)
     function drawBackdrop(c, img, small, ay, sky) {
-      if (isFlat()) { clearCanvas(c); return; }
       if (!c || !img) return;
       var W = Math.max(1, window.innerWidth || 1280), H = Math.max(1, window.innerHeight || 800);
       c.width = BACKDROP_W; c.height = Math.max(1, Math.round(BACKDROP_W * H / W));

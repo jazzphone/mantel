@@ -1293,7 +1293,8 @@
     var bg = opts.bg && opts.bg !== 'none' ? opts.bg : null;
     // THE BACKGROUND: its painter's canvas -- 'soft' 64 x 40, or a share of
     // the screen's size once it is laid out
-    var flat = !!(window.hkSettings && window.hkSettings.rendering && window.hkSettings.rendering().flat);
+    // (opts.flat: false in the screensaver, which wears no look -- 2026-11-15, the owner; a block on a page wears the screen's)
+    var flat = opts.flat != null ? !!opts.flat : !!(window.hkSettings && window.hkSettings.rendering && window.hkSettings.rendering().flat);
     // A WALLPAPER: no painter -- the page's own pictures (wallpaper() below)
     var WP = window.hkWallpapers, wallBg = !flat && bg === 'wallpaper' && !!(WP && WP.paintScene);
     var P = !flat && bg && !wallBg ? PAINTERS[bg] || PAINTERS.gradient : null, pst = null;
@@ -1302,6 +1303,10 @@
     // REDUCED MOTION: the background stands still (the CSS above stills only the light and the face; the
     // painters kept repainting and cross-fading every second)
     try { if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) speed = 0; } catch (e) { /* as set */ }
+    // ...and Motion off (its own switch since 2026-11-14): what Flat held still, Motion holds still in any look -- the screensaver
+    // wears no look (opts.flat: false), so this is what stills it there
+    var motionOff = !!(window.hkSettings && window.hkSettings.rendering && window.hkSettings.rendering().motion === false);
+    if (motionOff) speed = 0;
     // A WALLPAPER BEHIND THE CLOCK (2026-10-31): the picture the dashboard
     // shows -- a drawn one still, a motion theme's ground with its layers --
     // in one element (.ckbg: Night Mode hides it with the rest of the
@@ -1322,8 +1327,8 @@
       }
       root.appendChild(wallEl);
     }
-    // ...and Flat (or a still preview) holds the faces' own motion too: Liquid's drift, the second hand
-    if (own && (flat || opts.still)) root.className += ' still';
+    // ...and Flat, Motion off or a still preview holds the faces' own motion too: Liquid's drift, the second hand
+    if (own && (flat || motionOff || opts.still)) root.className += ' still';
     if (opts.minutely) root.className += ' minutely';
     var po = { depth: opts.depth != null ? Math.max(0, Math.min(100, +opts.depth || 0)) : 50 };
     // HOW IT MOVES SMOOTHLY (2026-10-13, the owner: "lots of these aren't
@@ -1469,9 +1474,9 @@
     var run = function () {
       // (a still preview: drawn once, nothing scheduled)
       if (opts.still) return;
-      // once a minute, on the minute: Flat's Classic, and the faces with a ground of their own
+      // once a minute, on the minute: Classic in Flat or with Motion off, and the faces with a ground of their own
       // (and a face held to the minute: Glance's clock -- its second hand hidden)
-      if ((flat && style === 'classic') || (own && !DESIGN_FACES.some(function (s) { return s[0] === style; })) || opts.minutely) tStart = setTimeout(
+      if (((flat || motionOff) && style === 'classic') || (own && !DESIGN_FACES.some(function (s) { return s[0] === style; })) || opts.minutely) tStart = setTimeout(
         function () { now(); tT = setInterval(now,60000); }, 60000 - Date.now() % 60000);
       else tT = setInterval(now,1000);
       if (!P) { /* nothing behind */ }

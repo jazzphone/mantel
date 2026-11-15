@@ -13,7 +13,7 @@
         coverShare = K.coverShare, CROSSFADE_MS = K.CROSSFADE_MS, dayFit = K.dayFit, deg = K.deg,
         drawBackdrop = K.drawBackdrop, drawnRect = K.drawnRect, FACE_SHOWS = K.FACE_SHOWS, faceScale = K.faceScale,
         facesModule = K.facesModule, fcVisible = K.fcVisible, hideForecastSlide = K.hideForecastSlide,
-        inkOf = K.inkOf, isFlat = K.isFlat, landShares = K.landShares, layoutRoomOf = K.layoutRoomOf,
+        inkOf = K.inkOf, landShares = K.landShares, layoutRoomOf = K.layoutRoomOf,
         nightCheck = K.nightCheck, photoOpts = K.photoOpts, pieceFile = K.pieceFile, piecesStarted = K.piecesStarted,
         reducedMotion = K.reducedMotion, ST = K.ST, TB_COVER = K.TB_COVER, tbShare = K.tbShare, timeNow = K.timeNow,
         timerHold = K.timerHold, updateBand = K.updateBand, weatherEntity = K.weatherEntity;
@@ -193,7 +193,7 @@
           // the face drawn in a box the room's shape, measured, then scaled so its figures are the layout's size
           el2.className = 'lybig measuring';
           el2.style.cssText = 'left:0;top:0;width:' + R.room.w + 'px;height:' + R.room.h + 'px;container-type:size';
-          big.ctl = C.mount(el2, { style: ST.cfg.clock_style, options: ST.cfg.clock_options, h24: ST.cfg.clock_24, color: ST.cfg.clock_color, bg: 'none', ground: false, scrim: false,
+          big.ctl = C.mount(el2, { flat: false, style: ST.cfg.clock_style, options: ST.cfg.clock_options, h24: ST.cfg.clock_24, color: ST.cfg.clock_color, bg: 'none', ground: false, scrim: false,
                                   timeOnly: true, weather: weatherEntity(), music: ST.cfg.clock_today_music, todayWeather: ST.cfg.clock_today_weather, client: client,
                                     minutely: !ANALOG[ST.cfg.clock_style] });
           big.scale = 0;
@@ -621,7 +621,7 @@
       return 'plain';
     }
     function landImg() {
-      if (isFlat() || !ST.root) return null;
+      if (!ST.root) return null;
       var i = ST.root.querySelector('.fc .land>i.on'), m = i && /url\(["']?([^"')]+)["']?\)/.exec(getComputedStyle(i).backgroundImage || '');
       if (!m) return null;
       if (!landIm || landIm.hkSrc !== m[1]) { landIm = new Image(); landIm.hkSrc = m[1]; landIm.src = m[1]; }
