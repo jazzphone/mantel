@@ -124,10 +124,10 @@ Each sign-in is a **session** in one browser. You stay signed in:
 Then you sign in again. A session belongs to the door it started on: a session from home doesn't carry on outside the home.
 
 <p align="center">
-<img src="../images/settings-me.webp" width="80%" alt="Mantel Settings → Me, with My Sessions, Passkeys and Two-Step Sign-In">
+<img src="../images/settings-me.webp" width="80%" alt="Mantel Settings → Me, with Sign-In & Security, Devices and Privacy">
 </p>
 
-**Mantel Settings** → **Me** → **My Sessions** lists the browsers signed in as you, one row per kind of browser (for example **Safari on Mac**, at home or remote), with how many sessions it has and when one was last used. This browser is first.
+**Mantel Settings** → **Me** → **Devices** lists the browsers signed in as you, one row per kind of browser (for example **Safari on Mac**, at home or remote), with how many sessions it has and when one was last used. This browser is first.
 
 A browser that signs in again replaces its own last session rather than adding another, so the list stays short. Mantel recognizes the browser by a random id cookie that holds nothing else.
 
@@ -143,7 +143,7 @@ The iPhone, iPad and Mac apps have their own sign-in; see [iPhone and Mac Apps](
 
 ## Home and away
 
-Every request reaches Mantel by a **door**, and some rules depend on it. **Me** → **Here From** shows yours: **Home Network** or **Outside the Home**.
+Every request reaches Mantel by a **door**, and some rules depend on it. **Me** → **Sign-In & Security** → **Here From** shows yours: **Home Network** or **Outside the Home**.
 
 | Door | What it is | What changes |
 |---|---|---|

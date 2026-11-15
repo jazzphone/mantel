@@ -173,7 +173,7 @@ out.apps = apps.kids.map((g) => g.rows.map((r) => [r.label, r.value]));
 // Me
 out.me = {};
 for (const [name, me] of [['owner', owner], ['admin', admin], ['adult', adult]]) {
-  const mine = await draw(me, ['mantel', 'me']);
+  const mine = await draw(me, ['mantel', 'me', 'notifications']);
   const t = find(mine.kids, 'System Alerts', 'toggle');
   out.me[name] = !!t;
   if (name === 'owner') {

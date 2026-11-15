@@ -109,7 +109,7 @@ A tablet on its own (nobody signed in at it) has the **Wall Tablet** role:
 - **Talk-back** on the doorbell pop-up's speaker.
 - The alarm keypad, with the home's **Alarm PIN** (below).
 
-That's the default. Change it with grants in **Roles & Grants**: a deny on one tablet, or on the Wall Tablet role, always wins. To give a tablet more rooms, or fewer, use **Roles & Grants** → **Rooms for a Person or Tablet**. See [People and Roles](People-and-Roles.md).
+That's the default. Change it with grants in **Roles & Permissions**: a deny on one tablet, or on the Wall Tablet role, always wins. To give a tablet more rooms, or fewer, use **Access** → **Rooms** on the tablet's page (or **Roles & Permissions** → Rooms, the old list). See [People and Roles](People-and-Roles.md).
 
 Anyone standing at a tablet can do what the tablet may do. If that's too much for a tablet in a public spot (for example unlocking a door), add a deny grant for it.
 
@@ -210,7 +210,7 @@ It's refused at once. To use it again, enroll it again. Signed-out tablets are l
 
 With the Mantel App, a tablet can also show Mantel through Home Assistant's own panel, signed in to Home Assistant as its own Home Assistant user (as HK Frontend's tablets usually are). An Owner sets which Home Assistant user a tablet is on the tablet's page: **Mantel** → **Home Assistant User**. Mantel then knows that Home Assistant user as the tablet, with the Wall Tablet role in its room. (Mantel's **People** page in the sidebar has **Link as a wall tablet** too: [First Run](First-Run.md#link-the-household).)
 
-A Home Assistant user that was linked to a **Wall Tablet account** as if it were a person (before its tablet was enrolled) is listed on **People** under **Wall Tablets Signed In as People**. **Move Them to Their Tablets…** makes each one its tablet's (by name), and removes the Wall Tablet accounts. The tablets keep signing in to Mantel as before.
+A Home Assistant user that was linked to a **Wall Tablet account** as if it were a person (before its tablet was enrolled) is listed on **People** (one row at the bottom, **Wall Tablets Signed In as People**, when there are any). **Move Them to Their Tablets…** makes each one its tablet's (by name), and removes the Wall Tablet accounts. The tablets keep signing in to Mantel as before.
 
 - It works only while the sidebar has the home rules (**Coming Through Home Assistant** set to **Trusted** or **Home Network Rules**; see [Signing In](Signing-In.md#inside-home-assistant)).
 - **Unlink** ends it. A device made for the link is revoked too.

@@ -45,7 +45,7 @@ Neither kind is an administrator in Home Assistant because of their Mantel role,
 ### A Mantel account
 
 1. Open **Mantel Settings** → **People**.
-2. Select **Add a Mantel Account…**.
+2. Select **Add Person…**.
 3. Enter a **User Name** (letters, digits, dots, dashes or underscores), their **Name**, a **Role** and a **Password** of 12 characters or more.
 4. Select **Create Account**.
 
@@ -83,7 +83,7 @@ In Docker, run the same commands inside the server, for example `docker compose 
 
 The Home Assistant user id is on the person's **Not linked yet** page. It is also the `user_id` attribute of their `person.*` entity in Home Assistant.
 
-Or, wherever Mantel runs, in **Mantel Settings** → **People** → **Home Assistant Users**: each Home Assistant user has a picker, **Not Linked** or one of your people (**Other Home Assistant Users** lists the ones not linked yet). Linking an account is like adding a way to sign in as that person, so Mantel asks you to confirm it is you first when you are away from home (not in Home Assistant's sidebar). Only an Owner links or unlinks an Owner. Unlinking ends that user's Home Assistant sign-ins at once.
+Or, wherever Mantel runs, in **Mantel Settings** → **People**, under **Home Assistant Users**: each Home Assistant user has a picker, **Not Linked** or one of your people (**Other Home Assistant Users** lists the ones not linked yet). Linking an account is like adding a way to sign in as that person, so Mantel asks you to confirm it is you first when you are away from home (not in Home Assistant's sidebar). Only an Owner links or unlinks an Owner. Unlinking ends that user's Home Assistant sign-ins at once.
 
 When Mantel runs inside Home Assistant (the [Mantel App](Install.md), or [Mantel Connect](Mantel-Connect.md)), the first-Owner page's **Link the rest of the household** opens Mantel's own **People** page in the sidebar ([First Run](First-Run.md#link-the-household)): choose a role and select **Link**, or link a tablet's user with **Link as a wall tablet**.
 
@@ -93,7 +93,7 @@ When Mantel runs inside Home Assistant (the [Mantel App](Install.md), or [Mantel
 ## Change a role, or disable someone
 
 1. Open **Mantel Settings** → **People** and select the person.
-2. Choose a new **Role**. It applies at their next command, and to what their open screens show within a minute. Making someone an **Owner** or **Admin**, adding one, linking a Home Assistant user, or enabling a disabled account asks you to confirm it is you with a fresh sign-in, on every page that can do it.
+2. Select **Role** and choose a new one. It applies at their next command, and to what their open screens show within a minute. Making someone an **Owner** or **Admin**, adding one, linking a Home Assistant user, or enabling a disabled account asks you to confirm it is you with a fresh sign-in, on every page that can do it.
 3. To lock someone out, select **Disable…**. Their sessions end at once and they can't sign in until you select **Enable**.
 
 Some limits:
@@ -105,27 +105,27 @@ Some limits:
 
 Adding a person, changing a role or a name, disabling and enabling someone, and setting a password are each recorded in the [audit log](Commands-and-Audit.md#the-audit-log): who did it, to whom, and what changed. A password is never in it.
 
-A person's page also has their **Default Screen** (**Opens On**), where Mantel opens for them. It sets only where they land, not what they may open. A wall tablet always opens on its own screen, whoever is signed in at it.
+A person's page has the same shape as **Me** and a wall tablet's page: **Role**, **Access** (what the role allows by default, their grants, and their rooms), **Sign-In**, their phones, then **Opens On**, where Mantel opens for them. **Merge…** (for an account made for a Home Assistant user) and **Disable…** are last, in red. It sets only where they land, not what they may open. A wall tablet always opens on its own screen, whoever is signed in at it.
 
 ## Rooms for a person or tablet
 
 A Child or a Guest sees only their rooms, and a wall tablet only its room. Until you give a Child or Guest rooms, they see none of the home's devices.
 
-1. Open **Mantel Settings** → **Roles & Grants**.
-2. Select **Rooms for a Person or Tablet**.
-3. Under **Who**, choose **A Person** or **A Wall Tablet**, then which one.
-4. Tick **Their Rooms**. The rooms are your Home Assistant areas.
-5. Select **Save Rooms**.
+1. Open **Mantel Settings** → **People** and select the Child or Guest.
+2. Under **Access**, select **Rooms**.
+3. Tick their rooms. The rooms are your Home Assistant areas. Each tick is saved at once.
 
-A wall tablet that has no rooms saved here uses the room it was enrolled with (see [Wall Tablets](Wall-Tablets.md)). Saving rooms here widens or narrows that.
+A wall tablet's rooms are on its own page the same way (**Wall Tablets**, the tablet, **Access** → **Rooms**). The old **Roles & Permissions** → Rooms address still opens a list of everyone with rooms.
+
+A wall tablet that has no rooms saved uses the room it was enrolled with (see [Wall Tablets](Wall-Tablets.md)). Saving rooms widens or narrows that.
 
 Only an Owner can change rooms.
 
-## Roles & Grants
+## Roles & Permissions
 
-![Mantel Settings → Roles & Grants](../images/settings-roles.webp)
+![Mantel Settings → Roles & Permissions](../images/settings-roles.webp)
 
-**Mantel Settings** → **Roles & Grants** (Owner only) shows each role's own grants and its **From Outside the Home** switches, and every extra grant you have added.
+**Mantel Settings** → **Roles & Permissions** (Owner only) lists the roles, each with a line on what it is for, and every extra grant you have added: who, what and when. A role's page is its **Access**: what it may do by default by area (**Lights & Switches**, **Locks & Garage**, **Alarm**, **Cameras**, **Music**, **Settings**), **Every Rule** it starts with, its grants, and its **From Outside the Home** switches. A person's and a wall tablet's page draw the same **Access**.
 
 A **grant** allows or denies some actions on some things, for a role, a person or a wall tablet. Mantel decides like this:
 
@@ -136,10 +136,9 @@ A **grant** allows or denies some actions on some things, for a role, a person o
 
 ### Add a grant
 
-1. In **Roles & Grants**, select **Add a Grant…**.
+1. In **Roles & Permissions**, or under **Grants** on a role's, a person's or a tablet's page, select **Add a Grant…**. From a page, **Who** is already filled in.
 2. **Who**: **A Role**, **A Person** or **A Wall Tablet**, and which one.
-3. **Effect**: **Allow** or **Deny**.
-4. **Actions**: one or more of these.
+3. **What**, first the **Actions**: one or more of these.
 
    | Action | Means |
    |---|---|
@@ -150,7 +149,7 @@ A **grant** allows or denies some actions on some things, for a role, a person o
    | `configure` | Change its settings |
    | Everything (`*`) | All of the above |
 
-5. **On What**: a **Kind**, and which one:
+4. Still under **What**, **On What** (the kind) and which one:
 
    | Kind | Which One |
    |---|---|
@@ -162,11 +161,11 @@ A **grant** allows or denies some actions on some things, for a role, a person o
    | `all` | Everything |
 
    **Only These Domains** narrows it further, for example `light` on an area for "the lights in the den".
-6. Optional: **When**. A time window (**From** and **Until**, in the home's time zone; a window can cross midnight), the **Days** it starts on, and **Starting** and **Ending** dates. An allow counts only inside its window; a deny applies only inside its window.
-7. Optional: a **Note**, to remember why.
-8. Select **Add Grant**.
+5. **Allow or Deny**.
+6. **When**: turn on **Only at Certain Times** for a time window (**From** and **Until**, in the home's time zone; a window can cross midnight), the **Days** it starts on, and **Starting** and **Ending** dates. An allow counts only inside its window; a deny applies only inside its window.
+7. Optionally a **Note** (under **What**), to remember why. Then select **Add Grant**.
 
-A grant change reaches everyone's open screens at once. To undo one, select **Remove:** and the grant in the list.
+A grant change reaches everyone's open screens at once. To undo one, open it from the list and select **Remove This Grant…**.
 
 ### Examples
 
@@ -180,13 +179,13 @@ A grant change reaches everyone's open screens at once. To undo one, select **Re
 
 ### Changing a role itself
 
-**Roles & Grants** shows a role's own grants and switches but doesn't edit them. An Owner can replace a role's defaults through the API (`PUT /api/rbac/roles/<role>`; `DELETE` puts the defaults back). For most needs, a grant on the role is simpler and easier to undo.
+A role's page shows its rules and switches but doesn't edit them. An Owner can replace a role's defaults through the API (`PUT /api/rbac/roles/<role>`; `DELETE` puts the defaults back). For most needs, a grant on the role is simpler and easier to undo.
 
 ## Service accounts
 
 A **service account** is a credential for a machine, not a person: no password, no session, no role, only the endpoints ticked for it. [Mantel Link](Mantel-Link.md) uses one to link Home Assistant to Mantel.
 
-**Mantel Settings** → **Service Accounts** (under **Advanced**; Owner only, on the home network) lists them and makes new ones, for scripts and other machines. Mantel Link and HK Frontend get theirs on **Connections** → **Home Assistant**, and they're listed here too, marked with what made them and what uses them. A new credential is shown once; Mantel keeps only a hash of it. **Revoke** cuts off whatever uses it at once. Revoked ones stay listed for 30 days; **Clear List** removes them sooner, and the Audit Log keeps them.
+**Mantel Settings** → **Service Accounts** (under **Advanced**; Owner only, on the home network) lists them (each opens its page: what it may reach, when it was used, **Revoke…**) and makes new ones, for scripts and other machines. Mantel Link and HK Frontend get theirs on **Connections** → **Home Assistant**, and they're listed here too, marked with what made them and what uses them. A new credential is shown once; Mantel keeps only a hash of it. **Revoke…** cuts off whatever uses it at once. Revoked ones stay listed for 30 days; **Clear List** removes them sooner, and the Audit Log keeps them.
 
 ## Who sees which settings
 
@@ -197,7 +196,7 @@ A **service account** is a credential for a machine, not a person: no password, 
 | **General** (Allow Control of the House, House Default Screen, Sign-Ins from Away Last) | Yes (turning control on asks you to confirm it is you) | Read only | No |
 | HK's own settings (Screens, Pages, All Screens, Library, System) | Yes | Yes | No |
 | **People**, **Your Files**, **Photos** | Yes | Yes | No |
-| **Roles & Grants** | Yes | No | No |
+| **Roles & Permissions** | Yes | No | No |
 | **Service Accounts**, Connections' **Sidebar (Mantel Connect)** (when Connect is on) | Yes, on the home network | No | No |
 | **Audit Log** | Yes | Yes | No |
 | **Backups** | Yes | Read only (only an Owner backs up, saves the keys or restores) | No |

@@ -226,11 +226,12 @@ script.reads['GET /api/timeline/settings'] = script.page;
 // Me
 out.me = {};
 for (const [name, me] of [['owner', owner], ['admin', admin], ['adult', adult], ['child', script.child], ['wall', script.wall]]) {
-  const mine = await draw(me, ['mantel', 'me']);
-  const g = mine.kids.find((x) => x.header === 'Timeline');
-  out.me[name] = g ? { footer: g.footer, rows: g.rows.map((r) => [r.kind, r.label, r.sub, r.value, r.on, r.disabled]) } : null;
+  const mine = await draw(me, ['mantel', 'me', 'privacy']);
+  const g = mine.kids.find((x) => (x.rows || []).some((r) => r.label === 'Morning Summary'));
+  const clear = mine.kids.flatMap((x) => x.rows || []).filter((r) => r.label === 'Clear My Arrivals…');
+  out.me[name] = g ? { footer: g.footer, rows: g.rows.concat(clear).map((r) => [r.kind, r.label, r.sub, r.value, r.on, r.disabled]) } : null;
 }
-const mine = await draw(adult, ['mantel', 'me']);
+const mine = await draw(adult, ['mantel', 'me', 'privacy']);
 calls.length = 0;
 // turning Keep My Arrivals Private on asks first, with the count; no deletes the switch's change
 answer.value = false; asked.length = 0;
@@ -248,14 +249,14 @@ await tick();
 out.switches = { asked: asked.length, puts: puts().map((c) => [c[0], c[1], c[2]]) };
 // with nothing recorded there is nothing to delete, so turning it on asks nothing
 script.reads['GET /api/timeline/me'] = { private: false, summary: false, may_private: true, arrivals: 0, tz: 'America/Chicago' };
-const none = await draw(adult, ['mantel', 'me']);
+const none = await draw(adult, ['mantel', 'me', 'privacy']);
 asked.length = 0; calls.length = 0;
 await find(none.kids, 'Keep My Arrivals Private', 'toggle').onChange(true);
 await tick();
 out.privateNone = { asked: asked.length, puts: puts().map((c) => c[2]), clearDisabled: find(none.kids, 'Clear My Arrivals…', 'button').disabled };
 script.reads['GET /api/timeline/me'] = script.mine;
 // Clear My Arrivals asks first, then deletes
-const again = await draw(adult, ['mantel', 'me']);
+const again = await draw(adult, ['mantel', 'me', 'privacy']);
 calls.length = 0; asked.length = 0; answer.value = false;
 await find(again.kids, 'Clear My Arrivals…', 'button').onClick();
 out.clearNo = { asked: asked.map((a) => [a.title, a.message, a.ok, a.destructive]), puts: puts().length };
@@ -265,8 +266,8 @@ await tick();
 out.clearYes = { asked: asked.length, puts: puts().map((c) => [c[0], c[1]]), flash: core.ui.flash };
 // someone who may not hide theirs (the Owner decides for a Child) has no switch
 script.reads['GET /api/timeline/me'] = { private: false, summary: true, may_private: false, arrivals: 3, tz: null };
-const kid = await draw(adult, ['mantel', 'me']);
-const kg = kid.kids.find((x) => x.header === 'Timeline');
+const kid = await draw(adult, ['mantel', 'me', 'privacy']);
+const kg = kid.kids.find((x) => (x.rows || []).some((r) => r.label === 'Morning Summary'));
 out.noPrivate = { labels: kg.rows.map((r) => r.label), footer: kg.footer };
 process.stdout.write(JSON.stringify(out));
 """
@@ -505,7 +506,7 @@ def test_clear_my_arrivals_asks_first_then_deletes_and_says_how_many(run):
 
 def test_a_person_who_may_not_hide_theirs_has_no_switch_for_it(run):
     n = run["noPrivate"]
-    assert n["labels"] == ["Morning Summary", "Recorded Arrivals and Departures", "Clear My Arrivals…"]
+    assert n["labels"] == ["Morning Summary", "Recorded Arrivals and Departures"]
     assert "Keep My Arrivals Private" not in n["labels"]
 
 
