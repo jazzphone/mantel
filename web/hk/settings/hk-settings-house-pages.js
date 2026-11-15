@@ -155,7 +155,8 @@
         // THE STRIP ON HOME: live video (2026-10-10) and a computer's pause (2026-10-21), the screens that follow
         var ownLive = Object.keys(bd).filter(function (p) { return typeof bd[p].camera_live_video === 'boolean'; });
         c.appendChild(K.group({ header: 'Camera Strip on Home', footer: own.length || ownLive.length
-            ? 'A screen that sets its own: ' + own.concat(ownLive.filter(function (p) { return own.indexOf(p) < 0; })).map(function (p) { var d = self.dash(p); return d ? d.title : p; }).join(', ') + '.'
+            ? 'A screen that sets its own: ' + own.concat(ownLive.filter(function (p) { return own.indexOf(p) < 0; }))
+              .map(function (p) { var d = self.dash(p); return d ? d.title : p; }).join(', ') + '.'
             : 'Every screen follows these. A screen can set its own in its Cameras.' }, [
           K.info({ label: 'Screens Following', value: (Object.keys(bd).length - own.length) + ' of ' + Object.keys(bd).length }),
           K.toggle({ label: 'Live First Camera', sub: 'Off, the first tile is a snapshot too: lighter on a computer or an older tablet.', sk: 'cameras.live', on: cs.live !== false,
@@ -185,7 +186,8 @@
         if (key === 'security') {
           // THE SECURITY SYSTEM FIRST (phase 32): the panel, its PIN, its keypad -- the setting that decides whether the page has an alarm at all
           var sugg = !this.hs('security.alarm') && (this.data.suggest || {}).alarm;
-          c.appendChild(K.group({ header: 'Security System', footer: 'The header’s security line, the Security chip and page, and the alarm keypad. Wrong-Code Indicator: only for a panel that fails silently.' }, [
+          c.appendChild(K.group({ header: 'Security System', footer: 'The header’s security line, the Security chip and page, and the alarm keypad. ' +
+            'Wrong-Code Indicator: only for a panel that fails silently.' }, [
             this.entityRow({ label: 'Alarm Panel', sk: 'security.alarm', value: this.hs('security.alarm'), none: 'No Alarm',
                              filter: { domains: ['alarm_control_panel'] }, onPick: set('security.alarm') }),
             sugg ? K.button({ label: 'Use ' + this.name(sugg), fk: 'alarm:suggest', onClick: function () { set('security.alarm')(sugg); } }) : null,
@@ -706,7 +708,8 @@
         // before the header's early return -- it has nothing to do with the header
         if (page === 'vacuums') {
           var wt = cur.water_tank !== false;
-          c.appendChild(K.group({ header: 'Water Tank', footer: 'A mop vacuum says its water tank is empty for under a second, then carries on. The house keeps it on the vacuum’s card, with a Clear key, until someone clears it or Clear After has passed.' },
+          c.appendChild(K.group({ header: 'Water Tank', footer: 'A mop vacuum says its water tank is empty for under a second, then carries on. The house keeps it on ' +
+            'the vacuum’s card, with a Clear key, until someone clears it or Clear After has passed.' },
             [K.toggle({ label: 'Water Tank Reminder', on: wt, sk: 'headers.vacuums', fk: 'hd:water_tank', onChange: function (on) { save('water_tank', on); } })]
               .concat(wt ? [K.select({ label: 'Clear After', options: [[12, '12 hours'], [24, '24 hours'], [48, '48 hours'], [0, 'Until Cleared']],
                 value: cur.water_clear == null ? 24 : cur.water_clear, sk: 'headers.vacuums', fk: 'hd:water_clear', onChange: function (v) { save('water_clear', Number(v)); } })] : [])));
@@ -719,7 +722,8 @@
           c.appendChild(K.group({ header: 'Lighting Through the Day' }, [
             K.seg({ label: 'Rooms Shown', options: [[2, '2'], [3, '3'], [4, '4'], [5, '5']], value: cur.rooms || 3, sk: 'headers.lights', fk: 'hd:rooms',
                     onChange: function (v) { save('rooms', Number(v)); } })]));
-          c.appendChild(K.group({ header: 'Left On', footer: 'A light on in a room whose motion, occupancy or presence sensors have all said nobody for this long. A room without such a sensor is never named.' },
+          c.appendChild(K.group({ header: 'Left On', footer: 'A light on in a room whose motion, occupancy or presence sensors have all said ' +
+            'nobody for this long. A room without such a sensor is never named.' },
             [K.toggle({ label: 'Show Left On', on: cur.left_on !== false, sk: 'headers.lights', fk: 'hd:left_on', onChange: function (on) { save('left_on', on); } }),
              K.select({ label: 'Empty For', options: [[5, '5 minutes'], [10, '10 minutes'], [15, '15 minutes'], [30, '30 minutes'], [60, '1 hour'], [120, '2 hours']],
                         value: cur.after_min || 10, sk: 'headers.lights', fk: 'hd:after', onChange: function (v) { save('after_min', Number(v)); } })]
@@ -736,10 +740,12 @@
               return id.indexOf('binary_sensor.') !== 0 || /^(door|garage_door|opening)$/.test(dc || '');
             }), label, 'Automatic');
           };
-          c.appendChild(K.group({ header: 'On the Header', footer: 'Each label reads its lock and door together; Automatic finds them by name. Device Care shows only while something needs looking after.' },
+          c.appendChild(K.group({ header: 'On the Header', footer: 'Each label reads its lock and door together; Automatic finds them by name. ' +
+            'Device Care shows only while something needs looking after.' },
             [K.toggle({ label: 'Show Labels', on: cur.callouts !== false, sk: 'headers.security', fk: 'hd:callouts', onChange: function (on) { save('callouts', on); } })]
               .concat(way('front_door', 'Front Door'), way('back_door', 'Back Door'), way('garage', 'Garage'),
-                [K.select({ label: 'Low Battery', sub: 'Device Care: a lock, door, window or leak sensor below this', options: [[10, '10%'], [15, '15%'], [20, '20%'], [25, '25%'], [30, '30%'], [40, '40%']],
+                [K.select({ label: 'Low Battery', sub: 'Device Care: a lock, door, window or ' +
+                  'leak sensor below this', options: [[10, '10%'], [15, '15%'], [20, '20%'], [25, '25%'], [30, '30%'], [40, '40%']],
                            value: cur.low_battery || 20, sk: 'headers.security', fk: 'hd:battery', onChange: function (v) { save('low_battery', Number(v)); } })])));
         } else if (page === 'water') {
           // AUTOMATIC SPELLED OUT: what the header reads when nothing is chosen
@@ -779,7 +785,8 @@
                        onCommit: function (v) { v = String(v || '').trim(); if (v && nm.indexOf(v) < 0) save('names', nm.concat(v).slice(0, 6)); } })]));
           }
         } else if (page === 'vacuums') {
-          c.appendChild(K.group({ header: 'How Runs End', footer: 'A run is Done when a vacuum’s successful-missions counter goes up. Automatic finds each vacuum’s own; without them a run ends when it docks.' },
+          c.appendChild(K.group({ header: 'How Runs End', footer: 'A run is Done when a vacuum’s successful-missions counter goes up. Automatic ' +
+            'finds each vacuum’s own; without them a run ends when it docks.' },
             listRow('counters', 'Mission Counters', null, ents(['sensor'], function (id) { return /mission|clean/i.test(id); }), 'Mission Counters', 'Automatic')));
         }
       }
@@ -826,7 +833,8 @@
         var pg = M.wxPage(this.data.settings), r = M.radarOf(this.data.settings), plan = M.radarPlanOf(r, this.client);
         var keys = ['feels_like', 'humidity', 'wind', 'gust', 'uv', 'outside', 'forecast_daily', 'forecast_hourly', 'alerts'];
         var n = keys.filter(function (k) { return self.hs('weather.' + k); }).length;
-        c.appendChild(K.group({ header: 'On the Page', footer: 'Only on this page: the header and the screensaver keep their own. Sensors are optional; without one, the weather service’s own reading is used.' }, [
+        c.appendChild(K.group({ header: 'On the Page', footer: 'Only on this page: the header and the screensaver keep their own. Sensors are ' +
+          'optional; without one, the weather service’s own reading is used.' }, [
           K.nav({ label: 'Forecast & Details', value: M.forecastSummary(pg), href: '#/page/weather/forecast', sk: 'weather.page' }),
           K.nav({ label: 'Sensors', value: n ? n + ' Chosen' : 'None', href: '#/page/weather/sensors', sk: 'weather.sensors' }),
           K.nav({ label: 'Radar Map', sub: r.enabled && plan.reason ? M.RADAR_REASONS[plan.reason] : 'A precipitation radar map beside the daily forecast', value: M.radarSummary(r, plan),

@@ -698,7 +698,8 @@
           K.toggle({ label: 'Animations', sub: 'The moving parts — drifting clouds, falling rain and snow, the seasons, and a running fan’s spinning icon.',
             sk: 'sky.animations', on: sky.animations !== false, onChange: function (on) { self.setH({ 'sky.animations': on }); } })];
         if (sky.animations !== false) {
-          bg.push(K.toggle({ label: 'Pause When Not in Focus', sub: 'On a computer, everything holds still while another window is in front. Saves most of the work the dashboard does while you aren’t looking.',
+          bg.push(K.toggle({ label: 'Pause When Not in Focus', sub: 'On a computer, everything holds still while another window is in front. Saves ' +
+            'most of the work the dashboard does while you aren’t looking.',
             sk: 'sky.focus_pause', on: sky.focus_pause !== false, onChange: function (on) { self.setH({ 'sky.focus_pause': on }); } }));
           bg.push(K.select({ label: 'Moving Things', sub: 'Rain and snow, falling leaves, bats and birds, flybys and confetti. Fireworks, fog and clouds stay behind.',
             sk: 'sky.moving', value: sky.moving || 'behind', options: M.SKY_MOVING, onChange: function (v) { self.setH({ 'sky.moving': v }); } }));

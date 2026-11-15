@@ -149,7 +149,8 @@
             sub: b.sky_gradient == null ? null : 'Just This Screen',
             value: this.backdropLabel(b.sky_gradient == null ? sky.gradient : b.sky_gradient) }));
         }
-        c.appendChild(K.group({ header: 'Live Sky', footer: 'This screen follows All Screens until you change a setting here. Animations off also stops a running fan’s icon spinning, and hides falling rain and snow.' }, rows));
+        c.appendChild(K.group({ header: 'Live Sky', footer: 'This screen follows All Screens until you change a setting here. Animations off also ' +
+          'stops a running fan’s icon spinning, and hides falling rain and snow.' }, rows));
         // SEASONAL DECORATIONS: their own page (its Decoration Style, Liveliness and the rest)
         var decOn = b.sky_decorations != null ? b.sky_decorations : sky.decorations !== false;
         c.appendChild(K.group({}, [K.nav({ label: 'Seasonal Decorations', value: decOn ? 'On' : 'Off', href: base + '/sky/decorations', sk: 'b:sky_decorations' })]));

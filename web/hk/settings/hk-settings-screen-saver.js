@@ -411,7 +411,8 @@
           return K.toggle({ label: label, sub: sub, on: !!cur[k], sk: 'saver:' + k, onChange: function (on) { put(k, on); } });
         };
         var bigFc = cur.forecast_layout === 'big';
-        c.appendChild(K.group({ footer: 'Classic: the live sky and the land, today, the next hours and the coming days. Big: Big Weather, the temperature or the time very large, standing on the ground.' },
+        c.appendChild(K.group({ footer: 'Classic: the live sky and the land, today, the next hours and the coming days. Big: Big ' +
+          'Weather, the temperature or the time very large, standing on the ground.' },
           [K.previewPick({ label: 'Layout', sk: 'saver:forecast_layout', value: bigFc ? 'big' : 'classic', options: M.FORECAST_LAYOUTS,
              picture: function (v, w, ht) { return self.saverThumb(w, ht, v === 'big' ? 'weather' : 'forecast', cur); },
              onChange: function (v) { put('forecast_layout', v); } })].concat(
